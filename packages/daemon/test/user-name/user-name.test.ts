@@ -37,19 +37,19 @@ describe("我的名字：存取、校验、清除", () => {
 
   it("设了：去掉首尾空白存下，文件是 { format: 1, name }，view 里有 name", () => {
     const { service, read, file } = setup();
-    expect(service.change("  文翰 ")).toEqual({ name: "文翰", changed: true });
-    expect(service.current()).toBe("文翰");
-    expect(service.view()).toEqual({ name: "文翰" });
-    expect(read()).toEqual({ format: 1, name: "文翰" });
+    expect(service.change("  小明 ")).toEqual({ name: "小明", changed: true });
+    expect(service.current()).toBe("小明");
+    expect(service.view()).toEqual({ name: "小明" });
+    expect(read()).toEqual({ format: 1, name: "小明" });
     expect(path.basename(file)).toBe("user-name.json");
   });
 
   it("同样的名字再改一次没有变化：不写文件、不叫 onChange", () => {
     const { service } = setup();
-    service.change("文翰");
+    service.change("小明");
     const changed: Array<string | undefined> = [];
     service.onChange((name) => changed.push(name));
-    expect(service.change("文翰")).toEqual({ name: "文翰", changed: false });
+    expect(service.change("小明")).toEqual({ name: "小明", changed: false });
     expect(changed).toEqual([]);
   });
 
@@ -67,7 +67,7 @@ describe("我的名字：存取、校验、清除", () => {
     const { service, file } = setup();
     const changed: Array<string | undefined> = [];
     service.onChange((name) => changed.push(name));
-    service.change("文翰");
+    service.change("小明");
     expect(fs.existsSync(file)).toBe(true);
     expect(service.change(null)).toEqual({ changed: true });
     expect(service.current()).toBeUndefined();
@@ -75,12 +75,12 @@ describe("我的名字：存取、校验、清除", () => {
     expect(fs.existsSync(file)).toBe(false);
     // 再清除一次：没有变化
     expect(service.change("")).toEqual({ changed: false });
-    expect(changed).toEqual(["文翰", undefined]);
+    expect(changed).toEqual(["小明", undefined]);
   });
 
   it("只有空白也是清除（不是报错）", () => {
     const { service, file } = setup();
-    service.change("文翰");
+    service.change("小明");
     expect(service.change("  　 ")).toEqual({ changed: true });
     expect(service.current()).toBeUndefined();
     expect(fs.existsSync(file)).toBe(false);
@@ -90,7 +90,7 @@ describe("我的名字：存取、校验、清除", () => {
 describe("我的名字：文件读坏了只当没设，不覆盖它", () => {
   it.each<[string, string]>([
     ["不是 JSON", "不是 JSON"],
-    ["内容不对（少了 format）", JSON.stringify({ name: "文翰" })],
+    ["内容不对（少了 format）", JSON.stringify({ name: "小明" })],
     ["名字太长", JSON.stringify({ format: 1, name: "一二三四五六七八九" })],
   ])("%s：current 是 undefined，记了一行日志，文件原样留着", (_case, content) => {
     const { layout } = setup();
@@ -109,11 +109,11 @@ describe("我的名字：文件读坏了只当没设，不覆盖它", () => {
     const layout = dataDirLayout(root);
     const first = createUserNameService({ layout, log: () => {} });
     first.start();
-    first.change("文翰");
+    first.change("小明");
     first.stop();
     const second = createUserNameService({ layout, log: () => {} });
     second.start();
-    expect(second.current()).toBe("文翰");
+    expect(second.current()).toBe("小明");
     second.stop();
   });
 });
@@ -129,12 +129,12 @@ describe("我的名字和助理的名字：各存各的、互不影响", () => {
     const userName: UserNameService = createUserNameService({ layout, log: () => {} });
     userName.start();
 
-    userName.change("文翰");
+    userName.change("小明");
     assistant.change("阿福", "settings");
-    expect(userName.current()).toBe("文翰");
+    expect(userName.current()).toBe("小明");
     expect(assistant.current()).toBe("阿福");
     // 两个文件各是各的
-    expect(JSON.parse(fs.readFileSync(layout.userNameFile, "utf8"))).toEqual({ format: 1, name: "文翰" });
+    expect(JSON.parse(fs.readFileSync(layout.userNameFile, "utf8"))).toEqual({ format: 1, name: "小明" });
     expect(JSON.parse(fs.readFileSync(layout.assistantNameFile, "utf8"))).toEqual({ format: 1, name: "阿福" });
     // 名字频道上只有助理的名字那次改名（我的名字不走事件）
     const nameEvents = store.read(CHANNELS.assistantName, 0, EVENT_TYPES.assistantName).map((event) => event.payload as AssistantNameEventPayload);
@@ -159,23 +159,23 @@ describe("系统提示：设了名字加一句，没设一个字都不变", () =
     const plain = createPromptLibrary({ log: () => {} });
     expect(plain.withPrefix("你是维护者。")).toBe("你是维护者。");
     // 设了名字的对照：多一句（只有这一句在前面、空一行）
-    const named = createPromptLibrary({ userName: () => "文翰", log: () => {} });
-    expect(named.withPrefix("你是维护者。")).toBe(`${LINE("文翰")}\n\n你是维护者。`);
+    const named = createPromptLibrary({ userName: () => "小明", log: () => {} });
+    expect(named.withPrefix("你是维护者。")).toBe(`${LINE("小明")}\n\n你是维护者。`);
     // 前缀有内容：用户自己的那段还是最前，名字那句跟在它后面
     fs.mkdirSync(userDir, { recursive: true });
     fs.writeFileSync(path.join(userDir, "prefix.md"), "我住在新加坡，回答用简体中文。\n");
     const withoutName = createPromptLibrary({ userDir, log: () => {} });
-    const withName = createPromptLibrary({ userDir, userName: () => "文翰", log: () => {} });
+    const withName = createPromptLibrary({ userDir, userName: () => "小明", log: () => {} });
     expect(withoutName.withPrefix("你是维护者。")).toBe("我住在新加坡，回答用简体中文。\n\n你是维护者。");
-    expect(withName.withPrefix("你是维护者。")).toBe(`我住在新加坡，回答用简体中文。\n\n${LINE("文翰")}\n\n你是维护者。`);
+    expect(withName.withPrefix("你是维护者。")).toBe(`我住在新加坡，回答用简体中文。\n\n${LINE("小明")}\n\n你是维护者。`);
   });
 
   it("名字现取：改了（设了、清了）下一次装配就是新的；空串当没设", () => {
     let name: string | undefined;
     const library = createPromptLibrary({ userName: () => name, log: () => {} });
     expect(library.withPrefix("你是维护者。")).toBe("你是维护者。");
-    name = "文翰";
-    expect(library.withPrefix("你是维护者。")).toContain(LINE("文翰"));
+    name = "小明";
+    expect(library.withPrefix("你是维护者。")).toContain(LINE("小明"));
     name = undefined;
     expect(library.withPrefix("你是维护者。")).toBe("你是维护者。");
     name = "   ";
@@ -183,9 +183,9 @@ describe("系统提示：设了名字加一句，没设一个字都不变", () =
   });
 
   it("和 241 号票那句（agent 自己的名字）不是一回事：一个在前缀后面，一个在角色提示末尾", () => {
-    const library = createPromptLibrary({ userName: () => "文翰", agentName: () => "阿福", log: () => {} });
+    const library = createPromptLibrary({ userName: () => "小明", agentName: () => "阿福", log: () => {} });
     const withPrefix = library.withPrefix("你是维护者。");
-    expect(withPrefix).toContain(LINE("文翰"));
+    expect(withPrefix).toContain(LINE("小明"));
     expect(withPrefix).not.toContain("用户叫你");
     // 角色提示（带 agent id 的维护者那份）末尾才是"用户叫你「阿福」"
     const rendered = library.render("plain-task", { 连续失败几次暂停: "3", 对话审批开着: false, 定时触发: false }, "tm-1");

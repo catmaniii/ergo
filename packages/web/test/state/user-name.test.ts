@@ -15,8 +15,8 @@ describe("我的名字：取回来、改了、清了", () => {
   });
 
   test("取回来、设置里改了：状态里是那个名字；清除了回到没设", () => {
-    expect(userNameOf(replay([named("文翰")]))).toBe("文翰");
-    expect(userNameOf(replay([named("文翰"), named(undefined)]))).toBeUndefined();
+    expect(userNameOf(replay([named("小明")]))).toBe("小明");
+    expect(userNameOf(replay([named("小明"), named(undefined)]))).toBeUndefined();
   });
 
   test("只有空白当成没设（不会在标题里多出两个空格）", () => {
@@ -31,9 +31,9 @@ describe("秘书页的副标题（标题那一带）：设了用名字，没设�
   });
 
   test("设了：宽窄屏都是\"<名字>的主线会话\"", () => {
-    const state = replay([named("文翰")]);
-    expect(secretaryPageSub(state, true)).toBe("文翰的主线会话");
-    expect(secretaryPageSub(state, false)).toBe("文翰的主线会话");
+    const state = replay([named("小明")]);
+    expect(secretaryPageSub(state, true)).toBe("小明的主线会话");
+    expect(secretaryPageSub(state, false)).toBe("小明的主线会话");
   });
 });
 
@@ -43,6 +43,6 @@ describe("待办页的副标题：设了用名字，没设照旧（没有副标�
   });
 
   test("设了：\"<名字>的待办\"", () => {
-    expect(inboxPageSub(replay([named("文翰")]))).toBe("文翰的待办");
+    expect(inboxPageSub(replay([named("小明")]))).toBe("小明的待办");
   });
 });

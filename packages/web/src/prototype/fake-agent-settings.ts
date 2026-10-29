@@ -123,7 +123,7 @@ export class FakeAgentSettings {
   /** 角色（248 号票），只在内存里：名字 + 音色绑成一个，每个 agent 选一个；默认角色的名字是全局名字（原型里就是默认的"二狗"） */
   private roles: { id: string; name: string; voiceId?: string }[] = [
     { id: "role-default", name: DEFAULT_ASSISTANT_NAME },
-    { id: "role-wenhan", name: "文翰" },
+    { id: "role-xiaoming", name: "小明" },
   ];
   private defaultRoleId = "role-default";
   private readonly assignments = new Map<string, string>();

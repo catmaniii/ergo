@@ -74,24 +74,24 @@ describe("设置里填我的名字：存下、读得到、agent 知道该叫用�
     expect(systemOf(before)).toMatch(/^\[system\] 你是「二狗」的秘书/);
 
     // 填上：去掉首尾空白存下，文件和 GET 都是那个
-    expect(await userNameApi.change(url, "  文翰 ")).toMatchObject({ status: 200, body: { name: "文翰", changed: true } });
-    expect((await userNameApi.get(url)).body).toEqual({ name: "文翰" });
-    expect(JSON.parse(fs.readFileSync(file(dataDir), "utf8"))).toEqual({ format: 1, name: "文翰" });
+    expect(await userNameApi.change(url, "  小明 ")).toMatchObject({ status: 200, body: { name: "小明", changed: true } });
+    expect((await userNameApi.get(url)).body).toEqual({ name: "小明" });
+    expect(JSON.parse(fs.readFileSync(file(dataDir), "utf8"))).toEqual({ format: 1, name: "小明" });
     // ⚙ 面板的"实际生效的"（和拉起时同一份：前缀 + 名称那句 + 角色提示 + 语言那句）
-    expect((await agentSettingsApi.view(url, "secretary")).body.prompt.effective).toContain(line("文翰"));
+    expect((await agentSettingsApi.view(url, "secretary")).body.prompt.effective).toContain(line("小明"));
 
     // 下一轮起：真的交到模型手里的系统提示里也有（常驻的秘书重新拉起，接着同一条主线会话）
     const after = await say1(frontend, "第二句");
     expect(stripTimeMarkers(after)).toContain("[user] 第一句");
-    expect(systemOf(after)).toContain(line("文翰"));
+    expect(systemOf(after)).toContain(line("小明"));
   });
 
   it("清除了：回到没设（GET 空的、配置文件删掉、提示里那句没有了）", async () => {
     const { url, dataDir } = await startTestDaemon({ secretary: echoes(4) });
     const frontend = await TestFrontend.connect(url);
     await frontend.subscribe({ [SECRETARY]: 0 });
-    await userNameApi.change(url, "文翰");
-    expect((await agentSettingsApi.view(url, "secretary")).body.prompt.effective).toContain(line("文翰"));
+    await userNameApi.change(url, "小明");
+    expect((await agentSettingsApi.view(url, "secretary")).body.prompt.effective).toContain(line("小明"));
 
     expect(await userNameApi.change(url, null)).toMatchObject({ status: 200, body: { changed: true } });
     expect((await userNameApi.get(url)).body).toEqual({});
@@ -127,18 +127,18 @@ describe("维护者的系统提示里也有", () => {
     await frontend.subscribe({ [PM1]: 0 });
 
     expect((await agentSettingsApi.view(td.url, "pm-1")).body.prompt.effective).not.toContain(MARK);
-    await userNameApi.change(td.url, "文翰");
-    expect((await agentSettingsApi.view(td.url, "pm-1")).body.prompt.effective).toContain(line("文翰"));
+    await userNameApi.change(td.url, "小明");
+    expect((await agentSettingsApi.view(td.url, "pm-1")).body.prompt.effective).toContain(line("小明"));
 
     const reply = await say1(frontend, "你是谁", PM1);
-    expect(systemOf(reply)).toContain(line("文翰"));
+    expect(systemOf(reply)).toContain(line("小明"));
   });
 
   it("记忆管理员的系统提示里也有（它是按需拉起的：⚙ 面板拿到的就是拉起时那一份）", async () => {
     const td = await startTestDaemon();
     expect((await agentSettingsApi.view(td.url, "memory-curator")).body.prompt.effective).not.toContain(MARK);
-    await userNameApi.change(td.url, "文翰");
-    expect((await agentSettingsApi.view(td.url, "memory-curator")).body.prompt.effective).toContain(line("文翰"));
+    await userNameApi.change(td.url, "小明");
+    expect((await agentSettingsApi.view(td.url, "memory-curator")).body.prompt.effective).toContain(line("小明"));
   });
 });
 
@@ -149,14 +149,14 @@ describe("我的名字和助理的名字互不干扰", () => {
     await frontend.subscribe({ [ASSISTANT]: 0 });
     const layout = dataDirLayout(dataDir);
 
-    await userNameApi.change(url, "文翰");
+    await userNameApi.change(url, "小明");
     await assistantNameApi.change(url, "阿福");
-    expect((await userNameApi.get(url)).body).toEqual({ name: "文翰" });
-    expect(JSON.parse(fs.readFileSync(layout.userNameFile, "utf8"))).toEqual({ format: 1, name: "文翰" });
+    expect((await userNameApi.get(url)).body).toEqual({ name: "小明" });
+    expect(JSON.parse(fs.readFileSync(layout.userNameFile, "utf8"))).toEqual({ format: 1, name: "小明" });
     expect(JSON.parse(fs.readFileSync(layout.assistantNameFile, "utf8"))).toEqual({ format: 1, name: "阿福" });
     // ⚙ 面板里两句各是各的：`{{名字}}` 填的是助理的名字（"用户叫你「阿福」"），"用户叫…"填的是我的名字
     const effective = (await agentSettingsApi.view(url, "secretary")).body.prompt.effective;
-    expect(effective).toContain(line("文翰"));
+    expect(effective).toContain(line("小明"));
     expect(effective).toContain("用户叫你「阿福」");
     await waitUntil(() => frontend.events({ channel: ASSISTANT, type: EVENT_TYPES.assistantName }).length >= 1);
     expect((frontend.events({ channel: ASSISTANT, type: EVENT_TYPES.assistantName }).map((f) => f.payload) as AssistantNameEventPayload[]).map((e) => e.name)).toEqual(["阿福"]);
@@ -173,12 +173,12 @@ describe("我的名字和助理的名字互不干扰", () => {
 describe("停掉再起、停着时手改配置文件", () => {
   it("名字还在；停着时手改成新的，起来按文件来；文件改坏了只当没设、不覆盖它", async () => {
     const first = await startTestDaemon();
-    await userNameApi.change(first.url, "文翰");
+    await userNameApi.change(first.url, "小明");
     await first.daemon.stop();
 
     const reuse = { dataDir: first.dataDir, homeDir: first.homeDir };
     const second = await startTestDaemon({ reuse });
-    expect((await userNameApi.get(second.url)).body).toEqual({ name: "文翰" });
+    expect((await userNameApi.get(second.url)).body).toEqual({ name: "小明" });
     // 停着时手改（去掉首尾空白也认）
     fs.writeFileSync(file(first.dataDir), JSON.stringify({ format: 1, name: " 小文 " }));
     await second.daemon.stop();

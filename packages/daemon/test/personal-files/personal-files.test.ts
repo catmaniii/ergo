@@ -132,8 +132,8 @@ describe("档案页那条路：建人、写字段、历史、撤销", () => {
 describe("本人的姓名就是\"我的名字\"", () => {
   it("档案里改姓名改的是我的名字，没有历史；不合规照我的名字的规矩拒；删了就是清除", () => {
     const { files, userName, store } = setup();
-    userName.change("文翰");
-    expect(files.file(SELF_PERSON_ID)!.fields[0]).toMatchObject({ field: "name", linked: "user_name", current: { value: "文翰" }, history: [] });
+    userName.change("小明");
+    expect(files.file(SELF_PERSON_ID)!.fields[0]).toMatchObject({ field: "name", linked: "user_name", current: { value: "小明" }, history: [] });
     files.change(SELF_PERSON_ID, { kind: "set_field", field: "姓名", value: "小明" });
     expect(userName.current()).toBe("小明");
     // 事件里只留痕，不另存一份名字

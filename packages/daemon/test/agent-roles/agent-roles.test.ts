@@ -88,7 +88,7 @@ describe("迁移：从旧的名字音色配置 + 全局名字 + 全局音色造�
   it("默认角色用全局的名字和音色；和默认角色不一样的 agent 各造一个角色（同一个名字+音色共用一个），旧文件保留", () => {
     const { roles, file, legacyFile: legacy, logs, read } = setup({
       legacy: legacyFile({
-        secretary: { name: "文翰" },
+        secretary: { name: "小明" },
         "pm-1": { voiceId: "v-2" },
         "pm-2": { name: "二狗", voiceId: "v-1" },
         "tm-1": { name: "老王", voiceId: "v-2" },
@@ -107,7 +107,7 @@ describe("迁移：从旧的名字音色配置 + 全局名字 + 全局音色造�
     expect(stored.roles.filter((role) => role.name === "老王")).toHaveLength(1);
 
     // 迁完读出来的样子：名字一个不丢，没配音色的那一项还是跟默认
-    expect(roles.roleOf("secretary")).toMatchObject({ name: "文翰" });
+    expect(roles.roleOf("secretary")).toMatchObject({ name: "小明" });
     expect(roles.voiceIdOf("secretary")).toBeUndefined();
     expect(roles.roleOf("pm-1")).toMatchObject({ name: "二狗" });
     expect(roles.voiceIdOf("pm-1")).toBe("v-2");
@@ -117,18 +117,18 @@ describe("迁移：从旧的名字音色配置 + 全局名字 + 全局音色造�
 
     // 日志一行（给开发者看的，带数量）；旧文件原样留着
     expect(logs.join("\n")).toContain("已把 4 个 agent 的名字音色迁进角色表");
-    expect(legacyEntries(legacy)).toEqual(legacyFile({ secretary: { name: "文翰" }, "pm-1": { voiceId: "v-2" }, "pm-2": { name: "二狗", voiceId: "v-1" }, "tm-1": { name: "老王", voiceId: "v-2" }, "tm-2": { name: "老王", voiceId: "v-2" } }));
+    expect(legacyEntries(legacy)).toEqual(legacyFile({ secretary: { name: "小明" }, "pm-1": { voiceId: "v-2" }, "pm-2": { name: "二狗", voiceId: "v-1" }, "tm-1": { name: "老王", voiceId: "v-2" }, "tm-2": { name: "老王", voiceId: "v-2" } }));
     // 迁完文件在
     expect(fs.existsSync(file)).toBe(true);
   });
 
   it("再启动一次不重复迁移；旧配置后来改了也不再管", () => {
-    const { roles, read } = setup({ legacy: legacyFile({ secretary: { name: "文翰" } }) });
+    const { roles, read } = setup({ legacy: legacyFile({ secretary: { name: "小明" } }) });
     roles.start();
     const first = read();
     roles.start();
     expect(read()).toEqual(first);
-    expect(roles.roleOf("secretary")).toMatchObject({ name: "文翰" });
+    expect(roles.roleOf("secretary")).toMatchObject({ name: "小明" });
   });
 
   it("没有旧配置：只造默认角色，一个 agent 都不分配（谁都没丢东西）", () => {
@@ -148,7 +148,7 @@ describe("迁移：从旧的名字音色配置 + 全局名字 + 全局音色造�
   });
 
   it("迁移写不进去：先在内存里用迁移结果（名字和音色不丢），下次启动再写", () => {
-    const { roles, file, legacyFile: legacy } = setup({ legacy: legacyFile({ secretary: { name: "文翰" } }) });
+    const { roles, file, legacyFile: legacy } = setup({ legacy: legacyFile({ secretary: { name: "小明" } }) });
     // 让原子写最后那一下改名失败（265 号票起临时文件名带随机串，占不住了）；用不算"被占着"的错误，不等重试：写会失败
     const rename = vi.spyOn(fs, "renameSync").mockImplementation(() => {
       throw Object.assign(new Error("磁盘满了"), { code: "ENOSPC" });
@@ -156,10 +156,10 @@ describe("迁移：从旧的名字音色配置 + 全局名字 + 全局音色造�
     roles.start();
     expect(fs.existsSync(file)).toBe(false);
     // 文件没写成，但这次运行里名字和音色是迁过来的
-    expect(roles.roleOf("secretary")).toMatchObject({ name: "文翰" });
+    expect(roles.roleOf("secretary")).toMatchObject({ name: "小明" });
     expect(roles.voiceIdOf("secretary")).toBeUndefined();
     expect(roles.roleOf("pm-1").isDefault).toBe(true);
-    expect(fs.readFileSync(legacy, "utf8")).toContain("文翰");
+    expect(fs.readFileSync(legacy, "utf8")).toContain("小明");
     // 改名恢复正常：下一次启动能写进去
     rename.mockRestore();
     roles.start();
@@ -193,18 +193,18 @@ describe("默认角色：名字和音色就是全局那两个", () => {
   it("把别的角色设成默认：全局名字和音色跟着变成那个角色的，旧的默认角色留下自己原来的名字", () => {
     const { roles, selected, name, read } = setup();
     roles.start();
-    const created = roles.create({ name: "文翰", voiceId: "v-2" });
-    const wenhan = created.roles.find((role) => role.name === "文翰")!;
-    roles.setDefault(wenhan.id);
-    expect(roles.defaultRoleId()).toBe(wenhan.id);
-    expect(name()).toBe("文翰");
+    const created = roles.create({ name: "小明", voiceId: "v-2" });
+    const xiaoming = created.roles.find((role) => role.name === "小明")!;
+    roles.setDefault(xiaoming.id);
+    expect(roles.defaultRoleId()).toBe(xiaoming.id);
+    expect(name()).toBe("小明");
     expect(selected).toEqual(["v-2"]);
     const stored = read() as { roles: { id: string; name: string }[]; defaultRoleId: string };
-    expect(stored.defaultRoleId).toBe(wenhan.id);
+    expect(stored.defaultRoleId).toBe(xiaoming.id);
     // 旧的默认角色留下自己原来的名字
     expect(stored.roles.find((role) => role.id === DEFAULT_AGENT_ROLE_ID)!.name).toBe("二狗");
-    // 不指定角色的 agent 现在叫文翰
-    expect(roles.roleOf("secretary")).toMatchObject({ name: "文翰", isDefault: true });
+    // 不指定角色的 agent 现在叫小明
+    expect(roles.roleOf("secretary")).toMatchObject({ name: "小明", isDefault: true });
   });
 });
 
@@ -228,12 +228,12 @@ describe("角色的增删改：校验、默认唯一、删在用", () => {
   it("改名 / 换音色只改点名的那个角色；音色清空 = 跟当前默认音色", () => {
     const { roles } = setup();
     roles.start();
-    const created = roles.create({ name: "文翰", voiceId: "v-2" });
-    const id = created.roles.find((role) => role.name === "文翰")!.id;
-    roles.update(id, { name: "文瀚" });
+    const created = roles.create({ name: "小明", voiceId: "v-2" });
+    const id = created.roles.find((role) => role.name === "小明")!.id;
+    roles.update(id, { name: "小明" });
     expect(roles.roleOf("nobody")).toMatchObject({ isDefault: true });
     const after = roles.create({ name: "另一个" }).roles.find((role) => role.id === id)!;
-    expect(after.name).toBe("文瀚");
+    expect(after.name).toBe("小明");
     roles.update(id, { voiceId: null });
     expect(roles.document().roles.find((role) => role.id === id)!.voiceId).toBeUndefined();
   });
@@ -242,8 +242,8 @@ describe("角色的增删改：校验、默认唯一、删在用", () => {
     const { roles } = setup();
     roles.start();
     expect(() => roles.remove(DEFAULT_AGENT_ROLE_ID)).toThrow(/默认角色不能删/);
-    const created = roles.create({ name: "文翰" });
-    const id = created.roles.find((role) => role.name === "文翰")!.id;
+    const created = roles.create({ name: "小明" });
+    const id = created.roles.find((role) => role.name === "小明")!.id;
     roles.assign("pm-1", id);
     expect(() => roles.remove(id)).toThrow(/pm-1/);
     roles.assign("pm-1", null);
@@ -255,11 +255,11 @@ describe("角色的增删改：校验、默认唯一、删在用", () => {
   it("指定角色：null 和指定默认角色都算跟默认（文件里不留这一项）；不存在的角色拒收", () => {
     const { roles, read } = setup();
     roles.start();
-    const created = roles.create({ name: "文翰" });
-    const id = created.roles.find((role) => role.name === "文翰")!.id;
+    const created = roles.create({ name: "小明" });
+    const id = created.roles.find((role) => role.name === "小明")!.id;
     roles.assign("pm-1", id);
     expect(roles.ownRoleIdOf("pm-1")).toBe(id);
-    expect(roles.assignedNameOf("pm-1")).toBe("文翰");
+    expect(roles.assignedNameOf("pm-1")).toBe("小明");
     roles.assign("pm-1", DEFAULT_AGENT_ROLE_ID);
     expect(roles.ownRoleIdOf("pm-1")).toBeUndefined();
     expect((read() as { assignments: Record<string, string> }).assignments).toEqual({});
@@ -273,7 +273,7 @@ describe("角色的增删改：校验、默认唯一、删在用", () => {
     expect(roles.roleOf("secretary").isDefault).toBe(true);
     expect(logs.join("\n")).toContain("形状不对");
     expect(fs.readFileSync(file, "utf8")).toBe("{ 这不是 JSON");
-    expect(() => roles.create({ name: "文翰" })).toThrow(/读不了/);
+    expect(() => roles.create({ name: "小明" })).toThrow(/读不了/);
     expect(fs.readFileSync(file, "utf8")).toBe("{ 这不是 JSON");
   });
 
@@ -282,10 +282,10 @@ describe("角色的增删改：校验、默认唯一、删在用", () => {
     roles.start();
     const seen: (readonly string[])[] = [];
     const off = roles.onChange((ids) => seen.push(ids));
-    const created = roles.create({ name: "文翰" });
-    const id = created.roles.find((role) => role.name === "文翰")!.id;
+    const created = roles.create({ name: "小明" });
+    const id = created.roles.find((role) => role.name === "小明")!.id;
     roles.assign("pm-1", id);
-    roles.update(id, { name: "文瀚" });
+    roles.update(id, { name: "小明" });
     expect(seen).toEqual([["pm-1"], ["pm-1"]]);
     off();
     roles.assign("pm-2", id);
@@ -297,11 +297,11 @@ describe("音色：角色指定的那个被删了、语音插件停了", () => {
   it("参考音色后来被删了：voiceIdOf 还回那个 id（合成那边回退当前默认），角色不动", () => {
     const { roles, voices } = setup();
     roles.start();
-    const created = roles.create({ name: "文翰", voiceId: "v-2" });
-    const id = created.roles.find((role) => role.name === "文翰")!.id;
+    const created = roles.create({ name: "小明", voiceId: "v-2" });
+    const id = created.roles.find((role) => role.name === "小明")!.id;
     roles.assign("tm-2", id);
     voices!.drop("v-2");
     expect(roles.voiceIdOf("tm-2")).toBe("v-2");
-    expect(roles.roleOf("tm-2")).toMatchObject({ name: "文翰" });
+    expect(roles.roleOf("tm-2")).toMatchObject({ name: "小明" });
   });
 });

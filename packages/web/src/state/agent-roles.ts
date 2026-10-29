@@ -1,6 +1,6 @@
 // 角色（248 号票）的状态层：纯函数，界面（ui/agent-roles.tsx、pages/more/RolesPage.tsx）只管画。
 // - 从接口取回的那一份（UiState.agentRoles = GET /api/agent-roles）里认这个 agent 现在用哪个角色、名字和音色是什么；
-// - 写成话：⚙ 面板和角色页都写"现在：文翰 · 音色：示例音色"；
+// - 写成话：⚙ 面板和角色页都写"现在：小明 · 音色：示例音色"；
 // - 改角色的名字时边打边查：和守护进程用同一个函数（协议包的 checkAssistantName），不合规的当场说、存不进去；
 // - "谁在用"是角色 id → agent 的 label（秘书那个 label 是名字占位，界面上换成名字）。
 import {
@@ -25,7 +25,7 @@ export function defaultRoleOf(view: AgentRolesView | undefined): AgentRoleView |
   return view?.roles.find((role) => role.isDefault);
 }
 
-/** "现在：文翰（指定的角色）" */
+/** "现在：小明（指定的角色）" */
 export function agentNameNote(identity: AgentIdentityView): string {
   return t("state.agentRoles.now", { name: identity.name, source: AGENT_PROFILE_NAME_SOURCE_LABEL[identity.nameSource] });
 }
@@ -36,7 +36,7 @@ export function agentVoiceNote(identity: AgentIdentityView): string {
   return t("state.agentRoles.voiceNow", { name: identity.voiceName, source: AGENT_PROFILE_VOICE_SOURCE_LABEL[identity.voiceSource] });
 }
 
-/** ⚙ 面板下面那行小字："现在：文翰 · 音色：示例音色（跟默认音色）" */
+/** ⚙ 面板下面那行小字："现在：小明 · 音色：示例音色（跟默认音色）" */
 export function agentIdentityLine(identity: AgentIdentityView): string {
   return t("state.agentRoles.identityLine", { name: identity.name, voice: identity.voiceName ?? t("state.agentRoles.noVoice") });
 }

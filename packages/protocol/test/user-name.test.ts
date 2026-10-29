@@ -5,8 +5,8 @@ import { checkUserName, HTTP_PATHS, parseHttpPath, USER_NAME_MAX } from "../src/
 
 describe("我的名字：规矩和给助理起的名字一样", () => {
   it.each<[string, string]>([
-    ["文翰", "文翰"],
-    ["  文翰 ", "文翰"],
+    ["小明", "小明"],
+    ["  小明 ", "小明"],
     ["小文", "小文"],
     ["一二三四五六七八", "一二三四五六七八"],
     ["Jarvis", "Jarvis"],

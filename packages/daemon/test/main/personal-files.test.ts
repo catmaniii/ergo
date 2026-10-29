@@ -248,10 +248,10 @@ describe("本人档案的姓名就是\"我的名字\"", () => {
     await frontend.subscribe(ALL);
 
     expect(fieldOf((await filesApi.get(url, SELF_PERSON_ID)).body, "name")?.current).toBeUndefined();
-    await userNameApi.change(url, "文翰");
+    await userNameApi.change(url, "小明");
     const me = (await filesApi.get(url, SELF_PERSON_ID)).body;
-    expect(me.name).toBe("文翰");
-    expect(fieldOf(me, "name")?.current?.value).toBe("文翰");
+    expect(me.name).toBe("小明");
+    expect(fieldOf(me, "name")?.current?.value).toBe("小明");
 
     await filesApi.change(url, SELF_PERSON_ID, { kind: "set_field", field: "name", value: "小明" });
     expect((await userNameApi.get(url)).body).toEqual({ name: "小明" });

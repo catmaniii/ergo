@@ -82,7 +82,7 @@ function seedDataDir(files: { legacy?: unknown; name?: string }): { dataDir: str
 describe("迁移：旧的名字音色配置一个不丢地迁进角色表", () => {
   it("默认角色用全局名字；和默认角色不一样的 agent 各一个角色；旧文件保留；再起一次不重复迁移", async () => {
     const seeded = seedDataDir({
-      legacy: { format: 1, agents: { secretary: { name: "文翰" }, "pm-1": { name: "老王" } } },
+      legacy: { format: 1, agents: { secretary: { name: "小明" }, "pm-1": { name: "老王" } } },
       name: "阿福",
     });
     const td = await startTestDaemon({ reuse: seeded });
@@ -104,7 +104,7 @@ describe("迁移：旧的名字音色配置一个不丢地迁进角色表", () =
     const view = listed.body;
     expect(idsOf(view)).toEqual(["secretary", "pm-1", "tm-1", "memory-curator"]);
     expect(roleOf(view, view.defaultRoleId)!.name).toBe("阿福");
-    expect(agentRowOf(view, "secretary")!.identity).toMatchObject({ name: "文翰", nameSource: "own", defaultName: "阿福" });
+    expect(agentRowOf(view, "secretary")!.identity).toMatchObject({ name: "小明", nameSource: "own", defaultName: "阿福" });
     expect(agentRowOf(view, "pm-1")!.identity).toMatchObject({ name: "老王", nameSource: "own" });
     expect(agentRowOf(view, "tm-1")!.identity).toMatchObject({ name: "阿福", nameSource: "default" });
     expect(roleOf(view, view.defaultRoleId)!.usedBy).toEqual(expect.arrayContaining(["tm-1", "memory-curator"]));
@@ -116,7 +116,7 @@ describe("迁移：旧的名字音色配置一个不丢地迁进角色表", () =
     const again = await startTestDaemon({ reuse: { dataDir: td.dataDir, homeDir: td.homeDir } });
     const reloaded = (await agentRolesApi.list(again.url)).body;
     expect(roleNamed(reloaded, "小美")).toBeUndefined();
-    expect(agentRowOf(reloaded, "secretary")!.identity.name).toBe("文翰");
+    expect(agentRowOf(reloaded, "secretary")!.identity.name).toBe("小明");
   });
 });
 
@@ -130,21 +130,21 @@ describe("角色表：默认角色标出来，谁在用写清楚", () => {
     expect(defaultRole).toMatchObject({ name: "二狗", isDefault: true });
     expect(defaultRole.usedBy).toEqual(idsOf(listed.body));
 
-    const created = await agentRolesApi.create(td.url, { name: "文翰" });
+    const created = await agentRolesApi.create(td.url, { name: "小明" });
     expect(created.status).toBe(200);
-    const wenhan = roleNamed(created.body, "文翰")!;
-    expect(wenhan.usedBy).toEqual([]);
+    const xiaoming = roleNamed(created.body, "小明")!;
+    expect(xiaoming.usedBy).toEqual([]);
 
-    const assigned = await agentRolesApi.assign(td.url, "pm-1", wenhan.id);
+    const assigned = await agentRolesApi.assign(td.url, "pm-1", xiaoming.id);
     expect(assigned.status).toBe(200);
-    expect(roleOf(assigned.body, wenhan.id)!.usedBy).toEqual(["pm-1"]);
+    expect(roleOf(assigned.body, xiaoming.id)!.usedBy).toEqual(["pm-1"]);
     expect(roleOf(assigned.body, assigned.body.defaultRoleId)!.usedBy).toEqual(["secretary", "memory-curator"]);
-    expect(agentRowOf(assigned.body, "pm-1")!.identity.ownRoleId).toBe(wenhan.id);
+    expect(agentRowOf(assigned.body, "pm-1")!.identity.ownRoleId).toBe(xiaoming.id);
 
     // 恢复跟默认
     const restored = await agentRolesApi.assign(td.url, "pm-1", null);
     expect(agentRowOf(restored.body, "pm-1")!.identity.ownRoleId).toBeUndefined();
-    expect(roleOf(restored.body, wenhan.id)!.usedBy).toEqual([]);
+    expect(roleOf(restored.body, xiaoming.id)!.usedBy).toEqual([]);
   });
 });
 
@@ -166,15 +166,15 @@ describe("角色的增删改：校验、默认唯一、删在用回 400", () => 
     expect((await agentRolesApi.remove(td.url, defaultId)).status).toBe(400);
     expect(((await agentRolesApi.remove(td.url, defaultId)).body as { message?: string }).message).toContain("默认角色不能删");
 
-    const created = await agentRolesApi.create(td.url, { name: "文翰" });
-    const wenhan = roleNamed(created.body, "文翰")!;
-    await agentRolesApi.assign(td.url, "pm-1", wenhan.id);
-    const refused = await agentRolesApi.remove(td.url, wenhan.id);
+    const created = await agentRolesApi.create(td.url, { name: "小明" });
+    const xiaoming = roleNamed(created.body, "小明")!;
+    await agentRolesApi.assign(td.url, "pm-1", xiaoming.id);
+    const refused = await agentRolesApi.remove(td.url, xiaoming.id);
     expect(refused.status).toBe(400);
     expect((refused.body as { message?: string }).message).toContain("项目「记账本」的维护者");
 
     await agentRolesApi.assign(td.url, "pm-1", null);
-    expect((await agentRolesApi.remove(td.url, wenhan.id)).status).toBe(200);
+    expect((await agentRolesApi.remove(td.url, xiaoming.id)).status).toBe(200);
 
     // 改名 / 换音色只改点名的那个角色
     const other = await agentRolesApi.create(td.url, { name: "老王" });
@@ -304,27 +304,27 @@ describe("⚙ 面板：一个角色下拉", () => {
     expect(before.body.roles).toHaveLength(1);
     expect(before.body.roles[0]).toMatchObject({ name: "二狗", isDefault: true });
 
-    const created = await agentRolesApi.create(td.url, { name: "文翰" });
-    const wenhan = roleNamed(created.body, "文翰")!;
-    await agentRolesApi.assign(td.url, "secretary", wenhan.id);
+    const created = await agentRolesApi.create(td.url, { name: "小明" });
+    const xiaoming = roleNamed(created.body, "小明")!;
+    await agentRolesApi.assign(td.url, "secretary", xiaoming.id);
     const after = await agentSettingsApi.view(td.url, "secretary");
-    expect(after.body.identity).toMatchObject({ name: "文翰", ownRoleId: wenhan.id, defaultName: "二狗" });
-    expect(after.body.roles.map((role) => role.name)).toContain("文翰");
+    expect(after.body.identity).toMatchObject({ name: "小明", ownRoleId: xiaoming.id, defaultName: "二狗" });
+    expect(after.body.roles.map((role) => role.name)).toContain("小明");
   });
 });
 
 describe("旧的 /api/agent-profiles：只保留只读兼容", () => {
   it("GET 还能读，返回从角色算出来的结果（形状照旧）；PUT 回 400 并指到角色接口", async () => {
     const td = await startTestDaemon();
-    const created = await agentRolesApi.create(td.url, { name: "文翰" });
-    const wenhan = roleNamed(created.body, "文翰")!;
-    await agentRolesApi.assign(td.url, "secretary", wenhan.id);
+    const created = await agentRolesApi.create(td.url, { name: "小明" });
+    const xiaoming = roleNamed(created.body, "小明")!;
+    await agentRolesApi.assign(td.url, "secretary", xiaoming.id);
 
     const listed = await agentProfilesApi.list(td.url);
     expect(listed.status).toBe(200);
     const view = listed.body as AgentProfilesView;
     const row = view.agents.find((agent) => agent.agentId === "secretary")!;
-    expect(row.identity).toMatchObject({ name: "文翰", nameSource: "own", ownRoleId: wenhan.id });
+    expect(row.identity).toMatchObject({ name: "小明", nameSource: "own", ownRoleId: xiaoming.id });
 
     const refused = await agentProfilesApi.change(td.url, "secretary", { name: "阿福" });
     expect(refused.status).toBe(400);
