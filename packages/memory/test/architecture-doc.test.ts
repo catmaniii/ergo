@@ -27,7 +27,7 @@ const DOC = path.join(REPO, "docs", "memory-system.md");
  */
 const HAS_MEMORY_EVAL = fs.existsSync(path.join(REPO, "packages", "memory-eval"));
 const docForChecks = (text: string): string =>
-  HAS_MEMORY_EVAL ? text : text.split(/\r?\n/).filter((line) => !line.includes("packages/memory-eval/")).join("\n");
+  HAS_MEMORY_EVAL ? text : text.split(/\r?\n/).filter((line) => !line.includes("packages/memory-eval")).join("\n");
 /** 记忆包的入口（@ergo/memory） */
 const ENTRY = "packages/memory/src/index.ts";
 /** 记忆包和评测包的源码（326 号票分成两个包）：这两处的文件按"导出"认名字 */
@@ -194,6 +194,8 @@ function hasMember(block: readonly string[], member: string): boolean {
 /** 一行接口表的问题（没有问题是空数组） */
 export function checkRow(row: InterfaceRow): string[] {
   if (!row.checked) return [];
+  // 公开仓库里没有评测包（326 号票）：文档里指向它的行没法核，跳过（私有仓库照旧查）
+  if (!HAS_MEMORY_EVAL && row.file?.includes("packages/memory-eval/")) return [];
   const where = `第 ${row.line} 行`;
   if (!row.file) return [`${where}：没写文件`];
   if (!fs.existsSync(path.join(REPO, row.file))) return [`${where}：文件 ${row.file} 不存在`];
