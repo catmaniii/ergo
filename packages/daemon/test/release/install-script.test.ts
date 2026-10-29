@@ -53,6 +53,11 @@ function powershell(args: string[], env: NodeJS.ProcessEnv = {}): Promise<{ code
   });
 }
 
+/** 退出码不是 0 就把脚本输出带出来（CI 上只看得到 code，没法查） */
+function expectOk(r: { code: number; out: string }): void {
+  if (r.code !== 0) throw new Error(`exit ${r.code}\n${r.out}`);
+}
+
 /** 句子表：key → [中文（\uXXXX 解开的）, 英文] */
 function messages(): Map<string, [string, string]> {
   const block = text.slice(text.indexOf("$ErgoMessages = @{"), text.indexOf("\n}\n", text.indexOf("$ErgoMessages = @{")));
@@ -121,7 +126,7 @@ describe.runIf(process.platform === "win32")("install.ps1 里的 C#", () => {
       `Write-Output ('tgz=' + [ErgoInstall.Tgz]::Extract('${dir}\\p.tgz', '${dir}\\out', 1))`,
     ].join("\n");
     const r = await powershell(["-Command", script]);
-    expect(r.code, r.out).toBe(0);
+    expectOk(r);
     expect(r.out).toContain("ed.sig=[][hashed one]");
     expect(r.out).toContain("legacy.sig=[][legacy one]");
     expect(r.out).toContain("other.sig=[signed by another key][]");
@@ -144,7 +149,7 @@ describe.runIf(process.platform === "win32")("install.ps1 整个装一遍（本�
     const base = `${fake.url}/m1`;
     const ok = await powershell(["-File", SCRIPT, "-InstallDir", root, "-BaseUrl", base, "-PublicKey", key.publicLine, "-NoPath", "-NoOnboard"]);
     // CI 上失败时把脚本输出带出来，不然只看得到 code
-    expect(ok.code, ok.out).toBe(0);
+    expectOk(ok);
     expect(ok.out).toContain("Signature OK: ergo 0.3.0 SHA256SUMS");
     expect(ok.out).toContain("PATH not changed");
     expect(JSON.parse(fs.readFileSync(path.join(root, "versions", "0.3.0", "ergo.json"), "utf8")).version).toBe("0.3.0");
@@ -186,7 +191,7 @@ describe.runIf(process.platform === "win32")("install.ps1 整个装一遍（本�
       ERGO_INSTALL_NO_ONBOARD: "1",
       ERGO_LANGUAGE: "zh",
     });
-    expect(r.code, r.out).toBe(0);
+    expectOk(r);
     expect(r.out).toContain("STILL-HERE");
     expect(r.out).toContain("签名对：ergo 0.3.0 SHA256SUMS");
     expect(fs.readFileSync(path.join(root, "current"), "utf8").trim()).toBe("0.3.0");
