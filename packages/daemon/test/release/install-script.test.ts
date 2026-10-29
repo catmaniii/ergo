@@ -194,6 +194,8 @@ describe.runIf(process.platform === "win32")("install.ps1 整个装一遍（本�
     expectOk(r);
     expect(r.out).toContain("STILL-HERE");
     expect(r.out).toContain("签名对：ergo 0.3.0 SHA256SUMS");
-    expect(fs.readFileSync(path.join(root, "current"), "utf8").trim()).toBe("0.3.0");
+    const current = path.join(root, "current");
+    if (!fs.existsSync(current)) throw new Error(`没生成 ${current}（装了哪去、报了什么都在这下面）\n${r.out}`);
+    expect(fs.readFileSync(current, "utf8").trim()).toBe("0.3.0");
   }, 180_000);
 });
