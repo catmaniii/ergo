@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import { defineConfig } from "vitest/config";
 import { oldNameOf } from "./packages/protocol/src/old-names.ts";
 
@@ -65,15 +66,21 @@ export default defineConfig({
           hookTimeout: 15_000,
         },
       },
-      {
-        root: "packages/memory-eval",
-        test: {
-          name: "memory-eval",
-          include: ["test/**/*.test.ts"],
-          testTimeout: 15_000,
-          hookTimeout: 15_000,
-        },
-      },
+      // 公开仓库里没有 packages/memory-eval（记忆评测和评测数据只留私有仓库，326 号票），
+      // 目录不在就不挂这个 project——否则公开版跑测试会死在 "root path does not exist"。
+      ...(fs.existsSync(new URL("packages/memory-eval", import.meta.url))
+        ? [
+            {
+              root: "packages/memory-eval",
+              test: {
+                name: "memory-eval",
+                include: ["test/**/*.test.ts"],
+                testTimeout: 15_000,
+                hookTimeout: 15_000,
+              },
+            },
+          ]
+        : []),
       {
         root: "frontend",
         test: {
