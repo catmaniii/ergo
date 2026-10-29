@@ -1,0 +1,23 @@
+{
+  "eventSources.summary.taskDone": "任务 {id}「{title}」完成了",
+  "eventSources.summary.taskFailed": "任务 {id}「{title}」失败了",
+  "eventSources.summary.taskFailedReason": "任务 {id}「{title}」失败了：{reason}",
+  "eventSources.summary.taskWaiting": "任务 {id}「{title}」转等我",
+  "eventSources.summary.taskWaitingReason": "任务 {id}「{title}」转等我：{reason}",
+  "eventSources.summary.projectState": "项目「{name}」从{from}变成{to}",
+  "eventSources.summary.task": "任务 {id}",
+  "eventSources.summary.job": "定时作业",
+  "eventSources.summary.runFailed": "{who}「{title}」的{run}失败了",
+  "eventSources.summary.runFailedReason": "{who}「{title}」的{run}失败了：{reason}",
+  "eventSources.folder.added": "新增文件 {path}（{folder}）",
+  "eventSources.folder.changed": "修改文件 {path}（{folder}）",
+  "eventSources.folder.removed": "删除文件 {path}（{folder}）",
+  "eventSources.refusal.notAbsolute": "文件夹要写完整路径（比如 D:\\收件箱）：{path}",
+  "eventSources.refusal.notLocal": "只能监视本机盘上的文件夹（比如 D:\\收件箱）：{path} 是网络位置或设备路径",
+  "eventSources.refusal.missing": "文件夹不在：{path}",
+  "eventSources.refusal.notDirectory": "这不是文件夹：{path}",
+  "eventSources.refusal.inside": "不能监视 {path}：它在{area}里（二狗的数据目录、密钥区、受保护区域不能监视）",
+  "eventSources.refusal.contains": "不能含子文件夹监视 {path}：它里面有{area}（二狗的数据目录、密钥区、受保护区域不能监视）；去掉\"含子文件夹\"，或者换一个更具体的文件夹",
+  "eventSources.dataDir": "二狗的数据目录",
+  "eventSources.sourceMissing": "事件来源 {source} 还没接上"
+}

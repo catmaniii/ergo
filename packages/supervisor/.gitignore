@@ -1,0 +1,14 @@
+# 327 号票起数据目录不在代码目录里（默认 %LOCALAPPDATA%\ergo\supervisor，见 src/paths.mjs）。
+# 万一有人把 --data-dir / LSM_DATA_DIR 指到了这里，下面这些也绝不能进 git：
+# 密钥、口令、证书私钥（.secrets/）、账本（state.json：各服务的 link token、PID）、
+# 各服务的原始命令行输出（logs/：什么都可能打印出来）、你自己的服务清单（registry/）、网关路由表
+/.secrets/
+/state.json
+/state.json.tmp
+/logs/
+/registry/
+/tailnet-routes.json
+*.tmp
+# lsm vps setup（321 号票）：装了什么、显示过的脚本（钥匙在 .secrets/ 里，上面已经挡着）
+/vps-setup.json
+/vps-scripts/

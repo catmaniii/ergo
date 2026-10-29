@@ -1,0 +1,95 @@
+name: 报告 bug / Bug report
+description: 二狗哪里不对 / Something in ergo is broken
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        谢谢报告！**安全问题请不要在这里提**，见 [SECURITY.md](https://github.com/catmaniii/ergo/blob/main/SECURITY.md)。
+        **一键复制环境信息**：在命令行运行 `ergo doctor`，按提示复制"环境信息"那一段贴到下面（即将推出；在那之前请手动填版本）。
+
+        Thanks for the report! **Please don't report security issues here**; see [SECURITY.md](https://github.com/catmaniii/ergo/blob/main/SECURITY.md).
+        **Copy your environment in one step**: run `ergo doctor` and paste its "environment" section below (coming soon; until then please fill in the versions by hand).
+  - type: textarea
+    id: what
+    attributes:
+      label: 发生了什么 / What happened
+      description: 看到了什么、哪一页、哪条消息 / What you saw, on which page or message
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 怎么复现 / Steps to reproduce
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 本来应该怎样 / Expected behavior
+  - type: input
+    id: ergo-version
+    attributes:
+      label: 二狗版本 / ergo version
+      description: 设置 · 关于二狗；装了 `ergo` 命令的也可以运行 `ergo --version` / Settings · About Ergo, or `ergo --version`
+      placeholder: "0.2.1"
+    validations:
+      required: true
+  - type: input
+    id: node-version
+    attributes:
+      label: Node 版本 / Node version
+      description: "`node -v`（一行命令安装的用安装包自带的那份，`ergo doctor` 里有）/ `node -v` (one-line installs bundle their own; see `ergo doctor`)"
+      placeholder: "v22.x.x"
+    validations:
+      required: true
+  - type: input
+    id: pi-version
+    attributes:
+      label: pi 版本 / pi version
+      description: 仓库根目录 `package.json` 的 `overrides` 里 `@earendil-works/pi-coding-agent` 的版本，或 `ergo doctor` / `@earendil-works/pi-coding-agent` under `overrides` in the root `package.json`, or `ergo doctor`
+      placeholder: "1.0.4"
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: 安装方式 / How you installed
+      options:
+        - 一行命令安装（install.ps1）/ One-line installer (install.ps1)
+        - npm（npm i -g ergo-ai）
+        - 从源码（git clone）/ From source (git clone)
+        - 从源码安装脚本（install.ps1 -FromSource）/ Source install script (install.ps1 -FromSource)
+        - 其他 / Other
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows 版本 / Windows version
+      description: "`winver`"
+      placeholder: "Windows 11 24H2"
+  - type: textarea
+    id: doctor
+    attributes:
+      label: "`ergo doctor` 的输出（可选）/ `ergo doctor` output (optional)"
+      render: text
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志（可选）/ Logs (optional)
+      description: |
+        服务管家数据目录（默认 `%LOCALAPPDATA%\ergo\supervisor`）里 `logs\ergo-daemon.out.log` 的相关几行，或 `http://127.0.0.1:8810/healthz` 的内容。贴之前去掉个人信息。
+        Relevant lines from `logs\ergo-daemon.out.log` in the supervisor's data directory (default `%LOCALAPPDATA%\ergo\supervisor`), or the output of `http://127.0.0.1:8810/healthz`. Remove personal information first.
+      render: text
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: 确认 / Confirm
+      options:
+        - label: 贴的内容里没有 API key、密码、设备凭证和不想公开的个人信息 / There are no API keys, passwords, device credentials or private information in what I pasted
+          required: true

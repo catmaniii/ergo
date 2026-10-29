@@ -1,0 +1,13 @@
+{
+  "scopeReview.where.workOrder": "work order {workOrder}",
+  "scopeReview.where.workOrderTask": "work order {workOrder}, task {task}",
+  "scopeReview.notice.title": "Out of scope: {summary}",
+  "scopeReview.notice.source": "Maintainer of {owner}",
+  "scopeReview.notice.detail": "Details: {detail}",
+  "scopeReview.notice.found": "Found by the scope review ({trigger}): this isn't in the charter, the task plan or anything you authorized. The maintainer carries on and the task isn't blocked. If you want it undone, or you did ask for it, just tell the maintainer.",
+  "scopeReview.notice.foundWhere": "Found by the scope review ({trigger}, {where}): this isn't in the charter, the task plan or anything you authorized. The maintainer carries on and the task isn't blocked. If you want it undone, or you did ask for it, just tell the maintainer.",
+  "scopeReview.failed": "Scope review failed: {error} (no scope record was kept for this stretch of work)",
+  "scopeReview.basis": "Basis: {basis}",
+  "scopeReview.owner.project": "project “{name}”",
+  "scopeReview.owner.task": "task “{title}”"
+}

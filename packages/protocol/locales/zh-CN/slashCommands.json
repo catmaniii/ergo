@@ -1,0 +1,8 @@
+{
+  "slashCommands.workflow": "发起一个流程：维护者把要做的事排成步骤，你授权一次，照步骤做",
+  "slashCommands.longRunning": "发起一个长程任务：维护者分阶段做，逐阶段验收",
+  "slashCommands.interview": "开一次了解你访谈：一次聊一个主题，聊到的记进记忆，档案信息最后给你核对",
+  "slashCommands.consolidate": "现在整理一次记忆：和每晚 03:00 那次一样，把攒着的素材整理成结论",
+  "slashCommands.hint.whatToDo": "<要做的事>",
+  "slashCommands.hint.topic": "[主题]"
+}

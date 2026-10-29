@@ -1,0 +1,13 @@
+{
+  "media.upload.notFound": "没有这个上传：{uploadId}",
+  "media.upload.notFoundGone": "没有这个上传：{uploadId}（可能已经收尾，或者被清理了）",
+  "media.upload.busy": "这个上传正有一个分片在写，等它写完再发",
+  "media.upload.tooLarge": "文件有 {size}，超过单个文件的上限 {max}",
+  "media.upload.offsetMismatch": "偏移不对：服务端已收到 {received} 字节，这个分片从 {offset} 起",
+  "media.upload.chunkTooLarge": "分片超出了建上传时声明的大小（{size} 字节）",
+  "media.upload.incomplete": "还没收全：收到 {got} 字节，共 {size} 字节",
+  "media.upload.sha256Mismatch": "sha256 对不上：收到的字节是 {actual}，收尾带来的是 {sha256}。这次上传作废，请重新上传",
+  "media.untitled": "未命名",
+  "media.tool.readAttachment": "读取附件",
+  "media.tool.sendAttachment": "把文件作为附件发出"
+}

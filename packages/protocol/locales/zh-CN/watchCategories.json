@@ -1,0 +1,15 @@
+{
+  "watchCategories.match.emptyName": "名字不能是空的",
+  "watchCategories.match.notAbsolute": "路径要写完整的 Windows 路径（比如 D:\\code\\app\\db\\migrations）：{path}",
+  "watchCategories.match.noCondition": "规则至少要有一个条件（匹配工具、路径、收件人或金额）",
+  "watchCategories.sep": "；",
+  "watchCategories.broken.title": "关注类别设置文件有问题，所有 agent 的工具调用都会被拦下",
+  "watchCategories.unreadable": "读不了关注类别设置 {file}：{error}",
+  "watchCategories.broken.body": "设置文件 {file} 读不出来：{problems}。在设置里的关注类别页修复：恢复成上一次有效的设置、恢复默认，或者手改好后点\"重新读取\"。修好后这条自动归档。",
+  "watchCategories.broken.source": "关注类别设置",
+  "watchCategories.broken.fixedTitle": "关注类别设置文件有问题（已修复）",
+  "watchCategories.keyReused": "这个幂等键已经用在别的请求上了",
+  "watchCategories.notBroken": "设置文件没坏，不用修复",
+  "watchCategories.repairFirst": "关注类别的设置文件坏了，先修复（恢复成上一次有效的设置，或者恢复默认）再改：{problems}",
+  "watchCategories.noCustom": "没有这个自定义类别：{id}"
+}

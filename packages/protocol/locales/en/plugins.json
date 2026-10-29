@@ -1,0 +1,12 @@
+{
+  "plugins.notEnabled": "The {title} plugin isn't enabled",
+  "plugins.unknown": "There's no plugin called {name}",
+  "plugins.problem.missingService": "Something it needs is missing ({service})",
+  "plugins.problem.providerOff": "The {title} plugin it needs is turned off",
+  "plugins.problem.providerFailed": "The {title} plugin it needs didn't load",
+  "plugins.problem.cycle": "These plugins need each other ({plugins}), so they can't load",
+  "plugins.problem.setupFailed": "It failed while loading: {message}",
+  "plugins.problem.startFailed": "It failed while starting: {message}",
+  "plugins.settings.busy": "The last plugin change isn't done yet — try again in a moment",
+  "plugins.settings.noRemoval": "The {title} plugin has no data to delete along with it"
+}

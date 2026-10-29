@@ -1,0 +1,957 @@
+[
+  {
+    "kind": "connection",
+    "status": "online"
+  },
+  {
+    "kind": "send_message",
+    "conversation": "secretary",
+    "idempotencyKey": "7d41d3af-db24-4402-8d4a-e092414ab404",
+    "parts": [
+      {
+        "type": "text",
+        "text": "念给我听：明早九点开会"
+      }
+    ],
+    "time": "2026-10-11T12:09:40.453+08:00"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 1,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-ba2a3eae-51f6-4af5-9d69-ec485c4a19f1",
+          "conversation": "secretary",
+          "speaker": "user",
+          "time": "2026-10-11T12:09:40.454+08:00",
+          "parts": [
+            {
+              "type": "text",
+              "text": "念给我听：明早九点开会"
+            }
+          ]
+        },
+        "idempotencyKey": "7d41d3af-db24-4402-8d4a-e092414ab404"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 2,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-ba2a3eae-51f6-4af5-9d69-ec485c4a19f1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 3,
+      "type": "agent_voice",
+      "payload": {
+        "voice": {
+          "id": "av-7fc31927-837f-47ab-bea7-918b4e661d4b",
+          "conversation": "secretary",
+          "scope": {},
+          "inputMessageId": "m-ba2a3eae-51f6-4af5-9d69-ec485c4a19f1",
+          "turnSeq": 2,
+          "replyMessageIds": [],
+          "mode": "tool",
+          "toolCallId": "tool:1791691781586:n4koh4ken5e",
+          "text": "明早九点开会，记得带上周报。",
+          "referenceVoice": {
+            "id": "v-0ec51965",
+            "name": "示例音色"
+          },
+          "status": "synthesizing",
+          "createdAt": "2026-10-11T12:09:41.622+08:00",
+          "updatedAt": "2026-10-11T12:09:41.622+08:00",
+          "version": 1
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 4,
+      "type": "agent_voice",
+      "payload": {
+        "voice": {
+          "id": "av-7fc31927-837f-47ab-bea7-918b4e661d4b",
+          "conversation": "secretary",
+          "scope": {},
+          "inputMessageId": "m-ba2a3eae-51f6-4af5-9d69-ec485c4a19f1",
+          "turnSeq": 2,
+          "replyMessageIds": [],
+          "mode": "tool",
+          "toolCallId": "tool:1791691781586:n4koh4ken5e",
+          "text": "明早九点开会，记得带上周报。",
+          "referenceVoice": {
+            "id": "v-0ec51965",
+            "name": "示例音色"
+          },
+          "status": "done",
+          "createdAt": "2026-10-11T12:09:41.622+08:00",
+          "updatedAt": "2026-10-11T12:09:41.649+08:00",
+          "version": 2,
+          "model": "fish_audio（audio.cpp/tts）",
+          "segmentCount": 1,
+          "mediaId": "ce6e6a6c590714b3d0041cb3608d546a574242ec890b4774e22fcc0797c23a2f",
+          "mime": "audio/wav",
+          "durationMs": 2800,
+          "waveform": [
+            43,
+            63,
+            79,
+            91,
+            98,
+            100,
+            100,
+            95,
+            85,
+            70,
+            52,
+            34,
+            54,
+            73,
+            87,
+            96,
+            100,
+            100,
+            98,
+            90,
+            77,
+            60,
+            40,
+            46,
+            65,
+            81,
+            93,
+            99,
+            100,
+            99,
+            94,
+            83
+          ],
+          "messageId": "m-f06840e3-cf88-4234-8dcb-c447e73ebfb2",
+          "firstSegmentMs": 25,
+          "elapsedMs": 25
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 5,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-f06840e3-cf88-4234-8dcb-c447e73ebfb2",
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tts_audio",
+              "voiceId": "av-7fc31927-837f-47ab-bea7-918b4e661d4b",
+              "mediaId": "ce6e6a6c590714b3d0041cb3608d546a574242ec890b4774e22fcc0797c23a2f",
+              "mime": "audio/wav",
+              "durationMs": 2800,
+              "waveform": [
+                43,
+                63,
+                79,
+                91,
+                98,
+                100,
+                100,
+                95,
+                85,
+                70,
+                52,
+                34,
+                54,
+                73,
+                87,
+                96,
+                100,
+                100,
+                98,
+                90,
+                77,
+                60,
+                40,
+                46,
+                65,
+                81,
+                93,
+                99,
+                100,
+                99,
+                94,
+                83
+              ]
+            }
+          ],
+          "time": "2026-10-11T12:09:41.649+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 6,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791691781586:n4koh4ken5e",
+              "tool": "send_voice",
+              "argsSummary": "text=明早九点开会，记得带上周报。",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "已经把这段话合成语音发给用户了（约 2.8 秒）：聊天里是一个语音气泡，长按「转文字」能看到原文。文字里只放念不出来的东西（代码、表格、链接），别的话不用再写一遍。",
+              "nature": "act"
+            }
+          ],
+          "id": "m-2d657203-7867-4dd3-98a3-01143d836fd4",
+          "time": "2026-10-11T12:09:41.655+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 6,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-5319fd8b-4605-43f5-ab10-c894778e6867",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "好的，念给你听了。"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 7,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-5319fd8b-4605-43f5-ab10-c894778e6867",
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "好的，念给你听了。"
+            }
+          ],
+          "time": "2026-10-11T12:09:41.657+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 8,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-ba2a3eae-51f6-4af5-9d69-ec485c4a19f1",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 9,
+      "type": "agent_voice",
+      "payload": {
+        "voice": {
+          "id": "av-7fc31927-837f-47ab-bea7-918b4e661d4b",
+          "conversation": "secretary",
+          "scope": {},
+          "inputMessageId": "m-ba2a3eae-51f6-4af5-9d69-ec485c4a19f1",
+          "turnSeq": 2,
+          "replyMessageIds": [
+            "m-5319fd8b-4605-43f5-ab10-c894778e6867"
+          ],
+          "mode": "tool",
+          "toolCallId": "tool:1791691781586:n4koh4ken5e",
+          "text": "明早九点开会，记得带上周报。",
+          "referenceVoice": {
+            "id": "v-0ec51965",
+            "name": "示例音色"
+          },
+          "status": "done",
+          "createdAt": "2026-10-11T12:09:41.622+08:00",
+          "updatedAt": "2026-10-11T12:09:41.660+08:00",
+          "version": 3,
+          "model": "fish_audio（audio.cpp/tts）",
+          "segmentCount": 1,
+          "mediaId": "ce6e6a6c590714b3d0041cb3608d546a574242ec890b4774e22fcc0797c23a2f",
+          "mime": "audio/wav",
+          "durationMs": 2800,
+          "waveform": [
+            43,
+            63,
+            79,
+            91,
+            98,
+            100,
+            100,
+            95,
+            85,
+            70,
+            52,
+            34,
+            54,
+            73,
+            87,
+            96,
+            100,
+            100,
+            98,
+            90,
+            77,
+            60,
+            40,
+            46,
+            65,
+            81,
+            93,
+            99,
+            100,
+            99,
+            94,
+            83
+          ],
+          "messageId": "m-f06840e3-cf88-4234-8dcb-c447e73ebfb2",
+          "firstSegmentMs": 25,
+          "elapsedMs": 25,
+          "coversReply": true
+        }
+      }
+    }
+  },
+  {
+    "kind": "send_message",
+    "conversation": "secretary",
+    "idempotencyKey": "c4cd02a6-0dee-4e57-baf3-76e710279271",
+    "parts": [
+      {
+        "type": "text",
+        "text": "用语音说一下明天的安排，再列个表"
+      }
+    ],
+    "time": "2026-10-11T12:09:41.703+08:00"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 10,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-0cafc376-b680-4fb5-8a50-c3af1a0939bb",
+          "conversation": "secretary",
+          "speaker": "user",
+          "time": "2026-10-11T12:09:41.703+08:00",
+          "parts": [
+            {
+              "type": "text",
+              "text": "用语音说一下明天的安排，再列个表"
+            }
+          ]
+        },
+        "idempotencyKey": "c4cd02a6-0dee-4e57-baf3-76e710279271"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 11,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-0cafc376-b680-4fb5-8a50-c3af1a0939bb"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 12,
+      "type": "agent_voice",
+      "payload": {
+        "voice": {
+          "id": "av-4c804c5d-4d7b-457e-a822-ae12945965ff",
+          "conversation": "secretary",
+          "scope": {},
+          "inputMessageId": "m-0cafc376-b680-4fb5-8a50-c3af1a0939bb",
+          "turnSeq": 11,
+          "replyMessageIds": [],
+          "mode": "tool",
+          "toolCallId": "tool:1791691781586:no0715d0eqe",
+          "text": "明天的安排我列成表了，一共两件事。",
+          "referenceVoice": {
+            "id": "v-0ec51965",
+            "name": "示例音色"
+          },
+          "status": "synthesizing",
+          "createdAt": "2026-10-11T12:09:41.716+08:00",
+          "updatedAt": "2026-10-11T12:09:41.716+08:00",
+          "version": 1
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 13,
+      "type": "agent_voice",
+      "payload": {
+        "voice": {
+          "id": "av-4c804c5d-4d7b-457e-a822-ae12945965ff",
+          "conversation": "secretary",
+          "scope": {},
+          "inputMessageId": "m-0cafc376-b680-4fb5-8a50-c3af1a0939bb",
+          "turnSeq": 11,
+          "replyMessageIds": [],
+          "mode": "tool",
+          "toolCallId": "tool:1791691781586:no0715d0eqe",
+          "text": "明天的安排我列成表了，一共两件事。",
+          "referenceVoice": {
+            "id": "v-0ec51965",
+            "name": "示例音色"
+          },
+          "status": "done",
+          "createdAt": "2026-10-11T12:09:41.716+08:00",
+          "updatedAt": "2026-10-11T12:09:41.745+08:00",
+          "version": 2,
+          "model": "fish_audio（audio.cpp/tts）",
+          "segmentCount": 1,
+          "mediaId": "f92c4c7d440d3e4c2095bbcf39b3f168245dcafe75735355ec3591e2068000cb",
+          "mime": "audio/wav",
+          "durationMs": 3400,
+          "waveform": [
+            47,
+            70,
+            87,
+            98,
+            100,
+            99,
+            93,
+            78,
+            57,
+            37,
+            61,
+            81,
+            94,
+            100,
+            100,
+            96,
+            85,
+            66,
+            43,
+            52,
+            74,
+            90,
+            99,
+            100,
+            99,
+            90,
+            75,
+            53,
+            42,
+            65,
+            84,
+            96
+          ],
+          "messageId": "m-efebe356-8d18-4021-b853-824289701ff1",
+          "firstSegmentMs": 28,
+          "elapsedMs": 28
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 14,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-efebe356-8d18-4021-b853-824289701ff1",
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tts_audio",
+              "voiceId": "av-4c804c5d-4d7b-457e-a822-ae12945965ff",
+              "mediaId": "f92c4c7d440d3e4c2095bbcf39b3f168245dcafe75735355ec3591e2068000cb",
+              "mime": "audio/wav",
+              "durationMs": 3400,
+              "waveform": [
+                47,
+                70,
+                87,
+                98,
+                100,
+                99,
+                93,
+                78,
+                57,
+                37,
+                61,
+                81,
+                94,
+                100,
+                100,
+                96,
+                85,
+                66,
+                43,
+                52,
+                74,
+                90,
+                99,
+                100,
+                99,
+                90,
+                75,
+                53,
+                42,
+                65,
+                84,
+                96
+              ]
+            }
+          ],
+          "time": "2026-10-11T12:09:41.745+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 15,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791691781586:no0715d0eqe",
+              "tool": "send_voice",
+              "argsSummary": "text=明天的安排我列成表了，一共两件事。",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "已经把这段话合成语音发给用户了（约 3.4 秒）：聊天里是一个语音气泡，长按「转文字」能看到原文。文字里只放念不出来的东西（代码、表格、链接），别的话不用再写一遍。",
+              "nature": "act"
+            }
+          ],
+          "id": "m-2254416e-6a9a-4178-90a9-03b2ea27405b",
+          "time": "2026-10-11T12:09:41.747+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 16,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-35bfc0e4-0cb2-40e4-bb2e-68c619ce8970",
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "| 时间 | 事项 |\n| --- | --- |\n| 09:00 | 开会 |\n| 14:00 | 交周报 |"
+            }
+          ],
+          "time": "2026-10-11T12:09:41.749+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 17,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-0cafc376-b680-4fb5-8a50-c3af1a0939bb",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 18,
+      "type": "agent_voice",
+      "payload": {
+        "voice": {
+          "id": "av-4c804c5d-4d7b-457e-a822-ae12945965ff",
+          "conversation": "secretary",
+          "scope": {},
+          "inputMessageId": "m-0cafc376-b680-4fb5-8a50-c3af1a0939bb",
+          "turnSeq": 11,
+          "replyMessageIds": [
+            "m-35bfc0e4-0cb2-40e4-bb2e-68c619ce8970"
+          ],
+          "mode": "tool",
+          "toolCallId": "tool:1791691781586:no0715d0eqe",
+          "text": "明天的安排我列成表了，一共两件事。",
+          "referenceVoice": {
+            "id": "v-0ec51965",
+            "name": "示例音色"
+          },
+          "status": "done",
+          "createdAt": "2026-10-11T12:09:41.716+08:00",
+          "updatedAt": "2026-10-11T12:09:41.751+08:00",
+          "version": 3,
+          "model": "fish_audio（audio.cpp/tts）",
+          "segmentCount": 1,
+          "mediaId": "f92c4c7d440d3e4c2095bbcf39b3f168245dcafe75735355ec3591e2068000cb",
+          "mime": "audio/wav",
+          "durationMs": 3400,
+          "waveform": [
+            47,
+            70,
+            87,
+            98,
+            100,
+            99,
+            93,
+            78,
+            57,
+            37,
+            61,
+            81,
+            94,
+            100,
+            100,
+            96,
+            85,
+            66,
+            43,
+            52,
+            74,
+            90,
+            99,
+            100,
+            99,
+            90,
+            75,
+            53,
+            42,
+            65,
+            84,
+            96
+          ],
+          "messageId": "m-efebe356-8d18-4021-b853-824289701ff1",
+          "firstSegmentMs": 28,
+          "elapsedMs": 28,
+          "coversReply": false
+        }
+      }
+    }
+  },
+  {
+    "kind": "send_message",
+    "conversation": "secretary",
+    "idempotencyKey": "06c42196-d680-4a68-8513-334bd586440e",
+    "parts": [
+      {
+        "type": "text",
+        "text": "说声好"
+      }
+    ],
+    "time": "2026-10-11T12:09:41.766+08:00"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 19,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-a7a37f56-9918-4834-9cd3-56cd405c5b7d",
+          "conversation": "secretary",
+          "speaker": "user",
+          "time": "2026-10-11T12:09:41.766+08:00",
+          "parts": [
+            {
+              "type": "text",
+              "text": "说声好"
+            }
+          ]
+        },
+        "idempotencyKey": "06c42196-d680-4a68-8513-334bd586440e"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 20,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-a7a37f56-9918-4834-9cd3-56cd405c5b7d"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 21,
+      "type": "agent_voice",
+      "payload": {
+        "voice": {
+          "id": "av-a4c5e21b-0b8e-4959-8564-47c0027f4a7a",
+          "conversation": "secretary",
+          "scope": {},
+          "inputMessageId": "m-a7a37f56-9918-4834-9cd3-56cd405c5b7d",
+          "turnSeq": 20,
+          "replyMessageIds": [],
+          "mode": "tool",
+          "toolCallId": "tool:1791691781586:ybg8352wno",
+          "text": "好的。",
+          "referenceVoice": {
+            "id": "v-0ec51965",
+            "name": "示例音色"
+          },
+          "status": "synthesizing",
+          "createdAt": "2026-10-11T12:09:41.778+08:00",
+          "updatedAt": "2026-10-11T12:09:41.778+08:00",
+          "version": 1
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 22,
+      "type": "agent_voice",
+      "payload": {
+        "voice": {
+          "id": "av-a4c5e21b-0b8e-4959-8564-47c0027f4a7a",
+          "conversation": "secretary",
+          "scope": {},
+          "inputMessageId": "m-a7a37f56-9918-4834-9cd3-56cd405c5b7d",
+          "turnSeq": 20,
+          "replyMessageIds": [],
+          "mode": "tool",
+          "toolCallId": "tool:1791691781586:ybg8352wno",
+          "text": "好的。",
+          "referenceVoice": {
+            "id": "v-0ec51965",
+            "name": "示例音色"
+          },
+          "status": "failed",
+          "createdAt": "2026-10-11T12:09:41.778+08:00",
+          "updatedAt": "2026-10-11T12:09:41.784+08:00",
+          "version": 2,
+          "error": "语音服务忙"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 23,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "secretary",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "这条语音没发出去（语音服务忙）。"
+            }
+          ],
+          "id": "m-5112bc7c-13fc-4787-bbd9-5322654b70d2",
+          "time": "2026-10-11T12:09:41.784+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 24,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791691781586:ybg8352wno",
+              "tool": "send_voice",
+              "argsSummary": "text=好的。",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "error",
+              "resultSummary": "语音没发出去：语音服务忙。照常用文字回复用户。",
+              "nature": "act"
+            }
+          ],
+          "id": "m-5213e67a-4929-48e9-9851-5b1aa8549e7f",
+          "time": "2026-10-11T12:09:41.786+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 24,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-97c672f8-ac00-44a0-b0e7-ce1aac282ad3",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "语音服务忙，我用文字说：好的。"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 25,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-97c672f8-ac00-44a0-b0e7-ce1aac282ad3",
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "语音服务忙，我用文字说：好的。"
+            }
+          ],
+          "time": "2026-10-11T12:09:41.788+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 26,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-a7a37f56-9918-4834-9cd3-56cd405c5b7d",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 27,
+      "type": "agent_voice",
+      "payload": {
+        "voice": {
+          "id": "av-a4c5e21b-0b8e-4959-8564-47c0027f4a7a",
+          "conversation": "secretary",
+          "scope": {},
+          "inputMessageId": "m-a7a37f56-9918-4834-9cd3-56cd405c5b7d",
+          "turnSeq": 20,
+          "replyMessageIds": [
+            "m-97c672f8-ac00-44a0-b0e7-ce1aac282ad3"
+          ],
+          "mode": "tool",
+          "toolCallId": "tool:1791691781586:ybg8352wno",
+          "text": "好的。",
+          "referenceVoice": {
+            "id": "v-0ec51965",
+            "name": "示例音色"
+          },
+          "status": "failed",
+          "createdAt": "2026-10-11T12:09:41.778+08:00",
+          "updatedAt": "2026-10-11T12:09:41.790+08:00",
+          "version": 3,
+          "error": "语音服务忙",
+          "coversReply": false
+        }
+      }
+    }
+  }
+]

@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>C 夜航仪表 · 待我处理</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#4FD1C5}a:hover{color:#8FE3DB}
+.root{--bg:#EEF2F6;--surface:#FFFFFF;--raised:#F6F8FA;--border:#D5DCE5;--text:#0F172A;--muted:#5B6778;--accent:#0F766E;--accent-ink:#FFFFFF;--accent-dim:rgba(15,118,110,0.12);--warn:#B45309;--warn-dim:rgba(180,83,9,0.12)}
+.root.dark{--bg:#0C1017;--surface:#141A23;--raised:#1B2330;--border:#263040;--text:#E3E9F2;--muted:#93A1B3;--accent:#4FD1C5;--accent-ink:#06211E;--accent-dim:rgba(79,209,197,0.14);--warn:#F6AD55;--warn-dim:rgba(246,173,85,0.16)}
+.root button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;padding:0}
+.mono{font-family:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace}
+.ic{width:22px;height:22px;flex:none}
+.tab{flex:1;min-height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--muted);font-size:11px;position:relative}
+.tab.on{color:var(--accent)}
+.tab.on::before{content:"";position:absolute;top:0;width:28px;height:2px;border-radius:1px;background:var(--accent)}
+.seg{flex:1;min-height:40px;border-radius:8px;font-size:13px;color:var(--muted)}
+.seg.on{background:var(--surface);color:var(--text);font-weight:700;border:1px solid var(--border)}
+.gh{display:flex;align-items:center;gap:8px;padding:8px 2px 4px;font-size:11px;font-weight:700;letter-spacing:0.06em}
+.gh i{width:6px;height:6px;border-radius:1px;background:currentColor}
+.row{width:100%;text-align:left;display:flex;align-items:flex-start;gap:10px;padding:12px 12px;background:var(--surface);border:1px solid var(--border);border-radius:12px}
+.row.unread{border-color:color-mix(in srgb, var(--accent) 45%, var(--border))}
+.dot{width:8px;height:8px;border-radius:50%;margin-top:7px;flex:none;background:var(--accent)}
+.dot.read{background:transparent;border:1px solid var(--border)}
+.row h3{margin:0;font-size:14px;font-weight:500;line-height:1.45}
+.row.unread h3{font-weight:700}
+.row p{margin:3px 0 0;font-size:12px;color:var(--muted);line-height:1.5}
+.kind{padding:1px 6px;border-radius:4px;background:var(--raised);border:1px solid var(--border);font-size:11px}
+</style>
+</helmet>
+<div class="root {{themeClass}}" style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); color: var(--text); font-family: 'Noto Sans SC', 'PingFang SC', sans-serif; font-size: 15px; line-height: 1.5; --accent: {{accent}}">
+
+  <header style="display: flex; flex-direction: column; gap: 8px; padding: 0 16px 10px; background: var(--surface); border-bottom: 1px solid var(--border)">
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 56px">
+      <div style="display: flex; flex-direction: column; gap: 1px">
+        <h1 style="margin: 0; font-size: 17px; font-weight: 700; line-height: 1.2">待我处理</h1>
+        <div class="mono" style="font-size: 11px; color: var(--muted)">3 未读 · 2 卡着任务</div>
+      </div>
+      <button type="button" style="min-height: 40px; padding: 0 10px; border-radius: 8px; color: var(--accent); font-size: 13px; font-weight: 700">全部标已读</button>
+    </div>
+    <div style="display: flex; gap: 4px; padding: 3px; border-radius: 10px; background: var(--raised)">
+      <button type="button" class="seg on" aria-pressed="true">待处理 <span class="mono">6</span></button>
+      <button type="button" class="seg" aria-pressed="false">已处理 <span class="mono">4</span></button>
+      <button type="button" class="seg" aria-pressed="false">已归档 <span class="mono">2</span></button>
+    </div>
+  </header>
+
+  <main style="flex: 1; min-height: 0; overflow: hidden; padding: 6px 16px 12px; display: flex; flex-direction: column; gap: 8px">
+    <div class="gh" style="color: var(--accent)"><i></i>置顶 · 到点的提醒</div>
+    <button type="button" class="row unread">
+      <i class="dot" aria-label="未读"></i>
+      <span style="flex: 1; min-width: 0"><h3>该交房租了</h3><p><span class="kind">提醒</span> 简单提醒 · <span class="mono">09:00</span></p></span>
+    </button>
+
+    <div class="gh" style="color: var(--warn)"><i></i>卡住任务 · 有时限</div>
+    <button type="button" class="row unread">
+      <i class="dot" aria-label="未读"></i>
+      <span style="flex: 1; min-width: 0"><h3>批准一条命令：rsync --delete 到备份机</h3><p><span class="kind">审批</span> 任务「家庭照片整理与去重」· <span class="mono">09:20</span></p></span>
+    </button>
+    <button type="button" class="row">
+      <i class="dot read"></i>
+      <span style="flex: 1; min-width: 0"><h3>授权明天到期：移动重复照片</h3><p><span class="kind">授权到期续期</span> 任务「家庭照片整理与去重」· <span class="mono">08:00</span></p></span>
+    </button>
+
+    <div class="gh" style="color: var(--warn)"><i></i>卡住任务</div>
+    <button type="button" class="row unread">
+      <i class="dot" aria-label="未读"></i>
+      <span style="flex: 1; min-width: 0"><h3>NAS 硬盘巡检卡住了：smartctl 读不到第 3 块盘</h3><p><span class="kind">卡住求助</span> 任务「NAS 硬盘健康巡检」· <span class="mono">06:30</span></p></span>
+    </button>
+    <button type="button" class="row">
+      <i class="dot read"></i>
+      <span style="flex: 1; min-width: 0"><h3>新设备请求配对：iPad</h3><p><span class="kind">配对请求</span> 系统 · 昨天 <span class="mono">22:14</span></p></span>
+    </button>
+
+    <div class="gh" style="color: var(--muted)"><i></i>不卡任务</div>
+    <button type="button" class="row">
+      <i class="dot read"></i>
+      <span style="flex: 1; min-width: 0"><h3>昨晚的备份没写进同步目录</h3><p><span class="kind">备份失败</span> 系统 · <span class="mono">03:31</span></p></span>
+    </button>
+    <button type="button" class="row">
+      <i class="dot read"></i>
+      <span style="flex: 1; min-width: 0"><h3>越界通知：维护者想读 ~/Documents</h3><p><span class="kind">越界通知</span> 项目「记账本」· 昨天 <span class="mono">20:05</span></p></span>
+    </button>
+  </main>
+
+  <nav aria-label="主导航" style="display: flex; padding: 0 6px 10px; background: var(--surface); border-top: 1px solid var(--border)">
+    <button type="button" class="tab">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-8 8H8l-4 3v-5.5A8 8 0 0 1 12 4h1a8 8 0 0 1 8 8z"/></svg>
+      <span>个人助理</span>
+    </button>
+    <button type="button" class="tab">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="m8 12 3 3 5-6"/></svg>
+      <span>任务</span>
+    </button>
+    <button type="button" class="tab">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+      <span>项目</span>
+    </button>
+    <button type="button" class="tab on" aria-current="page">
+      <span style="position: relative; display: flex">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>
+        <i class="mono" style="position: absolute; top: -4px; right: -9px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px; background: var(--warn); color: #1A1206; font-size: 10px; font-weight: 600; font-style: normal; display: flex; align-items: center; justify-content: center">3</i>
+      </span>
+      <span>待我处理</span>
+    </button>
+    <button type="button" class="tab">
+      <svg class="ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+      <span>更多</span>
+    </button>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":true},"accent":{"editor":"color","default":"#4FD1C5","options":["#4FD1C5","#7AA2F7","#F6AD55"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const dark = this.props.dark ?? true;
+    const picked = this.props.accent ?? '#4FD1C5';
+    const accent = !dark && picked.toUpperCase() === '#4FD1C5' ? '#0F766E' : picked;
+    return { themeClass: dark ? 'dark' : '', accent };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,35 @@
+# GitHub Actions release workflow draft (ticket 318). Not active: it lives here, not in .github/workflows.
+# Move it to .github/workflows/release.yml once the user decides how the release key is stored and whether to run Actions (316 / 317).
+# The release zip, SHA256SUMS(.minisig), latest.json and install.ps1 attached to the GitHub release come from exactly this build.
+name: release
+on:
+  push:
+    tags: ["v*"]
+jobs:
+  release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.4   # follows pi (ADR-0031); also passed to npm run release below
+      - run: npm ci
+      - name: Release key
+        shell: pwsh
+        run: Set-Content -Path "$env:RUNNER_TEMP\ergo-release.key" -Value $env:ERGO_RELEASE_KEY -NoNewline
+        env:
+          ERGO_RELEASE_KEY: ${{ secrets.ERGO_RELEASE_KEY }}
+      - name: Build the release
+        run: npm run release -- --node-version 22.23.4 --sign-key "${{ runner.temp }}/ergo-release.key"
+        env:
+          ERGO_SIGN_PASSWORD: ${{ secrets.ERGO_SIGN_PASSWORD }}
+      - name: Publish to GitHub Releases
+        shell: pwsh
+        run: gh release create $env:GITHUB_REF_NAME dist/release/*.zip dist/release/SHA256SUMS dist/release/SHA256SUMS.minisig dist/release/latest.json dist/release/install.ps1 --title $env:GITHUB_REF_NAME --notes "See CHANGELOG.md"
+        env:
+          GH_TOKEN: ${{ github.token }}
+      # npm (ergo-ai, ergo-ai-win32-x64): ask the user before the first real publish (ticket 318)
+      # - run: npm publish dist/release/npm/ergo-ai-win32-x64 --access public
+      # - run: npm publish dist/release/npm/ergo-ai --access public

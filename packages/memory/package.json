@@ -1,0 +1,32 @@
+{
+  "name": "@ergo/memory",
+  "version": "0.4.0",
+  "private": true,
+  "type": "module",
+  "description": "二狗的记忆系统：证据、知识图谱、推理图谱、混合检索、每晚整理、唯一写入口和图谱自检（守护进程的记忆插件用它）",
+  "license": "MIT",
+  "author": "ergo contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/catmaniii/ergo.git",
+    "directory": "packages/memory"
+  },
+  "homepage": "https://github.com/catmaniii/ergo#readme",
+  "bugs": {
+    "url": "https://github.com/catmaniii/ergo/issues"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@huggingface/transformers": "4.3.1"
+  },
+  "sideEffects": false
+}

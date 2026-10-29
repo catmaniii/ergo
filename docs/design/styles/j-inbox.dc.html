@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>J 复古杂志 · 待我处理</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;900&amp;family=Noto+Sans+SC:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#7A5F0E}a:hover{color:#171511}
+.root{--bg:#F3EFE4;--surface:#FBF8F1;--text:#171511;--muted:#5E584C;--accent:#D4A72C;--accent-ink:#171511;--accent-text:#7A5F0E;--rule:#171511;--rule-on:#F3EFE4;--warm:#B3261E;--warn-ink:#FFFFFF}
+.root.dark{--bg:#161411;--surface:#1F1C18;--text:#F1ECE0;--muted:#AFA796;--accent:#E2B33A;--accent-ink:#171511;--accent-text:#E2B33A;--rule:#F1ECE0;--rule-on:#161411;--warm:#FF8B7A;--warn-ink:#2A1210}
+.root button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;padding:0}
+.sans{font-family:'Noto Sans SC','PingFang SC',sans-serif}
+.hd{font-family:'Noto Serif SC','Songti SC',serif;font-weight:900}
+.ic{width:22px;height:22px;flex:none}
+.tab{flex:1;min-height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--muted);font-size:11px;letter-spacing:0.08em;position:relative}
+.tab.on{color:var(--text);font-weight:500}
+.tab.on::after{content:"";position:absolute;bottom:6px;width:24px;height:3px;background:var(--accent)}
+.lbl{font-family:'Noto Sans SC',sans-serif;font-size:11px;letter-spacing:0.14em;color:var(--muted)}
+.dbl{border-top:3px solid var(--rule);box-shadow:0 -5px 0 0 var(--bg),0 -6px 0 0 var(--rule)}
+.seg{min-height:44px;padding:0 2px;font-size:13px;letter-spacing:0.1em;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-3px}
+.seg.on{color:var(--text);font-weight:500;border-bottom-color:var(--accent)}
+.gh{display:flex;align-items:baseline;gap:10px;padding:12px 0 4px}
+.gh i{font-family:'Noto Serif SC',serif;font-weight:900;font-style:normal;font-size:22px;line-height:1;color:var(--accent-text)}
+.gh b{font-family:'Noto Serif SC',serif;font-weight:900;font-size:18px;line-height:1.1}
+.row{width:100%;text-align:left;display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid var(--rule)}
+.dot{width:8px;height:8px;margin-top:8px;flex:none;background:var(--warm)}
+.dot.read{background:transparent;border:1px solid var(--rule)}
+.row h3{margin:0;font-size:16px;font-weight:400;line-height:1.45}
+.row.unread h3{font-weight:900}
+.row p{margin:2px 0 0;font-family:'Noto Sans SC',sans-serif;font-size:12px;color:var(--muted);line-height:1.5;letter-spacing:0.02em}
+.kind{color:var(--accent-text);font-weight:500}
+</style>
+</helmet>
+<div class="root {{themeClass}}" style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); color: var(--text); font-family: 'Noto Serif SC', 'Songti SC', serif; font-size: 15px; line-height: 1.65; --accent: {{accent}}">
+
+  <header style="display: flex; flex-direction: column; gap: 8px; padding: 18px 20px 0; border-bottom: 3px solid var(--rule)">
+    <div class="lbl" style="display: flex; justify-content: space-between"><span>收件 · 3 未读 · 2 卡着任务</span><span>10 月 7 日</span></div>
+    <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 12px">
+      <h1 class="hd" style="margin: 0; font-size: 30px; line-height: 1.1">待我处理</h1>
+      <button type="button" class="sans" style="min-height: 44px; padding: 0 4px; font-size: 13px; font-weight: 500; letter-spacing: 0.08em; text-decoration: underline; text-underline-offset: 4px">全部标已读</button>
+    </div>
+    <div class="sans" style="display: flex; gap: 20px">
+      <button type="button" class="seg on" aria-pressed="true">待处理 6</button>
+      <button type="button" class="seg" aria-pressed="false">已处理 4</button>
+      <button type="button" class="seg" aria-pressed="false">已归档 2</button>
+    </div>
+  </header>
+
+  <main style="flex: 1; min-height: 0; overflow: hidden; padding: 0 20px; display: flex; flex-direction: column">
+    <div class="gh"><i>A</i><b>置顶</b><span class="lbl">到点的提醒</span></div>
+    <button type="button" class="row unread dbl" style="padding-top: 12px"><i class="dot" aria-label="未读"></i><span style="flex: 1; min-width: 0"><h3>该交房租了</h3><p><span class="kind">提醒</span> · 简单提醒 · 09:00</p></span></button>
+
+    <div class="gh"><i>B</i><b>卡住任务</b><span class="lbl">有时限</span></div>
+    <button type="button" class="row unread dbl" style="padding-top: 12px"><i class="dot" aria-label="未读"></i><span style="flex: 1; min-width: 0"><h3>批准一条命令：rsync --delete 到备份机</h3><p><span class="kind">审批</span> · 任务「家庭照片整理与去重」· 09:20</p></span></button>
+    <button type="button" class="row"><i class="dot read"></i><span style="flex: 1; min-width: 0"><h3>授权明天到期：移动重复照片</h3><p><span class="kind">授权到期续期</span> · 任务「家庭照片整理与去重」· 08:00</p></span></button>
+
+    <div class="gh"><i>C</i><b>卡住任务</b></div>
+    <button type="button" class="row unread dbl" style="padding-top: 12px"><i class="dot" aria-label="未读"></i><span style="flex: 1; min-width: 0"><h3>NAS 硬盘巡检卡住了：smartctl 读不到第 3 块盘</h3><p><span class="kind">卡住求助</span> · 任务「NAS 硬盘健康巡检」· 06:30</p></span></button>
+    <button type="button" class="row"><i class="dot read"></i><span style="flex: 1; min-width: 0"><h3>新设备请求配对：iPad</h3><p><span class="kind">配对请求</span> · 系统 · 昨天 22:14</p></span></button>
+
+    <div class="gh"><i>D</i><b>不卡任务</b></div>
+    <button type="button" class="row dbl" style="padding-top: 12px"><i class="dot read"></i><span style="flex: 1; min-width: 0"><h3>昨晚的备份没写进同步目录</h3><p><span class="kind">备份失败</span> · 系统 · 03:31</p></span></button>
+    <button type="button" class="row"><i class="dot read"></i><span style="flex: 1; min-width: 0"><h3>越界通知：维护者想读 ~/Documents</h3><p><span class="kind">越界通知</span> · 项目「记账本」· 昨天 20:05</p></span></button>
+  </main>
+
+  <nav aria-label="主导航" class="sans dbl" style="display: flex; padding: 0 6px 10px; margin-top: 6px">
+    <button type="button" class="tab"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-8 8H8l-4 3v-5.5A8 8 0 0 1 12 4h1a8 8 0 0 1 8 8z"/></svg><span>个人助理</span></button>
+    <button type="button" class="tab"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16"/><path d="m8 12 3 3 5-6"/></svg><span>任务</span></button>
+    <button type="button" class="tab"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>项目</span></button>
+    <button type="button" class="tab on" aria-current="page"><span style="position: relative; display: flex"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg><i style="position: absolute; top: -4px; right: -8px; min-width: 16px; height: 16px; padding: 0 4px; background: var(--warm); color: var(--warn-ink); font-size: 10px; font-weight: 500; font-style: normal; display: flex; align-items: center; justify-content: center">3</i></span><span>待我处理</span></button>
+    <button type="button" class="tab"><svg class="ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg><span>更多</span></button>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"accent":{"editor":"color","default":"#D4A72C","options":["#D4A72C","#E07A5F","#8FB6D9"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const dark = this.props.dark ?? false;
+    const picked = this.props.accent ?? '#D4A72C';
+    const accent = dark && picked.toUpperCase() === '#D4A72C' ? '#E2B33A' : picked;
+    return { themeClass: dark ? 'dark' : '', accent };
+  }
+}
+</script>
+</body>
+</html>

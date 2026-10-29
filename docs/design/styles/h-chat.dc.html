@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>H 像素小屋 · 个人助理聊天</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;family=Press+Start+2P&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#2F7A4F}a:hover{color:#1F5A38}
+.root{--bg:#E9F5E1;--surface:#FFFFFF;--ink:#2B3A2E;--text:#22302A;--muted:#53665A;--accent:#2F7A4F;--accent-ink:#FFFFFF;--accent-soft:#CFEBD8;--pink:#F2A7C1;--pink-ink:#3A1A28;--warm:#C9372C;--warn-ink:#FFFFFF;--code:#EEF6EA}
+.root.dark{--bg:#1B2430;--surface:#273242;--ink:#E6EEF5;--text:#E6EEF5;--muted:#A7B5C4;--accent:#7DD3A0;--accent-ink:#0F1F17;--accent-soft:#2F4A3D;--pink:#F2A7C1;--pink-ink:#3A1A28;--warm:#FF8A7A;--warn-ink:#2A1210;--code:#1B2430}
+.root button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;padding:0}
+.px{background:var(--surface);box-shadow:0 -3px 0 0 var(--ink),0 3px 0 0 var(--ink),3px 0 0 0 var(--ink),-3px 0 0 0 var(--ink)}
+.bit{font-family:'Press Start 2P','Noto Sans SC',monospace;font-size:9px;letter-spacing:0}
+.ic{width:22px;height:22px;flex:none}
+.tab{flex:1;min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--muted);font-size:11px;margin:3px}
+.tab.on{color:var(--accent-ink);background:var(--accent);box-shadow:0 -3px 0 0 var(--ink),0 3px 0 0 var(--ink),3px 0 0 0 var(--ink),-3px 0 0 0 var(--ink);font-weight:700}
+.bar{width:4px;background:currentColor}
+.chip{font-size:11px;font-weight:700;padding:2px 6px;background:var(--code);box-shadow:0 -2px 0 0 var(--ink),0 2px 0 0 var(--ink),2px 0 0 0 var(--ink),-2px 0 0 0 var(--ink);margin:2px}
+.name{display:inline-block;padding:0 6px;margin:0 3px;background:var(--accent-soft);color:var(--text);box-shadow:0 -2px 0 0 var(--ink),0 2px 0 0 var(--ink),2px 0 0 0 var(--ink),-2px 0 0 0 var(--ink);font-size:12px;font-weight:700;line-height:1.5;vertical-align:middle}
+</style>
+</helmet>
+<div class="root {{themeClass}}" style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; background-color: var(--bg); background-image: linear-gradient(rgba(43,58,46,0.06) 2px, transparent 2px), linear-gradient(90deg, rgba(43,58,46,0.06) 2px, transparent 2px); background-size: 16px 16px; color: var(--text); font-family: 'Noto Sans SC', 'PingFang SC', sans-serif; font-size: 15px; line-height: 1.5; --accent: {{accent}}">
+
+  <header class="px" style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 14px 15px 0; padding: 10px 14px">
+    <div style="display: flex; flex-direction: column; gap: 4px">
+      <div class="bit" style="color: var(--muted)">LV.2 ASSISTANT</div>
+      <h1 style="margin: 0; font-size: 18px; font-weight: 700; line-height: 1.2; display: flex; align-items: center; gap: 6px">个人助理 <span class="name">二狗</span></h1>
+    </div>
+    <button type="button" class="px" style="min-height: 40px; margin: 3px; padding: 0 12px; background: var(--accent); color: var(--accent-ink); font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 6px"><svg class="ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="width: 14px; height: 14px"><path d="M10 4h4v6h6v4h-6v6h-4v-6H4v-4h6z"/></svg>发起任务</button>
+  </header>
+
+  <main style="flex: 1; min-height: 0; overflow: hidden; padding: 20px 18px 10px; display: flex; flex-direction: column; gap: 20px">
+
+    <div style="display: flex; flex-direction: column; gap: 8px; max-width: 306px">
+      <div style="display: flex; gap: 8px; align-items: center; color: var(--muted)"><span class="name">二狗</span><span class="bit">08:00</span></div>
+      <div class="px" style="padding: 12px 14px; margin: 0 3px"><p style="margin: 0; text-wrap: pretty">早上好。今天有两件事等你：「家庭照片整理与去重」第 2 阶段有一条命令要你批准；「交房租」的提醒 9 点到。</p></div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px">
+      <div class="bit" style="color: var(--muted)">08:03</div>
+      <button type="button" class="px" aria-label="语音 6 秒，点一下播放，长按看更多" style="width: 240px; margin: 0 3px; text-align: left; background: var(--pink); color: var(--pink-ink); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px">
+        <span style="display: flex; align-items: center; gap: 10px">
+          <span style="width: 28px; height: 28px; background: var(--surface); box-shadow: 0 -2px 0 0 var(--ink), 0 2px 0 0 var(--ink), 2px 0 0 0 var(--ink), -2px 0 0 0 var(--ink); margin: 2px; display: flex; align-items: center; justify-content: center; flex: none; color: var(--ink)"><svg viewBox="0 0 24 24" aria-hidden="true" style="width: 14px; height: 14px"><path d="M7 4h4v2h2v2h2v2h2v2h2v2h-2v2h-2v2h-2v2h-2v2H7z" fill="currentColor"/></svg></span>
+          <span style="flex: 1; display: flex; align-items: flex-end; gap: 2px; height: 24px"><i class="bar" style="height: 8px"></i><i class="bar" style="height: 12px"></i><i class="bar" style="height: 20px"></i><i class="bar" style="height: 12px"></i><i class="bar" style="height: 16px"></i><i class="bar" style="height: 24px"></i><i class="bar" style="height: 16px"></i><i class="bar" style="height: 8px"></i><i class="bar" style="height: 16px"></i><i class="bar" style="height: 20px"></i><i class="bar" style="height: 12px"></i><i class="bar" style="height: 8px"></i><i class="bar" style="height: 12px"></i><i class="bar" style="height: 16px"></i><i class="bar" style="height: 8px"></i><i class="bar" style="height: 4px"></i></span>
+          <span class="bit">0:06</span>
+        </span>
+        <span style="display: block; border-top: 2px dashed var(--pink-ink); padding-top: 8px; font-size: 14px; line-height: 1.5">照片那个你先说说是什么命令，别急着删。</span>
+      </button>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <div style="display: flex; gap: 8px; align-items: center; color: var(--muted)"><span class="name">二狗</span><span class="bit">08:03</span></div>
+      <button type="button" class="px" aria-label="语音 12 秒，点一下播放，长按转文字" style="width: 272px; margin: 0 3px; text-align: left; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px">
+        <span style="display: flex; align-items: center; gap: 10px; color: var(--accent)">
+          <span style="width: 28px; height: 28px; background: var(--accent-soft); box-shadow: 0 -2px 0 0 var(--ink), 0 2px 0 0 var(--ink), 2px 0 0 0 var(--ink), -2px 0 0 0 var(--ink); margin: 2px; display: flex; align-items: center; justify-content: center; flex: none; color: var(--text)"><svg viewBox="0 0 24 24" aria-hidden="true" style="width: 14px; height: 14px"><path d="M7 4h4v2h2v2h2v2h2v2h2v2h-2v2h-2v2h-2v2h-2v2H7z" fill="currentColor"/></svg></span>
+          <span style="flex: 1; display: flex; align-items: flex-end; gap: 2px; height: 24px"><i class="bar" style="height: 8px"></i><i class="bar" style="height: 16px"></i><i class="bar" style="height: 20px"></i><i class="bar" style="height: 12px"></i><i class="bar" style="height: 8px"></i><i class="bar" style="height: 16px"></i><i class="bar" style="height: 24px"></i><i class="bar" style="height: 12px"></i><i class="bar" style="height: 20px"></i><i class="bar" style="height: 8px"></i><i class="bar" style="height: 12px"></i><i class="bar" style="height: 20px"></i><i class="bar" style="height: 8px"></i><i class="bar" style="height: 16px"></i><i class="bar" style="height: 12px"></i><i class="bar" style="height: 16px"></i><i class="bar" style="height: 8px"></i><i class="bar" style="height: 4px"></i><i class="bar" style="height: 12px"></i></span>
+          <span class="bit" style="color: var(--muted)">0:12</span>
+        </span>
+        <span style="display: block; border-top: 2px dashed var(--ink); padding-top: 6px; font-size: 12px; color: var(--muted)">语音回复 · 长按转文字</span>
+      </button>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <div style="display: flex; gap: 8px; align-items: center; color: var(--muted)"><span class="name">二狗</span><span class="bit">09:20</span></div>
+      <p style="margin: 0">守卫判定「先问我」，命令我先拦下了：</p>
+      <section class="px" aria-label="审批卡" style="margin: 0 3px; padding: 14px; display: flex; flex-direction: column; gap: 10px">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px">
+          <span class="bit" style="padding: 4px 6px; background: var(--accent); color: var(--accent-ink)">APPROVAL</span>
+          <span style="font-size: 11px; font-weight: 700; color: var(--warm)">先问我 · 卡住任务 · 有时限</span>
+        </div>
+        <div style="font-size: 14px; font-weight: 500; line-height: 1.45">任务「家庭照片整理与去重」· 第 2 阶段 · 找出重复并移进回收区</div>
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <div style="font-size: 12px; color: var(--muted)">通用 bash</div>
+          <code style="display: block; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 12px; line-height: 1.5; padding: 8px 10px; background: var(--code); border: 2px dashed var(--ink); word-break: break-all">rsync -av --delete /示例/相册/ 示例备份机:/相册/</code>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px"><span class="chip">删除或覆盖</span><span class="chip">越出项目目录</span></div>
+        <p style="margin: 0; font-size: 13px; color: var(--muted); line-height: 1.55">计划里授权的是「移进回收区」；这条命令会删掉备份端多出来的文件，超出了授权的对象范围。</p>
+        <div style="display: flex; gap: 12px; padding: 3px">
+          <button type="button" class="px" style="flex: 1; min-height: 42px; font-size: 14px; font-weight: 700">拒绝</button>
+          <button type="button" class="px" style="flex: 1.4; min-height: 42px; background: var(--accent); color: var(--accent-ink); font-size: 14px; font-weight: 700">批准这一次</button>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <form class="px" style="position: relative; display: flex; align-items: center; gap: 10px; margin: 0 15px; padding: 8px">
+    <button type="button" aria-label="附件" class="px" style="width: 40px; height: 40px; margin: 3px; background: var(--accent-soft); display: flex; align-items: center; justify-content: center; color: var(--text)"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="width: 16px; height: 16px"><path d="M10 4h4v6h6v4h-6v6h-4v-6H4v-4h6z"/></svg></button>
+    <div style="position: relative; flex: 1; min-width: 0; height: 44px">
+      <label for="h-msg" style="position: absolute; left: 6px; top: 0; height: 44px; display: flex; align-items: center; gap: 4px; color: var(--muted); font-size: 15px; pointer-events: none">和 <span class="name">二狗</span> 说…</label>
+      <input id="h-msg" type="text" style="width: 100%; height: 44px; box-sizing: border-box; padding: 0 6px; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 15px">
+    </div>
+    <button type="button" aria-label="切换到语音输入" class="px" style="width: 40px; height: 40px; margin: 3px; background: var(--accent); display: flex; align-items: center; justify-content: center; color: var(--accent-ink)"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="width: 16px; height: 16px"><path d="M9 3h6v10H9zM6 10h2v3h8v-3h2v5h-5v3h3v2H8v-2h3v-3H6z"/></svg></button>
+  </form>
+
+  <nav aria-label="主导航" class="px" style="display: flex; margin: 14px 15px 14px; padding: 2px 4px">
+    <button type="button" class="tab on" aria-current="page"><svg class="ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 4h16v12h-8l-4 4v-4H4z"/></svg><span>个人助理</span></button>
+    <button type="button" class="tab"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><rect x="4" y="4" width="16" height="16"/><path d="m8 12 3 3 5-6"/></svg><span>任务</span></button>
+    <button type="button" class="tab"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M3 5h6l2 2h10v13H3z"/></svg><span>项目</span></button>
+    <button type="button" class="tab"><span style="position: relative; display: flex"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20h4"/></svg><i class="bit" style="position: absolute; top: -6px; right: -10px; min-width: 18px; height: 18px; padding: 0 4px; background: var(--warm); color: var(--warn-ink); font-style: normal; display: flex; align-items: center; justify-content: center">3</i></span><span>待我处理</span></button>
+    <button type="button" class="tab"><svg class="ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="3" y="10" width="4" height="4"/><rect x="10" y="10" width="4" height="4"/><rect x="17" y="10" width="4" height="4"/></svg><span>更多</span></button>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"accent":{"editor":"color","default":"#2F7A4F","options":["#2F7A4F","#2563A8","#9A3F8C"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const dark = this.props.dark ?? false;
+    const picked = this.props.accent ?? '#2F7A4F';
+    const accent = dark && picked.toUpperCase() === '#2F7A4F' ? '#7DD3A0' : picked;
+    return { themeClass: dark ? 'dark' : '', accent };
+  }
+}
+</script>
+</body>
+</html>

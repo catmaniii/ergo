@@ -1,0 +1,618 @@
+// 工具注册表（规格第 9 节、第 21 节）：每个工具登记类别标签、参数规则，以及可选的
+// "做完告诉我"、"只读或幂等"标记和是否联网。注册表是数据，判定时作为输入传进来。
+//
+// 登记的工具有几种来源：
+// - builtin：pi 自带的文件工具和 bash（bash 本身不按标签判，而是拆成伪工具调用逐个判）；
+// - typed_shell：带类型的特殊 bash 工具（守护进程代为执行，实现在 typed-shell/），类别和"做完告诉我"照 28 号票的登记表；
+// - web：联网搜索、读网页（守护进程代为执行，实现在 web/，70 号票）：只看、只往下拉，不落入任何类别，联网开关关着时拒绝；
+// - mcp：MCP 工具（27 号票登记），用 registerTools 加进来；
+// - host：守护进程代为执行的工具（秘书只产生卡片的工具、读取附件……），由拉起 agent 的模块随工具一起登记；
+// - runtime：会话的运行时自带、二狗没装配的工具（288 号票：Claude Code 的 TodoWrite、Agent、Skill、AskUserQuestion……），由运行时登记
+//   （runtime/runtimes.ts 的 AgentRuntime.guardTools）；运行时能对上二狗工具的（Bash → bash、Read → read……）由子进程映射过来，不在这里；
+// - pseudo：从通用 bash 拆出来的伪工具调用。带类型的工具和 bash 里的同一操作同名、参数名相同
+//   （比如 `git push` 拆出来就是 git_push），这样授权项、自定义类别和 05 号票的时序规则对两者一视同仁。
+//   伪工具只能由守卫拆 bash 得到，模型直接调用同名工具时按未登记的工具处理。
+//
+// 参数规则的写法和 planguard 场景文件里 `tools.<工具>.args.<参数>` 兼容（pattern、type、list），
+// 另加二狗自己的 kind、access 等字段，05 号票的参数名统一建在这上面。
+import { t } from "@ergo/protocol";
+import type { BottomLineId, BuiltinCategoryId } from "./watch-categories.ts";
+
+/**
+ * 参数的种类：
+ * - path：路径，按 access 过路径围栏和受保护区域；
+ * - recipient：收件人；content：对外内容（"不重复发"比的就是它）；url：网址；amount：金额；
+ * - http_method：HTTP 请求方法，非 GET 的请求落入"以我的名义对外发送或发布"；
+ * - command：shell 命令（只有 bash 的 command）；
+ * - other：其他。
+ */
+export const ARG_KINDS = ["path", "recipient", "content", "url", "amount", "http_method", "command", "other"] as const;
+export type ArgKind = (typeof ARG_KINDS)[number];
+
+/** 路径参数怎样碰这个路径。unknown：拆出来的命令不知道读还是写，按写算 */
+export const PATH_ACCESSES = ["read", "write", "delete", "unknown"] as const;
+export type PathAccess = (typeof PATH_ACCESSES)[number];
+
+/** planguard 兼容：参数值的类型 */
+export const ARG_VALUE_TYPES = ["string", "number", "boolean", "array"] as const;
+
+export interface ArgRule {
+  kind: ArgKind;
+  /** 路径参数：读、写、删，或不知道 */
+  access?: PathAccess;
+  /** 路径参数：整个替换目标文件的内容（目标已存在时算覆盖） */
+  replaces?: boolean;
+  /** 路径参数：不填时取 agent 的工作目录 */
+  defaultsToCwd?: boolean;
+  /** planguard 兼容：值必须匹配的正则 */
+  pattern?: string;
+  /** planguard 兼容：值的类型 */
+  type?: (typeof ARG_VALUE_TYPES)[number];
+  /** planguard 兼容：可以是一组值 */
+  list?: boolean;
+  /**
+   * 请求带出去的数据（HTTP 请求的正文、表单、上传的文件）：有值时这次请求是往外送东西，不是只读的请求
+   * （v1 模板"读过密钥之后不许往外送"用，见 rule-steps.ts 的 outward）
+   */
+  payload?: boolean;
+  /**
+   * 大段内容（写入的全文、编辑的新旧片段）：效果日志里不存原文，只存长度和摘要哈希（68 号票，effect-log.ts 的 effectLogArgs）。
+   * 时序规则读到它是"未知"，规则校验不许 $prior 读它；授权项计次按哈希比（grants.ts）
+   */
+  bulk?: boolean;
+  description?: string;
+}
+
+/**
+ * 一个路径参数会不会删除或整体重写它指向的东西。v1 模板"删除或覆盖前须已备份或已提交"、"删除或覆盖"类别、
+ * 项目档案的自动留旧版本（15 号票）认的都是这一份：
+ * - delete：删除它；
+ * - tagged：带"删除或覆盖"标签的工具（丢弃 git 改动）不是只读的路径；
+ * - overwrite：整体重写——它已经存在时才算（写，并且整个替换目标的内容）；
+ * - undefined：不删也不整体重写（读、局部编辑、写新东西）。
+ */
+export type PathReplacement = "delete" | "tagged" | "overwrite";
+
+export function pathReplacement(tool: Pick<ToolDescriptor, "categories">, rule: ArgRule): PathReplacement | undefined {
+  if (rule.kind !== "path") return undefined;
+  const access = rule.access ?? "unknown";
+  if (access === "delete") return "delete";
+  if (tool.categories.includes("delete_or_overwrite") && access !== "read") return "tagged";
+  if (access === "write" && rule.replaces === true) return "overwrite";
+  return undefined;
+}
+
+export type ToolSource = "builtin" | "typed_shell" | "web" | "mcp" | "host" | "runtime" | "pseudo";
+
+export interface ToolDescriptor {
+  name: string;
+  /** 中文名：说明和审批卡里用 */
+  title: string;
+  source: ToolSource;
+  /** 类别标签 */
+  categories: readonly BuiltinCategoryId[];
+  /** 底线标签：付款转账、创建账户、改密码或两步验证 */
+  bottomLines?: readonly BottomLineId[];
+  /** 参数规则 */
+  args: Readonly<Record<string, ArgRule>>;
+  /** "做完告诉我"：没有类别、但值得一提的操作 */
+  notifyWhenDone?: boolean;
+  /**
+   * "只读或幂等"：被打断后可以直接重跑（被杀后的恢复用，23 号票：被中断时由模型决定要不要重做；没标的转给用户确认）。
+   * 流程执行时的计划检查也看它（59 号票）：计划外的调用标了的只记下，没标的（会改东西的）问用户。别的守卫判定不看它。
+   * 从严：会改工作目录、产物或依赖的（跑测试、构建、装依赖）都不标。
+   */
+  readOnlyOrIdempotent?: boolean;
+  /**
+   * 这类工具做的事是什么性质（54 号票：一次工具调用做了什么性质的事，guard/nature.ts；会话缩小后工具色块按它分深浅）：
+   * - look 只看：不改任何东西、不往外送；
+   * - modify 删改：改了或去掉了原有的东西（改提醒、取消提醒、自行调整计划、整份换掉进展）。
+   * 不写的按路径参数和 modifiesWith 看，多半是动手（只新增、不碰已有的）。不参与守卫判定。
+   * 和"只读或幂等"不是一回事：写进展、宣布开始某个阶段是幂等的，但改了东西，不算只看
+   */
+  nature?: "look" | "modify";
+  /** 给了这些参数（true 或非空数组）时算删改（54 号票，guard/nature.ts）：强推的 force、增减 skill 的 remove */
+  modifiesWith?: readonly string[];
+  /**
+   * 被打断后由执行控制器负责恢复（23 号票）：被杀、子进程意外退出时它正在执行，也不当成"说不清做没做完"、不转给用户确认，
+   * 控制器重启后自己处理（比如"宣布阶段完成"：验收做到一半的阶段交回维护者再宣布一次，13 号票）。和"只读或幂等"无关
+   */
+  recoveredByController?: boolean;
+  /** 要联网：联网开关关着时直接拒绝 */
+  network?: boolean;
+  /**
+   * 只往下拉：联网只为取回东西（下载、装依赖、git pull / fetch / clone、只读的联网命令），不把内容往外送。
+   * 只在 v1 模板"读过密钥之后不许往外送"里用（rule-steps.ts 的 outward），不改变联网开关和关注类别的判定；
+   * 没标的联网工具按往外送算。HTTP 请求不标，按方法和有没有带数据算；标了的工具带了 payload 参数时也算往外送
+   */
+  pullOnly?: boolean;
+  /**
+   * 会把参数里的内容发给参数里的收件人或网址（发邮件、发 HTTP 请求、推送……）："不重复发"按它和收件人、网址参数认对外发送。
+   * 只往下拉的工具不标。会不会联网另看 usesNetwork
+   */
+  outbound?: boolean;
+  /**
+   * 参数要打码（280 号票）：工具自己声明参数里套着别的接口的参数、可能带着密钥（秘书带参调 MCP 的 mcp_call、调项目的操作的 project_ops）。
+   * 给人看的参数摘要（guard-runtime/describe.ts 的 summarizeArgs：聊天里的工具调用记录、审批卡、"交给我做"、中断的说明、清掉完整内容后
+   * 剩的摘要）先擦掉名字看着是密钥的、像密钥的值（secrets.ts 的 maskSecretArgValues）。只影响给人看的写法，不参与守卫判定
+   */
+  maskArgs?: boolean;
+}
+
+// 几个容易混的说法（规格第 9 节）：
+// - usesNetwork(tool)：会联网的工具，不管方向（标了 network、outbound，或带"以我的名义对外发送"标签）。
+//   联网开关、"对外内容不许含密钥"（secrets.ts）看它；规则里的 $current.sends 是它，加上跑脚本看扫描结果；
+// - outbound（登记）：会把内容发给收件人或网址，"不重复发"看它；
+// - 往外送（规则里的 $current.outward，rule-steps.ts）：联网调用里不是只往下拉的那些，"读过密钥之后不许往外送"看它；
+// - 往下拉：pullOnly 的工具和只读的请求（isReadOnlyRequest）。
+
+/** 工具注册表：工具名 → 登记 */
+export type ToolRegistry = Readonly<Record<string, ToolDescriptor>>;
+
+/** 守卫自己要认的工具名：pi 工具、带类型的工具、伪工具（程序表和判定函数都用这些常量） */
+export const TOOL = Object.freeze({
+  // pi 自带
+  read: "read",
+  write: "write",
+  edit: "edit",
+  ls: "ls",
+  grep: "grep",
+  find: "find",
+  bash: "bash",
+  // 带类型的特殊 bash 工具
+  git_status_diff: "git_status_diff",
+  git_commit: "git_commit",
+  git_merge: "git_merge",
+  git_push: "git_push",
+  create_remote_repo: "create_remote_repo",
+  run_tests: "run_tests",
+  install_deps: "install_deps",
+  start_build: "start_build",
+  // 联网工具（70 号票）
+  web_search: "web_search",
+  web_fetch: "web_fetch",
+  // 伪工具
+  delete: "delete",
+  move: "move",
+  copy: "copy",
+  make_dir: "make_dir",
+  git_discard: "git_discard",
+  git_rewrite: "git_rewrite",
+  git_fetch: "git_fetch",
+  http_request: "http_request",
+  browse: "browse",
+  network_read: "network_read",
+  run_package: "run_package",
+  network_command: "network_command",
+  github_write: "github_write",
+  publish_package: "publish_package",
+  install_global: "install_global",
+  account_command: "account_command",
+  account_change: "account_change",
+  run_script: "run_script",
+  shell_command: "shell_command",
+  opaque_shell: "opaque_shell",
+} as const);
+
+/** 框架自带的工具：名字（给人看的，审批卡、工具调用记录、说明里用）按当前语言现取（173 号票，key 是 guard.tools.<工具名>） */
+type UntitledTool = Omit<ToolDescriptor, "title">;
+const titled = (tool: UntitledTool): ToolDescriptor =>
+  Object.defineProperty({ ...tool }, "title", { enumerable: true, get: () => t(`guard.tools.${tool.name}`) }) as ToolDescriptor;
+
+const path = (access: PathAccess, extra: Partial<ArgRule> = {}): ArgRule => ({ kind: "path", access, ...extra });
+const other: ArgRule = { kind: "other" };
+const content: ArgRule = { kind: "content" };
+
+/** pi 自带的工具（参数名照 pi 1.0.4 的工具 schema） */
+const PI_TOOLS: UntitledTool[] = [
+  { name: TOOL.read, source: "builtin", categories: [], args: { path: path("read") }, readOnlyOrIdempotent: true, nature: "look" },
+  {
+    name: TOOL.write,
+    source: "builtin",
+    categories: [],
+    args: { path: path("write", { replaces: true }), content: { kind: "content", bulk: true } },
+  },
+  {
+    name: TOOL.edit,
+    source: "builtin",
+    categories: [],
+    // append：只往末尾追加（bash 的 >>、tee -a 拆出来的带上），不碰原有的内容
+    args: { path: path("write"), edits: { kind: "other", bulk: true }, append: { kind: "other", type: "boolean" } },
+  },
+  {
+    name: TOOL.ls,
+    source: "builtin",
+    categories: [],
+    args: { path: path("read", { defaultsToCwd: true }) },
+    readOnlyOrIdempotent: true,
+    nature: "look",
+  },
+  {
+    name: TOOL.grep,
+    source: "builtin",
+    categories: [],
+    args: { pattern: other, path: path("read", { defaultsToCwd: true }) },
+    readOnlyOrIdempotent: true,
+    nature: "look",
+  },
+  {
+    name: TOOL.find,
+    source: "builtin",
+    categories: [],
+    args: { pattern: other, path: path("read", { defaultsToCwd: true }) },
+    readOnlyOrIdempotent: true,
+    nature: "look",
+  },
+  { name: TOOL.bash, source: "builtin", categories: [], args: { command: { kind: "command" }, timeout: other } },
+];
+
+/** 带类型的特殊 bash 工具（守护进程代为执行，实现在 typed-shell/）。"只读或幂等"只有状态和差异 */
+const TYPED_SHELL_TOOLS: UntitledTool[] = [
+  {
+    name: TOOL.git_status_diff,
+    source: "typed_shell",
+    categories: [],
+    args: { repoPath: path("read", { defaultsToCwd: true }), paths: path("read") },
+    readOnlyOrIdempotent: true,
+    nature: "look",
+  },
+  {
+    name: TOOL.git_commit,
+    source: "typed_shell",
+    categories: [],
+    // amend：改掉上一个提交（通用 bash 的 git commit --amend 拆出来的带上；带类型的提交工具没有这个参数）
+    args: { repoPath: path("write", { defaultsToCwd: true }), message: content, paths: path("write"), amend: { kind: "other", type: "boolean" } },
+    notifyWhenDone: true,
+    modifiesWith: ["amend"],
+  },
+  {
+    name: TOOL.git_merge,
+    source: "typed_shell",
+    categories: [],
+    args: { repoPath: path("write", { defaultsToCwd: true }), branch: other },
+    notifyWhenDone: true,
+  },
+  {
+    name: TOOL.git_push,
+    source: "typed_shell",
+    categories: ["external_send"],
+    args: {
+      repoPath: path("write", { defaultsToCwd: true }),
+      remote: other,
+      branch: other,
+      force: { kind: "other", type: "boolean" },
+      // 删远端的分支或标签（git push --delete、-d、:分支、--prune 拆出来的带上；带类型的推送工具没有这个参数）
+      delete: { kind: "other", type: "boolean" },
+      // 推送的内容：守卫在规范化时按 git 状态补上（不是模型传的参数），v1 模板"不重复发"用
+      headCommit: { kind: "content", description: "推送时 HEAD 的提交号（守卫按 git 状态补上）" }, // @i18n-ignore model：参数说明给模型看
+    },
+    network: true,
+    outbound: true,
+    // 强推改写远端原有的提交，删远端分支去掉原有的
+    modifiesWith: ["force", "delete"],
+  },
+  {
+    name: TOOL.create_remote_repo,
+    source: "typed_shell",
+    categories: ["external_send"],
+    args: { repoPath: path("write", { defaultsToCwd: true }), name: other, visibility: other, description: content },
+    network: true,
+    outbound: true,
+  },
+  {
+    name: TOOL.run_tests,
+    source: "typed_shell",
+    categories: [],
+    args: { repoPath: path("write", { defaultsToCwd: true }), args: other },
+  },
+  {
+    name: TOOL.install_deps,
+    source: "typed_shell",
+    categories: [],
+    args: { repoPath: path("write", { defaultsToCwd: true }), packages: other, dev: { kind: "other", type: "boolean" } },
+    notifyWhenDone: true,
+    network: true,
+    pullOnly: true,
+  },
+  {
+    name: TOOL.start_build,
+    source: "typed_shell",
+    categories: [],
+    args: { repoPath: path("write", { defaultsToCwd: true }), args: other },
+  },
+];
+
+/**
+ * 联网工具（70 号票，守护进程代为执行，实现在 web/）：联网搜索返回标题、链接、摘要，读网页取正文纯文本。
+ * 只看（只读或幂等、不落入任何类别）、只往下拉（读过密钥之后照常能用）；要联网，联网开关关着时拒绝。
+ * 查询词、网址都是发出去的东西："对外内容不许含密钥"（底线）照样查它们（outboundTextOf：会联网的工具除路径以外的全部参数）
+ */
+const WEB_TOOLS: UntitledTool[] = [
+  {
+    name: TOOL.web_search,
+    source: "web",
+    categories: [],
+    args: {
+      query: { kind: "content", type: "string", description: "查询词：发给搜索引擎（或 Tavily）的词" }, // @i18n-ignore model：参数说明给模型看
+      n: { kind: "other", type: "number", description: "最多几条结果" }, // @i18n-ignore model：参数说明给模型看
+      time: { kind: "other", type: "string", description: "只要最近一段时间的：d 一天、w 一周、m 一个月、y 一年" }, // @i18n-ignore model：参数说明给模型看
+      engine: { kind: "other", type: "string", description: "只用这个搜索引擎：bing、google、ddg" }, // @i18n-ignore model：参数说明给模型看
+      region: { kind: "other", type: "string", description: "地区和语言，比如 cn-zh" }, // @i18n-ignore model：参数说明给模型看
+      tavily: { kind: "other", type: "boolean", description: "用 Tavily 搜（Tavily 的 key 由守护进程带上，不在参数里）" }, // @i18n-ignore model：参数说明给模型看
+      json: { kind: "other", type: "boolean", description: "结果写成 JSON" }, // @i18n-ignore model：参数说明给模型看
+    },
+    readOnlyOrIdempotent: true,
+    nature: "look",
+    network: true,
+    pullOnly: true,
+  },
+  {
+    name: TOOL.web_fetch,
+    source: "web",
+    categories: [],
+    args: {
+      url: { kind: "url", type: "string", pattern: "^https?://" },
+      max: { kind: "other", type: "number", description: "正文最多交回多少字" }, // @i18n-ignore model：参数说明给模型看
+    },
+    readOnlyOrIdempotent: true,
+    nature: "look",
+    network: true,
+    pullOnly: true,
+  },
+];
+
+/**
+ * 从通用 bash 拆出来的伪工具（和带类型的工具、pi 工具同名的那些直接复用上面的登记）。
+ * 删除、覆盖是按路径算的：删除类路径参数、或整个替换内容的写入参数落在项目档案和工作目录内，
+ * 才落入"删除或覆盖"（见判定函数）。
+ */
+const PSEUDO_TOOLS: UntitledTool[] = [
+  { name: TOOL.delete, source: "pseudo", categories: [], args: { path: path("delete"), recursive: other } },
+  {
+    name: TOOL.move,
+    source: "pseudo",
+    categories: [],
+    args: { from: path("delete"), to: path("write", { replaces: true }) },
+  },
+  { name: TOOL.copy, source: "pseudo", categories: [], args: { from: path("read"), to: path("write", { replaces: true }) } },
+  { name: TOOL.make_dir, source: "pseudo", categories: [], args: { path: path("write") } },
+  {
+    name: TOOL.git_discard,
+    source: "pseudo",
+    categories: ["delete_or_overwrite"],
+    args: { repoPath: path("write", { defaultsToCwd: true }), command: content },
+  },
+  {
+    // 54 号票评审：改写提交历史、删改分支和标签（变基、把分支挪到别的提交、删分支、改分支名、删标签、filter-branch）。
+    // 不丢工作目录里没提交的改动，所以不带"删除或覆盖"标签（不触发 v1 模板"删除或覆盖之前必须已提交"）；守卫照常按路径判。
+    // 做了什么性质的事是删改（guard/nature.ts）
+    name: TOOL.git_rewrite,
+    source: "pseudo",
+    categories: [],
+    args: { repoPath: path("write", { defaultsToCwd: true }), command: content },
+    nature: "modify",
+  },
+  {
+    name: TOOL.git_fetch,
+    source: "pseudo",
+    categories: [],
+    args: { repoPath: path("write", { defaultsToCwd: true }), remote: other, url: { kind: "url" } },
+    network: true,
+    pullOnly: true,
+  },
+  {
+    name: TOOL.http_request,
+    source: "pseudo",
+    categories: [],
+    args: {
+      method: { kind: "http_method" },
+      url: { kind: "url" },
+      data: {
+        kind: "content",
+        list: true,
+        payload: true,
+        description: "带的数据或上传的文件（curl 的 -d、--data*、--json、-F、-T，wget 的 --post-*、--body-*，httpie 的数据项，PowerShell 的 -Body、-InFile、-Form）", // @i18n-ignore model：参数说明给模型看
+      },
+      command: content,
+    },
+    network: true,
+    outbound: true,
+  },
+  {
+    // 139 号票：agent-browser 这类浏览器工具的命令里写着网址的，另拆一条（命令本身照旧是一条"其他命令"）。不落入任何类别、不标联网
+    // （和原来一样，浏览器工具不归联网开关管）；打开的是二狗自己的页面时判定函数另判"以我的名义对外发送或发布"（防的是打开二狗的
+    // 页面去点卡片上的按钮）
+    name: TOOL.browse,
+    source: "pseudo",
+    categories: [],
+    args: { program: other, url: { kind: "url", list: true, description: "命令里写着的网址" }, command: content }, // @i18n-ignore model：参数说明给模型看
+  },
+  {
+    name: TOOL.network_read,
+    source: "pseudo",
+    categories: [],
+    args: {
+      program: other,
+      // 方法写成 GET 的 gh api 带的字段（-f、-F、--raw-field、--field、--input）：带了就是往外送
+      data: { kind: "content", list: true, payload: true, description: "gh api 带的字段或输入文件" }, // @i18n-ignore model：参数说明给模型看
+      command: content,
+    },
+    network: true,
+    pullOnly: true,
+    // 带了字段或输入文件的是往外送，算动手（guard/nature.ts 另查 payload）
+    nature: "look",
+  },
+  {
+    name: TOOL.run_package,
+    source: "pseudo",
+    categories: [],
+    args: { program: other, package: other, command: content },
+    network: true,
+  },
+  {
+    name: TOOL.network_command,
+    source: "pseudo",
+    categories: ["external_send"],
+    args: { program: other, command: content },
+    network: true,
+    outbound: true,
+  },
+  {
+    name: TOOL.github_write,
+    source: "pseudo",
+    categories: ["external_send"],
+    args: { command: content },
+    network: true,
+    outbound: true,
+  },
+  {
+    name: TOOL.publish_package,
+    source: "pseudo",
+    categories: ["external_send", "irreversible_commit"],
+    args: { program: other, command: content },
+    network: true,
+    outbound: true,
+  },
+  {
+    name: TOOL.install_global,
+    source: "pseudo",
+    categories: ["account_security"],
+    args: { program: other, packages: other },
+    network: true,
+    pullOnly: true,
+  },
+  {
+    name: TOOL.account_command,
+    source: "pseudo",
+    categories: ["account_security"],
+    args: { program: other, command: content },
+  },
+  {
+    name: TOOL.account_change,
+    source: "pseudo",
+    categories: ["account_security"],
+    bottomLines: ["payment_account_auth"],
+    args: { program: other, command: content },
+  },
+  {
+    name: TOOL.run_script,
+    source: "pseudo",
+    categories: [],
+    args: { interpreter: other, path: path("read") },
+  },
+  {
+    name: TOOL.shell_command,
+    source: "pseudo",
+    categories: [],
+    args: { program: other, paths: path("unknown") },
+  },
+  {
+    name: TOOL.opaque_shell,
+    source: "pseudo",
+    categories: ["unknown_write"],
+    args: { reason: other, command: content },
+  },
+];
+
+/** 框架自带的工具注册表 */
+export const BUILTIN_TOOL_REGISTRY: ToolRegistry = buildRegistry([...PI_TOOLS, ...TYPED_SHELL_TOOLS, ...WEB_TOOLS, ...PSEUDO_TOOLS].map(titled));
+
+/**
+ * 这份登记就是框架自带注册表里的那一份（带类型的 bash 工具、联网工具：守护进程代为执行，登记却在框架里）：
+ * 会话的注册表由框架自带的加上代为执行的工具的登记拼成，这几样不用再加一遍
+ */
+export function isBuiltinDescriptor(tool: ToolDescriptor): boolean {
+  return BUILTIN_TOOL_REGISTRY[tool.name] === tool;
+}
+
+/**
+ * 只读的 HTTP 方法：不落入"以我的名义对外发送"，也不算"重复发"。规范化之后的方法是大写的
+ * （时序规则里直接拿 $current.args.method 和这张表比，见 rule-templates.ts）
+ */
+export const READ_ONLY_HTTP_METHODS: readonly string[] = Object.freeze(["GET", "HEAD", "OPTIONS"]);
+
+/** 是不是只读的 HTTP 方法（不分大小写；不是字符串的不算） */
+export function isReadOnlyMethod(method: unknown): boolean {
+  return typeof method === "string" && READ_ONLY_HTTP_METHODS.includes(method.toUpperCase());
+}
+
+/**
+ * 只读的请求：有请求方法参数、方法都是只读的（不填不算），也没带数据或上传（payload 参数没有值）。
+ * 关注类别只看方法（judge.ts 的 httpMethodRule），往下拉还要看有没有带数据（rule-steps.ts 的 outward）
+ */
+export function isReadOnlyRequest(tool: ToolDescriptor, args: Readonly<Record<string, unknown>>): boolean {
+  const methods = Object.entries(tool.args).filter(([, rule]) => rule.kind === "http_method");
+  if (methods.length === 0 || !methods.every(([name]) => isReadOnlyMethod(args[name]))) return false;
+  return !carriesPayload(tool, args);
+}
+
+/** 带了请求数据：payload 参数有值 */
+export function carriesPayload(tool: ToolDescriptor, args: Readonly<Record<string, unknown>>): boolean {
+  return Object.entries(tool.args).some(([name, rule]) => {
+    const v = args[name];
+    return rule.payload === true && (Array.isArray(v) ? v.length > 0 : v !== undefined && v !== null && v !== "");
+  });
+}
+
+/** 按名字找工具；没登记时为 undefined */
+export function findTool(registry: ToolRegistry, name: string): ToolDescriptor | undefined {
+  return Object.hasOwn(registry, name) ? registry[name] : undefined;
+}
+
+/** 会联网的工具，不管往外送还是往下拉：标了要联网的、会把内容发给别人的、带"以我的名义对外发送"标签的 */
+export function usesNetwork(tool: ToolDescriptor): boolean {
+  return tool.network === true || tool.outbound === true || tool.categories.includes("external_send");
+}
+
+/**
+ * 这次调用是不是往外送（84 号票："对外"只有这一个口径——计划卡授权说法的 outward 拿授权项的对象范围当参数问它，
+ * 阶段详情、重做前列出的已经做了的事拿效果日志里的参数问它）：会联网，并且带了请求数据，或者不是只往下拉的
+ * （推送、发消息、建远端仓库、非只读的请求……）
+ */
+export function sendsOut(tool: ToolDescriptor, args: Readonly<Record<string, unknown>>): boolean {
+  return usesNetwork(tool) && (carriesPayload(tool, args) || !(tool.pullOnly === true || isReadOnlyRequest(tool, args)));
+}
+
+/**
+ * 调用里某几种参数的全部 [参数名, 值]：数组参数展开，空值跳过。
+ * kinds 是要的参数种类；写成 `{ except: [...] }` 时是除这几种以外的全部登记过的参数
+ */
+export function argEntriesOf(
+  tool: ToolDescriptor,
+  args: Readonly<Record<string, unknown>>,
+  kinds: readonly ArgKind[] | { except: readonly ArgKind[] },
+): [string, unknown][] {
+  const wanted = (kind: ArgKind) => ("except" in kinds ? !kinds.except.includes(kind) : kinds.includes(kind));
+  const entries: [string, unknown][] = [];
+  for (const [name, rule] of Object.entries(tool.args)) {
+    if (!wanted(rule.kind) || !Object.hasOwn(args, name)) continue;
+    const v = args[name];
+    if (Array.isArray(v)) for (const x of v) entries.push([name, x]);
+    else if (v !== undefined && v !== null) entries.push([name, v]);
+  }
+  return entries;
+}
+
+/** 说明里怎么称呼一次调用：bash 里的那段命令原文，或者工具的中文名加工具名 */
+export function describeCall(call: { tool: string; origin: "tool" | "shell"; text?: string }, tool: ToolDescriptor | undefined): string {
+  if (call.origin === "shell") return t("guard.describe.shell", { text: call.text ?? call.tool });
+  return tool ? t("guard.describe.tool", { title: tool.title, tool: call.tool }) : call.tool;
+}
+
+/** 往注册表里加工具（MCP 工具、测试用工具），返回新的注册表；重名时报错 */
+export function registerTools(registry: ToolRegistry, ...tools: ToolDescriptor[]): ToolRegistry {
+  for (const tool of tools) {
+    if (findTool(registry, tool.name)) throw new Error(`工具注册表里已经有 ${tool.name}`); // @i18n-ignore log：编程错误
+  }
+  return buildRegistry([...Object.values(registry), ...tools]);
+}
+
+function buildRegistry(tools: ToolDescriptor[]): ToolRegistry {
+  const out: Record<string, ToolDescriptor> = {};
+  for (const tool of tools) {
+    if (Object.hasOwn(out, tool.name)) throw new Error(`工具注册表里 ${tool.name} 重复`); // @i18n-ignore log：编程错误
+    // 照原样复制属性（取值函数也照搬：名字按当前语言现取，173 号票）
+    out[tool.name] = Object.freeze(Object.defineProperties({}, Object.getOwnPropertyDescriptors(tool)) as ToolDescriptor);
+  }
+  return Object.freeze(out);
+}

@@ -1,0 +1,128 @@
+{
+  "kind": "runtime",
+  "scenario": "travel",
+  "from_review": "travel/evening.json",
+  "name": "按审查后的计划执行：拦截顺序错误、重复改签、时间不对的约车、计划外的航班",
+  "calls": [
+    {
+      "tool": "trip_list",
+      "args": {},
+      "expect": {
+        "verdict": "allow",
+        "kinds": []
+      }
+    },
+    {
+      "tool": "ride_cancel",
+      "args": {
+        "id": "bk_ride"
+      },
+      "commit": false,
+      "expect": {
+        "verdict": "confirm",
+        "kinds": [
+          "rule:T2"
+        ]
+      }
+    },
+    {
+      "tool": "flight_change",
+      "args": {
+        "flightNo": "HU7802",
+        "expectedFee": 260
+      },
+      "commit": false,
+      "expect": {
+        "verdict": "confirm",
+        "kinds": [
+          "out_of_order",
+          "rule:T1"
+        ]
+      }
+    },
+    {
+      "tool": "flight_search",
+      "args": {
+        "date": "2026-09-19",
+        "after": "18:00"
+      },
+      "expect": {
+        "verdict": "allow",
+        "kinds": []
+      }
+    },
+    {
+      "tool": "flight_change",
+      "args": {
+        "flightNo": "HU7802",
+        "expectedFee": 260
+      },
+      "expect": {
+        "verdict": "allow",
+        "kinds": []
+      }
+    },
+    {
+      "tool": "flight_change",
+      "args": {
+        "flightNo": "HU7802",
+        "expectedFee": 260
+      },
+      "expect": {
+        "verdict": "block",
+        "kinds": [
+          "repeat"
+        ]
+      }
+    },
+    {
+      "tool": "ride_book",
+      "args": {
+        "time": "23:00",
+        "from": "北京首都",
+        "to": "国贸雅辰酒店"
+      },
+      "commit": false,
+      "expect": {
+        "verdict": "confirm",
+        "kinds": [
+          "rule:T6"
+        ]
+      }
+    },
+    {
+      "tool": "ride_book",
+      "args": {
+        "time": "00:00+1",
+        "from": "北京首都",
+        "to": "国贸雅辰酒店"
+      },
+      "expect": {
+        "verdict": "allow",
+        "kinds": []
+      }
+    },
+    {
+      "tool": "flight_change",
+      "args": {
+        "flightNo": "MU5312",
+        "expectedFee": 100
+      },
+      "commit": false,
+      "expect": {
+        "verdict": "confirm",
+        "kinds": [
+          "out_of_scope",
+          "rule:T7"
+        ]
+      }
+    }
+  ],
+  "expect_end": {
+    "skipped": [
+      "s2",
+      "s4",
+      "s5"
+    ]
+  }
+}

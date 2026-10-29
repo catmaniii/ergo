@@ -1,0 +1,21 @@
+{
+  "modelSettings.ownUnavailable": "单独配的 {modelId} 在 {provider} 的模型目录里没有了",
+  "modelSettings.noKey": "没配置 {provider} 的 API key：在设置 · 模型（或首次设置向导）里填一个；也可以在 LSM 的 ergo-daemon 条目里给环境变量 {env} 配上（从数据目录的 {file} 注入），重启后生效",
+  "modelSettings.keyTooShort": "key 太短了：去掉首尾空白后至少要 {min} 个字符（DeepSeek 的 key 是一长串，以 sk- 开头）",
+  "modelSettings.keyTooLong": "key 太长了：去掉首尾空白后最多 {max} 个字符",
+  "modelSettings.where.test": "连通测试",
+  "modelSettings.where.own": "单独配的模型",
+  "modelSettings.where.default": "默认模型",
+  "modelSettings.where.agent": "agent {agent} 的模型",
+  "modelSettings.where.vision": "看图能力",
+  "modelSettings.testing": "上一个还没测完",
+  "modelSettings.notInCatalog": "{where}：{provider} 的模型目录里没有 {modelId}",
+  "modelSettings.badProvider": "不支持服务商 {provider}：目前只支持 {providers}",
+  "modelSettings.listSep": "、",
+  "modelSettings.badVisionKey": "看图能力的键要写成「{expected}」，实际是 {key}",
+  "modelSettings.modelIdWord": "模型 id",
+  "modelSettings.catalogUnavailable": "{where}：模型目录现在查不到，只能选配置里登记过的和已经选了的模型，没有 {modelId}",
+  "modelSettings.file.invalid": "格式不对：{error}",
+  "modelSettings.file.invalidUnknown": "不合规",
+  "modelSettings.file.badProvider": "服务商 {provider} 不支持（目前只支持 {providers}）"
+}

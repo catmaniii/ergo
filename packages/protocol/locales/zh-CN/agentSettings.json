@@ -1,0 +1,9 @@
+{
+  "agentSettings.noAgent": "没有这个 agent（只有秘书、任务和项目的维护者有 ⚙）：{agentId}",
+  "agentSettings.noOwnModel": "{label}不能单独配模型：秘书的模型在设置 · 模型里改",
+  "agentSettings.runtime.unknown": "没有运行时「{id}」（登记它的插件不在了）",
+  "agentSettings.runtime.badModel": "{runtime}没有模型「{model}」",
+  "agentSettings.runtime.badSetting": "{runtime}没有设置项「{setting}」",
+  "agentSettings.runtime.badValue": "「{setting}」没有「{value}」这一档",
+  "agentSettings.runtime.notAllowed": "{label}不能选运行时"
+}

@@ -1,0 +1,23 @@
+{
+  "eventSources.summary.taskDone": "Task {id} “{title}” is done",
+  "eventSources.summary.taskFailed": "Task {id} “{title}” failed",
+  "eventSources.summary.taskFailedReason": "Task {id} “{title}” failed: {reason}",
+  "eventSources.summary.taskWaiting": "Task {id} “{title}” is waiting for you",
+  "eventSources.summary.taskWaitingReason": "Task {id} “{title}” is waiting for you: {reason}",
+  "eventSources.summary.projectState": "Project “{name}” went from {from} to {to}",
+  "eventSources.summary.task": "task {id}",
+  "eventSources.summary.job": "scheduled job",
+  "eventSources.summary.runFailed": "{run} of {who} “{title}” failed",
+  "eventSources.summary.runFailedReason": "{run} of {who} “{title}” failed: {reason}",
+  "eventSources.folder.added": "File added: {path} ({folder})",
+  "eventSources.folder.changed": "File changed: {path} ({folder})",
+  "eventSources.folder.removed": "File deleted: {path} ({folder})",
+  "eventSources.refusal.notAbsolute": "Use the folder's full path (e.g. D:\\Inbox): {path}",
+  "eventSources.refusal.notLocal": "Only folders on this computer's drives can be watched (e.g. D:\\Inbox): {path} is a network location or device path",
+  "eventSources.refusal.missing": "Folder not found: {path}",
+  "eventSources.refusal.notDirectory": "Not a folder: {path}",
+  "eventSources.refusal.inside": "Can't watch {path}: it's inside {area} (Ergo's data directory, the secrets area and protected areas can't be watched)",
+  "eventSources.refusal.contains": "Can't watch {path} with subfolders: it contains {area} (Ergo's data directory, the secrets area and protected areas can't be watched). Turn off \"include subfolders\", or pick a more specific folder",
+  "eventSources.dataDir": "Ergo's data directory",
+  "eventSources.sourceMissing": "Event source {source} isn't connected yet"
+}

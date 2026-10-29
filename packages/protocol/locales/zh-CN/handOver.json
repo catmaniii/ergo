@@ -1,0 +1,5 @@
+{
+  "handOver.step": "{title}（{tool}）：{args}",
+  "handOver.title": "交给我做：{tool} {args}",
+  "handOver.body": "{source}里要做的这件事守卫判定为\"交给我做\"，请你亲手完成，做完点\"{done}\"。\n要做的事：\n{steps}\n守卫的说明：{explanation}"
+}

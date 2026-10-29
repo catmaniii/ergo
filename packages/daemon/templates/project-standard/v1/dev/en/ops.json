@@ -1,0 +1,42 @@
+{
+  "$comment": [
+    "Operations API list (project standard v1 · Development · due before the project goes into use).",
+    "What goes here: the operations the secretary can call on the user's behalf once the project is in use (things the user can get done with one sentence to the secretary), in the MCP tools/list format under tools. Each operation has: name (letters, digits, _ . -), title (a short title), description (what it does, when to use it), userSays (a few ways the user might ask for it), kind (query read-only / action has side effects / run starts a run), inputSchema (JSON Schema of the arguments, type object; keep arguments few and simple, give enum values names with enumNames, give optional ones a default), returns (what comes back), risk (direct / confirm / handoff; only shown for now, calls don't look at it), impl (how it's carried out, defaults to http), usage (optional notes on using it), test (one test for the check: {\"args\": {arguments}, \"sayIncludes\": \"words the say must contain\"}).",
+    "Built-in operations you don't list: every project in use gets status, recent_runs, latest_deliverables, run_now, pause_resume, reschedule and tell_maintainer for free; list only what's specific to this project, with names that don't clash with those.",
+    "Four ways to carry an operation out (impl.type): http, the project service's local call port (see endpoint below); script, a script in the working directory (impl.file is its path relative to the working directory, the interpreter is picked by extension: .mjs .js .ts with node, .py with python, .ps1 with PowerShell, .cmd through cmd; impl.args are fixed extra arguments), which gets {\"name\", \"arguments\"} on stdin and prints the JSON reply described below on stdout, a non-zero exit code meaning it didn't work; ergo, one of Ergo's own actions with arguments bound (impl.action is one of the built-in operations above, impl.params the bound arguments, where a value may be \"{{argument}}\" to pass this operation's argument); maintainer, handed to you (the maintainer) as a work order (impl.instructions is what you'll be told, and may use \"{{argument}}\").",
+    "Local call port, endpoint (for http): service is the service in the operations plan that serves it (the service's name; may be left out when the project has only one service); path is the path the service itself receives (defaults to /ops). No port here: the port is that service's port from the operations plan. Ergo POSTs to http://127.0.0.1:<service port><path> on this machine with the MCP tools/call params as the body, {\"name\": operation name, \"arguments\": {arguments}}.",
+    "Reply: there must be one sentence to read out to the user, say, with details as an attachment: reply {\"say\": \"Logged lunch, 32\", \"detail\": {any details}}, or an MCP CallToolResult with say in structuredContent.say; when it can't be done, reply with HTTP 4xx / 5xx or \"isError\": true and give the reason in say. Without a say Ergo fills one in from the result (marked in the call record), but the check fails.",
+    "Argument check: before calling, Ergo checks the arguments against inputSchema; wrong ones aren't sent and the operation's description goes back to the secretary. Enum names the secretary uses are turned into their values, and missing arguments with a default get it.",
+    "The check (like ticket 112's automatic acceptance): well-formed (everything above filled in), each operation's test runs and works and returns a say, and read-only queries (kind: query) change no files in the project records or working directory. Test calls carry a test mark: \"_meta\": {\"ergo/test\": true} in the http body, ERGO_OPS_TEST=1 in a script's environment; operations with side effects must not really change anything when they see it (check the arguments and reply with a say as usual, saying what would happen). After changing this file, run check_ops; operations on the project service can only be tested while it runs, so they're tested once it's up after going into use.",
+    "Versions: when the user clicks \"Put into use\", the version that passed the check is registered (version 1); while in use, changes are checked again and, when everything passes, registered as the next version, which the secretary uses right away; if the check fails the secretary keeps using the previous version.",
+    "$example is a sample http operation and $examplesOtherImpls shows the other three ways: write yours into tools; they don't count as operations themselves."
+  ],
+  "$example": {
+    "name": "add_expense",
+    "title": "Record an expense",
+    "description": "Record an expense: amount and category, note optional. Use it when the user wants to log spending.",
+    "userSays": ["Log lunch, 32", "I just spent 25 on a taxi"],
+    "kind": "action",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "amount": { "type": "number", "description": "Amount" },
+        "category": { "type": "string", "enum": ["food", "transport", "other"], "enumNames": ["Food", "Transport", "Other"], "default": "other", "description": "Category" },
+        "note": { "type": "string", "default": "", "description": "Note" }
+      },
+      "required": ["amount"]
+    },
+    "returns": "say tells what was logged; detail is the record (id, date, amount, category).",
+    "risk": "direct",
+    "impl": { "type": "http" },
+    "usage": "If the amount isn't clear, ask the user instead of guessing.",
+    "test": { "args": { "amount": 1, "category": "food", "note": "check" }, "sayIncludes": "Logged" }
+  },
+  "$examplesOtherImpls": [
+    { "name": "month_report", "impl": { "type": "script", "file": "scripts/month-report.mjs" } },
+    { "name": "refresh_digest", "impl": { "type": "ergo", "action": "run_now", "params": { "job": "daily-digest" } } },
+    { "name": "add_source", "impl": { "type": "maintainer", "instructions": "Add {{url}} to the sources and fetch once to see whether it works" } }
+  ],
+  "endpoint": { "path": "/ops" },
+  "tools": []
+}

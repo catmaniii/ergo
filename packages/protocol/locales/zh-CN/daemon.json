@@ -1,0 +1,6 @@
+{
+  "daemon.recognizerPlaceholder": "数据目录配置里的 voice.recognizer.python 还是示例里的占位符",
+  "daemon.quickActionTool": "快速动作：{title}",
+  "daemon.noRollback": "这个会话现在还不能撤回",
+  "daemon.notConversation": "{conversation} 不是会话"
+}

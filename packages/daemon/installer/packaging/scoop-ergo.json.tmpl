@@ -1,0 +1,28 @@
+{
+  "##": "Scoop manifest draft (ticket 318; not submitted). npm run release fills version / url / hash into dist/release/packaging/scoop-ergo.json.",
+  "version": "{{version}}",
+  "description": "ergo: a personal assistant agent system for Windows, installed and run with the ergo command",
+  "homepage": "https://github.com/catmaniii/ergo",
+  "license": "MIT",
+  "architecture": {
+    "64bit": {
+      "url": "{{url}}",
+      "hash": "{{sha256}}"
+    }
+  },
+  "bin": [["ergo.cmd", "ergo"]],
+  "notes": [
+    "Data lives in ~/.ergo and is kept when ergo is updated or uninstalled.",
+    "Run 'ergo onboard' to finish setting up. Update with 'scoop update ergo' (not 'ergo update')."
+  ],
+  "checkver": {
+    "github": "https://github.com/catmaniii/ergo"
+  },
+  "autoupdate": {
+    "architecture": {
+      "64bit": {
+        "url": "https://github.com/catmaniii/ergo/releases/download/v$version/ergo-$version-win-x64.zip"
+      }
+    }
+  }
+}

@@ -1,0 +1,216 @@
+// 外观（34 号票）和视觉风格（39 号票）在浏览器里的那一半：读写这台设备记住的选择（localStorage），给页面挂标记，
+// 跟着系统深浅色变。算实际用哪种在 state/theme.ts、state/visual-style.ts；有哪几套风格在 src/visual-styles/。
+//
+// 页面上跟外观、风格有关的几处：
+// - 根元素的 data-theme：选了浅色、深色就挂上，跟随系统时去掉。样式按它切 color-scheme，颜色 token 用
+//   light-dark() 跟着 color-scheme 走（styles/base.css）；
+// - 根元素的 data-style：现在用哪套风格（记住的不在风格清单里就是经典）。风格的 token 挂在 [data-style="<id>"] 上；
+// - 根元素的 data-accent（119 号票）：这套风格能换主色（现在只有经典）就挂选的那种（没选过、不认识的是第一种，蓝），
+//   不能换的风格不挂。主色换掉的 token 挂在 [data-style="<id>"][data-accent="<主色>"] 上；
+// - <meta name="color-scheme">：浅色 light、深色 dark、跟随系统 light dark；
+// - <meta name="theme-color">：移动端浏览器地址栏的颜色，和这套风格的标题栏底色（--bar-bg，经典是 --surface）一致；
+// - <link rel="stylesheet" data-style-fonts>：这套风格自己的字体（只在选了它时挂；没有自己的字体就不挂）；
+// - <link rel="stylesheet" data-preview-fonts>：设置里风格预览用的字体（只收预览场景里那几个字，打开设置时挂一次）。
+// 打开页面时 index.html 里的内联脚本在页面脚本加载前就按记住的选择挂好这几处，不先闪一下另一种颜色、另一套风格；
+// 它和这里做的是同一件事，改一处要改另一处（test/app/theme.test.ts 比对两边的结果）。
+// 275 号票：鸿蒙 App 的浏览侧边栏是另一份网页（App 另开的 Web 组件，?ergo=side），设置在"浏览"那一份里改。现在的外观（appearance：
+// 外观、风格、主色）随"浏览"页交给侧边栏的样子经 App 转过去，侧边栏照着套（adopt：马上换、不写存储），不用重启 App。
+import { accentOf, DEFAULT_VISUAL_STYLE, resolveTheme, type Theme, type ThemeChoice, themeChoiceOf, visualStyleOf } from "../state/index.ts";
+import type { StylePageInfo } from "../visual-styles/page.ts";
+import type { DeviceStorage } from "./device-storage.ts";
+
+/** 页面里用到的元素：meta、link（浏览器里就是 Element；这里不写 DOM 的类型，测试在 Node 里跑） */
+export interface PageElement {
+  setAttribute(name: string, value: string): void;
+  getAttribute(name: string): string | null;
+  remove(): void;
+}
+
+/** 页面里用到的那部分：根元素、两个 meta、<head> 里的字体样式表（浏览器里由 page-theme.ts 接到 document 上） */
+export interface ThemeDocument {
+  documentElement: { setAttribute(name: string, value: string): void; removeAttribute(name: string): void };
+  querySelector(selector: string): PageElement | null;
+  createElement(tag: "link"): PageElement;
+  head: { appendChild(el: PageElement): unknown };
+}
+
+/** 系统是不是深色：matchMedia("(prefers-color-scheme: dark)") 用到的那部分 */
+export interface SystemDark {
+  readonly matches: boolean;
+  addEventListener(type: "change", listener: () => void): void;
+}
+
+export interface ThemeEnv {
+  document: ThemeDocument;
+  /** 取不到（隐私模式、禁用了站点数据）时抛错 */
+  storage(): DeviceStorage;
+  systemDark: SystemDark;
+  /** 风格清单里每套风格在页面上要挂的东西（visual-styles/page.ts 的 stylePageInfo），至少要有经典 */
+  styles: Readonly<Record<string, StylePageInfo>>;
+  /** 设置里风格预览用的字体样式表（visual-styles/page.ts 的 PREVIEW_FONTS_HREF）；没有一套风格带字体就不给 */
+  previewFonts?: string;
+}
+
+/** 记在 localStorage 里的键（index.html 的内联脚本也用它们） */
+const THEME_KEY = "ergo-theme";
+const STYLE_KEY = "ergo-style";
+/** 主色（119 号票）：只记一个值，换了风格也留着 */
+const ACCENT_KEY = "ergo-accent";
+
+/** 风格字体样式表的记号（index.html 的内联脚本挂的也带它）、风格预览字体样式表的记号 */
+const FONTS_MARK = "data-style-fonts";
+const PREVIEW_FONTS_MARK = "data-preview-fonts";
+
+/** 现在的外观（275 号票：交给另一份网页照着套）：外观、风格；这套风格能换主色时带上主色 */
+export interface Appearance {
+  readonly theme: ThemeChoice;
+  readonly style: string;
+  readonly accent?: string;
+}
+
+export interface ThemeController {
+  /** 用户选的外观 */
+  choice(): ThemeChoice;
+  /** 实际用的外观 */
+  theme(): Theme;
+  /** 选了马上生效，并记在这台设备上 */
+  choose(choice: ThemeChoice): void;
+  /** 现在用的风格（风格清单里的 id） */
+  style(): string;
+  /** 选一套风格：马上生效，并记在这台设备上；清单里没有的按经典 */
+  chooseStyle(id: string): void;
+  /**
+   * 一套风格（不给就是现在用的那套）用哪种主色（119 号票）：选过的，没选过、不认识的是它的第一种；这套风格不能换主色给 undefined。
+   * 设置里画经典的预览也按它（现在用的是别的风格时也照样给经典选过的那种）
+   */
+  accent(styleId?: string): string | undefined;
+  /** 给现在这套风格选主色：马上生效，并记在这台设备上；不认识的按第一种；这套风格不能换主色就什么都不做 */
+  chooseAccent(id: string): void;
+  /** 选择、风格或实际用的外观变了（包括跟随系统时系统切了深浅色）时通知界面；返回退订 */
+  subscribe(listener: () => void): () => void;
+  /** 设置里画风格预览时调：挂上预览用的字体样式表（挂过就不再挂，离开设置也留着；没有就什么都不做） */
+  showPreviewFonts(): void;
+  /** 现在的外观（275 号票）：没变时是同一个对象（界面拿它当 useSyncExternalStore 的快照） */
+  appearance(): Appearance;
+  /**
+   * 照另一份网页交来的外观马上换（275 号票，浏览侧边栏）：认不出的风格按经典、外观按跟随系统、主色按这套风格的第一种；
+   * 和现在一样就什么都不做。不写存储——选择记在设置那一份里，App 重推的旧样子不能把记住的改回去
+   */
+  adopt(next: Appearance): void;
+}
+
+const sameAppearance = (a: Appearance, b: Appearance) => a.theme === b.theme && a.style === b.style && a.accent === b.accent;
+
+/** 读记住的值；存储用不了就当没记过 */
+function load(storage: () => DeviceStorage, key: string): string | null {
+  try {
+    return storage().getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+/** 记下来；默认值（跟随系统、经典）就是没选过，擦掉 */
+function save(storage: () => DeviceStorage, key: string, value: string, isDefault: boolean): void {
+  try {
+    if (isDefault) storage().removeItem(key);
+    else storage().setItem(key, value);
+  } catch {
+    // 存不了：这次打开里照样生效，下次打开回到默认
+  }
+}
+
+/** <head> 里带某个记号的样式表：换成这个地址（已经是就不动），地址是 undefined 就拿掉 */
+function setStylesheet(doc: ThemeDocument, mark: string, href: string | undefined): void {
+  const link = doc.querySelector(`link[${mark}]`);
+  if ((link?.getAttribute("href") ?? undefined) === href) return;
+  link?.remove();
+  if (href === undefined) return;
+  const el = doc.createElement("link");
+  el.setAttribute("rel", "stylesheet");
+  el.setAttribute("href", href);
+  el.setAttribute(mark, "");
+  doc.head.appendChild(el);
+}
+
+/** 开场读出记住的选择并挂到页面上（内联脚本已经挂过一遍，这里再挂一遍无妨），之后跟着系统深浅色变 */
+export function themeControllerIn(env: ThemeEnv): ThemeController {
+  const known = Object.keys(env.styles);
+  let choice = themeChoiceOf(load(env.storage, THEME_KEY));
+  let style = visualStyleOf(load(env.storage, STYLE_KEY), known);
+  // 记住的主色原样留着（不认识的也留着）：用的时候按那套风格可选的主色认（accentOf）
+  let accentChoice = load(env.storage, ACCENT_KEY);
+  const listeners = new Set<() => void>();
+  const theme = () => resolveTheme(choice, env.systemDark.matches);
+  // 风格 id 来自外面（设置里的预览），不能直接拿去当下标（__proto__ 这类）
+  const accentsOf = (id: string) => (Object.hasOwn(env.styles, id) ? env.styles[id]!.accents : undefined);
+  const accent = (id = style) => accentOf(accentChoice, accentsOf(id));
+  const currentAppearance = (): Appearance => {
+    const a = accent();
+    return { theme: choice, style, ...(a === undefined ? {} : { accent: a }) };
+  };
+  let appearance = currentAppearance();
+  const apply = () => {
+    const next = currentAppearance();
+    if (!sameAppearance(appearance, next)) appearance = next;
+    const doc = env.document;
+    const info = env.styles[style]!;
+    if (choice === "system") doc.documentElement.removeAttribute("data-theme");
+    else doc.documentElement.setAttribute("data-theme", choice);
+    doc.documentElement.setAttribute("data-style", style);
+    const current = accent();
+    if (current === undefined) doc.documentElement.removeAttribute("data-accent");
+    else doc.documentElement.setAttribute("data-accent", current);
+    doc.querySelector('meta[name="color-scheme"]')?.setAttribute("content", choice === "system" ? "light dark" : choice);
+    doc.querySelector('meta[name="theme-color"]')?.setAttribute("content", info.bar[theme()]);
+    // 字体样式表：只挂现在这套风格的；内联脚本挂过同一份就留着
+    setStylesheet(doc, FONTS_MARK, info.fonts);
+    for (const listener of listeners) listener();
+  };
+  apply();
+  // 颜色由样式里的 prefers-color-scheme 自己跟着变；这里只换地址栏的颜色、告诉界面
+  env.systemDark.addEventListener("change", apply);
+  return {
+    choice: () => choice,
+    theme,
+    choose(next) {
+      choice = next;
+      save(env.storage, THEME_KEY, next, next === "system");
+      apply();
+    },
+    style: () => style,
+    chooseStyle(id) {
+      style = visualStyleOf(id, known);
+      save(env.storage, STYLE_KEY, style, style === DEFAULT_VISUAL_STYLE);
+      apply();
+    },
+    accent,
+    chooseAccent(id) {
+      const accents = accentsOf(style);
+      const next = accentOf(id, accents);
+      if (next === undefined) return;
+      accentChoice = next;
+      save(env.storage, ACCENT_KEY, next, next === accents![0]);
+      apply();
+    },
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => void listeners.delete(listener);
+    },
+    showPreviewFonts() {
+      if (env.previewFonts !== undefined) setStylesheet(env.document, PREVIEW_FONTS_MARK, env.previewFonts);
+    },
+    appearance: () => appearance,
+    adopt(next) {
+      const nextStyle = visualStyleOf(typeof next.style === "string" ? next.style : null, known);
+      const nextAccent = accentOf(typeof next.accent === "string" ? next.accent : null, accentsOf(nextStyle));
+      const wanted: Appearance = { theme: themeChoiceOf(typeof next.theme === "string" ? next.theme : null), style: nextStyle, ...(nextAccent === undefined ? {} : { accent: nextAccent }) };
+      if (sameAppearance(appearance, wanted)) return;
+      choice = wanted.theme;
+      style = wanted.style;
+      // 不能换主色的风格不带主色：记住的那个留着，换回能换的风格照用
+      if (wanted.accent !== undefined) accentChoice = wanted.accent;
+      apply();
+    },
+  };
+}

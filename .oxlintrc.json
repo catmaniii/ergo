@@ -1,0 +1,16 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc", "import", "vitest", "react"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn"
+  },
+  "rules": {
+    "no-console": "off",
+    "react/rules-of-hooks": "error",
+    "react/react-in-jsx-scope": "off",
+    "import/no-unassigned-import": ["warn", { "allow": ["**/*.css", "virtual:visual-styles", "**/page-log-start.ts", "**/locale-boot.ts", "**/i18n/boot.ts"] }],
+    "no-underscore-dangle": ["warn", { "allow": ["__ergoBack", "__ergoVoice", "__ergoInsets", "__ergoNotifyOpen", "__ergoBrowser", "__ergoPage", "__ergoSide"] }]
+  },
+  "ignorePatterns": ["**/node_modules/**", "**/dist/**", ".scratch/**", "frontend/harmony/**"]
+}

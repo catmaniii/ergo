@@ -1,0 +1,12 @@
+{
+  "approvals.inboxTitle": "Approval: {tool} {args}",
+  "approvals.cardText": "Approval ({source}): {tool} “{args}”",
+  "approvals.cardTextCategories": "Approval ({source}): {tool} “{args}” · {categories}",
+  "approvals.listSep": ", ",
+  "approvals.decision.approved": "Approved",
+  "approvals.decision.denied": "Denied",
+  "approvals.decision.narrowed": "Narrowed",
+  "approvals.what": "{tool} “{args}”",
+  "approvals.narrowedTo": " (narrowed to: {summary})",
+  "approvals.decided": "{decision}: {what}{narrowing}"
+}

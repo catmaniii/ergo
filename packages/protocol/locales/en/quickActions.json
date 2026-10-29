@@ -1,0 +1,14 @@
+{
+  "quickActions.inboxTitle": "Confirm quick action: {title}",
+  "quickActions.error": "Error: {message}",
+  "quickActions.failed": "Didn't work: {summary}",
+  "quickActions.source.secretary": "Chat with {assistant}",
+  "quickActions.source.conversation": "Conversation {conversation}",
+  "quickActions.purgedTitle": "{name}: {purged}",
+  "quickActions.unknownType": "This version doesn't recognize this kind of quick action ({type}) anymore, so it can't run",
+  "quickActions.running": "Running…",
+  "quickActions.cardText": "Quick action: {title}",
+  "quickActions.cardTextDone": "Quick action: {title} · Done: {result}",
+  "quickActions.tool.propose": "Propose quick action",
+  "quickActions.source.curator": "Memory curator"
+}

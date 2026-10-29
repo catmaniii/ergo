@@ -1,0 +1,12 @@
+{
+  "inbox.verb.archive": "归档",
+  "inbox.verb.delete": "删除",
+  "inbox.blocksTask": "「{title}」卡着任务，处理之前不能{verb}：先在卡片上处理它（或者取消那个任务）",
+  "inbox.isCard": "「{title}」是卡片，在卡片上处理",
+  "inbox.needChoice": "处理通知要选它的一个动作（choice）",
+  "inbox.noSuchChoice": "「{title}」没有「{choice}」这个动作",
+  "inbox.handled": "已被处理",
+  "inbox.noItem": "没有这条待办事项：{id}",
+  "inbox.tool.list": "列出待我处理",
+  "inbox.tool.show": "把卡片放进聊天"
+}

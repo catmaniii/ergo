@@ -1,0 +1,32 @@
+id: link-demo
+name: 接入层示范服务（协议的活样板）
+project: supervisor
+root: C:\path\to\ergo\packages\supervisor     # 改成 packages\supervisor 所在目录：所有钩子的工作目录
+kind: managed
+
+probe:
+  # linked 是最高档：连接在 = 服务真的活着，健康和忙碌都是它自己报的。
+  # 接入层断了会自动降级回 health 档继续探活，绝不判死（link-protocol.md §5）。
+  tier: linked
+  port: 7999
+  health:
+    url: http://127.0.0.1:7999/
+    timeoutMs: 3000
+
+# 能力来自它 hello 时的上报，会覆盖这里的声明——接入之后「有没有 stop」由服务自己说了算。
+capabilities: [start]
+
+link:
+  enabled: true      # 启动时注入 LSM_URL / LSM_SERVICE_ID / LSM_TOKEN / LSM_PROTOCOL
+
+hooks:
+  start:
+    cmd: node examples/demo-service.mjs
+    detaches: false
+    readyTimeoutMs: 20000
+
+profiles: [demo]
+
+onboarding:
+  verifiedAt: null
+  verifiedHooks: []

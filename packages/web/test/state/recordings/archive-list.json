@@ -1,0 +1,4483 @@
+[
+  {
+    "kind": "connection",
+    "status": "online"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 1,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "整理发票",
+          "summary": "整理发票",
+          "state": "planning",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00"
+        },
+        "change": "created",
+        "from": null,
+        "by": "secretary"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 2,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 0,
+          "cacheMiss": 10056,
+          "output": 174
+        },
+        "calls": 1,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 10056,
+              "output": 174
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-08T08:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 1,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-95c05a33-e9cf-43d1-a21c-87470c3a174e",
+          "type": "plan",
+          "typeVersion": 5,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "taskId": "t-1",
+            "taskTitle": "整理发票",
+            "revision": 1,
+            "planId": "t-1-p1",
+            "goal": "整理发票",
+            "plan": {
+              "stages": [
+                {
+                  "stageId": "s1",
+                  "title": "动手做",
+                  "deliverables": [
+                    "结果"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "结果能用",
+                      "method": "review"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [],
+                  "policy": {
+                    "grants": [],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 100000,
+                    "toolCalls": 30
+                  },
+                  "code": "1"
+                }
+              ],
+              "stageGroups": [],
+              "toolkit": {
+                "skills": [],
+                "mcp": [],
+                "bash": true,
+                "network": true
+              },
+              "projects": [],
+              "memoryScope": "（第一阶段不授予）",
+              "watchCategories": [
+                {
+                  "id": "spend_money",
+                  "title": "花钱"
+                },
+                {
+                  "id": "external_send",
+                  "title": "以我的名义对外发送或发布"
+                },
+                {
+                  "id": "delete_or_overwrite",
+                  "title": "删除或覆盖（项目档案和工作目录内）"
+                },
+                {
+                  "id": "irreversible_commit",
+                  "title": "不可逆的提交"
+                },
+                {
+                  "id": "account_security",
+                  "title": "账户与安全（凭据、权限、全局装软件）"
+                },
+                {
+                  "id": "outside_project",
+                  "title": "越出项目目录"
+                },
+                {
+                  "id": "memory_out_of_scope",
+                  "title": "使用授权范围外的记忆"
+                },
+                {
+                  "id": "unplanned_work_order",
+                  "title": "计划外工单"
+                },
+                {
+                  "id": "unknown_write",
+                  "title": "未知的写操作"
+                }
+              ],
+              "assumptions": [
+                "只用公开资料"
+              ],
+              "stops": {
+                "count": 0,
+                "where": []
+              },
+              "tokenEstimate": 320000
+            },
+            "globalCategories": [
+              "spend_money",
+              "external_send",
+              "delete_or_overwrite",
+              "irreversible_commit",
+              "account_security",
+              "outside_project",
+              "memory_out_of_scope",
+              "unplanned_work_order",
+              "unknown_write"
+            ],
+            "grantInfo": {},
+            "verifiedQuotes": []
+          },
+          "text": "计划：整理发票（第 1 版，1 个阶段，约 320000 token）",
+          "urgency": "blocking",
+          "createdAt": "2026-10-08T08:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 3,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "整理发票",
+          "summary": "整理发票",
+          "state": "awaiting_confirm",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-95c05a33-e9cf-43d1-a21c-87470c3a174e",
+          "stages": {
+            "total": 1
+          }
+        },
+        "change": "plan_submitted",
+        "from": "planning",
+        "by": "maintainer"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 1,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-8c0d43ac-4ddc-4de2-8b05-428124f2b767",
+          "version": 1,
+          "title": "计划等你确认：整理发票",
+          "source": "任务「整理发票」",
+          "urgency": "blocking",
+          "pinned": false,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "read": false,
+          "archived": false,
+          "deleted": false,
+          "origin": {
+            "taskId": "t-1"
+          },
+          "kind": "card",
+          "cardId": "c-95c05a33-e9cf-43d1-a21c-87470c3a174e"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 1,
+      "type": "notify",
+      "payload": {
+        "id": "n-i-8c0d43ac-4ddc-4de2-8b05-428124f2b767",
+        "title": "计划等你确认：整理发票",
+        "itemId": "i-8c0d43ac-4ddc-4de2-8b05-428124f2b767"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 4,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 5028,
+          "cacheMiss": 10451,
+          "output": 176
+        },
+        "calls": 2,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 5028,
+              "cacheMiss": 10451,
+              "output": 176
+            },
+            "calls": 2
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-08T08:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "card_action",
+    "cardId": "c-95c05a33-e9cf-43d1-a21c-87470c3a174e",
+    "action": "confirm",
+    "idempotencyKey": "2b6dfd46-a0ee-4643-bc8a-b027b939dceb"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 5,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "整理发票",
+          "summary": "整理发票",
+          "state": "queued",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-95c05a33-e9cf-43d1-a21c-87470c3a174e",
+          "stages": {
+            "total": 1
+          }
+        },
+        "change": "plan_confirmed",
+        "from": "awaiting_confirm",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 2,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-95c05a33-e9cf-43d1-a21c-87470c3a174e",
+          "type": "plan",
+          "typeVersion": 5,
+          "version": 2,
+          "status": "handled",
+          "payload": {
+            "taskId": "t-1",
+            "taskTitle": "整理发票",
+            "revision": 1,
+            "planId": "t-1-p1",
+            "goal": "整理发票",
+            "plan": {
+              "stages": [
+                {
+                  "stageId": "s1",
+                  "title": "动手做",
+                  "deliverables": [
+                    "结果"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "结果能用",
+                      "method": "review"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [],
+                  "policy": {
+                    "grants": [],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 100000,
+                    "toolCalls": 30
+                  },
+                  "code": "1"
+                }
+              ],
+              "stageGroups": [],
+              "toolkit": {
+                "skills": [],
+                "mcp": [],
+                "bash": true,
+                "network": true
+              },
+              "projects": [],
+              "memoryScope": "（第一阶段不授予）",
+              "watchCategories": [
+                {
+                  "id": "spend_money",
+                  "title": "花钱"
+                },
+                {
+                  "id": "external_send",
+                  "title": "以我的名义对外发送或发布"
+                },
+                {
+                  "id": "delete_or_overwrite",
+                  "title": "删除或覆盖（项目档案和工作目录内）"
+                },
+                {
+                  "id": "irreversible_commit",
+                  "title": "不可逆的提交"
+                },
+                {
+                  "id": "account_security",
+                  "title": "账户与安全（凭据、权限、全局装软件）"
+                },
+                {
+                  "id": "outside_project",
+                  "title": "越出项目目录"
+                },
+                {
+                  "id": "memory_out_of_scope",
+                  "title": "使用授权范围外的记忆"
+                },
+                {
+                  "id": "unplanned_work_order",
+                  "title": "计划外工单"
+                },
+                {
+                  "id": "unknown_write",
+                  "title": "未知的写操作"
+                }
+              ],
+              "assumptions": [
+                "只用公开资料"
+              ],
+              "stops": {
+                "count": 0,
+                "where": []
+              },
+              "tokenEstimate": 320000
+            },
+            "globalCategories": [
+              "spend_money",
+              "external_send",
+              "delete_or_overwrite",
+              "irreversible_commit",
+              "account_security",
+              "outside_project",
+              "memory_out_of_scope",
+              "unplanned_work_order",
+              "unknown_write"
+            ],
+            "grantInfo": {},
+            "verifiedQuotes": [],
+            "removedGrants": [],
+            "narrowedGrants": []
+          },
+          "text": "计划：整理发票（第 1 版，1 个阶段，约 320000 token）",
+          "urgency": "blocking",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "handledAt": "2026-10-08T08:00:00.000+08:00",
+          "outcome": {
+            "action": "confirm"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 6,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "整理发票",
+          "summary": "整理发票",
+          "state": "running",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-95c05a33-e9cf-43d1-a21c-87470c3a174e",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "动手做",
+                "state": "pending",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "结果能用",
+                    "method": "review"
+                  }
+                ],
+                "attempts": 0,
+                "code": "1"
+              }
+            ]
+          }
+        },
+        "change": "started",
+        "from": "queued",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 7,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "整理发票",
+          "summary": "整理发票",
+          "state": "running",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-95c05a33-e9cf-43d1-a21c-87470c3a174e",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "动手做",
+                "state": "running",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "结果能用",
+                    "method": "review"
+                  }
+                ],
+                "attempts": 0,
+                "code": "1",
+                "startedAt": "2026-10-08T08:00:00.000+08:00"
+              }
+            ],
+            "focus": "s1"
+          }
+        },
+        "change": "stage_started",
+        "from": "running",
+        "by": "system",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 8,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 5028,
+          "cacheMiss": 34761,
+          "output": 188
+        },
+        "calls": 3,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 5028,
+              "cacheMiss": 34761,
+              "output": 188
+            },
+            "calls": 3
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 24310,
+              "output": 12
+            },
+            "calls": 1,
+            "budgetTokens": 24322
+          }
+        ],
+        "time": "2026-10-08T08:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 9,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "整理发票",
+          "summary": "整理发票",
+          "state": "running",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-95c05a33-e9cf-43d1-a21c-87470c3a174e",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "动手做",
+                "state": "accepting",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "结果能用",
+                    "method": "review"
+                  }
+                ],
+                "attempts": 1,
+                "code": "1",
+                "startedAt": "2026-10-08T08:00:00.000+08:00",
+                "summary": "做完了"
+              }
+            ],
+            "focus": "s1"
+          }
+        },
+        "change": "stage_submitted",
+        "from": "running",
+        "by": "maintainer",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 10,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 5028,
+          "cacheMiss": 38043,
+          "output": 206
+        },
+        "calls": 4,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 5028,
+              "cacheMiss": 34761,
+              "output": 188
+            },
+            "calls": 3
+          },
+          {
+            "agentId": "review-t-1-s1-1",
+            "role": "reviewer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 3282,
+              "output": 18
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 27592,
+              "output": 30
+            },
+            "calls": 2,
+            "budgetTokens": 24322
+          }
+        ],
+        "time": "2026-10-08T08:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 11,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 6669,
+          "cacheMiss": 38101,
+          "output": 207
+        },
+        "calls": 5,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 5028,
+              "cacheMiss": 34761,
+              "output": 188
+            },
+            "calls": 3
+          },
+          {
+            "agentId": "review-t-1-s1-1",
+            "role": "reviewer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 1641,
+              "cacheMiss": 3340,
+              "output": 19
+            },
+            "calls": 2
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 1641,
+              "cacheMiss": 27650,
+              "output": 31
+            },
+            "calls": 3,
+            "budgetTokens": 24322
+          }
+        ],
+        "time": "2026-10-08T08:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 12,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "整理发票",
+          "summary": "整理发票",
+          "state": "running",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-95c05a33-e9cf-43d1-a21c-87470c3a174e",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "动手做",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "结果能用",
+                    "method": "review",
+                    "result": {
+                      "passed": true,
+                      "note": "看过了，能用",
+                      "at": "2026-10-08T08:00:00.000+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "code": "1",
+                "startedAt": "2026-10-08T08:00:00.000+08:00",
+                "summary": "做完了"
+              }
+            ],
+            "focus": "s1"
+          }
+        },
+        "change": "stage_accepted",
+        "from": "running",
+        "by": "system",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 3,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-a2da44a1-d756-4d03-b99d-eeca11b524c2",
+          "type": "progress",
+          "typeVersion": 1,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "taskId": "t-1",
+            "taskTitle": "整理发票",
+            "stageId": "s1",
+            "stageTitle": "动手做",
+            "stageIndex": 1,
+            "stageTotal": 1,
+            "stageCode": "1",
+            "kind": "acceptance",
+            "text": "验收通过。",
+            "acceptance": {
+              "passed": true,
+              "judgedBy": "review",
+              "results": [
+                {
+                  "criterion": "结果能用",
+                  "passed": true,
+                  "note": "看过了，能用",
+                  "method": "review"
+                }
+              ],
+              "summary": "做完了"
+            }
+          },
+          "text": "验收通过（评审判定）：任务「整理发票」第 1 阶段「动手做」。验收通过。",
+          "createdAt": "2026-10-08T08:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 13,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "整理发票",
+          "summary": "整理发票",
+          "state": "done",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-95c05a33-e9cf-43d1-a21c-87470c3a174e",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "动手做",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "结果能用",
+                    "method": "review",
+                    "result": {
+                      "passed": true,
+                      "note": "看过了，能用",
+                      "at": "2026-10-08T08:00:00.000+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "code": "1",
+                "startedAt": "2026-10-08T08:00:00.000+08:00",
+                "summary": "做完了"
+              }
+            ],
+            "focus": "s1"
+          }
+        },
+        "change": "completed",
+        "from": "running",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 14,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 18824,
+          "cacheMiss": 38172,
+          "output": 208
+        },
+        "calls": 6,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 17183,
+              "cacheMiss": 34832,
+              "output": 189
+            },
+            "calls": 4
+          },
+          {
+            "agentId": "review-t-1-s1-1",
+            "role": "reviewer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 1641,
+              "cacheMiss": 3340,
+              "output": 19
+            },
+            "calls": 2
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 1641,
+              "cacheMiss": 27650,
+              "output": 31
+            },
+            "calls": 3,
+            "budgetTokens": 24322
+          }
+        ],
+        "time": "2026-10-08T08:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 15,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-2",
+          "title": "写周报",
+          "summary": "写周报",
+          "state": "planning",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-2",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00"
+        },
+        "change": "created",
+        "from": null,
+        "by": "secretary"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 16,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-2"
+        },
+        "tokens": {
+          "cacheHit": 0,
+          "cacheMiss": 10054,
+          "output": 174
+        },
+        "calls": 1,
+        "byAgent": [
+          {
+            "agentId": "tm-2",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 10054,
+              "output": 174
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-08T08:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 4,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-2d6046ca-705a-4af8-820d-c2c5a5b4df3a",
+          "type": "plan",
+          "typeVersion": 5,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "taskId": "t-2",
+            "taskTitle": "写周报",
+            "revision": 1,
+            "planId": "t-2-p1",
+            "goal": "写周报",
+            "plan": {
+              "stages": [
+                {
+                  "stageId": "s1",
+                  "title": "动手做",
+                  "deliverables": [
+                    "结果"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "结果能用",
+                      "method": "review"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [],
+                  "policy": {
+                    "grants": [],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 100000,
+                    "toolCalls": 30
+                  },
+                  "code": "1"
+                }
+              ],
+              "stageGroups": [],
+              "toolkit": {
+                "skills": [],
+                "mcp": [],
+                "bash": true,
+                "network": true
+              },
+              "projects": [],
+              "memoryScope": "（第一阶段不授予）",
+              "watchCategories": [
+                {
+                  "id": "spend_money",
+                  "title": "花钱"
+                },
+                {
+                  "id": "external_send",
+                  "title": "以我的名义对外发送或发布"
+                },
+                {
+                  "id": "delete_or_overwrite",
+                  "title": "删除或覆盖（项目档案和工作目录内）"
+                },
+                {
+                  "id": "irreversible_commit",
+                  "title": "不可逆的提交"
+                },
+                {
+                  "id": "account_security",
+                  "title": "账户与安全（凭据、权限、全局装软件）"
+                },
+                {
+                  "id": "outside_project",
+                  "title": "越出项目目录"
+                },
+                {
+                  "id": "memory_out_of_scope",
+                  "title": "使用授权范围外的记忆"
+                },
+                {
+                  "id": "unplanned_work_order",
+                  "title": "计划外工单"
+                },
+                {
+                  "id": "unknown_write",
+                  "title": "未知的写操作"
+                }
+              ],
+              "assumptions": [
+                "只用公开资料"
+              ],
+              "stops": {
+                "count": 0,
+                "where": []
+              },
+              "tokenEstimate": 320000
+            },
+            "globalCategories": [
+              "spend_money",
+              "external_send",
+              "delete_or_overwrite",
+              "irreversible_commit",
+              "account_security",
+              "outside_project",
+              "memory_out_of_scope",
+              "unplanned_work_order",
+              "unknown_write"
+            ],
+            "grantInfo": {},
+            "verifiedQuotes": []
+          },
+          "text": "计划：写周报（第 1 版，1 个阶段，约 320000 token）",
+          "urgency": "blocking",
+          "createdAt": "2026-10-08T08:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 17,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-2",
+          "title": "写周报",
+          "summary": "写周报",
+          "state": "awaiting_confirm",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-2",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-2d6046ca-705a-4af8-820d-c2c5a5b4df3a",
+          "stages": {
+            "total": 1
+          }
+        },
+        "change": "plan_submitted",
+        "from": "planning",
+        "by": "maintainer"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 2,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-dcbf3ada-cb74-4101-8253-0d1ed032f187",
+          "version": 1,
+          "title": "计划等你确认：写周报",
+          "source": "任务「写周报」",
+          "urgency": "blocking",
+          "pinned": false,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "read": false,
+          "archived": false,
+          "deleted": false,
+          "origin": {
+            "taskId": "t-2"
+          },
+          "kind": "card",
+          "cardId": "c-2d6046ca-705a-4af8-820d-c2c5a5b4df3a"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 2,
+      "type": "notify",
+      "payload": {
+        "id": "n-i-dcbf3ada-cb74-4101-8253-0d1ed032f187",
+        "title": "计划等你确认：写周报",
+        "itemId": "i-dcbf3ada-cb74-4101-8253-0d1ed032f187"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 18,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-2"
+        },
+        "tokens": {
+          "cacheHit": 5027,
+          "cacheMiss": 10450,
+          "output": 176
+        },
+        "calls": 2,
+        "byAgent": [
+          {
+            "agentId": "tm-2",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 5027,
+              "cacheMiss": 10450,
+              "output": 176
+            },
+            "calls": 2
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-08T08:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "card_action",
+    "cardId": "c-2d6046ca-705a-4af8-820d-c2c5a5b4df3a",
+    "action": "confirm",
+    "idempotencyKey": "f3cebb77-3487-4c40-8265-f2a47b0fa9d5"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 19,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-2",
+          "title": "写周报",
+          "summary": "写周报",
+          "state": "queued",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-2",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-2d6046ca-705a-4af8-820d-c2c5a5b4df3a",
+          "stages": {
+            "total": 1
+          }
+        },
+        "change": "plan_confirmed",
+        "from": "awaiting_confirm",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 5,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-2d6046ca-705a-4af8-820d-c2c5a5b4df3a",
+          "type": "plan",
+          "typeVersion": 5,
+          "version": 2,
+          "status": "handled",
+          "payload": {
+            "taskId": "t-2",
+            "taskTitle": "写周报",
+            "revision": 1,
+            "planId": "t-2-p1",
+            "goal": "写周报",
+            "plan": {
+              "stages": [
+                {
+                  "stageId": "s1",
+                  "title": "动手做",
+                  "deliverables": [
+                    "结果"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "结果能用",
+                      "method": "review"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [],
+                  "policy": {
+                    "grants": [],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 100000,
+                    "toolCalls": 30
+                  },
+                  "code": "1"
+                }
+              ],
+              "stageGroups": [],
+              "toolkit": {
+                "skills": [],
+                "mcp": [],
+                "bash": true,
+                "network": true
+              },
+              "projects": [],
+              "memoryScope": "（第一阶段不授予）",
+              "watchCategories": [
+                {
+                  "id": "spend_money",
+                  "title": "花钱"
+                },
+                {
+                  "id": "external_send",
+                  "title": "以我的名义对外发送或发布"
+                },
+                {
+                  "id": "delete_or_overwrite",
+                  "title": "删除或覆盖（项目档案和工作目录内）"
+                },
+                {
+                  "id": "irreversible_commit",
+                  "title": "不可逆的提交"
+                },
+                {
+                  "id": "account_security",
+                  "title": "账户与安全（凭据、权限、全局装软件）"
+                },
+                {
+                  "id": "outside_project",
+                  "title": "越出项目目录"
+                },
+                {
+                  "id": "memory_out_of_scope",
+                  "title": "使用授权范围外的记忆"
+                },
+                {
+                  "id": "unplanned_work_order",
+                  "title": "计划外工单"
+                },
+                {
+                  "id": "unknown_write",
+                  "title": "未知的写操作"
+                }
+              ],
+              "assumptions": [
+                "只用公开资料"
+              ],
+              "stops": {
+                "count": 0,
+                "where": []
+              },
+              "tokenEstimate": 320000
+            },
+            "globalCategories": [
+              "spend_money",
+              "external_send",
+              "delete_or_overwrite",
+              "irreversible_commit",
+              "account_security",
+              "outside_project",
+              "memory_out_of_scope",
+              "unplanned_work_order",
+              "unknown_write"
+            ],
+            "grantInfo": {},
+            "verifiedQuotes": [],
+            "removedGrants": [],
+            "narrowedGrants": []
+          },
+          "text": "计划：写周报（第 1 版，1 个阶段，约 320000 token）",
+          "urgency": "blocking",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "handledAt": "2026-10-08T08:00:00.000+08:00",
+          "outcome": {
+            "action": "confirm"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 20,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-2",
+          "title": "写周报",
+          "summary": "写周报",
+          "state": "running",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-2",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-2d6046ca-705a-4af8-820d-c2c5a5b4df3a",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "动手做",
+                "state": "pending",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "结果能用",
+                    "method": "review"
+                  }
+                ],
+                "attempts": 0,
+                "code": "1"
+              }
+            ]
+          }
+        },
+        "change": "started",
+        "from": "queued",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 21,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-2",
+          "title": "写周报",
+          "summary": "写周报",
+          "state": "running",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-2",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-2d6046ca-705a-4af8-820d-c2c5a5b4df3a",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "动手做",
+                "state": "running",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "结果能用",
+                    "method": "review"
+                  }
+                ],
+                "attempts": 0,
+                "code": "1",
+                "startedAt": "2026-10-08T08:00:00.000+08:00"
+              }
+            ],
+            "focus": "s1"
+          }
+        },
+        "change": "stage_started",
+        "from": "running",
+        "by": "system",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 22,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-2"
+        },
+        "tokens": {
+          "cacheHit": 5027,
+          "cacheMiss": 34758,
+          "output": 188
+        },
+        "calls": 3,
+        "byAgent": [
+          {
+            "agentId": "tm-2",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 5027,
+              "cacheMiss": 34758,
+              "output": 188
+            },
+            "calls": 3
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 24308,
+              "output": 12
+            },
+            "calls": 1,
+            "budgetTokens": 24320
+          }
+        ],
+        "time": "2026-10-08T08:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 23,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-2",
+          "title": "写周报",
+          "summary": "写周报",
+          "state": "running",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-2",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-2d6046ca-705a-4af8-820d-c2c5a5b4df3a",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "动手做",
+                "state": "accepting",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "结果能用",
+                    "method": "review"
+                  }
+                ],
+                "attempts": 1,
+                "code": "1",
+                "startedAt": "2026-10-08T08:00:00.000+08:00",
+                "summary": "做完了"
+              }
+            ],
+            "focus": "s1"
+          }
+        },
+        "change": "stage_submitted",
+        "from": "running",
+        "by": "maintainer",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 24,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-2"
+        },
+        "tokens": {
+          "cacheHit": 5027,
+          "cacheMiss": 38040,
+          "output": 206
+        },
+        "calls": 4,
+        "byAgent": [
+          {
+            "agentId": "tm-2",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 5027,
+              "cacheMiss": 34758,
+              "output": 188
+            },
+            "calls": 3
+          },
+          {
+            "agentId": "review-t-2-s1-1",
+            "role": "reviewer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 3282,
+              "output": 18
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 27590,
+              "output": 30
+            },
+            "calls": 2,
+            "budgetTokens": 24320
+          }
+        ],
+        "time": "2026-10-08T08:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 25,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-2"
+        },
+        "tokens": {
+          "cacheHit": 6668,
+          "cacheMiss": 38098,
+          "output": 207
+        },
+        "calls": 5,
+        "byAgent": [
+          {
+            "agentId": "tm-2",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 5027,
+              "cacheMiss": 34758,
+              "output": 188
+            },
+            "calls": 3
+          },
+          {
+            "agentId": "review-t-2-s1-1",
+            "role": "reviewer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 1641,
+              "cacheMiss": 3340,
+              "output": 19
+            },
+            "calls": 2
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 1641,
+              "cacheMiss": 27648,
+              "output": 31
+            },
+            "calls": 3,
+            "budgetTokens": 24320
+          }
+        ],
+        "time": "2026-10-08T08:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 26,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-2",
+          "title": "写周报",
+          "summary": "写周报",
+          "state": "running",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-2",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-2d6046ca-705a-4af8-820d-c2c5a5b4df3a",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "动手做",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "结果能用",
+                    "method": "review",
+                    "result": {
+                      "passed": true,
+                      "note": "看过了，能用",
+                      "at": "2026-10-08T08:00:00.000+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "code": "1",
+                "startedAt": "2026-10-08T08:00:00.000+08:00",
+                "summary": "做完了"
+              }
+            ],
+            "focus": "s1"
+          }
+        },
+        "change": "stage_accepted",
+        "from": "running",
+        "by": "system",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 6,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-66d24166-1468-4c92-b0b6-266093239c98",
+          "type": "progress",
+          "typeVersion": 1,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "taskId": "t-2",
+            "taskTitle": "写周报",
+            "stageId": "s1",
+            "stageTitle": "动手做",
+            "stageIndex": 1,
+            "stageTotal": 1,
+            "stageCode": "1",
+            "kind": "acceptance",
+            "text": "验收通过。",
+            "acceptance": {
+              "passed": true,
+              "judgedBy": "review",
+              "results": [
+                {
+                  "criterion": "结果能用",
+                  "passed": true,
+                  "note": "看过了，能用",
+                  "method": "review"
+                }
+              ],
+              "summary": "做完了"
+            }
+          },
+          "text": "验收通过（评审判定）：任务「写周报」第 1 阶段「动手做」。验收通过。",
+          "createdAt": "2026-10-08T08:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 27,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-2",
+          "title": "写周报",
+          "summary": "写周报",
+          "state": "done",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-2",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-2d6046ca-705a-4af8-820d-c2c5a5b4df3a",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "动手做",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "结果能用",
+                    "method": "review",
+                    "result": {
+                      "passed": true,
+                      "note": "看过了，能用",
+                      "at": "2026-10-08T08:00:00.000+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "code": "1",
+                "startedAt": "2026-10-08T08:00:00.000+08:00",
+                "summary": "做完了"
+              }
+            ],
+            "focus": "s1"
+          }
+        },
+        "change": "completed",
+        "from": "running",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 28,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-2"
+        },
+        "tokens": {
+          "cacheHit": 18822,
+          "cacheMiss": 38169,
+          "output": 208
+        },
+        "calls": 6,
+        "byAgent": [
+          {
+            "agentId": "tm-2",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 17181,
+              "cacheMiss": 34829,
+              "output": 189
+            },
+            "calls": 4
+          },
+          {
+            "agentId": "review-t-2-s1-1",
+            "role": "reviewer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 1641,
+              "cacheMiss": 3340,
+              "output": 19
+            },
+            "calls": 2
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 1641,
+              "cacheMiss": 27648,
+              "output": 31
+            },
+            "calls": 3,
+            "budgetTokens": 24320
+          }
+        ],
+        "time": "2026-10-08T08:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 29,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-3",
+          "title": "订机票",
+          "summary": "订机票",
+          "state": "planning",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-3",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00"
+        },
+        "change": "created",
+        "from": null,
+        "by": "secretary"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 30,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-3"
+        },
+        "tokens": {
+          "cacheHit": 0,
+          "cacheMiss": 10054,
+          "output": 174
+        },
+        "calls": 1,
+        "byAgent": [
+          {
+            "agentId": "tm-3",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 10054,
+              "output": 174
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-08T08:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 7,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-c5e539bf-37c5-46ba-bac1-35250a840c9f",
+          "type": "plan",
+          "typeVersion": 5,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "taskId": "t-3",
+            "taskTitle": "订机票",
+            "revision": 1,
+            "planId": "t-3-p1",
+            "goal": "订机票",
+            "plan": {
+              "stages": [
+                {
+                  "stageId": "s1",
+                  "title": "动手做",
+                  "deliverables": [
+                    "结果"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "结果能用",
+                      "method": "review"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [],
+                  "policy": {
+                    "grants": [],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 100000,
+                    "toolCalls": 30
+                  },
+                  "code": "1"
+                }
+              ],
+              "stageGroups": [],
+              "toolkit": {
+                "skills": [],
+                "mcp": [],
+                "bash": true,
+                "network": true
+              },
+              "projects": [],
+              "memoryScope": "（第一阶段不授予）",
+              "watchCategories": [
+                {
+                  "id": "spend_money",
+                  "title": "花钱"
+                },
+                {
+                  "id": "external_send",
+                  "title": "以我的名义对外发送或发布"
+                },
+                {
+                  "id": "delete_or_overwrite",
+                  "title": "删除或覆盖（项目档案和工作目录内）"
+                },
+                {
+                  "id": "irreversible_commit",
+                  "title": "不可逆的提交"
+                },
+                {
+                  "id": "account_security",
+                  "title": "账户与安全（凭据、权限、全局装软件）"
+                },
+                {
+                  "id": "outside_project",
+                  "title": "越出项目目录"
+                },
+                {
+                  "id": "memory_out_of_scope",
+                  "title": "使用授权范围外的记忆"
+                },
+                {
+                  "id": "unplanned_work_order",
+                  "title": "计划外工单"
+                },
+                {
+                  "id": "unknown_write",
+                  "title": "未知的写操作"
+                }
+              ],
+              "assumptions": [
+                "只用公开资料"
+              ],
+              "stops": {
+                "count": 0,
+                "where": []
+              },
+              "tokenEstimate": 320000
+            },
+            "globalCategories": [
+              "spend_money",
+              "external_send",
+              "delete_or_overwrite",
+              "irreversible_commit",
+              "account_security",
+              "outside_project",
+              "memory_out_of_scope",
+              "unplanned_work_order",
+              "unknown_write"
+            ],
+            "grantInfo": {},
+            "verifiedQuotes": []
+          },
+          "text": "计划：订机票（第 1 版，1 个阶段，约 320000 token）",
+          "urgency": "blocking",
+          "createdAt": "2026-10-08T08:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 31,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-3",
+          "title": "订机票",
+          "summary": "订机票",
+          "state": "awaiting_confirm",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-3",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-c5e539bf-37c5-46ba-bac1-35250a840c9f",
+          "stages": {
+            "total": 1
+          }
+        },
+        "change": "plan_submitted",
+        "from": "planning",
+        "by": "maintainer"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 3,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-030f5b5b-2aae-4741-adb1-f8386be46c94",
+          "version": 1,
+          "title": "计划等你确认：订机票",
+          "source": "任务「订机票」",
+          "urgency": "blocking",
+          "pinned": false,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "read": false,
+          "archived": false,
+          "deleted": false,
+          "origin": {
+            "taskId": "t-3"
+          },
+          "kind": "card",
+          "cardId": "c-c5e539bf-37c5-46ba-bac1-35250a840c9f"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 3,
+      "type": "notify",
+      "payload": {
+        "id": "n-i-030f5b5b-2aae-4741-adb1-f8386be46c94",
+        "title": "计划等你确认：订机票",
+        "itemId": "i-030f5b5b-2aae-4741-adb1-f8386be46c94"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 32,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-3"
+        },
+        "tokens": {
+          "cacheHit": 5027,
+          "cacheMiss": 10450,
+          "output": 176
+        },
+        "calls": 2,
+        "byAgent": [
+          {
+            "agentId": "tm-3",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 5027,
+              "cacheMiss": 10450,
+              "output": 176
+            },
+            "calls": 2
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-08T08:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "card_action",
+    "cardId": "c-c5e539bf-37c5-46ba-bac1-35250a840c9f",
+    "action": "confirm",
+    "idempotencyKey": "67bd3bbb-68ce-4b9a-946d-372990538bf5"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 33,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-3",
+          "title": "订机票",
+          "summary": "订机票",
+          "state": "queued",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-3",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-c5e539bf-37c5-46ba-bac1-35250a840c9f",
+          "stages": {
+            "total": 1
+          }
+        },
+        "change": "plan_confirmed",
+        "from": "awaiting_confirm",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 8,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-c5e539bf-37c5-46ba-bac1-35250a840c9f",
+          "type": "plan",
+          "typeVersion": 5,
+          "version": 2,
+          "status": "handled",
+          "payload": {
+            "taskId": "t-3",
+            "taskTitle": "订机票",
+            "revision": 1,
+            "planId": "t-3-p1",
+            "goal": "订机票",
+            "plan": {
+              "stages": [
+                {
+                  "stageId": "s1",
+                  "title": "动手做",
+                  "deliverables": [
+                    "结果"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "结果能用",
+                      "method": "review"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [],
+                  "policy": {
+                    "grants": [],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 100000,
+                    "toolCalls": 30
+                  },
+                  "code": "1"
+                }
+              ],
+              "stageGroups": [],
+              "toolkit": {
+                "skills": [],
+                "mcp": [],
+                "bash": true,
+                "network": true
+              },
+              "projects": [],
+              "memoryScope": "（第一阶段不授予）",
+              "watchCategories": [
+                {
+                  "id": "spend_money",
+                  "title": "花钱"
+                },
+                {
+                  "id": "external_send",
+                  "title": "以我的名义对外发送或发布"
+                },
+                {
+                  "id": "delete_or_overwrite",
+                  "title": "删除或覆盖（项目档案和工作目录内）"
+                },
+                {
+                  "id": "irreversible_commit",
+                  "title": "不可逆的提交"
+                },
+                {
+                  "id": "account_security",
+                  "title": "账户与安全（凭据、权限、全局装软件）"
+                },
+                {
+                  "id": "outside_project",
+                  "title": "越出项目目录"
+                },
+                {
+                  "id": "memory_out_of_scope",
+                  "title": "使用授权范围外的记忆"
+                },
+                {
+                  "id": "unplanned_work_order",
+                  "title": "计划外工单"
+                },
+                {
+                  "id": "unknown_write",
+                  "title": "未知的写操作"
+                }
+              ],
+              "assumptions": [
+                "只用公开资料"
+              ],
+              "stops": {
+                "count": 0,
+                "where": []
+              },
+              "tokenEstimate": 320000
+            },
+            "globalCategories": [
+              "spend_money",
+              "external_send",
+              "delete_or_overwrite",
+              "irreversible_commit",
+              "account_security",
+              "outside_project",
+              "memory_out_of_scope",
+              "unplanned_work_order",
+              "unknown_write"
+            ],
+            "grantInfo": {},
+            "verifiedQuotes": [],
+            "removedGrants": [],
+            "narrowedGrants": []
+          },
+          "text": "计划：订机票（第 1 版，1 个阶段，约 320000 token）",
+          "urgency": "blocking",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "handledAt": "2026-10-08T08:00:00.000+08:00",
+          "outcome": {
+            "action": "confirm"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 34,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-3",
+          "title": "订机票",
+          "summary": "订机票",
+          "state": "running",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-3",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-c5e539bf-37c5-46ba-bac1-35250a840c9f",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "动手做",
+                "state": "pending",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "结果能用",
+                    "method": "review"
+                  }
+                ],
+                "attempts": 0,
+                "code": "1"
+              }
+            ]
+          }
+        },
+        "change": "started",
+        "from": "queued",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 35,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-3",
+          "title": "订机票",
+          "summary": "订机票",
+          "state": "running",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-3",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-c5e539bf-37c5-46ba-bac1-35250a840c9f",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "动手做",
+                "state": "running",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "结果能用",
+                    "method": "review"
+                  }
+                ],
+                "attempts": 0,
+                "code": "1",
+                "startedAt": "2026-10-08T08:00:00.000+08:00"
+              }
+            ],
+            "focus": "s1"
+          }
+        },
+        "change": "stage_started",
+        "from": "running",
+        "by": "system",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 36,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-3"
+        },
+        "tokens": {
+          "cacheHit": 5027,
+          "cacheMiss": 34758,
+          "output": 185
+        },
+        "calls": 3,
+        "byAgent": [
+          {
+            "agentId": "tm-3",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 5027,
+              "cacheMiss": 34758,
+              "output": 185
+            },
+            "calls": 3
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 24308,
+              "output": 9
+            },
+            "calls": 1,
+            "budgetTokens": 24317
+          }
+        ],
+        "time": "2026-10-08T08:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 37,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-3",
+          "title": "订机票",
+          "summary": "订机票",
+          "state": "failed",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-3",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-c5e539bf-37c5-46ba-bac1-35250a840c9f",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "动手做",
+                "state": "running",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "结果能用",
+                    "method": "review"
+                  }
+                ],
+                "attempts": 0,
+                "code": "1",
+                "startedAt": "2026-10-08T08:00:00.000+08:00"
+              }
+            ],
+            "focus": "s1"
+          },
+          "failReason": "航司页面改版，抓不到价格"
+        },
+        "change": "failed",
+        "from": "running",
+        "by": "maintainer"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 4,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-4f4a0639-3827-48ab-be70-8d3e335038c7",
+          "version": 1,
+          "title": "任务失败：订机票",
+          "source": "任务「订机票」",
+          "urgency": "blocking",
+          "pinned": false,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "read": false,
+          "archived": false,
+          "deleted": false,
+          "origin": {
+            "taskId": "t-3"
+          },
+          "kind": "notice",
+          "notice": "failure_choice",
+          "body": "任务「订机票」的维护者判它失败了：航司页面改版，抓不到价格\n可以让它重试（回到执行中），或者取消任务。",
+          "actions": [
+            "重试",
+            "取消任务"
+          ],
+          "data": {
+            "taskId": "t-3"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 4,
+      "type": "notify",
+      "payload": {
+        "id": "n-i-4f4a0639-3827-48ab-be70-8d3e335038c7",
+        "title": "任务失败：订机票",
+        "body": "任务「订机票」的维护者判它失败了：航司页面改版，抓不到价格\n可以让它重试（回到执行中），或者取消任务。",
+        "itemId": "i-4f4a0639-3827-48ab-be70-8d3e335038c7"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 38,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-3"
+        },
+        "tokens": {
+          "cacheHit": 17181,
+          "cacheMiss": 34805,
+          "output": 186
+        },
+        "calls": 4,
+        "byAgent": [
+          {
+            "agentId": "tm-3",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 17181,
+              "cacheMiss": 34805,
+              "output": 186
+            },
+            "calls": 4
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 24308,
+              "output": 9
+            },
+            "calls": 1,
+            "budgetTokens": 24317
+          }
+        ],
+        "time": "2026-10-08T08:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 39,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-4",
+          "title": "搬家清单",
+          "summary": "搬家清单",
+          "state": "planning",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-4",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00"
+        },
+        "change": "created",
+        "from": null,
+        "by": "secretary"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 40,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-4"
+        },
+        "tokens": {
+          "cacheHit": 0,
+          "cacheMiss": 10056,
+          "output": 174
+        },
+        "calls": 1,
+        "byAgent": [
+          {
+            "agentId": "tm-4",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 10056,
+              "output": 174
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-08T08:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 9,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-afa2f1b4-4ddf-4d8e-925a-8e98c0cabbc1",
+          "type": "plan",
+          "typeVersion": 5,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "taskId": "t-4",
+            "taskTitle": "搬家清单",
+            "revision": 1,
+            "planId": "t-4-p1",
+            "goal": "搬家清单",
+            "plan": {
+              "stages": [
+                {
+                  "stageId": "s1",
+                  "title": "动手做",
+                  "deliverables": [
+                    "结果"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "结果能用",
+                      "method": "review"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [],
+                  "policy": {
+                    "grants": [],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 100000,
+                    "toolCalls": 30
+                  },
+                  "code": "1"
+                }
+              ],
+              "stageGroups": [],
+              "toolkit": {
+                "skills": [],
+                "mcp": [],
+                "bash": true,
+                "network": true
+              },
+              "projects": [],
+              "memoryScope": "（第一阶段不授予）",
+              "watchCategories": [
+                {
+                  "id": "spend_money",
+                  "title": "花钱"
+                },
+                {
+                  "id": "external_send",
+                  "title": "以我的名义对外发送或发布"
+                },
+                {
+                  "id": "delete_or_overwrite",
+                  "title": "删除或覆盖（项目档案和工作目录内）"
+                },
+                {
+                  "id": "irreversible_commit",
+                  "title": "不可逆的提交"
+                },
+                {
+                  "id": "account_security",
+                  "title": "账户与安全（凭据、权限、全局装软件）"
+                },
+                {
+                  "id": "outside_project",
+                  "title": "越出项目目录"
+                },
+                {
+                  "id": "memory_out_of_scope",
+                  "title": "使用授权范围外的记忆"
+                },
+                {
+                  "id": "unplanned_work_order",
+                  "title": "计划外工单"
+                },
+                {
+                  "id": "unknown_write",
+                  "title": "未知的写操作"
+                }
+              ],
+              "assumptions": [
+                "只用公开资料"
+              ],
+              "stops": {
+                "count": 0,
+                "where": []
+              },
+              "tokenEstimate": 320000
+            },
+            "globalCategories": [
+              "spend_money",
+              "external_send",
+              "delete_or_overwrite",
+              "irreversible_commit",
+              "account_security",
+              "outside_project",
+              "memory_out_of_scope",
+              "unplanned_work_order",
+              "unknown_write"
+            ],
+            "grantInfo": {},
+            "verifiedQuotes": []
+          },
+          "text": "计划：搬家清单（第 1 版，1 个阶段，约 320000 token）",
+          "urgency": "blocking",
+          "createdAt": "2026-10-08T08:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 41,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-4",
+          "title": "搬家清单",
+          "summary": "搬家清单",
+          "state": "awaiting_confirm",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-4",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-afa2f1b4-4ddf-4d8e-925a-8e98c0cabbc1",
+          "stages": {
+            "total": 1
+          }
+        },
+        "change": "plan_submitted",
+        "from": "planning",
+        "by": "maintainer"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 5,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-292fe6c8-ecf8-4ae1-b6fb-167e1d4bbf62",
+          "version": 1,
+          "title": "计划等你确认：搬家清单",
+          "source": "任务「搬家清单」",
+          "urgency": "blocking",
+          "pinned": false,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "read": false,
+          "archived": false,
+          "deleted": false,
+          "origin": {
+            "taskId": "t-4"
+          },
+          "kind": "card",
+          "cardId": "c-afa2f1b4-4ddf-4d8e-925a-8e98c0cabbc1"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 5,
+      "type": "notify",
+      "payload": {
+        "id": "n-i-292fe6c8-ecf8-4ae1-b6fb-167e1d4bbf62",
+        "title": "计划等你确认：搬家清单",
+        "itemId": "i-292fe6c8-ecf8-4ae1-b6fb-167e1d4bbf62"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 42,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-4"
+        },
+        "tokens": {
+          "cacheHit": 5028,
+          "cacheMiss": 10451,
+          "output": 176
+        },
+        "calls": 2,
+        "byAgent": [
+          {
+            "agentId": "tm-4",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 5028,
+              "cacheMiss": 10451,
+              "output": 176
+            },
+            "calls": 2
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-08T08:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "card_action",
+    "cardId": "c-afa2f1b4-4ddf-4d8e-925a-8e98c0cabbc1",
+    "action": "confirm",
+    "idempotencyKey": "c1061558-882a-4d9e-b8fd-c2e8f73864f1"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 43,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-4",
+          "title": "搬家清单",
+          "summary": "搬家清单",
+          "state": "queued",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-4",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-afa2f1b4-4ddf-4d8e-925a-8e98c0cabbc1",
+          "stages": {
+            "total": 1
+          }
+        },
+        "change": "plan_confirmed",
+        "from": "awaiting_confirm",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 10,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-afa2f1b4-4ddf-4d8e-925a-8e98c0cabbc1",
+          "type": "plan",
+          "typeVersion": 5,
+          "version": 2,
+          "status": "handled",
+          "payload": {
+            "taskId": "t-4",
+            "taskTitle": "搬家清单",
+            "revision": 1,
+            "planId": "t-4-p1",
+            "goal": "搬家清单",
+            "plan": {
+              "stages": [
+                {
+                  "stageId": "s1",
+                  "title": "动手做",
+                  "deliverables": [
+                    "结果"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "结果能用",
+                      "method": "review"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [],
+                  "policy": {
+                    "grants": [],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 100000,
+                    "toolCalls": 30
+                  },
+                  "code": "1"
+                }
+              ],
+              "stageGroups": [],
+              "toolkit": {
+                "skills": [],
+                "mcp": [],
+                "bash": true,
+                "network": true
+              },
+              "projects": [],
+              "memoryScope": "（第一阶段不授予）",
+              "watchCategories": [
+                {
+                  "id": "spend_money",
+                  "title": "花钱"
+                },
+                {
+                  "id": "external_send",
+                  "title": "以我的名义对外发送或发布"
+                },
+                {
+                  "id": "delete_or_overwrite",
+                  "title": "删除或覆盖（项目档案和工作目录内）"
+                },
+                {
+                  "id": "irreversible_commit",
+                  "title": "不可逆的提交"
+                },
+                {
+                  "id": "account_security",
+                  "title": "账户与安全（凭据、权限、全局装软件）"
+                },
+                {
+                  "id": "outside_project",
+                  "title": "越出项目目录"
+                },
+                {
+                  "id": "memory_out_of_scope",
+                  "title": "使用授权范围外的记忆"
+                },
+                {
+                  "id": "unplanned_work_order",
+                  "title": "计划外工单"
+                },
+                {
+                  "id": "unknown_write",
+                  "title": "未知的写操作"
+                }
+              ],
+              "assumptions": [
+                "只用公开资料"
+              ],
+              "stops": {
+                "count": 0,
+                "where": []
+              },
+              "tokenEstimate": 320000
+            },
+            "globalCategories": [
+              "spend_money",
+              "external_send",
+              "delete_or_overwrite",
+              "irreversible_commit",
+              "account_security",
+              "outside_project",
+              "memory_out_of_scope",
+              "unplanned_work_order",
+              "unknown_write"
+            ],
+            "grantInfo": {},
+            "verifiedQuotes": [],
+            "removedGrants": [],
+            "narrowedGrants": []
+          },
+          "text": "计划：搬家清单（第 1 版，1 个阶段，约 320000 token）",
+          "urgency": "blocking",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "handledAt": "2026-10-08T08:00:00.000+08:00",
+          "outcome": {
+            "action": "confirm"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 44,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-4",
+          "title": "搬家清单",
+          "summary": "搬家清单",
+          "state": "running",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-4",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-afa2f1b4-4ddf-4d8e-925a-8e98c0cabbc1",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "动手做",
+                "state": "pending",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "结果能用",
+                    "method": "review"
+                  }
+                ],
+                "attempts": 0,
+                "code": "1"
+              }
+            ]
+          }
+        },
+        "change": "started",
+        "from": "queued",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 45,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-4",
+          "title": "搬家清单",
+          "summary": "搬家清单",
+          "state": "running",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-4",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-afa2f1b4-4ddf-4d8e-925a-8e98c0cabbc1",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "动手做",
+                "state": "running",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "结果能用",
+                    "method": "review"
+                  }
+                ],
+                "attempts": 0,
+                "code": "1",
+                "startedAt": "2026-10-08T08:00:00.000+08:00"
+              }
+            ],
+            "focus": "s1"
+          }
+        },
+        "change": "stage_started",
+        "from": "running",
+        "by": "system",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 46,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-4"
+        },
+        "tokens": {
+          "cacheHit": 5028,
+          "cacheMiss": 34761,
+          "output": 188
+        },
+        "calls": 3,
+        "byAgent": [
+          {
+            "agentId": "tm-4",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 5028,
+              "cacheMiss": 34761,
+              "output": 188
+            },
+            "calls": 3
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 24310,
+              "output": 12
+            },
+            "calls": 1,
+            "budgetTokens": 24322
+          }
+        ],
+        "time": "2026-10-08T08:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 47,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-4",
+          "title": "搬家清单",
+          "summary": "搬家清单",
+          "state": "running",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-4",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-afa2f1b4-4ddf-4d8e-925a-8e98c0cabbc1",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "动手做",
+                "state": "accepting",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "结果能用",
+                    "method": "review"
+                  }
+                ],
+                "attempts": 1,
+                "code": "1",
+                "startedAt": "2026-10-08T08:00:00.000+08:00",
+                "summary": "做完了"
+              }
+            ],
+            "focus": "s1"
+          }
+        },
+        "change": "stage_submitted",
+        "from": "running",
+        "by": "maintainer",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 48,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-4"
+        },
+        "tokens": {
+          "cacheHit": 5028,
+          "cacheMiss": 38043,
+          "output": 207
+        },
+        "calls": 4,
+        "byAgent": [
+          {
+            "agentId": "tm-4",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 5028,
+              "cacheMiss": 34761,
+              "output": 188
+            },
+            "calls": 3
+          },
+          {
+            "agentId": "review-t-4-s1-1",
+            "role": "reviewer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 3282,
+              "output": 19
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 27592,
+              "output": 31
+            },
+            "calls": 2,
+            "budgetTokens": 24322
+          }
+        ],
+        "time": "2026-10-08T08:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 49,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-4"
+        },
+        "tokens": {
+          "cacheHit": 6669,
+          "cacheMiss": 38103,
+          "output": 208
+        },
+        "calls": 5,
+        "byAgent": [
+          {
+            "agentId": "tm-4",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 5028,
+              "cacheMiss": 34761,
+              "output": 188
+            },
+            "calls": 3
+          },
+          {
+            "agentId": "review-t-4-s1-1",
+            "role": "reviewer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 1641,
+              "cacheMiss": 3342,
+              "output": 20
+            },
+            "calls": 2
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 1641,
+              "cacheMiss": 27652,
+              "output": 32
+            },
+            "calls": 3,
+            "budgetTokens": 24322
+          }
+        ],
+        "time": "2026-10-08T08:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 50,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-4",
+          "title": "搬家清单",
+          "summary": "搬家清单",
+          "state": "running",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-4",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-afa2f1b4-4ddf-4d8e-925a-8e98c0cabbc1",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "动手做",
+                "state": "running",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "结果能用",
+                    "method": "review",
+                    "result": {
+                      "passed": false,
+                      "note": "清单缺了家电那一项",
+                      "at": "2026-10-08T08:00:00.000+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "code": "1",
+                "startedAt": "2026-10-08T08:00:00.000+08:00",
+                "summary": "做完了",
+                "returns": 1
+              }
+            ],
+            "focus": "s1"
+          }
+        },
+        "change": "stage_returned",
+        "from": "running",
+        "by": "system",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 11,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-a18938ba-3ed7-4d3e-9caa-c919284430e3",
+          "type": "progress",
+          "typeVersion": 1,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "taskId": "t-4",
+            "taskTitle": "搬家清单",
+            "stageId": "s1",
+            "stageTitle": "动手做",
+            "stageIndex": 1,
+            "stageTotal": 1,
+            "stageCode": "1",
+            "kind": "acceptance",
+            "text": "没通过 1 条，交回维护者修改。",
+            "acceptance": {
+              "passed": false,
+              "judgedBy": "review",
+              "results": [
+                {
+                  "criterion": "结果能用",
+                  "passed": false,
+                  "note": "清单缺了家电那一项",
+                  "method": "review"
+                }
+              ],
+              "summary": "做完了"
+            }
+          },
+          "text": "验收没通过（评审判定）：任务「搬家清单」第 1 阶段「动手做」。没通过 1 条，交回维护者修改。",
+          "createdAt": "2026-10-08T08:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 51,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-4"
+        },
+        "tokens": {
+          "cacheHit": 18824,
+          "cacheMiss": 38181,
+          "output": 209
+        },
+        "calls": 6,
+        "byAgent": [
+          {
+            "agentId": "tm-4",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 17183,
+              "cacheMiss": 34839,
+              "output": 189
+            },
+            "calls": 4
+          },
+          {
+            "agentId": "review-t-4-s1-1",
+            "role": "reviewer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 1641,
+              "cacheMiss": 3342,
+              "output": 20
+            },
+            "calls": 2
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 13796,
+              "cacheMiss": 27730,
+              "output": 33
+            },
+            "calls": 4,
+            "budgetTokens": 36556
+          }
+        ],
+        "time": "2026-10-08T08:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 52,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-4",
+          "title": "搬家清单",
+          "summary": "搬家清单",
+          "state": "cancelled",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-4",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00",
+          "planCardId": "c-afa2f1b4-4ddf-4d8e-925a-8e98c0cabbc1",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "动手做",
+                "state": "running",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "结果能用",
+                    "method": "review",
+                    "result": {
+                      "passed": false,
+                      "note": "清单缺了家电那一项",
+                      "at": "2026-10-08T08:00:00.000+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "code": "1",
+                "startedAt": "2026-10-08T08:00:00.000+08:00",
+                "summary": "做完了",
+                "returns": 1
+              }
+            ],
+            "focus": "s1"
+          }
+        },
+        "change": "cancelled",
+        "from": "running",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 12,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-411acb99-fb02-411d-998f-3df7937b7316",
+          "type": "archive_list",
+          "typeVersion": 1,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "items": [
+              {
+                "taskId": "t-1",
+                "title": "整理发票",
+                "state": "done",
+                "endedAt": "2026-10-08T08:00:00.000+08:00",
+                "choices": [
+                  "archive",
+                  "continue",
+                  "keep"
+                ]
+              },
+              {
+                "taskId": "t-2",
+                "title": "写周报",
+                "state": "done",
+                "endedAt": "2026-10-08T08:00:00.000+08:00",
+                "choices": [
+                  "archive",
+                  "continue",
+                  "keep"
+                ]
+              },
+              {
+                "taskId": "t-3",
+                "title": "订机票",
+                "state": "failed",
+                "endedAt": "2026-10-08T08:00:00.000+08:00",
+                "choices": [
+                  "archive",
+                  "continue",
+                  "keep"
+                ]
+              },
+              {
+                "taskId": "t-4",
+                "title": "搬家清单",
+                "state": "cancelled",
+                "endedAt": "2026-10-08T08:00:00.000+08:00",
+                "choices": [
+                  "archive",
+                  "keep"
+                ]
+              }
+            ],
+            "afterDays": 7,
+            "cutoff": "2026-10-12T09:00:00.000+08:00"
+          },
+          "text": "归档清单：4 个任务结束超过 7 天：t-1「整理发票」（已完成）；t-2「写周报」（已完成）；t-3「订机票」（失败）；t-4「搬家清单」（已取消）。每项可选：归档、继续改、先留着。",
+          "urgency": "non_blocking",
+          "createdAt": "2026-10-19T09:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 6,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-0cf06b07-f0c1-4eaf-bdef-163b369596b5",
+          "version": 1,
+          "title": "归档清单：4 个任务结束超过 7 天",
+          "source": "系统",
+          "urgency": "non_blocking",
+          "pinned": false,
+          "createdAt": "2026-10-19T09:00:00.000+08:00",
+          "read": false,
+          "archived": false,
+          "deleted": false,
+          "kind": "card",
+          "cardId": "c-411acb99-fb02-411d-998f-3df7937b7316"
+        }
+      }
+    }
+  },
+  {
+    "kind": "card_action",
+    "cardId": "c-411acb99-fb02-411d-998f-3df7937b7316",
+    "action": "decide",
+    "idempotencyKey": "e9af111c-4867-40bb-ab69-eb522d65679c"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 53,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "整理发票",
+          "summary": "整理发票",
+          "state": "archived",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-19T09:00:00.000+08:00",
+          "planCardId": "c-95c05a33-e9cf-43d1-a21c-87470c3a174e",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "动手做",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "结果能用",
+                    "method": "review",
+                    "result": {
+                      "passed": true,
+                      "note": "看过了，能用",
+                      "at": "2026-10-08T08:00:00.000+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "code": "1",
+                "startedAt": "2026-10-08T08:00:00.000+08:00",
+                "summary": "做完了"
+              }
+            ],
+            "focus": "s1"
+          }
+        },
+        "change": "archived",
+        "from": "done",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 13,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-411acb99-fb02-411d-998f-3df7937b7316",
+          "type": "archive_list",
+          "typeVersion": 1,
+          "version": 2,
+          "status": "pending",
+          "payload": {
+            "items": [
+              {
+                "taskId": "t-1",
+                "title": "整理发票",
+                "state": "done",
+                "endedAt": "2026-10-08T08:00:00.000+08:00",
+                "choices": [
+                  "archive",
+                  "continue",
+                  "keep"
+                ],
+                "decision": "archive",
+                "decidedAt": "2026-10-19T09:00:00.000+08:00"
+              },
+              {
+                "taskId": "t-2",
+                "title": "写周报",
+                "state": "done",
+                "endedAt": "2026-10-08T08:00:00.000+08:00",
+                "choices": [
+                  "archive",
+                  "continue",
+                  "keep"
+                ]
+              },
+              {
+                "taskId": "t-3",
+                "title": "订机票",
+                "state": "failed",
+                "endedAt": "2026-10-08T08:00:00.000+08:00",
+                "choices": [
+                  "archive",
+                  "continue",
+                  "keep"
+                ]
+              },
+              {
+                "taskId": "t-4",
+                "title": "搬家清单",
+                "state": "cancelled",
+                "endedAt": "2026-10-08T08:00:00.000+08:00",
+                "choices": [
+                  "archive",
+                  "keep"
+                ]
+              }
+            ],
+            "afterDays": 7,
+            "cutoff": "2026-10-12T09:00:00.000+08:00"
+          },
+          "text": "归档清单：4 个任务结束超过 7 天：t-1「整理发票」（已完成）：归档；t-2「写周报」（已完成）；t-3「订机票」（失败）；t-4「搬家清单」（已取消）。每项可选：归档、继续改、先留着。",
+          "urgency": "non_blocking",
+          "createdAt": "2026-10-19T09:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "card_action",
+    "cardId": "c-411acb99-fb02-411d-998f-3df7937b7316",
+    "action": "decide",
+    "idempotencyKey": "be303a56-54e9-4743-aa6c-96859d3ac49d"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 54,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-2",
+          "title": "写周报",
+          "summary": "写周报",
+          "state": "running",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-2",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-19T09:00:00.000+08:00",
+          "planCardId": "c-2d6046ca-705a-4af8-820d-c2c5a5b4df3a",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "动手做",
+                "state": "pending",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "结果能用",
+                    "method": "review"
+                  }
+                ],
+                "attempts": 1,
+                "code": "1",
+                "reopenNo": 1,
+                "lastFailed": []
+              }
+            ],
+            "focus": "s1"
+          },
+          "reworks": 1
+        },
+        "change": "rework",
+        "from": "done",
+        "by": "user",
+        "stageId": "s1",
+        "reopened": [
+          "s1"
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 55,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-2",
+          "title": "写周报",
+          "summary": "写周报",
+          "state": "running",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-2",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-19T09:00:00.000+08:00",
+          "planCardId": "c-2d6046ca-705a-4af8-820d-c2c5a5b4df3a",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "动手做",
+                "state": "running",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "结果能用",
+                    "method": "review"
+                  }
+                ],
+                "attempts": 1,
+                "code": "1",
+                "reopenNo": 1,
+                "lastFailed": [],
+                "startedAt": "2026-10-19T09:00:00.000+08:00"
+              }
+            ],
+            "focus": "s1"
+          },
+          "reworks": 1
+        },
+        "change": "stage_started",
+        "from": "running",
+        "by": "system",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 14,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-411acb99-fb02-411d-998f-3df7937b7316",
+          "type": "archive_list",
+          "typeVersion": 1,
+          "version": 3,
+          "status": "pending",
+          "payload": {
+            "items": [
+              {
+                "taskId": "t-1",
+                "title": "整理发票",
+                "state": "done",
+                "endedAt": "2026-10-08T08:00:00.000+08:00",
+                "choices": [
+                  "archive",
+                  "continue",
+                  "keep"
+                ],
+                "decision": "archive",
+                "decidedAt": "2026-10-19T09:00:00.000+08:00"
+              },
+              {
+                "taskId": "t-2",
+                "title": "写周报",
+                "state": "done",
+                "endedAt": "2026-10-08T08:00:00.000+08:00",
+                "choices": [
+                  "archive",
+                  "continue",
+                  "keep"
+                ],
+                "decision": "continue",
+                "decidedAt": "2026-10-19T09:00:00.000+08:00"
+              },
+              {
+                "taskId": "t-3",
+                "title": "订机票",
+                "state": "failed",
+                "endedAt": "2026-10-08T08:00:00.000+08:00",
+                "choices": [
+                  "archive",
+                  "continue",
+                  "keep"
+                ]
+              },
+              {
+                "taskId": "t-4",
+                "title": "搬家清单",
+                "state": "cancelled",
+                "endedAt": "2026-10-08T08:00:00.000+08:00",
+                "choices": [
+                  "archive",
+                  "keep"
+                ]
+              }
+            ],
+            "afterDays": 7,
+            "cutoff": "2026-10-12T09:00:00.000+08:00"
+          },
+          "text": "归档清单：4 个任务结束超过 7 天：t-1「整理发票」（已完成）：归档；t-2「写周报」（已完成）：继续改；t-3「订机票」（失败）；t-4「搬家清单」（已取消）。每项可选：归档、继续改、先留着。",
+          "urgency": "non_blocking",
+          "createdAt": "2026-10-19T09:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 56,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-2"
+        },
+        "tokens": {
+          "cacheHit": 31011,
+          "cacheMiss": 38861,
+          "output": 210
+        },
+        "calls": 7,
+        "byAgent": [
+          {
+            "agentId": "tm-2",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 29370,
+              "cacheMiss": 35521,
+              "output": 191
+            },
+            "calls": 5
+          },
+          {
+            "agentId": "review-t-2-s1-1",
+            "role": "reviewer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 1641,
+              "cacheMiss": 3340,
+              "output": 19
+            },
+            "calls": 2
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 13830,
+              "cacheMiss": 28340,
+              "output": 33
+            },
+            "calls": 4,
+            "budgetTokens": 37203
+          }
+        ],
+        "time": "2026-10-19T09:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "card_action",
+    "cardId": "c-411acb99-fb02-411d-998f-3df7937b7316",
+    "action": "decide",
+    "idempotencyKey": "d7e6cc85-0c03-46ce-b6d5-612550749299"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 57,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-3",
+          "title": "订机票",
+          "summary": "订机票",
+          "state": "running",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-3",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-19T09:00:00.000+08:00",
+          "planCardId": "c-c5e539bf-37c5-46ba-bac1-35250a840c9f",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "动手做",
+                "state": "running",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "结果能用",
+                    "method": "review"
+                  }
+                ],
+                "attempts": 0,
+                "code": "1",
+                "startedAt": "2026-10-08T08:00:00.000+08:00"
+              }
+            ],
+            "focus": "s1"
+          }
+        },
+        "change": "retried",
+        "from": "failed",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 15,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-411acb99-fb02-411d-998f-3df7937b7316",
+          "type": "archive_list",
+          "typeVersion": 1,
+          "version": 4,
+          "status": "pending",
+          "payload": {
+            "items": [
+              {
+                "taskId": "t-1",
+                "title": "整理发票",
+                "state": "done",
+                "endedAt": "2026-10-08T08:00:00.000+08:00",
+                "choices": [
+                  "archive",
+                  "continue",
+                  "keep"
+                ],
+                "decision": "archive",
+                "decidedAt": "2026-10-19T09:00:00.000+08:00"
+              },
+              {
+                "taskId": "t-2",
+                "title": "写周报",
+                "state": "done",
+                "endedAt": "2026-10-08T08:00:00.000+08:00",
+                "choices": [
+                  "archive",
+                  "continue",
+                  "keep"
+                ],
+                "decision": "continue",
+                "decidedAt": "2026-10-19T09:00:00.000+08:00"
+              },
+              {
+                "taskId": "t-3",
+                "title": "订机票",
+                "state": "failed",
+                "endedAt": "2026-10-08T08:00:00.000+08:00",
+                "choices": [
+                  "archive",
+                  "continue",
+                  "keep"
+                ],
+                "decision": "continue",
+                "decidedAt": "2026-10-19T09:00:00.000+08:00"
+              },
+              {
+                "taskId": "t-4",
+                "title": "搬家清单",
+                "state": "cancelled",
+                "endedAt": "2026-10-08T08:00:00.000+08:00",
+                "choices": [
+                  "archive",
+                  "keep"
+                ]
+              }
+            ],
+            "afterDays": 7,
+            "cutoff": "2026-10-12T09:00:00.000+08:00"
+          },
+          "text": "归档清单：4 个任务结束超过 7 天：t-1「整理发票」（已完成）：归档；t-2「写周报」（已完成）：继续改；t-3「订机票」（失败）：继续改；t-4「搬家清单」（已取消）。每项可选：归档、继续改、先留着。",
+          "urgency": "non_blocking",
+          "createdAt": "2026-10-19T09:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 7,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-4f4a0639-3827-48ab-be70-8d3e335038c7",
+          "version": 2,
+          "title": "任务失败：订机票",
+          "source": "任务「订机票」",
+          "urgency": "blocking",
+          "pinned": false,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "read": true,
+          "archived": false,
+          "deleted": false,
+          "origin": {
+            "taskId": "t-3"
+          },
+          "kind": "notice",
+          "notice": "failure_choice",
+          "body": "任务「订机票」的维护者判它失败了：航司页面改版，抓不到价格\n可以让它重试（回到执行中），或者取消任务。",
+          "actions": [
+            "重试",
+            "取消任务"
+          ],
+          "data": {
+            "taskId": "t-3"
+          },
+          "handled": "重试",
+          "handledAt": "2026-10-19T09:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 58,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-3"
+        },
+        "tokens": {
+          "cacheHit": 29358,
+          "cacheMiss": 35185,
+          "output": 187
+        },
+        "calls": 5,
+        "byAgent": [
+          {
+            "agentId": "tm-3",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 29358,
+              "cacheMiss": 35185,
+              "output": 187
+            },
+            "calls": 5
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 12177,
+              "cacheMiss": 24688,
+              "output": 10
+            },
+            "calls": 2,
+            "budgetTokens": 36875
+          }
+        ],
+        "time": "2026-10-19T09:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "card_action",
+    "cardId": "c-411acb99-fb02-411d-998f-3df7937b7316",
+    "action": "decide",
+    "idempotencyKey": "79dec4e0-170d-4808-be6b-421c26464f40"
+  },
+  {
+    "kind": "request_failed",
+    "idempotencyKey": "79dec4e0-170d-4808-be6b-421c26464f40",
+    "error": "任务 t-4「搬家清单」已取消，不能继续改"
+  },
+  {
+    "kind": "card_action",
+    "cardId": "c-411acb99-fb02-411d-998f-3df7937b7316",
+    "action": "decide",
+    "idempotencyKey": "21b5b795-ae0c-4261-aaa6-0c27ac0da61b"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 16,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-411acb99-fb02-411d-998f-3df7937b7316",
+          "type": "archive_list",
+          "typeVersion": 1,
+          "version": 5,
+          "status": "handled",
+          "payload": {
+            "items": [
+              {
+                "taskId": "t-1",
+                "title": "整理发票",
+                "state": "done",
+                "endedAt": "2026-10-08T08:00:00.000+08:00",
+                "choices": [
+                  "archive",
+                  "continue",
+                  "keep"
+                ],
+                "decision": "archive",
+                "decidedAt": "2026-10-19T09:00:00.000+08:00"
+              },
+              {
+                "taskId": "t-2",
+                "title": "写周报",
+                "state": "done",
+                "endedAt": "2026-10-08T08:00:00.000+08:00",
+                "choices": [
+                  "archive",
+                  "continue",
+                  "keep"
+                ],
+                "decision": "continue",
+                "decidedAt": "2026-10-19T09:00:00.000+08:00"
+              },
+              {
+                "taskId": "t-3",
+                "title": "订机票",
+                "state": "failed",
+                "endedAt": "2026-10-08T08:00:00.000+08:00",
+                "choices": [
+                  "archive",
+                  "continue",
+                  "keep"
+                ],
+                "decision": "continue",
+                "decidedAt": "2026-10-19T09:00:00.000+08:00"
+              },
+              {
+                "taskId": "t-4",
+                "title": "搬家清单",
+                "state": "cancelled",
+                "endedAt": "2026-10-08T08:00:00.000+08:00",
+                "choices": [
+                  "archive",
+                  "keep"
+                ],
+                "decision": "keep",
+                "decidedAt": "2026-10-19T09:00:00.000+08:00"
+              }
+            ],
+            "afterDays": 7,
+            "cutoff": "2026-10-12T09:00:00.000+08:00"
+          },
+          "text": "归档清单：4 个任务结束超过 7 天：t-1「整理发票」（已完成）：归档；t-2「写周报」（已完成）：继续改；t-3「订机票」（失败）：继续改；t-4「搬家清单」（已取消）：先留着。每项可选：归档、继续改、先留着。",
+          "urgency": "non_blocking",
+          "createdAt": "2026-10-19T09:00:00.000+08:00",
+          "handledAt": "2026-10-19T09:00:00.000+08:00",
+          "outcome": {
+            "action": "decide"
+          }
+        }
+      }
+    }
+  }
+]

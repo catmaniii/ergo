@@ -1,0 +1,9 @@
+{
+  "cards.keyReused": "这个幂等键已经用在别的请求上了",
+  "cards.noCard": "没有这张卡片：{cardId}",
+  "cards.unknownType": "这种卡片（{type}）这个版本还不能处理",
+  "cards.noAction": "这张卡没有「{action}」这个动作",
+  "cards.handled": "已被处理",
+  "cards.changedElsewhere": "这张卡刚在别处改过，请看最新的内容再操作",
+  "cards.badInput": "「{action}」的输入不对：{error}"
+}

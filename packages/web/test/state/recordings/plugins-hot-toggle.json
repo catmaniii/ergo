@@ -1,0 +1,312 @@
+[
+  {
+    "kind": "connection",
+    "status": "online"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "plugins",
+      "seq": 0,
+      "type": "plugin_status",
+      "payload": {
+        "plugins": [
+          {
+            "name": "reminders",
+            "title": "提醒",
+            "state": "running"
+          },
+          {
+            "name": "memory",
+            "title": "记忆",
+            "state": "running"
+          },
+          {
+            "name": "calendar",
+            "title": "日历",
+            "state": "running"
+          },
+          {
+            "name": "voice",
+            "title": "语音",
+            "state": "running"
+          },
+          {
+            "name": "browsing",
+            "title": "内置浏览器",
+            "state": "running"
+          },
+          {
+            "name": "claude-code",
+            "title": "Claude Code",
+            "state": "running"
+          },
+          {
+            "name": "phone",
+            "title": "手机",
+            "state": "running"
+          },
+          {
+            "name": "google",
+            "title": "Google",
+            "state": "running"
+          },
+          {
+            "name": "looki",
+            "title": "Looki",
+            "state": "running"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 1,
+      "type": "reminder",
+      "payload": {
+        "reminder": {
+          "id": "r-1",
+          "text": "交报告",
+          "schedule": {
+            "kind": "once",
+            "at": "2099-10-08T09:00:00.000+08:00"
+          },
+          "nextAt": "2099-10-08T09:00:00.000+08:00",
+          "status": "pending",
+          "cardId": "c-5e5d0db3-53fa-4ac1-a0ae-b4fa3663e951",
+          "createdAt": "2026-10-25T23:33:46.241+08:00",
+          "updatedAt": "2026-10-25T23:33:46.241+08:00"
+        },
+        "change": "created",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 1,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-5e5d0db3-53fa-4ac1-a0ae-b4fa3663e951",
+          "type": "reminder",
+          "typeVersion": 4,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "reminderId": "r-1",
+            "text": "交报告",
+            "schedule": {
+              "kind": "once",
+              "at": "2099-10-08T09:00:00.000+08:00"
+            },
+            "status": "pending",
+            "nextAt": "2099-10-08T09:00:00.000+08:00"
+          },
+          "text": "简单提醒：交报告 · 10 月 8 日（周四）09:00",
+          "createdAt": "2026-10-25T23:33:46.242+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "plugins",
+      "seq": 0,
+      "type": "plugin_status",
+      "payload": {
+        "plugins": [
+          {
+            "name": "reminders",
+            "title": "提醒",
+            "state": "running"
+          },
+          {
+            "name": "memory",
+            "title": "记忆",
+            "state": "disabled"
+          },
+          {
+            "name": "calendar",
+            "title": "日历",
+            "state": "running"
+          },
+          {
+            "name": "voice",
+            "title": "语音",
+            "state": "running"
+          },
+          {
+            "name": "browsing",
+            "title": "内置浏览器",
+            "state": "running"
+          },
+          {
+            "name": "claude-code",
+            "title": "Claude Code",
+            "state": "running"
+          },
+          {
+            "name": "phone",
+            "title": "手机",
+            "state": "running"
+          },
+          {
+            "name": "google",
+            "title": "Google",
+            "state": "running"
+          },
+          {
+            "name": "looki",
+            "title": "Looki",
+            "state": "running"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "plugins",
+      "seq": 0,
+      "type": "plugin_status",
+      "payload": {
+        "plugins": [
+          {
+            "name": "reminders",
+            "title": "提醒",
+            "state": "running"
+          },
+          {
+            "name": "memory",
+            "title": "记忆",
+            "state": "running"
+          },
+          {
+            "name": "calendar",
+            "title": "日历",
+            "state": "running"
+          },
+          {
+            "name": "voice",
+            "title": "语音",
+            "state": "running"
+          },
+          {
+            "name": "browsing",
+            "title": "内置浏览器",
+            "state": "running"
+          },
+          {
+            "name": "claude-code",
+            "title": "Claude Code",
+            "state": "running"
+          },
+          {
+            "name": "phone",
+            "title": "手机",
+            "state": "running"
+          },
+          {
+            "name": "google",
+            "title": "Google",
+            "state": "running"
+          },
+          {
+            "name": "looki",
+            "title": "Looki",
+            "state": "running"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "plugins",
+      "seq": 0,
+      "type": "plugin_status",
+      "payload": {
+        "plugins": [
+          {
+            "name": "reminders",
+            "title": "提醒",
+            "state": "removed"
+          },
+          {
+            "name": "memory",
+            "title": "记忆",
+            "state": "running"
+          },
+          {
+            "name": "calendar",
+            "title": "日历",
+            "state": "running"
+          },
+          {
+            "name": "voice",
+            "title": "语音",
+            "state": "running"
+          },
+          {
+            "name": "browsing",
+            "title": "内置浏览器",
+            "state": "running"
+          },
+          {
+            "name": "claude-code",
+            "title": "Claude Code",
+            "state": "running"
+          },
+          {
+            "name": "phone",
+            "title": "手机",
+            "state": "running"
+          },
+          {
+            "name": "google",
+            "title": "Google",
+            "state": "running"
+          },
+          {
+            "name": "looki",
+            "title": "Looki",
+            "state": "running"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "plugins",
+      "seq": 1,
+      "type": "plugin_data_purged",
+      "payload": {
+        "plugin": "reminders",
+        "at": "2026-10-25T23:33:46.307+08:00",
+        "eventTypes": [
+          "reminder"
+        ],
+        "cardTypes": [
+          "reminder"
+        ],
+        "counts": {
+          "events": 1,
+          "cards": 1,
+          "inboxItems": 0,
+          "files": 0
+        }
+      }
+    }
+  }
+]

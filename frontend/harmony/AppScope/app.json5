@@ -1,0 +1,11 @@
+{
+  "app": {
+    // bundleName 自定（62 号票）。签名材料按 bundleName 生成：改了它要在 DevEco 里重新点一次"自动生成签名"
+    "bundleName": "com.example.ergou",
+    "vendor": "ergo",
+    "versionCode": 2001000,
+    "versionName": "0.2.1",
+    "icon": "$media:layered_image",
+    "label": "$string:app_name"
+  }
+}

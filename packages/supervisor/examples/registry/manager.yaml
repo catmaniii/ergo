@@ -1,0 +1,56 @@
+# 管理器全局设置（样例）。把整个 examples/registry 拷进数据目录（默认 %LOCALAPPDATA%\ergo\supervisor\registry，`lsm paths` 看在哪）再改。
+# 下面的相对路径（.secrets/...）都相对数据目录。
+# 服务声明在 services/ 下，一服务一文件，字段见 docs/service-schema.md。
+bind: 127.0.0.1        # 只绑本机；出网走 VPS 反向隧道，不绑 0.0.0.0
+port: 7420
+probeIntervalMs: 5000
+
+# 已纳管服务的端口被别的进程占了 → 直接清掉入侵者（而不是停下来问）。
+# 未纳管的东西一律只通知不动手——那是哨兵的职责边界。
+autoResolveConflicts: true
+
+sentinels:
+  port: true           # 端口哨兵：谁在监听却不在注册表里
+  scheduledTask: true  # 计划任务哨兵：除管理器自身外还有谁在自启
+  intervalMs: 60000
+  # taskKeywords: [myproject]   # 计划任务的动作里含这些词也算「你的项目」（落在 projectRoots 下的本来就算）
+
+# 哨兵只在这些目录下找「你的项目」：聊天软件、远控软件也监听一堆端口，但它们不该来烦你。
+projectRoots:
+  - C:\dev             # 改成你放代码的目录；可以写好几个
+
+# 噪音过滤：系统服务、杀软这些不是「你的项目」。
+ignorePorts: [135, 139, 445, 3389, 5040, 5357]
+ignoreProcessNames: [svchost.exe, System, lsass.exe, services.exe, spoolsv.exe]
+
+# 场景：一组一起起停的服务（GPU 是独占资源，所以没有「一键全开」）
+profiles:
+  demo: [link-demo]
+
+# ---- 以下都是可选的，用到再打开 ----
+
+# 「开通公网」用的 VPS：管理器只在本机起 ssh 反向隧道，VPS 上的 nginx 站点要你自己加（点按钮时会把该贴的片段给你）。
+# vps:
+#   host: root@203.0.113.10
+#   key: C:\path\to\vps.pem                  # 私钥的路径；私钥本身别放进仓库
+#   # VPS 订阅到期提醒（阿里云费用中心，只读）：WebUI 一条栏 + 快到期时弹 Windows 通知
+#   billing:
+#     site: cn                               # cn = 阿里云中国站；intl = 国际站（alibabacloud.com）
+#     region: cn-hangzhou                    # 你的 VPS 所在地域：这个地域的轻量订阅标成「这台 VPS」
+#     credentials: .secrets/alicloud_vps     # 只读 RAM 用户（AliyunBSSReadOnlyAccess）的 AccessKey 放这个目录
+#     remindDays: 7                          # 到期前几天开始提醒（3 天内变红）
+#     minBalance: 0                          # 余额低于这个数提醒；0 = 只在欠费时提醒
+#     notify: true                           # Windows 系统通知，同一条一天最多一次
+
+# tailnet 入口：tailnet 里的设备（手机）经 https://<名字>.<domain>/ 访问本机服务，不经公网。
+# 证书由 VPS 上的 certbot 签，headscale 的 DNS 记录把名字在 tailnet 里指回本机，本机的网关做 TLS 终结。
+# 还要在 services/ 里登记一个 role: gateway 的服务，跑 bin/tailnet-gateway.mjs --port 8445。
+# tailnet:
+#   domain: tail.example.com                 # 公网 DNS 里 *.tail.example.com 要指向你的 VPS（签证书用）
+#   gateway: tailnet-gateway
+#   records: /var/lib/headscale/extra-records.json
+#   certbotStopUnits: []                     # 签证书要用 80 端口：先临时停掉 VPS 上占着它的 systemd 服务
+
+auth:
+  enabled: false                             # 口令只能来自文件，不进任何配置（lsm set-password）
+  passwordFile: .secrets/webui-password.txt

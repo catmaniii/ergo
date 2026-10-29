@@ -1,0 +1,2664 @@
+[
+  {
+    "kind": "connection",
+    "status": "online"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 1,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "被拒",
+          "summary": "被拒",
+          "state": "planning",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-12T00:48:39.626+08:00",
+          "updatedAt": "2026-10-12T00:48:39.626+08:00"
+        },
+        "change": "created",
+        "from": null,
+        "by": "secretary"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 1,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "任务书：任务 t-1「被拒」\n目标：整理一份 X 的调研\n验收标准：\n- 附来源\n约束：（无）\n涉及的项目：不涉及项目\n记忆范围提议：（无）（第一阶段只占位）\n全局的关注类别（计划里的 watchCategories 一个都不能少，只能增加或往严里调）：spend_money「花钱」、external_send「以我的名义对外发送或发布」、delete_or_overwrite「删除或覆盖（项目档案和工作目录内）」、irreversible_commit「不可逆的提交」、account_security「账户与安全（凭据、权限、全局装软件）」、outside_project「越出项目目录」、memory_out_of_scope「使用授权范围外的记忆」、unplanned_work_order「计划外工单」、unknown_write「未知的写操作」\n请据此起草计划，用 submit_plan 提交；用户确认之前不要动手做。"
+            }
+          ],
+          "id": "m-84ca2886-c182-473e-b43c-71ab71b0a2a9",
+          "time": "2026-10-12T00:48:39.627+08:00"
+        },
+        "agentInput": true,
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 2,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-84ca2886-c182-473e-b43c-71ab71b0a2a9"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 2,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 0,
+          "cacheMiss": 9390,
+          "output": 316
+        },
+        "calls": 1,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 9390,
+              "output": 316
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-12T00:48:41.262+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 1,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-6df77e5f-d4e0-4a73-b047-e6ebb5c4738f",
+          "type": "plan",
+          "typeVersion": 5,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "taskId": "t-1",
+            "taskTitle": "被拒",
+            "revision": 1,
+            "planId": "t-1-p1",
+            "goal": "整理一份 X 的调研",
+            "plan": {
+              "stages": [
+                {
+                  "stageId": "s1",
+                  "title": "收集资料",
+                  "deliverables": [
+                    "资料清单 sources.md"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "资料清单存在",
+                      "method": "script",
+                      "script": "test -f sources.md"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [],
+                  "policy": {
+                    "grants": [
+                      {
+                        "id": "dir1",
+                        "tool": "make_dir",
+                        "title": "建 s1 目录",
+                        "scope": {
+                          "path": "<临时目录>\\ergo-out-7tMnjk\\s1"
+                        }
+                      }
+                    ],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 0,
+                    "toolCalls": 0
+                  },
+                  "code": "1"
+                },
+                {
+                  "stageId": "s2",
+                  "title": "写报告",
+                  "deliverables": [
+                    "调研报告 report.md"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "报告文件存在",
+                      "method": "script",
+                      "script": "test -f report.md"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [
+                    "s1"
+                  ],
+                  "policy": {
+                    "grants": [
+                      {
+                        "id": "dir2",
+                        "tool": "make_dir",
+                        "title": "建 s2 目录",
+                        "scope": {
+                          "path": "<临时目录>\\ergo-out-7tMnjk\\s2"
+                        }
+                      }
+                    ],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 0,
+                    "toolCalls": 0
+                  },
+                  "code": "2"
+                }
+              ],
+              "stageGroups": [],
+              "toolkit": {
+                "skills": [],
+                "mcp": [],
+                "bash": true,
+                "network": true
+              },
+              "projects": [],
+              "memoryScope": "（第一阶段不授予）",
+              "watchCategories": [
+                {
+                  "id": "spend_money",
+                  "title": "花钱"
+                },
+                {
+                  "id": "external_send",
+                  "title": "以我的名义对外发送或发布"
+                },
+                {
+                  "id": "delete_or_overwrite",
+                  "title": "删除或覆盖（项目档案和工作目录内）"
+                },
+                {
+                  "id": "irreversible_commit",
+                  "title": "不可逆的提交"
+                },
+                {
+                  "id": "account_security",
+                  "title": "账户与安全（凭据、权限、全局装软件）"
+                },
+                {
+                  "id": "outside_project",
+                  "title": "越出项目目录"
+                },
+                {
+                  "id": "memory_out_of_scope",
+                  "title": "使用授权范围外的记忆"
+                },
+                {
+                  "id": "unplanned_work_order",
+                  "title": "计划外工单"
+                },
+                {
+                  "id": "unknown_write",
+                  "title": "未知的写操作"
+                }
+              ],
+              "assumptions": [
+                "只用公开资料"
+              ],
+              "stops": {
+                "count": 0,
+                "where": []
+              },
+              "tokenEstimate": 320000
+            },
+            "globalCategories": [
+              "spend_money",
+              "external_send",
+              "delete_or_overwrite",
+              "irreversible_commit",
+              "account_security",
+              "outside_project",
+              "memory_out_of_scope",
+              "unplanned_work_order",
+              "unknown_write"
+            ],
+            "grantInfo": {
+              "dir1": {
+                "toolTitle": "建目录",
+                "categoryTitles": [],
+                "disposition": "do",
+                "outward": false
+              },
+              "dir2": {
+                "toolTitle": "建目录",
+                "categoryTitles": [],
+                "disposition": "do",
+                "outward": false
+              }
+            },
+            "verifiedQuotes": []
+          },
+          "text": "计划：被拒（第 1 版，2 个阶段，约 320000 token）",
+          "urgency": "blocking",
+          "createdAt": "2026-10-12T00:48:41.271+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 3,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "被拒",
+          "summary": "被拒",
+          "state": "awaiting_confirm",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-12T00:48:39.626+08:00",
+          "updatedAt": "2026-10-12T00:48:41.271+08:00",
+          "planCardId": "c-6df77e5f-d4e0-4a73-b047-e6ebb5c4738f",
+          "stages": {
+            "total": 2
+          }
+        },
+        "change": "plan_submitted",
+        "from": "planning",
+        "by": "maintainer"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 1,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-831d2c06-9bb3-4da2-bcbd-6c4dc53619e4",
+          "version": 1,
+          "title": "计划等你确认：被拒",
+          "source": "任务「被拒」",
+          "urgency": "blocking",
+          "pinned": false,
+          "createdAt": "2026-10-12T00:48:41.271+08:00",
+          "read": false,
+          "archived": false,
+          "deleted": false,
+          "kind": "card",
+          "cardId": "c-6df77e5f-d4e0-4a73-b047-e6ebb5c4738f"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 1,
+      "type": "notify",
+      "payload": {
+        "id": "n-i-831d2c06-9bb3-4da2-bcbd-6c4dc53619e4",
+        "title": "计划等你确认：被拒",
+        "itemId": "i-831d2c06-9bb3-4da2-bcbd-6c4dc53619e4"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 3,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "card_ref",
+              "cardId": "c-6df77e5f-d4e0-4a73-b047-e6ebb5c4738f"
+            }
+          ],
+          "id": "m-d2a19173-9df8-40e7-b49f-e0ec9327dc6c",
+          "time": "2026-10-12T00:48:41.272+08:00"
+        },
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 4,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791737321233:2q7daqvqfn2",
+              "tool": "submit_plan",
+              "argsSummary": "stages=[{\"stageId\":\"s1\",\"title\":\"收集资料\",\"deliverables\":[\"资料清单 sources.md\"],\"acceptance\":[{\"criterion\":\"资料清单存在\",\"method\":\"script\",\"script\":\"test -f sources.md\"}],…",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "计划已提交（第 1 版），计划卡放进了用户的待我处理，任务转为待确认。用户确认之前不要动手；用户打回时你会收到意见。",
+              "nature": "act"
+            }
+          ],
+          "id": "m-dcbe9e71-0d28-426a-b383-04b24a314c4d",
+          "time": "2026-10-12T00:48:41.274+08:00"
+        },
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 4,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-9299199a-6c8a-45df-ad8e-d1b2703f9c50",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "计划交上去了"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 5,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-9299199a-6c8a-45df-ad8e-d1b2703f9c50",
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "计划交上去了"
+            }
+          ],
+          "time": "2026-10-12T00:48:41.276+08:00"
+        },
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 4,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 4695,
+          "cacheMiss": 10070,
+          "output": 318
+        },
+        "calls": 2,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 4695,
+              "cacheMiss": 10070,
+              "output": 318
+            },
+            "calls": 2
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-12T00:48:41.277+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 6,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-84ca2886-c182-473e-b43c-71ab71b0a2a9",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "card_action",
+    "cardId": "c-6df77e5f-d4e0-4a73-b047-e6ebb5c4738f",
+    "action": "confirm",
+    "idempotencyKey": "af9ac0f1-9af0-40c7-99a5-a6f33c21bef3"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 5,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "被拒",
+          "summary": "被拒",
+          "state": "queued",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-12T00:48:39.626+08:00",
+          "updatedAt": "2026-10-12T00:48:41.642+08:00",
+          "planCardId": "c-6df77e5f-d4e0-4a73-b047-e6ebb5c4738f",
+          "stages": {
+            "total": 2
+          }
+        },
+        "change": "plan_confirmed",
+        "from": "awaiting_confirm",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 2,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-6df77e5f-d4e0-4a73-b047-e6ebb5c4738f",
+          "type": "plan",
+          "typeVersion": 5,
+          "version": 2,
+          "status": "handled",
+          "payload": {
+            "taskId": "t-1",
+            "taskTitle": "被拒",
+            "revision": 1,
+            "planId": "t-1-p1",
+            "goal": "整理一份 X 的调研",
+            "plan": {
+              "stages": [
+                {
+                  "stageId": "s1",
+                  "title": "收集资料",
+                  "deliverables": [
+                    "资料清单 sources.md"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "资料清单存在",
+                      "method": "script",
+                      "script": "test -f sources.md"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [],
+                  "policy": {
+                    "grants": [
+                      {
+                        "id": "dir1",
+                        "tool": "make_dir",
+                        "title": "建 s1 目录",
+                        "scope": {
+                          "path": "<临时目录>\\ergo-out-7tMnjk\\s1"
+                        }
+                      }
+                    ],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 0,
+                    "toolCalls": 0
+                  },
+                  "code": "1"
+                },
+                {
+                  "stageId": "s2",
+                  "title": "写报告",
+                  "deliverables": [
+                    "调研报告 report.md"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "报告文件存在",
+                      "method": "script",
+                      "script": "test -f report.md"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [
+                    "s1"
+                  ],
+                  "policy": {
+                    "grants": [
+                      {
+                        "id": "dir2",
+                        "tool": "make_dir",
+                        "title": "建 s2 目录",
+                        "scope": {
+                          "path": "<临时目录>\\ergo-out-7tMnjk\\s2"
+                        }
+                      }
+                    ],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 0,
+                    "toolCalls": 0
+                  },
+                  "code": "2"
+                }
+              ],
+              "stageGroups": [],
+              "toolkit": {
+                "skills": [],
+                "mcp": [],
+                "bash": true,
+                "network": true
+              },
+              "projects": [],
+              "memoryScope": "（第一阶段不授予）",
+              "watchCategories": [
+                {
+                  "id": "spend_money",
+                  "title": "花钱"
+                },
+                {
+                  "id": "external_send",
+                  "title": "以我的名义对外发送或发布"
+                },
+                {
+                  "id": "delete_or_overwrite",
+                  "title": "删除或覆盖（项目档案和工作目录内）"
+                },
+                {
+                  "id": "irreversible_commit",
+                  "title": "不可逆的提交"
+                },
+                {
+                  "id": "account_security",
+                  "title": "账户与安全（凭据、权限、全局装软件）"
+                },
+                {
+                  "id": "outside_project",
+                  "title": "越出项目目录"
+                },
+                {
+                  "id": "memory_out_of_scope",
+                  "title": "使用授权范围外的记忆"
+                },
+                {
+                  "id": "unplanned_work_order",
+                  "title": "计划外工单"
+                },
+                {
+                  "id": "unknown_write",
+                  "title": "未知的写操作"
+                }
+              ],
+              "assumptions": [
+                "只用公开资料"
+              ],
+              "stops": {
+                "count": 0,
+                "where": []
+              },
+              "tokenEstimate": 320000
+            },
+            "globalCategories": [
+              "spend_money",
+              "external_send",
+              "delete_or_overwrite",
+              "irreversible_commit",
+              "account_security",
+              "outside_project",
+              "memory_out_of_scope",
+              "unplanned_work_order",
+              "unknown_write"
+            ],
+            "grantInfo": {
+              "dir1": {
+                "toolTitle": "建目录",
+                "categoryTitles": [],
+                "disposition": "do",
+                "outward": false
+              },
+              "dir2": {
+                "toolTitle": "建目录",
+                "categoryTitles": [],
+                "disposition": "do",
+                "outward": false
+              }
+            },
+            "verifiedQuotes": [],
+            "removedGrants": [],
+            "narrowedGrants": []
+          },
+          "text": "计划：被拒（第 1 版，2 个阶段，约 320000 token）",
+          "urgency": "blocking",
+          "createdAt": "2026-10-12T00:48:41.271+08:00",
+          "handledAt": "2026-10-12T00:48:41.642+08:00",
+          "outcome": {
+            "action": "confirm"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 6,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "被拒",
+          "summary": "被拒",
+          "state": "running",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-12T00:48:39.626+08:00",
+          "updatedAt": "2026-10-12T00:48:41.645+08:00",
+          "planCardId": "c-6df77e5f-d4e0-4a73-b047-e6ebb5c4738f",
+          "stages": {
+            "total": 2,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "收集资料",
+                "state": "pending",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "资料清单存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0,
+                "code": "1"
+              },
+              {
+                "stageId": "s2",
+                "title": "写报告",
+                "state": "pending",
+                "dependsOn": [
+                  "s1"
+                ],
+                "acceptance": [
+                  {
+                    "criterion": "报告文件存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0,
+                "code": "2"
+              }
+            ]
+          }
+        },
+        "change": "started",
+        "from": "queued",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 7,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "被拒",
+          "summary": "被拒",
+          "state": "running",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-12T00:48:39.626+08:00",
+          "updatedAt": "2026-10-12T00:48:41.645+08:00",
+          "planCardId": "c-6df77e5f-d4e0-4a73-b047-e6ebb5c4738f",
+          "stages": {
+            "total": 2,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "收集资料",
+                "state": "running",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "资料清单存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0,
+                "code": "1",
+                "startedAt": "2026-10-12T00:48:41.645+08:00"
+              },
+              {
+                "stageId": "s2",
+                "title": "写报告",
+                "state": "pending",
+                "dependsOn": [
+                  "s1"
+                ],
+                "acceptance": [
+                  {
+                    "criterion": "报告文件存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0,
+                "code": "2"
+              }
+            ],
+            "focus": "s1"
+          }
+        },
+        "change": "stage_started",
+        "from": "running",
+        "by": "system",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 7,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "计划已确认，开始执行任务 t-1「被拒」。\n现在是第 1/2 阶段 s1「收集资料」：\n- 交付件：资料清单 sources.md\n- 验收标准：资料清单存在（脚本：test -f sources.md）\n- 模式：开放\n授权（只在当前阶段内有效）：\n- 建 s1 目录：建目录（make_dir）：path 是 <临时目录>\\ergo-out-7tMnjk\\s1；不限次数；7 天内有效\n时序规则：\n- （没有）\n边界：\n- 工作目录 <临时目录>\\ergo-data-84gSBd\\outputs\\t-1：文件工具只能写这里；工具包：bash 开，联网开\n- 授权项只在所属阶段内有效，用到别的阶段的授权会被拉回；前置阶段没验收的阶段不能开始；“先问我”类的操作列进了授权项，执行时也照样问用户\n- 一个阶段做完调用 complete_stage 宣布完成，由运行时验收（脚本、评审、用户），你自检不算验收；进展用 report_progress 报告；卡住要用户拍板用 wait_for_user；做不下去用 fail_task 写明原因；要换去做另一个能开始的阶段用 start_stage\n- 要扩大授权、加能力、加项目、改目标或验收：用 propose_plan_change 提交计划变更（用户确认后生效，只有受影响的阶段停下等）；不扩大授权的调整（拆阶段、调顺序）用 revise_plan 自行调整计划（直接生效）\n做完调用 complete_stage 宣布阶段完成，由运行时验收。"
+            }
+          ],
+          "id": "m-93c108bb-4983-41bc-8edd-fd8672e2ff28",
+          "time": "2026-10-12T00:48:41.645+08:00"
+        },
+        "agentInput": true,
+        "taskId": "t-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 8,
+      "type": "stage_start",
+      "payload": {
+        "id": "ss-6508585b-a76c-4742-8d80-8796f75216ce",
+        "conversation": "maintainer:tm-1",
+        "taskId": "t-1",
+        "stageId": "s1",
+        "title": "收集资料",
+        "code": "1",
+        "via": {
+          "notice": "m-93c108bb-4983-41bc-8edd-fd8672e2ff28"
+        },
+        "time": "2026-10-12T00:48:41.645+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 9,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-93c108bb-4983-41bc-8edd-fd8672e2ff28"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 8,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 4695,
+          "cacheMiss": 34032,
+          "output": 341
+        },
+        "calls": 3,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 4695,
+              "cacheMiss": 34032,
+              "output": 341
+            },
+            "calls": 3
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 23962,
+              "output": 23
+            },
+            "calls": 1,
+            "budgetTokens": 23985
+          }
+        ],
+        "time": "2026-10-12T00:48:43.118+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 10,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791737323077:ul01nhft25a",
+              "tool": "bash",
+              "argsSummary": "mkdir -p \"<临时目录>/ergo-out-7tMnjk/s1\"",
+              "categoryTitles": [
+                "越出项目目录"
+              ],
+              "disposition": "do",
+              "withinGrant": true,
+              "genericBash": true,
+              "outcome": "done",
+              "resultSummary": "(no output)",
+              "nature": "act",
+              "mark": "perm"
+            }
+          ],
+          "id": "m-bc07eda0-e2c6-4c26-b94a-fd538891b35b",
+          "time": "2026-10-12T00:48:43.187+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 9,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 16676,
+          "cacheMiss": 34097,
+          "output": 365
+        },
+        "calls": 4,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 16676,
+              "cacheMiss": 34097,
+              "output": 365
+            },
+            "calls": 4
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 11981,
+              "cacheMiss": 24027,
+              "output": 47
+            },
+            "calls": 2,
+            "budgetTokens": 36055
+          }
+        ],
+        "time": "2026-10-12T00:48:43.191+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 3,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-c2369c5b-59ec-4be3-b423-469f119ed821",
+          "type": "approval",
+          "typeVersion": 1,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "approvalId": "a-4faa30c0-7db8-4720-be21-3a560bc7d9e1",
+            "source": "任务「被拒」",
+            "taskId": "t-1",
+            "stageId": "s1",
+            "tool": "bash",
+            "toolTitle": "通用 bash",
+            "argsSummary": "mkdir -p \"<临时目录>/ergo-out-7tMnjk/other1\"",
+            "categoryTitles": [
+              "越出项目目录"
+            ],
+            "reason": "先问用户：bash 里的「mkdir -p \"<临时目录>/ergo-out-7tMnjk/other1\"」碰到了项目档案和工作目录之外的路径 <临时目录>\\ergo-out-7tMnjk\\other1，命中关注类别「越出项目目录」（任务里为\"计划里列了才做\"）；授权项 dir1 超出对象范围（path 为 <临时目录>\\ergo-out-7tMnjk\\other1，允许的是 <临时目录>\\ergo-out-7tMnjk\\s1）；授权项 dir2 不属于当前阶段（它属于 s2，当前是 s1）、超出对象范围（path 为 <临时目录>\\ergo-out-7tMnjk\\other1，允许的是 <临时目录>\\ergo-out-7tMnjk\\s2）：超出授权，改为先问用户。守护进程会请用户审批，批准后才执行；不要换个写法绕过。（通用 bash：已拆开逐条判定，时间线上会单独标出）"
+          },
+          "text": "审批（任务「被拒」）：通用 bash「mkdir -p \"<临时目录>/ergo-out-7tMnjk/other1\"」 · 越出项目目录",
+          "urgency": "blocking",
+          "createdAt": "2026-10-12T00:48:43.193+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 2,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-060cb7b0-579b-4b45-99d3-bd098574ae1f",
+          "version": 1,
+          "title": "审批：通用 bash mkdir -p \"<临时目录>/e…",
+          "source": "任务「被拒」",
+          "urgency": "blocking",
+          "pinned": false,
+          "createdAt": "2026-10-12T00:48:43.193+08:00",
+          "read": false,
+          "archived": false,
+          "deleted": false,
+          "kind": "card",
+          "cardId": "c-c2369c5b-59ec-4be3-b423-469f119ed821"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 11,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "card_ref",
+              "cardId": "c-c2369c5b-59ec-4be3-b423-469f119ed821"
+            }
+          ],
+          "id": "m-98521969-70c1-4b34-b6c6-2ca9d039345b",
+          "time": "2026-10-12T00:48:43.193+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 2,
+      "type": "notify",
+      "payload": {
+        "id": "n-i-060cb7b0-579b-4b45-99d3-bd098574ae1f",
+        "title": "审批：通用 bash mkdir -p \"<临时目录>/e…",
+        "itemId": "i-060cb7b0-579b-4b45-99d3-bd098574ae1f"
+      }
+    }
+  },
+  {
+    "kind": "card_action",
+    "cardId": "c-c2369c5b-59ec-4be3-b423-469f119ed821",
+    "action": "deny",
+    "idempotencyKey": "36b3ee6f-257d-45b6-ae0c-cd8aeb7a330c"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 4,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-c2369c5b-59ec-4be3-b423-469f119ed821",
+          "type": "approval",
+          "typeVersion": 1,
+          "version": 2,
+          "status": "handled",
+          "payload": {
+            "approvalId": "a-4faa30c0-7db8-4720-be21-3a560bc7d9e1",
+            "source": "任务「被拒」",
+            "taskId": "t-1",
+            "stageId": "s1",
+            "tool": "bash",
+            "toolTitle": "通用 bash",
+            "argsSummary": "mkdir -p \"<临时目录>/ergo-out-7tMnjk/other1\"",
+            "categoryTitles": [
+              "越出项目目录"
+            ],
+            "reason": "先问用户：bash 里的「mkdir -p \"<临时目录>/ergo-out-7tMnjk/other1\"」碰到了项目档案和工作目录之外的路径 <临时目录>\\ergo-out-7tMnjk\\other1，命中关注类别「越出项目目录」（任务里为\"计划里列了才做\"）；授权项 dir1 超出对象范围（path 为 <临时目录>\\ergo-out-7tMnjk\\other1，允许的是 <临时目录>\\ergo-out-7tMnjk\\s1）；授权项 dir2 不属于当前阶段（它属于 s2，当前是 s1）、超出对象范围（path 为 <临时目录>\\ergo-out-7tMnjk\\other1，允许的是 <临时目录>\\ergo-out-7tMnjk\\s2）：超出授权，改为先问用户。守护进程会请用户审批，批准后才执行；不要换个写法绕过。（通用 bash：已拆开逐条判定，时间线上会单独标出）"
+          },
+          "text": "审批（任务「被拒」）：通用 bash「mkdir -p \"<临时目录>/ergo-out-7tMnjk/other1\"」 · 越出项目目录",
+          "urgency": "blocking",
+          "createdAt": "2026-10-12T00:48:43.193+08:00",
+          "handledAt": "2026-10-12T00:48:43.249+08:00",
+          "outcome": {
+            "action": "deny",
+            "note": "第 1 次不行"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 10,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "被拒",
+          "summary": "被拒",
+          "state": "running",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-12T00:48:39.626+08:00",
+          "updatedAt": "2026-10-12T00:48:43.251+08:00",
+          "planCardId": "c-6df77e5f-d4e0-4a73-b047-e6ebb5c4738f",
+          "stages": {
+            "total": 2,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "收集资料",
+                "state": "running",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "资料清单存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0,
+                "code": "1",
+                "startedAt": "2026-10-12T00:48:41.645+08:00"
+              },
+              {
+                "stageId": "s2",
+                "title": "写报告",
+                "state": "pending",
+                "dependsOn": [
+                  "s1"
+                ],
+                "acceptance": [
+                  {
+                    "criterion": "报告文件存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0,
+                "code": "2"
+              }
+            ],
+            "focus": "s1"
+          },
+          "rejections": 1
+        },
+        "change": "rejection_counted",
+        "from": "running",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 12,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791737323077:bseyknwrp5n",
+              "tool": "bash",
+              "argsSummary": "mkdir -p \"<临时目录>/ergo-out-7tMnjk/other1\"",
+              "categoryTitles": [
+                "越出项目目录"
+              ],
+              "disposition": "ask_first",
+              "withinGrant": false,
+              "genericBash": true,
+              "outcome": "denied",
+              "resultSummary": "你拒绝了：第 1 次不行",
+              "nature": "act",
+              "mark": "perm"
+            }
+          ],
+          "id": "m-e2469f6a-f9ff-4c56-ab0a-d5b4baca3761",
+          "time": "2026-10-12T00:48:43.253+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 11,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 28689,
+          "cacheMiss": 34179,
+          "output": 389
+        },
+        "calls": 5,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 28689,
+              "cacheMiss": 34179,
+              "output": 389
+            },
+            "calls": 5
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 23994,
+              "cacheMiss": 24109,
+              "output": 71
+            },
+            "calls": 3,
+            "budgetTokens": 48174
+          }
+        ],
+        "time": "2026-10-12T00:48:43.255+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 5,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-93aeef3e-5a58-4da3-9507-ae43dbb03534",
+          "type": "approval",
+          "typeVersion": 1,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "approvalId": "a-f4bf6a21-3614-4afc-8cb5-ca63e2821406",
+            "source": "任务「被拒」",
+            "taskId": "t-1",
+            "stageId": "s1",
+            "tool": "bash",
+            "toolTitle": "通用 bash",
+            "argsSummary": "mkdir -p \"<临时目录>/ergo-out-7tMnjk/other2\"",
+            "categoryTitles": [
+              "越出项目目录"
+            ],
+            "reason": "先问用户：bash 里的「mkdir -p \"<临时目录>/ergo-out-7tMnjk/other2\"」碰到了项目档案和工作目录之外的路径 <临时目录>\\ergo-out-7tMnjk\\other2，命中关注类别「越出项目目录」（任务里为\"计划里列了才做\"）；授权项 dir1 超出对象范围（path 为 <临时目录>\\ergo-out-7tMnjk\\other2，允许的是 <临时目录>\\ergo-out-7tMnjk\\s1）；授权项 dir2 不属于当前阶段（它属于 s2，当前是 s1）、超出对象范围（path 为 <临时目录>\\ergo-out-7tMnjk\\other2，允许的是 <临时目录>\\ergo-out-7tMnjk\\s2）：超出授权，改为先问用户。守护进程会请用户审批，批准后才执行；不要换个写法绕过。（通用 bash：已拆开逐条判定，时间线上会单独标出）"
+          },
+          "text": "审批（任务「被拒」）：通用 bash「mkdir -p \"<临时目录>/ergo-out-7tMnjk/other2\"」 · 越出项目目录",
+          "urgency": "blocking",
+          "createdAt": "2026-10-12T00:48:43.257+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 3,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-055ca5dd-c309-4847-9882-3b5d6c7383ae",
+          "version": 1,
+          "title": "审批：通用 bash mkdir -p \"<临时目录>/e…",
+          "source": "任务「被拒」",
+          "urgency": "blocking",
+          "pinned": false,
+          "createdAt": "2026-10-12T00:48:43.257+08:00",
+          "read": false,
+          "archived": false,
+          "deleted": false,
+          "kind": "card",
+          "cardId": "c-93aeef3e-5a58-4da3-9507-ae43dbb03534"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 13,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "card_ref",
+              "cardId": "c-93aeef3e-5a58-4da3-9507-ae43dbb03534"
+            }
+          ],
+          "id": "m-8d9e3b8e-03e8-4e19-b9a9-1cb344200a77",
+          "time": "2026-10-12T00:48:43.257+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 3,
+      "type": "notify",
+      "payload": {
+        "id": "n-i-055ca5dd-c309-4847-9882-3b5d6c7383ae",
+        "title": "审批：通用 bash mkdir -p \"<临时目录>/e…",
+        "itemId": "i-055ca5dd-c309-4847-9882-3b5d6c7383ae"
+      }
+    }
+  },
+  {
+    "kind": "card_action",
+    "cardId": "c-93aeef3e-5a58-4da3-9507-ae43dbb03534",
+    "action": "deny",
+    "idempotencyKey": "c1464246-794d-4344-8a21-5a9d23f1c573"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 6,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-93aeef3e-5a58-4da3-9507-ae43dbb03534",
+          "type": "approval",
+          "typeVersion": 1,
+          "version": 2,
+          "status": "handled",
+          "payload": {
+            "approvalId": "a-f4bf6a21-3614-4afc-8cb5-ca63e2821406",
+            "source": "任务「被拒」",
+            "taskId": "t-1",
+            "stageId": "s1",
+            "tool": "bash",
+            "toolTitle": "通用 bash",
+            "argsSummary": "mkdir -p \"<临时目录>/ergo-out-7tMnjk/other2\"",
+            "categoryTitles": [
+              "越出项目目录"
+            ],
+            "reason": "先问用户：bash 里的「mkdir -p \"<临时目录>/ergo-out-7tMnjk/other2\"」碰到了项目档案和工作目录之外的路径 <临时目录>\\ergo-out-7tMnjk\\other2，命中关注类别「越出项目目录」（任务里为\"计划里列了才做\"）；授权项 dir1 超出对象范围（path 为 <临时目录>\\ergo-out-7tMnjk\\other2，允许的是 <临时目录>\\ergo-out-7tMnjk\\s1）；授权项 dir2 不属于当前阶段（它属于 s2，当前是 s1）、超出对象范围（path 为 <临时目录>\\ergo-out-7tMnjk\\other2，允许的是 <临时目录>\\ergo-out-7tMnjk\\s2）：超出授权，改为先问用户。守护进程会请用户审批，批准后才执行；不要换个写法绕过。（通用 bash：已拆开逐条判定，时间线上会单独标出）"
+          },
+          "text": "审批（任务「被拒」）：通用 bash「mkdir -p \"<临时目录>/ergo-out-7tMnjk/other2\"」 · 越出项目目录",
+          "urgency": "blocking",
+          "createdAt": "2026-10-12T00:48:43.257+08:00",
+          "handledAt": "2026-10-12T00:48:43.312+08:00",
+          "outcome": {
+            "action": "deny",
+            "note": "第 2 次不行"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 12,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "被拒",
+          "summary": "被拒",
+          "state": "running",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-12T00:48:39.626+08:00",
+          "updatedAt": "2026-10-12T00:48:43.314+08:00",
+          "planCardId": "c-6df77e5f-d4e0-4a73-b047-e6ebb5c4738f",
+          "stages": {
+            "total": 2,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "收集资料",
+                "state": "running",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "资料清单存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0,
+                "code": "1",
+                "startedAt": "2026-10-12T00:48:41.645+08:00"
+              },
+              {
+                "stageId": "s2",
+                "title": "写报告",
+                "state": "pending",
+                "dependsOn": [
+                  "s1"
+                ],
+                "acceptance": [
+                  {
+                    "criterion": "报告文件存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0,
+                "code": "2"
+              }
+            ],
+            "focus": "s1"
+          },
+          "rejections": 2
+        },
+        "change": "rejection_counted",
+        "from": "running",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 14,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791737323077:ermfgsf6c3",
+              "tool": "bash",
+              "argsSummary": "mkdir -p \"<临时目录>/ergo-out-7tMnjk/other2\"",
+              "categoryTitles": [
+                "越出项目目录"
+              ],
+              "disposition": "ask_first",
+              "withinGrant": false,
+              "genericBash": true,
+              "outcome": "denied",
+              "resultSummary": "你拒绝了：第 2 次不行",
+              "nature": "act",
+              "mark": "perm"
+            }
+          ],
+          "id": "m-c8551799-86c7-42df-8943-21b07af74a55",
+          "time": "2026-10-12T00:48:43.316+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 13,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 40743,
+          "cacheMiss": 34260,
+          "output": 413
+        },
+        "calls": 6,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 40743,
+              "cacheMiss": 34260,
+              "output": 413
+            },
+            "calls": 6
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 36048,
+              "cacheMiss": 24190,
+              "output": 95
+            },
+            "calls": 4,
+            "budgetTokens": 60333
+          }
+        ],
+        "time": "2026-10-12T00:48:43.318+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 7,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-5e9af086-c0fb-49a3-a878-00c21e90adea",
+          "type": "approval",
+          "typeVersion": 1,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "approvalId": "a-add308ee-968f-457b-96be-e8bffe643624",
+            "source": "任务「被拒」",
+            "taskId": "t-1",
+            "stageId": "s1",
+            "tool": "bash",
+            "toolTitle": "通用 bash",
+            "argsSummary": "mkdir -p \"<临时目录>/ergo-out-7tMnjk/other3\"",
+            "categoryTitles": [
+              "越出项目目录"
+            ],
+            "reason": "先问用户：bash 里的「mkdir -p \"<临时目录>/ergo-out-7tMnjk/other3\"」碰到了项目档案和工作目录之外的路径 <临时目录>\\ergo-out-7tMnjk\\other3，命中关注类别「越出项目目录」（任务里为\"计划里列了才做\"）；授权项 dir1 超出对象范围（path 为 <临时目录>\\ergo-out-7tMnjk\\other3，允许的是 <临时目录>\\ergo-out-7tMnjk\\s1）；授权项 dir2 不属于当前阶段（它属于 s2，当前是 s1）、超出对象范围（path 为 <临时目录>\\ergo-out-7tMnjk\\other3，允许的是 <临时目录>\\ergo-out-7tMnjk\\s2）：超出授权，改为先问用户。守护进程会请用户审批，批准后才执行；不要换个写法绕过。（通用 bash：已拆开逐条判定，时间线上会单独标出）"
+          },
+          "text": "审批（任务「被拒」）：通用 bash「mkdir -p \"<临时目录>/ergo-out-7tMnjk/other3\"」 · 越出项目目录",
+          "urgency": "blocking",
+          "createdAt": "2026-10-12T00:48:43.321+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 4,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-1cb7d743-cd5f-47d3-8cd3-e5673a20b623",
+          "version": 1,
+          "title": "审批：通用 bash mkdir -p \"<临时目录>/e…",
+          "source": "任务「被拒」",
+          "urgency": "blocking",
+          "pinned": false,
+          "createdAt": "2026-10-12T00:48:43.321+08:00",
+          "read": false,
+          "archived": false,
+          "deleted": false,
+          "kind": "card",
+          "cardId": "c-5e9af086-c0fb-49a3-a878-00c21e90adea"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 15,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "card_ref",
+              "cardId": "c-5e9af086-c0fb-49a3-a878-00c21e90adea"
+            }
+          ],
+          "id": "m-a3efcffe-1928-482b-b644-d499ea2f9677",
+          "time": "2026-10-12T00:48:43.321+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 4,
+      "type": "notify",
+      "payload": {
+        "id": "n-i-1cb7d743-cd5f-47d3-8cd3-e5673a20b623",
+        "title": "审批：通用 bash mkdir -p \"<临时目录>/e…",
+        "itemId": "i-1cb7d743-cd5f-47d3-8cd3-e5673a20b623"
+      }
+    }
+  },
+  {
+    "kind": "card_action",
+    "cardId": "c-5e9af086-c0fb-49a3-a878-00c21e90adea",
+    "action": "deny",
+    "idempotencyKey": "245deb92-ddaf-4e5e-bce0-fe4ccd4ff024"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 8,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-5e9af086-c0fb-49a3-a878-00c21e90adea",
+          "type": "approval",
+          "typeVersion": 1,
+          "version": 2,
+          "status": "handled",
+          "payload": {
+            "approvalId": "a-add308ee-968f-457b-96be-e8bffe643624",
+            "source": "任务「被拒」",
+            "taskId": "t-1",
+            "stageId": "s1",
+            "tool": "bash",
+            "toolTitle": "通用 bash",
+            "argsSummary": "mkdir -p \"<临时目录>/ergo-out-7tMnjk/other3\"",
+            "categoryTitles": [
+              "越出项目目录"
+            ],
+            "reason": "先问用户：bash 里的「mkdir -p \"<临时目录>/ergo-out-7tMnjk/other3\"」碰到了项目档案和工作目录之外的路径 <临时目录>\\ergo-out-7tMnjk\\other3，命中关注类别「越出项目目录」（任务里为\"计划里列了才做\"）；授权项 dir1 超出对象范围（path 为 <临时目录>\\ergo-out-7tMnjk\\other3，允许的是 <临时目录>\\ergo-out-7tMnjk\\s1）；授权项 dir2 不属于当前阶段（它属于 s2，当前是 s1）、超出对象范围（path 为 <临时目录>\\ergo-out-7tMnjk\\other3，允许的是 <临时目录>\\ergo-out-7tMnjk\\s2）：超出授权，改为先问用户。守护进程会请用户审批，批准后才执行；不要换个写法绕过。（通用 bash：已拆开逐条判定，时间线上会单独标出）"
+          },
+          "text": "审批（任务「被拒」）：通用 bash「mkdir -p \"<临时目录>/ergo-out-7tMnjk/other3\"」 · 越出项目目录",
+          "urgency": "blocking",
+          "createdAt": "2026-10-12T00:48:43.321+08:00",
+          "handledAt": "2026-10-12T00:48:43.374+08:00",
+          "outcome": {
+            "action": "deny",
+            "note": "第 3 次不行"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 14,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "被拒",
+          "summary": "被拒",
+          "state": "running",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-12T00:48:39.626+08:00",
+          "updatedAt": "2026-10-12T00:48:43.376+08:00",
+          "planCardId": "c-6df77e5f-d4e0-4a73-b047-e6ebb5c4738f",
+          "stages": {
+            "total": 2,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "收集资料",
+                "state": "running",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "资料清单存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0,
+                "code": "1",
+                "startedAt": "2026-10-12T00:48:41.645+08:00"
+              },
+              {
+                "stageId": "s2",
+                "title": "写报告",
+                "state": "pending",
+                "dependsOn": [
+                  "s1"
+                ],
+                "acceptance": [
+                  {
+                    "criterion": "报告文件存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0,
+                "code": "2"
+              }
+            ],
+            "focus": "s1"
+          },
+          "rejections": 3
+        },
+        "change": "rejection_counted",
+        "from": "running",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 16,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791737323077:lext8b3zz3q",
+              "tool": "bash",
+              "argsSummary": "mkdir -p \"<临时目录>/ergo-out-7tMnjk/other3\"",
+              "categoryTitles": [
+                "越出项目目录"
+              ],
+              "disposition": "ask_first",
+              "withinGrant": false,
+              "genericBash": true,
+              "outcome": "denied",
+              "resultSummary": "你拒绝了：第 3 次不行",
+              "nature": "act",
+              "mark": "perm"
+            }
+          ],
+          "id": "m-901c6d44-574b-4775-b519-660bdc919484",
+          "time": "2026-10-12T00:48:43.377+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 15,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 52837,
+          "cacheMiss": 34342,
+          "output": 437
+        },
+        "calls": 7,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 52837,
+              "cacheMiss": 34342,
+              "output": 437
+            },
+            "calls": 7
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 48142,
+              "cacheMiss": 24272,
+              "output": 119
+            },
+            "calls": 5,
+            "budgetTokens": 72533
+          }
+        ],
+        "time": "2026-10-12T00:48:43.380+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 9,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-157c8278-29d7-4329-b638-591c9a19a91d",
+          "type": "approval",
+          "typeVersion": 1,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "approvalId": "a-724ad1db-4ecc-441d-8f89-de0cae2b3b11",
+            "source": "任务「被拒」",
+            "taskId": "t-1",
+            "stageId": "s1",
+            "tool": "bash",
+            "toolTitle": "通用 bash",
+            "argsSummary": "mkdir -p \"<临时目录>/ergo-out-7tMnjk/other4\"",
+            "categoryTitles": [
+              "越出项目目录"
+            ],
+            "reason": "先问用户：bash 里的「mkdir -p \"<临时目录>/ergo-out-7tMnjk/other4\"」碰到了项目档案和工作目录之外的路径 <临时目录>\\ergo-out-7tMnjk\\other4，命中关注类别「越出项目目录」（任务里为\"计划里列了才做\"）；授权项 dir1 超出对象范围（path 为 <临时目录>\\ergo-out-7tMnjk\\other4，允许的是 <临时目录>\\ergo-out-7tMnjk\\s1）；授权项 dir2 不属于当前阶段（它属于 s2，当前是 s1）、超出对象范围（path 为 <临时目录>\\ergo-out-7tMnjk\\other4，允许的是 <临时目录>\\ergo-out-7tMnjk\\s2）：超出授权，改为先问用户。守护进程会请用户审批，批准后才执行；不要换个写法绕过。（通用 bash：已拆开逐条判定，时间线上会单独标出）"
+          },
+          "text": "审批（任务「被拒」）：通用 bash「mkdir -p \"<临时目录>/ergo-out-7tMnjk/other4\"」 · 越出项目目录",
+          "urgency": "blocking",
+          "createdAt": "2026-10-12T00:48:43.381+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 5,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-0cd2a0e7-985b-41bd-9716-8db74c2d655c",
+          "version": 1,
+          "title": "审批：通用 bash mkdir -p \"<临时目录>/e…",
+          "source": "任务「被拒」",
+          "urgency": "blocking",
+          "pinned": false,
+          "createdAt": "2026-10-12T00:48:43.381+08:00",
+          "read": false,
+          "archived": false,
+          "deleted": false,
+          "kind": "card",
+          "cardId": "c-157c8278-29d7-4329-b638-591c9a19a91d"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 17,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "card_ref",
+              "cardId": "c-157c8278-29d7-4329-b638-591c9a19a91d"
+            }
+          ],
+          "id": "m-4f152f09-6a66-4fa8-a5d2-d07e6fa8dc2f",
+          "time": "2026-10-12T00:48:43.381+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 5,
+      "type": "notify",
+      "payload": {
+        "id": "n-i-0cd2a0e7-985b-41bd-9716-8db74c2d655c",
+        "title": "审批：通用 bash mkdir -p \"<临时目录>/e…",
+        "itemId": "i-0cd2a0e7-985b-41bd-9716-8db74c2d655c"
+      }
+    }
+  },
+  {
+    "kind": "card_action",
+    "cardId": "c-157c8278-29d7-4329-b638-591c9a19a91d",
+    "action": "deny",
+    "idempotencyKey": "34e05cbb-59c5-41d0-8cc6-632bbe95acb1"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 10,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-157c8278-29d7-4329-b638-591c9a19a91d",
+          "type": "approval",
+          "typeVersion": 1,
+          "version": 2,
+          "status": "handled",
+          "payload": {
+            "approvalId": "a-724ad1db-4ecc-441d-8f89-de0cae2b3b11",
+            "source": "任务「被拒」",
+            "taskId": "t-1",
+            "stageId": "s1",
+            "tool": "bash",
+            "toolTitle": "通用 bash",
+            "argsSummary": "mkdir -p \"<临时目录>/ergo-out-7tMnjk/other4\"",
+            "categoryTitles": [
+              "越出项目目录"
+            ],
+            "reason": "先问用户：bash 里的「mkdir -p \"<临时目录>/ergo-out-7tMnjk/other4\"」碰到了项目档案和工作目录之外的路径 <临时目录>\\ergo-out-7tMnjk\\other4，命中关注类别「越出项目目录」（任务里为\"计划里列了才做\"）；授权项 dir1 超出对象范围（path 为 <临时目录>\\ergo-out-7tMnjk\\other4，允许的是 <临时目录>\\ergo-out-7tMnjk\\s1）；授权项 dir2 不属于当前阶段（它属于 s2，当前是 s1）、超出对象范围（path 为 <临时目录>\\ergo-out-7tMnjk\\other4，允许的是 <临时目录>\\ergo-out-7tMnjk\\s2）：超出授权，改为先问用户。守护进程会请用户审批，批准后才执行；不要换个写法绕过。（通用 bash：已拆开逐条判定，时间线上会单独标出）"
+          },
+          "text": "审批（任务「被拒」）：通用 bash「mkdir -p \"<临时目录>/ergo-out-7tMnjk/other4\"」 · 越出项目目录",
+          "urgency": "blocking",
+          "createdAt": "2026-10-12T00:48:43.381+08:00",
+          "handledAt": "2026-10-12T00:48:43.437+08:00",
+          "outcome": {
+            "action": "deny",
+            "note": "第 4 次不行"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 16,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "被拒",
+          "summary": "被拒",
+          "state": "running",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-12T00:48:39.626+08:00",
+          "updatedAt": "2026-10-12T00:48:43.440+08:00",
+          "planCardId": "c-6df77e5f-d4e0-4a73-b047-e6ebb5c4738f",
+          "stages": {
+            "total": 2,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "收集资料",
+                "state": "running",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "资料清单存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0,
+                "code": "1",
+                "startedAt": "2026-10-12T00:48:41.645+08:00"
+              },
+              {
+                "stageId": "s2",
+                "title": "写报告",
+                "state": "pending",
+                "dependsOn": [
+                  "s1"
+                ],
+                "acceptance": [
+                  {
+                    "criterion": "报告文件存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0,
+                "code": "2"
+              }
+            ],
+            "focus": "s1"
+          },
+          "rejections": 4
+        },
+        "change": "rejection_counted",
+        "from": "running",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 18,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791737323077:hec0u6zcpbf",
+              "tool": "bash",
+              "argsSummary": "mkdir -p \"<临时目录>/ergo-out-7tMnjk/other4\"",
+              "categoryTitles": [
+                "越出项目目录"
+              ],
+              "disposition": "ask_first",
+              "withinGrant": false,
+              "genericBash": true,
+              "outcome": "denied",
+              "resultSummary": "你拒绝了：第 4 次不行",
+              "nature": "act",
+              "mark": "perm"
+            }
+          ],
+          "id": "m-a0a1b94c-eabf-447a-9288-98afaa5bd303",
+          "time": "2026-10-12T00:48:43.442+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 17,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 64972,
+          "cacheMiss": 34423,
+          "output": 461
+        },
+        "calls": 8,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 64972,
+              "cacheMiss": 34423,
+              "output": 461
+            },
+            "calls": 8
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 60277,
+              "cacheMiss": 24353,
+              "output": 143
+            },
+            "calls": 6,
+            "budgetTokens": 84773
+          }
+        ],
+        "time": "2026-10-12T00:48:43.444+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 11,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-0f7bf66b-bfa4-49d6-8e32-0cdefe23d8d3",
+          "type": "approval",
+          "typeVersion": 1,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "approvalId": "a-0ec2b880-ce1c-4d46-b645-0ed790e993d3",
+            "source": "任务「被拒」",
+            "taskId": "t-1",
+            "stageId": "s1",
+            "tool": "bash",
+            "toolTitle": "通用 bash",
+            "argsSummary": "mkdir -p \"<临时目录>/ergo-out-7tMnjk/other5\"",
+            "categoryTitles": [
+              "越出项目目录"
+            ],
+            "reason": "先问用户：bash 里的「mkdir -p \"<临时目录>/ergo-out-7tMnjk/other5\"」碰到了项目档案和工作目录之外的路径 <临时目录>\\ergo-out-7tMnjk\\other5，命中关注类别「越出项目目录」（任务里为\"计划里列了才做\"）；授权项 dir1 超出对象范围（path 为 <临时目录>\\ergo-out-7tMnjk\\other5，允许的是 <临时目录>\\ergo-out-7tMnjk\\s1）；授权项 dir2 不属于当前阶段（它属于 s2，当前是 s1）、超出对象范围（path 为 <临时目录>\\ergo-out-7tMnjk\\other5，允许的是 <临时目录>\\ergo-out-7tMnjk\\s2）：超出授权，改为先问用户。守护进程会请用户审批，批准后才执行；不要换个写法绕过。（通用 bash：已拆开逐条判定，时间线上会单独标出）"
+          },
+          "text": "审批（任务「被拒」）：通用 bash「mkdir -p \"<临时目录>/ergo-out-7tMnjk/other5\"」 · 越出项目目录",
+          "urgency": "blocking",
+          "createdAt": "2026-10-12T00:48:43.446+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 6,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-be155436-7259-4108-9c0a-b6d3c3a58441",
+          "version": 1,
+          "title": "审批：通用 bash mkdir -p \"<临时目录>/e…",
+          "source": "任务「被拒」",
+          "urgency": "blocking",
+          "pinned": false,
+          "createdAt": "2026-10-12T00:48:43.446+08:00",
+          "read": false,
+          "archived": false,
+          "deleted": false,
+          "kind": "card",
+          "cardId": "c-0f7bf66b-bfa4-49d6-8e32-0cdefe23d8d3"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 19,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "card_ref",
+              "cardId": "c-0f7bf66b-bfa4-49d6-8e32-0cdefe23d8d3"
+            }
+          ],
+          "id": "m-ce484206-1c9e-4bab-a6c7-80246e0dcc90",
+          "time": "2026-10-12T00:48:43.446+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 6,
+      "type": "notify",
+      "payload": {
+        "id": "n-i-be155436-7259-4108-9c0a-b6d3c3a58441",
+        "title": "审批：通用 bash mkdir -p \"<临时目录>/e…",
+        "itemId": "i-be155436-7259-4108-9c0a-b6d3c3a58441"
+      }
+    }
+  },
+  {
+    "kind": "card_action",
+    "cardId": "c-0f7bf66b-bfa4-49d6-8e32-0cdefe23d8d3",
+    "action": "deny",
+    "idempotencyKey": "4faff2bf-87c8-4795-8315-1fca2261d25b"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 12,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-0f7bf66b-bfa4-49d6-8e32-0cdefe23d8d3",
+          "type": "approval",
+          "typeVersion": 1,
+          "version": 2,
+          "status": "handled",
+          "payload": {
+            "approvalId": "a-0ec2b880-ce1c-4d46-b645-0ed790e993d3",
+            "source": "任务「被拒」",
+            "taskId": "t-1",
+            "stageId": "s1",
+            "tool": "bash",
+            "toolTitle": "通用 bash",
+            "argsSummary": "mkdir -p \"<临时目录>/ergo-out-7tMnjk/other5\"",
+            "categoryTitles": [
+              "越出项目目录"
+            ],
+            "reason": "先问用户：bash 里的「mkdir -p \"<临时目录>/ergo-out-7tMnjk/other5\"」碰到了项目档案和工作目录之外的路径 <临时目录>\\ergo-out-7tMnjk\\other5，命中关注类别「越出项目目录」（任务里为\"计划里列了才做\"）；授权项 dir1 超出对象范围（path 为 <临时目录>\\ergo-out-7tMnjk\\other5，允许的是 <临时目录>\\ergo-out-7tMnjk\\s1）；授权项 dir2 不属于当前阶段（它属于 s2，当前是 s1）、超出对象范围（path 为 <临时目录>\\ergo-out-7tMnjk\\other5，允许的是 <临时目录>\\ergo-out-7tMnjk\\s2）：超出授权，改为先问用户。守护进程会请用户审批，批准后才执行；不要换个写法绕过。（通用 bash：已拆开逐条判定，时间线上会单独标出）"
+          },
+          "text": "审批（任务「被拒」）：通用 bash「mkdir -p \"<临时目录>/ergo-out-7tMnjk/other5\"」 · 越出项目目录",
+          "urgency": "blocking",
+          "createdAt": "2026-10-12T00:48:43.446+08:00",
+          "handledAt": "2026-10-12T00:48:43.499+08:00",
+          "outcome": {
+            "action": "deny",
+            "note": "第 5 次不行"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 18,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "被拒",
+          "summary": "被拒",
+          "state": "paused",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-12T00:48:39.626+08:00",
+          "updatedAt": "2026-10-12T00:48:43.502+08:00",
+          "planCardId": "c-6df77e5f-d4e0-4a73-b047-e6ebb5c4738f",
+          "stages": {
+            "total": 2,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "收集资料",
+                "state": "running",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "资料清单存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0,
+                "code": "1",
+                "startedAt": "2026-10-12T00:48:41.645+08:00"
+              },
+              {
+                "stageId": "s2",
+                "title": "写报告",
+                "state": "pending",
+                "dependsOn": [
+                  "s1"
+                ],
+                "acceptance": [
+                  {
+                    "criterion": "报告文件存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0,
+                "code": "2"
+              }
+            ],
+            "focus": "s1"
+          },
+          "rejections": 5,
+          "pauseReason": "too_many_rejections"
+        },
+        "change": "paused",
+        "from": "running",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 20,
+      "type": "timeline_record",
+      "payload": {
+        "record": {
+          "id": "r-97f89886-4cfb-48c3-9799-4450984ad5ba",
+          "kind": "deviation",
+          "summary": "你累计拒绝了 5 次（审批、计划变更），任务先暂停：看过之后可以继续，或者取消任务",
+          "time": "2026-10-12T00:48:43.502+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 21,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791737323077:5euhkfk935c",
+              "tool": "bash",
+              "argsSummary": "mkdir -p \"<临时目录>/ergo-out-7tMnjk/other5\"",
+              "categoryTitles": [
+                "越出项目目录"
+              ],
+              "disposition": "ask_first",
+              "withinGrant": false,
+              "genericBash": true,
+              "outcome": "denied",
+              "resultSummary": "你拒绝了：第 5 次不行",
+              "nature": "act",
+              "mark": "perm"
+            }
+          ],
+          "id": "m-105a5c92-27e8-42e8-a91f-d437d8d3cf4f",
+          "time": "2026-10-12T00:48:43.504+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 19,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 77147,
+          "cacheMiss": 34505,
+          "output": 461
+        },
+        "calls": 9,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 77147,
+              "cacheMiss": 34505,
+              "output": 461
+            },
+            "calls": 9
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 72452,
+              "cacheMiss": 24435,
+              "output": 143
+            },
+            "calls": 7,
+            "budgetTokens": 97030
+          }
+        ],
+        "time": "2026-10-12T00:48:43.506+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 22,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-93c108bb-4983-41bc-8edd-fd8672e2ff28",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 20,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "被拒",
+          "summary": "被拒",
+          "state": "running",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-12T00:48:39.626+08:00",
+          "updatedAt": "2026-10-12T00:48:43.874+08:00",
+          "planCardId": "c-6df77e5f-d4e0-4a73-b047-e6ebb5c4738f",
+          "stages": {
+            "total": 2,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "收集资料",
+                "state": "running",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "资料清单存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0,
+                "code": "1",
+                "startedAt": "2026-10-12T00:48:41.645+08:00"
+              },
+              {
+                "stageId": "s2",
+                "title": "写报告",
+                "state": "pending",
+                "dependsOn": [
+                  "s1"
+                ],
+                "acceptance": [
+                  {
+                    "criterion": "报告文件存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0,
+                "code": "2"
+              }
+            ],
+            "focus": "s1"
+          },
+          "rejections": 0
+        },
+        "change": "resumed",
+        "from": "paused",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 23,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "用户让任务继续了。接着做。"
+            }
+          ],
+          "id": "m-f54283a8-ba9f-41b3-9140-3a8532b1414f",
+          "time": "2026-10-12T00:48:43.874+08:00"
+        },
+        "agentInput": true,
+        "taskId": "t-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 24,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-f54283a8-ba9f-41b3-9140-3a8532b1414f"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 21,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 89363,
+          "cacheMiss": 34946,
+          "output": 461
+        },
+        "calls": 10,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 89363,
+              "cacheMiss": 34946,
+              "output": 461
+            },
+            "calls": 10
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 84668,
+              "cacheMiss": 24876,
+              "output": 143
+            },
+            "calls": 8,
+            "budgetTokens": 109687
+          }
+        ],
+        "time": "2026-10-12T00:48:43.883+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 25,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-f54283a8-ba9f-41b3-9140-3a8532b1414f",
+        "outcome": "completed"
+      }
+    }
+  }
+]

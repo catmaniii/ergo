@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#ffffff" />
+    <title>二狗</title>
+    <script>
+      // 外观（34 号票）、视觉风格（39 号票）和经典的主色（119 号票）：页面脚本加载前就按这台设备记住的选择定下外观、风格和主色，
+      // 不先闪一下另一种颜色、另一套风格。
+      // 和 src/app/theme.ts 做的是同一件事（键名、地址栏颜色、字体样式表、主色都一样），改一处要改另一处（test/app/theme.test.ts 比对两边）。
+      (function () {
+        // 风格清单里每套风格的地址栏颜色、字体样式表、可选的主色：构建时由 build/visual-styles-plugin.ts 填进来
+        var STYLES = /*VISUAL_STYLES*/ {};
+        var choice = null;
+        var style = null;
+        var accent = null;
+        // 312 号票：这台设备上记着的旧名字的键（ergou-theme、ergou.input_mode，刷新前存的 ergou.reload_drafts 这种）第一次打开时
+        // 搬成新名字（ergo-…），搬完删旧的；新名字已经有了的不盖。页面脚本里的各个键、下面的外观都在这之后才读（test/app/old-storage-keys.test.ts）
+        function moveOld(area) {
+          var old = [];
+          for (var i = 0; i < area.length; i++) {
+            var key = area.key(i);
+            if (key && /^ergou[-.]/.test(key)) old.push(key);
+          }
+          for (var j = 0; j < old.length; j++) {
+            var to = "ergo" + old[j].slice(5);
+            if (area.getItem(to) === null) area.setItem(to, area.getItem(old[j]));
+            area.removeItem(old[j]);
+          }
+        }
+        try {
+          moveOld(localStorage);
+        } catch (e) {
+          // 存储用不了：没有可搬的
+        }
+        try {
+          moveOld(sessionStorage);
+        } catch (e) {
+          // 同上
+        }
+        try {
+          choice = localStorage.getItem("ergo-theme");
+          style = localStorage.getItem("ergo-style");
+          accent = localStorage.getItem("ergo-accent");
+        } catch (e) {
+          // 存储用不了：跟随系统、经典、默认的主色
+        }
+        if (choice !== "light" && choice !== "dark") choice = null;
+        // 没选过、清单里没有了：默认的经典（和 src/state/visual-style.ts 的 DEFAULT_VISUAL_STYLE 一样，测试比对）
+        if (!style || !Object.prototype.hasOwnProperty.call(STYLES, style)) style = "classic";
+        var info = STYLES[style];
+        var dark = choice ? choice === "dark" : typeof matchMedia === "function" && matchMedia("(prefers-color-scheme: dark)").matches;
+        if (choice) document.documentElement.setAttribute("data-theme", choice);
+        document.documentElement.setAttribute("data-style", style);
+        document.querySelector('meta[name="color-scheme"]').setAttribute("content", choice || "light dark");
+        if (!info) return;
+        if (info.accents) {
+          // 这套风格能换主色（经典）：记住的认识就用，不认识、没选过的用第一种（和 src/state/visual-style.ts 的 accentOf 一样）
+          if (info.accents.indexOf(accent) < 0) accent = info.accents[0];
+          document.documentElement.setAttribute("data-accent", accent);
+        }
+        document.querySelector('meta[name="theme-color"]').setAttribute("content", dark ? info.bar.dark : info.bar.light);
+        if (info.fonts) {
+          // 这套风格自己的字体：只在选了它时才挂，按 unicode-range 只下页面上用到的字；没下好时先用系统字体
+          var link = document.createElement("link");
+          link.setAttribute("rel", "stylesheet");
+          link.setAttribute("href", info.fonts);
+          link.setAttribute("data-style-fonts", "");
+          document.head.appendChild(link);
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

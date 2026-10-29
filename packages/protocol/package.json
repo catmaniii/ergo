@@ -1,0 +1,32 @@
+{
+  "name": "@ergo/protocol",
+  "version": "0.4.0",
+  "private": true,
+  "type": "module",
+  "description": "二狗共享协议：守护进程与前端共用的帧、频道事件、消息和卡片（TypeBox 定义）",
+  "license": "MIT",
+  "author": "ergo contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/catmaniii/ergo.git",
+    "directory": "packages/protocol"
+  },
+  "homepage": "https://github.com/catmaniii/ergo#readme",
+  "bugs": {
+    "url": "https://github.com/catmaniii/ergo/issues"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "typebox": "1.3.36"
+  },
+  "sideEffects": false
+}

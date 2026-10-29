@@ -1,0 +1,20 @@
+{
+  "pairing.batchSkipped": "这台设备{phrase}",
+  "pairing.rateLimited": "同一来源 {window}内最多 {limit} 个配对请求，请过一会儿再试",
+  "pairing.renameNoRequest": "没有找到这台设备的配对请求：重新发起一个",
+  "pairing.renameNotPending": "这个配对请求已经不在等批准了，不能再改设备名",
+  "pairing.keyReused": "这个幂等键已经用在别的请求上了",
+  "pairing.noDevice": "没有这台设备：{deviceId}",
+  "pairing.revoked": "这台设备已经吊销了",
+  "pairing.extendNeedsDays": "延期要给天数",
+  "pairing.expired": "这个配对请求已经过期了（{ttl}），请在新设备上重新请求",
+  "pairing.cardText": "配对请求：{deviceName} · 短码 {shortCode} · 短指纹 {fingerprint}（{from}）",
+  "pairing.cardTextAutomated": "{text}。{hint}",
+  "pairing.inboxSource": "设备配对",
+  "pairing.unidentifiedSource": "经前门转发，无法识别",
+  "pairing.reject.badName": "设备名不能为空，也不能太长",
+  "pairing.reject.noRequest": "没有这个配对请求",
+  "pairing.reject.handled": "已被处理",
+  "pairing.source.tunnel": "经隧道 · {source}",
+  "pairing.source.external": "外网端口 · {source}"
+}

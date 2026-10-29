@@ -1,0 +1,9 @@
+{
+  "cards.keyReused": "This idempotency key was already used for a different request",
+  "cards.noCard": "No such card: {cardId}",
+  "cards.unknownType": "This version can't handle this kind of card ({type}) yet",
+  "cards.noAction": "This card has no “{action}” action",
+  "cards.handled": "Already handled",
+  "cards.changedElsewhere": "This card was just changed elsewhere. Check the latest version and try again",
+  "cards.badInput": "Invalid input for “{action}”: {error}"
+}

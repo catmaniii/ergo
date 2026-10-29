@@ -1,0 +1,8 @@
+# npm 装依赖时会把 bin 脚本的换行改成 LF；检出也用 LF，免得每次 npm ci 后工作区显示被改
+packages/supervisor/bin/*.mjs text eol=lf
+# 送上 VPS 跑的 bash（和测试用的假 Debian）：Linux 上的 bash 不认 CRLF
+packages/supervisor/src/vps/sh/*.sh text eol=lf
+packages/supervisor/tests/_fake-debian.sh text eol=lf
+# 318 号票：批处理用 CRLF（cmd.exe 读只有 LF 的批处理会出怪问题）；安装脚本只有 ASCII、用 LF（irm | iex 和 -File 都认）
+packages/daemon/installer/*.cmd text eol=crlf
+packages/daemon/installer/*.ps1 text eol=lf

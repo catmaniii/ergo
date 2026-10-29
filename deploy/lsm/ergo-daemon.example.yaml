@@ -1,0 +1,96 @@
+# ergo-daemon：二狗的守护进程。由 Local Service Manager 登记、启动（规格第 1 节），二狗自己不启动任何服务。
+#
+# 这是服务管家（LSM）注册表条目的**示例**（格式见 packages/supervisor/docs/service-schema.md）。登记时复制一份，把下面三个占位符
+# 换成本机的值，放进服务管家数据目录（默认 %LOCALAPPDATA%\ergo\supervisor）的 registry/services/ergo-daemon.yaml。真实条目不进本仓库。
+# 登记步骤见本仓库 docs/user-guide.md 的"从源码安装"一节（第 5 步）。
+#
+#   <仓库路径>        主分支的检出目录（不是 worktree）。源码靠 Node 的类型剥离直接跑，没有构建步骤；
+#                     Web UI 用的是 npm run build:web 的构建产物 packages/web/dist/index.html（每次请求重新读）。
+#   <专用 Node 路径>  一份专用的 Node 22（≥22.19，大版本跟着 pi 走，见二狗仓库 ADR-0031）里 node.exe 的绝对路径。不用 PATH 上的 node
+#                     （PATH 顺序一变可能换成别的版本），也不用 pi 自带的那份（会随 pi 升级）。
+#   <用户主目录>      数据目录在它下面的 .ergo；密钥区只由 LSM 读，agent 读不到。
+#   <VPS 地址>        VPS 的公网 IP（只在文件末尾注释掉的公网入口 exposure 示例里；和 ergo-tunnel 条目里的一样）
+#
+# 端口 8810 是配置里 ports.local 的默认值；改了端口就同时改下面两处 8810（stop 钩子从配置读端口，不用改）。
+# 守护进程同时监听外网端口 8811（ports.external），那是 ergo-tunnel 的目标，每个请求都要设备凭证。
+id: ergo-daemon
+name: 二狗守护进程（本机 8810）
+project: ergo
+root: <仓库路径>
+kind: managed
+
+probe:
+  # linked 是最高档：守护进程接入 LSM 的 link 协议（23 号票，packages/daemon/src/lsm/link.ts），连接在 = 它真的活着，
+  # 健康（秘书在不在运行、启用着的插件装没装上）和忙不忙（有任务处于执行中、有有副作用的调用正在执行）都是它自己报的。接入层断了 LSM 自动降级回下面的 health 档继续探活，
+  # 不判死（packages/supervisor/docs/link-protocol.md 第 5 节）。
+  # /healthz：秘书在不在运行、Web UI 构建产物在不在；不健康时回 503 并写明原因，不是只看端口有没有人听
+  # （启用着的插件没装上只算降级：照旧回 200，status 是 degraded；接入层连着时心跳报 degraded，亮黄灯）
+  tier: linked
+  port: 8810
+  health:
+    url: http://127.0.0.1:8810/healthz
+    timeoutMs: 3000
+
+# 能力以守护进程 hello 时上报的为准（busy、stop、restart、health），会覆盖这里；这里是接入层断开时的兜底（走钩子）
+capabilities: [start, stop, restart, health]
+
+link:
+  enabled: true      # 启动时注入 LSM_URL / LSM_SERVICE_ID / LSM_TOKEN / LSM_PROTOCOL；守护进程没拿到这四个变量时静默不接入
+
+hooks:
+  start:
+    # argv 而不是 cmd：不经 shell 包装，不会冒出可见窗口
+    argv:
+      - <专用 Node 路径>
+      - packages/daemon/src/main.ts
+    detaches: false
+    readyTimeoutMs: 30000
+  stop:
+    # 接入层连着时，停止、重启走 link 协议：守护进程优雅停止（"等空闲再停"时等任务不再执行）、删 pid 文件、退出。
+    # 这个钩子是接入层断开时的兜底：先核对"监听本机端口的就是数据目录 pid 文件里的那个进程（启动时间也对得上）"才结束它，
+    # 对不上就不动、报原因。守护进程按"随时可能被杀"设计：事件日志在 SQLite（WAL）里，Job 对象把 agent 子进程一起清掉；
+    # 重新起来后正在做的事按规则恢复（23 号票，packages/daemon/src/recovery/）
+    argv:
+      - <专用 Node 路径>
+      - packages/daemon/src/stop.ts
+    detaches: false
+    timeoutMs: 30000
+
+env:
+  # 只写来源，不写值（密钥不进注册表，也不进仓库）。start 和 stop 钩子拿到的是同一份
+  - name: ERGO_DATA_DIR
+    from: literal
+    value: <用户主目录>\.ergo
+  # DeepSeek 的 key：LSM 从数据目录的密钥区读出来注入守护进程；守护进程再经 stdin 交给秘书子进程（不进子进程的环境变量）
+  - name: DEEPSEEK_API_KEY
+    from: file
+    path: <用户主目录>\.ergo\secrets\deepseek-api-key.txt
+
+# 被杀、崩溃后由 LSM 拉起；重启后待审批的从审批表恢复、说不清做没做完的调用转给用户确认，不悄悄重做（23 号票）
+autoRestart:
+  enabled: true
+  maxRetries: 5
+  backoffMs: [5000, 15000, 60000]
+
+# 语音回复（32 号票）用本机 LSM 托管的 audio.cpp（第三方开源的语音合成服务，可选；登记的 id 是 audiocpp，127.0.0.1:8090）合成，
+# 二狗自己不启动它。弱依赖：不等它就绪，它没开时只标记降级，语音回复退回只发文字（会话里一条说明）。
+# 地址在数据目录配置的 voice.speech.url 里（默认 http://127.0.0.1:8090）。
+dependsOn:
+  - id: audiocpp
+    type: soft
+
+# 公网入口（示例，默认注释掉）：经 ergo-tunnel（VPS 上 127.0.0.1:18811 → 本机外网端口 8811）和 VPS 上的 nginx
+# （npm run deploy:nginx 部署）。check 打的是首页：没有设备凭证也能拿到页面本身（配对等待页），别的接口一律要凭证。
+# 什么时候打开：LSM 校验时要求 via 指向的隧道服务已经登记，所以没登记 ergo-tunnel 时打开会让整个条目登记不上。
+# 登记好 ergo-tunnel、部署好 nginx 之后，去掉下面五行的注释，把 <VPS 地址> 换成真实的，再重新登记 ergo-daemon。
+# exposure:
+#   via: ergo-tunnel
+#   remotePort: 18811
+#   publicUrl: https://ergo.<VPS 地址>.sslip.io/
+#   check: true
+
+profiles: [ergo]
+
+onboarding:
+  removedScheduledTasks: []     # 新服务，没有旧的自启入口
+  # 登记并当场验证钩子闭环（stop → start → 探活转绿）之后，由登记的人填 verifiedAt 和 verifiedHooks

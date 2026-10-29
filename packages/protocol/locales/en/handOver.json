@@ -1,0 +1,5 @@
+{
+  "handOver.step": "{title} ({tool}): {args}",
+  "handOver.title": "For you to do: {tool} {args}",
+  "handOver.body": "The guard decided this step in {source} is \"for you to do\". Please do it yourself, then tap \"{done}\".\nWhat to do:\n{steps}\nGuard's note: {explanation}"
+}

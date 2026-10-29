@@ -1,0 +1,1059 @@
+[
+  {
+    "kind": "connection",
+    "status": "online"
+  },
+  {
+    "kind": "send_message",
+    "conversation": "secretary",
+    "idempotencyKey": "dd29e8b1-64e8-4e94-9ffc-e8c16b69b42d",
+    "parts": [
+      {
+        "type": "voice",
+        "mediaId": "2466fa73d126b60816c2b5128fb2db435ca09bf5e345e4956099b59a6fdb9bbf",
+        "mime": "audio/webm;codecs=opus",
+        "durationMs": 2400,
+        "waveform": [
+          20,
+          60,
+          30
+        ]
+      }
+    ],
+    "time": "2026-10-09T01:04:05.286+08:00"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 1,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-e1a5f138-2381-4f3a-a871-db84b93b4b9c",
+          "conversation": "secretary",
+          "speaker": "user",
+          "time": "2026-10-09T01:04:05.287+08:00",
+          "parts": [
+            {
+              "type": "voice",
+              "voiceId": "v-9a8df9ea-3a5c-436d-bbd8-e71128ec4a26",
+              "mediaId": "2466fa73d126b60816c2b5128fb2db435ca09bf5e345e4956099b59a6fdb9bbf",
+              "mime": "audio/webm",
+              "durationMs": 2400,
+              "waveform": [
+                20,
+                60,
+                30
+              ]
+            }
+          ]
+        },
+        "idempotencyKey": "dd29e8b1-64e8-4e94-9ffc-e8c16b69b42d"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 2,
+      "type": "voice",
+      "payload": {
+        "voice": {
+          "id": "v-9a8df9ea-3a5c-436d-bbd8-e71128ec4a26",
+          "messageId": "m-e1a5f138-2381-4f3a-a871-db84b93b4b9c",
+          "conversation": "secretary",
+          "mediaId": "2466fa73d126b60816c2b5128fb2db435ca09bf5e345e4956099b59a6fdb9bbf",
+          "mime": "audio/webm",
+          "durationMs": 2400,
+          "waveform": [
+            20,
+            60,
+            30
+          ],
+          "status": "queued",
+          "attempt": 1,
+          "createdAt": "2026-10-09T01:04:05.287+08:00",
+          "updatedAt": "2026-10-09T01:04:05.287+08:00",
+          "version": 1
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 3,
+      "type": "voice",
+      "payload": {
+        "voice": {
+          "id": "v-9a8df9ea-3a5c-436d-bbd8-e71128ec4a26",
+          "messageId": "m-e1a5f138-2381-4f3a-a871-db84b93b4b9c",
+          "conversation": "secretary",
+          "mediaId": "2466fa73d126b60816c2b5128fb2db435ca09bf5e345e4956099b59a6fdb9bbf",
+          "mime": "audio/webm",
+          "durationMs": 2400,
+          "waveform": [
+            20,
+            60,
+            30
+          ],
+          "status": "recognizing",
+          "attempt": 1,
+          "createdAt": "2026-10-09T01:04:05.287+08:00",
+          "updatedAt": "2026-10-09T01:04:05.289+08:00",
+          "version": 2
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 4,
+      "type": "voice",
+      "payload": {
+        "voice": {
+          "id": "v-9a8df9ea-3a5c-436d-bbd8-e71128ec4a26",
+          "messageId": "m-e1a5f138-2381-4f3a-a871-db84b93b4b9c",
+          "conversation": "secretary",
+          "mediaId": "2466fa73d126b60816c2b5128fb2db435ca09bf5e345e4956099b59a6fdb9bbf",
+          "mime": "audio/webm",
+          "durationMs": 2400,
+          "waveform": [
+            20,
+            60,
+            30
+          ],
+          "status": "done",
+          "attempt": 1,
+          "createdAt": "2026-10-09T01:04:05.287+08:00",
+          "updatedAt": "2026-10-09T01:04:05.512+08:00",
+          "version": 3,
+          "recognition": {
+            "text": "把这周的周报讲一下",
+            "language": "zh",
+            "segments": [
+              {
+                "start": 0,
+                "end": 3,
+                "text": "把这周的周报讲一下"
+              }
+            ],
+            "model": "large-v3",
+            "device": "cuda",
+            "computeType": "int8_float16",
+            "audioSeconds": 3,
+            "elapsedMs": 223,
+            "time": "2026-10-09T01:04:05.512+08:00"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 5,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-e1a5f138-2381-4f3a-a871-db84b93b4b9c"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 6,
+      "type": "agent_voice",
+      "payload": {
+        "voice": {
+          "id": "av-5a106f05-abf9-4190-99f6-f92405736adb",
+          "conversation": "secretary",
+          "inputMessageId": "m-e1a5f138-2381-4f3a-a871-db84b93b4b9c",
+          "scope": {},
+          "turnSeq": 5,
+          "replyMessageIds": [],
+          "status": "replying",
+          "createdAt": "2026-10-09T01:04:12.480+08:00",
+          "updatedAt": "2026-10-09T01:04:12.480+08:00",
+          "version": 1
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 6,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-c37da75e-d4c1-4c65-8fe8-cab01abd6d1f",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "好的，我把这周的周报整理好了，下面分几块"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 7,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-c37da75e-d4c1-4c65-8fe8-cab01abd6d1f",
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "好的，我把这周的周报整理好了，下面分几块说清楚。第一块是进度，基本按计划走。第二块是风险，主要在测试环境。"
+            }
+          ],
+          "time": "2026-10-09T01:04:12.500+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 8,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-e1a5f138-2381-4f3a-a871-db84b93b4b9c",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 9,
+      "type": "agent_voice",
+      "payload": {
+        "voice": {
+          "id": "av-5a106f05-abf9-4190-99f6-f92405736adb",
+          "conversation": "secretary",
+          "inputMessageId": "m-e1a5f138-2381-4f3a-a871-db84b93b4b9c",
+          "scope": {},
+          "turnSeq": 5,
+          "replyMessageIds": [
+            "m-c37da75e-d4c1-4c65-8fe8-cab01abd6d1f"
+          ],
+          "status": "synthesizing",
+          "createdAt": "2026-10-09T01:04:12.480+08:00",
+          "updatedAt": "2026-10-09T01:04:12.508+08:00",
+          "version": 2,
+          "mode": "whole",
+          "text": "好的，我把这周的周报整理好了，下面分几块说清楚。第一块是进度，基本按计划走。第二块是风险，主要在测试环境。",
+          "referenceVoice": {
+            "id": "v-3878f1d0",
+            "name": "示例音色"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 10,
+      "type": "agent_voice",
+      "payload": {
+        "voice": {
+          "id": "av-5a106f05-abf9-4190-99f6-f92405736adb",
+          "conversation": "secretary",
+          "inputMessageId": "m-e1a5f138-2381-4f3a-a871-db84b93b4b9c",
+          "scope": {},
+          "turnSeq": 5,
+          "replyMessageIds": [
+            "m-c37da75e-d4c1-4c65-8fe8-cab01abd6d1f"
+          ],
+          "status": "synthesizing",
+          "createdAt": "2026-10-09T01:04:12.480+08:00",
+          "updatedAt": "2026-10-09T01:04:12.524+08:00",
+          "version": 3,
+          "mode": "whole",
+          "text": "好的，我把这周的周报整理好了，下面分几块说清楚。第一块是进度，基本按计划走。第二块是风险，主要在测试环境。",
+          "referenceVoice": {
+            "id": "v-3878f1d0",
+            "name": "示例音色"
+          },
+          "segmentCount": 4,
+          "segments": [
+            {
+              "durationMs": 3000,
+              "offsetMs": 0
+            }
+          ],
+          "firstSegmentMs": 15,
+          "model": "fish_audio（audio.cpp/tts）"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 11,
+      "type": "agent_voice",
+      "payload": {
+        "voice": {
+          "id": "av-5a106f05-abf9-4190-99f6-f92405736adb",
+          "conversation": "secretary",
+          "inputMessageId": "m-e1a5f138-2381-4f3a-a871-db84b93b4b9c",
+          "scope": {},
+          "turnSeq": 5,
+          "replyMessageIds": [
+            "m-c37da75e-d4c1-4c65-8fe8-cab01abd6d1f"
+          ],
+          "status": "synthesizing",
+          "createdAt": "2026-10-09T01:04:12.480+08:00",
+          "updatedAt": "2026-10-09T01:04:12.546+08:00",
+          "version": 4,
+          "mode": "whole",
+          "text": "好的，我把这周的周报整理好了，下面分几块说清楚。第一块是进度，基本按计划走。第二块是风险，主要在测试环境。",
+          "referenceVoice": {
+            "id": "v-3878f1d0",
+            "name": "示例音色"
+          },
+          "segmentCount": 4,
+          "segments": [
+            {
+              "durationMs": 3000,
+              "offsetMs": 0
+            },
+            {
+              "durationMs": 1800,
+              "offsetMs": 3200
+            }
+          ],
+          "firstSegmentMs": 15,
+          "model": "fish_audio（audio.cpp/tts）"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 12,
+      "type": "agent_voice",
+      "payload": {
+        "voice": {
+          "id": "av-5a106f05-abf9-4190-99f6-f92405736adb",
+          "conversation": "secretary",
+          "inputMessageId": "m-e1a5f138-2381-4f3a-a871-db84b93b4b9c",
+          "scope": {},
+          "turnSeq": 5,
+          "replyMessageIds": [
+            "m-c37da75e-d4c1-4c65-8fe8-cab01abd6d1f"
+          ],
+          "status": "synthesizing",
+          "createdAt": "2026-10-09T01:04:12.480+08:00",
+          "updatedAt": "2026-10-09T01:04:12.581+08:00",
+          "version": 5,
+          "mode": "whole",
+          "text": "好的，我把这周的周报整理好了，下面分几块说清楚。第一块是进度，基本按计划走。第二块是风险，主要在测试环境。",
+          "referenceVoice": {
+            "id": "v-3878f1d0",
+            "name": "示例音色"
+          },
+          "segmentCount": 4,
+          "segments": [
+            {
+              "durationMs": 3000,
+              "offsetMs": 0
+            },
+            {
+              "durationMs": 1800,
+              "offsetMs": 3200
+            },
+            {
+              "durationMs": 2800,
+              "offsetMs": 5200
+            }
+          ],
+          "firstSegmentMs": 15,
+          "model": "fish_audio（audio.cpp/tts）"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 13,
+      "type": "agent_voice",
+      "payload": {
+        "voice": {
+          "id": "av-5a106f05-abf9-4190-99f6-f92405736adb",
+          "conversation": "secretary",
+          "inputMessageId": "m-e1a5f138-2381-4f3a-a871-db84b93b4b9c",
+          "scope": {},
+          "turnSeq": 5,
+          "replyMessageIds": [
+            "m-c37da75e-d4c1-4c65-8fe8-cab01abd6d1f"
+          ],
+          "status": "done",
+          "createdAt": "2026-10-09T01:04:12.480+08:00",
+          "updatedAt": "2026-10-09T01:04:12.637+08:00",
+          "version": 6,
+          "mode": "whole",
+          "text": "好的，我把这周的周报整理好了，下面分几块说清楚。第一块是进度，基本按计划走。第二块是风险，主要在测试环境。",
+          "referenceVoice": {
+            "id": "v-3878f1d0",
+            "name": "示例音色"
+          },
+          "segmentCount": 4,
+          "segments": [
+            {
+              "durationMs": 3000,
+              "offsetMs": 0
+            },
+            {
+              "durationMs": 1800,
+              "offsetMs": 3200
+            },
+            {
+              "durationMs": 2800,
+              "offsetMs": 5200
+            },
+            {
+              "durationMs": 3000,
+              "offsetMs": 8200
+            }
+          ],
+          "firstSegmentMs": 15,
+          "model": "fish_audio（audio.cpp/tts）",
+          "mediaId": "45256a13d5f7d953bad92f0218aeb3d40ecfd20887b83553691b2902b6b471bc",
+          "mime": "audio/wav",
+          "durationMs": 11200,
+          "waveform": [
+            91,
+            100,
+            85,
+            96,
+            100,
+            77,
+            99,
+            100,
+            68,
+            85,
+            100,
+            91,
+            91,
+            100,
+            85,
+            96,
+            100,
+            77,
+            99,
+            100,
+            68,
+            100,
+            100,
+            68,
+            100,
+            99,
+            77,
+            100,
+            96,
+            85,
+            100,
+            91
+          ],
+          "messageId": "m-5d5426a1-634a-4d66-ae83-b77e4c68a40c",
+          "elapsedMs": 85
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 14,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-5d5426a1-634a-4d66-ae83-b77e4c68a40c",
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tts_audio",
+              "voiceId": "av-5a106f05-abf9-4190-99f6-f92405736adb",
+              "mediaId": "45256a13d5f7d953bad92f0218aeb3d40ecfd20887b83553691b2902b6b471bc",
+              "mime": "audio/wav",
+              "durationMs": 11200,
+              "waveform": [
+                91,
+                100,
+                85,
+                96,
+                100,
+                77,
+                99,
+                100,
+                68,
+                85,
+                100,
+                91,
+                91,
+                100,
+                85,
+                96,
+                100,
+                77,
+                99,
+                100,
+                68,
+                100,
+                100,
+                68,
+                100,
+                99,
+                77,
+                100,
+                96,
+                85,
+                100,
+                91
+              ]
+            }
+          ],
+          "time": "2026-10-09T01:04:12.637+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "send_message",
+    "conversation": "secretary",
+    "idempotencyKey": "708deb2f-9be8-47c1-9102-60ba91d0521b",
+    "parts": [
+      {
+        "type": "voice",
+        "mediaId": "3621ec5edd3b1067a102185c51136110989cf58af687b985a99cefbeab11e768",
+        "mime": "audio/webm;codecs=opus",
+        "durationMs": 1500,
+        "waveform": [
+          40,
+          70
+        ]
+      }
+    ],
+    "time": "2026-10-09T01:04:12.722+08:00"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 15,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-e32ea005-e1c6-4d37-b6d1-820c02c88f9f",
+          "conversation": "secretary",
+          "speaker": "user",
+          "time": "2026-10-09T01:04:12.723+08:00",
+          "parts": [
+            {
+              "type": "voice",
+              "voiceId": "v-2a298578-0dc2-4228-a23b-589269fb4dd2",
+              "mediaId": "3621ec5edd3b1067a102185c51136110989cf58af687b985a99cefbeab11e768",
+              "mime": "audio/webm",
+              "durationMs": 1500,
+              "waveform": [
+                40,
+                70
+              ]
+            }
+          ]
+        },
+        "idempotencyKey": "708deb2f-9be8-47c1-9102-60ba91d0521b"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 16,
+      "type": "voice",
+      "payload": {
+        "voice": {
+          "id": "v-2a298578-0dc2-4228-a23b-589269fb4dd2",
+          "messageId": "m-e32ea005-e1c6-4d37-b6d1-820c02c88f9f",
+          "conversation": "secretary",
+          "mediaId": "3621ec5edd3b1067a102185c51136110989cf58af687b985a99cefbeab11e768",
+          "mime": "audio/webm",
+          "durationMs": 1500,
+          "waveform": [
+            40,
+            70
+          ],
+          "status": "queued",
+          "attempt": 1,
+          "createdAt": "2026-10-09T01:04:12.723+08:00",
+          "updatedAt": "2026-10-09T01:04:12.723+08:00",
+          "version": 1
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 17,
+      "type": "voice",
+      "payload": {
+        "voice": {
+          "id": "v-2a298578-0dc2-4228-a23b-589269fb4dd2",
+          "messageId": "m-e32ea005-e1c6-4d37-b6d1-820c02c88f9f",
+          "conversation": "secretary",
+          "mediaId": "3621ec5edd3b1067a102185c51136110989cf58af687b985a99cefbeab11e768",
+          "mime": "audio/webm",
+          "durationMs": 1500,
+          "waveform": [
+            40,
+            70
+          ],
+          "status": "recognizing",
+          "attempt": 1,
+          "createdAt": "2026-10-09T01:04:12.723+08:00",
+          "updatedAt": "2026-10-09T01:04:12.725+08:00",
+          "version": 2
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 18,
+      "type": "voice",
+      "payload": {
+        "voice": {
+          "id": "v-2a298578-0dc2-4228-a23b-589269fb4dd2",
+          "messageId": "m-e32ea005-e1c6-4d37-b6d1-820c02c88f9f",
+          "conversation": "secretary",
+          "mediaId": "3621ec5edd3b1067a102185c51136110989cf58af687b985a99cefbeab11e768",
+          "mime": "audio/webm",
+          "durationMs": 1500,
+          "waveform": [
+            40,
+            70
+          ],
+          "status": "done",
+          "attempt": 1,
+          "createdAt": "2026-10-09T01:04:12.723+08:00",
+          "updatedAt": "2026-10-09T01:04:12.728+08:00",
+          "version": 3,
+          "recognition": {
+            "text": "再讲一遍",
+            "language": "zh",
+            "segments": [
+              {
+                "start": 0,
+                "end": 3,
+                "text": "再讲一遍"
+              }
+            ],
+            "model": "large-v3",
+            "device": "cuda",
+            "computeType": "int8_float16",
+            "audioSeconds": 3,
+            "elapsedMs": 4,
+            "time": "2026-10-09T01:04:12.728+08:00"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 19,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-e32ea005-e1c6-4d37-b6d1-820c02c88f9f"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 20,
+      "type": "agent_voice",
+      "payload": {
+        "voice": {
+          "id": "av-664c6e6c-da5b-4f3f-809a-d7df926b362f",
+          "conversation": "secretary",
+          "inputMessageId": "m-e32ea005-e1c6-4d37-b6d1-820c02c88f9f",
+          "scope": {},
+          "turnSeq": 19,
+          "replyMessageIds": [],
+          "status": "replying",
+          "createdAt": "2026-10-09T01:04:12.739+08:00",
+          "updatedAt": "2026-10-09T01:04:12.739+08:00",
+          "version": 1
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 20,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-c11006c3-00fa-470e-b526-205ede1f98cc",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "好的，我把这周的周报整理"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 21,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-c11006c3-00fa-470e-b526-205ede1f98cc",
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "好的，我把这周的周报整理好了，下面分几块说清楚。第一块是进度，基本按计划走。第二块是风险，主要在测试环境。"
+            }
+          ],
+          "time": "2026-10-09T01:04:12.762+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 22,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-e32ea005-e1c6-4d37-b6d1-820c02c88f9f",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 23,
+      "type": "agent_voice",
+      "payload": {
+        "voice": {
+          "id": "av-664c6e6c-da5b-4f3f-809a-d7df926b362f",
+          "conversation": "secretary",
+          "inputMessageId": "m-e32ea005-e1c6-4d37-b6d1-820c02c88f9f",
+          "scope": {},
+          "turnSeq": 19,
+          "replyMessageIds": [
+            "m-c11006c3-00fa-470e-b526-205ede1f98cc"
+          ],
+          "status": "synthesizing",
+          "createdAt": "2026-10-09T01:04:12.739+08:00",
+          "updatedAt": "2026-10-09T01:04:12.765+08:00",
+          "version": 2,
+          "mode": "whole",
+          "text": "好的，我把这周的周报整理好了，下面分几块说清楚。第一块是进度，基本按计划走。第二块是风险，主要在测试环境。",
+          "referenceVoice": {
+            "id": "v-3878f1d0",
+            "name": "示例音色"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 24,
+      "type": "agent_voice",
+      "payload": {
+        "voice": {
+          "id": "av-664c6e6c-da5b-4f3f-809a-d7df926b362f",
+          "conversation": "secretary",
+          "inputMessageId": "m-e32ea005-e1c6-4d37-b6d1-820c02c88f9f",
+          "scope": {},
+          "turnSeq": 19,
+          "replyMessageIds": [
+            "m-c11006c3-00fa-470e-b526-205ede1f98cc"
+          ],
+          "status": "synthesizing",
+          "createdAt": "2026-10-09T01:04:12.739+08:00",
+          "updatedAt": "2026-10-09T01:04:12.783+08:00",
+          "version": 3,
+          "mode": "whole",
+          "text": "好的，我把这周的周报整理好了，下面分几块说清楚。第一块是进度，基本按计划走。第二块是风险，主要在测试环境。",
+          "referenceVoice": {
+            "id": "v-3878f1d0",
+            "name": "示例音色"
+          },
+          "segmentCount": 4,
+          "segments": [
+            {
+              "durationMs": 3000,
+              "offsetMs": 0
+            }
+          ],
+          "firstSegmentMs": 17,
+          "model": "fish_audio（audio.cpp/tts）"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 25,
+      "type": "agent_voice",
+      "payload": {
+        "voice": {
+          "id": "av-664c6e6c-da5b-4f3f-809a-d7df926b362f",
+          "conversation": "secretary",
+          "inputMessageId": "m-e32ea005-e1c6-4d37-b6d1-820c02c88f9f",
+          "scope": {},
+          "turnSeq": 19,
+          "replyMessageIds": [
+            "m-c11006c3-00fa-470e-b526-205ede1f98cc"
+          ],
+          "status": "synthesizing",
+          "createdAt": "2026-10-09T01:04:12.739+08:00",
+          "updatedAt": "2026-10-09T01:04:12.800+08:00",
+          "version": 4,
+          "mode": "whole",
+          "text": "好的，我把这周的周报整理好了，下面分几块说清楚。第一块是进度，基本按计划走。第二块是风险，主要在测试环境。",
+          "referenceVoice": {
+            "id": "v-3878f1d0",
+            "name": "示例音色"
+          },
+          "segmentCount": 4,
+          "segments": [
+            {
+              "durationMs": 3000,
+              "offsetMs": 0
+            },
+            {
+              "durationMs": 1800,
+              "offsetMs": 3200
+            }
+          ],
+          "firstSegmentMs": 17,
+          "model": "fish_audio（audio.cpp/tts）"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 26,
+      "type": "agent_voice",
+      "payload": {
+        "voice": {
+          "id": "av-664c6e6c-da5b-4f3f-809a-d7df926b362f",
+          "conversation": "secretary",
+          "inputMessageId": "m-e32ea005-e1c6-4d37-b6d1-820c02c88f9f",
+          "scope": {},
+          "turnSeq": 19,
+          "replyMessageIds": [
+            "m-c11006c3-00fa-470e-b526-205ede1f98cc"
+          ],
+          "status": "partial",
+          "createdAt": "2026-10-09T01:04:12.739+08:00",
+          "updatedAt": "2026-10-09T01:04:12.824+08:00",
+          "version": 5,
+          "mode": "whole",
+          "text": "好的，我把这周的周报整理好了，下面分几块说清楚。第一块是进度，基本按计划走。第二块是风险，主要在测试环境。",
+          "referenceVoice": {
+            "id": "v-3878f1d0",
+            "name": "示例音色"
+          },
+          "segmentCount": 4,
+          "segments": [
+            {
+              "durationMs": 3000,
+              "offsetMs": 0
+            },
+            {
+              "durationMs": 1800,
+              "offsetMs": 3200
+            }
+          ],
+          "firstSegmentMs": 17,
+          "model": "fish_audio（audio.cpp/tts）",
+          "mediaId": "4f5cbcdf6718af14bcb319a00c9d63da331b4f633aff389a1d5d151470f422c0",
+          "mime": "audio/wav",
+          "durationMs": 5000,
+          "waveform": [
+            59,
+            87,
+            99,
+            100,
+            94,
+            71,
+            44,
+            77,
+            96,
+            100,
+            99,
+            82,
+            52,
+            65,
+            90,
+            100,
+            100,
+            90,
+            65,
+            30,
+            42,
+            75,
+            95,
+            100,
+            99,
+            84,
+            55,
+            63,
+            89,
+            100,
+            100,
+            92
+          ],
+          "messageId": "m-23d6919c-82e3-4511-b95d-c67ae20b9449",
+          "elapsedMs": 45,
+          "error": "语音服务忙"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 27,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-23d6919c-82e3-4511-b95d-c67ae20b9449",
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tts_audio",
+              "voiceId": "av-664c6e6c-da5b-4f3f-809a-d7df926b362f",
+              "mediaId": "4f5cbcdf6718af14bcb319a00c9d63da331b4f633aff389a1d5d151470f422c0",
+              "mime": "audio/wav",
+              "durationMs": 5000,
+              "waveform": [
+                59,
+                87,
+                99,
+                100,
+                94,
+                71,
+                44,
+                77,
+                96,
+                100,
+                99,
+                82,
+                52,
+                65,
+                90,
+                100,
+                100,
+                90,
+                65,
+                30,
+                42,
+                75,
+                95,
+                100,
+                99,
+                84,
+                55,
+                63,
+                89,
+                100,
+                100,
+                92
+              ]
+            }
+          ],
+          "time": "2026-10-09T01:04:12.825+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 28,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "secretary",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "语音只合成了前面一部分（语音服务忙），回复的文字照常显示。"
+            }
+          ],
+          "id": "m-8584eb98-96bb-495b-961c-71271d6352cd",
+          "time": "2026-10-09T01:04:12.825+08:00"
+        }
+      }
+    }
+  }
+]

@@ -1,0 +1,211 @@
+// 内部作业（规格第 13 节）：守护进程自己按时间表做的事——每晚备份、每周校验最新快照、每天清理临时区，
+// 以后还有归档清单（19）、回避信号计时（08）、授权到期提醒（14）。挂在调度器上，不用 Windows 计划任务。
+//
+// 时间表用简单提醒的那一套时间规则（共享协议包 reminder-schedule.ts 的 ReminderSchedule 和 nextOccurrence），
+// 时间规则只在那一个模块里。"按我的工作日"按当前的个人工作日历算（29 号票）；工作日历改了，rearm 把跟着它变的作业
+// （dependsOnWorkdayCalendar）按新的工作日历重新登记。
+// 297 号票起另有"每隔几分钟"（IntervalSchedule，{ kind: "every", minutes }）：数据源的定期导入（Google 日历每 30 分钟拉一次）用，
+// 从上一次开始跑的时刻往后数；提醒那套规则里没有它（提醒不会每隔几分钟响），所以只在内部作业这里认。
+//
+// 错过的开机后补一次：每个作业上一次开始跑的时间记在事件日志里（内部频道 internal 上的 internal_job 事件，不推给前端），
+// 守护进程启动时看"上一次之后的下一次"过没过点（nextDue）：过了就马上补跑一次，没过就登记到那个时刻。
+// 停机期间错过好几次也只补一次（跑完之后的下一次从跑完的那一刻往后算）；补完再重启不会再补。
+// 第一次见到某个作业时只记下"从现在起算"，不马上跑（新的数据目录不会一启动就备份）。
+//
+// 作业的 run 是异步的。跑完（成功或失败都算跑过；失败由作业自己报告）记一次，再登记下一次。
+// 守护进程停止时中止信号（AbortSignal）置位，作业因此中止（抛 AbortError）的不算跑过，下次启动照常补。
+import { dependsOnWorkdayCalendar, nextOccurrence, nowIso, type ReminderSchedule, type ScheduleContext } from "@ergo/protocol";
+import type { DerivedView, EventStore } from "../events/event-store.ts";
+import type { ReadonlyDatabase } from "../storage/sqlite.ts";
+import type { Clock } from "./clock.ts";
+import type { Scheduler } from "./scheduler.ts";
+
+/** 内部频道：只在事件日志里，不在前端协议里，前端订阅不到 */
+export const INTERNAL_CHANNEL = "internal";
+export const INTERNAL_JOB_EVENT = "internal_job";
+
+/** 一个内部作业的状态（internal_job 事件的负载就是它的最新状态） */
+export interface InternalJobState {
+  job: string;
+  /** 第一次见到这个作业的时间：还没跑过时从这里算下一次 */
+  since: string;
+  /** 上一次开始跑的时间 */
+  lastRunAt?: string;
+}
+
+/** 这次为什么跑：到点了、启动时补错过的、用户点了"立即跑一次"（235 号票，手动整理） */
+export type JobTrigger = "scheduled" | "catch_up" | "manual";
+
+/** 每隔几分钟（297 号票）：从上一次开始跑的时刻往后数，错过了开机补一次 */
+export interface IntervalSchedule {
+  readonly kind: "every";
+  readonly minutes: number;
+}
+
+/** 内部作业的时间表：简单提醒那一套（每天、每周几……），或者每隔几分钟 */
+export type JobSchedule = ReminderSchedule | IntervalSchedule;
+
+/** 是不是"每隔几分钟" */
+export const isInterval = (schedule: JobSchedule): schedule is IntervalSchedule => schedule.kind === "every";
+
+export interface InternalJob {
+  /** 作业名（也是调度器里的 key 的一部分），比如 backup */
+  name: string;
+  /** 时间表：和简单提醒同一种（每天、每周几……），或者每隔几分钟（297 号票） */
+  schedule: JobSchedule;
+  /** 跑一次；signal 在守护进程停止时置位，作业要尽快停下（抛 AbortError） */
+  run(trigger: JobTrigger, signal: AbortSignal): Promise<unknown>;
+}
+
+export interface InternalJobs {
+  /**
+   * 登记一个作业：错过了就马上补跑一次，否则登记到下一次。返回撤销函数（126 号票：插件停用时撤掉）：
+   * 取消计时器、不再登记下一次；正在跑的那一次跑完照常记下，之后不再排
+   */
+  register(job: InternalJob): () => void;
+  state(name: string): InternalJobState | undefined;
+  /**
+   * 登记着的作业下一次什么时候跑（335 号票：设置里"备份"写下一次）：正在跑的按"这一次跑完之后"算（从现在往后），
+   * 没登记（撤销了、没登记过）、没有下一次是 undefined
+   */
+  nextRun(name: string): Date | undefined;
+  /** 正在跑的作业都跑完（连同记下"跑过了"） */
+  whenIdle(): Promise<void>;
+  /** 个人工作日历变了：把跟着它变、没在跑的作业按现在的工作日历重新登记（"按我的工作日"的下一次跟着变） */
+  rearm(): void;
+  /** 中止正在跑的作业、取消计时器，等它们停下 */
+  stop(): Promise<void>;
+}
+
+export interface InternalJobsOptions {
+  store: EventStore;
+  scheduler: Scheduler;
+  clock: Clock;
+  log: (line: string) => void;
+  /** 算下一次时要的东西：当前的个人工作日历（"按我的工作日"的时间表按它算） */
+  scheduleContext: () => ScheduleContext;
+}
+
+/**
+ * 错过了没有：上一次（还没跑过就是开始算的那一刻）之后的下一次，不晚于 now 就是错过了——启动时马上补一次；
+ * 错过好几次也只算这一次。没有下一次（一次性的已经过了）是 undefined。纯函数，19 号票的定时作业也直接用它。
+ */
+export function nextDue(schedule: JobSchedule, last: Date, now: Date, context: ScheduleContext): { at: Date; missed: boolean } | undefined {
+  const at = isInterval(schedule) ? new Date(last.getTime() + Math.max(1, schedule.minutes) * 60_000) : nextOccurrence(schedule, last, context);
+  return at && { at, missed: at.getTime() <= now.getTime() };
+}
+
+export const internalJobsView: DerivedView = {
+  name: "internal_jobs",
+  create: (db) => db.exec("CREATE TABLE IF NOT EXISTS internal_jobs (job TEXT PRIMARY KEY, state TEXT NOT NULL)"),
+  clear: (db) => db.exec("DELETE FROM internal_jobs"),
+  apply(db, event) {
+    if (event.channel !== INTERNAL_CHANNEL || event.type !== INTERNAL_JOB_EVENT) return;
+    const state = event.payload as InternalJobState;
+    db.run("INSERT INTO internal_jobs (job, state) VALUES (?, ?) ON CONFLICT (job) DO UPDATE SET state = excluded.state", state.job, JSON.stringify(state));
+  },
+};
+
+const iso = (ms: number) => nowIso(new Date(ms));
+/** 调度器里的 key */
+const keyOf = (job: InternalJob) => `internal:${job.name}`;
+const describe = (err: unknown) => (err instanceof Error ? (err.stack ?? err.message) : String(err));
+const isAbort = (err: unknown) => err instanceof Error && err.name === "AbortError";
+
+function getJobState(db: ReadonlyDatabase, job: string): InternalJobState | undefined {
+  const row = db.get<{ state: string }>("SELECT state FROM internal_jobs WHERE job = ?", job);
+  return row && (JSON.parse(row.state) as InternalJobState);
+}
+
+export function createInternalJobs(options: InternalJobsOptions): InternalJobs {
+  const { store, scheduler, clock, log } = options;
+  const controller = new AbortController();
+  const running = new Set<Promise<void>>();
+  /** 登记了的作业（按名字），和正在跑的作业名 */
+  const jobs = new Map<string, InternalJob>();
+  const busy = new Set<string>();
+
+  const record = (state: InternalJobState) => store.append({ channel: INTERNAL_CHANNEL, type: INTERNAL_JOB_EVENT, payload: state });
+
+  /** 从 after 起算下一次：已经过了点就马上跑，没过就登记到那个时刻（撤销了登记的不再排） */
+  const arm = (job: InternalJob, after: number) => {
+    if (controller.signal.aborted || jobs.get(job.name) !== job) return;
+    const due = nextDue(job.schedule, new Date(after), new Date(clock.now()), options.scheduleContext());
+    if (!due) return;
+    if (due.missed) runJob(job, "catch_up");
+    else scheduler.schedule(keyOf(job), due.at.getTime(), () => runJob(job, "scheduled"));
+  };
+
+  const runJob = (job: InternalJob, trigger: JobTrigger) => {
+    if (controller.signal.aborted) return;
+    const startedAt = clock.now();
+    busy.add(job.name);
+    const run = (async () => {
+      try {
+        await job.run(trigger, controller.signal);
+      } catch (err) {
+        // 守护进程停止时被中止的不算跑过（也不再登记下一次）
+        if (controller.signal.aborted || isAbort(err)) return;
+        log(`内部作业 ${job.name} 出错：${describe(err)}`);
+      }
+      try {
+        const state = getJobState(store.reader, job.name);
+        record({ job: job.name, since: state?.since ?? iso(startedAt), lastRunAt: iso(startedAt) });
+      } catch (err) {
+        log(`内部作业 ${job.name} 跑完了，但没记下来：${describe(err)}`);
+      }
+      busy.delete(job.name);
+      // 下一次从跑完的那一刻往后算：睡了很久醒来也只跑这一次
+      arm(job, Math.max(startedAt, clock.now()));
+    })();
+    running.add(run);
+    void run.finally(() => running.delete(run));
+  };
+
+  return {
+    register(job) {
+      jobs.set(job.name, job);
+      const undo = () => {
+        if (jobs.get(job.name) !== job) return;
+        jobs.delete(job.name);
+        scheduler.cancel(keyOf(job));
+      };
+      const state = getJobState(store.reader, job.name);
+      if (state) {
+        arm(job, Date.parse(state.lastRunAt ?? state.since));
+        return undo;
+      }
+      const now = clock.now();
+      record({ job: job.name, since: iso(now) });
+      arm(job, now);
+      return undo;
+    },
+    state: (name) => getJobState(store.reader, name),
+    nextRun(name) {
+      const job = jobs.get(name);
+      if (!job || controller.signal.aborted) return undefined;
+      const now = clock.now();
+      const state = getJobState(store.reader, name);
+      const last = busy.has(name) || !state ? now : Date.parse(state.lastRunAt ?? state.since);
+      return nextDue(job.schedule, new Date(last), new Date(now), options.scheduleContext())?.at;
+    },
+    async whenIdle() {
+      while (running.size > 0) await Promise.allSettled(running);
+    },
+    rearm() {
+      for (const job of jobs.values()) {
+        // 不跟着工作日历变的不用动；正在跑的跑完会自己登记下一次
+        if (isInterval(job.schedule) || !dependsOnWorkdayCalendar(job.schedule) || busy.has(job.name)) continue;
+        const state = getJobState(store.reader, job.name);
+        if (!state) continue;
+        scheduler.cancel(keyOf(job));
+        arm(job, Date.parse(state.lastRunAt ?? state.since));
+      }
+    },
+    async stop() {
+      controller.abort();
+      for (const job of jobs.values()) scheduler.cancel(keyOf(job));
+      while (running.size > 0) await Promise.allSettled(running);
+    },
+  };
+}

@@ -1,0 +1,142 @@
+{
+  "format": 1,
+  "release": "0.2.1",
+  "components": [
+    {
+      "id": "bge-m3",
+      "version": "4de13258",
+      "default": "install",
+      "enables": ["memory.semantic"],
+      "target": "models/Xenova/bge-m3",
+      "sources": [
+        { "id": "huggingface", "title": "Hugging Face", "hub": "huggingface", "url": "https://huggingface.co/Xenova/bge-m3/resolve/4de13258303883538bd53b696b452bf8099f0858/{path}" },
+        { "id": "hf-mirror", "title": "hf-mirror", "url": "https://hf-mirror.com/Xenova/bge-m3/resolve/4de13258303883538bd53b696b452bf8099f0858/{path}" },
+        { "id": "modelscope", "title": "ModelScope", "url": "https://www.modelscope.cn/models/Xenova/bge-m3/resolve/master/{path}" }
+      ],
+      "variants": [
+        {
+          "id": "q8",
+          "parts": [
+            {
+              "files": [
+                { "path": "config.json", "size": 770 },
+                { "path": "tokenizer_config.json", "size": 1173 },
+                { "path": "tokenizer.json", "size": 17082821, "sha256": "6710678b12670bc442b99edc952c4d996ae309a7020c1fa0096dd245c2faf790" },
+                { "path": "onnx/model_quantized.onnx", "size": 569694530, "sha256": "0826f8c1ab9edf1801db86c61919d4d108e8bfc0b809ec823ad366882ff0b77d" }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "asr",
+      "version": "1",
+      "default": "ask",
+      "provided": "voice-recognizer",
+      "enables": ["voice.input"],
+      "target": "components/asr",
+      "variants": [
+        {
+          "id": "cuda",
+          "when": { "gpu": "nvidia" },
+          "parts": [
+            { "pending": "python" },
+            {
+              "dir": "models/faster-whisper-large-v3",
+              "sources": [
+                { "id": "huggingface", "title": "Hugging Face", "hub": "huggingface", "url": "https://huggingface.co/Systran/faster-whisper-large-v3/resolve/edaa852ec7e145841d8ffdb056a99866b5f0a478/{path}" },
+                { "id": "hf-mirror", "title": "hf-mirror", "url": "https://hf-mirror.com/Systran/faster-whisper-large-v3/resolve/edaa852ec7e145841d8ffdb056a99866b5f0a478/{path}" }
+              ],
+              "files": [
+                { "path": "config.json", "size": 2394, "sha256": "a9306624f5ec14270a014b647e5c316b6e03a662c369758d1b90697a7b0655b9" },
+                { "path": "preprocessor_config.json", "size": 340, "sha256": "7ccc62c6f2765af1f3b46c00c9b5894426835a05021c8b9c01eecb6dfb542711" },
+                { "path": "tokenizer.json", "size": 2480617, "sha256": "6d8cbd7cd0d8d5815e478dac67b85a26bbe77c1f5e0c6d76d1ce2abc0e5f21ca" },
+                { "path": "vocabulary.json", "size": 1068114, "sha256": "c69260f2ab26d659b7c398f9a2b2b48ed0df16c3b47d7326782fd9cba71690c1" },
+                { "path": "model.bin", "size": 3087284237, "sha256": "69f74147e3334731bc3a76048724833325d2ec74642fb52620eda87352e3d4f1" }
+              ]
+            },
+            {
+              "dir": "models/faster-whisper-small",
+              "sources": [
+                { "id": "huggingface", "title": "Hugging Face", "hub": "huggingface", "url": "https://huggingface.co/Systran/faster-whisper-small/resolve/536b0662742c02347bc0e980a01041f333bce120/{path}" },
+                { "id": "hf-mirror", "title": "hf-mirror", "url": "https://hf-mirror.com/Systran/faster-whisper-small/resolve/536b0662742c02347bc0e980a01041f333bce120/{path}" }
+              ],
+              "files": [
+                { "path": "config.json", "size": 2370, "sha256": "b55496ac7940a7ae47d2c01eab40edfd8701feec1229d9cce3b40014383fb828" },
+                { "path": "tokenizer.json", "size": 2203239, "sha256": "fb7b63191e9bb045082c79fd742a3106a12c99513ab30df4a0d47fa6cb6fd0ab" },
+                { "path": "vocabulary.txt", "size": 459861, "sha256": "34ce3fe1c5041027b3f8d42912270993f986dbc4bb34cf27f951e34a1e453913" },
+                { "path": "model.bin", "size": 483546902, "sha256": "3e305921506d8872816023e4c273e75d2419fb89b24da97b4fe7bce14170d671" }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "cpu",
+          "parts": [
+            { "pending": "python" },
+            {
+              "dir": "models/faster-whisper-small",
+              "sources": [
+                { "id": "huggingface", "title": "Hugging Face", "hub": "huggingface", "url": "https://huggingface.co/Systran/faster-whisper-small/resolve/536b0662742c02347bc0e980a01041f333bce120/{path}" },
+                { "id": "hf-mirror", "title": "hf-mirror", "url": "https://hf-mirror.com/Systran/faster-whisper-small/resolve/536b0662742c02347bc0e980a01041f333bce120/{path}" }
+              ],
+              "files": [
+                { "path": "config.json", "size": 2370, "sha256": "b55496ac7940a7ae47d2c01eab40edfd8701feec1229d9cce3b40014383fb828" },
+                { "path": "tokenizer.json", "size": 2203239, "sha256": "fb7b63191e9bb045082c79fd742a3106a12c99513ab30df4a0d47fa6cb6fd0ab" },
+                { "path": "vocabulary.txt", "size": 459861, "sha256": "34ce3fe1c5041027b3f8d42912270993f986dbc4bb34cf27f951e34a1e453913" },
+                { "path": "model.bin", "size": 483546902, "sha256": "3e305921506d8872816023e4c273e75d2419fb89b24da97b4fe7bce14170d671" }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tts",
+      "version": "1",
+      "default": "ask",
+      "provided": "voice-speech",
+      "enables": ["voice.reply"],
+      "target": "components/tts",
+      "variants": [
+        { "id": "cuda", "when": { "gpu": "nvidia" }, "parts": [{ "pending": "audiocpp" }] },
+        { "id": "cpu", "parts": [{ "pending": "audiocpp" }] }
+      ]
+    },
+    {
+      "id": "claude-code",
+      "version": "0.3.296",
+      "default": "detected",
+      "detect": "on-path:claude",
+      "provided": "node-package:@anthropic-ai/claude-agent-sdk",
+      "enables": ["runtime.claude-code"],
+      "target": "components/claude-code",
+      "sources": [{ "id": "npm", "title": "npm", "url": "https://registry.npmjs.org/{path}" }],
+      "variants": [
+        {
+          "id": "win32-x64",
+          "when": { "platform": ["win32"], "arch": ["x64"] },
+          "parts": [
+            {
+              "files": [
+                {
+                  "path": "@anthropic-ai/claude-agent-sdk/-/claude-agent-sdk-0.3.296.tgz",
+                  "size": 1599938,
+                  "sha256": "e966be99b6f047d56165e2ec03822f17a49beebd48ac8efb91dab1e48bcf69a7",
+                  "extract": { "format": "tgz", "strip": 1, "to": "node_modules/@anthropic-ai/claude-agent-sdk", "unpackedSize": 5538642 }
+                },
+                {
+                  "path": "@anthropic-ai/claude-agent-sdk-win32-x64/-/claude-agent-sdk-win32-x64-0.3.296.tgz",
+                  "size": 117726124,
+                  "sha256": "33bc5936b37b2323842e3211625c0912a4920a8467f57a6d96ba3b237539468b",
+                  "extract": { "format": "tgz", "strip": 1, "to": "node_modules/@anthropic-ai/claude-agent-sdk-win32-x64", "unpackedSize": 260489952 }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

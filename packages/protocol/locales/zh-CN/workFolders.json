@@ -1,0 +1,11 @@
+{
+  "workFolders.notAbsolute": "「{path}」不是完整的路径：要从盘符写起（比如 D:\\work\\ledger）",
+  "workFolders.missing": "文件夹「{path}」不存在",
+  "workFolders.notFolder": "「{path}」是一个文件，不是文件夹",
+  "workFolders.forbidden": "「{path}」在{area}里：不能在那里干活，换一个文件夹",
+  "workFolders.defaultUnusable": "新建时的默认文件夹用不了：{reason}。在设置 · Claude Code 里重新定一个，或者选一个已有的文件夹",
+  "workFolders.untitled": "新的工作",
+  "workFolders.createFailed": "在「{folder}」下新开「{name}」没成：{error}",
+  "workFolders.tooMany": "重名的太多了",
+  "workFolders.notSupported": "运行时「{runtime}」新建时不能选工作文件夹"
+}

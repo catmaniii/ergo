@@ -1,0 +1,2480 @@
+[
+  {
+    "kind": "connection",
+    "status": "online"
+  },
+  {
+    "kind": "send_message",
+    "conversation": "secretary",
+    "idempotencyKey": "f0f5114e-1813-4fba-a2e4-e005bb2bf406",
+    "parts": [
+      {
+        "type": "text",
+        "text": "我每个月都要手动对账，好麻烦"
+      }
+    ],
+    "time": "2026-10-13T10:16:47.648+08:00"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 1,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-6f24b7f7-e5be-473d-ba5e-31ce5927ad63",
+          "conversation": "secretary",
+          "speaker": "user",
+          "time": "2026-10-13T10:16:47.649+08:00",
+          "parts": [
+            {
+              "type": "text",
+              "text": "我每个月都要手动对账，好麻烦"
+            }
+          ]
+        },
+        "idempotencyKey": "f0f5114e-1813-4fba-a2e4-e005bb2bf406"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 2,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-6f24b7f7-e5be-473d-ba5e-31ce5927ad63"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 1,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-0cefd1ea-b21c-4c3b-8c48-2b8497b89276",
+          "type": "suggest_project",
+          "typeVersion": 1,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "name": "记账本",
+            "goal": "把家里的账管起来"
+          },
+          "text": "建议立项：记账本（把家里的账管起来）",
+          "createdAt": "2026-10-13T10:16:49.043+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 3,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "card_ref",
+              "cardId": "c-0cefd1ea-b21c-4c3b-8c48-2b8497b89276"
+            }
+          ],
+          "id": "m-5ef72598-7a78-4ab4-b6a4-17b6ba996bf9",
+          "time": "2026-10-13T10:16:49.044+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 4,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791857809010:frlkc0pk8a",
+              "tool": "suggest_project",
+              "argsSummary": "name=记账本 goal=把家里的账管起来",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "已在聊天里放了一张“建议立项”卡（项目还没建）。用户点“立项”项目才诞生，到时你会收到通知；立项问答由项目的维护者做。",
+              "nature": "act"
+            }
+          ],
+          "id": "m-fdce483f-5e20-49c3-966a-d44000e19928",
+          "time": "2026-10-13T10:16:49.046+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 4,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-283be0ba-5c40-458c-9940-dfc44c9c8611",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "给你一张建议立项卡"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 5,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-283be0ba-5c40-458c-9940-dfc44c9c8611",
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "给你一张建议立项卡"
+            }
+          ],
+          "time": "2026-10-13T10:16:49.049+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 6,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-6f24b7f7-e5be-473d-ba5e-31ce5927ad63",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "card_action",
+    "cardId": "c-0cefd1ea-b21c-4c3b-8c48-2b8497b89276",
+    "action": "kickoff",
+    "idempotencyKey": "316a0ad1-e99f-4d4e-a6ce-6f9713bb075c"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 1,
+      "type": "project",
+      "payload": {
+        "project": {
+          "id": "p-1",
+          "name": "记账本",
+          "goal": "把家里的账管起来",
+          "state": "preparing",
+          "origin": "suggestion",
+          "maintainerId": "pm-1",
+          "workdir": {
+            "external": false
+          },
+          "charterConfirmed": false,
+          "createdAt": "2026-10-13T10:16:49.088+08:00",
+          "updatedAt": "2026-10-13T10:16:49.088+08:00"
+        },
+        "change": "created",
+        "from": null,
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 1,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "项目「记账本」立项了（筹备中）：把家里的账管起来\n维护者 pm-1 会和你做立项问答：把规格、术语表、决策记录写进项目档案，最后交出立项书。在这里说话就能叫醒它。"
+            }
+          ],
+          "id": "m-b790247a-52e5-4a6a-85ea-b9e98e96ba40",
+          "time": "2026-10-13T10:16:49.088+08:00"
+        },
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 7,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "secretary",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "用户在建议立项卡上点了「立项」：项目 p-1「记账本」已诞生（筹备中），维护者 pm-1 会在它的会话里和用户做立项问答（项目页上的“和维护者交流”）。立项问答不归你，不用转述。"
+            }
+          ],
+          "id": "m-437f971d-b8dd-4dd4-8505-9ae28e4bfa82",
+          "time": "2026-10-13T10:16:49.088+08:00"
+        },
+        "agentInput": true
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 2,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-0cefd1ea-b21c-4c3b-8c48-2b8497b89276",
+          "type": "suggest_project",
+          "typeVersion": 1,
+          "version": 2,
+          "status": "handled",
+          "payload": {
+            "name": "记账本",
+            "goal": "把家里的账管起来",
+            "projectId": "p-1"
+          },
+          "text": "建议立项：记账本（把家里的账管起来）",
+          "createdAt": "2026-10-13T10:16:49.043+08:00",
+          "handledAt": "2026-10-13T10:16:49.088+08:00",
+          "outcome": {
+            "action": "kickoff"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 8,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-437f971d-b8dd-4dd4-8505-9ae28e4bfa82"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 9,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-45f5fc13-4b79-4f68-8dca-7a44e7dcd304",
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "好的"
+            }
+          ],
+          "time": "2026-10-13T10:16:49.099+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 10,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-437f971d-b8dd-4dd4-8505-9ae28e4bfa82",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "send_message",
+    "conversation": "maintainer:pm-1",
+    "idempotencyKey": "ab29b828-e5d2-455c-a912-fdd24d447c4c",
+    "parts": [
+      {
+        "type": "text",
+        "text": "开始立项问答吧"
+      }
+    ],
+    "time": "2026-10-13T10:16:49.100+08:00"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 2,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-1-s1",
+          "maintainerId": "pm-1",
+          "projectId": "p-1",
+          "kind": "chat",
+          "session": "pm-1-s1",
+          "continueEarlier": true,
+          "reset": false,
+          "state": "open",
+          "progressHash": "7de21d05bef3d80273814fedc8e7d0a56cb4491765a02f5c3ff0e5dd913ce54f",
+          "openedAt": "2026-10-13T10:16:49.101+08:00"
+        },
+        "change": "opened"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 3,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "work_order_divider",
+              "workOrderId": "",
+              "title": "你直接对话",
+              "from": "你"
+            }
+          ],
+          "id": "m-ee616ae0-a763-49da-8d9d-1b8633a740fd",
+          "time": "2026-10-13T10:16:49.101+08:00"
+        },
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 4,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-5337d44c-accb-442d-9a78-11139154a523",
+          "conversation": "maintainer:pm-1",
+          "speaker": "user",
+          "time": "2026-10-13T10:16:49.101+08:00",
+          "parts": [
+            {
+              "type": "text",
+              "text": "开始立项问答吧"
+            }
+          ]
+        },
+        "idempotencyKey": "ab29b828-e5d2-455c-a912-fdd24d447c4c",
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 5,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-5337d44c-accb-442d-9a78-11139154a523"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 6,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791857810574:nnmnn1v4h",
+              "tool": "write",
+              "argsSummary": "<临时目录>\\ergo-data-Z9cnRF\\projects\\p-1\\adr\\0001-csv-first.md",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "Successfully wrote to <临时目录>\\ergo-data-Z9cnRF\\projects\\p-1\\adr\\0001-csv-first.md",
+              "nature": "act"
+            }
+          ],
+          "id": "m-fbe40ba4-c207-4ce6-a44c-a0eca419672b",
+          "time": "2026-10-13T10:16:50.613+08:00"
+        },
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 3,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-fbe696eb-ca20-443e-a88e-91d5161b4420",
+          "type": "charter",
+          "typeVersion": 1,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "projectId": "p-1",
+            "projectName": "记账本",
+            "revision": 1,
+            "charter": {
+              "goal": "把家里的账管起来：导入银行流水，按月出报表",
+              "scope": [
+                "导入两家银行的流水",
+                "不做投资记账"
+              ],
+              "firstVersion": "能导入招行的 CSV，出一张月度报表",
+              "kind": "dev",
+              "bindExternal": true,
+              "externalPath": "<临时目录>\\ergo-repo-sKoROR\\ledger"
+            },
+            "toolkit": {
+              "skills": [],
+              "mcp": [],
+              "bash": true,
+              "network": false
+            }
+          },
+          "text": "立项书：记账本（第 1 版，开发类，工作目录绑定 <临时目录>\\ergo-repo-sKoROR\\ledger，工具包带 bash）",
+          "urgency": "non_blocking",
+          "createdAt": "2026-10-13T10:16:50.619+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 2,
+      "type": "project",
+      "payload": {
+        "project": {
+          "id": "p-1",
+          "name": "记账本",
+          "goal": "把家里的账管起来",
+          "state": "preparing",
+          "origin": "suggestion",
+          "maintainerId": "pm-1",
+          "workdir": {
+            "external": false
+          },
+          "charterConfirmed": false,
+          "createdAt": "2026-10-13T10:16:49.088+08:00",
+          "updatedAt": "2026-10-13T10:16:50.619+08:00",
+          "charterCardId": "c-fbe696eb-ca20-443e-a88e-91d5161b4420"
+        },
+        "change": "charter_submitted",
+        "from": "preparing",
+        "by": "maintainer"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 1,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-cbd20434-aade-4473-9673-6c3dc1a2581d",
+          "version": 1,
+          "title": "立项书等你确认：记账本",
+          "source": "项目「记账本」",
+          "urgency": "non_blocking",
+          "pinned": false,
+          "createdAt": "2026-10-13T10:16:50.619+08:00",
+          "read": false,
+          "archived": false,
+          "deleted": false,
+          "origin": {
+            "projectId": "p-1"
+          },
+          "kind": "card",
+          "cardId": "c-fbe696eb-ca20-443e-a88e-91d5161b4420"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 1,
+      "type": "notify",
+      "payload": {
+        "id": "n-i-cbd20434-aade-4473-9673-6c3dc1a2581d",
+        "title": "立项书等你确认：记账本",
+        "itemId": "i-cbd20434-aade-4473-9673-6c3dc1a2581d"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 7,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "card_ref",
+              "cardId": "c-fbe696eb-ca20-443e-a88e-91d5161b4420"
+            }
+          ],
+          "id": "m-fac2d235-c8af-4971-b66c-64a498219ce6",
+          "time": "2026-10-13T10:16:50.620+08:00"
+        },
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 8,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791857810575:qgevcrv8wvj",
+              "tool": "submit_charter",
+              "argsSummary": "goal=把家里的账管起来：导入银行流水，按月出报表 scope=[\"导入两家银行的流水\",\"不做投资记账\"] firstVersion=能导入招行的 CSV，出一张月度报表 kind=dev bindExternal=true externalPath=<临时目录>…",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "立项书已提交（第 1 版，提议的工具包带 bash），立项书卡放进了用户的待我处理。用户确认之前项目留在筹备中；用户有意见会直接和你说。",
+              "nature": "act"
+            }
+          ],
+          "id": "m-7c667487-318c-4de2-932c-46697b80324e",
+          "time": "2026-10-13T10:16:50.621+08:00"
+        },
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 8,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-08cfb2d7-1cd4-407c-889d-e71f005377a6",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "立项书交上去了，等你确认"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 9,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-08cfb2d7-1cd4-407c-889d-e71f005377a6",
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "立项书交上去了，等你确认"
+            }
+          ],
+          "time": "2026-10-13T10:16:50.623+08:00"
+        },
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 10,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-5337d44c-accb-442d-9a78-11139154a523",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "card_action",
+    "cardId": "c-fbe696eb-ca20-443e-a88e-91d5161b4420",
+    "action": "confirm_start",
+    "idempotencyKey": "43fbb102-1351-4076-ad29-952149447258"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 1,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "建设「记账本」首版",
+          "summary": "项目「记账本」的首个建设任务：首版要做到什么程度见项目档案里的立项书",
+          "state": "planning",
+          "origin": "project_build",
+          "kind": "long_running",
+          "maintainerId": "pm-1",
+          "projects": [
+            "记账本"
+          ],
+          "projectIds": [
+            "p-1"
+          ],
+          "projectScope": "single",
+          "internal": {
+            "projectId": "p-1",
+            "projectName": "记账本"
+          },
+          "createdAt": "2026-10-13T10:16:50.684+08:00",
+          "updatedAt": "2026-10-13T10:16:50.684+08:00"
+        },
+        "change": "created",
+        "from": null,
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 3,
+      "type": "work_order",
+      "payload": {
+        "workOrder": {
+          "id": "wo-1",
+          "projectId": "p-1",
+          "maintainerId": "pm-1",
+          "title": "起草计划：建设「记账本」首版",
+          "createdAt": "2026-10-13T10:16:50.685+08:00",
+          "updatedAt": "2026-10-13T10:16:50.685+08:00",
+          "taskId": "t-1",
+          "taskTitle": "建设「记账本」首版",
+          "source": "user_task",
+          "kind": "plan",
+          "instructions": "任务书：任务 t-1「建设「记账本」首版」\n目标：把项目「记账本」的首版做出来：做到什么程度、范围、不做什么，见项目档案里的立项书（<临时目录>\\ergo-data-Z9cnRF\\projects\\p-1\\charter.md）\n验收标准：\n- 立项书里“首版”写的都做到\n约束：（无）\n涉及的项目：记账本（项目内部任务：只动这个项目，只在项目里看得到）\n记忆范围提议：（无）（第一阶段只占位）\n全局的关注类别（计划里的 watchCategories 一个都不能少，只能增加或往严里调）：spend_money「花钱」、external_send「以我的名义对外发送或发布」、delete_or_overwrite「删除或覆盖（项目档案和工作目录内）」、irreversible_commit「不可逆的提交」、account_security「账户与安全（凭据、权限、全局装软件）」、outside_project「越出项目目录」、memory_out_of_scope「使用授权范围外的记忆」、unplanned_work_order「计划外工单」、unknown_write「未知的写操作」\n请据此起草计划，用 submit_plan 提交；用户确认之前不要动手做。",
+          "state": "pending"
+        },
+        "change": "created",
+        "from": null,
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 4,
+      "type": "project",
+      "payload": {
+        "project": {
+          "id": "p-1",
+          "name": "记账本",
+          "goal": "把家里的账管起来",
+          "state": "building",
+          "origin": "suggestion",
+          "maintainerId": "pm-1",
+          "workdir": {
+            "external": true,
+            "path": "<临时目录>\\ergo-repo-sKoROR\\ledger"
+          },
+          "charterConfirmed": true,
+          "createdAt": "2026-10-13T10:16:49.088+08:00",
+          "updatedAt": "2026-10-13T10:16:50.684+08:00",
+          "charterCardId": "c-fbe696eb-ca20-443e-a88e-91d5161b4420",
+          "kind": "dev",
+          "toolkit": {
+            "skills": [],
+            "mcp": [],
+            "bash": true,
+            "network": false
+          },
+          "buildTaskId": "t-1"
+        },
+        "change": "building_started",
+        "from": "preparing",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 11,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "立项书已确认（确认并开工）：开发类项目，工作目录是外部路径 <临时目录>\\ergo-repo-sKoROR\\ledger，工具包带 bash。首个建设任务 t-1 已建出（规划中）。"
+            }
+          ],
+          "id": "m-cc2a6c68-bc57-4c4c-899c-f9a50be531c3",
+          "time": "2026-10-13T10:16:50.686+08:00"
+        },
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 4,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-fbe696eb-ca20-443e-a88e-91d5161b4420",
+          "type": "charter",
+          "typeVersion": 1,
+          "version": 2,
+          "status": "handled",
+          "payload": {
+            "projectId": "p-1",
+            "projectName": "记账本",
+            "revision": 1,
+            "charter": {
+              "goal": "把家里的账管起来：导入银行流水，按月出报表",
+              "scope": [
+                "导入两家银行的流水",
+                "不做投资记账"
+              ],
+              "firstVersion": "能导入招行的 CSV，出一张月度报表",
+              "kind": "dev",
+              "bindExternal": true,
+              "externalPath": "<临时目录>\\ergo-repo-sKoROR\\ledger"
+            },
+            "toolkit": {
+              "skills": [],
+              "mcp": [],
+              "bash": true,
+              "network": false
+            },
+            "confirmed": {
+              "start": true,
+              "buildTaskId": "t-1"
+            }
+          },
+          "text": "立项书：记账本（第 1 版，开发类，工作目录绑定 <临时目录>\\ergo-repo-sKoROR\\ledger，工具包带 bash）",
+          "urgency": "non_blocking",
+          "createdAt": "2026-10-13T10:16:50.619+08:00",
+          "handledAt": "2026-10-13T10:16:50.686+08:00",
+          "outcome": {
+            "action": "confirm_start",
+            "note": "首个建设任务 t-1"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 12,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-1-s1",
+          "maintainerId": "pm-1",
+          "projectId": "p-1",
+          "kind": "chat",
+          "session": "pm-1-s1",
+          "continueEarlier": true,
+          "reset": false,
+          "state": "closing",
+          "progressHash": "7de21d05bef3d80273814fedc8e7d0a56cb4491765a02f5c3ff0e5dd913ce54f",
+          "openedAt": "2026-10-13T10:16:49.101+08:00"
+        },
+        "change": "closing"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 13,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "这一段对话要结束了，但还没写回：进展 progress.md 的内容没变；还没用 write_segment_summary 写这一段的摘要。把新的理解写回项目档案（progress.md 一定要更新：做到哪了、下一步做什么），再用 write_segment_summary 写这一段的摘要。写好之后这一段才算完成。"
+            }
+          ],
+          "id": "m-ad8147e9-c37a-446d-a692-c69f46f43f75",
+          "time": "2026-10-13T10:16:50.688+08:00"
+        },
+        "agentInput": true,
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 14,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-ad8147e9-c37a-446d-a692-c69f46f43f75"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 15,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791857812156:jncfg2jstql",
+              "tool": "edit",
+              "argsSummary": "<临时目录>\\ergo-data-Z9cnRF\\projects\\p-1\\progress.md",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "Successfully replaced 1 block(s) in <临时目录>\\ergo-data-Z9cnRF\\projects\\p-1\\progress.md.",
+              "nature": "modify"
+            }
+          ],
+          "id": "m-55d82fd2-4af4-4e7e-8dd4-304cc1d4dd98",
+          "time": "2026-10-13T10:16:52.194+08:00"
+        },
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 16,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-1-s1",
+          "maintainerId": "pm-1",
+          "projectId": "p-1",
+          "kind": "chat",
+          "session": "pm-1-s1",
+          "continueEarlier": true,
+          "reset": false,
+          "state": "closing",
+          "progressHash": "7de21d05bef3d80273814fedc8e7d0a56cb4491765a02f5c3ff0e5dd913ce54f",
+          "openedAt": "2026-10-13T10:16:49.101+08:00",
+          "summary": "立项问答：首版只导招行 CSV"
+        },
+        "change": "summary"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 17,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791857812156:334alz48k1",
+              "tool": "write_segment_summary",
+              "argsSummary": "summary=立项问答：首版只导招行 CSV",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "已记下这一段（pm-1-s1）的摘要。进展 progress.md 也要写回，这一段才算完成。",
+              "nature": "act"
+            }
+          ],
+          "id": "m-7300263e-93eb-417c-9048-5e0bd58ffbfb",
+          "time": "2026-10-13T10:16:52.200+08:00"
+        },
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 17,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-18b342f0-4f56-495d-8fe2-9f34496218b1",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "写回了"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 18,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-18b342f0-4f56-495d-8fe2-9f34496218b1",
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "写回了"
+            }
+          ],
+          "time": "2026-10-13T10:16:52.202+08:00"
+        },
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 19,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-ad8147e9-c37a-446d-a692-c69f46f43f75",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 20,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-1-s1",
+          "maintainerId": "pm-1",
+          "projectId": "p-1",
+          "kind": "chat",
+          "session": "pm-1-s1",
+          "continueEarlier": true,
+          "reset": false,
+          "state": "closed",
+          "progressHash": "7de21d05bef3d80273814fedc8e7d0a56cb4491765a02f5c3ff0e5dd913ce54f",
+          "openedAt": "2026-10-13T10:16:49.101+08:00",
+          "summary": "立项问答：首版只导招行 CSV",
+          "closedAt": "2026-10-13T10:16:52.204+08:00"
+        },
+        "change": "closed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 5,
+      "type": "work_order",
+      "payload": {
+        "workOrder": {
+          "id": "wo-1",
+          "projectId": "p-1",
+          "maintainerId": "pm-1",
+          "title": "起草计划：建设「记账本」首版",
+          "createdAt": "2026-10-13T10:16:50.685+08:00",
+          "updatedAt": "2026-10-13T10:16:52.205+08:00",
+          "taskId": "t-1",
+          "taskTitle": "建设「记账本」首版",
+          "source": "user_task",
+          "kind": "plan",
+          "instructions": "任务书：任务 t-1「建设「记账本」首版」\n目标：把项目「记账本」的首版做出来：做到什么程度、范围、不做什么，见项目档案里的立项书（<临时目录>\\ergo-data-Z9cnRF\\projects\\p-1\\charter.md）\n验收标准：\n- 立项书里“首版”写的都做到\n约束：（无）\n涉及的项目：记账本（项目内部任务：只动这个项目，只在项目里看得到）\n记忆范围提议：（无）（第一阶段只占位）\n全局的关注类别（计划里的 watchCategories 一个都不能少，只能增加或往严里调）：spend_money「花钱」、external_send「以我的名义对外发送或发布」、delete_or_overwrite「删除或覆盖（项目档案和工作目录内）」、irreversible_commit「不可逆的提交」、account_security「账户与安全（凭据、权限、全局装软件）」、outside_project「越出项目目录」、memory_out_of_scope「使用授权范围外的记忆」、unplanned_work_order「计划外工单」、unknown_write「未知的写操作」\n请据此起草计划，用 submit_plan 提交；用户确认之前不要动手做。",
+          "state": "in_progress",
+          "startedAt": "2026-10-13T10:16:52.205+08:00"
+        },
+        "change": "started",
+        "from": "pending",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 21,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-1-s2",
+          "maintainerId": "pm-1",
+          "projectId": "p-1",
+          "kind": "work_order",
+          "workOrderId": "wo-1",
+          "taskId": "t-1",
+          "session": "pm-1-s2",
+          "reset": false,
+          "state": "open",
+          "progressHash": "9711d0c673992ac8697756ffd6197a9b900b520363579199c050e617f59c1598",
+          "openedAt": "2026-10-13T10:16:52.205+08:00"
+        },
+        "change": "opened"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 22,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "work_order_divider",
+              "workOrderId": "wo-1",
+              "title": "起草计划：建设「记账本」首版",
+              "from": "你"
+            }
+          ],
+          "id": "m-bafee8a6-ca03-44fa-934d-e24cc6aaf1f1",
+          "time": "2026-10-13T10:16:52.205+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 23,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "开始工单 wo-1「起草计划：建设「记账本」首版」（来自你）：工单的内容在固定上下文里的“这次的工单”。起草计划这一段，工作目录和项目档案只读；起草好计划用 submit_plan 提交，进展用 write_progress 写回，再用 write_segment_summary 写这一段的摘要。"
+            }
+          ],
+          "id": "m-36082680-98fc-4af9-a18e-331b88fa745d",
+          "time": "2026-10-13T10:16:52.206+08:00"
+        },
+        "agentInput": true,
+        "taskId": "t-1",
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 24,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-36082680-98fc-4af9-a18e-331b88fa745d"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 2,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 0,
+          "cacheMiss": 12304,
+          "output": 11
+        },
+        "calls": 1,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 12304,
+              "output": 11
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-13T10:16:53.715+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 25,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791857813692:emhw9o0ujwe",
+              "tool": "write_progress",
+              "argsSummary": "content=首个建设任务：在起草计划。",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "进展 progress.md 已写回（旧版本留进了历史区）。",
+              "nature": "modify"
+            }
+          ],
+          "id": "m-934d0747-15a6-4af7-9b35-9c706d39feb9",
+          "time": "2026-10-13T10:16:53.726+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 3,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 6152,
+          "cacheMiss": 12360,
+          "output": 24
+        },
+        "calls": 2,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 6152,
+              "cacheMiss": 12360,
+              "output": 24
+            },
+            "calls": 2
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-13T10:16:53.729+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 26,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-1-s2",
+          "maintainerId": "pm-1",
+          "projectId": "p-1",
+          "kind": "work_order",
+          "workOrderId": "wo-1",
+          "taskId": "t-1",
+          "session": "pm-1-s2",
+          "reset": false,
+          "state": "open",
+          "progressHash": "9711d0c673992ac8697756ffd6197a9b900b520363579199c050e617f59c1598",
+          "openedAt": "2026-10-13T10:16:52.205+08:00",
+          "summary": "开始起草首个建设任务的计划"
+        },
+        "change": "summary"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 27,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791857813692:oq5hp9u9bq",
+              "tool": "write_segment_summary",
+              "argsSummary": "summary=开始起草首个建设任务的计划",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "已记下这一段（pm-1-s2）的摘要。进展 progress.md 也要写回，这一段才算完成。",
+              "nature": "act"
+            }
+          ],
+          "id": "m-dc7519b1-71f8-47f0-a508-ce5680a738be",
+          "time": "2026-10-13T10:16:53.732+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 27,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-a31c47a4-5cb9-4cb8-8342-04d4c0ec5ab5",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "收到首个建设任务"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 28,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-a31c47a4-5cb9-4cb8-8342-04d4c0ec5ab5",
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "收到首个建设任务"
+            }
+          ],
+          "time": "2026-10-13T10:16:53.734+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 4,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 12332,
+          "cacheMiss": 12432,
+          "output": 26
+        },
+        "calls": 3,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 12332,
+              "cacheMiss": 12432,
+              "output": 26
+            },
+            "calls": 3
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-13T10:16:53.734+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 29,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-36082680-98fc-4af9-a18e-331b88fa745d",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 5,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "建设「记账本」首版",
+          "summary": "项目「记账本」的首个建设任务：首版要做到什么程度见项目档案里的立项书",
+          "state": "done",
+          "origin": "project_build",
+          "kind": "long_running",
+          "maintainerId": "pm-1",
+          "projects": [
+            "记账本"
+          ],
+          "projectIds": [
+            "p-1"
+          ],
+          "projectScope": "single",
+          "internal": {
+            "projectId": "p-1",
+            "projectName": "记账本"
+          },
+          "createdAt": "2026-10-13T10:16:50.684+08:00",
+          "updatedAt": "2026-10-13T10:16:53.761+08:00",
+          "stages": {
+            "total": 2,
+            "current": 2,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "收集资料",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "资料清单存在",
+                    "method": "script",
+                    "result": {
+                      "passed": true,
+                      "at": "2026-10-13T09:00:00+08:00"
+                    }
+                  },
+                  {
+                    "criterion": "来源都是公开的",
+                    "method": "review",
+                    "result": {
+                      "passed": true,
+                      "at": "2026-10-13T09:00:00+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "summary": "清单在 sources.md",
+                "code": "1"
+              },
+              {
+                "stageId": "s2",
+                "title": "写报告",
+                "state": "accepted",
+                "dependsOn": [
+                  "s1"
+                ],
+                "acceptance": [
+                  {
+                    "criterion": "报告写清楚了",
+                    "method": "review",
+                    "result": {
+                      "passed": true,
+                      "at": "2026-10-13T10:00:00+08:00"
+                    }
+                  }
+                ],
+                "attempts": 2,
+                "summary": "月度报表在 report.md",
+                "code": "2"
+              }
+            ]
+          }
+        },
+        "change": "finished",
+        "from": "planning",
+        "by": "maintainer"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 30,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-1-s2",
+          "maintainerId": "pm-1",
+          "projectId": "p-1",
+          "kind": "work_order",
+          "workOrderId": "wo-1",
+          "taskId": "t-1",
+          "session": "pm-1-s2",
+          "reset": false,
+          "state": "closing",
+          "progressHash": "9711d0c673992ac8697756ffd6197a9b900b520363579199c050e617f59c1598",
+          "openedAt": "2026-10-13T10:16:52.205+08:00",
+          "summary": "开始起草首个建设任务的计划",
+          "outcome": "done"
+        },
+        "change": "closing"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 5,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-4f75d711-1afe-47bf-ba49-0cdc6345f90e",
+          "type": "build_done",
+          "typeVersion": 1,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "projectId": "p-1",
+            "projectName": "记账本",
+            "buildTaskId": "t-1",
+            "buildTaskTitle": "建设「记账本」首版",
+            "round": 1,
+            "summary": "月度报表在 report.md",
+            "stages": [
+              {
+                "code": "1",
+                "title": "收集资料",
+                "result": "验收通过：脚本检查 1 条、评审判定 1 条",
+                "deliverables": [
+                  "资料清单 sources.md"
+                ]
+              },
+              {
+                "code": "2",
+                "title": "写报告",
+                "result": "验收通过：评审判定 1 条",
+                "deliverables": [
+                  "调研报告 report.md"
+                ]
+              }
+            ],
+            "workdir": "<临时目录>\\ergo-repo-sKoROR\\ledger"
+          },
+          "text": "项目「记账本」首版做完了（建设任务 t-1「建设「记账本」首版」）：月度报表在 report.md；第 1 阶段「收集资料」验收通过：脚本检查 1 条、评审判定 1 条；第 2 阶段「写报告」验收通过：评审判定 1 条；交付件在 <临时目录>\\ergo-repo-sKoROR\\ledger。等你选：转入使用、继续建设、放弃并归档",
+          "urgency": "non_blocking",
+          "createdAt": "2026-10-13T10:16:53.765+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 2,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-ed98d14b-4973-4ab4-9a28-12e35245ca69",
+          "version": 1,
+          "title": "项目「记账本」首版做完了",
+          "source": "项目「记账本」",
+          "urgency": "non_blocking",
+          "pinned": false,
+          "createdAt": "2026-10-13T10:16:53.765+08:00",
+          "read": false,
+          "archived": false,
+          "deleted": false,
+          "origin": {
+            "projectId": "p-1"
+          },
+          "kind": "card",
+          "cardId": "c-4f75d711-1afe-47bf-ba49-0cdc6345f90e"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 31,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "card_ref",
+              "cardId": "c-4f75d711-1afe-47bf-ba49-0cdc6345f90e"
+            }
+          ],
+          "id": "m-ea76d5e2-5ee5-4aaf-845e-62049dc50cef",
+          "time": "2026-10-13T10:16:53.765+08:00"
+        },
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 2,
+      "type": "notify",
+      "payload": {
+        "id": "n-i-ed98d14b-4973-4ab4-9a28-12e35245ca69",
+        "title": "项目「记账本」首版做完了",
+        "itemId": "i-ed98d14b-4973-4ab4-9a28-12e35245ca69"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 6,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 12332,
+          "cacheMiss": 12823,
+          "output": 30
+        },
+        "calls": 4,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 12332,
+              "cacheMiss": 12432,
+              "output": 26
+            },
+            "calls": 3
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 391,
+              "output": 4
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-13T10:16:53.768+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 32,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-1-s2",
+          "maintainerId": "pm-1",
+          "projectId": "p-1",
+          "kind": "work_order",
+          "workOrderId": "wo-1",
+          "taskId": "t-1",
+          "session": "pm-1-s2",
+          "reset": false,
+          "state": "closed",
+          "progressHash": "9711d0c673992ac8697756ffd6197a9b900b520363579199c050e617f59c1598",
+          "openedAt": "2026-10-13T10:16:52.205+08:00",
+          "summary": "开始起草首个建设任务的计划",
+          "outcome": "done",
+          "closedAt": "2026-10-13T10:16:53.769+08:00"
+        },
+        "change": "closed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 6,
+      "type": "work_order",
+      "payload": {
+        "workOrder": {
+          "id": "wo-1",
+          "projectId": "p-1",
+          "maintainerId": "pm-1",
+          "title": "起草计划：建设「记账本」首版",
+          "createdAt": "2026-10-13T10:16:50.685+08:00",
+          "updatedAt": "2026-10-13T10:16:53.769+08:00",
+          "taskId": "t-1",
+          "taskTitle": "建设「记账本」首版",
+          "source": "user_task",
+          "kind": "plan",
+          "instructions": "任务书：任务 t-1「建设「记账本」首版」\n目标：把项目「记账本」的首版做出来：做到什么程度、范围、不做什么，见项目档案里的立项书（<临时目录>\\ergo-data-Z9cnRF\\projects\\p-1\\charter.md）\n验收标准：\n- 立项书里“首版”写的都做到\n约束：（无）\n涉及的项目：记账本（项目内部任务：只动这个项目，只在项目里看得到）\n记忆范围提议：（无）（第一阶段只占位）\n全局的关注类别（计划里的 watchCategories 一个都不能少，只能增加或往严里调）：spend_money「花钱」、external_send「以我的名义对外发送或发布」、delete_or_overwrite「删除或覆盖（项目档案和工作目录内）」、irreversible_commit「不可逆的提交」、account_security「账户与安全（凭据、权限、全局装软件）」、outside_project「越出项目目录」、memory_out_of_scope「使用授权范围外的记忆」、unplanned_work_order「计划外工单」、unknown_write「未知的写操作」\n请据此起草计划，用 submit_plan 提交；用户确认之前不要动手做。",
+          "state": "ended",
+          "startedAt": "2026-10-13T10:16:52.205+08:00",
+          "outcome": "done",
+          "endedAt": "2026-10-13T10:16:53.769+08:00"
+        },
+        "change": "ended",
+        "from": "in_progress",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "card_action",
+    "cardId": "c-4f75d711-1afe-47bf-ba49-0cdc6345f90e",
+    "action": "put_in_use",
+    "idempotencyKey": "61b90f38-a299-4b0f-b636-ab4b6a6e2c0c"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 7,
+      "type": "project",
+      "payload": {
+        "project": {
+          "id": "p-1",
+          "name": "记账本",
+          "goal": "把家里的账管起来",
+          "state": "in_use",
+          "origin": "suggestion",
+          "maintainerId": "pm-1",
+          "workdir": {
+            "external": true,
+            "path": "<临时目录>\\ergo-repo-sKoROR\\ledger"
+          },
+          "charterConfirmed": true,
+          "createdAt": "2026-10-13T10:16:49.088+08:00",
+          "updatedAt": "2026-10-13T10:16:53.824+08:00",
+          "charterCardId": "c-fbe696eb-ca20-443e-a88e-91d5161b4420",
+          "kind": "dev",
+          "toolkit": {
+            "skills": [],
+            "mcp": [],
+            "bash": true,
+            "network": false
+          },
+          "buildTaskId": "t-1"
+        },
+        "change": "in_use",
+        "from": "building",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 33,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "你在“项目「记账本」首版做完了”卡上选了转入使用：项目「记账本」进入使用中。"
+            }
+          ],
+          "id": "m-7595c7c2-5a59-47ca-8749-10e7263b7e1a",
+          "time": "2026-10-13T10:16:53.824+08:00"
+        },
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 6,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-4f75d711-1afe-47bf-ba49-0cdc6345f90e",
+          "type": "build_done",
+          "typeVersion": 1,
+          "version": 2,
+          "status": "handled",
+          "payload": {
+            "projectId": "p-1",
+            "projectName": "记账本",
+            "buildTaskId": "t-1",
+            "buildTaskTitle": "建设「记账本」首版",
+            "round": 1,
+            "summary": "月度报表在 report.md",
+            "stages": [
+              {
+                "code": "1",
+                "title": "收集资料",
+                "result": "验收通过：脚本检查 1 条、评审判定 1 条",
+                "deliverables": [
+                  "资料清单 sources.md"
+                ]
+              },
+              {
+                "code": "2",
+                "title": "写报告",
+                "result": "验收通过：评审判定 1 条",
+                "deliverables": [
+                  "调研报告 report.md"
+                ]
+              }
+            ],
+            "workdir": "<临时目录>\\ergo-repo-sKoROR\\ledger",
+            "decided": {
+              "choice": "put_in_use"
+            }
+          },
+          "text": "项目「记账本」首版做完了（建设任务 t-1「建设「记账本」首版」）：月度报表在 report.md；第 1 阶段「收集资料」验收通过：脚本检查 1 条、评审判定 1 条；第 2 阶段「写报告」验收通过：评审判定 1 条；交付件在 <临时目录>\\ergo-repo-sKoROR\\ledger。你选了转入使用",
+          "urgency": "non_blocking",
+          "createdAt": "2026-10-13T10:16:53.765+08:00",
+          "handledAt": "2026-10-13T10:16:53.824+08:00",
+          "outcome": {
+            "action": "put_in_use"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 8,
+      "type": "project",
+      "payload": {
+        "project": {
+          "id": "p-1",
+          "name": "记账本",
+          "goal": "把家里的账管起来",
+          "state": "retired",
+          "origin": "suggestion",
+          "maintainerId": "pm-1",
+          "workdir": {
+            "external": true,
+            "path": "<临时目录>\\ergo-repo-sKoROR\\ledger"
+          },
+          "charterConfirmed": true,
+          "createdAt": "2026-10-13T10:16:49.088+08:00",
+          "updatedAt": "2026-10-13T10:16:53.825+08:00",
+          "charterCardId": "c-fbe696eb-ca20-443e-a88e-91d5161b4420",
+          "kind": "dev",
+          "toolkit": {
+            "skills": [],
+            "mcp": [],
+            "bash": true,
+            "network": false
+          },
+          "buildTaskId": "t-1"
+        },
+        "change": "retired",
+        "from": "in_use",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 9,
+      "type": "project",
+      "payload": {
+        "project": {
+          "id": "p-1",
+          "name": "记账本",
+          "goal": "把家里的账管起来",
+          "state": "in_use",
+          "origin": "suggestion",
+          "maintainerId": "pm-1",
+          "workdir": {
+            "external": true,
+            "path": "<临时目录>\\ergo-repo-sKoROR\\ledger"
+          },
+          "charterConfirmed": true,
+          "createdAt": "2026-10-13T10:16:49.088+08:00",
+          "updatedAt": "2026-10-13T10:16:53.826+08:00",
+          "charterCardId": "c-fbe696eb-ca20-443e-a88e-91d5161b4420",
+          "kind": "dev",
+          "toolkit": {
+            "skills": [],
+            "mcp": [],
+            "bash": true,
+            "network": false
+          },
+          "buildTaskId": "t-1"
+        },
+        "change": "reactivated",
+        "from": "retired",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "send_message",
+    "conversation": "secretary",
+    "idempotencyKey": "14ae38a4-9e96-4db4-944e-83781f71d61d",
+    "parts": [
+      {
+        "type": "text",
+        "text": "家电的保修单老找不到"
+      }
+    ],
+    "time": "2026-10-13T10:16:53.826+08:00"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 11,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-d17c4ef4-0629-4abe-acfe-6ee777852900",
+          "conversation": "secretary",
+          "speaker": "user",
+          "time": "2026-10-13T10:16:53.826+08:00",
+          "parts": [
+            {
+              "type": "text",
+              "text": "家电的保修单老找不到"
+            }
+          ]
+        },
+        "idempotencyKey": "14ae38a4-9e96-4db4-944e-83781f71d61d"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 12,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-d17c4ef4-0629-4abe-acfe-6ee777852900"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 7,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-a7b2148d-211b-4c0c-b582-cc781660bf0b",
+          "type": "suggest_project",
+          "typeVersion": 1,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "name": "家电档案",
+            "goal": "记下家电的保修"
+          },
+          "text": "建议立项：家电档案（记下家电的保修）",
+          "createdAt": "2026-10-13T10:16:53.835+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 13,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "card_ref",
+              "cardId": "c-a7b2148d-211b-4c0c-b582-cc781660bf0b"
+            }
+          ],
+          "id": "m-4c1c3091-1505-47ce-84a1-1e8a64b06e7d",
+          "time": "2026-10-13T10:16:53.835+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 14,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791857809011:j26y7voho9",
+              "tool": "suggest_project",
+              "argsSummary": "name=家电档案 goal=记下家电的保修",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "已在聊天里放了一张“建议立项”卡（项目还没建）。用户点“立项”项目才诞生，到时你会收到通知；立项问答由项目的维护者做。",
+              "nature": "act"
+            }
+          ],
+          "id": "m-8e03c272-3128-4062-8df0-e3928c5262ed",
+          "time": "2026-10-13T10:16:53.836+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 14,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-be65c87c-ad9b-435d-b9b5-b5256f0ef9f2",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "再给你一张"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 15,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-be65c87c-ad9b-435d-b9b5-b5256f0ef9f2",
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "再给你一张"
+            }
+          ],
+          "time": "2026-10-13T10:16:53.838+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 16,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-d17c4ef4-0629-4abe-acfe-6ee777852900",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "card_action",
+    "cardId": "c-a7b2148d-211b-4c0c-b582-cc781660bf0b",
+    "action": "kickoff",
+    "idempotencyKey": "27d74568-3d49-4335-99ee-3a9812e2ecac"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 10,
+      "type": "project",
+      "payload": {
+        "project": {
+          "id": "p-2",
+          "name": "家电档案",
+          "goal": "记下家电的保修",
+          "state": "preparing",
+          "origin": "suggestion",
+          "maintainerId": "pm-2",
+          "workdir": {
+            "external": false
+          },
+          "charterConfirmed": false,
+          "createdAt": "2026-10-13T10:16:53.887+08:00",
+          "updatedAt": "2026-10-13T10:16:53.887+08:00"
+        },
+        "change": "created",
+        "from": null,
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-2",
+      "seq": 1,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-2",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "项目「家电档案」立项了（筹备中）：记下家电的保修\n维护者 pm-2 会和你做立项问答：把规格、术语表、决策记录写进项目档案，最后交出立项书。在这里说话就能叫醒它。"
+            }
+          ],
+          "id": "m-28470664-60f2-4803-b5ff-37af1e377acb",
+          "time": "2026-10-13T10:16:53.887+08:00"
+        },
+        "projectId": "p-2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 17,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "secretary",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "用户在建议立项卡上点了「立项」：项目 p-2「家电档案」已诞生（筹备中），维护者 pm-2 会在它的会话里和用户做立项问答（项目页上的“和维护者交流”）。立项问答不归你，不用转述。"
+            }
+          ],
+          "id": "m-ce5f69a0-fc8c-4ea2-b0a7-488952d7622f",
+          "time": "2026-10-13T10:16:53.888+08:00"
+        },
+        "agentInput": true
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 8,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-a7b2148d-211b-4c0c-b582-cc781660bf0b",
+          "type": "suggest_project",
+          "typeVersion": 1,
+          "version": 2,
+          "status": "handled",
+          "payload": {
+            "name": "家电档案",
+            "goal": "记下家电的保修",
+            "projectId": "p-2"
+          },
+          "text": "建议立项：家电档案（记下家电的保修）",
+          "createdAt": "2026-10-13T10:16:53.835+08:00",
+          "handledAt": "2026-10-13T10:16:53.888+08:00",
+          "outcome": {
+            "action": "kickoff"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 18,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-ce5f69a0-fc8c-4ea2-b0a7-488952d7622f"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 19,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-fb56065b-2e92-4e53-9025-1c5e747da81e",
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "好的"
+            }
+          ],
+          "time": "2026-10-13T10:16:53.926+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 20,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-ce5f69a0-fc8c-4ea2-b0a7-488952d7622f",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 11,
+      "type": "project",
+      "payload": {
+        "project": {
+          "id": "p-2",
+          "name": "家电档案",
+          "goal": "记下家电的保修",
+          "state": "archived",
+          "origin": "suggestion",
+          "maintainerId": "pm-2",
+          "workdir": {
+            "external": false
+          },
+          "charterConfirmed": false,
+          "createdAt": "2026-10-13T10:16:53.887+08:00",
+          "updatedAt": "2026-10-13T10:16:53.927+08:00",
+          "archivedFrom": "preparing"
+        },
+        "change": "abandoned",
+        "from": "preparing",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 12,
+      "type": "project",
+      "payload": {
+        "project": {
+          "id": "p-2",
+          "name": "家电档案",
+          "goal": "记下家电的保修",
+          "state": "preparing",
+          "origin": "suggestion",
+          "maintainerId": "pm-2",
+          "workdir": {
+            "external": false
+          },
+          "charterConfirmed": false,
+          "createdAt": "2026-10-13T10:16:53.887+08:00",
+          "updatedAt": "2026-10-13T10:16:53.928+08:00"
+        },
+        "change": "unarchived",
+        "from": "archived",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 13,
+      "type": "project",
+      "payload": {
+        "project": {
+          "id": "p-2",
+          "name": "家电档案",
+          "goal": "记下家电的保修",
+          "state": "archived",
+          "origin": "suggestion",
+          "maintainerId": "pm-2",
+          "workdir": {
+            "external": false
+          },
+          "charterConfirmed": false,
+          "createdAt": "2026-10-13T10:16:53.887+08:00",
+          "updatedAt": "2026-10-13T10:16:53.928+08:00",
+          "archivedFrom": "preparing"
+        },
+        "change": "abandoned",
+        "from": "preparing",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 3,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-22f83b3d-f105-486a-8e87-591dbacccf4d",
+          "version": 1,
+          "title": "删除项目「家电档案」？",
+          "source": "项目「家电档案」",
+          "urgency": "non_blocking",
+          "pinned": false,
+          "createdAt": "2026-10-13T10:16:53.929+08:00",
+          "read": false,
+          "archived": false,
+          "deleted": false,
+          "origin": {
+            "projectId": "p-2"
+          },
+          "kind": "notice",
+          "notice": "project_delete",
+          "body": "项目档案、维护者会话、立项书和项目内部任务（连同记忆里由它们自动记下的记录）都会删掉，⟦个人助理⟧和跨项目任务读过的这个项目的内容一起抹掉，不可恢复；你本人在维护者会话里说过的话作为素材保留（原文副本不受影响）。删不掉的：认不出读的是这个项目的调用里读到的内容（命令里用环境变量拼出的路径、python -c 这类看不透的命令），命令输出太长时另存的临时文件（pi-bash 开头的 .log），⟦个人助理⟧和别的 agent 据此说过的话；备份快照里仍有一份，随快照轮换消失（本机约 7 天，同步目录最长约 5 周）。",
+          "actions": [
+            "确认删除",
+            "不删了"
+          ],
+          "data": {
+            "projectId": "p-2"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 4,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-22f83b3d-f105-486a-8e87-591dbacccf4d",
+          "version": 2,
+          "title": "删除项目「家电档案」？",
+          "source": "项目「家电档案」",
+          "urgency": "non_blocking",
+          "pinned": false,
+          "createdAt": "2026-10-13T10:16:53.929+08:00",
+          "read": true,
+          "archived": false,
+          "deleted": false,
+          "origin": {
+            "projectId": "p-2"
+          },
+          "kind": "notice",
+          "notice": "project_delete",
+          "body": "项目档案、维护者会话、立项书和项目内部任务（连同记忆里由它们自动记下的记录）都会删掉，⟦个人助理⟧和跨项目任务读过的这个项目的内容一起抹掉，不可恢复；你本人在维护者会话里说过的话作为素材保留（原文副本不受影响）。删不掉的：认不出读的是这个项目的调用里读到的内容（命令里用环境变量拼出的路径、python -c 这类看不透的命令），命令输出太长时另存的临时文件（pi-bash 开头的 .log），⟦个人助理⟧和别的 agent 据此说过的话；备份快照里仍有一份，随快照轮换消失（本机约 7 天，同步目录最长约 5 周）。",
+          "actions": [
+            "确认删除",
+            "不删了"
+          ],
+          "data": {
+            "projectId": "p-2"
+          },
+          "handled": "确认删除",
+          "handledAt": "2026-10-13T10:16:53.930+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 14,
+      "type": "project",
+      "payload": {
+        "project": {
+          "id": "p-2",
+          "name": "家电档案",
+          "goal": "记下家电的保修",
+          "state": "archived",
+          "origin": "suggestion",
+          "maintainerId": "pm-2",
+          "workdir": {
+            "external": false
+          },
+          "charterConfirmed": false,
+          "createdAt": "2026-10-13T10:16:53.887+08:00",
+          "updatedAt": "2026-10-13T10:16:53.933+08:00",
+          "archivedFrom": "preparing"
+        },
+        "change": "deleted",
+        "from": "archived",
+        "by": "user"
+      }
+    }
+  }
+]

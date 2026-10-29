@@ -1,0 +1,312 @@
+[
+  {
+    "kind": "connection",
+    "status": "online"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "devices",
+      "seq": 1,
+      "type": "device",
+      "payload": {
+        "device": {
+          "id": "d-0862289a-6806-4943-84ab-9c4352b88cbd",
+          "name": "手机",
+          "from": "经隧道 · 203.0.113.1",
+          "pairedAt": "2026-10-08T09:00:00.000+08:00",
+          "activated": false,
+          "lastUsedAt": "2026-10-08T09:00:00.000+08:00",
+          "expiresAt": "2026-10-09T09:00:00.000+08:00",
+          "revoked": false
+        },
+        "change": "paired"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "devices",
+      "seq": 2,
+      "type": "device",
+      "payload": {
+        "device": {
+          "id": "d-0862289a-6806-4943-84ab-9c4352b88cbd",
+          "name": "手机",
+          "from": "经隧道 · 203.0.113.1",
+          "pairedAt": "2026-10-08T09:00:00.000+08:00",
+          "activated": true,
+          "lastUsedAt": "2026-10-08T09:00:00.000+08:00",
+          "expiresAt": "2027-10-08T09:00:00.000+08:00",
+          "revoked": false
+        },
+        "change": "activated"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "devices",
+      "seq": 3,
+      "type": "device",
+      "payload": {
+        "device": {
+          "id": "d-a53c81e5-2b2c-4595-bb5c-4e292d0697f6",
+          "name": "丢了响应的平板",
+          "from": "经隧道 · 203.0.113.2",
+          "pairedAt": "2026-10-08T09:00:00.000+08:00",
+          "activated": false,
+          "lastUsedAt": "2026-10-08T09:00:00.000+08:00",
+          "expiresAt": "2026-10-09T09:00:00.000+08:00",
+          "revoked": false
+        },
+        "change": "paired"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "devices",
+      "seq": 4,
+      "type": "device",
+      "payload": {
+        "device": {
+          "id": "d-205f2577-11ae-4dcc-a2c0-8d6f8951c810",
+          "name": "新电脑",
+          "from": "经隧道 · 203.0.113.3",
+          "pairedAt": "2026-10-10T09:00:00.000+08:00",
+          "activated": false,
+          "lastUsedAt": "2026-10-10T09:00:00.000+08:00",
+          "expiresAt": "2026-10-11T09:00:00.000+08:00",
+          "revoked": false
+        },
+        "change": "paired"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "devices",
+      "seq": 5,
+      "type": "device",
+      "payload": {
+        "device": {
+          "id": "d-b5fb288a-5e06-43b5-8bbc-21d1b107c58d",
+          "name": "旧电脑",
+          "from": "经隧道 · 203.0.113.4",
+          "pairedAt": "2026-10-10T09:00:00.000+08:00",
+          "activated": false,
+          "lastUsedAt": "2026-10-10T09:00:00.000+08:00",
+          "expiresAt": "2026-10-11T09:00:00.000+08:00",
+          "revoked": false
+        },
+        "change": "paired"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "devices",
+      "seq": 6,
+      "type": "device",
+      "payload": {
+        "device": {
+          "id": "d-b5fb288a-5e06-43b5-8bbc-21d1b107c58d",
+          "name": "旧电脑",
+          "from": "经隧道 · 203.0.113.4",
+          "pairedAt": "2026-10-10T09:00:00.000+08:00",
+          "activated": true,
+          "lastUsedAt": "2026-10-10T09:00:00.000+08:00",
+          "expiresAt": "2027-10-10T09:00:00.000+08:00",
+          "revoked": false
+        },
+        "change": "activated"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "devices",
+      "seq": 7,
+      "type": "device",
+      "payload": {
+        "device": {
+          "id": "d-b5fb288a-5e06-43b5-8bbc-21d1b107c58d",
+          "name": "旧电脑",
+          "from": "经隧道 · 203.0.113.4",
+          "pairedAt": "2026-10-10T09:00:00.000+08:00",
+          "activated": true,
+          "lastUsedAt": "2026-10-10T09:00:00.000+08:00",
+          "expiresAt": "2027-10-10T09:00:00.000+08:00",
+          "revoked": true,
+          "revokedAt": "2026-10-10T09:00:00.000+08:00"
+        },
+        "change": "revoked"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "devices",
+      "seq": 8,
+      "type": "device",
+      "payload": {
+        "device": {
+          "id": "d-0862289a-6806-4943-84ab-9c4352b88cbd",
+          "name": "手机",
+          "from": "经隧道 · 203.0.113.1",
+          "pairedAt": "2026-10-08T09:00:00.000+08:00",
+          "activated": true,
+          "lastUsedAt": "2026-10-08T09:00:00.000+08:00",
+          "expiresAt": "2028-01-06T09:00:00.000+08:00",
+          "revoked": false,
+          "extendedAt": "2026-10-10T09:00:00.000+08:00"
+        },
+        "change": "extended"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "devices",
+      "seq": 9,
+      "type": "device",
+      "payload": {
+        "device": {
+          "id": "d-a53c81e5-2b2c-4595-bb5c-4e292d0697f6",
+          "name": "丢了响应的平板",
+          "from": "经隧道 · 203.0.113.2",
+          "pairedAt": "2026-10-08T09:00:00.000+08:00",
+          "activated": false,
+          "lastUsedAt": "2026-10-08T09:00:00.000+08:00",
+          "expiresAt": "2027-01-08T09:00:00.000+08:00",
+          "revoked": false,
+          "extendedAt": "2026-10-10T09:00:00.000+08:00"
+        },
+        "change": "extended"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "devices",
+      "seq": 10,
+      "type": "device",
+      "payload": {
+        "device": {
+          "id": "d-205f2577-11ae-4dcc-a2c0-8d6f8951c810",
+          "name": "新电脑",
+          "from": "经隧道 · 203.0.113.3",
+          "pairedAt": "2026-10-10T09:00:00.000+08:00",
+          "activated": false,
+          "lastUsedAt": "2026-10-10T09:00:00.000+08:00",
+          "expiresAt": "2027-01-09T09:00:00.000+08:00",
+          "revoked": false,
+          "extendedAt": "2026-10-10T09:00:00.000+08:00"
+        },
+        "change": "extended"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "devices",
+      "seq": 11,
+      "type": "device",
+      "payload": {
+        "device": {
+          "id": "d-a53c81e5-2b2c-4595-bb5c-4e292d0697f6",
+          "name": "丢了响应的平板",
+          "from": "经隧道 · 203.0.113.2",
+          "pairedAt": "2026-10-08T09:00:00.000+08:00",
+          "activated": true,
+          "lastUsedAt": "2026-10-10T09:00:00.000+08:00",
+          "expiresAt": "2027-10-10T09:00:00.000+08:00",
+          "revoked": false,
+          "extendedAt": "2026-10-10T09:00:00.000+08:00"
+        },
+        "change": "activated"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "devices",
+      "seq": 12,
+      "type": "device",
+      "payload": {
+        "device": {
+          "id": "d-205f2577-11ae-4dcc-a2c0-8d6f8951c810",
+          "name": "新电脑",
+          "from": "经隧道 · 203.0.113.3",
+          "pairedAt": "2026-10-10T09:00:00.000+08:00",
+          "activated": false,
+          "lastUsedAt": "2026-10-10T09:00:00.000+08:00",
+          "expiresAt": "2027-01-09T09:00:00.000+08:00",
+          "revoked": true,
+          "extendedAt": "2026-10-10T09:00:00.000+08:00",
+          "revokedAt": "2026-10-10T09:00:00.000+08:00"
+        },
+        "change": "revoked"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "devices",
+      "seq": 13,
+      "type": "device",
+      "payload": {
+        "device": {
+          "id": "d-205f2577-11ae-4dcc-a2c0-8d6f8951c810",
+          "name": "新电脑",
+          "from": "经隧道 · 203.0.113.3",
+          "pairedAt": "2026-10-10T09:00:00.000+08:00",
+          "activated": false,
+          "lastUsedAt": "2026-10-10T09:00:00.000+08:00",
+          "expiresAt": "2027-01-09T09:00:00.000+08:00",
+          "revoked": true,
+          "extendedAt": "2026-10-10T09:00:00.000+08:00",
+          "revokedAt": "2026-10-10T09:00:00.000+08:00",
+          "deletedAt": "2026-10-10T09:00:00.000+08:00"
+        },
+        "change": "deleted"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "devices",
+      "seq": 14,
+      "type": "device",
+      "payload": {
+        "device": {
+          "id": "d-b5fb288a-5e06-43b5-8bbc-21d1b107c58d",
+          "name": "旧电脑",
+          "from": "经隧道 · 203.0.113.4",
+          "pairedAt": "2026-10-10T09:00:00.000+08:00",
+          "activated": true,
+          "lastUsedAt": "2026-10-10T09:00:00.000+08:00",
+          "expiresAt": "2027-10-10T09:00:00.000+08:00",
+          "revoked": true,
+          "revokedAt": "2026-10-10T09:00:00.000+08:00",
+          "deletedAt": "2026-10-10T09:00:00.000+08:00"
+        },
+        "change": "deleted"
+      }
+    }
+  }
+]

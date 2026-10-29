@@ -1,0 +1,21 @@
+{
+  "builtin": {
+    "delete_or_overwrite": { "task": "ask_first" }
+  },
+  "custom": [
+    {
+      "id": "db-migrations",
+      "title": "动数据库迁移目录",
+      "match": { "paths": ["D:\\code\\my-app\\db\\migrations"] },
+      "chat": "ask_first",
+      "task": "ask_first"
+    },
+    {
+      "id": "big-payment",
+      "title": "大额付款",
+      "match": { "amountOver": 1000 },
+      "chat": "never",
+      "task": "never"
+    }
+  ]
+}

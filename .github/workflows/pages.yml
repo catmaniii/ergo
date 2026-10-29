@@ -1,0 +1,59 @@
+# 在线演示页（316 号票）：网页原型（自带编的示例数据，不连守护进程）构建成静态页面，发到 GitHub Pages。
+# npm run build:demo = vite build --mode demo --outDir dist-demo（packages/web），页面按构建的 mode 认出是演示页（src/app/prototype-mode.ts）。
+# 只在公开仓库上自动跑（GitHub Pages 在私有仓库上要付费的套餐）；私有仓库上只能手动触发。
+# 用之前在仓库的 Settings · Pages 里把 Source 选成 GitHub Actions。
+name: 在线演示页 / Demo (GitHub Pages)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/web/**"
+      - "packages/protocol/**"
+      - "CHANGELOG.md"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: 构建演示页 / Build demo
+    if: github.event_name == 'workflow_dispatch' || !github.event.repository.private
+    # 和自动测试一样用 Windows（二狗只在 Windows 上测过）；公开仓库不收费
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - name: 装依赖 / Install
+        run: npm ci --no-audit --no-fund
+      - name: 构建 / Build
+        run: npm run build:demo
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: packages/web/dist-demo
+
+  deploy:
+    name: 发布 / Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

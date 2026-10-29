@@ -1,0 +1,1590 @@
+/*
+ * 会话缩放：一镜到底的会话历史（54 号票）。
+ * 内容类型底色、工具的只看 / 动手 / 删改、条右上角的关注小圆点、长条的缩影、矮条的字竖着居中。
+ * 55 号票补上缩小后条外的装饰（×N、左侧任务卡、计划底色带和竖排标签、任务的完整情况、阶段的书脊、重开后废弃的旧历史）。
+ * 颜色、字号、圆角、间距一律用 token（39 号票的风格清单 src/visual-styles/：已有的照用，缩放自己的是 --zoom-*），
+ * 各套风格可以覆盖；白字、阴影颜色也用 token。
+ * 缩放控制器（ui/zoom/zoom.ts）把 --s、--o0、--o1、--o2、--sl、--colw、--vpw 和 data-level 写在 .zh 上。
+ */
+
+/* ---------- 内容类型底色（要点层、全局层、图例） ---------- */
+.bg-user {
+  background: var(--c-user);
+}
+.bg-thinking {
+  background: var(--c-thinking);
+}
+.bg-reply {
+  background: var(--c-reply);
+}
+.bg-plan {
+  background: var(--c-plan);
+}
+.bg-tool {
+  background: var(--c-tool);
+}
+.bg-context {
+  background: var(--c-context);
+}
+/* 工具调用按动作性质分深浅（state/tool-nature.ts）：不加新色相 */
+.bg-tool.n-look {
+  background: var(--zoom-tool-look);
+}
+.zi-l1.bg-tool.n-look {
+  color: var(--text);
+}
+/* 删改：仍是绿色，外面一圈红描边（出错用的是内描边，两者不混）。这一档是删改，不只是删除（用户定） */
+.zi-l1.bg-tool.n-modify,
+.zi-l2.bg-tool.n-modify {
+  box-shadow: 0 0 0 calc(2px / var(--s)) var(--zoom-modify-ring);
+}
+.zi-l1.bg-tool.n-modify {
+  box-shadow: 0 0 0 calc(2px / var(--ds)) var(--zoom-modify-ring);
+}
+.zi-l2.bg-tool.n-modify.zi-err {
+  box-shadow:
+    0 0 0 calc(2px / var(--s)) var(--zoom-modify-ring),
+    inset 0 0 0 calc(2px / var(--s)) var(--zoom-error-ring);
+}
+.zi-l1.bg-tool.n-modify.zi-err {
+  box-shadow:
+    0 0 0 calc(2px / var(--ds)) var(--zoom-modify-ring),
+    inset 0 0 0 calc(2px / var(--s)) var(--zoom-error-ring);
+}
+.zh-legend i.n-modify {
+  box-shadow: 0 0 0 1.5px var(--zoom-modify-ring);
+  margin-left: 1px;
+}
+
+/* ---------- 一镜到底的会话历史 ---------- */
+.zh {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  --s: 1;
+  --o0: 1;
+  --o1: 0;
+  --o2: 0;
+}
+.zh-footer {
+  position: relative;
+}
+/* 输入框（连同它上面的连接提示）：缩小时淡出、往下沉 */
+.zh-footer > :not(.zh-legend) {
+  opacity: var(--o0);
+  transform: translateY(calc((1 - var(--o0)) * 30%));
+}
+.zh-legend {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  justify-content: center;
+  gap: 2px 10px;
+  padding: 4px 10px;
+  font-size: var(--fs-2xs);
+  color: var(--muted);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  opacity: calc(1 - var(--o0));
+  pointer-events: none;
+}
+.zh-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+/* 工具那一格的三档色块挨在一起，读作一组 */
+.zh-legend i + i {
+  margin-left: -3px;
+}
+.zh-legend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+/* 缩小后输入框不再占位：页脚只剩一条紧凑图例 */
+.zh[data-level="1"] .zh-footer > :not(.zh-legend),
+.zh[data-level="2"] .zh-footer > :not(.zh-legend) {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.zh[data-level="1"] .zh-legend,
+.zh[data-level="2"] .zh-legend {
+  position: static;
+}
+/*
+ * 可视区那一块（108 号票，二狗加的一层）：只为把"回到最新"的 ↓ 贴在可视区右下角。
+ * 可视区被挤得很矮时（手机上任务的抽屉全开，84 号票），↓ 不伸出去盖住上面的抽屉：裁掉（clip 不多出能滚的容器）
+ */
+.zh-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: clip;
+}
+.zh-viewport {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  touch-action: pan-y;
+}
+/*
+ * 108 号票：内容里伸到内容下面的东西（对话层看不见、叠在它那一条旁边的右侧标注，缩小后被挤下去的标注、箭头）原来也撑滚动范围，
+ * 滚到底还能往下滚出一片空白。这里裁掉，滚动范围就是 sizer 的高度（缩小后看得见的、伸出去的标注由 ZoomHistory 算进 sizer 的高度）。
+ * 只裁上下：左右本来就由视口裁（overflow-x: hidden）；clip 不像 hidden 那样多出一个能滚的容器
+ */
+.zh-sizer {
+  position: relative;
+  width: 100%;
+  overflow-y: clip;
+}
+.zh-content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: auto;
+  margin: 0 auto;
+  /* 二狗原来会话的内边距 */
+  padding: var(--space-page) var(--space-page) 16px;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+/* 一条历史：同一个矩形，三层内容交叉淡入淡出 */
+.zi {
+  position: relative;
+  margin-bottom: var(--space-msg);
+  border-radius: var(--radius-2xl);
+}
+/*
+ * 工具调用组只存在于对话层（57 号票）：对话层是一行"调用了 N 个工具 ›"，缩小后组里每次调用、每段思考各画一块
+ * （缩小后不按组：每次调用各是一条；对话层藏、缩小后逐条出现，同同类折叠的 .zi-folded）
+ */
+.zh[data-level="0"] .zi-step,
+.zh:not([data-level="0"]) .zi-grouprow {
+  display: none;
+}
+/* 对话层里条目之外的东西（日期分隔线、加载更早的、正在回复…）：缩小后淡出，位置照留 */
+.zh-sep,
+.zh-older,
+.zh-tail {
+  opacity: var(--o0);
+}
+.zh-tail {
+  margin-bottom: var(--space-msg);
+}
+.zh-older {
+  display: block;
+  margin: 0 auto var(--space-msg);
+}
+
+.zi.flash .zi-l0 {
+  animation: zh-flash 1.6s;
+}
+@keyframes zh-flash {
+  0%,
+  60% {
+    background: var(--zoom-flash);
+  }
+  100% {
+    background: transparent;
+  }
+}
+.zi-l0 {
+  opacity: var(--o0);
+  border-radius: var(--radius-2xl);
+}
+/*
+ * 二狗加的（不改样子）：缩放时每一帧都改 .zh 上的变量，变量会一路继承下去，对话层里成千上万个元素每帧都要重算样式。
+ * 对话层的内容用不到这些变量，在它下面一层把它们定死，样式重算就停在 .zi-l0 这一层（500 条时捏合从约 58 帧/秒到约 75 帧/秒，
+ * 无头 Chrome，见 54 号票 Comments）
+ */
+.zi-l0 > * {
+  --s: 1;
+  --o0: 1;
+  --o1: 0;
+  --o2: 0;
+  --o3: 0;
+  --sl: 1;
+  --colw: 0px;
+  --vpw: 0px;
+  --gutter1: 0px;
+  --od: 0;
+  --rgap: 0px;
+  --rgap-px: 0px;
+}
+.zi-l1,
+.zi-l2 {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.zi-l1 {
+  opacity: var(--o1);
+  /* 按自己那一档（--ds）排版；缩放时整层跟着一起缩，文字不重新折行 */
+  border-radius: calc(var(--radius-l) / var(--ds));
+  padding: calc(6px / var(--ds)) calc(10px / var(--ds));
+  color: var(--zoom-key-fg);
+  font-size: calc(var(--fs-m) / var(--ds));
+  line-height: 1.35;
+}
+.zi-title {
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* 条右上角的小圆点：有关注（右侧标注）就有，有高的用高亮色（.zi-risk-dot；白圈是 --zoom-dot-ring） */
+.zi-risk-dot {
+  position: absolute;
+  top: calc(6px / var(--s));
+  right: calc(6px / var(--s));
+  width: calc(8px / var(--s));
+  height: calc(8px / var(--s));
+  border-radius: 50%;
+  background: var(--op-fg);
+  box-shadow: 0 0 0 calc(2px / var(--s)) var(--zoom-dot-ring);
+}
+.zi-risk-dot.high {
+  background: var(--high-fg);
+}
+/* 要点层已经在条外侧给出标注，块内的小圆点就不必再重复 */
+.zh[data-level="1"] .zi-risk-dot,
+.zh[data-level="2"] .zi-risk-dot {
+  display: none;
+}
+.zi-l2 {
+  opacity: var(--o2);
+  border-radius: calc(3px / var(--s));
+}
+.zi-err {
+  box-shadow: inset 0 0 0 calc(2px / var(--s)) var(--zoom-error-ring);
+}
+.zh[data-level="1"] .zi-l0,
+.zh[data-level="2"] .zi-l0 {
+  pointer-events: none;
+}
+.zh[data-level="1"] .zi,
+.zh[data-level="2"] .zi {
+  cursor: pointer;
+}
+
+/* 内容多的条：要点层不再是一块纯色，而是把对话层的真实内容缩小铺在里面，
+   标题和摘要收成压在顶上的小卡片；放大时看到的是同一份 DOM 长大，位置天然对齐 */
+.zi[data-long="1"] .zi-l0 {
+  opacity: max(var(--o0), var(--o1));
+}
+.zi[data-long="1"] .zi-l1 {
+  background: none;
+  padding: calc(4px / var(--ds));
+}
+.zi[data-long="1"] .zi-cap {
+  display: inline-block;
+  max-width: 100%;
+  padding: calc(4px / var(--ds)) calc(8px / var(--ds));
+  border-radius: calc(var(--radius-m) / var(--ds));
+  background: inherit;
+  box-shadow: 0 calc(2px / var(--ds)) calc(8px / var(--ds)) var(--zoom-cap-shadow);
+}
+.zi[data-long="1"] .zi-l1.bg-user .zi-cap {
+  background: var(--c-user);
+}
+.zi[data-long="1"] .zi-l1.bg-thinking .zi-cap {
+  background: var(--c-thinking);
+}
+.zi[data-long="1"] .zi-l1.bg-reply .zi-cap {
+  background: var(--c-reply);
+}
+.zi[data-long="1"] .zi-l1.bg-plan .zi-cap {
+  background: var(--c-plan);
+}
+.zi[data-long="1"] .zi-l1.bg-tool .zi-cap {
+  background: var(--c-tool);
+}
+.zi[data-long="1"] .zi-l1.bg-context .zi-cap {
+  background: var(--c-context);
+}
+.zi[data-long="1"] .zi-l1.bg-tool.n-look .zi-cap {
+  background: var(--zoom-tool-look);
+}
+/* 要点层的矮条：不留上下空白，一行字竖着居中——条再矮，露出来的也是字的中间，大致看得出写的什么 */
+.zi:not([data-long="1"]) .zi-l1 {
+  display: flex;
+  align-items: center;
+  padding-top: 0;
+  padding-bottom: 0;
+  line-height: 1.2;
+}
+.zi:not([data-long="1"]) .zi-cap {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---------- 要点层与全局层：条右侧的标注（字号按 1/s 反向放大，屏幕上保持正常大小） ---------- */
+/* 条两侧的留白（内容坐标）；--colw 由缩放控制器写入 */
+.zh-content {
+  /* 标注与要点层文本的排版比例：布局只按这一档算一次，其余靠 transform 缩放 */
+  --ds: 0.45;
+  /* 按 --ds 档算出的留白宽度，两档通用，避免宽度随缩放变化导致换行 */
+  --gutter1: calc(((var(--vpw, 400px) - var(--colw, 400px) * var(--ds)) / 2 - 10px) / var(--ds));
+  /* 标注从要点层就出现：o1 与 o2 在两档之间互补，相加即"缩小后一直可见" */
+  --od: calc(var(--o1) + var(--o2));
+  /* 要点层留白窄，标注离条近一点（屏幕像素） */
+  --rgap-px: 10px;
+  --rgap: calc(var(--rgap-px) / var(--s));
+  /* 最左边那列竖排的任务名占的宽度（屏幕像素）：左侧标注从它右边开始 */
+  --band-px: 24px;
+}
+.zh[data-level="2"] .zh-content {
+  --rgap-px: 34px;
+}
+.zd-right,
+.zd-left,
+.zd-fork {
+  position: absolute;
+  top: 0;
+  opacity: var(--od);
+  pointer-events: none;
+  font-size: calc(var(--fs-xs) / var(--ds));
+  width: var(--gutter1);
+  transform: scale(calc(var(--ds) / var(--s)));
+}
+/*
+ * 左侧标注用满这一档（--sl）左边的留白：从最左边那列竖排的任务名右边，到书脊（没有书脊就到条）为止。
+ * 按这一档的比例算，不按捏合中的实时比例，捏合过程中不重新折行。标注整体按 --ds 排版，所以换算回 DS 像素。
+ */
+.zd-left {
+  width: calc(((var(--vpw, 400px) - var(--colw, 400px) * var(--sl, 0.45)) / 2 - 10px - var(--band-px) - var(--spine-px, 0px)) / var(--ds));
+}
+/* 分叉节点（150 号票）：从回退点往右伸出的小方块 */
+.zd-fork {
+  width: max-content;
+}
+.zh[data-level="1"] .zd-left,
+.zh[data-level="1"] .zd-fork,
+.zh[data-level="2"] .zd-left,
+.zh[data-level="2"] .zd-fork {
+  pointer-events: auto;
+}
+/*
+ * 右侧标注一直用到离屏幕右缘 8px：按这一档（--sl）实际的右侧留白算宽度。
+ * 条的右缘在屏幕上距视口右缘 (vpw - colw·sl)/2，再减去标注和条之间的间距。
+ * 标注整体按 --ds 排版，所以换算回 DS 像素。
+ */
+.zd-right {
+  transform-origin: 0 0;
+  left: calc(100% + var(--rgap));
+  width: calc(((var(--vpw, 400px) - var(--colw, 400px) * var(--sl, 0.45)) / 2 - var(--rgap-px) - 8px) / var(--ds));
+}
+/* 每条标注自己定位：默认与它所指的那一行齐平 */
+.zh[data-level="1"] .zd-right > *,
+.zh[data-level="2"] .zd-right > * {
+  position: absolute;
+  left: 0;
+}
+.zd-left {
+  transform-origin: 100% 0;
+  right: calc(100% + (4px + var(--spine-px, 0px)) / var(--s));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: calc(3px / var(--ds));
+  text-align: right;
+}
+.zd-fork {
+  transform-origin: 0 0;
+  left: calc(100% + 4px / var(--s));
+  top: calc(-9px / var(--s));
+  /* 展开时盖住右侧风险标注，收起后恢复 */
+  z-index: 4;
+  /* 同一个分叉点可能挂着多条分支：横着排，都贴在这条边界上 */
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: calc(3px / var(--ds));
+}
+.zd-risk {
+  position: relative;
+  max-width: var(--risk-max, 100%);
+  padding: calc(1px / var(--ds)) calc(5px / var(--ds));
+  border-radius: calc(var(--radius-m) / var(--ds));
+  white-space: normal;
+  line-height: 1.3;
+}
+/* 连着几块的标注一样：只在第一块标，后面跟 ×N（55 号票） */
+.zd-repeat {
+  margin-left: calc(4px / var(--ds));
+  color: var(--muted);
+  font-style: normal;
+}
+.zd-risk.r-data {
+  background: var(--data-bg);
+  color: var(--data-fg);
+}
+.zd-risk.r-op {
+  background: var(--op-bg);
+  color: var(--op-fg);
+}
+.zd-risk.r-fix {
+  background: color-mix(in srgb, var(--ok) 14%, transparent);
+  color: var(--ok);
+}
+.zd-risk.r-high {
+  background: var(--high-bg);
+  color: var(--high-fg);
+  font-weight: 600;
+}
+/* 标注到它所指的那一行的箭头（ZoomHistory 的 layoutAnnotations 画） */
+.zd-risk-leader {
+  position: absolute;
+  pointer-events: none;
+  overflow: visible;
+}
+.zd-risk-leader path {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: calc(1.2px / var(--ds));
+  stroke-linecap: round;
+}
+
+/* ---------- 缩小后条外的装饰（55 号票） ---------- */
+/* 任务卡（工单卡同样）：只放一句总结，最多两行，放不下用省略号；点开弹出完整情况 */
+.zd-task {
+  display: block;
+  margin: 0;
+  padding: 0 calc(6px / var(--ds)) 0 0;
+  border: none;
+  border-right: calc(3px / var(--ds)) solid var(--c-plan);
+  background: none;
+  font: inherit;
+  text-align: right;
+  cursor: pointer;
+  /*
+   * 黄竖线和书脊对齐：离条 3 像素。左侧标注整体让出了书脊那一列（--spine-px + 4px），
+   * 任务卡这一行没有书脊，伸进那一列，宽度也跟着多出来。标注按 --ds 排版，屏幕像素除以 --ds。
+   */
+  margin-right: calc(-1 * (var(--spine-px, 0px) + 1px) / var(--ds));
+  max-width: calc(100% + (var(--spine-px, 0px) + 1px) / var(--ds));
+}
+.zd-task-title {
+  font-weight: 700;
+  color: var(--text);
+  /* 12.5px：经典的 fs-s 和 fs-m 中间 */
+  font-size: calc((var(--fs-s) + var(--fs-m)) / 2 / var(--ds));
+  line-height: 1.35;
+  /* 窄的时候行尾碰上"、"这类不能放行首的标点，会挤出一个字宽，省略号就被挤出框外：允许在任何地方断行 */
+  line-break: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.zd-task-live .zd-task-title {
+  color: var(--c-plan);
+}
+/* 任务的完整情况（弹窗，居中） */
+.task-facts {
+  margin: 4px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: var(--fs-l);
+  line-height: 1.5;
+}
+.task-fact {
+  display: grid;
+  grid-template-columns: 4.5em 1fr;
+  gap: 8px;
+}
+.task-fact dt {
+  color: var(--muted);
+}
+.task-fact dd {
+  margin: 0;
+  word-break: break-word;
+}
+.zd-live {
+  color: var(--c-plan);
+  font-weight: 600;
+}
+
+/* ---------- 会话回退（150 号票：撤回点、分支小方块、撤回确认） ---------- */
+/* 撤回点：条边上的一个小图标，点一下弹出说明与确认 */
+.zd-rollback {
+  position: relative;
+  display: block;
+  margin-right: calc(16px / var(--ds));
+  margin-left: auto;
+  background: none;
+  border: none;
+  padding: 0;
+  line-height: 0;
+  cursor: pointer;
+}
+.zd-rb-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(20px / var(--ds));
+  height: calc(20px / var(--ds));
+  border-radius: 50%;
+  background: var(--surface);
+  border: calc(1px / var(--ds)) solid var(--border);
+  color: var(--muted);
+  font-size: calc(var(--fs-s) / var(--ds));
+  line-height: 1;
+  box-shadow: 0 calc(1px / var(--ds)) calc(3px / var(--ds)) rgba(0, 0, 0, 0.12);
+}
+.zd-rollback:active .zd-rb-icon {
+  background: var(--primary-fill);
+  border-color: var(--primary-fill);
+  color: var(--primary-text);
+}
+.zd-rb-leader {
+  position: absolute;
+  left: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.zd-rb-leader path {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: calc(1.2px / var(--ds));
+}
+/* 另一条分支：默认是撤回点右侧的小方块，点开才展开成同比例的灰色分支 */
+.zd-ab-dot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(18px / var(--ds));
+  height: calc(18px / var(--ds));
+  border-radius: calc(4px / var(--ds));
+  background: var(--surface);
+  border: calc(1.5px / var(--ds)) solid var(--muted);
+  color: var(--muted);
+  font-size: calc(var(--fs-xs) / var(--ds));
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+}
+/*
+ * 展开的分支（151 号票，.zd-abandoned 一组）：整块回到内容坐标系（抵消 .zd-fork 的缩放），
+ * 于是它和主线用同一个宽度、同一套 DOM 渲染，高度自然完全一致
+ */
+.zd-abandoned {
+  position: relative;
+  /* 展开时让开右侧的风险标注列：具体偏移由布局阶段按实测宽度写入 */
+  margin-left: var(--ab-offset, 0px);
+  transform-origin: 0 0;
+  transform: scale(calc(var(--s) / var(--ds)));
+  /* 与主线色块等宽（再加上底板左右各 8px 的衬边，内部块宽度才和主线一致）；二狗内容区左右的内边距是 --space-page */
+  width: calc(var(--colw, 400px) - 2 * var(--space-page) + 16px);
+  max-width: none;
+  padding: 0;
+  background: none;
+  border: none;
+  box-shadow: none;
+}
+/* 标签与按钮浮在分支条的正上方：按标注那一档排版，放大后也不会压住下面的条 */
+.zd-ab-head {
+  position: absolute;
+  left: 0;
+  bottom: 100%;
+  /* 不透明底：头部这一块也要把后面的风险标注挡住，否则文字会从缝里透出来 */
+  background: var(--bg);
+  border-radius: calc(var(--radius-m) / var(--ds));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: calc(4px / var(--ds));
+  padding-bottom: calc(6px / var(--ds));
+  transform-origin: 0 100%;
+  transform: scale(calc(var(--ds) / var(--s)));
+  width: calc(var(--gutter1) * 1.1);
+  font-size: calc(var(--fs-xs) / var(--ds));
+  z-index: 1;
+}
+.zd-ab-label {
+  background: var(--surface);
+  border: calc(1px / var(--ds)) solid var(--border);
+  border-radius: calc(var(--radius-m) / var(--ds));
+  padding: calc(3px / var(--ds)) calc(7px / var(--ds));
+  color: var(--muted);
+  font-size: inherit;
+  white-space: nowrap;
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+}
+.zd-ab-switch {
+  background: var(--primary-fill);
+  color: var(--primary-text);
+  border: none;
+  border-radius: calc(var(--radius-s) / var(--ds));
+  padding: calc(4px / var(--ds)) calc(8px / var(--ds));
+  font-size: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+/* 清空、换模型之前分出去的切不过去（二狗：用户定的第 5 条），按钮照样在、点不了 */
+.zd-ab-switch:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+/* 底板：把底下的历史盖住，避免两层内容叠在一起看不清 */
+.zd-ab-strip {
+  /* 预览里的会话内容必须和主线用同一个字号排版：.zd-fork 上那个放大的字号是给
+     分支标签和按钮用的，一旦被 .zi-l0 继承，同样的宽度会多折几行，块就比主线高 */
+  font-size: var(--fs-body);
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  /* 衬边用内容像素：和主线在同一个坐标系里，缩放时宽高间距一起缩 */
+  padding: 8px;
+  background: var(--bg);
+  border: none;
+  text-align: left;
+  /* 圆角与阴影不影响排版，用反向缩放保持屏幕上的观感 */
+  border-radius: calc(var(--radius-xl) / var(--s));
+  box-shadow: 0 calc(3px / var(--s)) calc(14px / var(--s)) rgba(0, 0, 0, 0.18);
+}
+/* 预览里的色块与主线同款，只是整体稍淡一点表示"不是当前分支" */
+.zd-ab-strip .zi {
+  opacity: 0.82;
+}
+/* 二狗：分支要经 HTTP 取，取到之前（或取不到）条是空的，写一句 */
+.zd-ab-empty {
+  padding: calc(6px / var(--s)) calc(8px / var(--s));
+  color: var(--muted);
+  font-size: calc(var(--fs-xs) / var(--s));
+}
+
+/* 转正动画（151 号票）：分叉之后的那一段与右边的分支节点原地互换 */
+.zswap {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  overflow: hidden;
+  pointer-events: none;
+}
+.zswap-col {
+  position: absolute;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+/* 两条各走一条弧线：中点被 --bow / --lift 顶开，所以互相错身而不是对穿重叠 */
+@keyframes zswap-travel {
+  0% {
+    /* 逐段指定缓动：前半加速、后半减速，交界处速度连续，中点不会顿一下 */
+    animation-timing-function: cubic-bezier(0.4, 0, 1, 1);
+    transform: translate(var(--x0), var(--y0)) scale(var(--k0));
+  }
+  50% {
+    animation-timing-function: cubic-bezier(0, 0, 0.6, 1);
+    transform: translate(calc((var(--x0) + var(--x1)) / 2 + var(--bow)), calc((var(--y0) + var(--y1)) / 2 + var(--lift)))
+      scale(calc((var(--k0) + var(--k1)) / 2 * var(--midk, 1)));
+  }
+  100% {
+    transform: translate(var(--x1), var(--y1)) scale(var(--k1));
+  }
+}
+.zswap-col.zs-run {
+  /* 整体用 linear：真正的缓动写在关键帧里，见上 */
+  animation: zswap-travel var(--zswap-dur, 0.9s) linear both;
+}
+/* 两条在移动中的样子必须和它最终落位后完全一致：不加投影、不压暗、不缩放，
+   只靠走不同的弧线和前后层级把它们分开 */
+.zs-front {
+  z-index: 2;
+  --midk: 1;
+}
+.zs-back {
+  z-index: 1;
+  --midk: 1;
+}
+/* 让位的那条最后要变成收起的小方块，只在末尾很短一段淡出，中途保持原样 */
+.zs-back.zs-run {
+  animation-name: zswap-travel, zswap-back-fade;
+}
+@keyframes zswap-back-fade {
+  0%,
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.25;
+  }
+}
+/* 每一块按量到的偏移放，整段就是原样搬运 */
+.zswap-col i {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: block;
+  border-radius: 3px;
+}
+/* 两条都是彩色，切换只是位置与大小的交换 */
+/* 动画期间真实的那一段先隐去，避免和覆盖层重影 */
+.zh[data-swapping="1"] .zi[data-tail="1"],
+.zh[data-swapping="1"] .zd-fork,
+.zh[data-swapping="1"] .zh-future {
+  opacity: 0;
+}
+/* 撤回确认（二狗是 Sheet center，框的样子跟别的确认一样）：说明、这一段做了的事 */
+.rb-pop-note {
+  margin-top: 6px;
+  font-size: var(--fs-m);
+  color: var(--muted);
+  line-height: 1.55;
+}
+.rb-pop-failed {
+  color: var(--high-fg);
+}
+.rb-pop-eff {
+  margin-top: 10px;
+  font-size: var(--fs-m);
+  line-height: 1.5;
+}
+.rb-pop-eff-head {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.rb-pop-warn {
+  margin-left: 6px;
+  color: var(--high-fg);
+}
+.rb-pop-eff ul {
+  margin: 0 0 6px;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.rb-pop-eff li {
+  border-left: 2px solid var(--border);
+  padding-left: 6px;
+  word-break: break-word;
+}
+.rb-pop-eff .eff-scope {
+  margin-right: 4px;
+}
+.rb-pop-eff .eff-undoable {
+  border-left-color: var(--c-plan);
+}
+.rb-pop-eff .eff-stuck {
+  border-left-color: var(--high-fg);
+}
+
+/*
+ * 一块底色（任务、工单段、一天）：一个整块（不是逐条拼起来的，交界处不会叠色）。
+ * 底色块放在内容里跟着一起缩放，但横向始终铺满整个视口：
+ * 内容按 translateX((colw - colw·s)/2) scale(s) 变换，视口左缘在内容坐标里是 colw/2 - vpw/(2s)。
+ * 只在要点层和全局层出现——对话层本来就有计划卡片，再铺底色反而吵。
+ */
+.zh-band {
+  position: absolute;
+  left: calc(var(--colw) / 2 - var(--vpw) / (2 * var(--s)));
+  width: calc(var(--vpw) / var(--s));
+  z-index: -1;
+  pointer-events: none;
+  /* 和计划色块同一个黄，调得很浅：一眼能和默认底色分开，又不抢色块的注意力；相邻的另一块深一档，两个拉开 */
+  background: var(--zoom-band);
+  opacity: calc(1 - var(--o0));
+}
+/* 相邻两块深浅错开，挨得近也分得清 */
+.zh-band[data-n="1"] {
+  background: var(--zoom-band-alt);
+}
+/* 底色块左缘一列竖排：第几个任务、是什么事。字号不随缩放变，只占一列，放不下用省略号 */
+.zh-band-labels {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: calc(1 - var(--o0));
+}
+.zh-band-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  writing-mode: vertical-rl;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 4px;
+  font-size: var(--fs-xs);
+  line-height: 1.2;
+  letter-spacing: 1px;
+  color: var(--zoom-band-label);
+  will-change: transform;
+}
+.zh-band-label b {
+  font-weight: 700;
+}
+.zh-band-no {
+  text-combine-upright: all;
+  margin: 1px 0;
+}
+
+/*
+ * 书脊：贴在条左边的一根窄色条，一个阶段的一轮一段，上沿是开始、下沿是交上来验收。
+ * 段与段之间靠上下透明边框留缝；颜色就是这一轮的结果，不再另外标"完成"。
+ * 名字写在色条左边，停在这一段露出部分的中间，由 ZoomHistory 每帧摆。
+ * 只在缩小后出现；宽度、缝、字号都按 1/s 反向放大，屏幕上保持不变（色条 3 像素、离条 3 像素）。
+ * 左侧标注整体让出 40 像素：色条、缝和名字那一列。
+ */
+.zh-content[data-spine] {
+  --spine-px: 40px;
+}
+.zh-spine {
+  position: absolute;
+  /* left 由 placeBands 设成条的左缘，这里再往左让出色条和缝 */
+  margin-left: calc(-6px / var(--s));
+  width: calc(3px / var(--s));
+  border-block: calc(2px / var(--s)) solid transparent;
+  background-clip: padding-box;
+  border-radius: calc(2px / var(--s));
+  pointer-events: none;
+  opacity: calc(var(--o1) + var(--o2));
+}
+.zh-spine-id {
+  position: absolute;
+  top: 0;
+  right: calc(100% + 4px / var(--s));
+  font-size: calc(var(--fs-2xs) / var(--s));
+  font-weight: 700;
+  line-height: calc(14px / var(--s));
+  white-space: nowrap;
+  will-change: transform;
+}
+.sp-ok {
+  background: var(--ok);
+}
+.sp-ok .zh-spine-id {
+  color: var(--ok);
+}
+.sp-retry {
+  background: var(--reject-fg);
+}
+.sp-retry .zh-spine-id {
+  color: var(--reject-fg);
+}
+.sp-failed {
+  background: var(--high-fg);
+}
+.sp-failed .zh-spine-id {
+  color: var(--high-fg);
+}
+.sp-live {
+  background: var(--c-plan);
+}
+.sp-live .zh-spine-id {
+  color: color-mix(in srgb, var(--c-plan) 75%, var(--text));
+}
+/* 没做完就不做了（计划调整去掉的、任务结束了）、重开之前的那一轮：灰 */
+.sp-off,
+.sp-stale {
+  background: color-mix(in srgb, var(--muted) 55%, transparent);
+}
+.sp-off .zh-spine-id,
+.sp-stale .zh-spine-id {
+  color: var(--muted);
+}
+.zh-legend i[class^="sp-"] {
+  width: 4px;
+  height: 10px;
+  border-radius: 1px;
+}
+.zh-legend i[class^="sp-"] + i {
+  margin-left: -2px;
+}
+
+/* 重开后废弃的旧历史 */
+.zi-stale {
+  opacity: 0.55;
+}
+.zi-stale-tag {
+  position: absolute;
+  top: 0;
+  color: var(--muted);
+}
+
+/*
+ * ---------- 流程的"接下来的计划"（60 号票，ui/zoom/future.tsx） ----------
+ * zh-future 一节（颜色、字号、圆角用 token，白字用 --on-color）。
+ * 计划里还没执行的步骤：仍然留在主线底部，只是画成虚线表示"尚未发生"
+ */
+.zh-future {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  /* 间距与主线的历史块完全一致（.zi 的 margin-bottom），缩放时同步缩 */
+  gap: 10px;
+  margin-top: 10px;
+  opacity: var(--od);
+}
+/* 对话层：按正常排版画，让"还欠几件事"在对话流末尾也看得见 */
+.zh[data-level="0"] .zh-future {
+  gap: 8px;
+  margin: 4px 0 8px;
+  opacity: 1;
+}
+.zh[data-level="0"] .zh-future-label {
+  position: static;
+  width: auto;
+  transform: none;
+  font-size: var(--fs-s);
+  text-align: left;
+}
+.zh[data-level="0"] .zf-step {
+  border-width: 1.5px;
+  border-radius: var(--radius-l);
+  padding: 8px 12px;
+  font-size: var(--fs-m);
+}
+.zh[data-level="0"] .zf-title {
+  white-space: normal;
+  opacity: 1;
+}
+/* 只有"接下来的计划"几个字去左边留白，虚线框本身不离开主线 */
+.zh-future-label {
+  position: absolute;
+  top: 0;
+  right: calc(100% + 4px / var(--s));
+  width: calc(var(--gutter1) * 0.92);
+  transform-origin: 100% 0;
+  transform: scale(calc(var(--ds) / var(--s)));
+  text-align: right;
+  white-space: nowrap;
+  font-size: calc(var(--fs-xs) / var(--ds));
+  color: var(--muted);
+  pointer-events: none;
+}
+.zf-step {
+  position: relative;
+  border: calc(1.5px / var(--ds)) dashed color-mix(in srgb, var(--c-plan) 55%, var(--border));
+  border-radius: calc(var(--radius-l) / var(--ds));
+  padding: calc(6px / var(--ds)) calc(10px / var(--ds));
+  background: color-mix(in srgb, var(--c-plan) 8%, transparent);
+  font-size: calc(var(--fs-m) / var(--ds));
+  line-height: 1.35;
+  color: var(--muted);
+}
+.zf-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* 和要点层文字同进同退：全局层只剩空的虚线块 */
+  opacity: var(--o1);
+}
+/* 开始执行这一步，虚线就转成实线——"欠着"和"正在做"一眼分得开 */
+.zf-step.zf-in_progress {
+  border-style: solid;
+  border-color: var(--c-plan);
+  background: color-mix(in srgb, var(--c-plan) 14%, transparent);
+  color: var(--text);
+}
+.zf-step.zf-failed {
+  border-style: solid;
+  border-color: var(--high-fg);
+  background: color-mix(in srgb, var(--high-fg) 10%, transparent);
+}
+.zf-step.zf-skipped {
+  opacity: 0.55;
+}
+.zf-step.zf-skipped .zf-title {
+  text-decoration: line-through;
+}
+.zf-tag {
+  margin-left: calc(6px / var(--ds));
+  padding: 0 calc(6px / var(--ds));
+  border-radius: calc(var(--radius-xs) / var(--ds));
+  background: var(--border);
+  font-size: calc(var(--fs-xs) / var(--ds));
+  opacity: var(--o1);
+}
+.zf-tag.zf-now {
+  background: var(--c-plan);
+  color: var(--on-color);
+}
+.zf-tag.zf-bad {
+  background: var(--high-fg);
+  color: var(--on-color);
+}
+/* 实际动作和这一格对不上的地方 */
+.zf-dev {
+  margin-top: calc(3px / var(--ds));
+  font-size: calc(var(--fs-xs) / var(--ds));
+  color: var(--high-fg);
+  opacity: var(--o1);
+}
+.zf-progress {
+  font-size: calc(var(--fs-xs) / var(--ds));
+  color: var(--muted);
+  opacity: var(--o1);
+}
+.zf-offplan {
+  margin-left: calc(6px / var(--ds));
+  color: var(--high-fg);
+}
+.zh[data-level="0"] .zf-tag,
+.zf-fixed {
+  margin-top: calc(3px / var(--ds));
+  font-size: calc(var(--fs-xs) / var(--ds));
+  color: var(--ok);
+  opacity: var(--o1);
+}
+.zh[data-level="0"] .zf-dev,
+.zh[data-level="0"] .zf-fixed,
+.zh[data-level="0"] .zf-progress {
+  font-size: var(--fs-s);
+  opacity: 1;
+  margin-left: 0;
+}
+.zh[data-level="0"] .zf-tag {
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: var(--radius-xs);
+  font-size: var(--fs-xs);
+}
+.zh[data-level="0"] .zf-offplan {
+  margin-left: 6px;
+}
+
+/*
+ * ---------------------------------------------------------------- 对话层：每个阶段一个框（91 号票，长程任务的会话）
+ * .sbox / .zi-stage / .zi-grp 那一段（颜色、字号、圆角用二狗的 token）：
+ * 框上只有两行，要点和每次操作点开才有；框在三档里是同一块（.zi-stage），收着的阶段每次操作三档都不画。
+ */
+.sbox {
+  margin: 0 0 8px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--sbox-c, var(--border));
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+}
+.zi-grp:not(.zi-grp-open) {
+  display: none;
+}
+.zi-stage {
+  margin-bottom: 8px;
+}
+.zi-stage .sbox {
+  margin: 0;
+}
+.sbox-ok,
+.gs-ok {
+  --sbox-c: var(--ok);
+}
+.sbox-live,
+.gs-live {
+  --sbox-c: var(--primary);
+}
+.sbox-bad,
+.gs-bad {
+  --sbox-c: var(--op-fg);
+}
+.sbox-off,
+.gs-off {
+  --sbox-c: var(--border);
+}
+.sbox-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 10px 8px 12px;
+  border: none;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.sbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+.sbox-misc .sbox-row {
+  padding: 7px 10px 7px 12px;
+}
+.sbox-name {
+  display: flex;
+  flex: 1;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+.sbox-no {
+  flex: none;
+  color: var(--c-plan);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.sbox-title {
+  overflow: hidden;
+  font-size: var(--fs-l);
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sbox-sum {
+  overflow: hidden;
+  color: color-mix(in srgb, var(--text) 72%, transparent);
+  font-size: var(--fs-m);
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sbox-misc-t {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: color-mix(in srgb, var(--text) 72%, transparent);
+  font-size: var(--fs-m);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.sbox-st {
+  flex: none;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+.sbox-st-ok {
+  color: var(--ok);
+}
+.sbox-st-live {
+  color: var(--primary);
+}
+.sbox-st-bad {
+  color: var(--op-fg);
+}
+.sbox-st-off {
+  color: var(--muted);
+}
+.sbox-live .sbox-st-live {
+  animation: sbox-pulse 1.4s ease-in-out infinite;
+}
+@keyframes sbox-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+.sbox-caret {
+  display: inline-block;
+  flex: none;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  transition: transform 0.2s;
+}
+.sbox-points .sbox-head .sbox-caret,
+.sbox-open .sbox-more .sbox-caret {
+  transform: rotate(180deg);
+}
+.sbox-body {
+  padding: 0 12px 4px;
+  border-top: 1px dashed var(--border);
+}
+.sbox-line {
+  padding-top: 4px;
+  color: color-mix(in srgb, var(--text) 82%, transparent);
+  font-size: var(--fs-m);
+  line-height: 1.5;
+}
+.sbox-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  padding-top: 2px;
+}
+.sbox-more {
+  flex: none;
+  padding: 4px;
+  border: none;
+  background: none;
+  color: var(--primary);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.sbox-more .sbox-caret {
+  color: inherit;
+  margin-left: 2px;
+}
+/*
+ * 展开后的每次操作收进阶段框里：接着框左边那道颜色，一条一行、排得紧一点，不再各自成卡片。
+ * 三档用同一套排版（缩放时块的高度不跳）；要点层、全局层里每一条缩进一点，看得出是这个阶段里的。
+ */
+.zi-stage-open {
+  margin-bottom: 0;
+}
+.zi-stage-open .sbox {
+  border-bottom-style: dashed;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+/*
+ * 阶段框里交上来验收的结论（93 号票）：一行横条，点开是几条要点，右边箭头进详情（.strip、.pt-*；
+ * 这里只有通过、退回两种，没有"跟你有关的"那种蓝）。颜色、字号、圆角用 token
+ */
+.strip {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--muted);
+  border-radius: var(--radius-l);
+  background: var(--surface);
+  font-size: var(--fs-m);
+  line-height: 1.45;
+  overflow: hidden;
+}
+.strip-bar {
+  display: flex;
+  align-items: stretch;
+}
+.strip-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 6px 8px 10px;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.strip-icon {
+  flex: none;
+  width: 22px;
+  text-align: center;
+  font-size: var(--fs-l);
+}
+.strip-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.strip-title {
+  display: -webkit-box;
+  overflow: hidden;
+  font-weight: 600;
+  word-break: break-word;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.strip-tail {
+  flex: none;
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--bg);
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+.strip-caret {
+  flex: none;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+.strip-more {
+  flex: none;
+  width: 40px;
+  border: none;
+  border-left: 1px solid var(--border);
+  background: none;
+  color: var(--muted);
+  font-size: 20px;
+  cursor: pointer;
+}
+.strip-body {
+  padding: 0 12px 10px 40px;
+}
+.strip-points {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.strip-points li {
+  display: flex;
+  gap: 8px;
+  word-break: break-word;
+}
+.pt-k {
+  flex: none;
+  width: 5.2em;
+  padding-top: 1px;
+  color: var(--muted);
+  font-size: var(--fs-s);
+}
+.pt-v {
+  flex: 1;
+  min-width: 0;
+}
+.strip-detail {
+  margin-top: 8px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--primary);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.strip-reject {
+  border-left-color: var(--reject-fg);
+}
+.strip-reject .strip-tail {
+  color: var(--reject-fg);
+}
+.strip-ok {
+  border-left-color: var(--ok);
+}
+.strip-ok .strip-icon {
+  color: var(--ok);
+  font-weight: 700;
+}
+.zi-grp-open {
+  margin: 0;
+  border-radius: 0;
+}
+.zi-grp-open > .zi-l0 {
+  padding: 4px 10px 4px 12px;
+  border: 0 solid var(--border);
+  border-width: 0 1px;
+  border-left: 3px solid var(--sbox-c, var(--border));
+  border-radius: 0;
+  background: var(--surface);
+}
+.zi-grp-open:not(.zi-grp-start) > .zi-l0 {
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--border) 70%, transparent);
+}
+.zi-grp-open.zi-grp-end {
+  margin-bottom: 8px;
+}
+.zi-grp-open.zi-grp-end > .zi-l0 {
+  padding-bottom: 8px;
+  border-bottom-width: 1px;
+  border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+}
+.zi-grp-open > .zi-l1,
+.zi-grp-open > .zi-l2 {
+  top: calc(1px / var(--s));
+  bottom: calc(1px / var(--s));
+  left: calc(10px / var(--s));
+}
+/* 框里的每一条：去掉自己的底色和左边那道，字小一号 */
+.zi-grp-open .tool,
+.zi-grp-open .mevent,
+.zi-grp-open .sys-note {
+  margin: 0;
+  padding: 3px 0;
+  border-left: none;
+  border-radius: 0;
+  background: none;
+  font-size: 12.5px;
+}
+.zi-grp-open .thinking {
+  margin: 0;
+  font-size: var(--fs-s);
+}
+/* 风格给工具行加的框线、阴影（水墨、纸张、格子、夜间是 :root[data-style] .tool）在框里也去掉：框里一条一行（二狗加的） */
+:root .zh .zi-grp-open .tool,
+:root .zh .zi-grp-open .mevent {
+  border: none;
+  box-shadow: none;
+  background: none;
+}
+/*
+ * 框里的工具调用组：每次操作一行——三档都画组里每次调用、每段思考那几块（57 号票缩小后的样子），
+ * 组那一行（"调用了 N 个工具 ›"）不画；对话层里点一块打开那一次的详情
+ */
+.zh .zi-boxrow {
+  display: none;
+}
+.zh[data-level="0"] .zi-step.zi-boxstep.zi-grp-open {
+  display: block;
+}
+.zh[data-level="0"] .zi-boxstep .zi-l0.zi-open {
+  cursor: pointer;
+}
+
+/* 收着的阶段框在缩小后条外的标注：一个图标 + 一句话 */
+.zd-note {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(4px / var(--ds));
+  padding: calc(2px / var(--ds)) calc(8px / var(--ds)) calc(2px / var(--ds)) calc(2px / var(--ds));
+  border: calc(1px / var(--ds)) solid var(--border);
+  border-radius: calc(12px / var(--ds));
+  background: var(--surface);
+  color: var(--text);
+}
+.zd-note-warn {
+  border-color: var(--op-fg);
+}
+/* 标注是按钮：要点层、全局层点了直接进详情（对话层看不见，不接点击） */
+button.zd-note {
+  font: inherit;
+  line-height: 1.3;
+  text-align: left;
+}
+.zh[data-level="1"] .zd-note,
+.zh[data-level="2"] .zd-note {
+  pointer-events: auto;
+  cursor: pointer;
+}
+.zd-note:active {
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+}
+.zd-note .ic {
+  width: calc(17px / var(--ds));
+  height: calc(17px / var(--ds));
+  font-size: calc(10px / var(--ds));
+}
+.zd-note .ic-ok {
+  right: calc(-3px / var(--ds));
+  bottom: calc(-3px / var(--ds));
+  width: calc(9px / var(--ds));
+  height: calc(9px / var(--ds));
+  font-size: calc(7px / var(--ds));
+  box-shadow: 0 0 0 calc(1.5px / var(--ds)) var(--surface);
+}
+.zd-note-t {
+  min-width: 0;
+}
+.zd-note .zd-risk-leader path {
+  stroke: var(--muted);
+}
+/* 图例里的那几个图标 */
+.zh-legend .zh-glyphs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+}
+.zh-legend .zh-glyphs .ic {
+  display: inline-grid;
+  width: 14px;
+  height: 14px;
+  font-size: 8.5px;
+}
+.zh-legend .zh-glyphs .ic-ok {
+  display: none;
+}
+
+/*
+ * ---------- 回到最新的 ↓（108 号票，二狗加的） ----------
+ * 贴着可视区（.zh-main）右下角：输入框、它上面的提示和栏在下面的 .zh-footer 里，缩小后换成的图例也在那里，↓ 一直在它们上面。
+ * 离开底部才出，淡入淡出；藏起来的点不到、Tab 也到不了（visibility 等淡出完再藏）。
+ * 宽屏用鼠标的小一点、离右边多让开滚动条；手机、平板上手指点得到（40px）。颜色、边框、阴影跟着各套风格的 token
+ */
+.zh-jump {
+  position: absolute;
+  right: 22px;
+  bottom: 12px;
+  z-index: 3;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-btn);
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(6px);
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.18s,
+    transform 0.18s,
+    visibility 0s 0.18s;
+}
+.zh-jump[data-shown] {
+  opacity: 1;
+  transform: none;
+  visibility: visible;
+  pointer-events: auto;
+  transition:
+    opacity 0.18s,
+    transform 0.18s;
+}
+.zh-jump:hover {
+  color: var(--primary);
+}
+.zh-jump svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.app.narrow .zh-jump {
+  right: 12px;
+  width: 40px;
+  height: 40px;
+}
+@media (pointer: coarse) {
+  .zh-jump {
+    right: 12px;
+    width: 40px;
+    height: 40px;
+  }
+}
+/* 新到了几条消息：右上角一个小数字；只多了思考、工具调用：一个圆点 */
+.zh-jump-n {
+  font-family: var(--font-num);
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: var(--radius-pill);
+  background: var(--primary);
+  box-shadow: 0 0 0 2px var(--surface);
+  color: var(--on-color);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  line-height: 17px;
+  text-align: center;
+}
+.zh-jump-dot {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow: 0 0 0 2px var(--surface);
+}
+/* 293 号票：维护者用的运行时多说的几句（分支摘要谁写、文件恢复不恢复） */
+.rb-pop-runtime {
+  font-size: var(--fs-s);
+}

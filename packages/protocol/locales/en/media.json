@@ -1,0 +1,13 @@
+{
+  "media.upload.notFound": "No such upload: {uploadId}",
+  "media.upload.notFoundGone": "No such upload: {uploadId} (it may have finished already, or been cleaned up)",
+  "media.upload.busy": "A chunk of this upload is still being written; send the next one when it's done",
+  "media.upload.tooLarge": "The file is {size}, over the {max} limit for a single file",
+  "media.upload.offsetMismatch": "Wrong offset: the server has received {received} bytes, but this chunk starts at {offset}",
+  "media.upload.chunkTooLarge": "The chunk goes past the size declared when the upload started ({size} bytes)",
+  "media.upload.incomplete": "Not fully received yet: got {got} of {size} bytes",
+  "media.upload.sha256Mismatch": "sha256 doesn't match: the received bytes hash to {actual}, but the finish request says {sha256}. This upload is void; please upload again",
+  "media.untitled": "Untitled",
+  "media.tool.readAttachment": "Read attachment",
+  "media.tool.sendAttachment": "Send file as attachment"
+}

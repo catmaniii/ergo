@@ -1,0 +1,121 @@
+{
+  "id": "v1-backup-before-overwrite",
+  "name": "v1 模板「删除或覆盖之前必须已备份或已 git 提交」：工作目录里没提交的文件，覆盖（write）和删除（rm）都按规则退回（不是永不）；局部编辑、写新文件、已提交的照常；复制一份备份或提交之后放行；项目档案不在 git 里，以调用方传入的 backedUp 为准；工作目录缺 git 状态时先问",
+  "context": {
+    "agent": { "kind": "maintainer" },
+    "task": { "taskId": "task-1", "currentStageId": "s1", "plan": { "grants": [] } },
+    "now": "2026-10-07T12:00:00Z"
+  },
+  "calls": [
+    {
+      "tool": "write",
+      "args": { "path": "draft.md", "content": "重写" },
+      "facts": {
+        "files": { "${workDir}\\draft.md": { "exists": true } },
+        "git": { "${workDir}": { "uncommittedPaths": ["${workDir}\\draft.md", "${workDir}\\scratch-notes"] } }
+      },
+      "expect": {
+        "pullBack": ["v1.backup-before-overwrite"],
+        "verdict": "block",
+        "disposition": "notify_after",
+        "categories": ["delete_or_overwrite"],
+        "kinds": ["rule:v1.backup-before-overwrite"],
+        "explanation": "^退回：.*还没有 git 提交、也没有备份。先提交.*或者先复制一份备份"
+      }
+    },
+    {
+      "tool": "bash",
+      "args": { "command": "rm draft.md" },
+      "facts": { "git": { "${workDir}": { "uncommittedPaths": ["${workDir}\\draft.md", "${workDir}\\scratch-notes"] } } },
+      "expect": { "pullBack": ["v1.backup-before-overwrite"], "kinds": ["rule:v1.backup-before-overwrite"], "genericShell": true }
+    },
+    {
+      "tool": "bash",
+      "args": { "command": "rm -rf scratch-notes/old" },
+      "facts": { "git": { "${workDir}": { "uncommittedPaths": ["${workDir}\\draft.md", "${workDir}\\scratch-notes"] } } },
+      "expect": { "pullBack": ["v1.backup-before-overwrite"], "kinds": ["rule:v1.backup-before-overwrite"] }
+    },
+    {
+      "tool": "edit",
+      "args": { "path": "draft.md", "edits": [{ "oldText": "a", "newText": "b" }] },
+      "facts": { "git": { "${workDir}": { "uncommittedPaths": ["${workDir}\\draft.md"] } } },
+      "expect": { "disposition": "log_only", "pullBack": null, "categories": [], "rules": [] }
+    },
+    {
+      "tool": "write",
+      "args": { "path": "README.md", "content": "新的说明" },
+      "facts": {
+        "files": { "${workDir}\\README.md": { "exists": true } },
+        "git": { "${workDir}": { "uncommittedPaths": ["${workDir}\\draft.md"] } }
+      },
+      "expect": { "disposition": "notify_after", "pullBack": null, "categories": ["delete_or_overwrite"], "rules": [] }
+    },
+    {
+      "tool": "write",
+      "args": { "path": "new.md", "content": "新文件" },
+      "facts": {
+        "files": { "${workDir}\\new.md": { "exists": false } },
+        "git": { "${workDir}": { "uncommittedPaths": ["${workDir}\\draft.md"] } }
+      },
+      "expect": { "disposition": "log_only", "rules": [] }
+    },
+    {
+      "tool": "bash",
+      "args": { "command": "cp draft.md /e/backup/draft.md" },
+      "commit": true,
+      "expect": { "disposition": "ask_first", "categories": ["outside_project"], "rules": [] }
+    },
+    {
+      "tool": "bash",
+      "args": { "command": "rm draft.md" },
+      "facts": { "git": { "${workDir}": { "uncommittedPaths": ["${workDir}\\draft.md"] } } },
+      "expect": { "disposition": "notify_after", "pullBack": null, "categories": ["delete_or_overwrite"], "rules": [] }
+    },
+    {
+      "tool": "write",
+      "args": { "path": "plan.md", "content": "改写" },
+      "facts": {
+        "files": { "${workDir}\\plan.md": { "exists": true } },
+        "git": { "${workDir}": { "uncommittedPaths": ["${workDir}\\plan.md"] } }
+      },
+      "expect": { "pullBack": ["v1.backup-before-overwrite"], "rules": ["v1.backup-before-overwrite"] }
+    },
+    {
+      "tool": "git_commit",
+      "args": { "message": "保存 plan.md" },
+      "expect": { "disposition": "notify_after", "rules": [] }
+    },
+    {
+      "tool": "write",
+      "args": { "path": "plan.md", "content": "改写" },
+      "facts": {
+        "files": { "${workDir}\\plan.md": { "exists": true } },
+        "git": { "${workDir}": { "uncommittedPaths": [] } }
+      },
+      "expect": { "disposition": "notify_after", "pullBack": null, "rules": [] }
+    },
+    {
+      "tool": "write",
+      "args": { "path": "${records}\\progress.md", "content": "整篇重写" },
+      "facts": { "files": { "${records}\\progress.md": { "exists": true } } },
+      "expect": { "pullBack": ["v1.backup-before-overwrite"], "rules": ["v1.backup-before-overwrite"] }
+    },
+    {
+      "tool": "write",
+      "args": { "path": "${records}\\progress.md", "content": "整篇重写" },
+      "facts": { "files": { "${records}\\progress.md": { "exists": true, "backedUp": true } } },
+      "expect": { "disposition": "notify_after", "pullBack": null, "rules": [] }
+    },
+    {
+      "tool": "bash",
+      "args": { "command": "git reset --hard" },
+      "facts": { "git": { "${workDir}": { "uncommittedPaths": ["${workDir}\\src\\wip.ts"] } } },
+      "expect": { "pullBack": ["v1.backup-before-overwrite"], "categories": ["delete_or_overwrite"], "rules": ["v1.backup-before-overwrite"] }
+    },
+    {
+      "tool": "bash",
+      "args": { "command": "rm notes.txt" },
+      "expect": { "disposition": "ask_first", "pullBack": null, "kinds": ["rule_unknown:v1.backup-before-overwrite"], "explanation": "判断不了" }
+    }
+  ]
+}

@@ -1,0 +1,947 @@
+/*
+ * 工程蓝图（47 号票）：只靠 token（blueprint/style.ts）做不到的规则，全部限定在 :root[data-style="blueprint"] 下
+ * （不会漏到别的风格；设置里的预览把开头换成 :host(...)，所以根元素上只再加属性，见 src/visual-styles/preview.ts）。
+ * 设计稿：docs/design/styles/f-chat、f-tasks、f-inbox、f-wide（.dc.html）。要点：直角、1.5px 的钴蓝线框，框的左上、右下各一个
+ * 加粗的角标；页面底是 24px 的网格；时间、计数、代码用 IBM Plex Mono（--font-num / --font-mono）；状态是直角的实色小签
+ * （等你橙、在做钴蓝、其余线框）；主按钮是钴蓝实色块，往右下错开一块淡蓝的硬边影子。密度比别的风格低。
+ * 只换样子，不改结构：导航、页面上有什么都和经典一样。
+ * 浅色深色都只靠 token（light-dark()）切换，这里不写 [data-theme] 的规则（跟随系统时根元素上没有 data-theme）。
+ * 注意特异度：这里每条都比经典的规则高（:root + [data-style] + 类名），改了某个属性，经典里同一个元素按状态 / 变体改这个属性的
+ * 规则（.voice-hold.voice-cancel、.zf-tag.zf-now……）要在这里跟着再写一遍。
+ * 线（--border）就是钴蓝：经典里拿 --border 当底色的几处（次要按钮、件数小签、进度条的轨道、几种灰底小签）在下面逐个换掉，
+ * 不然上面的字压在钴蓝上看不清。
+ */
+
+/* ---------- 通用 ---------- */
+:root[data-style="blueprint"] {
+  /* 网格线（设计稿的 --grid #dce4f2 / #1c2d5c）：钴蓝 12% 混进页面底色，浅色 #dde2ee、深色 #1e2d55 */
+  --blueprint-grid: color-mix(in srgb, var(--primary) 12%, var(--bg));
+  /*
+   * 角标（设计稿 .box::before / ::after：左上、右下各一个 7px 的 L，3px 粗，从框的外沿量起）：框本身 1.5px 的线加上框里面再 1.5px，
+   * 所以这里在框里（padding box）画两段 5.5 × 1.5 的线。挂在框的 ::before 上（铺满框里、不挡点击），框要 position: relative
+   */
+  --blueprint-corners:
+    linear-gradient(var(--border), var(--border)) left top / 5.5px 1.5px no-repeat,
+    linear-gradient(var(--border), var(--border)) left top / 1.5px 5.5px no-repeat,
+    linear-gradient(var(--border), var(--border)) right bottom / 5.5px 1.5px no-repeat,
+    linear-gradient(var(--border), var(--border)) right bottom / 1.5px 5.5px no-repeat;
+}
+:root[data-style="blueprint"] body {
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+/*
+ * 网格底：页面底色的地方都铺上 24px 的网格（设计稿的根元素）。挂在不滚动的外层上（会话、看板、待我处理滚动时网格不动），
+ * 字压在网格线上的颜色按最坏的底（网格线的颜色）算过对比度。body 在设置的预览里对应场景最外层，预览里也有网格
+ */
+:root[data-style="blueprint"] body,
+:root[data-style="blueprint"] .app,
+:root[data-style="blueprint"] .pane-main,
+:root[data-style="blueprint"] .chat-col {
+  background-image:
+    linear-gradient(var(--blueprint-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--blueprint-grid) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+/* 框（设计稿的 .box）：个人助理的话、个人助理的语音、卡片（聊天里的卡片、设置项这类底板）、看板卡；四周的线由各自的边框 token 给 */
+:root[data-style="blueprint"] .assistant .bubble,
+:root[data-style="blueprint"] .assistant .voice-bubble,
+:root[data-style="blueprint"] .card,
+:root[data-style="blueprint"] .bcard {
+  position: relative;
+}
+:root[data-style="blueprint"] .assistant .bubble::before,
+:root[data-style="blueprint"] .assistant .voice-bubble::before,
+:root[data-style="blueprint"] .card::before,
+:root[data-style="blueprint"] .bcard::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--blueprint-corners);
+  pointer-events: none;
+}
+/* 标题栏：60 高（bar-h），下面一道 1.5px 的线；标题 18 号粗体 */
+:root[data-style="blueprint"] .topbar {
+  gap: 12px;
+  border-bottom-width: 1.5px;
+}
+:root[data-style="blueprint"] .title {
+  font-weight: 700;
+  line-height: 1.2;
+}
+/* 标题栏上的"发起任务"：44 高的钴蓝实色块（主按钮的影子见下面 .btn.primary） */
+:root[data-style="blueprint"] .topbar .btn.primary {
+  min-height: 44px;
+  padding: 0 14px;
+  font-size: var(--fs-m);
+}
+/* 标题栏上的文字按钮（全部标已读）：钴蓝粗字加下划线 */
+:root[data-style="blueprint"] .topbar .link {
+  min-height: 44px;
+  padding: 0 4px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+:root[data-style="blueprint"] .btn {
+  font-weight: 500;
+}
+/* 主按钮：钴蓝实色块，往右下错开 3px 一块淡蓝的硬边影子（设计稿的 box-shadow: 3px 3px 0 --accent-soft） */
+:root[data-style="blueprint"] .btn.primary {
+  font-weight: 700;
+  box-shadow: 3px 3px 0 var(--data-bg);
+}
+:root[data-style="blueprint"] .btn.danger {
+  font-weight: 700;
+}
+/* 次要按钮：1.5px 的线框、透明底（设计稿的"拒绝"；经典是拿 --border 当底色的灰块，这里 --border 是钴蓝） */
+:root[data-style="blueprint"] .btn.ghost {
+  background: none;
+  box-shadow: inset 0 0 0 1.5px var(--border);
+}
+:root[data-style="blueprint"] .mono {
+  letter-spacing: 0;
+}
+/*
+ * 小签：加一圈细线（设计稿的 .chip：1px 的线框）。线的颜色跟着签的字色走（字色 45%）：中性的签是一圈灰蓝线，带颜色的
+ * （数据、出错、通过、种类签、"定时""事件"签……）是同色的线——不用按种类一个个写，底色、字色照经典
+ */
+:root[data-style="blueprint"] .chip {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 45%, transparent);
+}
+/* 本来就有边框的签不再加线：不显眼的签、锁住的签；普通任务的种类签原来是 3px 的虚线框，收成 1px */
+:root[data-style="blueprint"] .chip-quiet,
+:root[data-style="blueprint"] .chip-locked,
+:root[data-style="blueprint"] .kind-chip.kind-plain {
+  box-shadow: none;
+}
+:root[data-style="blueprint"] .kind-chip.kind-plain {
+  border-width: 1px;
+}
+/* 选中的技能集合签：外圈的钴蓝线（经典的 .chip-collection.on，被上面那条盖掉了，再写一遍） */
+:root[data-style="blueprint"] .chip-collection.on {
+  box-shadow: 0 0 0 1.5px var(--primary);
+}
+/* 个人助理的名字（43 号票，设计稿的 .name）：淡蓝底、钴蓝字、钴蓝细框，粗字，前后一对等宽的 [ ]（等宽字的括号自带两边的留白） */
+:root[data-style="blueprint"] .assistant-name {
+  padding: 0 5px;
+  box-shadow: inset 0 0 0 1px var(--name-fg);
+  font-weight: 700;
+}
+:root[data-style="blueprint"] .assistant-name::before {
+  content: "[";
+  font-family: var(--font-num);
+}
+:root[data-style="blueprint"] .assistant-name::after {
+  content: "]";
+  font-family: var(--font-num);
+}
+/*
+ * 秘书页标题里的名字（89 号票："个人秘书：<名字>"）：标签左右各 5 加前后一对等宽的括号（大约各 0.6 个字宽），
+ * 窄屏缩字号的算式（base.css 的 .secretary-title）照它扣（再留 2 的余量）
+ */
+:root[data-style="blueprint"] .secretary-title {
+  font-size: clamp(var(--fs-s), calc((100cqw - 14px) / (6.2 + var(--secretary-fit-chars, 4))), var(--fs-title));
+}
+/* 选中的分段（页签、单选）：钴蓝实色格子、粗字（设计稿待我处理的"待处理"） */
+:root[data-style="blueprint"] .seg button {
+  min-height: 36px;
+}
+:root[data-style="blueprint"] .seg button.on {
+  background: var(--primary);
+  color: var(--primary-text);
+  font-weight: 700;
+}
+/*
+ * 和标题栏算一个头的页签（.seg-head，待我处理）：设计稿里它在标题栏里面，一排等宽的线框格子（相邻的线叠成一道），下面再一道线
+ * 收住整个头；往上盖住标题栏的下边线，两块连成一个标题区
+ */
+:root[data-style="blueprint"] .seg-head {
+  position: relative;
+  gap: 0;
+  margin-top: -1.5px;
+  padding: 0 var(--space-page) 12px calc(var(--space-page) + 1.5px);
+  border-bottom-width: 1.5px;
+  background: var(--bar-bg);
+}
+:root[data-style="blueprint"] .seg-head button {
+  flex: 1 0 auto;
+  min-height: 40px;
+  margin-left: -1.5px;
+  padding: 0 10px;
+  border: 1.5px solid var(--border);
+  font-size: var(--fs-m);
+}
+:root[data-style="blueprint"] .sec-head h3 {
+  font-weight: 700;
+}
+:root[data-style="blueprint"] .menu-group {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+/* 设置列表、更多里选中的一项：淡蓝底，左边一道 3px 的钴蓝（和宽屏竖栏选中的一样） */
+:root[data-style="blueprint"] .menu-item.on {
+  background: var(--data-bg);
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+/* 小圆点一律是小方块（设计稿的未读点、导航的角标都是直角；日历格子和图例里的"有运行失败"也是） */
+:root[data-style="blueprint"] .tab-dot,
+:root[data-style="blueprint"] .inbox-dot,
+:root[data-style="blueprint"] .tool-dot,
+:root[data-style="blueprint"] .act i,
+:root[data-style="blueprint"] .urg,
+:root[data-style="blueprint"] .cal-mk-fail {
+  border-radius: 0;
+}
+/*
+ * 状态：直角的小签（设计稿的 .tag）。.st 这个类挂在任务的状态（st-*，看板卡、任务详情、项目页）、定时触发的每次运行（run-st-*）、
+ * 工单（wo-*）上；经典按状态给字色的规则特异度都比这里低，所以每种状态在这里按 .st.<状态> 再写一遍颜色（只认带 .st 的，
+ * 任务详情里阶段的状态 dt-status ms-st st-* 不是小签，不受影响）：
+ * - 跟你有关（橙色实底）：等你、待确认；工单等你、待你确认、在澄清；
+ * - 在做（钴蓝实底）：规划中、执行中、运营中；运行中；工单在做；
+ * - 做成了（绿色实底）：运行完成、工单完成（经典里就是绿）；看板上的"已完成"按设计稿是线框；
+ * - 出错（红色实底）：失败；运行失败、被打断；工单退回、做不了；
+ * - 运行部分完成（176 号票：有一步没做成、别的做完了）：橙色淡底、橙字（和"跟你有关"的橙色实底分开）；
+ * - 其余（排队、等时间、结束、暂停、跳过……）：线框、灰蓝字
+ */
+:root[data-style="blueprint"] .st {
+  display: inline-block;
+  padding: 1px 6px;
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  line-height: 1.5;
+}
+:root[data-style="blueprint"] .st.st-waiting_for_user,
+:root[data-style="blueprint"] .st.st-awaiting_confirm,
+:root[data-style="blueprint"] .st.wo-waiting_for_user,
+:root[data-style="blueprint"] .st.wo-awaiting_confirm,
+:root[data-style="blueprint"] .st.wo-clarifying {
+  background: var(--you);
+  box-shadow: none;
+  color: var(--on-color);
+}
+:root[data-style="blueprint"] .st.st-running,
+:root[data-style="blueprint"] .st.st-planning,
+:root[data-style="blueprint"] .st.st-ops,
+:root[data-style="blueprint"] .st.st-operating,
+:root[data-style="blueprint"] .st.run-st-running,
+:root[data-style="blueprint"] .st.wo-in_progress {
+  background: var(--primary-fill);
+  box-shadow: none;
+  color: var(--primary-text);
+}
+:root[data-style="blueprint"] .st.run-st-done,
+:root[data-style="blueprint"] .st.wo-done {
+  background: var(--ok);
+  box-shadow: none;
+  color: var(--on-color);
+}
+:root[data-style="blueprint"] .st.run-st-partial {
+  background: var(--op-bg);
+  box-shadow: none;
+  color: var(--op-fg);
+}
+:root[data-style="blueprint"] .st.st-failed,
+:root[data-style="blueprint"] .st.run-st-failed,
+:root[data-style="blueprint"] .st.run-st-interrupted,
+:root[data-style="blueprint"] .st.wo-unable,
+:root[data-style="blueprint"] .st.wo-returned {
+  background: var(--high-fg);
+  box-shadow: none;
+  color: var(--on-color);
+}
+/* 进度条（60 号票产品已有的 sl-progress）：设计稿的 .track：里面 4px 高、外面 1px 的线框（合起来 6）、卡片色的轨道，钴蓝填充 */
+:root[data-style="blueprint"] .sl-progress {
+  height: 6px;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+:root[data-style="blueprint"] .sl-progress i {
+  background: var(--primary);
+}
+:root[data-style="blueprint"] .bcard-progress {
+  font-family: var(--font-num);
+}
+/* 经典拿 --border 当底色的几种灰底小签、轨道：换成淡蓝底（上面的字照旧；淡蓝底上灰蓝字浅色 5.66:1、深色 6.3:1） */
+:root[data-style="blueprint"] .vv-badge,
+:root[data-style="blueprint"] .vv-chip,
+:root[data-style="blueprint"] .rb-status,
+:root[data-style="blueprint"] .rb-kind,
+:root[data-style="blueprint"] .zf-tag,
+:root[data-style="blueprint"] .pst-archived,
+:root[data-style="blueprint"] .cal-pick-btn:hover,
+:root[data-style="blueprint"] .cal-pick-btn.on,
+:root[data-style="blueprint"] .voice-meter {
+  background: var(--data-bg);
+}
+/* 上面那条盖掉了经典按变体换的底色，再写一遍（RuleBook 的违反 / 延后，缩小后的"正在执行""失败"） */
+:root[data-style="blueprint"] .rb-status.rb-s-violated {
+  background: color-mix(in srgb, var(--high-fg) 18%, transparent);
+}
+:root[data-style="blueprint"] .rb-status.rb-s-deferred {
+  background: color-mix(in srgb, var(--c-plan) 18%, transparent);
+}
+:root[data-style="blueprint"] .zf-tag.zf-now {
+  background: var(--c-plan);
+}
+:root[data-style="blueprint"] .zf-tag.zf-bad {
+  background: var(--high-fg);
+}
+:root[data-style="blueprint"] .progress-bar {
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+/*
+ * 经典里浮在页面上、只靠白底和页面分开的块（工单、表格、范围记录、作业、流水线、工具包、设置里的一行行、消耗的统计块和柱状图、
+ * 日历的当天事项、设备……）：压在网格底上分不清边，加一道 1px 的线框（画在框里，不改尺寸）
+ */
+:root[data-style="blueprint"] .wo-row,
+:root[data-style="blueprint"] .tbl,
+:root[data-style="blueprint"] .scope-row,
+:root[data-style="blueprint"] .sjob-row,
+:root[data-style="blueprint"] .lane,
+:root[data-style="blueprint"] .toolkit,
+:root[data-style="blueprint"] .model-agent-row,
+:root[data-style="blueprint"] .prompt-row,
+:root[data-style="blueprint"] .stat,
+:root[data-style="blueprint"] .bars,
+:root[data-style="blueprint"] .cat-row,
+:root[data-style="blueprint"] .rule-item,
+:root[data-style="blueprint"] .cal-item,
+:root[data-style="blueprint"] .device-row {
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+/* 上面那条盖掉了经典的"日历里点作业过来、项目页上这一行高亮"（.sjob-row.on 的外圈），再写一遍 */
+:root[data-style="blueprint"] .sjob-row.on {
+  box-shadow:
+    inset 0 0 0 1px var(--border),
+    0 0 0 1.5px var(--primary);
+}
+/*
+ * 流程计划卡的步骤号：经典写死白字压在计划色上，这套深色的计划色是亮琥珀（白字只有 1.68:1），改成实色块上的字（on-color：
+ * 浅色白字 4.92:1、深色深蓝墨 10.06:1），圆改直角
+ */
+:root[data-style="blueprint"] .rp-n {
+  border-radius: 0;
+  color: var(--on-color);
+}
+/* 经典里几处写死的圆角（发起任务的种类卡、流程计划卡、日历的图例、语音菜单的按钮……）也改成直角 */
+:root[data-style="blueprint"] .sc-mode,
+:root[data-style="blueprint"] .sc-default,
+:root[data-style="blueprint"] .rp,
+:root[data-style="blueprint"] .rp-kind,
+:root[data-style="blueprint"] .step-flag,
+:root[data-style="blueprint"] .cond-status,
+:root[data-style="blueprint"] .refused-note,
+:root[data-style="blueprint"] .cal-legend i,
+:root[data-style="blueprint"] .voice-menu button {
+  border-radius: 0;
+}
+
+/*
+ * ---------- 线条图标 ----------
+ * 导航、输入栏和语音气泡播放键的图标换成设计稿的线条图标（直角的线头、尖角的拐角）：每个元素挂一张 SVG 在 --blueprint-icon 上
+ * （导航按 data-nav、输入栏按按钮和 data-to 认、播放键按在不在播放，见下面），这里统一用 mask 按当前字色画；
+ * 原来的表情符号、全角加号、▶ / ❚❚ 藏起来
+ */
+:root[data-style="blueprint"] .tab-icon,
+:root[data-style="blueprint"] .composer .attach-btn,
+:root[data-style="blueprint"] .composer .voice-toggle {
+  font-size: 0;
+}
+:root[data-style="blueprint"] .tab-icon::before,
+:root[data-style="blueprint"] .composer .attach-btn::before,
+:root[data-style="blueprint"] .composer .voice-toggle::before,
+:root[data-style="blueprint"] .voice-icon::before {
+  content: "";
+  display: block;
+  width: 22px;
+  height: 22px;
+  background: currentColor;
+  -webkit-mask: var(--blueprint-icon) center / contain no-repeat;
+  mask: var(--blueprint-icon) center / contain no-repeat;
+}
+
+/* ---------- 主导航 ---------- */
+:root[data-style="blueprint"] [data-nav="secretary"] {
+  --blueprint-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M21 12a8 8 0 0 1-8 8H8l-4 3v-5.5A8 8 0 0 1 12 4h1a8 8 0 0 1 8 8z'/%3E%3C/svg%3E");
+}
+:root[data-style="blueprint"] [data-nav="tasks"] {
+  --blueprint-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='square' stroke-linejoin='miter'%3E%3Crect x='4' y='4' width='16' height='16'/%3E%3Cpath d='m8 12 3 3 5-6'/%3E%3C/svg%3E");
+}
+:root[data-style="blueprint"] [data-nav="projects"] {
+  --blueprint-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M3 5h6l2 2h10v13H3z'/%3E%3C/svg%3E");
+}
+:root[data-style="blueprint"] [data-nav="inbox"] {
+  --blueprint-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z'/%3E%3Cpath d='M10 20a2 2 0 0 0 4 0'/%3E%3C/svg%3E");
+}
+:root[data-style="blueprint"] [data-nav="calendar"] {
+  --blueprint-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='square' stroke-linejoin='miter'%3E%3Crect x='3' y='5' width='18' height='16'/%3E%3Cpath d='M3 10h18M8 3v4M16 3v4'/%3E%3C/svg%3E");
+}
+:root[data-style="blueprint"] [data-nav="browse"] {
+  --blueprint-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='square' stroke-linejoin='miter'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M3 12h18M12 3c2.5 2.5 3.75 5.5 3.75 9S14.5 18.5 12 21c-2.5-2.5-3.75-5.5-3.75-9S9.5 5.5 12 3z'/%3E%3C/svg%3E");
+}
+:root[data-style="blueprint"] [data-nav="usage"] {
+  --blueprint-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M4 20v-8M10 20V5M16 20v-6M2 20h20'/%3E%3C/svg%3E");
+}
+:root[data-style="blueprint"] [data-nav="memory"] {
+  --blueprint-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='m12 3-9 5 9 5 9-5-9-5z'/%3E%3Cpath d='m3 13 9 5 9-5'/%3E%3C/svg%3E");
+}
+:root[data-style="blueprint"] [data-nav="settings"] {
+  --blueprint-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='square' stroke-linejoin='miter'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1'/%3E%3C/svg%3E");
+}
+:root[data-style="blueprint"] [data-nav="more"] {
+  --blueprint-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Crect x='3.5' y='10.5' width='3' height='3'/%3E%3Crect x='10.5' y='10.5' width='3' height='3'/%3E%3Crect x='17.5' y='10.5' width='3' height='3'/%3E%3C/svg%3E");
+}
+:root[data-style="blueprint"] .tab.on {
+  font-weight: 700;
+}
+/*
+ * 底部横栏：上面一道 1.5px 的线；每项约 56 高（设计稿的 min-height 56：图标 22 + 间隔 3 + 名字一行 + 上下内边距 9、8，
+ * 靠内边距撑出来，有名字时和写 min-height 一样高；设置里的预览藏了名字，这样那一排不会白占 56）；
+ * 选中的那一项钴蓝、粗字，顶上一道 3px 的钴蓝短线压在横栏的线上（左右各让 12）
+ */
+:root[data-style="blueprint"] .tabbar {
+  padding-left: 6px;
+  padding-right: 6px;
+  border-top-width: 1.5px;
+}
+:root[data-style="blueprint"] .tabbar .tab {
+  position: relative;
+  justify-content: center;
+  gap: 3px;
+  padding: 9px 4px 8px;
+}
+:root[data-style="blueprint"] .tabbar .tab.on::before {
+  content: "";
+  position: absolute;
+  top: -1.5px;
+  left: 12px;
+  right: 12px;
+  height: 3px;
+  background: var(--primary);
+}
+/*
+ * 宽屏竖栏：右边一道 1.5px 的线（多出来的 0.5px 从右内边距里扣，竖栏里放东西的宽度不变：layout.css 按"两个字"算好的）；
+ * 选中的那一项淡蓝底、左边一道 3px 的钴蓝（设计稿的 .rt.on）；顶上的"二狗"是钴蓝粗字
+ */
+:root[data-style="blueprint"] .siderail {
+  padding-right: 3.5px;
+  border-right-width: 1.5px;
+}
+:root[data-style="blueprint"] .siderail .tab {
+  padding: 8px 3px;
+}
+:root[data-style="blueprint"] .siderail .tab.on {
+  background: var(--data-bg);
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+:root[data-style="blueprint"] .siderail-brand {
+  padding: 6px 0 14px;
+  color: var(--primary);
+  font-size: var(--fs-body);
+}
+/*
+ * 待办的提示：看过没处理的件数只写钴蓝的等宽数字，不铺底、不加框（线条图标细，叠一块实底的小格会把铃铛盖掉大半，两位数时认不出来）；
+ * 数字描一圈卡片色的光晕，压在铃铛的线上也读得清。大小、位置照经典（15px 高、左右内边距 4：未读的橙色小方块按经典挨在右上角，
+ * 落在内边距上、不压数字）
+ */
+:root[data-style="blueprint"] .tab-count {
+  background: none;
+  box-shadow: none;
+  color: var(--primary);
+  text-shadow:
+    0 0 2px var(--surface),
+    0 0 2px var(--surface),
+    0 0 1px var(--surface);
+}
+
+/* ---------- 聊天 ---------- */
+/* 时间在消息上面一行（等宽小字，字距拉开：设计稿的 .mono.lbl） */
+:root[data-style="blueprint"] .msg {
+  gap: 5px;
+}
+:root[data-style="blueprint"] .msg-meta {
+  order: -1;
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.08em;
+}
+/* 个人助理的话：框（白底、1.5px 的线、角标），不要经典的左边竖线 */
+:root[data-style="blueprint"] .assistant .bubble {
+  padding: 12px 14px;
+  border: var(--card-border);
+  text-wrap: pretty;
+}
+:root[data-style="blueprint"] .msg.assistant .part-text {
+  max-width: min(87%, 520px);
+}
+/* 宽屏下一行不拉太长：卡片最宽 560（设计稿宽屏的取值） */
+:root[data-style="blueprint"] .msg.assistant .msg-part {
+  max-width: min(100%, 560px);
+}
+:root[data-style="blueprint"] .bubble.md code {
+  background: var(--fill);
+}
+:root[data-style="blueprint"] .thinking,
+:root[data-style="blueprint"] .tool-sum {
+  border-left-width: 2px;
+}
+/*
+ * 语音气泡（设计稿的语音条）：你的是钴蓝实底、页面底色的字，四周 1.5px 同色的线；个人助理的是框（白底、线、角标）。
+ * 播放键是一块 28 的方块（1.5px 的线框；个人助理的淡蓝底），波形是直角的竖条，时长等宽；下半截和播放条之间一道虚线。
+ * 播放键（28）、间隔（10）、竖条（3 隔 3）、左右内边距（12）是 token（style.ts 的 voice-*，照设计稿 f-chat），
+ * styles/voice.css 按它画，框宽、波形格数也按它算（42 号票的共用办法）；四周的线左右合起来 3，和经典的 voice-line 一样。这里只画样子
+ */
+:root[data-style="blueprint"] .user .voice-bubble {
+  border: 1.5px solid var(--border);
+}
+:root[data-style="blueprint"] .assistant .voice-bubble {
+  border: var(--card-border);
+}
+:root[data-style="blueprint"] .voice-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--voice-key);
+  box-shadow: inset 0 0 0 1.5px currentColor;
+  font-size: 0;
+}
+:root[data-style="blueprint"] .assistant .voice-icon {
+  background: var(--data-bg);
+  box-shadow: inset 0 0 0 1.5px var(--border);
+}
+:root[data-style="blueprint"] .voice-icon {
+  --blueprint-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M8 5v14l11-7z'/%3E%3C/svg%3E");
+}
+:root[data-style="blueprint"] .voice-playing .voice-icon {
+  --blueprint-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 5h3.5v14H7zM13.5 5H17v14h-3.5z'/%3E%3C/svg%3E");
+}
+/* 播放键里的三角 / 暂停 14px（图标那条规则画 22px） */
+:root[data-style="blueprint"] .voice-icon::before {
+  width: 14px;
+  height: 14px;
+}
+:root[data-style="blueprint"] .assistant .voice-bar {
+  color: var(--primary);
+}
+/* 波形 22 高（设计稿），竖条直角、不发灰 */
+:root[data-style="blueprint"] .voice-wave-mini {
+  height: 22px;
+  opacity: 0.85;
+}
+:root[data-style="blueprint"] .voice-wave-mini i {
+  border-radius: 0;
+}
+:root[data-style="blueprint"] .voice-playing .voice-wave-mini {
+  opacity: 1;
+}
+:root[data-style="blueprint"] .voice-duration {
+  font-size: var(--fs-s);
+}
+:root[data-style="blueprint"] .assistant .voice-duration {
+  color: var(--muted);
+}
+:root[data-style="blueprint"] .voice-body {
+  padding-top: 8px;
+  border-top: 1px dashed currentColor;
+}
+:root[data-style="blueprint"] .assistant .voice-body {
+  border-top-color: var(--border);
+}
+/*
+ * 输入栏：上面一道 1.5px 的线；附件、切换语音 / 文字是 44 的线框方块（钴蓝的线条图标，切到语音的那个淡蓝底），
+ * 输入框 1.5px 的线框、页面底色；按住说话是淡蓝底、线框、钴蓝粗字
+ */
+:root[data-style="blueprint"] .composer {
+  padding: 10px 12px;
+  border-top-width: 1.5px;
+}
+:root[data-style="blueprint"] .composer textarea {
+  min-height: 44px;
+  padding: 10px 12px;
+  border-width: 1.5px;
+  background: var(--bg);
+}
+:root[data-style="blueprint"] .composer-placeholder {
+  top: 11.5px;
+  left: 13.5px;
+  right: 13.5px;
+}
+:root[data-style="blueprint"] .composer .attach-btn,
+:root[data-style="blueprint"] .composer .voice-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  box-shadow: inset 0 0 0 1.5px var(--border);
+  color: var(--primary);
+}
+:root[data-style="blueprint"] .composer .attach-btn {
+  --blueprint-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='square'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E");
+}
+:root[data-style="blueprint"] .composer .voice-toggle[data-to="voice"] {
+  background: var(--data-bg);
+  --blueprint-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='square' stroke-linejoin='miter'%3E%3Crect x='9' y='3' width='6' height='11'/%3E%3Cpath d='M5 11a7 7 0 0 0 14 0M12 18v3'/%3E%3C/svg%3E");
+}
+:root[data-style="blueprint"] .composer .voice-toggle[data-to="text"] {
+  --blueprint-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='square' stroke-linejoin='miter'%3E%3Crect x='3' y='6' width='18' height='12'/%3E%3Cpath d='M7 10h.01M11 10h.01M15 10h.01M7 14h10'/%3E%3C/svg%3E");
+}
+:root[data-style="blueprint"] .composer .btn.primary {
+  min-height: 44px;
+  padding: 0 16px;
+}
+:root[data-style="blueprint"] .voice-hold {
+  min-height: 44px;
+  border: 1.5px solid var(--border);
+  background: var(--data-bg);
+  color: var(--primary);
+  font-weight: 700;
+}
+/* 上面那条盖掉了经典按状态换的底色、字色，再写一遍：按住时、上滑取消、这台设备不能录音的说明 */
+:root[data-style="blueprint"] .voice-hold.voice-hold-active {
+  background: color-mix(in srgb, var(--primary) 18%, var(--surface));
+}
+:root[data-style="blueprint"] .voice-hold.voice-cancel {
+  border-color: var(--high-fg);
+  background: var(--high-bg);
+  color: var(--high-fg);
+}
+:root[data-style="blueprint"] .voice-hold.voice-hold-off {
+  background: var(--fill);
+  color: var(--muted);
+  font-weight: 400;
+}
+
+/* ---------- 卡片 ---------- */
+:root[data-style="blueprint"] .xcard {
+  gap: 10px;
+}
+/* 类型标签：等宽小字的钴蓝实色签（设计稿的"APPROVAL · 先问我"）；计划琥珀实色；进展、通知和处理过的卡是线框灰蓝字 */
+:root[data-style="blueprint"] .xcard-tag {
+  padding: 2px 6px;
+  background: var(--primary-fill);
+  color: var(--primary-text);
+  font-family: var(--font-num);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+:root[data-style="blueprint"] .xcard-tag.xt-plan,
+:root[data-style="blueprint"] .xcard-tag.xt-plan_change {
+  background: var(--c-plan);
+  color: var(--on-color);
+}
+:root[data-style="blueprint"] .xcard-tag.xt-progress,
+:root[data-style="blueprint"] .xcard-tag.xt-notice,
+:root[data-style="blueprint"] .xcard-done .xcard-tag {
+  background: none;
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--muted);
+}
+/* 标题在类型标签下面另起一行（设计稿：标签一行、标题一行） */
+:root[data-style="blueprint"] .xcard-title {
+  flex-basis: 100%;
+  font-weight: 500;
+  line-height: 1.45;
+}
+/*
+ * 处理过的卡：不再靠整块降透明度表示（经典的 .xcard-done .xcard-body 淡到 0.78，灰字会掉到 4.5:1 以下），
+ * 字照常；类型标签变线框（上面），角标去掉
+ */
+:root[data-style="blueprint"] .xcard-done .xcard-body {
+  opacity: 1;
+}
+:root[data-style="blueprint"] .xcard-done::before {
+  content: none;
+}
+/*
+ * 审批卡：工具名（cards.tsx 的 .tool-title）是一行等宽的灰蓝小字（字距拉开），下面参数是虚线框的代码块；宽屏排在同一行（设计稿 f-wide）。
+ * 命中的关注类别是中性的线框签（设计稿的"删除或覆盖""越出项目目录"；别处的 chip-op 照旧是 op 色）；守卫的理由是一段灰字（设计稿）
+ */
+:root[data-style="blueprint"] .xcard-approval .tool-title {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-family: var(--font-num);
+  font-size: var(--fs-2xs);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+}
+:root[data-style="blueprint"] .xcard-approval .tool-line code {
+  display: block;
+  padding: 8px 10px;
+  border: 1px dashed var(--border);
+  background: var(--fill);
+  font-family: var(--font-mono);
+  font-size: var(--fs-s);
+  line-height: 1.5;
+  word-break: break-all;
+}
+:root[data-style="blueprint"] .app.wide .xcard-approval .tool-title {
+  display: inline;
+  margin: 0 10px 0 0;
+}
+:root[data-style="blueprint"] .app.wide .xcard-approval .tool-line code {
+  display: inline-block;
+  padding: 5px 10px;
+}
+:root[data-style="blueprint"] .xcard-approval .chip-op {
+  background: none;
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+:root[data-style="blueprint"] .xcard-approval .sys-note {
+  padding: 0;
+  border-left: none;
+  background: none;
+  color: var(--muted);
+  font-size: var(--fs-m);
+  line-height: 1.55;
+}
+:root[data-style="blueprint"] .auth-actions {
+  gap: 8px;
+}
+:root[data-style="blueprint"] .auth-actions .btn {
+  min-height: 44px;
+  font-size: var(--fs-l);
+}
+/* 两个按钮的卡：主按钮宽一点（设计稿 1 : 1.4）；宽屏靠右、按内容宽 */
+:root[data-style="blueprint"] .auth-actions .btn.primary {
+  flex-grow: 1.4;
+}
+:root[data-style="blueprint"] .app.wide .auth-actions {
+  justify-content: flex-end;
+}
+:root[data-style="blueprint"] .app.wide .auth-actions .btn {
+  flex: none;
+  min-width: 96px;
+  padding: 0 16px;
+}
+:root[data-style="blueprint"] .app.wide .auth-actions .btn.primary {
+  min-width: 128px;
+}
+
+/* ---------- 任务看板 ---------- */
+:root[data-style="blueprint"] .board {
+  gap: 12px;
+  padding: 12px var(--space-page) 16px;
+}
+:root[data-style="blueprint"] .bgroup {
+  gap: 8px;
+}
+/* 分组标题：粗字、灰蓝说明、钴蓝等宽的件数在右边，下面一道虚线（设计稿的 .gh）；不上色（等你的那一组靠卡片上的橙色签） */
+:root[data-style="blueprint"] .bgroup-h {
+  padding: 4px 2px 3px;
+  border-bottom: 1px dashed var(--border);
+}
+:root[data-style="blueprint"] .bgroup-h b {
+  font-size: var(--fs-l);
+  font-weight: 700;
+}
+/*
+ * 分组编号（用户 2026-10-11 定，照设计稿 f-tasks 的"01 等我""02 进行中"）：只用样式，CSS 计数器按看板上分组的先后数
+ * （.board 归零、每个 .bgroup 加一，看板上的分组总是全部列出、空的写"没有"，编号不会跳）；钴蓝等宽小字排在分组名前面。
+ * 只认 .bgroup 里的标题（104 号票起项目一览不用 .board / .bgroup，它的分组不编号）。读屏不念编号（替代文字是空的），
+ * 不认替代文字写法的浏览器用前面那条普通写法
+ */
+:root[data-style="blueprint"] .board {
+  counter-reset: blueprint-group;
+}
+:root[data-style="blueprint"] .bgroup {
+  counter-increment: blueprint-group;
+}
+:root[data-style="blueprint"] .bgroup .bgroup-h::before {
+  content: counter(blueprint-group, decimal-leading-zero);
+  content: counter(blueprint-group, decimal-leading-zero) / "";
+  color: var(--primary);
+  font-family: var(--font-num);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+}
+:root[data-style="blueprint"] .bg-waiting .bgroup-h b {
+  color: var(--text);
+}
+:root[data-style="blueprint"] .bgroup-h .muted {
+  font-size: var(--fs-xs);
+}
+/*
+ * 件数（看板分组、项目一览的分组、工单流水线和流水线的每一栏、范围记录的每一组都用 .bgroup-n）：经典是拿 --border 当底色的
+ * 灰胶囊；这里不铺底，钴蓝等宽字，前面一个 ×（设计稿的"×5"）。× 只是写法，读屏不念（替代文字是空的）；
+ * 不认替代文字写法的浏览器用前面那条普通写法
+ */
+:root[data-style="blueprint"] .bgroup-n {
+  padding: 0;
+  background: none;
+  color: var(--primary);
+}
+:root[data-style="blueprint"] .bgroup-n::before {
+  content: "×";
+  content: "×" / "";
+}
+/*
+ * 卡片：第一行标题、右上角状态签（设计稿），下面一行是进度条和 token 这些，再往下照旧。
+ * 只换排法、不改结构，只认类名（TasksPage 给状态所在的那一行补了 .bcard-status-row、给数字补了 .bcard-num，41 号票）：
+ * 卡片按行折排（flex-wrap）；.bcard-status-row 拆开（display: contents，不影响继承：字号、灰字照旧从它继承），
+ * 标题那一行、状态、一个占满整行的空元素（::after）排在最前面（order -1），空元素把后面的东西折到下一行；
+ * 其余的照原来的先后排在后面：拆开的那一行里的进度、token、时间表挨着排成一行（进度条拉长占满剩下的宽度），
+ * 卡片里下面几行（.bcard-meta、.bcard-waiting、作业的授权 .job-auth）各占一整行。角标在 ::before（见上面"框"）
+ */
+:root[data-style="blueprint"] .bcard {
+  flex-flow: row wrap;
+  align-items: flex-start;
+  gap: 6px 10px;
+  padding: 11px 14px;
+}
+:root[data-style="blueprint"] .bcard.on {
+  background: var(--data-bg);
+}
+/* 标题那一行：种类签和标题挤不下时（状态长、栏窄）标题折到种类签下面一行，不被挤成一两个字一行 */
+:root[data-style="blueprint"] .bcard-row {
+  flex: 1 1 0;
+  flex-wrap: wrap;
+  order: -1;
+  row-gap: 6px;
+  min-width: 0;
+}
+:root[data-style="blueprint"] .bcard-status-row {
+  display: contents;
+}
+:root[data-style="blueprint"] .bcard-status-row .st {
+  order: -1;
+  max-width: 60%;
+  margin-top: 1px;
+}
+:root[data-style="blueprint"] .bcard::after {
+  content: "";
+  order: -1;
+  flex: 0 0 100%;
+  height: 0;
+}
+:root[data-style="blueprint"] .bcard .bcard-meta,
+:root[data-style="blueprint"] .bcard .bcard-waiting,
+:root[data-style="blueprint"] .bcard .job-auth {
+  flex: 1 0 100%;
+  min-width: 0;
+}
+:root[data-style="blueprint"] .bcard .bcard-progress {
+  flex: 1 1 auto;
+}
+:root[data-style="blueprint"] .bcard .sl-progress {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 48px;
+}
+/* 时间表、下一次、token 这些数字：等宽 */
+:root[data-style="blueprint"] .bcard-num {
+  font-family: var(--font-num);
+}
+:root[data-style="blueprint"] .bcard-title {
+  flex: 1 1 7.5em;
+  font-size: var(--fs-body);
+  font-weight: 500;
+  line-height: 1.4;
+  /* 挨着长状态签折行时不让最后一个字单独掉到下一行（"每周汇总银行账 / 单"） */
+  text-wrap: pretty;
+}
+/*
+ * 最近结束、归档的退到图纸上（设计稿是整张卡淡到 0.7，那样卡里的灰字掉到 4.5:1 以下）：不铺白底、1px 的细线、没有角标；
+ * 字的颜色不变，灰蓝字压在网格线上照样 ≥ 4.5:1
+ */
+:root[data-style="blueprint"] .bg-ended .bcard,
+:root[data-style="blueprint"] .bg-archived .bcard {
+  border-width: 1px;
+  background: none;
+}
+:root[data-style="blueprint"] .bg-ended .bcard::before,
+:root[data-style="blueprint"] .bg-archived .bcard::before {
+  content: none;
+}
+/* 上面那条和选中的 .bcard.on 一样的特异度、又写在后面，会把选中卡的淡蓝底盖掉：选中的已结束 / 归档卡再写一遍 */
+:root[data-style="blueprint"] .bg-ended .bcard.on,
+:root[data-style="blueprint"] .bg-archived .bcard.on {
+  background: var(--data-bg);
+}
+
+/* ---------- 待我处理 ---------- */
+/*
+ * 列表左右留白 10、每一项左内边距 7、小方块后面隔 7、"⋯"按钮窄一点：每一行说明（种类 · 来源 · 时间）390 宽时 318px，
+ * 比经典宽（经典 311px，但 Noto Sans SC 比经典的系统字体宽一点）：经典一行放得下的这里也一行（无头浏览器量过），
+ * 不因为加了线框就把时间挤到下一行
+ */
+:root[data-style="blueprint"] .inbox-list {
+  padding: 8px 10px 12px;
+}
+/*
+ * 分组标题：等宽的灰蓝小字，后面一道虚线（设计稿的 .gh）。设计稿里置顶、卡着任务、不卡任务的分组标题都是灰蓝字，
+ * 经典按紧急度给的颜色（.ig-*）在这里统一成灰蓝；紧急度还在每一行的小方块上
+ */
+:root[data-style="blueprint"] .inbox-group,
+:root[data-style="blueprint"] .inbox-group.ig-pinned,
+:root[data-style="blueprint"] .inbox-group.ig-blocking_deadline,
+:root[data-style="blueprint"] .inbox-group.ig-blocking {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 2px 6px;
+  color: var(--muted);
+  font-family: var(--font-num);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+}
+:root[data-style="blueprint"] .inbox-group::after {
+  content: "";
+  flex: 1;
+  border-top: 1px dashed var(--border);
+}
+/* 每一项一张线框卡片（1px；未读的再往里描 0.5px，合起来 1.5px，不改变里面的宽度） */
+:root[data-style="blueprint"] .inbox-row {
+  margin: 0 0 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+:root[data-style="blueprint"] .inbox-row.unread {
+  box-shadow: inset 0 0 0 0.5px var(--border);
+}
+:root[data-style="blueprint"] .inbox-row.on {
+  background: var(--data-bg);
+}
+:root[data-style="blueprint"] .inbox-main {
+  gap: 7px;
+  padding: 11px 0 11px 7px;
+}
+/* 未读的是橙色实心小方块，看过的是空心的线框小方块 */
+:root[data-style="blueprint"] .inbox-dot {
+  margin-top: 7px;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+:root[data-style="blueprint"] .unread .inbox-dot {
+  box-shadow: none;
+}
+:root[data-style="blueprint"] .inbox-title {
+  font-weight: 500;
+  line-height: 1.45;
+}
+:root[data-style="blueprint"] .unread .inbox-title {
+  font-weight: 700;
+}
+:root[data-style="blueprint"] .inbox-row .icon-btn {
+  padding: 4px 3px;
+  color: var(--muted);
+}
+:root[data-style="blueprint"] .inbox-hint {
+  padding: 0 2px;
+}
+
+/* ---------- 宽屏：会话区留白大一点（设计稿 f-wide：左右 28） ---------- */
+:root[data-style="blueprint"] .app.wide .conv-scroll {
+  padding: 22px 28px 16px;
+}
+:root[data-style="blueprint"] .app.wide .composer {
+  padding: 12px 28px 16px;
+}

@@ -1,0 +1,15 @@
+{
+  "lsm.busy.listSep": "、",
+  "lsm.busy.quoted": "「{title}」",
+  "lsm.busy.tasks": "正在执行 {n} 个任务：{titles}",
+  "lsm.busy.runs": "{n} 个定时触发的任务正在运行：{titles}",
+  "lsm.busy.calls": "{n} 个有副作用的调用还没做完：{calls}",
+  "lsm.busy.call": "{source}的{tool}",
+  "lsm.busy.reasonSep": "；",
+  "lsm.notLinked": "二狗没有接入 LSM（不是由 LSM 启动的）",
+  "lsm.disconnected": "和 LSM 的连接断了；结果以重连后推来的全量状态为准",
+  "lsm.closed": "和 LSM 的接入已经关掉了",
+  "lsm.notConnected": "还没连上 LSM（或者连接断了）",
+  "lsm.unsupported": "这个版本的 LSM 不支持名下的服务",
+  "lsm.timeout": "LSM 没有应答"
+}

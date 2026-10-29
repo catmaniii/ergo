@@ -1,0 +1,13 @@
+{
+  "maintainers.label.plain": "Agent of plain task {id} “{title}”",
+  "maintainers.label.task": "Maintainer of {kind} {id} “{title}”",
+  "maintainers.readOnly": "The task is {state}, so this is view-only: you can't change the prompt, clear or compact",
+  "maintainers.movedToProject": "This task's maintainer isn't here anymore (the task became a project)",
+  "maintainers.noMaintainer": "No such maintainer: {conversation}",
+  "maintainers.source.plain": "plain task “{title}”",
+  "maintainers.source.workflow": "workflow “{title}”",
+  "maintainers.source.task": "task “{title}”",
+  "maintainers.interrupted": "The last input was interrupted while being handled, and the maintainer didn't pick it back up.",
+  "maintainers.interruptedQuoted": "The last input “{quoted}” was interrupted while being handled, and the maintainer didn't pick it back up.",
+  "maintainers.tool.submitPlan": "Submit plan"
+}

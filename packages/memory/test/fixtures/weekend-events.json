@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "now": "2026-10-20T12:00:00+08:00",
+  "events": [
+    {
+      "id": "ev-w01",
+      "source_level": "self",
+      "mode": "say",
+      "kind": "utterance",
+      "text": "这周六的聚会我就不去了，最近周末想好好休息。",
+      "context": ["weekend", "social"],
+      "event_time": "2026-10-01T20:10:00+08:00",
+      "observed_at": "2026-10-01T20:10:00+08:00"
+    },
+    {
+      "id": "ev-w02",
+      "source_level": "self",
+      "mode": "do",
+      "kind": "action",
+      "text": "主动报名参加了周三晚上的技术交流会。",
+      "context": ["workday", "work", "social"],
+      "event_time": "2026-10-03T19:30:00+08:00",
+      "observed_at": "2026-10-03T19:30:00+08:00"
+    },
+    {
+      "id": "ev-w03",
+      "source_level": "self",
+      "mode": "do",
+      "kind": "action",
+      "text": "推掉了朋友安排得很紧凑的周末活动。",
+      "context": ["weekend", "social"],
+      "event_time": "2026-10-08T21:00:00+08:00",
+      "observed_at": "2026-10-08T21:00:00+08:00"
+    },
+    {
+      "id": "ev-w04",
+      "source_level": "self",
+      "mode": "say",
+      "kind": "utterance",
+      "text": "我不反感见朋友，只是不喜欢周末被提前排满。",
+      "context": ["weekend", "social"],
+      "event_time": "2026-10-12T22:00:00+08:00",
+      "observed_at": "2026-10-12T22:00:00+08:00"
+    },
+    {
+      "id": "ev-u01",
+      "source_level": "untrusted",
+      "mode": "say",
+      "kind": "utterance",
+      "text": "同事说他其实很讨厌社交。",
+      "context": ["social"],
+      "event_time": null,
+      "observed_at": "2026-10-13T10:00:00+08:00"
+    }
+  ]
+}

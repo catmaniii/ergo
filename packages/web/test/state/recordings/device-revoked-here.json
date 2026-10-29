@@ -1,0 +1,135 @@
+[
+  {
+    "kind": "connection",
+    "status": "online"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 1,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-706058f1-c81f-444a-8cd3-db749057d3d2",
+          "type": "pairing",
+          "typeVersion": 1,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "requestId": "pr-4514196c-0a07-4881-96db-37973d69baf6",
+            "deviceName": "我的手机",
+            "shortCode": "733602",
+            "fingerprint": "16f2e3f4",
+            "from": "经隧道 · 203.0.113.24",
+            "expiresAt": "2026-10-08T03:32:20.575+08:00"
+          },
+          "text": "配对请求：我的手机 · 短码 733602 · 短指纹 16f2e3f4（经隧道 · 203.0.113.24）",
+          "urgency": "non_blocking",
+          "createdAt": "2026-10-08T03:27:20.575+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 2,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-706058f1-c81f-444a-8cd3-db749057d3d2",
+          "type": "pairing",
+          "typeVersion": 1,
+          "version": 2,
+          "status": "handled",
+          "payload": {
+            "requestId": "pr-4514196c-0a07-4881-96db-37973d69baf6",
+            "deviceName": "我的手机",
+            "shortCode": "733602",
+            "fingerprint": "16f2e3f4",
+            "from": "经隧道 · 203.0.113.24",
+            "expiresAt": "2026-10-08T03:32:20.575+08:00"
+          },
+          "text": "配对请求：我的手机 · 短码 733602 · 短指纹 16f2e3f4（经隧道 · 203.0.113.24）",
+          "urgency": "non_blocking",
+          "createdAt": "2026-10-08T03:27:20.575+08:00",
+          "handledAt": "2026-10-08T03:27:20.577+08:00",
+          "outcome": {
+            "action": "approve"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 3,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-787316a3-faff-4b17-b7e0-1b06efaab3ab",
+          "type": "pairing",
+          "typeVersion": 1,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "requestId": "pr-6d326019-d594-4ed8-b864-495aa6a09ce2",
+            "deviceName": "家里的平板",
+            "shortCode": "204386",
+            "fingerprint": "556d84b6",
+            "from": "经隧道 · 198.51.100.7",
+            "expiresAt": "2026-10-08T03:32:20.579+08:00"
+          },
+          "text": "配对请求：家里的平板 · 短码 204386 · 短指纹 556d84b6（经隧道 · 198.51.100.7）",
+          "urgency": "non_blocking",
+          "createdAt": "2026-10-08T03:27:20.579+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 4,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-787316a3-faff-4b17-b7e0-1b06efaab3ab",
+          "type": "pairing",
+          "typeVersion": 1,
+          "version": 2,
+          "status": "handled",
+          "payload": {
+            "requestId": "pr-6d326019-d594-4ed8-b864-495aa6a09ce2",
+            "deviceName": "家里的平板",
+            "shortCode": "204386",
+            "fingerprint": "556d84b6",
+            "from": "经隧道 · 198.51.100.7",
+            "expiresAt": "2026-10-08T03:32:20.579+08:00"
+          },
+          "text": "配对请求：家里的平板 · 短码 204386 · 短指纹 556d84b6（经隧道 · 198.51.100.7）",
+          "urgency": "non_blocking",
+          "createdAt": "2026-10-08T03:27:20.579+08:00",
+          "handledAt": "2026-10-08T03:27:20.580+08:00",
+          "outcome": {
+            "action": "approve"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "connection",
+    "status": "offline"
+  },
+  {
+    "kind": "connection",
+    "status": "unpaired",
+    "reason": "revoked"
+  }
+]

@@ -1,0 +1,21 @@
+{
+  "modelSettings.ownUnavailable": "The model {modelId} set for this agent is no longer in {provider}'s model catalog",
+  "modelSettings.noKey": "No API key configured for {provider}: enter one under Settings · Models (or in the setup wizard); or set the {env} environment variable on the ergo-daemon entry in LSM (injected from {file} in the data directory), then restart",
+  "modelSettings.keyTooShort": "The key is too short: at least {min} characters after trimming spaces (DeepSeek keys are a long string starting with sk-)",
+  "modelSettings.keyTooLong": "The key is too long: at most {max} characters after trimming spaces",
+  "modelSettings.where.test": "Connection test",
+  "modelSettings.where.own": "Agent's own model",
+  "modelSettings.where.default": "Default model",
+  "modelSettings.where.agent": "Model for agent {agent}",
+  "modelSettings.where.vision": "Vision",
+  "modelSettings.testing": "The previous test hasn't finished yet",
+  "modelSettings.notInCatalog": "{where}: {modelId} isn't in {provider}'s model catalog",
+  "modelSettings.badProvider": "Provider {provider} isn't supported: only {providers} for now",
+  "modelSettings.listSep": ", ",
+  "modelSettings.badVisionKey": "Vision keys must be written as “{expected}”, got {key}",
+  "modelSettings.modelIdWord": "model id",
+  "modelSettings.catalogUnavailable": "{where}: the model catalog can't be reached right now, so you can only pick models registered in the config or already chosen; {modelId} isn't one of them",
+  "modelSettings.file.invalid": "Invalid format: {error}",
+  "modelSettings.file.invalidUnknown": "doesn't match the schema",
+  "modelSettings.file.badProvider": "Provider {provider} isn't supported (only {providers} for now)"
+}

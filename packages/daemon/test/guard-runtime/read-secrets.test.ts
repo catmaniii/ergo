@@ -1,0 +1,115 @@
+// 读过的密钥值（规格第 9 节，30 号票）：执行成功的调用读到 .env 或密钥文件，守护进程把里面的值收进这个任务
+// （不属于任务的是这一段会话）的内存里，之后判定时作为环境事实交给守卫。这里直接调 read-secrets.ts，文件是临时目录里真的文件。
+import fs from "node:fs";
+import path from "node:path";
+import { describe, expect, it } from "vitest";
+import { BUILTIN_TOOL_REGISTRY, judgeToolCall, type GuardAgent, type GuardInput, type GuardTask } from "../../src/guard/index.ts";
+import { createReadSecrets, scopeOf } from "../../src/guard-runtime/read-secrets.ts";
+import { makeTempDir } from "../helpers/temp-dir.ts";
+import { fakeSecret, pemBegin, pemEnd } from "../helpers/fake-secrets.ts";
+
+function maintainer(cwd: string): GuardAgent {
+  return { kind: "maintainer", agentId: "m-1", cwd, toolkit: { bash: true, network: true }, projectRecords: [], workingDirs: [cwd] };
+}
+
+const task = (taskId: string): GuardTask => ({ taskId, currentStageId: "s1", plan: { grants: [] } });
+
+/** 一次判定的输入（不属于任务时给 segmentId） */
+function input(dir: string, toolName: string, args: Record<string, unknown>, where: { task?: GuardTask; segmentId?: string }): GuardInput {
+  return {
+    call: { toolName, args },
+    agent: maintainer(dir),
+    places: { dataDir: { root: "D:\\ergo-data", config: "D:\\ergo-data\\config", secrets: "D:\\ergo-data\\secrets", db: "D:\\ergo-data\\db", projects: "D:\\ergo-data\\projects" }, programDir: "D:\\ergo-app", homeDir: dir, ownPorts: [] },
+    task: where.task ?? null,
+    ...(where.segmentId === undefined ? {} : { segmentId: where.segmentId }),
+    effectLog: [],
+    settings: {},
+    facts: {},
+    tools: BUILTIN_TOOL_REGISTRY,
+    now: 0,
+  };
+}
+
+/** 一个有 .env、私钥和普通文件的工作目录 */
+function makeWorkDir(): string {
+  const dir = fs.realpathSync.native(makeTempDir("ergo-work-"));
+  fs.writeFileSync(path.join(dir, ".env"), "API_KEY=Zq81mWp4vX2c\nPORT=8080\n");
+  fs.mkdirSync(path.join(dir, "keys"));
+  fs.writeFileSync(path.join(dir, "keys", "deploy.pem"), "-----BEGIN KEY-----\nAAAA BBBB CCCC\n-----END KEY-----\n");
+  fs.writeFileSync(path.join(dir, "notes.txt"), "TOKEN=notASecretFile123\n");
+  return dir;
+}
+
+/** 判定一次，当它执行成功了，收进读过的值 */
+function run(store: ReturnType<typeof createReadSecrets>, i: GuardInput): void {
+  store.capture(i, judgeToolCall(i));
+}
+
+describe("读过的密钥值", () => {
+  it("文件工具和 bash 读到的 .env、密钥文件的值都收进这个任务；读普通文件不收", () => {
+    const dir = makeWorkDir();
+    const store = createReadSecrets();
+    const where = { task: task("t-1") };
+    run(store, input(dir, "read", { path: "notes.txt" }, where));
+    expect(store.valuesFor({ taskId: "t-1" })).toEqual([]);
+    run(store, input(dir, "read", { path: ".env" }, where));
+    run(store, input(dir, "bash", { command: "cat keys/deploy.pem | head -1" }, where));
+    expect(store.valuesFor({ taskId: "t-1" })).toEqual(["Zq81mWp4vX2c", "-----BEGINKEY-----AAAABBBBCCCC-----ENDKEY-----"]);
+  });
+
+  it("按范围分开：别的任务、别的会话段看不到", () => {
+    const dir = makeWorkDir();
+    const store = createReadSecrets();
+    run(store, input(dir, "bash", { command: "source .env" }, { segmentId: "seg-1" }));
+    const seg1 = scopeOf({ task: null, agent: maintainer(dir), segmentId: "seg-1" });
+    expect(store.valuesFor(seg1)).toEqual(["Zq81mWp4vX2c"]);
+    expect(store.valuesFor({ taskId: null, agentId: "m-1", segmentId: "seg-2" })).toEqual([]);
+    expect(store.valuesFor({ taskId: null, agentId: "m-2", segmentId: "seg-1" })).toEqual([]);
+    expect(store.valuesFor({ taskId: "t-1" })).toEqual([]);
+  });
+
+  it("写进事件日志之前：读了密钥文件的不记结果；读过的值（原样、base64、URL 编码）换成（密钥），参数结构里的也换", () => {
+    const dir = makeWorkDir();
+    const store = createReadSecrets();
+    const where = { task: task("t-1") };
+    const readEnv = input(dir, "bash", { command: "grep API_KEY .env" }, where);
+    const judged = { input: readEnv, judgement: judgeToolCall(readEnv) };
+    // 读之前什么都不擦
+    expect(store.privacy({ taskId: "t-1" }).text("k=Zq81mWp4vX2c")).toBe("k=Zq81mWp4vX2c");
+    store.capture(judged.input, judged.judgement);
+    const privacy = store.privacy({ taskId: "t-1" }, judged);
+    expect(privacy.readsSecretFile).toBe(true);
+    expect(privacy.text("k=Zq81mWp4vX2c&d=WnE4MW1XcDR2WDJj&u=Zq81mWp4vX2c")).toBe("k=（密钥）&d=（密钥）&u=（密钥）");
+    expect(privacy.deep({ command: "echo Zq81mWp4vX2c", list: ["Zq81mWp4vX2c", 3] })).toEqual({ command: "echo （密钥）", list: ["（密钥）", 3] });
+    // 别的范围不擦；没读密钥文件的调用照常记结果
+    expect(store.privacy({ taskId: "t-2" }).text("Zq81mWp4vX2c")).toBe("Zq81mWp4vX2c");
+    const readNotes = input(dir, "read", { path: "notes.txt" }, where);
+    expect(store.privacy({ taskId: "t-1" }, { input: readNotes, judgement: judgeToolCall(readNotes) }).readsSecretFile).toBe(false);
+  });
+
+  it("认得出的密钥形态（SECRET_PATTERNS）不管读没读过都擦：赋值形式留下名字，网址里留下协议和 @，私钥整块擦到 END", () => {
+    const privacy = createReadSecrets().privacy({ taskId: "t-1" });
+    const ghp = fakeSecret("ghp_", "AbCdEfGhIjKlMnOpQrStUvWxYz0123456789");
+    const cases: Array<[string, string]> = [
+      [`token: ${ghp}`, "token: （密钥）"],
+      [`export OPENAI_API_KEY=${fakeSecret("sk-", "proj-abcdefghijklmnopqrstuv")}`, "export OPENAI_API_KEY=（密钥）"],
+      ["curl -d api_key=Zq81mWp4vX2cT9aa https://x.example.com", "curl -d api_key=（密钥） https://x.example.com"],
+      ["git clone https://alice:s3cretpass@git.example.com/repo.git", "git clone https://（密钥）@git.example.com/repo.git"],
+      [`key ${fakeSecret("AKIA", "ABCDEFGHIJKLMNOP")} done`, "key （密钥） done"],
+      [`${pemBegin("RSA")}\nMIIEow\nabc\n${pemEnd("RSA")}\nafter`, "（密钥）\nafter"],
+      [`${pemBegin("OPENSSH")}\nb3BlbnNzaC1rZXktdjEAAAA`, "（密钥）"],
+      // 不像密钥的不动
+      ["ssh://git@github.com/x/y.git token=short", "ssh://git@github.com/x/y.git token=short"],
+    ];
+    for (const [text, expected] of cases) expect({ text, redacted: privacy.text(text) }).toEqual({ text, redacted: expected });
+    expect(privacy.deep({ command: `echo ${ghp}`, n: 1 })).toEqual({ command: "echo （密钥）", n: 1 });
+  });
+
+  it("写 .env 不算读；文件不在了也不出错", () => {
+    const dir = makeWorkDir();
+    const store = createReadSecrets();
+    run(store, input(dir, "write", { path: ".env", content: "API_KEY=Zq81mWp4vX2c" }, { task: task("t-1") }));
+    run(store, input(dir, "read", { path: "config/.env.production" }, { task: task("t-1") }));
+    expect(store.valuesFor({ taskId: "t-1" })).toEqual([]);
+  });
+});

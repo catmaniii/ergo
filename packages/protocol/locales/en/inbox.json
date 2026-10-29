@@ -1,0 +1,12 @@
+{
+  "inbox.verb.archive": "archive",
+  "inbox.verb.delete": "delete",
+  "inbox.blocksTask": "“{title}” is holding up a task, so you can't {verb} it before it's handled. Handle it on the card first (or cancel that task)",
+  "inbox.isCard": "“{title}” is a card: handle it on the card",
+  "inbox.needChoice": "Handling a notice needs one of its actions (choice)",
+  "inbox.noSuchChoice": "“{title}” has no “{choice}” action",
+  "inbox.handled": "Already handled",
+  "inbox.noItem": "No such inbox item: {id}",
+  "inbox.tool.list": "List inbox",
+  "inbox.tool.show": "Put card in chat"
+}

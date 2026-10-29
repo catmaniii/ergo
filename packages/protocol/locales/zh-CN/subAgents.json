@@ -1,0 +1,13 @@
+{
+  "subAgents.line": "{agentId} 做阶段 {stageId}「{stageTitle}」",
+  "subAgents.lineStep": "{agentId} 做阶段 {stageId}「{stageTitle}」的「{step}」",
+  "subAgents.source": "{origin}阶段 {stageId} 的子 agent {agentId}",
+  "subAgents.cardAgent": "{agent}：{instructions}",
+  "subAgents.sep": "；",
+  "subAgents.cardText": "并行确认：任务「{title}」想派 {n} 个子 agent 同时做（{reason}）。{each}",
+  "subAgents.decision.parallel": "同意任务「{title}」派 {n} 个子 agent 并行：{each}",
+  "subAgents.decision.sequential": "不并行，按顺序做：任务「{title}」的维护者提议派 {n} 个子 agent 并行（{each}）",
+  "subAgents.inboxTitle": "并行确认：{title}",
+  "subAgents.dirGone": "子 agent {agentId} 的目录 {dir} 不在了",
+  "subAgents.tool.propose": "提议并行"
+}

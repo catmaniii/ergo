@@ -1,0 +1,4 @@
+{
+  "i18n.unknownLanguage": "没有这种语言：{language}（设置 · 语言里列的才能选）",
+  "i18n.badBody": "换语言的参数不对：{message}"
+}

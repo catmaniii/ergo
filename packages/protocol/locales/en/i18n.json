@@ -1,0 +1,4 @@
+{
+  "i18n.unknownLanguage": "There's no language \"{language}\" (pick one listed in Settings · Language)",
+  "i18n.badBody": "Bad request for changing the language: {message}"
+}

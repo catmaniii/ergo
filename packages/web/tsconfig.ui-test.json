@@ -1,0 +1,18 @@
+{
+  // 界面那一半的测试（test/ui，54 号票：缩放的数学）：在 Node 里跑，但引用的 ui/zoom/zoom.ts 写的是 HTMLElement
+  // （测试里换成假的），所以带上 DOM 的类型。别的测试照旧不带 DOM（tsconfig.node.json）。
+  // 49 号票起有测试直接渲染组件（.tsx，进度条上的 --progress-total），所以和 tsconfig.json 一样带 JSX 和 DOM.Iterable。
+  "extends": "./tsconfig.node.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    // 168 号票：网页的多语言（app/locale.ts）的测试经它引到打包自带语言的 import.meta.glob（Vite 的）
+    "types": ["node", "vite/client"],
+    "jsx": "react-jsx"
+  },
+  // 134 号票：页面桥的测试（在真的 Chrome 里跑，page.evaluate 里的代码写的是 DOM）
+  // 143 号票：渲染输入框的测试经 app/page-update.ts 引到构建信息的虚拟模块（测试里换成假的），带上它的声明
+  // 193 号票：网页插件的测试（test/plugins）引到插件的界面（.tsx）
+  // 247 号票：设置四组的测试（test/pages）渲染 MorePage 里的组件（.tsx）
+  "include": ["test/ui", "test/page-bridge", "test/plugins", "test/pages", "src/app/virtual-build-info.d.ts"],
+  "exclude": []
+}

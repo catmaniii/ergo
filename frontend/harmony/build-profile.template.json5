@@ -1,0 +1,45 @@
+// 工程级 build-profile 的模板（62 号票）：不含签名，进仓库。
+// 真正给 hvigor、DevEco 用的 build-profile.json5 由 `npm run build:harmony` 照这份生成（已有就不动），它在 .gitignore 里：
+// DevEco 的"自动生成签名"把证书路径和加密的口令写进那一份，签名材料留在本机，不进仓库。
+// 这里改了（比如升级 SDK），本机那份不会跟着变：照着改它，或者删掉它重新生成、再在 DevEco 里点一次自动生成签名。
+{
+  "app": {
+    "signingConfigs": [],
+    "products": [
+      {
+        "name": "default",
+        "targetSdkVersion": "6.1.1(24)",
+        "compatibleSdkVersion": "6.1.1(24)",
+        "runtimeOS": "HarmonyOS",
+        "buildOption": {
+          "strictMode": {
+            "caseSensitiveCheck": true,
+            "useNormalizedOHMUrl": true
+          }
+        }
+      }
+    ],
+    "buildModeSet": [
+      {
+        "name": "debug"
+      },
+      {
+        "name": "release"
+      }
+    ]
+  },
+  "modules": [
+    {
+      "name": "entry",
+      "srcPath": "./entry",
+      "targets": [
+        {
+          "name": "default",
+          "applyToProducts": [
+            "default"
+          ]
+        }
+      ]
+    }
+  ]
+}

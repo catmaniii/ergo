@@ -1,0 +1,63 @@
+[
+  {
+    "kind": "connection",
+    "status": "online"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "plugins",
+      "seq": 0,
+      "type": "plugin_status",
+      "payload": {
+        "plugins": [
+          {
+            "name": "reminders",
+            "title": "提醒",
+            "state": "running"
+          },
+          {
+            "name": "memory",
+            "title": "记忆",
+            "state": "running"
+          },
+          {
+            "name": "calendar",
+            "title": "日历",
+            "state": "running"
+          },
+          {
+            "name": "voice",
+            "title": "语音",
+            "state": "disabled"
+          },
+          {
+            "name": "browsing",
+            "title": "内置浏览器",
+            "state": "running"
+          },
+          {
+            "name": "claude-code",
+            "title": "Claude Code",
+            "state": "running"
+          },
+          {
+            "name": "phone",
+            "title": "手机",
+            "state": "running"
+          },
+          {
+            "name": "google",
+            "title": "Google",
+            "state": "running"
+          },
+          {
+            "name": "looki",
+            "title": "Looki",
+            "state": "running"
+          }
+        ]
+      }
+    }
+  }
+]

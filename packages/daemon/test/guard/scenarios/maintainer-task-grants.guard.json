@@ -1,0 +1,78 @@
+{
+  "id": "maintainer-task-grants",
+  "name": "维护者在任务里干活：推送按授权项放行，次数用完、换阶段、过期后改为先问；先问我的照样问",
+  "context": {
+    "agent": { "kind": "maintainer" },
+    "task": {
+      "taskId": "task-1",
+      "currentStageId": "s1",
+      "plan": {
+        "grants": [
+          { "grantId": "push-origin", "tool": "git_push", "scope": { "remote": "origin" }, "maxUses": 1, "stageId": "s1", "grantedAt": 1791374400000 },
+          { "grantId": "read-docs", "tool": "read", "scope": { "path": "E:\\docs" }, "stageId": "s2", "grantedAt": 1791374400000 }
+        ]
+      }
+    },
+    "now": "2026-10-07T12:00:00Z"
+  },
+  "calls": [
+    {
+      "tool": "git_status_diff",
+      "args": {},
+      "expect": { "disposition": "log_only", "genericShell": false }
+    },
+    {
+      "tool": "bash",
+      "args": { "command": "rm -rf dist && npm test && npm run build" },
+      "facts": { "git": { "${workDir}": { "uncommittedPaths": [] } } },
+      "expect": { "disposition": "notify_after", "categories": ["delete_or_overwrite"], "genericShell": true, "rules": [] }
+    },
+    {
+      "tool": "git_commit",
+      "args": { "message": "构建脚本" },
+      "expect": { "disposition": "notify_after", "categories": [] }
+    },
+    {
+      "tool": "bash",
+      "args": { "command": "git push origin main" },
+      "expect": { "disposition": "log_only", "categories": ["external_send"], "withinGrant": true, "genericShell": true }
+    },
+    {
+      "tool": "git_push",
+      "args": { "remote": "origin", "branch": "main" },
+      "expect": { "disposition": "ask_first", "withinGrant": false, "explanation": "次数已用完" }
+    },
+    {
+      "tool": "git_push",
+      "args": { "remote": "upstream", "branch": "main" },
+      "expect": { "disposition": "ask_first", "explanation": "超出对象范围" }
+    },
+    {
+      "tool": "read",
+      "args": { "path": "E:\\docs\\api.md" },
+      "expect": { "disposition": "ask_first", "categories": ["outside_project"], "explanation": "不属于当前阶段" }
+    },
+    {
+      "tool": "read",
+      "stage": "s2",
+      "args": { "path": "E:\\docs\\api.md" },
+      "expect": { "disposition": "log_only", "withinGrant": true }
+    },
+    {
+      "tool": "read",
+      "at": "2026-10-15T12:00:00Z",
+      "args": { "path": "E:\\docs\\api.md" },
+      "expect": { "disposition": "ask_first", "explanation": "已过期" }
+    },
+    {
+      "tool": "bash",
+      "args": { "command": "npm install -g pnpm" },
+      "expect": { "disposition": "ask_first", "categories": ["account_security"] }
+    },
+    {
+      "tool": "write",
+      "args": { "path": "${outside}\\notes.md", "content": "x" },
+      "expect": { "hardRefusal": ["fence"], "verdict": "block", "explanation": "只能写项目档案和工作目录" }
+    }
+  ]
+}

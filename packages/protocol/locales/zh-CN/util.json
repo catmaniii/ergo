@@ -1,0 +1,4 @@
+{
+  "util.localDateTime.badAt": "at 的写法不对：{value}（写 YYYY-MM-DD HH:mm，本地时间）",
+  "util.localDateTime.noSuchDate": "日期不存在：{value}"
+}

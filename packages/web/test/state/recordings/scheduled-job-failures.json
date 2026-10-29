@@ -1,0 +1,1809 @@
+[
+  {
+    "kind": "connection",
+    "status": "online"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 1,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "每天早上出简报",
+          "summary": "每天早上出简报\n汇总昨天的新闻，写一份简报 brief.md",
+          "state": "operating",
+          "origin": "button",
+          "kind": "plain",
+          "trigger": {
+            "kind": "schedule",
+            "schedule": {
+              "kind": "daily",
+              "time": "09:00"
+            }
+          },
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00"
+        },
+        "change": "created",
+        "from": null,
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 2,
+      "type": "scheduled_job",
+      "payload": {
+        "job": {
+          "id": "j-1",
+          "title": "每天早上出简报",
+          "schedule": {
+            "kind": "daily",
+            "time": "09:00"
+          },
+          "each": "每天早上出简报\n汇总昨天的新闻，写一份简报 brief.md",
+          "maintainerId": "tm-1",
+          "taskId": "t-1",
+          "taskTitle": "每天早上出简报",
+          "ownerTaskId": "t-1",
+          "grants": [],
+          "temporalRules": [],
+          "grantInfo": {},
+          "state": "active",
+          "nextAt": "2026-10-08T09:00:00.000+08:00",
+          "lastFailed": false,
+          "consecutiveFailures": 0,
+          "runCount": 0,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00"
+        },
+        "change": "registered",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 3,
+      "type": "scheduled_job",
+      "payload": {
+        "job": {
+          "id": "j-1",
+          "title": "每天早上出简报",
+          "schedule": {
+            "kind": "daily",
+            "time": "09:00"
+          },
+          "each": "每天早上出简报\n汇总昨天的新闻，写一份简报 brief.md",
+          "maintainerId": "tm-1",
+          "taskId": "t-1",
+          "taskTitle": "每天早上出简报",
+          "ownerTaskId": "t-1",
+          "grants": [],
+          "temporalRules": [],
+          "grantInfo": {},
+          "state": "active",
+          "lastFailed": false,
+          "consecutiveFailures": 0,
+          "runCount": 1,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T09:00:00.000+08:00",
+          "nextAt": "2026-10-09T09:00:00.000+08:00",
+          "lastRun": {
+            "runId": "j-1-r1",
+            "jobId": "j-1",
+            "trigger": "scheduled",
+            "dueAt": "2026-10-08T09:00:00.000+08:00",
+            "events": [
+              {
+                "source": "time",
+                "at": "2026-10-08T09:00:00.000+08:00",
+                "summary": "10 月 8 日（周四）09:00 到点"
+              }
+            ],
+            "state": "queued",
+            "queuedAt": "2026-10-08T09:00:00.000+08:00"
+          }
+        },
+        "change": "triggered",
+        "by": "system",
+        "run": {
+          "runId": "j-1-r1",
+          "jobId": "j-1",
+          "trigger": "scheduled",
+          "dueAt": "2026-10-08T09:00:00.000+08:00",
+          "events": [
+            {
+              "source": "time",
+              "at": "2026-10-08T09:00:00.000+08:00",
+              "summary": "10 月 8 日（周四）09:00 到点"
+            }
+          ],
+          "state": "queued",
+          "queuedAt": "2026-10-08T09:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 4,
+      "type": "scheduled_job",
+      "payload": {
+        "job": {
+          "id": "j-1",
+          "title": "每天早上出简报",
+          "schedule": {
+            "kind": "daily",
+            "time": "09:00"
+          },
+          "each": "每天早上出简报\n汇总昨天的新闻，写一份简报 brief.md",
+          "maintainerId": "tm-1",
+          "taskId": "t-1",
+          "taskTitle": "每天早上出简报",
+          "ownerTaskId": "t-1",
+          "grants": [],
+          "temporalRules": [],
+          "grantInfo": {},
+          "state": "active",
+          "lastFailed": false,
+          "consecutiveFailures": 0,
+          "runCount": 1,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T09:00:00.000+08:00",
+          "nextAt": "2026-10-09T09:00:00.000+08:00",
+          "lastRun": {
+            "runId": "j-1-r1",
+            "jobId": "j-1",
+            "trigger": "scheduled",
+            "dueAt": "2026-10-08T09:00:00.000+08:00",
+            "events": [
+              {
+                "source": "time",
+                "at": "2026-10-08T09:00:00.000+08:00",
+                "summary": "10 月 8 日（周四）09:00 到点"
+              }
+            ],
+            "state": "running",
+            "queuedAt": "2026-10-08T09:00:00.000+08:00",
+            "startedAt": "2026-10-08T09:00:00.000+08:00"
+          }
+        },
+        "change": "run_started",
+        "by": "system",
+        "run": {
+          "runId": "j-1-r1",
+          "jobId": "j-1",
+          "trigger": "scheduled",
+          "dueAt": "2026-10-08T09:00:00.000+08:00",
+          "events": [
+            {
+              "source": "time",
+              "at": "2026-10-08T09:00:00.000+08:00",
+              "summary": "10 月 8 日（周四）09:00 到点"
+            }
+          ],
+          "state": "running",
+          "queuedAt": "2026-10-08T09:00:00.000+08:00",
+          "startedAt": "2026-10-08T09:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 5,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 0,
+          "cacheMiss": 6286,
+          "output": 8
+        },
+        "calls": 1,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 6286,
+              "output": 8
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-08T09:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 6,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 3143,
+          "cacheMiss": 6343,
+          "output": 10
+        },
+        "calls": 2,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 3143,
+              "cacheMiss": 6343,
+              "output": 10
+            },
+            "calls": 2
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-08T09:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 7,
+      "type": "scheduled_job",
+      "payload": {
+        "job": {
+          "id": "j-1",
+          "title": "每天早上出简报",
+          "schedule": {
+            "kind": "daily",
+            "time": "09:00"
+          },
+          "each": "每天早上出简报\n汇总昨天的新闻，写一份简报 brief.md",
+          "maintainerId": "tm-1",
+          "taskId": "t-1",
+          "taskTitle": "每天早上出简报",
+          "ownerTaskId": "t-1",
+          "grants": [],
+          "temporalRules": [],
+          "grantInfo": {},
+          "state": "active",
+          "lastFailed": true,
+          "consecutiveFailures": 1,
+          "runCount": 1,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T09:00:00.000+08:00",
+          "nextAt": "2026-10-09T09:00:00.000+08:00",
+          "lastRun": {
+            "runId": "j-1-r1",
+            "jobId": "j-1",
+            "trigger": "scheduled",
+            "dueAt": "2026-10-08T09:00:00.000+08:00",
+            "events": [
+              {
+                "source": "time",
+                "at": "2026-10-08T09:00:00.000+08:00",
+                "summary": "10 月 8 日（周四）09:00 到点"
+              }
+            ],
+            "state": "failed",
+            "queuedAt": "2026-10-08T09:00:00.000+08:00",
+            "startedAt": "2026-10-08T09:00:00.000+08:00",
+            "endedAt": "2026-10-08T09:00:00.000+08:00",
+            "reason": "新闻源打不开"
+          }
+        },
+        "change": "run_finished",
+        "by": "system",
+        "run": {
+          "runId": "j-1-r1",
+          "jobId": "j-1",
+          "trigger": "scheduled",
+          "dueAt": "2026-10-08T09:00:00.000+08:00",
+          "events": [
+            {
+              "source": "time",
+              "at": "2026-10-08T09:00:00.000+08:00",
+              "summary": "10 月 8 日（周四）09:00 到点"
+            }
+          ],
+          "state": "failed",
+          "queuedAt": "2026-10-08T09:00:00.000+08:00",
+          "startedAt": "2026-10-08T09:00:00.000+08:00",
+          "endedAt": "2026-10-08T09:00:00.000+08:00",
+          "reason": "新闻源打不开"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 8,
+      "type": "scheduled_job",
+      "payload": {
+        "job": {
+          "id": "j-1",
+          "title": "每天早上出简报",
+          "schedule": {
+            "kind": "daily",
+            "time": "09:00"
+          },
+          "each": "每天早上出简报\n汇总昨天的新闻，写一份简报 brief.md",
+          "maintainerId": "tm-1",
+          "taskId": "t-1",
+          "taskTitle": "每天早上出简报",
+          "ownerTaskId": "t-1",
+          "grants": [],
+          "temporalRules": [],
+          "grantInfo": {},
+          "state": "active",
+          "lastFailed": true,
+          "consecutiveFailures": 1,
+          "runCount": 2,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-09T09:00:00.000+08:00",
+          "lastRun": {
+            "runId": "j-1-r2",
+            "jobId": "j-1",
+            "trigger": "scheduled",
+            "dueAt": "2026-10-09T09:00:00.000+08:00",
+            "events": [
+              {
+                "source": "time",
+                "at": "2026-10-09T09:00:00.000+08:00",
+                "summary": "10 月 9 日（周五）09:00 到点"
+              }
+            ],
+            "state": "queued",
+            "queuedAt": "2026-10-09T09:00:00.000+08:00"
+          },
+          "nextAt": "2026-10-10T09:00:00.000+08:00"
+        },
+        "change": "triggered",
+        "by": "system",
+        "run": {
+          "runId": "j-1-r2",
+          "jobId": "j-1",
+          "trigger": "scheduled",
+          "dueAt": "2026-10-09T09:00:00.000+08:00",
+          "events": [
+            {
+              "source": "time",
+              "at": "2026-10-09T09:00:00.000+08:00",
+              "summary": "10 月 9 日（周五）09:00 到点"
+            }
+          ],
+          "state": "queued",
+          "queuedAt": "2026-10-09T09:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 9,
+      "type": "scheduled_job",
+      "payload": {
+        "job": {
+          "id": "j-1",
+          "title": "每天早上出简报",
+          "schedule": {
+            "kind": "daily",
+            "time": "09:00"
+          },
+          "each": "每天早上出简报\n汇总昨天的新闻，写一份简报 brief.md",
+          "maintainerId": "tm-1",
+          "taskId": "t-1",
+          "taskTitle": "每天早上出简报",
+          "ownerTaskId": "t-1",
+          "grants": [],
+          "temporalRules": [],
+          "grantInfo": {},
+          "state": "active",
+          "lastFailed": true,
+          "consecutiveFailures": 1,
+          "runCount": 2,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-09T09:00:00.000+08:00",
+          "lastRun": {
+            "runId": "j-1-r2",
+            "jobId": "j-1",
+            "trigger": "scheduled",
+            "dueAt": "2026-10-09T09:00:00.000+08:00",
+            "events": [
+              {
+                "source": "time",
+                "at": "2026-10-09T09:00:00.000+08:00",
+                "summary": "10 月 9 日（周五）09:00 到点"
+              }
+            ],
+            "state": "running",
+            "queuedAt": "2026-10-09T09:00:00.000+08:00",
+            "startedAt": "2026-10-09T09:00:00.000+08:00"
+          },
+          "nextAt": "2026-10-10T09:00:00.000+08:00"
+        },
+        "change": "run_started",
+        "by": "system",
+        "run": {
+          "runId": "j-1-r2",
+          "jobId": "j-1",
+          "trigger": "scheduled",
+          "dueAt": "2026-10-09T09:00:00.000+08:00",
+          "events": [
+            {
+              "source": "time",
+              "at": "2026-10-09T09:00:00.000+08:00",
+              "summary": "10 月 9 日（周五）09:00 到点"
+            }
+          ],
+          "state": "running",
+          "queuedAt": "2026-10-09T09:00:00.000+08:00",
+          "startedAt": "2026-10-09T09:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 10,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 3143,
+          "cacheMiss": 12863,
+          "output": 18
+        },
+        "calls": 3,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 3143,
+              "cacheMiss": 12863,
+              "output": 18
+            },
+            "calls": 3
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-09T09:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 11,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 6403,
+          "cacheMiss": 12920,
+          "output": 20
+        },
+        "calls": 4,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 6403,
+              "cacheMiss": 12920,
+              "output": 20
+            },
+            "calls": 4
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-09T09:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 12,
+      "type": "scheduled_job",
+      "payload": {
+        "job": {
+          "id": "j-1",
+          "title": "每天早上出简报",
+          "schedule": {
+            "kind": "daily",
+            "time": "09:00"
+          },
+          "each": "每天早上出简报\n汇总昨天的新闻，写一份简报 brief.md",
+          "maintainerId": "tm-1",
+          "taskId": "t-1",
+          "taskTitle": "每天早上出简报",
+          "ownerTaskId": "t-1",
+          "grants": [],
+          "temporalRules": [],
+          "grantInfo": {},
+          "state": "active",
+          "lastFailed": true,
+          "consecutiveFailures": 2,
+          "runCount": 2,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-09T09:00:00.000+08:00",
+          "lastRun": {
+            "runId": "j-1-r2",
+            "jobId": "j-1",
+            "trigger": "scheduled",
+            "dueAt": "2026-10-09T09:00:00.000+08:00",
+            "events": [
+              {
+                "source": "time",
+                "at": "2026-10-09T09:00:00.000+08:00",
+                "summary": "10 月 9 日（周五）09:00 到点"
+              }
+            ],
+            "state": "failed",
+            "queuedAt": "2026-10-09T09:00:00.000+08:00",
+            "startedAt": "2026-10-09T09:00:00.000+08:00",
+            "endedAt": "2026-10-09T09:00:00.000+08:00",
+            "reason": "新闻源打不开"
+          },
+          "nextAt": "2026-10-10T09:00:00.000+08:00"
+        },
+        "change": "run_finished",
+        "by": "system",
+        "run": {
+          "runId": "j-1-r2",
+          "jobId": "j-1",
+          "trigger": "scheduled",
+          "dueAt": "2026-10-09T09:00:00.000+08:00",
+          "events": [
+            {
+              "source": "time",
+              "at": "2026-10-09T09:00:00.000+08:00",
+              "summary": "10 月 9 日（周五）09:00 到点"
+            }
+          ],
+          "state": "failed",
+          "queuedAt": "2026-10-09T09:00:00.000+08:00",
+          "startedAt": "2026-10-09T09:00:00.000+08:00",
+          "endedAt": "2026-10-09T09:00:00.000+08:00",
+          "reason": "新闻源打不开"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 13,
+      "type": "scheduled_job",
+      "payload": {
+        "job": {
+          "id": "j-1",
+          "title": "每天早上出简报",
+          "schedule": {
+            "kind": "daily",
+            "time": "09:00"
+          },
+          "each": "每天早上出简报\n汇总昨天的新闻，写一份简报 brief.md",
+          "maintainerId": "tm-1",
+          "taskId": "t-1",
+          "taskTitle": "每天早上出简报",
+          "ownerTaskId": "t-1",
+          "grants": [],
+          "temporalRules": [],
+          "grantInfo": {},
+          "state": "active",
+          "lastFailed": true,
+          "consecutiveFailures": 2,
+          "runCount": 3,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-10T09:00:00.000+08:00",
+          "lastRun": {
+            "runId": "j-1-r3",
+            "jobId": "j-1",
+            "trigger": "scheduled",
+            "dueAt": "2026-10-10T09:00:00.000+08:00",
+            "events": [
+              {
+                "source": "time",
+                "at": "2026-10-10T09:00:00.000+08:00",
+                "summary": "10 月 10 日（周六）09:00 到点"
+              }
+            ],
+            "state": "queued",
+            "queuedAt": "2026-10-10T09:00:00.000+08:00"
+          },
+          "nextAt": "2026-10-11T09:00:00.000+08:00"
+        },
+        "change": "triggered",
+        "by": "system",
+        "run": {
+          "runId": "j-1-r3",
+          "jobId": "j-1",
+          "trigger": "scheduled",
+          "dueAt": "2026-10-10T09:00:00.000+08:00",
+          "events": [
+            {
+              "source": "time",
+              "at": "2026-10-10T09:00:00.000+08:00",
+              "summary": "10 月 10 日（周六）09:00 到点"
+            }
+          ],
+          "state": "queued",
+          "queuedAt": "2026-10-10T09:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 14,
+      "type": "scheduled_job",
+      "payload": {
+        "job": {
+          "id": "j-1",
+          "title": "每天早上出简报",
+          "schedule": {
+            "kind": "daily",
+            "time": "09:00"
+          },
+          "each": "每天早上出简报\n汇总昨天的新闻，写一份简报 brief.md",
+          "maintainerId": "tm-1",
+          "taskId": "t-1",
+          "taskTitle": "每天早上出简报",
+          "ownerTaskId": "t-1",
+          "grants": [],
+          "temporalRules": [],
+          "grantInfo": {},
+          "state": "active",
+          "lastFailed": true,
+          "consecutiveFailures": 2,
+          "runCount": 3,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-10T09:00:00.000+08:00",
+          "lastRun": {
+            "runId": "j-1-r3",
+            "jobId": "j-1",
+            "trigger": "scheduled",
+            "dueAt": "2026-10-10T09:00:00.000+08:00",
+            "events": [
+              {
+                "source": "time",
+                "at": "2026-10-10T09:00:00.000+08:00",
+                "summary": "10 月 10 日（周六）09:00 到点"
+              }
+            ],
+            "state": "running",
+            "queuedAt": "2026-10-10T09:00:00.000+08:00",
+            "startedAt": "2026-10-10T09:00:00.000+08:00"
+          },
+          "nextAt": "2026-10-11T09:00:00.000+08:00"
+        },
+        "change": "run_started",
+        "by": "system",
+        "run": {
+          "runId": "j-1-r3",
+          "jobId": "j-1",
+          "trigger": "scheduled",
+          "dueAt": "2026-10-10T09:00:00.000+08:00",
+          "events": [
+            {
+              "source": "time",
+              "at": "2026-10-10T09:00:00.000+08:00",
+              "summary": "10 月 10 日（周六）09:00 到点"
+            }
+          ],
+          "state": "running",
+          "queuedAt": "2026-10-10T09:00:00.000+08:00",
+          "startedAt": "2026-10-10T09:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 15,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 6403,
+          "cacheMiss": 19694,
+          "output": 22
+        },
+        "calls": 5,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 6403,
+              "cacheMiss": 19694,
+              "output": 22
+            },
+            "calls": 5
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-10T09:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 16,
+      "type": "scheduled_job",
+      "payload": {
+        "job": {
+          "id": "j-1",
+          "title": "每天早上出简报",
+          "schedule": {
+            "kind": "daily",
+            "time": "09:00"
+          },
+          "each": "每天早上出简报\n汇总昨天的新闻，写一份简报 brief.md",
+          "maintainerId": "tm-1",
+          "taskId": "t-1",
+          "taskTitle": "每天早上出简报",
+          "ownerTaskId": "t-1",
+          "grants": [],
+          "temporalRules": [],
+          "grantInfo": {},
+          "state": "active",
+          "lastFailed": false,
+          "consecutiveFailures": 0,
+          "runCount": 3,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-10T09:00:00.000+08:00",
+          "lastRun": {
+            "runId": "j-1-r3",
+            "jobId": "j-1",
+            "trigger": "scheduled",
+            "dueAt": "2026-10-10T09:00:00.000+08:00",
+            "events": [
+              {
+                "source": "time",
+                "at": "2026-10-10T09:00:00.000+08:00",
+                "summary": "10 月 10 日（周六）09:00 到点"
+              }
+            ],
+            "state": "done",
+            "queuedAt": "2026-10-10T09:00:00.000+08:00",
+            "startedAt": "2026-10-10T09:00:00.000+08:00",
+            "endedAt": "2026-10-10T09:00:00.000+08:00"
+          },
+          "nextAt": "2026-10-11T09:00:00.000+08:00"
+        },
+        "change": "run_finished",
+        "by": "system",
+        "run": {
+          "runId": "j-1-r3",
+          "jobId": "j-1",
+          "trigger": "scheduled",
+          "dueAt": "2026-10-10T09:00:00.000+08:00",
+          "events": [
+            {
+              "source": "time",
+              "at": "2026-10-10T09:00:00.000+08:00",
+              "summary": "10 月 10 日（周六）09:00 到点"
+            }
+          ],
+          "state": "done",
+          "queuedAt": "2026-10-10T09:00:00.000+08:00",
+          "startedAt": "2026-10-10T09:00:00.000+08:00",
+          "endedAt": "2026-10-10T09:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 17,
+      "type": "scheduled_job",
+      "payload": {
+        "job": {
+          "id": "j-1",
+          "title": "每天早上出简报",
+          "schedule": {
+            "kind": "daily",
+            "time": "09:00"
+          },
+          "each": "每天早上出简报\n汇总昨天的新闻，写一份简报 brief.md",
+          "maintainerId": "tm-1",
+          "taskId": "t-1",
+          "taskTitle": "每天早上出简报",
+          "ownerTaskId": "t-1",
+          "grants": [],
+          "temporalRules": [],
+          "grantInfo": {},
+          "state": "active",
+          "lastFailed": false,
+          "consecutiveFailures": 0,
+          "runCount": 4,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-11T09:00:00.000+08:00",
+          "lastRun": {
+            "runId": "j-1-r4",
+            "jobId": "j-1",
+            "trigger": "scheduled",
+            "dueAt": "2026-10-11T09:00:00.000+08:00",
+            "events": [
+              {
+                "source": "time",
+                "at": "2026-10-11T09:00:00.000+08:00",
+                "summary": "10 月 11 日（周日）09:00 到点"
+              }
+            ],
+            "state": "queued",
+            "queuedAt": "2026-10-11T09:00:00.000+08:00"
+          },
+          "nextAt": "2026-10-12T09:00:00.000+08:00"
+        },
+        "change": "triggered",
+        "by": "system",
+        "run": {
+          "runId": "j-1-r4",
+          "jobId": "j-1",
+          "trigger": "scheduled",
+          "dueAt": "2026-10-11T09:00:00.000+08:00",
+          "events": [
+            {
+              "source": "time",
+              "at": "2026-10-11T09:00:00.000+08:00",
+              "summary": "10 月 11 日（周日）09:00 到点"
+            }
+          ],
+          "state": "queued",
+          "queuedAt": "2026-10-11T09:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 18,
+      "type": "scheduled_job",
+      "payload": {
+        "job": {
+          "id": "j-1",
+          "title": "每天早上出简报",
+          "schedule": {
+            "kind": "daily",
+            "time": "09:00"
+          },
+          "each": "每天早上出简报\n汇总昨天的新闻，写一份简报 brief.md",
+          "maintainerId": "tm-1",
+          "taskId": "t-1",
+          "taskTitle": "每天早上出简报",
+          "ownerTaskId": "t-1",
+          "grants": [],
+          "temporalRules": [],
+          "grantInfo": {},
+          "state": "active",
+          "lastFailed": false,
+          "consecutiveFailures": 0,
+          "runCount": 4,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-11T09:00:00.000+08:00",
+          "lastRun": {
+            "runId": "j-1-r4",
+            "jobId": "j-1",
+            "trigger": "scheduled",
+            "dueAt": "2026-10-11T09:00:00.000+08:00",
+            "events": [
+              {
+                "source": "time",
+                "at": "2026-10-11T09:00:00.000+08:00",
+                "summary": "10 月 11 日（周日）09:00 到点"
+              }
+            ],
+            "state": "running",
+            "queuedAt": "2026-10-11T09:00:00.000+08:00",
+            "startedAt": "2026-10-11T09:00:00.000+08:00"
+          },
+          "nextAt": "2026-10-12T09:00:00.000+08:00"
+        },
+        "change": "run_started",
+        "by": "system",
+        "run": {
+          "runId": "j-1-r4",
+          "jobId": "j-1",
+          "trigger": "scheduled",
+          "dueAt": "2026-10-11T09:00:00.000+08:00",
+          "events": [
+            {
+              "source": "time",
+              "at": "2026-10-11T09:00:00.000+08:00",
+              "summary": "10 月 11 日（周日）09:00 到点"
+            }
+          ],
+          "state": "running",
+          "queuedAt": "2026-10-11T09:00:00.000+08:00",
+          "startedAt": "2026-10-11T09:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 19,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 6403,
+          "cacheMiss": 26682,
+          "output": 30
+        },
+        "calls": 6,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 6403,
+              "cacheMiss": 26682,
+              "output": 30
+            },
+            "calls": 6
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-11T09:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 20,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 9897,
+          "cacheMiss": 26739,
+          "output": 32
+        },
+        "calls": 7,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 9897,
+              "cacheMiss": 26739,
+              "output": 32
+            },
+            "calls": 7
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-11T09:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 21,
+      "type": "scheduled_job",
+      "payload": {
+        "job": {
+          "id": "j-1",
+          "title": "每天早上出简报",
+          "schedule": {
+            "kind": "daily",
+            "time": "09:00"
+          },
+          "each": "每天早上出简报\n汇总昨天的新闻，写一份简报 brief.md",
+          "maintainerId": "tm-1",
+          "taskId": "t-1",
+          "taskTitle": "每天早上出简报",
+          "ownerTaskId": "t-1",
+          "grants": [],
+          "temporalRules": [],
+          "grantInfo": {},
+          "state": "active",
+          "lastFailed": true,
+          "consecutiveFailures": 1,
+          "runCount": 4,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-11T09:00:00.000+08:00",
+          "lastRun": {
+            "runId": "j-1-r4",
+            "jobId": "j-1",
+            "trigger": "scheduled",
+            "dueAt": "2026-10-11T09:00:00.000+08:00",
+            "events": [
+              {
+                "source": "time",
+                "at": "2026-10-11T09:00:00.000+08:00",
+                "summary": "10 月 11 日（周日）09:00 到点"
+              }
+            ],
+            "state": "failed",
+            "queuedAt": "2026-10-11T09:00:00.000+08:00",
+            "startedAt": "2026-10-11T09:00:00.000+08:00",
+            "endedAt": "2026-10-11T09:00:00.000+08:00",
+            "reason": "新闻源打不开"
+          },
+          "nextAt": "2026-10-12T09:00:00.000+08:00"
+        },
+        "change": "run_finished",
+        "by": "system",
+        "run": {
+          "runId": "j-1-r4",
+          "jobId": "j-1",
+          "trigger": "scheduled",
+          "dueAt": "2026-10-11T09:00:00.000+08:00",
+          "events": [
+            {
+              "source": "time",
+              "at": "2026-10-11T09:00:00.000+08:00",
+              "summary": "10 月 11 日（周日）09:00 到点"
+            }
+          ],
+          "state": "failed",
+          "queuedAt": "2026-10-11T09:00:00.000+08:00",
+          "startedAt": "2026-10-11T09:00:00.000+08:00",
+          "endedAt": "2026-10-11T09:00:00.000+08:00",
+          "reason": "新闻源打不开"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 22,
+      "type": "scheduled_job",
+      "payload": {
+        "job": {
+          "id": "j-1",
+          "title": "每天早上出简报",
+          "schedule": {
+            "kind": "daily",
+            "time": "09:00"
+          },
+          "each": "每天早上出简报\n汇总昨天的新闻，写一份简报 brief.md",
+          "maintainerId": "tm-1",
+          "taskId": "t-1",
+          "taskTitle": "每天早上出简报",
+          "ownerTaskId": "t-1",
+          "grants": [],
+          "temporalRules": [],
+          "grantInfo": {},
+          "state": "active",
+          "lastFailed": true,
+          "consecutiveFailures": 1,
+          "runCount": 5,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-12T09:00:00.000+08:00",
+          "lastRun": {
+            "runId": "j-1-r5",
+            "jobId": "j-1",
+            "trigger": "scheduled",
+            "dueAt": "2026-10-12T09:00:00.000+08:00",
+            "events": [
+              {
+                "source": "time",
+                "at": "2026-10-12T09:00:00.000+08:00",
+                "summary": "10 月 12 日（周一）09:00 到点"
+              }
+            ],
+            "state": "queued",
+            "queuedAt": "2026-10-12T09:00:00.000+08:00"
+          },
+          "nextAt": "2026-10-13T09:00:00.000+08:00"
+        },
+        "change": "triggered",
+        "by": "system",
+        "run": {
+          "runId": "j-1-r5",
+          "jobId": "j-1",
+          "trigger": "scheduled",
+          "dueAt": "2026-10-12T09:00:00.000+08:00",
+          "events": [
+            {
+              "source": "time",
+              "at": "2026-10-12T09:00:00.000+08:00",
+              "summary": "10 月 12 日（周一）09:00 到点"
+            }
+          ],
+          "state": "queued",
+          "queuedAt": "2026-10-12T09:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 23,
+      "type": "scheduled_job",
+      "payload": {
+        "job": {
+          "id": "j-1",
+          "title": "每天早上出简报",
+          "schedule": {
+            "kind": "daily",
+            "time": "09:00"
+          },
+          "each": "每天早上出简报\n汇总昨天的新闻，写一份简报 brief.md",
+          "maintainerId": "tm-1",
+          "taskId": "t-1",
+          "taskTitle": "每天早上出简报",
+          "ownerTaskId": "t-1",
+          "grants": [],
+          "temporalRules": [],
+          "grantInfo": {},
+          "state": "active",
+          "lastFailed": true,
+          "consecutiveFailures": 1,
+          "runCount": 5,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-12T09:00:00.000+08:00",
+          "lastRun": {
+            "runId": "j-1-r5",
+            "jobId": "j-1",
+            "trigger": "scheduled",
+            "dueAt": "2026-10-12T09:00:00.000+08:00",
+            "events": [
+              {
+                "source": "time",
+                "at": "2026-10-12T09:00:00.000+08:00",
+                "summary": "10 月 12 日（周一）09:00 到点"
+              }
+            ],
+            "state": "running",
+            "queuedAt": "2026-10-12T09:00:00.000+08:00",
+            "startedAt": "2026-10-12T09:00:00.000+08:00"
+          },
+          "nextAt": "2026-10-13T09:00:00.000+08:00"
+        },
+        "change": "run_started",
+        "by": "system",
+        "run": {
+          "runId": "j-1-r5",
+          "jobId": "j-1",
+          "trigger": "scheduled",
+          "dueAt": "2026-10-12T09:00:00.000+08:00",
+          "events": [
+            {
+              "source": "time",
+              "at": "2026-10-12T09:00:00.000+08:00",
+              "summary": "10 月 12 日（周一）09:00 到点"
+            }
+          ],
+          "state": "running",
+          "queuedAt": "2026-10-12T09:00:00.000+08:00",
+          "startedAt": "2026-10-12T09:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 24,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 9897,
+          "cacheMiss": 33999,
+          "output": 40
+        },
+        "calls": 8,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 9897,
+              "cacheMiss": 33999,
+              "output": 40
+            },
+            "calls": 8
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-12T09:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 25,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 13527,
+          "cacheMiss": 34056,
+          "output": 42
+        },
+        "calls": 9,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 13527,
+              "cacheMiss": 34056,
+              "output": 42
+            },
+            "calls": 9
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-12T09:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 26,
+      "type": "scheduled_job",
+      "payload": {
+        "job": {
+          "id": "j-1",
+          "title": "每天早上出简报",
+          "schedule": {
+            "kind": "daily",
+            "time": "09:00"
+          },
+          "each": "每天早上出简报\n汇总昨天的新闻，写一份简报 brief.md",
+          "maintainerId": "tm-1",
+          "taskId": "t-1",
+          "taskTitle": "每天早上出简报",
+          "ownerTaskId": "t-1",
+          "grants": [],
+          "temporalRules": [],
+          "grantInfo": {},
+          "state": "active",
+          "lastFailed": true,
+          "consecutiveFailures": 2,
+          "runCount": 5,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-12T09:00:00.000+08:00",
+          "lastRun": {
+            "runId": "j-1-r5",
+            "jobId": "j-1",
+            "trigger": "scheduled",
+            "dueAt": "2026-10-12T09:00:00.000+08:00",
+            "events": [
+              {
+                "source": "time",
+                "at": "2026-10-12T09:00:00.000+08:00",
+                "summary": "10 月 12 日（周一）09:00 到点"
+              }
+            ],
+            "state": "failed",
+            "queuedAt": "2026-10-12T09:00:00.000+08:00",
+            "startedAt": "2026-10-12T09:00:00.000+08:00",
+            "endedAt": "2026-10-12T09:00:00.000+08:00",
+            "reason": "新闻源打不开"
+          },
+          "nextAt": "2026-10-13T09:00:00.000+08:00"
+        },
+        "change": "run_finished",
+        "by": "system",
+        "run": {
+          "runId": "j-1-r5",
+          "jobId": "j-1",
+          "trigger": "scheduled",
+          "dueAt": "2026-10-12T09:00:00.000+08:00",
+          "events": [
+            {
+              "source": "time",
+              "at": "2026-10-12T09:00:00.000+08:00",
+              "summary": "10 月 12 日（周一）09:00 到点"
+            }
+          ],
+          "state": "failed",
+          "queuedAt": "2026-10-12T09:00:00.000+08:00",
+          "startedAt": "2026-10-12T09:00:00.000+08:00",
+          "endedAt": "2026-10-12T09:00:00.000+08:00",
+          "reason": "新闻源打不开"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 27,
+      "type": "scheduled_job",
+      "payload": {
+        "job": {
+          "id": "j-1",
+          "title": "每天早上出简报",
+          "schedule": {
+            "kind": "daily",
+            "time": "09:00"
+          },
+          "each": "每天早上出简报\n汇总昨天的新闻，写一份简报 brief.md",
+          "maintainerId": "tm-1",
+          "taskId": "t-1",
+          "taskTitle": "每天早上出简报",
+          "ownerTaskId": "t-1",
+          "grants": [],
+          "temporalRules": [],
+          "grantInfo": {},
+          "state": "active",
+          "lastFailed": true,
+          "consecutiveFailures": 2,
+          "runCount": 6,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-13T09:00:00.000+08:00",
+          "lastRun": {
+            "runId": "j-1-r6",
+            "jobId": "j-1",
+            "trigger": "scheduled",
+            "dueAt": "2026-10-13T09:00:00.000+08:00",
+            "events": [
+              {
+                "source": "time",
+                "at": "2026-10-13T09:00:00.000+08:00",
+                "summary": "10 月 13 日（周二）09:00 到点"
+              }
+            ],
+            "state": "queued",
+            "queuedAt": "2026-10-13T09:00:00.000+08:00"
+          },
+          "nextAt": "2026-10-14T09:00:00.000+08:00"
+        },
+        "change": "triggered",
+        "by": "system",
+        "run": {
+          "runId": "j-1-r6",
+          "jobId": "j-1",
+          "trigger": "scheduled",
+          "dueAt": "2026-10-13T09:00:00.000+08:00",
+          "events": [
+            {
+              "source": "time",
+              "at": "2026-10-13T09:00:00.000+08:00",
+              "summary": "10 月 13 日（周二）09:00 到点"
+            }
+          ],
+          "state": "queued",
+          "queuedAt": "2026-10-13T09:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 28,
+      "type": "scheduled_job",
+      "payload": {
+        "job": {
+          "id": "j-1",
+          "title": "每天早上出简报",
+          "schedule": {
+            "kind": "daily",
+            "time": "09:00"
+          },
+          "each": "每天早上出简报\n汇总昨天的新闻，写一份简报 brief.md",
+          "maintainerId": "tm-1",
+          "taskId": "t-1",
+          "taskTitle": "每天早上出简报",
+          "ownerTaskId": "t-1",
+          "grants": [],
+          "temporalRules": [],
+          "grantInfo": {},
+          "state": "active",
+          "lastFailed": true,
+          "consecutiveFailures": 2,
+          "runCount": 6,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-13T09:00:00.000+08:00",
+          "lastRun": {
+            "runId": "j-1-r6",
+            "jobId": "j-1",
+            "trigger": "scheduled",
+            "dueAt": "2026-10-13T09:00:00.000+08:00",
+            "events": [
+              {
+                "source": "time",
+                "at": "2026-10-13T09:00:00.000+08:00",
+                "summary": "10 月 13 日（周二）09:00 到点"
+              }
+            ],
+            "state": "running",
+            "queuedAt": "2026-10-13T09:00:00.000+08:00",
+            "startedAt": "2026-10-13T09:00:00.000+08:00"
+          },
+          "nextAt": "2026-10-14T09:00:00.000+08:00"
+        },
+        "change": "run_started",
+        "by": "system",
+        "run": {
+          "runId": "j-1-r6",
+          "jobId": "j-1",
+          "trigger": "scheduled",
+          "dueAt": "2026-10-13T09:00:00.000+08:00",
+          "events": [
+            {
+              "source": "time",
+              "at": "2026-10-13T09:00:00.000+08:00",
+              "summary": "10 月 13 日（周二）09:00 到点"
+            }
+          ],
+          "state": "running",
+          "queuedAt": "2026-10-13T09:00:00.000+08:00",
+          "startedAt": "2026-10-13T09:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 29,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 13527,
+          "cacheMiss": 41588,
+          "output": 50
+        },
+        "calls": 10,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 13527,
+              "cacheMiss": 41588,
+              "output": 50
+            },
+            "calls": 10
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-13T09:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 30,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 17293,
+          "cacheMiss": 41643,
+          "output": 52
+        },
+        "calls": 11,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 17293,
+              "cacheMiss": 41643,
+              "output": 52
+            },
+            "calls": 11
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-13T09:00:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 1,
+      "type": "notify",
+      "payload": {
+        "id": "n-i-eca83f81-f3e1-4398-ba8a-87e32b28a2ec",
+        "title": "定时触发的任务「每天早上出简报」已自动暂停",
+        "body": "连续失败 3 次，到点不再运行，等你处理：\n- 10 月 11 日（周日）09:00：新闻源打不开\n- 10 月 12 日（周一）09:00：新闻源打不开\n- 10 月 13 日（周二）09:00：磁盘满了\n查明原因后点“恢复”接着按时间表运行；也可以先保持暂停。",
+        "itemId": "i-eca83f81-f3e1-4398-ba8a-87e32b28a2ec"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 31,
+      "type": "scheduled_job",
+      "payload": {
+        "job": {
+          "id": "j-1",
+          "title": "每天早上出简报",
+          "schedule": {
+            "kind": "daily",
+            "time": "09:00"
+          },
+          "each": "每天早上出简报\n汇总昨天的新闻，写一份简报 brief.md",
+          "maintainerId": "tm-1",
+          "taskId": "t-1",
+          "taskTitle": "每天早上出简报",
+          "ownerTaskId": "t-1",
+          "grants": [],
+          "temporalRules": [],
+          "grantInfo": {},
+          "state": "paused",
+          "lastFailed": true,
+          "consecutiveFailures": 3,
+          "runCount": 6,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-13T09:00:00.000+08:00",
+          "lastRun": {
+            "runId": "j-1-r6",
+            "jobId": "j-1",
+            "trigger": "scheduled",
+            "dueAt": "2026-10-13T09:00:00.000+08:00",
+            "events": [
+              {
+                "source": "time",
+                "at": "2026-10-13T09:00:00.000+08:00",
+                "summary": "10 月 13 日（周二）09:00 到点"
+              }
+            ],
+            "state": "failed",
+            "queuedAt": "2026-10-13T09:00:00.000+08:00",
+            "startedAt": "2026-10-13T09:00:00.000+08:00",
+            "endedAt": "2026-10-13T09:00:00.000+08:00",
+            "reason": "磁盘满了"
+          },
+          "pausedBy": "failures"
+        },
+        "change": "run_finished",
+        "by": "system",
+        "run": {
+          "runId": "j-1-r6",
+          "jobId": "j-1",
+          "trigger": "scheduled",
+          "dueAt": "2026-10-13T09:00:00.000+08:00",
+          "events": [
+            {
+              "source": "time",
+              "at": "2026-10-13T09:00:00.000+08:00",
+              "summary": "10 月 13 日（周二）09:00 到点"
+            }
+          ],
+          "state": "failed",
+          "queuedAt": "2026-10-13T09:00:00.000+08:00",
+          "startedAt": "2026-10-13T09:00:00.000+08:00",
+          "endedAt": "2026-10-13T09:00:00.000+08:00",
+          "reason": "磁盘满了"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 1,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-eca83f81-f3e1-4398-ba8a-87e32b28a2ec",
+          "version": 1,
+          "title": "定时触发的任务「每天早上出简报」已自动暂停",
+          "source": "定时触发「每天早上出简报」",
+          "urgency": "non_blocking",
+          "pinned": false,
+          "createdAt": "2026-10-13T09:00:00.000+08:00",
+          "read": false,
+          "archived": false,
+          "deleted": false,
+          "kind": "notice",
+          "notice": "scheduled_job_auto_paused",
+          "body": "连续失败 3 次，到点不再运行，等你处理：\n- 10 月 11 日（周日）09:00：新闻源打不开\n- 10 月 12 日（周一）09:00：新闻源打不开\n- 10 月 13 日（周二）09:00：磁盘满了\n查明原因后点“恢复”接着按时间表运行；也可以先保持暂停。",
+          "actions": [
+            "恢复",
+            "保持暂停"
+          ],
+          "data": {
+            "jobId": "j-1"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 2,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-eca83f81-f3e1-4398-ba8a-87e32b28a2ec",
+          "version": 2,
+          "title": "定时触发的任务「每天早上出简报」已自动暂停",
+          "source": "定时触发「每天早上出简报」",
+          "urgency": "non_blocking",
+          "pinned": false,
+          "createdAt": "2026-10-13T09:00:00.000+08:00",
+          "read": true,
+          "archived": false,
+          "deleted": false,
+          "kind": "notice",
+          "notice": "scheduled_job_auto_paused",
+          "body": "连续失败 3 次，到点不再运行，等你处理：\n- 10 月 11 日（周日）09:00：新闻源打不开\n- 10 月 12 日（周一）09:00：新闻源打不开\n- 10 月 13 日（周二）09:00：磁盘满了\n查明原因后点“恢复”接着按时间表运行；也可以先保持暂停。",
+          "actions": [
+            "恢复",
+            "保持暂停"
+          ],
+          "data": {
+            "jobId": "j-1"
+          },
+          "handled": "恢复",
+          "handledAt": "2026-10-14T09:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 32,
+      "type": "scheduled_job",
+      "payload": {
+        "job": {
+          "id": "j-1",
+          "title": "每天早上出简报",
+          "schedule": {
+            "kind": "daily",
+            "time": "09:00"
+          },
+          "each": "每天早上出简报\n汇总昨天的新闻，写一份简报 brief.md",
+          "maintainerId": "tm-1",
+          "taskId": "t-1",
+          "taskTitle": "每天早上出简报",
+          "ownerTaskId": "t-1",
+          "grants": [],
+          "temporalRules": [],
+          "grantInfo": {},
+          "state": "active",
+          "lastFailed": true,
+          "consecutiveFailures": 0,
+          "runCount": 6,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-14T09:00:00.000+08:00",
+          "lastRun": {
+            "runId": "j-1-r6",
+            "jobId": "j-1",
+            "trigger": "scheduled",
+            "dueAt": "2026-10-13T09:00:00.000+08:00",
+            "events": [
+              {
+                "source": "time",
+                "at": "2026-10-13T09:00:00.000+08:00",
+                "summary": "10 月 13 日（周二）09:00 到点"
+              }
+            ],
+            "state": "failed",
+            "queuedAt": "2026-10-13T09:00:00.000+08:00",
+            "startedAt": "2026-10-13T09:00:00.000+08:00",
+            "endedAt": "2026-10-13T09:00:00.000+08:00",
+            "reason": "磁盘满了"
+          },
+          "nextAt": "2026-10-15T09:00:00.000+08:00"
+        },
+        "change": "resumed",
+        "by": "user"
+      }
+    }
+  }
+]

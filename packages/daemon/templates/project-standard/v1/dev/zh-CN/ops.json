@@ -1,0 +1,42 @@
+{
+  "$comment": [
+    "运营接口清单（项目规范 v1 · 开发类 · 转运营之前要交）。",
+    "这份写什么：项目转入使用后，秘书能代用户调用的操作（用户对秘书说一句话就能做的事）。照 MCP 的 tools/list 格式写进 tools，每个操作写：name（字母、数字、_ . -）、title（中文标题）、description（做什么、什么时候用）、userSays（用户可能怎么说，几句）、kind（query 只读查询 / action 有副作用的动作 / run 触发一次运行）、inputSchema（参数的 JSON Schema，type 是 object；参数少而简单，枚举写 enumNames 给每个值一个中文名，可选的写 default 默认值）、returns（返回什么）、risk（风险标记：direct 直接做 / confirm 要确认 / handoff 交给我做；现在只显示，调用不看它）、impl（实现方式，不写是 http）、usage（可选的用法说明）、test（验收用的一条测试：{\"args\": {参数}, \"sayIncludes\": \"能念的那句里要有的字\"}）。",
+    "不用写的通用操作：每个使用中的项目都白送 status 状态、recent_runs 最近运行、latest_deliverables 最新交付件、run_now 立即跑一次、pause_resume 暂停恢复、reschedule 改时间、tell_maintainer 跟维护者说一句；这里只写项目特有的，名字不能和它们重。",
+    "四种实现方式（impl.type）：http 项目服务的本机调用口（见下面 endpoint）；script 工作目录里的脚本（impl.file 写相对工作目录的路径，按扩展名选解释器：.mjs .js .ts 用 node、.py 用 python、.ps1 用 PowerShell、.cmd 经 cmd；impl.args 是固定的附加参数），标准输入是 {\"name\", \"arguments\"}，标准输出回下面说的 JSON，退出码不是 0 算没做成；ergo 二狗自带动作绑参数（impl.action 写上面一个通用操作的名字，impl.params 写绑定的参数，值可以写 \"{{参数名}}\" 代入这个操作的参数）；maintainer 转给你（维护者）当工单（impl.instructions 写交给你的话，可以写 \"{{参数名}}\"）。",
+    "本机调用口 endpoint（http 用）：service 写调用口在运营方案里哪个服务上（服务的 name；项目只有一个服务时可以不写），path 写服务自己收到的路径（不写是 /ops）。端口不在这里写，用运营方案里那个服务的端口。二狗在本机 POST http://127.0.0.1:<服务端口><path>，请求体是 MCP tools/call 的参数 {\"name\": 操作名, \"arguments\": {参数}}。",
+    "返回：必须有一句能念给用户听的 say，细节作附件——回 {\"say\": \"记好了，午饭 32 块\", \"detail\": {任何细节}}，或者 MCP 的 CallToolResult 把 say 写在 structuredContent.say；做不了的回 HTTP 4xx / 5xx 或 \"isError\": true，say 里说清原因。没给 say 的二狗按结果补一句（调用记录里标出来），但验收不过。",
+    "参数校验：秘书调之前二狗按 inputSchema 校验，不对的不发、把这个操作的说明退回给秘书；秘书写了枚举的中文名的换成对应的值，没写的有 default 的补上。",
+    "验收（照 112 号票的自动验收）：格式对（上面每样写全了）、每个操作的 test 跑一遍要做成并回 say、只读查询（kind: query）前后项目档案和工作目录里不能有文件改动。测试调用带测试标记：http 请求体里 \"_meta\": {\"ergo/test\": true}，脚本有环境变量 ERGO_OPS_TEST=1——有副作用的操作收到它不要真的改东西（照常校验参数、回 say，说\"会怎样\"）。改了这份就用 check_ops 验收；项目服务上的操作要服务在跑时才能测，转入使用、服务上线后再测。",
+    "版本号：用户点\"转入使用\"时登记验收全过的这份（第 1 版）；使用中改了重新验收，全过了登记成下一版，秘书马上用新的，没过的秘书照旧用上一版。",
+    "$example 是一条 http 的示例，$examplesOtherImpls 是另外三种实现方式的写法：照着写进 tools，它们本身不算操作。"
+  ],
+  "$example": {
+    "name": "add_expense",
+    "title": "记一笔支出",
+    "description": "记一笔支出：金额和分类，备注可选。用户要记账时用。",
+    "userSays": ["记一笔午饭 32 块", "刚打车花了 25"],
+    "kind": "action",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "amount": { "type": "number", "description": "金额（元）" },
+        "category": { "type": "string", "enum": ["food", "transport", "other"], "enumNames": ["吃饭", "交通", "其他"], "default": "other", "description": "分类" },
+        "note": { "type": "string", "default": "", "description": "备注" }
+      },
+      "required": ["amount"]
+    },
+    "returns": "say 说记好了什么；detail 是这笔记录（编号、日期、金额、分类）。",
+    "risk": "direct",
+    "impl": { "type": "http" },
+    "usage": "金额不清楚的先问用户，别猜。",
+    "test": { "args": { "amount": 1, "category": "food", "note": "验收测试" }, "sayIncludes": "记好了" }
+  },
+  "$examplesOtherImpls": [
+    { "name": "month_report", "impl": { "type": "script", "file": "scripts/month-report.mjs" } },
+    { "name": "refresh_digest", "impl": { "type": "ergo", "action": "run_now", "params": { "job": "daily-digest" } } },
+    { "name": "add_source", "impl": { "type": "maintainer", "instructions": "把 {{url}} 加进信息源，抓一次看看能不能用" } }
+  ],
+  "endpoint": { "path": "/ops" },
+  "tools": []
+}

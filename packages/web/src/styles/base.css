@@ -1,0 +1,685 @@
+/*
+ * 基础样式：颜色 token、字体、通用控件。
+ * 视觉规矩（线型、两种声音、动效）在 look.css。
+ */
+
+/*
+ * 外观（34 号票）：浅色、深色、跟随系统（默认），在设置里选，按设备记住。
+ * 开关只有一个：根元素的 color-scheme。浅色写在 :root；深色挂在两处——选了深色（data-theme="dark"），
+ * 或者跟随系统（没有 data-theme）而系统是深色——选了浅色时即使系统是深色也不挂。
+ * token（颜色、字体、字号阶、圆角、阴影、间距密度、边框）39 号票起写在风格清单里（src/visual-styles/，经典是
+ * classic/style.ts），构建时生成样式表：浅深不一样的颜色写成 light-dark(浅色, 深色)，跟着这里的 color-scheme 取值。
+ * 不认 light-dark() 的旧浏览器：构建时 Lightning CSS 按 vite.config.ts 的 cssTarget 把它降成两个开关变量，照样能切
+ * （test/build.test.ts 查产物里没有 light-dark( 留下）。data-theme 由 index.html 的内联脚本和 app/theme.ts 挂。
+ * 页面样式里只用 var(--token)，不写死颜色、圆角、阴影，见 docs/developer-guide.md 的"视觉风格"。
+ */
+:root {
+  color-scheme: light;
+  /*
+   * 页面底部要让开的高度（105 号票）：浏览器里是系统给的安全区（iPhone 的横条）；鸿蒙 App 把网页延伸到了手势条底下，
+   * 由 app/page-native.ts 按 App 报的避让高度改成一小截（页面底部导航、输入框贴着手势条，不留整条白边）。
+   * 底部的东西一律用它，不直接写 env(safe-area-inset-bottom)
+   */
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+button:disabled {
+  cursor: default;
+}
+
+/* ---------- 标题栏（各栏共用一套高度与内边距） ---------- */
+.topbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: calc(var(--bar-h) + env(safe-area-inset-top, 0px));
+  padding: 0 var(--space-page);
+  padding-top: env(safe-area-inset-top, 0px);
+  /* 标题栏的底色也是手机浏览器地址栏的颜色（--bar-bg，经典是 --surface；42 号票） */
+  background: var(--bar-bg);
+  border-bottom: 1px solid var(--border);
+}
+.title {
+  flex: 1;
+  font-family: var(--font-title);
+  min-width: 0;
+  font-size: var(--fs-title);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.title-sub {
+  margin-left: 8px;
+  font-size: var(--fs-s);
+  font-weight: 400;
+  color: var(--muted);
+}
+/*
+ * 秘书页左上角的标题（89 号票，ui/secretary-title.tsx）："个人秘书："后面跟名字标签，一行。
+ * - 前缀不截，名字标签放不下时在末尾截成省略号：排成一行 flex，名字标签能缩到 0（min-width: 0），整行最宽是标题那一格。
+ * - 窄屏上标题那一格不宽（右边还有活动状态、发起任务、▤）：字号缩到"前缀五个字加名字"放得下。标题那一格是尺寸容器
+ *   （100cqw 就是它的宽），字号 =（格宽 - 名字标签左右的内外边距 8 - 余量 2）÷（5 + 名字的字数），名字的字数是界面挂上的
+ *   --secretary-fit-chars（最多按 4 个字算，更长的名字不再缩、在末尾截）；最大是页面标题的字号（宽屏都是它，后面照旧跟
+ *   "主线会话"），最小 12px（--fs-s），再放不下也在末尾截。名字标签跟着标题的字号，所以一起缩。
+ *   名字标签另有大小的风格（贴纸便当、像素小屋、复古杂志的小标签，水墨国风的印章）在自己的 style.css 里按它的大小改算式。
+ * - 不认 :has() 或容器查询的旧浏览器：不缩，就是页面标题的字号（算式那一条在计算时作废，字号照常继承），名字照样截省略号。
+ */
+.title:has(> .secretary-title) {
+  container-type: inline-size;
+  display: flex;
+  align-items: baseline;
+}
+.secretary-title {
+  display: inline-flex;
+  align-items: baseline;
+  min-width: 0;
+  max-width: 100%;
+  font-size: clamp(var(--fs-s), calc((100cqw - 10px) / (5 + var(--secretary-fit-chars, 4))), var(--fs-title));
+}
+.secretary-title-lead {
+  flex: none;
+}
+.secretary-title .assistant-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.icon-btn {
+  flex: none;
+  border: none;
+  background: none;
+  color: var(--text);
+  font-size: 20px;
+  line-height: 1;
+  padding: 4px 8px;
+}
+/*
+ * 共用的线条图标（122 号票，ui/icons.tsx）：1em 大、颜色是当前字色，跟着所在元素的字号、字色走。和字排在一行时往下沉一点，
+ * 和汉字的中线对齐；在 flex 里（按钮、菜单项）不受这条影响。所在元素字号是 0 时图标跟着缩没（风格换图标靠这个藏掉它）
+ */
+.icon {
+  display: inline-flex;
+  flex: none;
+  vertical-align: -0.15em;
+}
+.icon > svg {
+  display: block;
+}
+
+/* ---------- 通用 ---------- */
+.muted {
+  color: var(--muted);
+  font-size: var(--fs-s);
+}
+.link {
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-size: var(--fs-m);
+  padding: 4px 0;
+}
+.hint {
+  margin-top: 12px;
+  font-size: var(--fs-s);
+  color: var(--muted);
+  line-height: 1.5;
+}
+.empty {
+  margin: auto 0;
+  text-align: center;
+  padding: 24px 8px;
+}
+.empty-title {
+  font-family: var(--font-title);
+  font-size: 18px;
+  font-weight: 600;
+}
+.empty-sub {
+  color: var(--muted);
+  margin: 8px 0 20px;
+  line-height: 1.5;
+  font-size: var(--fs-m);
+}
+
+/* ---------- 按钮 ---------- */
+.btn {
+  border: none;
+  border-radius: var(--radius-l);
+  padding: 9px 16px;
+  font-size: var(--fs-body);
+}
+.btn.primary {
+  background: var(--primary-fill);
+  color: var(--primary-text);
+}
+.btn:disabled {
+  opacity: 0.4;
+}
+.btn.ghost {
+  background: var(--border);
+  color: var(--text);
+}
+.btn.danger {
+  background: var(--danger-fill);
+  color: var(--on-color);
+}
+.btn.small {
+  padding: 5px 12px;
+  font-size: var(--fs-m);
+  border-radius: var(--radius-m);
+}
+
+/* ---------- 小签 ---------- */
+.chips {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.chip {
+  font-size: var(--fs-xs);
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+  background: var(--fill);
+  color: var(--muted);
+}
+/* 不显眼的小签：照常发生的事（比如判定是"直接做只记录"），在但不抢眼 */
+.chip-quiet {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.chip-data {
+  background: var(--data-bg);
+  color: var(--data-fg);
+}
+.chip-op {
+  background: var(--op-bg);
+  color: var(--op-fg);
+}
+.chip-high {
+  background: var(--high-bg);
+  color: var(--high-fg);
+  font-weight: 600;
+}
+.chip-ok {
+  background: var(--data-bg);
+  color: var(--ok);
+}
+.chip-no {
+  background: var(--high-bg);
+  color: var(--high-fg);
+}
+/*
+ * 个人助理的名字（43 号票，ui/assistant-name.tsx）：秘书页的标题、正文里都是这个带底色的小标签（导航上那一项 89 号票起
+ * 固定写"秘书"，不带它）。名字最多 8 个字，正文里不折行；秘书页的标题里放不下时在末尾截成省略号（上面的 .secretary-title）
+ */
+.assistant-name {
+  padding: 0 3px;
+  margin: 0 1px;
+  border-radius: var(--radius-xs);
+  background: var(--name-bg);
+  color: var(--name-fg);
+  white-space: nowrap;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+.tag {
+  flex: none;
+  font-size: var(--fs-s);
+  padding: 2px 8px;
+  border-radius: var(--radius-s);
+}
+.tag-plan {
+  background: var(--c-plan);
+  color: var(--on-color);
+}
+
+/* ---------- 气泡 ---------- */
+.bubble {
+  max-width: 100%;
+  padding: 10px 13px;
+  border-radius: var(--radius-2xl);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--surface);
+}
+.user .bubble {
+  background: var(--user-bubble);
+  color: var(--user-text);
+  border-bottom-right-radius: var(--radius-xs);
+}
+.assistant .bubble {
+  border-bottom-left-radius: var(--radius-xs);
+  border-left: 3px solid var(--c-reply);
+}
+.thinking {
+  font-size: var(--fs-s);
+  color: var(--muted);
+  border-left: 3px solid var(--c-thinking);
+  padding: 4px 10px;
+  white-space: pre-wrap;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+/*
+ * 57 号票：思考一行字、点开在原地显示全文，旁边"详情 ›"；回复按 Markdown 画（ui/conversation/rows.tsx）。
+ * .thinking 的横排、.thinking-toggle、.bubble.md 和 Markdown 的排版
+ * （限定在 .bubble.md 里，免得碰到阶段抽屉 .md 和详情页的 .dt-doc.md）
+ */
+.thinking {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.thinking > .thinking-toggle {
+  flex: 1;
+  cursor: pointer;
+}
+.thinking-more {
+  flex: none;
+}
+/* 想法的开关做成按钮（能点、读屏也认得），样子还是一行字 */
+.thinking-toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  white-space: pre-wrap;
+  cursor: pointer;
+}
+.bubble.md {
+  white-space: normal;
+}
+.bubble.md p {
+  margin: 0 0 8px;
+}
+.bubble.md p:last-child {
+  margin-bottom: 0;
+}
+.bubble.md ul,
+.bubble.md ol {
+  margin: 4px 0 8px;
+  padding-left: 20px;
+}
+.bubble.md table {
+  border-collapse: collapse;
+  font-size: var(--fs-s);
+  margin: 6px 0;
+  display: block;
+  overflow-x: auto;
+}
+.bubble.md th,
+.bubble.md td {
+  border: 1px solid var(--border);
+  padding: 4px 6px;
+  text-align: left;
+}
+.bubble.md code {
+  font-size: var(--fs-s);
+  background: var(--bg);
+  padding: 1px 4px;
+  border-radius: var(--radius-xs);
+}
+
+/* ---------- 工具调用 ---------- */
+.tool {
+  background: var(--surface);
+  border-radius: var(--radius-l);
+  border-left: 3px solid var(--c-tool);
+  padding: 8px 12px;
+  font-size: var(--fs-m);
+}
+.tool-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.tool-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c-tool);
+  flex: none;
+}
+.tool-running .tool-dot {
+  animation: pulse 1s infinite;
+}
+.tool-error {
+  border-left-color: var(--high-fg);
+}
+.tool-error .tool-dot {
+  background: var(--high-fg);
+}
+.tool-name {
+  font-weight: 600;
+  flex: none;
+}
+.tool-brief {
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 说人话的那一句（67 号票）：有模板的调用代替"工具名 + 参数摘要" */
+.tool-said-text {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.45;
+  word-break: break-word;
+}
+.tool-result {
+  margin: 8px 0 0;
+  font-size: var(--fs-s);
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--muted);
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+/* ---------- 卡片底板 ---------- */
+.card {
+  background: var(--surface);
+  border: var(--panel-border);
+  border-radius: var(--radius-2xl);
+  padding: 14px;
+}
+.plan {
+  border: 1px solid var(--c-plan);
+}
+.auth-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+.auth-actions .btn {
+  flex: 1;
+  white-space: nowrap;
+}
+.auth-result {
+  margin-top: 12px;
+  font-size: var(--fs-m);
+  font-weight: 600;
+}
+.auth-result.ok {
+  color: var(--ok);
+}
+.auth-result.no {
+  color: var(--high-fg);
+}
+.error {
+  background: var(--high-bg);
+  color: var(--high-fg);
+  border-radius: var(--radius-l);
+  padding: 10px 12px;
+  font-size: var(--fs-m);
+}
+
+/* ---------- 输入框 ---------- */
+.composer {
+  flex: none;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 10px var(--space-page);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+.composer textarea {
+  flex: 1;
+  resize: none;
+  border-radius: var(--radius-l);
+  border: 1px solid var(--border);
+  background: var(--fill);
+  color: var(--text);
+  padding: 10px;
+  font: inherit;
+  min-height: 42px;
+  max-height: 120px;
+}
+/*
+ * 二狗在回复时输入框旁的"停止"（144 号票）和"追加"：宽屏图标加字；窄屏（竖屏，用户 2026-10-18）只留图标，
+ * 停止是红色圆钮里一个方块，追加是另一种颜色（--ok）的圆钮里一个加号，和左边灰色的附件"＋"分得开
+ */
+.composer-stop,
+.composer-append {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--on-color);
+  border: none;
+}
+.composer-stop {
+  background: var(--danger-fill);
+}
+.composer-append {
+  background: var(--ok);
+}
+.composer-append:disabled {
+  opacity: 0.5;
+}
+.composer-stop .stop-square {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: currentColor;
+}
+.app.narrow .composer-stop,
+.app.narrow .composer-append {
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border-radius: 50%;
+}
+.app.narrow .composer-append .icon {
+  font-size: 22px;
+}
+.app.narrow .composer-btn-label {
+  display: none;
+}
+/* 输入框外面一层：给秘书的假占位定位（43 号票：占位里的名字带底色，原生 placeholder 做不到） */
+.composer-field {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  display: flex;
+}
+.composer-field textarea {
+  min-width: 0;
+  /* 跟着字数长高（到 max-height 为止），右上角给"放大"钮留位 */
+  field-sizing: content;
+  padding-right: 32px;
+}
+/* 输入框右上角的"放大 / 收起"（用户 2026-10-18：多行看不清） */
+.composer-grow {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  font-size: 16px;
+  color: var(--muted);
+}
+.composer-spacer {
+  flex: 1;
+}
+/* 放大时输入框挪到按钮那一行上面（也是一个 .composer，几套风格给输入框的样子照样用上）：宽屏加高 */
+.composer.composer-big {
+  align-items: stretch;
+  padding-bottom: 0;
+  height: 50vh;
+}
+.composer-big .composer-field {
+  flex: 1;
+}
+.composer-big textarea {
+  max-height: none;
+  height: 100%;
+}
+.composer-wrap.big .composer:not(.composer-big) {
+  border-top: none;
+}
+/* 窄屏整屏输入：盖住整个页面，输入框占满，按钮一行在最下面 */
+.app.narrow .composer-wrap.big {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  padding-top: env(safe-area-inset-top);
+}
+.app.narrow .composer-wrap.big .composer-big {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+  border-top: none;
+}
+/* 假占位：和输入框里第一行字对齐（边框 1px + 内边距 10px），输入框空着才显示，不挡点击 */
+.composer-placeholder {
+  position: absolute;
+  top: 11px;
+  left: 11px;
+  right: 11px;
+  color: var(--muted);
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- 底部弹层 / 居中对话框 ---------- */
+.modal-mask {
+  position: fixed;
+  inset: 0;
+  background: var(--scrim);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 20;
+}
+.modal {
+  width: 100%;
+  max-height: 88%;
+  overflow-y: auto;
+  background: var(--surface);
+  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+  padding: 18px 16px;
+  padding-bottom: max(18px, var(--safe-bottom));
+}
+.modal-mask.modal-center {
+  align-items: center;
+  padding: 16px;
+}
+.modal-center .modal {
+  max-width: 520px;
+  border-radius: var(--radius-sheet);
+}
+.modal-title {
+  font-family: var(--font-title);
+  font-size: var(--fs-title);
+  font-weight: 600;
+}
+.modal-body p {
+  margin: 10px 0 0;
+  line-height: 1.5;
+}
+
+/*
+ * ---------- 弹出菜单（ui/popup.tsx） ----------
+ * 长按菜单这类经 portal 画在 App 外框最后的 .popup-layer 里，按屏幕坐标 fixed 定位（left / top 由界面算好写在行内）。
+ * 这一层压在输入栏、标题栏、宽屏的详情栏、窄屏滑入的详情页（.dp-host 是 10）、弹层（.modal-mask 是 20）之上，
+ * 在页面底部的短提示（.toast 是 40）和到点的提醒（.alert-stack 是 45）之下。菜单自己的样子由各自的类给（比如 .voice-menu）
+ */
+.popup-layer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 30;
+}
+.popup {
+  position: fixed;
+  max-width: calc(100vw - 16px);
+}
+
+/* ---------- 表单 ---------- */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 14px;
+  font-size: var(--fs-m);
+  color: var(--muted);
+}
+.field input,
+.field select,
+.field textarea,
+.input {
+  font: inherit;
+  font-size: var(--fs-l);
+  color: var(--text);
+  background: var(--fill);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  padding: 8px 10px;
+}
+.field textarea {
+  resize: vertical;
+  min-height: 72px;
+}
+/* 随内容长高的多行框（105 号票，ui/auto-grow-text.tsx）：高度由脚本按内容量，不出滚动条、不给拖 */
+textarea.auto-grow {
+  display: block;
+  width: 100%;
+  resize: none;
+  overflow: hidden;
+  line-height: 1.5;
+}
+select.input {
+  padding: 6px 8px;
+}

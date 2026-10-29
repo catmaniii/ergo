@@ -1,0 +1,9 @@
+{
+  "agentRoles.voiceUnavailable": "语音插件没启用：音色改不了，名字和角色照常",
+  "agentRoles.voiceNotFound": "没有这个参考音色：{id}",
+  "agentRoles.roleNotFound": "没有这个角色：{id}",
+  "agentRoles.defaultCannotDelete": "默认角色不能删：先把别的角色设成默认角色",
+  "agentRoles.roleInUse": "这个角色还有 agent 在用：{agents}；先把它们改成别的角色，或者改成跟默认",
+  "agentRoles.broken": "角色的配置文件读不了（{file}），先修好它或者删掉它再改",
+  "agentRoles.writeFailed": "角色的配置没写进去：{reason}"
+}

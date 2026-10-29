@@ -1,0 +1,139 @@
+{
+  "ports": {
+    "local": 8810,
+    "external": 8811
+  },
+  "media": {
+    "maxUploadBytes": 209715200
+  },
+  "approvals": {
+    "waitMinutes": 5
+  },
+  "guard": {
+    "conversationApprovals": "off"
+  },
+  "plugins": {
+    "disabled": [],
+    "removed": []
+  },
+  "web": {
+    "browserPath": "<Chrome 或 Edge 的可执行文件的绝对路径（不写就自动找）>"
+  },
+  "tasks": {
+    "maxRunning": 3,
+    "thresholds": {
+      "pullBacks": 3,
+      "nudges": 3,
+      "stallMinutes": 20,
+      "acceptanceReturns": 2,
+      "budgetExplainTimes": 1,
+      "budgetAskTimes": 2,
+      "rejections": 5,
+      "renewalLeadHours": 24,
+      "archiveAfterDays": 7
+    }
+  },
+  "reminders": {
+    "lateLimitMinutes": 60
+  },
+  "scheduledJobs": {
+    "jobFailures": 3
+  },
+  "eventSources": {
+    "folderSettleMs": 2000,
+    "folderRetryMs": 30000,
+    "maxRunSteps": 100
+  },
+  "agents": {
+    "maxLive": 8,
+    "idleMinutes": 10,
+    "modelCallMinutes": 5,
+    "toolCallMinutes": 10,
+    "orphanSweepSeconds": 60,
+    "browserIdleMinutes": 30
+  },
+  "shellTools": {
+    "longCallMinutes": 30
+  },
+  "tokenPrices": {
+    "currency": "CNY",
+    "models": {}
+  },
+  "materials": {
+    "staleCardDays": 7
+  },
+  "memory": {
+    "maxModelCalls": 200,
+    "extractor": "model",
+    "enabled": true
+  },
+  "toolCallDetails": {
+    "retentionDays": 90,
+    "maxSizeGB": 2
+  },
+  "voice": {
+    "recognizer": {
+      "mode": "spawn",
+      "url": "http://127.0.0.1:8091",
+      "python": "<装了 faster-whisper 的 python.exe 的绝对路径>",
+      "device": "cuda",
+      "model": "large-v3",
+      "computeType": "int8_float16",
+      "fallback": {
+        "device": "cpu",
+        "model": "small",
+        "computeType": "int8"
+      },
+      "idleMinutes": 0,
+      "timeout": {
+        "baseSeconds": 30,
+        "coldStartSeconds": 60,
+        "gpuPerAudioSecond": 1,
+        "cpuPerAudioSecond": 3
+      },
+      "language": "zh",
+      "initialPrompt": "以下是普通话的句子。",
+      "stripPatterns": [
+        "[请請]不吝?[点點][赞贊讚]",
+        "[订訂][阅閱].{0,6}[转轉][发發]",
+        "打[赏賞].{0,10}(明[镜鏡]|[点點][点點])",
+        "支持(明[镜鏡]|[点點][点點]).{0,6}[栏欄]目",
+        "字幕由.{0,10}提供"
+      ],
+      "autoRetrySeconds": [15, 60, 180]
+    },
+    "speech": {
+      "url": "http://127.0.0.1:8090",
+      "model": "<audio.cpp 服务上 Fish-Audio S2 Pro 的模型 id（常见的是 tts）>",
+      "timeout": {
+        "baseSeconds": 15,
+        "coldStartSeconds": 90,
+        "perSpeechSecond": 2
+      },
+      "probeSeconds": 60
+    },
+    "reply": {
+      "maxSeconds": 60,
+      "charsPerSecond": 4.5
+    }
+  },
+  "holidayCheck": {
+    "fromMonth": 12,
+    "dayOfMonth": 1,
+    "time": "09:00"
+  },
+  "publicAccess": {
+    "vpsHost": "<VPS 的公网 IP>",
+    "sshUser": "root",
+    "sshKey": "<ssh 私钥的绝对路径>",
+    "tunnelPort": 18811,
+    "nginx": {
+      "listen": "127.0.0.1:<前门转发到的本机端口，如 8443> ssl"
+    }
+  },
+  "backup": {
+    "time": "03:30",
+    "syncDir": "<同步目录的绝对路径>",
+    "schedule": "internal"
+  }
+}

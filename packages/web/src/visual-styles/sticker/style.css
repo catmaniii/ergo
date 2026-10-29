@@ -1,0 +1,1021 @@
+/*
+ * 贴纸便当（48 号票）：只靠 token（sticker/style.ts）做不到的规则，全部限定在 :root[data-style="sticker"] 下
+ * （不会漏到别的风格；设置里的预览把开头换成 :host(...)，所以根元素上只再加属性，见 src/visual-styles/preview.ts）。
+ * 设计稿：docs/design/styles/g-chat、g-tasks、g-inbox、g-wide（.dc.html）。要点：卡片、气泡、按钮、输入栏都是"贴纸"——
+ * 2px 墨色描边（--card-border / --panel-border，墨色就是正文色 --text）加不模糊的硬投影（--shadow-note，3px 3px 0 墨色）；
+ * 主按钮、你发的消息、选中的导航和分段是柠檬黄（--primary-fill），个人助理的语音、在做的事、按住说话是薄荷（--data-bg），
+ * 附件钮、命中关注类别的小签是蜜桃（--op-bg）；"要你"的事是暖红实心药丸（--you）。
+ * 站酷庆科黄油体只用在标题上（页面标题、看板分组、卡片类型……，--font-title），它只有一种字重，这些地方不加粗。
+ * 只换样子，不改结构：导航、页面上有什么、怎么排都和经典一样。
+ * 浅色深色只靠 token（light-dark()）切换，这里不写 [data-theme] 的规则（跟随系统时根元素上没有 data-theme）。
+ * 注意特异度：这里每条都比经典的规则高（:root + [data-style] + 类名），改了某个属性，经典里同一个元素按状态改这个属性的规则
+ * （.voice-cancel、.chip-collection.on、.attach-failed……）要在这里跟着再写一遍。
+ * 硬投影伸出元素右下 3px：贴纸都放在留了白的地方（页面左右留白、列表的内边距），不会被外面的滚动区裁掉。
+ */
+
+/* ---------- 通用 ---------- */
+:root[data-style="sticker"] {
+  /* 贴纸的描边就是"有框的卡片"那个 token（2px 墨色）：气泡、输入栏、分段切换、菜单、输入框……都用它；卡片自己由经典的规则按 token 画 */
+  --sticker-line: var(--card-border);
+  /* 画在里面的描边（不占地方：按钮、导航选中项、竖栏；细的给小签、名字标签、件数胶囊、工具名）和小一号的硬投影（按钮、导航选中项、名字贴纸） */
+  --sticker-ring: inset 0 0 0 2px var(--text);
+  --sticker-ring-thin: inset 0 0 0 1.5px var(--text);
+  --sticker-lift-s: 2px 2px 0 var(--text);
+  /*
+   * 选中的看板卡、待办行（宽屏右边开着的那一项）、日历选中的日子……的底色：淡黄。浅色 #ffe9c2、深色 #493b46，
+   * 上面的正文、说明文字、暖红、绿、覆盆子红、棕字都不低于 4.5:1（不在 token 表里，自己算过）
+   */
+  --sticker-pick: light-dark(#ffe9c2, #493b46);
+}
+:root[data-style="sticker"] body {
+  line-height: 1.5;
+}
+/* 黄油体只有一种字重：用到标题字体的地方都不加粗（浏览器硬描粗很难看） */
+:root[data-style="sticker"] .title,
+:root[data-style="sticker"] .empty-title,
+:root[data-style="sticker"] .modal-title,
+:root[data-style="sticker"] .siderail-brand,
+:root[data-style="sticker"] .sec-head h3,
+:root[data-style="sticker"] .bgroup-h b,
+:root[data-style="sticker"] .xcard-tag,
+:root[data-style="sticker"] .detail-bar-title {
+  font-weight: 400;
+}
+/* 小号的分组说明、副标题不用黄油体（设计稿里只有大标题用它：待我处理的分组是 12px 粗的正文字） */
+:root[data-style="sticker"] .inbox-group,
+:root[data-style="sticker"] .dt-section h4,
+:root[data-style="sticker"] .title-sub {
+  font-family: var(--font-body);
+}
+:root[data-style="sticker"] .sec-head h3 {
+  font-size: 18px;
+}
+:root[data-style="sticker"] .empty-title {
+  font-size: 24px;
+}
+:root[data-style="sticker"] .modal-title {
+  font-size: 22px;
+}
+:root[data-style="sticker"] .detail-bar-title {
+  font-size: 18px;
+}
+
+/* 画线条图标：图标是 --sticker-icon（按导航项、输入栏的按钮换），线条用当前字色画；原来的表情符号、全角加号藏起来 */
+:root[data-style="sticker"] .tab-icon,
+:root[data-style="sticker"] .attach-btn,
+:root[data-style="sticker"] .voice-toggle {
+  font-size: 0;
+}
+:root[data-style="sticker"] .tab-icon::before,
+:root[data-style="sticker"] .attach-btn::before,
+:root[data-style="sticker"] .voice-toggle::before {
+  content: "";
+  display: block;
+  width: 22px;
+  height: 22px;
+  background: currentColor;
+  -webkit-mask: var(--sticker-icon) center / contain no-repeat;
+  mask: var(--sticker-icon) center / contain no-repeat;
+}
+
+/* 标题栏：直接落在奶油色的底上（--bar-bg 就是 --bg，地址栏跟着它），不要下边线；28px 黄油体大标题 */
+:root[data-style="sticker"] .topbar,
+:root[data-style="sticker"] .detail-bar {
+  border-bottom: none;
+}
+:root[data-style="sticker"] .topbar {
+  gap: 12px;
+  padding-left: 20px;
+  padding-right: 16px;
+}
+/* 标题本身截断时要 overflow: hidden，留一圈内边距给标题里歪着贴的名字小贴纸和它的投影 */
+:root[data-style="sticker"] .topbar .title {
+  padding: 6px 4px 6px 0;
+  line-height: 1.2;
+}
+/* 带返回键的二级页（任务详情这类，TopBar 挂 data-back）：标题长，小一号，少截掉几个字 */
+:root[data-style="sticker"] .topbar[data-back] .title {
+  font-size: 22px;
+}
+:root[data-style="sticker"] .title-sub {
+  font-size: var(--fs-s);
+}
+/* 标题栏上的"发起任务"：柠檬黄贴纸（墨色描边、大一号的硬投影，设计稿的 .stk），44 高 */
+:root[data-style="sticker"] .topbar .btn.primary {
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: var(--radius-2xl);
+  font-size: var(--fs-l);
+  box-shadow:
+    var(--sticker-ring),
+    var(--shadow-note);
+}
+/*
+ * 可以点的小字（用户定）：墨色（--primary 就是正文色）加下划线，照设计稿 a { color: 墨色 }、"全部标已读"的下划线——
+ * "允许浏览器通知"、卡片下面的"引用 · 详情 ›"、回复下面的"收起 · 详情 ›"（.link-btn）……；选中的东西不靠字色，靠柠檬黄的底
+ */
+:root[data-style="sticker"] .link,
+:root[data-style="sticker"] .link-btn {
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+}
+/* 标题栏上的文字按钮（全部标已读）：粗字、2px 下划线（设计稿） */
+:root[data-style="sticker"] .topbar .link {
+  min-height: 44px;
+  padding: 0 6px;
+  font-size: var(--fs-l);
+  font-weight: 700;
+  text-decoration-thickness: 2px;
+}
+:root[data-style="sticker"] .topbar .link:disabled {
+  color: var(--muted);
+}
+
+/*
+ * 按钮：一律贴纸（2px 墨色描边、小一号的硬投影）；次要按钮是白底（设计稿的"拒绝"）。
+ * 描边画成内描边：不占地方，经典和各处按场合写的内边距（.btn.small、.ms-actions .btn……）照旧
+ */
+:root[data-style="sticker"] .btn {
+  font-weight: 700;
+  box-shadow:
+    var(--sticker-ring),
+    var(--sticker-lift-s);
+}
+:root[data-style="sticker"] .btn.ghost {
+  background: var(--surface);
+  color: var(--text);
+}
+:root[data-style="sticker"] .btn:disabled {
+  box-shadow: var(--sticker-ring);
+}
+/*
+ * 小签：加一圈墨色细线（设计稿的 .chip 是 2px 墨色描边的胶囊）。画成内描边，不占地方、不动经典的内边距；
+ * 底色、字色照经典（数据薄荷、命中关注类别蜜桃、出错……按 token）
+ */
+:root[data-style="sticker"] .chip {
+  font-weight: 700;
+  box-shadow: var(--sticker-ring-thin);
+}
+/* 本来就有边框的签不再加线：不显眼的签、锁住的签、普通任务的种类签（虚线框） */
+:root[data-style="sticker"] .chip-quiet,
+:root[data-style="sticker"] .chip-locked,
+:root[data-style="sticker"] .kind-chip.kind-plain {
+  box-shadow: none;
+}
+/* 选中的技能集合签：经典靠强调色的外圈（被上面那条盖掉了），这套的强调色是墨色，选中改靠柠檬黄的底 */
+:root[data-style="sticker"] .chip-collection.on {
+  background: var(--primary-fill);
+  color: var(--primary-text);
+}
+/*
+ * 个人助理的名字：柠檬黄的小贴纸（设计稿的 .name：墨色描边、粗字）。正文里画成内描边，不撑高行、不歪；
+ * 标题里、输入框的占位里照设计稿歪着贴、带投影（下面）
+ */
+:root[data-style="sticker"] .assistant-name {
+  padding: 0 5px;
+  border-radius: var(--radius-s);
+  box-shadow: var(--sticker-ring-thin);
+  font-weight: 700;
+}
+:root[data-style="sticker"] .topbar .title .assistant-name,
+:root[data-style="sticker"] .composer-placeholder .assistant-name {
+  display: inline-block;
+  border: var(--sticker-line);
+  border-radius: 8px;
+  box-shadow: var(--sticker-lift-s);
+  transform: rotate(-3deg);
+}
+/*
+ * 标题里的名字（用户定）：就是设计稿 g-chat 标题旁那颗"二狗"小贴纸——13px 正文字体粗字、左右 7、圆角 8、歪 3 度，
+ * 不是 28px 黄油体的大标题。秘书页的标题"个人秘书：<名字>"（89 号票）就是设计稿"个人助理 [二狗]"的样子：黄油体的字后面一颗小贴纸
+ */
+:root[data-style="sticker"] .topbar .title .assistant-name {
+  margin: 0 4px 0 2px;
+  padding: 0 7px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.5;
+  vertical-align: middle;
+}
+/*
+ * 秘书页的标题：小贴纸和黄油体的字竖着居中（设计稿 g-chat）；小贴纸是固定的 13px，窄屏缩字号的算式（base.css 的 .secretary-title）
+ * 只缩前缀：前缀 = 格宽 - 小贴纸（13 × 字数 + 左右各 7 + 描边各 2 + 外边距 2、4）- 余量 2；黄油体的字窄，"个人秘书："五个字
+ * 只有 3.8 个字号宽（算式按 3.9 留一点余量，小数点上的出入不至于把名字截掉）
+ */
+:root[data-style="sticker"] .secretary-title {
+  align-items: center;
+  font-size: clamp(var(--fs-s), calc((100cqw - 26px - 13px * var(--secretary-fit-chars, 4)) / 3.9), var(--fs-title));
+}
+/* 占位里的是设计稿 .name 的 12px；左右收紧，360 宽的手机上"和 名字 说…"也放得下 */
+:root[data-style="sticker"] .composer-placeholder .assistant-name {
+  margin: 0 3px;
+  padding: 0 5px;
+  font-size: var(--fs-s);
+  line-height: 1.5;
+}
+
+/*
+ * 分段切换（设计稿待我处理的"待处理 / 已处理 / 已归档"）：一条白色胶囊贴纸，里面平分，选中的那一段是柠檬黄、墨色描边。
+ * 单选的（外观、消耗的时间段……）、任务详情的页签也是这个样子；放不下时每段可以收窄到字宽（发起任务弹层里四段也放得下）
+ */
+:root[data-style="sticker"] .seg {
+  margin: 4px 16px 8px;
+  padding: 4px;
+  gap: 4px;
+  border: var(--sticker-line);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  box-shadow: var(--shadow-note);
+}
+/* 排在页面内容里的（消耗的时间段、外观、模型的思考档位、弹层里的）不另留外边距，跟着内容的排法 */
+:root[data-style="sticker"] .page-pad > .seg,
+:root[data-style="sticker"] .appearance-choice .seg,
+:root[data-style="sticker"] .model-choice .seg,
+:root[data-style="sticker"] .modal .seg {
+  margin: 0;
+}
+/* 发起任务弹层里"什么时候做"的两排：经典上下留的间距被上面那条盖掉了，再写一遍 */
+:root[data-style="sticker"] .when-picker .when-seg {
+  margin: 4px 0 6px;
+}
+:root[data-style="sticker"] .when-picker .timed-seg {
+  margin: 0 0 6px;
+}
+:root[data-style="sticker"] .seg button {
+  flex: 1 1 auto;
+  min-height: 40px;
+  padding: 0 8px;
+  border: 2px solid transparent;
+  border-radius: var(--radius-pill);
+  font-weight: 700;
+}
+:root[data-style="sticker"] .seg button.on {
+  border-color: var(--text);
+  background: var(--primary-fill);
+  color: var(--primary-text);
+}
+/* 外观的三个选项照经典平分一行（上面那条的 flex 盖掉了 .appearance-choice .seg button 的 flex: 1，再写一遍） */
+:root[data-style="sticker"] .appearance-choice .seg button {
+  flex: 1 1 0;
+}
+
+/* 底板（设置项、项目页的头部、聊天里的卡片……）：描边由 --panel-border 给，这里加硬投影 */
+:root[data-style="sticker"] .card {
+  box-shadow: var(--shadow-note);
+}
+/* 弹出的菜单、录音面板、短提示、到点的提醒：都是贴纸 */
+:root[data-style="sticker"] .attach-menu,
+:root[data-style="sticker"] .row-menu,
+:root[data-style="sticker"] .slash-menu,
+:root[data-style="sticker"] .voice-panel,
+:root[data-style="sticker"] .alert-banner {
+  border: var(--sticker-line);
+}
+:root[data-style="sticker"] .voice-panel.voice-cancel {
+  border-color: var(--high-fg);
+}
+/* 录音时输入栏上面的提示条（没有麦克风权限这类）：同样描边 */
+:root[data-style="sticker"] .voice-notice {
+  border: var(--sticker-line);
+}
+:root[data-style="sticker"] .toast {
+  border: var(--sticker-line);
+  background: var(--surface);
+  color: var(--text);
+}
+/* 语音气泡的长按菜单：经典是正文色的深底，和墨色投影糊在一起，换成白底贴纸 */
+:root[data-style="sticker"] .voice-menu {
+  border: var(--sticker-line);
+  background: var(--surface);
+}
+:root[data-style="sticker"] .voice-menu button {
+  color: var(--text);
+}
+:root[data-style="sticker"] .voice-menu button:hover:not(:disabled) {
+  background: var(--fill);
+}
+/* 设置列表里选中的那一项（宽屏）：柠檬黄、墨色内描边，副标题也是墨色字 */
+:root[data-style="sticker"] .menu-item.on {
+  background: var(--primary-fill);
+  color: var(--primary-text);
+  box-shadow: var(--sticker-ring);
+}
+:root[data-style="sticker"] .menu-item.on small {
+  color: var(--primary-text);
+}
+/* 底部弹层、居中的对话框：墨色描边（弹层贴着屏幕底边，下面不描），对话框加大投影 */
+:root[data-style="sticker"] .modal {
+  border: var(--sticker-line);
+  border-bottom: none;
+}
+:root[data-style="sticker"] .modal-center .modal {
+  border-bottom: var(--sticker-line);
+  box-shadow: var(--shadow-menu);
+}
+/* 表单的输入框：2px 墨色描边 */
+:root[data-style="sticker"] .field input,
+:root[data-style="sticker"] .field select,
+:root[data-style="sticker"] .field textarea,
+:root[data-style="sticker"] .input {
+  border: var(--sticker-line);
+}
+/*
+ * 经典靠强调色的边框、淡底表示选中的几处：这套的强调色是墨色（和别的边框分不太开），改靠柠檬黄的底（上面一律墨色字，
+ * 说明小字也跟着墨色：灰字压在柠檬黄上只有 3.3:1）；格子里有灰字、彩色小标的（日历的日子、定时作业、技能集合）用淡黄底
+ */
+:root[data-style="sticker"] .style-option.on,
+:root[data-style="sticker"] .sc-mode.on,
+:root[data-style="sticker"] .ic-tabs button.on {
+  border-color: var(--text);
+  background: var(--primary-fill);
+  color: var(--primary-text);
+}
+:root[data-style="sticker"] .style-option.on .style-option-text small,
+:root[data-style="sticker"] .sc-mode.on span {
+  color: var(--primary-text);
+}
+:root[data-style="sticker"] .cal-on,
+:root[data-style="sticker"] .sjob-row.on,
+:root[data-style="sticker"] .skill-collection.on {
+  background: var(--sticker-pick);
+}
+/* 提问卡的选项：贴纸描边；选中的照经典换成"跟你有关"的颜色 */
+:root[data-style="sticker"] .qa-opt {
+  border: var(--sticker-line);
+}
+:root[data-style="sticker"] .qa-opt.on {
+  border-color: var(--you);
+}
+
+/* ---------- 主导航 ---------- */
+/* 图标换成设计稿的圆头线条图标（按 data-nav 认是哪一项） */
+:root[data-style="sticker"] [data-nav="secretary"] {
+  --sticker-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 12a8 8 0 0 1-8 8H8l-4 3v-5.5A8 8 0 0 1 12 4h1a8 8 0 0 1 8 8z'/%3E%3C/svg%3E");
+}
+:root[data-style="sticker"] [data-nav="tasks"] {
+  --sticker-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='4' width='16' height='16' rx='5'/%3E%3Cpath d='m8 12 3 3 5-6'/%3E%3C/svg%3E");
+}
+:root[data-style="sticker"] [data-nav="projects"] {
+  --sticker-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/%3E%3C/svg%3E");
+}
+:root[data-style="sticker"] [data-nav="inbox"] {
+  --sticker-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z'/%3E%3Cpath d='M10 20a2 2 0 0 0 4 0'/%3E%3C/svg%3E");
+}
+:root[data-style="sticker"] [data-nav="calendar"] {
+  --sticker-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='16' rx='4'/%3E%3Cpath d='M3 10h18M8 3v4M16 3v4'/%3E%3C/svg%3E");
+}
+:root[data-style="sticker"] [data-nav="browse"] {
+  --sticker-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M3 12h18M12 3c2.5 2.5 3.75 5.5 3.75 9S14.5 18.5 12 21c-2.5-2.5-3.75-5.5-3.75-9S9.5 5.5 12 3z'/%3E%3C/svg%3E");
+}
+:root[data-style="sticker"] [data-nav="usage"] {
+  --sticker-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20v-8M10 20V5M16 20v-6M2 20h20'/%3E%3C/svg%3E");
+}
+:root[data-style="sticker"] [data-nav="memory"] {
+  --sticker-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m12 3-9 5 9 5 9-5-9-5z'/%3E%3Cpath d='m3 13 9 5 9-5'/%3E%3C/svg%3E");
+}
+:root[data-style="sticker"] [data-nav="settings"] {
+  --sticker-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1'/%3E%3C/svg%3E");
+}
+:root[data-style="sticker"] [data-nav="more"] {
+  --sticker-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Ccircle cx='5' cy='12' r='2.2'/%3E%3Ccircle cx='12' cy='12' r='2.2'/%3E%3Ccircle cx='19' cy='12' r='2.2'/%3E%3C/svg%3E");
+}
+/*
+ * 当前那一项：柠檬黄贴纸（墨色描边、小投影、墨色粗字）。描边画成内描边：竖栏只有 43px 宽，真占 2px 会把两个字的名字挤成省略号；
+ * 不占地方也就不影响 33 号票量导航长度
+ */
+:root[data-style="sticker"] .tab {
+  border-radius: var(--radius-l);
+}
+:root[data-style="sticker"] .tab.on {
+  background: var(--primary-fill);
+  color: var(--primary-text);
+  font-weight: 700;
+  box-shadow:
+    var(--sticker-ring),
+    var(--sticker-lift-s);
+}
+/*
+ * 竖屏：底部横栏没有白条，几项直接排在奶油色的底上（设计稿）。每项约 52 高（图标 22 + 间隔 2 + 名字一行 + 上下内边距 7，
+ * 靠内边距撑、不写死高度：设置里的预览只画图标、不写名字，横栏跟着矮下来）
+ */
+:root[data-style="sticker"] .tabbar {
+  padding: 6px 12px calc(12px + var(--safe-bottom));
+  border-top: none;
+  background: none;
+}
+:root[data-style="sticker"] .tabbar .tab {
+  justify-content: center;
+  padding: 7px 2px;
+}
+/* 宽屏：左侧竖栏是一张竖着的贴纸（宽度照旧按"图标 + 两个字"算；右边框留着位置、不画，描边画成内描边） */
+:root[data-style="sticker"] .siderail {
+  margin: 12px 0 12px 12px;
+  padding: 12px 4px;
+  border-right-color: transparent;
+  border-radius: 16px;
+  box-shadow:
+    var(--sticker-ring),
+    var(--shadow-note);
+}
+:root[data-style="sticker"] .siderail-brand {
+  padding: 0 0 12px;
+  font-size: 18px;
+}
+:root[data-style="sticker"] .siderail .tab {
+  padding: 8px 3px;
+}
+:root[data-style="sticker"] .siderail .tab.on {
+  background: var(--primary-fill);
+}
+/*
+ * 待办的提示：看过没处理的件数是白底墨圈的小胶囊（设计稿角标的样子，按产品的含义不上色），大小照经典（15 高），只压住图标的右上角；
+ * 未读的点是暖红、墨色描边
+ */
+/* 线条图标把 22px 的格子画满了（经典的表情符号四周有空），整组提示往右上多挪一点，件数只压住图标顶上一小截 */
+:root[data-style="sticker"] .tab-badges {
+  top: -9px;
+  right: -10px;
+}
+/* 竖栏只有 43px：横向照经典，不然未读的点探出竖栏的滚动区、被裁掉半个 */
+:root[data-style="sticker"] .siderail .tab-badges {
+  right: -8px;
+}
+:root[data-style="sticker"] .tab-count {
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  box-shadow: var(--sticker-ring-thin);
+  color: var(--text);
+  font-weight: 700;
+}
+:root[data-style="sticker"] .tab-dot {
+  width: 11px;
+  height: 11px;
+  border: var(--sticker-line);
+  box-shadow: none;
+}
+
+/* ---------- 聊天 ---------- */
+/* 时间写在话的上面（设计稿："二狗 08:00"在话上面一行小字；产品的消息只带时间） */
+:root[data-style="sticker"] .msg-meta {
+  order: -1;
+  font-size: var(--fs-xs);
+}
+/*
+ * 气泡（文字、语音一样）：贴纸。个人助理的白色（语音是薄荷）、左上角是尖角，你的柠檬黄、右上角是尖角（时间在上面）；
+ * 描边是四周一圈，顺带去掉经典个人助理那一侧的左边竖线和阶段抽屉 .md 带来的下边线
+ */
+:root[data-style="sticker"] .assistant .bubble,
+:root[data-style="sticker"] .user .bubble,
+:root[data-style="sticker"] .voice-bubble {
+  border: var(--sticker-line);
+  box-shadow: var(--shadow-note);
+}
+:root[data-style="sticker"] .assistant .bubble,
+:root[data-style="sticker"] .assistant .voice-bubble {
+  border-radius: var(--radius-xs) var(--radius-2xl) var(--radius-2xl) var(--radius-2xl);
+}
+:root[data-style="sticker"] .user .bubble,
+:root[data-style="sticker"] .user .voice-bubble {
+  border-radius: var(--radius-2xl) var(--radius-xs) var(--radius-2xl) var(--radius-2xl);
+}
+:root[data-style="sticker"] .assistant .bubble,
+:root[data-style="sticker"] .user .bubble {
+  padding: 12px 14px;
+  line-height: 1.5;
+}
+/* 气泡里的链接：设计稿里是墨色（跟着气泡的字色），加下划线；经典没给 a 定色，是浏览器默认的蓝 */
+:root[data-style="sticker"] .bubble a {
+  color: inherit;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 2px;
+}
+/* 宽屏下一行不拉太长：个人助理的话最宽 520、卡片最宽 560（设计稿 g-wide） */
+:root[data-style="sticker"] .app.wide .msg.assistant .msg-part {
+  max-width: min(100%, 560px);
+}
+:root[data-style="sticker"] .app.wide .msg.assistant .part-text {
+  max-width: min(92%, 520px);
+}
+:root[data-style="sticker"] .app.wide .conv-scroll {
+  padding-left: 24px;
+  padding-right: 24px;
+}
+/* 工具调用组那一行：白底墨色描边的长胶囊（不浮起，比消息轻一档）；出了状况的描边换成那种颜色（圆点照旧） */
+:root[data-style="sticker"] .tool-sum {
+  padding: 4px 12px;
+  border: var(--sticker-line);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+}
+:root[data-style="sticker"] .tool-sum-stopped {
+  border-color: var(--high-fg);
+}
+:root[data-style="sticker"] .tool-sum-you {
+  border-color: var(--you);
+}
+/* 日期分隔：居中的一颗白色胶囊 */
+:root[data-style="sticker"] .day-sep {
+  width: fit-content;
+  margin: 6px auto 2px;
+  padding: 1px 12px;
+  border: var(--sticker-line);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--fs-s);
+  font-weight: 700;
+}
+
+/*
+ * 语音气泡：描边、投影、尖角和文字气泡一起写在上面（个人助理的是薄荷底）；播放键是 32 的白色圆、墨色描边，
+ * 里面一个三角（设计稿深色下你那条的三角是深色画在深色圆上，看不见；这里三角一律用正文色，浅深都看得清）；
+ * 波形竖条 4 像素、高 22；下半截上面一道 2px 的点线。
+ * 播放键（32）、间隔（10）、竖条（4 隔 3）、左右内边距（12）、两侧描边（合起来 4）是 token（style.ts 的 voice-*），
+ * styles/voice.css 按它画，框宽、波形格数也按它算（42 号票的共用办法）；这里只画样子
+ */
+:root[data-style="sticker"] .assistant .voice-bubble {
+  background: var(--data-bg);
+  color: var(--text);
+}
+:root[data-style="sticker"] .voice-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--voice-key);
+  border: var(--sticker-line);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0;
+}
+:root[data-style="sticker"] .voice-icon::before {
+  content: "";
+  width: 16px;
+  height: 16px;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M8 5v14l11-7z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M8 5v14l11-7z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+:root[data-style="sticker"] .voice-playing .voice-icon::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 5h3.5v14H7zM13.5 5H17v14h-3.5z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 5h3.5v14H7zM13.5 5H17v14h-3.5z'/%3E%3C/svg%3E");
+}
+:root[data-style="sticker"] .voice-wave-mini {
+  height: 22px;
+  opacity: 0.8;
+}
+:root[data-style="sticker"] .voice-wave-mini i {
+  border-radius: 2px;
+}
+:root[data-style="sticker"] .voice-playing .voice-wave-mini {
+  opacity: 1;
+}
+:root[data-style="sticker"] .voice-duration {
+  font-weight: 700;
+}
+:root[data-style="sticker"] .assistant .voice-duration {
+  color: var(--muted);
+}
+/* 下半截上面的点线跟着框里的字色（你那条在黄底上是墨色，深色下也是） */
+:root[data-style="sticker"] .voice-body {
+  padding-top: 8px;
+  border-top: 2px dotted currentColor;
+}
+
+/*
+ * 输入栏：一张白色贴纸（左右离开屏幕边 16），附件是蜜桃色的圆角方钮、切语音 / 文字是柠檬黄的圆角方钮（墨色描边、线条图标）；
+ * 输入框本身没有框。下面留出 6px：横栏紧跟在后面，贴纸的投影不被它压住
+ */
+:root[data-style="sticker"] .composer {
+  margin: 4px 16px 6px;
+  padding: 6px;
+  gap: 8px;
+  border: var(--sticker-line);
+  border-radius: 16px;
+  box-shadow: var(--shadow-note);
+}
+:root[data-style="sticker"] .app.wide .composer {
+  margin: 4px 24px 20px;
+}
+:root[data-style="sticker"] .composer textarea {
+  min-height: 44px;
+  padding: 11px 8px;
+  border: none;
+  border-radius: 0;
+  background: none;
+}
+/* 假占位和输入框第一行字对齐（没有边框了：内边距 11 / 8）；上下多留 3、4 给歪着贴的名字标签，top 跟着往上挪 3 */
+:root[data-style="sticker"] .composer-placeholder {
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  padding: 3px 0 4px;
+}
+:root[data-style="sticker"] .attach-btn,
+:root[data-style="sticker"] .voice-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: var(--sticker-line);
+  border-radius: var(--radius-l);
+}
+:root[data-style="sticker"] .attach-btn {
+  --sticker-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E");
+  background: var(--op-bg);
+  color: var(--text);
+}
+:root[data-style="sticker"] .voice-toggle {
+  background: var(--primary-fill);
+  color: var(--primary-text);
+}
+:root[data-style="sticker"] .voice-toggle[data-to="voice"] {
+  --sticker-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='9' y='3' width='6' height='11' rx='3'/%3E%3Cpath d='M5 11a7 7 0 0 0 14 0M12 18v3'/%3E%3C/svg%3E");
+}
+:root[data-style="sticker"] .voice-toggle[data-to="text"] {
+  --sticker-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='6' width='18' height='12' rx='3'/%3E%3Cpath d='M7 10h.01M11 10h.01M15 10h.01M7 14h10'/%3E%3C/svg%3E");
+}
+/* 发送：输入栏里的钮只有描边、不带投影（设计稿输入栏里的附件、语音钮就是这样） */
+:root[data-style="sticker"] .composer .btn.primary {
+  min-height: 44px;
+  padding: 0 16px;
+  box-shadow: var(--sticker-ring);
+}
+/* 按住 说话：薄荷色的长条、墨色描边、墨色粗字（设计稿 g-wide）；按住时变柠檬黄 */
+:root[data-style="sticker"] .voice-hold {
+  min-height: 44px;
+  border: var(--sticker-line);
+  border-radius: var(--radius-l);
+  background: var(--data-bg);
+  color: var(--text);
+  font-weight: 700;
+}
+:root[data-style="sticker"] .voice-hold-active {
+  background: var(--primary-fill);
+  color: var(--primary-text);
+}
+:root[data-style="sticker"] .voice-hold.voice-cancel {
+  border-color: var(--high-fg);
+  background: var(--high-bg);
+  color: var(--high-fg);
+}
+:root[data-style="sticker"] .voice-hold-off {
+  background: var(--surface);
+  color: var(--muted);
+  font-weight: 400;
+}
+/* 输入栏上面等着发的引用、附件：不再接成一条白板，各自是小贴纸，排在奶油色的底上 */
+:root[data-style="sticker"] .quote-list,
+:root[data-style="sticker"] .attach-list {
+  padding: 8px 16px 2px;
+  border-top: none;
+  background: none;
+}
+:root[data-style="sticker"] .quote-bar {
+  border: var(--sticker-line);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+}
+:root[data-style="sticker"] .attach {
+  background: var(--surface);
+  box-shadow: var(--sticker-ring);
+}
+:root[data-style="sticker"] .attach-material {
+  background: var(--data-bg);
+}
+:root[data-style="sticker"] .attach-failed {
+  background: var(--high-bg);
+}
+:root[data-style="sticker"] .conn-note {
+  margin: 0 16px 6px;
+  border: var(--sticker-line);
+  border-radius: var(--radius-pill);
+  text-align: center;
+}
+/* 会话里的"等你处理"栏（107 号票）：和输入栏一样描边的圆角贴纸 */
+:root[data-style="sticker"] .ibar,
+:root[data-style="sticker"] .missed-voices {
+  margin: 4px 16px 2px;
+  border: var(--sticker-line);
+  border-radius: 16px;
+  box-shadow: var(--shadow-note);
+}
+:root[data-style="sticker"] .app.wide .ibar,
+:root[data-style="sticker"] .app.wide .missed-voices {
+  margin: 4px 24px 2px;
+}
+
+/* ---------- 卡片 ---------- */
+/*
+ * 卡片（审批卡……）：白色贴纸，圆角 16；类型标签是 20px 黄油体的小标题（设计稿的"要你批准"），不铺底；标题另起一行。
+ * 标签的字色照经典按类型分（look.css 规矩 1）：要你拍板的（审批、提问……）是"跟你有关"的暖红，计划、计划变更是计划的橙，
+ * 进展、通知灰——这里只去掉底色，不写字色（设计稿"要你批准"是墨色，为了颜色只给发生了的事，不照它）
+ */
+:root[data-style="sticker"] .xcard {
+  gap: 10px;
+  border-radius: 16px;
+}
+:root[data-style="sticker"] .xcard-head {
+  gap: 8px 10px;
+}
+:root[data-style="sticker"] .xcard-tag {
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  font-size: 20px;
+  line-height: 1.2;
+}
+/*
+ * 计划的橙：经典是橙 65% 混正文色、压在淡橙底上；这里没有底，直接压在卡片上，浅色下不到 4.5:1，加深成橙 45%
+ * （浅色 #835f39 白底 5.74:1，深色 #f3cfa7 卡片底 9.9:1）
+ */
+:root[data-style="sticker"] .xt-plan,
+:root[data-style="sticker"] .xt-plan_change {
+  color: color-mix(in srgb, var(--c-plan) 45%, var(--text));
+}
+:root[data-style="sticker"] .xcard-title {
+  flex-basis: 100%;
+  font-size: var(--fs-l);
+  font-weight: 500;
+  line-height: 1.45;
+}
+/* 处理过的：不再浮起，类型灰字；正文不降透明度（经典淡到 0.78，灰字的对比度会掉到 4.5 以下） */
+:root[data-style="sticker"] .xcard-done {
+  box-shadow: none;
+}
+:root[data-style="sticker"] .xcard-done .xcard-tag {
+  color: var(--muted);
+}
+:root[data-style="sticker"] .xcard-done .xcard-body {
+  opacity: 1;
+}
+/* 卡片里的命令：单独一块虚线描边的代码（设计稿），工具名（cards.tsx 的 .tool-title）是一颗薄荷小签 */
+:root[data-style="sticker"] .xcard .tool-title {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--data-bg);
+  box-shadow: var(--sticker-ring-thin);
+  color: var(--text);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+:root[data-style="sticker"] .xcard .tool-line code {
+  display: block;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 2px dashed var(--text);
+  border-radius: var(--radius-m);
+  background: var(--fill);
+  font-family: var(--font-mono);
+  font-size: var(--fs-s);
+  line-height: 1.5;
+  word-break: break-all;
+}
+/* 卡片上的两个按钮：44 高，确认的宽一点（设计稿 1 : 1.4）；宽屏会话里靠右、按字宽（设计稿 g-wide） */
+:root[data-style="sticker"] .auth-actions .btn {
+  min-height: 44px;
+  font-size: var(--fs-l);
+}
+:root[data-style="sticker"] .auth-actions .btn.primary {
+  flex-grow: 1.4;
+}
+:root[data-style="sticker"] .app.wide .xcard .auth-actions {
+  justify-content: flex-end;
+}
+:root[data-style="sticker"] .app.wide .xcard .auth-actions .btn {
+  flex: none;
+  min-width: 100px;
+  padding: 0 16px;
+}
+:root[data-style="sticker"] .app.wide .xcard .auth-actions .btn.primary {
+  min-width: 136px;
+}
+
+/* ---------- 任务看板：一张张白色贴纸，分组标题是黄油体，件数在白色小胶囊里 ---------- */
+:root[data-style="sticker"] .board {
+  padding: 6px 16px 20px;
+  gap: 14px;
+}
+:root[data-style="sticker"] .bgroup {
+  gap: 10px;
+}
+:root[data-style="sticker"] .bgroup-h {
+  align-items: center;
+  padding: 4px 4px 2px;
+}
+:root[data-style="sticker"] .bgroup-h b {
+  font-size: 22px;
+  line-height: 1.25;
+}
+/* 分组标题不上色（设计稿）：等你的那一组靠卡片上的暖红药丸 */
+:root[data-style="sticker"] .bg-waiting .bgroup-h b {
+  color: var(--text);
+}
+:root[data-style="sticker"] .bgroup-n {
+  min-width: 26px;
+  height: 26px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: var(--sticker-line);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--fs-s);
+  font-weight: 700;
+}
+:root[data-style="sticker"] .bcard {
+  gap: 6px;
+  padding: 12px 14px;
+  box-shadow: var(--shadow-note);
+}
+:root[data-style="sticker"] .bcard-static {
+  background: var(--surface);
+}
+:root[data-style="sticker"] .bcard-title {
+  font-size: var(--fs-body);
+  font-weight: 700;
+  line-height: 1.4;
+}
+/* 结束了的：不再浮起、不铺白底，标题不加粗（设计稿是整张卡降透明度，那样灰字的对比度不够） */
+:root[data-style="sticker"] .bg-ended .bcard,
+:root[data-style="sticker"] .bg-archived .bcard {
+  background: none;
+  box-shadow: none;
+}
+:root[data-style="sticker"] .bg-ended .bcard-title,
+:root[data-style="sticker"] .bg-archived .bcard-title {
+  font-weight: 500;
+}
+/* 宽屏右边开着的那一张：淡黄底（描边照旧是墨色；写在"结束了的"后面，选中时压过它的透明底） */
+:root[data-style="sticker"] .bcard.on {
+  border-color: var(--text);
+  background: var(--sticker-pick);
+}
+/*
+ * 状态：墨色描边的小药丸（设计稿的 .pill）。.st 这个类挂在任务的状态（st-*，看板卡、任务详情、项目页）、定时触发的每次运行
+ * （run-st-*）、工单（wo-*）上；经典按状态给字色的规则特异度都比这里低，所以每种状态在这里按 .st.<状态> 再写一遍
+ * （只认带 .st 的，任务详情里阶段的状态 dt-status ms-st st-* 不是药丸，不受影响）：
+ * - 跟你有关（暖红实心、字是卡片底色）：等你、待确认；工单等你、待你确认、在澄清；
+ * - 在做（薄荷底、墨色字）：规划中、执行中、运营中；运行中；工单在做；
+ * - 做成了（白底、绿字）：运行完成、工单完成；
+ * - 出错（覆盆子红）：失败；运行失败、被打断；工单退回、做不了；
+ * - 运行部分完成（176 号票：有一步没做成、别的做完了）：淡橙底、橙字；
+ * - 中性（白底灰字）：排队中、等时间、已完成、已取消、已归档、已暂停，运行排队、跳过——有意和经典不一样：经典里排队、等时间是
+ *   op 色、已完成是绿，设计稿看板上的"排队中""已完成"都是中性的白药丸（.p-idle），照设计稿。基础规则也是白底灰字，兜住以后新加的状态
+ */
+:root[data-style="sticker"] .st {
+  display: inline-block;
+  padding: 1px 9px;
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--sticker-ring);
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  line-height: 1.6;
+}
+:root[data-style="sticker"] .st.st-waiting_for_user,
+:root[data-style="sticker"] .st.st-awaiting_confirm,
+:root[data-style="sticker"] .st.wo-waiting_for_user,
+:root[data-style="sticker"] .st.wo-awaiting_confirm,
+:root[data-style="sticker"] .st.wo-clarifying {
+  background: var(--you);
+  color: var(--surface);
+}
+:root[data-style="sticker"] .st.st-running,
+:root[data-style="sticker"] .st.st-planning,
+:root[data-style="sticker"] .st.st-ops,
+:root[data-style="sticker"] .st.st-operating,
+:root[data-style="sticker"] .st.run-st-running,
+:root[data-style="sticker"] .st.wo-in_progress {
+  background: var(--data-bg);
+  color: var(--text);
+}
+:root[data-style="sticker"] .st.run-st-done,
+:root[data-style="sticker"] .st.wo-done {
+  color: var(--ok);
+}
+:root[data-style="sticker"] .st.st-queued,
+:root[data-style="sticker"] .st.st-scheduled,
+:root[data-style="sticker"] .st.st-done,
+:root[data-style="sticker"] .st.st-cancelled,
+:root[data-style="sticker"] .st.st-archived,
+:root[data-style="sticker"] .st.st-paused,
+:root[data-style="sticker"] .st.run-st-queued,
+:root[data-style="sticker"] .st.run-st-dropped,
+:root[data-style="sticker"] .st.run-st-rolled_back {
+  color: var(--muted);
+}
+:root[data-style="sticker"] .st.run-st-partial {
+  background: var(--op-bg);
+  color: var(--op-fg);
+}
+:root[data-style="sticker"] .st.st-failed,
+:root[data-style="sticker"] .st.run-st-failed,
+:root[data-style="sticker"] .st.run-st-interrupted,
+:root[data-style="sticker"] .st.wo-unable,
+:root[data-style="sticker"] .st.wo-returned {
+  background: var(--high-bg);
+  color: var(--high-fg);
+}
+/* 进度条（60 号票产品已有的 sl-progress）：墨色描边的小胶囊，柠檬黄填充 */
+:root[data-style="sticker"] .sl-progress {
+  height: 9px;
+  border: 1.5px solid var(--text);
+  background: var(--surface);
+}
+:root[data-style="sticker"] .sl-progress i {
+  background: var(--primary-fill);
+}
+
+/* ---------- 待我处理：一行一张白色贴纸；看过的不浮起；未读的点在右边（设计稿） ---------- */
+/* 左右留白 8（不是 16）：未读的点在卡片里占了一格，说明那一行（类型 · 来源 · 时间）还要和经典一样排得下一行 */
+:root[data-style="sticker"] .inbox-list {
+  padding: 4px 8px 20px;
+}
+/* 分组说明一律灰字（设计稿；经典按紧急度上色，紧急度还看得到每行的小方块） */
+:root[data-style="sticker"] .inbox-group {
+  padding: 10px 6px 6px;
+  font-size: var(--fs-s);
+  font-weight: 700;
+}
+:root[data-style="sticker"] .ig-blocking_deadline,
+:root[data-style="sticker"] .ig-blocking,
+:root[data-style="sticker"] .ig-pinned {
+  color: var(--muted);
+}
+:root[data-style="sticker"] .inbox-row {
+  position: relative;
+  margin: 0 0 10px;
+  gap: 0;
+  border: var(--sticker-line);
+  border-radius: var(--radius-2xl);
+  background: var(--surface);
+}
+:root[data-style="sticker"] .inbox-row.unread {
+  box-shadow: var(--shadow-note);
+}
+:root[data-style="sticker"] .inbox-row.on {
+  background: var(--sticker-pick);
+}
+:root[data-style="sticker"] .inbox-main {
+  align-items: center;
+  padding: 12px 2px 12px 10px;
+}
+/*
+ * 未读的点（用户定：和设计稿一样在卡片里面）：暖红、墨色描边的 12px 小圆，竖着居中，排在行尾"⋯"的左边。
+ * "⋯"固定 40 宽、字靠右（右边留 6），点画在它左边空出来的那一截里（绝对定位：不另占一格，说明那一行和经典一样宽；
+ * 不接点击，点到那里还是打开"⋯"的菜单）；看过的那一行这个位置空着
+ */
+:root[data-style="sticker"] .inbox-dot {
+  position: absolute;
+  top: 50%;
+  right: 28px;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0;
+  pointer-events: none;
+}
+:root[data-style="sticker"] .unread .inbox-dot {
+  border: var(--sticker-line);
+}
+:root[data-style="sticker"] .inbox-title {
+  font-weight: 500;
+}
+:root[data-style="sticker"] .unread .inbox-title {
+  font-weight: 700;
+}
+:root[data-style="sticker"] .inbox-row .icon-btn {
+  width: 40px;
+  padding: 4px 6px 4px 0;
+  color: var(--muted);
+  font-size: 18px;
+  text-align: right;
+}
+:root[data-style="sticker"] .inbox-hint {
+  padding: 0 6px;
+}
+
+/* ---------- 宽屏的分栏、详情：都落在奶油色的底上，里面的卡片是贴纸 ---------- */
+:root[data-style="sticker"] .pane-list,
+:root[data-style="sticker"] .pane-detail,
+:root[data-style="sticker"] .detail,
+:root[data-style="sticker"] .dp-page {
+  background: var(--bg);
+}
+/* 任务详情里的工单、每次运行：也是贴纸描边（运行那一块左边按结果上色的竖条照旧，只换另外三边） */
+:root[data-style="sticker"] .wo-row {
+  border: var(--sticker-line);
+}
+:root[data-style="sticker"] .run-row {
+  border-width: 2px 2px 2px 4px;
+  border-top-color: var(--text);
+  border-right-color: var(--text);
+  border-bottom-color: var(--text);
+}

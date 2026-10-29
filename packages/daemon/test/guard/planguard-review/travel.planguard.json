@@ -1,0 +1,553 @@
+{
+	"id": "travel",
+	"name": "出差行程改签",
+	"tools": {
+		"flight_change": {
+			"args": {
+				"flightNo": {
+					"pattern": "^[A-Z0-9]{2}\\d{3,4}$"
+				},
+				"expectedFee": {
+					"type": "number"
+				}
+			}
+		},
+		"ride_book": {
+			"args": {
+				"time": {
+					"pattern": "^\\d{2}:\\d{2}(\\+\\d)?$"
+				},
+				"from": {
+					"pattern": "^北京"
+				}
+			}
+		},
+		"ride_cancel": {
+			"args": {
+				"id": {
+					"pattern": "^[a-z]+_\\w+$"
+				}
+			}
+		},
+		"hotel_modify": {
+			"args": {
+				"checkIn": {
+					"pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+				},
+				"checkOut": {
+					"pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+				}
+			}
+		}
+	},
+	"choices": [
+		{
+			"var": "flight",
+			"when": {
+				"any": {
+					"from": "$plan.steps",
+					"where": {
+						"eq": [
+							"$row.tool",
+							"flight_change"
+						]
+					}
+				}
+			},
+			"domain": {
+				"select": {
+					"from": "$facts.flights",
+					"where": {
+						"ne": [
+							"$row.current",
+							true
+						]
+					}
+				}
+			},
+			"fixed": {
+				"find": {
+					"from": "$facts.flights",
+					"where": {
+						"eq": [
+							"$row.flightNo",
+							{
+								"get": [
+									{
+										"find": {
+											"from": "$plan.steps",
+											"as": "s",
+											"where": {
+												"eq": [
+													"$s.tool",
+													"flight_change"
+												]
+											}
+										}
+									},
+									"args.flightNo"
+								]
+							}
+						]
+					}
+				}
+			},
+			"label": "$flight.flightNo"
+		}
+	],
+	"binds": [
+		{
+			"tool": "flight_change",
+			"arg": "flightNo",
+			"value": "$flight.flightNo"
+		},
+		{
+			"tool": "flight_change",
+			"arg": "expectedFee",
+			"value": "$flight.changeFee"
+		},
+		{
+			"tool": "ride_book",
+			"arg": "time",
+			"value": {
+				"fmt_time": {
+					"add": [
+						{
+							"time": "$flight.arrive"
+						},
+						"$facts.ride.transfer_min"
+					]
+				}
+			}
+		},
+		{
+			"tool": "ride_book",
+			"arg": "from",
+			"value": "$flight.to"
+		}
+	],
+	"rules": [
+		{
+			"id": "T1",
+			"title": "改签前必须先查询航班和差价",
+			"trigger": {
+				"tool": "flight_change"
+			},
+			"require": {
+				"before": {
+					"tool": "flight_search"
+				}
+			},
+			"message": "改签之前没有查询可改签的航班和差价",
+			"repairs": [
+				{
+					"insert": {
+						"tool": "flight_search",
+						"title": "查询 {facts.trip_day} 晚上可改签的航班",
+						"args": {
+							"date": "$facts.trip_day",
+							"after": "18:00"
+						},
+						"share": "search"
+					}
+				}
+			]
+		},
+		{
+			"id": "T2",
+			"title": "酒店和用车的调整要排在改签之后",
+			"trigger": {
+				"tool": [
+					"hotel_modify",
+					"ride_book",
+					"ride_cancel"
+				]
+			},
+			"when": {
+				"any": {
+					"from": "$plan.steps",
+					"where": {
+						"eq": [
+							"$row.tool",
+							"flight_change"
+						]
+					}
+				}
+			},
+			"require": {
+				"before": {
+					"tool": "flight_change"
+				}
+			},
+			"message": "「{current.title}」排在改签之前，但它依赖改签后的落地时间",
+			"repairs": [
+				{
+					"move_after": {
+						"tool": "flight_change"
+					}
+				}
+			]
+		},
+		{
+			"id": "T3",
+			"title": "原接机司机接不了新航班时，要取消原订单",
+			"trigger": {
+				"tool": "flight_change"
+			},
+			"modes": [
+				"plan"
+			],
+			"when": {
+				"or": [
+					{
+						"gt": [
+							{
+								"add": [
+									{
+										"time": "$flight.arrive"
+									},
+									"$facts.ride.transfer_min"
+								]
+							},
+							{
+								"time": "$facts.ride.driver_until"
+							}
+						]
+					},
+					{
+						"ne": [
+							"$flight.to",
+							"$facts.ride.airport"
+						]
+					}
+				]
+			},
+			"require": {
+				"check": {
+					"any": {
+						"from": "$plan.steps",
+						"where": {
+							"eq": [
+								"$row.tool",
+								"ride_cancel"
+							]
+						}
+					}
+				}
+			},
+			"message": "{flight.flightNo} 落地后原接机司机接不了，计划里缺少取消原接机单",
+			"repairs": [
+				{
+					"insert": {
+						"tool": "ride_cancel",
+						"title": "取消原接机单（不退款）",
+						"position": "after",
+						"share": "cancel",
+						"args": {
+							"id": "$facts.ride.booking"
+						}
+					}
+				}
+			]
+		},
+		{
+			"id": "T4",
+			"title": "原接机司机接不了新航班时，要重新约车",
+			"trigger": {
+				"tool": "flight_change"
+			},
+			"modes": [
+				"plan"
+			],
+			"when": {
+				"or": [
+					{
+						"gt": [
+							{
+								"add": [
+									{
+										"time": "$flight.arrive"
+									},
+									"$facts.ride.transfer_min"
+								]
+							},
+							{
+								"time": "$facts.ride.driver_until"
+							}
+						]
+					},
+					{
+						"ne": [
+							"$flight.to",
+							"$facts.ride.airport"
+						]
+					}
+				]
+			},
+			"require": {
+				"check": {
+					"any": {
+						"from": "$plan.steps",
+						"where": {
+							"eq": [
+								"$row.tool",
+								"ride_book"
+							]
+						}
+					}
+				}
+			},
+			"message": "{flight.flightNo} 落地后原接机司机接不了，计划里缺少重新约车",
+			"repairs": [
+				{
+					"insert": {
+						"tool": "ride_book",
+						"title": "重新预约 {flight.to} 接机",
+						"position": "after",
+						"share": "book",
+						"args": {
+							"time": {
+								"fmt_time": {
+									"add": [
+										{
+											"time": "$flight.arrive"
+										},
+										"$facts.ride.transfer_min"
+									]
+								}
+							},
+							"from": "$flight.to",
+							"to": "$facts.hotel.name"
+						}
+					}
+				}
+			]
+		},
+		{
+			"id": "T5",
+			"title": "赶不上酒店保留时间时，要调整酒店订单",
+			"trigger": {
+				"tool": "flight_change"
+			},
+			"modes": [
+				"plan"
+			],
+			"when": {
+				"gt": [
+					{
+						"add": [
+							{
+								"time": "$flight.arrive"
+							},
+							"$facts.ride.hotel_transfer_min"
+						]
+					},
+					{
+						"time": "$facts.hotel.hold_until"
+					}
+				]
+			},
+			"require": {
+				"check": {
+					"any": {
+						"from": "$plan.steps",
+						"where": {
+							"eq": [
+								"$row.tool",
+								"hotel_modify"
+							]
+						}
+					}
+				}
+			},
+			"message": "{flight.flightNo} 到酒店会晚于保留时间 {facts.hotel.hold_until}，计划里缺少调整酒店订单",
+			"repairs": [
+				{
+					"insert": {
+						"tool": "hotel_modify",
+						"title": "通知酒店晚到并保留房间",
+						"position": "after",
+						"share": "hotel",
+						"args": {
+							"checkIn": "$facts.trip_day",
+							"checkOut": "$facts.hotel.checkOut"
+						}
+					}
+				}
+			]
+		},
+		{
+			"id": "T6",
+			"title": "约车的时间和上车地点要和新航班对得上",
+			"trigger": {
+				"tool": "ride_book"
+			},
+			"when": {
+				"present": "$flight"
+			},
+			"require": {
+				"check": {
+					"and": [
+						{
+							"ge": [
+								{
+									"time": "$current.args.time"
+								},
+								{
+									"add": [
+										{
+											"time": "$flight.arrive"
+										},
+										"$facts.ride.transfer_min"
+									]
+								}
+							]
+						},
+						{
+							"eq": [
+								"$current.args.from",
+								"$flight.to"
+							]
+						}
+					]
+				}
+			},
+			"message": "约车 {current.args.time} 从 {current.args.from} 出发，和 {flight.flightNo}（{flight.arrive} 落地 {flight.to}）对不上",
+			"repairs": [
+				{
+					"rewrite": {
+						"set": {
+							"time": {
+								"fmt_time": {
+									"add": [
+										{
+											"time": "$flight.arrive"
+										},
+										"$facts.ride.transfer_min"
+									]
+								}
+							},
+							"from": "$flight.to"
+						},
+						"title": "按 {flight.flightNo} 调整约车时间和上车地点"
+					}
+				}
+			]
+		},
+		{
+			"id": "T7",
+			"title": "改签扣款要和查询到的差价一致",
+			"trigger": {
+				"tool": "flight_change"
+			},
+			"modes": [
+				"runtime"
+			],
+			"require": {
+				"check": {
+					"eq": [
+						"$current.args.expectedFee",
+						{
+							"get": [
+								{
+									"find": {
+										"from": "$facts.flights",
+										"where": {
+											"eq": [
+												"$row.flightNo",
+												"$current.args.flightNo"
+											]
+										}
+									}
+								},
+								"changeFee"
+							]
+						}
+					]
+				}
+			},
+			"message": "改签 {current.args.flightNo} 的扣款 {current.args.expectedFee} 和查询到的差价不一致"
+		}
+	],
+	"quantities": {
+		"spend": {
+			"per_step": {
+				"flight_change": {
+					"get": [
+						{
+							"find": {
+								"from": "$facts.flights",
+								"where": {
+									"eq": [
+										"$row.flightNo",
+										"$current.args.flightNo"
+									]
+								}
+							}
+						},
+						"changeFee"
+					]
+				},
+				"hotel_modify": "$facts.hotel.modify_fee",
+				"ride_book": {
+					"if": [
+						{
+							"or": [
+								{
+									"ge": [
+										{
+											"time": "$current.args.time"
+										},
+										1320
+									]
+								},
+								{
+									"lt": [
+										{
+											"time": "$current.args.time"
+										},
+										360
+									]
+								}
+							]
+						},
+						"$facts.ride.night_price",
+						"$facts.ride.day_price"
+					]
+				}
+			}
+		}
+	},
+	"objective": [
+		{
+			"minimize": "spend"
+		}
+	],
+	"conformance": {
+		"sensitive": [
+			"flight_change",
+			"hotel_modify",
+			"ride_book",
+			"ride_cancel"
+		],
+		"once": [
+			"flight_change",
+			"ride_cancel",
+			"hotel_modify"
+		],
+		"within": {
+			"flight_change": {
+				"eq": [
+					"$call.args.flightNo",
+					"$step.args.flightNo"
+				]
+			},
+			"ride_cancel": {
+				"eq": [
+					"$call.args.id",
+					"$step.args.id"
+				]
+			}
+		}
+	}
+}

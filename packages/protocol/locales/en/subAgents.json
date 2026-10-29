@@ -1,0 +1,16 @@
+{
+  "subAgents.line": "{agentId} on stage {stageId} “{stageTitle}”",
+  "subAgents.lineStep": "{agentId} on “{step}” in stage {stageId} “{stageTitle}”",
+  "subAgents.source": "{origin} · sub-agent {agentId} of stage {stageId}",
+  "subAgents.cardAgent": "{agent}: {instructions}",
+  "subAgents.sep": "; ",
+  "subAgents.cardText_one": "Confirm parallel work: task “{title}” wants to send {n} sub-agent to work at the same time ({reason}). {each}",
+  "subAgents.cardText_other": "Confirm parallel work: task “{title}” wants to send {n} sub-agents to work at the same time ({reason}). {each}",
+  "subAgents.decision.parallel_one": "Agreed that task “{title}” sends {n} sub-agent in parallel: {each}",
+  "subAgents.decision.parallel_other": "Agreed that task “{title}” sends {n} sub-agents in parallel: {each}",
+  "subAgents.decision.sequential_one": "No parallel work, do it in order: the maintainer of task “{title}” proposed sending {n} sub-agent in parallel ({each})",
+  "subAgents.decision.sequential_other": "No parallel work, do it in order: the maintainer of task “{title}” proposed sending {n} sub-agents in parallel ({each})",
+  "subAgents.inboxTitle": "Confirm parallel work: {title}",
+  "subAgents.dirGone": "Sub-agent {agentId}'s folder {dir} is gone",
+  "subAgents.tool.propose": "Propose parallel work"
+}

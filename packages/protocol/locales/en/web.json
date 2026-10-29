@@ -1,0 +1,4 @@
+{
+  "web.settings.badFormat": "Wrong format: {detail}",
+  "web.settings.invalid": "invalid"
+}

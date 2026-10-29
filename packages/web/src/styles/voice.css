@@ -1,0 +1,455 @@
+/* 语音消息（31 号票）：输入框的语音模式（按住说话、录音面板）和聊天里的语音气泡 */
+
+/* ---------- 按住 说话 ---------- */
+.voice-input {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+.voice-hold {
+  width: 100%;
+  min-height: 42px;
+  border-radius: var(--radius-l);
+  border: 1px solid var(--border);
+  background: var(--fill);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  /* 按住时不选中文字、不滚动页面、不弹出系统菜单 */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: none;
+  transition: background-color var(--fx-1) var(--ease);
+}
+.voice-hold-active {
+  background: color-mix(in srgb, var(--primary) 18%, var(--bg));
+  border-color: var(--primary);
+}
+.voice-hold.voice-cancel {
+  background: var(--high-bg);
+  border-color: var(--high-fg);
+  color: var(--high-fg);
+}
+.voice-hold-off {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: 0;
+  font-weight: 400;
+  padding: 6px 10px;
+  text-align: center;
+}
+.voice-toggle {
+  align-self: flex-end;
+  padding: 9px 6px;
+}
+
+/* 录音面板：浮在输入框上方，离拇指远一点 */
+.voice-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 14px);
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px 12px;
+  border-radius: var(--radius-2xl);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-menu);
+  pointer-events: none;
+  animation: v2-rise var(--fx-1) var(--ease) both;
+}
+.voice-panel.voice-cancel {
+  background: var(--high-bg);
+  border-color: var(--high-fg);
+}
+.voice-panel-time {
+  font-size: var(--fs-m);
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.voice-panel-hint {
+  font-size: var(--fs-s);
+  color: var(--muted);
+}
+.voice-cancel .voice-panel-hint,
+.voice-cancel .voice-panel-time {
+  color: var(--high-fg);
+  font-weight: 600;
+}
+/* 最近一小段滚动的波形：新的在右边 */
+.voice-wave {
+  width: 100%;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.voice-wave i {
+  flex: 1;
+  min-height: 3px;
+  border-radius: 2px;
+  background: var(--primary);
+  opacity: 0.85;
+  transition: height 90ms linear;
+}
+.voice-cancel .voice-wave i {
+  background: var(--high-fg);
+}
+/* 当前音量 */
+.voice-meter {
+  width: 60%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  overflow: hidden;
+}
+.voice-meter i {
+  display: block;
+  height: 100%;
+  background: var(--ok);
+  transition: width 90ms linear;
+}
+.voice-notice {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 10px);
+  z-index: 15;
+  padding: 8px 12px;
+  border-radius: var(--radius-l);
+  background: var(--op-bg);
+  color: var(--op-fg);
+  font-size: var(--fs-m);
+  text-align: center;
+  box-shadow: var(--shadow-note);
+}
+.voice-notice-denied,
+.voice-notice-failed {
+  background: var(--high-bg);
+  color: var(--high-fg);
+}
+.voice-notice .link {
+  margin-left: 8px;
+  font-size: var(--fs-s);
+}
+
+/*
+ * ---------- 语音气泡 ----------
+ * 一个框（36 号票）：播放条和时长在上，文字那一块在下（用户发的语音识别出的文字或"识别中…"这类说法；agent 发的语音
+ * "转文字"展开的原文）。没有下半截时框的宽度随时长（行内 width）；有下半截时随时长的宽度只是最小宽度（行内 min-width），
+ * 框按文字撑开，最宽和文字气泡一样。
+ * 42 号票起播放条的尺寸（框的左右内边距、agent 一侧的竖线、播放键、间隔、波形竖条）是风格的 voice-* token：页面按同样的
+ * token 算框宽和波形画几格（state/voice.ts 的 VoiceBarSizes、src/visual-styles/voice.ts），这里改用别的数会对不上。
+ */
+.voice-msg {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  max-width: 100%;
+}
+.user .voice-msg {
+  align-items: flex-end;
+}
+.voice-bubble {
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 10px var(--voice-pad);
+  border: none;
+  border-radius: var(--radius-2xl);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.user .voice-bubble {
+  background: var(--user-bubble);
+  color: var(--user-text);
+  border-bottom-right-radius: var(--radius-xs);
+}
+.assistant .voice-bubble {
+  max-width: 92%;
+  border-bottom-left-radius: var(--radius-xs);
+  border-left: var(--voice-line) solid var(--c-reply);
+}
+/*
+ * 框里上面那一行：播放图标、波形、时长（用户的从右往左排，照微信）。各自只占自己的宽度、挨着排（69 号票）：
+ * 框因为文字变宽时，多出来的空白留在行尾（用户的整行靠右，空白在左边）
+ */
+.voice-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--voice-gap);
+}
+.user .voice-bar {
+  flex-direction: row-reverse;
+}
+.voice-icon {
+  flex: none;
+  width: var(--voice-key);
+  font-size: var(--fs-s);
+  text-align: center;
+}
+/*
+ * 波形只占它自己那几格（69 号票）：格数按时长定（状态层的 voiceWave），在随时长的宽度里放得下，所以不撑宽框
+ * （有文字时框宽取文字和随时长的最小宽度里大的那个）。万一放不下（字体比预想的宽）就收窄、截掉尾巴，时长照样紧跟在后面。
+ * 这里的尺寸（播放键、间隔、竖条、格间、框的内边距）是风格的 voice-* token（42 号票），页面按同样的数算格数
+ */
+.voice-wave-mini {
+  flex: 0 1 auto;
+  min-width: 0;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  gap: var(--voice-bar-gap);
+  overflow: hidden;
+  opacity: 0.55;
+}
+.user .voice-wave-mini {
+  flex-direction: row-reverse;
+}
+.voice-wave-mini i {
+  flex: none;
+  width: var(--voice-bar);
+  border-radius: 1px;
+  background: currentColor;
+}
+.voice-playing .voice-wave-mini {
+  opacity: 1;
+}
+.voice-duration {
+  font-family: var(--font-num);
+  flex: none;
+  font-size: var(--fs-m);
+  font-variant-numeric: tabular-nums;
+}
+/* 分段合成中（38 号票）：时长后面的"合成中"，淡一点、慢慢呼吸 */
+.voice-note {
+  flex: none;
+  font-size: var(--fs-xs);
+  opacity: 0.65;
+  white-space: nowrap;
+  animation: voice-note-breathe 1.6s ease-in-out infinite;
+}
+@keyframes voice-note-breathe {
+  50% {
+    opacity: 0.35;
+  }
+}
+/* 开始语音输入时被暂停在半路的"已暂停"（209 号票）：是个停着的状态，不呼吸 */
+.voice-note-still {
+  animation: none;
+}
+/*
+ * 框里下面那一块，和播放条之间一道细线。颜色都跟着框里的字色走（currentColor、透明度），
+ * 所以在用户的蓝框（白字）和 agent 的框（浅色、深色外观下的正文色）里都看得清
+ */
+.voice-body {
+  margin-top: 8px;
+  padding-top: 7px;
+  border-top: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  white-space: pre-wrap;
+  word-break: break-word;
+  animation: v2-rise var(--fx-1) var(--ease) both;
+}
+/* 识别出的文字、展开的原文 */
+.voice-text {
+  font-size: var(--fs-l);
+  line-height: 1.55;
+}
+/* 发送中、识别中、没识别出文字、识别失败这类说法 */
+.voice-status {
+  font-size: var(--fs-s);
+  opacity: 0.78;
+}
+.voice-status-failed {
+  opacity: 1;
+  font-weight: 600;
+}
+/* 自动播放被浏览器拦下了：不折行，短语音的框按它撑开（组件这时把随时长的宽度当最小宽度） */
+.voice-tap-hint {
+  white-space: nowrap;
+  margin-top: 6px;
+  font-size: var(--fs-s);
+  font-weight: 600;
+  color: var(--primary);
+}
+.user .voice-tap-hint {
+  color: inherit;
+}
+/* 长按 / 右键的菜单：画在应用框最上面的弹出层里（ui/popup.tsx 的 .popup），位置由界面贴着气泡算，这里只管样子 */
+.voice-menu {
+  display: flex;
+  padding: 4px;
+  border-radius: var(--radius-l);
+  background: var(--text);
+  box-shadow: var(--shadow-menu);
+  animation: v2-rise var(--fx-1) var(--ease) both;
+}
+.voice-menu button {
+  border: none;
+  background: none;
+  color: var(--surface);
+  font-size: var(--fs-m);
+  padding: 7px 10px;
+  border-radius: 7px;
+  white-space: nowrap;
+}
+.voice-menu button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--surface) 15%, transparent);
+}
+.voice-menu button:disabled {
+  opacity: 0.45;
+}
+
+/* agent 的回复在合成语音（32 号票）：会话末尾一行 */
+.voice-synth {
+  font-size: var(--fs-s);
+  padding: 2px 4px;
+  animation: v2-rise var(--fx-1) var(--ease) both;
+}
+
+/* 设置 · 语音：参考音色（32 号票） */
+.voice-ref-row {
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+.voice-ref-row b {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.voice-ref-text {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  word-break: break-word;
+}
+.voice-ref-actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/*
+ * 角色（248 号票）：⚙ 面板里的那块（ui/agent-roles.tsx），和设置 · 角色与声音这一页（pages/more/RolesPage.tsx）。
+ * 这一页是两张规整的表（2026-10-23 用户："做成规整的表格，现在都没对齐，太随意了"）：角色表（角色名 ｜ 音色 ｜ 谁在用 ｜ 操作）、
+ * agent 表（agent ｜ 角色 ｜ 名字 ｜ 音色 ｜ 当前状态）。表格本身用全站那套 .tbl（pages.css），这里只管三件事：
+ * 窄了横向滚（.tbl-scroll）、单元格里的输入框和下拉占满自己那一列、操作那一列不折行。
+ */
+.agent-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+/* 表格窄了（手机宽：角色表四列、agent 表五列）先横向滚，不要把列挤成一团 */
+.tbl-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-top: 10px;
+}
+.role-table {
+  min-width: 600px;
+}
+.agent-role-table {
+  min-width: 520px;
+}
+.role-table td,
+.role-table th,
+.agent-role-table td,
+.agent-role-table th {
+  vertical-align: middle;
+}
+/* 名字输入框、音色下拉、角色下拉都占满自己那一列（列宽由表头和内容一起定） */
+.role-table .input,
+.agent-role-table .input {
+  width: 100%;
+  min-width: 84px;
+}
+/* 角色那一列要放得下默认角色的小签 + 名字输入框 */
+/* 第一列只有单选钮：窄，居中，把"默认"标出来又不挤名字那一列 */
+.role-table .col-default {
+  width: 56px;
+  white-space: nowrap;
+  text-align: center;
+}
+.role-table .col-default input {
+  margin: 0;
+}
+.role-table .col-role {
+  width: 34%;
+}
+.role-table .col-voice {
+  width: 26%;
+}
+.role-table .col-used {
+  width: 18%;
+  font-size: var(--fs-s);
+}
+.role-table .col-actions,
+.agent-role-table .col-actions {
+  width: 1%;
+  white-space: nowrap;
+}
+/* 操作那一格：按钮横着排、不折行（格子窄了就横向滚，见 .tbl-scroll） */
+.role-actions-cell {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.agent-role-table .col-agent {
+  width: 46%;
+}
+.agent-role-table .col-role {
+  width: 32%;
+}
+.agent-role-table .col-status {
+  width: 22%;
+}
+
+/* 设置 · 语音：识别、合成两个模型的状态（45 号票）。小签在前，说明（用的模型、设备、加载耗时；原因）跟在后面，窄了就折行 */
+.voice-model-status {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin-top: 2px;
+}
+.voice-model-status .muted {
+  word-break: break-word;
+}
+.voice-engines {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.voice-engines .radio-row > span {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.voice-sub-head {
+  margin-top: 6px;
+  font-size: var(--fs-m);
+  font-weight: 600;
+}

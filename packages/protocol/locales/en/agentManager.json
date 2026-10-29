@@ -1,0 +1,6 @@
+{
+  "agentManager.minutes": "{n} min",
+  "agentManager.seconds": "{n} s",
+  "agentManager.modelTimeout": "The model call didn't finish within {duration} and was stopped",
+  "agentManager.toolTimeout": "The call to tool {tool} didn't finish within {duration} and was stopped"
+}

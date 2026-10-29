@@ -1,0 +1,8 @@
+{
+  "slashCommands.workflow": "Start a workflow: the maintainer lays out the steps, you authorize once, and it follows them",
+  "slashCommands.longRunning": "Start a long-running task: the maintainer works in stages, and each stage is reviewed",
+  "slashCommands.interview": "Start a get-to-know-you interview: one topic at a time; what you share goes into memory, and profile details are confirmed with you at the end",
+  "slashCommands.consolidate": "Consolidate memory now: the same run as the nightly 03:00 one, turning collected material into conclusions",
+  "slashCommands.hint.whatToDo": "<what to do>",
+  "slashCommands.hint.topic": "[topic]"
+}

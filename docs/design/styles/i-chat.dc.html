@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>I 水墨国风 · 个人助理聊天</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600&amp;family=Ma+Shan+Zheng&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#B3261E}a:hover{color:#8E1D17}
+.root{--bg:#FBFAF7;--surface:#FFFFFF;--text:#222222;--muted:#6A6A66;--accent:#B3261E;--accent-ink:#FFFFFF;--accent-soft:#F6E7E4;--rule:rgba(0,0,0,0.2);--wash:#EFEDE6;--ink:#1A1A1A;--ink-on:#FBFAF7}
+.root.dark{--bg:#141413;--surface:#1E1E1C;--text:#ECE8DF;--muted:#A39E93;--accent:#E0574B;--accent-ink:#1A0C0A;--accent-soft:#3A2320;--rule:rgba(255,255,255,0.2);--wash:#26262A;--ink:#ECE8DF;--ink-on:#141413}
+.root button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;padding:0}
+.cal{font-family:'Ma Shan Zheng','Noto Serif SC',serif;font-weight:400}
+.ic{width:22px;height:22px;flex:none}
+.tab{flex:1;min-height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--muted);font-size:11px;position:relative}
+.tab.on{color:var(--accent);font-weight:600}
+.tab.on::after{content:"";position:absolute;bottom:6px;width:5px;height:5px;background:var(--accent)}
+.bar{width:2px;background:currentColor}
+.chip{font-size:11px;padding:1px 6px;border:1px solid var(--rule);border-radius:2px;color:var(--muted)}
+.seal{display:inline-block;padding:0 5px;background:var(--accent);color:var(--accent-ink);border-radius:2px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.45);font-family:'Ma Shan Zheng','Noto Serif SC',serif;font-size:13px;line-height:1.55;vertical-align:middle}
+</style>
+</helmet>
+<div class="root {{themeClass}}" style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); color: var(--text); font-family: 'Noto Serif SC', 'Songti SC', serif; font-size: 15px; line-height: 1.7; --accent: {{accent}}">
+
+  <header style="display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding: 22px 22px 12px; border-bottom: 1px solid var(--rule)">
+    <div style="display: flex; flex-direction: column; gap: 2px">
+      <h1 style="margin: 0; font-size: 30px; line-height: 1.2; display: flex; align-items: baseline; gap: 10px"><span class="cal">个人助理</span><span class="seal">二狗</span></h1>
+      <div style="font-size: 12px; color: var(--muted); letter-spacing: 0.1em">十月七日 · 周三 · 秘书主线</div>
+    </div>
+    <button type="button" style="min-height: 44px; padding: 0 12px; border: 1px solid var(--ink); border-radius: 2px; font-size: 14px; letter-spacing: 0.1em">发起任务</button>
+  </header>
+
+  <main style="flex: 1; min-height: 0; overflow: hidden; padding: 20px 22px 8px; display: flex; flex-direction: column; gap: 20px">
+
+    <div style="display: flex; flex-direction: column; gap: 6px; max-width: 300px">
+      <div style="display: flex; gap: 10px; align-items: baseline; font-size: 12px; color: var(--muted)"><span class="seal">二狗</span>08:00</div>
+      <div style="background: var(--wash); border-radius: 2px; padding: 12px 14px"><p style="margin: 0; text-wrap: pretty">早上好。今天有两件事等你：「家庭照片整理与去重」第 2 阶段有一条命令要你批准；「交房租」的提醒 9 点到。</p></div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px">
+      <div style="font-size: 12px; color: var(--muted)">08:03</div>
+      <button type="button" aria-label="语音 6 秒，点一下播放，长按看更多" style="width: 240px; text-align: left; background: var(--ink); color: var(--ink-on); border-radius: 2px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px">
+        <span style="display: flex; align-items: center; gap: 10px">
+          <svg viewBox="0 0 24 24" aria-hidden="true" style="width: 16px; height: 16px; flex: none"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
+          <span style="flex: 1; display: flex; align-items: center; gap: 3px; height: 20px"><i class="bar" style="height: 6px"></i><i class="bar" style="height: 12px"></i><i class="bar" style="height: 18px"></i><i class="bar" style="height: 10px"></i><i class="bar" style="height: 16px"></i><i class="bar" style="height: 20px"></i><i class="bar" style="height: 14px"></i><i class="bar" style="height: 8px"></i><i class="bar" style="height: 15px"></i><i class="bar" style="height: 19px"></i><i class="bar" style="height: 11px"></i><i class="bar" style="height: 7px"></i><i class="bar" style="height: 13px"></i><i class="bar" style="height: 17px"></i><i class="bar" style="height: 9px"></i><i class="bar" style="height: 5px"></i><i class="bar" style="height: 12px"></i><i class="bar" style="height: 8px"></i><i class="bar" style="height: 4px"></i></span>
+          <span style="font-size: 12px">六秒</span>
+        </span>
+        <span style="display: block; border-top: 1px solid rgba(128,128,128,0.5); padding-top: 8px; font-size: 14px; line-height: 1.6">照片那个你先说说是什么命令，别急着删。</span>
+      </button>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <div style="display: flex; gap: 10px; align-items: baseline; font-size: 12px; color: var(--muted)"><span class="seal">二狗</span>08:03</div>
+      <button type="button" aria-label="语音 12 秒，点一下播放，长按转文字" style="width: 272px; text-align: left; background: var(--wash); border-radius: 2px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px">
+        <span style="display: flex; align-items: center; gap: 10px">
+          <svg viewBox="0 0 24 24" aria-hidden="true" style="width: 16px; height: 16px; flex: none; color: var(--accent)"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
+          <span style="flex: 1; display: flex; align-items: center; gap: 3px; height: 20px"><i class="bar" style="height: 8px"></i><i class="bar" style="height: 14px"></i><i class="bar" style="height: 20px"></i><i class="bar" style="height: 12px"></i><i class="bar" style="height: 6px"></i><i class="bar" style="height: 16px"></i><i class="bar" style="height: 20px"></i><i class="bar" style="height: 10px"></i><i class="bar" style="height: 18px"></i><i class="bar" style="height: 9px"></i><i class="bar" style="height: 13px"></i><i class="bar" style="height: 19px"></i><i class="bar" style="height: 7px"></i><i class="bar" style="height: 15px"></i><i class="bar" style="height: 11px"></i><i class="bar" style="height: 17px"></i><i class="bar" style="height: 8px"></i><i class="bar" style="height: 5px"></i><i class="bar" style="height: 12px"></i><i class="bar" style="height: 14px"></i><i class="bar" style="height: 6px"></i><i class="bar" style="height: 4px"></i></span>
+          <span style="font-size: 12px; color: var(--muted)">十二秒</span>
+        </span>
+        <span style="display: block; border-top: 1px solid var(--rule); padding-top: 6px; font-size: 12px; color: var(--muted)">语音回复 · 长按转文字</span>
+      </button>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <div style="display: flex; gap: 10px; align-items: baseline; font-size: 12px; color: var(--muted)"><span class="seal">二狗</span>09:20</div>
+      <p style="margin: 0">守卫判定「先问我」，命令我先拦下了：</p>
+      <section aria-label="审批卡" style="background: var(--surface); border: 1px solid var(--rule); border-radius: 2px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px">
+          <span class="cal" style="font-size: 24px; line-height: 1.1; color: var(--accent)">先问我</span>
+          <span style="font-size: 12px; color: var(--muted); letter-spacing: 0.06em">审批 · 卡住任务 · 有时限</span>
+        </div>
+        <div style="font-size: 14px; font-weight: 600; line-height: 1.6">任务「家庭照片整理与去重」· 第 2 阶段 · 找出重复并移进回收区</div>
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <div style="font-size: 12px; color: var(--muted)">通用 bash</div>
+          <code style="display: block; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 12px; line-height: 1.5; padding: 8px 10px; border-radius: 2px; background: var(--wash); word-break: break-all">rsync -av --delete /示例/相册/ 示例备份机:/相册/</code>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px"><span class="chip">删除或覆盖</span><span class="chip">越出项目目录</span></div>
+        <p style="margin: 0; font-size: 13px; color: var(--muted); line-height: 1.7">计划里授权的是「移进回收区」；这条命令会删掉备份端多出来的文件，超出了授权的对象范围。</p>
+        <div style="display: flex; gap: 10px; padding-top: 4px">
+          <button type="button" style="flex: 1; min-height: 44px; border: 1px solid var(--ink); border-radius: 2px; font-size: 14px; letter-spacing: 0.1em">拒绝</button>
+          <button type="button" style="flex: 1.4; min-height: 44px; border-radius: 2px; background: var(--accent); color: var(--accent-ink); font-size: 14px; font-weight: 600; letter-spacing: 0.1em">批准这一次</button>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <form style="position: relative; display: flex; align-items: center; gap: 10px; padding: 12px 22px; border-top: 1px solid var(--rule)">
+    <button type="button" aria-label="附件" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: var(--muted)"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+    <div style="position: relative; flex: 1; min-width: 0; height: 44px; border-bottom: 1px solid var(--ink)">
+      <label for="i-msg" style="position: absolute; left: 4px; top: 0; height: 44px; display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 15px; pointer-events: none">和 <span class="seal">二狗</span> 说…</label>
+      <input id="i-msg" type="text" style="width: 100%; height: 44px; box-sizing: border-box; padding: 0 4px; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 15px">
+    </div>
+    <button type="button" aria-label="切换到语音输入" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: var(--accent)"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+  </form>
+
+  <nav aria-label="主导航" style="display: flex; padding: 0 8px 10px; border-top: 1px solid var(--rule)">
+    <button type="button" class="tab on" aria-current="page"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-8 8H8l-4 3v-5.5A8 8 0 0 1 12 4h1a8 8 0 0 1 8 8z"/></svg><span>个人助理</span></button>
+    <button type="button" class="tab"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="1"/><path d="m8 12 3 3 5-6"/></svg><span>任务</span></button>
+    <button type="button" class="tab"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>项目</span></button>
+    <button type="button" class="tab"><span style="position: relative; display: flex"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg><i style="position: absolute; top: -4px; right: -8px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 2px; background: var(--accent); color: var(--accent-ink); font-size: 10px; font-style: normal; display: flex; align-items: center; justify-content: center">3</i></span><span>待我处理</span></button>
+    <button type="button" class="tab"><svg class="ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg><span>更多</span></button>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"accent":{"editor":"color","default":"#B3261E","options":["#B3261E","#1F5E8C","#2E6B4A"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const dark = this.props.dark ?? false;
+    const picked = this.props.accent ?? '#B3261E';
+    const accent = dark && picked.toUpperCase() === '#B3261E' ? '#E0574B' : picked;
+    return { themeClass: dark ? 'dark' : '', accent };
+  }
+}
+</script>
+</body>
+</html>

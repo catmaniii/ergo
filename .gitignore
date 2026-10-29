@@ -1,0 +1,57 @@
+# 个人数据和密钥永远不进仓库
+secrets/
+.secrets/
+*.pem
+*.key
+.env
+.env.*
+
+# 签名材料（62 号票）：证书、描述文件、密钥库、证书请求，放在哪里都不进仓库
+*.p12
+*.p7b
+*.cer
+*.csr
+# 鸿蒙工程本机用的 build-profile：DevEco 的"自动生成签名"把证书路径和加密的口令写进它（仓库里只有模板）
+/frontend/harmony/build-profile.json5
+
+# 依赖与构建产物
+node_modules/
+dist/
+*.log
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# Claude Code 的 git worktree（并行开发用）
+.claude/worktrees/
+
+# 宣传视频的制作目录：素材、配音、配乐、录屏、成片都不进仓库（只留分镜 storyboard.json 和渲染代码）
+/.scratch/ergo-v2/promo/video/assets/
+/.scratch/ergo-v2/promo/video/audio/
+/.scratch/ergo-v2/promo/video/out/
+/.scratch/ergo-v2/promo/video/**/.venv/
+/.scratch/ergo-v2/promo/video/**/*.mp4
+/.scratch/ergo-v2/promo/video/**/*.webm
+/.scratch/ergo-v2/promo/video/**/*.mp3
+/.scratch/ergo-v2/promo/video/**/*.wav
+/.scratch/ergo-v2/promo/video/**/*.png
+/.scratch/ergo-v2/promo/video/**/*.jpg
+
+# 在线演示页的构建产物（npm run build:demo，316 号票；GitHub Pages 的 workflow 现构建现发）
+dist-demo/
+
+# 清历史、公开仓库启用时，把这些行追加到 .gitignore 末尾（317 的仓库改造那一步）
+# 理由：这些本来就是"只留私有/本机"的东西，清掉历史以后不能继续被跟踪，否则会漏进公开仓库。
+# 复制的办法：在快照目录里 `git apply` 这份补丁，或者手工加：
+#   cat .scratch/ergo-v2/tools/public-gitignore-additions.txt >> .gitignore
+# 内部笔记、票、导出工具和敏感词名单（整个 .scratch 不公开）
+/.scratch/
+# 内部开发记录（约 2 MB，按票记的实现细节和用户原话）；公开版拆成了 docs/user-guide* 和 docs/developer-guide*
+/docs/dev.md
+# 给内部 agent 的规矩（.scratch/docs/agents）和它对票系统的说明
+/docs/agents/
+# 记忆的评测、演示和评测数据（只在私有仓库/本机）
+/packages/memory-eval/
+# 用户自己的 CLAUDE.md（个人规矩、本机路径）；公开仓库只留 AGENTS.md（给贡献者的那份）
+/CLAUDE.md

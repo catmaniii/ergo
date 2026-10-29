@@ -1,0 +1,20 @@
+{
+  "workday.listSep": "、",
+  "workday.update.title": "更新 {year} 年{sides}节假日数据",
+  "workday.update.goal": "更新 {year} 年{sides}的节假日数据（放假、补假、调休补班），给二狗的个人工作日历用。",
+  "workday.missing.body": "{year} 年{sides}的节假日数据还没有，工作日历在 {year} 年{sides}那边先按周一到周五算（没有调休补班）。点\"{action}\"发起一个联网任务，去官方来源取 {year} 年的数据。",
+  "workday.source": "工作日历",
+  "workday.missing.filled": "{title}（已补上）",
+  "workday.import.notDelivered": "没有交 {file}（{region} {year} 年的数据可能还没公布）",
+  "workday.import.fileProblem": "{file}：{problem}",
+  "workday.import.title": "节假日数据导入有问题：{title}",
+  "workday.import.head": "任务「{title}」完成了，但交付件有问题，下面这些没有导入：",
+  "workday.import.imported": "已导入：{years}",
+  "workday.import.source": "任务「{title}」",
+  "workday.badFormat": "格式不对",
+  "workday.holidayUnreadable": "节假日数据读不了：{error}",
+  "workday.holidayInvalid": "节假日数据不对：{error}",
+  "workday.quickAction.title": "改工作日历",
+  "workday.quickAction.done": "已{change}",
+  "workday.quickAction.unchanged": "工作日历本来就是这样，没有变化（{change}）"
+}

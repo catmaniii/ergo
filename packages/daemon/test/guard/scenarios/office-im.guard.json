@@ -1,0 +1,59 @@
+{
+  "id": "office-im",
+  "name": "照 planguard office 场景的工具写法：发即时消息落入对外发送，按收件人授权，带密钥的永不",
+  "context": {
+    "agent": { "kind": "maintainer" },
+    "task": {
+      "taskId": "task-office",
+      "currentStageId": "dispatch",
+      "plan": {
+        "grants": [
+          { "grantId": "im-team", "tool": "im_send", "scope": { "to": ["张伟", "赵磊"] }, "stageId": "dispatch", "grantedAt": 1791374400000 }
+        ]
+      }
+    },
+    "now": "2026-10-07T12:00:00Z"
+  },
+  "tools": {
+    "im_send": {
+      "title": "发即时消息",
+      "categories": ["external_send"],
+      "network": true,
+      "outbound": true,
+      "args": {
+        "to": { "list": true, "pattern": "^[\\u4e00-\\u9fa5]{2,4}$", "kind": "recipient" },
+        "text": { "kind": "content" }
+      }
+    },
+    "contacts_lookup": {
+      "title": "查通讯录",
+      "readOnlyOrIdempotent": true,
+      "args": { "name": { "list": true, "pattern": "^[\\u4e00-\\u9fa5]{2,4}$" } }
+    }
+  },
+  "rules": [],
+  "calls": [
+    {
+      "tool": "contacts_lookup",
+      "args": { "name": "张伟" },
+      "expect": { "verdict": "allow", "kinds": [] }
+    },
+    {
+      "tool": "im_send",
+      "args": { "to": "张伟", "text": "张伟：9/25 前输出离线同步 PRD 初稿。" },
+      "expect": { "verdict": "allow", "withinGrant": true, "categories": ["external_send"], "kinds": [] }
+    },
+    {
+      "tool": "im_send",
+      "args": { "to": "孙悦", "text": "今天的会议纪要" },
+      "commit": false,
+      "expect": { "verdict": "confirm", "explanation": "超出对象范围" }
+    },
+    {
+      "tool": "im_send",
+      "args": { "to": "赵磊", "text": "测试环境的 key 是 ${fakeDeepseekKey}" },
+      "commit": false,
+      "expect": { "verdict": "block", "disposition": "never", "explanation": "密钥形态" }
+    }
+  ]
+}

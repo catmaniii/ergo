@@ -1,0 +1,12 @@
+{
+  "plugins.notEnabled": "{title}插件没启用",
+  "plugins.unknown": "没有叫 {name} 的插件",
+  "plugins.problem.missingService": "缺少它要用的功能（{service}）",
+  "plugins.problem.providerOff": "它要用的「{title}」插件没开",
+  "plugins.problem.providerFailed": "它要用的「{title}」插件没装上",
+  "plugins.problem.cycle": "几个插件互相要用对方（{plugins}），装不上",
+  "plugins.problem.setupFailed": "装的时候出错了：{message}",
+  "plugins.problem.startFailed": "启动的时候出错了：{message}",
+  "plugins.settings.busy": "上一个插件的操作还没做完，等一下再试",
+  "plugins.settings.noRemoval": "{title}插件没有可以一起删的数据"
+}

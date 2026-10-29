@@ -1,0 +1,89 @@
+{
+  "name": "ergo",
+  "version": "0.4.0",
+  "private": true,
+  "type": "module",
+  "description": "ergo（二狗）：装在你自己 Windows 电脑上的个人 AI 助理。记忆只放在本机，长活一次授权、由运行时盯着做完（npm workspaces 根）",
+  "license": "MIT",
+  "author": "ergo contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/catmaniii/ergo.git"
+  },
+  "homepage": "https://github.com/catmaniii/ergo#readme",
+  "bugs": {
+    "url": "https://github.com/catmaniii/ergo/issues"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "workspaces": [
+    "packages/protocol",
+    "packages/daemon",
+    "packages/web",
+    "packages/memory",
+    "packages/memory-eval",
+    "packages/supervisor"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "test:fast": "vitest run --config vitest.fast.config.ts",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:watch": "vitest",
+    "test:contract": "vitest run --project pi-contract",
+    "test:supervisor": "npm test -w @ergo/supervisor",
+    "typecheck": "npm run typecheck --workspaces --if-present && tsc --noEmit -p frontend",
+    "build:web": "npm run build -w @ergo/web",
+    "build:demo": "npm run build:demo -w @ergo/web",
+    "build": "node packages/daemon/build/main.ts build",
+    "release": "node packages/daemon/build/main.ts release",
+    "release:keygen": "node packages/daemon/build/main.ts keygen",
+    "ergo:install": "node packages/daemon/build/main.ts install",
+    "ergo": "node packages/daemon/src/cli/main.ts",
+    "build:harmony": "node frontend/scripts/build-harmony.ts",
+    "download-model": "node packages/daemon/src/download-model.ts",
+    "migrate:ergo": "node packages/daemon/src/migrate-ergo.ts",
+    "memory:demo": "node packages/memory-eval/src/demo/main.ts",
+    "memory:eval": "node packages/memory-eval/src/eval/main.ts",
+    "memory:llm": "node packages/memory-eval/src/llm/main.ts",
+    "memory:eval-kg": "node packages/memory-eval/src/eval/kg-joint-main.ts",
+    "memory:eval2": "node packages/memory-eval/src/eval/eval2/main.ts",
+    "memory:dump-claims": "node packages/memory-eval/src/eval/eval2/dump-claims.ts",
+    "memory:replay": "node packages/daemon/test/memory/replay-materials.ts",
+    "memory:build": "node packages/daemon/test/memory/build.ts",
+    "memory:rejudge": "node packages/daemon/test/memory/rejudge.ts",
+    "memory:acceptance": "node packages/daemon/test/memory/acceptance.ts",
+    "memory:dump-template": "node packages/daemon/test/memory/dump-template.ts",
+    "smoke:web": "node packages/daemon/src/web/smoke.ts",
+    "smoke:page": "node packages/web/build/smoke-page.ts",
+    "check:app-prefix": "node packages/daemon/src/apps/prefix-check-cli.ts",
+    "i18n:check": "node packages/daemon/src/i18n/check-cli.ts",
+    "lint": "oxlint",
+    "deploy:nginx": "node packages/daemon/src/deploy-nginx.ts",
+    "backup": "node packages/daemon/src/run-backup.ts",
+    "check": "npm run typecheck && npm run lint && npm test && npm run test:supervisor"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "oxlint": "1.87.0",
+    "typescript": "7.0.2",
+    "vitest": "5.0.3"
+  },
+  "overrides": {
+    "@earendil-works/pi-coding-agent": "1.0.4",
+    "@earendil-works/pi-ai": "1.0.4",
+    "@earendil-works/pi-agent-core": "1.0.4",
+    "@earendil-works/pi-tui": "1.0.4",
+    "@earendil-works/pi-mcp": "1.0.4",
+    "@earendil-works/pi-codemode": "1.0.4",
+    "@earendil-works/pi-telemetry": "1.0.4",
+    "@earendil-works/chord": "1.0.4"
+  },
+  "allowScripts": {
+    "esbuild": false,
+    "koffi": false,
+    "onnxruntime-node": false,
+    "protobufjs": false,
+    "@google/genai": false
+  }
+}

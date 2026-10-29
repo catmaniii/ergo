@@ -1,0 +1,11 @@
+{
+  "workFolders.notAbsolute": "“{path}” isn't a full path: start from the drive letter (e.g. D:\\work\\ledger)",
+  "workFolders.missing": "The folder “{path}” doesn't exist",
+  "workFolders.notFolder": "“{path}” is a file, not a folder",
+  "workFolders.forbidden": "“{path}” is inside {area}: work can't happen there, pick another folder",
+  "workFolders.defaultUnusable": "The default folder for new work can't be used: {reason}. Set a new one in Settings · Claude Code, or pick an existing folder",
+  "workFolders.untitled": "New work",
+  "workFolders.createFailed": "Couldn't create “{name}” in “{folder}”: {error}",
+  "workFolders.tooMany": "too many folders with that name",
+  "workFolders.notSupported": "The runtime “{runtime}” can't choose a working folder when creating"
+}

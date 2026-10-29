@@ -1,0 +1,20 @@
+{
+  "workday.listSep": ", ",
+  "workday.update.title": "Update {year} holiday data for {sides}",
+  "workday.update.goal": "Update the {year} holiday data for {sides} (days off, substitute holidays, make-up workdays) for Ergo's personal work calendar.",
+  "workday.missing.body": "There's no {year} holiday data for {sides} yet, so for now the work calendar treats {year} in {sides} as Monday to Friday (no make-up workdays). Tap \"{action}\" to start an online task that fetches the {year} data from official sources.",
+  "workday.source": "Work calendar",
+  "workday.missing.filled": "{title} (filled in)",
+  "workday.import.notDelivered": "{file} wasn't delivered ({region} data for {year} may not be published yet)",
+  "workday.import.fileProblem": "{file}: {problem}",
+  "workday.import.title": "Problem importing holiday data: {title}",
+  "workday.import.head": "Task “{title}” finished, but there were problems with what it delivered, and these weren't imported:",
+  "workday.import.imported": "Imported: {years}",
+  "workday.import.source": "Task “{title}”",
+  "workday.badFormat": "Invalid format",
+  "workday.holidayUnreadable": "Can't read the holiday data: {error}",
+  "workday.holidayInvalid": "Invalid holiday data: {error}",
+  "workday.quickAction.title": "Change work calendar",
+  "workday.quickAction.done": "Done: {change}",
+  "workday.quickAction.unchanged": "The work calendar was already like this, no change ({change})"
+}

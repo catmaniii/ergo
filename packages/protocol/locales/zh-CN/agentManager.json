@@ -1,0 +1,6 @@
+{
+  "agentManager.minutes": "{n} 分钟",
+  "agentManager.seconds": "{n} 秒",
+  "agentManager.modelTimeout": "模型调用超过 {duration}没有结束，已中止",
+  "agentManager.toolTimeout": "工具 {tool} 的调用超过 {duration}没有结束，已中止"
+}

@@ -1,0 +1,589 @@
+/*
+ * 暖纸手帐（40 号票）：只靠 token（paper/style.ts）做不到的规则，全部限定在 :root[data-style="paper"] 下
+ * （不会漏到别的风格；设置里的预览把开头换成 :host(...)，所以根元素上只再加属性，见 src/visual-styles/preview.ts）。
+ * 设计稿：docs/design/styles/a-chat、a-tasks、a-inbox、a-wide（.dc.html）。要点：宋体、米纸底、墨绿印章色、1px 细边卡片、
+ * 小圆角；个人助理的话不套气泡，前面一个圆形字头像（名字的第一个字，秘书的会话挂在 --assistant-initial 上）；
+ * 页面标题 22 号粗宋；看板、待我处理一张张细边卡片；页签是下划线；导航换成设计稿的线条图标，选中的下面一个小圆点。
+ * 只换样子，不改结构：导航、页面上有什么、怎么排都和经典一样。
+ */
+
+/* ---------- 通用 ---------- */
+:root[data-style="paper"] body {
+  line-height: 1.55;
+}
+:root[data-style="paper"] .title {
+  font-weight: 700;
+  line-height: 1.2;
+}
+:root[data-style="paper"] .title-sub {
+  font-weight: 400;
+}
+:root[data-style="paper"] .modal-title {
+  font-size: 19px;
+  font-weight: 700;
+}
+/* 标题栏上的"发起任务"：设计稿里是墨绿细边框按钮，不是实色块 */
+:root[data-style="paper"] .topbar .btn.primary {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-m);
+  background: none;
+  color: var(--primary);
+  font-size: var(--fs-l);
+  font-weight: 600;
+}
+/* 标题栏上的文字按钮（全部标已读） */
+:root[data-style="paper"] .topbar .link {
+  min-height: 44px;
+  padding: 0 6px;
+  font-size: var(--fs-l);
+  font-weight: 600;
+}
+:root[data-style="paper"] .btn {
+  font-weight: 600;
+}
+/* 次要按钮：细边框，不是灰底 */
+:root[data-style="paper"] .btn.ghost {
+  background: none;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+:root[data-style="paper"] .chip {
+  padding: 3px 8px;
+  border-radius: var(--radius-xs);
+}
+:root[data-style="paper"] .chip-quiet {
+  padding: 2px 7px;
+}
+:root[data-style="paper"] .sec-head h3,
+:root[data-style="paper"] .menu-group {
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+/* 分段切换：当成页签用的是下划线页签（待我处理、任务详情……），平分一行；单选的（外观、消耗的时间段）照旧 */
+:root[data-style="paper"] .seg[role="tablist"] {
+  gap: 0;
+  padding: 0 12px;
+}
+/* 和标题栏算一个头的页签（.seg-head，待我处理）：和标题栏合成一块（设计稿：标题和页签在同一个头里，只有最下面一道线），盖住标题栏的下边线 */
+:root[data-style="paper"] .seg-head {
+  position: relative;
+  margin-top: -1px;
+}
+:root[data-style="paper"] .page-pad > .seg[role="tablist"] {
+  padding: 0;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+}
+:root[data-style="paper"] .seg[role="tablist"] button {
+  flex: 1 0 auto;
+  min-height: 44px;
+  padding: 0 6px;
+  border-radius: 0;
+  border-bottom: 2px solid transparent;
+  font-size: var(--fs-l);
+}
+:root[data-style="paper"] .seg[role="tablist"] button.on {
+  background: none;
+  color: var(--text);
+  font-weight: 700;
+  border-bottom-color: var(--primary);
+}
+
+/*
+ * ---------- 线条图标 ----------
+ * 导航和输入栏的图标换成设计稿的线条图标：每个元素挂一张 SVG 在 --paper-icon 上（导航按 data-nav、输入栏按按钮认，见下面），
+ * 这里统一用 mask 按当前字色画；原来的表情符号、全角加号藏起来
+ */
+:root[data-style="paper"] .tab-icon,
+:root[data-style="paper"] .composer .attach-btn,
+:root[data-style="paper"] .composer .voice-toggle {
+  font-size: 0;
+}
+:root[data-style="paper"] .tab-icon::before,
+:root[data-style="paper"] .composer .attach-btn::before,
+:root[data-style="paper"] .composer .voice-toggle::before {
+  content: "";
+  display: block;
+  width: 22px;
+  height: 22px;
+  background: currentColor;
+  -webkit-mask: var(--paper-icon) center / contain no-repeat;
+  mask: var(--paper-icon) center / contain no-repeat;
+}
+
+/* ---------- 主导航 ---------- */
+:root[data-style="paper"] [data-nav="secretary"] {
+  --paper-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 12a8 8 0 0 1-8 8H8l-4 3v-5.5A8 8 0 0 1 12 4h1a8 8 0 0 1 8 8z'/%3E%3C/svg%3E");
+}
+:root[data-style="paper"] [data-nav="tasks"] {
+  --paper-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='4' width='16' height='16' rx='3'/%3E%3Cpath d='m8 12 3 3 5-6'/%3E%3C/svg%3E");
+}
+:root[data-style="paper"] [data-nav="projects"] {
+  --paper-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/%3E%3C/svg%3E");
+}
+:root[data-style="paper"] [data-nav="inbox"] {
+  --paper-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z'/%3E%3Cpath d='M10 20a2 2 0 0 0 4 0'/%3E%3C/svg%3E");
+}
+:root[data-style="paper"] [data-nav="calendar"] {
+  --paper-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='16' rx='2'/%3E%3Cpath d='M3 10h18M8 3v4M16 3v4'/%3E%3C/svg%3E");
+}
+:root[data-style="paper"] [data-nav="browse"] {
+  --paper-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M3 12h18M12 3c2.5 2.5 3.75 5.5 3.75 9S14.5 18.5 12 21c-2.5-2.5-3.75-5.5-3.75-9S9.5 5.5 12 3z'/%3E%3C/svg%3E");
+}
+:root[data-style="paper"] [data-nav="usage"] {
+  --paper-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20v-8M10 20V5M16 20v-6M2 20h20'/%3E%3C/svg%3E");
+}
+:root[data-style="paper"] [data-nav="memory"] {
+  --paper-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m12 3-9 5 9 5 9-5-9-5z'/%3E%3Cpath d='m3 13 9 5 9-5'/%3E%3C/svg%3E");
+}
+:root[data-style="paper"] [data-nav="settings"] {
+  --paper-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1'/%3E%3C/svg%3E");
+}
+:root[data-style="paper"] [data-nav="more"] {
+  --paper-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Ccircle cx='5' cy='12' r='1.8'/%3E%3Ccircle cx='12' cy='12' r='1.8'/%3E%3Ccircle cx='19' cy='12' r='1.8'/%3E%3C/svg%3E");
+}
+/*
+ * 底部横栏：每项约 56 高（图标 22 + 间隔 3 + 名字 + 上下内边距，靠内边距撑、不写死高度：设置里的预览只画图标、不写名字，
+ * 横栏跟着矮下来），选中的墨绿、名字下面一个小圆点
+ */
+:root[data-style="paper"] .tabbar {
+  padding: 2px 6px var(--safe-bottom);
+}
+:root[data-style="paper"] .tabbar .tab {
+  position: relative;
+  justify-content: center;
+  gap: 3px;
+  padding: 6px 4px 12px;
+}
+:root[data-style="paper"] .tabbar .tab.on::after {
+  content: "";
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background: currentColor;
+}
+/* 竖栏：顶上的"二狗"是墨绿，选中的那一项铺浅绿底 */
+:root[data-style="paper"] .siderail-brand {
+  color: var(--primary);
+  font-size: 16px;
+  letter-spacing: 0.06em;
+  padding: 6px 0 14px;
+}
+:root[data-style="paper"] .siderail .tab {
+  border-radius: var(--radius-xl);
+}
+:root[data-style="paper"] .siderail .tab.on {
+  background: var(--you-bg);
+}
+/* 看过没处理的件数：纸色小签 */
+:root[data-style="paper"] .tab-count {
+  background: var(--fill);
+}
+
+/* ---------- 聊天 ---------- */
+/* 日期分隔线：两边一道细线，中间是日子（设计稿的"今天"） */
+:root[data-style="paper"] .day-sep {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 2px 0 var(--space-msg);
+  font-size: var(--fs-s);
+}
+:root[data-style="paper"] .day-sep::before,
+:root[data-style="paper"] .day-sep::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+/* 时间写在话的上面（设计稿："二狗 · 08:00"在话上面一行小字） */
+:root[data-style="paper"] .msg {
+  gap: 4px;
+}
+:root[data-style="paper"] .msg-meta {
+  order: -1;
+  font-size: var(--fs-s);
+}
+/* 个人助理的话不套气泡：直接排在纸上 */
+:root[data-style="paper"] .assistant .bubble {
+  padding: 0;
+  border-left: none;
+  /* 57 号票起回复是 .bubble.md，会带上阶段抽屉 .md 的下边线；这套风格不套气泡，下边线不要 */
+  border-bottom: none;
+  border-radius: 0;
+  background: none;
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+:root[data-style="paper"] .bubble.md code {
+  background: var(--fill);
+}
+/* 秘书的会话：个人助理的每一句话前面一个圆形字头像（名字的第一个字），这一列（想法、工具调用、卡片）都往右让出头像的位置 */
+:root[data-style="paper"] .conv[data-mode="secretary"] .msg.assistant {
+  position: relative;
+  padding-left: 40px;
+}
+:root[data-style="paper"] .conv[data-mode="secretary"] .zi.k-reply .msg.assistant::before {
+  content: var(--assistant-initial);
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--you-bg);
+  color: var(--primary);
+  font-family: var(--font-title);
+  font-size: var(--fs-l);
+  font-weight: 700;
+  line-height: 1;
+}
+/* 宽屏下一行不拉太长：个人助理的话、卡片最宽 560（设计稿的宽屏） */
+:root[data-style="paper"] .app.wide .msg.assistant .msg-part {
+  max-width: min(100%, 560px);
+}
+/* 你发的消息：墨绿块，圆角 16、右下角收成 4（设计稿的气泡） */
+:root[data-style="paper"] .user .bubble,
+:root[data-style="paper"] .user .voice-bubble {
+  border-radius: 16px 16px 4px 16px;
+}
+:root[data-style="paper"] .user .bubble {
+  padding: 10px 14px;
+}
+/* 想法、工具调用：左边那道细一点 */
+:root[data-style="paper"] .thinking,
+:root[data-style="paper"] .tool-sum {
+  border-left-width: 2px;
+}
+:root[data-style="paper"] .tool {
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--c-tool);
+}
+/*
+ * 语音气泡：播放键在圆里，波形高一点、不发灰；个人助理的是细边框白纸，播放键和波形墨绿。
+ * 播放键（28 的圆）、间隔（10）、竖条（3 隔 3）、左右内边距（12）是 token（style.ts 的 voice-*，42 号票照设计稿 a-chat 改），
+ * styles/voice.css 按它画，框宽、波形格数也按它算
+ */
+:root[data-style="paper"] .voice-bubble {
+  padding: 10px var(--voice-pad) 8px;
+}
+:root[data-style="paper"] .voice-icon {
+  height: var(--voice-key);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, currentColor 22%, transparent);
+  font-size: var(--fs-xs);
+}
+:root[data-style="paper"] .voice-wave-mini {
+  height: 22px;
+  opacity: 0.9;
+}
+:root[data-style="paper"] .voice-wave-mini i {
+  border-radius: 2px;
+}
+:root[data-style="paper"] .voice-body {
+  border-top-color: color-mix(in srgb, currentColor 28%, transparent);
+}
+:root[data-style="paper"] .assistant .voice-bubble {
+  border: 1px solid var(--border);
+  border-radius: 4px 16px 16px 16px;
+}
+:root[data-style="paper"] .assistant .voice-bar {
+  color: var(--primary);
+}
+:root[data-style="paper"] .assistant .voice-icon {
+  background: var(--you-bg);
+}
+:root[data-style="paper"] .assistant .voice-duration {
+  color: var(--muted);
+}
+:root[data-style="paper"] .assistant .voice-body {
+  border-top-color: var(--border);
+  color: var(--text);
+}
+/* 输入栏：圆形细边的附件、语音键，胶囊形的输入框（底是页面的米纸色），按住说话是墨绿细边的浅绿胶囊 */
+:root[data-style="paper"] .composer {
+  gap: 8px;
+  padding: 10px 12px;
+}
+:root[data-style="paper"] .composer .attach-btn,
+:root[data-style="paper"] .composer .voice-toggle {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  color: var(--muted);
+}
+:root[data-style="paper"] .composer .attach-btn {
+  --paper-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E");
+}
+/* 切到语音的话筒是墨绿（设计稿），切回文字的键盘灰 */
+:root[data-style="paper"] .composer .voice-toggle[data-to="voice"] {
+  color: var(--primary);
+  --paper-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='9' y='3' width='6' height='11' rx='3'/%3E%3Cpath d='M5 11a7 7 0 0 0 14 0M12 18v3'/%3E%3C/svg%3E");
+}
+:root[data-style="paper"] .composer .voice-toggle[data-to="text"] {
+  --paper-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='6' width='18' height='12' rx='2'/%3E%3Cpath d='M7 10h.01M11 10h.01M15 10h.01M7 14h10'/%3E%3C/svg%3E");
+}
+:root[data-style="paper"] .composer textarea {
+  min-height: 44px;
+  padding: 10px 16px;
+  border-radius: 22px;
+  background: var(--bg);
+}
+:root[data-style="paper"] .composer-placeholder {
+  top: 11px;
+  left: 17px;
+  right: 17px;
+}
+:root[data-style="paper"] .composer .btn.primary {
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 22px;
+}
+:root[data-style="paper"] .voice-hold {
+  min-height: 44px;
+  border: 1px solid var(--primary);
+  border-radius: 22px;
+  background: var(--you-bg);
+  color: var(--primary);
+  font-weight: 700;
+}
+:root[data-style="paper"] .voice-hold.voice-cancel {
+  border-color: var(--high-fg);
+  background: var(--high-bg);
+  color: var(--high-fg);
+}
+
+/* ---------- 卡片 ---------- */
+:root[data-style="paper"] .xcard {
+  gap: 10px;
+}
+/* 类型标签是一行墨绿小字（设计稿的"审批 · 先问我"），标题另起一行 */
+:root[data-style="paper"] .xcard-head {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+:root[data-style="paper"] .xcard-tag {
+  padding: 0;
+  background: none;
+  color: var(--you);
+  font-size: var(--fs-s);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+:root[data-style="paper"] .xt-plan,
+:root[data-style="paper"] .xt-plan_change {
+  background: none;
+}
+:root[data-style="paper"] .xcard-done .xcard-tag,
+:root[data-style="paper"] .xt-progress,
+:root[data-style="paper"] .xt-notice {
+  color: var(--muted);
+}
+:root[data-style="paper"] .xcard-title {
+  line-height: 1.45;
+}
+/* 卡片里的命令：工具名一行，命令是下面一块纸色的代码（宽屏排在同一行） */
+:root[data-style="paper"] .xcard .tool-line b {
+  font-size: var(--fs-m);
+}
+:root[data-style="paper"] .xcard .tool-line code {
+  display: block;
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-radius: var(--radius-xs);
+  font-size: var(--fs-s);
+  line-height: 1.5;
+}
+:root[data-style="paper"] .app.wide .xcard .tool-line code {
+  display: inline-block;
+  margin: 0 0 0 10px;
+  padding: 5px 10px;
+}
+:root[data-style="paper"] .xcard .sys-note {
+  color: var(--muted);
+  line-height: 1.55;
+}
+:root[data-style="paper"] .xcard .auth-actions {
+  gap: 8px;
+}
+:root[data-style="paper"] .auth-actions .btn {
+  min-height: 44px;
+  font-size: var(--fs-l);
+}
+:root[data-style="paper"] .auth-actions .btn.primary {
+  flex: 1.4;
+}
+/* 宽屏：按钮靠右、按内容宽 */
+:root[data-style="paper"] .app.wide .xcard .auth-actions {
+  justify-content: flex-end;
+}
+:root[data-style="paper"] .app.wide .xcard .auth-actions .btn {
+  flex: none;
+  min-width: 96px;
+}
+:root[data-style="paper"] .app.wide .xcard .auth-actions .btn.primary {
+  min-width: 128px;
+}
+
+/* ---------- 任务看板：一张张细边卡片，分组标题粗宋、件数在右边 ---------- */
+:root[data-style="paper"] .board {
+  padding: 12px var(--space-page);
+  gap: 14px;
+}
+:root[data-style="paper"] .bgroup {
+  gap: 8px;
+}
+:root[data-style="paper"] .bgroup-h {
+  padding: 6px 2px 0;
+  font-size: var(--fs-s);
+}
+:root[data-style="paper"] .bgroup-h b {
+  font-size: 16px;
+  font-weight: 700;
+}
+:root[data-style="paper"] .bg-waiting .bgroup-h b {
+  color: var(--text);
+}
+:root[data-style="paper"] .bgroup-n {
+  padding: 0;
+  background: none;
+  font-size: var(--fs-s);
+}
+:root[data-style="paper"] .bcard {
+  padding: 12px 14px;
+}
+:root[data-style="paper"] .bcard.on {
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+:root[data-style="paper"] .bcard-title {
+  font-size: var(--fs-body);
+  line-height: 1.4;
+}
+/* 状态前面一个小圆点（设计稿）：等我、执行中、运营中墨绿，规划中、排队中灰（排队的是空心），出错赭红 */
+:root[data-style="paper"] .bcard .st {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+:root[data-style="paper"] .bcard .st::before {
+  content: "";
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+:root[data-style="paper"] .bcard .st-queued::before,
+:root[data-style="paper"] .bcard .st-scheduled::before {
+  box-sizing: border-box;
+  border: 1.5px solid currentColor;
+  background: none;
+}
+/* 卡上下面那行的活动状态（"等你""干活中……"）就不再带点：设计稿只有状态前面一个点，两行各一个同色的点重复 */
+:root[data-style="paper"] .bcard .act i {
+  display: none;
+}
+:root[data-style="paper"] .st-planning,
+:root[data-style="paper"] .st-queued,
+:root[data-style="paper"] .st-scheduled,
+:root[data-style="paper"] .st-done {
+  color: var(--muted);
+}
+:root[data-style="paper"] .st-ops,
+:root[data-style="paper"] .st-operating {
+  color: var(--primary);
+}
+/*
+ * 最近结束的退到纸面上（设计稿是整张卡淡到 0.82，那样卡里的灰字只剩约 4:1）：不铺白纸底、只留细边，标题不加粗；
+ * 字的颜色不变，灰字在米纸底上照样 ≥ 4.5:1
+ */
+:root[data-style="paper"] .bg-ended .bcard,
+:root[data-style="paper"] .bg-archived .bcard {
+  background: none;
+}
+:root[data-style="paper"] .bg-ended .bcard-title,
+:root[data-style="paper"] .bg-archived .bcard-title {
+  font-weight: 500;
+}
+
+/* ---------- 待我处理：一条一张细边卡片，分组标题后面一道细线 ---------- */
+:root[data-style="paper"] .inbox-list {
+  padding: 6px 0 12px;
+}
+:root[data-style="paper"] .inbox-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px calc(var(--space-page) + 2px) 8px;
+  font-weight: 400;
+}
+:root[data-style="paper"] .inbox-group::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+:root[data-style="paper"] .ig-blocking_deadline,
+:root[data-style="paper"] .ig-blocking,
+:root[data-style="paper"] .ig-pinned {
+  color: var(--muted);
+}
+:root[data-style="paper"] .inbox-row {
+  margin: 0 var(--space-page) 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+}
+:root[data-style="paper"] .inbox-row.on {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 6%, var(--surface));
+}
+:root[data-style="paper"] .inbox-main {
+  gap: 10px;
+  padding: 12px 4px 12px 10px;
+}
+/* 未读赭石实心点，读过的空心细圈 */
+:root[data-style="paper"] .inbox-dot {
+  margin-top: 7px;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+:root[data-style="paper"] .unread .inbox-dot {
+  box-shadow: none;
+}
+:root[data-style="paper"] .inbox-title {
+  font-size: var(--fs-body);
+  font-weight: 600;
+}
+:root[data-style="paper"] .inbox-row .icon-btn {
+  color: var(--muted);
+}
+/* 紧急度的小方块：卡着任务的赭黄，和有时限的砖红、未读的赭石点分得开 */
+:root[data-style="paper"] .urg-blocking {
+  background: var(--c-plan);
+}
+:root[data-style="paper"] .inbox-hint {
+  padding: 0 calc(var(--space-page) + 2px);
+}
+
+/* ---------- 设置等页面 ---------- */
+:root[data-style="paper"] .menu-item.on {
+  background: var(--you-bg);
+}

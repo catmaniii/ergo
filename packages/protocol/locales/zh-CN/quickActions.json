@@ -1,0 +1,14 @@
+{
+  "quickActions.inboxTitle": "确认快速动作：{title}",
+  "quickActions.error": "出错了：{message}",
+  "quickActions.failed": "没做成：{summary}",
+  "quickActions.source.secretary": "{assistant}对话",
+  "quickActions.source.conversation": "会话 {conversation}",
+  "quickActions.purgedTitle": "{name}：{purged}",
+  "quickActions.unknownType": "这种快速动作（{type}）这个版本不认识了，没法执行",
+  "quickActions.running": "正在执行……",
+  "quickActions.cardText": "快速动作：{title}",
+  "quickActions.cardTextDone": "快速动作：{title} · 已执行：{result}",
+  "quickActions.tool.propose": "提议快速动作",
+  "quickActions.source.curator": "记忆管理员"
+}

@@ -1,0 +1,179 @@
+// 工具包（ADR-0003，规格第 3、11、20、21 节，27 号票）的名字和纯函数，守护进程和 Web 共用，不引用 TypeBox：
+// - 工具包有六样：skill 名单、MCP 名单、bash 开关、联网开关、给秘书发消息开关（102 号票，形状同计划的 PlanToolkit / projects.ts 的
+//   ToolkitShape；给秘书发消息默认开着，不写是开，关掉了写 false：canTellSecretary、tellSecretaryField）、发附件开关（117 号票：
+//   维护者把工作目录里的文件作为附件发进它的会话，tell_secretary 带附件也看它；同样默认开着：canSendAttachment、sendAttachmentField）；
+// - 改动的说法（toolkitChangeText）：加上哪些、去掉哪些，卡片、时间线、交给维护者的"工具包已变更"都用它；
+// - 哪些改动要用户批准（toolkitExpansions）：开 bash、加 MCP、开联网、打开给秘书发消息（102 号票评审后定：用户关掉的
+//   维护者不能自己打开）、打开发附件（117 号票照同一条）。skill 只是说明书，不增加权限，维护者自己增减；减少能力随时可以；
+// - MCP 工具在会话里的名字（mcpToolName）：mcp__<登记的 MCP 名>__<工具名>。
+import { ASSISTANT_NAME_MARK } from "./assistant-name.ts";
+import { followLocale, forModel, t } from "./i18n/runtime.ts";
+import type { ToolkitShape } from "./projects.ts";
+
+/** 一样能力：skill、MCP（带名字），bash、联网、给秘书发消息、发附件（开关） */
+export type ToolkitCapability =
+  | { kind: "skill"; name: string }
+  | { kind: "mcp"; name: string }
+  | { kind: "bash" }
+  | { kind: "network" }
+  | { kind: "tell_secretary" }
+  | { kind: "send_attachment" };
+
+/**
+ * 给秘书发消息这一样的说法（工具包设置里那个开关的名字也是它）：写名字占位（43 号票），界面上显示用户起的名字，
+ * 交给 agent 的话里守护进程换成"秘书"
+ */
+export let TELL_SECRETARY_CAPABILITY = "";
+
+/** 工具包里给秘书发消息开着没有（102 号票）：不写是开着（默认开，之前存下的工具包都没有这一项） */
+export function canTellSecretary(kit: { readonly tellSecretary?: boolean | undefined }): boolean {
+  return kit.tellSecretary !== false;
+}
+
+/** 给秘书发消息这一项在工具包里的写法：开着不写（和之前存下的一样），关着写 false */
+export function tellSecretaryField(on: boolean): { tellSecretary?: false } {
+  return on ? {} : { tellSecretary: false };
+}
+
+/** 发附件这一样的说法（117 号票，工具包设置里那个开关的名字也是它） */
+export let SEND_ATTACHMENT_CAPABILITY = "";
+
+// 上面两句跟着当前语言（followLocale）
+followLocale(() => {
+  TELL_SECRETARY_CAPABILITY = t("protocol.toolkit.tellSecretary", { assistant: ASSISTANT_NAME_MARK });
+  SEND_ATTACHMENT_CAPABILITY = t("protocol.toolkit.sendAttachment");
+});
+
+/** 工具包里发附件开着没有（117 号票）：不写是开着（默认开，之前存下的工具包都没有这一项） */
+export function canSendAttachment(kit: { readonly sendAttachment?: boolean | undefined }): boolean {
+  return kit.sendAttachment !== false;
+}
+
+/** 发附件这一项在工具包里的写法：开着不写（和之前存下的一样），关着写 false */
+export function sendAttachmentField(on: boolean): { sendAttachment?: false } {
+  return on ? {} : { sendAttachment: false };
+}
+
+/** 一样能力的说法："skill notes-style"、"MCP exif"、"bash"、"联网"、"给秘书发消息"、"发附件" */
+export function capabilityText(c: ToolkitCapability): string {
+  switch (c.kind) {
+    case "skill":
+      return `skill ${c.name}`;
+    case "mcp":
+      return `MCP ${c.name}`;
+    case "bash":
+      return "bash";
+    case "network":
+      return t("protocol.toolkit.network");
+    case "tell_secretary":
+      return TELL_SECRETARY_CAPABILITY;
+    case "send_attachment":
+      return SEND_ATTACHMENT_CAPABILITY;
+  }
+}
+
+/** after 比 before 多出来的能力（打开的开关、多出的 skill 和 MCP） */
+export function toolkitAdded(before: ToolkitShape, after: ToolkitShape): ToolkitCapability[] {
+  return [
+    ...after.skills.filter((s) => !before.skills.includes(s)).map((name): ToolkitCapability => ({ kind: "skill", name })),
+    ...after.mcp.filter((m) => !before.mcp.includes(m)).map((name): ToolkitCapability => ({ kind: "mcp", name })),
+    ...(after.bash && !before.bash ? [{ kind: "bash" } as const] : []),
+    ...(after.network && !before.network ? [{ kind: "network" } as const] : []),
+    ...(canTellSecretary(after) && !canTellSecretary(before) ? [{ kind: "tell_secretary" } as const] : []),
+    ...(canSendAttachment(after) && !canSendAttachment(before) ? [{ kind: "send_attachment" } as const] : []),
+  ];
+}
+
+/** after 比 before 少了的能力 */
+export function toolkitRemoved(before: ToolkitShape, after: ToolkitShape): ToolkitCapability[] {
+  return toolkitAdded(after, before);
+}
+
+/**
+ * 要用户批准的那几样：开 bash、加 MCP、开联网、打开给秘书发消息（102 号票评审后定：和 bash、联网一样是能力开关，
+ * 用户关掉的维护者不能自己打开，要走计划变更等用户确认）、打开发附件（117 号票照同一条）。skill 不算：只是说明书，不增加权限
+ */
+export function toolkitExpansions(before: ToolkitShape, after: ToolkitShape): ToolkitCapability[] {
+  return toolkitAdded(before, after).filter((c) => c.kind !== "skill");
+}
+
+/**
+ * 工具包写成一句话："bash 开、联网关；skill：无；MCP：demo-exif"（计划卡、计划变更卡、工具包变更卡、交给维护者的话共用）。
+ * 给秘书发消息、发附件默认开着，只在关掉时写一句（"bash 开、联网关、给秘书发消息关、发附件关；…"）
+ */
+const onOff = (yes: boolean) => (yes ? t("protocol.toolkit.on") : t("protocol.toolkit.off"));
+
+export function toolkitText(kit: ToolkitShape): string {
+  const on = onOff;
+  const sep = t("protocol.common.listSep");
+  const letters = canTellSecretary(kit) ? "" : t("protocol.toolkit.offItem", { what: TELL_SECRETARY_CAPABILITY });
+  const attachments = canSendAttachment(kit) ? "" : t("protocol.toolkit.offItem", { what: SEND_ATTACHMENT_CAPABILITY });
+  return t("protocol.toolkit.text", {
+    bash: on(kit.bash),
+    network: on(kit.network),
+    letters,
+    attachments,
+    skills: kit.skills.join(sep) || t("protocol.toolkit.none"),
+    mcp: kit.mcp.join(sep) || t("protocol.toolkit.none"),
+  });
+}
+
+/** 改动写成一句话："加上 skill notes-style、联网；去掉 MCP exif"；没有改动是"没有改动" */
+export function toolkitChangeText(before: ToolkitShape, after: ToolkitShape): string {
+  const added = toolkitAdded(before, after).map(capabilityText);
+  const removed = toolkitRemoved(before, after).map(capabilityText);
+  const sep = t("protocol.common.listSep");
+  const parts = [
+    ...(added.length > 0 ? [t("protocol.toolkit.added", { items: added.join(sep) })] : []),
+    ...(removed.length > 0 ? [t("protocol.toolkit.removed", { items: removed.join(sep) })] : []),
+  ];
+  return parts.length > 0 ? parts.join(t("protocol.common.semiSep")) : t("protocol.toolkit.noChange");
+}
+
+/** 往工具包里加上这些能力（已有的不重复） */
+export function withCapabilities(kit: ToolkitShape, add: readonly ToolkitCapability[]): ToolkitShape {
+  const names = (kind: "skill" | "mcp") => add.flatMap((c) => (c.kind === kind ? [c.name] : []));
+  return {
+    skills: [...kit.skills, ...names("skill").filter((s) => !kit.skills.includes(s))],
+    mcp: [...kit.mcp, ...names("mcp").filter((m) => !kit.mcp.includes(m))],
+    bash: kit.bash || add.some((c) => c.kind === "bash"),
+    network: kit.network || add.some((c) => c.kind === "network"),
+    ...tellSecretaryField(canTellSecretary(kit) || add.some((c) => c.kind === "tell_secretary")),
+    ...sendAttachmentField(canSendAttachment(kit) || add.some((c) => c.kind === "send_attachment")),
+  };
+}
+
+/** 从工具包里去掉这些能力 */
+export function withoutCapabilities(kit: ToolkitShape, remove: readonly ToolkitCapability[]): ToolkitShape {
+  const names = (kind: "skill" | "mcp") => remove.flatMap((c) => (c.kind === kind ? [c.name] : []));
+  return {
+    skills: kit.skills.filter((s) => !names("skill").includes(s)),
+    mcp: kit.mcp.filter((m) => !names("mcp").includes(m)),
+    bash: kit.bash && !remove.some((c) => c.kind === "bash"),
+    network: kit.network && !remove.some((c) => c.kind === "network"),
+    ...tellSecretaryField(canTellSecretary(kit) && !remove.some((c) => c.kind === "tell_secretary")),
+    ...sendAttachmentField(canSendAttachment(kit) && !remove.some((c) => c.kind === "send_attachment")),
+  };
+}
+
+/** 交给维护者的"工具包已变更"（重新装配之后接着干的那一句；固定上下文里的工具包说明随之更新） */
+export function toolkitChangedNotice(before: ToolkitShape, after: ToolkitShape, why: string): string {
+  // 交给维护者的通知：给模型看，照旧中文
+  return forModel(() => `工具包已变更（${why}）：${toolkitChangeText(before, after)}。现在的工具包：${toolkitText(after)}。按新的工具包接着干。`); // @i18n-ignore model
+}
+
+/** MCP 名、MCP 工具名的写法：字母、数字、短横线和下划线，不能有连着的两个下划线（会话里的工具名用它们分隔） */
+export const MCP_NAME_PATTERN = "^[A-Za-z0-9](?:[A-Za-z0-9-]|_(?!_))*$";
+
+const MCP_TOOL_PREFIX = "mcp__";
+
+/** MCP 工具在会话里的名字：mcp__<登记的 MCP 名>__<工具名> */
+export function mcpToolName(server: string, tool: string): string {
+  return `${MCP_TOOL_PREFIX}${server}__${tool}`;
+}
+
+/** 会话里的这个工具是不是这几个 MCP 之外的 MCP 工具（MCP 名里没有连着的两个下划线，按前缀认不会认错） */
+export function isMcpToolOutside(name: string, servers: readonly string[]): boolean {
+  return name.startsWith(MCP_TOOL_PREFIX) && !servers.some((server) => name.startsWith(mcpToolName(server, "")));
+}
+

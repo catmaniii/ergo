@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>F 工程蓝图 · 任务看板</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;family=IBM+Plex+Mono:wght@500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1E3A8A}a:hover{color:#172C6B}
+.root{--bg:#F7F9FC;--grid:#DCE4F2;--surface:#FFFFFF;--line:#1E3A8A;--text:#0F1E45;--muted:#4B5A80;--accent:#1E3A8A;--accent-ink:#FFFFFF;--accent-soft:#E3EAF8;--warn:#C2410C;--warn-ink:#FFFFFF}
+.root.dark{--bg:#0D1B3E;--grid:#1C2D5C;--surface:#112353;--line:#9DB4FF;--text:#E6ECFF;--muted:#A4B2D9;--accent:#9DB4FF;--accent-ink:#0D1B3E;--accent-soft:#1C2D5C;--warn:#FFB070;--warn-ink:#2A1200}
+.root button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;padding:0}
+.mono{font-family:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;font-weight:500}
+.ic{width:22px;height:22px;flex:none}
+.tab{flex:1;min-height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--muted);font-size:11px;position:relative}
+.tab.on{color:var(--accent);font-weight:700}
+.tab.on::before{content:"";position:absolute;top:-1.5px;left:12px;right:12px;height:3px;background:var(--accent)}
+.lbl{font-size:10px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase}
+.gh{display:flex;align-items:baseline;gap:8px;padding:4px 2px 2px;border-bottom:1px dashed var(--line)}
+.gh b{font-size:14px;font-weight:700}
+.gh span{font-size:11px;color:var(--muted)}
+.gh em{margin-left:auto;font-style:normal;font-size:11px;color:var(--accent)}
+.box{position:relative;background:var(--surface);border:1.5px solid var(--line)}
+.box::before,.box::after{content:"";position:absolute;width:7px;height:7px;border:0 solid var(--line)}
+.box::before{top:-1.5px;left:-1.5px;border-top-width:3px;border-left-width:3px}
+.box::after{bottom:-1.5px;right:-1.5px;border-bottom-width:3px;border-right-width:3px}
+.card{width:100%;text-align:left;padding:11px 14px;display:flex;flex-direction:column;gap:5px}
+.card h3{margin:0;font-size:15px;font-weight:500;line-height:1.4}
+.top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.tag{font-size:10px;padding:1px 6px;white-space:nowrap;letter-spacing:0.04em}
+.t-you{background:var(--warn);color:var(--warn-ink)}
+.t-run{background:var(--line);color:var(--bg)}
+.t-idle{border:1px solid var(--line);color:var(--muted)}
+.meta{font-size:12px;color:var(--muted);display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center}
+.track{height:4px;border:1px solid var(--line);background:var(--surface)}
+.fill{height:100%;background:var(--line)}
+</style>
+</helmet>
+<div class="root {{themeClass}}" style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; background-color: var(--bg); background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px); background-size: 24px 24px; color: var(--text); font-family: 'Noto Sans SC', 'PingFang SC', sans-serif; font-size: 15px; line-height: 1.5; --accent: {{accent}}">
+
+  <header style="display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 60px; padding: 0 16px; background: var(--surface); border-bottom: 1.5px solid var(--line)">
+    <div style="display: flex; flex-direction: column; gap: 1px">
+      <div class="mono lbl">BOARD / 5 等我 · 3 进行中 · 4 运营中</div>
+      <h1 style="margin: 0; font-size: 18px; font-weight: 700; line-height: 1.2">任务看板</h1>
+    </div>
+    <button type="button" style="min-height: 44px; padding: 0 14px; border: 1.5px solid var(--line); background: var(--accent); color: var(--accent-ink); font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 6px; box-shadow: 3px 3px 0 var(--accent-soft)"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true" style="width: 16px; height: 16px"><path d="M12 5v14M5 12h14"/></svg>发起任务</button>
+  </header>
+
+  <main style="flex: 1; min-height: 0; overflow: hidden; padding: 12px 16px; display: flex; flex-direction: column; gap: 12px">
+
+    <section style="display: flex; flex-direction: column; gap: 8px">
+      <div class="gh"><em class="mono" style="margin: 0">01</em><b>等我</b><span>等我、待确认</span><em class="mono">×5</em></div>
+      <button type="button" class="card box"><div class="top"><h3>季度体检报告整理</h3><span class="tag mono t-you">等你验收</span></div><div class="track"><div class="fill" style="width: 100%"></div></div><div class="meta"><span class="mono">3/3 阶段</span><span class="mono">96k token</span><span>昨天 18:00</span></div></button>
+      <button type="button" class="card box"><div class="top"><h3>VPS 证书续期检查</h3><span class="tag mono t-you">中断</span></div><div style="font-size: 12px; color: var(--warn)">不确定续期命令是否已执行，要你核对</div><div class="meta"><span class="mono">2/2 阶段</span><span class="mono">12k token</span><span>07:02</span></div></button>
+      <button type="button" class="card box"><div class="top"><h3>个税年度汇算材料</h3><span class="tag mono t-you">超预算</span></div><div class="track"><div class="fill" style="width: 66%"></div></div><div class="meta"><span class="mono">2/3 阶段</span><span class="mono">640k token</span><span>昨天 16:45</span></div></button>
+    </section>
+
+    <section style="display: flex; flex-direction: column; gap: 8px">
+      <div class="gh"><em class="mono" style="margin: 0">02</em><b>进行中</b><span>规划中、排队中、执行中</span><em class="mono">×3</em></div>
+      <button type="button" class="card box"><div class="top"><h3>博客迁移到 Astro</h3><span class="tag mono t-run">执行中</span></div><div style="font-size: 12px; color: var(--muted)">跑端到端测试 · 项目「个人博客」</div><div class="track"><div class="fill" style="width: 60%"></div></div><div class="meta"><span class="mono">3/5 阶段</span><span class="mono">356k token</span><span>09:10</span></div></button>
+      <button type="button" class="card box"><div class="top"><h3>十一月东京行程</h3><span class="tag mono t-run">规划中</span></div><div class="meta"><span>和你对齐意图</span><span class="mono">8k token</span><span>08:31</span></div></button>
+      <button type="button" class="card box"><div class="top"><h3>家庭网盘去重</h3><span class="tag mono t-idle">排队中</span></div><div class="meta"><span>等项目「家庭网盘」</span></div></button>
+    </section>
+
+    <section style="display: flex; flex-direction: column; gap: 8px">
+      <div class="gh"><em class="mono" style="margin: 0">03</em><b>运营中</b><span>提醒、定时作业</span><em class="mono">×4</em></div>
+      <button type="button" class="card box"><div class="top"><h3>每天 08:00 出早报</h3><span class="tag mono t-run">运营中</span></div><div class="meta"><span>按我的工作日 08:00</span><span>上次成功</span><span class="mono">96k token</span></div></button>
+      <button type="button" class="card box"><div class="top"><h3>每天 21:00 汇总当天账单</h3><span class="tag mono t-you">上次失败</span></div><div class="meta"><span>每天 21:00</span><span>记账本</span><span class="mono">214k token</span></div></button>
+    </section>
+
+    <section style="display: flex; flex-direction: column; gap: 8px">
+      <div class="gh"><em class="mono" style="margin: 0">04</em><b>最近结束</b><span>完成、失败、取消</span><em class="mono">×3</em></div>
+      <button type="button" class="card box" style="opacity: 0.7"><div class="top"><h3>简历更新</h3><span class="tag mono t-idle">已完成</span></div><div class="meta"><span class="mono">2/2 阶段</span><span class="mono">88k token</span><span>10-05</span></div></button>
+    </section>
+  </main>
+
+  <nav aria-label="主导航" style="display: flex; padding: 0 6px 10px; background: var(--surface); border-top: 1.5px solid var(--line)">
+    <button type="button" class="tab"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M21 12a8 8 0 0 1-8 8H8l-4 3v-5.5A8 8 0 0 1 12 4h1a8 8 0 0 1 8 8z"/></svg><span>个人助理</span></button>
+    <button type="button" class="tab on" aria-current="page"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><rect x="4" y="4" width="16" height="16"/><path d="m8 12 3 3 5-6"/></svg><span>任务</span></button>
+    <button type="button" class="tab"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M3 5h6l2 2h10v13H3z"/></svg><span>项目</span></button>
+    <button type="button" class="tab"><span style="position: relative; display: flex"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg><i class="mono" style="position: absolute; top: -4px; right: -9px; min-width: 17px; height: 17px; padding: 0 4px; background: var(--warn); color: var(--warn-ink); font-size: 10px; font-weight: 600; font-style: normal; display: flex; align-items: center; justify-content: center">3</i></span><span>待我处理</span></button>
+    <button type="button" class="tab"><svg class="ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="3.5" y="10.5" width="3" height="3"/><rect x="10.5" y="10.5" width="3" height="3"/><rect x="17.5" y="10.5" width="3" height="3"/></svg><span>更多</span></button>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"accent":{"editor":"color","default":"#1E3A8A","options":["#1E3A8A","#0F5132","#7F1D1D"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const dark = this.props.dark ?? false;
+    const picked = this.props.accent ?? '#1E3A8A';
+    const accent = dark && picked.toUpperCase() === '#1E3A8A' ? '#9DB4FF' : picked;
+    return { themeClass: dark ? 'dark' : '', accent };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,36 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "Ergo for HarmonyOS"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "Ergo: your personal assistant"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "Ergo"
+    },
+    {
+      "name": "calendar_reason",
+      "value": "Reads (only reads) the events in your phone calendar to show them in Ergo's calendar"
+    },
+    {
+      "name": "photos_reason",
+      "value": "Only reads when photos in your album were taken (not the photos themselves), summarized by day for Ergo on your own computer"
+    },
+    {
+      "name": "photo_location_reason",
+      "value": "Reads where photos were taken, to summarize together with the times by day"
+    },
+    {
+      "name": "location_reason",
+      "value": "Records your location now and then for Ergo on your own computer, summarized as where you went and how long you stayed each day"
+    },
+    {
+      "name": "microphone_reason",
+      "value": "Records your voice while you hold to talk, and sends it to Ergo"
+    }
+  ]
+}

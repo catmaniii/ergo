@@ -1,0 +1,596 @@
+[
+  {
+    "kind": "connection",
+    "status": "online"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 1,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "每天早上出简报",
+          "summary": "每天早上出简报\n汇总昨天的新闻，写一份简报 brief.md",
+          "state": "operating",
+          "origin": "button",
+          "kind": "plain",
+          "trigger": {
+            "kind": "schedule",
+            "schedule": {
+              "kind": "daily",
+              "time": "09:00"
+            }
+          },
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00"
+        },
+        "change": "created",
+        "from": null,
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 2,
+      "type": "scheduled_job",
+      "payload": {
+        "job": {
+          "id": "j-1",
+          "title": "每天早上出简报",
+          "schedule": {
+            "kind": "daily",
+            "time": "09:00"
+          },
+          "each": "每天早上出简报\n汇总昨天的新闻，写一份简报 brief.md",
+          "maintainerId": "tm-1",
+          "taskId": "t-1",
+          "taskTitle": "每天早上出简报",
+          "ownerTaskId": "t-1",
+          "grants": [],
+          "temporalRules": [],
+          "grantInfo": {},
+          "state": "active",
+          "nextAt": "2026-10-08T09:00:00.000+08:00",
+          "lastFailed": false,
+          "consecutiveFailures": 0,
+          "runCount": 0,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00"
+        },
+        "change": "registered",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 3,
+      "type": "reminder",
+      "payload": {
+        "reminder": {
+          "id": "r-1",
+          "text": "交报告",
+          "schedule": {
+            "kind": "once",
+            "at": "2026-10-10T09:00:00.000+08:00"
+          },
+          "status": "pending",
+          "nextAt": "2026-10-10T09:00:00.000+08:00",
+          "cardId": "c-9acb2776-f920-4b64-a37c-0ccec0409c5a",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00"
+        },
+        "change": "created",
+        "by": "agent"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 4,
+      "type": "reminder",
+      "payload": {
+        "reminder": {
+          "id": "r-2",
+          "text": "吃药",
+          "schedule": {
+            "kind": "daily",
+            "time": "07:00"
+          },
+          "status": "pending",
+          "nextAt": "2026-10-09T07:00:00.000+08:00",
+          "cardId": "c-513df2f0-fadb-400b-9041-3ea67f0ff89e",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-08T08:00:00.000+08:00"
+        },
+        "change": "created",
+        "by": "agent"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 5,
+      "type": "scheduled_job",
+      "payload": {
+        "job": {
+          "id": "j-1",
+          "title": "每天早上出简报",
+          "schedule": {
+            "kind": "daily",
+            "time": "09:00"
+          },
+          "each": "每天早上出简报\n汇总昨天的新闻，写一份简报 brief.md",
+          "maintainerId": "tm-1",
+          "taskId": "t-1",
+          "taskTitle": "每天早上出简报",
+          "ownerTaskId": "t-1",
+          "grants": [],
+          "temporalRules": [],
+          "grantInfo": {},
+          "state": "active",
+          "lastFailed": false,
+          "consecutiveFailures": 0,
+          "runCount": 1,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-10T09:20:00.000+08:00",
+          "nextAt": "2026-10-11T09:00:00.000+08:00",
+          "lastRun": {
+            "runId": "j-1-r1",
+            "jobId": "j-1",
+            "trigger": "catch_up",
+            "dueAt": "2026-10-10T09:00:00.000+08:00",
+            "missed": 3,
+            "events": [
+              {
+                "source": "time",
+                "at": "2026-10-10T09:00:00.000+08:00",
+                "summary": "守护进程停机期间错过了 3 次（最近一次 10 月 10 日（周六）09:00），开机补跑一次"
+              }
+            ],
+            "state": "queued",
+            "queuedAt": "2026-10-10T09:20:00.000+08:00"
+          }
+        },
+        "change": "triggered",
+        "by": "system",
+        "run": {
+          "runId": "j-1-r1",
+          "jobId": "j-1",
+          "trigger": "catch_up",
+          "dueAt": "2026-10-10T09:00:00.000+08:00",
+          "missed": 3,
+          "events": [
+            {
+              "source": "time",
+              "at": "2026-10-10T09:00:00.000+08:00",
+              "summary": "守护进程停机期间错过了 3 次（最近一次 10 月 10 日（周六）09:00），开机补跑一次"
+            }
+          ],
+          "state": "queued",
+          "queuedAt": "2026-10-10T09:20:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 6,
+      "type": "scheduled_job",
+      "payload": {
+        "job": {
+          "id": "j-1",
+          "title": "每天早上出简报",
+          "schedule": {
+            "kind": "daily",
+            "time": "09:00"
+          },
+          "each": "每天早上出简报\n汇总昨天的新闻，写一份简报 brief.md",
+          "maintainerId": "tm-1",
+          "taskId": "t-1",
+          "taskTitle": "每天早上出简报",
+          "ownerTaskId": "t-1",
+          "grants": [],
+          "temporalRules": [],
+          "grantInfo": {},
+          "state": "active",
+          "lastFailed": false,
+          "consecutiveFailures": 0,
+          "runCount": 1,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-10T09:20:00.000+08:00",
+          "nextAt": "2026-10-11T09:00:00.000+08:00",
+          "lastRun": {
+            "runId": "j-1-r1",
+            "jobId": "j-1",
+            "trigger": "catch_up",
+            "dueAt": "2026-10-10T09:00:00.000+08:00",
+            "missed": 3,
+            "events": [
+              {
+                "source": "time",
+                "at": "2026-10-10T09:00:00.000+08:00",
+                "summary": "守护进程停机期间错过了 3 次（最近一次 10 月 10 日（周六）09:00），开机补跑一次"
+              }
+            ],
+            "state": "running",
+            "queuedAt": "2026-10-10T09:20:00.000+08:00",
+            "startedAt": "2026-10-10T09:20:00.000+08:00"
+          }
+        },
+        "change": "run_started",
+        "by": "system",
+        "run": {
+          "runId": "j-1-r1",
+          "jobId": "j-1",
+          "trigger": "catch_up",
+          "dueAt": "2026-10-10T09:00:00.000+08:00",
+          "missed": 3,
+          "events": [
+            {
+              "source": "time",
+              "at": "2026-10-10T09:00:00.000+08:00",
+              "summary": "守护进程停机期间错过了 3 次（最近一次 10 月 10 日（周六）09:00），开机补跑一次"
+            }
+          ],
+          "state": "running",
+          "queuedAt": "2026-10-10T09:20:00.000+08:00",
+          "startedAt": "2026-10-10T09:20:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 7,
+      "type": "reminder",
+      "payload": {
+        "reminder": {
+          "id": "r-1",
+          "text": "交报告",
+          "schedule": {
+            "kind": "once",
+            "at": "2026-10-10T09:00:00.000+08:00"
+          },
+          "status": "fired",
+          "cardId": "c-9acb2776-f920-4b64-a37c-0ccec0409c5a",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-10T09:20:00.000+08:00",
+          "lastFiredAt": "2026-10-10T09:00:00.000+08:00"
+        },
+        "change": "fired",
+        "by": "system",
+        "lateMinutes": 20
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 8,
+      "type": "reminder",
+      "payload": {
+        "reminder": {
+          "id": "r-2",
+          "text": "吃药",
+          "schedule": {
+            "kind": "daily",
+            "time": "07:00"
+          },
+          "status": "pending",
+          "cardId": "c-513df2f0-fadb-400b-9041-3ea67f0ff89e",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-10T09:20:00.000+08:00",
+          "nextAt": "2026-10-11T07:00:00.000+08:00",
+          "lastFiredAt": "2026-10-10T07:00:00.000+08:00"
+        },
+        "change": "missed",
+        "by": "system",
+        "lateMinutes": 140
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 1,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-9acb2776-f920-4b64-a37c-0ccec0409c5a",
+          "type": "reminder",
+          "typeVersion": 2,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "reminderId": "r-1",
+            "text": "交报告",
+            "schedule": {
+              "kind": "once",
+              "at": "2026-10-10T09:00:00.000+08:00"
+            },
+            "status": "pending",
+            "nextAt": "2026-10-10T09:00:00.000+08:00"
+          },
+          "text": "简单提醒：交报告 · 10 月 10 日（周六）09:00",
+          "createdAt": "2026-10-08T08:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 2,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-513df2f0-fadb-400b-9041-3ea67f0ff89e",
+          "type": "reminder",
+          "typeVersion": 2,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "reminderId": "r-2",
+            "text": "吃药",
+            "schedule": {
+              "kind": "daily",
+              "time": "07:00"
+            },
+            "status": "pending",
+            "nextAt": "2026-10-09T07:00:00.000+08:00"
+          },
+          "text": "简单提醒：吃药 · 每天 07:00（下一次 10 月 9 日（周五）07:00）",
+          "createdAt": "2026-10-08T08:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 3,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-9acb2776-f920-4b64-a37c-0ccec0409c5a",
+          "type": "reminder",
+          "typeVersion": 2,
+          "version": 2,
+          "status": "expired",
+          "payload": {
+            "reminderId": "r-1",
+            "text": "交报告",
+            "schedule": {
+              "kind": "once",
+              "at": "2026-10-10T09:00:00.000+08:00"
+            },
+            "status": "fired",
+            "lastFiredAt": "2026-10-10T09:00:00.000+08:00"
+          },
+          "text": "简单提醒：交报告 · 10 月 10 日（周六）09:00 · 已触发",
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "handledAt": "2026-10-10T09:20:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 4,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-513df2f0-fadb-400b-9041-3ea67f0ff89e",
+          "type": "reminder",
+          "typeVersion": 2,
+          "version": 2,
+          "status": "pending",
+          "payload": {
+            "reminderId": "r-2",
+            "text": "吃药",
+            "schedule": {
+              "kind": "daily",
+              "time": "07:00"
+            },
+            "status": "pending",
+            "nextAt": "2026-10-11T07:00:00.000+08:00",
+            "lastFiredAt": "2026-10-10T07:00:00.000+08:00"
+          },
+          "text": "简单提醒：吃药 · 每天 07:00（下一次 10 月 11 日（周日）07:00）",
+          "createdAt": "2026-10-08T08:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 1,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-0307a809-d06d-47d9-9653-0ab02d99546a",
+          "version": 1,
+          "title": "提醒：交报告",
+          "source": "简单提醒",
+          "urgency": "non_blocking",
+          "pinned": true,
+          "createdAt": "2026-10-10T09:20:00.000+08:00",
+          "read": false,
+          "archived": false,
+          "deleted": false,
+          "kind": "notice",
+          "notice": "reminder_due",
+          "body": "10 月 10 日（周六）09:00 的提醒，晚了 20 分钟（那时守护进程没在运行）。",
+          "actions": [
+            "知道了"
+          ],
+          "cardId": "c-9acb2776-f920-4b64-a37c-0ccec0409c5a"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 2,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-72d5db2a-ba01-425b-b9e0-65e8a7d9bf1d",
+          "version": 1,
+          "title": "错过的提醒：吃药",
+          "source": "简单提醒",
+          "urgency": "non_blocking",
+          "pinned": false,
+          "createdAt": "2026-10-10T09:20:00.000+08:00",
+          "read": false,
+          "archived": false,
+          "deleted": false,
+          "kind": "notice",
+          "notice": "missed_reminder",
+          "body": "10 月 10 日（周六）07:00 的提醒没有按时响（那时守护进程没在运行），晚了 2 小时 20 分钟，改放到这里。",
+          "actions": [
+            "知道了"
+          ],
+          "cardId": "c-513df2f0-fadb-400b-9041-3ea67f0ff89e"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 9,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 0,
+          "cacheMiss": 6298,
+          "output": 2
+        },
+        "calls": 1,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 6298,
+              "output": 2
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-10T09:20:00.000+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 10,
+      "type": "scheduled_job",
+      "payload": {
+        "job": {
+          "id": "j-1",
+          "title": "每天早上出简报",
+          "schedule": {
+            "kind": "daily",
+            "time": "09:00"
+          },
+          "each": "每天早上出简报\n汇总昨天的新闻，写一份简报 brief.md",
+          "maintainerId": "tm-1",
+          "taskId": "t-1",
+          "taskTitle": "每天早上出简报",
+          "ownerTaskId": "t-1",
+          "grants": [],
+          "temporalRules": [],
+          "grantInfo": {},
+          "state": "active",
+          "lastFailed": false,
+          "consecutiveFailures": 0,
+          "runCount": 1,
+          "createdAt": "2026-10-08T08:00:00.000+08:00",
+          "updatedAt": "2026-10-10T09:20:00.000+08:00",
+          "nextAt": "2026-10-11T09:00:00.000+08:00",
+          "lastRun": {
+            "runId": "j-1-r1",
+            "jobId": "j-1",
+            "trigger": "catch_up",
+            "dueAt": "2026-10-10T09:00:00.000+08:00",
+            "missed": 3,
+            "events": [
+              {
+                "source": "time",
+                "at": "2026-10-10T09:00:00.000+08:00",
+                "summary": "守护进程停机期间错过了 3 次（最近一次 10 月 10 日（周六）09:00），开机补跑一次"
+              }
+            ],
+            "state": "done",
+            "queuedAt": "2026-10-10T09:20:00.000+08:00",
+            "startedAt": "2026-10-10T09:20:00.000+08:00",
+            "endedAt": "2026-10-10T09:20:00.000+08:00"
+          }
+        },
+        "change": "run_finished",
+        "by": "system",
+        "run": {
+          "runId": "j-1-r1",
+          "jobId": "j-1",
+          "trigger": "catch_up",
+          "dueAt": "2026-10-10T09:00:00.000+08:00",
+          "missed": 3,
+          "events": [
+            {
+              "source": "time",
+              "at": "2026-10-10T09:00:00.000+08:00",
+              "summary": "守护进程停机期间错过了 3 次（最近一次 10 月 10 日（周六）09:00），开机补跑一次"
+            }
+          ],
+          "state": "done",
+          "queuedAt": "2026-10-10T09:20:00.000+08:00",
+          "startedAt": "2026-10-10T09:20:00.000+08:00",
+          "endedAt": "2026-10-10T09:20:00.000+08:00"
+        }
+      }
+    }
+  }
+]

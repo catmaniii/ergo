@@ -1,0 +1,13 @@
+{
+  "maintainers.label.plain": "普通任务 {id}「{title}」的 agent",
+  "maintainers.label.task": "{kind} {id}「{title}」的维护者",
+  "maintainers.readOnly": "任务{state}，这里只能看：不能改提示词、清空或压缩",
+  "maintainers.movedToProject": "这个任务的维护者现在不在这里（任务转为项目了）",
+  "maintainers.noMaintainer": "没有这个维护者：{conversation}",
+  "maintainers.source.plain": "普通任务「{title}」",
+  "maintainers.source.workflow": "流程「{title}」",
+  "maintainers.source.task": "任务「{title}」",
+  "maintainers.interrupted": "上一条输入处理时中断了，维护者没有接着处理。",
+  "maintainers.interruptedQuoted": "上一条输入「{quoted}」处理时中断了，维护者没有接着处理。",
+  "maintainers.tool.submitPlan": "提交计划"
+}

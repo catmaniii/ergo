@@ -1,0 +1,7 @@
+{
+  "apps.noApp": "No such app",
+  "apps.noAppNamed": "No app “{name}”",
+  "apps.noAppHint": "No service is registered at this address. It may be mistyped, or the service has been retired.",
+  "apps.down": "Service “{title}” isn't running",
+  "apps.downHint": "Nothing is answering on local port {port}. Refresh this page once the service is up."
+}

@@ -1,0 +1,36 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "二狗的鸿蒙 App"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "二狗：个人助理"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "二狗"
+    },
+    {
+      "name": "calendar_reason",
+      "value": "只读手机日历里的日程，放进二狗的日历"
+    },
+    {
+      "name": "photos_reason",
+      "value": "只读相册里照片的拍摄时间（不读照片本身），按天整理成摘要交给你自己电脑上的二狗"
+    },
+    {
+      "name": "photo_location_reason",
+      "value": "读照片里记着的拍摄地点，和拍摄时间一起整理成每天的摘要"
+    },
+    {
+      "name": "location_reason",
+      "value": "定时记下你的位置，交给你自己电脑上的二狗整理成每天去过哪、待了多久"
+    },
+    {
+      "name": "microphone_reason",
+      "value": "按住说话时录下你的语音，发给二狗"
+    }
+  ]
+}

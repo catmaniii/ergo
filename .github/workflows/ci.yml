@@ -1,0 +1,91 @@
+# 自动测试（316 号票）：只在 Windows 上、只跑 Node 22 一个版本（二狗只支持 Windows；Node 大版本跟着 pi 走，见 docs/adr/0031）。
+# - 平时（推到 main、PR）：快车道——类型检查、lint、多语言检查、构建网页、npm run test:fast、服务管家的测试，十来分钟；
+# - 发版前（推 v* 标签）和手动勾"全量"：npm test 全量（快车道 + 主切面 + pi 契约测试，约 35 分钟）+ 服务管家的测试。
+# 私有仓库上不自动跑：GitHub 托管的 Windows 机器在私有仓库上按 2 倍分钟数计费，跑不跑先问过维护者。
+# 每个 job 的 if 只放行公开仓库，或者手动触发（Actions 页面点 Run workflow）；公开仓库的 Actions 不收费。
+name: 测试 / CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      full:
+        description: 跑全量（约 35 分钟）/ Run the full suite (~35 min)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # 测试里只许连本机回环（vitest.setup-no-network.mjs），不需要任何密钥
+  FORCE_COLOR: "1"
+
+jobs:
+  fast:
+    name: 快车道 / Fast lane (Windows, Node 22)
+    if: >-
+      (github.event_name == 'workflow_dispatch' && !inputs.full) ||
+      (github.event_name != 'workflow_dispatch' && !startsWith(github.ref, 'refs/tags/') && !github.event.repository.private)
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          # ADR-0031：跟着 pi 的那条线，取最新补丁
+          node-version: 22
+          cache: npm
+      - name: 装依赖 / Install
+        run: npm ci --no-audit --no-fund
+      - name: 类型检查 / Typecheck
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: 多语言检查 / i18n check
+        run: npm run i18n:check
+      - name: 构建网页 / Build web UI
+        run: npm run build:web
+      - name: 快车道测试 / Fast tests
+        run: npm run test:fast
+      - name: 服务管家的测试 / Supervisor tests
+        run: npm run test:supervisor
+
+  full:
+    name: 全量 / Full suite (Windows, Node 22)
+    if: >-
+      (github.event_name == 'workflow_dispatch' && inputs.full) ||
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && !github.event.repository.private)
+    runs-on: windows-latest
+    timeout-minutes: 90
+    env:
+      # GitHub 托管的 Windows 机器是 4 核；主切面每个用例都拉起 agent 子进程，并行开大了等待类用例会超时
+      ERGO_TEST_WORKERS: "2"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - name: 装依赖 / Install
+        run: npm ci --no-audit --no-fund
+      - name: 类型检查 / Typecheck
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: 多语言检查 / i18n check
+        run: npm run i18n:check
+      - name: 构建网页 / Build web UI
+        run: npm run build:web
+      # 全量里有真 Chrome 打开页面的检查（page-opens）：windows-latest 自带 Chrome；还要 Git Bash（自带 Git for Windows）
+      - name: 全量测试 / Full tests
+        run: npm test
+      - name: 服务管家的测试 / Supervisor tests
+        run: npm run test:supervisor

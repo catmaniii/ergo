@@ -1,0 +1,3239 @@
+[
+  {
+    "kind": "connection",
+    "status": "online"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 1,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "拒绝",
+          "summary": "拒绝",
+          "state": "planning",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-12T00:48:32.563+08:00",
+          "updatedAt": "2026-10-12T00:48:32.563+08:00"
+        },
+        "change": "created",
+        "from": null,
+        "by": "secretary"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 1,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "任务书：任务 t-1「拒绝」\n目标：整理一份 X 的调研\n验收标准：\n- 附来源\n约束：（无）\n涉及的项目：不涉及项目\n记忆范围提议：（无）（第一阶段只占位）\n全局的关注类别（计划里的 watchCategories 一个都不能少，只能增加或往严里调）：spend_money「花钱」、external_send「以我的名义对外发送或发布」、delete_or_overwrite「删除或覆盖（项目档案和工作目录内）」、irreversible_commit「不可逆的提交」、account_security「账户与安全（凭据、权限、全局装软件）」、outside_project「越出项目目录」、memory_out_of_scope「使用授权范围外的记忆」、unplanned_work_order「计划外工单」、unknown_write「未知的写操作」\n请据此起草计划，用 submit_plan 提交；用户确认之前不要动手做。"
+            }
+          ],
+          "id": "m-9212b989-0480-4580-a14f-f9315df521b9",
+          "time": "2026-10-12T00:48:32.564+08:00"
+        },
+        "agentInput": true,
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 2,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-9212b989-0480-4580-a14f-f9315df521b9"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 2,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 0,
+          "cacheMiss": 9390,
+          "output": 249
+        },
+        "calls": 1,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 9390,
+              "output": 249
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-12T00:48:34.230+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 1,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-13f59107-f504-4b4c-a32c-4a13f24c228c",
+          "type": "plan",
+          "typeVersion": 5,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "taskId": "t-1",
+            "taskTitle": "拒绝",
+            "revision": 1,
+            "planId": "t-1-p1",
+            "goal": "整理一份 X 的调研",
+            "plan": {
+              "stages": [
+                {
+                  "stageId": "s1",
+                  "title": "收集资料",
+                  "deliverables": [
+                    "资料清单 sources.md"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "资料清单存在",
+                      "method": "script",
+                      "script": "test -f sources.md"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [],
+                  "policy": {
+                    "grants": [],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 0,
+                    "toolCalls": 0
+                  },
+                  "code": "1a"
+                },
+                {
+                  "stageId": "s2",
+                  "title": "写报告",
+                  "deliverables": [
+                    "调研报告 report.md"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "报告文件存在",
+                      "method": "script",
+                      "script": "test -f report.md"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [],
+                  "policy": {
+                    "grants": [],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 0,
+                    "toolCalls": 0
+                  },
+                  "code": "1b"
+                }
+              ],
+              "stageGroups": [],
+              "toolkit": {
+                "skills": [],
+                "mcp": [],
+                "bash": true,
+                "network": false
+              },
+              "projects": [],
+              "memoryScope": "（第一阶段不授予）",
+              "watchCategories": [
+                {
+                  "id": "spend_money",
+                  "title": "花钱"
+                },
+                {
+                  "id": "external_send",
+                  "title": "以我的名义对外发送或发布"
+                },
+                {
+                  "id": "delete_or_overwrite",
+                  "title": "删除或覆盖（项目档案和工作目录内）"
+                },
+                {
+                  "id": "irreversible_commit",
+                  "title": "不可逆的提交"
+                },
+                {
+                  "id": "account_security",
+                  "title": "账户与安全（凭据、权限、全局装软件）"
+                },
+                {
+                  "id": "outside_project",
+                  "title": "越出项目目录"
+                },
+                {
+                  "id": "memory_out_of_scope",
+                  "title": "使用授权范围外的记忆"
+                },
+                {
+                  "id": "unplanned_work_order",
+                  "title": "计划外工单"
+                },
+                {
+                  "id": "unknown_write",
+                  "title": "未知的写操作"
+                }
+              ],
+              "assumptions": [
+                "只用公开资料"
+              ],
+              "stops": {
+                "count": 0,
+                "where": []
+              },
+              "tokenEstimate": 320000
+            },
+            "globalCategories": [
+              "spend_money",
+              "external_send",
+              "delete_or_overwrite",
+              "irreversible_commit",
+              "account_security",
+              "outside_project",
+              "memory_out_of_scope",
+              "unplanned_work_order",
+              "unknown_write"
+            ],
+            "grantInfo": {},
+            "verifiedQuotes": []
+          },
+          "text": "计划：拒绝（第 1 版，2 个阶段，约 320000 token）",
+          "urgency": "blocking",
+          "createdAt": "2026-10-12T00:48:34.241+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 3,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "拒绝",
+          "summary": "拒绝",
+          "state": "awaiting_confirm",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-12T00:48:32.563+08:00",
+          "updatedAt": "2026-10-12T00:48:34.241+08:00",
+          "planCardId": "c-13f59107-f504-4b4c-a32c-4a13f24c228c",
+          "stages": {
+            "total": 2
+          }
+        },
+        "change": "plan_submitted",
+        "from": "planning",
+        "by": "maintainer"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 1,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-ce8e0880-14a3-44aa-b2d4-d7ec83dc68bb",
+          "version": 1,
+          "title": "计划等你确认：拒绝",
+          "source": "任务「拒绝」",
+          "urgency": "blocking",
+          "pinned": false,
+          "createdAt": "2026-10-12T00:48:34.241+08:00",
+          "read": false,
+          "archived": false,
+          "deleted": false,
+          "kind": "card",
+          "cardId": "c-13f59107-f504-4b4c-a32c-4a13f24c228c"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 1,
+      "type": "notify",
+      "payload": {
+        "id": "n-i-ce8e0880-14a3-44aa-b2d4-d7ec83dc68bb",
+        "title": "计划等你确认：拒绝",
+        "itemId": "i-ce8e0880-14a3-44aa-b2d4-d7ec83dc68bb"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 3,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "card_ref",
+              "cardId": "c-13f59107-f504-4b4c-a32c-4a13f24c228c"
+            }
+          ],
+          "id": "m-5f9c1308-eccc-454b-8599-3ed3da324ad5",
+          "time": "2026-10-12T00:48:34.242+08:00"
+        },
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 4,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791737314201:kf06pmtq419",
+              "tool": "submit_plan",
+              "argsSummary": "stages=[{\"stageId\":\"s1\",\"title\":\"收集资料\",\"deliverables\":[\"资料清单 sources.md\"],\"acceptance\":[{\"criterion\":\"资料清单存在\",\"method\":\"script\",\"script\":\"test -f sources.md\"}],…",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "计划已提交（第 1 版），计划卡放进了用户的待我处理，任务转为待确认。用户确认之前不要动手；用户打回时你会收到意见。",
+              "nature": "act"
+            }
+          ],
+          "id": "m-04f78c04-51a5-404c-bfc6-3558cb717334",
+          "time": "2026-10-12T00:48:34.244+08:00"
+        },
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 4,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-e94b19ee-418d-4def-830a-223c39f78241",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "计划交上去了"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 5,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-e94b19ee-418d-4def-830a-223c39f78241",
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "计划交上去了"
+            }
+          ],
+          "time": "2026-10-12T00:48:34.247+08:00"
+        },
+        "taskId": "t-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 4,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 4695,
+          "cacheMiss": 9934,
+          "output": 251
+        },
+        "calls": 2,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 4695,
+              "cacheMiss": 9934,
+              "output": 251
+            },
+            "calls": 2
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-12T00:48:34.248+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 6,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-9212b989-0480-4580-a14f-f9315df521b9",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "card_action",
+    "cardId": "c-13f59107-f504-4b4c-a32c-4a13f24c228c",
+    "action": "confirm",
+    "idempotencyKey": "ccb1200d-c7ab-40bf-8249-4c5e9c921588"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 5,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "拒绝",
+          "summary": "拒绝",
+          "state": "queued",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-12T00:48:32.563+08:00",
+          "updatedAt": "2026-10-12T00:48:34.589+08:00",
+          "planCardId": "c-13f59107-f504-4b4c-a32c-4a13f24c228c",
+          "stages": {
+            "total": 2
+          }
+        },
+        "change": "plan_confirmed",
+        "from": "awaiting_confirm",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 2,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-13f59107-f504-4b4c-a32c-4a13f24c228c",
+          "type": "plan",
+          "typeVersion": 5,
+          "version": 2,
+          "status": "handled",
+          "payload": {
+            "taskId": "t-1",
+            "taskTitle": "拒绝",
+            "revision": 1,
+            "planId": "t-1-p1",
+            "goal": "整理一份 X 的调研",
+            "plan": {
+              "stages": [
+                {
+                  "stageId": "s1",
+                  "title": "收集资料",
+                  "deliverables": [
+                    "资料清单 sources.md"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "资料清单存在",
+                      "method": "script",
+                      "script": "test -f sources.md"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [],
+                  "policy": {
+                    "grants": [],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 0,
+                    "toolCalls": 0
+                  },
+                  "code": "1a"
+                },
+                {
+                  "stageId": "s2",
+                  "title": "写报告",
+                  "deliverables": [
+                    "调研报告 report.md"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "报告文件存在",
+                      "method": "script",
+                      "script": "test -f report.md"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [],
+                  "policy": {
+                    "grants": [],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 0,
+                    "toolCalls": 0
+                  },
+                  "code": "1b"
+                }
+              ],
+              "stageGroups": [],
+              "toolkit": {
+                "skills": [],
+                "mcp": [],
+                "bash": true,
+                "network": false
+              },
+              "projects": [],
+              "memoryScope": "（第一阶段不授予）",
+              "watchCategories": [
+                {
+                  "id": "spend_money",
+                  "title": "花钱"
+                },
+                {
+                  "id": "external_send",
+                  "title": "以我的名义对外发送或发布"
+                },
+                {
+                  "id": "delete_or_overwrite",
+                  "title": "删除或覆盖（项目档案和工作目录内）"
+                },
+                {
+                  "id": "irreversible_commit",
+                  "title": "不可逆的提交"
+                },
+                {
+                  "id": "account_security",
+                  "title": "账户与安全（凭据、权限、全局装软件）"
+                },
+                {
+                  "id": "outside_project",
+                  "title": "越出项目目录"
+                },
+                {
+                  "id": "memory_out_of_scope",
+                  "title": "使用授权范围外的记忆"
+                },
+                {
+                  "id": "unplanned_work_order",
+                  "title": "计划外工单"
+                },
+                {
+                  "id": "unknown_write",
+                  "title": "未知的写操作"
+                }
+              ],
+              "assumptions": [
+                "只用公开资料"
+              ],
+              "stops": {
+                "count": 0,
+                "where": []
+              },
+              "tokenEstimate": 320000
+            },
+            "globalCategories": [
+              "spend_money",
+              "external_send",
+              "delete_or_overwrite",
+              "irreversible_commit",
+              "account_security",
+              "outside_project",
+              "memory_out_of_scope",
+              "unplanned_work_order",
+              "unknown_write"
+            ],
+            "grantInfo": {},
+            "verifiedQuotes": [],
+            "removedGrants": [],
+            "narrowedGrants": []
+          },
+          "text": "计划：拒绝（第 1 版，2 个阶段，约 320000 token）",
+          "urgency": "blocking",
+          "createdAt": "2026-10-12T00:48:34.241+08:00",
+          "handledAt": "2026-10-12T00:48:34.589+08:00",
+          "outcome": {
+            "action": "confirm"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 6,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "拒绝",
+          "summary": "拒绝",
+          "state": "running",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-12T00:48:32.563+08:00",
+          "updatedAt": "2026-10-12T00:48:34.593+08:00",
+          "planCardId": "c-13f59107-f504-4b4c-a32c-4a13f24c228c",
+          "stages": {
+            "total": 2,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "收集资料",
+                "state": "pending",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "资料清单存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0,
+                "code": "1a"
+              },
+              {
+                "stageId": "s2",
+                "title": "写报告",
+                "state": "pending",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "报告文件存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0,
+                "code": "1b"
+              }
+            ]
+          }
+        },
+        "change": "started",
+        "from": "queued",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 7,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "拒绝",
+          "summary": "拒绝",
+          "state": "running",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-12T00:48:32.563+08:00",
+          "updatedAt": "2026-10-12T00:48:34.593+08:00",
+          "planCardId": "c-13f59107-f504-4b4c-a32c-4a13f24c228c",
+          "stages": {
+            "total": 2,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "收集资料",
+                "state": "running",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "资料清单存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0,
+                "code": "1a",
+                "startedAt": "2026-10-12T00:48:34.593+08:00"
+              },
+              {
+                "stageId": "s2",
+                "title": "写报告",
+                "state": "pending",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "报告文件存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0,
+                "code": "1b"
+              }
+            ],
+            "focus": "s1"
+          }
+        },
+        "change": "stage_started",
+        "from": "running",
+        "by": "system",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 7,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "计划已确认，开始执行任务 t-1「拒绝」。\n现在是第 1a/1 阶段 s1「收集资料」：\n- 交付件：资料清单 sources.md\n- 验收标准：资料清单存在（脚本：test -f sources.md）\n- 模式：开放\n授权（只在当前阶段内有效）：\n- （没有）\n时序规则：\n- （没有）\n边界：\n- 工作目录 <临时目录>\\ergo-data-w2ecg7\\outputs\\t-1：文件工具只能写这里；工具包：bash 开，联网关\n- 授权项只在所属阶段内有效，用到别的阶段的授权会被拉回；前置阶段没验收的阶段不能开始；“先问我”类的操作列进了授权项，执行时也照样问用户\n- 一个阶段做完调用 complete_stage 宣布完成，由运行时验收（脚本、评审、用户），你自检不算验收；进展用 report_progress 报告；卡住要用户拍板用 wait_for_user；做不下去用 fail_task 写明原因；要换去做另一个能开始的阶段用 start_stage\n- 要扩大授权、加能力、加项目、改目标或验收：用 propose_plan_change 提交计划变更（用户确认后生效，只有受影响的阶段停下等）；不扩大授权的调整（拆阶段、调顺序）用 revise_plan 自行调整计划（直接生效）\n做完调用 complete_stage 宣布阶段完成，由运行时验收。"
+            }
+          ],
+          "id": "m-3730f739-ac64-41a6-8501-6011c526b26a",
+          "time": "2026-10-12T00:48:34.594+08:00"
+        },
+        "agentInput": true,
+        "taskId": "t-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 8,
+      "type": "stage_start",
+      "payload": {
+        "id": "ss-ec97a31d-0ebe-4548-9008-9f988d55b94c",
+        "conversation": "maintainer:tm-1",
+        "taskId": "t-1",
+        "stageId": "s1",
+        "title": "收集资料",
+        "code": "1a",
+        "via": {
+          "notice": "m-3730f739-ac64-41a6-8501-6011c526b26a"
+        },
+        "time": "2026-10-12T00:48:34.594+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 9,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-3730f739-ac64-41a6-8501-6011c526b26a"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 8,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 4695,
+          "cacheMiss": 32858,
+          "output": 472
+        },
+        "calls": 3,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 4695,
+              "cacheMiss": 32858,
+              "output": 472
+            },
+            "calls": 3
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 22924,
+              "output": 221
+            },
+            "calls": 1,
+            "budgetTokens": 23145
+          }
+        ],
+        "time": "2026-10-12T00:48:36.091+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 3,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-9a2c409d-634b-4551-822a-74e5536e67e1",
+          "type": "plan_change",
+          "typeVersion": 2,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "taskId": "t-1",
+            "taskTitle": "拒绝",
+            "planId": "t-1-p2",
+            "revision": 2,
+            "basePlanId": "t-1-p1",
+            "why": "资料要放到外面的共享目录",
+            "changes": [
+              {
+                "kind": "grant_added",
+                "expands": true,
+                "owner": {
+                  "kind": "stage",
+                  "id": "s1",
+                  "title": "收集资料"
+                },
+                "grant": {
+                  "id": "dir1",
+                  "tool": "make_dir",
+                  "title": "建 s1 目录",
+                  "scope": {
+                    "path": "<临时目录>\\ergo-out-U6KiHa\\s1"
+                  }
+                }
+              }
+            ],
+            "affectedStages": [
+              {
+                "stageId": "s1",
+                "title": "收集资料"
+              }
+            ],
+            "plan": {
+              "stages": [
+                {
+                  "stageId": "s1",
+                  "title": "收集资料",
+                  "deliverables": [
+                    "资料清单 sources.md"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "资料清单存在",
+                      "method": "script",
+                      "script": "test -f sources.md"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [],
+                  "policy": {
+                    "grants": [
+                      {
+                        "id": "dir1",
+                        "tool": "make_dir",
+                        "title": "建 s1 目录",
+                        "scope": {
+                          "path": "<临时目录>\\ergo-out-U6KiHa\\s1"
+                        }
+                      }
+                    ],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 0,
+                    "toolCalls": 0
+                  },
+                  "code": "1a"
+                },
+                {
+                  "stageId": "s2",
+                  "title": "写报告",
+                  "deliverables": [
+                    "调研报告 report.md"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "报告文件存在",
+                      "method": "script",
+                      "script": "test -f report.md"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [],
+                  "policy": {
+                    "grants": [],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 0,
+                    "toolCalls": 0
+                  },
+                  "code": "1b"
+                }
+              ],
+              "stageGroups": [],
+              "toolkit": {
+                "skills": [],
+                "mcp": [],
+                "bash": true,
+                "network": false
+              },
+              "projects": [],
+              "assumptions": [
+                "只用公开资料"
+              ],
+              "stops": {
+                "count": 0,
+                "where": []
+              },
+              "tokenEstimate": 320000,
+              "watchCategories": [
+                {
+                  "id": "spend_money",
+                  "title": "花钱"
+                },
+                {
+                  "id": "external_send",
+                  "title": "以我的名义对外发送或发布"
+                },
+                {
+                  "id": "delete_or_overwrite",
+                  "title": "删除或覆盖（项目档案和工作目录内）"
+                },
+                {
+                  "id": "irreversible_commit",
+                  "title": "不可逆的提交"
+                },
+                {
+                  "id": "account_security",
+                  "title": "账户与安全（凭据、权限、全局装软件）"
+                },
+                {
+                  "id": "outside_project",
+                  "title": "越出项目目录"
+                },
+                {
+                  "id": "memory_out_of_scope",
+                  "title": "使用授权范围外的记忆"
+                },
+                {
+                  "id": "unplanned_work_order",
+                  "title": "计划外工单"
+                },
+                {
+                  "id": "unknown_write",
+                  "title": "未知的写操作"
+                }
+              ],
+              "memoryScope": "（第一阶段不授予）"
+            },
+            "grantInfo": {
+              "dir1": {
+                "toolTitle": "建目录",
+                "categoryTitles": [],
+                "disposition": "do",
+                "outward": false
+              }
+            }
+          },
+          "text": "计划变更：拒绝（资料要放到外面的共享目录）\n- 新增授权（阶段 s1「收集资料」）：建目录（make_dir）：path 是 <临时目录>\\ergo-out-U6KiHa\\s1；不限次数；7 天内有效（要你确认）\n停下等确认的阶段：s1「收集资料」",
+          "urgency": "blocking",
+          "createdAt": "2026-10-12T00:48:36.101+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 2,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-472ac7d0-3598-4f02-aebe-7d65893a6c4c",
+          "version": 1,
+          "title": "计划变更等你确认：拒绝",
+          "source": "任务「拒绝」",
+          "urgency": "blocking",
+          "pinned": false,
+          "createdAt": "2026-10-12T00:48:36.101+08:00",
+          "read": false,
+          "archived": false,
+          "deleted": false,
+          "kind": "card",
+          "cardId": "c-9a2c409d-634b-4551-822a-74e5536e67e1"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 9,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "拒绝",
+          "summary": "拒绝",
+          "state": "running",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-12T00:48:32.563+08:00",
+          "updatedAt": "2026-10-12T00:48:36.101+08:00",
+          "planCardId": "c-13f59107-f504-4b4c-a32c-4a13f24c228c",
+          "stages": {
+            "total": 2,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "收集资料",
+                "state": "waiting",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "资料清单存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0,
+                "code": "1a",
+                "startedAt": "2026-10-12T00:48:34.593+08:00",
+                "waitReason": "plan_change",
+                "waitingOn": "c-9a2c409d-634b-4551-822a-74e5536e67e1",
+                "waitNote": "资料要放到外面的共享目录"
+              },
+              {
+                "stageId": "s2",
+                "title": "写报告",
+                "state": "pending",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "报告文件存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0,
+                "code": "1b"
+              }
+            ],
+            "focus": "s1"
+          }
+        },
+        "change": "plan_change_proposed",
+        "from": "running",
+        "by": "maintainer"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 10,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "拒绝",
+          "summary": "拒绝",
+          "state": "running",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-12T00:48:32.563+08:00",
+          "updatedAt": "2026-10-12T00:48:36.101+08:00",
+          "planCardId": "c-13f59107-f504-4b4c-a32c-4a13f24c228c",
+          "stages": {
+            "total": 2,
+            "current": 2,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "收集资料",
+                "state": "waiting",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "资料清单存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0,
+                "code": "1a",
+                "startedAt": "2026-10-12T00:48:34.593+08:00",
+                "waitReason": "plan_change",
+                "waitingOn": "c-9a2c409d-634b-4551-822a-74e5536e67e1",
+                "waitNote": "资料要放到外面的共享目录"
+              },
+              {
+                "stageId": "s2",
+                "title": "写报告",
+                "state": "running",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "报告文件存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0,
+                "code": "1b",
+                "startedAt": "2026-10-12T00:48:36.101+08:00"
+              }
+            ],
+            "focus": "s2"
+          }
+        },
+        "change": "stage_started",
+        "from": "running",
+        "by": "system",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 10,
+      "type": "stage_start",
+      "payload": {
+        "id": "ss-f15fcd5c-c779-4c5f-b4fb-6e2313a6bc29",
+        "conversation": "maintainer:tm-1",
+        "taskId": "t-1",
+        "stageId": "s2",
+        "title": "写报告",
+        "code": "1b",
+        "via": {
+          "call": "tool:1791737316056:hopeiwgq76m",
+          "tool": "propose_plan_change",
+          "after": true
+        },
+        "time": "2026-10-12T00:48:36.106+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 2,
+      "type": "notify",
+      "payload": {
+        "id": "n-i-472ac7d0-3598-4f02-aebe-7d65893a6c4c",
+        "title": "计划变更等你确认：拒绝",
+        "itemId": "i-472ac7d0-3598-4f02-aebe-7d65893a6c4c"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 11,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "card_ref",
+              "cardId": "c-9a2c409d-634b-4551-822a-74e5536e67e1"
+            }
+          ],
+          "id": "m-08dd57d6-4c01-4a0a-b4df-62b571f9ad02",
+          "time": "2026-10-12T00:48:36.103+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 12,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791737316056:hopeiwgq76m",
+              "tool": "propose_plan_change",
+              "argsSummary": "plan={\"stages\":[{\"stageId\":\"s1\",\"title\":\"收集资料\",\"deliverables\":[\"资料清单 sources.md\"],\"acceptance\":[{\"criterion\":\"资料清单存在\",\"method\":\"script\",\"script\":\"test -f source…",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "计划变更卡（t-1-p2）已放进用户的待我处理，用户确认后才生效。改动： - 新增授权（阶段 s1「收集资料」）：make_dir：path 是 <临时目录>\\ergo-out-U6KiHa\\s1；不限次数；7 天内有效 只有这些阶段停下等确认：阶段 s1「收集资料」；其余阶段照常推进。 接下来： 现在是第 1b/1 阶段 s2「写报…",
+              "nature": "act"
+            }
+          ],
+          "id": "m-76c88416-7ad0-4484-8f2c-35235a6aca53",
+          "time": "2026-10-12T00:48:36.106+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 12,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-e5594f62-c036-4845-bd15-9040136fbe12",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "等你确认"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 13,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-e5594f62-c036-4845-bd15-9040136fbe12",
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "等你确认"
+            }
+          ],
+          "time": "2026-10-12T00:48:36.110+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 11,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 16157,
+          "cacheMiss": 33712,
+          "output": 473
+        },
+        "calls": 4,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 16157,
+              "cacheMiss": 33712,
+              "output": 473
+            },
+            "calls": 4
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 22924,
+              "output": 221
+            },
+            "calls": 1,
+            "budgetTokens": 23145
+          },
+          {
+            "stageId": "s2",
+            "tokens": {
+              "cacheHit": 11462,
+              "cacheMiss": 854,
+              "output": 1
+            },
+            "calls": 1,
+            "budgetTokens": 12317
+          }
+        ],
+        "time": "2026-10-12T00:48:36.111+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 14,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-3730f739-ac64-41a6-8501-6011c526b26a",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "card_action",
+    "cardId": "c-9a2c409d-634b-4551-822a-74e5536e67e1",
+    "action": "reject",
+    "idempotencyKey": "da6c0102-8401-40c9-8247-03eef0607ae6"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 12,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "拒绝",
+          "summary": "拒绝",
+          "state": "running",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-12T00:48:32.563+08:00",
+          "updatedAt": "2026-10-12T00:48:36.457+08:00",
+          "planCardId": "c-13f59107-f504-4b4c-a32c-4a13f24c228c",
+          "stages": {
+            "total": 2,
+            "current": 2,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "收集资料",
+                "state": "pending",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "资料清单存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0,
+                "code": "1a",
+                "startedAt": "2026-10-12T00:48:34.593+08:00"
+              },
+              {
+                "stageId": "s2",
+                "title": "写报告",
+                "state": "running",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "报告文件存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0,
+                "code": "1b",
+                "startedAt": "2026-10-12T00:48:36.101+08:00"
+              }
+            ],
+            "focus": "s2"
+          }
+        },
+        "change": "plan_change_rejected",
+        "from": "running",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 15,
+      "type": "timeline_record",
+      "payload": {
+        "record": {
+          "id": "r-5a721287-ee13-4850-92b3-86bc49e2eb1a",
+          "kind": "plan_change",
+          "summary": "你拒绝了计划变更（第 2 版），受影响的阶段交回维护者在现有授权内重排",
+          "detail": "- 新增授权（阶段 s1「收集资料」）：建目录（make_dir）：path 是 <临时目录>\\ergo-out-U6KiHa\\s1；不限次数；7 天内有效",
+          "time": "2026-10-12T00:48:36.457+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 13,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "拒绝",
+          "summary": "拒绝",
+          "state": "running",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-12T00:48:32.563+08:00",
+          "updatedAt": "2026-10-12T00:48:36.457+08:00",
+          "planCardId": "c-13f59107-f504-4b4c-a32c-4a13f24c228c",
+          "stages": {
+            "total": 2,
+            "current": 2,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "收集资料",
+                "state": "pending",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "资料清单存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0,
+                "code": "1a",
+                "startedAt": "2026-10-12T00:48:34.593+08:00"
+              },
+              {
+                "stageId": "s2",
+                "title": "写报告",
+                "state": "running",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "报告文件存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0,
+                "code": "1b",
+                "startedAt": "2026-10-12T00:48:36.101+08:00"
+              }
+            ],
+            "focus": "s2"
+          },
+          "rejections": 1
+        },
+        "change": "rejection_counted",
+        "from": "running",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 16,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "用户拒绝了计划变更：「别动外面的目录」。在现有授权内重排受影响的阶段（阶段 s1「收集资料」）：用 revise_plan 自行调整计划（不扩大授权，不出卡，记进时间线）；在现有授权内做不到，就用 mark_infeasible 把这些阶段标做不了。"
+            }
+          ],
+          "id": "m-9e2ed233-14d8-45eb-bd90-81ddf0876c2e",
+          "time": "2026-10-12T00:48:36.457+08:00"
+        },
+        "agentInput": true,
+        "taskId": "t-1",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 4,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-9a2c409d-634b-4551-822a-74e5536e67e1",
+          "type": "plan_change",
+          "typeVersion": 2,
+          "version": 2,
+          "status": "handled",
+          "payload": {
+            "taskId": "t-1",
+            "taskTitle": "拒绝",
+            "planId": "t-1-p2",
+            "revision": 2,
+            "basePlanId": "t-1-p1",
+            "why": "资料要放到外面的共享目录",
+            "changes": [
+              {
+                "kind": "grant_added",
+                "expands": true,
+                "owner": {
+                  "kind": "stage",
+                  "id": "s1",
+                  "title": "收集资料"
+                },
+                "grant": {
+                  "id": "dir1",
+                  "tool": "make_dir",
+                  "title": "建 s1 目录",
+                  "scope": {
+                    "path": "<临时目录>\\ergo-out-U6KiHa\\s1"
+                  }
+                }
+              }
+            ],
+            "affectedStages": [
+              {
+                "stageId": "s1",
+                "title": "收集资料"
+              }
+            ],
+            "plan": {
+              "stages": [
+                {
+                  "stageId": "s1",
+                  "title": "收集资料",
+                  "deliverables": [
+                    "资料清单 sources.md"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "资料清单存在",
+                      "method": "script",
+                      "script": "test -f sources.md"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [],
+                  "policy": {
+                    "grants": [
+                      {
+                        "id": "dir1",
+                        "tool": "make_dir",
+                        "title": "建 s1 目录",
+                        "scope": {
+                          "path": "<临时目录>\\ergo-out-U6KiHa\\s1"
+                        }
+                      }
+                    ],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 0,
+                    "toolCalls": 0
+                  },
+                  "code": "1a"
+                },
+                {
+                  "stageId": "s2",
+                  "title": "写报告",
+                  "deliverables": [
+                    "调研报告 report.md"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "报告文件存在",
+                      "method": "script",
+                      "script": "test -f report.md"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [],
+                  "policy": {
+                    "grants": [],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 0,
+                    "toolCalls": 0
+                  },
+                  "code": "1b"
+                }
+              ],
+              "stageGroups": [],
+              "toolkit": {
+                "skills": [],
+                "mcp": [],
+                "bash": true,
+                "network": false
+              },
+              "projects": [],
+              "assumptions": [
+                "只用公开资料"
+              ],
+              "stops": {
+                "count": 0,
+                "where": []
+              },
+              "tokenEstimate": 320000,
+              "watchCategories": [
+                {
+                  "id": "spend_money",
+                  "title": "花钱"
+                },
+                {
+                  "id": "external_send",
+                  "title": "以我的名义对外发送或发布"
+                },
+                {
+                  "id": "delete_or_overwrite",
+                  "title": "删除或覆盖（项目档案和工作目录内）"
+                },
+                {
+                  "id": "irreversible_commit",
+                  "title": "不可逆的提交"
+                },
+                {
+                  "id": "account_security",
+                  "title": "账户与安全（凭据、权限、全局装软件）"
+                },
+                {
+                  "id": "outside_project",
+                  "title": "越出项目目录"
+                },
+                {
+                  "id": "memory_out_of_scope",
+                  "title": "使用授权范围外的记忆"
+                },
+                {
+                  "id": "unplanned_work_order",
+                  "title": "计划外工单"
+                },
+                {
+                  "id": "unknown_write",
+                  "title": "未知的写操作"
+                }
+              ],
+              "memoryScope": "（第一阶段不授予）"
+            },
+            "grantInfo": {
+              "dir1": {
+                "toolTitle": "建目录",
+                "categoryTitles": [],
+                "disposition": "do",
+                "outward": false
+              }
+            }
+          },
+          "text": "计划变更：拒绝（资料要放到外面的共享目录）\n- 新增授权（阶段 s1「收集资料」）：建目录（make_dir）：path 是 <临时目录>\\ergo-out-U6KiHa\\s1；不限次数；7 天内有效（要你确认）\n停下等确认的阶段：s1「收集资料」",
+          "urgency": "blocking",
+          "createdAt": "2026-10-12T00:48:36.101+08:00",
+          "handledAt": "2026-10-12T00:48:36.457+08:00",
+          "outcome": {
+            "action": "reject",
+            "note": "别动外面的目录"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 17,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-9e2ed233-14d8-45eb-bd90-81ddf0876c2e"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 14,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 28046,
+          "cacheMiss": 34159,
+          "output": 667
+        },
+        "calls": 5,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 28046,
+              "cacheMiss": 34159,
+              "output": 667
+            },
+            "calls": 5
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 22924,
+              "output": 221
+            },
+            "calls": 1,
+            "budgetTokens": 23145
+          },
+          {
+            "stageId": "s2",
+            "tokens": {
+              "cacheHit": 23351,
+              "cacheMiss": 1301,
+              "output": 195
+            },
+            "calls": 2,
+            "budgetTokens": 24847
+          }
+        ],
+        "time": "2026-10-12T00:48:36.470+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 18,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791737316056:q6grt7qt2il",
+              "tool": "propose_plan_change",
+              "argsSummary": "plan={\"stages\":[{\"stageId\":\"s2\",\"title\":\"写报告\",\"deliverables\":[\"调研报告 report.md\"],\"acceptance\":[{\"criterion\":\"报告文件存在\",\"method\":\"script\",\"script\":\"test -f report.m…",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "error",
+              "resultSummary": "这些改动不扩大授权，也不改目标、验收：直接用 revise_plan 自行调整计划（不出卡，记进时间线）",
+              "nature": "act"
+            }
+          ],
+          "id": "m-1167fba7-7f15-4faa-93e2-70dfc72640b0",
+          "time": "2026-10-12T00:48:36.476+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 15,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 40158,
+          "cacheMiss": 34595,
+          "output": 885
+        },
+        "calls": 6,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 40158,
+              "cacheMiss": 34595,
+              "output": 885
+            },
+            "calls": 6
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 22924,
+              "output": 221
+            },
+            "calls": 1,
+            "budgetTokens": 23145
+          },
+          {
+            "stageId": "s2",
+            "tokens": {
+              "cacheHit": 35463,
+              "cacheMiss": 1737,
+              "output": 413
+            },
+            "calls": 3,
+            "budgetTokens": 37613
+          }
+        ],
+        "time": "2026-10-12T00:48:36.479+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 19,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791737316056:aocx4ygnxvf",
+              "tool": "revise_plan",
+              "argsSummary": "plan={\"stages\":[{\"stageId\":\"s1\",\"title\":\"收集资料\",\"deliverables\":[\"资料清单 sources.md\"],\"acceptance\":[{\"criterion\":\"资料清单存在\",\"method\":\"script\",\"script\":\"test -f source…",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "error",
+              "resultSummary": "这些改动扩大了授权、或者改了目标、验收，不能自行调整： - 新增授权（阶段 s1「收集资料」）：建目录（make_dir）：path 是 <临时目录>\\ergo-out-U6KiHa\\s1；不限次数；7 天内有效 要这样改就用 propose_plan_change 提交计划变更（用户确认后生效）；运行中的授权项只能收窄。",
+              "nature": "modify"
+            }
+          ],
+          "id": "m-da26be90-b202-4633-84a6-e9223c695579",
+          "time": "2026-10-12T00:48:36.486+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 16,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 52488,
+          "cacheMiss": 35147,
+          "output": 1080
+        },
+        "calls": 7,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 52488,
+              "cacheMiss": 35147,
+              "output": 1080
+            },
+            "calls": 7
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 22924,
+              "output": 221
+            },
+            "calls": 1,
+            "budgetTokens": 23145
+          },
+          {
+            "stageId": "s2",
+            "tokens": {
+              "cacheHit": 47793,
+              "cacheMiss": 2289,
+              "output": 608
+            },
+            "calls": 4,
+            "budgetTokens": 50690
+          }
+        ],
+        "time": "2026-10-12T00:48:36.489+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 17,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "拒绝",
+          "summary": "拒绝",
+          "state": "running",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-12T00:48:32.563+08:00",
+          "updatedAt": "2026-10-12T00:48:36.494+08:00",
+          "planCardId": "c-13f59107-f504-4b4c-a32c-4a13f24c228c",
+          "stages": {
+            "total": 2,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s2",
+                "title": "写报告",
+                "state": "running",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "报告文件存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0,
+                "code": "1b",
+                "startedAt": "2026-10-12T00:48:36.101+08:00"
+              },
+              {
+                "stageId": "s1",
+                "title": "收集资料",
+                "state": "pending",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "资料清单存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0,
+                "code": "1a",
+                "startedAt": "2026-10-12T00:48:34.593+08:00"
+              }
+            ],
+            "focus": "s2"
+          },
+          "rejections": 1
+        },
+        "change": "plan_revised",
+        "from": "running",
+        "by": "maintainer"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 18,
+      "type": "task_plan",
+      "payload": {
+        "taskId": "t-1",
+        "planId": "t-1-p3",
+        "revision": 3,
+        "plan": {
+          "stages": [
+            {
+              "stageId": "s2",
+              "title": "写报告",
+              "deliverables": [
+                "调研报告 report.md"
+              ],
+              "acceptance": [
+                {
+                  "criterion": "报告文件存在",
+                  "method": "script",
+                  "script": "test -f report.md"
+                }
+              ],
+              "mode": "open",
+              "dependsOn": [],
+              "policy": {
+                "grants": [],
+                "temporalRules": []
+              },
+              "budget": {
+                "tokens": 0,
+                "toolCalls": 0
+              },
+              "code": "1b"
+            },
+            {
+              "stageId": "s1",
+              "title": "收集资料",
+              "deliverables": [
+                "资料清单 sources.md"
+              ],
+              "acceptance": [
+                {
+                  "criterion": "资料清单存在",
+                  "method": "script",
+                  "script": "test -f sources.md"
+                }
+              ],
+              "mode": "steps",
+              "dependsOn": [],
+              "policy": {
+                "grants": [],
+                "temporalRules": []
+              },
+              "budget": {
+                "tokens": 0,
+                "toolCalls": 0
+              },
+              "steps": [
+                "只整理工作目录里已有的资料",
+                "写清单"
+              ],
+              "code": "1a"
+            }
+          ],
+          "stageGroups": [],
+          "toolkit": {
+            "skills": [],
+            "mcp": [],
+            "bash": true,
+            "network": false
+          },
+          "projects": [],
+          "assumptions": [
+            "只用公开资料"
+          ],
+          "stops": {
+            "count": 0,
+            "where": []
+          },
+          "tokenEstimate": 320000,
+          "watchCategories": [
+            {
+              "id": "spend_money",
+              "title": "花钱"
+            },
+            {
+              "id": "external_send",
+              "title": "以我的名义对外发送或发布"
+            },
+            {
+              "id": "delete_or_overwrite",
+              "title": "删除或覆盖（项目档案和工作目录内）"
+            },
+            {
+              "id": "irreversible_commit",
+              "title": "不可逆的提交"
+            },
+            {
+              "id": "account_security",
+              "title": "账户与安全（凭据、权限、全局装软件）"
+            },
+            {
+              "id": "outside_project",
+              "title": "越出项目目录"
+            },
+            {
+              "id": "memory_out_of_scope",
+              "title": "使用授权范围外的记忆"
+            },
+            {
+              "id": "unplanned_work_order",
+              "title": "计划外工单"
+            },
+            {
+              "id": "unknown_write",
+              "title": "未知的写操作"
+            }
+          ],
+          "memoryScope": "（第一阶段不授予）"
+        },
+        "grantInfo": {}
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 20,
+      "type": "timeline_record",
+      "payload": {
+        "record": {
+          "id": "r-d69d9b40-156f-4d01-804b-ea714b63e0ac",
+          "kind": "plan_revision",
+          "summary": "维护者自行调整了计划（第 3 版，不扩大授权）：先写报告，资料只在工作目录里整理",
+          "detail": "- 阶段顺序：原来 s1 → s2，改成 s2 → s1\n- 阶段 s1「收集资料」改了步骤",
+          "time": "2026-10-12T00:48:36.494+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 21,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791737316056:ki1gw1rv97j",
+              "tool": "revise_plan",
+              "argsSummary": "plan={\"stages\":[{\"stageId\":\"s2\",\"title\":\"写报告\",\"deliverables\":[\"调研报告 report.md\"],\"acceptance\":[{\"criterion\":\"报告文件存在\",\"method\":\"script\",\"script\":\"test -f report.m…",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "计划已自行调整（第 3 版），记进了任务时间线： - 阶段顺序：原来 s1 → s2，改成 s2 → s1 - 阶段 s1「收集资料」改了步骤",
+              "nature": "modify"
+            }
+          ],
+          "id": "m-d2994891-b8bb-49e7-bd6c-a7a9ba11c020",
+          "time": "2026-10-12T00:48:36.496+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 19,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 65094,
+          "cacheMiss": 35591,
+          "output": 1098
+        },
+        "calls": 8,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 65094,
+              "cacheMiss": 35591,
+              "output": 1098
+            },
+            "calls": 8
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 22924,
+              "output": 221
+            },
+            "calls": 1,
+            "budgetTokens": 23145
+          },
+          {
+            "stageId": "s2",
+            "tokens": {
+              "cacheHit": 60399,
+              "cacheMiss": 2733,
+              "output": 626
+            },
+            "calls": 5,
+            "budgetTokens": 63758
+          }
+        ],
+        "time": "2026-10-12T00:48:36.499+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 3,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-ba2dd73e-3f3b-4daa-bd7d-a9d33e7803ea",
+          "version": 1,
+          "title": "卡住求助：拒绝",
+          "source": "任务「拒绝」",
+          "urgency": "blocking",
+          "pinned": false,
+          "createdAt": "2026-10-12T00:48:36.502+08:00",
+          "read": false,
+          "archived": false,
+          "deleted": false,
+          "kind": "notice",
+          "notice": "stuck_help",
+          "body": "任务「拒绝」第 1a 阶段「收集资料」做不了：工作目录里没有资料，不建外面的目录就收集不了，这一支先停下等你拍板。\n在任务详情里回维护者，或者做完它要的事后点\"继续执行\"。",
+          "actions": [
+            "继续执行"
+          ],
+          "data": {
+            "taskId": "t-1",
+            "stageIds": [
+              "s1"
+            ]
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 20,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "拒绝",
+          "summary": "拒绝",
+          "state": "running",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-12T00:48:32.563+08:00",
+          "updatedAt": "2026-10-12T00:48:36.502+08:00",
+          "planCardId": "c-13f59107-f504-4b4c-a32c-4a13f24c228c",
+          "stages": {
+            "total": 2,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s2",
+                "title": "写报告",
+                "state": "running",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "报告文件存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0,
+                "code": "1b",
+                "startedAt": "2026-10-12T00:48:36.101+08:00"
+              },
+              {
+                "stageId": "s1",
+                "title": "收集资料",
+                "state": "waiting",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "资料清单存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0,
+                "code": "1a",
+                "startedAt": "2026-10-12T00:48:34.593+08:00",
+                "waitReason": "stuck",
+                "waitingOn": "i-ba2dd73e-3f3b-4daa-bd7d-a9d33e7803ea",
+                "waitNote": "做不了：工作目录里没有资料，不建外面的目录就收集不了"
+              }
+            ],
+            "focus": "s2"
+          },
+          "rejections": 1
+        },
+        "change": "stage_waiting",
+        "from": "running",
+        "by": "maintainer",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 22,
+      "type": "timeline_record",
+      "payload": {
+        "record": {
+          "id": "r-fd67eb03-9404-40d9-ba73-5eff5293a1b6",
+          "kind": "deviation",
+          "summary": "第 1a 阶段「收集资料」停下等你（卡住求助）：做不了：工作目录里没有资料，不建外面的目录就收集不了",
+          "time": "2026-10-12T00:48:36.502+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 23,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "阶段 s1「收集资料」这一支停下等用户（卡住求助：做不了：工作目录里没有资料，不建外面的目录就收集不了），先别再做它。没有别的能推进的阶段，任务转等我；用户回话或点“继续执行”后你会收到通知，在那之前不要接着做。"
+            }
+          ],
+          "id": "m-6f596132-6b40-462b-b297-9087d9cde0e9",
+          "time": "2026-10-12T00:48:36.502+08:00"
+        },
+        "agentInput": true,
+        "taskId": "t-1",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 3,
+      "type": "notify",
+      "payload": {
+        "id": "n-i-ba2dd73e-3f3b-4daa-bd7d-a9d33e7803ea",
+        "title": "卡住求助：拒绝",
+        "body": "任务「拒绝」第 1a 阶段「收集资料」做不了：工作目录里没有资料，不建外面的目录就收集不了，这一支先停下等你拍板。\n在任务详情里回维护者，或者做完它要的事后点\"继续执行\"。",
+        "itemId": "i-ba2dd73e-3f3b-4daa-bd7d-a9d33e7803ea"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 24,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791737316056:e2opdwmb6fu",
+              "tool": "mark_infeasible",
+              "argsSummary": "stageIds=[\"s1\"] reason=工作目录里没有资料，不建外面的目录就收集不了",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "已把阶段 s1「收集资料」标为做不了，用户的待我处理里有一条卡住求助。",
+              "nature": "act"
+            }
+          ],
+          "id": "m-ad9aa4bb-940e-47d2-b591-d206552059ac",
+          "time": "2026-10-12T00:48:36.504+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 21,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 77922,
+          "cacheMiss": 35664,
+          "output": 1110
+        },
+        "calls": 9,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 77922,
+              "cacheMiss": 35664,
+              "output": 1110
+            },
+            "calls": 9
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 22924,
+              "output": 221
+            },
+            "calls": 1,
+            "budgetTokens": 23145
+          },
+          {
+            "stageId": "s2",
+            "tokens": {
+              "cacheHit": 73227,
+              "cacheMiss": 2806,
+              "output": 638
+            },
+            "calls": 6,
+            "budgetTokens": 76671
+          }
+        ],
+        "time": "2026-10-12T00:48:36.507+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 25,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791737316056:ac4oi0845r7",
+              "tool": "write",
+              "argsSummary": "report.md",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "Successfully wrote to report.md",
+              "nature": "act"
+            }
+          ],
+          "id": "m-e27c04fc-52d4-4080-8c88-f50d5cc3eeed",
+          "time": "2026-10-12T00:48:36.513+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 22,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 90786,
+          "cacheMiss": 35718,
+          "output": 1124
+        },
+        "calls": 10,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 90786,
+              "cacheMiss": 35718,
+              "output": 1124
+            },
+            "calls": 10
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 22924,
+              "output": 221
+            },
+            "calls": 1,
+            "budgetTokens": 23145
+          },
+          {
+            "stageId": "s2",
+            "tokens": {
+              "cacheHit": 86091,
+              "cacheMiss": 2860,
+              "output": 652
+            },
+            "calls": 7,
+            "budgetTokens": 89603
+          }
+        ],
+        "time": "2026-10-12T00:48:36.516+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 23,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "拒绝",
+          "summary": "拒绝",
+          "state": "running",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-12T00:48:32.563+08:00",
+          "updatedAt": "2026-10-12T00:48:36.517+08:00",
+          "planCardId": "c-13f59107-f504-4b4c-a32c-4a13f24c228c",
+          "stages": {
+            "total": 2,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s2",
+                "title": "写报告",
+                "state": "accepting",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "报告文件存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 1,
+                "code": "1b",
+                "startedAt": "2026-10-12T00:48:36.101+08:00",
+                "summary": "阶段 s2 做完了"
+              },
+              {
+                "stageId": "s1",
+                "title": "收集资料",
+                "state": "waiting",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "资料清单存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0,
+                "code": "1a",
+                "startedAt": "2026-10-12T00:48:34.593+08:00",
+                "waitReason": "stuck",
+                "waitingOn": "i-ba2dd73e-3f3b-4daa-bd7d-a9d33e7803ea",
+                "waitNote": "做不了：工作目录里没有资料，不建外面的目录就收集不了"
+              }
+            ],
+            "focus": "s2"
+          },
+          "rejections": 1
+        },
+        "change": "stage_submitted",
+        "from": "running",
+        "by": "maintainer",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 26,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "维护者宣布阶段 s2「写报告」完成（第 1 次）：阶段 s2 做完了"
+            }
+          ],
+          "id": "m-c0405f5d-7723-4597-9af6-51eae6366fd5",
+          "time": "2026-10-12T00:48:36.517+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 24,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "拒绝",
+          "summary": "拒绝",
+          "state": "running",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-12T00:48:32.563+08:00",
+          "updatedAt": "2026-10-12T00:48:36.747+08:00",
+          "planCardId": "c-13f59107-f504-4b4c-a32c-4a13f24c228c",
+          "stages": {
+            "total": 2,
+            "current": 2,
+            "list": [
+              {
+                "stageId": "s2",
+                "title": "写报告",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "报告文件存在",
+                    "method": "script",
+                    "result": {
+                      "passed": true,
+                      "note": "退出码 0",
+                      "at": "2026-10-12T00:48:36.747+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "code": "1b",
+                "startedAt": "2026-10-12T00:48:36.101+08:00",
+                "summary": "阶段 s2 做完了"
+              },
+              {
+                "stageId": "s1",
+                "title": "收集资料",
+                "state": "waiting",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "资料清单存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0,
+                "code": "1a",
+                "startedAt": "2026-10-12T00:48:34.593+08:00",
+                "waitReason": "stuck",
+                "waitingOn": "i-ba2dd73e-3f3b-4daa-bd7d-a9d33e7803ea",
+                "waitNote": "做不了：工作目录里没有资料，不建外面的目录就收集不了"
+              }
+            ],
+            "focus": "s2"
+          },
+          "rejections": 1
+        },
+        "change": "stage_accepted",
+        "from": "running",
+        "by": "system",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 5,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-72f6b768-3d61-45f5-9646-0a173c6f75ff",
+          "type": "progress",
+          "typeVersion": 1,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "taskId": "t-1",
+            "taskTitle": "拒绝",
+            "stageId": "s2",
+            "stageTitle": "写报告",
+            "stageIndex": 1,
+            "stageTotal": 2,
+            "stageCode": "1b",
+            "kind": "acceptance",
+            "text": "验收通过。",
+            "acceptance": {
+              "passed": true,
+              "judgedBy": "script",
+              "results": [
+                {
+                  "criterion": "报告文件存在",
+                  "method": "script",
+                  "passed": true,
+                  "note": "退出码 0"
+                }
+              ],
+              "summary": "阶段 s2 做完了"
+            }
+          },
+          "text": "验收通过（脚本检查）：任务「拒绝」第 1b 阶段「写报告」。验收通过。",
+          "createdAt": "2026-10-12T00:48:36.748+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 27,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "card_ref",
+              "cardId": "c-72f6b768-3d61-45f5-9646-0a173c6f75ff"
+            }
+          ],
+          "id": "m-6791caf2-9bfe-4927-892f-6264a8068f25",
+          "time": "2026-10-12T00:48:36.748+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 25,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "拒绝",
+          "summary": "拒绝",
+          "state": "waiting_for_user",
+          "origin": "request",
+          "kind": "long_running",
+          "maintainerId": "tm-1",
+          "projects": [],
+          "projectIds": [],
+          "projectScope": "none",
+          "createdAt": "2026-10-12T00:48:32.563+08:00",
+          "updatedAt": "2026-10-12T00:48:36.748+08:00",
+          "planCardId": "c-13f59107-f504-4b4c-a32c-4a13f24c228c",
+          "stages": {
+            "total": 2,
+            "current": 2,
+            "list": [
+              {
+                "stageId": "s2",
+                "title": "写报告",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "报告文件存在",
+                    "method": "script",
+                    "result": {
+                      "passed": true,
+                      "note": "退出码 0",
+                      "at": "2026-10-12T00:48:36.747+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "code": "1b",
+                "startedAt": "2026-10-12T00:48:36.101+08:00",
+                "summary": "阶段 s2 做完了"
+              },
+              {
+                "stageId": "s1",
+                "title": "收集资料",
+                "state": "waiting",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "资料清单存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0,
+                "code": "1a",
+                "startedAt": "2026-10-12T00:48:34.593+08:00",
+                "waitReason": "stuck",
+                "waitingOn": "i-ba2dd73e-3f3b-4daa-bd7d-a9d33e7803ea",
+                "waitNote": "做不了：工作目录里没有资料，不建外面的目录就收集不了"
+              }
+            ],
+            "focus": "s2"
+          },
+          "rejections": 1,
+          "waitReason": "stuck",
+          "waitNote": "做不了：工作目录里没有资料，不建外面的目录就收集不了"
+        },
+        "change": "waiting",
+        "from": "running",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 28,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791737316056:fnufn2xn4b",
+              "tool": "complete_stage",
+              "argsSummary": "stageId=s2 summary=阶段 s2 做完了",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "阶段 s2 验收通过（脚本检查）： - 通过：报告文件存在（脚本检查）：退出码 0 没有别的能推进的阶段，任务转等我（卡住求助）。",
+              "nature": "act"
+            }
+          ],
+          "id": "m-7bdb045b-6a81-4493-b09f-dbae0e674eb7",
+          "time": "2026-10-12T00:48:36.752+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s2"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 28,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-1e8015c8-6702-496e-a6d2-baf064cb1522",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "s1 做不了，s2 做完了"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 29,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-1e8015c8-6702-496e-a6d2-baf064cb1522",
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "s1 做不了，s2 做完了"
+            }
+          ],
+          "time": "2026-10-12T00:48:36.755+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 26,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 103677,
+          "cacheMiss": 35797,
+          "output": 1128
+        },
+        "calls": 11,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 103677,
+              "cacheMiss": 35797,
+              "output": 1128
+            },
+            "calls": 11
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 12891,
+              "cacheMiss": 23003,
+              "output": 225
+            },
+            "calls": 2,
+            "budgetTokens": 36119
+          },
+          {
+            "stageId": "s2",
+            "tokens": {
+              "cacheHit": 86091,
+              "cacheMiss": 2860,
+              "output": 652
+            },
+            "calls": 7,
+            "budgetTokens": 89603
+          }
+        ],
+        "time": "2026-10-12T00:48:36.756+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 30,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-9e2ed233-14d8-45eb-bd90-81ddf0876c2e",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 31,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-6f596132-6b40-462b-b297-9087d9cde0e9"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 32,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-18a8515e-c8e1-42c1-9f02-b299541319e6",
+          "conversation": "maintainer:tm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "等你拍板"
+            }
+          ],
+          "time": "2026-10-12T00:48:36.765+08:00"
+        },
+        "taskId": "t-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 27,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 116607,
+          "cacheMiss": 36259,
+          "output": 1129
+        },
+        "calls": 12,
+        "byAgent": [
+          {
+            "agentId": "tm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 116607,
+              "cacheMiss": 36259,
+              "output": 1129
+            },
+            "calls": 12
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 25821,
+              "cacheMiss": 23465,
+              "output": 226
+            },
+            "calls": 3,
+            "budgetTokens": 49512
+          },
+          {
+            "stageId": "s2",
+            "tokens": {
+              "cacheHit": 86091,
+              "cacheMiss": 2860,
+              "output": 652
+            },
+            "calls": 7,
+            "budgetTokens": 89603
+          }
+        ],
+        "time": "2026-10-12T00:48:36.766+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 33,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-6f596132-6b40-462b-b297-9087d9cde0e9",
+        "outcome": "completed"
+      }
+    }
+  }
+]

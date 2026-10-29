@@ -1,0 +1,4 @@
+{
+  "util.localDateTime.badAt": "Invalid at: {value} (use YYYY-MM-DD HH:mm, local time)",
+  "util.localDateTime.noSuchDate": "No such date: {value}"
+}

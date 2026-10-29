@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>本地服务管理器</title>
+<style>
+:root{
+  --bg:#0e1014; --card:#161922; --line:#242936; --fg:#e8eaed; --dim:#8b93a7;
+  --green:#4ade80; --red:#f87171; --yellow:#fbbf24; --cyan:#38bdf8; --gray:#6b7280;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.55 system-ui,"Microsoft YaHei",sans-serif}
+header{display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:5;flex-wrap:wrap}
+h1{font-size:16px;margin:0;font-weight:600}
+.sub{color:var(--dim);font-size:12px}
+.wrap{padding:16px 20px;max-width:1180px;margin:0 auto}
+.banner{background:#2a1f10;border:1px solid #6b4f18;border-radius:10px;padding:12px 14px;margin-bottom:14px}
+.banner h3{margin:0 0 8px;font-size:13px;color:var(--yellow)}
+.banner .row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:4px 0;border-top:1px solid #3a2c14}
+.banner code{color:var(--dim);font-size:11px;word-break:break-all}
+.profiles{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:12px;padding:14px;transition:background .25s,border-color .25s}
+/* 状态用整卡背景区分，一眼扫过去就知道哪张不对劲 */
+.card.s-RUNNING {background:#12231a;border-color:#1f4430;border-left-color:var(--green)}
+.card.s-DEGRADED{background:#251f10;border-color:#4a3c15;border-left-color:var(--yellow)}
+.card.s-STARTING,.card.s-STOPPING{background:#101f2b;border-color:#1d3f57;border-left-color:var(--cyan)}
+.card.s-STOPPED {background:#15171c;border-color:#242936;border-left-color:var(--gray)}
+.card.s-FAILED,.card.s-ORPHAN{background:#2a1416;border-color:#6b2b2b;border-left-color:var(--red)}
+.card.s-EXTERNAL{background:#14161b;border-color:#20242e;border-left-color:#3a4150;opacity:.85}
+.card.busy{background:#2a2210;border-color:#6b5518;border-left-color:var(--yellow)}
+.badge{border-radius:5px;padding:1px 7px;font-size:11px;border:1px solid var(--line);color:var(--dim);white-space:nowrap}
+.badge.pub{color:var(--green);border-color:#245c3a;background:#0f2318}
+.badge.pub.down{color:var(--red);border-color:#6b2b2b;background:#2a1416}
+.badge.pub.unknown{color:var(--yellow);border-color:#6b5518;background:#251f10}
+.badge.local{color:var(--gray)}
+.exp{margin-top:7px;font-size:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.exp a{color:var(--cyan);text-decoration:none}
+.exp a:hover{text-decoration:underline}
+.top{display:flex;align-items:center;gap:8px}
+.dot{width:9px;height:9px;border-radius:50%;flex:none}
+.name{font-weight:600}
+.meta{margin-left:auto;color:var(--dim);font-size:12px;display:flex;gap:8px;align-items:center}
+.tier{border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:11px;color:var(--dim);cursor:help}
+.tier.linked{color:var(--green);border-color:#245c3a}
+.detail{color:var(--dim);font-size:12px;margin-top:6px;word-break:break-all}
+.busyline{color:var(--yellow);font-size:12px;margin-top:6px}
+.err{color:var(--red);font-size:12px;margin-top:6px;word-break:break-all}
+.deps{color:var(--gray);font-size:11px;margin-top:6px}
+.btns{display:flex;gap:7px;margin-top:11px;flex-wrap:wrap}
+button{background:#222736;color:var(--fg);border:1px solid var(--line);border-radius:7px;padding:5px 11px;font-size:12px;cursor:pointer;font-family:inherit}
+button:hover:not(:disabled){background:#2c3346}
+button:disabled{opacity:.35;cursor:not-allowed}
+button.p{background:#1d4ed8;border-color:#2563eb}
+button.d{background:#3f1d1d;border-color:#6b2b2b}
+pre{background:#0a0c10;border:1px solid var(--line);border-radius:8px;padding:10px;overflow:auto;max-height:340px;font-size:11.5px;margin:10px 0 0;white-space:pre-wrap;word-break:break-all}
+.logbar{display:flex;gap:8px;align-items:center;margin-top:10px;font-size:12px;color:var(--dim)}
+.login{max-width:320px;margin:14vh auto;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:26px}
+.login input{width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:#0e1014;color:var(--fg);font-size:15px;margin:12px 0}
+.hide{display:none}
+.toast{position:fixed;right:18px;bottom:18px;background:var(--card);border:1px solid var(--line);border-left:3px solid var(--cyan);border-radius:8px;padding:10px 14px;font-size:13px;max-width:420px;z-index:20}
+.toast.bad{border-left-color:var(--red)}
+</style>
+</head>
+<body>
+
+<div id="login" class="login hide">
+  <div style="font-size:15px;font-weight:600">🔒 本地服务管理器</div>
+  <div class="sub" style="margin-top:6px">这是这台机器上权限最高的入口。</div>
+  <input id="pw" type="password" placeholder="口令" autofocus>
+  <button class="p" style="width:100%" onclick="doLogin()">进入</button>
+  <div id="loginerr" class="err"></div>
+</div>
+
+<div id="app" class="hide">
+<header>
+  <h1>本地服务管理器</h1>
+  <span class="sub" id="summary"></span>
+  <span class="sub" id="conn" style="margin-left:auto"></span>
+</header>
+<div class="wrap">
+  <div id="sentinel"></div>
+  <div class="profiles" id="profiles"></div>
+  <div class="grid" id="grid"></div>
+  <div class="sub" style="margin-top:20px;line-height:1.9">
+    探活档位决定这盏灯保证了什么：
+    <b>linked</b>=服务正在跟管理器对话，还自报了健康与忙碌 ·
+    <b>health</b>=健康检查通过 ·
+    <b>port</b>=只知道端口有人在听 ·
+    <b>process</b>=只知道进程还在（隧道进程活着但连接已断，这盏灯照样是绿的）
+  </div>
+</div>
+</div>
+<div id="toast" class="toast hide"></div>
+
+<script type="module">
+const $ = (id) => document.getElementById(id);
+let state = null, openLogs = new Set(), logTimer = null;
+
+const COLOR = { RUNNING:'var(--green)', DEGRADED:'var(--yellow)', STARTING:'var(--cyan)', STOPPING:'var(--cyan)',
+  STOPPED:'var(--gray)', FAILED:'var(--red)', ORPHAN:'var(--red)', EXTERNAL:'var(--dim)' };
+const TIER_HINT = {
+  linked:'接入中：服务正在跟管理器对话，健康与忙碌都是它自己报的，精度最高',
+  health:'健康检查通过：HTTP 探活拿到了预期响应',
+  port:'只知道端口有人在听——证明不了服务真的能干活',
+  process:'只知道进程还在——ssh 进程活着但隧道已断时，这盏灯依然是绿的',
+};
+const CAP_HINT = {
+  stop:'该服务未提供停机能力。接入统一层后由它自己实现停机；现在只能强制 kill（会丢正在进行的工作）',
+  restart:'该服务未提供重启能力',
+  start:'该服务未提供启动能力',
+};
+
+function toast(msg, bad) {
+  const t = $('toast');
+  t.textContent = msg; t.className = 'toast' + (bad ? ' bad' : '');
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.add('hide'), 5200);
+}
+
+function dur(ms) {
+  if (!ms) return '';
+  const s = Math.floor((Date.now() - ms) / 1000);
+  if (s < 60) return s + '秒';
+  if (s < 3600) return Math.floor(s / 60) + '分';
+  if (s < 86400) return Math.floor(s / 3600) + '小时' + Math.floor(s % 3600 / 60) + '分';
+  return Math.floor(s / 86400) + '天' + Math.floor(s % 86400 / 3600) + '小时';
+}
+
+async function api(path, opts) {
+  const r = await fetch(path, { credentials: 'same-origin', ...opts });
+  if (r.status === 401) { showLogin(); throw new Error('需要登录'); }
+  return await r.json();
+}
+
+async function act(action, id, extra = {}) {
+  toast(`${action} ${id} …`);
+  try {
+    const r = await api('/api/action', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, id, ...extra }),
+    });
+    toast(r.ok ? `✓ ${id} 完成` : `✗ ${r.why || '失败'}`, !r.ok);
+  } catch (e) { toast('✗ ' + e.message, true); }
+}
+window.act = act;
+
+/**
+ * 公网一行。刻意把「隧道进程在跑」和「公网真的打得通」分开显示——
+ * 前者只是 process 档的绿灯，后者才是实测（「隧道进程活着但连接已断」的坑）。
+ */
+function urlsLine(s) {
+  const u = s.urls || {};
+  const parts = [];
+  if (u.local) parts.push(`<span class="sub">本地</span> <a href="${u.local}" target="_blank">${u.local.replace(/^https?:\/\//, '')}</a>`);
+  if (u.lan) parts.push(`<span class="sub">局域网</span> <a href="${u.lan}" target="_blank">${u.lan.replace(/^https?:\/\//, '')}</a>`);
+  else if (u.lanWhy) parts.push(`<span class="sub" title="${u.lanWhy}">局域网 ✗</span>`);
+  if (u.public) parts.push(`<span class="sub">公网</span> <a href="${u.public}" target="_blank">${u.public.replace(/^https?:\/\//, '').replace(/\/$/, '')}</a>`);
+  return parts.length ? `<div class="exp">${parts.join('<span class="sub">·</span>')}</div>` : '';
+}
+
+function exposureLine(s) {
+  const e = s.exposure || {};
+  if (e.scope !== 'public') {
+    return '<div class="exp"><span class="badge local">仅本地</span>'
+      + (s.canCreateExposure
+        ? `<button onclick="createExposure('${s.id}')">开通公网</button>`
+        : '<span class="sub">（没有端口或未配 VPS，开不了公网）</span>')
+      + '</div>';
+  }
+  const tunnelUp = ['RUNNING', 'DEGRADED'].includes(e.viaState);
+  const chk = e.publicCheck;
+  let cls = 'unknown', label = '公网 · 未实测';
+  if (!tunnelUp) { cls = 'down'; label = '公网已断'; }
+  else if (chk?.ok) { cls = ''; label = `公网可达 ${chk.status}`; }
+  else if (chk) { cls = 'down'; label = `隧道在跑但公网打不通（${chk.why || chk.status}）`; }
+  else if (e.publicUrl) { cls = 'unknown'; label = '公网 · 等待实测'; }
+  else { cls = 'unknown'; label = '公网已接通隧道（未填 URL，无法实测）'; }
+
+  const ago = chk ? `${Math.max(0, Math.round((Date.now() - chk.checkedAt) / 1000))} 秒前确认` : '';
+  // 隧道不单独占卡片：它是这个服务「公网那条腿」，状态和操作都并在这里
+  return `<div class="exp">
+    <span class="badge pub ${cls}">${label}</span>
+    <span class="sub">隧道 ${e.via} · ${e.viaState || '未知'} → VPS:${e.remotePort ?? '?'}</span>
+    ${ago ? `<span class="sub">${ago}</span>` : ''}
+    <button onclick="act('${tunnelUp ? 'expose-off' : 'expose-on'}','${s.id}')">${tunnelUp ? '断开公网' : '接通公网'}</button>
+    <button onclick="toggleLog('${e.via}')">隧道日志</button>
+  </div>`;
+}
+
+window.createExposure = async (id) => {
+  if (!confirm(`给 ${id} 开通公网入口？\n\n管理器会在本机建一条到 VPS 的 ssh 反向隧道，并把配置写进注册表。\n它不会去动 VPS 上的任何配置——nginx 站点仍需你自己加，稍后会把该贴的片段给你。`)) return;
+  toast(`正在给 ${id} 开通公网…`);
+  try {
+    const r = await api('/api/action', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'expose-create', id }),
+    });
+    if (!r.ok) return toast('✗ ' + (r.why || '失败'), true);
+    alert(r.note || '已开通');
+  } catch (e) { toast('✗ ' + e.message, true); }
+};
+
+function svcCard(s) {
+  const el = document.createElement('div');
+  el.className = `card s-${s.state}` + (s.busy ? ' busy' : '');
+  const cap = (c) => s.capabilities.includes(c);
+  const dis = (c) => cap(c) ? '' : `disabled title="${CAP_HINT[c] || ''}"`;
+
+  el.innerHTML = `
+    <div class="top">
+      <span class="dot" style="background:${COLOR[s.state] || 'var(--gray)'}"></span>
+      <span class="name">${s.id}</span>
+      <span class="meta">
+        <span class="tier ${s.tier === 'linked' ? 'linked' : ''}" title="${TIER_HINT[s.tier] || ''}">${s.tier || '-'}</span>
+        ${s.port ? `<span>:${s.port}</span>` : ''}
+        <span>${s.state}</span>
+        ${s.runningSince ? `<span>${dur(s.runningSince)}</span>` : ''}
+      </span>
+    </div>
+    <div class="detail">${s.name} · ${s.detail || ''}</div>
+    ${urlsLine(s)}
+    ${exposureLine(s)}
+    ${s.busy ? `<div class="busyline">⚠ 正在跑任务：${s.busyReason || '未说明'}——重启会中断它</div>` : ''}
+    ${s.pendingStop ? `<div class="busyline">⏸ 待停机：等它空闲后会自己停（永远不会被强杀）
+      <button onclick="act('cancel-stop','${s.id}')">取消停机</button></div>` : ''}
+    ${s.degradedObservation ? `<div class="busyline">接入层已断，观测精度下降到 ${s.tier}</div>` : ''}
+    ${s.lastError ? `<div class="err">${s.lastError}</div>` : ''}
+    ${s.orphanWhy ? `<div class="err">孤儿：${s.orphanWhy}</div>` : ''}
+    ${s.dependsOn?.length ? `<div class="deps">依赖 ${s.dependsOn.map((d) => d.id + (d.type === 'soft' ? '(软)' : '')).join('、')}</div>` : ''}
+    <div class="btns">
+      ${s.kind === 'external' ? '<span class="sub">外部服务，只探活不管生死</span>' : `
+        <button ${['RUNNING','DEGRADED','STARTING'].includes(s.state) ? 'disabled' : dis('start')} onclick="act('start','${s.id}')">启动</button>
+        <button ${s.state === 'STOPPED' ? 'disabled' : dis('stop')} onclick="stopSvc('${s.id}', ${s.busy})">停止</button>
+        <button ${s.state === 'STOPPED' ? 'disabled' : dis('restart')} onclick="restartSvc('${s.id}', ${s.busy})">重启</button>
+        ${s.state === 'ORPHAN' ? `<button class="d" onclick="act('orphan','${s.id}',{decision:'adopt'})">认领</button>
+          <button class="d" onclick="act('orphan','${s.id}',{decision:'kill'})">杀掉</button>` : ''}
+        ${!s.capabilities.includes('stop') && s.state !== 'STOPPED' ? `<button class="d" onclick="forceKill('${s.id}')">强制 kill</button>` : ''}
+      `}
+      <button onclick="toggleLog('${s.id}')">${openLogs.has(s.id) ? '收起日志' : '日志'}</button>
+    </div>
+    ${openLogs.has(s.id) ? `<pre id="log-${s.id}">加载中…</pre>` : ''}
+  `;
+  return el;
+}
+
+window.stopSvc = (id, busy) => {
+  if (busy && !confirm('这个服务正在跑任务，现在停会中断它。\n\n确定要停？（也可以取消，改用「等空闲再停」）')) return;
+  act('stop', id, { mode: busy ? 'when-idle' : 'now' });
+};
+window.restartSvc = (id, busy) => {
+  if (busy && !confirm('这个服务正在跑任务，重启会中断它。\n\n点确定=等空闲后再重启，点取消=什么都不做')) return;
+  act('restart', id, { mode: busy ? 'when-idle' : 'now' });
+};
+window.forceKill = (id) => {
+  if (!confirm(`${id} 没有停机能力。\n\n强制 kill 会直接杀掉进程树，正在进行的工作全丢。\n确定？`)) return;
+  act('stop', id, { force: true });
+};
+window.toggleLog = async (id) => {
+  openLogs.has(id) ? openLogs.delete(id) : openLogs.add(id);
+  render();
+  if (openLogs.has(id)) loadLog(id);
+};
+
+async function loadLog(id) {
+  const el = $('log-' + id);
+  if (!el) return;
+  try {
+    const r = await api(`/api/logs?id=${encodeURIComponent(id)}&lines=200`);
+    el.textContent = r.ok ? (r.lines || '(空)') : ('读不到日志：' + r.why);
+  } catch { el.textContent = '读不到日志'; }
+}
+
+function render() {
+  if (!state) return;
+  const svcs = state.services || [];
+  const own = svcs.filter((s) => s.kind !== 'external' && !s.tunnelFor);
+  const running = own.filter((s) => ['RUNNING', 'DEGRADED'].includes(s.state)).length;
+  const bad = svcs.filter((s) => ['FAILED','ORPHAN'].includes(s.state)).length;
+  const pub = svcs.filter((s) => s.exposure?.scope === 'public').length;
+  $('summary').textContent = `${running}/${own.length} 在跑 · ${pub} 个有公网入口`
+    + (bad ? ` · ${bad} 个需要你处理` : '');
+
+  const pf = $('profiles');
+  pf.innerHTML = '';
+  for (const [name, ids] of Object.entries(state.profiles || {})) {
+    const on = ids.filter((i) => svcs.find((s) => s.id === i && ['RUNNING','DEGRADED'].includes(s.state))).length;
+    const b = document.createElement('button');
+    b.className = on === ids.length ? '' : 'p';
+    b.textContent = `场景 ${name}（${on}/${ids.length}）`;
+    b.onclick = () => act('profile-start', name);
+    pf.appendChild(b);
+  }
+
+  const sn = state.sentinel || {};
+  const dup = sn.duplicateTasks || [], unk = [...(sn.tasks || []), ...(sn.ports || [])];
+  $('sentinel').innerHTML = (dup.length || unk.length) ? `
+    <div class="banner">
+      <h3>哨兵发现 ${dup.length + unk.length} 项</h3>
+      ${dup.map((t) => `<div class="row"><div>⚠ <b>${t.name}</b>（已纳管，但这个自启任务还在——两个东西抢同一个服务）<br><code>${t.action}</code></div>
+        <button class="d" onclick="act('detach-task',null,{task:${JSON.stringify(t.name)}})">摘除</button></div>`).join('')}
+      ${(sn.tasks || []).map((t) => `<div class="row"><div>未纳管的自启任务 <b>${t.name}</b><br><code>${t.action}</code></div></div>`).join('')}
+      ${(sn.ports || []).map((p) => `<div class="row"><div>未纳管的服务 :<b>${p.port}</b> ${p.name} (${p.pid})<br><code>${(p.cmd || '').slice(0, 160)}</code></div></div>`).join('')}
+    </div>` : '';
+
+  const grid = $('grid');
+  grid.innerHTML = '';
+  // 纯隧道（role: tunnel 且被某个服务引用）不单独占卡片——它是那个服务公网那条腿
+  for (const s of svcs) { if (!s.tunnelFor) grid.appendChild(svcCard(s)); }
+  for (const id of openLogs) loadLog(id);
+}
+
+function connect() {
+  const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
+  ws.onopen = () => { $('conn').textContent = '● 实时连接中'; $('conn').style.color = 'var(--green)'; };
+  ws.onmessage = (e) => { const m = JSON.parse(e.data); if (m.type === 'state') { state = m; render(); } };
+  ws.onclose = () => {
+    $('conn').textContent = '○ 连接断开，重连中…'; $('conn').style.color = 'var(--red)';
+    setTimeout(connect, 2000);
+  };
+}
+
+// ---- 鉴权：SCRAM-SHA-256，口令不上网
+const hex2buf = (h) => new Uint8Array(h.match(/../g).map((b) => parseInt(b, 16)));
+async function hmac(key, msg) {
+  const k = await crypto.subtle.importKey('raw', key, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  return new Uint8Array(await crypto.subtle.sign('HMAC', k, new TextEncoder().encode(msg)));
+}
+window.doLogin = async () => {
+  const pw = $('pw').value;
+  $('loginerr').textContent = '';
+  try {
+    const c = await (await fetch('/api/auth/challenge', { method: 'POST' })).json();
+    const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveBits']);
+    const salted = new Uint8Array(await crypto.subtle.deriveBits(
+      { name: 'PBKDF2', salt: hex2buf(c.salt), iterations: c.iterations, hash: 'SHA-256' }, key, 256));
+    const clientKey = await hmac(salted, 'Client Key');
+    const storedKey = new Uint8Array(await crypto.subtle.digest('SHA-256', clientKey));
+    const sig = await hmac(storedKey, c.nonce);
+    const proof = clientKey.map((b, i) => b ^ sig[i]);
+    const r = await (await fetch('/api/auth/verify', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+      body: JSON.stringify({ nonce: c.nonce, proof: btoa(String.fromCharCode(...proof)) }),
+    })).json();
+    if (!r.ok) { $('loginerr').textContent = r.why || '口令不对'; return; }
+    if (r.cookie) document.cookie = r.cookie.replace(/;\s*HttpOnly/i, '');
+    location.reload();
+  } catch (e) { $('loginerr').textContent = '登录出错：' + e.message; }
+};
+function showLogin() { $('login').classList.remove('hide'); $('app').classList.add('hide'); }
+
+(async () => {
+  const st = await (await fetch('/api/auth/status', { credentials: 'same-origin' })).json();
+  if (st.enabled && !st.authed) return showLogin();
+  $('app').classList.remove('hide');
+  state = await api('/api/state');
+  render();
+  connect();
+  setInterval(() => { if (state) render(); }, 1000);   // 只为让「运行时长」走字
+})();
+</script>
+</body>
+</html>

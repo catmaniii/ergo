@@ -1,0 +1,32 @@
+{
+  "servers": {
+    "notes": {
+      "title": "笔记服务（示例）",
+      "command": "node",
+      "args": ["D:\\tools\\notes-mcp\\server.js"],
+      "env": {
+        "NOTES_API_TOKEN": { "fromEnv": "ERGO_NOTES_API_TOKEN" }
+      },
+      "tools": {
+        "search": {
+          "title": "搜笔记",
+          "readOnlyOrIdempotent": true,
+          "network": true
+        },
+        "status": {
+          "title": "看同步状态",
+          "readOnlyOrIdempotent": true,
+          "network": true,
+          "quickAction": { "title": "看一下笔记同步状态", "args": {} }
+        },
+        "share": {
+          "title": "分享笔记",
+          "categories": ["external_send"],
+          "args": { "to": { "kind": "recipient" }, "noteId": { "kind": "other" } },
+          "outbound": true,
+          "network": true
+        }
+      }
+    }
+  }
+}

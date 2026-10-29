@@ -1,0 +1,15 @@
+# winget manifest draft (ticket 318; not submitted). Publisher id is a placeholder until the public repo / publisher name is decided.
+# npm run release fills version / url / hash into dist/release/packaging/winget-installer.yaml.
+PackageIdentifier: ErgoContributors.Ergo
+PackageVersion: {{version}}
+InstallerType: zip
+NestedInstallerType: portable
+NestedInstallerFiles:
+  - RelativeFilePath: ergo.exe
+    PortableCommandAlias: ergo
+Installers:
+  - Architecture: x64
+    InstallerUrl: {{url}}
+    InstallerSha256: {{sha256}}
+ManifestType: installer
+ManifestVersion: 1.6.0

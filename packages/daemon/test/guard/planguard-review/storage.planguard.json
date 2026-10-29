@@ -1,0 +1,302 @@
+{
+	"id": "storage",
+	"name": "手机存储清理",
+	"tools": {
+		"file_delete": {
+			"args": {
+				"scope": {
+					"pattern": "^/"
+				},
+				"path": {
+					"pattern": "^/"
+				},
+				"count": {
+					"type": "number"
+				}
+			}
+		},
+		"storage_scan": {
+			"args": {
+				"prefix": {
+					"pattern": "^/"
+				}
+			}
+		},
+		"cloud_backup": {
+			"args": {
+				"path": {
+					"pattern": "^/"
+				}
+			}
+		}
+	},
+	"rules": [
+		{
+			"id": "S1",
+			"title": "删除重要文件前必须先备份",
+			"trigger": {
+				"tool": "file_delete"
+			},
+			"for_each": {
+				"var": "f",
+				"key": "$f.path",
+				"in": {
+					"select": {
+						"from": "$facts.files",
+						"where": {
+							"and": [
+								{
+									"eq": [
+										"$row.important",
+										true
+									]
+								},
+								{
+									"ne": [
+										"$row.backedUp",
+										true
+									]
+								},
+								{
+									"or": [
+										{
+											"startswith": [
+												"$row.path",
+												"$current.args.scope"
+											]
+										},
+										{
+											"eq": [
+												"$row.path",
+												"$current.args.path"
+											]
+										}
+									]
+								}
+							]
+						}
+					}
+				}
+			},
+			"unless": {
+				"in": [
+					"$f.path",
+					{
+						"as_list": "$step.args.exclude"
+					}
+				]
+			},
+			"require": {
+				"before": {
+					"tool": "cloud_backup",
+					"where": {
+						"eq": [
+							"$prior.args.path",
+							"$f.path"
+						]
+					}
+				}
+			},
+			"message": "「{f.path}」被标为重要且没有备份，删除前必须先备份",
+			"on_violation": "block",
+			"repairs": [
+				{
+					"insert": {
+						"tool": "cloud_backup",
+						"title": "先把 {f.path} 备份到云端",
+						"args": {
+							"path": "$f.path"
+						},
+						"share": "$f.path"
+					},
+					"cost": {
+						"disclosure": 1,
+						"interaction": 1
+					}
+				},
+				{
+					"rewrite": {
+						"append": {
+							"exclude": "$f.path"
+						},
+						"title": "从删除范围中剔除 {f.path}"
+					}
+				}
+			]
+		},
+		{
+			"id": "S2",
+			"title": "删除前必须先扫描过该目录",
+			"trigger": {
+				"tool": "file_delete"
+			},
+			"when": {
+				"or": [
+					{
+						"present": "$current.args.scope"
+					},
+					{
+						"present": "$current.args.path"
+					}
+				]
+			},
+			"require": {
+				"before": {
+					"tool": "storage_scan",
+					"where": {
+						"startswith": [
+							{
+								"if": [
+									{
+										"present": "$current.args.scope"
+									},
+									"$current.args.scope",
+									"$current.args.path"
+								]
+							},
+							"$prior.args.prefix"
+						]
+					}
+				}
+			},
+			"message": "步骤 {current.id} 删除文件之前没有扫描过对应目录",
+			"repairs": [
+				{
+					"insert": {
+						"tool": "storage_scan",
+						"title": "扫描 {current.args.scope}",
+						"args": {
+							"prefix": "$current.args.scope"
+						},
+						"share": "$current.args.scope"
+					}
+				}
+			]
+		},
+		{
+			"id": "S3",
+			"title": "删除步骤要写明范围和预计数量",
+			"trigger": {
+				"tool": "file_delete"
+			},
+			"modes": [
+				"plan"
+			],
+			"require": {
+				"check": {
+					"and": [
+						{
+							"present": "$current.args.scope"
+						},
+						{
+							"present": "$current.args.count"
+						}
+					]
+				}
+			},
+			"message": "删除步骤 {current.id} 没有写明删除范围 scope 和预计数量 count",
+			"repairs": [
+				{
+					"replan": {
+						"text": "请在 {current.id} 的参数里补上 scope（目录前缀）和 count（预计删除数量）"
+					}
+				}
+			]
+		}
+	],
+	"quantities": {
+		"freed_mb": {
+			"per_step": {
+				"file_delete": {
+					"sum": {
+						"select": {
+							"from": "$facts.files",
+							"where": {
+								"and": [
+									{
+										"or": [
+											{
+												"startswith": [
+													"$row.path",
+													"$current.args.scope"
+												]
+											},
+											{
+												"eq": [
+													"$row.path",
+													"$current.args.path"
+												]
+											}
+										]
+									},
+									{
+										"not": {
+											"in": [
+												"$row.path",
+												{
+													"as_list": "$current.args.exclude"
+												}
+											]
+										}
+									}
+								]
+							},
+							"map": "$row.sizeMB"
+						}
+					}
+				}
+			}
+		}
+	},
+	"objective": [
+		{
+			"maximize": "freed_mb"
+		}
+	],
+	"conformance": {
+		"sensitive": [
+			"file_delete",
+			"cloud_backup"
+		],
+		"within": {
+			"file_delete": {
+				"or": [
+					{
+						"startswith": [
+							"$call.args.path",
+							"$step.args.scope"
+						]
+					},
+					{
+						"eq": [
+							"$call.args.path",
+							"$step.args.path"
+						]
+					}
+				]
+			},
+			"storage_scan": {
+				"startswith": [
+					"$call.args.prefix",
+					"$step.args.prefix"
+				]
+			},
+			"cloud_backup": {
+				"eq": [
+					"$call.args.path",
+					"$step.args.path"
+				]
+			}
+		},
+		"forbid": {
+			"file_delete": {
+				"in": [
+					"$call.args.path",
+					{
+						"as_list": "$step.args.exclude"
+					}
+				]
+			}
+		}
+	}
+}

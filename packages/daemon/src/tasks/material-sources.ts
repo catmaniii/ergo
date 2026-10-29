@@ -1,0 +1,432 @@
+// 任务发起和计划确认产生的素材（规格第 15 节），在 daemon.ts 里、materials.start() 之前登记：
+// - 用户发言：点"发起任务"按钮时写的原话（task 事件，建出、发起方式是按钮的那条）——本人、打的字，和在会话里说的一样；
+// - 澄清问题的回答：提问卡上"提交回答"（questions_answered 事件）。选的是卡上现成的选项（含推荐的那个）算用户接受了
+//   agent 先提出的东西（本人，注明 agent 先提出）；自己写的答案是用户自己的话（本人）。问题本身是 agent 的产出，只留在答案的说法里；
+// - 审批决定：计划卡上的确认（连同勾掉、收窄的授权项）和打回（plan_decided 事件）。确认、勾掉、收窄都是用户在 agent 先提出的
+//   计划上做的选择；打回的意见、确认时改过的假设栏、在卡上给这个任务加的关注类别（26 号票）是用户自己的话。
+//   授权项的说法和计划卡上一样，由结构化数据生成（grantText）。
+// - 审批决定（14 号票）：计划变更卡上的确认、拒绝（也是 plan_decided，带 change），授权到期续期事项上的续期、不续
+//   （grant_renewal_decided）。改动的说法和卡上一样由结构化数据生成（planChangeItemText）；拒绝时写的话是用户自己的话。
+// - 审批决定（58 号票）：流程计划卡上的授权执行（连同逐项勾了的确认事项）、拒绝、判定不可执行的那版上的"让维护者改"
+//   （也是 plan_decided，带 workflow；让维护者改的 decision 是 returned）；
+//   拒绝时写的说明是用户自己的话。
+// "建议发起任务"卡、提问卡被关掉是回避信号（卡片被关闭事件，素材模块已经采集）。
+// 彻底删除时这几类事件的改写函数（80 号票，登记进记忆模块的改写函数表）在文件末尾：只换用户写的话，决定、状态原样。
+import {
+  type CardEventPayload,
+  categoryMatchText,
+  CHANNELS,
+  DISPOSITION_LABEL,
+  EVENT_TYPES,
+  grantText,
+  isDeletedEventPayload,
+  type MessageEventPayload,
+  planChangeItemText,
+  planGrants,
+  type PlanWatchCategory,
+  PURGED_TEXT,
+  type QuestionsAnsweredPayload,
+  t,
+  type Task,
+  type TaskEventPayload,
+  type TimelineRecordEventPayload,
+  workflowConfirmationItems,
+} from "@ergo/protocol";
+import type { EventStore, StoredEvent } from "../events/event-store.ts";
+import { type MaterialPiece, type MaterialSource, segmentPieces, userDecisionDraft } from "../materials/index.ts";
+import { deletedMarker, type PurgeRewriter, purgedField } from "../events/purge.ts";
+import { type GrantRenewalDecidedPayload, type OutputReactionPayload, type PlanDecidedPayload, type ReworkNoticeHeldPayload, TASK_EVENTS } from "./events.ts";
+
+export const startTaskRequestSource: MaterialSource = {
+  // 素材 id 由它算出来，定了别改
+  name: "start-task-request",
+  eventType: EVENT_TYPES.task,
+  capture(event) {
+    const { task, change, by } = event.payload as TaskEventPayload;
+    if (change !== "created" || task.origin !== "button" || by !== "user") return [];
+    return [
+      {
+        kind: "user_utterance",
+        source: "self",
+        time: task.createdAt,
+        task: task.id,
+        context: ["start_task_button", ...task.projects.map((p) => `project:${p}`)],
+        segments: segmentPieces([{ form: "typed", text: task.summary, locator: { field: "task.summary" } }]),
+        ref: { recordId: task.id },
+      },
+    ];
+  },
+};
+
+export const clarificationAnswerSource: MaterialSource = {
+  // 素材 id 由它算出来，定了别改
+  name: "clarification-answer",
+  eventType: EVENT_TYPES.questionsAnswered,
+  capture(event) {
+    const p = event.payload as QuestionsAnsweredPayload;
+    const pieces: MaterialPiece[] = p.answers.map((a, i) => ({
+      form: a.chosenOption ? "choice" : "typed",
+      text: `${a.question} → ${a.answer}`,
+      locator: { field: `answers[${i}]` },
+    }));
+    return [
+      {
+        kind: "clarification_answer",
+        source: "self",
+        time: p.time,
+        ...(p.taskId === undefined ? {} : { task: p.taskId }),
+        // 项目维护者为工单问的（16 号票）：属于那个项目
+        ...(p.projectId === undefined ? {} : { project: p.projectId }),
+        context: ["card:questions", ...(p.answers.every((a) => a.followedRecommendation) ? ["all_recommended"] : [])],
+        segments: segmentPieces(pieces),
+        ref: { cardId: p.cardId },
+      },
+    ];
+  },
+};
+
+export const planDecisionSource: MaterialSource = {
+  name: "plan-decision",
+  eventType: EVENT_TYPES.planDecided,
+  capture(event) {
+    const p = event.payload as PlanDecidedPayload;
+    // 重做时随之作废的计划变更（84 号票）：系统记的，不是你的决定
+    if (p.decision === "voided") return [];
+    // 计划变更卡上的决定（14 号票）：写明维护者要改什么（卡上列的那几处）
+    // 流程计划卡上的决定（58 号票）：授权执行（连同逐项勾了的确认事项）或拒绝（可以附说明）
+    const semi = t("protocol.common.semiSep");
+    const what = p.change
+      ? t("tasks.materials.planChange", { title: p.taskTitle, changes: p.change.changes.map((c) => planChangeItemText(c, p.grantInfo)).join(semi) })
+      : p.workflow
+        ? t("tasks.materials.workflowPlan", { title: p.taskTitle, revision: p.revision, steps: p.workflow.steps.length, count: p.workflow.steps.length })
+        : t("tasks.materials.taskPlan", { title: p.taskTitle, revision: p.revision });
+    const narrowed = p.plan === undefined ? [] : p.narrowedGrants.flatMap((id) => planGrantById(p.plan!, id) ?? []);
+    const changes = [
+      ...p.removedGrants.map((g) => t("tasks.materials.grantRemoved", { grant: grantText(g, p.grantInfo[g.id]) })),
+      ...narrowed.map((g) => t("tasks.materials.grantNarrowed", { grant: grantText(g, p.grantInfo[g.id]) })),
+    ];
+    const confirmations = p.workflow ? workflowConfirmationItems(p.workflow.review, p.workflow.steps).filter((i) => p.confirmations?.includes(i.key)) : [];
+    if (confirmations.length > 0) changes.push(t("tasks.materials.itemsConfirmed", { items: confirmations.map((i) => i.text).join(semi) }));
+    const confirmedKey =
+      changes.length > 0 ? (p.workflow ? "tasks.materials.authorizedWith" : "tasks.materials.confirmedWith") : p.workflow ? "tasks.materials.authorized" : "tasks.materials.confirmed";
+    const decision =
+      p.decision === "confirmed"
+        ? t(confirmedKey, { what, changes: changes.join(t("protocol.plan.scope.sep")) })
+        : p.decision === "returned"
+          ? t("tasks.materials.returned", { what })
+          : p.change || p.workflow
+            ? t("tasks.materials.rejected", { what })
+            : t("tasks.materials.sentBack", { what });
+    const typed = [
+      ...(p.note ? [{ text: p.note, field: "note" }] : []),
+      ...(p.assumptions ? [{ text: t("tasks.materials.assumptions", { items: p.assumptions.after.join(semi) || t("tasks.materials.cleared") }), field: "assumptions" }] : []),
+      // 卡上加的关注类别：名字和规则都是用户自己写的（26 号票）
+      ...(p.addedCategories ?? []).map((c) => ({ text: addedCategoryText(c), field: "categories" })),
+    ];
+    return [
+      userDecisionDraft({
+        kind: "approval_decision",
+        time: p.time,
+        task: p.taskId,
+        context: [
+          `decision:${p.decision}`,
+          p.change ? "card:plan_change" : p.workflow ? "card:workflow_plan" : "card:plan",
+          ...(confirmations.length > 0 ? ["items_confirmed"] : []),
+          ...(p.removedGrants.length > 0 ? ["grants_removed"] : []),
+          ...(p.narrowedGrants.length > 0 ? ["grants_narrowed"] : []),
+          ...(p.assumptions ? ["assumptions_edited"] : []),
+          ...(p.addedCategories?.length ? ["categories_added"] : []),
+        ],
+        ref: { recordId: p.planId, cardId: p.cardId },
+        accepted: { text: decision, field: "decision" },
+        typed,
+      }),
+    ];
+  },
+};
+
+/** 卡上加的一个关注类别写成一句话："给这个任务加了关注类别「动迁移目录」：路径在 D:\app\db 之内，先问我" */
+function addedCategoryText(c: PlanWatchCategory): string {
+  const rule = c.match ? categoryMatchText(c.match) : "";
+  const disposition = c.disposition ? DISPOSITION_LABEL[c.disposition] : "";
+  return t("tasks.materials.categoryAdded", { title: c.title ?? c.id, rule: [rule, disposition].filter(Boolean).join(t("protocol.plan.scope.sep")) });
+}
+
+function planGrantById(plan: NonNullable<PlanDecidedPayload["plan"]>, id: string) {
+  return planGrants(plan).find((g) => g.grant.id === id)?.grant;
+}
+
+// ───────────────────────── 13 号票：任务结局、用户对产出的反应 ─────────────────────────
+
+/** 任务结局是谁定的：全部验收后自动完成是系统，判失败是维护者（agent），取消是用户 */
+const OUTCOME_SOURCE = { completed: "system", failed: "agent", cancelled: "self" } as const;
+
+/**
+ * 任务结局（完成、失败、取消）：看板频道上的 task 事件。结局本身不是谁的原话，只留一条引用（说明里写任务名和结局，
+ * 失败带上维护者写的原因），来源是定下这个结局的一方
+ */
+export const taskOutcomeSource: MaterialSource = {
+  // 素材 id 由它算出来，定了别改
+  name: "task-outcome",
+  eventType: EVENT_TYPES.task,
+  capture(event) {
+    const { task, change, by } = event.payload as TaskEventPayload;
+    if (change !== "completed" && change !== "failed" && change !== "cancelled") return [];
+    const label =
+      change === "completed"
+        ? t("tasks.materials.completed", { title: task.title })
+        : change === "failed"
+          ? task.failReason
+            ? t("tasks.materials.failedWhy", { title: task.title, why: task.failReason })
+            : t("tasks.materials.failed", { title: task.title })
+          : t("tasks.materials.cancelled", { title: task.title });
+    return [
+      {
+        kind: "task_outcome",
+        source: OUTCOME_SOURCE[change],
+        time: task.updatedAt,
+        task: task.id,
+        context: [`outcome:${change}`, `by:${by}`],
+        segments: segmentPieces([{ form: "agent_output", label, locator: { field: "task" } }]),
+        ref: { recordId: task.id },
+      },
+    ];
+  },
+};
+
+const REACTION_TEXT = {
+  accepted: "tasks.materials.reaction.accepted",
+  returned: "tasks.materials.reaction.returned",
+  rework: "tasks.materials.reaction.rework",
+} as const satisfies Record<OutputReactionPayload["reaction"], string>;
+
+/**
+ * 用户对产出的反应："由你验收"的阶段验收通过或退回、对已完成的任务要求返工（tasks 频道的 output_reaction）。
+ * 用户在 agent 的产出上做的选择（本人，注明 agent 先提出）；退回、返工时写的原因是用户自己的话
+ */
+export const outputReactionSource: MaterialSource = {
+  // 素材 id 由它算出来，定了别改
+  name: "output-reaction",
+  eventType: EVENT_TYPES.outputReaction,
+  capture(event) {
+    const p = event.payload as OutputReactionPayload;
+    return [
+      userDecisionDraft({
+        kind: "output_reaction",
+        time: p.time,
+        task: p.taskId,
+        context: [`reaction:${p.reaction}`, `stage:${p.stageId}`, ...(p.reopened ?? []).map((s) => `reopened:${s}`)],
+        ref: { recordId: p.taskId },
+        accepted: { text: t("tasks.materials.reactionText", { reaction: t(REACTION_TEXT[p.reaction]), title: p.taskTitle, stage: p.stageId, stageTitle: p.stageTitle }), field: "reaction" },
+        typed: p.note ? [{ text: p.note, field: "note" }] : [],
+      }),
+    ];
+  },
+};
+
+/**
+ * 彻底删除：任务事件只改写等我的说明（waitNote：被杀后"中断：不确定 X 是否已执行"里的调用摘要，23 号票），
+ * 任务的状态、阶段、原因不变。别的字段还没有改写规则（比如发起任务时写的原话在之后每个快照里都有）：
+ * 没有等我说明的任务事件被要求改写时报错，整个删除被拒，不悄悄删一半
+ */
+export const taskWaitNotePurge: PurgeRewriter = {
+  eventType: EVENT_TYPES.task,
+  rewrite: (event) => {
+    const p = event.payload as TaskEventPayload;
+    if (p.task.waitNote === undefined) throw new Error(`彻底删除：任务事件（${event.channel}#${event.seq}）只能改写等我的说明，别的字段还没有改写规则`); // @i18n-ignore log
+    return { ...p, task: { ...p.task, waitNote: PURGED_TEXT } } satisfies TaskEventPayload;
+  },
+};
+
+/**
+ * 删除项目时它的内部任务一起删掉（64 号票；279 号票起经"删除参与方"登记表，tasks/deletion-participants.ts）：任务的文字换成删除标记——标题、说明、等我和失败的原因、
+ * 步骤和阶段的名字、要点、验收标准，阶段上维护者宣布完成时写的那句、重开时记下的上次没过的标准（84 号票，ADR 0010）；
+ * 编号、状态、种类、归属这些结构字段原样（看板的行留着，新任务的编号接着往下排）
+ */
+export function purgedTask(task: Task): Task {
+  const steps = task.steps?.list && { ...task.steps, list: task.steps.list.map((s) => ({ ...s, title: PURGED_TEXT, ...(s.gist === undefined ? {} : { gist: PURGED_TEXT }) })) };
+  const stages = task.stages?.list && {
+    ...task.stages,
+    list: task.stages.list.map((s) => ({
+      ...s,
+      title: PURGED_TEXT,
+      ...(s.waitNote === undefined ? {} : { waitNote: PURGED_TEXT }),
+      ...(s.summary === undefined ? {} : { summary: PURGED_TEXT }),
+      ...(s.lastFailed === undefined ? {} : { lastFailed: s.lastFailed.map(() => PURGED_TEXT) }),
+      acceptance: s.acceptance.map((a) => ({ ...a, criterion: PURGED_TEXT, ...(a.result ? { result: { ...a.result, ...(a.result.note === undefined ? {} : { note: PURGED_TEXT }) } } : {}) })),
+    })),
+  };
+  return {
+    ...task,
+    title: PURGED_TEXT,
+    summary: PURGED_TEXT,
+    ...(task.waitNote === undefined ? {} : { waitNote: PURGED_TEXT }),
+    ...(task.failReason === undefined ? {} : { failReason: PURGED_TEXT }),
+    ...(steps ? { steps } : {}),
+    ...(stages ? { stages } : {}),
+  };
+}
+
+/**
+ * 彻底删除：用户对产出的反应只换掉用户写的原因，任务、阶段、反应不变。原因还在别处的连带改写（84 号票）：
+ * - 交给维护者的那条通知（"用户验收没通过……：「原因」""……用户说：「原因」"：按同一事务里跟在后面、引着这段话的第一条找，
+ *   整条换成"已删除"，会话文件里的也改，同计划变更卡上拒绝时的话）；
+ * - 退回时这次结论卡上由你验收的那几条的备注（卡的各个版本，按进度卡的 purge 换；84 号票之前的卡上没有）；
+ * - 重做时会话里那条重做记录（"……你说：「原因」"，时间线记录的改写把它整句换成删除标记）；
+ * - 重做时存下、等复验的那份交代（276 号票，tasks 频道的 rework_notice_held：交给维护者之前和之后都留着原话；整条换成"已删除"，
+ *   还没交出去的就不再交）
+ */
+export const outputReactionPurge: PurgeRewriter = {
+  eventType: EVENT_TYPES.outputReaction,
+  rewrite: (event) => {
+    const p = event.payload as OutputReactionPayload;
+    return { ...p, ...purgedField(p, "note") } satisfies OutputReactionPayload;
+  },
+  related: (event, store) => {
+    const p = event.payload as OutputReactionPayload;
+    if (p.note === undefined) return [];
+    const { cardId, recordId } = p;
+    const cards =
+      cardId === undefined
+        ? []
+        : store.mentioning(EVENT_TYPES.card, cardId).filter((e) => e.channel === CHANNELS.cards && !isDeletedEventPayload(e.payload) && (e.payload as CardEventPayload).card.id === cardId);
+    const records =
+      recordId === undefined
+        ? []
+        : store.mentioning(EVENT_TYPES.timelineRecord, recordId).filter((e) => !isDeletedEventPayload(e.payload) && (e.payload as TimelineRecordEventPayload).record.id === recordId);
+    return [...noticeQuoting(event, store, p.taskId, p.note), ...heldNoticeQuoting(event, store, p.taskId, p.note), ...cards, ...records];
+  },
+};
+
+/**
+ * 重做时存下、等复验的那份交代（276 号票）：整条有用户的原话，彻底删除那条重做的反应时连带整条换成"已删除"标记（还没交给维护者的，
+ * 执行控制器见到标记就不再交；交出去了的那条通知由 noticeQuoting 找到、同样换掉）
+ */
+export const reworkNoticeHeldPurge: PurgeRewriter = {
+  eventType: TASK_EVENTS.reworkNoticeHeld,
+  rewrite: (event, context) => deletedMarker(event, context.deletedAt),
+};
+
+/** 和这条反应同一事务存下、原样引着用户这段话（「……」）的那份等复验的交代（同一个任务，跟在反应后面的第一条） */
+function heldNoticeQuoting(event: StoredEvent, store: EventStore, taskId: string, note: string): StoredEvent[] {
+  const quoted = `「${note}」`; // @i18n-ignore data：交给维护者的通知里引用户的话照旧这样写
+  const found = store
+    .mentioning(TASK_EVENTS.reworkNoticeHeld, JSON.stringify(quoted).slice(1, -1))
+    .filter((e) => {
+      if (e.globalSeq <= event.globalSeq || isDeletedEventPayload(e.payload)) return false;
+      const p = e.payload as ReworkNoticeHeldPayload;
+      return p.taskId === taskId && p.notice.payload.message.parts.some((part) => part.type === "text" && part.text.includes(quoted));
+    })
+    .toSorted((a, b) => a.globalSeq - b.globalSeq);
+  return found.slice(0, 1);
+}
+
+// ───────────────────────── 14 号票：授权项续期 ─────────────────────────
+
+/**
+ * 审批决定：用户在"授权到期续期"事项上续期或不续（tasks 频道的 grant_renewal_decided）。
+ * 续期是用户在运行时提出的事项上做的选择（本人，注明 agent 先提出）；授权项的说法取维护者写的那一句
+ */
+export const grantRenewalSource: MaterialSource = {
+  // 素材 id 由它算出来，定了别改
+  name: "grant-renewal",
+  eventType: EVENT_TYPES.grantRenewalDecided,
+  capture(event) {
+    const p = event.payload as GrantRenewalDecidedPayload;
+    const what = p.grants.map((g) => t("tasks.exec.quoted", { title: g.title })).join(t("protocol.common.listSep"));
+    return [
+      userDecisionDraft({
+        kind: "approval_decision",
+        time: p.time,
+        task: p.taskId,
+        context: [`decision:${p.decision}`, "notice:grant_renewal"],
+        ref: { recordId: p.planId },
+        accepted: { text: t(p.decision === "renewed" ? "tasks.materials.renewed" : "tasks.materials.notRenewed", { title: p.taskTitle, grants: what }), field: "decision" },
+        typed: [],
+      }),
+    ];
+  },
+};
+
+// ───────────────────────── 80 号票：彻底删除计划的决定、提问卡的回答、授权续期的决定 ─────────────────────────
+
+/** 交给 agent 的系统通知（还没被改写成"已删除"标记的） */
+function isLiveNotice(event: StoredEvent | undefined): event is StoredEvent {
+  if (event?.type !== EVENT_TYPES.message || isDeletedEventPayload(event.payload)) return false;
+  const p = event.payload as MessageEventPayload;
+  return p.agentInput === true && p.message.speaker === "system";
+}
+
+/**
+ * 卡上的动作同一事务交给 agent 的那条通知：幂等键是动作的幂等键加 #notice（提问卡的回答交回秘书或提问的维护者；计划卡打回、
+ * 流程计划卡拒绝和"让维护者改"交回起草的维护者）。event 的幂等键是动作的幂等键加 suffix
+ */
+function noticeOfAction(event: StoredEvent, store: EventStore, suffix: string): StoredEvent[] {
+  const key = event.idempotencyKey;
+  if (key === null || !key.endsWith(suffix)) return [];
+  const notice = store.eventByIdempotencyKey(`${key.slice(0, -suffix.length)}#notice`);
+  return isLiveNotice(notice) ? [notice] : [];
+}
+
+/**
+ * 计划变更卡上拒绝时交给维护者的通知（14 号票）没按动作的幂等键记：按同一事务里跟在决定后面、属于这个任务、
+ * 原样引着用户这段话（「……」）的第一条找
+ */
+function noticeQuoting(event: StoredEvent, store: EventStore, taskId: string, note: string): StoredEvent[] {
+  const quoted = `「${note}」`; // @i18n-ignore data：交给维护者的通知里引用户的话照旧这样写
+  // 负载是 JSON：按 JSON 里的写法找（话里可能有引号、反斜杠）
+  const found = store
+    .mentioning(EVENT_TYPES.message, JSON.stringify(quoted).slice(1, -1))
+    .filter((e) => {
+      if (e.globalSeq <= event.globalSeq || !isLiveNotice(e)) return false;
+      const p = e.payload as MessageEventPayload;
+      return p.taskId === taskId && p.message.parts.some((part) => part.type === "text" && part.text.includes(quoted));
+    })
+    .toSorted((a, b) => a.globalSeq - b.globalSeq);
+  return found.slice(0, 1);
+}
+
+/**
+ * 彻底删除计划的决定（plan_decided）：只换用户写的话（note：打回的意见、拒绝计划变更或流程计划时写的话、让维护者改时的说明），
+ * 决定、计划、版本、卡片、勾掉和收窄的授权、有效期原样，重放出来这一版计划还是已确认、已拒绝，授权不变。
+ * 确认时改过的假设栏、在卡上加的关注类别已经成了确认的计划的一部分（维护者照它做、守卫照它判），不改写，如实写在 PURGE_LIMITS 里。
+ * 写了话的，连带交给维护者的那条通知（里面原样引着这段话：整条换成"已删除"，会话文件里的也改）；项目的任务重新起草
+ * 是一张工单（16 号票），工单内容里转述的删不掉（PURGE_LIMITS）。卡上处理结果里的这段话由卡片的改写换掉（memory/purge.ts）
+ */
+export const planDecisionPurge: PurgeRewriter = {
+  eventType: EVENT_TYPES.planDecided,
+  rewrite: (event) => {
+    const p = event.payload as PlanDecidedPayload;
+    return { ...p, ...purgedField(p, "note") } satisfies PlanDecidedPayload;
+  },
+  related: (event, store) => {
+    const p = event.payload as PlanDecidedPayload;
+    if (p.note === undefined) return [];
+    const notice = noticeOfAction(event, store, "#decided");
+    return notice.length > 0 || !p.change ? notice : noticeQuoting(event, store, p.taskId, p.note);
+  },
+};
+
+/**
+ * 彻底删除提问卡的回答（questions_answered）：每题的答案换成删除标记（自己写的、选卡上现成选项的都换）；哪一题、问题、推荐的答案、
+ * 按没按推荐、是不是现成的选项原样（问题和推荐是 agent 问的）。卡上记的答案由提问卡的 purge 换（cards.ts），
+ * 连带交回秘书（或提问的维护者，16、17 号票）的那条通知（里面一题一行列着答案：整条换成"已删除"，会话文件里的也改）
+ */
+export const clarificationAnswerPurge: PurgeRewriter = {
+  eventType: EVENT_TYPES.questionsAnswered,
+  rewrite: (event) => {
+    const p = event.payload as QuestionsAnsweredPayload;
+    return { ...p, answers: p.answers.map((a) => ({ ...a, answer: PURGED_TEXT })) } satisfies QuestionsAnsweredPayload;
+  },
+  related: (event, store) => noticeOfAction(event, store, "#answered"),
+};
+
+/**
+ * 彻底删除授权续期的决定（grant_renewal_decided）：这类事件里没有用户写的话——续期事项上只有"续期""不续"两个按钮，
+ * 授权项的说法是维护者写的、任务名是任务的；决定、续期前后的到期时间、续期后这一版的全部有效期是结构（重放出授权的有效期），
+ * 原样保留。登记它是写明"没有要改的"（没登记的事件类型彻底删除时整个被拒），素材照忘掉删除
+ */
+export const grantRenewalPurge: PurgeRewriter = {
+  eventType: EVENT_TYPES.grantRenewalDecided,
+  rewrite: (event) => event.payload as GrantRenewalDecidedPayload,
+};

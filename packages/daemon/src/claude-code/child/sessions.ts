@@ -1,0 +1,287 @@
+// 列本机的 Claude Code 会话、查哪些正开着、读主线最近一段（前情）、分叉一份（290 号票，issue 24 方案 2.3；调研 31 第 1 节、32 第 6.2 节、35 第 4 节）。
+// 一次性子进程（sessions-main.ts）里跑：守护进程送一条请求（../sessions-protocol.ts）、等一条结果。SDK 和跑 claude 的办法由入口给（deps），
+// 契约测试给假的（不读用户真实的 ~/.claude、不起 claude）。
+// - 列：SDK 的 listSessions（直接读本机的会话记录，不起 claude、不花额度）。不列 SDK、-p 起的会话（includeProgrammatic: false，和终端里
+//   /resume 一样）：二狗自己的维护者用 SDK 起的会话不出现在这里，免得被别的任务再接管一次；
+// - 正开着的：`claude agents --json`（官方说的从外面读会话状态的受支持办法；它不起守护进程，调研 35 第 2 步）。会话记录没有锁，
+//   终端里开着的会话再被恢复会分叉、丢轮，所以占没占由守护进程那一侧按它判；
+// - 前情：SDK 的 getSessionMessages（按 parentUuid 链重建主线，废弃的分支不算；超过 5MB 的记录 SDK 只读最后一次压缩之后的），
+//   只看最后 entries 条，翻成二狗的样子（用户说的一句、它的一条回复：文字、思考、工具调用——工具名照守卫登记表映射，结果截短），
+//   最多 messages 条，尽量从一句用户的话开始。会话记录的格式是 Claude Code 内部的，不自己解析文件（调研 31）；
+// - 分叉：SDK 的 forkSession（复制成新会话、全部换新 uuid，原会话不动）。
+// - 只读跟随（292 号票）：会话交给官方 App 期间，同样用 getSessionMessages 读主线，只翻某一条之后的新内容（followOf：带着每条的 id 去重、
+//   还没说完的最后一条回复先不交）。
+// 读、分叉都不传 dir：会话 id 是全局唯一的 UUID，SDK 会在所有项目目录里找（按工作目录推目录名会撞名，调研 31 第 1.2 节）。
+// @i18n-ignore-file data：前情里的占位（图片）、认 Claude Code 记录里的元信息；给人看的说明在守护进程那一侧按语言写
+import type { ForkSessionOptions, ForkSessionResult, GetSessionMessagesOptions, ListSessionsOptions, SDKSessionInfo, SessionMessage } from "@anthropic-ai/claude-agent-sdk";
+import type { RuntimeFollow, RuntimeHistory, RuntimeHistoryItem, RuntimeHistoryPart } from "../../runtime/index.ts";
+import { parseAgents } from "../agents-json.ts";
+import type { ClaudeSessionInfo, ClaudeSessionsRequest, ClaudeSessionsResult } from "../sessions-protocol.ts";
+import { toGuardCall } from "./guard.ts";
+
+// `claude agents --json` 的解析 292 号票起挪到插件目录（守护进程这一侧交给官方 App 时也要用），这里照旧转出
+export { parseAgents } from "../agents-json.ts";
+
+/** 用到的 SDK 函数（真的入口给 @anthropic-ai/claude-agent-sdk 的，测试给假的） */
+export interface ClaudeSessionsSdk {
+  listSessions(options?: ListSessionsOptions): Promise<SDKSessionInfo[]>;
+  getSessionMessages(sessionId: string, options?: GetSessionMessagesOptions): Promise<SessionMessage[]>;
+  forkSession(sessionId: string, options?: ForkSessionOptions): Promise<ForkSessionResult>;
+}
+
+export interface ClaudeSessionsDeps {
+  sdk: ClaudeSessionsSdk;
+  /** 跑 `claude agents --json`，交回它的标准输出；跑不了抛错 */
+  runAgents(): Promise<string>;
+}
+
+/** 前情里一段文字最多留多少字 */
+const TEXT_MAX = 8000;
+/** 思考最多留多少字 */
+const REASONING_MAX = 2000;
+/** 工具结果最多留多少字（守护进程只记一行摘要） */
+const RESULT_MAX = 600;
+
+export async function handleSessionsRequest(request: ClaudeSessionsRequest, deps: ClaudeSessionsDeps): Promise<ClaudeSessionsResult> {
+  switch (request.op) {
+    case "list": {
+      const sessions = await deps.sdk.listSessions({ limit: request.limit, includeProgrammatic: false });
+      return { op: "list", sessions: sessions.map(sessionInfo).toSorted((a, b) => b.lastModified - a.lastModified) };
+    }
+    case "running":
+      return { op: "running", running: parseAgents(await deps.runAgents()) };
+    case "history": {
+      const messages = await deps.sdk.getSessionMessages(request.sessionId, { includeSystemMessages: true });
+      return { op: "history", history: historyOf(messages, request.entries, request.messages) };
+    }
+    case "fork": {
+      const forked = await deps.sdk.forkSession(request.sessionId);
+      return { op: "fork", sessionId: forked.sessionId };
+    }
+    case "follow": {
+      const messages = await deps.sdk.getSessionMessages(request.sessionId, { includeSystemMessages: true });
+      if (request.tail === true) {
+        const last = messages.at(-1)?.uuid;
+        return { op: "follow", follow: { items: [], ...(last === undefined ? {} : { cursor: last }) } };
+      }
+      return { op: "follow", follow: followOf(messages, request.after, request.final, request.max) };
+    }
+  }
+}
+
+function sessionInfo(s: SDKSessionInfo): ClaudeSessionInfo {
+  const title = (s.customTitle ?? s.summary ?? s.firstPrompt ?? "").replace(/\s+/g, " ").trim();
+  return {
+    sessionId: s.sessionId,
+    title: title || s.sessionId,
+    ...(s.cwd ? { cwd: s.cwd } : {}),
+    ...(s.gitBranch ? { branch: s.gitBranch } : {}),
+    lastModified: s.lastModified,
+    ...(typeof s.fileSize === "number" ? { bytes: s.fileSize } : {}),
+  };
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
+
+const clip = (text: string, max: number) => (text.length > max ? `${text.slice(0, max)}…` : text);
+
+/**
+ * 用户消息里给人看的话：命令写回 `/命令 参数`；本地命令的输出、提醒、"Caveat"这类元信息不要；去掉夹在里面的 <system-reminder>。
+ * 没剩下什么是空字符串
+ */
+export function userText(raw: string): string {
+  const command = /<command-name>([^<]*)<\/command-name>/.exec(raw);
+  if (command) {
+    const args = /<command-args>([\s\S]*?)<\/command-args>/.exec(raw)?.[1]?.trim();
+    const name = command[1]!.trim();
+    return (name.startsWith("/") ? name : `/${name}`) + (args ? ` ${args}` : "");
+  }
+  if (/^\s*<(local-command-stdout|local-command-stderr|local-command-caveat)>/.test(raw)) return "";
+  if (/^\s*Caveat: The messages below were generated by the user while running local commands/.test(raw)) return "";
+  return raw.replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, "").trim();
+}
+
+/** tool_result 的内容：字符串，或者几块（文字照搬、图片写个占位） */
+function resultText(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  return content
+    .map((block) => (isRecord(block) && block.type === "text" && typeof block.text === "string" ? block.text : isRecord(block) && block.type === "image" ? "[图片]" : ""))
+    .filter(Boolean)
+    .join("\n");
+}
+
+/** 翻出来的一条，连同它从哪条消息开始（下标、id、时间）：只读跟随（292 号票）按它去重、定下次从哪接着读 */
+interface BuiltItem {
+  item: RuntimeHistoryItem;
+  /** 在读的这一段里从第几条消息开始 */
+  start: number;
+  /** 开头那条消息的 id（补记时去重用） */
+  key: string;
+  /** 开头那条消息记的时间（SDK 带了才有） */
+  at?: string;
+  /** 回复：最后一条 assistant 的 stop_reason（看这条回复说完了没有） */
+  stop?: string;
+}
+
+/** SDK 读出的消息上带的时间（类型里没写，SDK 实际带着 timestamp） */
+const timeOf = (m: SessionMessage): string | undefined => {
+  const at = (m as unknown as { timestamp?: unknown }).timestamp;
+  return typeof at === "string" && at !== "" ? at : undefined;
+};
+
+/** 元信息的用户消息（压缩摘要、提醒这类，SDK 标着 is_meta / isCompactSummary）：不是人说的话 */
+const isMeta = (m: SessionMessage): boolean => {
+  const flags = m as unknown as { is_meta?: unknown; isCompactSummary?: unknown };
+  return flags.is_meta === true || flags.isCompactSummary === true;
+};
+
+/** 压缩标记（system 消息，subtype 在消息上或 message 里） */
+const isCompactBoundary = (m: SessionMessage): boolean => {
+  if (m.type !== "system") return false;
+  const own = (m as unknown as { subtype?: unknown }).subtype;
+  return own === "compact_boundary" || (isRecord(m.message) && m.message.subtype === "compact_boundary");
+};
+
+/**
+ * 一段消息（按先后）翻成二狗的样子：用户说的一句、它的一条回复（同一个 message.id 的几条 assistant 并成一条；文字、思考、工具调用，
+ * 工具结果填回那次调用）、压缩过的标记。skipMeta：元信息的用户消息不算人说的话（只读跟随用；前情照 290 号票的不跳）
+ */
+function buildItems(window: readonly SessionMessage[], skipMeta: boolean): BuiltItem[] {
+  const items: BuiltItem[] = [];
+  /** 工具调用 id → 那一块（结果来了填上） */
+  const tools = new Map<string, Extract<RuntimeHistoryPart, { type: "tool" }>>();
+  /** 正在攒的那条回复（同一个 message.id 的几条 assistant 并成一条） */
+  let current: { id: string | undefined; parts: RuntimeHistoryPart[]; start: number; key: string; at: string | undefined; stop: string | undefined } | undefined;
+  const flush = () => {
+    if (current && current.parts.length > 0) {
+      items.push({ item: { kind: "agent", parts: current.parts }, start: current.start, key: current.key, ...(current.at ? { at: current.at } : {}), ...(current.stop ? { stop: current.stop } : {}) });
+    }
+    current = undefined;
+  };
+  const push = (item: RuntimeHistoryItem, index: number, m: SessionMessage) => {
+    const at = timeOf(m);
+    items.push({ item, start: index, key: m.uuid, ...(at ? { at } : {}) });
+  };
+
+  window.forEach((m, index) => {
+    const body = isRecord(m.message) ? m.message : {};
+    if (m.type === "system") {
+      if (isCompactBoundary(m)) {
+        flush();
+        push({ kind: "compacted" }, index, m);
+      }
+      return;
+    }
+    if (m.type === "assistant") {
+      const id = typeof body.id === "string" ? body.id : undefined;
+      if (!current || id === undefined || current.id !== id) {
+        flush();
+        current = { id, parts: [], start: index, key: m.uuid, at: timeOf(m), stop: undefined };
+      }
+      if (typeof body.stop_reason === "string") current.stop = body.stop_reason;
+      const content = Array.isArray(body.content) ? body.content : typeof body.content === "string" ? [{ type: "text", text: body.content }] : [];
+      for (const block of content) {
+        if (!isRecord(block)) continue;
+        if (block.type === "text" && typeof block.text === "string" && block.text.trim()) current.parts.push({ type: "text", text: clip(block.text.trim(), TEXT_MAX) });
+        else if (block.type === "thinking" && typeof block.thinking === "string" && block.thinking.trim()) current.parts.push({ type: "reasoning", text: clip(block.thinking.trim(), REASONING_MAX) });
+        else if (block.type === "tool_use" && typeof block.id === "string" && typeof block.name === "string") {
+          const mapped = toGuardCall(block.name, isRecord(block.input) ? block.input : {});
+          const part: Extract<RuntimeHistoryPart, { type: "tool" }> = { type: "tool", id: block.id, tool: mapped.toolName, native: block.name, args: mapped.args };
+          tools.set(block.id, part);
+          current.parts.push(part);
+        }
+      }
+      return;
+    }
+    const meta = skipMeta && isMeta(m);
+    // 用户这一侧：工具结果填回那次调用；真的是人说的话另成一条
+    const content = body.content;
+    if (typeof content === "string") {
+      const text = meta ? "" : userText(content);
+      if (text) {
+        flush();
+        push({ kind: "user", text: clip(text, TEXT_MAX) }, index, m);
+      }
+      return;
+    }
+    if (!Array.isArray(content)) return;
+    const said: string[] = [];
+    for (const block of content) {
+      if (!isRecord(block)) continue;
+      if (block.type === "tool_result" && typeof block.tool_use_id === "string") {
+        const part = tools.get(block.tool_use_id);
+        if (part) {
+          part.result = clip(resultText(block.content).trim(), RESULT_MAX);
+          if (block.is_error === true) part.failed = true;
+        }
+      } else if (meta) continue;
+      else if (block.type === "text" && typeof block.text === "string") {
+        const text = userText(block.text);
+        if (text) said.push(text);
+      } else if (block.type === "image") said.push("[图片]");
+    }
+    if (said.length > 0) {
+      flush();
+      push({ kind: "user", text: clip(said.join("\n"), TEXT_MAX) }, index, m);
+    }
+  });
+  flush();
+  return items;
+}
+
+/** SDK 读出的主线（按先后）翻成前情：见文件开头 */
+export function historyOf(messages: readonly SessionMessage[], entries: number, max: number): RuntimeHistory {
+  const window = messages.slice(-entries);
+  const items = buildItems(window, false).map((built) => built.item);
+
+  // 最多 max 条，尽量从一句用户的话开始（开头那一截不完整的回复不要）
+  let kept = items.length > max ? items.slice(-max) : items;
+  const firstUser = kept.findIndex((item) => item.kind === "user");
+  if (firstUser > 0 && (kept !== items || window.length < messages.length)) kept = kept.slice(firstUser);
+  return { items: kept, truncated: kept.length < items.length || window.length < messages.length };
+}
+
+/** 回复说完了（不再接着调用工具、不是说到一半）的 stop_reason */
+const FINISHED_STOPS = new Set(["end_turn", "stop_sequence", "max_tokens", "refusal"]);
+
+/**
+ * 只读跟随（292 号票）：会话交给官方 App 期间，读主线上 after 那一条之后的新内容，翻成二狗的样子（同前情；元信息的用户消息不算）。
+ * - after 找到了：从它后面读；找不到（那边压缩过、撤回过……）：有压缩标记的从最后一个压缩标记读起（reset: compacted），
+ *   没有的这次不补记、下次从最后一条之后接着（reset: lost）；after 不给是从头读；
+ * - 最后那条回复可能还没说完（还要调用工具、结果还没回来、没写说完）：final（后台会话已经停了）之外先不交，下次再读；
+ * - 一次最多 max 条，多的下次接着；
+ * - cursor：下次从哪一条之后接着读（最后交出的那条之后、先不交的那条之前）
+ */
+export function followOf(messages: readonly SessionMessage[], after: string | undefined, final: boolean, max: number): RuntimeFollow {
+  const last = messages.at(-1)?.uuid;
+  let begin = 0;
+  let reset: RuntimeFollow["reset"];
+  if (after !== undefined) {
+    const at = messages.findIndex((m) => m.uuid === after);
+    if (at >= 0) begin = at + 1;
+    else {
+      const boundary = messages.findLastIndex(isCompactBoundary);
+      if (boundary < 0) return { items: [], ...(last === undefined ? {} : { cursor: last }), reset: "lost" };
+      begin = boundary;
+      reset = "compacted";
+    }
+  }
+  const window = messages.slice(begin);
+  const built = buildItems(window, true);
+  let take = built.length;
+  const tail = built.at(-1);
+  if (!final && tail && tail.item.kind === "agent") {
+    const waiting = tail.item.parts.some((part) => part.type === "tool" && part.result === undefined);
+    if (waiting || tail.stop === undefined || !FINISHED_STOPS.has(tail.stop)) take -= 1;
+  }
+  take = Math.min(take, max);
+  /** 先不交的第一条从这一段的第几条开始；都交了是这一段的末尾 */
+  const stopAt = take < built.length ? built[take]!.start : window.length;
+  const cursor = stopAt > 0 ? window[stopAt - 1]!.uuid : after;
+  return {
+    items: built.slice(0, take).map(({ item, key, at }) => ({ ...item, key, ...(at ? { at } : {}) })),
+    ...(cursor === undefined ? {} : { cursor }),
+    ...(reset ? { reset } : {}),
+  };
+}

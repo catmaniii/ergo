@@ -1,0 +1,9 @@
+{
+  "agentRoles.voiceUnavailable": "The voice plugin is off: voices can't be changed, names and roles still work",
+  "agentRoles.voiceNotFound": "No such reference voice: {id}",
+  "agentRoles.roleNotFound": "No such role: {id}",
+  "agentRoles.defaultCannotDelete": "The default role can't be deleted: make another role the default first",
+  "agentRoles.roleInUse": "Agents still use this role: {agents}; change them to another role or back to the default first",
+  "agentRoles.broken": "The roles file can't be read ({file}); fix it or delete it before changing anything",
+  "agentRoles.writeFailed": "The roles file couldn't be written: {reason}"
+}

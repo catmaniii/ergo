@@ -1,0 +1,7 @@
+{
+  "apps.noApp": "没有这个应用",
+  "apps.noAppNamed": "没有应用「{name}」",
+  "apps.noAppHint": "这个地址没有登记要转发的服务：可能写错了，或者服务已经停用。",
+  "apps.down": "服务「{title}」现在没在运行",
+  "apps.downHint": "它在本机的 {port} 端口上没有响应。服务起来以后刷新这一页。"
+}

@@ -1,0 +1,6 @@
+{
+  "daemon.recognizerPlaceholder": "voice.recognizer.python in the data directory's config is still the example placeholder",
+  "daemon.quickActionTool": "Quick action: {title}",
+  "daemon.noRollback": "This conversation can't be rolled back right now",
+  "daemon.notConversation": "{conversation} isn't a conversation"
+}

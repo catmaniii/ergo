@@ -1,0 +1,1190 @@
+[
+  {
+    "kind": "connection",
+    "status": "online"
+  },
+  {
+    "kind": "send_message",
+    "conversation": "secretary",
+    "idempotencyKey": "643678bf-e7c3-4b41-b485-2721db3a417e",
+    "parts": [
+      {
+        "type": "voice",
+        "mediaId": "30d40dc393dd5dd763d9fa114e934bf7e40865bd344d776a99edd8bd89ebf509",
+        "mime": "audio/webm;codecs=opus",
+        "durationMs": 4200,
+        "waveform": [
+          4,
+          18,
+          52,
+          80,
+          64,
+          30,
+          12,
+          40,
+          70,
+          22
+        ]
+      }
+    ],
+    "time": "2026-10-08T19:12:19.909+08:00"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 1,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-18c8f065-6faf-4cf5-81b8-563db78dac8f",
+          "conversation": "secretary",
+          "speaker": "user",
+          "time": "2026-10-08T19:12:19.909+08:00",
+          "parts": [
+            {
+              "type": "voice",
+              "voiceId": "v-e5a8d3a9-39eb-49a7-9902-281b7fd9be62",
+              "mediaId": "30d40dc393dd5dd763d9fa114e934bf7e40865bd344d776a99edd8bd89ebf509",
+              "mime": "audio/webm",
+              "durationMs": 4200,
+              "waveform": [
+                4,
+                18,
+                52,
+                80,
+                64,
+                30,
+                12,
+                40,
+                70,
+                22
+              ]
+            }
+          ]
+        },
+        "idempotencyKey": "643678bf-e7c3-4b41-b485-2721db3a417e"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 2,
+      "type": "voice",
+      "payload": {
+        "voice": {
+          "id": "v-e5a8d3a9-39eb-49a7-9902-281b7fd9be62",
+          "messageId": "m-18c8f065-6faf-4cf5-81b8-563db78dac8f",
+          "conversation": "secretary",
+          "mediaId": "30d40dc393dd5dd763d9fa114e934bf7e40865bd344d776a99edd8bd89ebf509",
+          "mime": "audio/webm",
+          "durationMs": 4200,
+          "waveform": [
+            4,
+            18,
+            52,
+            80,
+            64,
+            30,
+            12,
+            40,
+            70,
+            22
+          ],
+          "status": "queued",
+          "attempt": 1,
+          "createdAt": "2026-10-08T19:12:19.909+08:00",
+          "updatedAt": "2026-10-08T19:12:19.909+08:00",
+          "version": 1
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 3,
+      "type": "voice",
+      "payload": {
+        "voice": {
+          "id": "v-e5a8d3a9-39eb-49a7-9902-281b7fd9be62",
+          "messageId": "m-18c8f065-6faf-4cf5-81b8-563db78dac8f",
+          "conversation": "secretary",
+          "mediaId": "30d40dc393dd5dd763d9fa114e934bf7e40865bd344d776a99edd8bd89ebf509",
+          "mime": "audio/webm",
+          "durationMs": 4200,
+          "waveform": [
+            4,
+            18,
+            52,
+            80,
+            64,
+            30,
+            12,
+            40,
+            70,
+            22
+          ],
+          "status": "recognizing",
+          "attempt": 1,
+          "createdAt": "2026-10-08T19:12:19.909+08:00",
+          "updatedAt": "2026-10-08T19:12:19.912+08:00",
+          "version": 2
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 4,
+      "type": "voice",
+      "payload": {
+        "voice": {
+          "id": "v-e5a8d3a9-39eb-49a7-9902-281b7fd9be62",
+          "messageId": "m-18c8f065-6faf-4cf5-81b8-563db78dac8f",
+          "conversation": "secretary",
+          "mediaId": "30d40dc393dd5dd763d9fa114e934bf7e40865bd344d776a99edd8bd89ebf509",
+          "mime": "audio/webm",
+          "durationMs": 4200,
+          "waveform": [
+            4,
+            18,
+            52,
+            80,
+            64,
+            30,
+            12,
+            40,
+            70,
+            22
+          ],
+          "status": "done",
+          "attempt": 1,
+          "createdAt": "2026-10-08T19:12:19.909+08:00",
+          "updatedAt": "2026-10-08T19:12:20.019+08:00",
+          "version": 3,
+          "recognition": {
+            "text": "明天早上九点提醒我交报告",
+            "language": "zh",
+            "segments": [
+              {
+                "start": 0,
+                "end": 3,
+                "text": "明天早上九点提醒我交报告"
+              }
+            ],
+            "model": "large-v3",
+            "device": "cuda",
+            "computeType": "int8_float16",
+            "audioSeconds": 3,
+            "elapsedMs": 107,
+            "time": "2026-10-08T19:12:20.019+08:00"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 5,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-18c8f065-6faf-4cf5-81b8-563db78dac8f"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 6,
+      "type": "agent_voice",
+      "payload": {
+        "voice": {
+          "id": "av-29a3ac6a-c051-4b8a-93ce-7fbebcfedab0",
+          "conversation": "secretary",
+          "inputMessageId": "m-18c8f065-6faf-4cf5-81b8-563db78dac8f",
+          "scope": {},
+          "turnSeq": 5,
+          "replyMessageIds": [],
+          "status": "replying",
+          "createdAt": "2026-10-08T19:12:21.136+08:00",
+          "updatedAt": "2026-10-08T19:12:21.136+08:00",
+          "version": 1
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 6,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-93d92803-0083-4ed8-a02b-69b8a266f863",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "好的，明早九点提醒你交报告。"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 7,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-93d92803-0083-4ed8-a02b-69b8a266f863",
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "好的，明早九点提醒你交报告。"
+            }
+          ],
+          "time": "2026-10-08T19:12:21.146+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 8,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-18c8f065-6faf-4cf5-81b8-563db78dac8f",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 9,
+      "type": "agent_voice",
+      "payload": {
+        "voice": {
+          "id": "av-29a3ac6a-c051-4b8a-93ce-7fbebcfedab0",
+          "conversation": "secretary",
+          "inputMessageId": "m-18c8f065-6faf-4cf5-81b8-563db78dac8f",
+          "scope": {},
+          "turnSeq": 5,
+          "replyMessageIds": [
+            "m-93d92803-0083-4ed8-a02b-69b8a266f863"
+          ],
+          "status": "synthesizing",
+          "createdAt": "2026-10-08T19:12:21.136+08:00",
+          "updatedAt": "2026-10-08T19:12:21.149+08:00",
+          "version": 2,
+          "mode": "whole",
+          "text": "好的，明早九点提醒你交报告。",
+          "referenceVoice": {
+            "id": "v-875a0706",
+            "name": "示例音色"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 10,
+      "type": "agent_voice",
+      "payload": {
+        "voice": {
+          "id": "av-29a3ac6a-c051-4b8a-93ce-7fbebcfedab0",
+          "conversation": "secretary",
+          "inputMessageId": "m-18c8f065-6faf-4cf5-81b8-563db78dac8f",
+          "scope": {},
+          "turnSeq": 5,
+          "replyMessageIds": [
+            "m-93d92803-0083-4ed8-a02b-69b8a266f863"
+          ],
+          "status": "done",
+          "createdAt": "2026-10-08T19:12:21.136+08:00",
+          "updatedAt": "2026-10-08T19:12:21.181+08:00",
+          "version": 3,
+          "mode": "whole",
+          "text": "好的，明早九点提醒你交报告。",
+          "referenceVoice": {
+            "id": "v-875a0706",
+            "name": "示例音色"
+          },
+          "model": "fish_audio（audio.cpp/tts）",
+          "mediaId": "ce6e6a6c590714b3d0041cb3608d546a574242ec890b4774e22fcc0797c23a2f",
+          "mime": "audio/wav",
+          "durationMs": 2800,
+          "waveform": [
+            43,
+            63,
+            79,
+            91,
+            98,
+            100,
+            100,
+            95,
+            85,
+            70,
+            52,
+            34,
+            54,
+            73,
+            87,
+            96,
+            100,
+            100,
+            98,
+            90,
+            77,
+            60,
+            40,
+            46,
+            65,
+            81,
+            93,
+            99,
+            100,
+            99,
+            94,
+            83
+          ],
+          "messageId": "m-8410ce31-0813-44ea-8182-107e38d5aaeb",
+          "elapsedMs": 30
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 11,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-8410ce31-0813-44ea-8182-107e38d5aaeb",
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tts_audio",
+              "voiceId": "av-29a3ac6a-c051-4b8a-93ce-7fbebcfedab0",
+              "mediaId": "ce6e6a6c590714b3d0041cb3608d546a574242ec890b4774e22fcc0797c23a2f",
+              "mime": "audio/wav",
+              "durationMs": 2800,
+              "waveform": [
+                43,
+                63,
+                79,
+                91,
+                98,
+                100,
+                100,
+                95,
+                85,
+                70,
+                52,
+                34,
+                54,
+                73,
+                87,
+                96,
+                100,
+                100,
+                98,
+                90,
+                77,
+                60,
+                40,
+                46,
+                65,
+                81,
+                93,
+                99,
+                100,
+                99,
+                94,
+                83
+              ]
+            }
+          ],
+          "time": "2026-10-08T19:12:21.181+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "send_message",
+    "conversation": "secretary",
+    "idempotencyKey": "15f80f6a-96e3-4184-84c6-b96fb3131f9b",
+    "parts": [
+      {
+        "type": "voice",
+        "mediaId": "0a20fa7d3ddba8ddc70bb518a9c5fbfe9487cb233b06882d8c89c847ee2854f1",
+        "mime": "audio/webm;codecs=opus",
+        "durationMs": 2600,
+        "waveform": [
+          20,
+          60,
+          30
+        ]
+      }
+    ],
+    "time": "2026-10-08T19:12:21.242+08:00"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 12,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-90b31263-342c-429c-8340-bffbe7653a1a",
+          "conversation": "secretary",
+          "speaker": "user",
+          "time": "2026-10-08T19:12:21.242+08:00",
+          "parts": [
+            {
+              "type": "voice",
+              "voiceId": "v-dc6eba12-3e5d-4e65-970c-343e5850b4ea",
+              "mediaId": "0a20fa7d3ddba8ddc70bb518a9c5fbfe9487cb233b06882d8c89c847ee2854f1",
+              "mime": "audio/webm",
+              "durationMs": 2600,
+              "waveform": [
+                20,
+                60,
+                30
+              ]
+            }
+          ]
+        },
+        "idempotencyKey": "15f80f6a-96e3-4184-84c6-b96fb3131f9b"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 13,
+      "type": "voice",
+      "payload": {
+        "voice": {
+          "id": "v-dc6eba12-3e5d-4e65-970c-343e5850b4ea",
+          "messageId": "m-90b31263-342c-429c-8340-bffbe7653a1a",
+          "conversation": "secretary",
+          "mediaId": "0a20fa7d3ddba8ddc70bb518a9c5fbfe9487cb233b06882d8c89c847ee2854f1",
+          "mime": "audio/webm",
+          "durationMs": 2600,
+          "waveform": [
+            20,
+            60,
+            30
+          ],
+          "status": "queued",
+          "attempt": 1,
+          "createdAt": "2026-10-08T19:12:21.242+08:00",
+          "updatedAt": "2026-10-08T19:12:21.242+08:00",
+          "version": 1
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 14,
+      "type": "voice",
+      "payload": {
+        "voice": {
+          "id": "v-dc6eba12-3e5d-4e65-970c-343e5850b4ea",
+          "messageId": "m-90b31263-342c-429c-8340-bffbe7653a1a",
+          "conversation": "secretary",
+          "mediaId": "0a20fa7d3ddba8ddc70bb518a9c5fbfe9487cb233b06882d8c89c847ee2854f1",
+          "mime": "audio/webm",
+          "durationMs": 2600,
+          "waveform": [
+            20,
+            60,
+            30
+          ],
+          "status": "recognizing",
+          "attempt": 1,
+          "createdAt": "2026-10-08T19:12:21.242+08:00",
+          "updatedAt": "2026-10-08T19:12:21.243+08:00",
+          "version": 2
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 15,
+      "type": "voice",
+      "payload": {
+        "voice": {
+          "id": "v-dc6eba12-3e5d-4e65-970c-343e5850b4ea",
+          "messageId": "m-90b31263-342c-429c-8340-bffbe7653a1a",
+          "conversation": "secretary",
+          "mediaId": "0a20fa7d3ddba8ddc70bb518a9c5fbfe9487cb233b06882d8c89c847ee2854f1",
+          "mime": "audio/webm",
+          "durationMs": 2600,
+          "waveform": [
+            20,
+            60,
+            30
+          ],
+          "status": "done",
+          "attempt": 1,
+          "createdAt": "2026-10-08T19:12:21.242+08:00",
+          "updatedAt": "2026-10-08T19:12:21.245+08:00",
+          "version": 3,
+          "recognition": {
+            "text": "把这周的周报整理一下",
+            "language": "zh",
+            "segments": [
+              {
+                "start": 0,
+                "end": 3,
+                "text": "把这周的周报整理一下"
+              }
+            ],
+            "model": "large-v3",
+            "device": "cuda",
+            "computeType": "int8_float16",
+            "audioSeconds": 3,
+            "elapsedMs": 2,
+            "time": "2026-10-08T19:12:21.245+08:00"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 16,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-90b31263-342c-429c-8340-bffbe7653a1a"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 17,
+      "type": "agent_voice",
+      "payload": {
+        "voice": {
+          "id": "av-c6678a66-ed6a-4638-bd2d-a7c3a10f529d",
+          "conversation": "secretary",
+          "inputMessageId": "m-90b31263-342c-429c-8340-bffbe7653a1a",
+          "scope": {},
+          "turnSeq": 16,
+          "replyMessageIds": [],
+          "status": "replying",
+          "createdAt": "2026-10-08T19:12:21.249+08:00",
+          "updatedAt": "2026-10-08T19:12:21.249+08:00",
+          "version": 1
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 17,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-9274bb28-40f9-4a9a-95d7-e917286c1f5b",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "这份周报我整理好了，下面分几块说清楚。这"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 18,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-9274bb28-40f9-4a9a-95d7-e917286c1f5b",
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "这份周报我整理好了，下面分几块说清楚。这份周报我整理好了，下面分几块说清楚。这份周报我整理好了，下面分几块说清楚。这份周报我整理好了，下面分几块说清楚。这份周报我整理好了，下面分几块说清楚。这份周报我整理好了，下面分几块说清楚。这份周报我整理好了，下面分几块说清楚。这份周报我整理好了，下面分几块说清楚。这份周报我整理好了，下面分几块说清楚。这份周报我整理好了，下面分几块说清楚。这份周报我整理好了，下面分几块说清楚。这份周报我整理好了，下面分几块说清楚。这份周报我整理好了，下面分几块说清楚。这份周报我整理好了，下面分几块说清楚。这份周报我整理好了，下面分几块说清楚。这份周报我整理好了，下面分几块说清楚。这份周报我整理好了，下面分几块说清楚。这份周报我整理好了，下面分几块说清楚。这份周报我整理好了，下面分几块说清楚。这份周报我整理好了，下面分几块说清楚。"
+            }
+          ],
+          "time": "2026-10-08T19:12:21.257+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 19,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-90b31263-342c-429c-8340-bffbe7653a1a",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 20,
+      "type": "agent_voice",
+      "payload": {
+        "voice": {
+          "id": "av-c6678a66-ed6a-4638-bd2d-a7c3a10f529d",
+          "conversation": "secretary",
+          "inputMessageId": "m-90b31263-342c-429c-8340-bffbe7653a1a",
+          "scope": {},
+          "turnSeq": 16,
+          "replyMessageIds": [
+            "m-9274bb28-40f9-4a9a-95d7-e917286c1f5b"
+          ],
+          "status": "summarizing",
+          "createdAt": "2026-10-08T19:12:21.249+08:00",
+          "updatedAt": "2026-10-08T19:12:21.259+08:00",
+          "version": 2,
+          "mode": "summary",
+          "referenceVoice": {
+            "id": "v-875a0706",
+            "name": "示例音色"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 21,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791457941117:w84bou5iigf",
+              "tool": "spoken_summary",
+              "argsSummary": "text=周报整理好了，细节都在聊天里。",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "记下了。回复长的话，运行时把这段口语总结合成语音发给用户；回复短的整段合成，这段不用。详细内容照常用文字和附件发。"
+            }
+          ],
+          "id": "m-d782a6cb-00cb-4e86-804f-c58716378323",
+          "time": "2026-10-08T19:12:21.271+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 22,
+      "type": "agent_voice",
+      "payload": {
+        "voice": {
+          "id": "av-c6678a66-ed6a-4638-bd2d-a7c3a10f529d",
+          "conversation": "secretary",
+          "inputMessageId": "m-90b31263-342c-429c-8340-bffbe7653a1a",
+          "scope": {},
+          "turnSeq": 16,
+          "replyMessageIds": [
+            "m-9274bb28-40f9-4a9a-95d7-e917286c1f5b"
+          ],
+          "status": "synthesizing",
+          "createdAt": "2026-10-08T19:12:21.249+08:00",
+          "updatedAt": "2026-10-08T19:12:21.274+08:00",
+          "version": 3,
+          "mode": "summary",
+          "referenceVoice": {
+            "id": "v-875a0706",
+            "name": "示例音色"
+          },
+          "summaryBy": "agent",
+          "text": "周报整理好了，细节都在聊天里。"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 23,
+      "type": "agent_voice",
+      "payload": {
+        "voice": {
+          "id": "av-c6678a66-ed6a-4638-bd2d-a7c3a10f529d",
+          "conversation": "secretary",
+          "inputMessageId": "m-90b31263-342c-429c-8340-bffbe7653a1a",
+          "scope": {},
+          "turnSeq": 16,
+          "replyMessageIds": [
+            "m-9274bb28-40f9-4a9a-95d7-e917286c1f5b"
+          ],
+          "status": "done",
+          "createdAt": "2026-10-08T19:12:21.249+08:00",
+          "updatedAt": "2026-10-08T19:12:21.290+08:00",
+          "version": 4,
+          "mode": "summary",
+          "referenceVoice": {
+            "id": "v-875a0706",
+            "name": "示例音色"
+          },
+          "summaryBy": "agent",
+          "text": "周报整理好了，细节都在聊天里。",
+          "model": "fish_audio（audio.cpp/tts）",
+          "mediaId": "9bcfb5a7db376bb9c5511f6f59726f9eacbd4e9c6a7cd283ec1ede5af24d92ec",
+          "mime": "audio/wav",
+          "durationMs": 3000,
+          "waveform": [
+            44,
+            65,
+            82,
+            94,
+            99,
+            100,
+            99,
+            90,
+            77,
+            59,
+            37,
+            52,
+            71,
+            87,
+            96,
+            100,
+            100,
+            96,
+            87,
+            71,
+            52,
+            37,
+            59,
+            77,
+            90,
+            98,
+            100,
+            99,
+            94,
+            82,
+            65,
+            44
+          ],
+          "messageId": "m-2c406684-90af-4b58-919a-c2fb9d129e64",
+          "elapsedMs": 15
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 24,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-2c406684-90af-4b58-919a-c2fb9d129e64",
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tts_audio",
+              "voiceId": "av-c6678a66-ed6a-4638-bd2d-a7c3a10f529d",
+              "mediaId": "9bcfb5a7db376bb9c5511f6f59726f9eacbd4e9c6a7cd283ec1ede5af24d92ec",
+              "mime": "audio/wav",
+              "durationMs": 3000,
+              "waveform": [
+                44,
+                65,
+                82,
+                94,
+                99,
+                100,
+                99,
+                90,
+                77,
+                59,
+                37,
+                52,
+                71,
+                87,
+                96,
+                100,
+                100,
+                96,
+                87,
+                71,
+                52,
+                37,
+                59,
+                77,
+                90,
+                98,
+                100,
+                99,
+                94,
+                82,
+                65,
+                44
+              ]
+            }
+          ],
+          "time": "2026-10-08T19:12:21.290+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "send_message",
+    "conversation": "secretary",
+    "idempotencyKey": "453741dd-0da0-49df-9fd8-0ee03b59e0c0",
+    "parts": [
+      {
+        "type": "voice",
+        "mediaId": "1868fd0072a0c7c2e357954cd8c7f2feabd7bf1e6fe7e7e0ded91481e162f241",
+        "mime": "audio/webm;codecs=opus",
+        "durationMs": 1800,
+        "waveform": [
+          30,
+          50
+        ]
+      }
+    ],
+    "time": "2026-10-08T19:12:21.305+08:00"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 25,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-55dc60cf-ea60-44e7-b251-9693e63c83df",
+          "conversation": "secretary",
+          "speaker": "user",
+          "time": "2026-10-08T19:12:21.305+08:00",
+          "parts": [
+            {
+              "type": "voice",
+              "voiceId": "v-86a39b16-f641-4cd8-85da-5c68ff00e5c8",
+              "mediaId": "1868fd0072a0c7c2e357954cd8c7f2feabd7bf1e6fe7e7e0ded91481e162f241",
+              "mime": "audio/webm",
+              "durationMs": 1800,
+              "waveform": [
+                30,
+                50
+              ]
+            }
+          ]
+        },
+        "idempotencyKey": "453741dd-0da0-49df-9fd8-0ee03b59e0c0"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 26,
+      "type": "voice",
+      "payload": {
+        "voice": {
+          "id": "v-86a39b16-f641-4cd8-85da-5c68ff00e5c8",
+          "messageId": "m-55dc60cf-ea60-44e7-b251-9693e63c83df",
+          "conversation": "secretary",
+          "mediaId": "1868fd0072a0c7c2e357954cd8c7f2feabd7bf1e6fe7e7e0ded91481e162f241",
+          "mime": "audio/webm",
+          "durationMs": 1800,
+          "waveform": [
+            30,
+            50
+          ],
+          "status": "queued",
+          "attempt": 1,
+          "createdAt": "2026-10-08T19:12:21.305+08:00",
+          "updatedAt": "2026-10-08T19:12:21.305+08:00",
+          "version": 1
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 27,
+      "type": "voice",
+      "payload": {
+        "voice": {
+          "id": "v-86a39b16-f641-4cd8-85da-5c68ff00e5c8",
+          "messageId": "m-55dc60cf-ea60-44e7-b251-9693e63c83df",
+          "conversation": "secretary",
+          "mediaId": "1868fd0072a0c7c2e357954cd8c7f2feabd7bf1e6fe7e7e0ded91481e162f241",
+          "mime": "audio/webm",
+          "durationMs": 1800,
+          "waveform": [
+            30,
+            50
+          ],
+          "status": "recognizing",
+          "attempt": 1,
+          "createdAt": "2026-10-08T19:12:21.305+08:00",
+          "updatedAt": "2026-10-08T19:12:21.306+08:00",
+          "version": 2
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 28,
+      "type": "voice",
+      "payload": {
+        "voice": {
+          "id": "v-86a39b16-f641-4cd8-85da-5c68ff00e5c8",
+          "messageId": "m-55dc60cf-ea60-44e7-b251-9693e63c83df",
+          "conversation": "secretary",
+          "mediaId": "1868fd0072a0c7c2e357954cd8c7f2feabd7bf1e6fe7e7e0ded91481e162f241",
+          "mime": "audio/webm",
+          "durationMs": 1800,
+          "waveform": [
+            30,
+            50
+          ],
+          "status": "done",
+          "attempt": 1,
+          "createdAt": "2026-10-08T19:12:21.305+08:00",
+          "updatedAt": "2026-10-08T19:12:21.308+08:00",
+          "version": 3,
+          "recognition": {
+            "text": "十分钟后提醒我喝水",
+            "language": "zh",
+            "segments": [
+              {
+                "start": 0,
+                "end": 3,
+                "text": "十分钟后提醒我喝水"
+              }
+            ],
+            "model": "large-v3",
+            "device": "cuda",
+            "computeType": "int8_float16",
+            "audioSeconds": 3,
+            "elapsedMs": 2,
+            "time": "2026-10-08T19:12:21.308+08:00"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 29,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-55dc60cf-ea60-44e7-b251-9693e63c83df"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 30,
+      "type": "agent_voice",
+      "payload": {
+        "voice": {
+          "id": "av-3588b624-6204-494d-9c87-34ea48ef4d0a",
+          "conversation": "secretary",
+          "inputMessageId": "m-55dc60cf-ea60-44e7-b251-9693e63c83df",
+          "scope": {},
+          "turnSeq": 29,
+          "replyMessageIds": [],
+          "status": "replying",
+          "createdAt": "2026-10-08T19:12:21.312+08:00",
+          "updatedAt": "2026-10-08T19:12:21.312+08:00",
+          "version": 1
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 31,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-83c13317-fa6a-47b7-9107-a79273bf6b0c",
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "好的，十分钟后提醒你喝水。"
+            }
+          ],
+          "time": "2026-10-08T19:12:21.317+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 32,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-55dc60cf-ea60-44e7-b251-9693e63c83df",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 33,
+      "type": "agent_voice",
+      "payload": {
+        "voice": {
+          "id": "av-3588b624-6204-494d-9c87-34ea48ef4d0a",
+          "conversation": "secretary",
+          "inputMessageId": "m-55dc60cf-ea60-44e7-b251-9693e63c83df",
+          "scope": {},
+          "turnSeq": 29,
+          "replyMessageIds": [
+            "m-83c13317-fa6a-47b7-9107-a79273bf6b0c"
+          ],
+          "status": "synthesizing",
+          "createdAt": "2026-10-08T19:12:21.312+08:00",
+          "updatedAt": "2026-10-08T19:12:21.319+08:00",
+          "version": 2,
+          "mode": "whole",
+          "text": "好的，十分钟后提醒你喝水。",
+          "referenceVoice": {
+            "id": "v-875a0706",
+            "name": "示例音色"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 34,
+      "type": "agent_voice",
+      "payload": {
+        "voice": {
+          "id": "av-3588b624-6204-494d-9c87-34ea48ef4d0a",
+          "conversation": "secretary",
+          "inputMessageId": "m-55dc60cf-ea60-44e7-b251-9693e63c83df",
+          "scope": {},
+          "turnSeq": 29,
+          "replyMessageIds": [
+            "m-83c13317-fa6a-47b7-9107-a79273bf6b0c"
+          ],
+          "status": "failed",
+          "createdAt": "2026-10-08T19:12:21.312+08:00",
+          "updatedAt": "2026-10-08T19:12:21.330+08:00",
+          "version": 3,
+          "mode": "whole",
+          "text": "好的，十分钟后提醒你喝水。",
+          "referenceVoice": {
+            "id": "v-875a0706",
+            "name": "示例音色"
+          },
+          "error": "语音服务忙"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 35,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "secretary",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "语音没合成出来（语音服务忙），这次只发文字。"
+            }
+          ],
+          "id": "m-e65fbb94-3392-41a6-b496-4d41ec4ecaac",
+          "time": "2026-10-08T19:12:21.330+08:00"
+        }
+      }
+    }
+  }
+]

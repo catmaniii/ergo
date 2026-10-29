@@ -1,0 +1,1037 @@
+/*
+ * 玻璃光纹（46 号票）：只靠 token（glass/style.ts）做不到的规则，全部限定在 :root[data-style="glass"] 下
+ * （不会漏到别的风格；设置里的预览把开头换成 :host(...)，所以根元素上只再加属性，见 src/visual-styles/preview.ts）。
+ * 设计稿：docs/design/styles/e-chat、e-tasks、e-inbox、e-wide（.dc.html）。要点：整页是点阵底；标题栏、导航、输入栏是浮起的磨砂玻璃
+ * （半透明底 + 亮边 + 淡蓝微光 + backdrop-filter）；卡片、个人助理的气泡、看板卡、待办行同样浮在点阵上，带亮边和微光，底色不透明；
+ * 电光蓝的选中条、进度条、未读点带一圈微光；时间、时长、计数用 Chakra Petch 600（--font-num）。
+ * 只换样子，不改结构：导航、页面上有什么、怎么排都和经典一样。浅色深色都只靠 token 和 light-dark() 切。
+ *
+ * 磨砂玻璃（用户 2026-10-11 定：磨砂只给标题栏、导航、输入栏）：
+ * - 标题栏（.topbar、详情页的 .detail-bar、和标题栏接成一块的页签 .seg-head）、导航（.tabbar、宽屏的 .siderail）、输入栏（.composer）
+ *   的底是 --glass-bg（设计稿的 --surface：浅色白 74%、深色 72%），模糊用 backdrop-filter。不支持的浏览器就是这个半透明纯色，
+ *   字的对比度按"玻璃叠在点阵的点上"算（style.ts 开头、test/visual-styles/glass.test.ts），不靠模糊撑。
+ * - 别的面板（卡片、气泡、看板卡、待办行、工单行、任务详情的状态行和页签、阶段抽屉 / 阶段栏、宽屏的详情栏）底色是不透明的 --surface
+ *   （设计稿的玻璃色叠在页面底色上算出来的），不开 backdrop-filter；经典按类型、状态调底色的规则（.bcard-static、.run-divider……）照常生效。
+ *   盖在内容上的东西（弹层、菜单、窄屏滑入的详情页、录音面板）也是不透明的，底下的字不会透上来。
+ * - backdrop-filter 会让元素变成 position: fixed 后代的包含块、自成层叠上下文：画在里面的弹层（.modal-mask）会被关在这块玻璃里。
+ *   所以模糊只在认 :has() 的浏览器上开，里面开着弹层的那块先不模糊（看上去一样，弹层底下本来就压暗了）；不认 :has() 的就是半透明纯色。
+ *   **白名单**：现在会在里面画弹层的只有标题栏（"发起任务""新建项目"的弹层画在标题栏的按钮旁边），下面 :has() 那条只写了它；
+ *   以后在别的玻璃面板（详情页标题栏、页签、导航、输入栏）里放弹层、或者给别的面板开模糊，要把它补进那条。
+ * 注意特异度：这里每条都比经典的规则高（:root + [data-style] + 类名），改了某个属性，经典里同一个元素按类型、状态改这个属性的规则
+ * 要在这里跟着再写一遍（按状态的颜色写成 .st.st-xxx 这样）。
+ */
+
+/* ---------- 通用 ---------- */
+:root[data-style="glass"] {
+  /* 点阵的点（设计稿的 --dot）、玻璃的半透明底（设计稿的 --surface） */
+  --glass-dot: light-dark(#c6cde0, #283052);
+  --glass-bg: light-dark(rgba(255, 255, 255, 0.74), rgba(24, 29, 52, 0.72));
+  /* 电光蓝的淡光（设计稿的 --accent-soft，原值）：主按钮、你的消息、分段选中那段下面那圈光 */
+  --glass-glow: light-dark(rgba(36, 87, 245, 0.12), rgba(124, 156, 255, 0.16));
+}
+/* 整页的点阵底（设计稿 18px 一格、1px 的点）：画在 body 上，App 的外框、各栏都透明，滚动的内容在静止的点阵上走 */
+:root[data-style="glass"] body {
+  background-color: var(--bg);
+  background-image: radial-gradient(circle, var(--glass-dot) 1px, transparent 1.3px);
+  background-size: 18px 18px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+:root[data-style="glass"] #root,
+:root[data-style="glass"] .app,
+:root[data-style="glass"] .pane,
+:root[data-style="glass"] .pane-list,
+:root[data-style="glass"] .chat-col,
+:root[data-style="glass"] .detail {
+  background: transparent;
+}
+/* 窄屏整页滑入的详情页盖在会话上，自己要不透明：同样的点阵底 */
+:root[data-style="glass"] .dp-page,
+:root[data-style="glass"] .pair-page {
+  background-color: var(--bg);
+  background-image: radial-gradient(circle, var(--glass-dot) 1px, transparent 1.3px);
+  background-size: 18px 18px;
+}
+/*
+ * 滚动区顶上一道 14px 的渐隐：浮起的标题栏、状态行下面，滚上去的内容不在左右留白处被硬切成一条，而是淡进点阵底里。
+ * 渐隐层画的是页面底（底色 + 点阵，点阵对齐整页的那一层：background-attachment: fixed），再用 mask 从上往下淡掉；不接点击。
+ * 会话（.zh，缩放的那一层，本身 position: relative、不滚动）挂在顶上；页面的滚动区（.scroll、详情页的 .detail-body）用 sticky 钉在
+ * 滚动区顶上，上外边距抵掉这个滚动区的上内边距、下外边距抵掉渐隐层自己的高度和间隔，不挤动内容（停在最上面时盖住的只是上内边距）
+ */
+:root[data-style="glass"] .zh::before,
+:root[data-style="glass"] .scroll::before,
+:root[data-style="glass"] .detail-body::before {
+  content: "";
+  z-index: 1;
+  height: 14px;
+  pointer-events: none;
+  background-color: var(--bg);
+  background-image: radial-gradient(circle, var(--glass-dot) 1px, transparent 1.3px);
+  background-size: 18px 18px;
+  background-attachment: fixed;
+  -webkit-mask-image: linear-gradient(to bottom, #000, transparent);
+  mask-image: linear-gradient(to bottom, #000, transparent);
+}
+:root[data-style="glass"] .zh::before {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+}
+:root[data-style="glass"] .scroll::before,
+:root[data-style="glass"] .detail-body::before {
+  position: sticky;
+  top: 0;
+  display: block;
+  flex: none;
+  margin-bottom: -14px;
+}
+/* 上外边距 = -上内边距；下外边距 = 上内边距 - 14 - 间隔（看板上内边距 14、间隔 12；页面 16、16；待办列表 8、0；详情页 12、0） */
+:root[data-style="glass"] .board::before {
+  margin: -14px 0 -12px;
+}
+:root[data-style="glass"] .page-pad::before {
+  margin: calc(-1 * var(--space-page)) 0 -14px;
+}
+:root[data-style="glass"] .inbox-list::before {
+  margin: -8px 0 -6px;
+}
+:root[data-style="glass"] .detail-body::before {
+  margin: -12px 0 -2px;
+}
+/* 项目一览（104 号票）：窄屏上内边距 12、间隔 16，宽屏 16、22 */
+:root[data-style="glass"] .pwall::before {
+  margin: -12px 0 -18px;
+}
+:root[data-style="glass"] .pwall[data-layout="grid"]::before {
+  margin: -16px 0 -20px;
+}
+/* 宽屏项目的档案栏（104 号票）：上内边距 8、间隔 space-page；栏是页面底色的平底（没有点阵），渐隐层也不画点阵 */
+:root[data-style="glass"] .proj-side-body::before {
+  margin: -8px 0 calc(-6px - var(--space-page));
+  background-image: none;
+}
+/* 宽屏右边的详情栏是不透明的面板（--surface，见最后）：渐隐层画面板的底色，没有点阵 */
+:root[data-style="glass"] .app.wide .pane-detail .detail-body::before {
+  background-color: var(--surface);
+  background-image: none;
+}
+
+/* 标题栏、导航、输入栏：磨砂玻璃（半透明底、四周亮边 card-border token、内亮线加淡蓝微光 shadow-note token） */
+:root[data-style="glass"] .topbar,
+:root[data-style="glass"] .detail-bar,
+:root[data-style="glass"] .seg-head,
+:root[data-style="glass"] .tabbar,
+:root[data-style="glass"] .siderail,
+:root[data-style="glass"] .composer {
+  border: var(--card-border);
+  background: var(--glass-bg);
+  box-shadow: var(--shadow-note);
+}
+@supports selector(:has(*)) and ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root[data-style="glass"] .topbar,
+  :root[data-style="glass"] .detail-bar,
+  :root[data-style="glass"] .seg-head,
+  :root[data-style="glass"] .tabbar,
+  :root[data-style="glass"] .siderail,
+  :root[data-style="glass"] .composer {
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+  }
+  /* 白名单（见开头）：里面开着弹层的那块玻璃先不模糊，不然弹层被关在这块玻璃里 */
+  :root[data-style="glass"] .topbar:has(.modal-mask) {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+/*
+ * 别的浮在点阵上的面板：同样的亮边、微光，底色不透明。.card、.xcard、.bcard 的边框本来就是 card-border / panel-border token、
+ * 底色本来就是 --surface，这里只加微光，经典按状态改边框色、底色的规则照常生效；经典没有底色、边框的几种在这里补上
+ */
+:root[data-style="glass"] .card,
+:root[data-style="glass"] .bcard {
+  box-shadow: var(--shadow-note);
+}
+:root[data-style="glass"] .chat-col > .seg,
+:root[data-style="glass"] .assistant .bubble,
+:root[data-style="glass"] .assistant .voice-bubble,
+:root[data-style="glass"] .tool-sum,
+:root[data-style="glass"] .inbox-row,
+:root[data-style="glass"] .wo-row,
+:root[data-style="glass"] .md-m-half,
+:root[data-style="glass"] .md-m-full,
+:root[data-style="glass"] .md-side {
+  border: var(--card-border);
+  box-shadow: var(--shadow-note);
+}
+:root[data-style="glass"] .tool-sum,
+:root[data-style="glass"] .inbox-row {
+  background: var(--surface);
+}
+
+/* 数字（设计稿的 .num）：Chakra Petch 600，字距松一点 */
+:root[data-style="glass"] .msg-meta,
+:root[data-style="glass"] .voice-duration,
+:root[data-style="glass"] .bgroup-n,
+:root[data-style="glass"] .bcard-num,
+:root[data-style="glass"] .bcard-progress,
+:root[data-style="glass"] .tab-count,
+:root[data-style="glass"] .title-sub,
+:root[data-style="glass"] .stat-v,
+:root[data-style="glass"] .cal-n,
+:root[data-style="glass"] .dg-n {
+  font-family: var(--font-num);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* 标题栏：一块浮起的玻璃（左右、上面离开屏幕边 12，圆角 16），标题 18 粗体 */
+:root[data-style="glass"] .topbar {
+  height: var(--bar-h);
+  margin: calc(12px + env(safe-area-inset-top, 0px)) 12px 0;
+  padding: 0 12px 0 16px;
+  gap: 12px;
+  border-radius: var(--radius-2xl);
+}
+:root[data-style="glass"] .title {
+  font-weight: 700;
+  line-height: 1.2;
+}
+/* 标题下面一行小字（设计稿"10.07 WED · 秘书主线"那一行，Chakra Petch；产品里有副标题的页面才有） */
+:root[data-style="glass"] .title-sub {
+  display: block;
+  margin: 2px 0 0;
+  font-size: var(--fs-xs);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* 秘书页的标题"个人秘书：<名字>"（89 号票）在 base.css 里排成一行 flex：这里竖着排，副标题照样另起一行 */
+:root[data-style="glass"] .title:has(> .secretary-title) {
+  flex-direction: column;
+  align-items: flex-start;
+}
+/* 标题栏上的"发起任务"：电光蓝实色块、44 高、圆角 12，下面一圈淡蓝光 */
+:root[data-style="glass"] .topbar .btn.primary {
+  min-height: 44px;
+  padding: 0 14px;
+  font-size: var(--fs-m);
+}
+/* "全部标已读"这类：蓝色粗字，44 高 */
+:root[data-style="glass"] .topbar .link {
+  min-height: 44px;
+  padding: 0 4px;
+  font-weight: 700;
+}
+:root[data-style="glass"] .topbar .icon-btn {
+  min-height: 44px;
+}
+/* 带返回键的二级页（任务详情这类，TopBar 挂 data-back）：返回键贴左、标题小一号，旁边还有阶段标签，少截掉几个字 */
+:root[data-style="glass"] .topbar[data-back] {
+  padding: 0 8px 0 4px;
+  gap: 6px;
+}
+:root[data-style="glass"] .topbar[data-back] .title {
+  font-size: 16px;
+}
+/* 详情页的标题栏：同样浮起，矮一点 */
+:root[data-style="glass"] .detail-bar {
+  height: 56px;
+  margin: calc(12px + env(safe-area-inset-top, 0px)) 12px 0;
+  padding: 0 8px 0 14px;
+  border-radius: var(--radius-2xl);
+}
+:root[data-style="glass"] .detail-bar-title {
+  font-weight: 700;
+}
+/* 宽屏：各栏的浮起面板离边 16（设计稿宽屏的外边距） */
+:root[data-style="glass"] .app.wide .topbar,
+:root[data-style="glass"] .app.wide .detail-bar {
+  margin: calc(16px + env(safe-area-inset-top, 0px)) 16px 0;
+}
+:root[data-style="glass"] .app.wide .topbar {
+  padding: 0 14px 0 20px;
+}
+
+/* 按钮：圆角 12（radius-l token），主按钮下面一圈淡蓝光；次要按钮没有底色、一圈细线（设计稿的"拒绝"） */
+:root[data-style="glass"] .btn {
+  font-weight: 500;
+}
+:root[data-style="glass"] .btn.primary {
+  box-shadow: 0 6px 18px var(--glass-glow);
+  font-weight: 700;
+}
+:root[data-style="glass"] .btn.primary:disabled {
+  box-shadow: none;
+}
+:root[data-style="glass"] .btn.danger {
+  font-weight: 700;
+}
+:root[data-style="glass"] .btn.ghost {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+:root[data-style="glass"] .link {
+  font-weight: 500;
+}
+
+/*
+ * 分段切换（设计稿待我处理的"待处理 / 已处理 / 已归档"）：一块浅底，选中的那一段是电光蓝实色块、带淡蓝光。
+ * 只有直接排在一栏里的浮起来（学夜航仪表，按位置认：同一个 Segmented 也用在页面内容里，消耗的时间段、外观、发起任务……类名一样，
+ * 只有"直接排在 .chat-col 里"这一点分得开）：任务详情的页签是一块不透明的浮起面板；待我处理的页签（.seg-head）和标题栏接成一块玻璃
+ */
+:root[data-style="glass"] .seg {
+  gap: 4px;
+  padding: 3px;
+  border: none;
+  border-radius: var(--radius-l);
+  background: var(--fill);
+}
+:root[data-style="glass"] .chat-col > .seg {
+  margin: 8px 12px 0;
+  padding: 4px;
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+}
+:root[data-style="glass"] .app.wide .chat-col > .seg {
+  margin: 10px 16px 0;
+}
+:root[data-style="glass"] .modal .when-seg,
+:root[data-style="glass"] .modal .timed-seg {
+  margin-bottom: 6px;
+}
+:root[data-style="glass"] .seg button {
+  padding: 6px 12px;
+}
+:root[data-style="glass"] .seg button.on {
+  background: var(--primary-fill);
+  color: var(--primary-text);
+  font-weight: 700;
+  box-shadow: 0 4px 14px var(--glass-glow);
+}
+/*
+ * 和标题栏算一个头的页签（待我处理：标题栏挂 data-joined、页签挂 .seg-head，两个总是成对出现）：两块接成一块玻璃，
+ * 标题栏下半没有边、没有外光；页签也是 .chat-col 的直接子元素，上面那条也选得中它，这里写成 .seg.seg-head 压过去
+ */
+:root[data-style="glass"] .topbar[data-joined] {
+  border-bottom: none;
+  border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+  box-shadow: inset 0 1px 0 light-dark(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.08));
+}
+:root[data-style="glass"] .seg.seg-head {
+  margin: 0 12px;
+  padding: 0 12px 12px;
+  border-top: none;
+  border-radius: 0 0 var(--radius-2xl) var(--radius-2xl);
+  background: var(--glass-bg);
+  /* 外光只往下（负的扩展），不往上漫到标题栏那一半：两块看上去是一块 */
+  box-shadow: 0 20px 30px -10px light-dark(rgba(36, 87, 245, 0.1), rgba(0, 0, 0, 0.45));
+}
+:root[data-style="glass"] .seg-head button {
+  flex: 1;
+  min-height: 40px;
+}
+:root[data-style="glass"] .app.wide .seg.seg-head {
+  margin: 0 16px;
+}
+
+/* 底板（设置项、项目页的头部……）：玻璃；弹出的菜单、弹层：不透明的玻璃色，一圈细线 */
+:root[data-style="glass"] .menu-item.on {
+  background: var(--data-bg);
+  color: var(--data-fg);
+}
+:root[data-style="glass"] .modal {
+  border: var(--card-border);
+  box-shadow: var(--shadow-menu);
+}
+:root[data-style="glass"] .row-menu,
+:root[data-style="glass"] .attach-menu,
+:root[data-style="glass"] .slash-menu,
+:root[data-style="glass"] .voice-panel {
+  border-radius: var(--radius-xl);
+}
+:root[data-style="glass"] .alert-banner {
+  border-radius: var(--radius-xl);
+}
+:root[data-style="glass"] .assistant-name {
+  /* 名字标签（设计稿的 .name）：淡蓝底、蓝字、粗体、一圈蓝线（画成内描边，不占宽度） */
+  padding: 0 5px;
+  border-radius: var(--radius-s);
+  box-shadow: inset 0 0 0 1px var(--name-fg);
+  font-weight: 700;
+}
+/* 秘书页标题里的名字（89 号票："个人秘书：<名字>"）：标签左右各 5，窄屏缩字号的算式（base.css 的 .secretary-title）照它扣（再留 2 的余量） */
+:root[data-style="glass"] .secretary-title {
+  font-size: clamp(var(--fs-s), calc((100cqw - 14px) / (5 + var(--secretary-fit-chars, 4))), var(--fs-title));
+}
+/* 输入框假占位里的名字：小一号（设计稿 12px），和占位的字居中对齐 */
+:root[data-style="glass"] .composer-placeholder .assistant-name {
+  padding: 1px 6px;
+  font-size: var(--fs-s);
+  vertical-align: 1px;
+}
+
+/*
+ * 状态（设计稿的 .pill：11px、6 的小圆角）：.st 挂在任务的状态（st-*，看板卡、任务详情、项目页）、定时触发的每次运行（run-st-*）、
+ * 工单（wo-*）上。这里只给形状和一层跟着字色的淡底，字色照经典的按状态的规则（等你砖红、在做电光蓝、完成绿、出错玫红……）；
+ * 设计稿和经典不一样的几种按 .st.<状态> 改：运营中是电光蓝（设计稿的 p-run）；排队、已完成、取消、归档、暂停是中性的细线药丸（p-idle）
+ */
+:root[data-style="glass"] .st {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  font-size: var(--fs-xs);
+  line-height: 1.45;
+}
+:root[data-style="glass"] .st.st-ops,
+:root[data-style="glass"] .st.st-operating {
+  color: var(--primary);
+}
+:root[data-style="glass"] .st.st-queued,
+:root[data-style="glass"] .st.st-scheduled,
+:root[data-style="glass"] .st.st-done,
+:root[data-style="glass"] .st.st-cancelled,
+:root[data-style="glass"] .st.st-archived,
+:root[data-style="glass"] .st.st-paused {
+  background: none;
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--muted);
+}
+/* 进度条（60 号票产品已有的 sl-progress）：设计稿的细轨道，电光蓝填充带微光 */
+:root[data-style="glass"] .sl-progress {
+  height: 3px;
+  border-radius: 2px;
+  overflow: visible;
+  background: var(--border);
+}
+:root[data-style="glass"] .sl-progress i {
+  border-radius: 2px;
+  background: var(--primary-fill);
+  box-shadow: 0 0 8px var(--primary-fill);
+}
+
+/* ---------- 主导航 ---------- */
+/* 图标换成设计稿的线条图标（按 data-nav 认是哪一项；当前那一项的线粗一点，照设计稿）：原来的表情符号藏起来，线条用当前字色画 */
+:root[data-style="glass"] .tab-icon {
+  font-size: 0;
+}
+:root[data-style="glass"] .tab-icon::before {
+  content: "";
+  display: block;
+  width: 22px;
+  height: 22px;
+  background: currentColor;
+  -webkit-mask: var(--glass-icon) center / contain no-repeat;
+  mask: var(--glass-icon) center / contain no-repeat;
+}
+:root[data-style="glass"] .tab.on .tab-icon::before {
+  -webkit-mask-image: var(--glass-icon-on);
+  mask-image: var(--glass-icon-on);
+}
+:root[data-style="glass"] [data-nav="secretary"] {
+  --glass-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 12a8 8 0 0 1-8 8H8l-4 3v-5.5A8 8 0 0 1 12 4h1a8 8 0 0 1 8 8z'/%3E%3C/svg%3E");
+  --glass-icon-on: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 12a8 8 0 0 1-8 8H8l-4 3v-5.5A8 8 0 0 1 12 4h1a8 8 0 0 1 8 8z'/%3E%3C/svg%3E");
+}
+:root[data-style="glass"] [data-nav="tasks"] {
+  --glass-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='4' width='16' height='16' rx='4'/%3E%3Cpath d='m8 12 3 3 5-6'/%3E%3C/svg%3E");
+  --glass-icon-on: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='4' width='16' height='16' rx='4'/%3E%3Cpath d='m8 12 3 3 5-6'/%3E%3C/svg%3E");
+}
+:root[data-style="glass"] [data-nav="projects"] {
+  --glass-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/%3E%3C/svg%3E");
+  --glass-icon-on: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/%3E%3C/svg%3E");
+}
+:root[data-style="glass"] [data-nav="inbox"] {
+  --glass-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z'/%3E%3Cpath d='M10 20a2 2 0 0 0 4 0'/%3E%3C/svg%3E");
+  --glass-icon-on: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z'/%3E%3Cpath d='M10 20a2 2 0 0 0 4 0'/%3E%3C/svg%3E");
+}
+:root[data-style="glass"] [data-nav="calendar"] {
+  --glass-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='16' rx='3'/%3E%3Cpath d='M3 10h18M8 3v4M16 3v4'/%3E%3C/svg%3E");
+  --glass-icon-on: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='16' rx='3'/%3E%3Cpath d='M3 10h18M8 3v4M16 3v4'/%3E%3C/svg%3E");
+}
+:root[data-style="glass"] [data-nav="browse"] {
+  --glass-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M3 12h18M12 3c2.5 2.5 3.75 5.5 3.75 9S14.5 18.5 12 21c-2.5-2.5-3.75-5.5-3.75-9S9.5 5.5 12 3z'/%3E%3C/svg%3E");
+  --glass-icon-on: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M3 12h18M12 3c2.5 2.5 3.75 5.5 3.75 9S14.5 18.5 12 21c-2.5-2.5-3.75-5.5-3.75-9S9.5 5.5 12 3z'/%3E%3C/svg%3E");
+}
+:root[data-style="glass"] [data-nav="usage"] {
+  --glass-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20v-8M10 20V5M16 20v-6M2 20h20'/%3E%3C/svg%3E");
+  --glass-icon-on: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20v-8M10 20V5M16 20v-6M2 20h20'/%3E%3C/svg%3E");
+}
+:root[data-style="glass"] [data-nav="memory"] {
+  --glass-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m12 3-9 5 9 5 9-5-9-5z'/%3E%3Cpath d='m3 13 9 5 9-5'/%3E%3C/svg%3E");
+  --glass-icon-on: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m12 3-9 5 9 5 9-5-9-5z'/%3E%3Cpath d='m3 13 9 5 9-5'/%3E%3C/svg%3E");
+}
+:root[data-style="glass"] [data-nav="settings"] {
+  --glass-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1'/%3E%3C/svg%3E");
+  --glass-icon-on: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1'/%3E%3C/svg%3E");
+}
+:root[data-style="glass"] [data-nav="more"] {
+  --glass-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Ccircle cx='5' cy='12' r='1.6'/%3E%3Ccircle cx='12' cy='12' r='1.6'/%3E%3Ccircle cx='19' cy='12' r='1.6'/%3E%3C/svg%3E");
+  --glass-icon-on: var(--glass-icon);
+}
+:root[data-style="glass"] .tab.on {
+  font-weight: 700;
+}
+/*
+ * 竖屏：底部横栏是一块浮起的玻璃（左右、下面离开屏幕边 12，圆角 18）。每项约 56 高（图标 22 + 间隔 3 + 名字一行 + 上下内边距，
+ * 靠内边距撑，设置里的预览藏了名字时不白占 56）；当前那一项名字下面一道 18px 的电光蓝短条，带微光
+ */
+:root[data-style="glass"] .tabbar {
+  margin: 10px 12px calc(12px + var(--safe-bottom));
+  padding: 0 4px;
+  border-radius: 18px;
+}
+:root[data-style="glass"] .tabbar .tab {
+  position: relative;
+  justify-content: center;
+  gap: 3px;
+  padding: 9px 4px 10px;
+}
+:root[data-style="glass"] .tabbar .tab.on::after {
+  content: "";
+  position: absolute;
+  bottom: 5px;
+  left: 50%;
+  width: 18px;
+  height: 3px;
+  margin-left: -9px;
+  border-radius: 2px;
+  background: var(--primary-fill);
+  box-shadow: 0 0 10px var(--primary-fill);
+}
+/*
+ * 宽屏：左侧竖栏也是浮起的玻璃（离边 16，圆角 20），当前那一项淡蓝底。宽度照旧按"图标 + 两个字"算（layout.css，里面算了右边框 1px）：
+ * 玻璃四周都有亮边，多出来的左边框从左内边距里扣（4 → 3），两个字照样放得下
+ */
+:root[data-style="glass"] .siderail {
+  margin: 16px 0 16px 16px;
+  padding: 16px 4px 16px 3px;
+  border-radius: 20px;
+}
+:root[data-style="glass"] .siderail-brand {
+  padding: 0 0 14px;
+  color: var(--primary);
+  font-family: var(--font-num);
+  font-size: var(--fs-l);
+  font-weight: 600;
+}
+:root[data-style="glass"] .siderail .tab {
+  padding: 8px 3px;
+  border-radius: var(--radius-l);
+}
+:root[data-style="glass"] .siderail .tab.on {
+  background: var(--data-bg);
+}
+/* 待办的提示：看过没处理的件数是 Chakra Petch 的小方块（设计稿角标的形状，按产品的含义用灰色）；未读的小点是砖红，带一点光 */
+:root[data-style="glass"] .tab-count {
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: var(--radius-pill);
+  line-height: 17px;
+}
+:root[data-style="glass"] .tab-dot {
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 8px var(--badge);
+}
+/* 宽屏的分栏中间那道线：点阵底上不画，留着拖动的把手 */
+:root[data-style="glass"] .splitter::before {
+  border-left-color: transparent;
+}
+
+/* ---------- 聊天 ---------- */
+:root[data-style="glass"] .conv-scroll {
+  padding-top: 18px;
+}
+/* 时间在消息上面一行（设计稿：个人助理的话上面"二狗 08:00"、你的话上面"08:03"），Chakra Petch 11px */
+:root[data-style="glass"] .msg {
+  gap: 5px;
+}
+:root[data-style="glass"] .msg-meta {
+  order: -1;
+  font-size: var(--fs-xs);
+}
+/* 个人助理的话：一块玻璃，左上角收成 4 的小角 */
+:root[data-style="glass"] .assistant .bubble {
+  padding: 12px 14px;
+  border-radius: var(--radius-xs) var(--radius-2xl) var(--radius-2xl) var(--radius-2xl);
+  line-height: 1.5;
+}
+/* 你发的消息：电光蓝实色块，右上角收成 4 的小角，下面一圈淡蓝光 */
+:root[data-style="glass"] .user .bubble {
+  padding: 10px 14px;
+  border-radius: var(--radius-2xl) var(--radius-xs) var(--radius-2xl) var(--radius-2xl);
+  box-shadow: 0 8px 24px var(--glass-glow);
+  line-height: 1.5;
+}
+/* 宽屏下一行不拉太长：个人助理的话最宽 520、卡片最宽 560（设计稿宽屏的取值），你的话最宽 520 */
+:root[data-style="glass"] .app.wide .msg.assistant .msg-part {
+  max-width: min(100%, 560px);
+}
+:root[data-style="glass"] .app.wide .msg.assistant .part-text {
+  max-width: min(100%, 520px);
+}
+:root[data-style="glass"] .app.wide .msg.user .msg-part {
+  max-width: min(86%, 520px);
+}
+:root[data-style="glass"] .app.wide .conv-scroll {
+  padding-left: 28px;
+  padding-right: 28px;
+}
+/* 工具调用组那一行：一条浮起的小面板（左边那道工具色、出了状况的颜色照经典） */
+:root[data-style="glass"] .tool-sum {
+  padding: 5px 12px;
+  border-left-width: 3px;
+  border-left-color: var(--c-tool);
+  border-radius: var(--radius-m);
+}
+:root[data-style="glass"] .tool-sum.tool-sum-stopped {
+  border-left-color: var(--high-fg);
+}
+:root[data-style="glass"] .tool-sum.tool-sum-you {
+  border-left-color: var(--you);
+}
+:root[data-style="glass"] .thinking {
+  border-left-width: 2px;
+}
+
+/*
+ * 语音气泡（设计稿的语音条）：你的是电光蓝实色块、右上角小角、下面一圈淡蓝光；个人助理的是一块玻璃、左上角小角。
+ * 播放键是 30 的圆角方块（你的半透明白、个人助理的淡蓝底蓝三角），波形竖条 2 隔 3、高 22，时长 Chakra Petch。
+ * 播放键（30）、间隔（10）、竖条（2 隔 3）、左右内边距（12）、个人助理一侧的亮边（左右合起来 2）是 token（style.ts 的 voice-*），
+ * styles/voice.css 按它画，框宽、波形格数也按它算（42 号票的共用办法）；这里只画样子
+ */
+:root[data-style="glass"] .user .voice-bubble {
+  border-radius: var(--radius-2xl) var(--radius-xs) var(--radius-2xl) var(--radius-2xl);
+  box-shadow: 0 8px 24px var(--glass-glow);
+}
+:root[data-style="glass"] .assistant .voice-bubble {
+  border-radius: var(--radius-xs) var(--radius-2xl) var(--radius-2xl) var(--radius-2xl);
+}
+:root[data-style="glass"] .voice-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--voice-key);
+  border-radius: var(--radius-m);
+  font-size: 0;
+}
+:root[data-style="glass"] .user .voice-icon {
+  background: rgba(255, 255, 255, 0.22);
+}
+:root[data-style="glass"] .assistant .voice-icon {
+  background: var(--data-bg);
+  color: var(--data-fg);
+}
+:root[data-style="glass"] .voice-icon::before {
+  content: "";
+  width: 16px;
+  height: 16px;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M8 5v14l11-7z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M8 5v14l11-7z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+:root[data-style="glass"] .voice-playing .voice-icon::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M7 5h3.5v14H7zM13.5 5H17v14h-3.5z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M7 5h3.5v14H7zM13.5 5H17v14h-3.5z'/%3E%3C/svg%3E");
+}
+:root[data-style="glass"] .voice-wave-mini {
+  height: 22px;
+  opacity: 0.85;
+}
+:root[data-style="glass"] .voice-playing .voice-wave-mini {
+  opacity: 1;
+}
+:root[data-style="glass"] .assistant .voice-wave-mini {
+  color: var(--primary);
+}
+:root[data-style="glass"] .voice-duration {
+  font-size: var(--fs-s);
+}
+:root[data-style="glass"] .assistant .voice-duration {
+  color: var(--muted);
+}
+:root[data-style="glass"] .voice-body {
+  padding-top: 8px;
+}
+:root[data-style="glass"] .assistant .voice-body {
+  border-top-color: var(--border);
+}
+
+/*
+ * 输入栏：一块浮起的玻璃（左右离边 12、圆角 18、内边距 8）。附件是 44 的圆角方块细线框（加号），输入框没有框、透明；
+ * 切到语音是淡蓝底的话筒，切回文字是细线框的键盘；按住说话是淡蓝底蓝字的长块
+ */
+:root[data-style="glass"] .composer {
+  margin: 8px 12px 0;
+  padding: 8px;
+  gap: 8px;
+  border-radius: 18px;
+}
+:root[data-style="glass"] .app.wide .composer {
+  margin: 8px 16px 16px;
+}
+:root[data-style="glass"] .composer textarea {
+  min-height: 44px;
+  padding: 11px 12px;
+  border: none;
+  border-radius: var(--radius-l);
+  background: transparent;
+}
+/* 假占位和输入框第一行字对齐（没有边框了：内边距 11 / 12） */
+:root[data-style="glass"] .composer-placeholder {
+  top: 11px;
+  left: 12px;
+  right: 12px;
+}
+:root[data-style="glass"] .attach-btn,
+:root[data-style="glass"] .voice-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: var(--radius-l);
+  font-size: 0;
+}
+:root[data-style="glass"] .attach-btn,
+:root[data-style="glass"] .voice-toggle[data-to="text"] {
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--muted);
+}
+:root[data-style="glass"] .voice-toggle[data-to="voice"] {
+  background: var(--data-bg);
+  color: var(--data-fg);
+}
+:root[data-style="glass"] .attach-btn::before,
+:root[data-style="glass"] .voice-toggle::before {
+  content: "";
+  width: 22px;
+  height: 22px;
+  background: currentColor;
+  -webkit-mask: var(--glass-icon) center / contain no-repeat;
+  mask: var(--glass-icon) center / contain no-repeat;
+}
+:root[data-style="glass"] .attach-btn {
+  --glass-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E");
+}
+:root[data-style="glass"] .voice-toggle[data-to="voice"] {
+  --glass-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='9' y='3' width='6' height='11' rx='3'/%3E%3Cpath d='M5 11a7 7 0 0 0 14 0M12 18v3'/%3E%3C/svg%3E");
+}
+:root[data-style="glass"] .voice-toggle[data-to="text"] {
+  --glass-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='6' width='18' height='12' rx='2'/%3E%3Cpath d='M7 10h.01M11 10h.01M15 10h.01M7 14h10'/%3E%3C/svg%3E");
+}
+:root[data-style="glass"] .composer .btn.primary {
+  min-height: 44px;
+  padding: 0 16px;
+}
+:root[data-style="glass"] .voice-hold {
+  min-height: 44px;
+  border: none;
+  border-radius: var(--radius-l);
+  background: var(--data-bg);
+  color: var(--data-fg);
+  font-weight: 700;
+}
+/* 按住时：电光蓝实色块，字是主按钮上的字（浅色 5.59:1、深色 7.38:1，对比度测试"主按钮上的字"那一对） */
+:root[data-style="glass"] .voice-hold-active {
+  background: var(--primary-fill);
+  color: var(--primary-text);
+}
+:root[data-style="glass"] .voice-hold.voice-cancel {
+  background: var(--high-bg);
+  color: var(--high-fg);
+}
+:root[data-style="glass"] .voice-hold-off {
+  background: var(--fill);
+  color: var(--muted);
+  font-weight: 400;
+}
+/* 输入栏上面等着发的引用、附件：不接成一条白板，浮在点阵上 */
+:root[data-style="glass"] .quote-list,
+:root[data-style="glass"] .attach-list {
+  padding: 8px 16px 0;
+  border-top: none;
+  background: none;
+}
+:root[data-style="glass"] .quote-bar {
+  border-radius: 4px var(--radius-m) var(--radius-m) 4px;
+  background: var(--surface);
+}
+:root[data-style="glass"] .attach {
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+/* 上面那条改了底色，经典按状态的底色（作为材料投喂、上传失败）再写一遍 */
+:root[data-style="glass"] .attach.attach-material {
+  background: var(--data-bg);
+}
+:root[data-style="glass"] .attach.attach-failed {
+  background: var(--high-bg);
+}
+:root[data-style="glass"] .conn-note {
+  margin: 8px 12px 0;
+  border-top: none;
+  border-radius: var(--radius-m);
+}
+/* 会话里的"等你处理"栏（107 号票）：和输入栏一样的圆角块（不透明的面板底，不开模糊） */
+:root[data-style="glass"] .ibar,
+:root[data-style="glass"] .missed-voices {
+  margin: 8px 12px 0;
+  border: var(--card-border);
+  border-radius: 18px;
+  box-shadow: var(--shadow-note);
+}
+:root[data-style="glass"] .app.wide .ibar,
+:root[data-style="glass"] .app.wide .missed-voices {
+  margin: 8px 16px 0;
+}
+
+/* ---------- 卡片 ---------- */
+/* 卡片：一块玻璃（圆角 16、内边距 14）。类型标签是淡蓝底蓝字的小块（设计稿"审批 · 先问我"），标题另起一行 */
+:root[data-style="glass"] .xcard {
+  gap: 10px;
+}
+:root[data-style="glass"] .xcard-tag {
+  padding: 3px 8px;
+  border-radius: var(--radius-s);
+  background: var(--data-bg);
+  color: var(--data-fg);
+  font-size: var(--fs-xs);
+}
+/* 计划类的标签照经典是计划色，进展、通知是中性的（上面那条把底色、字色都改了，这几种再写一遍） */
+:root[data-style="glass"] .xcard-tag.xt-plan,
+:root[data-style="glass"] .xcard-tag.xt-plan_change {
+  background: color-mix(in srgb, var(--c-plan) 18%, var(--surface));
+  color: color-mix(in srgb, var(--c-plan) 65%, var(--text));
+}
+:root[data-style="glass"] .xcard-tag.xt-progress,
+:root[data-style="glass"] .xcard-tag.xt-notice {
+  background: var(--fill);
+  color: var(--muted);
+}
+:root[data-style="glass"] .xcard-title {
+  flex-basis: 100%;
+  font-weight: 500;
+  line-height: 1.45;
+}
+/*
+ * 审批卡：工具名（cards.tsx 的 .tool-title）是一行灰色小字，下面参数是一块等宽的代码（宽屏排在同一行，设计稿 e-wide）；
+ * 命中的关注类别是中性的细线签（设计稿的"删除或覆盖""越出项目目录"；别处的 chip-op 照旧是 op 色）；守卫的理由是一段灰字（设计稿）
+ */
+:root[data-style="glass"] .xcard-approval .tool-title {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: var(--fs-s);
+  font-weight: 400;
+}
+:root[data-style="glass"] .xcard-approval .tool-line code {
+  display: block;
+  padding: 8px 10px;
+  border-radius: var(--radius-m);
+  background: var(--fill);
+  font-family: var(--font-mono);
+  font-size: var(--fs-s);
+  line-height: 1.5;
+  word-break: break-all;
+}
+:root[data-style="glass"] .app.wide .xcard-approval .tool-title {
+  display: inline;
+  margin: 0 10px 0 0;
+}
+:root[data-style="glass"] .app.wide .xcard-approval .tool-line code {
+  display: inline;
+  padding: 5px 10px;
+  border-radius: var(--radius-m);
+  line-height: 2.1;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+:root[data-style="glass"] .xcard-approval .chip-op {
+  background: none;
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--muted);
+}
+:root[data-style="glass"] .xcard-approval .sys-note {
+  padding: 0;
+  border-left: none;
+  background: none;
+  color: var(--muted);
+  font-size: var(--fs-m);
+  line-height: 1.55;
+}
+:root[data-style="glass"] .auth-actions {
+  gap: 8px;
+}
+:root[data-style="glass"] .auth-actions .btn {
+  min-height: 44px;
+  font-size: var(--fs-l);
+}
+/* 两个按钮的卡：主按钮宽一点（设计稿 1 : 1.4）；宽屏靠右、按内容宽（设计稿 e-wide 96 / 128） */
+:root[data-style="glass"] .auth-actions .btn.primary {
+  flex-grow: 1.4;
+}
+:root[data-style="glass"] .app.wide .xcard .auth-actions {
+  justify-content: flex-end;
+}
+:root[data-style="glass"] .app.wide .xcard .auth-actions .btn {
+  flex: none;
+  min-width: 96px;
+  padding: 0 16px;
+}
+:root[data-style="glass"] .app.wide .xcard .auth-actions .btn.primary {
+  min-width: 128px;
+}
+:root[data-style="glass"] .qa-opt.on,
+:root[data-style="glass"] .day-pick.on {
+  font-weight: 700;
+}
+
+/* ---------- 任务看板：一张张玻璃卡，分组标题粗字、说明灰字、件数是电光蓝的 Chakra Petch ---------- */
+:root[data-style="glass"] .board {
+  gap: 12px;
+  padding: 14px var(--space-page) 16px;
+}
+:root[data-style="glass"] .bgroup {
+  gap: 8px;
+}
+:root[data-style="glass"] .bgroup-h {
+  align-items: center;
+  padding: 4px 4px 2px;
+}
+:root[data-style="glass"] .bgroup-h b {
+  font-size: var(--fs-l);
+  font-weight: 700;
+}
+/* 分组标题不上色（设计稿）：等你的那一组靠卡片上的砖红药丸 */
+:root[data-style="glass"] .bg-waiting .bgroup-h b {
+  color: var(--text);
+}
+:root[data-style="glass"] .bgroup-h .muted {
+  font-size: var(--fs-xs);
+}
+:root[data-style="glass"] .bgroup-n {
+  padding: 0;
+  background: none;
+  color: var(--primary);
+}
+:root[data-style="glass"] .bcard {
+  gap: 6px;
+  padding: 12px 14px;
+}
+:root[data-style="glass"] .bcard.on {
+  border-color: var(--primary);
+  box-shadow:
+    0 0 0 1px var(--primary),
+    var(--shadow-note);
+}
+:root[data-style="glass"] .bcard-title {
+  font-size: var(--fs-body);
+  font-weight: 500;
+  line-height: 1.4;
+}
+/* 结束了的：不浮起，没有底色，只留一圈细线（设计稿是降透明度，那样灰字的对比度不够） */
+:root[data-style="glass"] .bg-ended .bcard,
+:root[data-style="glass"] .bg-archived .bcard {
+  border-color: var(--border);
+  background: transparent;
+  box-shadow: none;
+}
+
+/* ---------- 待我处理：一行一张玻璃；分组说明灰字，后面接一道细线 ---------- */
+/* 列表左右留白 10（设计稿 16）、行里左边 10、点和字隔 8、行尾"⋯"收窄：说明那一行和经典差不多宽，经典一行放得下的这里也一行 */
+:root[data-style="glass"] .inbox-list {
+  padding: 8px 10px 16px;
+}
+:root[data-style="glass"] .inbox-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px 6px;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: 400;
+}
+:root[data-style="glass"] .inbox-group::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+:root[data-style="glass"] .inbox-row {
+  margin: 0 0 8px;
+  border-radius: var(--radius-xl);
+}
+:root[data-style="glass"] .inbox-row.on {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+  box-shadow:
+    0 0 0 1px var(--primary),
+    var(--shadow-note);
+}
+:root[data-style="glass"] .inbox-main {
+  gap: 8px;
+  padding: 12px 0 12px 10px;
+}
+/* 未读的点是电光蓝带微光（设计稿；导航上的未读提示是砖红），看过的是一个空心圈 */
+:root[data-style="glass"] .inbox-dot {
+  margin-top: 7px;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+:root[data-style="glass"] .unread .inbox-dot {
+  background: var(--primary-fill);
+  box-shadow: 0 0 8px var(--primary-fill);
+}
+:root[data-style="glass"] .inbox-title {
+  font-weight: 500;
+  line-height: 1.45;
+}
+:root[data-style="glass"] .unread .inbox-title {
+  font-weight: 700;
+}
+:root[data-style="glass"] .inbox-row .icon-btn {
+  padding: 4px 6px 4px 0;
+  color: var(--muted);
+}
+
+/*
+ * 窄屏从标题栏下面拉出来的阶段抽屉（.md 加 md-m-half / md-m-full：只写 .md 会选中 Markdown 的回复气泡 .bubble.md）、
+ * 宽屏任务详情左边的阶段栏：也是浮起的面板（底色照经典的 --surface）
+ */
+:root[data-style="glass"] .md-m-half,
+:root[data-style="glass"] .md-m-full {
+  margin: 8px 12px 0;
+  border-radius: var(--radius-2xl);
+  overflow: hidden;
+}
+:root[data-style="glass"] .md-side {
+  margin: 10px 0 16px 16px;
+  border-radius: var(--radius-2xl);
+  overflow: hidden;
+}
+/*
+ * 宽屏右边的详情栏（56 号票）：整栏是一块浮起的面板（设计稿 e-wide 右边那一栏的样子，离边 16、圆角 20；底色照经典的 --surface），
+ * 里面的标题栏不再单独浮起、不透明、不模糊，只在下面一道细线
+ */
+:root[data-style="glass"] .app.wide .pane-detail {
+  margin: 16px 16px 16px 0;
+  border: var(--card-border);
+  border-radius: 20px;
+  /* 它也挂着 .pane（开头那条把各栏刷透明了），底色在这里写回 --surface */
+  background: var(--surface);
+  box-shadow: var(--shadow-note);
+}
+:root[data-style="glass"] .app.wide .pane-detail .detail-bar {
+  margin: 0;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}

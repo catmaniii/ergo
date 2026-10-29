@@ -1,0 +1,309 @@
+[
+  {
+    "kind": "connection",
+    "status": "online"
+  },
+  {
+    "kind": "send_message",
+    "conversation": "secretary",
+    "idempotencyKey": "3053d731-0d05-4abd-bfcc-5df48ac2b1d5",
+    "parts": [
+      {
+        "type": "text",
+        "text": "明早 9 点提醒我交报告"
+      }
+    ],
+    "time": "2026-10-08T03:41:18.972+08:00"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 1,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-c5a76886-c7fa-4f56-908e-5ab80f22584a",
+          "conversation": "secretary",
+          "speaker": "user",
+          "time": "2026-10-08T03:41:18.972+08:00",
+          "parts": [
+            {
+              "type": "text",
+              "text": "明早 9 点提醒我交报告"
+            }
+          ]
+        },
+        "idempotencyKey": "3053d731-0d05-4abd-bfcc-5df48ac2b1d5"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 2,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-c5a76886-c7fa-4f56-908e-5ab80f22584a"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 1,
+      "type": "reminder",
+      "payload": {
+        "reminder": {
+          "id": "r-1",
+          "text": "交报告",
+          "schedule": {
+            "kind": "once",
+            "at": "2026-10-08T09:00:00.000+08:00"
+          },
+          "status": "pending",
+          "nextAt": "2026-10-08T09:00:00.000+08:00",
+          "cardId": "c-54cc20a5-a456-4535-b84e-bc8f10637307",
+          "createdAt": "2026-10-07T21:00:00.000+08:00",
+          "updatedAt": "2026-10-07T21:00:00.000+08:00"
+        },
+        "change": "created",
+        "by": "agent"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 1,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-54cc20a5-a456-4535-b84e-bc8f10637307",
+          "type": "reminder",
+          "typeVersion": 1,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "reminderId": "r-1",
+            "text": "交报告",
+            "schedule": {
+              "kind": "once",
+              "at": "2026-10-08T09:00:00.000+08:00"
+            },
+            "status": "pending",
+            "nextAt": "2026-10-08T09:00:00.000+08:00"
+          },
+          "text": "简单提醒：交报告 · 10 月 8 日（周四）09:00",
+          "createdAt": "2026-10-07T21:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 3,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "card_ref",
+              "cardId": "c-54cc20a5-a456-4535-b84e-bc8f10637307"
+            }
+          ],
+          "id": "m-f501e98b-f7a3-4362-a5bd-37f8ee2d8d66",
+          "time": "2026-10-08T03:41:20.009+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 4,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791402079982:tqw44bxg2p",
+              "tool": "create_reminder",
+              "argsSummary": "text=交报告 inDays=1 time=09:00",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "已建好提醒 r-1「交报告」：10 月 8 日（周四）09:00（现在是 10 月 7 日（周三）21:00）。"
+            }
+          ],
+          "id": "m-92802e4d-8ecd-4fbf-97c0-3d2a9dd5aa6f",
+          "time": "2026-10-08T03:41:20.010+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 4,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-e7f4c4be-16d8-4b3b-bd00-d178d294c7cc",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "好，明早 9 点提醒你交报告。"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 5,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-e7f4c4be-16d8-4b3b-bd00-d178d294c7cc",
+          "conversation": "secretary",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "好，明早 9 点提醒你交报告。"
+            }
+          ],
+          "time": "2026-10-08T03:41:20.013+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "secretary",
+      "seq": 6,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-c5a76886-c7fa-4f56-908e-5ab80f22584a",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 2,
+      "type": "reminder",
+      "payload": {
+        "reminder": {
+          "id": "r-1",
+          "text": "交报告",
+          "schedule": {
+            "kind": "once",
+            "at": "2026-10-08T09:00:00.000+08:00"
+          },
+          "status": "fired",
+          "cardId": "c-54cc20a5-a456-4535-b84e-bc8f10637307",
+          "createdAt": "2026-10-07T21:00:00.000+08:00",
+          "updatedAt": "2026-10-08T09:00:00.000+08:00",
+          "lastFiredAt": "2026-10-08T09:00:00.000+08:00"
+        },
+        "change": "fired",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 2,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-54cc20a5-a456-4535-b84e-bc8f10637307",
+          "type": "reminder",
+          "typeVersion": 1,
+          "version": 2,
+          "status": "expired",
+          "payload": {
+            "reminderId": "r-1",
+            "text": "交报告",
+            "schedule": {
+              "kind": "once",
+              "at": "2026-10-08T09:00:00.000+08:00"
+            },
+            "status": "fired",
+            "lastFiredAt": "2026-10-08T09:00:00.000+08:00"
+          },
+          "text": "简单提醒：交报告 · 10 月 8 日（周四）09:00 · 已触发",
+          "createdAt": "2026-10-07T21:00:00.000+08:00",
+          "handledAt": "2026-10-08T09:00:00.000+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 1,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-4c6e37ff-0aa4-4ede-b6a6-63d8d414b320",
+          "version": 1,
+          "title": "提醒：交报告",
+          "source": "简单提醒",
+          "urgency": "non_blocking",
+          "pinned": true,
+          "createdAt": "2026-10-08T09:00:00.000+08:00",
+          "read": false,
+          "archived": false,
+          "deleted": false,
+          "kind": "notice",
+          "notice": "reminder_due",
+          "body": "10 月 8 日（周四）09:00 的提醒。",
+          "actions": [
+            "知道了"
+          ],
+          "cardId": "c-54cc20a5-a456-4535-b84e-bc8f10637307"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 1,
+      "type": "notify",
+      "payload": {
+        "id": "n-i-4c6e37ff-0aa4-4ede-b6a6-63d8d414b320",
+        "title": "提醒：交报告",
+        "body": "10 月 8 日（周四）09:00 的提醒。",
+        "itemId": "i-4c6e37ff-0aa4-4ede-b6a6-63d8d414b320"
+      }
+    }
+  }
+]

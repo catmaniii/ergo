@@ -1,0 +1,1922 @@
+/*
+ * 详情页（56 号票）：详情面板、事项详情的正文排版、窄屏三页滑动的 .stack、
+ * .detail-bar 和 ValueView 的 .vv-*。颜色、字体、字号、圆角、阴影一律用 token（39 号票的风格清单，
+ * src/visual-styles/；新加的 shadow-slide 是滑入的详情页左边缘），各套风格能覆盖。
+ * 宽屏的分栏（.panes / .pane-detail / .splitter）沿用 layout.css 里已有的。
+ */
+
+/* ---------- 窄屏：详情整页从右边滑入，盖住底部导航 ---------- */
+.dp-host {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* 压在底部导航上面，在弹层（.modal-mask 是 20）和提示下面 */
+  z-index: 10;
+  overflow: hidden;
+}
+.app.narrow {
+  position: relative;
+}
+.dp-page {
+  position: absolute;
+  inset: 0;
+  background: var(--surface);
+  transform: translateX(100%);
+  transition: transform 0.32s var(--ease);
+  box-shadow: var(--shadow-slide);
+  visibility: hidden;
+}
+.dp-page.at-detail {
+  transform: translateX(0);
+  visibility: visible;
+  pointer-events: auto;
+}
+/* 滑出去的过程中还看得见，滑完了再藏（不藏的话读屏和 Tab 键会摸到屏幕外的详情） */
+.dp-page:not(.at-detail) {
+  transition:
+    transform 0.32s var(--ease),
+    visibility 0s linear 0.32s;
+}
+/* 详情滑入时，底下的会话和底部导航一起往左让 30% */
+.app.narrow > .tab-content,
+.app.narrow > .tabbar {
+  transition: transform 0.32s var(--ease);
+}
+.app.narrow:has(> .dp-host .dp-page.at-detail) > .tab-content,
+.app.narrow:has(> .dp-host .dp-page.at-detail) > .tabbar {
+  transform: translateX(-30%);
+}
+
+/* ---------- 详情面板：整块撑满高度，正文自己滚 ---------- */
+.detail {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--surface);
+}
+.detail-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: calc(var(--bar-h) + env(safe-area-inset-top, 0px));
+  padding: 0 12px;
+  padding-top: env(safe-area-inset-top, 0px);
+  /* 和 .topbar 一样用标题栏的底色（42 号票） */
+  background: var(--bar-bg);
+  border-bottom: 1px solid var(--border);
+}
+.detail-bar-title {
+  font-family: var(--font-title);
+  flex: 1;
+  font-size: var(--fs-body);
+  font-weight: 600;
+}
+.detail-bar .link {
+  flex: none;
+}
+.detail-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px 14px 28px;
+  /* 正文按这一栏的宽度排版 */
+  container: detail / inline-size;
+}
+.detail-empty {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 0 28px;
+  text-align: center;
+  color: var(--muted);
+  font-size: var(--fs-m);
+  line-height: 1.6;
+}
+.detail-empty-icon {
+  font-size: 26px;
+  opacity: 0.45;
+}
+
+/* ---------- 正文排版 ---------- */
+.detail-body .dt-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+/* 详情里区分历史种类的标签（.tag、.tag-plan 在 base.css） */
+.tag-user {
+  background: color-mix(in srgb, var(--c-user) 18%, transparent);
+  color: var(--c-user);
+}
+.tag-thinking {
+  background: color-mix(in srgb, var(--c-thinking) 18%, transparent);
+  color: var(--c-thinking);
+}
+.tag-reply {
+  background: color-mix(in srgb, var(--c-reply) 18%, transparent);
+  color: var(--c-reply);
+}
+.tag-context {
+  background: color-mix(in srgb, var(--c-context) 18%, transparent);
+  color: var(--c-context);
+}
+.tag-tool {
+  background: color-mix(in srgb, var(--c-tool) 18%, transparent);
+  color: color-mix(in srgb, var(--c-tool) 70%, var(--text));
+}
+.tag-err {
+  background: color-mix(in srgb, var(--high-fg) 18%, transparent);
+  color: var(--high-fg);
+}
+.dt-status {
+  font-size: var(--fs-s);
+  color: var(--muted);
+}
+.dt-status.ok {
+  color: var(--ok);
+}
+.dt-status.no {
+  color: var(--high-fg);
+}
+.dt-title {
+  font-size: var(--fs-body);
+  font-weight: 600;
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+.dt-section {
+  margin-top: 14px;
+}
+.dt-section h4 {
+  font-family: var(--font-title);
+  margin: 0 0 6px;
+  font-size: var(--fs-s);
+  font-weight: 600;
+  color: var(--muted);
+}
+/* 原文：保留换行；Markdown 版交给 .md 的排版 */
+.dt-doc {
+  font-size: var(--fs-l);
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--surface);
+  border: var(--card-border);
+  border-radius: var(--radius-l);
+  padding: 10px 12px;
+}
+.dt-doc.md {
+  white-space: normal;
+}
+.dt-doc.md > :first-child {
+  margin-top: 0;
+}
+.dt-doc.md > :last-child {
+  margin-bottom: 0;
+}
+.dt-doc.md h1,
+.dt-doc.md h2,
+.dt-doc.md h3 {
+  font-size: var(--fs-body);
+  margin: 12px 0 6px;
+}
+.dt-doc.md p,
+.dt-doc.md ul,
+.dt-doc.md ol {
+  margin: 8px 0;
+}
+.dt-doc.md ul,
+.dt-doc.md ol {
+  padding-left: 20px;
+}
+.dt-doc.md li {
+  margin: 3px 0;
+}
+.dt-doc.md code {
+  background: var(--fill);
+  border-radius: var(--radius-xs);
+  padding: 1px 4px;
+  font-size: 0.92em;
+}
+.dt-doc.md pre {
+  background: var(--fill);
+  border-radius: var(--radius-m);
+  padding: 8px 10px;
+  overflow-x: auto;
+}
+.dt-doc.md pre code {
+  padding: 0;
+  background: none;
+}
+.dt-doc.md table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: var(--fs-m);
+}
+.dt-doc.md th,
+.dt-doc.md td {
+  border: 1px solid var(--border);
+  padding: 4px 8px;
+  text-align: left;
+}
+.dt-pre {
+  font-family: var(--font-mono);
+  font-size: var(--fs-s);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--fill);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  padding: 8px 10px;
+  margin: 0;
+  overflow-x: auto;
+}
+/* 返回的是正文而不是结构：按正文排版 */
+.dt-text {
+  font-size: var(--fs-m);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.dt-note {
+  font-size: var(--fs-s);
+  line-height: 1.6;
+  margin-top: 6px;
+}
+.dt-attachments {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+/* 详情里折起来的东西：原始参数（给开发者看）、返回 */
+.dt-raw {
+  margin-top: 14px;
+  font-size: var(--fs-m);
+}
+.dt-raw > summary,
+.dt-fold > summary {
+  color: var(--muted);
+  cursor: pointer;
+  margin-bottom: 6px;
+}
+.dt-fold > summary {
+  font-size: var(--fs-s);
+  font-weight: 600;
+}
+/* 详情面板里的长路径标签折行，不撑出横向滚动 */
+.detail-body .chip {
+  white-space: normal;
+  word-break: break-all;
+}
+.detail-body .chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.dt-kv {
+  display: grid;
+  grid-template-columns: 82px 1fr;
+  gap: 4px 10px;
+  margin: 0;
+  font-size: var(--fs-m);
+}
+.dt-kv dt {
+  color: var(--muted);
+  font-size: var(--fs-s);
+}
+.dt-kv dd {
+  margin: 0;
+  min-width: 0;
+  word-break: break-word;
+}
+
+/* ---------- 工具发的语音（87 号票）：语音的详情下面接着发它的那次调用，隔一道线 ---------- */
+.dt-embed {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+/* ---------- 效果记录：每条一行摘要，下面列涉及的对象 ---------- */
+.dt-effects {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dt-effect-sum {
+  font-size: var(--fs-m);
+  line-height: 1.6;
+  word-break: break-word;
+}
+.dt-effect-objs {
+  margin: 2px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-s);
+  line-height: 1.6;
+  word-break: break-all;
+}
+
+/* ---------- 调用记忆（187 号票）："这次用到的记忆"：每次检索一块，找到的每条一张小卡 ---------- */
+.rc-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.rc-steps {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.rc-step {
+  border-left: 3px solid var(--c-tool);
+  padding: 2px 0 2px 10px;
+  min-width: 0;
+}
+.rc-why {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 6px;
+  font-size: var(--fs-m);
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.5;
+  word-break: break-word;
+}
+.rc-why-text {
+  flex: 1 1 12em;
+  min-width: 0;
+}
+.rc-query {
+  margin-top: 2px;
+  font-size: var(--fs-s);
+  color: var(--muted);
+  word-break: break-word;
+}
+.rc-label {
+  margin-right: 6px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--muted);
+}
+.rc-call {
+  flex: none;
+  margin-left: auto;
+  font-size: var(--fs-xs);
+  font-weight: 400;
+}
+.rc-hits {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+.rc-none {
+  margin-top: 6px;
+  font-size: var(--fs-s);
+}
+.rc-hit {
+  border: var(--card-border);
+  border-radius: var(--radius-l);
+  background: var(--surface);
+  padding: 8px 10px;
+  font-size: var(--fs-s);
+  min-width: 0;
+}
+.rc-gone {
+  color: var(--muted);
+  border-style: dashed;
+}
+.rc-cap {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--muted);
+}
+.rc-quote {
+  margin-top: 2px;
+  font-size: var(--fs-m);
+  line-height: 1.6;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.rc-quote.rc-desc {
+  color: var(--muted);
+}
+.rc-more {
+  margin-left: 6px;
+  font-size: var(--fs-xs);
+}
+.rc-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 10px;
+  row-gap: 2px;
+  margin-top: 6px;
+  font-size: var(--fs-xs);
+  color: var(--muted);
+}
+.rc-when {
+  font-family: var(--font-num);
+}
+.rc-jump {
+  margin-left: auto;
+}
+.rc-hit .chips {
+  margin-top: 6px;
+}
+/* 266 号票：记忆简报——每条为什么带它、说到的结论 */
+.rc-reasons {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rc-reason-why {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 6px;
+  row-gap: 2px;
+}
+.rc-reason-how {
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  word-break: break-word;
+}
+.rc-claim {
+  margin-top: 4px;
+  border: var(--card-border);
+  border-radius: var(--radius-l);
+  background: var(--surface);
+  padding: 6px 10px;
+  font-size: var(--fs-s);
+  min-width: 0;
+}
+
+/* ---------- 工具调用组：每一步按先后，出了状况的醒目 ---------- */
+.dg-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dg-think {
+  font-size: var(--fs-s);
+  line-height: 1.55;
+  color: var(--muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+  border-left: 2px solid color-mix(in srgb, var(--c-thinking) 50%, transparent);
+  padding: 2px 0 2px 8px;
+}
+.dg-think-tag {
+  color: var(--c-thinking);
+  font-weight: 600;
+  margin-right: 4px;
+}
+.dg-call {
+  border: var(--card-border);
+  border-left: 3px solid var(--c-tool);
+  border-radius: var(--radius-l);
+  padding: 7px 10px;
+  font-size: var(--fs-m);
+  background: var(--surface);
+}
+.dg-call.dg-stopped {
+  border-left-color: var(--high-fg);
+  background: color-mix(in srgb, var(--high-bg) 45%, var(--surface));
+}
+.dg-call.dg-asked {
+  border-left-color: var(--you);
+}
+.dg-call.dg-internal {
+  border-left-style: dashed;
+  border-left-color: var(--muted);
+}
+.dg-call-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  width: 100%;
+  border: none;
+  background: none;
+  padding: 0;
+  text-align: left;
+  min-width: 0;
+}
+.dg-n {
+  font-family: var(--font-num);
+  flex: none;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.dg-call-head .tool-brief,
+.dg-said {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 没有模板、退回"中文名 · 参数值"的（67 号票）：和原来的参数摘要一样用淡色 */
+.dg-said-raw {
+  color: var(--muted);
+}
+.dg-issue {
+  margin-top: 4px;
+  font-size: var(--fs-s);
+  font-weight: 600;
+  color: var(--high-fg);
+}
+.dg-asked .dg-issue,
+.dg-issue.dg-you {
+  color: var(--you);
+}
+.chip-stopped {
+  background: var(--high-bg);
+  color: var(--high-fg);
+}
+.chip-you {
+  background: var(--you-bg);
+  color: var(--you);
+}
+.dg-call .chips {
+  margin-top: 4px;
+}
+.dg-call .dt-fold {
+  margin-top: 4px;
+}
+/* 连续的同类调用合成一条：第一条下面"还有 N 次同样的操作 ▾" */
+.dg-run {
+  display: block;
+  margin: 4px 0 0 18px;
+  padding: 2px 0;
+  border: none;
+  background: none;
+  color: var(--primary);
+  font: inherit;
+  font-size: var(--fs-s);
+  cursor: pointer;
+}
+.dg-issues {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.tool-more {
+  flex: none;
+  margin-left: auto;
+  color: var(--muted);
+}
+
+/* ---------- 结构化的值：字段 / 值两列、对象数组画成表 ---------- */
+.vv-rows {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: var(--fs-m);
+}
+.vv-row {
+  display: grid;
+  grid-template-columns: 82px 1fr;
+  gap: 10px;
+  align-items: baseline;
+}
+.vv-row-block {
+  grid-template-columns: 1fr;
+  gap: 3px;
+}
+/* 整段文字（文件内容、改动）保留换行 */
+.vv-row-block > dd {
+  white-space: pre-wrap;
+}
+.vv-rows dt {
+  color: var(--muted);
+  font-size: var(--fs-s);
+  word-break: break-all;
+}
+.vv-rows dd {
+  margin: 0;
+  min-width: 0;
+  word-break: break-word;
+}
+.vv-num {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.vv-path {
+  font-family: var(--font-mono);
+  font-size: var(--fs-s);
+  word-break: break-all;
+}
+.vv-yes {
+  color: var(--ok);
+  font-weight: 600;
+}
+.vv-no,
+.vv-null {
+  color: var(--muted);
+}
+.vv-badge,
+.vv-unknown {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: var(--radius-xs);
+  background: var(--border);
+  font-size: var(--fs-s);
+}
+.vv-unknown {
+  background: color-mix(in srgb, var(--c-plan) 20%, transparent);
+  color: var(--c-plan);
+}
+.vv-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.55;
+}
+.vv-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.vv-chip {
+  padding: 1px 8px;
+  border-radius: var(--radius-s);
+  background: var(--border);
+  font-size: var(--fs-s);
+}
+.vv-table-wrap {
+  overflow-x: auto;
+  margin-top: 2px;
+}
+.vv-table {
+  border-collapse: collapse;
+  font-size: var(--fs-s);
+  min-width: 100%;
+}
+.vv-table th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 4px 10px 4px 0;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.vv-table td {
+  padding: 5px 10px 5px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  vertical-align: top;
+}
+.vv-rest-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.vv-rest-n {
+  flex: none;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+
+/* ---------- 会话里的入口：任何一条都能点开（.user、.context-note 整条可点，"详情 ›"） ---------- */
+.msg.user.has-detail .msg-part,
+.has-detail > .sys-note,
+.has-detail > .context-note {
+  cursor: pointer;
+}
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-size: var(--fs-m);
+  padding: 0 0 0 8px;
+  cursor: pointer;
+}
+.bubble-more {
+  display: flex;
+  gap: 12px;
+  margin-top: 6px;
+}
+.bubble-more .link-btn {
+  padding: 0;
+  font-size: var(--fs-s);
+}
+.tool-head .tool-more {
+  padding-left: 6px;
+}
+.card-more {
+  display: flex;
+  gap: 12px;
+}
+
+/*
+ * "在对话中定位"：闪一下（和 .zi.flash 同一个颜色和节奏）。二狗的气泡、工具行自己有底色，
+ * 光给底色会被盖住，所以再加一圈同色的外框
+ */
+.dp-flash {
+  animation: dp-flash 1.6s;
+  border-radius: var(--radius-2xl);
+}
+@keyframes dp-flash {
+  0%,
+  60% {
+    background: color-mix(in srgb, var(--c-plan) 25%, transparent);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--c-plan) 40%, transparent);
+  }
+  100% {
+    background: transparent;
+    box-shadow: 0 0 0 4px transparent;
+  }
+}
+
+/*
+ * ---------- 计划详情、检测项全览、阶段详情（60 号票） ----------
+ * 颜色、字号用 token，白字用 --on-color
+ */
+/* 计划详情：相对上一版的变化 */
+.dt-diff {
+  font-size: var(--fs-m);
+  line-height: 1.7;
+}
+.diff-add {
+  color: var(--ok);
+}
+.diff-del {
+  color: var(--high-fg);
+  text-decoration: line-through;
+}
+/* 审查面板的完整版：每处风险被哪个修补盖掉、每个修补盖掉了哪几条 */
+.rp-tag {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--fs-xs);
+  color: var(--muted);
+}
+.rp-tag-ok {
+  color: var(--ok);
+}
+.rp-tag-no {
+  color: var(--high-fg);
+}
+.rp-tag-ask {
+  color: var(--c-plan);
+}
+
+/* 检测项全览 */
+.rb-toggle {
+  margin-left: 8px;
+  font-weight: 400;
+}
+.rb-objective {
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-m);
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  font-size: var(--fs-m);
+}
+.rb-obj-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.rb-objective ol {
+  margin: 0 0 4px;
+  padding-left: 18px;
+}
+.rb-phases {
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-m);
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  font-size: var(--fs-m);
+}
+.rb-ms {
+  flex: none;
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.rb-chosen-none {
+  background: color-mix(in srgb, var(--high-fg) 8%, transparent);
+}
+.rb-rule {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  margin-bottom: 6px;
+  overflow: hidden;
+}
+.rb-rule.rb-violated {
+  border-color: color-mix(in srgb, var(--high-fg) 45%, var(--border));
+}
+.rb-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  background: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+.rb-id {
+  flex: none;
+  font-weight: 700;
+  font-size: var(--fs-s);
+  color: var(--c-plan);
+}
+/*
+ * 二狗加的：框架规则的 id 很长（v1.backup-before-overwrite），详情栏又窄（竖屏全屏、宽屏右边一栏），排成一行时标题被挤成一个字宽：
+ * 改成两行——id、耗时、结论、小三角一行，标题另起一行
+ */
+.rb-head {
+  flex-wrap: wrap;
+  row-gap: 2px;
+}
+.rb-head .rb-id {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.rb-head .rb-title {
+  order: 10;
+  flex-basis: 100%;
+}
+.rb-title {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-m);
+}
+.rb-status {
+  flex: none;
+  font-size: var(--fs-xs);
+  padding: 1px 6px;
+  border-radius: var(--radius-xs);
+  background: var(--border);
+  color: var(--muted);
+}
+.rb-s-violated {
+  background: color-mix(in srgb, var(--high-fg) 18%, transparent);
+  color: var(--high-fg);
+}
+.rb-s-deferred {
+  background: color-mix(in srgb, var(--c-plan) 18%, transparent);
+  color: var(--c-plan);
+}
+.rb-caret {
+  flex: none;
+  color: var(--muted);
+}
+.rb-body {
+  padding: 0 10px 10px;
+  font-size: var(--fs-m);
+}
+.rb-meta {
+  color: var(--muted);
+  font-size: var(--fs-s);
+  margin-bottom: 8px;
+}
+.rb-label {
+  font-weight: 600;
+  margin-top: 8px;
+}
+.rb-formula {
+  margin: 4px 0 2px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border-radius: var(--radius-m);
+  font-family: var(--font-mono);
+  font-size: var(--fs-s);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.rb-legend {
+  font-size: var(--fs-xs);
+}
+.rb-list {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: var(--muted);
+}
+.rb-where {
+  margin-right: 6px;
+  font-size: var(--fs-xs);
+  opacity: 0.8;
+}
+.rb-repairs .rb-picked {
+  color: var(--text);
+}
+.rb-kind {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 6px;
+  border-radius: var(--radius-xs);
+  background: var(--border);
+  font-size: var(--fs-xs);
+}
+.rb-cost {
+  margin-left: 8px;
+  font-size: var(--fs-xs);
+  opacity: 0.85;
+}
+.rb-picked-tag {
+  margin-left: 8px;
+  padding: 0 6px;
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--ok) 20%, transparent);
+  color: var(--ok);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+.rb-chosen {
+  margin-top: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius-s);
+  background: color-mix(in srgb, var(--ok) 8%, transparent);
+  font-size: var(--fs-m);
+}
+.rb-raw {
+  margin-top: 10px;
+  font-size: var(--fs-s);
+  color: var(--muted);
+}
+.rb-parts {
+  margin: 6px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.rb-parts div {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 8px;
+}
+.rb-parts dt {
+  color: var(--muted);
+}
+.rb-parts dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  word-break: break-word;
+}
+/* 中文公式下面那一行：同一条规则按接口写 */
+.fm-api {
+  display: block;
+  margin-top: 3px;
+  padding: 2px 8px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.fm-api-k {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 4px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border);
+  font-family: inherit;
+  font-size: var(--fs-2xs);
+  line-height: 1.4;
+  vertical-align: 1px;
+}
+
+/* 阶段详情 */
+.tag-mplan {
+  background: var(--c-plan);
+  color: var(--on-color);
+}
+.ms-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.ms-actions .btn {
+  flex: none;
+  padding: 6px 12px;
+  font-size: var(--fs-m);
+}
+.ms-reopen-hint {
+  flex-basis: 100%;
+}
+.ms-st.st-accepted {
+  color: var(--ok);
+}
+.ms-st.st-failed {
+  color: var(--high-fg);
+}
+.ms-st.st-running,
+.ms-st.st-accepting {
+  color: var(--primary);
+}
+.ms-criteria,
+.ms-attempts,
+.ms-grants,
+.ms-policy,
+.rp-scope {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: var(--fs-m);
+  line-height: 1.5;
+}
+.ms-criteria li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  align-items: baseline;
+}
+/* 标准写得长时整段换到下一行，这里让它占满余下的宽度、在自己那一栏里折行 */
+.ms-criteria li > span:not(.mc-mark) {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.mc-mark {
+  flex: none;
+  width: 16px;
+  text-align: center;
+  font-weight: 700;
+}
+.mc-pass .mc-mark {
+  color: var(--ok);
+}
+.mc-fail .mc-mark {
+  color: var(--high-fg);
+}
+.mp-tag {
+  flex: none;
+  white-space: nowrap;
+  font-size: var(--fs-2xs);
+  padding: 0 5px;
+  margin: 0 4px;
+  border-radius: var(--radius-xs);
+}
+.mp-auto {
+  background: var(--data-bg);
+  color: var(--data-fg);
+}
+.mp-user {
+  background: var(--op-bg);
+  color: var(--op-fg);
+}
+.mp-steps {
+  margin: 4px 0 0;
+  padding-left: 20px;
+  font-size: var(--fs-m);
+  line-height: 1.55;
+}
+.ms-attempts li {
+  padding: 4px 8px;
+  border-radius: var(--radius-s);
+  background: var(--bg);
+}
+.ms-attempts li.ok b {
+  color: var(--ok);
+}
+.ms-attempts li.no b {
+  color: var(--high-fg);
+}
+.ms-attempts li.re b {
+  color: var(--c-context);
+}
+.ms-grants li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+.ms-budget.over {
+  color: var(--high-fg);
+}
+.ms-policy li {
+  padding: 6px 8px;
+  border-radius: var(--radius-s);
+  background: var(--bg);
+  border-left: 3px solid var(--border);
+}
+.ms-incidents {
+  margin: 0;
+  padding-left: 0;
+  line-height: 1.6;
+  font-size: var(--fs-m);
+}
+.ms-incidents .ms-inc {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-bottom: 4px;
+  list-style: none;
+}
+/*
+ * 系统查到的结果（274 号票）：系统查到的是 .sys-note（浅绿底、左边实线，look.css 的"两种声音"），维护者自报是 .agent-says（灰字）；
+ * 每一样一行（小标题 + 一条条），对外发的、文件前面一个小签；和自报对不上的用退回的颜色（"和实际对不上"）
+ */
+.ms-observed {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: var(--fs-m);
+  line-height: 1.5;
+}
+.ms-obs-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+}
+.ms-obs-k {
+  flex: none;
+  font-size: var(--fs-s);
+  font-weight: 600;
+  color: var(--muted);
+}
+.ms-obs-list {
+  flex: 1 1 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.ms-obs-list li {
+  word-break: break-word;
+}
+.ms-obs-tag {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: var(--radius-xs);
+  background: var(--border);
+  font-size: var(--fs-xs);
+  color: var(--text);
+}
+.ms-obs-created {
+  background: color-mix(in srgb, var(--ok) 18%, var(--surface));
+}
+.ms-obs-deleted {
+  background: color-mix(in srgb, var(--high-fg) 15%, var(--surface));
+}
+.ms-obs-path {
+  word-break: break-all;
+}
+.ms-obs-other {
+  font-size: var(--fs-s);
+  color: var(--muted);
+}
+.ms-obs-bad {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--fs-m);
+  color: var(--reject-fg);
+}
+/* 情况图标：已处理的带 ✓、颜色平和；要注意的换成感叹号；并排的几个（依赖图的节点、聊天里的阶段框，91 号票） */
+.ic-row {
+  display: inline-flex;
+  flex: none;
+  gap: 5px;
+}
+.ic {
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--ic-bg);
+  color: var(--ic-fg);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  line-height: 1;
+}
+.ic-ok {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  display: grid;
+  place-items: center;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--ok);
+  color: var(--on-color);
+  font-size: var(--fs-3xs);
+  box-shadow: 0 0 0 1.5px var(--surface);
+}
+.ic-attack {
+  --ic-fg: var(--ok);
+  --ic-bg: color-mix(in srgb, var(--ok) 15%, transparent);
+}
+.ic-block {
+  --ic-fg: color-mix(in srgb, var(--text) 68%, transparent);
+  --ic-bg: color-mix(in srgb, var(--text) 9%, transparent);
+}
+.ic-pullback {
+  --ic-fg: var(--primary);
+  --ic-bg: color-mix(in srgb, var(--primary) 14%, transparent);
+}
+.ic-ask {
+  --ic-fg: var(--reject-fg);
+  --ic-bg: color-mix(in srgb, var(--reject-fg) 14%, transparent);
+}
+.ic-undo {
+  --ic-fg: var(--pull-fg);
+  --ic-bg: color-mix(in srgb, var(--pull-fg) 15%, transparent);
+}
+.ic-data {
+  --ic-fg: var(--op-fg);
+  --ic-bg: var(--op-bg);
+}
+/* 「权」「外」：动了本机的敏感权限 / 对外的事（93 号票，ic-perm、ic-out：和计划上的小标记同一个字、同一个颜色） */
+.ic-perm {
+  --ic-fg: var(--data-fg);
+  --ic-bg: var(--data-bg);
+}
+.ic-out {
+  --ic-fg: var(--high-fg);
+  --ic-bg: var(--high-bg);
+}
+.ic.ic-warn {
+  --ic-fg: var(--on-color);
+  --ic-bg: var(--op-fg);
+  font-size: var(--fs-m);
+}
+/* 从这里重做（重开对话框） */
+.rp-sec {
+  margin-top: 12px;
+  font-size: var(--fs-s);
+  font-weight: 600;
+  color: var(--muted);
+}
+/* 这几步已经做了的事（84 号票，eff-list 和 look.css 的"收不回的钉住"；二狗不撤回，本机的、对外的都列） */
+.eff-list {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: var(--fs-m);
+}
+.eff-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-m);
+  border-left: 3px solid var(--border);
+  background: var(--bg);
+}
+.eff-list .eff-local {
+  border-left-color: var(--c-plan);
+}
+.eff-list .eff-stuck {
+  border-left-color: var(--high-fg);
+  background: color-mix(in srgb, var(--high-fg) 5%, var(--surface));
+}
+.eff-list .eff-stuck .eff-scope::before {
+  content: "📌 ";
+}
+.eff-scope {
+  flex: none;
+  padding: 0 6px;
+  border-radius: var(--radius-xs);
+  background: var(--border);
+  font-size: var(--fs-xs);
+}
+.eff-title {
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+.eff-why {
+  flex-basis: 100%;
+  font-size: var(--fs-s);
+}
+/* 废弃分支的遗留效果（151 号票）：能申请撤回的、按钮、已提交、无法撤回 */
+.eff-list .eff-undoable {
+  border-left-color: var(--c-plan);
+}
+.eff-btn {
+  flex: none;
+  padding: 4px 10px;
+  font-size: var(--fs-s);
+}
+.eff-asked {
+  flex: none;
+  color: var(--ok);
+  font-size: var(--fs-s);
+  font-weight: 600;
+}
+.eff-none {
+  flex: none;
+  color: var(--high-fg);
+  font-size: var(--fs-s);
+}
+/* 分支详情的完整历史 */
+.dt-branch {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dt-branch .chat-item {
+  border-radius: var(--radius-2xl);
+}
+.rp-risks {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: var(--fs-m);
+}
+.rp-risks li {
+  color: var(--op-fg);
+}
+.rp-risks li::before {
+  content: "⚠ ";
+}
+/*
+ * 重做对话框里直接改这一阶段的验收标准、交付件（125 号票）：一条一行，输入框占满，后面是验收方式的小签和去掉的 ×；
+ * 改过了那句提示用"你"的颜色
+ */
+.rp-edit-list {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.rp-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.rp-edit-row .input {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-m);
+  padding: 6px 8px;
+}
+.rp-edit-row textarea.input {
+  resize: vertical;
+  min-height: 34px;
+}
+.rp-edit-row .mp-tag {
+  flex: none;
+}
+.btn.rp-edit-drop {
+  flex: none;
+  padding: 2px 8px;
+}
+.btn.rp-edit-add {
+  margin-top: 6px;
+  font-size: var(--fs-s);
+}
+.rp-edit-on {
+  color: var(--you);
+}
+/* 审查面板里也有 .rp-note（判不了的那一行），这里只管对话框里的输入框 */
+.field.rp-note {
+  margin-top: 10px;
+}
+.field.rp-note textarea {
+  width: 100%;
+  font: inherit;
+  font-size: var(--fs-body);
+  padding: 8px 10px;
+  border-radius: var(--radius-m);
+}
+
+/*
+ * 执行中出过的状况（60 号票，ic-counts / ic-tabs / ic-list：
+ * 颜色、字号、圆角换成 token）：阶段抽屉、阶段栏下面那一行的个数，详情栏里按类筛的一页
+ */
+.ic-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ic-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px 3px 3px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-s);
+  cursor: pointer;
+}
+.ic-count:disabled {
+  cursor: default;
+}
+.ic-count-warn {
+  border-color: var(--op-fg);
+}
+.ic-n {
+  font-size: var(--fs-m);
+}
+.ic-done {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+.ic-none {
+  color: var(--muted);
+  font-size: var(--fs-s);
+}
+.ic-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0;
+}
+.ic-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px 3px 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-s);
+  cursor: pointer;
+}
+.ic-tabs button:first-child {
+  padding-left: 10px;
+}
+.ic-tabs button.on {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.ic-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ic-list li + li {
+  border-top: 1px solid var(--border);
+}
+.ic-list button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 2px;
+  border: none;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-m);
+  text-align: left;
+  cursor: pointer;
+}
+.ic-list button:disabled {
+  cursor: default;
+}
+.ic-list-t {
+  flex: 1;
+  min-width: 0;
+}
+
+/*
+ * 要你留意的（84 号票，mg-bds / mg-bd、mp-node-row、mp-mark-k、ms-marks、ms-mark-hints：
+ * 类名、结构、数值不改，颜色、字号、圆角换成 token）：标题旁边的小标记，详情里一样一行，授权写"已用 N/M"
+ */
+.mg-bds {
+  display: inline-flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: 5px;
+  vertical-align: 2px;
+}
+.mg-bd {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+.mg-bd i {
+  display: inline-grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--bd-bg);
+  color: var(--bd-fg);
+  font-size: var(--fs-2xs);
+  font-style: normal;
+  font-weight: 700;
+}
+.mg-bd-perm {
+  --bd-fg: var(--data-fg);
+  --bd-bg: var(--data-bg);
+}
+.mg-bd-out {
+  --bd-fg: var(--high-fg);
+  --bd-bg: var(--high-bg);
+}
+.mg-bd-ask {
+  --bd-fg: var(--reject-fg);
+  --bd-bg: color-mix(in srgb, var(--reject-fg) 14%, transparent);
+}
+.mg-bds-none {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+/*
+ * 聊天里计划卡的阶段提纲（93 号票，.mp-outline、.mo-*、.mp-node、.mg-legend、.mp-hint，look.css 的
+ * mo-wait / mo-draw）：按阶段缩进的文字提纲，点一项就地展开它的要点。颜色、字号、圆角用 token
+ */
+.mp-outline {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 10px 0 0;
+  padding: 0;
+  font-size: 13.5px;
+  line-height: 1.45;
+  list-style: none;
+}
+.mo-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.mo-no {
+  flex: none;
+  min-width: 4.2em;
+  color: color-mix(in srgb, var(--c-plan) 75%, var(--text));
+  font-size: var(--fs-s);
+  font-weight: 700;
+}
+.mo-par {
+  color: var(--muted);
+  font-size: var(--fs-s);
+}
+.mo-solo {
+  flex: 1;
+  min-width: 0;
+}
+.mo-items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 2px 0 0;
+  padding: 0 0 0 calc(4.2em * 12 / 13.5 + 8px);
+  list-style: none;
+}
+.mo-item {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  width: 100%;
+  padding: 2px 0;
+  border: none;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.mo-items .mo-item::before {
+  content: "·";
+  flex: none;
+  color: var(--muted);
+}
+.mo-title {
+  flex: 1;
+  min-width: 0;
+}
+.mo-item.on .mo-title {
+  font-weight: 700;
+}
+.mo-item .mg-bds {
+  align-self: center;
+}
+.mo-st {
+  flex: none;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+.mo-caret {
+  flex: none;
+  color: var(--muted);
+}
+.mo-gone {
+  color: var(--muted);
+  cursor: default;
+}
+.mo-gone .mo-title {
+  text-decoration: line-through;
+}
+.mp-outline .mp-node {
+  margin: 4px 0 6px;
+}
+.mp-node {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--primary) 35%, var(--border));
+  border-radius: var(--radius-l);
+  background: var(--bg);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.mp-node-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.mp-node-no {
+  flex: none;
+  color: var(--c-plan);
+  font-size: 11.5px;
+  font-weight: 700;
+}
+.mp-node-title {
+  flex: 1;
+  font-size: 13.5px;
+}
+.mp-node .mp-node-k {
+  width: 6.2em;
+}
+.mp-node-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+.mp-node-more {
+  margin-top: 8px;
+  padding: 0;
+  font-size: 12.5px;
+}
+.mg-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 6px 0 2px;
+}
+.mg-legend .mg-bd {
+  font-weight: 400;
+}
+.mg-kinds {
+  color: var(--muted);
+  font-style: normal;
+}
+.mp-hint {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: var(--fs-s);
+  text-align: center;
+}
+.mp-hint .link-btn {
+  font-size: var(--fs-s);
+}
+/* 计划提纲刚交上来：等它第一次滚进屏幕，一个阶段一个阶段地出来 */
+@keyframes v2-node-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
+  }
+}
+.mo-wait .mo-stage {
+  opacity: 0;
+}
+.mo-draw .mo-stage {
+  animation: v2-node-in var(--fx-3) var(--ease) both;
+  animation-delay: calc(var(--mg-l, 0) * 140ms);
+}
+.mp-node-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+.mp-node-k {
+  flex: none;
+  width: 4.8em;
+  color: var(--muted);
+  font-size: var(--fs-s);
+}
+.mp-node-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.mp-mark-k {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 3px;
+  width: 6.2em;
+}
+.mp-mark-k .mg-bd {
+  margin-top: 1px;
+}
+.ms-marks .mp-node-row {
+  margin-top: 6px;
+  font-size: var(--fs-l);
+  line-height: 1.55;
+}
+.ms-marks .mp-node-k {
+  width: 6.6em;
+  font-size: var(--fs-m);
+}
+.ms-used {
+  flex: none;
+  font-weight: 600;
+}
+.ms-used.full {
+  color: var(--op-fg);
+}
+.ms-marks .ms-used {
+  font-size: var(--fs-s);
+  font-weight: 600;
+  color: var(--muted);
+}
+.ms-marks .ms-used.full {
+  color: var(--op-fg);
+}
+.ms-mark-hints {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.ms-mark-hints li {
+  margin-top: 3px;
+  line-height: 1.5;
+}
+.ms-mark-hints .mg-bd {
+  vertical-align: -1px;
+}
+
+/* 这一阶段的规则：一条一行，点开看详情（84 号票） */
+.mp-policy {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.mp-policy-row {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 6px 10px;
+  border-radius: var(--radius-m);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-s);
+  text-align: left;
+  cursor: pointer;
+}
+.mp-policy-row:disabled {
+  cursor: default;
+}
+.mp-policy-row.lv-block {
+  border-left-color: var(--op-fg);
+}
+.mp-policy-row.lv-ask {
+  border-left-color: var(--data-fg);
+}
+/* 二狗多的一级：违反时退回（拉回计划），用拉回的青 */
+.mp-policy-row.lv-pull {
+  border-left-color: var(--pull-fg);
+}
+.mp-policy-name {
+  flex: 1 1 60%;
+  font-weight: 600;
+}
+.mp-origin {
+  margin-left: 4px;
+  font-size: var(--fs-2xs);
+  font-weight: 400;
+  color: var(--muted);
+}
+.fm-formula {
+  display: block;
+  margin-top: 4px;
+  padding: 4px 8px;
+  border-radius: var(--radius-s);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: var(--fs-s);
+  line-height: 1.5;
+  color: var(--data-fg);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.fm-small {
+  font-size: var(--fs-xs);
+}
+.mp-policy-row .fm-formula,
+.mp-policy-row .fm-api {
+  flex: 1 1 100%;
+}
+.mp-policy-row .tool-more {
+  margin-left: auto;
+}
+.rule-lv.lv-block {
+  color: var(--op-fg);
+}
+.rule-lv.lv-ask {
+  color: var(--data-fg);
+}
+.rule-lv.lv-pull {
+  color: var(--pull-fg);
+}
+
+/* 会话里的重做记录（84 号票，mevent / me-reopen：⟲ 加说法，左边一道上下文色） */
+.mevent {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 6px 10px;
+  border-radius: var(--radius-m);
+  background: var(--surface);
+  border-left: 3px solid var(--c-plan);
+  font-size: var(--fs-m);
+  line-height: 1.45;
+  cursor: pointer;
+}
+.me-icon {
+  flex: none;
+  width: 16px;
+  text-align: center;
+  font-weight: 700;
+  color: var(--c-plan);
+}
+.me-body {
+  flex: 1;
+  min-width: 0;
+}
+.me-reopen {
+  border-left-color: var(--c-context);
+}
+.me-reopen .me-icon {
+  color: var(--c-context);
+}

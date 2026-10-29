@@ -1,0 +1,12 @@
+{
+  "approvals.inboxTitle": "审批：{tool} {args}",
+  "approvals.cardText": "审批（{source}）：{tool}「{args}」",
+  "approvals.cardTextCategories": "审批（{source}）：{tool}「{args}」 · {categories}",
+  "approvals.listSep": "、",
+  "approvals.decision.approved": "批准",
+  "approvals.decision.denied": "拒绝",
+  "approvals.decision.narrowed": "收窄",
+  "approvals.what": "{tool}「{args}」",
+  "approvals.narrowedTo": "（收窄成：{summary}）",
+  "approvals.decided": "{decision}：{what}{narrowing}"
+}

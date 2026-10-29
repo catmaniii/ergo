@@ -1,0 +1,20 @@
+{
+  "pairing.batchSkipped": "This device: {phrase}",
+  "pairing.rateLimited": "At most {limit} pairing requests from the same source within {window}. Please try again in a while",
+  "pairing.renameNoRequest": "Couldn't find this device's pairing request: start a new one",
+  "pairing.renameNotPending": "This pairing request is no longer awaiting approval, so the device name can't be changed",
+  "pairing.keyReused": "This idempotency key was already used for a different request",
+  "pairing.noDevice": "No such device: {deviceId}",
+  "pairing.revoked": "This device has already been revoked",
+  "pairing.extendNeedsDays": "Extending needs a number of days",
+  "pairing.expired": "This pairing request has expired ({ttl}). Request again on the new device",
+  "pairing.cardText": "Pairing request: {deviceName} · code {shortCode} · fingerprint {fingerprint} ({from})",
+  "pairing.cardTextAutomated": "{text}. {hint}",
+  "pairing.inboxSource": "Device pairing",
+  "pairing.unidentifiedSource": "Forwarded by the front door, can't be identified",
+  "pairing.reject.badName": "The device name can't be empty or too long",
+  "pairing.reject.noRequest": "No such pairing request",
+  "pairing.reject.handled": "Already handled",
+  "pairing.source.tunnel": "Via tunnel · {source}",
+  "pairing.source.external": "External port · {source}"
+}

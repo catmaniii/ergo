@@ -1,0 +1,323 @@
+// 长程任务的阶段详情（60 号票）要的、从会话里推出来的那几样，
+// 纯函数；交付件、验收标准、执行方式、授权、规则、预算这些计划里写的，界面直接从阶段（任务详情的阶段抽屉用的那份）取。
+// 包括：
+// - 出过的状况（ui/incidents.tsx 的 incidentsOf / incidentsIn）：分成几类——拦下、拉回、额外确认、敏感数据、要你看一眼，
+//   聊天里图标、详情里清单用同一套说法；已经处理好的带 ✓，没处理好、要你看一眼的用感叹号。二狗的数据换成：
+//   工具调用（被拦下、按规则退回、按计划引回或改回、问过你、你拒绝了、等你批准、读了密钥文件）、验收结论的进度卡（没通过的是退回重做，
+//   紧跟着这一支停下找你的是"没通过，要你决定"）、时间线记录（偏离、越界）、这一轮出错时留的系统说明（出错归
+//   "要你看一眼"；二狗认协议包 isTurnFailedNote 那一条）、你从某个阶段重做的记录（84 号票：时间线的 reopen，算"撤回"一类，
+//   重开记录也归它；二狗不撤回本机的改动，不写"本机的改动跟着恢复了"）。"攻击"
+//   （网页里的注入）二狗没有对应的数据，不出现（85 号票）；
+// - 尝试记录：每次交上来验收的结论（验收结论的进度卡：过没过、哪几条不满足、备注——维护者宣布完成时写的那一两句，84 号票起
+//   记在卡上（acceptance.summary），之前的卡从 complete_stage 的参数里拆；你退回时写的说明记在卡上由你验收的那几条的备注里，
+//   维护者的备注、你的说明），和每次返工、从这里重做（看板上的 rework，55 号票的 taskReopens）；
+// - 这个阶段用了几次工具调用（授权和用量的"工具调用 N/M"：会话里归属这个阶段的工具调用记录数）；
+// - 第几轮（每重开一次加 1）；
+// - "回到会话里这一段"：这个阶段的第一条；
+// - "从这里重做"的范围在共享协议包里（reopenScope，84 号票：和守护进程同一份）。
+// 这些都按这个任务的整段会话算：任务详情打开时把任务开始以来的历史都取回来（historyNeededSince 说还要不要往前取），
+// 往上翻不会让数字变。
+import { type ConversationId, isTurnFailedNote, type ProgressCardPayload, t, tTable } from "./protocol.ts";
+import { type ChatItem, type ChatToolCall, zoomBlocks } from "./chat-items.ts";
+import { describeCall, summaryArgs, toolLabel } from "./call-sentence.ts";
+import type { UiState } from "./ui-state.ts";
+
+// ───────────────────────── 出过的状况 ─────────────────────────
+
+export const INCIDENT_KINDS = ["attack", "block", "pullback", "ask", "undo", "data", "look"] as const;
+export type IncidentKind = (typeof INCIDENT_KINDS)[number];
+
+/** 一件出过的状况 */
+export interface Incident {
+  readonly kind: IncidentKind;
+  /** 出在哪一条上（点它进那一条的详情） */
+  readonly itemId: string;
+  /** 一句话 */
+  readonly text: string;
+  /** 没处理好、要你看一眼 */
+  readonly attention?: boolean;
+}
+
+/** 每一类的名字、图标上的字、处理好了怎么说、说明 */
+// 170 号票起字按当前语言现取（state.stageDetail.incident.<类>.name / glyph / done / hint）
+export const INCIDENT_META: Readonly<Record<IncidentKind, { name: string; glyph: string; done: string; hint: string }>> = {
+  attack: incidentMeta("attack"),
+  block: incidentMeta("block"),
+  pullback: incidentMeta("pullback"),
+  ask: incidentMeta("ask"),
+  // 二狗不撤回本机的改动（84 号票：从这里重做只列出做过的事），不写"已撤回""本机的改动跟着恢复了"
+  undo: incidentMeta("undo"),
+  data: incidentMeta("data"),
+  look: incidentMeta("look"),
+};
+
+function incidentMeta(kind: IncidentKind) {
+  const key = `state.stageDetail.incident.${kind}`;
+  return tTable({ name: `${key}.name`, glyph: `${key}.glyph`, done: `${key}.done`, hint: `${key}.hint` });
+}
+
+/** 验收结论的进度卡：哪个阶段、过没过、哪几条不满足（91 号票：聊天里的阶段框也用它） */
+export function acceptanceOf(state: UiState, item: ChatItem): (ProgressCardPayload & { acceptance: NonNullable<ProgressCardPayload["acceptance"]> }) | undefined {
+  if (item.kind !== "card") return undefined;
+  const card = state.cards[item.cardId]?.card;
+  if (card?.type !== "progress") return undefined;
+  const p = card.payload as ProgressCardPayload;
+  return p.kind === "acceptance" && p.acceptance ? (p as ProgressCardPayload & { acceptance: NonNullable<ProgressCardPayload["acceptance"]> }) : undefined;
+}
+
+/** 一条属于哪个阶段：验收结论的进度卡看卡上写的，别的看归属（和 55 号票书脊的口径一样；91 号票的阶段框也按它分） */
+export function stageOfItem(state: UiState, item: ChatItem): string | undefined {
+  return acceptanceOf(state, item)?.stageId ?? item.scope.stageId;
+}
+
+/**
+ * 这个任务的条目按阶段分（91 号票：依赖图上每个阶段出过的状况）：验收结论的进度卡看卡上写的阶段，别的看归属；
+ * 不属于哪个阶段的不在里面
+ */
+export function itemsByStage(state: UiState, items: readonly ChatItem[], taskId: string): Map<string, ChatItem[]> {
+  const out = new Map<string, ChatItem[]>();
+  for (const it of items) {
+    if (it.scope.taskId !== taskId) continue;
+    const stageId = stageOfItem(state, it);
+    if (stageId === undefined) continue;
+    const list = out.get(stageId);
+    if (list) list.push(it);
+    else out.set(stageId, [it]);
+  }
+  return out;
+}
+
+/**
+ * 聊天里每一条属于哪个阶段（91 号票：标题栏的阶段标签跟着聊天滚到哪一段变）：这个任务的、带着阶段的
+ * 按它（验收结论的进度卡按卡上写的）；没带的（回复、思考、别的任务的）算前面最近那一段的；最前面还没开始阶段的那几条没有。
+ * 展开的阶段框里每次调用、每段思考一行，滚过去时报上来的是它们的 id（zoomBlocks 的块）：调用带着这个任务的阶段的按它，别的算所在那一条的
+ */
+export function stageAtItems(state: UiState, items: readonly ChatItem[], taskId: string): Map<string, string> {
+  const out = new Map<string, string>();
+  let last: string | undefined;
+  for (const it of items) {
+    if (it.scope.taskId === taskId) last = stageOfItem(state, it) ?? last;
+    if (last === undefined) continue;
+    out.set(it.id, last);
+    for (const b of zoomBlocks(it)) out.set(b.id, (b.kind === "call" && b.call.scope.taskId === taskId ? b.call.scope.stageId : undefined) ?? last);
+  }
+  return out;
+}
+
+/** 这一支停下找你的"偏离"记录（14 号票：和没通过的验收结论同一事务、紧跟在它后面） */
+export const isDeviation = (item: ChatItem | undefined) => item?.kind === "record" && item.record.type === "timeline" && item.record.timeline.kind === "deviation";
+
+/** 一条上出的状况（一条可能有好几种：工具调用组里每次调用各算各的） */
+function incidentsOf(state: UiState, item: ChatItem, next: ChatItem | undefined): Incident[] {
+  const at = (kind: IncidentKind, text: string, attention?: boolean): Incident => ({ kind, itemId: item.id, text, ...(attention ? { attention } : {}) });
+  switch (item.kind) {
+    case "tool_group": {
+      const out: Incident[] = [];
+      for (const call of item.calls) {
+        const { part } = call;
+        const what = describeCall(part.tool, part.argsSummary) ?? toolLabel(part.tool);
+        const id = call.id;
+        const one = (kind: IncidentKind, text: string, attention?: boolean): Incident => ({ kind, itemId: id, text, ...(attention ? { attention } : {}) });
+        // 拉回：按规则退回（时序规则）、按计划引回或改回
+        if (part.blockedBy === "pull_back" || part.blockedBy === "plan_redirect" || part.plan?.correction === "rewrite") out.push(one("pullback", t("state.stageDetail.pulledBack", { what })));
+        else if (call.issue === "blocked") out.push(one("block", t("state.stageDetail.blocked", { what })));
+        else if (call.issue === "denied") out.push(one("ask", t("state.stageDetail.denied", { what })));
+        else if (call.issue === "asked") out.push(one("ask", t("state.stageDetail.asked", { what })));
+        // 还在等你批准的也算（确认不是当场弹窗，会"等着"）
+        else if (call.issue === "waiting") out.push(one("ask", t("state.stageDetail.waiting", { what }), true));
+        // 读了密钥文件（67 号票的 🔒）：用到敏感数据
+        if (part.readsSecretFile && part.outcome === "done") out.push(one("data", t("state.stageDetail.secretFile", { what })));
+      }
+      return out;
+    }
+    case "card": {
+      const acceptance = acceptanceOf(state, item);
+      if (!acceptance || acceptance.acceptance.passed) return [];
+      // 没通过、紧跟着这一支停下找你：第 3 次还不过，要你决定怎么办（那条记录并进这一件，不再单算）
+      if (isDeviation(next)) return [at("look", t("state.stageDetail.failedFinal"), true)];
+      const failed = acceptance.acceptance.results.filter((r) => !r.passed).map((r) => r.criterion);
+      return [at("pullback", failed.length ? t("state.stageDetail.sentBackFailed", { failed: failed.join(t("state.stageDetail.sep")) }) : t("state.stageDetail.sentBack"))];
+    }
+    case "record": {
+      if (item.record.type !== "timeline") return [];
+      const { kind, summary } = item.record.timeline;
+      if (kind === "deviation" || kind === "out_of_scope") return [at("look", summary, true)];
+      // 你从某个阶段重做了（84 号票）：重开记录算"撤回"一类
+      if (kind === "reopen") return [at("undo", summary)];
+      return [];
+    }
+    // 这一轮出错（模型调用失败、超时……）：归"要你看一眼"
+    case "system":
+      return isTurnFailedNote(item.text) ? [at("look", item.text, true)] : [];
+    default:
+      return [];
+  }
+}
+
+/** 一段条目里出过的状况，按先后（没通过的验收结论后面紧跟的那条偏离记录并进它） */
+export function incidentsIn(state: UiState, items: readonly ChatItem[]): Incident[] {
+  const out: Incident[] = [];
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i]!;
+    const next = items[i + 1];
+    out.push(...incidentsOf(state, item, next));
+    if (acceptanceOf(state, item)?.acceptance.passed === false && isDeviation(next)) i++;
+  }
+  return out;
+}
+
+/** 这个任务执行中出过的状况（整段会话里属于它的条目；阶段抽屉下面那一行的个数、出过的状况一页） */
+export function taskIncidents(state: UiState, items: readonly ChatItem[], taskId: string): Incident[] {
+  return incidentsIn(
+    state,
+    items.filter((it) => it.scope.taskId === taskId),
+  );
+}
+
+/** 阶段标签闪一下的那种（拉回青、拦下红、你拒绝了用你的蓝） */
+export type GuardPingKind = "pullback" | "block" | "denied";
+
+/**
+ * 这个任务最近一次被拉回、拦下或你拒绝的调用（最后一条被纠正过的工具调用，
+ * 刚发生的让阶段标签闪一下，"回到这一阶段"）。key 是这次调用的 id，界面据此判断是不是刚发生的
+ */
+export function latestGuardPing(items: readonly ChatItem[], taskId: string): { key: string; kind: GuardPingKind } | undefined {
+  for (let i = items.length - 1; i >= 0; i--) {
+    const it = items[i]!;
+    if (it.kind !== "tool_group" || it.scope.taskId !== taskId) continue;
+    for (let j = it.calls.length - 1; j >= 0; j--) {
+      const call = it.calls[j]!;
+      const { part } = call;
+      if (part.blockedBy === "pull_back" || part.blockedBy === "plan_redirect" || part.plan?.correction === "rewrite") return { key: call.id, kind: "pullback" };
+      if (call.issue === "blocked") return { key: call.id, kind: "block" };
+      if (call.issue === "denied") return { key: call.id, kind: "denied" };
+    }
+  }
+  return undefined;
+}
+
+/** 每类一个：有就出现，没有不出现；同一类里有一件没处理好，这一类就是"要注意" */
+export function incidentKinds(list: readonly Incident[]): { kind: IncidentKind; n: number; attention: boolean }[] {
+  return INCIDENT_KINDS.flatMap((kind) => {
+    const xs = list.filter((x) => x.kind === kind);
+    return xs.length ? [{ kind, n: xs.length, attention: xs.some((x) => x.attention === true) }] : [];
+  });
+}
+
+// ───────────────────────── 阶段详情 ─────────────────────────
+
+/**
+ * 尝试记录的一条：一次交上来验收的结论（note 是维护者宣布完成时写的那一两句，userNote 是你验收时退回写的说明），
+ * 或者一次返工、从这里重做
+ */
+export type StageAttempt =
+  | {
+      readonly kind: "attempt";
+      readonly at: string;
+      readonly passed: boolean;
+      readonly failed: readonly string[];
+      readonly note: string | undefined;
+      readonly userNote?: string;
+      readonly itemId: string;
+    }
+  | { readonly kind: "reopen"; readonly at: string; readonly scope: readonly string[] };
+
+/** 阶段详情里从会话、看板推出来的几样 */
+export interface StageDetailFacts {
+  /** 第几轮：每返工重开一次加 1 */
+  readonly rounds: number;
+  /** 这个阶段在会话里的第一条（"回到会话里这一段"）；会话里还没有的没有 */
+  readonly firstItemId: string | undefined;
+  /** 这一步出过的状况 */
+  readonly incidents: readonly Incident[];
+  /** 尝试记录，按先后 */
+  readonly attempts: readonly StageAttempt[];
+  /** 交上来验收过几次 */
+  readonly submissions: number;
+  /** 重开过几次 */
+  readonly reopens: number;
+}
+
+/**
+ * 这个阶段每次宣布完成（complete_stage）的调用，按先后：它是代为执行的内部工具，顺利执行的不进组的 N——在组里的留在组的 steps 里，
+ * 不在组里的挂在代表它的那一条上（internalCalls），两处都找
+ */
+function completionCalls(items: readonly ChatItem[], taskId: string, stageId: string): ChatToolCall[] {
+  const all = items.flatMap((it) => [...(it.kind === "tool_group" ? it.steps.flatMap((st) => (st.kind === "call" ? [st.call] : [])) : []), ...it.internalCalls]);
+  return all.filter((c) => c.part.tool === "complete_stage" && c.scope.taskId === taskId && c.scope.stageId === stageId && c.seq !== undefined).toSorted((x, y) => x.seq! - y.seq!);
+}
+
+/** 宣布完成时维护者写的那一两句（complete_stage 的 summary，从工具调用记录的参数摘要里拆出来） */
+function completionNote(call: ChatToolCall | undefined): string | undefined {
+  const note = call && summaryArgs(call.part.argsSummary, ["stageId", "summary"]).summary;
+  return note ? note : undefined;
+}
+
+export function stageDetailFacts(state: UiState, items: readonly ChatItem[], taskId: string, stageId: string): StageDetailFacts {
+  const mine = items.filter((it) => it.scope.taskId === taskId && stageOfItem(state, it) === stageId);
+  const reopens = (state.taskReopens[taskId] ?? []).filter((r) => r.stageIds.includes(stageId));
+  // 每次验收结论的备注：它和上一次验收结论之间最近一次宣布完成写的那句（同一个阶段里，按序号）
+  const completions = completionCalls(items, taskId, stageId);
+  let since = -Infinity;
+  const submitted: StageAttempt[] = mine.flatMap((it) => {
+    const a = acceptanceOf(state, it);
+    if (!a) return [];
+    const card = it.kind === "card" ? state.cards[it.cardId]?.card : undefined;
+    const seq = it.seq ?? Infinity;
+    // 84 号票起卡上记着这次交上来时写的那句；之前的卡从宣布完成的调用参数里拆
+    const note = a.acceptance.summary ?? completionNote(completions.findLast((c) => c.seq! > since && c.seq! < seq));
+    since = seq;
+    const userNote = a.acceptance.results.find((r) => r.method === "user" && r.note)?.note;
+    return [
+      {
+        kind: "attempt" as const,
+        at: it.time ?? card?.createdAt ?? "",
+        passed: a.acceptance.passed,
+        failed: a.acceptance.results.filter((r) => !r.passed).map((r) => r.criterion),
+        note,
+        ...(userNote ? { userNote } : {}),
+        itemId: it.id,
+      },
+    ];
+  });
+  const reopened: StageAttempt[] = reopens.map((r) => ({ kind: "reopen" as const, at: r.time, scope: r.stageIds }));
+  return {
+    rounds: 1 + reopens.length,
+    firstItemId: mine[0]?.id,
+    // 这一段里的状况：落在这个阶段的条目（停下找你的那条偏离记录也带着这个阶段，incidentsIn 把它并进前面那张没通过的验收结论）
+    incidents: incidentsIn(state, mine),
+    attempts: [...submitted, ...reopened].toSorted((x, y) => Date.parse(x.at) - Date.parse(y.at)),
+    submissions: submitted.length,
+    reopens: reopens.length,
+  };
+}
+
+/**
+ * 一个任务每个阶段用了几次工具调用（授权和用量里的"工具调用 N/M"）：会话里归属这个任务、这个阶段的工具调用记录数。
+ * 守护进程按阶段记的预算账（task_budget）没有推给前端；这里数的是同一批调用记录，和 token 用量（账本里的总数）一样算总数，
+ * 不按"再给一份预算"重新起算
+ */
+export function stageToolCalls(state: UiState, conversation: ConversationId, taskId: string): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const entry of state.conversations[conversation]?.messages ?? []) {
+    if (!("message" in entry) || entry.scope.taskId !== taskId || entry.scope.stageId === undefined) continue;
+    const calls = entry.message.parts.filter((p) => p.type === "tool_call").length;
+    if (calls > 0) out[entry.scope.stageId] = (out[entry.scope.stageId] ?? 0) + calls;
+  }
+  return out;
+}
+
+/**
+ * 任务详情要的历史还缺不缺：手里最早的一条消息还不比 since（任务开始的时间）早、而且更早还有，就要接着往前取。
+ * 进度、偏差个数、计划外动作、阶段详情的尝试记录和出过的状况都按整段会话算，
+ * 取齐了数字才不随往上翻变（app/task-history.ts 照它一页页往前取）
+ */
+export function historyNeededSince(state: UiState, conversation: ConversationId, since: string): boolean {
+  const conv = state.conversations[conversation];
+  if (!conv || conv.olderExhausted) return false;
+  const first = conv.messages[0];
+  if (first === undefined || first.seq <= 1) return false;
+  const oldest = conv.messages.find((m): m is Extract<typeof m, { message: unknown }> => "message" in m);
+  // 最早那一条被彻底删除了（没有时间）：再往前取一页
+  return oldest === undefined || Date.parse(oldest.message.time) >= Date.parse(since);
+}

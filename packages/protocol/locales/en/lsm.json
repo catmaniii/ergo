@@ -1,0 +1,18 @@
+{
+  "lsm.busy.listSep": ", ",
+  "lsm.busy.quoted": "“{title}”",
+  "lsm.busy.tasks_one": "Running {n} task: {titles}",
+  "lsm.busy.tasks_other": "Running {n} tasks: {titles}",
+  "lsm.busy.runs_one": "{n} scheduled task is running: {titles}",
+  "lsm.busy.runs_other": "{n} scheduled tasks are running: {titles}",
+  "lsm.busy.calls_one": "{n} call with side effects hasn't finished: {calls}",
+  "lsm.busy.calls_other": "{n} calls with side effects haven't finished: {calls}",
+  "lsm.busy.call": "{tool} in {source}",
+  "lsm.busy.reasonSep": "; ",
+  "lsm.notLinked": "Ergo isn't connected to LSM (it wasn't started by LSM)",
+  "lsm.disconnected": "Lost the connection to LSM; the full status pushed after reconnecting is what counts",
+  "lsm.closed": "The LSM connection has been closed",
+  "lsm.notConnected": "Not connected to LSM yet (or the connection dropped)",
+  "lsm.unsupported": "This version of LSM doesn't support owned services",
+  "lsm.timeout": "LSM didn't respond"
+}

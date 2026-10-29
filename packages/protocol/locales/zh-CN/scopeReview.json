@@ -1,0 +1,13 @@
+{
+  "scopeReview.where.workOrder": "工单 {workOrder}",
+  "scopeReview.where.workOrderTask": "工单 {workOrder}，任务 {task}",
+  "scopeReview.notice.title": "越界：{summary}",
+  "scopeReview.notice.source": "{owner}的维护者",
+  "scopeReview.notice.detail": "说明：{detail}",
+  "scopeReview.notice.found": "{trigger}的范围审视发现：这件事不在立项书、任务计划和你给过的授权里。维护者照常继续，不卡任务；要它改回来、或者其实是你让它做的，就去和它说一声。",
+  "scopeReview.notice.foundWhere": "{trigger}的范围审视发现（{where}）：这件事不在立项书、任务计划和你给过的授权里。维护者照常继续，不卡任务；要它改回来、或者其实是你让它做的，就去和它说一声。",
+  "scopeReview.failed": "范围审视没做成：{error}（这段工作这次没有记范围记录）",
+  "scopeReview.basis": "依据：{basis}",
+  "scopeReview.owner.project": "项目「{name}」",
+  "scopeReview.owner.task": "任务「{title}」"
+}

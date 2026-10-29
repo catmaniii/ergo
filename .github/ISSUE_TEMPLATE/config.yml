@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 安全问题（私下报告）/ Security issue (report privately)
+    url: https://github.com/catmaniii/ergo/security/advisories/new
+    about: 漏洞请不要开公开的 issue，见 SECURITY.md / Please don't open public issues for vulnerabilities; see SECURITY.md
+  - name: 用户手册 / User guide
+    url: https://github.com/catmaniii/ergo/blob/main/docs/user-guide.md
+    about: 怎么装、怎么用、出问题怎么办 / Installing, using and troubleshooting ergo

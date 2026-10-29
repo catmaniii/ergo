@@ -1,0 +1,94 @@
+# ergo-asr：二狗的语音识别服务（faster-whisper，250 号票）。由 Local Service Manager 登记、启动、探活、重启，
+# 二狗自己不启动它。
+#
+# 这是服务管家（LSM）注册表条目的**示例**（格式见 packages/supervisor/docs/service-schema.md）。登记时复制一份，把下面的占位符换成本机的值，
+# 放进服务管家数据目录（默认 %LOCALAPPDATA%\ergo\supervisor）的 registry/services/ergo-asr.yaml。真实条目不进本仓库。
+# 登记步骤见本仓库 docs/user-guide.md 的"按住说话（本机语音识别）"一节。
+#
+#   <Python 绝对路径>  装了 faster-whisper（和它的 ctranslate2、PyAV）的那个 Python 里的 python.exe。
+#                       用绝对路径，不吃 PATH 上先出现的另一个 python。和 config/ergo.example.json 里
+#                       voice.recognizer.python 是同一个解释器。
+#   <仓库路径>         主分支的检出目录（不是 worktree）。识别脚本是 packages/daemon/src/voice/recognizer.py。
+#   <用户主目录>       模型缓存和别的东西都在它下面。
+#
+# 为什么是 LSM 托管，不是守护进程自己拉：
+# - 守护进程自己拉的那条（voice.recognizer.mode: "spawn"，默认）只管得了一个子进程：它死了，守护进程要自己发现、自己重来
+#   （warmup.ts 的退避）；它占着显存、闲置了也没有谁统一去收。做成服务以后，LSM 负责探活（/health 说模型加载好没有）、
+#   挂了自动拉起（autoRestart）、开机自启（autostart.yaml），显存归谁、什么时候卸载都变成那条服务自己的事；
+# - 两条路并存是用户 2026-10-23 定的：默认仍走 spawn（行为一个字都不变），要用服务就把数据目录配置里的
+#   voice.recognizer.mode 写成 "lsm"（再改 url，默认 http://127.0.0.1:8091）。切换不用改代码、不用改别的配置；
+# - 服务自己不带 token、只听 127.0.0.1（和 audio.cpp 一样）：本机上能连到 8091 的进程本来就都能读到数据目录，
+#   再加一层 token 只是把密钥抄进注册表。
+id: ergo-asr
+name: 二狗语音识别（faster-whisper，本机 8091）
+project: ergo
+root: <仓库路径>
+kind: managed
+
+probe:
+  # health 档：真看服务自己说模型加载好没有（"有人在听"不代表识别能用——模型还在加载或加载失败时端口照样通）。
+  # 探活要看得懂 ok: false 不算失败：没加载好时 /health 照样回 200，只有 LSM 连不上、或者回的不是 2xx 才算挂了。
+  tier: health
+  port: 8091
+  health:
+    url: http://127.0.0.1:8091/health
+    timeoutMs: 3000
+  intervalMs: 5000
+
+# 没有 stop 钩子：这个进程没有要收尾的东西（模型在显存里，进程一停就放掉），要停就是强制结束进程树。
+# 和 audiocpp 一个口径：不声明假的停机能力。
+capabilities: [start, health]
+
+hooks:
+  start:
+    # argv 而不是 cmd：不经 shell 包装，不会冒出可见窗口。
+    # 前台常驻（python 一直活着当把手），所以 detaches: false —— 管理器自己 spawn，PID 当场到手，
+    # 输出落到 LSM 的 logs/ergo-asr.out.log。
+    # 别加 -s：Store 版 Python（WindowsApps 下那个）把 faster_whisper 装在**用户目录**的 site-packages 里，
+    # 加了 -s 就不读它，启动时会 import 失败（2026-10-23 登记真实条目时实测）。守护进程自己 spawn 时也没加 -s。
+    # 启动只开端口、不加载模型（加载一次 44–58 秒），所以这里的 readyTimeoutMs 只要等端口；模型由二狗启动时的预热
+    # （POST /v1/warmup）或第一条语音触发加载，加载期间 /health 回 ok: false、loaded: false。
+    argv:
+      - <Python 绝对路径>
+      - <仓库路径>\packages\daemon\src\voice\recognizer.py
+      - --serve
+      - --port
+      - "8091"
+    detaches: false
+    readyTimeoutMs: 180000
+
+env:
+  # 模型只从本机的 Hugging Face 缓存加载：不在缓存里就是"加载失败"（二狗那边的状态里看得见），不去联网下载。
+  # HF_HOME 要指向本机的模型缓存（默认是 <用户主目录>\.cache\huggingface），换过缓存目录的照本机改。
+  - name: HF_HOME
+    from: literal
+    value: <用户主目录>\.cache\huggingface
+  - name: HF_HUB_OFFLINE
+    from: literal
+    value: "1"
+  - name: HF_HUB_DISABLE_TELEMETRY
+    from: literal
+    value: "1"
+  # 日志里有中文：输出按 UTF-8，LSM 的日志页才不乱码（和守护进程自己拉起识别进程时加的那几项一样）
+  - name: PYTHONIOENCODING
+    from: literal
+    value: utf-8
+  - name: PYTHONUTF8
+    from: literal
+    value: "1"
+
+# 显存被别的任务占着导致模型加载失败、进程意外退出时由 LSM 拉起（退避和守护进程那边的一致）
+autoRestart:
+  enabled: true
+  maxRetries: 5
+  backoffMs: [5000, 15000, 60000]
+
+# 永不上公网：这是本机的识别服务，只给 127.0.0.1 上的二狗用；暴露出去只增加攻击面，换不来任何东西
+exposure:
+  never: 本机语音识别服务，只给 127.0.0.1 上的二狗用——暴露出去只增加攻击面
+
+profiles: [ergo]
+
+onboarding:
+  removedScheduledTasks: []     # 新服务，没有旧的自启入口
+  # 登记并当场验证钩子闭环（start → /health 转绿）之后，由登记的人填 verifiedAt 和 verifiedHooks

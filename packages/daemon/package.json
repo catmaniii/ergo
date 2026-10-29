@@ -1,0 +1,45 @@
+{
+  "name": "@ergo/daemon",
+  "version": "0.4.0",
+  "private": true,
+  "type": "module",
+  "description": "二狗守护进程：管家，拉起和管理 agent 子进程，自己不跑模型",
+  "license": "MIT",
+  "author": "ergo contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/catmaniii/ergo.git",
+    "directory": "packages/daemon"
+  },
+  "homepage": "https://github.com/catmaniii/ergo#readme",
+  "bugs": {
+    "url": "https://github.com/catmaniii/ergo/issues"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "scripts": {
+    "test": "vitest run -c vitest.config.ts && vitest run -c vitest.contract.config.ts",
+    "test:unit": "vitest run -c vitest.config.ts",
+    "test:contract": "vitest run -c vitest.contract.config.ts",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@earendil-works/pi-ai": "1.0.4",
+    "@earendil-works/pi-coding-agent": "1.0.4",
+    "@ergo/memory": "0.4.0",
+    "@ergo/protocol": "0.4.0",
+    "@huggingface/transformers": "4.3.1",
+    "koffi": "3.3.2",
+    "playwright-core": "1.61.0",
+    "unbash": "5.0.0",
+    "unpdf": "1.8.1",
+    "ws": "8.22.0"
+  },
+  "optionalDependencies": {
+    "@anthropic-ai/claude-agent-sdk": "0.3.296"
+  },
+  "devDependencies": {
+    "@types/ws": "8.18.2"
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "id": "v1-test-before-push",
+  "name": "v1 模板「push 之前必须跑过测试」：没跑测试就 push → 按规则退回（不是永不，说明里写着先单独跑测试）；测试没通过（没进效果日志）→ 仍退回；跑过测试再 push → 按授权项放行。带类型的推送和 bash 里的 git push 一样",
+  "context": {
+    "agent": { "kind": "maintainer" },
+    "task": {
+      "taskId": "task-1",
+      "currentStageId": "s1",
+      "plan": {
+        "grants": [{ "grantId": "push-origin", "tool": "git_push", "scope": { "remote": "origin" }, "maxUses": 2, "stageId": "s1", "grantedAt": 1791374400000 }]
+      }
+    },
+    "now": "2026-10-07T12:00:00Z"
+  },
+  "facts": { "git": { "${workDir}": { "uncommittedPaths": [], "head": "c1" } } },
+  "calls": [
+    {
+      "tool": "git_push",
+      "args": { "remote": "origin", "branch": "main" },
+      "expect": {
+        "pullBack": ["v1.test-before-push"],
+        "verdict": "block",
+        "disposition": "log_only",
+        "kinds": ["rule:v1.test-before-push"],
+        "explanation": "^退回：.*push 之前必须跑过测试.*先单独跑一次测试"
+      }
+    },
+    {
+      "tool": "bash",
+      "args": { "command": "git push origin main" },
+      "expect": { "pullBack": ["v1.test-before-push"], "kinds": ["rule:v1.test-before-push"], "genericShell": true }
+    },
+    {
+      "tool": "run_tests",
+      "args": {},
+      "commit": false,
+      "expect": { "disposition": "log_only", "rules": [] }
+    },
+    {
+      "tool": "git_push",
+      "args": { "remote": "origin", "branch": "main" },
+      "expect": { "pullBack": ["v1.test-before-push"], "rules": ["v1.test-before-push"] }
+    },
+    {
+      "tool": "bash",
+      "args": { "command": "npm test && git push origin main" },
+      "expect": { "pullBack": ["v1.test-before-push"], "explanation": "先单独跑一次测试" }
+    },
+    {
+      "tool": "bash",
+      "args": { "command": "npm test" },
+      "expect": { "disposition": "log_only", "rules": [] }
+    },
+    {
+      "tool": "git_push",
+      "args": { "remote": "origin", "branch": "main" },
+      "expect": { "disposition": "log_only", "pullBack": null, "verdict": "allow", "withinGrant": true, "rules": [] }
+    },
+    {
+      "tool": "bash",
+      "args": { "command": "git push origin main" },
+      "facts": { "git": { "${workDir}": { "uncommittedPaths": [], "head": "c2" } } },
+      "expect": { "disposition": "log_only", "withinGrant": true, "rules": [] }
+    },
+    {
+      "tool": "bash",
+      "args": { "command": "git -C /e/work/other push origin main" },
+      "expect": { "pullBack": ["v1.test-before-push"], "disposition": "ask_first", "rules": ["v1.test-before-push"], "explanation": "在这个仓库里.*另外：.*越出项目目录" }
+    }
+  ]
+}

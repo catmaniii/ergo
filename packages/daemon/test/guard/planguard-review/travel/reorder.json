@@ -1,0 +1,92 @@
+{
+  "kind": "review",
+  "scenario": "travel",
+  "name": "取消和预约接机排在改签之前：调整到改签之后",
+  "plan": {
+    "goal": "改签到 HU7802，接机和酒店一起调",
+    "steps": [
+      {
+        "id": "s1",
+        "title": "查看当前行程",
+        "tool": "trip_list",
+        "args": {}
+      },
+      {
+        "id": "s2",
+        "title": "查询晚上的航班",
+        "tool": "flight_search",
+        "args": {
+          "date": "2026-09-19",
+          "after": "18:00"
+        }
+      },
+      {
+        "id": "s3",
+        "title": "取消原来的接机",
+        "tool": "ride_cancel",
+        "args": {
+          "id": "bk_ride"
+        }
+      },
+      {
+        "id": "s4",
+        "title": "预约首都机场接机",
+        "tool": "ride_book",
+        "args": {
+          "time": "00:00+1",
+          "from": "北京首都",
+          "to": "国贸雅辰酒店"
+        }
+      },
+      {
+        "id": "s5",
+        "title": "改签到 HU7802",
+        "tool": "flight_change",
+        "args": {
+          "flightNo": "HU7802",
+          "expectedFee": 260
+        }
+      },
+      {
+        "id": "s6",
+        "title": "调整酒店入住",
+        "tool": "hotel_modify",
+        "args": {
+          "checkIn": "2026-09-19",
+          "checkOut": "2026-09-21"
+        }
+      }
+    ]
+  },
+  "goals": [
+    {
+      "id": "G_budget",
+      "title": "本次改动花费不超过 1000 元",
+      "expr": {
+        "le": [
+          {
+            "quantity": "spend"
+          },
+          1000
+        ]
+      },
+      "weight": 2
+    }
+  ],
+  "expect": {
+    "status": "patched",
+    "choice": {
+      "flight": "HU7802"
+    },
+    "violations": [
+      "T2@s3",
+      "T2@s4"
+    ],
+    "deferred": [],
+    "actions": [
+      "move:s3>after:flight_change",
+      "move:s4>after:flight_change"
+    ],
+    "conflict": null
+  }
+}

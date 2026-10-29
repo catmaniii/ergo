@@ -1,0 +1,4408 @@
+[
+  {
+    "kind": "connection",
+    "status": "online"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 1,
+      "type": "project",
+      "payload": {
+        "project": {
+          "id": "p-1",
+          "name": "记账本",
+          "goal": "记账本的目标",
+          "state": "in_use",
+          "origin": "suggestion",
+          "maintainerId": "pm-1",
+          "workdir": {
+            "external": false
+          },
+          "charterConfirmed": true,
+          "createdAt": "2026-10-08T19:25:56.924+08:00",
+          "updatedAt": "2026-10-08T19:25:56.924+08:00",
+          "kind": "dev",
+          "toolkit": {
+            "skills": [],
+            "mcp": [],
+            "bash": false,
+            "network": false
+          }
+        },
+        "change": "created",
+        "from": null,
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 1,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "记账本出周报",
+          "summary": "记账本出周报",
+          "state": "planning",
+          "origin": "button",
+          "maintainerId": "pm-1",
+          "projects": [
+            "记账本"
+          ],
+          "projectIds": [
+            "p-1"
+          ],
+          "createdAt": "2026-10-08T19:25:56.946+08:00",
+          "updatedAt": "2026-10-08T19:25:56.946+08:00"
+        },
+        "change": "created",
+        "from": null,
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 2,
+      "type": "work_order",
+      "payload": {
+        "workOrder": {
+          "id": "wo-1",
+          "projectId": "p-1",
+          "maintainerId": "pm-1",
+          "source": "user_task",
+          "kind": "plan",
+          "taskId": "t-1",
+          "taskTitle": "记账本出周报",
+          "title": "起草计划：记账本出周报",
+          "instructions": "任务书：任务 t-1「记账本出周报」\n目标：每周出一份周报\n验收标准：\n- 有周报文件\n约束：（无）\n涉及的项目：记账本\n记忆范围提议：（无）（第一阶段只占位）\n全局的关注类别（计划里的 watchCategories 一个都不能少，只能增加或往严里调）：spend_money「花钱」、external_send「以我的名义对外发送或发布」、delete_or_overwrite「删除或覆盖（项目档案和工作目录内）」、irreversible_commit「不可逆的提交」、account_security「账户与安全（凭据、权限、全局装软件）」、outside_project「越出项目目录」、memory_out_of_scope「使用授权范围外的记忆」、unplanned_work_order「计划外工单」、unknown_write「未知的写操作」\n请据此起草计划，用 submit_plan 提交；用户确认之前不要动手做。",
+          "state": "pending",
+          "createdAt": "2026-10-08T19:25:56.953+08:00",
+          "updatedAt": "2026-10-08T19:25:56.953+08:00"
+        },
+        "change": "created",
+        "from": null,
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 3,
+      "type": "work_order",
+      "payload": {
+        "workOrder": {
+          "id": "wo-1",
+          "projectId": "p-1",
+          "maintainerId": "pm-1",
+          "source": "user_task",
+          "kind": "plan",
+          "taskId": "t-1",
+          "taskTitle": "记账本出周报",
+          "title": "起草计划：记账本出周报",
+          "instructions": "任务书：任务 t-1「记账本出周报」\n目标：每周出一份周报\n验收标准：\n- 有周报文件\n约束：（无）\n涉及的项目：记账本\n记忆范围提议：（无）（第一阶段只占位）\n全局的关注类别（计划里的 watchCategories 一个都不能少，只能增加或往严里调）：spend_money「花钱」、external_send「以我的名义对外发送或发布」、delete_or_overwrite「删除或覆盖（项目档案和工作目录内）」、irreversible_commit「不可逆的提交」、account_security「账户与安全（凭据、权限、全局装软件）」、outside_project「越出项目目录」、memory_out_of_scope「使用授权范围外的记忆」、unplanned_work_order「计划外工单」、unknown_write「未知的写操作」\n请据此起草计划，用 submit_plan 提交；用户确认之前不要动手做。",
+          "state": "in_progress",
+          "createdAt": "2026-10-08T19:25:56.953+08:00",
+          "updatedAt": "2026-10-08T19:25:56.953+08:00",
+          "startedAt": "2026-10-08T19:25:56.953+08:00"
+        },
+        "change": "started",
+        "from": "pending",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 1,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-1-s1",
+          "maintainerId": "pm-1",
+          "projectId": "p-1",
+          "kind": "work_order",
+          "workOrderId": "wo-1",
+          "taskId": "t-1",
+          "session": "pm-1-s1",
+          "reset": false,
+          "state": "open",
+          "progressHash": "0fa9fe1b2edd14a37c29607907c961e8722823fb52800fb492cb32a6dc01c6af",
+          "openedAt": "2026-10-08T19:25:56.953+08:00"
+        },
+        "change": "opened"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 2,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "work_order_divider",
+              "workOrderId": "wo-1",
+              "title": "起草计划：记账本出周报",
+              "from": "你"
+            }
+          ],
+          "id": "m-6c148911-939c-479b-a01d-6574a1e25a48",
+          "time": "2026-10-08T19:25:56.953+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 3,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "开始工单 wo-1「起草计划：记账本出周报」（来自你）：工单的内容在固定上下文里的“这次的工单”。起草计划这一段，工作目录和项目档案只读；起草好计划用 submit_plan 提交，进展用 write_progress 写回，再用 write_segment_summary 写这一段的摘要。"
+            }
+          ],
+          "id": "m-69345cbc-1393-4960-bf18-3dd9d09e56de",
+          "time": "2026-10-08T19:25:56.953+08:00"
+        },
+        "agentInput": true,
+        "taskId": "t-1",
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 2,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-2",
+          "title": "记账本出月报",
+          "summary": "记账本出月报",
+          "state": "planning",
+          "origin": "button",
+          "maintainerId": "pm-1",
+          "projects": [
+            "记账本"
+          ],
+          "projectIds": [
+            "p-1"
+          ],
+          "createdAt": "2026-10-08T19:25:56.974+08:00",
+          "updatedAt": "2026-10-08T19:25:56.974+08:00"
+        },
+        "change": "created",
+        "from": null,
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 4,
+      "type": "work_order",
+      "payload": {
+        "workOrder": {
+          "id": "wo-2",
+          "projectId": "p-1",
+          "maintainerId": "pm-1",
+          "source": "user_task",
+          "kind": "plan",
+          "taskId": "t-2",
+          "taskTitle": "记账本出月报",
+          "title": "起草计划：记账本出月报",
+          "instructions": "任务书：任务 t-2「记账本出月报」\n目标：每周出一份周报\n验收标准：\n- 有周报文件\n约束：（无）\n涉及的项目：记账本\n记忆范围提议：（无）（第一阶段只占位）\n全局的关注类别（计划里的 watchCategories 一个都不能少，只能增加或往严里调）：spend_money「花钱」、external_send「以我的名义对外发送或发布」、delete_or_overwrite「删除或覆盖（项目档案和工作目录内）」、irreversible_commit「不可逆的提交」、account_security「账户与安全（凭据、权限、全局装软件）」、outside_project「越出项目目录」、memory_out_of_scope「使用授权范围外的记忆」、unplanned_work_order「计划外工单」、unknown_write「未知的写操作」\n请据此起草计划，用 submit_plan 提交；用户确认之前不要动手做。",
+          "state": "pending",
+          "createdAt": "2026-10-08T19:25:56.978+08:00",
+          "updatedAt": "2026-10-08T19:25:56.978+08:00"
+        },
+        "change": "created",
+        "from": null,
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 4,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-69345cbc-1393-4960-bf18-3dd9d09e56de"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 3,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 0,
+          "cacheMiss": 8804,
+          "output": 190
+        },
+        "calls": 1,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 8804,
+              "output": 190
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-08T19:25:58.398+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 1,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-36e2e396-9a41-42b9-b157-b60f46d37345",
+          "type": "plan",
+          "typeVersion": 3,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "taskId": "t-1",
+            "taskTitle": "记账本出周报",
+            "revision": 1,
+            "planId": "t-1-p1",
+            "goal": "每周出一份周报",
+            "plan": {
+              "stages": [
+                {
+                  "stageId": "s1",
+                  "title": "写出来",
+                  "deliverables": [
+                    "weekly.md"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "weekly.md 存在",
+                      "method": "script",
+                      "script": "test -f weekly.md"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [],
+                  "policy": {
+                    "grants": [],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 100000,
+                    "toolCalls": 30
+                  }
+                }
+              ],
+              "stageGroups": [],
+              "toolkit": {
+                "skills": [],
+                "mcp": [],
+                "bash": false,
+                "network": false
+              },
+              "projects": [],
+              "memoryScope": "（第一阶段不授予）",
+              "watchCategories": [
+                {
+                  "id": "spend_money",
+                  "title": "花钱"
+                },
+                {
+                  "id": "external_send",
+                  "title": "以我的名义对外发送或发布"
+                },
+                {
+                  "id": "delete_or_overwrite",
+                  "title": "删除或覆盖（项目档案和工作目录内）"
+                },
+                {
+                  "id": "irreversible_commit",
+                  "title": "不可逆的提交"
+                },
+                {
+                  "id": "account_security",
+                  "title": "账户与安全（凭据、权限、全局装软件）"
+                },
+                {
+                  "id": "outside_project",
+                  "title": "越出项目目录"
+                },
+                {
+                  "id": "memory_out_of_scope",
+                  "title": "使用授权范围外的记忆"
+                },
+                {
+                  "id": "unplanned_work_order",
+                  "title": "计划外工单"
+                },
+                {
+                  "id": "unknown_write",
+                  "title": "未知的写操作"
+                }
+              ],
+              "scheduledJobs": [],
+              "assumptions": [
+                "只用公开资料"
+              ],
+              "stops": {
+                "count": 0,
+                "where": []
+              },
+              "tokenEstimate": 320000
+            },
+            "globalCategories": [
+              "spend_money",
+              "external_send",
+              "delete_or_overwrite",
+              "irreversible_commit",
+              "account_security",
+              "outside_project",
+              "memory_out_of_scope",
+              "unplanned_work_order",
+              "unknown_write"
+            ],
+            "grantInfo": {},
+            "verifiedQuotes": []
+          },
+          "text": "计划：记账本出周报（第 1 版，1 个阶段，约 320000 token）",
+          "urgency": "blocking",
+          "createdAt": "2026-10-08T19:25:58.410+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 4,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "记账本出周报",
+          "summary": "记账本出周报",
+          "state": "awaiting_confirm",
+          "origin": "button",
+          "maintainerId": "pm-1",
+          "projects": [
+            "记账本"
+          ],
+          "projectIds": [
+            "p-1"
+          ],
+          "createdAt": "2026-10-08T19:25:56.946+08:00",
+          "updatedAt": "2026-10-08T19:25:58.410+08:00",
+          "planCardId": "c-36e2e396-9a41-42b9-b157-b60f46d37345",
+          "stages": {
+            "total": 1
+          }
+        },
+        "change": "plan_submitted",
+        "from": "planning",
+        "by": "maintainer"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 1,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-51e0a3f3-a97e-4406-8428-00e7d5e274ea",
+          "version": 1,
+          "title": "计划等你确认：记账本出周报",
+          "source": "任务「记账本出周报」",
+          "urgency": "blocking",
+          "pinned": false,
+          "createdAt": "2026-10-08T19:25:58.411+08:00",
+          "read": false,
+          "archived": false,
+          "deleted": false,
+          "kind": "card",
+          "cardId": "c-36e2e396-9a41-42b9-b157-b60f46d37345"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 5,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-1-s1",
+          "maintainerId": "pm-1",
+          "projectId": "p-1",
+          "kind": "work_order",
+          "workOrderId": "wo-1",
+          "taskId": "t-1",
+          "session": "pm-1-s1",
+          "reset": false,
+          "state": "closing",
+          "progressHash": "0fa9fe1b2edd14a37c29607907c961e8722823fb52800fb492cb32a6dc01c6af",
+          "openedAt": "2026-10-08T19:25:56.953+08:00",
+          "outcome": "done"
+        },
+        "change": "closing"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 1,
+      "type": "notify",
+      "payload": {
+        "id": "n-i-51e0a3f3-a97e-4406-8428-00e7d5e274ea",
+        "title": "计划等你确认：记账本出周报",
+        "itemId": "i-51e0a3f3-a97e-4406-8428-00e7d5e274ea"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 6,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "card_ref",
+              "cardId": "c-36e2e396-9a41-42b9-b157-b60f46d37345"
+            }
+          ],
+          "id": "m-925da37e-3fb6-4b48-b512-199477a03023",
+          "time": "2026-10-08T19:25:58.412+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 7,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791458758367:qgvn8wb70k",
+              "tool": "submit_plan",
+              "argsSummary": "stages=[{\"stageId\":\"s1\",\"title\":\"写出来\",\"deliverables\":[\"weekly.md\"],\"acceptance\":[{\"criterion\":\"weekly.md 存在\",\"method\":\"script\",\"script\":\"test -f weekly.md\"}],\"m…",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "计划已提交（第 1 版），计划卡放进了用户的待我处理，任务转为待确认。用户确认之前不要动手；用户打回时你会收到意见。"
+            }
+          ],
+          "id": "m-726d3169-3f0a-4ede-80d8-c28efdd2841e",
+          "time": "2026-10-08T19:25:58.414+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 5,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 4402,
+          "cacheMiss": 9231,
+          "output": 200
+        },
+        "calls": 2,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 4402,
+              "cacheMiss": 9231,
+              "output": 200
+            },
+            "calls": 2
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-08T19:25:58.419+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 8,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791458758367:m6hgk9mu9p9",
+              "tool": "write_progress",
+              "argsSummary": "content=周报：计划交了。",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "进展 progress.md 已写回（旧版本留进了历史区）。"
+            }
+          ],
+          "id": "m-411c43f4-f781-4cd0-a6a5-e2183942694d",
+          "time": "2026-10-08T19:25:58.432+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 6,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 9017,
+          "cacheMiss": 9285,
+          "output": 211
+        },
+        "calls": 3,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 9017,
+              "cacheMiss": 9285,
+              "output": 211
+            },
+            "calls": 3
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-08T19:25:58.434+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 9,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-1-s1",
+          "maintainerId": "pm-1",
+          "projectId": "p-1",
+          "kind": "work_order",
+          "workOrderId": "wo-1",
+          "taskId": "t-1",
+          "session": "pm-1-s1",
+          "reset": false,
+          "state": "closing",
+          "progressHash": "0fa9fe1b2edd14a37c29607907c961e8722823fb52800fb492cb32a6dc01c6af",
+          "openedAt": "2026-10-08T19:25:56.953+08:00",
+          "outcome": "done",
+          "summary": "起草了周报的计划"
+        },
+        "change": "summary"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 10,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791458758367:7p7u19es7xl",
+              "tool": "write_segment_summary",
+              "argsSummary": "summary=起草了周报的计划",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "已记下这一段（pm-1-s1）的摘要。进展 progress.md 也要写回，这一段才算完成。"
+            }
+          ],
+          "id": "m-80b95253-fee2-442f-8cb5-a292ffe32dd6",
+          "time": "2026-10-08T19:25:58.437+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 10,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-e8e944f7-ce7e-47e5-8991-b2d06dc4c1bb",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "周报的计划交了"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 11,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-e8e944f7-ce7e-47e5-8991-b2d06dc4c1bb",
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "周报的计划交了"
+            }
+          ],
+          "time": "2026-10-08T19:25:58.439+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 7,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 13659,
+          "cacheMiss": 9355,
+          "output": 213
+        },
+        "calls": 4,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 13659,
+              "cacheMiss": 9355,
+              "output": 213
+            },
+            "calls": 4
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-08T19:25:58.440+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 12,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-69345cbc-1393-4960-bf18-3dd9d09e56de",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 8,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 13659,
+          "cacheMiss": 9866,
+          "output": 217
+        },
+        "calls": 5,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 13659,
+              "cacheMiss": 9355,
+              "output": 213
+            },
+            "calls": 4
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 511,
+              "output": 4
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-08T19:25:58.444+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 13,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-1-s1",
+          "maintainerId": "pm-1",
+          "projectId": "p-1",
+          "kind": "work_order",
+          "workOrderId": "wo-1",
+          "taskId": "t-1",
+          "session": "pm-1-s1",
+          "reset": false,
+          "state": "closed",
+          "progressHash": "0fa9fe1b2edd14a37c29607907c961e8722823fb52800fb492cb32a6dc01c6af",
+          "openedAt": "2026-10-08T19:25:56.953+08:00",
+          "outcome": "done",
+          "summary": "起草了周报的计划",
+          "closedAt": "2026-10-08T19:25:58.446+08:00"
+        },
+        "change": "closed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 5,
+      "type": "work_order",
+      "payload": {
+        "workOrder": {
+          "id": "wo-1",
+          "projectId": "p-1",
+          "maintainerId": "pm-1",
+          "source": "user_task",
+          "kind": "plan",
+          "taskId": "t-1",
+          "taskTitle": "记账本出周报",
+          "title": "起草计划：记账本出周报",
+          "instructions": "任务书：任务 t-1「记账本出周报」\n目标：每周出一份周报\n验收标准：\n- 有周报文件\n约束：（无）\n涉及的项目：记账本\n记忆范围提议：（无）（第一阶段只占位）\n全局的关注类别（计划里的 watchCategories 一个都不能少，只能增加或往严里调）：spend_money「花钱」、external_send「以我的名义对外发送或发布」、delete_or_overwrite「删除或覆盖（项目档案和工作目录内）」、irreversible_commit「不可逆的提交」、account_security「账户与安全（凭据、权限、全局装软件）」、outside_project「越出项目目录」、memory_out_of_scope「使用授权范围外的记忆」、unplanned_work_order「计划外工单」、unknown_write「未知的写操作」\n请据此起草计划，用 submit_plan 提交；用户确认之前不要动手做。",
+          "state": "ended",
+          "createdAt": "2026-10-08T19:25:56.953+08:00",
+          "updatedAt": "2026-10-08T19:25:58.446+08:00",
+          "startedAt": "2026-10-08T19:25:56.953+08:00",
+          "outcome": "done",
+          "endedAt": "2026-10-08T19:25:58.446+08:00"
+        },
+        "change": "ended",
+        "from": "in_progress",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 6,
+      "type": "work_order",
+      "payload": {
+        "workOrder": {
+          "id": "wo-2",
+          "projectId": "p-1",
+          "maintainerId": "pm-1",
+          "source": "user_task",
+          "kind": "plan",
+          "taskId": "t-2",
+          "taskTitle": "记账本出月报",
+          "title": "起草计划：记账本出月报",
+          "instructions": "任务书：任务 t-2「记账本出月报」\n目标：每周出一份周报\n验收标准：\n- 有周报文件\n约束：（无）\n涉及的项目：记账本\n记忆范围提议：（无）（第一阶段只占位）\n全局的关注类别（计划里的 watchCategories 一个都不能少，只能增加或往严里调）：spend_money「花钱」、external_send「以我的名义对外发送或发布」、delete_or_overwrite「删除或覆盖（项目档案和工作目录内）」、irreversible_commit「不可逆的提交」、account_security「账户与安全（凭据、权限、全局装软件）」、outside_project「越出项目目录」、memory_out_of_scope「使用授权范围外的记忆」、unplanned_work_order「计划外工单」、unknown_write「未知的写操作」\n请据此起草计划，用 submit_plan 提交；用户确认之前不要动手做。",
+          "state": "in_progress",
+          "createdAt": "2026-10-08T19:25:56.978+08:00",
+          "updatedAt": "2026-10-08T19:25:58.446+08:00",
+          "startedAt": "2026-10-08T19:25:58.446+08:00"
+        },
+        "change": "started",
+        "from": "pending",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 14,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-1-s2",
+          "maintainerId": "pm-1",
+          "projectId": "p-1",
+          "kind": "work_order",
+          "workOrderId": "wo-2",
+          "taskId": "t-2",
+          "session": "pm-1-s2",
+          "reset": false,
+          "state": "open",
+          "progressHash": "2affd291a68427d9712b3bbc5fcea4e0d547d02e098c8b267f7404807ad945bb",
+          "openedAt": "2026-10-08T19:25:58.447+08:00"
+        },
+        "change": "opened"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 15,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "work_order_divider",
+              "workOrderId": "wo-2",
+              "title": "起草计划：记账本出月报",
+              "from": "你"
+            }
+          ],
+          "id": "m-bd22c89e-e9e3-4204-915a-ab3a259e5972",
+          "time": "2026-10-08T19:25:58.447+08:00"
+        },
+        "taskId": "t-2",
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 16,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "开始工单 wo-2「起草计划：记账本出月报」（来自你）：工单的内容在固定上下文里的“这次的工单”。起草计划这一段，工作目录和项目档案只读；起草好计划用 submit_plan 提交，进展用 write_progress 写回，再用 write_segment_summary 写这一段的摘要。"
+            }
+          ],
+          "id": "m-f2f9f0e7-408f-427c-8cc4-f049ed98c51f",
+          "time": "2026-10-08T19:25:58.447+08:00"
+        },
+        "agentInput": true,
+        "taskId": "t-2",
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 17,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-f2f9f0e7-408f-427c-8cc4-f049ed98c51f"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 9,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-2"
+        },
+        "tokens": {
+          "cacheHit": 0,
+          "cacheMiss": 8790,
+          "output": 191
+        },
+        "calls": 1,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 8790,
+              "output": 191
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-08T19:26:00.157+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 2,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-ff835395-3560-4953-9de6-45de35929838",
+          "type": "plan",
+          "typeVersion": 3,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "taskId": "t-2",
+            "taskTitle": "记账本出月报",
+            "revision": 1,
+            "planId": "t-2-p1",
+            "goal": "每周出一份周报",
+            "plan": {
+              "stages": [
+                {
+                  "stageId": "s1",
+                  "title": "写出来",
+                  "deliverables": [
+                    "monthly.md"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "monthly.md 存在",
+                      "method": "script",
+                      "script": "test -f monthly.md"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [],
+                  "policy": {
+                    "grants": [],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 100000,
+                    "toolCalls": 30
+                  }
+                }
+              ],
+              "stageGroups": [],
+              "toolkit": {
+                "skills": [],
+                "mcp": [],
+                "bash": false,
+                "network": false
+              },
+              "projects": [],
+              "memoryScope": "（第一阶段不授予）",
+              "watchCategories": [
+                {
+                  "id": "spend_money",
+                  "title": "花钱"
+                },
+                {
+                  "id": "external_send",
+                  "title": "以我的名义对外发送或发布"
+                },
+                {
+                  "id": "delete_or_overwrite",
+                  "title": "删除或覆盖（项目档案和工作目录内）"
+                },
+                {
+                  "id": "irreversible_commit",
+                  "title": "不可逆的提交"
+                },
+                {
+                  "id": "account_security",
+                  "title": "账户与安全（凭据、权限、全局装软件）"
+                },
+                {
+                  "id": "outside_project",
+                  "title": "越出项目目录"
+                },
+                {
+                  "id": "memory_out_of_scope",
+                  "title": "使用授权范围外的记忆"
+                },
+                {
+                  "id": "unplanned_work_order",
+                  "title": "计划外工单"
+                },
+                {
+                  "id": "unknown_write",
+                  "title": "未知的写操作"
+                }
+              ],
+              "scheduledJobs": [],
+              "assumptions": [
+                "只用公开资料"
+              ],
+              "stops": {
+                "count": 0,
+                "where": []
+              },
+              "tokenEstimate": 320000
+            },
+            "globalCategories": [
+              "spend_money",
+              "external_send",
+              "delete_or_overwrite",
+              "irreversible_commit",
+              "account_security",
+              "outside_project",
+              "memory_out_of_scope",
+              "unplanned_work_order",
+              "unknown_write"
+            ],
+            "grantInfo": {},
+            "verifiedQuotes": []
+          },
+          "text": "计划：记账本出月报（第 1 版，1 个阶段，约 320000 token）",
+          "urgency": "blocking",
+          "createdAt": "2026-10-08T19:26:00.165+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 10,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-2",
+          "title": "记账本出月报",
+          "summary": "记账本出月报",
+          "state": "awaiting_confirm",
+          "origin": "button",
+          "maintainerId": "pm-1",
+          "projects": [
+            "记账本"
+          ],
+          "projectIds": [
+            "p-1"
+          ],
+          "createdAt": "2026-10-08T19:25:56.974+08:00",
+          "updatedAt": "2026-10-08T19:26:00.165+08:00",
+          "planCardId": "c-ff835395-3560-4953-9de6-45de35929838",
+          "stages": {
+            "total": 1
+          }
+        },
+        "change": "plan_submitted",
+        "from": "planning",
+        "by": "maintainer"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 2,
+      "type": "inbox_item",
+      "payload": {
+        "item": {
+          "id": "i-de13d455-30c8-474c-868c-7e02839ba19d",
+          "version": 1,
+          "title": "计划等你确认：记账本出月报",
+          "source": "任务「记账本出月报」",
+          "urgency": "blocking",
+          "pinned": false,
+          "createdAt": "2026-10-08T19:26:00.165+08:00",
+          "read": false,
+          "archived": false,
+          "deleted": false,
+          "kind": "card",
+          "cardId": "c-ff835395-3560-4953-9de6-45de35929838"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 18,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-1-s2",
+          "maintainerId": "pm-1",
+          "projectId": "p-1",
+          "kind": "work_order",
+          "workOrderId": "wo-2",
+          "taskId": "t-2",
+          "session": "pm-1-s2",
+          "reset": false,
+          "state": "closing",
+          "progressHash": "2affd291a68427d9712b3bbc5fcea4e0d547d02e098c8b267f7404807ad945bb",
+          "openedAt": "2026-10-08T19:25:58.447+08:00",
+          "outcome": "done"
+        },
+        "change": "closing"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "inbox",
+      "seq": 2,
+      "type": "notify",
+      "payload": {
+        "id": "n-i-de13d455-30c8-474c-868c-7e02839ba19d",
+        "title": "计划等你确认：记账本出月报",
+        "itemId": "i-de13d455-30c8-474c-868c-7e02839ba19d"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 19,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "card_ref",
+              "cardId": "c-ff835395-3560-4953-9de6-45de35929838"
+            }
+          ],
+          "id": "m-e743710c-1afd-4360-94d7-744f29840f38",
+          "time": "2026-10-08T19:26:00.166+08:00"
+        },
+        "taskId": "t-2",
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 20,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791458760124:yak0c5wenws",
+              "tool": "submit_plan",
+              "argsSummary": "stages=[{\"stageId\":\"s1\",\"title\":\"写出来\",\"deliverables\":[\"monthly.md\"],\"acceptance\":[{\"criterion\":\"monthly.md 存在\",\"method\":\"script\",\"script\":\"test -f monthly.md\"}]…",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "计划已提交（第 1 版），计划卡放进了用户的待我处理，任务转为待确认。用户确认之前不要动手；用户打回时你会收到意见。"
+            }
+          ],
+          "id": "m-f71f9541-b99f-41c4-893b-98e95dc7637a",
+          "time": "2026-10-08T19:26:00.167+08:00"
+        },
+        "taskId": "t-2",
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 11,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-2"
+        },
+        "tokens": {
+          "cacheHit": 4395,
+          "cacheMiss": 9220,
+          "output": 202
+        },
+        "calls": 2,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 4395,
+              "cacheMiss": 9220,
+              "output": 202
+            },
+            "calls": 2
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-08T19:26:00.171+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 21,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791458760124:x5b0x6sb7j",
+              "tool": "write_progress",
+              "argsSummary": "content=周报、月报：计划都交了。",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "进展 progress.md 已写回（旧版本留进了历史区）。"
+            }
+          ],
+          "id": "m-6aa81eb4-212f-4cfe-a478-71e37ffaa249",
+          "time": "2026-10-08T19:26:00.181+08:00"
+        },
+        "taskId": "t-2",
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 12,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-2"
+        },
+        "tokens": {
+          "cacheHit": 9005,
+          "cacheMiss": 9276,
+          "output": 213
+        },
+        "calls": 3,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 9005,
+              "cacheMiss": 9276,
+              "output": 213
+            },
+            "calls": 3
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-08T19:26:00.183+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 22,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-1-s2",
+          "maintainerId": "pm-1",
+          "projectId": "p-1",
+          "kind": "work_order",
+          "workOrderId": "wo-2",
+          "taskId": "t-2",
+          "session": "pm-1-s2",
+          "reset": false,
+          "state": "closing",
+          "progressHash": "2affd291a68427d9712b3bbc5fcea4e0d547d02e098c8b267f7404807ad945bb",
+          "openedAt": "2026-10-08T19:25:58.447+08:00",
+          "outcome": "done",
+          "summary": "起草了月报的计划"
+        },
+        "change": "summary"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 23,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791458760124:jgduhia0bul",
+              "tool": "write_segment_summary",
+              "argsSummary": "summary=起草了月报的计划",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "已记下这一段（pm-1-s2）的摘要。进展 progress.md 也要写回，这一段才算完成。"
+            }
+          ],
+          "id": "m-4b62660b-9291-49a0-b4f9-7ea8e05ea29d",
+          "time": "2026-10-08T19:26:00.187+08:00"
+        },
+        "taskId": "t-2",
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 23,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-da6466e6-bdd6-42cf-a1a9-ed11658bf12e",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "月报的计划交了"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 24,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-da6466e6-bdd6-42cf-a1a9-ed11658bf12e",
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "月报的计划交了"
+            }
+          ],
+          "time": "2026-10-08T19:26:00.190+08:00"
+        },
+        "taskId": "t-2",
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 13,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-2"
+        },
+        "tokens": {
+          "cacheHit": 13643,
+          "cacheMiss": 9345,
+          "output": 215
+        },
+        "calls": 4,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 13643,
+              "cacheMiss": 9345,
+              "output": 215
+            },
+            "calls": 4
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-08T19:26:00.190+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 25,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-f2f9f0e7-408f-427c-8cc4-f049ed98c51f",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 14,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-2"
+        },
+        "tokens": {
+          "cacheHit": 13643,
+          "cacheMiss": 9858,
+          "output": 219
+        },
+        "calls": 5,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 13643,
+              "cacheMiss": 9345,
+              "output": 215
+            },
+            "calls": 4
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 513,
+              "output": 4
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [],
+        "time": "2026-10-08T19:26:00.196+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 26,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-1-s2",
+          "maintainerId": "pm-1",
+          "projectId": "p-1",
+          "kind": "work_order",
+          "workOrderId": "wo-2",
+          "taskId": "t-2",
+          "session": "pm-1-s2",
+          "reset": false,
+          "state": "closed",
+          "progressHash": "2affd291a68427d9712b3bbc5fcea4e0d547d02e098c8b267f7404807ad945bb",
+          "openedAt": "2026-10-08T19:25:58.447+08:00",
+          "outcome": "done",
+          "summary": "起草了月报的计划",
+          "closedAt": "2026-10-08T19:26:00.197+08:00"
+        },
+        "change": "closed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 7,
+      "type": "work_order",
+      "payload": {
+        "workOrder": {
+          "id": "wo-2",
+          "projectId": "p-1",
+          "maintainerId": "pm-1",
+          "source": "user_task",
+          "kind": "plan",
+          "taskId": "t-2",
+          "taskTitle": "记账本出月报",
+          "title": "起草计划：记账本出月报",
+          "instructions": "任务书：任务 t-2「记账本出月报」\n目标：每周出一份周报\n验收标准：\n- 有周报文件\n约束：（无）\n涉及的项目：记账本\n记忆范围提议：（无）（第一阶段只占位）\n全局的关注类别（计划里的 watchCategories 一个都不能少，只能增加或往严里调）：spend_money「花钱」、external_send「以我的名义对外发送或发布」、delete_or_overwrite「删除或覆盖（项目档案和工作目录内）」、irreversible_commit「不可逆的提交」、account_security「账户与安全（凭据、权限、全局装软件）」、outside_project「越出项目目录」、memory_out_of_scope「使用授权范围外的记忆」、unplanned_work_order「计划外工单」、unknown_write「未知的写操作」\n请据此起草计划，用 submit_plan 提交；用户确认之前不要动手做。",
+          "state": "ended",
+          "createdAt": "2026-10-08T19:25:56.978+08:00",
+          "updatedAt": "2026-10-08T19:26:00.197+08:00",
+          "startedAt": "2026-10-08T19:25:58.446+08:00",
+          "outcome": "done",
+          "endedAt": "2026-10-08T19:26:00.197+08:00"
+        },
+        "change": "ended",
+        "from": "in_progress",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "card_action",
+    "cardId": "c-36e2e396-9a41-42b9-b157-b60f46d37345",
+    "action": "confirm",
+    "idempotencyKey": "dd7d9b17-cccf-4174-bbf8-16ba44d6d63f"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 15,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "记账本出周报",
+          "summary": "记账本出周报",
+          "state": "queued",
+          "origin": "button",
+          "maintainerId": "pm-1",
+          "projects": [
+            "记账本"
+          ],
+          "projectIds": [
+            "p-1"
+          ],
+          "createdAt": "2026-10-08T19:25:56.946+08:00",
+          "updatedAt": "2026-10-08T19:26:00.227+08:00",
+          "planCardId": "c-36e2e396-9a41-42b9-b157-b60f46d37345",
+          "stages": {
+            "total": 1
+          }
+        },
+        "change": "plan_confirmed",
+        "from": "awaiting_confirm",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 3,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-36e2e396-9a41-42b9-b157-b60f46d37345",
+          "type": "plan",
+          "typeVersion": 3,
+          "version": 2,
+          "status": "handled",
+          "payload": {
+            "taskId": "t-1",
+            "taskTitle": "记账本出周报",
+            "revision": 1,
+            "planId": "t-1-p1",
+            "goal": "每周出一份周报",
+            "plan": {
+              "stages": [
+                {
+                  "stageId": "s1",
+                  "title": "写出来",
+                  "deliverables": [
+                    "weekly.md"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "weekly.md 存在",
+                      "method": "script",
+                      "script": "test -f weekly.md"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [],
+                  "policy": {
+                    "grants": [],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 100000,
+                    "toolCalls": 30
+                  }
+                }
+              ],
+              "stageGroups": [],
+              "toolkit": {
+                "skills": [],
+                "mcp": [],
+                "bash": false,
+                "network": false
+              },
+              "projects": [],
+              "memoryScope": "（第一阶段不授予）",
+              "watchCategories": [
+                {
+                  "id": "spend_money",
+                  "title": "花钱"
+                },
+                {
+                  "id": "external_send",
+                  "title": "以我的名义对外发送或发布"
+                },
+                {
+                  "id": "delete_or_overwrite",
+                  "title": "删除或覆盖（项目档案和工作目录内）"
+                },
+                {
+                  "id": "irreversible_commit",
+                  "title": "不可逆的提交"
+                },
+                {
+                  "id": "account_security",
+                  "title": "账户与安全（凭据、权限、全局装软件）"
+                },
+                {
+                  "id": "outside_project",
+                  "title": "越出项目目录"
+                },
+                {
+                  "id": "memory_out_of_scope",
+                  "title": "使用授权范围外的记忆"
+                },
+                {
+                  "id": "unplanned_work_order",
+                  "title": "计划外工单"
+                },
+                {
+                  "id": "unknown_write",
+                  "title": "未知的写操作"
+                }
+              ],
+              "scheduledJobs": [],
+              "assumptions": [
+                "只用公开资料"
+              ],
+              "stops": {
+                "count": 0,
+                "where": []
+              },
+              "tokenEstimate": 320000
+            },
+            "globalCategories": [
+              "spend_money",
+              "external_send",
+              "delete_or_overwrite",
+              "irreversible_commit",
+              "account_security",
+              "outside_project",
+              "memory_out_of_scope",
+              "unplanned_work_order",
+              "unknown_write"
+            ],
+            "grantInfo": {},
+            "verifiedQuotes": [],
+            "removedGrants": [],
+            "narrowedGrants": []
+          },
+          "text": "计划：记账本出周报（第 1 版，1 个阶段，约 320000 token）",
+          "urgency": "blocking",
+          "createdAt": "2026-10-08T19:25:58.410+08:00",
+          "handledAt": "2026-10-08T19:26:00.228+08:00",
+          "outcome": {
+            "action": "confirm"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 8,
+      "type": "work_order",
+      "payload": {
+        "workOrder": {
+          "id": "wo-3",
+          "projectId": "p-1",
+          "maintainerId": "pm-1",
+          "source": "user_task",
+          "kind": "execute",
+          "taskId": "t-1",
+          "taskTitle": "记账本出周报",
+          "title": "执行：记账本出周报",
+          "instructions": "执行任务 t-1「记账本出周报」：计划已经确认。计划摘要、当前阶段、授权和边界见【运行时注入】那一段，以它为准。",
+          "state": "pending",
+          "createdAt": "2026-10-08T19:26:00.230+08:00",
+          "updatedAt": "2026-10-08T19:26:00.230+08:00"
+        },
+        "change": "created",
+        "from": null,
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 9,
+      "type": "work_order",
+      "payload": {
+        "workOrder": {
+          "id": "wo-3",
+          "projectId": "p-1",
+          "maintainerId": "pm-1",
+          "source": "user_task",
+          "kind": "execute",
+          "taskId": "t-1",
+          "taskTitle": "记账本出周报",
+          "title": "执行：记账本出周报",
+          "instructions": "执行任务 t-1「记账本出周报」：计划已经确认。计划摘要、当前阶段、授权和边界见【运行时注入】那一段，以它为准。",
+          "state": "in_progress",
+          "createdAt": "2026-10-08T19:26:00.230+08:00",
+          "updatedAt": "2026-10-08T19:26:00.232+08:00",
+          "startedAt": "2026-10-08T19:26:00.232+08:00"
+        },
+        "change": "started",
+        "from": "pending",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 27,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-1-s3",
+          "maintainerId": "pm-1",
+          "projectId": "p-1",
+          "kind": "work_order",
+          "workOrderId": "wo-3",
+          "taskId": "t-1",
+          "session": "pm-1-s3",
+          "reset": false,
+          "state": "open",
+          "progressHash": "64166578c61cc26c21babc97a0a61ed387c5182e62477135d76001b98548dc30",
+          "openedAt": "2026-10-08T19:26:00.232+08:00"
+        },
+        "change": "opened"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 28,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "work_order_divider",
+              "workOrderId": "wo-3",
+              "title": "执行：记账本出周报",
+              "from": "你"
+            }
+          ],
+          "id": "m-ad8dc5c1-8086-47e1-9cbd-2992f2293624",
+          "time": "2026-10-08T19:26:00.232+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 16,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "记账本出周报",
+          "summary": "记账本出周报",
+          "state": "running",
+          "origin": "button",
+          "maintainerId": "pm-1",
+          "projects": [
+            "记账本"
+          ],
+          "projectIds": [
+            "p-1"
+          ],
+          "createdAt": "2026-10-08T19:25:56.946+08:00",
+          "updatedAt": "2026-10-08T19:26:00.233+08:00",
+          "planCardId": "c-36e2e396-9a41-42b9-b157-b60f46d37345",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "写出来",
+                "state": "pending",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "weekly.md 存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0
+              }
+            ]
+          }
+        },
+        "change": "started",
+        "from": "queued",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 17,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "记账本出周报",
+          "summary": "记账本出周报",
+          "state": "running",
+          "origin": "button",
+          "maintainerId": "pm-1",
+          "projects": [
+            "记账本"
+          ],
+          "projectIds": [
+            "p-1"
+          ],
+          "createdAt": "2026-10-08T19:25:56.946+08:00",
+          "updatedAt": "2026-10-08T19:26:00.233+08:00",
+          "planCardId": "c-36e2e396-9a41-42b9-b157-b60f46d37345",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "写出来",
+                "state": "running",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "weekly.md 存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0,
+                "startedAt": "2026-10-08T19:26:00.233+08:00"
+              }
+            ],
+            "focus": "s1"
+          }
+        },
+        "change": "stage_started",
+        "from": "running",
+        "by": "system",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 29,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "计划已确认，开始执行任务 t-1「记账本出周报」。\n现在是第 1/1 阶段 s1「写出来」：\n- 交付件：weekly.md\n- 验收标准：weekly.md 存在（脚本：test -f weekly.md）\n- 模式：开放\n授权（只在当前阶段内有效）：\n- （没有）\n时序规则：\n- （没有）\n边界：\n- 工作目录 <临时目录>\\ergo-data-b8XQfz\\projects\\p-1\\workdir：文件工具只能写这里；工具包：bash 关，联网关\n- 授权项只在所属阶段内有效，用到别的阶段的授权会被拉回；前置阶段没验收的阶段不能开始；“先问我”类的操作列进了授权项，执行时也照样问用户\n- 一个阶段做完调用 complete_stage 宣布完成，由运行时验收（脚本、评审、用户），你自检不算验收；进展用 report_progress 报告；卡住要用户拍板用 wait_for_user；做不下去用 fail_task 写明原因；要换去做另一个能开始的阶段用 start_stage\n做完调用 complete_stage 宣布阶段完成，由运行时验收。"
+            }
+          ],
+          "id": "m-1c36be2d-3fb5-43fe-a730-9ca16b57f28c",
+          "time": "2026-10-08T19:26:00.234+08:00"
+        },
+        "agentInput": true,
+        "taskId": "t-1",
+        "projectId": "p-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 30,
+      "type": "stage_start",
+      "payload": {
+        "id": "ss-fae2ddd8-7b05-4bf8-aa0a-61ea978a4bff",
+        "conversation": "maintainer:pm-1",
+        "taskId": "t-1",
+        "stageId": "s1",
+        "title": "写出来",
+        "code": "1",
+        "via": {
+          "notice": "m-1c36be2d-3fb5-43fe-a730-9ca16b57f28c"
+        },
+        "time": "2026-10-08T19:26:00.234+08:00"
+      }
+    }
+  },
+  {
+    "kind": "card_action",
+    "cardId": "c-ff835395-3560-4953-9de6-45de35929838",
+    "action": "confirm",
+    "idempotencyKey": "52d3168d-53b3-48e2-9db5-5cda214fab92"
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 18,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-2",
+          "title": "记账本出月报",
+          "summary": "记账本出月报",
+          "state": "queued",
+          "origin": "button",
+          "maintainerId": "pm-1",
+          "projects": [
+            "记账本"
+          ],
+          "projectIds": [
+            "p-1"
+          ],
+          "createdAt": "2026-10-08T19:25:56.974+08:00",
+          "updatedAt": "2026-10-08T19:26:00.238+08:00",
+          "planCardId": "c-ff835395-3560-4953-9de6-45de35929838",
+          "stages": {
+            "total": 1
+          }
+        },
+        "change": "plan_confirmed",
+        "from": "awaiting_confirm",
+        "by": "user"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 4,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-ff835395-3560-4953-9de6-45de35929838",
+          "type": "plan",
+          "typeVersion": 3,
+          "version": 2,
+          "status": "handled",
+          "payload": {
+            "taskId": "t-2",
+            "taskTitle": "记账本出月报",
+            "revision": 1,
+            "planId": "t-2-p1",
+            "goal": "每周出一份周报",
+            "plan": {
+              "stages": [
+                {
+                  "stageId": "s1",
+                  "title": "写出来",
+                  "deliverables": [
+                    "monthly.md"
+                  ],
+                  "acceptance": [
+                    {
+                      "criterion": "monthly.md 存在",
+                      "method": "script",
+                      "script": "test -f monthly.md"
+                    }
+                  ],
+                  "mode": "open",
+                  "dependsOn": [],
+                  "policy": {
+                    "grants": [],
+                    "temporalRules": []
+                  },
+                  "budget": {
+                    "tokens": 100000,
+                    "toolCalls": 30
+                  }
+                }
+              ],
+              "stageGroups": [],
+              "toolkit": {
+                "skills": [],
+                "mcp": [],
+                "bash": false,
+                "network": false
+              },
+              "projects": [],
+              "memoryScope": "（第一阶段不授予）",
+              "watchCategories": [
+                {
+                  "id": "spend_money",
+                  "title": "花钱"
+                },
+                {
+                  "id": "external_send",
+                  "title": "以我的名义对外发送或发布"
+                },
+                {
+                  "id": "delete_or_overwrite",
+                  "title": "删除或覆盖（项目档案和工作目录内）"
+                },
+                {
+                  "id": "irreversible_commit",
+                  "title": "不可逆的提交"
+                },
+                {
+                  "id": "account_security",
+                  "title": "账户与安全（凭据、权限、全局装软件）"
+                },
+                {
+                  "id": "outside_project",
+                  "title": "越出项目目录"
+                },
+                {
+                  "id": "memory_out_of_scope",
+                  "title": "使用授权范围外的记忆"
+                },
+                {
+                  "id": "unplanned_work_order",
+                  "title": "计划外工单"
+                },
+                {
+                  "id": "unknown_write",
+                  "title": "未知的写操作"
+                }
+              ],
+              "scheduledJobs": [],
+              "assumptions": [
+                "只用公开资料"
+              ],
+              "stops": {
+                "count": 0,
+                "where": []
+              },
+              "tokenEstimate": 320000
+            },
+            "globalCategories": [
+              "spend_money",
+              "external_send",
+              "delete_or_overwrite",
+              "irreversible_commit",
+              "account_security",
+              "outside_project",
+              "memory_out_of_scope",
+              "unplanned_work_order",
+              "unknown_write"
+            ],
+            "grantInfo": {},
+            "verifiedQuotes": [],
+            "removedGrants": [],
+            "narrowedGrants": []
+          },
+          "text": "计划：记账本出月报（第 1 版，1 个阶段，约 320000 token）",
+          "urgency": "blocking",
+          "createdAt": "2026-10-08T19:26:00.165+08:00",
+          "handledAt": "2026-10-08T19:26:00.238+08:00",
+          "outcome": {
+            "action": "confirm"
+          }
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 10,
+      "type": "work_order",
+      "payload": {
+        "workOrder": {
+          "id": "wo-4",
+          "projectId": "p-1",
+          "maintainerId": "pm-1",
+          "source": "user_task",
+          "kind": "execute",
+          "taskId": "t-2",
+          "taskTitle": "记账本出月报",
+          "title": "执行：记账本出月报",
+          "instructions": "执行任务 t-2「记账本出月报」：计划已经确认。计划摘要、当前阶段、授权和边界见【运行时注入】那一段，以它为准。",
+          "state": "pending",
+          "createdAt": "2026-10-08T19:26:00.240+08:00",
+          "updatedAt": "2026-10-08T19:26:00.240+08:00"
+        },
+        "change": "created",
+        "from": null,
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 31,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-1c36be2d-3fb5-43fe-a730-9ca16b57f28c"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 19,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 13659,
+          "cacheMiss": 15868,
+          "output": 229
+        },
+        "calls": 6,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 13659,
+              "cacheMiss": 15357,
+              "output": 225
+            },
+            "calls": 5
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 511,
+              "output": 4
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 6002,
+              "output": 12
+            },
+            "calls": 1,
+            "budgetTokens": 6014
+          }
+        ],
+        "time": "2026-10-08T19:26:01.899+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 32,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791458761867:lb0781hssql",
+              "tool": "write",
+              "argsSummary": "weekly.md",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "Successfully wrote to weekly.md"
+            }
+          ],
+          "id": "m-2ca4ac8d-2d9c-46bd-83d0-b6b4111da588",
+          "time": "2026-10-08T19:26:01.909+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 20,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 16660,
+          "cacheMiss": 15921,
+          "output": 243
+        },
+        "calls": 7,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 16660,
+              "cacheMiss": 15410,
+              "output": 239
+            },
+            "calls": 6
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 511,
+              "output": 4
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 3001,
+              "cacheMiss": 6055,
+              "output": 26
+            },
+            "calls": 2,
+            "budgetTokens": 9082
+          }
+        ],
+        "time": "2026-10-08T19:26:01.913+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 21,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "记账本出周报",
+          "summary": "记账本出周报",
+          "state": "running",
+          "origin": "button",
+          "maintainerId": "pm-1",
+          "projects": [
+            "记账本"
+          ],
+          "projectIds": [
+            "p-1"
+          ],
+          "createdAt": "2026-10-08T19:25:56.946+08:00",
+          "updatedAt": "2026-10-08T19:26:01.916+08:00",
+          "planCardId": "c-36e2e396-9a41-42b9-b157-b60f46d37345",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "写出来",
+                "state": "accepting",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "weekly.md 存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T19:26:00.233+08:00"
+              }
+            ],
+            "focus": "s1"
+          }
+        },
+        "change": "stage_submitted",
+        "from": "running",
+        "by": "maintainer",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 33,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "维护者宣布阶段 s1「写出来」完成（第 1 次）：阶段 s1 做完了"
+            }
+          ],
+          "id": "m-a706067b-f262-4a41-aa60-9b96fa83dae5",
+          "time": "2026-10-08T19:26:01.917+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 22,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "记账本出周报",
+          "summary": "记账本出周报",
+          "state": "running",
+          "origin": "button",
+          "maintainerId": "pm-1",
+          "projects": [
+            "记账本"
+          ],
+          "projectIds": [
+            "p-1"
+          ],
+          "createdAt": "2026-10-08T19:25:56.946+08:00",
+          "updatedAt": "2026-10-08T19:26:02.216+08:00",
+          "planCardId": "c-36e2e396-9a41-42b9-b157-b60f46d37345",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "写出来",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "weekly.md 存在",
+                    "method": "script",
+                    "result": {
+                      "passed": true,
+                      "note": "退出码 0",
+                      "at": "2026-10-08T19:26:02.216+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T19:26:00.233+08:00"
+              }
+            ],
+            "focus": "s1"
+          }
+        },
+        "change": "stage_accepted",
+        "from": "running",
+        "by": "system",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 5,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-6bb138d1-cf61-4dc4-a95a-4ca0898690ae",
+          "type": "progress",
+          "typeVersion": 1,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "taskId": "t-1",
+            "taskTitle": "记账本出周报",
+            "stageId": "s1",
+            "stageTitle": "写出来",
+            "stageIndex": 1,
+            "stageTotal": 1,
+            "kind": "acceptance",
+            "text": "验收通过。",
+            "acceptance": {
+              "passed": true,
+              "judgedBy": "script",
+              "results": [
+                {
+                  "criterion": "weekly.md 存在",
+                  "method": "script",
+                  "passed": true,
+                  "note": "退出码 0"
+                }
+              ]
+            }
+          },
+          "text": "验收通过（脚本检查）：任务「记账本出周报」第 1/1 阶段「写出来」。验收通过。",
+          "createdAt": "2026-10-08T19:26:02.216+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 34,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "card_ref",
+              "cardId": "c-6bb138d1-cf61-4dc4-a95a-4ca0898690ae"
+            }
+          ],
+          "id": "m-5e4062f4-c444-4a31-8c0d-1b3dafce2f17",
+          "time": "2026-10-08T19:26:02.216+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 23,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-1",
+          "title": "记账本出周报",
+          "summary": "记账本出周报",
+          "state": "done",
+          "origin": "button",
+          "maintainerId": "pm-1",
+          "projects": [
+            "记账本"
+          ],
+          "projectIds": [
+            "p-1"
+          ],
+          "createdAt": "2026-10-08T19:25:56.946+08:00",
+          "updatedAt": "2026-10-08T19:26:02.216+08:00",
+          "planCardId": "c-36e2e396-9a41-42b9-b157-b60f46d37345",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "写出来",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "weekly.md 存在",
+                    "method": "script",
+                    "result": {
+                      "passed": true,
+                      "note": "退出码 0",
+                      "at": "2026-10-08T19:26:02.216+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T19:26:00.233+08:00"
+              }
+            ],
+            "focus": "s1"
+          }
+        },
+        "change": "completed",
+        "from": "running",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 35,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "全部阶段验收通过，任务完成。"
+            }
+          ],
+          "id": "m-d3dea705-8fa5-4542-b736-a78dcaf0e68a",
+          "time": "2026-10-08T19:26:02.216+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 36,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-1-s3",
+          "maintainerId": "pm-1",
+          "projectId": "p-1",
+          "kind": "work_order",
+          "workOrderId": "wo-3",
+          "taskId": "t-1",
+          "session": "pm-1-s3",
+          "reset": false,
+          "state": "closing",
+          "progressHash": "64166578c61cc26c21babc97a0a61ed387c5182e62477135d76001b98548dc30",
+          "openedAt": "2026-10-08T19:26:00.232+08:00",
+          "outcome": "done"
+        },
+        "change": "closing"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 37,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791458761867:jx6rys1w4te",
+              "tool": "complete_stage",
+              "argsSummary": "stageId=s1 summary=阶段 s1 做完了",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "阶段 s1 验收通过（脚本检查）： - 通过：weekly.md 存在（脚本检查）：退出码 0 全部阶段验收通过，任务完成。"
+            }
+          ],
+          "id": "m-8e0cb00b-fc0f-4ab3-892e-bcdf57ee916a",
+          "time": "2026-10-08T19:26:02.223+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 24,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 19687,
+          "cacheMiss": 15999,
+          "output": 285
+        },
+        "calls": 8,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 19687,
+              "cacheMiss": 15488,
+              "output": 281
+            },
+            "calls": 7
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 511,
+              "output": 4
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 3001,
+              "cacheMiss": 6055,
+              "output": 26
+            },
+            "calls": 2,
+            "budgetTokens": 9082
+          }
+        ],
+        "time": "2026-10-08T19:26:02.226+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 38,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791458761867:l5m4s7l5t6",
+              "tool": "edit",
+              "argsSummary": "<临时目录>\\ergo-data-b8XQfz\\projects\\p-1\\progress.md",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "Successfully replaced 1 block(s) in <临时目录>\\ergo-data-b8XQfz\\projects\\p-1\\progress.md."
+            }
+          ],
+          "id": "m-7ce9334f-867a-4c7c-86a0-431ee7ea9516",
+          "time": "2026-10-08T19:26:02.235+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 25,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 22753,
+          "cacheMiss": 16156,
+          "output": 296
+        },
+        "calls": 9,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 22753,
+              "cacheMiss": 15645,
+              "output": 292
+            },
+            "calls": 8
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 511,
+              "output": 4
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 3001,
+              "cacheMiss": 6055,
+              "output": 26
+            },
+            "calls": 2,
+            "budgetTokens": 9082
+          }
+        ],
+        "time": "2026-10-08T19:26:02.237+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 39,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-1-s3",
+          "maintainerId": "pm-1",
+          "projectId": "p-1",
+          "kind": "work_order",
+          "workOrderId": "wo-3",
+          "taskId": "t-1",
+          "session": "pm-1-s3",
+          "reset": false,
+          "state": "closing",
+          "progressHash": "64166578c61cc26c21babc97a0a61ed387c5182e62477135d76001b98548dc30",
+          "openedAt": "2026-10-08T19:26:00.232+08:00",
+          "outcome": "done",
+          "summary": "周报做完了"
+        },
+        "change": "summary"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 40,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791458761867:mm0bem2thdd",
+              "tool": "write_segment_summary",
+              "argsSummary": "summary=周报做完了",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "已记下这一段（pm-1-s3）的摘要。进展 progress.md 也要写回，这一段才算完成。"
+            }
+          ],
+          "id": "m-5e10a68d-401e-489e-84c6-479314270c17",
+          "time": "2026-10-08T19:26:02.240+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 40,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-3d1029e1-82bd-4b59-b9df-67b690cb4539",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "周报做完了"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 41,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-3d1029e1-82bd-4b59-b9df-67b690cb4539",
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "周报做完了"
+            }
+          ],
+          "time": "2026-10-08T19:26:02.242+08:00"
+        },
+        "taskId": "t-1",
+        "projectId": "p-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 26,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 25897,
+          "cacheMiss": 16224,
+          "output": 298
+        },
+        "calls": 10,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 25897,
+              "cacheMiss": 15713,
+              "output": 294
+            },
+            "calls": 9
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 511,
+              "output": 4
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 3001,
+              "cacheMiss": 6055,
+              "output": 26
+            },
+            "calls": 2,
+            "budgetTokens": 9082
+          }
+        ],
+        "time": "2026-10-08T19:26:02.243+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 42,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-1c36be2d-3fb5-43fe-a730-9ca16b57f28c",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 27,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-1"
+        },
+        "tokens": {
+          "cacheHit": 25897,
+          "cacheMiss": 16733,
+          "output": 302
+        },
+        "calls": 11,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 25897,
+              "cacheMiss": 15713,
+              "output": 294
+            },
+            "calls": 9
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 1020,
+              "output": 8
+            },
+            "calls": 2
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 3001,
+              "cacheMiss": 6055,
+              "output": 26
+            },
+            "calls": 2,
+            "budgetTokens": 9082
+          }
+        ],
+        "time": "2026-10-08T19:26:02.246+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 43,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-1-s3",
+          "maintainerId": "pm-1",
+          "projectId": "p-1",
+          "kind": "work_order",
+          "workOrderId": "wo-3",
+          "taskId": "t-1",
+          "session": "pm-1-s3",
+          "reset": false,
+          "state": "closed",
+          "progressHash": "64166578c61cc26c21babc97a0a61ed387c5182e62477135d76001b98548dc30",
+          "openedAt": "2026-10-08T19:26:00.232+08:00",
+          "outcome": "done",
+          "summary": "周报做完了",
+          "closedAt": "2026-10-08T19:26:02.248+08:00"
+        },
+        "change": "closed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 11,
+      "type": "work_order",
+      "payload": {
+        "workOrder": {
+          "id": "wo-3",
+          "projectId": "p-1",
+          "maintainerId": "pm-1",
+          "source": "user_task",
+          "kind": "execute",
+          "taskId": "t-1",
+          "taskTitle": "记账本出周报",
+          "title": "执行：记账本出周报",
+          "instructions": "执行任务 t-1「记账本出周报」：计划已经确认。计划摘要、当前阶段、授权和边界见【运行时注入】那一段，以它为准。",
+          "state": "ended",
+          "createdAt": "2026-10-08T19:26:00.230+08:00",
+          "updatedAt": "2026-10-08T19:26:02.248+08:00",
+          "startedAt": "2026-10-08T19:26:00.232+08:00",
+          "outcome": "done",
+          "endedAt": "2026-10-08T19:26:02.248+08:00"
+        },
+        "change": "ended",
+        "from": "in_progress",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 12,
+      "type": "work_order",
+      "payload": {
+        "workOrder": {
+          "id": "wo-4",
+          "projectId": "p-1",
+          "maintainerId": "pm-1",
+          "source": "user_task",
+          "kind": "execute",
+          "taskId": "t-2",
+          "taskTitle": "记账本出月报",
+          "title": "执行：记账本出月报",
+          "instructions": "执行任务 t-2「记账本出月报」：计划已经确认。计划摘要、当前阶段、授权和边界见【运行时注入】那一段，以它为准。",
+          "state": "in_progress",
+          "createdAt": "2026-10-08T19:26:00.240+08:00",
+          "updatedAt": "2026-10-08T19:26:02.249+08:00",
+          "startedAt": "2026-10-08T19:26:02.249+08:00"
+        },
+        "change": "started",
+        "from": "pending",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 44,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-1-s4",
+          "maintainerId": "pm-1",
+          "projectId": "p-1",
+          "kind": "work_order",
+          "workOrderId": "wo-4",
+          "taskId": "t-2",
+          "session": "pm-1-s4",
+          "reset": false,
+          "state": "open",
+          "progressHash": "21f439d52411acb1335abd9a1cc2ee5c1e63555b616f31777d4b113af6e1a03b",
+          "openedAt": "2026-10-08T19:26:02.249+08:00"
+        },
+        "change": "opened"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 45,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "work_order_divider",
+              "workOrderId": "wo-4",
+              "title": "执行：记账本出月报",
+              "from": "你"
+            }
+          ],
+          "id": "m-6b97ef26-a078-474c-8e87-4eda62dd1ff9",
+          "time": "2026-10-08T19:26:02.249+08:00"
+        },
+        "taskId": "t-2",
+        "projectId": "p-1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 28,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-2",
+          "title": "记账本出月报",
+          "summary": "记账本出月报",
+          "state": "running",
+          "origin": "button",
+          "maintainerId": "pm-1",
+          "projects": [
+            "记账本"
+          ],
+          "projectIds": [
+            "p-1"
+          ],
+          "createdAt": "2026-10-08T19:25:56.974+08:00",
+          "updatedAt": "2026-10-08T19:26:02.249+08:00",
+          "planCardId": "c-ff835395-3560-4953-9de6-45de35929838",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "写出来",
+                "state": "pending",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "monthly.md 存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0
+              }
+            ]
+          }
+        },
+        "change": "started",
+        "from": "queued",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 29,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-2",
+          "title": "记账本出月报",
+          "summary": "记账本出月报",
+          "state": "running",
+          "origin": "button",
+          "maintainerId": "pm-1",
+          "projects": [
+            "记账本"
+          ],
+          "projectIds": [
+            "p-1"
+          ],
+          "createdAt": "2026-10-08T19:25:56.974+08:00",
+          "updatedAt": "2026-10-08T19:26:02.249+08:00",
+          "planCardId": "c-ff835395-3560-4953-9de6-45de35929838",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "写出来",
+                "state": "running",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "monthly.md 存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 0,
+                "startedAt": "2026-10-08T19:26:02.249+08:00"
+              }
+            ],
+            "focus": "s1"
+          }
+        },
+        "change": "stage_started",
+        "from": "running",
+        "by": "system",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 46,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "计划已确认，开始执行任务 t-2「记账本出月报」。\n现在是第 1/1 阶段 s1「写出来」：\n- 交付件：monthly.md\n- 验收标准：monthly.md 存在（脚本：test -f monthly.md）\n- 模式：开放\n授权（只在当前阶段内有效）：\n- （没有）\n时序规则：\n- （没有）\n边界：\n- 工作目录 <临时目录>\\ergo-data-b8XQfz\\projects\\p-1\\workdir：文件工具只能写这里；工具包：bash 关，联网关\n- 授权项只在所属阶段内有效，用到别的阶段的授权会被拉回；前置阶段没验收的阶段不能开始；“先问我”类的操作列进了授权项，执行时也照样问用户\n- 一个阶段做完调用 complete_stage 宣布完成，由运行时验收（脚本、评审、用户），你自检不算验收；进展用 report_progress 报告；卡住要用户拍板用 wait_for_user；做不下去用 fail_task 写明原因；要换去做另一个能开始的阶段用 start_stage\n做完调用 complete_stage 宣布阶段完成，由运行时验收。"
+            }
+          ],
+          "id": "m-2b2e1e93-c506-454a-ae0d-73af3e0db84b",
+          "time": "2026-10-08T19:26:02.250+08:00"
+        },
+        "agentInput": true,
+        "taskId": "t-2",
+        "projectId": "p-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 47,
+      "type": "stage_start",
+      "payload": {
+        "id": "ss-cb975d31-55ad-423e-af92-26ca380619f8",
+        "conversation": "maintainer:pm-1",
+        "taskId": "t-2",
+        "stageId": "s1",
+        "title": "写出来",
+        "code": "1",
+        "via": {
+          "notice": "m-2b2e1e93-c506-454a-ae0d-73af3e0db84b"
+        },
+        "time": "2026-10-08T19:26:02.250+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 48,
+      "type": "turn_start",
+      "payload": {
+        "inputMessageId": "m-2b2e1e93-c506-454a-ae0d-73af3e0db84b"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 30,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-2"
+        },
+        "tokens": {
+          "cacheHit": 13643,
+          "cacheMiss": 15860,
+          "output": 231
+        },
+        "calls": 6,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 13643,
+              "cacheMiss": 15347,
+              "output": 227
+            },
+            "calls": 5
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 513,
+              "output": 4
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 6002,
+              "output": 12
+            },
+            "calls": 1,
+            "budgetTokens": 6014
+          }
+        ],
+        "time": "2026-10-08T19:26:04.240+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 49,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791458764197:ugf21gyk9qf",
+              "tool": "write",
+              "argsSummary": "monthly.md",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "Successfully wrote to monthly.md"
+            }
+          ],
+          "id": "m-7d9ae2e5-4f45-43c1-b393-7b88397c5727",
+          "time": "2026-10-08T19:26:04.251+08:00"
+        },
+        "taskId": "t-2",
+        "projectId": "p-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 31,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-2"
+        },
+        "tokens": {
+          "cacheHit": 16644,
+          "cacheMiss": 15915,
+          "output": 245
+        },
+        "calls": 7,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 16644,
+              "cacheMiss": 15402,
+              "output": 241
+            },
+            "calls": 6
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 513,
+              "output": 4
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 3001,
+              "cacheMiss": 6057,
+              "output": 26
+            },
+            "calls": 2,
+            "budgetTokens": 9084
+          }
+        ],
+        "time": "2026-10-08T19:26:04.255+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 32,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-2",
+          "title": "记账本出月报",
+          "summary": "记账本出月报",
+          "state": "running",
+          "origin": "button",
+          "maintainerId": "pm-1",
+          "projects": [
+            "记账本"
+          ],
+          "projectIds": [
+            "p-1"
+          ],
+          "createdAt": "2026-10-08T19:25:56.974+08:00",
+          "updatedAt": "2026-10-08T19:26:04.263+08:00",
+          "planCardId": "c-ff835395-3560-4953-9de6-45de35929838",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "写出来",
+                "state": "accepting",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "monthly.md 存在",
+                    "method": "script"
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T19:26:02.249+08:00"
+              }
+            ],
+            "focus": "s1"
+          }
+        },
+        "change": "stage_submitted",
+        "from": "running",
+        "by": "maintainer",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 50,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "维护者宣布阶段 s1「写出来」完成（第 1 次）：阶段 s1 做完了"
+            }
+          ],
+          "id": "m-a61d77b0-b202-4b40-b311-e871072fc275",
+          "time": "2026-10-08T19:26:04.263+08:00"
+        },
+        "taskId": "t-2",
+        "projectId": "p-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 33,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-2",
+          "title": "记账本出月报",
+          "summary": "记账本出月报",
+          "state": "running",
+          "origin": "button",
+          "maintainerId": "pm-1",
+          "projects": [
+            "记账本"
+          ],
+          "projectIds": [
+            "p-1"
+          ],
+          "createdAt": "2026-10-08T19:25:56.974+08:00",
+          "updatedAt": "2026-10-08T19:26:04.472+08:00",
+          "planCardId": "c-ff835395-3560-4953-9de6-45de35929838",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "写出来",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "monthly.md 存在",
+                    "method": "script",
+                    "result": {
+                      "passed": true,
+                      "note": "退出码 0",
+                      "at": "2026-10-08T19:26:04.472+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T19:26:02.249+08:00"
+              }
+            ],
+            "focus": "s1"
+          }
+        },
+        "change": "stage_accepted",
+        "from": "running",
+        "by": "system",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "cards",
+      "seq": 6,
+      "type": "card",
+      "payload": {
+        "card": {
+          "id": "c-ae54f6fa-1e5c-4156-88a2-2741cd409a2f",
+          "type": "progress",
+          "typeVersion": 1,
+          "version": 1,
+          "status": "pending",
+          "payload": {
+            "taskId": "t-2",
+            "taskTitle": "记账本出月报",
+            "stageId": "s1",
+            "stageTitle": "写出来",
+            "stageIndex": 1,
+            "stageTotal": 1,
+            "kind": "acceptance",
+            "text": "验收通过。",
+            "acceptance": {
+              "passed": true,
+              "judgedBy": "script",
+              "results": [
+                {
+                  "criterion": "monthly.md 存在",
+                  "method": "script",
+                  "passed": true,
+                  "note": "退出码 0"
+                }
+              ]
+            }
+          },
+          "text": "验收通过（脚本检查）：任务「记账本出月报」第 1/1 阶段「写出来」。验收通过。",
+          "createdAt": "2026-10-08T19:26:04.472+08:00"
+        }
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 51,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "card_ref",
+              "cardId": "c-ae54f6fa-1e5c-4156-88a2-2741cd409a2f"
+            }
+          ],
+          "id": "m-b261fc80-62b2-4478-8314-e7fb96579c71",
+          "time": "2026-10-08T19:26:04.472+08:00"
+        },
+        "taskId": "t-2",
+        "projectId": "p-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 34,
+      "type": "task",
+      "payload": {
+        "task": {
+          "id": "t-2",
+          "title": "记账本出月报",
+          "summary": "记账本出月报",
+          "state": "done",
+          "origin": "button",
+          "maintainerId": "pm-1",
+          "projects": [
+            "记账本"
+          ],
+          "projectIds": [
+            "p-1"
+          ],
+          "createdAt": "2026-10-08T19:25:56.974+08:00",
+          "updatedAt": "2026-10-08T19:26:04.472+08:00",
+          "planCardId": "c-ff835395-3560-4953-9de6-45de35929838",
+          "stages": {
+            "total": 1,
+            "current": 1,
+            "list": [
+              {
+                "stageId": "s1",
+                "title": "写出来",
+                "state": "accepted",
+                "dependsOn": [],
+                "acceptance": [
+                  {
+                    "criterion": "monthly.md 存在",
+                    "method": "script",
+                    "result": {
+                      "passed": true,
+                      "note": "退出码 0",
+                      "at": "2026-10-08T19:26:04.472+08:00"
+                    }
+                  }
+                ],
+                "attempts": 1,
+                "startedAt": "2026-10-08T19:26:02.249+08:00"
+              }
+            ],
+            "focus": "s1"
+          }
+        },
+        "change": "completed",
+        "from": "running",
+        "by": "system"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 52,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "system",
+          "parts": [
+            {
+              "type": "text",
+              "text": "全部阶段验收通过，任务完成。"
+            }
+          ],
+          "id": "m-0b8304a6-c427-4fae-b079-c51b115b0f74",
+          "time": "2026-10-08T19:26:04.472+08:00"
+        },
+        "taskId": "t-2",
+        "projectId": "p-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 53,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-1-s4",
+          "maintainerId": "pm-1",
+          "projectId": "p-1",
+          "kind": "work_order",
+          "workOrderId": "wo-4",
+          "taskId": "t-2",
+          "session": "pm-1-s4",
+          "reset": false,
+          "state": "closing",
+          "progressHash": "21f439d52411acb1335abd9a1cc2ee5c1e63555b616f31777d4b113af6e1a03b",
+          "openedAt": "2026-10-08T19:26:02.249+08:00",
+          "outcome": "done"
+        },
+        "change": "closing"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 54,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791458764197:nkpuas4chol",
+              "tool": "complete_stage",
+              "argsSummary": "stageId=s1 summary=阶段 s1 做完了",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "阶段 s1 验收通过（脚本检查）： - 通过：monthly.md 存在（脚本检查）：退出码 0 全部阶段验收通过，任务完成。"
+            }
+          ],
+          "id": "m-af7c4e93-3933-4106-bb8b-c40409ad11a6",
+          "time": "2026-10-08T19:26:04.477+08:00"
+        },
+        "taskId": "t-2",
+        "projectId": "p-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 35,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-2"
+        },
+        "tokens": {
+          "cacheHit": 19672,
+          "cacheMiss": 15993,
+          "output": 286
+        },
+        "calls": 8,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 19672,
+              "cacheMiss": 15480,
+              "output": 282
+            },
+            "calls": 7
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 513,
+              "output": 4
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 3001,
+              "cacheMiss": 6057,
+              "output": 26
+            },
+            "calls": 2,
+            "budgetTokens": 9084
+          }
+        ],
+        "time": "2026-10-08T19:26:04.480+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 55,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791458764197:3lm6qsawapn",
+              "tool": "edit",
+              "argsSummary": "<临时目录>\\ergo-data-b8XQfz\\projects\\p-1\\progress.md",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "Successfully replaced 1 block(s) in <临时目录>\\ergo-data-b8XQfz\\projects\\p-1\\progress.md."
+            }
+          ],
+          "id": "m-ef68e45d-f853-412e-8373-9f9f4def56cf",
+          "time": "2026-10-08T19:26:04.499+08:00"
+        },
+        "taskId": "t-2",
+        "projectId": "p-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 36,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-2"
+        },
+        "tokens": {
+          "cacheHit": 22739,
+          "cacheMiss": 16149,
+          "output": 297
+        },
+        "calls": 9,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 22739,
+              "cacheMiss": 15636,
+              "output": 293
+            },
+            "calls": 8
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 513,
+              "output": 4
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 3001,
+              "cacheMiss": 6057,
+              "output": 26
+            },
+            "calls": 2,
+            "budgetTokens": 9084
+          }
+        ],
+        "time": "2026-10-08T19:26:04.502+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 56,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-1-s4",
+          "maintainerId": "pm-1",
+          "projectId": "p-1",
+          "kind": "work_order",
+          "workOrderId": "wo-4",
+          "taskId": "t-2",
+          "session": "pm-1-s4",
+          "reset": false,
+          "state": "closing",
+          "progressHash": "21f439d52411acb1335abd9a1cc2ee5c1e63555b616f31777d4b113af6e1a03b",
+          "openedAt": "2026-10-08T19:26:02.249+08:00",
+          "outcome": "done",
+          "summary": "月报做完了"
+        },
+        "change": "summary"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 57,
+      "type": "message",
+      "payload": {
+        "message": {
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "tool_call",
+              "callId": "tool:1791458764197:ah00nvi4edl",
+              "tool": "write_segment_summary",
+              "argsSummary": "summary=月报做完了",
+              "categoryTitles": [],
+              "disposition": "do",
+              "withinGrant": false,
+              "genericBash": false,
+              "outcome": "done",
+              "resultSummary": "已记下这一段（pm-1-s4）的摘要。进展 progress.md 也要写回，这一段才算完成。"
+            }
+          ],
+          "id": "m-704e4a5a-2f21-4b02-b98d-88f5a17c6e6a",
+          "time": "2026-10-08T19:26:04.509+08:00"
+        },
+        "taskId": "t-2",
+        "projectId": "p-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 57,
+      "type": "stream",
+      "payload": {
+        "messageId": "m-201a83ea-b3c3-41b0-8739-4780f6b28981",
+        "deltas": [
+          {
+            "part": 0,
+            "type": "text",
+            "offset": 0,
+            "text": "月报做完了"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 58,
+      "type": "message",
+      "payload": {
+        "message": {
+          "id": "m-201a83ea-b3c3-41b0-8739-4780f6b28981",
+          "conversation": "maintainer:pm-1",
+          "speaker": "agent",
+          "parts": [
+            {
+              "type": "text",
+              "text": "月报做完了"
+            }
+          ],
+          "time": "2026-10-08T19:26:04.511+08:00"
+        },
+        "taskId": "t-2",
+        "projectId": "p-1",
+        "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 37,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-2"
+        },
+        "tokens": {
+          "cacheHit": 25884,
+          "cacheMiss": 16217,
+          "output": 299
+        },
+        "calls": 10,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 25884,
+              "cacheMiss": 15704,
+              "output": 295
+            },
+            "calls": 9
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 513,
+              "output": 4
+            },
+            "calls": 1
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 3001,
+              "cacheMiss": 6057,
+              "output": 26
+            },
+            "calls": 2,
+            "budgetTokens": 9084
+          }
+        ],
+        "time": "2026-10-08T19:26:04.512+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 59,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-2b2e1e93-c506-454a-ae0d-73af3e0db84b",
+        "outcome": "completed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "board",
+      "seq": 38,
+      "type": "token_totals",
+      "payload": {
+        "owner": {
+          "kind": "task",
+          "id": "t-2"
+        },
+        "tokens": {
+          "cacheHit": 25884,
+          "cacheMiss": 16728,
+          "output": 303
+        },
+        "calls": 11,
+        "byAgent": [
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "work",
+            "tokens": {
+              "cacheHit": 25884,
+              "cacheMiss": 15704,
+              "output": 295
+            },
+            "calls": 9
+          },
+          {
+            "agentId": "pm-1",
+            "role": "maintainer",
+            "purpose": "scope_review",
+            "tokens": {
+              "cacheHit": 0,
+              "cacheMiss": 1024,
+              "output": 8
+            },
+            "calls": 2
+          }
+        ],
+        "byStage": [
+          {
+            "stageId": "s1",
+            "tokens": {
+              "cacheHit": 3001,
+              "cacheMiss": 6057,
+              "output": 26
+            },
+            "calls": 2,
+            "budgetTokens": 9084
+          }
+        ],
+        "time": "2026-10-08T19:26:04.520+08:00"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:pm-1",
+      "seq": 60,
+      "type": "segment",
+      "payload": {
+        "segment": {
+          "segmentId": "pm-1-s4",
+          "maintainerId": "pm-1",
+          "projectId": "p-1",
+          "kind": "work_order",
+          "workOrderId": "wo-4",
+          "taskId": "t-2",
+          "session": "pm-1-s4",
+          "reset": false,
+          "state": "closed",
+          "progressHash": "21f439d52411acb1335abd9a1cc2ee5c1e63555b616f31777d4b113af6e1a03b",
+          "openedAt": "2026-10-08T19:26:02.249+08:00",
+          "outcome": "done",
+          "summary": "月报做完了",
+          "closedAt": "2026-10-08T19:26:04.525+08:00"
+        },
+        "change": "closed"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "projects",
+      "seq": 13,
+      "type": "work_order",
+      "payload": {
+        "workOrder": {
+          "id": "wo-4",
+          "projectId": "p-1",
+          "maintainerId": "pm-1",
+          "source": "user_task",
+          "kind": "execute",
+          "taskId": "t-2",
+          "taskTitle": "记账本出月报",
+          "title": "执行：记账本出月报",
+          "instructions": "执行任务 t-2「记账本出月报」：计划已经确认。计划摘要、当前阶段、授权和边界见【运行时注入】那一段，以它为准。",
+          "state": "ended",
+          "createdAt": "2026-10-08T19:26:00.240+08:00",
+          "updatedAt": "2026-10-08T19:26:04.525+08:00",
+          "startedAt": "2026-10-08T19:26:02.249+08:00",
+          "outcome": "done",
+          "endedAt": "2026-10-08T19:26:04.525+08:00"
+        },
+        "change": "ended",
+        "from": "in_progress",
+        "by": "system"
+      }
+    }
+  }
+]

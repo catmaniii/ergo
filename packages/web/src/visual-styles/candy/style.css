@@ -1,0 +1,821 @@
+/*
+ * 软糖圆角（42 号票）：只靠 token（candy/style.ts）做不到的规则，全部限定在 :root[data-style="candy"] 下
+ * （不会漏到别的风格；设置里的预览把开头换成 :host(...)，所以根元素上只再加属性，见 src/visual-styles/preview.ts）。
+ * 设计稿：docs/design/styles/d-chat、d-tasks、d-inbox、d-wide（.dc.html）。要点：淡紫底上的白卡片、气泡都靠柔和的投影
+ * （--shadow-note，设计稿的 --shadow）浮起来，不描边；大圆角；导航和输入栏是浮起的胶囊；按钮一律胶囊（主按钮紫罗兰实色，
+ * 次要按钮淡紫底深紫字：--data-bg / --data-fg）；"要你"的事和未读是珊瑚红；
+ * ZCOOL 快乐体只用在标题上（页面标题、看板分组、卡片类型），它只有一种字重，这些地方不加粗。
+ * 只换样子，不改结构：导航、页面上有什么、怎么排都和经典一样（浮起的导航照样按 33 号票量长度、放不下的收进"更多"）。
+ */
+
+/* ---------- 通用 ---------- */
+:root[data-style="candy"] body {
+  line-height: 1.5;
+}
+/* 快乐体只有一种字重：用到标题字体的地方都不加粗（浏览器硬描粗很难看） */
+:root[data-style="candy"] .title,
+:root[data-style="candy"] .empty-title,
+:root[data-style="candy"] .modal-title,
+:root[data-style="candy"] .siderail-brand,
+:root[data-style="candy"] .sec-head h3,
+:root[data-style="candy"] .bgroup-h b,
+:root[data-style="candy"] .xcard-tag,
+:root[data-style="candy"] .detail-bar-title {
+  font-weight: 400;
+}
+/* 小号的分组说明不用快乐体（设计稿里只有大标题用它） */
+:root[data-style="candy"] .inbox-group,
+:root[data-style="candy"] .dt-section h4,
+:root[data-style="candy"] .title-sub {
+  font-family: var(--font-body);
+}
+:root[data-style="candy"] .sec-head h3 {
+  font-size: 17px;
+}
+:root[data-style="candy"] .empty-title {
+  font-size: 22px;
+}
+
+/* 画线条图标：图标是 --candy-icon（按导航项、按钮、卡片类型换），线条用当前字色画（卡片类型的圆里另给颜色） */
+:root[data-style="candy"] .tab-icon::before,
+:root[data-style="candy"] .attach-btn::before,
+:root[data-style="candy"] .voice-toggle::before,
+:root[data-style="candy"] .xcard-tag::after {
+  content: "";
+  display: block;
+  width: 22px;
+  height: 22px;
+  background: currentColor;
+  -webkit-mask: var(--candy-icon) center / contain no-repeat;
+  mask: var(--candy-icon) center / contain no-repeat;
+}
+
+/* 标题栏：底色是 --bar-bg（这套是页面的淡紫底，地址栏跟着它），不要下边线，大标题 */
+:root[data-style="candy"] .topbar,
+:root[data-style="candy"] .detail-bar {
+  border-bottom: none;
+}
+:root[data-style="candy"] .topbar {
+  padding-left: 20px;
+  padding-right: 16px;
+}
+:root[data-style="candy"] .topbar .title {
+  font-size: 26px;
+  line-height: 1.2;
+}
+/* 带返回键的二级页（任务详情这类，TopBar 挂 data-back）：标题长，小一号，少截掉几个字 */
+:root[data-style="candy"] .topbar[data-back] .title {
+  font-size: 21px;
+}
+:root[data-style="candy"] .title-sub {
+  font-size: var(--fs-s);
+}
+/* 标题栏上的"发起任务"：浮起的紫色胶囊 */
+:root[data-style="candy"] .topbar .btn.primary {
+  min-height: 44px;
+  padding: 0 16px;
+  font-size: var(--fs-l);
+  box-shadow: var(--shadow-note);
+}
+:root[data-style="candy"] .topbar .link {
+  min-height: 44px;
+  padding: 0 4px;
+  font-size: var(--fs-l);
+  font-weight: 700;
+}
+
+/* 按钮：一律胶囊；次要按钮是淡紫底深紫字 */
+:root[data-style="candy"] .btn {
+  border-radius: var(--radius-pill);
+  padding: 10px 18px;
+  font-weight: 700;
+}
+:root[data-style="candy"] .btn.small {
+  border-radius: var(--radius-pill);
+  padding: 6px 14px;
+}
+:root[data-style="candy"] .btn.ghost {
+  background: var(--data-bg);
+  color: var(--data-fg);
+}
+:root[data-style="candy"] .chip {
+  padding: 3px 10px;
+  font-weight: 500;
+}
+:root[data-style="candy"] .link {
+  font-weight: 500;
+}
+
+/* 分段切换：浮起的胶囊，选中的那一段是紫色实心；放不下时每段可以收窄到字宽（发起任务弹层里四段也放得下） */
+:root[data-style="candy"] .seg {
+  margin: 4px 16px 8px;
+  padding: 4px;
+  gap: 4px;
+  border-bottom: none;
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-note);
+}
+:root[data-style="candy"] .page-pad > .seg,
+:root[data-style="candy"] .appearance-choice .seg,
+:root[data-style="candy"] .modal .seg {
+  margin: 0;
+  border: none;
+  border-radius: var(--radius-pill);
+}
+:root[data-style="candy"] .modal .seg {
+  box-shadow: none;
+  background: var(--fill);
+}
+:root[data-style="candy"] .seg button {
+  flex: 1 1 auto;
+  min-height: 40px;
+  padding: 0 10px;
+  border-radius: var(--radius-pill);
+  font-weight: 500;
+}
+:root[data-style="candy"] .seg button.on {
+  background: var(--primary-fill);
+  color: var(--primary-text);
+  font-weight: 700;
+}
+
+/* 底板（设置项、项目页的头部……）、弹出的菜单：白底浮起来 */
+:root[data-style="candy"] .card {
+  box-shadow: var(--shadow-note);
+}
+:root[data-style="candy"] .menu-item {
+  border-radius: var(--radius-l);
+}
+:root[data-style="candy"] .menu-item.on {
+  background: var(--data-bg);
+  color: var(--data-fg);
+}
+:root[data-style="candy"] .toast {
+  border-radius: var(--radius-pill);
+  padding: 10px 18px;
+}
+:root[data-style="candy"] .alert-banner {
+  border-radius: var(--radius-xl);
+}
+:root[data-style="candy"] .row-menu,
+:root[data-style="candy"] .attach-menu,
+:root[data-style="candy"] .slash-menu,
+:root[data-style="candy"] .voice-panel {
+  border: none;
+}
+/* 系统直接查到的（浅绿底、左边实线）：照旧，只是圆一点 */
+:root[data-style="candy"] .sys-note {
+  border-radius: 4px var(--radius-m) var(--radius-m) 4px;
+  padding: 6px 10px;
+}
+
+/* ---------- 主导航 ---------- */
+/* 图标换成设计稿的圆头线条图标（按 data-nav 认是哪一项）：原来的表情符号藏起来 */
+:root[data-style="candy"] .tab-icon {
+  font-size: 0;
+}
+:root[data-style="candy"] [data-nav="secretary"] {
+  --candy-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 12a8 8 0 0 1-8 8H8l-4 3v-5.5A8 8 0 0 1 12 4h1a8 8 0 0 1 8 8z'/%3E%3C/svg%3E");
+}
+:root[data-style="candy"] [data-nav="tasks"] {
+  --candy-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='4' width='16' height='16' rx='5'/%3E%3Cpath d='m8 12 3 3 5-6'/%3E%3C/svg%3E");
+}
+:root[data-style="candy"] [data-nav="projects"] {
+  --candy-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/%3E%3C/svg%3E");
+}
+:root[data-style="candy"] [data-nav="inbox"] {
+  --candy-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z'/%3E%3Cpath d='M10 20a2 2 0 0 0 4 0'/%3E%3C/svg%3E");
+}
+:root[data-style="candy"] [data-nav="calendar"] {
+  --candy-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='16' rx='4'/%3E%3Cpath d='M3 10h18M8 3v4M16 3v4'/%3E%3C/svg%3E");
+}
+:root[data-style="candy"] [data-nav="browse"] {
+  --candy-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M3 12h18M12 3c2.5 2.5 3.75 5.5 3.75 9S14.5 18.5 12 21c-2.5-2.5-3.75-5.5-3.75-9S9.5 5.5 12 3z'/%3E%3C/svg%3E");
+}
+:root[data-style="candy"] [data-nav="usage"] {
+  --candy-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20v-8M10 20V5M16 20v-6M2 20h20'/%3E%3C/svg%3E");
+}
+:root[data-style="candy"] [data-nav="memory"] {
+  --candy-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m12 3-9 5 9 5 9-5-9-5z'/%3E%3Cpath d='m3 13 9 5 9-5'/%3E%3C/svg%3E");
+}
+:root[data-style="candy"] [data-nav="settings"] {
+  --candy-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1'/%3E%3C/svg%3E");
+}
+:root[data-style="candy"] [data-nav="more"] {
+  --candy-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Ccircle cx='5' cy='12' r='2'/%3E%3Ccircle cx='12' cy='12' r='2'/%3E%3Ccircle cx='19' cy='12' r='2'/%3E%3C/svg%3E");
+}
+/* 当前那一项：淡紫底的胶囊，深紫字（--nav-on）加粗 */
+:root[data-style="candy"] .tab {
+  border-radius: var(--radius-pill);
+}
+:root[data-style="candy"] .tab.on {
+  background: var(--data-bg);
+  font-weight: 700;
+}
+/* 竖屏：底部横栏浮起来，成一个白色的胶囊（左右、下面离开屏幕边） */
+:root[data-style="candy"] .tabbar {
+  margin: 8px 12px calc(12px + var(--safe-bottom));
+  padding: 5px;
+  border-top: none;
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-note);
+}
+:root[data-style="candy"] .tabbar .tab {
+  min-height: 52px;
+  justify-content: center;
+  padding: 4px;
+}
+/* 宽屏：左侧竖栏也浮起来，成一根竖着的胶囊（宽度照旧按"图标 + 两个字"算，右边框留着位置、不画） */
+:root[data-style="candy"] .siderail {
+  margin: 12px 0 12px 12px;
+  padding: 14px 4px;
+  border-right-color: transparent;
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-note);
+}
+:root[data-style="candy"] .siderail-brand {
+  color: var(--primary);
+  font-size: var(--fs-body);
+}
+:root[data-style="candy"] .siderail .tab {
+  padding: 8px 3px;
+}
+:root[data-style="candy"] .siderail .tab.on {
+  background: var(--data-bg);
+}
+/* 待办的提示：看过没处理的数字是灰色小胶囊，未读是珊瑚红的点 */
+:root[data-style="candy"] .tab-count {
+  min-width: 17px;
+  height: 17px;
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  font-weight: 700;
+  line-height: 17px;
+}
+:root[data-style="candy"] .tab-dot {
+  width: 9px;
+  height: 9px;
+}
+
+/* ---------- 聊天 ---------- */
+/* 个人助理的话：白色气泡浮起来，左下角是小尖角；不要经典的左边竖线和阶段抽屉 .md 带来的下边线 */
+:root[data-style="candy"] .assistant .bubble {
+  padding: 12px 16px;
+  border-left: none;
+  border-bottom: none;
+  border-radius: var(--radius-2xl) var(--radius-2xl) var(--radius-2xl) var(--radius-xs);
+  box-shadow: var(--shadow-note);
+  line-height: 1.5;
+}
+/* 你发的消息：紫色气泡，右下角是小尖角 */
+:root[data-style="candy"] .user .bubble {
+  padding: 12px 16px;
+  border-radius: var(--radius-2xl) var(--radius-2xl) var(--radius-xs) var(--radius-2xl);
+  box-shadow: var(--shadow-note);
+  line-height: 1.5;
+}
+:root[data-style="candy"] .msg {
+  gap: 4px;
+}
+:root[data-style="candy"] .msg-meta {
+  padding: 0 12px;
+  font-size: var(--fs-xs);
+}
+/*
+ * 秘书的会话：个人助理的话前面一个圆形字头像（设计稿 d-chat：36 的紫圆、快乐体，名字的第一个字，会话外层挂的 --assistant-initial），
+ * 这一列（想法、工具调用也是）都往右让出头像的位置。回复、语音的头像贴着底（和时间一行，设计稿如此），卡片的贴着顶
+ */
+:root[data-style="candy"] .conv[data-mode="secretary"] .msg.assistant {
+  position: relative;
+  padding-left: 46px;
+}
+:root[data-style="candy"] .conv[data-mode="secretary"] .zi.ck-reply .msg.assistant::before,
+:root[data-style="candy"] .conv[data-mode="secretary"] .zi.ck-voice .msg.assistant::before,
+:root[data-style="candy"] .conv[data-mode="secretary"] .zi.ck-card .msg.assistant::before {
+  content: var(--assistant-initial);
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--primary-fill);
+  color: var(--primary-text);
+  font-family: var(--font-title);
+  font-size: 17px;
+  line-height: 1;
+}
+:root[data-style="candy"] .conv[data-mode="secretary"] .zi.ck-card .msg.assistant::before {
+  top: 0;
+  bottom: auto;
+}
+/* 宽屏下一行不拉太长：个人助理的话、卡片最宽 640，你的话最宽 560 */
+:root[data-style="candy"] .app.wide .msg.assistant .msg-part {
+  max-width: min(100%, 640px);
+}
+:root[data-style="candy"] .app.wide .msg.user .msg-part {
+  max-width: min(86%, 560px);
+}
+:root[data-style="candy"] .app.wide .conv-scroll {
+  padding-left: 24px;
+  padding-right: 24px;
+}
+/* 工具调用组那一行：白底细框的长胶囊；出了状况的框换成那种颜色（圆点照旧） */
+:root[data-style="candy"] .tool-sum {
+  padding: 5px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+}
+:root[data-style="candy"] .tool-sum-stopped {
+  border-color: color-mix(in srgb, var(--high-fg) 50%, var(--border));
+}
+:root[data-style="candy"] .tool-sum-you {
+  border-color: color-mix(in srgb, var(--you) 50%, var(--border));
+}
+:root[data-style="candy"] .thinking {
+  border-left-width: 3px;
+  border-radius: 2px;
+}
+:root[data-style="candy"] .day-sep {
+  font-size: var(--fs-xs);
+}
+:root[data-style="candy"] .wo-divider > span {
+  background: var(--surface);
+  box-shadow: var(--shadow-note);
+}
+
+/*
+ * 语音气泡：和文字气泡一样的圆角、投影；播放键是 36 的圆（你的半透明白圆、个人助理的淡紫圆），波形竖条 4 像素、高 24。
+ * 播放键、间隔、竖条、内边距、竖线的尺寸是 token（style.ts 的 voice-*），styles/voice.css 按它画，框宽、波形格数也按它算
+ */
+:root[data-style="candy"] .voice-bubble {
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-note);
+}
+:root[data-style="candy"] .user .voice-bubble {
+  border-bottom-right-radius: var(--radius-xs);
+}
+:root[data-style="candy"] .assistant .voice-bubble {
+  border-bottom-left-radius: var(--radius-xs);
+}
+:root[data-style="candy"] .voice-icon {
+  height: var(--voice-key);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, currentColor 20%, transparent);
+  font-size: var(--fs-m);
+}
+:root[data-style="candy"] .assistant .voice-icon {
+  background: var(--data-bg);
+  color: var(--data-fg);
+}
+:root[data-style="candy"] .voice-wave-mini {
+  height: 24px;
+  opacity: 0.85;
+}
+:root[data-style="candy"] .voice-wave-mini i {
+  border-radius: 2px;
+}
+:root[data-style="candy"] .assistant .voice-wave-mini {
+  color: var(--primary);
+}
+:root[data-style="candy"] .voice-duration {
+  font-weight: 700;
+}
+:root[data-style="candy"] .assistant .voice-duration {
+  color: var(--muted);
+}
+:root[data-style="candy"] .voice-body {
+  margin-top: 8px;
+  padding: 8px 4px 0;
+}
+:root[data-style="candy"] .assistant .voice-body {
+  border-top-color: var(--border);
+}
+
+/* 输入栏：浮起的白色胶囊，附件是淡紫圆钮、切语音 / 文字是紫色圆钮；输入框本身没有框 */
+:root[data-style="candy"] .composer {
+  margin: 4px 12px 0;
+  padding: 6px;
+  gap: 6px;
+  border-top: none;
+  border-radius: 28px;
+  box-shadow: var(--shadow-note);
+}
+:root[data-style="candy"] .app.wide .composer {
+  margin: 4px 24px 20px;
+}
+:root[data-style="candy"] .composer textarea {
+  min-height: 44px;
+  padding: 11px 8px;
+  border: none;
+  border-radius: 0;
+  background: none;
+}
+/* 假占位和输入框第一行字对齐（没有边框了：内边距 11 / 8） */
+:root[data-style="candy"] .composer-placeholder {
+  top: 11px;
+  left: 8px;
+  right: 8px;
+}
+:root[data-style="candy"] .attach-btn,
+:root[data-style="candy"] .voice-toggle {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 0;
+}
+:root[data-style="candy"] .attach-btn {
+  --candy-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.25' stroke-linecap='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E");
+  background: var(--data-bg);
+  color: var(--data-fg);
+}
+:root[data-style="candy"] .voice-toggle {
+  background: var(--primary-fill);
+  color: var(--primary-text);
+}
+:root[data-style="candy"] .voice-toggle[data-to="voice"] {
+  --candy-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='9' y='3' width='6' height='11' rx='3'/%3E%3Cpath d='M5 11a7 7 0 0 0 14 0M12 18v3'/%3E%3C/svg%3E");
+}
+:root[data-style="candy"] .voice-toggle[data-to="text"] {
+  --candy-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='6' width='18' height='12' rx='3'/%3E%3Cpath d='M7 10h.01M11 10h.01M15 10h.01M7 14h10'/%3E%3C/svg%3E");
+}
+:root[data-style="candy"] .composer .btn.primary {
+  min-height: 44px;
+  padding: 0 18px;
+}
+/* 按住 说话：淡紫底的长胶囊 */
+:root[data-style="candy"] .voice-hold {
+  min-height: 44px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--data-bg);
+  color: var(--data-fg);
+  font-weight: 700;
+}
+:root[data-style="candy"] .voice-hold-active {
+  background: color-mix(in srgb, var(--primary) 26%, var(--surface));
+}
+:root[data-style="candy"] .voice-hold.voice-cancel {
+  background: var(--high-bg);
+  color: var(--high-fg);
+}
+:root[data-style="candy"] .voice-hold-off {
+  font-weight: 400;
+}
+/* 输入栏上面等着发的引用、附件：不再接成一条白板，各自浮在淡紫底上 */
+:root[data-style="candy"] .quote-list,
+:root[data-style="candy"] .attach-list {
+  padding: 8px 16px 2px;
+  border-top: none;
+  background: none;
+}
+:root[data-style="candy"] .quote-bar {
+  border-radius: 4px var(--radius-m) var(--radius-m) 4px;
+  background: var(--surface);
+}
+:root[data-style="candy"] .attach {
+  background: var(--surface);
+  box-shadow: var(--shadow-note);
+}
+:root[data-style="candy"] .conn-note {
+  margin: 0 12px 6px;
+  border-top: none;
+  border-radius: var(--radius-pill);
+  text-align: center;
+}
+/* 会话里的"等你处理"栏（107 号票）：和输入栏一样浮起来的白色圆角块 */
+:root[data-style="candy"] .ibar,
+:root[data-style="candy"] .missed-voices {
+  margin: 4px 12px 2px;
+  border-top: none;
+  border-radius: 20px;
+  box-shadow: var(--shadow-note);
+}
+:root[data-style="candy"] .app.wide .ibar,
+:root[data-style="candy"] .app.wide .missed-voices {
+  margin: 4px 24px 2px;
+}
+
+/* ---------- 卡片 ---------- */
+/*
+ * 卡片：白底大圆角浮起来。类型标签换成快乐体的小标题，前面一个圆形图标（按卡片类型换；要你拍板、会删改东西的是珊瑚红，
+ * 别的淡紫）；标题另起一行。处理过的卡片不再浮起，只描一圈细线
+ */
+:root[data-style="candy"] .xcard {
+  --candy-tag-bg: var(--data-bg);
+  --candy-tag-fg: var(--data-fg);
+  --candy-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l2.4 5.6L20 11l-5.6 2.4L12 19l-2.4-5.6L4 11l5.6-2.4z'/%3E%3C/svg%3E");
+  gap: 10px;
+  padding: 16px;
+}
+:root[data-style="candy"] .xcard-approval,
+:root[data-style="candy"] .xcard-toolkit_change {
+  --candy-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3 4 6v6c0 4.5 3.4 7.9 8 9 4.6-1.1 8-4.5 8-9V6z'/%3E%3Cpath d='M12 8v4M12 15h.01'/%3E%3C/svg%3E");
+}
+:root[data-style="candy"] .xcard-questions {
+  --candy-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M9.5 9.5a2.5 2.5 0 0 1 4.9.7c0 1.6-2.4 2.1-2.4 3.8M12 17h.01'/%3E%3C/svg%3E");
+}
+:root[data-style="candy"] .xcard-plan,
+:root[data-style="candy"] .xcard-plan_change,
+:root[data-style="candy"] .xcard-workflow_plan,
+:root[data-style="candy"] .xcard-charter,
+:root[data-style="candy"] .xcard-build_done,
+:root[data-style="candy"] .xcard-go_live,
+:root[data-style="candy"] .xcard-work_order,
+:root[data-style="candy"] .xcard-archive_list {
+  --candy-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 19V5h16v14z'/%3E%3Cpath d='M8 9h8M8 13h5'/%3E%3C/svg%3E");
+}
+:root[data-style="candy"] .xcard-reminder {
+  --candy-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='13' r='7'/%3E%3Cpath d='M12 9v4l2.5 2M9 3h6'/%3E%3C/svg%3E");
+}
+:root[data-style="candy"] .xcard-pairing {
+  --candy-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='5' y='3' width='14' height='18' rx='3'/%3E%3Cpath d='M12 17h.01'/%3E%3C/svg%3E");
+}
+:root[data-style="candy"] .xcard-progress,
+:root[data-style="candy"] .xcard-quick_action,
+:root[data-style="candy"] .xcard-parallel {
+  --candy-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M13 3 5 14h6l-1 7 9-12h-6z'/%3E%3C/svg%3E");
+}
+/* 要你拍板、会删改东西的：珊瑚红 */
+:root[data-style="candy"] .xcard-approval,
+:root[data-style="candy"] .xcard-toolkit_change,
+:root[data-style="candy"] .xcard-questions,
+:root[data-style="candy"] .xcard-memory_delete,
+:root[data-style="candy"] .xcard-pairing {
+  --candy-tag-bg: var(--you-bg);
+  --candy-tag-fg: var(--you);
+}
+/* 处理过的：灰圆、细线框，不浮起（写在类型那几条后面，压过它们） */
+:root[data-style="candy"] .xcard-done {
+  --candy-tag-bg: var(--fill);
+  --candy-tag-fg: var(--muted);
+  border: 1px solid var(--border);
+  box-shadow: none;
+}
+:root[data-style="candy"] .xcard-tag {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--text);
+  font-size: 17px;
+  line-height: 1.2;
+}
+:root[data-style="candy"] .xcard-tag::before {
+  content: "";
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--candy-tag-bg);
+}
+/* 圆里的图标：20 像素，叠在圆的正中 */
+:root[data-style="candy"] .xcard-tag::after {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  width: 20px;
+  height: 20px;
+  margin-top: -10px;
+  background: var(--candy-tag-fg);
+}
+:root[data-style="candy"] .xcard-done .xcard-tag {
+  color: var(--muted);
+}
+:root[data-style="candy"] .xcard-head {
+  gap: 8px 10px;
+}
+/* 标题另起一行（设计稿里类型下面那行粗一点的字） */
+:root[data-style="candy"] .xcard-title {
+  flex-basis: 100%;
+  font-size: var(--fs-l);
+  font-weight: 500;
+  line-height: 1.45;
+}
+/* 命令：单独一块浅底圆角的等宽字 */
+:root[data-style="candy"] .xcard .tool-line code {
+  display: block;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--fill);
+  font-family: var(--font-mono);
+  font-size: var(--fs-s);
+  line-height: 1.5;
+  word-break: break-all;
+}
+/* 卡片上的两个按钮：胶囊，确认的那个宽一点 */
+:root[data-style="candy"] .auth-actions {
+  gap: 8px;
+}
+:root[data-style="candy"] .auth-actions .btn {
+  min-height: 46px;
+  font-size: var(--fs-l);
+}
+:root[data-style="candy"] .auth-actions .btn.primary {
+  flex-grow: 1.4;
+}
+/* 宽屏会话里的卡片：两个按钮靠右、按字宽（设计稿 d-wide），不拉满一行 */
+:root[data-style="candy"] .app.wide .xcard .auth-actions {
+  justify-content: flex-end;
+}
+:root[data-style="candy"] .app.wide .xcard .auth-actions .btn {
+  flex: none;
+  min-width: 100px;
+}
+:root[data-style="candy"] .app.wide .xcard .auth-actions .btn.primary {
+  min-width: 136px;
+}
+:root[data-style="candy"] .qa-opt,
+:root[data-style="candy"] .day-pick {
+  border-radius: var(--radius-pill);
+}
+
+/* ---------- 任务看板：一张张白色浮卡，分组标题是快乐体，件数在浮起的小胶囊里 ---------- */
+:root[data-style="candy"] .board {
+  padding: 4px 16px 20px;
+  gap: 14px;
+}
+:root[data-style="candy"] .bgroup {
+  gap: 10px;
+}
+:root[data-style="candy"] .bgroup-h {
+  align-items: center;
+  padding: 6px 4px 4px;
+}
+:root[data-style="candy"] .bgroup-h b {
+  font-size: 19px;
+  line-height: 1.3;
+}
+:root[data-style="candy"] .bg-waiting .bgroup-h b {
+  color: var(--text);
+}
+:root[data-style="candy"] .bgroup-n {
+  min-width: 24px;
+  height: 24px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  box-shadow: var(--shadow-note);
+  color: var(--text);
+  font-size: var(--fs-s);
+  font-weight: 700;
+}
+:root[data-style="candy"] .bgroup-empty {
+  padding: 4px 6px;
+}
+:root[data-style="candy"] .bcard {
+  gap: 8px;
+  padding: 14px 16px;
+  box-shadow: var(--shadow-note);
+}
+:root[data-style="candy"] .bcard-static {
+  background: var(--surface);
+}
+:root[data-style="candy"] .bcard.on {
+  box-shadow:
+    0 0 0 2px var(--primary),
+    var(--shadow-note);
+}
+:root[data-style="candy"] .bcard-title {
+  font-size: var(--fs-body);
+  font-weight: 700;
+  line-height: 1.4;
+}
+/* 结束了的：不再浮起，只描一圈细线（设计稿是降透明度，那样灰字的对比度不够） */
+:root[data-style="candy"] .bg-ended .bcard,
+:root[data-style="candy"] .bg-archived .bcard {
+  border: 1px solid var(--border);
+  box-shadow: none;
+}
+:root[data-style="candy"] .bg-ended .bcard-title,
+:root[data-style="candy"] .bg-archived .bcard-title {
+  font-weight: 500;
+}
+/* 状态是一颗小胶囊：要你的珊瑚红、在做的紫罗兰（淡紫底深紫字）、出错的玫红，别的灰 */
+:root[data-style="candy"] .st {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--fill);
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  line-height: 1.45;
+}
+:root[data-style="candy"] .st-waiting_for_user,
+:root[data-style="candy"] .st-awaiting_confirm {
+  background: var(--you-bg);
+  color: var(--you);
+}
+:root[data-style="candy"] .st-running,
+:root[data-style="candy"] .st-planning,
+:root[data-style="candy"] .st-ops {
+  background: var(--data-bg);
+  color: var(--data-fg);
+}
+:root[data-style="candy"] .st-failed {
+  background: var(--high-bg);
+  color: var(--high-fg);
+}
+
+/* ---------- 待我处理：一行一张白色浮卡；看过的不浮起、描细线 ---------- */
+:root[data-style="candy"] .inbox-list {
+  padding: 0 12px 20px;
+}
+:root[data-style="candy"] .inbox-group {
+  padding: 10px 6px 6px;
+  font-size: var(--fs-s);
+  font-weight: 500;
+}
+:root[data-style="candy"] .ig-blocking_deadline,
+:root[data-style="candy"] .ig-blocking,
+:root[data-style="candy"] .ig-pinned {
+  color: var(--muted);
+}
+/* 细线框画成内描边（不占宽度：说明那一行和经典一样排得下一行） */
+:root[data-style="candy"] .inbox-row {
+  position: relative;
+  margin: 0 0 8px;
+  gap: 0;
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--shadow-note);
+}
+:root[data-style="candy"] .inbox-row:not(.unread) {
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+:root[data-style="candy"] .inbox-row.on {
+  box-shadow:
+    0 0 0 2px var(--primary),
+    var(--shadow-note);
+}
+:root[data-style="candy"] .inbox-main {
+  align-items: center;
+  gap: 12px;
+  padding: 12px 4px 12px 12px;
+}
+/* 未读的点在卡片右边（设计稿）：珊瑚红、白边、细红圈，贴在卡片右缘的正中，不占说明那一行的宽度 */
+:root[data-style="candy"] .inbox-dot {
+  position: absolute;
+  top: 50%;
+  right: -5px;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0;
+}
+:root[data-style="candy"] .unread .inbox-dot {
+  border: 2px solid var(--surface);
+  box-shadow: 0 0 0 1px var(--badge);
+}
+:root[data-style="candy"] .inbox-title {
+  font-size: var(--fs-l);
+  font-weight: 500;
+}
+:root[data-style="candy"] .unread .inbox-title {
+  font-weight: 700;
+}
+:root[data-style="candy"] .urg {
+  border-radius: 50%;
+}
+/* 行尾的"⋯"：字靠左，右边留出未读的点的位置（按钮总宽不变） */
+:root[data-style="candy"] .inbox-row .icon-btn {
+  padding: 4px 12px 4px 0;
+  color: var(--muted);
+}
+:root[data-style="candy"] .inbox-hint {
+  padding: 0 6px;
+}
+:root[data-style="candy"] .archive-row {
+  border-radius: var(--radius-l);
+}
+
+/* ---------- 宽屏的分栏、详情：都落在淡紫底上，里面的卡片浮起来 ---------- */
+:root[data-style="candy"] .pane-list,
+:root[data-style="candy"] .pane-detail,
+:root[data-style="candy"] .detail,
+:root[data-style="candy"] .dp-page {
+  background: var(--bg);
+}
+:root[data-style="candy"] .dt-doc {
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-note);
+}

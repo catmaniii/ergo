@@ -1,0 +1,40 @@
+{
+  "name": "@ergo/supervisor",
+  "version": "0.4.0",
+  "private": true,
+  "type": "module",
+  "description": "二狗的服务管家（Local Service Manager，LSM）：单独的小进程，在一台 Windows 机器上统一托管、探活、监控各项目的常驻服务（含二狗自己），带实时 WebUI。",
+  "keywords": [
+    "windows",
+    "service-manager",
+    "process-supervisor",
+    "health-check",
+    "webui",
+    "tailscale"
+  ],
+  "license": "MIT",
+  "author": "ergo contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/catmaniii/ergo.git",
+    "directory": "packages/supervisor"
+  },
+  "homepage": "https://github.com/catmaniii/ergo#readme",
+  "bugs": {
+    "url": "https://github.com/catmaniii/ergo/issues"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "bin": {
+    "lsm": "./bin/lsm.mjs"
+  },
+  "scripts": {
+    "start": "node bin/lsm.mjs serve",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "ws": "8.22.0",
+    "yaml": "2.9.0"
+  }
+}

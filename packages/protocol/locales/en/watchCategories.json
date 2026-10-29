@@ -1,0 +1,15 @@
+{
+  "watchCategories.match.emptyName": "The name can't be empty",
+  "watchCategories.match.notAbsolute": "Paths must be full Windows paths (e.g. D:\\code\\app\\db\\migrations): {path}",
+  "watchCategories.match.noCondition": "A rule needs at least one condition (matching tool, path, recipient or amount)",
+  "watchCategories.sep": "; ",
+  "watchCategories.broken.title": "The watch categories settings file has a problem, so every agent's tool calls will be blocked",
+  "watchCategories.unreadable": "Can't read the watch categories settings {file}: {error}",
+  "watchCategories.broken.body": "Can't read the settings file {file}: {problems}. Fix it on the watch categories page in Settings: restore the last valid settings, restore defaults, or fix it by hand and tap \"I fixed it by hand, reload\". This item archives itself once it's fixed.",
+  "watchCategories.broken.source": "Watch categories settings",
+  "watchCategories.broken.fixedTitle": "The watch categories settings file had a problem (fixed)",
+  "watchCategories.keyReused": "This idempotency key was already used for a different request",
+  "watchCategories.notBroken": "The settings file isn't broken, nothing to fix",
+  "watchCategories.repairFirst": "The watch categories settings file is broken. Fix it first (restore the last valid settings, or restore defaults), then make changes: {problems}",
+  "watchCategories.noCustom": "No such custom category: {id}"
+}

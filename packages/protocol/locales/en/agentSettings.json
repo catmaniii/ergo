@@ -1,0 +1,9 @@
+{
+  "agentSettings.noAgent": "No such agent (only the Secretary and task and project maintainers have ⚙): {agentId}",
+  "agentSettings.noOwnModel": "{label} can't have its own model: the Secretary's model is set in Settings · Models",
+  "agentSettings.runtime.unknown": "There is no runtime \"{id}\" (the plugin that registered it is gone)",
+  "agentSettings.runtime.badModel": "{runtime} has no model \"{model}\"",
+  "agentSettings.runtime.badSetting": "{runtime} has no setting \"{setting}\"",
+  "agentSettings.runtime.badValue": "\"{setting}\" has no option \"{value}\"",
+  "agentSettings.runtime.notAllowed": "{label} can't choose a runtime"
+}

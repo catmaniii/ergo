@@ -1,0 +1,598 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<script>
+// 外观（跟随系统 / 浅色 / 深色）在首帧之前就定下来，免得先闪一下深色。
+// 选择存在本浏览器里（lsm.theme），主页和日志页共用；「跟随系统」时由下面的模块脚本盯着系统切换。
+(function () {
+  var pref = 'system';
+  try { pref = localStorage.getItem('lsm.theme') || 'system'; } catch (e) {}
+  var light = pref === 'light' || (pref === 'system' && !!(window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches));
+  document.documentElement.setAttribute('data-theme', light ? 'light' : 'dark');
+})();
+</script>
+<title>日志</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%238b7cff'/%3E%3Cstop offset='1' stop-color='%2322d3ee'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='3' y='5' width='26' height='22' rx='5' fill='%230b0e15' stroke='url(%23g)' stroke-width='2'/%3E%3Cpath d='M9 12l4 4-4 4M16 21h7' fill='none' stroke='url(%23g)' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>
+/* ============================================================
+   日志页：一个服务的全部命令行输出，只读、实时。
+   - 首屏是末尾 2 MB，更早的点顶上「加载更早的」往前翻，一直能翻到文件开头。
+   - 新输出由服务端 SSE 推送（不轮询）；断线自动重连，从断点的字节位置续上，不重放、不漏。
+   - 贴着底部时自动跟随；往上翻就停下来，右下角告诉你有多少新行。
+   - 和主页同一套色板：状态色只用来表达状态。
+   ============================================================ */
+:root{
+  --bg:#05070b; --surface:#0b0f16; --term:#04060a;
+  --line:rgba(148,163,194,.10); --line-2:rgba(148,163,194,.18);
+  --fg:#e8ebf2; --dim:#8f98ad; --faint:#5f6779; --text:#c9d1e0;
+  --green-rgb:52,211,153; --amber-rgb:251,191,36; --cyan-rgb:34,211,238;
+  --red-rgb:251,113,133; --gray-rgb:120,128,148; --violet-rgb:139,124,255;
+  --green:rgb(var(--green-rgb)); --amber:rgb(var(--amber-rgb)); --cyan:rgb(var(--cyan-rgb));
+  --red:rgb(var(--red-rgb)); --violet:rgb(var(--violet-rgb));
+  --mono:"Cascadia Code","Cascadia Mono","JetBrains Mono",Consolas,ui-monospace,monospace;
+  --sans:"Segoe UI Variable Text","Segoe UI Variable","Segoe UI","Microsoft YaHei UI","Microsoft YaHei","PingFang SC",system-ui,sans-serif;
+  --ease:cubic-bezier(.2,.8,.2,1);
+  color-scheme:dark;
+  /* ---- 主题相关：深色（默认）。浅色在下面的 [data-theme="light"] 里整套覆盖 ---- */
+  --ink-rgb:255,255,255;              /* 叠在底色上的那层薄色：深色下是白，浅色下是墨 */
+  --shadow-rgb:0,0,0; --sh:1;         /* 阴影颜色与浓度：浅色下要淡得多 */
+  --hdr-a:rgba(5,7,11,.86); --hdr-b:rgba(5,7,11,.62);
+  --panel-a:#131824; --panel-b:#0b0f17;
+  --glass:rgba(12,16,24,.92); --scrim:rgba(2,4,8,.62); --well:rgba(0,0,0,.38);
+  --term-bg:#030508; --term-fg:#c8d0df; --body-2:#c6ccd8;
+  --cid-off:#c5cad5; --sig-on:#d6dbe6; --chain-label:#7d8699;
+  --t-red:#fda4b4; --t-amber:#fcd77a; --t-cyan:#9be7f5; --t-cyan-2:#a5f0fc;
+  --t-violet:#c4b5fd; --t-violet-2:#cfc6ff; --t-violet-3:#b3a8ff;
+  --link:#9fe8f7; --link-hover:#fff;
+  /* 在跑 vs 停着：不只靠颜色——在跑的卡片染色、标签实心；停着的几乎不染色、标签空心 */
+  --tint-on:1; --tint-off:.22; --on-ok:#03140c;
+}
+/* 浅色：状态色换成更深的色阶——原来那套霓虹色在白底上当文字几乎看不清 */
+:root[data-theme="light"]{
+  color-scheme:light;
+  --bg:#f3f5f9; --surface:#ffffff;
+  --line:rgba(15,23,42,.09); --line-2:rgba(15,23,42,.16);
+  --fg:#0f172a; --dim:#475569; --faint:#8590a3;
+  --green-rgb:21,128,61; --amber-rgb:217,119,6; --cyan-rgb:8,145,178;
+  --red-rgb:225,29,72; --gray-rgb:100,116,139; --violet-rgb:108,92,231;
+  --ink-rgb:15,23,42;
+  --shadow-rgb:15,23,42; --sh:.22;
+  --tint-on:1.4; --tint-off:.12; --on-ok:#ffffff;
+  --hdr-a:rgba(243,245,249,.9); --hdr-b:rgba(243,245,249,.72);
+  --panel-a:#ffffff; --panel-b:#f8fafc;
+  --glass:rgba(255,255,255,.95); --scrim:rgba(15,23,42,.30); --well:rgba(15,23,42,.04);
+  --term-bg:#f8fafc; --term-fg:#1e293b; --body-2:#334155;
+  --cid-off:#475569; --sig-on:#334155; --chain-label:#64748b;
+  --t-red:#be123c; --t-amber:#92400e; --t-cyan:#0e7490; --t-cyan-2:#0e7490;
+  --t-violet:#6d28d9; --t-violet-2:#5b21b6; --t-violet-3:#6d28d9;
+  --link:#0369a1; --link-hover:#0c4a6e;
+  --term:#fbfcfe; --text:#1e293b;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;display:flex;flex-direction:column;overflow:hidden;background:var(--bg);color:var(--fg);
+  font:14px/1.55 var(--sans);-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+svg.i{width:15px;height:15px;flex:none}
+::selection{background:rgba(var(--violet-rgb),.4)}
+::-webkit-scrollbar{width:11px;height:11px}
+::-webkit-scrollbar-thumb{background:rgba(var(--ink-rgb),.10);border-radius:10px;border:3px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background:rgba(var(--ink-rgb),.2);background-clip:padding-box}
+::-webkit-scrollbar-track,::-webkit-scrollbar-corner{background:transparent}
+
+/* ---------- 顶栏 ---------- */
+.top{position:relative;flex:none;border-bottom:1px solid var(--line);
+  background:
+    radial-gradient(700px 160px at 0% 0%, rgba(var(--c,var(--gray-rgb)),.16), transparent 70%),
+    linear-gradient(180deg,rgba(var(--ink-rgb),.03),rgba(var(--ink-rgb),0)), var(--surface)}
+.top::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;
+  background:linear-gradient(90deg,rgba(var(--c,var(--gray-rgb)),.7),rgba(var(--c,var(--gray-rgb)),0) 60%)}
+.row1{display:flex;align-items:center;gap:14px;padding:14px 22px 10px;min-width:0}
+.back{display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 11px 0 8px;border-radius:9px;flex:none;
+  color:var(--dim);text-decoration:none;font-size:12.5px;border:1px solid var(--line-2);background:rgba(var(--ink-rgb),.03);transition:all .2s}
+.back:hover{color:var(--fg);border-color:rgba(var(--violet-rgb),.5);background:rgba(var(--violet-rgb),.08)}
+.who{display:flex;align-items:center;gap:11px;min-width:0}
+.light{position:relative;width:10px;height:10px;border-radius:50%;flex:none;background:rgb(var(--c,var(--gray-rgb)));
+  box-shadow:0 0 10px rgba(var(--c,var(--gray-rgb)),.85)}
+.light::after{content:"";position:absolute;inset:-5px;border-radius:50%;border:1.5px solid rgba(var(--c),.65);opacity:0}
+.up .light::after{animation:ring 2.4s var(--ease) infinite}
+@keyframes ring{0%{transform:scale(.55);opacity:.95}100%{transform:scale(1.9);opacity:0}}
+.sid{font:600 17px/1.2 var(--mono);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sname{font-size:12.5px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip{flex:none;padding:5px 9px;border-radius:999px;font:650 10.5px/1 var(--mono);letter-spacing:.08em;
+  color:rgb(var(--c,var(--gray-rgb)));background:rgba(var(--c,var(--gray-rgb)),.12);border:1px solid rgba(var(--c,var(--gray-rgb)),.30)}
+.up .chip{color:var(--on-ok);background:rgb(var(--c));border-color:rgb(var(--c))}   /* 在跑 = 实心，和主页一致 */
+.ro{flex:none;display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--faint)}
+.ro svg{width:12px;height:12px}
+.sp{flex:1}
+.conn{flex:none;display:inline-flex;align-items:center;gap:8px;height:28px;padding:0 12px;border-radius:999px;font-size:12px;
+  color:var(--dim);border:1px solid var(--line);background:rgba(var(--ink-rgb),.02);white-space:nowrap}
+.conn i{width:7px;height:7px;border-radius:50%;background:var(--faint)}
+.conn.on{color:var(--green);border-color:rgba(var(--green-rgb),.28);background:rgba(var(--green-rgb),.06)}
+.conn.on i{background:var(--green);animation:ping 2s var(--ease) infinite}
+.conn.off{color:var(--amber);border-color:rgba(var(--amber-rgb),.3);background:rgba(var(--amber-rgb),.06)}
+.conn.off i{background:var(--amber);animation:blink 1s steps(2) infinite}
+@keyframes ping{0%{box-shadow:0 0 0 0 rgba(var(--green-rgb),.7)}80%,100%{box-shadow:0 0 0 7px rgba(var(--green-rgb),0)}}
+@keyframes blink{50%{opacity:.25}}
+
+.row2{display:flex;align-items:center;gap:10px;padding:0 22px 12px;flex-wrap:wrap}
+.tabs{display:flex;gap:4px;padding:3px;border-radius:10px;background:rgba(var(--shadow-rgb),calc(.28*var(--sh)));border:1px solid var(--line)}
+.tab{height:26px;padding:0 11px;border-radius:7px;border:0;cursor:pointer;font:500 12px var(--sans);color:var(--dim);background:transparent;transition:all .2s}
+.tab:hover{color:var(--fg)}
+.tab[aria-selected="true"]{color:var(--fg);background:rgba(var(--violet-rgb),.2);box-shadow:inset 0 0 0 1px rgba(var(--violet-rgb),.45)}
+.path{min-width:0;flex:1 1 260px;font:12px var(--mono);color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;direction:rtl;text-align:left}
+.path span{direction:ltr;unicode-bidi:embed}
+.meta{flex:none;font:12px var(--mono);color:var(--dim)}
+.tg{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px;border-radius:8px;cursor:pointer;white-space:nowrap;
+  font:500 12px var(--sans);color:var(--dim);border:1px solid var(--line-2);background:rgba(var(--ink-rgb),.03);transition:all .2s}
+.tg svg{width:13px;height:13px}
+.tg:hover{color:var(--fg);border-color:rgba(var(--ink-rgb),.24)}
+.tg[aria-pressed="true"]{color:var(--t-cyan-2);border-color:rgba(var(--cyan-rgb),.45);background:rgba(var(--cyan-rgb),.10)}
+.tg:focus-visible,.tab:focus-visible,.back:focus-visible,.more:focus-visible,.jump:focus-visible{outline:2px solid rgba(var(--violet-rgb),.85);outline-offset:2px}
+
+/* ---------- 终端区 ---------- */
+.termwrap{position:relative;flex:1;min-height:0}
+#out{position:absolute;inset:0;overflow:auto;padding:12px 0 28px;background:
+    linear-gradient(180deg,rgba(var(--c,var(--gray-rgb)),.035),transparent 140px), var(--term);
+  font:12.5px/1.62 var(--mono);color:var(--text);tab-size:4}
+#out.nowrap .ln{white-space:pre}
+.ln{padding:0 22px 0 26px;white-space:pre-wrap;word-break:break-all;min-height:1.62em;position:relative}
+.ln:hover{background:rgba(var(--ink-rgb),.025)}
+.ln.err{color:var(--t-red);background:linear-gradient(90deg,rgba(var(--red-rgb),.09),transparent 60%)}
+.ln.err::before,.ln.warn::before{content:"";position:absolute;left:12px;top:.55em;width:4px;height:4px;border-radius:50%}
+.ln.err::before{background:var(--red);box-shadow:0 0 6px var(--red)}
+.ln.warn{color:var(--t-amber)}
+.ln.warn::before{background:var(--amber)}
+.ln.quiet{color:var(--faint)}
+.sep{display:flex;align-items:center;gap:12px;margin:14px 22px 8px 26px;font:600 11px/1 var(--mono);letter-spacing:.06em;color:var(--t-violet);white-space:nowrap}
+.sep::before{content:"";width:18px;height:1px;background:rgba(var(--violet-rgb),.7)}
+.sep::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,rgba(var(--violet-rgb),.55),rgba(var(--violet-rgb),0))}
+.sep.hook{color:var(--cyan)}
+.sep.hook::before{background:rgba(var(--cyan-rgb),.7)}
+.sep.hook::after{background:linear-gradient(90deg,rgba(var(--cyan-rgb),.45),rgba(var(--cyan-rgb),0))}
+.sep small{font-weight:500;color:var(--faint);letter-spacing:0}
+#partial{opacity:.85}
+#partial::after{content:"";display:inline-block;width:7px;height:1.1em;margin-left:2px;vertical-align:-.18em;background:var(--green);animation:blink 1s steps(2) infinite}
+#partial:empty{display:none}
+.more{display:flex;align-items:center;justify-content:center;gap:8px;margin:2px 22px 12px 26px;height:34px;width:calc(100% - 48px);
+  border-radius:9px;cursor:pointer;font:500 12.5px var(--sans);color:var(--dim);border:1px dashed var(--line-2);background:rgba(var(--ink-rgb),.02);transition:all .2s}
+.more:hover:not(:disabled){color:var(--fg);border-color:rgba(var(--violet-rgb),.55);background:rgba(var(--violet-rgb),.07)}
+.more:disabled{cursor:default;opacity:.7}
+.more.top{border-style:solid;color:var(--faint)}
+.empty{display:grid;place-items:center;min-height:60%;padding:40px 24px;text-align:center;color:var(--dim);font:13.5px/1.8 var(--sans)}
+.empty .eic{width:46px;height:46px;margin:0 auto 14px;border-radius:14px;display:grid;place-items:center;color:var(--violet);
+  background:rgba(var(--violet-rgb),.12);border:1px solid rgba(var(--violet-rgb),.32)}
+.empty .eic svg{width:20px;height:20px}
+.empty b{display:block;margin-bottom:4px;color:var(--fg);font-size:15px}
+.wait{display:inline-block;width:14px;height:14px;border-radius:50%;border:2px solid rgba(var(--cyan-rgb),.25);border-top-color:var(--cyan);animation:spin .7s linear infinite;vertical-align:-2px;margin-right:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.jump{position:absolute;right:24px;bottom:22px;z-index:5;display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 15px 0 12px;
+  border-radius:999px;cursor:pointer;font:500 12.5px var(--sans);color:#fff;border:1px solid rgba(var(--violet-rgb),.8);
+  background:linear-gradient(180deg,rgba(var(--violet-rgb),.95),rgba(115,98,255,.82));box-shadow:0 14px 34px -10px rgba(var(--violet-rgb),.9);
+  transition:transform .3s var(--ease),opacity .3s}
+.jump svg{width:14px;height:14px}
+.jump.hide{transform:translateY(14px);opacity:0;pointer-events:none}
+
+.foot{flex:none;display:flex;align-items:center;gap:16px;padding:7px 22px;border-top:1px solid var(--line);
+  font:11.5px var(--mono);color:var(--faint);background:var(--surface)}
+.foot b{color:var(--dim);font-weight:500}
+
+/* ANSI 16 色（按深色底调过亮度） */
+.f30{color:#6b7280}.f31{color:#f87171}.f32{color:#4ade80}.f33{color:#facc15}.f34{color:#60a5fa}.f35{color:#e879f9}.f36{color:#22d3ee}.f37{color:#e5e7eb}
+.f90{color:#9ca3af}.f91{color:#fca5a5}.f92{color:#86efac}.f93{color:#fde047}.f94{color:#93c5fd}.f95{color:#f0abfc}.f96{color:#67e8f9}.f97{color:#fff}
+.b40{background:#111827}.b41{background:#7f1d1d}.b42{background:#14532d}.b43{background:#713f12}.b44{background:#1e3a8a}.b45{background:#701a75}.b46{background:#164e63}.b47{background:#9ca3af;color:#111}
+/* 浅色底上的 ANSI 16 色：原来那套是给黑底调的，黄字白底根本看不见 */
+:root[data-theme="light"] .f30{color:#4b5563} :root[data-theme="light"] .f31{color:#dc2626} :root[data-theme="light"] .f32{color:#15803d}
+:root[data-theme="light"] .f33{color:#a16207} :root[data-theme="light"] .f34{color:#1d4ed8} :root[data-theme="light"] .f35{color:#a21caf}
+:root[data-theme="light"] .f36{color:#0e7490} :root[data-theme="light"] .f37{color:#334155}
+:root[data-theme="light"] .f90{color:#6b7280} :root[data-theme="light"] .f91{color:#e11d48} :root[data-theme="light"] .f92{color:#16a34a}
+:root[data-theme="light"] .f93{color:#ca8a04} :root[data-theme="light"] .f94{color:#2563eb} :root[data-theme="light"] .f95{color:#c026d3}
+:root[data-theme="light"] .f96{color:#0891b2} :root[data-theme="light"] .f97{color:#0f172a}
+:root[data-theme="light"] .b40{background:#e5e7eb} :root[data-theme="light"] .b41{background:#fee2e2} :root[data-theme="light"] .b42{background:#dcfce7}
+:root[data-theme="light"] .b43{background:#fef3c7} :root[data-theme="light"] .b44{background:#dbeafe} :root[data-theme="light"] .b45{background:#fae8ff}
+:root[data-theme="light"] .b46{background:#cffafe} :root[data-theme="light"] .b47{background:#f1f5f9;color:#111}
+.ab{font-weight:700}.ad{opacity:.65}.ai{font-style:italic}.au{text-decoration:underline}
+
+/* ---------- 外观开关：跟随系统 / 浅色 / 深色 ---------- */
+.theme{display:inline-flex;gap:2px;padding:3px;flex:none;border-radius:999px;border:1px solid var(--line);background:rgba(var(--ink-rgb),.03)}
+.theme button{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border:0;border-radius:999px;cursor:pointer;white-space:nowrap;
+  font:500 12px var(--sans);color:var(--faint);background:transparent;transition:color .2s,background .2s,box-shadow .2s}
+.theme button svg{width:13px;height:13px}
+.theme button:hover{color:var(--fg)}
+.theme button[aria-pressed="true"]{color:var(--fg);background:var(--surface);
+  box-shadow:inset 0 0 0 1px var(--line-2), 0 1px 3px rgba(var(--shadow-rgb),calc(.5*var(--sh)))}
+.theme button:focus-visible{outline:2px solid rgba(var(--violet-rgb),.85);outline-offset:1px}
+@media (max-width:760px){ .theme button span{display:none} .theme button{padding:0 7px} }
+
+@media (max-width:760px){
+  .row1,.row2{padding-left:16px;padding-right:16px}
+  .ln{padding-left:16px;padding-right:16px}
+  .sep,.more{margin-left:16px;margin-right:16px}
+  .more{width:calc(100% - 32px)}
+  .ro,.sname{display:none}
+  .path{flex-basis:100%;order:9}
+}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header class="top" id="top">
+  <div class="row1">
+    <a class="back" href="/" title="回到服务管理器"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 6 8.5 12l6 6"/></svg>管理器</a>
+    <div class="who">
+      <span class="light"></span>
+      <div style="min-width:0">
+        <div class="sid" id="sid">…</div>
+        <div class="sname" id="sname"></div>
+      </div>
+      <span class="chip" id="chip">…</span>
+    </div>
+    <span class="ro" title="这一页只看不动：没有任何按钮会去碰服务"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/></svg>只读</span>
+    <span class="sp"></span>
+    <span class="conn" id="conn"><i></i><span id="conntext">连接中…</span></span>
+    <div class="theme" role="group" aria-label="外观">
+        <button type="button" data-set-theme="system" aria-pressed="false" title="外观跟随系统设置"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="12" rx="2"/><path d="M8.5 20h7M12 16.5V20"/></svg><span>跟随系统</span></button>
+        <button type="button" data-set-theme="light" aria-pressed="false" title="浅色"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"/></svg><span>浅色</span></button>
+        <button type="button" data-set-theme="dark" aria-pressed="false" title="深色"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><span>深色</span></button>
+      </div>
+  </div>
+  <div class="row2">
+    <div class="tabs" id="tabs" role="tablist"></div>
+    <div class="path" id="path" title=""><span></span></div>
+    <span class="meta" id="meta"></span>
+    <button class="tg" id="wrap" aria-pressed="true" title="长行折行显示（W）"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h13a3 3 0 0 1 0 6h-4"/><path d="M15 15.5 12.5 18l2.5 2.5"/><path d="M4 18h5"/></svg>换行</button>
+    <button class="tg" id="follow" aria-pressed="true" title="贴着最新输出自动滚动（End）"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v13"/><path d="m6.5 12 5.5 5.5 5.5-5.5"/><path d="M5 20.5h14"/></svg>跟随</button>
+  </div>
+</header>
+
+<div class="termwrap">
+  <div id="out" role="log" aria-live="off" aria-label="命令行输出"></div>
+  <button class="jump hide" id="jump"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M6 13l6 6 6-6"/></svg><span id="jumptext">跳到最新</span></button>
+</div>
+<footer class="foot"><span>行数 <b id="nlines">0</b></span><span>最后输出 <b id="lastat">—</b></span><span class="sp"></span><span id="hint">往上翻会暂停跟随 · End 回到最新</span></footer>
+
+<script type="module">
+const $ = (id) => document.getElementById(id);
+
+// ---------------------------------------------------------------- 外观（跟随系统 / 浅色 / 深色）
+// 选择是本浏览器自己的偏好，存 localStorage（读写都包 try：隐私模式下它可能直接抛错，页面照常按系统走）。
+const THEME_KEY = 'lsm.theme';
+const sysLight = matchMedia('(prefers-color-scheme: light)');
+const readTheme = () => { try { return localStorage.getItem(THEME_KEY) || 'system'; } catch { return 'system'; } };
+function applyTheme(pref) {
+  const light = pref === 'light' || (pref === 'system' && sysLight.matches);
+  document.documentElement.dataset.theme = light ? 'light' : 'dark';
+  for (const b of document.querySelectorAll('[data-set-theme]')) b.setAttribute('aria-pressed', String(b.dataset.setTheme === pref));
+}
+sysLight.addEventListener('change', () => { if (readTheme() === 'system') applyTheme('system'); });   // 跟随系统：系统一切就跟着切
+window.addEventListener('storage', (e) => { if (e.key === THEME_KEY) applyTheme(readTheme()); });  // 另一个标签页改了，这边也跟着变
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-set-theme]');
+  if (!b) return;
+  try { localStorage.setItem(THEME_KEY, b.dataset.setTheme); } catch {}
+  applyTheme(b.dataset.setTheme);
+});
+applyTheme(readTheme());
+
+const qs = new URLSearchParams(location.search);
+const ID = qs.get('id') || '';
+let srcIdx = Number(qs.get('i') || 0);
+const out = $('out');
+
+const RGB = { RUNNING:'--green-rgb', DEGRADED:'--amber-rgb', STARTING:'--cyan-rgb', STOPPING:'--cyan-rgb',
+  STOPPED:'--gray-rgb', FAILED:'--red-rgb', ORPHAN:'--red-rgb', EXTERNAL:'--gray-rgb' };
+const fmtSize = (n) => n == null ? '' : n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(1) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
+const store = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
+
+// ---------------------------------------------------------------- 终端渲染：ANSI 颜色 + \r 覆写
+// 只认 SGR（颜色/粗体），其余控制序列（光标移动、清屏、OSC 标题）一律吞掉，不显示成乱码。
+const TOKEN = /\x1b\[([0-9;?]*)([A-Za-z])|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\r\n|\n|\r|\x1b/g;
+const xterm = (n) => {
+  if (n < 16) return ['#000','#cd3131','#0dbc79','#e5e510','#2472c8','#bc3fbc','#11a8cd','#e5e5e5','#666','#f14c4c','#23d18b','#f5f543','#3b8eea','#d670d6','#29b8db','#fff'][n];
+  if (n >= 232) { const v = 8 + (n - 232) * 10; return `rgb(${v},${v},${v})`; }
+  n -= 16; const c = (x) => (x ? 55 + x * 40 : 0);
+  return `rgb(${c(Math.floor(n / 36))},${c(Math.floor(n / 6) % 6)},${c(n % 6)})`;
+};
+
+class Term {
+  constructor() { this.style = {}; this.cur = this.newLine(); this.cr = false; this.colored = false; }
+  newLine() { const d = document.createElement('div'); d.className = 'ln'; return d; }
+  sgr(params) {
+    const ps = params === '' ? [0] : params.split(';').map((x) => Number(x) || 0);
+    for (let i = 0; i < ps.length; i++) {
+      const p = ps[i];
+      if (p === 0) this.style = {};
+      else if (p === 1) this.style.b = 1; else if (p === 2) this.style.d = 1; else if (p === 3) this.style.i = 1; else if (p === 4) this.style.u = 1;
+      else if (p === 22) { delete this.style.b; delete this.style.d; } else if (p === 23) delete this.style.i; else if (p === 24) delete this.style.u;
+      else if ((p >= 30 && p <= 37) || (p >= 90 && p <= 97)) { this.style.fc = 'f' + p; delete this.style.fx; }
+      else if (p === 39) { delete this.style.fc; delete this.style.fx; }
+      else if (p >= 40 && p <= 47) { this.style.bc = 'b' + p; delete this.style.bx; }
+      else if (p === 49) { delete this.style.bc; delete this.style.bx; }
+      else if (p === 38 || p === 48) {
+        let col = null;
+        if (ps[i + 1] === 5) { col = xterm(ps[i + 2] ?? 0); i += 2; }
+        else if (ps[i + 1] === 2) { col = `rgb(${ps[i + 2] ?? 0},${ps[i + 3] ?? 0},${ps[i + 4] ?? 0})`; i += 4; }
+        if (col) { if (p === 38) { this.style.fx = col; delete this.style.fc; } else { this.style.bx = col; delete this.style.bc; } }
+      }
+    }
+  }
+  text(s) {
+    if (this.cr) { this.cur.textContent = ''; this.cr = false; this.colored = false; }   // \r：回到行首，后面的字覆盖这一行
+    const st = this.style;
+    if (!st.fc && !st.fx && !st.bc && !st.bx && !st.b && !st.d && !st.i && !st.u) { this.cur.append(s); return; }
+    const sp = document.createElement('span');
+    sp.className = [st.fc, st.bc, st.b && 'ab', st.d && 'ad', st.i && 'ai', st.u && 'au'].filter(Boolean).join(' ');
+    if (st.fx) sp.style.color = st.fx;
+    if (st.bx) sp.style.background = st.bx;
+    sp.textContent = s;
+    this.cur.append(sp);
+    if (st.fc || st.fx) this.colored = true;
+  }
+  /** 一段文本 → 追加到 sink（完整的行），最后那半行留在 this.cur 里等下一段 */
+  feed(s, sink) {
+    TOKEN.lastIndex = 0;
+    let last = 0, m;
+    while ((m = TOKEN.exec(s))) {
+      if (m.index > last) this.text(s.slice(last, m.index));
+      const t = m[0];
+      if (t === '\n' || t === '\r\n') this.endLine(sink);
+      else if (t === '\r') this.cr = true;
+      else if (m[2] === 'm') this.sgr(m[1]);
+      last = TOKEN.lastIndex;
+    }
+    if (last < s.length) this.text(s.slice(last));
+  }
+  endLine(sink) {
+    sink.append(decorate(this.cur, this.colored));
+    this.cur = this.newLine(); this.cr = false; this.colored = false;
+    sink.lines = (sink.lines || 0) + 1;
+  }
+}
+
+// 管理器自己写进去的分隔行画成分隔线；没有自带颜色的行按关键词轻轻标一下错误/警告
+const SEP = /^===== lsm (启动|执行 (\S+) 钩子) (\S+) @ (\S+) =====\s*$/;
+const HOOKEND = /^----- .* -----\s*$/;
+const ERR = /\b(error|err!|fatal|exception|traceback|failed|failure|panic|denied|refused|EADDRINUSE|ECONNREFUSED)\b|错误|失败|异常|拒绝访问|无法/i;
+const WARN = /\b(warn|warning|deprecated)\b|警告/i;
+function localTime(iso) {
+  const d = new Date(iso);
+  if (isNaN(d)) return iso;
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getMonth() + 1}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+function decorate(el, colored) {
+  const t = el.textContent;
+  const m = SEP.exec(t);
+  if (m) {
+    const sep = document.createElement('div');
+    sep.className = 'sep' + (m[2] ? ' hook' : '');
+    sep.textContent = m[2] ? `执行 ${m[2]} 钩子 · ${localTime(m[4])}` : `lsm 启动 · ${localTime(m[4])}`;
+    sep.title = t;
+    return sep;
+  }
+  if (HOOKEND.test(t)) el.classList.add('quiet');
+  else if (!colored && ERR.test(t)) el.classList.add('err');
+  else if (!colored && WARN.test(t)) el.classList.add('warn');
+  return el;
+}
+
+// ---------------------------------------------------------------- 视图状态
+let term = new Term();
+let lines = 0, startOffset = 0, lastEnd = 0, file = null, es = null, sources = [];
+let follow = true, unseen = 0;
+const partial = document.createElement('div');
+partial.id = 'partial'; partial.className = 'ln';
+const moreBtn = document.createElement('button');
+moreBtn.className = 'more';
+moreBtn.addEventListener('click', loadEarlier);
+
+const setWrap = (on) => { out.classList.toggle('nowrap', !on); $('wrap').setAttribute('aria-pressed', on); store.set('lsm.log.wrap', on ? '1' : '0'); };
+setWrap(store.get('lsm.log.wrap', '1') === '1');
+$('wrap').onclick = () => setWrap(out.classList.contains('nowrap'));
+
+const atBottom = () => out.scrollHeight - out.scrollTop - out.clientHeight < 40;
+function setFollow(on) {
+  follow = on;
+  $('follow').setAttribute('aria-pressed', on);
+  if (on) { unseen = 0; out.scrollTop = out.scrollHeight; }
+  syncJump();
+}
+function syncJump() {
+  $('jump').classList.toggle('hide', follow);
+  $('jumptext').textContent = unseen ? `跳到最新 · ${unseen} 行新输出` : '跳到最新';
+}
+$('follow').onclick = () => setFollow(!follow);
+$('jump').onclick = () => setFollow(true);
+let programmatic = false;
+out.addEventListener('scroll', () => {
+  if (programmatic) { programmatic = false; return; }
+  if (atBottom()) { if (!follow) setFollow(true); }
+  else if (follow) { follow = false; $('follow').setAttribute('aria-pressed', false); syncJump(); }
+});
+document.addEventListener('keydown', (e) => {
+  if (e.target.closest('input,textarea')) return;
+  if (e.key === 'End') { e.preventDefault(); setFollow(true); }
+  else if (e.key === 'Home') { e.preventDefault(); setFollow(false); out.scrollTop = 0; }
+  else if (e.key === 'w' || e.key === 'W') { if (!e.ctrlKey && !e.metaKey) setWrap(out.classList.contains('nowrap')); }
+});
+
+function scrollIfFollowing() { if (follow) { programmatic = true; out.scrollTop = out.scrollHeight; } }
+function setCount() { $('nlines').textContent = lines.toLocaleString(); }
+function syncMore() {
+  if (startOffset > 0) {
+    moreBtn.disabled = false; moreBtn.classList.remove('top');
+    moreBtn.textContent = `↑ 加载更早的（前面还有 ${fmtSize(startOffset)}）`;
+  } else {
+    moreBtn.disabled = true; moreBtn.classList.add('top');
+    moreBtn.textContent = '— 已经是文件开头 —';
+  }
+}
+function clearView() {
+  term = new Term(); lines = 0; unseen = 0;
+  out.replaceChildren(moreBtn, partial);
+  partial.textContent = '';
+  setCount();
+}
+function emptyState(icon, title, body, spinning) {
+  out.replaceChildren();
+  const d = document.createElement('div');
+  d.className = 'empty';
+  d.innerHTML = `<div><div class="eic">${icon}</div><b></b><div>${spinning ? '<span class="wait"></span>' : ''}<span class="eb"></span></div></div>`;
+  d.querySelector('b').textContent = title;
+  d.querySelector('.eb').textContent = body;
+  out.append(d);
+}
+const ICON_LOG = '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7l4 4-4 4"/><path d="M12 17h7"/></svg>';
+
+function appendText(text) {
+  const frag = document.createDocumentFragment();
+  term.feed(text, frag);
+  const n = frag.lines || 0;
+  if (n) {
+    out.insertBefore(frag, partial);
+    lines += n; setCount();
+    $('lastat').textContent = new Date().toLocaleTimeString();
+    if (!follow) { unseen += n; syncJump(); }
+  }
+  scrollIfFollowing();
+}
+
+/** 往前翻：取 startOffset 之前的一段，插在最前面，视口保持不动 */
+async function loadEarlier() {
+  if (startOffset <= 0 || moreBtn.disabled) return;
+  moreBtn.disabled = true; moreBtn.textContent = '加载中…';
+  try {
+    const r = await (await fetch(`/api/logs/range?id=${encodeURIComponent(ID)}&i=${srcIdx}&end=${startOffset}`, { credentials: 'same-origin' })).json();
+    if (!r.ok) throw new Error(r.why || '读不到');
+    const t = new Term();
+    const frag = document.createDocumentFragment();
+    t.feed(r.text, frag);
+    if (t.cur.textContent) t.endLine(frag);
+    const before = out.scrollHeight;
+    out.insertBefore(frag, moreBtn.nextSibling);
+    programmatic = true;
+    out.scrollTop += out.scrollHeight - before;
+    lines += frag.lines || 0; setCount();
+    startOffset = r.start;
+  } catch (e) {
+    moreBtn.textContent = `加载失败：${e.message}（点一下重试）`;
+    moreBtn.disabled = false;
+    return;
+  }
+  syncMore();
+}
+
+// ---------------------------------------------------------------- 数据流
+function setConn(kind, text) { $('conn').className = 'conn ' + kind; $('conntext').textContent = text; }
+
+function open(i) {
+  srcIdx = i;
+  es?.close();
+  for (const b of $('tabs').children) b.setAttribute('aria-selected', String(+b.dataset.i === i));
+  const s = sources[i];
+  $('path').firstElementChild.textContent = s?.path || '';
+  $('path').title = s?.path || '';
+  history.replaceState(null, '', `?id=${encodeURIComponent(ID)}${i ? `&i=${i}` : ''}`);
+  emptyState(ICON_LOG, '正在读取', '', true);
+  file = null;
+  setConn('', '连接中…');
+  es = new EventSource(`/api/logs/stream?id=${encodeURIComponent(ID)}&i=${i}`);
+  es.onopen = () => setConn('on', '实时');
+  es.onerror = () => setConn('off', '断开了，自动重连中…');
+  es.addEventListener('meta', (e) => {
+    const m = JSON.parse(e.data);
+    // 断线重连：服务端按 Last-Event-ID 从我们读到的位置续上——屏幕上已有的内容原样保留
+    if (file && m.file === file && m.start === lastEnd) { $('meta').textContent = fmtSize(m.size); return; }
+    file = m.file; startOffset = m.start; lastEnd = m.start;
+    clearView(); syncMore();
+    $('path').firstElementChild.textContent = m.file; $('path').title = m.file;
+    $('meta').textContent = fmtSize(m.size);
+    setFollow(true);
+  });
+  es.addEventListener('chunk', (e) => {
+    if (!file) return;
+    partial.textContent = '';
+    appendText(JSON.parse(e.data).text);
+    lastEnd = Number(e.lastEventId);
+    $('meta').textContent = fmtSize(lastEnd);
+  });
+  es.addEventListener('partial', (e) => {
+    if (!file) return;
+    const t = new Term(); t.style = { ...term.style };
+    t.feed(JSON.parse(e.data).text, document.createDocumentFragment());
+    partial.replaceChildren(...t.cur.childNodes);
+    scrollIfFollowing();
+  });
+  es.addEventListener('reset', (e) => {
+    const why = JSON.parse(e.data).why;
+    clearView();
+    const d = document.createElement('div'); d.className = 'sep'; d.textContent = why;
+    out.insertBefore(d, partial);
+  });
+  es.addEventListener('missing', (e) => {
+    file = null;
+    emptyState(ICON_LOG, '还没有输出', JSON.parse(e.data).why + '。一旦有输出，这里会自动开始滚动。', true);
+  });
+}
+
+function paintService(svc) {
+  if (!svc) return;
+  const up = svc.state === 'RUNNING' || svc.state === 'DEGRADED';
+  $('top').style.setProperty('--c', `var(${RGB[svc.state] || '--gray-rgb'})`);
+  $('top').classList.toggle('up', up);
+  out.style.setProperty('--c', `var(${RGB[svc.state] || '--gray-rgb'})`);
+  $('chip').textContent = svc.state;
+  if (svc.name && svc.name !== svc.id) $('sname').textContent = svc.name;
+}
+
+function watchState() {
+  const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
+  ws.onmessage = (e) => {
+    const m = JSON.parse(e.data);
+    if (m.type === 'state') paintService((m.services || []).find((s) => s.id === ID));
+  };
+  ws.onclose = () => setTimeout(watchState, 3000);
+}
+
+(async () => {
+  $('sid').textContent = ID || '（没给服务 id）';
+  document.title = `${ID} · 日志`;
+  if (!ID) return emptyState(ICON_LOG, '没指定服务', '从管理器卡片上的「日志」按钮打开这一页。');
+  let r;
+  try {
+    const res = await fetch(`/api/logs/sources?id=${encodeURIComponent(ID)}`, { credentials: 'same-origin' });
+    if (res.status === 401) return emptyState(ICON_LOG, '需要先登录', '回到管理器主页登录后再打开这一页。');
+    r = await res.json();
+  } catch (e) { return emptyState(ICON_LOG, '连不上管理器', String(e.message || e)); }
+  if (!r.ok) return emptyState(ICON_LOG, '打不开', r.why || '未知错误');
+  if (r.name && r.name !== r.id) $('sname').textContent = r.name;
+  sources = r.sources || [];
+  if (!sources.length) {
+    return emptyState(ICON_LOG, '没有可看的输出',
+      r.kind === 'external' ? '这是外部服务：它不是管理器起的，管理器拿不到它的命令行输出，它也没登记日志文件。' : '这个服务没有登记任何日志。');
+  }
+  $('tabs').innerHTML = '';
+  sources.forEach((s, i) => {
+    const b = document.createElement('button');
+    b.className = 'tab'; b.dataset.i = i; b.role = 'tab';
+    b.textContent = s.label;
+    b.title = s.path + (s.size != null ? ` · ${fmtSize(s.size)}` : ' · 还不存在');
+    b.onclick = () => { if (i !== srcIdx) open(i); };
+    $('tabs').append(b);
+  });
+  if (sources.length < 2) $('tabs').style.display = 'none';
+  open(sources[srcIdx] ? srcIdx : 0);
+  try {
+    const st = await (await fetch('/api/state', { credentials: 'same-origin' })).json();
+    paintService((st.services || []).find((s) => s.id === ID));
+  } catch {}
+  watchState();
+})();
+</script>
+</body>
+</html>

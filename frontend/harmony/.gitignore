@@ -1,0 +1,37 @@
+# 鸿蒙工程（DevEco / hvigor / ohpm）的本机产物，不进仓库
+/oh_modules/
+/entry/oh_modules/
+/build/
+/entry/build/
+/.hvigor/
+/entry/.hvigor/
+/.idea/
+/.preview/
+/entry/.preview/
+/.cxx/
+/entry/.cxx/
+/.clangd
+/.clang-format
+/.clang-tidy
+/.appanalyzer
+/local.properties
+# 工程没有 ohpm 依赖，DevEco 同步时生成的锁文件是空的；以后加了依赖再把这两行去掉、提交锁文件
+/oh-package-lock.json5
+/entry/oh-package-lock.json5
+**/.test/
+*.log
+
+# 签名：DevEco 的"自动生成签名"写进这份（证书路径、加密的口令），只留在本机。
+# 仓库里只有不含签名的模板 build-profile.template.json5，`npm run build:harmony` 照它生成这份
+/build-profile.json5
+# 万一有人把签名材料拷进工程
+*.p12
+*.p7b
+*.cer
+*.csr
+material/
+
+# 页面桥（134 号票）：`npm run build:harmony` 从 packages/web/src/page-bridge 打包进来，不进仓库（直接在 DevEco 里构建之前先跑一次 npm run build:harmony）
+/entry/src/main/resources/rawfile/page-bridge.js
+# App 原生的字（175 号票）：`npm run build:harmony` 从 packages/protocol/locales/<语言>/harmony.json 收进来，不进仓库
+/entry/src/main/resources/rawfile/harmony-texts.json
