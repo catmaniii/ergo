@@ -27,6 +27,8 @@ concurrency:
 env:
   # 测试里只许连本机回环（vitest.setup-no-network.mjs），不需要任何密钥
   FORCE_COLOR: "1"
+  # Windows runner 默认 UTC；测试里的日期、日历、日记都按本机时区（+08:00）写，不设会大片红
+  TZ: Asia/Shanghai
 
 jobs:
   fast:

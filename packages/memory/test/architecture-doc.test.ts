@@ -20,6 +20,14 @@ import { describe, expect, it } from "vitest";
 
 const REPO = fileURLToPath(new URL("../../../", import.meta.url));
 const DOC = path.join(REPO, "docs", "memory-system.md");
+/**
+ * 公开仓库里没有评测包 packages/memory-eval（326 号票：评测和评测数据只留私有仓库）。
+ * 文档里的接口表会提到它的源文件，公开版里那些行没法核——读文档时按"目录在不在"决定要不要把那些行去掉，
+ * 私有仓库照旧一个都查。
+ */
+const HAS_MEMORY_EVAL = fs.existsSync(path.join(REPO, "packages", "memory-eval"));
+const docForChecks = (text: string): string =>
+  HAS_MEMORY_EVAL ? text : text.split(/\r?\n/).filter((line) => !line.includes("packages/memory-eval/")).join("\n");
 /** 记忆包的入口（@ergo/memory） */
 const ENTRY = "packages/memory/src/index.ts";
 /** 记忆包和评测包的源码（326 号票分成两个包）：这两处的文件按"导出"认名字 */
@@ -383,7 +391,7 @@ export function mermaidProblems(md: string): string[] {
 // ---------- 测试 ----------
 
 describe("docs/memory-system.md 和代码对得上", () => {
-  const md = fs.readFileSync(DOC, "utf8");
+  const md = docForChecks(fs.readFileSync(DOC, "utf8"));
   const parsed = parseInterfaceTables(md);
 
   it("接口表的格式写对了", () => {
