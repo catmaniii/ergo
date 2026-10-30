@@ -152,6 +152,8 @@ describe.runIf(process.platform === "win32")("install.ps1 整个装一遍（本�
     expectOk(ok);
     expect(ok.out).toContain("Signature OK: ergo 0.3.0 SHA256SUMS");
     expect(ok.out).toContain("PATH not changed");
+    // 脚本在 irm | iex 下没法用 exit code 报错，失败只体现在这行字面上（2026-10-30 Get-FileHash 那次就是）
+    expect(ok.out).not.toContain("安装失败");
     expect(JSON.parse(fs.readFileSync(path.join(root, "versions", "0.3.0", "ergo.json"), "utf8")).version).toBe("0.3.0");
     expect(fs.readFileSync(path.join(root, "current"), "utf8").trim()).toBe("0.3.0");
     expect(fs.existsSync(path.join(root, "bin", "ergo.cmd"))).toBe(true);
@@ -194,6 +196,7 @@ describe.runIf(process.platform === "win32")("install.ps1 整个装一遍（本�
     expectOk(r);
     expect(r.out).toContain("STILL-HERE");
     expect(r.out).toContain("签名对：ergo 0.3.0 SHA256SUMS");
+    expect(r.out).not.toContain("安装失败");
     const current = path.join(root, "current");
     if (!fs.existsSync(current)) throw new Error(`没生成 ${current}（装了哪去、报了什么都在这下面）\n${r.out}`);
     expect(fs.readFileSync(current, "utf8").trim()).toBe("0.3.0");

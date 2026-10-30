@@ -471,7 +471,14 @@ function Get-Bytes([string]$url) { return (New-WebClient).DownloadData($url) }
 function Get-Utf8([string]$url) { return [Text.Encoding]::UTF8.GetString((Get-Bytes $url)) }
 function Save-Url([string]$url, [string]$file) { (New-WebClient).DownloadFile($url, $file) }
 
-function Get-Sha256([string]$file) { return (Get-FileHash -Algorithm SHA256 -LiteralPath $file).Hash.ToLowerInvariant() }
+function Get-Sha256([string]$file) {
+  # Not Get-FileHash: it lives in an auto-loaded module, and on a bare Windows Server runner that lookup fails
+  # ("The term 'Get-FileHash' is not recognized", 2026-10-30). .NET always works.
+  $sha = [System.Security.Cryptography.SHA256]::Create()
+  $stream = [IO.File]::OpenRead($file)
+  try { return ([BitConverter]::ToString($sha.ComputeHash($stream)) -replace '-', '').ToLowerInvariant() }
+  finally { $stream.Dispose(); $sha.Dispose() }
+}
 
 function Compare-Version([string]$a, [string]$b) {
   $x = [version](($a -replace '^v', '') -replace '-.*$', '')
