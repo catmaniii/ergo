@@ -502,9 +502,16 @@ function Set-Current([string]$root, [string]$name) {
   $current = Join-Path $root 'current'
   $fresh = "$current.tmp"
   if (Test-Path -LiteralPath $fresh) { Remove-OldCurrent $fresh }
-  [IO.File]::WriteAllText($fresh, $name + "`n", (New-Object Text.UTF8Encoding $false))
   Remove-OldCurrent $current
-  Invoke-Retrying { Rename-Item -LiteralPath $fresh -NewName 'current' }
+  # Write "current" directly and verify it right away. It used to be "write current.tmp, then Rename it into place":
+  # when something else holds the file, Rename raises a NON-terminating error, so Invoke-Retrying's catch never
+  # sees it and the script keeps going - the install "succeeds" with no "current" at all (CI on Windows Server 2025,
+  # 2026-10-30; not reproducible here). Fail loudly instead of pretending the install worked.
+  # (ASCII only: this file is read as ANSI by Windows PowerShell 5.1, so no non-ASCII comments.)
+  Invoke-Retrying {
+    [IO.File]::WriteAllText($current, $name + "`n", (New-Object Text.UTF8Encoding $false))
+    if (-not (Test-Path -LiteralPath $current)) { throw "current not written: $current" }
+  }
 }
 
 # remove "current" itself (or a leftover from a failed switch): junction (older installs) or text file
