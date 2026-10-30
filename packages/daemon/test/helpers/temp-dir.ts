@@ -18,5 +18,11 @@ export function makeTempDir(prefix = "ergo-test-", defer = false): string {
 
 /** 删除目录；Windows 上刚退出的进程可能还短暂占着文件，所以带重试。 */
 export function removeDir(dir: string): void {
-  fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  try {
+    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 25, retryDelay: 200 });
+  } catch (err) {
+    // 清理临时目录失败不该让测试变红（慢机器上子进程退出、杀毒扫文件都可能多占几秒，CI 上见过 EBUSY）；
+    // 留一行日志，剩下的交给系统的临时目录清理。
+    console.warn(`删临时目录没删干净（不影响测试结果）：${dir} ${err instanceof Error ? err.message : String(err)}`);
+  }
 }

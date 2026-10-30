@@ -75,8 +75,9 @@ describe("保留期", () => {
   it("过了 90 天的定时清掉：详情接口照样回 200，参数和返回只剩摘要，注明过了保留期；效果记录、聊天里的记录照旧；90 天以内的不清", async () => {
     const { url, frontend, daemon, logs, sleepUntil } = await setup({ secretary: [call("write", { path: "notes.md", content: NOTES }), reply("记好了")] });
     await tell(frontend, "把装修的事记下来");
-    const [write] = toolPartsOf(frontend);
-    const full = (await toolCallDetail(url, write!.callId)).body;
+    // 取"那次 write"：别靠"第一段工具调用"这种顺序假设，慢一点的机器上前面可能先跑出别的调用
+    const write = toolPartsOf(frontend).find((p) => p.tool === "write")!;
+    const full = (await toolCallDetail(url, write.callId)).body;
     expect(full.args).toEqual({ path: "notes.md", content: NOTES });
 
     const before = (await toolCallStorageApi.view(url)).body;
@@ -191,7 +192,7 @@ describe("本票之前的数据目录", () => {
   it("视图里没有时间、大小这几列（53 号票建的表）：启动时从事件日志补上；停机期间错过的清理开机后补一次，照样清掉过期的", async () => {
     const first = await setup({ secretary: [call("write", { path: "notes.md", content: NOTES }), reply("记好了")] });
     await tell(first.frontend, "把装修的事记下来");
-    const [write] = toolPartsOf(first.frontend);
+    const write = toolPartsOf(first.frontend).find((p) => p.tool === "write")!;
     const before = (await toolCallStorageApi.view(first.url)).body;
     const dbFile = path.join(first.daemon.layout.db, "ergo.db");
     await first.daemon.stop();

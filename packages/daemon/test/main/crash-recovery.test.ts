@@ -414,7 +414,9 @@ describe("重复启动", () => {
     // 正在跑的那个不受影响：没有中断、任务没转等我、pid 文件还是它的
     await new Promise((r) => setTimeout(r, 1500));
     expect(killable.reports.filter((r) => r.guard?.type === GUARD_EVENTS.toolCallInterrupted)).toEqual([]);
-    expect(frontend.events().slice(seen).filter((f) => f.type === EVENT_TYPES.task || f.type === EVENT_TYPES.inboxItem)).toEqual([]);
+    // 正在跑的任务自己会往前走（stage_started 这类板上的事件是它正常的进展），那不算"被第二个守护进程动了"；
+    // 第二个守护进程不该做的是往待我处理里塞东西（中断、丢失这些都在那儿报）。
+    expect(frontend.events().slice(seen).filter((f) => f.type === EVENT_TYPES.inboxItem)).toEqual([]);
     expect(tasksOf(frontend).at(-1)?.task.state).toBe("running");
     expect(readPidFile(pidFile)).toMatchObject({ pid: killable.pid });
   }, 120_000);
