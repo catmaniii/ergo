@@ -1409,7 +1409,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 工具调用完整内容的保留期和总量上限（65）：每天定时清，错过了开机后补一次（内部作业，异步跑，不挡启动）。
     // 清掉后剩的参数摘要按工具自己的登记打码（280），认得的工具在秘书的工具装好之后才齐：用到时现取（下面"接上"处填）
     const toolCallRetention = createToolCallDetailRetention({ store, internalJobs, clock, limits: config.toolCallDetails, tools: () => wired("knownTools")(), log });
-    toolCallRetention.start();
+    // start() 不在这里：它登记的作业"错过就开机补一次"，一登记就可能立刻补跑，而那时"认得哪些工具"还没接上
+    // （wiring.knownTools 在下面的接线段），补跑会抛错、还被记成"跑过了"，那天该清的就不清了（2026-10-30 查到的）。
+    // 挪到接线段之后，和别的内部作业一起 start。
     const streams = createStreamHub({ lastSeq: (channel) => store.lastSeq(channel) });
     teardown.push(() => streams.close());
     const job = process.platform === "win32" ? createJobObject() : undefined;
@@ -2297,6 +2299,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 每周的归档清单登记成内部作业（错过了同样补一次）
     scheduledJobs.start();
     archiveList.start();
+    // 工具调用完整内容的保留期/总量清理（65）：登记在接线段之后——它的开机补跑要用"认得哪些工具"（280）打码
+    toolCallRetention.start();
     // 事件触发（77）：触发登记、插件都起来之后按现在的订阅开始盯（文件夹先和比对底子比一遍，补发停机期间的变化）
     eventTriggers.start();
 
