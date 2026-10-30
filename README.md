@@ -4,7 +4,6 @@
 
 > **一个装在你自己电脑上的个人 AI 助理。** 懂你的记忆只放在你电脑上；交给它的长活，一次授权、有专人负责、由运行时盯着做完；回来一眼就能看懂。
 
-<!-- TODO 317：公开仓库建好、Pages 打开以后演示页链接才通 -->
 **[在线演示](https://catmaniii.github.io/ergo/)**（不用装、不用填 Key，点着看；网页原型自带编的示例数据。[English UI](https://catmaniii.github.io/ergo/?lang=en)）· [用户手册](docs/user-guide.md) · [开发者指南](docs/developer-guide.md) · [更新日志](CHANGELOG.md)
 
 <table>

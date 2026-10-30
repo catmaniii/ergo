@@ -4,7 +4,6 @@
 
 > **A personal AI assistant that lives on your own computer.** What it knows about you stays on your machine; long jobs you hand it are authorized once, owned by a dedicated agent and watched by the runtime until done; and when you come back, you can see what happened at a glance.
 
-<!-- TODO 317: the demo link works once the public repository and its Pages site are up -->
 **[Online demo](https://catmaniii.github.io/ergo/?lang=en)** (nothing to install, no key needed; the web prototype ships with made-up sample data) · [User Guide](docs/user-guide.en.md) · [Developer Guide](docs/developer-guide.en.md) · [Changelog](CHANGELOG.md)
 
 <table>
