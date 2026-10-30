@@ -3,15 +3,20 @@
 // 38 号票起守护进程分段合成：一段一次请求，假服务按段（按请求）回；script 给接下来几次请求各自怎么回，
 // hold 住的可以一次放行一个（releaseNext），看守护进程是不是合成好一段推一段。
 // 45 号票起守护进程启动后（和导入参考音色后）会发一条预热的试合成：它单独记在 warmups、单独回（behaveWarmup），不影响别的。
+// ADR-0036 起开源版自带一条内置的默认参考音色（v-default），新装的数据目录一启动就有——测"用户自己导入的音色"的用例从
+// "用户把内置的删了"开始（importReferenceVoice 先删它），测"一条参考音色都没有"的用例用 dataDirWithoutReferenceVoices。
 import fs from "node:fs";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
+import path from "node:path";
 import { type AgentVoiceEventPayload, type AgentVoiceRecord, EVENT_TYPES, HTTP_PATHS, type ReferenceVoice, type ReferenceVoiceList, type VoiceModelsView } from "@ergo/protocol";
 import { onTestFinished } from "vitest";
+import { DEFAULT_VOICE_ID, DEFAULT_VOICE_MARKER } from "../../src/voice/reference-voices.ts";
 import { WARMUP_TEXT } from "../../src/voice/warmup.ts";
 import type { TestFrontend } from "./frontend.ts";
 import { requestJson } from "./http.ts";
 import { waitUntil } from "./process.ts";
+import { makeTempDir } from "./temp-dir.ts";
 
 /** 测试守护进程默认的语音合成地址：本机 1 号端口上没有服务（连不上），免得哪个测试不小心打到真的 audio.cpp */
 export const NO_SPEECH_SERVICE_URL = "http://127.0.0.1:1";
@@ -249,8 +254,39 @@ export const referenceVoicesApi = {
 /** 示例参考音色的名字和逐字稿（测试里的都是编的，不是谁的真声音） */
 export const SAMPLE_VOICE = { name: "示例音色", referenceText: "大家好，这是一段示例参考录音，今天天气真不错。" } as const;
 
+/**
+ * 删掉内置的默认参考音色（ADR-0036）：测"用户自己导入的音色"的用例从这里开始——不然在用的那个是内置的。
+ * 本来就没有（已经删过、或者这个数据目录压根没装过）时什么都不做
+ */
+export async function removeBuiltinVoice(url: string): Promise<void> {
+  const listed = await referenceVoicesApi.list(url);
+  if (listed.status !== 200 || !listed.body.voices.some((voice) => voice.id === DEFAULT_VOICE_ID)) return;
+  await referenceVoicesApi.remove(url, DEFAULT_VOICE_ID);
+}
+
+/**
+ * 把数据目录标成"内置的默认参考音色装过、后来被用户删掉了"（写标记文件，ADR-0036）：这个目录里一条参考音色都没有，
+ * 起的守护进程也不会再自动装上它
+ */
+export function markBuiltinVoiceDeleted(dataDir: string): void {
+  fs.mkdirSync(path.join(dataDir, "voices"), { recursive: true });
+  fs.writeFileSync(path.join(dataDir, "voices", DEFAULT_VOICE_MARKER), `${JSON.stringify({ format: 1, voiceId: DEFAULT_VOICE_ID, installedAt: "2026-01-01T00:00:00+08:00" }, null, 2)}\n`);
+}
+
+/**
+ * 一个"内置的默认参考音色装过、后来被用户删掉了"的数据目录（给 startTestDaemon 的 reuse）：
+ * 起的守护进程里一条参考音色都没有，内置的也不会再自动长回来（ADR-0036）
+ */
+export function dataDirWithoutReferenceVoices(): { dataDir: string; homeDir: string } {
+  const dataDir = path.join(makeTempDir("ergo-no-voice-"), "ergo-data");
+  markBuiltinVoiceDeleted(dataDir);
+  return { dataDir, homeDir: makeTempDir("ergo-no-voice-home-") };
+}
+
 /** 导入一个参考音色（3 秒的 WAV），返回它；不给逐字稿就由守护进程自动识别（假的识别进程回空文字，所以默认给） */
 export async function importReferenceVoice(url: string, name: string = SAMPLE_VOICE.name, referenceText: string | undefined = SAMPLE_VOICE.referenceText): Promise<ReferenceVoice> {
+  // 内置的默认音色先删掉（ADR-0036）：这一组用例测的是用户自己导入的那条成为在用的音色
+  await removeBuiltinVoice(url);
   const res = await referenceVoicesApi.import(url, { name, ...(referenceText === undefined ? {} : { referenceText }), audio: makeWav(3) });
   if (res.status !== 201) throw new Error(`导入参考音色失败：${res.status} ${JSON.stringify(res.body)}`);
   return res.body;

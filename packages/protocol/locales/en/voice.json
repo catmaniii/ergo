@@ -72,6 +72,7 @@
   "voice.reference.transcribeUnavailable": "Speech recognition isn't available right now, so the transcript can't be generated: {reason}",
   "voice.reference.transcribeFailed": "Generating the transcript failed: {reason}",
   "voice.reference.noRecognizer": "No recognizer is available to generate the transcript automatically",
+  "voice.reference.builtinName": "Xiaoman",
   "voice.intake.missing": "Recording not found: media {mediaId} isn't stored (upload and finish it before sending)",
   "voice.intake.notAudio": "This recording isn't in a recognized audio format (webm, ogg, mp4, wav…) and can't be sent as a voice message",
   "voice.intake.tooShort": "Too short",

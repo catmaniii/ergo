@@ -37,7 +37,7 @@ import { voicePrompts } from "./prompt.ts";
 import { createHttpRecognizer } from "./recognizer-client.ts";
 import { createProcessRecognizer, unavailableRecognizer } from "./recognizer.ts";
 import { createFfmpegConverter } from "./audio-convert.ts";
-import { openReferenceVoices } from "./reference-voices.ts";
+import { DEFAULT_VOICE_ASSET_DIR, openReferenceVoices } from "./reference-voices.ts";
 import { createAudioCppSynthesizer } from "./speech.ts";
 import { voiceToolOff } from "./texts.ts";
 import { compileStripRules } from "./transcript-filter.ts";
@@ -169,7 +169,12 @@ export const voicePlugin: PluginDefinition = {
       converter: createFfmpegConverter({ tmpDir: layout.tmp, ...(engines.ffmpegCommand === undefined ? {} : { command: engines.ffmpegCommand }), log }),
       recognizer,
       recognition,
+      // 内置的默认参考音色（ADR-0036）：素材随程序装在 src/voice/default-voice/，装的时候不转码、不用 ffmpeg
+      defaultVoice: { assetDir: DEFAULT_VOICE_ASSET_DIR },
     });
+    // 首次启动：voices 区一条参考音色都没有时，把内置的那条装进去、选中——装完就有声音，不用先导入。
+    // 已经有任何一条（哪怕是用户自己的）、或者装过之后用户删了（留着标记）时什么都不做（ADR-0036）
+    referenceVoices.ensureDefault();
     // 模型预热（45）：在后台先加载识别模型、再用参考音色试合成一句让 audio.cpp 加载合成模型；不挡启动。
     // 两个模型的状态变了推一条临时事件（活动状态频道），本机接口 GET /api/voice-models 取得到同样的
     const warmup = createVoiceWarmup({

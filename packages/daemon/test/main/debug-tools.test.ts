@@ -25,7 +25,7 @@ import { startTestDaemon } from "../helpers/daemon.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
 import { requestJson } from "../helpers/http.ts";
 import { waitUntil } from "../helpers/process.ts";
-import { importReferenceVoice, SAMPLE_VOICE, startFakeSpeechService } from "../helpers/tts.ts";
+import { dataDirWithoutReferenceVoices, importReferenceVoice, SAMPLE_VOICE, startFakeSpeechService } from "../helpers/tts.ts";
 import { fakeRecording, fakeWavRecording, recognizerLog } from "../helpers/voice.ts";
 
 const START = new Date(2026, 9, 14, 21, 0, 0);
@@ -123,7 +123,8 @@ describe("语音组：送识别、合成念一句（不经会话）", () => {
 
   it("合成念一句：没有参考音色时说清楚；导入之后用当前参考音色合成，回 WAV、耗时、模型和音色的名字；服务没开回原因", async () => {
     const tts = await startFakeSpeechService();
-    const { url } = await startTestDaemon({ speechUrl: tts.url });
+    // ADR-0036：内置的默认音色装过又被删了（标记在），所以这里一开始一条参考音色都没有
+    const { url } = await startTestDaemon({ reuse: dataDirWithoutReferenceVoices(), speechUrl: tts.url });
     const frontend = await TestFrontend.connect(url);
     await frontend.subscribe({ [CHANNELS.secretary]: 0 });
 

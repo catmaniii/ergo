@@ -453,6 +453,7 @@ Neither voice piece (the Python part for recognition, audio.cpp for synthesis) h
 
 - ergo synthesizes speech with a local [audio.cpp](https://github.com/0xShug0/audio.cpp) service (a third-party open-source TTS server, optional), also hosted by the supervisor under the id `audiocpp` at `127.0.0.1:8090`.
 - Put the service's model id in `voice.speech.model` in `ergo.json`; choose the reference voice under **Settings · Roles & voices**.
+- **A default reference voice ("Xiaoman") comes with the program**, so you hear a voice as soon as it's set up — no need to record and import your own first. On the first start, if the data directory's voices area has no reference voice at all, ergo installs it and makes it the one in use. It behaves like any voice you import: you can switch to another one, or delete it. Once deleted it isn't installed again by itself — to have a voice again, import your own recording (the built-in one is synthetic, not anyone's real voice: generated with FireRedTTS3, no human recording, 8.5 s).
 - Without it, voice replies fall back to text, with a note in the chat.
 
 ### 8.3 Embedding model for semantic search

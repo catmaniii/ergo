@@ -11,7 +11,7 @@ import { startTestDaemon, type TestDaemon } from "../helpers/daemon.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
 import { isProcessAlive, waitUntil } from "../helpers/process.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
-import { agentVoiceSettled, FAKE_SPEECH_BUSY, type FakeSpeechService, importReferenceVoice, SAMPLE_VOICE, startFakeSpeechService, voiceModelsApi } from "../helpers/tts.ts";
+import { agentVoiceSettled, dataDirWithoutReferenceVoices, FAKE_SPEECH_BUSY, type FakeSpeechService, importReferenceVoice, SAMPLE_VOICE, startFakeSpeechService, voiceModelsApi } from "../helpers/tts.ts";
 import { recognizerLog, sendVoice, setFakeLoad, voiceSettled } from "../helpers/voice.ts";
 
 const SECRETARY = CHANNELS.secretary;
@@ -47,7 +47,8 @@ const count = (td: TestDaemon, event: string) => recognizerLog(td.recognizerLog)
 
 /** 先在一个数据目录里导入参考音色（再起的守护进程启动时就有参考音色），返回数据目录和这个参考音色 */
 async function dataDirWithReference(tts: FakeSpeechService) {
-  const first = await startTestDaemon({ speechUrl: tts.url });
+  // ADR-0036：内置的默认音色先删掉，这里测的是用户自己导入的那条
+  const first = await startTestDaemon({ reuse: dataDirWithoutReferenceVoices(), speechUrl: tts.url });
   const reference = await importReferenceVoice(first.url);
   // 导入后它也预热了一次：等它做完再停
   await modelsWhen(first.url, (v) => v.speech.status === "ready");
@@ -116,7 +117,8 @@ describe("启动后预热", () => {
 
   it("还没有参考音色：合成那边等着；导入了再预热", async () => {
     const tts = await startFakeSpeechService();
-    const td = await startTestDaemon({ speechUrl: tts.url });
+    // ADR-0036：内置的默认音色装过又被删了（标记在），所以这个数据目录里一条参考音色都没有
+    const td = await startTestDaemon({ reuse: dataDirWithoutReferenceVoices(), speechUrl: tts.url });
     const waiting = await modelsWhen(td.url, (v) => v.recognizer.status === "ready" && v.speech.status === "waiting" && v.speech.reason !== undefined && v.speech.reason.includes("参考音色"));
     expect(waiting.speech.reason).toBe("还没有参考音色：导入一个之后再预热");
     expect(tts.warmups).toEqual([]);

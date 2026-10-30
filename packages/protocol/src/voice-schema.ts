@@ -220,6 +220,8 @@ export const ReferenceVoice = Type.Object({
   /** 参考录音的 sha256 */
   sha256: Type.String(),
   importedAt: Type.String(),
+  /** 是开源版自带的默认音色（ADR-0036），不是用户导入的；显示名跟着界面语言变 */
+  builtin: Type.Optional(Type.Boolean()),
 });
 export type ReferenceVoice = Static<typeof ReferenceVoice>;
 

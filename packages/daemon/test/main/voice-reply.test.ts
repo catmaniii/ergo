@@ -35,6 +35,7 @@ import { makeTempDir } from "../helpers/temp-dir.ts";
 import {
   agentVoiceSettled,
   agentVoiceVersions,
+  dataDirWithoutReferenceVoices,
   FAKE_SPEECH_BUSY,
   type FakeSpeechBehavior,
   fakeSpeechSeconds,
@@ -85,9 +86,15 @@ async function turnEnds(frontend: TestFrontend, count: number, conversation: str
 
 const usage = (cacheMiss: number, output: number): FauxUsage => ({ cacheHit: 0, cacheMiss, output });
 
+/** voices 区里的音色目录（不含 . 开头的文件：装过内置音色的标记，ADR-0036；不是一条音色） */
+function voiceDirs(dataDir: string): string[] {
+  const dir = path.join(dataDir, "voices");
+  return fs.existsSync(dir) ? fs.readdirSync(dir).filter((name) => !name.startsWith(".")) : [];
+}
+
 describe("设置里的参考音色", () => {
   it("导入（WAV、逐字稿、名字）存进数据目录的 voices 区，目录和文件用英文 id、显示名另存；能列出、试听（支持 Range）、选用哪一个、删除", async () => {
-    const { url, dataDir } = await startTestDaemon();
+    const { url, dataDir } = await startTestDaemon({ reuse: dataDirWithoutReferenceVoices() });
     expect((await referenceVoicesApi.list(url)).body).toEqual({ voices: [] });
 
     const wav = makeWav(3);
@@ -144,7 +151,7 @@ describe("设置里的参考音色", () => {
   });
 
   it("数据目录里早先放好的参考音色（同样的格式）照常列出；没选过时用最早导入的那个", async () => {
-    const { url, dataDir, daemon } = await startTestDaemon();
+    const { url, dataDir, daemon } = await startTestDaemon({ reuse: dataDirWithoutReferenceVoices() });
     const dir = path.join(dataDir, "voices", "v-sample");
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(dir, "reference.wav"), makeWav(4));
@@ -162,7 +169,7 @@ describe("设置里的参考音色", () => {
   });
 
   it("导入的规矩：1 到 30 秒按转换后的真实时长判、名字要有；不合的拒绝，什么都不写", async () => {
-    const { url, dataDir } = await startTestDaemon();
+    const { url, dataDir } = await startTestDaemon({ reuse: dataDirWithoutReferenceVoices() });
     const reject = async (voice: { name: string; referenceText?: string; audio: Buffer }) => {
       const res = await referenceVoicesApi.import(url, voice);
       expect(res.status).toBe(400);
@@ -173,7 +180,7 @@ describe("设置里的参考音色", () => {
     expect(await reject({ name: "示例音色", referenceText: "你好", audio: makeWav(31) })).toMatch(/30 秒/);
     expect(await reject({ name: "示例音色", referenceText: "", audio: makeWav(3) })).toBeTruthy();
     expect(await reject({ name: "", referenceText: "你好", audio: makeWav(3) })).toBeTruthy();
-    expect(fs.existsSync(path.join(dataDir, "voices")) ? fs.readdirSync(path.join(dataDir, "voices")) : []).toEqual([]);
+    expect(voiceDirs(dataDir)).toEqual([]);
     // 32 位浮点、双声道的 WAV 也收（经 ffmpeg 转成单声道；时长按转换后的真实时长）
     const float = await referenceVoicesApi.import(url, { name: "浮点", referenceText: "你好", audio: makeWav(2.5, { float: true, channels: 2, sampleRate: 16000 }) });
     expect(float.status).toBe(201);
@@ -218,13 +225,13 @@ describe("设置里的参考音色", () => {
 
   it("ffmpeg 不在、转不了、识别为空或出错时给明确的错误，什么都不留；同一段音频同一个名字再导一次拿到同一个", async () => {
     // 本机没有 ffmpeg：503（要用户装上），不是 500
-    const missing = await startTestDaemon({ ffmpegCommand: ["ergo-no-such-ffmpeg-230"] });
+    const missing = await startTestDaemon({ reuse: dataDirWithoutReferenceVoices(), ffmpegCommand: ["ergo-no-such-ffmpeg-230"] });
     const noFfmpeg = await referenceVoicesApi.import(missing.url, { name: "音色", audio: fakeMp3({ seconds: 2 }) });
     expect(noFfmpeg.status).toBe(503);
     expect(noFfmpeg.body.message).toMatch(/ffmpeg/);
-    expect(fs.existsSync(path.join(missing.dataDir, "voices")) ? fs.readdirSync(path.join(missing.dataDir, "voices")) : []).toEqual([]);
+    expect(voiceDirs(missing.dataDir)).toEqual([]);
 
-    const { url, dataDir, ffmpegLog: logFile } = await startTestDaemon();
+    const { url, dataDir, ffmpegLog: logFile } = await startTestDaemon({ reuse: dataDirWithoutReferenceVoices() });
     // 转换失败（认不出的格式、坏文件）：400，带原因
     const convertFailed = await referenceVoicesApi.import(url, { name: "音色", audio: fakeMp3({ fail: "Invalid data found when processing input" }) });
     expect(convertFailed.status).toBe(400);
@@ -241,7 +248,7 @@ describe("设置里的参考音色", () => {
     expect((await referenceVoicesApi.import(url, { name: "音色", audio: fakeMp3({ seconds: 0.5, asr: { text: "你好" } }) })).status).toBe(400);
     expect((await referenceVoicesApi.import(url, { name: "音色", audio: fakeMp3({ seconds: 31, asr: { text: "你好" } }) })).status).toBe(400);
     // 一个目录都没留下，也没有半截的
-    expect(fs.existsSync(path.join(dataDir, "voices")) ? fs.readdirSync(path.join(dataDir, "voices")) : []).toEqual([]);
+    expect(voiceDirs(dataDir)).toEqual([]);
     const tmp = path.join(dataDir, "tmp");
     expect(fs.existsSync(tmp) ? fs.readdirSync(tmp).filter((name) => name.startsWith("ref-voice-")) : []).toEqual([]);
 
@@ -254,7 +261,7 @@ describe("设置里的参考音色", () => {
     expect(again.body).toEqual(first.body);
     expect(ffmpegLog(logFile)).toHaveLength(conversions + 1);
     // 也没有 .importing-* 这类半截目录
-    expect(fs.readdirSync(path.join(dataDir, "voices")).filter((name) => name.startsWith("."))).toEqual([]);
+    expect(fs.readdirSync(path.join(dataDir, "voices")).filter((name) => name.startsWith(".importing-") || name.startsWith(".installing-"))).toEqual([]);
   });
 });
 
@@ -568,7 +575,7 @@ describe("退回只发文字", () => {
 
   it("没有任何参考音色：不建语音对象、不合成（回复照常流式显示），待我处理里提示去导入（开着的只有一条）；导入之后这条自动归档", async () => {
     const tts = await startFakeSpeechService();
-    const { url, daemon } = await startTestDaemon({ secretary: [{ kind: "reply", text: "收到。" }, { kind: "reply", text: "收到。" }], speechUrl: tts.url });
+    const { url, daemon } = await startTestDaemon({ reuse: dataDirWithoutReferenceVoices(), secretary: [{ kind: "reply", text: "收到。" }, { kind: "reply", text: "收到。" }], speechUrl: tts.url });
     const frontend = await TestFrontend.connect(url);
     await frontend.subscribe({ [SECRETARY]: 0, [CHANNELS.inbox]: 0 });
     await sendVoice(frontend, url, { text: "第一句" });

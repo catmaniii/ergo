@@ -72,6 +72,7 @@
   "voice.reference.transcribeUnavailable": "语音识别这会儿用不了，没法自动识别逐字稿：{reason}",
   "voice.reference.transcribeFailed": "自动识别逐字稿失败了：{reason}",
   "voice.reference.noRecognizer": "没有可用的识别进程，自动识别不了逐字稿",
+  "voice.reference.builtinName": "小满",
   "voice.intake.missing": "录音不存在：媒体 {mediaId} 没有入库（先上传、收尾，再发消息）",
   "voice.intake.notAudio": "这段录音不是认得的音频格式（webm、ogg、mp4、wav……），不能作为语音发出",
   "voice.intake.tooShort": "说话时间太短",

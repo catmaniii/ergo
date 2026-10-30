@@ -40,6 +40,7 @@ import { maintainerScripts, RUNNING_TASK_ID, SECRETARY_BRIEFS, startRunningTask 
 import {
   agentVoiceSettled,
   agentVoiceVersions,
+  dataDirWithoutReferenceVoices,
   FAKE_SPEECH_BUSY,
   type FakeSpeechBehavior,
   fakeSpeechSeconds,
@@ -408,7 +409,7 @@ describe("发不出去：工具交回原因，不出空气泡", () => {
 
   it("没有任何参考音色：工具交回原因（不静默改走文字），待我处理里提示去导入（开着的只有一条），不建语音对象、不合成", async () => {
     const tts = await startFakeSpeechService();
-    const { url, daemon } = await startTestDaemon({ secretary: [sendVoiceCall(SHORT), say("还没有参考音色，我用文字说。"), sendVoiceCall(SHORT), say("同上。")], speechUrl: tts.url });
+    const { url, daemon } = await startTestDaemon({ reuse: dataDirWithoutReferenceVoices(), secretary: [sendVoiceCall(SHORT), say("还没有参考音色，我用文字说。"), sendVoiceCall(SHORT), say("同上。")], speechUrl: tts.url });
     const frontend = await connect(url);
     await frontend.sendText("念给我听");
     await turnEnds(frontend, 1);
@@ -474,7 +475,7 @@ describe("谁能用", () => {
 
   it("用户发语音、但还没有参考音色：语音回复其实没在合成，交回「没有参考音色」（不说已经在合成了），待我处理里只有一条提示", async () => {
     const tts = await startFakeSpeechService();
-    const { url, daemon } = await startTestDaemon({ secretary: [sendVoiceCall("好的，明早九点提醒你。"), say("好的，明早九点提醒你。")], speechUrl: tts.url });
+    const { url, daemon } = await startTestDaemon({ reuse: dataDirWithoutReferenceVoices(), secretary: [sendVoiceCall("好的，明早九点提醒你。"), say("好的，明早九点提醒你。")], speechUrl: tts.url });
     const frontend = await connect(url);
     await sendVoice(frontend, url, { text: "明天早上九点提醒我" });
     const toolCall = await finishedSendVoice(frontend);

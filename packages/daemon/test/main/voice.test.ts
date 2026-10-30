@@ -44,7 +44,7 @@ import { seedProject } from "../helpers/projects.ts";
 import { saveOrCheckRecording } from "../helpers/recording.ts";
 import { eventually, maintainerScript, onePlan, runningTask, tasksOf } from "../helpers/running-task.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
-import { voiceModelsApi } from "../helpers/tts.ts";
+import { dataDirWithoutReferenceVoices, markBuiltinVoiceDeleted, voiceModelsApi } from "../helpers/tts.ts";
 import { fakeRecording, fakeWavRecording, recognizerLog, sendVoice, setFakeLoad, voiceSettled, voiceVersions } from "../helpers/voice.ts";
 import { withoutFoldersBlock } from "../helpers/folders-block.ts";
 
@@ -395,6 +395,8 @@ async function visionDaemon() {
   const dataDir = makeTempDir("ergo-data-");
   fs.mkdirSync(path.join(dataDir, "config"), { recursive: true });
   fs.writeFileSync(path.join(dataDir, "config", "ergo.json"), JSON.stringify({ models: { faux: { vision: true } } }));
+  // ADR-0036：这个数据目录就当"内置的默认音色装过又被删了"——下面看的是识别和交出去的输入，不要多出语音回复
+  markBuiltinVoiceDeleted(dataDir);
   return startTestDaemon({ secretary: [{ kind: "echo_context" }], cardTypes: [suggestTaskFixture], reuse: { dataDir, homeDir: makeTempDir("ergo-home-") } });
 }
 
@@ -477,7 +479,7 @@ describe("语音连同附件一起发（2026-10-10 用户改：附件不再选�
 describe("识别失败和重新识别", () => {
   it("引用了卡片的语音识别失败：照旧交给 agent，语音那段是「[语音，识别失败]」；用户在气泡菜单里重新识别，成功后另交给 agent 一条带文字的通知", async () => {
     const ok = path.join(makeTempDir("ergo-asr-ok-"), "ok");
-    const { url, daemon } = await startTestDaemon({ secretary: [{ kind: "echo_context" }, { kind: "echo_context" }] });
+    const { url, daemon } = await startTestDaemon({ reuse: dataDirWithoutReferenceVoices(), secretary: [{ kind: "echo_context" }, { kind: "echo_context" }] });
     const card = daemon.cards.create({ type: "suggest_task", payload: { title: "整理家庭照片", why: "重复照片太多" } });
     const frontend = await TestFrontend.connect(url);
     await frontend.subscribe({ [SECRETARY]: 0 });
@@ -1353,6 +1355,7 @@ describe("演示流程（录给前端回放）", () => {
   it("发语音 → 识别中 → 识别完成、秘书回复；再发一条识别不出来的 → 自动重试 3 次（气泡上显示第几次重试）→ 识别失败、不交给秘书 → 手动重新识别成功、交给秘书", async () => {
     const ok = path.join(makeTempDir("ergo-asr-ok-"), "ok");
     const { url } = await startTestDaemon({
+      reuse: dataDirWithoutReferenceVoices(),
       secretary: [{ kind: "reply", text: "好的，明早九点提醒你交报告。" }, { kind: "reply", text: "好，下午去买菜。" }],
       config: { voice: { recognizer: { autoRetrySeconds: [0.05, 0.05, 0.05] } } },
     });

@@ -12,7 +12,7 @@ import { stripTimeMarkers } from "../helpers/echo.ts";
 import { withoutFoldersBlock } from "../helpers/folders-block.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
 import { waitUntil } from "../helpers/process.ts";
-import { voiceModelsApi } from "../helpers/tts.ts";
+import { dataDirWithoutReferenceVoices, voiceModelsApi } from "../helpers/tts.ts";
 import { sendVoice, voiceSettled } from "../helpers/voice.ts";
 
 const SECRETARY = CHANNELS.secretary;
@@ -44,6 +44,8 @@ describe("两种识别接入并存", () => {
     // ── 1. mode: lsm：预热带上了配置里的模型，识别走的假服务（两条 echo_context：语音一轮、之后打的字一轮）──
     const asr = await startFakeAsrService({ directive: { text: "明天早上九点钟提醒我交报告", seconds: 3.2 } });
     const hosted = await startTestDaemon({
+      // ADR-0036：这个数据目录里一条参考音色都没有（内置的装过又被删了），下面只看识别，不要多出语音回复
+      reuse: dataDirWithoutReferenceVoices(),
       secretary: [{ kind: "echo_context" }, { kind: "echo_context" }],
       config: { voice: { recognizer: { mode: "lsm", url: asr.url } } },
     });
@@ -101,7 +103,7 @@ describe("两种识别接入并存", () => {
     });
 
     // ── 3. 同一个用例里，mode: spawn 的守护进程照旧自己拉起识别进程 ──
-    const own = await startTestDaemon({ secretary: [{ kind: "echo_context" }] });
+    const own = await startTestDaemon({ reuse: dataDirWithoutReferenceVoices(), secretary: [{ kind: "echo_context" }] });
     const ownFrontend = await TestFrontend.connect(own.url);
     await ownFrontend.subscribe({ [SECRETARY]: 0 });
     await waitUntil(() => own.daemon.secretary.status === "idle", { timeoutMs: 20_000 });
