@@ -8,7 +8,7 @@ To change the code or write plugins, go on to the [Developer Guide](developer-gu
 
 ```mermaid
 flowchart LR
-    U(["You"]) -->|"type / talk"| SEC["Secretary<br/>understands, relays, delegates"]
+    U(["You"]) -->|"type / talk"| SEC["Secretary<br/>understands, delegates, sums up"]
     SEC -->|"one-step things"| QA["Quick actions / reminders"]
     SEC -->|"hand off"| M["Project / task owners<br/>own context, tools, model"]
     M -->|"parallel work"| SUB["Sub-agents"]
