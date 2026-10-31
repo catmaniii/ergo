@@ -74,7 +74,7 @@ const outputs = hapOutputs(HARMONY_DIR);
 const describe = (file: string) => `${file}（${(statSync(file).size / 1024).toFixed(1)} KB）`;
 if (existsSync(outputs.signed)) {
   console.log(`\n已签名的 HAP：${describe(outputs.signed)}`);
-  console.log("装到手机或模拟器：hdc install -r <上面的路径>；启动：hdc shell aa start -a EntryAbility -b com.example.ergou");
+  console.log("装到手机或模拟器：hdc install -r <上面的路径>；启动：hdc shell aa start -a EntryAbility -b com.catmaniii.ergo");
 } else if (existsSync(outputs.unsigned)) {
   console.log(`\n未签名的 HAP：${describe(outputs.unsigned)}`);
   console.log(

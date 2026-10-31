@@ -393,7 +393,7 @@ Signing material (certificates, profiles, keystore, encrypted passwords) stays l
 ```powershell
 hdc list targets
 hdc -t <device> install -r frontend/harmony/entry/build/default/outputs/default/entry-default-signed.hap
-hdc -t <device> shell aa start -a EntryAbility -b com.example.ergou
+hdc -t <device> shell aa start -a EntryAbility -b com.catmaniii.ergo
 hdc -t <device> hilog | findstr ErgoApp            # app and web page logs
 ```
 
@@ -459,7 +459,7 @@ Push-to-talk in the app uses HarmonyOS's AudioCapturer: entering voice mode crea
 
 ## 12. From ergou to ergo
 
-ergo's early code name was the pinyin `ergou`; it has been unified to `ergo`: package names `@ergo/*`, env vars `ERGO_*`, the data directory `~/.ergo`, `config/ergo.json`, `db/ergo.db`, pairing cookies `__Host-ergo-*`, browser storage keys `ergo-*`, the HarmonyOS bridge `ergoNative`, and `ergo-daemon` / `ergo-tunnel` / `ergo-asr` in the supervisor. The HarmonyOS bundle name `com.example.ergou` was kept (changing it makes a different app).
+ergo's early code name was the pinyin `ergou`; it has been unified to `ergo`: package names `@ergo/*`, env vars `ERGO_*`, the data directory `~/.ergo`, `config/ergo.json`, `db/ergo.db`, pairing cookies `__Host-ergo-*`, browser storage keys `ergo-*`, the HarmonyOS bridge `ergoNative`, and `ergo-daemon` / `ergo-tunnel` / `ergo-asr` in the supervisor. The HarmonyOS bundle name stayed at the placeholder `com.example.ergou` at first (it was not renamed with the rest); on 2026-10-30 it was set to the final `com.catmaniii.ergo` - the bundle name cannot change once registered in AGC, so it has to be decided before that.
 
 **Old names are still accepted during the transition**: reads accept both, preferring the new; writes use only the new. Old names are always derived from new ones with `oldNameOf` in the protocol package (`packages/protocol/src/old-names.ts`). There is compatibility code for the data directory (`ERGOU_DATA_DIR`, `~/.ergou`), other env vars, old file names inside the data directory, old pairing cookies, old browser keys and the HarmonyOS app's old names. To migrate an old data directory: `npm run migrate:ergo -- [--data-dir <old dir>] [--dry-run]` (stop the daemon first; it renames and leaves a directory junction behind; every step can be re-run).
 

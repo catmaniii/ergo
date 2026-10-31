@@ -468,7 +468,7 @@ node bin\lsm.mjs tailnet ergo-daemon on <名字>
 
 6. 第一次打开时填二狗的外网地址（[第 6 节](#6-从外网访问手机平板)），再按页面提示配对。
 
-App 的正式包名是 `io.github.catmaniii.ergo`。App 还没按这个包名重新签名，在那之前自己用 DevEco 打出来的调试包仍叫 `com.example.ergou`——第 5 步的 `-b` 后面跟着换成它。
+App 的正式包名是 `com.catmaniii.ergo`（2026-10-30 定；工程里 `app.json5` 已经是它了）。在 DevEco 里 File → Project Structure → Signing Configs 重新点一次"自动生成签名"，之后打出来的包就是这个名字——第 5 步的 `-b` 后面跟着用它。
 
 ---
 

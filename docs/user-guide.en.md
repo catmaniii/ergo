@@ -470,7 +470,7 @@ The HarmonyOS app is a native shell running the same web UI, plus native recordi
 
 6. On first launch enter ergo's external address ([Section 6](#6-access-from-outside-phone-tablet)) and pair as prompted.
 
-The app's final bundle name is `io.github.catmaniii.ergo`. It has not been re-signed under that name yet, so until then the debug build you make yourself in DevEco is still called `com.example.ergou` — put that after `-b` in step 5.
+The app's final bundle name is `com.catmaniii.ergo` (decided 2026-10-30; `app.json5` in the project already uses it). Click Signing Configs -> "Automatically generate signature" once more in DevEco and the build from then on carries that name - put it after `-b` in step 5.
 
 ---
 
