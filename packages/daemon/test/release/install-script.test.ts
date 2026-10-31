@@ -3,20 +3,31 @@
 //   - 里面那段 C#（Ed25519 + BLAKE2b 验 minisign 签名、解 npm 的 tgz）和 Node 那一份互相认；
 //   - 对着本机的假发布站整个装一遍（-File 和 irm | iex 两种）：验签、解开、current 联接、bin、install.json；签名不对、Node 版本没测过的不装；
 //   - 下载有进度（341 号票）：百分比、已下载/总量、速度；真窗口里刷新同一行，输出被重定向时每 10% 一行；不给长度也下得完；失败不留半截文件。
-// 不改真的 PATH（-NoPath / ERGO_INSTALL_NO_PATH），不跑 onboard。
+//   - 装好以后那几步（342 号票）：默认先注册开机自启、再 ergo onboard；-NoAutostart、-NoStart（旧名 -NoOnboard）各自生效；某一步失败其余照常、退出码 0、写清怎么重做；
+//     已有的任务指着别处不动；最后报版本、安装目录、current、自启状态、下一步。
+// 不改真的 PATH（-NoPath / ERGO_INSTALL_NO_PATH）。
+// 碰不到真的计划任务和服务管家：假发布包里的 ergo.cmd 是假的（只把收到的命令记下来），脚本读的任务也换成文件（ERGO_AUTOSTART_TASK_FILE）；
+// 默认还带 ERGO_INSTALL_NO_AUTOSTART，要测开机自启的用例才去掉。最后一个 describe 核对真的任务前后一个字不差。
 import { spawn } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { sign } from "../../src/release/minisign.ts";
 import { blob, makeTar, startFakeDownloads } from "../helpers/fake-downloads.ts";
-import { fakeRelease, releaseKey } from "../helpers/fake-release.ts";
+import { fakeRelease, fakeVersionZip, releaseKey } from "../helpers/fake-release.ts";
+import { realAutostartTaskDefinition } from "../helpers/real-autostart-task.ts";
 
 const SCRIPT = path.resolve(import.meta.dirname, "..", "..", "installer", "install.ps1");
 const text = fs.readFileSync(SCRIPT, "utf8");
 const BACKSLASH = String.fromCharCode(92);
+
+// 只为这个文件结束时比一比（最后一个 describe）
+let realTaskBefore = "";
+beforeAll(() => {
+  realTaskBefore = realAutostartTaskDefinition();
+}, 60_000);
 
 const dirs: string[] = [];
 function tmp(): string {
@@ -36,12 +47,15 @@ afterEach(() => {
   }
 });
 
+/** 脚本读任务时读这个（不存在 = 没有任务）：用例没另外指定时，连真的任务读都不读 */
+const NO_TASK_FILE = path.join(os.tmpdir(), "ergo-install-ps-no-such-task.json");
+
 /** 跑 PowerShell（异步：假发布站就在这个进程里，同步地等会把它卡住） */
 function powershell(args: string[], env: NodeJS.ProcessEnv = {}): Promise<{ code: number; out: string }> {
   return new Promise((resolve) => {
     const child = spawn("powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", ...args], {
       windowsHide: true,
-      env: { ...process.env, ERGO_LANGUAGE: "en", ...env },
+      env: { ...process.env, ERGO_LANGUAGE: "en", ERGO_INSTALL_NO_AUTOSTART: "1", ERGO_AUTOSTART_TASK_FILE: NO_TASK_FILE, ...env },
     });
     let out = "";
     child.stdout.on("data", (d: Buffer) => (out += d.toString("utf8")));
@@ -222,6 +236,7 @@ describe.runIf(process.platform === "win32")("install.ps1 整个装一遍（本�
     expect(r.out).toContain("签名对：ergo 0.3.0 SHA256SUMS");
     expect(r.out).toMatch(/已下载 100%（[\d.]+ \w+ \/ [\d.]+ \w+，[\d.]+ \w+\/s）/);
     expect(r.out).not.toContain("安装失败");
+    expect(r.out).toContain("开机自启：没开（-NoAutostart）");
     const current = path.join(root, "current");
     if (!fs.existsSync(current)) throw new Error(`没生成 ${current}（装了哪去、报了什么都在这下面）\n${r.out}`);
     expect(fs.readFileSync(current, "utf8").trim()).toBe("0.3.0");
@@ -260,6 +275,182 @@ describe.runIf(process.platform === "win32")("install.ps1 整个装一遍（本�
       expect(files.map((e) => e.name)).toEqual([]);
     }
     expect(fake.requests.map((r) => r.mirror)).toEqual(["cut", "ok"]);
+  }, 120_000);
+});
+
+/** 假的 ergo：把收到的每条命令记进 ERGO_FAKE_ERGO_LOG，按环境变量假装失败。真的服务管家、真的计划任务它一概碰不到 */
+const FAKE_ERGO_CMD = [
+  "@echo off",
+  '>>"%ERGO_FAKE_ERGO_LOG%" echo %*',
+  'if "%~1"=="svc" goto :svc',
+  'if "%~1"=="onboard" goto :onboard',
+  "exit /b 0",
+  ":svc",
+  "echo fake lsm output",
+  'if "%ERGO_FAKE_SVC_FAIL%"=="1" (',
+  "  echo fake task refused 1>&2",
+  "  exit /b 1",
+  ")",
+  "exit /b 0",
+  ":onboard",
+  "echo Open http://127.0.0.1:8810/ and follow the setup wizard.",
+  'if "%ERGO_FAKE_ONBOARD_FAIL%"=="1" exit /b 3',
+  "exit /b 0",
+  "",
+].join("\r\n");
+
+interface FakeInstall {
+  r: { code: number; out: string };
+  root: string;
+  /** 假 ergo 按先后收到的命令 */
+  calls: string[];
+}
+
+/** 对着假发布站装一遍，发布包里是假的 ergo.cmd。默认流程：不带 -NoAutostart、-NoStart（-NoPath 一直带着，不改真的 PATH） */
+async function fakeInstall(options: { args?: string[]; env?: NodeJS.ProcessEnv; task?: { action?: string }; before?: (root: string) => void } = {}): Promise<FakeInstall> {
+  const fake = await startFakeDownloads();
+  const key = releaseKey();
+  for (const [name, body] of fakeRelease("0.3.0", key.secret, fakeVersionZip("0.3.0", { "ergo.cmd": FAKE_ERGO_CMD })).files) fake.put(name, body);
+  const dir = tmp();
+  const root = path.join(dir, "inst");
+  const log = path.join(dir, "ergo-calls.log");
+  const taskFile = path.join(dir, "task.json");
+  if (options.task) fs.writeFileSync(taskFile, JSON.stringify(options.task));
+  fs.mkdirSync(root, { recursive: true });
+  options.before?.(root);
+  const r = await powershell(["-File", SCRIPT, "-InstallDir", root, "-BaseUrl", `${fake.url}/m1`, "-PublicKey", key.publicLine, "-NoPath", ...(options.args ?? [])], {
+    ERGO_INSTALL_NO_AUTOSTART: undefined,
+    ERGO_AUTOSTART_TASK_FILE: taskFile,
+    ERGO_FAKE_ERGO_LOG: log,
+    ...options.env,
+  });
+  const calls = fs.existsSync(log)
+    ? fs
+        .readFileSync(log, "utf8")
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .filter(Boolean)
+    : [];
+  return { r, root, calls };
+}
+
+describe.runIf(process.platform === "win32")("install.ps1 装好以后的几步（假 ergo、假任务）", () => {
+  it("默认流程：先注册开机自启、再 ergo onboard；最后报版本、安装目录、current、自启状态、下一步", async () => {
+    const { r, root, calls } = await fakeInstall();
+    expectOk(r);
+    expect(calls).toEqual(["svc install-autostart", "onboard"]);
+    expect(r.out).toContain("Autostart is on:");
+    expect(r.out).toContain("ergo svc uninstall-autostart");
+    // ergo onboard 的话用的人看得到；lsm 注册时那几行不用看
+    expect(r.out).toContain("Open http://127.0.0.1:8810/ and follow the setup wizard.");
+    expect(r.out).not.toContain("fake lsm output");
+    const lines = r.out.split(/\r?\n/);
+    const summary = lines.slice(lines.indexOf("Version: 0.3.0"));
+    expect(summary.slice(0, 5)).toEqual(["Version: 0.3.0", `Install folder: ${root}`, "Version in use (current): 0.3.0", "Autostart: on", "Next: ergo open opens the web page; follow the setup wizard there."]);
+    expect(summary[5]).toMatch(/^Done\. /);
+    expect(fs.readFileSync(path.join(root, "current"), "utf8").trim()).toBe("0.3.0");
+  }, 120_000);
+
+  it("-NoAutostart：不注册，照常起二狗，告诉怎么开", async () => {
+    const { r, calls } = await fakeInstall({ args: ["-NoAutostart"] });
+    expectOk(r);
+    expect(calls).toEqual(["onboard"]);
+    expect(r.out).toContain("Autostart: off (-NoAutostart); to turn it on: ergo svc install-autostart");
+    expect(r.out).not.toContain("Autostart is on:");
+  }, 120_000);
+
+  it("-NoStart：注册，不起二狗，下一步写清楚（第一次 ergo start 之后重启才会自动起来）；旧名 -NoOnboard、环境变量一样", async () => {
+    const a = await fakeInstall({ args: ["-NoStart"] });
+    expectOk(a.r);
+    expect(a.calls).toEqual(["svc install-autostart"]);
+    expect(a.r.out).toContain("Autostart: on");
+    expect(a.r.out).toContain("Next: ergo start brings ergo up, then ergo open and follow the setup wizard. On a first install, a restart brings it up only after ergo start has run once.");
+    expect(a.r.out).not.toContain("Running ergo onboard");
+
+    const b = await fakeInstall({ args: ["-NoOnboard"] });
+    expectOk(b.r);
+    expect(b.calls).toEqual(["svc install-autostart"]);
+
+    const c = await fakeInstall({ env: { ERGO_INSTALL_NO_START: "1", ERGO_INSTALL_NO_AUTOSTART: "1" } });
+    expectOk(c.r);
+    expect(c.calls).toEqual([]);
+    expect(c.r.out).toContain("Autostart: off (-NoAutostart)");
+  }, 180_000);
+
+  it("注册任务失败：写清没成、原因、怎么重做；二狗照样起来，退出码 0", async () => {
+    const { r, calls } = await fakeInstall({ env: { ERGO_FAKE_SVC_FAIL: "1" } });
+    expectOk(r);
+    expect(calls).toEqual(["svc install-autostart", "onboard"]);
+    expect(r.out).toMatch(/Autostart was not set up: .*fake task refused.*to redo it: ergo svc install-autostart\./);
+    expect(r.out).toContain("Autostart: not set up; to redo it: ergo svc install-autostart");
+    expect(r.out).toContain("Next: ergo open opens the web page");
+    expect(r.out).not.toContain("Installation failed");
+  }, 120_000);
+
+  it("二狗没起来：写清没成、怎么重做；自启照样设了，退出码 0", async () => {
+    const { r, calls } = await fakeInstall({ env: { ERGO_FAKE_ONBOARD_FAIL: "1" } });
+    expectOk(r);
+    expect(calls).toEqual(["svc install-autostart", "onboard"]);
+    expect(r.out).toContain("ergo did not start (3). The rest goes on; to redo it: ergo start. To see why: ergo logs.");
+    expect(r.out).toContain("Autostart: on");
+    expect(r.out).toContain("Next: sort out why it did not start (above), then ergo start and ergo open");
+    expect(r.out).not.toContain("Installation failed");
+  }, 120_000);
+
+  it("命令放不进 bin：其余照常，用版本目录里的 ergo.cmd 接着注册、起二狗，退出码 0", async () => {
+    const { r, root, calls } = await fakeInstall({ before: (dir) => fs.writeFileSync(path.join(dir, "bin"), "a file where the folder should go") });
+    expectOk(r);
+    expect(r.out).toContain("Could not put the ergo command into the bin folder:");
+    expect(r.out).toContain(path.join(root, "versions", "0.3.0", "ergo.cmd"));
+    expect(calls).toEqual(["svc install-autostart", "onboard"]);
+    expect(r.out).toContain("Version in use (current): 0.3.0");
+  }, 120_000);
+
+  it("已有的任务指着别处（用的人自己装的服务管家）：不注册、说一声，二狗照常起来；连名字开头一样的目录也不算这个安装", async () => {
+    const elsewhere = 'C:\\Windows\\System32\\conhost.exe --headless "D:\\tools\\node.exe" "D:\\code\\repo\\packages\\supervisor\\bin\\lsm.mjs" serve --lifeline --quiet';
+    const { r, calls } = await fakeInstall({ task: { action: elsewhere } });
+    expectOk(r);
+    expect(calls).toEqual(["onboard"]);
+    expect(r.out).toContain(`This computer already has the autostart task LocalServiceManager pointing elsewhere; it was left alone: ${elsewhere}.`);
+    expect(r.out).toContain("Autostart: the task already on this computer points elsewhere; left alone");
+
+    const dirs2 = await fakeInstall({
+      before: (root) => fs.writeFileSync(`${path.dirname(root)}${path.sep}task.json`, JSON.stringify({ action: `"${root}2\\versions\\0.2.0\\app\\packages\\supervisor\\bin\\lsm.mjs" serve` })),
+    });
+    expectOk(dirs2.r);
+    expect(dirs2.calls).toEqual(["onboard"]);
+  }, 180_000);
+
+  it("已有的任务指着这个安装（重装、从旧版本接着装）：照常注册，指到新版本", async () => {
+    const { r, calls } = await fakeInstall({
+      before: (root) => fs.writeFileSync(`${path.dirname(root)}${path.sep}task.json`, JSON.stringify({ action: `"${root}\\versions\\0.2.0\\app\\packages\\supervisor\\bin\\lsm.mjs" serve` })),
+    });
+    expectOk(r);
+    expect(calls).toEqual(["svc install-autostart", "onboard"]);
+  }, 120_000);
+
+  it("中文也一样：摘要和提示没有乱码", async () => {
+    const dir = tmp();
+    const fake = await startFakeDownloads();
+    const key = releaseKey();
+    for (const [name, body] of fakeRelease("0.3.0", key.secret, fakeVersionZip("0.3.0", { "ergo.cmd": FAKE_ERGO_CMD })).files) fake.put(name, body);
+    fake.put("install.ps1", text);
+    const r = await powershell(["-Command", `[Console]::OutputEncoding = [Text.Encoding]::UTF8; irm ${fake.url}/m1/install.ps1 | iex`], {
+      ERGO_INSTALL_DIR: path.join(dir, "inst"),
+      ERGO_RELEASE_URL: `${fake.url}/m1`,
+      ERGO_RELEASE_PUBKEY: key.publicLine,
+      ERGO_INSTALL_NO_PATH: "1",
+      ERGO_INSTALL_NO_AUTOSTART: undefined,
+      ERGO_AUTOSTART_TASK_FILE: path.join(dir, "task.json"),
+      ERGO_FAKE_ERGO_LOG: path.join(dir, "ergo-calls.log"),
+      ERGO_LANGUAGE: "zh",
+    });
+    expectOk(r);
+    expect(r.out).toContain("已设成开机自启：");
+    expect(r.out).toContain("开机自启：开着");
+    expect(r.out).toContain("版本：0.3.0");
+    expect(r.out).toContain("下一步：ergo open 打开网页，走设置向导。");
+    expect(fs.readFileSync(path.join(dir, "ergo-calls.log"), "utf8").split(/\r?\n/).filter(Boolean)).toEqual(["svc install-autostart", "onboard"]);
   }, 120_000);
 });
 
@@ -345,5 +536,12 @@ describe.runIf(process.platform === "win32")("install.ps1 的下载进度（只�
     expectOk(r);
     expect(fs.readFileSync(dest, "utf8")).toBe("local file");
     expect(progressLines(r.out)).toEqual([expect.stringMatching(/^ {2}Downloaded 100% \(10 B \/ 10 B, /)]);
+  }, 60_000);
+});
+
+describe.runIf(process.platform === "win32")("真的计划任务", () => {
+  // 用例按写的顺序跑，这是最后一个：上面所有用例都跑完了才比。任务不存在的电脑两边都是空串
+  it("跑完这个文件，这台电脑上的 LocalServiceManager 一个字没变", () => {
+    expect(realAutostartTaskDefinition()).toBe(realTaskBefore);
   }, 60_000);
 });

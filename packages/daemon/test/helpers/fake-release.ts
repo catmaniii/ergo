@@ -14,14 +14,14 @@ export interface FakeReleaseFiles {
   files: Map<string, Buffer>;
 }
 
-/** 发布包里的东西（版本目录的样子）：ergo.json、ergo.cmd、app\packages\daemon\src\cli\main.js、node\node.exe（假的）、额外的 */
+/** 发布包里的东西（版本目录的样子）：ergo.json、ergo.cmd、app\packages\daemon\src\cli\main.js、node\node.exe（假的）、额外的（同名的 ergo.cmd 换掉默认那个） */
 export function fakeVersionZip(version: string, extra: Record<string, string | Buffer> = {}): Buffer {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ergo-fake-zip-"));
   try {
     const file = path.join(dir, "r.zip");
     const w = new ZipWriter(file);
     w.add("ergo.json", Buffer.from(JSON.stringify({ format: 1, version, kind: "release", node: "22.23.4" })));
-    w.add("ergo.cmd", Buffer.from("@echo off\r\nrem fake\r\n"));
+    if (!("ergo.cmd" in extra)) w.add("ergo.cmd", Buffer.from("@echo off\r\nrem fake\r\n"));
     w.add("node/node.exe", Buffer.from("not really node"));
     w.add("app/packages/daemon/src/cli/main.js", Buffer.from(`console.log("ergo ${version}");\n`));
     for (const [name, body] of Object.entries(extra)) w.add(name, Buffer.isBuffer(body) ? body : Buffer.from(body));

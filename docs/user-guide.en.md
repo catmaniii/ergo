@@ -66,7 +66,7 @@ In PowerShell:
 irm https://github.com/catmaniii/ergo/releases/latest/download/install.ps1 | iex
 ```
 
-It finds the latest version (whichever of GitHub Releases and npmmirror answers faster) → downloads the prebuilt package (with Node; no `npm`, no build; the window shows percent, downloaded / total and speed, or just downloaded and speed when the server doesn't give a size) → verifies the signature and each file's sha256 → extracts it to `%LOCALAPPDATA%\Programs\ergo\versions\<version>`, writing `current` (a one-line text file naming the one in use) → adds `bin` to your user PATH (no admin rights) → starts ergo. Then open <http://127.0.0.1:8810/> in a browser and follow the wizard (see [Section 3](#3-first-run)). Your data lives in `%USERPROFILE%\.ergo`, separate from the program; upgrades and reinstalls never touch it.
+It finds the latest version (whichever of GitHub Releases and npmmirror answers faster) → downloads the prebuilt package (with Node; no `npm`, no build; the window shows percent, downloaded / total and speed, or just downloaded and speed when the server doesn't give a size) → verifies the signature and each file's sha256 → extracts it to `%LOCALAPPDATA%\Programs\ergo\versions\<version>`, writing `current` (a one-line text file naming the one in use) → adds `bin` to your user PATH (no admin rights) → sets the supervisor to start at login → starts ergo, and finally reports the version, the install folder, the version in use, the autostart state and what to do next. Then open <http://127.0.0.1:8810/> in a browser (or run `ergo open`) and follow the wizard (see [Section 3](#3-first-run)). Your data lives in `%USERPROFILE%\.ergo`, separate from the program; upgrades and reinstalls never touch it.
 
 `irm … | iex` cannot pass parameters; to pass one, fetch the script and run it:
 
@@ -74,7 +74,17 @@ It finds the latest version (whichever of GitHub Releases and npmmirror answers 
 & ([scriptblock]::Create((irm https://github.com/catmaniii/ergo/releases/latest/download/install.ps1))) -FromSource
 ```
 
-The options: `-FromSource` (skip the package, fetch the source package and build it; `-Ref <tag or branch>` picks the version), `-NodeVersion <version>` (only allow a tested Node), `-UseSystemNode` (use the Node already on the machine instead of the bundled one), `-Mirror cn` (force npmmirror, faster in mainland China), `-NoPath` (don't change PATH), `-NoOnboard` (don't start ergo after installing).
+The options: `-FromSource` (skip the package, fetch the source package and build it; `-Ref <tag or branch>` picks the version), `-NodeVersion <version>` (only allow a tested Node), `-UseSystemNode` (use the Node already on the machine instead of the bundled one), `-Mirror cn` (force npmmirror, faster in mainland China), `-NoPath` (don't change PATH), `-NoAutostart` (don't set up autostart), `-NoStart` (don't start ergo after installing; the older name `-NoOnboard` still works). With `irm … | iex` you can use environment variables instead: `$env:ERGO_INSTALL_NO_AUTOSTART = 1`, `$env:ERGO_INSTALL_NO_START = 1`.
+
+Only a failure while downloading, verifying, extracting or writing `current` means the install failed (the version in use is unchanged). A later step that doesn't work out (say, registering autostart is blocked) doesn't fail the install: the script says which step didn't work and how to redo it, and the rest goes on.
+
+**ergo comes back after a restart by itself**: the installer sets the supervisor to start at login (the scheduled task `LocalServiceManager`: starts in the background when you log in to Windows, no window), and the first `ergo start` puts ergo on its autostart list (`registry/autostart.yaml` in its data directory).
+
+- **Which services come up at login** is decided in the supervisor: the switch on a service's card in its web page <http://127.0.0.1:7420/>, or `ergo svc autostart <service> on|off`. Turn ergo off and it stays off; `ergo start` won't turn it back on.
+- **No autostart**: `ergo svc uninstall-autostart`; to get it back: `ergo svc install-autostart`. Once removed, `ergo start` and `ergo update` won't add it back; running the installer again will (add `-NoAutostart` if you don't want that).
+- **Updates and rollbacks**: `ergo update`, `ergo rollback` and `ergo start` check the task, and if it points at another version of this install they point it at the one in use.
+- **A task of the same name already points elsewhere** (say, a supervisor you installed from source): the installer, `ergo start` and `ergo uninstall` leave it alone. To replace it with this install, run `ergo svc install-autostart` once.
+- **Installed with `-NoStart`**: a restart brings ergo up only after you have run `ergo start` once. Until then the supervisor does come up at login, but ergo isn't registered and the list isn't written; and on its very first start it has no record of a previous login session, so it treats the start as "not a boot" and starts no services (better to skip autostart once than to mistake an ordinary restart for a boot).
 
 ### 2.2 Install with npm (if you already have Node 22)
 
@@ -552,7 +562,9 @@ Its Agent SDK (`@anthropic-ai/claude-agent-sdk`) is under Anthropic's own licens
 
 ## 10. Update, stop, uninstall
 
-**One-line installs**: `ergo update` (installs the new version side by side and switches when ergo is idle, keeping the previous one), `ergo rollback` (back to the previous version), `ergo uninstall` (removes PATH entries, the supervisor registration and autostart, and asks whether to delete your data). Which version is in use is decided by `current` (a one-line text file) in the install directory; `ergo version` shows what is running.
+**One-line installs**: `ergo update` (installs the new version side by side and switches when ergo is idle, keeping the previous one), `ergo rollback` (back to the previous version), `ergo uninstall` (removes PATH entries, the supervisor registration and autostart, and asks whether to delete your data). Which version is in use is decided by `current` (a one-line text file) in the install directory; `ergo version` shows what is running. The autostart task follows the version in use.
+
+A supervisor started by the autostart task keeps running the old version's program after an update (ergo itself is on the new version, so nothing breaks) and changes at the next login; the old version's folder it occupies can't be deleted until then, and `ergo update` says it will remove it next time.
 
 **Source installs**:
 
@@ -575,7 +587,7 @@ node bin\lsm.mjs autostart ergo-daemon off
 node bin\lsm.mjs stop ergo-daemon --when-idle
 ```
 
-Remove the supervisor's own autostart with `node bin\lsm.mjs uninstall-autostart`. Your data is in `%USERPROFILE%\.ergo` and the supervisor's in `%LOCALAPPDATA%\ergo\supervisor`; deleting them is up to you.
+With the one-line install, use `ergo svc` in place of `node bin\lsm.mjs`. Remove the supervisor's own autostart with `node bin\lsm.mjs uninstall-autostart` (`ergo svc uninstall-autostart`). Your data is in `%USERPROFILE%\.ergo` and the supervisor's in `%LOCALAPPDATA%\ergo\supervisor`; deleting them is up to you.
 
 ---
 

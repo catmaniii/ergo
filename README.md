@@ -45,7 +45,7 @@
 irm https://github.com/catmaniii/ergo/releases/latest/download/install.ps1 | iex
 ```
 
-装到 `%LOCALAPPDATA%\Programs\ergo\versions\<版本>`（`current` 是一行文本，记着在用的是哪一份），`bin` 加进用户 PATH。换镜像、用系统里那份 Node 之类的参数见[用户手册 2.1](docs/user-guide.md#21-一行命令安装推荐)；想改代码的见[从源码安装](docs/user-guide.md#23-从源码安装现在就能用)。npm 包（`ergo-ai`）还没发。
+装到 `%LOCALAPPDATA%\Programs\ergo\versions\<版本>`（`current` 是一行文本，记着在用的是哪一份），`bin` 加进用户 PATH，服务管家设成开机自启（不想要加 `-NoAutostart`），二狗直接起来，以后电脑重启它也自己起来。换镜像、用系统里那份 Node 之类的参数见[用户手册 2.1](docs/user-guide.md#21-一行命令安装推荐)；想改代码的见[从源码安装](docs/user-guide.md#23-从源码安装现在就能用)。npm 包（`ergo-ai`）还没发。
 
 **2. 走向导设好**：浏览器打开 <http://127.0.0.1:8810/>，网页里的**设置向导**五步走完——语言 / 称呼 / 助手名、模型 Key（现在是 [DeepSeek](https://platform.deepseek.com/)，填完点一下测试）、组件（语义检索的向量模型）、手机扫码配对、安全默认值说明，后面还有一屏"外网访问"的说明。每步都能"以后再说"，全做完显示"设置完了"；以后随时从 **更多 · 设置** 最上面一行「设置向导」重进。
 

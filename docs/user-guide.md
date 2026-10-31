@@ -64,7 +64,7 @@
 irm https://github.com/catmaniii/ergo/releases/latest/download/install.ps1 | iex
 ```
 
-它会：找到最新版本（GitHub Releases 和 npmmirror 两边挑快的）→ 下载打好的安装包（自带 Node，不用 `npm`、不用构建；窗口里跟着显示百分比、已下载/总量和速度，服务器没给大小时只显示已下载和速度）→ 校验签名和文件的 sha256 → 解到 `%LOCALAPPDATA%\Programs\ergo\versions\<版本>`、把 `current` 写成一行文本指向在用的那份 → 把 `bin` 加进用户 PATH（不要管理员权限）→ 把二狗起来。接着浏览器打开 <http://127.0.0.1:8810/>，在网页里走向导（见[第 3 节](#3-第一次打开)）。你的数据放在 `%USERPROFILE%\.ergo`，和程序分开，升级、重装都不动它。
+它会：找到最新版本（GitHub Releases 和 npmmirror 两边挑快的）→ 下载打好的安装包（自带 Node，不用 `npm`、不用构建；窗口里跟着显示百分比、已下载/总量和速度，服务器没给大小时只显示已下载和速度）→ 校验签名和文件的 sha256 → 解到 `%LOCALAPPDATA%\Programs\ergo\versions\<版本>`、把 `current` 写成一行文本指向在用的那份 → 把 `bin` 加进用户 PATH（不要管理员权限）→ 把服务管家设成开机自启 → 把二狗起来，最后报版本、安装目录、在用的版本、自启状态和下一步。接着浏览器打开 <http://127.0.0.1:8810/>（或者 `ergo open`），在网页里走向导（见[第 3 节](#3-第一次打开)）。你的数据放在 `%USERPROFILE%\.ergo`，和程序分开，升级、重装都不动它。
 
 `irm … | iex` 传不了参数，要传就把脚本取下来再跑：
 
@@ -72,7 +72,17 @@ irm https://github.com/catmaniii/ergo/releases/latest/download/install.ps1 | iex
 & ([scriptblock]::Create((irm https://github.com/catmaniii/ergo/releases/latest/download/install.ps1))) -FromSource
 ```
 
-参数有：`-FromSource`（不下安装包，下源码包自己装；`-Ref <标签或分支>` 指定装哪一版）、`-NodeVersion <版本>`（只放行测过的 Node）、`-UseSystemNode`（用机器上那份 Node，不用自带的）、`-Mirror cn`（强制走 npmmirror，国内快）、`-NoPath`（不改 PATH）、`-NoOnboard`（装完不把二狗起来）。
+参数有：`-FromSource`（不下安装包，下源码包自己装；`-Ref <标签或分支>` 指定装哪一版）、`-NodeVersion <版本>`（只放行测过的 Node）、`-UseSystemNode`（用机器上那份 Node，不用自带的）、`-Mirror cn`（强制走 npmmirror，国内快）、`-NoPath`（不改 PATH）、`-NoAutostart`（不设开机自启）、`-NoStart`（装完不把二狗起来，旧名 `-NoOnboard` 还能用）。`irm … | iex` 时也可以用环境变量：`$env:ERGO_INSTALL_NO_AUTOSTART = 1`、`$env:ERGO_INSTALL_NO_START = 1`。
+
+下载、验签、解开、写 `current` 这几步失败才算没装上（在用的版本不变）。之后的某一步没成（比如注册开机自启被拦了）不算安装失败：脚本写清这一步没成、之后怎么重做，其余照常。
+
+**重启电脑后二狗自己起来**：安装时服务管家设成了开机自启（计划任务 `LocalServiceManager`：登录 Windows 时在后台起来，不弹窗口），第一次 `ergo start` 又把二狗写进了它的开机自启名单（数据目录的 `registry/autostart.yaml`）。
+
+- **开机拉起哪些服务**在服务管家里定：它的网页 <http://127.0.0.1:7420/> 卡片上的开关，或者 `ergo svc autostart <服务> on|off`。把二狗关了就一直关着，`ergo start` 不会替你打开。
+- **不要开机自启**：`ergo svc uninstall-autostart`；要回来：`ergo svc install-autostart`。撤掉之后 `ergo start`、`ergo update` 不会把它加回来；重新跑安装脚本会（不想要就加 `-NoAutostart`）。
+- **升级、回滚**：`ergo update`、`ergo rollback`、`ergo start` 都会核对，任务指着这个安装里的别的版本就改指在用的版本。
+- **这台电脑已有指向别处的同名任务**（比如你自己从源码装的服务管家）：安装脚本、`ergo start`、`ergo uninstall` 都不动它。要换成这一份就跑一次 `ergo svc install-autostart`。
+- **用 `-NoStart` 装的**：跑过一次 `ergo start` 之后，重启才会拉起二狗。在这之前服务管家能开机起来，但二狗还没登记、名单还没写；而且它第一次起来时没有上一次的登录记录，按"不是开机"处理，不拉起任何服务（宁可这一次不自启，也不把一次普通的重启当成开机）。
 
 ### 2.2 用 npm 安装（已经有 Node 22 的）
 
@@ -550,7 +560,9 @@ agent 联网时用本机的 Chrome 或 Edge，会自动找。找不到、或者�
 
 ## 10. 更新、停用、卸载
 
-**一行命令装的**：`ergo update`（新版本装进新目录、二狗空闲时切过去，旧版本留一份）、`ergo rollback`（切回上一个版本）、`ergo uninstall`（撤掉 PATH、服务管家的登记和开机自启，问你要不要删数据）。切哪个版本由安装目录里的 `current`（一行文本）说了算，`ergo version` 看现在跑的是哪一版。
+**一行命令装的**：`ergo update`（新版本装进新目录、二狗空闲时切过去，旧版本留一份）、`ergo rollback`（切回上一个版本）、`ergo uninstall`（撤掉 PATH、服务管家的登记和开机自启，问你要不要删数据）。切哪个版本由安装目录里的 `current`（一行文本）说了算，`ergo version` 看现在跑的是哪一版。开机自启的任务跟着切到在用的版本。
+
+开机自启起来的服务管家，升级后这个进程还是旧版本的程序（二狗已经是新版本，不影响用），下次登录才换；它占着的旧版本目录这时删不掉，`ergo update` 会说下次再删。
 
 **从源码装的**：
 
@@ -573,7 +585,7 @@ node bin\lsm.mjs autostart ergo-daemon off
 node bin\lsm.mjs stop ergo-daemon --when-idle
 ```
 
-服务管家自己的开机自启用 `node bin\lsm.mjs uninstall-autostart` 撤掉。你的数据在 `%USERPROFILE%\.ergo`、服务管家的在 `%LOCALAPPDATA%\ergo\supervisor`，删不删由你决定。
+一行命令装的把 `node bin\lsm.mjs` 换成 `ergo svc`。服务管家自己的开机自启用 `node bin\lsm.mjs uninstall-autostart`（`ergo svc uninstall-autostart`）撤掉。你的数据在 `%USERPROFILE%\.ergo`、服务管家的在 `%LOCALAPPDATA%\ergo\supervisor`，删不删由你决定。
 
 ---
 

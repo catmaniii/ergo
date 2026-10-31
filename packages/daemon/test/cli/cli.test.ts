@@ -1,34 +1,48 @@
 // ergo 命令（318 号票）：参数、语言、服务管家的设置和二狗的登记（lsm validate 认）、update / rollback / uninstall / components / status。
 // 服务管家一律指到临时数据目录、没人听的端口（不碰本机正在跑的 7420 和二狗 8810/8811）；发布对着本机的假下载服务；PATH 用假的存储。
+// 开机自启的计划任务用假的（ERGO_AUTOSTART_TASK_FILE，一个 JSON 文件）：名字是固定的，这台电脑上可能就有一个真的在用。
+// 要跑 ergo start 的，服务管家也是假的（fakeManager：本机一个回话的端口 + 版本目录里一个记账的 lsm.mjs），真的 lsm 根本不起。
+// 最后一个 describe 核对真的任务前后一个字不差。
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import http from "node:http";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { activeLocaleFrom, setActiveLocale } from "@ergo/protocol";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import YAML from "yaml";
 import { parseArgs } from "../../src/cli/args.ts";
+import { type FakeAutostartTask, readFakeTask, TASK_COMMAND_REFUSED, taskInsideRoot, taskRunsScript } from "../../src/cli/autostart.ts";
 import { type CliContext, createContext, daemonPort } from "../../src/cli/context.ts";
 import { cliLanguage, runCli } from "../../src/cli/run.ts";
-import { daemonEntryYaml, defaultManagerYaml, managerAddress, quoteArg, svcPaths, writeSvcConfig, yamlQuote } from "../../src/cli/service.ts";
+import { daemonEntryYaml, defaultBootListYaml, defaultManagerYaml, lsmScript, managerAddress, quoteArg, runLsm, svcPaths, syncAutostart, writeSvcConfig, yamlQuote } from "../../src/cli/service.ts";
 import { packageManagerOf } from "../../src/cli/versions.ts";
 import { builtinCatalogs } from "../../src/i18n/builtin.ts";
 import { currentVersionName, detectLayout, installPaths, readInstallState, switchCurrent, writeVersionInfo } from "../../src/release/layout.ts";
 import { fileUserPathStore } from "../../src/release/user-path.ts";
 import { startFakeDownloads } from "../helpers/fake-downloads.ts";
 import { fakeRelease, releaseKey } from "../helpers/fake-release.ts";
+import { realAutostartTaskDefinition } from "../helpers/real-autostart-task.ts";
 
 const LSM = path.resolve(import.meta.dirname, "..", "..", "..", "supervisor", "bin", "lsm.mjs");
 
+// 只为这个文件结束时比一比（最后一个 describe）
+let realTaskBefore = "";
+beforeAll(() => {
+  realTaskBefore = realAutostartTaskDefinition();
+}, 60_000);
+
+const closers: Array<() => Promise<void>> = [];
 const dirs: string[] = [];
 function tmp(): string {
   const dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "ergo-cli-")));
   dirs.push(dir);
   return dir;
 }
-afterEach(() => {
+afterEach(async () => {
+  for (const close of closers.splice(0)) await close();
   setActiveLocale(activeLocaleFrom(builtinCatalogs().catalogs, "zh-CN"));
   for (const dir of dirs.splice(0)) {
     try {
@@ -56,17 +70,58 @@ interface TestCli {
   err: string[];
   base: string;
   root: string;
+  /** 假的计划任务（JSON 文件） */
+  taskFile: string;
+  /** fakeManager 时：假 lsm 收到的每条命令 */
+  lsmCalls(): string[];
   run(...argv: string[]): Promise<number>;
 }
 
+/** 假的服务管家命令行：记下每条命令；status --json 回二狗的状态（ERGO_FAKE_DAEMON_STATE，默认在跑） */
+const FAKE_LSM = `import fs from "node:fs";
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.ERGO_FAKE_LSM_LOG, args.join(" ") + "\\n");
+if (args[0] === "status") console.log(JSON.stringify({ services: [{ id: "ergo-daemon", state: process.env.ERGO_FAKE_DAEMON_STATE || "RUNNING", pid: 1 }] }));
+`;
+
+/** 假服务管家回话的端口：ergo 问 /api/auth/status，它回 200 */
+async function fakeManagerPort(): Promise<number> {
+  const server = http.createServer((_req, res) => {
+    res.setHeader("content-type", "application/json");
+    res.end("{}");
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  closers.push(() => new Promise<void>((resolve) => server.close(() => resolve())));
+  return (server.address() as net.AddressInfo).port;
+}
+
+function setFakeTask(t: TestCli, task: FakeAutostartTask): void {
+  fs.writeFileSync(t.taskFile, JSON.stringify(task));
+}
+
+/** 假任务里的命令：跑的是这个 lsm.mjs */
+function taskActionFor(script: string, dataDir: string): string {
+  return `C:\\Windows\\System32\\conhost.exe --headless "C:\\node.exe" "${script}" serve --lifeline --quiet --data-dir "${dataDir}"`;
+}
+
+function lsmOf(root: string, version: string): string {
+  return path.join(installPaths(root).versions, version, "app", "packages", "supervisor", "bin", "lsm.mjs");
+}
+
 /** 一个装好的 ergo（假的版本目录，current 那行文本指着它）+ 临时的数据目录、服务管家数据目录（manager.yaml 指着没人听的端口） */
-async function installedCli(options: { versions?: string[]; current?: string; env?: NodeJS.ProcessEnv; answers?: string[] } = {}): Promise<TestCli> {
+async function installedCli(options: { versions?: string[]; current?: string; env?: NodeJS.ProcessEnv; answers?: string[]; fakeManager?: boolean; fakeLsm?: boolean } = {}): Promise<TestCli> {
   const base = tmp();
   const root = path.join(base, "inst");
   for (const v of options.versions ?? ["0.2.0"]) {
     const dir = path.join(installPaths(root).versions, v);
-    fs.mkdirSync(path.join(dir, "node"), { recursive: true });
-    fs.writeFileSync(path.join(dir, "node", "node.exe"), "");
+    if (options.fakeManager || options.fakeLsm) {
+      // 没有 node\node.exe：跑假 lsm 用的就是这个测试进程的 node
+      fs.mkdirSync(path.dirname(lsmOf(root, v)), { recursive: true });
+      fs.writeFileSync(lsmOf(root, v), FAKE_LSM);
+    } else {
+      fs.mkdirSync(path.join(dir, "node"), { recursive: true });
+      fs.writeFileSync(path.join(dir, "node", "node.exe"), "");
+    }
     fs.mkdirSync(path.join(dir, "app"), { recursive: true });
     writeVersionInfo(dir, { format: 1, version: v, kind: "release" });
   }
@@ -75,7 +130,9 @@ async function installedCli(options: { versions?: string[]; current?: string; en
   // 启动器给的是 versions\<版本> 这个目录（它是照 current 那行文本找出来的）
   const home = path.join(installPaths(root).versions, current);
   const svc = path.join(base, "svc");
-  const port = await deadPort();
+  const port = options.fakeManager ? await fakeManagerPort() : await deadPort();
+  const taskFile = path.join(base, "fake-task.json");
+  const lsmLog = path.join(base, "fake-lsm.log");
   fs.mkdirSync(path.join(svc, "registry"), { recursive: true });
   fs.writeFileSync(path.join(svc, "registry", "manager.yaml"), defaultManagerYaml(port));
   const env: NodeJS.ProcessEnv = {
@@ -85,6 +142,8 @@ async function installedCli(options: { versions?: string[]; current?: string; en
     LSM_DATA_DIR: svc,
     ERGO_SVC_PORT: String(port),
     ERGO_USER_ENV_FILE: path.join(base, "user-env.json"),
+    ERGO_AUTOSTART_TASK_FILE: taskFile,
+    ERGO_FAKE_LSM_LOG: lsmLog,
     ERGO_LANGUAGE: "en",
     ...options.env,
   };
@@ -94,7 +153,8 @@ async function installedCli(options: { versions?: string[]; current?: string; en
   const layout = detectLayout({ cliFile: path.join(home, "app", "packages", "daemon", "src", "cli", "main.js"), env, execPath: process.execPath });
   const ctx = createContext(layout, env, { out: (l) => out.push(l), err: (l) => err.push(l), ask: async () => answers.shift() ?? "" }, base);
   setActiveLocale(activeLocaleFrom(builtinCatalogs().catalogs, "en"));
-  return { ctx, out, err, base, root, run: (...argv) => runCli(argv, ctx) };
+  const lsmCalls = () => (fs.existsSync(lsmLog) ? fs.readFileSync(lsmLog, "utf8").split(/\r?\n/).filter(Boolean) : []);
+  return { ctx, out, err, base, root, taskFile, lsmCalls, run: (...argv) => runCli(argv, ctx) };
 }
 
 describe("参数和语言", () => {
@@ -154,8 +214,8 @@ describe("服务管家的设置和二狗的登记", () => {
     expect(yamlQuote("C:\\a\\v'x")).toBe("'C:\\a\\v''x'");
 
     const first = writeSvcConfig(t.ctx);
-    expect(first).toEqual({ managerCreated: false, entryChanged: true });
-    expect(writeSvcConfig(t.ctx)).toEqual({ managerCreated: false, entryChanged: false });
+    expect(first).toEqual({ managerCreated: false, bootListCreated: true, entryChanged: true });
+    expect(writeSvcConfig(t.ctx)).toEqual({ managerCreated: false, bootListCreated: false, entryChanged: false });
     const v = spawnSync(process.execPath, [LSM, "validate"], { env: { ...t.ctx.env, LSM_DATA_DIR: t.ctx.svcDataDir }, encoding: "utf8", windowsHide: true });
     expect(v.stdout + v.stderr).toMatch(/1 个服务，全部通过校验/);
   });
@@ -178,6 +238,160 @@ describe("服务管家的设置和二狗的登记", () => {
     const entry = YAML.parse(daemonEntryYaml(ctx)) as Record<string, any>;
     expect(entry.root).toBe(layout.appDir);
     expect(entry.hooks.start.argv).toEqual([process.execPath, "packages/daemon/src/main.ts"]);
+  });
+});
+
+describe("开机自启名单（registry/autostart.yaml）", () => {
+  it("第一次 ergo start 写一份只含二狗的，服务管家自己的代码读得懂；再 start 不动", async () => {
+    const t = await installedCli({ fakeManager: true });
+    const file = svcPaths(t.ctx).bootList;
+    expect(fs.existsSync(file)).toBe(false);
+    expect(await t.run("start")).toBe(0);
+    expect(fs.readFileSync(file, "utf8")).toBe(defaultBootListYaml());
+    expect(YAML.parse(fs.readFileSync(file, "utf8"))).toEqual({ services: ["ergo-daemon"] });
+    expect(t.out.join("\n")).toContain(`ergo is on the autostart list ${file}`);
+    expect(t.out.join("\n")).toContain("ergo svc autostart ergo-daemon off");
+
+    // 服务管家读名单的就是这一个函数（另起进程读，数据目录指到临时的）
+    const read = spawnSync(
+      process.execPath,
+      ["--input-type=module", "-e", `import { loadBootList } from ${JSON.stringify(pathToFileURL(path.resolve(path.dirname(LSM), "..", "src", "bootlist.mjs")).href)}; const b = loadBootList(${JSON.stringify(file)}); console.log(JSON.stringify({ ids: [...b.ids], error: b.error }));`],
+      { encoding: "utf8", windowsHide: true, env: { ...process.env, LSM_DATA_DIR: t.ctx.svcDataDir } },
+    );
+    expect(JSON.parse(read.stdout)).toEqual({ ids: ["ergo-daemon"], error: null });
+
+    t.out.length = 0;
+    expect(await t.run("start")).toBe(0);
+    expect(t.out.join("\n")).not.toContain("autostart list");
+  });
+
+  it("已经有了就绝不改：用的人关掉二狗（服务管家写成 services: []）后再 ergo start、ergo restart，仍是关的", async () => {
+    const t = await installedCli({ fakeManager: true });
+    const file = svcPaths(t.ctx).bootList;
+    const off = "# written by the service manager\nservices: []\n";
+    fs.writeFileSync(file, off);
+    expect(await t.run("start")).toBe(0);
+    expect(await t.run("restart")).toBe(0);
+    expect(fs.readFileSync(file, "utf8")).toBe(off);
+    expect(t.out.join("\n")).not.toContain("autostart list");
+
+    // 手改坏了的也不替它"修"
+    fs.writeFileSync(file, "services: [oops");
+    expect(writeSvcConfig(t.ctx).bootListCreated).toBe(false);
+    expect(fs.readFileSync(file, "utf8")).toBe("services: [oops");
+  });
+});
+
+describe("开机自启的计划任务跟着版本走（假任务）", () => {
+  it("ergo svc install-autostart / uninstall-autostart：照当前版本注册（带服务管家的数据目录）、撤掉", async () => {
+    const t = await installedCli({ fakeLsm: true });
+    expect(await t.run("svc", "install-autostart")).toBe(0);
+    const action = readFakeTask(t.taskFile).action!;
+    expect(action).toContain(lsmOf(t.root, "0.2.0"));
+    expect(action).toContain(`--data-dir "${t.ctx.svcDataDir}"`);
+    expect(await t.run("svc", "uninstall-autostart")).toBe(0);
+    expect(readFakeTask(t.taskFile).action).toBeUndefined();
+    expect(readFakeTask(t.taskFile).calls).toEqual(["install-autostart", "uninstall-autostart"]);
+    // 假任务挡在 lsm 前面：假 lsm 一次都没被叫到
+    expect(t.lsmCalls()).toEqual([]);
+  });
+
+  it("切过版本后 ergo start：任务指着安装目录里的旧版本，就改指当前版本，说一声；再 start 不再动", async () => {
+    const t = await installedCli({ fakeManager: true, versions: ["0.2.0", "0.3.0"], current: "0.3.0" });
+    setFakeTask(t, { action: taskActionFor(lsmOf(t.root, "0.2.0"), t.ctx.svcDataDir) });
+    expect(await t.run("start")).toBe(0);
+    expect(readFakeTask(t.taskFile).calls).toEqual(["install-autostart"]);
+    expect(readFakeTask(t.taskFile).action).toContain(lsmOf(t.root, "0.3.0"));
+    expect(readFakeTask(t.taskFile).action).not.toContain(lsmOf(t.root, "0.2.0"));
+    expect(t.out).toContain("The autostart task now points at the version in use (0.3.0).");
+
+    t.out.length = 0;
+    expect(await t.run("start")).toBe(0);
+    expect(readFakeTask(t.taskFile).calls).toEqual(["install-autostart"]);
+    expect(t.out.join("\n")).not.toContain("autostart task");
+  });
+
+  it("任务不存在（用的人撤掉了）：ergo start 不新建", async () => {
+    const t = await installedCli({ fakeManager: true });
+    expect(await t.run("start")).toBe(0);
+    expect(fs.existsSync(t.taskFile)).toBe(false);
+  });
+
+  it("任务指着安装目录以外（用的人自己装的服务管家，比如这台开发机）：不动它，ergo2 也不算 ergo 里面", async () => {
+    const t = await installedCli({ fakeManager: true });
+    for (const elsewhere of ["D:\\code\\my_repo\\packages\\supervisor\\bin\\lsm.mjs", path.join(`${t.root}2`, "versions", "0.2.0", "app", "packages", "supervisor", "bin", "lsm.mjs")]) {
+      const before = { action: taskActionFor(elsewhere, "D:\\lsm-data") };
+      setFakeTask(t, before);
+      expect(await t.run("start")).toBe(0);
+      expect(readFakeTask(t.taskFile)).toEqual(before);
+    }
+    expect(t.lsmCalls().join("\n")).not.toContain("autostart");
+  });
+
+  it("源码跑的不动任务；npm 装的也一样", () => {
+    const layout = detectLayout({ cliFile: path.resolve(import.meta.dirname, "..", "..", "src", "cli", "main.ts"), env: {}, execPath: process.execPath });
+    expect(layout.kind).toBe("dev");
+    const taskFile = path.join(tmp(), "task.json");
+    fs.writeFileSync(taskFile, JSON.stringify({ action: taskActionFor("C:\\old\\lsm.mjs", "x") }));
+    const before = fs.readFileSync(taskFile, "utf8");
+    const ctx = createContext(layout, { ERGO_DATA_DIR: tmp(), LSM_DATA_DIR: tmp(), ERGO_AUTOSTART_TASK_FILE: taskFile }, { out: () => {}, err: () => {}, ask: async () => "" });
+    expect(syncAutostart(ctx)).toBe("not-installed");
+    expect(syncAutostart({ ...ctx, layout: { ...layout, kind: "npm" } })).toBe("not-installed");
+    expect(fs.readFileSync(taskFile, "utf8")).toBe(before);
+  });
+
+  it("重新注册失败：只说一句，二狗照常起来，任务原样", async () => {
+    const t = await installedCli({ fakeManager: true, versions: ["0.2.0", "0.3.0"], current: "0.3.0" });
+    const old = taskActionFor(lsmOf(t.root, "0.2.0"), t.ctx.svcDataDir);
+    setFakeTask(t, { action: old, failInstall: true });
+    expect(await t.run("start")).toBe(0);
+    expect(t.err.join("\n")).toContain("Could not point the autostart task at the version in use: fake task refused");
+    expect(t.err.join("\n")).toContain("ergo svc install-autostart");
+    expect(readFakeTask(t.taskFile).action).toBe(old);
+    expect(t.out).toContain("ergo is up: http://127.0.0.1:8810/");
+  });
+
+  it("认任务的两个判断：大小写、斜杠都不计较；root 后面要跟分隔符", () => {
+    const action = taskActionFor("C:\\Users\\Me\\Programs\\ergo\\versions\\0.3.0\\app\\packages\\supervisor\\bin\\lsm.mjs", "x");
+    expect(taskInsideRoot(action, "c:/users/me/programs/ERGO")).toBe(true);
+    expect(taskInsideRoot(action, "C:\\Users\\Me\\Programs\\erg")).toBe(false);
+    expect(taskRunsScript(action, "c:/users/me/programs/ergo/versions/0.3.0/app/packages/supervisor/bin/lsm.mjs")).toBe(true);
+    expect(taskRunsScript(action, "c:/users/me/programs/ergo/versions/0.2.0/app/packages/supervisor/bin/lsm.mjs")).toBe(false);
+  });
+});
+
+describe("碰不到真的计划任务", () => {
+  it("测试进程里忘了设假任务：动任务的命令到 runLsm 就拦下，lsm 根本不起（版本目录里的也只是假 lsm，万一拦不住也只会记一笔）", async () => {
+    const t = await installedCli({ fakeLsm: true });
+    expect(lsmScript(t.ctx)).toBe(lsmOf(t.root, "0.2.0"));
+    const { ERGO_AUTOSTART_TASK_FILE: _gone, ...env } = t.ctx.env;
+    const ctx: CliContext = { ...t.ctx, env };
+    for (const args of [["install-autostart"], ["uninstall-autostart"], ["--data-dir", t.ctx.svcDataDir, "install-autostart"]]) {
+      const r = runLsm(ctx, args, { capture: true });
+      expect(r.code).toBe(TASK_COMMAND_REFUSED);
+      expect(r.stderr).toContain("refused");
+    }
+    expect(t.lsmCalls()).toEqual([]);
+    // 别的命令照常走到 lsm
+    expect(runLsm(ctx, ["status", "--json"], { capture: true }).code).toBe(0);
+    expect(t.lsmCalls()).toEqual(["status --json"]);
+  });
+});
+
+describe("ergo onboard", () => {
+  it("起好二狗，指路去网页走设置向导；不再说还在做", async () => {
+    const t = await installedCli({ fakeManager: true });
+    expect(await t.run("onboard")).toBe(0);
+    expect(t.out.at(-1)).toBe("Open http://127.0.0.1:8810/ and follow the setup wizard.");
+    expect(t.out.join("\n")).not.toMatch(/still being built/);
+    expect(t.lsmCalls()).toContain("start ergo-daemon");
+  });
+
+  it("二狗没起来：不指路，退出码 1", async () => {
+    const t = await installedCli({ fakeManager: true, env: { ERGO_FAKE_DAEMON_STATE: "FAILED" } });
+    expect(await t.run("onboard")).toBe(1);
+    expect(t.out.join("\n")).not.toContain("setup wizard");
+    expect(t.err[0]).toMatch(/^ergo did not start/);
   });
 });
 
@@ -234,6 +448,34 @@ describe("update / rollback", () => {
     expect(readInstallState(t.root).previous).toBe("0.3.0");
   });
 
+  it("切过去之后登记和开机自启都指新版本（这条命令自己还跑在旧版本上）；rollback 再指回来；任务不存在不新建", async () => {
+    const fake = await startFakeDownloads();
+    const key = releaseKey();
+    for (const [name, body] of fakeRelease("0.3.0", key.secret).files) fake.put(name, body);
+    const t = await installedCli({ fakeLsm: true, env: { ERGO_RELEASE_PUBKEY: key.publicLine, ERGO_RELEASE_URL: `${fake.url}/m1` } });
+    const entryRoot = () => (YAML.parse(fs.readFileSync(svcPaths(t.ctx).daemonEntry, "utf8")) as { root: string }).root;
+    setFakeTask(t, { action: taskActionFor(lsmOf(t.root, "0.2.0"), t.ctx.svcDataDir) });
+
+    expect(await t.run("update")).toBe(0);
+    expect(currentVersionName(t.root)).toBe("0.3.0");
+    expect(entryRoot()).toBe(path.join(t.root, "versions", "0.3.0", "app"));
+    expect(readFakeTask(t.taskFile).action).toContain(lsmOf(t.root, "0.3.0"));
+    expect(t.out).toContain("The autostart task now points at the version in use (0.3.0).");
+    expect(readInstallState(t.root).previous).toBe("0.2.0");
+
+    expect(await t.run("rollback")).toBe(0);
+    expect(currentVersionName(t.root)).toBe("0.2.0");
+    expect(entryRoot()).toBe(path.join(t.root, "versions", "0.2.0", "app"));
+    expect(readFakeTask(t.taskFile).action).toContain(lsmOf(t.root, "0.2.0"));
+
+    // 用的人撤掉了任务：切版本也不把它加回来
+    setFakeTask(t, {});
+    expect(await t.run("rollback")).toBe(0);
+    expect(currentVersionName(t.root)).toBe("0.3.0");
+    expect(readFakeTask(t.taskFile).action).toBeUndefined();
+    expect(readFakeTask(t.taskFile).calls).toBeUndefined();
+  });
+
   it("签名验不过、没有公钥：不装，在用的版本不变", async () => {
     const fake = await startFakeDownloads();
     for (const [name, body] of fakeRelease("0.3.0", releaseKey().secret).files) fake.put(name, body);
@@ -284,6 +526,37 @@ describe("uninstall", () => {
     expect(fs.existsSync(t2.ctx.dataDir)).toBe(false);
     expect(fs.existsSync(t2.ctx.svcDataDir)).toBe(false);
     expect(fs.existsSync(t2.root)).toBe(false);
+  });
+
+  it("开机自启：指着这个安装的一并撤掉；指着别处的不动；没有任务就不提；撤不掉说清楚，其余照卸", async () => {
+    const { cmdUninstall } = await import("../../src/cli/uninstall.ts");
+    const mine = await installedCli({ fakeLsm: true });
+    setFakeTask(mine, { action: taskActionFor(lsmOf(mine.root, "0.2.0"), mine.ctx.svcDataDir) });
+    expect(await cmdUninstall(mine.ctx, { yes: true, deleteData: false, waitForCleanup: true })).toBe(0);
+    expect(readFakeTask(mine.taskFile).action).toBeUndefined();
+    expect(readFakeTask(mine.taskFile).calls).toEqual(["uninstall-autostart"]);
+    expect(mine.out).toContain("Removed the service manager's autostart.");
+    expect(fs.existsSync(mine.root)).toBe(false);
+
+    const other = await installedCli({ fakeLsm: true });
+    const before = { action: taskActionFor("D:\\my_repo\\packages\\supervisor\\bin\\lsm.mjs", "D:\\lsm-data") };
+    setFakeTask(other, before);
+    expect(await cmdUninstall(other.ctx, { yes: true, deleteData: false, waitForCleanup: true })).toBe(0);
+    expect(readFakeTask(other.taskFile)).toEqual(before);
+    expect(other.out).toContain("The autostarted service manager belongs to another install; left it alone.");
+
+    const none = await installedCli({ fakeLsm: true });
+    expect(await cmdUninstall(none.ctx, { yes: true, deleteData: false, waitForCleanup: true })).toBe(0);
+    expect(none.out).not.toContain("Removed the service manager's autostart.");
+    expect(none.out).not.toContain("The autostarted service manager belongs to another install; left it alone.");
+    expect(fs.existsSync(none.taskFile)).toBe(false);
+
+    const stuck = await installedCli({ fakeLsm: true });
+    setFakeTask(stuck, { action: taskActionFor(lsmOf(stuck.root, "0.2.0"), stuck.ctx.svcDataDir), failUninstall: true });
+    expect(await cmdUninstall(stuck.ctx, { yes: true, deleteData: false, waitForCleanup: true })).toBe(0);
+    expect(stuck.err.join("\n")).toContain("The autostart task was not removed: fake task refused");
+    expect(stuck.err.join("\n")).toContain("Unregister-ScheduledTask -TaskName LocalServiceManager");
+    expect(fs.existsSync(stuck.root)).toBe(false);
   });
 
   it("不像安装目录的不删；开发布局不用卸", async () => {
@@ -367,4 +640,11 @@ describe("components（二狗本机端口上的组件接口的终端前端）", 
     expect(await down.run("components")).toBe(1);
     expect(down.err[0]).toMatch(/^ergo is not running \(http:\/\/127\.0\.0\.1:\d+\/ does not answer\): run ergo start first\.$/);
   });
+});
+
+describe.runIf(process.platform === "win32")("真的计划任务", () => {
+  // 用例按写的顺序跑，这是最后一个：上面所有用例都跑完了才比。任务不存在的电脑两边都是空串
+  it("跑完这个文件，这台电脑上的 LocalServiceManager 一个字没变", () => {
+    expect(realAutostartTaskDefinition()).toBe(realTaskBefore);
+  }, 60_000);
 });

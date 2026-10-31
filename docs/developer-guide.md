@@ -260,6 +260,24 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 
 **这一层不管的**：记忆的每晚整理（`memory/nightly-job.ts` 用 `DEEPSEEK_API_KEY` 建 `DeepSeekChat`）、联网搜索和读网页（`web/deepseek.ts` 是 DeepSeek 专有接口）、token 单价表（`packages/protocol/src/token-prices.ts` 只有 DeepSeek）都只认 DeepSeek，换成自定义服务商也不跟着换——碰这几样时按登记表里 `deepseek` 的 `keyEnv` / `secretFile`（或 `config/secrets.ts` 的 `deepseekKey()`）取 key，别顺手改成"当前服务商"。
 
+### 4.12 安装链
+
+`install.ps1` 下载、验签、解开之后依次：写 `current` → 放 `bin` → 加 PATH → `ergo svc install-autostart`（`ergo svc` 原样转给 lsm，带上 `LSM_DATA_DIR`）→ `ergo onboard`（`ergo start` 加一句指路向导）→ 报摘要。写成 `current` 之前失败才算安装失败（退出码 1，在用的版本不变）；之后的每一步失败只说清楚、其余照常、退出码 0。开关：`-NoAutostart`、`-NoStart`（旧名 `-NoOnboard`），`irm | iex` 用环境变量。
+
+开机后二狗起来要三样东西，归属不一样：
+
+| | 在哪 | 谁写 | 换版本时 |
+|---|---|---|---|
+| 计划任务 `LocalServiceManager` | 写死当时的 `node.exe` 和 `lsm.mjs`、`--data-dir` | 安装脚本默认注册（`supervisor/src/autostart.mjs`） | `syncAutostart` 核对后重新注册 |
+| 开机自启名单 `registry/autostart.yaml` | 服务管家数据目录 | 第一次 `ergo start` 写一份只含 `ergo-daemon` 的（`wx`，有文件绝不改）；之后归服务管家（WebUI、`lsm autostart`） | 不动 |
+| 二狗的登记 `registry/services/ergo-daemon.yaml` | 服务管家数据目录 | 每次 `ergo start` 按当前版本重写 | 重写 |
+
+`syncAutostart`（`cli/service.ts`）只在安装版做，`ensureSvc`（`start`、`restart`）和 `switchTo`（`update`、`rollback`）都调：没有任务不新建（用的人撤掉了）；任务指着安装目录以外不动（用的人自己的服务管家，和 `ergo uninstall`、安装脚本同一条规矩）；指着安装目录里别的版本才重新注册；失败只说一句。`switchTo` 那个进程还跑在旧版本上（版本目录是启动器按 `current` 找的），切过去之后的登记、服务管家、任务都要按新版本的上下文做（`contextOfVersion`）。
+
+开机时服务管家按 `bootPlan` 判断"新的登录会话"，比较账本里上一次的 `sessionEpoch`：第一次起来没有记录，按不是开机处理。所以 `-NoStart` 装完没跑过 `ergo start` 就重启，二狗不会起来（那时也还没有登记和名单），手册里写了。
+
+已知没解决的：开机自启起来的服务管家不是 `ergo` 起的（`install.json` 的 `managerPid` 对不上），`switchTo` 不重启它，所以升级后这个进程是旧版本的代码，下次登录才换；它占着旧版本目录，`pruneVersions` 删不掉就留到下次。
+
 ## 5. 插件
 
 守护进程分**内核**和**插件**（[ADR-0027](adr/0027-plugin-host-kernel-and-agent-contributions.md)）：内核（事件日志、任务执行连同守卫、宿主协议、网关……）在组合根里手工装；插件按插件清单 `plugins/manifest.ts` 经插件宿主 `plugins/host.ts` 装，组合根里不出现任何一个插件。一个功能插件 = 守护进程里的插件 + 网页里同名的网页插件，一起启停，用户能在设置 · 插件里热插拔。
@@ -445,6 +463,7 @@ App 里按住说话用鸿蒙的 AudioCapturer：进语音模式时建好录音�
 
 - 测试一律用临时目录，不碰 `~/.ergo`、不碰在跑的守护进程。
 - 所有 vitest project 都挂了根目录的 `vitest.setup-no-network.mjs`：**除本机回环以外的请求直接抛错**。要测网络就用本机假服务（假 TTS、假 MCP、假的模型目录……）。测试一条都不花 token。
+- **计划任务 `LocalServiceManager` 名字是固定的，开发机上有一个真的**：测试用 `ERGO_AUTOSTART_TASK_FILE` 换成一个 JSON 文件（`cli/autostart.ts`，安装脚本也认）。`ergo` 起 lsm 只有 `runLsm` 一个入口，在 vitest 里没设这个变量时，`install-autostart`、`uninstall-autostart` 到那儿就被拒绝，lsm 不起。`cli.test.ts`、`install-script.test.ts` 跑完比一次真任务的完整定义（只读）。安装脚本的测试用假的 `ergo.cmd`。
 
 ### 10.4 Windows 上要注意
 

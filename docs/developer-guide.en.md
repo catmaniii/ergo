@@ -260,6 +260,24 @@ There are two entries today and **the first one is the default**: `deepseek` (`D
 
 **What this layer deliberately does not cover**: the nightly memory consolidation (`memory/nightly-job.ts` builds `DeepSeekChat` from `DEEPSEEK_API_KEY`), web search and page reading (`web/deepseek.ts` is a DeepSeek-proprietary API), and the token price table (`packages/protocol/src/token-prices.ts` knows only DeepSeek). They stay DeepSeek-only even after switching to a custom provider — when touching them, take the key from the `deepseek` row's `keyEnv` / `secretFile` (or `deepseekKey()` in `config/secrets.ts`) instead of "the currently selected provider".
 
+### 4.12 The install chain
+
+After downloading, verifying and extracting, `install.ps1` writes `current` → fills `bin` → adds to PATH → runs `ergo svc install-autostart` (`ergo svc` passes through to lsm, with `LSM_DATA_DIR`) → runs `ergo onboard` (`ergo start` plus a line pointing at the wizard) → prints a summary. Only a failure before `current` is written fails the install (exit code 1, the version in use unchanged); each later step that fails is reported, the rest still runs, exit code 0. Switches: `-NoAutostart`, `-NoStart` (older name `-NoOnboard`); environment variables for `irm | iex`.
+
+Three things bring ergo up at login, and they belong to different owners:
+
+| | Where | Who writes it | On a version switch |
+|---|---|---|---|
+| Scheduled task `LocalServiceManager` | Hard-codes that version's `node.exe` and `lsm.mjs`, and `--data-dir` | The installer registers it by default (`supervisor/src/autostart.mjs`) | `syncAutostart` checks and re-registers |
+| Autostart list `registry/autostart.yaml` | The supervisor's data directory | The first `ergo start` writes one with only `ergo-daemon` (`wx`: never touched once it exists); after that it belongs to the supervisor (web UI, `lsm autostart`) | Untouched |
+| ergo's entry `registry/services/ergo-daemon.yaml` | The supervisor's data directory | Rewritten for the current version by every `ergo start` | Rewritten |
+
+`syncAutostart` (`cli/service.ts`) only acts on installed copies, and is called from `ensureSvc` (`start`, `restart`) and `switchTo` (`update`, `rollback`): no task means nothing is created (the user removed it); a task pointing outside the install folder is left alone (the user's own supervisor; same rule as `ergo uninstall` and the installer); only a task pointing at another version in the install folder is re-registered; a failure is reported in one line. The `switchTo` process still runs on the old version (the launcher finds the version folder through `current`), so after switching, the entry, the supervisor and the task must all use the new version's context (`contextOfVersion`).
+
+At login the supervisor decides "new login session" with `bootPlan`, comparing the previous `sessionEpoch` in its ledger: the first start has no record and counts as not a boot. So after a `-NoStart` install, restarting before ever running `ergo start` doesn't bring ergo up (there's no entry or list yet either); the User Guide says so.
+
+Known and unsolved: a supervisor started by the autostart task wasn't started by `ergo` (`managerPid` in `install.json` doesn't match), so `switchTo` doesn't restart it; after an update that process runs the old version's code until the next login. It occupies the old version folder, which `pruneVersions` leaves for next time when it can't be deleted.
+
 ## 5. Plugins
 
 The daemon is split into a **kernel** and **plugins** ([ADR-0027](adr/0027-plugin-host-kernel-and-agent-contributions.md)): the kernel (event log, task execution with the guard, host protocol, gateway…) is wired by hand in the composition root; plugins are installed from the manifest `plugins/manifest.ts` via the plugin host `plugins/host.ts`, and the composition root never names a plugin. A feature plugin = a daemon plugin + a web plugin of the same name, enabled and disabled together; users can hot-plug them under Settings · Plugins.
@@ -445,6 +463,7 @@ Push-to-talk in the app uses HarmonyOS's AudioCapturer: entering voice mode crea
 
 - Tests always use temporary directories and never touch `~/.ergo` or a running daemon.
 - Every vitest project loads the root `vitest.setup-no-network.mjs`: **any request to a non-loopback address throws**. To test networking, use local fakes (fake TTS, fake MCP, a fake model catalog…). No test spends tokens.
+- **The scheduled task `LocalServiceManager` has a fixed name, and a development machine has a real one**: tests swap it for a JSON file with `ERGO_AUTOSTART_TASK_FILE` (`cli/autostart.ts`; the installer honours it too). `ergo` starts lsm through one entry only, `runLsm`; under vitest without that variable, `install-autostart` and `uninstall-autostart` are refused there and lsm isn't started. `cli.test.ts` and `install-script.test.ts` compare the real task's full definition (read-only) when they finish. The installer's tests use a fake `ergo.cmd`.
 
 ### 10.4 Windows notes
 

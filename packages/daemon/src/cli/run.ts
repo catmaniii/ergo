@@ -5,7 +5,7 @@ import { t } from "@ergo/protocol";
 import { flagOn, flagString, parseArgs } from "./args.ts";
 import { cmdComponents } from "./components.ts";
 import type { CliContext } from "./context.ts";
-import { cmdLogs, cmdOpen, cmdRestart, cmdSvc, cmdStart, cmdStatus, cmdStop } from "./service.ts";
+import { cmdLogs, cmdOnboard, cmdOpen, cmdRestart, cmdSvc, cmdStart, cmdStatus, cmdStop } from "./service.ts";
 import { cmdUninstall } from "./uninstall.ts";
 import { cmdRollback, cmdUpdate } from "./versions.ts";
 
@@ -96,8 +96,7 @@ export async function runCli(argv: readonly string[], ctx: CliContext): Promise<
       // 原样转：连 --data-dir 这类开关也不解析
       return cmdSvc(ctx, argv.slice(argv.indexOf("svc") + 1));
     case "onboard":
-      ctx.io.out(t("cli.onboard.notYet"));
-      return cmdStart(ctx);
+      return cmdOnboard(ctx);
     default:
       ctx.io.err(t("cli.unknownCommand", { command: args.command }));
       usage(ctx);

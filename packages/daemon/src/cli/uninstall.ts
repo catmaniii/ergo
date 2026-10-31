@@ -8,6 +8,7 @@ import path from "node:path";
 import { t } from "@ergo/protocol";
 import { installPaths, readVersionInfo, removeCurrent, removeLink } from "../release/layout.ts";
 import { removeFromUserPath, userPathStore } from "../release/user-path.ts";
+import { readAutostartTask, taskInsideRoot } from "./autostart.ts";
 import type { CliContext } from "./context.ts";
 import { packageManagerOf } from "./versions.ts";
 import { DAEMON_SERVICE_ID, lsmScript, managerPidFromState, managerUp, runLsm, spawnDetachedHidden, stopManager, svcPaths, svcSnapshot } from "./service.ts";
@@ -22,23 +23,17 @@ export interface UninstallOptions {
 
 /** 服务管家的开机自启任务（计划任务 LocalServiceManager）指着这个安装目录的话撤掉它；指着别处的（用的人自己装的服务管家）不动 */
 function removeAutostart(ctx: CliContext, root: string): void {
-  const q = spawnSync(
-    "powershell.exe",
-    [
-      "-NoProfile",
-      "-NonInteractive",
-      "-Command",
-      "$t = Get-ScheduledTask -TaskName 'LocalServiceManager' -ErrorAction SilentlyContinue; if ($t) { ($t.Actions | ForEach-Object { \"$($_.Execute) $($_.Arguments) $($_.WorkingDirectory)\" }) -join ' | ' }",
-    ],
-    { encoding: "utf8", windowsHide: true },
-  );
-  const action = (q.stdout ?? "").trim();
+  const action = readAutostartTask(ctx.env);
   if (!action) return;
-  if (!action.toLowerCase().includes(root.toLowerCase())) {
+  if (!taskInsideRoot(action, root)) {
     ctx.io.out(t("cli.uninstall.autostartElsewhere"));
     return;
   }
-  runLsm(ctx, ["uninstall-autostart"], { capture: true });
+  const r = runLsm(ctx, ["uninstall-autostart"], { capture: true });
+  if (r.code !== 0) {
+    ctx.io.err(t("cli.uninstall.autostartFailed", { detail: `${r.stdout}${r.stderr}`.trim() || "?" }));
+    return;
+  }
   ctx.io.out(t("cli.uninstall.autostartRemoved"));
 }
 

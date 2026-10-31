@@ -6,7 +6,7 @@
 #   & ([scriptblock]::Create((irm <release site>/install.ps1))) -Mirror cn
 #   $env:ERGO_MIRROR = 'cn'; irm <release site>/install.ps1 | iex
 #   (environment variables: ERGO_INSTALL_DIR, ERGO_MIRROR, ERGO_RELEASE_URL, ERGO_VERSION, ERGO_RELEASE_PUBKEY,
-#    ERGO_INSTALL_FROM_SOURCE, ERGO_INSTALL_NO_PATH, ERGO_INSTALL_NO_ONBOARD, ERGO_LANGUAGE)
+#    ERGO_INSTALL_FROM_SOURCE, ERGO_INSTALL_NO_PATH, ERGO_INSTALL_NO_AUTOSTART, ERGO_INSTALL_NO_START, ERGO_LANGUAGE)
 #   powershell -ExecutionPolicy Bypass -File install.ps1 -FromSource -Ref main
 #
 # What it does (binary install):
@@ -17,7 +17,14 @@
 #      then the zip's sha256 against SHA256SUMS;
 #   4. extract to %LOCALAPPDATA%\Programs\ergo\versions\<version>\, write "current" (a one-line text file naming it),
 #      copy ergo.exe / ergo.cmd into ...\ergo\bin and add that folder to the user PATH (no admin);
-#   5. run "ergo start" (the setup wizard continues in the web UI, ticket 319).
+#   5. make the service manager start at login: "ergo svc install-autostart" (scheduled task LocalServiceManager).
+#      -NoAutostart skips it. A task that points outside this install folder (your own service manager) is left alone;
+#   6. run "ergo onboard": start ergo and say where to open the setup wizard (it lives in the web UI). -NoStart skips it
+#      (-NoOnboard is the older name; ERGO_INSTALL_NO_ONBOARD still works). The first start also puts ergo on the service manager's
+#      autostart list, so a -NoStart install does not bring ergo up after a restart until "ergo start" has run once;
+#   7. print the version, the install folder, "current", the autostart state and what to do next.
+# Steps 1-4 up to writing "current" decide whether the install worked: a failure there stops it with exit code 1 and the version in use
+# unchanged. After that the new version is in place: a later step that fails says so and how to redo it, the rest still runs, exit code 0.
 # -FromSource [-Ref <tag or branch>]: download the source zip (no git), use the system Node if it is the tested major version or
 #   download a portable Node into the install folder (the system one is not touched), npm ci, npm run build, npm run ergo:install.
 # Data stays in ~/.ergo (and the service manager's in %LOCALAPPDATA%\ergo\supervisor); installing, updating and uninstalling never touch it.
@@ -38,6 +45,8 @@ param(
   [string]$PublicKey = '',
   [switch]$AllowUnsigned,
   [switch]$NoPath,
+  [switch]$NoAutostart,
+  [switch]$NoStart,
   [switch]$NoOnboard,
   [switch]$NoSwitch,
   [string]$Lang = ''
@@ -87,6 +96,23 @@ $ErgoMessages = @{
   pathAdded = @('\u628a {0} \u52a0\u8fdb\u4e86\u7528\u6237 PATH\uff08\u65b0\u5f00\u7684\u7ec8\u7aef\u91cc\u5c31\u80fd\u7528 ergo\uff09\u3002', 'Added {0} to your user PATH (ergo works in new terminals).')
   pathSkipped = @('\u6ca1\u6539 PATH\uff08-NoPath\uff09\uff1a\u8981\u7528 ergo\uff0c\u628a {0} \u52a0\u8fdb PATH\uff0c\u6216\u8005\u76f4\u63a5\u8fd0\u884c {1}\u3002', 'PATH not changed (-NoPath): add {0} to PATH, or run {1} directly.')
   onboard = @('\u63a5\u7740\u8dd1 ergo onboard\u2026\u2026', 'Running ergo onboard...')
+  binFailed = @('ergo \u547d\u4ee4\u6ca1\u653e\u8fdb bin \u76ee\u5f55\uff1a{0}\u3002\u5176\u4f59\u7167\u5e38\uff0c\u8fd9\u6b21\u5148\u7528 {1}\uff1b\u4e4b\u540e\u518d\u8dd1\u4e00\u6b21\u5b89\u88c5\u811a\u672c\u53ef\u4ee5\u91cd\u505a\u3002', 'Could not put the ergo command into the bin folder: {0}. The rest goes on using {1}; run this installer again to redo it.')
+  pathFailed = @('\u6ca1\u628a {0} \u52a0\u8fdb\u7528\u6237 PATH\uff1a{1}\u3002\u5176\u4f59\u7167\u5e38\uff1b\u4e4b\u540e\u81ea\u5df1\u52a0\uff0c\u6216\u8005\u518d\u8dd1\u4e00\u6b21\u5b89\u88c5\u811a\u672c\u3002', 'Could not add {0} to your user PATH: {1}. The rest goes on; add it yourself later, or run this installer again.')
+  ergoMissing = @('\u627e\u4e0d\u5230 {0}', '{0} not found')
+  autostartOn = @('\u5df2\u8bbe\u6210\u5f00\u673a\u81ea\u542f\uff1a\u767b\u5f55 Windows \u65f6\u670d\u52a1\u7ba1\u5bb6\u5728\u540e\u53f0\u8d77\u6765\uff0c\u518d\u7531\u5b83\u62c9\u8d77\u4e8c\u72d7\u3002\u4e0d\u60f3\u8981\u53ef\u4ee5 ergo svc uninstall-autostart\uff08\u53ea\u662f\u4e0d\u60f3\u62c9\u8d77\u4e8c\u72d7\uff1aergo svc autostart ergo-daemon off\uff09\u3002', 'Autostart is on: the service manager starts in the background when you log in to Windows, and brings ergo up. To turn it off: ergo svc uninstall-autostart (to keep the service manager but not start ergo: ergo svc autostart ergo-daemon off).')
+  autostartFailed = @('\u5f00\u673a\u81ea\u542f\u6ca1\u8bbe\u6210\uff1a{0}\u3002\u5176\u4f59\u7167\u5e38\uff0c\u53ea\u662f\u91cd\u542f\u7535\u8111\u540e\u8981\u81ea\u5df1 ergo start\uff1b\u4e4b\u540e\u53ef\u4ee5\u91cd\u505a\uff1aergo svc install-autostart\u3002', 'Autostart was not set up: {0}. The rest goes on, but after a restart you have to run ergo start yourself; to redo it: ergo svc install-autostart.')
+  autostartElsewhere = @('\u8fd9\u53f0\u7535\u8111\u5df2\u7ecf\u6709\u5f00\u673a\u81ea\u542f\u4efb\u52a1 LocalServiceManager\uff0c\u6307\u7740\u522b\u5904\uff0c\u6ca1\u52a8\u5b83\uff1a{0}\u3002\u8981\u6362\u6210\u8fd9\u4e00\u4efd\uff1aergo svc install-autostart\u3002', 'This computer already has the autostart task LocalServiceManager pointing elsewhere; it was left alone: {0}. To replace it with this install: ergo svc install-autostart.')
+  startFailed = @('\u4e8c\u72d7\u6ca1\u8d77\u6765\uff08{0}\uff09\u3002\u5176\u4f59\u7167\u5e38\uff1b\u4e4b\u540e\u53ef\u4ee5\u91cd\u505a\uff1aergo start\uff0c\u770b\u539f\u56e0\uff1aergo logs\u3002', 'ergo did not start ({0}). The rest goes on; to redo it: ergo start. To see why: ergo logs.')
+  sumVersion = @('\u7248\u672c\uff1a{0}', 'Version: {0}')
+  sumDir = @('\u5b89\u88c5\u76ee\u5f55\uff1a{0}', 'Install folder: {0}')
+  sumCurrent = @('\u5728\u7528\u7684\u7248\u672c\uff08current\uff09\uff1a{0}', 'Version in use (current): {0}')
+  sumAutostartOn = @('\u5f00\u673a\u81ea\u542f\uff1a\u5f00\u7740', 'Autostart: on')
+  sumAutostartSkipped = @('\u5f00\u673a\u81ea\u542f\uff1a\u6ca1\u5f00\uff08-NoAutostart\uff09\uff0c\u60f3\u8981\uff1aergo svc install-autostart', 'Autostart: off (-NoAutostart); to turn it on: ergo svc install-autostart')
+  sumAutostartElsewhere = @('\u5f00\u673a\u81ea\u542f\uff1a\u8fd9\u53f0\u7535\u8111\u4e0a\u5df2\u6709\u7684\u4efb\u52a1\u6307\u7740\u522b\u5904\uff0c\u6ca1\u52a8\u5b83', 'Autostart: the task already on this computer points elsewhere; left alone')
+  sumAutostartFailed = @('\u5f00\u673a\u81ea\u542f\uff1a\u6ca1\u8bbe\u6210\uff0c\u91cd\u505a\uff1aergo svc install-autostart', 'Autostart: not set up; to redo it: ergo svc install-autostart')
+  nextOpen = @('\u4e0b\u4e00\u6b65\uff1aergo open \u6253\u5f00\u7f51\u9875\uff0c\u8d70\u8bbe\u7f6e\u5411\u5bfc\u3002', 'Next: ergo open opens the web page; follow the setup wizard there.')
+  nextNotStarted = @('\u4e0b\u4e00\u6b65\uff1aergo start \u628a\u4e8c\u72d7\u8d77\u6765\uff0c\u518d ergo open \u8d70\u8bbe\u7f6e\u5411\u5bfc\u3002\u7b2c\u4e00\u6b21\u88c5\u7684\u8bdd\uff0c\u8dd1\u8fc7\u4e00\u6b21 ergo start \u4e4b\u540e\u91cd\u542f\u7535\u8111\u5b83\u624d\u4f1a\u81ea\u5df1\u8d77\u6765\u3002', 'Next: ergo start brings ergo up, then ergo open and follow the setup wizard. On a first install, a restart brings it up only after ergo start has run once.')
+  nextStartFailed = @('\u4e0b\u4e00\u6b65\uff1a\u89e3\u51b3\u4e0a\u9762\u6ca1\u8d77\u6765\u7684\u95ee\u9898\uff0c\u518d ergo start\u3001ergo open \u8d70\u8bbe\u7f6e\u5411\u5bfc\u3002', 'Next: sort out why it did not start (above), then ergo start and ergo open to follow the setup wizard.')
   done = @('\u88c5\u597d\u4e86\u3002\u4e4b\u540e\u7528 ergo start / stop / status / update / uninstall \u7ba1\u5b83\uff0cergo help \u770b\u5168\u90e8\u547d\u4ee4\u3002\u6570\u636e\u5728 ~/.ergo\uff0c\u5347\u7ea7\u3001\u5378\u8f7d\u90fd\u4e0d\u78b0\u3002', 'Done. Use ergo start / stop / status / update / uninstall from now on; ergo help lists every command. Your data lives in ~/.ergo and is never touched by updates or uninstalling.')
   failed = @('\u5b89\u88c5\u5931\u8d25\uff1a{0}', 'Installation failed: {0}')
   srcDownloading = @('\u4e0b\u8f7d\u6e90\u7801\uff08{0}\uff09\u2026\u2026', 'Downloading the source ({0})...')
@@ -792,6 +818,91 @@ function Install-Bin([string]$root, [string]$versionDir) {
   return (Join-Path $bin 'ergo.cmd')
 }
 
+# run ergo and hand back its exit code and output, here (not as an error) even when it writes to stderr or fails.
+# Node writes UTF-8 whatever the console's code page is; PowerShell decodes piped output with OutputEncoding, so set it for the call.
+function Invoke-Ergo([string]$ergo, [string[]]$arguments, [bool]$show) {
+  if (-not (Test-Path -LiteralPath $ergo)) { return @{ code = -1; text = (M 'ergoMissing' $ergo) } }
+  $ErrorActionPreference = 'Continue'
+  $saved = $null
+  try { $saved = [Console]::OutputEncoding; [Console]::OutputEncoding = New-Object Text.UTF8Encoding $false } catch { }
+  try {
+    $lines = New-Object Collections.ArrayList
+    & $ergo @arguments 2>&1 | ForEach-Object {
+      $text = ("$_" -replace "$([char]27)\[[0-9;]*m", '')
+      [void]$lines.Add($text)
+      if ($show) { Write-Host $text }
+    }
+    return @{ code = $LASTEXITCODE; text = ($lines -join ' ').Trim() }
+  } finally {
+    if ($saved) { try { [Console]::OutputEncoding = $saved } catch { } }
+  }
+}
+
+# what the scheduled task runs now ('' when there is none). ERGO_AUTOSTART_TASK_FILE: a JSON file stands in for the task, the same one
+# the ergo command honours; tests use it, because the task's name is fixed and a development machine has a real one.
+function Get-AutostartAction {
+  if ($env:ERGO_AUTOSTART_TASK_FILE) {
+    if (-not (Test-Path -LiteralPath $env:ERGO_AUTOSTART_TASK_FILE)) { return '' }
+    return [string](Get-Content -Raw -LiteralPath $env:ERGO_AUTOSTART_TASK_FILE | ConvertFrom-Json).action
+  }
+  $task = Get-ScheduledTask -TaskName 'LocalServiceManager' -ErrorAction SilentlyContinue
+  if (-not $task) { return '' }
+  return (@($task.Actions | ForEach-Object { "$($_.Execute) $($_.Arguments) $($_.WorkingDirectory)" }) -join ' | ')
+}
+
+# returns on / elsewhere / failed. Registering overwrites a task of the same name, so one that is not this install's stays as it is.
+function Set-ErgoAutostart([string]$ergo, [string]$root) {
+  try {
+    $action = Get-AutostartAction
+    if ($action -and -not $action.ToLowerInvariant().Contains($root.TrimEnd('\').ToLowerInvariant() + '\')) {
+      Warn (M 'autostartElsewhere' $action)
+      return 'elsewhere'
+    }
+    $r = Invoke-Ergo $ergo @('svc', 'install-autostart') $false
+    if ($r.code -eq 0) {
+      Say (M 'autostartOn')
+      return 'on'
+    }
+    Warn (M 'autostartFailed' $r.text)
+  } catch {
+    Warn (M 'autostartFailed' $_.Exception.Message)
+  }
+  return 'failed'
+}
+
+# returns up / failed
+function Start-ErgoOnboard([string]$ergo) {
+  Say (M 'onboard')
+  try {
+    $r = Invoke-Ergo $ergo @('onboard') $true
+    if ($r.code -eq 0) { return 'up' }
+    Warn (M 'startFailed' $r.code)
+  } catch {
+    Warn (M 'startFailed' $_.Exception.Message)
+  }
+  return 'failed'
+}
+
+function Show-InstallSummary([string]$root, [string]$versionDir, [string]$name, [string]$autostart, [string]$started) {
+  $shown = $name
+  try { $shown = (Get-Content -Raw -LiteralPath (Join-Path $versionDir 'ergo.json') | ConvertFrom-Json).version } catch { }
+  Say ''
+  Say (M 'sumVersion' $shown)
+  Say (M 'sumDir' $root)
+  Say (M 'sumCurrent' $name)
+  switch ($autostart) {
+    'on' { Say (M 'sumAutostartOn') }
+    'elsewhere' { Say (M 'sumAutostartElsewhere') }
+    'failed' { Warn (M 'sumAutostartFailed') }
+    default { Say (M 'sumAutostartSkipped') }
+  }
+  switch ($started) {
+    'up' { Say (M 'nextOpen') }
+    'failed' { Say (M 'nextStartFailed') }
+    default { Say (M 'nextNotStarted') }
+  }
+}
+
 # ---- the two install paths ----
 function Install-Binary([string]$root) {
   $sources = Select-Sources
@@ -913,7 +1024,8 @@ function Install-Ergo {
   # switches can also come from environment variables (irm | iex cannot pass parameters)
   $fromSrc = $FromSource -or [bool]$env:ERGO_INSTALL_FROM_SOURCE
   $noPathSet = $NoPath -or [bool]$env:ERGO_INSTALL_NO_PATH
-  $noOnboardSet = $NoOnboard -or [bool]$env:ERGO_INSTALL_NO_ONBOARD
+  $noAutostartSet = $NoAutostart -or [bool]$env:ERGO_INSTALL_NO_AUTOSTART
+  $noStartSet = $NoStart -or $NoOnboard -or [bool]$env:ERGO_INSTALL_NO_START -or [bool]$env:ERGO_INSTALL_NO_ONBOARD
   Say (M 'installing' $root)
   New-Item -ItemType Directory -Force -Path $root | Out-Null
 
@@ -933,19 +1045,32 @@ function Install-Ergo {
   }
   Set-Current $root $name
   Say (M 'switched' $name)
-  $ergo = Install-Bin $root $versionDir
-  Say (M 'command' $ergo)
+
+  # The new version is in place. From here on a step that fails says so and how to redo it; the rest still runs and the install still counts.
+  # (A version directory's own ergo.cmd works too, so a failed copy into bin does not stop the steps after it.)
+  $ergo = Join-Path $versionDir 'ergo.cmd'
+  try {
+    $ergo = Install-Bin $root $versionDir
+    Say (M 'command' $ergo)
+  } catch {
+    Warn (M 'binFailed' $_.Exception.Message $ergo)
+  }
   $bin = Join-Path $root 'bin'
   if ($noPathSet) {
     Say (M 'pathSkipped' $bin $ergo)
   } else {
-    if (Add-UserPath $bin) { Say (M 'pathAdded' $bin) }
-    if (($env:Path -split ';') -notcontains $bin) { $env:Path = "$env:Path;$bin" }
+    try {
+      if (Add-UserPath $bin) { Say (M 'pathAdded' $bin) }
+      if (($env:Path -split ';') -notcontains $bin) { $env:Path = "$env:Path;$bin" }
+    } catch {
+      Warn (M 'pathFailed' $bin $_.Exception.Message)
+    }
   }
-  if (-not $noOnboardSet) {
-    Say (M 'onboard')
-    & $ergo onboard | Out-Host
-  }
+  $autostart = 'skipped'
+  if (-not $noAutostartSet) { $autostart = Set-ErgoAutostart $ergo $root }
+  $started = 'skipped'
+  if (-not $noStartSet) { $started = Start-ErgoOnboard $ergo }
+  Show-InstallSummary $root $versionDir $name $autostart $started
   Say (M 'done')
   return 0
 }

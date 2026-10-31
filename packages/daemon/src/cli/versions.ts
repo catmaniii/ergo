@@ -3,6 +3,7 @@
 //      发布包的 sha256 对上清单 → 解到 versions\<版本>\（先解到 .partial，完整了才改名）→ 切过去。
 // 切过去：二狗在跑就请服务管家"等空闲再停"（有任务在执行、有有副作用的调用在跑时不停）→ 停了以后把 current 改指新版本 →
 //        服务管家是 ergo 起的就重起它（它也换成新版本的代码；托管的服务是单独的进程，不受影响）→ 重写登记、把二狗起来。
+//        开机自启的计划任务指着这个安装的，也改指新版本（342 号票）。这条命令自己还跑在旧版本上，所以这几步都按新版本的目录做。
 //        最后只留在用的和上一个版本，别的删掉（正被占用删不掉的留着，下次再删）。
 // 源码装的（install.ps1 -FromSource）：交给安装脚本拉新代码、构建进新的版本目录，再照上面切过去。开发模式（--link）、npm 装的给一句怎么更新。
 import { spawnSync } from "node:child_process";
@@ -14,6 +15,7 @@ import { type ReleaseIndex, orderSources, verifyRelease } from "../release/fetch
 import {
   compareVersions,
   currentVersionName,
+  detectLayout,
   installPaths,
   listVersions,
   pruneVersions,
@@ -35,6 +37,8 @@ import {
   runLsm,
   startManager,
   stopManager,
+  syncAutostart,
+  tellBootListCreated,
   waitForDaemon,
   writeSvcConfig,
 } from "./service.ts";
@@ -78,6 +82,13 @@ function needInstalled(ctx: CliContext): string | undefined {
   return layout.root;
 }
 
+/** 换成 versions\<name> 那个版本的上下文：启动器读 current 找到的那个版本，这条命令是下一次才会跑在它上面 */
+function contextOfVersion(ctx: CliContext, root: string, name: string): CliContext {
+  const home = path.join(installPaths(root).versions, name);
+  const env = { ...ctx.env, ERGO_HOME: home };
+  return { ...ctx, env, layout: detectLayout({ cliFile: path.join(home, "app", "packages", "daemon", "src", "cli", "main.js"), env, execPath: ctx.layout.node }) };
+}
+
 /**
  * 切到 versions\<target>：二狗在跑就等它空闲再停，切完重起服务管家（是 ergo 起的那个）和二狗。
  * 回 true 是切过去了
@@ -112,12 +123,15 @@ export async function switchTo(ctx: CliContext, root: string, target: string, id
   } catch (err) {
     ctx.io.err(t("cli.switch.failed", { detail: err instanceof Error ? err.message : String(err) }));
   }
-  writeSvcConfig(ctx);
-  if (ours) await startManager(ctx);
-  else if (managerWasUp) runLsm(ctx, ["reload"], { capture: true });
+  // 切过去了：登记、服务管家、开机自启都按新版本（ctx 是这条命令启动时认的旧版本）；没切过去：照原样
+  const now = switched ? contextOfVersion(ctx, root, target) : ctx;
+  if (writeSvcConfig(now).bootListCreated) tellBootListCreated(now);
+  if (switched) syncAutostart(now);
+  if (ours) await startManager(now);
+  else if (managerWasUp) runLsm(now, ["reload"], { capture: true });
   if (daemonWasRunning) {
-    const r = runLsm(ctx, ["start", DAEMON_SERVICE_ID], { capture: true });
-    if (r.code !== 0 || !isRunning(daemonSnapshot(ctx))) ctx.io.err(t("cli.start.failed", { detail: `${r.stdout}${r.stderr}`.trim() || "?" }));
+    const r = runLsm(now, ["start", DAEMON_SERVICE_ID], { capture: true });
+    if (r.code !== 0 || !isRunning(daemonSnapshot(now))) ctx.io.err(t("cli.start.failed", { detail: `${r.stdout}${r.stderr}`.trim() || "?" }));
     else ctx.io.out(t(switched ? "cli.switch.restarted" : "cli.switch.restartedOld"));
   }
   if (!switched) return false;

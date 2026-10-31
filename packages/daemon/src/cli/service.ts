@@ -3,13 +3,15 @@
 //     路径都走安装目录的 current（切版本只要重启，不用改登记），端口按二狗的配置（config/ergo.json 的 ports.local）；
 //   - 服务管家没在跑就把它起来（单独的小进程，不跟着这个命令退出）；
 //   - start / stop / restart / status / logs 交给服务管家；svc <命令…> 原样转给 lsm。
-// 开机自启（服务管家的计划任务）由首次设置向导（319 号票的 ergo onboard）装，这里不装。
+// 开机自启（服务管家的计划任务）由安装脚本默认装（342 号票，经 ergo svc install-autostart）；这里在每次按 current 重写登记时核对一下它还指着在用的版本。
+// 开机拉起哪些服务看服务管家的名单 registry/autostart.yaml：还没有时写一份只含二狗的，有了就再也不碰（用的人关掉后不会被下一次 start 打开）。
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { t } from "@ergo/protocol";
 import { readInstallState, writeInstallState } from "../release/layout.ts";
+import { interceptTaskCommand, readAutostartTask, taskInsideRoot, taskRunsScript } from "./autostart.ts";
 import { type CliContext, daemonPort, daemonUrl } from "./context.ts";
 
 /** 二狗在服务管家里登记的 id */
@@ -21,6 +23,7 @@ export interface SvcPaths {
   registry: string;
   services: string;
   managerYaml: string;
+  bootList: string;
   daemonEntry: string;
   state: string;
   daemonLog: string;
@@ -32,6 +35,7 @@ export function svcPaths(ctx: Pick<CliContext, "svcDataDir">): SvcPaths {
     registry,
     services: path.join(registry, "services"),
     managerYaml: path.join(registry, "manager.yaml"),
+    bootList: path.join(registry, "autostart.yaml"),
     daemonEntry: path.join(registry, "services", `${DAEMON_SERVICE_ID}.yaml`),
     state: path.join(ctx.svcDataDir, "state.json"),
     daemonLog: path.join(ctx.svcDataDir, "logs", `${DAEMON_SERVICE_ID}.out.log`),
@@ -82,6 +86,17 @@ export function defaultManagerYaml(port: number): string {
     "auth:",
     "  enabled: false",
     "  passwordFile: .secrets/webui-password.txt",
+    "",
+  ].join("\n");
+}
+
+/** 默认的开机自启名单：只有二狗（格式和服务管家的 bootlist.mjs 读写的一样；用的人改过之后它整份重写，这几行注释也就没了） */
+export function defaultBootListYaml(): string {
+  return [
+    "# Services the service manager starts in a new login session (written once by the first `ergo start`; ergo never changes it again).",
+    "# Change it with the switch on a service's card in the service manager's web page, or `ergo svc autostart <id> on|off`.",
+    "services:",
+    `  - ${DAEMON_SERVICE_ID}`,
     "",
   ].join("\n");
 }
@@ -161,14 +176,22 @@ export function daemonEntryYaml(ctx: Pick<CliContext, "layout" | "dataDir" | "sv
   ].join("\n");
 }
 
-/** 服务管家的设置在不在、不在写默认的；二狗的登记按这次的安装重写。回登记变没变 */
-export function writeSvcConfig(ctx: CliContext): { managerCreated: boolean; entryChanged: boolean } {
+/** 服务管家的设置、开机自启名单不在时写默认的（在就绝不改）；二狗的登记按这次的安装重写。回各写了什么 */
+export function writeSvcConfig(ctx: CliContext): { managerCreated: boolean; bootListCreated: boolean; entryChanged: boolean } {
   const p = svcPaths(ctx);
   fs.mkdirSync(p.services, { recursive: true });
   let managerCreated = false;
   if (!fs.existsSync(p.managerYaml)) {
     fs.writeFileSync(p.managerYaml, defaultManagerYaml(fallbackSvcPort(ctx.env)));
     managerCreated = true;
+  }
+  let bootListCreated = false;
+  try {
+    // wx：已经有了就写不进去。服务管家关掉所有开关时写的是 services: []，所以"有文件"就是用的人定过了
+    fs.writeFileSync(p.bootList, defaultBootListYaml(), { flag: "wx" });
+    bootListCreated = true;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "EEXIST") throw err;
   }
   const entry = daemonEntryYaml(ctx);
   let old = "";
@@ -178,7 +201,7 @@ export function writeSvcConfig(ctx: CliContext): { managerCreated: boolean; entr
     // 还没登记过
   }
   if (old !== entry) fs.writeFileSync(p.daemonEntry, entry);
-  return { managerCreated, entryChanged: old !== entry };
+  return { managerCreated, bootListCreated, entryChanged: old !== entry };
 }
 
 /** 服务管家的命令行（lsm.mjs） */
@@ -190,8 +213,14 @@ function lsmEnv(ctx: CliContext): NodeJS.ProcessEnv {
   return { ...ctx.env, LSM_DATA_DIR: ctx.svcDataDir };
 }
 
-/** 跑一条 lsm 命令：capture 时收输出，不然直接打到终端 */
+/** 跑一条 lsm 命令：capture 时收输出，不然直接打到终端。ergo 起 lsm 只有这一个入口，动计划任务的两条命令先过 autostart.ts 那一关 */
 export function runLsm(ctx: CliContext, args: readonly string[], options: { capture?: boolean } = {}): { code: number; stdout: string; stderr: string } {
+  const intercepted = interceptTaskCommand(ctx.env, args, { node: ctx.layout.node, script: lsmScript(ctx), dataDir: ctx.svcDataDir });
+  if (intercepted) {
+    if (!options.capture && intercepted.stdout) ctx.io.out(intercepted.stdout);
+    if (!options.capture && intercepted.stderr) ctx.io.err(intercepted.stderr);
+    return intercepted;
+  }
   const r = spawnSync(ctx.layout.node, [lsmScript(ctx), ...args], {
     env: lsmEnv(ctx),
     encoding: "utf8",
@@ -317,10 +346,43 @@ export function isRunning(s: ServiceSnapshot | undefined): boolean {
   return s !== undefined && RUNNING.has(s.state);
 }
 
+export type AutostartSync = "not-installed" | "no-task" | "elsewhere" | "current" | "moved" | "failed";
+
+/**
+ * 切版本后开机还能起来（新版本在新目录，任务里写死的是当时的 node 和程序路径）：
+ * 任务指着这个安装目录里的别的版本，就用 ctx 这个版本重新注册一次。只有装好的才管，别的不动：
+ *   - 源码跑的、npm 装的：任务不归这个安装管；
+ *   - 没有任务：用的人撤掉了（或者查不了），不新建；
+ *   - 指着安装目录以外：用的人自己装的服务管家，和卸载时一样不碰。
+ * 重新注册失败只说一句，不耽误这次启动。
+ */
+export function syncAutostart(ctx: CliContext): AutostartSync {
+  const { layout } = ctx;
+  if (layout.kind !== "installed" || !layout.root) return "not-installed";
+  const action = readAutostartTask(ctx.env);
+  if (!action) return "no-task";
+  if (!taskInsideRoot(action, layout.root)) return "elsewhere";
+  if (taskRunsScript(action, lsmScript(ctx))) return "current";
+  const r = runLsm(ctx, ["install-autostart"], { capture: true });
+  if (r.code !== 0) {
+    ctx.io.err(t("cli.autostart.moveFailed", { detail: `${r.stdout}${r.stderr}`.trim() || "?" }));
+    return "failed";
+  }
+  ctx.io.out(t("cli.autostart.moved", { version: layout.info?.version ?? path.basename(layout.home) }));
+  return "moved";
+}
+
+/** 这次第一次写开机自启名单：告诉用的人一声，怎么关 */
+export function tellBootListCreated(ctx: CliContext): void {
+  ctx.io.out(t("cli.svc.bootListCreated", { file: svcPaths(ctx).bootList, id: DAEMON_SERVICE_ID }));
+}
+
 /** 服务管家在跑、二狗的登记是最新的：管理器不在就起来，在就让它重读登记 */
 export async function ensureSvc(ctx: CliContext): Promise<{ startedManager: boolean }> {
-  const { managerCreated, entryChanged } = writeSvcConfig(ctx);
+  const { managerCreated, bootListCreated, entryChanged } = writeSvcConfig(ctx);
   if (managerCreated) ctx.io.out(t("cli.svc.managerConfigCreated", { file: svcPaths(ctx).managerYaml, port: managerAddress(ctx).port }));
+  if (bootListCreated) tellBootListCreated(ctx);
+  syncAutostart(ctx);
   if (await managerUp(ctx)) {
     if (entryChanged) runLsm(ctx, ["reload"], { capture: true });
     return { startedManager: false };
@@ -359,6 +421,13 @@ export async function cmdStart(ctx: CliContext): Promise<number> {
   }
   ctx.io.out(t("cli.start.done", { url: daemonUrl(ctx) }));
   return 0;
+}
+
+/** ergo onboard：把二狗起来，告诉用的人去网页走设置向导（向导只做网页，没有终端版） */
+export async function cmdOnboard(ctx: CliContext): Promise<number> {
+  const code = await cmdStart(ctx);
+  if (code === 0) ctx.io.out(t("cli.onboard.openWizard", { url: daemonUrl(ctx) }));
+  return code;
 }
 
 export async function cmdStop(ctx: CliContext): Promise<number> {
