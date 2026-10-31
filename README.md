@@ -37,19 +37,17 @@
 
 [其他的](#其他的也都齐了)也都齐了：定时任务和日历、消耗账本、11 套界面风格、中英文界面，手机、阔折叠、电脑都适配，功能都是插件。
 
-## 5 分钟上手
+## 开始用
 
-**1. 一行命令装好**（PowerShell，不要管理员权限；安装包自带 Node，不用 npm、不用构建）：
+Windows 10 / 11，在 PowerShell 里跑一行（不要管理员权限，安装包自带 Node）：
 
 ```powershell
 irm https://github.com/catmaniii/ergo/releases/latest/download/install.ps1 | iex
 ```
 
-装到 `%LOCALAPPDATA%\Programs\ergo\versions\<版本>`（`current` 是一行文本，记着在用的是哪一份），`bin` 加进用户 PATH，服务管家设成开机自启（不想要加 `-NoAutostart`），二狗直接起来，以后电脑重启它也自己起来。换镜像、用系统里那份 Node 之类的参数见[用户手册 2.1](docs/user-guide.md#21-一行命令安装推荐)；想改代码的见[从源码安装](docs/user-guide.md#23-从源码安装现在就能用)。npm 包（`ergo-ai`）还没发。
+装好后浏览器打开 <http://127.0.0.1:8810/> 走设置向导；以后电脑重启，二狗自己起来。已经装了的，升级跑 `ergo update`。
 
-**2. 走向导设好**：浏览器打开 <http://127.0.0.1:8810/>，网页里的**设置向导**五步走完——语言 / 称呼 / 助手名、模型 Key（现在是 [DeepSeek](https://platform.deepseek.com/)，填完点一下测试）、组件（语义检索的向量模型）、手机扫码配对、安全默认值说明，后面还有一屏"外网访问"的说明。每步都能"以后再说"，全做完显示"设置完了"；以后随时从 **更多 · 设置** 最上面一行「设置向导」重进。
-
-**3. 用起来**：跟它说"两分钟后提醒我喝水"试试。启停、看状态、看日志：`ergo start | stop | status | logs`；出问题先看 **更多 · 设置 · 数据与设备 →「体检」**（端口、Node、pi、服务管家、模型 key、组件、磁盘、外网入口八项，每条都写着怎么修）。
+安装选项、从源码装、升级、回滚和卸载见[安装、升级和卸载](docs/install.md)。
 
 ## 一件一件讲
 
@@ -63,7 +61,7 @@ irm https://github.com/catmaniii/ergo/releases/latest/download/install.ps1 | iex
 
 干活的 agent 也不配一套固定的 PM、架构、开发、测试：那样同一份上下文要转述好几遍，特别消耗 token。我们的理念是**按需组队**：每个项目、每个任务按这次的需要配工具、skill 和 MCP；拆得开的步骤临时拉起子 agent，做完就解散，不用养着一堆长期角色。
 
-**这一切都能用语音。** 人在外面，掏出手机按住说一句"把昨天那个登录的 bug 修了，修完告诉我"，家里的电脑就开工了，修完二狗念给你听。每个项目的负责人还能配上各自的名字和声音，闭着眼也知道是谁在汇报。语音识别和合成都在本机跑，要另装组件，见[用户手册](docs/user-guide.md#81-按住说话本机语音识别)；手机怎么连回家见[下面](#在手机上用三种外网访问方式)。
+**这一切都能用语音。** 人在外面，掏出手机按住说一句"把昨天那个登录的 bug 修了，修完告诉我"，家里的电脑就开工了，修完二狗念给你听。每个项目的负责人还能配上各自的名字和声音，闭着眼也知道是谁在汇报。语音识别和合成都在本机跑，要另装组件，见[用户手册](docs/user-guide.md#81-按住说话本机语音识别)；手机怎么连回家见[部署和外网访问](docs/deployment.md)。
 
 本机登录了 Claude Code 的，负责人也可以用它干活（用你自己的订阅），二狗的守卫照样核对它的每一次工具调用。
 
@@ -181,95 +179,19 @@ irm https://github.com/catmaniii/ergo/releases/latest/download/install.ps1 | iex
 
 今天大模型还得靠外面，所以我们先把模型以外的一切都交回你手里。等家用算力成熟了，把模型也接回来，完整的二狗就都在你自己家了。
 
-## 在手机上用：三种外网访问方式
-
-默认只在这台电脑上用。要在手机、平板上用，三种方式任选（详见[用户手册](docs/user-guide.md#6-从外网访问手机平板)）：
-
-| | 怎么接 | 适合 |
-|---|---|---|
-| **Tailscale 官方（推荐）** | 电脑、手机装 Tailscale 登同一个账号，只有你的设备能打开，证书自带 | 大多数人；注意登录要 Google / 微软 / GitHub 等账号，中转在海外、国内可能慢 |
-| 自建 Headscale（进阶） | VPS 上跑自己的 tailnet 控制节点，服务管家开 tailnet 入口 | 想自己掌握控制节点、要国内快 |
-| VPS + ssh 反向隧道 + nginx | 公网 HTTPS 地址，任何浏览器都能打开 | 不想装 Tailscale；最难，全靠设备配对把关 |
-
-不管哪种，新设备第一次打开都要你在电脑上核对短码、批准配对，凭证随时可以吊销。**三种都只接二狗的外网端口（8811），本机端口（8810）绝不接出去**——为什么见 [SECURITY.md](SECURITY.md)。
-
-## 和 OpenClaw 比
-
-OpenClaw 是通用的、多渠道的个人 agent，覆盖面比二狗大得多，也装在你自己的机器上。二狗只服务一个人，在下面这几处做了不同的取舍（OpenClaw 一栏依据[调研 03](docs/research/03-openclaw-and-pi.md)，截至 2026-10-06）。
-
-| | OpenClaw | 二狗 |
-|---|---|---|
-| 谁在干活 | 主 agent 可以按提示词把活委派给专家子 agent；官方说委派是提示词引导，不是调度器 | 秘书只负责听懂你、派活、汇总，不动手；每个任务、每个项目有固定的负责人，各有上下文、工具包和模型；派单器是运行时的一部分 |
-| 项目 | 没有"项目"这个一等实体 | 项目有档案、工作目录、固定负责人和立项书；范围审视检查有没有越界；首版做完由你拍板 |
-| 权限 | 沙箱和执行审批默认都关，默认是完全访问 | 关注类别 × 六档处置、计划里的授权项、时序规则、三条硬底线；每次调用都有记录，并用大白话解释 |
-| 长程任务 | heartbeat、cron | 阶段计划、独立评审验收、自动纠偏；改计划只停受影响的阶段；重启后接着做，不悄悄重做副作用 |
-| 回看 | 聊天记录 | 时间线三层缩放，页边钉着要点标记 |
-| 记忆 | 工程化的分层记忆（dreaming、混合检索），明确不做人物档案 | 原话都留在本机；每晚整理成带证据链、竞争解释的结论，推到动机和在意的东西；拿不准先问 |
-| 平台 | 多平台 | 只支持 Windows |
-
-## 架构一览
-
-一个请求怎么走：
-
-```mermaid
-flowchart LR
-    U(["你"]) -->|"打字 / 语音"| SEC["秘书<br/>听懂你、传话、派活"]
-    SEC -->|"一步就完"| QA["快速动作 / 提醒"]
-    SEC -->|"交给专人"| M["项目 / 任务的负责人<br/>各有上下文、工具、模型"]
-    M -->|"拆得开的活"| SUB["子 agent"]
-    M --> PLAN["计划卡<br/>一次确认 = 授权"]
-    PLAN --> G{"守卫<br/>每次调用都核对"}
-    G -->|"授权内"| GO["直接做<br/>记进时间线"]
-    G -->|"偏了能修"| FIX["自动拉回"]
-    G -->|"要你拍板"| INBOX["待办"]
-    INBOX --> U
-    M -->|"写信汇报"| SEC
-    SEC -->|"一行转告 / 念给你听"| U
-    SEC <-->|"问记忆"| MEM["记忆管理员<br/>每晚整理、带证据"]
-```
-
-部署在哪：
-
-```mermaid
-flowchart TB
-    CLIENTS["手机、平板、笔记本<br/>浏览器或鸿蒙 App"]
-    ENTRY["外网入口<br/>Tailscale / 自建 Headscale / VPS 隧道"]
-    subgraph PC["你的 Windows 电脑"]
-        LOCAL["本机浏览器"]
-        SUP["服务管家<br/>托管常驻服务、开机自启、看门狗"]
-        DAEMON["二狗守护进程<br/>事件日志、守卫、派单、调度、插件"]
-        AGENTS["agent 子进程<br/>秘书、负责人、子 agent、评审、记忆管理员"]
-        DATA[("数据目录<br/>记忆、对话、档案、账本、密钥区")]
-    end
-    LLM["大模型（现在是 DeepSeek）<br/>只发这一轮用得上的"]
-    CLIENTS -->|"配对后"| ENTRY -->|"外网端口 8811"| DAEMON
-    LOCAL -->|"本机端口 8810"| DAEMON
-    SUP -.->|"托管"| DAEMON
-    DAEMON -->|"拉起、核对每次调用"| AGENTS
-    AGENTS --> LLM
-    DAEMON --> DATA
-```
-
-- **两个进程**：二狗守护进程（`packages/daemon`）和服务管家（`packages/supervisor`）。服务管家小而稳，负责开机自启、被杀后拉回、托管项目上线的服务；它的数据默认在 `%LOCALAPPDATA%\ergo\supervisor`，二狗的数据在 `%USERPROFILE%\.ergo`。
-- **代码**：TypeScript（守护进程靠 Node 的类型剥离直接跑），npm workspaces；网页是 React 19 + Vite；鸿蒙外壳在 `frontend/harmony`。约 28 万行代码，8000 多条自动化测试，CI 只在 Windows、只跑 Node 22（Node 大版本跟着 pi 走，[ADR-0031](docs/adr/0031-node-version-follows-pi.md)）。
-- **agent 运行时**：pi 只出现在一层薄封装里（[ADR-0001](docs/adr/0001-pi-coding-agent-sdk-as-runtime.md)），审批、任务、账本这些领域状态存在二狗自己的事件日志（SQLite）里。
-- 详见[开发者指南](docs/developer-guide.md)、[术语表](CONTEXT.md)、[架构决策](docs/adr/)。
-
 ## 文档
 
 | | |
 |---|---|
-| [用户手册](docs/user-guide.md) | 装、用、设置、外网访问、备份、出问题怎么办 |
-| [开发者指南](docs/developer-guide.md) | 仓库结构、架构、插件、网页、多语言、测试、写代码的约定 |
+| [安装、升级和卸载](docs/install.md) | 一行命令、从源码、升级、回滚、卸载 |
+| [部署和外网访问](docs/deployment.md) | 手机、平板怎么从外面连回家：Tailscale、自建 Headscale、VPS 隧道 |
+| [技术架构](docs/architecture.md) | 一个请求怎么走、部署结构、代码组成、和 OpenClaw 的取舍 |
+| [用户手册](docs/user-guide.md) | 日常怎么用、设置、备份、出问题怎么办 |
+| [开发者指南](docs/developer-guide.md) | 仓库结构、插件、网页、多语言、测试 |
 | [插件开发手册](docs/guides/plugin-development.md) | 从一个最小的插件讲起 |
 | [记忆系统](docs/memory-system.md) | 记忆系统的模块、接口和工作流 |
-| [CONTEXT.md](CONTEXT.md) | 术语表 |
-| [docs/adr/](docs/adr/) | 架构决策记录 |
-| [docs/research/](docs/research/) | 调研：OpenClaw 与 pi、多 agent、长任务与打扰、语音、Windows 沙箱、记忆项目对比…… |
 | [CHANGELOG.md](CHANGELOG.md) | 版本变更 |
 | [SECURITY.md](SECURITY.md) | 安全模型、已知限制、怎么报漏洞 |
-
-代码注释里的"N 号票"是开发时的内部记录编号，公开仓库里没有这些票，不影响读代码。
 
 ## 参与
 
@@ -277,4 +199,4 @@ flowchart TB
 
 ## 许可证
 
-[MIT](LICENSE) © ergo contributors。第三方依赖和字体的许可证清单随安装包一起提供：装好的目录里 `THIRD_PARTY_NOTICES.txt` 是全文，`third-party-licenses.json` 是清单（名字、版本、许可证、从哪来）。Claude Code 的 Agent SDK 是 Anthropic 自己的许可，二狗只把它当可选依赖，不随安装包分发。
+[MIT](LICENSE) © ergo contributors。第三方许可证清单随安装包提供。

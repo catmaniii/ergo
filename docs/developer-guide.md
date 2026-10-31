@@ -32,7 +32,7 @@
 - **Node 22**（≥ 22.19）。**Node 大版本跟着 pi 走**（[ADR-0031](adr/0031-node-version-follows-pi.md)）：pi 的自动测试和安装脚本用哪个大版本，二狗打包、运行、测试就用哪个；pi 升级我们跟着升，pi 不升我们照旧。源码是 TypeScript，靠 Node 自带的类型剥离直接运行，守护进程没有构建步骤。
 - **Git for Windows（Git Bash）**：pi 的 `bash` 工具和一批集成测试要靠它。`where bash` 的第一条应该是 `C:\Program Files\Git\bin\bash.exe`；如果只有 `C:\Windows\System32\bash.exe`（WSL 的幌子，跑不起来），先把 Git 的 bin 前插到 PATH：PowerShell 里 `$env:PATH = "C:\Program Files\Git\bin;" + $env:PATH`。没有 Git Bash 时，靠 bash 的用例会明确跳过或在超时错误里说明，不是功能坏了。
 - **依赖的安装脚本**：根 `package.json` 的 `allowScripts` 把现有的几个（esbuild、koffi、onnxruntime-node、protobufjs、@google/genai）都标成不跑——原生文件都是现成的。新加带安装脚本的依赖时，核过要不要跑再记进去。Node 22 带的 npm 10 不认这个字段，照旧跑。
-- **不要在开发机上直接起常驻服务**：二狗的服务由服务管家登记、启动（见[用户手册](user-guide.md#23-从源码安装现在就能用)）。测试里起的守护进程实例和子进程是测试的一部分，测试结束时销毁。
+- **不要在开发机上直接起常驻服务**：二狗的服务由服务管家登记、启动（见[用户手册](install.md#从源码安装)）。测试里起的守护进程实例和子进程是测试的一部分，测试结束时销毁。
 
 ## 2. 常用命令
 

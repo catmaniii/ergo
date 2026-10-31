@@ -37,19 +37,17 @@ The English name ergo sounds like the Chinese name "二狗" (Ergou), and Latin *
 
 [The rest](#the-rest-is-there-too) is there too: scheduling and a calendar, a spending ledger, 11 visual styles, Chinese and English, phone, wide foldable and PC layouts, and everything is a plugin.
 
-## Up and running in 5 minutes
+## Get started
 
-**1. Install with one line** (PowerShell, no admin rights; the package bundles Node, so no npm and no build):
+On Windows 10 / 11, run one line in PowerShell (no admin rights; the package bundles Node):
 
 ```powershell
 irm https://github.com/catmaniii/ergo/releases/latest/download/install.ps1 | iex
 ```
 
-It installs into `%LOCALAPPDATA%\Programs\ergo\versions\<version>` (`current` is a one-line text file naming the one in use) adds `bin` to your user PATH, sets the service manager to start at login (`-NoAutostart` if you don't want that) and starts ergo; after that it comes back by itself whenever the PC restarts. Options for switching mirrors or using the system Node are in [User Guide 2.1](docs/user-guide.en.md#21-one-line-install-recommended); to work on the code, see [Install from source](docs/user-guide.en.md#23-install-from-source-works-today). The npm package (`ergo-ai`) isn't published yet.
+Then open <http://127.0.0.1:8810/> and follow the setup wizard; from now on ergo starts by itself when the PC restarts. Already installed? Update with `ergo update`.
 
-**2. Set up with the wizard**: open <http://127.0.0.1:8810/> and walk the **setup wizard** in the web UI — language / how to address you / the assistant's name, the model key (currently [DeepSeek](https://platform.deepseek.com/); enter it, then click to test it), components (the embedding model for semantic search), pairing your phone by QR code, and an explanation of the safety defaults, followed by one screen about outside access. Every step can be postponed with "later"; when all are done it says you're set. Come back any time from the "Setup wizard" row at the top of **More · Settings**.
-
-**3. Use it**: try "remind me to drink water in two minutes". Start, stop, status and logs: `ergo start | stop | status | logs`; if something's wrong, look at **More · Settings · Data & devices → Checkup** first (eight checks — ports, Node, pi, the service manager, the model key, components, disk, outside access — each with a fix).
+Install options, source installs, updating, rolling back and uninstalling are in [Install, update and uninstall](docs/install.en.md).
 
 ## One at a time
 
@@ -63,7 +61,7 @@ In ergo, **you talk only to a secretary**. It doesn't do the work itself. It und
 
 The working agents aren't a fixed cast of PM, architect, developer and tester either: that means retelling the same context over and over, which burns tokens. Our idea is **assembling a team on demand**: each project and task gets the tools, skills and MCP servers this job needs; steps that can run in parallel get temporary sub-agents that disband when done. No crowd of permanent roles to keep around.
 
-**All of it works by voice.** Out and about, hold the button on your phone and say "fix that login bug from yesterday and tell me when it's done"; the PC at home gets to work, and ergo reads you the result when it's finished. Each project's owner can have its own name and voice, so you know who's reporting with your eyes closed. Speech recognition and synthesis run locally and need extra components, see the [User Guide](docs/user-guide.en.md#82-voice-replies-local-speech-synthesis); to reach home from your phone, see [below](#on-your-phone-three-ways-to-reach-ergo-from-outside).
+**All of it works by voice.** Out and about, hold the button on your phone and say "fix that login bug from yesterday and tell me when it's done"; the PC at home gets to work, and ergo reads you the result when it's finished. Each project's owner can have its own name and voice, so you know who's reporting with your eyes closed. Speech recognition and synthesis run locally and need extra components, see the [User Guide](docs/user-guide.en.md#82-voice-replies-local-speech-synthesis); to reach home from your phone, see [Deployment and outside access](docs/deployment.en.md).
 
 If Claude Code is signed in on your PC, owners can also work through it (on your own subscription), with ergo's guard still checking each tool call.
 
@@ -181,100 +179,24 @@ Both the computing power and the memory should be yours.
 
 Large models still live elsewhere today, so we're handing back everything except the model first. When home computing power is ready, bring the model home too, and the whole of ergo will be under your own roof.
 
-## On your phone: three ways to reach ergo from outside
-
-By default ergo is only used on the PC it runs on. To use it from a phone or tablet, pick one of three ways (details in the [User Guide](docs/user-guide.en.md#6-access-from-outside-phone-tablet)):
-
-| | How | Good for |
-|---|---|---|
-| **Tailscale (recommended)** | Install Tailscale on PC and phone with the same account; only your devices can open it, certificates included | Most people; sign-in needs a Google / Microsoft / GitHub… account and relays are abroad, so it can be slow in mainland China |
-| Self-hosted Headscale (advanced) | Run your own tailnet control server on a VPS; the supervisor opens a tailnet entry | Owning the control server; speed inside China |
-| VPS + ssh reverse tunnel + nginx | A public HTTPS address any browser can open | Not wanting Tailscale; the hardest, with device pairing as the only gate |
-
-Whichever you choose, a new device must be approved on your PC after checking a short code, and its credential can be revoked any time. **All three connect only to ergo's external port (8811); the local port (8810) is never exposed** — see [SECURITY.md](SECURITY.md) for why.
-
-## Compared with OpenClaw
-
-OpenClaw is a general-purpose, multi-channel personal agent with far broader scope than ergo, also running on your own machine. ergo serves one person and makes different trade-offs in these places (the OpenClaw column follows [research note 03](docs/research/03-openclaw-and-pi.md), as of 2026-10-06).
-
-| | OpenClaw | ergo |
-|---|---|---|
-| Who does the work | The main agent can delegate to specialist sub-agents via prompts; officially, delegation is prompt-guided, not a scheduler | The secretary understands you, hands out work and sums up, without touching anything itself; each task and project has a fixed owner with its own context, toolkit and model; dispatch is part of the runtime |
-| Projects | No first-class "project" entity | Projects have a dossier, working directory, fixed owner and charter; scope review checks for overreach; you decide when the first version is done |
-| Permissions | Sandbox and exec approvals are off by default; full access by default | Watch categories × six handlings, plan grants, temporal rules, three hard bottom lines; every call recorded and explained in plain words |
-| Long-running tasks | heartbeat, cron | Staged plans, independent reviewer acceptance, automatic correction; plan changes pause only affected stages; resumes after restart without silently redoing side effects |
-| Looking back | Chat history | Three-level timeline zoom with key markers pinned in the margin |
-| Memory | Engineered layered memory (dreaming, hybrid retrieval); explicitly no person profiles | Every word kept locally; distilled nightly into conclusions with evidence chains and competing explanations, reasoning up to motives and what you care about; asks when unsure |
-| Platforms | Cross-platform | Windows only |
-
-## Architecture at a glance
-
-How a request flows:
-
-```mermaid
-flowchart LR
-    U(["You"]) -->|"type / talk"| SEC["Secretary<br/>understands, relays, delegates"]
-    SEC -->|"one-step things"| QA["Quick actions / reminders"]
-    SEC -->|"hand off"| M["Project / task owners<br/>own context, tools, model"]
-    M -->|"parallel work"| SUB["Sub-agents"]
-    M --> PLAN["Plan card<br/>one confirmation = authorization"]
-    PLAN --> G{"Guard<br/>checks every call"}
-    G -->|"within grant"| GO["Just do it<br/>logged in the timeline"]
-    G -->|"fixable drift"| FIX["Pulled back"]
-    G -->|"needs you"| INBOX["Inbox"]
-    INBOX --> U
-    M -->|"letters"| SEC
-    SEC -->|"one-line relay / read aloud"| U
-    SEC <-->|"ask memory"| MEM["Memory curator<br/>nightly, evidence-backed"]
-```
-
-Where it runs:
-
-```mermaid
-flowchart TB
-    CLIENTS["Phone, tablet, laptop<br/>browser or HarmonyOS app"]
-    ENTRY["Outside access<br/>Tailscale / Headscale / VPS tunnel"]
-    subgraph PC["Your Windows PC"]
-        LOCAL["Local browser"]
-        SUP["Service supervisor<br/>hosts services, autostart, watchdog"]
-        DAEMON["ergo daemon<br/>event log, guard, dispatch, scheduling, plugins"]
-        AGENTS["Agent child processes<br/>secretary, owners, sub-agents, reviewers, memory curator"]
-        DATA[("Data directory<br/>memory, chats, dossiers, ledger, secrets")]
-    end
-    LLM["LLM (currently DeepSeek)<br/>only what this turn needs"]
-    CLIENTS -->|"after pairing"| ENTRY -->|"external port 8811"| DAEMON
-    LOCAL -->|"local port 8810"| DAEMON
-    SUP -.->|"hosts"| DAEMON
-    DAEMON -->|"launches, checks every call"| AGENTS
-    AGENTS --> LLM
-    DAEMON --> DATA
-```
-
-- **Two processes**: the ergo daemon (`packages/daemon`) and the service supervisor (`packages/supervisor`). The supervisor is small and stable: it starts at login, restarts ergo if killed, and hosts services from projects that go live; its data defaults to `%LOCALAPPDATA%\ergo\supervisor`, ergo's to `%USERPROFILE%\.ergo`.
-- **Code**: TypeScript (the daemon runs directly via Node's type stripping), npm workspaces; the web UI is React 19 + Vite; the HarmonyOS shell is in `frontend/harmony`. About 280k lines of code and 8,000+ automated tests; CI runs only on Windows and only Node 22 (the Node major version follows pi, [ADR-0031](docs/adr/0031-node-version-follows-pi.md)).
-- **Agent runtime**: pi appears only in a thin wrapper layer ([ADR-0001](docs/adr/0001-pi-coding-agent-sdk-as-runtime.md)); domain state such as approvals, tasks and the ledger lives in ergo's own event log (SQLite).
-- More in the [Developer Guide](docs/developer-guide.en.md), the [glossary](CONTEXT.md) and the [decision records](docs/adr/) (the latter two in Chinese).
-
 ## Documentation
 
 | | |
 |---|---|
-| [User Guide](docs/user-guide.en.md) | Install, use, configure, outside access, backup, troubleshooting |
-| [Developer Guide](docs/developer-guide.en.md) | Repository layout, architecture, plugins, web UI, i18n, testing, conventions |
-| [Plugin guide](docs/guides/plugin-development.md) | Starting from a minimal plugin (Chinese) |
-| [Memory system](docs/memory-system.md) | Modules, interfaces and workflows of the memory system (Chinese) |
-| [CONTEXT.md](CONTEXT.md) | Glossary (Chinese) |
-| [docs/adr/](docs/adr/) | Architecture decision records (Chinese) |
-| [docs/research/](docs/research/) | Research notes: OpenClaw and pi, multi-agent, long tasks and interruptions, voice, Windows sandboxing, memory projects… (Chinese) |
-| [CHANGELOG.md](CHANGELOG.md) | Version history (Chinese) |
-| [SECURITY.md](SECURITY.md) | Security model, known limitations, reporting vulnerabilities |
-
-"Ticket N" in code comments refers to internal development records that are not in the public repository; it doesn't affect reading the code.
+| [Install, update and uninstall](docs/install.en.md) | One line, from source, updating, rolling back, uninstalling |
+| [Deployment and outside access](docs/deployment.en.md) | Reaching home from a phone or tablet: Tailscale, self-hosted Headscale, VPS tunnel |
+| [Architecture](docs/architecture.en.md) | How a request flows, where it runs, the code, trade-offs against OpenClaw |
+| [User Guide](docs/user-guide.en.md) | Everyday use, settings, backup, troubleshooting |
+| [Developer Guide](docs/developer-guide.en.md) | Repo layout, plugins, web, i18n, tests |
+| [Plugin guide](docs/guides/plugin-development.md) | Starts from a minimal plugin (in Chinese) |
+| [Memory system](docs/memory-system.md) | Modules, interfaces and workflows (in Chinese) |
+| [CHANGELOG.md](CHANGELOG.md) | Version changes |
+| [SECURITY.md](SECURITY.md) | Security model, known limits, reporting vulnerabilities |
 
 ## Contributing
 
-Questions, docs, bug fixes, plugins and languages are all welcome; see [CONTRIBUTING.md](CONTRIBUTING.md#english) and the [Code of Conduct](CODE_OF_CONDUCT.md#english). Please report security issues privately as described in [SECURITY.md](SECURITY.md#english).
+Questions, docs, bug fixes, plugins and new languages are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md). Please report security issues privately as described in [SECURITY.md](SECURITY.md).
 
 ## License
 
-[MIT](LICENSE) © ergo contributors. Licenses of third-party dependencies and fonts ship with the release package: `THIRD_PARTY_NOTICES.txt` (full texts) and `third-party-licenses.json` (name, version, license, origin) in the installed directory. Claude Code's Agent SDK is under Anthropic's own license; ergo treats it as an optional dependency and does not redistribute it.
+[MIT](LICENSE) © ergo contributors. Third-party license lists ship with the package.

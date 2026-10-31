@@ -4,8 +4,6 @@
 
 这份手册讲怎么装、怎么用、怎么设置、出了问题怎么办。二狗是什么、有什么亮点见仓库首页的 [README](../README.md)；想改代码、写插件见[开发者指南](developer-guide.md)。
 
-> 一行命令安装、`ergo` 命令和网页里的首次设置向导都能用了。但公开发布地址还没开（Release 还没发），所以 2.1、2.2 里的命令要在发布之后才通；在那之前用[从源码安装](#23-从源码安装现在就能用)，功能一样。
-
 ## 目录
 
 1. [装之前](#1-装之前)
@@ -44,7 +42,7 @@
 
 | 装了什么 | 能多什么 | 见 |
 |---|---|---|
-| Git for Windows | agent 跑 bash 命令（任务里常用）、从源码安装 | [2.3](#23-从源码安装现在就能用) |
+| Git for Windows | agent 跑 bash 命令（任务里常用）、从源码安装 | [从源码安装](install.md#从源码安装) |
 | Python + faster-whisper，最好有 NVIDIA 显卡 | 按住说话，在本机识别 | [8.1](#81-按住说话本机语音识别) |
 | audio.cpp 语音合成服务 | 二狗用语音回话 | [8.2](#82-二狗用语音回话本机语音合成) |
 | Chrome 或 Edge | agent 联网搜索、读网页 | [8.4](#84-联网搜索读网页) |
@@ -56,133 +54,7 @@
 
 ## 2. 安装
 
-### 2.1 一行命令安装（推荐）
-
-在 PowerShell 里：
-
-```powershell
-irm https://github.com/catmaniii/ergo/releases/latest/download/install.ps1 | iex
-```
-
-它会：找到最新版本（GitHub Releases 和 npmmirror 两边挑快的）→ 下载打好的安装包（自带 Node，不用 `npm`、不用构建；窗口里跟着显示百分比、已下载/总量和速度，服务器没给大小时只显示已下载和速度）→ 校验签名和文件的 sha256 → 解到 `%LOCALAPPDATA%\Programs\ergo\versions\<版本>`、把 `current` 写成一行文本指向在用的那份 → 把 `bin` 加进用户 PATH（不要管理员权限）→ 把服务管家设成开机自启 → 把二狗起来，最后报版本、安装目录、在用的版本、自启状态和下一步。接着浏览器打开 <http://127.0.0.1:8810/>（或者 `ergo open`），在网页里走向导（见[第 3 节](#3-第一次打开)）。你的数据放在 `%USERPROFILE%\.ergo`，和程序分开，升级、重装都不动它。
-
-`irm … | iex` 传不了参数，要传就把脚本取下来再跑：
-
-```powershell
-& ([scriptblock]::Create((irm https://github.com/catmaniii/ergo/releases/latest/download/install.ps1))) -FromSource
-```
-
-参数有：`-FromSource`（不下安装包，下源码包自己装；`-Ref <标签或分支>` 指定装哪一版）、`-NodeVersion <版本>`（只放行测过的 Node）、`-UseSystemNode`（用机器上那份 Node，不用自带的）、`-Mirror cn`（强制走 npmmirror，国内快）、`-NoPath`（不改 PATH）、`-NoAutostart`（不设开机自启）、`-NoStart`（装完不把二狗起来，旧名 `-NoOnboard` 还能用）。`irm … | iex` 时也可以用环境变量：`$env:ERGO_INSTALL_NO_AUTOSTART = 1`、`$env:ERGO_INSTALL_NO_START = 1`。
-
-下载、验签、解开、写 `current` 这几步失败才算没装上（在用的版本不变）。之后的某一步没成（比如注册开机自启被拦了）不算安装失败：脚本写清这一步没成、之后怎么重做，其余照常。
-
-**重启电脑后二狗自己起来**：安装时服务管家设成了开机自启（计划任务 `LocalServiceManager`：登录 Windows 时在后台起来，不弹窗口），第一次 `ergo start` 又把二狗写进了它的开机自启名单（数据目录的 `registry/autostart.yaml`）。
-
-- **开机拉起哪些服务**在服务管家里定：它的网页 <http://127.0.0.1:7420/> 卡片上的开关，或者 `ergo svc autostart <服务> on|off`。把二狗关了就一直关着，`ergo start` 不会替你打开。
-- **不要开机自启**：`ergo svc uninstall-autostart`；要回来：`ergo svc install-autostart`。撤掉之后 `ergo start`、`ergo update` 不会把它加回来；重新跑安装脚本会（不想要就加 `-NoAutostart`）。
-- **升级、回滚**：`ergo update`、`ergo rollback`、`ergo start` 都会核对，任务指着这个安装里的别的版本就改指在用的版本。
-- **这台电脑已有指向别处的同名任务**（比如你自己从源码装的服务管家）：安装脚本、`ergo start`、`ergo uninstall` 都不动它。要换成这一份就跑一次 `ergo svc install-autostart`。
-- **用 `-NoStart` 装的**：跑过一次 `ergo start` 之后，重启才会拉起二狗。在这之前服务管家能开机起来，但二狗还没登记、名单还没写；而且它第一次起来时没有上一次的登录记录，按"不是开机"处理，不拉起任何服务（宁可这一次不自启，也不把一次普通的重启当成开机）。
-
-### 2.2 用 npm 安装（已经有 Node 22 的）
-
-```powershell
-npm i -g ergo-ai
-ergo start
-```
-
-装好后命令照样叫 `ergo`。npm 包和 Release 是一起发的，发布之前这一节还装不上；装好以后浏览器打开 <http://127.0.0.1:8810/> 走向导。
-
-### 2.3 从源码安装（现在就能用）
-
-下面用这几个目录举例，换成你自己的就行：
-
-| 举例的路径 | 是什么 |
-|---|---|
-| `D:\apps\node22\node.exe` | 给二狗专用的一份 Node.js |
-| `D:\apps\ergo` | 二狗的代码（服务管家就在它的 `packages\supervisor` 里） |
-| `%LOCALAPPDATA%\ergo\supervisor` | 服务管家的数据目录（服务清单、账本、日志、它自己的密钥） |
-| `%USERPROFILE%\.ergo` | 二狗的数据目录（第一次启动时自动建） |
-
-**第 1 步：准备 Node 和 Git**
-
-- 装 [Git for Windows](https://git-scm.com/)。
-- 到 [nodejs.org](https://nodejs.org/) 下 Node 22 的 Windows zip 包，解压到一个固定目录（比如 `D:\apps\node22\`）。给二狗**单独放一份**：PATH 怎么变都不影响它，也不会被别的程序升级掉。下面的命令用 `node`、`npm` 时，确认用的是这一份（`node -v` 应当是 v22.x）。
-
-**第 2 步：拿代码、装依赖、构建网页**
-
-```powershell
-cd D:\apps
-git clone https://github.com/catmaniii/ergo.git
-cd ergo
-npm ci                  # 严格按 package-lock.json 装依赖
-npm run build:web       # 构建网页，产物是 packages\web\dist\index.html
-```
-
-- 用普通的检出目录，不要用 git worktree。
-- 守护进程是 TypeScript 源码直接跑（Node 的类型剥离），只有网页要构建。
-
-**第 3 步：起服务管家**
-
-```powershell
-cd D:\apps\ergo\packages\supervisor
-$data = "$env:LOCALAPPDATA\ergo\supervisor"
-New-Item -ItemType Directory -Force $data | Out-Null
-Copy-Item -Recurse examples\registry "$data\registry"
-notepad "$data\registry\manager.yaml"    # 把 projectRoots 改成你放代码的目录
-node bin\lsm.mjs validate               # 只校验注册表，不碰任何进程
-node bin\lsm.mjs install-autostart      # 登录 Windows 时自动在后台起服务管家（不弹窗口）
-Start-ScheduledTask -TaskName LocalServiceManager   # 现在就起来（或者注销再登录）
-```
-
-浏览器打开 <http://127.0.0.1:7420/> 能看到服务管家的页面就好了。下文的 `lsm` 都是指在 `D:\apps\ergo\packages\supervisor` 里跑 `node bin\lsm.mjs`。服务管家的更多用法（场景、口令、哨兵……）见它的 [README](../packages/supervisor/README.md)。
-
-> 装了一行命令安装的版本以后，`ergo start / stop / status / logs` 管二狗自己，`ergo svc <子命令>` 原样转给服务管家（`ergo svc status` = `lsm status`）。
-
-**第 4 步：放好 API key**
-
-```powershell
-New-Item -ItemType Directory -Force "$env:USERPROFILE\.ergo\secrets" | Out-Null
-Set-Content -NoNewline -Encoding ascii "$env:USERPROFILE\.ergo\secrets\deepseek-api-key.txt" "sk-你的key"
-```
-
-- 文件里只有 key 这一行。服务管家把它读出来交给守护进程；数据目录的 `secrets` 区任何 agent 都读不到。
-- **不要把 key 放进仓库**，也不要写进服务管家的注册表。
-- 也可以不碰命令行：二狗的网页打开以后，在**首次设置向导**的「模型 Key」那一步，或者**设置 · 模型**里，把 key 填进密码框、点「保存 key」。它会写进同一个文件（`secrets\deepseek-api-key.txt`，目录和文件都按最紧的权限建），保存后下一个新会话就能用，不用重启；以后想换也在同一处改。手动放文件这个办法留着兜底——网页打不开、或者想用别的数据目录时还用得上。
-- 想换成别家的模型（自定义的 OpenAI 兼容服务商），key 放在 `secrets\custom-model-api-key.txt`，环境变量是 `CUSTOM_MODEL_API_KEY`；怎么填见 [5.5](#55-模型)。
-
-**第 5 步：把守护进程登记给服务管家**
-
-1. 复制样例：
-
-   ```powershell
-   copy D:\apps\ergo\deploy\lsm\ergo-daemon.example.yaml "$env:LOCALAPPDATA\ergo\supervisor\registry\services\ergo-daemon.yaml"
-   ```
-
-2. 用文本编辑器打开刚复制的文件，把三个占位符换成本机的值，换完文件里不应再有 `<…>`：
-
-   | 占位符 | 换成 | 例子 |
-   |---|---|---|
-   | `<仓库路径>` | 二狗的代码目录 | `D:\apps\ergo` |
-   | `<专用 Node 路径>` | 第 1 步那份 Node 的 `node.exe` | `D:\apps\node22\node.exe` |
-   | `<用户主目录>` | 你的用户目录（数据目录在它下面的 `.ergo`） | `C:\Users\你的用户名` |
-
-   再看三处：没装语音合成服务的，删掉 `dependsOn:` 那一段（软依赖，删了不影响启动）；改了本机端口的（[5.2](#52-配置文件-ergojson)），把条目里两处 `8810` 一起改；文件末尾注释掉的 `exposure:` 是 VPS 公网入口，先别动（[6.3](#63-方式三vps--ssh-反向隧道--nginx公网)）。
-
-3. 校验、启动、打开开机自启：
-
-   ```powershell
-   cd D:\apps\ergo\packages\supervisor
-   node bin\lsm.mjs validate               # 有错会写明是哪一项
-   node bin\lsm.mjs reload                 # 让在跑的服务管家重新读注册表
-   node bin\lsm.mjs start ergo-daemon
-   node bin\lsm.mjs status                 # 等 ergo-daemon 变成 RUNNING，档位 linked
-   node bin\lsm.mjs autostart ergo-daemon on
-   ```
-
-- 守护进程接入服务管家以后，健康和"忙不忙"由它自己报：有任务在执行时显示"忙"，"等空闲再停"会等它做完。
-- 守护进程的输出在服务管家数据目录的 `logs\ergo-daemon.out.log`，也能在服务管家的网页里实时看。
-- 被杀、崩溃后服务管家会按退避重新拉起；重启后正在做的事按规则接着做，说不清做没做完的操作会转给你确认，不会悄悄重做。
+怎么安装（一行命令、npm、从源码）见单独的文档：[安装、升级和卸载](install.md)。
 
 ---
 
@@ -318,7 +190,7 @@ Set-Content -NoNewline -Encoding ascii "$env:USERPROFILE\.ergo\secrets\deepseek-
 | `media.maxUploadBytes` | 单个上传文件的上限 | 200 MB |
 | `timeZone` | 发给模型的时间标记按哪个时区（一般不写） | 本机时区 |
 | `plugins.disabled` | 停用的插件（设置 · 插件里点的会写在这里） | 空 |
-| `publicAccess` | VPS 公网入口（只有部署命令读，[6.3](#63-方式三vps--ssh-反向隧道--nginx公网)） | — |
+| `publicAccess` | VPS 公网入口（只有部署命令读，[部署和外网访问](deployment.md#方式三vps--ssh-反向隧道--nginx公网)） | — |
 
 ### 5.3 数据目录
 
@@ -387,73 +259,7 @@ Set-Content -NoNewline -Encoding ascii "$env:USERPROFILE\.ergo\secrets\deepseek-
 
 ## 6. 从外网访问（手机、平板）
 
-默认二狗只在这台电脑上用（`http://127.0.0.1:8810/`）。要在手机、平板上用，有三种方式，**推荐第一种**。
-
-> **硬规矩**：三种方式都只能接二狗的**外网端口 8811**——那里每个请求都要设备凭证，新设备要你在电脑上批准。**本机端口 8810 绝不能经 Tailscale Serve、隧道或反向代理接出去**：从本机端口来的请求自动信任，接出去等于整个 tailnet（或整个互联网）免认证进你的二狗。
-
-不管哪种方式，新设备第一次打开都会看到配对页：页面上显示设备名、6 位短码和 8 位短指纹 → 电脑上二狗的**待办**里出现一张配对请求卡，核对一致后点批准 → 回到手机上点"进入二狗"。以后在 **更多 · 设置 · 已配对设备** 里能延期、吊销、删除。待批的请求 5 分钟后过期；同一来源 10 分钟内最多申请 5 次。
-
-| | 方式一：Tailscale 官方（推荐） | 方式二：自建 Headscale（进阶） | 方式三：VPS + 隧道 + nginx（公网） |
-|---|---|---|---|
-| 要什么 | 电脑、手机装 Tailscale，登同一个账号 | 一台 VPS，跑 Headscale | 一台 VPS、域名证书 |
-| 谁能打开 | 只有你 tailnet 里的设备 | 只有你 tailnet 里的设备 | 任何浏览器（全靠配对把关） |
-| HTTPS 证书 | Tailscale 自带 | VPS 上 certbot 签 | VPS 上 certbot 签 |
-| 难度 | 最简单 | 中等 | 最难 |
-| 注意 | 登录要 Google / 微软 / GitHub 等账号；中转服务器在海外，国内可能慢 | 可以自建中转，国内快 | 暴露在公网上，陌生人能看到配对页 |
-
-### 6.1 方式一：Tailscale 官方（推荐）
-
-设置向导里那一屏"外网访问"会介绍这三种方式；接 Tailscale 是手动三步：
-
-1. 电脑上装 [Tailscale](https://tailscale.com/download/windows) 并登录；在 Tailscale 的管理后台打开 MagicDNS 和 HTTPS 证书。
-2. 让 Tailscale 把本机的 **8811** 用 HTTPS 提供给你的 tailnet（只接 8811）：
-
-   ```powershell
-   tailscale serve --bg --https=443 http://127.0.0.1:8811
-   ```
-
-3. 手机装 Tailscale、登**同一个账号**，浏览器打开 `https://<电脑的机器名>.<你的 tailnet>.ts.net/`，按上面的步骤配对。
-
-### 6.2 方式二：自建 Headscale（进阶）
-
-适合想自己掌握控制节点、或者要国内快的。一台 Debian / Ubuntu 的 VPS，一条命令装好 [Headscale](https://github.com/juanfont/headscale)（可以再自建 DERP 中转）：
-
-```powershell
-lsm vps setup headscale --host root@<VPS 的 IP>    # 在 packages\supervisor 里；搭完 lsm vps status 看通不通
-```
-
-电脑和手机的 Tailscale 客户端都登到你自己的 Headscale；服务管家的 **tailnet 入口**给二狗开一个只在 tailnet 里能打开的 HTTPS 地址（VPS 上 certbot 签真证书，Headscale 的 DNS 记录把名字在 tailnet 里指回本机，本机的网关终结 TLS，转到 8811）：
-
-```powershell
-node bin\lsm.mjs tailnet ergo-daemon on <名字>
-```
-
-每一步做什么见 [vps.md](../packages/supervisor/docs/vps.md) 和服务管家 [README](../packages/supervisor/README.md) 的"可选功能 · tailnet 入口"。**VPS 那一头还没在真 Debian 上验过**（只在 Windows 上跑过电脑这一头），第一次用照文档一步步来。
-
-### 6.3 方式三：VPS + ssh 反向隧道 + nginx（公网）
-
-路径：`https://ergo.<VPS 的 IP>.sslip.io` → VPS 上的 nginx（HTTPS）→ VPS 的 `127.0.0.1:18811` → ssh 反向隧道（`ergo-tunnel`）→ 你电脑上守护进程的外网端口 8811。二狗自己不连 VPS。
-
-一条命令把这套搭好：`lsm vps setup tunnel --host root@<VPS 的 IP>`（在 `packages\supervisor` 里），`lsm vps status` 看通不通；VPS 上原来就有站点的，用 `lsm vps site add` / `site remove` / `certs` / `scan` 接证书和站点，见 [vps-https.md](../packages/supervisor/docs/vps-https.md)。**VPS 那一头还没在真 Debian 上验过。**
-
-不想用那条命令的话，下面每一步都由你来做。
-
-1. **写配置**：在 `ergo.json` 里填 `publicAccess`（照 `config\ergo.example.json`）：VPS 的公网 IP、ssh 用户、ssh 私钥的绝对路径；`nginx.listen`（nginx 直接听 443 的写 `443 ssl`；前面还有一个按域名分流的前门的，写前门转过来的本机端口，比如 `127.0.0.1:8443 ssl`）；`nginx.certificateDir`（现有证书的目录）。
-2. **证书**：用你在 VPS 上现有的 Let's Encrypt 做法，把 `ergo.<VPS 的 IP>.sslip.io` 加进证书。
-3. **先看一眼**要部署的 nginx 配置：`npm run deploy:nginx -- --print`（只打印，不连 VPS）。
-4. **部署**：`npm run deploy:nginx`。它 ssh 到 VPS 写站点配置，`nginx -t` 通过才重载，不通过就恢复原来的配置。
-5. **登记隧道**：复制 `deploy\lsm\ergo-tunnel.example.yaml` 到服务管家数据目录的 `registry\services\ergo-tunnel.yaml`，换掉占位符（`<仓库路径>`、`<ssh 私钥路径>`、`<VPS 用户>`、`<VPS 地址>`）；再在 `ergo-daemon.yaml` 里去掉末尾 `exposure:` 那段的注释、换掉 `<VPS 地址>`。然后：
-
-   ```powershell
-   node bin\lsm.mjs validate
-   node bin\lsm.mjs reload
-   node bin\lsm.mjs start ergo-tunnel
-   node bin\lsm.mjs autostart ergo-tunnel on
-   ```
-
-6. 手机浏览器打开 `https://ergo.<VPS 的 IP>.sslip.io/`，配对。
-
-站在按域名分流的前门后面、前门又没开 `proxy_protocol` 时，nginx 看到的来源都是 127.0.0.1：配对卡上的来源写"经前门转发，无法识别"，配对请求的限频实际上是全局的（仍然安全，只是陌生人刷请求时你自己的配对也要等 10 分钟）。要按真实来源限频，得在前门上开 `proxy_protocol`、把 `nginx.clientAddress` 写成 `$proxy_protocol_addr`，这会影响同一个前门后面的其他站点，由你决定。
+怎么让手机、平板从外面连回家（Tailscale、自建 Headscale、VPS 隧道）见单独的文档：[部署和外网访问](deployment.md)。
 
 ---
 
@@ -560,32 +366,7 @@ agent 联网时用本机的 Chrome 或 Edge，会自动找。找不到、或者�
 
 ## 10. 更新、停用、卸载
 
-**一行命令装的**：`ergo update`（新版本装进新目录、二狗空闲时切过去，旧版本留一份）、`ergo rollback`（切回上一个版本）、`ergo uninstall`（撤掉 PATH、服务管家的登记和开机自启，问你要不要删数据）。切哪个版本由安装目录里的 `current`（一行文本）说了算，`ergo version` 看现在跑的是哪一版。开机自启的任务跟着切到在用的版本。
-
-开机自启起来的服务管家，升级后这个进程还是旧版本的程序（二狗已经是新版本，不影响用），下次登录才换；它占着的旧版本目录这时删不掉，`ergo update` 会说下次再删。
-
-**从源码装的**：
-
-```powershell
-cd D:\apps\ergo
-git pull
-npm ci                  # 依赖有变时
-npm run build:web
-cd packages\supervisor
-node bin\lsm.mjs restart ergo-daemon --when-idle   # 等手上的任务做完再重启
-```
-
-- 只改了网页时不用重启守护进程，开着的页面（包括手机上一直开着的鸿蒙 App）几秒内会提示刷新。
-- 每个版本改了什么见 [CHANGELOG](../CHANGELOG.md)。
-
-**停用**：
-
-```powershell
-node bin\lsm.mjs autostart ergo-daemon off
-node bin\lsm.mjs stop ergo-daemon --when-idle
-```
-
-一行命令装的把 `node bin\lsm.mjs` 换成 `ergo svc`。服务管家自己的开机自启用 `node bin\lsm.mjs uninstall-autostart`（`ergo svc uninstall-autostart`）撤掉。你的数据在 `%USERPROFILE%\.ergo`、服务管家的在 `%LOCALAPPDATA%\ergo\supervisor`，删不删由你决定。
+怎么升级、回滚、停用、卸载见单独的文档：[安装、升级和卸载](install.md#升级)。
 
 ---
 
