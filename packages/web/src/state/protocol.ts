@@ -564,6 +564,7 @@ export {
   VOICE_REFERENCE_IMPORT_ACTION,
   // 323 号票："向量模型还没下载"的"去装组件"（去设置 · 组件）
   COMPONENTS_INSTALL_ACTION,
+  COMPONENTS_UPDATE_ACTION,
 } from "@ergo/protocol";
 export type { AgentVoiceEventPayload, AgentVoiceMode, AgentVoiceRecord, AgentVoiceStatus, ImportReferenceVoiceBody, ReferenceVoice, ReferenceVoiceList } from "@ergo/protocol";
 // 两个语音模型的状态（45 号票：模型预热）
@@ -1083,6 +1084,7 @@ export type {
   ComponentServiceState,
   ComponentServiceView,
   ComponentsView,
+  ComponentUpdatesView,
   ComponentState,
   ComponentView,
 } from "@ergo/protocol";
@@ -1151,6 +1153,7 @@ export type { MemoryAnswerVerdict, MemoryQuestionEvent, MemoryQuestionLogEntry, 
 export type { SafetySettingsBody, SafetySettingsView } from "@ergo/protocol";
 // 首次设置向导（319 号票）：五步是哪五步、顺序，GET /api/setup 的形状、POST 标一步的请求体
 export { SETUP_STEPS } from "@ergo/protocol";
+export type { AutostartBody, AutostartState, AutostartView } from "@ergo/protocol";
 export type { SetupMarkBody, SetupStepId, SetupStepView, SetupView } from "@ergo/protocol";
 // 体检（319 号票的 319b）：八项检查是哪八项、GET /api/doctor 的形状（每项的事实按 id 各不同）；
 // doctorCheck / doctorDataOf 是取某一项、按 id 收窄事实类型的两个小函数

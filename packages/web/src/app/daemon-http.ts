@@ -14,7 +14,7 @@
 // 每个 agent 的会话里的 ⚙：面板、单独的提示词、清空当前对话、现在压缩（114 号票）；项目、任务的维护者单独配模型（120 号票）。
 // 和 Connection 一样只在 App.tsx 里注入一次（StoreProvider 的 http）：页面由守护进程提供时是 HttpDaemonClient，
 // 直接打开构建产物（file://）时是原型的假实现（prototype/fake-http.ts）。
-import { type AgentModelBody, type AgentPromptBody, type AgentRuntimeBody, type RuntimeFolderBody, type RuntimeSessionsView, type WorkFolderCheckResult, type TakeoverAction, type TakeOverBody, type TakeOverResult, type AgentRoleAssignmentBody, type AgentRoleBody, type AgentRolesView, type AgentRoleUpdateBody, type AgentSettingsView, type AssistantNameResult, type BranchView, type CalendarMonthView, type ConversationId, type DebugRecognizeBody, type DebugRecognizeResult, type DebugSpeakBody, type DebugSpeakResult, type DeleteMaterialsBody, type DeleteMaterialsResult, type FileTextResult, type FolderBrowseView, type FramePreview, type HistoryPage, HTTP_PATHS, type HttpErrorBody, type ImportReferenceVoiceBody, type ImportSkillBody, type ImportSkillResult, type InterviewStartResult, type InterviewStatusView, type LanguageResult, type LocaleDictionaryView, type LocaleListView, type LocalFoldersBody, type LocalFoldersChangeBody, type LocalFoldersView, type MaterialDetailView, type MaterialListFilter, type MaterialListPage, type MaterialScope, type MaterialScopeSummary, type MediaTextResult, type MediaTextView, type MemoryClaimDetailView, type MemoryClaimListPage, type MemoryClaimQuery, type MemoryDeleteMode, type MemoryQuestionsView, type MemoryStrategiesView, type MemorySettingsBody, type MemorySettingsView, type MemorySummaryView, type SafetySettingsBody, type SafetySettingsView, type ModelSettingsBody, type ModelSettingsView, type ModelTestBody, type ModelTestResult, type ModelCustomModelsBody, type ModelCustomModelsResult, type PageVoiceBody, type PageVoiceResult, type PluginAction, type PluginActionResult, type PluginsView, type ProjectStandardView, type ReferenceVoice, type ReferenceVoiceList, type RollbackPreview, type RollbackTarget, type SaveWebPageBody, type SaveWebPageResult, type SecretarySkillsBody, type SecretarySkillsView, type SlashCommandList, type SystemPromptBody, type SystemPromptDetail, type SystemPromptList, t, type TaskStageView, type ToolCallCleanupResult, type ToolCallDetail, type ToolCallStorageView, type BackupConfigBody, type BackupFolderCheck, type BackupOpenResult, type BackupPlace, type BackupSnapshotsView, type BackupStatusView, type ToolkitCatalog, type UploadedMedia, type UsageSummary, type UserNameResult, type UserNameView, type AddPersonBody, type PersonalFileChangeBody, type PersonalFileDeleteBody, type PersonalFileDeleteResult, type PersonalFileLearnedView, type PersonalFilesView, type PersonalFileView, type VoiceModelsView, type WebSettingsBody, type WebSettingsView, type WebVersionView, type WorkdayChange, type WorkdayChangeResult, type RuntimesView, type DataSourceActionBody, type DataSourceActionResult, type DataSourceLiveBody, type DataSourceLiveResult, type DataSourceStoredBody, type DataSourceStoredPage, type DataSourcesView, type ImportFolderActionBody, type ImportFolderActionResult, type DataSourcePushBody, type DataSourcePushResult, type ModelKeyBody, type ModelKeyView, type ModelKeyWriteResult, type ComponentAction, type ComponentImportResult, type ComponentsView } from "../state/index.ts";
+import { type AutostartBody, type AutostartView, type AgentModelBody, type AgentPromptBody, type AgentRuntimeBody, type RuntimeFolderBody, type RuntimeSessionsView, type WorkFolderCheckResult, type TakeoverAction, type TakeOverBody, type TakeOverResult, type AgentRoleAssignmentBody, type AgentRoleBody, type AgentRolesView, type AgentRoleUpdateBody, type AgentSettingsView, type AssistantNameResult, type BranchView, type CalendarMonthView, type ConversationId, type DebugRecognizeBody, type DebugRecognizeResult, type DebugSpeakBody, type DebugSpeakResult, type DeleteMaterialsBody, type DeleteMaterialsResult, type FileTextResult, type FolderBrowseView, type FramePreview, type HistoryPage, HTTP_PATHS, type HttpErrorBody, type ImportReferenceVoiceBody, type ImportSkillBody, type ImportSkillResult, type InterviewStartResult, type InterviewStatusView, type LanguageResult, type LocaleDictionaryView, type LocaleListView, type LocalFoldersBody, type LocalFoldersChangeBody, type LocalFoldersView, type MaterialDetailView, type MaterialListFilter, type MaterialListPage, type MaterialScope, type MaterialScopeSummary, type MediaTextResult, type MediaTextView, type MemoryClaimDetailView, type MemoryClaimListPage, type MemoryClaimQuery, type MemoryDeleteMode, type MemoryQuestionsView, type MemoryStrategiesView, type MemorySettingsBody, type MemorySettingsView, type MemorySummaryView, type SafetySettingsBody, type SafetySettingsView, type ModelSettingsBody, type ModelSettingsView, type ModelTestBody, type ModelTestResult, type ModelCustomModelsBody, type ModelCustomModelsResult, type PageVoiceBody, type PageVoiceResult, type PluginAction, type PluginActionResult, type PluginsView, type ProjectStandardView, type ReferenceVoice, type ReferenceVoiceList, type RollbackPreview, type RollbackTarget, type SaveWebPageBody, type SaveWebPageResult, type SecretarySkillsBody, type SecretarySkillsView, type SlashCommandList, type SystemPromptBody, type SystemPromptDetail, type SystemPromptList, t, type TaskStageView, type ToolCallCleanupResult, type ToolCallDetail, type ToolCallStorageView, type BackupConfigBody, type BackupFolderCheck, type BackupOpenResult, type BackupPlace, type BackupSnapshotsView, type BackupStatusView, type ToolkitCatalog, type UploadedMedia, type UsageSummary, type UserNameResult, type UserNameView, type AddPersonBody, type PersonalFileChangeBody, type PersonalFileDeleteBody, type PersonalFileDeleteResult, type PersonalFileLearnedView, type PersonalFilesView, type PersonalFileView, type VoiceModelsView, type WebSettingsBody, type WebSettingsView, type WebVersionView, type WorkdayChange, type WorkdayChangeResult, type RuntimesView, type DataSourceActionBody, type DataSourceActionResult, type DataSourceLiveBody, type DataSourceLiveResult, type DataSourceStoredBody, type DataSourceStoredPage, type DataSourcesView, type ImportFolderActionBody, type ImportFolderActionResult, type DataSourcePushBody, type DataSourcePushResult, type ModelKeyBody, type ModelKeyView, type ModelKeyWriteResult, type ComponentAction, type ComponentImportResult, type ComponentsView } from "../state/index.ts";
 import { fetchFileText } from "./file-source.ts";
 import { httpErrorMessage, notJsonMessage } from "./http-error.ts";
 import { type UploadProgress, uploadFile } from "./uploader.ts";
@@ -233,6 +233,12 @@ export interface DaemonHttp {
   componentAction(id: string, action: ComponentAction, extra?: { licenseAccepted?: boolean }): Promise<ComponentsView>;
   /** 装上照默认该装、还没装的 */
   installDefaultComponents(): Promise<ComponentsView>;
+  /** 查一次有没有新版本（347 号票）：查完才回；没查成也不算错，原因在 updates.error */
+  checkComponentUpdates(): Promise<ComponentsView>;
+  /** 服务管家的开机自启（347 号票）：现在开没开 */
+  autostart(): Promise<AutostartView>;
+  /** 开或关；不归这份安装管的、动不了的抛错（写明原因） */
+  setAutostart(enabled: boolean): Promise<AutostartView>;
   /** 离线导入守护进程那台电脑上的一个文件、文件夹或 .tar / .tgz 包（按清单里的大小和校验值认）；路径不在、包坏了抛错 */
   importComponents(path: string): Promise<ComponentImportResult>;
   /**
@@ -690,8 +696,20 @@ export class HttpDaemonClient implements DaemonHttp {
     return this.post<ComponentsView>(HTTP_PATHS.components, { action: "install_defaults" });
   }
 
+  checkComponentUpdates(): Promise<ComponentsView> {
+    return this.post<ComponentsView>(HTTP_PATHS.components, { action: "check_updates" });
+  }
+
   importComponents(path: string): Promise<ComponentImportResult> {
     return this.post<ComponentImportResult>(HTTP_PATHS.componentImport, { path });
+  }
+
+  async autostart(): Promise<AutostartView> {
+    return this.json<AutostartView>(await fetch(`${this.baseUrl}${HTTP_PATHS.autostart}`, { cache: "no-store" }));
+  }
+
+  async setAutostart(enabled: boolean): Promise<AutostartView> {
+    return this.json<AutostartView>(await fetch(`${this.baseUrl}${HTTP_PATHS.autostart}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ enabled } satisfies AutostartBody) }));
   }
 
   // agent 运行时（286 号票）：每次现取，不缓存

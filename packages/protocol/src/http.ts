@@ -301,6 +301,7 @@ const SYSTEM_PROMPTS = "system-prompts";
 const MODEL_SETTINGS = "model-settings";
 const CUSTOM_MODELS = "custom-models";
 const SAFETY_SETTINGS = "safety-settings";
+const AUTOSTART = "autostart";
 const SETUP = "setup";
 const DOCTOR = "doctor";
 const WEB_SETTINGS = "web-settings";
@@ -518,6 +519,11 @@ export const HTTP_PATHS = {
    */
   safetySettings: api(SAFETY_SETTINGS),
   /**
+   * 服务管家的开机自启（347 号票，形状在 autostart.ts）：GET 现在开没开（AutostartView），PUT 开或关（AutostartBody → AutostartView）。
+   * 走的是 ergo svc install-autostart / uninstall-autostart 那一套；不归这份安装管的任务不动，回 400 和原因
+   */
+  autostart: api(AUTOSTART),
+  /**
    * 首次设置向导（319 号票）：GET 取五步各自做完了没有（SetupView），POST 标一步"以后再说"（skip: true）
    * 或者"看过了/做完了"（SetupMarkBody → SetupView）。真相是配置文件的 setup 节，改了马上生效
    */
@@ -703,6 +709,7 @@ export type HttpRoute =
   | { route: "model_settings_key" }
   | { route: "model_settings_custom_models" }
   | { route: "safety_settings" }
+  | { route: "autostart" }
   | { route: "setup" }
   | { route: "doctor" }
   | { route: "web_settings" }
@@ -844,6 +851,7 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
   if (head === COMPONENTS && tail === undefined) return id === undefined ? { route: "components" } : { route: "component", id };
   if (head === COMPONENT_IMPORT && id === undefined) return { route: "component_import" };
   if (head === SAFETY_SETTINGS && id === undefined) return { route: "safety_settings" };
+  if (head === AUTOSTART && id === undefined) return { route: "autostart" };
   if (head === SETUP && id === undefined) return { route: "setup" };
   if (head === DOCTOR && id === undefined) return { route: "doctor" };
   if (head === MODEL_SETTINGS && tail === undefined) {

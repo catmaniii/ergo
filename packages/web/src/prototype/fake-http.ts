@@ -137,6 +137,7 @@ import type {
   MemoryQuestionsView,
   MemoryStrategiesView,
   MemorySettingsBody,
+  AutostartView,
   SafetySettingsBody,
   SafetySettingsView,
   MemorySettingsView,
@@ -148,7 +149,7 @@ import { copyWebSettings, nowIso, CUSTOM_PROVIDER_ID, DEFAULT_MEMORY_SETTINGS, M
 import { demoParam, fakeServerWebVersion } from "./fake-connection.ts";
 import { fakeMemoryClaim, fakeMemoryClaims, fakeMemoryQuestions, fakeMemoryStrategies, fakeMemorySummary } from "./fake-memory-graph.ts";
 import { FakeDataSources } from "./fake-data-sources.ts";
-import { FakeComponents } from "./fake-components.ts";
+import { fakeAutostart, FakeComponents } from "./fake-components.ts";
 import { FAKE_HISTORY, FAKE_TAKEOVER_TASK } from "./fake-conversations.ts";
 import { FAKE_CURATOR_COMMANDS, FAKE_GRANT_USES, FAKE_SESSIONS, FAKE_SLASH_COMMANDS, FAKE_SLASH_SKILLS, FAKE_STAGE_EFFECTS, FAKE_TOOLKIT_CATALOG, fakeUsageSummary, taskDetailOf } from "./fake-data.ts";
 import { longTaskStageView } from "./fake-long-tasks.ts";
@@ -1118,7 +1119,7 @@ export class FakeDaemonHttp implements DaemonHttp {
     return this.fakeDataSources.live(id, body);
   }
 
-  /** 设置 · 组件（323 号票）：原型里编的四个组件（prototype/fake-components.ts） */
+  /** 设置 · 组件（323 号票）：原型里编的几个组件（prototype/fake-components.ts） */
   private readonly fakeComponents = new FakeComponents();
 
   components(): Promise<ComponentsView> {
@@ -1133,8 +1134,25 @@ export class FakeDaemonHttp implements DaemonHttp {
     return this.fakeComponents.installDefaults();
   }
 
+  checkComponentUpdates(): Promise<ComponentsView> {
+    return this.fakeComponents.checkUpdates();
+  }
+
   importComponents(path: string): Promise<ComponentImportResult> {
     return this.fakeComponents.importFrom(path);
+  }
+
+  /** 开机自启（347 号票）：只在内存里；地址带 ?demo-autostart=off|elsewhere|dev 看别的样子 */
+  private autostartValue = fakeAutostart();
+
+  autostart(): Promise<AutostartView> {
+    return Promise.resolve(this.autostartValue);
+  }
+
+  setAutostart(enabled: boolean): Promise<AutostartView> {
+    if (this.autostartValue.cannotChange !== undefined) return Promise.reject(new Error(this.autostartValue.cannotChange));
+    this.autostartValue = { ...this.autostartValue, state: enabled ? "on" : "off" };
+    return new Promise((resolve) => setTimeout(() => resolve(this.autostartValue), 300));
   }
 
   /** 网页是哪一版（116 号票）：地址里带 ?demo-update 时是假的新一版（和假连接推的一样），平常不知道（不提示） */

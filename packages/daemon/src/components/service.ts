@@ -11,6 +11,8 @@
 // - 许可（345 号票）：清单里写了要确认的，第一次下载前接口要带 licenseAccepted，没带不开始；确认过的记在 <组件区>/licenses.json，
 //   许可换了版本（revision）要重新确认。离线导入也算用它：导入齐了还没确认的，停在"出错了"，写明要先确认。
 // - 装好以后还要接上的（345 号票，见 host.ts）：常驻服务的事交给 host，这里只在换上前后、删前后叫它一声。
+// - 查更新（347 号票，ADR-0042，取清单、验签在 update-check.ts）：查到的新条目先放着（offered），状态显示"有新版本"，正在用的那一条一个字节不动；
+//   点了"更新"（或者这个组件还没装、点了安装）才按新条目下，换上之后它成了现在用的，并记进 installed.json（重启时随程序的清单还是旧的，比随程序的新才用它）。
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -31,10 +33,12 @@ import {
 } from "@ergo/protocol";
 import { RequestRejected } from "../errors.ts";
 import { sizeLabel } from "../media/file-types.ts";
+import { compareVersions } from "../release/layout.ts";
 import { renameRetryingAsync, writeFileAtomic } from "../util/atomic-file.ts";
 import { DownloadError, type DownloadUrl, downloadFile, freeBytesOf, probeSources, sha256File, sizeOf } from "./downloader.ts";
 import type { ComponentHost } from "./host.ts";
 import {
+  type ComponentManifest,
   dependencyOrder,
   fileKey,
   fileSources,
@@ -45,11 +49,13 @@ import {
   type ManifestVariant,
   pendingParts,
   pickVariant,
+  validManifestComponent,
   variantFiles,
 } from "./manifest.ts";
 import type { ComponentProbes } from "./probes.ts";
 import { extractTar, walkTar } from "./tar.ts";
 import type { Transport } from "./transport.ts";
+import type { UpdateChecker } from "./update-check.ts";
 import { extractZip, findInTree } from "./zip.ts";
 
 export interface ComponentsOptions {
@@ -76,6 +82,8 @@ export interface ComponentsOptions {
   diskMargin?: number;
   /** 装好以后还要接上的（常驻服务）；不给就只管文件 */
   host?: ComponentHost;
+  /** 查更新（347 号票）；不给就没有 */
+  updates?: UpdateChecker;
   log: (line: string) => void;
 }
 
@@ -85,6 +93,9 @@ interface InstallRecord {
   variant: string;
   installedAt: string;
   from: "download" | "import";
+  /** 查更新换上的（347 号票）：装的是新版本清单里的哪一条、那份清单是哪一版发布的；随程序的清单赶上来之前用它 */
+  entry?: ManifestComponent;
+  entryRelease?: string;
 }
 
 interface RecordsFile {
@@ -128,6 +139,10 @@ export interface Components {
   installDefaults(): Promise<ComponentsView>;
   /** 离线导入这台电脑上的一个文件、文件夹、.tar / .tgz 包 */
   importFrom(input: string): Promise<ComponentImportResult>;
+  /** 查一次有没有新版本（有新版本只是显示，不下载）；没查成不抛错，原因在 view().updates.error */
+  checkUpdates(signal?: AbortSignal): Promise<ComponentsView>;
+  /** 装着、有新版本的组件 */
+  pendingUpdates(): { id: string; title: string; version: string }[];
   /** 等某个组件（不给是全部）手头的事停下来：装好了、出错了、暂停了 */
   whenIdle(id?: string): Promise<void>;
   /** 取清单前现看一眼要联网、探端口才知道的（已有用户自己配的语音合成吗、服务通不通） */
@@ -185,7 +200,7 @@ function errorText(err: unknown): string {
 }
 
 export function createComponents(options: ComponentsOptions): Components {
-  const { manifest, signed } = options.manifest;
+  const { manifest: shipped, signed } = options.manifest;
   const machine = { platform: options.machine?.platform ?? process.platform, arch: options.machine?.arch ?? process.arch };
   const freeBytes = options.freeBytes ?? freeBytesOf;
   const stallMs = options.stallMs ?? 30_000;
@@ -193,8 +208,6 @@ export function createComponents(options: ComponentsOptions): Components {
   const probeTimeoutMs = options.probeTimeoutMs ?? 8000;
   const diskMargin = options.diskMargin ?? 64 * 1024 * 1024;
   const log = (line: string) => options.log(`[组件] ${line}`);
-  const byId = new Map(manifest.components.map((c) => [c.id, c]));
-  const order = dependencyOrder(manifest.components);
   const jobs = new Map<string, Job>();
   const queue: string[] = [];
   let running: string | undefined;
@@ -214,6 +227,52 @@ export function createComponents(options: ComponentsOptions): Components {
     }
   };
   const writeRecords = (records: Record<string, InstallRecord>) => writeFileAtomic(recordsPath, `${JSON.stringify({ format: 1, components: records } satisfies RecordsFile, null, 2)}\n`);
+
+  // 现在用的清单：随程序发布的那份；查更新换上过的组件用换上时的那一条（比随程序的新才算，升级了二狗本身就回到随程序的）
+  const adoptedRelease = new Map<string, string>();
+  const startRecords = readRecords();
+  const manifest: ComponentManifest = {
+    ...shipped,
+    components: shipped.components.map((c) => {
+      const record = startRecords[c.id];
+      if (!record?.entry || record.entryRelease === undefined || !validManifestComponent(record.entry)) return c;
+      if (record.entry.id !== c.id || record.entry.version !== record.version || compareVersions(record.entryRelease, shipped.release) <= 0) return c;
+      adoptedRelease.set(c.id, record.entryRelease);
+      return record.entry;
+    }),
+  };
+  const byId = new Map(manifest.components.map((c) => [c.id, c]));
+  let order = dependencyOrder(manifest.components);
+
+  // 查更新查到的（347 号票）：比现在用的新、还没换上的条目。要下的、要显示的都按它（goalOf），正在用的 byId 不动，下载失败、取消了旧的照常用
+  const offered = new Map<string, ManifestComponent>();
+  let offeredRelease: string | undefined;
+  const goalOf = (c: ManifestComponent): ManifestComponent => offered.get(c.id) ?? c;
+  const offerLatest = (latest: ComponentManifest) => {
+    // 手上正在下的那一个不受影响，下完算它
+    const inFlight = running === undefined ? undefined : offered.get(running);
+    offered.clear();
+    if (running !== undefined && inFlight) offered.set(running, inFlight);
+    if (compareVersions(latest.release, shipped.release) <= 0) return;
+    offeredRelease = latest.release;
+    for (const next of latest.components) {
+      const current = byId.get(next.id);
+      if (!current || next.id === running || current.version === next.version) continue;
+      // 位置换了、要的依赖这一版没有：要升级二狗本身才行，这里不提示
+      if (current.target !== next.target) continue;
+      if (![...(next.dependsOn ?? []), ...(next.serve ? [next.serve.host] : [])].every((id) => byId.has(id))) continue;
+      offered.set(next.id, next);
+    }
+  };
+  /** 新条目换上了：它成了现在用的 */
+  const adopt = (c: ManifestComponent) => {
+    if (offered.get(c.id) !== c || offeredRelease === undefined) return;
+    adoptedRelease.set(c.id, offeredRelease);
+    offered.delete(c.id);
+    byId.set(c.id, c);
+    manifest.components = manifest.components.map((other) => (other.id === c.id ? c : other));
+    order = dependencyOrder(manifest.components);
+  };
 
   const licensesPath = path.join(options.componentsDir, LICENSES);
   const readLicenses = (): LicensesFile["accepted"] => {
@@ -287,12 +346,17 @@ export function createComponents(options: ComponentsOptions): Components {
     const variant = variantOf(c);
     const record = records[c.id];
     if (record && record.version !== c.version && fs.existsSync(targetOf(c))) return "update";
-    if (variant && filesPresent(c, variant)) return "installed";
+    if (variant && filesPresent(c, variant)) return offered.has(c.id) ? "update" : "installed";
     if (c.provided !== undefined && options.probes.provided(c.provided) !== undefined) return "provided";
     return "missing";
   };
+  /** 现在用的那一版文件都在（换新版本下到一半、失败了，旧的照常用） */
+  const stillThere = (c: ManifestComponent) => {
+    const variant = variantOf(c);
+    return variant !== undefined && filesPresent(c, variant);
+  };
   const ready = (state: ComponentState, c: ManifestComponent) =>
-    state === "installed" || state === "update" || state === "provided" || (c.provided !== undefined && options.probes.provided(c.provided) !== undefined);
+    state === "installed" || state === "update" || state === "provided" || (c.provided !== undefined && options.probes.provided(c.provided) !== undefined) || (jobs.has(c.id) && stillThere(c));
 
   const wanted = (c: ManifestComponent): boolean => c.default === "install" || (c.default === "detected" && c.detect !== undefined && options.probes.detect(c.detect) !== undefined);
 
@@ -320,27 +384,29 @@ export function createComponents(options: ComponentsOptions): Components {
   };
 
   const viewOf = (c: ManifestComponent, records: Record<string, InstallRecord>): ComponentView => {
-    const variant = variantOf(c);
+    // 有新版本时：版本、大小、地址、许可写要换上的那一条；装着的版本看记录
+    const goal = goalOf(c);
+    const variant = variantOf(goal);
     const state = stateOf(c, records);
     const job = jobs.get(c.id);
     const record = records[c.id];
-    const files = variant ? plan(c, variant) : [];
+    const files = variant ? plan(goal, variant) : [];
     const provided = c.provided === undefined ? undefined : options.probes.provided(c.provided);
     const detected = c.detect === undefined ? undefined : options.probes.detect(c.detect);
-    const sources = [...new Map((variant?.parts ?? []).flatMap((p) => p.sources ?? c.sources ?? []).map((s) => [s.id, s.title])).values()];
+    const sources = [...new Map((variant?.parts ?? []).flatMap((p) => p.sources ?? goal.sources ?? []).map((s) => [s.id, s.title])).values()];
     const gpuReason = variant?.when?.gpu === undefined ? undefined : variant.when.gpu === "nvidia" ? t("components.variant.reason.nvidia") : t("components.variant.reason.noNvidia");
-    const noGpuVariant = variant && variant.when?.gpu === undefined && c.variants.some((v) => v.when?.gpu === "nvidia") ? t("components.variant.reason.noNvidia") : undefined;
+    const noGpuVariant = variant && variant.when?.gpu === undefined && goal.variants.some((v) => v.when?.gpu === "nvidia") ? t("components.variant.reason.noNvidia") : undefined;
     const reason = gpuReason ?? noGpuVariant;
     const progress = job ? progressOf(job) : undefined;
     const installed = state === "installed" || state === "update";
-    const blocked = cannotInstall(c, variant);
+    const blocked = cannotInstall(goal, variant);
     const service = options.host?.service(c);
-    const manual = manualFiles(c, variant, state, job);
+    const manual = manualFiles(goal, variant, state, job);
     return {
       id: c.id,
       title: title(c),
       summary: tOr(`components.item.${keyOf(c.id)}.summary`, ""),
-      version: c.version,
+      version: goal.version,
       ...(record ? { installedVersion: record.version } : installed ? { installedVersion: c.version } : {}),
       state,
       default: c.default,
@@ -359,15 +425,15 @@ export function createComponents(options: ComponentsOptions): Components {
       ...(progress ? { progress } : {}),
       ...(job?.error !== undefined ? { error: job.error } : {}),
       ...(job?.missingFiles && job.missingFiles.length > 0 ? { missingFiles: job.missingFiles } : {}),
-      ...(c.license
+      ...(goal.license
         ? {
             license: {
-              name: c.license.name,
-              summary: tOr(`components.item.${keyOf(c.id)}.licenseSummary`, c.license.summary),
-              url: c.license.url,
-              confirm: c.license.confirm,
-              accepted: licenseSettled(c),
-              ...(c.license.attribution !== undefined ? { attribution: c.license.attribution } : {}),
+              name: goal.license.name,
+              summary: tOr(`components.item.${keyOf(c.id)}.licenseSummary`, goal.license.summary),
+              url: goal.license.url,
+              confirm: goal.license.confirm,
+              accepted: licenseSettled(goal),
+              ...(goal.license.attribution !== undefined ? { attribution: goal.license.attribution } : {}),
             },
           }
         : {}),
@@ -386,8 +452,21 @@ export function createComponents(options: ComponentsOptions): Components {
       return c.enables.map((feature) => ({ feature, component: c.id, title: shown.title, ready: ready(shown.state, c) }));
     });
     const defaultsMissing = components.filter((v) => v.wanted && v.cannotInstall === undefined && (v.state === "missing" || v.state === "failed" || v.state === "paused")).map((v) => v.id);
-    return { components, features, manifest: { release: manifest.release, signed }, defaultsMissing };
+    return {
+      components,
+      features,
+      manifest: { release: manifest.release, signed },
+      defaultsMissing,
+      ...(options.updates ? { updates: { where: options.updates.where, ...options.updates.last(), available: pendingUpdates().map((c) => c.id) } } : {}),
+    };
   };
+
+  /** 装着（旧版本的文件都在）、有新版本的；正在换的也算，换上了才不算 */
+  const pendingUpdates = () =>
+    manifest.components.flatMap((c) => {
+      const next = offered.get(c.id);
+      return next && stillThere(c) ? [{ id: c.id, title: title(c), version: next.version }] : [];
+    });
 
   // ───────── 排队和做 ─────────
 
@@ -541,13 +620,15 @@ export function createComponents(options: ComponentsOptions): Components {
     }
     if (hadOld) await fs.promises.rm(old, { recursive: true, force: true }).catch((err: unknown) => log(`旧版本 ${old} 没删掉（${err instanceof Error ? err.message : String(err)}），下次启动再删`));
     const records = readRecords();
-    records[c.id] = { version: c.version, variant: variant.id, installedAt: new Date().toISOString(), from: jobs.get(c.id)?.from ?? "download" };
+    // 不是随程序的那一条：记下这一条和它是哪一版发布的（重启后还按它认）
+    const entryRelease = offered.get(c.id) === c ? offeredRelease : adoptedRelease.get(c.id);
+    records[c.id] = { version: c.version, variant: variant.id, installedAt: new Date().toISOString(), from: jobs.get(c.id)?.from ?? "download", ...(entryRelease !== undefined ? { entry: c, entryRelease } : {}) };
     writeRecords(records);
     fs.rmSync(stagingOf(c.id), { recursive: true, force: true });
   };
 
   const run = async (job: Job): Promise<void> => {
-    const c = component(job.id);
+    const c = goalOf(component(job.id));
     const variant = variantOf(c);
     const controller = new AbortController();
     job.controller = controller;
@@ -640,6 +721,7 @@ export function createComponents(options: ComponentsOptions): Components {
       delete job.speed;
       notify();
       await commit(c, variant, files, signal);
+      adopt(c);
       jobs.delete(job.id);
       log(`${c.id} ${c.version}（${variant.id}）装好了`);
       options.host?.installed(c);
@@ -692,7 +774,12 @@ export function createComponents(options: ComponentsOptions): Components {
 
   // ───────── 启动时：换到一半被打断的改回来，临时目录里下了一半的是"暂停了" ─────────
 
-  for (const c of manifest.components) {
+  // 上次查到的新版本：先认下来（临时目录里下了一半的可能就是它）
+  const savedLatest = options.updates?.saved();
+  if (savedLatest) offerLatest(savedLatest);
+
+  for (const installedEntry of manifest.components) {
+    const c = goalOf(installedEntry);
     const target = targetOf(c);
     const parent = path.dirname(target);
     const base = path.basename(target);
@@ -759,12 +846,13 @@ export function createComponents(options: ComponentsOptions): Components {
     // 认得的文件：按大小分好，再按 sha256（没写的按名字）对
     const records = readRecords();
     const candidates = new Map<number, { c: ManifestComponent; variant: ManifestVariant; f: ReturnType<typeof plan>[number] }[]>();
-    for (const c of manifest.components) {
+    for (const entry of manifest.components) {
+      const c = goalOf(entry);
       const variant = variantOf(c);
       if (!variant || cannotInstall(c, variant) !== undefined) continue;
       const job = jobs.get(c.id);
       if (job && (job.state === "downloading" || job.state === "installing")) continue;
-      const state = stateOf(c, records);
+      const state = stateOf(entry, records);
       if (state === "installed") continue;
       for (const f of plan(c, variant)) {
         const list = candidates.get(f.file.size) ?? [];
@@ -849,13 +937,13 @@ export function createComponents(options: ComponentsOptions): Components {
     const installed: string[] = [];
     const missing: ComponentImportResult["missing"] = [];
     for (const id of order.filter((x) => touched.has(x))) {
-      const c = component(id);
+      const c = goalOf(component(id));
       const variant = variantOf(c)!;
       const lacking = plan(c, variant).filter((f) => !(fs.existsSync(f.staged) && sizeOf(f.staged) === f.file.size));
       if (lacking.length === 0) {
         enqueue(id, "import");
         await whenIdle(id);
-        if (stateOf(c, readRecords()) === "installed") installed.push(id);
+        if (stateOf(component(id), readRecords()) === "installed") installed.push(id);
         continue;
       }
       const lackingNames = lacking.map((f) => (f.file.extract ? f.file.path : f.key));
@@ -898,10 +986,14 @@ export function createComponents(options: ComponentsOptions): Components {
     changed: notify,
   });
 
+  /** 正在查的那一次（点了检查更新、每晚的作业碰到一起时只查一次） */
+  let checking: Promise<void> | undefined;
+
   return {
     view,
     async act(id, action, extra) {
       const c = component(id);
+      const goal = goalOf(c);
       const job = jobs.get(id);
       const records = readRecords();
       const state = stateOf(c, records);
@@ -910,18 +1002,18 @@ export function createComponents(options: ComponentsOptions): Components {
         case "update": {
           if (state === "installed" || state === "queued" || state === "downloading" || state === "installing") break;
           if (action === "install" && state === "update") break;
-          const blocked = cannotInstall(c, variantOf(c));
+          const blocked = cannotInstall(goal, variantOf(goal));
           if (blocked !== undefined) throw new RequestRejected("not_allowed", t("components.reject.cannotInstall", { title: title(c), reason: blocked }));
-          requireLicense(c, extra?.licenseAccepted);
-          await options.host?.preflight(c);
-          rememberLicense(c);
+          requireLicense(goal, extra?.licenseAccepted);
+          await options.host?.preflight(goal);
+          rememberLicense(goal);
           enqueue(id);
           break;
         }
         case "resume":
           if (job && (job.state === "paused" || job.state === "failed")) {
-            requireLicense(c, extra?.licenseAccepted);
-            rememberLicense(c);
+            requireLicense(goal, extra?.licenseAccepted);
+            rememberLicense(goal);
             enqueue(id);
           }
           break;
@@ -968,6 +1060,23 @@ export function createComponents(options: ComponentsOptions): Components {
       return view();
     },
     importFrom,
+    async checkUpdates(signal) {
+      const updates = options.updates;
+      if (updates) {
+        checking ??= updates
+          .check(signal)
+          .then((latest) => {
+            if (latest) offerLatest(latest);
+            notify();
+          })
+          .finally(() => {
+            checking = undefined;
+          });
+        await checking;
+      }
+      return view();
+    },
+    pendingUpdates,
     whenIdle,
     refresh: () => options.host?.refresh() ?? Promise.resolve(),
     onChange(listener) {

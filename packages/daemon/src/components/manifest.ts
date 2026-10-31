@@ -193,6 +193,10 @@ export type ManifestServe = Static<typeof Serve>;
 export type ComponentManifest = Static<typeof Manifest>;
 
 const checkManifest = schemaChecker(Manifest);
+const checkComponent = schemaChecker(Component);
+
+/** 单独一条组件是不是清单的形状（installed.json 里记着的、从新版本清单换上的那一条：重启时查一下再用） */
+export const validManifestComponent = (raw: unknown): raw is ManifestComponent => checkComponent.firstError(raw) === undefined;
 
 /** 验签（318 号票发版时接上发布钥匙）：清单的原始字节和签名文件的内容，验过回 true */
 export type ManifestVerifier = (bytes: Buffer, signature: string | undefined) => boolean;

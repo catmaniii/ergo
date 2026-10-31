@@ -183,7 +183,7 @@ export interface ErgoConfig {
   /** 守卫（70 号票）。配置里写 guard: { conversationApprovals }，见 GuardConfig */
   guard: GuardConfig;
   /**
-   * 首次设置向导（319 号票）：用户在哪几步点了"以后再说"、哪几步做完了。配置里写 setup: { format: 1, skipped, done }，
+   * 首次设置向导（319 号票）：用户在哪几步点了"以后再说"、哪几步做完了。配置里写 setup: { format: 2, skipped, done }，
    * 不写、写坏了都当"什么都没做"（见 parseSetup）
    */
   setup: SetupConfig;
@@ -222,18 +222,20 @@ export const DEFAULT_GUARD_CONFIG: Readonly<GuardConfig> = Object.freeze({ conve
 /**
  * 首次设置向导打过的标记（319 号票）：用户在哪几步点了"以后再说"（skipped）、哪几步看过了/做完了（done），
  * 一步只待在一处（标了这边就从那边去掉，见 config/setup-state.ts）。各步的条件满没满足不写在这里——那是现算的。
- * format 留着以后改形状用；现在只有 1
+ * format：1 是 347 号票之前的版本写的（五步里第③步还是"组件"），2 是现在的。有这一节却不是 2 的都按 1 算
  */
 export interface SetupConfig {
-  format: 1;
+  format: 1 | 2;
   /** 用户点了"以后再说"的步骤 */
   skipped: SetupStepId[];
   /** 用户看过了/做完了的步骤 */
   done: SetupStepId[];
+  /** 只有 format 1 才有：用户对已经去掉的"组件"那一步打过标记（判断当时走完向导没有要用，见 setup-state.ts） */
+  legacyComponentsMarked?: true;
 }
 
 /** 没有 setup 节时就是"什么都没做" */
-export const DEFAULT_SETUP_CONFIG: Readonly<SetupConfig> = Object.freeze({ format: 1, skipped: [], done: [] });
+export const DEFAULT_SETUP_CONFIG: Readonly<SetupConfig> = Object.freeze({ format: 2, skipped: [], done: [] });
 
 /**
  * 浏览器（70 号票）：联网搜索、读网页用 playwright-core 驱动它（不下载浏览器），agent 的 bash 里的 AGENT_BROWSER_EXECUTABLE_PATH
@@ -671,14 +673,15 @@ function parseGuard(value: unknown, file: string): GuardConfig {
  * 不认识的名字、写重了都只当那一步没打标记，认得的照样算数
  */
 function parseSetup(value: unknown): SetupConfig {
-  const format = DEFAULT_SETUP_CONFIG.format;
-  if (!isRecord(value)) return { format, skipped: [], done: [] };
+  if (!isRecord(value)) return { format: DEFAULT_SETUP_CONFIG.format, skipped: [], done: [] };
+  const format = typeof value.format === "number" && value.format >= 2 ? 2 : 1;
   const steps = (key: "skipped" | "done"): SetupStepId[] => {
     const list = value[key];
     if (!Array.isArray(list)) return [];
     return [...new Set(list.filter((id): id is SetupStepId => typeof id === "string" && (SETUP_STEPS as readonly string[]).includes(id)))];
   };
-  return { format, skipped: steps("skipped"), done: steps("done") };
+  const legacyMarked = format === 1 && [value.skipped, value.done].some((list) => Array.isArray(list) && list.includes("components"));
+  return { format, skipped: steps("skipped"), done: steps("done"), ...(legacyMarked ? { legacyComponentsMarked: true as const } : {}) };
 }
 
 /** web：browserPath 是绝对路径；不写、写空、写占位符都当没写（按默认的顺序找） */

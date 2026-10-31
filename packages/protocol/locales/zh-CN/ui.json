@@ -1108,6 +1108,7 @@
   "ui.inboxNotice.kind.overBudget": "超预算",
   "ui.inboxNotice.kind.failureChoice": "失败后的抉择",
   "ui.inboxNotice.kind.embeddingModelMissing": "向量模型未下载",
+  "ui.inboxNotice.kind.componentUpdateAvailable": "组件有新版本",
   "ui.inboxNotice.kind.handOver": "交给我做",
   "ui.inboxNotice.kind.holidayDataMissing": "节假日数据缺失",
   "ui.inboxNotice.kind.watchCategoriesBroken": "关注类别设置有问题",

@@ -37,7 +37,7 @@ describe("步骤那一排", () => {
   test("五步都渲染出来（做完的打勾、当前的突出），最后是外网访问那一屏", () => {
     const html = rail(view(["language"]), undefined);
     // 假 view 下五步的名字都在
-    for (const title of ["语言、称呼、助手名", "模型 Key", "组件（记忆的向量模型）", "手机配对", "安全默认值"]) expect(html).toContain(title);
+    for (const title of ["语言、称呼、助手名", "模型 Key", "能力", "手机配对", "安全默认值"]) expect(html).toContain(title);
     expect(html).toContain("外网访问");
     // 五步 + 外网访问，一项一个按钮
     expect(html.match(/data-step=/g)).toHaveLength(6);

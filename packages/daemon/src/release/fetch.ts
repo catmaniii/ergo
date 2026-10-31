@@ -53,12 +53,23 @@ export interface FetchContext {
   onBytes?(done: number, total: number): void;
 }
 
+/** 回的不是 200（查组件更新要认得 404：发布页上还没有这个文件） */
+export class HttpStatusError extends Error {
+  readonly url: string;
+  readonly status: number;
+  constructor(url: string, status: number) {
+    super(`${url}：HTTP ${status}`);
+    this.url = url;
+    this.status = status;
+  }
+}
+
 /** GET 一个小文件（索引、清单），整个读进来 */
 export async function getBytes(transport: Transport, url: string, signal: AbortSignal, limit = 4 * 1024 * 1024): Promise<Buffer> {
   const res = await transport(url, { signal });
   if (res.status !== 200) {
     res.destroy();
-    throw new Error(`${url}：HTTP ${res.status}`);
+    throw new HttpStatusError(url, res.status);
   }
   const chunks: Buffer[] = [];
   let size = 0;

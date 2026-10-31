@@ -25,7 +25,7 @@
   "shell.pages.settings.title": "设置",
   "shell.pages.settings.sub": "个人助理的名字、语言、外观与风格、模型、关注类别、工作日规则、skill 和 MCP、系统提示、语音、浏览与填框、数据源、授权的文件夹、已配对设备、工具调用的完整内容",
   "shell.pages.setup.title": "设置向导",
-  "shell.pages.setup.sub": "第一次用的时候花两分钟：语言、称呼、模型 Key、组件、手机、安全默认值，还有外网访问怎么接",
+  "shell.pages.setup.sub": "第一次用的时候花两分钟：语言、称呼、模型 Key、能力、手机、安全默认值，还有外网访问怎么接",
   "shell.pages.roles.title": "角色与声音",
   "shell.pages.roles.sub": "角色（名字 + 音色绑在一起）：建几个角色、标一个默认，每个 agent 选一个，选中就同时启用它的名字和音色",
   "shell.pages.appearance.title": "外观与风格",

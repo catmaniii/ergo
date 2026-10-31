@@ -1,6 +1,6 @@
 # GitHub Actions release workflow draft (ticket 318). Not active: it lives here, not in .github/workflows.
 # Move it to .github/workflows/release.yml once the user decides how the release key is stored and whether to run Actions (316 / 317).
-# The release zip, SHA256SUMS(.minisig), latest.json and install.ps1 attached to the GitHub release come from exactly this build.
+# The release zip, SHA256SUMS(.minisig), latest.json, install.ps1 and components-manifest.json(.minisig) attached to the GitHub release come from exactly this build.
 name: release
 on:
   push:
@@ -27,7 +27,7 @@ jobs:
           ERGO_SIGN_PASSWORD: ${{ secrets.ERGO_SIGN_PASSWORD }}
       - name: Publish to GitHub Releases
         shell: pwsh
-        run: gh release create $env:GITHUB_REF_NAME dist/release/*.zip dist/release/SHA256SUMS dist/release/SHA256SUMS.minisig dist/release/latest.json dist/release/install.ps1 --title $env:GITHUB_REF_NAME --notes "See CHANGELOG.md"
+        run: gh release create $env:GITHUB_REF_NAME dist/release/*.zip dist/release/SHA256SUMS dist/release/SHA256SUMS.minisig dist/release/latest.json dist/release/install.ps1 dist/release/components-manifest.json dist/release/components-manifest.json.minisig --title $env:GITHUB_REF_NAME --notes "See CHANGELOG.md"
         env:
           GH_TOKEN: ${{ github.token }}
       # npm (ergo-ai, ergo-ai-win32-x64): ask the user before the first real publish (ticket 318)

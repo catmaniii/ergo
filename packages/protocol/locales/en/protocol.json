@@ -888,6 +888,7 @@
   "protocol.inboxAction.done": "Done",
   "protocol.inboxAction.importVoice": "Import a reference voice",
   "protocol.inboxAction.installComponent": "Install it",
+  "protocol.inboxAction.updateComponent": "Update components",
   "protocol.inboxAction.fixInSettings": "Fix in Settings",
   "protocol.inboxAction.startUpdate": "Start an update task",
   "protocol.inboxAction.confirmDelete": "Delete",

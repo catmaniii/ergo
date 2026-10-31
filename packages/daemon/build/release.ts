@@ -4,6 +4,7 @@
 //   3. 编 ergo.exe（编不了、跑不起来就只带 ergo.cmd）；
 //   4. 摆版本目录（stage.ts：转好的 JS、运行时要的第三方包、网页、服务管家、Node、许可证清单）；
 //   5. 给了发布钥匙（--sign-key）就给组件清单签名（manifest.json.minisig），把公钥写进程序（release-key.pub）；
+//      同一份清单和签名也放到发布目录（components-manifest.json，347 号票：已经装了的二狗查更新取的就是它）；
 //   6. 打成 ergo-<版本>-win-x64.zip，写 SHA256SUMS（给了钥匙再签 SHA256SUMS.minisig）、latest.json；
 //   7. 带上填好公钥的 install.ps1、npm 的两个包（ergo-ai：给有 Node 的人 npm i -g；ergo-ai-win32-x64：装着发布包，npmmirror 会同步，国内快）、
 //      winget / Scoop 清单草稿（不提交）。
@@ -12,6 +13,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { sha256File } from "../src/components/downloader.ts";
+import { LATEST_MANIFEST_NAME } from "../src/components/update-check.ts";
 import { formatSums, type ReleaseIndex } from "../src/release/fetch.ts";
 import { formatPublicKey, type MinisignSecretKey, parseSecretKey, sign } from "../src/release/minisign.ts";
 import { ZipWriter } from "../src/release/zip.ts";
@@ -230,10 +232,13 @@ export async function buildRelease(options: ReleaseOptions): Promise<ReleaseResu
     });
     log(`版本目录摆好了：${stage}（第三方包 ${staged.closure.keys.length} 个，许可证 ${staged.licenses.length} 条）`);
 
-    // 组件清单的签名（守护进程读清单时验）
+    // 组件清单的签名（守护进程读清单时验）；同一份放到发布目录，已经装了的二狗查更新用（没签名的它不认）
+    const manifest = path.join(stage, "app", "packages", "daemon", "src", "components", "manifest.json");
+    fs.copyFileSync(manifest, path.join(out, LATEST_MANIFEST_NAME));
     if (secret) {
-      const manifest = path.join(stage, "app", "packages", "daemon", "src", "components", "manifest.json");
-      fs.writeFileSync(`${manifest}.minisig`, sign(fs.readFileSync(manifest), secret, { fileName: "manifest.json", trustedComment: `ergo ${version} components manifest` }));
+      const manifestSignature = sign(fs.readFileSync(manifest), secret, { fileName: "manifest.json", trustedComment: `ergo ${version} components manifest` });
+      fs.writeFileSync(`${manifest}.minisig`, manifestSignature);
+      fs.writeFileSync(path.join(out, `${LATEST_MANIFEST_NAME}.minisig`), manifestSignature);
     }
 
     const zip = path.join(out, `${base}.zip`);

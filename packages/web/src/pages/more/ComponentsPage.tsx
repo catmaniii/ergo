@@ -8,7 +8,8 @@
 //   端口和开机自启，按钮多启动 / 停止；下载失败、暂停着时列出还差的文件和下载地址，自己下好了用现有的"从文件导入…"；
 // - 上面一排："装上默认的组件"（照清单的默认该装、还没装的）、"从文件导入…"（这台电脑上一个文件、文件夹或 .tar / .tgz 包的路径，
 //   守护进程按清单里的大小和校验值认；和设置里导入 skill 一样填路径）；
-// - 正在下的时候每秒重取一次；别处（功能灰掉的地方）点"去装"过来的那一块亮一下。
+// - 正在下的时候每秒重取一次；别处（功能灰掉的地方）点"去装"过来的那一块亮一下；
+// - 347 号票："检查更新"（每晚也自己查一次）：有新版本的组件显示"有新版本"，点了"更新"才换；没查成只在这里写一行，写明查的是哪里、只取版本清单。
 // 下载在守护进程里做，关掉这一页照样下。列表、确认框是纯渲染的组件（ComponentList、ComponentRow），测试在 Node 里直接渲染。
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "../../app/store.tsx";
@@ -27,6 +28,7 @@ import {
 } from "../../state/index.ts";
 import { Section, Sheet } from "../../ui/common.tsx";
 import { setComponentsCache, takeComponentFocus } from "../../ui/component-gate.tsx";
+import { timeLabel } from "../../util/time.ts";
 
 /** 状况的小签 */
 const STATE_CHIP: Readonly<Record<ComponentState, string>> = {
@@ -257,6 +259,30 @@ export function ComponentRow({ component: c, all, busy, focused, onAct, onImport
   );
 }
 
+/** 查更新那两行：上次查的结果（没查成只是一句话，不算出错）、查的是哪里 */
+export function ComponentUpdates({ view }: { view: ComponentsView }) {
+  const updates = view.updates;
+  if (!updates) return null;
+  const time = updates.checkedAt === undefined ? "" : timeLabel(updates.checkedAt);
+  const names = updates.available.map((id) => view.components.find((c) => c.id === id)?.title ?? id);
+  const result =
+    updates.available.length > 0
+      ? t("pages.components.updates.available", { names: formatList(names), time })
+      : updates.notPublished === true
+        ? t("pages.components.updates.notPublished", { time })
+        : updates.error !== undefined
+        ? t("pages.components.updates.failed", { time, reason: updates.error })
+        : updates.checkedAt !== undefined
+          ? t("pages.components.updates.none", { time })
+          : t("pages.components.updates.never");
+  return (
+    <div className="component-updates muted" data-updates={updates.available.length > 0 ? "available" : updates.notPublished === true ? "not-published" : updates.error !== undefined ? "failed" : "none"}>
+      <div>{result}</div>
+      <div className="component-updates-where">{t("pages.components.updates.where", { where: updates.where })}</div>
+    </div>
+  );
+}
+
 export function ComponentList({ view, busy, focused, onAct, onImport }: { view: ComponentsView; busy: string | undefined; focused: string | undefined; onAct: ComponentRowProps["onAct"]; onImport?: () => void }) {
   return (
     <div className="component-list">
@@ -383,6 +409,7 @@ export function ComponentsPage() {
   const [importing, setImporting] = useState(false);
   const [removing, setRemoving] = useState<ComponentView>();
   const [licensing, setLicensing] = useState<{ action: ComponentAction; component: ComponentView }>();
+  const [checking, setChecking] = useState(false);
   const [focused] = useState(takeComponentFocus);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -460,7 +487,23 @@ export function ComponentsPage() {
           <button type="button" className="btn ghost small" onClick={() => setImporting(true)}>
             {t("pages.components.import.button")}
           </button>
+          <button
+            type="button"
+            className="btn ghost small"
+            disabled={checking}
+            onClick={() => {
+              setChecking(true);
+              setFailed(undefined);
+              http
+                .checkComponentUpdates()
+                .then(apply, (err: unknown) => setFailed(t("pages.components.failed", { reason: err instanceof Error ? err.message : String(err) })))
+                .finally(() => setChecking(false));
+            }}
+          >
+            {checking ? t("pages.components.updates.checking") : t("pages.components.updates.check")}
+          </button>
         </div>
+        {view && <ComponentUpdates view={view} />}
         {!view && !loadFailed && <div className="muted">{t("pages.components.loading")}</div>}
         {loadFailed && (
           <div className="field-error" role="alert">

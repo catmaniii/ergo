@@ -148,6 +148,8 @@ export interface StartTestDaemonOptions {
   webRoot?: string;
   /** 守卫眼里的二狗程序目录；不填就建一个空的临时目录（测试不碰真实仓库） */
   programDir?: string;
+  /** 这个程序算哪种安装（向导的开机自启开关按它定能不能动任务）；不填按程序目录认，测试默认是源码跑的 */
+  installLayout?: StartDaemonOptions["installLayout"];
   /** 两个端口照配置文件来（测"端口号从配置读"）；默认都由系统挑空闲端口，免得占用真正的 8810、8811 */
   portFromConfig?: boolean;
   /** WebSocket 心跳的间隔（毫秒）；默认 30 秒 */
@@ -311,6 +313,7 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
     ...(options.portFromConfig ? {} : { localPort: 0, externalPort: 0 }),
     webRoot,
     programDir,
+    ...(options.installLayout ? { installLayout: options.installLayout } : {}),
     ...(options.secretaryModel === undefined && fromSettings.has("secretary")
       ? {}
       : {

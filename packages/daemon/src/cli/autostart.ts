@@ -2,10 +2,10 @@
 // （packages/supervisor/src/autostart.mjs），这里只管三件事：读它现在指着哪、认它是不是这个安装的、把"真的动任务"挡在测试外面。
 //
 // 这个任务的名字是固定的，一台电脑只有一个，开发机上就有一个正在用的，所以动它只有一条路，路上有一道关：
-//   - ergo 起 lsm 只有 service.ts 的 runLsm 一个入口，它先问 interceptTaskCommand；
+//   - ergo 起 lsm 只有 service.ts 的 runLsm 一个入口，它先问 interceptTaskCommand；守护进程里向导的开关（347 号票）走 runTaskCommand，同样先问它；
 //   - 设了 ERGO_AUTOSTART_TASK_FILE：动的是那个 JSON 文件（和 ERGO_USER_ENV_FILE 假 PATH 一个路子），不起 lsm；
 //   - 在 vitest 里又没设：直接拒绝，也不起 lsm。忘了设假任务的测试会红，不会碰到真的。
-import { spawnSync } from "node:child_process";
+import { execFile, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -37,6 +37,10 @@ function writeFakeTask(file: string, task: FakeAutostartTask): void {
   fs.writeFileSync(file, JSON.stringify(task, null, 2));
 }
 
+const READ_TASK_SCRIPT =
+  `[Console]::OutputEncoding = [Text.Encoding]::UTF8; $t = Get-ScheduledTask -TaskName '${AUTOSTART_TASK_NAME}' -ErrorAction SilentlyContinue; ` +
+  `if ($t) { [Console]::Out.Write((($t.Actions | ForEach-Object { "$($_.Execute) $($_.Arguments) $($_.WorkingDirectory)" }) -join ' | ')) }`;
+
 /**
  * 任务现在跑的命令（执行文件、参数、工作目录连成一行）。没有任务回空串，查不了回 undefined（都当"不动它"）。
  * 只读，不碰任务。输出按 UTF-8 读：用户名是中文时路径才对得上。
@@ -44,12 +48,18 @@ function writeFakeTask(file: string, task: FakeAutostartTask): void {
 export function readAutostartTask(env: NodeJS.ProcessEnv): string | undefined {
   const file = env.ERGO_AUTOSTART_TASK_FILE?.trim();
   if (file) return readFakeTask(file).action ?? "";
-  const script =
-    `[Console]::OutputEncoding = [Text.Encoding]::UTF8; $t = Get-ScheduledTask -TaskName '${AUTOSTART_TASK_NAME}' -ErrorAction SilentlyContinue; ` +
-    `if ($t) { [Console]::Out.Write((($t.Actions | ForEach-Object { "$($_.Execute) $($_.Arguments) $($_.WorkingDirectory)" }) -join ' | ')) }`;
-  const r = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script], { encoding: "utf8", windowsHide: true, timeout: 30_000, stdio: ["ignore", "pipe", "ignore"] });
+  const r = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", READ_TASK_SCRIPT], { encoding: "utf8", windowsHide: true, timeout: 30_000, stdio: ["ignore", "pipe", "ignore"] });
   if (r.error || r.status !== 0) return undefined;
   return r.stdout.trim();
+}
+
+/** 同上，不卡住调用的进程（守护进程里用：PowerShell 起来要一两秒，不能挡着别的请求） */
+export function readAutostartTaskAsync(env: NodeJS.ProcessEnv): Promise<string | undefined> {
+  const file = env.ERGO_AUTOSTART_TASK_FILE?.trim();
+  if (file) return Promise.resolve(readFakeTask(file).action ?? "");
+  return new Promise((resolve) => {
+    execFile("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", READ_TASK_SCRIPT], { encoding: "utf8", windowsHide: true, timeout: 30_000 }, (err, stdout) => resolve(err ? undefined : stdout.trim()));
+  });
 }
 
 const normal = (p: string) => p.replace(/\//g, "\\").replace(/\\+$/, "").toLowerCase();
@@ -106,4 +116,18 @@ export function interceptTaskCommand(env: NodeJS.ProcessEnv, args: readonly stri
   }
   writeFakeTask(file, { ...task, calls, action: `C:\\Windows\\System32\\conhost.exe --headless "${target.node}" "${target.script}" serve --lifeline --quiet --data-dir "${target.dataDir}"` });
   return { code: 0, stdout: "fake task registered", stderr: "" };
+}
+
+/**
+ * 守护进程里动任务（向导的开关，347 号票）：和 ergo svc install-autostart / uninstall-autostart 同一条命令，先过上面那一关；不卡住守护进程
+ */
+export function runTaskCommand(env: NodeJS.ProcessEnv, command: "install-autostart" | "uninstall-autostart", target: { node: string; script: string; dataDir: string }): Promise<LsmResult> {
+  const intercepted = interceptTaskCommand(env, [command], target);
+  if (intercepted) return Promise.resolve(intercepted);
+  return new Promise((resolve) => {
+    execFile(target.node, [target.script, command], { env: { ...env, LSM_DATA_DIR: target.dataDir }, encoding: "utf8", windowsHide: true, timeout: 120_000 }, (err, stdout, stderr) => {
+      const code = err ? (typeof err.code === "number" ? err.code : 1) : 0;
+      resolve({ code, stdout, stderr: stderr || (err && typeof err.code !== "number" ? err.message : "") });
+    });
+  });
 }

@@ -7,6 +7,7 @@ import { useStore } from "../app/store.tsx";
 import { CARD_TYPE_LABEL } from "../model/cards.ts";
 import {
   COMPONENTS_INSTALL_ACTION,
+  COMPONENTS_UPDATE_ACTION,
   inboxActionText,
   type InboxItem,
   isCardType,
@@ -49,6 +50,7 @@ const NOTICE_LABEL: Readonly<Record<NoticeType, string>> = tTable({
   voice_reference_missing: "ui.inboxNotice.kind.voiceReferenceMissing",
   rollback_wait: "ui.inboxNotice.kind.rollbackWait",
   reverify_failed: "ui.inboxNotice.kind.reverifyFailed",
+  component_update_available: "ui.inboxNotice.kind.componentUpdateAvailable",
 });
 
 /**
@@ -60,6 +62,8 @@ const SETTINGS_LINKS: Partial<Record<NoticeType, { action: string; page: MorePag
   voice_reference_missing: { action: VOICE_REFERENCE_IMPORT_ACTION, page: "voice" },
   // 323 号票：向量模型还没下载——"去装组件"去设置 · 组件
   embedding_model_missing: { action: COMPONENTS_INSTALL_ACTION, page: "components" },
+  // 347 号票：组件有新版本——"去更新组件"去设置 · 组件，点了"更新"才换
+  component_update_available: { action: COMPONENTS_UPDATE_ACTION, page: "components" },
 };
 
 /** 这条通知的这个动作是去设置里的哪一页（不是就是 undefined） */

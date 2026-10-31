@@ -35,8 +35,8 @@ function memoryStorage() {
 }
 
 describe("现在该走哪一步、做完了几步", () => {
-  test("五步的顺序就是协议包里的那个（语言、模型、组件、手机、安全）", () => {
-    expect([...SETUP_STEPS]).toEqual(["language", "model", "components", "phone", "safety"]);
+  test("五步的顺序就是协议包里的那个（语言、模型、能力、手机、安全）", () => {
+    expect([...SETUP_STEPS]).toEqual(["language", "model", "capabilities", "phone", "safety"]);
     expect(view().steps.map((step) => step.id)).toEqual([...SETUP_STEPS]);
   });
 
@@ -50,7 +50,7 @@ describe("现在该走哪一步、做完了几步", () => {
     expect(setupCurrentStep(view())?.id).toBe("language");
     expect(setupCurrentStep(view(["language"]))?.id).toBe("model");
     // 中间跳着做完了也算：找的是第一个没做完的
-    expect(setupCurrentStep(view(["language", "components"]))?.id).toBe("model");
+    expect(setupCurrentStep(view(["language", "capabilities"]))?.id).toBe("model");
     expect(setupCurrentStep(view([...SETUP_STEPS]))).toBeUndefined();
   });
 
@@ -63,12 +63,14 @@ describe("现在该走哪一步、做完了几步", () => {
 describe("打完这一步接着显示哪一步", () => {
   test("从它的下一步起往后找第一个还没做完的", () => {
     expect(setupStepAfter(view(), "language")?.id).toBe("model");
-    expect(setupStepAfter(view(["components"]), "language")?.id).toBe("model");
-    expect(setupStepAfter(view(["model"]), "language")?.id).toBe("components");
+    expect(setupStepAfter(view(["capabilities"]), "language")?.id).toBe("model");
+    expect(setupStepAfter(view(["model"]), "language")?.id).toBe("capabilities");
+    // 347 号票：模型 Key 配好了，接着就是能力那一步（向量模型只在这里装，不会被跳过）
+    expect(setupStepAfter(view(["language", "model"]), "model")?.id).toBe("capabilities");
   });
 
   test("后面都做完了是 undefined（页面回到第一个还没做完的；都完了就是\"设置完了\"）", () => {
-    expect(setupStepAfter(view(["model", "components", "phone", "safety"]), "language")).toBeUndefined();
+    expect(setupStepAfter(view(["model", "capabilities", "phone", "safety"]), "language")).toBeUndefined();
     expect(setupStepAfter(view([...SETUP_STEPS]), "safety")).toBeUndefined();
   });
 

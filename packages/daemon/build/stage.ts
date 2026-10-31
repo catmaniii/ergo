@@ -103,6 +103,14 @@ function runtimeManifest(manifest: Record<string, unknown>): Record<string, unkn
   return out;
 }
 
+/** 给组件清单写上是哪一版发布的（只改这一个字段，别的原样） */
+export function stampManifestRelease(file: string, version: string): void {
+  const text = fs.readFileSync(file, "utf8");
+  const stamped = text.replace(/("release"\s*:\s*)"[^"]*"/, `$1${JSON.stringify(version)}`);
+  if (stamped === text && !text.includes(`"release": ${JSON.stringify(version)}`)) throw new Error(`${file} 里没有 release 字段`);
+  fs.writeFileSync(file, stamped);
+}
+
 /** 摆一个版本目录 */
 export function stageVersion(options: StageOptions): StageResult {
   const { repo, out } = options;
@@ -142,6 +150,8 @@ export function stageVersion(options: StageOptions): StageResult {
   copyDir(path.join(pkgDir("protocol"), "locales"), path.join(app, "packages", "protocol", "locales"));
   for (const dir of DAEMON_ASSET_DIRS) copyDir(path.join(pkgDir("daemon"), dir), path.join(app, "packages", "daemon", dir));
   if (options.releaseKey) fs.writeFileSync(path.join(app, "packages", "daemon", "src", "release", "release-key.pub"), options.releaseKey);
+  // 组件清单写上这一版的版本号（查更新按它比新旧，347 号票）
+  stampManifestRelease(path.join(app, "packages", "daemon", "src", "components", "manifest.json"), version);
 
   // 服务管家（本来就是 .js）：白名单
   const sup = pkgDir("supervisor");

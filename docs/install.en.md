@@ -143,7 +143,7 @@ Set-Content -NoNewline -Encoding ascii "$env:USERPROFILE\.ergo\secrets\deepseek-
 
 ## After installing
 
-1. **Run the wizard**: open <http://127.0.0.1:8810/> (or `ergo open`) and go through the five steps of the **setup wizard**: language / how to address you / assistant name, model key (click test after filling it in), components, pairing a phone by QR code, safe defaults, plus a screen on outside access. Any step can wait; re-enter any time from the top of **More · Settings**. See [First run](user-guide.en.md#3-first-run).
+1. **Run the wizard**: open <http://127.0.0.1:8810/> (or `ergo open`) and go through the five steps of the **setup wizard**: language / how to address you / assistant name, model key (click test after filling it in), capabilities (tick which plugins and components you want: the embedding model and memory by default, voice off; models are downloaded here in the web page, not in the installer; this step also has the start-at-boot switch), pairing a phone by QR code, safe defaults, plus a screen on outside access. Any step can wait; re-enter any time from the top of **More · Settings**. See [First run](user-guide.en.md#3-first-run).
 2. **Try it**: say "remind me to drink water in two minutes".
 3. **Everyday commands**: `ergo start`, `ergo stop`, `ergo restart`, `ergo status`, `ergo logs`; for backups, `ergo backup` and `ergo restore` ([Backup and restore](user-guide.en.md#9-backup-and-restore)).
 4. **When something's wrong**: check **More · Settings · Data & devices → Doctor** first; each item says how to fix it. Then see [Troubleshooting](user-guide.en.md#11-troubleshooting).

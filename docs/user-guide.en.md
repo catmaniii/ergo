@@ -65,9 +65,17 @@ How to install (one line, npm, from source) has its own document: [Install, upda
 
 ### 3.1 Setup wizard
 
-It lives at `#/more/setup`, also the "Setup wizard" row at the top of the **More · Settings** list. Five steps: language / how to address you / the assistant's name → model key → components (the embedding model for semantic search; you can download it right there) → pair your phone by QR code → an explanation of the safety defaults; after the five steps there is one more screen about outside access, walking through the three options in [Section 6](#6-access-from-outside-phone-tablet). Every step can be postponed with "later"; when all are done it says you're set. You can come back to it from Settings at any time.
+It lives at `#/more/setup`, also the "Setup wizard" row at the top of the **More · Settings** list. Five steps: language / how to address you / the assistant's name → model key → capabilities (which plugins and components you want, including the embedding model for semantic search, which you can download right there; see below) → pair your phone by QR code → an explanation of the safety defaults; after the five steps there is one more screen about outside access, walking through the three options in [Section 6](#6-access-from-outside-phone-tablet). Every step can be postponed with "later"; when all are done it says you're set. You can come back to it from Settings at any time.
 
 Until a model key is configured, the chat page shows a banner at the top (close it with the × on the right; this device remembers it, so it won't come back).
+
+**The Capabilities step** lists plugins (memory, calendar, voice, browsing, Claude Code) and components (embedding model, speech recognition, speech synthesis), each with one line on what it does and how much it downloads:
+
+- The embedding model and memory are ticked by default (memory is already on after a fresh install); voice isn't, tick it if you want it. If Claude Code is installed on this computer it's ticked too (the list says "install if detected").
+- "Start" downloads or enables them in the background. You can go on to the next step, and downloads continue if you close the page. Progress and the reason for anything that failed show up here; failures can be retried or skipped and redone later in **Settings · Components**.
+- Voice models need you to confirm the license before the download ([8.1](#81-push-to-talk-local-speech-recognition), [8.2](#82-voice-replies-local-speech-synthesis)); nothing is downloaded without it.
+- Below that it shows what's installed now (components with versions).
+- The **Start at boot** switch shows whether it's on and can turn it on or off (the same as `ergo svc install-autostart` and `ergo svc uninstall-autostart`). If the task points to a service manager elsewhere, or ergo runs from source, it only shows the state; run the commands yourself to change it. Which services start automatically is set in the service manager: open its page on this computer (by default <http://127.0.0.1:7420>) or run `ergo svc autostart <id> on|off`.
 
 ### 3.2 Doing it without the wizard
 
@@ -410,6 +418,17 @@ Agents use a local Chrome or Edge, found automatically. If none is found or you 
 If [Claude Code](https://docs.anthropic.com/en/docs/claude-code) is installed and signed in on this PC, project and task owners can work through it (on your own subscription), with ergo's guard still checking every tool call; ergo can also take over your existing Claude Code sessions.
 
 Its Agent SDK (`@anthropic-ai/claude-agent-sdk`) is under Anthropic's own license, not open source, so ergo treats it as an **optional dependency**: if it is missing, **Settings · Plugins** shows Claude Code as not installed and how to install it (run `npm install --no-save @anthropic-ai/claude-agent-sdk@<version>` in the ergo directory; the version is in `optionalDependencies` of `packages/daemon/package.json`), then click Enable. Nothing else is affected.
+
+---
+
+### 8.7 Component updates
+
+**Settings · Components** has "Check for updates", and ergo also checks by itself every night (4:20 am, or after startup if the computer was off).
+
+- **Where it checks and what it sends**: it only fetches one version list and its signature from ergo's release page (by default `https://github.com/catmaniii/ergo/releases/latest/download/components-manifest.json`; if you host releases yourself, your own address; the Components page shows the full address). It doesn't send your account, device or usage. The other side just sees an ordinary download.
+- **Nothing is replaced automatically**: when there is a new version the row says "Update available", and the nightly check also leaves a note in your to-dos (once per version). It downloads, verifies and switches only after you click "Update"; the old version keeps working until then, and also if the download fails. If the license version changed, you confirm it again before the download.
+- **If the release page doesn't have this list yet**: the Components page says there's no component update information for this version yet. Nothing is affected.
+- **If the check fails**: one line on the Components page says why, and nothing else bothers you. Common reasons are not reaching GitHub, or a build without the release public key (a list whose signature can't be checked isn't trusted). Components then update along with ergo itself.
 
 ---
 

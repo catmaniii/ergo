@@ -960,10 +960,18 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     expect(await page.locator('input[name="model-custom-base-url"]').inputValue()).toBe("https://api.example.com/v1");
     expect(await page.locator('select[aria-label="模型 id"]').inputValue()).toBe("fake-chat-mini");
 
-    // 首次设置向导：步骤数没变（五步 + 外网访问），"以后再说"还在；模型那一步是同一套（服务商 → key → 连通测试），
+    // 首次设置向导：步骤数没变（五步 + 外网访问，347 号票第③步换成"能力"），"以后再说"还在；模型那一步是同一套（服务商 → key → 连通测试），
     // key 只列当前那个服务商，切回 DeepSeek 就收起，填完能测连通
     await at("#/more/setup");
     expect(await page.locator(".setup-rail [data-step]").count()).toBe(6);
+    // 能力那一步（347 号票）：插件、组件都列出来，有开始按钮、现在装了什么、开机自启
+    await page.click('.setup-rail [data-step="capabilities"]');
+    await page.waitForSelector('[data-capability="component:bge-m3"]', { timeout: 10_000 });
+    expect(await page.locator('[data-capability^="plugin:"]').count()).toBe(5);
+    expect(await page.locator('[data-capability^="component:"]').count()).toBe(3);
+    expect(await page.locator("[data-capability-start]").count()).toBe(1);
+    expect(await page.locator(".capability-now").count()).toBe(1);
+    await page.waitForSelector('.capability-autostart[data-autostart="on"]', { timeout: 10_000 });
     await page.click('.setup-rail [data-step="model"]');
     await page.waitForSelector('input[name="model-provider"][value="custom"]', { timeout: 10_000 });
     expect(await page.locator(".setup-actions button").count()).toBe(2);

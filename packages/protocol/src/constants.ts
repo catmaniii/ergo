@@ -972,6 +972,11 @@ export const NOTICE_TYPES = [
    * 动作"先不管""把没过的阶段也重做"（REVERIFY_ACTIONS，界面上写"把第 N 阶段也重做…"，先出重做对话框），data 是 ReverifyNoticeData
    */
   "reverify_failed",
+  /**
+   * 装着的组件有新版本（347 号票）：每晚查一次查到的。不自动换，不卡任务；动作"去更新组件"由前端带到设置 · 组件（不算处理），
+   * "知道了"收起。同一个组件的同一个版本只提醒一次，换上之后这条自动归档；data 是 ComponentUpdateNoticeData
+   */
+  "component_update_available",
 ] as const;
 
 // 待我处理事项的动作按字认（存进事件、点了按字找处理的），不跟着语言变（172 号票）；界面上显示时用 inboxActionText 换成当前语言
@@ -980,6 +985,9 @@ export const VOICE_REFERENCE_IMPORT_ACTION = "去导入参考音色"; // @i18n-i
 
 /** "向量模型还没下载"事项的动作（323 号票）：去设置里的组件页装上（不算处理；装好后自动归档） */
 export const COMPONENTS_INSTALL_ACTION = "去装组件"; // @i18n-ignore fixed：事项的动作按字认
+
+/** "组件有新版本"事项的动作（347 号票）：去设置里的组件页点"更新"（不算处理；换上之后自动归档） */
+export const COMPONENTS_UPDATE_ACTION = "去更新组件"; // @i18n-ignore fixed：事项的动作按字认
 
 /** "关注类别设置文件有问题"事项的动作：去设置里的关注类别页修复 */
 export const WATCH_CATEGORIES_REPAIR_ACTION = "去设置页修复"; // @i18n-ignore fixed：事项的动作按字认

@@ -85,6 +85,7 @@ import {
   DataSourceStoredBody,
   ImportFolderActionBody,
   ComponentActionBody,
+  AutostartBody,
   ComponentsActionBody,
   ComponentImportBody,
   WebSettingsBody,
@@ -140,6 +141,7 @@ import { MediaError, type MediaStore } from "../media/media-store.ts";
 import type { PromptLibrary } from "../prompts/index.ts";
 import type { ModelSettingsService } from "../model-settings/index.ts";
 import type { SafetySettingsService } from "../config/safety-settings.ts";
+import type { AutostartSwitch } from "../lsm/autostart-switch.ts";
 import type { SetupStateService } from "../config/setup-state.ts";
 import type { DoctorService } from "../doctor/doctor.ts";
 import type { WebSettingsService } from "../web/index.ts";
@@ -251,6 +253,8 @@ export interface HttpApiOptions {
   modelSettings?: Pick<ModelSettingsService, "view" | "change" | "test" | "keyView" | "saveKey" | "customModels">;
   /** 安全和预算的两个开关（315 号票）：GET / PUT /api/safety-settings；不给就没有这个接口 */
   safetySettings?: Pick<SafetySettingsService, "view" | "change">;
+  /** 服务管家的开机自启（347 号票，向导里的开关）：GET / PUT /api/autostart；不给就没有这个接口 */
+  autostart?: AutostartSwitch;
   /** 首次设置向导（319 号票）：GET / POST /api/setup（五步各自做完了没有、标"以后再说"/"看过了"）；不给就没有这个接口 */
   setup?: Pick<SetupStateService, "view" | "mark">;
   /** 体检（319 号票的 319b）：GET /api/doctor（八项检查现在的样子，每次现算）；不给就没有这个接口 */
@@ -268,7 +272,7 @@ export interface HttpApiOptions {
   /** 设置 · 数据源（295 号票）：GET /api/data-sources、POST /api/data-sources/<id>[/push | /stored | /live]、POST /api/import-folder；不给就没有这几个接口 */
   dataSources?: Pick<DataSources, "view" | "act" | "folder" | "push" | "stored" | "live">;
   /** 设置 · 组件（323 号票）：GET / POST /api/components、POST /api/components/<id>、POST /api/component-import；不给就没有这几个接口 */
-  components?: Pick<Components, "view" | "act" | "installDefaults" | "importFrom" | "refresh">;
+  components?: Pick<Components, "view" | "act" | "installDefaults" | "importFrom" | "refresh" | "checkUpdates">;
   /** 长程任务一个阶段的授权已用几次、从这里重做的范围和已经做了的事（84 号票）；没有这个任务或阶段时 undefined；不给就没有这个接口 */
   taskStage?: (taskId: string, stageId: string) => TaskStageView | undefined;
   /** 回退前的确认要的（150 号票）：回到这一条之前会放弃掉的那一段已经做了的事；不给就没有这个接口 */
@@ -948,12 +952,12 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
             await options.components.refresh();
             sendJson(res, 200, options.components.view());
           },
-          // 装上照默认该装、还没装的（排队下载，马上回）
+          // 装上照默认该装、还没装的（排队下载，马上回）；查一次有没有新版本（347 号票：查完才回，没查成也是 200，原因在 updates.error）
           async POST(req, res) {
             if (!options.components) throw new HttpError("not_found", t("gateway.http.noComponents"));
             const body = checkHttpBody(ComponentsActionBody, await readJson(req));
             if (!body.ok) throw new HttpError("bad_request", t("gateway.http.badComponentAction", { message: body.message }));
-            sendJson(res, 200, await options.components.installDefaults());
+            sendJson(res, 200, body.value.action === "check_updates" ? await options.components.checkUpdates() : await options.components.installDefaults());
           },
         };
       case "component":
@@ -1051,9 +1055,24 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
             sendJson(res, 200, options.safetySettings.change(body.value));
           },
         };
+      case "autostart":
+        return {
+          // 服务管家的开机自启（347 号票）：现在开没开（现查计划任务）
+          async GET(_req, res) {
+            if (!options.autostart) throw new HttpError("not_found", t("gateway.http.noAutostart"));
+            sendJson(res, 200, await options.autostart.view());
+          },
+          // 开或关：走 install-autostart / uninstall-autostart；不归这份安装管的、动不了的回 400 和原因
+          async PUT(req, res) {
+            if (!options.autostart) throw new HttpError("not_found", t("gateway.http.noAutostart"));
+            const body = checkHttpBody(AutostartBody, await readJson(req));
+            if (!body.ok) throw new HttpError("bad_request", t("gateway.http.badAutostart", { message: body.message }));
+            sendJson(res, 200, await options.autostart.set(body.value.enabled));
+          },
+        };
       case "setup":
         return {
-          // 首次设置向导（319 号票）：五步各自做完了没有。ready 是条件现在满不满足（现算），done 还含"以后再说"和"看过了"
+          // 首次设置向导（319 号票）：各步做完了没有。ready 是条件现在满不满足（现算），done 还含"以后再说"和"看过了"
           GET(_req, res) {
             if (!options.setup) throw new HttpError("not_found", t("gateway.http.noSetup"));
             sendJson(res, 200, options.setup.view());

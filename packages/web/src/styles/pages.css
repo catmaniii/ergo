@@ -9333,16 +9333,100 @@ label.pf-suggest-item input {
 .setup-warn {
   color: var(--high-fg);
 }
-.setup-component {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
 .setup-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+}
+/* 向导"能力"那一步（347 号票）：一项一块，样子照设置 · 组件；勾选在名字前面 */
+.capability-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 8px;
+}
+.capability-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.capability-group-title {
+  color: var(--muted);
+  font-size: var(--fs-s);
+}
+.capability-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: var(--radius-l);
+  background: var(--surface);
+  min-width: 0;
+}
+.capability-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: var(--fs-l);
+}
+.capability-head input {
+  flex: none;
+  margin: 0;
+}
+.capability-name {
+  font-weight: 600;
+}
+.capability-version {
+  font-size: var(--fs-s);
+}
+.capability-summary {
+  font-size: var(--fs-m);
+  line-height: 1.5;
+}
+.capability-size {
+  color: var(--muted);
+  font-size: var(--fs-s);
+}
+.capability-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+.capability-start {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  margin-top: 12px;
+}
+.capability-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 4px;
+}
+.capability-now {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 14px;
+}
+.capability-autostart {
+  margin-top: 14px;
+}
+.component-updates {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 8px;
+  font-size: var(--fs-s);
+  line-height: 1.5;
+}
+.component-updates-where {
+  overflow-wrap: anywhere;
 }
 .setup-done {
   display: flex;

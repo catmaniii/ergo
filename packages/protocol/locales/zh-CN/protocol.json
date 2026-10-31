@@ -874,6 +874,7 @@
   "protocol.inboxAction.done": "已完成",
   "protocol.inboxAction.importVoice": "去导入参考音色",
   "protocol.inboxAction.installComponent": "去装组件",
+  "protocol.inboxAction.updateComponent": "去更新组件",
   "protocol.inboxAction.fixInSettings": "去设置页修复",
   "protocol.inboxAction.startUpdate": "发起更新任务",
   "protocol.inboxAction.confirmDelete": "确认删除",

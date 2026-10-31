@@ -8,7 +8,8 @@
 //   守护进程的语音合成（预热的试合成）打得到它；已有手动配的不覆盖；
 // - 语音识别（346 号票）：真的守护进程、假下载站、LSM 替身、假 audio.cpp：没确认许可不下载；装好后配置指向 audiocpp、不用重启，语音消息走到新接入；
 //   删了指回去；已配 LSM 模式、配了 Python、手动配的 audio.cpp 都不改，配置文件按字节核对；
-// - POST /api/component-import：离线导入一个文件夹，凑齐了装上；路径不在回 400。
+// - POST /api/component-import：离线导入一个文件夹，凑齐了装上；路径不在回 400；
+// - 查更新（347 号票）：POST /api/components check_updates、每晚的作业、待办里的提醒（同一版本一次，换上后自动归档）；断网不报错、不进待办。
 import fs from "node:fs";
 import path from "node:path";
 import { CHANNELS, type ComponentImportResult, type ComponentsView, HTTP_PATHS, type HttpErrorBody, type VoiceModelsView } from "@ergo/protocol";

@@ -1,7 +1,7 @@
 // 主切面：首次设置向导的两条接口（319 号票）——GET /api/setup 看五步各自做完了没有，POST /api/setup 标
 // "以后再说"（skip: true）或者"看过了/做完了"。各步的 ready 是组合根注入的现算取值：
-// 我的名字（userName.current()）、模型的 key（modelSettings.keyView()）、记忆的向量模型那个组件（components.view() 的功能门）、
-// 已配对的设备（pairing.list()）；safety 没有条件，只有看过了才算 done。
+// 我的名字（userName.current()）、模型的 key（modelSettings.keyView()）、已配对的设备（pairing.list()）；
+// 能力（347 号票）和 safety 没有条件，只有看过了才算 done。
 // 都在临时目录、系统挑的空闲端口上（不碰真的 ~/.ergo），条件用真的服务造（设了我的名字、写错请求体），不碰真的设备。
 import fs from "node:fs";
 import { SETUP_STEPS } from "@ergo/protocol";
@@ -37,7 +37,7 @@ describe("首次设置向导的接口（319 号票）", () => {
     const skipped = await setupApi.mark(td.url, { step: "phone", skip: true });
     expect(skipped.body.steps.find((step) => step.id === "phone")).toEqual({ id: "phone", done: true, ready: false, optional: true });
     // 真相是配置文件：别的字段（新装时写进去的两项）原样留着
-    expect(configOf(td.dataDir)).toMatchObject({ setup: { format: 1, skipped: ["phone"], done: ["safety"] } });
+    expect(configOf(td.dataDir)).toMatchObject({ setup: { format: 2, skipped: ["phone"], done: ["safety"] } });
     expect(configOf(td.dataDir)).toHaveProperty("guard.conversationApprovals");
   });
 
@@ -55,6 +55,6 @@ describe("首次设置向导的接口（319 号票）", () => {
     const done = await setupApi.mark(td.url, { step: "model" });
     expect(done.status).toBe(200);
     expect(done.body.steps.find((step) => step.id === "model")).toEqual({ id: "model", done: true, ready: false, optional: true });
-    expect(configOf(td.dataDir)).toMatchObject({ setup: { format: 1, skipped: [], done: ["model"] } });
+    expect(configOf(td.dataDir)).toMatchObject({ setup: { format: 2, skipped: [], done: ["model"] } });
   });
 });

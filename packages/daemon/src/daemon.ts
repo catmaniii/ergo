@@ -58,6 +58,9 @@ import { modelConfigKey } from "./config/model-key.ts";
 import { createSafetySettings, type SafetySettingsService, withLiveBudgetControl } from "./config/safety-settings.ts";
 import { createSetupState, type SetupStateService } from "./config/setup-state.ts";
 import { defaultSvcDataDir } from "./cli/context.ts";
+import { type AutostartSwitch, createAutostartSwitch } from "./lsm/autostart-switch.ts";
+import { detectLayout, type InstallLayout, readInstallState } from "./release/layout.ts";
+import { releasePublicKey } from "./release/public-key.ts";
 import { type DoctorService, createDoctor, diskProbe, externalProbe, missingDefaultFeatures, nodeProbe, piVersionProbe, portsProbe, supervisorProbe } from "./doctor/doctor.ts";
 import { modelCredentials, tavilyKey } from "./config/secrets.ts";
 import { messagePurge, timelineRecordPurge } from "./conversation/purge.ts";
@@ -77,7 +80,11 @@ import {
   componentTransport,
   createAudioCppHost,
   createComponentProbes,
+  type ComponentUpdateJob,
   createComponents,
+  createComponentUpdateJob,
+  createUpdateChecker,
+  latestManifestUrl,
   createRecognizerLink,
   type LoadedManifest,
   loadManifest,
@@ -398,6 +405,8 @@ export interface StartDaemonOptions {
    * 设置 · 组件（323 号票）的几样换成测试的：清单（自己编的小文件）、检测（有没有 N 卡、别处有没有）、下载那一层（本机的假下载服务）、
    * 磁盘还剩多少、多久算卡住、探速等多久；不填用正式的（随程序发布的清单、走系统代理连真的下载地址）
    */
+  /** 测试用：这个程序算哪种安装（向导里的开机自启开关按它定能不能动任务）；不填按程序目录认 */
+  installLayout?: InstallLayout;
   components?: {
     manifest?: LoadedManifest;
     probes?: ComponentProbes;
@@ -545,7 +554,7 @@ export interface Daemon {
   /** 安全和预算的两个开关（315 号票）：先问我、任务的预算；配置文件是真相，设置里改了写回去、马上生效 */
   readonly safetySettings: SafetySettingsService;
   /**
-   * 首次设置向导（319 号票）：五步（称呼、模型 Key、组件、手机配对、安全默认值）哪几步做完了；
+   * 首次设置向导（319 号票）：五步（称呼、模型 Key、能力、手机配对、安全默认值）哪几步做完了；
    * 配置文件是真相，向导里标"以后再说"/"看过了"就写回去，各步的条件现算
    */
   readonly setup: SetupStateService;
@@ -562,6 +571,8 @@ export interface Daemon {
   readonly dataSources: DataSources;
   /** 设置 · 组件（323 号票）：模型、语音这些大件按需下载——装、删、更新、暂停、继续、取消、离线导入 */
   readonly components: Components;
+  /** 组件每晚查更新（347）：测试直接叫它的 nightly */
+  readonly componentUpdates: ComponentUpdateJob;
   /** 设备配对：配对请求、凭证、已配对设备 */
   readonly pairing: PairingService;
   /** 审批表和审批卡 */
@@ -1407,14 +1418,20 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       useRecognizer: (mode) => plugins.service(VOICE)?.useRecognizer(mode),
       log,
     });
+    // 这个程序是怎么装的（向导的开机自启开关、查更新查哪里都要看）
+    const installLayout = options.installLayout ?? detectLayout({ cliFile: path.join(programDir, "packages", "daemon", "src", "cli", "main.js"), env: options.env, execPath: process.execPath });
     const audioCppHost = createAudioCppHost({ componentsDir: layout.components, speech: { url: options.speechUrl ?? config.voice.speech.url, model: config.voice.speech.model }, recognizer: recognizerLink, ...options.components?.audiocpp, log });
+    const componentsTransport = options.components?.transport ?? componentTransport(options.env, "ergo-components");
+    // 查更新（347）：取发布页上的版本清单，查的地址和 ergo update 一样（自己给的发布地址优先）；有新版本提醒，点了才换
+    const releaseBase = options.env.ERGO_RELEASE_URL?.trim() || (installLayout.root ? readInstallState(installLayout.root).source?.url : undefined);
     const components = createComponents({
       root: layout.root,
       componentsDir: layout.components,
       manifest: options.components?.manifest ?? shippedComponentManifest(options.env, log),
       probes: componentProbes,
       host: audioCppHost,
-      transport: options.components?.transport ?? componentTransport(options.env, "ergo-components"),
+      transport: componentsTransport,
+      updates: createUpdateChecker({ componentsDir: layout.components, url: latestManifestUrl(releaseBase), transport: componentsTransport, publicKey: () => releasePublicKey(options.env), log }),
       ...(options.components?.freeBytes ? { freeBytes: options.components.freeBytes } : {}),
       ...(options.components?.stallMs !== undefined ? { stallMs: options.components.stallMs } : {}),
       ...(options.components?.probeTimeoutMs !== undefined ? { probeTimeoutMs: options.components.probeTimeoutMs } : {}),
@@ -1422,6 +1439,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       log,
     });
     teardown.push(() => components.stop());
+    const componentUpdates = createComponentUpdateJob({ components, inbox, store, internalJobs });
+    componentUpdates.start();
+    teardown.push(() => componentUpdates.stop());
     teardown.push(plugins.onChange(() => dataSources.refresh()));
     // 待批的配对请求到点过期（守护进程重启后照常）
     pairing.start();
@@ -1697,18 +1717,18 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     customProviderNow = () => modelSettings.customProvider();
     // 首次设置向导（319 号票）：五步哪几步做完了。真相是配置文件的 setup 节；各步的条件现算，都是现成的服务——
     // 我的名字（249）、模型的 key 配没配（315 的 keyView，和 GET /api/model-settings/key 同一个判法）、
-    // 记忆的向量模型那个组件装好了没有（323 的组件视图，按功能门：装在这儿或者别处已经有了都算）、
     // 至少一台没被吊销的已配对设备（10；吊销了还没删的算"现在用不上"，不算做完）；
-    // safety 没有条件，只有用户看过了（或者点了"以后再说"）才算 done
+    // 能力（347）和 safety 没有条件，只有用户看过了（或者点了"以后再说"）才算 done
     const setup = createSetupState({
       configFile: layout.configFile,
       initial: config.setup,
       ready: {
         language: () => userName.current() !== undefined,
         model: () => modelSettings.keyView().apiKey.configured,
-        components: () => components.view().features.some((feature) => feature.feature === COMPONENT_FEATURES.memorySemantic && feature.ready),
         phone: () => pairing.list().some((device) => !device.revoked),
       },
+      // 只用来算老数据目录当时走完向导没有（347：以前第③步的条件，按功能门：装在这儿或者别处已经有了都算）
+      legacyComponentsReady: () => components.view().features.some((feature) => feature.feature === COMPONENT_FEATURES.memorySemantic && feature.ready),
       log,
     });
     // 体检（319 号票的 319b）：八项检查现算（GET /api/doctor），组合根把各项要的东西凑齐交给它——
@@ -1719,6 +1739,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 所以它不在默认位置时，二狗的登记要声明这个变量（ergo start 写的登记自带；手写的见 deploy/lsm/ergo-daemon.example.yaml，340 号票）
     let boundPorts = { local: config.ports.local, external: options.externalPort ?? config.ports.external };
     const svcDataDir = options.env.LSM_DATA_DIR?.trim() ? path.resolve(options.env.LSM_DATA_DIR.trim()) : defaultSvcDataDir(options.env);
+    // 向导里的开机自启开关（347）：走 ergo svc 同一条路；不归这份安装管的任务不动
+    const autostart: AutostartSwitch = createAutostartSwitch({ env: options.env, layout: installLayout, svcDataDir, log });
     const doctor: DoctorService = createDoctor({
       probes: {
         ports: portsProbe(() => boundPorts),
@@ -2621,8 +2643,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         webSettings,
         // 安全和预算的两个开关（315）：设置 · 关注类别、设置向导（319）用
         safetySettings: safety,
-        // 首次设置向导（319）：五步哪几步做完了（GET /api/setup），标"以后再说"/"看过了"（POST /api/setup）
+        // 首次设置向导（319）：哪几步做完了（GET /api/setup），标"以后再说"/"看过了"（POST /api/setup）
         setup,
+        autostart,
         // 体检（319b）：八项检查现在的样子（GET /api/doctor）
         doctor,
         // 设置 · 插件（211）：列出、运行中停用、启用、移除
@@ -2761,6 +2784,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       webSettings,
       safetySettings: safety,
       setup,
+      componentUpdates,
       holidayUpdates,
       materials,
       memoryHost,

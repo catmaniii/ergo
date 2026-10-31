@@ -1,6 +1,6 @@
 // 首次设置向导（319 号票，用户 2026-10-27 定："只做网页前端，不做终端 ergo onboard"）的页面：地址 #/more/setup，
 // 在设置列表最上面（pages/MorePage.tsx），第一次用二狗的时候从首页顶上那条引导条点过来。
-// - 五步（共享协议包的 SETUP_STEPS）：① 语言 / 称呼 / 助手名 ② 模型 Key ③ 组件（记忆的向量模型）④ 手机配对 ⑤ 安全默认值说明；
+// - 五步（共享协议包的 SETUP_STEPS）：① 语言 / 称呼 / 助手名 ② 模型 Key ③ 能力（347 号票：more/CapabilitiesStep.tsx，向量模型也在这里装）④ 手机配对 ⑤ 安全默认值说明；
 //   左边（手机上是一排）一列步骤，做完的打勾、当前的突出，一屏只显示一步（setupScreenOf 算现在显示哪一屏）；
 // - 每步都有"以后再说"（POST skip: true）和"这一步就这样"（POST skip: false）；第⑤步是"看过了"；
 //   打完标记用守护进程回的那份整份（useSetup 换掉 view），接着显示下一步（setupStepAfter）；
@@ -8,7 +8,7 @@
 // - 五步都做完（含"以后再说"）显示"设置完了，去用它吧"和一个回到会话页的按钮；
 // - 任何时候都能出去接着用（标题栏上的"先不弄了"）。
 // 每步的内容尽量复用现有的页：称呼就是设置 · 身份里的那一块（more/UserNameSetting.tsx），安全默认值就是关注类别上面那两个开关
-// （more/SafetySwitches.tsx 的 SafetySwitchList），组件走设置 · 组件那一套接口（ComponentsPage 的 componentStateText、sizeLabel），
+// （more/SafetySwitches.tsx 的 SafetySwitchList），能力走设置 · 组件、设置 · 插件那两套接口（more/CapabilitiesStep.tsx），
 // 模型 Key 那一步先选服务商（DeepSeek / 自定义 OpenAI 兼容，填完能测连通），再填 key（只列当前这个服务商），最后测连通
 // （三块和设置 · 模型共用 ui/model-provider.tsx 和 ui/model-key.tsx，POST /api/model-settings 和 /api/model-settings/key），
 // 语言、助手名、手机配对给去设置对应页的跳转。
@@ -21,15 +21,10 @@ import { type SetupScreen, setupDoneCount, setupScreenOf, setupStep, setupStepAf
 import { useStore } from "../app/store.tsx";
 import {
   activeLocale,
-  COMPONENT_FEATURES,
-  componentBusy,
-  type ComponentsView,
-  type ComponentView,
   SETUP_STEPS,
   type SetupStepId,
   type SetupStepView,
   type SetupView,
-  sizeLabel,
   t,
   type ModelApiKeyStatus,
   type ModelSettingsView,
@@ -40,7 +35,7 @@ import { T } from "../ui/i18n.tsx";
 import { ModelKeySetting } from "../ui/model-key.tsx";
 import { ModelProviderForm, ModelTestBlock, useModelProviderBlock } from "../ui/model-provider.tsx";
 import { useToast } from "../ui/toast.tsx";
-import { componentStateText } from "./more/ComponentsPage.tsx";
+import { CapabilitiesStep } from "./more/CapabilitiesStep.tsx";
 import { SafetySwitches } from "./more/SafetySwitches.tsx";
 import { UserNameSetting } from "./more/UserNameSetting.tsx";
 
@@ -214,84 +209,6 @@ function ModelStepBody({ view, setView }: { view: ModelSettingsView; setView(nex
   );
 }
 
-/**
- * 组件（第③步）：记忆的向量模型那一个，装没装、多大，一个按钮装上（设置 · 组件那一套接口）
- */
-function ComponentsStep({ navigate }: { navigate: Navigate }) {
-  const { http } = useStore();
-  const [view, setView] = useState<ComponentsView>();
-  const [failed, setFailed] = useState<string>();
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    let live = true;
-    http.components().then(
-      (next) => {
-        if (live) setView(next);
-      },
-      (err: unknown) => {
-        if (live) setFailed(messageOf(err));
-      },
-    );
-    return () => {
-      live = false;
-    };
-  }, [http]);
-
-  // 按"它打开哪个功能"认，不写死组件 id（清单里的 id 换了也照样找得到）
-  const vector: ComponentView | undefined = view?.components.find((c) => c.enables.some((f) => f.id === COMPONENT_FEATURES.memorySemantic));
-  const run = (action: "install" | "update" | "resume") => {
-    if (!vector) return;
-    setBusy(true);
-    setFailed(undefined);
-    http
-      .componentAction(vector.id, action)
-      .then(setView, (err: unknown) => setFailed(t("setup.steps.components.failed", { reason: messageOf(err) })))
-      .finally(() => setBusy(false));
-  };
-  const installable = vector !== undefined && vector.cannotInstall === undefined && ["missing", "failed", "paused", "provided", "update"].includes(vector.state);
-
-  return (
-    <>
-      {vector === undefined && failed === undefined && <div className="muted">{t("setup.steps.components.working")}</div>}
-      {vector === undefined && failed !== undefined && (
-        <div className="field-error" role="alert">
-          {failed}
-        </div>
-      )}
-      {view !== undefined && vector === undefined && <div className="muted">{t("setup.steps.components.unknown")}</div>}
-      {vector !== undefined && (
-        <div className="setup-component">
-          <div className="setup-line">
-            <span>{vector.title}</span>
-            <span className={vector.state === "installed" ? "chip chip-ok" : "chip"}>{componentStateText(vector.state)}</span>
-            {vector.size > 0 && <span className="muted">{sizeLabel(vector.size)}</span>}
-          </div>
-          {vector.summary && <div className="muted">{vector.summary}</div>}
-          {vector.cannotInstall !== undefined && <div className="setup-note">{vector.cannotInstall}</div>}
-          {installable && (
-            <div className="setup-actions">
-              <button type="button" className="btn primary small" disabled={busy} onClick={() => run(vector.state === "paused" || vector.state === "failed" ? "resume" : vector.state === "update" ? "update" : "install")}>
-                {componentBusy(vector.state) ? t("setup.steps.components.working") : t("setup.steps.components.install")}
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-      {failed !== undefined && vector !== undefined && (
-        <div className="field-error" role="alert">
-          {failed}
-        </div>
-      )}
-      <div>
-        <button type="button" className="link" onClick={() => navigate({ tab: "more", page: "components" })}>
-          {t("setup.steps.components.go")}
-        </button>
-      </div>
-    </>
-  );
-}
-
 /** 手机配对（第④步）：配对没配对过看守护进程给的那一步满不满足，怎么做写在说明里，入口去设置 · 已配对设备 */
 function PhoneStep({ step, navigate }: { step: SetupStepView; navigate: Navigate }) {
   return (
@@ -321,15 +238,15 @@ function SafetyStep() {
   );
 }
 
-/** 一屏的正文（按步分）：第①②④⑤步不要 view 里别的东西，第③步自己去取组件 */
+/** 一屏的正文（按步分）：第①②④⑤步不要 view 里别的东西，第③步自己去取组件和插件 */
 function StepBody({ id, step, navigate }: { id: SetupStepId; step: SetupStepView; navigate: Navigate }) {
   switch (id) {
     case "language":
       return <LanguageStep navigate={navigate} />;
     case "model":
       return <ModelStep navigate={navigate} />;
-    case "components":
-      return <ComponentsStep navigate={navigate} />;
+    case "capabilities":
+      return <CapabilitiesStep navigate={navigate} />;
     case "phone":
       return <PhoneStep step={step} navigate={navigate} />;
     case "safety":
@@ -403,7 +320,7 @@ export function SetupWizard({ navigate }: { navigate: Navigate }) {
       {step !== undefined && (
         <>
           <Section title={stepTitle(step.id)}>
-            <div className="setup-step-sub muted">{t(`setup.steps.${step.id}.sub`)}</div>
+            <div className="setup-step-sub muted">{t(`setup.steps.${step.id}.sub`, { brand: t("shell.brand") })}</div>
             <StepBody id={step.id} step={step} navigate={navigate} />
           </Section>
           {error !== undefined && (

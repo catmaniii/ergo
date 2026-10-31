@@ -8,7 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { stageVersion, type StageResult } from "../../build/stage.ts";
+import { stageVersion, type StageResult, stampManifestRelease } from "../../build/stage.ts";
 
 const REPO = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 
@@ -184,4 +184,25 @@ describe("转好的程序真能跑", () => {
       expect({ f, status: c.status, stderr: c.stderr }).toMatchObject({ status: 0 });
     }
   }, 60_000);
+});
+
+// 347 号票：组件清单的 release 是发版时写进去的，查更新按它比新旧
+describe("组件清单写上版本号", () => {
+  it("只改 release 这一个字段，别的一个字节不动", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ergo-stamp-"));
+    try {
+      const file = path.join(dir, "manifest.json");
+      const text = '{\n  "format": 1,\n  "release": "0.2.1",\n  "components": [{ "id": "x", "version": "release" }]\n}\n';
+      fs.writeFileSync(file, text);
+      stampManifestRelease(file, "0.9.0");
+      expect(fs.readFileSync(file, "utf8")).toBe(text.replace('"0.2.1"', '"0.9.0"'));
+      // 已经是这个版本：不算出错
+      stampManifestRelease(file, "0.9.0");
+      // 清单里没有这个字段：是发版的错，要报出来
+      fs.writeFileSync(file, '{ "format": 1 }');
+      expect(() => stampManifestRelease(file, "0.9.0")).toThrow(/release/);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

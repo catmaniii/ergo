@@ -3,7 +3,7 @@
 // 打开哪些功能、依赖哪些别的组件、默认装不装（默认装 / 问了再装 / 检测到才装）。下载器在守护进程里一份，网页（设置 · 组件）和
 // 以后的 `ergo components` 命令（318 号票）都经同一套 HTTP 接口：
 // - GET /api/components：清单里的全部组件现在的样子（ComponentsView）；
-// - POST /api/components：装上照默认该装的（ComponentsActionBody，components-schema.ts）；
+// - POST /api/components：装上照默认该装的、查一次有没有新版本（ComponentsActionBody，components-schema.ts）；
 // - POST /api/components/<id>：装、更新、删、暂停、继续、取消，常驻服务的启动、停止（ComponentActionBody；要确认许可的组件第一次下载要带 licenseAccepted）；
 // - POST /api/component-import：离线导入自己下好的文件（一个文件、一个文件夹、一个 .tar / .tgz 包；ComponentImportBody → ComponentImportResult）。
 // 给人看的字守护进程按当前语言写好。没装的组件对应的功能在界面上灰掉，点一下就去装（features）。
@@ -174,6 +174,28 @@ export interface ComponentFeatureGate {
   ready: boolean;
 }
 
+/**
+ * 查更新（347 号票，ADR-0042）：组件页的"检查更新"和每晚的内部作业查的是同一份东西。有新版本只提醒，点了"更新"才换；
+ * 没查成只写在这里（组件页上一行字），不进待办、不算出错
+ */
+export interface ComponentUpdatesView {
+  /** 查的是哪个地址（完整的，给人看：只取这一份版本清单，不带用户信息） */
+  where: string;
+  /** 上次查的时间（协议时间）；没查过没有 */
+  checkedAt?: string;
+  /** 上次没查成的原因；查成了没有 */
+  error?: string;
+  /** 发布页上还没有这份清单（404）：不算没查成，页面写"这个版本还没有组件更新信息" */
+  notPublished?: true;
+  /** 装着、有新版本的组件（id，按清单的先后） */
+  available: string[];
+}
+
+/** "组件有新版本"事项的 data：这条提醒说的是哪些组件的哪个版本 */
+export interface ComponentUpdateNoticeData {
+  components: { id: string; version: string }[];
+}
+
 /** GET /api/components：清单里的全部组件（按清单的先后） */
 export interface ComponentsView {
   components: ComponentView[];
@@ -182,6 +204,8 @@ export interface ComponentsView {
   manifest: { release: string; signed: boolean };
   /** 照默认该装、还没装的（"装上默认的组件"那个按钮装它们） */
   defaultsMissing: string[];
+  /** 查更新（接了才有） */
+  updates?: ComponentUpdatesView;
 }
 
 /** 离线导入的结果 */
