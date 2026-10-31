@@ -116,7 +116,7 @@ function about(name: string): Omit<PluginInfo, "state" | "needs" | "neededBy" | 
       name,
       title: say("内置浏览器", "Built-in browser"),
       summary: say(
-        "鸿蒙 App 里的「浏览」：浏览侧边栏、网页框上的悬浮按钮，替你读网页、填框、找文件交文件、点按钮，联网搜索也能用它",
+        "手机 App 里的「浏览」：浏览侧边栏、网页框上的悬浮按钮，替你读网页、填框、找文件交文件、点按钮，联网搜索也能用它",
         "Browse in the HarmonyOS app: the browse sidebar and the floating button on page fields; it reads pages, fills fields, finds and attaches files and clicks buttons for you, and web search can use it",
       ),
       brings: {
