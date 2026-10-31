@@ -11,7 +11,8 @@ import android.graphics.Color
  * 颜色的来历：
  * - 启动画面：鸿蒙工程 resources/{base,dark}/element/color.json 的 start_window_background；
  * - sys.color.ohos_id_color_*：鸿蒙的系统主题色（pages/Index.ets 用的），这里抄的是 OpenHarmony 系统资源的默认值。
- *   鸿蒙真机上的系统主题可能略有出入，主会话拿鸿蒙模拟器截图对过之后以截图为准。
+ *   2026-11-01 拿 Pura 90 模拟器截图量过：浅色背景实际是 #FFFFFF（OpenHarmony 的默认值 #F1F3F5 不对，已改）；输入框、普通按钮的底色 #F3F3F3、
+ *   主按钮 #0A58F6 对得上。深色没有量过。
  */
 object ErgoTheme {
     class Palette(
@@ -41,7 +42,7 @@ object ErgoTheme {
     )
 
     val LIGHT = Palette(
-        background = Color.parseColor("#F1F3F5"),
+        background = Color.parseColor("#FFFFFF"),
         textPrimary = Color.parseColor("#E5000000"),
         textSecondary = Color.parseColor("#99000000"),
         textTertiary = Color.parseColor("#66000000"),
