@@ -245,7 +245,7 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 | `POST /api/model-settings/custom-models` | `{ baseUrl? }`（不给就用设置里存的那份） | `{ ok, models: [{ id, name?, ownedBy? }], error? }` |
 | `POST /api/model-settings/test` | `{ modelId?, custom? }`（`custom` 给了就测这一份，设置页还没存也想试一下时用；不带按设置里存的） | `{ ok, modelId, firstTokenMs?, totalMs, error? }` |
 
-- 列模型是守护进程自己发的一次 `GET {baseUrl}/models`，带 `Authorization: Bearer <key>`（key 取**当前选中的**那个服务商的），15 秒超时，最多收 `CUSTOM_MODELS_MAX`（500）个；认 `{ data: [{ id, name?, owned_by? }] }`，也认直接一个数组。**列不成不算出错**：照样回 200，`ok: false`、`error` 写原因，原因里的 key 内容去掉。
+- 列模型是守护进程自己发的一次 `GET {baseUrl}/models`，带 `Authorization: Bearer <key>`（key **只认自定义服务商那一份**：设置里还选着 DeepSeek 时也绝不把 DeepSeek 的 key 发给请求里那个地址），15 秒超时，最多收 `CUSTOM_MODELS_MAX`（500）个；认 `{ data: [{ id, name?, owned_by? }] }`，也认直接一个数组。**列不成不算出错**：照样回 200，`ok: false`、`error` 写原因，原因里的 key 内容去掉。
 - 连通测试还是那条路——起一个一次性子进程，在它里面登记 provider、发一条极短的请求；同一时间只跑一个，重了回 409（"上一个还没测完"）。
 - 设置文件里的 `custom` 块在 `provider` 不是 `custom` 时也可以留着（切回 DeepSeek 不清空它）；`POST /api/model-settings` 没带 `custom` 就沿用文件里原来那份。`checkModelCustom()`（`packages/protocol/src/model-settings.ts`）是唯一判合规的地方：地址要 http(s)、模型 id 不能空白、末尾斜杠去掉；选着 `custom` 却没有这一块按读文件失败处理。
 
