@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { t } from "@ergo/protocol";
 import { flagOn, flagString, parseArgs } from "./args.ts";
+import { cmdBackupTool } from "./backup-tools.ts";
 import { cmdComponents } from "./components.ts";
 import type { CliContext } from "./context.ts";
 import { cmdLogs, cmdOnboard, cmdOpen, cmdRestart, cmdSvc, cmdStart, cmdStatus, cmdStop } from "./service.ts";
@@ -92,6 +93,11 @@ export async function runCli(argv: readonly string[], ctx: CliContext): Promise<
       });
     case "components":
       return cmdComponents(ctx, args.positional[0], args.positional[1], { acceptLicense: flagOn(args, "accept-license") });
+    case "backup":
+      // 原样转给备份、恢复的命令行工具（356 号票）
+      return cmdBackupTool(ctx, "run-backup", argv.slice(argv.indexOf("backup") + 1));
+    case "restore":
+      return cmdBackupTool(ctx, "restore", argv.slice(argv.indexOf("restore") + 1));
     case "svc":
       // 原样转：连 --data-dir 这类开关也不解析
       return cmdSvc(ctx, argv.slice(argv.indexOf("svc") + 1));

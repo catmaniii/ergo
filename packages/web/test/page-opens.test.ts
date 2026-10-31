@@ -125,8 +125,11 @@ const EN_DONE: { hash: string; selector: string; except?: string }[] = [
   // 设置：身份组里的"我的名字"那一行（43 号票的"个人助理的名字"2026-10-23 起不单独设了，改成默认角色的名字）
   { hash: "#/more/settings", selector: ".user-name-setting", except: ".assistant-name" },
   { hash: "#/more/settings", selector: ".tool-call-storage .btn" },
-  // 335 号票：设置里的"备份"一小节（同步目录、最近一次、立即备份）
-  { hash: "#/more/settings", selector: "[data-section=backup] .btn" },
+  // 335 号票：设置里的"备份"；356 号票起单独一页，状态、位置、时间、快照、按钮都在里面
+  { hash: "#/more/settings", selector: "[data-page=backup]" },
+  { hash: "#/more/backup", selector: ".backup-page .btn.primary" },
+  { hash: "#/more/backup", selector: ".backup-place .btn" },
+  { hash: "#/more/backup", selector: ".backup-verify" },
   { hash: "#/more/usage", selector: ".sec-head" },
   // 211 号票：设置 · 插件（原型的假守护进程按打开时的语言给插件的说法）
   { hash: "#/more/plugins", selector: ".plugins-page" },
@@ -169,7 +172,7 @@ const EN_DONE: { hash: string; selector: string; except?: string }[] = [
   { hash: "#/more/appearance", selector: ".appearance-choice" },
   { hash: "#/more/browsing", selector: ".seg" },
   { hash: "#/more/settings", selector: ".tool-call-storage small" },
-  { hash: "#/more/settings", selector: "[data-section=backup] small" },
+  { hash: "#/more/backup", selector: ".backup-lines" },
   // 172 号票：协议包的说法——模型设置里各 agent 的名字（秘书那一行是名字标签）、怎么开会话的说明、思考档位，关注类别的各种处置
   { hash: "#/more/models", selector: ".model-agent-head > b", except: ".assistant-name" },
   { hash: "#/more/models", selector: ".model-agent-head small.muted:first-of-type" },

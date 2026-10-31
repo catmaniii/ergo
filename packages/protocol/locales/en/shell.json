@@ -52,6 +52,8 @@
   "shell.pages.components.sub": "Models, speech and other large pieces: what's installed, download, update, remove",
   "shell.pages.authorizedFolders.title": "Authorized folders",
   "shell.pages.authorizedFolders.sub": "Folders on your computer whose files every agent can read without asking you",
+  "shell.pages.backup.title": "Backup",
+  "shell.pages.backup.sub": "Where and when, existing snapshots, how to restore",
   "shell.pages.dataSources.title": "Data sources",
   "shell.pages.dataSources.sub": "Data brought in from outside: what is connected; open one to configure it and see its data",
   "shell.pages.materialsDelete.title": "Delete materials",

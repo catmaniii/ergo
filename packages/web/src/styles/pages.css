@@ -3795,10 +3795,8 @@ a.att-icon:hover {
 }
 /*
  * 设置里的"工具调用的完整内容"（65 号票）：说明（占了多大、规则）在上，"可以清掉几次"和"现在就清理"一行。
- * "备份"（335 号票）同一个样子：同步目录、最近一次、最新的快照、下一次在上，"正在备份"和"立即备份"一行；路径长的折行
  */
 .tool-call-storage,
-.backup-setting,
 .enter-key-setting {
   display: flex;
   flex-direction: column;
@@ -3806,24 +3804,126 @@ a.att-icon:hover {
   padding: 11px 10px;
   font-size: var(--fs-body);
 }
-.backup-setting small {
-  overflow-wrap: anywhere;
-}
-.tool-call-storage-row,
-.backup-setting-row {
+.tool-call-storage-row {
   display: flex;
   gap: 8px;
   align-items: center;
 }
-.tool-call-storage-row .muted,
-.backup-setting-row .muted {
+.tool-call-storage-row .muted {
   flex: 1;
   min-width: 0;
   font-size: var(--fs-s);
 }
-.tool-call-storage-row .btn,
-.backup-setting-row .btn {
+.tool-call-storage-row .btn {
   flex: none;
+}
+/*
+ * 设置 · 备份（356 号票）：状态、两处位置、什么时候、留几份、已有的快照、动手。路径和命令长的折行；宽屏两处快照并排，窄屏上下排。只用 token
+ */
+.backup-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-page);
+  font-size: var(--fs-body);
+}
+.backup-page p {
+  margin: 6px 0 0;
+}
+.backup-page h4 {
+  margin: 0 0 4px;
+  font-size: var(--fs-body);
+}
+.backup-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-wrap: anywhere;
+}
+.backup-place + .backup-place {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.backup-path {
+  margin-top: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  background: var(--fill);
+  overflow-wrap: anywhere;
+  font-size: var(--fs-m);
+}
+.backup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.backup-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+.backup-field:first-of-type {
+  margin-top: 0;
+}
+.backup-field > .input {
+  width: auto;
+}
+.backup-command {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 6px;
+}
+.backup-command code {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  border-radius: var(--radius-m);
+  background: var(--fill);
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: var(--fs-s);
+}
+.backup-command .btn {
+  flex: none;
+}
+.backup-snapshot-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+.backup-snapshots ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.backup-snapshots li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+  border-top: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+.backup-verify {
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+}
+.backup-restore ol {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}
+.backup-restore li + li {
+  margin-top: 10px;
+}
+.backup-confirm-text {
+  margin: 0;
+  overflow-wrap: anywhere;
 }
 /*
  * 设置 · 系统提示（71 号票）：列表按前缀、各角色、共用片段分节，每份一行（名字、用的是默认还是改过的、一句说明）；

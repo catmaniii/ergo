@@ -73,7 +73,9 @@ describe("设置里的备份接口", () => {
   it("GET 看状况：每天 03:30、下一次、同步目录能用、还没备份过；POST 立即备份马上回（排着），做完本机和同步目录都有当天的快照、记下最近一次", async () => {
     const { url, layout, syncDir } = await startBackupDaemon({ start: START });
     const before = (await backupApi.status(url)).body;
-    expect(before).toEqual({ schedule: "internal", time: "03:30", next: nowIso(at(10, 8, 3, 30)), syncDir: { kind: "ready", dir: syncDir }, queued: false });
+    expect(before).toMatchObject({ schedule: "internal", time: "03:30", next: nowIso(at(10, 8, 3, 30)), syncDir: { kind: "ready", dir: syncDir }, queued: false });
+    expect(before.last).toBeUndefined();
+    expect(before.running).toBeUndefined();
 
     const started = await backupApi.run(url);
     expect(started.status).toBe(200);

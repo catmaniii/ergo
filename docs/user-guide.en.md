@@ -199,7 +199,7 @@ The config file is optional; without it everything uses defaults. To change some
 | `voice.recognizer.python` | `python.exe` that has faster-whisper (only `spawn` uses it) | `python` on PATH |
 | `voice.speech.url` / `voice.speech.model` | TTS service address and model | `http://127.0.0.1:8090` |
 | `web.browserPath` | Chrome / Edge used for web access; auto-detected if omitted | — |
-| `backup.time` / `backup.syncDir` / `backup.schedule` | Nightly backup time, extra copy to a sync folder, who schedules it | 03:30 / none / `"internal"` |
+| `backup.time` / `backup.syncDir` / `backup.schedule` | Nightly backup time, extra copy to a sync folder, who schedules it (can be changed in **Settings · Backup**, effective right away) | 03:30 / none / `"internal"` |
 | `memory.maxModelCalls` / `memory.enabled` | Model calls per nightly consolidation, whether this PC runs it | 200 / `true` |
 | `media.maxUploadBytes` | Max size of one upload | 200 MB |
 | `timeZone` | Time zone for the timestamps sent to the model (rarely needed) | system time zone |
@@ -415,11 +415,32 @@ Its Agent SDK (`@anthropic-ai/claude-agent-sdk`) is under Anthropic's own licens
 
 ## 9. Backup and restore
 
-- Every night at 03:30 the daemon takes a consistent snapshot of the data directory into its `backups\`. If the PC was off, it catches up on the next start.
-- Set `backup.syncDir` in `ergo.json` to also copy each snapshot into a sync folder (a NAS, home storage, or a cloud-drive client's folder): `{ "backup": { "syncDir": "D:\\NAS\\ergo-backup" } }`.
-- **Back up now**: **Settings · Backup** → "Back up now", or `npm run backup` in the ergo directory (works with the daemon running; the last line says whether it succeeded; log in `logs\backup.log` in the data directory).
-- **Use your own scheduler**: set `"backup": { "schedule": "external" }` and the daemon stops backing up on its own; have your scheduler run `npm run backup -- --scheduled`. You get a reminder if nobody backs up for two days.
-- **Restore**:
+**More · Settings · Backup** (`#/more/backup`) is one page for all of it, and it works from your phone too (the folder you choose is still on the computer ergo runs on). Changes made here take effect right away, no restart needed.
+
+- Every night at 03:30 (you can change the time on this page) the daemon takes a consistent snapshot of the data directory into its `backups\`. This copy stays with the data directory and can't be moved separately. If the PC was off, it catches up on the next start.
+- **Sync folder (an extra copy)**: use "Change…" to choose a folder or paste a path. Each snapshot is also copied there: a NAS, home storage, or a cloud-drive client's folder.
+  - It's checked as you choose: a full path, not inside the data directory, and writable (a temporary file is really written). If it doesn't exist you're asked whether to create it. Anything unacceptable gets a clear reason and the config stays as it was.
+  - Changing the folder: snapshots already in the old folder are neither moved nor deleted, and the next backup goes to the new one. A backup that's running still finishes in the old folder.
+  - "Clear": asks you to confirm, then only the local copy is kept. Existing snapshots aren't deleted.
+  - You can also edit `ergo.json` by hand: `{ "backup": { "syncDir": "D:\\NAS\\ergo-backup" } }`; hand edits need a daemon restart. The page only touches these `backup` keys and leaves everything else in the file byte for byte. If the file is broken (not valid JSON, say) it tells you what's wrong and doesn't overwrite it.
+- **How many are kept**: 7 locally; 7 daily and 4 weekly in the sync folder. Older ones are deleted automatically.
+- **Existing snapshots**: date and size for each place, or the reason they couldn't be read. The size is the total of the files in that snapshot; files that are the same across snapshots take up space only once.
+- **Back up now**: "Back up now", or `ergo backup` (if you `git clone`d: `npm run backup` in the ergo directory). It works with the daemon running; the last line says whether it succeeded; log in `logs\backup.log` in the data directory.
+- **Check**: the latest snapshots are checked every Sunday at 04:30. "Check the latest snapshots" runs that right away, in the same queue and under the same lock as backups, so the two never overlap. The result appears under the button, and a failure also leaves a notice.
+- **Use your own scheduler**: set "Who schedules it" to "External timer" (or `"backup": { "schedule": "external" }` in the config) and the daemon stops backing up on its own; have your scheduler run `ergo backup --scheduled` (if you `git clone`d: `npm run backup -- --scheduled` in the ergo directory; the page shows the right command for this computer, ready to copy). You get a reminder if nobody backs up for two days. Switching back works the same way, no restart needed.
+- **Restore**: ergo has to be stopped first, so there's no one-click restore on the web page. "How to restore" lists the commands for how ergo is installed on this computer, ready to copy. If the page won't open, use these:
+
+  Installed with the one-line command (or npm):
+
+  ```powershell
+  ergo stop                             # stop ergo first
+  ergo restore --list                   # list snapshots
+  ergo restore 2026-10-15               # restore a day
+  ergo restore 2026-10-15 --from sync   # local copy broken: restore from the sync folder
+  ergo start                            # start it again
+  ```
+
+  If you `git clone`d (there's no `ergo` command):
 
   ```powershell
   # in packages\supervisor: stop the daemon first
@@ -433,7 +454,7 @@ Its Agent SDK (`@anthropic-ai/claude-agent-sdk`) is under Anthropic's own licens
   node bin\lsm.mjs start ergo-daemon
   ```
 
-  What was there before is moved to `backups\pre-restore-<time>\`, keeping the latest 2. The restore command refuses to run while the daemon is running.
+  If your data directory isn't the default (you set `ERGO_DATA_DIR`), set that variable in the same window before using `ergo` too. What was there before is moved to `backups\pre-restore-<time>\`, keeping the latest 2. The restore command refuses to run while the daemon is running. The config is part of the snapshot too: after restoring, the sync folder and backup time are back to what they were that day, so take a look at **Settings · Backup**.
 
 ---
 
@@ -465,7 +486,7 @@ The outside access check doesn't connect anywhere. It only looks at what this ma
 | The phone can't open ergo or stays on the pairing page | Outside access not set up, or the request expired / was rate-limited | Make sure 8811 is what's exposed; approve the request in **Inbox** on the PC within 5 minutes; after repeated failures wait 10 minutes |
 | The phone says "this device has been revoked" | It was revoked under Paired devices | Tap "Request pairing" to apply again |
 | The supervisor shows ergo yellow (degraded) | An enabled plugin failed to load | See `reasons` in `/healthz`, or the plugin's note in **Settings · Plugins** |
-| Every backup says it wasn't copied to the sync folder | `backup.syncDir` is still the example placeholder, or the folder is missing | Set a real absolute path, or remove the item |
+| Every backup says it wasn't copied to the sync folder | `backup.syncDir` is still the example placeholder, or the folder is missing | Pick another folder in **Settings · Backup**, or use "Clear" |
 | Web tools say no browser was found | No Chrome / Edge, or installed somewhere unusual | Set its exe path in `web.browserPath` |
 | Install or update won't go through: the antivirus says "unknown publisher", kills the process, or the installed files vanish later | Security software such as 360 blocks programs it does not recognise (`bin\ergo.exe` or the whole install folder) | Add `%LOCALAPPDATA%\Programs\ergo` to the security software's trusted list and install again; if the command still runs, use `bin\ergo.cmd` (the same command as `ergo.exe`); or install from npm (`npm i -g ergo-ai`, needs Node 22). Your data is in `%USERPROFILE%\.ergo`; reinstalling leaves it alone |
 | `ergo update` says it could not switch, or `ergo version` still shows the old version | The `current` file names a version that is not installed properly under `versions\` (half copied, edited by hand) | Check what `%LOCALAPPDATA%\Programs\ergo\current` says, whether that folder exists under `versions\` and has `ergo.json` in it; if not, run `ergo update` again, or install again (your data is untouched) |

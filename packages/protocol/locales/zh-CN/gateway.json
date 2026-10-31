@@ -73,6 +73,7 @@
   "gateway.http.needBranch": "要给 {branch}",
   "gateway.http.noToolCallStorage": "这个版本还没有工具调用完整内容的清理",
   "gateway.http.noBackup": "这个版本还没有备份的接口",
+  "gateway.http.badBackupConfig": "备份设置的请求不对：{message}",
   "gateway.http.badSystemPrompt": "保存系统提示的参数不对：{message}",
   "gateway.http.noModelSettings": "这个版本还没有模型设置",
   "gateway.http.noSafetySettings": "这个版本还没有安全和预算的开关",

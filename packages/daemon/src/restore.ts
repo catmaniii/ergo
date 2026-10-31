@@ -1,7 +1,8 @@
-// 恢复命令：从指定日期的快照恢复数据目录（规格第 18 节）。出事时先在 LSM 里停掉 ergo-daemon，再跑：
-//   <专用 Node 22 LTS 的绝对路径> packages/daemon/src/restore.ts <日期 YYYY-MM-DD> [--from local|sync|<目录>]
-//   <专用 Node 22 LTS 的绝对路径> packages/daemon/src/restore.ts --list
-// 恢复完再经 LSM 起 ergo-daemon。恢复命令自己不启停任何服务；守护进程还在运行时拒绝执行。
+// 恢复命令：从指定日期的快照恢复数据目录（规格第 18 节）。出事时先停掉二狗，再跑：
+//   ergo restore <日期 YYYY-MM-DD> [--from local|sync|<目录>]            一行命令、npm 装的（356 号票，ergo 命令用自带的 Node 跑这个文件）
+//   ergo restore --list
+//   <专用 Node 的绝对路径> packages/daemon/src/restore.ts <日期> ...      自己 git clone 的
+// 恢复完再把二狗起来（ergo start；git clone 的经服务管家起 ergo-daemon）。恢复命令自己不启停任何服务；守护进程还在运行时拒绝执行。
 //
 // 和守护进程读同一份配置：数据目录取 ERGO_DATA_DIR（不设是用户主目录下的 .ergo），同步目录取配置里的 backup.syncDir。
 // --from：local 只找本机备份区，sync 只找同步目录，给一个目录就在那个目录下找日期目录；不给时先本机、再同步目录。
@@ -17,9 +18,10 @@ installBuiltinLocales();
 
 const USAGE = [
   "用法：",
-  "  node packages/daemon/src/restore.ts <日期 YYYY-MM-DD> [--from local|sync|<目录>]   从那一天的快照恢复数据目录",
-  "  node packages/daemon/src/restore.ts --list                                        列出本机备份区和同步目录里的快照",
-  "恢复之前先在 Local Service Manager 里停掉 ergo-daemon，恢复完再起来。",
+  "  ergo restore <日期 YYYY-MM-DD> [--from local|sync|<目录>]   从那一天的快照恢复数据目录",
+  "  ergo restore --list                                        列出本机备份区和同步目录里的快照",
+  "自己 git clone 的：把 ergo restore 换成 node packages/daemon/src/restore.ts。",
+  "恢复之前先停掉二狗（ergo stop；git clone 的在服务管家里停 ergo-daemon），恢复完再起来。",
 ].join("\n");
 
 function fail(message: string, code = 1): never {
@@ -54,7 +56,7 @@ try {
   const result = await restoreSnapshot({ config, layout, date: date!, ...(from === undefined ? {} : { from }) });
   console.log(`已从 ${result.snapshot} 恢复数据目录 ${layout.root}。`);
   console.log(`恢复之前的内容挪到了 ${result.setAside}（pre-restore-* 只留最近 2 份）。`);
-  console.log("现在可以在 Local Service Manager 里启动 ergo-daemon。");
+  console.log("现在可以把二狗起来了（ergo start；自己 git clone 的在服务管家里起 ergo-daemon）。");
   process.exit(0);
 } catch (err) {
   if (err instanceof RestoreRefused) fail(`没有恢复：${err.message}`);

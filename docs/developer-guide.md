@@ -57,7 +57,8 @@
 | 构建鸿蒙 App | `npm run build:harmony`（[第 8 节](#8-手机-app)） |
 | 构建安卓 App | `npm run build:android`（[8.5](#85-安卓-app)） |
 | 下载向量模型 | `npm run download-model` |
-| 马上备份一次 | `npm run backup` |
+| 马上备份一次 | `npm run backup`（装好的程序里没有 `npm run`，是 `ergo backup`） |
+| 从快照恢复 | `node packages/daemon/src/restore.ts <日期>`（装好的程序里是 `ergo restore <日期>`，都要先停守护进程） |
 | 部署 VPS 公网入口的 nginx 站点 | `npm run deploy:nginx`（`-- --print` 只打印） |
 | 检查项目服务的页面守不守前缀约定 | `npm run check:app-prefix -- <服务地址> --name <应用名>`（[4.8](#48-转发本机服务的页面)） |
 

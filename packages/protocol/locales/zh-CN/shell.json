@@ -52,6 +52,8 @@
   "shell.pages.components.sub": "模型、语音这些大件：装了哪些，下载、更新、删",
   "shell.pages.authorizedFolders.title": "授权的文件夹",
   "shell.pages.authorizedFolders.sub": "电脑上哪些文件夹里的文件，所有 agent 读的时候不用再问你",
+  "shell.pages.backup.title": "备份",
+  "shell.pages.backup.sub": "放在哪、什么时候、已有的快照，怎么恢复",
   "shell.pages.dataSources.title": "数据源",
   "shell.pages.dataSources.sub": "外面接进来的数据：有哪些、连没连上；点进去配置、看数据",
   "shell.pages.materialsDelete.title": "删除素材",

@@ -197,7 +197,7 @@
 | `voice.recognizer.python` | 装了 faster-whisper 的 `python.exe`（只有 `spawn` 用） | PATH 上的 `python` |
 | `voice.speech.url` / `voice.speech.model` | 语音合成服务的地址和模型 | `http://127.0.0.1:8090` |
 | `web.browserPath` | 联网用的 Chrome / Edge，不写就自动找 | — |
-| `backup.time` / `backup.syncDir` / `backup.schedule` | 每晚备份的时刻、另存一份的同步目录、谁来定时 | 03:30 / 不另存 / `"internal"` |
+| `backup.time` / `backup.syncDir` / `backup.schedule` | 每晚备份的时刻、另存一份的同步目录、谁来定时（**设置 · 备份**里能改，马上生效） | 03:30 / 不另存 / `"internal"` |
 | `memory.maxModelCalls` / `memory.enabled` | 每晚整理最多调几次模型、这台机器跑不跑整理 | 200 / `true` |
 | `media.maxUploadBytes` | 单个上传文件的上限 | 200 MB |
 | `timeZone` | 发给模型的时间标记按哪个时区（一般不写） | 本机时区 |
@@ -413,11 +413,32 @@ agent 联网时用本机的 Chrome 或 Edge，会自动找。找不到、或者�
 
 ## 9. 备份和恢复
 
-- 每晚 03:30，守护进程给数据目录做一份一致性快照，放在数据目录的 `backups\`。电脑那时关着，就在下次启动时补做。
-- 在 `ergo.json` 里写 `backup.syncDir`，快照会再复制一份到这个目录——可以放在 NAS、家里的存储或网盘客户端的同步目录里：`{ "backup": { "syncDir": "D:\\NAS同步\\ergo-backup" } }`。
-- **马上备份一次**：**设置 · 备份** 里点"立即备份"，或者在二狗目录里跑 `npm run backup`（守护进程开着也行；最后一行写着成没成，日志在数据目录的 `logs\backup.log`）。
-- **让别的定时器来跑**：配置里写 `"backup": { "schedule": "external" }`，守护进程就不再自己到点备份，由你的定时器调 `npm run backup -- --scheduled`；连着两天没人备份会提醒你。
-- **恢复**：
+**更多 · 设置 · 备份**（`#/more/backup`）一页管全部，手机上也能开（选的文件夹照样是二狗那台电脑上的）。这一页上改的马上生效，不用重启。
+
+- 每晚 03:30（时刻这一页能改），守护进程给数据目录做一份一致性快照，放在数据目录的 `backups\`。这一份跟着数据目录走，不单独挪。电脑那时关着，就在下次启动时补做。
+- **另存一份的文件夹（同步目录）**：点"更改…"选一个文件夹，或者贴路径。快照会再复制一份过去，可以放在 NAS、家里的存储或网盘客户端的同步目录里。
+  - 选的时候当场校验：要完整路径、不能在数据目录里、要写得进去（真写一个临时文件试）；不存在的问你要不要新建。不合格的写明原因，配置不变。
+  - 换文件夹：旧文件夹里已有的快照不搬也不删，下一次备份起写到新文件夹。正在做的那一份还写到原来的文件夹，做完才换。
+  - "清掉"：要确认一下，之后只留本机那份；已有的快照不删。
+  - 也能手改 `ergo.json`：`{ "backup": { "syncDir": "D:\\NAS同步\\ergo-backup" } }`，手改的要重启守护进程才生效。页面改配置只动 `backup` 这几个键，别的内容和格式不变；文件被改坏了（不是合法的 JSON 等）会写明错在哪，不覆盖。
+- **留几份**：本机 7 份；另存的文件夹每日 7 份、每周 4 份。更早的到时候自动删。
+- **已有的快照**：本机和另存的文件夹各列日期和大小，取不到的写原因。大小是这份快照里文件加起来有多大，几份之间相同的文件只占一份空间。
+- **马上备份一次**：点"立即备份"，或者跑 `ergo backup`（自己 `git clone` 的：在二狗目录里跑 `npm run backup`）。守护进程开着也行；最后一行写着成没成，日志在数据目录的 `logs\backup.log`。
+- **校验**：每周日 04:30 自动校验最新的快照。"校验最新快照"马上校验一次，和备份排同一条队列、拿同一把锁，不会同时跑；结果写在按钮下面，没通过的也放一条通知。
+- **让别的定时器来跑**："谁来定时"选"外部定时器"（或者配置里写 `"backup": { "schedule": "external" }`），守护进程就不再自己到点备份，由你的定时器调 `ergo backup --scheduled`（自己 `git clone` 的：在二狗目录里调 `npm run backup -- --scheduled`，页面上写着这台电脑该用的那条，能复制）；连着两天没人备份会提醒你。换回来也一样，不用重启。
+- **恢复**：恢复要先停二狗，所以网页上不能一键恢复。"怎么恢复"里写着按这台电脑的装法算好的命令，能复制；页面打不开时照下面做。
+
+  一行命令（或 npm）装的：
+
+  ```powershell
+  ergo stop                             # 先停二狗
+  ergo restore --list                   # 看有哪些快照
+  ergo restore 2026-10-15               # 恢复某一天的
+  ergo restore 2026-10-15 --from sync   # 本机那份坏了，从另存的文件夹恢复
+  ergo start                            # 再起来
+  ```
+
+  自己 `git clone` 的（没有 `ergo` 命令）：
 
   ```powershell
   # 在 packages\supervisor 里：先停守护进程
@@ -426,12 +447,12 @@ agent 联网时用本机的 Chrome 或 Edge，会自动找。找不到、或者�
   $env:ERGO_DATA_DIR = "$env:USERPROFILE\.ergo"
   D:\apps\node22\node.exe packages\daemon\src\restore.ts --list                   # 看有哪些快照
   D:\apps\node22\node.exe packages\daemon\src\restore.ts 2026-10-15               # 恢复某一天的
-  D:\apps\node22\node.exe packages\daemon\src\restore.ts 2026-10-15 --from sync   # 本机那份坏了，从同步目录恢复
+  D:\apps\node22\node.exe packages\daemon\src\restore.ts 2026-10-15 --from sync   # 本机那份坏了，从另存的文件夹恢复
   # 回到 packages\supervisor：再启动
   node bin\lsm.mjs start ergo-daemon
   ```
 
-  恢复之前的内容会挪到 `backups\pre-restore-<时间>\`，只留最近 2 份。守护进程没停时，恢复命令会拒绝执行。
+  数据目录不是默认的（设过 `ERGO_DATA_DIR`）：用 `ergo` 命令之前也要在同一个窗口里设好这个环境变量。恢复之前的内容会挪到 `backups\pre-restore-<时间>\`，只留最近 2 份。守护进程没停时，恢复命令会拒绝执行。配置也在快照里：恢复之后另存的文件夹、备份时刻回到那一天的样子，到**设置 · 备份**看一眼。
 
 ---
 
@@ -463,7 +484,7 @@ agent 联网时用本机的 Chrome 或 Edge，会自动找。找不到、或者�
 | 手机打不开或一直在配对页 | 外网入口没接好，或请求过期、被限频 | 确认接的是 8811；电脑上**待办**里批准配对请求（5 分钟内有效）；连着失败时等 10 分钟再试 |
 | 手机上提示"此设备已被吊销" | 在已配对设备里吊销过 | 点"请求配对"重新申请 |
 | 服务管家上二狗亮黄灯（degraded） | 某个启用着的插件没装上 | 看 `/healthz` 的 `reasons`，或 **设置 · 插件** 里那个插件写的原因 |
-| 每次备份都说"没写进同步目录" | `backup.syncDir` 还是样例里的占位符，或目录不在 | 改成真实的绝对路径，或者删掉这一项 |
+| 每次备份都说"没写进同步目录" | `backup.syncDir` 还是样例里的占位符，或目录不在 | 在**设置 · 备份**里换一个文件夹，或者点"清掉" |
 | 联网工具说找不到浏览器 | 本机没有 Chrome / Edge，或装在不常见的位置 | 在 `web.browserPath` 里写浏览器 exe 的路径 |
 | 安装或升级时装不下去：安全软件弹"未知发布者"、把进程结束了，或者装好的文件过一会儿不见了 | 360 这类安全软件拦了不认识的新程序（`bin\ergo.exe` 或整个安装目录） | 把 `%LOCALAPPDATA%\Programs\ergo` 加进安全软件的信任区，再装一遍；命令还能跑的话直接用 `bin\ergo.cmd`（和 `ergo.exe` 是同一条命令）；或者改用 npm 装（`npm i -g ergo-ai`，机器上要有 Node 22）。数据在 `%USERPROFILE%\.ergo`，重装不碰 |
 | `ergo update` 说切不过去，或者更新完 `ergo version` 还是老版本 | `current` 那行写着哪个版本、`versions\` 里那个版本没装好（拷了一半、手改过） | 看 `%LOCALAPPDATA%\Programs\ergo\current` 里写的是哪个版本、`versions\` 下有没有它、里面的 `ergo.json` 在不在；不对就重跑 `ergo update`，或者重新装一遍（数据不动） |

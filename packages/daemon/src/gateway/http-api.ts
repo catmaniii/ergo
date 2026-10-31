@@ -52,6 +52,9 @@ import {
   t,
   checkHttpBody,
   CompleteUploadBody,
+  BackupConfigBody,
+  BackupFolderCheckBody,
+  BackupOpenBody,
   CreateUploadBody,
   DEBUG_AUDIO_MAX_BYTES,
   DebugRecognizeBody,
@@ -240,8 +243,8 @@ export interface HttpApiOptions {
   slashCommands?: (conversation: string) => SlashCommandList | undefined;
   /** 工具调用完整内容的保留期和总量上限：设置里看占了多大、"现在就清理"（65 号票）；不给就没有这两个接口 */
   toolCallStorage?: Pick<ToolCallDetailRetention, "view" | "cleanup">;
-  /** 设置里的"备份"（335 号票）：现在的状况、"立即备份"（排一次，不等做完）；不给就没有这两个接口 */
-  backup?: Pick<BackupService, "status" | "startNow">;
+  /** 设置 · 备份（335、356 号票）：现在的状况、"立即备份"（排一次，不等做完）、改配置、校验文件夹、列快照、手动校验、打开文件夹；不给就没有这几个接口 */
+  backup?: Pick<BackupService, "status" | "startNow" | "changeConfig" | "checkFolder" | "snapshots" | "startVerify" | "openFolder">;
   /** 设置里的系统提示：全部、一份、保存、恢复默认（71 号票）；不给就没有这几个接口 */
   systemPrompts?: Pick<PromptLibrary, "list" | "detail" | "save" | "reset">;
   /** 设置里的"模型"（73 号票；319 号票起还能在网页上填 key）；不给就没有这几个接口 */
@@ -766,16 +769,58 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         return {
           // 设置里的"备份"（335 号票）：谁来定时、下一次、同步目录、最新的快照、最近一次、现在有没有一份在做（每次现取）
           GET(_req, res) {
-            if (!options.backup) throw new HttpError("not_found", t("gateway.http.noBackup"));
-            sendJson(res, 200, options.backup.status());
+            sendJson(res, 200, backupService().status());
           },
         };
       case "backup_run":
         return {
           // "立即备份"：守护进程排一次（和它自己到点的同一条队列、同一把锁），不等做完，马上回现在的状况
           POST(_req, res) {
-            if (!options.backup) throw new HttpError("not_found", t("gateway.http.noBackup"));
-            sendJson(res, 200, options.backup.startNow());
+            sendJson(res, 200, backupService().startNow());
+          },
+        };
+      case "backup_config":
+        return {
+          // 设置 · 备份改配置（356 号票）：另存的文件夹、每晚几点、谁来定时；校验不过、配置文件被改坏了回 400 带原因，什么都不变
+          async PATCH(req, res) {
+            const service = backupService();
+            const body = checkHttpBody(BackupConfigBody, await readJson(req));
+            if (!body.ok) throw new HttpError("bad_request", t("gateway.http.badBackupConfig", { message: body.message }));
+            sendJson(res, 200, await service.changeConfig(body.value));
+          },
+        };
+      case "backup_check_folder":
+        return {
+          // 选文件夹时校验一个路径（356 号票）：能用、不存在、不能用（原因在响应里，都是 200）
+          async POST(req, res) {
+            const service = backupService();
+            const body = checkHttpBody(BackupFolderCheckBody, await readJson(req));
+            if (!body.ok) throw new HttpError("bad_request", t("gateway.http.badBackupConfig", { message: body.message }));
+            sendJson(res, 200, await service.checkFolder(body.value.dir));
+          },
+        };
+      case "backup_snapshots":
+        return {
+          // 本机和另存文件夹各有哪些快照（356 号票）：取不到的原因在响应里
+          async GET(_req, res) {
+            sendJson(res, 200, await backupService().snapshots());
+          },
+        };
+      case "backup_verify":
+        return {
+          // 手动校验最新的快照（356 号票）：排一次（和备份同一条队列、同一把锁），不等做完，马上回现在的状况
+          POST(_req, res) {
+            sendJson(res, 200, backupService().startVerify());
+          },
+        };
+      case "backup_open":
+        return {
+          // 在电脑上打开本机备份区或另存的文件夹（356 号票）：只认这两处，不收路径；打不开的原因在响应里
+          async POST(req, res) {
+            const service = backupService();
+            const body = checkHttpBody(BackupOpenBody, await readJson(req));
+            if (!body.ok) throw new HttpError("bad_request", t("gateway.http.badBackupConfig", { message: body.message }));
+            sendJson(res, 200, await service.openFolder(body.value.place));
           },
         };
       case "system_prompts":
@@ -1345,6 +1390,11 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
     const service = options.browsing();
     if (!service) throw new RequestRejected("not_allowed", browsingOff());
     return service;
+  };
+
+  const backupService = () => {
+    if (!options.backup) throw new HttpError("not_found", t("gateway.http.noBackup"));
+    return options.backup;
   };
 
   const localFolders = () => {

@@ -1431,7 +1431,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       internalJobs.rearm();
       wiring.scheduledJobs?.rearm();
     });
-    const backup = createBackupService({ layout, config: config.backup, inbox, clock, internalJobs, log, ...(options.backupFiles ? { files: options.backupFiles } : {}) });
+    const backup = createBackupService({ layout, config: config.backup, inbox, clock, internalJobs, log, homeDir: options.homeDir, openFolder: options.openFolder ?? openFolderOnDesktop, ...(options.backupFiles ? { files: options.backupFiles } : {}) });
     teardown.push(() => backup.stop());
     teardown.push(() => internalJobs.stop());
     backup.start();

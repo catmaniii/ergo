@@ -138,6 +138,36 @@ export function listSnapshots(root: string): Snapshot[] {
   return listSnapshotDates(root).flatMap((date) => readSnapshot(path.join(root, date)) ?? []);
 }
 
+/**
+ * 设置 · 备份列快照（356 号票）：一处的日期目录，从新到旧，带快照里文件的总大小（相同的文件在几份之间共用，这是这一天的数据有多大，不是占了多少盘）；
+ * 清单读不出来的写原因。备份区不存在是空的；读不了这个目录（没权限、盘不在）抛错，调用方写原因。不挡事件循环（文件夹可能在 NAS 上）
+ */
+export async function listSnapshotSizes(root: string): Promise<Array<{ date: string; bytes?: number; problem?: string }>> {
+  let entries: fs.Dirent[];
+  try {
+    entries = await fs.promises.readdir(root, { withFileTypes: true });
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return [];
+    throw err;
+  }
+  const dates = entries
+    .filter((e) => e.isDirectory() && isSnapshotDate(e.name))
+    .map((e) => e.name)
+    .toSorted()
+    .toReversed();
+  return Promise.all(
+    dates.map(async (date) => {
+      const file = path.join(root, date, MANIFEST_FILE);
+      try {
+        const manifest = JSON.parse(await fs.promises.readFile(file, "utf8")) as Manifest;
+        return { date, bytes: snapshotEntries(manifest).reduce((sum, [, entry]) => sum + entry.size, 0) };
+      } catch {
+        return { date, problem: t("backup.verify.noManifest", { file }) };
+      }
+    }),
+  );
+}
+
 /** 快照里的全部条目（数据库和其余文件），相对 data/ 的路径 */
 export function snapshotEntries(manifest: Manifest): Array<[rel: string, entry: SnapshotFile | SnapshotDatabase]> {
   return [...Object.entries(manifest.databases), ...Object.entries(manifest.files)];

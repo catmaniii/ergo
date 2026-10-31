@@ -73,6 +73,7 @@
   "gateway.http.needBranch": "{branch} is required",
   "gateway.http.noToolCallStorage": "This version can't clean up full tool-call records yet",
   "gateway.http.noBackup": "This version has no backup endpoint yet",
+  "gateway.http.badBackupConfig": "Bad backup settings request: {message}",
   "gateway.http.badSystemPrompt": "Bad parameters for saving the system prompt: {message}",
   "gateway.http.noModelSettings": "This version doesn't have model settings yet",
   "gateway.http.noSafetySettings": "This version doesn't have the safety and budget switches yet",

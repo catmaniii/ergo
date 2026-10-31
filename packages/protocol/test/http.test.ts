@@ -34,6 +34,12 @@ describe("HTTP 接口的路径", () => {
     // 设置里的"备份"：现在的状况、立即备份（335 号票）
     expect(parseHttpPath(pathOf(HTTP_PATHS.backup))).toEqual({ route: "backup" });
     expect(parseHttpPath(pathOf(HTTP_PATHS.backupRun))).toEqual({ route: "backup_run" });
+    // 356 号票：备份单独一页的几个接口
+    expect(parseHttpPath(pathOf(HTTP_PATHS.backupConfig))).toEqual({ route: "backup_config" });
+    expect(parseHttpPath(pathOf(HTTP_PATHS.backupCheckFolder))).toEqual({ route: "backup_check_folder" });
+    expect(parseHttpPath(pathOf(HTTP_PATHS.backupSnapshots))).toEqual({ route: "backup_snapshots" });
+    expect(parseHttpPath(pathOf(HTTP_PATHS.backupVerify))).toEqual({ route: "backup_verify" });
+    expect(parseHttpPath(pathOf(HTTP_PATHS.backupOpen))).toEqual({ route: "backup_open" });
     expect(parseHttpPath("/api/backup/now")).toBeUndefined();
     expect(parseHttpPath("/api/backup/run/x")).toBeUndefined();
     // 设置里的"模型"：取、存，连通测试（73 号票）

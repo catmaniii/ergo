@@ -109,6 +109,11 @@ import type {
   ToolCallCleanupResult,
   ToolCallDetail,
   ToolCallStorageView,
+  BackupConfigBody,
+  BackupFolderCheck,
+  BackupOpenResult,
+  BackupPlace,
+  BackupSnapshotsView,
   BackupStatusView,
   ToolkitCatalog,
   UploadedMedia,
@@ -286,6 +291,7 @@ export class FakeDaemonHttp implements DaemonHttp {
   /** 原型的备份（335 号票）：编的一份，点了"立即备份"一秒半之后做完、记成最近一次 */
   private backup: BackupStatusView = fakeBackupStatus();
   private backupDoneAt: number | undefined;
+  private backupVerifyDoneAt: number | undefined;
   /** 原型的系统提示（71 号票） */
   private readonly prompts = new FakeSystemPrompts();
   /** 原型的个人档案（281 号票）：编的一份，本人的姓名就是原型里的"我的名字" */
@@ -796,10 +802,16 @@ export class FakeDaemonHttp implements DaemonHttp {
       const now = new Date();
       const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
       const at = nowIso(now);
-      const done: BackupStatusView = { ...this.backup, queued: false, latestLocal: date, latestSync: date, last: { by: "daemon", mode: "manual", startedAt: at, finishedAt: at, date, local: "created", sync: "copied" } };
+      const synced = this.backup.syncDir.kind === "ready";
+      const done: BackupStatusView = { ...this.backup, queued: false, latestLocal: date, ...(synced ? { latestSync: date } : {}), last: { by: "daemon", mode: "manual", startedAt: at, finishedAt: at, date, local: "created", sync: synced ? "copied" : "not_configured" } };
       delete done.running;
       this.backup = done;
       this.backupDoneAt = undefined;
+    }
+    if (this.backupVerifyDoneAt !== undefined && Date.now() >= this.backupVerifyDoneAt) {
+      const checks: BackupStatusView["lastVerify"] = { finishedAt: nowIso(), checks: [{ location: "local", date: this.backup.latestLocal ?? fakeDateOf(fakeDay(0, 3, 30)), problems: [] }, ...(this.backup.syncDir.kind === "ready" ? [{ location: "sync" as const, date: this.backup.latestSync ?? fakeDateOf(fakeDay(0, 3, 30)), problems: [] }] : [])] };
+      this.backup = { ...this.backup, verifying: false, lastVerify: checks };
+      this.backupVerifyDoneAt = undefined;
     }
     return Promise.resolve(this.backup);
   }
@@ -810,6 +822,50 @@ export class FakeDaemonHttp implements DaemonHttp {
       this.backup = { ...this.backup, queued: true, running: { by: "daemon", pid: 4242, since: nowIso() } };
     }
     return Promise.resolve(this.backup);
+  }
+
+  /** 原型的备份设置（356 号票）：改的只记在内存里 */
+  backupConfig(body: BackupConfigBody): Promise<BackupStatusView> {
+    if (body.time !== undefined && !/^\d{2}:\d{2}$/.test(body.time)) return Promise.reject(new Error("时刻要写成 HH:mm"));
+    let next: BackupStatusView = { ...this.backup };
+    if (body.time !== undefined) next.time = body.time;
+    if (body.schedule !== undefined) next.schedule = body.schedule;
+    if (next.schedule === "internal") next.next = nowIso(fakeDay(1, Number(next.time.slice(0, 2)), Number(next.time.slice(3))));
+    else delete next.next;
+    if (body.syncDir === null) {
+      next.syncDir = { kind: "none" };
+      delete next.latestSync;
+    } else if (body.syncDir !== undefined) {
+      next.syncDir = { kind: "ready", dir: body.syncDir };
+      delete next.latestSync;
+    }
+    next = { ...next, commands: fakeBackupCommands(next.syncDir.kind !== "none") };
+    this.backup = next;
+    return Promise.resolve(next);
+  }
+
+  /** 原型的校验：原型的文件夹树里有的算能用，别的算不存在；不是完整路径的写原因 */
+  backupCheckFolder(dir: string): Promise<BackupFolderCheck> {
+    const path = dir.trim();
+    if (!/^(?:[a-zA-Z]:[\\/]|\\\\)/.test(path)) return Promise.resolve({ kind: "invalid", dir: path, reason: `要写完整路径（比如 D:\\NAS同步\\ergo-backup），${path} 不是` });
+    return Promise.resolve(FAKE_FOLDER_TREE.some((n) => n.path.toLowerCase() === path.toLowerCase()) ? { kind: "ok", dir: path } : { kind: "missing", dir: path });
+  }
+
+  backupSnapshots(): Promise<BackupSnapshotsView> {
+    return Promise.resolve(fakeBackupSnapshots(this.backup));
+  }
+
+  /** 原型的校验：一秒半之后通过 */
+  backupVerify(): Promise<BackupStatusView> {
+    if (this.backupVerifyDoneAt === undefined) {
+      this.backupVerifyDoneAt = Date.now() + 1500;
+      this.backup = { ...this.backup, verifying: true };
+    }
+    return Promise.resolve(this.backup);
+  }
+
+  backupOpen(_place: BackupPlace): Promise<BackupOpenResult> {
+    return Promise.resolve({ opened: true });
   }
 
   // 系统提示（71 号票）：编的几份，改的只记在内存里
@@ -1201,5 +1257,35 @@ function fakeBackupStatus(): BackupStatusView {
     latestSync: dateOf(last),
     last: { by: "daemon", mode: "auto", startedAt: nowIso(last), finishedAt: nowIso(day(0, 3, 31)), date: dateOf(last), local: "created", sync: "copied" },
     queued: false,
+    localDir: "C:\\Users\\me\\.ergo\\backups",
+    retention: { local: 7, syncDaily: 7, syncWeekly: 4 },
+    commands: fakeBackupCommands(true),
+    verifying: false,
+    lastVerify: { finishedAt: nowIso(day(-3, 4, 30)), checks: [{ location: "local", date: dateOf(day(-3, 3, 30)), problems: [] }, { location: "sync", date: dateOf(day(-3, 3, 30)), problems: [] }] },
+  };
+}
+
+/** 原型的命令：按一行命令装的写 */
+function fakeBackupCommands(hasSync: boolean): BackupStatusView["commands"] {
+  const date = fakeDateOf(fakeDay(0, 3, 30));
+  return {
+    install: "ergo",
+    scheduled: "ergo backup --scheduled",
+    restore: [
+      { note: "先停二狗（恢复要求它停着）", command: "ergo stop" },
+      { note: "看有哪些快照", command: "ergo restore --list" },
+      { note: "恢复某一天的（日期换成你要的）", command: `ergo restore ${date}` },
+      ...(hasSync ? [{ note: "本机那份坏了：从另存的文件夹恢复", command: `ergo restore ${date} --from sync` }] : []),
+      { note: "恢复完再把二狗起来", command: "ergo start" },
+    ],
+  };
+}
+
+/** 原型的快照：最近几天，大小是编的；另存的文件夹刚换过的是空的 */
+function fakeBackupSnapshots(view: BackupStatusView): BackupSnapshotsView {
+  const days = (count: number) => Array.from({ length: count }, (_, i) => ({ date: fakeDateOf(fakeDay(-i, 3, 30)), bytes: 1_342_177_280 - i * 23_068_672 }));
+  return {
+    local: { dir: view.localDir, snapshots: days(7) },
+    ...(view.syncDir.kind === "none" ? {} : { sync: { dir: view.syncDir.dir, snapshots: view.latestSync === undefined ? [] : days(9) } }),
   };
 }

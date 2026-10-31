@@ -32,10 +32,12 @@ export interface FolderPickerBodyProps {
   onAuthorize(path: string): void;
   onDraft(text: string): void;
   onAuthorizeDraft(): void;
+  /** 选文件夹不是为了授权时（356 号票：备份的另存文件夹）换按钮上的字；不给是授权的说法 */
+  labels?: { here: string; busy: string; paste: string } | undefined;
 }
 
 /** 选文件夹的框里面：常用位置和各个盘、子文件夹、当前路径和"授权这个文件夹"、贴完整路径 */
-export function FolderPickerBody({ picker, folders, onBrowse, onUp, onAuthorize, onDraft, onAuthorizeDraft }: FolderPickerBodyProps) {
+export function FolderPickerBody({ picker, folders, onBrowse, onUp, onAuthorize, onDraft, onAuthorizeDraft, labels }: FolderPickerBodyProps) {
   const { roots, current, loading, busy } = picker;
   const authorized = (path: string) => isAuthorizedFolder(folders, path);
   const here = current?.kind === "folder" ? current.path : undefined;
@@ -84,7 +86,7 @@ export function FolderPickerBody({ picker, folders, onBrowse, onUp, onAuthorize,
             {here}
           </span>
           <button type="button" className="btn primary" disabled={busy || authorized(here)} onClick={() => onAuthorize(here)}>
-            {authorized(here) ? t("ui.authorizedFolders.authorized") : busy ? t("ui.authorizedFolders.authorizing") : t("ui.authorizedFolders.authorizeHere")}
+            {authorized(here) ? t("ui.authorizedFolders.authorized") : busy ? (labels?.busy ?? t("ui.authorizedFolders.authorizing")) : (labels?.here ?? t("ui.authorizedFolders.authorizeHere"))}
           </button>
         </div>
       )}
@@ -101,7 +103,7 @@ export function FolderPickerBody({ picker, folders, onBrowse, onUp, onAuthorize,
           }}
         />
         <button type="button" className="btn" disabled={busy || picker.draft.trim() === ""} onClick={onAuthorizeDraft}>
-          {t("ui.authorizedFolders.authorize")}
+          {labels?.paste ?? t("ui.authorizedFolders.authorize")}
         </button>
       </div>
       {picker.error && <div className="sys-note">{picker.error}</div>}

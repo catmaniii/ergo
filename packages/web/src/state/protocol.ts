@@ -701,7 +701,7 @@ export type { ReverifyNoticeData } from "@ergo/protocol";
 // 完整内容的保留期和总量上限（65 号票）：清掉的原因、设置里占了多大和"现在就清理"
 export type { ToolCallCleanupResult, ToolCallClearReason, ToolCallStorageView } from "@ergo/protocol";
 // 设置里的"备份"（335 号票）
-export type { BackupRunRecord, BackupStatusView } from "@ergo/protocol";
+export type { BackupConfigBody, BackupFolderCheck, BackupOpenResult, BackupPlace, BackupRestoreStep, BackupRunRecord, BackupSnapshotPlace, BackupSnapshotsView, BackupStatusView, BackupVerifyCheck } from "@ergo/protocol";
 // 设置里的系统提示（71 号票）：占位符的写法和检查（守护进程和设置页共用一个函数），接口的形状
 export { normalizePromptSource, parsePromptTemplate, promptIssuesText, renderPromptTemplate } from "@ergo/protocol";
 export type {

@@ -1,6 +1,6 @@
 // 从快照恢复数据目录（规格第 18 节）。命令行入口是 src/restore.ts；守护进程自己不调用。
 //
-// - 恢复前守护进程必须已经停了（经 LSM 停）：pid 文件里的进程还在运行（进程没退出、启动时间也对得上），
+// - 恢复前守护进程必须已经停了（ergo stop，自己 git clone 的经服务管家停）：pid 文件里的进程还在运行（进程没退出、启动时间也对得上），
 //   或者本机端口上有进程在听，就拒绝，什么也不动。恢复命令自己不启停服务。
 //   命令行的备份（npm run backup，335 号票）正在做（备份锁的主人还活着）也拒绝：它正读着数据目录、写着备份区。
 // - 快照取本机备份区或同步目录里指定日期的那一份；默认先找本机，本机没有再找同步目录。恢复之前先校验它，不通过就拒绝。
@@ -108,7 +108,7 @@ export async function restoreSnapshot(options: RestoreOptions): Promise<RestoreR
   const { config, layout, date } = options;
   if (!isSnapshotDate(date)) throw new RestoreRefused(`日期要写成 YYYY-MM-DD，比如 2026-10-08（收到的是 ${date}）`);
   const running = await daemonRunning(layout.pidFile, config.ports.local);
-  if (running) throw new RestoreRefused(`守护进程还在运行（${running}）：先在 Local Service Manager 里停掉 ergo-daemon，再恢复`);
+  if (running) throw new RestoreRefused(`守护进程还在运行（${running}）：先停掉二狗（ergo stop；自己 git clone 的在服务管家里停 ergo-daemon），再恢复`);
   const backingUp = liveLockOwner(backupLockFile(layout));
   if (backingUp) throw new RestoreRefused(`有一份备份正在做（${backingUp.by === "script" ? "命令行" : "守护进程"}，PID ${backingUp.pid}，从 ${backingUp.since} 起）：等它做完再恢复`);
 

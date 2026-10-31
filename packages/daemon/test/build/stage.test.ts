@@ -88,6 +88,9 @@ describe("版本目录里有什么", () => {
       "packages/daemon/src/main.js",
       "packages/daemon/src/stop.js",
       "packages/daemon/src/cli/main.js",
+      // ergo backup / ergo restore（356 号票）跑的这两个
+      "packages/daemon/src/run-backup.js",
+      "packages/daemon/src/restore.js",
       "packages/daemon/src/components/manifest.json",
       "packages/daemon/src/release/release-key.pub",
       // 内置的默认参考音色（ADR-0036）：素材是 src 里的非 .ts 文件，跟着转译原样带进版本目录

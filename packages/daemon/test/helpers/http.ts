@@ -13,6 +13,11 @@ import {
   type AgentRoleUpdateBody,
   type AgentSettingsView,
   type AssistantNameResult,
+  type BackupConfigBody,
+  type BackupFolderCheck,
+  type BackupOpenResult,
+  type BackupPlace,
+  type BackupSnapshotsView,
   type BackupStatusView,
   type LanguageResult,
   type LocaleDictionaryView,
@@ -291,6 +296,11 @@ export const toolCallStorageApi = {
 export const backupApi = {
   status: (baseUrl: string) => requestJson<BackupStatusView & HttpErrorBody>(baseUrl, HTTP_PATHS.backup),
   run: (baseUrl: string) => requestJson<BackupStatusView & HttpErrorBody>(baseUrl, HTTP_PATHS.backupRun, { method: "POST" }),
+  config: (baseUrl: string, body: BackupConfigBody) => requestJson<BackupStatusView & HttpErrorBody>(baseUrl, HTTP_PATHS.backupConfig, { method: "PATCH", body }),
+  checkFolder: (baseUrl: string, dir: string) => requestJson<BackupFolderCheck & HttpErrorBody>(baseUrl, HTTP_PATHS.backupCheckFolder, { method: "POST", body: { dir } }),
+  snapshots: (baseUrl: string) => requestJson<BackupSnapshotsView & HttpErrorBody>(baseUrl, HTTP_PATHS.backupSnapshots),
+  verify: (baseUrl: string) => requestJson<BackupStatusView & HttpErrorBody>(baseUrl, HTTP_PATHS.backupVerify, { method: "POST" }),
+  open: (baseUrl: string, place: BackupPlace) => requestJson<BackupOpenResult & HttpErrorBody>(baseUrl, HTTP_PATHS.backupOpen, { method: "POST", body: { place } }),
 };
 
 /** 消耗页（24 号票）：from 到 to（YYYY-MM-DD，含两头）按天、按 agent 的用量和粗估成本 */

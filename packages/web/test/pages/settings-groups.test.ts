@@ -62,7 +62,7 @@ describe("四组：每组的页和顺序", () => {
       { id: "ability", rows: ["models", "skills", "plugins", "components", "claude-code", "browsing"] },
       { id: "rules", rows: ["watch", "prompts", "workday-rules"] },
       // 295 号票：数据源排在数据与设备组的第一项；355 号票：授权的文件夹排在它后面
-      // 335 号票："备份"一小节紧挨着工具调用的完整内容
+      // 335 号票："备份"紧挨着工具调用的完整内容（356 号票起是一页）
       { id: "data", rows: ["data-sources", "authorized-folders", "materials-delete", "tool-call-storage", "backup", "devices", "doctor", "about"] },
     ]);
   });
@@ -72,9 +72,9 @@ describe("四组：每组的页和顺序", () => {
     host.disable("memory");
     const pages = settingsGroups(host, false)
       .flatMap((g) => g.rows)
-      .filter((r) => r !== "user-name" && r !== "tool-call-storage" && r !== "backup" && r !== "personal-files-link" && r !== "enter-key");
+      .filter((r) => r !== "user-name" && r !== "tool-call-storage" && r !== "personal-files-link" && r !== "enter-key");
     expect(pages.toSorted()).toEqual(
-      ["roles", "language", "appearance", "models", "watch", "workday-rules", "skills", "prompts", "voice", "browsing", "devices", "plugins", "components", "claude-code", "data-sources", "authorized-folders", "materials-delete", "doctor", "about"].toSorted(),
+      ["roles", "language", "appearance", "models", "watch", "workday-rules", "skills", "prompts", "voice", "browsing", "devices", "plugins", "components", "claude-code", "data-sources", "authorized-folders", "materials-delete", "backup", "doctor", "about"].toSorted(),
     );
   });
 
@@ -90,7 +90,7 @@ describe("四组：每组的页和顺序", () => {
     host.disable("memory");
     const pages = settingsGroups(host, false)
       .flatMap((g) => g.rows)
-      .filter((r) => r !== "user-name" && r !== "tool-call-storage" && r !== "backup" && r !== "personal-files-link" && r !== "enter-key");
+      .filter((r) => r !== "user-name" && r !== "tool-call-storage" && r !== "personal-files-link" && r !== "enter-key");
     for (const page of pages) {
       expect(toHash({ tab: "more", page })).toBe(`#/more/${page}`);
       expect(parseHash(`#/more/${page}`)).toEqual({ tab: "more", page });
@@ -129,7 +129,7 @@ describe("插件停用 / 记忆页覆盖的过滤照旧（193、214 号票），
   test("settingsShown 还是按显示顺序的那一串页（不含名字、工具调用完整内容）：四组摊平", () => {
     const host = assembled();
     host.disable("memory");
-    expect(settingsShown(host)).toEqual(["roles", "language", "appearance", "voice", "models", "skills", "plugins", "components", "claude-code", "browsing", "watch", "prompts", "workday-rules", "data-sources", "authorized-folders", "materials-delete", "devices", "doctor", "about"]);
+    expect(settingsShown(host)).toEqual(["roles", "language", "appearance", "voice", "models", "skills", "plugins", "components", "claude-code", "browsing", "watch", "prompts", "workday-rules", "data-sources", "authorized-folders", "materials-delete", "backup", "devices", "doctor", "about"]);
   });
 });
 

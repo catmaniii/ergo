@@ -41,7 +41,7 @@ describe("恢复命令", () => {
 
     // 守护进程起来后写了 pid 文件（23 号票起由 startDaemon 写），先按它判断
     await expect(restoreSnapshot({ config: test.daemon.config, layout: test.layout, date: "2026-10-08" })).rejects.toThrow(
-      `守护进程还在运行（pid 文件里的守护进程（PID ${process.pid}）还在运行）：先在 Local Service Manager 里停掉 ergo-daemon，再恢复`,
+      `守护进程还在运行（pid 文件里的守护进程（PID ${process.pid}）还在运行）：先停掉二狗（ergo stop；自己 git clone 的在服务管家里停 ergo-daemon），再恢复`,
     );
     expect(fs.existsSync(after)).toBe(true);
     expect(backupArea(test.layout.backups)).toEqual(["2026-10-08"]);

@@ -4,7 +4,8 @@
 // - 其余配置：数据目录里的 config/ergo.json，缺省的项取默认值。仓库里只有示例 config/ergo.example.json。
 import fs from "node:fs";
 import path from "node:path";
-import { BACKUP_SCHEDULES, type BackupSchedule, ClockTime, DEFAULT_MAX_UPLOAD_BYTES, MEMORY_PROVIDER_ID, schemaChecker, SETUP_STEPS, type SetupStepId, type TokenPrice } from "@ergo/protocol";
+import { isDeepStrictEqual } from "node:util";
+import { BACKUP_SCHEDULES, type BackupSchedule, ClockTime, DEFAULT_MAX_UPLOAD_BYTES, MEMORY_PROVIDER_ID, schemaChecker, SETUP_STEPS, type SetupStepId, t, type TokenPrice } from "@ergo/protocol";
 import { type AgentLimits, DEFAULT_AGENT_LIMITS } from "../agent-manager/agent-manager.ts";
 import { CONVERSATION_APPROVALS, type ConversationApprovals } from "../guard/types.ts";
 import { DEFAULT_REMINDER_THRESHOLDS, type ReminderThresholds } from "../reminders/thresholds.ts";
@@ -12,8 +13,10 @@ import { DEFAULT_SCHEDULED_JOB_THRESHOLDS, type ScheduledJobThresholds } from ".
 import { DEFAULT_EVENT_SOURCE_THRESHOLDS, type EventSourceThresholds } from "../event-sources/thresholds.ts";
 import { DEFAULT_TASK_THRESHOLDS, type TaskThresholds } from "../tasks/thresholds.ts";
 import type { SpokenPace } from "../voice/spoken-text.ts";
+import { writeFileAtomic } from "../util/atomic-file.ts";
 import { writeJsonAtomic } from "../util/json-file.ts";
 import { dataDirLayout, DEFAULT_MEMORY_PROVIDER_ID } from "./data-dir.ts";
+import { editJsonSection } from "./json-text-edit.ts";
 import { DATA_DIR_ENV, type DataDirSource, resolveDataDir } from "./old-names.ts";
 
 export { modelConfigKey } from "./model-key.ts";
@@ -575,6 +578,69 @@ export function writeSetupConfig(configFile: string, setup: SetupConfig): void {
   writeJsonAtomic(configFile, { ...raw, setup: { ...section, format: setup.format, skipped: setup.skipped, done: setup.done } });
 }
 
+/** 设置 · 备份改的这几项（356 号票）：syncDir 给 null 是去掉（只留本机那份）；不给的不动 */
+export interface BackupConfigChange {
+  syncDir?: string | null;
+  time?: string;
+  schedule?: BackupSchedule;
+}
+
+/**
+ * 设置 · 备份改配置（356 号票）：只动配置文件里 backup 节的这几个键，别的内容和格式按字节不变（json-text-edit.ts），先写临时文件再改名；
+ * 文件不在就新建，值没变就不写。文件现在读不了、被改坏了（不是 UTF-8、不是 JSON、backup 节不对）抛错，message 给人看，文件不动。
+ * 回写完之后文件里的 backup 节（手改过的别的键也读进来，运行中的和文件一致）
+ */
+export function writeBackupConfig(configFile: string, dataDir: string, change: BackupConfigChange): BackupConfig {
+  let bytes: Buffer | undefined;
+  try {
+    bytes = fs.readFileSync(configFile);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw new Error(t("backup.config.unreadable", { file: configFile, reason: err instanceof Error ? err.message : String(err) }), { cause: err });
+  }
+  const text = bytes === undefined ? "{}\n" : bytes.toString("utf8");
+  if (bytes !== undefined && !Buffer.from(text, "utf8").equals(bytes)) throw new Error(t("backup.config.notUtf8", { file: configFile }));
+  const parse = (source: string): Record<string, unknown> => {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(source);
+    } catch (err) {
+      throw new Error(t("backup.config.notJson", { file: configFile, reason: err instanceof Error ? err.message : String(err) }), { cause: err });
+    }
+    if (!isRecord(parsed)) throw new Error(t("backup.config.notObject", { file: configFile }));
+    return parsed;
+  };
+  const raw = parse(text);
+  if (raw.backup !== undefined && !isRecord(raw.backup)) throw new Error(t("backup.config.sectionNotObject", { file: configFile }));
+  const changes: Record<string, unknown> = {};
+  if (change.syncDir !== undefined) changes.syncDir = change.syncDir ?? undefined;
+  if (change.time !== undefined) changes.time = change.time;
+  if (change.schedule !== undefined) changes.schedule = change.schedule;
+  const edited = editJsonSection(text, "backup", changes);
+  let next: BackupConfig;
+  try {
+    next = parseBackup(parse(edited).backup, configFile, dataDir);
+  } catch (err) {
+    throw new Error(t("backup.config.invalid", { reason: err instanceof Error ? err.message : String(err) }), { cause: err });
+  }
+  if (edited === text) return next;
+  // 别的节一个键都不能变：万一文本改错了宁可不写
+  const { backup: _before, ...othersBefore } = raw;
+  const { backup: _after, ...othersAfter } = parse(edited);
+  if (!isDeepStrictEqual(othersBefore, othersAfter)) throw new Error(t("backup.config.editFailed", { file: configFile }));
+  try {
+    writeFileAtomic(configFile, edited);
+  } catch (err) {
+    throw new Error(t("backup.config.writeFailed", { file: configFile, reason: err instanceof Error ? err.message : String(err) }), { cause: err });
+  }
+  return next;
+}
+
+/** dir 是不是数据目录本身或者在它里面（另存的文件夹不能放这里：电脑坏了就和数据一起没了） */
+export function isInsideDataDir(dir: string, dataDir: string): boolean {
+  const rel = path.relative(dataDir, dir);
+  return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
+}
+
 // @i18n-ignore-start log：配置文件写错时启动就停下，原因只进日志（LSM 里看）
 /** plugins：disabled、removed 是插件名的数组，不写是空的（全开） */
 function parsePlugins(value: unknown, file: string): PluginsConfig {
@@ -920,8 +986,7 @@ function parseBackup(value: unknown, file: string, dataDir: string): BackupConfi
   if (isPlaceholder(syncDir)) return { ...base, syncDir };
   if (!path.isAbsolute(syncDir)) throw new Error(`配置文件 ${file}：backup.syncDir 必须是绝对路径，实际是 ${JSON.stringify(syncDir)}`);
   const resolved = path.resolve(syncDir);
-  const rel = path.relative(dataDir, resolved);
-  if (rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel))) {
+  if (isInsideDataDir(resolved, dataDir)) {
     throw new Error(`配置文件 ${file}：backup.syncDir 不能放在数据目录里（${resolved}）`);
   }
   return { ...base, syncDir: resolved };

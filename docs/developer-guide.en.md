@@ -57,7 +57,8 @@ From the repository root:
 | Build the HarmonyOS app | `npm run build:harmony` ([Section 8](#8-phone-apps)) |
 | Build the Android app | `npm run build:android` ([8.5](#85-android-app)) |
 | Download the embedding model | `npm run download-model` |
-| Back up now | `npm run backup` |
+| Back up now | `npm run backup` (installed builds have no `npm run`: `ergo backup`) |
+| Restore from a snapshot | `node packages/daemon/src/restore.ts <date>` (installed builds: `ergo restore <date>`; stop the daemon first either way) |
 | Deploy the VPS nginx site for the public entry | `npm run deploy:nginx` (`-- --print` only prints) |
 | Check a project service's pages against the prefix convention | `npm run check:app-prefix -- <service url> --name <app name>` ([4.8](#48-proxying-local-service-pages)) |
 

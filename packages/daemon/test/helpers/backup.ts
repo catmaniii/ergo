@@ -27,6 +27,8 @@ export interface BackupDaemonOptions {
   log?: (line: string) => void;
   /** 记忆插件开不开（265 号票：底座给了时钟默认停掉它，要 rg.db 的写 true；见 startTestDaemon 的 memoryPlugin） */
   memoryPlugin?: boolean;
+  /** "在电脑上打开"（356 号票）：测试记下要打开哪里，不真的开窗口 */
+  openFolder?: (dir: string) => Promise<void>;
 }
 
 export interface BackupDaemon extends TestDaemon {
@@ -58,6 +60,7 @@ export async function startBackupDaemon(options: BackupDaemonOptions): Promise<B
     ...(options.secretary ? { secretary: options.secretary } : {}),
     ...(options.log ? { log: options.log } : {}),
     ...(options.memoryPlugin === undefined ? {} : { memoryPlugin: options.memoryPlugin }),
+    ...(options.openFolder ? { openFolder: options.openFolder } : {}),
   });
   const { daemon } = test;
   const advanceTo = async (time: Date) => {

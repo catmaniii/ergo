@@ -97,6 +97,9 @@
 // 设置里的"备份"（335 号票，响应体见 backup-schema.ts）：GET /api/backup 看现在的状况（BackupStatusView）；POST /api/backup/run 是
 // "立即备份"：守护进程排一次（和它自己到点的那次同一条队列、同一把锁，不叠着跑；已经排着一次就不再排），不等做完，马上回现在的状况
 // （queued），页面接着取到做完为止。不带请求体，不带幂等键（重复点只多排不了）。
+// 356 号票起备份是单独一页（请求体、响应体同样见 backup-schema.ts）：PATCH /api/backup/config 改另存的文件夹、时刻、谁来定时；
+// POST /api/backup/check-folder 选文件夹时校验；GET /api/backup/snapshots 列快照；POST /api/backup/verify 手动校验（和备份同一条队列、
+// 同一把锁，不等做完）；POST /api/backup/open 在电脑上打开本机备份区或另存的文件夹。
 //
 // 设置里的系统提示（71 号票，请求体和响应体见 system-prompt-schema.ts）：GET /api/system-prompts 列出全部；
 // GET /api/system-prompts/<编号> 取一份；PUT 保存（{ content }，占位符写错回 400）；DELETE 恢复默认。改动本身是幂等的
@@ -289,6 +292,11 @@ const TOOL_CALL_STORAGE = "tool-call-storage";
 const CLEANUP = "cleanup";
 const BACKUP = "backup";
 const RUN = "run";
+const BACKUP_CONFIG = "config";
+const BACKUP_CHECK_FOLDER = "check-folder";
+const BACKUP_SNAPSHOTS = "snapshots";
+const BACKUP_VERIFY = "verify";
+const BACKUP_OPEN = "open";
 const SYSTEM_PROMPTS = "system-prompts";
 const MODEL_SETTINGS = "model-settings";
 const CUSTOM_MODELS = "custom-models";
@@ -472,6 +480,16 @@ export const HTTP_PATHS = {
   backup: api(BACKUP),
   /** "立即备份"：守护进程排一次，马上回现在的状况（POST，不带请求体，响应 BackupStatusView，335 号票） */
   backupRun: api(BACKUP, RUN),
+  /** 改备份的配置：另存的文件夹、每晚几点、谁来定时（PATCH，请求体 BackupConfigBody，响应 BackupStatusView，356 号票） */
+  backupConfig: api(BACKUP, BACKUP_CONFIG),
+  /** 选文件夹时校验一个路径（POST，请求体 BackupFolderCheckBody，响应 BackupFolderCheck，356 号票） */
+  backupCheckFolder: api(BACKUP, BACKUP_CHECK_FOLDER),
+  /** 本机和另存文件夹各有哪些快照（GET，响应 BackupSnapshotsView，356 号票） */
+  backupSnapshots: api(BACKUP, BACKUP_SNAPSHOTS),
+  /** 手动校验最新的快照：排一次，马上回现在的状况（POST，不带请求体，响应 BackupStatusView，356 号票） */
+  backupVerify: api(BACKUP, BACKUP_VERIFY),
+  /** 在电脑上打开本机备份区或另存的文件夹（POST，请求体 BackupOpenBody，响应 BackupOpenResult，356 号票） */
+  backupOpen: api(BACKUP, BACKUP_OPEN),
   /** 语音识别模型、合成模型现在的状态和识别引擎的清单（GET，响应 VoiceModelsView，45 号票）；变了另经活动状态频道推 voice_models */
   voiceModels: api(VOICE_MODELS),
   /** 设置里的系统提示：全部（GET，响应 SystemPromptList，71 号票） */
@@ -672,6 +690,11 @@ export type HttpRoute =
   | { route: "tool_call_storage_cleanup" }
   | { route: "backup" }
   | { route: "backup_run" }
+  | { route: "backup_config" }
+  | { route: "backup_check_folder" }
+  | { route: "backup_snapshots" }
+  | { route: "backup_verify" }
+  | { route: "backup_open" }
   | { route: "voice_models" }
   | { route: "system_prompts" }
   | { route: "system_prompt"; id: string }
@@ -798,6 +821,11 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
   if (head === BACKUP && tail === undefined) {
     if (id === undefined) return { route: "backup" };
     if (id === RUN) return { route: "backup_run" };
+    if (id === BACKUP_CONFIG) return { route: "backup_config" };
+    if (id === BACKUP_CHECK_FOLDER) return { route: "backup_check_folder" };
+    if (id === BACKUP_SNAPSHOTS) return { route: "backup_snapshots" };
+    if (id === BACKUP_VERIFY) return { route: "backup_verify" };
+    if (id === BACKUP_OPEN) return { route: "backup_open" };
   }
   if (head === VOICE_MODELS && id === undefined) return { route: "voice_models" };
   if (head === SYSTEM_PROMPTS && tail === undefined) return id === undefined ? { route: "system_prompts" } : { route: "system_prompt", id };

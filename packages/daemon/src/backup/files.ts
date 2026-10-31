@@ -5,7 +5,17 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
+import { t } from "@ergo/protocol";
 import { renameRetryingAsync } from "../util/atomic-file.ts";
+
+/** 写入出错的原因，给人看（备份写不进去、选文件夹时试写不进去，356 号票起共用） */
+export function describeWriteError(err: unknown): string {
+  const code = (err as NodeJS.ErrnoException).code;
+  // SQLite 写满时（VACUUM INTO）没有 errno，只有这句话
+  if (code === "ENOSPC" || /disk is full/i.test(err instanceof Error ? err.message : "")) return t("backup.error.noSpace");
+  if (code === "EACCES" || code === "EPERM" || code === "EROFS") return t("backup.error.noPermission", { message: (err as Error).message });
+  return t("backup.error.copy", { message: err instanceof Error ? err.message : String(err) });
+}
 
 export interface CopiedFile {
   size: number;

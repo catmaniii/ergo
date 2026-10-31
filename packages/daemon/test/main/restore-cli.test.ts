@@ -35,7 +35,7 @@ describe("恢复命令（命令行）", () => {
 
     const refused = runRestore(env, today);
     expect(refused.status).toBe(1);
-    expect(refused.stderr).toMatch(/没有恢复：守护进程还在运行（.*）：先在 Local Service Manager 里停掉 ergo-daemon，再恢复/);
+    expect(refused.stderr).toMatch(/没有恢复：守护进程还在运行（.*）：先停掉二狗（ergo stop；自己 git clone 的在服务管家里停 ergo-daemon），再恢复/);
     expect(fs.existsSync(after)).toBe(true);
 
     // 守护进程被结束（pid 文件还在，进程已经不在了）

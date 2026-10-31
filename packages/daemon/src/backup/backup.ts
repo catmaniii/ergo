@@ -23,21 +23,50 @@
 // 写入失败（同步目录不在、空间不够、复制出错）在守护进程里放一条"备份失败"（不卡任务），本机快照照样留着；
 // 用户在这条上点"重试"就马上手动备份一次。校验没通过放一条"快照校验失败"。命令行脚本只打出来、写进日志，退出码非 0。
 // 守护进程停止时中止正在做的（AbortSignal），半成品删掉。
+//
+// 356 号票：设置 · 备份单独一页。运行中能换配置（changeConfig）：写进配置文件（只动 backup 这几个键），运行中的 BackupConfig 就地换新值，时刻、
+// 谁来定时变了内部作业跟着换（BACKUP_JOB、OVERDUE_JOB 撤一个加一个），不用重启。命令行脚本每次现读文件，两边一致。
+// **正在备份时改位置：这一份做完才生效。** runBackup 开始时（拿到锁之后）取一份配置，这一次一直写到原来的文件夹；排在后面的、下一次的用新的。不拒绝用户。
+// 手动校验（startVerify）和每周校验是同一件事，排同一条队列、拿同一把锁，结果记在 lastVerify（只记在这次运行里；没通过的同样放事项）。
+import fs from "node:fs";
 import path from "node:path";
-import { type BackupMode, type BackupResult, type BackupRunner, type BackupStatusView, type NoticeType, nowIso, t } from "@ergo/protocol";
-import type { BackupConfig } from "../config/config.ts";
+import {
+  type BackupConfigBody,
+  type BackupFolderCheck,
+  type BackupMode,
+  type BackupOpenResult,
+  type BackupPlace,
+  type BackupResult,
+  type BackupRunner,
+  type BackupSnapshotPlace,
+  type BackupSnapshotsView,
+  type BackupStatusView,
+  type BackupVerifyRecord,
+  ClockTime,
+  type NoticeType,
+  nowIso,
+  schemaChecker,
+  t,
+} from "@ergo/protocol";
+import { type BackupConfig, type BackupConfigChange, writeBackupConfig } from "../config/config.ts";
 import type { DataDirLayout } from "../config/data-dir.ts";
+import { resolveDataDir } from "../config/old-names.ts";
+import { RequestRejected } from "../errors.ts";
 import type { InboxService } from "../inbox/inbox.ts";
+import type { InstallLayout } from "../release/layout.ts";
 import { type Clock, clockIso } from "../scheduler/clock.ts";
 import type { InternalJobs } from "../scheduler/internal-jobs.ts";
-import { nodeSnapshotFiles, type SnapshotFiles } from "./files.ts";
+import { backupCommands, installLayoutOfDaemon } from "./commands.ts";
+import { describeWriteError, nodeSnapshotFiles, type SnapshotFiles } from "./files.ts";
+import { checkBackupFolder } from "./folder-check.ts";
 import { acquireBackupLock, BackupBusy, type BackupLockOwner, backupLockFile, liveLockOwner } from "./lock.ts";
 import { readBackupRecord, writeBackupRecord } from "./record.ts";
-import { isSunday, keepLocal, keepSync } from "./retention.ts";
+import { isSunday, keepLocal, keepSync, LOCAL_KEEP, SYNC_DAILY_KEEP, SYNC_WEEKLY_KEEP } from "./retention.ts";
 import {
   collectPool,
   copySnapshot,
   listSnapshotDates,
+  listSnapshotSizes,
   listSnapshots,
   localDate,
   localDateTime,
@@ -100,15 +129,6 @@ export interface RunBackupOptions {
   report: (failure: BackupFailure) => void;
 }
 
-/** 写入出错的原因，给人看 */
-function describeWriteError(err: unknown): string {
-  const code = (err as NodeJS.ErrnoException).code;
-  // SQLite 写满时（VACUUM INTO）没有 errno，只有这句话
-  if (code === "ENOSPC" || /disk is full/i.test(err instanceof Error ? err.message : "")) return t("backup.error.noSpace");
-  if (code === "EACCES" || code === "EPERM") return t("backup.error.noPermission", { message: (err as Error).message });
-  return t("backup.error.copy", { message: err instanceof Error ? err.message : String(err) });
-}
-
 /** 是不是因为停止（守护进程停了、命令行被中断）被中止的 */
 const aborted = (err: unknown, signal: AbortSignal) => signal.aborted || (err instanceof Error && err.name === "AbortError");
 
@@ -123,7 +143,9 @@ const LOCAL_WORDS: Record<Exclude<BackupResult["local"], "failed">, string> = {
 
 /** 做一次备份（不拿锁、不写记录；守护进程和命令行都经 backupWithLock 调它） */
 export async function runBackup(options: RunBackupOptions): Promise<BackupResult> {
-  const { layout, config, clock, files, mode, signal, log, report } = options;
+  const { layout, clock, files, mode, signal, log, report } = options;
+  // 开始时取一份（已经拿到锁了）：这一次中途在页面上改了位置（356 号票），这一份照样写到原来的文件夹，做完才生效
+  const config = { ...options.config };
   const now = clock.now();
   const date = localDate(now);
   const when = localDateTime(now);
@@ -295,6 +317,19 @@ export interface BackupService {
   status(): BackupStatusView;
   /** 校验本机备份区和同步目录里最新的快照；没通过的放进待处理事项 */
   verifyLatest(): Promise<SnapshotCheck[]>;
+  /** 页面上的"校验最新快照"（POST /api/backup/verify，356 号票）：排一次（已经排着就不再排），不等做完，回现在的状况，结果在 lastVerify */
+  startVerify(): BackupStatusView;
+  /**
+   * 页面上改配置（PATCH /api/backup/config，356 号票）：另存的文件夹、每晚几点、谁来定时。校验不过、配置文件被改坏了抛 RequestRejected（message 给人看），
+   * 什么都不变；成了写进配置文件、运行中的换新值、内部作业跟着换，回现在的状况
+   */
+  changeConfig(change: BackupConfigBody): Promise<BackupStatusView>;
+  /** 选文件夹时校验一个路径（POST /api/backup/check-folder） */
+  checkFolder(dir: string): Promise<BackupFolderCheck>;
+  /** 本机和另存文件夹各有哪些快照（GET /api/backup/snapshots） */
+  snapshots(): Promise<BackupSnapshotsView>;
+  /** 在电脑上打开本机备份区或另存的文件夹（POST /api/backup/open）：只认这两处；打不开写原因 */
+  openFolder(place: BackupPlace): Promise<BackupOpenResult>;
   /** 清理临时区里 7 天前的文件 */
   cleanTmp(): Promise<CleanResult>;
   /** external 时：连着两天没人备份就放一条提醒（已经有一条没处理的就不再放）；平时由每天 12:00 的内部作业调 */
@@ -319,6 +354,12 @@ export interface BackupServiceOptions {
   /** 等备份锁时多久看一眼（测试调短） */
   lockPollMs?: number;
   log: (line: string) => void;
+  /** 用户主目录：判断数据目录是不是默认的（不是的话页面上的命令要带环境变量） */
+  homeDir: string;
+  /** "在电脑上打开" */
+  openFolder: (dir: string) => Promise<void>;
+  /** 这份程序是怎么装的（页面上的命令按它写）；不给按代码所在的位置认 */
+  install?: Pick<InstallLayout, "kind" | "appDir" | "node">;
 }
 
 /** 事项的动作"知道了"（按字认，不翻） */
@@ -327,9 +368,25 @@ const GOT_IT = "知道了"; // @i18n-ignore fixed：事项的动作按字认
 /** 每种通知的动作 */
 const ACTIONS: Partial<Record<NoticeType, string[]>> = { backup_failed: [RETRY, GOT_IT], backup_overdue: [BACKUP_NOW, GOT_IT] };
 
+/** 一天里的几点几分 */
+const clockTime = schemaChecker(ClockTime);
+
+/** 一处的快照；读不了这个目录写原因 */
+async function snapshotPlace(dir: string): Promise<BackupSnapshotPlace> {
+  try {
+    return { dir, snapshots: await listSnapshotSizes(dir) };
+  } catch (err) {
+    return { dir, snapshots: [], problem: t("backup.snapshots.unreadable", { reason: err instanceof Error ? err.message : String(err) }) };
+  }
+}
+
 export function createBackupService(options: BackupServiceOptions): BackupService {
   const { layout, config, inbox, clock, internalJobs, log } = options;
   const files = options.files ?? nodeSnapshotFiles;
+  const install = options.install ?? installLayoutOfDaemon();
+  const customDataDir = path.relative(resolveDataDir({}, options.homeDir).dir, layout.root) !== "";
+  /** 事项里提到的定时命令（短的那个说法） */
+  const scheduledName = install.kind === "dev" ? "npm run backup" : "ergo backup";
   const controller = new AbortController();
   // 备份、校验、清理排成一条队列；作业自己的中止信号（内部作业停止）和这里的（服务停止）任一个置位都中止
   let lane: Promise<unknown> = Promise.resolve();
@@ -361,6 +418,13 @@ export function createBackupService(options: BackupServiceOptions): BackupServic
       ...(options.lockPollMs === undefined ? {} : { lockPollMs: options.lockPollMs }),
     });
 
+  /** 最近一次校验（只记在这次运行里） */
+  let lastVerify: BackupVerifyRecord | undefined;
+  /** 排着、正在做的校验有几次（页面上的"校验最新快照"据此灰掉） */
+  let pendingVerify = 0;
+  /** 校验正拿着备份锁：这时锁的主人不是一份备份 */
+  let verifyHoldsLock = false;
+
   const runVerify = async (signal: AbortSignal): Promise<SnapshotCheck[]> => {
     const locations: Array<{ location: SnapshotCheck["location"]; root: string; label: string }> = [{ location: "local", root: layout.backups, label: t("backup.place.local") }];
     // 同步目录用不了时只校验本机的（备份那边已经报了"备份失败"）
@@ -390,6 +454,7 @@ export function createBackupService(options: BackupServiceOptions): BackupServic
         { location, date, problems },
       );
     }
+    lastVerify = { finishedAt: clockIso(clock), checks, ...(sync.kind === "unusable" ? { syncSkipped: sync.reason } : {}) };
     return checks;
   };
 
@@ -407,14 +472,23 @@ export function createBackupService(options: BackupServiceOptions): BackupServic
       });
     } catch (err) {
       if (!(err instanceof BackupBusy)) throw err;
-      log(`校验：${t("backup.busy", { owner: lockOwnerText(err.owner) })}`);
+      const busy = t("backup.busy", { owner: lockOwnerText(err.owner) });
+      log(`校验：${busy}`);
+      lastVerify = { finishedAt: clockIso(clock), checks: [], busy };
       return [];
     }
+    verifyHoldsLock = true;
     try {
       return await runVerify(signal);
     } finally {
+      verifyHoldsLock = false;
       lock.release();
     }
+  };
+
+  const queueVerify = (jobSignal?: AbortSignal) => {
+    pendingVerify++;
+    return enqueue(lockedVerify, jobSignal).finally(() => pendingVerify--);
   };
 
   const runClean = async (): Promise<CleanResult> => {
@@ -442,7 +516,7 @@ export function createBackupService(options: BackupServiceOptions): BackupServic
     const latestLocal = listSnapshotDates(layout.backups).at(-1);
     const latestSync = sync.kind === "ready" ? listSnapshotDates(sync.dir).at(-1) : undefined;
     const last = readBackupRecord(layout);
-    const owner = liveLockOwner(backupLockFile(layout));
+    const owner = verifyHoldsLock ? undefined : liveLockOwner(backupLockFile(layout));
     return {
       schedule: config.schedule,
       time: config.time,
@@ -453,6 +527,11 @@ export function createBackupService(options: BackupServiceOptions): BackupServic
       ...(last ? { last } : {}),
       ...(owner ? { running: { by: owner.by, pid: owner.pid, since: owner.since } } : {}),
       queued: pendingManual > 0,
+      localDir: layout.backups,
+      retention: { local: LOCAL_KEEP, syncDaily: SYNC_DAILY_KEEP, syncWeekly: SYNC_WEEKLY_KEEP },
+      commands: backupCommands({ layout: install, dataDir: layout.root, customDataDir, hasSync: sync.kind !== "none", ...(latestLocal ? { date: latestLocal } : {}) }),
+      verifying: pendingVerify > 0,
+      ...(lastVerify ? { lastVerify } : {}),
     };
   };
 
@@ -468,12 +547,85 @@ export function createBackupService(options: BackupServiceOptions): BackupServic
     notice(
       "backup_overdue",
       t("backup.overdue.title", { count: days, n: days }),
-      last === undefined ? t("backup.overdue.neverBody", { since: localDateTime(since), count: days, n: days }) : t("backup.overdue.body", { last: localDateTime(last), count: days, n: days }),
+      last === undefined
+        ? t("backup.overdue.neverBody", { since: localDateTime(since), count: days, n: days, command: scheduledName })
+        : t("backup.overdue.body", { last: localDateTime(last), count: days, n: days, command: scheduledName }),
       { lastBackupAt: last === undefined ? null : nowIso(new Date(last)), days },
     );
   };
 
   const offs: Array<() => void> = [];
+
+  /** 现在登记着的那个定时作业（每晚备份或者没跑的提醒）的撤销函数；start 之前没有 */
+  let undoSchedule: (() => void) | undefined;
+  /** 按现在的配置登记：internal 是每晚备份，external 是没跑的提醒。fromNow：运行中换时间表，不补跑 */
+  const registerSchedule = (fromNow: boolean) => {
+    undoSchedule?.();
+    undoSchedule =
+      config.schedule === "internal"
+        ? internalJobs.register({ name: BACKUP_JOB, schedule: { kind: "daily", time: config.time }, run: (_trigger, signal) => enqueue((s) => lockedBackup("auto", s), signal) }, { fromNow })
+        : internalJobs.register({ name: OVERDUE_JOB, schedule: { kind: "daily", time: OVERDUE_CHECK_TIME }, run: async () => checkOverdue() }, { fromNow });
+  };
+
+  const changeConfig = async (change: BackupConfigBody): Promise<BackupStatusView> => {
+    const write: BackupConfigChange = {};
+    if (change.time !== undefined) {
+      if (!clockTime.check(change.time)) throw new RequestRejected("bad_params", t("backup.config.badTime", { time: change.time }));
+      write.time = change.time;
+    }
+    if (change.schedule !== undefined) write.schedule = change.schedule;
+    if (change.syncDir === null) write.syncDir = null;
+    else if (change.syncDir !== undefined) {
+      const check = await checkBackupFolder(change.syncDir, { dataDir: layout.root, files, ...(change.createSyncDir ? { create: true } : {}) });
+      if (check.kind === "invalid") throw new RequestRejected("bad_params", check.reason);
+      if (check.kind === "missing") throw new RequestRejected("bad_params", t("backup.folder.missing", { dir: check.dir }));
+      write.syncDir = check.dir;
+    }
+    let next: BackupConfig;
+    try {
+      next = writeBackupConfig(layout.configFile, layout.root, write);
+    } catch (err) {
+      throw new RequestRejected("not_allowed", err instanceof Error ? err.message : String(err));
+    }
+    const rescheduled = next.time !== config.time || next.schedule !== config.schedule;
+    const movedTo = next.syncDir !== config.syncDir ? (next.syncDir ?? "") : undefined;
+    // 就地换：排在后面的备份、校验、状况都看同一份；正在做的那一份开始时取过了，不受影响
+    config.time = next.time;
+    config.schedule = next.schedule;
+    if (next.syncDir === undefined) delete config.syncDir;
+    else config.syncDir = next.syncDir;
+    if (movedTo !== undefined) log(movedTo === "" ? "备份：另存的文件夹清掉了，之后只留本机那份" : `备份：另存的文件夹换成 ${movedTo}，下一次备份起写到这里；原来的文件夹里已有的快照不搬不删`);
+    if (rescheduled) {
+      log(`备份：定时改成 ${config.schedule === "internal" ? `每天 ${config.time}` : "外部定时器"}，内部作业重新排了`);
+      if (undoSchedule) registerSchedule(true);
+    }
+    return status();
+  };
+
+  const snapshots = async (): Promise<BackupSnapshotsView> => {
+    const sync = syncDirOf(config);
+    const local = await snapshotPlace(layout.backups);
+    if (sync.kind === "none") return { local };
+    return { local, sync: sync.kind === "ready" ? await snapshotPlace(sync.dir) : { dir: sync.dir, snapshots: [], problem: sync.reason } };
+  };
+
+  const openFolder = async (place: BackupPlace): Promise<BackupOpenResult> => {
+    let dir = layout.backups;
+    if (place === "sync") {
+      const sync = syncDirOf(config);
+      if (sync.kind === "none") return { opened: false, error: t("backup.open.noSync") };
+      if (sync.kind === "unusable") return { opened: false, error: sync.reason };
+      dir = sync.dir;
+    }
+    try {
+      // 本机备份区第一次备份之前可能还没有
+      fs.mkdirSync(dir, { recursive: true });
+      await options.openFolder(dir);
+      return { opened: true };
+    } catch (err) {
+      return { opened: false, error: t("backup.open.failed", { reason: err instanceof Error ? err.message : String(err) }) };
+    }
+  };
 
   return {
     backupNow,
@@ -482,19 +634,27 @@ export function createBackupService(options: BackupServiceOptions): BackupServic
       return status();
     },
     status,
-    verifyLatest: () => enqueue(lockedVerify),
+    verifyLatest: () => queueVerify(),
+    startVerify() {
+      if (pendingVerify === 0 && !controller.signal.aborted) {
+        queueVerify().catch((err: unknown) => {
+          if (!aborted(err, controller.signal)) log(`校验出错：${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);
+        });
+      }
+      return status();
+    },
+    changeConfig,
+    checkFolder: (dir) => checkBackupFolder(dir, { dataDir: layout.root, files }),
+    snapshots,
+    openFolder,
     cleanTmp: () => enqueue(runClean),
     checkOverdue,
     start() {
       // 用户在"备份失败"上点了"重试"、在"连着两天没跑"上点了"立即备份"：马上手动备份一次
       offs.push(inbox.onNoticeHandled("backup_failed", RETRY, backupSoon));
       offs.push(inbox.onNoticeHandled("backup_overdue", BACKUP_NOW, backupSoon));
-      if (config.schedule === "internal") {
-        internalJobs.register({ name: BACKUP_JOB, schedule: { kind: "daily", time: config.time }, run: (_trigger, signal) => enqueue((s) => lockedBackup("auto", s), signal) });
-      } else {
-        internalJobs.register({ name: OVERDUE_JOB, schedule: { kind: "daily", time: OVERDUE_CHECK_TIME }, run: async () => checkOverdue() });
-      }
-      internalJobs.register({ name: VERIFY_JOB, schedule: { kind: "weekly", time: VERIFY_TIME, weekdays: [VERIFY_WEEKDAY] }, run: (_trigger, signal) => enqueue(lockedVerify, signal) });
+      registerSchedule(false);
+      internalJobs.register({ name: VERIFY_JOB, schedule: { kind: "weekly", time: VERIFY_TIME, weekdays: [VERIFY_WEEKDAY] }, run: (_trigger, signal) => queueVerify(signal) });
       internalJobs.register({ name: CLEAN_TMP_JOB, schedule: { kind: "daily", time: CLEAN_TMP_TIME }, run: (_trigger, signal) => enqueue(runClean, signal) });
     },
     async stop() {

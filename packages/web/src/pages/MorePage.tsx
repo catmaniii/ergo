@@ -39,6 +39,7 @@
 // 319 号票：设置列表最上面多一行"设置向导"（#/more/setup，pages/SetupWizard.tsx）：首次设置的五步加一屏外网访问的说明。
 // 它不进四组（不是哪一类的设置，是一次走完的流程），所以 settingsShown / settingsGroups 里没有它。
 // 319b：数据与设备组里"关于二狗"前面多一行"体检"（#/more/doctor，pages/more/DoctorPage.tsx）：八项一查、右上"再查一遍"。
+// 356 号票：备份从设置列表里就地展开的一小块变成单独一页（#/more/backup，pages/more/BackupPage.tsx）：文件夹位置能配、详细选项和按钮都在里面。
 // 343 号票：数据源分两层——设置下面的那一页是卡片总览（DataSourcesPage），点卡片是单独全屏的详情（#/more/data-sources/<id>，pages/more/DataSourceDetail.tsx）：
 // 不管设置现在是导航项还是收在"更多"里，详情都占满内容区（宽屏不留设置的左栏）。共用的导入文件夹也是一张卡（ImportFolderPage）。
 import { Fragment, useEffect } from "react";
@@ -74,7 +75,7 @@ import { RolesPage } from "./more/RolesPage.tsx";
 import { SettingsGroup } from "./more/SettingsGroup.tsx";
 import { SkillsPage } from "./more/SkillsPage.tsx";
 import { ToolCallStorageSetting } from "./more/ToolCallStorageSetting.tsx";
-import { BackupSetting } from "./more/BackupSetting.tsx";
+import { BackupPage } from "./more/BackupPage.tsx";
 import { UsagePage } from "./more/UsagePage.tsx";
 import { WatchCategoriesPage } from "./more/WatchCategoriesPage.tsx";
 import { WorkdayRulesPage } from "./more/WorkdayRulesPage.tsx";
@@ -101,6 +102,7 @@ const PAGE_TITLES: Readonly<Record<Exclude<Sub, "language">, string>> = tTable({
   "data-sources": "shell.pages.dataSources.title",
   "authorized-folders": "shell.pages.authorizedFolders.title",
   "materials-delete": "shell.pages.materialsDelete.title",
+  backup: "shell.pages.backup.title",
   doctor: "doctor.title",
   about: "shell.pages.about.title",
   debug: "shell.pages.debug.title",
@@ -127,6 +129,7 @@ const PAGE_SUBS: Readonly<Record<Exclude<Sub, "language">, string>> = tTable({
   "data-sources": "shell.pages.dataSources.sub",
   "authorized-folders": "shell.pages.authorizedFolders.sub",
   "materials-delete": "shell.pages.materialsDelete.sub",
+  backup: "shell.pages.backup.sub",
   doctor: "doctor.sub",
   about: "shell.pages.about.sub",
   debug: "shell.pages.debug.sub",
@@ -139,11 +142,11 @@ const pageTitle = (p: Sub) => (p === "language" ? LANGUAGE_SETTING_TITLE : PAGE_
 const pageSub = (p: Sub) => (p === "language" ? activeLocale().meta.nativeName : PAGE_SUBS[p]);
 
 /**
- * 设置列表里的一行：一页，或者不是页的那几块（我的名字、工具调用的完整内容、备份〔335 号票〕）；"个人档案"（281 号票）是"更多"下面的页，
+ * 设置列表里的一行：一页，或者不是页的那几块（我的名字、工具调用的完整内容）；"个人档案"（281 号票）是"更多"下面的页，
  * 在身份组"我的名字"下面放一个去那里的链接
  */
-type SettingsRow = Sub | "user-name" | "tool-call-storage" | "backup" | "personal-files-link" | "enter-key";
-const isPage = (row: SettingsRow): row is Sub => row !== "user-name" && row !== "tool-call-storage" && row !== "backup" && row !== "personal-files-link" && row !== "enter-key";
+type SettingsRow = Sub | "user-name" | "tool-call-storage" | "personal-files-link" | "enter-key";
+const isPage = (row: SettingsRow): row is Sub => row !== "user-name" && row !== "tool-call-storage" && row !== "personal-files-link" && row !== "enter-key";
 
 /**
  * 设置的四组和组里的项（247 号票，用户 2026-10-22 定方案 A），按显示顺序。组只是列表上的组织，每页的地址照旧 #/more/<页>。
@@ -158,7 +161,7 @@ const SETTINGS_GROUPS: readonly { id: SettingsGroupId; rows: readonly SettingsRo
   { id: "ability", rows: ["models", "skills", "plugins", "components", "claude-code", "browsing"] },
   { id: "rules", rows: ["watch", "prompts", "workday-rules"] },
   // 295 号票：数据源排在这一组最前面（外面接进来的数据，和删除素材挨着）
-  // 335 号票："备份"（同步目录、最近一次、下一次、立即备份）紧挨着工具调用的完整内容
+  // 335 号票："备份"紧挨着工具调用的完整内容（356 号票起是普通一行，点了进去）
   // 319b：体检（八项一查）排在"关于二狗"前面：都是"这套东西现在怎么样"的那一类
   // 355 号票：授权的文件夹（电脑上的文件）排在数据源后面，内核的页面，浏览插件停用时也在
   { id: "data", rows: ["data-sources", "authorized-folders", "materials-delete", "tool-call-storage", "backup", "devices", "doctor", "about"] },
@@ -378,6 +381,8 @@ function SubPage({ page, item, go, navigate }: { page: Sub; item?: string; go(p:
       return <ComponentsPage />;
     case "data-sources":
       return <DataSourcesPage navigate={navigate} />;
+    case "backup":
+      return <BackupPage />;
     case "materials-delete":
       // 内核的成批删除（193 号票：记忆插件停用时从设置进来；点开一条是下一级 #/more/materials-delete/<素材 id>，删了这一条回到列表）
       return (
@@ -482,7 +487,6 @@ function SettingsList({ current, go, navigate }: { current?: Sub | undefined; go
   const row = (s: SettingsRow) => {
     if (s === "user-name") return <UserNameSetting key={s} />;
     if (s === "tool-call-storage") return <ToolCallStorageSetting key={s} />;
-    if (s === "backup") return <BackupSetting key={s} />;
     if (s === "enter-key") return <EnterKeySetting key={s} />;
     if (s === "personal-files-link")
       return (

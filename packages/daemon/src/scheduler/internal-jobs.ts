@@ -12,6 +12,8 @@
 // 停机期间错过好几次也只补一次（跑完之后的下一次从跑完的那一刻往后算）；补完再重启不会再补。
 // 第一次见到某个作业时只记下"从现在起算"，不马上跑（新的数据目录不会一启动就备份）。
 //
+// 356 号票：设置页上改了备份的时刻、谁来定时，要不重启换时间表：撤掉旧的、再 register（fromNow），从现在往后算下一次，不因为新的时刻已经过了点就马上补跑。
+//
 // 作业的 run 是异步的。跑完（成功或失败都算跑过；失败由作业自己报告）记一次，再登记下一次。
 // 守护进程停止时中止信号（AbortSignal）置位，作业因此中止（抛 AbortError）的不算跑过，下次启动照常补。
 import { dependsOnWorkdayCalendar, nextOccurrence, nowIso, type ReminderSchedule, type ScheduleContext } from "@ergo/protocol";
@@ -60,9 +62,10 @@ export interface InternalJob {
 export interface InternalJobs {
   /**
    * 登记一个作业：错过了就马上补跑一次，否则登记到下一次。返回撤销函数（126 号票：插件停用时撤掉）：
-   * 取消计时器、不再登记下一次；正在跑的那一次跑完照常记下，之后不再排
+   * 取消计时器、不再登记下一次；正在跑的那一次跑完照常记下，之后不再排。
+   * fromNow（356 号票：运行中换时间表）：从现在往后算下一次，不补跑
    */
-  register(job: InternalJob): () => void;
+  register(job: InternalJob, options?: { fromNow?: boolean }): () => void;
   state(name: string): InternalJobState | undefined;
   /**
    * 登记着的作业下一次什么时候跑（335 号票：设置里"备份"写下一次）：正在跑的按"这一次跑完之后"算（从现在往后），
@@ -163,7 +166,7 @@ export function createInternalJobs(options: InternalJobsOptions): InternalJobs {
   };
 
   return {
-    register(job) {
+    register(job, registerOptions) {
       jobs.set(job.name, job);
       const undo = () => {
         if (jobs.get(job.name) !== job) return;
@@ -171,12 +174,12 @@ export function createInternalJobs(options: InternalJobsOptions): InternalJobs {
         scheduler.cancel(keyOf(job));
       };
       const state = getJobState(store.reader, job.name);
-      if (state) {
+      if (state && !registerOptions?.fromNow) {
         arm(job, Date.parse(state.lastRunAt ?? state.since));
         return undo;
       }
       const now = clock.now();
-      record({ job: job.name, since: iso(now) });
+      if (!state) record({ job: job.name, since: iso(now) });
       arm(job, now);
       return undo;
     },
@@ -187,7 +190,9 @@ export function createInternalJobs(options: InternalJobsOptions): InternalJobs {
       const now = clock.now();
       const state = getJobState(store.reader, name);
       const last = busy.has(name) || !state ? now : Date.parse(state.lastRunAt ?? state.since);
-      return nextDue(job.schedule, new Date(last), new Date(now), options.scheduleContext())?.at;
+      const due = nextDue(job.schedule, new Date(last), new Date(now), options.scheduleContext());
+      // 算出来已经过了点：刚换过时间表（356 号票），真正排着的是从现在往后的那一次
+      return due?.missed ? nextDue(job.schedule, new Date(now), new Date(now), options.scheduleContext())?.at : due?.at;
     },
     async whenIdle() {
       while (running.size > 0) await Promise.allSettled(running);

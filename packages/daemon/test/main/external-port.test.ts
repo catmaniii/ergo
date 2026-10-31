@@ -40,6 +40,12 @@ const GUARDED: Array<[method: string, pathname: string]> = [
   // 设置里的备份：现在的状况、立即备份（335）
   ["GET", HTTP_PATHS.backup],
   ["POST", HTTP_PATHS.backupRun],
+  // 设置 · 备份单独一页（356）：改配置、校验文件夹、列快照、手动校验、打开文件夹
+  ["PATCH", HTTP_PATHS.backupConfig],
+  ["POST", HTTP_PATHS.backupCheckFolder],
+  ["GET", HTTP_PATHS.backupSnapshots],
+  ["POST", HTTP_PATHS.backupVerify],
+  ["POST", HTTP_PATHS.backupOpen],
   // 长程任务一个阶段现取的：授权已用几次、这一段已经做了的事（84）
   ["GET", HTTP_PATHS.taskStage("t-1", "s1")],
   ["GET", "/api/nope"],

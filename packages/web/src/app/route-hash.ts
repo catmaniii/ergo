@@ -31,7 +31,7 @@ export type Tab = "secretary" | "tasks" | "projects" | "inbox" | "browse" | "cal
  * 343 号票：数据源分两层——#/more/data-sources 是卡片总览，点一张卡是单独全屏的详情（#/more/data-sources/<数据源 id>），
  * 共用的导入文件夹也是一张卡（#/more/data-sources/import_folder：数据源的 id 只有小写英文、数字和连字符，撞不上）
  */
-export const MORE_PAGES = ["usage", "settings", "setup", "roles", "language", "appearance", "models", "watch", "workday-rules", "skills", "prompts", "voice", "browsing", "devices", "plugins", "components", "claude-code", "data-sources", "authorized-folders", "materials-delete", "doctor", "about", "debug", "files"] as const;
+export const MORE_PAGES = ["usage", "settings", "setup", "roles", "language", "appearance", "models", "watch", "workday-rules", "skills", "prompts", "voice", "browsing", "devices", "plugins", "components", "claude-code", "data-sources", "authorized-folders", "materials-delete", "backup", "doctor", "about", "debug", "files"] as const;
 
 export type MorePage = (typeof MORE_PAGES)[number];
 

@@ -4,6 +4,12 @@
 // - POST /api/backup/run："立即备份"：守护进程排一次（和它自己到点的那次在同一条队列里），马上回现在的状况，做完的结果再取。
 // 守护进程自己（到点的、"立即备份"）和命令行脚本（npm run backup，外部定时器调的也是它）写同一份"最近一次"的记录，
 // 受同一把锁管（本机备份区的 backup.lock：同一时刻只有一份在做，后来的等）。
+// 356 号票起设置 · 备份是单独一页（#/more/backup），多了这几个接口（改配置只有用户在这一页能改，不给 agent 工具）：
+// - PATCH /api/backup/config：改另存的文件夹、每晚几点、谁来定时；写进配置文件（只动 backup 这几个键），不用重启，回现在的状况；
+// - POST /api/backup/check-folder：选文件夹时校验一个路径（绝对路径、不在数据目录里、存在、真写一个临时文件试）；
+// - GET /api/backup/snapshots：本机和另存文件夹各有哪些快照、多大，取不到的写原因；
+// - POST /api/backup/verify：手动校验最新的快照（和备份排同一条队列、拿同一把锁），马上回现在的状况，结果接着取；
+// - POST /api/backup/open：在电脑上打开本机备份区或另存的文件夹（只认这两处，不收路径）。
 import { type Static, Type } from "typebox";
 
 /** 谁做的：守护进程（到点的、"立即备份"）、命令行脚本（npm run backup） */
@@ -70,7 +76,57 @@ export const BackupRunningView = Type.Object({
 });
 export type BackupRunningView = Static<typeof BackupRunningView>;
 
-/** GET /api/backup（POST /api/backup/run 也回它）：设置里"备份"那一小节要的全部，每次现取 */
+/** 两处放快照的地方：本机备份区、另存的文件夹（配置 backup.syncDir） */
+export const BACKUP_PLACES = ["local", "sync"] as const;
+export type BackupPlace = (typeof BACKUP_PLACES)[number];
+
+/** 留几份（backup/retention.ts 的常量，只读）：本机几份；另存文件夹每日几份、每周几份 */
+export const BackupRetentionView = Type.Object({
+  local: Type.Integer({ minimum: 0 }),
+  syncDaily: Type.Integer({ minimum: 0 }),
+  syncWeekly: Type.Integer({ minimum: 0 }),
+});
+export type BackupRetentionView = Static<typeof BackupRetentionView>;
+
+/** 这台电脑上二狗是怎么装的（命令不一样）：ergo 是一行命令、npm 装的，有 ergo 命令；source 是自己 git clone 的，在代码目录里跑 */
+export const BACKUP_INSTALLS = ["ergo", "source"] as const;
+export type BackupInstall = (typeof BACKUP_INSTALLS)[number];
+
+/** 恢复的一步：一句说明、一条能复制的命令（PowerShell） */
+export const BackupRestoreStep = Type.Object({
+  note: Type.String(),
+  command: Type.String(),
+});
+export type BackupRestoreStep = Static<typeof BackupRestoreStep>;
+
+/** 和这台电脑的装法对得上的命令（守护进程按自己装在哪现算） */
+export const BackupCommandsView = Type.Object({
+  install: Type.Enum(BACKUP_INSTALLS),
+  /** 交给外部定时器时要定时调的那一条（PowerShell） */
+  scheduled: Type.String(),
+  /** 怎么恢复，一步一条 */
+  restore: Type.Array(BackupRestoreStep),
+});
+export type BackupCommandsView = Static<typeof BackupCommandsView>;
+
+/** 校验了一处最新的快照：problems 空表示通过 */
+export const BackupVerifyCheck = Type.Object({
+  location: Type.Enum(BACKUP_PLACES),
+  date: Type.String(),
+  problems: Type.Array(Type.String()),
+});
+export type BackupVerifyCheck = Static<typeof BackupVerifyCheck>;
+
+/** 最近一次校验（手动的、每周的；只记在这次运行里）：查了哪几处；另存文件夹用不了没查的写原因；等备份等太久这次没查的写原因 */
+export const BackupVerifyRecord = Type.Object({
+  finishedAt: Type.String(),
+  checks: Type.Array(BackupVerifyCheck),
+  syncSkipped: Type.Optional(Type.String()),
+  busy: Type.Optional(Type.String()),
+});
+export type BackupVerifyRecord = Static<typeof BackupVerifyRecord>;
+
+/** GET /api/backup（POST /api/backup/run、/verify，PATCH /config 也回它）：设置 · 备份那一页要的全部，每次现取（快照列表另取） */
 export const BackupStatusView = Type.Object({
   schedule: Type.Enum(BACKUP_SCHEDULES),
   /** 每天几点（配置 backup.time，HH:mm）；external 时守护进程不按它备份 */
@@ -87,5 +143,71 @@ export const BackupStatusView = Type.Object({
   running: Type.Optional(BackupRunningView),
   /** 守护进程这边排着一次"立即备份"（在等锁或者正在做） */
   queued: Type.Boolean(),
+  /** 本机备份区的完整路径（跟着数据目录走，不单独挪） */
+  localDir: Type.String(),
+  retention: BackupRetentionView,
+  commands: BackupCommandsView,
+  /** 排着或正在做一次校验（这时 running 只说备份，不算校验拿着的锁） */
+  verifying: Type.Boolean(),
+  /** 最近一次校验；这次运行还没校验过不带 */
+  lastVerify: Type.Optional(BackupVerifyRecord),
 });
 export type BackupStatusView = Static<typeof BackupStatusView>;
+
+/**
+ * PATCH /api/backup/config：改哪项给哪项。syncDir 是另存的文件夹（完整路径），null 是清掉（只留本机那份）；
+ * createSyncDir 为真时文件夹不存在就新建（页面问过用户了）；time 是每晚几点（HH:mm）；schedule 是谁来定时
+ */
+export const BackupConfigBody = Type.Object({
+  syncDir: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  createSyncDir: Type.Optional(Type.Boolean()),
+  time: Type.Optional(Type.String()),
+  schedule: Type.Optional(Type.Enum(BACKUP_SCHEDULES)),
+});
+export type BackupConfigBody = Static<typeof BackupConfigBody>;
+
+/** POST /api/backup/check-folder 的请求 */
+export const BackupFolderCheckBody = Type.Object({ dir: Type.String() });
+export type BackupFolderCheckBody = Static<typeof BackupFolderCheckBody>;
+
+/** 选文件夹时校验的结果：能用（dir 是规整过的完整路径）、不存在（问一下要不要新建）、不能用（原因给人看） */
+export const BackupFolderCheck = Type.Union([
+  Type.Object({ kind: Type.Literal("ok"), dir: Type.String() }),
+  Type.Object({ kind: Type.Literal("missing"), dir: Type.String() }),
+  Type.Object({ kind: Type.Literal("invalid"), dir: Type.String(), reason: Type.String() }),
+]);
+export type BackupFolderCheck = Static<typeof BackupFolderCheck>;
+
+/** 一份快照：日期、里面文件的总大小；日期目录在但清单读不出来的写原因 */
+export const BackupSnapshotItem = Type.Object({
+  date: Type.String(),
+  bytes: Type.Optional(Type.Integer({ minimum: 0 })),
+  problem: Type.Optional(Type.String()),
+});
+export type BackupSnapshotItem = Static<typeof BackupSnapshotItem>;
+
+/** 一处的快照，从新到旧；取不到（文件夹不在、读不了）写原因 */
+export const BackupSnapshotPlace = Type.Object({
+  dir: Type.String(),
+  snapshots: Type.Array(BackupSnapshotItem),
+  problem: Type.Optional(Type.String()),
+});
+export type BackupSnapshotPlace = Static<typeof BackupSnapshotPlace>;
+
+/** GET /api/backup/snapshots：本机和另存文件夹；没配另存的文件夹不带 sync */
+export const BackupSnapshotsView = Type.Object({
+  local: BackupSnapshotPlace,
+  sync: Type.Optional(BackupSnapshotPlace),
+});
+export type BackupSnapshotsView = Static<typeof BackupSnapshotsView>;
+
+/** POST /api/backup/open 的请求：打开哪一处 */
+export const BackupOpenBody = Type.Object({ place: Type.Enum(BACKUP_PLACES) });
+export type BackupOpenBody = Static<typeof BackupOpenBody>;
+
+/** POST /api/backup/open 的回答：打开了没有，没打开写原因 */
+export const BackupOpenResult = Type.Object({
+  opened: Type.Boolean(),
+  error: Type.Optional(Type.String()),
+});
+export type BackupOpenResult = Static<typeof BackupOpenResult>;

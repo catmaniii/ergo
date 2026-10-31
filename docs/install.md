@@ -145,7 +145,7 @@ Set-Content -NoNewline -Encoding ascii "$env:USERPROFILE\.ergo\secrets\deepseek-
 
 1. **走向导**：浏览器打开 <http://127.0.0.1:8810/>（或者 `ergo open`），网页里的**设置向导**五步走完：语言 / 称呼 / 助手名、模型 Key（填完点一下测试）、组件、手机扫码配对、安全默认值说明，后面还有一屏外网访问的说明。每步都能"以后再说"，以后随时从**更多 · 设置**最上面一行重进。详见[第一次打开](user-guide.md#3-第一次打开)。
 2. **试一句**：跟它说"两分钟后提醒我喝水"。
-3. **日常命令**：`ergo start`、`ergo stop`、`ergo restart`、`ergo status`、`ergo logs`。
+3. **日常命令**：`ergo start`、`ergo stop`、`ergo restart`、`ergo status`、`ergo logs`；备份和恢复是 `ergo backup`、`ergo restore`（[备份和恢复](user-guide.md#9-备份和恢复)）。
 4. **出问题**：先看**更多 · 设置 · 数据与设备 →「体检」**，每条都写着怎么修；再看[出问题怎么办](user-guide.md#11-出问题怎么办)。
 
 ## 升级
