@@ -7,6 +7,7 @@
   },
   "include": ["test", "build", "vite.config.ts", "vitest.config.ts"],
   // 界面那一半的测试（缩放的数学，54 号票）、页面桥在真浏览器里的测试（134 号票）、网页插件的测试（193 号票）、
-  // 设置四组的测试（247 号票：直接渲染 MorePage 的组件）要 DOM 的类型，另由 tsconfig.ui-test.json 查
-  "exclude": ["test/ui", "test/page-bridge", "test/plugins", "test/pages"]
+  // 设置四组的测试（247 号票：直接渲染 MorePage 的组件）要 DOM 的类型，另由 tsconfig.ui-test.json 查；
+  // 原型假数据那一套（test/prototype，自定义 OpenAI 兼容服务商这一步）也带过去：它引的假 HTTP 连带引到构建信息那个虚拟模块和 DOM
+  "exclude": ["test/ui", "test/page-bridge", "test/plugins", "test/pages", "test/prototype"]
 }

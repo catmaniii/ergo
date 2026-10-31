@@ -3596,6 +3596,56 @@ a.att-icon:hover {
 .model-file-broken .muted {
   font-size: var(--fs-s);
 }
+/*
+ * 模型服务商那一块里的自定义服务商（自定义（OpenAI 兼容）服务商）：接口地址、模型 id、接口类型各一行——
+ * 上面是名、中间是输入框（模型 id 那一行旁边是"拉取列表"）、下面一句说明；诚实的那句提示和小字各占一行。
+ */
+.model-custom {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-l);
+  background: var(--surface);
+}
+.model-custom-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.model-custom-label {
+  font-size: var(--fs-m);
+  font-weight: 600;
+}
+.model-custom-field .muted {
+  font-size: var(--fs-s);
+  line-height: 1.5;
+}
+.model-custom-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.model-custom-row .input {
+  flex: 1 1 16em;
+  min-width: 0;
+}
+.model-custom-note {
+  margin: 0;
+  font-size: var(--fs-s);
+  line-height: 1.5;
+}
+.model-custom-problem {
+  overflow-wrap: anywhere;
+}
+.model-custom-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
 .model-key-row .muted,
 .model-vision-row .muted {
   font-size: var(--fs-s);
@@ -3613,6 +3663,13 @@ a.att-icon:hover {
 .model-choice select {
   flex: 1 1 220px;
   min-width: 0;
+}
+/* 自定义（OpenAI 兼容）服务商只有一个模型：默认模型那一行写它，不放下拉 */
+.model-choice-model {
+  flex: 1 1 220px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 600;
 }
 .model-choice .seg {
   border: 1px solid var(--border);

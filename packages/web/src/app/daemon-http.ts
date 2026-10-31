@@ -14,7 +14,7 @@
 // 每个 agent 的会话里的 ⚙：面板、单独的提示词、清空当前对话、现在压缩（114 号票）；项目、任务的维护者单独配模型（120 号票）。
 // 和 Connection 一样只在 App.tsx 里注入一次（StoreProvider 的 http）：页面由守护进程提供时是 HttpDaemonClient，
 // 直接打开构建产物（file://）时是原型的假实现（prototype/fake-http.ts）。
-import { type AgentModelBody, type AgentPromptBody, type AgentRuntimeBody, type RuntimeFolderBody, type RuntimeSessionsView, type WorkFolderCheckResult, type TakeoverAction, type TakeOverBody, type TakeOverResult, type AgentRoleAssignmentBody, type AgentRoleBody, type AgentRolesView, type AgentRoleUpdateBody, type AgentSettingsView, type AssistantNameResult, type BranchView, type CalendarMonthView, type ConversationId, type DebugRecognizeBody, type DebugRecognizeResult, type DebugSpeakBody, type DebugSpeakResult, type DeleteMaterialsBody, type DeleteMaterialsResult, type FileTextResult, type FolderBrowseView, type FramePreview, type HistoryPage, HTTP_PATHS, type HttpErrorBody, type ImportReferenceVoiceBody, type ImportSkillBody, type ImportSkillResult, type InterviewStartResult, type InterviewStatusView, type LanguageResult, type LocaleDictionaryView, type LocaleListView, type LocalFoldersBody, type LocalFoldersChangeBody, type LocalFoldersView, type MaterialDetailView, type MaterialListFilter, type MaterialListPage, type MaterialScope, type MaterialScopeSummary, type MediaTextResult, type MediaTextView, type MemoryClaimDetailView, type MemoryClaimListPage, type MemoryClaimQuery, type MemoryDeleteMode, type MemoryQuestionsView, type MemoryStrategiesView, type MemorySettingsBody, type MemorySettingsView, type MemorySummaryView, type SafetySettingsBody, type SafetySettingsView, type ModelSettingsBody, type ModelSettingsView, type ModelTestResult, type PageVoiceBody, type PageVoiceResult, type PluginAction, type PluginActionResult, type PluginsView, type ProjectStandardView, type ReferenceVoice, type ReferenceVoiceList, type RollbackPreview, type RollbackTarget, type SaveWebPageBody, type SaveWebPageResult, type SecretarySkillsBody, type SecretarySkillsView, type SlashCommandList, type SystemPromptBody, type SystemPromptDetail, type SystemPromptList, t, type TaskStageView, type ToolCallCleanupResult, type ToolCallDetail, type ToolCallStorageView, type BackupStatusView, type ToolkitCatalog, type UploadedMedia, type UsageSummary, type UserNameResult, type UserNameView, type AddPersonBody, type PersonalFileChangeBody, type PersonalFileDeleteBody, type PersonalFileDeleteResult, type PersonalFileLearnedView, type PersonalFilesView, type PersonalFileView, type VoiceModelsView, type WebSettingsBody, type WebSettingsView, type WebVersionView, type WorkdayChange, type WorkdayChangeResult, type RuntimesView, type DataSourceActionBody, type DataSourceActionResult, type DataSourcesView, type ImportFolderActionBody, type ImportFolderActionResult, type DataSourcePushBody, type DataSourcePushResult, type ModelKeyBody, type ModelKeyView, type ModelKeyWriteResult, type ComponentAction, type ComponentImportResult, type ComponentsView } from "../state/index.ts";
+import { type AgentModelBody, type AgentPromptBody, type AgentRuntimeBody, type RuntimeFolderBody, type RuntimeSessionsView, type WorkFolderCheckResult, type TakeoverAction, type TakeOverBody, type TakeOverResult, type AgentRoleAssignmentBody, type AgentRoleBody, type AgentRolesView, type AgentRoleUpdateBody, type AgentSettingsView, type AssistantNameResult, type BranchView, type CalendarMonthView, type ConversationId, type DebugRecognizeBody, type DebugRecognizeResult, type DebugSpeakBody, type DebugSpeakResult, type DeleteMaterialsBody, type DeleteMaterialsResult, type FileTextResult, type FolderBrowseView, type FramePreview, type HistoryPage, HTTP_PATHS, type HttpErrorBody, type ImportReferenceVoiceBody, type ImportSkillBody, type ImportSkillResult, type InterviewStartResult, type InterviewStatusView, type LanguageResult, type LocaleDictionaryView, type LocaleListView, type LocalFoldersBody, type LocalFoldersChangeBody, type LocalFoldersView, type MaterialDetailView, type MaterialListFilter, type MaterialListPage, type MaterialScope, type MaterialScopeSummary, type MediaTextResult, type MediaTextView, type MemoryClaimDetailView, type MemoryClaimListPage, type MemoryClaimQuery, type MemoryDeleteMode, type MemoryQuestionsView, type MemoryStrategiesView, type MemorySettingsBody, type MemorySettingsView, type MemorySummaryView, type SafetySettingsBody, type SafetySettingsView, type ModelSettingsBody, type ModelSettingsView, type ModelTestBody, type ModelTestResult, type ModelCustomModelsBody, type ModelCustomModelsResult, type PageVoiceBody, type PageVoiceResult, type PluginAction, type PluginActionResult, type PluginsView, type ProjectStandardView, type ReferenceVoice, type ReferenceVoiceList, type RollbackPreview, type RollbackTarget, type SaveWebPageBody, type SaveWebPageResult, type SecretarySkillsBody, type SecretarySkillsView, type SlashCommandList, type SystemPromptBody, type SystemPromptDetail, type SystemPromptList, t, type TaskStageView, type ToolCallCleanupResult, type ToolCallDetail, type ToolCallStorageView, type BackupStatusView, type ToolkitCatalog, type UploadedMedia, type UsageSummary, type UserNameResult, type UserNameView, type AddPersonBody, type PersonalFileChangeBody, type PersonalFileDeleteBody, type PersonalFileDeleteResult, type PersonalFileLearnedView, type PersonalFilesView, type PersonalFileView, type VoiceModelsView, type WebSettingsBody, type WebSettingsView, type WebVersionView, type WorkdayChange, type WorkdayChangeResult, type RuntimesView, type DataSourceActionBody, type DataSourceActionResult, type DataSourcesView, type ImportFolderActionBody, type ImportFolderActionResult, type DataSourcePushBody, type DataSourcePushResult, type ModelKeyBody, type ModelKeyView, type ModelKeyWriteResult, type ComponentAction, type ComponentImportResult, type ComponentsView } from "../state/index.ts";
 import { fetchFileText } from "./file-source.ts";
 import { httpErrorMessage, notJsonMessage } from "./http-error.ts";
 import { type UploadProgress, uploadFile } from "./uploader.ts";
@@ -179,8 +179,10 @@ export interface DaemonHttp {
   modelSettings(): Promise<ModelSettingsView>;
   /** 整份存（不合规时抛错，message 是原因），回存好之后的；下一个新会话起生效 */
   saveModelSettings(body: ModelSettingsBody): Promise<ModelSettingsView>;
-  /** 连通测试：用这个模型（不给是默认模型）发一条极短的请求，回通不通、首 token 延迟 */
-  testModel(modelId?: string): Promise<ModelTestResult>;
+  /** 连通测试：用这个模型（不给是默认模型）发一条极短的请求；自定义服务商时带上它那一块（还没存也想试一下） */
+  testModel(body?: ModelTestBody): Promise<ModelTestResult>;
+  /** 列出自定义（OpenAI 兼容）服务商有哪些模型：不发模型请求、不花 token；列不成也回 200（ok 为 false 和原因） */
+  customModels(baseUrl?: string): Promise<ModelCustomModelsResult>;
   /** 模型的 key 配没配（315 号票）：不查模型目录、马上回；会话页上"还没配模型"的提示用 */
   modelKey(): Promise<ModelKeyView>;
   /**
@@ -575,8 +577,17 @@ export class HttpDaemonClient implements DaemonHttp {
     return this.post<ModelSettingsView>(HTTP_PATHS.modelSettings, body);
   }
 
-  testModel(modelId?: string): Promise<ModelTestResult> {
-    return this.post<ModelTestResult>(HTTP_PATHS.modelSettingsTest, modelId === undefined ? {} : { modelId });
+  testModel(body: ModelTestBody = {}): Promise<ModelTestResult> {
+    return this.post<ModelTestResult>(HTTP_PATHS.modelSettingsTest, body);
+  }
+
+  /**
+   * 列出自定义（OpenAI 兼容）服务商有哪些模型（设置页的"拉取列表"）：守护进程发一次 GET {baseUrl}/models，
+   * key 照旧从密钥区来（请求体里没有 key）。列不成也回 200：ok 为 false、error 写原因
+   */
+  customModels(baseUrl?: string): Promise<ModelCustomModelsResult> {
+    const body: ModelCustomModelsBody = baseUrl === undefined ? {} : { baseUrl };
+    return this.post<ModelCustomModelsResult>(HTTP_PATHS.modelSettingsCustomModels, body);
   }
 
   async modelKey(): Promise<ModelKeyView> {

@@ -16,6 +16,7 @@ import {
   MODEL_THINKING_LEVELS,
   type ModelApiKeyStatus,
   type ModelChoice,
+  type ModelCustomProvider,
   type ModelOptionView,
   type ModelAgent,
   type MaintainerModelView,
@@ -54,26 +55,38 @@ export function modelSettingsFileBrokenNote(): string {
   return t("state.modelSettings.fileBroken");
 }
 
-/** 存回去的整份：从设置复制一份（不改原来的） */
-function bodyOf(settings: ModelSettings): ModelSettingsBody {
+/** 存回去的整份：从设置复制一份（不改原来的）。存着的自定义（OpenAI 兼容）服务商那一块也带上，切回 DeepSeek 时不清空 */
+export function settingsBody(settings: ModelSettings): ModelSettingsBody {
   return {
     provider: settings.provider,
     default: { ...settings.default },
     agents: Object.fromEntries(Object.entries(settings.agents).map(([agent, o]) => [agent, { ...o }])),
     vision: { ...settings.vision },
+    ...(settings.custom === undefined ? {} : { custom: { ...settings.custom } }),
   };
+}
+
+/**
+ * 换服务商（设置页上那两个单选、首次向导那一步）：custom 给了就连自定义那一块一起存（地址、模型 id、接口风格），
+ * 没给时留着设置里原来那份（守护进程那边也是"没带就不动"）
+ */
+export function withProvider(settings: ModelSettings, provider: string, custom?: ModelCustomProvider): ModelSettingsBody {
+  const body = settingsBody(settings);
+  body.provider = provider;
+  if (custom !== undefined) body.custom = { ...custom };
+  return body;
 }
 
 /** 改默认模型或默认的思考档位 */
 export function withDefault(settings: ModelSettings, patch: Partial<ModelChoice>): ModelSettingsBody {
-  const body = bodyOf(settings);
+  const body = settingsBody(settings);
   body.default = { ...body.default, ...patch };
   return body;
 }
 
 /** 改一个 agent：给 null 是这一项改回"跟随默认"；两项都跟随默认就去掉这个 agent */
 export function withAgent(settings: ModelSettings, agent: ModelAgent, patch: { modelId?: string | null; thinkingLevel?: ModelThinkingLevel | null }): ModelSettingsBody {
-  const body = bodyOf(settings);
+  const body = settingsBody(settings);
   const next = { ...body.agents[agent] };
   if (patch.modelId === null) delete next.modelId;
   else if (patch.modelId !== undefined) next.modelId = patch.modelId;
@@ -86,7 +99,7 @@ export function withAgent(settings: ModelSettings, agent: ModelAgent, patch: { m
 
 /** 改一个模型的看图能力：follow 是去掉这里改的（按配置文件写明的、再按模型目录） */
 export function withVision(settings: ModelSettings, key: string, choice: ModelVisionChoice): ModelSettingsBody {
-  const body = bodyOf(settings);
+  const body = settingsBody(settings);
   if (choice === "follow") delete body.vision[key];
   else body.vision[key] = choice === "on";
   return body;

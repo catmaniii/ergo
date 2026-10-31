@@ -743,8 +743,14 @@ export type {
   AgentRoleView,
 } from "@ergo/protocol";
 // 设置里的"模型"（73 号票）：agent、思考档位、设置和设置页的样子、连通测试的结果；
-// 319 号票起还有在网页上填 key 的请求体（{ key }）、写完之后什么时候生效（now / restart）
+// 319 号票起还有在网页上填 key 的请求体（{ key }）、写完之后什么时候生效（now / restart）；
+// 自定义（OpenAI 兼容）服务商：provider id 固定是 custom、两种接口风格、跨字段合规的那条判法、列它有哪些模型的结果
 export {
+  checkModelCustom,
+  CUSTOM_MODELS_MAX,
+  CUSTOM_PROVIDER_APIS,
+  CUSTOM_PROVIDER_ID,
+  DEFAULT_CUSTOM_PROVIDER_API,
   effectiveModelChoice,
   MAINTAINER_MODEL_AGENTS,
   MODEL_AGENT_LABEL,
@@ -758,11 +764,17 @@ export {
   normalizeModelKey,
 } from "@ergo/protocol";
 export type {
+  CustomProviderApi,
+  CustomProviderCheck,
   MaintainerModelAgent,
   MaintainerModelView,
   ModelSwitchAt,
   ModelApiKeyStatus,
   ModelChoice,
+  ModelCustomModel,
+  ModelCustomModelsBody,
+  ModelCustomModelsResult,
+  ModelCustomProvider,
   ModelKeyBody,
   ModelKeyEffective,
   ModelKeyView,
@@ -774,6 +786,7 @@ export type {
   ModelSettings,
   ModelSettingsBody,
   ModelSettingsView,
+  ModelTestBody,
   ModelTestResult,
   ModelThinkingLevel,
   ModelVisionChoice,

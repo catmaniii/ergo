@@ -638,6 +638,74 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     const ok = { inGear: false, onBody: true, buttons: [{ inView: true, hit: true }, { inView: true, hit: true }] };
     expect(found).toEqual(confirms.map(([name]) => ({ name, ...ok })));
   }, 60_000);
+
+  // 自定义（OpenAI 兼容）服务商在网页上换：选它才出现接口地址、模型 id、接口类型和那句诚实的提示，拉列表（原型不联网，
+  // 回几个编的 id）之后模型 id 变成下拉、挑一个存进去，切回 DeepSeek 不清空已经填的那一块；首次设置向导的模型那一步是同一块。
+  // 点"连通测试"走原型的假延迟，说通了；五步、外网访问那一屏和"以后再说"都还在，向导那一步是同一块、填完能测连通
+  test("设置 · 模型：选自定义出现那几项、拉列表变成下拉、切回 DeepSeek 不清空；首次向导的模型那一步是同一块", async () => {
+    const { page, errors } = await open({ width: 1280, height: 800 });
+    const at = async (hash: string) => {
+      await page.evaluate(`window.location.hash = ${JSON.stringify(hash)}`);
+      await page.waitForTimeout(400);
+    };
+    const testSays = async (text: string) => {
+      await page.waitForSelector(".model-test", { timeout: 10_000 });
+      expect(await page.locator(".model-test").innerText()).toContain(text);
+    };
+
+    // 设置 · 模型（还没选过自定义：没有那几项）
+    await at("#/more/models");
+    await page.waitForSelector('input[name="model-provider"][value="custom"]');
+    expect(await page.locator(".model-custom").count()).toBe(0);
+    await page.click('input[name="model-provider"][value="custom"]');
+    await page.waitForSelector(".model-custom");
+    expect(await page.locator('input[name="model-custom-base-url"]').getAttribute("placeholder")).toBe("https://api.openai.com/v1");
+    const block = await page.locator(".model-custom").innerText();
+    expect(block).toContain("要填到 /v1 这一层");
+    expect(block).toContain("记忆整理、联网搜索和读网页仍然要用 DeepSeek 的 key");
+    expect(block).toContain("OpenAI responses");
+    // 填好地址和模型 id，离开输入框就存（原型只记在内存里）；key 那一块跟着换成自定义服务商的
+    await page.fill('input[name="model-custom-base-url"]', "https://api.example.com/v1");
+    await page.fill('input[name="model-custom-model-id"]', "my-model");
+    await page.locator('input[name="model-custom-model-id"]').blur();
+    await page.waitForFunction(`document.querySelector(".model-key-row b")?.textContent?.includes("自定义")`, undefined, { timeout: 10_000 });
+    // 拉列表：模型 id 变成下拉，里面是编的几个 id（现在填的那个补在第一项）
+    await page.click('.model-custom button:has-text("拉取列表")');
+    await page.waitForSelector('select[aria-label="模型 id"]', { timeout: 10_000 });
+    expect(await page.locator('select[aria-label="模型 id"] option').evaluateAll((els) => els.map((e) => e.getAttribute("value")))).toEqual(["my-model", "fake-chat-pro", "fake-chat-mini", "fake-reasoner"]);
+    await page.selectOption('select[aria-label="模型 id"]', "fake-chat-mini");
+    await page.waitForTimeout(300);
+    // 连通测试：原型的假结果，说通了，测的是挑的这个
+    await page.click('.model-custom-actions button:has-text("连通测试")');
+    await testSays("通了：fake-chat-mini");
+    // 切回 DeepSeek：自定义那几项收起；再选回来，地址和挑的模型 id 都还在
+    await page.click('input[name="model-provider"][value="deepseek"]');
+    await page.waitForTimeout(300);
+    expect(await page.locator(".model-custom").count()).toBe(0);
+    await page.click('input[name="model-provider"][value="custom"]');
+    await page.waitForSelector(".model-custom");
+    expect(await page.locator('input[name="model-custom-base-url"]').inputValue()).toBe("https://api.example.com/v1");
+    expect(await page.locator('select[aria-label="模型 id"]').inputValue()).toBe("fake-chat-mini");
+
+    // 首次设置向导：步骤数没变（五步 + 外网访问），"以后再说"还在；模型那一步是同一块，切回 DeepSeek 就收起，填完能测连通
+    await at("#/more/setup");
+    expect(await page.locator(".setup-rail [data-step]").count()).toBe(6);
+    await page.click('.setup-rail [data-step="model"]');
+    await page.waitForSelector('input[name="model-provider"][value="custom"]', { timeout: 10_000 });
+    expect(await page.locator(".model-custom").count()).toBe(1);
+    expect(await page.locator(".setup-actions button").count()).toBe(2);
+    await page.click('input[name="model-provider"][value="deepseek"]');
+    await page.waitForTimeout(300);
+    expect(await page.locator(".model-custom").count()).toBe(0);
+    await page.click('input[name="model-provider"][value="custom"]');
+    await page.waitForSelector(".model-custom");
+    expect(await page.locator('input[name="model-custom-base-url"]').inputValue()).toBe("https://api.example.com/v1");
+    expect(await page.locator('input[name="model-api-key"]').count()).toBe(1);
+    await page.click('.model-custom-actions button:has-text("连通测试")');
+    await testSays("通了：fake-chat-mini");
+    await page.close();
+    expect(errors).toEqual([]);
+  }, 60_000);
 });
 
 /**

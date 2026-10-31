@@ -9,7 +9,9 @@
 // - 任何时候都能出去接着用（标题栏上的"先不弄了"）。
 // 每步的内容尽量复用现有的页：称呼就是设置 · 身份里的那一块（more/UserNameSetting.tsx），安全默认值就是关注类别上面那两个开关
 // （more/SafetySwitches.tsx 的 SafetySwitchList），组件走设置 · 组件那一套接口（ComponentsPage 的 componentStateText、sizeLabel），
-// 模型 Key 能直接填（和设置 · 模型共用 ui/model-key.tsx 的那一块，POST /api/model-settings/key），语言、助手名、手机配对给去设置对应页的跳转。
+// 模型 Key 那一步先选服务商（DeepSeek / 自定义 OpenAI 兼容，填完能测连通），再直接填 key（两块和设置 · 模型共用
+// ui/model-provider.tsx 和 ui/model-key.tsx，POST /api/model-settings 和 /api/model-settings/key），
+// 语言、助手名、手机配对给去设置对应页的跳转。
 // 界面上不出现"秘书""待我处理"：说到二狗这个人一律用用户起的名字（ui/assistant-name.tsx）。
 import { useEffect, useState } from "react";
 import { toHash } from "../app/route-hash.ts";
@@ -29,12 +31,13 @@ import {
   type SetupView,
   sizeLabel,
   t,
+  type ModelSettingsView,
 } from "../state/index.ts";
 import { NameTag, useAssistantName } from "../ui/assistant-name.tsx";
 import { Section, TopBar } from "../ui/common.tsx";
 import { T } from "../ui/i18n.tsx";
 import { ModelKeySetting } from "../ui/model-key.tsx";
-import { useModelKey } from "../ui/model-key-notice.tsx";
+import { ModelProviderSetting } from "../ui/model-provider.tsx";
 import { useToast } from "../ui/toast.tsx";
 import { componentStateText } from "./more/ComponentsPage.tsx";
 import { SafetySwitches } from "./more/SafetySwitches.tsx";
@@ -144,12 +147,46 @@ function LanguageStep({ navigate }: { navigate: Navigate }) {
   );
 }
 
-/** 模型 Key（第②步）：直接填（和设置 · 模型共用 ui/model-key.tsx 的那一块），保存后不用重启；也能去设置 · 模型改 */
+/**
+ * 模型 Key（第②步）：先选服务商——DeepSeek，或者自定义（OpenAI 兼容）服务商（填接口地址、模型 id、接口类型，能测连通），
+ * 再填它的 key。两块都和设置 · 模型共用（ui/model-provider.tsx、ui/model-key.tsx），保存后不用重启。
+ * 服务商的名字、key 存进哪个文件都得照守护进程给的那份（GET /api/model-settings），所以这一步先取它，取到了才画
+ */
 function ModelStep({ navigate }: { navigate: Navigate }) {
-  const key = useModelKey();
+  const { http } = useStore();
+  const [view, setView] = useState<ModelSettingsView>();
+  const [failed, setFailed] = useState<string>();
+
+  useEffect(() => {
+    let live = true;
+    http.modelSettings().then(
+      (next) => {
+        if (live) setView(next);
+      },
+      (err: unknown) => {
+        if (live) setFailed(messageOf(err));
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, [http]);
+
+  const provider = view === undefined ? undefined : (view.providers.find((p) => p.id === view.settings.provider)?.label ?? view.settings.provider);
   return (
     <>
-      <ModelKeySetting provider={key?.provider.label} apiKey={key?.apiKey} />
+      {view === undefined && failed === undefined && <div className="muted">{t("ui.modelProvider.loading")}</div>}
+      {failed !== undefined && (
+        <div className="field-error" role="alert">
+          {t("ui.modelProvider.loadFailed", { reason: failed })}
+        </div>
+      )}
+      {view !== undefined && (
+        <>
+          <ModelProviderSetting view={view} onSaved={setView} />
+          <ModelKeySetting provider={provider} apiKey={view.apiKey} onSaved={(apiKey) => setView((now) => (now === undefined ? now : { ...now, apiKey }))} />
+        </>
+      )}
       <div className="setup-note">{t("setup.steps.model.where")}</div>
       <div>
         <button type="button" className="link" onClick={() => navigate({ tab: "more", page: "models" })}>

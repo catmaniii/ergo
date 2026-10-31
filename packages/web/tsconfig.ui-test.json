@@ -13,6 +13,7 @@
   // 143 号票：渲染输入框的测试经 app/page-update.ts 引到构建信息的虚拟模块（测试里换成假的），带上它的声明
   // 193 号票：网页插件的测试（test/plugins）引到插件的界面（.tsx）
   // 247 号票：设置四组的测试（test/pages）渲染 MorePage 里的组件（.tsx）
-  "include": ["test/ui", "test/page-bridge", "test/plugins", "test/pages", "src/app/virtual-build-info.d.ts"],
+  // 原型假数据那一套（test/prototype）引的假 HTTP 连带引到构建信息的虚拟模块和 daemon-http（DOM 的类型）
+  "include": ["test/ui", "test/page-bridge", "test/plugins", "test/pages", "test/prototype", "src/app/virtual-build-info.d.ts"],
   "exclude": []
 }

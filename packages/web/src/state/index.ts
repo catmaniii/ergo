@@ -59,6 +59,7 @@ export * from "./detail-content.ts";
 export * from "./tool-call-storage.ts";
 export * from "./backup.ts";
 export * from "./model-settings.ts";
+export * from "./model-custom.ts";
 export * from "./model-key.ts";
 export * from "./web-settings.ts";
 export * from "./popup.ts";

@@ -81,6 +81,12 @@ import type {
   SaveWebPageResult,
   MemoryDeleteMode,
   ModelSettings,
+  ModelApiKeyStatus,
+  ModelCustomModel,
+  ModelCustomModelsResult,
+  ModelOptionView,
+  ModelProviderView,
+  ModelTestBody,
   ModelSettingsBody,
   ModelSettingsView,
   ModelKeyView,
@@ -129,7 +135,7 @@ import type {
   InterviewStatusView,
   MemorySummaryView,
 } from "../state/index.ts";
-import { copyWebSettings, nowIso, DEFAULT_MEMORY_SETTINGS, MEMORY_CURATOR_CONVERSATION, DEFAULT_SECRETARY_SKILLS, DEFAULT_WEB_SETTINGS, effectiveModelChoice, effectiveWebQueue, framePreviewOf, IMPORT_NAME_PATTERN, MEDIA_FRAME_MAX_BYTES, MEDIA_TEXT_MAX_BYTES, MODEL_AGENTS, reopenScope, textPreviewOf, webSettingsProblem } from "../state/index.ts";
+import { copyWebSettings, nowIso, CUSTOM_PROVIDER_ID, DEFAULT_MEMORY_SETTINGS, MEMORY_CURATOR_CONVERSATION, DEFAULT_SECRETARY_SKILLS, DEFAULT_WEB_SETTINGS, effectiveModelChoice, effectiveWebQueue, framePreviewOf, IMPORT_NAME_PATTERN, MEDIA_FRAME_MAX_BYTES, MEDIA_TEXT_MAX_BYTES, MODEL_AGENTS, modelKeyOf, reopenScope, t, textPreviewOf, webSettingsProblem } from "../state/index.ts";
 import { fakeServerWebVersion } from "./fake-connection.ts";
 import { fakeMemoryClaim, fakeMemoryClaims, fakeMemoryQuestions, fakeMemoryStrategies, fakeMemorySummary } from "./fake-memory-graph.ts";
 import { FakeDataSources } from "./fake-data-sources.ts";
@@ -148,6 +154,28 @@ import { fakeProjectStandard } from "./fake-standard.ts";
 import { FakeSystemPrompts } from "./fake-system-prompts.ts";
 
 const DISPLAYABLE = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
+
+/** 原型里自定义（OpenAI 兼容）服务商"拉取列表"拉到的几个模型：编的 id，和谁家的都不对应（演示页不联网） */
+const FAKE_CUSTOM_MODELS: readonly ModelCustomModel[] = [
+  { id: "fake-chat-pro", name: "Fake Chat Pro", ownedBy: "fake" },
+  { id: "fake-chat-mini", name: "Fake Chat Mini", ownedBy: "fake" },
+  { id: "fake-reasoner", ownedBy: "fake" },
+];
+
+/** 原型里的服务商登记表（和守护进程的登记表一样两项：DeepSeek，和自定义的 OpenAI 兼容服务商）：名字照守护进程换好的样子 */
+function fakeModelProviders(): ModelProviderView[] {
+  return [
+    { id: "deepseek", label: "DeepSeek" },
+    { id: CUSTOM_PROVIDER_ID, label: t("ui.modelProvider.customLabel") },
+  ];
+}
+
+/** 原型里两个服务商的 key 都配着：按服务商说它从哪个环境变量、哪个文件来（值都是编的） */
+function fakeApiKey(provider: string): ModelApiKeyStatus {
+  return provider === CUSTOM_PROVIDER_ID
+    ? { configured: true, envVar: "CUSTOM_MODEL_API_KEY", secretFile: "secrets/custom-model-api-key.txt", lsm: true }
+    : { configured: true, envVar: "DEEPSEEK_API_KEY", secretFile: "secrets/deepseek-api-key.txt", lsm: true };
+}
 
 /** 同步的假实现包成 Promise：抛的错变成被拒（和真接口回错误一样） */
 function attempt<T>(fn: () => T): Promise<T> {
@@ -875,44 +903,70 @@ export class FakeDaemonHttp implements DaemonHttp {
     return attempt(() => this.agentPanels.assignRole(agentId, { roleId }));
   }
 
-  /** 原型的模型设置（73 号票）：只在内存里 */
+  /** 原型的模型设置（73 号票）：只在内存里。自定义（OpenAI 兼容）服务商那一块（接口地址、模型 id、接口类型）也一样 */
   private models: ModelSettings = { provider: "deepseek", default: { modelId: "deepseek-flash", thinkingLevel: "high" }, agents: {}, vision: {} };
 
   modelSettings(): Promise<ModelSettingsView> {
     const settings = this.models;
+    const custom = settings.provider === CUSTOM_PROVIDER_ID ? settings.custom : undefined;
     const vision = (key: string, catalog: boolean) => (settings.vision[key] === undefined ? { vision: catalog, visionSource: "catalog" as const } : { vision: settings.vision[key], visionSource: "settings" as const });
+    // 自定义服务商只有一个模型（设置里填的那个）：和守护进程一样，可选的只有它
+    const models: ModelOptionView[] =
+      custom === undefined
+        ? [
+            { modelId: "deepseek-flash", name: "DeepSeek V4.1 Flash", inCatalog: true, catalogVision: true, thinkingLevels: ["off", "low", "high"], ...vision("deepseek/deepseek-flash", true) },
+            { modelId: "deepseek-v4-pro", name: "DeepSeek V4 Pro", inCatalog: true, catalogVision: false, thinkingLevels: ["off", "high"], ...vision("deepseek/deepseek-v4-pro", false) },
+          ]
+        : [{ modelId: custom.modelId, inCatalog: true, catalogVision: false, ...vision(modelKeyOf(CUSTOM_PROVIDER_ID, custom.modelId), false) }];
+    const effective = Object.fromEntries(
+      MODEL_AGENTS.map((agent) => {
+        const choice = effectiveModelChoice(settings, agent);
+        return [agent, custom === undefined ? choice : { modelId: custom.modelId, thinkingLevel: choice.thinkingLevel }];
+      }),
+    ) as ModelSettingsView["effective"];
     return Promise.resolve({
-      providers: [{ id: "deepseek", label: "DeepSeek" }],
-      apiKey: { configured: true, envVar: "DEEPSEEK_API_KEY", secretFile: "secrets/deepseek-api-key.txt", lsm: true },
-      models: [
-        { modelId: "deepseek-flash", name: "DeepSeek V4.1 Flash", inCatalog: true, catalogVision: true, thinkingLevels: ["off", "low", "high"], ...vision("deepseek/deepseek-flash", true) },
-        { modelId: "deepseek-v4-pro", name: "DeepSeek V4 Pro", inCatalog: true, catalogVision: false, thinkingLevels: ["off", "high"], ...vision("deepseek/deepseek-v4-pro", false) },
-      ],
+      providers: fakeModelProviders(),
+      apiKey: fakeApiKey(settings.provider),
+      models,
       settings: structuredClone(settings),
-      effective: Object.fromEntries(MODEL_AGENTS.map((agent) => [agent, effectiveModelChoice(settings, agent)])) as ModelSettingsView["effective"],
-      secretarySession: { modelId: "deepseek-flash", thinkingLevel: "high", vision: true },
+      effective,
+      secretarySession: { modelId: custom?.modelId ?? "deepseek-flash", thinkingLevel: "high", vision: custom === undefined },
       maintainers: this.agentPanels.maintainerModels(),
     });
   }
 
-  /** 原型里 key 一直配着（会话页不出"还没配模型"的提示） */
+  /** 原型里 key 一直配着（会话页不出"还没配模型"的提示）；按现在选的服务商说 */
   modelKey(): Promise<ModelKeyView> {
-    return Promise.resolve({ provider: { id: "deepseek", label: "DeepSeek" }, apiKey: { configured: true, envVar: "DEEPSEEK_API_KEY", secretFile: "secrets/deepseek-api-key.txt", lsm: true } });
+    const provider = fakeModelProviders().find((p) => p.id === this.models.provider) ?? { id: "deepseek", label: "DeepSeek" };
+    return Promise.resolve({ provider, apiKey: fakeApiKey(provider.id) });
   }
 
   /** 原型里照样收下（不真写文件、不回显），回的 key 一直配着 */
   saveModelKey(key: string): Promise<ModelKeyWriteResult> {
     void key;
-    return Promise.resolve({
-      configured: true,
-      effective: "now",
-      apiKey: { configured: true, envVar: "DEEPSEEK_API_KEY", secretFile: "secrets/deepseek-api-key.txt", lsm: true },
-    });
+    return Promise.resolve({ configured: true, effective: "now", apiKey: fakeApiKey(this.models.provider) });
   }
 
+  /** 整份存：只在内存里；没带自定义那一块时留着原来那份（和守护进程一样，切回 DeepSeek 不清空） */
   saveModelSettings(body: ModelSettingsBody): Promise<ModelSettingsView> {
-    this.models = structuredClone(body) as ModelSettings;
+    const custom = body.custom ?? this.models.custom;
+    this.models = { ...structuredClone(body), ...(custom === undefined ? {} : { custom: structuredClone(custom) }) } as ModelSettings;
     return this.modelSettings();
+  }
+
+  /**
+   * 原型：编一个延迟。自定义服务商测的是它里面那个模型 id（和守护进程一样，custom 里的 modelId 优先）
+   */
+  testModel(body: ModelTestBody = {}): Promise<ModelTestResult> {
+    const modelId = body.custom?.modelId ?? body.modelId ?? this.models.default.modelId;
+    return new Promise((resolve) => setTimeout(() => resolve({ ok: true, modelId, firstTokenMs: 640, totalMs: 1180 }), 400));
+  }
+
+  /** 原型里"拉取列表"不联网：过一会儿回几个编的模型 id（假的，和谁都不对应）；没填地址时照守护进程的语气说一句 */
+  customModels(baseUrl?: string): Promise<ModelCustomModelsResult> {
+    const url = (baseUrl ?? this.models.custom?.baseUrl ?? "").trim();
+    if (url === "") return Promise.resolve({ ok: false, models: [], error: "还没填接口地址：先在上面填上再来拉列表" });
+    return new Promise((resolve) => setTimeout(() => resolve({ ok: true, models: FAKE_CUSTOM_MODELS.map((model) => ({ ...model })) }), 300));
   }
 
   /** 原型的联网设置（154 号票；162 号票起是三种方式的队列）：只在内存里；假装配了 DeepSeek 的 key */
@@ -1010,11 +1064,6 @@ export class FakeDaemonHttp implements DaemonHttp {
 
   importComponents(path: string): Promise<ComponentImportResult> {
     return this.fakeComponents.importFrom(path);
-  }
-
-  /** 原型：编一个延迟 */
-  testModel(modelId?: string): Promise<ModelTestResult> {
-    return new Promise((resolve) => setTimeout(() => resolve({ ok: true, modelId: modelId ?? this.models.default.modelId, firstTokenMs: 640, totalMs: 1180 }), 400));
   }
 
   /** 网页是哪一版（116 号票）：地址里带 ?demo-update 时是假的新一版（和假连接推的一样），平常不知道（不提示） */
