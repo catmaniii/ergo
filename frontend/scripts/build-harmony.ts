@@ -54,7 +54,11 @@ const env = {
   ...process.env,
   DEVECO_SDK_HOME: tools.sdk,
   NODE_HOME: path.dirname(tools.node),
-  PATH: [...tools.pathDirs, process.env.PATH ?? ""].join(path.delimiter),
+  // 签名那一步（SignHap）是 hvigor 用 PATH 上的 `java` 跑 hap-sign-tool 的：机器上别处装的 JDK
+  // （比如 Microsoft JDK 11）会让它直接崩（退出码 0xC0000409，报"Tools execution failed"）。
+  // 一律用 DevEco 自带的 JBR。
+  JAVA_HOME: tools.javaHome,
+  PATH: [path.join(tools.javaHome, "bin"), ...tools.pathDirs, process.env.PATH ?? ""].join(path.delimiter),
 };
 if (options.webviewDebug) {
   console.warn("注意：这次构建打开了 WebView 调试。装了这个包的手机接上 USB，任何能跑 hdc 的人都能经 DevTools 看到页面、取走设备凭证 cookie；调试完换回不带 --webview-debug 构建的包。");

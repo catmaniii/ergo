@@ -180,6 +180,7 @@ describe("找 DevEco Studio", () => {
       node: "E:\\Tools\\DevEco Studio\\tools\\node\\node.exe",
       hvigorw: "E:\\Tools\\DevEco Studio\\tools\\hvigor\\bin\\hvigorw.js",
       sdk: "E:\\Tools\\DevEco Studio\\sdk",
+      javaHome: "E:\\Tools\\DevEco Studio\\jbr",
       pathDirs: ["E:\\Tools\\DevEco Studio\\tools\\node", "E:\\Tools\\DevEco Studio\\tools\\ohpm\\bin"],
     });
   });

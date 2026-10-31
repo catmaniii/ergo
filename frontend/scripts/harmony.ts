@@ -27,6 +27,8 @@ export interface DevEcoTools {
   hvigorw: string;
   /** SDK 根目录，交给 hvigor 的 DEVECO_SDK_HOME */
   sdk: string;
+  /** DevEco 自带的 JBR（javac 之外还有 hap-sign-tool 要的模块）：交给 hvigor 的 JAVA_HOME */
+  javaHome: string;
   /** 要放进 PATH 的目录：Node 和 ohpm */
   pathDirs: string[];
 }
@@ -40,6 +42,7 @@ export function devEcoToolsAt(home: string, platform: NodeJS.Platform): DevEcoTo
     node: p.join(nodeDir, platform === "win32" ? "node.exe" : "node"),
     hvigorw: p.join(home, "tools", "hvigor", "bin", "hvigorw.js"),
     sdk: p.join(home, "sdk"),
+    javaHome: platform === "win32" ? p.join(home, "jbr") : p.join(home, "jbr", "Contents", "Home"),
     pathDirs: [nodeDir, p.join(home, "tools", "ohpm", "bin")],
   };
 }
