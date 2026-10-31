@@ -27,12 +27,15 @@ export type MirrorBehavior =
   /** 前 times 次请求给 bytes 个字节以后断开连接，之后正常 */
   | { kind: "cut"; bytes: number; times: number }
   /** 不认 Range：总是从头给整个（200） */
-  | { kind: "noRange" };
+  | { kind: "noRange" }
+  /** 不给长度（分块传输，没有 Content-Length）：也不认 Range */
+  | { kind: "noLength" };
 
 export interface FakeRequest {
   mirror: string;
   path: string;
   range?: string;
+  userAgent?: string;
 }
 
 export interface FakeDownloads {
@@ -62,7 +65,7 @@ export async function startFakeDownloads(): Promise<FakeDownloads> {
     const url = new URL(req.url ?? "/", "http://x");
     const [, mirror = "", ...rest] = url.pathname.split("/");
     const filePath = rest.map(decodeURIComponent).join("/");
-    requests.push({ mirror, path: filePath, ...(req.headers.range ? { range: req.headers.range } : {}) });
+    requests.push({ mirror, path: filePath, ...(req.headers.range ? { range: req.headers.range } : {}), ...(req.headers["user-agent"] ? { userAgent: req.headers["user-agent"] } : {}) });
     const behavior = behaviors.get(mirror) ?? { kind: "ok" };
     let body = files.get(filePath);
     if (!body) {
@@ -79,6 +82,11 @@ export async function startFakeDownloads(): Promise<FakeDownloads> {
     }
     if (behavior.kind === "wrongSize") body = Buffer.concat([body, Buffer.from("extra")]);
     const total = body.length;
+    if (behavior.kind === "noLength") {
+      res.writeHead(200, { "transfer-encoding": "chunked" });
+      res.end(body);
+      return;
+    }
     const m = behavior.kind === "noRange" ? null : /^bytes=(\d+)-(\d*)$/.exec(req.headers.range ?? "");
     let start = 0;
     let end = total - 1;

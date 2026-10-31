@@ -66,6 +66,9 @@ $ErgoMessages = @{
   noSource = @('\u54ea\u4e2a\u4e0b\u8f7d\u5730\u5740\u90fd\u4e0d\u884c\uff0c\u6ca1\u88c5\u3002', 'No download source worked; nothing was installed.')
   version = @('\u7248\u672c {0}\uff08\u81ea\u5e26 Node {1}\uff09', 'Version {0} (bundled Node {1})')
   downloading = @('\u4e0b\u8f7d {0}\u2026\u2026', 'Downloading {0}...')
+  progress = @('\u5df2\u4e0b\u8f7d {0}%\uff08{1} / {2}\uff0c{3}/s\uff09', 'Downloaded {0}% ({1} / {2}, {3}/s)')
+  progressNoTotal = @('\u5df2\u4e0b\u8f7d {0}\uff08{1}/s\uff09', 'Downloaded {0} ({1}/s)')
+  downloadShort = @('\u8fde\u63a5\u4e2d\u9014\u65ad\u4e86\uff1a\u53ea\u6536\u5230 {0}\uff0c\u5e94\u8be5\u6709 {1}\u3002', 'The connection dropped: got {0} of {1}.')
   noPublicKey = @('\u8fd9\u4e2a\u5b89\u88c5\u811a\u672c\u91cc\u6ca1\u6709\u53d1\u5e03\u516c\u94a5\uff0c\u9a8c\u4e0d\u4e86\u7b7e\u540d\uff0c\u4e0d\u88c5\uff08\u81ea\u5df1\u642d\u7684\u53d1\u5e03\u5730\u5740\u7528 -PublicKey \u7ed9\u516c\u94a5\uff1b\u6216\u8005\u52a0 -AllowUnsigned\uff0c\u81ea\u5df1\u627f\u62c5\u98ce\u9669\uff09\u3002', 'This installer has no release public key, so the signature cannot be checked; not installing (give -PublicKey for a self-hosted release, or add -AllowUnsigned at your own risk).')
   verifyFailed = @('\u7b7e\u540d\u9a8c\u4e0d\u8fc7\uff0c\u4e0d\u88c5\uff1a{0}', 'Signature check failed; not installing: {0}')
   verified = @('\u7b7e\u540d\u5bf9\uff1a{0}', 'Signature OK: {0}')
@@ -469,7 +472,79 @@ function New-WebClient {
 
 function Get-Bytes([string]$url) { return (New-WebClient).DownloadData($url) }
 function Get-Utf8([string]$url) { return [Text.Encoding]::UTF8.GetString((Get-Bytes $url)) }
-function Save-Url([string]$url, [string]$file) { (New-WebClient).DownloadFile($url, $file) }
+
+function Format-Size([double]$bytes) {
+  if ($bytes -ge 1GB) { return '{0:0.00} GB' -f ($bytes / 1GB) }
+  if ($bytes -ge 1MB) { return '{0:0.0} MB' -f ($bytes / 1MB) }
+  if ($bytes -ge 1KB) { return '{0:0} KB' -f ($bytes / 1KB) }
+  return '{0:0} B' -f $bytes
+}
+
+function Show-DownloadProgress($state, [long]$got, [double]$bytesPerSecond) {
+  $speed = Format-Size $bytesPerSecond
+  if ($state.total -gt 0) {
+    $percent = [math]::Floor([double]$got * 100 / $state.total)
+    $line = '  ' + (M 'progress' $percent (Format-Size $got) (Format-Size $state.total) $speed)
+  } else {
+    $line = '  ' + (M 'progressNoTotal' (Format-Size $got) $speed)
+  }
+  if (-not $state.live) { Say $line; return }
+  # pad to the longest line so far: a shorter line must not leave the tail of the previous one on screen
+  $state.width = [math]::Max($state.width, $line.Length)
+  Write-Host -NoNewline ("`r" + $line.PadRight($state.width))
+}
+
+# Downloads in chunks so the person can see it moving: percent, done / total and speed (no length from the server: done and speed).
+# In a console one line refreshes in place; when the output is redirected it prints a line every 10% (no length: every 10 MB).
+# Same WebClient as every other request here: User-Agent, system proxy with default credentials, default timeouts
+# (Stream.Read honours the 5-minute read timeout; ReadAsync would not, so a stalled connection freezes the line until then).
+# A failed or interrupted download leaves no file behind.
+function Save-Url([string]$url, [string]$file) {
+  $wc = New-WebClient
+  $stream = $null
+  $out = $null
+  $complete = $false
+  $state = @{ live = -not [Console]::IsOutputRedirected; total = [long]0; width = 0 }
+  try {
+    $stream = $wc.OpenRead($url)
+    $length = [long]0
+    if ([long]::TryParse([string]$wc.ResponseHeaders['Content-Length'], [ref]$length)) { $state.total = $length }
+    $out = [IO.File]::Create($file)
+    $buffer = New-Object byte[] 65536
+    $stepSize = if ($state.total -gt 0) { [double]$state.total / 10 } else { [double]10MB }
+    $clock = [Diagnostics.Stopwatch]::StartNew()
+    [long]$got = 0
+    [long]$markGot = 0
+    [double]$markTime = 0
+    [double]$step = 0
+    while (($count = $stream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+      $out.Write($buffer, 0, $count)
+      $got += $count
+      $now = $clock.Elapsed.TotalSeconds
+      $nextStep = [math]::Floor($got / $stepSize)
+      $due = if ($state.live) { ($now - $markTime) -ge 0.5 } else { $nextStep -gt $step }
+      # the very last line comes after the loop, with the average speed of the whole download
+      if ($due -and $got -ne $state.total) {
+        Show-DownloadProgress $state $got (($got - $markGot) / [math]::Max($now - $markTime, 0.001))
+        $markGot = $got
+        $markTime = $now
+        $step = $nextStep
+      }
+    }
+    # .NET's read just ends when the connection drops early, without an error: the length is the only way to notice
+    if ($state.total -gt 0 -and $got -ne $state.total) { throw (M 'downloadShort' (Format-Size $got) (Format-Size $state.total)) }
+    Show-DownloadProgress $state $got ($got / [math]::Max($clock.Elapsed.TotalSeconds, 0.001))
+    $out.Dispose()
+    $complete = $true
+  } finally {
+    if ($out) { $out.Dispose() }
+    if ($stream) { $stream.Dispose() }
+    $wc.Dispose()
+    if ($out -and -not $complete) { Remove-Item -LiteralPath $file -Force -ErrorAction SilentlyContinue }
+    # end the refreshing line, so what is printed next (also an error) starts on its own line
+    if ($state.width -gt 0) { Write-Host '' }
+  }
+}
 
 function Get-Sha256([string]$file) {
   # Not Get-FileHash: it lives in an auto-loaded module, and on a bare Windows Server runner that lookup fails

@@ -66,7 +66,7 @@ In PowerShell:
 irm https://github.com/catmaniii/ergo/releases/latest/download/install.ps1 | iex
 ```
 
-It finds the latest version (whichever of GitHub Releases and npmmirror answers faster) → downloads the prebuilt package (with Node; no `npm`, no build) → verifies the signature and each file's sha256 → extracts it to `%LOCALAPPDATA%\Programs\ergo\versions\<version>`, writing `current` (a one-line text file naming the one in use) → adds `bin` to your user PATH (no admin rights) → starts ergo. Then open <http://127.0.0.1:8810/> in a browser and follow the wizard (see [Section 3](#3-first-run)). Your data lives in `%USERPROFILE%\.ergo`, separate from the program; upgrades and reinstalls never touch it.
+It finds the latest version (whichever of GitHub Releases and npmmirror answers faster) → downloads the prebuilt package (with Node; no `npm`, no build; the window shows percent, downloaded / total and speed, or just downloaded and speed when the server doesn't give a size) → verifies the signature and each file's sha256 → extracts it to `%LOCALAPPDATA%\Programs\ergo\versions\<version>`, writing `current` (a one-line text file naming the one in use) → adds `bin` to your user PATH (no admin rights) → starts ergo. Then open <http://127.0.0.1:8810/> in a browser and follow the wizard (see [Section 3](#3-first-run)). Your data lives in `%USERPROFILE%\.ergo`, separate from the program; upgrades and reinstalls never touch it.
 
 `irm … | iex` cannot pass parameters; to pass one, fetch the script and run it:
 

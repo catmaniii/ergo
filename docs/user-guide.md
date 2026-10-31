@@ -64,7 +64,7 @@
 irm https://github.com/catmaniii/ergo/releases/latest/download/install.ps1 | iex
 ```
 
-它会：找到最新版本（GitHub Releases 和 npmmirror 两边挑快的）→ 下载打好的安装包（自带 Node，不用 `npm`、不用构建）→ 校验签名和文件的 sha256 → 解到 `%LOCALAPPDATA%\Programs\ergo\versions\<版本>`、把 `current` 写成一行文本指向在用的那份 → 把 `bin` 加进用户 PATH（不要管理员权限）→ 把二狗起来。接着浏览器打开 <http://127.0.0.1:8810/>，在网页里走向导（见[第 3 节](#3-第一次打开)）。你的数据放在 `%USERPROFILE%\.ergo`，和程序分开，升级、重装都不动它。
+它会：找到最新版本（GitHub Releases 和 npmmirror 两边挑快的）→ 下载打好的安装包（自带 Node，不用 `npm`、不用构建；窗口里跟着显示百分比、已下载/总量和速度，服务器没给大小时只显示已下载和速度）→ 校验签名和文件的 sha256 → 解到 `%LOCALAPPDATA%\Programs\ergo\versions\<版本>`、把 `current` 写成一行文本指向在用的那份 → 把 `bin` 加进用户 PATH（不要管理员权限）→ 把二狗起来。接着浏览器打开 <http://127.0.0.1:8810/>，在网页里走向导（见[第 3 节](#3-第一次打开)）。你的数据放在 `%USERPROFILE%\.ergo`，和程序分开，升级、重装都不动它。
 
 `irm … | iex` 传不了参数，要传就把脚本取下来再跑：
 
