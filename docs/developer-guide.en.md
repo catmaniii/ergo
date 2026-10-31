@@ -17,7 +17,7 @@ For people who want to read, change or extend the code. Installing and using erg
 5. [Plugins](#5-plugins)
 6. [Web UI](#6-web-ui)
 7. [Internationalization](#7-internationalization)
-8. [HarmonyOS app](#8-harmonyos-app)
+8. [Phone apps](#8-phone-apps)
 9. [Coding conventions](#9-coding-conventions)
 10. [Testing](#10-testing)
 11. [Upgrading pi](#11-upgrading-pi)
@@ -54,7 +54,8 @@ From the repository root:
 | Build the web UI | `npm run build:web` (a single file, `packages/web/dist/index.html`) |
 | Build the online demo | `npm run build:demo` (into `packages/web/dist-demo/`, [6.1](#61-where-pages-come-from-prototype-and-online-demo)) |
 | Open the real page after deploying | `npm run smoke:page` (headless Chrome on `http://127.0.0.1:8810/`; `-- <url>` for another address) |
-| Build the HarmonyOS app | `npm run build:harmony` ([Section 8](#8-harmonyos-app)) |
+| Build the HarmonyOS app | `npm run build:harmony` ([Section 8](#8-phone-apps)) |
+| Build the Android app | `npm run build:android` ([8.5](#85-android-app)) |
 | Download the embedding model | `npm run download-model` |
 | Back up now | `npm run backup` |
 | Deploy the VPS nginx site for the public entry | `npm run deploy:nginx` (`-- --print` only prints) |
@@ -73,6 +74,7 @@ packages/
   supervisor/  @ergo/supervisor  The service supervisor (command lsm): a separate small process hosting long-running services, autostart, watchdog, tunnels
 frontend/
   harmony/     HarmonyOS app: a DevEco project; a native shell loading ergo's web UI
+  android/     Android app: a Gradle project; a native shell loading ergo's web UI
 config/        Config examples (ergo.example.json, watch-categories.example.json, mcp.example.json)
 deploy/lsm/    Example supervisor entries (ergo-daemon, ergo-tunnel, ergo-asr)
 docs/          User guide, developer guide, ADRs, memory system, research, guides
@@ -418,7 +420,9 @@ UI text and messages ergo generates for users (cards, notifications, receipts) g
 - **The hard-coded Chinese ratchet**: `packages/daemon/test/i18n/hardcoded.test.ts` counts hard-coded Chinese per region (comments, tests and prototype sample data don't count), and every region's baseline is 0 — all new user-facing text goes through `t()`.
 - **Checking**: `npm run i18n:check` (missing, extra and mismatched-parameter sentences per language; unreadable files in `~/.ergo/locales`; exits 1 only if the built-in English is incomplete). User-facing steps for adding a language are in the [User Guide](user-guide.en.md#54-language); to make one built-in, put the translated directory into `packages/protocol/locales/<code>/` with file names matching `zh-CN`.
 
-## 8. HarmonyOS app
+## 8. Phone apps
+
+8.1 to 8.4 cover HarmonyOS; for Android see [8.5](#85-android-app).
 
 `frontend/harmony/` is a DevEco project (stage model, `entry` module): a native shell whose ArkWeb loads the ergo address the user configured, serving the same web UI as the daemon (why the web UI isn't bundled into the app: [ADR-0022](adr/0022-harmony-app-native-shell-loads-daemon-page.md)). The native bridge `window.ergoNative` is exposed only to the configured origin's main frame; external pages in Browse never get it.
 
@@ -451,6 +455,37 @@ To debug the page inside ArkWeb: install a `--webview-debug` build, `hdc -t <dev
 ### 8.4 Native recording
 
 Push-to-talk in the app uses HarmonyOS's AudioCapturer: entering voice mode creates the capturer and leaves it PREPARED (not capturing, not holding the microphone, not blocking the keyboard's voice input); pressing calls `start`, releasing calls `stop` (the next take just calls `start` again); going to the background or leaving voice mode calls `release`. The format is 16 kHz mono 16-bit PCM; the web side adds a WAV header and uploads it as usual. The source is `SOURCE_TYPE_MIC`: the only source that coexists with the keyboard's speech recognition (`VOICE_RECOGNITION`) in both directions on every system version. Implementation: `frontend/harmony/entry/src/main/ets/voice/NativeVoice.ets`; web side `packages/web/src/app/native-voice.ts` and `voice-native-recorder.ts`.
+
+### 8.5 Android app
+
+`frontend/android/` is a Gradle project: a Kotlin native shell with the system WebView, and the web UI isn't bundled here either. It has the same method table as HarmonyOS minus phone data sources (`phone*`); natively drawn parts take their values from HarmonyOS, gathered in `ui/ErgoTheme.kt`. See `frontend/android/README.md` for details.
+
+```powershell
+npm run build:android                       # debug build, WebView debugging off by default
+npm run build:android -- --webview-debug    # WebView debugging on (install this build only while debugging)
+npm run build:android -- --release          # release build; needs a local frontend/android/keystore.properties
+```
+
+It needs the Android SDK (`ANDROID_HOME`, or the default location) and JDK 17 or later, and the first build fetches the build plugin and AndroidX libraries from their official sources, so it isn't part of `npm run check`; the static checks in `frontend/test/android.test.ts` are. Before building, the page bridge is bundled into `assets/page-bridge.js` and the bundled languages are collected into `assets/harmony-texts.json` (both generated, not committed).
+
+**On a real device**:
+
+```powershell
+adb devices
+adb -s <device id> install -r frontend/android/app/build/outputs/apk/debug/app-debug.apk
+adb -s <device id> shell am start -n com.catmaniii.ergo/.MainActivity
+adb -s <device id> logcat -s ErgoApp               # app and web UI logs
+```
+
+To debug pages in the WebView, install the `--webview-debug` build and use Chrome's `chrome://inspect`. To reach a daemon on your PC from the device at `http://127.0.0.1`, first run `adb -s <device id> reverse tcp:<port> tcp:<port>`; as on HarmonyOS, forwarding the local port (8810) makes the daemon treat the app as local and trust it, so do this only while debugging.
+
+**The native bridge's security design differs from HarmonyOS** ([ADR-0040](adr/0040-android-app-native-bridge-without-javascript-interface.md)): Android's `addJavascriptInterface` is visible to every page and frame in the WebView, so it can't be used. `ergoNative` goes through `addWebMessageListener` and `addDocumentStartJavaScript`, both registered only for the configured ergo origin, and each message is checked again for origin and main frame. The shim `assets/ergo-native-shim.js` serves the methods the web UI calls synchronously. The built-in browser is a separate WebView with only the page bridge, and every message carries a nonce issued by the app.
+
+**Integration runs**: `frontend/android/e2e/` runs on an emulator against a temporary daemon. It isn't part of `npm run check`, every adb command carries a serial, and a serial not starting with `emulator-` is an error. `e2e/browser.ts` holds the proof that external pages can't reach `ergoNative`; run it when you change the native bridge or the page bridge.
+
+**Native recording** uses `AudioRecord`: created without capturing when voice mode starts, `startRecording` on press, `stop` on release, `release` when the app goes to the background or leaves voice mode. The format matches HarmonyOS (16 kHz, mono, 16-bit PCM) and the web side is unchanged. The source is `MIC`.
+
+**System notifications** are local ones with no FCM and no foreground service: they only go out while the process is alive, and nothing arrives after the system kills it. The other rules match HarmonyOS: ask for permission the first time, don't post while in the foreground, one notification per item, and tapping returns to the matching page.
 
 ## 9. Coding conventions
 

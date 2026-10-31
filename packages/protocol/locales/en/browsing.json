@@ -21,7 +21,7 @@
   "browsing.pick.done": "Picked {picked}, attached {delivered}",
   "browsing.pick.dismissed": "None of these",
   "browsing.plugin.title": "Built-in browser",
-  "browsing.plugin.summary": "Browse in the HarmonyOS app: the browse sidebar and the floating button on page fields; it reads pages, fills fields, finds and attaches files and clicks buttons for you, and web search can use it",
+  "browsing.plugin.summary": "Browse in the phone app: the browse sidebar and the floating button on page fields; it reads pages, fills fields, finds and attaches files and clicks buttons for you, and web search can use it",
   "browsing.plugin.card": "Web page candidates card",
   "browsing.plugin.purge.cards": "Every version of the web page candidates cards (the image-picking cards in chat and the sidebar)",
   "browsing.plugin.purge.thumbnails": "The thumbnail cache of candidate files",

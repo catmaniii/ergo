@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 安卓 12 起系统自己画启动画面：底色、图标照鸿蒙的 startWindowBackground、startWindowIcon -->
+    <style name="Theme.Ergo" parent="android:Theme.DeviceDefault.Light.NoActionBar">
+        <item name="android:isLightTheme">true</item>
+        <item name="android:windowBackground">@color/start_window_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:windowSplashScreenBackground">@color/start_window_background</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/start_splash_icon</item>
+    </style>
+</resources>

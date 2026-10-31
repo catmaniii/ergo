@@ -51,6 +51,7 @@ ergo never starts long-running services itself; the supervisor hosts them. They 
 | Tailscale, or a VPS | Use ergo from your phone or tablet away from home | [Section 6](#6-access-from-outside-phone-tablet) |
 | Claude Code, signed in on this PC | Project and task owners can work through your own Claude Code subscription | [8.6](#86-claude-code) |
 | DevEco Studio and a HarmonyOS phone | The native HarmonyOS app | [7.2](#72-harmonyos-app) |
+| Android Studio and an Android phone | The native Android app | [7.3](#73-android-app) |
 
 ---
 
@@ -149,7 +150,7 @@ ergo keeps a copy of everything you said on this PC (immutable, indexed by keywo
 ### 4.8 Calendar, reminders, built-in browser
 
 - **Calendar**: working days and holidays for two regions, manual marks, the day's reminders, scheduled tasks and each run; external calendars (phone calendar, Google Calendar…) can be connected through data-source plugins.
-- **Reminders**: just tell the secretary; the reminder card lets you reschedule or cancel; due reminders show at the top of the page, or as system notifications on HarmonyOS phones.
+- **Reminders**: just tell the secretary; the reminder card lets you reschedule or cancel; due reminders show at the top of the page, or as system notifications in the phone app.
 - **Browse**: a built-in browser that opens your project services' pages and renders attachments; tap the floating button with ergo's icon next to a web form's input box to have ergo fill it in.
 
 ### 4.9 Plugins
@@ -293,6 +294,33 @@ The HarmonyOS app is a native shell running the same web UI, plus native recordi
 
 The app's final bundle name is `com.catmaniii.ergo` (decided 2026-10-30; `app.json5` in the project already uses it). Click Signing Configs -> "Automatically generate signature" once more in DevEco and the build from then on carries that name - put it after `-b` in step 5.
 
+### 7.3 Android app
+
+The Android app is the same product as the HarmonyOS app: a native shell running the same web UI, with native recording, system notifications, file downloads, the built-in browser (floating button, form filling, handing over files) and the browse sidebar. It runs on Android 8 and later.
+
+The app isn't in any app store; for now you build it and install it yourself:
+
+1. Install [Android Studio](https://developer.android.com/studio) (it brings the Android SDK and a JDK). Enable developer options and USB debugging on the phone and connect it by USB.
+2. Run `npm run build:android` in the ergo directory; you get `frontend\android\app\build\outputs\apk\debug\app-debug.apk`. The first build needs the network to fetch the build tools.
+3. Install it with adb from the Android SDK:
+
+   ```powershell
+   adb devices
+   adb -s <device id> install -r frontend\android\app\build\outputs\apk\debug\app-debug.apk
+   ```
+
+   You can also send the APK to the phone and open it there; Android will ask whether to allow installing apps from unknown sources.
+
+4. The first time you open it, enter ergo's outside address ([Section 6](#6-access-from-outside-phone-tablet)), then pair as the page tells you.
+
+After pairing, the app asks whether it may send notifications. Choose Allow if you want system notifications.
+
+Good to know:
+
+- **No notifications once the system kills the app.** Notifications are local ones the app sends itself: there's no Google push service and no always-running background service. If clearing recent apps or battery saving kills the app, you get notifications again after reopening it. To miss fewer, set ergo's battery usage to "Unrestricted" in system settings.
+- **No phone data sources yet.** The first Android version doesn't read contacts, the phone calendar, photos or location; those items under Settings · Data sources only show an explanation.
+- **Debug and release builds can't replace each other.** Their signatures differ, so uninstall first when switching, then pair again.
+
 ---
 
 ## 8. Optional features
@@ -310,7 +338,7 @@ It works without a GPU: a sentence takes a second or two on CPU. It uses about 2
 
 A few things to know:
 
-- This service only takes WAV. The web page converts recordings before uploading and the HarmonyOS app records WAV anyway, so there's nothing to do. To retry recognition on recordings made before you switched, this computer needs ffmpeg on the PATH; without it that one recording says why it failed.
+- This service only takes WAV. The web page converts recordings before uploading and the phone app records WAV anyway, so there's nothing to do. To retry recognition on recordings made before you switched, this computer needs ffmpeg on the PATH; without it that one recording says why it failed.
 - It only knows Chinese, English, Japanese and auto (`voice.recognizer.language`); for anything else it decides by itself. This model doesn't support prompts (`initialPrompt` has no effect). Filler filtering and automatic retries work as usual.
 - Recognized text has no segment timings (the model doesn't support them).
 

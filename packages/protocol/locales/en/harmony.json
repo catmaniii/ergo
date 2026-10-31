@@ -76,5 +76,8 @@
   "harmony.phone.badRange": "The time range to read isn't valid",
   "harmony.phone.geocoderOff": "This phone can't look up place names right now (no map service or no network)",
   "harmony.phone.findFailed": "Searching for the place failed: {error}",
-  "harmony.phone.hereFailed": "Getting the location failed: {error}"
+  "harmony.phone.hereFailed": "Getting the location failed: {error}",
+  "harmony.android.webViewTooOld": "The system WebView is too old for the Ergo app. Update \"Android System WebView\" in your app store, then open Ergo again.",
+  "harmony.android.microphoneReason": "Records your voice while you hold to talk, and sends it to Ergo",
+  "harmony.android.notifyChannel": "Reminders"
 }

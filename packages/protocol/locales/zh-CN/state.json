@@ -1262,7 +1262,7 @@
   "state.webSettings.lastEnabled": "至少要留一种：这是最后一个启用的，停用不了",
   "state.webSettings.fallbackBrowser": "启用的方式都用不上（没配 DeepSeek 的 key），临时用它",
   "state.webSettings.queueIntro": "各个 agent（{name}、维护者、子 agent）联网搜索、读网页时按下面的顺序用：排最上面的最优先，失效了（出错、超时、没结果、余额不足）按顺序换下一个。能调顺序、能停用，至少留一种；所有设备共用，改了下一次就生效。DeepSeek 和二狗自带的浏览器搜索用的是同一对工具 web_search、web_fetch，靠 engine 区分：agent 写了 engine 就只用那一种（只能是启用着的），不写 engine 时按队列挑，每次结果的标题写着实际用了哪种",
-  "state.webSettings.toolsHint": "agent-browser 是 agent 自己在 bash 里操控 Chrome：排第一时 agent 先用它搜、下载；停用只是不拿它来搜索，下载文件、操作网页照旧能用。鸿蒙 App 的内置浏览器只有{name}在你从浏览侧边栏、悬浮按钮跟它说话的那一轮用（别的时候跳过它）：排在前面时{name}先在你手机上的浏览器里打开搜索结果页看、点；停用了也只是不拿它来搜索，你让{name}在网页上点、填框、交文件照旧能做。Tavily 不在队列里，配了 key 才能指定。",
+  "state.webSettings.toolsHint": "agent-browser 是 agent 自己在 bash 里操控 Chrome：排第一时 agent 先用它搜、下载；停用只是不拿它来搜索，下载文件、操作网页照旧能用。手机 App 的内置浏览器只有{name}在你从浏览侧边栏、悬浮按钮跟它说话的那一轮用（别的时候跳过它）：排在前面时{name}先在你手机上的浏览器里打开搜索结果页看、点；停用了也只是不拿它来搜索，你让{name}在网页上点、填框、交文件照旧能做。Tavily 不在队列里，配了 key 才能指定。",
   "state.webSettings.order": "现在的顺序：{order}",
   "state.webSettings.orderSkipped": "现在的顺序：{order}（没配 DeepSeek 的 key，跳过它）",
   "state.webSettings.balanceLow": "DeepSeek 余额不足（{date} {clock} 回的 402）：这期间联网搜索、读网页按顺序换成了后面的方式；充值后下一次就恢复",

@@ -6,3 +6,8 @@ packages/supervisor/tests/_fake-debian.sh text eol=lf
 # 318 号票：批处理用 CRLF（cmd.exe 读只有 LF 的批处理会出怪问题）；安装脚本只有 ASCII、用 LF（irm | iex 和 -File 都认）
 packages/daemon/installer/*.cmd text eol=crlf
 packages/daemon/installer/*.ps1 text eol=lf
+
+# 安卓工程的 gradlew：Linux、macOS 上要 LF，批处理要 CRLF，wrapper 的 jar 是二进制
+frontend/android/gradlew text eol=lf
+frontend/android/gradlew.bat text eol=crlf
+frontend/android/gradle/wrapper/gradle-wrapper.jar binary

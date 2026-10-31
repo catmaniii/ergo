@@ -97,6 +97,8 @@ for (const [d, s] of Object.entries(densities)) {
   await write(await composite(legacy, 0.8, "circle"), path.join(A, `mipmap-${d}`, "ic_launcher_round.png"));
 }
 await write(await composite(512, 0.76, "square"), path.join(frontend, "android/ic_launcher-playstore.png"));
+// 启动画面的图标：和鸿蒙的 startIcon 同一张（349 号票，视觉和鸿蒙统一）
+await write(await composite(288, 0.78, "rounded"), path.join(A, "drawable-nodpi", "start_icon.png"));
 
 // —— 预览：鸿蒙圆角效果、安卓圆形遮罩效果 ——
 if (previewDir) {

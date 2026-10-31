@@ -76,5 +76,8 @@
   "harmony.phone.badRange": "要读的时间段不对",
   "harmony.phone.geocoderOff": "这台手机现在转不了地名（系统没有地图服务或没联网）",
   "harmony.phone.findFailed": "按地名找出错：{error}",
-  "harmony.phone.hereFailed": "定位出错：{error}"
+  "harmony.phone.hereFailed": "定位出错：{error}",
+  "harmony.android.webViewTooOld": "系统的 WebView 版本太旧，二狗的 App 用不了。请到应用商店升级「Android System WebView」后再打开。",
+  "harmony.android.microphoneReason": "按住说话时录下你的语音，发给二狗",
+  "harmony.android.notifyChannel": "服务提醒"
 }

@@ -1,7 +1,97 @@
 # 安卓 App
 
-还没做。先用手机浏览器打开二狗的网页（`packages/web/`，由守护进程提供）。
+Kotlin 原生壳加系统 WebView，加载用户配好的二狗地址，不把网页打包进 App（[ADR-0022](../../docs/adr/0022-harmony-app-native-shell-loads-daemon-page.md)）。和鸿蒙 App（`frontend/harmony/`）是同一个产品：原生画的部分照鸿蒙的 ArkTS 取值，取值集中在 `ui/ErgoTheme.kt`。
 
-做的时候照鸿蒙 App（`frontend/harmony/`）的路子：原生壳加载用户配好的二狗地址，不把网页打包进 App（`docs/adr/0022`）。
+- 包名 `com.catmaniii.ergo`，最低 API 26（安卓 8），目标 API 36。
+- 只侧载，不上应用商店。调试版用调试签名；正式签名材料只放本机，不进仓库。
+- 通知是本地通知，不接 FCM，没有前台服务。App 被系统杀掉后收不到，手册写明。
+- 第一版不做手机数据源（通讯录、日历、相册、位置）。网页发现 App 没有这组方法，只显示说明，不报错。
 
-图标资源已经先放好了：`app/src/main/res/` 下的 `mipmap-*`（自适应图标两层、老式方形和圆形）和 `mipmap-anydpi-v26/` 的配置，以及 `ic_launcher-playstore.png`。由 `frontend/icon/generate.mjs` 生成，见 `frontend/icon/README.md`。
+## 构建
+
+```powershell
+npm run build:android                    # 调试版，WebView 调试关着
+npm run build:android -- --webview-debug # 打开 WebView 调试（联调时用这个包）
+npm run build:android -- --release       # 正式版，要本机有 keystore.properties
+```
+
+要装 Android SDK（`ANDROID_HOME`，没设就找默认位置）和 JDK 17 以上（Android Studio 自带的也行）。脚本先把页面桥打包进 `assets/page-bridge.js`、把自带语言收进 `assets/harmony-texts.json`（都是现生成的，不进仓库），再调 Gradle。第一次构建要从 Google Maven、Maven Central、Gradle 官方取构建插件和 AndroidX 库。
+
+不带 `--webview-debug` 的包虽然是调试签名，但不可调试（`debuggable=false`）：Chrome 的 inspect 连不上，也不能 `run-as` 读私有数据。系统对可调试的 App 一律开着 WebView 调试，关不掉，所以两件事绑在一起。给人用的手机上装不带这个参数的包。
+
+产物：`app/build/outputs/apk/debug/app-debug.apk`；正式版是 `app/build/outputs/apk/release/app-release.apk`，本机没配签名时是 `app-release-unsigned.apk`。
+
+### 正式签名
+
+材料只在本机。在 `frontend/android/` 下放 `keystore.properties`（被忽略，`*.jks`、`*.keystore` 也被忽略）：
+
+```properties
+storeFile=D:/私密目录/ergo-release.jks
+storePassword=…
+keyAlias=ergo
+keyPassword=…
+```
+
+`storeFile` 相对 `frontend/android/` 算，也可以写绝对路径。没有这个文件时，`--release` 出的是没签名的包（装不上），不会用调试签名冒充正式版。
+
+## 装到真机
+
+```powershell
+adb devices                                   # 找到手机的串号
+adb -s <串号> install -r frontend\android\app\build\outputs\apk\debug\app-debug.apk
+adb -s <串号> shell am start -n com.catmaniii.ergo/.MainActivity
+adb -s <串号> logcat -s ErgoApp               # App 和网页的日志
+```
+
+第一次打开填二狗的外网地址（https），再按页面提示配对。App 是一台新设备，凭证留在 App 自己的 WebView 里。
+
+调试版和正式版签名不同，换着装要先卸载（凭证跟着没了，要重新配对）。
+
+## 代码
+
+| 目录 | 内容 |
+|---|---|
+| `app/src/main/java/.../MainActivity.kt` | 外壳：地址页、出错页、主界面 WebView、返回键、避让、外观 |
+| `bridge/` | 原生桥。`BridgeChannel` 是消息通道和来源核对，`NativeBridge` 是方法表和分发 |
+| `assets/ergo-native-shim.js` | 网页这一侧的垫片：定义 `window.ergoNative`，只注入配好的来源 |
+| `browser/` | 内置浏览器（`InAppBrowser`）、页面桥（`PageControl`）、⋮ 菜单（`BrowserTools`）、能渲染的文件（`FileDocs`）、侧边栏（`SidePanel`） |
+| `download/` | 下载：App 自己发请求，弹系统的保存框 |
+| `voice/` | 原生录音 |
+| `notify/` | 系统通知 |
+| `ui/ErgoTheme.kt` | 从鸿蒙取来的颜色、字号、间距、动画时长，注释写着对应鸿蒙哪个文件 |
+| `common/` | 地址校验、设置、语言 |
+
+### 安全
+
+设计和理由见 [ADR-0040](../../docs/adr/0040-android-app-native-bridge-without-javascript-interface.md)。改这几处时注意：
+
+- 仓库里不许调 `addJavascriptInterface`（`frontend/test/android.test.ts` 查）。`ergoNative` 经只开给二狗来源的消息通道，每条消息核对来源和主框架。
+- 内置浏览器那个 WebView 不挂原生桥，外部网页只有页面桥，每句带 App 发的口令。
+- 关文件访问，不开混合内容，证书错误一律 `cancel`。
+- 设备凭证的 cookie 属性不削弱；清网站数据时存下再写回，属性照旧（`__Host-`、`Secure`、`HttpOnly`、`SameSite=Strict`）。
+- App 不存模型的 Key。
+
+### 和鸿蒙对照
+
+网页一侧的权威定义是 `packages/web/src/app/native*.ts`，契约测试核对：网页要的方法安卓都有，和鸿蒙的方法表比只少手机数据源。
+
+## 测试
+
+- `frontend/test/android.test.ts`：跟 `npm run check` 一起跑，静态核对方法表、安全规矩、语言文件。
+- `app/src/test/`：JVM 单测（地址校验），`gradlew :app:testDebugUnitTest`。
+- `e2e/`：模拟器联调，不进 `npm run check`（要模拟器）。连的是临时守护进程（临时数据目录、假模型），外部网页是本机起的假网站，不联网。所有 adb 命令都带串口，串口不是 `emulator-` 开头的直接报错，不会碰真机。
+
+```bash
+# 起模拟器（无窗口）
+emulator -avd Medium_Phone_API_36.0 -port 5570 -no-window -no-audio -no-boot-anim -read-only -no-snapshot -gpu swiftshader_indirect
+
+npm run build:android -- --webview-debug
+node frontend/android/e2e/run.ts emulator-5570 <截图目录>       # 外壳、配对、语言、外观、返回键、录音、通知
+node frontend/android/e2e/browser.ts emulator-5570 <截图目录>   # 外部页面碰不到 ergoNative、内置浏览器、侧边栏、下载、⋮ 菜单
+```
+
+`-no-audio` 下麦克风全静音：网页收到录音、判为没声音，联调到这一步为止。真人说话和上传识别要真机验。
+
+## 图标
+
+由 `frontend/icon/generate.mjs` 生成，通知栏的单色小图标是手画的矢量，见 `frontend/icon/README.md`。

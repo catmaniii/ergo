@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 系统启动画面的图标区是 288dp 见方、里面 192dp 的圆可见：图标放中间 96dp（和老系统的启动画面一样大） -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/start_icon"
+    android:inset="96dp" />

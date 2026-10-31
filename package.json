@@ -41,6 +41,7 @@
     "ergo:install": "node packages/daemon/build/main.ts install",
     "ergo": "node packages/daemon/src/cli/main.ts",
     "build:harmony": "node frontend/scripts/build-harmony.ts",
+    "build:android": "node frontend/scripts/build-android.ts",
     "download-model": "node packages/daemon/src/download-model.ts",
     "migrate:ergo": "node packages/daemon/src/migrate-ergo.ts",
     "memory:demo": "node packages/memory-eval/src/demo/main.ts",

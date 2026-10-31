@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 对应鸿蒙 resources/en_US/element/string.json 的 EntryAbility_label。别的字在 packages/protocol/locales/<语言>/harmony.json -->
+    <string name="app_name">Ergo</string>
+</resources>

@@ -435,7 +435,7 @@
   "protocol.webSettings.method.deepseek": "DeepSeek paid search",
   "protocol.webSettings.method.browser": "Ergo's built-in browser search",
   "protocol.webSettings.method.agentBrowser": "agent-browser",
-  "protocol.webSettings.method.appBrowser": "Built-in browser in the HarmonyOS app",
+  "protocol.webSettings.method.appBrowser": "Built-in browser in the phone app",
   "protocol.webSettings.queueShape": "The queue needs exactly one of each method ({methods})",
   "protocol.webSettings.needOne": "Keep at least one method enabled",
   "protocol.webSettings.needOneNoKey": "Keep at least one method enabled (without a DeepSeek key, enabling only DeepSeek doesn't count)",

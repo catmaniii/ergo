@@ -422,7 +422,7 @@
   "protocol.webSettings.method.deepseek": "DeepSeek 付费搜索",
   "protocol.webSettings.method.browser": "二狗自带的浏览器搜索",
   "protocol.webSettings.method.agentBrowser": "agent-browser",
-  "protocol.webSettings.method.appBrowser": "鸿蒙 App 的内置浏览器",
+  "protocol.webSettings.method.appBrowser": "手机 App 的内置浏览器",
   "protocol.webSettings.queueShape": "队列里要四种方式各一项（{methods}）",
   "protocol.webSettings.needOne": "至少要留一种启用的方式",
   "protocol.webSettings.needOneNoKey": "至少要留一种启用的方式（没配 DeepSeek 的 key，只启用它不算）",

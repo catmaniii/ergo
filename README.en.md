@@ -33,7 +33,7 @@ The English name ergo sounds like the Chinese name "二狗" (Ergou), and Latin *
 | 2 | [**Long-running tasks**](#2-long-running-tasks) | Hand off a big project without babysitting it, and understand it at a glance when you return |
 | 3 | [**From project to operations**](#3-from-project-to-operations) | A finished project becomes a service that keeps running, one sentence away from the secretary |
 | 4 | [**Memory**](#4-memory) | Infers the needs you haven't put into words |
-| 5 | [**Built-in browser**](#5-built-in-browser) | Talk to a web page in the HarmonyOS app and it does the work |
+| 5 | [**Built-in browser**](#5-built-in-browser) | Talk to a web page in the phone app (HarmonyOS, Android) and it does the work |
 
 [The rest](#the-rest-is-there-too) is there too: scheduling and a calendar, a spending ledger, 11 visual styles, Chinese and English, phone, wide foldable and PC layouts, and everything is a plugin.
 
@@ -93,7 +93,7 @@ ergo **runs long tasks the way you'd manage a project**:
 
 <p align="center"><img src="docs/images/readme/classic-watch-en.png" width="760" alt="Watch categories in Settings"><br><sub>Settings · Watch categories.</sub></p>
 
-Everything that needs your decision is in the inbox, with system notifications on HarmonyOS phones; a token ledger records each model call against its task, stage and agent.
+Everything that needs your decision is in the inbox, with system notifications in the phone app; a token ledger records each model call against its task, stage and agent.
 
 ### 3. From project to operations
 
@@ -140,13 +140,13 @@ Design details are in [the memory system](docs/memory-system.md) (in Chinese).
 
 ### 5. Built-in browser
 
-The ergo HarmonyOS app has a built-in browser that understands speech and operates web pages for you.
+The ergo phone app (HarmonyOS, Android) has a built-in browser that understands speech and operates web pages for you.
 
 Open a page and tap a text box or a photo upload area; a small ergo button appears beside it. Hold it and say "paste in the photos I took in Hangzhou over the weekend": it finds them in the folders you registered, shows you the list, and hands them to the upload box. Or with a form to fill in, it pulls your name, address and company from memory and fills them one box at a time.
 
 Web pages used to make you click through everything. Now you just say what you want, and your memory and local data are right there. Web apps built with ergo work the same way when opened in this browser.
 
-This is only in the HarmonyOS app for now, and the app currently has to be [built and signed by you](docs/user-guide.en.md#72-harmonyos-app).
+This is only in the phone app, which you currently build yourself: see [HarmonyOS](docs/user-guide.en.md#72-harmonyos-app) and [Android](docs/user-guide.en.md#73-android-app).
 
 ### The rest is there too
 
@@ -167,7 +167,7 @@ Three triggers: once now; scheduled (optionally "on my working days", with Chine
 - **11 visual styles**: Classic, Paper journal, Clean grid, Night cockpit, Soft candy, Glass glow, Blueprint, Sticker bento, Pixel cottage, Ink wash, Retro magazine — each in light and dark.
 - **Your names, your voices**: ergo ships with a default voice, Xiaoman, and you can import a recording to switch to one you choose. The assistant's name, system prompts, models, skills and MCP servers are all configurable.
 - **Chinese and English** built in; add other languages by dropping language files into the data directory, no code changes.
-- **Phone, wide foldable and PC**: designed phone-first, with multi-column layouts on wide screens; there's also a native HarmonyOS app.
+- **Phone, wide foldable and PC**: designed phone-first, with multi-column layouts on wide screens; there are also native HarmonyOS and Android apps.
 
 <p align="center"><img src="docs/images/readme/styles-gallery.png" width="860" alt="Style previews under Settings · Appearance & style"><br><sub>Settings · Appearance & style: all 11 styles, each shown light (left) and dark (right).</sub></p>
 

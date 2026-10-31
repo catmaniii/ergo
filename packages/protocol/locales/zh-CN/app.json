@@ -43,7 +43,7 @@
   "app.debugPage.accent": "主色",
   "app.debugPage.noAccent": "这套风格不能换主色",
   "app.debugPage.resetPage": "清掉了这个页面上\"要麦克风被拒过\"的记号；浏览器的通知授权由浏览器自己记着，页面清不掉（在浏览器的网站设置里改）",
-  "app.debugPage.notInApp": "不在鸿蒙 App 里",
+  "app.debugPage.notInApp": "不在手机 App 里",
   "app.debugPage.appTooOld": "App 太旧，不能重置（要装 124 号票之后的 App）",
   "app.debugPage.appNoReply": "App 没回结果",
   "app.debugPage.resetApp": "清掉了 App 记的\"问过了\"（现在：{enabled}、{asked}）",

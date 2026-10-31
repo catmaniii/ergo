@@ -21,7 +21,7 @@
   "browsing.pick.done": "选了 {picked} 个，交进去了 {delivered} 个",
   "browsing.pick.dismissed": "都不要",
   "browsing.plugin.title": "内置浏览器",
-  "browsing.plugin.summary": "鸿蒙 App 里的「浏览」：浏览侧边栏、网页框上的悬浮按钮，替你读网页、填框、找文件交文件、点按钮，联网搜索也能用它",
+  "browsing.plugin.summary": "手机 App 里的「浏览」：浏览侧边栏、网页框上的悬浮按钮，替你读网页、填框、找文件交文件、点按钮，联网搜索也能用它",
   "browsing.plugin.card": "网页候选卡",
   "browsing.plugin.purge.cards": "网页候选卡的每个版本（聊天、侧边栏里挑图片的那种卡）",
   "browsing.plugin.purge.thumbnails": "候选文件的缩略图缓存",

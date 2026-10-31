@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- isLightTheme 要 API 29、windowLightNavigationBar 要 API 27：老系统不认识这两个属性会跳过，不用另开目录 -->
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- 系统自带的无标题主题打底，界面都是自己画的（ui/ErgoTheme.kt），不用 Material 组件。isLightTheme 决定 WebView 的 prefers-color-scheme -->
+    <style name="Theme.Ergo" parent="android:Theme.DeviceDefault.Light.NoActionBar">
+        <item name="android:isLightTheme" tools:targetApi="29">true</item>
+        <item name="android:windowBackground">@drawable/start_window</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="27">true</item>
+    </style>
+</resources>

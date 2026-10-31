@@ -17,7 +17,7 @@
 5. [插件](#5-插件)
 6. [网页](#6-网页)
 7. [多语言](#7-多语言)
-8. [鸿蒙 App](#8-鸿蒙-app)
+8. [手机 App](#8-手机-app)
 9. [写代码的约定](#9-写代码的约定)
 10. [测试](#10-测试)
 11. [升级 pi](#11-升级-pi)
@@ -54,7 +54,8 @@
 | 构建网页 | `npm run build:web`（产物是单个文件 `packages/web/dist/index.html`） |
 | 构建在线演示页 | `npm run build:demo`（产物在 `packages/web/dist-demo/`，[6.1](#61-页面从哪里来原型和在线演示页)） |
 | 部署后打开真的页面看一眼 | `npm run smoke:page`（无头 Chrome 打开 `http://127.0.0.1:8810/`，`-- <地址>` 换地址） |
-| 构建鸿蒙 App | `npm run build:harmony`（[第 8 节](#8-鸿蒙-app)） |
+| 构建鸿蒙 App | `npm run build:harmony`（[第 8 节](#8-手机-app)） |
+| 构建安卓 App | `npm run build:android`（[8.5](#85-安卓-app)） |
 | 下载向量模型 | `npm run download-model` |
 | 马上备份一次 | `npm run backup` |
 | 部署 VPS 公网入口的 nginx 站点 | `npm run deploy:nginx`（`-- --print` 只打印） |
@@ -73,6 +74,7 @@ packages/
   supervisor/  @ergo/supervisor  服务管家（命令 lsm）：单独的小进程，托管常驻服务、开机自启、看门狗、隧道
 frontend/
   harmony/     鸿蒙 App：DevEco 工程，原生壳加载二狗的网页
+  android/     安卓 App：Gradle 工程，原生壳加载二狗的网页
 config/        配置样例（ergo.example.json、watch-categories.example.json、mcp.example.json）
 deploy/lsm/    服务管家条目的样例（ergo-daemon、ergo-tunnel、ergo-asr）
 docs/          用户手册、开发者指南、ADR、记忆系统、调研、指南
@@ -418,7 +420,9 @@ node -e "const fs=require('fs'),f=process.argv[1],j=JSON.parse(fs.readFileSync(f
 - **写死中文的棘轮**：`packages/daemon/test/i18n/hardcoded.test.ts` 数每个区域写死的中文（注释、测试、原型的演示数据不算），每个区域的基线都是 0——新写的给用户看的字一律走 `t()`。
 - **检查**：`npm run i18n:check`（每种语言缺的、多的、插值参数对不上的句子，`~/.ergo/locales` 里读不进来的文件；自带的英文不全才以 1 退出）。加一种语言给用户看的步骤见[用户手册](user-guide.md#54-语言)；做成自带的语言：译好的目录放进 `packages/protocol/locales/<语言代码>/`，文件名和 `zh-CN` 的一一对应。
 
-## 8. 鸿蒙 App
+## 8. 手机 App
+
+8.1 到 8.4 讲鸿蒙，安卓见 [8.5](#85-安卓-app)。
 
 `frontend/harmony/` 是 DevEco 工程（stage 模型，`entry` 模块）：一个原生壳，ArkWeb 加载用户配好的二狗地址，网页还是守护进程提供的那份（为什么不把网页打包进 App 见 [ADR-0022](adr/0022-harmony-app-native-shell-loads-daemon-page.md)）。原生桥 `window.ergoNative` 只对配好的来源的主框架开放；"浏览"里的外部网页拿不到它。
 
@@ -451,6 +455,37 @@ hdc -t <设备号> hilog | findstr ErgoApp            # App 和网页的日志
 ### 8.4 原生录音
 
 App 里按住说话用鸿蒙的 AudioCapturer：进语音模式时建好录音器、停在 PREPARED（不采集、不占麦克风、不挡输入法的语音），按下才 `start`，松手 `stop`（下一条直接 `start`，不用重建）；切到后台、离开语音模式时 `release`。格式是 16 kHz、单声道、16 位 PCM，网页加上 WAV 头照常上传。音源用 `SOURCE_TYPE_MIC`：它是唯一在各个系统版本、两个方向上都能和输入法的语音识别（`VOICE_RECOGNITION`）并存的音源。实现在 `frontend/harmony/entry/src/main/ets/voice/NativeVoice.ets`，网页一侧在 `packages/web/src/app/native-voice.ts`、`voice-native-recorder.ts`。
+
+### 8.5 安卓 App
+
+`frontend/android/` 是 Gradle 工程：Kotlin 原生壳加系统 WebView，也不打包网页。和鸿蒙的方法表一样，只少手机数据源（`phone*`）；原生画的部分照鸿蒙取值，集中在 `ui/ErgoTheme.kt`。详细说明见 `frontend/android/README.md`。
+
+```powershell
+npm run build:android                       # 调试版，默认关着 WebView 调试
+npm run build:android -- --webview-debug    # 打开 WebView 调试（只在调试时装这个包）
+npm run build:android -- --release          # 正式版，要本机有 frontend/android/keystore.properties
+```
+
+要 Android SDK（`ANDROID_HOME`，没设就找默认位置）和 JDK 17 以上，第一次构建要从官方源取构建插件和 AndroidX 库，所以不进 `npm run check`；`frontend/test/android.test.ts` 的静态核对进。构建前把页面桥打包进 `assets/page-bridge.js`、把自带语言收进 `assets/harmony-texts.json`（都是现生成的，不进仓库）。
+
+**真机步骤**：
+
+```powershell
+adb devices
+adb -s <设备号> install -r frontend/android/app/build/outputs/apk/debug/app-debug.apk
+adb -s <设备号> shell am start -n com.catmaniii.ergo/.MainActivity
+adb -s <设备号> logcat -s ErgoApp                  # App 和网页的日志
+```
+
+调试 WebView 里的页面：装 `--webview-debug` 的包，用 Chrome 的 `chrome://inspect`。要在设备上用 `http://127.0.0.1` 连电脑上的守护进程，先 `adb -s <设备号> reverse tcp:<端口> tcp:<端口>`；和鸿蒙一样，转本机端口（8810）时守护进程会把 App 当成本机、直接信任，只在调试时这样用。
+
+**原生桥的安全设计和鸿蒙不同**（[ADR-0040](adr/0040-android-app-native-bridge-without-javascript-interface.md)）：安卓的 `addJavascriptInterface` 对 WebView 里所有页面和框架都可见，不能用。`ergoNative` 走 `addWebMessageListener` 和 `addDocumentStartJavaScript`，都只注册给配好的二狗来源，每条消息再核对来源和主框架。网页同步调的方法由垫片 `assets/ergo-native-shim.js` 接上。内置浏览器是另一个 WebView，只有页面桥，每句带 App 发的口令。
+
+**联调**：`frontend/android/e2e/` 在模拟器上连临时守护进程跑，不进 `npm run check`，adb 命令都带串口，串口不是 `emulator-` 开头的直接报错。`e2e/browser.ts` 里有外部页面碰不到 `ergoNative` 的证明，改原生桥或页面桥时要跑。
+
+**原生录音**用 `AudioRecord`：进语音模式时建好、不采集，按下才 `startRecording`，松手 `stop`；切到后台、离开语音模式时 `release`。格式和鸿蒙一样（16 kHz、单声道、16 位 PCM），网页一侧不变。音源用 `MIC`。
+
+**系统通知**是本地通知，不接 FCM，没有前台服务：进程活着才发得出，被系统杀掉后收不到。其余规矩和鸿蒙一样：第一次问授权，前台不发，同一件事只出一条，点了回到对应的页面。
 
 ## 9. 写代码的约定
 

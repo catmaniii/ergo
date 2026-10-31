@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 通知栏的小图标：安卓只用它的透明度（系统着色），彩色的 App 图标放不上去。画的是 App 图标那只小狗的头（两只垂耳，眼睛和鼻子镂空）和头上的耳麦 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- 耳麦 -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:pathData="M6.6,6.2 C7.8,3.9 9.8,2.75 12,2.75 C14.2,2.75 16.2,3.9 17.4,6.2" />
+    <!-- 两只垂耳 -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M7.4,7 C5.2,6.6 3,8 2.5,10.8 C2.1,13 2.8,15.2 4.1,15.2 C5.1,15.2 5.4,14 5.6,12.8 Z M16.6,7 C18.8,6.6 21,8 21.5,10.8 C21.9,13 21.2,15.2 19.9,15.2 C18.9,15.2 18.6,14 18.4,12.8 Z" />
+    <!-- 头，眼睛和鼻子镂空 -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M12,6 C16,6 18.75,9 18.75,13.5 C18.75,18 15.8,21.25 12,21.25 C8.2,21.25 5.25,18 5.25,13.5 C5.25,9 8,6 12,6 Z M9.2,11.6 a1.2,1.2 0 1,0 0,2.4 a1.2,1.2 0 1,0 0,-2.4 Z M14.8,11.6 a1.2,1.2 0 1,0 0,2.4 a1.2,1.2 0 1,0 0,-2.4 Z M12,15.2 c-1,0 -1.7,0.4 -1.7,1 c0,0.7 0.9,1.3 1.7,1.3 c0.8,0 1.7,-0.6 1.7,-1.3 c0,-0.6 -0.7,-1 -1.7,-1 Z" />
+</vector>

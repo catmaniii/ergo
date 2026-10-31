@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 安卓 12 以前的启动画面：底色加居中的图标（鸿蒙 startWindowBackground、startWindowIcon） -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/start_window_background" />
+    <item
+        android:width="96dp"
+        android:height="96dp"
+        android:drawable="@drawable/start_icon"
+        android:gravity="center" />
+</layer-list>

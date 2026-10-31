@@ -43,7 +43,7 @@
   "shell.pages.voice.title": "语音",
   "shell.pages.voice.sub": "识别和合成模型的状态、参考音色、自动播放 agent 的语音",
   "shell.pages.browsing.title": "浏览与填框",
-  "shell.pages.browsing.sub": "鸿蒙 App 里“浏览”的搜索引擎；agent 联网搜索的几种方式和先后顺序；授权二狗找文件的文件夹",
+  "shell.pages.browsing.sub": "手机 App 里“浏览”的搜索引擎；agent 联网搜索的几种方式和先后顺序；授权二狗找文件的文件夹",
   "shell.pages.devices.title": "已配对设备",
   "shell.pages.devices.sub": "从外网用二狗的设备，可以延期、吊销、删除",
   "shell.pages.plugins.title": "插件",

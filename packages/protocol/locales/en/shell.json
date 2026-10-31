@@ -43,7 +43,7 @@
   "shell.pages.voice.title": "Voice",
   "shell.pages.voice.sub": "Recognition and synthesis models, reference voices, auto-playing agents' voice replies",
   "shell.pages.browsing.title": "Browsing & form filling",
-  "shell.pages.browsing.sub": "Search engine for Browse in the HarmonyOS app; how agents search the web and in what order; folders Ergo may search for files",
+  "shell.pages.browsing.sub": "Search engine for Browse in the phone app; how agents search the web and in what order; folders Ergo may search for files",
   "shell.pages.devices.title": "Paired devices",
   "shell.pages.devices.sub": "Devices that use Ergo from outside your network: extend, revoke or delete",
   "shell.pages.plugins.title": "Plugins",

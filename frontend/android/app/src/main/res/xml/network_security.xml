@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  内置浏览器和鸿蒙一样能开 http 网站，所以明文放开；二狗自己的地址只认 https 和本机（common/ServerAddress.kt），
+  二狗的页面上混合内容全拦（MIXED_CONTENT_NEVER_ALLOW）。只信系统证书，不信用户装的证书。
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

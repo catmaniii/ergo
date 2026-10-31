@@ -15,3 +15,6 @@
 | 安卓 | `mipmap-*/ic_launcher.png`、`ic_launcher_round.png` | 老式图标，48dp 圆角方形和圆形 |
 | 安卓 | `mipmap-anydpi-v26/ic_launcher.xml`、`ic_launcher_round.xml` | 自适应图标的配置 |
 | 安卓 | `android/ic_launcher-playstore.png` | 512×512，应用商店用 |
+| 安卓 | `android/app/src/main/res/drawable-nodpi/start_icon.png` | 启动画面图标，和鸿蒙的 `startIcon.png` 同一张 |
+
+不是这个脚本生成的：`android/app/src/main/res/drawable/ic_notification.xml`，通知栏的单色小图标。系统只用它的透明度，原图的剪影只是一团看不出小狗，所以照小狗的样子手画了矢量。
