@@ -192,7 +192,13 @@ describe("转入使用不管谁发起都要用户在确认卡上确认（259 号
     await settled(td, "pm-1");
     expect(goLiveCards(frontend)).toHaveLength(1);
     expect(stateOf(td)).toBe("building");
-    expect(textOf(messagesOf(frontend, PM1).filter((m) => m.message.speaker === "agent").at(-1)!)).toContain(`“转入使用”确认卡（${card.id}）已经在等用户确认了，没有另出卡；卡上的检查清单照现在的刷新了。`);
+    // 卡已经在了：等维护者那句"没有另出卡、清单刷新了"出现再断言（慢一点的机器上最后一条消息可能还是 <tool_call:> 占位）
+    const refreshed = await eventually(
+      () => messagesOf(frontend, PM1).filter((m) => m.message.speaker === "agent"),
+      (m) => textOf(m).includes(`“转入使用”确认卡（${card.id}）已经在等用户确认了`),
+      "维护者回：卡已经在等确认",
+    );
+    expect(textOf(refreshed)).toContain(`“转入使用”确认卡（${card.id}）已经在等用户确认了，没有另出卡；卡上的检查清单照现在的刷新了。`);
     expect(latest(frontend, card.id).text).toContain("检查清单 5 项都做到了");
 
     // 先不转：留在建设中，维护者收到（唤起它）
