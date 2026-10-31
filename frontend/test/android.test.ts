@@ -20,9 +20,11 @@ function kotlinFiles(dir: string = KOTLIN_DIR): string[] {
   });
 }
 
-const kotlin = (file: string) => readFileSync(path.join(KOTLIN_DIR, file), "utf8");
-const allKotlin = () => kotlinFiles().map((file) => ({ file: path.relative(KOTLIN_DIR, file), text: readFileSync(file, "utf8") }));
-const shim = () => readFileSync(path.join(SRC, "assets/ergo-native-shim.js"), "utf8");
+/** 读文本，行尾统一成 LF：Windows 上 autocrlf 的工作区是 CRLF，下面的检查按行比 */
+const read = (file: string) => readFileSync(file, "utf8").replaceAll("\r\n", "\n");
+const kotlin = (file: string) => read(path.join(KOTLIN_DIR, file));
+const allKotlin = () => kotlinFiles().map((file) => ({ file: path.relative(KOTLIN_DIR, file), text: read(file) }));
+const shim = () => read(path.join(SRC, "assets/ergo-native-shim.js"));
 
 /** NativeBridge.kt 里一个方法表的名字 */
 function bridgeList(name: string): string[] {
@@ -40,13 +42,13 @@ const words = (text: string) => /RENDER_EXTENSIONS[^=]*= \(?\s*([\s\S]*?)\)?\s*\
 const opsOf = (text: string) => /PAGE_OPS[^=]*= (?:listOf\(|\[)([^\])]*)/.exec(text)![1]!.match(/['"][A-Za-z]+['"]/g)!.map((n) => n.slice(1, -1));
 
 /** 网页一侧一个方法表的名字 */
-const webGroup = (file: string, name: string) => new RegExp(`${name} = \\[([^\\]]*)\\]`).exec(readFileSync(path.join(REPO, "packages/web/src/app", file), "utf8"))![1]!.match(/"[A-Za-z]+"/g)!.map((n) => n.slice(1, -1));
+const webGroup = (file: string, name: string) => new RegExp(`${name} = \\[([^\\]]*)\\]`).exec(read(path.join(REPO, "packages/web/src/app", file)))![1]!.match(/"[A-Za-z]+"/g)!.map((n) => n.slice(1, -1));
 
 describe("原生桥的方法名和网页一侧一样", () => {
   test("基础那一组都开着、都有处理；同步回值的（镜像）垫片里都有实现", () => {
     const main = mainMethods();
     for (const name of ["appVersion", "log", "editServer", "setColorMode", "setCanGoBack", "safeArea", "setTexts"]) expect(main).toContain(name);
-    const nativeApp = readFileSync(path.join(REPO, "packages/web/src/app/native-app.ts"), "utf8");
+    const nativeApp = read(path.join(REPO, "packages/web/src/app/native-app.ts"));
     for (const name of ["appVersion", "log", "editServer", "setColorMode", "setCanGoBack", "safeArea", "setTexts"]) expect(nativeApp).toContain(`"${name}"`);
     const bridge = kotlin("bridge/NativeBridge.kt");
     for (const name of main) expect(bridge).toContain(`"${name}"`);
@@ -61,28 +63,28 @@ describe("原生桥的方法名和网页一侧一样", () => {
   });
 
   test("浏览器、页面桥、放掉预备文件、能渲染的文件、⋮ 菜单这几组都开着；页面桥的操作和鸿蒙一样", () => {
-    const web = readFileSync(path.join(REPO, "packages/web/src/app/native-browser.ts"), "utf8");
+    const web = read(path.join(REPO, "packages/web/src/app/native-browser.ts"));
     const names = [...webGroup("native-browser.ts", "NATIVE_BROWSER_METHODS"), ...webGroup("native-browser.ts", "NATIVE_PAGE_METHODS")];
     expect(names).toEqual(["browserAttach", "browserLayout", "browserLoad", "browserNav", "browserPage", "browserFileChunk", "browserFiles", "browserChooser"]);
     for (const constant of ["NATIVE_DISCARD_METHOD", "NATIVE_DOC_METHOD", "NATIVE_TOOL_METHOD"]) names.push(new RegExp(`${constant} = "([A-Za-z]+)"`).exec(web)![1]!);
     for (const name of names) expect(mainMethods()).toContain(name);
-    const harmony = readFileSync(path.join(REPO, "frontend/harmony/entry/src/main/ets/browser/PageControl.ets"), "utf8");
+    const harmony = read(path.join(REPO, "frontend/harmony/entry/src/main/ets/browser/PageControl.ets"));
     expect(opsOf(kotlin("browser/PageControl.kt"))).toEqual(opsOf(harmony));
   });
 
   test("能渲染文件的扩展名和鸿蒙一样（网页一侧的测试核对鸿蒙那份）", () => {
-    expect(words(kotlin("browser/FileDocs.kt"))).toEqual(words(readFileSync(path.join(REPO, "frontend/harmony/entry/src/main/ets/browser/FileDocs.ets"), "utf8")));
+    expect(words(kotlin("browser/FileDocs.kt"))).toEqual(words(read(path.join(REPO, "frontend/harmony/entry/src/main/ets/browser/FileDocs.ets"))));
   });
 
   test("侧边栏：主界面开着 browserSide；侧边栏那份原生桥和鸿蒙的 NATIVE_SIDE_BRIDGE_METHODS 一样，没有浏览器、地址页、通知这些", () => {
-    const web = readFileSync(path.join(REPO, "packages/web/src/app/native-browser.ts"), "utf8");
+    const web = read(path.join(REPO, "packages/web/src/app/native-browser.ts"));
     expect(mainMethods()).toContain(/NATIVE_SIDE_METHOD = "([A-Za-z]+)"/.exec(web)![1]!);
     const side = [...bridgeList("NATIVE_SIDE_MIRROR_METHODS"), ...bridgeList("NATIVE_SIDE_FIRE_METHODS"), ...bridgeList("NATIVE_SIDE_PROMISE_METHODS")];
-    const harmony = readFileSync(path.join(REPO, "frontend/harmony/entry/src/main/ets/bridge/NativeBridge.ets"), "utf8");
+    const harmony = read(path.join(REPO, "frontend/harmony/entry/src/main/ets/bridge/NativeBridge.ets"));
     const expected = /NATIVE_SIDE_BRIDGE_METHODS: string\[\] = \[([^\]]*)\]/.exec(harmony)![1]!.match(/'[A-Za-z]+'/g)!.map((n) => n.slice(1, -1));
     expect(side.toSorted()).toEqual(expected.toSorted());
     // window.ergoSide 的三个方法和鸿蒙 SidePanel.ets 一样
-    const panel = readFileSync(path.join(REPO, "frontend/harmony/entry/src/main/ets/browser/SidePanel.ets"), "utf8");
+    const panel = read(path.join(REPO, "frontend/harmony/entry/src/main/ets/browser/SidePanel.ets"));
     const hostMethods = /SIDE_HOST_METHODS: string\[\] = \[([^\]]*)\]/.exec(panel)![1]!.match(/'[A-Za-z]+'/g)!.map((n) => n.slice(1, -1));
     expect(bridgeList("SIDE_HOST_MESSAGES").map((n) => n.replace("side.", "")).toSorted()).toEqual(hostMethods.toSorted());
     for (const name of hostMethods) expect(shim()).toContain(`post('side.${name}')`);
@@ -97,7 +99,7 @@ describe("原生桥的方法名和网页一侧一样", () => {
   });
 
   test("和鸿蒙的方法表比：除了第一版不做的手机数据源，一个不少", () => {
-    const harmony = readFileSync(path.join(REPO, "frontend/harmony/entry/src/main/ets/bridge/NativeBridge.ets"), "utf8");
+    const harmony = read(path.join(REPO, "frontend/harmony/entry/src/main/ets/bridge/NativeBridge.ets"));
     const all = /NATIVE_BRIDGE_METHODS: string\[\] = \[([^\]]*)\]/.exec(harmony)![1]!.match(/'[A-Za-z]+'/g)!.map((n) => n.slice(1, -1));
     expect(all.filter((name) => !name.startsWith("phone")).toSorted()).toEqual(mainMethods().toSorted());
   });
@@ -155,10 +157,10 @@ describe("外部网页碰不到原生桥（安全要求）", () => {
     expect(main).toContain("allowFileAccessFromFileURLs = false");
     expect(main).toContain("allowUniversalAccessFromFileURLs = false");
     expect(main).toContain("MIXED_CONTENT_NEVER_ALLOW");
-    const manifest = readFileSync(path.join(SRC, "AndroidManifest.xml"), "utf8");
+    const manifest = read(path.join(SRC, "AndroidManifest.xml"));
     expect(manifest).toContain('android:allowBackup="false"');
     // 只信系统证书，不信用户装的
-    const security = readFileSync(path.join(SRC, "res/xml/network_security.xml"), "utf8");
+    const security = read(path.join(SRC, "res/xml/network_security.xml"));
     expect(security).toContain('src="system"');
     expect(security).not.toContain('src="user"');
   });
@@ -237,7 +239,7 @@ describe("构建辅助", () => {
   });
 
   test("调试签名的包默认不可调试：系统对可调试的 App 一律开着 WebView 调试，手册让用户装的就是它", () => {
-    const gradle = readFileSync(path.join(REPO, "frontend/android/app/build.gradle.kts"), "utf8");
+    const gradle = read(path.join(REPO, "frontend/android/app/build.gradle.kts"));
     expect(gradle).toMatch(/debug \{[^}]*isDebuggable = webviewDebug/);
     expect(gradle).not.toMatch(/isDebuggable = true/);
   });
