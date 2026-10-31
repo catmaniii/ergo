@@ -44,7 +44,7 @@
 ### 步骤 2：在 AGC 创建项目和应用，开通推送
 
 1. 进入 [AppGallery Connect](https://developer.huawei.com/consumer/cn/service/josp/agc/index.html)，新建**项目**，再在项目下新建 **HarmonyOS 应用**。
-   - 应用的包名（bundleName）要和二狗鸿蒙外壳工程的 `app.json5` 一致。外壳还没建的话，先定一个，例如 `com.<你的标识>.ergo`，之后外壳照这个写。
+   - 应用的包名（bundleName）要和二狗鸿蒙外壳工程的 `app.json5` 一致。二狗自己的鸿蒙外壳用的是 `com.catmaniii.ergo`（`frontend/harmony/AppScope/app.json5`，2026-10-30 定）；你在 AGC 建的应用要填同一个。
 2. 进入"**增长 > 推送服务**"，点击"**立即开通**"。推送权益是**项目级**的。
 3. **数据处理位置**选**中国**。
 4. 在"项目设置"里记下 **`projectId`**（发送接口要用），以及 **`clientId`**（撤回接口要用）。
