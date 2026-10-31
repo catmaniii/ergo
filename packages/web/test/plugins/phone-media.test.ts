@@ -245,7 +245,7 @@ const noop = () => {};
 describe("数据源页上的照片、位置两块", () => {
   test("照片：不在 App 里写明要到 App 里，耗电和隐私都写；在 App 里没连着是连上相册、连着是现在同步，写手机上的授权", () => {
     const outside = html(createElement(PhotosPanelView, { inApp: false, linked: false, state: undefined, busy: false, note: undefined, onLink: noop, onSync: noop }));
-    expect(outside).toContain("在手机上的二狗 App 里打开这一页连上相册");
+    expect(outside).toContain("在鸿蒙手机上的二狗 App 里打开这一页连上相册");
     expect(outside).toContain("耗电：只在 App 开着时读一下相册里照片的时间和地点");
     expect(outside).toContain("隐私：照片本身不离开手机");
     expect(html(createElement(PhotosPanelView, { inApp: true, linked: false, state: { granted: false, location: false, asked: false }, busy: false, note: undefined, onLink: noop, onSync: noop }))).toContain(">连上相册<");
@@ -258,7 +258,7 @@ describe("数据源页上的照片、位置两块", () => {
 
   test("位置：不在 App 里写明，耗电（App 开着时 5 分钟、后台要长时任务、通知栏常驻）和隐私都写；连着时有后台也记的开关，写授权和在不在记", () => {
     const outside = html(createElement(LocationPanelView, { inApp: false, linked: true, state: undefined, busy: false, note: undefined, onLink: noop, onSync: noop, onBackground: noop }));
-    expect(outside).toContain("在手机上的二狗 App 里打开这一页开始记位置");
+    expect(outside).toContain("在鸿蒙手机上的二狗 App 里打开这一页开始记位置");
     expect(outside).toContain("每 5 分钟用低功耗定位");
     expect(outside).toContain("位置类长时任务在后台每 10 分钟记一次");
     expect(outside).toContain("整条算「位置」这类敏感内容");

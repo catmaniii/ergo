@@ -147,7 +147,7 @@ describe("浏览插件", () => {
     for (const paragraph of BROWSE_PARAGRAPHS) expect(prompt).not.toContain(paragraph);
     expect(prompt).not.toMatch(/browse_/);
     // 授权的文件夹是内核的：讲它的那句、唤起时那一块照旧
-    expect(prompt).toContain("用户要授权、取消授权你找文件的文件夹");
+    expect(prompt).toContain("用户要授权、取消授权文件夹");
     expect(context).toContain("授权的文件夹（你在聊天里、在“浏览”里找文件都用这一份");
     expect(lastUserOf(context)).not.toMatch(/侧边栏里说的|这一轮联网搜索算上|browse_/);
     expect(toolResultOf(context, "web_search")).toMatch(/^搜索: 二狗 天气 （DeepSeek，2 条）/);

@@ -191,7 +191,8 @@ describe("数据源：统一外形和共用导入文件夹（假数据源插件�
   it("按需查的工具只在连上时给秘书：没连没有，连上后有（秘书重新装配一次），别的插件起停不惊动秘书，Key 失效后又没有；出错时每小时自动再试，远端好了就回到连着、秘书重新有工具；重新填好也行（306）", { timeout: 90_000 }, async () => {
     // 秘书每一轮只回一句：这次装配里有没有"查假数据源"（回显整个上下文会一轮比一轮长，长到触发压缩）
     const PROBE: FauxStep = { kind: "branch_on_context", contains: [`[tool] ${FAKE_QUERY_TOOL}`], matched: { kind: "reply", text: "有工具" }, otherwise: { kind: "reply", text: "没工具" } };
-    const clock = new ManualClock(new Date());
+    // 钉在白天：用真实时间的话，半夜跑时拨钟会撞上夜里的内部作业
+    const clock = new ManualClock(new Date(2026, 9, 21, 10, 0, 0));
     const td = await startTestDaemon({ extraPlugins: [fakeDataSourcePlugin], clock, secretary: Array.from({ length: 6 }, () => PROBE) });
     const frontend = await TestFrontend.connect(td.url);
     await frontend.subscribe({ [CHANNELS.secretary]: 0 });

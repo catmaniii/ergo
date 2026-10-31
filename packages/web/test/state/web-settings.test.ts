@@ -42,7 +42,7 @@ describe("设置里的联网搜索队列", () => {
       { method: "deepseek", label: "DeepSeek 付费搜索", tools: webMethodTools("deepseek"), trait: WEB_METHOD_TRAIT.deepseek, rank: 1, on: true, locked: false, canUp: false, canDown: true },
       { method: "browser", label: "二狗自带的浏览器搜索", tools: webMethodTools("browser"), trait: WEB_METHOD_TRAIT.browser, rank: 2, on: true, locked: false, canUp: true, canDown: true },
       { method: "agent-browser", label: "agent-browser", tools: webMethodTools("agent-browser"), trait: WEB_METHOD_TRAIT["agent-browser"], rank: 3, on: true, locked: false, canUp: true, canDown: true },
-      { method: "app-browser", label: "鸿蒙 App 的内置浏览器", tools: webMethodTools("app-browser"), trait: WEB_METHOD_TRAIT["app-browser"], rank: 4, on: true, locked: false, canUp: true, canDown: false },
+      { method: "app-browser", label: "手机 App 的内置浏览器", tools: webMethodTools("app-browser"), trait: WEB_METHOD_TRAIT["app-browser"], rank: 4, on: true, locked: false, canUp: true, canDown: false },
     ]);
   });
 
@@ -55,7 +55,7 @@ describe("设置里的联网搜索队列", () => {
 
   test("说明：写明不写 engine 时按队列挑、结果的标题写着用了哪种；内置浏览器只在侧边栏、悬浮按钮那一轮用，停用只是不拿它来搜索", () => {
     expect(webQueueIntro()).toContain("不写 engine 时按队列挑，每次结果的标题写着实际用了哪种");
-    expect(webToolsHint()).toContain("鸿蒙 App 的内置浏览器只有");
+    expect(webToolsHint()).toContain("手机 App 的内置浏览器只有");
     expect(webToolsHint()).toContain("停用了也只是不拿它来搜索");
   });
 
@@ -107,8 +107,8 @@ describe("设置里的联网搜索队列", () => {
   });
 
   test("现在的顺序：实际用的按顺序写；没配 key 时写明没用上 DeepSeek", () => {
-    expect(webQueueSummary(view())).toBe("现在的顺序：DeepSeek 付费搜索 → 二狗自带的浏览器搜索 → agent-browser → 鸿蒙 App 的内置浏览器");
-    expect(webQueueSummary(view(INITIAL, false))).toBe("现在的顺序：二狗自带的浏览器搜索 → agent-browser → 鸿蒙 App 的内置浏览器（没配 DeepSeek 的 key，跳过它）");
+    expect(webQueueSummary(view())).toBe("现在的顺序：DeepSeek 付费搜索 → 二狗自带的浏览器搜索 → agent-browser → 手机 App 的内置浏览器");
+    expect(webQueueSummary(view(INITIAL, false))).toBe("现在的顺序：二狗自带的浏览器搜索 → agent-browser → 手机 App 的内置浏览器（没配 DeepSeek 的 key，跳过它）");
   });
 
   test("余额不足：写明哪天几点回的 402、这期间按顺序换了后面的；没有就不写", () => {

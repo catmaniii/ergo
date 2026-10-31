@@ -1,5 +1,5 @@
 // 设置里 agent 的联网搜索、读网页（154 号票起；162 号票改成队列，182 号票起四种方式）：数据目录配置区的 web-settings.json 是真相，只由设置接口写；
-// 没有文件按默认（DeepSeek → 浏览器 → agent-browser → 鸿蒙 App 的内置浏览器，都启用）；没配 DeepSeek 的 key 时实际的顺序里没有它；
+// 没有文件按默认（DeepSeek → 浏览器 → agent-browser → 手机 App 的内置浏览器，都启用）；没配 DeepSeek 的 key 时实际的顺序里没有它；
 // 154 号票的旧文件（format 1）读成队列；162 号票存的三项读成四项（内置浏览器加在最后、启用），认不得的方式跳过；文件读不出来按默认用、
 // 写明原因，存一次就覆盖；存之前查合规（四种各一项、至少留一个用得上的）；改了通知听的人（秘书重新装配）；
 // DeepSeek 的 key 只说配没配、从哪来；最近一次余额不足照 DeepSeek 客户端报的。
@@ -33,7 +33,7 @@ function setup(options: { key?: boolean; balanceLowAt?: string; content?: string
 }
 
 describe("设置里的联网搜索队列", () => {
-  it("没有文件：DeepSeek → 浏览器 → agent-browser → 鸿蒙 App 的内置浏览器，都启用；配了 key 时实际也是；key 只说配没配、从哪来；不写文件", () => {
+  it("没有文件：DeepSeek → 浏览器 → agent-browser → 手机 App 的内置浏览器，都启用；配了 key 时实际也是；key 只说配没配、从哪来；不写文件", () => {
     const { make, file } = setup();
     expect(make().view()).toEqual({
       settings: INITIAL,
@@ -61,7 +61,7 @@ describe("设置里的联网搜索队列", () => {
     expect(settings.current()).toEqual(next);
     expect(JSON.parse(fs.readFileSync(file, "utf8"))).toEqual({ format: 2, ...next });
     expect(heard).toEqual([1]);
-    expect(log.at(-1)).toBe("联网设置改了：鸿蒙 App 的内置浏览器 → 二狗自带的浏览器搜索 → agent-browser（停用：DeepSeek 付费搜索）");
+    expect(log.at(-1)).toBe("联网设置改了：手机 App 的内置浏览器 → 二狗自带的浏览器搜索 → agent-browser（停用：DeepSeek 付费搜索）");
     off();
     settings.change(INITIAL);
     expect(heard).toEqual([1]);
@@ -93,7 +93,7 @@ describe("设置里的联网搜索队列", () => {
     expect(old.make().current()).toEqual(INITIAL);
   });
 
-  it("162 号票存的三项（182 号票）：鸿蒙 App 的内置浏览器加在最后、启用，存着的顺序和开关不变；认不得的方式跳过；记日志，不立刻改写文件", () => {
+  it("162 号票存的三项（182 号票）：手机 App 的内置浏览器加在最后、启用，存着的顺序和开关不变；认不得的方式跳过；记日志，不立刻改写文件", () => {
     const three = { format: 2, queue: [{ method: "browser", enabled: true }, { method: "tavily", enabled: true }, { method: "deepseek", enabled: false }, { method: "agent-browser", enabled: true }] };
     const content = JSON.stringify(three);
     const { make, file, log } = setup({ content });
@@ -101,7 +101,7 @@ describe("设置里的联网搜索队列", () => {
     expect(settings.view()).toMatchObject({ settings: queue(["browser", true], ["deepseek", false], ["agent-browser", true], ["app-browser", true]), effective: ["browser", "agent-browser", "app-browser"] });
     expect(settings.view().settingsFileError).toBeUndefined();
     expect(log).toContain("联网设置的文件里认不得的方式跳过：tavily");
-    expect(log).toContain("联网设置的文件里没有鸿蒙 App 的内置浏览器（182 号票新加的），加在最后、启用；设置页保存后写进文件");
+    expect(log).toContain("联网设置的文件里没有手机 App 的内置浏览器（182 号票新加的），加在最后、启用；设置页保存后写进文件");
     expect(fs.readFileSync(file, "utf8")).toBe(content);
     settings.change(settings.current());
     expect(JSON.parse(fs.readFileSync(file, "utf8")).queue).toHaveLength(4);

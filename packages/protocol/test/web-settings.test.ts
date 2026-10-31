@@ -1,5 +1,5 @@
 // 设置里的联网搜索队列（162 号票）：初始顺序、实际用哪几种（DeepSeek 要配 key）、至少留一个、154 号票旧设置的迁移、schema。
-// 182 号票：队列里多第四种"鸿蒙 App 的内置浏览器"（排最后、启用）；162 号票存的三项的文件读的时候把它加在最后，认不得的方式跳过。
+// 182 号票：队列里多第四种"手机 App 的内置浏览器"（排最后、启用）；162 号票存的三项的文件读的时候把它加在最后，认不得的方式跳过。
 // "浏览"页签的搜索引擎（必应、百度……）拼结果页地址的函数挪到协议包（守护进程给秘书拼内置浏览器要打开的结果页）。
 import { describe, expect, test } from "vitest";
 import {
@@ -25,9 +25,9 @@ import {
 const queue = (...entries: [WebSettings["queue"][number]["method"], boolean][]): WebSettings => ({ queue: entries.map(([method, enabled]) => ({ method, enabled })) });
 
 describe("联网搜索的队列", () => {
-  test("初始顺序照 161 号票的报告：DeepSeek → 浏览器 → agent-browser，182 号票的鸿蒙 App 的内置浏览器排最后，都启用；默认值改不动", () => {
+  test("初始顺序照 161 号票的报告：DeepSeek → 浏览器 → agent-browser，182 号票的手机 App 的内置浏览器排最后，都启用；默认值改不动", () => {
     expect(DEFAULT_WEB_SETTINGS).toEqual(queue(["deepseek", true], ["browser", true], ["agent-browser", true], ["app-browser", true]));
-    expect(WEB_METHOD_LABEL["app-browser"]).toBe("鸿蒙 App 的内置浏览器");
+    expect(WEB_METHOD_LABEL["app-browser"]).toBe("手机 App 的内置浏览器");
     expect(Object.isFrozen(DEFAULT_WEB_SETTINGS.queue[0])).toBe(true);
     const copy = copyWebSettings(DEFAULT_WEB_SETTINGS);
     copy.queue[0]!.enabled = false;
@@ -45,7 +45,7 @@ describe("联网搜索的队列", () => {
     expect(webQueueFallback(onlyDeepseek, false)).toBe(true);
   });
 
-  test("要存的：四种各一项、至少留一个启用而且用得上的（只启用鸿蒙 App 的内置浏览器也算留了一个）", () => {
+  test("要存的：四种各一项、至少留一个启用而且用得上的（只启用手机 App 的内置浏览器也算留了一个）", () => {
     expect(webSettingsProblem(DEFAULT_WEB_SETTINGS, true)).toBeUndefined();
     expect(webSettingsProblem(queue(["agent-browser", true], ["deepseek", false], ["browser", false], ["app-browser", false]), true)).toBeUndefined();
     expect(webSettingsProblem(queue(["app-browser", true], ["deepseek", false], ["browser", false], ["agent-browser", false]), true)).toBeUndefined();
@@ -61,7 +61,7 @@ describe("联网搜索的队列", () => {
     }
   });
 
-  test("设置文件里的队列（182 号票）：162 号票存的三项读成四项，鸿蒙 App 的内置浏览器加在最后、启用；认不得的方式跳过；重复的留给合规检查", () => {
+  test("设置文件里的队列（182 号票）：162 号票存的三项读成四项，手机 App 的内置浏览器加在最后、启用；认不得的方式跳过；重复的留给合规检查", () => {
     const old = [
       { method: "browser", enabled: true },
       { method: "agent-browser", enabled: false },
@@ -77,7 +77,7 @@ describe("联网搜索的队列", () => {
     expect(webSettingsProblem(dup.settings, true)).toMatch(/^队列里要四种方式各一项/);
   });
 
-  test("154 号票的旧设置并进队列：默认浏览器的浏览器排第一、DeepSeek 第二，agent-browser、鸿蒙 App 的内置浏览器在后面，都启用；读网页的开关没有对应的了", () => {
+  test("154 号票的旧设置并进队列：默认浏览器的浏览器排第一、DeepSeek 第二，agent-browser、手机 App 的内置浏览器在后面，都启用；读网页的开关没有对应的了", () => {
     expect(migrateWebSettingsV1({ search: "deepseek", deepseekFetch: true })).toEqual(queue(["deepseek", true], ["browser", true], ["agent-browser", true], ["app-browser", true]));
     expect(migrateWebSettingsV1({ search: "deepseek", deepseekFetch: false })).toEqual(queue(["deepseek", true], ["browser", true], ["agent-browser", true], ["app-browser", true]));
     expect(migrateWebSettingsV1({ search: "browser", deepseekFetch: false })).toEqual(queue(["browser", true], ["deepseek", true], ["agent-browser", true], ["app-browser", true]));

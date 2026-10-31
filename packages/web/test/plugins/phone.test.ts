@@ -164,7 +164,7 @@ const noop = () => {};
 describe("数据源页上的两块", () => {
 
   test("通讯录选人：不在 App 里写明要到 App 里；在 App 里一个按钮、说明不读整个通讯录；交过去之后说是谁、有卡的带去核对", () => {
-    expect(html(createElement(ContactsPanelView, { inApp: false, busy: false, note: undefined, onPick: noop }))).toContain("在手机上的二狗 App 里打开这一页");
+    expect(html(createElement(ContactsPanelView, { inApp: false, busy: false, note: undefined, onPick: noop }))).toContain("在鸿蒙手机上的二狗 App 里打开这一页");
     const inApp = html(createElement(ContactsPanelView, { inApp: true, busy: false, note: contactsNote({ names: ["王小明", "妈妈"], cardId: "c-1" }, []), onPick: noop }));
     expect(inApp).toContain("从手机通讯录挑人");
     expect(inApp).toContain("不读整个通讯录");
@@ -175,7 +175,7 @@ describe("数据源页上的两块", () => {
   });
 
   test("手机日历：不在 App 里写明；没连着是连上、连着是现在同步，写手机上的授权", () => {
-    expect(html(createElement(CalendarPanelView, { inApp: false, linked: false, state: undefined, busy: false, note: undefined, onLink: noop, onSync: noop }))).toContain("在手机上的二狗 App 里打开这一页连上手机日历");
+    expect(html(createElement(CalendarPanelView, { inApp: false, linked: false, state: undefined, busy: false, note: undefined, onLink: noop, onSync: noop }))).toContain("在鸿蒙手机上的二狗 App 里打开这一页连上手机日历");
     const notLinked = html(createElement(CalendarPanelView, { inApp: true, linked: false, state: { granted: false, asked: false }, busy: false, note: undefined, onLink: noop, onSync: noop }));
     expect(notLinked).toContain("连上手机日历");
     expect(notLinked).toContain("这台手机上：还没问过要不要允许");
