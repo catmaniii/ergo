@@ -293,6 +293,20 @@ describe("自定义（OpenAI 兼容）服务商：列它有哪些模型", () => 
     expect(call).toMatchObject({ method: "GET", authorization: `Bearer ${KEY}` });
   }, 60_000);
 
+  it("列模型只认自定义那一份 key：设置里还选着 DeepSeek 时，也绝不把 DeepSeek 的 key 发给请求里的地址", async () => {
+    const fake = await startFakeOpenAI({ models: ["model-a"] });
+    const otherKey = fakeSecret("sk-", "unit-deepseek-not-a-real-key-R4t7");
+    const { service } = setup({
+      settingsFile: { format: 1, provider: "deepseek", default: { modelId: "deepseek-flash", thinkingLevel: "high" }, agents: {}, vision: {} },
+      credentials: { deepseek: otherKey },
+    });
+    const result = await service.customModels(fake.baseUrl);
+    // 没有自定义的 key：直接说"还没配"，一个请求都不发
+    expect(result).toMatchObject({ ok: false, models: [] });
+    expect(result.error).toContain("CUSTOM_MODEL_API_KEY");
+    expect(fake.requests.filter((r) => r.path === "/v1/models")).toEqual([]);
+  }, 60_000);
+
   it("列不成不算出错：401、服务出错、没填地址都写原因，原因里没有 key 的内容", async () => {
     const fake = await startFakeOpenAI({ models: [CUSTOM.modelId] });
     const { service } = setup();

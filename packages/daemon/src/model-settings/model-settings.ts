@@ -502,8 +502,10 @@ export function createModelSettings(options: ModelSettingsOptions): ModelSetting
       }
     },
     async customModels(baseUrl) {
-      const provider = providerOf(settings.provider) ?? MODEL_PROVIDERS[0]!;
-      return listCustomModels(baseUrl ?? settings.custom?.baseUrl, credentials[provider.id], provider);
+      // 列模型永远是"自定义服务商"的事，key 只能用 custom 那一份：以前按"当前选中的服务商"取，
+      // 于是 provider 还是 deepseek 时调这个接口，会把 DeepSeek 的 key 当 Bearer 发给请求里那个任意 baseUrl。
+      const provider = providerOf(CUSTOM_PROVIDER_ID) ?? MODEL_PROVIDERS[0]!;
+      return listCustomModels(baseUrl ?? settings.custom?.baseUrl, credentials[CUSTOM_PROVIDER_ID], provider);
     },
   };
 }
