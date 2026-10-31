@@ -614,6 +614,31 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     expect(empty).toEqual([]);
   }, 60_000);
 
+  test("缩小后撤回箭头的尖刚好碰到条的左沿，不插进去", async () => {
+    const { page, errors } = await open({ width: 1280, height: 860 });
+    await page.evaluate(`window.location.hash = "#/secretary"`);
+    await page.waitForTimeout(300);
+    const box = await page.locator(".zh").first().boundingBox();
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+    await page.keyboard.down("Control");
+    for (let i = 0; i < 40 && (await page.locator(".zh").first().getAttribute("data-level")) === "0"; i++) {
+      await page.mouse.wheel(0, 120);
+      await page.waitForTimeout(120);
+    }
+    await page.keyboard.up("Control");
+    await page.waitForTimeout(800);
+    const gaps = (await page.evaluate(
+      `[...document.querySelectorAll(".zd-rollback")].filter((b) => b.getClientRects().length > 0).map((b) => b.closest(".zi").getBoundingClientRect().left - b.querySelector(".zd-rb-leader path").getBoundingClientRect().right)`,
+    )) as number[];
+    expect(gaps.length).toBeGreaterThan(0);
+    for (const gap of gaps) {
+      expect(gap).toBeGreaterThanOrEqual(0);
+      expect(gap).toBeLessThan(2);
+    }
+    await page.close();
+    expect(errors).toEqual([]);
+  }, 60_000);
+
   test("电脑上回车发送、组合键换行，设置里能换键；组字时的回车不发；触屏上回车还是换行", async () => {
     const { page, errors } = await open({ width: 1280, height: 800 });
     const at = async (hash: string) => {

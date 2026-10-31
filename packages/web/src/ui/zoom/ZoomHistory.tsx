@@ -758,7 +758,8 @@ const SPINE_GAP = 3;
 function layoutRollbacks(content: HTMLElement, level: number, s: number, k: number, DS: number) {
   if (level === 0) return;
   const buttons = [...content.querySelectorAll<HTMLElement>(".zd-rollback")].filter(shown);
-  for (const btn of buttons) btn.style.marginRight = "";
+  // 量的时候右边距清成 0（不是清掉内联样式：CSS 里还有一份默认右边距，算进去箭头会插进条里）
+  for (const btn of buttons) btn.style.marginRight = "0px";
   // 有书脊时线停在书脊外沿
   const inset = content.dataset.spine ? SPINE_W + SPINE_GAP + 1 : 0;
   const a = 3.5 / DS;
@@ -770,7 +771,7 @@ function layoutRollbacks(content: HTMLElement, level: number, s: number, k: numb
     lane = top - prevBottom < 22 / s ? lane + 1 : 0;
     prevBottom = top;
     const margin = 6 / DS + lane * (26 / DS);
-    // 清掉让位时量的右缘，再按让位挪过去（按钮按 DS 像素排版，屏幕上一个 DS 像素是 s·k）
+    // 右边距是 0 时量的右缘，再按让位挪过去（按钮按 DS 像素排版，屏幕上一个 DS 像素是 s·k）
     const right = btn.getBoundingClientRect().right - margin * s * k;
     const it = item.getBoundingClientRect();
     const dx = (it.left - inset - right) / (s * k);
