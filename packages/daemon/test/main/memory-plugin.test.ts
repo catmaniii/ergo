@@ -4,19 +4,21 @@
 //   用户的话照样留原话副本（用户的数据承诺）；没有记忆命令（快速动作里没有、"提议快速动作"的说明里不提 search_materials），
 //   秘书没有 search_materials、系统提示里不讲记忆命令（句子照样通顺）；别的功能（提醒、工作日历）照常；
 // - 停用期间：以前的记忆删除卡回"记忆插件没启用"；设置里按会话彻底删除照常（库里已有的、只在原话副本里的都删，原文改写成标记）；
+// - 停用时的 HTTP（用户 2026-10-31 要求"没启用也不能崩"）：访谈接口 404 加一句"记忆插件没启用"，记忆的设置照常能读能改，
+//   推理库的只读接口 200 + ready=false + 原因——都不是 500；
 // - 再启用：素材库从停下的采集位置补采，停用期间没删的话成了素材、能检索，删过的不回来。
 // 默认全开时秘书看到的工具（先后、说明）、系统提示和以前逐字节一样，由已有的主切面测试守着（plugins.test.ts、secretary-chat.test.ts……）。
 // 232 号票起：开着时秘书多一个 ask_memory（在 read_material 后面、propose_quick_action 前面），每轮醒来还有一块记忆简报
 // （推理库还空着时是空串，不产生块）；停用后这两个都没有。242 号票起再多一个 ask_curator（问记忆管理员，排在 ask_memory 后面）。
 import fs from "node:fs";
 import path from "node:path";
-import { type Card, type CardEventPayload, CHANNELS, EVENT_TYPES, isDeletedEventPayload, type MessageEventPayload, type ResponseFrame } from "@ergo/protocol";
+import { type Card, type CardEventPayload, CHANNELS, EVENT_TYPES, HTTP_PATHS, type HttpErrorBody, isDeletedEventPayload, type MessageEventPayload, type ResponseFrame } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
 import { proposeQuickActionTool } from "../../src/quick-actions/index.ts";
 import type { FauxStep } from "../../src/runtime/index.ts";
 import { startTestDaemon } from "../helpers/daemon.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
-import { materialsApi, workdayApi } from "../helpers/http.ts";
+import { materialsApi, memoryApi, requestJson, workdayApi } from "../helpers/http.ts";
 
 const { secretary: SECRETARY, cards: CARDS, inbox: INBOX, board: BOARD } = CHANNELS;
 const ALL = { [SECRETARY]: 0, [CARDS]: 0, [INBOX]: 0, [BOARD]: 0 };
@@ -90,6 +92,36 @@ describe("记忆插件", () => {
     // 别的功能照常：看板上有简单提醒那一类、工作日历照常改
     expect(td.daemon.boardKinds.list().map((k) => k.label)).toEqual(["任务", "简单提醒", "定时触发的任务"]);
     expect((await workdayApi.change(td.url, { kind: "mark", date: "2026-10-12", mark: "rest" })).status).toBe(200);
+  });
+
+  it("停用记忆插件时 HTTP 那几条：访谈接口回\"记忆插件没启用\"（404，不是 500）、记忆的设置照常能读能改、推理库的只读接口 200 加一句原因", async () => {
+    const td = await startTestDaemon({ plugins: ["reminders", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki"], secretary: [echo] });
+    // 了解你访谈是记忆插件的服务，网关每次现取（284 号票）：插件没启用时 404 加一句"记忆插件没启用"，不是 500
+    const interview = await requestJson<HttpErrorBody>(td.url, HTTP_PATHS.memoryInterview);
+    expect(interview.status).toBe(404);
+    expect(interview.body).toMatchObject({ code: "not_found", message: "记忆插件没启用" });
+    // 记忆的三个开关是内核的（配置区的 memory-settings.json）：插件停着照样读得到、改得了，再启用回来还是这些值
+    expect((await memoryApi.settings(td.url)).status).toBe(200);
+    expect((await memoryApi.settings(td.url)).body).toEqual({ memoryBrief: true, wovenQuestions: true, interviewInvites: true });
+    expect((await memoryApi.saveSettings(td.url, { wovenQuestions: false })).body).toMatchObject({ wovenQuestions: false });
+    // 推理库的只读接口（233 号票）是内核的：库还没建，200 + ready=false + 一句原因（以后库在、插件停着也照样只读）
+    const summary = await memoryApi.summary(td.url);
+    expect(summary.status).toBe(200);
+    expect(summary.body).toMatchObject({ ready: false, total: 0, openQuestions: 0 });
+    expect(summary.body.reason).toContain("还没建");
+    // 会话照常：秘书这一轮没有记忆简报那一块、也没有记忆工具（上面那一大段测过工具），不报错
+    const frontend = await TestFrontend.connect(td.url);
+    await frontend.subscribe(ALL);
+    await tell(frontend, "在吗");
+    const echoed = lastSecretaryText(frontend);
+    // 用户这句话照常交给秘书（回显里带着时间和这句）
+    expect(echoed).toContain("[user]");
+    expect(echoed).toContain("在吗");
+    // 醒来简报、记忆简报都不带；秘书的记忆工具一样都没有
+    expect(echoed).not.toContain("【醒来简报】");
+    expect(echoed).not.toContain("【记忆简报】");
+    expect(assemblyOf(echoed)).not.toMatch(/search_materials|read_material|ask_memory|ask_curator|remember_memory/);
+    await frontend.close();
   });
 
   it("停用期间以前的记忆删除卡回\"记忆插件没启用\"、设置里彻底删除照常（库里的、只在原话副本里的都删）；再启用时补采停用期间的，删过的不回来", { timeout: 60_000 }, async () => {

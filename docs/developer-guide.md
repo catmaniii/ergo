@@ -207,7 +207,7 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 - **核心方法**（每家记忆系统都得有）：`info()`、`start()`/`stop()`、`observe()`（喂一条原始素材）、`remember()`（用户明说"帮我记一句"时按原话存）、`search()`（回统一的 `MemoryItem`，**必须带出处**）、`forget()`（按条目/来源/时间范围/全删，隐私删除靠它）、`health()`。
 - **可选能力**（在 `capabilities` 里声明，宿主按声明决定界面和行为）：`brief`（每轮简报，不声明就由宿主用 `search` 拼一个默认的）、`consolidate`（自己的整理）、`settings`（设置项声明，宿主统一渲染）、`tabs`（记忆页有哪些页签）、`tools`（额外工具）、`subject`/`timeline`/`graph`（画像、时间线、关系图）。
 - **宿主的规矩**：同时只跑一个（`activate` 先停旧的再起新的）；每个插件的数据目录是 `<数据目录>/memory/<id>/`，内核只按整个目录做备份、恢复、迁移，不读里面的格式；插件不许自己连模型、不许起端口，要模型和向量都经宿主给的 `llm()`/`embed()`；`api` 版本对不上直接不启用。
-- **仓库自带的是「会意」（id `subtext`）**：结论、证据链、竞争解释、预测账本这一套（上文 4.9）。它的实现包在 `packages/daemon/src/memory/provider/subtext.ts`，具体引擎仍是 `@ergo/memory`，库在它自己的数据目录 `<数据目录>/memory/subtext/rg.db`（338 号票从 `db/rg.db` 搬过去）。
+- **仓库自带的是「会意」（id `subtext`）**：结论、证据链、竞争解释、预测账本这一套（上文 4.9）。它的实现包在 `packages/daemon/src/memory/provider/subtext.ts`，具体引擎仍是 `@ergo/memory`，库在它自己的数据目录 `<数据目录>/memory/subtext/rg.db`（338 号票从 `db/rg.db` 搬过去）。它在界面上称「记忆模块 · 会意」/「Memory Module · Subtext」、标着**实验性**（`packages/web/src/plugins/memory/system.ts` 的 `pages.memory.*`；导航那一项仍写"记忆"），新接一套记忆系统时这几处文案跟着换。
 - **想接别的记忆系统**：实现 `MemoryProvider`、在注册表登记一个工厂（`info` 里写 `api`/`id`/`name`/`capabilities`/`requirements`），配置 `memory.provider` 写它的 id。`packages/daemon/test/memory/provider/` 下的两个假插件就是最小示例（只在测试里，用来验证"换一套很容易"）。
 
 ### 4.10 数据目录和配置

@@ -8498,15 +8498,43 @@ a.ops-sum-row-in:hover {
 /*
  * 336 号票：记忆页最上面一行、标题下面那行——这套记忆系统的名字（「会意」/ Subtext）和它做什么。
  * 导航那一项还是"记忆"（名字只在这里和下面设置块的小标题上露出来）；一行小字，和 .menu 一样的内边距。
+ * 用户 2026-10-31 定：它是插件、是实验性的，所以这一行是一个「实验性」标签（--op-bg / --op-fg 那对提醒色）加一句
+ * "从你说过的话里推断你真正想要的"，下面再一小段说明（还在打磨、数据在本机、能停用能删）。只用 token。
  */
 .memory-system {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   padding: 12px 14px 0;
   font-size: var(--fs-s);
   color: var(--muted);
 }
+.memory-system-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+.memory-experimental {
+  flex: none;
+  padding: 1px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--op-bg);
+  color: var(--op-fg);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+.memory-system-tagline {
+  min-width: 0;
+}
+.memory-experimental-note {
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+}
 /*
- * 336 号票：记忆页最下面那块"会意 · 设置"（三个开关从设置列表搬到了这里）：和上面"数据源"一样隔一道线，
- * 标题一行（点一下展开 / 收起），收着时不占地方，展开时三个开关照 .mem-setting 的样子排在它下面。
+ * 336 号票：记忆页最下面那块"记忆模块 · 会意 · 设置"（三个开关从设置列表搬到了这里）；用户 2026-10-31 定标题带上"记忆模块"、
+ * 下面那句写"实验性"：和上面"数据源"一样隔一道线，标题一行（点一下展开 / 收起），收着时不占地方，展开时三个开关照
+ * .mem-setting 的样子排在它下面。
  */
 .memory-settings {
   margin-top: 8px;

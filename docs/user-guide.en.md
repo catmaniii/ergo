@@ -256,6 +256,7 @@ Task, project and secretary conversations can be pinched (on a PC: hold Ctrl and
 
 ergo keeps a copy of everything you said on this PC (immutable, indexed by keyword and vector), and every night at 3 am the **memory curator** distills it into conclusions backed by evidence.
 
+- This is a **plugin**, shown as **Memory Module · Subtext**, and it is marked **Experimental**: still being polished, so its behaviour and the data it stores may change. Everything stays on this computer; you can turn it off any time in Settings · Plugins (the data stays and comes back when you turn it on again), or delete things with the bulk delete in Memory · Materials, or remove the plugin there with "delete its data along with it" ticked.
 - **More · Memory**: files (basic facts about you and your family), conclusions (each one opens to its evidence, support and counter-evidence, competing explanations and revision history), a question box, and raw materials.
 - Confident conclusions are used by the secretary; uncertain ones become a casual question at a convenient moment.
 - To make it remember something on purpose, just tell the secretary "remember this: …". It stores your own words (marked as manually remembered), so later searches find it and you can open the original line.
