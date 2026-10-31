@@ -51,7 +51,7 @@
   "shell.pages.components.title": "组件",
   "shell.pages.components.sub": "模型、语音这些大件：装了哪些，下载、更新、删",
   "shell.pages.dataSources.title": "数据源",
-  "shell.pages.dataSources.sub": "外面接进来的数据：连接、同步、断开，导入文件夹",
+  "shell.pages.dataSources.sub": "外面接进来的数据：有哪些、连没连上；点进去配置、看数据",
   "shell.pages.materialsDelete.title": "删除素材",
   "shell.pages.materialsDelete.sub": "按会话或按时间段删，点开一条看内容",
   "shell.pages.about.title": "关于二狗",

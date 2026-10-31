@@ -300,6 +300,8 @@ Views and system-prompt fragments are declared in the definition. **Data contrac
 - The first time a job is seen it only records "from now on" without running; runs missed while stopped are caught up once at startup. Time always comes from the injected clock (tests advance a `ManualClock` instead of waiting).
 - Register in `setup` with `ctx.effect(() => ctx.internalJobs.register(job))`; an in-flight run is not aborted by the undo, so the plugin should signal abort in `lifecycle.stop` and wait for it.
 
+Data sources (`ctx.dataSources.register`, section 7 of the plugin guide) have two levels on the web: `#/more/data-sources` is a card overview (`pages/more/DataSourcesPage.tsx`, with no inputs or action buttons) and `#/more/data-sources/<id>` is a separate full-page detail (`pages/more/DataSourceDetail.tsx`: status, settings, data). The two tabs in the data block map to two optional source methods: `stored` (fetched data; sources that don't produce materials list their own, and the kernel lists the rest by `origin.dataSource`, the same result as `filter.dataSource` on `POST /api/materials/list`) and `live` (available now: asks the upstream, read-only, with no events, materials, memory or model involved). The endpoints are `POST /api/data-sources/<id>/stored` and `POST /api/data-sources/<id>/live`. On the external port they need a device credential like every other endpoint.
+
 ### 5.3 Web plugins
 
 The web UI uses **typed slots** and plugins never import each other (`packages/web/src/plugins/`). The daemon pushes each plugin's status on the plugins channel and the web plugin host installs and stops web plugins accordingly.

@@ -77,7 +77,9 @@ import {
   ModelKeyBody,
   PluginActionBody,
   DataSourceActionBody,
+  DataSourceLiveBody,
   DataSourcePushBody,
+  DataSourceStoredBody,
   ImportFolderActionBody,
   ComponentActionBody,
   ComponentsActionBody,
@@ -260,8 +262,8 @@ export interface HttpApiOptions {
   takeover?: Pick<TakeoverService, "sessions" | "takeOver">;
   /** 新建时的默认工作文件夹（305 号票）：PUT /api/runtimes/<运行时>/work-folder；不给就没有这个接口 */
   workFolders?: Pick<WorkFolders, "setDefault" | "check">;
-  /** 设置 · 数据源（295 号票）：GET /api/data-sources、POST /api/data-sources/<id>、POST /api/import-folder；不给就没有这几个接口 */
-  dataSources?: Pick<DataSources, "view" | "act" | "folder" | "push">;
+  /** 设置 · 数据源（295 号票）：GET /api/data-sources、POST /api/data-sources/<id>[/push | /stored | /live]、POST /api/import-folder；不给就没有这几个接口 */
+  dataSources?: Pick<DataSources, "view" | "act" | "folder" | "push" | "stored" | "live">;
   /** 设置 · 组件（323 号票）：GET / POST /api/components、POST /api/components/<id>、POST /api/component-import；不给就没有这几个接口 */
   components?: Pick<Components, "view" | "act" | "installDefaults" | "importFrom">;
   /** 长程任务一个阶段的授权已用几次、从这里重做的范围和已经做了的事（84 号票）；没有这个任务或阶段时 undefined；不给就没有这个接口 */
@@ -860,6 +862,27 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
             const body = checkHttpBody(DataSourcePushBody, await readJson(req, MAX_DATA_SOURCE_PUSH_BODY));
             if (!body.ok) throw new HttpError("bad_request", t("gateway.http.badDataSourcePush", { message: body.message }));
             sendJson(res, 200, await options.dataSources.push(route.id, body.value));
+          },
+        };
+      case "data_source_stored":
+        return {
+          // 数据源详情的"已获取的"（343 号票）：一页，新的在前；只读。不认得的回 404，没有这回事的回 400。外网端口上和别的接口一样要设备凭证
+          async POST(req, res) {
+            if (!options.dataSources) throw new HttpError("not_found", t("gateway.http.noDataSources"));
+            const body = checkHttpBody(DataSourceStoredBody, await readJson(req));
+            if (!body.ok) throw new HttpError("bad_request", t("gateway.http.badDataSourceStored", { message: body.message }));
+            sendJson(res, 200, options.dataSources.stored(route.id, body.value));
+          },
+        };
+      case "data_source_live":
+        return {
+          // 数据源详情的"现在能查到的"（343 号票）：现查上游，只读，不写事件、不进素材、不进记忆、不经过模型；查不到的 200 带原因。
+          // 不认得的回 404，不能现查的回 400。外网端口上和别的接口一样要设备凭证
+          async POST(req, res) {
+            if (!options.dataSources) throw new HttpError("not_found", t("gateway.http.noDataSources"));
+            const body = checkHttpBody(DataSourceLiveBody, await readJson(req));
+            if (!body.ok) throw new HttpError("bad_request", t("gateway.http.badDataSourceLive", { message: body.message }));
+            sendJson(res, 200, await options.dataSources.live(route.id, body.value));
           },
         };
       case "import_folder":

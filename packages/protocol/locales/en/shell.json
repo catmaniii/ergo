@@ -51,7 +51,7 @@
   "shell.pages.components.title": "Components",
   "shell.pages.components.sub": "Models, speech and other large pieces: what's installed, download, update, remove",
   "shell.pages.dataSources.title": "Data sources",
-  "shell.pages.dataSources.sub": "Data brought in from outside: connect, sync, disconnect, and the import folder",
+  "shell.pages.dataSources.sub": "Data brought in from outside: what is connected; open one to configure it and see its data",
   "shell.pages.materialsDelete.title": "Delete materials",
   "shell.pages.materialsDelete.sub": "Delete by conversation or time range; open one to see what it says",
   "shell.pages.about.title": "About Ergo",

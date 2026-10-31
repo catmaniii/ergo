@@ -7,10 +7,13 @@
 // - 要插件在运行才能做的都经 active() 现取插件的服务（gmail.ts）。
 // 敏感类别按每封写窄（gmail-sensitive.ts，主会话 2026-10-26 定）：正文里明显是财务、健康的标上对应类别，判不准的不标、其余 sensitive: []；
 // 数据源登记这两类（页面上写明默认只记录、不用于推断）。
+// 343 号票：数据源详情里看数据——已获取的是导入的素材（内核按素材的出处列，这里不用写）；现在能查到的（live，gmail-data.ts）现连现查，
+// 只给发件人、主题、时间，点开才取正文。Gmail 只有登录没过才报出错：要重新填应用专用密码，卡片上写"要授权"。
 import { t } from "@ergo/protocol";
 import type { DataSource } from "../data-sources/api.ts";
 import { GOOGLE_CHANNEL, GOOGLE_GMAIL_CURSOR, GOOGLE_GMAIL_SENT } from "./events.ts";
 import { GOOGLE_GMAIL_SOURCE, type GmailService } from "./gmail.ts";
+import { gmailLive } from "./gmail-data.ts";
 import { GMAIL_SENSITIVE } from "./gmail-sensitive.ts";
 import { gmailTools } from "./gmail-tools.ts";
 
@@ -42,7 +45,10 @@ export function googleGmailSource(active: () => GmailService): DataSource {
       { channel: GOOGLE_CHANNEL, type: GOOGLE_GMAIL_SENT },
       { channel: GOOGLE_CHANNEL, type: GOOGLE_GMAIL_CURSOR },
     ],
-    status: (ctx) => active().status(ctx),
+    status: (ctx) => {
+      const status = active().status(ctx);
+      return status.connection === "error" ? { ...status, needsAuth: true } : status;
+    },
     configure: (values, ctx) => active().configure(values, ctx),
     sync: (ctx) => active().syncSent(ctx),
     // 306：登录没通过（出错）后内核每小时叫一次，用存着的再登录一次
@@ -50,5 +56,6 @@ export function googleGmailSource(active: () => GmailService): DataSource {
     disconnect: () => active().disconnect(),
     tools: (ctx) => gmailTools({ service: active, ctx }),
     count: () => active().sentCount(),
+    live: (query, ctx) => gmailLive(active(), query, ctx),
   };
 }

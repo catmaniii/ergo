@@ -144,5 +144,7 @@
   "gateway.http.noTakeover": "这个守护进程不能接管已有的会话",
   "gateway.http.badTakeOver": "接管的请求不对：{message}",
   "gateway.http.noWorkFolders": "这个守护进程不能定新建时的默认文件夹",
-  "gateway.http.badRuntimeFolder": "默认文件夹的请求不对：{message}"
+  "gateway.http.badRuntimeFolder": "默认文件夹的请求不对：{message}",
+  "gateway.http.badDataSourceStored": "看已获取的数据，参数不对：{message}",
+  "gateway.http.badDataSourceLive": "现查的参数不对：{message}"
 }

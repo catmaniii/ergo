@@ -96,5 +96,17 @@
   "google.contacts.result.skipped": "另有 {count} 人没进候选（没有生日、纪念日、关系，档案里也还没有）",
   "google.contacts.result.sep": "；",
   "google.contacts.error.empty": "文件里没有认得出的联系人（要 Google 联系人导出的 vCard）",
-  "google.contacts.error.tooBig": "文件太大（超过 {mb} MB）"
+  "google.contacts.error.tooBig": "文件太大（超过 {mb} MB）",
+  "google.calendar.data.untitled": "（没有标题）",
+  "google.calendar.data.repeats": "重复",
+  "google.calendar.data.cancelled": "取消了",
+  "google.calendar.data.liveScope": "未来 {days} 天的日程",
+  "google.gmail.live.scope": "全部邮件里最新的 {n} 封",
+  "google.gmail.live.noSubject": "（没有主题）",
+  "google.gmail.live.noBody": "（没有正文）",
+  "google.gmail.live.fromTo": "{from} 发给 {to}",
+  "google.gmail.live.cut": "正文很长，这里只显示了前 {shown} 字（一共 {total} 字）。",
+  "google.gmail.live.partial": "邮件很大，只读了前 10 MB：后面的正文、附件可能没列全。",
+  "google.gmail.live.attachments": "附件：{names}",
+  "google.gmail.live.fellBack": "这个邮箱没有「全部邮件」，只查了收件箱。"
 }

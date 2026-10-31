@@ -104,5 +104,17 @@
   "google.contacts.result.skipped_other": "{count} more people weren't suggested (no birthday, anniversary or relationship, and no profile yet)",
   "google.contacts.result.sep": "; ",
   "google.contacts.error.empty": "No contacts found in this file (it should be a vCard exported from Google Contacts)",
-  "google.contacts.error.tooBig": "The file is too big (over {mb} MB)"
+  "google.contacts.error.tooBig": "The file is too big (over {mb} MB)",
+  "google.calendar.data.untitled": "(No title)",
+  "google.calendar.data.repeats": "Repeats",
+  "google.calendar.data.cancelled": "Cancelled",
+  "google.calendar.data.liveScope": "Events in the next {days} days",
+  "google.gmail.live.scope": "Latest {n} messages in All Mail",
+  "google.gmail.live.noSubject": "(No subject)",
+  "google.gmail.live.noBody": "(No body)",
+  "google.gmail.live.fromTo": "{from} to {to}",
+  "google.gmail.live.cut": "The message is long; only the first {shown} characters are shown (of {total}).",
+  "google.gmail.live.partial": "The message is large; only the first 10 MB was read, so later text and attachments may be missing.",
+  "google.gmail.live.attachments": "Attachments: {names}",
+  "google.gmail.live.fellBack": "This mailbox has no All Mail folder, so only the inbox was checked."
 }

@@ -1360,6 +1360,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       folder: { imports: layout.imports, imported: layout.importedDir },
       inferable: () => config.memory.sensitiveCategories,
       materials,
+      // 343：数据源详情的"已获取的"，和 POST /api/materials/list 同一份（看素材的在后面才建好；这里只在接口被调时才用）
+      materialsOf: (dataSource, page) => materialBrowser.list(undefined, page, { dataSource }),
       now,
       openFolder: options.openFolder ?? openFolderOnDesktop,
       log,

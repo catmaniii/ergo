@@ -90,6 +90,20 @@ function parseDuration(text: string): { ms: number; days: number } | undefined {
   return { ms: totalDays * DAY_MS + ((hours * 60 + minutes) * 60 + seconds) * 1000, days: totalDays };
 }
 
+/**
+ * 一个事件第一次（DTSTART）的时刻（343 号票：数据源详情里列同步来的事件）：全天的是本地那天的零点、没有结束；时间写法不对的是 undefined。
+ * fallbackZone 是日历的默认时区
+ */
+export function eventSpan(event: IcalEvent, fallbackZone?: string): { allDay: boolean; start: number; end?: number } | undefined {
+  const start = resolve(event.start, fallbackZone);
+  if (!start) return undefined;
+  if (start.allDay) return { allDay: true, start: start.utc };
+  const end = event.end === undefined ? undefined : resolve(event.end, fallbackZone);
+  if (end) return { allDay: false, start: start.utc, end: end.utc };
+  const duration = event.duration === undefined ? undefined : parseDuration(event.duration);
+  return { allDay: false, start: start.utc, ...(duration ? { end: start.utc + duration.ms } : {}) };
+}
+
 // ---- 重复规则 ----
 
 interface ByDay {

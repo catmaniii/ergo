@@ -6,14 +6,17 @@
 // - 导入文件夹：路径、按钮、没导入的和原因、最近导入的；
 // - 做完说一句：同步好了几条、断开删了几条；
 // - 300 号票：原始数据那一节（折起来、一天一行、还没整理的写明、点两下才清），清掉了几条。
-// 设置列表里的位置、地址见 settings-groups.test.ts；页面打得开见 page-opens.test.ts（原型里编的数据源）。
-import { createElement } from "react";
+// 343 号票：分成两层——一级是卡片（没有输入框、没有操作按钮，按插件分组，状态 已连接 / 未连接 / 要授权 / 出错 / 插件没启用），
+// 二级的状态、设置两块放原来的配置；数据一块的两个标签（已获取的、现在能查到的）。
+// 设置列表里的位置、地址见 settings-groups.test.ts；页面打得开、一级 → 点卡片 → 二级 → 返回见 page-opens.test.ts（原型里编的数据源）。
+import { createElement, Fragment } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
-import { DataSourceList, DisconnectConfirm, doneText, ImportFolderBlock, RawDays, sensitiveLine, syncLine } from "../../src/pages/more/DataSourcesPage.tsx";
+import { DataItemRow, dataItemTime, DataSourceSettingsBlock, DataSourceStatusBlock, dataTabs, DeviceNote, LiveView, StoredView } from "../../src/pages/more/DataSourceDetail.tsx";
+import { cardSyncText, connectionText, DataSourceCards, DisconnectConfirm, doneText, groupByPlugin, ImportFolderBlock, RawDays, sensitiveLine, syncLine } from "../../src/pages/more/DataSourcesPage.tsx";
 import type { DataSourceSlot } from "../../src/plugins/api.ts";
 import { FakeDataSources } from "../../src/prototype/fake-data-sources.ts";
-import type { DataSourcesView, DataSourceView, ImportFolderView } from "../../src/state/index.ts";
+import type { DataSourceDataItem, DataSourceLiveResult, DataSourcesView, DataSourceStoredPage, DataSourceView, ImportFolderView } from "../../src/state/index.ts";
 
 vi.mock("../../src/app/build-info.ts", () => ({ APP_VERSION: "0.0.0-test", CHANGELOG: "", PAGE_WEB_VERSION: undefined }));
 
@@ -54,14 +57,21 @@ function source(extra: Partial<DataSourceView> = {}): DataSourceView {
   };
 }
 
-const list = (sources: DataSourceView[], panel: (id: string) => DataSourceSlot | undefined = () => undefined, busy?: string) =>
-  renderToStaticMarkup(createElement(DataSourceList, { sources, busy, panel, onView: noop, onSync: noop, onUsage: noop, onDisconnect: noop }));
+/** 二级页的状态、设置两块画出来 */
+const blocks = (s: DataSourceView, panelOf: (id: string) => DataSourceSlot | undefined, busy: string | undefined, onClearRaw?: () => void) =>
+  createElement(
+    Fragment,
+    { key: s.id },
+    createElement(DataSourceStatusBlock, { source: s, busy, onSync: noop }),
+    createElement(DataSourceSettingsBlock, { source: s, busy, panel: panelOf(s.id), onView: noop, onUsage: noop, onDisconnect: noop, ...(onClearRaw ? { onClearRaw } : {}) }),
+  );
+const list = (sources: DataSourceView[], panel: (id: string) => DataSourceSlot | undefined = () => undefined, busy?: string) => renderToStaticMarkup(createElement(Fragment, null, ...sources.map((s) => blocks(s, panel, busy))));
 
-describe("一个数据源一块", () => {
+describe("详情里的状态、设置（343 号票起原来一块里的全部配置）", () => {
   test("连着的：小签、账号、上次同步和共几条、两种用法的开关（各开没开）、敏感内容、认的文件、立即同步和断开", () => {
     const html = list([source()]);
     expect(html).toContain("相机");
-    expect(html).toContain('class="chip chip-ok">连着');
+    expect(html).toContain('class="chip chip-ok">已连接');
     expect(html).toContain("账号：d***@example.com");
     expect(html).toContain("上次同步 10-25 04:00，新进来 12 条 · 共 128 条");
     expect(html).toContain("按需查");
@@ -91,7 +101,7 @@ describe("一个数据源一块", () => {
     expect(of(connected.view, "google-gmail").account).toBe("yourname@gmail.com");
     const calendar = of(await fake.view(), "google-calendar");
     expect(calendar.account).toBe("yourname@gmail.com");
-    expect(calendar.items?.map((i) => i.detail)).toEqual(["calendar.google.com · yourname@gmail.com · 48 个事件", "calendar.google.com · f***@group.calendar.google.com · 9 个事件"]);
+    expect(calendar.items?.map((i) => i.detail)).toEqual(["calendar.google.com · yourname@gmail.com · 2 个事件", "calendar.google.com · f***@group.calendar.google.com · 2 个事件"]);
     for (const id of ["google-gmail", "google-calendar"]) {
       const after = of((await fake.act(id, { action: "disconnect", purge: false, idempotencyKey: `off-${id}` })).view, id);
       expect(after.connection).toBe("not_connected");
@@ -100,9 +110,9 @@ describe("一个数据源一块", () => {
   });
 
   test("没连、出错、手动导入、插件没启用、正在同步、还没同步过：小签和那一行各自写明；手动导入的只有删除已导入的", () => {
-    expect(list([source({ connection: "not_connected", canSync: false, account: undefined, lastSync: undefined, count: 0 })])).toMatch(/class="chip">没连.*还没同步过 · 共 0 条/s);
+    expect(list([source({ connection: "not_connected", canSync: false, account: undefined, lastSync: undefined, count: 0 })])).toMatch(/class="chip">未连接.*还没同步过 · 共 0 条/s);
     const error = list([source({ connection: "error", problem: "Key 失效了", canSync: false })]);
-    expect(error).toContain('class="chip chip-no">出错了');
+    expect(error).toContain('class="chip chip-no">出错');
     expect(error).toContain("出错了：Key 失效了");
     expect(error).toContain(">断开<");
     expect(error).not.toContain(">立即同步<");
@@ -119,7 +129,6 @@ describe("一个数据源一块", () => {
     expect(syncLine(source({ syncing: true }))).toBe("正在同步…… · 共 128 条");
     expect(syncLine(source({ lastSync: { at: "2026-10-25T04:00:00.000+08:00", trigger: "manual", error: "401" } }))).toBe("上次同步 10-25 04:00 出错：401 · 共 128 条");
     expect(sensitiveLine(source({ sensitive: [] }))).toBeUndefined();
-    expect(list([])).toContain("还没有数据源");
   });
 
   test("299：设备交来的（手机上的二狗 App）——上次那一行写手机交来和数据源写的那一句；导入的说法换成 App 交来时收下", () => {
@@ -143,7 +152,7 @@ describe("一个数据源一块", () => {
   test("300：原始数据那一节——折起来写几天、共几条、只在二狗这里；一天一行，还没整理的写明；没有原始数据、页面不给清的不画", () => {
     const raw = { title: "原始位置点", days: [{ date: "2026-10-26", count: 12, summarized: false }, { date: "2026-10-25", count: 68, summarized: true }] };
     const phone = source({ id: "phone-location", raw });
-    const html = renderToStaticMarkup(createElement(DataSourceList, { sources: [phone], busy: undefined, panel: () => undefined, onView: noop, onSync: noop, onUsage: noop, onDisconnect: noop, onClearRaw: noop }));
+    const html = renderToStaticMarkup(blocks(phone, () => undefined, undefined, noop));
     expect(html).toContain('<details class="source-raw" data-raw="phone-location">');
     expect(html).toContain("原始位置点：2 天、共 80 条（只在二狗这里，不进素材）");
     expect(html).toContain("2026-10-26 · 12 条");
@@ -310,5 +319,128 @@ describe("出错的每小时自动再试（306 号票）", () => {
     expect(list([source({ connection: "error", problem: "Key 失效了", autoRetry: true })])).toContain("每小时自动再试一次，也可以重新填。");
     expect(list([source({ connection: "error", problem: "那边出错了", autoRetry: true, configurable: false })])).toContain("每小时自动再试一次。");
     expect(list([source({ connection: "error", problem: "Key 不对" })])).not.toContain("每小时自动再试");
+  });
+});
+
+describe("一级页：卡片（343 号票）", () => {
+  const folder: ImportFolderView = { path: "D:\\ergo\\imports", importedPath: "D:\\ergo\\imports\\imported", pending: [], recent: [] };
+  const cards = (sources: DataSourceView[], f: ImportFolderView = folder) => renderToStaticMarkup(createElement(DataSourceCards, { sources, folder: f, onOpen: noop }));
+
+  test("没有任何输入框和操作按钮：每张卡只有一个按钮（整张可点），名字、一句话、状态、账号、已获取几条、上次同步", () => {
+    const html = cards([source({ usages: [{ usage: "query", on: true }], raw: { title: "原始位置点", days: [{ date: "2026-10-25", count: 3, summarized: true }] } })]);
+    expect(html).not.toMatch(/<input|<select|<textarea/);
+    for (const action of ["立即同步", "断开", "删除已导入的", "清掉", "复制路径", "现在检查"]) expect(html).not.toContain(action);
+    expect(html).toContain('<button type="button" class="ds-card" data-source="camera">');
+    expect(html).toContain("相机");
+    expect(html).toContain("每天的时刻");
+    expect(html).toContain('class="chip chip-ok">已连接');
+    expect(html).toContain("d***@example.com");
+    expect(html).toContain("已获取 128 条");
+    expect(html).toContain("上次同步 10-25 04:00");
+    // 卡片和导入文件夹各一个按钮，别的按钮一个都没有
+    expect(html.match(/<button/g)).toHaveLength(2);
+    expect(html.match(/class="ds-card"/g)).toHaveLength(2);
+  });
+
+  test("按插件分组（登记时不挨着的也合到一组），组的先后照守护进程给的；导入文件夹一张卡，没导入的写在小签上", () => {
+    const sources = [source({ id: "a", plugin: "google", pluginTitle: "Google" }), source({ id: "b", plugin: "looki", pluginTitle: "Looki" }), source({ id: "c", plugin: "google", pluginTitle: "Google" })];
+    expect(groupByPlugin(sources).map((g) => [g.title, g.sources.map((s) => s.id)])).toEqual([
+      ["Google", ["a", "c"]],
+      ["Looki", ["b"]],
+    ]);
+    const html = cards(sources, { ...folder, pending: [{ name: "x.zip", size: 1, problem: "unrecognized", text: "认不出" }] });
+    expect(html).toContain('data-source="import_folder"');
+    expect(html).toContain("1 个没导入");
+    expect(html).not.toContain("x.zip");
+    expect(cards([])).toContain("还没有数据源");
+  });
+
+  test("状态五种：已连接、未连接、要授权（授权没了、登录没过）、出错、插件没启用；上次同步那一小段不写长原因", () => {
+    expect(connectionText(source())).toBe("已连接");
+    expect(connectionText(source({ connection: "not_connected" }))).toBe("未连接");
+    expect(connectionText(source({ connection: "error", needsAuth: true }))).toBe("要授权");
+    expect(connectionText(source({ connection: "error" }))).toBe("出错");
+    expect(connectionText(source({ available: false, connection: "error", needsAuth: true }))).toBe("插件没启用");
+    expect(connectionText(source({ connection: "manual" }))).toBe("手动导入");
+    expect(cards([source({ connection: "error", needsAuth: true })])).toContain('class="chip chip-high">要授权');
+    expect(cardSyncText(source({ lastSync: undefined }))).toBe("还没同步过");
+    expect(cardSyncText(source({ syncing: true }))).toBe("正在同步……");
+    expect(cardSyncText(source({ lastSync: { at: "2026-10-25T04:00:00.000+08:00", trigger: "manual", error: "很长很长的原因" } }))).toBe("上次同步 10-25 04:00 出错");
+  });
+});
+
+describe("详情里的数据（343 号票）", () => {
+  const item = (extra: Partial<DataSourceDataItem> = {}): DataSourceDataItem => ({ id: "x", title: "一条", subtitle: "副标题", time: "2026-10-25T14:00:00.000+08:00", ...extra });
+  const stored = (page: DataSourceStoredPage | undefined, s: DataSourceView = source(), failed?: string) => renderToStaticMarkup(createElement(StoredView, { source: s, page, failed, loadingMore: false, onMore: noop, onMaterial: noop }));
+  const live = (result: DataSourceLiveResult | undefined, extra: Partial<Parameters<typeof LiveView>[0]> = {}) => renderToStaticMarkup(createElement(LiveView, { result, loading: false, failed: undefined, opened: {}, onRefresh: noop, onFetch: noop, ...extra }));
+
+  test("几个标签：这个数据源没有的那个不显示；手机来的写明数据由手机交来", () => {
+    expect(dataTabs(source({ hasStored: true, hasLive: true }))).toEqual(["stored", "live"]);
+    expect(dataTabs(source({ hasStored: true }))).toEqual(["stored"]);
+    expect(dataTabs(source({ hasLive: true }))).toEqual(["live"]);
+    expect(dataTabs(source())).toEqual([]);
+    expect(renderToStaticMarkup(createElement(DeviceNote, { source: { fromDevice: true } }))).toContain("数据由手机上的二狗 App 交来");
+    expect(renderToStaticMarkup(createElement(DeviceNote, { source: { fromDevice: true, hasLive: true } }))).toBe("");
+    expect(renderToStaticMarkup(createElement(DeviceNote, { source: {} }))).toBe("");
+  });
+
+  test("一条的时间：全天只写日期、同一天写到结束的钟点、跨天写全、不在今年的带年份", () => {
+    const now = Date.parse("2026-10-31T12:00:00+08:00");
+    expect(dataItemTime({ time: "2026-10-25T00:00:00.000+08:00", allDay: true }, now)).toBe("10-25");
+    expect(dataItemTime({ time: "2026-10-25T14:00:00.000+08:00" }, now)).toBe("10-25 14:00");
+    expect(dataItemTime({ time: "2026-10-25T14:00:00.000+08:00", end: "2026-10-25T15:30:00.000+08:00" }, now)).toBe("10-25 14:00–15:30");
+    expect(dataItemTime({ time: "2026-10-25T23:00:00.000+08:00", end: "2026-10-26T01:00:00.000+08:00" }, now)).toBe("10-25 23:00–10-26 01:00");
+    expect(dataItemTime({ time: "2025-03-02T09:00:00.000+08:00", allDay: true }, now)).toBe("2025-03-02");
+    expect(dataItemTime({}, now)).toBeUndefined();
+  });
+
+  test("一条的三种样子：进素材的整行是按钮、不进素材的只显示；有正文的、点开才取的能展开；外面写的内容只当文字", () => {
+    const material = renderToStaticMarkup(createElement(DataItemRow, { item: item({ materialId: "mat-1" }), onMaterial: noop }));
+    expect(material).toContain('<button type="button" class="prompt-row ds-item" data-item="x">');
+    expect(material).toContain("10-25 14:00 · 副标题");
+    const plain = renderToStaticMarkup(createElement(DataItemRow, { item: item({ labels: ["重复"] }) }));
+    expect(plain).toContain('<div class="prompt-row ds-item" data-item="x">');
+    expect(plain).not.toContain("<button");
+    expect(plain).toContain('class="chip chip-quiet">重复');
+    const openable = renderToStaticMarkup(createElement(DataItemRow, { item: item({ openable: true }), onFetch: noop }));
+    expect(openable).toContain('aria-expanded="false"');
+    const script = renderToStaticMarkup(createElement(DataItemRow, { item: item({ title: "<script>alert(1)</script>" }) }));
+    expect(script).not.toContain("<script>");
+  });
+
+  test("已获取的：共几条、新的在前、再显示；空的、导入关着、列不出来各说一句；有原始数据的指到设置里；读不到写原因", () => {
+    const page: DataSourceStoredPage = { total: 45, items: [item({ materialId: "mat-1" }), item({ id: "y", title: "两条" })] };
+    const html = stored(page);
+    expect(html).toContain("共 45 条，新的在前");
+    expect(html).toContain("再显示 30 条（还有 43 条）");
+    expect(stored({ total: 2, items: page.items })).not.toContain("再显示");
+    expect(stored(undefined)).toContain("正在读数据源");
+    expect(stored({ total: 0, items: [] }, source({ usages: [{ usage: "import", on: true }] }))).toContain("还没有获取到数据。");
+    expect(stored({ total: 0, items: [] }, source({ usages: [{ usage: "import", on: false }] }))).toContain("导入关着");
+    expect(stored({ total: 0, items: [], problem: "手机插件没启用" })).toContain("现在列不出来：手机插件没启用");
+    expect(stored(undefined, source(), "断网了")).toContain("读不到已获取的：断网了");
+    expect(stored(page, source({ raw: { title: "原始位置点", days: [{ date: "2026-10-25", count: 3, summarized: true }] } }))).toContain("整理之前的原始位置点有 1 天");
+  });
+
+  test("现在能查到的：顶上写明是现查的、不会存进二狗，有刷新；查的是什么、几点查的；没连上、插件没启用写明；出错写原因；部分没拉到的写明", () => {
+    const ok: DataSourceLiveResult = { state: "ok", at: "2026-10-25T10:00:00.000+08:00", scope: "未来 30 天的日程", total: 200, notes: ["「家里」没拉到"], items: [item()] };
+    const html = live(ok);
+    expect(html).toContain("这是现查的，不会存进二狗");
+    expect(html).toContain('data-action="live-refresh"');
+    expect(html).toContain(">刷新<");
+    expect(html).toContain("未来 30 天的日程 · 10-25 10:00 查的");
+    expect(html).toContain("一共 200 条，这里列出 1 条");
+    expect(html).toContain("「家里」没拉到");
+    expect(live(undefined, { loading: true })).toContain("正在现查");
+    expect(live(undefined, { loading: true })).toContain("disabled");
+    expect(live({ state: "not_connected", at: ok.at, items: [], problem: "Google · Gmail还没连上" })).toContain('data-live-state="not_connected"');
+    expect(live({ state: "plugin_off", at: ok.at, items: [], problem: "Google插件没启用" })).toContain("Google插件没启用");
+    const failed = live({ state: "error", at: ok.at, items: [], problem: "连不上" });
+    expect(failed).toContain("查不到：连不上");
+    expect(failed).toContain('role="alert"');
+    expect(failed).toContain("这是现查的，不会存进二狗");
+    expect(live(undefined, { failed: "断网了" })).toContain("查不到：断网了");
+    expect(live({ state: "ok", at: ok.at, items: [] })).toContain("现在查不到东西");
+    expect(html).not.toMatch(/秘书|待我处理/);
   });
 });

@@ -12,6 +12,7 @@
 //   （和秘书的素材检索同一个索引：本人的话、引用的说明、存的网页的正文）；只保管（记忆插件没启用、库里没有新素材）时退回逐条比对同一份文字
 //   （每个词都要有、不分大小写，同关键词检索的口径）。搜的时候列表里的摘录换成命中的那一段（存的网页按正文命中的给正文里那一段）。
 //   列表新的在前按素材的时间（以前按原始事件倒着排：识别得慢的语音、补回的素材会排错日子，页面按日期分组）。
+// - 343 号票：filter 再加一项 dataSource（素材信封出处的 origin.dataSource）：数据源详情的"已获取的"按它列。
 // 这是内核的（同设置里的批量删除 bulk.ts）：记忆插件停用时照样能看、能删已有的素材。只读。
 import {
   INTERVIEW_CONTEXT,
@@ -108,7 +109,7 @@ export function createMaterialBrowser(options: MaterialBrowserOptions): Material
       const hit = query === undefined ? () => true : keywordFilter(query);
       const found = materialsInScope(materials, scope)
         .map((m, order) => ({ m, order, time: Date.parse(m.time) }))
-        .filter(({ m, time }) => time >= from && time <= to && (filter.conversation === undefined || m.conversation === filter.conversation) && matchesFacets(m, filter.facets) && hit(m))
+        .filter(({ m, time }) => time >= from && time <= to && (filter.conversation === undefined || m.conversation === filter.conversation) && (filter.dataSource === undefined || m.origin?.dataSource === filter.dataSource) && matchesFacets(m, filter.facets) && hit(m))
         // 新的在前：按素材的时间，同一时刻按原始事件倒着
         .toSorted((a, b) => b.time - a.time || b.order - a.order)
         .map(({ m }) => m);

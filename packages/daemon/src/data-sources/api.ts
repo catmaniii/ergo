@@ -21,7 +21,9 @@
 // 数据源可以有一个本机的文件夹（localFolder），数据源页上"在电脑上打开"它。
 // 306 号票：按需查的工具只在连着时给秘书（连接状态用 status() 报的最近一次已知的，所以 status 要快、不连网，插件在同步、按需查时
 // 碰到 Key 失效记在内存里、下一次 status 报出错）；数据源自己也能登记断开时要说的一句（disconnectNote，没有连接状态的数据源用）。
-import type { CalendarExternalEntry, ReminderSchedule, TSchema } from "@ergo/protocol";
+// 343 号票（数据源页的详情里看数据）加了两个可选的方法：stored（已获取的、不进素材的列出来：日历事件、手机记录；进素材的不用写，内核按素材的出处列）、
+// live（现查上游给人看：只读，不写事件、不进素材、不进记忆、不经过模型）；status 可以带 needsAuth（要用户去授权、重新填）。
+import type { CalendarExternalEntry, DataSourceDataItem, ReminderSchedule, TSchema } from "@ergo/protocol";
 import type { HostTool } from "../agent-manager/host-tools.ts";
 import type { SensitiveCategory } from "../config/config.ts";
 import type { IntervalSchedule } from "../scheduler/internal-jobs.ts";
@@ -72,6 +74,8 @@ export interface DataSourceStatus {
   panel?: unknown;
   /** 断开时要说一句的（307 号票：Looki 存到本地的文件不删），断开的确认框里写 */
   disconnectNote?: string;
+  /** 要用户去授权、重新填（343 号票：手机上的授权被拒、被撤回，登录没过、Key 不认）：卡片上的小签写"要授权" */
+  needsAuth?: boolean;
 }
 
 /** 一次同步：为什么同步（点了"立即同步"、定期导入到点了）、上次成功同步是什么时候、中止信号（断开、插件停用、守护进程停时置位） */
@@ -163,6 +167,37 @@ export interface DataSourceRaw {
   clear(dates: readonly string[], ctx: DataSourceContext): number;
 }
 
+/** 列已获取的时要哪一页（343 号票）：offset 从 0 起，新的在前 */
+export interface DataSourceStoredQuery {
+  readonly offset: number;
+  readonly limit: number;
+}
+
+/** 已获取的一页 */
+export interface DataSourceStoredResult {
+  /** 一共几条 */
+  readonly total: number;
+  readonly items: readonly DataSourceDataItem[];
+}
+
+/** 现查什么（343 号票）：不带 open 是列表（只给标题、副标题、时间，量大的别带正文）；open 是点开一条（要带正文），编号是列表里给的 */
+export interface DataSourceLiveQuery {
+  readonly open?: string;
+}
+
+/** 现查时交给数据源的：中止信号（守护进程停时置位） */
+export interface DataSourceLiveContext extends DataSourceContext {
+  readonly signal: AbortSignal;
+}
+
+/** 现查的结果：scope 是查的是什么（给人看的一句），total 是上游一共几条（只列了一部分时），notes 是查到了、但有要说的（几个日历里有一个没拉到） */
+export interface DataSourceLiveAnswer {
+  readonly items: readonly DataSourceDataItem[];
+  readonly scope?: string;
+  readonly total?: number;
+  readonly notes?: readonly string[];
+}
+
 /** 数据源拥有的一类记录（事件）：不写频道是所有频道里的这一类 */
 export interface DataSourceRecords {
   readonly channel?: string;
@@ -236,6 +271,16 @@ export interface DataSource {
   localFolder?(ctx: DataSourceContext): string | undefined;
   /** 插件自己存储里的原始数据（300 号票）：数据源页按天列出、能按天清掉；插件在运行时才叫 */
   readonly raw?: DataSourceRaw;
+  /**
+   * 已获取的（343 号票）：不进素材的记录列出来（日历事件、手机记录），新的在前。进素材的不用写（内核按素材的出处列）；写了的优先用它。
+   * 插件在运行时才叫，要快（打开数据源详情时叫），不连网
+   */
+  stored?(query: DataSourceStoredQuery, ctx: DataSourceContext): DataSourceStoredResult;
+  /**
+   * 现查上游给人看（343 号票，数据源详情的"现在能查到的"）：只读，**不写事件、不进素材、不进记忆、不经过模型**。内核只在插件在运行、连着时叫
+   * （不看按需查开着没有：那个开关管给秘书的工具）；查不到抛错（原因给人看，内核把密钥换成 ***）；Key 失效这些照按需查那样记在内存里
+   */
+  live?(query: DataSourceLiveQuery, ctx: DataSourceLiveContext): Promise<DataSourceLiveAnswer>;
   /**
    * 断开（只靠导入文件夹的是"删除已导入的"）时确认框里要说的一句，写成取值函数走 t()（306 号票）：没有密钥、导入的不进素材的数据源
    * （手机日历、通讯录、Google 联系人）说实际会删什么、会怎样——确认框里"填过的密钥从这台电脑上删掉""素材照样在"只在真有密钥、

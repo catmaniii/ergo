@@ -65,5 +65,9 @@
   "looki.archive.readme.journal": "AI 日记：{file}（{titles}）",
   "looki.archive.readme.sep": "、",
   "looki.archive.readme.vlog": "vlog：{file}",
-  "looki.archive.readme.footer": "这个文件夹是二狗从 Looki 自动存下来的，每次同步会更新这份说明。照片、视频是原文件（拍摄时间、地点等信息都在文件里），文件的修改时间就是拍摄时间。"
+  "looki.archive.readme.footer": "这个文件夹是二狗从 Looki 自动存下来的，每次同步会更新这份说明。照片、视频是原文件（拍摄时间、地点等信息都在文件里），文件的修改时间就是拍摄时间。",
+  "looki.live.scope": "最近 {days} 天的时刻（含今天）",
+  "looki.live.media.photo": "照片",
+  "looki.live.media.video": "视频",
+  "looki.live.media.audio": "录音"
 }

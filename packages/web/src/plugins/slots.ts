@@ -163,7 +163,7 @@ export interface SettingsPageSlot {
 }
 
 /**
- * 数据源的设置（295 号票）：设置 · 数据源（核心的页面，pages/more/DataSourcesPage.tsx）里一个数据源下面插件画的那一块——
+ * 数据源的设置（295 号票）：设置 · 数据源的详情（核心的页面，343 号票起 pages/more/DataSourceDetail.tsx）里一个数据源下面插件画的那一块——
  * 填 API Key、私密地址、选区域，测试连接。键是数据源的 id（守护进程那一半在数据契约里登记的）。填的值经
  * POST /api/data-sources/<id>（action configure）交给数据源，存进守护进程的密钥区；交回的整页交给 onView 换上。
  * 插件停用时这一块不画（那一行写"X插件没启用"）

@@ -16,7 +16,7 @@ import {
   PHONE_CONTACTS_SOURCE,
   t,
 } from "@ergo/protocol";
-import type { DataSourceCalendarEvent, DataSourcePushOutcome, DataSourceStatus } from "../data-sources/api.ts";
+import type { DataSourceCalendarEvent, DataSourcePushOutcome, DataSourceStatus, DataSourceStoredQuery, DataSourceStoredResult } from "../data-sources/api.ts";
 import { RequestRejected } from "../errors.ts";
 import type { EventStore, NewEvent } from "../events/event-store.ts";
 import type { CandidateInput, PersonalFilesForMemory } from "../personal-files/index.ts";
@@ -24,6 +24,7 @@ import { createPhoneMediaService, type PhoneMediaService } from "./photos-locati
 import {
   calendarStatus,
   currentCalendar,
+  livePayloads,
   PHONE_CALENDAR_EVENT,
   PHONE_CALENDAR_STATUS,
   PHONE_CHANNEL,
@@ -60,6 +61,10 @@ export interface PhoneService extends PhoneMediaService {
   calendarCount(): number;
   /** 在数据源页断开了"手机 · 日历" */
   unlinkCalendar(): void;
+  /** 挑过的人（343 号票，数据源详情的"已获取的"）：后挑的在前 */
+  contactsStored(query: DataSourceStoredQuery): DataSourceStoredResult;
+  /** 手机日历现在的日程（343 号票，数据源详情的"已获取的"）：开始时间晚的在前 */
+  calendarStored(query: DataSourceStoredQuery): DataSourceStoredResult;
 }
 
 /** 电话去掉空白、横线、括号（"138-0000 1111" 存成 "13800001111"）；+ 留着 */
@@ -185,7 +190,7 @@ export function createPhoneService(options: PhoneServiceOptions): PhoneService {
       const account = status.device === undefined ? {} : { account: status.device };
       if (status.state !== undefined && status.state !== "granted") {
         const reason = status.reason === undefined ? "" : t("phone.calendar.reason", { reason: status.reason });
-        return { connection: "error", problem: t(`phone.calendar.problem.${status.state}`, { reason }), ...account };
+        return { connection: "error", problem: t(`phone.calendar.problem.${status.state}`, { reason }), ...account, ...(status.state === "unavailable" ? {} : { needsAuth: true }) };
       }
       if (!options.calendarOn()) return { connection: "error", problem: t("phone.calendar.calendarOff"), ...account };
       return { connection: "connected", ...account };
@@ -213,6 +218,28 @@ export function createPhoneService(options: PhoneServiceOptions): PhoneService {
       return out;
     },
     calendarCount: () => currentCalendar(store).size,
+    contactsStored(query) {
+      const picked = livePayloads<PhoneContactPickedPayload>(store, PHONE_CONTACT_PICKED).toReversed();
+      const items = picked.slice(query.offset, query.offset + query.limit).map(({ id, at, contact }) => {
+        const subtitle = [...contact.phones, ...(contact.birthday === undefined ? [] : [contact.birthday]), ...contact.addresses].join(" · ");
+        return { id, title: contact.name, ...(subtitle === "" ? {} : { subtitle }), time: at };
+      });
+      return { total: picked.length, items };
+    },
+    calendarStored(query) {
+      const events = [...currentCalendar(store).values()].map(({ event }) => event).toSorted((a, b) => Date.parse(b.start) - Date.parse(a.start));
+      const items = events.slice(query.offset, query.offset + query.limit).map((event) => {
+        const subtitle = [event.calendar, event.location].filter((s) => s !== undefined && s !== "").join(" · ");
+        return {
+          id: event.key,
+          title: event.title,
+          ...(subtitle === "" ? {} : { subtitle }),
+          time: event.start,
+          ...(event.allDay ? { allDay: true as const } : event.end === undefined ? {} : { end: event.end }),
+        };
+      });
+      return { total: events.length, items };
+    },
     unlinkCalendar() {
       if (calendarStatus(store)?.linked) appendStatus({ linked: false });
     },

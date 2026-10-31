@@ -27,6 +27,8 @@ export type Tab = "secretary" | "tasks" | "projects" | "inbox" | "browse" | "cal
  * 319 号票：设置最上面的"设置向导"（setup）：首次用的时候五步走完（语言/称呼/助手名、模型 Key、组件、手机配对、安全默认值），
  * 再加一屏"外网访问"的说明；首页顶上那条引导条、没配模型时那条小栏都指到这里
  * 319b：设置 · 数据与设备里加一页"体检"（doctor）：端口、Node、pi、服务管家、模型的 key、组件、磁盘、外网入口八项一查
+ * 343 号票：数据源分两层——#/more/data-sources 是卡片总览，点一张卡是单独全屏的详情（#/more/data-sources/<数据源 id>），
+ * 共用的导入文件夹也是一张卡（#/more/data-sources/import_folder：数据源的 id 只有小写英文、数字和连字符，撞不上）
  */
 export const MORE_PAGES = ["usage", "settings", "setup", "roles", "language", "appearance", "models", "watch", "workday-rules", "skills", "prompts", "voice", "browsing", "devices", "plugins", "components", "claude-code", "data-sources", "materials-delete", "doctor", "about", "debug", "files"] as const;
 
@@ -37,6 +39,9 @@ export type MorePage = (typeof MORE_PAGES)[number];
  * （比如记忆插件：#/more/memory/<层>/<素材 id>）。页面 id 不和核心的页重名
  */
 export type PluginPageId = string & {};
+
+/** 数据源详情的地址里，共用的导入文件夹那一项（343 号票） */
+export const IMPORT_FOLDER_ITEM = "import_folder";
 
 export function isMorePage(s: string): s is MorePage {
   return (MORE_PAGES as readonly string[]).includes(s);
@@ -163,9 +168,9 @@ export function parseHash(hash: string): Route {
       const page = a && isMorePage(a) ? a : a ? RENAMED_MORE_PAGES[a] : undefined;
       // 网页插件的页面（193 号票）：#/more/<页面 id>[/<item>[/<sub>]]，item、sub 原样留着由插件自己认（不认得的页面画成"更多"）
       if (a && page === undefined) return { tab: "more", page: a, ...(b ? { item: b } : {}), ...(b && c ? { sub: c } : {}) };
-      // 有下一级的页（71 号票：系统提示；193 号票：删除素材里点开的一条素材；281 号票：个人档案里点开的一个人）：
-      // #/more/prompts/<编号>、#/more/materials-delete/<素材 id>、#/more/files/<档案编号>
-      return (page === "prompts" || page === "materials-delete" || page === "files") && b ? { tab: "more", page, item: b } : { tab: "more", page };
+      // 有下一级的页（71 号票：系统提示；193 号票：删除素材里点开的一条素材；281 号票：个人档案里点开的一个人；343 号票：数据源详情）：
+      // #/more/prompts/<编号>、#/more/materials-delete/<素材 id>、#/more/files/<档案编号>、#/more/data-sources/<数据源 id>
+      return (page === "prompts" || page === "materials-delete" || page === "files" || page === "data-sources") && b ? { tab: "more", page, item: b } : { tab: "more", page };
     }
     case "card":
       return a ? { tab: "card", cardId: a } : { tab: "secretary" };

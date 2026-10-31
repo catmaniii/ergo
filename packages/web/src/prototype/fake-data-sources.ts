@@ -14,19 +14,27 @@
 // Google 联系人带数据源报的那一句（disconnectNote），和守护进程的说法一样。
 // 308 号票："手机 · 位置"带"常去的地方"那一块（panel）：起了名的家、公司，常待还没起名的两处（一处有地名、一处只有坐标）；
 // 起名、改名、删、加一处只改内存里的样子（重名的、名字空着的回原因）。
+// 343 号票：数据源详情里看数据——已获取的（进素材的按 fake-materials 里编的数据源素材列，点开跳素材详情；不进素材的这里编）、现在能查到的
+// （日历、Gmail、Looki 编的上游：现查要一会儿；Gmail 点开才有正文；没连着的写明）。全是编的，没有真实信息。Gmail 开头就连着，好看现查的样子。
 import type {
   DataSourceActionBody,
   DataSourceActionResult,
+  DataSourceDataItem,
+  DataSourceLiveBody,
+  DataSourceLiveResult,
   DataSourcePushBody,
   DataSourcePushResult,
   DataSourcesView,
+  DataSourceStoredBody,
+  DataSourceStoredPage,
   DataSourceView,
   ImportFolderActionBody,
   ImportFolderActionResult,
   LookiArchiveView,
   PhonePlacesView,
 } from "../state/index.ts";
-import { LOOKI_ARCHIVE_DEFAULT_KINDS, LOOKI_ARCHIVE_KINDS, nowIso } from "../state/index.ts";
+import { DATA_SOURCE_STORED_PAGE, LOOKI_ARCHIVE_DEFAULT_KINDS, LOOKI_ARCHIVE_KINDS, nowIso } from "../state/index.ts";
+import { fakeMaterialsIn } from "./fake-materials.ts";
 
 /** 原型里"存一份到本地"的默认位置（和守护进程的默认一样：「文档」下的 Looki） */
 const LOOKI_HOME = "C:\\Users\\me\\Documents\\Looki";
@@ -77,15 +85,15 @@ function initial(): DataSourcesView {
         connection: "connected",
         account: "yourname@gmail.com",
         items: [
-          { id: "g3f2a9c01de", title: "工作", detail: "calendar.google.com · yourname@gmail.com · 48 个事件" },
-          { id: "g7b11e40c2a", title: "家里", detail: "calendar.google.com · f***@group.calendar.google.com · 9 个事件" },
+          { id: "g3f2a9c01de", title: "工作", detail: "calendar.google.com · yourname@gmail.com · 2 个事件" },
+          { id: "g7b11e40c2a", title: "家里", detail: "calendar.google.com · f***@group.calendar.google.com · 2 个事件" },
         ],
         usages: [
           { usage: "query", on: true },
           { usage: "import", on: true },
         ],
         sensitive: [],
-        count: 57,
+        count: 4,
         lastSync: { at: today("10:00"), trigger: "scheduled", added: 2 },
         syncing: false,
         canSync: true,
@@ -95,6 +103,8 @@ function initial(): DataSourcesView {
         configurable: true,
         disconnectNote: "同步来的 Google 日程不再显示在二狗的日历里；Google 日历那边不动。",
         hasSecrets: true,
+        hasStored: true,
+        hasLive: true,
       },
       {
         id: "google-contacts",
@@ -114,6 +124,7 @@ function initial(): DataSourcesView {
         files: ["Google 联系人导出的 vCard（.vcf）"],
         configurable: false,
         disconnectNote: "从 Google 联系人导入、档案候选里还没处理的一起作废，候选核对卡跟着改；已经写进个人档案的不动，Google 联系人那边也不动。",
+        hasStored: true,
       },
       {
         id: "looki",
@@ -141,6 +152,8 @@ function initial(): DataSourcesView {
         panel: lookiArchive(),
         disconnectNote: `存到本地的照片、日记、vlog（${LOOKI_HOME}）不删：那是你自己的档案，要删自己去文件夹里删`,
         toMaterials: true,
+        hasStored: true,
+        hasLive: true,
       },
       {
         id: "demo-camera",
@@ -159,8 +172,8 @@ function initial(): DataSourcesView {
           { id: "location", title: "位置", inferable: false },
           { id: "relationship", title: "关系", inferable: false },
         ],
-        count: 128,
-        lastSync: { at: today("04:00"), trigger: "scheduled", added: 12 },
+        count: 5,
+        lastSync: { at: today("04:00"), trigger: "scheduled", added: 2 },
         syncing: false,
         canSync: true,
         schedule: "每天 04:00",
@@ -168,6 +181,7 @@ function initial(): DataSourcesView {
         configurable: true,
         hasSecrets: true,
         toMaterials: true,
+        hasStored: true,
       },
       {
         id: "google-gmail",
@@ -176,12 +190,16 @@ function initial(): DataSourcesView {
         plugin: "google",
         pluginTitle: "Google",
         available: true,
-        connection: "not_connected",
+        connection: "connected",
+        account: "yourname@gmail.com",
         usages: [
           { usage: "query", on: true },
           { usage: "import", on: false },
         ],
-        sensitive: [],
+        sensitive: [
+          { id: "finance", title: "财务", inferable: false },
+          { id: "health", title: "健康", inferable: false },
+        ],
         count: 0,
         syncing: false,
         canSync: false,
@@ -190,6 +208,9 @@ function initial(): DataSourcesView {
         files: [],
         configurable: true,
         toMaterials: true,
+        hasSecrets: true,
+        hasStored: true,
+        hasLive: true,
       },
       {
         id: "demo-bills",
@@ -201,13 +222,14 @@ function initial(): DataSourcesView {
         connection: "manual",
         usages: [{ usage: "import", on: true }],
         sensitive: [{ id: "finance", title: "财务", inferable: false }],
-        count: 42,
-        lastSync: { at: today("09:30"), trigger: "file", added: 42, file: "账单-10月.csv" },
+        count: 2,
+        lastSync: { at: today("09:30"), trigger: "file", added: 2, file: "账单-10月.csv" },
         syncing: false,
         canSync: false,
         files: ["账单（.csv）"],
         configurable: false,
         toMaterials: true,
+        hasStored: true,
       },
       {
         id: "phone-contacts",
@@ -227,6 +249,7 @@ function initial(): DataSourcesView {
         configurable: false,
         fromDevice: true,
         disconnectNote: "从手机通讯录挑来、档案候选里还没处理的一起作废，候选核对卡跟着改；已经写进个人档案的不动，手机上的通讯录也不动。",
+        hasStored: true,
       },
       {
         id: "phone-calendar",
@@ -247,6 +270,7 @@ function initial(): DataSourcesView {
         configurable: false,
         fromDevice: true,
         disconnectNote: "断开后，同步来的手机日程不再显示在二狗的日历里，手机上的日历不动；选「连已导入的一起删」，这些日程在二狗这边的记录也删掉。",
+        hasStored: true,
       },
       {
         id: "phone-photos",
@@ -259,7 +283,7 @@ function initial(): DataSourcesView {
         account: "HUAWEI Pura 90",
         usages: [{ usage: "import", on: true }],
         sensitive: [{ id: "location", title: "位置", inferable: false }],
-        count: 6,
+        count: 1,
         lastSync: { at: today("10:00"), trigger: "device", added: 1, summary: `读到 23 张照片的时间地点，新的 9 张；整理出 ${daysAgo(1).slice(5)} 的摘要；今天的过完这一天再整理` },
         syncing: false,
         canSync: false,
@@ -267,6 +291,7 @@ function initial(): DataSourcesView {
         configurable: false,
         fromDevice: true,
         toMaterials: true,
+        hasStored: true,
         raw: {
           title: "原始的照片时间地点",
           days: [
@@ -288,7 +313,7 @@ function initial(): DataSourcesView {
         panel: phonePlaces(),
         usages: [{ usage: "import", on: true }],
         sensitive: [{ id: "location", title: "位置", inferable: false }],
-        count: 3,
+        count: 2,
         lastSync: { at: today("10:00"), trigger: "device", added: 1, summary: `收到 41 个位置点，新的 41 个；整理出 ${daysAgo(1).slice(5)} 的摘要；今天的过完这一天再整理` },
         syncing: false,
         canSync: false,
@@ -296,6 +321,7 @@ function initial(): DataSourcesView {
         configurable: false,
         fromDevice: true,
         toMaterials: true,
+        hasStored: true,
         raw: {
           title: "原始位置点",
           days: [
@@ -310,13 +336,88 @@ function initial(): DataSourcesView {
       path: "C:\\Users\\you\\.ergo\\imports",
       importedPath: "C:\\Users\\you\\.ergo\\imports\\imported",
       pending: [{ name: "takeout-2026.zip", size: 1_048_576, problem: "unrecognized", text: "认不出是哪个数据源的文件，留在这里" }],
-      recent: [{ name: "账单-10月.csv", source: "demo-bills", sourceTitle: "示例账单", at: today("09:30"), added: 42 }],
+      recent: [{ name: "账单-10月.csv", source: "demo-bills", sourceTitle: "示例账单", at: today("09:30"), added: 2 }],
       scannedAt: today("10:05"),
     },
   };
 }
 
 const later = <T>(value: () => T): Promise<T> => new Promise((resolve) => setTimeout(() => resolve(value()), 300));
+
+/** 这一刻往后 hours 小时（负的是往前） */
+const inHours = (hours: number) => nowIso(new Date(Date.now() + hours * 3_600_000));
+
+/** 不进素材的，已获取的（343 号票）：同步来的日程、挑过的人、手机日程，新的在前 */
+function storedItems(id: string): DataSourceDataItem[] {
+  switch (id) {
+    case "google-calendar":
+      return [
+        { id: "ev-1", title: "季度复盘", subtitle: "工作 · 三楼会议室", time: inHours(30), end: inHours(31), body: "带上上季度的数据。" },
+        { id: "ev-2", title: "周会", subtitle: "工作", time: inHours(6), end: inHours(7), labels: ["重复"] },
+        { id: "ev-3", title: "带孩子打疫苗", subtitle: "家里 · 社区医院", time: inHours(-20), end: inHours(-19) },
+        { id: "ev-4", title: "搬家", subtitle: "家里", time: `${daysAgo(9)}T00:00:00.000+08:00`, allDay: true },
+      ];
+    case "google-contacts":
+      return [
+        { id: "c-mom", title: "妈妈", subtitle: "母亲 · 03-02", time: today("09:20") },
+        { id: "c-wang", title: "老王", subtitle: "同事 · 138 0000 0000", time: today("09:20") },
+        { id: "c-li", title: "李雷", subtitle: "朋友 · 12-08", time: today("09:20") },
+        { id: "c-han", title: "韩梅梅", subtitle: "朋友 · 139 0000 0000", time: today("09:20") },
+      ];
+    case "phone-contacts":
+      return [
+        { id: "pc-2", title: "妈妈", subtitle: "139 0000 0000 · 03-02", time: today("09:40") },
+        { id: "pc-1", title: "王小明", subtitle: "138 0000 0000", time: today("09:40") },
+      ];
+    case "phone-calendar":
+      return [
+        { id: "pe-3", title: "牙医复诊", subtitle: "我的日历 · 口腔诊所", time: inHours(50), end: inHours(51) },
+        { id: "pe-2", title: "交房租", subtitle: "我的日历", time: inHours(26), end: inHours(26.5) },
+        { id: "pe-1", title: "放假", subtitle: "节假日", time: `${daysAgo(2)}T00:00:00.000+08:00`, allDay: true },
+      ];
+    default:
+      return [];
+  }
+}
+
+/** 编的 Gmail：列表只有发件人、主题、时间 */
+const FAKE_MAIL: ReadonlyArray<DataSourceDataItem & { text: string }> = [
+  { id: "all-1-105", title: "十月的账单", subtitle: "示例银行 <bill@bank.example.com>", time: inHours(-3), openable: true, labels: ["财务"], text: "您本月的账单已出，应还 1,280.00 元，到期日 11 月 8 日。\n\n这是一封示例邮件。" },
+  { id: "all-1-104", title: "周五的会改到下午三点", subtitle: "张三 <zhangsan@example.com>", time: inHours(-9), openable: true, text: "大家好，\n\n周五的会改到下午三点，地点不变。\n\n张三" },
+  { id: "all-1-103", title: "机票行程单：11 月 2 日 杭州-北京", subtitle: "示例航空 <noreply@air.example.com>", time: inHours(-28), openable: true, text: "尊敬的旅客：您预订的航班已出票，请提前两小时到达机场。\n\n附件：行程单.pdf" },
+  { id: "all-1-102", title: "体检报告已出", subtitle: "示例医院 <report@clinic.example.com>", time: inHours(-52), openable: true, labels: ["健康"], text: "您的体检报告已经出来了，登录网站查看。" },
+  { id: "all-1-101", title: "你订阅的周刊", subtitle: "周刊 <weekly@example.com>", time: inHours(-75), openable: true, text: "本周看点：……" },
+];
+
+/** 编的上游，现查回来的（343 号票）；日历有一个没拉到 */
+function liveAnswer(id: string): Omit<DataSourceLiveResult, "state" | "at"> | undefined {
+  switch (id) {
+    case "google-calendar":
+      return {
+        scope: "未来 30 天的日程",
+        items: [
+          { id: "lv-1", title: "周会", subtitle: "工作", time: inHours(6), end: inHours(7) },
+          { id: "lv-2", title: "刚加的：和设计师对稿", subtitle: "工作 · 线上", time: inHours(20), end: inHours(21), body: "这一条在 Google 日历里刚加上，还没同步进二狗。" },
+          { id: "lv-3", title: "季度复盘", subtitle: "工作 · 三楼会议室", time: inHours(30), end: inHours(31) },
+          { id: "lv-4", title: "家庭聚餐", subtitle: "家里", time: inHours(55), end: inHours(57) },
+        ],
+        notes: ["「家里」这一次没拉到：连不上，过一会儿再试"],
+      };
+    case "google-gmail":
+      return { scope: `全部邮件里最新的 ${FAKE_MAIL.length} 封`, total: 1284, items: FAKE_MAIL.map(({ text: _text, ...item }) => item) };
+    case "looki":
+      return {
+        scope: "最近 3 天的时刻（含今天）",
+        items: [
+          { id: "m-3", title: "上午在公司开会", subtitle: "公司", time: inHours(-2), end: inHours(-1), body: "和同事讨论下季度计划，白板上画了流程图。", labels: ["照片"] },
+          { id: "m-2", title: "傍晚沿河边跑步", subtitle: "河边步道", time: inHours(-20), end: inHours(-19), labels: ["照片", "视频"] },
+          { id: "m-1", title: "中午吃面", subtitle: "公司楼下", time: inHours(-26), end: inHours(-25.5) },
+        ],
+      };
+    default:
+      return undefined;
+  }
+}
 
 export class FakeDataSources {
   private state: DataSourcesView = initial();
@@ -479,6 +580,40 @@ export class FakeDataSources {
       const summary = contacts ? `${contacts.length} 位联系人：${contacts.map((c) => c.name).join("、")}` : "同步好了";
       Object.assign(source, { lastSync: { at: nowIso(), trigger: "device", added: contacts?.length ?? 0, summary } });
       return { view: structuredClone(this.state), added: contacts?.length ?? 0, summary, ...(contacts ? { reply: { names: contacts.map((c) => c.name) } } : {}) };
+    });
+  }
+
+  /** 已获取的（343 号票）：进素材的按素材的出处列（和守护进程一样），不进素材的是编的；Gmail 没导入过 */
+  stored(id: string, body: DataSourceStoredBody, deleted: ReadonlySet<string>): Promise<DataSourceStoredPage> {
+    const source = this.state.sources.find((s) => s.id === id);
+    if (!source) return Promise.reject(new Error(`没有数据源 ${id}`));
+    const offset = body.offset ?? 0;
+    const limit = body.limit ?? DATA_SOURCE_STORED_PAGE;
+    return later(() => {
+      const found: DataSourceDataItem[] = source.toMaterials
+        ? fakeMaterialsIn(undefined, deleted, { dataSource: id }).map((m) => ({ id: m.id, title: m.excerpt, subtitle: m.kind, time: m.time, materialId: m.id }))
+        : storedItems(id);
+      // 断开时连已导入的一起删了：没有了
+      const kept = source.count === 0 ? [] : found;
+      return { total: kept.length, items: kept.slice(offset, offset + limit) };
+    });
+  }
+
+  /** 现在能查到的（343 号票）：编的上游，只读、什么都不改；没连着的写明 */
+  live(id: string, body: DataSourceLiveBody): Promise<DataSourceLiveResult> {
+    const source = this.state.sources.find((s) => s.id === id);
+    if (!source) return Promise.reject(new Error(`没有数据源 ${id}`));
+    if (!source.hasLive) return Promise.reject(new Error(`${source.title}不能现查`));
+    return later(() => {
+      const at = nowIso();
+      if (source.connection === "not_connected") return { state: "not_connected", at, items: [], problem: `${source.title}还没连上` };
+      if (body.open !== undefined) {
+        const mail = FAKE_MAIL.find((m) => m.id === body.open);
+        if (!mail) return { state: "error", at, items: [], problem: "没有这封邮件（可能已经删了或者挪走了）" };
+        const { text, openable: _openable, ...item } = mail;
+        return { state: "ok", at, items: [{ ...item, body: text }] };
+      }
+      return { state: "ok", at, ...(liveAnswer(id) ?? { items: [] }) };
     });
   }
 

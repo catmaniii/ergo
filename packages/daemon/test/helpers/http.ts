@@ -45,6 +45,10 @@ import {
   type TakeOverResult,
   type DataSourceActionBody,
   type DataSourceActionResult,
+  type DataSourceLiveBody,
+  type DataSourceLiveResult,
+  type DataSourceStoredBody,
+  type DataSourceStoredPage,
   type DataSourcesView,
   type ImportFolderActionBody,
   type ImportFolderActionResult,
@@ -360,6 +364,8 @@ export const dataSourcesApi = {
   view: (baseUrl: string) => requestJson<DataSourcesView & HttpErrorBody>(baseUrl, HTTP_PATHS.dataSources),
   act: (baseUrl: string, id: string, body: DataSourceActionBody) => requestJson<DataSourceActionResult & HttpErrorBody>(baseUrl, HTTP_PATHS.dataSource(id), { method: "POST", body }),
   folder: (baseUrl: string, body: ImportFolderActionBody) => requestJson<ImportFolderActionResult & HttpErrorBody>(baseUrl, HTTP_PATHS.importFolder, { method: "POST", body }),
+  stored: (baseUrl: string, id: string, body: DataSourceStoredBody = {}) => requestJson<DataSourceStoredPage & HttpErrorBody>(baseUrl, HTTP_PATHS.dataSourceStored(id), { method: "POST", body }),
+  live: (baseUrl: string, id: string, body: DataSourceLiveBody = {}) => requestJson<DataSourceLiveResult & HttpErrorBody>(baseUrl, HTTP_PATHS.dataSourceLive(id), { method: "POST", body }),
 };
 
 /** 每个 agent 的会话里的 ⚙（114 号票）：面板、单独的提示词、清空当前对话、现在压缩 */

@@ -2,7 +2,7 @@
 
 > 给第一次写二狗插件的开发者看（人或 agent）。agent 写插件、改插件时先用 skill [ergo-plugin](../../.claude/skills/ergo-plugin/SKILL.md)（一张检查清单），细节回到这里。
 > 依据：[ADR-0027](../adr/0027-plugin-host-kernel-and-agent-contributions.md)（插件宿主、agent 贡献、网页插槽、热插拔、拆插件）、[CONTEXT.md](../../CONTEXT.md) 的"插件""插件宿主""网页插件""agent 贡献""停用插件""移除插件"。宿主本身的参考见[开发者指南](../developer-guide.md)的"插件"一节。
-> 最后更新：2026-10-25（286 号票：运行时贡献点；287 号票：Claude Code 插件——第一个带 agent 运行时的真插件；295 号票：数据源贡献点；299 号票：手机插件——设备交来的、外部日历；303 号票：数据源把记录写成素材；297 号票：Google 插件——第一个真的数据源插件，定期导入每隔几分钟；296 号票：Looki 插件——接外部接口的数据源、测试接本机假接口；298 号票：Google · Gmail——只读 IMAP 的按需查、导入本人写的；306 号票：按需查的工具只在连上时给、外部日历变了推给网页、断开确认框按数据源说话）
+> 最后更新：2026-10-25（286 号票：运行时贡献点；287 号票：Claude Code 插件——第一个带 agent 运行时的真插件；295 号票：数据源贡献点；299 号票：手机插件——设备交来的、外部日历；303 号票：数据源把记录写成素材；297 号票：Google 插件——第一个真的数据源插件，定期导入每隔几分钟；296 号票：Looki 插件——接外部接口的数据源、测试接本机假接口；298 号票：Google · Gmail——只读 IMAP 的按需查、导入本人写的；306 号票：按需查的工具只在连上时给、外部日历变了推给网页、断开确认框按数据源说话；343 号票：数据源详情里看数据——`stored`、`live`）
 
 二狗的功能分**内核**和**插件**：事件日志、任务执行连同守卫、宿主协议、网关是内核；提醒、记忆、日历、语音、内置浏览器是插件。插件还能带来一个 **agent 运行时**（Claude Code、以后 Codex：维护者用它跑会话，见第 7 节的"运行时贡献点"），或者一种**外部数据的数据源**（Looki、Google、手机……：见第 7 节的"数据源贡献点"）。插件声明自己依赖什么，经插件宿主登记它的东西，每一次登记都能撤销，所以用户能在设置 · 插件里运行中停用、启用、移除它。
 
@@ -563,7 +563,7 @@ export function createClaudeCodePlugin(
 
 ### 数据源贡献点：接一种外部数据（295 号票）
 
-外面的数据（挂脖相机、Google 日历 / Gmail / 联系人、手机、账单……）**每种一个插件**（issue 25，用户 2026-10-25 定），插件在数据契约里 `ctx.dataSources.register(数据源)`。设置里一页"数据源"（`#/more/data-sources`，内核的页面，记忆页有链接过来）一处列出全部：名字、连接状态、上次同步和条数、立即同步、断开、用到的敏感类别、两种用法的开关；下面是共用的导入文件夹。ADR-0027 的"数据源是插件贡献点"一段讲为什么这么做。
+外面的数据（挂脖相机、Google 日历 / Gmail / 联系人、手机、账单……）**每种一个插件**（issue 25，用户 2026-10-25 定），插件在数据契约里 `ctx.dataSources.register(数据源)`。设置里一页"数据源"（`#/more/data-sources`，内核的页面，记忆页有链接过来）是卡片总览：名字、一句话、连接状态、账号、已获取几条、上次同步，最后一张卡是共用的导入文件夹；点卡片进单独全屏的详情（`#/more/data-sources/<id>`，343 号票）：状态和立即同步、设置（两种用法的开关、用到的敏感类别、插件画的那一块、原始数据、断开）、数据（已获取的、现在能查到的）。ADR-0027 的"数据源是插件贡献点"一段讲为什么这么做。
 
 规矩（issue 25 第 2、4 节）：
 
@@ -580,7 +580,7 @@ export function createClaudeCodePlugin(
 | `usages` | 提供哪两种用法、默认开没开：`query`（按需查：给秘书 `tools`，现查不存）、`import`（导入：`sync` 和 `files`，`schedule` 是定期导入的时间——提醒那一套，或者 297 号票起每隔几分钟 `{ kind: "every", minutes }`；`destination` 写导入的东西去哪，不写是"整理成素材"；`syncOnConnect` 填好设置连上以后马上同步一次）。用户在数据源页上开关，存在配置区的 `data-sources.json` |
 | `records` | 它导入的记录（事件的频道、类型）：页面上的"共几条"按它数；断开时选了"连已导入的一起删"，这些整条换成"已删除"标记，由它们采成的素材彻底删除 |
 | `files` | 认导入文件夹里哪种文件（`DataSourceFileType`）：扩展名、文件名、内容特征（开头 4 KB）写了的都对上才认；`import(file, ctx)` 读文件、写记录，交回新进来几条 |
-| `status(ctx)` | 连接状态（没连 / 连着 / 出错及原因 / 账号），要快；不给是"手动导入"的数据源（只靠导入文件夹）。可以带一句提示 `note`（不算出错："日历插件没启用"）和它下面的几样 `items`（几个日历，插件画的设置那一块列出）；307 号票起还能带插件画的那一块要的数据 `panel`（内核原样交给网页、不看里面：Looki 的"存一份到本地"）和断开的确认框里要说的一句 `disconnectNote`（"存到本地的文件不删"）。306 号票起连接状态还决定按需查的工具给不给秘书：内核只用插件报的**最近一次已知的**状态（装配时不等网络），所以插件在同步、按需查时碰到 Key 失效、地址失效要记在内存里、下一次 `status` 报 `error`（Looki 的 Key 不认、Gmail 登录没过、Google 日历每个地址都失效），一时的（限速、超时、连不上）照样报连着、原因写在 `problem`。报出错以后内核每小时替它再试一次（见下面 `recheck`），页面上写明"每小时自动再试一次，也可以重新填" |
+| `status(ctx)` | 连接状态（没连 / 连着 / 出错及原因 / 账号），要快；不给是"手动导入"的数据源（只靠导入文件夹）。要用户去授权、重新填的（手机上的授权被拒、被撤回，登录没过、Key 不认）带 `needsAuth: true`，卡片上写"要授权"（343 号票）。可以带一句提示 `note`（不算出错："日历插件没启用"）和它下面的几样 `items`（几个日历，插件画的设置那一块列出）；307 号票起还能带插件画的那一块要的数据 `panel`（内核原样交给网页、不看里面：Looki 的"存一份到本地"）和断开的确认框里要说的一句 `disconnectNote`（"存到本地的文件不删"）。306 号票起连接状态还决定按需查的工具给不给秘书：内核只用插件报的**最近一次已知的**状态（装配时不等网络），所以插件在同步、按需查时碰到 Key 失效、地址失效要记在内存里、下一次 `status` 报 `error`（Looki 的 Key 不认、Gmail 登录没过、Google 日历每个地址都失效），一时的（限速、超时、连不上）照样报连着、原因写在 `problem`。报出错以后内核每小时替它再试一次（见下面 `recheck`），页面上写明"每小时自动再试一次，也可以重新填" |
 | `configure(values, ctx)` | 填设置、测试连接：网页插件在 `dataSources` 插槽里画那一块，值经 POST 交来，插件存进 `ctx.secrets` |
 | `sync(ctx)` | 同步一次（"立即同步"、定期导入到点了）：`ctx.trigger`、`ctx.lastSyncAt`、`ctx.signal`（断开、插件停用、守护进程停时置位） |
 | `recheck(ctx)` | 出错后再试（306 号票）：`status()` 报出错时内核每小时叫一次，插件用存着的设置再测一次连接（不写记录、不用用户重填），更新自己记着的状态，好了下一次 `status()` 就报连着、按需查的工具跟着回来。Key 失效、密码错也照样叫（用户可能在别处修好了）。不给的、导入开着的内核照同步那样同步一次；能填设置而密钥区里什么都没有的不试。Looki 拿存着的 Key 调 `/me`，Gmail 用存着的地址密码登录一次，Google 日历每个地址拉一遍 |
@@ -592,6 +592,8 @@ export function createClaudeCodePlugin(
 | `calendar(range, ctx)` | 交给日历插件显示的日程（外部日历，299 号票）：`[from, to)` 里的，只读、不进素材；日历页标出来自哪个数据源 |
 | `localFolder(ctx)` | 它在这台电脑上的文件夹（307 号票：Looki 存到本地的位置）：网页发 `open` 动作时内核用和导入文件夹同一个"在电脑上打开"打开它（测试换成假的） |
 | `raw` | 插件自己存储里的原始数据（300 号票：手机的原始位置点、照片的时间地点）：`title`、`days(ctx)`（有哪几天、各几条、整理成摘要了没有）、`clear(dates, ctx)`（清掉几天的）。数据源页按天列出、能按天清掉（动作 `clear_raw`）；不在 `records` 里、不进素材，断开并删时由插件的 `disconnect`（`ctx.purge`）删。设备会把同样的再交一遍的（手机每次读最近几天的照片），插件要记下每天清到哪一刻、那以前的再交来不收，不然清掉的马上回来 |
+| `stored(query, ctx)` | 数据源详情"已获取的"（343 号票）：**不进素材的**记录列出来（Google 日历同步来的事件、联系人、手机通讯录和日历），`query` 是 `{ offset, limit }`，新的在前，交回 `{ total, items }`，条目是统一外形 `DataSourceDataItem`（`id`、`title`、可选的 `subtitle`、`time`、`end`、`allDay`、`body`、`labels`）。进素材的不用写：内核按素材的 `origin.dataSource` 列，点开跳素材详情，插件停了也列得出。插件在运行时才叫，要快、不连网 |
+| `live(query, ctx)` | 数据源详情"现在能查到的"（343 号票）：现查上游给人看，**只读，不写事件、不进素材、不进记忆、不经过模型**。内核只在插件在运行、连着时叫（不看按需查开着没有：那个开关管给秘书的工具），没连上、出错的写明、不叫；抛错的原因给人看（密钥换成 `***`）。交回 `{ items, scope?, total?, notes? }`：`scope` 是查的是什么，`notes` 是查到了但有要说的（几个日历里有一个没拉到）。量大、要点开才取正文的（Gmail）列表里条目写 `openable: true`，点开时 `query.open` 是那条的 `id`，交回带 `body` 的那一条。设备交来的数据源不写它，页面上写明数据由手机交来 |
 
 同步、导入一个文件、设备交来的结果都可以带 `summary`（这次进来的是什么，一句话，走 `t()`），数据源页"上次"那一行写它。
 
@@ -637,8 +639,8 @@ export function createClaudeCodePlugin(
 - **断开**（`DATA_SOURCE_DELETION`，走"删除参与方"登记表）：插件的 `disconnect` 先叫（插件在运行时）、密钥区那一格删掉；选"连已导入的一起删"时同一个事务里 `records` 的事件和它的同步记录整条换成标记、由这些记录采成的素材照彻底删除的口径删（记忆命令的出处是 `data_source`，原文副本、推理库里的证据跟着删）、"已导入"里它的文件提交之后删掉。确认框按数据源说话（306 号票）：页面上带着 `hasSecrets`、`toMaterials`，通用的那几句只在真有密钥、真进素材时出现，别的由数据源的 `disconnectNote` 说。
 - **外部日历变了推给网页**（306 号票）：登记了 `calendar` 的数据源，它的 `records` 写进了新事件（同步、设备交来、填设置时写的）、连接状态变了、插件起停了，内核把外部日历的版本往上加，工作日历频道上推临时事件 `external_calendar`，开着的日历页不用换月就重新取——插件什么都不用做，只要日历里显示的东西都来自它登记的 `records` 和连接状态。
 - **导入文件夹**（数据目录的 `imports/`，导完挪到 `imports/imported/`）：内核每分钟、文件夹一有变化、用户点"现在检查"时看一遍，认得的先挪进"已导入"再交给数据源导入（同一个文件不会被导两次），导入出错挪回原地；认不出的、几个数据源都认的、插件没启用的、导入关着的、出错的留在原地，页面上写明原因。导入文件夹不进备份快照（原始导出可能很大，导入后的数据在事件和素材里），所以插件别把只存在导入文件里、事件里没有的东西当成留得住的。
-- **网页**：数据源页是内核的（`packages/web/src/pages/more/DataSourcesPage.tsx`），插件要在页面上填设置就登记 `dataSources` 插槽（`DataSourceSlot`：数据源 id 和 `Panel`），`owns` 里写上 `dataSources`；插件停用时这一块不画。
-- **测**：假内核 `startPluginKernel` 带着数据源那一层（`dataSources`、`openedFolders`），例子是 `packages/daemon/test/data-sources/data-sources.test.ts`；主切面 `packages/daemon/test/main/data-sources.test.ts` 用假数据源插件走真实装配路径（同步采成素材、导入文件夹、断开并删时素材和原文副本跟着删），`packages/daemon/test/main/data-source-evidence.test.ts` 走到每晚整理（三种素材的证据性质、场景、敏感类别）。
+- **网页**：数据源页是内核的（卡片总览 `packages/web/src/pages/more/DataSourcesPage.tsx`，详情 `DataSourceDetail.tsx`），插件要在详情的设置一块里填设置就登记 `dataSources` 插槽（`DataSourceSlot`：数据源 id 和 `Panel`），`owns` 里写上 `dataSources`；插件停用时这一块不画。
+- **测**：假内核 `startPluginKernel` 带着数据源那一层（`dataSources`、`openedFolders`），例子是 `packages/daemon/test/data-sources/data-sources.test.ts`，看数据（`stored`、`live`，断言没有新事件、没有新素材）的例子是 `packages/daemon/test/data-sources/data-browse.test.ts`；主切面 `packages/daemon/test/main/data-sources.test.ts` 用假数据源插件走真实装配路径（同步采成素材、导入文件夹、断开并删时素材和原文副本跟着删），`packages/daemon/test/main/data-source-evidence.test.ts` 走到每晚整理（三种素材的证据性质、场景、敏感类别）。
 
 **真的例子：Looki 插件**（`packages/daemon/src/looki/`，296 号票）：接 Looki 挂脖相机的官方开放接口（API Key、只读）。数据源的函数都是一行，经 `ctx.active` 现取插件自己的服务：
 
@@ -893,6 +895,8 @@ export const remindersPlugin: PluginDefinition = {
 | `createDataSourceRegistry`、`DataSourceRegistry` | `packages/daemon/src/data-sources/registry.ts` | 数据源的登记表 |
 | `createDataSources`、`DataSources` | `packages/daemon/src/data-sources/service.ts` | 设置 · 数据源：页面、动作、定期导入、按需查的工具、导入文件夹 |
 | `DATA_SOURCE_DELETION` | `packages/daemon/src/deletion/participants.ts` | 断开数据源时连已导入的一起删（删除参与方的一种删除） |
+| `DataSourceStoredQuery`、`DataSourceStoredResult`、`DataSourceLiveQuery`、`DataSourceLiveContext`、`DataSourceLiveAnswer` | `packages/daemon/src/data-sources/api.ts` | 数据源详情里看数据（343 号票）：已获取的、现在能查到的 |
+| `DataSourceDataItem` | `packages/protocol/src/data-sources.ts` | 已获取的、现在能查到的共用的一条 |
 | `DataSourceSlot` | `packages/web/src/plugins/slots.ts` | 网页的数据源设置插槽 |
 | `DataSourcePush`、`DataSourcePushOutcome`、`DataSourceCalendarEvent` | `packages/daemon/src/data-sources/api.ts` | 设备交来的、交回的、交给日历插件的一条日程（299 号票） |
 | `KERNEL.externalCalendars` | `packages/daemon/src/plugins/kernel.ts` | 数据源交给日历插件的外部日历（内核服务，299 号票） |

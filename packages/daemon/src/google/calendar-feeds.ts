@@ -97,7 +97,7 @@ export interface GoogleCalendarService {
   /** 同步来的那几个日历在 [from, to) 里展开（日历插件、按需查拉不到时用） */
   occurrences(from: Date, to: Date, only?: ReadonlySet<string>): CalendarOccurrence[];
   /** 现拉几个日历在 [from, to) 里展开（按需查）：拉不到的用同步来的那份，交回哪几个拉不到、原因 */
-  live(ctx: DataSourceContext, from: Date, to: Date, signal?: AbortSignal): Promise<{ occurrences: CalendarOccurrence[]; failed: Array<{ name: string; reason: string; fallback: boolean }>; configured: number }>;
+  live(ctx: DataSourceContext, from: Date, to: Date, signal?: AbortSignal): Promise<{ occurrences: CalendarOccurrence[]; failed: Array<{ id: string; name: string; reason: string; fallback: boolean }>; configured: number }>;
   /** 交给日历插件显示的日程（数据源的 calendar()）：还配着地址的几个日历 */
   calendarEvents(ctx: DataSourceContext, from: Date, to: Date): DataSourceCalendarEvent[];
   /** 同步来的事件现在有几个（按最后一版：改过的算一个、删掉的不算） */
@@ -314,7 +314,7 @@ export function createGoogleCalendar(options: GoogleCalendarOptions): GoogleCale
           // 按需查现拉时发现地址失效也记下（306 号票：查完内核比一比，都不行了就不再给秘书这个工具）
           noteProblem(id, err);
           const reason = err instanceof FeedProblem ? err.message : describe(err);
-          return { failed: { name: nameOf(synced, index), reason, fallback: synced !== undefined }, occurrences: synced ? expandFeed(synced, [...synced.items.values()], index, from, to) : [] };
+          return { failed: { id, name: nameOf(synced, index), reason, fallback: synced !== undefined }, occurrences: synced ? expandFeed(synced, [...synced.items.values()], index, from, to) : [] };
         }
       }),
     );

@@ -5066,6 +5066,233 @@ a.att-icon:hover {
 .source-raw-days small {
   margin-left: 6px;
 }
+/*
+ * 数据源分两层（343 号票）。一级（DataSourcesPage）：按插件分组的卡片，整张卡是一个按钮，手机一列、阔折叠两列、电脑铺满；
+ * 二级（DataSourceDetail）：窄屏状态、设置、数据纵向排，这一栏够宽时左边状态和设置、右边数据（.page-pad 是 page 容器）。只用 token
+ */
+.data-sources-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-page);
+  min-width: 0;
+}
+.ds-groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-page);
+  min-width: 0;
+}
+.ds-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.ds-group-title {
+  margin: 0;
+  font-family: var(--font-title);
+  font-size: var(--fs-m);
+  font-weight: 600;
+  color: var(--muted);
+}
+.ds-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  gap: 10px;
+}
+.ds-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.ds-card:hover {
+  border-color: var(--primary);
+}
+.ds-card:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.ds-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+.ds-card-name {
+  min-width: 0;
+  font-size: var(--fs-l);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.ds-card-summary {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  font-size: var(--fs-s);
+  line-height: 1.5;
+  color: var(--muted);
+  word-break: break-word;
+}
+.ds-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  margin-top: auto;
+  font-size: var(--fs-s);
+  line-height: 1.5;
+}
+.ds-card-account {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ds-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-page);
+  min-width: 0;
+}
+.ds-detail-side,
+.ds-detail-data,
+.ds-folder-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-page);
+  min-width: 0;
+}
+@container page (min-width: 820px) {
+  .ds-detail {
+    display: grid;
+    grid-template-columns: minmax(320px, 5fr) minmax(0, 7fr);
+    align-items: start;
+  }
+}
+.ds-status-head {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+/* 去数据的链接只在纵向排的时候要（两栏时数据就在右边） */
+.ds-jump {
+  align-self: flex-start;
+}
+@container page (min-width: 820px) {
+  .ds-jump {
+    display: none;
+  }
+}
+.ds-detail-data .seg {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+}
+.ds-stored > .hint,
+.ds-live > .hint {
+  margin: 0;
+}
+.ds-usages {
+  margin-top: -10px;
+  border-top: none;
+}
+.ds-usages + .source-notes {
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+.ds-danger-actions {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.ds-count,
+.ds-empty {
+  font-size: var(--fs-s);
+  line-height: 1.5;
+}
+.ds-empty {
+  padding: 12px 0;
+}
+.ds-stored,
+.ds-live {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.ds-live-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+}
+.ds-live-note {
+  margin: 0;
+  min-width: 0;
+}
+.ds-item {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+button.ds-item {
+  cursor: pointer;
+}
+.ds-item-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+.ds-item-name {
+  min-width: 0;
+  font-weight: 600;
+}
+.ds-item-meta {
+  overflow-wrap: anywhere;
+}
+.ds-item-fold {
+  flex: none;
+}
+.ds-item-box.on .ds-item-fold {
+  transform: rotate(90deg);
+}
+.ds-item-box {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-radius: var(--radius-l);
+  background: var(--surface);
+}
+.ds-item-box .ds-item {
+  background: none;
+}
+.ds-item-body {
+  padding: 0 12px 12px;
+  font-size: var(--fs-m);
+  line-height: 1.6;
+}
+.ds-item-text {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .phone-notes {
   margin-top: 6px;
 }

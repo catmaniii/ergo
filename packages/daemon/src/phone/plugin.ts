@@ -21,6 +21,8 @@
 //   已经写进档案的、还没处理的候选，摘要采成的素材不在这里删（写明了）。
 // - 依赖：内核的事件存储、时钟、数据目录（KERNEL.layout：插件自己的存储放在 phone/）、个人档案的收候选（KERNEL.personalFiles）；
 //   日历插件是可选依赖（wants：不在时"手机 · 日历"写明日历插件没启用，照常收）。没有给 agent 的工具、上下文块。
+// - 数据源详情里看数据（343 号票）：已获取的——通讯录、日历不进素材，由 stored 列；照片、位置进素材的摘要内核按素材的出处列。
+//   都没有"现在能查到的"（live）：数据由手机交来，守护进程查不了上游。
 import {
   type EventType,
   PHONE_CALENDAR_SOURCE,
@@ -99,6 +101,7 @@ export const phonePlugin: PluginDefinition = {
       usages: { import: { default: true } },
       records: [{ channel: PHONE_CHANNEL, type: PHONE_CONTACT_PICKED }],
       push: { body: PhoneContactsPush, receive: (data) => ctx.active(PHONE).receiveContacts(data as PhoneContactsPush) },
+      stored: (query) => ctx.active(PHONE).contactsStored(query),
       // 306：删除已导入的时实际会删什么（没有密钥、不进素材，确认框不说通用的那几句）
       get disconnectNote() {
         return t("phone.contacts.disconnectNote");
@@ -118,6 +121,7 @@ export const phonePlugin: PluginDefinition = {
       push: { body: PhoneCalendarPush, receive: (data) => ctx.active(PHONE).receiveCalendar(data as PhoneCalendarPush) },
       count: () => ctx.active(PHONE).calendarCount(),
       calendar: (range) => ctx.active(PHONE).calendarEvents(range),
+      stored: (query) => ctx.active(PHONE).calendarStored(query),
       disconnect: () => ctx.active(PHONE).unlinkCalendar(),
       // 306：断开时实际会怎样（没有密钥、不进素材，确认框不说通用的那几句）
       get disconnectNote() {

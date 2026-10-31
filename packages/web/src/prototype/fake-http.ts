@@ -55,8 +55,12 @@ import type {
   DataSourcesView,
   ImportFolderActionBody,
   ImportFolderActionResult,
+  DataSourceLiveBody,
+  DataSourceLiveResult,
   DataSourcePushBody,
   DataSourcePushResult,
+  DataSourceStoredBody,
+  DataSourceStoredPage,
   ComponentAction,
   ComponentImportResult,
   ComponentsView,
@@ -1047,6 +1051,14 @@ export class FakeDaemonHttp implements DaemonHttp {
 
   dataSourcePush(id: string, body: DataSourcePushBody): Promise<DataSourcePushResult> {
     return this.fakeDataSources.push(id, body);
+  }
+
+  dataSourceStored(id: string, body: DataSourceStoredBody): Promise<DataSourceStoredPage> {
+    return this.fakeDataSources.stored(id, body, this.deletedMaterials);
+  }
+
+  dataSourceLive(id: string, body: DataSourceLiveBody): Promise<DataSourceLiveResult> {
+    return this.fakeDataSources.live(id, body);
   }
 
   /** 设置 · 组件（323 号票）：原型里编的四个组件（prototype/fake-components.ts） */

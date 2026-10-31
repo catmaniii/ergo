@@ -31,6 +31,10 @@
 //   页面上写明"每小时自动再试一次"（autoRetry）；
 // - 断开的确认框按数据源说话：页面上带"有没有填过的密钥"（hasSecrets）、"导入的进不进素材"（toMaterials，它的记录登记了素材来源没有），
 //   数据源报的一句（disconnectNote）插件没报的从数据源登记的那一句取。
+// 343 号票（数据源详情里看数据）：
+// - 已获取的（stored）：数据源自己会列的叫它（插件在运行时），它的记录进素材的按素材的出处列（素材是内核的，插件停了也列得出），点开跳素材详情；
+// - 现在能查到的（live）：现查上游，只读。插件没在运行、没连上、出错的不叫，写明；不写事件、不进素材（这里什么都不记），出错的原因里的密钥换成 ***；
+//   查的时候可能发现 Key 失效（插件记在内存里）：查完和按需查一样比一比。不看按需查开着没有——那个开关管给秘书的工具，这里是用户自己看。
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -38,10 +42,15 @@ import {
   checkHttpBody,
   type DataSourceActionBody,
   type DataSourceActionResult,
+  DATA_SOURCE_STORED_PAGE,
+  type DataSourceLiveBody,
+  type DataSourceLiveResult,
   type DataSourcePushBody,
   type DataSourcePushResult,
   type DataSourceRawView,
   type DataSourcesView,
+  type DataSourceStoredBody,
+  type DataSourceStoredPage,
   type DataSourceSyncView,
   type DataSourceUsage,
   type DataSourceView,
@@ -55,6 +64,7 @@ import {
   type ImportFolderActionResult,
   IMPORTED_SHOWN,
   isDeletedEventPayload,
+  type MaterialListPage,
   t,
 } from "@ergo/protocol";
 import type { AgentContributions } from "../agent-host/contributions.ts";
@@ -102,6 +112,8 @@ export interface DataSourcesOptions {
   inferable: () => readonly SensitiveCategory[];
   /** 素材库：哪类事件登记了素材来源（306 号票：断开的确认框说不说"素材"） */
   materials: Pick<Materials, "captures">;
+  /** 这个数据源导入的素材的一页（343 号票，新的在前；就是 POST /api/materials/list 按 filter.dataSource 筛的那一份） */
+  materialsOf(dataSource: string, page: { offset: number; limit: number }): MaterialListPage;
   now: () => string;
   /** 在电脑上打开文件夹（测试换成假的） */
   openFolder: (dir: string) => Promise<void>;
@@ -123,6 +135,10 @@ export interface DataSources {
   sync(id: string, trigger: "manual" | "scheduled"): Promise<{ added?: number; error?: string }>;
   /** 设备交来的（299 号票）：不认得的数据源抛 not_found，插件没在运行、不收、导入关着、data 不对抛 RequestRejected */
   push(id: string, body: DataSourcePushBody): Promise<DataSourcePushResult>;
+  /** 已获取的一页（343 号票）：不认得的数据源抛 not_found，没有这回事的抛 RequestRejected；列不出来的写在 problem */
+  stored(id: string, body: DataSourceStoredBody): DataSourceStoredPage;
+  /** 现查上游（343 号票，只读、什么都不存）：不认得的数据源抛 not_found，不能现查的抛 RequestRejected；插件没在运行、没连上、查不到的写在结果里 */
+  live(id: string, body: DataSourceLiveBody): Promise<DataSourceLiveResult>;
   /** 外部日历（299 号票）：插件在运行的数据源交给日历插件显示的 [from, to) 里的日程（出错的那个数据源跳过、记日志） */
   calendarEvents(from: Date, to: Date): CalendarExternalEntry[];
   /** 外部日历现在的版本（306 号票）：交给日历的日程变了就往上加（只增不减，毫秒时间起步） */
@@ -302,6 +318,9 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
     }
   };
 
+  /** 它的记录登记了素材来源（306 号票：断开的确认框；343 号票：已获取的按素材的出处列） */
+  const toMaterials = (entry: DataSourceEntry) => (entry.source.records ?? []).some((r) => options.materials.captures(r.type));
+
   const sourceView = (entry: DataSourceEntry, last: DataSourceSyncedPayload | undefined): DataSourceView => {
     const { source, owner } = entry;
     const available = owner.running();
@@ -329,7 +348,10 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
       ...(reported?.panel === undefined ? {} : { panel: reported.panel }),
       ...(disconnectNote === undefined ? {} : { disconnectNote }),
       ...(secrets.hasAny(source.id) ? { hasSecrets: true as const } : {}),
-      ...((source.records ?? []).some((r) => options.materials.captures(r.type)) ? { toMaterials: true as const } : {}),
+      ...(toMaterials(entry) ? { toMaterials: true as const } : {}),
+      ...(reported?.needsAuth ? { needsAuth: true as const } : {}),
+      ...(source.stored || toMaterials(entry) ? { hasStored: true as const } : {}),
+      ...(source.live ? { hasLive: true as const } : {}),
       usages: (["query", "import"] as const).filter((u) => source.usages[u]).map((usage) => ({ usage, on: usageOn(entry, usage) })),
       sensitive: (source.sensitive ?? []).map((id) => ({ id, title: t(`dataSources.sensitive.${id}`), inferable: inferable.includes(id) })),
       count: countOf(entry),
@@ -814,6 +836,57 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
     return { view: view(), added: outcome.added, ...(outcome.summary === undefined ? {} : { summary: outcome.summary }), ...(outcome.reply === undefined ? {} : { reply: outcome.reply }) };
   };
 
+  const stored = (id: string, body: DataSourceStoredBody): DataSourceStoredPage => {
+    const entry = entryOf(id);
+    const { source } = entry;
+    const page = { offset: body.offset ?? 0, limit: body.limit ?? DATA_SOURCE_STORED_PAGE };
+    if (source.stored) {
+      if (!entry.owner.running()) return { total: 0, items: [], problem: pluginOff(entry) };
+      try {
+        const { total, items } = source.stored(page, contextOf(entry));
+        return { total, items: [...items] };
+      } catch (err) {
+        const problem = redact(entry, describe(err));
+        log(`数据源 ${id} 列不出已获取的：${problem}`);
+        return { total: 0, items: [], problem };
+      }
+    }
+    if (!toMaterials(entry)) throw new RequestRejected("not_allowed", t("dataSources.noStored", { title: source.title }));
+    // 进素材的：素材是内核的，插件停了照样列得出；点开跳素材详情
+    const { total, items } = options.materialsOf(id, page);
+    return { total, items: items.map((m) => ({ id: m.id, title: m.excerpt, subtitle: m.kind, time: m.time, materialId: m.id })) };
+  };
+
+  const live = async (id: string, body: DataSourceLiveBody): Promise<DataSourceLiveResult> => {
+    const entry = entryOf(id);
+    const { source } = entry;
+    if (!source.live) throw new RequestRejected("not_allowed", t("dataSources.noLive", { title: source.title }));
+    const at = options.now();
+    const nothing = (state: DataSourceLiveResult["state"], problem: string): DataSourceLiveResult => ({ state, at, items: [], problem });
+    if (!entry.owner.running()) return nothing("plugin_off", pluginOff(entry));
+    const status = statusOf(entry);
+    if (status !== "manual" && status.connection === "not_connected") return nothing("not_connected", t("dataSources.notConnected", { title: source.title }));
+    if (status !== "manual" && status.connection === "error") return nothing("error", status.problem ?? t("dataSources.liveFailed", { title: source.title }));
+    try {
+      const answer = await source.live(body.open === undefined ? {} : { open: body.open }, { ...contextOf(entry), signal: stopping.signal });
+      return {
+        state: "ok",
+        at,
+        items: [...answer.items],
+        ...(answer.scope === undefined ? {} : { scope: answer.scope }),
+        ...(answer.total === undefined ? {} : { total: answer.total }),
+        ...(answer.notes === undefined || answer.notes.length === 0 ? {} : { notes: answer.notes.map((note) => redact(entry, note)) }),
+      };
+    } catch (err) {
+      const problem = redact(entry, describe(err));
+      log(`数据源 ${id} 现查没查成：${problem}`);
+      return nothing("error", problem);
+    } finally {
+      // 查的时候可能发现 Key 失效、地址失效（或者又好了）：给出去的按需查工具、交给日历的变了才通知（和按需查调完一样）
+      noticeChanges();
+    }
+  };
+
   const calendarEvents = (from: Date, to: Date): CalendarExternalEntry[] =>
     registry.list().flatMap((entry) => {
       const { source } = entry;
@@ -832,6 +905,8 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
     act,
     folder,
     push,
+    stored,
+    live,
     calendarEvents,
     calendarVersion: () => calendarVersion,
     onCalendarChange(listener) {

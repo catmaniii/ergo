@@ -306,7 +306,7 @@ export function createPhoneMediaService(options: PhoneMediaServiceOptions): Phon
     const account = accountText === "" ? {} : { account: accountText };
     if (status.state !== undefined && status.state !== "granted") {
       const reason = status.reason === undefined ? "" : t("phone.calendar.reason", { reason: status.reason });
-      return { connection: "error", problem: t(`phone.${kind.name}.problem.${status.state}`, { reason }), ...account };
+      return { connection: "error", problem: t(`phone.${kind.name}.problem.${status.state}`, { reason }), ...account, ...(status.state === "unavailable" ? {} : { needsAuth: true }) };
     }
     return { connection: "connected", ...account };
   };

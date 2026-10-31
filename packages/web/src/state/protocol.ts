@@ -1031,7 +1031,7 @@ export type {
   WorkFolderChoice,
 } from "@ergo/protocol";
 // 设置 · 数据源（295 号票）：插件登记的数据源（连接状态、上次同步和条数、两种用法、敏感类别）和共用的导入文件夹
-export { DATA_SOURCE_USAGES, IMPORTED_SHOWN } from "@ergo/protocol";
+export { DATA_SOURCE_STORED_PAGE, DATA_SOURCE_USAGES, IMPORTED_SHOWN } from "@ergo/protocol";
 export type {
   DataSourceAction,
   DataSourceActionBody,
@@ -1055,6 +1055,12 @@ export type {
   ImportFolderView,
   DataSourcePushBody,
   DataSourcePushResult,
+  DataSourceDataItem,
+  DataSourceLiveBody,
+  DataSourceLiveResult,
+  DataSourceLiveState,
+  DataSourceStoredBody,
+  DataSourceStoredPage,
   DataSourceRawDay,
   DataSourceRawView,
 } from "@ergo/protocol";

@@ -46,8 +46,9 @@ export function memoryRedirect(item: string | undefined, sub: string | undefined
 
 /**
  * 记忆页盖住的核心页在记忆页里的地址（PageSlot.coverRoute，285 号票）："更多"里的个人档案（#/more/files[/<档案编号>]）换到记忆 · 档案。
- * 成批删除只是设置里不列，地址照旧（不换）
+ * 成批删除只是设置里不列，地址照旧（不换）；343 号票：点开的一条素材（数据源详情里点过来的）在记忆 · 素材里看
  */
 export function memoryCoverRoute(page: MorePage, item: string | undefined): Route | undefined {
+  if (page === "materials-delete" && item !== undefined) return memoryRoute("materials", item);
   return page === "files" ? memoryRoute("files", item) : undefined;
 }

@@ -20,7 +20,7 @@
 // 193 号票：挪进记忆插件（plugins/memory/plugin.tsx 登记成网页插件的页面），记忆插件停用时整页不出现（导航里没有"记忆"，
 // 设置里列出内核的"删除素材"、"更多"里列出个人档案，删除和档案照常）。成批删除、素材详情、档案是内核的，从这里引。
 import { useEffect, useState } from "react";
-import { goBackTo, type Navigate, toHash } from "../../app/route.ts";
+import { goBackFromMaterial, goBackTo, type Navigate, toHash } from "../../app/route.ts";
 import { useStore } from "../../app/store.tsx";
 import { retryLoad } from "../../app/retry-load.ts";
 import { ASSISTANT_NAME_MARK, type InterviewStatusView, memoryKeeperInterviewLine, memoryKeeperNightLine, type MemorySummaryView, t, tTable } from "../../state/index.ts";
@@ -68,6 +68,12 @@ function parentOf(item: MemoryItem, sub: string | undefined) {
   return memoryRoute();
 }
 
+/** 一栏的 ‹：回上一级；从数据源详情点过来看一条素材的回那里（343 号票） */
+function backFromLayer(item: MemoryItem, sub: string | undefined): void {
+  if (item === "materials" && sub !== undefined) goBackFromMaterial(parentOf(item, sub));
+  else goBackTo(parentOf(item, sub));
+}
+
 /** 地址里的再下一级（点开的一个人、一条结论、一条素材）只在有下一级的栏里算数（193 号票起核心的路由原样交过来，由这里认） */
 const subOf = (item: MemoryItem, sub: string | undefined) => (MEMORY_ITEMS_WITH_SUB.includes(item) ? sub : undefined);
 
@@ -88,11 +94,11 @@ export function MemorySection({ wide, item: rawItem, sub: rawSub, navigate }: { 
   const sub = layer ? subOf(layer, legacy.sub) : undefined;
   // 285：记忆管理员是整页对话（宽屏也不留左边的栏目），‹ 回记忆页
   if (layer === "curator") return <MemoryCuratorPage wide={wide} onBack={() => goBackTo(memoryRoute())} />;
-  if (!wide) return layer ? <MemoryLayerCol item={layer} sub={sub} navigate={navigate} onBack={() => goBackTo(parentOf(layer, sub))} /> : <MemoryHome navigate={navigate} />;
+  if (!wide) return layer ? <MemoryLayerCol item={layer} sub={sub} navigate={navigate} onBack={() => backFromLayer(layer, sub)} /> : <MemoryHome navigate={navigate} />;
   // 宽屏左边一直是首页，右边没选栏时就是档案（不留一块空白）；点开的一条、成批删除才有返回
   const shown = layer ?? "files";
   const home = <MemoryHome current={shown} navigate={navigate} />;
-  const detail = <MemoryLayerCol item={shown} sub={sub} navigate={navigate} onBack={sub !== undefined || shown === "materials-delete" ? () => goBackTo(parentOf(shown, sub)) : undefined} />;
+  const detail = <MemoryLayerCol item={shown} sub={sub} navigate={navigate} onBack={sub !== undefined || shown === "materials-delete" ? () => backFromLayer(shown, sub) : undefined} />;
   return <ListDetail wide={wide} list={home} detail={detail} listWidth={280} />;
 }
 
@@ -103,7 +109,7 @@ export function MemoryColumn({ item: rawItem, sub: rawSub, navigate, onBack }: {
   if (!layer) return <MemoryHome navigate={navigate} onBack={onBack} />;
   const sub = subOf(layer, legacy.sub);
   if (layer === "curator") return <MemoryCuratorPage wide={false} onBack={() => goBackTo(memoryRoute())} />;
-  return <MemoryLayerCol item={layer} sub={sub} navigate={navigate} onBack={() => goBackTo(parentOf(layer, sub))} />;
+  return <MemoryLayerCol item={layer} sub={sub} navigate={navigate} onBack={() => backFromLayer(layer, sub)} />;
 }
 
 /** 首页每栏后面的数：档案几份、素材和结论的条数、问题箱开着的几个；各取各的，取不到就不写 */

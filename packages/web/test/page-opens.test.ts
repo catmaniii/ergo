@@ -65,6 +65,12 @@ const PAGES = [
   // 个人档案（281 号票，原型的假档案）：记忆插件在用时换到记忆 · 档案，停用时就是"更多"里的这一页
   "#/more/files/me",
   "#/more/files/p-fake-mom",
+  // 数据源详情（343 号票，原型编的数据源）：连着的、没连的、手机来的、没有这个的；共用的导入文件夹
+  "#/more/data-sources/google-calendar",
+  "#/more/data-sources/looki",
+  "#/more/data-sources/phone-location",
+  "#/more/data-sources/没有这个",
+  "#/more/data-sources/import_folder",
   // 设置里删除素材的旧地址（167 号票之前）：跳到记忆 · 素材
   "#/more/materials",
   "#/more/materials/mat-fake-recent-1",
@@ -126,6 +132,10 @@ const EN_DONE: { hash: string; selector: string; except?: string }[] = [
   { hash: "#/more/plugins", selector: ".plugins-page" },
   // 323 号票：设置 · 组件——分节标题、上面那一排按钮、每块的状况小签、几行的键、按钮、清单签没签名（组件名、说明、值是守护进程给的内容，原型编的是中文）
   { hash: "#/more/components", selector: ".components-page .sec-head, .component-toolbar, .component-head .chip, .component-line dt, .component-actions, .component-manifest" },
+  // 343 号票：数据源一级页的组里"共用"、导入文件夹的小字；详情的分节标题、标签、现查那一行、设置里的开关名（名字、一句话是守护进程给的内容，原型编的是中文）
+  { hash: "#/more/data-sources", selector: '.ds-card[data-source="import_folder"]' },
+  { hash: "#/more/data-sources/google-calendar", selector: ".ds-detail .sec-head, .ds-detail .seg" },
+  { hash: "#/more/data-sources/phone-contacts", selector: "[data-from-device]" },
   // 319b：设置 · 体检——八项的名字、事实、怎么修都是网页按语言拼的（演示页的数据是编的，路径和时间不是中文）
   { hash: "#/more/doctor", selector: ".doctor-page" },
   { hash: "#/more/memory", selector: ".memory-layers", except: ".assistant-name" },
@@ -364,6 +374,126 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     await page.waitForTimeout(400);
     expect(await page.locator(".pane-detail").count()).toBe(1);
     expect(await bodyText(page)).toContain("这次用到的记忆");
+    await page.close();
+    expect(errors).toEqual([]);
+  }, 60_000);
+
+  // 343 号票（用户 2026-10-31 要的）：数据源分两层——一级是卡片（没有输入框、操作按钮），点卡片进单独全屏的详情（宽屏也不留设置的左栏），有返回、刷新后还在
+  for (const [name, viewport, wide] of [
+    ["手机宽", { width: 390, height: 844 }, false],
+    ["电脑宽", { width: 1280, height: 800 }, true],
+  ] as const) {
+    test(`${name}：数据源一级 → 点卡片 → 二级（状态、设置、数据）→ 返回；已获取的点开到素材详情；现在能查到的现查、刷新；手机来的没有现查`, async () => {
+      const { page, errors } = await open(viewport);
+      const hash = () => page.evaluate("window.location.hash");
+      await page.evaluate(`window.location.hash = "#/more/data-sources"`);
+      await page.waitForSelector('.ds-card[data-source="google-calendar"]', { timeout: 5000 });
+      // 一级：没有输入框和操作按钮；按插件分组；键盘能到
+      expect(await page.locator(".data-sources-page input, .data-sources-page select, .data-sources-page textarea").count()).toBe(0);
+      expect(await page.locator(".data-sources-page button:not(.ds-card)").count()).toBe(0);
+      expect(await page.locator('.ds-group[data-plugin="google"] .ds-card').count()).toBe(3);
+      await page.locator('.ds-card[data-source="looki"]').focus();
+      await page.keyboard.press("Enter");
+      await page.waitForSelector('[data-source-detail="looki"]', { timeout: 5000 });
+      expect(await hash()).toBe("#/more/data-sources/looki");
+      await page.locator(".topbar .icon-btn").first().click();
+      await page.waitForSelector('.ds-card[data-source="google-calendar"]', { timeout: 5000 });
+      expect(await hash()).toBe("#/more/data-sources");
+
+      // 点卡片进二级：全屏（宽屏也没有设置的左栏）、三块、刷新后还在这一页
+      await page.locator('.ds-card[data-source="google-calendar"]').click();
+      await page.waitForSelector('[data-source-detail="google-calendar"]', { timeout: 5000 });
+      expect(await hash()).toBe("#/more/data-sources/google-calendar");
+      expect(await page.locator(".pane-list").count()).toBe(0);
+      expect(await page.locator(".settings-group-head").count()).toBe(0);
+      expect(await page.locator(".ds-detail .sec-head h3").allInnerTexts()).toEqual(["状态", "设置", "数据"]);
+      expect(await page.locator('.topbar .title').first().innerText()).toContain("Google · 日历");
+      // 够宽时两栏（数据在右边），窄屏纵向排（数据在下面）
+      const side = (await page.locator(".ds-detail-side").boundingBox())!;
+      const data = (await page.locator(".ds-detail-data").boundingBox())!;
+      expect(wide ? data.x >= side.x + side.width : data.y >= side.y + side.height).toBe(true);
+      await page.reload();
+      await page.waitForSelector('[data-source-detail="google-calendar"]', { timeout: 5000 });
+      expect(await page.locator('[role="switch"]').count()).toBe(2);
+      expect(await page.locator('[data-block="settings"] .source-panel').count()).toBe(1);
+
+      // 两个标签：已获取的（默认）、现在能查到的（切过去才现查，写明不存，能刷新）
+      expect(await page.locator(".ds-detail .seg button").allInnerTexts()).toEqual(["已获取的", "现在能查到的"]);
+      await page.waitForSelector(".ds-stored .ds-item", { timeout: 5000 });
+      await page.locator(".ds-detail .seg button", { hasText: "现在能查到的" }).click();
+      await page.waitForSelector(".ds-live .ds-item", { timeout: 5000 });
+      expect(await page.locator(".ds-live-note").innerText()).toContain("不会存进二狗");
+      await page.locator('[data-action="live-refresh"]').click();
+      await page.waitForSelector(".ds-live .ds-item", { timeout: 5000 });
+
+      // 导入开关、立即同步能用
+      await page.locator('[role="switch"]').first().click();
+      await page.waitForSelector('[role="status"]', { timeout: 5000 });
+      await page.locator('[data-block="status"] .btn.primary').click();
+      await page.waitForFunction(`document.querySelector('[data-block="status"]')?.textContent?.includes("同步好了")`, undefined, { timeout: 5000 });
+
+      // 断开要确认：确认框出来，取消后还在
+      await page.locator('[data-block="settings"] .plugin-actions .btn', { hasText: "断开" }).click();
+      await page.waitForSelector(".modal", { timeout: 5000 });
+      await page.locator(".modal .btn.ghost").click();
+      expect(await page.locator(".modal").count()).toBe(0);
+
+      // Gmail：列表没有正文，点开一封才取
+      await page.evaluate(`window.location.hash = "#/more/data-sources/google-gmail"`);
+      await page.waitForSelector('[data-source-detail="google-gmail"]', { timeout: 5000 });
+      await page.locator(".ds-detail .seg button", { hasText: "现在能查到的" }).click();
+      await page.waitForSelector(".ds-live .ds-item-box", { timeout: 5000 });
+      expect(await page.locator(".ds-item-text").count()).toBe(0);
+      await page.locator(".ds-live .ds-item-box .ds-item").first().click();
+      await page.waitForSelector(".ds-item-text", { timeout: 5000 });
+
+      // 进素材的：点开到素材详情，‹ 回到这里
+      await page.evaluate(`window.location.hash = "#/more/data-sources/demo-camera"`);
+      await page.waitForSelector('[data-source-detail="demo-camera"]', { timeout: 5000 });
+      await page.waitForSelector(".ds-stored button.ds-item", { timeout: 5000 });
+      await page.locator(".ds-stored button.ds-item").first().click();
+      await page.waitForSelector(".mat-detail", { timeout: 5000 });
+      expect(await hash()).toMatch(/^#\/more\/memory\/materials\/mat-fake-source-/);
+      await page.locator(".topbar .icon-btn").last().click();
+      await page.waitForSelector('[data-source-detail="demo-camera"]', { timeout: 5000 });
+
+      // 手机来的：只有已获取的，写明数据由手机交来；原始数据能按天清（点两下）
+      await page.evaluate(`window.location.hash = "#/more/data-sources/phone-location"`);
+      await page.waitForSelector('[data-source-detail="phone-location"]', { timeout: 5000 });
+      expect(await page.locator(".ds-detail .seg").count()).toBe(0);
+      expect(await page.locator("[data-from-device]").innerText()).toContain("数据由手机上的二狗 App 交来");
+      expect(await page.locator(".ds-live").count()).toBe(0);
+      await page.locator('[data-raw="phone-location"] summary').click();
+      const days = await page.locator(".source-raw-days li").count();
+      await page.locator(".source-raw-days li .btn").first().click();
+      await page.locator(".source-raw-days li .btn").first().click();
+      await page.waitForFunction(`document.querySelectorAll(".source-raw-days li").length === ${days - 1}`, undefined, { timeout: 5000 });
+
+      // 导入文件夹：Google · 联系人的详情里有，一级页最后一张卡也进得去；id 不存在写一句、能回去
+      await page.evaluate(`window.location.hash = "#/more/data-sources/google-contacts"`);
+      await page.waitForSelector('[data-folder="google-contacts"]', { timeout: 5000 });
+      await page.evaluate(`window.location.hash = "#/more/data-sources/import_folder"`);
+      await page.waitForSelector(".import-path", { timeout: 5000 });
+      await page.evaluate(`window.location.hash = "#/more/data-sources/没有这个"`);
+      await page.waitForSelector("[data-missing-source]", { timeout: 5000 });
+      await page.locator("[data-missing-source] .btn").click();
+      await page.waitForSelector('.ds-card[data-source="google-calendar"]', { timeout: 5000 });
+      await page.close();
+      expect(errors).toEqual([]);
+    }, 60_000);
+  }
+
+  test("停用记忆插件（?demo-plugins-off=memory）：数据源详情里点开一条素材去内核的素材详情，‹ 回到数据源详情", async () => {
+    const { page, errors } = await open({ width: 1280, height: 800 }, "?demo-plugins-off=memory");
+    await page.evaluate(`window.location.hash = "#/more/data-sources"`);
+    await page.waitForSelector('.ds-card[data-source="demo-camera"]', { timeout: 5000 });
+    await page.locator('.ds-card[data-source="demo-camera"]').click();
+    await page.waitForSelector(".ds-stored button.ds-item", { timeout: 5000 });
+    await page.locator(".ds-stored button.ds-item").first().click();
+    await page.waitForSelector(".mat-detail", { timeout: 5000 });
+    expect(await page.evaluate("window.location.hash")).toMatch(/^#\/more\/materials-delete\/mat-fake-source-/);
+    await page.locator('.topbar [aria-label="返回"]').last().click();
+    await page.waitForSelector('[data-source-detail="demo-camera"]', { timeout: 5000 });
     await page.close();
     expect(errors).toEqual([]);
   }, 60_000);

@@ -307,6 +307,7 @@
 :root[data-style="blueprint"] .toolkit,
 :root[data-style="blueprint"] .model-agent-row,
 :root[data-style="blueprint"] .prompt-row,
+:root[data-style="blueprint"] .ds-item-box,
 :root[data-style="blueprint"] .stat,
 :root[data-style="blueprint"] .bars,
 :root[data-style="blueprint"] .cat-row,

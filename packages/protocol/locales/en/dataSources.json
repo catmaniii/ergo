@@ -27,5 +27,8 @@
   "dataSources.every.hours": "every {n} hours",
   "dataSources.noPush": "{title} doesn't accept data from devices",
   "dataSources.noRaw": "{title} has no raw data to clear",
-  "dataSources.badPush": "What was sent to {title} isn't right: {message}"
+  "dataSources.badPush": "What was sent to {title} isn't right: {message}",
+  "dataSources.noStored": "{title} has nothing fetched to show",
+  "dataSources.noLive": "{title} can't be checked live",
+  "dataSources.liveFailed": "{title} can't be checked right now"
 }

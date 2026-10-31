@@ -513,7 +513,10 @@ Agents use a local Chrome or Edge, found automatically. If none is found or you 
 ### 8.5 Skills, MCP and data sources
 
 - **Settings · Skills & MCP**: import skills and register MCP servers (credentials are read from environment variables you set in the supervisor's `ergo-daemon` entry), then add them to project or task toolkits.
-- **Settings · Data sources**: connect Google (calendar, contacts), Looki and phone data; a shared import folder lets the matching plugin pick up files you drop in.
+- **Settings · Data sources**: connect Google (calendar, Gmail, contacts), Looki and phone data. The page is a set of cards, one per data source and grouped by plugin, showing whether it's connected, the account, how many items have been fetched and the last sync. The last card is the shared import folder, where the matching plugin picks up files you drop in. Open a card to get its own full page (it fills the content area, has a back button and survives a refresh), in three parts:
+  - **Status**: connection state, account, any problem, last sync, and "Sync now".
+  - **Settings**: keys or addresses, the two usage switches, the schedule, sensitive content, the import folder, raw data (cleared by day) and disconnect.
+  - **Data**: **Fetched** is what has already reached Ergo (paged, newest first; items that became materials open the material detail). **Available now** asks the upstream on the spot (Google Calendar events for the next 30 days, the latest Gmail messages, Looki moments from the last 3 days). It's read-only: nothing is saved to Ergo, nothing reaches memory or a model, and the Gmail list shows only sender, subject and time until you open a message. Sources delivered by the phone don't have this tab, because the computer can't query the phone.
 
 ### 8.6 Claude Code
 

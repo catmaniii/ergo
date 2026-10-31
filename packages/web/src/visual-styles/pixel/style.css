@@ -329,6 +329,8 @@
 :root[data-style="pixel"] .skill-collection,
 :root[data-style="pixel"] .radio-row,
 :root[data-style="pixel"] .prompt-row,
+:root[data-style="pixel"] .ds-card,
+:root[data-style="pixel"] .ds-item-box,
 :root[data-style="pixel"] .model-agent-row,
 :root[data-style="pixel"] .scope-row,
 :root[data-style="pixel"] .tbl,

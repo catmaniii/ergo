@@ -7,6 +7,9 @@
 // 299 号票加了"设备交来的"（trigger device：手机上的二狗 App 读本机的通讯录、日历，经网页 POST /api/data-sources/<id>/push 交来）、
 // 每次同步"进来的是什么"那一句（summary，数据源写）。
 // 300 号票加了"原始数据"（raw：插件自己存储里的、不进素材的原始数据——手机位置的原始坐标点、照片的时间地点——按天列出、能按天清掉）。
+// 343 号票：数据源页分两层（卡片总览 + 全屏详情），详情里"数据"一块有两个标签——已获取的（POST /api/data-sources/<id>/stored：已经进到二狗的，
+// 分页、新的在前；进素材的内核按素材的出处列，不进素材的由数据源自己列）、现在能查到的（POST /api/data-sources/<id>/live：现查上游，只读，
+// 不写事件、不进素材、不进记忆、不经过模型）。两边的条目一个外形（DataSourceDataItem）。
 
 /** 两种用法：按需查（给秘书工具，现查不存）、导入（同步进来：进素材或者交给别的插件） */
 export const DATA_SOURCE_USAGES = ["query", "import"] as const;
@@ -124,6 +127,71 @@ export interface DataSourceView {
   toMaterials?: true;
   /** 插件自己存储里的原始数据（300 号票）：按天列出、能按天清掉；没有这回事的、插件没在运行的没有 */
   raw?: DataSourceRawView;
+  /** 要用户去授权、重新填（343 号票：手机上的授权被拒、被撤回，Gmail 登录没过，Looki 不认 Key）：卡片上的小签写"要授权"；不是的不写 */
+  needsAuth?: true;
+  /** "数据"一块有"已获取的"这个标签（343 号票）：数据源自己会列（stored），或者它的记录进素材（内核按素材的出处列）；没有的不写 */
+  hasStored?: true;
+  /** "数据"一块有"现在能查到的"这个标签（343 号票）：数据源能现查上游（live）；手机这种数据由设备交来的没有 */
+  hasLive?: true;
+}
+
+/**
+ * 数据源详情"数据"一块里的一条（343 号票）：已获取的、现在能查到的共用一个外形。给人看的字都按守护进程当前的语言写好；
+ * 标题、副标题、正文可能是外面写的（邮件的主题和正文），网页只当文字显示
+ */
+export interface DataSourceDataItem {
+  /** 这个数据源里认这一条的编号（素材 id、Gmail 的邮件编号……） */
+  id: string;
+  title: string;
+  /** 一句说明（发件人、哪个日历 · 地点） */
+  subtitle?: string;
+  /** 时间（带时区偏移的 ISO）；全天的是那天的零点 */
+  time?: string;
+  /** 结束的时间（日程、时刻有） */
+  end?: string;
+  /** 全天的：只写日期 */
+  allDay?: true;
+  /** 正文：点开这一条就地展开（Looki 时刻的描述、点开一封邮件取回来的） */
+  body?: string;
+  /** 小签（Gmail 明显是财务、健康的，日历的"重复"） */
+  labels?: string[];
+  /** 进了素材的：点开跳素材详情 */
+  materialId?: string;
+  /** 点开才现取正文（Gmail：列表只有发件人、主题、时间）：POST live 带 open 取 */
+  openable?: true;
+}
+
+/** 已获取的一页默认几条、最多几条 */
+export const DATA_SOURCE_STORED_PAGE = 30;
+export const DATA_SOURCE_STORED_MAX = 100;
+
+/** POST /api/data-sources/<id>/stored 的结果：一页已获取的（新的在前）；列不出来的（数据源自己列、插件没在运行）写原因 */
+export interface DataSourceStoredPage {
+  total: number;
+  items: DataSourceDataItem[];
+  problem?: string;
+}
+
+/** 现查的结果：查到了、插件没在运行、没连上、查的时候出错（连接状态是出错的也算） */
+export const DATA_SOURCE_LIVE_STATES = ["ok", "plugin_off", "not_connected", "error"] as const;
+export type DataSourceLiveState = (typeof DATA_SOURCE_LIVE_STATES)[number];
+
+/**
+ * POST /api/data-sources/<id>/live 的结果：现查上游，什么都不存。state 不是 ok 的 problem 写原因（密钥换成 ***）。
+ * 带 open（点开一条）时 items 只有那一条，带正文
+ */
+export interface DataSourceLiveResult {
+  state: DataSourceLiveState;
+  /** 什么时候查的 */
+  at: string;
+  items: DataSourceDataItem[];
+  /** 查的是什么（给人看的："未来 30 天的日程"、"最新的 30 封"） */
+  scope?: string;
+  /** 上游一共有几条（只列了一部分时） */
+  total?: number;
+  /** 查到了、但有要说的（几个日历里有一个没拉到） */
+  notes?: string[];
+  problem?: string;
 }
 
 /** 原始数据里的一天 */

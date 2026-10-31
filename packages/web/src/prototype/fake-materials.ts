@@ -6,6 +6,7 @@
 // 167 号票（记忆 · 素材按时间范围浏览、搜、筛）：另编十几条"近几天的"（时间按打开页面的这一刻往前推，默认的近 7 天里有得看），
 // 各种都有（说的话、语音、附件、存的网页、记忆命令、审批、关掉的卡、任务结局，几个会话）；按时间段、种类、会话、关键词筛照守护进程的口径
 // （materials/facets.ts、memory/browse.ts）在这里再做一遍，搜的时候摘录换成命中的那一段。
+// 343 号票（数据源详情的"已获取的"）：另编几条数据源导入的（fake-data-source-materials：示例相机、手机的位置和照片、编的账单），按 filter.dataSource 筛。
 import {
   type Card,
   CHANNELS,
@@ -30,6 +31,8 @@ import { at, FAKE_CARDS, FAKE_HISTORY } from "./fake-conversations.ts";
 interface FakeMaterial {
   item: MaterialListItem;
   detail: MaterialDetailView;
+  /** 哪个数据源导入的（素材信封出处的 origin.dataSource，343 号票） */
+  dataSource?: string;
 }
 
 const QUOTE_LINE = /^ {0,3}>/;
@@ -350,7 +353,44 @@ let cache: FakeMaterial[] | undefined;
 /** "浏览"里存的（这一页里，新的在前）和同一个幂等键存过的结果 */
 const savedHere: FakeMaterial[] = [];
 const savedKeys = new Map<string, SaveWebPageResult>();
-const all = () => [...savedHere, ...(cache ??= fakeMaterials())];
+let fromSources: FakeMaterial[] | undefined;
+const all = () => [...savedHere, ...(fromSources ??= dataSourceMaterials()), ...(cache ??= fakeMaterials())];
+
+/** 编的数据源导入的素材（343 号票）：观察到的本人行为，时间按打开页面的这一刻往前推 */
+function dataSourceMaterials(): FakeMaterial[] {
+  const rows: ReadonlyArray<readonly [dataSource: string, hoursAgo: number, text: string]> = [
+    ["demo-camera", 16, "下午在咖啡馆和朋友聊天，两个小时，拍到桌上的笔记本"],
+    ["demo-camera", 21, "中午在公司楼下吃面，一个人"],
+    ["demo-camera", 40, "傍晚沿着河边跑步，大约 40 分钟"],
+    ["demo-camera", 45, "上午在公司开会，白板上画了流程图"],
+    ["demo-camera", 68, "晚上在家看书"],
+    ["phone-location", 14, "家，00:00–08:30、19:00–24:00；公司，09:15–18:20"],
+    ["phone-location", 38, "家，00:00–09:00；西湖边，10:30–16:00"],
+    ["phone-photos", 15, "下午在公司附近拍了 9 张"],
+    ["demo-bills", 30, "午饭 32 元"],
+    ["demo-bills", 54, "打车 46 元"],
+  ];
+  return rows.map(([dataSource, hoursAgo, text], i) => {
+    const id = `mat-fake-source-${i + 1}`;
+    const time = nowIso(new Date(Date.now() - hoursAgo * 3_600_000));
+    return {
+      dataSource,
+      item: { id, kind: "观察到的本人行为", time, excerpt: text, marks: {} },
+      detail: {
+        id,
+        kind: "观察到的本人行为",
+        mode: "do",
+        time,
+        source: "self",
+        context: [],
+        segments: [{ form: "text", source: "self", notes: [], text }],
+        event: { channel: dataSource, seq: i + 1, type: "fake_record" },
+        recordId: id,
+        marks: {},
+      },
+    };
+  });
+}
 
 /** 原型："浏览"里存一页（165 号票）：加进这一页的假素材；同一个幂等键重发回第一次的结果 */
 export function fakeSaveWebPage(body: SaveWebPageBody, time: string): SaveWebPageResult {
@@ -384,6 +424,7 @@ export function fakeMaterialsIn(scope: MaterialScope | undefined, deleted: Reado
       const time = Date.parse(m.item.time);
       if (deleted.has(m.item.id) || !inScope(m) || time < from || time > to) return false;
       if (filter.conversation !== undefined && m.item.conversation !== filter.conversation) return false;
+      if (filter.dataSource !== undefined && m.dataSource !== filter.dataSource) return false;
       if (facets.length > 0 && !facetsOf(m.detail).some((f) => facets.includes(f))) return false;
       const text = searchableText(m.detail).toLowerCase();
       return terms.every((t) => text.includes(t));

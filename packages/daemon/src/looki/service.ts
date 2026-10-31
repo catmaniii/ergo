@@ -215,7 +215,7 @@ export function createLookiService(options: LookiServiceOptions): LookiService {
     if (!secrets.has(SECRET.key)) return { connection: "not_connected", ...local };
     const account = accountOf(secrets);
     const p = currentProblem();
-    if (p?.kind === "key") return { connection: "error", problem: p.text, account, ...local };
+    if (p?.kind === "key") return { connection: "error", problem: p.text, account, needsAuth: true, ...local };
     return { connection: "connected", ...(p ? { problem: p.text } : {}), account, ...local };
   };
 

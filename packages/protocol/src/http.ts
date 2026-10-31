@@ -329,6 +329,8 @@ const WORK_FOLDER = "work-folder";
 const DATA_SOURCES = "data-sources";
 const IMPORT_FOLDER = "import-folder";
 const PUSH = "push";
+const STORED = "stored";
+const LIVE = "live";
 const COMPONENTS = "components";
 const COMPONENT_IMPORT = "component-import";
 const PROJECTS = "projects";
@@ -531,6 +533,10 @@ export const HTTP_PATHS = {
   dataSource: (id: string) => api(DATA_SOURCES, id),
   /** POST：设备交来的（手机上的二狗 App 读本机的通讯录、日历；DataSourcePushBody → DataSourcePushResult，299 号票） */
   dataSourcePush: (id: string) => api(DATA_SOURCES, id, PUSH),
+  /** POST：数据源详情的"已获取的"一页（DataSourceStoredBody → DataSourceStoredPage，343 号票） */
+  dataSourceStored: (id: string) => api(DATA_SOURCES, id, STORED),
+  /** POST：数据源详情的"现在能查到的"：现查上游，只读、什么都不存（DataSourceLiveBody → DataSourceLiveResult，343 号票） */
+  dataSourceLive: (id: string) => api(DATA_SOURCES, id, LIVE),
   /** POST：导入文件夹现在看一遍、在电脑上打开（ImportFolderActionBody → ImportFolderActionResult，295 号票） */
   importFolder: api(IMPORT_FOLDER),
   /** GET：设置 · 组件，清单里的全部组件现在的样子（ComponentsView，323 号票）；POST：装上照默认该装的（ComponentsActionBody → ComponentsView） */
@@ -686,6 +692,8 @@ export type HttpRoute =
   | { route: "data_sources" }
   | { route: "data_source"; id: string }
   | { route: "data_source_push"; id: string }
+  | { route: "data_source_stored"; id: string }
+  | { route: "data_source_live"; id: string }
   | { route: "import_folder" }
   | { route: "components" }
   | { route: "component"; id: string }
@@ -801,6 +809,8 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
   if (head === RUNTIMES && id !== undefined && tail === WORK_FOLDER) return { route: "runtime_folder", runtimeId: id };
   if (head === DATA_SOURCES && tail === undefined) return id === undefined ? { route: "data_sources" } : { route: "data_source", id };
   if (head === DATA_SOURCES && id !== undefined && tail === PUSH) return { route: "data_source_push", id };
+  if (head === DATA_SOURCES && id !== undefined && tail === STORED) return { route: "data_source_stored", id };
+  if (head === DATA_SOURCES && id !== undefined && tail === LIVE) return { route: "data_source_live", id };
   if (head === IMPORT_FOLDER && id === undefined) return { route: "import_folder" };
   // 设置 · 组件（323 号票）：清单、一个组件、离线导入
   if (head === COMPONENTS && tail === undefined) return id === undefined ? { route: "components" } : { route: "component", id };

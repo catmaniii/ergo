@@ -10,7 +10,7 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import { type Card, SELF_PERSON_ID, t } from "@ergo/protocol";
 import type { CardService } from "../cards/cards.ts";
-import type { DataSourceImportContext, DataSourceSyncResult, ImportFile } from "../data-sources/api.ts";
+import type { DataSourceImportContext, DataSourceStoredQuery, DataSourceStoredResult, DataSourceSyncResult, ImportFile } from "../data-sources/api.ts";
 import type { EventStore, NewEvent } from "../events/event-store.ts";
 import type { CandidateInput, PersonalFilesForMemory } from "../personal-files/index.ts";
 import { type ContactOffer, offersFromContacts } from "./contact-offers.ts";
@@ -40,6 +40,8 @@ export interface GoogleContactsService {
   importFile(file: ImportFile, ctx: DataSourceImportContext): Promise<DataSourceSyncResult>;
   /** 交过（和排着的）几个人：数据源页的"共几条" */
   count(): number;
+  /** 导入的人（343 号票，数据源详情的"已获取的"）：同一个人导几次算一条，后导的在前 */
+  stored(query: DataSourceStoredQuery): DataSourceStoredResult;
   /** 上一批的卡处理完了就交下一批（插件起来时、卡片变了时叫） */
   offerNext(): void;
   /** 一张卡片变了（事件存储里追加的 card 事件）：是上一批合进的那张、处理完了，就交下一批 */
@@ -167,6 +169,19 @@ export function createGoogleContacts(options: GoogleContactsOptions): GoogleCont
       return { added: records.length, summary: summaryOf({ people: records.length, skipped, repeated }, outcome, left) };
     },
     count: () => new Set(contacts().map((c) => c.key)).size,
+    stored(query) {
+      // 同一个人导几次（后来只记新的字段）合成一条，时间写最后一次
+      const people = new Map<string, GoogleContactPayload[]>();
+      for (const c of contacts()) people.set(c.key, [...(people.get(c.key) ?? []), c]);
+      const items = [...people.entries()].toReversed().map(([key, records]) => {
+        const last = records.at(-1)!;
+        const relation = records.flatMap((r) => (r.relation === undefined ? [] : [r.relation])).at(-1);
+        const values = records.flatMap((r) => r.fields.map((f) => f.value));
+        const subtitle = [...(relation === undefined ? [] : [relation]), ...new Set(values)].join(" · ");
+        return { id: key, title: last.name, ...(subtitle === "" ? {} : { subtitle }), time: last.at };
+      });
+      return { total: items.length, items: items.slice(query.offset, query.offset + query.limit) };
+    },
     offerNext() {
       if (queued().length > 0) offer();
     },

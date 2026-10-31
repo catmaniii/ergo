@@ -46,6 +46,8 @@ export function googleContactsSource(active: () => GoogleContactsService): DataS
       },
     ],
     count: () => active().count(),
+    // 343：不进素材，数据源详情的"已获取的"由它列；不能现查（只靠导出的文件）
+    stored: (query) => active().stored(query),
     get disconnectNote() {
       return t("google.contacts.disconnectNote");
     },

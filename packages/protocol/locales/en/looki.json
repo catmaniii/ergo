@@ -68,5 +68,9 @@
   "looki.archive.readme.journal": "AI journal: {file} ({titles})",
   "looki.archive.readme.sep": ", ",
   "looki.archive.readme.vlog": "vlog: {file}",
-  "looki.archive.readme.footer": "Ergo saved this folder from Looki automatically and updates this note on every sync. Photos and videos are the original files (time taken, place and other details are inside them); each file's modified time is when it was taken."
+  "looki.archive.readme.footer": "Ergo saved this folder from Looki automatically and updates this note on every sync. Photos and videos are the original files (time taken, place and other details are inside them); each file's modified time is when it was taken.",
+  "looki.live.scope": "Moments from the last {days} days (including today)",
+  "looki.live.media.photo": "Photos",
+  "looki.live.media.video": "Video",
+  "looki.live.media.audio": "Audio"
 }

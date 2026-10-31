@@ -135,6 +135,7 @@ describe("登记后在设置 · 数据源里一处列出", () => {
     expect(view.sources.map((s) => s.id)).toEqual([FAKE_SOURCE_ID, FAKE_BILLS_ID]);
     expect(view.sources[0]).toEqual({
       id: FAKE_SOURCE_ID,
+      hasStored: true,
       title: "假数据源",
       summary: "测试用：每次同步拉回几条假记录",
       plugin: FAKE_SOURCE_PLUGIN,

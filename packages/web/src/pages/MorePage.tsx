@@ -39,11 +39,13 @@
 // 319 号票：设置列表最上面多一行"设置向导"（#/more/setup，pages/SetupWizard.tsx）：首次设置的五步加一屏外网访问的说明。
 // 它不进四组（不是哪一类的设置，是一次走完的流程），所以 settingsShown / settingsGroups 里没有它。
 // 319b：数据与设备组里"关于二狗"前面多一行"体检"（#/more/doctor，pages/more/DoctorPage.tsx）：八项一查、右上"再查一遍"。
+// 343 号票：数据源分两层——设置下面的那一页是卡片总览（DataSourcesPage），点卡片是单独全屏的详情（#/more/data-sources/<id>，pages/more/DataSourceDetail.tsx）：
+// 不管设置现在是导航项还是收在"更多"里，详情都占满内容区（宽屏不留设置的左栏）。共用的导入文件夹也是一张卡（ImportFolderPage）。
 import { Fragment, useEffect } from "react";
 import { useDebugUnlock } from "../app/page-debug.ts";
 import { pageSettingsFold, useSettingsFolded } from "../app/page-settings-fold.ts";
 import { backToHash, cameFrom } from "../app/history-nav.ts";
-import { goBackTo, isMorePage, type MorePage as Sub, type Navigate, navItemOf, type Route, toHash } from "../app/route.ts";
+import { goBackFromMaterial, goBackTo, IMPORT_FOLDER_ITEM, isMorePage, type MorePage as Sub, type Navigate, navItemOf, type Route, toHash } from "../app/route.ts";
 import { usePlugins, type WebPluginHost } from "../plugins/api.ts";
 import { activeLocale, LANGUAGE_SETTING_TITLE, type NavItem, type SettingsGroupId, t, tTable } from "../state/index.ts";
 import { ListDetail, TopBar } from "../ui/common.tsx";
@@ -62,6 +64,7 @@ import { ModelsPage } from "./more/ModelsPage.tsx";
 import { NativeAppInfo } from "./more/NativeAppInfo.tsx";
 import { PluginsPage } from "./more/PluginsPage.tsx";
 import { ComponentsPage } from "./more/ComponentsPage.tsx";
+import { DataSourceDetailPage, ImportFolderPage } from "./more/DataSourceDetail.tsx";
 import { DataSourcesPage } from "./more/DataSourcesPage.tsx";
 import { DoctorPage } from "./more/DoctorPage.tsx";
 import { PromptsPage } from "./more/PromptsPage.tsx";
@@ -209,6 +212,14 @@ export function MorePage({ wide, page: shownPage, item, sub, folded, navigate }:
     if (movedHash !== undefined) window.location.replace(movedHash);
   }, [movedHash]);
   if (moved !== undefined) return null;
+  // 343：数据源详情单独占满内容区：不管设置在导航里还是收在"更多"里，都不留左栏
+  if (page === "data-sources" && item !== undefined) {
+    const backToCards = () => goBackTo({ tab: "more", page: "data-sources" });
+    if (item === IMPORT_FOLDER_ITEM) return <ImportFolderPage onBack={backToCards} />;
+    // 点开一条进了素材的：素材详情在哪看，记忆页在用时是记忆 · 素材，停用时是内核的那一页
+    const openMaterial = (id: string) => navigate(coveredRoute(plugins, "materials-delete", id) ?? { tab: "more", page: "materials-delete", item: id });
+    return <DataSourceDetailPage key={item} id={item} onMaterial={openMaterial} onBack={backToCards} />;
+  }
   // 这一页所属的项直接显示在导航里：它自己一页，不经过"更多"
   const owner = page && navItemOf({ tab: "more", page });
   // 有自己地址的（213 号票：日历）没有"更多"右边那一栏：#/more/<id> 也整页画
@@ -220,7 +231,9 @@ export function MorePage({ wide, page: shownPage, item, sub, folded, navigate }:
   // 个人档案（281）不是设置下面的页：回到来处（从设置、记忆页点过来的回那里），没有来处回"更多"
   const back =
     page && item
-      ? () => go(page)
+      ? page === "materials-delete"
+        ? () => goBackFromMaterial({ tab: "more", page })
+        : () => go(page)
       : wide
         ? undefined
         : page === "files"
@@ -276,7 +289,8 @@ function SettingsSection({ wide, page, item, go, navigate }: { wide: boolean; pa
       </div>
     </div>
   );
-  const detail = sub && <SubPageCol page={sub} item={item} onBack={item ? () => go(sub) : wide ? undefined : () => go("settings")} go={go} navigate={navigate} />;
+  const backFromItem = sub === "materials-delete" ? () => goBackFromMaterial({ tab: "more", page: sub }) : () => sub && go(sub);
+  const detail = sub && <SubPageCol page={sub} item={item} onBack={item ? backFromItem : wide ? undefined : () => go("settings")} go={go} navigate={navigate} />;
   return <ListDetail wide={wide} list={list} detail={detail} listWidth={280} />;
 }
 
@@ -356,7 +370,7 @@ function SubPage({ page, item, go, navigate }: { page: Sub; item?: string; go(p:
     case "components":
       return <ComponentsPage />;
     case "data-sources":
-      return <DataSourcesPage />;
+      return <DataSourcesPage navigate={navigate} />;
     case "materials-delete":
       // 内核的成批删除（193 号票：记忆插件停用时从设置进来；点开一条是下一级 #/more/materials-delete/<素材 id>，删了这一条回到列表）
       return (

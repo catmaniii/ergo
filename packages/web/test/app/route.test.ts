@@ -54,6 +54,12 @@ test("外观与风格是设置下面的一页：地址拆得开、拼得回，�
 });
 
 test("系统提示是设置下面的一页，点进某一份是下一级（71 号票）：地址拆得开、拼得回，属于主导航的设置", () => {
+  // 343 号票：数据源详情、共用的导入文件夹
+  expect(parseHash("#/more/data-sources")).toEqual({ tab: "more", page: "data-sources" });
+  expect(parseHash("#/more/data-sources/google-gmail")).toEqual({ tab: "more", page: "data-sources", item: "google-gmail" });
+  expect(toHash({ tab: "more", page: "data-sources", item: "google-gmail" })).toBe("#/more/data-sources/google-gmail");
+  expect(parseHash(toHash({ tab: "more", page: "data-sources", item: "import_folder" }))).toEqual({ tab: "more", page: "data-sources", item: "import_folder" });
+  expect(navItemOf({ tab: "more", page: "data-sources", item: "looki" })).toBe("settings");
   expect(parseHash("#/more/prompts")).toEqual({ tab: "more", page: "prompts" });
   expect(parseHash("#/more/prompts/secretary")).toEqual({ tab: "more", page: "prompts", item: "secretary" });
   expect(toHash({ tab: "more", page: "prompts", item: "multi-project-maintainer" })).toBe("#/more/prompts/multi-project-maintainer");

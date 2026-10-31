@@ -6,8 +6,10 @@
 // - 同步来的日程经 calendar() 交给日历插件当外部日历显示（299 号票定的路：日历按月取时经内核现取）；
 // - 要插件在运行才能做的都经 active() 现取插件的服务（calendar-feeds.ts）。
 // 不用敏感类别：日历的事件不进素材、不拿来推断（issue 25 第 3 节：直接给日历插件）。
+// 343 号票：数据源详情里看数据——已获取的（stored）是同步来的事件，现在能查到的（live）是现拉未来一段时间的日程（calendar-data.ts）。
 import { t } from "@ergo/protocol";
 import type { DataSource } from "../data-sources/api.ts";
+import { calendarLive, calendarStored } from "./calendar-data.ts";
 import { GOOGLE_CALENDAR_SOURCE, type GoogleCalendarService } from "./calendar-feeds.ts";
 import { googleCalendarTool } from "./calendar-tool.ts";
 import { GOOGLE_CALENDAR_FEED, GOOGLE_CALENDAR_ITEM, GOOGLE_CHANNEL } from "./events.ts";
@@ -48,5 +50,7 @@ export function googleCalendarSource(active: () => GoogleCalendarService): DataS
     tools: (ctx) => [googleCalendarTool({ service: active, ctx })],
     count: () => active().count(),
     calendar: (range, ctx) => active().calendarEvents(ctx, range.from, range.to),
+    stored: (query) => calendarStored(active(), query),
+    live: (_query, ctx) => calendarLive(active(), ctx),
   };
 }

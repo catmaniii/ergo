@@ -12,6 +12,7 @@
 // - 存一份到本地（307 号票，archive.ts）：同步时顺带把照片、AI 日记、vlog 存到本地文件夹（默认「文档」下的 Looki）；
 //   设置在配置区的 looki-archive.json、索引在数据目录的 looki-archive/（数据目录各区要 KERNEL.layout）；数据源页"在电脑上打开"它（localFolder）；
 //   断开（不管删不删已导入的）都不删存下的文件；移除并连数据删时删设置和索引，文件照样留着（确认框写明）。停用时正在存的停下。
+// - 数据源详情里看数据（343 号票）：已获取的是导入的素材（内核按素材的出处列）；现在能查到的（live，data.ts）现查最近几天的时刻，什么都不存。
 // 接口地址、限速要等多久可以换（测试接本机的假 Looki：test/helpers/fake-looki.ts，主切面经 extraPlugins 换掉清单里的同名插件）。
 import path from "node:path";
 import { t } from "@ergo/protocol";
@@ -21,6 +22,7 @@ import { KERNEL } from "../plugins/kernel.ts";
 import { LOOKI_CHANNEL, LOOKI_JOURNAL, LOOKI_MOMENT, LOOKI_PLUGIN, LOOKI_SOURCE_ID, type LookiRegion } from "./api.ts";
 import { ARCHIVE_SETTINGS_FILE, ARCHIVE_STATE_DIR, LOOKI_ARCHIVE_DEFAULT_FOLDER, type LookiArchiveOptions } from "./archive.ts";
 import { LOOKI_ENDPOINTS } from "./client.ts";
+import { lookiLive } from "./data.ts";
 import { journalMaterialSource, journalPurge, momentMaterialSource, momentPurge } from "./materials.ts";
 import { createLookiService, type LookiService } from "./service.ts";
 import { lookiQueryTool } from "./tools.ts";
@@ -87,6 +89,7 @@ export function createLookiPlugin(options: LookiPluginOptions = {}): PluginDefin
         recheck: (c) => ctx.active(LOOKI).recheck(c.secrets, c.signal),
         disconnect: () => ctx.active(LOOKI).reset(),
         localFolder: () => ctx.active(LOOKI).localFolder(),
+        live: (_query, c) => lookiLive(ctx.active(LOOKI), c),
         tools: (c) => [lookiQueryTool(() => ctx.active(LOOKI), c.secrets, t("looki.tool.title"), () => ctx.active(LOOKI).today())],
       };
       ctx.dataSources.register(source);

@@ -250,7 +250,8 @@ export type DeleteMaterialsResult = Static<typeof DeleteMaterialsResult>;
  * - facets：种类（MATERIAL_FACETS），算其中任一种就行；空数组等于不筛；
  * - conversation：来源会话（秘书主线、某个维护者的会话）；不来自会话的素材这时不列；
  * - query：关键词，按空白拆开、每个词都要有——用素材库的关键词检索（和秘书的素材检索同一个索引：本人的话、引用的说明、存的网页的正文）；
- *   这时列表里的摘录换成命中的那一段
+ *   这时列表里的摘录换成命中的那一段；
+ * - dataSource：哪个数据源导入的（素材信封出处的 origin.dataSource，343 号票）；不是数据源导入的素材这时不列
  */
 export const MaterialListFilter = Type.Object({
   from: Type.Optional(Type.String({ minLength: 1 })),
@@ -258,6 +259,7 @@ export const MaterialListFilter = Type.Object({
   facets: Type.Optional(Type.Array(Type.Enum(MATERIAL_FACETS), { maxItems: MATERIAL_FACETS.length })),
   conversation: Type.Optional(Type.String({ minLength: 1 })),
   query: Type.Optional(Type.String({ maxLength: MATERIAL_QUERY_MAX })),
+  dataSource: Type.Optional(Type.String({ minLength: 1, maxLength: 100 })),
 });
 export type MaterialListFilter = Static<typeof MaterialListFilter>;
 

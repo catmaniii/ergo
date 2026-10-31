@@ -12,12 +12,16 @@
 // 307 号票：断开的确认框里写数据源报的那一句（Looki："存到本地的照片、日记、vlog 不删……"）；插件那一块要的数据（panel）原样交给插件。
 // 306 号票：确认框按数据源说话（disconnectTexts）——"填过的密钥从这台电脑上删掉"只在真有密钥、"素材照样在"只在真进素材时说，
 // 手机日历、通讯录、Google 联系人这种没密钥、不进素材的由数据源报的那一句说实际会删什么。出错了、内核每小时替它再试的（autoRetry）在出错那一行下面写"每小时自动再试一次，也可以重新填"。
-// 每次打开、插件的状况或者词典的版本变了现取一次；有在同步的每 3 秒再取一次。列表、导入文件夹、确认框是纯渲染的组件
-// （DataSourceList、ImportFolderBlock、DisconnectConfirm），测试在 Node 里直接渲染。
+// 每次打开、插件的状况或者词典的版本变了现取一次；有在同步的每 3 秒再取一次（useDataSourcesView）。
+// 343 号票（用户 2026-10-31："从目录进入数据源页面，显示整体有哪些数据源。点击每一个数据源卡片，跳转到一页单独全屏展示详细配置选项细节"）：分成两层——
+// - 这一页是一级（#/more/data-sources）：卡片总览，按插件分组。每张卡只有名字、一句话、状态（已连接 / 未连接 / 要授权 / 出错 / 插件没启用）、账号、已获取几条、
+//   上次同步，**没有任何输入框和操作按钮**，整张卡是一个按钮；最后一张卡是共用的导入文件夹（没导入的文件数写在小签上）；
+// - 点卡片去二级（#/more/data-sources/<id>，DataSourceDetail.tsx）：单独占满内容区，状态、设置（上面说的那些全挪过去）、数据（已获取的、现在能查到的）。
+// 这个文件留一级页和两层共用的：状态的说法、上次同步那一行、确认框、原始数据、导入文件夹（纯渲染，测试在 Node 里直接渲染）。
 import { useEffect, useState } from "react";
-import { copyText } from "../../app/debug-page.ts";
+import type { Navigate } from "../../app/route.ts";
+import { IMPORT_FOLDER_ITEM } from "../../app/route-hash.ts";
 import { useStore } from "../../app/store.tsx";
-import { type DataSourceSlot, usePlugins } from "../../plugins/api.ts";
 import {
   type DataSourceActionBody,
   type DataSourceActionResult,
@@ -29,11 +33,11 @@ import {
   type ImportFolderView,
   t,
 } from "../../state/index.ts";
-import { Section, Sheet } from "../../ui/common.tsx";
+import { Sheet } from "../../ui/common.tsx";
 import { timeLabel } from "../../util/time.ts";
 
 /** 幂等键。file:// 打开时 crypto.randomUUID 可能不可用，退回时间加随机数 */
-function newKey(): string {
+export function newKey(): string {
   return globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
 
@@ -43,10 +47,27 @@ const POLL_MS = 3000;
 /** 连接状态的小签 */
 const CONNECTION_CHIP: Readonly<Record<DataSourceConnection, string>> = { connected: "chip chip-ok", not_connected: "chip", error: "chip chip-no", manual: "chip chip-quiet" };
 
-/** 小签上写什么：插件没启用的先说这个 */
+/** 小签上写什么：插件没启用的先说这个，要去授权、重新填的说"要授权"（343 号票） */
 export function connectionText(source: DataSourceView): string {
   if (!source.available) return t("pages.dataSources.state.off");
+  if (source.needsAuth) return t("pages.dataSources.state.needsAuth");
   return t(`pages.dataSources.state.${source.connection}`);
+}
+
+/** 小签的样子 */
+export function connectionChip(source: DataSourceView): string {
+  if (!source.available) return "chip chip-no";
+  if (source.needsAuth) return "chip chip-high";
+  return CONNECTION_CHIP[source.connection];
+}
+
+/** 卡片上"上次同步"那一小段（343 号票）：只写时间、出没出错，原因在详情里 */
+export function cardSyncText(source: DataSourceView): string {
+  if (source.syncing) return t("pages.dataSources.syncing");
+  const last = source.lastSync;
+  if (!last) return t("pages.dataSources.neverSynced");
+  const when = timeLabel(last.at);
+  return t(last.error === undefined ? "pages.dataSources.card.last" : "pages.dataSources.card.lastFailed", { when });
 }
 
 /** 上次同步那一行：时间、新进来几条或者出错的原因；还没同步过；正在同步；后面接"共几条" */
@@ -74,7 +95,7 @@ export function syncLine(source: DataSourceView): string {
 }
 
 /** 一种用法下面的小字 */
-function usageSub(source: DataSourceView, usage: DataSourceUsage): string {
+export function usageSub(source: DataSourceView, usage: DataSourceUsage): string {
   if (usage === "query") return t("pages.dataSources.usage.querySub");
   if (source.fromDevice) return t("pages.dataSources.usage.importDevice");
   if (source.destination !== undefined) {
@@ -163,111 +184,6 @@ export function RawDays({ source, busy, onClear }: RawDaysProps) {
         ))}
       </ul>
     </details>
-  );
-}
-
-export interface DataSourceListProps {
-  sources: readonly DataSourceView[];
-  /** 正在处理的数据源 */
-  busy: string | undefined;
-  /** 插件画的设置那一块（按数据源 id；插件没在用的没有） */
-  panel: (id: string) => DataSourceSlot | undefined;
-  onView(view: DataSourcesView): void;
-  onSync(source: DataSourceView): void;
-  onUsage(source: DataSourceView, usage: DataSourceUsage, on: boolean): void;
-  onDisconnect(source: DataSourceView): void;
-  /** 清掉几天的原始数据（300 号票）；不给的不画那一节 */
-  onClearRaw?(source: DataSourceView, dates: string[]): void;
-}
-
-/** 数据源的列表：一个数据源一块 */
-export function DataSourceList({ sources, busy, panel, onView, onSync, onUsage, onDisconnect, onClearRaw }: DataSourceListProps) {
-  if (sources.length === 0) return <div className="muted">{t("pages.dataSources.none")}</div>;
-  return (
-    <div className="source-list">
-      {sources.map((s) => (
-        <DataSourceRow key={s.id} source={s} busy={busy} panel={panel(s.id)} onView={onView} onSync={onSync} onUsage={onUsage} onDisconnect={onDisconnect} {...(onClearRaw ? { onClearRaw } : {})} />
-      ))}
-    </div>
-  );
-}
-
-function DataSourceRow({ source: s, busy, panel, onView, onSync, onUsage, onDisconnect, onClearRaw }: Omit<DataSourceListProps, "sources" | "panel"> & { source: DataSourceView; panel: DataSourceSlot | undefined }) {
-  const disabled = busy !== undefined;
-  const sensitive = sensitiveLine(s);
-  const canDisconnect = s.connection === "connected" || s.connection === "error";
-  const canClear = s.connection === "manual" && s.count > 0;
-  const Panel = s.available ? panel?.Panel : undefined;
-  return (
-    <div className={`source-row source-${s.available ? s.connection : "off"}`} data-source={s.id}>
-      <div className="source-head">
-        <span className="source-name">{s.title}</span>
-        <span className={s.available ? CONNECTION_CHIP[s.connection] : "chip chip-no"}>{connectionText(s)}</span>
-      </div>
-      {s.account !== undefined && <div className="source-meta muted">{t("pages.dataSources.account", { account: s.account })}</div>}
-      {s.summary && <div className="source-summary">{s.summary}</div>}
-      {s.unavailable !== undefined && <div className="field-error">{t("pages.dataSources.unavailable", { reason: s.unavailable })}</div>}
-      {s.problem !== undefined && <div className="field-error">{t("pages.dataSources.problem", { problem: s.problem })}</div>}
-      {s.autoRetry && <div className="hint source-retry">{t(s.configurable ? "pages.dataSources.autoRetry" : "pages.dataSources.autoRetryPlain")}</div>}
-      {s.note !== undefined && <div className="hint source-note">{s.note}</div>}
-      <div className="source-meta muted">{syncLine(s)}</div>
-      {s.usages.length > 0 && (
-        <div className="source-usages">
-          {s.usages.map(({ usage, on }) => (
-            <label key={usage} className="menu-item source-usage">
-              <span className="menu-text">
-                {t(`pages.dataSources.usage.${usage}`)}
-                <small>{usageSub(s, usage)}</small>
-              </span>
-              <input
-                type="checkbox"
-                role="switch"
-                className="mem-setting-switch"
-                aria-label={t("pages.dataSources.usage.label", { usage: t(`pages.dataSources.usage.${usage}`), title: s.title })}
-                checked={on}
-                disabled={disabled}
-                onChange={(e) => onUsage(s, usage, e.currentTarget.checked)}
-              />
-            </label>
-          ))}
-        </div>
-      )}
-      <ul className="source-notes">
-        {sensitive !== undefined && <li>{sensitive}</li>}
-        {s.files.length > 0 && <li>{t("pages.dataSources.files", { names: formatList(s.files) })}</li>}
-      </ul>
-      {Panel && (
-        <div className="source-panel">
-          <Panel source={s} onView={onView} />
-        </div>
-      )}
-      {onClearRaw && <RawDays source={s} busy={busy !== undefined} onClear={(dates) => onClearRaw(s, dates)} />}
-      {(busy === s.id || s.canSync || canDisconnect || canClear) && (
-        <div className="plugin-actions">
-          {busy === s.id ? (
-            <span className="muted">{t("pages.dataSources.working")}</span>
-          ) : (
-            <>
-              {s.canSync && (
-                <button type="button" className="btn primary small" disabled={disabled || s.syncing} onClick={() => onSync(s)}>
-                  {t("pages.dataSources.action.sync")}
-                </button>
-              )}
-              {canDisconnect && (
-                <button type="button" className="btn ghost small" disabled={disabled} onClick={() => onDisconnect(s)}>
-                  {t("pages.dataSources.action.disconnect")}
-                </button>
-              )}
-              {canClear && (
-                <button type="button" className="btn ghost small" disabled={disabled} onClick={() => onDisconnect(s)}>
-                  {t("pages.dataSources.action.clear")}
-                </button>
-              )}
-            </>
-          )}
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -394,22 +310,91 @@ export function ImportFolderBlock({ folder, busy, onCopy, onOpen, onScan }: Impo
   );
 }
 
-/** 没做成的那一句 */
-const errorText = (err: unknown) => t("pages.dataSources.failed", { reason: err instanceof Error ? err.message : String(err) });
+/** 一个插件的几个数据源 */
+export interface DataSourceGroup {
+  plugin: string;
+  title: string;
+  sources: DataSourceView[];
+}
 
-export function DataSourcesPage() {
+/** 按插件分组（343 号票）：组的先后、组里的先后都照守护进程给的 */
+export function groupByPlugin(sources: readonly DataSourceView[]): DataSourceGroup[] {
+  const groups = new Map<string, DataSourceGroup>();
+  for (const source of sources) {
+    const group = groups.get(source.plugin);
+    if (group) group.sources.push(source);
+    else groups.set(source.plugin, { plugin: source.plugin, title: source.pluginTitle, sources: [source] });
+  }
+  return [...groups.values()];
+}
+
+/** 一张卡（343 号票）：整张是一个按钮，点了去详情；只有名字、一句话、状态、账号、已获取几条、上次同步 */
+function DataSourceCard({ source: s, onOpen }: { source: DataSourceView; onOpen(id: string): void }) {
+  return (
+    <button type="button" className="ds-card" data-source={s.id} onClick={() => onOpen(s.id)}>
+      <span className="ds-card-head">
+        <span className="ds-card-name">{s.title}</span>
+        <span className={connectionChip(s)}>{connectionText(s)}</span>
+      </span>
+      {s.summary !== "" && <span className="ds-card-summary">{s.summary}</span>}
+      <span className="ds-card-meta">
+        {s.account !== undefined && <span className="ds-card-account">{s.account}</span>}
+        <span>{t("pages.dataSources.card.fetched", { count: s.count, n: s.count })}</span>
+        <span>{cardSyncText(s)}</span>
+      </span>
+    </button>
+  );
+}
+
+export interface DataSourceCardsProps {
+  sources: readonly DataSourceView[];
+  folder: ImportFolderView;
+  onOpen(id: string): void;
+}
+
+/** 一级页的卡片（343 号票，纯渲染）：按插件分组，最后是共用的导入文件夹；没有输入框、没有操作按钮 */
+export function DataSourceCards({ sources, folder, onOpen }: DataSourceCardsProps) {
+  const pending = folder.pending.length;
+  return (
+    <div className="ds-groups">
+      {sources.length === 0 && <div className="muted">{t("pages.dataSources.none")}</div>}
+      {groupByPlugin(sources).map((group) => (
+        <section key={group.plugin} className="ds-group" aria-label={group.title} data-plugin={group.plugin}>
+          <h3 className="ds-group-title">{group.title}</h3>
+          <div className="ds-cards">
+            {group.sources.map((s) => (
+              <DataSourceCard key={s.id} source={s} onOpen={onOpen} />
+            ))}
+          </div>
+        </section>
+      ))}
+      <section className="ds-group" aria-label={t("pages.dataSources.folder.title")}>
+        <h3 className="ds-group-title">{t("pages.dataSources.card.shared")}</h3>
+        <div className="ds-cards">
+          <button type="button" className="ds-card" data-source={IMPORT_FOLDER_ITEM} onClick={() => onOpen(IMPORT_FOLDER_ITEM)}>
+            <span className="ds-card-head">
+              <span className="ds-card-name">{t("pages.dataSources.folder.title")}</span>
+              {pending > 0 && <span className="chip chip-high">{t("pages.dataSources.card.pending", { count: pending, n: pending })}</span>}
+            </span>
+            <span className="ds-card-summary">{t("pages.dataSources.card.folderSummary")}</span>
+            <span className="ds-card-meta">
+              <span>{folder.scannedAt ? t("pages.dataSources.folder.scannedAt", { when: timeLabel(folder.scannedAt) }) : t("pages.dataSources.folder.notScanned")}</span>
+            </span>
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+/** 现取一整页：每次打开、插件的状况或者词典的版本变了取一次；有在同步的每隔一会儿再取（两层都用它） */
+export function useDataSourcesView() {
   const { http, ui } = useStore();
-  const plugins = usePlugins();
   const revision = ui.locale?.revision;
   // 插件的状况变了（这台设备上或者别处停用、启用）：重取一次
   const statusKey = (ui.pluginStatus?.plugins ?? []).map((p) => `${p.name}:${p.state}`).join(",");
   const [view, setView] = useState<DataSourcesView>();
   const [loadFailed, setLoadFailed] = useState<string>();
-  const [busy, setBusy] = useState<string>();
-  const [folderBusy, setFolderBusy] = useState(false);
-  const [failed, setFailed] = useState<string>();
-  const [note, setNote] = useState<string>();
-  const [confirming, setConfirming] = useState<DisconnectConfirming>();
   const syncing = view?.sources.some((s) => s.syncing) ?? false;
 
   // eslint-disable-next-line react-hooks/exhaustive-deps, react/exhaustive-effect-dependencies -- statusKey、revision 只用来在状况、语言变了时重取
@@ -435,90 +420,22 @@ export function DataSourcesPage() {
     };
   }, [http, statusKey, revision, syncing]);
 
-  const run = (source: DataSourceView, body: DataSourceActionBody) => {
-    setConfirming(undefined);
-    setBusy(source.id);
-    setFailed(undefined);
-    setNote(undefined);
-    http
-      .dataSourceAction(source.id, body)
-      .then(
-        (result) => {
-          setView(result.view);
-          setNote(doneText(source, body, result));
-        },
-        (err: unknown) => setFailed(errorText(err)),
-      )
-      .finally(() => setBusy(undefined));
-  };
+  return { view, setView, loadFailed };
+}
 
-  const folderAction = (action: "scan" | "open") => {
-    setFolderBusy(true);
-    setFailed(undefined);
-    setNote(undefined);
-    http
-      .importFolderAction({ action })
-      .then(
-        (result) => {
-          setView(result.view);
-          if (action === "open") setNote(result.opened ? t("pages.dataSources.folder.opened") : (result.error ?? t("pages.dataSources.folder.openFailed")));
-          else setNote(t("pages.dataSources.folder.scanned"));
-        },
-        (err: unknown) => setFailed(errorText(err)),
-      )
-      .finally(() => setFolderBusy(false));
-  };
-
-  const copyPath = () => {
-    if (!view) return;
-    void copyText(view.folder.path).then((ok) => setNote(t(ok ? "pages.dataSources.folder.copied" : "pages.dataSources.folder.copyFailed")));
-  };
-
-  const onConfirm = () => {
-    if (!confirming) return;
-    const { source, purge } = confirming;
-    run(source, { action: "disconnect", purge: source.connection === "manual" ? true : purge, idempotencyKey: newKey() });
-  };
-
+/** 一级页（343 号票）：卡片总览 */
+export function DataSourcesPage({ navigate }: { navigate: Navigate }) {
+  const { view, loadFailed } = useDataSourcesView();
   return (
     <div className="data-sources-page">
-      <Section title={t("pages.dataSources.listTitle")}>
-        <span className="muted">{t("pages.dataSources.intro")}</span>
-        {!view && !loadFailed && <div className="muted">{t("pages.dataSources.loading")}</div>}
-        {loadFailed && (
-          <div className="field-error" role="alert">
-            {t("pages.dataSources.loadFailed", { reason: loadFailed })}
-          </div>
-        )}
-        {view && (
-          <DataSourceList
-            sources={view.sources}
-            busy={busy}
-            panel={(id) => plugins.get("dataSources", id)}
-            onView={setView}
-            onSync={(s) => run(s, { action: "sync", idempotencyKey: newKey() })}
-            onUsage={(s, usage, on) => run(s, { action: "usage", usage, on, idempotencyKey: newKey() })}
-            onDisconnect={(s) => setConfirming({ source: s, purge: false })}
-            onClearRaw={(s, dates) => run(s, { action: "clear_raw", dates, idempotencyKey: newKey() })}
-          />
-        )}
-        {failed && (
-          <div className="field-error" role="alert">
-            {failed}
-          </div>
-        )}
-        {note && (
-          <div className="hint" role="status">
-            {note}
-          </div>
-        )}
-      </Section>
-      {view && (
-        <Section title={t("pages.dataSources.folder.title")}>
-          <ImportFolderBlock folder={view.folder} busy={folderBusy} onCopy={copyPath} onOpen={() => folderAction("open")} onScan={() => folderAction("scan")} />
-        </Section>
+      <span className="muted">{t("pages.dataSources.intro")}</span>
+      {!view && !loadFailed && <div className="muted">{t("pages.dataSources.loading")}</div>}
+      {loadFailed && (
+        <div className="field-error" role="alert">
+          {t("pages.dataSources.loadFailed", { reason: loadFailed })}
+        </div>
       )}
-      {confirming && <DisconnectConfirm confirming={confirming} busy={busy !== undefined} onPurgeChange={(purge) => setConfirming((c) => (c ? { ...c, purge } : c))} onCancel={() => setConfirming(undefined)} onConfirm={onConfirm} />}
+      {view && <DataSourceCards sources={view.sources} folder={view.folder} onOpen={(id) => navigate({ tab: "more", page: "data-sources", item: id })} />}
     </div>
   );
 }

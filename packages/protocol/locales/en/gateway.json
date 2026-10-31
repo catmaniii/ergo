@@ -144,5 +144,7 @@
   "gateway.http.noTakeover": "This daemon can't take over existing sessions",
   "gateway.http.badTakeOver": "Bad take-over request: {message}",
   "gateway.http.noWorkFolders": "This daemon can't set a default folder for new work",
-  "gateway.http.badRuntimeFolder": "Bad default folder request: {message}"
+  "gateway.http.badRuntimeFolder": "Bad default folder request: {message}",
+  "gateway.http.badDataSourceStored": "Bad parameters for listing fetched data: {message}",
+  "gateway.http.badDataSourceLive": "Bad parameters for the live check: {message}"
 }

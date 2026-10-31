@@ -10,6 +10,8 @@
 // - 306 号票：按需查的工具只在连上时给秘书——没连时秘书的工具清单里没有，填好 Key 后有（秘书重新装配一次），别的插件起停不惊动秘书，
 //   Key 失效（同步时远端不认）后又没有，重新填好又有；外部日历（手机日历）交来新的日程、断开时工作日历频道上推 external_calendar
 //   带更大的版本，日历按月给的 asOf.external 跟着变（开着的日历页据此不用换月就重新取）。
+// - 343 号票：素材按数据源过滤（POST /api/materials/list 的 filter.dataSource）、数据源详情的"已获取的"（POST …/stored）、"现在能查到的"（POST …/live）
+//   走真的 HTTP；外网端口上和别的接口一样，没有设备凭证回 401。各数据源的现查在 test/data-sources/data-browse.test.ts。
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -20,6 +22,7 @@ import {
   type DataSourcePushResult,
   type HttpErrorBody,
   isDeletedEventPayload,
+  type MaterialListPage,
   type MemoryCommandEventPayload,
   type MessageEventPayload,
   nowIso,
@@ -34,7 +37,7 @@ import type { FauxStep } from "../../src/runtime/index.ts";
 import { FAKE_BILLS_ID, FAKE_CHANNEL, FAKE_KEY, FAKE_QUERY_TOOL, FAKE_RECORD, FAKE_SOURCE_ID, FAKE_SOURCE_PLUGIN, fakeDataSourcePlugin, fakeRemote, resetFakeRemote } from "../helpers/fake-data-source.ts";
 import { ManualClock } from "../helpers/clock.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
-import { calendarApi, dataSourcesApi, pluginsApi, requestJson } from "../helpers/http.ts";
+import { calendarApi, dataSourcesApi, materialsApi, pluginsApi, requestJson } from "../helpers/http.ts";
 import { waitUntil } from "../helpers/process.ts";
 
 afterEach(() => resetFakeRemote());
@@ -127,6 +130,50 @@ describe("数据源：统一外形和共用导入文件夹（假数据源插件�
     // 在电脑上打开导入文件夹
     expect((await dataSourcesApi.folder(td.url, { action: "open" })).body).toMatchObject({ opened: true });
     expect(opened).toEqual([layout.imports]);
+  });
+
+  it("343：素材按数据源过滤；已获取的按素材的出处列（点开是素材 id）；不进素材也不会列、不能现查的回 400，不认得的回 404，参数不对回 400；外网端口没凭证回 401", async () => {
+    const td = await startTestDaemon({ extraPlugins: [fakeDataSourcePlugin] });
+    await dataSourcesApi.act(td.url, FAKE_SOURCE_ID, { action: "configure", values: { key: FAKE_KEY }, idempotencyKey: key() });
+    fakeRemote.next = [
+      { text: "早上跑了 5 公里", at: "2026-10-23T07:00:00.000+08:00" },
+      { text: "下午在公司开会", at: "2026-10-24T14:00:00.000+08:00" },
+    ];
+    await dataSourcesApi.act(td.url, FAKE_SOURCE_ID, { action: "sync", idempotencyKey: key() });
+    drop(td, "bills.csv", "假账单\n午饭 30\n");
+    await dataSourcesApi.folder(td.url, { action: "scan" });
+    await waitUntil(() => fakeMaterials(td).length === 3, { timeoutMs: 15_000, describe: () => `素材：${fakeMaterials(td).length}` });
+
+    // 素材的筛选：按 origin.dataSource，新的在前；不是这个数据源导入的不列
+    const listed = await materialsApi.list(td.url, { filter: { dataSource: FAKE_SOURCE_ID } });
+    expect(listed.status).toBe(200);
+    const page = listed.body as MaterialListPage;
+    expect(page.total).toBe(2);
+    expect(page.items.map((m) => m.excerpt)).toEqual(["下午在公司开会", "早上跑了 5 公里"]);
+    expect(((await materialsApi.list(td.url, { filter: { dataSource: FAKE_BILLS_ID } })).body as MaterialListPage).items.map((m) => m.excerpt)).toEqual(["午饭 30"]);
+    expect(((await materialsApi.list(td.url, { filter: { dataSource: "nobody" } })).body as MaterialListPage).total).toBe(0);
+
+    // 已获取的：同一份，点开是素材 id；能翻页
+    const stored = await dataSourcesApi.stored(td.url, FAKE_SOURCE_ID, { limit: 1 });
+    expect(stored.status).toBe(200);
+    expect(stored.body.total).toBe(2);
+    expect(stored.body.items).toEqual([{ id: page.items[0]!.id, title: "下午在公司开会", subtitle: page.items[0]!.kind, time: "2026-10-24T14:00:00.000+08:00", materialId: page.items[0]!.id }]);
+    expect((await dataSourcesApi.stored(td.url, FAKE_SOURCE_ID, { offset: 1 })).body.items.map((i) => i.title)).toEqual(["早上跑了 5 公里"]);
+    // 点开：素材详情接口认这个 id
+    expect((await materialsApi.detail(td.url, stored.body.items[0]!.materialId!)).status).toBe(200);
+
+    // 不能现查、不认得、参数不对
+    const noLive = await dataSourcesApi.live(td.url, FAKE_SOURCE_ID);
+    expect(noLive.status).toBe(400);
+    expect(noLive.body.message).toBe("假数据源不能现查");
+    expect((await dataSourcesApi.live(td.url, "nobody")).status).toBe(404);
+    expect((await dataSourcesApi.stored(td.url, "nobody")).status).toBe(404);
+    expect((await dataSourcesApi.stored(td.url, FAKE_SOURCE_ID, { limit: 100_000 })).status).toBe(400);
+    expect((await dataSourcesApi.live(td.url, FAKE_SOURCE_ID, { nope: 1 } as never)).status).toBe(400);
+
+    // 外网端口：和别的接口一样要设备凭证，没开新口子
+    expect((await dataSourcesApi.stored(td.externalUrl, FAKE_SOURCE_ID)).status).toBe(401);
+    expect((await dataSourcesApi.live(td.externalUrl, FAKE_SOURCE_ID)).status).toBe(401);
   });
 
   it("插件运行中停用：数据源页写明没启用、立即同步回 400；参数不对回 400、不认得的数据源回 404", async () => {

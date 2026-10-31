@@ -27,6 +27,7 @@ import { type EventStore, openEventStore } from "../../src/events/event-store.ts
 import { createInboxService } from "../../src/inbox/inbox.ts";
 import { inboxView } from "../../src/inbox/views.ts";
 import { openMaterials } from "../../src/materials/materials.ts";
+import { createMaterialBrowser } from "../../src/memory/browse.ts";
 import { PurgeRewriters } from "../../src/memory/rewriters.ts";
 import { OperationMeansRegistry } from "../../src/operations/index.ts";
 import { bindService, createPluginHost, type PluginDefinition, type ServiceKey } from "../../src/plugins/host.ts";
@@ -114,6 +115,7 @@ export async function startPluginKernel(options: PluginKernelOptions) {
     folder: { imports: layout.imports, imported: layout.importedDir },
     inferable: () => [],
     materials,
+    materialsOf: (dataSource, page) => createMaterialBrowser({ store, materials, abandoned: () => false, internal: () => undefined }).list(undefined, page, { dataSource }),
     now,
     openFolder: (folder) => {
       openedFolders.push(folder);

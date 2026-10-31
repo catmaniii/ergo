@@ -300,6 +300,8 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 - 第一次见到某个作业只记"从现在起算"，不马上跑；停机期间错过的开机后补一次。时间一律取注入的时钟（测试用 `ManualClock` 拨，不真等）。
 - 在 `setup` 里用 `ctx.effect(() => ctx.internalJobs.register(job))` 登记；正在跑的那一次不会被撤销函数中止，插件要在 `lifecycle.stop` 里自己置中止信号并等它停下。
 
+数据源（`ctx.dataSources.register`，手册第 7 节）在网页上分两层：`#/more/data-sources` 是卡片总览（`pages/more/DataSourcesPage.tsx`，没有输入框和操作按钮），`#/more/data-sources/<id>` 是单独全屏的详情（`pages/more/DataSourceDetail.tsx`：状态、设置、数据）。数据一块的两个标签对应数据源的两个可选方法：`stored`（已获取的，不进素材的自己列；进素材的内核按 `origin.dataSource` 列，`POST /api/materials/list` 的 `filter.dataSource` 同一份）和 `live`（现在能查到的：现查上游，只读，不写事件、不进素材、不进记忆、不经过模型）。接口是 `POST /api/data-sources/<id>/stored`、`POST /api/data-sources/<id>/live`，外网端口上和别的接口一样要设备凭证。
+
 ### 5.3 网页插件
 
 网页用**类型化插槽**，插件之间不互相 import（`packages/web/src/plugins/`）。守护进程在插件频道上推每个插件的状况，网页插件宿主按它装、停。
