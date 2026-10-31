@@ -367,7 +367,7 @@ export function startSecretary(options: SecretaryOptions): Secretary {
       outputsDir,
       secretaryIdle: () => session.status === "idle",
       media: options.media,
-      ...(sessionTools ? { speaks: () => sessionTools.voiceReplies !== undefined } : {}),
+      ...(sessionTools ? { speaks: () => sessionTools.voiceReplies !== undefined, ownVoiceOf: (agentId: string) => sessionTools.voiceReplies?.ownVoiceOf?.(agentId) } : {}),
       log: options.log,
     });
   }

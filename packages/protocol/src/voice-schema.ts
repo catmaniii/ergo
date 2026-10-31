@@ -130,6 +130,20 @@ export const AgentVoiceSegment = Type.Object({
 export type AgentVoiceSegment = Static<typeof AgentVoiceSegment>;
 
 /**
+ * 一条语音里一个人说的一段（354 号票）：秘书先开场、再接负责人自己的声音，合成一条。声音（referenceVoice）和说话的人（speaker：
+ * agent id 和角色名，转文字时写"小张："）都是运行时定的——秘书的按它自己的角色，负责人的按通知上记的发信人查角色，模型指定不了
+ */
+export const AgentVoicePart = Type.Object({
+  /** 这一段的口语稿 */
+  text: Type.String(),
+  /** 这一段用的参考音色：id 和当时的显示名 */
+  referenceVoice: Type.Object({ id: Type.String(), name: Type.String() }),
+  /** 谁说的：agent id 和当时的角色名 */
+  speaker: Type.Object({ agentId: Type.String(), name: Type.String() }),
+});
+export type AgentVoicePart = Static<typeof AgentVoicePart>;
+
+/**
  * agent 发的一条语音（语音回复）：用户发语音时，agent 这一轮的回复由运行时合成语音。
  * 绑定音频（入库的媒体，按内容哈希）、时长、送进 TTS 的原文、所用参考音色、TTS 模型，以及对应的完整回复在哪几条消息里。
  * 86 号票起也可以是 agent 在用户打字的那一轮用"发语音"工具发的（mode 是 tool）：调用时建出，字段同一套
@@ -175,6 +189,11 @@ export const AgentVoiceRecord = Type.Object({
   text: Type.Optional(Type.String()),
   /** 所用的参考音色：id 和当时的显示名（回合结束时定；工具发的调用时定） */
   referenceVoice: Type.Optional(Type.Object({ id: Type.String(), name: Type.String() })),
+  /**
+   * 不止一个人的声音（354 号票，秘书开场 + 负责人的声音）：按先后依次合成，拼成一条。这时 text 是各段连起来的（老的读者照常读得到），
+   * referenceVoice 是第一段的。负责人没有自己的声音（没配、和秘书的一样、被删了）时不写，就是一条秘书的语音。之前的语音记录都没有
+   */
+  parts: Type.Optional(Type.Array(AgentVoicePart)),
   /** TTS 模型：合成服务报出来的实际模型（比如 fish_audio（audio.cpp/tts）），报不出来时是配置里写的模型名（合成时定） */
   model: Type.Optional(Type.String()),
   status: AgentVoiceStatus,

@@ -8,6 +8,7 @@
   "voice.notes.synthesisPartial": "Only the first part of the voice reply was created ({reason}). The full text is shown as usual.",
   "voice.notes.toolVoiceFailed": "This voice message wasn't sent ({reason}).",
   "voice.notes.toolVoicePartial": "Only the first part of this voice message was sent ({reason}).",
+  "voice.notes.relayPartial": "Only the first part of this voice message was sent ({reason}). {names} didn't get to say this, so here's the text:\n{text}",
   "voice.reason.segmentFormatMismatch": "The speech service returned segments in different formats, so they couldn't be joined",
   "voice.reason.speechBusy": "Speech service is busy",
   "voice.reason.notWav": "The speech service didn't return a playable WAV",

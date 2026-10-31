@@ -152,6 +152,7 @@
   "projects.errors.noTask": "No task with ID {id}",
   "projects.errors.alreadyMaintainer": "The maintainer of task {id} already maintains a project, so it can't be turned into one",
   "projects.errors.resetArchived": "Project \"{name}\" is archived and its maintainer chat is read-only, so it can't be reset. Unarchive it on the project page first.",
+  "projects.errors.announceArchived": "Project \"{name}\" is archived, so it won't have updates to read out",
   "projects.errors.resetUnsupported": "This version can't reset maintainers yet",
   "projects.errors.chatDeleted": "Project \"{name}\" has been deleted, along with its maintainer chat",
   "projects.errors.chatArchived": "Project \"{name}\" is archived and its maintainer chat is read-only. To keep talking with the maintainer, unarchive it on the project page first.",

@@ -502,6 +502,11 @@ export interface SessionVoiceReplies {
  */
 export interface AgentVoiceReplies extends SessionVoiceReplies {
   readonly tools: readonly HostTool[];
+  /**
+   * 这个 agent 有没有自己的声音（354 号票：角色配了音色、音色还在、和秘书现在用的不一样）：有给它的角色名，交给秘书的通知里写明，
+   * 秘书才知道要不要写两段。没有是 undefined
+   */
+  ownVoiceOf?(agentId: string): { name: string } | undefined;
 }
 
 export class AgentSession {

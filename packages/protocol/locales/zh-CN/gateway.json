@@ -25,6 +25,7 @@
   "gateway.ws.rescheduleJob": "这个版本还不能改定时任务的时间",
   "gateway.ws.runJobNow": "这个版本还不能让定时任务立即运行一次",
   "gateway.ws.setVoiceAnnounce": "这个版本还不能开关跑完自动播报",
+  "gateway.ws.setProjectVoiceAnnounce": "这个版本还不能开关项目的自动播报",
   "gateway.ws.createReminder": "这个版本还不能在发起对话框里建提醒",
   "gateway.ws.reminderAction": "这个版本还不能在看板、提醒卡上取消、归档、删除提醒",
   "gateway.ws.markRead": "这个版本还不能记已读位置",

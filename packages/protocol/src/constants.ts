@@ -325,6 +325,8 @@ export const METHODS = {
   runJobNow: "run_job_now",
   /** 开关任务的"跑完自动播报"（100 号票）：开着时做完秘书直接把要点念成语音气泡，不问 */
   setVoiceAnnounce: "set_voice_announce",
+  /** 开关项目的自动播报（354 号票）：开着时负责人的进展来信，秘书直接念（用负责人的声音），不问 */
+  setProjectVoiceAnnounce: "set_project_voice_announce",
   /** 发起对话框里选了"只提醒我"：建一条简单提醒（不用 agent，到点只发通知），时间表和定时触发的任务同一套（76 号票） */
   createReminder: "create_reminder",
   /**
@@ -388,6 +390,7 @@ export const METHODS_REQUIRING_IDEMPOTENCY_KEY = [
   METHODS.rescheduleJob,
   METHODS.runJobNow,
   METHODS.setVoiceAnnounce,
+  METHODS.setProjectVoiceAnnounce,
   METHODS.createReminder,
   METHODS.reminderAction,
   METHODS.markRead,

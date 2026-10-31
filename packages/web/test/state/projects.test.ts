@@ -63,6 +63,9 @@ describe("项目列表", () => {
     ]);
     // 项目页上的入口按状态给出
     expect(selectProject(state, "p-1")?.actions).toEqual(["retire", "archive"]);
+    // 自动播报（354 号票）：默认关；已归档的不能开关
+    expect(selectProject(state, "p-1")?.announce).toBe(false);
+    expect(selectProject(state, "p-3")?.announce).toBeUndefined();
     expect(selectProject(state, "p-3")?.actions).toEqual(["unarchive", "delete"]);
     // "发起任务"时能选的项目：没归档的
     expect(selectableProjectNames(state)).toEqual(["记账本", "家电档案"]);

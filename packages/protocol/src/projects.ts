@@ -95,6 +95,8 @@ export const PROJECT_CHANGES = [
   "runtime_set",
   // 290 号票：从运行时已有的会话接管来的（Project.takeover）交还了、收回了（项目状态不变）
   "takeover_set",
+  // 354 号票：开关了自动播报（Project.voiceAnnounce；项目状态不变）
+  "voice_announce_set",
 ] as const;
 export type ProjectChange = (typeof PROJECT_CHANGES)[number];
 
@@ -126,6 +128,11 @@ export const ARCHIVING_ACTIONS: readonly ProjectAction[] = ["abandon", "archive"
 export let RESET_MAINTAINER_LABEL = "";
 
 export function canResetMaintainer(project: { state: ProjectState }): boolean {
+  return project.state !== "archived";
+}
+
+/** 能不能开关项目的自动播报（354 号票）：已归档的不会再有进展；守护进程和 Web 的项目页共用 */
+export function canSetProjectVoiceAnnounce(project: { state: ProjectState }): boolean {
   return project.state !== "archived";
 }
 

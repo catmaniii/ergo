@@ -22,6 +22,9 @@
 //   直接由运行时兜底；还在合成的重做一遍（合成只是几次 HTTP 调用，不算"中断不确定"）：推过的段先收回，从第一段重新合成。
 // - 86 号票：用户打字的那一轮 agent 也能用"发语音"工具发语音，它的行为都在 send-voice.ts。这里只把跟着回合记下的交给它：
 //   正在进行的一轮（开始的序号、回复的归属，openTurn）、一轮结束（closeTurn：这一轮回复了哪些消息、结局），启动时先让它收尾（start）。
+// - 354 号票：用户说话问某个任务、项目的进展，这一轮秘书用发语音工具带 relay 写了两段（send-voice.ts 记到这一轮上：relayThisTurn）：
+//   语音回复合成的就是这两段（秘书开场 + 负责人的声音），不看回复多长；回复的文字照常显示（mode 记成 summary，agent 写的）。
+//   记在内存里：这一轮没结束就停了的，和别的语音轮一样记成 skipped，那条输入由会话标成中断。
 import { randomUUID } from "node:crypto";
 import {
   type AgentVoiceEventPayload,
@@ -46,8 +49,9 @@ import type { InboxService } from "../inbox/inbox.ts";
 import type { MediaStore } from "../media/media-store.ts";
 import type { Clock } from "../scheduler/clock.ts";
 import { getAgentVoice, unsettledAgentVoices } from "../voice-records/index.ts";
+import type { OwnVoice } from "./agent-voice-ref.ts";
 import type { ReferenceVoices, ResolvedReferenceVoice } from "./reference-voices.ts";
-import { createSendVoice, sendVoiceInterruptedResults } from "./send-voice.ts";
+import { createSendVoice, type RelayedSpeech, sendVoiceInterruptedResults } from "./send-voice.ts";
 import { standingNotice } from "./shared.ts";
 import type { SpeechSynthesizer } from "./speech.ts";
 import { fitsPace, leadingSentences, runtimeSummary, type SpokenPace, speakable } from "./spoken-text.ts";
@@ -76,6 +80,10 @@ export interface VoiceRepliesOptions {
    * 不给时一律用 references.current()（和以前一样）
    */
   voiceOf?: (conversation: ConversationId) => ResolvedReferenceVoice | undefined;
+  /** 转述负责人的进展时（354 号票）：一个 agent 的角色名（转文字时写）；不给时用 agent id */
+  speakerName?: (agentId: string) => string;
+  /** 这个 agent 自己的声音（354 号票，agent-voice-ref.ts）：没有是 undefined，这时退回一条秘书的语音；不给就是都没有 */
+  ownVoiceOf?: (agentId: string) => OwnVoice | undefined;
   speech: SpeechSynthesizer;
   /** 念多快、多长算长（配置里的 voice.reply） */
   pace: SpokenPace;
@@ -112,6 +120,8 @@ interface OpenTurn {
   scope: MessageScope;
   /** 这一轮开始时就建出的 agent 语音对象（输入是语音、有参考音色时） */
   voiceId?: string;
+  /** 语音轮里秘书用发语音工具写的两段（354 号票）：语音回复合成它们 */
+  relay?: RelayedSpeech;
 }
 
 /** 回复里算"内容"的 part：工具调用记录、推理不算 */
@@ -186,6 +196,14 @@ export function createVoiceReplies(options: VoiceRepliesOptions): VoiceReplies {
       return turn && { seq: turn.seq, scope: turn.scope };
     },
     announceMissing: () => raiseMissing(),
+    relayThisTurn(conversation, relay) {
+      const turn = turns.get(conversation);
+      if (!turn) return false;
+      turn.relay = relay;
+      return true;
+    },
+    ...(options.speakerName ? { speakerName: options.speakerName } : {}),
+    ...(options.ownVoiceOf ? { ownVoiceOf: options.ownVoiceOf } : {}),
     ...(options.sendVoiceWaitMs === undefined ? {} : { waitMs: options.sendVoiceWaitMs }),
     log,
   });
@@ -290,13 +308,14 @@ export function createVoiceReplies(options: VoiceRepliesOptions): VoiceReplies {
     if (outcome !== "completed") return skip(replying, SKIPPED.turnNotCompleted(outcome));
     if (!voiceTurn(turn)) return skip(replying, SKIPPED.lastInputNotVoice());
     const replyText = replyTextOf(turn.replies);
-    if (!replyText.trim() && !summary) return skip(replying, SKIPPED.nothingToSay());
+    if (!replyText.trim() && !summary && !turn.relay) return skip(replying, SKIPPED.nothingToSay());
     const reference = voiceFor(conversation);
     if (!reference) {
       announceMissing();
       return skip(replying, SKIPPED.noReference());
     }
-    const plan = planSpoken(replyText, summary);
+    // 秘书写了两段（354 号票）：合成的就是它们，回复的文字照常显示
+    const plan: SpokenPlan = turn.relay ? { mode: "summary", summaryBy: "agent", text: turn.relay.text } : planSpoken(replyText, summary);
     const decided = {
       scope: turn.scope,
       replyMessageIds: [...turn.replies],
@@ -304,6 +323,7 @@ export function createVoiceReplies(options: VoiceRepliesOptions): VoiceReplies {
       ...(plan.summaryBy === undefined ? {} : { summaryBy: plan.summaryBy }),
       ...(plan.text === undefined ? {} : { text: plan.text }),
       referenceVoice: { id: reference.id, name: reference.name },
+      ...(turn.relay?.parts ? { parts: turn.relay.parts } : {}),
     } satisfies Partial<AgentVoiceRecord>;
     const status = plan.text === undefined ? "summarizing" : "synthesizing";
     // 插话里的语音让这一轮用了语音：回合结束时才建出
@@ -351,6 +371,10 @@ export function createVoiceReplies(options: VoiceRepliesOptions): VoiceReplies {
   return {
     tools: [tool, sendVoice.tool],
     interruptedResults: (conversation) => sendVoiceInterruptedResults(store.reader, conversation),
+    ownVoiceOf(agentId) {
+      const own = options.ownVoiceOf?.(agentId);
+      return own && { name: own.name };
+    },
     inputContext(message) {
       if (!isVoiceInput(message) || !voiceFor(message.conversation)) return undefined;
       return voiceInputContext(pace);

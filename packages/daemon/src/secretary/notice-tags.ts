@@ -18,16 +18,19 @@ export function isMaintainerLetterNotice(message: MessageEnvelope): boolean {
 }
 
 /**
- * 开了"跑完自动播报"的任务做完的通知（100 号票）：紧跟在 TASK_DONE_TAG 后面的标记，占位符 {{自动播报标记}}。
- * 用户事先给的授权：秘书处理这条通知的那一轮能发语音（send_voice 放行），别的运行时通知照旧不行
+ * 开了"跑完自动播报"的任务做完的通知（100 号票）：紧跟在 TASK_DONE_TAG 后面的标记，占位符 {{自动播报标记}}。354 号票起开关开着的任务、项目的
+ * 进展来信也紧跟在 MAINTAINER_LETTER_TAG 后面带它。用户事先给的授权：秘书处理这条通知的那一轮能发语音（send_voice 放行），别的运行时通知照旧不行
  */
 export const AUTO_ANNOUNCE_TAG = "【跑完自动播报】"; // @i18n-ignore model：通知开头的标记，运行时按它认
 
+/** 开了自动播报的通知的开头：任务做完的（100 号票）、进展来信的（354 号票） */
+export const ANNOUNCE_HEADS = [TASK_DONE_TAG, MAINTAINER_LETTER_TAG].map((tag) => ({ tag, head: `${tag}${AUTO_ANNOUNCE_TAG}` }));
+
 /**
- * 是不是开了跑完自动播报的任务做完的通知：秘书会话里运行时发的系统消息，开头就是两个标记（标记写在开头，后面 agent 说的话里
+ * 是不是开了自动播报的通知：秘书会话里运行时发的系统消息，开头就是两个标记（标记写在开头，后面 agent 说的话里
  * 带着同样的字也不算；用户发不了系统消息）
  */
 export function isAutoAnnounceNotice(message: MessageEnvelope): boolean {
   const first = message.parts[0];
-  return message.conversation === CHANNELS.secretary && message.speaker === "system" && first?.type === "text" && first.text.startsWith(`${TASK_DONE_TAG}${AUTO_ANNOUNCE_TAG}`);
+  return message.conversation === CHANNELS.secretary && message.speaker === "system" && first?.type === "text" && ANNOUNCE_HEADS.some(({ head }) => first.text.startsWith(head));
 }

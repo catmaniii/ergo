@@ -242,8 +242,8 @@ describe("立即运行一次、跑完自动播报（100 号票）", () => {
   test("做完的提示：立即运行一次写第几次运行、时间表不变（排着的写等名额）；跑完自动播报写开关之后怎样", () => {
     expect(runNowToast({ runId: "j-1-r3", state: "running" })).toBe("已开始立即运行一次（第 3 次运行），时间表不变；跑完会告诉你");
     expect(runNowToast({ runId: "j-1-r4", state: "queued" })).toBe("立即运行一次排上了（第 4 次运行）：执行名额空出来就开始，时间表不变");
-    expect(announceToast(true)).toBe("已打开跑完自动播报：做完直接把要点念给你听，不先问");
-    expect(announceToast(false)).toBe("已关掉跑完自动播报：做完先问你要不要念");
+    expect(announceToast(true)).toBe("已打开跑完自动播报：做完或者中途来信都直接把要点念给你听，不先问");
+    expect(announceToast(false)).toBe("已关掉跑完自动播报：做完或者中途来信都先问你要不要念");
   });
 });
 

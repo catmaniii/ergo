@@ -93,6 +93,7 @@ import {
   ARCHIVING_ACTIONS,
   archiveBlockedText,
   canResetMaintainer,
+  canSetProjectVoiceAnnounce,
   type ProjectActionParams,
   type ProjectActionResult,
   projectActionRefusal,
@@ -107,6 +108,8 @@ import {
   type WorkFolderChoice,
   type SuggestProjectCardPayload,
   type ResetMaintainerResult,
+  type SetProjectVoiceAnnounceParams,
+  type SetProjectVoiceAnnounceResult,
   type Task,
   type TaskActor,
   toolkitBashWording,
@@ -189,6 +192,13 @@ export interface ProjectService {
    * pi 不写，选的值是空的不写；本来就是这样的不另记。没有的、删掉的项目抛 RequestRejected
    */
   setRuntime(projectId: string, runtime: string | undefined, runtimeOptions: RuntimeChoice | undefined): Project;
+  /**
+   * 开关项目的自动播报（354 号票，set_project_voice_announce：项目页上的开关）：记一条 voice_announce_set（状态不变，by 默认用户）。
+   * 本来就是这样的不另记；同一个幂等键重发拿到同一个结果。没有的、已归档的抛 RequestRejected
+   */
+  setVoiceAnnounce(params: SetProjectVoiceAnnounceParams, idempotencyKey: string): SetProjectVoiceAnnounceResult;
+  /** 开关自动播报的事件（快速动作用，和卡片同一事务）：本来就是这样的没有事件 */
+  buildVoiceAnnounce(projectId: string, on: boolean, idempotencyKey?: string): { project: Project; events: NewEvent[] };
   /**
    * 从运行时已有的会话接管成项目（290 号票，接管服务 takeover/ 叫）：不经秘书、直接建出（筹备中，origin takeover），维护者用这个运行时、
    * 接着那个会话，工作目录是会话原来的（外部路径，删项目时不删）；名字和已有的重了加序号。extra 给出和项目一起追加的事件（前情消息）。
@@ -403,6 +413,15 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
     if (!row) throw new RequestRejected("not_found", t("projects.errors.noProject", { id: projectId }));
     if (row.deleted) throw new RequestRejected("not_found", t("projects.errors.deleted", { id: projectId, name: row.project.name }));
     return row.project;
+  };
+
+  /** 开关自动播报（354 号票）：状态不变的一条 voice_announce_set；本来就是这样的没有事件；已归档的不能开关 */
+  const buildVoiceAnnounce = (projectId: string, on: boolean, idempotencyKey?: string): { project: Project; events: NewEvent[] } => {
+    const project = mustGet(projectId);
+    if (!canSetProjectVoiceAnnounce(project)) throw new RequestRejected("not_allowed", t("projects.errors.announceArchived", { name: project.name }));
+    if ((project.voiceAnnounce === true) === on) return { project, events: [] };
+    const next: Project = { ...project, voiceAnnounce: on, updatedAt: now() };
+    return { project: next, events: [{ ...projectEvent(next, "voice_announce_set", project.state, "user"), ...(idempotencyKey === undefined ? {} : { idempotencyKey }) }] };
   };
 
   /** 新项目（还没追加）：编号接着已有的（删掉的也算），名字不能和没删掉的项目重 */
@@ -883,6 +902,19 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
       store.append(projectEvent(next, "runtime_set", project.state, "user"));
       return next;
     },
+
+    setVoiceAnnounce(params, idempotencyKey) {
+      const done = store.eventByIdempotencyKey(idempotencyKey);
+      if (done) {
+        const { project } = done.payload as ProjectEventPayload;
+        return { projectId: project.id, on: project.voiceAnnounce === true };
+      }
+      const built = buildVoiceAnnounce(params.projectId, params.on, idempotencyKey);
+      if (built.events.length > 0) store.appendBatch(built.events);
+      return { projectId: built.project.id, on: built.project.voiceAnnounce === true };
+    },
+
+    buildVoiceAnnounce,
 
     takeOver(input, idempotencyKey, extra) {
       const done = store.eventByIdempotencyKey(idempotencyKey);

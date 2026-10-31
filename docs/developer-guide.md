@@ -190,7 +190,7 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 
 ### 4.9 记忆系统
 
-- **素材**：内核的素材库从事件日志采用户的原话（和语音转写、回避信号……），存原文副本、建关键词和向量索引（`db/materials.db`）。
+- **素材**：内核的素材库从事件日志采用户的原话（和语音转写、回避信号……），存原文副本、建关键词和向量索引（`db/materials.db`）。agent 的语音不算：秘书转述负责人进展的那条语音（`AgentVoiceRecord.parts`，354 号票）只在语音对象上，负责人那段算它说的，不进素材，也不是秘书的结论。
 - **记忆插件**（`memory/plugin.ts`）：每天 03:00 的内部作业叫醒**记忆管理员**（一个按需拉起的 agent），它用 `@ergo/memory` 的引擎把新素材读成证据、整理进推理库 `memory/subtext/rg.db`（结论、证据链、竞争解释、预测、问题箱），一次整理最多调 `memory.maxModelCalls` 次模型；所有写入都经唯一写入口（[ADR-0030](adr/0030-memory-keeper-maintains-reasoning-graph-through-write-gate.md)）。
 - 秘书每轮醒来带一份简报，用户的话有相关记忆时自动带一份记忆简报，再按需"问记忆"；深聊和改动转给记忆管理员。
 - 配置里 `memory.*` 的几项开关（比如按场景标签的情绪、财务、关系、位置）现在有的只是占位：写进来不改变行为，默认值只在 `config/config.ts`。

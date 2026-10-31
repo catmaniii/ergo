@@ -620,6 +620,8 @@ export {
   manualTriggerSummary,
   // 跑完自动播报（100 号票）：还会再做完一次的、不是项目内部的任务能开关
   canSetVoiceAnnounce,
+  // 项目的自动播报（354 号票）：没归档的项目能开关
+  canSetProjectVoiceAnnounce,
   JOB_AUTO_PAUSED_ACTIONS,
   TIME_TRIGGER_SOURCE,
   JOB_PAUSE_REASON_LABEL,
@@ -657,6 +659,8 @@ export type {
   RunJobNowResult,
   SetVoiceAnnounceParams,
   SetVoiceAnnounceResult,
+  SetProjectVoiceAnnounceParams,
+  SetProjectVoiceAnnounceResult,
   ScheduledJobEventPayload,
   ScheduledJobState,
 } from "@ergo/protocol";

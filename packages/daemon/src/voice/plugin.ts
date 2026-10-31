@@ -17,6 +17,8 @@
 // - 运行中停用（211 号票，设置 · 插件）：识别进程停掉、合成不再调用；还没识别完的语音不再挡输入队列（内核的挡板 conversation/input-gate.ts：
 //   只有语音的先不交，带附件、卡片的照交、语音那段是"识别失败"）；秘书手头这一条处理完按新的重新装配，没有口语总结、发语音工具；
 //   正在跑的一轮里再调它们回"语音插件没启用"。启用回来是新的一次装配：排队、识别中的接着识别（同守护进程重启）。
+// - 354 号票：转述负责人的进展时第二段用它自己的声音（agent-voice-ref.ts 的 ownVoiceOfAgent，按角色查、和秘书现在用的比），经 replies.ownVoiceOf
+//   告诉内核（交给秘书的通知里写明）。移除时连数据删也改写各段的文字（parts）。
 // - agent 那一侧的工具（口语总结、发语音）不经 agent 贡献缝：它们是"每个会话都配的工具"（session-tools.ts），排在联网工具后面，
 //   秘书、维护者的工具顺序和搬过来之前一样。系统提示里讲念语音的几句包在条件"语音"里（prompt.ts）。
 import { type AgentVoiceEventPayload, CHANNELS, type ConversationId, EVENT_TYPES, forModel, PURGED_TEXT, t, type VoiceEventPayload } from "@ergo/protocol";
@@ -29,7 +31,7 @@ import { KERNEL } from "../plugins/kernel.ts";
 import { buildChildEnv } from "../process/child-env.ts";
 import { createJobObject } from "../process/job-object.ts";
 import { agentVoicesIn, voiceMaterialSource, voicePurge, voicesIn } from "../voice-records/index.ts";
-import { agentIdOfConversation, voiceOfAgent } from "./agent-voice-ref.ts";
+import { agentIdOfConversation, ownVoiceOfAgent, voiceOfAgent } from "./agent-voice-ref.ts";
 import { VOICE, type VoiceApi } from "./api.ts";
 import { createDebugVoice } from "./debug-voice.ts";
 import { voiceGateOf } from "./gate.ts";
@@ -77,7 +79,8 @@ const voiceRemoval: PluginDataRemoval = {
       },
       rewrite: (event) => {
         const payload = event.payload as AgentVoiceEventPayload;
-        return { ...payload, voice: { ...payload.voice, text: PURGED_TEXT } } satisfies AgentVoiceEventPayload;
+        const { parts } = payload.voice;
+        return { ...payload, voice: { ...payload.voice, text: PURGED_TEXT, ...(parts ? { parts: parts.map((part) => ({ ...part, text: PURGED_TEXT })) } : {}) } } satisfies AgentVoiceEventPayload;
       },
     },
   ],
@@ -210,6 +213,9 @@ export const voicePlugin: PluginDefinition = {
       inbox,
       references: referenceVoices,
       voiceOf,
+      // 转述负责人的进展（354）：谁在说（秘书）的名字、发信人自己的声音（没有的退回一条秘书的语音）
+      speakerName: (agentId) => roles.roleOf(agentId).name,
+      ownVoiceOf: (agentId) => ownVoiceOfAgent(agentId, voiceOf(CHANNELS.secretary), { roles, voices: referenceVoices }),
       // 试合成在做时，语音回复的合成等它做完再发
       speech: warmup.speech,
       pace: voiceConfig.reply,
@@ -237,6 +243,7 @@ export const voicePlugin: PluginDefinition = {
         inputContext: (message) => replies.inputContext(message),
         followUp: (conversation, inputMessageId) => replies.followUp(conversation, inputMessageId),
         interruptedResults: (conversation) => replies.interruptedResults?.(conversation) ?? {},
+        ownVoiceOf: (agentId) => replies.ownVoiceOf?.(agentId),
       },
       referenceVoices,
       segmentFile: (voiceId, index) => replies.segmentFile(voiceId, index),

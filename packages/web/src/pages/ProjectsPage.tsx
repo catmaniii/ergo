@@ -477,9 +477,16 @@ function ProjectPage({ projectId, job, onBack, onChat }: { projectId: string; jo
  * 140 号票：下面紧跟"现在"一节（服务入口、定时任务在它的运营概况里）；narrow：维护者会话页左栏，用窄版
  */
 function ProjectHead({ view, onChat, narrow = false }: { view: ProjectView; onChat?: (() => void) | undefined; narrow?: boolean }) {
-  const { projectAction, ui } = useStore();
+  const { projectAction, setProjectVoiceAnnounce, ui } = useStore();
   const toast = useToast();
   const p = view.project;
+  // 自动播报（354 号票，默认关）：负责人的进展来信直接念，不先问
+  const announce = (on: boolean) => {
+    void setProjectVoiceAnnounce(p.id, on).then(
+      (result) => toast(result.on ? t("pages.projects.announceOnToast") : t("pages.projects.announceOffToast")),
+      (err: unknown) => toast(err instanceof Error ? err.message : String(err)),
+    );
+  };
   const act = (action: ProjectAction) => {
     projectAction(p.id, action);
     // 删除不马上删：二次确认在待我处理里
@@ -527,6 +534,17 @@ function ProjectHead({ view, onChat, narrow = false }: { view: ProjectView; onCh
           </div>
         )}
         {view.archiveBlocked && view.actions.some((a) => ARCHIVING_ACTIONS.includes(a)) && <div className="muted">{view.archiveBlocked}</div>}
+        {view.announce !== undefined && (
+          <label className="check-row announce-row">
+            <input type="checkbox" checked={view.announce} onChange={(e) => announce(e.target.checked)} />
+            <span>
+              {t("pages.projects.announce")}
+              <span className="muted">
+                <T k="pages.projects.announceHint" params={{ name: <AssistantName /> }} />
+              </span>
+            </span>
+          </label>
+        )}
         {p.state === "archived" && <div className="muted">{t("pages.projects.archivedNote")}</div>}
       </div>
       <ProjectNowSection view={view} narrow={narrow} onChat={onChat} />

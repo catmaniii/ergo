@@ -5,7 +5,7 @@
 import { ASSISTANT_NAME_MARK, LETTER_SUMMARY_MAX, t, TASK_KIND_LABEL, type TaskKind, forModel } from "@ergo/protocol";
 import { READ_ATTACHMENT_TOOL, SEND_ATTACHMENT_TOOL } from "../media/tool-names.ts";
 import { SEND_VOICE_TOOL } from "../voice-records/names.ts";
-import { MAINTAINER_LETTER_TAG } from "./notice-tags.ts";
+import { AUTO_ANNOUNCE_TAG, MAINTAINER_LETTER_TAG } from "./notice-tags.ts";
 
 /**
  * agent 能给谁发消息（收件人写成可扩展的形式，用户 2026-10-12：现在只有秘书；以后要加别的收件人只加一项登记——工具名、
@@ -100,6 +100,22 @@ export const LETTER_ATTACHMENTS_NOTE =
   `附件已经作为附件卡片放在这条通知后面给用户看了，用户点得开（预览或下载），不用再用 ${SEND_ATTACHMENT_TOOL} 发一遍；要看内容用 ${READ_ATTACHMENT_TOOL}（附件引用写在上面的文件名后面）。转告时提一句附了什么。`;
 
 /**
+ * 通知里一件事的发信人有自己的声音（354 号票）时多的一句：秘书才知道要写两段，relay.source 写什么；声音运行时按发信人查。
+ * 没有自己的声音（没配、和秘书一样、被删了）的不写这句，语音还是一条秘书的
+ */
+export const relayHint = (name: string, source: string) => `负责人有自己的声音（${name}）：念的时候分两段，relay.source 写 ${source}。`;
+
+/** 写了 relayHint 的通知多的一段：两段怎么写（354 号票，用户定：秘书写两段，负责人那段第一人称、只转述信里有的） */
+export const RELAY_RULES =
+  `写着“负责人有自己的声音”的，念的时候分两段，运行时合成一条语音：${SEND_VOICE_TOOL} 的 text 写你自己的开场（一两句：哪个任务或项目、接下来是它的负责人自己说），` +
+  "relay.source 照抄那个编号，relay.text 用负责人的第一人称写，只转述它说的话里有的，不加它没说的事。声音运行时按发信人定，你指定不了；两段加起来也要念得完。没写这句的，负责人没有自己的声音，不带 relay，一条你自己的语音就行。";
+
+/** 开了自动播报的进展来信（354 号票）：不问，直接念；念不成退回文字、说原因 */
+const ANNOUNCE_LETTER_ASK = (what: string) =>
+  `${what === "它" ? "这件" : "这几件"}开了自动播报（用户事先说好了的）：不用问，直接用 ${SEND_VOICE_TOOL} 把要点念给用户听——是哪个项目或任务的谁、说了什么，要用户做什么就说清楚；像平常说话一样，链接、表格、代码不念。` +
+  `项目内部的细节只到${what}写的这些，不要追问。${SEND_VOICE_TOOL} 回失败（语音服务没开、忙、超时、没有参考音色、太长）就用文字转告，再用一句话说为什么没念成。`;
+
+/**
  * 交给秘书的通知在会话里折成一行时的一句话总结（115 号票）：一封就是它给的总结，几封并在一起的用分号连起来、前面写几封
  * （界面上一行放不下的由样式省略）
  */
@@ -112,17 +128,21 @@ export function letterNoticeSummary(summaries: readonly string[]): string {
  * （主动转告、项目内部的不追问、问要不要念）。这一类不放行发语音（100 号票只放行开了自动播报的任务做完），所以先问、用户说要再念。
  * 信带了附件的（117 号票，withAttachments）：附件卡片是紧跟在这条通知后面的一条给人看的系统消息（task-done.ts，照 115 号票任务做完
  * 交付的文件），不进秘书的输入，所以全文里写文件名和附件引用（letterItemText 的 attachments），正文多一句 LETTER_ATTACHMENTS_NOTE。
- * speaks 为 false（214 号票：语音插件没在运行，秘书没有发语音工具）时不问要不要念
+ * speaks 为 false（214 号票：语音插件没在运行，秘书没有发语音工具）时不问要不要念。
+ * 354 号票：announce（任务、项目开着自动播报的那几封，单独一条）开头紧跟 AUTO_ANNOUNCE_TAG，这一轮放行语音，不问、直接念；
+ * relay（有发信人有自己的声音，条目里写了 relayHint）多一段 RELAY_RULES
  */
-export function letterNoticeText(items: readonly string[], withAttachments = false, speaks = true): string {
+export function letterNoticeText(items: readonly string[], withAttachments = false, speaks = true, { announce = false, relay = false }: { announce?: boolean; relay?: boolean } = {}): string {
+  const tag = announce ? `${MAINTAINER_LETTER_TAG}${AUTO_ANNOUNCE_TAG}` : MAINTAINER_LETTER_TAG;
   const head =
     items.length === 1
-      ? `${MAINTAINER_LETTER_TAG}后台的一个 agent 让你转告用户一件事（运行时转交的，不是用户说的）：`
-      : `${MAINTAINER_LETTER_TAG}后台的 agent 有 ${items.length} 条消息差不多同时到了，并在这一条里（运行时转交的，不是用户说的）：`;
+      ? `${tag}后台的一个 agent 让你转告用户一件事（运行时转交的，不是用户说的）：`
+      : `${tag}后台的 agent 有 ${items.length} 条消息差不多同时到了，并在这一条里（运行时转交的，不是用户说的）：`;
   const body = items.length === 1 ? items : items.map((item, i) => `${i + 1}. ${item}`);
   const what = items.length === 1 ? "它" : "它们";
-  const ask =
-    `在主线里主动用你自己的话转告用户：是哪个项目或任务的谁（维护者、子 agent、评审）、说了什么；要用户做什么就说清楚。项目内部的细节只到${what}写的这些，不要追问。` +
-    (speaks ? `然后问“要我念给你听吗？”。他说要，就用 ${SEND_VOICE_TOOL} 把口语稿念给他听；说不用就算了。` : "");
-  return [head, ...body, ...(withAttachments ? [LETTER_ATTACHMENTS_NOTE] : []), ask].join("\n\n");
+  const ask = announce
+    ? ANNOUNCE_LETTER_ASK(what)
+    : `在主线里主动用你自己的话转告用户：是哪个项目或任务的谁（维护者、子 agent、评审）、说了什么；要用户做什么就说清楚。项目内部的细节只到${what}写的这些，不要追问。` +
+      (speaks ? `然后问“要我念给你听吗？”。他说要，就用 ${SEND_VOICE_TOOL} 把口语稿念给他听；说不用就算了。` : "");
+  return [head, ...body, ...(withAttachments ? [LETTER_ATTACHMENTS_NOTE] : []), ask, ...(relay ? [RELAY_RULES] : [])].join("\n\n");
 }

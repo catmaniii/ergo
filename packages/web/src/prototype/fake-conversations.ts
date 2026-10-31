@@ -1544,6 +1544,12 @@ const VOICE_TABLE_CALL = tool("send_voice", `text=${VOICE_TABLE_TEXT}`, { nature
 const VOICE_FAILED_ASK = msg(S, "user", at("10-07", "10:30"), text("用语音说一声：明天的周会改到下午三点"));
 const VOICE_FAILED_TEXT = "明天的周会改到下午三点了。";
 const VOICE_FAILED_CALL = tool("send_voice", `text=${VOICE_FAILED_TEXT}`, { nature: "act", outcome: "error", result: "语音没发出去：语音服务忙。照常用文字回复用户。" });
+/** 第四轮（354 号票）：问任务的进展，秘书开场 + 负责人自己的声音，合成一条（"转文字"分两段标名字） */
+const VOICE_RELAY_ASK = msg(S, "user", at("10-07", "10:40"), text("早报做得怎么样了？"));
+const VOICE_RELAY_OPENING = "早报有消息了，小张自己跟你说。";
+const VOICE_RELAY_OWNER = "我把今天的早报写好了，一共三条要闻，都放在任务里了。";
+const VOICE_RELAY_MESSAGE = msg(S, "agent", at("10-07", "10:41"), { type: "tts_audio", voiceId: "av-fake-relay", mediaId: "sha256:fake-tts-relay", mime: "audio/wav", durationMs: 8600, waveform: [14, 36, 58, 42, 26, 50, 68, 60, 32, 20, 46, 64, 54, 30, 16, 40, 56, 44, 22, 12] });
+const VOICE_RELAY_CALL = tool("send_voice", `text=${VOICE_RELAY_OPENING} relay={"source":"t-brief","text":"${VOICE_RELAY_OWNER}"}`, { nature: "act", result: "已经合成一条语音发给用户了（约 9 秒）：开场是你说的，后面那段是小张自己的声音，算它说的，不是你的结论。" });
 const SECRETARY_VOICE: MessageEnvelope[] = [
   VOICE_ONLY_ASK,
   VOICE_ONLY_MESSAGE,
@@ -1557,6 +1563,9 @@ const SECRETARY_VOICE: MessageEnvelope[] = [
   msg(S, "system", at("10-07", "10:30"), text("这条语音没发出去（语音服务忙）。")),
   msg(S, "agent", at("10-07", "10:30"), VOICE_FAILED_CALL),
   msg(S, "agent", at("10-07", "10:31"), text("语音服务这会儿忙，我先用文字说：明天的周会改到下午三点了。")),
+  VOICE_RELAY_ASK,
+  VOICE_RELAY_MESSAGE,
+  msg(S, "agent", at("10-07", "10:41"), VOICE_RELAY_CALL),
 ];
 
 // ---------- 语音识别没做成时自动重试（208 号票）：一条重试完了还不行（识别失败，没交给秘书，长按能重新识别），一条正在自动重试 ----------
@@ -1581,11 +1590,25 @@ const SECRETARY_VOICE_RETRY: MessageEnvelope[] = [
 
 const callIdOf = (part: MessagePart): string => (part.type === "tool_call" ? part.callId : "");
 
-/** 三条工具发的语音：两条合成好了（回合结束时定了另写的文字收不收），一条语音服务忙没发出去 */
+/** 工具发的语音：三条合成好了（回合结束时定了另写的文字收不收；最后一条是秘书开场 + 负责人的声音，354 号票），一条语音服务忙没发出去 */
 const FAKE_AGENT_VOICES: AgentVoiceRecord[] = [
   { id: "av-fake-tool-1", ask: VOICE_ONLY_ASK, text: VOICE_ONLY_TEXT, call: VOICE_ONLY_CALL, message: VOICE_ONLY_MESSAGE, replies: [VOICE_ONLY_COVERED], covers: true, segments: 2 },
   { id: "av-fake-tool-2", ask: VOICE_TABLE_ASK, text: VOICE_TABLE_TEXT, call: VOICE_TABLE_CALL, message: VOICE_TABLE_MESSAGE, replies: [VOICE_TABLE_SHOWN], covers: false, segments: 3 },
-].map(({ id, ask, text: spoken, call, message, replies, covers, segments }): AgentVoiceRecord => {
+  {
+    id: "av-fake-relay",
+    ask: VOICE_RELAY_ASK,
+    text: `${VOICE_RELAY_OPENING}\n${VOICE_RELAY_OWNER}`,
+    call: VOICE_RELAY_CALL,
+    message: VOICE_RELAY_MESSAGE,
+    replies: [],
+    covers: false,
+    segments: 3,
+    parts: [
+      { text: VOICE_RELAY_OPENING, referenceVoice: { id: "v-sample", name: "示例音色" }, speaker: { agentId: S, name: "二狗" } },
+      { text: VOICE_RELAY_OWNER, referenceVoice: { id: "v-sample-2", name: "小张的声音" }, speaker: { agentId: "tm-brief", name: "小张" } },
+    ],
+  },
+].map(({ id, ask, text: spoken, call, message, replies, covers, segments, parts }): AgentVoiceRecord => {
   const part = message.parts[0] as Extract<MessagePart, { type: "tts_audio" }>;
   return {
     id,
@@ -1598,6 +1621,7 @@ const FAKE_AGENT_VOICES: AgentVoiceRecord[] = [
     toolCallId: callIdOf(call),
     text: spoken,
     referenceVoice: { id: "v-sample", name: "示例音色" },
+    ...(parts ? { parts } : {}),
     model: "fish_audio（audio.cpp/tts）",
     status: "done",
     segmentCount: segments,

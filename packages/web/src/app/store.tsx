@@ -29,6 +29,7 @@ import {
   type RequestEffectUndoResult,
   type SwitchBranchResult,
   type RunJobNowResult,
+  type SetProjectVoiceAnnounceResult,
   type SetVoiceAnnounceResult,
   type ScheduledJobAction,
   resumeCursors,
@@ -128,6 +129,7 @@ interface Store {
   runJobNow(jobId: string): Promise<RunJobNowResult>;
   /** 任务操作菜单里的"跑完自动播报：开 / 关"（100 号票）；被拒时原因出现在 ui.failures 里，这里也拒绝 */
   setVoiceAnnounce(taskId: string, on: boolean): Promise<SetVoiceAnnounceResult>;
+  setProjectVoiceAnnounce(projectId: string, on: boolean): Promise<SetProjectVoiceAnnounceResult>;
   /** 这台设备上看到了会话的哪一条（109 号票）：先记上（"秘书"页签的红点马上消失），不报给守护进程 */
   seeRead(conversation: ConversationId, seq: number): void;
   /** 把看到哪一条报给守护进程（109 号票）：已读位置随后在已读位置频道推来，几台设备一起 */
@@ -350,6 +352,7 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
   const rescheduleJob = useCallback((jobId: string, schedule: ReminderSchedule) => connection.rescheduleJob({ jobId, schedule, idempotencyKey: newKey() }), [connection]);
   const runJobNow = useCallback((jobId: string) => connection.runJobNow({ jobId, idempotencyKey: newKey() }), [connection]);
   const setVoiceAnnounce = useCallback((taskId: string, on: boolean) => connection.setVoiceAnnounce({ taskId, on, idempotencyKey: newKey() }), [connection]);
+  const setProjectVoiceAnnounce = useCallback((projectId: string, on: boolean) => connection.setProjectVoiceAnnounce({ projectId, on, idempotencyKey: newKey() }), [connection]);
   const seeAlert = useCallback((id: string) => dispatch({ kind: "alert_seen", id }), []);
   const seeRead = useCallback((conversation: ConversationId, seq: number) => dispatch({ kind: "read_seen", conversation, seq }), []);
   const markRead = useCallback((conversation: ConversationId, seq: number) => connection.markRead({ conversation, seq, idempotencyKey: newKey() }), [connection]);
@@ -461,6 +464,7 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
       rescheduleJob,
       runJobNow,
       setVoiceAnnounce,
+      setProjectVoiceAnnounce,
       seeRead,
       markRead,
       showAlert,
@@ -487,7 +491,7 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
       connectionStats,
       reconnect,
     }),
-    [ui, sendMessage, cardAction, inboxAction, deviceBatchAction, startTask, createReminder, taskAction, taskBatchAction, reminderAction, updateWatchCategories, newProject, convertTaskToProject, projectAction, projectServicesAction, resetMaintainer, watchChannels, retryVoice, stopReply, rollbackSession, switchBranch, requestEffectUndo, loadBranch, removeQueued, reorderQueued, setToolkit, scheduledJobAction, rescheduleJob, runJobNow, setVoiceAnnounce, seeRead, markRead, showAlert, seeSecretaryTurn, seeAlert, seeFailure, seeAgentVoiceArrival, notePageUpdate, loadOlder, loadCalendarMonth, loadVoiceModels, loadAgentRoles, createAgentRole, updateAgentRole, deleteAgentRole, setDefaultAgentRole, assignAgentRole, loadUserName, saveUserName, quoteCard, unquoteCard, http, daemonInfo, connectionStats, reconnect],
+    [ui, sendMessage, cardAction, inboxAction, deviceBatchAction, startTask, createReminder, taskAction, taskBatchAction, reminderAction, updateWatchCategories, newProject, convertTaskToProject, projectAction, projectServicesAction, resetMaintainer, watchChannels, retryVoice, stopReply, rollbackSession, switchBranch, requestEffectUndo, loadBranch, removeQueued, reorderQueued, setToolkit, scheduledJobAction, rescheduleJob, runJobNow, setVoiceAnnounce, setProjectVoiceAnnounce, seeRead, markRead, showAlert, seeSecretaryTurn, seeAlert, seeFailure, seeAgentVoiceArrival, notePageUpdate, loadOlder, loadCalendarMonth, loadVoiceModels, loadAgentRoles, createAgentRole, updateAgentRole, deleteAgentRole, setDefaultAgentRole, assignAgentRole, loadUserName, saveUserName, quoteCard, unquoteCard, http, daemonInfo, connectionStats, reconnect],
   );
   return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>;
 }

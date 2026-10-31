@@ -23,6 +23,7 @@ import type {
   SwitchBranchRequest,
   RunJobNowRequest,
   SetToolkitRequest,
+  SetProjectVoiceAnnounceRequest,
   SetVoiceAnnounceRequest,
   DeviceBatchActionRequest,
   ScheduledJobActionRequest,
@@ -35,7 +36,7 @@ import type {
   ReminderActionRequest,
   UpdateWatchCategoriesRequest,
 } from "../app/connection.ts";
-import { type BrowserOutcome, type BrowserRequest, type BrowserStatusParams, CHANNELS, type DaemonInfo, type DeviceBatchActionResult, type RescheduleJobResult, type RollbackSessionResult, type RequestEffectUndoResult, type SwitchBranchResult, type RunJobNowResult, type SetVoiceAnnounceResult, type TaskBatchActionResult, type ReminderActionResult, type UiInput } from "../state/index.ts";
+import { type BrowserOutcome, type BrowserRequest, type BrowserStatusParams, CHANNELS, type DaemonInfo, type DeviceBatchActionResult, type RescheduleJobResult, type RollbackSessionResult, type RequestEffectUndoResult, type SwitchBranchResult, type RunJobNowResult, type SetProjectVoiceAnnounceResult, type SetVoiceAnnounceResult, type TaskBatchActionResult, type ReminderActionResult, type UiInput } from "../state/index.ts";
 import { FAKE_VOICE_PREFIX, type FakeConnection } from "./fake-connection.ts";
 
 /** 卡片频道接了真数据之后，原型的假卡片走的频道名 */
@@ -177,6 +178,10 @@ export class SplitConnection implements Connection {
   }
 
   /** 跑完自动播报（100 号票）：任务在看板频道上，同样跟着看板 */
+  setProjectVoiceAnnounce(req: SetProjectVoiceAnnounceRequest): Promise<SetProjectVoiceAnnounceResult> {
+    return (this.realChannels.has(CHANNELS.projects) ? this.real : this.fake).setProjectVoiceAnnounce(req);
+  }
+
   setVoiceAnnounce(req: SetVoiceAnnounceRequest): Promise<SetVoiceAnnounceResult> {
     return (this.realChannels.has(CHANNELS.board) && !req.taskId.startsWith("t-proto-") ? this.real : this.fake).setVoiceAnnounce(req);
   }

@@ -71,6 +71,13 @@ describe("解析请求帧", () => {
     expect(parseRequest(JSON.stringify({ id: "r7", method: "start_task", params: { request: "每天出 AI 新闻日报", kind: "plain", voiceAnnounce: true }, idempotencyKey: "k7" }))).toMatchObject({ ok: true });
   });
 
+  test("项目的自动播报（354 号票）：set_project_voice_announce 带项目和开关，要幂等键", () => {
+    const on = { projectId: "p-1", on: true };
+    expect(parseRequest(JSON.stringify({ id: "r1", method: "set_project_voice_announce", params: on, idempotencyKey: "k1" }))).toEqual({ ok: true, request: { id: "r1", method: "set_project_voice_announce", params: on, idempotencyKey: "k1" } });
+    expect(parseRequest(JSON.stringify({ id: "r2", method: "set_project_voice_announce", params: on }))).toMatchObject({ ok: false, error: { code: "idempotency_key_required" } });
+    expect(parseRequest(JSON.stringify({ id: "r3", method: "set_project_voice_announce", params: { projectId: "p-1" }, idempotencyKey: "k3" }))).toMatchObject({ ok: false, error: { code: "bad_params" } });
+  });
+
   test("订阅请求带协议版本和每个频道最后收到的序号", () => {
     const raw = JSON.stringify({ id: "r1", method: "subscribe", params: { protocolVersion: FRONTEND_PROTOCOL_VERSION, cursors: { secretary: 3, "maintainer:p-notes": 0 } } });
     expect(parseRequest(raw)).toMatchObject({ ok: true, request: { method: "subscribe" } });

@@ -108,6 +108,9 @@ export interface SecretaryProjects {
  */
 export type TakeoverProjects = Pick<ProjectService, "list" | "maintainedBy" | "takeOver" | "setTakeover" | "workdir">;
 
+/** 开关项目的自动播报（354 号票）：秘书的快速动作要的那一样 */
+export type VoiceAnnounceProjects = Pick<ProjectService, "buildVoiceAnnounce">;
+
 // —— 4. 运营手段的类型（插件宿主的 ctx.operationMeans 登记口，130 号票，ADR-0028）——
 export type { OperationMeans } from "../operations/means.ts";
 

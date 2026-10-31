@@ -17,6 +17,10 @@
 // - 守护进程在途中停了（被杀了）：还在合成的由调用方在启动时重新排队（start 之后），这里重做一遍（合成只是几次 HTTP 调用，
 //   不算"中断不确定"）：推过的段先收回，从第一段重新合成。
 // - 等结局（settled）：发语音工具要把结局（发出去了、只发了一部分、没发出去和原因）交回 agent，排队之后等它。
+// - 不止一个人的声音（354 号票，语音对象的 parts：秘书开场 + 负责人的声音）：每个人的那段各自切段、按先后依次合成，每次请求带这一段自己的
+//   参考音色（voiceRef、逐字稿）；分段推送、拼接、总长度、入库都照旧，气泡只有一条。后面那个人的音色合成前被删了（包括重启后重做时）：
+//   去掉 parts，整段用第一个人（秘书）的声音，就是一条秘书的语音。合成到一半没合成下去的照旧是"只合成了一部分"，
+//   会话里的说明另写清谁的话没念到、没念到的文字是什么（文字不丢）；一段都没出来的照旧是失败。重启重做也照旧：从第一段重新来。
 import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -26,13 +30,14 @@ import type { EventStore, NewEvent } from "../events/event-store.ts";
 import type { MediaStore } from "../media/media-store.ts";
 import type { Clock } from "../scheduler/clock.ts";
 import { getAgentVoice } from "../voice-records/index.ts";
-import type { ReferenceVoices } from "./reference-voices.ts";
+import type { ReferenceVoices, ResolvedReferenceVoice } from "./reference-voices.ts";
 import { openSegmentFiles } from "./segment-files.ts";
 import { createSerialQueue, nextVersion } from "./shared.ts";
 import { type SpeechSynthesizer, SpeechServiceBusy } from "./speech.ts";
 import { estimateSpeechSeconds, type SpokenPace, speechSegments } from "./spoken-text.ts";
 import {
   referenceGoneReason,
+  relayPartialNote,
   storeFailedReason,
   VOICE_REASON,
   synthesisFailedNote,
@@ -63,7 +68,33 @@ function segmentsOf(pieces: readonly Piece[]): AgentVoiceSegment[] {
 
 /** 会话里的说明：发语音工具发的只说这一条没发出去（86 号票），语音回复的照旧说这次只发文字 */
 const failedNote = (voice: AgentVoiceRecord, reason: string) => (voice.mode === "tool" ? toolVoiceFailedNote(reason) : synthesisFailedNote(reason));
-const partialNote = (voice: AgentVoiceRecord, reason: string) => (voice.mode === "tool" ? toolVoicePartialNote(reason) : synthesisPartialNote(reason));
+const partialNote = (voice: AgentVoiceRecord, reason: string, unsaid: Unsaid | undefined) =>
+  unsaid ? relayPartialNote(reason, unsaid.names, unsaid.text) : voice.mode === "tool" ? toolVoicePartialNote(reason) : synthesisPartialNote(reason);
+
+/** 依次合成的一段：文字、用谁的参考音色、谁说的（不分人的语音没有） */
+type PlannedSegment = { text: string; reference: ResolvedReferenceVoice; speaker?: string };
+
+/** 不止一个人的语音合成到一半没合成下去（354 号票）：谁的话没念到（念了一半的也算）、没念到的文字 */
+type Unsaid = { names: string[]; text: string };
+
+/** 一段口语稿切成依次合成的几段；切不出来的（没有念得出来的字）整段送 */
+function segmentsToSynthesize(text: string): string[] {
+  const texts = speechSegments(text);
+  return texts.length > 0 ? texts : [text];
+}
+
+/** 这条语音要依次合成哪几段：不分人的是整段口语稿，分人的（parts）各段各用各的参考音色 */
+function planOf(voice: AgentVoiceRecord, fallback: ResolvedReferenceVoice, references: Pick<ReferenceVoices, "get">): PlannedSegment[] {
+  if (voice.parts === undefined) return segmentsToSynthesize(voice.text ?? "").map((text) => ({ text, reference: fallback }));
+  return voice.parts.flatMap((part) => segmentsToSynthesize(part.text).map((text) => ({ text, reference: references.get(part.referenceVoice.id) ?? fallback, speaker: part.speaker.name })));
+}
+
+/** 没念到的那几段：分人的语音才算（不分人的说明照旧） */
+function unsaidOf(plan: readonly PlannedSegment[], sent: number): Unsaid | undefined {
+  const rest = plan.slice(sent);
+  if (rest.length === 0 || rest.some((p) => p.speaker === undefined)) return undefined;
+  return { names: [...new Set(rest.map((p) => p.speaker!))], text: rest.map((p) => p.text).join("") };
+}
 
 /** 日志里的秒数 */
 const seconds = (ms: number) => (ms / 1000).toFixed(1);
@@ -198,20 +229,25 @@ export function createVoiceSynthesis(options: VoiceSynthesisOptions): VoiceSynth
       voice = advanceOwn(voice, {}, { drop: ["segments", "segmentCount", "firstSegmentMs"] });
       if (!voice?.text) return;
     }
-    const texts = speechSegments(voice.text);
-    const plan = texts.length > 0 ? texts : [voice.text];
+    // 负责人的音色在排队时被删了（354 号票）：不分两段，就是一条秘书的语音（text 是连起来的，一个字不丢）
+    if (voice.parts?.some((part) => !references.get(part.referenceVoice.id))) {
+      log(`agent 语音 ${voice.id} 里有一段的参考音色不在了：整条用第一段的声音`);
+      voice = advanceOwn(voice, {}, { drop: ["parts"] });
+      if (!voice?.text) return;
+    }
+    const plan = planOf(voice, reference, references);
     const started = performance.now();
     const elapsed = () => Math.round(performance.now() - started);
     const pieces: Piece[] = [];
     let model = speech.model;
     let firstSegmentMs: number | undefined;
     /** 没合成下去：推出去了几段的拼成一条，记成只合成了一部分；一段都没有的记成失败 */
-    const giveUp = (reason: string) => (pieces.length === 0 ? fail(voice!, reason) : settle(voice!, pieces, { model, firstSegmentMs, elapsed }, { status: "partial", reason }));
-    for (const [index, text] of plan.entries()) {
+    const giveUp = (reason: string) => (pieces.length === 0 ? fail(voice!, reason) : settle(voice!, pieces, { model, firstSegmentMs, elapsed }, { status: "partial", reason, unsaid: unsaidOf(plan, pieces.length) }));
+    for (const [index, { text, reference: own }] of plan.entries()) {
       let wav: Buffer;
       try {
         ({ wav, model } = await speech.synthesize(
-          { text, voiceId: reference.id, voiceRef: reference.audioPath, referenceText: reference.referenceText },
+          { text, voiceId: own.id, voiceRef: own.audioPath, referenceText: own.referenceText },
           { estimatedSeconds: estimateSpeechSeconds(text, pace), signal: aborter.signal },
         ));
       } catch (err) {
@@ -253,7 +289,7 @@ export function createVoiceSynthesis(options: VoiceSynthesisOptions): VoiceSynth
     voice: AgentVoiceRecord,
     pieces: readonly Piece[],
     timing: { model: string; firstSegmentMs: number | undefined; elapsed: () => number; segmentCount?: number },
-    outcome: { status: "done" } | { status: "partial"; reason: string },
+    outcome: { status: "done" } | { status: "partial"; reason: string; unsaid: Unsaid | undefined },
   ) => {
     let stored: { mediaId: string; mime: string; durationMs: number; waveform: number[] };
     try {
@@ -272,6 +308,7 @@ export function createVoiceSynthesis(options: VoiceSynthesisOptions): VoiceSynth
     const elapsedMs = timing.elapsed();
     const firstSegmentMs = segmented ? (timing.firstSegmentMs ?? elapsedMs) : elapsedMs;
     const reason = outcome.status === "partial" ? outcome.reason : undefined;
+    const unsaid = outcome.status === "partial" ? outcome.unsaid : undefined;
     const change: Partial<AgentVoiceRecord> = {
       status: outcome.status,
       model: timing.model,
@@ -294,7 +331,7 @@ export function createVoiceSynthesis(options: VoiceSynthesisOptions): VoiceSynth
     advanceOwn(voice, change, {
       extra: (next) => [
         buildMessage({ id: messageId, conversation: next.conversation, speaker: "agent", parts: [{ type: "tts_audio", voiceId: next.id, mediaId, mime, durationMs, waveform }] }, next.scope).event,
-        ...(reason === undefined ? [] : [buildMessage({ conversation: next.conversation, speaker: "system", parts: [{ type: "text", text: partialNote(next, reason) }] }, next.scope).event]),
+        ...(reason === undefined ? [] : [buildMessage({ conversation: next.conversation, speaker: "system", parts: [{ type: "text", text: partialNote(next, reason, unsaid) }] }, next.scope).event]),
       ],
     });
     removeSegmentsLater(voice.id);

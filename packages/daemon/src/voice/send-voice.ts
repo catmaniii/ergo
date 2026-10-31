@@ -24,19 +24,49 @@
 // - 守卫：不落入任何关注类别、不弹审批；每次多发一条消息，不是只读或幂等；被杀时语音由合成那边重启重做（recoveredByController，
 //   不当成"中断不确定"），agent 的会话里那次调用补上"会自己补发、不要重发"（interruptedResults，经 interruptedToolResults）。
 // - 日志只写字数、参考音色的 id、参考录音的文件名；不写要合成的正文、不写参考录音的完整路径。
+// - 转述负责人的进展（354 号票，用户 2026-11-01 定，可选参数 relay：转述谁 source、负责人那段的稿子 text）：不增加打扰，跟现有规矩走，只是换声音——
+//   秘书写两段，运行时合成一条语音：开场用秘书的声音，那段用发信人自己的声音。声音只能是运行时查的：工具没有指定音色、agent 的参数；
+//   source 只认通知上记的（MessageEnvelope.relaySources，发信人也记在那里）——通知引起的一轮只认这条通知的，用户问的一轮认交给秘书过的通知，
+//   写别的、还没来过信的任务都不发、交回原因；只有秘书的会话能带（负责人不能直接发）。发信人没有自己的声音（没配、和秘书一样、被删了，
+//   ownVoiceOf）：不分两段，文字连起来就是一条秘书的语音。两段加起来算长度。用户发语音的那一轮记到这一轮上（relayThisTurn），语音回复念它们。
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { type AgentVoiceEventPayload, type AgentVoiceRecord, type ConversationId, EVENT_TYPES, type MessageEnvelope, type MessageScope, nowIso, type TurnEndEventPayload, Type } from "@ergo/protocol";
+import {
+  type AgentVoiceEventPayload,
+  type AgentVoicePart,
+  type AgentVoiceRecord,
+  CHANNELS,
+  type ConversationId,
+  EVENT_TYPES,
+  isDeletedEventPayload,
+  type MessageEnvelope,
+  type MessageEventPayload,
+  type MessageScope,
+  nowIso,
+  type TurnEndEventPayload,
+  Type,
+} from "@ergo/protocol";
 import { defineHostTool, type HostTool, type HostToolOutput } from "../agent-manager/host-tools.ts";
 import { getMessage } from "../conversation/views.ts";
 import type { EventStore } from "../events/event-store.ts";
 import type { InterruptedToolResult } from "../runtime/index.ts";
-import { isAutoAnnounceNotice } from "../secretary/notice-tags.ts";
+import { isAutoAnnounceNotice, MAINTAINER_LETTER_TAG, TASK_DONE_TAG } from "../secretary/notice-tags.ts";
 import type { ReadonlyDatabase } from "../storage/sqlite.ts";
 import { getAgentVoice, recentToolVoices, toolVoicesAwaitingTurnEnd } from "../voice-records/index.ts";
+import type { OwnVoice } from "./agent-voice-ref.ts";
 import type { ReferenceVoices, ResolvedReferenceVoice } from "./reference-voices.ts";
 import { estimateSpeechSeconds, fitsPace, type SpokenPace, speakable } from "./spoken-text.ts";
-import { SEND_VOICE_INTERRUPTED, SEND_VOICE_PARAM, SEND_VOICE_RESULT, SEND_VOICE_TOOL, sendVoiceTitle, sendVoiceToolDescription } from "./texts.ts";
+import {
+  SEND_VOICE_INTERRUPTED,
+  SEND_VOICE_PARAM,
+  SEND_VOICE_RELAY_PARAM,
+  SEND_VOICE_RELAY_SOURCE_PARAM,
+  SEND_VOICE_RELAY_TEXT_PARAM,
+  SEND_VOICE_RESULT,
+  SEND_VOICE_TOOL,
+  sendVoiceTitle,
+  sendVoiceToolDescription,
+} from "./texts.ts";
 import type { VoiceSynthesis } from "./voice-synthesis.ts";
 
 /**
@@ -71,9 +101,24 @@ export interface SendVoiceOptions {
   openTurn(conversation: ConversationId): SendVoiceTurn | undefined;
   /** 没有参考音色：待我处理里提示去导入 */
   announceMissing(): void;
+  /** 语音轮里秘书写了两段（354 号票）：记到这一轮上，语音回复念它们；没有在进行的一轮（不该发生）回 false */
+  relayThisTurn(conversation: ConversationId, relay: RelayedSpeech): boolean;
+  /** 一个 agent 的角色名（354 号票，转文字时写）；不给时用 agent id */
+  speakerName?: (agentId: string) => string;
+  /** 这个 agent 自己的声音（354 号票）：没有是 undefined，这时退回一条秘书的语音；不给就是都没有 */
+  ownVoiceOf?: (agentId: string) => OwnVoice | undefined;
   /** 最多等合成多久就先交回"还在合成"（毫秒）；不给是 SEND_VOICE_WAIT_MS */
   waitMs?: number;
   log(line: string): void;
+}
+
+/**
+ * 一次转述合成什么（354 号票）：text 是连起来的（老的读者照常读得到，退回一条秘书的语音时念的也是它）；parts 是各段的声音和说话的人，
+ * 发信人没有自己的声音时没有
+ */
+export interface RelayedSpeech {
+  text: string;
+  parts?: AgentVoicePart[];
 }
 
 export interface SendVoice {
@@ -93,14 +138,21 @@ const createdKey = (toolCallId: string) => `agent-voice:tool:${toolCallId}`;
 /** 秒数（结果里给 agent 看的，一位小数） */
 const secondsOf = (ms: number | undefined) => Math.round((ms ?? 0) / 100) / 10;
 
-/** 合成的结局交回 agent 的话；undefined 是没等到（调用被中止、守护进程在停），still 是等了很久还在合成 */
-function outcomeText(voice: AgentVoiceRecord | undefined | "still"): HostToolOutput {
+/**
+ * 合成的结局交回 agent 的话；undefined 是没等到（调用被中止、守护进程在停），still 是等了很久还在合成。
+ * merged：这次带了 relay、但发信人没有自己的声音，合成的是一条秘书的语音（354 号票）
+ */
+function outcomeText(voice: AgentVoiceRecord | undefined | "still", merged = false): HostToolOutput {
   if (voice === "still") return { text: SEND_VOICE_RESULT.stillSynthesizing };
   switch (voice?.status) {
-    case "done":
-      return { text: SEND_VOICE_RESULT.done(secondsOf(voice.durationMs)) };
+    case "done": {
+      const seconds = secondsOf(voice.durationMs);
+      const speaker = voice.parts?.at(-1)?.speaker.name;
+      if (speaker !== undefined) return { text: SEND_VOICE_RESULT.relayDone(seconds, speaker) };
+      return { text: merged ? SEND_VOICE_RESULT.relaySingle(seconds) : SEND_VOICE_RESULT.done(seconds) };
+    }
     case "partial":
-      return { text: SEND_VOICE_RESULT.partial(secondsOf(voice.durationMs), voice.error ?? "") };
+      return { text: voice.parts ? SEND_VOICE_RESULT.relayPartial(secondsOf(voice.durationMs), voice.error ?? "") : SEND_VOICE_RESULT.partial(secondsOf(voice.durationMs), voice.error ?? "") };
     case "failed":
       return { text: SEND_VOICE_RESULT.failed(voice.error ?? ""), isError: true };
     default:
@@ -141,15 +193,59 @@ export function createSendVoice(options: SendVoiceOptions): SendVoice {
       .flatMap((p) => (p.type === "text" && p.text.trim() ? [p.text] : []))
       .join("\n\n");
 
+  /**
+   * 这个来源是谁发的（354 号票）：只认通知上记的（MessageEnvelope.relaySources）。通知引起的一轮只认这条通知的；
+   * 用户问的一轮认交给秘书过的通知（任务做完的、来信的）。同一个来源有几个发信人的（维护者和它的子 agent 的信并在一条里、
+   * 来过好几次）：按最近的在前，有自己声音的优先（relayedSpeech 取第一个有声音的）。没有是空的
+   */
+  const relaySenders = (said: MessageEnvelope, source: string): string[] => {
+    // 通知上记的在事件里（会话视图只有显示要的那几列）
+    const delivered = [TASK_DONE_TAG, MAINTAINER_LETTER_TAG]
+      .flatMap((tag) => store.mentioning(EVENT_TYPES.message, tag))
+      .filter((e) => e.channel === CHANNELS.secretary && !isDeletedEventPayload(e.payload))
+      .toSorted((a, b) => b.globalSeq - a.globalSeq)
+      .map((e) => (e.payload as MessageEventPayload).message);
+    const notices = isAutoAnnounceNotice(said) ? delivered.filter((m) => m.id === said.id) : delivered;
+    return notices.flatMap((m) => (m.relaySources ?? []).filter((s) => s.source === source).map((s) => s.agentId));
+  };
+
+  /** 秘书写的两段 → 这次合成什么（354 号票）：发信人没有自己的声音的连成一条秘书的语音 */
+  const relayedSpeech = (conversation: ConversationId, reference: ResolvedReferenceVoice, senders: readonly string[], opening: string, relayed: string): RelayedSpeech => {
+    const text = `${opening}\n${relayed}`;
+    const owner = senders.flatMap((agentId) => {
+      const voice = options.ownVoiceOf?.(agentId);
+      return voice ? [{ agentId, voice }] : [];
+    })[0];
+    if (!owner) return { text };
+    return {
+      text,
+      parts: [
+        { text: opening, referenceVoice: { id: reference.id, name: reference.name }, speaker: { agentId: conversation, name: options.speakerName?.(conversation) ?? conversation } },
+        { text: relayed, referenceVoice: { id: owner.voice.reference.id, name: owner.voice.reference.name }, speaker: { agentId: owner.agentId, name: owner.voice.name } },
+      ],
+    };
+  };
+
   const tool = defineHostTool({
     name: SEND_VOICE_TOOL,
     title: sendVoiceTitle(),
     description: sendVoiceToolDescription(pace, Math.max(1, Math.round(waitMs / 60_000))),
-    parameters: Type.Object({ text: Type.String({ minLength: 1, description: SEND_VOICE_PARAM }) }, { additionalProperties: false }),
+    parameters: Type.Object(
+      {
+        text: Type.String({ minLength: 1, description: SEND_VOICE_PARAM }),
+        relay: Type.Optional(
+          Type.Object(
+            { source: Type.String({ minLength: 1, description: SEND_VOICE_RELAY_SOURCE_PARAM }), text: Type.String({ minLength: 1, description: SEND_VOICE_RELAY_TEXT_PARAM }) },
+            { additionalProperties: false, description: SEND_VOICE_RELAY_PARAM },
+          ),
+        ),
+      },
+      { additionalProperties: false },
+    ),
     // 每调用一次多发一条语音消息；被杀时由合成那边重启重做（不当成说不清做没做完）
     readOnlyOrIdempotent: false,
     recoveredByController: true,
-    async run({ text }, call) {
+    async run({ text, relay }, call) {
       // 这一轮处理的用户消息：交给 agent 的那条输入，和子进程收下的插话；用户最后说的一句决定能不能发。
       // 开了"跑完自动播报"的任务做完的通知（100 号票）是用户事先给的授权：这一轮也能发（语音落在那条通知的回复里）
       // 144 号票：排队交出的一批里另外几条（moreInputMessageIds）也是这一轮处理的
@@ -164,13 +260,26 @@ export function createSendVoice(options: SendVoiceOptions): SendVoice {
         options.announceMissing();
         return { text: SEND_VOICE_RESULT.noReference, isError: true };
       }
-      if (options.isVoiceInput(said)) return { text: SEND_VOICE_RESULT.voiceTurn };
-      const spoken = speakable(text);
-      if (spoken.unspeakable) return { text: SEND_VOICE_RESULT.unspeakable, isError: true };
-      if (!spoken.text) return { text: SEND_VOICE_RESULT.nothingToSay, isError: true };
-      const estimated = estimateSpeechSeconds(spoken.text, pace);
-      if (estimated > pace.maxSeconds) return { text: SEND_VOICE_RESULT.tooLong(estimated, pace), isError: true };
+      if (options.isVoiceInput(said) && !relay) return { text: SEND_VOICE_RESULT.voiceTurn };
       const conversation = said.conversation;
+      // 转述（354 号票）：只有秘书能转述；转述谁只认通知上记的
+      if (relay && conversation !== CHANNELS.secretary) return { text: SEND_VOICE_RESULT.relayNotSecretary, isError: true };
+      const senders = relay ? relaySenders(said, relay.source.trim()) : [];
+      if (relay && senders.length === 0) return { text: isAutoAnnounceNotice(said) ? SEND_VOICE_RESULT.relayNotInNotice(relay.source) : SEND_VOICE_RESULT.relayNothing(relay.source), isError: true };
+      const spoken = speakable(text);
+      const relayed = relay ? speakable(relay.text) : undefined;
+      if (spoken.unspeakable || relayed?.unspeakable) return { text: SEND_VOICE_RESULT.unspeakable, isError: true };
+      if (!spoken.text || relayed?.text === "") return { text: SEND_VOICE_RESULT.nothingToSay, isError: true };
+      // 两段加起来算长度
+      const estimated = estimateSpeechSeconds(`${spoken.text}${relayed?.text ?? ""}`, pace);
+      if (estimated > pace.maxSeconds) return { text: SEND_VOICE_RESULT.tooLong(estimated, pace), isError: true };
+      const speech: RelayedSpeech = relayed ? relayedSpeech(conversation, reference, senders, spoken.text, relayed.text) : { text: spoken.text };
+      // 用户发语音的那一轮：语音回复本来就会合成，这一轮念这两段（不另建一条）
+      if (options.isVoiceInput(said)) {
+        if (!options.relayThisTurn(conversation, speech)) return { text: SEND_VOICE_RESULT.voiceTurn };
+        log(`agent 在语音轮里转述：${[...speech.text].length} 字，${speech.parts ? "分两段的声音" : "一条的声音"}`);
+        return { text: SEND_VOICE_RESULT.relayVoiceTurn };
+      }
       const turn = options.openTurn(conversation);
       const time = nowIso();
       const voice: AgentVoiceRecord = {
@@ -184,8 +293,9 @@ export function createSendVoice(options: SendVoiceOptions): SendVoice {
         // 不在一轮里（不该发生）：没有回合结束来定，这一轮另写的文字照常显示
         ...(turn ? {} : { coversReply: false }),
         toolCallId: call.toolCallId,
-        text: spoken.text,
+        text: speech.text,
         referenceVoice: { id: reference.id, name: reference.name },
+        ...(speech.parts ? { parts: speech.parts } : {}),
         status: "synthesizing",
         createdAt: time,
         updatedAt: time,
@@ -195,14 +305,14 @@ export function createSendVoice(options: SendVoiceOptions): SendVoice {
       if (store.append({ channel: conversation, type: EVENT_TYPES.agentVoice, payload, idempotencyKey: createdKey(call.toolCallId) }).duplicate) {
         return { text: SEND_VOICE_RESULT.alreadySent };
       }
-      log(`agent 用发语音工具发语音（agent 语音 ${voice.id}）：${[...spoken.text].length} 字，参考音色 ${reference.id}（${path.basename(reference.audioPath)}）`);
+      log(`agent 用发语音工具发语音（agent 语音 ${voice.id}）：${[...speech.text].length} 字，参考音色 ${reference.id}（${path.basename(reference.audioPath)}）${speech.parts ? `，后面一段用 ${speech.parts[1]!.referenceVoice.id}` : ""}`);
       if (turn) {
         const current = open.get(conversation);
         if (current?.seq === turn.seq) current.voices.push(voice.id);
         else open.set(conversation, { seq: turn.seq, voices: [voice.id] });
       }
       synthesis.enqueue(voice.id);
-      return outcomeText(await settledWithin(synthesis, voice.id, call.signal, waitMs));
+      return outcomeText(await settledWithin(synthesis, voice.id, call.signal, waitMs), relay !== undefined && !speech.parts);
     },
   });
 

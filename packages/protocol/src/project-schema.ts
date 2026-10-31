@@ -81,6 +81,11 @@ export const Project = Type.Object({
    * 规范上线之前建的项目没有（262 号票出"补齐文档"的任务）
    */
   standardVersion: Type.Optional(Type.String()),
+  /**
+   * 自动播报（354 号票，照任务的跑完自动播报，默认关）：开着时项目负责人的进展来信，秘书不问，直接把要点念给用户（用负责人自己的声音）。
+   * 关着（不写）照旧是文字、问要不要念
+   */
+  voiceAnnounce: Type.Optional(Type.Boolean()),
   createdAt: Type.String(),
   updatedAt: Type.String(),
 });
@@ -299,6 +304,14 @@ export const ProjectActionResult = Type.Object({
   confirmCardId: Type.Optional(Type.String()),
 });
 export type ProjectActionResult = Static<typeof ProjectActionResult>;
+
+/** 开关项目的自动播报（354 号票，set_project_voice_announce）：项目页上的开关、秘书照用户说的；已归档的不能开关 */
+export const SetProjectVoiceAnnounceParams = Type.Object({ projectId: Type.String({ minLength: 1 }), on: Type.Boolean() });
+export type SetProjectVoiceAnnounceParams = Static<typeof SetProjectVoiceAnnounceParams>;
+
+/** 开关之后的样子（同一幂等键重发拿到同一个结果；本来就是这样的不另记） */
+export const SetProjectVoiceAnnounceResult = Type.Object({ projectId: Type.String(), on: Type.Boolean() });
+export type SetProjectVoiceAnnounceResult = Static<typeof SetProjectVoiceAnnounceResult>;
 
 /** 重置维护者（16 号票，projects.ts 的 canResetMaintainer）：项目状态不变，维护者新开一段会话 */
 export const ResetMaintainerParams = Type.Object({ projectId: Type.String({ minLength: 1 }) });

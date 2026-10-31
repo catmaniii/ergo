@@ -8,6 +8,7 @@
 import {
   archiveBlockedText,
   canResetMaintainer,
+  canSetProjectVoiceAnnounce,
   type Project,
   type ProjectAction,
   projectActions,
@@ -36,6 +37,8 @@ export interface ProjectView {
   buildTaskState: TaskState | undefined;
   /** 项目页上现在能做的项目状态动作（开工、停用、归档……；重置维护者不在这里） */
   actions: ProjectAction[];
+  /** 自动播报开没开（354 号票，默认关）；已归档的不能开关，没有这一项 */
+  announce: boolean | undefined;
   /** 现在能不能重置维护者（16 号票：项目页上单独的入口；已归档的不能） */
   canResetMaintainer: boolean;
   /** 不能归档的原因（16 号票）：还有正在做或排队的工单时，写明先完成或取消哪几个任务；能归档时没有 */
@@ -65,6 +68,8 @@ function viewOf(state: UiState, project: Project): ProjectView {
     activity: agentActivity(state, project.maintainerId),
     buildTaskState,
     actions: projectActions(project, buildTaskState).filter((a) => a !== "go_live" || !waiting),
+    // 自动播报（354 号票）：能开关的给现在开没开，已归档的没有这一项
+    announce: canSetProjectVoiceAnnounce(project) ? project.voiceAnnounce === true : undefined,
     canResetMaintainer: canResetMaintainer(project),
     archiveBlocked: open.length > 0 ? archiveBlockedText(open) : undefined,
   };

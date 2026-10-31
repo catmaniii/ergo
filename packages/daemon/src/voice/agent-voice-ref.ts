@@ -30,3 +30,24 @@ export function voiceOfAgent(agentId: string | undefined, { roles, voices }: { r
   const own = ownId === undefined ? undefined : voices.get(ownId);
   return own ?? voices.current();
 }
+
+/** 一个 agent 自己的声音（354 号票）：转述时这一段用它，转文字时写这个名字 */
+export interface OwnVoice {
+  reference: ResolvedReferenceVoice;
+  name: string;
+}
+
+/**
+ * 这个 agent 有没有自己的声音（354 号票，负责人的进展用它自己的声音汇报）：它的角色指定了音色、音色还在、和转述的人（秘书）现在用的不一样。
+ * 没配（跟默认）、被删了、和转述的人一样都是 undefined：不分两段，就是一条转述的人的语音
+ */
+export function ownVoiceOfAgent(
+  agentId: string,
+  relayer: ResolvedReferenceVoice | undefined,
+  { roles, voices }: { roles: Pick<AgentRoles, "voiceIdOf" | "roleOf">; voices: Pick<VoiceLookup, "get"> },
+): OwnVoice | undefined {
+  const ownId = roles.voiceIdOf(agentId);
+  const reference = ownId === undefined ? undefined : voices.get(ownId);
+  if (!reference || reference.id === relayer?.id) return undefined;
+  return { reference, name: roles.roleOf(agentId).name };
+}

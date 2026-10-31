@@ -3,7 +3,7 @@
 // 都回退到全局选中的那一个（31 号票）——一个参考音色都没有时 undefined（这次不用语音）。
 import { CHANNELS, maintainerChannel } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
-import { agentIdOfConversation, voiceOfAgent, type VoiceLookup } from "../../src/voice/agent-voice-ref.ts";
+import { agentIdOfConversation, ownVoiceOfAgent, voiceOfAgent, type VoiceLookup } from "../../src/voice/agent-voice-ref.ts";
 
 const voice = (id: string) => ({ id, name: `音色 ${id}`, referenceText: "示例", durationMs: 3000, sha256: "", importedAt: "", audioPath: `C:\\voices\\${id}\\reference.wav` });
 
@@ -44,5 +44,22 @@ describe("这个 agent 用哪个参考音色", () => {
     expect(voiceOfAgent("pm-1", { roles: roles({ "pm-1": "v-2" }), voices: voices([]) })).toBeUndefined();
     expect(voiceOfAgent("pm-1", { voices: voices(["v-1"], "v-1") })).toMatchObject({ id: "v-1" });
     expect(voiceOfAgent(undefined, { roles: roles({ secretary: "v-1" }), voices: voices(["v-1"], "v-1") })).toMatchObject({ id: "v-1" });
+  });
+});
+
+/** 同 roles，再带上角色名 */
+const named = (own: Record<string, string>) => ({ ...roles(own), roleOf: (agentId: string) => ({ id: `role-${agentId}`, name: `${agentId} 的角色`, voiceId: own[agentId], isDefault: false }) });
+
+describe("这个 agent 有没有自己的声音（354 号票）", () => {
+  const all = voices(["v-1", "v-2"], "v-1");
+
+  it("角色配了音色、音色还在、和转述的人用的不一样：有，给音色和角色名", () => {
+    expect(ownVoiceOfAgent("tm-1", voice("v-1"), { roles: named({ "tm-1": "v-2" }), voices: all })).toMatchObject({ reference: { id: "v-2" }, name: "tm-1 的角色" });
+  });
+
+  it("没配（跟默认）、音色被删了、和转述的人一样：都没有", () => {
+    expect(ownVoiceOfAgent("tm-1", voice("v-1"), { roles: named({}), voices: all })).toBeUndefined();
+    expect(ownVoiceOfAgent("tm-1", voice("v-1"), { roles: named({ "tm-1": "v-9" }), voices: all })).toBeUndefined();
+    expect(ownVoiceOfAgent("tm-1", voice("v-2"), { roles: named({ "tm-1": "v-2" }), voices: all })).toBeUndefined();
   });
 });

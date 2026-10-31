@@ -39,6 +39,7 @@ import type {
   SwitchBranchRequest,
   RunJobNowRequest,
   SetToolkitRequest,
+  SetProjectVoiceAnnounceRequest,
   SetVoiceAnnounceRequest,
   DeviceBatchActionRequest,
   ScheduledJobActionRequest,
@@ -51,7 +52,7 @@ import type {
   ReminderActionRequest,
   UpdateWatchCategoriesRequest,
 } from "./connection.ts";
-import { type AccessInfo, type BrowserOutcome, type BrowserReplyParams, type BrowserRequest, type BrowserStatusParams, type CardActionParams, closeReasonText, type ConvertTaskParams, type CreateReminderParams, type DaemonInfo, type DaemonInfoParams, type DeviceBatchActionParams, type DeviceBatchActionResult, EVENT_TYPES, type EventFrame, FRONTEND_PROTOCOL_VERSION, type InboxActionParams, isEphemeralEventType, type MarkReadParams, type Method, METHODS, type NewProjectParams, nowIso, type ProjectActionParams, type ProjectServicesActionParams, type QueuedMessageActionParams, type RequestEffectUndoParams, type RequestEffectUndoResult, type RequestFrame, type RescheduleJobParams, type RescheduleJobResult, type ResetMaintainerParams, type ResponseFrame, type RetryVoiceParams, type RollbackSessionParams, type RollbackSessionResult, type RunJobNowParams, type RunJobNowResult, type ScheduledJobActionParams, type SendMessageParams, type SetToolkitParams, type SetVoiceAnnounceParams, type SetVoiceAnnounceResult, type StartTaskParams, type StopReplyParams, type SubscribeParams, type SubscribeResult, type SwitchBranchParams, type SwitchBranchResult, t, type TaskActionParams, type TaskBatchActionParams, type TaskBatchActionResult, type ReminderActionParams, type ReminderActionResult, type UiInput } from "../state/index.ts";
+import { type AccessInfo, type BrowserOutcome, type BrowserReplyParams, type BrowserRequest, type BrowserStatusParams, type CardActionParams, closeReasonText, type ConvertTaskParams, type CreateReminderParams, type DaemonInfo, type DaemonInfoParams, type DeviceBatchActionParams, type DeviceBatchActionResult, EVENT_TYPES, type EventFrame, FRONTEND_PROTOCOL_VERSION, type InboxActionParams, isEphemeralEventType, type MarkReadParams, type Method, METHODS, type NewProjectParams, nowIso, type ProjectActionParams, type ProjectServicesActionParams, type QueuedMessageActionParams, type RequestEffectUndoParams, type RequestEffectUndoResult, type RequestFrame, type RescheduleJobParams, type RescheduleJobResult, type ResetMaintainerParams, type ResponseFrame, type RetryVoiceParams, type RollbackSessionParams, type RollbackSessionResult, type RunJobNowParams, type RunJobNowResult, type ScheduledJobActionParams, type SendMessageParams, type SetProjectVoiceAnnounceParams, type SetProjectVoiceAnnounceResult, type SetToolkitParams, type SetVoiceAnnounceParams, type SetVoiceAnnounceResult, type StartTaskParams, type StopReplyParams, type SubscribeParams, type SubscribeResult, type SwitchBranchParams, type SwitchBranchResult, t, type TaskActionParams, type TaskBatchActionParams, type TaskBatchActionResult, type ReminderActionParams, type ReminderActionResult, type UiInput } from "../state/index.ts";
 
 /** 浏览器 WebSocket 里用到的那部分（测试换成假的） */
 export interface SocketLike {
@@ -324,6 +325,14 @@ export class WebSocketConnection implements Connection {
     return new Promise((resolve, reject) => {
       const id = this.request(METHODS.runJobNow, params, req.idempotencyKey);
       this.waiting.set(id, { resolve: (result) => resolve(result as RunJobNowResult), reject });
+    });
+  }
+
+  setProjectVoiceAnnounce(req: SetProjectVoiceAnnounceRequest): Promise<SetProjectVoiceAnnounceResult> {
+    const params: SetProjectVoiceAnnounceParams = { projectId: req.projectId, on: req.on };
+    return new Promise((resolve, reject) => {
+      const id = this.request(METHODS.setProjectVoiceAnnounce, params, req.idempotencyKey);
+      this.waiting.set(id, { resolve: (result) => resolve(result as SetProjectVoiceAnnounceResult), reject });
     });
   }
 

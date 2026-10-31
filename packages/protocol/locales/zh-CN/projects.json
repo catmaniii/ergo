@@ -152,6 +152,7 @@
   "projects.errors.noTask": "没有编号为 {id} 的任务",
   "projects.errors.alreadyMaintainer": "任务 {id} 的维护者已经是一个项目的维护者了，不能再转为项目",
   "projects.errors.resetArchived": "项目「{name}」已归档：维护者会话只读，不能重置。要重置先在项目页上取消归档",
+  "projects.errors.announceArchived": "项目「{name}」已归档，不会再有进展，没有自动播报可开关",
   "projects.errors.resetUnsupported": "这个版本还不能重置维护者",
   "projects.errors.chatDeleted": "项目「{name}」已经删除了，维护者会话也删掉了",
   "projects.errors.chatArchived": "项目「{name}」已归档：维护者会话只读。要接着和维护者说话，先在项目页上取消归档",

@@ -443,6 +443,12 @@ export const MessageEnvelope = Type.Object({
    */
   summary: Type.Optional(Type.String()),
   /**
+   * 这条通知能转述谁（354 号票，交给秘书的任务做完、维护者来信才有）：写在通知里的编号（任务 t-5、项目 p-1）和信上的发信人（agent id）。
+   * 秘书用 send_voice 的 relay 转述时只认这里记的，声音由运行时按发信人查角色，所以通知里的文字（信的原话也在里面）写什么都指定不了别人的声音。
+   * 只给运行时看，不交给 agent；之前的通知、之前的信没有（不能转述）
+   */
+  relaySources: Type.Optional(Type.Array(Type.Object({ source: Type.String(), agentId: Type.String() }))),
+  /**
    * 网页上下的指令（134–148 号票）：用户在"浏览"里某个网页的框上打字或说话让二狗填，一次性的页面助手处理完记进秘书会话的那一句（用户消息）。
    * 记着在哪个网页、哪个框上说的、是不是说的；已经处理过了，不进秘书的输入队列。149 号票起悬浮按钮发的是带 browsing（via: "button"）的
    * 普通消息，这个只留给以前的记录

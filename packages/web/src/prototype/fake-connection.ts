@@ -43,6 +43,7 @@ import type {
   SwitchBranchRequest,
   RunJobNowRequest,
   SetToolkitRequest,
+  SetProjectVoiceAnnounceRequest,
   SetVoiceAnnounceRequest,
   ScheduledJobActionRequest,
   SendMessageRequest,
@@ -67,6 +68,7 @@ import {
   ENDED_TASK_STATES,
   canRescheduleJob,
   canRunJobNow,
+  canSetProjectVoiceAnnounce,
   canSetVoiceAnnounce,
   type DaemonInfo,
   describeTime,
@@ -90,6 +92,7 @@ import {
   type RequestEffectUndoResult,
   type SwitchBranchResult,
   type RunJobNowResult,
+  type SetProjectVoiceAnnounceResult,
   type SetVoiceAnnounceResult,
   taskActRefusal,
   type TaskBatchAction,
@@ -1369,6 +1372,23 @@ export class FakeConnection implements Connection {
         step("triggered", run);
         later(4000, () => step("run_finished", { ...run, state: "done", endedAt: nowIso(), summary: "（原型）手动跑了一次，做好了" }));
         resolve({ jobId: job.id, runId, state: "running" });
+      }),
+    );
+  }
+
+  /** 项目的自动播报（354 号票）：照协议包的 canSetProjectVoiceAnnounce 改假项目的开关，推一条 voice_announce_set */
+  setProjectVoiceAnnounce(req: SetProjectVoiceAnnounceRequest): Promise<SetProjectVoiceAnnounceResult> {
+    return new Promise((resolve, reject) =>
+      later(300, () => {
+        const project = this.projects.get(req.projectId);
+        const refusal = !project ? `没有项目 ${req.projectId}` : !canSetProjectVoiceAnnounce(project) ? "这个项目已归档，没有自动播报可开关" : undefined;
+        if (!project || refusal) {
+          this.deliver?.({ kind: "request_failed", idempotencyKey: req.idempotencyKey, error: refusal ?? "做不了" });
+          reject(new Error(refusal));
+          return;
+        }
+        if ((project.voiceAnnounce === true) !== req.on) this.updateProject(project, { voiceAnnounce: req.on }, "voice_announce_set");
+        resolve({ projectId: project.id, on: req.on });
       }),
     );
   }

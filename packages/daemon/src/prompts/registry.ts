@@ -42,7 +42,7 @@ import { JOB_TOOL } from "../scheduled-jobs/tool-names.ts";
 import { TELL_SECRETARY_TOOL } from "../secretary/letter-texts.ts";
 import { AUTO_ANNOUNCE_TAG, MAINTAINER_LETTER_TAG, TASK_DONE_TAG } from "../secretary/notice-tags.ts";
 import { launchCommandText } from "../tasks/launch-intent.ts";
-import { TASK_CONTROL_ACTION, TASK_DELETE_ACTION, TASK_RUN_ACTION } from "../tasks/task-control.ts";
+import { PROJECT_ANNOUNCE_ACTION, TASK_CONTROL_ACTION, TASK_DELETE_ACTION, TASK_RUN_ACTION } from "../tasks/task-control.ts";
 import { RELAY_ACTION } from "../secretary/relay.ts";
 import { EXECUTION_TOOL, PROPOSE_PARALLEL_TOOL, SUBMIT_REVIEW_TOOL, TASK_TOOL, WORKFLOW_TOOL } from "../tasks/tool-names.ts";
 import { REQUEST_MCP_CHANGE_TOOL, MCP_CALL_TOOL } from "../mcp/tool-names.ts";
@@ -569,6 +569,8 @@ export function commonPlaceholders(): readonly CommonPlaceholder[] {
     TASK_CONTROL_ACTION.cancel,
     TASK_RUN_ACTION.runNow,
     TASK_RUN_ACTION.announce,
+    // 354 号票：开关项目的自动播报
+    PROJECT_ANNOUNCE_ACTION,
     // 186 号票：删除任务的快速动作
     TASK_DELETE_ACTION,
     RELAY_ACTION.task,

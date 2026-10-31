@@ -26,6 +26,7 @@ import type {
   RescheduleJobResult,
   RunJobNowResult,
   ScheduledJobAction,
+  SetProjectVoiceAnnounceResult,
   SetVoiceAnnounceResult,
   StageEdit,
   TaskAction,
@@ -236,6 +237,13 @@ export interface RequestEffectUndoRequest {
 }
 
 /** 开关任务的"跑完自动播报"（100 号票） */
+/** 开关项目的自动播报（354 号票） */
+export interface SetProjectVoiceAnnounceRequest {
+  projectId: string;
+  on: boolean;
+  idempotencyKey: string;
+}
+
 export interface SetVoiceAnnounceRequest {
   taskId: string;
   on: boolean;
@@ -298,6 +306,7 @@ export interface Connection {
   runJobNow(req: RunJobNowRequest): Promise<RunJobNowResult>;
   /** 任务操作菜单里的"跑完自动播报：开 / 关"（100 号票）：等到开关之后的样子；任务的新样子随后在看板频道推来 */
   setVoiceAnnounce(req: SetVoiceAnnounceRequest): Promise<SetVoiceAnnounceResult>;
+  setProjectVoiceAnnounce(req: SetProjectVoiceAnnounceRequest): Promise<SetProjectVoiceAnnounceResult>;
   /** 秘书页上看到哪一条了（109 号票）：只管发，已读位置随后在已读位置频道推来（几台设备一起） */
   markRead(req: MarkReadRequest): void;
   /** 停下正在回复的这一轮（144 号票）：只管发，这一轮的结束随后在会话频道推来；被拒时原因进 request_failed */

@@ -94,6 +94,8 @@ import {
   type RescheduleJobResult,
   type RunJobNowParams,
   type RunJobNowResult,
+  type SetProjectVoiceAnnounceParams,
+  type SetProjectVoiceAnnounceResult,
   type SetVoiceAnnounceParams,
   type SetVoiceAnnounceResult,
   type WebVersionEventPayload,
@@ -195,6 +197,7 @@ export interface RequestHandlers {
   runJobNow?(params: RunJobNowParams, idempotencyKey: string): RunJobNowResult;
   /** 任务操作菜单里的"跑完自动播报：开 / 关"（tasks/，100 号票） */
   setVoiceAnnounce?(params: SetVoiceAnnounceParams, idempotencyKey: string): SetVoiceAnnounceResult;
+  setProjectVoiceAnnounce?(params: SetProjectVoiceAnnounceParams, idempotencyKey: string): SetProjectVoiceAnnounceResult;
   /** 发起对话框里的"只提醒我"（76 号票）：建一条简单提醒 */
   createReminder?(params: CreateReminderParams, idempotencyKey: string): CreateReminderResult;
   /** 看板菜单、提醒卡上的按钮、看板多选（185 号票）：对一条或几条简单提醒取消、归档、删除，各自成败、逐条回报 */
@@ -733,6 +736,9 @@ class FrontendConnection implements BrowserPeer {
       case METHODS.setVoiceAnnounce:
         if (!this.requests.setVoiceAnnounce) return this.fail(request.id, { code: "not_implemented", message: t("gateway.ws.setVoiceAnnounce") });
         return this.respond({ id: request.id, ok: true, result: this.requests.setVoiceAnnounce(request.params, request.idempotencyKey) });
+      case METHODS.setProjectVoiceAnnounce:
+        if (!this.requests.setProjectVoiceAnnounce) return this.fail(request.id, { code: "not_implemented", message: t("gateway.ws.setProjectVoiceAnnounce") });
+        return this.respond({ id: request.id, ok: true, result: this.requests.setProjectVoiceAnnounce(request.params, request.idempotencyKey) });
       case METHODS.createReminder:
         if (!this.requests.createReminder) return this.fail(request.id, { code: "not_implemented", message: t("gateway.ws.createReminder") });
         return this.respond({ id: request.id, ok: true, result: this.requests.createReminder(request.params, request.idempotencyKey) });

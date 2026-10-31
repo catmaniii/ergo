@@ -21,7 +21,7 @@ import {
   StopReplyParams,
   SubscribeParams,
 } from "./schema.ts";
-import { ConvertTaskParams, NewProjectParams, ProjectActionParams, ResetMaintainerParams } from "./project-schema.ts";
+import { ConvertTaskParams, NewProjectParams, ProjectActionParams, ResetMaintainerParams, SetProjectVoiceAnnounceParams } from "./project-schema.ts";
 import { ProjectServicesActionParams } from "./operations-schema.ts";
 import { SetVoiceAnnounceParams, StartTaskParams, TaskActionParams, TaskBatchActionParams } from "./task-schema.ts";
 import { UpdateWatchCategoriesParams } from "./watch-category-schema.ts";
@@ -55,6 +55,7 @@ const PARAM_SCHEMAS = {
   [METHODS.rescheduleJob]: RescheduleJobParams,
   [METHODS.runJobNow]: RunJobNowParams,
   [METHODS.setVoiceAnnounce]: SetVoiceAnnounceParams,
+  [METHODS.setProjectVoiceAnnounce]: SetProjectVoiceAnnounceParams,
   [METHODS.createReminder]: CreateReminderParams,
   [METHODS.reminderAction]: ReminderActionParams,
   [METHODS.markRead]: MarkReadParams,

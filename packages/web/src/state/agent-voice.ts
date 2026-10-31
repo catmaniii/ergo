@@ -20,6 +20,8 @@
 // "收着"（协议包的 agentVoiceHoldsTurn，和 agentVoiceCoversReply 共用）只到下一轮开始为止（实时收到的下一个 turn_start，UiState.turnStarts）：
 // 守护进程回合结束时马上定 coversReply，正常不会跨轮；万一这一版没到（守护进程在这之前停了），下一轮的回复照常显示。
 // 87 号票：发出了气泡的那次"发语音"调用不在聊天里单独显示（toolVoiceCalls 给出是哪几次，会话条目层把它挂在气泡上，气泡的详情里看）。
+// 354 号票：不止一个人的声音的（语音对象的 parts：先开场、再接负责人自己的声音）气泡还是一条，"转文字"分两段显示，每段写谁说的（名字是当时的角色名）。
+// 老记录没有 parts，照旧是送进 TTS 的原文。
 import { agentVoiceCoversReply, agentVoiceHoldsTurn, type AgentVoiceRecord, type ConversationId, type MessageEnvelope, type MessagePart, t, voiceDurationLabel } from "./protocol.ts";
 import type { UiState } from "./ui-state.ts";
 import { BASE_VOICE_BAR, type VoiceBarSizes, voiceBubbleWidth, type VoiceBubbleLook, voiceWidthIn } from "./voice.ts";
@@ -49,8 +51,14 @@ export function agentVoiceBubble(state: UiState, part: TtsAudioPart): AgentVoice
   return bubbleOf(voice, part.durationMs, voice && coveredReplyText(state, voice));
 }
 
+/** 语音的原文：分人的每段写谁说的（"二狗：……"，354 号票），不分人的是送进 TTS 的原文 */
+function spokenTextOf(voice: AgentVoiceRecord | undefined): string | undefined {
+  if (voice?.parts?.length) return voice.parts.map((part) => t("state.agentVoice.partLine", { name: part.speaker.name, text: part.text })).join("\n\n");
+  return voice?.text?.trim() ? voice.text : undefined;
+}
+
 function bubbleOf(voice: AgentVoiceRecord | undefined, durationMs: number, covered?: string): AgentVoiceBubble {
-  const text = [voice?.text?.trim() ? voice.text : undefined, covered].filter((x): x is string => x !== undefined);
+  const text = [spokenTextOf(voice), covered].filter((x): x is string => x !== undefined);
   return {
     duration: voiceDurationLabel(durationMs),
     width: voiceBubbleWidth(durationMs),

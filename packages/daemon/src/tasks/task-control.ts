@@ -21,7 +21,8 @@
 // （"念给我""播报"……）加上说的是以后每次（"以后""每次""跑完""自动"……），没有否定和关掉；关掉是否定词紧挨着念、读、播报，
 // 或者"关掉、取消……"和播报在一起。
 // 提出时就看能不能做（上一次还在跑、不是定时触发的、项目内部的……），不能的直接拒、原因交回秘书，不出卡。
-import { forModel, isProjectInternal, t, type Task, type TaskAction, TASK_STATE_LABEL, taskName, Type } from "@ergo/protocol";
+// 354 号票照同一套加了 set_project_voice_announce（projectAnnounceAction）：开关项目的自动播报，走 projects.buildVoiceAnnounce。
+import { forModel, isProjectInternal, type Project, t, type Task, type TaskAction, TASK_STATE_LABEL, taskName, Type } from "@ergo/protocol";
 import { VIEW_BOARD_TOOL } from "../board/tool-names.ts";
 import {
   bareText,
@@ -39,6 +40,8 @@ import {
   type UserTurn,
 } from "../quick-actions/index.ts";
 import { RequestRejected } from "../errors.ts";
+import type { EventStore } from "../events/event-store.ts";
+import { listProjects, type VoiceAnnounceProjects } from "../projects/api.ts";
 import type { ScheduledJobs } from "../scheduled-jobs/jobs.ts";
 import { findByIdOrName } from "../util/find-by-ref.ts";
 import type { TaskDeletion } from "./deletion.ts";
@@ -184,7 +187,7 @@ const RunNowParams = Type.Object(
 const AnnounceParams = Type.Object(
   {
     task: Type.String({ minLength: 1, description: "哪个任务：任务编号（t-5，看板上有）或完整的任务标题，尽量照抄用户的说法" }),
-    on: Type.Boolean({ description: "true 是打开（以后做完直接念给用户听），false 是关掉（照旧先问要不要念）" }),
+    on: Type.Boolean({ description: "true 是打开（以后做完或者中途来信直接念给用户听），false 是关掉（照旧先问要不要念）" }),
   },
   { additionalProperties: false },
 );
@@ -231,7 +234,7 @@ export function taskRunActions(deps: { tasks: TaskService; scheduledJobs: () => 
       type: TASK_RUN_ACTION.announce,
       // @i18n-ignore-start model：快速动作的名字、用法写进秘书的工具说明
       title: "跑完自动播报",
-      usage: "用户要某个任务以后做完（定时、事件触发的是每次运行完）直接把要点念给他听（on: true），或者不要再直接念、照旧先问（on: false）",
+      usage: "用户要某个任务以后做完（定时、事件触发的是每次运行完）或者中途来信时直接把要点念给他听（on: true），或者不要再直接念、照旧先问（on: false）",
       // @i18n-ignore-end
       params: AnnounceParams,
       watch: { categories: [] },
@@ -265,6 +268,73 @@ export function taskRunActions(deps: { tasks: TaskService; scheduledJobs: () => 
       },
     }),
   ];
+}
+
+/** 开关项目的自动播报的快速动作类型（354 号票；秘书的系统提示里写：占位符 {{set_project_voice_announce}}） */
+export const PROJECT_ANNOUNCE_ACTION = "set_project_voice_announce";
+
+// @i18n-ignore-start model：工具参数的说明
+const ProjectAnnounceParams = Type.Object(
+  {
+    project: Type.String({ minLength: 1, description: "哪个项目：项目编号（p-1）或完整的项目名，尽量照抄用户的说法" }),
+    on: Type.Boolean({ description: "true 是打开（以后负责人的进展来信直接念给用户听），false 是关掉（照旧是文字、先问）" }),
+  },
+  { additionalProperties: false },
+);
+// @i18n-ignore-end
+
+/** 卡上、操作记录里项目的称呼 */
+const projectNameOf = (project: Project) => t("tasks.control.projectName", { id: project.id, name: project.name });
+
+/**
+ * 开关项目的自动播报（354 号票，照 100 号票的 set_voice_announce）：点明的判定也一样，同一个分句（不是问句）里写着这个项目（编号或完整的名字）
+ * 和这个说法、方向对；推断出来的出卡确认。"做完"这类说法项目没有，但"以后、每次、自动"都算说的是以后每次（ANNOUNCE_STANDING）
+ */
+export function projectAnnounceAction(deps: { store: Pick<EventStore, "reader">; projects: () => VoiceAnnounceProjects }): QuickActionExecutor {
+  const all = () => listProjects(deps.store.reader);
+  return defineQuickAction({
+    type: PROJECT_ANNOUNCE_ACTION,
+    // @i18n-ignore-start model：快速动作的名字、用法写进秘书的工具说明
+    title: "项目自动播报",
+    usage: "用户要某个项目以后有进展（负责人给你的来信）直接念给他听（on: true），或者不要再直接念、照旧先问（on: false）",
+    // @i18n-ignore-end
+    params: ProjectAnnounceParams,
+    watch: { categories: [] },
+    confirm: "ask_when_inferred",
+    normalize({ project: ref, on }): NormalizedQuickAction {
+      const project = findByIdOrName(all(), ref, { nameOf: (p) => p.name, what: "项目", hint: "写项目编号（p-1）或完整的项目名" }); // @i18n-ignore model：认不出交回秘书
+      // 已归档的直接拒
+      deps.projects().buildVoiceAnnounce(project.id, on);
+      return {
+        params: { projectId: project.id, on },
+        title: t(on ? "tasks.control.announceOn" : "tasks.control.announceOff", { task: projectNameOf(project) }),
+        target: projectNameOf(project),
+        content: on ? t("tasks.control.on") : t("tasks.control.off"),
+      };
+    },
+    explicit(action, turn) {
+      const { projectId, on } = action.params as { projectId: string; on: boolean };
+      const project = all().find((p) => p.id === projectId);
+      if (!project) return undefined;
+      const others = all().flatMap((p) => (p.id === project.id ? [] : [{ id: p.id, name: p.name }]));
+      const says = on ? saysAnnounceOn : saysAnnounceOff;
+      for (const { text, source } of ownWords(turn)) {
+        for (const sentence of sentencesOf(text)) {
+          if (isQuestion(sentence)) continue;
+          if (clausesOf(sentence).some((clause) => mentionsRef(clause, { id: project.id, name: project.name }, others) && says(clause))) return { source };
+        }
+      }
+      return undefined;
+    },
+    execute(params, context) {
+      const { projectId, on } = params as { projectId: string; on: boolean };
+      const built = deps.projects().buildVoiceAnnounce(projectId, on, `project-voice-announce:${context.actionId}`);
+      return {
+        events: built.events,
+        summary: t(built.events.length === 0 ? "tasks.control.projectAnnounceUnchanged" : "tasks.control.projectAnnounceSet", { project: projectNameOf(built.project), state: on ? t("tasks.control.on") : t("tasks.control.off") }),
+      };
+    },
+  });
 }
 
 /** 三个任务控制快速动作（execution 现取：执行控制器在快速动作登记之后才建） */

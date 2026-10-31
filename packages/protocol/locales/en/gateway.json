@@ -25,6 +25,7 @@
   "gateway.ws.rescheduleJob": "This version can't reschedule scheduled tasks yet",
   "gateway.ws.runJobNow": "This version can't run a scheduled task right now yet",
   "gateway.ws.setVoiceAnnounce": "This version can't toggle spoken updates on completion yet",
+  "gateway.ws.setProjectVoiceAnnounce": "This version can't toggle spoken updates for projects yet",
   "gateway.ws.createReminder": "This version can't create reminders from the start dialog yet",
   "gateway.ws.reminderAction": "This version can’t cancel, archive or delete reminders from the board or reminder cards yet",
   "gateway.ws.markRead": "This version can't remember your read position yet",

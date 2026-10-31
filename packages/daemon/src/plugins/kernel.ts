@@ -137,9 +137,9 @@ export const KERNEL = {
   voiceEngines: serviceKey<VoiceEngines>("voiceEngines"),
   /**
    * 角色（248 号票；241 号票是每个 agent 自己的名字和音色）：语音插件按"说话的是哪个 agent"取它用的角色指定的音色
-   * （没指定、被删了跟全局默认）。名字那一半在组合根和 ⚙ 面板里用，插件不用
+   * （没指定、被删了跟全局默认）。354 号票：转述负责人的进展时还要角色名（转文字时写"小张："）
    */
-  agentRoles: serviceKey<Pick<AgentRoles, "voiceIdOf">>("agentRoles"),
+  agentRoles: serviceKey<Pick<AgentRoles, "voiceIdOf" | "roleOf">>("agentRoles"),
   /** 授权的文件夹（138 号票，内核的：秘书在聊天里和浏览插件的找文件共用一份） */
   localFolders: serviceKey<LocalFolders>("localFolders"),
   /** 把几张图缩成小图（agent 管家拉起的一次性子进程；212 号票：浏览插件的看图、候选缩略图） */

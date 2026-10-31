@@ -36,6 +36,10 @@
 //   紧跟在那条来信通知后面（同一套：同一事务、同一个幂等键前缀、只在第一次交的时候放），不折进来信那一行；通知的全文里写附了
 //   哪几个、附件引用（秘书要看内容用 read_attachment）。同一次交的几条里同一个文件（媒体 id 一样）只放一张：几封信带了同一个的、
 //   维护者带着信发了交付件、紧接着任务做完又交了同一份的，放在先到的那条后面。
+// - 负责人自己的声音（354 号票，用户 2026-11-01 定：不增加打扰，只是换声音）：通知上记下这几件能转述谁（relaySources：编号和发信人），
+//   发信人有自己的声音的（ownVoiceOf，交的时候现查）那一件多写一句"负责人有自己的声音"，通知末尾多一段两段怎么写（RELAY_RULES）。
+//   开关开着的任务、项目的进展来信（信上的 owner，看交的时候的开关）单独交一条，开头紧跟 AUTO_ANNOUNCE_TAG（这一轮放行语音，不问，
+//   一次运行只播报一次的那套重新交的规矩照旧），关着的照旧是文字。语音插件没在运行时（speaks 为 false）当作关着、不写声音。
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -75,12 +79,13 @@ import { ownerName, runLabel } from "../scheduled-jobs/texts.ts";
 import { TASK_RECORDS_FILE } from "../scope-review/scope-review.ts";
 import { ignoredDeliveryDir, ignoredDeliveryFile } from "../tasks/delivery-ignore.ts";
 import { taskWorkdir } from "../tasks/task-workdir.ts";
+import { getProject } from "../projects/api.ts";
 import { getTask } from "../tasks/views.ts";
 import { toolVoicesOfTurn } from "../voice-records/agent-views.ts";
 import { SEND_VOICE_TOOL } from "../voice-records/names.ts";
-import { letterNoticeSummary, letterNoticeText } from "./letter-texts.ts";
-import { describeLetter, isLetterToSecretary, letterAttachments, LETTERS_CHANNEL } from "./letters.ts";
-import { AUTO_ANNOUNCE_TAG, isMaintainerLetterNotice, MAINTAINER_LETTER_TAG, TASK_DONE_TAG } from "./notice-tags.ts";
+import { letterNoticeSummary, letterNoticeText, RELAY_RULES, relayHint } from "./letter-texts.ts";
+import { describeLetter, isLetterToSecretary, letterAttachments, letterOwner, letterRelaySource, LETTERS_CHANNEL } from "./letters.ts";
+import { ANNOUNCE_HEADS, AUTO_ANNOUNCE_TAG, isMaintainerLetterNotice, MAINTAINER_LETTER_TAG, TASK_DONE_TAG } from "./notice-tags.ts";
 
 export { AUTO_ANNOUNCE_TAG, TASK_DONE_TAG };
 
@@ -251,7 +256,7 @@ function deliveredFiles(dir: string, since: string | undefined, until?: string |
  * 通知里的一件：哪个任务做完了，它最后说的话（太长截短并写明），交付的文件。dir 是交付的文件所在的产出区（开了跑完自动播报的给，
  * 100 号票：秘书要直接念，写明在哪、可以读）
  */
-export function taskDoneItemText(head: string, said: string | undefined, files: readonly string[], dir?: string): string {
+export function taskDoneItemText(head: string, said: string | undefined, files: readonly string[], dir?: string, relay?: string): string {
   // @i18n-ignore-start model：交给秘书的通知
   const lines = [head];
   if (said === undefined) lines.push("它没有留下结果的说明。");
@@ -259,15 +264,18 @@ export function taskDoneItemText(head: string, said: string | undefined, files: 
   else lines.push("它最后说：", said);
   const where = dir === undefined ? "在任务的产出区里" : `在任务的产出区 ${dir} 里，要细节可以读`;
   if (files.length > 0) lines.push(`交付的文件（${where}）：${files.slice(0, FILES_MAX).join("、")}${files.length > FILES_MAX ? ` 等 ${files.length} 个` : ""}`);
+  // 负责人有自己的声音（354 号票）
+  if (relay !== undefined) lines.push(relay);
   // @i18n-ignore-end
   return lines.join("\n");
 }
 
-/** 通知里的一件：写好的一段，这件开没开跑完自动播报（100 号票），是不是部分完成的一次运行（176 号票） */
+/** 通知里的一件：写好的一段，这件开没开跑完自动播报（100 号票），是不是部分完成的一次运行（176 号票），负责人有没有自己的声音（354 号票） */
 export interface TaskDoneItem {
   text: string;
   announce: boolean;
   partial?: boolean;
+  ownVoice?: boolean;
 }
 
 /** 交的时候写好的一件（115 号票起多了会话里那一行的总结、交付的文件） */
@@ -278,6 +286,8 @@ interface DescribedDone extends TaskDoneItem {
   summary: string;
   /** 交付的文件（绝对路径，按通知里列的先后）：能预览的作为附件放进秘书会话 */
   files: readonly string[];
+  /** 这一件能转述谁（354 号票）：写在通知里的编号、发信人 */
+  relay: { source: string; agentId: string };
 }
 
 /** 一件的一句话总结（115 号票）："t-5「AI 日报」第 2 次运行做完了，交了 1 个文件"；部分完成的一次运行写"部分完成"（176 号票） */
@@ -330,7 +340,7 @@ export function taskDoneNoticeText(items: readonly TaskDoneItem[], speaks = true
   const body = items.length === 1 ? items.map((i) => i.text) : items.map((item, i) => `${i + 1}. ${item.text}`);
   const what = items.length === 1 ? "这件" : "这几件";
   const ask = announce ? `${what}开了跑完自动播报（用户事先说好了的）：不用问，直接用 ${SEND_VOICE_TOOL} ${ANNOUNCE_RULES}` : speaks ? askText(what) : tellText(what);
-  return [head, ...body, ask, ...(items.some((i) => i.partial) ? [PARTIAL_RULES] : [])].join("\n\n");
+  return [head, ...body, ask, ...(items.some((i) => i.partial) ? [PARTIAL_RULES] : []), ...(items.some((i) => i.ownVoice) ? [RELAY_RULES] : [])].join("\n\n");
 }
 
 /** 被打断后重新交时，上次那一轮已经念过了（100 号票：一次运行只播报一次）：去掉自动播报的标记，末尾加这句 */
@@ -339,9 +349,15 @@ export const ALREADY_ANNOUNCED = `上次处理这条通知时已经用 ${SEND_VO
 
 /**
  * 一件做完的事写成通知里的一段（交的时候才写：agent 最后说的话那时才齐）；开没开跑完自动播报看任务现在的开关
- * （214 号票：语音插件没在运行——speaks 为 false——时当作关着，念不了）。连同会话里那一行的总结和交付的文件（115 号票）
+ * （214 号票：语音插件没在运行——speaks 为 false——时当作关着，念不了）。连同会话里那一行的总结和交付的文件（115 号票）；
+ * ownVoiceOf 是发信人有没有自己的声音（354 号票，这时写一句"负责人有自己的声音"）
  */
-function describeDone(store: EventStore, outputsDir: string, e: StoredEvent, speaks: boolean): DescribedDone {
+function describeDone(store: EventStore, outputsDir: string, e: StoredEvent, speaks: boolean, ownVoiceOf: OwnVoiceOf): DescribedDone {
+  /** 这一件能转述谁，发信人有自己的声音时写在通知里的那一句 */
+  const relayOf = (source: string, agentId: string) => {
+    const own = ownVoiceOf(agentId);
+    return { relay: { source, agentId }, hint: own ? relayHint(own.name, source) : undefined };
+  };
   if (e.type === EVENT_TYPES.task) {
     const { task } = e.payload as TaskEventPayload;
     const { start, next } = roundOf(store, task.id, e.globalSeq);
@@ -353,12 +369,15 @@ function describeDone(store: EventStore, outputsDir: string, e: StoredEvent, spe
     const head = `${forModel(() => TASK_KIND_LABEL[taskKind(task)])} ${task.id}「${task.title}」在后台做完了。${announce ? ANNOUNCE_MARK : ""}`; // @i18n-ignore model
     // 会话里那一行的称呼给用户看（173 号票）
     const name = t("secretary.taskDone.name", { id: task.id, title: task.title });
+    const { relay, hint } = relayOf(task.id, task.maintainerId);
     return {
-      text: taskDoneItemText(head, said, files, announce ? dir : undefined),
+      text: taskDoneItemText(head, said, files, announce ? dir : undefined, hint),
       announce,
+      ...(hint === undefined ? {} : { ownVoice: true }),
       name,
       summary: taskDoneItemSummary(name, files.length),
       files: files.map((f) => path.join(dir, f)),
+      relay,
     };
   }
   const { job, run } = e.payload as ScheduledJobEventPayload;
@@ -381,13 +400,16 @@ function describeDone(store: EventStore, outputsDir: string, e: StoredEvent, spe
   const outcome = partial ? `部分完成了（触发：${when}）。${announce ? ANNOUNCE_MARK : ""}\n没做成的：${run!.reason ?? "没有写"}` : `做完了（触发：${when}）。${closes}${announce ? ANNOUNCE_MARK : ""}`;
   const head = forModel(() => `${ownerName(job, owner)}的${runLabel(run!)}${outcome}`); // @i18n-ignore model
   const name = t("secretary.taskDone.runName", { id: owner ? owner.id : job.id, title: owner ? owner.title : job.title, run: runLabel(run!) });
+  const { relay, hint } = relayOf(owner ? owner.id : job.id, job.maintainerId);
   return {
-    text: taskDoneItemText(head, said, files, announce ? dir : undefined),
+    text: taskDoneItemText(head, said, files, announce ? dir : undefined, hint),
     announce,
     ...(partial ? { partial } : {}),
+    ...(hint === undefined ? {} : { ownVoice: true }),
     name,
     summary: taskDoneItemSummary(name, files.length, partial),
     files: files.map((f) => path.join(dir, f)),
+    relay,
   };
 }
 
@@ -414,6 +436,8 @@ interface NoticeAttempt {
   text: string;
   /** 会话里那一行的总结（115 号票之前交的没有）：重新交的照旧带上 */
   summary: string | undefined;
+  /** 这条通知能转述谁（354 号票之前交的没有）：重新交的照旧带上 */
+  relaySources: MessageEnvelope["relaySources"];
 }
 
 /** 秘书会话里交过的全部通知（任务做完的、维护者来信的；同一种里按先后） */
@@ -426,14 +450,14 @@ function noticeAttempts(store: EventStore): NoticeAttempt[] {
       const [seq, attempt] = key.slice(prefix.length).split("#").map(Number);
       if (seq === undefined || !Number.isInteger(seq)) continue;
       const { message } = e.payload as MessageEventPayload;
-      out.push({ prefix, seq, attempt: attempt ?? 1, messageId: message.id, text: message.parts.map((p) => (p.type === "text" ? p.text : "")).join(""), summary: message.summary });
+      out.push({ prefix, seq, attempt: attempt ?? 1, messageId: message.id, text: message.parts.map((p) => (p.type === "text" ? p.text : "")).join(""), summary: message.summary, relaySources: message.relaySources });
     }
   }
   return out;
 }
 
-/** 开了跑完自动播报的通知开头 */
-const ANNOUNCE_HEAD = `${TASK_DONE_TAG}${AUTO_ANNOUNCE_TAG}`;
+/** 这段话是开了自动播报的通知吗（100 号票任务做完的、354 号票进展来信的） */
+const isAnnounceText = (text: string) => ANNOUNCE_HEADS.some(({ head }) => text.startsWith(head));
 
 /**
  * 秘书处理这条通知的那一轮里发语音工具建出的语音（100 号票）：按这一轮开始的序号认（turn_start 的 inputMessageId 是它，
@@ -461,8 +485,9 @@ export function announcedState(voices: readonly Pick<AgentVoiceRecord, "status">
  * 去掉自动播报的标记（这一轮不再放行语音）、末尾写明念过了，一次运行只播报一次；没念成的原样再交（再念一次）
  */
 function redeliveredText(a: NoticeAttempt, announced: boolean): string {
-  if (!a.text.startsWith(ANNOUNCE_HEAD) || !announced) return a.text;
-  return `${TASK_DONE_TAG}${a.text.slice(ANNOUNCE_HEAD.length)}\n\n${ALREADY_ANNOUNCED}`;
+  const opened = ANNOUNCE_HEADS.find(({ head }) => a.text.startsWith(head));
+  if (!opened || !announced) return a.text;
+  return `${opened.tag}${a.text.slice(opened.head.length)}\n\n${ALREADY_ANNOUNCED}`;
 }
 
 /** 每件通知最后交的那一次（同一件只看它） */
@@ -504,8 +529,16 @@ export interface TaskDoneNoticesOptions {
    * 交的时候现取；不给当作能
    */
   speaks?: () => boolean;
+  /**
+   * 这个 agent 有没有自己的声音（354 号票：角色配了音色、音色还在、和秘书现在用的不一样）：有给角色名，写进通知，秘书才知道要写两段。
+   * 交的时候现取；不给就是都没有
+   */
+  ownVoiceOf?: OwnVoiceOf;
   log: (line: string) => void;
 }
+
+/** 这个 agent 有没有自己的声音（有给角色名） */
+type OwnVoiceOf = (agentId: string) => { name: string } | undefined;
 
 export interface TaskDoneNotices {
   /** 秘书闲下来了：攒着的够安静了就交给它 */
@@ -560,6 +593,13 @@ export function startTaskDoneNotices(options: TaskDoneNoticesOptions): TaskDoneN
     return parts;
   };
 
+  /** 这封信所属的任务、项目开着自动播报吗（354 号票）：看交的时候的开关；之前记下的信（没有 owner）当作关着 */
+  const letterAnnounces = (e: StoredEvent): boolean => {
+    const owner = letterOwner(e);
+    if (owner?.kind === "task") return getTask(store.reader, owner.id)?.voiceAnnounce === true;
+    return owner?.kind === "project" && getProject(store.reader, owner.id)?.voiceAnnounce === true;
+  };
+
   /** 正在交（附件入库要等一下）：这期间再看的先不交，交完了再看一眼 */
   let flushing = false;
   const flush = async () => {
@@ -570,7 +610,9 @@ export function startTaskDoneNotices(options: TaskDoneNoticesOptions): TaskDoneN
     flushing = true;
     try {
       const speaks = options.speaks?.() ?? true;
-      const described = items.filter((d) => !isLetterToSecretary(d.event)).map((d) => ({ seq: d.event.globalSeq, item: describeDone(store, options.outputsDir, d.event, speaks) }));
+      // 语音插件没在运行时（214 号票）谁也没有声音
+      const ownVoiceOf: OwnVoiceOf = (agentId) => (speaks ? options.ownVoiceOf?.(agentId) : undefined);
+      const described = items.filter((d) => !isLetterToSecretary(d.event)).map((d) => ({ seq: d.event.globalSeq, item: describeDone(store, options.outputsDir, d.event, speaks, ownVoiceOf) }));
       // 开了跑完自动播报的单独一条（100 号票：只有那一条的一轮放行语音），关着的并在另一条
       const taskGroups = [described.filter((x) => !x.item.announce), described.filter((x) => x.item.announce)]
         .filter((g) => g.length > 0)
@@ -581,25 +623,32 @@ export function startTaskDoneNotices(options: TaskDoneNoticesOptions): TaskDoneN
           summary: taskDoneSummary(g.map((x) => x.item)),
           files: g.flatMap((x) => x.item.files),
           attachments: [] as MessagePart[],
+          relaySources: g.map((x) => x.item.relay),
         }));
-      // 维护者来信（102 号票）自成一条，几封并在一起
+      // 维护者来信（102 号票）自成一条，几封并在一起；任务、项目开着自动播报的（354 号票）另成一条，这一轮放行语音
       const letterEvents = items.filter((d) => isLetterToSecretary(d.event));
-      const letters = letterEvents.map((d) => describeLetter(d.event));
-      // 来信带的附件（117 号票）：写信时已入库
-      const letterFiles = letterEvents.flatMap((d) => letterAttachments(d.event));
-      const letterGroups =
-        letters.length > 0
-          ? [
-              {
-                prefix: LETTER_NOTICE_KEY_PREFIX as NoticePrefix,
-                last: Math.max(...letterEvents.map((d) => d.event.globalSeq)),
-                text: letterNoticeText(letters.map((l) => l.text), letterFiles.length > 0, speaks),
-                summary: letterNoticeSummary(letters.map((l) => l.summary)),
-                files: [] as string[],
-                attachments: letterFiles,
-              },
-            ]
-          : [];
+      const letterGroups = [letterEvents.filter((d) => !(speaks && letterAnnounces(d.event))), letterEvents.filter((d) => speaks && letterAnnounces(d.event))]
+        .map((events, kind) => ({ events, announce: kind === 1 }))
+        .filter((g) => g.events.length > 0)
+        .map(({ events, announce }) => {
+          const letters = events.map((d) => {
+            const { text, summary } = describeLetter(d.event);
+            const relay = letterRelaySource(d.event);
+            const own = relay && ownVoiceOf(relay.agentId);
+            return { text: own ? `${text}\n${relayHint(own.name, relay.source)}` : text, summary, relay, own };
+          });
+          // 来信带的附件（117 号票）：写信时已入库
+          const letterFiles = events.flatMap((d) => letterAttachments(d.event));
+          return {
+            prefix: LETTER_NOTICE_KEY_PREFIX as NoticePrefix,
+            last: Math.max(...events.map((d) => d.event.globalSeq)),
+            text: letterNoticeText(letters.map((l) => l.text), letterFiles.length > 0, speaks, { announce, relay: letters.some((l) => l.own !== undefined) }),
+            summary: letterNoticeSummary(letters.map((l) => l.summary)),
+            files: [] as string[],
+            attachments: letterFiles,
+            relaySources: letters.flatMap((l) => (l.relay ? [l.relay] : [])),
+          };
+        });
       // 先到的那一组在前
       const groups = [...taskGroups, ...letterGroups].toSorted((a, b) => a.last - b.last);
       // 同一次交的几条里同一个文件只放一张，放在先到的那条后面
@@ -615,7 +664,7 @@ export function startTaskDoneNotices(options: TaskDoneNoticesOptions): TaskDoneN
       if (stopped) return;
       store.appendBatch(
         groups.flatMap((g, i): NewEvent[] => [
-          buildAgentNotice(CHANNELS.secretary, g.text, noticeKey(g.prefix, g.last, 1), {}, { summary: g.summary }).event,
+          buildAgentNotice(CHANNELS.secretary, g.text, noticeKey(g.prefix, g.last, 1), {}, { summary: g.summary, relaySources: g.relaySources }).event,
           // 附件紧跟在它那条通知后面（给人看的系统消息，不排进秘书的输入队列）
           ...(attached[i]!.length > 0
             ? [buildMessage({ conversation: CHANNELS.secretary, speaker: "system", parts: attached[i]! }, { idempotencyKey: `${TASK_DONE_FILES_KEY_PREFIX}${g.last}` }).event]
@@ -639,13 +688,13 @@ export function startTaskDoneNotices(options: TaskDoneNoticesOptions): TaskDoneN
   const redeliverNow = (): boolean => {
     let sent = false;
     for (const a of redeliver.splice(0)) {
-      const announced = a.text.startsWith(ANNOUNCE_HEAD) ? announcedState(noticeTurnVoices(store, a.messageId)) : "none";
+      const announced = isAnnounceText(a.text) ? announcedState(noticeTurnVoices(store, a.messageId)) : "none";
       if (announced === "pending") {
         redeliver.push(a);
         continue;
       }
       try {
-        store.append(buildAgentNotice(CHANNELS.secretary, redeliveredText(a, announced === "announced"), noticeKey(a.prefix, a.seq, a.attempt + 1), {}, { summary: a.summary }).event);
+        store.append(buildAgentNotice(CHANNELS.secretary, redeliveredText(a, announced === "announced"), noticeKey(a.prefix, a.seq, a.attempt + 1), {}, { summary: a.summary, relaySources: a.relaySources }).event);
         sent = true;
       } catch (err) {
         options.log(`被打断的任务做完、维护者来信的通知没能重新交给秘书：${err instanceof Error ? err.message : String(err)}`);

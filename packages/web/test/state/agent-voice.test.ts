@@ -236,4 +236,38 @@ describe("agent 语音气泡框的样子：默认收起，转文字展开、再�
   test("还没收到语音对象（没有原文）：「转文字」不能点，展开了也只有播放条", () => {
     expect(agentVoiceBubbleLook(agentVoiceBubble(replay([]), PART), true)).toEqual({ body: undefined, width: { exact: voiceBubbleWidth(2800) }, textToggle: { label: "转文字", enabled: false } });
   });
+
+  // 354 号票：秘书开场 + 负责人自己的声音，合成一条
+  const relayed = (overrides: Partial<AgentVoiceRecord> = {}) =>
+    agentVoice(3, {
+      status: "done",
+      mode: "tool",
+      text: "日报有消息了，小张来说。\n我把日报写好了，共三条。",
+      mediaId: PART.mediaId,
+      messageId: "m-voice",
+      parts: [
+        { text: "日报有消息了，小张来说。", referenceVoice: { id: "v-1", name: "秘书的声音" }, speaker: { agentId: "secretary", name: "二狗" } },
+        { text: "我把日报写好了，共三条。", referenceVoice: { id: "v-2", name: "小张的声音" }, speaker: { agentId: "tm-1", name: "小张" } },
+      ],
+      ...overrides,
+    });
+
+  test("不止一个人的声音：转文字分两段，每段写谁说的；复制的也是这样", () => {
+    const state = replay([frame("secretary", 1, "agent_voice", { voice: relayed() })]);
+    const two = agentVoiceBubble(state, PART);
+    expect(two.text).toBe("二狗：日报有消息了，小张来说。\n\n小张：我把日报写好了，共三条。");
+    expect(agentVoiceBubbleLook(two, true).body).toEqual({ kind: "text", text: two.text });
+    // 默认还是只有播放条和时长，一个气泡
+    expect(agentVoiceBubbleLook(two, false).body).toBeUndefined();
+  });
+
+  test("老记录没有 parts：转文字照旧是原文，不写名字", () => {
+    const old = replay([frame("secretary", 1, "agent_voice", { voice: done() })]);
+    expect(agentVoiceBubble(old, PART).text).toBe("好的。");
+  });
+
+  test("只合成了一部分的：转文字还是两段都在（文字不丢）", () => {
+    const state = replay([frame("secretary", 1, "agent_voice", { voice: relayed({ status: "partial", error: "语音服务忙" }) })]);
+    expect(agentVoiceBubble(state, PART).text).toContain("小张：我把日报写好了，共三条。");
+  });
 });

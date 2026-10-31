@@ -81,6 +81,13 @@ export function toolVoicePartialNote(reason: string): string {
 }
 
 /**
+ * 不止一个人的声音（354 号票）的语音合成到一半没合成下去：已经发出去的照常能播，说明写清谁的话没念到、没念到的文字（文字不丢）
+ */
+export function relayPartialNote(reason: string, names: readonly string[], text: string): string {
+  return t("voice.notes.relayPartial", { reason, names: names.join(t("common.listSeparator")), text });
+}
+
+/**
  * 没合成成的原因（会话里的说明、设置 · 语音里显示，也交回模型）：
  * - segmentFormatMismatch：分段合成出的各段格式（采样率、声道、位深）对不上，没法拼成一条；
  * - speechBusy：语音服务忙（显卡在给别的任务用、或者服务说忙）——不等超时，直接退回只发文字；
@@ -142,12 +149,19 @@ export function sendVoiceToolDescription(pace: SpokenPace, waitMinutes: number):
     `念出来不超过约 ${pace.maxSeconds} 秒（大约 ${charsOf(pace)} 个字），放不下就分几次发。` +
     "文字里只放念不出来的东西（代码、表格、链接这类），别的话都放进语音；这一轮另写的普通的话只该是「好的，念给你听」这类引子，会收进语音气泡，不单独显示。" +
     `工具等语音合成完才回（最多等约 ${waitMinutes} 分钟，再久就先告诉你还在合成，语音合成好会自己发出去）：发出去了、只发了一部分、没发出去（和原因）都会告诉你，没发出去时照常用文字回复。` +
-    "只在用户直接和你说话的那一轮能用；用户发语音的那一轮你的回复本来就会合成语音，不用调。"
+    "只在用户直接和你说话的那一轮能用；用户发语音的那一轮你的回复本来就会合成语音，不用调。" +
+    "relay 只有秘书能用：转述任务、项目负责人的进展时，text 写秘书自己的开场，relay 写负责人那段，运行时合成一条语音，开场用秘书的声音、那段用负责人自己的声音——" +
+    "声音是运行时按发信人查的，指定不了；转述的话只写它信里、通知里有的；用户发语音的那一轮要转述也调这个工具（这一轮的语音回复就念这两段）。"
   );
 }
 
 /** 发语音工具参数的说明 */
-export const SEND_VOICE_PARAM = "要念给用户听的口语稿（要让用户听到的话都写在这里，像说话一样，不用 Markdown）";
+export const SEND_VOICE_PARAM = "要念给用户听的口语稿（要让用户听到的话都写在这里，像说话一样，不用 Markdown）；带 relay 时这里写你自己的开场";
+
+/** 发语音工具 relay 参数的说明（354 号票） */
+export const SEND_VOICE_RELAY_PARAM = "可选：转述任务、项目负责人的进展时才写";
+export const SEND_VOICE_RELAY_SOURCE_PARAM = "转述谁：照抄通知里“relay.source 写”后面的编号（任务 t-5、项目 p-1）；用户问某个任务或项目的进展时写它的编号，它要给你来过信或者做完的通知";
+export const SEND_VOICE_RELAY_TEXT_PARAM = "负责人那段的口语稿：用负责人的第一人称，只转述它信里、通知里有的，不加别的事；不用 Markdown";
 
 /** 发语音工具的结果 */
 export const SEND_VOICE_RESULT = {
@@ -168,6 +182,21 @@ export const SEND_VOICE_RESULT = {
   stillSynthesizing: "语音还在合成（排在别的语音后面，或者合成得慢）：合成好会自己出现在聊天里，不要重发，接着做别的就行。",
   /** 同一次调用又执行了一遍（幂等键撞了）：语音只发一条 */
   alreadySent: "这次调用的语音已经交给合成了（同一次调用只发一条），合成好会自己出现在聊天里，不要重发。",
+  // 354 号票：转述负责人的进展（relay）
+  /** 不是秘书的会话 */
+  relayNotSecretary: "只有秘书能转述负责人的进展，你这里不能带 relay，也不能直接给用户发别人的声音：要告诉用户的用 tell_secretary 写给秘书，或者去掉 relay 用你自己的声音说。没有发。",
+  /** 通知引起的一轮：source 不是这条通知写着的 */
+  relayNotInNotice: (source: string) => `relay.source「${source}」不是这条通知写着的，没有发：照抄这条通知里“relay.source 写”后面的编号；通知里没写的，去掉 relay，用你自己的声音念。`,
+  /** 用户问的一轮：这个来源没给秘书来过信或做完的通知 */
+  relayNothing: (source: string) => `「${source}」还没给你来过信或者做完的通知，没有可转述的，没有发：去掉 relay，用你自己的声音说你知道的。`,
+  /** 两段都合成了：哪段是谁说的（负责人那段不是秘书自己的结论） */
+  relayDone: (seconds: number, name: string) => `已经合成一条语音发给用户了（约 ${seconds} 秒）：开场是你说的，后面那段是${name}自己的声音，算它说的，不是你的结论。文字里只放念不出来的东西，别的话不用再写一遍。`,
+  /** 只发出去了一部分 */
+  relayPartial: (seconds: number, reason: string) => `语音只发出去了前面一部分（约 ${seconds} 秒；${reason}）。没念到的话运行时已经写在会话的说明里了，用户看得到，不用再写一遍。`,
+  /** 负责人没有自己的声音：退回一条秘书的语音 */
+  relaySingle: (seconds: number) => `负责人没有自己的声音（没配、和你的一样、或者被删了），这两段合成了一条你的语音发给用户了（约 ${seconds} 秒）。文字里只放念不出来的东西，别的话不用再写一遍。`,
+  /** 语音轮：这一轮的语音回复念这两段 */
+  relayVoiceTurn: "记下了：用户这一轮发的是语音，这一轮的语音回复就念这两段（开场你的声音，后面那段负责人的声音）；不用再发语音，详细内容照常用文字回复。",
 } as const;
 
 /**

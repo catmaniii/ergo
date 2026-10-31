@@ -18,6 +18,8 @@
 //   交给秘书时照任务做完交付的文件那样（115 号票，task-done.ts）作为一排附件卡片紧跟在那条通知后面，用户在秘书会话里直接点得开，
 //   秘书不用再复制一遍；通知的全文里写附了哪几个、附件引用是什么（秘书要看内容用 read_attachment）。
 //   有一个发不了（工作目录外、不在了、太大）整封信不发，原因交回模型。子 agent、评审的没有这个参数。
+// - 哪个任务、项目的信（354 号票）：信上记着（owner，装配时按发信的 agent 定：项目内部任务的算项目的）。交给秘书时按它看那个任务、项目的
+//   自动播报开关，通知上记下转述来源（编号 + 发信人），秘书转述时声音由运行时按发信人查角色。之前记下的信没有（照开关关着算，不能转述）。
 import {
   type ConversationId,
   firstSentence,
@@ -71,6 +73,12 @@ export const LETTERS_CHANNEL = "secretary_letters";
 /** agent 发出的一条（秘书收到的是 task-done.ts 交的通知） */
 export const LETTER_EVENT = "maintainer_letter";
 
+/** 信是哪个任务、项目的（354 号票）：看自动播报开关、写转述来源用。76 号票之前的定时作业没有任务的，记作业 */
+export interface LetterOwner {
+  kind: "task" | "project" | "job";
+  id: string;
+}
+
 /** maintainer_letter 的负载 */
 export interface LetterPayload {
   to: LetterRecipient;
@@ -94,6 +102,8 @@ export interface LetterPayload {
   summary?: string;
   /** 带的附件（117 号票）：调用时已复制进媒体库，交给秘书时作为附件卡片跟在通知后面；没带就不写 */
   attachments?: MessagePart[];
+  /** 是哪个任务、项目的信（354 号票）；之前记下的信没有 */
+  owner?: LetterOwner;
 }
 
 /** 同一次工具调用只记一次（被打断后恢复时重做也不重发） */
@@ -113,6 +123,17 @@ export function isLetterToSecretary(e: StoredEvent): boolean {
 export function describeLetter(e: StoredEvent): { text: string; summary: string } {
   const p = e.payload as LetterPayload;
   return { text: letterItemText(p.from, p.doing, p.text, letterAttachments(e).map(attachmentLabel)), summary: p.summary ?? firstSentence(p.text) };
+}
+
+/** 信是哪个任务、项目的（354 号票；之前记下的信没有） */
+export function letterOwner(e: StoredEvent): LetterOwner | undefined {
+  return (e.payload as Partial<LetterPayload>).owner;
+}
+
+/** 这封信的转述来源（354 号票）：写在通知里的编号（任务、项目）和信上的发信人；之前记下的信没有 */
+export function letterRelaySource(e: StoredEvent): { source: string; agentId: string } | undefined {
+  const p = e.payload as LetterPayload;
+  return p.owner && { source: p.owner.id, agentId: p.agentId };
 }
 
 /** 信上带的附件（117 号票；没带是空的） */
@@ -135,21 +156,32 @@ export interface LetterSender {
   conversation?: ConversationId | undefined;
   from: string;
   doing?: string | undefined;
+  /** 是哪个任务、项目的信（354 号票） */
+  owner?: LetterOwner | undefined;
 }
 
+/** 任务的信算谁的：项目内部的算那个项目（开关在项目上；秘书也看不到项目内部的任务） */
+const ownerOfTask = (task: { id: string; internal?: ProjectInternal | undefined }): LetterOwner => (task.internal ? { kind: "project", id: task.internal.projectId } : { kind: "task", id: task.id });
+
 /** 任务自己的维护者（定时触发的任务写第几次运行：runLabel 由调用方给） */
-export function taskSender(task: { id: string; title: string; maintainerId: string }, kind: TaskKind, conversation: ConversationId, runLabel?: string): LetterSender {
-  return { agentId: task.maintainerId, conversation, from: taskMaintainerName(task, kind), doing: runLabel === undefined ? undefined : doingRun(runLabel) };
+export function taskSender(task: { id: string; title: string; maintainerId: string; internal?: ProjectInternal | undefined }, kind: TaskKind, conversation: ConversationId, runLabel?: string): LetterSender {
+  return { agentId: task.maintainerId, conversation, from: taskMaintainerName(task, kind), doing: runLabel === undefined ? undefined : doingRun(runLabel), owner: ownerOfTask(task) };
 }
 
 /** 项目的维护者：doing 是这一段在做什么（letter-texts.ts 里的几种说法） */
-export function projectSender(project: { name: string; maintainerId: string }, conversation: ConversationId, doing: string | undefined): LetterSender {
-  return { agentId: project.maintainerId, conversation, from: projectMaintainerName(project.name), doing };
+export function projectSender(project: { id: string; name: string; maintainerId: string }, conversation: ConversationId, doing: string | undefined): LetterSender {
+  return { agentId: project.maintainerId, conversation, from: projectMaintainerName(project.name), doing, owner: { kind: "project", id: project.id } };
 }
 
-/** 定时作业自己的维护者（76 号票之前的定时作业） */
-export function jobSender(job: { id: string; title: string; maintainerId: string }, conversation: ConversationId, runLabel?: string): LetterSender {
-  return { agentId: job.maintainerId, conversation, from: jobMaintainerName(job), doing: runLabel === undefined ? undefined : doingRun(runLabel) };
+/** 定时作业自己的维护者（76 号票之前的定时作业；有所属任务的算任务） */
+export function jobSender(job: { id: string; title: string; maintainerId: string; ownerTaskId?: string | undefined }, conversation: ConversationId, runLabel?: string): LetterSender {
+  return {
+    agentId: job.maintainerId,
+    conversation,
+    from: jobMaintainerName(job),
+    doing: runLabel === undefined ? undefined : doingRun(runLabel),
+    owner: job.ownerTaskId === undefined ? { kind: "job", id: job.id } : { kind: "task", id: job.ownerTaskId },
+  };
 }
 
 /** 任务的称呼：项目内部的只写在哪个项目内部（64、66 号票：秘书看不到项目内部的细节） */
@@ -164,12 +196,12 @@ export function subAgentSender(
   conversation: ConversationId,
   stage: { stageId: string; title: string },
 ): LetterSender {
-  return { agentId, conversation, from: `${taskOf(task, kind)}的子 agent ${agentId}`, doing: task.internal ? DOING_INTERNAL : doingStage(stage) }; // @i18n-ignore model
+  return { agentId, conversation, from: `${taskOf(task, kind)}的子 agent ${agentId}`, doing: task.internal ? DOING_INTERNAL : doingStage(stage), owner: ownerOfTask(task) }; // @i18n-ignore model
 }
 
 /** 阶段验收的评审子 agent（13 号票）："长程任务 t-3「…」的评审子 agent"，在验收哪个阶段；它的调用不进会话 */
 export function reviewerSender(task: { id: string; title: string; internal?: ProjectInternal | undefined }, kind: TaskKind, agentId: string, stage: { stageId: string; title: string }): LetterSender {
-  return { agentId, senderKey: `review:${task.id}:${stage.stageId}`, from: `${taskOf(task, kind)}的评审子 agent`, doing: task.internal ? DOING_INTERNAL : doingAcceptance(stage) }; // @i18n-ignore model
+  return { agentId, senderKey: `review:${task.id}:${stage.stageId}`, from: `${taskOf(task, kind)}的评审子 agent`, doing: task.internal ? DOING_INTERNAL : doingAcceptance(stage), owner: ownerOfTask(task) }; // @i18n-ignore model
 }
 
 export interface SecretaryLettersOptions {
@@ -261,6 +293,7 @@ export function createSecretaryLetters(options: SecretaryLettersOptions): Secret
           text: said,
           summary: gist,
           ...(files.parts.length > 0 ? { attachments: files.parts } : {}),
+          ...(sender.owner ? { owner: sender.owner } : {}),
         };
         store.append({ channel: LETTERS_CHANNEL, type: LETTER_EVENT, payload, idempotencyKey: key });
         return { text: files.parts.length > 0 ? letterSentWith(files.parts.map(nameOf)) : LETTER_SENT };

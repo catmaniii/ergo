@@ -8,6 +8,7 @@
   "voice.notes.synthesisPartial": "语音只合成了前面一部分（{reason}），回复的文字照常显示。",
   "voice.notes.toolVoiceFailed": "这条语音没发出去（{reason}）。",
   "voice.notes.toolVoicePartial": "这条语音只发出去了前面一部分（{reason}）。",
+  "voice.notes.relayPartial": "这条语音只发出去了前面一部分（{reason}）。{names}的话没念到，文字在这里：\n{text}",
   "voice.reason.segmentFormatMismatch": "语音合成服务回的各段格式不一致，没法拼成一条",
   "voice.reason.speechBusy": "语音服务忙",
   "voice.reason.notWav": "语音合成服务回的不是能播放的 WAV",

@@ -201,7 +201,7 @@ import { planChangeCardType } from "./tasks/plan-change-card.ts";
 import { runAcceptanceScript } from "./tasks/acceptance.ts";
 import { createTaskExecution, type TaskExecution } from "./tasks/execution.ts";
 import { createExecutionSlots } from "./tasks/slots.ts";
-import { taskControlActions, taskDeleteAction, taskRunActions } from "./tasks/task-control.ts";
+import { projectAnnounceAction, taskControlActions, taskDeleteAction, taskRunActions } from "./tasks/task-control.ts";
 import { createTaskDeletion, type TaskDeletion } from "./tasks/deletion.ts";
 import { registerTaskDeletion } from "./tasks/deletion-participants.ts";
 import { allAccepted, taskMessageScope } from "./tasks/stages.ts";
@@ -1544,6 +1544,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     for (const executor of taskControlActions({ tasks, execution: () => wired("taskExecution") })) quickActionRegistry.register(executor);
     // 立即运行一次、跑完自动播报（100）：用户说"把 t-5 再跑一次""以后 t-5 跑完直接念给我"
     for (const executor of taskRunActions({ tasks, scheduledJobs: () => wired("scheduledJobs") })) quickActionRegistry.register(executor);
+    // 项目的自动播报（354）：用户说"以后简报站有进展直接念给我"
+    quickActionRegistry.register(projectAnnounceAction({ store, projects: () => projectSystem.handles.projects }));
     // 删除任务（186）：用户说"把 t-3 删了"，总会先出卡确认；执行走删除任务的模块（先停维护者、等子进程退出，所以要等结果）
     quickActionRegistry.register(taskDeleteAction({ tasks, deletion: () => wired("taskDeletion") }));
     // 秘书转达（103）：按用户的话往已有的任务、项目维护者的会话里插一句，和用户在那里直接说话同一条路（下面 userMessageScopeOf、
@@ -2497,6 +2499,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         runJobNow: (params, idempotencyKey) => scheduledJobs.runNow(params, idempotencyKey),
         // 任务操作菜单里的"跑完自动播报：开 / 关"（100）：开着的做完秘书直接念成语音，不问
         setVoiceAnnounce: (params, idempotencyKey) => tasks.setVoiceAnnounce(params, idempotencyKey),
+        // 项目页上的自动播报开关（354）：开着时负责人的进展来信，秘书直接念（用负责人自己的声音），不问
+        setProjectVoiceAnnounce: (params, idempotencyKey) => projectSystem.handles.projects.setVoiceAnnounce(params, idempotencyKey),
         // 秘书页上看到哪一条了（109）：只往后挪，几台设备同步
         markRead: (params, idempotencyKey) => readMarks.markRead(params, idempotencyKey),
         // 设置里的关于二狗、Debug 工具集（124）：版本、起来的时间、此刻的时间（守护进程的钟）
