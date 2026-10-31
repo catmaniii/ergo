@@ -142,6 +142,8 @@ describe("跑完自动播报", () => {
     // 聊天里是一个语音气泡（不是附件）
     const bubble = messagesOf(frontend, SECRETARY).find((m) => m.message.id === voice.messageId)!;
     expect(bubble.message.parts).toEqual([{ type: "tts_audio", voiceId: voice.id, mediaId: voice.mediaId, mime: "audio/wav", durationMs: voice.durationMs, waveform: voice.waveform }]);
+    // 语音有了结局之后，工具调用的结果才记进会话：等它，不抢这一下
+    await waitUntil(() => voiceResults(frontend).length > 0, { describe: () => "等 send_voice 的调用记进会话" });
     expect(voiceResults(frontend)).toMatchObject([{ outcome: "done" }]);
 
     // 这次运行的触发记成手动；时间表、下一次都没变
