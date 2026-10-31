@@ -399,7 +399,7 @@ The outside access check doesn't connect anywhere. It only looks at what this ma
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | The daemon won't start; the first log line says "Windows only" or the Node version is wrong | Wrong OS or Node | Use Windows 10 / 11 and Node 22 (≥ 22.19); check that `<专用 Node 路径>` in the entry points to it |
-| Won't start: port in use | 8810 / 8811 taken by another program (name and PID are in the log) | Close it, or change `ports` (and both 8810s in the entry) |
+| Won't start: port in use | 8810 / 8811 taken by another program (name and PID are in the log; if they can't be found, the log says someone holds the port but it can't tell who) | Close it, or change `ports` (and both 8810s in the entry) |
 | Won't start: another instance uses the same data directory | One was started by hand, or an old one didn't exit | Stop it (supervisor web UI or Task Manager), then let the supervisor start ergo |
 | The page shows 503 and says `npm run build:web` | The web UI isn't built | Run `npm run build:web` in the ergo directory |
 | It says "no model configured" or every reply errors | Key missing or wrong, or out of credit | Enter a new key under **Settings · Models** (or check `secrets\deepseek-api-key.txt`, just the key), then run the connection test |

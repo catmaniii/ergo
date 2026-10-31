@@ -14,47 +14,38 @@ import os from "node:os";
 import { loadConfig } from "./config/config.ts";
 import { dataDirLayout } from "./config/data-dir.ts";
 import { matchesRunningProcess, readPidFile, removePidFile } from "./process/pid-file.ts";
+import { listeningPids, portOccupied } from "./process/port-owner.ts";
+import { stopVerdict } from "./process/stop-check.ts";
 
 const config = loadConfig({ env: process.env, homeDir: os.homedir() });
 const { pidFile } = dataDirLayout(config.dataDir);
 const port = config.ports.local;
 
-function listeningPids(): number[] {
-  const out = execFileSync("netstat", ["-ano", "-p", "tcp"], { encoding: "utf8", windowsHide: true });
-  const pids = new Set<number>();
-  for (const line of out.split(/\r?\n/)) {
-    const cols = line.trim().split(/\s+/);
-    if (cols[3] === "LISTENING" && cols[1]?.endsWith(`:${port}`)) pids.add(Number(cols[4]));
-  }
-  return [...pids];
+// 有没有人在听以真绑、真连为准；netstat 靠不住（353 号票），它这一眼没有不等于没人在听，只用来查是谁
+const occupied = await portOccupied(port);
+const verdict = stopVerdict({
+  port,
+  pidFile,
+  occupied,
+  listeners: await listeningPids(port, { known: occupied, anyAddress: true }),
+  record: readPidFile(pidFile),
+  matches: (record) => matchesRunningProcess(record, record.pid),
+});
+if (verdict.action === "stopped") {
+  console.log(verdict.message);
+  process.exit(0);
 }
-
-function refuse(reason: string): never {
-  console.error(`没有结束任何进程：${reason}`);
+if (verdict.action === "refuse") {
+  console.error(`没有结束任何进程：${verdict.reason}`);
   process.exit(1);
 }
 
-const listeners = listeningPids();
-if (listeners.length === 0) {
-  console.log(`端口 ${port} 没人在听，守护进程已经停了`);
-  process.exit(0);
-}
-const record = readPidFile(pidFile);
-if (!record) refuse(`没有 pid 文件 ${pidFile}，确认不了端口 ${port} 上的进程（PID ${listeners.join("、")}）是二狗的守护进程`);
-if (record.port !== port) refuse(`pid 文件记的端口是 ${record.port}，配置里是 ${port}`);
-if (listeners.length !== 1 || listeners[0] !== record.pid) {
-  refuse(`端口 ${port} 上的进程（PID ${listeners.join("、")}）不是 pid 文件里的守护进程（PID ${record.pid}）`);
-}
-if (!matchesRunningProcess(record, record.pid)) {
-  refuse(`PID ${record.pid} 的启动时间和 pid 文件记的（${record.startedAt}）对不上，可能是 pid 被别的进程复用了`);
-}
-
-execFileSync("taskkill", ["/PID", String(record.pid), "/T", "/F"], { stdio: "inherit", windowsHide: true });
+execFileSync("taskkill", ["/PID", String(verdict.pid), "/T", "/F"], { stdio: "inherit", windowsHide: true });
 // 等端口真的放出来
-for (let i = 0; i < 50 && listeningPids().length > 0; i++) await new Promise((r) => setTimeout(r, 100));
-if (listeningPids().length > 0) {
+for (let i = 0; i < 50 && (await portOccupied(port)); i++) await new Promise((r) => setTimeout(r, 100));
+if (await portOccupied(port)) {
   console.error(`端口 ${port} 还有人在听`);
   process.exit(1);
 }
-removePidFile(pidFile, record.pid);
-console.log(`守护进程已停止（PID ${record.pid}，端口 ${port}）`);
+removePidFile(pidFile, verdict.pid);
+console.log(`守护进程已停止（PID ${verdict.pid}，端口 ${port}）`);

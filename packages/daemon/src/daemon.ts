@@ -316,7 +316,7 @@ async function checkPorts(localPort: number, externalPort: number, configFile: s
     const what =
       problem.kind === "reserved"
         ? `${which[kind]} ${port} 用不了（没有程序在听，但绑不上，多半是被系统保留了，可以用 netsh interface ipv4 show excludedportrange protocol=tcp 看保留的端口段）`
-        : `${which[kind]} ${port} 被占着${who ? `：${who}` : ""}`;
+        : `${which[kind]} ${port} ${who ? `被占着：${who}` : "有人占着，查不到是谁"}`;
     const sample = JSON.stringify({ ports: { local: kind === "local" ? port + 10 : localPort, external: kind === "external" ? port + 10 : externalPort } });
     throw new StartupProblem(
       `${what}，二狗起不来。` +

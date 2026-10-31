@@ -127,7 +127,8 @@ export function portsProbe(ports: () => { local: number; external: number }): ()
 async function portIsOurs(port: number): Promise<boolean> {
   if (!(Number.isInteger(port) && port > 0)) return false;
   if (!(await portListening(port))) return false;
-  const owners = listeningPids(port);
+  // 连得上，已知有人在听：netstat 这一眼没有、状态乱报也再找找（353 号票）
+  const owners = await listeningPids(port, { known: true });
   return owners.length === 0 || owners.includes(process.pid);
 }
 

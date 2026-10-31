@@ -81,7 +81,8 @@ export async function daemonRunning(pidFile: string, port: number): Promise<stri
   return undefined;
 }
 
-function portInUse(port: number): Promise<boolean> {
+/** 真连一下 127.0.0.1 的这个端口：连得上就是有人在听 */
+export function portInUse(port: number): Promise<boolean> {
   return new Promise((resolve) => {
     const socket = net.connect({ host: "127.0.0.1", port });
     const done = (inUse: boolean) => {
