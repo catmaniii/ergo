@@ -4,13 +4,15 @@
 //   模型 id（能手填，旁边"拉取列表"）、接口类型（两种，默认 openai-completions）；
 // - 诚实的那句提示在自定义块里：换成自定义只换"跑对话的模型"，记忆整理、联网搜索、读网页仍然要 DeepSeek 的 key；
 // - 拉到了就变成下拉（现在填的不在列表里时补在第一项），失败 / 存不了的原因原样写出来（role=alert），照样能手填；
-// - 连通测试的按钮和结果、还没存进设置时那一句；英文也有；界面上不出现"秘书""待我处理"。
+// - 2026-10-30 起连通测试不在这一块里了（在 API key 那一块的底部，见 ModelTestBlock）：按钮写"测一下当前服务商"，
+//   测的是设置里选中的那个服务商，结果写通不通；这里查它的按钮、结果和"还存着 / 还拉着时不点"；
+// - 还没存进设置时那一句；英文也有；界面上不出现"秘书""待我处理"。
 // 存之前查什么、下拉里是哪几项见 test/state/model-custom.test.ts；点着走的交互见 page-opens.test.ts。
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { activeLocale, activeLocaleFrom, CUSTOM_PROVIDER_ID, DEFAULT_CUSTOM_PROVIDER_API, type ModelCustomModelsResult, type ModelProviderView, setActiveLocale, t } from "../../src/state/index.ts";
-import { ModelProviderForm, submitCustomModels } from "../../src/ui/model-provider.tsx";
+import { ModelProviderForm, ModelTestBlock, submitCustomModels } from "../../src/ui/model-provider.tsx";
 import { TEST_LOCALES } from "../setup-locales.ts";
 
 vi.mock("../../src/app/build-info.ts", () => ({ APP_VERSION: "0.0.0-test", CHANGELOG: "", PAGE_WEB_VERSION: undefined }));
@@ -34,7 +36,6 @@ function form(over: Partial<Parameters<typeof ModelProviderForm>[0]> = {}): stri
       custom: DRAFT,
       listing: false,
       saving: false,
-      testing: false,
       onPick: noop,
       onCustom: noop,
       onCommit: noop,
@@ -42,7 +43,6 @@ function form(over: Partial<Parameters<typeof ModelProviderForm>[0]> = {}): stri
       onApi: noop,
       onManual: noop,
       onList: noop,
-      onTest: noop,
       ...over,
     }),
   );
@@ -51,6 +51,9 @@ function form(over: Partial<Parameters<typeof ModelProviderForm>[0]> = {}): stri
 /** 选着自定义、地址填好了的样子 */
 const filled = (over: Partial<Parameters<typeof ModelProviderForm>[0]> = {}) =>
   form({ provider: CUSTOM_PROVIDER_ID, savedProvider: CUSTOM_PROVIDER_ID, custom: { baseUrl: "https://api.example.com/v1", modelId: "my-model", api: DEFAULT_CUSTOM_PROVIDER_API }, ...over });
+
+/** 连通测试那一段的纯渲染（设置 · 模型放在 API key 那一块的底部） */
+const testBlock = (over: Partial<Parameters<typeof ModelTestBlock>[0]> = {}) => renderToStaticMarkup(createElement(ModelTestBlock, { testing: false, busy: false, onTest: noop, ...over }));
 
 const zh = activeLocale();
 afterEach(() => setActiveLocale(zh));
@@ -66,12 +69,13 @@ describe("服务商那两个单选", () => {
     expect(html).toContain("也可以换成自定义（OpenAI 兼容）的服务商");
   });
 
-  test("选着 DeepSeek：没有自定义那几项，只有连通测试", () => {
+  test("选着 DeepSeek：没有自定义那几项，也没有连通测试（它在 API key 那一块）", () => {
     const html = form();
     expect(html).not.toContain('name="model-custom-base-url"');
     expect(html).not.toContain('name="model-custom-model-id"');
     expect(html).not.toContain("拉取列表");
-    expect(html).toContain("连通测试");
+    expect(html).not.toContain("测一下当前服务商");
+    expect(html).not.toContain("model-test");
   });
 });
 
@@ -81,7 +85,7 @@ describe("选了自定义才出现的几项", () => {
     expect(html).toMatch(/<input[^>]*name="model-custom-base-url"/);
     expect(html).toContain('placeholder="https://api.openai.com/v1"');
     expect(html).toContain("要填到 /v1 这一层");
-    expect(html).toContain("value=\"https://api.example.com/v1\"");
+    expect(html).toContain('value="https://api.example.com/v1"');
   });
 
   test("模型 id：能手填，旁边一个\"拉取列表\"；还没拉到时是输入框", () => {
@@ -139,12 +143,24 @@ describe("拉列表和连通测试", () => {
     expect(html).not.toMatch(/role="alert"[^>]*>没存成/);
   });
 
-  test("拉取中、连通测试中按钮点不了；测试结果写通不通", () => {
+  test("拉取中按钮点不了", () => {
     expect(filled({ listing: true })).toContain("拉取中…");
     expect(filled({ listing: true })).toMatch(/<button[^>]*disabled=""[^>]*>拉取中…/);
-    expect(form({ testing: true })).toContain("测试中…");
-    expect(form({ test: { ok: true, modelId: "deepseek-flash", firstTokenMs: 820, totalMs: 1340 } })).toContain("通了：deepseek-flash 首 token 820 毫秒");
-    expect(filled({ test: { ok: false, modelId: "my-model", totalMs: 0, error: "401 Unauthorized" } })).toContain("不通：my-model：401 Unauthorized");
+  });
+
+  test("连通测试：按钮写\"测一下当前服务商\"，结果写在下面（通不通、首 token）", () => {
+    const idle = testBlock();
+    expect(idle).toContain("测一下当前服务商");
+    expect(idle).not.toContain('role="status"');
+    expect(testBlock({ test: { ok: true, modelId: "deepseek-flash", firstTokenMs: 820, totalMs: 1340 } })).toContain("通了：deepseek-flash 首 token 820 毫秒");
+    expect(testBlock({ test: { ok: false, modelId: "my-model", totalMs: 0, error: "401 Unauthorized" } })).toContain("不通：my-model：401 Unauthorized");
+  });
+
+  test("测着、或者还存着 / 还拉着的时候按钮点不了", () => {
+    expect(testBlock({ testing: true })).toContain("测试中…");
+    expect(testBlock({ testing: true })).toMatch(/<button[^>]*disabled=""[^>]*>测试中…/);
+    expect(testBlock({ busy: true })).toMatch(/<button[^>]*disabled=""[^>]*>测一下当前服务商/);
+    expect(testBlock()).not.toMatch(/<button[^>]*disabled=""/);
   });
 
   test("点\"拉取列表\"发的是接口地址（key 不在请求体里）", async () => {
@@ -175,13 +191,15 @@ describe("英文也有，界面文字不出现秘书 / 待我处理", () => {
     expect(html).toContain("API style");
     expect(html).toContain("OpenAI chat completions");
     expect(html).toContain("still need a DeepSeek key");
-    expect(html).toContain("Connection test");
+    expect(testBlock()).toContain("Test the current provider");
     // 这个块里没有中文（服务商名字是登记表给的，也已经是英文）
     expect(html).not.toMatch(/[　-〿一-鿿！-｠]/);
+    expect(testBlock()).not.toMatch(/[　-〿一-鿿！-｠]/);
   });
 
   test("中文界面上不出现\"秘书\"\"待我处理\"", () => {
     expect(filled()).not.toMatch(/秘书|待我处理/);
     expect(form()).not.toMatch(/秘书|待我处理/);
+    expect(testBlock()).not.toMatch(/秘书|待我处理/);
   });
 });

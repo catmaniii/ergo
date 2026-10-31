@@ -115,12 +115,14 @@ export const ModelCustomModelsBody = Type.Object(
 export type ModelCustomModelsBody = Static<typeof ModelCustomModelsBody>;
 
 /**
- * 在网页上填模型的 key（POST /api/model-settings/key，用户 2026-10-28 定）：只有 key，不带服务商——按设置里选的那一个
- * （deepseek 或者自定义服务商 custom：写进它自己的那个 secretFile）。
+ * 在网页上填模型的 key（POST /api/model-settings/key，用户 2026-10-28 定；2026-10-30 起可以点名服务商）：
+ * - 不带 provider：按设置里选的那一个（deepseek 或者自定义服务商 custom），和以前一样；
+ * - 带 provider：写那个服务商自己的 secretFile——设置 · 模型里 key 是**按服务商逐条列出**的，给"另一个服务商"填 key
+ *   不用先把它切成当前服务商（这是用户说"找不到别的模型的 key 在哪填"的那一处）。不是登记表里的 id 时守护进程回 400。
  * 这里只挡空和太长；去掉首尾空白、BOM、换行以后够不够长由守护进程按 MODEL_KEY_MIN_LENGTH 判（400 说清楚）
  */
 export const ModelKeyBody = Type.Object(
-  { key: Type.String({ minLength: 1, maxLength: 1000 }) },
+  { key: Type.String({ minLength: 1, maxLength: 1000 }), provider: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })) },
   { additionalProperties: false },
 );
 export type ModelKeyBody = Static<typeof ModelKeyBody>;

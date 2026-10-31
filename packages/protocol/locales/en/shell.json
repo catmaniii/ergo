@@ -31,7 +31,7 @@
   "shell.pages.appearance.title": "Appearance & style",
   "shell.pages.appearance.sub": "Light, dark or follow the system, plus the visual style",
   "shell.pages.models.title": "Models",
-  "shell.pages.models.sub": "DeepSeek (called from the server): default model, each agent's model and thinking level, image understanding, connection test",
+  "shell.pages.models.sub": "DeepSeek by default, or a custom OpenAI-compatible provider: each provider's key, the default model, each agent's model and thinking level, image understanding, connection test",
   "shell.pages.watch.title": "Watch categories",
   "shell.pages.watch.sub": "Whether risky things ask you first and over-budget tasks stop; which actions need your attention, and how each one is handled",
   "shell.pages.workdayRules.title": "Workday rules",

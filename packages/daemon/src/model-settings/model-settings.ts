@@ -121,10 +121,12 @@ export interface ModelSettingsService {
   keyView(): ModelKeyView;
   /**
    * 在网页上填模型的 key（319 号票）：写进密钥区的文件、换进内存里的 key，回配好了、什么时候生效
-   * （现在起的模型调用就用新的）。key 不合规（去掉首尾空白后太短、太长）抛 RequestRejected（HTTP 回 400），
+   * （现在起的模型调用就用新的）。providerId 给了就写那个服务商的（设置页按服务商逐条列 key，给"另一个服务商"填
+   * 不用先切成当前服务商）；不给还是设置里选的那一个。providerId 不是登记表里的 id 抛 RequestRejected（HTTP 回 400）。
+   * key 不合规（去掉首尾空白后太短、太长）也抛 RequestRejected（HTTP 回 400），
    * 写文件出错抛别的（HTTP 回 500）。key 的内容不进日志、不回显
    */
-  saveKey(raw: string): ModelKeyWriteResult;
+  saveKey(raw: string, providerId?: string): ModelKeyWriteResult;
   /** 整份存：查过合规（不合规抛 RequestRejected，HTTP 回 400）再写文件；回存好之后的设置页 */
   change(body: ModelSettingsBody): Promise<ModelSettingsView>;
   /**
@@ -308,6 +310,8 @@ export function createModelSettings(options: ModelSettingsOptions): ModelSetting
     return {
       providers: MODEL_PROVIDERS.map((p) => ({ id: p.id, label: p.label })),
       apiKey: apiKeyOf(provider),
+      // 设置 · 模型的 API key 一块按服务商逐条列出：每个服务商自己配没配（只说配没配、从哪来）
+      apiKeys: Object.fromEntries(MODEL_PROVIDERS.map((p) => [p.id, apiKeyOf(p)])),
       models,
       ...(error === undefined ? {} : { catalogError: error }),
       ...(fileError === undefined ? {} : { settingsFileError: fileError }),
@@ -439,17 +443,23 @@ export function createModelSettings(options: ModelSettingsOptions): ModelSetting
       const provider = providerOf(settings.provider) ?? MODEL_PROVIDERS[0]!;
       return { provider: { id: provider.id, label: provider.label }, apiKey: apiKeyOf(provider) };
     },
-    saveKey(raw) {
-      // 服务商不跟着请求走：按设置里选的那一个（deepseek 或者自定义服务商 custom，写进它自己的那个密钥文件）
-      const provider = providerOf(settings.provider) ?? MODEL_PROVIDERS[0]!;
+    saveKey(raw, providerId) {
+      // 点了名就写那个服务商的；没点名还是按设置里选的那一个（deepseek 或者自定义服务商 custom，各写自己的密钥文件）
+      const named = providerId === undefined ? undefined : providerOf(providerId);
+      if (providerId !== undefined && named === undefined) {
+        throw new RequestRejected("bad_params", t("modelSettings.badProvider", { provider: providerId, providers: MODEL_PROVIDERS.map((p) => p.label).join(t("modelSettings.listSep")) }));
+      }
+      const provider = named ?? providerOf(settings.provider) ?? MODEL_PROVIDERS[0]!;
       const key = normalizeModelKey(raw);
       if (key.length < MODEL_KEY_MIN_LENGTH) throw new RequestRejected("bad_params", t("modelSettings.keyTooShort", { min: MODEL_KEY_MIN_LENGTH }));
       if (key.length > MODEL_KEY_MAX_LENGTH) throw new RequestRejected("bad_params", t("modelSettings.keyTooLong", { max: MODEL_KEY_MAX_LENGTH }));
       writeModelKeyFile(keyFileOf(provider), key);
-      // 换成现在用的：下一个新会话（秘书的话是下一条消息之前重新拉起）起就用新的，不用重启守护进程
+      // 换进内存里的 key：下一个新会话（秘书的话是下一条消息之前重新拉起）起就用新的，不用重启守护进程
       credentials[provider.id] = key;
       options.keyApplied?.(provider, key);
-      log(`${provider.label} 的 API key 在网页上填好了：写进密钥区的 ${provider.secretFile}，现在起的模型调用就用新的`); // @i18n-ignore log：只进日志
+      // 点的不是当前选中的那个服务商时，新 key 只在选中它以后才用得上
+      const when = provider.id === settings.provider ? "现在起的模型调用就用新的" : "它现在是设置里的另一个服务商，选中它时用这个"; // @i18n-ignore log：只进日志
+      log(`${provider.label} 的 API key 在网页上填好了：写进密钥区的 ${provider.secretFile}，${when}`); // @i18n-ignore log：只进日志
       return { configured: true, effective: "now", apiKey: apiKeyOf(provider) };
     },
     async change(body) {

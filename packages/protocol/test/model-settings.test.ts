@@ -1,6 +1,7 @@
 // 设置里的"模型"（73 号票）：agent 实际会用的（跟随默认的换成默认），设置接口的请求体（多出来的字段、写错的档位一律拒绝）；
 // 120 号票：设置文件里单独配了模型的维护者、⚙ 里配模型的请求体；
-// 自定义（OpenAI 兼容）服务商这一步：custom 那一块的校验（有 / 没有、地址不对、模型 id 空）、连通测试的请求体、列模型的请求体。
+// 自定义（OpenAI 兼容）服务商这一步：custom 那一块的校验（有 / 没有、地址不对、模型 id 空）、连通测试的请求体、列模型的请求体；
+// 2026-10-30：在网页上填 key 的请求体可以点名服务商（设置 · 模型的 API key 一块按服务商逐条列出）。
 import { describe, expect, it } from "vitest";
 import {
   AgentModelBody,
@@ -14,6 +15,7 @@ import {
   MODEL_AGENT_LABEL,
   MODEL_THINKING_LABEL,
   MODEL_THINKING_LEVELS,
+  ModelKeyBody,
   modelKeyOf,
   ModelCustomModelsBody,
   ModelSettingsBody,
@@ -132,5 +134,21 @@ describe("自定义（OpenAI 兼容）服务商", () => {
     expect(checkHttpBody(ModelCustomModelsBody, { baseUrl: "https://api.example.com/v1" }).ok).toBe(true);
     expect(checkHttpBody(ModelCustomModelsBody, { baseUrl: "https://api.example.com/v1", key: "sk-x" }).ok).toBe(false);
     expect(checkHttpBody(ModelCustomModelsBody, { baseUrl: "api.example.com" }).ok).toBe(false);
+  });
+});
+
+describe("在网页上填 key 的请求体", () => {
+  it("只有 key 时照旧（按设置里选的服务商）；带 provider 时收下——设置 · 模型的 API key 一块按服务商逐条列出", () => {
+    expect(checkHttpBody(ModelKeyBody, { key: "sk-x-abcdef" }).ok).toBe(true);
+    expect(checkHttpBody(ModelKeyBody, { key: "sk-x-abcdef", provider: "custom" }).ok).toBe(true);
+    expect(checkHttpBody(ModelKeyBody, { key: "sk-x-abcdef", provider: "deepseek" }).ok).toBe(true);
+    // 不认识的 id 交给守护进程挡住（回 400 并说清支持哪几个）；schema 只挡空串、非字符串和别的字段
+    expect(checkHttpBody(ModelKeyBody, { key: "sk-x-abcdef", provider: "openrouter" }).ok).toBe(true);
+    expect(checkHttpBody(ModelKeyBody, { key: "sk-x-abcdef", provider: "" }).ok).toBe(false);
+    expect(checkHttpBody(ModelKeyBody, { key: "sk-x-abcdef", provider: 5 }).ok).toBe(false);
+    expect(checkHttpBody(ModelKeyBody, { key: "sk-x-abcdef", providerId: "custom" }).ok).toBe(false);
+    expect(checkHttpBody(ModelKeyBody, { key: "" }).ok).toBe(false);
+    expect(checkHttpBody(ModelKeyBody, { provider: "custom" }).ok).toBe(false);
+    expect(checkHttpBody(ModelKeyBody, {}).ok).toBe(false);
   });
 });

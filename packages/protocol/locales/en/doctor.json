@@ -44,7 +44,7 @@
   "doctor.fix.node": "Ergo and pi follow pi's tested Node line (22 for now). Use the Node that ships with Ergo (or install Node 22) and start Ergo again",
   "doctor.fix.pi": "pi is Ergo's agent core; without it Ergo can't chat. Run npm ci in Ergo's program folder to install the dependencies, then restart Ergo",
   "doctor.fix.supervisor": "Without the service manager nobody watches Ergo (it won't come back after a crash). Run ergo start to bring it up again; if that fails, read the service manager log (%LOCALAPPDATA%\\ergo\\supervisor\\logs\\manager.log)",
-  "doctor.fix.model": "Put a DeepSeek key in Settings · Models (or on the second screen of the setup wizard); you can also drop the key into the secrets folder of the data directory and restart Ergo",
+  "doctor.fix.model": "Put a model key in Settings · Models (or on the second screen of the setup wizard) — DeepSeek by default, or switch to a custom OpenAI-compatible provider first; you can also drop the key into the secrets folder of the data directory and restart Ergo",
   "doctor.fix.components": "Install the missing ones in Settings · Components (\"Install the default components\" is the quickest way). Until then the features they enable are greyed out",
   "doctor.fix.disk": "Free at least 1 GB on the volume that holds the data folder: clear old backups, download caches, logs, or move the data folder to a bigger disk",
   "doctor.fix.external": "To use Ergo on mobile data too, set up one of the three ways in the setup wizard's outside-access screen (Tailscale is the easiest); if you only use it at home you can ignore this check",

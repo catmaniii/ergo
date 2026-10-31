@@ -113,7 +113,8 @@
 // 直接发的一次 GET {baseUrl}/models，不经过模型（也不花 token）。
 // 模型的 key（315、319 号票）：GET /api/model-settings/key 只说配没配（ModelKeyView）；POST /api/model-settings/key 是在网页上填一个
 // （请求体 ModelKeyBody：{ key }，去掉首尾空白后 8 到 400 个字符，不然 400；响应 ModelKeyWriteResult：effective 是 now / restart）。
-// 按设置里选的服务商写它的密钥文件（deepseek 或自定义服务商 custom），权限收紧、先写临时文件再改名；key 原样不回显、不进日志、不进错误信息。
+// 不带 provider 时按设置里选的服务商写它的密钥文件（deepseek 或自定义服务商 custom），带了就写点名那个（不是登记表里的回 400）；
+// 权限收紧、先写临时文件再改名；key 原样不回显、不进日志、不进错误信息。
 //
 // 设置里 agent 的联网搜索、读网页（154 号票；162 号票起是 DeepSeek、浏览器、agent-browser 三种方式的队列）：GET /api/web-settings 取
 // （WebSettingsView：存着的队列、实际用的顺序、DeepSeek 的 key 配没配、最近一次余额不足）；POST /api/web-settings 整份存（请求体
@@ -487,7 +488,8 @@ export const HTTP_PATHS = {
   modelSettingsCustomModels: api(MODEL_SETTINGS, CUSTOM_MODELS),
   /**
    * 模型的 key（315、319 号票）：GET 只说配没配（ModelKeyView，不查模型目录、马上回，会话页上"还没配模型"的提示用）；
-   * POST 是在网页上填一个（请求体 ModelKeyBody：{ key }，响应 ModelKeyWriteResult 写明什么时候生效；回的、日志里都没有 key 的内容）
+   * POST 是在网页上填一个（请求体 ModelKeyBody：{ key, provider? }，响应 ModelKeyWriteResult 写明什么时候生效；回的、日志里都没有 key 的内容）
+   * 不带 provider 按设置里选的那一个服务商，带了写点名那个（设置页按服务商逐条列 key 用）
    */
   modelSettingsKey: api(MODEL_SETTINGS, KEY),
   /**

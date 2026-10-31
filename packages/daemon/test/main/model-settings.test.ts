@@ -3,7 +3,8 @@
 // - 一个会话固定一个模型：改了以后下一个新会话生效，正在进行的会话（接着的会话）照它开始时的；记账照实际用的模型；
 // - API key 只有状态：接口、日志里都没有 key 的内容，请求体也放不进 key；
 // - 319 号票：网页上能填 key（POST /api/model-settings/key）——写进密钥区的文件、GET 马上说配了、现在起的模型调用就用新的，
-//   太短、空的、带服务商的回 400；再填一次换掉旧的；响应和日志里都没有 key 的内容；
+//   太短、空的、多出字段的回 400；再填一次换掉旧的；响应和日志里都没有 key 的内容；
+// - 2026-10-30：填 key 的请求体可以点名服务商（设置 · 模型按服务商逐条列出 key）：写它自己的密钥文件，不认识的服务商回 400；
 // - 连通测试在一次性子进程里发一条极短的请求，回首 token 延迟；同一时间只跑一个（再要回 409"上一个还没测完"）；
 // - 看图能力：设置页改的为准，其次配置文件写明的，都没写按模型目录；
 // - 范围审视用的模型每次审视时现取（和子 agent、评审一样）：维护者拉起之后改了设置，下一次审视就用新的。
@@ -117,8 +118,8 @@ describe("设置里的模型", () => {
     expect((await modelSettingsApi.keySet(td.url, `  ${AGAIN}\r\n`)).status).toBe(200);
     expect(fs.readFileSync(file, "utf8")).toBe(`${AGAIN}\n`);
 
-    // 空的、只有空白、太短的、带了服务商或别的字段的：400，文件不动
-    for (const bad of [{ key: "" }, { key: " \r\n " }, { key: "sk-短" }, { key: AGAIN, provider: "deepseek" }, {}]) {
+    // 空的、只有空白、太短的、不认识的字段的：400，文件不动
+    for (const bad of [{ key: "" }, { key: " \r\n " }, { key: "sk-短" }, { key: AGAIN, nope: "x" }, {}]) {
       expect((await modelSettingsApi.keySet(td.url, bad)).status).toBe(400);
     }
     expect((await modelSettingsApi.keySet(td.url, { key: "sk-短" })).body.message).toMatch(/太短/);
@@ -128,6 +129,52 @@ describe("设置里的模型", () => {
       expect(logs.join("\n")).not.toContain(key);
       expect(logs.join("\n")).not.toContain(key.slice(-4));
     }
+  }, 60_000);
+
+  // 2026-10-30：设置 · 模型的 API key 按服务商逐条列出——请求体点名哪个服务商就写它自己的密钥文件，
+  // 不点名还是设置里选中的那个（老行为不变）；不认识的服务商回 400、文件不动；GET 的设置页里每个服务商各有自己的状态
+  it("填 key 可以点名服务商（逐条列出用）：写它自己的文件、不用先切过去；不认识的服务商回 400", async () => {
+    const fake = await startFakeDeepSeek();
+    const td = await startTestDaemon({ env: { DEEPSEEK_API_KEY: undefined, CUSTOM_MODEL_API_KEY: undefined }, catalogBaseUrl: fake.baseUrl });
+    const DEEPSEEK_KEY = fakeSecret("sk-", "main-per-provider-deepseek-P3w9");
+    const CUSTOM_KEY = fakeSecret("sk-", "main-per-provider-custom-R7t2");
+    const files = (id: string) => path.join(td.daemon.layout.secrets, id === "custom" ? "custom-model-api-key.txt" : "deepseek-api-key.txt");
+
+    // 一开始两个都没配；设置页里每个服务商各有自己的状态（顺序按登记表）
+    const first = (await modelSettingsApi.view(td.url)).body;
+    expect(Object.keys(first.apiKeys)).toEqual(["deepseek", "custom"]);
+    expect(first.apiKeys.deepseek!.configured).toBe(false);
+    expect(first.apiKeys.custom!.configured).toBe(false);
+    expect(first.apiKeys.custom!.envVar).toBe("CUSTOM_MODEL_API_KEY");
+    expect(first.apiKeys.custom!.secretFile).toBe("secrets/custom-model-api-key.txt");
+    // apiKey 还是"设置里选中的那个"
+    expect(first.apiKey).toEqual(first.apiKeys.deepseek);
+
+    // 当前选的是 DeepSeek，但直接给自定义那个服务商填 key：写它自己的文件，另一个文件不动
+    const saved = await modelSettingsApi.keySet(td.url, { key: CUSTOM_KEY, provider: "custom" });
+    expect(saved.status).toBe(200);
+    expect(saved.body).toMatchObject({ configured: true, effective: "now", apiKey: { configured: true, envVar: "CUSTOM_MODEL_API_KEY" } });
+    expect(JSON.stringify(saved.body)).not.toContain(CUSTOM_KEY);
+    expect(fs.readFileSync(files("custom"), "utf8")).toBe(`${CUSTOM_KEY}\n`);
+    expect(fs.existsSync(files("deepseek"))).toBe(false);
+    // 设置页上自定义那个成"配了"、DeepSeek 还是没配，选的还是 DeepSeek
+    const after = (await modelSettingsApi.view(td.url)).body;
+    expect(after.settings.provider).toBe("deepseek");
+    expect(after.apiKeys.custom!.configured).toBe(true);
+    expect(after.apiKeys.deepseek!.configured).toBe(false);
+    expect(after.apiKey).toEqual(after.apiKeys.deepseek);
+
+    // 不点名（老行为）：写设置里选中的那个
+    expect((await modelSettingsApi.keySet(td.url, DEEPSEEK_KEY)).status).toBe(200);
+    expect(fs.readFileSync(files("deepseek"), "utf8")).toBe(`${DEEPSEEK_KEY}\n`);
+    expect(fs.readFileSync(files("custom"), "utf8")).toBe(`${CUSTOM_KEY}\n`);
+
+    // 不认识的服务商：400、说清支持哪几个，两个文件都不动
+    const unknown = await modelSettingsApi.keySet(td.url, { key: CUSTOM_KEY, provider: "openrouter" });
+    expect(unknown.status).toBe(400);
+    expect(unknown.body.message).toContain("openrouter");
+    expect(fs.readFileSync(files("deepseek"), "utf8")).toBe(`${DEEPSEEK_KEY}\n`);
+    expect(fs.readFileSync(files("custom"), "utf8")).toBe(`${CUSTOM_KEY}\n`);
   }, 60_000);
 
   it("填好 key 不用重启：秘书下一条消息之前按新的重新拉起，发给模型的请求带的就是新 key（319 号票）", { timeout: 90_000 }, async () => {

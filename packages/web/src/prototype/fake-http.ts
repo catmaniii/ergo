@@ -927,6 +927,8 @@ export class FakeDaemonHttp implements DaemonHttp {
     return Promise.resolve({
       providers: fakeModelProviders(),
       apiKey: fakeApiKey(settings.provider),
+      // 设置 · 模型的 API key 一块按服务商逐条列出：原型里两个都配着
+      apiKeys: Object.fromEntries(fakeModelProviders().map((p) => [p.id, fakeApiKey(p.id)])),
       models,
       settings: structuredClone(settings),
       effective,
@@ -941,10 +943,10 @@ export class FakeDaemonHttp implements DaemonHttp {
     return Promise.resolve({ provider, apiKey: fakeApiKey(provider.id) });
   }
 
-  /** 原型里照样收下（不真写文件、不回显），回的 key 一直配着 */
-  saveModelKey(key: string): Promise<ModelKeyWriteResult> {
+  /** 原型里照样收下（不真写文件、不回显），回的 key 一直配着；给了 provider 就按那个服务商说（设置 · 模型逐条列 key 用） */
+  saveModelKey(key: string, provider?: string): Promise<ModelKeyWriteResult> {
     void key;
-    return Promise.resolve({ configured: true, effective: "now", apiKey: fakeApiKey(this.models.provider) });
+    return Promise.resolve({ configured: true, effective: "now", apiKey: fakeApiKey(provider ?? this.models.provider) });
   }
 
   /** 整份存：只在内存里；没带自定义那一块时留着原来那份（和守护进程一样，切回 DeepSeek 不清空） */

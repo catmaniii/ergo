@@ -1,5 +1,6 @@
 // 模型的 key 在网页上填（319 号票，用户 2026-10-28 定"网页里能填 key"）的状态层：请求体怎么拼、输入框里的草稿能不能存、
 // 存好之后怎么说。界面在 ui/model-key.tsx，设置 · 模型和首次设置向导的那一步共用同一块。
+// 2026-10-30 起设置 · 模型的 API key 一块按服务商逐条列出：请求体可以点名写哪个服务商（不带还是设置里选的那一个）。
 // 纯函数，不碰网络、不碰 DOM（网络在 ui/model-key.tsx 里交给 http.saveModelKey）。
 import {
   MODEL_KEY_MAX_LENGTH,
@@ -11,9 +12,12 @@ import {
   t,
 } from "./protocol.ts";
 
-/** 保存 key 的请求体：去掉 BOM、换行和首尾空白（和守护进程写文件前做的是同一套） */
-export function modelKeyBody(raw: string): ModelKeyBody {
-  return { key: normalizeModelKey(raw) };
+/**
+ * 保存 key 的请求体：去掉 BOM、换行和首尾空白（和守护进程写文件前做的是同一套）。
+ * provider 给了就写那个服务商的密钥文件（设置页每一行一个服务商），不给还是设置里选的那一个
+ */
+export function modelKeyBody(raw: string, provider?: string): ModelKeyBody {
+  return { key: normalizeModelKey(raw), ...(provider === undefined ? {} : { provider }) };
 }
 
 /** 输入框里的草稿存不了的原因：空的、太短、太长；能存是 undefined */

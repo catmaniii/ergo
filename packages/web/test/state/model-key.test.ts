@@ -1,5 +1,6 @@
 // 模型的 key 在网页上填（319 号票）的状态层：请求体去掉 BOM、换行和首尾空白；草稿空 / 太短 / 太长时的说法；
 // 存好之后说的一句（now：下一个新会话起用新的；restart：写明重启二狗后生效、怎么重启）。
+// 2026-10-30 起请求体可以点名服务商（设置 · 模型的 API key 一块按服务商逐条列出）：给了就带上，不给就没有这一项
 import { describe, expect, test } from "vitest";
 import { MODEL_KEY_MAX_LENGTH, MODEL_KEY_MIN_LENGTH, modelKeyBody, modelKeyDraftNote, modelKeyDraftProblem, modelKeySavedText } from "../../src/state/index.ts";
 
@@ -10,6 +11,12 @@ describe("填好的 key 怎么交给守护进程", () => {
     expect(modelKeyBody("  sk-web-319-abcdef \r\n")).toEqual({ key: "sk-web-319-abcdef" });
     expect(modelKeyBody("\uFEFFsk-web-319-abcdef")).toEqual({ key: "sk-web-319-abcdef" });
     expect(modelKeyBody("sk-web-\r\n319-abcdef")).toEqual({ key: "sk-web-319-abcdef" });
+  });
+
+  test("点名了服务商就带上 provider（不给时请求体里没有这一项，守护进程照选中的那个写）", () => {
+    expect(modelKeyBody(" sk-web-319-abcdef ", "custom")).toEqual({ key: "sk-web-319-abcdef", provider: "custom" });
+    expect(modelKeyBody("sk-web-319-abcdef", "deepseek")).toEqual({ key: "sk-web-319-abcdef", provider: "deepseek" });
+    expect(modelKeyBody("sk-web-319-abcdef")).not.toHaveProperty("provider");
   });
 });
 

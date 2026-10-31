@@ -167,7 +167,7 @@ describe("英文也有，界面文字不出现秘书 / 待我处理", () => {
     expect(html).toContain("The volume holding the data folder C:\\Users\\demo\\.ergo has 42.3 GB free (of 476.8 GB)");
     const broken = render(viewWith("model", { configured: false }));
     expect(broken).toContain("No key yet");
-    expect(broken).toContain("Put a DeepSeek key in Settings · Models");
+    expect(broken).toContain("Put a model key in Settings · Models");
     expect(broken).not.toContain("doctor.");
   });
 

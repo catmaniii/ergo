@@ -9,8 +9,8 @@
 // - 任何时候都能出去接着用（标题栏上的"先不弄了"）。
 // 每步的内容尽量复用现有的页：称呼就是设置 · 身份里的那一块（more/UserNameSetting.tsx），安全默认值就是关注类别上面那两个开关
 // （more/SafetySwitches.tsx 的 SafetySwitchList），组件走设置 · 组件那一套接口（ComponentsPage 的 componentStateText、sizeLabel），
-// 模型 Key 那一步先选服务商（DeepSeek / 自定义 OpenAI 兼容，填完能测连通），再直接填 key（两块和设置 · 模型共用
-// ui/model-provider.tsx 和 ui/model-key.tsx，POST /api/model-settings 和 /api/model-settings/key），
+// 模型 Key 那一步先选服务商（DeepSeek / 自定义 OpenAI 兼容，填完能测连通），再填 key（只列当前这个服务商），最后测连通
+// （三块和设置 · 模型共用 ui/model-provider.tsx 和 ui/model-key.tsx，POST /api/model-settings 和 /api/model-settings/key），
 // 语言、助手名、手机配对给去设置对应页的跳转。
 // 界面上不出现"秘书""待我处理"：说到二狗这个人一律用用户起的名字（ui/assistant-name.tsx）。
 import { useEffect, useState } from "react";
@@ -31,13 +31,14 @@ import {
   type SetupView,
   sizeLabel,
   t,
+  type ModelApiKeyStatus,
   type ModelSettingsView,
 } from "../state/index.ts";
 import { NameTag, useAssistantName } from "../ui/assistant-name.tsx";
 import { Section, TopBar } from "../ui/common.tsx";
 import { T } from "../ui/i18n.tsx";
 import { ModelKeySetting } from "../ui/model-key.tsx";
-import { ModelProviderSetting } from "../ui/model-provider.tsx";
+import { ModelProviderForm, ModelTestBlock, useModelProviderBlock } from "../ui/model-provider.tsx";
 import { useToast } from "../ui/toast.tsx";
 import { componentStateText } from "./more/ComponentsPage.tsx";
 import { SafetySwitches } from "./more/SafetySwitches.tsx";
@@ -148,8 +149,9 @@ function LanguageStep({ navigate }: { navigate: Navigate }) {
 }
 
 /**
- * 模型 Key（第②步）：先选服务商——DeepSeek，或者自定义（OpenAI 兼容）服务商（填接口地址、模型 id、接口类型，能测连通），
- * 再填它的 key。两块都和设置 · 模型共用（ui/model-provider.tsx、ui/model-key.tsx），保存后不用重启。
+ * 模型 Key（第②步）：先选服务商——DeepSeek，或者自定义（OpenAI 兼容）服务商（填接口地址、模型 id、接口类型），
+ * 再填它的 key，最后测连通。三块都和设置 · 模型共用（ui/model-provider.tsx、ui/model-key.tsx），保存后不用重启。
+ * 顺序照设置 · 模型那一页（服务商 → API key → 连通测试）；这里 key 只列当前选中的那个服务商（第一次用的人只需要这一个）。
  * 服务商的名字、key 存进哪个文件都得照守护进程给的那份（GET /api/model-settings），所以这一步先取它，取到了才画
  */
 function ModelStep({ navigate }: { navigate: Navigate }) {
@@ -172,7 +174,6 @@ function ModelStep({ navigate }: { navigate: Navigate }) {
     };
   }, [http]);
 
-  const provider = view === undefined ? undefined : (view.providers.find((p) => p.id === view.settings.provider)?.label ?? view.settings.provider);
   return (
     <>
       {view === undefined && failed === undefined && <div className="muted">{t("ui.modelProvider.loading")}</div>}
@@ -181,12 +182,7 @@ function ModelStep({ navigate }: { navigate: Navigate }) {
           {t("ui.modelProvider.loadFailed", { reason: failed })}
         </div>
       )}
-      {view !== undefined && (
-        <>
-          <ModelProviderSetting view={view} onSaved={setView} />
-          <ModelKeySetting provider={provider} apiKey={view.apiKey} onSaved={(apiKey) => setView((now) => (now === undefined ? now : { ...now, apiKey }))} />
-        </>
-      )}
+      {view !== undefined && <ModelStepBody view={view} setView={setView} />}
       <div className="setup-note">{t("setup.steps.model.where")}</div>
       <div>
         <button type="button" className="link" onClick={() => navigate({ tab: "more", page: "models" })}>
@@ -197,7 +193,30 @@ function ModelStep({ navigate }: { navigate: Navigate }) {
   );
 }
 
-/** 组件（第③步）：记忆的向量模型那一个，装没装、多大，一个按钮装上（设置 · 组件那一套接口） */
+/** 取到设置之后的那一段：服务商 → key（只列当前选中的那个）→ 连通测试，和设置 · 模型那一页同一套 */
+function ModelStepBody({ view, setView }: { view: ModelSettingsView; setView(next: ModelSettingsView): void }) {
+  const provider = useModelProviderBlock(view, setView);
+  // 这里只列当前那个服务商（设置 · 模型那一页才是逐条列全部）：登记表里找不到时按 id 写一个
+  const listed = view.providers.filter((p) => p.id === view.settings.provider);
+  const current = listed.length > 0 ? listed : [{ id: view.settings.provider, label: view.settings.provider }];
+  const keySaved = (providerId: string, apiKey: ModelApiKeyStatus) =>
+    setView({
+      ...view,
+      apiKey: providerId === view.settings.provider ? apiKey : view.apiKey,
+      apiKeys: { ...view.apiKeys, [providerId]: apiKey },
+    });
+  return (
+    <>
+      <ModelProviderForm {...provider.form} />
+      <ModelKeySetting providers={current} apiKeys={view.apiKeys} onSaved={keySaved} />
+      <ModelTestBlock test={provider.test} testing={provider.testing} busy={provider.testBusy} onTest={provider.onTest} />
+    </>
+  );
+}
+
+/**
+ * 组件（第③步）：记忆的向量模型那一个，装没装、多大，一个按钮装上（设置 · 组件那一套接口）
+ */
 function ComponentsStep({ navigate }: { navigate: Navigate }) {
   const { http } = useStore();
   const [view, setView] = useState<ComponentsView>();

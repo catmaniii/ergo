@@ -3646,6 +3646,24 @@ a.att-icon:hover {
   align-items: center;
   gap: 8px;
 }
+/*
+ * 连通测试（2026-10-30 起在 API key 那一块的底部，测的是设置里选中的那个服务商）：按钮在上，结果一行在下面
+ */
+.model-test-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+/*
+ * API key 按服务商逐条列出（每个服务商一块：名字和配没配、密码框和保存、说明）：两块之间一条分隔线，
+ * 第一块上面不再画线（紧跟在标题和说明后面）
+ */
+.model-key-setting + .model-key-setting {
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
 .model-key-row .muted,
 .model-vision-row .muted {
   font-size: var(--fs-s);

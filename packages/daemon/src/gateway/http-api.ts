@@ -1012,12 +1012,13 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
             if (!options.modelSettings) throw new HttpError("not_found", t("gateway.http.noModelSettings"));
             sendJson(res, 200, options.modelSettings.keyView());
           },
-          // 在网页上填一个 key（319 号票）：写进密钥区的文件、换成现在用的；太短、太长的回 400，回的响应和日志里都没有 key 的内容
+          // 在网页上填一个 key（319 号票）：写进密钥区的文件、换成现在用的；太短、太长的回 400，回的响应和日志里都没有 key 的内容。
+          // 请求体带了 provider 就写那个服务商的（设置页按服务商逐条列 key，给"另一个服务商"填不用先切过去），不是登记表里的回 400
           async POST(req, res) {
             if (!options.modelSettings) throw new HttpError("not_found", t("gateway.http.noModelSettings"));
             const body = checkHttpBody(ModelKeyBody, await readJson(req));
             if (!body.ok) throw new HttpError("bad_request", t("gateway.http.badModelKey", { message: body.message }));
-            sendJson(res, 200, options.modelSettings.saveKey(body.value.key));
+            sendJson(res, 200, options.modelSettings.saveKey(body.value.key, body.value.provider));
           },
         };
       case "model_settings_test":

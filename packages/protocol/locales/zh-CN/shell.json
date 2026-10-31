@@ -31,7 +31,7 @@
   "shell.pages.appearance.title": "外观与风格",
   "shell.pages.appearance.sub": "浅色、深色或跟随系统，和视觉风格",
   "shell.pages.models.title": "模型",
-  "shell.pages.models.sub": "DeepSeek（服务端调用）：默认模型、各个 agent 用什么模型和思考档位、看图能力、连通测试",
+  "shell.pages.models.sub": "默认 DeepSeek，也可以换成自定义（OpenAI 兼容）：每个服务商的 key、默认模型、各个 agent 用什么模型和思考档位、看图能力、连通测试",
   "shell.pages.watch.title": "关注类别",
   "shell.pages.watch.sub": "有风险的事先不先问你、任务超预算停不停；哪些操作要引起你注意，各怎么处置",
   "shell.pages.workdayRules.title": "工作日规则",

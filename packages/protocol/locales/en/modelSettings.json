@@ -1,7 +1,7 @@
 {
   "modelSettings.ownUnavailable": "The model {modelId} set for this agent is no longer in {provider}'s model catalog",
   "modelSettings.noKey": "No API key configured for {provider}: enter one under Settings · Models (or in the setup wizard); or set the {env} environment variable on the ergo-daemon entry in LSM (injected from {file} in the data directory), then restart",
-  "modelSettings.keyTooShort": "The key is too short: at least {min} characters after trimming spaces (DeepSeek keys are a long string starting with sk-)",
+  "modelSettings.keyTooShort": "The key is too short: at least {min} characters after trimming spaces (keys are usually a long string, for example starting with sk-)",
   "modelSettings.keyTooLong": "The key is too long: at most {max} characters after trimming spaces",
   "modelSettings.where.test": "Connection test",
   "modelSettings.where.own": "Agent's own model",

@@ -187,9 +187,10 @@ export interface DaemonHttp {
   modelKey(): Promise<ModelKeyView>;
   /**
    * 在网页上填一个模型的 key（319 号票）：写进密钥区的文件、换成现在用的，回配好了、什么时候生效。
-   * key 太短、太长时抛错（message 是原因）；回的、界面上的都没有 key 的内容
+   * provider 给了就写那个服务商的（设置 · 模型按服务商逐条列 key）；不给是设置里选的那一个。
+   * key 太短、太长、服务商不认识时抛错（message 是原因）；回的、界面上的都没有 key 的内容
    */
-  saveModelKey(key: string): Promise<ModelKeyWriteResult>;
+  saveModelKey(key: string, provider?: string): Promise<ModelKeyWriteResult>;
   /** 设置里 agent 的联网搜索、读网页（154 号票）：默认的搜索方式、读网页用不用 DeepSeek、DeepSeek 的 key 配没配、最近一次余额不足 */
   webSettings(): Promise<WebSettingsView>;
   /** 整份存（不合规时抛错，message 是原因），回存好之后的；下一次搜索、读网页就按新的 */
@@ -594,8 +595,9 @@ export class HttpDaemonClient implements DaemonHttp {
     return this.json<ModelKeyView>(await fetch(`${this.baseUrl}${HTTP_PATHS.modelSettingsKey}`, { cache: "no-store" }));
   }
 
-  saveModelKey(key: string): Promise<ModelKeyWriteResult> {
-    const body: ModelKeyBody = { key };
+  saveModelKey(key: string, provider?: string): Promise<ModelKeyWriteResult> {
+    // provider 不给时请求体里就没有这一项：守护进程照设置里选的那一个服务商写（和以前一样）
+    const body: ModelKeyBody = { key, ...(provider === undefined ? {} : { provider }) };
     return this.post<ModelKeyWriteResult>(HTTP_PATHS.modelSettingsKey, body);
   }
 

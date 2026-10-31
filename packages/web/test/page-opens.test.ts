@@ -160,6 +160,8 @@ const EN_DONE: { hash: string; selector: string; except?: string }[] = [
   { hash: "#/more/models", selector: ".model-agent-head > b", except: ".assistant-name" },
   { hash: "#/more/models", selector: ".model-agent-head small.muted:first-of-type" },
   { hash: "#/more/models", selector: ".model-agent-selects select" },
+  // 2026-10-30：API key 按服务商逐条列出（每行的名字和"配没配"、从哪来）和连通测试那个按钮
+  { hash: "#/more/models", selector: ".model-key-row, .model-test-actions" },
   { hash: "#/more/watch", selector: ".cat-row select" },
   // 281 号票：个人档案——列表的说明和分节标题、一份档案里的字段名、分节标题、按钮（值、称呼、记下的事是内容，不在这里查）
   { hash: "#/more/files", selector: ".pf-intro, .pf-page .sec-head", except: ".assistant-name" },
@@ -639,10 +641,13 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     expect(found).toEqual(confirms.map(([name]) => ({ name, ...ok })));
   }, 60_000);
 
-  // 自定义（OpenAI 兼容）服务商在网页上换：选它才出现接口地址、模型 id、接口类型和那句诚实的提示，拉列表（原型不联网，
-  // 回几个编的 id）之后模型 id 变成下拉、挑一个存进去，切回 DeepSeek 不清空已经填的那一块；首次设置向导的模型那一步是同一块。
-  // 点"连通测试"走原型的假延迟，说通了；五步、外网访问那一屏和"以后再说"都还在，向导那一步是同一块、填完能测连通
-  test("设置 · 模型：选自定义出现那几项、拉列表变成下拉、切回 DeepSeek 不清空；首次向导的模型那一步是同一块", async () => {
+  // 2026-10-30 重排这一页（用户说结构"是拼上去的"、并且"选了自定义还只看到 DeepSeek 的 key"）：
+  // - API key 按服务商逐条列出（一个服务商一行，各有一个输入框和保存），换 key 不用先换服务商——给"另一个服务商"填 key 也在这里；
+  // - 连通测试挪到 API key 那一块的底部（按钮是"测一下当前服务商"），测的是设置里选中的那个（自定义时连它那块的草稿一起）；
+  // - 选自定义：接口地址、模型 id、接口类型和那句诚实的提示展开，拉列表（原型不联网，回几个编的 id）之后模型 id 变成下拉；
+  //   默认模型不再显示只读的模型 id 框和思考档位、各个 agent 和看图能力整段收起（各留一句）；
+  // - 切回 DeepSeek：agent 行、看图行、思考档位都回来，已经填的自定义那一块不丢；首次设置向导的模型那一步是同一套。
+  test("设置 · 模型：key 逐条列出、给别的服务商填 key、连通测试在新位置；选自定义收起几段、切回都回来", async () => {
     const { page, errors } = await open({ width: 1280, height: 800 });
     const at = async (hash: string) => {
       await page.evaluate(`window.location.hash = ${JSON.stringify(hash)}`);
@@ -652,11 +657,33 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       await page.waitForSelector(".model-test", { timeout: 10_000 });
       expect(await page.locator(".model-test").innerText()).toContain(text);
     };
+    /** 这一页上看得见的字（查"整段收起只留一句"） */
+    const pageText = () => page.locator(".models-page").innerText();
 
-    // 设置 · 模型（还没选过自定义：没有那几项）
+    // 设置 · 模型：API key 按服务商逐条列出，两行各有自己的输入框和保存按钮
     await at("#/more/models");
     await page.waitForSelector('input[name="model-provider"][value="custom"]');
     expect(await page.locator(".model-custom").count()).toBe(0);
+    expect(await page.locator(".model-key-setting").evaluateAll((els) => els.map((e) => e.getAttribute("data-provider")))).toEqual(["deepseek", "custom"]);
+    expect(await page.locator('input[name="model-api-key"]').count()).toBe(2);
+    expect(await page.locator(".model-key-setting .model-key-form button").count()).toBe(2);
+    // 换 key 不用先切服务商：当前还是 DeepSeek，直接给自定义那一行填、保存，那一行说存好了，服务商没变
+    await page.fill('input[name="model-api-key"][data-provider="custom"]', "sk-demo-custom-abcdef");
+    await page.click('.model-key-setting[data-provider="custom"] button:has-text("保存 key")');
+    await page.waitForSelector('.model-key-setting[data-provider="custom"] .model-key-saved', { timeout: 10_000 });
+    expect(await page.locator('input[name="model-provider"][value="deepseek"]').isChecked()).toBe(true);
+    // 连通测试在 API key 那一块的底部（不是服务商那一块），只有一个，写"测一下当前服务商"
+    expect(await page.locator(".model-test-actions").count()).toBe(1);
+    expect(
+      await page.evaluate(`(() => {
+        const sec = Array.from(document.querySelectorAll(".models-page .sec")).find((s) => s.querySelector(".model-key-setting"));
+        return sec !== undefined && sec.lastElementChild !== null && sec.lastElementChild.classList.contains("model-test-actions");
+      })()`),
+    ).toBe(true);
+    await page.click('.model-test-actions button:has-text("测一下当前服务商")');
+    await testSays("通了：deepseek-flash");
+
+    // 选自定义：出现接口地址、模型 id、接口类型和诚实的那句提示
     await page.click('input[name="model-provider"][value="custom"]');
     await page.waitForSelector(".model-custom");
     expect(await page.locator('input[name="model-custom-base-url"]').getAttribute("placeholder")).toBe("https://api.openai.com/v1");
@@ -664,44 +691,63 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     expect(block).toContain("要填到 /v1 这一层");
     expect(block).toContain("记忆整理、联网搜索和读网页仍然要用 DeepSeek 的 key");
     expect(block).toContain("OpenAI responses");
-    // 填好地址和模型 id，离开输入框就存（原型只记在内存里）；key 那一块跟着换成自定义服务商的
+    // 填好地址和模型 id，离开输入框就存（原型只记在内存里）
     await page.fill('input[name="model-custom-base-url"]', "https://api.example.com/v1");
     await page.fill('input[name="model-custom-model-id"]', "my-model");
     await page.locator('input[name="model-custom-model-id"]').blur();
-    await page.waitForFunction(`document.querySelector(".model-key-row b")?.textContent?.includes("自定义")`, undefined, { timeout: 10_000 });
+    // 默认模型：不再重复显示模型 id 的只读框，改一句灰字；思考档位、各个 agent、看图能力都不显示了
+    await page.waitForFunction(`document.querySelector(".models-page")?.innerText.includes("用服务商那里填的模型：my-model")`, undefined, { timeout: 10_000 });
+    expect(await page.locator(".model-choice").count()).toBe(0);
+    expect(await page.locator(".models-page .seg").count()).toBe(0);
+    expect(await page.locator(".model-agent-row").count()).toBe(0);
+    expect(await page.locator(".model-vision-row").count()).toBe(0);
+    const collapsed = await pageText();
+    expect(collapsed).toContain("自定义服务商只有一个模型，这里不用逐个指定");
+    expect(collapsed).toContain("这家服务商收不收图片，二狗不知道");
     // 拉列表：模型 id 变成下拉，里面是编的几个 id（现在填的那个补在第一项）
     await page.click('.model-custom button:has-text("拉取列表")');
     await page.waitForSelector('select[aria-label="模型 id"]', { timeout: 10_000 });
     expect(await page.locator('select[aria-label="模型 id"] option').evaluateAll((els) => els.map((e) => e.getAttribute("value")))).toEqual(["my-model", "fake-chat-pro", "fake-chat-mini", "fake-reasoner"]);
     await page.selectOption('select[aria-label="模型 id"]', "fake-chat-mini");
     await page.waitForTimeout(300);
-    // 连通测试：原型的假结果，说通了，测的是挑的这个
-    await page.click('.model-custom-actions button:has-text("连通测试")');
+    // 连通测试还是那个位置、还是测当前服务商：这次测的是自定义那边的模型 id（原型的假结果）
+    await page.click('.model-test-actions button:has-text("测一下当前服务商")');
     await testSays("通了：fake-chat-mini");
-    // 切回 DeepSeek：自定义那几项收起；再选回来，地址和挑的模型 id 都还在
+
+    // 切回 DeepSeek：自定义那几项收起；agent 行、看图行、默认模型的下拉和思考档位都回来
     await page.click('input[name="model-provider"][value="deepseek"]');
     await page.waitForTimeout(300);
     expect(await page.locator(".model-custom").count()).toBe(0);
+    expect(await page.locator(".model-agent-row").count()).toBeGreaterThan(0);
+    expect(await page.locator(".model-vision-row").count()).toBeGreaterThan(0);
+    expect(await page.locator(".models-page .seg").count()).toBe(1);
+    expect(await pageText()).not.toContain("自定义服务商只有一个模型");
+    // 再选回自定义：地址和挑的模型 id 都还在（切回 DeepSeek 不清空）
     await page.click('input[name="model-provider"][value="custom"]');
     await page.waitForSelector(".model-custom");
     expect(await page.locator('input[name="model-custom-base-url"]').inputValue()).toBe("https://api.example.com/v1");
     expect(await page.locator('select[aria-label="模型 id"]').inputValue()).toBe("fake-chat-mini");
 
-    // 首次设置向导：步骤数没变（五步 + 外网访问），"以后再说"还在；模型那一步是同一块，切回 DeepSeek 就收起，填完能测连通
+    // 首次设置向导：步骤数没变（五步 + 外网访问），"以后再说"还在；模型那一步是同一套（服务商 → key → 连通测试），
+    // key 只列当前那个服务商，切回 DeepSeek 就收起，填完能测连通
     await at("#/more/setup");
     expect(await page.locator(".setup-rail [data-step]").count()).toBe(6);
     await page.click('.setup-rail [data-step="model"]');
     await page.waitForSelector('input[name="model-provider"][value="custom"]', { timeout: 10_000 });
-    expect(await page.locator(".model-custom").count()).toBe(1);
     expect(await page.locator(".setup-actions button").count()).toBe(2);
+    expect(await page.locator(".model-key-setting").count()).toBe(1);
+    expect(await page.locator('input[name="model-api-key"]').count()).toBe(1);
     await page.click('input[name="model-provider"][value="deepseek"]');
     await page.waitForTimeout(300);
     expect(await page.locator(".model-custom").count()).toBe(0);
+    expect(await page.locator(".model-key-setting").evaluateAll((els) => els.map((e) => e.getAttribute("data-provider")))).toEqual(["deepseek"]);
     await page.click('input[name="model-provider"][value="custom"]');
     await page.waitForSelector(".model-custom");
     expect(await page.locator('input[name="model-custom-base-url"]').inputValue()).toBe("https://api.example.com/v1");
-    expect(await page.locator('input[name="model-api-key"]').count()).toBe(1);
-    await page.click('.model-custom-actions button:has-text("连通测试")');
+    // 向导里没有拉过列表：模型 id 还是手填的输入框，值是上次挑的那个
+    expect(await page.locator('input[name="model-custom-model-id"]').inputValue()).toBe("fake-chat-mini");
+    expect(await page.locator(".model-key-setting").evaluateAll((els) => els.map((e) => e.getAttribute("data-provider")))).toEqual(["custom"]);
+    await page.click('.model-test-actions button:has-text("测一下当前服务商")');
     await testSays("通了：fake-chat-mini");
     await page.close();
     expect(errors).toEqual([]);

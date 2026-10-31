@@ -235,9 +235,15 @@ export interface SessionModelView {
 
 /** 设置页取到的全部（GET /api/model-settings） */
 export interface ModelSettingsView {
-  /** 服务商登记表（目前只有 DeepSeek） */
+  /** 服务商登记表（DeepSeek 默认，加上自定义（OpenAI 兼容）服务商） */
   providers: ModelProviderView[];
+  /** 设置里选的那个服务商的 key 的状态（同 apiKeys[settings.provider]；别的调用方要的就是"现在用的那个"） */
   apiKey: ModelApiKeyStatus;
+  /**
+   * 每个服务商的 key 配没配（键是服务商 id，顺序按 providers）：设置 · 模型的 API key 一块按服务商逐条列出，
+   * 换 key 不用先把它选成当前服务商。只说配没配、从哪来，没有 key 的任何内容
+   */
+  apiKeys: Record<string, ModelApiKeyStatus>;
   /** 可选的模型：模型目录里这个服务商的、配置文件里登记的（models、tokenPrices 的键），加上设置里已经选了的 */
   models: ModelOptionView[];
   /** 模型目录查不到时的原因（这时可选的只有配置里登记的和已经选了的） */
