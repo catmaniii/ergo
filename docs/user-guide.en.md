@@ -465,7 +465,7 @@ The HarmonyOS app is a native shell running the same web UI, plus native recordi
    ```powershell
    hdc list targets
    hdc -t <device> install -r frontend\harmony\entry\build\default\outputs\default\entry-default-signed.hap
-   hdc -t <device> shell aa start -a EntryAbility -b io.github.catmaniii.ergo
+   hdc -t <device> shell aa start -a EntryAbility -b com.catmaniii.ergo
    ```
 
 6. On first launch enter ergo's external address ([Section 6](#6-access-from-outside-phone-tablet)) and pair as prompted.

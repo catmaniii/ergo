@@ -463,7 +463,7 @@ node bin\lsm.mjs tailnet ergo-daemon on <名字>
    ```powershell
    hdc list targets
    hdc -t <设备号> install -r frontend\harmony\entry\build\default\outputs\default\entry-default-signed.hap
-   hdc -t <设备号> shell aa start -a EntryAbility -b io.github.catmaniii.ergo
+   hdc -t <设备号> shell aa start -a EntryAbility -b com.catmaniii.ergo
    ```
 
 6. 第一次打开时填二狗的外网地址（[第 6 节](#6-从外网访问手机平板)），再按页面提示配对。
