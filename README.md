@@ -2,7 +2,7 @@
 
 # ergo（二狗）
 
-> **越懂你，越放心。** 一个装在你自己电脑上、用手机语音就能指挥的个人 AI 助理。
+> **把记忆还给你。越懂你，越放心。** 一个装在你自己电脑上、用手机语音就能指挥的个人 AI 助理。
 
 **[在线演示](https://catmaniii.github.io/ergo/)**（不用装、不用填 Key，点着看；网页原型自带编的示例数据。[English UI](https://catmaniii.github.io/ergo/?lang=en)）· [用户手册](docs/user-guide.md) · [开发者指南](docs/developer-guide.md) · [更新日志](CHANGELOG.md)
 
@@ -174,6 +174,8 @@ irm https://github.com/catmaniii/ergo/releases/latest/download/install.ps1 | iex
 <p align="center"><img src="docs/images/readme/styles-gallery.png" width="860" alt="设置·外观与风格里的风格预览"><br><sub>设置 · 外观与风格：11 套风格，每套左浅右深。</sub></p>
 
 ## 我们的愿景
+
+我们致敬 [OpenClaw](https://github.com/openclaw/openclaw) 的理念：把记忆从大公司手里夺过来，还给用户。二狗会传承这个理念：保持开源，保护你对个人 agent 记忆数据的所有权。
 
 算力和记忆，都由你自己掌握。
 

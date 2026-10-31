@@ -2,7 +2,7 @@
 
 # ergo (二狗)
 
-> **The more it knows you, the more at ease you feel.** A personal AI assistant that lives on your own computer and takes orders by voice from your phone.
+> **Your memory, back to you. The more it knows you, the more at ease you feel.** A personal AI assistant that lives on your own computer and takes orders by voice from your phone.
 
 **[Online demo](https://catmaniii.github.io/ergo/?lang=en)** (nothing to install, no key needed; the web prototype ships with made-up sample data) · [User Guide](docs/user-guide.en.md) · [Developer Guide](docs/developer-guide.en.md) · [Changelog](CHANGELOG.md)
 
@@ -174,6 +174,8 @@ Three triggers: once now; scheduled (optionally "on my working days", with Chine
 <p align="center"><img src="docs/images/readme/styles-gallery.png" width="860" alt="Style previews under Settings · Appearance & style"><br><sub>Settings · Appearance & style: all 11 styles, each shown light (left) and dark (right).</sub></p>
 
 ## Our vision
+
+We salute the idea behind [OpenClaw](https://github.com/openclaw/openclaw): take memory out of the hands of big companies and give it back to users. ergo carries that idea forward by staying open source and protecting your ownership of your personal agent's memory data.
 
 Both the computing power and the memory should be yours.
 
