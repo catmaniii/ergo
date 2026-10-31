@@ -1422,7 +1422,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const installLayout = options.installLayout ?? detectLayout({ cliFile: path.join(programDir, "packages", "daemon", "src", "cli", "main.js"), env: options.env, execPath: process.execPath });
     const audioCppHost = createAudioCppHost({ componentsDir: layout.components, speech: { url: options.speechUrl ?? config.voice.speech.url, model: config.voice.speech.model }, recognizer: recognizerLink, ...options.components?.audiocpp, log });
     const componentsTransport = options.components?.transport ?? componentTransport(options.env, "ergo-components");
-    // 查更新（347）：取发布页上的版本清单，查的地址和 ergo update 一样（自己给的发布地址优先）；有新版本提醒，点了才换
+    // 查更新（347）：取发布页上的版本清单，查的地址和 ergo update 一样（自己给的发布地址优先）；有新版本告诉用户，点了才换
     const releaseBase = options.env.ERGO_RELEASE_URL?.trim() || (installLayout.root ? readInstallState(installLayout.root).source?.url : undefined);
     const components = createComponents({
       root: layout.root,
