@@ -405,7 +405,7 @@ describe("手机和 Google · 联系人：不进素材的也能列，没有现�
     expect(sourceOf(k, PHONE_CALENDAR_SOURCE).needsAuth).toBeUndefined();
 
     await disable(k, "phone");
-    expect(k.dataSources.stored(PHONE_CONTACTS_SOURCE, {})).toMatchObject({ total: 0, problem: "手机插件没启用" });
+    expect(k.dataSources.stored(PHONE_CONTACTS_SOURCE, {})).toMatchObject({ total: 0, problem: "数据源-手机插件没启用" });
   });
 
   it("Google · 联系人：只靠导入文件夹、不进素材，列导入的人（同一个人导几次算一条）；没有现查", async () => {

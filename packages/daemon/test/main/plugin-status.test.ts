@@ -40,9 +40,9 @@ describe("插件的状况给网页", () => {
           { name: "voice", title: "语音", state: "running" },
           { name: "browsing", title: "内置浏览器", state: "running" },
           { name: "claude-code", title: "Claude Code", state: "running" },
-          { name: "phone", title: "手机", state: "running" },
-          { name: "google", title: "Google", state: "running" },
-          { name: "looki", title: "Looki", state: "running" },
+          { name: "phone", title: "数据源-手机", state: "running" },
+          { name: "google", title: "数据源-Google", state: "running" },
+          { name: "looki", title: "数据源-Looki穿戴式相机", state: "running" },
         ],
       },
     ]);
@@ -60,9 +60,9 @@ describe("插件的状况给网页", () => {
       { name: "voice", title: "语音", state: "running" },
       { name: "browsing", title: "内置浏览器", state: "running" },
       { name: "claude-code", title: "Claude Code", state: "running" },
-      { name: "phone", title: "手机", state: "running" },
-      { name: "google", title: "Google", state: "running" },
-      { name: "looki", title: "Looki", state: "running" },
+      { name: "phone", title: "数据源-手机", state: "running" },
+      { name: "google", title: "数据源-Google", state: "running" },
+      { name: "looki", title: "数据源-Looki穿戴式相机", state: "running" },
     ]);
     saveOrCheckRecording("plugins-memory-off", frontend.recording);
   });
@@ -77,9 +77,9 @@ describe("插件的状况给网页", () => {
       { name: "voice", title: "语音", state: "running" },
       { name: "browsing", title: "内置浏览器", state: "running" },
       { name: "claude-code", title: "Claude Code", state: "running" },
-      { name: "phone", title: "手机", state: "running" },
-      { name: "google", title: "Google", state: "running" },
-      { name: "looki", title: "Looki", state: "running" },
+      { name: "phone", title: "数据源-手机", state: "running" },
+      { name: "google", title: "数据源-Google", state: "running" },
+      { name: "looki", title: "数据源-Looki穿戴式相机", state: "running" },
     ]);
     saveOrCheckRecording("plugins-reminders-off", frontend.recording);
   });
@@ -94,9 +94,9 @@ describe("插件的状况给网页", () => {
       { name: "voice", title: "语音", state: "running" },
       { name: "browsing", title: "内置浏览器", state: "running" },
       { name: "claude-code", title: "Claude Code", state: "running" },
-      { name: "phone", title: "手机", state: "running" },
-      { name: "google", title: "Google", state: "running" },
-      { name: "looki", title: "Looki", state: "running" },
+      { name: "phone", title: "数据源-手机", state: "running" },
+      { name: "google", title: "数据源-Google", state: "running" },
+      { name: "looki", title: "数据源-Looki穿戴式相机", state: "running" },
     ]);
     saveOrCheckRecording("plugins-calendar-off", frontend.recording);
   });
@@ -111,9 +111,9 @@ describe("插件的状况给网页", () => {
       { name: "voice", title: "语音", state: "disabled" },
       { name: "browsing", title: "内置浏览器", state: "running" },
       { name: "claude-code", title: "Claude Code", state: "running" },
-      { name: "phone", title: "手机", state: "running" },
-      { name: "google", title: "Google", state: "running" },
-      { name: "looki", title: "Looki", state: "running" },
+      { name: "phone", title: "数据源-手机", state: "running" },
+      { name: "google", title: "数据源-Google", state: "running" },
+      { name: "looki", title: "数据源-Looki穿戴式相机", state: "running" },
     ]);
     saveOrCheckRecording("plugins-voice-off", frontend.recording);
   });
@@ -128,9 +128,9 @@ describe("插件的状况给网页", () => {
       { name: "voice", title: "语音", state: "running" },
       { name: "browsing", title: "内置浏览器", state: "disabled" },
       { name: "claude-code", title: "Claude Code", state: "running" },
-      { name: "phone", title: "手机", state: "running" },
-      { name: "google", title: "Google", state: "running" },
-      { name: "looki", title: "Looki", state: "running" },
+      { name: "phone", title: "数据源-手机", state: "running" },
+      { name: "google", title: "数据源-Google", state: "running" },
+      { name: "looki", title: "数据源-Looki穿戴式相机", state: "running" },
     ]);
     saveOrCheckRecording("plugins-browsing-off", frontend.recording);
   });
@@ -219,6 +219,6 @@ describe("插件的状况给网页", () => {
     const frontend = await watch(url);
     expect((await languageApi.change(url, "en")).status).toBe(200);
     await waitUntil(() => statusEvents(frontend).length >= 2);
-    expect(statusEvents(frontend).at(-1)!.plugins.map((p) => p.title)).toEqual(["Reminders", "Memory", "Calendar", "Voice", "Built-in browser", "Claude Code", "Phone", "Google", "Looki"]);
+    expect(statusEvents(frontend).at(-1)!.plugins.map((p) => p.title)).toEqual(["Reminders", "Memory", "Calendar", "Voice", "Built-in browser", "Claude Code", "Data source - Phone", "Data source - Google", "Data source - Looki wearable camera"]);
   });
 });

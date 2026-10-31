@@ -43,17 +43,17 @@
           },
           {
             "name": "phone",
-            "title": "手机",
+            "title": "数据源-手机",
             "state": "running"
           },
           {
             "name": "google",
-            "title": "Google",
+            "title": "数据源-Google",
             "state": "running"
           },
           {
             "name": "looki",
-            "title": "Looki",
+            "title": "数据源-Looki穿戴式相机",
             "state": "running"
           }
         ]
@@ -76,9 +76,9 @@
           },
           "nextAt": "2099-10-08T09:00:00.000+08:00",
           "status": "pending",
-          "cardId": "c-5e5d0db3-53fa-4ac1-a0ae-b4fa3663e951",
-          "createdAt": "2026-10-25T23:33:46.241+08:00",
-          "updatedAt": "2026-10-25T23:33:46.241+08:00"
+          "cardId": "c-7fc4e999-3503-4c7b-8527-8a40231900ca",
+          "createdAt": "2026-11-01T01:35:49.551+08:00",
+          "updatedAt": "2026-11-01T01:35:49.551+08:00"
         },
         "change": "created",
         "by": "user"
@@ -93,7 +93,7 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-5e5d0db3-53fa-4ac1-a0ae-b4fa3663e951",
+          "id": "c-7fc4e999-3503-4c7b-8527-8a40231900ca",
           "type": "reminder",
           "typeVersion": 4,
           "version": 1,
@@ -109,7 +109,7 @@
             "nextAt": "2099-10-08T09:00:00.000+08:00"
           },
           "text": "简单提醒：交报告 · 10 月 8 日（周四）09:00",
-          "createdAt": "2026-10-25T23:33:46.242+08:00"
+          "createdAt": "2026-11-01T01:35:49.552+08:00"
         }
       }
     }
@@ -154,17 +154,17 @@
           },
           {
             "name": "phone",
-            "title": "手机",
+            "title": "数据源-手机",
             "state": "running"
           },
           {
             "name": "google",
-            "title": "Google",
+            "title": "数据源-Google",
             "state": "running"
           },
           {
             "name": "looki",
-            "title": "Looki",
+            "title": "数据源-Looki穿戴式相机",
             "state": "running"
           }
         ]
@@ -211,17 +211,17 @@
           },
           {
             "name": "phone",
-            "title": "手机",
+            "title": "数据源-手机",
             "state": "running"
           },
           {
             "name": "google",
-            "title": "Google",
+            "title": "数据源-Google",
             "state": "running"
           },
           {
             "name": "looki",
-            "title": "Looki",
+            "title": "数据源-Looki穿戴式相机",
             "state": "running"
           }
         ]
@@ -268,17 +268,17 @@
           },
           {
             "name": "phone",
-            "title": "手机",
+            "title": "数据源-手机",
             "state": "running"
           },
           {
             "name": "google",
-            "title": "Google",
+            "title": "数据源-Google",
             "state": "running"
           },
           {
             "name": "looki",
-            "title": "Looki",
+            "title": "数据源-Looki穿戴式相机",
             "state": "running"
           }
         ]
@@ -293,7 +293,7 @@
       "type": "plugin_data_purged",
       "payload": {
         "plugin": "reminders",
-        "at": "2026-10-25T23:33:46.307+08:00",
+        "at": "2026-11-01T01:35:49.642+08:00",
         "eventTypes": [
           "reminder"
         ],

@@ -86,9 +86,9 @@ describe("设置 · 插件", () => {
       ["voice", "语音", "running"],
       ["browsing", "内置浏览器", "running"],
       ["claude-code", "Claude Code", "running"],
-      ["phone", "手机", "running"],
-      ["google", "Google", "running"],
-      ["looki", "Looki", "running"],
+      ["phone", "数据源-手机", "running"],
+      ["google", "数据源-Google", "running"],
+      ["looki", "数据源-Looki穿戴式相机", "running"],
     ]);
     const [reminders, memory] = body.plugins;
     const voice = body.plugins.find((p) => p.name === "voice");
@@ -115,7 +115,7 @@ describe("设置 · 插件", () => {
     // 私密地址、导入的你发出的邮件、Gmail 地址和密码；日历是可选依赖。301 号票：还删从 Google 联系人导入的记录，已经写进档案的、
     // 还没处理的候选不删
     const google = body.plugins.find((p) => p.name === "google");
-    expect(google).toMatchObject({ title: "Google", brings: { tools: ["查 Google 日历", "搜 Gmail 邮件", "读 Gmail 邮件"], cards: [], jobs: [] }, needs: [], neededBy: [] });
+    expect(google).toMatchObject({ title: "数据源-Google", brings: { tools: ["查 Google 日历", "搜 Gmail 邮件", "读 Gmail 邮件"], cards: [], jobs: [] }, needs: [], neededBy: [] });
     expect(google!.removal!.deletes).toEqual([
       "同步来的 Google 日历事件和日历的名字",
       "填过的私密 iCal 地址（这台电脑的密钥区里）",

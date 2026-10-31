@@ -5,7 +5,7 @@
 // - 手机日历：没连着时不收；点了"连上"交来三条日程 → 日历插件按天显示（标出来自手机、哪个日历，跨天的每天一次）；再交一次改一条、
 //   删一条 → 增量对；授权被撤回 → 数据源页写明原因；断开并连已导入的一起删 → 日历里没了、条数归零；
 // - 断开"通讯录选人"并连已导入的一起删：还没处理的候选和卡上的值一起删，已经写进档案的不动；
-// - 插件运行中停用：交来回 400"手机插件没启用"；日历插件停用时"手机 · 日历"写明看不到。
+// - 插件运行中停用：交来回 400"数据源-手机插件没启用"；日历插件停用时"手机 · 日历"写明看不到。
 import {
   type Card,
   type CardEventPayload,
@@ -208,7 +208,7 @@ describe("手机：手机日历进二狗的日历", () => {
     expect((await push(td.url, PHONE_CALENDAR_SOURCE, { state: "granted", ...w, events: [DENTIST] })).status).toBe(400);
   });
 
-  it("插件运行中停用：交来回 400\"手机插件没启用\"；交来的不合 schema 回 400、导入关着回 400", { timeout: 60_000 }, async () => {
+  it("插件运行中停用：交来回 400\"数据源-手机插件没启用\"；交来的不合 schema 回 400、导入关着回 400", { timeout: 60_000 }, async () => {
     const td = await startTestDaemon({ plugins: ["calendar", "phone"] });
     const bad = await push(td.url, PHONE_CONTACTS_SOURCE, { contacts: [{ name: "王小明" }] });
     expect(bad.status).toBe(400);
@@ -219,8 +219,8 @@ describe("手机：手机日历进二狗的日历", () => {
     expect((await pluginsApi.act(td.url, "phone", { action: "disable", idempotencyKey: key() })).status).toBe(200);
     const disabled = await push(td.url, PHONE_CALENDAR_SOURCE, { state: "granted", link: true, ...windowOf(), events: [] });
     expect(disabled.status).toBe(400);
-    expect(disabled.body.message).toBe("手机插件没启用");
-    expect((await dataSourcesApi.view(td.url)).body.sources.find((s) => s.id === PHONE_CALENDAR_SOURCE)).toMatchObject({ available: false, unavailable: "手机插件没启用" });
+    expect(disabled.body.message).toBe("数据源-手机插件没启用");
+    expect((await dataSourcesApi.view(td.url)).body.sources.find((s) => s.id === PHONE_CALENDAR_SOURCE)).toMatchObject({ available: false, unavailable: "数据源-手机插件没启用" });
     expect((await push(td.url, "nobody", {})).status).toBe(404);
   });
 });
