@@ -357,7 +357,7 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 | `src/plugins/` | 网页插件宿主、插件清单、各插件 |
 | `src/visual-styles/` | 视觉风格清单和 token（[6.2](#62-视觉风格)） |
 | `src/prototype/` | 只属于原型的假连接和假数据 |
-| `src/page-bridge/` | 注入"浏览"里外部网页的独立脚本（悬浮按钮、填框） |
+| `src/page-bridge/` | 注入"浏览"里外部网页的独立脚本（悬浮按钮、填框）。网站的 CSP 会拦 `<style>`、`style` 属性和 `data:` 图片：样式走 `adoptedStyleSheets` 和 `style.cssText`，图片解成位图画进 canvas |
 | `src/styles/` | 经典风格的规则，只用 `var(--token)` |
 | `build/` | 构建插件（风格、版本号、关于页的构建信息）、`smoke-page.ts` |
 

@@ -149,7 +149,7 @@ ergo keeps a copy of everything you said on this PC (immutable, indexed by keywo
 
 - **Calendar**: working days and holidays for two regions, manual marks, the day's reminders, scheduled tasks and each run; external calendars (phone calendar, Google Calendar…) can be connected through data-source plugins.
 - **Reminders**: just tell the secretary; the reminder card lets you reschedule or cancel; due reminders show at the top of the page, or as system notifications on HarmonyOS phones.
-- **Browse**: a built-in browser that opens your project services' pages and renders attachments; tap the floating button on a web form's input box to have ergo fill it in.
+- **Browse**: a built-in browser that opens your project services' pages and renders attachments; tap the floating button with ergo's icon next to a web form's input box to have ergo fill it in.
 
 ### 4.9 Plugins
 

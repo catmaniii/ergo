@@ -15,6 +15,8 @@
 //   封闭的 shadow root 网页的脚本拿不到，测试在页面桥注入之前换掉 attachShadow 记下它（网页自己的脚本在页面桥之后才跑，做不到这一步）。
 // - 181 号票：气泡的标题、"二狗在想……"、"让二狗选"、挑图片窗口的标题里的名字是名字标签（span.name，底色、字色是交来的，浅色深色
 //   各一对；没交来是「二狗」、经典的颜色）；名字里有 <b> 也只是字；读屏说明是纯名字；开着的气泡、窗口跟着改名字、换颜色。
+// - 348 号票：按钮上是二狗的图标（canvas 里真画上了、圆形占满、大小不变、不接事件），img-src、default-src 这样严格的 CSP（真的响应头）下
+//   照样是图标、样式还在；解不出来退回 SVG；听、忙图标不换，外面有红色脉动的圈、转圈，截图和平时不一样。
 // 本机没有 Chrome（或 Edge）时跳过。页面桥用到的 DOM 全是浏览器自己的，所以不用 jsdom 这类模拟（仓库不加依赖）。
 import { fileURLToPath } from "node:url";
 import { type Browser, chromium, type Page } from "playwright-core";
@@ -83,9 +85,17 @@ afterAll(async () => {
   await browser?.close();
 }, 60_000);
 
-/** 开一页测试页：先挂假的宿主（记下 post 来的），再注入页面桥（都在网页的脚本之前）；peek：记下页面桥的 shadow root（测试看气泡用） */
-async function open(options: { width?: number; height?: number; peek?: boolean } = {}): Promise<Page> {
+/**
+ * 开一页测试页：先挂假的宿主（记下 post 来的），再注入页面桥（都在网页的脚本之前）；peek：记下页面桥的 shadow root（测试看气泡用）；
+ * csp：网页响应带的 Content-Security-Policy（测试页的脚本是内联的，要放开 script-src）；noBitmap：浏览器解不出位图（图标画不上）
+ */
+async function open(options: { width?: number; height?: number; peek?: boolean; csp?: string; noBitmap?: boolean } = {}): Promise<Page> {
   const page = await browser!.newPage({ viewport: { width: options.width ?? 800, height: options.height ?? 900 } });
+  if (options.noBitmap) {
+    await page.addInitScript(() => {
+      window.createImageBitmap = () => Promise.reject(new Error("解不出来"));
+    });
+  }
   if (options.peek) {
     await page.addInitScript(() => {
       const attach = Element.prototype.attachShadow;
@@ -102,7 +112,7 @@ async function open(options: { width?: number; height?: number; peek?: boolean }
     (window as unknown as { ergoPageHost: { post(json: string): void } }).ergoPageHost = { post: (json: string) => void posted.push(json) };
   });
   await page.addInitScript({ content: bridge });
-  await page.route("https://album.example.cn/**", (route) => route.fulfill({ contentType: "text/html", body: PAGE.replace("__REACT__", () => react) }));
+  await page.route("https://album.example.cn/**", (route) => route.fulfill({ contentType: "text/html", ...(options.csp ? { headers: { "Content-Security-Policy": options.csp } } : {}), body: PAGE.replace("__REACT__", () => react) }));
   await page.goto("https://album.example.cn/upload?session=secret#top");
   await page.waitForSelector("#react-title");
   return page;
@@ -1408,6 +1418,153 @@ describe.skipIf(!CHROME)("助理的名字和名字标签（181 号票）", () =>
     expect(await callJson(page, "texts", JSON.stringify(namedTexts("阿福", bad as typeof TAG)))).toEqual({ ok: true });
     expect(await tagOf(page, ".label .name")).toMatchObject({ text: "阿福", bg: "rgb(251, 227, 161)", fg: "rgb(92, 61, 0)" });
     expect(await bubbleOn(page)).toBe(true);
+    await page.close();
+  });
+});
+
+// ---------- 悬浮按钮上是二狗的图标（348 号票） ----------
+
+const FAB_SVG = () => (window as unknown as { peekRoot: ShadowRoot }).peekRoot.querySelector(".fab svg")?.innerHTML;
+
+/** 按钮现在长什么样：有没有 canvas、canvas 上真的画了图标没有（不透明、颜色多）、有没有 SVG、大小、圆不圆 */
+const fabFace = (page: Page) =>
+  page.evaluate(() => {
+    const root = (window as unknown as { peekRoot: ShadowRoot }).peekRoot;
+    const fab = root.querySelector<HTMLElement>(".fab")!;
+    const canvas = fab.querySelector("canvas");
+    let painted = false;
+    if (canvas && canvas.width > 0) {
+      const { data } = canvas.getContext("2d")!.getImageData(0, 0, canvas.width, canvas.height);
+      const colors = new Set<number>();
+      let opaque = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        if (data[i + 3] === 255) opaque++;
+        colors.add((data[i]! << 16) | (data[i + 1]! << 8) | data[i + 2]!);
+      }
+      painted = opaque === canvas.width * canvas.height && colors.size > 100;
+    }
+    const box = fab.getBoundingClientRect();
+    const face = canvas?.getBoundingClientRect();
+    const cs = getComputedStyle(fab);
+    return {
+      canvas: canvas !== null,
+      painted,
+      svg: fab.querySelector("svg") !== null,
+      size: [box.width, box.height],
+      faceSize: face ? [face.width, face.height] : null,
+      faceRadius: canvas ? getComputedStyle(canvas).borderRadius : null,
+      position: cs.position,
+      radius: cs.borderRadius,
+      background: cs.backgroundImage,
+      ring: cs.boxShadow,
+      pulse: cs.animationName,
+      spin: getComputedStyle(fab, "::after").animationName,
+      hostPosition: getComputedStyle(root.host).position,
+    };
+  });
+
+/** 选中框、等按钮出来、等图标画上（解码是异步的） */
+async function fabPainted(page: Page, selector = "#title"): Promise<void> {
+  await page.click(selector);
+  await expect.poll(async () => (await fabFace(page)).painted).toBe(true);
+}
+
+/** 按钮连同外面一圈的截图（听、忙的圈在按钮外面） */
+async function shotOfFab(page: Page): Promise<Buffer> {
+  const r = await rectIn(page, ".fab");
+  return page.screenshot({ clip: { x: r.x - 20, y: r.y - 20, width: r.width + 40, height: r.height + 40 } });
+}
+
+describe.skipIf(!CHROME)("悬浮按钮上是二狗的图标（348 号票）", () => {
+  test("普通页面：图标画进 canvas 占满按钮（圆形，大小不变），没有 SVG 和蓝底；读屏说明不变；点在图标上就是点在按钮上；图标打包进页面桥、不超过 10 KB", async () => {
+    const page = await open({ peek: true });
+    await fabPainted(page);
+    expect(await fabFace(page)).toMatchObject({ canvas: true, svg: false, size: [36, 36], faceSize: [36, 36], faceRadius: "50%", radius: "50%", background: "none" });
+    expect(await ariaOf(page, ".fab")).toBe("让二狗帮忙：点一下打字，按住说话");
+    // 图标不接事件，长按、拖动都还是按钮自己的
+    const fab = await rectIn(page, ".fab");
+    expect(await page.evaluate(([x, y]) => (window as unknown as { peekRoot: ShadowRoot }).peekRoot.elementFromPoint(x!, y!)?.className, [fab.x + 18, fab.y + 18])).toContain("fab");
+    await tapIn(page, ".fab");
+    await page.waitForTimeout(80);
+    expect((await postedOf(page)).find((m) => m.type === "open")).toMatchObject({ field: { label: "标题" } });
+    // 打包进去的只有一份，不超过约 10 KB（base64 之后）
+    const icons = bridge.match(/data:image\/webp;base64,[A-Za-z0-9+/=]+/g) ?? [];
+    expect(icons.length).toBe(1);
+    expect(icons[0]!.length).toBeLessThan(10 * 1024);
+    await page.close();
+  });
+
+  test.each([["img-src 'self'"], ["default-src 'self'; script-src 'unsafe-inline'"]])("严格的 CSP（%s）：data: 图片真的被拦，按钮照样是画着图标的圆钮，气泡的样式也在", async (csp) => {
+    const page = await open({ peek: true, csp });
+    const dataImage = await page.evaluate(
+      () =>
+        new Promise<string>((resolve) => {
+          const img = new Image();
+          img.addEventListener("load", () => resolve("loaded"));
+          img.addEventListener("error", () => resolve("blocked"));
+          img.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+        }),
+    );
+    expect(dataImage).toBe("blocked");
+    await fabPainted(page);
+    expect(await fabFace(page)).toMatchObject({ canvas: true, svg: false, size: [36, 36], position: "fixed", radius: "50%", hostPosition: "fixed" });
+    await tapIn(page, ".fab");
+    await page.waitForTimeout(80);
+    expect(await bubbleOn(page)).toBe(true);
+    expect(await page.evaluate(() => getComputedStyle((window as unknown as { peekRoot: ShadowRoot }).peekRoot.querySelector(".bubble")!).position)).toBe("fixed");
+    await page.close();
+  });
+
+  test("图标解不出来（createImageBitmap 失败）：退回原来的 SVG 按钮，不是空白；听的时候还是话筒和红底", async () => {
+    const page = await open({ peek: true, noBitmap: true });
+    const fieldId = await idOf(page, "标题");
+    await page.click("#title");
+    await page.waitForTimeout(150);
+    const idle = await fabFace(page);
+    expect(idle).toMatchObject({ canvas: false, svg: true, size: [36, 36] });
+    expect(idle.background).toContain("linear-gradient");
+    const idleSvg = await page.evaluate(FAB_SVG);
+    await callJson(page, "mark", fieldId, "listening");
+    const listening = await fabFace(page);
+    expect(listening).toMatchObject({ svg: true, pulse: "ergo-pulse" });
+    expect(listening.background).toContain("rgb(224, 49, 49)");
+    expect(await page.evaluate(FAB_SVG)).not.toBe(idleSvg);
+    await callJson(page, "mark", fieldId, "idle");
+    expect(await page.evaluate(FAB_SVG)).toBe(idleSvg);
+    await page.close();
+  });
+
+  test("听、忙：图标不换；听的时候外面是红色脉动的圈，忙的时候是转圈，截图和平时、彼此都不一样；回到平时圈就没了", async () => {
+    const page = await open({ peek: true });
+    const fieldId = await idOf(page, "标题");
+    await fabPainted(page);
+    const sameCanvas = () => page.evaluate(() => (window as unknown as { peekRoot: ShadowRoot }).peekRoot.querySelector<HTMLCanvasElement>(".fab canvas")!.dataset.same);
+    await page.evaluate(() => void ((window as unknown as { peekRoot: ShadowRoot }).peekRoot.querySelector<HTMLCanvasElement>(".fab canvas")!.dataset.same = "1"));
+    const idle = await fabFace(page);
+    expect(idle).toMatchObject({ pulse: "none", spin: "none" });
+    expect(idle.ring).not.toContain("rgb(224, 49, 49)");
+    const idleShot = await shotOfFab(page);
+
+    await callJson(page, "mark", fieldId, "listening");
+    const listening = await fabFace(page);
+    expect(listening).toMatchObject({ canvas: true, svg: false, painted: true, pulse: "ergo-pulse", spin: "none" });
+    expect(listening.ring).toContain("rgb(224, 49, 49)");
+    expect(await sameCanvas()).toBe("1");
+    const listeningShot = await shotOfFab(page);
+
+    await callJson(page, "mark", fieldId, "busy");
+    const busy = await fabFace(page);
+    expect(busy).toMatchObject({ canvas: true, svg: false, painted: true, pulse: "none", spin: "ergo-spin" });
+    expect(await sameCanvas()).toBe("1");
+    const busyShot = await shotOfFab(page);
+
+    expect(listeningShot.equals(idleShot)).toBe(false);
+    expect(busyShot.equals(idleShot)).toBe(false);
+    expect(busyShot.equals(listeningShot)).toBe(false);
+
+    await callJson(page, "mark", fieldId, "idle");
+    expect(await fabFace(page)).toMatchObject({ canvas: true, pulse: "none", spin: "none" });
+    expect(await sameCanvas()).toBe("1");
     await page.close();
   });
 });

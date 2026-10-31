@@ -86,6 +86,14 @@ export interface PickWindow {
   frame(view: Rect): Rect | undefined;
 }
 
+/** base64 的图片字节解成位图（这条路网站的 CSP 不管；解不开是拒绝的 Promise） */
+export async function bitmapOfBase64(tools: Pick<PickTools, "decode" | "makeBitmap" | "BlobCtor">, base64: string): Promise<ImageBitmap> {
+  const binary = tools.decode(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return tools.makeBitmap(new tools.BlobCtor([bytes]));
+}
+
 const NONE: PagePickView = { kind: "none" };
 const PHASES: readonly string[] = ["choosing", "sending", "done", "failed"];
 const str = (v: unknown, max = 4000): string => (typeof v === "string" ? v.slice(0, max) : "");
@@ -169,16 +177,7 @@ export function createPickWindow(doc: Document, tools: PickTools, onAction: (act
   const bitmapOf = (token: string, base64: string): Promise<ImageBitmap | undefined> => {
     let p = bitmaps.get(token);
     if (!p) {
-      p = (async () => {
-        try {
-          const binary = tools.decode(base64);
-          const bytes = new Uint8Array(binary.length);
-          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-          return await tools.makeBitmap(new tools.BlobCtor([bytes]));
-        } catch {
-          return undefined;
-        }
-      })();
+      p = bitmapOfBase64(tools, base64).catch(() => undefined);
       bitmaps.set(token, p);
       if (bitmaps.size > 60) bitmaps.delete(bitmaps.keys().next().value!);
     }

@@ -4,7 +4,8 @@
 //   密码、银行卡、验证码类的框不列、不填、不出悬浮按钮（rules.ts）。交出去的只有这些，不交页面正文和框里已有的值；
 // - 悬浮按钮：文本框获得焦点、上传处被点到时，在它旁边出一个二狗的小按钮（rules.ts 的 placeButton：右边放不下放下面、上面），
 //   跟着框走（显示着的时候每一帧对一次位置：滚动、缩放、输入法弹出都跟得上），焦点离开就收起。按钮画在网页里的一个封闭的
-//   shadow root 里（样式不受网站的 CSS 影响，网站的脚本也摸不到里面），被网站删了下次再挂上。
+//   shadow root 里（样式不受网站的 CSS 影响，网站的脚本也摸不到里面），被网站删了下次再挂上。按钮上是二狗的图标（348 号票，fab-icon.ts）；
+//   样式和图标都走网站的 CSP 管不着的路（构造的样式表、解成位图画进 canvas），严格 CSP 的网页上也是同一个按钮。
 //   点一下报 open（按钮旁边的气泡里打字），长按报 voice（press 按下就备好录音器、按够 0.35 秒 start、松手 stop；
 //   上滑 60 或划开 80 像素进"松开取消"，这时松手 cancel，挪回来又能发）。按下时 preventDefault：框不丢焦点、输入法不收；
 //   只认真的用户操作（isTrusted），网页的脚本派的假事件不算；
@@ -40,6 +41,7 @@
 import type { PageField, PageFieldKind } from "@ergo/protocol";
 import { BUBBLE_STYLE, bubbleViewOf, createBubble, nameTagStyle } from "./bubble.ts";
 import { createClickables } from "./clickables.ts";
+import { paintFabIcon } from "./fab-icon.ts";
 import { createPickWindow, PICK_STYLE, pickViewOf } from "./pick.ts";
 import type { PageBridgeApi, PageBridgeEvent, PageBridgeMark, PageBubbleAction, PageBubbleView, PageInfo, PageNamedText, PagePickView } from "./protocol.ts";
 import { BUBBLE_GAP, BUTTON_SIZE, cleanLabel, FIELD_VALUE_MAX, inVoiceCancelZone, isSensitiveField, placeButton, type Rect, TEXT_INPUT_TYPES, tidyPageText } from "./rules.ts";
@@ -66,7 +68,7 @@ const VALUE_REPORT_MS = 300;
 /** 自己走 DOM 取文字时跳过的元素 */
 const NO_TEXT_TAGS = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "TEMPLATE", "SVG", "CANVAS", "IFRAME", "OBJECT", "EMBED", "HEAD"]);
 
-/** 二狗的小按钮上画的：一个对话气泡里一颗星（白色），在听时是话筒 */
+/** 按钮上平时是二狗的图标（fab-icon.ts）；图标解不出来时退回这两个：蓝底上一个对话气泡里一颗星（白色），在听时红底上是话筒 */
 const ICON_IDLE =
   '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 12a8 8 0 0 1-8 8H8l-4 3v-5.2A8 8 0 0 1 11.5 4h1a8 8 0 0 1 8 8z"/><path d="M12 8.2l1 2.3 2.3 1-2.3 1-1 2.3-1-2.3-2.3-1 2.3-1z" fill="currentColor" stroke-width="1.2"/></svg>';
 const ICON_MIC =
@@ -78,18 +80,23 @@ const STYLE = `
   position: fixed; left: 0; top: 0; width: ${BUTTON_SIZE}px; height: ${BUTTON_SIZE}px; box-sizing: border-box;
   display: none; align-items: center; justify-content: center;
   border-radius: 50%; background: linear-gradient(145deg, #5b8cff, #3a5bd9); color: #fff;
-  box-shadow: 0 2px 8px rgba(30, 50, 120, .35), 0 0 0 2px rgba(255, 255, 255, .9);
+  /* 白圈 + 外面一道深色细线 + 阴影：白底、深底、图片上都看得清（348 号票） */
+  box-shadow: 0 0 0 2px #fff, 0 0 0 3px rgba(20, 30, 70, .4), 0 3px 10px 2px rgba(0, 0, 0, .35);
   cursor: pointer; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
   transition: transform .12s ease;
 }
 .fab.on { display: flex; }
 .fab:active { transform: scale(.92); }
-.fab.listening { background: linear-gradient(145deg, #ff6b6b, #e03131); animation: ergo-pulse 1s ease-out infinite; }
-.fab.busy::after {
-  content: ""; position: absolute; inset: -4px; border-radius: 50%;
-  border: 2px solid transparent; border-top-color: #3a5bd9; animation: ergo-spin .8s linear infinite;
-}
-@keyframes ergo-pulse { 0% { box-shadow: 0 0 0 0 rgba(224, 49, 49, .55), 0 0 0 2px #fff; } 100% { box-shadow: 0 0 0 14px rgba(224, 49, 49, 0), 0 0 0 2px #fff; } }
+.fab.has-icon { background: none; }
+.fab canvas { display: block; width: 100%; height: 100%; border-radius: 50%; pointer-events: none; }
+/* 在听：图标不换，白圈外面一道红圈，再往外是红色的脉动（圈一直在，定格也看得出） */
+.fab.listening { animation: ergo-pulse 1s ease-out infinite; }
+.fab.listening:not(.has-icon) { background: linear-gradient(145deg, #ff6b6b, #e03131); }
+/* 在忙：图标不换，外面一圈白底上转蓝色的弧（深色细线描边，白底上也看得出那圈） */
+.fab.busy::before, .fab.busy::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; pointer-events: none; }
+.fab.busy::before { border: 3px solid #fff; box-shadow: 0 0 0 1px rgba(20, 30, 70, .4), inset 0 0 0 1px rgba(20, 30, 70, .4); }
+.fab.busy::after { border: 3px solid transparent; border-top-color: #3a5bd9; border-right-color: #3a5bd9; animation: ergo-spin .8s linear infinite; }
+@keyframes ergo-pulse { 0% { box-shadow: 0 0 0 2px #fff, 0 0 0 5px #e03131, 0 0 0 5px rgba(224, 49, 49, .6); } 100% { box-shadow: 0 0 0 2px #fff, 0 0 0 5px #e03131, 0 0 0 18px rgba(224, 49, 49, 0); } }
 @keyframes ergo-spin { to { transform: rotate(360deg); } }
 ${BUBBLE_STYLE}
 ${PICK_STYLE}`;
@@ -386,21 +393,32 @@ export function installPageBridge(win: BridgeWindow, nonce: string, post: (json:
 
   // ---------- 悬浮按钮 ----------
   const hostEl = doc.createElement("div");
-  hostEl.setAttribute("style", "all: initial !important; position: fixed !important; left: 0 !important; top: 0 !important; width: 0 !important; height: 0 !important; z-index: 2147483647 !important; display: block !important;");
+  // 样式都走 CSSOM（348 号票）：网站的 CSP 写了 style-src 或 default-src 时，<style> 和 style 属性都被拦，按钮成了没样式的一长条；
+  // cssText 和构造出来的样式表（adoptedStyleSheets）CSP 不管
+  hostEl.style.cssText = "all: initial !important; position: fixed !important; left: 0 !important; top: 0 !important; width: 0 !important; height: 0 !important; z-index: 2147483647 !important; display: block !important;";
   const shadow = hostEl.attachShadow({ mode: "closed" });
-  const style = doc.createElement("style");
-  style.textContent = STYLE;
+  const sheet = new win.CSSStyleSheet();
+  sheet.replaceSync(STYLE);
   // 名字标签的颜色（181 号票）：二狗的网页交来的，盖过样式表里经典的；没交来是空的
-  const tagStyle = doc.createElement("style");
+  const tagSheet = new win.CSSStyleSheet();
+  shadow.adoptedStyleSheets = [sheet, tagSheet];
   const fab = doc.createElement("div");
   fab.className = "fab";
   fab.setAttribute("role", "button");
   fab.setAttribute("aria-label", texts.get("bridge.fab.label"));
+  // 先是 SVG，图标解好了换上（348 号票，fab-icon.ts）：解不出来就一直是 SVG，不会是空白的按钮
   fab.innerHTML = ICON_IDLE;
+  let hasIcon = false;
+  void paintFabIcon(doc, { decode, makeBitmap, BlobCtor }).then((canvas) => {
+    if (!canvas) return;
+    hasIcon = true;
+    fab.classList.add("has-icon");
+    fab.replaceChildren(canvas);
+  });
   const bubble = createBubble(doc, { now, texts }, (action) => bubbleAction(action));
   // 挑图片窗口（149 号票）：排在最上面
   const pickWindow = createPickWindow(doc, { decode, makeBitmap, BlobCtor, texts }, (action) => send({ type: "pick", ...action }));
-  shadow.append(style, tagStyle, bubble.el, fab, pickWindow.el);
+  shadow.append(bubble.el, fab, pickWindow.el);
   // 能点的东西（164 号票）：页面桥自己这一层（hostEl）不列；184 号票起连同能填、能交、能选的框（认框用上面这一套）
   const clickables = createClickables({
     win,
@@ -502,7 +520,8 @@ export function installPageBridge(win: BridgeWindow, nonce: string, post: (json:
     mark = next;
     fab.classList.toggle("listening", next === "listening");
     fab.classList.toggle("busy", next === "busy");
-    fab.innerHTML = next === "listening" ? ICON_MIC : ICON_IDLE;
+    // 图标不跟着状态换（状态看外面的圈）；退回 SVG 的按钮在听时还是话筒
+    if (!hasIcon) fab.innerHTML = next === "listening" ? ICON_MIC : ICON_IDLE;
   };
 
   /** 按钮挂到这个框上；forBubble：是宿主交来的气泡要跟着这个框（不是用户换了框，开着的气泡不收） */
@@ -957,7 +976,7 @@ export function installPageBridge(win: BridgeWindow, nonce: string, post: (json:
       if (normalized !== textsJson) {
         textsJson = normalized;
         texts.set(next);
-        tagStyle.textContent = nameTagStyle(texts.tag());
+        tagSheet.replaceSync(nameTagStyle(texts.tag()));
         fab.setAttribute("aria-label", texts.get("bridge.fab.label"));
         bubble.relabel();
         pickWindow.relabel();
