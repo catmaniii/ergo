@@ -110,7 +110,7 @@ export type Route =
   | { tab: "app"; app: string; path?: string };
 
 /** 设置下面的几页（319 号票起最前面还有"设置向导"） */
-const SETTINGS_PAGES: readonly MorePage[] = ["setup", "roles", "language", "appearance", "models", "watch", "workday-rules", "skills", "prompts", "voice", "browsing", "devices", "plugins", "components", "claude-code", "data-sources", "authorized-folders", "materials-delete", "doctor", "about", "debug"];
+const SETTINGS_PAGES: readonly MorePage[] = ["setup", "roles", "language", "appearance", "models", "watch", "workday-rules", "skills", "prompts", "voice", "browsing", "devices", "plugins", "components", "claude-code", "data-sources", "authorized-folders", "backup", "materials-delete", "doctor", "about", "debug"];
 
 /** 这一页属于主导航的哪一项："更多"本身是 more；配对等待页独占整页，不属于任何一项 */
 export function navItemOf(route: Route): NavItem | "more" | undefined {

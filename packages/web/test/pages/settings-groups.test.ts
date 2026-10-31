@@ -7,7 +7,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { parseHash, toHash } from "../../src/app/route-hash.ts";
+import { navItemOf, parseHash, type Route, toHash } from "../../src/app/route-hash.ts";
 import { SETTINGS_FOLD, settingsFoldSettingIn } from "../../src/app/board-fold-setting.ts";
 import { pageSettingsFold } from "../../src/app/page-settings-fold.ts";
 import { settingsGroups, settingsShown } from "../../src/pages/MorePage.tsx";
@@ -65,6 +65,15 @@ describe("四组：每组的页和顺序", () => {
       // 335 号票："备份"紧挨着工具调用的完整内容（356 号票起是一页）
       { id: "data", rows: ["data-sources", "authorized-folders", "materials-delete", "tool-call-storage", "backup", "devices", "doctor", "about"] },
     ]);
+  });
+
+  test("设置列表里的每一页，直接打开时导航都亮设置（宽屏左边才是设置列表，不是空的）", () => {
+    const notPages = new Set<string>(["user-name", "personal-files-link", "tool-call-storage", "enter-key"]);
+    const pages = settingsGroups(assembled(), false)
+      .flatMap((g) => g.rows)
+      .filter((r) => !notPages.has(r));
+    expect(pages.length).toBeGreaterThan(10);
+    for (const page of pages) expect([page, navItemOf({ tab: "more", page } as Route)]).toEqual([page, "settings"]);
   });
 
   test("平铺那一项不少（248 号票起还有\"角色与声音\"），外加\"关于二狗\"：没有哪一页因为分组被漏掉", () => {
