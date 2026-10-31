@@ -25,6 +25,7 @@
 // （成功与否、结果摘要），agent 又出了一条助手消息、或者这一轮结束时（结果都写进会话了）记 tool_calls_settled；
 // 子进程意外退出时还没结束的记 tool_call_interrupted（守护进程被杀时没机会记，重启时由 recovery/ 补记）。
 // 守护进程停止时（stop 之后）子进程被结束不算中断：没结束的留着，下次启动时按被杀恢复。
+// 授权的文件夹（355 号票）：每次判定现读名单（改了下一次调用就生效）、连同真实路径交给判定函数，读里面的不算越出项目目录（guard/judge.ts）。
 // 语言（173 号票）：判定和计划比对都在中文下做（guard/model-language.ts）——说明交回 agent，给模型的话不翻；判定的身份
 // （计划检查的 findingKey、审批记下的类别 id）因此也不随语言变。用户的语言不是中文时，审批卡的原因、"交给我做"的说明、
 // 时间线上的纠偏、工具调用记录上被拦下的原因按用户的语言另算一份：照同样的输入在用户的语言下再判一遍（userView，都是纯的）。
@@ -77,7 +78,7 @@ import {
   type ToolCallStartedPayload,
 } from "./events.ts";
 import { callText, interruptionEvents, needsExecutionRecord, unsettledExecutions } from "./executions.ts";
-import { gatherFacts } from "./facts.ts";
+import { authorizedFolderRoots, gatherFacts } from "./facts.ts";
 import {
   checkAgainstPlan,
   correctionRecord,
@@ -149,6 +150,8 @@ export interface GuardRuntimeOptions {
   places: GuardPlaces;
   /** 全局的关注类别设置：每次判定现取（数据目录配置区的文件，改了设置立即生效；文件坏了时抛错，这次判定出错） */
   settings: () => WatchCategorySettings;
+  /** 授权的文件夹（355 号票，folders/local-folders.ts）：每次判定现读；读里面的不算越出项目目录。不给就没有 */
+  authorizedFolders?: () => readonly string[];
   /** 子进程里等审批最多等多久（毫秒） */
   approvalWaitMs: number;
   /**
@@ -270,6 +273,16 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
     }
   };
 
+  /** 这一次判定用的授权的文件夹；取的时候出错就当没有（一切照旧，读别处的要问） */
+  const authorizedNow = (): string[] => {
+    try {
+      return authorizedFolderRoots(options.authorizedFolders?.() ?? []);
+    } catch (err) {
+      log(`取授权的文件夹出错，按没有授权判：${err instanceof Error ? err.message : String(err)}`);
+      return [];
+    }
+  };
+
   /** 判定一次调用：先判一次看要哪些路径和脚本，现取环境事实（加上这个范围里读过的密钥值），再判一次 */
   const judge = (session: GuardedSession, toolName: string, args: unknown): Judged => {
     const agent = agentNow(session);
@@ -281,6 +294,7 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
     const attributed = attributedTask(task);
     const neverObjects = attributed ? neverObjectsIn(attributed.taskId) : [];
     const ownWork = ownWorkOf(session);
+    const authorizedFolders = authorizedNow();
     const base: GuardInput = {
       call: { toolName, args },
       agent,
@@ -288,6 +302,7 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
       task,
       ...(neverObjects.length > 0 ? { neverObjects } : {}),
       ...(ownWork ? { ownWork } : {}),
+      ...(authorizedFolders.length > 0 ? { authorizedFolders } : {}),
       ...(session.segmentId === undefined ? {} : { segmentId: session.segmentId }),
       effectLog,
       settings,
@@ -303,6 +318,7 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
       homeDir: places.homeDir,
       ...(options.autoVersioning ? { backedUp: options.autoVersioning.covers } : {}),
       ...(ownWork ? { ownWork: true } : {}),
+      ...(authorizedFolders.length > 0 ? { authorizedFolders } : {}),
     });
     const secretValues = readSecrets.valuesFor(scope);
     const input: GuardInput = { ...base, facts: secretValues.length > 0 ? { ...facts, secretValues } : facts };

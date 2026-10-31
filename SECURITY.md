@@ -38,6 +38,7 @@ agent 的**每一次工具调用**在执行前都过守卫（一个纯函数，�
 
 - **关注类别 × 六档处置**：花钱、以你的名义对外发送、删除或覆盖、不可逆的提交、账户与安全、越出项目目录……每类可以设成直接做只记录 / 做完告诉我 / 计划里列了才做 / 先问我 / 交给我做 / 永不。
 - **计划里的授权项**：长程任务开工前你确认一次的授权（种类、范围、次数、有效期），超出的先问你。
+- **授权的文件夹**：你在设置里授权的文件夹，所有 agent 读里面的文件都不用问（只放开读，按真实路径比；数据目录、受保护区域和 .env、私钥这类密钥文件就算在里面也不算；写、删、覆盖、跑里面的脚本照原来的规矩）。任何 agent 自己都改不了这份名单。详见 [ADR-0041](docs/adr/0041-authorized-folders-read-only-in-guard.md)。
 - **时序规则**：比如"删除前必须已备份""读过密钥之后不许往外送"。
 - **三条硬底线**谁说了都不放：不写二狗自己的配置区、数据库区和程序目录；不读密钥区；确定要把密钥发出去的不做。
 - 判断不了的（缺环境事实、参数没法规范化）一律先问你。
@@ -64,7 +65,8 @@ agent 的**每一次工具调用**在执行前都过守卫（一个纯函数，�
 - **转发的项目服务和二狗同源**：项目上线的服务经 `/apps/<名字>/` 转发，它的页面脚本能带着你的设备凭证调二狗的接口（读不到凭证原值，但能用）。现在只转发你确认上线的服务；以后改成独立的源（[开发者指南](docs/developer-guide.md#48-转发本机服务的页面)）。
 - **设备凭证是持有即可用的**（bearer）：设备被偷、浏览器数据被拷走时，请在已配对设备里吊销。
 - **站在按域名分流的前门后面**、前门又没开 `proxy_protocol` 时，配对请求的限频按 127.0.0.1 算，实际上是全局的（仍然安全，只是陌生人刷请求时你自己的配对也要等）。
-- **发给模型的内容由模型服务商处理**：每一轮用得上的对话和资料会发给你配的模型（现在是 DeepSeek），请按它的隐私条款判断。
+- **发给模型的内容由模型服务商处理**：每一轮用得上的对话和资料会发给你配的模型（现在是 DeepSeek），请按它的隐私条款判断。授权的文件夹里读到的内容也一样。
+- **整目录搜索认不出里面的密钥文件**：守卫只认路径参数，在授权的文件夹（和工作目录）上 `grep -r` 会读到里面的密钥文件，也不算"读过密钥"。请不要授权放密钥的文件夹。
 
 ---
 
@@ -110,6 +112,7 @@ Outside access (Tailscale, self-hosted Headscale, VPS tunnel + nginx; see the [U
 
 - **Watch categories × six handlings**: spending money, sending in your name, deleting or overwriting, irreversible commits, accounts and security, leaving the project directory… each can be set to just do it and log / do it and tell me / only if listed in the plan / ask me first / hand it to me / never.
 - **Grants in the plan**: the authorization you confirm once before a long-running task starts (kind, scope, count, expiry); anything beyond it asks you first.
+- **Authorized folders**: folders you authorize in Settings; every agent can read files in them without asking (reading only, compared by real path; the data directory, protected areas and secret files such as .env and private keys stay off limits even inside them; writing, deleting, overwriting and running scripts there keep the usual rules). No agent can change this list itself. See [ADR-0041](docs/adr/0041-authorized-folders-read-only-in-guard.md) (Chinese).
 - **Temporal rules**: e.g. "back up before deleting", "never send anything out after reading a secret".
 - **Three hard bottom lines** nobody can override: never write ergo's own config area, database area or program directory; never read the secrets area; never send something known to be a secret.
 - Anything that cannot be judged (missing facts, arguments that can't be normalized) asks you first.
@@ -136,4 +139,5 @@ ergo is built "features first, security later" ([ADR-0026](docs/adr/0026-feature
 - **Proxied project services share ergo's origin**: services that go live are proxied under `/apps/<name>/`, so their page scripts can call ergo's API with your device credential (unreadable, but usable). Only services you approved are proxied; the plan is to move them to separate origins ([Developer Guide](docs/developer-guide.en.md#48-proxying-local-service-pages)).
 - **Device credentials are bearer tokens**: if a device is stolen or its browser data copied, revoke it under Paired devices.
 - **Behind a SNI front door without `proxy_protocol`**, pairing rate limits are keyed on 127.0.0.1 and thus effectively global (still safe, but strangers spamming requests delay your own pairing).
-- **Content sent to the model is processed by the model provider**: whatever the current turn needs goes to the model you configured (currently DeepSeek); judge by its privacy terms.
+- **Content sent to the model is processed by the model provider**: whatever the current turn needs goes to the model you configured (currently DeepSeek); judge by its privacy terms. The same goes for what is read from authorized folders.
+- **Searching a whole directory can't tell secret files apart**: the guard only sees path arguments, so `grep -r` over an authorized folder (or a working directory) reads the secret files inside and doesn't count as having read a secret. Please don't authorize folders that hold keys.

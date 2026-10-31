@@ -1276,7 +1276,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "local_folders":
         return {
-          // 授权的文件夹（134 号票，138 号票起叫这个名字）：秘书在聊天里和"浏览"里共用，设置 · 浏览与填框里看、改
+          // 授权的文件夹（134 号票，138 号票起叫这个名字）：所有 agent 共用（355 号票），设置 · 授权的文件夹里看、改
           GET(_req, res) {
             sendJson(res, 200, localFolders().view());
           },

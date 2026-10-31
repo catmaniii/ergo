@@ -13,7 +13,7 @@ export type Tab = "secretary" | "tasks" | "projects" | "inbox" | "browse" | "cal
  * 71 号票：设置下面的"系统提示"（prompts）：按角色列出各 agent 的系统提示，点进某一份是下一级（#/more/prompts/<编号>）
  * 73 号票：设置下面加一页"模型"（models）：服务商、API key 的状态、默认模型、各个 agent 的模型和思考档位、看图能力、连通测试
  * 124 号票：设置最下面的"关于二狗"（about）：版本、更新日志；连点版本号 8 次打开的"Debug 工具集"（debug，1 小时内有效）
- * 134 号票：设置下面的"浏览与填框"（browsing）："浏览"页签的搜索引擎、授权的文件夹（138 号票：秘书和"浏览"里的二狗共用）
+ * 134 号票：设置下面的"浏览与填框"（browsing）："浏览"页签的搜索引擎（授权的文件夹 355 号票起单独一页）
  * 167 号票：设置里的"删除素材"（materials）去掉，并进记忆 · 素材（#/more/memory/materials）；旧地址认作那里（legacyHashRedirect 换掉地址栏）
  * 168 号票：设置下面的"语言 / Language"（language）：全局一个语言，选哪种、有哪些、怎么加新语言
  * 193 号票："记忆"（memory）挪进记忆插件（网页插件的页面，见下面的 PluginPageId）；设置下面加回"删除素材"（materials-delete，
@@ -27,10 +27,11 @@ export type Tab = "secretary" | "tasks" | "projects" | "inbox" | "browse" | "cal
  * 319 号票：设置最上面的"设置向导"（setup）：首次用的时候五步走完（语言/称呼/助手名、模型 Key、组件、手机配对、安全默认值），
  * 再加一屏"外网访问"的说明；首页顶上那条引导条、没配模型时那条小栏都指到这里
  * 319b：设置 · 数据与设备里加一页"体检"（doctor）：端口、Node、pi、服务管家、模型的 key、组件、磁盘、外网入口八项一查
+ * 355 号票：设置下面的"授权的文件夹"（authorized-folders）：所有 agent 读里面的文件都不用问，原来在"浏览与填框"里，现在单独一页（浏览插件停用时也在）
  * 343 号票：数据源分两层——#/more/data-sources 是卡片总览，点一张卡是单独全屏的详情（#/more/data-sources/<数据源 id>），
  * 共用的导入文件夹也是一张卡（#/more/data-sources/import_folder：数据源的 id 只有小写英文、数字和连字符，撞不上）
  */
-export const MORE_PAGES = ["usage", "settings", "setup", "roles", "language", "appearance", "models", "watch", "workday-rules", "skills", "prompts", "voice", "browsing", "devices", "plugins", "components", "claude-code", "data-sources", "materials-delete", "doctor", "about", "debug", "files"] as const;
+export const MORE_PAGES = ["usage", "settings", "setup", "roles", "language", "appearance", "models", "watch", "workday-rules", "skills", "prompts", "voice", "browsing", "devices", "plugins", "components", "claude-code", "data-sources", "authorized-folders", "materials-delete", "doctor", "about", "debug", "files"] as const;
 
 export type MorePage = (typeof MORE_PAGES)[number];
 
@@ -109,7 +110,7 @@ export type Route =
   | { tab: "app"; app: string; path?: string };
 
 /** 设置下面的几页（319 号票起最前面还有"设置向导"） */
-const SETTINGS_PAGES: readonly MorePage[] = ["setup", "roles", "language", "appearance", "models", "watch", "workday-rules", "skills", "prompts", "voice", "browsing", "devices", "plugins", "components", "claude-code", "data-sources", "materials-delete", "doctor", "about", "debug"];
+const SETTINGS_PAGES: readonly MorePage[] = ["setup", "roles", "language", "appearance", "models", "watch", "workday-rules", "skills", "prompts", "voice", "browsing", "devices", "plugins", "components", "claude-code", "data-sources", "authorized-folders", "materials-delete", "doctor", "about", "debug"];
 
 /** 这一页属于主导航的哪一项："更多"本身是 more；配对等待页独占整页，不属于任何一项 */
 export function navItemOf(route: Route): NavItem | "more" | undefined {

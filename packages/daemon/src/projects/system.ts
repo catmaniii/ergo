@@ -138,6 +138,8 @@ export interface ProjectSystemDeps {
   /** 守卫的各区、关注类别设置：运营方案里的流程先审查修补（130）、计划外工单交给守卫判定（17） */
   places: GuardPlaces;
   watchSettings: () => WatchCategorySettings;
+  /** 授权的文件夹（355）：运营方案里的流程审查时，读它们里面的不标越出项目目录 */
+  authorizedFolders?: () => readonly string[];
   /** 对话审批的开关（配置 guard.conversationApprovals，101）：off 时计划外工单超出授权先不管、直接派出 */
   conversationApprovals: GuardConfig["conversationApprovals"];
   /** 一段收尾时最多催几次写回：同执行中的催促阈值（14） */
@@ -389,6 +391,7 @@ export function createProjectSystem(deps: ProjectSystemDeps): ProjectSystem {
         tools: BUILTIN_TOOL_REGISTRY,
         settings: watchSettings(),
         places,
+        ...(deps.authorizedFolders ? { authorizedFolders: deps.authorizedFolders } : {}),
         maintainerId: project.maintainerId,
         cwd: real(workdir),
         projectRecords: [real(projects.records(project.id).root)],

@@ -60,7 +60,7 @@ export interface DataDirLayout {
   mcpHistoryDir: string;
   /** 秘书用的 skill（72 号票）：设置里的 skill 库页勾选的名单；没有这个文件按默认的（agent-browser、yt-dlp） */
   secretarySkillsFile: string;
-  /** 授权的文件夹（134 号票，138 号票起叫这个名字）：秘书和"浏览"里的二狗找文件时搜它们，设置 · 浏览与填框里能看能改 */
+  /** 授权的文件夹（134 号票，138 号票起叫这个名字）：所有 agent 读里面的文件都不用问（355 号票），秘书和"浏览"里的二狗找文件时搜它们，设置 · 授权的文件夹里能看能改 */
   localFoldersFile: string;
   /**
    * 用户改过的各 agent 的系统提示（71 号票，<编号>.md）：有就用它，没有用程序目录里默认的。只由设置页写（用户也可以手改），

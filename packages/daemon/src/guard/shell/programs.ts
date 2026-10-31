@@ -37,8 +37,8 @@ export interface ProgramContext {
    * 这时它往外发了什么守卫看不全（v1 模板"读过密钥之后不许往外送"把这样的联网调用算往外送）。Invocation 拿它起头
    */
   unseenInput: boolean;
-  /** 拆出一次调用；unseenInput：这次调用拿到了守卫看不见的输入（见 Invocation.unseenInput） */
-  emit(tool: string, args: Record<string, unknown>, unseenInput: boolean): void;
+  /** 拆出一次调用；unseenInput：这次调用拿到了守卫看不见的输入（见 Invocation.unseenInput）；marks：这次"读"不只是读（见 ShellCall.notJustRead） */
+  emit(tool: string, args: Record<string, unknown>, unseenInput: boolean, marks?: { notJustRead?: true }): void;
   opaque(reason: string): void;
   /** 把词当路径解析成绝对路径（cd 之后可能有几个）；伪设备返回 undefined */
   path(word: ShellWord): string | string[] | undefined;
@@ -197,11 +197,11 @@ export function runProgram(ctx: ProgramContext, argv: readonly ShellWord[], extr
   const handler = Object.hasOwn(PROGRAMS, program) ? PROGRAMS[program] : undefined;
   if (handler) {
     handler(inv, args, program);
-    readLeftoverPaths(inv, args);
+    readLeftoverPaths(inv, args, Object.hasOwn(READ_ONLY_PROGRAMS, program));
   } else if (looksLikePath(name.value)) {
     // ./build.sh、tools/x.py 这类直接执行的脚本
     emitScript(inv, name, "");
-    readLeftoverPaths(inv, args);
+    readLeftoverPaths(inv, args, false);
   } else {
     genericCommand(inv, program, args);
   }
@@ -231,14 +231,17 @@ function mayBePath(word: ShellWord): boolean {
   return /[\\/]/.test(text) || text.startsWith("~");
 }
 
-/** 表里的程序处理完后，没用到的、像路径的词补上：一般按"读"；脚本的参数不知道读还是写，并成一条 shell_command */
-function readLeftoverPaths(inv: Invocation, args: readonly ShellWord[]): void {
+/**
+ * 表里的程序处理完后，没用到的、像路径的词补上：一般按"读"；脚本的参数不知道读还是写，并成一条 shell_command。
+ * plainRead：是只读的程序（READ_ONLY_PROGRAMS）。别的程序的路径参数虽然按读判，但程序拿它做什么守卫不知道（见 ShellCall.notJustRead）
+ */
+function readLeftoverPaths(inv: Invocation, args: readonly ShellWord[], plainRead: boolean): void {
   const unknown: string[] = [];
   for (const w of args) {
     if (inv.used.has(w) || !mayBePath(w)) continue;
     const p = inv.path(optionAssignedValue(w) ?? w);
     if (p === undefined) continue;
-    if (inv.leftoverAccess === "read") inv.emit(TOOL.read, { path: p });
+    if (inv.leftoverAccess === "read") inv.ctx.emit(TOOL.read, { path: p }, inv.unseenInput, plainRead ? undefined : { notJustRead: true });
     else unknown.push(...(Array.isArray(p) ? p : [p]));
   }
   if (unknown.length > 0) inv.emit(TOOL.shell_command, { program: "脚本参数", paths: unknown }); // @i18n-ignore data：拆出来的调用的参数（程序名的位置），不翻
@@ -302,6 +305,14 @@ function patternThenFiles(valueOptions: string[], patternOptions: string[]): Han
       }
     }
     inv.skip(pattern);
+    // awk -f、sed -f：读进来当程序跑，不只是读（ShellCall.notJustRead）；没写路径的（-f x.awk）照旧不当路径
+    if (program === "sed" || program === "awk" || program === "gawk" || program === "mawk") {
+      for (const o of parsed.options) {
+        if (!o.value || !["-f", "--file"].includes(o.name) || !mayBePath(o.value)) continue;
+        const p = inv.path(o.value);
+        if (p !== undefined) inv.ctx.emit(TOOL.read, { path: p }, inv.unseenInput, { notJustRead: true });
+      }
+    }
     const inPlace = program === "sed" && parsed.options.some((o) => o.name === "-i" || o.name.startsWith("--in-place"));
     if (files.length === 0 && !inv.extraOperands) {
       inv.emit(TOOL.shell_command, { program, paths: [] });
@@ -1163,7 +1174,7 @@ const cd: Handler = (inv, args) => {
   }
   if (target) {
     const p = inv.ctx.path(target);
-    if (p !== undefined) inv.emit(TOOL.read, { path: p });
+    if (p !== undefined) inv.ctx.emit(TOOL.read, { path: p }, inv.unseenInput, { notJustRead: true });
   }
   inv.ctx.cd(target);
 };

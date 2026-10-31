@@ -81,7 +81,8 @@ import { type BranchFilesRewind, isNameOrOld, type ModelCustomProvider, type Run
 // ModelProbeRequest（catalog、ping）、RecordedGenerationRequest、TranslationRequest 也带 custom，各自的 ModelRuntime 同样先登记。
 // 兼容：守护进程和子进程同一次发布，不跨版本混用。对不上时子进程在 start 回 start_failed（fatal，写明两边的版本）并退出，
 // 不会拿看不懂的装配参数硬起会话；守护进程按"拉起失败"处理（秘书意外退出后退避重拉、维护者这一轮按出错收尾），日志里有那条原因。
-export const HOST_PROTOCOL_VERSION = 29;
+// 30 是 355 号票（授权的文件夹升级成全局）：装配参数 readOnlyDirs（运行时自己也管权限的，按它的办法放开这些文件夹的读；pi 不看它）。
+export const HOST_PROTOCOL_VERSION = 30;
 
 /**
  * 子进程用哪种语言写给用户看的话（174 号票，ADR-0029）：守护进程拉起 agent 子进程、模型探查的一次性子进程时
@@ -414,6 +415,11 @@ export interface SessionAssembly {
    * 不给是都跟运行时自己的默认
    */
   runtimeOptions?: RuntimeOptionsSetup;
+  /**
+   * 授权的文件夹（30，355 号票）：运行时自己也管权限的（Claude Code），按它的办法放开这些文件夹的读（只读的办法优先）；拉起时的那一份，
+   * 改了下一次起进程才生效（判定本来就每次现读：守卫放行、运行时再要问人的直接放行）。pi 没有自己的权限，不看它
+   */
+  readOnlyDirs?: string[];
   /**
    * 接管的运行时会话 id（25，290 号票：任务、项目是从运行时已有的会话接管来的，二狗管着它、没交还）：照 session / continueSession /
    * freshSession 的规矩选会话、要新开一个的时候，不新开运行时的会话，接着这个（Claude Code：按 id 恢复）；接着已有的照旧接着。

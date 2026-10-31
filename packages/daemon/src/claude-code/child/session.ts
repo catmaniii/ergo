@@ -58,7 +58,7 @@ import {
   type SessionModel,
   type TurnOutcome,
 } from "../../runtime/host-protocol.ts";
-import { claudeQueryChoices } from "../settings.ts";
+import { claudeQueryChoices, claudeReadRules } from "../settings.ts";
 import { buildSkillPlugin, pluginSkillCommand } from "../skill-plugin.ts";
 import { ClaudeContext } from "./context.ts";
 import { claudeProcessEnv } from "./env.ts";
@@ -593,10 +593,13 @@ export class ClaudeSessionRunner {
     if (this.assembly.runtimeDir) this.buildPlugin();
     this.context.queryStarted();
     this.lastChainUuid = undefined;
+    const readRules = claudeReadRules(this.assembly.readOnlyDirs ?? []);
     const options: Options = {
       cwd: this.claudeCwd(),
       // 维护者在 ⚙ 里选的模型、思考档位、权限模式（289 号票）；没选的用 Claude Code 自己的设置
       ...claudeQueryChoices(this.assembly.runtimeOptions),
+      // 授权的文件夹（355 号票）：只读放开（Read 规则，见 settings.ts）；这次起进程时的那一份，改了下一次起进程才生效
+      ...(readRules.length > 0 ? { allowedTools: readRules } : {}),
       env: claudeProcessEnv(this.deps.env),
       ...(this.deps.executable ? { pathToClaudeCodeExecutable: this.deps.executable } : {}),
       settingSources: ["user", "project", "local"],

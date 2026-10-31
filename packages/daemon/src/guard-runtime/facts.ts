@@ -10,7 +10,9 @@
 // - 要跑的脚本（run_script）：扫描出的联网库或函数（script-scan.ts）；
 // - 带通配符的路径：展开成的现有路径（util/wildcards.ts，展不开的是通配符之前那段目录；101 号票评审后定：守卫逐个比受保护区域、密钥区）；
 // - 这个 agent 在做任务、项目时（111 号票，FactsContext.ownWork）：认任务、项目自己的临时文件要的——文件的创建时间（stat 的 birthtime），
-//   要删除的、在工作目录里的目录里面有什么（递归、不跟进链接，最多 MAX_CONTENTS 项），带通配符要删除的展开成的每个现有路径的文件事实。
+//   要删除的、在工作目录里的目录里面有什么（递归、不跟进链接，最多 MAX_CONTENTS 项），带通配符要删除的展开成的每个现有路径的文件事实；
+// - 有授权的文件夹时（355 号票，FactsContext.authorizedFolders）：通配符展开成的路径落在里面的，也取一份文件事实——读授权的文件夹按真实路径算，
+//   通配符穿过的符号链接只有这样才看得见。
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -48,6 +50,17 @@ export interface FactsContext {
   backedUp?: (path: string) => boolean;
   /** 这个 agent 在做任务、项目（111 号票：判定时给了 GuardOwnWork）：另取创建时间、要删除的目录里面有什么 */
   ownWork?: boolean;
+  /** 授权的文件夹（355 号票）：通配符展开成的路径落在里面的另取文件事实 */
+  authorizedFolders?: readonly string[];
+}
+
+/** 判定用的授权的文件夹（355 号票）：名单上写的和它们的真实路径（文件夹本身是链接、短名时两种写法都认），去重 */
+export function authorizedFolderRoots(folders: readonly string[]): string[] {
+  const roots = new Map<string, string>();
+  for (const folder of folders) {
+    for (const dir of [folder, realPathOf(folder)]) if (dir !== undefined && !roots.has(comparable(dir))) roots.set(comparable(dir), dir);
+  }
+  return [...roots.values()];
 }
 
 /**
@@ -84,6 +97,9 @@ export function gatherFacts(calls: readonly JudgedCall[], ctx: FactsContext): En
   const facts: EnvironmentFacts = {};
   const wildcards = Object.fromEntries(paths.filter((p) => WILDCARD.test(p)).map((p) => [p, expandWildcards(p)]));
   if (Object.keys(wildcards).length > 0) facts.wildcards = wildcards;
+  if (ctx.authorizedFolders && ctx.authorizedFolders.length > 0) {
+    for (const match of Object.values(wildcards).flat()) if (isWithinAny(match, ctx.authorizedFolders)) files[match] ??= fileFact(match, ctx.backedUp);
+  }
   if (ctx.ownWork) ownWorkFacts(calls, ctx, env, files, wildcards);
   if (Object.keys(files).length > 0) facts.files = files;
   if (Object.keys(scripts).length > 0) facts.scripts = scripts;

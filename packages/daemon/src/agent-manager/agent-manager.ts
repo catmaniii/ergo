@@ -174,6 +174,8 @@ export interface SpawnAgentRequest {
   handoff?: { instructions: string };
   /** 维护者给运行时选的值（289 号票，见宿主协议的 runtimeOptions）：原样交给子进程，不给是都跟运行时自己的默认 */
   runtimeOptions?: RuntimeOptionsSetup;
+  /** 授权的文件夹（355 号票，见宿主协议的 readOnlyDirs）：原样交给子进程 */
+  readOnlyDirs?: readonly string[];
   /** 接管的运行时会话 id（290 号票，见宿主协议的 resumeRuntimeSession）：原样交给子进程 */
   resumeRuntimeSession?: string;
 }
@@ -916,6 +918,7 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
         // 写交接摘要也是一次模型调用：最多等单次模型调用的超时（83 号票）
         ...(request.handoff === undefined ? {} : { handoff: { instructions: request.handoff.instructions, timeoutMs: limits.modelCallMs } }),
         ...(request.runtimeOptions === undefined ? {} : { runtimeOptions: request.runtimeOptions }),
+        ...(request.readOnlyDirs === undefined ? {} : { readOnlyDirs: [...request.readOnlyDirs] }),
         ...(request.resumeRuntimeSession === undefined ? {} : { resumeRuntimeSession: request.resumeRuntimeSession }),
         ...(runtimeDir === undefined ? {} : { runtimeDir }),
         ...interruptedResults(request),

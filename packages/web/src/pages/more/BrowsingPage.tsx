@@ -1,17 +1,15 @@
 // 设置 · 浏览与填框（134 号票）：
 // - 搜索引擎："浏览"页签（鸿蒙 App 里的原生内置浏览器）地址栏里打关键词时用哪个（只记在这台设备上，默认必应），选中的下面写着它的搜索地址；
-// - 授权的文件夹（第二部分；138 号票起叫这个名字，秘书和"浏览"里的二狗共用，一行一个、能叉掉、能添加）：见 AuthorizedFolders.tsx。
-//   存在守护进程那边，所有设备共用。
+// - 授权的文件夹（355 号票起单独一页 #/more/authorized-folders，这里留一行去那里的链接）：见 AuthorizedFolders.tsx。
 // - agent 联网搜索、读网页（154 号票；162 号票起是三种方式的队列）：秘书、维护者、子 agent 联网搜索、读网页按什么顺序用哪几种，
 //   见 WebToolsSetting.tsx。存在守护进程那边，所有设备共用；和上面"浏览"地址栏的搜索引擎是两回事。
 import { pageBrowseSettings, useSearchEngine } from "../../app/page-browse-settings.ts";
 import { SEARCH_ENGINE_IDS, SEARCH_ENGINES, type SearchEngineId, t } from "../../state/index.ts";
 import { Section, Segmented } from "../../ui/common.tsx";
 import { T } from "../../ui/i18n.tsx";
-import { AuthorizedFoldersSection } from "./AuthorizedFolders.tsx";
 import { WebToolsSetting } from "./WebToolsSetting.tsx";
 
-export function BrowsingPage() {
+export function BrowsingPage({ onOpenAuthorizedFolders }: { onOpenAuthorizedFolders(): void }) {
   const engine = useSearchEngine();
   // 搜索引擎的名字按当前语言现取（不在模块顶层取）
   const engineOptions = SEARCH_ENGINE_IDS.map((id) => ({ value: id, label: SEARCH_ENGINES[id].label }));
@@ -27,7 +25,13 @@ export function BrowsingPage() {
         </span>
       </Section>
       <WebToolsSetting />
-      <AuthorizedFoldersSection />
+      <button type="button" className="menu-item settings-link-row" data-page="authorized-folders" onClick={onOpenAuthorizedFolders}>
+        <span className="menu-text">
+          {t("pages.browsing.authorizedFoldersLink")}
+          <small>{t("pages.browsing.authorizedFoldersHint")}</small>
+        </span>
+        <span className="muted">›</span>
+      </button>
     </>
   );
 }

@@ -115,7 +115,8 @@ describe("agent 贡献缝", () => {
     expect(maintainerSpawns()).toHaveLength(2);
     expect(execution.hostTools?.map((t) => t.name)).not.toContain("probe_lookup");
     expect(execution.contributions).toEqual({
-      contextBlocks: [{ id: "probe:brief", text: "【探针：简报 v2】" }],
+      // 355 号票：授权的文件夹那一块也给维护者，没有授权的文件夹时文字是空的（不注入）
+      contextBlocks: [{ id: "probe:brief", text: "【探针：简报 v2】" }, { id: "authorized-folders", text: "" }],
       hooks: [{ id: "probe:rules", kind: "system_prompt_suffix", text: "【探针的规矩 v2】" }],
     });
     expect(executing).toContain("[user] 【探针：简报 v2】");

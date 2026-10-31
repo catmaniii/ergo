@@ -1,4 +1,4 @@
-// 设置 · 浏览与填框里的"授权的文件夹"（138 号票）在状态层的那一半：纯函数。
+// 设置 · 授权的文件夹（138 号票）在状态层的那一半：纯函数。
 // 守护进程那台电脑上的一份文件夹，秘书和"浏览"里的二狗共用；设置页一行一个、能叉掉，"添加文件夹"的框里一路点进去选
 // （列子文件夹的接口 GET /api/local-folders/browse），已经授权的标"已授权"。
 import { type FolderBrowseView, type LocalFolder, t } from "./protocol.ts";

@@ -5,8 +5,8 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { BUILTIN_TOOL_REGISTRY, type GuardAgent, type JudgedCall } from "../../src/guard/index.ts";
-import { gatherFacts, gatherFileFacts } from "../../src/guard-runtime/facts.ts";
+import { BUILTIN_TOOL_REGISTRY, type GuardAgent, type JudgedCall, judgeToolCall } from "../../src/guard/index.ts";
+import { authorizedFolderRoots, gatherFacts, gatherFileFacts } from "../../src/guard-runtime/facts.ts";
 import { isAutoVersioned } from "../../src/projects/records.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 
@@ -213,5 +213,54 @@ describe("git", () => {
   it("秘书的草稿区不取 git 状态（v1 模板不管草稿区）", () => {
     const scratch = real(makeTempDir("ergo-scratch-"));
     expect(gatherFacts([tool("write", { path: path.join(scratch, "x.txt") })], context(secretary(scratch))).git).toBeUndefined();
+  });
+});
+
+describe("授权的文件夹（355 号票，真的目录联接）", () => {
+  /** 授权的文件夹 photos，里面一个目录联接 link 指到外面的 outside（那里有 secret.txt），一个普通文件 a.txt */
+  function folders() {
+    const base = real(makeTempDir("ergo-folders-"));
+    const photos = path.join(base, "photos");
+    const outside = path.join(base, "outside");
+    fs.mkdirSync(photos);
+    fs.mkdirSync(outside);
+    fs.writeFileSync(path.join(photos, "a.txt"), "x");
+    fs.writeFileSync(path.join(outside, "secret.txt"), "x");
+    fs.symlinkSync(outside, path.join(photos, "link"), "junction");
+    return { base, photos, outside };
+  }
+  const places = (base: string) => ({
+    dataDir: { root: path.join(base, "data"), config: path.join(base, "data", "config"), secrets: path.join(base, "data", "secrets"), db: path.join(base, "data", "db"), projects: path.join(base, "data", "projects") },
+    programDir: path.join(base, "app"),
+    homeDir: base,
+    ownPorts: [],
+  });
+
+  it("判定用的名单：写的和真实路径都在，不分大小写去重", () => {
+    const { photos, outside } = folders();
+    const link = path.join(photos, "link");
+    expect(authorizedFolderRoots([link])).toEqual([link, outside]);
+    expect(authorizedFolderRoots([photos, photos.toUpperCase()])).toEqual([photos]);
+    expect(authorizedFolderRoots([])).toEqual([]);
+  });
+
+  it("穿过目录联接的读：写的路径在授权的文件夹里，真实路径在外面，不算", () => {
+    const { base, photos } = folders();
+    const scratch = real(makeTempDir("ergo-scratch-"));
+    const agent = secretary(scratch);
+    const judge = (toolName: string, args: Record<string, unknown>, calls: JudgedCall[]) =>
+      judgeToolCall({ call: { toolName, args }, agent, places: places(base), task: null, effectLog: [], settings: {}, facts: gatherFacts(calls, { ...context(agent), authorizedFolders: [photos] }), tools: BUILTIN_TOOL_REGISTRY, now: 0, authorizedFolders: [photos] });
+    const inside = path.join(photos, "a.txt");
+    expect(judge("read", { path: inside }, [tool("read", { path: inside })]).categories).toEqual([]);
+    const through = path.join(photos, "link", "secret.txt");
+    expect(judge("read", { path: through }, [tool("read", { path: through })]).categories).toEqual(["outside_project"]);
+    // 通配符展开时穿过目录联接：展开成的路径也取了真实路径，才看得见
+    const wild = path.join(photos, "*", "secret.txt");
+    const facts = gatherFacts([shell("read", { path: wild })], { ...context(agent), authorizedFolders: [photos] });
+    expect(facts.files?.[through]?.realPath?.toLowerCase()).toBe(path.join(base, "outside", "secret.txt").toLowerCase());
+    const command = `cat ${wild.replaceAll("\\", "/")}`;
+    expect(judge("bash", { command }, [shell("read", { path: wild })]).categories).toEqual(["outside_project"]);
+    // 没有授权的文件夹时不多取
+    expect(gatherFacts([shell("read", { path: wild })], context(agent)).files?.[through]).toBeUndefined();
   });
 });

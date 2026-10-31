@@ -13,7 +13,8 @@
 // - 重复（repeat）：只许做一次的步骤做了第二次，直接拦下。只许做一次的是对外发出去的：登记了对外发送（outbound）或带
 //   "以我的名义对外发送"标签的带类型工具（推送、建远端仓库），以及这次命中了"以我的名义对外发送"的通用 bash 命令（发布、
 //   gh release、gh pr create……）；
-// - 禁止（forbidden）：审查修补时从这一步剔除的对象（ReviewedStep.excluded，按真实路径比），直接拦下。
+// - 禁止（forbidden）：审查修补时从这一步剔除的对象（ReviewedStep.excluded，按真实路径比），直接拦下；
+// - 读授权的文件夹（355 号票，第一道判出 authorizedRead）：不算计划外、超范围（不用写进计划）；先后、禁止照旧。
 // 时序规则在第一道判（框架的 v1 模板 + 计划里写的条件），这里把它的结果当成 planguard 的 rule:<id> / rule_unknown:<id>，
 // 只为了自动修回（规则引擎就是同一个 planguard，结果一样，不在监控器里重复判一遍）。
 //
@@ -408,7 +409,9 @@ export function evaluatePlanCall(input: PlanCheckInput, autoFix = true): PlanChe
   const compared = monitor.check(toolName, call.args);
   // 超范围带上这次碰的对象：点过头只放过这一个对象（见 findingKey）
   const object = () => callObject(toolName, call.args, { tools, env, realPathOf: input.realPathOf });
-  const findings: PlanFinding[] = [...compared.findings.map((f) => (f.kind === "out_of_scope" ? { ...f, object: object() } : f)), ...ruleFindings(judgement)];
+  // 读授权的文件夹（355 号票）不算越出计划：不用写进计划，也不算超范围
+  const conformance = judgement.authorizedRead ? compared.findings.filter((f) => f.kind !== "off_plan" && f.kind !== "out_of_scope") : compared.findings;
+  const findings: PlanFinding[] = [...conformance.map((f) => (f.kind === "out_of_scope" ? { ...f, object: object() } : f)), ...ruleFindings(judgement)];
   // planguard 能按"工具 + 范围"精确匹配到步骤，比按工具名找第一个准
   const stepId = compared.step ?? step?.id;
   const assessment: PlanAssessment = {

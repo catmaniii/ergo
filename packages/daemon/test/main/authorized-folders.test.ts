@@ -1,4 +1,4 @@
-// 主切面：授权的文件夹（138 号票）。秘书在聊天里和"浏览"里共用一份（设置 · 浏览与填框里那一份，local-folders.json；149 号票起
+// 主切面：授权的文件夹（138 号票）。秘书在聊天里和"浏览"里共用一份（设置 · 授权的文件夹里那一份，local-folders.json；149 号票起
 // "浏览"里悬浮按钮背后也是秘书本人）：
 // - 秘书的聊天里授权走快速动作"授权文件夹"：任何 agent 自己都不能改（2026-10-18 用户定），用户点名了是哪几个文件夹的、没点名的
 //   都出待确认的卡（卡上写清哪几个完整路径、进待我处理），用户点"执行"才加；取消授权同样；路径不对的不出卡、原因回给秘书。改完的列表 GET /api/local-folders 照样取得到，"浏览"里的 find_files 在里面找；
@@ -65,7 +65,7 @@ describe("秘书的聊天里授权", () => {
     await frontend.sendText("你好");
     await secretaryTurns(frontend, 1);
     const before = lastEcho(frontend);
-    expect(before).toContain("授权的文件夹（你在聊天里、在“浏览”里找文件都用这一份，设置 · 浏览与填框里能看、能改）：\n还没有。");
+    expect(before).toContain("授权的文件夹（你在聊天里、在“浏览”里找文件都用这一份，设置 · 授权的文件夹里能看、能改）：\n还没有。");
     expect(before).toContain("用 propose_quick_action 的 authorize_folders");
 
     // 用户原话里点名了也不直接执行：出待确认的卡，卡上写清哪几个完整路径
@@ -84,13 +84,13 @@ describe("秘书的聊天里授权", () => {
 
     ok(await frontend.cardAction({ cardId: pending.id, action: "execute", expectedVersion: pending.version }));
     const done = await cardWhere(frontend, (c) => c.id === pending.id && c.status === "handled");
-    expect((done.payload as QuickActionCardPayload).result).toBe(`已授权 2 个文件夹：${pictures}、${downloads}。设置 · 浏览与填框里能看、能改`);
+    expect((done.payload as QuickActionCardPayload).result).toBe(`已授权 2 个文件夹：${pictures}、${downloads}。设置 · 授权的文件夹里能看、能改`);
     expect(await folderList(td.url)).toEqual([pictures, downloads]);
 
     // 下一次唤起：秘书看到的是新的列表
     await frontend.sendText("现在授权了哪些？");
     await secretaryTurns(frontend, 3);
-    expect(lastEcho(frontend)).toContain(`设置 · 浏览与填框里能看、能改）：\n- ${pictures}\n- ${downloads}`);
+    expect(lastEcho(frontend)).toContain(`设置 · 授权的文件夹里能看、能改）：\n- ${pictures}\n- ${downloads}`);
 
     // "浏览"里悬浮按钮上说的（秘书本人，149 号票）：find_files 在这两个文件夹里找到了
     const browser = "b-00000000000000aa";
@@ -130,7 +130,7 @@ describe("秘书的聊天里授权", () => {
     expect(await folderList(td.url)).toEqual([pictures, downloads]);
     ok(await frontend.cardAction({ cardId: removal.id, action: "execute", expectedVersion: removal.version }));
     const removed = await cardWhere(frontend, (c) => c.id === removal.id && c.status === "handled");
-    expect((removed.payload as QuickActionCardPayload).result).toBe(`已取消授权 1 个文件夹：${downloads}。设置 · 浏览与填框里能看、能改`);
+    expect((removed.payload as QuickActionCardPayload).result).toBe(`已取消授权 1 个文件夹：${downloads}。设置 · 授权的文件夹里能看、能改`);
     expect(await folderList(td.url)).toEqual([pictures]);
   });
 

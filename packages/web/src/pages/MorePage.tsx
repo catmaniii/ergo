@@ -55,6 +55,7 @@ import { PersonalFilesColumn } from "./more/PersonalFilesPage.tsx";
 import { AboutPage } from "./more/AboutPage.tsx";
 import { AppearancePage, AppearanceSummary } from "./more/AppearancePage.tsx";
 import { UserNameSetting } from "./more/UserNameSetting.tsx";
+import { AuthorizedFoldersSection } from "./more/AuthorizedFolders.tsx";
 import { BrowsingPage } from "./more/BrowsingPage.tsx";
 import { EnterKeySetting } from "./more/EnterKeySetting.tsx";
 import { DebugPage } from "./more/DebugPage.tsx";
@@ -98,6 +99,7 @@ const PAGE_TITLES: Readonly<Record<Exclude<Sub, "language">, string>> = tTable({
   components: "shell.pages.components.title",
   "claude-code": "shell.pages.claudeCode.title",
   "data-sources": "shell.pages.dataSources.title",
+  "authorized-folders": "shell.pages.authorizedFolders.title",
   "materials-delete": "shell.pages.materialsDelete.title",
   doctor: "doctor.title",
   about: "shell.pages.about.title",
@@ -123,6 +125,7 @@ const PAGE_SUBS: Readonly<Record<Exclude<Sub, "language">, string>> = tTable({
   components: "shell.pages.components.sub",
   "claude-code": "shell.pages.claudeCode.sub",
   "data-sources": "shell.pages.dataSources.sub",
+  "authorized-folders": "shell.pages.authorizedFolders.sub",
   "materials-delete": "shell.pages.materialsDelete.sub",
   doctor: "doctor.sub",
   about: "shell.pages.about.sub",
@@ -157,7 +160,8 @@ const SETTINGS_GROUPS: readonly { id: SettingsGroupId; rows: readonly SettingsRo
   // 295 号票：数据源排在这一组最前面（外面接进来的数据，和删除素材挨着）
   // 335 号票："备份"（同步目录、最近一次、下一次、立即备份）紧挨着工具调用的完整内容
   // 319b：体检（八项一查）排在"关于二狗"前面：都是"这套东西现在怎么样"的那一类
-  { id: "data", rows: ["data-sources", "materials-delete", "tool-call-storage", "backup", "devices", "doctor", "about"] },
+  // 355 号票：授权的文件夹（电脑上的文件）排在数据源后面，内核的页面，浏览插件停用时也在
+  { id: "data", rows: ["data-sources", "authorized-folders", "materials-delete", "tool-call-storage", "backup", "devices", "doctor", "about"] },
 ];
 
 /**
@@ -356,7 +360,9 @@ function SubPage({ page, item, go, navigate }: { page: Sub; item?: string; go(p:
       // 语音插件画的（上面），谁都不认得时（只渲染一个组件的测试）空着
       return null;
     case "browsing":
-      return <BrowsingPage />;
+      return <BrowsingPage onOpenAuthorizedFolders={() => go("authorized-folders")} />;
+    case "authorized-folders":
+      return <AuthorizedFoldersSection />;
     case "devices":
       // 自己排一栏，见 SubPageCol
       return null;

@@ -30,6 +30,7 @@ import type { CardService } from "../cards/cards.ts";
 import { buildAgentNotice, buildMessage } from "../conversation/messages.ts";
 import { RequestRejected } from "../errors.ts";
 import type { EventStore, NewEvent } from "../events/event-store.ts";
+import { foldersContribution } from "../folders/folders-block.ts";
 import { BUILTIN_TOOL_REGISTRY, fromShellDrivePath, isWithin, isWithinAny, registerTools, type ToolRegistry, type WatchCategorySettings } from "../guard/index.ts";
 import type { LateDecision } from "../guard-runtime/approval-waits.ts";
 import { uncertainExecutions } from "../guard-runtime/executions.ts";
@@ -92,6 +93,8 @@ export interface ProposeResult {
 }
 
 export interface SubAgentsOptions {
+  /** 授权的文件夹那一块（355 号票，folders/folders-block.ts）：拉起时带上，没有就不带 */
+  foldersBlock?: () => string | undefined;
   store: EventStore;
   cards: CardService;
   inbox: InboxService;
@@ -423,6 +426,7 @@ export function createSubAgents(options: SubAgentsOptions): SubAgents {
           cwd: agent.workDir,
           // 系统提示（71 号票）：prompts/sub-agent.md，用户改的在数据目录配置区的 prompts/，每次拉起时现读
           systemPrompt: options.prompts.render("sub-agent", {}),
+          ...foldersContribution(options.foldersBlock),
           continueSession: resume !== undefined,
           credentials: options.credentials,
           network: assembly.toolkit.network,

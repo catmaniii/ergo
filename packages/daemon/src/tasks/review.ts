@@ -22,6 +22,7 @@ import { forModel, internalMark, type MessageScope, type ProjectInternal, t, typ
 import type { AgentManager } from "../agent-manager/agent-manager.ts";
 import { defineHostTool } from "../agent-manager/host-tools.ts";
 import { runOneShotAgent } from "../agent-manager/one-shot.ts";
+import { foldersContribution } from "../folders/folders-block.ts";
 import { BUILTIN_TOOL_REGISTRY, type GuardAgent, type GuardTask, registerTools, TOOL } from "../guard/index.ts";
 import type { GuardRuntime } from "../guard-runtime/guard-runtime.ts";
 import type { PromptRenderer } from "../prompts/index.ts";
@@ -90,6 +91,8 @@ export interface ReviewResult {
 }
 
 export interface ReviewerOptions {
+  /** 授权的文件夹那一块（355 号票，folders/folders-block.ts）：拉起时带上，没有就不带 */
+  foldersBlock?: () => string | undefined;
   agents: AgentManager;
   guards: GuardRuntime;
   /** 评审子 agent 的模型（reviewId 是它的 agent id，测试按它给 faux 剧本） */
@@ -189,6 +192,7 @@ export function createReviewer(options: ReviewerOptions): (input: ReviewInput) =
           tools: piTools,
           cwd: input.cwd,
           systemPrompt: reviewerSystemPrompt(options.prompts, bash),
+          ...foldersContribution(options.foldersBlock),
           continueSession: false,
           credentials: options.credentials,
           network: false,

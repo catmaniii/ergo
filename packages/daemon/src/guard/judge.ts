@@ -2,8 +2,8 @@
 //
 // 判定的步骤：
 // 1. 把这次调用展开成要判定的调用：真实工具调用就是它自己；通用 bash 拆成伪工具调用（拆不开的是一条"未知的写操作"）；
-// 2. 对每一条按规则逐项找依据（CALL_RULES）：工具包、路径（围栏、受保护区域、密钥区、越出项目目录、删除或覆盖——
-//    任务、项目自己的临时文件除外，111 号票，own-temp.ts）、脚本里写着的受保护区域路径、
+// 2. 对每一条按规则逐项找依据（CALL_RULES）：工具包、路径（围栏、受保护区域、密钥区、越出项目目录——读授权的文件夹不算越出，355 号票，
+//    删除或覆盖——任务、项目自己的临时文件除外，111 号票，own-temp.ts）、脚本里写着的受保护区域路径、
 //    注册表的类别标签、HTTP 方法（发往二狗自己的端口的不算发往本机，139 号票）、用浏览器打开二狗自己的页面、联网开关、
 //    两条底线、自定义类别、"做完告诉我"；
 // 3. "计划里列了才做"：对话里等同"先问我"；任务里每个类别各自看有没有授权项覆盖它（授权只在所属阶段内有效：
@@ -35,6 +35,7 @@ import {
 import { dataDirMentions, globCanReach, isLocalUrl, ownApiNote, ownPortsOf, related, sendsInText, urlsInText, wildcardPrefix } from "./bottom-line-risk.ts";
 import { isSecretFile } from "./secret-files.ts";
 import { outboundTextOf, readSecretTitle, secretsIn } from "./secrets.ts";
+import { READ_ONLY_COMMANDS } from "./shell/programs.ts";
 import { splitShellCommand } from "./shell/split.ts";
 import { ownTempTest } from "./own-temp.ts";
 import { ruleStep } from "./rule-steps.ts";
@@ -144,6 +145,7 @@ export function judgeToolCall(input: GuardInput): GuardJudgement {
     genericShell,
     temporalRules,
     withinGrant: hardRefusal === null && pullBack === null && executes(disposition) && dispositionFindings.some((f) => f.grantId !== undefined),
+    ...(readsOnlyAuthorized(ctx, calls, findings) ? { authorizedRead: true as const } : {}),
     deviation: hardRefusal === null && pullBack === null && disposition === "ask_first" ? deviationOf(dispositionFindings) : null,
     explanation: explain({ disposition, refused: hardRefusal !== null, pulledBack: pullBack !== null, findings: dispositionFindings, refusals, pullBacks, genericShell }),
     findings,
@@ -335,6 +337,8 @@ class JudgeContext {
   readonly secretRead: boolean;
   /** 是不是任务、项目自己的临时文件（111 号票，own-temp.ts）：删除、整体重写它不落入"删除或覆盖"，v1 模板也不管 */
   readonly ownTemp: (path: string) => boolean;
+  /** 授权的文件夹（355 号票）：读它们里面的不落入"越出项目目录" */
+  readonly authorizedFolders: readonly string[];
   /** 按 agent 定下的说法 */
   readonly words: {
     /** 围栏叫什么（"草稿区"、"项目档案和工作目录"） */
@@ -392,6 +396,7 @@ class JudgeContext {
     this.scripts = new Map(Object.entries(input.facts.scripts ?? {}).map(([k, v]) => [comparable(k), v]));
     this.wildcards = new Map(Object.entries(input.facts.wildcards ?? {}).map(([k, v]) => [comparable(k), v]));
     this.ownTemp = ownTempTest(input, this.env, (e) => inEffectScope(input, e));
+    this.authorizedFolders = input.authorizedFolders ?? [];
   }
 
   fileFact(path: string): FileFact | undefined {
@@ -561,6 +566,9 @@ function pathRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector): void
     const matches = prefix === undefined ? [] : ctx.wildcardMatches(p.resolved.path).filter((m) => comparable(m) !== comparable(prefix));
     if (prefix !== undefined && matches.length === 0 && wildcardUnexpanded(ctx, kc, p, prefix, writes, out)) continue;
     targets.push(...matches);
+    // 读授权的文件夹（355 号票）：展不开的通配符看不全会读到什么，不算；每个目标按它自己的真实路径算
+    const authorizable = readsAsAuthorized(ctx, kc, p) && !(prefix !== undefined && matches.length === 0);
+    const authorized = (target: string) => authorizable && inAuthorizedFolder(ctx, target, real !== undefined && comparable(target) === comparable(real) ? real : ctx.fileFact(target)?.realPath);
 
     for (const target of targets) {
       const verb = t(access === "read" ? "guard.judge.verb.read" : access === "delete" ? "guard.judge.verb.delete" : "guard.judge.verb.write");
@@ -588,7 +596,7 @@ function pathRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector): void
       if (shellMode) {
         // 秘书要写、删草稿区之外的（101 号票）：对话审批关着也要用户授权；看不出读写的程序（robocopy 这类）也算（评审后定）
         const outsideWrite = ctx.input.agent.kind === "secretary" && access !== "read";
-        if (!isWithinAny(target, ctx.shellRoots)) out.category("outside_project", t("guard.judge.shellOutside", { what, scope: ctx.words.scope, target }), [p.name], outsideWrite ? { writesOutsideScratch: true } : {});
+        if (!isWithinAny(target, ctx.shellRoots) && !authorized(target)) out.category("outside_project", t("guard.judge.shellOutside", { what, scope: ctx.words.scope, target }), [p.name], outsideWrite ? { writesOutsideScratch: true } : {});
       } else if (writes) {
         if (!isWithinAny(target, ctx.writeRoots)) {
           // 秘书的文件工具写草稿区之外（101 号票）：对话审批关着时不再硬拒绝，改成先问用户、批了才写（受保护区域照旧永不）
@@ -596,7 +604,7 @@ function pathRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector): void
             out.category("outside_project", t("guard.judge.writeOutsideScratch", { what, target }), [p.name], { writesOutsideScratch: true });
           } else out.refuse("fence", t("guard.judge.fence", { what, target, fence: ctx.words.fence }));
         }
-      } else if (!isWithinAny(target, ctx.readRoots)) {
+      } else if (!isWithinAny(target, ctx.readRoots) && !authorized(target)) {
         out.category("outside_project", t("guard.judge.readOutside", { what, scope: ctx.words.readScope, target }), [p.name]);
       }
     }
@@ -614,6 +622,62 @@ function pathRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector): void
     }
   }
   if (deletes.length > 0) out.category("delete_or_overwrite", t("guard.judge.deletes", { what, deletes: deletes.join(t("pages.common.listSep")) }), deleteArgs);
+}
+
+// ───────────────────────── 授权的文件夹（355 号票） ─────────────────────────
+
+/**
+ * 算得上"读文件"的工具：文件工具的读、列、搜，bash 拆出来的读、列、搜和复制（只有来源是读，目标照旧按写判）。
+ * 不在里面的路径参数就算登记成读也不算：跑脚本（run_script，可做的不止是读）、git（仓库的配置能让它跑命令）、MCP 和代为执行的工具
+ */
+const AUTHORIZED_READ_TOOLS: ReadonlySet<string> = new Set([TOOL.read, TOOL.ls, TOOL.grep, TOOL.find, TOOL.copy]);
+
+/**
+ * 这个路径参数是不是能算读授权的文件夹的读：只认 access 是 read 的（看不出读写的不算）。bash 拆出来的，不只是读的（cd、别的程序的路径参数、awk -f）、
+ * 写着 `..` 的（见 ShellCall）、拿到了守卫看不见的输入的（curl -K 的配置文件能再写网址和数据）不算
+ */
+function readsAsAuthorized(ctx: JudgeContext, { call, tool }: KnownCall, p: PathArg): boolean {
+  if (ctx.authorizedFolders.length === 0 || p.rule.access !== "read" || !AUTHORIZED_READ_TOOLS.has(call.tool)) return false;
+  return (tool.source === "builtin" || tool.source === "pseudo") && call.notJustRead !== true && call.parentDir !== true && call.unseenInput !== true;
+}
+
+/** 这个路径落在哪都不算授权的范围：整个数据目录、受保护区域，密钥文件（连同 .ssh 目录本身、Windows 上末尾的点和空格不算名字），备用数据流 */
+function neverAuthorized(ctx: JudgeContext, path: string): boolean {
+  const name = path.replace(/[. ]+$/, "");
+  return (
+    isWithin(path, ctx.input.places.dataDir.root) ||
+    ctx.protectedAreas.some((a) => isWithin(path, a.dir)) ||
+    isSecretFile(name) ||
+    isSecretFile(`${name}\\_`) ||
+    path.slice(2).includes(":")
+  );
+}
+
+/** 读这个目标算不算读授权的文件夹：真实路径说了算（符号链接、目录联接、8.3 短名、大小写），取不到真实路径的不算 */
+function inAuthorizedFolder(ctx: JudgeContext, target: string, real: string | undefined): boolean {
+  return real !== undefined && !neverAuthorized(ctx, target) && !neverAuthorized(ctx, real) && isWithinAny(real, ctx.authorizedFolders);
+}
+
+/**
+ * 这次调用整个就是读授权的文件夹（GuardJudgement.authorizedRead）：拆出来的每一条都只是看——读、列、搜（复制还写了东西，不算），或者不带路径的
+ * 只看的命令（管道里的 head、sort 这些）；没有命中任何关注类别，所以自己范围之外的路径都是因为在授权的文件夹里才放开的，至少要有这样一处
+ */
+function readsOnlyAuthorized(ctx: JudgeContext, calls: readonly JudgedCall[], findings: readonly GuardFinding[]): boolean {
+  if (ctx.authorizedFolders.length === 0 || findings.some((f) => f.kind === "category")) return false;
+  let hit = false;
+  for (const call of calls) {
+    const tool = findTool(ctx.input.tools, call.tool);
+    if (!tool) return false;
+    if (call.tool === TOOL.shell_command) {
+      const noPaths = !Array.isArray(call.args.paths) || call.args.paths.length === 0;
+      if (noPaths && typeof call.args.program === "string" && READ_ONLY_COMMANDS.includes(call.args.program)) continue;
+      return false;
+    }
+    if (call.tool === TOOL.copy || !AUTHORIZED_READ_TOOLS.has(call.tool)) return false;
+    const roots = call.origin === "shell" ? ctx.shellRoots : ctx.readRoots;
+    hit = pathArgs(ctx, { call, tool, what: call.tool }).some((p) => p.resolved.kind === "absolute" && !isWithinAny(p.resolved.path, roots)) || hit;
+  }
+  return hit;
 }
 
 /**

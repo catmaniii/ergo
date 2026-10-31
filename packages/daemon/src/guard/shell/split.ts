@@ -52,6 +52,18 @@ export interface ShellCall {
    * curl -K 这类配置文件）：它往外发了什么守卫看不全，见 programs.ts 的 Invocation.unseenInput。判定输出的调用、效果日志都原样带着它
    */
   unseenInput?: true;
+  /**
+   * 这次拆成"读"的调用不只是读（355 号票），读授权的文件夹不算它，照旧按越出项目目录判：
+   * - cd、pushd：之后不带路径的命令（make、npm run）都在那里跑，守卫看不全；Claude Code 的 Bash 还会把目录留到下一次调用；
+   * - 只读程序之外的程序的路径参数（按"读"补上的，pytest x.py、go run x.go、npm run foo x）：程序拿它做什么守卫不知道，多半是跑它；
+   * - awk -f、sed -f：读进来当程序跑
+   */
+  notJustRead?: true;
+  /**
+   * 它的路径是写着 `..` 解析出来的（355 号票）：守卫按字面解析，Git Bash 却先走符号链接再走 `..`，真正碰到的可能不是解析出来的那个路径。
+   * 读授权的文件夹不算它（别的判定照旧按字面的路径）
+   */
+  parentDir?: true;
 }
 
 /**
@@ -82,6 +94,9 @@ export function mayRunBefore(a: readonly ShellOrderStep[] | undefined, b: readon
   }
   return true;
 }
+
+/** 路径里写着 `..` 这一段 */
+const PARENT_SEGMENT = /(?:^|[\\/])\.\.(?:[\\/]|$)/;
 
 export function splitShellCommand(command: string, env: ShellEnv): ShellCall[] {
   const splitter = new Splitter(env);
@@ -122,6 +137,8 @@ interface LoopFrame {
 }
 
 class Splitter {
+  /** 写着 `..` 解析出来的路径（355 号票，ShellCall.parentDir） */
+  private readonly viaParent = new Set<string>();
   readonly calls: ShellCall[] = [];
   readonly errors: string[] = [];
   private state: FlowState;
@@ -189,7 +206,11 @@ class Splitter {
 
   /** 拆出一次调用，记下它的位置（推循环回头的那几遍不记） */
   private push(call: Omit<ShellCall, "order">): void {
-    if (this.dry === 0) this.calls.push({ ...call, order: [...this.order] });
+    if (this.dry !== 0) return;
+    const parentDir = Object.values(call.args)
+      .flat()
+      .some((v) => typeof v === "string" && this.viaParent.has(v));
+    this.calls.push({ ...call, ...(parentDir ? { parentDir: true as const } : {}), order: [...this.order] });
   }
 
   private node(node: Node, source: string, stdin: boolean): void {
@@ -632,7 +653,7 @@ class Splitter {
       text,
       stdin,
       unseenInput,
-      emit: (tool, args, unseen) => this.push(unseen ? { tool, args, text, unseenInput: true } : { tool, args, text }),
+      emit: (tool, args, unseen, marks) => this.push({ tool, args, text, ...(unseen ? { unseenInput: true as const } : {}), ...marks }),
       opaque: (reason) => this.push(opaqueCall(reason, text)),
       path: (word) => this.resolve(word),
       cwd: () => single(this.state.cwds),
@@ -662,8 +683,10 @@ class Splitter {
       for (const cwd of this.state.cwds) {
         for (const homeDir of value.startsWith("~") ? homes : [this.env.homeDir]) {
           const r = resolveAgentPath(value, { cwd, homeDir, ...(this.env.tmpMount === undefined ? {} : { tmpMount: this.env.tmpMount }) });
-          if (r.kind === "absolute") out.push(r.path);
-          else if (r.kind === "unknown") out.push(unresolvedPath(r.raw));
+          if (r.kind === "absolute") {
+            out.push(r.path);
+            if (PARENT_SEGMENT.test(value)) this.viaParent.add(r.path);
+          } else if (r.kind === "unknown") out.push(unresolvedPath(r.raw));
         }
       }
     }

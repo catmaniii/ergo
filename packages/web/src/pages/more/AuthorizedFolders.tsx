@@ -1,5 +1,6 @@
-// 设置 · 浏览与填框里的"授权的文件夹"（138 号票；134 号票时叫"找文件的本机文件夹"，是一个多行文本框）：
-// 守护进程那台电脑上的一份文件夹，秘书和"浏览"里的二狗找照片、找文件共用；在秘书的聊天里授权的也是这一份，这里跟着有。
+// 设置 · 授权的文件夹（138 号票；134 号票时叫"找文件的本机文件夹"，是一个多行文本框；355 号票起单独一页 #/more/authorized-folders，排在数据与设备组的数据源后面，
+// 浏览插件停用时也在）：守护进程那台电脑上的一份文件夹，所有 agent 读里面的文件都不用问（只放开读，守卫的判定在 daemon 的 guard/judge.ts），
+// 秘书和"浏览"里的二狗找照片、找文件也先在这里找；在秘书的聊天里授权的也是这一份，这里跟着有。页面写清后果：读到的内容会发给模型服务，不要授权放密钥的文件夹。
 // - 每个文件夹一行：完整路径（长了断行），现在找不到的标"找不到了"，右边一个叉，点了马上拿掉、存好（没有确认框，拿错了再加回来）；
 // - 列表下面"添加文件夹"：开一个选文件夹的框（选的是二狗那台电脑上的）——最上面一排常用位置和各个盘，下面是当前文件夹里的子文件夹
 //   （点了进去，有"上一级"），底部写着当前路径、"授权这个文件夹"；也能贴一个完整路径按"授权"；已经授权的标"已授权"；
@@ -38,6 +39,10 @@ export function AuthorizedFoldersSection() {
     <Section title={t("pages.authorizedFolders.title")}>
       <span className="muted">
         <T k="pages.authorizedFolders.intro" params={{ name: <AssistantName />, max: LOCAL_FOLDERS_MAX }} />
+      </span>
+      <div className="sys-note">{t("pages.authorizedFolders.warning")}</div>
+      <span className="muted">
+        <T k="pages.authorizedFolders.exceptions" params={{ name: <AssistantName /> }} />
       </span>
       <FolderRows folders={state.folders} saving={state.saving} onRemove={(path) => void store.remove(path)} />
       {state.error && <div className="sys-note">{state.error}</div>}

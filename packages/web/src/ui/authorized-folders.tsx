@@ -1,4 +1,4 @@
-// 设置 · 浏览与填框里"授权的文件夹"那一节怎么画（138 号票；页面在 pages/more/AuthorizedFolders.tsx，状态和动作在 app/authorized-folders.ts）：
+// 设置 · 授权的文件夹那一页怎么画（138 号票；页面在 pages/more/AuthorizedFolders.tsx，状态和动作在 app/authorized-folders.ts）：
 // - FolderRows：一行一个文件夹，完整路径（长了断行），找不到了的标出来，右边一个叉；
 // - FolderPickerBody：选文件夹的框里面——最上面一排常用位置和各个盘，下面当前文件夹里的子文件夹（点了进去）和"上一级"，
 //   底部当前路径和"授权这个文件夹"，再下面贴完整路径按"授权"；已经授权的标"已授权"。

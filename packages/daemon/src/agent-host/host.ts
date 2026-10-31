@@ -78,6 +78,8 @@ const MAINTAINER_SESSIONS: Readonly<Record<MaintainerKind, { slash: SlashConvers
 };
 
 export interface AgentHostOptions {
+  /** 授权的文件夹（355 号票，连同真实路径）：带运行时的会话拉起时交给子进程（宿主协议的 readOnlyDirs） */
+  authorizedFolders?: () => readonly string[];
   agents: AgentManager;
   store: EventStore;
   streams: StreamHub;
@@ -413,7 +415,8 @@ function hostedSession(options: AgentHostOptions, config: HostedSessionConfig, o
       const contextBlock = launched.contextBlock ?? setup.contextBlock;
       return {
         // 维护者的运行时（286 号票）：拉起它登记的子进程入口；pi 的不写。289 号票：连同给它选的值（⚙ 里的模型、权限模式、思考档位）
-        ...(gate && gate.runtimeOf(config.agentId) !== PI_RUNTIME_ID ? { runtime: gate.runtimeOf(config.agentId), ...runtimeOptionsOf(gate, config.agentId) } : {}),
+        // 355 号票：运行时自己也管权限的，交给它授权的文件夹（只读放开；拉起时的那一份）
+        ...(gate && gate.runtimeOf(config.agentId) !== PI_RUNTIME_ID ? { runtime: gate.runtimeOf(config.agentId), ...runtimeOptionsOf(gate, config.agentId), ...(options.authorizedFolders ? { readOnlyDirs: options.authorizedFolders() } : {}) } : {}),
         // 接管来的会话（290 号票）：二狗管着、没交还的，子进程要新开会话时接着它
         ...(gate?.resumeOf(config.agentId) === undefined ? {} : { resumeRuntimeSession: gate.resumeOf(config.agentId) }),
         model: model(spawns),

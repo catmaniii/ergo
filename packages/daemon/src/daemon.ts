@@ -96,6 +96,7 @@ import { effectLogView, effectRecordPurge } from "./guard-runtime/effect-log.ts"
 import { executionPurges, executionsView, interruptedToolResults } from "./guard-runtime/executions.ts";
 import { toolCallDetailPurge, toolCallDetailsView } from "./guard-runtime/tool-call-details.ts";
 import { registerGuardRuntimeDeletion } from "./guard-runtime/deletion.ts";
+import { authorizedFolderRoots } from "./guard-runtime/facts.ts";
 import { createGuardRuntime, type GuardRuntime } from "./guard-runtime/guard-runtime.ts";
 import { createHandOverService } from "./hand-over/hand-over.ts";
 import { createInboxService, type InboxService, inboxItemPurge } from "./inbox/inbox.ts";
@@ -186,6 +187,7 @@ import { createJobMaintainers, createScheduledJobs, getJob, isJobMaintainerId, r
 import { relayActions } from "./secretary/relay.ts";
 import { type Secretary, SECRETARY_AGENT_ID, SECRETARY_TARGET, startSecretary } from "./secretary/secretary.ts";
 import { AUTHORIZED_FOLDERS_BLOCK_ID, authorizeFoldersAction, secretaryFoldersBlock } from "./folders/authorize-folders.ts";
+import { agentFoldersBlock } from "./folders/folders-block.ts";
 import { createFolderBrowser } from "./folders/folder-browser.ts";
 import { openLocalFolders } from "./folders/local-folders.ts";
 import { secretaryToolList } from "./secretary/tool-list.ts";
@@ -1075,6 +1077,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       apps,
       places,
       watchSettings,
+      authorizedFolders: () => localFolders.list(),
       // 对话审批的开关现取（315 号票：设置里改了马上生效）
       get conversationApprovals() {
         return safety.current().conversationApprovals;
@@ -1515,6 +1518,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       clock,
       places,
       settings: watchSettings,
+      // 授权的文件夹（355）：每次判定现读，读里面的不算越出项目目录
+      authorizedFolders: () => localFolders.list(),
       approvalWaitMs: config.approvalWaitMs,
       // 对话审批的开关（70，101 改了关着时的范围）：配置 guard.conversationApprovals，默认关着——秘书除了特别敏感的都直接做，
       // 任务的 agent 超出授权先不管，都照常记录、标关注类别；开着时一切照原样。315 号票起现取（设置里改了，下一次判定就按新的）
@@ -1556,8 +1561,13 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 授权的文件夹（134 号票叫登记的本机文件夹，138 号票起秘书在聊天里和"浏览"里共用这一份，在插件装配之前打开）：设置页、秘书的快速动作都改它
     // 授权文件夹（138）：用户在聊天里授权、取消授权文件夹，一律出卡，用户点"执行"才改（任何 agent 自己都不能改）
     quickActionRegistry.register(authorizeFoldersAction(localFolders));
-    // 秘书被唤起时带上现在授权了哪几个文件夹、聊天里授权用快速动作（138，agent 贡献的上下文块；每次唤起现取）
-    agentContributions.context.register({ to: { agents: ["secretary"] }, when: "wake", id: AUTHORIZED_FOLDERS_BLOCK_ID, text: () => secretaryFoldersBlock(localFolders.view()) });
+    // 被唤起时带上现在授权了哪几个文件夹、里面的文件能直接读（138 只给秘书，355 给所有 agent；agent 贡献的上下文块，每次唤起现取）：
+    // 秘书的那块还写着聊天里授权用快速动作；别的 agent 没有授权的文件夹时没有这一块。子 agent、评审是一次性子进程，拉起时带上（foldersBlock）
+    agentContributions.context.register({
+      when: "wake",
+      id: AUTHORIZED_FOLDERS_BLOCK_ID,
+      text: (target) => (target.agent === "secretary" ? secretaryFoldersBlock(localFolders.view()) : agentFoldersBlock(localFolders.view())),
+    });
     // 调用授权给秘书快速动作的 MCP 工具（27）：参数按登记固定，由守护进程转给 MCP 服务进程，不拉起 agent
     quickActionRegistry.register(mcpQuickAction(mcp));
     // ── 个人档案（281）：内核的个人数据（停用记忆插件也照常）。本人的姓名就是"我的名字"（userName）；写进档案只有两条路——
@@ -2020,7 +2030,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         // 脚本照带类型 bash 工具的启动器起（闸门进程先进这次调用的 Job 对象，28）
         runScript: ({ cwd, script, expectOutput, network, signal }) =>
           runAcceptanceScript(typedShell, { cwd, script, ...(expectOutput ? { expectOutput } : {}), network, timeoutMs: ACCEPTANCE_SCRIPT_TIMEOUT_MS, ...(signal ? { signal } : {}) }),
-        review: createReviewer({ agents, guards, model: reviewerModel, credentials, prompts, letters, typedShell, log }),
+        review: createReviewer({ agents, guards, model: reviewerModel, credentials, prompts, letters, typedShell, foldersBlock: () => agentFoldersBlock(localFolders.view()), log }),
       },
       subAgentsOn: (taskId) => wired("subAgents").busyStages(taskId),
       // 只涉及一个项目的任务（16）：在项目的工作目录里做，工具包取任务授权和项目工具包的交集，项目的维护者正忙时留在排队中
@@ -2072,6 +2082,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
           tools: BUILTIN_TOOL_REGISTRY,
           settings: watchSettings(),
           places,
+          authorizedFolders: () => localFolders.list(),
           maintainerId: task.maintainerId,
           cwd: executor.cwd,
           ...(executor.projectRecords ? { projectRecords: executor.projectRecords } : {}),
@@ -2083,6 +2094,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // agent 宿主（127）：三种维护者（任务自己的、定时作业自己的、项目的）共用的装配和会话，只建这一次；下面三个维护者模块各是它的一种配置，
     // 只给自己的差异。子 agent 要维护者此刻的装配、执行控制器从某个阶段重做前停稳手头这一轮、设置里的 ⚙ 都经它问
     const agentHost = createAgentHost({
+      // 授权的文件夹（355）：带运行时的会话（Claude Code）拉起时交给运行时的只读放行
+      authorizedFolders: () => authorizedFolderRoots(localFolders.list()),
       agents,
       store,
       queue: queueDelivery,
@@ -2183,6 +2196,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 子 agent 并行（20）：维护者提议、用户在并行确认卡上同意后拉起子 agent（占子进程名额，不占任务的执行名额），
     // 装配从维护者此刻的装配收窄，结果交回维护者的会话
     const subAgents = createSubAgents({
+      foldersBlock: () => agentFoldersBlock(localFolders.view()),
       store,
       cards,
       inbox,

@@ -160,6 +160,7 @@ Both ports listen only on `127.0.0.1`:
 - **Verdict**: which watch categories match, the strictest of six handlings (just do it and log / do it and tell me / only if in the plan / ask me first / hand it to me / never), whether it's within a grant, which temporal rules it violates; every reason is written in plain words and stored in the tool-call detail.
 - **Three hard bottom lines** nobody can override: never write ergo's own config area, database area or program directory; never read the secrets area; never send something known to be a secret.
 - Anything that cannot be judged (missing facts, arguments that can't be normalized…) is "ask me first".
+- **Authorized folders** (`GuardInput.authorizedFolders`, re-read by the caller on every judgement): reading files inside doesn't count as leaving the project directory, and plan conformance doesn't count it as out of bounds either. Reading only, compared by real path; no real path means it doesn't count; the data directory, protected areas, secret files, running scripts, git, `cd` and bash paths written with `..` don't count ([ADR-0041](adr/0041-authorized-folders-read-only-in-guard.md), Chinese).
 - Defaults follow "features first, security later" ([ADR-0026](adr/0026-features-first-security-later.md)); new installs tighten two of them (see the [User Guide](user-guide.en.md#32-doing-it-without-the-wizard)).
 
 #### Temporal rules

@@ -26,7 +26,7 @@ import {
   t,
 } from "@ergo/protocol";
 import { categoryTitle } from "../guard-runtime/describe.ts";
-import { gatherFileFacts } from "../guard-runtime/facts.ts";
+import { authorizedFolderRoots, gatherFileFacts } from "../guard-runtime/facts.ts";
 import { WIRE_DISPOSITION } from "../guard-wire/dispositions.ts";
 import {
   agentShellEnv,
@@ -40,6 +40,7 @@ import {
   type GuardPlaces,
   type GuardWorkflow,
   isWithin,
+  isWithinAny,
   judgeToolCall,
   plainArgs,
   type ReviewedStep,
@@ -176,6 +177,8 @@ export interface WorkflowReviewDeps {
   tools: ToolRegistry;
   settings: WatchCategorySettings;
   places: GuardPlaces;
+  /** 授权的文件夹（355 号票）：标注和执行时一样，读它们里面的不标越出项目目录 */
+  authorizedFolders?: () => readonly string[];
   /** 执行这个流程的维护者：id 和工作目录（真实路径） */
   maintainerId: string;
   cwd: string;
@@ -240,9 +243,10 @@ export async function reviewWorkflowDraft(original: WorkflowPlanDraft, version: 
   );
   const grants = planGrantsOf(reviewed.steps, workflowGrants(reviewed.steps, { tools: deps.tools, agent: executor, homeDir: deps.places.homeDir, facts }));
   // 标注只用真实路径和写的不一样的那些（符号链接、目录联接）：别的路径照旧不给事实——文件在不在要到执行到那一步才算数
-  // （前面的步骤可能会建出它），规划时不据此去掉"可能覆盖"这类标注
+  // （前面的步骤可能会建出它），规划时不据此去掉"可能覆盖"这类标注。授权的文件夹里的也给（355 号票：读它们按真实路径算）
+  const authorizedFolders = authorizedFolderRoots(deps.authorizedFolders?.() ?? []);
   const linked: EnvironmentFacts = {
-    files: Object.fromEntries(Object.entries(facts.files ?? {}).filter(([p, f]) => f.realPath !== undefined && comparable(f.realPath) !== comparable(p))),
+    files: Object.fromEntries(Object.entries(facts.files ?? {}).filter(([p, f]) => f.realPath !== undefined && (comparable(f.realPath) !== comparable(p) || isWithinAny(p, authorizedFolders)))),
   };
   const bare: WorkflowPlan = {
     version,
@@ -272,7 +276,7 @@ export async function reviewWorkflowDraft(original: WorkflowPlanDraft, version: 
       ...(step.inserted ? { inserted: true } : {}),
       ...(step.patches ? { patches: step.patches } : {}),
       ...(step.excluded ? { excluded: unmaskEventPlaceholders(step.excluded) } : {}),
-      marks: eventValues.length > 0 ? [] : stepMarks(step, { ...deps, agent: executor, guardPlan, facts: linked }),
+      marks: eventValues.length > 0 ? [] : stepMarks(step, { ...deps, agent: executor, guardPlan, facts: linked, authorized: authorizedFolders }),
       ...(eventValues.length > 0 ? { eventValues } : {}),
       conditions: (reviewed.conditions[step.id] ?? []).map((c) => condition(c, [...v1RuleTemplates(deps.tools), ...rules], step.tool)),
       ...(outside.length > 0 ? { outside } : {}),
@@ -340,7 +344,7 @@ function condition(c: StepCondition, rules: readonly TemporalRule[], stepTool: s
  */
 function stepMarks(
   step: ReviewedStep,
-  deps: WorkflowReviewDeps & { agent: GuardAgent; guardPlan: ReturnType<typeof toGuardPlan>; facts: EnvironmentFacts },
+  deps: WorkflowReviewDeps & { agent: GuardAgent; guardPlan: ReturnType<typeof toGuardPlan>; facts: EnvironmentFacts; authorized: readonly string[] },
 ): WorkflowStepMark[] {
   try {
     const judgement = judgeToolCall({
@@ -354,6 +358,7 @@ function stepMarks(
       facts: deps.facts,
       tools: deps.tools,
       now: deps.now,
+      ...(deps.authorized.length > 0 ? { authorizedFolders: deps.authorized } : {}),
     });
     const marks: WorkflowStepMark[] = [];
     const seen = new Set<string>();

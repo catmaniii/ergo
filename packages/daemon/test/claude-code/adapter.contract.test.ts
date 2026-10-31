@@ -98,6 +98,18 @@ async function noneFor(log: ReportLog, type: AgentReport["type"], ms = 150): Pro
 }
 
 describe("Claude Code 适配子进程（假 SDK）", () => {
+  it("授权的文件夹（355 号票）：翻成只读放行规则交给 query，不用连写也放开的 additionalDirectories；没有就不传", async () => {
+    const child = startChild({ session: { readOnlyDirs: ["D:\\照片", "E:\\", "C:\\Users\\me\\My Docs\\", "F:\\a(b)", "\\\\nas\\share", "D:\\照片"] } });
+    await child.log.next("ready");
+    const { query } = await prompt(child, "in-1", "看看");
+    expect(query.options.allowedTools).toEqual(["Read(//d/照片/**)", "Read(//e/**)", "Read(//c/Users/me/My Docs/**)"]);
+    expect(query.options.additionalDirectories).toBeUndefined();
+    const plain = startChild();
+    await plain.log.next("ready");
+    const second = await prompt(plain, "in-1", "看看");
+    expect(second.query.options.allowedTools).toBeUndefined();
+  });
+
   it("新建会话一轮：自己定会话 id、记下会话记录；用户消息推进流式输入；逐字输出 → 定稿 → 用量 → 轮次结束；query 的选项照用户的决定", async () => {
     const child = startChild();
     const ready = await child.log.next("ready");

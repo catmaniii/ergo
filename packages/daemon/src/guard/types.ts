@@ -410,6 +410,12 @@ export interface GuardInput {
    * 不是交付件的文件不落入"删除或覆盖"、不受 v1 模板"删除或覆盖之前必须已备份或已提交"约束；不给一切照旧
    */
   ownWork?: GuardOwnWork;
+  /**
+   * 授权的文件夹（355 号票，用户在设置里授权的那一份，调用方判定前现读，连同它们的真实路径：guard-runtime/facts.ts 的 authorizedFolderRoots）：
+   * 文件工具和 bash 的读，真实路径落在这里面的不算越出项目目录，计划比对也不算越界。只放开读：写、删、覆盖、跑里面的脚本、git、cd 进去都照旧；
+   * 密钥区、受保护区域、整个数据目录、密钥文件就算在这里面也不算；取不到真实路径的不算。不给就没有
+   */
+  authorizedFolders?: readonly string[];
 }
 
 /** 对话里的审批开不开（70 号票）：on 是原来的样子（先问我出审批卡），off 是先问我按直接做 */
@@ -430,6 +436,10 @@ export interface JudgedCall {
   order?: readonly ShellOrderStep[];
   /** 从 bash 拆出时，这条命令拿到了守卫看不见的输入（管道喂来的标准输入、没法静态确定的词……，见 shell/split.ts 的 ShellCall） */
   unseenInput?: true;
+  /** 从 bash 拆出时，这次"读"不只是读（cd 进去、别的程序的路径参数、awk -f，见 shell/split.ts 的 ShellCall）：读授权的文件夹不算它 */
+  notJustRead?: true;
+  /** 从 bash 拆出时，它的路径是写着 `..` 解析出来的（见 shell/split.ts 的 ShellCall）：读授权的文件夹不算它 */
+  parentDir?: true;
 }
 
 /**
@@ -566,6 +576,11 @@ export interface GuardJudgement {
    * 硬拒绝、按规则退回、"先问我"类别本身、对话里都是 null
    */
   deviation: PlanDeviation | null;
+  /**
+   * 这次调用整个就是读授权的文件夹（355 号票）：拆出来的每一条都只是看（读、列、搜，只看的命令），没有命中任何关注类别，
+   * 至少有一处读的是授权的文件夹。流程执行时的计划比对据此不算计划外、超范围（plan-monitor.ts）。不是的不写
+   */
+  authorizedRead?: true;
   /** 给模型的说明：命中了什么、为什么、接下来该怎么做 */
   explanation: string;
   findings: GuardFinding[];

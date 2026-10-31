@@ -6,7 +6,8 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { AUTHORIZE_FOLDERS_ACTION } from "@ergo/protocol";
 import { RequestRejected } from "../../src/errors.ts";
-import { authorizeFoldersAction } from "../../src/folders/authorize-folders.ts";
+import { authorizeFoldersAction, secretaryFoldersBlock } from "../../src/folders/authorize-folders.ts";
+import { AUTHORIZED_FOLDERS_BLOCK_ID, agentFoldersBlock, foldersContribution } from "../../src/folders/folders-block.ts";
 import { openLocalFolders } from "../../src/folders/local-folders.ts";
 import { QuickActionRegistry } from "../../src/quick-actions/index.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
@@ -54,7 +55,7 @@ describe("规范化和执行", () => {
     expect(folders.list()).toEqual([]);
     const outcome = run(normalized.params);
     expect(outcome.events).toEqual([]);
-    expect(outcome.summary).toBe(`已授权 2 个文件夹：${pictures}、${downloads}。设置 · 浏览与填框里能看、能改`);
+    expect(outcome.summary).toBe(`已授权 2 个文件夹：${pictures}、${downloads}。设置 · 授权的文件夹里能看、能改`);
     expect(folders.list()).toEqual([pictures, downloads]);
     expect(JSON.parse(fs.readFileSync(file, "utf8"))).toEqual({ folders: [pictures, downloads] });
   });
@@ -63,7 +64,7 @@ describe("规范化和执行", () => {
     const { pictures, downloads, folders, action, run } = setup();
     folders.set([pictures]);
     const normalized = action.normalizeChecked({ change: "add", folders: [pictures, downloads] });
-    expect(run(normalized.params).summary).toBe(`已授权 1 个文件夹：${downloads}（${pictures} 本来就授权了）。设置 · 浏览与填框里能看、能改`);
+    expect(run(normalized.params).summary).toBe(`已授权 1 个文件夹：${downloads}（${pictures} 本来就授权了）。设置 · 授权的文件夹里能看、能改`);
     expect(rejection(() => action.normalizeChecked({ change: "add", folders: [pictures.toUpperCase()] }))).toBe(`这些文件夹已经授权了：${pictures}`);
   });
 
@@ -77,7 +78,7 @@ describe("规范化和执行", () => {
     // 写成列表里的写法
     expect(normalized.params).toEqual({ change: "remove", folders: [downloads, gone] });
     expect(normalized.title).toBe("取消授权文件夹：Downloads、旧照片");
-    expect(run(normalized.params).summary).toBe(`已取消授权 2 个文件夹：${downloads}、${gone}。设置 · 浏览与填框里能看、能改`);
+    expect(run(normalized.params).summary).toBe(`已取消授权 2 个文件夹：${downloads}、${gone}。设置 · 授权的文件夹里能看、能改`);
     expect(folders.view()).toEqual({ folders: [{ path: pictures, exists: true }] });
     expect(rejection(() => action.normalizeChecked({ change: "remove", folders: [downloads] }))).toBe(`这些文件夹不在授权的文件夹里：${downloads}（现在授权的有：${pictures}）`);
   });
@@ -106,5 +107,34 @@ describe("规范化和执行", () => {
     fs.rmSync(pictures, { recursive: true });
     expect(rejection(() => run(normalized.params))).toBe(`这台电脑上没有这个文件夹：${pictures}`);
     expect(folders.list()).toEqual([]);
+  });
+});
+
+describe("给 agent 的那一块（355 号票）", () => {
+  const view = { folders: [{ path: "F:\\photos", exists: true }, { path: "G:\\gone", exists: false }] };
+
+  it("秘书：写着能直接读、在哪改，聊天里授权用快速动作；没有授权的文件夹也有这一块", () => {
+    const block = secretaryFoldersBlock(view);
+    expect(block).toContain("- F:\\photos\n- G:\\gone（现在找不到了）");
+    expect(block).toContain("这些文件夹里的文件可以直接读，不用问用户");
+    expect(block).toContain("设置 · 授权的文件夹");
+    expect(block).toContain("propose_quick_action");
+    expect(secretaryFoldersBlock({ folders: [] })).toContain("还没有。");
+  });
+
+  it("别的 agent：写着能直接读、只放开了读、自己改不了；不提快速动作；没有授权的文件夹时没有这一块", () => {
+    const block = agentFoldersBlock(view)!;
+    expect(block).toContain("- F:\\photos\n- G:\\gone（现在找不到了）");
+    expect(block).toContain("这些文件夹里的文件可以直接读，不用问用户");
+    expect(block).toContain("只放开了读：写、删、覆盖照原来的规矩");
+    expect(block).toContain("你自己改不了");
+    expect(block).not.toContain("propose_quick_action");
+    expect(agentFoldersBlock({ folders: [] })).toBeUndefined();
+  });
+
+  it("一次性子进程的拉起参数：有内容才加", () => {
+    expect(foldersContribution(() => "那一块")).toEqual({ contributions: { contextBlocks: [{ id: AUTHORIZED_FOLDERS_BLOCK_ID, text: "那一块" }], hooks: [] } });
+    expect(foldersContribution(() => undefined)).toEqual({});
+    expect(foldersContribution(undefined)).toEqual({});
   });
 });

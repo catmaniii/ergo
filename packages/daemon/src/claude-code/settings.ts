@@ -49,6 +49,22 @@ export const CLAUDE_FALLBACK_MODELS: readonly RuntimeModelView[] = [
   { id: "haiku", title: "Haiku" },
 ];
 
+/**
+ * 授权的文件夹翻成 Claude Code 的只读放行规则（355 号票）：`Read(//d/照片/**)`（Claude Code 在 Windows 上把路径规范成 /d/照片，开头两个斜杠是从根算的绝对路径；
+ * Read 规则也管 Grep、Glob）。不用 additionalDirectories：那个连写也放开了。Bash 不在这个规则里：守卫放行了的 Bash 到 Claude Code 自己的权限，要问人时走 canUseTool（直接放行）。
+ * 守卫的 PreToolUse 钩子在规则之前，这些规则放不开守卫拦下的。网络路径、路径里有规则语法用的字符（括号、通配符）的不写规则，照样走 canUseTool
+ */
+export function claudeReadRules(folders: readonly string[]): string[] {
+  const rules = folders.flatMap((dir) => {
+    const drive = /^([a-z]):[\\/]*(.*?)[\\/]*$/i.exec(dir);
+    if (!drive) return [];
+    const rest = drive[2]!.replaceAll("\\", "/");
+    if (/[()*?[\]{}!]/.test(rest)) return [];
+    return [`Read(//${drive[1]!.toLowerCase()}/${rest === "" ? "" : `${rest}/`}**)`];
+  });
+  return [...new Set(rules)];
+}
+
 /** 维护者选的值翻成 query 的选项：没选的、"跟 Claude Code 自己的设置"、不认得的都不传（用 Claude Code 自己的设置） */
 export function claudeQueryChoices(chosen: { model?: string; settings?: Record<string, string> } | undefined): { model?: string; effort?: ClaudeEffortLevel; permissionMode?: ClaudePermissionMode } {
   const mode = chosen?.settings?.[CLAUDE_SETTING.permissionMode];
