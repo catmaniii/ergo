@@ -278,6 +278,21 @@ At login the supervisor decides "new login session" with `bootPlan`, comparing t
 
 Known and unsolved: a supervisor started by the autostart task wasn't started by `ergo` (`managerPid` in `install.json` doesn't match), so `switchTo` doesn't restart it; after an update that process runs the old version's code until the next login. It occupies the old version folder, which `pruneVersions` leaves for next time when it can't be deleted.
 
+### 4.13 Components and long-running services (speech synthesis)
+
+The component service (`components/service.ts`) only downloads, verifies, swaps in and deletes. Anything that must be connected after installing (a long-running service) goes through the `components/host.ts` interface; today's implementation is `audiocpp-host.ts` (ADR-0038):
+
+- **Manifest fields**: `license` (name, one sentence, link, `confirm`, `revision`, `attribution`), `recommended`, `slowWithoutGpu`; `service` (program component: its name in the supervisor, program file name, port, health check), `serve` (model component: which program loads it, the model id on the service, family, task, mode, model file). `extract.format` gained `zip` (`components/zip.ts`, no dependencies), and `extract.beside` puts a package's files next to a given program (the runtime next to the program, wherever it sits in its package).
+- **The package layout is unverified**: after extracting and before swapping in, `service.program` is looked up by file name, and nothing is swapped in if it's missing; `variant.expects` lists files that should sit next to the program (with `*`), and missing ones go into `service.warning`, which warns but never blocks starting.
+- **Failed downloads**: `ComponentView.manualDownload` lists the files still needed and their links (only when a download failed or is paused); once downloaded, they go through the existing `POST /api/component-import`.
+- **Adding another model** (ticket 346): write one more component with `serve` and a `dependsOn` on the program; generating the config and restarting need no code. For speech synthesis the model id follows `voice.speech.model`.
+- **Connecting**: `server.json` (under `components/audiocpp-service/`, not the program directory, which is replaced whole on update) → `services.put` → `start` / `restart` → wait for `GET /health` → `autostart`. A failed step rolls back, and the result goes into `ComponentView.service` (`idle` / `starting` / `running` / `stopped` / `failed`) rather than being thrown at the download queue.
+- **"Ours" means `server.json` exists**: with it, we connected this service; without it, someone on the port, a config pointing elsewhere or a registration conflict all count as the user's own setup (`provided: voice-speech` asks `host.provided()`) and are never overwritten. The protocol can't touch services hand-written in the registry, and a stopped hand-written service only shows up as `port-conflict`, so clicking Install does a dry-run `put`.
+- **License**: `ComponentActionBody.licenseAccepted`; without it the answer is 400. Confirmations are kept in `licenses.json` in the components area.
+- **Web**: `POST /api/components/<id>` gained `start` and `stop`; `GET /api/components` calls `refresh()` first, which probes the port. In the prototype, `?demo-tts=missing|installing|running|stopped|failed|manual|download-failed|runtime-missing` and `?demo-gpu=none` show the states.
+
+Tests: `test/components/audiocpp-host.test.ts` (the real `lsm/link.ts` + the LSM stand-in + a fake download site + a fake speech service on a port the system picks); never touches 8090.
+
 ## 5. Plugins
 
 The daemon is split into a **kernel** and **plugins** ([ADR-0027](adr/0027-plugin-host-kernel-and-agent-contributions.md)): the kernel (event log, task execution with the guard, host protocol, gateway…) is wired by hand in the composition root; plugins are installed from the manifest `plugins/manifest.ts` via the plugin host `plugins/host.ts`, and the composition root never names a plugin. A feature plugin = a daemon plugin + a web plugin of the same name, enabled and disabled together; users can hot-plug them under Settings · Plugins.

@@ -70,7 +70,19 @@ import { RequestRejected } from "./errors.ts";
 import { createEphemeralBus } from "./events/ephemeral.ts";
 import { type EventStore, openEventStore } from "./events/event-store.ts";
 import { DeletionParticipants } from "./deletion/participants.ts";
-import { type ComponentProbes, type Components, componentTransport, createComponentProbes, createComponents, type LoadedManifest, loadManifest, shippedManifestVerifier, type Transport } from "./components/index.ts";
+import {
+  type AudioCppHostOptions,
+  type ComponentProbes,
+  type Components,
+  componentTransport,
+  createAudioCppHost,
+  createComponentProbes,
+  createComponents,
+  type LoadedManifest,
+  loadManifest,
+  shippedManifestVerifier,
+  type Transport,
+} from "./components/index.ts";
 import { createDataSourceRegistry, createDataSources, createDataSourceSecrets, createDataSourceSettings, type DataSources, openFolderOnDesktop, registerDataSourceDeletion } from "./data-sources/index.ts";
 import { startGateway } from "./gateway/gateway.ts";
 import { createHttpApi } from "./gateway/http-api.ts";
@@ -390,6 +402,8 @@ export interface StartDaemonOptions {
     freeBytes?: (dir: string) => number;
     stallMs?: number;
     probeTimeoutMs?: number;
+    /** 语音服务接上时的几个等待（测试调短） */
+    audiocpp?: Pick<AudioCppHostOptions, "healthTimeoutMs" | "healthPollMs" | "probeTimeoutMs">;
   };
   /**
    * 记忆整理用的模型（225 号票）：不填时记忆插件按 DEEPSEEK_API_KEY 建 DeepSeekChat；
@@ -1379,11 +1393,14 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     teardown.push(() => dataSources.stop());
     // 设置 · 组件（323）：清单随程序发布；下载在守护进程里一份（排队一次下一个），下了一半的留在组件区的 .staging/，
     // 守护进程停下时中止正在下的（下次是"暂停了"，点继续接着下）
+    // 语音合成的程序和模型装好后接到服务管家（345）：接入层在后面才建（attachLsm），已有用户自己配的不覆盖
+    const audioCppHost = createAudioCppHost({ componentsDir: layout.components, speech: { url: options.speechUrl ?? config.voice.speech.url, model: config.voice.speech.model }, ...options.components?.audiocpp, log });
     const components = createComponents({
       root: layout.root,
       componentsDir: layout.components,
       manifest: options.components?.manifest ?? shippedComponentManifest(options.env, log),
-      probes: options.components?.probes ?? createComponentProbes({ config, env: options.env }),
+      probes: options.components?.probes ?? createComponentProbes({ config, env: options.env, speechProvided: () => audioCppHost.provided() }),
+      host: audioCppHost,
       transport: options.components?.transport ?? componentTransport(options.env, "ergo-components"),
       ...(options.components?.freeBytes ? { freeBytes: options.components.freeBytes } : {}),
       ...(options.components?.stallMs !== undefined ? { stallMs: options.components.stallMs } : {}),
@@ -2685,6 +2702,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     lsmEnabled = lsm.enabled;
     // 项目的服务（133）：接入层建好了，开始做（上线了的先登记转发、没做完的接着做、接 LSM 推来的状态）；之后按网关实际监听的端口
     projectSystem.startServices({ lsm: lsm.services, ports: { local: gateway.port, external: gateway.externalPort } });
+    audioCppHost.attachLsm(lsm.services);
     let busyNow = lsmBusy().busy;
     teardown.push(
       store.onAppend((event) => {

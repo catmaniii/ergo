@@ -8,6 +8,9 @@
 // - 离线导入：一个文件、一个文件夹、一个 .tar / .tgz 包，按清单里的大小和 sha256 认（没写 sha256 的小文件按大小和名字），
 //   认得的放进临时目录、凑齐了就照常换上；还差的写明，点继续会从网上下剩下的。
 // - 只认清单里的校验值：镜像只是换个地方下，内容对不上就不用（见 downloader.ts）。
+// - 许可（345 号票）：清单里写了要确认的，第一次下载前接口要带 licenseAccepted，没带不开始；确认过的记在 <组件区>/licenses.json，
+//   许可换了版本（revision）要重新确认。离线导入也算用它：导入齐了还没确认的，停在"出错了"，写明要先确认。
+// - 装好以后还要接上的（345 号票，见 host.ts）：常驻服务的事交给 host，这里只在换上前后、删前后叫它一声。
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -16,6 +19,7 @@ import {
   type ComponentAction,
   type ComponentFeatureGate,
   type ComponentImportResult,
+  type ComponentManualFile,
   type ComponentPhase,
   type ComponentProgress,
   type ComponentsView,
@@ -29,6 +33,7 @@ import { RequestRejected } from "../errors.ts";
 import { sizeLabel } from "../media/file-types.ts";
 import { renameRetryingAsync, writeFileAtomic } from "../util/atomic-file.ts";
 import { DownloadError, type DownloadUrl, downloadFile, freeBytesOf, probeSources, sha256File, sizeOf } from "./downloader.ts";
+import type { ComponentHost } from "./host.ts";
 import {
   dependencyOrder,
   fileKey,
@@ -45,6 +50,7 @@ import {
 import type { ComponentProbes } from "./probes.ts";
 import { extractTar, walkTar } from "./tar.ts";
 import type { Transport } from "./transport.ts";
+import { extractZip, findInTree } from "./zip.ts";
 
 export interface ComponentsOptions {
   /** 数据目录（清单里的 target 相对它） */
@@ -68,6 +74,8 @@ export interface ComponentsOptions {
   probeTimeoutMs?: number;
   /** 查磁盘空间时多留多少字节；不给是 64 MB */
   diskMargin?: number;
+  /** 装好以后还要接上的（常驻服务）；不给就只管文件 */
+  host?: ComponentHost;
   log: (line: string) => void;
 }
 
@@ -84,6 +92,12 @@ interface RecordsFile {
   components: Record<string, InstallRecord>;
 }
 
+/** 确认过的许可（licenses.json）：组件 id → 确认的是哪个许可的哪一版、什么时候 */
+interface LicensesFile {
+  format: 1;
+  accepted: Record<string, { name: string; revision: string; at: string }>;
+}
+
 /** 正在做（或者停在半路）的一个组件 */
 interface Job {
   id: string;
@@ -95,6 +109,8 @@ interface Job {
   source?: string;
   error?: string;
   missingFiles?: string[];
+  /** 这次失败是下不下来（不通、内容不对）：组件页给下载地址和手动导入的办法 */
+  downloadFailed?: boolean;
   from: "download" | "import";
   controller?: AbortController;
   stopReason?: "pause" | "cancel" | "stop";
@@ -106,14 +122,16 @@ interface Job {
 export interface Components {
   /** 设置 · 组件要的全部 */
   view(): ComponentsView;
-  /** 装、更新、删、暂停、继续、取消；做不了的抛 RequestRejected（不认得的 not_found） */
-  act(id: string, action: ComponentAction): Promise<ComponentsView>;
+  /** 装、更新、删、暂停、继续、取消，常驻服务的启动、停止；做不了的抛 RequestRejected（不认得的 not_found）。licenseAccepted：用户看过并确认了许可 */
+  act(id: string, action: ComponentAction, extra?: { licenseAccepted?: boolean }): Promise<ComponentsView>;
   /** 装上照默认该装、还没装的 */
   installDefaults(): Promise<ComponentsView>;
   /** 离线导入这台电脑上的一个文件、文件夹、.tar / .tgz 包 */
   importFrom(input: string): Promise<ComponentImportResult>;
   /** 等某个组件（不给是全部）手头的事停下来：装好了、出错了、暂停了 */
   whenIdle(id?: string): Promise<void>;
+  /** 取清单前现看一眼要联网、探端口才知道的（已有用户自己配的语音合成吗、服务通不通） */
+  refresh(): Promise<void>;
   /** 有变化（状态、进度）时通知 */
   onChange(listener: () => void): () => void;
   /** 守护进程停下：中止正在下的（下了一半的留着，下次是"暂停了"） */
@@ -122,6 +140,7 @@ export interface Components {
 
 const STAGING = ".staging";
 const RECORDS = "installed.json";
+const LICENSES = "licenses.json";
 const SPEED_WINDOW_MS = 5000;
 
 /** 有这句就用它，没有用 fallback（清单里新加的组件、版本还没写进语言文件时） */
@@ -196,6 +215,30 @@ export function createComponents(options: ComponentsOptions): Components {
   };
   const writeRecords = (records: Record<string, InstallRecord>) => writeFileAtomic(recordsPath, `${JSON.stringify({ format: 1, components: records } satisfies RecordsFile, null, 2)}\n`);
 
+  const licensesPath = path.join(options.componentsDir, LICENSES);
+  const readLicenses = (): LicensesFile["accepted"] => {
+    try {
+      const raw = JSON.parse(fs.readFileSync(licensesPath, "utf8")) as Partial<LicensesFile>;
+      return raw.format === 1 && raw.accepted && typeof raw.accepted === "object" ? raw.accepted : {};
+    } catch {
+      return {};
+    }
+  };
+  /** 许可不用确认，或者确认过这一版了 */
+  const licenseSettled = (c: ManifestComponent): boolean => {
+    if (!c.license?.confirm) return true;
+    const accepted = readLicenses()[c.id];
+    return accepted !== undefined && accepted.name === c.license.name && accepted.revision === (c.license.revision ?? "");
+  };
+  /** 记下确认过了 */
+  const rememberLicense = (c: ManifestComponent) => {
+    if (!c.license?.confirm || licenseSettled(c)) return;
+    const accepted = { ...readLicenses(), [c.id]: { name: c.license.name, revision: c.license.revision ?? "", at: new Date().toISOString() } };
+    fs.mkdirSync(options.componentsDir, { recursive: true });
+    writeFileAtomic(licensesPath, `${JSON.stringify({ format: 1, accepted } satisfies LicensesFile, null, 2)}\n`);
+    log(`${c.id}：用户确认了许可 ${c.license.name}`);
+  };
+
   const targetOf = (c: ManifestComponent) => path.join(options.root, ...c.target.split("/"));
   const stagingOf = (id: string) => path.join(options.componentsDir, STAGING, id);
   const stagingRoot = (id: string) => path.join(stagingOf(id), "root");
@@ -234,7 +277,7 @@ export function createComponents(options: ComponentsOptions): Components {
     const pending = pendingParts(variant);
     if (pending.length > 0) return t("components.cannot.pending", { parts: formatList(pending.map((p) => tOr(`components.pending.${keyOf(p)}`, p))) });
     if (plan(c, variant).length === 0) return t("components.cannot.noFiles");
-    return undefined;
+    return options.host?.blocked(c);
   };
 
   /** 装着（从这里装的，或者文件都在）、别处有，都算这个功能能用 */
@@ -252,6 +295,15 @@ export function createComponents(options: ComponentsOptions): Components {
     state === "installed" || state === "update" || state === "provided" || (c.provided !== undefined && options.probes.provided(c.provided) !== undefined);
 
   const wanted = (c: ManifestComponent): boolean => c.default === "install" || (c.default === "detected" && c.detect !== undefined && options.probes.detect(c.detect) !== undefined);
+
+  /** 下不下来、暂停着时：还差的文件和下载地址，可以自己下好再从文件导入 */
+  const manualFiles = (c: ManifestComponent, variant: ManifestVariant | undefined, state: ComponentState, job: Job | undefined): ComponentManualFile[] => {
+    if (!variant || !(state === "paused" || (state === "failed" && job?.downloadFailed === true))) return [];
+    return plan(c, variant)
+      .filter((f) => !(fs.existsSync(f.staged) && sizeOf(f.staged) === f.file.size))
+      .map((f) => ({ name: path.posix.basename(f.file.path), size: f.file.size, links: fileSources(c, f.part, f.file, options.hfEndpoint).map(({ source, url }) => ({ title: source.title, url })) }))
+      .filter((f) => f.links.length > 0);
+  };
 
   const progressOf = (job: Job): ComponentProgress | undefined => {
     if (job.total === 0 && job.state !== "downloading" && job.state !== "installing") return undefined;
@@ -282,6 +334,8 @@ export function createComponents(options: ComponentsOptions): Components {
     const progress = job ? progressOf(job) : undefined;
     const installed = state === "installed" || state === "update";
     const blocked = cannotInstall(c, variant);
+    const service = options.host?.service(c);
+    const manual = manualFiles(c, variant, state, job);
     return {
       id: c.id,
       title: title(c),
@@ -305,6 +359,22 @@ export function createComponents(options: ComponentsOptions): Components {
       ...(progress ? { progress } : {}),
       ...(job?.error !== undefined ? { error: job.error } : {}),
       ...(job?.missingFiles && job.missingFiles.length > 0 ? { missingFiles: job.missingFiles } : {}),
+      ...(c.license
+        ? {
+            license: {
+              name: c.license.name,
+              summary: tOr(`components.item.${keyOf(c.id)}.licenseSummary`, c.license.summary),
+              url: c.license.url,
+              confirm: c.license.confirm,
+              accepted: licenseSettled(c),
+              ...(c.license.attribution !== undefined ? { attribution: c.license.attribution } : {}),
+            },
+          }
+        : {}),
+      ...(c.recommended ? { recommended: true } : {}),
+      ...(c.slowWithoutGpu && options.probes.gpu() === "none" ? { note: t("components.note.noGpuSlow") } : {}),
+      ...(service ? { service } : {}),
+      ...(manual.length > 0 ? { manualDownload: manual } : {}),
     };
   };
 
@@ -339,6 +409,7 @@ export function createComponents(options: ComponentsOptions): Components {
     job.state = "queued";
     delete job.error;
     delete job.stopReason;
+    delete job.downloadFailed;
     queue.push(id);
     notify();
     pump();
@@ -428,22 +499,36 @@ export function createComponents(options: ComponentsOptions): Components {
   const commit = async (c: ManifestComponent, variant: ManifestVariant, files: ReturnType<typeof plan>, signal: AbortSignal) => {
     const root = stagingRoot(c.id);
     fs.mkdirSync(root, { recursive: true });
+    // 几个包可以解到同一处（程序包和运行库包）：同一处只在第一个包之前清一次
+    const cleared = new Set<string>();
     for (const f of files) {
       if (!f.file.extract) continue;
       const dest = path.join(root, ...f.file.extract.to.split("/"));
-      fs.rmSync(dest, { recursive: true, force: true });
+      if (!cleared.has(dest)) fs.rmSync(dest, { recursive: true, force: true });
+      cleared.add(dest);
+      const { format, beside, strip = 0 } = f.file.extract;
+      // 运行库放到程序旁边：程序在包里第几层不写死，按文件名找
+      const program = beside === undefined ? undefined : findInTree(dest, beside);
+      if (beside !== undefined && program === undefined) throw new Error(t("components.error.programMissing", { program: beside }));
       try {
-        await extractTar(f.staged, dest, { gzip: f.file.extract.format === "tgz", strip: f.file.extract.strip ?? 0, signal });
+        if (format === "zip") {
+          await extractZip(f.staged, program === undefined ? dest : path.dirname(program), { strip, flatten: beside !== undefined, signal });
+        } else {
+          await extractTar(f.staged, dest, { gzip: format === "tgz", strip, signal });
+        }
       } catch (err) {
         if (signal.aborted) throw new DownloadError("stopped", "已中止"); // @i18n-ignore log：上层按状态换成给人看的
-        throw new Error(t("components.error.extract", { file: f.key, reason: err instanceof Error ? err.message : String(err) }), { cause: err });
+        throw new Error(t("components.error.extract", { file: f.file.path, reason: err instanceof Error ? err.message : String(err) }), { cause: err });
       }
     }
+    // 常驻服务的程序组件：解完了找不到程序就不换上（包的结构没有核对过，不能等到 6 GB 的模型下完才发现）
+    if (c.service && !findInTree(root, c.service.program)) throw new Error(t("components.error.programMissing", { program: c.service.program }));
     const target = targetOf(c);
     fs.mkdirSync(path.dirname(target), { recursive: true });
     const old = `${target}.old-${Date.now()}`;
     const hadOld = fs.existsSync(target);
     try {
+      if (hadOld) await options.host?.beforeReplace(c);
       if (hadOld) await renameRetryingAsync(target, old);
       try {
         await renameRetryingAsync(root, target);
@@ -471,6 +556,8 @@ export function createComponents(options: ComponentsOptions): Components {
     try {
       const blocked = cannotInstall(c, variant);
       if (blocked !== undefined || !variant) throw new Error(blocked);
+      // 没确认过许可的不下载（点安装时接口就拦了；走到这里的是离线导入凑齐的、依赖带上的）
+      if (!licenseSettled(c)) throw new Error(t("components.error.licenseRequired", { license: c.license?.name ?? "" }));
       // 依赖的先装：还没有的（没装、别处也没有）先排上，自己排回它们后面
       const records = readRecords();
       const missingDeps = (c.dependsOn ?? []).filter((dep) => !ready(stateOf(component(dep), records), component(dep)));
@@ -523,7 +610,7 @@ export function createComponents(options: ComponentsOptions): Components {
         const base = files.filter((x) => x !== f).reduce((sum, x) => sum + (fs.existsSync(x.staged) && sizeOf(x.staged) === x.file.size ? x.file.size : 0), 0);
         const urls = toUrls(c, f.part, f.file).toSorted((a, b) => (rank.get(a.sourceId) ?? 99) - (rank.get(b.sourceId) ?? 99));
         await downloadFile(
-          { name: `${c.id}/${f.key}`, urls, size: f.file.size, sha256: f.file.sha256, part: `${f.staged}.part`, dest: f.staged },
+          { name: `${c.id}/${f.file.extract ? f.file.path : f.key}`, urls, size: f.file.size, sha256: f.file.sha256, part: `${f.staged}.part`, dest: f.staged },
           {
             transport: options.transport,
             signal,
@@ -555,6 +642,7 @@ export function createComponents(options: ComponentsOptions): Components {
       await commit(c, variant, files, signal);
       jobs.delete(job.id);
       log(`${c.id} ${c.version}（${variant.id}）装好了`);
+      options.host?.installed(c);
     } catch (err) {
       const reason = stopping && job.stopReason === undefined ? "stop" : job.stopReason;
       if (signal.aborted || (err instanceof DownloadError && err.kind === "stopped")) {
@@ -572,6 +660,7 @@ export function createComponents(options: ComponentsOptions): Components {
       job.state = "failed";
       delete job.speed;
       job.error = errorText(err);
+      job.downloadFailed = err instanceof DownloadError && (err.kind === "unreachable" || err.kind === "checksum");
       log(`${c.id} 没装成：${job.error}`);
     } finally {
       release?.();
@@ -704,7 +793,7 @@ export function createComponents(options: ComponentsOptions): Components {
           await renameRetryingAsync(temp, f.staged);
           fs.rmSync(`${f.staged}.part`, { force: true });
         }
-        matched.push({ component: c.id, file: f.key });
+        matched.push({ component: c.id, file: f.file.extract ? f.file.path : f.key });
         return true;
       }
       return false;
@@ -769,12 +858,13 @@ export function createComponents(options: ComponentsOptions): Components {
         if (stateOf(c, readRecords()) === "installed") installed.push(id);
         continue;
       }
-      missing.push({ component: id, files: lacking.map((f) => f.key) });
+      const lackingNames = lacking.map((f) => (f.file.extract ? f.file.path : f.key));
+      missing.push({ component: id, files: lackingNames });
       const job = jobs.get(id) ?? newJob(id, "import");
       job.state = "paused";
       job.total = plan(c, variant).reduce((sum, f) => sum + f.file.size, 0);
       job.done = job.total - lacking.reduce((sum, f) => sum + f.file.size, 0);
-      job.missingFiles = lacking.map((f) => f.key);
+      job.missingFiles = lackingNames;
       job.error = t("components.importPartial", { count: lacking.length });
       jobs.set(id, job);
     }
@@ -789,9 +879,28 @@ export function createComponents(options: ComponentsOptions): Components {
     return Promise.all(pendingJobs.map((job) => new Promise<void>((resolve) => job.waiters.push(resolve)))).then(() => whenIdle(id));
   };
 
+  /** 要确认许可的：没带确认标记不开始；带了记下（真能开始以后才记，见调用处） */
+  const requireLicense = (c: ManifestComponent, accepted: boolean | undefined) => {
+    if (licenseSettled(c) || accepted === true) return;
+    throw new RequestRejected("not_allowed", t("components.reject.licenseRequired", { title: title(c), license: c.license?.name ?? "", url: c.license?.url ?? "" }));
+  };
+
+  // 接口后面的（常驻服务）要看哪些装好了：按当时装的那一版（换了显卡以后清单挑的可能不是装着的那一版）
+  options.host?.attach({
+    manifest,
+    installed(id) {
+      const c = byId.get(id);
+      if (!c) return undefined;
+      const recorded = readRecords()[id];
+      const variant = (recorded && c.variants.find((v) => v.id === recorded.variant)) ?? variantOf(c);
+      return variant && filesPresent(c, variant) ? { dir: targetOf(c), variant } : undefined;
+    },
+    changed: notify,
+  });
+
   return {
     view,
-    async act(id, action) {
+    async act(id, action, extra) {
       const c = component(id);
       const job = jobs.get(id);
       const records = readRecords();
@@ -803,11 +912,23 @@ export function createComponents(options: ComponentsOptions): Components {
           if (action === "install" && state === "update") break;
           const blocked = cannotInstall(c, variantOf(c));
           if (blocked !== undefined) throw new RequestRejected("not_allowed", t("components.reject.cannotInstall", { title: title(c), reason: blocked }));
+          requireLicense(c, extra?.licenseAccepted);
+          await options.host?.preflight(c);
+          rememberLicense(c);
           enqueue(id);
           break;
         }
         case "resume":
-          if (job && (job.state === "paused" || job.state === "failed")) enqueue(id);
+          if (job && (job.state === "paused" || job.state === "failed")) {
+            requireLicense(c, extra?.licenseAccepted);
+            rememberLicense(c);
+            enqueue(id);
+          }
+          break;
+        case "start":
+        case "stop":
+          if (!options.host) throw new RequestRejected("not_allowed", t("components.reject.noService"));
+          await options.host.control(c, action);
           break;
         case "pause":
           if (job && (job.state === "queued" || job.state === "downloading")) await stopJob(job, "pause");
@@ -821,6 +942,7 @@ export function createComponents(options: ComponentsOptions): Components {
           if (!fs.existsSync(target) && !records[id]) throw new RequestRejected("not_allowed", t("components.reject.notInstalled", { title: title(c) }));
           const dependents = manifest.components.filter((other) => (other.dependsOn ?? []).includes(id) && (stateOf(other, records) === "installed" || stateOf(other, records) === "update"));
           if (dependents.length > 0) throw new RequestRejected("not_allowed", t("components.reject.neededBy", { title: title(c), names: formatList(dependents.map(title)) }));
+          await options.host?.beforeRemove(c);
           try {
             await fs.promises.rm(target, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
           } catch (err) {
@@ -833,6 +955,7 @@ export function createComponents(options: ComponentsOptions): Components {
             jobs.delete(id);
           }
           log(`${id} 删掉了（${target}）`);
+          options.host?.removed(c);
           notify();
           break;
         }
@@ -846,12 +969,14 @@ export function createComponents(options: ComponentsOptions): Components {
     },
     importFrom,
     whenIdle,
+    refresh: () => options.host?.refresh() ?? Promise.resolve(),
     onChange(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
     async stop() {
       stopping = true;
+      options.host?.stop();
       queue.length = 0;
       const current = running === undefined ? undefined : jobs.get(running);
       if (current?.controller) {

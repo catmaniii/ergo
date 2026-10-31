@@ -1068,8 +1068,8 @@ export class FakeDaemonHttp implements DaemonHttp {
     return this.fakeComponents.view();
   }
 
-  componentAction(id: string, action: ComponentAction): Promise<ComponentsView> {
-    return this.fakeComponents.act(id, action);
+  componentAction(id: string, action: ComponentAction, extra?: { licenseAccepted?: boolean }): Promise<ComponentsView> {
+    return this.fakeComponents.act(id, action, extra);
   }
 
   installDefaultComponents(): Promise<ComponentsView> {

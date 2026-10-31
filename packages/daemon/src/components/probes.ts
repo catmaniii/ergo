@@ -1,6 +1,7 @@
 // 组件的几样检测（323 号票）：这台电脑有没有 N 卡（挑 CUDA 版还是 CPU 版）、清单里 detect 写的检测到没有
-// （on-path:<程序>：PATH 上有这个程序，比如 claude）、provided 写的别处是不是已经有了（voice-recognizer、voice-speech：配置里的识别程序、
-// 合成服务；node-package:<包名>：程序目录的 node_modules 里解析得到这个包，比如随程序装好的 Claude Code SDK）。
+// （on-path:<程序>：PATH 上有这个程序，比如 claude）、provided 写的别处是不是已经有了（voice-recognizer：配置里的识别程序；
+// voice-speech：用户自己配的合成服务，345 号票起由 audiocpp-host.ts 现探、这里只取结果；node-package:<包名>：程序目录的 node_modules
+// 里解析得到这个包，比如随程序装好的 Claude Code SDK）。
 // 要查的程序名、包名写在清单里（数据），这里只认这几种写法。
 // 都便宜（不联网、不跑模型）：N 卡问一次 nvidia-smi 记住；别的每次取清单时现看。测试换成假的。
 import { spawnSync } from "node:child_process";
@@ -59,7 +60,7 @@ function resolvable(specifier: string): boolean {
 }
 
 /** 正式的检测：按守护进程的配置和环境 */
-export function createComponentProbes(options: { config: ErgoConfig; env: NodeJS.ProcessEnv }): ComponentProbes {
+export function createComponentProbes(options: { config: ErgoConfig; env: NodeJS.ProcessEnv; speechProvided?: () => string | undefined }): ComponentProbes {
   let gpu: "nvidia" | "none" | undefined;
   return {
     gpu() {
@@ -91,7 +92,7 @@ export function createComponentProbes(options: { config: ErgoConfig; env: NodeJS
           return found === undefined ? undefined : t("components.provided.recognizerPython", { python: found });
         }
         case "voice-speech":
-          return t("components.provided.speechService", { url: voice.speech.url });
+          return options.speechProvided?.();
         default:
           return undefined;
       }

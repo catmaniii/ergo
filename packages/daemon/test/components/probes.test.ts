@@ -30,7 +30,7 @@ describe("检测", () => {
     expect(probes.provided("node-package:@ergo/not-a-real-package")).toBeUndefined();
   });
 
-  test("识别：LSM 模式算有；自己拉起的 Python 写的路径在、或者 PATH 上找得到才算有；合成服务看配置的地址", () => {
+  test("识别：LSM 模式算有；自己拉起的 Python 写的路径在、或者 PATH 上找得到才算有；合成服务看探到的", () => {
     expect(createComponentProbes({ config: config({ mode: "lsm", python: "python" }), env: {} }).provided("voice-recognizer")).toBe("用的是 LSM 托管的识别服务（http://127.0.0.1:8091）");
     const dir = makeTempDir();
     const python = path.join(dir, "python.exe");
@@ -38,7 +38,9 @@ describe("检测", () => {
     expect(createComponentProbes({ config: config({ mode: "spawn", python }), env: {} }).provided("voice-recognizer")).toBe(`用的是配置里的识别程序（${python}）`);
     expect(createComponentProbes({ config: config({ mode: "spawn", python: path.join(dir, "missing.exe") }), env: {} }).provided("voice-recognizer")).toBeUndefined();
     expect(createComponentProbes({ config: config({ mode: "spawn", python: "python-not-on-path" }), env: { PATH: dir } }).provided("voice-recognizer")).toBeUndefined();
-    expect(createComponentProbes({ config: config({ mode: "spawn", python: "python" }), env: {} }).provided("voice-speech")).toBe("用的是配置里的合成服务（http://127.0.0.1:8090）");
+    // 合成：345 号票起不再只看配置写了地址（默认就写着），由 audiocpp-host.ts 现探有没有用户自己配的服务，这里只取结果
+    expect(createComponentProbes({ config: config({ mode: "spawn", python: "python" }), env: {} }).provided("voice-speech")).toBeUndefined();
+    expect(createComponentProbes({ config: config({ mode: "spawn", python: "python" }), env: {}, speechProvided: () => "在用它" }).provided("voice-speech")).toBe("在用它");
   });
 
   test("识别：配置写的 Python 是 stat 不了的链接（WindowsApps 里商店版 Python 的应用执行别名那种）也算有，PATH 上找也一样", () => {

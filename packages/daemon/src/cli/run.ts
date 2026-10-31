@@ -91,7 +91,7 @@ export async function runCli(argv: readonly string[], ctx: CliContext): Promise<
         ...(flagOn(args, "delete-data") ? { deleteData: true } : flagOn(args, "keep-data") ? { deleteData: false } : {}),
       });
     case "components":
-      return cmdComponents(ctx, args.positional[0], args.positional[1]);
+      return cmdComponents(ctx, args.positional[0], args.positional[1], { acceptLicense: flagOn(args, "accept-license") });
     case "svc":
       // 原样转：连 --data-dir 这类开关也不解析
       return cmdSvc(ctx, argv.slice(argv.indexOf("svc") + 1));

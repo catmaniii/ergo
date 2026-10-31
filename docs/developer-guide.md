@@ -278,6 +278,21 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 
 已知没解决的：开机自启起来的服务管家不是 `ergo` 起的（`install.json` 的 `managerPid` 对不上），`switchTo` 不重启它，所以升级后这个进程是旧版本的代码，下次登录才换；它占着旧版本目录，`pruneVersions` 删不掉就留到下次。
 
+### 4.13 组件和常驻服务（语音合成）
+
+组件服务（`components/service.ts`）只管下载、校验、换上、删。装好以后还要接上的（常驻服务）走 `components/host.ts` 这个接口，现在的实现是 `audiocpp-host.ts`（ADR-0038）：
+
+- **清单的字段**：`license`（名字、一句话、链接、`confirm`、`revision`、`attribution`）、`recommended`、`slowWithoutGpu`；`service`（程序组件：服务管家里的名字、程序文件名、端口、健康检查）、`serve`（模型组件：由哪个程序加载、服务上的模型 id、family、task、mode、模型文件）。`extract.format` 多了 `zip`（`components/zip.ts`，没有依赖），`extract.beside` 把这个包的文件放到某个程序旁边（运行库和程序，程序在包里第几层不写死）。
+- **包的结构没核对过**：解完（换上之前）按文件名找 `service.program`，找不到不换上；`variant.expects` 写程序旁边应该有的文件（带 `*`），缺了写进 `service.warning`，只提示不挡启动。
+- **下载失败**：`ComponentView.manualDownload` 列出还差的文件和地址（下不下来、暂停着时才有），自己下好走现有的 `POST /api/component-import`。
+- **再加一个模型**（346 号票）：清单里写一条带 `serve`、`dependsOn` 指程序的组件就行，配置生成、重启都不用改代码；语音合成的模型 id 以 `voice.speech.model` 为准。
+- **接上**：`server.json`（放 `components/audiocpp-service/`，不放程序目录：更新时程序目录整个换掉）→ `services.put` → `start` / `restart` → 等 `GET /health` → `autostart`。一步失败回滚，结果写进 `ComponentView.service`（`idle` / `starting` / `running` / `stopped` / `failed`），不抛错给下载队列。
+- **"我们的"认 `server.json`**：有它就是我们接上的；没有而端口有人、配置指别处、登记冲突，都算用户自己配的（`provided: voice-speech` 查 `host.provided()`），不覆盖。协议碰不到手写在注册表里的服务，停着的手写服务只有 `port-conflict` 看得出来，所以点安装时空跑一次 `put`。
+- **许可**：`ComponentActionBody.licenseAccepted`，没带回 400；确认过的记在组件区的 `licenses.json`。
+- **网页**：`POST /api/components/<id>` 多了 `start`、`stop`；`GET /api/components` 取之前 `refresh()` 探一次端口。原型里 `?demo-tts=missing|installing|running|stopped|failed|manual|download-failed|runtime-missing`、`?demo-gpu=none` 看几种状态。
+
+测试：`test/components/audiocpp-host.test.ts`（真的 `lsm/link.ts` + LSM 替身 + 假下载站 + 在系统挑的端口上起假语音服务），绝不碰 8090。
+
 ## 5. 插件
 
 守护进程分**内核**和**插件**（[ADR-0027](adr/0027-plugin-host-kernel-and-agent-contributions.md)）：内核（事件日志、任务执行连同守卫、宿主协议、网关……）在组合根里手工装；插件按插件清单 `plugins/manifest.ts` 经插件宿主 `plugins/host.ts` 装，组合根里不出现任何一个插件。一个功能插件 = 守护进程里的插件 + 网页里同名的网页插件，一起启停，用户能在设置 · 插件里热插拔。

@@ -1065,15 +1065,19 @@ export type {
   DataSourceRawView,
 } from "@ergo/protocol";
 // 设置 · 组件（323 号票）：模型、语音这些大件按需下载——每个组件装了没有、大小、版本、默认装不装、下载进度；功能灰不灰
-export { COMPONENT_ACTIONS, COMPONENT_FEATURES, COMPONENT_STATES, componentBusy, missingComponentFor } from "@ergo/protocol";
+export { COMPONENT_ACTIONS, COMPONENT_FEATURES, COMPONENT_SERVICE_STATES, COMPONENT_STATES, componentBusy, componentNeedsLicense, missingComponentFor } from "@ergo/protocol";
 export type {
   ComponentAction,
   ComponentDefault,
   ComponentFeatureGate,
   ComponentFeatureView,
   ComponentImportResult,
+  ComponentLicenseView,
+  ComponentManualFile,
   ComponentPhase,
   ComponentProgress,
+  ComponentServiceState,
+  ComponentServiceView,
   ComponentsView,
   ComponentState,
   ComponentView,

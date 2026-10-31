@@ -93,15 +93,85 @@
       ]
     },
     {
+      "id": "audiocpp",
+      "version": "0.9.3",
+      "default": "ask",
+      "provided": "voice-speech",
+      "enables": [],
+      "target": "components/audiocpp",
+      "license": { "name": "Apache-2.0", "summary": "Open source; free to use.", "url": "https://github.com/0xShug0/audio.cpp/blob/v0.9.3/LICENSE", "confirm": false },
+      "service": { "name": "audiocpp", "program": "audiocpp_server.exe", "port": 8090, "health": "/health" },
+      "sources": [{ "id": "github", "title": "GitHub", "url": "https://github.com/0xShug0/audio.cpp/releases/download/v0.9.3/{path}" }],
+      "variants": [
+        {
+          "id": "cuda",
+          "when": { "gpu": "nvidia", "platform": ["win32"], "arch": ["x64"] },
+          "expects": ["cudart64_*.dll", "cublas64_*.dll", "cublasLt64_*.dll", "cufft64_*.dll"],
+          "parts": [
+            {
+              "files": [
+                {
+                  "path": "audio-v0.9.3-bin-windows-x64-cuda13.3.zip",
+                  "size": 277336614,
+                  "sha256": "0bd3988be10c31ec078c40df2bd0d4266e660804f6d5083aeb05d1309d091e43",
+                  "extract": { "format": "zip", "to": "bin", "unpackedSize": 850000000 }
+                },
+                {
+                  "path": "audio-v0.9.3-cudart-windows-x64-cuda13.3.zip",
+                  "size": 575457454,
+                  "sha256": "839eb20f684a8aab64895b1e466b32ce9b29dfc19dc1ce15b2ef35218512ac0a",
+                  "extract": { "format": "zip", "to": "bin", "beside": "audiocpp_server.exe", "unpackedSize": 850000000 }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "cpu",
+          "when": { "platform": ["win32"], "arch": ["x64"] },
+          "parts": [
+            {
+              "files": [
+                {
+                  "path": "audio-v0.9.3-bin-windows-x64-cpu.zip",
+                  "size": 30547092,
+                  "sha256": "3ac66f46395b4e92e4f3bb68b200f0032310bd9922f12d97f10ccdadb02dee4b",
+                  "extract": { "format": "zip", "to": "bin", "unpackedSize": 150000000 }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "tts",
-      "version": "1",
+      "version": "874fcb41",
       "default": "ask",
       "provided": "voice-speech",
       "enables": ["voice.reply"],
+      "dependsOn": ["audiocpp"],
       "target": "components/tts",
+      "recommended": true,
+      "slowWithoutGpu": true,
+      "license": {
+        "name": "Fish Audio Research License",
+        "summary": "Free for personal, non-commercial use; commercial use needs separate authorization from Fish Audio.",
+        "url": "https://huggingface.co/fishaudio/s2-pro/blob/main/LICENSE.md",
+        "confirm": true,
+        "revision": "2026-03-07",
+        "attribution": "Built with Fish Audio"
+      },
+      "serve": { "host": "audiocpp", "id": "tts", "family": "fish_audio", "task": "tts", "mode": "offline", "file": "Fish-Audio-S2-Pro-GGUF/fish-audio-s2-pro-q8_0.gguf" },
+      "sources": [
+        { "id": "huggingface", "title": "Hugging Face", "hub": "huggingface", "url": "https://huggingface.co/audio-cpp/audio.cpp-gguf/resolve/874fcb41ececda20bcbc0782d6b4ea7f7d069ea8/{path}" },
+        { "id": "hf-mirror", "title": "hf-mirror", "url": "https://hf-mirror.com/audio-cpp/audio.cpp-gguf/resolve/874fcb41ececda20bcbc0782d6b4ea7f7d069ea8/{path}" }
+      ],
       "variants": [
-        { "id": "cuda", "when": { "gpu": "nvidia" }, "parts": [{ "pending": "audiocpp" }] },
-        { "id": "cpu", "parts": [{ "pending": "audiocpp" }] }
+        {
+          "id": "q8",
+          "parts": [{ "files": [{ "path": "Fish-Audio-S2-Pro-GGUF/fish-audio-s2-pro-q8_0.gguf", "size": 6317915552, "sha256": "4f051347079cfb61f9ef2996f67057229e486fefce31374721b5690940dfc34a" }] }]
+        }
       ]
     },
     {

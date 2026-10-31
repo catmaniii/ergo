@@ -7,7 +7,8 @@
 import { type Static, Type } from "typebox";
 import { COMPONENT_ACTIONS } from "./components.ts";
 
-export const ComponentActionBody = Type.Object({ action: Type.Enum(COMPONENT_ACTIONS) }, { additionalProperties: false });
+/** licenseAccepted：用户看过并确认了许可（345 号票）；要确认的组件第一次下载时没带就不开始 */
+export const ComponentActionBody = Type.Object({ action: Type.Enum(COMPONENT_ACTIONS), licenseAccepted: Type.Optional(Type.Boolean()) }, { additionalProperties: false });
 export type ComponentActionBody = Static<typeof ComponentActionBody>;
 
 export const ComponentsActionBody = Type.Object({ action: Type.Literal("install_defaults") }, { additionalProperties: false });

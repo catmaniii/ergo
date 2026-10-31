@@ -35,6 +35,8 @@ export interface OwnedServices {
   failNextStart(name: string, message: string): void;
   /** 这个端口已经登记给别的服务了（put 时回 port-conflict） */
   takePort(port: number, holder: string): void;
+  /** 那个服务撤了：端口又空了 */
+  releasePort(port: number): void;
   /** 改一个服务的状态并推给守护进程（模拟它挂了、被手动停了） */
   setState(name: string, state: OwnedService["state"], lastError?: string): void;
   /** 这个服务下次启动（start、restart）停在"启动中"，等返回的放行函数叫了才起来、才回（257 号票） */
@@ -215,6 +217,7 @@ export async function startLsmStandIn(
       services,
       failNextStart: (name, message) => void failStart.set(name, message),
       takePort: (p, holder) => void takenPorts.set(p, holder),
+      releasePort: (p) => void takenPorts.delete(p),
       setState(name, state, lastError) {
         const s = services.get(name);
         if (!s) return;

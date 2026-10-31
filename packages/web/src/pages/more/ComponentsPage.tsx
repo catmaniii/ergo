@@ -3,13 +3,28 @@
 //   "检测到才装"的写检测到了没有）、用哪一版（CUDA / CPU 和为什么）、打开哪些功能、从哪几个地方下、装在哪；别处已经有了的写谁提供的；
 //   这一版还不能从这里装的写原因；
 // - 正在下：进度条、已下 / 一共、速度、还要多久、从哪个地址下；按钮按状况给：安装 / 暂停 / 继续 / 取消 / 重试 / 删除 / 更新；
+// - 345 号票：标了推荐的亮一个小签；许可写一行（名字带链接、一句话），要求标注的那句（Built with Fish Audio）单独一行；要确认许可的，
+//   下载前弹确认框（名字、大小、许可、那一句话、原文链接），同意了才带上确认标记去下载；带常驻服务的（语音合成程序）多一个运行状态的小签、
+//   端口和开机自启，按钮多启动 / 停止；下载失败、暂停着时列出还差的文件和下载地址，自己下好了用现有的"从文件导入…"；
 // - 上面一排："装上默认的组件"（照清单的默认该装、还没装的）、"从文件导入…"（这台电脑上一个文件、文件夹或 .tar / .tgz 包的路径，
 //   守护进程按清单里的大小和校验值认；和设置里导入 skill 一样填路径）；
 // - 正在下的时候每秒重取一次；别处（功能灰掉的地方）点"去装"过来的那一块亮一下。
 // 下载在守护进程里做，关掉这一页照样下。列表、确认框是纯渲染的组件（ComponentList、ComponentRow），测试在 Node 里直接渲染。
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "../../app/store.tsx";
-import { type ComponentAction, type ComponentImportResult, componentBusy, type ComponentsView, type ComponentState, type ComponentView, formatList, sizeLabel, t } from "../../state/index.ts";
+import {
+  type ComponentAction,
+  type ComponentImportResult,
+  componentBusy,
+  componentNeedsLicense,
+  type ComponentServiceState,
+  type ComponentsView,
+  type ComponentState,
+  type ComponentView,
+  formatList,
+  sizeLabel,
+  t,
+} from "../../state/index.ts";
 import { Section, Sheet } from "../../ui/common.tsx";
 import { setComponentsCache, takeComponentFocus } from "../../ui/component-gate.tsx";
 
@@ -23,6 +38,15 @@ const STATE_CHIP: Readonly<Record<ComponentState, string>> = {
   downloading: "chip chip-op",
   paused: "chip chip-quiet",
   installing: "chip chip-op",
+  failed: "chip chip-no",
+};
+
+/** 常驻服务的小签（还接不上的不亮，下面有一句说明） */
+const SERVICE_CHIP: Readonly<Record<ComponentServiceState, string>> = {
+  idle: "chip chip-quiet",
+  starting: "chip chip-op",
+  running: "chip chip-ok",
+  stopped: "chip chip-quiet",
   failed: "chip chip-no",
 };
 
@@ -60,6 +84,10 @@ export function componentLines(c: ComponentView, all: readonly ComponentView[]):
   const lines: { key: string; label: string; value: string }[] = [];
   const version = c.installedVersion !== undefined && c.installedVersion !== c.version ? t("pages.components.versionUpdate", { installed: c.installedVersion, latest: c.version }) : c.version;
   lines.push({ key: "version", label: t("pages.components.label.version"), value: version });
+  if (c.service) {
+    const address = `127.0.0.1:${c.service.port}`;
+    lines.push({ key: "service", label: t("pages.components.label.service"), value: c.service.autostart ? `${address} · ${t("pages.components.serviceAutostart")}` : address });
+  }
   const size = c.size > 0 ? sizeLabel(c.size) : t("pages.components.sizeUnknown");
   lines.push({ key: "size", label: t("pages.components.label.size"), value: c.diskSize !== undefined ? t("pages.components.sizeInstalled", { download: size, disk: sizeLabel(c.diskSize) }) : size });
   lines.push({ key: "default", label: t("pages.components.label.default"), value: withNote(c.defaultText, c.detectedText) });
@@ -74,6 +102,8 @@ export function componentLines(c: ComponentView, all: readonly ComponentView[]):
 /** 按状况给哪几个按钮（先后就是显示的先后；第一个是主按钮） */
 export function componentActions(c: ComponentView): ComponentAction[] {
   const installable = c.cannotInstall === undefined;
+  const serviceState = c.service?.state;
+  const service: ComponentAction[] = serviceState === "running" ? ["stop"] : serviceState === "stopped" || serviceState === "failed" ? ["start"] : [];
   switch (c.state) {
     case "missing":
       return installable ? ["install"] : [];
@@ -90,9 +120,9 @@ export function componentActions(c: ComponentView): ComponentAction[] {
     case "installing":
       return [];
     case "installed":
-      return ["remove"];
+      return [...service, "remove"];
     case "update":
-      return ["update", "remove"];
+      return ["update", ...service, "remove"];
   }
 }
 
@@ -103,11 +133,14 @@ const ACTION_TEXT: Readonly<Record<ComponentAction, string>> = {
   pause: "pages.components.action.pause",
   resume: "pages.components.action.resume",
   cancel: "pages.components.action.cancel",
+  start: "pages.components.action.start",
+  stop: "pages.components.action.stop",
 };
 
 /** 按钮上的字："继续"在出错了的时候是"重试"，别处有的"安装"是"从这里装" */
 export function actionText(c: ComponentView, action: ComponentAction): string {
   if (action === "resume" && c.state === "failed") return t("pages.components.action.retry");
+  if (action === "start" && c.service?.state === "failed") return t("pages.components.action.retry");
   if (action === "install" && c.state === "provided") return t("pages.components.action.installHere");
   return t(ACTION_TEXT[action]);
 }
@@ -132,9 +165,11 @@ export interface ComponentRowProps {
   /** 别处点"去装"过来的：亮一下 */
   focused: boolean;
   onAct(action: ComponentAction, c: ComponentView): void;
+  /** 打开"从文件导入…"（下载不下来时那一块里也放一个） */
+  onImport?: () => void;
 }
 
-export function ComponentRow({ component: c, all, busy, focused, onAct }: ComponentRowProps) {
+export function ComponentRow({ component: c, all, busy, focused, onAct, onImport }: ComponentRowProps) {
   const progress = progressText(c);
   const p = c.progress;
   const percent = p && p.total > 0 ? Math.min(100, Math.floor((p.done / p.total) * 100)) : undefined;
@@ -145,9 +180,12 @@ export function ComponentRow({ component: c, all, busy, focused, onAct }: Compon
         <span className="component-name">{c.title}</span>
         <span className={STATE_CHIP[c.state]}>{componentStateText(c.state)}</span>
         {c.wanted && (c.state === "missing" || c.state === "failed" || c.state === "paused") && c.cannotInstall === undefined && <span className="chip chip-quiet">{t("pages.components.wanted")}</span>}
+        {c.recommended && <span className="chip chip-op component-recommended">{t("pages.components.recommended")}</span>}
+        {c.service && c.service.state !== "idle" && <span className={`${SERVICE_CHIP[c.service.state]} component-service-state`}>{t(`pages.components.service.${c.service.state}`)}</span>}
       </div>
       {c.summary && <div className="component-summary">{c.summary}</div>}
       {c.providedBy !== undefined && <div className="component-provided">{c.providedBy}</div>}
+      {c.note !== undefined && <div className="component-note">{c.note}</div>}
       <dl className="component-lines">
         {componentLines(c, all).map((line) => (
           <div key={line.key} className={`component-line component-line-${line.key}`}>
@@ -156,6 +194,15 @@ export function ComponentRow({ component: c, all, busy, focused, onAct }: Compon
           </div>
         ))}
       </dl>
+      {c.license && (
+        <div className="component-license">
+          <a href={c.license.url} target="_blank" rel="noopener noreferrer">
+            {c.license.name}
+          </a>
+          <span> · {c.license.summary}</span>
+        </div>
+      )}
+      {c.license?.attribution !== undefined && <div className="component-attribution">{c.license.attribution}</div>}
       {p && percent !== undefined && (c.state === "downloading" || c.state === "paused" || c.state === "installing" || c.state === "failed") && (
         <div className="component-progress">
           <div className="component-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
@@ -166,13 +213,40 @@ export function ComponentRow({ component: c, all, busy, focused, onAct }: Compon
       )}
       {c.cannotInstall !== undefined && c.state !== "installed" && <div className="component-note">{c.cannotInstall}</div>}
       {c.error !== undefined && <div className={c.state === "failed" ? "field-error" : "component-note"}>{c.error}</div>}
+      {c.service?.note !== undefined && <div className="component-note">{c.service.note}</div>}
+      {c.service?.error !== undefined && <div className="field-error">{c.service.error}</div>}
+      {c.service?.warning !== undefined && <div className="field-error">{c.service.warning}</div>}
+      {c.manualDownload && c.manualDownload.length > 0 && (
+        <div className="component-manual">
+          <div>{t("pages.components.manual.hint")}</div>
+          <ul>
+            {c.manualDownload.map((file) => (
+              <li key={file.name}>
+                <span>{t("pages.components.manual.file", { name: file.name, size: sizeLabel(file.size) })}</span>
+                {file.links.map((link) => (
+                  <a key={link.url} href={link.url} target="_blank" rel="noopener noreferrer">
+                    {link.title}
+                  </a>
+                ))}
+              </li>
+            ))}
+          </ul>
+          {onImport && (
+            <div>
+              <button type="button" className="btn ghost small" onClick={onImport}>
+                {t("pages.components.import.button")}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
       {actions.length > 0 && (
         <div className="component-actions">
           {busy ? (
             <span className="muted">{t("pages.components.working")}</span>
           ) : (
             actions.map((action, i) => (
-              <button key={action} type="button" className={`btn ${i === 0 && action !== "remove" && action !== "cancel" ? "primary" : "ghost"} small`} onClick={() => onAct(action, c)}>
+              <button key={action} type="button" className={`btn ${i === 0 && action !== "remove" && action !== "cancel" && action !== "stop" ? "primary" : "ghost"} small`} onClick={() => onAct(action, c)}>
                 {actionText(c, action)}
               </button>
             ))
@@ -183,13 +257,13 @@ export function ComponentRow({ component: c, all, busy, focused, onAct }: Compon
   );
 }
 
-export function ComponentList({ view, busy, focused, onAct }: { view: ComponentsView; busy: string | undefined; focused: string | undefined; onAct: ComponentRowProps["onAct"] }) {
+export function ComponentList({ view, busy, focused, onAct, onImport }: { view: ComponentsView; busy: string | undefined; focused: string | undefined; onAct: ComponentRowProps["onAct"]; onImport?: () => void }) {
   return (
     <div className="component-list">
       {view.components.length === 0 ? (
         <div className="muted">{t("pages.components.none")}</div>
       ) : (
-        view.components.map((c) => <ComponentRow key={c.id} component={c} all={view.components} busy={busy === c.id} focused={focused === c.id} onAct={onAct} />)
+        view.components.map((c) => <ComponentRow key={c.id} component={c} all={view.components} busy={busy === c.id} focused={focused === c.id} onAct={onAct} {...(onImport ? { onImport } : {})} />)
       )}
     </div>
   );
@@ -248,6 +322,56 @@ function RemoveConfirm({ component: c, onCancel, onConfirm }: { component: Compo
   );
 }
 
+/** 确认框里的大小：按 1000 算的那个（模型页、下载工具写的）；Windows 按 1024 算、数字小一些，不一样时两个都写，免得以为下错了 */
+export function licenseSizeText(size: number): string {
+  const binary = sizeLabel(size);
+  if (size < 1e9) return binary;
+  const decimal = `${(size / 1e9).toFixed(1)} GB`;
+  return decimal === binary ? binary : t("pages.components.license.sizeValue", { decimal, binary });
+}
+
+/** 下载前确认许可：名字、大小、许可、那一句话、原文链接；还没装的依赖也要下，写明 */
+export function LicenseConfirm({ component: c, all, onCancel, onConfirm }: { component: ComponentView; all: readonly ComponentView[]; onCancel(): void; onConfirm(): void }) {
+  const license = c.license;
+  if (!license) return null;
+  const deps = c.dependsOn.flatMap((id) => all.filter((o) => o.id === id && o.state === "missing"));
+  return (
+    <Sheet title={t("pages.components.license.title")} onClose={onCancel} center>
+      <div className="modal-body component-license-confirm">
+        <dl className="component-lines">
+          <div className="component-line">
+            <dt>{t("pages.components.license.name")}</dt>
+            <dd>{c.title}</dd>
+          </div>
+          <div className="component-line">
+            <dt>{t("pages.components.license.size")}</dt>
+            <dd>{licenseSizeText(c.size)}</dd>
+          </div>
+          <div className="component-line">
+            <dt>{t("pages.components.license.license")}</dt>
+            <dd>{license.name}</dd>
+          </div>
+        </dl>
+        <p className="component-license-summary">{license.summary}</p>
+        <p>
+          <a href={license.url} target="_blank" rel="noopener noreferrer">
+            {t("pages.components.license.original")}
+          </a>
+        </p>
+        {deps.length > 0 && <p className="muted">{t("pages.components.license.deps", { names: formatList(deps.map((d) => d.title)), size: sizeLabel(deps.reduce((sum, d) => sum + d.size, 0)) })}</p>}
+      </div>
+      <div className="auth-actions">
+        <button type="button" className="btn ghost" onClick={onCancel}>
+          {t("pages.components.cancel")}
+        </button>
+        <button type="button" className="btn primary" onClick={onConfirm}>
+          {t("pages.components.license.accept")}
+        </button>
+      </div>
+    </Sheet>
+  );
+}
+
 export function ComponentsPage() {
   const { http, ui } = useStore();
   const revision = ui.locale?.revision;
@@ -258,6 +382,7 @@ export function ComponentsPage() {
   const [note, setNote] = useState<string>();
   const [importing, setImporting] = useState(false);
   const [removing, setRemoving] = useState<ComponentView>();
+  const [licensing, setLicensing] = useState<{ action: ComponentAction; component: ComponentView }>();
   const [focused] = useState(takeComponentFocus);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -267,7 +392,7 @@ export function ComponentsPage() {
   };
 
   // 打开时取一次（换了语言再取：字是守护进程按语言写的）；正在下的时候每秒再取
-  const active = view?.components.some((c) => componentBusy(c.state)) ?? false;
+  const active = view?.components.some((c) => componentBusy(c.state) || c.service?.state === "starting") ?? false;
   // eslint-disable-next-line react-hooks/exhaustive-deps, react/exhaustive-effect-dependencies -- revision 只用来在换了语言时重取
   useEffect(() => {
     let cancelled = false;
@@ -297,18 +422,19 @@ export function ComponentsPage() {
     listRef.current?.querySelector(`[data-component="${CSS.escape(focused)}"]`)?.scrollIntoView({ block: "center" });
   }, [focused, loaded]);
 
-  const run = (action: ComponentAction, c: ComponentView) => {
+  const run = (action: ComponentAction, c: ComponentView, extra?: { licenseAccepted?: boolean }) => {
     setBusy(c.id);
     setFailed(undefined);
     setNote(undefined);
     http
-      .componentAction(c.id, action)
+      .componentAction(c.id, action, extra)
       .then(apply, (err: unknown) => setFailed(t("pages.components.failed", { reason: err instanceof Error ? err.message : String(err) })))
       .finally(() => setBusy(undefined));
   };
 
   const onAct = (action: ComponentAction, c: ComponentView) => {
     if (action === "remove") return setRemoving(c);
+    if ((action === "install" || action === "update" || action === "resume") && componentNeedsLicense(c)) return setLicensing({ action, component: c });
     run(action, c);
   };
 
@@ -341,7 +467,7 @@ export function ComponentsPage() {
             {t("pages.components.loadFailed", { reason: loadFailed })}
           </div>
         )}
-        <div ref={listRef}>{view && <ComponentList view={view} busy={busy} focused={focused} onAct={onAct} />}</div>
+        <div ref={listRef}>{view && <ComponentList view={view} busy={busy} focused={focused} onAct={onAct} onImport={() => setImporting(true)} />}</div>
         {failed && (
           <div className="field-error" role="alert">
             {failed}
@@ -362,6 +488,18 @@ export function ComponentsPage() {
             apply(result.view);
             setImporting(false);
             setNote(importText(result));
+          }}
+        />
+      )}
+      {licensing && (
+        <LicenseConfirm
+          component={licensing.component}
+          all={view?.components ?? []}
+          onCancel={() => setLicensing(undefined)}
+          onConfirm={() => {
+            const { action, component } = licensing;
+            setLicensing(undefined);
+            run(action, component, { licenseAccepted: true });
           }}
         />
       )}

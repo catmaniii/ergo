@@ -86,7 +86,10 @@ export interface LsmServiceDefinition {
   name: string;
   title?: string;
   project?: string;
-  command: string;
+  /** 经 cmd 跑的一行命令；和 argv 二选一 */
+  command?: string;
+  /** 参数原样的命令（不能有 " % 换行）；和 command 二选一 */
+  argv?: string[];
   cwd: string;
   port: number;
   env?: Array<{ name: string; from: "literal" | "file" | "userEnv"; value?: string; path?: string; optional?: boolean }>;
@@ -94,6 +97,8 @@ export interface LsmServiceDefinition {
   autostart?: boolean;
   /** 挂了自动重拉（默认关，和服务管家的默认一样） */
   autoRestart?: boolean;
+  /** 启动后等就绪的上限（毫秒，1000–600000；不写是服务管家的默认 60 秒） */
+  readyTimeoutMs?: number;
 }
 
 /** 管理器的回复（services.reply），或者这边造的失败（没接入、不支持、断了、超时） */

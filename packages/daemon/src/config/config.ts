@@ -321,7 +321,7 @@ export const DEFAULT_RECOGNIZE_MODE: RecognizeMode = "spawn";
  * autoRetrySeconds（208 号票：识别没做成——识别进程出错、超时、退出、不可用——时隔几秒自动重试，第几项是第几次重试前等多久，
  * 有几项就最多重试几次；默认 [15, 60, 180]，写 [] 不自动重试，见 voice/voice.ts）。
  * 第一阶段不用大模型修正识别结果（用户 2026-10-08 定）。
- * voice.speech（32 号票）：url（本机 LSM 托管的 audio.cpp 服务，可以和别的程序共用，二狗不自己启动它；默认 http://127.0.0.1:8090）、
+ * voice.speech（32 号票）：url（本机 LSM 托管的 audio.cpp 服务，可以和别的程序共用；设置 · 组件里装的就在默认的 http://127.0.0.1:8090，改成别的地址算用户自己配的，组件不再接管，345 号票）、
  * model（服务上的 TTS 模型 id，默认 tts）、timeout（一次合成最多等多久，见 SpeechTimeoutConfig）、
  * probeSeconds（多久看一次服务的 /health，默认 60：服务从连不上变成连得上时再预热一次合成模型，45 号票）。
  * voice.reply（32 号票）：maxSeconds（口语稿估出来念多久算长，默认 60 秒：长的不全文合成，合成口语总结）、

@@ -3,6 +3,9 @@
 // （provided 写查什么）、打开哪些功能（enables）、依赖哪些别的组件（dependsOn）、装到数据目录的哪里（target）、几个下载地址
 // （sources，url 里的 {path} 换成文件的路径）、几版（variants：按这台电脑有没有 N 卡、什么平台挑第一个对得上的），每版几部分（parts：
 // 一组同源的文件放进 target 下的 dir；还没接上的部分写 pending，这一版就不能从这里装）。文件写大小和 sha256，压缩包写怎么解开（extract）。
+// 345 号票加了四样：license（名字、一句话、链接、下载前要不要确认）、recommended（标"推荐"）、slowWithoutGpu（没有 N 卡时写明会很慢）；
+// service（这个程序是常驻服务：程序叫什么、服务管家里叫什么、端口、健康检查）和 serve（这个模型由哪个程序组件的服务加载）——
+// 346 号票的语音识别模型只要再写一条带 serve 的组件，服务的配置和重启不用改代码（audiocpp-host.ts）。
 // - 默认装不装、哪些功能，用户以后要改只改这份数据；界面上照它显示；
 // - 安全：只认清单里的校验值（镜像只是换个地方下，内容对不上就不用）。清单的签名（发布钥匙、minisign）由 318 号票发版时加，
 //   这里留好验签的接口（ManifestVerifier）：给了就先验，验不过不用这份清单；没给是"没签名"，照用、界面上写明。
@@ -32,13 +35,15 @@ const Source = Type.Object(
 
 const Extract = Type.Object(
   {
-    format: Type.Union([Type.Literal("tgz"), Type.Literal("tar")]),
+    format: Type.Union([Type.Literal("tgz"), Type.Literal("tar"), Type.Literal("zip")]),
     /** 去掉每一项路径的前几段（npm 的包里是 package/） */
     strip: Type.Optional(Type.Integer({ minimum: 0, maximum: 5 })),
-    /** 解到组件目录下的哪里 */
+    /** 解到组件目录下的哪里；几个包可以解到同一处（audio.cpp 的 CUDA 版：程序包和运行库包要放在一起） */
     to: RelPath,
     /** 解开后大约多大（查磁盘空间用） */
     unpackedSize: Type.Optional(Type.Integer({ minimum: 0 })),
+    /** 只认 zip：不分目录，放到 to 下面这个文件所在的那一层（运行库要放在程序旁边，程序包里程序在第几层不写死）；要写在那个包后面 */
+    beside: Type.Optional(Type.String({ pattern: "^[^/\\\\]+$" })),
   },
   { additionalProperties: false },
 );
@@ -62,7 +67,7 @@ const Part = Type.Object(
     /** 放进 target 下的哪个子目录 */
     dir: Type.Optional(RelPath),
     files: Type.Optional(Type.Array(File)),
-    /** 还没接上的部分（python：用 uv 装 Python 和 faster-whisper；audiocpp：audio.cpp 预编译的程序和模型） */
+    /** 还没接上的部分（python：用 uv 装 Python 和 faster-whisper） */
     pending: Type.Optional(Type.String({ pattern: "^[a-z0-9-]+$" })),
   },
   { additionalProperties: false },
@@ -83,6 +88,61 @@ const Variant = Type.Object(
       ),
     ),
     parts: Type.Array(Part, { minItems: 1 }),
+    /**
+     * 这一版的程序旁边应该有的文件（可以带 *，比如 CUDA 运行库的 cublas64_*.dll）：缺了只提示、不挡启动，
+     * 包里的结构是从上游的打包脚本读出来的、没有核对过，名字对不上时不能把本来能跑的挡住（345 号票）
+     */
+    expects: Type.Optional(Type.Array(Type.String({ minLength: 1 }))),
+  },
+  { additionalProperties: false },
+);
+
+/** 组件的许可（345 号票） */
+const License = Type.Object(
+  {
+    /** 许可的名字：产品名，不翻 */
+    name: Type.String({ minLength: 1 }),
+    /** 一句话（语言文件里有 components.item.<id>.licenseSummary 的用那句，这里是兜底） */
+    summary: Type.String({ minLength: 1 }),
+    /** 原文链接 */
+    url: Type.String({ pattern: "^https://" }),
+    /** 第一次下载前要用户确认 */
+    confirm: Type.Boolean(),
+    /** 许可的版本：换了要重新确认（不写算没变过） */
+    revision: Type.Optional(Type.String({ minLength: 1 })),
+    /** 许可要求显著标注的那句（Built with Fish Audio），不翻译 */
+    attribution: Type.Optional(Type.String({ minLength: 1 })),
+  },
+  { additionalProperties: false },
+);
+
+/** 这个程序是常驻服务（345 号票）：装好有模型后经服务管家登记、启动 */
+const Service = Type.Object(
+  {
+    /** 服务管家里的名字（名下服务的短名） */
+    name: Type.String({ pattern: "^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$" }),
+    /** 程序的文件名（在组件目录里找，不写死解到哪一层） */
+    program: Type.String({ pattern: "^[^/\\\\]+$" }),
+    /** 只绑本机的这个端口 */
+    port: Type.Integer({ minimum: 1, maximum: 65535 }),
+    /** 健康检查的路径 */
+    health: Type.String({ pattern: "^/" }),
+  },
+  { additionalProperties: false },
+);
+
+/** 这个模型由哪个程序组件的服务加载（345 号票；写进生成的 server.json 的 models[]） */
+const Serve = Type.Object(
+  {
+    /** 带 service 的那个组件，要写进 dependsOn */
+    host: Type.String(),
+    /** 服务上的模型 id（语音合成的以配置里的 voice.speech.model 为准） */
+    id: Type.String({ minLength: 1 }),
+    family: Type.String({ minLength: 1 }),
+    task: Type.String({ minLength: 1 }),
+    mode: Type.String({ minLength: 1 }),
+    /** 模型文件在组件目录里的相对路径 */
+    file: RelPath,
   },
   { additionalProperties: false },
 );
@@ -94,7 +154,7 @@ const Component = Type.Object(
     default: Type.Enum(COMPONENT_DEFAULTS),
     /** default 是 detected 时检测什么（on-path:<程序>：PATH 上有这个程序） */
     detect: Type.Optional(Type.String()),
-    /** 别处已经有了也算有（voice-recognizer：配置里的识别程序；voice-speech：配置里的合成服务；node-package:<包名>：随程序装好的 npm 包） */
+    /** 别处已经有了也算有（voice-recognizer：配置里的识别程序；voice-speech：用户自己配的合成服务；node-package:<包名>：随程序装好的 npm 包） */
     provided: Type.Optional(Type.String()),
     enables: Type.Array(Type.String({ minLength: 1 })),
     dependsOn: Type.Optional(Type.Array(Type.String())),
@@ -102,6 +162,13 @@ const Component = Type.Object(
     target: RelPath,
     sources: Type.Optional(Type.Array(Source)),
     variants: Type.Array(Variant, { minItems: 1 }),
+    license: Type.Optional(License),
+    /** 界面上标"推荐" */
+    recommended: Type.Optional(Type.Boolean()),
+    /** 没有 N 卡时写明会很慢 */
+    slowWithoutGpu: Type.Optional(Type.Boolean()),
+    service: Type.Optional(Service),
+    serve: Type.Optional(Serve),
   },
   { additionalProperties: false },
 );
@@ -121,6 +188,8 @@ export type ManifestFile = Static<typeof File>;
 export type ManifestPart = Static<typeof Part>;
 export type ManifestVariant = Static<typeof Variant>;
 export type ManifestComponent = Static<typeof Component>;
+export type ManifestService = Static<typeof Service>;
+export type ManifestServe = Static<typeof Serve>;
 export type ComponentManifest = Static<typeof Manifest>;
 
 const checkManifest = schemaChecker(Manifest);
@@ -189,6 +258,15 @@ export function parseManifest(raw: unknown): ComponentManifest {
     for (const dep of c.dependsOn ?? []) {
       if (!ids.has(dep) || dep === c.id) throw new Error(`组件清单不对：${c.id} 依赖的 ${dep} 不在清单里`); // @i18n-ignore log：发版的错
     }
+    if (c.serve) {
+      const host = manifest.components.find((other) => other.id === c.serve?.host);
+      if (!host?.service) throw new Error(`组件清单不对：${c.id} 写的服务 ${c.serve.host} 不是带 service 的组件`); // @i18n-ignore log：发版的错
+      if (!(c.dependsOn ?? []).includes(host.id)) throw new Error(`组件清单不对：${c.id} 由 ${host.id} 的服务加载，却没写依赖它`); // @i18n-ignore log：发版的错
+      if (!safeRelPath(c.serve.file)) throw new Error(`组件清单不对：${c.id} 的路径 ${c.serve.file} 不是安全的相对路径`); // @i18n-ignore log：发版的错
+      for (const v of c.variants) {
+        if (!variantFiles(v).some(({ part, file }) => fileKey(part, file) === c.serve?.file)) throw new Error(`组件清单不对：${c.id} 的 ${v.id} 里没有 ${c.serve.file}`); // @i18n-ignore log：发版的错
+      }
+    }
     for (const v of c.variants) {
       const keys = new Set<string>();
       for (const part of v.parts) {
@@ -196,7 +274,8 @@ export function parseManifest(raw: unknown): ComponentManifest {
           throw new Error(`组件清单不对：${c.id} 的 ${v.id} 有文件却没写下载地址`); // @i18n-ignore log：发版的错
         }
         for (const file of part.files ?? []) {
-          const key = fileKey(part, file);
+          // 几个压缩包可以解到同一处，同一个包不能写两次
+          const key = file.extract ? `${file.extract.to}#${file.path}` : fileKey(part, file);
           if (keys.has(key)) throw new Error(`组件清单不对：${c.id} 的 ${v.id} 里 ${key} 写了两次`); // @i18n-ignore log：发版的错
           keys.add(key);
         }

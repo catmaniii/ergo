@@ -1,9 +1,9 @@
-// ergo components list | add <id> | remove <id> | import <文件或文件夹>（318 号票，接 323 的组件和下载器）：
+// ergo components list | add <id> [--accept-license] | remove <id> | import <文件或文件夹>（318 号票，接 323 的组件和下载器）：
 // 只是二狗本机端口上组件接口（GET/POST /api/components…）的终端前端——下载、校验、装、离线导入都在守护进程里那一份，网页和这里共用。
-// 二狗没在跑时说一句先 ergo start。
+// 二狗没在跑时说一句先 ergo start。要确认许可的组件（345 号票）：没加 --accept-license 时打出许可、不下载。
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
-import { type ComponentImportResult, type ComponentsView, type ComponentView, componentBusy, t } from "@ergo/protocol";
+import { type ComponentImportResult, type ComponentsView, type ComponentView, componentBusy, componentNeedsLicense, t } from "@ergo/protocol";
 import { type CliContext, daemonUrl } from "./context.ts";
 import { sizeText } from "./texts.ts";
 
@@ -49,13 +49,23 @@ function printList(ctx: CliContext, view: ComponentsView): void {
   for (const c of view.components) {
     if (c.cannotInstall) ctx.io.out(t("cli.components.cannotInstall", { id: c.id, why: c.cannotInstall }));
     if (c.state === "failed" && c.error) ctx.io.out(t("cli.components.error", { id: c.id, why: c.error }));
+    for (const file of c.manualDownload ?? []) for (const link of file.links) ctx.io.out(t("cli.components.manual", { id: c.id, url: link.url }));
   }
   ctx.io.out(view.manifest.signed ? t("cli.components.signed", { release: view.manifest.release }) : t("cli.components.unsigned", { release: view.manifest.release }));
 }
 
 /** 装 / 删：交给守护进程，等它不忙了（装的话每 10% 报一次进度） */
-async function act(ctx: CliContext, id: string, action: "install" | "remove"): Promise<number> {
-  let view = await api<ComponentsView>(ctx, "POST", `/api/components/${encodeURIComponent(id)}`, { action });
+async function act(ctx: CliContext, id: string, action: "install" | "remove", acceptLicense: boolean): Promise<number> {
+  let view: ComponentsView;
+  try {
+    view = await api<ComponentsView>(ctx, "POST", `/api/components/${encodeURIComponent(id)}`, action === "install" && acceptLicense ? { action, licenseAccepted: true } : { action });
+  } catch (err) {
+    // 被拒是因为要确认许可的：把许可打出来，告诉他怎么确认
+    const c = action === "install" && !acceptLicense && !(err instanceof DaemonDown) ? (await api<ComponentsView>(ctx, "GET", "/api/components")).components.find((x) => x.id === id) : undefined;
+    if (!c?.license || !componentNeedsLicense(c)) throw err;
+    ctx.io.err(t("cli.components.licenseNeeded", { id, license: c.license.name, summary: c.license.summary, url: c.license.url }));
+    return 1;
+  }
   let lastPct = -1;
   for (;;) {
     const c = view.components.find((x) => x.id === id);
@@ -66,6 +76,7 @@ async function act(ctx: CliContext, id: string, action: "install" | "remove"): P
     if (!componentBusy(c.state)) {
       if (c.state === "failed") {
         ctx.io.err(t("cli.components.error", { id, why: c.error ?? "?" }));
+        for (const file of c.manualDownload ?? []) for (const link of file.links) ctx.io.err(t("cli.components.manual", { id, url: link.url }));
         return 1;
       }
       ctx.io.out(t("cli.components.now", { id, state: stateText(c) }));
@@ -83,7 +94,7 @@ async function act(ctx: CliContext, id: string, action: "install" | "remove"): P
   }
 }
 
-export async function cmdComponents(ctx: CliContext, sub: string | undefined, arg: string | undefined): Promise<number> {
+export async function cmdComponents(ctx: CliContext, sub: string | undefined, arg: string | undefined, options: { acceptLicense?: boolean } = {}): Promise<number> {
   try {
     switch (sub ?? "list") {
       case "list":
@@ -95,7 +106,7 @@ export async function cmdComponents(ctx: CliContext, sub: string | undefined, ar
           ctx.io.err(t("cli.components.needId"));
           return 2;
         }
-        return await act(ctx, arg, sub === "add" ? "install" : "remove");
+        return await act(ctx, arg, sub === "add" ? "install" : "remove", options.acceptLicense === true);
       case "import": {
         if (!arg) {
           ctx.io.err(t("cli.components.needFile"));

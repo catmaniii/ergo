@@ -1,15 +1,22 @@
-// 原型里的设置 · 组件（323 号票）：直接打开构建产物（file://）时没有守护进程，这里编清单里的四个组件看样子——
-// 向量模型正在从 hf-mirror 下（每秒走一截，下完是装好了）；语音识别、语音合成用的是配置里的（别处有，这一版还不能从这里装）；
-// Claude Code 接入检测到了、装好了。动作只改内存里的样子（装、暂停、继续、取消、删），从文件导入回"原型里不导入"那样的结果。
+// 原型里的设置 · 组件（323 号票）：直接打开构建产物（file://）时没有守护进程，这里编清单里的五个组件看样子——
+// 向量模型正在从 hf-mirror 下（每秒走一截，下完是装好了）；语音识别用的是配置里的（别处有，这一版还不能从这里装）；
+// 语音合成的程序和模型（345 号票）默认是"已有自己配的、在用它"；Claude Code 接入检测到了、装好了。
+// 动作只改内存里的样子（装、暂停、继续、取消、删、启动、停止），从文件导入回"原型里不导入"那样的结果。
 // 地址里带 ?demo-components-missing 时语音识别、语音合成都没有（别处也没有）：看功能灰掉的样子（输入框的话筒、设置 · 语音）。
-import type { ComponentAction, ComponentImportResult, ComponentsView, ComponentView } from "../state/index.ts";
+// 345 号票：地址里带 ?demo-tts=missing|installing|running|stopped|failed|manual|download-failed|runtime-missing 看语音合成的几种状态；带 ?demo-gpu=none 看没有 N 卡的样子。
+import type { ComponentAction, ComponentImportResult, ComponentServiceState, ComponentsView, ComponentView } from "../state/index.ts";
 import { demoParam } from "./fake-connection.ts";
 
 const MB = 1024 * 1024;
 const BGE_SIZE = 770 + 1173 + 17_082_821 + 569_694_530;
 const SDK_SIZE = 1_599_938 + 117_726_124;
+/** audio.cpp v0.9.3 的 Windows 包：CUDA 版是程序包 + 运行库包，CPU 版一个包 */
+const AUDIOCPP_CUDA_SIZE = 277_336_614 + 575_457_454;
+const AUDIOCPP_CPU_SIZE = 30_547_092;
+const FISH_SIZE = 6_317_915_552;
 /** 原型的下载速度（字节 / 秒） */
 const SPEED = 6.4 * MB;
+const SPEECH_PORT = 8090;
 
 interface Sim {
   state: ComponentView["state"];
@@ -17,10 +24,16 @@ interface Sim {
   /** 正在下时：从什么时候、多少字节起算 */
   since?: number;
   base?: number;
+  /** 程序组件的运行状态 */
+  service?: ComponentServiceState;
 }
+
+/** 这台电脑有没有 N 卡（?demo-gpu=none 是没有） */
+const noGpu = (): boolean => demoParam("demo-gpu") === "none";
 
 /** 编的组件（字是守护进程按语言写好交来的那种，原型里只编中文的） */
 function base(): Omit<ComponentView, "state">[] {
+  const cuda = !noGpu();
   return [
     {
       id: "bge-m3",
@@ -55,21 +68,47 @@ function base(): Omit<ComponentView, "state">[] {
       cannotInstall: "这一版还不能从这里装：Python 和 faster-whisper 那部分（用 uv 装）还没接上",
     },
     {
-      id: "tts",
-      title: "语音合成",
-      summary: "你发语音时二狗用语音回你（audio.cpp，本机跑）。",
-      version: "1",
+      id: "audiocpp",
+      title: "语音合成程序 audio.cpp",
+      summary: "语音回复要用的本机服务（开源的 audio.cpp）。模型是单独一个组件，装模型时会先装它。",
+      version: "0.9.3",
       default: "ask",
       defaultText: "问了再装",
       wanted: false,
-      variant: { id: "cuda", title: "CUDA 版", reason: "这台电脑有 N 卡" },
-      size: 0,
-      enables: [{ id: "voice.reply", title: "用语音回复" }],
+      variant: cuda ? { id: "cuda", title: "CUDA 版", reason: "这台电脑有 N 卡" } : { id: "cpu", title: "CPU 版", reason: "这台电脑没找到 N 卡" },
+      size: cuda ? AUDIOCPP_CUDA_SIZE : AUDIOCPP_CPU_SIZE,
+      enables: [],
       dependsOn: [],
-      sources: [],
+      sources: ["GitHub"],
+      location: "C:\\Users\\me\\.ergo\\components\\audiocpp",
+      license: { name: "Apache-2.0", summary: "开源，可以免费使用", url: "https://github.com/0xShug0/audio.cpp/blob/v0.9.3/LICENSE", confirm: false, accepted: true },
+      providedBy: `已有自己配的语音合成，在用它（http://127.0.0.1:${SPEECH_PORT}）`,
+    },
+    {
+      id: "tts",
+      title: "语音合成模型 Fish S2 Pro",
+      summary: "你发语音时二狗用语音回你（模型在本机跑，从上游下载，二狗不打包）。",
+      version: "874fcb41",
+      default: "ask",
+      defaultText: "问了再装",
+      wanted: false,
+      variant: { id: "q8", title: "q8 量化版" },
+      size: FISH_SIZE,
+      enables: [{ id: "voice.reply", title: "用语音回复" }],
+      dependsOn: ["audiocpp"],
+      sources: ["Hugging Face", "hf-mirror"],
       location: "C:\\Users\\me\\.ergo\\components\\tts",
-      providedBy: "用的是配置里的合成服务（http://127.0.0.1:8090）",
-      cannotInstall: "这一版还不能从这里装：audio.cpp 的程序和模型还没接上",
+      recommended: true,
+      ...(cuda ? {} : { note: "这台电脑没有 NVIDIA 显卡：也能用，但没有显卡会很慢" }),
+      license: {
+        name: "Fish Audio Research License",
+        summary: "个人非商业免费；商业使用要另外向 Fish Audio 取得授权",
+        url: "https://huggingface.co/fishaudio/s2-pro/blob/main/LICENSE.md",
+        confirm: true,
+        accepted: false,
+        attribution: "Built with Fish Audio",
+      },
+      providedBy: `已有自己配的语音合成，在用它（http://127.0.0.1:${SPEECH_PORT}）`,
     },
     {
       id: "claude-code",
@@ -90,11 +129,36 @@ function base(): Omit<ComponentView, "state">[] {
   ];
 }
 
+/** 语音合成那两个组件一开始的样子 */
+function speechStart(): { audiocpp: Sim; tts: Sim } {
+  const scene = demoParam("demo-tts") ?? (demoParam("demo-components-missing") === null ? "manual" : "missing");
+  switch (scene) {
+    case "installing":
+      return { audiocpp: { state: "installed", done: 0, service: "idle" }, tts: { state: "downloading", done: Math.round(FISH_SIZE * 0.38), since: Date.now(), base: Math.round(FISH_SIZE * 0.38) } };
+    case "running":
+    case "runtime-missing":
+      return { audiocpp: { state: "installed", done: 0, service: "running" }, tts: { state: "installed", done: 0 } };
+    case "stopped":
+      return { audiocpp: { state: "installed", done: 0, service: "stopped" }, tts: { state: "installed", done: 0 } };
+    case "failed":
+      return { audiocpp: { state: "installed", done: 0, service: "failed" }, tts: { state: "installed", done: 0 } };
+    case "missing":
+      return { audiocpp: { state: "missing", done: 0 }, tts: { state: "missing", done: 0 } };
+    case "download-failed":
+      return { audiocpp: { state: "failed", done: 0 }, tts: { state: "failed", done: 0 } };
+    default:
+      return { audiocpp: { state: "provided", done: 0 }, tts: { state: "provided", done: 0 } };
+  }
+}
+
 export class FakeComponents {
+  private licenseAccepted = false;
+
   private readonly sims = new Map<string, Sim>([
     ["bge-m3", { state: "downloading", done: Math.round(BGE_SIZE * 0.38), since: Date.now(), base: Math.round(BGE_SIZE * 0.38) }],
     ["asr", { state: demoParam("demo-components-missing") === null ? "provided" : "missing", done: 0 }],
-    ["tts", { state: demoParam("demo-components-missing") === null ? "provided" : "missing", done: 0 }],
+    ["audiocpp", speechStart().audiocpp],
+    ["tts", speechStart().tts],
     ["claude-code", { state: "installed", done: 0 }],
   ]);
 
@@ -103,7 +167,10 @@ export class FakeComponents {
       if (sim.state !== "downloading" || sim.since === undefined) continue;
       const size = base().find((c) => c.id === id)!.size;
       sim.done = Math.min(size, (sim.base ?? 0) + Math.round(((Date.now() - sim.since) / 1000) * SPEED));
-      if (sim.done >= size) this.sims.set(id, { state: "installed", done: 0 });
+      if (sim.done < size) continue;
+      this.sims.set(id, { state: "installed", done: 0, ...(id === "audiocpp" ? { service: "idle" as const } : {}) });
+      // 模型下好了：服务接上
+      if (id === "tts") this.sims.set("audiocpp", { state: "installed", done: 0, service: "running" });
     }
   }
 
@@ -113,12 +180,41 @@ export class FakeComponents {
       const sim = this.sims.get(c.id)!;
       const installed = sim.state === "installed";
       const downloading = sim.state === "downloading";
-      const { providedBy, ...rest } = c;
+      const { providedBy, cannotInstall, license, ...rest } = c;
+      const manual = sim.state === "provided" && (c.id === "audiocpp" || c.id === "tts");
       return {
         ...rest,
         ...(sim.state === "provided" && providedBy ? { providedBy } : {}),
+        ...(cannotInstall ? { cannotInstall } : manual ? { cannotInstall: "要改用这里装的，先撤掉自己配的（服务管家里的登记、配置里的 voice.speech.url）" } : {}),
+        ...(license ? { license: { ...license, accepted: license.accepted || this.licenseAccepted || installed } } : {}),
         state: sim.state,
         ...(installed ? { installedVersion: c.version, diskSize: c.id === "claude-code" ? 266_028_594 : c.size } : {}),
+        ...(sim.service
+          ? {
+              service: {
+                state: sim.service,
+                port: SPEECH_PORT,
+                autostart: sim.service === "running" || sim.service === "stopped",
+                ...(sim.service === "idle" ? { note: "还没有模型：装上语音合成模型后自动启动" } : {}),
+                ...(demoParam("demo-tts") === "runtime-missing"
+                  ? { warning: "CUDA 运行库不全：C:\\Users\\me\\.ergo\\components\\audiocpp\\bin 里没有 cublas64_*.dll和cublasLt64_*.dll，语音合成可能起不来或者一用就报错。运行库包要和程序放在一起：删掉这个组件重新装，或者把 audio-v0.9.3-cudart-windows-x64-cuda13.3.zip 解到这个目录。" }
+                  : {}),
+                ...(sim.service === "failed" ? { error: `语音合成服务没接上（启动这一步：端口 ${SPEECH_PORT} 已被 node.exe (1234) 占着）。这次的登记和生成的配置都撤掉了，程序和模型留着，点重试不用重新下载。` } : {}),
+              },
+            }
+          : {}),
+        ...(sim.state === "failed" && c.id === "audiocpp"
+          ? {
+              error: "下不下来（GitHub：连不上）。下好的部分留着，点重试接着下",
+              manualDownload: (noGpu() ? ["audio-v0.9.3-bin-windows-x64-cpu.zip"] : ["audio-v0.9.3-bin-windows-x64-cuda13.3.zip", "audio-v0.9.3-cudart-windows-x64-cuda13.3.zip"]).map((name) => ({
+                name,
+                size: name.includes("cudart") ? 575_457_454 : name.includes("cpu") ? AUDIOCPP_CPU_SIZE : 277_336_614,
+                links: [{ title: "GitHub", url: `https://github.com/0xShug0/audio.cpp/releases/download/v0.9.3/${name}` }],
+              })),
+            }
+          : sim.state === "failed" && c.id === "tts"
+            ? { error: "要先装好语音合成程序 audio.cpp" }
+            : {}),
         ...(downloading || sim.state === "paused"
           ? {
               progress: {
@@ -143,7 +239,7 @@ export class FakeComponents {
     return Promise.resolve(this.build());
   }
 
-  act(id: string, action: ComponentAction): Promise<ComponentsView> {
+  act(id: string, action: ComponentAction, extra?: { licenseAccepted?: boolean }): Promise<ComponentsView> {
     this.tick();
     const sim = this.sims.get(id);
     if (!sim) return Promise.reject(new Error(`没有这个组件：${id}`));
@@ -152,6 +248,8 @@ export class FakeComponents {
       case "install":
       case "update":
       case "resume":
+        if (id === "tts" && !this.licenseAccepted && extra?.licenseAccepted !== true && sim.state !== "installed") return Promise.reject(new Error("要先确认许可才能下载"));
+        if (id === "tts") this.licenseAccepted = true;
         if (sim.state === "missing" || sim.state === "paused" || sim.state === "failed" || sim.state === "update" || sim.state === "provided") start();
         break;
       case "pause":
@@ -161,7 +259,14 @@ export class FakeComponents {
         if (sim.state === "downloading" || sim.state === "paused" || sim.state === "failed") this.sims.set(id, { state: "missing", done: 0 });
         break;
       case "remove":
-        this.sims.set(id, { state: (id === "asr" || id === "tts") && demoParam("demo-components-missing") === null ? "provided" : "missing", done: 0 });
+        this.sims.set(id, { state: id === "asr" && demoParam("demo-components-missing") === null ? "provided" : "missing", done: 0 });
+        if (id === "tts") this.sims.set("audiocpp", { state: "installed", done: 0, service: "idle" });
+        break;
+      case "start":
+        if (sim.service) this.sims.set(id, { ...sim, service: "running" });
+        break;
+      case "stop":
+        if (sim.service) this.sims.set(id, { ...sim, service: "stopped" });
         break;
     }
     return new Promise((resolve) => setTimeout(() => resolve(this.build()), 200));

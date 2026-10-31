@@ -568,6 +568,60 @@ describe("uninstall", () => {
 });
 
 describe("components（二狗本机端口上的组件接口的终端前端）", () => {
+  it("要确认许可的组件（345 号票）：不加 --accept-license 打出许可、不下载；加了带上确认标记", async () => {
+    const component = (state: string, accepted: boolean) => ({
+      id: "tts",
+      title: "Speech model",
+      summary: "",
+      version: "1",
+      state,
+      default: "ask",
+      defaultText: "ask",
+      wanted: false,
+      size: 1,
+      enables: [],
+      dependsOn: [],
+      sources: [],
+      location: "x",
+      license: { name: "Fish Audio Research License", summary: "Non-commercial only", url: "https://example.test/license", confirm: true, accepted },
+    });
+    const view = (state: string, accepted: boolean) => ({ components: [component(state, accepted)], features: [], manifest: { release: "0.3.0", signed: true }, defaultsMissing: [] });
+    const requests: string[] = [];
+    const server = http.createServer((req, res) => {
+      let body = "";
+      req.on("data", (d: Buffer) => (body += d.toString()));
+      req.on("end", () => {
+        requests.push(`${req.method} ${body}`);
+        res.setHeader("content-type", "application/json");
+        if (req.method === "GET") {
+          res.end(JSON.stringify(view("missing", false)));
+          return;
+        }
+        if (!body.includes("licenseAccepted")) {
+          res.statusCode = 400;
+          res.end(JSON.stringify({ code: "not_allowed", message: "confirm first" }));
+          return;
+        }
+        res.end(JSON.stringify(view("installed", true)));
+      });
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    try {
+      const port = (server.address() as net.AddressInfo).port;
+      const t = await installedCli();
+      fs.mkdirSync(path.join(t.ctx.dataDir, "config"), { recursive: true });
+      fs.writeFileSync(path.join(t.ctx.dataDir, "config", "ergo.json"), JSON.stringify({ ports: { local: port, external: port + 1 } }));
+      expect(await t.run("components", "add", "tts")).toBe(1);
+      expect(t.err.at(-1)).toContain("Fish Audio Research License");
+      expect(t.err.at(-1)).toContain("https://example.test/license");
+      expect(t.err.at(-1)).toContain("--accept-license");
+      expect(await t.run("components", "add", "tts", "--accept-license")).toBe(0);
+      expect(requests.at(-1)).toBe('POST {"action":"install","licenseAccepted":true}');
+    } finally {
+      server.close();
+    }
+  });
+
   it("列出、装（等它装好）、导入；二狗没在跑说一句先 ergo start", async () => {
     const view = (state: string, done?: number) => ({
       components: [

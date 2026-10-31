@@ -8,7 +8,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
-import { actionText, ComponentList, componentActions, componentLines, etaText, importText, progressText } from "../../src/pages/more/ComponentsPage.tsx";
+import { actionText, ComponentList, componentActions, componentLines, etaText, importText, LicenseConfirm, licenseSizeText, progressText } from "../../src/pages/more/ComponentsPage.tsx";
 import { type ComponentsView, type ComponentView, missingComponentFor } from "../../src/state/index.ts";
 
 vi.mock("../../src/app/build-info.ts", () => ({ APP_VERSION: "0.0.0-test", CHANGELOG: "", PAGE_WEB_VERSION: undefined }));
@@ -46,6 +46,111 @@ function view(components: ComponentView[]): ComponentsView {
 
 const render = (components: ComponentView[], over: { busy?: string; focused?: string } = {}) =>
   renderToStaticMarkup(createElement(ComponentList, { view: view(components), busy: over.busy, focused: over.focused, onAct: noop }));
+
+describe("语音合成（345 号票）", () => {
+  const fish = (extra: Partial<ComponentView> = {}) =>
+    component({
+      id: "tts",
+      title: "语音合成模型 Fish S2 Pro",
+      default: "ask",
+      wanted: false,
+      size: 6_317_915_552,
+      dependsOn: ["audiocpp"],
+      recommended: true,
+      license: { name: "Fish Audio Research License", summary: "个人非商业免费；商业使用要另外向 Fish Audio 取得授权", url: "https://huggingface.co/fishaudio/s2-pro/blob/main/LICENSE.md", confirm: true, accepted: false, attribution: "Built with Fish Audio" },
+      ...extra,
+    });
+  const program = (extra: Partial<ComponentView> = {}) => component({ id: "audiocpp", title: "语音合成程序 audio.cpp", default: "ask", wanted: false, size: 852_794_068, state: "installed", ...extra });
+
+  test("模型这一行：推荐、许可名字带链接、那一句话、Built with Fish Audio；没有显卡时写明", () => {
+    const html = render([fish({ note: "这台电脑没有 NVIDIA 显卡：也能用，但没有显卡会很慢" })]);
+    expect(html).toContain(">推荐<");
+    expect(html).toContain('href="https://huggingface.co/fishaudio/s2-pro/blob/main/LICENSE.md"');
+    expect(html).toContain("Fish Audio Research License");
+    expect(html).toContain("个人非商业免费；商业使用要另外向 Fish Audio 取得授权");
+    expect(html).toContain('class="component-attribution">Built with Fish Audio<');
+    expect(html).toContain("没有显卡会很慢");
+    expect(html).toContain(">安装</button>");
+  });
+
+  test("程序：端口、开机自启、运行状态的小签；运行中有停止，没在运行有启动，没起来写原因、按钮是重试；启动中、还接不上没有启动", () => {
+    const running = program({ service: { state: "running", port: 8090, autostart: true } });
+    expect(componentLines(running, [running]).find((l) => l.key === "service")?.value).toBe("127.0.0.1:8090 · 开机自启");
+    expect(componentActions(running)).toEqual(["stop", "remove"]);
+    const runningHtml = render([running]);
+    expect(runningHtml).toContain(">运行中<");
+    expect(runningHtml).toContain(">停止</button>");
+    expect(runningHtml).toMatch(/class="btn ghost small"[^>]*>停止/);
+
+    const stopped = program({ service: { state: "stopped", port: 8090, autostart: true } });
+    expect(componentActions(stopped)).toEqual(["start", "remove"]);
+    expect(render([stopped])).toContain(">没在运行<");
+    expect(render([stopped])).toContain(">启动</button>");
+
+    const failed = program({ service: { state: "failed", port: 8090, autostart: false, error: "语音合成服务没接上（启动这一步：端口被占）" } });
+    expect(componentActions(failed)).toEqual(["start", "remove"]);
+    expect(actionText(failed, "start")).toBe("重试");
+    const failedHtml = render([failed]);
+    expect(failedHtml).toContain('class="field-error">语音合成服务没接上（启动这一步：端口被占）<');
+    expect(failedHtml).toContain(">没起来<");
+
+    expect(componentActions(program({ service: { state: "starting", port: 8090, autostart: false } }))).toEqual(["remove"]);
+    const idle = program({ service: { state: "idle", port: 8090, autostart: false, note: "还没有模型：装上语音合成模型后自动启动" } });
+    expect(componentActions(idle)).toEqual(["remove"]);
+    expect(render([idle])).toContain("还没有模型");
+    expect(componentActions(program({ state: "update", service: { state: "running", port: 8090, autostart: true } }))).toEqual(["update", "stop", "remove"]);
+  });
+
+  test("CUDA 运行库不全：在跑也写出来", () => {
+    const html = render([program({ service: { state: "running", port: 8090, autostart: true, warning: "CUDA 运行库不全：C:\\x 里没有 cublas64_*.dll" } })]);
+    expect(html).toContain(">运行中<");
+    expect(html).toContain('class="field-error">CUDA 运行库不全：C:\\x 里没有 cublas64_*.dll<');
+  });
+
+  test("下载失败：列出还差的文件和下载地址、手动导入的办法；导入按钮打开现有的导入", () => {
+    const failed = program({
+      state: "failed",
+      error: "下不下来（连不上）",
+      manualDownload: [
+        { name: "audio-v0.9.3-bin-windows-x64-cuda13.3.zip", size: 277_336_614, links: [{ title: "GitHub", url: "https://github.com/0xShug0/audio.cpp/releases/download/v0.9.3/audio-v0.9.3-bin-windows-x64-cuda13.3.zip" }] },
+        { name: "audio-v0.9.3-cudart-windows-x64-cuda13.3.zip", size: 575_457_454, links: [{ title: "GitHub", url: "https://github.com/0xShug0/audio.cpp/releases/download/v0.9.3/audio-v0.9.3-cudart-windows-x64-cuda13.3.zip" }] },
+      ],
+    });
+    const html = renderToStaticMarkup(createElement(ComponentList, { view: view([failed]), busy: undefined, focused: undefined, onAct: noop, onImport: noop }));
+    expect(html).toContain('href="https://github.com/0xShug0/audio.cpp/releases/download/v0.9.3/audio-v0.9.3-bin-windows-x64-cuda13.3.zip"');
+    expect(html).toContain('href="https://github.com/0xShug0/audio.cpp/releases/download/v0.9.3/audio-v0.9.3-cudart-windows-x64-cuda13.3.zip"');
+    expect(html).toContain("audio-v0.9.3-bin-windows-x64-cuda13.3.zip（264.5 MB）");
+    expect(html).toContain("从文件导入…");
+    expect(html).toContain("校验对得上就装上");
+    expect(render([program()])).not.toContain("component-manual");
+  });
+
+  test("已有自己配的：写在用它，没有安装按钮", () => {
+    const manual = fish({ state: "provided", providedBy: "已有自己配的语音合成，在用它（http://127.0.0.1:8090）", cannotInstall: "要改用这里装的，先撤掉自己配的" });
+    expect(componentActions(manual)).toEqual([]);
+    const html = render([manual]);
+    expect(html).toContain("已有自己配的语音合成，在用它（http://127.0.0.1:8090）");
+    expect(html).toContain("要改用这里装的，先撤掉自己配的");
+    expect(html).not.toContain("<button");
+  });
+
+  test("确认框：名字、大小（6.3 GB，Windows 里的数字也写上）、许可、那一句话、原文链接；要先下的程序写明；同意才下载", () => {
+    const c = fish();
+    const needed = program({ state: "missing" });
+    const html = renderToStaticMarkup(createElement(LicenseConfirm, { component: c, all: [needed, c], onCancel: noop, onConfirm: noop }));
+    expect(html).toContain("语音合成模型 Fish S2 Pro");
+    expect(html).toContain("6.3 GB（Windows 里显示 5.88 GB）");
+    expect(html).toContain("Fish Audio Research License");
+    expect(html).toContain("个人非商业免费；商业使用要另外向 Fish Audio 取得授权");
+    expect(html).toContain('href="https://huggingface.co/fishaudio/s2-pro/blob/main/LICENSE.md"');
+    expect(html).toContain("看许可原文");
+    expect(html).toContain("还会先下载语音合成程序 audio.cpp（813.3 MB）");
+    expect(html).toContain(">同意并下载<");
+    const installedFirst = renderToStaticMarkup(createElement(LicenseConfirm, { component: c, all: [program(), c], onCancel: noop, onConfirm: noop }));
+    expect(installedFirst).not.toContain("还会先下载");
+    expect(licenseSizeText(586_779_294)).toBe("559.6 MB");
+  });
+});
 
 describe("一个组件一块", () => {
   test("没装：小签、一句话、几行（版本、大小、默认、哪一版、打开的功能、下载地址、装在哪）、照默认该装、安装按钮", () => {

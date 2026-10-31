@@ -4875,6 +4875,51 @@ a.att-icon:hover {
   font-size: var(--fs-s);
   color: var(--muted);
 }
+.component-license {
+  font-size: var(--fs-s);
+  line-height: 1.5;
+  color: var(--muted);
+}
+.component-license a,
+.component-license-confirm a {
+  color: var(--primary);
+}
+.component-attribution {
+  font-size: var(--fs-s);
+  font-weight: 600;
+}
+.component-manual {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: var(--radius-m);
+  border: 1px solid var(--border);
+  font-size: var(--fs-s);
+  line-height: 1.5;
+  min-width: 0;
+}
+.component-manual ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.component-manual li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  overflow-wrap: anywhere;
+}
+.component-manual a {
+  color: var(--primary);
+}
+.component-license-confirm .component-lines {
+  font-size: var(--fs-m);
+  margin-bottom: 10px;
+}
+.component-license-summary {
+  font-weight: 600;
+}
 .component-actions {
   display: flex;
   gap: 8px;

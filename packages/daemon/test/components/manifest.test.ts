@@ -9,13 +9,14 @@ const byId = (id: string) => manifest.components.find((c) => c.id === id)!;
 
 describe("随程序发布的清单", () => {
   test("读得进来；没签名（发布钥匙的签名由 318 号票发版时加）", () => {
-    expect(manifest.components.map((c) => c.id)).toEqual(["bge-m3", "asr", "tts", "claude-code"]);
+    expect(manifest.components.map((c) => c.id)).toEqual(["bge-m3", "asr", "audiocpp", "tts", "claude-code"]);
     expect(signed).toBe(false);
   });
 
   test("默认写在数据里：向量模型默认装，语音问了再装，Claude Code 检测到才装", () => {
     expect(byId("bge-m3").default).toBe("install");
     expect(byId("asr").default).toBe("ask");
+    expect(byId("audiocpp").default).toBe("ask");
     expect(byId("tts").default).toBe("ask");
     expect(byId("claude-code")).toMatchObject({ default: "detected", detect: "on-path:claude", provided: "node-package:@anthropic-ai/claude-agent-sdk" });
   });
@@ -29,6 +30,49 @@ describe("随程序发布的清单", () => {
     expect(c.sources?.map((s) => s.title)).toEqual(["Hugging Face", "hf-mirror", "ModelScope"]);
     const files = variantFiles(c.variants[0]!).map(({ file }) => file);
     expect(files).toEqual(BGE_M3.files.map((f) => ({ path: f.path, size: f.size, ...(f.sha256 ? { sha256: f.sha256 } : {}) })));
+  });
+
+  test("语音合成（345 号票）：程序和模型分开，模型依赖程序；按 N 卡挑包；CUDA 版带运行库包；固定版本、大小、校验值", () => {
+    const program = byId("audiocpp");
+    const model = byId("tts");
+    expect(model.dependsOn).toEqual(["audiocpp"]);
+    expect(model.enables).toEqual(["voice.reply"]);
+    expect(program.enables).toEqual([]);
+    expect(program.provided).toBe("voice-speech");
+    expect(model.provided).toBe("voice-speech");
+    expect(program.service).toEqual({ name: "audiocpp", program: "audiocpp_server.exe", port: 8090, health: "/health" });
+
+    const cuda = pickVariant(program, { platform: "win32", arch: "x64", gpu: "nvidia" })!;
+    const cpu = pickVariant(program, { platform: "win32", arch: "x64", gpu: "none" })!;
+    expect(cuda.id).toBe("cuda");
+    expect(cpu.id).toBe("cpu");
+    expect(pickVariant(program, { platform: "linux", arch: "x64", gpu: "nvidia" })).toBeUndefined();
+    expect(variantFiles(cuda).map(({ file }) => [file.path, file.size, file.sha256])).toEqual([
+      ["audio-v0.9.3-bin-windows-x64-cuda13.3.zip", 277_336_614, "0bd3988be10c31ec078c40df2bd0d4266e660804f6d5083aeb05d1309d091e43"],
+      ["audio-v0.9.3-cudart-windows-x64-cuda13.3.zip", 575_457_454, "839eb20f684a8aab64895b1e466b32ce9b29dfc19dc1ce15b2ef35218512ac0a"],
+    ]);
+    // 运行库放到程序旁边，程序在包里第几层不写死（新版包的结构没实际核对过）
+    expect(variantFiles(cuda).map(({ file }) => file.extract)).toMatchObject([{ format: "zip", to: "bin" }, { format: "zip", to: "bin", beside: "audiocpp_server.exe" }]);
+    expect(cuda.expects).toEqual(["cudart64_*.dll", "cublas64_*.dll", "cublasLt64_*.dll", "cufft64_*.dll"]);
+    expect(cpu.expects).toBeUndefined();
+    // 程序只从上游 GitHub Release 下：不做镜像
+    expect(program.sources?.map((s) => s.url)).toEqual(["https://github.com/0xShug0/audio.cpp/releases/download/v0.9.3/{path}"]);
+    expect(variantFiles(cpu).map(({ file }) => [file.path, file.size, file.sha256])).toEqual([["audio-v0.9.3-bin-windows-x64-cpu.zip", 30_547_092, "3ac66f46395b4e92e4f3bb68b200f0032310bd9922f12d97f10ccdadb02dee4b"]]);
+    expect(fileSources(program, cuda.parts[0]!, variantFiles(cuda)[0]!.file)[0]?.url).toBe("https://github.com/0xShug0/audio.cpp/releases/download/v0.9.3/audio-v0.9.3-bin-windows-x64-cuda13.3.zip");
+
+    // 模型：不打包不镜像，只从上游（Hugging Face 和它的公共代理）拉，地址钉死到提交
+    const [file] = variantFiles(model.variants[0]!);
+    expect(file?.file).toEqual({ path: "Fish-Audio-S2-Pro-GGUF/fish-audio-s2-pro-q8_0.gguf", size: 6_317_915_552, sha256: "4f051347079cfb61f9ef2996f67057229e486fefce31374721b5690940dfc34a" });
+    expect(model.serve).toEqual({ host: "audiocpp", id: "tts", family: "fish_audio", task: "tts", mode: "offline", file: "Fish-Audio-S2-Pro-GGUF/fish-audio-s2-pro-q8_0.gguf" });
+    expect(model.sources?.map((s) => s.url)).toEqual([
+      "https://huggingface.co/audio-cpp/audio.cpp-gguf/resolve/874fcb41ececda20bcbc0782d6b4ea7f7d069ea8/{path}",
+      "https://hf-mirror.com/audio-cpp/audio.cpp-gguf/resolve/874fcb41ececda20bcbc0782d6b4ea7f7d069ea8/{path}",
+    ]);
+    expect(model.version).toBe("874fcb41");
+    expect(model.recommended).toBe(true);
+    expect(model.slowWithoutGpu).toBe(true);
+    expect(model.license).toMatchObject({ name: "Fish Audio Research License", confirm: true, attribution: "Built with Fish Audio", url: "https://huggingface.co/fishaudio/s2-pro/blob/main/LICENSE.md" });
+    expect(program.license).toMatchObject({ name: "Apache-2.0", confirm: false });
   });
 
   test("Claude Code 接入的 SDK 和守护进程依赖的是同一个版本", () => {

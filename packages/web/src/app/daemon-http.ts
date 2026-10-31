@@ -220,7 +220,7 @@ export interface DaemonHttp {
   /** 设置 · 组件（323 号票）：清单里的全部组件现在的样子（装了没有、大小、版本、下载进度）；每次打开、正在下时每秒现取 */
   components(): Promise<ComponentsView>;
   /** 装、更新、删、暂停、继续、取消一个组件（下载在守护进程的后台做，马上回）；做不了的抛错（message 是原因） */
-  componentAction(id: string, action: ComponentAction): Promise<ComponentsView>;
+  componentAction(id: string, action: ComponentAction, extra?: { licenseAccepted?: boolean }): Promise<ComponentsView>;
   /** 装上照默认该装、还没装的 */
   installDefaultComponents(): Promise<ComponentsView>;
   /** 离线导入守护进程那台电脑上的一个文件、文件夹或 .tar / .tgz 包（按清单里的大小和校验值认）；路径不在、包坏了抛错 */
@@ -652,8 +652,8 @@ export class HttpDaemonClient implements DaemonHttp {
     return this.json<ComponentsView>(await fetch(`${this.baseUrl}${HTTP_PATHS.components}`, { cache: "no-store" }));
   }
 
-  componentAction(id: string, action: ComponentAction): Promise<ComponentsView> {
-    return this.post<ComponentsView>(HTTP_PATHS.component(id), { action });
+  componentAction(id: string, action: ComponentAction, extra?: { licenseAccepted?: boolean }): Promise<ComponentsView> {
+    return this.post<ComponentsView>(HTTP_PATHS.component(id), { action, ...extra });
   }
 
   installDefaultComponents(): Promise<ComponentsView> {

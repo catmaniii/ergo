@@ -46,7 +46,7 @@ ergo never starts long-running services itself; the supervisor hosts them. They 
 |---|---|---|
 | Git for Windows | Agents can run bash commands (used a lot in tasks); install from source | [Install from source](install.en.md#install-from-source) |
 | Python + faster-whisper, ideally an NVIDIA GPU | Push-to-talk, recognized locally | [8.1](#81-push-to-talk-local-speech-recognition) |
-| The audio.cpp TTS service | ergo answers with voice | [8.2](#82-voice-replies-local-speech-synthesis) |
+| Speech synthesis (installed under **Settings · Components**) | ergo answers with voice | [8.2](#82-voice-replies-local-speech-synthesis) |
 | Chrome or Edge | Agents can search the web and read pages | [8.4](#84-web-search-and-reading-pages) |
 | Tailscale, or a VPS | Use ergo from your phone or tablet away from home | [Section 6](#6-access-from-outside-phone-tablet) |
 | Claude Code, signed in on this PC | Project and task owners can work through your own Claude Code subscription | [8.6](#86-claude-code) |
@@ -303,12 +303,27 @@ The app's final bundle name is `com.catmaniii.ergo` (decided 2026-10-30; `app.js
 
 You can also let the supervisor host recognition as a separate service (`deploy\lsm\ergo-asr.example.yaml`, with `voice.recognizer.mode` set to `"lsm"`), so it restarts independently of ergo.
 
-Neither voice piece (the Python part for recognition, audio.cpp for synthesis) has a one-click install yet; set them up by hand as above and in [8.2](#82-voice-replies-local-speech-synthesis). They will move into **Settings · Components** later.
+The Python part for recognition has no one-click install yet; set it up by hand as above. It will move into **Settings · Components** later. Speech synthesis can already be installed from the Components page; see [8.2](#82-voice-replies-local-speech-synthesis).
 
 ### 8.2 Voice replies (local speech synthesis)
 
-- ergo synthesizes speech with a local [audio.cpp](https://github.com/0xShug0/audio.cpp) service (a third-party open-source TTS server, optional), also hosted by the supervisor under the id `audiocpp` at `127.0.0.1:8090`.
-- Put the service's model id in `voice.speech.model` in `ergo.json`; choose the reference voice under **Settings · Roles & voices**.
+ergo synthesizes speech with a local [audio.cpp](https://github.com/0xShug0/audio.cpp) service (a third-party open-source TTS server, optional) at `127.0.0.1:8090`, hosted by the supervisor. Choose the reference voice under **Settings · Roles & voices**.
+
+**Install from the Components page**: **Settings · Components** has two rows, "Speech program audio.cpp" and "Speech model Fish S2 Pro", marked Recommended.
+
+1. Click Install on the model row. A confirmation comes first: the model's name, its size (6.3 GB, shown as 5.88 GB in Windows), the license (Fish Audio Research License: **free for personal, non-commercial use; commercial use needs separate authorization from Fish Audio**) and a link to the full text. Nothing downloads until you agree, and it won't ask again. On the command line: `ergo components add tts --accept-license`.
+2. The program downloads first: the CUDA build with an NVIDIA GPU (a program package and a runtime package, about 853 MB; needs NVIDIA driver 580 or newer, and older cards such as the GTX 10 series can't use it), or the CPU build without one (about 31 MB; it works, but it is very slow without a GPU). Both come from upstream (GitHub, Hugging Face); ergo does not bundle this model.
+3. Then it connects by itself: it generates the config (local only, port 8090), registers with the supervisor, starts, checks health and joins the start-at-boot list. In the supervisor it is called `ergo-daemon--audiocpp`.
+4. The program row shows the running state, version and port, and can start, stop and update. To uninstall, remove the model first, then the program; the registration and start-at-boot entry go with them.
+5. If a step fails, the row says which step and why, this attempt's registration and generated config are removed, and the program and model stay, so Retry does not download them again. A release package without `audiocpp_server.exe`, or an incomplete CUDA runtime, is reported too.
+
+**If the download fails or is too slow** (GitHub can be slow or blocked in some regions): the row lists the files still needed and their download links. Get them with your browser or a download tool, then click "Import from file…" and enter the file or folder path (on the command line, `ergo components import <file>`). Once they match the checksums they are installed. The CUDA build needs both packages.
+
+Two things to note: ergo must have been started by the supervisor (`ergo start` does that) for this to connect; and the data directory's path must not contain non-English characters, because audio.cpp can't read it (move the data directory to a plain English path, then install).
+
+**Your own setup is never overwritten**: if `voice.speech.url` in the config points elsewhere, something is already on port 8090, or port 8090 is already registered to another supervisor service, the Components page says "You already have your own speech service; using it", and it can't be installed from there. To switch to the one from here, remove your own first.
+
+**Manual setup (fallback)**: download audio.cpp and a model yourself, write a `server.json`, register a service on port 8090 with the supervisor (with the id `audiocpp`, say), then put the service's model id in `voice.speech.model` in `ergo.json`. Other models or another port (`voice.speech.url`) go this way too.
 - **A default reference voice ("Xiaoman") comes with the program**, so you hear a voice as soon as it's set up — no need to record and import your own first. On the first start, if the data directory's voices area has no reference voice at all, ergo installs it and makes it the one in use. It behaves like any voice you import: you can switch to another one, or delete it. Once deleted it isn't installed again by itself — to have a voice again, import your own recording (the built-in one is synthetic, not anyone's real voice: generated with FireRedTTS3, no human recording, 8.5 s).
 - Without it, voice replies fall back to text, with a note in the chat.
 

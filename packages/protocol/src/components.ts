@@ -4,7 +4,7 @@
 // 以后的 `ergo components` 命令（318 号票）都经同一套 HTTP 接口：
 // - GET /api/components：清单里的全部组件现在的样子（ComponentsView）；
 // - POST /api/components：装上照默认该装的（ComponentsActionBody，components-schema.ts）；
-// - POST /api/components/<id>：装、更新、删、暂停、继续、取消（ComponentActionBody）；
+// - POST /api/components/<id>：装、更新、删、暂停、继续、取消，常驻服务的启动、停止（ComponentActionBody；要确认许可的组件第一次下载要带 licenseAccepted）；
 // - POST /api/component-import：离线导入自己下好的文件（一个文件、一个文件夹、一个 .tar / .tgz 包；ComponentImportBody → ComponentImportResult）。
 // 给人看的字守护进程按当前语言写好。没装的组件对应的功能在界面上灰掉，点一下就去装（features）。
 // 不引用 TypeBox。
@@ -27,8 +27,8 @@ export type ComponentDefault = (typeof COMPONENT_DEFAULTS)[number];
 export const COMPONENT_PHASES = ["probing", "downloading", "verifying", "installing"] as const;
 export type ComponentPhase = (typeof COMPONENT_PHASES)[number];
 
-/** 对一个组件做的事 */
-export const COMPONENT_ACTIONS = ["install", "update", "remove", "pause", "resume", "cancel"] as const;
+/** 对一个组件做的事（start、stop 只对带常驻服务的组件：见 ComponentServiceView） */
+export const COMPONENT_ACTIONS = ["install", "update", "remove", "pause", "resume", "cancel", "start", "stop"] as const;
 export type ComponentAction = (typeof COMPONENT_ACTIONS)[number];
 
 /** 组件打开的功能（清单里 enables 写的 id）。界面上按它灰掉对应的入口 */
@@ -56,6 +56,42 @@ export interface ComponentProgress {
   etaSeconds?: number;
   /** 正从哪个下载地址下（给人看的名字） */
   source?: string;
+}
+
+/**
+ * 组件的许可（345 号票）：名字、一句话、原文链接。confirm 的组件第一次下载前要用户看到并确认（接口要带 licenseAccepted，
+ * 没带不开始下载；确认过的记在组件区，以后不再问）；attribution 是许可要求显著标注的那句（"Built with Fish Audio"），不翻译。
+ */
+export interface ComponentLicenseView {
+  name: string;
+  summary: string;
+  url: string;
+  confirm: boolean;
+  /** 确认过了 */
+  accepted: boolean;
+  attribution?: string;
+}
+
+/**
+ * 常驻服务现在怎样（345 号票；清单里写了 service 的程序组件才有）：
+ * idle 还接不上（还没有模型，或者已有用户自己配的服务）；starting 正在生成配置、登记、启动、等健康检查；
+ * running 在跑；stopped 没在运行；failed 没接上或者起不来（原因在 error，已经回滚）
+ */
+export const COMPONENT_SERVICE_STATES = ["idle", "starting", "running", "stopped", "failed"] as const;
+export type ComponentServiceState = (typeof COMPONENT_SERVICE_STATES)[number];
+
+export interface ComponentServiceView {
+  state: ComponentServiceState;
+  /** 只绑本机的这个端口 */
+  port: number;
+  /** 在服务管家的开机自启名单里 */
+  autostart: boolean;
+  /** failed 时：哪一步、什么原因 */
+  error?: string;
+  /** idle 时的说明（还没有模型、已有自己配的服务） */
+  note?: string;
+  /** 不挡启动、但要让人看见的问题（CUDA 运行库不全）：在跑也显示 */
+  warning?: string;
 }
 
 export interface ComponentFeatureView {
@@ -107,6 +143,25 @@ export interface ComponentView {
   error?: string;
   /** 还差哪些文件（离线导入了一部分时；给人看的文件名） */
   missingFiles?: string[];
+  /** 许可（清单里写了的才有） */
+  license?: ComponentLicenseView;
+  /** 清单里标了推荐 */
+  recommended?: boolean;
+  /** 这台电脑上要注意的一句话（没有 N 卡时"没有显卡会很慢"） */
+  note?: string;
+  /** 常驻服务现在怎样（程序组件装好了才有） */
+  service?: ComponentServiceView;
+  /** 下载失败、暂停着时：还差的文件和它们的下载地址，可以自己下好再从文件导入（345 号票：国内访问 GitHub 可能慢或不通） */
+  manualDownload?: ComponentManualFile[];
+}
+
+/** 可以手动下的一个文件 */
+export interface ComponentManualFile {
+  /** 文件名 */
+  name: string;
+  size: number;
+  /** 从哪下：给人看的名字和完整地址，按清单的先后 */
+  links: { title: string; url: string }[];
 }
 
 /** 一个功能现在能不能用：组件装好了或者别处有（ready），没有就灰掉、点一下去装那个组件 */
@@ -151,4 +206,9 @@ export function missingComponentFor(view: ComponentsView | undefined, feature: s
 /** 正在动的（排着、在下、在换上）：界面上这时每秒重取一次 */
 export function componentBusy(state: ComponentState): boolean {
   return state === "queued" || state === "downloading" || state === "installing";
+}
+
+/** 这个组件第一次下载前还要用户确认许可 */
+export function componentNeedsLicense(c: Pick<ComponentView, "license">): boolean {
+  return c.license?.confirm === true && !c.license.accepted;
 }
