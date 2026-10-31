@@ -30,5 +30,7 @@
   "dataSources.badPush": "What was sent to {title} isn't right: {message}",
   "dataSources.noStored": "{title} has nothing fetched to show",
   "dataSources.noLive": "{title} can't be checked live",
-  "dataSources.liveFailed": "{title} can't be checked right now"
+  "dataSources.liveFailed": "{title} can't be checked right now",
+  "dataSources.noDisconnectItem": "{title} can't disconnect just one item",
+  "dataSources.storedFromAccount": "{kind} · {account}"
 }

@@ -15,6 +15,7 @@
 //   写"日历插件没启用"，日历停了 Google 照常同步、按需查照常；
 // - 给秘书的"查 Google 日历""搜 Gmail 邮件""读 Gmail 邮件"由内核替数据源登记（按需查开着、插件在运行时才有），插件自己不经 ctx.agent
 //   登记工具；系统提示里不讲它们。
+// 344 号票：Gmail 可以连几个账号（gmail-accounts.ts），导入的素材写明是哪个账号的（origin.account）。
 // 测试里不连 Google：拉地址用注入的 fetch 或本机假服务（createGooglePlugin 的 fetch、timeoutMs），IMAP 连本机的假服务（imap：地址、端口、
 // 测试证书）。
 import { type CardEventPayload, CHANNELS, EVENT_TYPES, type EventType, PURGED_TEXT, t } from "@ergo/protocol";
@@ -79,14 +80,15 @@ export function createGooglePlugin(options: GooglePluginOptions = {}): PluginDef
         capture: (event) => {
           const p = event.payload as GoogleGmailSentPayload;
           if (!p.text) return [];
-          return [dataSourceMaterial(gmail, { kind: "own_writing", text: p.text, time: p.at, scene: { people: p.to }, sensitive: p.sensitive ?? [], recordId: p.id })];
+          const account = p.account !== undefined && p.accountLabel !== undefined ? { account: { id: p.account, label: p.accountLabel } } : {};
+          return [dataSourceMaterial(gmail, { kind: "own_writing", text: p.text, time: p.at, scene: { people: p.to }, sensitive: p.sensitive ?? [], recordId: p.id, ...account })];
         },
       });
-      // 主题、正文、收件人都是用户的数据，一起换掉
+      // 主题、正文、收件人都是用户的数据，一起换掉；打了码的邮箱去掉（账号的 id 推不回地址，留着）
       ctx.purge.register({
         eventType: GOOGLE_GMAIL_SENT,
         rewrite: (event) => {
-          const p = event.payload as GoogleGmailSentPayload;
+          const { accountLabel: _label, ...p } = event.payload as GoogleGmailSentPayload;
           return { ...p, subject: PURGED_TEXT, to: [], text: PURGED_TEXT } satisfies GoogleGmailSentPayload;
         },
       });

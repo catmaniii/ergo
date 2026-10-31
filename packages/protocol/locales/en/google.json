@@ -116,5 +116,22 @@
   "google.gmail.live.cut": "The message is long; only the first {shown} characters are shown (of {total}).",
   "google.gmail.live.partial": "The message is large; only the first 10 MB was read, so later text and attachments may be missing.",
   "google.gmail.live.attachments": "Attachments: {names}",
-  "google.gmail.live.fellBack": "This mailbox has no All Mail folder, so only the inbox was checked."
+  "google.gmail.live.fellBack": "This mailbox has no All Mail folder, so only the inbox was checked.",
+  "google.gmail.accountFailed": "{account}: {reason}",
+  "google.gmail.failedSep": "; ",
+  "google.gmail.allFailed": "All {n} accounts failed to sign in: see the reason under each account and enter a new app password",
+  "google.gmail.allOff": "All accounts are off: nothing is searched or imported until you turn one on",
+  "google.gmail.disconnectAllNote": "This disconnects all {n} accounts. To disconnect just one, click Disconnect next to that account.",
+  "google.gmail.itemDetail_one": "{state} · {n} message imported",
+  "google.gmail.itemDetail_other": "{state} · {n} messages imported",
+  "google.gmail.state.on": "Connected",
+  "google.gmail.state.off": "Off",
+  "google.gmail.state.auth": "Needs a new password",
+  "google.gmail.error.noSuchAccount": "No such account. Connected accounts: {accounts}",
+  "google.gmail.error.ambiguousAccount": "That matches more than one account; use the full address or the account number. Connected accounts: {accounts}",
+  "google.gmail.error.accountOff": "Account {account} is off: turn it on in Settings · Data sources to search it",
+  "google.gmail.error.accountGone": "This account has been disconnected",
+  "google.gmail.error.idNoAccount": "This message number doesn't say which account it's from: search again, then read it",
+  "google.gmail.live.scopeEach": "Latest {n} messages in All Mail of each account",
+  "google.gmail.accountWithId": "{account} ({id})"
 }

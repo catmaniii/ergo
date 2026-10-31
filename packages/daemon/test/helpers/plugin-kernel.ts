@@ -52,6 +52,10 @@ export interface PluginKernelOptions {
   services?: readonly ExtraService[];
   /** 假时钟的起点（默认 2026-10-24 09:00 本地时间） */
   at?: Date;
+  /** 用这个数据目录（测再起一次：事件、密钥区都接着用）；不给是新的临时目录。接着用的目录归第一次起的那条用例删 */
+  dataDir?: string;
+  /** 起来之前往数据目录里放东西（老配置的密钥区文件） */
+  seed?(layout: ReturnType<typeof dataDirLayout>): void;
 }
 
 /** 默认之外再绑上的一个内核服务：名字，和按假内核现建的值 */
@@ -66,8 +70,9 @@ export function extraService<T>(key: ServiceKey<T>, make: (kernel: { store: Even
 
 /** 起一套假内核、装上插件（用例结束时停宿主、关库、删临时目录） */
 export async function startPluginKernel(options: PluginKernelOptions) {
-  const dir = makeTempDir("ergo-plugin-kernel-");
+  const dir = options.dataDir ?? makeTempDir("ergo-plugin-kernel-");
   const layout = dataDirLayout(dir);
+  options.seed?.(layout);
   const clock = new ManualClock(options.at ?? new Date("2026-10-24T09:00:00+08:00"));
   const now = () => clockIso(clock);
   const logs: string[] = [];

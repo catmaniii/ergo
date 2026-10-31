@@ -23,9 +23,12 @@
 // 碰到 Key 失效记在内存里、下一次 status 报出错）；数据源自己也能登记断开时要说的一句（disconnectNote，没有连接状态的数据源用）。
 // 343 号票（数据源页的详情里看数据）加了两个可选的方法：stored（已获取的、不进素材的列出来：日历事件、手机记录；进素材的不用写，内核按素材的出处列）、
 // live（现查上游给人看：只读，不写事件、不进素材、不进记忆、不经过模型）；status 可以带 needsAuth（要用户去授权、重新填）。
-import type { CalendarExternalEntry, DataSourceDataItem, ReminderSchedule, TSchema } from "@ergo/protocol";
+// 344 号票（Gmail 多账号）加了：migrate（启动时把密钥区的老样子转成新样子）、disconnectItem（单独断开它下面的一样）、
+// DataSourceItem 的 count、off、removable，现查的 groups（按账号显示），素材的 origin.account（material.ts）。
+import type { CalendarExternalEntry, DataSourceDataItem, DataSourceLiveGroup, ReminderSchedule, TSchema } from "@ergo/protocol";
 import type { HostTool } from "../agent-manager/host-tools.ts";
 import type { SensitiveCategory } from "../config/config.ts";
+import type { StoredEvent } from "../events/event-store.ts";
 import type { IntervalSchedule } from "../scheduler/internal-jobs.ts";
 
 /**
@@ -51,13 +54,19 @@ export interface DataSourceContext {
   log(line: string): void;
 }
 
-/** 数据源下面的一样（297 号票：Google 日历订阅的几个日历）：给人看的名字、一句说明（去掉私钥的地址）、它自己出的错 */
+/** 数据源下面的一样（297 号票：Google 日历订阅的几个日历；344 号票：Gmail 的几个账号）：给人看的名字、一句说明（去掉私钥的地址、状态）、它自己出的错 */
 export interface DataSourceItem {
   /** 插件自己认的 id（网页插件在设置那一块里按它删掉这一样） */
   id: string;
   title: string;
   detail?: string;
   problem?: string;
+  /** 这一样导入了几条（344 号票：断开一个账号的确认框里说） */
+  count?: number;
+  /** 这一样关着（344 号票：Gmail 账号的开关） */
+  off?: true;
+  /** 能单独断开（344 号票：数据源给了 disconnectItem） */
+  removable?: true;
 }
 
 /**
@@ -190,12 +199,16 @@ export interface DataSourceLiveContext extends DataSourceContext {
   readonly signal: AbortSignal;
 }
 
-/** 现查的结果：scope 是查的是什么（给人看的一句），total 是上游一共几条（只列了一部分时），notes 是查到了、但有要说的（几个日历里有一个没拉到） */
+/**
+ * 现查的结果：scope 是查的是什么（给人看的一句），total 是上游一共几条（只列了一部分时），notes 是查到了、但有要说的（几个日历里有一个没拉到）；
+ * groups 是按几组显示（344 号票：Gmail 一个账号一组，一组查不到的原因写在它的 problem，内核把密钥换成 ***；名字不换，地址是给人看的）
+ */
 export interface DataSourceLiveAnswer {
   readonly items: readonly DataSourceDataItem[];
   readonly scope?: string;
   readonly total?: number;
   readonly notes?: readonly string[];
+  readonly groups?: readonly DataSourceLiveGroup[];
 }
 
 /** 数据源拥有的一类记录（事件）：不写频道是所有频道里的这一类 */
@@ -253,6 +266,17 @@ export interface DataSource {
   recheck?(ctx: DataSourceRecheckContext): Promise<void>;
   /** 断开时插件自己的清理（停掉它自己开的、purge 时删它自己存储里的原始数据）；密钥区那一格、它拥有的记录由内核删 */
   disconnect?(ctx: DataSourceContext & { readonly purge: boolean }): void | Promise<void>;
+  /**
+   * 单独断开它下面的一样（344 号票：Gmail 的一个账号）：插件只删这一样的密钥、清掉它记着的状态，交回哪些记录归这一样——选了"连已导入的一起删"时
+   * 内核只删 records 里归它的（素材跟着记录走），同步记录、别的几样不动。没有这一样抛错（原因给人看）。插件在运行时才叫
+   */
+  disconnectItem?(item: string, ctx: DataSourceContext): { owns(event: StoredEvent): boolean };
+  /**
+   * 启动时把密钥区里的老样子转成新样子（344 号票：Gmail 的两个键转成一组账号）：内核每次起来叫一次，插件没启用也叫（只动密钥区，不连网），
+   * 所以要能重复执行、转好了什么都不做。备份留在密钥区（这一格里），不放备份区。转不成抛错：内核记一条日志（密钥换成 ***）、照常起来，下次启动再试，
+   * 所以插件要能照老样子接着用
+   */
+  migrate?(ctx: DataSourceContext): void;
   /**
    * 按需查的工具（给秘书）：按需查开着、插件在运行、连着（306 号票：status() 报的最近一次已知的连接状态）时才给；关掉、没连上了以后
    * 正在跑的一轮里再调回"关着""没连上 / 出错了"

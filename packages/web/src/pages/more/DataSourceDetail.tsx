@@ -6,8 +6,10 @@
 //   原始数据（按天清）、导入文件夹（认文件的数据源才有）、断开（确认框）/ 删除已导入的；
 // - 数据：两个标签，这个数据源没有的那个不显示——
 //   已获取的（POST …/stored）：已经进到二狗的，一页一页取、新的在前；进素材的点开跳素材详情，不进素材的有正文的就地展开；
-//   现在能查到的（POST …/live）：切过来才现查，顶上写明"这是现查的，不会存进二狗"、有刷新按钮，查不到写原因；Gmail 列表只有发件人、主题、时间，点开一封才现取正文。
+//   现在能查到的（POST …/live）：切过来才现查，顶上写明"这是现查的，不会存进二狗"、有刷新按钮，查不到写原因；Gmail 列表只有发件人、主题、时间，点开一封才现取正文，
+//   按账号一组一组显示（344 号票：一个账号查不到写在它那一组）。
 //   手机来的数据源没有现查，写明数据由手机交来。
+// 344 号票：插件画的那一块里能断开下面的一样（Gmail 的一个账号）：确认框还是这一个，只动那一样。
 // 导入文件夹是共用的（#/more/data-sources/import_folder，一级页最后一张卡）：ImportFolderPage。
 // 几块纯渲染的（DataSourceStatusBlock、DataSourceSettingsBlock、StoredView、LiveView）测试在 Node 里直接渲染；
 // 走一级 → 点卡片 → 二级 → 返回见 page-opens.test.ts。
@@ -19,6 +21,7 @@ import {
   DATA_SOURCE_STORED_PAGE,
   type DataSourceActionBody,
   type DataSourceDataItem,
+  type DataSourceItemView,
   type DataSourceLiveResult,
   type DataSourcesView,
   type DataSourceStoredPage,
@@ -101,16 +104,20 @@ export interface DataSourceSettingsBlockProps {
   onView(view: DataSourcesView): void;
   onUsage(source: DataSourceView, usage: DataSourceUsage, on: boolean): void;
   onDisconnect(source: DataSourceView): void;
+  /** 断开它下面的一样（344 号票：Gmail 的一个账号）：插件画的那一块里点的，确认框在这个页面 */
+  onDisconnectItem?(source: DataSourceView, item: DataSourceItemView): void;
   /** 清掉几天的原始数据（300 号票）；不给的不画那一节 */
   onClearRaw?(source: DataSourceView, dates: string[]): void;
 }
 
 /** 设置一块：两种用法的开关、敏感内容、认的文件、插件画的那一块、原始数据、导入文件夹、断开 / 删除已导入的 */
-export function DataSourceSettingsBlock({ source: s, busy, panel, folder, onView, onUsage, onDisconnect, onClearRaw }: DataSourceSettingsBlockProps) {
+export function DataSourceSettingsBlock({ source: s, busy, panel, folder, onView, onUsage, onDisconnect, onDisconnectItem, onClearRaw }: DataSourceSettingsBlockProps) {
   const disabled = busy !== undefined;
   const sensitive = sensitiveLine(s);
   const canDisconnect = s.connection === "connected" || s.connection === "error";
   const canClear = s.connection === "manual" && s.count > 0;
+  // 下面的几样能单独断开（344）：这个按钮是全部断开，写明
+  const disconnectsAll = (s.items ?? []).filter((item) => item.removable).length > 1;
   const Panel = s.available ? panel?.Panel : undefined;
   return (
     <div className="source-row" data-block="settings">
@@ -141,7 +148,7 @@ export function DataSourceSettingsBlock({ source: s, busy, panel, folder, onView
       </ul>
       {Panel && (
         <div className="source-panel">
-          <Panel source={s} onView={onView} />
+          <Panel source={s} onView={onView} {...(onDisconnectItem ? { onDisconnectItem: (item: DataSourceItemView) => onDisconnectItem(s, item) } : {})} />
         </div>
       )}
       {onClearRaw && <RawDays source={s} busy={disabled} onClear={(dates) => onClearRaw(s, dates)} />}
@@ -155,7 +162,7 @@ export function DataSourceSettingsBlock({ source: s, busy, panel, folder, onView
         <div className="plugin-actions ds-danger-actions">
           {canDisconnect && (
             <button type="button" className="btn ghost small" disabled={disabled} onClick={() => onDisconnect(s)}>
-              {t("pages.dataSources.action.disconnect")}
+              {t(disconnectsAll ? "pages.dataSources.action.disconnectAll" : "pages.dataSources.action.disconnect")}
             </button>
           )}
           {canClear && (
@@ -388,21 +395,46 @@ export function LiveView({ result, loading, failed, opened, onRefresh, onFetch }
         <>
           <div className="muted ds-count">
             {result.scope === undefined ? t("pages.dataSources.data.liveAt", { when: when! }) : t("pages.dataSources.data.liveScopeAt", { scope: result.scope, when: when! })}
-            {result.total !== undefined && result.total > result.items.length && <> · {t("pages.dataSources.data.liveShown", { total: result.total, shown: result.items.length })}</>}
+            {result.groups === undefined && result.total !== undefined && result.total > result.items.length && <> · {t("pages.dataSources.data.liveShown", { total: result.total, shown: result.items.length })}</>}
           </div>
           {(result.notes ?? []).map((note) => (
             <div key={note} className="hint" data-live-note="">
               {note}
             </div>
           ))}
-          {result.items.length === 0 && <div className="muted ds-empty">{t("pages.dataSources.data.liveEmpty")}</div>}
-          {result.items.length > 0 && (
+          {result.groups === undefined && result.items.length === 0 && <div className="muted ds-empty">{t("pages.dataSources.data.liveEmpty")}</div>}
+          {result.groups === undefined && result.items.length > 0 && (
             <div className="prompt-rows">
               {result.items.map((item) => (
                 <DataItemRow key={item.id} item={item} opened={opened[item.id]} onFetch={onFetch} />
               ))}
             </div>
           )}
+          {(result.groups ?? []).map((group) => {
+            const items = result.items.filter((item) => item.group === group.id);
+            return (
+              <div key={group.id} className="ds-live-group" data-live-group={group.id}>
+                <div className="ds-live-group-head">
+                  <b>{group.title}</b>
+                  {group.total !== undefined && group.total > items.length && <span className="muted">{t("pages.dataSources.data.liveShown", { total: group.total, shown: items.length })}</span>}
+                </div>
+                {group.problem !== undefined && (
+                  <div className="field-error" role="alert">
+                    {t("pages.dataSources.data.liveFailed", { reason: group.problem })}
+                  </div>
+                )}
+                {group.note !== undefined && <div className="hint">{group.note}</div>}
+                {group.problem === undefined && items.length === 0 && <div className="muted ds-empty">{t("pages.dataSources.data.liveEmpty")}</div>}
+                {items.length > 0 && (
+                  <div className="prompt-rows">
+                    {items.map((item) => (
+                      <DataItemRow key={item.id} item={item} opened={opened[item.id]} onFetch={onFetch} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </>
       )}
     </div>
@@ -562,7 +594,7 @@ export function DataSourceDetailPage({ id, onMaterial, onBack }: DataSourceDetai
   };
   const onConfirm = () => {
     if (!confirming) return;
-    run(confirming.source, { action: "disconnect", purge: confirming.source.connection === "manual" ? true : confirming.purge, idempotencyKey: newKey() });
+    run(confirming.source, { action: "disconnect", purge: confirming.source.connection === "manual" ? true : confirming.purge, ...(confirming.item ? { item: confirming.item.id } : {}), idempotencyKey: newKey() });
   };
 
   return (
@@ -605,6 +637,7 @@ export function DataSourceDetailPage({ id, onMaterial, onBack }: DataSourceDetai
                   onView={setView}
                   onUsage={(s, usage, on) => run(s, { action: "usage", usage, on, idempotencyKey: newKey() })}
                   onDisconnect={(s) => setConfirming({ source: s, purge: false })}
+                  onDisconnectItem={(s, item) => setConfirming({ source: s, purge: false, item })}
                   onClearRaw={(s, dates) => run(s, { action: "clear_raw", dates, idempotencyKey: newKey() })}
                 />
               </Section>

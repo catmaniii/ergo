@@ -9,7 +9,9 @@
 // - **写操作一律记下来**（writes）：SELECT、STORE、EXPUNGE、APPEND、COPY、MOVE、DELETE、CREATE、RENAME、CLOSE……（回 NO），
 //   不带 PEEK 的 BODY[] / RFC822 也记（还会把那封标成已读：测试能看出标没标）；commands 记下收到的每条命令的动词（LOGIN 只记动词，不记密码）；
 // - 搜索按解码后的信头和正文比（借 google/mime.ts 的 parseMail；它自己有单元测试），不分大小写、按子串；
-// - hang 置位时连上以后什么都不回（测超时）；connections / active 数连了几次、还开着几个（客户端用完要断开）。
+// - hang 置位时连上以后什么都不回（测超时）；connections / active 数连了几次、还开着几个（客户端用完要断开）；
+// - 344 号票：可以有几个账号（others）：每个账号一套自己的邮箱，登录谁看谁的。几个账号的 UIDVALIDITY、UID 故意从同样的数起（撞号），
+//   谁的邮件编号、同步进度没分账号，测试马上看得出；setPassword 让一个账号的密码失效，另一个不受影响。
 import tls from "node:tls";
 import { type ImapEndpoint, encodeMailboxName, tokenize, textOf, type ImapValue } from "../../src/google/imap.ts";
 import { formatAddress, parseMail } from "../../src/google/mime.ts";
@@ -62,7 +64,18 @@ interface Mailbox {
   readonly messages: FakeMessage[];
 }
 
-export interface FakeImapServer {
+/** 一个账号的几个邮箱 */
+export interface FakeMailbox {
+  /** 放一封邮件进几个邮箱：交回它在每个邮箱里的 UID */
+  add(raw: Buffer, boxes: readonly FakeBox[], options?: { internalDate?: string; seen?: boolean }): Record<FakeBox, number | undefined>;
+  /** 某个邮箱的 UIDVALIDITY */
+  uidValidity(box: FakeBox): number;
+  /** 某个邮箱里某封的标记 */
+  flags(box: FakeBox, uid: number): string[];
+}
+
+/** add、uidValidity、flags 是第一个账号（options.user）的 */
+export interface FakeImapServer extends FakeMailbox {
   readonly endpoint: ImapEndpoint;
   /** 收到的每条命令的动词（"LOGIN"、"UID FETCH"……；LOGIN 不记参数） */
   readonly commands: string[];
@@ -79,12 +92,10 @@ export interface FakeImapServer {
   hang: boolean;
   /** 收到的 LOGIN 用的地址（不记密码） */
   readonly logins: string[];
-  /** 放一封邮件进几个邮箱：交回它在每个邮箱里的 UID */
-  add(raw: Buffer, boxes: readonly FakeBox[], options?: { internalDate?: string; seen?: boolean }): Record<FakeBox, number | undefined>;
-  /** 某个邮箱的 UIDVALIDITY */
-  uidValidity(box: FakeBox): number;
-  /** 某个邮箱里某封的标记 */
-  flags(box: FakeBox, uid: number): string[];
+  /** 某个账号的邮箱（344 号票） */
+  mailbox(user: string): FakeMailbox;
+  /** 换掉某个账号认的密码（等同于这个账号改了 Google 密码，别的账号不受影响） */
+  setPassword(user: string, password: string): void;
   close(): Promise<void>;
 }
 
@@ -132,15 +143,24 @@ function inSet(set: string, uid: number, max: number): boolean {
 const WRITE_VERBS = /^(SELECT|STORE|UID STORE|EXPUNGE|UID EXPUNGE|APPEND|COPY|UID COPY|MOVE|UID MOVE|DELETE|CREATE|RENAME|SUBSCRIBE|UNSUBSCRIBE|CLOSE|SETQUOTA|SETACL)$/;
 const CAPS = "IMAP4rev1 UNSELECT IDLE NAMESPACE QUOTA ID CHILDREN X-GM-EXT-1 UIDPLUS SPECIAL-USE";
 
-export async function startFakeImapServer(options: { user: string; password: string }): Promise<FakeImapServer> {
+/** 一个账号的一套邮箱：每个账号都从同样的 UIDVALIDITY、UID 数起（撞号是故意的） */
+function newBoxes(): Map<FakeBox, Mailbox> {
   let validity = 600_000;
-  const boxes = new Map<FakeBox, Mailbox>(
+  return new Map<FakeBox, Mailbox>(
     (Object.keys(BOXES) as FakeBox[]).map((k) => [k, { name: BOXES[k].name, flags: BOXES[k].flags, uidValidity: ++validity, nextUid: k === "all" ? 100 : k === "sent" ? 40 : 1, messages: [] }]),
   );
-  const byName = (name: string) => [...boxes.values()].find((b) => b.name.toLowerCase() === name.toLowerCase());
+}
+
+export async function startFakeImapServer(options: { user: string; password: string; others?: ReadonlyArray<{ user: string; password: string }> }): Promise<FakeImapServer> {
+  const users = new Map([options, ...(options.others ?? [])].map(({ user, password }) => [user.toLowerCase(), { password, boxes: newBoxes() }]));
+  const userOf = (user: string) => {
+    const found = users.get(user.toLowerCase());
+    if (!found) throw new Error(`假服务里没有这个账号：${user}`);
+    return found;
+  };
   const sockets = new Set<tls.TLSSocket>();
 
-  const state: Omit<FakeImapServer, "endpoint" | "add" | "uidValidity" | "flags" | "close"> = {
+  const state: Omit<FakeImapServer, "endpoint" | "add" | "uidValidity" | "flags" | "mailbox" | "setPassword" | "close"> = {
     commands: [],
     writes: [],
     connections: 0,
@@ -163,7 +183,8 @@ export async function startFakeImapServer(options: { user: string; password: str
     if (state.hang) return;
     const send = (text: string | Buffer) => socket.write(typeof text === "string" ? Buffer.from(text, "latin1") : text);
     send(`* OK [CAPABILITY ${CAPS}] Fake IMAP ready\r\n`);
-    let authed = false;
+    /** 登录了谁：看谁的邮箱 */
+    let boxes: Map<FakeBox, Mailbox> | undefined;
     let selected: Mailbox | undefined;
     // 收命令：一行一行，行尾 {n} 的先回"+"再收 n 个字节
     let buf = Buffer.alloc(0);
@@ -229,13 +250,14 @@ export async function startFakeImapServer(options: { user: string; password: str
           const user = textOf(args[0]);
           state.logins.push(user);
           if (state.alert) return no(`[ALERT] ${state.alert} (Failure)`);
-          if (user.toLowerCase() !== options.user.toLowerCase() || textOf(args[1]) !== options.password) return no("[AUTHENTICATIONFAILED] Invalid credentials (Failure)");
-          authed = true;
+          const account = users.get(user.toLowerCase());
+          if (!account || textOf(args[1]) !== account.password) return no("[AUTHENTICATIONFAILED] Invalid credentials (Failure)");
+          boxes = account.boxes;
           ok(`[CAPABILITY ${CAPS}] ${user} authenticated (Success)`);
           return;
         }
       }
-      if (!authed) {
+      if (!boxes) {
         send(`${tag} BAD Not authenticated\r\n`);
         return;
       }
@@ -246,7 +268,8 @@ export async function startFakeImapServer(options: { user: string; password: str
           return;
         }
         case "EXAMINE": {
-          const box = byName(Buffer.isBuffer(args[0]) ? args[0].toString("latin1") : textOf(args[0]));
+          const name = (Buffer.isBuffer(args[0]) ? args[0].toString("latin1") : textOf(args[0])).toLowerCase();
+          const box = [...boxes.values()].find((b) => b.name.toLowerCase() === name);
           if (!box) return no("[NONEXISTENT] Unknown Mailbox (Failure)");
           selected = box;
           send("* FLAGS (\\Answered \\Flagged \\Draft \\Deleted \\Seen)\r\n* OK [PERMANENTFLAGS ()] Flags permitted.\r\n");
@@ -347,22 +370,32 @@ export async function startFakeImapServer(options: { user: string; password: str
 
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const port = (server.address() as { port: number }).port;
+  const mailbox = (user: string): FakeMailbox => {
+    const { boxes } = userOf(user);
+    return {
+      add(raw, inBoxes, opts = {}) {
+        const out: Record<FakeBox, number | undefined> = { INBOX: undefined, all: undefined, sent: undefined };
+        const date = parseMail(raw).date ?? new Date();
+        const internalDate = opts.internalDate ?? internalDateOf(date);
+        for (const key of inBoxes) {
+          const box = boxes.get(key)!;
+          const uid = box.nextUid++;
+          box.messages.push({ uid, raw, internalDate, flags: opts.seen ? ["\\Seen"] : [] });
+          out[key] = uid;
+        }
+        return out;
+      },
+      uidValidity: (box) => boxes.get(box)!.uidValidity,
+      flags: (box, uid) => [...(boxes.get(box)!.messages.find((m) => m.uid === uid)?.flags ?? [])],
+    };
+  };
   return Object.assign(state, {
     endpoint: { host: "127.0.0.1", port, ca: TEST_IMAP_CERT },
-    add(raw: Buffer, inBoxes: readonly FakeBox[], opts: { internalDate?: string; seen?: boolean } = {}) {
-      const out: Record<FakeBox, number | undefined> = { INBOX: undefined, all: undefined, sent: undefined };
-      const date = parseMail(raw).date ?? new Date();
-      const internalDate = opts.internalDate ?? internalDateOf(date);
-      for (const key of inBoxes) {
-        const box = boxes.get(key)!;
-        const uid = box.nextUid++;
-        box.messages.push({ uid, raw, internalDate, flags: opts.seen ? ["\\Seen"] : [] });
-        out[key] = uid;
-      }
-      return out;
+    ...mailbox(options.user),
+    mailbox,
+    setPassword(user: string, password: string) {
+      userOf(user).password = password;
     },
-    uidValidity: (box: FakeBox) => boxes.get(box)!.uidValidity,
-    flags: (box: FakeBox, uid: number) => [...(boxes.get(box)!.messages.find((m) => m.uid === uid)?.flags ?? [])],
     async close() {
       for (const s of sockets) s.destroy();
       await new Promise<void>((resolve) => server.close(() => resolve()));

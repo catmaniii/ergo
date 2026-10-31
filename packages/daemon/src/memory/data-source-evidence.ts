@@ -9,7 +9,9 @@
 //   时间段、地点、和谁（证据没有放地点和人的字段，@ergo/memory 不改）；场景标签取插件给的场景维度标签（不认得的丢掉），加上那天是工作日
 //   还是周末（按日子：周一到周五算工作日，节假日不认），插件没给方面（work、social……）时再从原文按关键词推。
 //   地点算位置这一类：位置没打开推断时这一行不带地点、也不拿它推场景。
-// - 每晚整理的预算（groupDataSourceItems）：同一个数据源、同一种素材、同一天超过 DIGEST_OVER 条的合成一条证据（每条一行），
+// - 哪个账号（344 号票，Gmail 有几个账号）：素材的 origin.account 带过去——场景那一行写"账号 t***@example.com"（打了码的，339 号票：完整邮箱不给模型），
+//   合成一条时不同账号的不合在一起（分组的键带账号）。这之前导入的素材没有账号，原文和以前一样。
+// - 每晚整理的预算（groupDataSourceItems）：同一个数据源、同一个账号、同一种素材、同一天超过 DIGEST_OVER 条的合成一条证据（每条一行），
 //   出处写成 digest:<素材 id,…>（materialIdsOfRef 拆回素材 id，删除、"回忆了 N 条记忆"都按它找）；当天的先不读，等这一天过完再合；
 //   每晚最多读进 DATA_SOURCE_EVIDENCE_PER_NIGHT 条（合成的算一条），多的按时间先后留到下一夜——用户说的话照旧全读，不被挤掉。
 import { CONTEXT_DIMENSIONS, clauseContext, type Evidence, isKnownContextTag, localDate, toMs } from "@ergo/memory";
@@ -67,13 +69,14 @@ function clock(iso: string, day: string): string {
   return localDate(iso) === day ? time : `${iso.slice(5, 10)} ${time}`;
 }
 
-/** 场景的几项：时间（段）、地点（位置没打开推断时不带）、和谁 */
+/** 场景的几项：时间（段）、地点（位置没打开推断时不带）、和谁、哪个账号（344 号票，打了码的） */
 export function sceneParts(material: Pick<Material, "time" | "origin">, placeAllowed: boolean): string[] {
   const scene = material.origin?.scene ?? {};
   const day = localDate(material.time);
   const parts = [`时间 ${clock(material.time, day)}${scene.end === undefined ? "" : `–${clock(scene.end, day)}`}`];
   if (placeAllowed && scene.place !== undefined) parts.push(`地点 ${scene.place}`);
   if (scene.people !== undefined && scene.people.length > 0) parts.push(`和 ${scene.people.join("、")}`);
+  if (material.origin?.account !== undefined) parts.push(`账号 ${material.origin.account.label}`);
   return parts;
 }
 
@@ -112,9 +115,9 @@ export function sceneTags(tags: readonly string[], time: string, text: string): 
   return result;
 }
 
-/** 合成一条的分组：同一个数据源、同一种素材、同一天 */
+/** 合成一条的分组：同一个数据源、同一个账号（344 号票）、同一种素材、同一天 */
 export function digestGroupKey(material: Pick<Material, "kind" | "time" | "origin">): string {
-  return [material.origin?.dataSource ?? "", material.kind, localDate(material.time)].join("\u0000");
+  return [material.origin?.dataSource ?? "", material.origin?.account?.id ?? "", material.kind, localDate(material.time)].join("\u0000");
 }
 
 /**

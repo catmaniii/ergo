@@ -76,7 +76,7 @@ function headOf(m: Material, saved: SavedPage | undefined, offBranch: boolean): 
   const where = m.conversation === null ? "" : ` · ${m.conversation}`;
   // 284 号票：了解你访谈里说的标出来（情境标签 interview）
   const mark = `${m.noInfer ? " · 不参与推断" : ""}${offBranch ? " · 在废弃分支里" : ""}${m.context.includes(INTERVIEW_CONTEXT) ? " · 来自访谈" : ""}`;
-  const from = m.origin === undefined ? "" : ` · 来自数据源 ${m.origin.dataSource}`;
+  const from = m.origin === undefined ? "" : ` · 来自数据源 ${m.origin.dataSource}${m.origin.account === undefined ? "" : `（账号 ${m.origin.account.label}）`}`;
   return `${m.id} · ${m.time.slice(0, 16).replace("T", " ")} · ${KIND_LABEL[m.kind]}${saved ? " · 用户存的网页" : ""}${from}${where}${mark}`;
 }
 

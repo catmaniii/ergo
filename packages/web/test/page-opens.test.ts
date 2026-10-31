@@ -446,6 +446,18 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       expect(await page.locator(".ds-item-text").count()).toBe(0);
       await page.locator(".ds-live .ds-item-box .ds-item").first().click();
       await page.waitForSelector(".ds-item-text", { timeout: 5000 });
+      // 344：再加一个账号，现查一个账号一组；断开一个要确认，确认框写的是那个账号，另一个还在
+      await page.locator('.gmail-panel input[type="email"]').fill("work.mail@example.org");
+      await page.locator('.gmail-panel input[type="password"]').fill("abcd efgh ijkl mnop");
+      await page.locator(".gmail-panel .btn.primary").click();
+      await page.waitForFunction(`document.querySelectorAll(".gmail-account").length === 2`, undefined, { timeout: 5000 });
+      await page.locator('[data-action="live-refresh"]').click();
+      await page.waitForFunction(`document.querySelectorAll("[data-live-group]").length === 2`, undefined, { timeout: 5000 });
+      await page.locator('.gmail-account [aria-label="断开账号 work.mail@example.org"]').click();
+      await page.waitForSelector(".modal", { timeout: 5000 });
+      expect(await page.locator(".modal").innerText()).toContain("别的账号不受影响");
+      await page.locator(".modal .btn.primary").click();
+      await page.waitForFunction(`document.querySelectorAll(".gmail-account").length === 1`, undefined, { timeout: 5000 });
 
       // 进素材的：点开到素材详情，‹ 回到这里
       await page.evaluate(`window.location.hash = "#/more/data-sources/demo-camera"`);

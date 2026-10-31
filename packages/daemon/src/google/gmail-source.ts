@@ -9,10 +9,12 @@
 // 数据源登记这两类（页面上写明默认只记录、不用于推断）。
 // 343 号票：数据源详情里看数据——已获取的是导入的素材（内核按素材的出处列，这里不用写）；现在能查到的（live，gmail-data.ts）现连现查，
 // 只给发件人、主题、时间，点开才取正文。Gmail 只有登录没过才报出错：要重新填应用专用密码，卡片上写"要授权"。
+// 344 号票：可以连几个账号。启动时把老的两个键转成一条账号（migrate，gmail-accounts.ts：插件没启用也转，只动密钥区）；能单独断开一个（disconnectItem）。
 import { t } from "@ergo/protocol";
 import type { DataSource } from "../data-sources/api.ts";
 import { GOOGLE_CHANNEL, GOOGLE_GMAIL_CURSOR, GOOGLE_GMAIL_SENT } from "./events.ts";
 import { GOOGLE_GMAIL_SOURCE, type GmailService } from "./gmail.ts";
+import { migrateGmailSecrets } from "./gmail-accounts.ts";
 import { gmailLive } from "./gmail-data.ts";
 import { GMAIL_SENSITIVE } from "./gmail-sensitive.ts";
 import { gmailTools } from "./gmail-tools.ts";
@@ -45,16 +47,17 @@ export function googleGmailSource(active: () => GmailService): DataSource {
       { channel: GOOGLE_CHANNEL, type: GOOGLE_GMAIL_SENT },
       { channel: GOOGLE_CHANNEL, type: GOOGLE_GMAIL_CURSOR },
     ],
-    status: (ctx) => {
-      const status = active().status(ctx);
-      return status.connection === "error" ? { ...status, needsAuth: true } : status;
+    migrate: (ctx) => {
+      if (migrateGmailSecrets(ctx.secrets) === "migrated") ctx.log("老的 Gmail 配置转成了一条账号（备份留在密钥区）");
     },
+    status: (ctx) => active().status(ctx),
     configure: (values, ctx) => active().configure(values, ctx),
     sync: (ctx) => active().syncSent(ctx),
     // 306：登录没通过（出错）后内核每小时叫一次，用存着的再登录一次
     recheck: (ctx) => active().recheck(ctx),
     disconnect: () => active().disconnect(),
-    tools: (ctx) => gmailTools({ service: active, ctx }),
+    disconnectItem: (item, ctx) => active().disconnectAccount(item, ctx),
+    tools:(ctx) => gmailTools({ service: active, ctx }),
     count: () => active().sentCount(),
     live: (query, ctx) => gmailLive(active(), query, ctx),
   };

@@ -111,6 +111,56 @@ describe("填地址", () => {
     expect(agenda(k, new Date(2026, 9, 25), new Date(2026, 9, 26))).toEqual(["2026-10-25 全天 小王生日 · Google · 日历 · 工作", "2026-10-25 10:00 看牙 · Google · 日历 · 工作", "2026-10-25 19:00 家庭聚餐 · Google · 日历 · 家里"]);
   });
 
+  it("344 走一遍：两个账号的地址一次贴进来——各同步各的、账号都列出来、日程标着是哪个日历；删掉一个另一个照常；一个拉不到写在它下面", async () => {
+    const { k, remote } = await start();
+    const WORK = googleAddress("work.mail@gmail.com", "private-11112222333344445555666677778888");
+    remote.routes.set(WORK, { status: 200, body: icsOf({ name: "work.mail@gmail.com", events: [["UID:review@google.com", "DTSTART:20261025T010000Z", "DTEND:20261025T020000Z", "SUMMARY:周报评审"]] }) });
+    const result = await configure(k, { add: `${MINE}\n${WORK}` });
+    expect(result.added).toBe(7);
+    const source = result.view.sources.find((s) => s.id === SOURCE)!;
+    expect(source).toMatchObject({ connection: "connected", account: "chenxiao@gmail.com、work.mail@gmail.com", count: 7 });
+    expect(source.items!.map((i) => [i.title, i.detail])).toEqual([
+      ["chenxiao@gmail.com", "calendar.google.com · chenxiao@gmail.com · 6 个事件"],
+      ["work.mail@gmail.com", "calendar.google.com · work.mail@gmail.com · 1 个事件"],
+    ]);
+    expect(agenda(k, new Date(2026, 9, 25), new Date(2026, 9, 26))).toEqual(["2026-10-25 全天 小王生日 · Google · 日历 · chenxiao@gmail.com", "2026-10-25 09:00 周报评审 · Google · 日历 · work.mail@gmail.com", "2026-10-25 10:00 看牙 · Google · 日历 · chenxiao@gmail.com"]);
+    expect(JSON.stringify(result.view)).not.toContain(PRIVATE_TOKEN);
+    expect(JSON.stringify(result.view)).not.toContain("private-1111");
+    expect(leaked(k)).toBe(false);
+
+    // 一个拉不到：写在它下面（原因里的名字是日历自己的），另一个照样同步
+    remote.routes.set(WORK, { status: 404, body: "Not Found" });
+    const synced = await k.dataSources.act(SOURCE, { action: "sync", idempotencyKey: key() });
+    expect(synced.error).toContain("「work.mail@gmail.com」：地址失效了");
+    const after = synced.view.sources.find((s) => s.id === SOURCE)!;
+    expect(after.connection).toBe("connected");
+    expect(after.items![0]!.problem).toBeUndefined();
+    expect(after.items![1]!.problem).toContain("地址失效了");
+
+    // 删掉一个：账号、日程跟着少一个，另一个不动
+    const removed = await configure(k, { remove: after.items![1]!.id });
+    expect(removed.view.sources.find((s) => s.id === SOURCE)).toMatchObject({ connection: "connected", account: "chenxiao@gmail.com", count: 6 });
+    expect(agenda(k, new Date(2026, 9, 25), new Date(2026, 9, 26))).toEqual(["2026-10-25 全天 小王生日 · Google · 日历 · chenxiao@gmail.com", "2026-10-25 10:00 看牙 · Google · 日历 · chenxiao@gmail.com"]);
+    expect(fs.readFileSync(path.join(k.layout.dataSourceSecrets, `${SOURCE}.json`), "utf8")).not.toContain("private-1111");
+  });
+
+  it("344 走一遍：两个账号的日历自己的名字一样时，设置里靠说明里的完整邮箱分得开；日程上只有名字（用户起个名字才分得开，见 344 的 Comments）", async () => {
+    const { k, remote } = await start();
+    const WORK = googleAddress("work.mail@gmail.com", "private-11112222333344445555666677778888");
+    remote.routes.set(MINE, { status: 200, body: icsOf({ name: "陈晓", events: [["UID:a@google.com", "DTSTART:20261025T010000Z", "DTEND:20261025T020000Z", "SUMMARY:甲"]] }) });
+    remote.routes.set(WORK, { status: 200, body: icsOf({ name: "陈晓", events: [["UID:b@google.com", "DTSTART:20261025T030000Z", "DTEND:20261025T040000Z", "SUMMARY:乙"]] }) });
+    await configure(k, { add: MINE });
+    const second = await configure(k, { add: WORK, name: "工作" });
+    expect(second.view.sources.find((s) => s.id === SOURCE)!.items!.map((i) => [i.title, i.detail])).toEqual([
+      ["陈晓", "calendar.google.com · chenxiao@gmail.com · 1 个事件"],
+      ["工作", "calendar.google.com · work.mail@gmail.com · 1 个事件"],
+    ]);
+    expect(agenda(k, new Date(2026, 9, 25), new Date(2026, 9, 26))).toEqual(["2026-10-25 09:00 甲 · Google · 日历 · 陈晓", "2026-10-25 11:00 乙 · Google · 日历 · 工作"]);
+    // 同一个地址再填一次带名字：还是这一个（不多一条），名字换上
+    const renamed = await configure(k, { add: MINE, name: "私人" });
+    expect(renamed.view.sources.find((s) => s.id === SOURCE)!.items!.map((i) => i.title)).toEqual(["私人", "工作"]);
+  });
+
   it.each([
     ["不是网址", "日历地址", "这不是一个网址：把 Google 日历设置里「iCal 格式的私密地址」整段贴过来"],
     ["不是 https", "http://calendar.google.com/calendar/ical/x/private-1/basic.ics", "地址要以 https:// 开头"],

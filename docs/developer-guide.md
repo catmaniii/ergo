@@ -335,6 +335,16 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 
 数据源（`ctx.dataSources.register`，手册第 7 节）在网页上分两层：`#/more/data-sources` 是卡片总览（`pages/more/DataSourcesPage.tsx`，没有输入框和操作按钮），`#/more/data-sources/<id>` 是单独全屏的详情（`pages/more/DataSourceDetail.tsx`：状态、设置、数据）。数据一块的两个标签对应数据源的两个可选方法：`stored`（已获取的，不进素材的自己列；进素材的内核按 `origin.dataSource` 列，`POST /api/materials/list` 的 `filter.dataSource` 同一份）和 `live`（现在能查到的：现查上游，只读，不写事件、不进素材、不进记忆、不经过模型）。接口是 `POST /api/data-sources/<id>/stored`、`POST /api/data-sources/<id>/live`，外网端口上和别的接口一样要设备凭证。
 
+Gmail 可以连几个账号（344 号票，`google/gmail-accounts.ts`）。密钥区 `secrets/data-sources/google-gmail.json` 的 `values` 里是 `accounts`（几个账号的 id，逗号分开）和每个账号的 `account.<id>.address`、`.password`、`.enabled`（`on` / `off`）；id 是地址（小写）的哈希前 10 位，同一个地址断开再加还是它，事件里记 id（推不回地址）。一个值一格，不拼成一段 JSON：内核按格把出错原因里的密钥换成 `***`。邮件编号带账号（`<账号 id>.<邮箱>-<UIDVALIDITY>-<UID>`），几个账号的 UID 会撞。页面上是完整邮箱，日志和给模型的内容是打了码的（339 号票）；内核会把这一格里的完整邮箱从出错原因里换掉，所以插件写出错原因时用打码的。
+
+老配置（`address`、`password` 两个键）在启动时转成一条账号：内核起来时叫数据源的 `migrate`（插件没启用也叫，只动密钥区）。先把备份写进同一格（`backup.pre-344.address`、`.password`、`.at`，密钥区整个不进备份区），再写账号和 `legacy.account`（转之前导入的记录没写账号，归它），`accounts` 里加上 id 才算转好，最后删老键；每一步是一次原子写，断在哪一步下次启动都能接着做完，转好了再启动什么都不做。转不成时内核记一条日志，老键不动，`accountsIn` 把老键当一条账号读出来，Gmail 照样能用。断开转过来的那个账号时备份跟着删。
+
+回退到老版本：老版本只认 `address`、`password`。先停守护进程，把备份写回这两个键（别的键老版本不看），再起老版本；之后加的账号老版本不认，再升级时重新转一遍：
+
+```sh
+node -e "const fs=require('fs'),f=process.argv[1],j=JSON.parse(fs.readFileSync(f,'utf8')),v=j.values;v.address=v['backup.pre-344.address'];v.password=v['backup.pre-344.password'];fs.writeFileSync(f,JSON.stringify(j,null,2))" <数据目录>/secrets/data-sources/google-gmail.json
+```
+
 ### 5.3 网页插件
 
 网页用**类型化插槽**，插件之间不互相 import（`packages/web/src/plugins/`）。守护进程在插件频道上推每个插件的状况，网页插件宿主按它装、停。

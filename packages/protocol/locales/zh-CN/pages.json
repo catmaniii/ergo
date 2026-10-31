@@ -1593,5 +1593,7 @@
   "pages.dataSources.data.liveEmpty": "现在查不到东西。",
   "pages.dataSources.data.opening": "正在取正文……",
   "pages.dataSources.data.openFailed": "取不到正文：{reason}",
-  "pages.dataSources.detail.jump": "看数据 ↓"
+  "pages.dataSources.detail.jump": "看数据 ↓",
+  "pages.dataSources.action.disconnectAll": "全部断开",
+  "pages.dataSources.confirm.itemBody": "{stop}，这个账号填过的密钥从这台电脑上删掉，别的账号不受影响。它已经导入的 {n} 条怎么办？"
 }

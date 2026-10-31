@@ -35,6 +35,8 @@ export interface DataSourceRecordMaterial {
   field?: string;
   /** 插件自己那条记录的 id（素材里指向原始记录的引用） */
   recordId?: string;
+  /** 数据源有几个账号时是哪个账号（344 号票）：id 和打了码的邮箱（只看事件：写在事件负载里） */
+  account?: { id: string; label: string };
 }
 
 /** 场景整理成确定的样子：去掉空白的、重复的，空的项不写 */
@@ -66,6 +68,6 @@ export function dataSourceMaterial(source: Pick<DataSource, "id" | "sensitive">,
     ...(record.time === undefined ? {} : { time: record.time }),
     ...(record.recordId === undefined ? {} : { ref: { recordId: record.recordId } }),
     ...(record.indexText === undefined ? {} : { indexText: record.indexText }),
-    origin: { dataSource: source.id, scene: normalizedScene(record.scene), sensitive: [...new Set(record.sensitive ?? source.sensitive ?? [])] },
+    origin: { dataSource: source.id, ...(record.account === undefined ? {} : { account: record.account }), scene: normalizedScene(record.scene), sensitive: [...new Set(record.sensitive ?? source.sensitive ?? [])] },
   };
 }

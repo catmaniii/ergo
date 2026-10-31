@@ -4,7 +4,8 @@
 // - 敏感类别：出处里写的有一类没打开整条不读；位置没打开时不带地点（也不拿地点推场景）；健康按原文认出来的照旧挡；
 // - 每晚整理的预算：同一个数据源、同一种、同一天超过 3 条合成一条（出处 digest:…），当天的先不读，最多 N 条（按时间先后），
 //   已经读进来的按背后的素材跳过（合成的那条被忘掉时别的素材放回来）；
-// - 顺口问那条路（evidenceDraftOf）一条一条读、不看是不是当天。
+// - 顺口问那条路（evidenceDraftOf）一条一条读、不看是不是当天；
+// - 344 号票：素材写明账号的（Gmail 有几个账号），场景那一行带打了码的邮箱，不同账号不合成一条；没写账号的原文和以前一样。
 import { EVENT_TYPES, type MemoryCommandEventPayload } from "@ergo/protocol";
 import { describe, expect, test } from "vitest";
 import { SENSITIVE_CATEGORIES, type SensitiveCategory } from "../../src/config/config.ts";
@@ -54,6 +55,40 @@ function record(t: Setup, rec: DataSourceRecordMaterial, source = CAMERA) {
 /** 相机在某天记的 n 条（09:00 起每小时一条） */
 const day = (t: Setup, date: string, n: number, kind: DataSourceRecordMaterial["kind"] = "observed_behavior", from = CAMERA) =>
   Array.from({ length: n }, (_, i) => record(t, { kind, text: `第 ${i + 1} 件事`, time: `${date}T${String(9 + i).padStart(2, "0")}:00:00.000+08:00` }, from));
+
+describe("哪个账号（344 号票）", () => {
+  const ONE = { id: "a1", label: "t***@example.com" };
+  const TWO = { id: "a2", label: "w***@example.org" };
+  /** 某个账号在那天发的 n 封 */
+  const sent = (t: Setup, account: { id: string; label: string } | undefined, n: number) =>
+    Array.from({ length: n }, (_, i) => record(t, { kind: "own_writing", text: `${account?.id ?? "老"} 的第 ${i + 1} 封`, time: `2026-10-05T${String(9 + i).padStart(2, "0")}:00:00.000+08:00`, ...(account ? { account } : {}) }, MAIL));
+
+  test("写明账号的：素材的出处里有，证据的场景行里是打了码的邮箱；没写的和以前一样", () => {
+    const { t, source } = setup();
+    const [withAccount] = sent(t, ONE, 1);
+    expect(withAccount!.origin?.account).toEqual(ONE);
+    const [draft] = source().read();
+    expect(draft!.text).toContain("账号 t***@example.com");
+    const fresh = setup();
+    const [plain] = sent(fresh.t, undefined, 1);
+    expect(plain!.origin?.account).toBeUndefined();
+    const [old] = fresh.source().read();
+    expect(old!.text).not.toContain("账号");
+  });
+
+  test("同一天超过 3 条才合成一条：两个账号各算各的，合成的里每条写着账号", () => {
+    const { t, source } = setup();
+    sent(t, ONE, 4);
+    sent(t, TWO, 2);
+    const drafts = source().read();
+    // 第一个账号 4 封合成一条，第二个账号 2 封各一条
+    expect(drafts).toHaveLength(3);
+    const digest = drafts.find((d) => d.sourceRef?.startsWith("digest:"))!;
+    expect(digest.text).toContain("账号 t***@example.com");
+    expect(digest.text).not.toContain("w***@example.org");
+    expect(drafts.filter((d) => d.text.includes("w***@example.org"))).toHaveLength(2);
+  });
+});
 
 // 底座的"现在"是 2026-10-08（周四）09:00 +08:00；10-03、10-04 是周末
 describe("三种素材的证据性质和场景", () => {

@@ -20,6 +20,7 @@ import type {
   DataSourceActionBody,
   DataSourceActionResult,
   DataSourceDataItem,
+  DataSourceItemView,
   DataSourceLiveBody,
   DataSourceLiveResult,
   DataSourcePushBody,
@@ -71,6 +72,12 @@ function phonePlaces(): PhonePlacesView {
 }
 /** 往前第 n 天的日期（YYYY-MM-DD） */
 const daysAgo = (n: number) => nowIso(new Date(Date.now() - n * 86_400_000)).slice(0, 10);
+
+/** 编的 Gmail 账号（344 号票）：一行的样子和守护进程给的一样 */
+function gmailAccount(address: string, off = false): DataSourceItemView {
+  const id = `a${[...address].reduce((n, c) => (n * 31 + c.charCodeAt(0)) >>> 0, 7).toString(16).padStart(10, "0").slice(0, 10)}`;
+  return { id, title: address, detail: `${off ? "关着" : "连着"} · 已导入 0 封`, count: 0, removable: true, ...(off ? { off: true as const } : {}) };
+}
 
 function initial(): DataSourcesView {
   return {
@@ -192,6 +199,7 @@ function initial(): DataSourcesView {
         available: true,
         connection: "connected",
         account: "yourname@gmail.com",
+        items: [gmailAccount("yourname@gmail.com")],
         usages: [
           { usage: "query", on: true },
           { usage: "import", on: false },
@@ -389,8 +397,19 @@ const FAKE_MAIL: ReadonlyArray<DataSourceDataItem & { text: string }> = [
   { id: "all-1-101", title: "你订阅的周刊", subtitle: "周刊 <weekly@example.com>", time: inHours(-75), openable: true, text: "本周看点：……" },
 ];
 
+/** 编的 Gmail 现查：开着的账号一个一组（344 号票），都是同一份编的邮件 */
+function gmailLive(source: DataSourceView | undefined): Omit<DataSourceLiveResult, "state" | "at"> {
+  const on = (source?.items ?? []).filter((item) => !item.off);
+  return {
+    scope: on.length > 1 ? "每个账号全部邮件里最新的 30 封" : `全部邮件里最新的 ${FAKE_MAIL.length} 封`,
+    ...(on.length > 1 ? {} : { total: 1284 }),
+    groups: on.map((item) => ({ id: item.id, title: item.title, total: 1284 })),
+    items: on.flatMap((item) => FAKE_MAIL.map(({ text: _text, ...mail }) => ({ ...mail, id: `${item.id}.${mail.id}`, group: item.id }))),
+  };
+}
+
 /** 编的上游，现查回来的（343 号票）；日历有一个没拉到 */
-function liveAnswer(id: string): Omit<DataSourceLiveResult, "state" | "at"> | undefined {
+function liveAnswer(id: string, source?: DataSourceView): Omit<DataSourceLiveResult, "state" | "at"> | undefined {
   switch (id) {
     case "google-calendar":
       return {
@@ -404,7 +423,7 @@ function liveAnswer(id: string): Omit<DataSourceLiveResult, "state" | "at"> | un
         notes: ["「家里」这一次没拉到：连不上，过一会儿再试"],
       };
     case "google-gmail":
-      return { scope: `全部邮件里最新的 ${FAKE_MAIL.length} 封`, total: 1284, items: FAKE_MAIL.map(({ text: _text, ...item }) => item) };
+      return gmailLive(source);
     case "looki":
       return {
         scope: "最近 3 天的时刻（含今天）",
@@ -442,6 +461,7 @@ export class FakeDataSources {
         case "configure": {
           if (id === "looki") return body.values.archive === undefined ? this.configureLooki(source, body.values) : this.archiveLooki(source, body.values);
           if (id === "phone-location") return this.phonePlaces(source, body.values);
+          if (id === "google-gmail") return this.configureGmail(source, body.values);
           change({ connection: "connected", account: id.startsWith("google-") ? "yourname@gmail.com" : "y***@example.com", hasSecrets: true, canSync: source.usages.some((u) => u.usage === "import" && u.on) });
           return { view: structuredClone(this.state) };
         }
@@ -453,6 +473,7 @@ export class FakeDataSources {
         case "open":
           return { view: structuredClone(this.state), opened: false, error: "打不开：原型里打不开电脑上的文件夹" };
         case "disconnect": {
+          if (body.item !== undefined) return this.disconnectGmailAccount(source, body.item, body.purge);
           const manual = source.connection === "manual";
           const purged = body.purge ? { events: source.count, materials: source.count, files: manual ? 1 : 0 } : undefined;
           delete source.lastSync;
@@ -467,6 +488,48 @@ export class FakeDataSources {
         }
       }
     });
+  }
+
+  /** Gmail（344 号票）：加一个账号（密码写 bad 回"不认"，已有的不动）、换密码、开关一个；什么都不填是再测一次；已有的账号密码写 revoked 看"登录不再通过"那一行的样子 */
+  private configureGmail(source: DataSourceView, values: Readonly<Record<string, string>>): DataSourceActionResult {
+    const items = [...(source.items ?? [])];
+    const settle = (next: DataSourceItemView[]) => {
+      const on = next.filter((item) => !item.off);
+      delete source.problem;
+      if (!next.some((item) => item.problem !== undefined)) delete source.needsAuth;
+      Object.assign(source, { items: next, account: next.map((item) => item.title).join("、"), connection: on.length > 0 ? "connected" : "not_connected", hasSecrets: true, canSync: on.length > 0 && source.usages.some((u) => u.usage === "import" && u.on) });
+    };
+    if (values.account !== undefined) {
+      settle(items.map((item) => (item.id === values.account ? gmailAccount(item.title, values.enabled === "off") : item)));
+      return { view: structuredClone(this.state) };
+    }
+    const address = values.address?.trim() ?? "";
+    if (address === "" && !values.password) return { view: structuredClone(this.state) };
+    if (values.password === "revoked") {
+      Object.assign(source, { needsAuth: true });
+      settle(items.map((item) => (item.title.toLowerCase() === address.toLowerCase() ? { ...item, detail: "要重新填密码 · 已导入 0 封", problem: "登录 Gmail 没通过：邮箱地址或应用专用密码不对。改过 Google 账号密码的话，旧的应用专用密码都会失效，要重新生成一个" } : item)));
+      return { view: structuredClone(this.state) };
+    }
+    if (values.password === "bad" || address === "") {
+      Object.assign(source, { problem: address === "" ? "先填 Gmail 地址" : "登录 Gmail 没通过：邮箱地址或应用专用密码不对。要填应用专用密码（16 位字母），不是 Google 账号的密码" });
+      return { view: structuredClone(this.state) };
+    }
+    settle(items.some((item) => item.title.toLowerCase() === address.toLowerCase()) ? items.map((item) => (item.title.toLowerCase() === address.toLowerCase() ? gmailAccount(item.title, item.off === true) : item)) : [...items, gmailAccount(address)]);
+    return { view: structuredClone(this.state) };
+  }
+
+  /** 断开一个 Gmail 账号（344 号票）：别的账号不动，最后一个断开就是没连 */
+  private disconnectGmailAccount(source: DataSourceView, item: string, purge: boolean): DataSourceActionResult {
+    const next = (source.items ?? []).filter((one) => one.id !== item);
+    const on = next.filter((one) => !one.off);
+    if (next.length === 0) {
+      delete source.account;
+      delete source.items;
+      delete source.hasSecrets;
+    } else Object.assign(source, { items: next, account: next.map((one) => one.title).join("、") });
+    delete source.problem;
+    Object.assign(source, { connection: on.length > 0 ? "connected" : "not_connected", canSync: on.length > 0 && source.usages.some((u) => u.usage === "import" && u.on) });
+    return { view: structuredClone(this.state), ...(purge ? { purged: { events: 0, materials: 0, files: 0 } } : {}) };
   }
 
   /** Looki 的测试连接（296 号票）：Key 写 bad 回"不认"（原来连着的还在用原来的）；区域不填沿用账号那一行写着的（编的数据） */
@@ -608,12 +671,12 @@ export class FakeDataSources {
       const at = nowIso();
       if (source.connection === "not_connected") return { state: "not_connected", at, items: [], problem: `${source.title}还没连上` };
       if (body.open !== undefined) {
-        const mail = FAKE_MAIL.find((m) => m.id === body.open);
+        const mail = FAKE_MAIL.find((m) => body.open?.endsWith(m.id));
         if (!mail) return { state: "error", at, items: [], problem: "没有这封邮件（可能已经删了或者挪走了）" };
         const { text, openable: _openable, ...item } = mail;
         return { state: "ok", at, items: [{ ...item, body: text }] };
       }
-      return { state: "ok", at, ...(liveAnswer(id) ?? { items: [] }) };
+      return { state: "ok", at, ...(liveAnswer(id, source) ?? { items: [] }) };
     });
   }
 

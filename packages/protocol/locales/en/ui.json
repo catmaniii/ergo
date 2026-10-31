@@ -381,7 +381,6 @@
   "ui.plugins.google.howto3": "Copy the \"Secret address in iCal format\" and paste it above",
   "ui.plugins.google.howtoSafe": "This address works like a password — anyone with it can see your calendar. Ergo only keeps it in this computer's secrets area. If it leaks, click \"Reset\" in the same place and enter the new address here",
   "ui.plugins.google.gmail.addressLabel": "Gmail address",
-  "ui.plugins.google.gmail.addressChange": "Use a different Gmail address (leave empty to keep it)",
   "ui.plugins.google.gmail.addressPlaceholder": "name@gmail.com",
   "ui.plugins.google.gmail.passwordLabel": "App password",
   "ui.plugins.google.gmail.passwordPlaceholder": "16 letters; spaces are fine",
@@ -1750,5 +1749,11 @@
   "ui.plugins.phone.places.err.hereFailed": "Couldn't get your location: {reason}",
   "ui.plugins.phone.places.err.notFound": "Couldn't find that place; try wording it differently",
   "ui.plugins.phone.places.err.findFailed": "Couldn't search: {reason}",
-  "ui.plugins.phone.places.err.failed": "Didn't work: {reason}"
+  "ui.plugins.phone.places.err.failed": "Didn't work: {reason}",
+  "ui.plugins.google.gmail.addAnother": "Add another Gmail account (address)",
+  "ui.plugins.google.gmail.switchLabel": "Account {address} is on (when off it isn't searched or imported)",
+  "ui.plugins.google.gmail.disconnect": "Disconnect",
+  "ui.plugins.google.gmail.disconnectLabel": "Disconnect account {address}",
+  "ui.plugins.google.gmail.reenter": "Enter a new password",
+  "ui.plugins.google.gmail.reenterLabel": "Enter a new password for account {address}"
 }

@@ -2,7 +2,8 @@
 // - data_source_synced：一次同步（点了"立即同步"、定期导入到点了）或者导入文件夹里导入了一个文件——什么时候、新进来几条、
 //   出错的原因（密钥换成 *** 之后）、导入的文件名和挪到了"已导入"里的哪个文件；299 号票起还有设备交来的（trigger device，
 //   带幂等键）、这次进来的是什么（summary）；
-// - data_source_disconnected：断开了（留着已导入的，或者连已导入的一起删：删了几条）。数据源页的"上次同步"从最近一次断开之后算。
+// - data_source_disconnected：断开了（留着已导入的，或者连已导入的一起删：删了几条）。数据源页的"上次同步"从最近一次断开之后算；
+//   344 号票：只断开它下面的一样（Gmail 的一个账号）的带 item，不算整个断开，"上次同步"照旧。
 // 数据源导入的记录本身是插件自己的事件（插件的频道和类型，数据源登记时写在 records 里），不在这个频道。
 // 记录不多（一次同步一条），数据源页每次现读这个频道归并，不建派生视图。
 import { type DataSourcePurgeCounts, type DataSourceSyncTrigger, isDeletedEventPayload } from "@ergo/protocol";
@@ -35,6 +36,8 @@ export interface DataSourceDisconnectedPayload {
   purged: boolean;
   /** 连已导入的一起删时删了几条 */
   counts?: DataSourcePurgeCounts;
+  /** 只断开了它下面的这一样（344 号票，插件认的 id，Gmail 账号是地址的哈希）；整个断开的没有 */
+  item?: string;
 }
 
 /** 这个频道上还在的记录（彻底删除改写成标记的不算），按先后 */

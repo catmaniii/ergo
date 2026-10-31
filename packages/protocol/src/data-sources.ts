@@ -10,6 +10,7 @@
 // 343 号票：数据源页分两层（卡片总览 + 全屏详情），详情里"数据"一块有两个标签——已获取的（POST /api/data-sources/<id>/stored：已经进到二狗的，
 // 分页、新的在前；进素材的内核按素材的出处列，不进素材的由数据源自己列）、现在能查到的（POST /api/data-sources/<id>/live：现查上游，只读，
 // 不写事件、不进素材、不进记忆、不经过模型）。两边的条目一个外形（DataSourceDataItem）。
+// 344 号票（Gmail 多账号）：下面的几样能单独断开（断开动作带 item）、带开关和条数；现查的结果能按几组显示（groups：每个账号一组）。
 
 /** 两种用法：按需查（给秘书工具，现查不存）、导入（同步进来：进素材或者交给别的插件） */
 export const DATA_SOURCE_USAGES = ["query", "import"] as const;
@@ -56,13 +57,19 @@ export interface DataSourceUsageView {
   on: boolean;
 }
 
-/** 数据源下面的一样（297 号票：Google 日历订阅的几个日历）：名字、一句说明（去掉私钥的地址）、它自己出的错 */
+/** 数据源下面的一样（297 号票：Google 日历订阅的几个日历；344 号票：Gmail 的几个账号）：名字、一句说明（去掉私钥的地址、状态）、它自己出的错 */
 export interface DataSourceItemView {
   /** 插件自己认的 id（插件画的设置那一块按它删掉这一样） */
   id: string;
   title: string;
   detail?: string;
   problem?: string;
+  /** 这一样导入了几条（344 号票：断开一个账号的确认框里说）；不分开数的不写 */
+  count?: number;
+  /** 这一样关着（344 号票：Gmail 账号的开关）；开着的不写 */
+  off?: true;
+  /** 能单独断开（344 号票：断开动作带 item，只删这一样的密钥，选了连已导入的一起删只删它的记录）；不能的不写 */
+  removable?: true;
 }
 
 /** 设置 · 数据源里的一个数据源：给人看的字都按守护进程当前的语言写好 */
@@ -159,6 +166,17 @@ export interface DataSourceDataItem {
   materialId?: string;
   /** 点开才现取正文（Gmail：列表只有发件人、主题、时间）：POST live 带 open 取 */
   openable?: true;
+  /** 现查时排在哪一组（344 号票：Gmail 的哪个账号，对上 DataSourceLiveResult.groups 的 id） */
+  group?: string;
+}
+
+/** 现查结果里的一组（344 号票：Gmail 一个账号一组）：给人看的名字（完整邮箱）、上游一共几条、这一组查不到的原因、要说的一句 */
+export interface DataSourceLiveGroup {
+  id: string;
+  title: string;
+  total?: number;
+  problem?: string;
+  note?: string;
 }
 
 /** 已获取的一页默认几条、最多几条 */
@@ -192,6 +210,8 @@ export interface DataSourceLiveResult {
   /** 查到了、但有要说的（几个日历里有一个没拉到） */
   notes?: string[];
   problem?: string;
+  /** 按几组显示（344 号票：Gmail 一个账号一组，条目的 group 对上 id）；不分组的不写 */
+  groups?: DataSourceLiveGroup[];
 }
 
 /** 原始数据里的一天 */

@@ -108,5 +108,21 @@
   "google.gmail.live.cut": "正文很长，这里只显示了前 {shown} 字（一共 {total} 字）。",
   "google.gmail.live.partial": "邮件很大，只读了前 10 MB：后面的正文、附件可能没列全。",
   "google.gmail.live.attachments": "附件：{names}",
-  "google.gmail.live.fellBack": "这个邮箱没有「全部邮件」，只查了收件箱。"
+  "google.gmail.live.fellBack": "这个邮箱没有「全部邮件」，只查了收件箱。",
+  "google.gmail.accountFailed": "{account}：{reason}",
+  "google.gmail.failedSep": "；",
+  "google.gmail.allFailed": "{n} 个账号都登录不上：每个账号下面写着原因，重新填应用专用密码",
+  "google.gmail.allOff": "账号都关着：现在不查、不导入，打开一个就接着用",
+  "google.gmail.disconnectAllNote": "这里断开的是全部 {n} 个账号。只想断开一个，点那个账号旁边的「断开」。",
+  "google.gmail.itemDetail": "{state} · 已导入 {n} 封",
+  "google.gmail.state.on": "连着",
+  "google.gmail.state.off": "关着",
+  "google.gmail.state.auth": "要重新填密码",
+  "google.gmail.error.noSuchAccount": "没有这个账号，连着的账号有：{accounts}",
+  "google.gmail.error.ambiguousAccount": "这样写对得上好几个账号，写完整的邮箱地址或账号编号。连着的账号有：{accounts}",
+  "google.gmail.error.accountOff": "账号 {account} 关着：要在设置 · 数据源里打开才能查",
+  "google.gmail.error.accountGone": "这个账号已经断开了",
+  "google.gmail.error.idNoAccount": "这个邮件编号没写是哪个账号的：重新搜一次再读",
+  "google.gmail.live.scopeEach": "每个账号全部邮件里最新的 {n} 封",
+  "google.gmail.accountWithId": "{account}（{id}）"
 }

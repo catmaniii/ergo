@@ -443,4 +443,93 @@ describe("详情里的数据（343 号票）", () => {
     expect(live({ state: "ok", at: ok.at, items: [] })).toContain("现在查不到东西");
     expect(html).not.toMatch(/秘书|待我处理/);
   });
+
+  test("现在能查到的按账号一组（344 号票）：名字是完整邮箱，一组一组的条目分开；一个账号查不到写在它那一组，别的照常；没查到的那组说一句", () => {
+    const at = "2026-10-25T10:00:00.000+08:00";
+    const html = live({
+      state: "ok",
+      at,
+      scope: "每个账号全部邮件里最新的 30 封",
+      items: [item({ id: "a.1", title: "私人的信", group: "a" })],
+      groups: [
+        { id: "a", title: "me@example.com", total: 120 },
+        { id: "b", title: "work@example.org", problem: "登录 Gmail 没通过" },
+        { id: "c", title: "empty@example.org", total: 0, note: "这个邮箱没有「全部邮件」，只查了收件箱。" },
+      ],
+    });
+    expect(html.match(/data-live-group=/g)).toHaveLength(3);
+    expect(html).toContain("<b>me@example.com</b>");
+    expect(html).toContain("一共 120 条，这里列出 1 条");
+    expect(html).toContain("<b>work@example.org</b>");
+    expect(html).toContain("查不到：登录 Gmail 没通过");
+    expect(html).toContain("这个邮箱没有「全部邮件」，只查了收件箱。");
+    // 查不到的那组不再说"现在查不到东西"，查到 0 封的说
+    expect(html.match(/现在查不到东西/g)).toHaveLength(1);
+    expect(html).toContain("私人的信");
+    // 条目在自己那一组里
+    expect(html.indexOf("私人的信")).toBeLessThan(html.indexOf("work@example.org"));
+  });
+});
+
+describe("断开一个账号（344 号票）", () => {
+  const one = { id: "a1", title: "me@example.com", detail: "连着 · 已导入 3 封", count: 3, removable: true as const };
+  const two = { id: "a2", title: "work@example.org", detail: "连着 · 已导入 1 封", count: 1, removable: true as const };
+  const gmail = source({ id: "google-gmail", title: "Google · Gmail", hasSecrets: true, toMaterials: true, count: 4, items: [one, two], usages: [{ usage: "query", on: true }, { usage: "import", on: true }], disconnectNote: "这里断开的是全部 2 个账号。只想断开一个，点那个账号旁边的「断开」。" });
+  const confirmOne = (purge: boolean) => renderToStaticMarkup(createElement(DisconnectConfirm, { confirming: { source: gmail, purge, item: two }, busy: false, onPurgeChange: noop, onCancel: noop, onConfirm: noop }));
+
+  test("确认框：标题是那个账号，条数是它自己的，写明别的账号不受影响；照样选留着 / 一起删；不说'全部'那一句", () => {
+    const html = confirmOne(false);
+    expect(html).toContain("断开「work@example.org」");
+    expect(html).toContain("这个账号填过的密钥从这台电脑上删掉，别的账号不受影响。它已经导入的 1 条怎么办？");
+    expect(html).toContain("留着已导入的（素材照样在");
+    expect(html).toContain("连已导入的一起删（记录、由它们整理出的素材和原文副本一起彻底删除）");
+    expect(html).not.toContain("这里断开的是全部");
+    expect(confirmOne(true)).toContain("彻底删除不能恢复");
+    expect(confirmOne(true)).toContain(">断开并删除<");
+  });
+
+  test("整个断开：按钮写全部断开，确认框说是全部；只有一个账号时按钮还是断开", () => {
+    const all = list([gmail]);
+    expect(all).toContain(">全部断开<");
+    const html = renderToStaticMarkup(createElement(DisconnectConfirm, { confirming: { source: gmail, purge: false }, busy: false, onPurgeChange: noop, onCancel: noop, onConfirm: noop }));
+    expect(html).toContain("断开「Google · Gmail」");
+    expect(html).toContain("这里断开的是全部 2 个账号");
+    expect(html).toContain("已经导入的 4 条怎么办？");
+    const single = list([source({ ...gmail, items: [one], disconnectNote: undefined })]);
+    expect(single).not.toContain("全部断开");
+    expect(single).toContain(">断开<");
+  });
+
+  test("做完说一句：说断开的是那个账号", () => {
+    const view: DataSourcesView = { sources: [], folder: { path: "", importedPath: "", pending: [], recent: [] } };
+    expect(doneText(gmail, { action: "disconnect", purge: false, item: "a2", idempotencyKey: "k" }, { view })).toBe("断开了「work@example.org」");
+    expect(doneText(gmail, { action: "disconnect", purge: true, item: "a2", idempotencyKey: "k" }, { view, purged: { events: 2, materials: 1, files: 0 } })).toBe("断开了「work@example.org」：删了 2 条记录、1 条素材、0 个文件");
+  });
+
+  test("原型：加一个、断开一个另一个照常；开关一个；密码写 bad 不加；现查一个账号一组", async () => {
+    const fake = new FakeDataSources();
+    const gmailOf = (view: DataSourcesView) => view.sources.find((s) => s.id === "google-gmail")!;
+    const act = (values: Record<string, string>) => fake.act("google-gmail", { action: "configure", values, idempotencyKey: "k" });
+    expect(gmailOf(await fake.view()).items?.map((i) => i.title)).toEqual(["yourname@gmail.com"]);
+    const wrong = gmailOf((await act({ address: "work@example.org", password: "bad" })).view);
+    expect(wrong.items).toHaveLength(1);
+    expect(wrong.problem).toContain("登录 Gmail 没通过");
+    const added = gmailOf((await act({ address: "work@example.org", password: "x" })).view);
+    expect(added.problem).toBeUndefined();
+    expect(added).toMatchObject({ connection: "connected", account: "yourname@gmail.com、work@example.org" });
+    const live2 = await fake.live("google-gmail", {});
+    expect(live2.groups?.map((g) => g.title)).toEqual(["yourname@gmail.com", "work@example.org"]);
+    expect(new Set(live2.items.map((i) => i.id)).size).toBe(live2.items.length);
+    const opened = await fake.live("google-gmail", { open: live2.items[0]!.id });
+    expect(opened.items[0]!.body).toBeDefined();
+    const off = gmailOf((await act({ account: added.items![0]!.id, enabled: "off" })).view);
+    expect(off.items![0]).toMatchObject({ off: true, detail: "关着 · 已导入 0 封" });
+    expect((await fake.live("google-gmail", {})).groups?.map((g) => g.title)).toEqual(["work@example.org"]);
+    const after = gmailOf((await fake.act("google-gmail", { action: "disconnect", purge: false, item: added.items![1]!.id, idempotencyKey: "k2" })).view);
+    expect(after.items?.map((i) => i.title)).toEqual(["yourname@gmail.com"]);
+    expect(after.connection).toBe("not_connected");
+    const gone = gmailOf((await fake.act("google-gmail", { action: "disconnect", purge: false, item: after.items![0]!.id, idempotencyKey: "k3" })).view);
+    expect(gone.items).toBeUndefined();
+    expect(gone.account).toBeUndefined();
+  });
 });

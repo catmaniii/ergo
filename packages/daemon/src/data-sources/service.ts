@@ -35,6 +35,10 @@
 // - 已获取的（stored）：数据源自己会列的叫它（插件在运行时），它的记录进素材的按素材的出处列（素材是内核的，插件停了也列得出），点开跳素材详情；
 // - 现在能查到的（live）：现查上游，只读。插件没在运行、没连上、出错的不叫，写明；不写事件、不进素材（这里什么都不记），出错的原因里的密钥换成 ***；
 //   查的时候可能发现 Key 失效（插件记在内存里）：查完和按需查一样比一比。不看按需查开着没有——那个开关管给秘书的工具，这里是用户自己看。
+// 344 号票（Gmail 多账号）：
+// - 起来时叫数据源的 migrate（密钥区的老样子转成新样子；插件没启用也叫），转不成记一条日志、照常起来，下次再试；
+// - 断开动作带 item 是只断开它下面的一样（数据源的 disconnectItem）：只删这一样的密钥，选了连已导入的一起删只删归它的记录；"上次同步"照旧；
+// - 已获取的里写明素材是哪个账号的（还连着的写完整邮箱，只给页面）；现查的结果带 groups（一个账号一组）。
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -255,7 +259,8 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
   };
   /**
    * 出错了、内核每小时替它再试一次的（306 号票）：插件在运行、报出错、能再试（登记了 recheck，或者有 sync 且导入开着），
-   * 能填设置的还要密钥区里真有东西（只是填设置没过、什么都没存的不算：没什么可试）
+   * 能填设置的还要密钥区里真有东西（只是填设置没过、什么都没存的不算：没什么可试）。
+   * 344 号票：几个账号里有一个登录不上（连着、带 needsAuth，给了 recheck）也算：别的账号照常，那一个每小时替它再试
    */
   const retryable = (entry: DataSourceEntry): boolean => {
     const { source } = entry;
@@ -263,7 +268,8 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
     if (!source.recheck && !(source.sync && usageOn(entry, "import"))) return false;
     if (source.configure && !secrets.hasAny(source.id)) return false;
     const status = statusOf(entry);
-    return status !== "manual" && status.connection === "error";
+    if (status === "manual") return false;
+    return status.connection === "error" || (status.connection === "connected" && status.needsAuth === true && source.recheck !== undefined);
   };
   /**
    * 按需查的工具现在给不给（306 号票）：插件在运行、按需查开着、连着。连接状态是插件报的最近一次已知的（status 要快、不连网：
@@ -293,7 +299,8 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
     const last = new Map<string, DataSourceSyncedPayload>();
     const files: DataSourceSyncedPayload[] = [];
     for (const { synced, disconnected } of dataSourceRecords(store)) {
-      if (disconnected) last.delete(disconnected.source);
+      // 只断开它下面的一样（344）不算：别的几样照常，"上次同步"照旧
+      if (disconnected && disconnected.item === undefined) last.delete(disconnected.source);
       if (!synced) continue;
       last.set(synced.source, synced);
       if (synced.file) files.push(synced);
@@ -400,7 +407,7 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
     const schedule = registry.get(id)?.source.usages.import?.schedule;
     if (trigger !== "scheduled" || added > 0 || !schedule || !isInterval(schedule)) return true;
     const previous = dataSourceRecords(store)
-      .flatMap(({ synced, disconnected }) => (synced?.source === id && synced.trigger !== "file" ? [synced] : disconnected?.source === id ? [undefined] : []))
+      .flatMap(({ synced, disconnected }) => (synced?.source === id && synced.trigger !== "file" ? [synced] : disconnected?.source === id && disconnected.item === undefined ? [undefined] : []))
       .at(-1);
     return previous === undefined || previous.error !== undefined;
   };
@@ -766,10 +773,29 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
         // 同一个幂等键重发：什么都不再做，只回第一次记下的
         const before = disconnectedBefore(store, body.idempotencyKey);
         if (before) return { view: view(), ...(before.counts ? { purged: before.counts } : {}) };
+        // 只断开它下面的一样（344）：要插件在运行（插件认得哪一样）
+        if (body.item !== undefined) {
+          if (!source.disconnectItem) throw new RequestRejected("not_allowed", t("dataSources.noDisconnectItem", { title: source.title }));
+          if (!entry.owner.running()) throw new RequestRejected("not_allowed", pluginOff(entry));
+        }
+        // 正在同步的先停（只断开一样时也停：等同步写完再删；别的几样下一次定期导入接着）
         const now = running.get(id);
         if (now) {
           now.controller.abort();
           await now.promise.catch(() => {});
+        }
+        if (body.item !== undefined) {
+          let owns: (event: StoredEvent) => boolean;
+          try {
+            owns = source.disconnectItem!(body.item, contextOf(entry)).owns;
+          } catch (err) {
+            throw new RequestRejected("not_found", redact(entry, describe(err)));
+          }
+          // 填设置没过的那一句（可能说的就是这一样）不再留着
+          configureProblems.delete(id);
+          const record = recordDisconnect({ store, participants: options.participants, now: options.now, log }, { source: id, records: source.records ?? [], purge: body.purge, item: { id: body.item, only: owns } }, body.idempotencyKey);
+          refresh();
+          return { view: view(), ...(record.counts ? { purged: record.counts } : {}) };
         }
         if (entry.owner.running() && source.disconnect) {
           try {
@@ -852,9 +878,14 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
       }
     }
     if (!toMaterials(entry)) throw new RequestRejected("not_allowed", t("dataSources.noStored", { title: source.title }));
-    // 进素材的：素材是内核的，插件停了照样列得出；点开跳素材详情
+    // 进素材的：素材是内核的，插件停了照样列得出；点开跳素材详情。有账号的写明是哪个账号（344：还连着的写完整邮箱，只给页面；断开了的写素材里记的打码的）
     const { total, items } = options.materialsOf(id, page);
-    return { total, items: items.map((m) => ({ id: m.id, title: m.excerpt, subtitle: m.kind, time: m.time, materialId: m.id })) };
+    const status = statusOf(entry);
+    const shown = new Map(status === "manual" ? [] : (status.items ?? []).map((item) => [item.id, item.title]));
+    return {
+      total,
+      items: items.map((m) => ({ id: m.id, title: m.excerpt, subtitle: m.account ? t("dataSources.storedFromAccount", { kind: m.kind, account: shown.get(m.account.id) ?? m.account.label }) : m.kind, time: m.time, materialId: m.id })),
+    };
   };
 
   const live = async (id: string, body: DataSourceLiveBody): Promise<DataSourceLiveResult> => {
@@ -876,6 +907,8 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
         ...(answer.scope === undefined ? {} : { scope: answer.scope }),
         ...(answer.total === undefined ? {} : { total: answer.total }),
         ...(answer.notes === undefined || answer.notes.length === 0 ? {} : { notes: answer.notes.map((note) => redact(entry, note)) }),
+        // 一组查不到的原因里的密钥换掉；名字（完整邮箱）是给人看的，不换
+        ...(answer.groups === undefined ? {} : { groups: answer.groups.map((group) => ({ ...group, ...(group.problem === undefined ? {} : { problem: redact(entry, group.problem) }) })) }),
       };
     } catch (err) {
       const problem = redact(entry, describe(err));
@@ -918,7 +951,15 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
     refresh,
     start(startOptions = {}) {
       fs.mkdirSync(options.folder.imported, { recursive: true });
-      toolsUndo = options.contributions.tools.register({ to: { agents: ["secretary"] }, tools: () => queryTools() });
+      // 密钥区的老样子转成新样子（344）：最先做；转不成记一条、照常起来（下次启动再试，插件照老样子接着用）
+      for (const entry of registry.list()) {
+        try {
+          entry.source.migrate?.(contextOf(entry));
+        } catch (err) {
+          log(`数据源 ${entry.source.id} 的密钥区没转成（照老样子接着用，下次启动再试）：${redact(entry, describe(err))}`);
+        }
+      }
+      toolsUndo =options.contributions.tools.register({ to: { agents: ["secretary"] }, tools: () => queryTools() });
       shownCalendars = calendarShape();
       teardown.push(store.onAppend(onRecord));
       armJobs();

@@ -532,7 +532,8 @@ export function registerCandidateDeletion(
 ): () => void {
   return participants.register(DATA_SOURCE_DELETION, {
     owner: "personal-files",
-    join: ({ source }, plan) => ({
+    // 344：只断开数据源下面的一样时不碰（档案候选不分账号）
+    join: ({ source, only }, plan) => (only ? undefined : {
       claim() {
         const { store } = deps;
         const events = liveEvents(store.read(PERSONAL_FILES_CHANNEL, 0, PERSONAL_FILE_EVENT)).filter((e) => {

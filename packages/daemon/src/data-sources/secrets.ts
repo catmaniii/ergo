@@ -5,8 +5,11 @@
 // - 和模型 key 不同：模型 key 由 LSM 从密钥区注入守护进程的环境（config/secrets.ts）；这里是用户在设置 · 数据源里填的，守护进程直接写文件。
 // - 写的时候先写临时文件再改名（写到一半断电不留半个文件）；POSIX 上权限 600。
 // - 断开时整格删掉（clear）。同步、导入出错的原因里要是带着这一格里的值，服务记下之前换成 ***（valuesOf）。
+// - 344 号票（一次要写好几项的迁移）：写的时候读不了文件（被占着）不当作空的——那样会把别的项盖没，抛出去；改名被占着时等一会儿重试（util/atomic-file.ts）；
+//   写不成时临时文件删掉（里面有密钥，断开时也删不到它）。
 import fs from "node:fs";
 import path from "node:path";
+import { renameRetrying } from "../util/atomic-file.ts";
 import type { DataSourceSecrets } from "./api.ts";
 
 export interface DataSourceSecretStore {
@@ -27,17 +30,31 @@ interface SecretFile {
 
 export function createDataSourceSecrets(options: { dir: string; log: (line: string) => void }): DataSourceSecretStore {
   const fileOf = (id: string) => path.join(options.dir, `${id}.json`);
-  const read = (id: string): Record<string, string> => {
-    const file = fileOf(id);
-    if (!fs.existsSync(file)) return {};
+  /** 解析文件内容；不是 JSON 的当作空的（下一次写就好了） */
+  const parse = (id: string, text: string): Record<string, string> => {
     try {
-      const parsed = JSON.parse(fs.readFileSync(file, "utf8")) as Partial<SecretFile>;
+      const parsed = JSON.parse(text) as Partial<SecretFile>;
       return parsed.values && typeof parsed.values === "object" ? { ...parsed.values } : {};
     } catch (err) {
       // 不打印内容，只说哪个文件读不了
       options.log(`数据源 ${id} 的密钥文件读不了，当作空的：${err instanceof Error ? err.name : "未知错误"}`);
       return {};
     }
+  };
+  const read = (id: string): Record<string, string> => {
+    const file = fileOf(id);
+    if (!fs.existsSync(file)) return {};
+    try {
+      return parse(id, fs.readFileSync(file, "utf8"));
+    } catch (err) {
+      options.log(`数据源 ${id} 的密钥文件读不了，当作空的：${err instanceof Error ? err.name : "未知错误"}`);
+      return {};
+    }
+  };
+  /** 写之前读：文件在、读不出来（被占着）时抛出去，不当作空的——当作空的写回去就把别的项盖没了 */
+  const readToChange = (id: string): Record<string, string> => {
+    const file = fileOf(id);
+    return fs.existsSync(file) ? parse(id, fs.readFileSync(file, "utf8")) : {};
   };
   const write = (id: string, values: Record<string, string>) => {
     const file = fileOf(id);
@@ -47,8 +64,13 @@ export function createDataSourceSecrets(options: { dir: string; log: (line: stri
     }
     fs.mkdirSync(options.dir, { recursive: true });
     const tmp = `${file}.${process.pid}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify({ format: 1, values } satisfies SecretFile, null, 2), { mode: 0o600 });
-    fs.renameSync(tmp, file);
+    try {
+      fs.writeFileSync(tmp, JSON.stringify({ format: 1, values } satisfies SecretFile, null, 2), { mode: 0o600 });
+      renameRetrying(tmp, file);
+    } catch (err) {
+      fs.rmSync(tmp, { force: true });
+      throw err;
+    }
   };
   return {
     forSource(id) {
@@ -56,10 +78,10 @@ export function createDataSourceSecrets(options: { dir: string; log: (line: stri
         get: (name) => read(id)[name],
         has: (name) => read(id)[name] !== undefined,
         set(name, value) {
-          write(id, { ...read(id), [name]: value });
+          write(id, { ...readToChange(id), [name]: value });
         },
         delete(name) {
-          const values = read(id);
+          const values = readToChange(id);
           delete values[name];
           write(id, values);
         },

@@ -10,6 +10,8 @@
 //   主题加去掉了引用原文的正文；采成"本人写的"素材（plugin.ts 的采集规则），彻底删除时主题、正文、收件人换掉；
 // - google_gmail_cursor：导到哪了（没正文的、早就导过的跳过时，"已发邮件"里的编号照样往前挪），只在最后几封都跳过时写一条。
 // Gmail 地址和应用专用密码只在密钥区，这里一个都不写。
+// 344 号票（多账号）：这两类多记哪个账号——account 是账号的 id（地址的哈希，推不回地址）；google_gmail_sent 另带打了码的邮箱（accountLabel，
+// 采集规则只看事件，素材的出处要它，彻底删除时去掉）。转过来之前写的没有这两项，归转过来的那个账号（gmail-accounts.ts）。
 import { isDeletedEventPayload } from "@ergo/protocol";
 import type { SensitiveCategory } from "../config/config.ts";
 import type { StoredEvent } from "../events/event-store.ts";
@@ -24,8 +26,12 @@ export const GOOGLE_GMAIL_CURSOR = "google_gmail_cursor";
 
 /** 导入的一封你发出的邮件 */
 export interface GoogleGmailSentPayload {
-  /** 在"已发邮件"里的编号：UIDVALIDITY-UID */
+  /** 这条记录的编号：<账号 id>-UIDVALIDITY-UID（转过来之前写的是 UIDVALIDITY-UID） */
   id: string;
+  /** 哪个账号（344 号票：账号的 id）；转过来之前写的没有 */
+  account?: string;
+  /** 打了码的邮箱（素材的出处用）；彻底删除时去掉 */
+  accountLabel?: string;
   uidValidity: number;
   uid: number;
   messageId?: string;
@@ -44,6 +50,8 @@ export interface GoogleGmailSentPayload {
 
 /** 导到哪了 */
 export interface GoogleGmailCursorPayload {
+  /** 哪个账号（344 号票）；转过来之前写的没有 */
+  account?: string;
   uidValidity: number;
   uid: number;
   at: string;

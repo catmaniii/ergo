@@ -9,7 +9,7 @@ import type { ComponentType, ReactNode } from "react";
 import type { MorePage, Navigate, Route } from "../app/route.ts";
 import type { RecordedVoice } from "../app/voice-session.ts";
 import type { BoardEntry } from "../model/types.ts";
-import type { CalendarCell, CalendarDayDetail, ChatItem, ChatItemKind, DataSourcesView, DataSourceView, DetailContent, DetailKind } from "../state/index.ts";
+import type { CalendarCell, CalendarDayDetail, ChatItem, ChatItemKind, DataSourceItemView, DataSourcesView, DataSourceView, DetailContent, DetailKind } from "../state/index.ts";
 import type { CardProps } from "../ui/cards/CardShell.tsx";
 import type { ChatItemActions } from "../ui/conversation/ChatItemView.tsx";
 import type { IconName } from "../ui/icons.tsx";
@@ -166,11 +166,12 @@ export interface SettingsPageSlot {
  * 数据源的设置（295 号票）：设置 · 数据源的详情（核心的页面，343 号票起 pages/more/DataSourceDetail.tsx）里一个数据源下面插件画的那一块——
  * 填 API Key、私密地址、选区域，测试连接。键是数据源的 id（守护进程那一半在数据契约里登记的）。填的值经
  * POST /api/data-sources/<id>（action configure）交给数据源，存进守护进程的密钥区；交回的整页交给 onView 换上。
- * 插件停用时这一块不画（那一行写"X插件没启用"）
+ * 插件停用时这一块不画（那一行写"X插件没启用"）。
+ * onDisconnectItem（344 号票）：断开它下面的一样（Gmail 的一个账号）——确认框是核心页面的那一个（留着已导入的 / 连已导入的一起删），插件只说断开哪一样
  */
 export interface DataSourceSlot {
   readonly id: string;
-  readonly Panel: ComponentType<{ source: DataSourceView; onView(view: DataSourcesView): void }>;
+  readonly Panel: ComponentType<{ source: DataSourceView; onView(view: DataSourcesView): void; onDisconnectItem?: ((item: DataSourceItemView) => void) | undefined }>;
 }
 
 /** 全部插槽 */

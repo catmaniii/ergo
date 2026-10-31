@@ -299,6 +299,8 @@ export const MaterialListItem = Type.Object({
   /** 开头一段（本人的话、附件的文件名、卡片的说明） */
   excerpt: Type.String(),
   marks: MaterialMarks,
+  /** 数据源导入的、数据源有几个账号的：哪个账号（344 号票，素材信封出处的 origin.account：id 和打了码的邮箱） */
+  account: Type.Optional(Type.Object({ id: Type.String(), label: Type.String() })),
 });
 export type MaterialListItem = Static<typeof MaterialListItem>;
 

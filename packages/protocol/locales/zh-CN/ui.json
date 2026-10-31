@@ -370,7 +370,6 @@
   "ui.plugins.google.howto3": "复制「iCal 格式的私密地址」，贴到上面",
   "ui.plugins.google.howtoSafe": "这个地址相当于密码，拿到它的人能看你的日历：二狗只把它存在这台电脑的密钥区。不小心泄露了，在同一处点「重置」，再把新地址填进来",
   "ui.plugins.google.gmail.addressLabel": "Gmail 地址",
-  "ui.plugins.google.gmail.addressChange": "换一个 Gmail 地址（不换就空着）",
   "ui.plugins.google.gmail.addressPlaceholder": "name@gmail.com",
   "ui.plugins.google.gmail.passwordLabel": "应用专用密码",
   "ui.plugins.google.gmail.passwordPlaceholder": "16 位字母，中间的空格不用删",
@@ -1688,5 +1687,11 @@
   "ui.plugins.phone.places.err.hereFailed": "定不了位：{reason}",
   "ui.plugins.phone.places.err.notFound": "没找到这个地方，换个说法试试",
   "ui.plugins.phone.places.err.findFailed": "找不了：{reason}",
-  "ui.plugins.phone.places.err.failed": "没做成：{reason}"
+  "ui.plugins.phone.places.err.failed": "没做成：{reason}",
+  "ui.plugins.google.gmail.addAnother": "再加一个 Gmail 账号（填地址）",
+  "ui.plugins.google.gmail.switchLabel": "账号 {address} 开着（关了不查、不导入）",
+  "ui.plugins.google.gmail.disconnect": "断开",
+  "ui.plugins.google.gmail.disconnectLabel": "断开账号 {address}",
+  "ui.plugins.google.gmail.reenter": "重新填密码",
+  "ui.plugins.google.gmail.reenterLabel": "重新填账号 {address} 的密码"
 }

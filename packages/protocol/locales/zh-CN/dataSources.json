@@ -30,5 +30,7 @@
   "dataSources.badPush": "交给{title}的不对：{message}",
   "dataSources.noStored": "{title}没有已获取的可看",
   "dataSources.noLive": "{title}不能现查",
-  "dataSources.liveFailed": "{title}现在查不了"
+  "dataSources.liveFailed": "{title}现在查不了",
+  "dataSources.noDisconnectItem": "{title}不能单独断开其中一样",
+  "dataSources.storedFromAccount": "{kind} · {account}"
 }

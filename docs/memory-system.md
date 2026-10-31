@@ -147,7 +147,7 @@ flowchart TB
 
 - 保管 `materials.db` 和原文副本：跟着事件日志照做记忆命令的删除和标记，给本人的话写原文副本，读和检索。
 - 素材只从事件日志确定性地产生。agent 没有写素材、挑素材的工具。
-- 数据源导入的素材（303 号票）：数据源插件在采集规则里用 `dataSourceMaterial`（`packages/daemon/src/data-sources/material.ts`）写成三种之一——观察到的本人行为（`observed_behavior`，本人、做）、别人写给你的（`received_writing`，外部、说，只留摘要，正文只进检索）、本人写的（`own_writing`，本人、说）；信封多一样出处 `origin`：哪个数据源、场景（结束时间、地点、和谁、场景标签）、这条落在哪些敏感类别（不写是数据源登记的全部）。`materials.db` 的 `materials` 多一列 `origin`（库版本 3），地点、和谁也进检索的索引文字。
+- 数据源导入的素材（303 号票）：数据源插件在采集规则里用 `dataSourceMaterial`（`packages/daemon/src/data-sources/material.ts`）写成三种之一——观察到的本人行为（`observed_behavior`，本人、做）、别人写给你的（`received_writing`，外部、说，只留摘要，正文只进检索）、本人写的（`own_writing`，本人、说）；信封多一样出处 `origin`：哪个数据源、场景（结束时间、地点、和谁、场景标签）、这条落在哪些敏感类别（不写是数据源登记的全部）；数据源有几个账号的（344 号票，Gmail）还写哪个账号（`origin.account`：id 和打了码的邮箱，这之前导入的没有）。`materials.db` 的 `materials` 多一列 `origin`（库版本 3），地点、和谁也进检索的索引文字。
 - `materials.db` 是派生的，删了能重建：从事件日志采出的 ∪ 原文副本里事件日志已经没有的本人素材。
 - 不随记忆插件停。理由是对用户的数据承诺：本人说过的每句话留一份不可修改的原文副本，删项目也不受影响；"彻底删除照常能删"。
 - 删除（`memory/` 里的 `deletion.ts`、`purge.ts`、`rewriters.ts`、`bulk.ts`、`after-purge.ts`、265 号票的 `purged-evidence.ts`：问记忆的结果按证据编号引原话，彻底删除时按被删素材的证据编号抹掉；266 号票起秘书会话文件里跟在输入后面的那条上下文消息——记忆简报引的原话——也按同一规矩抹掉，覆盖了它的压缩摘要整段换掉；272 号票起问记忆管理员（`ask_curator`）的回答也照这样抹，删项目、删任务时连带彻底删除的系统记录也按证据编号找；272 号票的 `packages/daemon/src/memory/purge-backfill.ts`：守护进程启动时补抹一次 265 以前删过、事件日志里问记忆结果和记忆简报还留着的原话）、看素材（`browse.ts`）、项目内部的记录（`internal-records.ts`）也是内核的，代码在 `packages/daemon/src/memory/` 下，别处从 `packages/daemon/src/memory/index.ts` 取。
@@ -1777,7 +1777,7 @@ flowchart LR
 | 标了"别推断"的素材 | 不读 | 234 号票起已进库的也撤掉 |
 | 落在没打开的敏感类别里的素材 | 不读 | `inferableBySensitivity`；对话里的只有健康；数据源的另看出处 `origin.sensitive`（`inferableByOrigin`） |
 | 数据源的三种素材（303 号票）：观察到的本人行为、别人写给你的、本人写的 | `action`（本人、做）、`utterance`（`untrusted`、说）、`utterance`（本人、说） | 证据性质跟着来源等级和说或做走（@ergo/memory 的 `assertionFor`）：本人做的是 observed、能撑结论；别人写的是 third_party_reported、`canSupportUserClaims` 不认、只当背景；本人写的是 user_stated。别人写的原文是插件整理的摘要（正文不进推理库） |
-| 数据源素材的场景（时间段、地点、和谁） | 原文后面一行"［场景］时间 14:00–17:00 · 地点 … · 和 …" | `sceneParts`、`withSceneLine`（`packages/daemon/src/memory/data-source-evidence.ts`）：证据没有放地点和人的字段，给抽事实的模型读；位置没打开时不带地点 |
+| 数据源素材的场景（时间段、地点、和谁、哪个账号） | 原文后面一行"［场景］时间 14:00–17:00 · 地点 … · 和 … · 账号 …"（账号是打了码的邮箱，344 号票；合成一条时不同账号不合在一起） | `sceneParts`、`withSceneLine`（`packages/daemon/src/memory/data-source-evidence.ts`）：证据没有放地点和人的字段，给抽事实的模型读；位置没打开时不带地点 |
 | 数据源素材的场景标签 | `context` | `sceneTags`：插件给的、认得的场景维度标签；没给一天是哪种的按日子补工作日 / 周末（节假日、调休不认）；没给方面的从原文按关键词推 |
 | 同一个数据源、同一种、同一天超过 3 条（`DIGEST_OVER`） | 合成一条证据，出处 `digest:<素材 id,…>` | `groupDataSourceItems`、`digestText`：一条一行、太长截断；发生时间是第一条的、知道时间是最后一条的；删其中一条（彻底删除、别推断）撤整条、剩下的下一夜重新读，忘掉一条时那条合成的证据清原文、别的素材放回来（`ingestedMaterialIds`）；删除、"回忆了 N 条记忆"、档案候选按 `materialIdsOfRef` 拆回素材 id |
 | 数据源素材的读法（每晚整理的预算） | 当天的先不读；一夜最多 `DATA_SOURCE_EVIDENCE_PER_NIGHT`（12）条 | 按时间先后，多的留到下一夜；用户说的话照旧全读，不被数据源挤掉。顺口问那条路（`evidenceDraftOf`）一条一条读、不看是不是当天 |

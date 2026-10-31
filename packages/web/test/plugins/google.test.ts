@@ -4,6 +4,7 @@
 // - 怎么拿私密地址（Google 日历网页版的设置里），写明地址相当于密码；
 // - 298 号票 Google · Gmail 下面那一块：Gmail 地址、应用专用密码（密码框、不回显）、连上并测试；连上以后能换密码、重新测试；
 //   怎么开两步验证、生成应用专用密码（没连时展开），写明只读、密码存在哪、改 Google 密码会失效、什么情况没有这一项；
+//   344 号票：几个账号一个一行（完整邮箱、状态、问题、开关、重新填密码、断开），下面再加一个；
 // - 301 号票：Google · 联系人下面那一块——进候选的是谁、一张卡几个人、怎么从 Google 联系人导出 vCard；
 // - 插件定义：拥有 google-calendar、google-gmail、google-contacts 这三块、登记的就是它们。
 // 界面上不出现"秘书""待我处理"。
@@ -129,7 +130,7 @@ function gmail(extra: Partial<DataSourceView> = {}): DataSourceView {
 
 const renderGmail = (props: Partial<GoogleGmailFieldsProps> = {}) =>
   renderToStaticMarkup(
-    createElement(GoogleGmailFields, { source: gmail(), address: "", password: "", busy: false, done: undefined, failed: undefined, onAddress: noop, onPassword: noop, onSave: noop, onRetest: noop, ...props }),
+    createElement(GoogleGmailFields, { source: gmail(), address: "", password: "", busy: false, done: undefined, failed: undefined, onAddress: noop, onPassword: noop, onSave: noop, onRetest: noop, onToggle: noop, onReenter: noop, onDisconnect: noop, ...props }),
   );
 
 describe("Google · Gmail 下面那一块", () => {
@@ -160,15 +161,37 @@ describe("Google · Gmail 下面那一块", () => {
     expect(renderGmail({ failed: "没做成：连不上" })).toContain('<div class="field-error" role="alert">没做成：连不上</div>');
   });
 
-  test("连上了：换一个地址（可以空着）、换密码并测试（只填密码就能点）、重新测试连接；说明收起来", () => {
-    const connected = gmail({ connection: "connected", account: "test.user@example.com" });
+  const ONE = { id: "a1111111111", title: "test.user@example.com", detail: "连着 · 已导入 3 封", count: 3, removable: true as const };
+  const TWO = { id: "a2222222222", title: "work.mail@example.org", detail: "要重新填密码 · 已导入 0 封", problem: "登录 Gmail 没通过", count: 0, removable: true as const };
+
+  test("连上了：一个账号一行（完整邮箱、状态和几封），能断开、能开关；下面再加一个、重新测试连接；说明收起来", () => {
+    const connected = gmail({ connection: "connected", account: ONE.title, items: [ONE] });
     const html = renderGmail({ source: connected });
-    expect(html).toContain("换一个 Gmail 地址（不换就空着）");
-    expect(html).toMatch(/disabled="">换密码并测试</);
+    expect(html).toContain("<b>test.user@example.com</b>");
+    expect(html).toContain("连着 · 已导入 3 封");
+    expect(html).toContain('aria-label="断开账号 test.user@example.com"');
+    expect(html).toContain('role="switch"');
+    expect(html).toContain("再加一个 Gmail 账号（填地址）");
     expect(html).toContain('<button type="button" class="btn ghost small">重新测试连接</button>');
     expect(html).toContain('<details class="gcal-howto">');
-    expect(renderGmail({ source: connected, password: "newpasswordabcd" })).toMatch(/<button type="submit" class="btn primary small">换密码并测试<\/button>/);
-    // 登录没通过（密码失效）时也按"已经填过"画
-    expect(renderGmail({ source: gmail({ connection: "error", account: "test.user@example.com", problem: "登录 Gmail 没通过" }) })).toContain("重新测试连接");
+    // 地址和密码都填了才能加
+    expect(html).toMatch(/disabled="">连上并测试</);
+    expect(renderGmail({ source: connected, address: "work.mail@example.org", password: "newpasswordabcd" })).toMatch(/<button type="submit" class="btn primary small">连上并测试<\/button>/);
+    // 同一个地址（不分大小写）是换密码
+    expect(renderGmail({ source: connected, address: "Test.User@example.com", password: "newpasswordabcd" })).toMatch(/<button type="submit" class="btn primary small">换密码并测试<\/button>/);
+    expect(html).not.toMatch(/秘书|待我处理/);
+  });
+
+  test("两个账号：一个登录没通过的写原因、有重新填密码，另一个不受影响；关着的开关是关的；点的都是那一个账号", () => {
+    const html = renderGmail({ source: gmail({ connection: "connected", needsAuth: true, items: [{ ...ONE, off: true, detail: "关着 · 已导入 3 封" }, TWO] }) });
+    expect(html.match(/data-account=/g)).toHaveLength(2);
+    expect(html).toContain('<span class="field-error">登录 Gmail 没通过</span>');
+    expect(html.match(/重新填密码</g)).toHaveLength(1);
+    expect(html).toContain('aria-label="重新填账号 work.mail@example.org 的密码"');
+    expect(html).toContain('aria-label="账号 test.user@example.com 开着（关了不查、不导入）"');
+    // 第一个关着（没有 checked），第二个开着
+    const switches = html.match(/<input type="checkbox"[^>]*>/g)!;
+    expect(switches[0]).not.toContain("checked");
+    expect(switches[1]).toContain("checked");
   });
 });

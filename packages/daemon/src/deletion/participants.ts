@@ -62,6 +62,8 @@ export interface DataSourceDeletionSubject {
   readonly source: string;
   readonly records: readonly { readonly channel?: string; readonly type: string }[];
   readonly counts: { events: number; materials: number; files: number };
+  /** 只断开它下面的一样（344 号票：Gmail 的一个账号）：records 里只删归这一样的；别的参与方（同步记录、档案候选）不分这一样的不碰 */
+  readonly only?: (event: StoredEvent) => boolean;
 }
 
 export const PROJECT_DELETION = deletionKind<ProjectDeletionSubject>("project");

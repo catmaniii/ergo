@@ -7,6 +7,7 @@
 //   口径删（同一事务记一条彻底删除的记忆命令，出处 data_source；素材、索引、原文副本、推理库里的证据跟着删，重建时不回来）。
 // 同一个事务里改写、追加断开记录（data_source_disconnected，只写数据源、什么时候、删了几条），派生视图整体重放（appendBatch 的 purge）；
 // 同一个幂等键重发只回第一次记下的条数。
+// 344 号票：只断开它下面的一样（Gmail 的一个账号）时 subject 带 only：只删归这一样的记录（素材跟着记录走），同步记录不分账号、"已导入"的文件不归哪一样，都不动。
 import fs from "node:fs";
 import path from "node:path";
 import type { DataSourcePurgeCounts } from "@ergo/protocol";
@@ -22,18 +23,20 @@ const eventsOf = (store: EventStore, channel: string | undefined, type: string) 
 export function registerDataSourceDeletion(participants: Pick<DeletionParticipants, "register">, deps: { imports: string; log: (line: string) => void }): () => void {
   return participants.register(DATA_SOURCE_DELETION, {
     owner: "data-sources",
-    join: ({ source, records, counts }, plan) => ({
+    join: ({ source, records, counts, only }, plan) => ({
       claim() {
         const { store } = plan;
         const seen = new Set<number>();
         for (const { channel, type } of records) {
           for (const event of liveEvents(eventsOf(store, channel, type))) {
             if (seen.has(event.globalSeq)) continue;
+            if (only && !only(event)) continue;
             seen.add(event.globalSeq);
             plan.marker(event);
             counts.events += 1;
           }
         }
+        if (only) return;
         const files: string[] = [];
         for (const event of liveEvents(store.read(DATA_SOURCES_CHANNEL, 0, DATA_SOURCE_SYNCED))) {
           const synced = event.payload as DataSourceSyncedPayload;
@@ -73,7 +76,7 @@ export function disconnectedBefore(store: EventStore, idempotencyKey: string): D
  */
 export function recordDisconnect(
   deps: { store: EventStore; participants: Pick<DeletionParticipants, "plan">; now: () => string; log: (line: string) => void },
-  subject: { source: string; records: DataSourceDeletionSubject["records"]; purge: boolean },
+  subject: { source: string; records: DataSourceDeletionSubject["records"]; purge: boolean; item?: { id: string; only: NonNullable<DataSourceDeletionSubject["only"]> } },
   idempotencyKey: string,
 ): DataSourceDisconnectedPayload {
   const before = disconnectedBefore(deps.store, idempotencyKey);
@@ -82,7 +85,7 @@ export function recordDisconnect(
   const record = (counts?: DataSourcePurgeCounts): NewEvent => ({
     channel: DATA_SOURCES_CHANNEL,
     type: DATA_SOURCE_DISCONNECTED,
-    payload: { source: subject.source, at, purged: subject.purge, ...(counts ? { counts } : {}) } satisfies DataSourceDisconnectedPayload,
+    payload: { source: subject.source, at, purged: subject.purge, ...(counts ? { counts } : {}), ...(subject.item ? { item: subject.item.id } : {}) } satisfies DataSourceDisconnectedPayload,
     idempotencyKey: recordKey(idempotencyKey),
   });
   if (!subject.purge) {
@@ -91,7 +94,7 @@ export function recordDisconnect(
   }
   const counts: DataSourcePurgeCounts = { events: 0, materials: 0, files: 0 };
   const context: PurgeContext = { deletedAt: at, materialIds: new Set() };
-  const plan = deps.participants.plan(DATA_SOURCE_DELETION, { source: subject.source, records: subject.records, counts }, context);
+  const plan = deps.participants.plan(DATA_SOURCE_DELETION, { source: subject.source, records: subject.records, counts, ...(subject.item ? { only: subject.item.only } : {}) }, context);
   // 删除记录排在最前（同移除插件时连数据删），条数在 plan 里已经算好
   const results = deps.store.appendBatch([record(counts), ...plan.events], { purge: plan.purge });
   for (const step of plan.afterCommit) step();

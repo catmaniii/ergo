@@ -13,7 +13,8 @@ const IdempotencyKey = Type.String({ minLength: 1, maxLength: 200 });
 
 export const DataSourceActionBody = Type.Union([
   Type.Object({ action: Type.Literal("sync"), idempotencyKey: IdempotencyKey }, { additionalProperties: false }),
-  Type.Object({ action: Type.Literal("disconnect"), purge: Type.Boolean(), idempotencyKey: IdempotencyKey }, { additionalProperties: false }),
+  // 344 号票：item 是只断开它下面的这一样（DataSourceItemView.id，Gmail 的一个账号）；不带是整个断开
+  Type.Object({ action: Type.Literal("disconnect"), purge: Type.Boolean(), item: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })), idempotencyKey: IdempotencyKey }, { additionalProperties: false }),
   Type.Object({ action: Type.Literal("usage"), usage: Type.Enum(DATA_SOURCE_USAGES), on: Type.Boolean(), idempotencyKey: IdempotencyKey }, { additionalProperties: false }),
   Type.Object(
     { action: Type.Literal("configure"), values: Type.Record(Type.String(), Type.String({ maxLength: 4000 })), idempotencyKey: IdempotencyKey },

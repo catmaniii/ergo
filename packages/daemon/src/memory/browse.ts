@@ -85,6 +85,7 @@ export function createMaterialBrowser(options: MaterialBrowserOptions): Material
     ...(m.conversation === null ? {} : { conversation: m.conversation }),
     excerpt: query === undefined ? excerptOf(m, LIST_EXCERPT_CHARS) : snippetOf(searchableText(m), query, HIT_SNIPPET),
     marks: marksOf(m),
+    ...(m.origin?.account === undefined ? {} : { account: m.origin.account }),
   });
 
   /** 关键词命中的：采成素材时用关键词检索（索引）；只保管时逐条比对同一份文字 */

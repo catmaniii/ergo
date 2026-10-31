@@ -26,6 +26,7 @@ import {
   type DataSourceActionBody,
   type DataSourceActionResult,
   type DataSourceConnection,
+  type DataSourceItemView,
   type DataSourcesView,
   type DataSourceUsage,
   type DataSourceView,
@@ -116,10 +117,11 @@ export function sensitiveLine(source: DataSourceView): string | undefined {
   return t("pages.dataSources.sensitive", { parts: parts.join(t("pages.dataSources.sensitiveSep")) });
 }
 
-/** 正在确认断开（或者删除只靠导入文件夹的数据源已导入的） */
+/** 正在确认断开（或者删除只靠导入文件夹的数据源已导入的）；item 是只断开它下面的这一样（344 号票：Gmail 的一个账号） */
 export interface DisconnectConfirming {
   source: DataSourceView;
   purge: boolean;
+  item?: DataSourceItemView | undefined;
 }
 
 /** 断开之后、同步之后说一句 */
@@ -129,7 +131,9 @@ export function doneText(source: DataSourceView, body: DataSourceActionBody, res
       if (result.error !== undefined) return t("pages.dataSources.done.syncFailed", { error: result.error });
       return result.added === undefined ? t("pages.dataSources.done.syncing") : t("pages.dataSources.done.synced", { added: result.added });
     case "disconnect": {
-      const base = t(source.connection === "manual" ? "pages.dataSources.done.cleared" : "pages.dataSources.done.disconnected", { title: source.title });
+      // 只断开一样（344）：说断开的是那一样
+      const item = body.item === undefined ? undefined : source.items?.find((one) => one.id === body.item);
+      const base = t(source.connection === "manual" ? "pages.dataSources.done.cleared" : "pages.dataSources.done.disconnected", { title: item?.title ?? source.title });
       if (!result.purged) return base;
       const { events, materials, files } = result.purged;
       return `${base}${t("pages.dataSources.done.purged", { events, materials, files })}`;
@@ -198,10 +202,11 @@ export interface DisconnectConfirmProps {
 /**
  * 断开确认框里按数据源说的几句（306 号票）：通用的"填过的密钥从这台电脑上删掉"只在真有密钥（hasSecrets）时说，"素材照样在""由它们整理出的
  * 素材和原文副本"只在导入的真进素材（toMaterials）时说，"「已导入」里它的文件"只在认导入文件夹里的文件时说；"不再同步、按需查"按它提供的用法说。
- * 手机日历、通讯录、Google 联系人这种没密钥、不进素材的，实际会删什么由数据源报的那一句（disconnectNote）说
+ * 手机日历、通讯录、Google 联系人这种没密钥、不进素材的，实际会删什么由数据源报的那一句（disconnectNote）说。
+ * 只断开它下面的一样（344 号票：Gmail 的一个账号）：条数是那一样的，写明别的账号不受影响
  */
-export function disconnectTexts(source: DataSourceView): { body: string; keep: string; purge: string } {
-  const n = source.count;
+export function disconnectTexts(source: DataSourceView, item?: DataSourceItemView): { body: string; keep: string; purge: string } {
+  const n = item === undefined ? source.count : (item.count ?? 0);
   if (source.connection === "manual") {
     const files = source.files.length > 0;
     const body = source.toMaterials
@@ -212,7 +217,7 @@ export function disconnectTexts(source: DataSourceView): { body: string; keep: s
   const offers = (usage: DataSourceUsage) => source.usages.some((u) => u.usage === usage);
   const stop = t(offers("query") ? (offers("import") ? "pages.dataSources.confirm.stop.both" : "pages.dataSources.confirm.stop.query") : "pages.dataSources.confirm.stop.import");
   return {
-    body: t(source.hasSecrets ? "pages.dataSources.confirm.body" : "pages.dataSources.confirm.bodyPlain", { stop, count: n, n }),
+    body: t(item !== undefined ? "pages.dataSources.confirm.itemBody" : source.hasSecrets ? "pages.dataSources.confirm.body" : "pages.dataSources.confirm.bodyPlain", { stop, count: n, n }),
     keep: t(source.toMaterials ? "pages.dataSources.confirm.keep" : "pages.dataSources.confirm.keepPlain"),
     purge: t(source.toMaterials ? "pages.dataSources.confirm.purge" : "pages.dataSources.confirm.purgePlain"),
   };
@@ -220,11 +225,11 @@ export function disconnectTexts(source: DataSourceView): { body: string; keep: s
 
 /** 断开的确认框：留着已导入的 / 连已导入的一起删（彻底删除、不能恢复）；只靠导入文件夹的数据源只有"删除已导入的" */
 export function DisconnectConfirm({ confirming: c, busy, onPurgeChange, onCancel, onConfirm }: DisconnectConfirmProps) {
-  const { source, purge } = c;
+  const { source, purge, item } = c;
   const manual = source.connection === "manual";
-  const texts = disconnectTexts(source);
+  const texts = disconnectTexts(source, item);
   return (
-    <Sheet title={t(manual ? "pages.dataSources.confirm.clearTitle" : "pages.dataSources.confirm.title", { title: source.title })} onClose={onCancel} center>
+    <Sheet title={t(manual ? "pages.dataSources.confirm.clearTitle" : "pages.dataSources.confirm.title", { title: item?.title ?? source.title })} onClose={onCancel} center>
       <div className="modal-body plugin-confirm">
         {manual ? (
           <p>{texts.body}</p>
@@ -241,7 +246,7 @@ export function DisconnectConfirm({ confirming: c, busy, onPurgeChange, onCancel
             </label>
           </>
         )}
-        {source.disconnectNote !== undefined && <p className="source-keep-note">{source.disconnectNote}</p>}
+        {item === undefined && source.disconnectNote !== undefined && <p className="source-keep-note">{source.disconnectNote}</p>}
         {(manual || purge) && <p className="plugin-final">{t("pages.dataSources.confirm.final")}</p>}
       </div>
       <div className="auth-actions">

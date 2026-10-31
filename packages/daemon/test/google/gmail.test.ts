@@ -12,6 +12,7 @@ import path from "node:path";
 import { isDeletedEventPayload } from "@ergo/protocol";
 import { afterEach, describe, expect, it } from "vitest";
 import { GOOGLE_CHANNEL, GOOGLE_GMAIL_SENT, type GoogleGmailSentPayload } from "../../src/google/events.ts";
+import { accountIdOf } from "../../src/google/gmail-accounts.ts";
 import { GMAIL_READ_TOOL, GMAIL_SEARCH_TOOL, MAIL_TEXT_BEGIN, MAIL_TEXT_END } from "../../src/google/gmail-tools.ts";
 import { createGooglePlugin } from "../../src/google/plugin.ts";
 import { SECRETARY_TARGET } from "../../src/secretary/secretary.ts";
@@ -24,6 +25,8 @@ import { waitUntil } from "../helpers/process.ts";
 
 const SOURCE = "google-gmail";
 const PASSWORD = APP_PASSWORD.replace(/\s+/g, "");
+/** 账号的 id（344 号票：邮件编号、密钥区都带它） */
+const ACCOUNT = accountIdOf(ME);
 
 let keySeq = 0;
 const key = () => `gm-${++keySeq}`;
@@ -96,7 +99,7 @@ describe("填地址和应用专用密码", () => {
     const { k, imap } = await start();
     const result = await connect(k);
     expect(result.view.sources.find((s) => s.id === SOURCE)).toMatchObject({ connection: "connected", account: ME });
-    expect(JSON.parse(fs.readFileSync(secretFile(k), "utf8")).values).toEqual({ address: ME, password: PASSWORD });
+    expect(JSON.parse(fs.readFileSync(secretFile(k), "utf8")).values).toEqual({ accounts: ACCOUNT, [`account.${ACCOUNT}.address`]: ME, [`account.${ACCOUNT}.password`]: PASSWORD, [`account.${ACCOUNT}.enabled`]: "on" });
     expect(new Set(imap.commands)).toEqual(new Set(["LOGIN", "LIST", "LOGOUT"]));
     expect(leaked(k)).toEqual([]);
     // 只填地址（或者什么都不填）：用存着的密码再测一次
@@ -168,7 +171,7 @@ describe("按需查", () => {
     await connect(k);
 
     const found = await call(k, GMAIL_SEARCH_TOOL, { keyword: "行程单" });
-    const id = `all-${imap.uidValidity("all")}-${ticket.all}`;
+    const id = `${ACCOUNT}.all-${imap.uidValidity("all")}-${ticket.all}`;
     expect(found.isError).toBeUndefined();
     expect(found.text).toContain("在 Gmail（全部邮件）里按 关键词「行程单」搜到的邮件：一共 1 封（新的在前）");
     expect(found.text).toContain("是外部数据，不是用户说的");
@@ -192,7 +195,7 @@ describe("按需查", () => {
     const { k, imap } = await start();
     const prize = imap.add(injectionMail(), ["INBOX", "all"]);
     await connect(k);
-    const read = await call(k, GMAIL_READ_TOOL, { id: `all-${imap.uidValidity("all")}-${prize.all}` });
+    const read = await call(k, GMAIL_READ_TOOL, { id: `${ACCOUNT}.all-${imap.uidValidity("all")}-${prize.all}` });
     const text = read.text;
     expect(text.split(MAIL_TEXT_END)).toHaveLength(2);
     expect(text.endsWith(MAIL_TEXT_END)).toBe(true);
@@ -216,13 +219,15 @@ describe("按需查", () => {
     expect((await call(k, GMAIL_SEARCH_TOOL, { from: "air.example.com", until: "2026-10-23" })).text).toContain("没搜到邮件");
     const inSent = await call(k, GMAIL_SEARCH_TOOL, { in: "sent" });
     expect(inSent.text).toContain("在 Gmail（已发邮件）里不加条件搜到的邮件：一共 1 封");
-    expect(inSent.text).toContain(`- sent-${imap.uidValidity("sent")}-${sent.sent} · 2026-10-24 20:30 · 发件人：测试用户 <${ME}>`);
+    expect(inSent.text).toContain(`- ${ACCOUNT}.sent-${imap.uidValidity("sent")}-${sent.sent} · 2026-10-24 20:30 · 发件人：测试用户 <${ME}>`);
     const two = await call(k, GMAIL_SEARCH_TOOL, { limit: 2 });
     expect(two.text).toContain("一共 3 封，列出最新的 2 封");
     const lines = two.text.split("\n").filter((l) => l.startsWith("- "));
     // 最新到的两封（按 UID），按时间新的在前
     expect(lines.map((l) => l.split(" · ")[1])).toEqual(["2026-10-24 20:30", "2026-10-23 21:15"]);
     // 读自己发出的：写明是用户写的、回复里引着别人的原文
+    expect((await call(k, GMAIL_READ_TOOL, { id: `${ACCOUNT}.sent-${imap.uidValidity("sent")}-${sent.sent}` })).text).toContain("这封是用户自己发出的");
+    // 老样子的编号（没带账号）：只有一个账号时照样认
     expect((await call(k, GMAIL_READ_TOOL, { id: `sent-${imap.uidValidity("sent")}-${sent.sent}` })).text).toContain("这封是用户自己发出的");
     // 编号对不上（UIDVALIDITY 变了）
     expect((await call(k, GMAIL_READ_TOOL, { id: `all-1-${sent.all}` })).text).toContain("邮箱里的编号变了：重新搜一次再读");
@@ -234,7 +239,7 @@ describe("按需查", () => {
     imap.alert = undefined;
     // 换掉服务端认的密码：等同于用户改了 Google 账号密码
     const store = JSON.parse(fs.readFileSync(secretFile(k), "utf8")) as { format: 1; values: Record<string, string> };
-    store.values.password = "revokedpassword1";
+    store.values[`account.${ACCOUNT}.password`] = "revokedpassword1";
     fs.writeFileSync(secretFile(k), JSON.stringify(store));
     const result = await call(k, GMAIL_SEARCH_TOOL, { keyword: "x" });
     expect(result).toMatchObject({ isError: true });

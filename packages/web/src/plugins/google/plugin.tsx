@@ -2,7 +2,7 @@
 // 插件名和守护进程的一样（google）：守护进程报它在运行就装，停用了、移除了就停。登记的：
 // - 设置 · 数据源里 Google · 日历下面那一块（dataSources 插槽，键是数据源 id google-calendar）：订阅的几个日历、加一个私密 iCal 地址、
 //   删一个日历（GoogleCalendarPanel.tsx）；
-// - 298 号票：Google · Gmail 下面那一块（键 google-gmail）：填 Gmail 地址和应用专用密码、测试连接、怎么生成应用专用密码（GoogleGmailPanel.tsx）；
+// - 298 号票：Google · Gmail 下面那一块（键 google-gmail）：几个账号（344 号票：开关、断开一个）、加一个账号、测试连接、怎么生成应用专用密码（GoogleGmailPanel.tsx）；
 // - 301 号票：Google · 联系人下面那一块（键 google-contacts）：进候选的是谁、怎么从 Google 联系人导出 vCard（GoogleContactsPanel.tsx）；
 //   导出的文件放进同一页的导入文件夹，候选核对卡是档案那一侧的（候选卡片自己画）。
 // 日历里的 Google 日程不是这个插件画的：守护进程把它交给日历插件当外部日历（日历页自己画），这里不碰日历插槽。

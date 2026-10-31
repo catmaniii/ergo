@@ -174,10 +174,15 @@ export interface MaterialScene {
   tags?: string[];
 }
 
-/** 素材的出处是数据源时（303 号票）：哪个数据源、场景、这条落在哪些敏感类别 */
+/** 素材的出处是数据源时（303 号票）：哪个数据源、场景、这条落在哪些敏感类别；344 号票加了哪个账号 */
 export interface MaterialOrigin {
   /** 数据源 id（DataSource.id） */
   dataSource: string;
+  /**
+   * 数据源有几个账号时是哪个账号（344 号票，Gmail）：id 是插件认的（地址的哈希），label 是打了码的邮箱（素材会给模型看：339 号票的规矩，
+   * 完整邮箱只给页面）。采集规则只看事件，所以写在事件负载里；没有账号的数据源、这之前导入的没有
+   */
+  account?: { id: string; label: string };
   scene: MaterialScene;
   /**
    * 这条的内容落在哪些敏感类别（健康、财务、位置、关系……）：其中有一类没打开推断，整条就不读成证据。

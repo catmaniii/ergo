@@ -5474,6 +5474,39 @@ button.ds-item {
 .gcal-howto p + p {
   margin-top: 4px;
 }
+/* 344 号票 Gmail 的几个账号：一行放不下时（窄屏、长邮箱）按钮和开关换到下一行 */
+.gmail-account {
+  flex-wrap: wrap;
+}
+.gmail-account .gcal-feed-main {
+  flex-basis: 12em;
+}
+.gmail-account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-left: auto;
+}
+/* 344 号票 现在能查到的按账号一组 */
+.ds-live-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.ds-live-group-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  font-size: var(--fs-m);
+  overflow-wrap: anywhere;
+}
+.ds-live-group-head .muted {
+  font-size: var(--fs-s);
+}
 /* Looki 的设置那一块（296 号票，plugins/looki/LookiPanel.tsx）：区域两个选项、Key 的输入框、测试连接、几行说明 */
 .looki-panel {
   display: flex;
