@@ -580,6 +580,8 @@ Remove the supervisor's own autostart with `node bin\lsm.mjs uninstall-autostart
 
 **Run a checkup first**: **More · Settings · Data & devices → "Checkup"** (`#/more/doctor`) runs eight checks — ports, Node, pi, the service manager, the model key, components, disk, outside access — and gives the fact it found plus how to fix each one; "Run again" is in the top right. Everything it looks at is local: no network (other than probing ergo's own ports), no model calls, no settings changed.
 
+The outside access check doesn't connect anywhere. It only looks at what this machine has on record: a tailnet or tunnel entry in the service manager, or a paired device that hasn't been revoked. Any one of those passes the check (for paired devices it says "N paired devices"). A setup the service manager doesn't know about, such as running `tailscale serve` by hand, passes once a phone is paired. With nothing on record it says "No outside access is registered in the service manager; if your phone already connects, you can ignore this", which doesn't mean outside access isn't set up.
+
 **Logs**: the daemon's output is in `logs\ergo-daemon.out.log` under the supervisor's data directory, and live in the supervisor's web UI; ergo's own health: <http://127.0.0.1:8810/healthz>.
 
 | Symptom | Likely cause | Fix |

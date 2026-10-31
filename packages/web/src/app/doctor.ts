@@ -35,7 +35,7 @@ export async function loadDoctor(demo: boolean, load: () => Promise<DoctorView> 
   return demo ? demoDoctorView() : load();
 }
 
-/** 演示页的假数据：六项是好的，组件缺记忆的向量模型、外网入口没配——各带一句"怎么修" */
+/** 演示页的假数据：六项是好的，组件缺记忆的向量模型、外网入口没查到依据——各带一句"怎么修" */
 export function demoDoctorView(): DoctorView {
   const data: { [Id in DoctorCheckId]: DoctorCheckDataById[Id] } = {
     ports: { local: 8810, external: 8811, localUp: true, externalUp: true },
@@ -87,8 +87,12 @@ const FACT: { readonly [Id in DoctorCheckId]: (data: DoctorCheckDataById[Id]) =>
       free: formatNumber(data.freeGb, { maximumFractionDigits: 1 }),
       total: formatNumber(data.totalGb, { maximumFractionDigits: 1 }),
     }),
-  external: (data) =>
-    data.configured ? t("doctor.fact.external", { kind: t(`doctor.kind.${data.kind ?? "tailscale"}`) }) : t("doctor.fact.externalMissing"),
+  // 没查到依据时只说查到的（服务管家里没登记），不断言"没配"：手动跑的 tailscale serve 服务管家不知道（340 号票）
+  external: (data) => {
+    if (!data.configured) return t("doctor.fact.externalUnregistered");
+    if (data.kind === "paired") return t("doctor.fact.externalPaired", { count: data.devices ?? 0 });
+    return t("doctor.fact.external", { kind: t(`doctor.kind.${data.kind ?? "tailscale"}`) });
+  },
 };
 
 /** 一项查出来的事实写成一句话；这次没查出来的写"这次没查出来"（data 是空值，不能拿它拼句子） */

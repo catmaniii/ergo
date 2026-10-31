@@ -82,11 +82,29 @@ describe("八项一行一项", () => {
     expect(html).not.toContain("doctor.fix");
   });
 
-  test("缺组件、没配外网入口：写着缺什么、只在本机用", () => {
+  test("缺组件：写着缺什么", () => {
     const missing = render(viewWith("components", { missing: ["memory.semantic", "voice.input"] }));
     expect(missing).toContain("还缺：按意思检索素材和按住说话");
-    const noExternal = render(viewWith("external", { configured: false }));
-    expect(noExternal).toContain("没配（只在本机用）");
+  });
+
+  test("外网入口没有依据：只说服务管家里没登记、手机能连就忽略，不断言没配（340 号票）；修法说的是连不上时怎么配", () => {
+    const html = render(viewWith("external", { configured: false }));
+    expect(html).toContain("服务管家里没登记外网入口；手机已经能连的话可以忽略这条");
+    expect(html).not.toContain("没配");
+    expect(html).toContain("设置向导的外网访问那一屏");
+    expect(html).toContain("⚠️");
+  });
+
+  test("外网入口靠配对设备算配了：写几台，✅、没有修法（340 号票）", () => {
+    const html = render(viewWith("external", { configured: true, kind: "paired", devices: 2 }, true));
+    expect(html).toContain("有 2 台已配对的设备");
+    expect(html).not.toContain("配了：");
+    expect(html).not.toContain("doctor-fix");
+  });
+
+  test("外网入口登记过的三种照旧写是哪一种", () => {
+    expect(render(viewWith("external", { configured: true, kind: "headscale" }, true))).toContain("配了：自建 Headscale");
+    expect(render(viewWith("external", { configured: true, kind: "tunnel" }, true))).toContain("配了：VPS 隧道");
   });
 
   test("查不了的那一项（fix 是 doctor.fix.retry）：写\"这次没查出来\"，不拿空值（0 GB）拼句子，修法说的是再查一遍", () => {
@@ -169,6 +187,16 @@ describe("英文也有，界面文字不出现秘书 / 待我处理", () => {
     expect(broken).toContain("No key yet");
     expect(broken).toContain("Put a model key in Settings · Models");
     expect(broken).not.toContain("doctor.");
+  });
+
+  test("英文的外网入口（340 号票）：配对设备分单复数；没有依据时只说没登记，不断言没配", () => {
+    setActiveLocale(activeLocaleFrom(TEST_LOCALES, "en"));
+    expect(render(viewWith("external", { configured: true, kind: "paired", devices: 1 }, true))).toContain("1 paired device");
+    expect(render(viewWith("external", { configured: true, kind: "paired", devices: 3 }, true))).toContain("3 paired devices");
+    const none = render(viewWith("external", { configured: false }));
+    expect(none).toContain("No outside access is registered in the service manager; if your phone already connects, you can ignore this");
+    expect(none).not.toContain("Not configured");
+    expect(none).not.toContain("doctor.");
   });
 
   test("中文界面上不出现\"秘书\"\"待我处理\"", () => {

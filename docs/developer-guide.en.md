@@ -117,6 +117,8 @@ Web directories are listed in [6.1](#61-where-pages-come-from-prototype-and-onli
 | Lifecycle | Restarts the most (every merge, config change) | Small, stable, rarely restarted |
 | Data | `~/.ergo` (`ERGO_DATA_DIR`) | `%LOCALAPPDATA%\ergo\supervisor` (`--data-dir` / `LSM_DATA_DIR`) |
 
+The supervisor passes only an allowlist of env vars to the services it launches, not its own `--data-dir`, and no API reports that folder directly. The daemon's checkup reads the supervisor's registry, so when the supervisor isn't in its default location the ergo entry has to declare `LSM_DATA_DIR`. Entries written by `ergo start` include it; for hand-written ones see `deploy/lsm/ergo-daemon.example.yaml`.
+
 They talk only over the **link protocol** (`packages/supervisor/docs/link-protocol.md`) and never import each other's code. After opening its ports the daemon connects out to the supervisor (if any of the four `LSM_*` env vars is missing it silently skips this, as in tests and manual runs), announces its capabilities, and its heartbeat reports health (`ok` / `degraded`) and **busy** (a task is executing, or any agent has a side-effecting call in flight), so "stop when idle" waits for that work. Services from projects that go live are registered over the protocol as the daemon's **owned services** and launched and hosted by the supervisor. ergo itself never starts long-running services.
 
 ### 4.2 The daemon is a steward; agents are child processes

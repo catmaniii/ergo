@@ -15,7 +15,7 @@
 // - model：模型的 key 配好了（modelSettings.keyView()，不真发请求）；
 // - components：照组件清单的默认该装的功能都还不能用的，一个都不缺；
 // - disk：数据目录所在卷还剩 1 GB 以上；
-// - external：配了外网入口（只报配没配，不真连出去）。
+// - external：查到了外网入口的依据（服务管家里的登记，或者已配对的设备；不真连出去）。
 import { execFile } from "node:child_process";
 import fs from "node:fs";
 import net from "node:net";
@@ -238,19 +238,22 @@ export function missingDefaultFeatures(view: ComponentsView): string[] {
 }
 
 /**
- * 外网入口配了没有（不真连出去）：看服务管家注册表里二狗这一项。
+ * 外网入口的依据（340 号票，都是本机记着的，不真连出去），按这个先后看，查到一样就报这一样：
  * - registry/tailnet.yaml 里有二狗的一项 → 开了 tailnet 入口（VPS 上搭的是自建 headscale 的话报 headscale，否则是 Tailscale）；
- * - registry/services/ergo-daemon.yaml 的 exposure.via → 经某条隧道出网（VPS 隧道）。
- * 两个都配了时报先看的那个（tailnet）；都没配是 configured: false。文件读不了按没配（这一项就是"配没配"，读不到当没配）
+ * - registry/services/ergo-daemon.yaml 的 exposure.via → 经某条隧道出网（VPS 隧道）；
+ * - 有已配对的设备 → 报几台（两个端口都只绑 127.0.0.1，设备配得上一般说明有东西把外面接了进来，只有在这台电脑上打开外网端口配对的例外；手动跑的 tailscale serve 服务管家不知道，靠这一条认）。
+ * 本机的外网端口 8811 有人听不算依据：它默认就开，算了这一项就永远是好的。
+ * 都没有是 configured: false，只表示没查到依据、不等于没配（文件读不了也算没查到）；网页就照这个说，不断言"没配"
  */
-export function externalProbe(options: { svcDataDir: string }): () => DoctorCheckDataById["external"] {
+export function externalProbe(options: { svcDataDir: string; pairedDevices: () => number }): () => DoctorCheckDataById["external"] {
   return () => {
     const registry = path.join(options.svcDataDir, "registry");
     if (hasTailnetEntry(path.join(registry, "tailnet.yaml"))) {
       return { configured: true, kind: hasHeadscale(path.join(options.svcDataDir, "vps-setup.json")) ? "headscale" : "tailscale" };
     }
     if (exposureVia(path.join(registry, "services", `${DAEMON_SERVICE_ID}.yaml`)) !== undefined) return { configured: true, kind: "tunnel" };
-    return { configured: false };
+    const devices = options.pairedDevices();
+    return devices > 0 ? { configured: true, kind: "paired", devices } : { configured: false };
   };
 }
 

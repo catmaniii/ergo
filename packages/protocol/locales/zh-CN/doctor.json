@@ -32,7 +32,8 @@
   "doctor.fact.componentsMissing": "还缺：{features}",
   "doctor.fact.disk": "数据目录 {path} 所在卷还剩 {free} GB（一共 {total} GB）",
   "doctor.fact.external": "配了：{kind}",
-  "doctor.fact.externalMissing": "没配（只在本机用）",
+  "doctor.fact.externalPaired": "有 {count} 台已配对的设备",
+  "doctor.fact.externalUnregistered": "服务管家里没登记外网入口；手机已经能连的话可以忽略这条",
   "doctor.kind.tailscale": "Tailscale",
   "doctor.kind.headscale": "自建 Headscale",
   "doctor.kind.tunnel": "VPS 隧道",
@@ -47,6 +48,6 @@
   "doctor.fix.model": "去设置 · 模型（或者设置向导的第二屏）填一个模型的 Key（默认 DeepSeek，也可以先换成自定义的 OpenAI 兼容服务商）；也可以把 key 放进数据目录的 secrets 里，重启二狗就生效",
   "doctor.fix.components": "去设置 · 组件装上缺的那几个（点「装上默认的组件」最省事）；装好之前，用到它们的功能是灰的",
   "doctor.fix.disk": "腾出数据目录所在盘的 1 GB 以上：清一清旧的备份、下载缓存、日志，或者把数据目录挪到空间大的盘上",
-  "doctor.fix.external": "想在手机流量下也能用二狗，就在设置向导的外网访问那一屏按三种方式之一配（Tailscale 最省事）；只在家里用就不用管这一项",
+  "doctor.fix.external": "手机还连不上的话：想在手机流量下也能用二狗，就在设置向导的外网访问那一屏按三种方式之一配（Tailscale 最省事），配好后手机配对一次，这一项就好了；只在家里用就不用管这一项",
   "doctor.fix.retry": "这一项这次没查成：点「再查一遍」；还这样的话，看服务管家的日志（%LOCALAPPDATA%\\ergo\\supervisor\\logs）里二狗报了什么"
 }

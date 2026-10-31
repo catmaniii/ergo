@@ -3,10 +3,14 @@
 // 数据目录是临时目录、两个端口是系统挑的（不碰真的 8810 / 8811、不碰真的 ~/.ergo）：磁盘那项报得出数据目录所在卷的数；
 // 这个临时数据目录里没装组件、没配 key、临时程序目录里没有 lsm.mjs，所以对应的三项是坏的，报的仍是查出来的事实。
 import fs from "node:fs";
-import { DOCTOR_CHECKS, type DoctorCheckView } from "@ergo/protocol";
+import path from "node:path";
+import { CHANNELS, DOCTOR_CHECKS, type DoctorCheckView } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
 import { startTestDaemon } from "../helpers/daemon.ts";
+import { pairDevice } from "../helpers/device.ts";
+import { TestFrontend } from "../helpers/frontend.ts";
 import { doctorApi } from "../helpers/http.ts";
+import { makeTempDir } from "../helpers/temp-dir.ts";
 
 const idOf = (checks: readonly DoctorCheckView[], id: string) => checks.find((check) => check.id === id)!;
 
@@ -53,7 +57,7 @@ describe("体检的接口（319 号票的 319b）", () => {
     expect(idOf(checks, "pi")).toEqual({ id: "pi", ok: false, data: {}, fix: "doctor.fix.pi" });
     // 服务管家：临时程序目录里没有 lsm.mjs，当没回应；manager.yaml 也没有，所以不带端口
     expect(idOf(checks, "supervisor")).toEqual({ id: "supervisor", ok: false, data: { running: false }, fix: "doctor.fix.supervisor" });
-    // 外网入口：没配（只在本机用）
+    // 外网入口：服务管家里没登记、也没有配对设备（网页写"没登记"，不断言"没配"）
     expect(idOf(checks, "external")).toEqual({ id: "external", ok: false, data: { configured: false }, fix: "doctor.fix.external" });
     // 模型的 key：没配
     expect(idOf(checks, "model")).toEqual({ id: "model", ok: false, data: { configured: false }, fix: "doctor.fix.model" });
@@ -72,6 +76,32 @@ describe("体检的接口（319 号票的 319b）", () => {
     const second = await doctorApi.view(td.url);
     expect(Date.parse(second.body.at)).toBeGreaterThanOrEqual(Date.parse(first.body.at));
     expect(second.body.checks.map((check) => check.id)).toEqual(first.body.checks.map((check) => check.id));
+  });
+
+  it("外网入口（340 号票）：配对过的设备算依据，吊销了的不算（用不上了）", { timeout: 60_000 }, async () => {
+    const td = await startTestDaemon({ env: { DEEPSEEK_API_KEY: undefined } });
+    const external = async () => idOf((await doctorApi.view(td.url)).body.checks, "external");
+    expect(await external()).toEqual({ id: "external", ok: false, data: { configured: false }, fix: "doctor.fix.external" });
+
+    const pc = await TestFrontend.connect(td.url);
+    await pc.subscribe({ [CHANNELS.cards]: 0, [CHANNELS.inbox]: 0 });
+    await pairDevice(td.externalUrl, pc, { name: "手机" });
+    await pairDevice(td.externalUrl, pc, { name: "平板" });
+    expect(await external()).toEqual({ id: "external", ok: true, data: { configured: true, kind: "paired", devices: 2 } });
+
+    const [phone, tablet] = td.daemon.pairing.list();
+    td.daemon.pairing.revoke(phone!.id, "doctor-revoke-phone");
+    expect(await external()).toEqual({ id: "external", ok: true, data: { configured: true, kind: "paired", devices: 1 } });
+    td.daemon.pairing.revoke(tablet!.id, "doctor-revoke-tablet");
+    expect(await external()).toEqual({ id: "external", ok: false, data: { configured: false }, fix: "doctor.fix.external" });
+  });
+
+  it("外网入口（340 号票）：读的是 LSM_DATA_DIR 指的服务管家目录（管理器带 --data-dir 跑在别处时，登记里要声明它）", { timeout: 60_000 }, async () => {
+    const svc = makeTempDir("ergo-doctor-svc-");
+    fs.mkdirSync(path.join(svc, "registry"), { recursive: true });
+    fs.writeFileSync(path.join(svc, "registry", "tailnet.yaml"), "entries:\n  - id: ergo-daemon\n    name: ergo\n");
+    const td = await startTestDaemon({ env: { DEEPSEEK_API_KEY: undefined, LSM_DATA_DIR: svc } });
+    expect(idOf((await doctorApi.view(td.url)).body.checks, "external")).toEqual({ id: "external", ok: true, data: { configured: true, kind: "tailscale" } });
   });
 
   it("只认 GET：POST /api/doctor 回 405；路径不对回 404", { timeout: 60_000 }, async () => {

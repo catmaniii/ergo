@@ -117,6 +117,8 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 | 生命周期 | 最常重启（每次合并、改配置） | 要小、稳、少重启 |
 | 数据 | `~/.ergo`（`ERGO_DATA_DIR`） | `%LOCALAPPDATA%\ergo\supervisor`（`--data-dir` / `LSM_DATA_DIR`） |
 
+服务管家拉服务时只传白名单环境变量，不传自己的 `--data-dir`，也没有接口直接报这个目录。守护进程的体检要读它的注册表，所以服务管家不在默认位置时，二狗的登记要声明 `LSM_DATA_DIR`：`ergo start` 写的登记自带，手写的见 `deploy/lsm/ergo-daemon.example.yaml`。
+
 两边只走**接入协议**（`packages/supervisor/docs/link-protocol.md`），代码上互不 import。守护进程开好端口后出站连上服务管家（四个 `LSM_*` 环境变量缺一个就静默不接入，测试、手动起的都这样），握手报能力，心跳报健康（`ok` / `degraded`）和**忙不忙**（有任务在执行、或任何 agent 有正在执行的有副作用的调用），"等空闲再停"据此等它做完；项目上线的服务经协议登记成守护进程**名下的服务**，由服务管家启动和托管。二狗自己不启动任何常驻服务。
 
 ### 4.2 守护进程是管家，agent 是子进程

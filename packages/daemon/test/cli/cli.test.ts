@@ -145,6 +145,8 @@ describe("服务管家的设置和二狗的登记", () => {
     expect(entry.hooks.stop.cmd).toBe(`"${path.join(home, "node", "node.exe")}" packages/daemon/src/stop.js`);
     expect(entry.env).toEqual([
       { name: "ERGO_DATA_DIR", from: "literal", value: t.ctx.dataDir },
+      // 服务管家不把自己的 --data-dir、环境变量传给服务：体检要读它的注册表，得在登记里写明它在哪（340 号票）
+      { name: "LSM_DATA_DIR", from: "literal", value: t.ctx.svcDataDir },
       { name: "DEEPSEEK_API_KEY", from: "file", path: path.join(t.ctx.dataDir, "secrets", "deepseek-api-key.txt"), optional: true },
       // 自定义（OpenAI 兼容）服务商的 key：和 DeepSeek 一样从密钥区注入，没有这个文件也能起来
       { name: "CUSTOM_MODEL_API_KEY", from: "file", path: path.join(t.ctx.dataDir, "secrets", "custom-model-api-key.txt"), optional: true },

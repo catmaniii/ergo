@@ -105,7 +105,7 @@ export function entryPaths(ctx: Pick<CliContext, "layout">): { root: string; nod
 }
 
 /** 二狗的登记（每次 start 重写）。DeepSeek 的 key 照旧由服务管家从数据目录的密钥区读出来注入（没有也能起来，optional） */
-export function daemonEntryYaml(ctx: Pick<CliContext, "layout" | "dataDir">): string {
+export function daemonEntryYaml(ctx: Pick<CliContext, "layout" | "dataDir" | "svcDataDir">): string {
   const p = entryPaths(ctx);
   const port = daemonPort(ctx);
   return [
@@ -137,6 +137,10 @@ export function daemonEntryYaml(ctx: Pick<CliContext, "layout" | "dataDir">): st
     "  - name: ERGO_DATA_DIR",
     "    from: literal",
     `    value: ${yamlQuote(ctx.dataDir)}`,
+    // 服务管家拉服务时不传自己的 --data-dir、环境变量（hooks.mjs 的白名单）：二狗的体检要读它的注册表，得在这里写明它在哪（340 号票）
+    "  - name: LSM_DATA_DIR",
+    "    from: literal",
+    `    value: ${yamlQuote(ctx.svcDataDir)}`,
     "  - name: DEEPSEEK_API_KEY",
     "    from: file",
     `    path: ${yamlQuote(path.join(ctx.dataDir, "secrets", "deepseek-api-key.txt"))}`,

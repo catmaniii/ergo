@@ -1673,7 +1673,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 体检（319 号票的 319b）：八项检查现算（GET /api/doctor），组合根把各项要的东西凑齐交给它——
     // 端口是网关实际监听的那两个（生产里就是配置里的 ports.local / ports.external；测试里是系统挑的，免得体检去碰本机真的 8810 / 8811），
     // 所以先建，网关起来之后把真实端口填进去（view 是请求到时才现算的）；pi 的版本、服务管家的命令行都在二狗的程序目录里；
-    // 组件缺不缺按清单的默认（missingDefaultFeatures）；最外面那项只看服务管家注册表里配没配，不真连出去
+    // 组件缺不缺按清单的默认（missingDefaultFeatures）；最外面那项看服务管家的登记和已配对的设备，不真连出去。
+    // 服务管家的数据目录只能从 LSM_DATA_DIR 知道：它拉服务时不把自己的 --data-dir、环境变量传下来，也没有接口直接报这个目录，
+    // 所以它不在默认位置时，二狗的登记要声明这个变量（ergo start 写的登记自带；手写的见 deploy/lsm/ergo-daemon.example.yaml，340 号票）
     let boundPorts = { local: config.ports.local, external: options.externalPort ?? config.ports.external };
     const svcDataDir = options.env.LSM_DATA_DIR?.trim() ? path.resolve(options.env.LSM_DATA_DIR.trim()) : defaultSvcDataDir(options.env);
     const doctor: DoctorService = createDoctor({
@@ -1691,7 +1693,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
           return { missing: missingDefaultFeatures(view) };
         },
         disk: diskProbe(layout.root),
-        external: externalProbe({ svcDataDir }),
+        // 配对设备的算法和设置向导"手机"那一步一样：吊销了还没删的算现在用不上，不算
+        external: externalProbe({ svcDataDir, pairedDevices: () => pairing.list().filter((device) => !device.revoked).length }),
       },
       now: () => clock.now(),
     });

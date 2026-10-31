@@ -1,6 +1,6 @@
 // 体检（319 号票的 319b，src/doctor/doctor.ts）：八项检查各一个"好的"和一个"坏的"（注入假的探测器），
 // 一项抛错只算这一项查不了、别的项照常，查的时刻来自注入的钟；正式用的那几个探测器（端口、pi 版本、服务管家的端口、
-// 外网入口配没配、组件缺不缺、磁盘）也单独查一遍——端口用系统挑的临时端口（不碰真的 8810 / 8811），
+// 外网入口的依据、组件缺不缺、磁盘）也单独查一遍——端口用系统挑的临时端口（不碰真的 8810 / 8811），
 // 文件都是临时目录里的（不碰真的 ~/.ergo、不碰真的服务管家）。
 import fs from "node:fs";
 import net from "node:net";
@@ -160,24 +160,6 @@ describe("正式用的探测器", () => {
     expect((await supervisorProbe({ node: process.execPath, script: path.join(dir, "lsm.mjs"), dataDir: dir, timeoutMs: 2_000 })()).running).toBe(false);
   });
 
-  it("外网入口：tailnet 清单里有二狗那一项就是配了（自建 headscale 的报 headscale，否则是 Tailscale），登记里的 exposure.via 是隧道，都没有是没配", () => {
-    const dir = makeTempDir("ergo-doctor-svc-");
-    const registry = path.join(dir, "registry");
-    fs.mkdirSync(path.join(registry, "services"), { recursive: true });
-    expect(externalProbe({ svcDataDir: dir })()).toEqual({ configured: false });
-
-    fs.writeFileSync(path.join(registry, "services", "ergo-daemon.yaml"), "id: ergo-daemon\nexposure:\n  via: ergo-tunnel\n  remotePort: 18811\n");
-    expect(externalProbe({ svcDataDir: dir })()).toEqual({ configured: true, kind: "tunnel" });
-
-    fs.writeFileSync(path.join(registry, "tailnet.yaml"), "entries:\n  - id: ergo-daemon\n    name: ergo\n  - id: other\n    name: other\n");
-    expect(externalProbe({ svcDataDir: dir })()).toEqual({ configured: true, kind: "tailscale" });
-    fs.writeFileSync(path.join(dir, "vps-setup.json"), JSON.stringify({ version: 1, modes: { headscale: { host: "vps" } } }));
-    expect(externalProbe({ svcDataDir: dir })()).toEqual({ configured: true, kind: "headscale" });
-    // 别的服务的 tailnet 项不算二狗的
-    fs.writeFileSync(path.join(registry, "tailnet.yaml"), "entries:\n  - id: something-else\n    name: other\n");
-    expect(externalProbe({ svcDataDir: dir })()).toEqual({ configured: true, kind: "tunnel" });
-  });
-
   it("磁盘：临时目录所在的卷报得出剩多少、一共多少、是哪个目录", () => {
     const dir = makeTempDir("ergo-doctor-disk-");
     const data = diskProbe(dir)();
@@ -205,5 +187,59 @@ describe("正式用的探测器", () => {
     // 只有默认该装的 bge-m3 没装：缺 memory.semantic，别的两项不算
     expect(missingDefaultFeatures(view)).toEqual(["memory.semantic"]);
     expect(missingDefaultFeatures({ ...view, features: view.features.map((gate) => ({ ...gate, ready: true })) })).toEqual([]);
+  });
+});
+
+/** 一个空的服务管家数据目录（临时的，不碰真的） */
+function emptySvcDir(): { dir: string; registry: string } {
+  const dir = makeTempDir("ergo-doctor-svc-");
+  const registry = path.join(dir, "registry");
+  fs.mkdirSync(path.join(registry, "services"), { recursive: true });
+  return { dir, registry };
+}
+const writeTailnet = (registry: string, id = "ergo-daemon") => fs.writeFileSync(path.join(registry, "tailnet.yaml"), `entries:\n  - id: ${id}\n    name: ergo\n  - id: other\n    name: other\n`);
+const writeTunnel = (registry: string) => fs.writeFileSync(path.join(registry, "services", "ergo-daemon.yaml"), "id: ergo-daemon\nexposure:\n  via: ergo-tunnel\n  remotePort: 18811\n");
+const probe = (dir: string, devices = 0) => externalProbe({ svcDataDir: dir, pairedDevices: () => devices })();
+
+describe("外网入口的依据（340 号票）：只看本机记着的，不真连出去", () => {
+  it("只有 tailnet 登记：配了（自建 headscale 的报 headscale，否则是 Tailscale）", () => {
+    const { dir, registry } = emptySvcDir();
+    writeTailnet(registry);
+    expect(probe(dir)).toEqual({ configured: true, kind: "tailscale" });
+    fs.writeFileSync(path.join(dir, "vps-setup.json"), JSON.stringify({ version: 1, modes: { headscale: { host: "vps" } } }));
+    expect(probe(dir)).toEqual({ configured: true, kind: "headscale" });
+  });
+
+  it("只有隧道登记：配了，是 VPS 隧道", () => {
+    const { dir, registry } = emptySvcDir();
+    writeTunnel(registry);
+    expect(probe(dir)).toEqual({ configured: true, kind: "tunnel" });
+  });
+
+  it("只有配对设备：手动跑 tailscale serve 这种服务管家不知道的也算配了，报几台", () => {
+    const { dir } = emptySvcDir();
+    expect(probe(dir, 2)).toEqual({ configured: true, kind: "paired", devices: 2 });
+  });
+
+  it("都没有：这一项不算好，但只说查到的（服务管家里没登记），没有 kind", () => {
+    const { dir } = emptySvcDir();
+    expect(probe(dir)).toEqual({ configured: false });
+  });
+
+  it("几样都有时报先看的那个：tailnet，然后隧道，最后配对；别的服务的 tailnet 项不算二狗的", () => {
+    const { dir, registry } = emptySvcDir();
+    writeTailnet(registry);
+    writeTunnel(registry);
+    expect(probe(dir, 3)).toEqual({ configured: true, kind: "tailscale" });
+    writeTailnet(registry, "something-else");
+    expect(probe(dir, 3)).toEqual({ configured: true, kind: "tunnel" });
+    fs.rmSync(path.join(registry, "services", "ergo-daemon.yaml"));
+    expect(probe(dir, 3)).toEqual({ configured: true, kind: "paired", devices: 3 });
+  });
+
+  it("服务管家的数据目录不存在（读不到登记）也不抛错：照样按配对设备算", () => {
+    const missing = path.join(makeTempDir("ergo-doctor-svc-"), "nope");
+    expect(probe(missing, 1)).toEqual({ configured: true, kind: "paired", devices: 1 });
+    expect(probe(missing)).toEqual({ configured: false });
   });
 });

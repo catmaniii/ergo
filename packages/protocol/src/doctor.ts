@@ -20,7 +20,8 @@ export type DoctorCheckId = (typeof DOCTOR_CHECKS)[number];
  * - model：模型的 key 配没配（不真发请求）；
  * - components：照清单的默认该装、现在还不能用的功能（清单是随程序发布的那份）；空数组是都装好了；
  * - disk：数据目录所在卷还剩多少、一共多少（GB）、是哪个目录；
- * - external：配没配外网入口（只报"配了没有"，不真连出去），配了的话是哪一种
+ * - external：本机记着的外网入口依据（不真连出去）：configured 是查到了依据——服务管家里的 tailnet、隧道登记（kind 是哪一种），
+ *   或者没被吊销的已配对设备（kind 是 paired，devices 是几台）。没查到依据不等于没配：手动跑的 tailscale serve 服务管家不知道
  */
 export interface DoctorCheckDataById {
   ports: { local: number; external: number; localUp: boolean; externalUp: boolean };
@@ -30,7 +31,7 @@ export interface DoctorCheckDataById {
   model: { configured: boolean };
   components: { missing: string[] };
   disk: { freeGb: number; totalGb: number; path: string };
-  external: { configured: boolean; kind?: "tailscale" | "headscale" | "tunnel" };
+  external: { configured: boolean; kind?: "tailscale" | "headscale" | "tunnel" | "paired"; devices?: number };
 }
 
 export type DoctorCheckData = DoctorCheckDataById[DoctorCheckId];
