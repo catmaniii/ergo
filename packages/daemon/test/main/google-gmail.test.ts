@@ -1,6 +1,6 @@
 // 主切面：Google 插件的 Gmail（298 号票，生活数据源第一波之四）。真的守护进程走组合根和插件清单，清单里的 Google 插件经 extraPlugins
 // 换成连本机假 IMAP 服务的那一份（helpers/fake-imap.ts：TLS 测试证书、照 Gmail 的样子回应），不连 Gmail、不联网；邮箱、人名全是编的：
-// - 设置 · 数据源里填 Gmail 地址和应用专用密码（POST configure，测试连接）→ 连上、页面上是打了码的地址；
+// - 设置 · 数据源里填 Gmail 地址和应用专用密码（POST configure，测试连接）→ 连上、页面上是完整邮箱（339 号票）；
 // - 秘书被问"找一下那封机票行程单"：调"搜 Gmail 邮件"搜到、"读 Gmail 邮件"读到正文和附件；再读那封夹着写给 AI 的指令的邮件——
 //   结果夹在外部数据标记里、邮件自己写的结束标记跳不出去；秘书手里没有发信、删信的工具；
 // - 假服务端从头到尾没收到 SELECT / STORE / EXPUNGE / APPEND / COPY / MOVE 这类写操作、没有不带 PEEK 的取信，邮件没被标成已读；
@@ -74,7 +74,7 @@ describe("Google · Gmail（本机假 IMAP 服务走真实装配路径）", () =
     // 填地址和应用专用密码（带空格，照 Google 给的样子）：测试连接、存密钥区
     const configured = await dataSourcesApi.act(td.url, SOURCE, { action: "configure", values: { address: ME, password: APP_PASSWORD }, idempotencyKey: key() });
     expect(configured.status).toBe(200);
-    expect(configured.body.view.sources.find((s) => s.id === SOURCE)).toMatchObject({ connection: "connected", account: "t***@example.com" });
+    expect(configured.body.view.sources.find((s) => s.id === SOURCE)).toMatchObject({ connection: "connected", account: ME });
 
     // 秘书：搜、读两封
     await frontend.sendText("帮我找一下那封机票行程单邮件，看看几点起飞");

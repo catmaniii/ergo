@@ -75,9 +75,9 @@ function initial(): DataSourcesView {
         pluginTitle: "Google",
         available: true,
         connection: "connected",
-        account: "y***@gmail.com",
+        account: "yourname@gmail.com",
         items: [
-          { id: "g3f2a9c01de", title: "工作", detail: "calendar.google.com · y***@gmail.com · 48 个事件" },
+          { id: "g3f2a9c01de", title: "工作", detail: "calendar.google.com · yourname@gmail.com · 48 个事件" },
           { id: "g7b11e40c2a", title: "家里", detail: "calendar.google.com · f***@group.calendar.google.com · 9 个事件" },
         ],
         usages: [
@@ -341,7 +341,7 @@ export class FakeDataSources {
         case "configure": {
           if (id === "looki") return body.values.archive === undefined ? this.configureLooki(source, body.values) : this.archiveLooki(source, body.values);
           if (id === "phone-location") return this.phonePlaces(source, body.values);
-          change({ connection: "connected", account: "y***@example.com", hasSecrets: true, canSync: source.usages.some((u) => u.usage === "import" && u.on) });
+          change({ connection: "connected", account: id.startsWith("google-") ? "yourname@gmail.com" : "y***@example.com", hasSecrets: true, canSync: source.usages.some((u) => u.usage === "import" && u.on) });
           return { view: structuredClone(this.state) };
         }
         case "clear_raw": {
@@ -357,6 +357,7 @@ export class FakeDataSources {
           delete source.lastSync;
           delete source.problem;
           delete source.account;
+          delete source.items;
           delete source.hasSecrets;
           if (body.purge && source.raw) source.raw.days = [];
           if (body.purge && id === "phone-location") source.panel = { ...phonePlaces(), places: [], suggestions: [], days: 0 };

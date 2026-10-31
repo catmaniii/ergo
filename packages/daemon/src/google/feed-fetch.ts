@@ -4,7 +4,8 @@
 // - 超时、连不上、太大（20 MB）、拿到的不是日历（登录页、网页）各有一句。
 // 306 号票：地址失效、没权限这两种算"一直不行"（lasting：重新填地址之前再拉也不行），日历这个数据源据此报出错、按需查的工具不给秘书；
 // 超时、连不上、那边出错是一时的。
-// 打码（maskAddress）：页面上只给"calendar.google.com · c***@gmail.com"这种，私密的那一段一个字都不出。
+// 给人看的地址（maskAddress）：页面上只给"calendar.google.com · chenxiao@gmail.com"这种，私密的那一段一个字都不出。
+// 339 号票：完整邮箱（accountOf）只给页面；日志照旧用打了码的（maskId）。
 import { t } from "@ergo/protocol";
 import { type IcalCalendar, NotIcalError, parseIcal } from "./ical.ts";
 
@@ -38,14 +39,14 @@ export function checkAddress(raw: string): string {
   throw new FeedProblem(t("google.calendar.address.notHttps"));
 }
 
-/** 打了码的日历 id："chenxiao@gmail.com" → "c***@gmail.com" */
+/** 打了码的邮箱或日历 id（日志、不算账号的日历用）："chenxiao@gmail.com" → "c***@gmail.com" */
 export function maskId(id: string): string {
   const at = id.indexOf("@");
   return at > 0 ? `${id[0]}***${id.slice(at)}` : `${id.slice(0, 1)}***`;
 }
 
 /** 地址里的日历 id（Google 的 /calendar/ical/<id>/private-…/basic.ics；不是这种的没有） */
-export function calendarIdOf(address: string): string | undefined {
+function calendarIdOf(address: string): string | undefined {
   try {
     const m = /\/calendar\/ical\/([^/]+)\//.exec(new URL(address).pathname);
     return m ? decodeURIComponent(m[1]!) : undefined;
@@ -54,12 +55,24 @@ export function calendarIdOf(address: string): string | undefined {
   }
 }
 
-/** 给人看的打了码的地址："calendar.google.com · c***@gmail.com"（私密的那一段不出） */
+/** 能原样显示的 id：只有邮箱的样子才行，别的（比如私钥落在 id 那一段）都不原样出 */
+const PLAIN_EMAIL = /^[\w.+'-]+@[\w-]+(?:\.[\w-]+)+$/;
+
+/**
+ * 地址是哪个账号的（完整邮箱，339 号票：只给页面，不进日志和给模型的内容）：日历 id 是个人邮箱才算；
+ * 共享、订阅的日历（…@group.calendar.google.com）不算
+ */
+export function accountOf(address: string): string | undefined {
+  const id = calendarIdOf(address);
+  return id !== undefined && PLAIN_EMAIL.test(id) && !id.includes("calendar.google.com") ? id : undefined;
+}
+
+/** 给人看的地址："calendar.google.com · chenxiao@gmail.com"（私密的那一段不出；不算账号的 id 打码） */
 export function maskAddress(address: string): string {
   try {
     const url = new URL(address);
     const id = calendarIdOf(address);
-    return id === undefined ? url.host : `${url.host} · ${maskId(id)}`;
+    return id === undefined ? url.host : `${url.host} · ${accountOf(address) ?? maskId(id)}`;
   } catch {
     return "***";
   }

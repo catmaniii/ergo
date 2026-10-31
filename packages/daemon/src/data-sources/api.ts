@@ -49,7 +49,7 @@ export interface DataSourceContext {
   log(line: string): void;
 }
 
-/** 数据源下面的一样（297 号票：Google 日历订阅的几个日历）：给人看的名字、一句说明（打了码的地址）、它自己出的错 */
+/** 数据源下面的一样（297 号票：Google 日历订阅的几个日历）：给人看的名字、一句说明（去掉私钥的地址）、它自己出的错 */
 export interface DataSourceItem {
   /** 插件自己认的 id（网页插件在设置那一块里按它删掉这一样） */
   id: string;
@@ -59,7 +59,7 @@ export interface DataSourceItem {
 }
 
 /**
- * 连接状态（数据源报的）：没连、连着、出错（原因给人看）；account 是连的哪个账号（给人看的，打码的邮箱之类，可以不给）。
+ * 连接状态（数据源报的）：没连、连着、出错（原因给人看）；account 是连的哪个账号（只进页面，不进日志和给模型的内容；Google 是完整邮箱，Looki 是打了码的，可以不给）。
  * note 是一句提示、不算出错（297 号票："日历插件没启用：同步来的事件现在在日历里看不到"）；items 是它下面的几样（几个日历）
  */
 export interface DataSourceStatus {

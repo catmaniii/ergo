@@ -1,7 +1,7 @@
 // 设置 · 数据源里 Google · Gmail 下面的那一块（298 号票，dataSources 插槽）：填 Gmail 地址和应用专用密码——"连上并测试"经
 // POST /api/data-sources/google-gmail（configure）交给守护进程，守护进程只读地连一遍 Gmail（登录、列邮箱），过了才存进密钥区；
 // 连上以后能换密码、重新测试连接。交回的整页交给 onView 换上。
-// 密码是密钥：输入框是密码框、交了就清空，页面上从不回显（守护进程也只给打了码的地址）。下面写明怎么开两步验证、生成应用专用密码，
+// 密码是密钥：输入框是密码框、交了就清空，页面上从不回显（守护进程只给邮箱地址，不给密码）。下面写明怎么开两步验证、生成应用专用密码，
 // 以及只读（不发信、不删信、不改已读）、密码存在哪、改了 Google 密码会失效。
 // 按钮、提示是纯渲染的 GoogleGmailFields（测试在 Node 里直接渲染），GoogleGmailPanel 接上 HTTP。
 import { type FormEvent, useState } from "react";

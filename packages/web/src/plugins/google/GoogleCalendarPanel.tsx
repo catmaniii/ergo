@@ -1,7 +1,7 @@
-// 设置 · 数据源里 Google · 日历下面的那一块（297 号票，dataSources 插槽）：订阅的几个日历（名字、打了码的地址、几个事件、拉不到的原因，
+// 设置 · 数据源里 Google · 日历下面的那一块（297 号票，dataSources 插槽）：订阅的几个日历（名字、去掉私钥的地址、几个事件、拉不到的原因，
 // 每个能删），加一个日历（私密 iCal 地址、可选的名字）——"添加并测试连接"经 POST /api/data-sources/google-calendar（configure）交给守护进程，
 // 守护进程拉一遍、认得出是日历才存进密钥区，连上了马上同步一次；交回的整页交给 onView 换上。
-// 地址是密钥：输入框是密码框、交了就清空，页面上从不回显（守护进程也只给打了码的）。怎么拿私密地址写在下面（Google 日历网页版的设置里）。
+// 地址是密钥：输入框是密码框、交了就清空，页面上从不回显（守护进程也只给去掉私钥的）。怎么拿私密地址写在下面（Google 日历网页版的设置里）。
 // 按钮、提示是纯渲染的 GoogleCalendarFields（测试在 Node 里直接渲染），GoogleCalendarPanel 接上 HTTP。
 import { type FormEvent, useState } from "react";
 import { useStore } from "../../app/store.tsx";

@@ -59,7 +59,7 @@ describe("Google 日历订阅（假日历服务走真实装配路径）", () => 
     const configured = await dataSourcesApi.act(td.url, SOURCE, { action: "configure", values: { add: remote.address(PATH), name: "工作" }, idempotencyKey: key() });
     expect(configured.status).toBe(200);
     expect(configured.body.added).toBe(6);
-    expect(configured.body.view.sources.find((s) => s.id === SOURCE)).toMatchObject({ connection: "connected", account: "c***@gmail.com", count: 6, lastSync: { trigger: "manual", added: 6 } });
+    expect(configured.body.view.sources.find((s) => s.id === SOURCE)).toMatchObject({ connection: "connected", account: "chenxiao@gmail.com", count: 6, lastSync: { trigger: "manual", added: 6 } });
 
     // 日历插件按月取：每天的 Google 日程
     const month = await calendarApi.month(td.url, "2026-10");

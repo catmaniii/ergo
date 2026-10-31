@@ -92,10 +92,10 @@ describe("设置 · 数据源里的 Google · Gmail", () => {
 });
 
 describe("填地址和应用专用密码", () => {
-  it("测试连接过了才存（密码去掉空格）；页面上是打了码的地址；密码不在事件、日志、页面里；测试连接没碰任何邮件", async () => {
+  it("测试连接过了才存（密码去掉空格）；页面上是完整邮箱；密码不在事件、日志、页面里；测试连接没碰任何邮件", async () => {
     const { k, imap } = await start();
     const result = await connect(k);
-    expect(result.view.sources.find((s) => s.id === SOURCE)).toMatchObject({ connection: "connected", account: "t***@example.com" });
+    expect(result.view.sources.find((s) => s.id === SOURCE)).toMatchObject({ connection: "connected", account: ME });
     expect(JSON.parse(fs.readFileSync(secretFile(k), "utf8")).values).toEqual({ address: ME, password: PASSWORD });
     expect(new Set(imap.commands)).toEqual(new Set(["LOGIN", "LIST", "LOGOUT"]));
     expect(leaked(k)).toEqual([]);
@@ -133,6 +133,28 @@ describe("填地址和应用专用密码", () => {
     server = undefined;
     const result = await connect(k);
     expect(result.view.sources.find((s) => s.id === SOURCE)!.problem).toMatch(/^连不上 Gmail（ECONNREFUSED）$/);
+  });
+});
+
+describe("完整邮箱只给页面（339 号票）", () => {
+  it("页面上是完整邮箱；日志里打码（登录没通过、连上了），没有完整邮箱；工具说明和没搜到的结果里没有账号；断开以后页面上没了", async () => {
+    const { k } = await start();
+    await configure(k, { address: ME, password: "wrongpasswordxyz" });
+    expect(k.logs.some((l) => l.includes("Gmail 登录没通过（t***@example.com）"))).toBe(true);
+    await connect(k);
+    expect(sourceOf(k)).toMatchObject({ connection: "connected", account: ME });
+    expect(k.logs.some((l) => l.includes("连上了 Gmail（t***@example.com）"))).toBe(true);
+    expect(k.logs.filter((l) => l.includes(ME))).toEqual([]);
+
+    const tools = k.agent.toolsFor(SECRETARY_TARGET).filter((t) => t.spec.name === GMAIL_SEARCH_TOOL || t.spec.name === GMAIL_READ_TOOL);
+    expect(tools).toHaveLength(2);
+    expect(JSON.stringify(tools.map((t) => t.spec))).not.toContain(ME);
+    expect((await call(k, GMAIL_SEARCH_TOOL, { keyword: "没有这封" })).text).not.toContain(ME);
+
+    const after = (await k.dataSources.act(SOURCE, { action: "disconnect", purge: false, idempotencyKey: key() })).view.sources.find((s) => s.id === SOURCE)!;
+    expect(after.connection).toBe("not_connected");
+    expect(after.account).toBeUndefined();
+    expect(JSON.stringify(after)).not.toContain(ME);
   });
 });
 

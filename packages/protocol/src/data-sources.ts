@@ -53,7 +53,7 @@ export interface DataSourceUsageView {
   on: boolean;
 }
 
-/** 数据源下面的一样（297 号票：Google 日历订阅的几个日历）：名字、一句说明（打了码的地址）、它自己出的错 */
+/** 数据源下面的一样（297 号票：Google 日历订阅的几个日历）：名字、一句说明（去掉私钥的地址）、它自己出的错 */
 export interface DataSourceItemView {
   /** 插件自己认的 id（插件画的设置那一块按它删掉这一样） */
   id: string;
@@ -78,7 +78,7 @@ export interface DataSourceView {
   connection: DataSourceConnection;
   /** 出错的原因（connection 是 error 的） */
   problem?: string;
-  /** 连的是哪个账号（插件给的、给人看的，比如打了码的邮箱；没有就不写） */
+  /** 连的是哪个账号（插件给的、只给人看：Google 是完整邮箱，Looki 是打了码的邮箱；没有就不写） */
   account?: string;
   /** 一句提示、不算出错（297 号票："日历插件没启用：同步来的事件现在在日历里看不到"） */
   note?: string;

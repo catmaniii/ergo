@@ -1,7 +1,7 @@
 // Google 日历订阅（297 号票）：Google 插件的服务里日历这一块。用户在设置 · 数据源填一个或几个"iCal 格式的私密地址"，
 // 这里负责：
 // - 地址存密钥区（DataSourceSecrets：feeds 是几个日历的 id，feed.<id> 是那个日历的地址；id 是地址的哈希前 10 位，同一个地址删了再加还是它）；
-//   事件、日志、页面上只有 id、名字和打了码的地址（feed-fetch.ts 的 maskAddress）；
+//   事件、日志里只有 id、名字，页面上多一句去掉私钥的地址（feed-fetch.ts 的 maskAddress）；
 // - 填设置时测试连接（拉一遍、认得出是日历才存），删掉一个日历（它的事件各写一条 removed）；
 // - 同步：每个日历拉一遍、和现在的比（events.ts 的 foldCalendars），只写新的、变了的、没了的，交回"新进来几条"（新的加上变了的）；
 //   哪个日历拉不到记下原因（页面上那个日历下面写着），有拉不到的整次算出错（数据源页"上次同步出错：「工作」地址失效了……"），拉到的照样写；
@@ -29,7 +29,7 @@ import type {
 import type { EventStore, NewEvent } from "../events/event-store.ts";
 import type { Clock } from "../scheduler/clock.ts";
 import { type FeedState, foldCalendars, GOOGLE_CALENDAR_FEED, GOOGLE_CALENDAR_ITEM, GOOGLE_CHANNEL, type GoogleCalendarFeedPayload, type GoogleCalendarItemPayload } from "./events.ts";
-import { calendarIdOf, checkAddress, FeedProblem, fetchFeed, maskAddress, maskId } from "./feed-fetch.ts";
+import { accountOf, checkAddress, FeedProblem, fetchFeed, maskAddress } from "./feed-fetch.ts";
 import { eventKey, type IcalCalendar, type IcalEvent } from "./ical.ts";
 import { expandEvents, type Occurrence } from "./recurrence.ts";
 
@@ -84,7 +84,7 @@ export interface GoogleCalendarService {
   feeds(): Map<string, FeedState>;
   /** 给人看的日历名字："工作"（用户起的）、日历自己的名字、"日历 1" */
   nameOf(feed: FeedState | undefined, index: number): string;
-  /** 连接状态：配了日历的算连着；带着几个日历（打了码的地址、拉不到的原因）和"日历插件没启用"的提示 */
+  /** 连接状态：配了日历的算连着；带着账号（完整邮箱）、几个日历（去掉私钥的地址、拉不到的原因）和"日历插件没启用"的提示 */
   status(ctx: DataSourceContext): DataSourceStatus;
   /** 填设置：add（一个或几个地址，空白分开）加上 name（只加一个时它的名字）；remove（日历的 id）删掉一个 */
   configure(values: Readonly<Record<string, string>>, ctx: DataSourceContext): Promise<DataSourceStatus>;
@@ -215,11 +215,8 @@ export function createGoogleCalendar(options: GoogleCalendarOptions): GoogleCale
     });
     // 每个日历都连着几次一直不行（地址失效、没权限）：出错（306 号票：按需查的工具不给、定期导入不拉、每小时再试），原因写哪个日历怎么了
     const lasting = configured.every(({ id }) => (problems.get(id)?.streak ?? 0) >= FEED_LASTING_AFTER);
-    // 账号：私密地址里的个人日历 id（邮箱，打了码）；共享的、订阅的日历（…@group.calendar.google.com）不算
-    const accounts = [...new Set(configured.flatMap(({ address }) => {
-      const id = calendarIdOf(address);
-      return id && id.includes("@") && !id.includes("calendar.google.com") ? [maskId(id)] : [];
-    }))];
+    // 账号：私密地址里的个人日历 id（完整邮箱，339 号票）；共享的、订阅的日历（…@group.calendar.google.com）不算
+    const accounts = [...new Set(configured.flatMap(({ address }) => accountOf(address) ?? []))];
     const account = accounts.length > 0 ? { account: accounts.join(t("google.calendar.listSep")) } : {};
     const disconnectNote = { disconnectNote: t("google.calendar.disconnectNote") };
     if (lasting) {

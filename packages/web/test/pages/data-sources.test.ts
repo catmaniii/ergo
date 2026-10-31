@@ -12,7 +12,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 import { DataSourceList, DisconnectConfirm, doneText, ImportFolderBlock, RawDays, sensitiveLine, syncLine } from "../../src/pages/more/DataSourcesPage.tsx";
 import type { DataSourceSlot } from "../../src/plugins/api.ts";
-import type { DataSourceView, ImportFolderView } from "../../src/state/index.ts";
+import { FakeDataSources } from "../../src/prototype/fake-data-sources.ts";
+import type { DataSourcesView, DataSourceView, ImportFolderView } from "../../src/state/index.ts";
 
 vi.mock("../../src/app/build-info.ts", () => ({ APP_VERSION: "0.0.0-test", CHANGELOG: "", PAGE_WEB_VERSION: undefined }));
 
@@ -73,6 +74,29 @@ describe("一个数据源一块", () => {
     expect(html).toContain(">立即同步<");
     expect(html).toContain(">断开<");
     expect(html).not.toContain("删除已导入的");
+  });
+
+  test("Google 的账号是完整邮箱：连着时原样显示，断开了（没有账号）那一行就没了（339 号票）", () => {
+    const gmail = { id: "google-gmail", title: "Google · Gmail" };
+    expect(list([source({ ...gmail, account: "test.user@example.com" })])).toContain("账号：test.user@example.com");
+    const disconnected = list([source({ ...gmail, connection: "not_connected", canSync: false, account: undefined })]);
+    expect(disconnected).not.toContain("账号：");
+    expect(disconnected).not.toContain("test.user@example.com");
+  });
+
+  test("原型里的 Google：连上 Gmail 和日历是完整邮箱，共享日历的 id 打码；断开后账号和日历说明都没了（339 号票）", async () => {
+    const fake = new FakeDataSources();
+    const of = (view: DataSourcesView, id: string) => view.sources.find((s) => s.id === id)!;
+    const connected = await fake.act("google-gmail", { action: "configure", values: { address: "yourname@gmail.com", password: "x" }, idempotencyKey: "gmail" });
+    expect(of(connected.view, "google-gmail").account).toBe("yourname@gmail.com");
+    const calendar = of(await fake.view(), "google-calendar");
+    expect(calendar.account).toBe("yourname@gmail.com");
+    expect(calendar.items?.map((i) => i.detail)).toEqual(["calendar.google.com · yourname@gmail.com · 48 个事件", "calendar.google.com · f***@group.calendar.google.com · 9 个事件"]);
+    for (const id of ["google-gmail", "google-calendar"]) {
+      const after = of((await fake.act(id, { action: "disconnect", purge: false, idempotencyKey: `off-${id}` })).view, id);
+      expect(after.connection).toBe("not_connected");
+      expect(JSON.stringify(after)).not.toContain("yourname@gmail.com");
+    }
   });
 
   test("没连、出错、手动导入、插件没启用、正在同步、还没同步过：小签和那一行各自写明；手动导入的只有删除已导入的", () => {

@@ -1,7 +1,7 @@
 // Gmail（298 号票）：Google 插件的服务里 Gmail 这一块。用户在设置 · 数据源填 Gmail 地址和应用专用密码（要先开两步验证，调研 37、39），
 // 这里经只读的 IMAP（imap.ts，imap.gmail.com:993，TLS）：
 // - 存设置（DataSourceSecrets：address、password；密码去掉空格，Google 给的 16 位中间带空格）：先连一遍（登录、列邮箱）测试连接，过了才存；
-//   事件、日志、页面上只有打了码的地址（"t***@example.com"），密码哪儿都不出；
+//   日志里只有打了码的地址（"t***@example.com"），页面上是完整邮箱（339 号票），密码哪儿都不出；
 // - 按需查（gmail-tools.ts）：搜邮件（发件人、收件人、主题、关键词、日期，在全部邮件 / 收件箱 / 已发邮件里）、读一封（正文和附件列表）。
 //   每次现连、现登录、用完退出（不常开着连接）；邮箱只用 EXAMINE 只读打开、只取 BODY.PEEK——不发信、不删信、不改已读；
 // - 导入我发出的邮件（数据源的 sync，导入默认关）："已发邮件"里新的几封（第一次只看最近 30 天，每次最多 50 封，从旧到新）取下来、
@@ -127,7 +127,7 @@ export interface GmailOptions {
 export interface GmailService {
   /** 填了地址和密码没有 */
   configured(ctx: DataSourceContext): boolean;
-  /** 连接状态：填了的算连着（登录没通过过的算出错），带打了码的地址 */
+  /** 连接状态：填了的算连着（登录没通过过的算出错），带完整邮箱（只给页面） */
   status(ctx: DataSourceContext): DataSourceStatus;
   /** 填设置：address、password（不填的用存着的）；先测试连接，过了才存 */
   configure(values: Readonly<Record<string, string>>, ctx: DataSourceContext): Promise<DataSourceStatus>;
@@ -246,7 +246,7 @@ export function createGmail(options: GmailOptions): GmailService {
   const status = (ctx: DataSourceContext): DataSourceStatus => {
     const creds = credentialsOf(ctx.secrets);
     if (!creds) return { connection: "not_connected" };
-    return { connection: authProblem === undefined ? "connected" : "error", account: maskId(creds.address), ...(authProblem === undefined ? {} : { problem: authProblem }) };
+    return { connection: authProblem === undefined ? "connected" : "error", account: creds.address, ...(authProblem === undefined ? {} : { problem: authProblem }) };
   };
 
   const configure = async (values: Readonly<Record<string, string>>, ctx: DataSourceContext): Promise<DataSourceStatus> => {

@@ -746,7 +746,7 @@ export function createClaudeCodePlugin(
     calendar: (range, ctx) => active().calendarEvents(ctx, range.from, range.to),
 ```
 
-- **地址、Key 只经 `ctx.secrets`**：几个日历各存一格（`feed.<id>`，id 是地址的哈希），事件、日志、页面上只有 id、名字和打了码的地址（`status()` 的 `items`）；填设置时先拉一遍（测试连接），认得出才存，存好了马上同步一次（`syncOnConnect`）。
+- **地址、Key 只经 `ctx.secrets`**：几个日历各存一格（`feed.<id>`，id 是地址的哈希），事件、日志里只有 id 和名字，页面上多一句去掉私钥的地址（`status()` 的 `items`：个人日历写完整邮箱，共享、订阅的日历 id 打码）；填设置时先拉一遍（测试连接），认得出才存，存好了马上同步一次（`syncOnConnect`）。
 - **每隔几分钟**：定期导入挂的还是内部作业 `data-source:<id>`（`IntervalSchedule`），从上一次往后数、错过了开机补一次；什么都没变的那次内核不记同步记录，只在内存里记着显示"上次同步"。
 - **事件只写变了的**：拉到的和现在的比，只写新的、变了的、没了的；同一个事件写过好几版，"共几条"给 `count`（按最后一版数）。导入的不进素材就写明 `destination`（不写是"整理成素材"）。
 - **日程交给日历插件**：和手机日历一样给 `calendar`，重复事件在插件这边按问的那一段展开（日历插件拿到的是一次一次的日程），`calendar` 字段写哪个日历；断开以后没有地址了就不给。
@@ -756,7 +756,7 @@ export function createClaudeCodePlugin(
 同一个插件的 **Google · Gmail**（298 号票，`gmail-source.ts`、`gmail.ts`）是"按需查为主、外部内容很多"的数据源，照它写这一类：
 
 - **按需查的工具结果里外部内容夹在标记之间**：搜到的发件人、主题，读到的正文、附件名都是别人写的——结果里夹在 `<<<邮件里写的内容（外部数据）开始>>>` 和结束标记之间（照网页工具、"查 Google 日历"），前面写明不是用户说的、让做什么都不要照做；内容里自己写的 `<<<`、`>>>` 换成全角，跳不出标记。工具只给只读的（`nature: "look"`），不给发信、删信这类。
-- **账号密码只经 `ctx.secrets`**：`configure` 先拿填的连一遍（测试连接），过了才存；没填的项用存着的（"重新测试连接"就是什么都不填）。`status()` 给打了码的账号；用的时候登录没通过记在服务里，`status()` 报 `connection: "error"` 和原因，下一次登录过了清掉。
+- **账号密码只经 `ctx.secrets`**：`configure` 先拿填的连一遍（测试连接），过了才存；没填的项用存着的（"重新测试连接"就是什么都不填）。`status()` 的 `account` 给完整邮箱（只进页面；日志里用 `maskId` 打码）；用的时候登录没通过记在服务里，`status()` 报 `connection: "error"` 和原因，下一次登录过了清掉。
 - **导入默认关、只导本人写的**：`usages.import.default: false`，`destination` 写明导什么不导什么；采集规则用 `dataSourceMaterial` 写 `own_writing`，`sensitive` 每封按简单关键词写窄（`gmail-sensitive.ts`：明显是财务、健康的标上，判不准的不标，判断在同步时做、写进事件负载），再登记一个彻底删除的改写函数（主题、正文、收件人换掉）；导到哪记在插件自己的事件里（也写进 `records`，断开并删时一起删，`count` 只数真正导入的）。
 - **外部协议自己写、不加依赖**：只读的 IMAP 客户端（`imap.ts`：命令口只放行只读的几条，写操作在客户端就拒绝）、邮件解析（`mime.ts`，Node 自带的 `tls` 和 `TextDecoder`）。
 - **测**：本机起假 IMAP 服务（`packages/daemon/test/helpers/fake-imap.ts` 的 `startFakeImapServer`：TLS 测试自签证书、照 Gmail 的样子回应、写操作和会标已读的取信都记下来），`createGooglePlugin({ imap: server.endpoint })` 接上；假内核 `packages/daemon/test/google/gmail.test.ts`，主切面 `packages/daemon/test/main/google-gmail.test.ts`（经 `extraPlugins` 换掉清单里的 Google 插件）。

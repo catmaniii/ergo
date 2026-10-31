@@ -1,5 +1,5 @@
 // Google 插件的网页这一半（297 号票）：设置 · 数据源里 Google · 日历下面那一块（dataSources 插槽），用 React 在 Node 里渲染出来查——
-// - 订阅的几个日历：名字、打了码的地址和几个事件、拉不到的原因，每个能删；
+// - 订阅的几个日历：名字、去掉私钥的地址（个人日历写完整邮箱，339 号票）和几个事件、拉不到的原因，每个能删；
 // - 加一个日历：私密地址是密码框（不回显）、名字可以不填、没填地址时按钮不能点；做完说一句、没做成写原因；
 // - 怎么拿私密地址（Google 日历网页版的设置里），写明地址相当于密码；
 // - 298 号票 Google · Gmail 下面那一块：Gmail 地址、应用专用密码（密码框、不回显）、连上并测试；连上以后能换密码、重新测试；
@@ -38,7 +38,7 @@ function calendar(extra: Partial<DataSourceView> = {}): DataSourceView {
     files: [],
     configurable: true,
     items: [
-      { id: "g3f2a9c01de", title: "工作", detail: "calendar.google.com · y***@gmail.com · 48 个事件" },
+      { id: "g3f2a9c01de", title: "工作", detail: "calendar.google.com · yourname@gmail.com · 48 个事件" },
       { id: "g7b11e40c2a", title: "家里", detail: "calendar.google.com · f***@group.calendar.google.com · 9 个事件", problem: "地址失效了（Google 回了 404）" },
     ],
     ...extra,
@@ -51,10 +51,10 @@ const render = (props: Partial<GoogleCalendarFieldsProps> = {}) =>
   );
 
 describe("Google · 日历下面那一块", () => {
-  test("订阅的几个日历：名字、打了码的地址和几个事件、拉不到的原因，每个能删", () => {
+  test("订阅的几个日历：名字、完整邮箱和几个事件、拉不到的原因，每个能删", () => {
     const html = render();
     expect(html).toContain("<b>工作</b>");
-    expect(html).toContain("calendar.google.com · y***@gmail.com · 48 个事件");
+    expect(html).toContain("calendar.google.com · yourname@gmail.com · 48 个事件");
     expect(html).toContain('<span class="field-error">地址失效了（Google 回了 404）</span>');
     expect(html.match(/>删掉</g)).toHaveLength(2);
     expect(html).toContain('aria-label="删掉日历「家里」"');
@@ -161,7 +161,7 @@ describe("Google · Gmail 下面那一块", () => {
   });
 
   test("连上了：换一个地址（可以空着）、换密码并测试（只填密码就能点）、重新测试连接；说明收起来", () => {
-    const connected = gmail({ connection: "connected", account: "t***@example.com" });
+    const connected = gmail({ connection: "connected", account: "test.user@example.com" });
     const html = renderGmail({ source: connected });
     expect(html).toContain("换一个 Gmail 地址（不换就空着）");
     expect(html).toMatch(/disabled="">换密码并测试</);
@@ -169,6 +169,6 @@ describe("Google · Gmail 下面那一块", () => {
     expect(html).toContain('<details class="gcal-howto">');
     expect(renderGmail({ source: connected, password: "newpasswordabcd" })).toMatch(/<button type="submit" class="btn primary small">换密码并测试<\/button>/);
     // 登录没通过（密码失效）时也按"已经填过"画
-    expect(renderGmail({ source: gmail({ connection: "error", account: "t***@example.com", problem: "登录 Gmail 没通过" }) })).toContain("重新测试连接");
+    expect(renderGmail({ source: gmail({ connection: "error", account: "test.user@example.com", problem: "登录 Gmail 没通过" }) })).toContain("重新测试连接");
   });
 });

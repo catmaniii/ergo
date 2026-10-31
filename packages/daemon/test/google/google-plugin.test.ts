@@ -1,8 +1,10 @@
 // Google 插件的日历订阅（297 号票）在假内核里（startPluginKernel：真的插件宿主、数据源那一层、外部日历的登记表），拉地址用注入的假 fetch，
 // 不连 Google：
 // - 设置 · 数据源里的 Google · 日历：名字、两种用法（导入每 30 分钟、显示在日历里不进素材）、没连；日历插件不在时写"日历插件没启用"；
-// - 填地址：测试连接（拉一遍）→ 存密钥区（事件、日志里没有地址）、马上同步一次（条数按事件数）、几个日历打码列出；
+// - 填地址：测试连接（拉一遍）→ 存密钥区（事件、日志里没有地址）、马上同步一次（条数按事件数）、页面上列出几个日历；
 //   地址不对（不是网址、不是 https、拿到的不是日历、404）的写明原因、什么都不存；
+// - 完整邮箱（339 号票）：页面上的账号和每个日历的说明是完整邮箱，私钥不出现；共享的日历不算账号、id 照旧打码；日志、按需查的结果里没有账号；
+//   断开以后页面上没了；
 // - 同步：只写新的、变了的、没了的；地址失效了写明"地址失效了"、那个日历下面也写着，拉到的照样写；
 // - 交给日历的日程：标出来自 Google 哪个日历、重复事件展开、全天的按日期；删掉一个日历它的日程跟着没了；
 // - 每隔 30 分钟定期导入：到点同步，什么都没变的不记事件（页面上照样显示上次同步），变了的记；
@@ -82,13 +84,13 @@ describe("设置 · 数据源里的 Google · 日历", () => {
 });
 
 describe("填地址", () => {
-  it("测试连接后存进密钥区、马上同步一次；页面上打码列出这个日历（名字是日历自己的），事件、日志里没有地址", async () => {
+  it("测试连接后存进密钥区、马上同步一次；页面上列出这个日历（名字是日历自己的）、写完整邮箱，事件、日志里没有地址", async () => {
     const { k, remote } = await start();
     const result = await configure(k, { add: MINE });
     expect(result.added).toBe(6);
     const source = result.view.sources.find((s) => s.id === SOURCE)!;
-    expect(source).toMatchObject({ connection: "connected", account: "c***@gmail.com", count: 6, lastSync: { trigger: "manual", added: 6 } });
-    expect(source.items).toEqual([{ id: expect.stringMatching(/^g[0-9a-f]{10}$/), title: "chenxiao@gmail.com", detail: "calendar.google.com · c***@gmail.com · 6 个事件" }]);
+    expect(source).toMatchObject({ connection: "connected", account: "chenxiao@gmail.com", count: 6, lastSync: { trigger: "manual", added: 6 } });
+    expect(source.items).toEqual([{ id: expect.stringMatching(/^g[0-9a-f]{10}$/), title: "chenxiao@gmail.com", detail: "calendar.google.com · chenxiao@gmail.com · 6 个事件" }]);
     expect(JSON.stringify(result.view)).not.toContain(PRIVATE_TOKEN);
     expect(fs.readFileSync(path.join(k.layout.dataSourceSecrets, `${SOURCE}.json`), "utf8")).toContain(PRIVATE_TOKEN);
     expect(remote.fetched).toEqual([MINE, MINE]);
@@ -102,10 +104,10 @@ describe("填地址", () => {
     const second = await configure(k, { add: FAMILY });
     const source = second.view.sources.find((s) => s.id === SOURCE)!;
     expect(source.items!.map((i) => [i.title, i.detail])).toEqual([
-      ["工作", "calendar.google.com · c***@gmail.com · 6 个事件"],
+      ["工作", "calendar.google.com · chenxiao@gmail.com · 6 个事件"],
       ["家里", "calendar.google.com · f***@group.calendar.google.com · 1 个事件"],
     ]);
-    expect(source).toMatchObject({ account: "c***@gmail.com", count: 7 });
+    expect(source).toMatchObject({ account: "chenxiao@gmail.com", count: 7 });
     expect(agenda(k, new Date(2026, 9, 25), new Date(2026, 9, 26))).toEqual(["2026-10-25 全天 小王生日 · Google · 日历 · 工作", "2026-10-25 10:00 看牙 · Google · 日历 · 工作", "2026-10-25 19:00 家庭聚餐 · Google · 日历 · 家里"]);
   });
 
@@ -144,6 +146,54 @@ describe("填地址", () => {
     expect(removed.view.sources.find((s) => s.id === SOURCE)).toMatchObject({ connection: "not_connected", count: 0 });
     expect(week(k)).toEqual([]);
     expect(fs.existsSync(path.join(k.layout.dataSourceSecrets, `${SOURCE}.json`))).toBe(false);
+  });
+});
+
+describe("完整邮箱只给页面（339 号票）", () => {
+  const EMAIL = "chenxiao@gmail.com";
+
+  it("页面上的账号和日历说明是完整邮箱、私钥不在里面；日志里没有邮箱和私钥；断开以后页面上没了", async () => {
+    const { k } = await start();
+    await configure(k, { add: MINE });
+    const shown = sourceOf(k);
+    expect(shown.account).toBe(EMAIL);
+    expect(shown.items![0]!.detail).toContain(EMAIL);
+    expect(shown.account).not.toContain(PRIVATE_TOKEN);
+    expect(shown.items![0]!.detail).not.toContain(PRIVATE_TOKEN);
+    expect(k.logs.length).toBeGreaterThan(0);
+    expect(k.logs.filter((l) => l.includes(EMAIL) || l.includes(PRIVATE_TOKEN))).toEqual([]);
+
+    const after = (await k.dataSources.act(SOURCE, { action: "disconnect", purge: false, idempotencyKey: key() })).view.sources.find((s) => s.id === SOURCE)!;
+    expect(after.connection).toBe("not_connected");
+    expect(after.account).toBeUndefined();
+    expect(after.items).toBeUndefined();
+    expect(JSON.stringify(after)).not.toContain(EMAIL);
+  });
+
+  it("只有共享的日历：没有账号，说明里的 id 照旧打码", async () => {
+    const { k, remote } = await start();
+    remote.routes.set(FAMILY, { status: 200, body: icsOf({ name: "家里", events: [] }) });
+    await configure(k, { add: FAMILY });
+    const shown = sourceOf(k);
+    expect(shown.connection).toBe("connected");
+    expect(shown.account).toBeUndefined();
+    expect(shown.items![0]!.detail).toBe("calendar.google.com · f***@group.calendar.google.com · 0 个事件");
+  });
+
+  it("给模型的没有账号：工具说明、按需查的结果（日历起了名字，拉到和拉不到）里没有邮箱和私钥", async () => {
+    const { k, remote } = await start();
+    await configure(k, { add: MINE, name: "工作" });
+    const tool = k.agent.toolsFor(SECRETARY_TARGET).find((t) => t.spec.name === GOOGLE_CALENDAR_TOOL)!;
+    const pulled = await ask(k, { date: "2026-10-25" });
+    remote.routes.set(MINE, { status: 503, body: "" });
+    const fellBack = await ask(k, { date: "2026-10-25" });
+    expect(pulled).toContain("看牙");
+    expect(fellBack).toContain("「工作」现在拉不到");
+    for (const text of [JSON.stringify(tool.spec), pulled, fellBack]) {
+      expect(text).not.toContain(EMAIL);
+      expect(text).not.toContain("c***@gmail.com");
+      expect(text).not.toContain(PRIVATE_TOKEN);
+    }
   });
 });
 
