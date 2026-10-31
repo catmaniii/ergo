@@ -1,4 +1,5 @@
-// 设置里的"模型"（73 号票，规格第 1 节"模型"）：模型在服务端（守护进程这台电脑）调用，目前只支持 DeepSeek；
+// 设置里的"模型"（73 号票，规格第 1 节"模型"）：模型在服务端（守护进程这台电脑）调用；DeepSeek 是默认，另有一个
+// 自定义的 OpenAI 兼容服务商（provider id 固定是 custom，用户填接口地址、模型 id、key）；
 // 默认模型和思考档位，按 agent（秘书、任务维护者、项目维护者、子 agent、评审、范围审视）覆盖；连通测试；看图能力。
 //
 // - 存：数据目录配置区的 model-settings.json 是真相，只由运行时写（设置接口），各设备看到的一样；配置区是受保护区域，agent 写不进。
@@ -9,6 +10,11 @@
 //   记下的模型、思考档位和看图能力（agent-child/session.ts），所以改了以后下一个新会话生效，正在进行的会话不换。
 //   记账照实际用的模型（子进程每次调用报的 provider、模型 id）。
 // - 看图能力（79 号票的判法加一层）：设置页改的为准，其次配置文件 models["provider/模型 id"].vision 写明的，都没写按模型目录。
+// - 自定义（OpenAI 兼容）服务商（provider id 固定是 custom，选了它时设置里多一块 custom：baseUrl、modelId、api）：
+//   只有**一个**模型，模型 id 就是 custom.modelId——default、各 agent 覆盖里写的模型 id 是切回 DeepSeek 时接着用的，自定义时不起作用
+//   （思考档位照旧按那一行）。pi 的模型目录里没有它，子进程要先 registerProvider，所以拉起 agent 的装配（SessionAssembly.custom）
+//   和模型探查的请求里都带上它（customProvider()）；密钥照旧只走 credentials（键名 custom）。
+//   连通测试测它里面的 modelId；列它的模型是守护进程直接发的一次 GET {baseUrl}/models（不经过模型，也不花 token）。
 // - 单独配了模型的维护者（120 号票）：某个项目、某个任务的维护者在自己的 ⚙ 里选定模型和思考档位，盖过它那一行（项目维护者 /
 //   任务维护者）；存在同一个文件的 maintainers 里（按 agent id），设置页整份存时原样留着。拉起它时按 agent id 现取（modelFor 的第二个参数），
 //   所以和那一行一样只用于新开的会话、长会话照 83 号票换。它派出的子 agent、评审，范围审视照各自那一行。配的模型在模型目录里没有了：
@@ -24,6 +30,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
+  CUSTOM_MODELS_MAX,
+  CUSTOM_PROVIDER_ID,
+  checkModelCustom,
   effectiveModelChoice,
   MODEL_AGENTS,
   MODEL_KEY_MAX_LENGTH,
@@ -31,6 +40,9 @@ import {
   MODEL_THINKING_LEVELS,
   type ModelApiKeyStatus,
   type ModelChoice,
+  type ModelCustomModel,
+  type ModelCustomModelsResult,
+  type ModelCustomProvider,
   type ModelKeyView,
   type ModelKeyWriteResult,
   modelKeyOf,
@@ -80,6 +92,12 @@ export interface ModelSettingsService {
   /** 现在的设置 */
   current(): ModelSettings;
   /**
+   * 设置里选的自定义（OpenAI 兼容）服务商：选了 custom 才有（带上接口地址、模型 id、接口风格）。拉起 agent 的装配
+   * 拿它去子进程里登记这个 provider（模型目录里没有它），key 照旧只走 credentials；
+   * 没选自定义、设置文件里也没有这一块时是 undefined
+   */
+  customProvider(): ModelCustomProvider | undefined;
+  /**
    * 这个 agent 下一个新会话用的模型和思考档位（目录里的模型）。给了 maintainerId（项目、任务的维护者）时，
    * 它单独配了、配的模型还能用就是单独配的（120 号票），不然按 agent 那一行
    */
@@ -111,9 +129,17 @@ export interface ModelSettingsService {
   change(body: ModelSettingsBody): Promise<ModelSettingsView>;
   /**
    * 连通测试：用这个模型（不给是默认模型）发一条极短的请求；没配 key 时不发，直接说没配。
+   * 自定义服务商（provider 是 custom）时测它里面的 modelId：custom 给了就测这一份（设置页还没存就想试一下），
+   * 不给按设置里存的。
    * 同一时间只跑一个：上一个还没测完时抛 RequestRejected（conflict，设置接口回 409）"上一个还没测完"
    */
-  test(modelId?: string): Promise<ModelTestResult>;
+  test(modelId?: string, custom?: ModelCustomProvider): Promise<ModelTestResult>;
+  /**
+   * 列出自定义（OpenAI 兼容）服务商有哪些模型（POST /api/model-settings/custom-models）：GET {baseUrl}/models，
+   * 带 Authorization: Bearer <key>。baseUrl 不给按设置里存的那份。列不成不算出错（ok 为 false，error 写原因），
+   * key 的内容不进原因
+   */
+  customModels(baseUrl?: string): Promise<ModelCustomModelsResult>;
 }
 
 export interface ModelSettingsOptions {
@@ -174,10 +200,17 @@ export function createModelSettings(options: ModelSettingsOptions): ModelSetting
   /** 已经查到的模型目录（拉起 agent 时同步地判断单独配的模型还在不在，120 号票）；没查到过的服务商没有 */
   const known = new Map<string, readonly CatalogModel[]>();
 
-  const catalogOf = (provider: string): Promise<CatalogModel[]> => {
+  /**
+   * 设置里选的自定义（OpenAI 兼容）服务商：选了 custom 才有。子进程按它登记 provider（模型目录里没有它），
+   * 模型 id 也从它来（服务商只有一个模型）
+   */
+  const customOf = (): ModelCustomProvider | undefined => (settings.provider === CUSTOM_PROVIDER_ID ? settings.custom : undefined);
+
+  /** 这次问模型目录时带给子进程的自定义服务商（自定义 provider 要先在子进程里登记，getModels 才认得） */
+  const catalogOf = (provider: string, custom?: ModelCustomProvider | undefined): Promise<CatalogModel[]> => {
     let pending = catalogs.get(provider);
     if (!pending) {
-      pending = options.probe({ type: "catalog", provider }).then((result) => {
+      pending = options.probe({ type: "catalog", provider, ...(custom === undefined ? {} : { custom }) }).then((result) => {
         if (result.type !== "catalog") throw new Error("模型探查回的不是模型列表"); // @i18n-ignore log：编程错误
         known.set(provider, result.models);
         return result.models;
@@ -192,9 +225,9 @@ export function createModelSettings(options: ModelSettingsOptions): ModelSetting
   };
 
   /** 模型目录里的（查不到时 error 是原因） */
-  const catalog = async (provider: string): Promise<{ models?: CatalogModel[]; error?: string }> => {
+  const catalog = async (provider: string, custom?: ModelCustomProvider | undefined): Promise<{ models?: CatalogModel[]; error?: string }> => {
     try {
-      return { models: await catalogOf(provider) };
+      return { models: await catalogOf(provider, custom) };
     } catch (err) {
       return { error: firstLine(err) };
     }
@@ -263,8 +296,13 @@ export function createModelSettings(options: ModelSettingsOptions): ModelSetting
 
   const view = async (): Promise<ModelSettingsView> => {
     const provider = providerOf(settings.provider) ?? MODEL_PROVIDERS[0]!;
-    const { models: catalogModels, error } = await catalog(provider.id);
-    const ids = unique([...(catalogModels ?? []).map((m) => m.modelId), ...registered(provider.id), ...mentioned(settings, maintainers)]);
+    const custom = customOf();
+    const { models: catalogModels, error } = await catalog(provider.id, custom);
+    // 自定义服务商只有一个模型（用户填的那个）：别处提到的 DeepSeek 模型 id 这时不算可选的
+    const ids =
+      custom === undefined
+        ? unique([...(catalogModels ?? []).map((m) => m.modelId), ...registered(provider.id), ...mentioned(settings, maintainers)])
+        : unique([custom.modelId, ...registered(provider.id)]);
     const models = ids.map((modelId) => optionView(provider, modelId, catalogModels));
     const secretarySession = options.secretarySession();
     return {
@@ -274,7 +312,7 @@ export function createModelSettings(options: ModelSettingsOptions): ModelSetting
       ...(error === undefined ? {} : { catalogError: error }),
       ...(fileError === undefined ? {} : { settingsFileError: fileError }),
       settings: structuredClone(settings),
-      effective: Object.fromEntries(MODEL_AGENTS.map((agent) => [agent, effectiveModelChoice(settings, agent)])) as Record<ModelAgent, ModelChoice>,
+      effective: Object.fromEntries(MODEL_AGENTS.map((agent) => [agent, effectiveChoiceOf(agent)])) as Record<ModelAgent, ModelChoice>,
       ...(secretarySession ? { secretarySession } : {}),
       maintainers: maintainerViews(),
     };
@@ -303,22 +341,36 @@ export function createModelSettings(options: ModelSettingsOptions): ModelSetting
 
   /** 能选的模型：模型目录里有的；目录查不到时退回配置里登记的和设置里已经选了的（没法核对） */
   const selectable = async (provider: string): Promise<{ ids: Set<string>; fromCatalog: boolean }> => {
-    const { models } = await catalog(provider);
+    const { models } = await catalog(provider, customOf());
     if (models) return { ids: new Set(models.map((m) => m.modelId)), fromCatalog: true };
     return { ids: new Set([...registered(provider), ...mentioned(settings, maintainers)]), fromCatalog: false };
   };
 
+  /**
+   * 这个 agent 实际会用的（设置页上的"实际会用的"、拉起 agent 时的 model）：自定义（OpenAI 兼容）服务商只有一个模型，
+   * 模型 id 一律按设置里的 custom.modelId——default、各个 agent 覆盖里写的模型 id 是切回 DeepSeek 时接着用的，自定义时不起作用；
+   * 思考档位照旧按那一行（给了 own 就是维护者单独配的那一份）
+   */
+  const effectiveChoiceOf = (agent: ModelAgent, own?: ModelChoice): ModelChoice => {
+    const choice = own ?? effectiveModelChoice(settings, agent);
+    const custom = customOf();
+    return custom === undefined ? { ...choice } : { modelId: custom.modelId, thinkingLevel: choice.thinkingLevel };
+  };
+
   /** 连通测试本身（test 管同一时间只跑一个） */
-  const ping = async (modelId: string | undefined): Promise<ModelTestResult> => {
+  const ping = async (modelId: string | undefined, input?: ModelCustomProvider): Promise<ModelTestResult> => {
     const provider = providerOf(settings.provider) ?? MODEL_PROVIDERS[0]!;
-    const target = modelId ?? settings.default.modelId;
+    // 自定义服务商：测请求体带来的那份（设置页还没存就想试一下），没带就按设置里存的；测的模型就是它里面的 modelId
+    const custom = provider.id === CUSTOM_PROVIDER_ID ? (input ?? settings.custom) : undefined;
+    const target = custom?.modelId ?? modelId ?? settings.default.modelId;
     const started = performance.now();
     const key = credentials[provider.id];
     if (!key) return { ok: false, modelId: target, totalMs: 0, error: t("modelSettings.noKey", { provider: provider.label, env: provider.keyEnv, file: provider.secretFile }) };
-    checkModel(target, await selectable(provider.id), provider, t("modelSettings.where.test"));
-    const spec: CatalogModelSpec = { kind: "catalog", provider: provider.id, modelId: target, thinkingLevel: "off", ...(options.catalogBaseUrl === undefined ? {} : { baseUrl: options.catalogBaseUrl }) };
+    // 自定义服务商只有一个模型，没有目录可查（它能不能用由这次请求说了算）
+    if (custom === undefined) checkModel(target, await selectable(provider.id), provider, t("modelSettings.where.test"));
+    const spec: CatalogModelSpec = { kind: "catalog", provider: provider.id, modelId: target, thinkingLevel: "off", ...(custom !== undefined || options.catalogBaseUrl === undefined ? {} : { baseUrl: options.catalogBaseUrl }) };
     try {
-      const result = await options.probe({ type: "ping", model: spec, credentials: { [provider.id]: key } });
+      const result = await options.probe({ type: "ping", model: spec, credentials: { [provider.id]: key }, ...(custom === undefined ? {} : { custom }) });
       if (result.type !== "ping") throw new Error("模型探查回的不是连通测试的结果"); // @i18n-ignore log：编程错误
       return {
         ok: result.ok,
@@ -334,23 +386,29 @@ export function createModelSettings(options: ModelSettingsOptions): ModelSetting
   };
 
   // 有单独配了模型的维护者：起来时就查一次模型目录（在一次性子进程里，不连网），好知道配的模型还在不在
-  if (Object.keys(maintainers).length > 0) void catalog(settings.provider);
+  if (Object.keys(maintainers).length > 0) void catalog(settings.provider, customOf());
 
   return {
     current: () => structuredClone(settings),
+    customProvider() {
+      const custom = customOf();
+      return custom === undefined ? undefined : { ...custom };
+    },
     modelFor(agent, maintainerId) {
-      const choice = (maintainerId === undefined ? undefined : usableOwn(maintainerId)) ?? effectiveModelChoice(settings, agent);
+      const choice = effectiveChoiceOf(agent, maintainerId === undefined ? undefined : usableOwn(maintainerId));
       return { kind: "catalog", provider: settings.provider, modelId: choice.modelId, thinkingLevel: choice.thinkingLevel, ...(options.catalogBaseUrl === undefined ? {} : { baseUrl: options.catalogBaseUrl }) };
     },
     maintainerModel(agentId, agent) {
-      const role = effectiveModelChoice(settings, agent);
+      // "它那一行"实际会用的（自定义服务商时模型 id 按 custom.modelId，见 effectiveChoiceOf）
+      const role = effectiveChoiceOf(agent);
       const own = maintainers[agentId];
       const reason = own && unavailableReason(own.modelId);
       return { role, ...(own ? { own: { ...own } } : {}), ...(reason === undefined ? {} : { unavailable: reason }), next: own && reason === undefined ? { ...own } : role };
     },
     async setMaintainerModel(agentId, choice) {
       const provider = providerOf(settings.provider) ?? MODEL_PROVIDERS[0]!;
-      checkModel(choice.modelId, await selectable(provider.id), provider, t("modelSettings.where.own"));
+      // 自定义服务商只有一个模型、没有目录可查：照收（和设置页整份存一个道理）
+      if (customOf() === undefined) checkModel(choice.modelId, await selectable(provider.id), provider, t("modelSettings.where.own"));
       const before = maintainers[agentId];
       if (fileError === undefined && before?.modelId === choice.modelId && before.thinkingLevel === choice.thinkingLevel) return;
       save(settings, { ...maintainers, [agentId]: { modelId: choice.modelId, thinkingLevel: choice.thinkingLevel } }, `${agentId} 的 ⚙ 里`); // @i18n-ignore log：只进日志
@@ -373,7 +431,7 @@ export function createModelSettings(options: ModelSettingsOptions): ModelSetting
       if (configured !== undefined) return configured;
       // pi 的 faux 模型输入里有图片（和子进程里一样按它）
       if (model.kind === "faux") return true;
-      const { models } = await catalog(model.provider);
+      const { models } = await catalog(model.provider, customOf());
       return models?.find((m) => m.modelId === model.modelId)?.vision ?? false;
     },
     view,
@@ -382,7 +440,7 @@ export function createModelSettings(options: ModelSettingsOptions): ModelSetting
       return { provider: { id: provider.id, label: provider.label }, apiKey: apiKeyOf(provider) };
     },
     saveKey(raw) {
-      // 服务商不跟着请求走：按设置里的那一个（目前只有 deepseek，315 号票起登记表里也只有它）
+      // 服务商不跟着请求走：按设置里选的那一个（deepseek 或者自定义服务商 custom，写进它自己的那个密钥文件）
       const provider = providerOf(settings.provider) ?? MODEL_PROVIDERS[0]!;
       const key = normalizeModelKey(raw);
       if (key.length < MODEL_KEY_MIN_LENGTH) throw new RequestRejected("bad_params", t("modelSettings.keyTooShort", { min: MODEL_KEY_MIN_LENGTH }));
@@ -397,12 +455,20 @@ export function createModelSettings(options: ModelSettingsOptions): ModelSetting
     async change(body) {
       const provider = providerOf(body.provider);
       if (!provider) throw new RequestRejected("bad_params", t("modelSettings.badProvider", { provider: body.provider, providers: MODEL_PROVIDERS.map((p) => p.label).join(t("modelSettings.listSep")) }));
-      const allowed = await selectable(provider.id);
-      checkModel(body.default.modelId, allowed, provider, t("modelSettings.where.default"));
+      // 自定义服务商的那一块：选了 custom 时必须有、地址和模型 id 要合规；这次没带就留着原来那份（切到 DeepSeek 时别把手填的弄丢）
+      const checked = checkModelCustom(body);
+      if (!checked.ok) throw new RequestRejected("bad_params", checked.error);
+      const custom = checked.custom ?? settings.custom;
+      // 自定义服务商只有一个模型（custom.modelId），没有模型目录可查：整份存时不再拿目录核对模型 id
+      const allowed = provider.id === CUSTOM_PROVIDER_ID ? undefined : await selectable(provider.id);
+      const check = (modelId: string, where: string): void => {
+        if (allowed !== undefined) checkModel(modelId, allowed, provider, where);
+      };
+      check(body.default.modelId, t("modelSettings.where.default"));
       const agents: ModelSettings["agents"] = {};
       for (const agent of MODEL_AGENTS) {
         const override = body.agents[agent];
-        if (override?.modelId !== undefined) checkModel(override.modelId, allowed, provider, t("modelSettings.where.agent", { agent }));
+        if (override?.modelId !== undefined) check(override.modelId, t("modelSettings.where.agent", { agent }));
         // 两项都跟随默认的不记
         if (override?.modelId !== undefined || override?.thinkingLevel !== undefined) {
           agents[agent] = { ...(override.modelId === undefined ? {} : { modelId: override.modelId }), ...(override.thinkingLevel === undefined ? {} : { thinkingLevel: override.thinkingLevel }) };
@@ -412,27 +478,87 @@ export function createModelSettings(options: ModelSettingsOptions): ModelSetting
       for (const [key, value] of Object.entries(body.vision)) {
         const parts = splitModelKey(key);
         if (parts?.provider !== provider.id) throw new RequestRejected("bad_params", t("modelSettings.badVisionKey", { expected: modelKeyOf(provider.id, t("modelSettings.modelIdWord")), key }));
-        checkModel(parts.modelId, allowed, provider, t("modelSettings.where.vision"));
+        check(parts.modelId, t("modelSettings.where.vision"));
         vision[key] = value;
       }
-      const next: ModelSettings = { provider: provider.id, default: { modelId: body.default.modelId, thinkingLevel: body.default.thinkingLevel }, agents, vision };
+      const next: ModelSettings = { provider: provider.id, default: { modelId: body.default.modelId, thinkingLevel: body.default.thinkingLevel }, agents, vision, ...(custom === undefined ? {} : { custom }) };
       // 设置文件读不出来时，存一次就覆盖它（哪怕和正在用的默认一样）；单独配了模型的维护者原样留着（120 号票，只经 ⚙ 改）
       if (fileError !== undefined || JSON.stringify(next) !== JSON.stringify(settings)) {
         save(next, maintainers, "设置页"); // @i18n-ignore log：只进日志
+        // 自定义服务商的地址、模型 id 变了：模型目录那份记的不作数了，下次要用时重查（在一次性子进程里登记后查）
+        catalogs.delete(CUSTOM_PROVIDER_ID);
+        known.delete(CUSTOM_PROVIDER_ID);
         log(`模型设置改了（下一个新会话起生效）：默认 ${next.default.modelId}（思考 ${next.default.thinkingLevel}）${describeAgents(next)}`);
       }
       return view();
     },
-    async test(modelId) {
+    async test(modelId, custom) {
       if (testing) throw new RequestRejected("conflict", t("modelSettings.testing"));
       testing = true;
       try {
-        return await ping(modelId);
+        return await ping(modelId, custom);
       } finally {
         testing = false;
       }
     },
+    async customModels(baseUrl) {
+      const provider = providerOf(settings.provider) ?? MODEL_PROVIDERS[0]!;
+      return listCustomModels(baseUrl ?? settings.custom?.baseUrl, credentials[provider.id], provider);
+    },
   };
+}
+
+/** 列模型最多等这么久（毫秒）：就一次 GET，服务慢时也不至于把设置页卡住 */
+const CUSTOM_MODELS_TIMEOUT_MS = 15_000;
+
+/**
+ * 列出自定义（OpenAI 兼容）服务商的模型：GET {baseUrl}/models，带 Authorization: Bearer <key>。
+ * 只认 OpenAI 兼容的写法（{ data: [{ id, name?, owned_by? }] }，也认直接一个数组），最多收 CUSTOM_MODELS_MAX 个。
+ * 列不成不算出错：ok 为 false、error 写原因；原因里去掉 key 的内容（服务商的报错可能带着它）
+ */
+async function listCustomModels(baseUrl: string | undefined, key: string | undefined, provider: ModelProvider): Promise<ModelCustomModelsResult> {
+  const url = (baseUrl ?? "").trim().replace(/\/+$/, "");
+  if (url === "") return { ok: false, models: [], error: t("modelSettings.custom.noBaseUrl") };
+  if (key === undefined) return { ok: false, models: [], error: t("modelSettings.noKey", { provider: provider.label, env: provider.keyEnv, file: provider.secretFile }) };
+  try {
+    const response = await fetch(`${url}/models`, {
+      headers: { authorization: `Bearer ${key}`, accept: "application/json" },
+      signal: AbortSignal.timeout(CUSTOM_MODELS_TIMEOUT_MS),
+    });
+    const text = await response.text();
+    if (!response.ok) {
+      // 服务商的报错原样带一句（截短），key 的内容去掉
+      return { ok: false, models: [], error: redactApiKeys(t("modelSettings.custom.listFailed", { error: `${response.status} ${oneLine(text).slice(0, 300)}` }), [key]) };
+    }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      return { ok: false, models: [], error: t("modelSettings.custom.listNotJson", { status: String(response.status) }) };
+    }
+    const list = Array.isArray(parsed) ? parsed : typeof parsed === "object" && parsed !== null && Array.isArray((parsed as { data?: unknown }).data) ? (parsed as { data: unknown[] }).data : undefined;
+    if (list === undefined) return { ok: false, models: [], error: t("modelSettings.custom.listBadResponse", { status: String(response.status) }) };
+    const models: ModelCustomModel[] = [];
+    for (const item of list) {
+      if (typeof item !== "object" || item === null) continue;
+      const entry = item as { id?: unknown; name?: unknown; owned_by?: unknown };
+      if (typeof entry.id !== "string" || entry.id.trim() === "") continue;
+      models.push({
+        id: entry.id.trim(),
+        ...(typeof entry.name === "string" && entry.name !== "" ? { name: entry.name } : {}),
+        ...(typeof entry.owned_by === "string" && entry.owned_by !== "" ? { ownedBy: entry.owned_by } : {}),
+      });
+      if (models.length >= CUSTOM_MODELS_MAX) break;
+    }
+    return { ok: true, models };
+  } catch (err) {
+    return { ok: false, models: [], error: redactApiKeys(t("modelSettings.custom.listFailed", { error: firstLine(err) }), [key]) };
+  }
+}
+
+/** 一行：换行、回车都换成空格（服务商回的报错可能是一整页） */
+function oneLine(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
 }
 
 /** keys（「provider/模型 id」）里这个服务商的模型 id */
@@ -479,8 +605,11 @@ function readSettings(file: string, log: (line: string) => void): { settings: Mo
   }
   if (!settingsFile.check(parsed)) return broken(t("modelSettings.file.invalid", { error: settingsFile.firstError(parsed) ?? t("modelSettings.file.invalidUnknown") }));
   if (!providerOf(parsed.provider)) return broken(t("modelSettings.file.badProvider", { provider: parsed.provider, providers: MODEL_PROVIDERS.map((p) => p.id).join(t("modelSettings.listSep")) }));
+  // 跨字段的那几条：provider 是 custom 时要有 custom，地址要是 http(s)、模型 id 不能空（旧文件没有这一项，照旧合规）
+  const checked = checkModelCustom(parsed);
+  if (!checked.ok) return broken(t("modelSettings.file.invalid", { error: checked.error }));
   const { format: _format, maintainers, ...settings } = parsed;
-  return { settings: settings as ModelSettings, maintainers: (maintainers ?? {}) as Record<string, ModelChoice> };
+  return { settings: { ...settings, ...(checked.custom === undefined ? {} : { custom: checked.custom }) } as ModelSettings, maintainers: (maintainers ?? {}) as Record<string, ModelChoice> };
 }
 
 // @i18n-ignore-next log：只进日志

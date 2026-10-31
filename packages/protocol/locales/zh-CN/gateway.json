@@ -91,6 +91,7 @@
   "gateway.http.badComponentAction": "组件操作的参数不对：{message}",
   "gateway.http.badComponentImport": "离线导入的参数不对：{message}",
   "gateway.http.badModelTest": "连通测试的参数不对：{message}",
+  "gateway.http.badModelCustomModels": "列自定义服务商的模型参数不对：{message}",
   "gateway.http.badAgentPrompt": "存单独的提示词的参数不对：{message}",
   "gateway.http.badClear": "清空当前对话的参数不对：{message}",
   "gateway.http.badAgentModel": "单独配模型的参数不对：{message}",

@@ -12,7 +12,7 @@
 // runtime_catalog、error、heartbeat。
 // 先定义好、还没有实现的：work_order（16 号票的工单经会话里的通知送达，没用到它）。
 // 子进程收到还没实现的命令时回一条 code 为 "unsupported" 的 error，不崩溃。
-import { type BranchFilesRewind, isNameOrOld, type RuntimeQuestion, type RuntimeQuestionReply, type ToolResultMedia } from "@ergo/protocol";
+import { type BranchFilesRewind, isNameOrOld, type ModelCustomProvider, type RuntimeQuestion, type RuntimeQuestionReply, type ToolResultMedia } from "@ergo/protocol";
 
 // 版本：1 是 02 号票的第一版；2 加了守护进程代为执行的工具（hostTools、host_tool_call、host_tool_result，
 // 06 和 09 号票合成一套）和用户输入里的图片（user_input.images，09）；3 在装配参数里加了必填的 shellEnv
@@ -76,9 +76,12 @@ import { type BranchFilesRewind, isNameOrOld, type RuntimeQuestion, type Runtime
 // PreCompact 钩子——报它，守护进程据此按自己记下的事件另起一次审视要压缩掉的那段）；按二狗的事件记录另起一次生成多一种 task scope_review
 // （RecordedGenerationTask / RecordedGenerationResult：pi 的同一套审视提示、会话写法和结果解析）。pi 自己在会话里审视，不报 compacting；
 // 守护进程也不再给 Claude Code 的子进程送 scope_review（它收到照旧回"没做成"）。
+// 29 是自定义（OpenAI 兼容）服务商（自定义服务商这一步）：装配参数 custom（设置里选了 provider: custom 时的接口地址、模型 id、接口风格），
+// 子进程按它在 pi 里 registerProvider 之后 getModel("custom", …) 才认得——模型目录里没有这个 provider；一次性子进程的
+// ModelProbeRequest（catalog、ping）、RecordedGenerationRequest、TranslationRequest 也带 custom，各自的 ModelRuntime 同样先登记。
 // 兼容：守护进程和子进程同一次发布，不跨版本混用。对不上时子进程在 start 回 start_failed（fatal，写明两边的版本）并退出，
 // 不会拿看不懂的装配参数硬起会话；守护进程按"拉起失败"处理（秘书意外退出后退避重拉、维护者这一轮按出错收尾），日志里有那条原因。
-export const HOST_PROTOCOL_VERSION = 28;
+export const HOST_PROTOCOL_VERSION = 29;
 
 /**
  * 子进程用哪种语言写给用户看的话（174 号票，ADR-0029）：守护进程拉起 agent 子进程、模型探查的一次性子进程时
@@ -333,6 +336,12 @@ export interface SessionAssembly {
   vision?: Readonly<Record<string, boolean>>;
   /** provider id → API key。经 stdin 送达、只放进 pi 的内存凭据，不进子进程的环境变量 */
   credentials: Record<string, string>;
+  /**
+   * 设置里选的自定义（OpenAI 兼容）服务商：pi 的模型目录里没有它，子进程要先 registerProvider(custom, { baseUrl, api, models })
+   * 再 setRuntimeApiKey("custom", key)，getModel("custom", modelId) 才认得。选了它时 model 的 provider 是 custom、模型 id 是它里面的
+   * modelId。key **不在**这里（照旧只走 credentials）；不给就是没选自定义
+   */
+  custom?: ModelCustomProvider;
   /** 工具白名单（pi 的内置工具）；守护进程代为执行的工具另列在 contributions.tools 里，不用写进这里 */
   tools: string[];
   /**
@@ -518,8 +527,11 @@ export interface SessionRewriteResult {
  * 模型探查的请求：
  * - catalog：列出模型目录里这个服务商的模型（不连网、不要凭据）；
  * - ping：连通测试——用这个模型发一条极短的请求（不开思考），量首 token 延迟。credentials 经 stdin 送达、只放进内存
+ * 自定义（OpenAI 兼容）服务商的模型目录里没有它：要列它、测它都得先在子进程里登记，所以两种请求都可以带 custom
  */
-export type ModelProbeRequest = { type: "catalog"; provider: string } | { type: "ping"; model: ModelSpec; credentials: Record<string, string> };
+export type ModelProbeRequest =
+  | { type: "catalog"; provider: string; custom?: ModelCustomProvider }
+  | { type: "ping"; model: ModelSpec; credentials: Record<string, string>; custom?: ModelCustomProvider };
 
 /** 模型目录里的一个模型 */
 export interface CatalogModel {
@@ -570,6 +582,8 @@ export interface RecordedGenerationRequest {
   /** 用哪个模型（这个 agent 在二狗这边的模型）和凭据 */
   model: ModelSpec;
   credentials: Record<string, string>;
+  /** 设置里选的自定义（OpenAI 兼容）服务商：模型是它的时候要给，子进程按它先登记 provider；不是就没有 */
+  custom?: ModelCustomProvider;
   /** 要生成的那段会话，按先后 */
   turns: RecordedTurn[];
   /** 用量记录的 messageId（branch-summary-<分支>、scope-review-<agent>-<第几次>） */

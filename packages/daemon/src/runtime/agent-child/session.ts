@@ -42,6 +42,7 @@ import {
   type TurnOutcome,
 } from "../host-protocol.ts";
 import { ContributionBridge } from "./bridge.ts";
+import { registerCustomProvider } from "./custom-provider.ts";
 import { EventTranslator, usageReport } from "./event-translator.ts";
 import { FAUX_REVIEW_PROVIDER_ID, registerFauxModel } from "./faux.ts";
 import { GuardForwarder } from "./guard-forwarding.ts";
@@ -116,6 +117,9 @@ export async function openAgentSession(
     refreshOnCreate: false,
     allowModelNetwork: false,
   });
+  // 自定义（OpenAI 兼容）服务商：pi 的模型目录里没有它，先登记（key 随下面的 setRuntimeApiKey 进去），
+  // 之后 getModel("custom", 模型 id) 才认得
+  registerCustomProvider(modelRuntime, assembly.custom);
   for (const [provider, apiKey] of Object.entries(assembly.credentials)) {
     await modelRuntime.setRuntimeApiKey(provider, apiKey);
   }

@@ -182,11 +182,14 @@ describe("设置里的模型：看图能力", () => {
 });
 
 describe("设置里的模型：设置页的样子", () => {
-  it("服务商登记表只有 DeepSeek；可选的模型来自模型目录和配置里登记的（目录里没有的标出来）；各个 agent 实际会用的；秘书主线会话现在用的", async () => {
+  it("服务商登记表：DeepSeek 和自定义（OpenAI 兼容）；可选的模型来自模型目录和配置里登记的（目录里没有的标出来）；各个 agent 实际会用的；秘书主线会话现在用的", async () => {
     const { service } = setup({ config: { models: { "deepseek/deepseek-old": {} } } });
     await service.change(settings({ agents: { project_maintainer: { modelId: "deepseek-v4-pro", thinkingLevel: "off" } } }));
     const view = await service.view();
-    expect(view.providers).toEqual([{ id: "deepseek", label: "DeepSeek" }]);
+    expect(view.providers).toEqual([
+      { id: "deepseek", label: "DeepSeek" },
+      { id: "custom", label: "自定义（OpenAI 兼容）" },
+    ]);
     expect(view.models.map((m) => [m.modelId, m.inCatalog])).toEqual([
       ["deepseek-flash", true],
       ["deepseek-v4-pro", true],

@@ -8,6 +8,7 @@ import { ModelRuntime } from "@earendil-works/pi-coding-agent";
 import { modelKeyOf, t } from "@ergo/protocol";
 import type { CatalogModel, ModelProbeRequest, ModelProbeResult, ModelSpec, ThinkingLevel } from "../host-protocol.ts";
 import { redactApiKeys } from "../redact.ts";
+import { registerCustomProvider } from "./custom-provider.ts";
 import { registerFauxModel } from "./faux.ts";
 
 /** 连通测试发的那句话 */
@@ -22,6 +23,8 @@ const THINKING_LEVELS: readonly ThinkingLevel[] = ["off", "minimal", "low", "med
 export async function probeModels(request: ModelProbeRequest): Promise<ModelProbeResult> {
   // 凭据只放内存：不读 ~/.pi/agent/auth.json，也不读 models.json，不连网刷新模型目录（和 agent 会话一样）
   const modelRuntime = await ModelRuntime.create({ credentials: new InMemoryCredentialStore(), modelsPath: null, refreshOnCreate: false, allowModelNetwork: false });
+  // 自定义（OpenAI 兼容）服务商：pi 的模型目录里没有它，先登记，之后列目录（就它那一个模型）、测连通性才认得
+  registerCustomProvider(modelRuntime, request.custom);
   if (request.type === "catalog") {
     const models: CatalogModel[] = modelRuntime.getModels(request.provider).map((model) => ({
       modelId: model.id,

@@ -23,6 +23,7 @@ import {
   type PluginStatusEventPayload,
   rollbackEnabled,
   type ModelAgent,
+  type ModelCustomProvider,
   operationsItemLock,
   archiveCancelsFirst,
   type ProjectEventPayload,
@@ -1445,6 +1446,11 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // → agent-browser 自带的签名 Chrome → 系统 Chrome → 系统 Edge），找到了就记住；拉起 agent 时注入 bash 的环境
     const browserLocator = createBrowserLocator({ configured: config.web.browserPath, homeDir: options.homeDir, env: options.env, log });
     const browserPath = options.browserPath ?? (() => browserLocator.path());
+    /**
+     * 设置里选的自定义（OpenAI 兼容）服务商（自定义服务商这一步）：设置服务在下面才建（它要用这里建好的 agent 管家做模型探查），
+     * 所以两边在这里交汇——先留个口子，设置服务建好之后填进来；拉起 agent、模型探查、另起的生成都现取它
+     */
+    let customProviderNow: (() => ModelCustomProvider | undefined) | undefined;
     const agents = createAgentManager({
       layout,
       parentEnv: options.env,
@@ -1460,6 +1466,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       runtimes: agentRuntimes,
       // 前缀（71）：拉起时加在每个 agent 的系统提示最前面，每次现读；不是中文时末尾加"用 <语言> 回答用户"（168）
       systemPromptPrefix: effectiveSystemPrompt,
+      // 自定义（OpenAI 兼容）服务商（自定义服务商这一步）：选了才有，装配、模型探查、另起的生成都带上
+      customProvider: () => customProviderNow?.(),
       log,
     });
     // 先关 Job：子进程连同它们起的孙进程一起结束；再等子进程的句柄收尾
@@ -1643,6 +1651,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       ...(options.catalogBaseUrl === undefined ? {} : { catalogBaseUrl: options.catalogBaseUrl }),
       log,
     });
+    // 自定义（OpenAI 兼容）服务商（自定义服务商这一步）：设置服务建好了，之后拉起 agent、模型探查都现取这一块
+    // （模型目录里没有这个 provider，子进程要先登记它；key 照旧只走 credentials）
+    customProviderNow = () => modelSettings.customProvider();
     // 首次设置向导（319 号票）：五步哪几步做完了。真相是配置文件的 setup 节；各步的条件现算，都是现成的服务——
     // 我的名字（249）、模型的 key 配没配（315 的 keyView，和 GET /api/model-settings/key 同一个判法）、
     // 记忆的向量模型那个组件装好了没有（323 的组件视图，按功能门：装在这儿或者别处已经有了都算）、
@@ -2378,7 +2389,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       translate: async (texts, languageName) => {
         const model = slashTranslationModel();
         if (!model) return texts.map(() => null);
-        const request: TranslationRequest = { model, credentials, language: languageName, texts: [...texts] };
+        // 自定义（OpenAI 兼容）服务商：翻说明的一次性子进程也要先登记这个 provider（模型目录里没有它；没选自定义时是 undefined）
+        const custom = modelSettings.customProvider();
+        const request: TranslationRequest = { model, credentials, language: languageName, texts: [...texts], ...(custom === undefined ? {} : { custom }) };
         const result = await agents.runOneShot<TranslationResult>(SLASH_TRANSLATE_ENTRY, request, t("runtime.translation.label"), TRANSLATION_TIMEOUT_MS);
         for (const report of result.usage) ledger.record({ agentId: SECRETARY_AGENT_ID, sessionId: SLASH_TRANSLATION_SESSION, model: modelConfigKey(model), attribution: { owner: null, role: "secretary" }, report });
         for (const error of result.errors) log(`斜杠命令的一条说明没翻成：${error}`);

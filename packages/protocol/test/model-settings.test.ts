@@ -1,9 +1,13 @@
 // 设置里的"模型"（73 号票）：agent 实际会用的（跟随默认的换成默认），设置接口的请求体（多出来的字段、写错的档位一律拒绝）；
-// 120 号票：设置文件里单独配了模型的维护者、⚙ 里配模型的请求体。
+// 120 号票：设置文件里单独配了模型的维护者、⚙ 里配模型的请求体；
+// 自定义（OpenAI 兼容）服务商这一步：custom 那一块的校验（有 / 没有、地址不对、模型 id 空）、连通测试的请求体、列模型的请求体。
 import { describe, expect, it } from "vitest";
 import {
   AgentModelBody,
+  CUSTOM_PROVIDER_APIS,
+  CUSTOM_PROVIDER_ID,
   checkHttpBody,
+  checkModelCustom,
   MAINTAINER_MODEL_AGENTS,
   effectiveModelChoice,
   MODEL_AGENTS,
@@ -11,6 +15,7 @@ import {
   MODEL_THINKING_LABEL,
   MODEL_THINKING_LEVELS,
   modelKeyOf,
+  ModelCustomModelsBody,
   ModelSettingsBody,
   ModelSettingsFile,
   ModelTestBody,
@@ -66,5 +71,66 @@ describe("设置里的模型", () => {
     expect(checkHttpBody(AgentModelBody, { modelId: "deepseek-v4-pro", thinkingLevel: "high", apiKey: "sk-x" }).ok).toBe(false);
     // 设置页整份存的请求体里没有这一项（只经 ⚙ 改）
     expect(checkHttpBody(ModelSettingsBody, { ...base, maintainers: {} }).ok).toBe(false);
+  });
+});
+
+// ───────────── 自定义（OpenAI 兼容）服务商（provider id 固定是 custom） ─────────────
+
+const custom = { baseUrl: "https://api.example.com/v1", modelId: "llama-3.1-70b" };
+const customBody = { ...base, provider: CUSTOM_PROVIDER_ID, default: { modelId: "llama-3.1-70b", thinkingLevel: "high" as const }, custom };
+
+describe("自定义（OpenAI 兼容）服务商", () => {
+  it("有 custom：合规（接口风格不给就按 OpenAI 的 chat completions）；请求体和设置文件都收这一项", () => {
+    expect(CUSTOM_PROVIDER_ID).toBe("custom");
+    expect(CUSTOM_PROVIDER_APIS).toEqual(["openai-completions", "openai-responses"]);
+    expect(checkHttpBody(ModelSettingsBody, customBody).ok).toBe(true);
+    expect(checkHttpBody(ModelSettingsBody, { ...customBody, custom: { ...custom, api: "openai-responses" } }).ok).toBe(true);
+    expect(checkHttpBody(ModelSettingsFile, { format: 1, ...customBody }).ok).toBe(true);
+    // 不合规的类型检查函数合规时交回收拾过的那一份（末尾斜杠去掉）
+    expect(checkModelCustom(customBody)).toEqual({ ok: true, custom });
+    expect(checkModelCustom({ provider: CUSTOM_PROVIDER_ID, custom: { ...custom, baseUrl: "https://api.example.com/v1/" } })).toEqual({ ok: true, custom });
+    // 不选自定义时允许没有 custom（连那块也没有的旧设置文件也合规）
+    expect(checkModelCustom({ provider: "deepseek" })).toEqual({ ok: true });
+    expect(checkHttpBody(ModelSettingsBody, base).ok).toBe(true);
+  });
+
+  it("没有 custom 却选了自定义：schema 管不了这条跨字段的规矩，由 checkModelCustom 挡住、说清楚", () => {
+    const { custom: _custom, ...withoutCustom } = customBody;
+    expect(checkHttpBody(ModelSettingsBody, withoutCustom).ok).toBe(true);
+    expect(checkModelCustom(withoutCustom)).toEqual({ ok: false, error: "选了自定义（OpenAI 兼容）服务商，却没填接口地址和模型 id" });
+    // 没选自定义的有、没给都行（给了照样查）
+    expect(checkModelCustom({ provider: "deepseek", custom })).toEqual({ ok: true, custom });
+  });
+
+  it("地址不合规：不是 http(s)、没有协议、带空格的一律不收", () => {
+    for (const baseUrl of ["api.example.com", "ftp://api.example.com", "https://api example.com", "https://"]) {
+      expect(checkHttpBody(ModelSettingsBody, { ...customBody, custom: { ...custom, baseUrl } }).ok).toBe(false);
+      expect(checkModelCustom({ provider: CUSTOM_PROVIDER_ID, custom: { ...custom, baseUrl } }).ok).toBe(false);
+    }
+    expect(checkModelCustom({ provider: CUSTOM_PROVIDER_ID, custom: { ...custom, baseUrl: "api.example.com" } })).toMatchObject({ ok: false, error: expect.stringContaining("http:// 或 https://") as unknown });
+  });
+
+  it("模型 id 是空的（空串、只有空白）不收", () => {
+    expect(checkHttpBody(ModelSettingsBody, { ...customBody, custom: { ...custom, modelId: "" } }).ok).toBe(false);
+    expect(checkHttpBody(ModelSettingsBody, { ...customBody, custom: { ...custom, modelId: "   " } }).ok).toBe(false);
+    expect(checkModelCustom({ provider: CUSTOM_PROVIDER_ID, custom: { ...custom, modelId: "  " } })).toEqual({ ok: false, error: "自定义服务商的模型 id 不能是空的：填那家服务商那边的模型名（比如 llama-3.1-70b）" });
+  });
+
+  it("自定义服务商的模型 id 比 DeepSeek 的宽松（可以有斜杠），接口风格只认那两种，多出来的字段不收", () => {
+    expect(checkHttpBody(ModelSettingsBody, { ...customBody, custom: { ...custom, modelId: "meta-llama/Llama-3-70B" } }).ok).toBe(true);
+    expect(checkHttpBody(ModelSettingsBody, { ...customBody, custom: { ...custom, api: "anthropic-messages" } }).ok).toBe(false);
+    expect(checkHttpBody(ModelSettingsBody, { ...customBody, custom: { ...custom, apiKey: "sk-x" } }).ok).toBe(false);
+  });
+
+  it("连通测试的请求体可以带一块 custom（还没存就想试一下），列模型的请求体只带接口地址", () => {
+    expect(checkHttpBody(ModelTestBody, { custom }).ok).toBe(true);
+    expect(checkHttpBody(ModelTestBody, { modelId: "llama-3.1-70b", custom }).ok).toBe(true);
+    expect(checkHttpBody(ModelTestBody, { custom: { ...custom, baseUrl: "nope" } }).ok).toBe(false);
+    // key 放不进连通测试、列模型的请求体：照旧只从密钥区来
+    expect(checkHttpBody(ModelTestBody, { custom: { ...custom, apiKey: "sk-x" } }).ok).toBe(false);
+    expect(checkHttpBody(ModelCustomModelsBody, {}).ok).toBe(true);
+    expect(checkHttpBody(ModelCustomModelsBody, { baseUrl: "https://api.example.com/v1" }).ok).toBe(true);
+    expect(checkHttpBody(ModelCustomModelsBody, { baseUrl: "https://api.example.com/v1", key: "sk-x" }).ok).toBe(false);
+    expect(checkHttpBody(ModelCustomModelsBody, { baseUrl: "api.example.com" }).ok).toBe(false);
   });
 });

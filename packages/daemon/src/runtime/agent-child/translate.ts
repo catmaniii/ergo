@@ -10,6 +10,7 @@ import { modelKeyOf } from "@ergo/protocol";
 import type { UsageReport } from "../host-protocol.ts";
 import { redactApiKeys } from "../redact.ts";
 import { TRANSLATION_TEXT_MAX, type TranslationRequest, type TranslationResult } from "../translation.ts";
+import { registerCustomProvider } from "./custom-provider.ts";
 import { registerFauxModel } from "./faux.ts";
 
 /** 一条译文最多要几个 token（一两句话够了） */
@@ -41,6 +42,8 @@ export async function translateTexts(request: TranslationRequest): Promise<Trans
   const secrets = Object.values(request.credentials);
   // 凭据只放内存：不读 ~/.pi/agent/auth.json，也不读 models.json，不连网刷新模型目录（和模型探查一样）
   const modelRuntime = await ModelRuntime.create({ credentials: new InMemoryCredentialStore(), modelsPath: null, refreshOnCreate: false, allowModelNetwork: false });
+  // 自定义（OpenAI 兼容）服务商：pi 的模型目录里没有它，先登记，getModel("custom", 模型 id) 才认得
+  registerCustomProvider(modelRuntime, request.custom);
   for (const [provider, apiKey] of Object.entries(request.credentials)) await modelRuntime.setRuntimeApiKey(provider, apiKey);
   const spec = request.model;
   const found = spec.kind === "faux" ? registerFauxModel(spec, modelRuntime) : modelRuntime.getModel(spec.provider, spec.modelId);

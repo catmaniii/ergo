@@ -65,6 +65,11 @@ env:
   - name: DEEPSEEK_API_KEY
     from: file
     path: <用户主目录>\.ergo\secrets\deepseek-api-key.txt
+  # 自定义（OpenAI 兼容）服务商的 key（选了自定义服务商才用得到；没有这个文件也没关系）
+  - name: CUSTOM_MODEL_API_KEY
+    from: file
+    path: <用户主目录>\.ergo\secrets\custom-model-api-key.txt
+    optional: true
 
 # 被杀、崩溃后由 LSM 拉起；重启后待审批的从审批表恢复、说不清做没做完的调用转给用户确认，不悄悄重做（23 号票）
 autoRestart:

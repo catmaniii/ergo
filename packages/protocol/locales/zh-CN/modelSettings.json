@@ -17,5 +17,13 @@
   "modelSettings.catalogUnavailable": "{where}：模型目录现在查不到，只能选配置里登记过的和已经选了的模型，没有 {modelId}",
   "modelSettings.file.invalid": "格式不对：{error}",
   "modelSettings.file.invalidUnknown": "不合规",
-  "modelSettings.file.badProvider": "服务商 {provider} 不支持（目前只支持 {providers}）"
+  "modelSettings.file.badProvider": "服务商 {provider} 不支持（目前只支持 {providers}）",
+  "modelSettings.provider.custom": "自定义（OpenAI 兼容）",
+  "modelSettings.custom.missing": "选了自定义（OpenAI 兼容）服务商，却没填接口地址和模型 id",
+  "modelSettings.custom.badBaseUrl": "接口地址要以 http:// 或 https:// 开头，中间不能有空格：现在填的是「{baseUrl}」",
+  "modelSettings.custom.badModelId": "自定义服务商的模型 id 不能是空的：填那家服务商那边的模型名（比如 llama-3.1-70b）",
+  "modelSettings.custom.noBaseUrl": "还没填自定义服务商的接口地址：先在设置 · 模型里填上，再来列它的模型",
+  "modelSettings.custom.listFailed": "列不出这个服务商的模型：{error}",
+  "modelSettings.custom.listBadResponse": "服务商回的格式不认（要 OpenAI 兼容的 {\"data\":[{\"id\":…}]}）：{status}",
+  "modelSettings.custom.listNotJson": "服务商回的不是 JSON：{status}"
 }

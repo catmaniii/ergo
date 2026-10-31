@@ -14,6 +14,7 @@ import { convertToLlm, generateBranchSummary, ModelRuntime, type SessionEntry, S
 import { modelKeyOf, t } from "@ergo/protocol";
 import type { ModelSpec, RecordedGenerationRequest, RecordedGenerationResult, RecordedGenerationTask, RecordedTurn, ScopeFinding, UsageReport } from "../host-protocol.ts";
 import { redactApiKeys } from "../redact.ts";
+import { registerCustomProvider } from "./custom-provider.ts";
 import { usageReport } from "./event-translator.ts";
 import { registerFauxModel } from "./faux.ts";
 import { conversationText, parseFindings, reviewPrompt } from "./scope-review.ts";
@@ -80,6 +81,8 @@ export async function runRecordedGeneration(request: RecordedGenerationRequest):
   try {
     // 凭据只放内存：不读 ~/.pi/agent/auth.json，也不读 models.json，不连网刷新模型目录（和 agent 会话一样）
     const modelRuntime = await ModelRuntime.create({ credentials: new InMemoryCredentialStore(), modelsPath: null, refreshOnCreate: false, allowModelNetwork: false });
+    // 自定义（OpenAI 兼容）服务商：pi 的模型目录里没有它，先登记，getModel("custom", 模型 id) 才认得
+    registerCustomProvider(modelRuntime, request.custom);
     for (const [provider, apiKey] of Object.entries(request.credentials)) await modelRuntime.setRuntimeApiKey(provider, apiKey);
     const model = resolveModel(request.model, modelRuntime);
     switch (request.task.kind) {

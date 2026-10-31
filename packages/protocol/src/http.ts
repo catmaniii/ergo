@@ -107,9 +107,13 @@
 // 整份存（请求体 ModelSettingsBody，回 ModelSettingsView；同样的再存没有变化，所以不带幂等键），改了以后下一个新会话生效；
 // POST /api/model-settings/test 是连通测试（请求体 ModelTestBody：测哪个模型，不给是默认模型），回 ModelTestResult
 // （通不通、首 token 延迟）。
+// 自定义（OpenAI 兼容）服务商（provider id 固定是 custom）：设置里多一块 custom（baseUrl、modelId、api），
+// provider 是 custom 时必须有；连通测试的请求体也能带一块 custom（设置页还没存就想试一下，不带就按设置里存的），
+// 测的是它里面的 modelId。另外多一个列出这个服务商有哪些模型的接口（给设置页的下拉用，见下面的 modelSettingsCustomModels）：它是守护进程
+// 直接发的一次 GET {baseUrl}/models，不经过模型（也不花 token）。
 // 模型的 key（315、319 号票）：GET /api/model-settings/key 只说配没配（ModelKeyView）；POST /api/model-settings/key 是在网页上填一个
 // （请求体 ModelKeyBody：{ key }，去掉首尾空白后 8 到 400 个字符，不然 400；响应 ModelKeyWriteResult：effective 是 now / restart）。
-// 写进数据目录密钥区的那个文件（权限收紧、先写临时文件再改名），key 原样不回显、不进日志、不进错误信息。
+// 按设置里选的服务商写它的密钥文件（deepseek 或自定义服务商 custom），权限收紧、先写临时文件再改名；key 原样不回显、不进日志、不进错误信息。
 //
 // 设置里 agent 的联网搜索、读网页（154 号票；162 号票起是 DeepSeek、浏览器、agent-browser 三种方式的队列）：GET /api/web-settings 取
 // （WebSettingsView：存着的队列、实际用的顺序、DeepSeek 的 key 配没配、最近一次余额不足）；POST /api/web-settings 整份存（请求体
@@ -286,6 +290,7 @@ const BACKUP = "backup";
 const RUN = "run";
 const SYSTEM_PROMPTS = "system-prompts";
 const MODEL_SETTINGS = "model-settings";
+const CUSTOM_MODELS = "custom-models";
 const SAFETY_SETTINGS = "safety-settings";
 const SETUP = "setup";
 const DOCTOR = "doctor";
@@ -475,6 +480,12 @@ export const HTTP_PATHS = {
   /** 设置里的"模型"的连通测试（POST，请求体 ModelTestBody，响应 ModelTestResult，73 号票） */
   modelSettingsTest: api(MODEL_SETTINGS, TEST),
   /**
+   * 列出某个自定义（OpenAI 兼容）服务商有哪些模型（POST，请求体 ModelCustomModelsBody，响应 ModelCustomModelsResult）：
+   * 守护进程发 GET {baseUrl}/models 并带 Authorization: Bearer <key>（key 照旧从密钥区来，请求体里放不进、响应里不回显），
+   * 回的是一串 { id, name?, ownedBy? }；列不成也回 200，ok 为 false、error 写原因。给设置页挑模型用，不经过模型、不花 token
+   */
+  modelSettingsCustomModels: api(MODEL_SETTINGS, CUSTOM_MODELS),
+  /**
    * 模型的 key（315、319 号票）：GET 只说配没配（ModelKeyView，不查模型目录、马上回，会话页上"还没配模型"的提示用）；
    * POST 是在网页上填一个（请求体 ModelKeyBody：{ key }，响应 ModelKeyWriteResult 写明什么时候生效；回的、日志里都没有 key 的内容）
    */
@@ -659,6 +670,7 @@ export type HttpRoute =
   | { route: "model_settings" }
   | { route: "model_settings_test" }
   | { route: "model_settings_key" }
+  | { route: "model_settings_custom_models" }
   | { route: "safety_settings" }
   | { route: "setup" }
   | { route: "doctor" }
@@ -798,6 +810,7 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
     if (id === undefined) return { route: "model_settings" };
     if (id === TEST) return { route: "model_settings_test" };
     if (id === KEY) return { route: "model_settings_key" };
+    if (id === CUSTOM_MODELS) return { route: "model_settings_custom_models" };
   }
   if (head === AGENTS && id !== undefined) {
     if (tail === undefined) return { route: "agent_settings", agentId: id };

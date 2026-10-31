@@ -5,7 +5,7 @@
 // - 一条没翻成（模型出错、回的是空的）不影响别的：那一条交回 null，原因记在 errors（去掉凭据的内容），调用方显示原文。
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { t } from "@ergo/protocol";
+import { type ModelCustomProvider, t } from "@ergo/protocol";
 import type { ModelSpec, UsageReport } from "./host-protocol.ts";
 import { type RunOneShotOptions, runOneShotChild } from "./one-shot-child.ts";
 
@@ -26,6 +26,8 @@ export interface TranslationRequest {
   model: ModelSpec;
   /** provider id → API key（只在子进程的内存里用） */
   credentials: Record<string, string>;
+  /** 设置里选的自定义（OpenAI 兼容）服务商：模型是它的时候要给，子进程按它先登记 provider；不是就没有 */
+  custom?: ModelCustomProvider;
   /** 翻成哪种语言：给模型看的名字（语言文件 _meta.json 的 modelName："中文"、"English"） */
   language: string;
   /** 要翻的说明原文 */

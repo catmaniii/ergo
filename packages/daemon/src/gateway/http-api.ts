@@ -84,6 +84,7 @@ import {
   ComponentImportBody,
   WebSettingsBody,
   ModelTestBody,
+  ModelCustomModelsBody,
   LocalDate,
   MaterialListBody,
   MaterialScopeBody,
@@ -242,7 +243,7 @@ export interface HttpApiOptions {
   /** 设置里的系统提示：全部、一份、保存、恢复默认（71 号票）；不给就没有这几个接口 */
   systemPrompts?: Pick<PromptLibrary, "list" | "detail" | "save" | "reset">;
   /** 设置里的"模型"（73 号票；319 号票起还能在网页上填 key）；不给就没有这几个接口 */
-  modelSettings?: Pick<ModelSettingsService, "view" | "change" | "test" | "keyView" | "saveKey">;
+  modelSettings?: Pick<ModelSettingsService, "view" | "change" | "test" | "keyView" | "saveKey" | "customModels">;
   /** 安全和预算的两个开关（315 号票）：GET / PUT /api/safety-settings；不给就没有这个接口 */
   safetySettings?: Pick<SafetySettingsService, "view" | "change">;
   /** 首次设置向导（319 号票）：GET / POST /api/setup（五步各自做完了没有、标"以后再说"/"看过了"）；不给就没有这个接口 */
@@ -1022,19 +1023,31 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
       case "model_settings_test":
         return {
           // 连通测试：发一条极短的请求（在一次性子进程里，守护进程自己不跑模型），回通不通、首 token 延迟。
-          // 同一时间只跑一个：上一个还没测完时回 409"上一个还没测完"
+          // 同一时间只跑一个：上一个还没测完时回 409"上一个还没测完"。
+          // 自定义（OpenAI 兼容）服务商：请求体可以带一块 custom（设置页还没存就想试一下），不带就按设置里存的；测它里面的模型 id
           async POST(req, res) {
             if (!options.modelSettings) throw new HttpError("not_found", t("gateway.http.noModelSettings"));
             const body = checkHttpBody(ModelTestBody, (await readJson(req)) ?? {});
             if (!body.ok) throw new HttpError("bad_request", t("gateway.http.badModelTest", { message: body.message }));
             let result;
             try {
-              result = await options.modelSettings.test(body.value.modelId);
+              result = await options.modelSettings.test(body.value.modelId, body.value.custom);
             } catch (err) {
               if (err instanceof RequestRejected && err.code === "conflict") throw new HttpError("busy", err.message);
               throw err;
             }
             sendJson(res, 200, result);
+          },
+        };
+      case "model_settings_custom_models":
+        return {
+          // 列出自定义（OpenAI 兼容）服务商有哪些模型（自定义服务商这一步）：GET {baseUrl}/models，带 Authorization: Bearer <key>。
+          // key 照旧从密钥区来（请求体里放不进、响应里不回显）；列不成也回 200，ok 为 false、error 写原因
+          async POST(req, res) {
+            if (!options.modelSettings) throw new HttpError("not_found", t("gateway.http.noModelSettings"));
+            const body = checkHttpBody(ModelCustomModelsBody, (await readJson(req)) ?? {});
+            if (!body.ok) throw new HttpError("bad_request", t("gateway.http.badModelCustomModels", { message: body.message }));
+            sendJson(res, 200, await options.modelSettings.customModels(body.value.baseUrl));
           },
         };
       case "agent_settings":

@@ -38,11 +38,14 @@ const BRIEF = { acceptanceCriteria: ["附来源"], constraints: [], projects: []
 const option = async (url: string, id: string) => (await modelSettingsApi.view(url)).body.models.find((m) => m.modelId === id);
 
 describe("设置里的模型", () => {
-  it("设置页取到的：服务商只有 DeepSeek（在服务端调用），可选的模型来自模型目录（各自能不能看图、支持哪几档思考），各个 agent 实际会用的", async () => {
+  it("设置页取到的：服务商有 DeepSeek（默认）和自定义（OpenAI 兼容），可选的模型来自模型目录（各自能不能看图、支持哪几档思考），各个 agent 实际会用的", async () => {
     const td = await startTestDaemon({ env: { DEEPSEEK_API_KEY: KEY } });
     const { status, body } = await modelSettingsApi.view(td.url);
     expect(status).toBe(200);
-    expect(body.providers).toEqual([{ id: "deepseek", label: "DeepSeek" }]);
+    expect(body.providers).toEqual([
+      { id: "deepseek", label: "DeepSeek" },
+      { id: "custom", label: "自定义（OpenAI 兼容）" },
+    ]);
     expect(body.settings).toEqual({ provider: "deepseek", default: { modelId: "deepseek-flash", thinkingLevel: "high" }, agents: {}, vision: {} });
     const flash = body.models.find((m) => m.modelId === "deepseek-flash");
     const pro = body.models.find((m) => m.modelId === "deepseek-v4-pro");

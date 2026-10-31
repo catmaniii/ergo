@@ -47,7 +47,7 @@
 // - system-prompts.ts / system-prompt-schema.ts：各 agent 的系统提示（md 文件）里占位符的写法、检查和填值（不引用 TypeBox），
 //   设置里"系统提示"页的接口的 schema（71 号票）。
 // - model-settings.ts / model-settings-schema.ts：设置里的"模型"（服务商登记、各个 agent 选模型和思考档位、API key 的状态、看图能力、
-//   连通测试）的名字、纯函数（不引用 TypeBox）和设置文件、设置接口的 schema（73 号票）。
+//   连通测试，以及自定义 OpenAI 兼容服务商的地址、模型 id 和接口风格）的名字、纯函数（不引用 TypeBox）和设置文件、设置接口的 schema（73 号票）。
 // - web-settings.ts / web-settings-schema.ts：设置里 agent 的联网搜索、读网页（154 号票；162 号票起是 DeepSeek、浏览器、agent-browser
 //   三种方式的队列：能排序、能停用、至少留一个）的名字、实际用哪几种的判定、旧设置的迁移（不引用 TypeBox）和设置文件、设置接口的 schema。
 // - event-sources.ts / event-source-schema.ts：事件来源登记表（来源、事件、字段、过滤条件）、文件名模式、在等什么事件的说法、

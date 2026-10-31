@@ -141,6 +141,11 @@ export function daemonEntryYaml(ctx: Pick<CliContext, "layout" | "dataDir">): st
     "    from: file",
     `    path: ${yamlQuote(path.join(ctx.dataDir, "secrets", "deepseek-api-key.txt"))}`,
     "    optional: true",
+    // 自定义（OpenAI 兼容）服务商的 key（自定义服务商这一步）：和 DeepSeek 一样从密钥区注入（没有也能起来，optional）
+    "  - name: CUSTOM_MODEL_API_KEY",
+    "    from: file",
+    `    path: ${yamlQuote(path.join(ctx.dataDir, "secrets", "custom-model-api-key.txt"))}`,
+    "    optional: true",
     "autoRestart:",
     "  enabled: true",
     "  maxRetries: 5",

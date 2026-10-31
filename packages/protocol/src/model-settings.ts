@@ -1,7 +1,8 @@
 // 设置里的"模型"（73 号票，规格第 1 节"模型"）：名字、纯函数和接口的样子，守护进程和 Web 共用。不引用 TypeBox
 // （设置文件和请求体的 schema 在 model-settings-schema.ts）。
 //
-// - 模型在服务端（二狗守护进程这台电脑）调用，服务商做成一张登记表，目前只有 DeepSeek 一项（以后加服务商只加一项，这次不实现别家）；
+// - 模型在服务端（二狗守护进程这台电脑）调用，服务商做成一张登记表：DeepSeek（默认），加上一个**自定义 OpenAI 兼容服务商**
+//   （provider id 固定是 custom：用户填接口地址、模型 id、API key，账号不是 DeepSeek 的人也能用二狗）；
 // - 默认模型和思考档位，加上按 agent 的覆盖（秘书、任务维护者、项目维护者、子 agent、评审、范围审视），各自"跟随默认"或者选定；
 //   某个项目、某个任务的维护者还能在自己的 ⚙ 里单独选定，盖过它那一行（120 号票）；
 // - 一个会话固定一个模型：改了以后下一个新会话生效，正在进行的会话（接着的会话）照旧用它开始时的模型、思考档位和看图能力；
@@ -10,7 +11,7 @@
 //   写进同一个文件）；接口回的、页面上显示的、日志里的都没有 key 的内容（请求体里那一次除外）；
 // - 看图能力：设置页改的为准，其次是配置文件 models["provider/模型 id"].vision 写明的，都没写按模型目录（79 号票）。
 import { ASSISTANT_NAME_MARK } from "./assistant-name.ts";
-import { tTable } from "./i18n/runtime.ts";
+import { t, tTable } from "./i18n/runtime.ts";
 
 /** 各自选模型的 agent。普通任务的 agent、迁移来的定时作业自己的维护者都算任务维护者 */
 export const MODEL_AGENTS = ["secretary", "task_maintainer", "project_maintainer", "sub_agent", "reviewer", "scope_review"] as const;
@@ -53,6 +54,53 @@ export const MODEL_THINKING_LABEL: Readonly<Record<ModelThinkingLevel, string>> 
   high: "protocol.modelSettings.thinking.high",
 });
 
+/**
+ * 自定义（OpenAI 兼容）服务商的 provider id（定了别改）：pi 的模型目录里没有它，守护进程启的子进程要用
+ * registerProvider 登记它、再用 setRuntimeApiKey 把 key 交给它，getModel("custom", …) 才认得；「provider/模型 id」的
+ * 前半、密钥区里 key 的键（credentials 里的键名）、CUSTOM_MODEL_API_KEY 都是它
+ */
+export const CUSTOM_PROVIDER_ID = "custom";
+
+/** 自定义服务商的接口风格：OpenAI 的 chat completions、responses（别家兼容 OpenAI 的多半是前一种） */
+export const CUSTOM_PROVIDER_APIS = ["openai-completions", "openai-responses"] as const;
+export type CustomProviderApi = (typeof CUSTOM_PROVIDER_APIS)[number];
+
+/** 用户没填接口风格时按这个（OpenAI 兼容的服务大多是这个） */
+export const DEFAULT_CUSTOM_PROVIDER_API: CustomProviderApi = "openai-completions";
+
+/**
+ * 自定义（OpenAI 兼容）服务商：用户填的接口地址、模型 id 和（可选的）接口风格。设置里选了它才有；
+ * 地址要带协议（http:// 或 https://，一般是 https），模型 id 是那家服务商那边**原样**的那个（可以有斜杠、冒号）
+ */
+export interface ModelCustomProvider {
+  /** 接口地址，如 https://api.example.com/v1（模型请求发到它下面；列模型是 GET <它>/models） */
+  baseUrl: string;
+  /** 模型 id，如 llama-3.1-70b（原样交给服务商，不是 pi 模型目录里的那个） */
+  modelId: string;
+  /** 接口风格；不写按 DEFAULT_CUSTOM_PROVIDER_API */
+  api?: CustomProviderApi;
+}
+
+/** 自定义服务商的设置合不合规（schema 管不了的那条跨字段规矩） */
+export type CustomProviderCheck = { ok: true; custom?: ModelCustomProvider } | { ok: false; error: string };
+
+/**
+ * 查自定义服务商的设置（设置页整份存、读设置文件、网页上测连通性时都过这里）：provider 是 custom 时必须给，
+ * 地址要是 http(s) 的、模型 id 不能是空白；不是 custom 时给不给都行（存着，切回自定义时还在）。
+ * 合规时交回去掉首尾空白的、地址末尾不带斜杠的那一份（没给 custom 就没有 custom）
+ */
+export function checkModelCustom(settings: { provider: string; custom?: ModelCustomProvider | undefined }): CustomProviderCheck {
+  const custom = settings.custom;
+  if (custom === undefined) {
+    return settings.provider === CUSTOM_PROVIDER_ID ? { ok: false, error: t("modelSettings.custom.missing") } : { ok: true };
+  }
+  const baseUrl = custom.baseUrl.trim().replace(/\/+$/, "");
+  if (!/^https?:\/\/\S+$/i.test(baseUrl)) return { ok: false, error: t("modelSettings.custom.badBaseUrl", { baseUrl: custom.baseUrl }) };
+  const modelId = custom.modelId.trim();
+  if (modelId === "") return { ok: false, error: t("modelSettings.custom.badModelId") };
+  return { ok: true, custom: { baseUrl, modelId, ...(custom.api === undefined ? {} : { api: custom.api }) } };
+}
+
 /** 一个选定：哪个模型、什么思考档位（服务商是设置里的那一个） */
 export interface ModelChoice {
   modelId: string;
@@ -67,7 +115,7 @@ export interface ModelAgentOverride {
 
 /** 设置的内容（设置文件里存的、设置页改的整份） */
 export interface ModelSettings {
-  /** 服务商（登记表里的 id；目前只有 deepseek） */
+  /** 服务商（登记表里的 id：deepseek 或 custom） */
   provider: string;
   /** 默认模型和思考档位 */
   default: ModelChoice;
@@ -75,6 +123,11 @@ export interface ModelSettings {
   agents: Partial<Record<ModelAgent, ModelAgentOverride>>;
   /** 设置页改的看图能力，键是「provider/模型 id」；没有的按配置文件写明的、再按模型目录 */
   vision: Record<string, boolean>;
+  /**
+   * 自定义（OpenAI 兼容）服务商（选了 provider: custom 时必须有；没选时可能没有，也可以留着一份）：
+   * 模型是它里面的 modelId——服务商只有一个模型，default 和各 agent 覆盖里写的模型 id 对自定义不起作用（思考档位照旧按那一行）
+   */
+  custom?: ModelCustomProvider;
 }
 
 /** 某个 agent 实际会用的：跟随默认的那一项换成默认 */
@@ -244,6 +297,30 @@ export interface ModelTestResult {
   modelId: string;
   firstTokenMs?: number;
   totalMs: number;
+  error?: string;
+}
+
+/** 自定义服务商的 /models 列出来的一个模型 */
+export interface ModelCustomModel {
+  /** 服务商那边的模型 id（原样，填进设置里的 custom.modelId 就是它） */
+  id: string;
+  /** 服务商给的名字（有的给，有的不给） */
+  name?: string;
+  /** 服务商写的归属方（OpenAI 的 owned_by；有的给，有的不给） */
+  ownedBy?: string;
+}
+
+/** 列模型最多收这么多个（服务商一次回上千个时砍掉后面的：设置页只是给人挑一个） */
+export const CUSTOM_MODELS_MAX = 500;
+
+/**
+ * 列出某个自定义（OpenAI 兼容）服务商有哪些模型（POST /api/model-settings/custom-models）：
+ * 守护进程按接口地址发一次 GET {baseUrl}/models，带 Authorization: Bearer <key>（key 照旧从密钥区来，请求体里不带、响应里不回显）。
+ * 列不成不算出错：ok 为 false，error 写原因（连不上、401、回的格式不认……不含 key 的内容），models 是空的
+ */
+export interface ModelCustomModelsResult {
+  ok: boolean;
+  models: ModelCustomModel[];
   error?: string;
 }
 

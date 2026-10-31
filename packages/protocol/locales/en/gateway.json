@@ -91,6 +91,7 @@
   "gateway.http.badComponentAction": "Bad component request: {message}",
   "gateway.http.badComponentImport": "Bad offline import request: {message}",
   "gateway.http.badModelTest": "Bad parameters for the connection test: {message}",
+  "gateway.http.badModelCustomModels": "Bad parameters for listing the custom provider's models: {message}",
   "gateway.http.badAgentPrompt": "Bad parameters for saving the agent's own prompt: {message}",
   "gateway.http.badClear": "Bad parameters for clearing the conversation: {message}",
   "gateway.http.badAgentModel": "Bad parameters for the agent's own model: {message}",

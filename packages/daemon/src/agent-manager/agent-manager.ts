@@ -22,7 +22,7 @@
 // 超时、闲置退出、孤儿回收不分运行时；运行时自带的工具可以声明自己的单次调用超时（288 号票：Claude Code 的子代理不按单次超时算）。
 import fs from "node:fs";
 import path from "node:path";
-import { type ActivityDetail, type ActivityState, activeLanguage, modelKeyOf, PI_RUNTIME_ID, t } from "@ergo/protocol";
+import { type ActivityDetail, type ActivityState, activeLanguage, type ModelCustomProvider, modelKeyOf, PI_RUNTIME_ID, t } from "@ergo/protocol";
 import { RequestRejected } from "../errors.ts";
 import type { DataDirLayout } from "../config/data-dir.ts";
 import { modelConfigKey } from "../config/model-key.ts";
@@ -328,6 +328,12 @@ export interface AgentManagerOptions {
    * 没有系统提示的请求不加。不给就原样
    */
   systemPromptPrefix?: (systemPrompt: string) => string;
+  /**
+   * 设置里选的自定义（OpenAI 兼容）服务商（现取）：选了才有。它是全局一个（和 credentials 一样，不按 agent 分），所以由管家在
+   * 每个会话的装配、每次模型探查、每次另起的生成里带上——子进程据此 registerProvider，模型目录里才认得它。
+   * key 不在这里（照旧只走 credentials）；不给就是没选自定义
+   */
+  customProvider?: () => ModelCustomProvider | undefined;
   /**
    * agent 运行时的登记表（286 号票）：请求里写了运行时的按它解析子进程入口（不能用的抛"X插件没启用"）。
    * 不给时只认 pi（测试里直接建管家的）
@@ -868,6 +874,7 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
     const { request } = entry;
     // 先解析子进程入口：登记它的插件没在运行时不建目录、不拉起
     const runtime = runtimeOf(request);
+    const custom = options.customProvider?.();
     const childEntry = runtime?.entry;
     entry.runtimeToolTimeouts = runtime?.toolTimeouts;
     const sessionDir = agentSessionDir(layout, request.agentId);
@@ -886,6 +893,8 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
         model: request.model,
         ...(request.vision === undefined ? {} : { vision: request.vision }),
         credentials: request.credentials ?? {},
+        // 自定义（OpenAI 兼容）服务商（和 credentials 一样是全局一个）：子进程按它登记 provider，模型目录里才认得
+        ...(custom === undefined ? {} : { custom }),
         tools: [...request.tools],
         contributions: contributionsOf(request),
         skillPaths: request.skillPaths ?? [],
@@ -1029,7 +1038,10 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
     contextOf: (modelKey) => contexts.get(modelKey),
     attributionOf: (agentId) => [...live, ...queue].find((e) => e.agentId === agentId)?.request.ledger?.(),
     probeModels(request) {
-      return runModelProbe(request, { env: buildChildEnv(options.parentEnv, { [CHILD_LANGUAGE_ENV]: activeLanguage() }), job: options.job, onLog: (line) => log(`[模型探查] ${line}`) });
+      // 自定义（OpenAI 兼容）服务商：列它的模型、测它的连通性都得先让子进程登记这个 provider
+      const custom = options.customProvider?.();
+      const probe = custom === undefined || request.custom !== undefined ? request : { ...request, custom };
+      return runModelProbe(probe, { env: buildChildEnv(options.parentEnv, { [CHILD_LANGUAGE_ENV]: activeLanguage() }), job: options.job, onLog: (line) => log(`[模型探查] ${line}`) });
     },
     thumbnails(request) {
       return runThumbnails(request, { env: buildChildEnv(options.parentEnv, {}), job: options.job, onLog: (line) => log(`[缩小图片] ${line}`) });
@@ -1043,7 +1055,10 @@ export function createAgentManager(options: AgentManagerOptions): AgentManager {
       });
     },
     async recordedGeneration(request, ledger) {
-      const result = await runRecordedGeneration(request, {
+      // 自定义（OpenAI 兼容）服务商：一次性子进程里的 ModelRuntime 也要先登记它
+      const custom = options.customProvider?.();
+      const generation = custom === undefined || request.custom !== undefined ? request : { ...request, custom };
+      const result = await runRecordedGeneration(generation, {
         // 没写成的原因按现在的语言写（174 号票）
         env: buildChildEnv(options.parentEnv, { [CHILD_LANGUAGE_ENV]: activeLanguage() }),
         job: options.job,

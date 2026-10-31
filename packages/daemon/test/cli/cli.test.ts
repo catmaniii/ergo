@@ -146,6 +146,8 @@ describe("服务管家的设置和二狗的登记", () => {
     expect(entry.env).toEqual([
       { name: "ERGO_DATA_DIR", from: "literal", value: t.ctx.dataDir },
       { name: "DEEPSEEK_API_KEY", from: "file", path: path.join(t.ctx.dataDir, "secrets", "deepseek-api-key.txt"), optional: true },
+      // 自定义（OpenAI 兼容）服务商的 key：和 DeepSeek 一样从密钥区注入，没有这个文件也能起来
+      { name: "CUSTOM_MODEL_API_KEY", from: "file", path: path.join(t.ctx.dataDir, "secrets", "custom-model-api-key.txt"), optional: true },
     ]);
     expect(yamlQuote("C:\\a\\v'x")).toBe("'C:\\a\\v''x'");
 
