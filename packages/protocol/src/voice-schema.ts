@@ -252,7 +252,7 @@ export type VoiceModelStatus = Static<typeof VoiceModelStatus>;
 /** 一个模型（识别或合成）现在的状态，见 VOICE_MODEL_STATUSES */
 export const VoiceModelState = Type.Object({
   status: VoiceModelStatus,
-  /** 用的模型：识别是 faster-whisper 的模型名（large-v3，退回时是 small）；合成是服务报的（比如 fish_audio（audio.cpp/tts）） */
+  /** 用的模型：识别是 faster-whisper 的模型名（large-v3，退回时是 small）或 audio.cpp 报的（fun_asr_nano（audio.cpp/asr））；合成是服务报的（比如 fish_audio（audio.cpp/tts）） */
   model: Type.Optional(Type.String()),
   /** 识别用的设备、计算精度（合成的 audio.cpp 不报这两样） */
   device: Type.Optional(Type.String()),
@@ -272,12 +272,14 @@ export type VoiceModelState = Static<typeof VoiceModelState>;
 
 /**
  * 两个语音模型的状态（GET /api/voice-models 的响应，也是活动状态频道上临时事件 voice_models 的负载）。
- * 识别引擎的清单由守护进程给（现在只有 faster-whisper 一项）。startedAt、revision 认新旧：同一次启动里 revision 大的新
+ * 识别引擎的清单由守护进程给（现在只有在用的那一项：faster-whisper 或 Fun-ASR Nano）。startedAt、revision 认新旧：同一次启动里 revision 大的新
  */
 export const VoiceModelsView = Type.Object({
   recognizerEngines: Type.Array(Type.String()),
   /** 现在用的识别引擎 */
   recognizerEngine: Type.String(),
+  /** 现在的接入只认 WAV（346 号票，audio.cpp）：网页录完先转成 WAV 再传；没有是什么格式都认 */
+  recognizerInput: Type.Optional(Type.Literal("wav")),
   recognizer: VoiceModelState,
   speech: VoiceModelState,
   /** 守护进程这次启动的时间 */

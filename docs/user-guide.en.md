@@ -38,14 +38,14 @@ ergo never starts long-running services itself; the supervisor hosts them. They 
 - **Windows 10 / 11 only.** ergo relies on Windows-only features (Job objects, directory junctions, Windows Sandbox, scheduled tasks). On other systems the daemon says so and exits.
 - **Node.js 22** (≥ 22.19). ergo's Node major version follows its agent core [pi](https://github.com/earendil-works/pi) ([ADR-0031](adr/0031-node-version-follows-pi.md)); CI runs only this version. The one-line installer bundles Node for you.
 - **An LLM API key**: currently [DeepSeek](https://platform.deepseek.com/) (you can also switch to another vendor's OpenAI-compatible provider; see [5.5](#55-models)). Without one ergo still starts and you can look around; it will tell you to configure a model when you talk to it.
-- **Disk**: a few hundred MB for the program; ~570 MB for the semantic-search embedding model; 1–2 GB for speech recognition (both optional).
+- **Disk**: a few hundred MB for the program; ~570 MB for the semantic-search embedding model; about 1 GB for speech recognition (both optional).
 
 **Optional** (ergo works without them; the matching features stay off)
 
 | Install | Gives you | See |
 |---|---|---|
 | Git for Windows | Agents can run bash commands (used a lot in tasks); install from source | [Install from source](install.en.md#install-from-source) |
-| Python + faster-whisper, ideally an NVIDIA GPU | Push-to-talk, recognized locally | [8.1](#81-push-to-talk-local-speech-recognition) |
+| Speech recognition (install it in **Settings · Components**) | Push-to-talk, recognized locally | [8.1](#81-push-to-talk-local-speech-recognition) |
 | Speech synthesis (installed under **Settings · Components**) | ergo answers with voice | [8.2](#82-voice-replies-local-speech-synthesis) |
 | Chrome or Edge | Agents can search the web and read pages | [8.4](#84-web-search-and-reading-pages) |
 | Tailscale, or a VPS | Use ergo from your phone or tablet away from home | [Section 6](#6-access-from-outside-phone-tablet) |
@@ -185,7 +185,8 @@ The config file is optional; without it everything uses defaults. To change some
 | `tasks.thresholds` | Pull-backs before stopping, stall timeout, budget multiples… | see the example |
 | `agents.maxLive` | Maximum live agent child processes | 8 |
 | `approvals.waitMinutes` | How long a call waits for your "ask me first" decision | 5 |
-| `voice.recognizer.python` | `python.exe` that has faster-whisper | `python` on PATH |
+| `voice.recognizer.mode` | How speech recognition connects: `spawn` (ergo starts Python), `lsm` (a recognition service hosted by the supervisor), `audiocpp` (the model with the id `asr` on the audio.cpp service). Written when you install the recognition model from the Components page, removed when you remove it | `spawn` |
+| `voice.recognizer.python` | `python.exe` that has faster-whisper (only `spawn` uses it) | `python` on PATH |
 | `voice.speech.url` / `voice.speech.model` | TTS service address and model | `http://127.0.0.1:8090` |
 | `web.browserPath` | Chrome / Edge used for web access; auto-detected if omitted | — |
 | `backup.time` / `backup.syncDir` / `backup.schedule` | Nightly backup time, extra copy to a sync folder, who schedules it | 03:30 / none / `"internal"` |
@@ -298,13 +299,30 @@ The app's final bundle name is `com.catmaniii.ergo` (decided 2026-10-30; `app.js
 
 ### 8.1 Push-to-talk (local speech recognition)
 
+**Install from the Components page (no Python needed)**: **Settings · Components** has a row "Speech recognition model Fun-ASR Nano", marked Recommended.
+
+1. Click Install. A confirmation comes first: the model's name, its size (1.0 GB, shown as 996.9 MB in Windows), the license (FunASR Model License v1.1: **free to use, modify and share if you credit the source and authors and keep the model name; the text says it is for reference and learning only, with no warranty, and has no separate commercial clause, so judge commercial use yourself**) and a link to the full text. Your confirmation is remembered. ergo doesn't bundle this model: it downloads from Hugging Face (hf-mirror as a fallback) and is only installed if the size and checksum match.
+2. It shares the program audio.cpp with speech synthesis (see [8.2](#82-voice-replies-local-speech-synthesis)). If that isn't installed yet it downloads first: about 853 MB with an NVIDIA GPU, about 31 MB without.
+3. Then it connects by itself: the model joins the speech service's config, the service restarts, health is checked, it joins the start-at-boot list, and recognition switches to it (`voice.recognizer.mode: "audiocpp"` is written to the config) **without restarting ergo**. The model loads in a few seconds; see the status under **Settings · Voice**.
+4. Removing the model removes that config entry too, back to the default.
+
+It works without a GPU: a sentence takes a second or two on CPU. It uses about 2 GB of VRAM; with speech synthesis (about 7.3 GB) as well the card has to hold over 9 GB. Whichever doesn't fit fails to load, and the Components page and **Settings · Voice** say why.
+
+A few things to know:
+
+- This service only takes WAV. The web page converts recordings before uploading and the HarmonyOS app records WAV anyway, so there's nothing to do. To retry recognition on recordings made before you switched, this computer needs ffmpeg on the PATH; without it that one recording says why it failed.
+- It only knows Chinese, English, Japanese and auto (`voice.recognizer.language`); for anything else it decides by itself. This model doesn't support prompts (`initialPrompt` has no effect). Filler filtering and automatic retries work as usual.
+- Recognized text has no segment timings (the model doesn't support them).
+
+**Your own setup is never changed**: if the config sets `voice.recognizer.mode` to `lsm`, sets a Python path, or the `python` on your PATH has faster-whisper, the Components page says "You already have your own speech recognition; using it", it can't be installed from there, and the config file isn't touched. To use the one from here instead, remove your own first (edit the config, restart ergo). Your own audio.cpp on port 8090 isn't overwritten either; you can add a speech recognition model with the id `asr` to it (family `fun_asr_nano`, task `asr`) and set `voice.recognizer.mode` to `"audiocpp"`.
+
+**Using faster-whisper (fallback)**: if you prefer it, set it up by hand as below. Both routes stay available.
+
 1. Install Python (3.9+) and faster-whisper in it: `python -m pip install faster-whisper`. With an NVIDIA GPU and CUDA it runs large-v3 on the GPU; otherwise it falls back to the small model on CPU.
 2. Put that Python's path in `ergo.json`: `{ "voice": { "recognizer": { "python": "D:\\apps\\python311\\python.exe" } } }`.
 3. Restart `ergo-daemon`. The first recognition loads the model; see the status under **Settings · Voice**.
 
 You can also let the supervisor host recognition as a separate service (`deploy\lsm\ergo-asr.example.yaml`, with `voice.recognizer.mode` set to `"lsm"`), so it restarts independently of ergo.
-
-The Python part for recognition has no one-click install yet; set it up by hand as above. It will move into **Settings · Components** later. Speech synthesis can already be installed from the Components page; see [8.2](#82-voice-replies-local-speech-synthesis).
 
 ### 8.2 Voice replies (local speech synthesis)
 
@@ -404,7 +422,7 @@ The outside access check doesn't connect anywhere. It only looks at what this ma
 | The page shows 503 and says `npm run build:web` | The web UI isn't built | Run `npm run build:web` in the ergo directory |
 | It says "no model configured" or every reply errors | Key missing or wrong, or out of credit | Enter a new key under **Settings · Models** (or check `secrets\deepseek-api-key.txt`, just the key), then run the connection test |
 | Commands in tasks keep failing: Git Bash not found | Git for Windows missing, or WSL's `bash` comes first on PATH | Install Git for Windows; `where bash` should list `C:\Program Files\Git\bin\bash.exe` first |
-| Push-to-talk does nothing / recognition unavailable | Python path not set, faster-whisper missing, GPU unavailable | See the status in **Settings · Voice**; set up per [8.1](#81-push-to-talk-local-speech-recognition) |
+| Push-to-talk does nothing / recognition unavailable | Recognition model not installed, speech service not running; with faster-whisper: Python path not set, faster-whisper missing, GPU unavailable | See the status in **Settings · Voice**; set up per [8.1](#81-push-to-talk-local-speech-recognition) |
 | Voice replies are text only | TTS service not running, or `voice.speech.model` is still the placeholder | See [8.2](#82-voice-replies-local-speech-synthesis); the note in the chat says why |
 | Memory search misses things with similar meaning | Embedding model not installed | Install under **Settings · Components**, or `npm run download-model` |
 | The phone can't open ergo or stays on the pairing page | Outside access not set up, or the request expired / was rate-limited | Make sure 8811 is what's exposed; approve the request in **Inbox** on the PC within 5 minutes; after repeated failures wait 10 minutes |

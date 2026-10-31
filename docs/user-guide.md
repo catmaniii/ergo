@@ -36,14 +36,14 @@
 - **只支持 Windows 10 / 11**。二狗靠的是 Windows 才有的东西（Job 对象、目录联接、Windows 沙箱、计划任务）；在别的系统上起守护进程，它只说一句不支持就退出。
 - **Node.js 22**（≥ 22.19）。二狗的 Node 大版本跟着它的 agent 核心 [pi](https://github.com/earendil-works/pi) 走（[ADR-0031](adr/0031-node-version-follows-pi.md)），自动测试也只跑这一个版本。一行命令安装会自带 Node，不用你装。
 - **一个大模型的 API key**：现在是 [DeepSeek](https://platform.deepseek.com/)（也可以换成别家的 OpenAI 兼容服务商，见 [5.5](#55-模型)）。没配也能先起来、打开网页看看，跟它说话时它会提醒你去配。
-- **磁盘**：程序几百 MB；语义检索的向量模型约 570 MB；语音识别的模型 1–2 GB（都是可选的）。
+- **磁盘**：程序几百 MB；语义检索的向量模型约 570 MB；语音识别的模型约 1 GB（都是可选的）。
 
 **可选**（不装也能用，对应的功能先关着）
 
 | 装了什么 | 能多什么 | 见 |
 |---|---|---|
 | Git for Windows | agent 跑 bash 命令（任务里常用）、从源码安装 | [从源码安装](install.md#从源码安装) |
-| Python + faster-whisper，最好有 NVIDIA 显卡 | 按住说话，在本机识别 | [8.1](#81-按住说话本机语音识别) |
+| 语音识别（在 **设置 · 组件** 里装） | 按住说话，在本机识别 | [8.1](#81-按住说话本机语音识别) |
 | 语音合成（在 **设置 · 组件** 里装） | 二狗用语音回话 | [8.2](#82-二狗用语音回话本机语音合成) |
 | Chrome 或 Edge | agent 联网搜索、读网页 | [8.4](#84-联网搜索读网页) |
 | Tailscale，或一台 VPS | 手机、平板从外面访问 | [第 6 节](#6-从外网访问手机平板) |
@@ -183,7 +183,8 @@
 | `tasks.thresholds` | 拉回几次停下、多久没进展算停滞、预算超几倍停下…… | 见样例 |
 | `agents.maxLive` | 同时存活的 agent 子进程上限 | 8 |
 | `approvals.waitMinutes` | "先问我"时一次调用最多等你几分钟 | 5 |
-| `voice.recognizer.python` | 装了 faster-whisper 的 `python.exe` | PATH 上的 `python` |
+| `voice.recognizer.mode` | 语音识别怎么接：`spawn`（二狗拉起 Python）、`lsm`（服务管家托管的识别服务）、`audiocpp`（audio.cpp 服务上 id 为 `asr` 的模型）。组件页装好语音识别模型时自动写，删掉时撤掉 | `spawn` |
+| `voice.recognizer.python` | 装了 faster-whisper 的 `python.exe`（只有 `spawn` 用） | PATH 上的 `python` |
 | `voice.speech.url` / `voice.speech.model` | 语音合成服务的地址和模型 | `http://127.0.0.1:8090` |
 | `web.browserPath` | 联网用的 Chrome / Edge，不写就自动找 | — |
 | `backup.time` / `backup.syncDir` / `backup.schedule` | 每晚备份的时刻、另存一份的同步目录、谁来定时 | 03:30 / 不另存 / `"internal"` |
@@ -296,19 +297,36 @@ App 的正式包名是 `com.catmaniii.ergo`（2026-10-30 定；工程里 `app.js
 
 ### 8.1 按住说话（本机语音识别）
 
+**在组件页装（不用装 Python）**：**设置 · 组件** 里有标了"推荐"的「语音识别模型 Fun-ASR Nano」。
+
+1. 点"安装"。先弹一个确认框：模型的名字、大小（1.0 GB，Windows 里显示 996.9 MB）、许可（FunASR Model License v1.1：**可以免费使用、修改、分享，要注明来源和作者、保留模型名；原文写着仅作参考和学习、不担保，商业使用没有单独条款，请自己判断**）和原文链接。确认过的记住，不再问。这个模型二狗不打包，从 Hugging Face 下（hf-mirror 备用），大小和校验值都对得上才装。
+2. 它和语音合成用同一个程序 audio.cpp（见 [8.2](#82-二狗用语音回话本机语音合成)）。还没装的话先下：有 NVIDIA 显卡的约 853 MB，没有的约 31 MB。
+3. 下完自动接上：模型加进语音服务的配置、重启服务、查健康、进开机自启名单，然后语音识别改走它（配置里写上 `voice.recognizer.mode: "audiocpp"`），**不用重启二狗**。模型几秒就加载好，状态在 **设置 · 语音** 里能看到。
+4. 删掉这个模型，配置里那一项跟着撤掉，回到默认。
+
+没有显卡也能用：CPU 上一句话一两秒。显存约 2 GB，和语音合成（约 7.3 GB）都装的话显卡要放得下 9 GB 多，放不下的那个加载时报错，组件页和 **设置 · 语音** 写明原因。
+
+要知道的几点：
+
+- 这个服务只收 WAV。网页录完会先转好再传，鸿蒙 App 录的本来就是 WAV，都不用管。换过来之前录的语音要"重新识别"时，要这台电脑上有 ffmpeg（放到 PATH 上）转一下，没有的话那一条写明原因。
+- 语言只认中文、英文、日文和自动（`voice.recognizer.language`），别的语言它自己判断。给模型的提示（`initialPrompt`）这个模型不支持，不起作用。串词过滤、自动重试照旧。
+- 识别出的文字不带分段的时间（模型不支持）。
+
+**已有自己配的不会被改**：配置里 `voice.recognizer.mode` 写了 `lsm`、配置里写了 Python 的路径、PATH 上的 `python` 装了 faster-whisper，组件页都写"已有自己配的语音识别，在用它"，不能从这里装，配置文件不动。要改用这里装的，先撤掉自己配的（改配置、重启二狗）。8090 上已有你自己配的 audio.cpp 时也不覆盖；可以在它上面自己加一个 id 为 `asr` 的语音识别模型（family `fun_asr_nano`，task `asr`），再把 `voice.recognizer.mode` 写成 `"audiocpp"`。
+
+**用 faster-whisper（备用）**：想用它的话照下面手动配，两条路都保留。
+
 1. 装一份 Python（3.9 及以上），在里面装 faster-whisper：`python -m pip install faster-whisper`。有 NVIDIA 显卡、装好 CUDA 时用显卡跑 large-v3；没有就退到 CPU 跑 small 模型。
 2. 在 `ergo.json` 里写上这份 Python 的路径：`{ "voice": { "recognizer": { "python": "D:\\apps\\python311\\python.exe" } } }`。
 3. 重启 `ergo-daemon`。第一次识别会先加载模型，状态在 **设置 · 语音** 里能看到。
 
 也可以把识别交给服务管家托管的单独服务（`deploy\lsm\ergo-asr.example.yaml`，配置里 `voice.recognizer.mode` 写 `"lsm"`），适合想让它和二狗分开重启的。
 
-语音识别用的 Python 部分现在还没有一键装，照上面手动配；以后会进 **设置 · 组件**。语音合成已经能在组件页装，见 [8.2](#82-二狗用语音回话本机语音合成)。
-
 ### 8.2 二狗用语音回话（本机语音合成）
 
 二狗用本机的 [audio.cpp](https://github.com/0xShug0/audio.cpp)（第三方开源的语音合成服务，可选）合成语音，地址 `127.0.0.1:8090`，交给服务管家托管。参考音色在 **设置 · 角色与声音** 里选。
 
-**在组件页装**：**设置 · 组件** 里有两行：「语音合成程序 audio.cpp」和标了"推荐"的「语音合成模型 Fish S2 Pro」。
+**在组件页装**：**设置 · 组件** 里有两行：「语音程序 audio.cpp」和标了"推荐"的「语音合成模型 Fish S2 Pro」。
 
 1. 点模型那一行的"安装"。先弹一个确认框：模型的名字、大小（6.3 GB，Windows 里显示 5.88 GB）、许可（Fish Audio Research License：**个人非商业免费；商业使用要另外向 Fish Audio 取得授权**）和原文链接。同意了才开始下，确认过的不再问。命令行是 `ergo components add tts --accept-license`。
 2. 程序会先下：有 NVIDIA 显卡的是 CUDA 版（程序和运行库两个包，约 853 MB，要 NVIDIA 驱动 580 或更新，GTX 10 系这类老卡用不了），没有的是 CPU 版（约 31 MB，也能用，但没有显卡会很慢）。程序和模型都是从上游下的（GitHub、Hugging Face），二狗不打包这个模型。
@@ -402,7 +420,7 @@ agent 联网时用本机的 Chrome 或 Edge，会自动找。找不到、或者�
 | 打开页面是 503，提示 `npm run build:web` | 网页还没构建 | 在二狗目录里 `npm run build:web` |
 | 跟它说话，它说"还没配模型"或每次都出错 | key 没放、放错了，或者额度用完 | 在**设置 · 模型**里重新填一个 key（或检查 `secrets\deepseek-api-key.txt`，只有 key 一行），再点"连通测试" |
 | 任务里的命令总失败，说找不到 Git Bash | 没装 Git for Windows，或 PATH 上排在前面的是 WSL 的 `bash` | 装 Git for Windows；确认 `where bash` 第一条是 `C:\Program Files\Git\bin\bash.exe` |
-| 按住说话没反应、识别不可用 | Python 路径没配、没装 faster-whisper、显卡不可用 | 看 **设置 · 语音** 的状态和说明；照 [8.1](#81-按住说话本机语音识别) 配好 |
+| 按住说话没反应、识别不可用 | 语音识别模型没装、语音服务没在运行；用 faster-whisper 的：Python 路径没配、没装 faster-whisper、显卡不可用 | 看 **设置 · 语音** 的状态和说明；照 [8.1](#81-按住说话本机语音识别) 装好 |
 | 语音回复只有文字 | 语音合成服务没开，或 `voice.speech.model` 还是占位符 | 照 [8.2](#82-二狗用语音回话本机语音合成)；聊天里那条说明会写原因 |
 | 记忆里搜不到意思相近的话 | 向量模型没装 | **设置 · 组件**里装，或 `npm run download-model` |
 | 手机打不开或一直在配对页 | 外网入口没接好，或请求过期、被限频 | 确认接的是 8811；电脑上**待办**里批准配对请求（5 分钟内有效）；连着失败时等 10 分钟再试 |

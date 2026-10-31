@@ -1,9 +1,10 @@
 // 原型里的设置 · 组件（323 号票）：直接打开构建产物（file://）时没有守护进程，这里编清单里的五个组件看样子——
-// 向量模型正在从 hf-mirror 下（每秒走一截，下完是装好了）；语音识别用的是配置里的（别处有，这一版还不能从这里装）；
+// 向量模型正在从 hf-mirror 下（每秒走一截，下完是装好了）；语音识别用的是自己配的（别处有，不能从这里装）；
 // 语音合成的程序和模型（345 号票）默认是"已有自己配的、在用它"；Claude Code 接入检测到了、装好了。
 // 动作只改内存里的样子（装、暂停、继续、取消、删、启动、停止），从文件导入回"原型里不导入"那样的结果。
 // 地址里带 ?demo-components-missing 时语音识别、语音合成都没有（别处也没有）：看功能灰掉的样子（输入框的话筒、设置 · 语音）。
 // 345 号票：地址里带 ?demo-tts=missing|installing|running|stopped|failed|manual|download-failed|runtime-missing 看语音合成的几种状态；带 ?demo-gpu=none 看没有 N 卡的样子。
+// 346 号票：地址里带 ?demo-asr=missing|installing|running|configured|external 看语音识别的几种状态（configured 是配了自己的语音识别，external 是 8090 上已有自己配的 audio.cpp）。
 import type { ComponentAction, ComponentImportResult, ComponentServiceState, ComponentsView, ComponentView } from "../state/index.ts";
 import { demoParam } from "./fake-connection.ts";
 
@@ -14,6 +15,7 @@ const SDK_SIZE = 1_599_938 + 117_726_124;
 const AUDIOCPP_CUDA_SIZE = 277_336_614 + 575_457_454;
 const AUDIOCPP_CPU_SIZE = 30_547_092;
 const FISH_SIZE = 6_317_915_552;
+const FUN_ASR_SIZE = 1_045_334_432;
 /** 原型的下载速度（字节 / 秒） */
 const SPEED = 6.4 * MB;
 const SPEECH_PORT = 8090;
@@ -52,25 +54,33 @@ function base(): Omit<ComponentView, "state">[] {
     },
     {
       id: "asr",
-      title: "语音识别",
-      summary: "按住说话时把语音转成文字（faster-whisper，本机跑）。",
-      version: "1",
+      title: "语音识别模型 Fun-ASR Nano",
+      summary: "按住说话时把语音转成文字（模型在本机跑，从上游下载，二狗不打包；不用装 Python）。",
+      version: "ce72677f",
       default: "ask",
       defaultText: "问了再装",
       wanted: false,
-      variant: { id: "cuda", title: "CUDA 版", reason: "这台电脑有 N 卡" },
-      size: 3_087_284_237 + 2394 + 340 + 2_480_617 + 1_068_114 + 483_546_902 + 2370 + 2_203_239 + 459_861,
+      variant: { id: "q8", title: "q8 量化版" },
+      size: FUN_ASR_SIZE,
       enables: [{ id: "voice.input", title: "按住说话" }],
-      dependsOn: [],
+      dependsOn: ["audiocpp"],
       sources: ["Hugging Face", "hf-mirror"],
       location: "C:\\Users\\me\\.ergo\\components\\asr",
-      providedBy: "用的是配置里的识别程序（C:\\Python311\\python.exe）",
-      cannotInstall: "这一版还不能从这里装：Python 和 faster-whisper 那部分（用 uv 装）还没接上",
+      recommended: true,
+      license: {
+        name: "FunASR Model License v1.1",
+        summary: "可以免费使用、修改、分享，要注明来源和作者、保留模型名；原文写着仅作参考和学习、不担保，商业使用没有单独条款，请自己判断",
+        url: "https://github.com/modelscope/FunASR/blob/main/MODEL_LICENSE",
+        confirm: true,
+        accepted: false,
+        attribution: "Fun-ASR-Nano-2512 · FunAudioLLM / Alibaba Group",
+      },
+      providedBy: "已有自己配的语音识别，在用它（服务管家托管的识别服务 http://127.0.0.1:8091）",
     },
     {
       id: "audiocpp",
-      title: "语音合成程序 audio.cpp",
-      summary: "语音回复要用的本机服务（开源的 audio.cpp）。模型是单独一个组件，装模型时会先装它。",
+      title: "语音程序 audio.cpp",
+      summary: "语音回复、语音识别要用的本机服务（开源的 audio.cpp）。模型是单独的组件，装模型时会先装它。",
       version: "0.9.3",
       default: "ask",
       defaultText: "问了再装",
@@ -151,13 +161,30 @@ function speechStart(): { audiocpp: Sim; tts: Sim } {
   }
 }
 
+/** 语音识别模型一开始的样子，和这种样子下程序组件的样子（没有就照语音合成的） */
+function recognizerStart(): { asr: Sim; audiocpp?: Sim } {
+  switch (demoParam("demo-asr") ?? (demoParam("demo-components-missing") === null ? "configured" : "missing")) {
+    case "missing":
+      return { asr: { state: "missing", done: 0 }, audiocpp: { state: "missing", done: 0 } };
+    case "installing":
+      return { asr: { state: "downloading", done: Math.round(FUN_ASR_SIZE * 0.42), since: Date.now(), base: Math.round(FUN_ASR_SIZE * 0.42) }, audiocpp: { state: "installed", done: 0, service: "idle" } };
+    case "running":
+      return { asr: { state: "installed", done: 0 }, audiocpp: { state: "installed", done: 0, service: "running" } };
+    case "external":
+      return { asr: { state: "missing", done: 0 }, audiocpp: { state: "provided", done: 0 } };
+    default:
+      return { asr: { state: "provided", done: 0 } };
+  }
+}
+
 export class FakeComponents {
-  private licenseAccepted = false;
+  /** 确认过许可的组件 */
+  private readonly licenseAccepted = new Set<string>();
 
   private readonly sims = new Map<string, Sim>([
     ["bge-m3", { state: "downloading", done: Math.round(BGE_SIZE * 0.38), since: Date.now(), base: Math.round(BGE_SIZE * 0.38) }],
-    ["asr", { state: demoParam("demo-components-missing") === null ? "provided" : "missing", done: 0 }],
-    ["audiocpp", speechStart().audiocpp],
+    ["asr", recognizerStart().asr],
+    ["audiocpp", recognizerStart().audiocpp ?? speechStart().audiocpp],
     ["tts", speechStart().tts],
     ["claude-code", { state: "installed", done: 0 }],
   ]);
@@ -170,7 +197,7 @@ export class FakeComponents {
       if (sim.done < size) continue;
       this.sims.set(id, { state: "installed", done: 0, ...(id === "audiocpp" ? { service: "idle" as const } : {}) });
       // 模型下好了：服务接上
-      if (id === "tts") this.sims.set("audiocpp", { state: "installed", done: 0, service: "running" });
+      if (id === "tts" || id === "asr") this.sims.set("audiocpp", { state: "installed", done: 0, service: "running" });
     }
   }
 
@@ -182,11 +209,19 @@ export class FakeComponents {
       const downloading = sim.state === "downloading";
       const { providedBy, cannotInstall, license, ...rest } = c;
       const manual = sim.state === "provided" && (c.id === "audiocpp" || c.id === "tts");
+      const recognizerBlocked =
+        c.id !== "asr"
+          ? undefined
+          : sim.state === "provided"
+            ? "要改用这里装的，先撤掉自己配的（配置里的 voice.recognizer.mode、voice.recognizer.python）"
+            : this.sims.get("audiocpp")?.state === "provided"
+              ? "语音识别和语音合成用同一个 audio.cpp 服务，这里接不上你自己配的那个。可以在它上面自己加一个 id 为 asr 的模型，再把配置里的 voice.recognizer.mode 写成 audiocpp；要改用这里装的，先撤掉自己配的"
+              : undefined;
       return {
         ...rest,
         ...(sim.state === "provided" && providedBy ? { providedBy } : {}),
-        ...(cannotInstall ? { cannotInstall } : manual ? { cannotInstall: "要改用这里装的，先撤掉自己配的（服务管家里的登记、配置里的 voice.speech.url）" } : {}),
-        ...(license ? { license: { ...license, accepted: license.accepted || this.licenseAccepted || installed } } : {}),
+        ...(cannotInstall ? { cannotInstall } : recognizerBlocked ? { cannotInstall: recognizerBlocked } : manual ? { cannotInstall: "要改用这里装的，先撤掉自己配的（服务管家里的登记、配置里的 voice.speech.url）" } : {}),
+        ...(license ? { license: { ...license, accepted: license.accepted || this.licenseAccepted.has(c.id) || installed } } : {}),
         state: sim.state,
         ...(installed ? { installedVersion: c.version, diskSize: c.id === "claude-code" ? 266_028_594 : c.size } : {}),
         ...(sim.service
@@ -195,11 +230,11 @@ export class FakeComponents {
                 state: sim.service,
                 port: SPEECH_PORT,
                 autostart: sim.service === "running" || sim.service === "stopped",
-                ...(sim.service === "idle" ? { note: "还没有模型：装上语音合成模型后自动启动" } : {}),
+                ...(sim.service === "idle" ? { note: "还没有模型：装上语音合成或语音识别模型后自动启动" } : {}),
                 ...(demoParam("demo-tts") === "runtime-missing"
                   ? { warning: "CUDA 运行库不全：C:\\Users\\me\\.ergo\\components\\audiocpp\\bin 里没有 cublas64_*.dll和cublasLt64_*.dll，语音合成可能起不来或者一用就报错。运行库包要和程序放在一起：删掉这个组件重新装，或者把 audio-v0.9.3-cudart-windows-x64-cuda13.3.zip 解到这个目录。" }
                   : {}),
-                ...(sim.service === "failed" ? { error: `语音合成服务没接上（启动这一步：端口 ${SPEECH_PORT} 已被 node.exe (1234) 占着）。这次的登记和生成的配置都撤掉了，程序和模型留着，点重试不用重新下载。` } : {}),
+                ...(sim.service === "failed" ? { error: `语音服务没接上（启动这一步：端口 ${SPEECH_PORT} 已被 node.exe (1234) 占着）。这次的登记和生成的配置都撤掉了，程序和模型留着，点重试不用重新下载。` } : {}),
               },
             }
           : {}),
@@ -213,7 +248,7 @@ export class FakeComponents {
               })),
             }
           : sim.state === "failed" && c.id === "tts"
-            ? { error: "要先装好语音合成程序 audio.cpp" }
+            ? { error: "要先装好语音程序 audio.cpp" }
             : {}),
         ...(downloading || sim.state === "paused"
           ? {
@@ -248,8 +283,8 @@ export class FakeComponents {
       case "install":
       case "update":
       case "resume":
-        if (id === "tts" && !this.licenseAccepted && extra?.licenseAccepted !== true && sim.state !== "installed") return Promise.reject(new Error("要先确认许可才能下载"));
-        if (id === "tts") this.licenseAccepted = true;
+        if ((id === "tts" || id === "asr") && !this.licenseAccepted.has(id) && extra?.licenseAccepted !== true && sim.state !== "installed") return Promise.reject(new Error("要先确认许可才能下载"));
+        if (id === "tts" || id === "asr") this.licenseAccepted.add(id);
         if (sim.state === "missing" || sim.state === "paused" || sim.state === "failed" || sim.state === "update" || sim.state === "provided") start();
         break;
       case "pause":
@@ -259,8 +294,8 @@ export class FakeComponents {
         if (sim.state === "downloading" || sim.state === "paused" || sim.state === "failed") this.sims.set(id, { state: "missing", done: 0 });
         break;
       case "remove":
-        this.sims.set(id, { state: id === "asr" && demoParam("demo-components-missing") === null ? "provided" : "missing", done: 0 });
-        if (id === "tts") this.sims.set("audiocpp", { state: "installed", done: 0, service: "idle" });
+        this.sims.set(id, { state: "missing", done: 0 });
+        if (id === "tts" || id === "asr") this.sims.set("audiocpp", { state: "installed", done: 0, service: "idle" });
         break;
       case "start":
         if (sim.service) this.sims.set(id, { ...sim, service: "running" });

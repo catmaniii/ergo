@@ -1,14 +1,16 @@
 // 组件的几样检测（323 号票）：这台电脑有没有 N 卡（挑 CUDA 版还是 CPU 版）、清单里 detect 写的检测到没有
-// （on-path:<程序>：PATH 上有这个程序，比如 claude）、provided 写的别处是不是已经有了（voice-recognizer：配置里的识别程序；
+// （on-path:<程序>：PATH 上有这个程序，比如 claude）、provided 写的别处是不是已经有了（voice-recognizer：用户自己配的语音识别，见下；
 // voice-speech：用户自己配的合成服务，345 号票起由 audiocpp-host.ts 现探、这里只取结果；node-package:<包名>：程序目录的 node_modules
 // 里解析得到这个包，比如随程序装好的 Claude Code SDK）。
+// 346 号票起语音识别能从组件页装了，"自己配的"要看得准，不然 PATH 上随便有个 Python 就装不了：
+// LSM 模式、写了 audiocpp 模式、配置里写了 Python（路径在）都算；默认的 python 要 PATH 上有、而且装了 faster-whisper 才算（问一次记住）。
 // 要查的程序名、包名写在清单里（数据），这里只认这几种写法。
 // 都便宜（不联网、不跑模型）：N 卡问一次 nvidia-smi 记住；别的每次取清单时现看。测试换成假的。
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { t } from "@ergo/protocol";
-import type { ErgoConfig } from "../config/config.ts";
+import { DEFAULT_VOICE_CONFIG, type ErgoConfig, isPlaceholder } from "../config/config.ts";
 
 export interface ComponentProbes {
   /** 这台电脑有没有 N 卡 */
@@ -59,9 +61,24 @@ function resolvable(specifier: string): boolean {
   }
 }
 
+/** 这个 Python 装了 faster-whisper 吗（只找包、不加载，很快；Windows 没装 Python 时的商店占位程序也回不是 0） */
+function pythonHasFasterWhisper(python: string, env: NodeJS.ProcessEnv): boolean {
+  const result = spawnSync(python, ["-c", "import importlib.util as u, sys; sys.exit(0 if u.find_spec('faster_whisper') else 1)"], { env, stdio: "ignore", windowsHide: true, timeout: 5000 });
+  return result.status === 0;
+}
+
 /** 正式的检测：按守护进程的配置和环境 */
-export function createComponentProbes(options: { config: ErgoConfig; env: NodeJS.ProcessEnv; speechProvided?: () => string | undefined }): ComponentProbes {
+export function createComponentProbes(options: { config: ErgoConfig; env: NodeJS.ProcessEnv; speechProvided?: () => string | undefined; hasFasterWhisper?: (python: string) => boolean }): ComponentProbes {
   let gpu: "nvidia" | "none" | undefined;
+  const fasterWhisper = new Map<string, boolean>();
+  const hasFasterWhisper = (python: string): boolean => {
+    let known = fasterWhisper.get(python);
+    if (known === undefined) {
+      known = options.hasFasterWhisper ? options.hasFasterWhisper(python) : pythonHasFasterWhisper(python, options.env);
+      fasterWhisper.set(python, known);
+    }
+    return known;
+  };
   return {
     gpu() {
       if (gpu === undefined) {
@@ -85,11 +102,16 @@ export function createComponentProbes(options: { config: ErgoConfig; env: NodeJS
       }
       switch (id) {
         case "voice-recognizer": {
-          // 经 LSM 托管的识别服务；或者守护进程自己拉起的 Python（配置写的路径在，或者 PATH 上找得到）
+          // 经 LSM 托管的识别服务；写了 audiocpp（组件页装的那条在 service.ts 里算"装好了"，走不到这句话）；
+          // 或者守护进程自己拉起的 Python：配置写的路径在、PATH 上找得到；默认的 python 还要真的装了 faster-whisper
           if (voice.recognizer.mode === "lsm") return t("components.provided.recognizerLsm", { url: voice.recognizer.url });
+          if (voice.recognizer.mode === "audiocpp") return t("components.provided.recognizerAudiocpp", { url: voice.speech.url });
           const python = voice.recognizer.python;
+          if (isPlaceholder(python)) return undefined;
           const found = /[\\/]/.test(python) ? (programPresent(python) ? python : undefined) : findOnPath(python, options.env);
-          return found === undefined ? undefined : t("components.provided.recognizerPython", { python: found });
+          if (found === undefined) return undefined;
+          if (python === DEFAULT_VOICE_CONFIG.recognizer.python && !hasFasterWhisper(found)) return undefined;
+          return t("components.provided.recognizerPython", { python: found });
         }
         case "voice-speech":
           return options.speechProvided?.();

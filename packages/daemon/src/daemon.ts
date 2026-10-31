@@ -78,6 +78,7 @@ import {
   createAudioCppHost,
   createComponentProbes,
   createComponents,
+  createRecognizerLink,
   type LoadedManifest,
   loadManifest,
   shippedManifestVerifier,
@@ -1393,13 +1394,22 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     teardown.push(() => dataSources.stop());
     // 设置 · 组件（323）：清单随程序发布；下载在守护进程里一份（排队一次下一个），下了一半的留在组件区的 .staging/，
     // 守护进程停下时中止正在下的（下次是"暂停了"，点继续接着下）
-    // 语音合成的程序和模型装好后接到服务管家（345）：接入层在后面才建（attachLsm），已有用户自己配的不覆盖
-    const audioCppHost = createAudioCppHost({ componentsDir: layout.components, speech: { url: options.speechUrl ?? config.voice.speech.url, model: config.voice.speech.model }, ...options.components?.audiocpp, log });
+    // 语音合成、语音识别的程序和模型装好后接到服务管家（345、346）：接入层在后面才建（attachLsm），已有用户自己配的不覆盖；
+    // 语音识别模型的服务接上了才把配置里的接入方式指过来，语音插件当场换（346）
+    const componentProbes = options.components?.probes ?? createComponentProbes({ config, env: options.env, speechProvided: () => audioCppHost.provided() });
+    const recognizerLink = createRecognizerLink({
+      config,
+      configFile: layout.configFile,
+      provided: () => componentProbes.provided("voice-recognizer"),
+      useRecognizer: (mode) => plugins.service(VOICE)?.useRecognizer(mode),
+      log,
+    });
+    const audioCppHost = createAudioCppHost({ componentsDir: layout.components, speech: { url: options.speechUrl ?? config.voice.speech.url, model: config.voice.speech.model }, recognizer: recognizerLink, ...options.components?.audiocpp, log });
     const components = createComponents({
       root: layout.root,
       componentsDir: layout.components,
       manifest: options.components?.manifest ?? shippedComponentManifest(options.env, log),
-      probes: options.components?.probes ?? createComponentProbes({ config, env: options.env, speechProvided: () => audioCppHost.provided() }),
+      probes: componentProbes,
       host: audioCppHost,
       transport: options.components?.transport ?? componentTransport(options.env, "ergo-components"),
       ...(options.components?.freeBytes ? { freeBytes: options.components.freeBytes } : {}),

@@ -6,19 +6,25 @@
 // - POST /api/components install_defaults：照默认该装的排上（这里没有了）；删、不认得的组件（404）、参数不对（400）、不能从这里装的（400）；
 // - 语音合成（345 号票）：真的守护进程、假下载站、LSM 替身、假语音服务：没确认许可 400 不下载；确认后装好、登记、启动、进名单，
 //   守护进程的语音合成（预热的试合成）打得到它；已有手动配的不覆盖；
+// - 语音识别（346 号票）：真的守护进程、假下载站、LSM 替身、假 audio.cpp：没确认许可不下载；装好后配置指向 audiocpp、不用重启，语音消息走到新接入；
+//   删了指回去；已配 LSM 模式、配了 Python、手动配的 audio.cpp 都不改，配置文件按字节核对；
 // - POST /api/component-import：离线导入一个文件夹，凑齐了装上；路径不在回 400。
 import fs from "node:fs";
 import path from "node:path";
-import { type ComponentImportResult, type ComponentsView, HTTP_PATHS, type HttpErrorBody } from "@ergo/protocol";
+import { CHANNELS, type ComponentImportResult, type ComponentsView, HTTP_PATHS, type HttpErrorBody, type VoiceModelsView } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
 import { type ComponentProbes, createHttpTransport, loadManifest, parseManifest } from "../../src/components/index.ts";
 import { startTestDaemon } from "../helpers/daemon.ts";
 import { blob, type FakeDownloads, fakeProbes, makeZip, sha256, startFakeDownloads } from "../helpers/fake-downloads.ts";
-import { requestJson } from "../helpers/http.ts";
+import { media, requestJson } from "../helpers/http.ts";
 import { startLsmStandIn } from "../helpers/lsm-stand-in.ts";
 import { waitUntil } from "../helpers/process.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 import { startFakeSpeechService } from "../helpers/tts.ts";
+import { fakeMp3 } from "../helpers/audio.ts";
+import { TestFrontend } from "../helpers/frontend.ts";
+import { startFakeAudioCppAsr } from "../helpers/fake-audiocpp-asr.ts";
+import { fakeWavRecording, voiceSettled } from "../helpers/voice.ts";
 
 const CONFIG = Buffer.from('{"model_type":"xlm-roberta"}\n');
 const TOKENIZER = blob(70_000, 31);
@@ -113,9 +119,10 @@ describe("设置 · 组件", () => {
     expect((await act(td.url, "nope", "install")).status).toBe(404);
     const bad = await act(td.url, "bge-m3", "explode");
     expect(bad.status).toBe(400);
-    const tts = await act(td.url, "asr", "install");
-    expect(tts.status).toBe(400);
-    expect(tts.body.message).toContain("现在不能从这里装");
+    // 要确认许可的没带确认标记：不开始（语音识别模型 346 号票起能从这里装了）
+    const needsLicense = await act(td.url, "asr", "install");
+    expect(needsLicense.status).toBe(400);
+    expect(needsLicense.body.message).toContain("要先确认");
     expect((await act(td.url, "bge-m3", "remove")).body.message).toContain("没装");
 
     const folder = makeTempDir();
@@ -202,6 +209,186 @@ describe("设置 · 组件", () => {
       expect((await act(td.url, "tts", "remove")).status).toBe(200);
       await waitUntil(() => !lsm.owned.services.has("audiocpp"), { timeoutMs: 10_000 });
       expect(fs.existsSync(path.join(td.dataDir, "components", "audiocpp-service", "server.json"))).toBe(false);
+    });
+
+    describe("语音识别模型（346 号票）", () => {
+      const ASR_MODEL = blob(70_000, 43);
+
+      /** 随程序发布的清单，语音程序和语音识别模型的文件换成假下载站上的小文件 */
+      function recognizerManifest(fake: FakeDownloads, port: number) {
+        const shipped = loadManifest().manifest;
+        fake.put("bin.zip", PROGRAM);
+        fake.put("asr.gguf", ASR_MODEL);
+        const sources = [{ id: "a", title: "镜像 A", url: fake.source("a") }];
+        return {
+          signed: false,
+          manifest: parseManifest({
+            ...shipped,
+            components: shipped.components.map((c) => {
+              if (c.id === "audiocpp") {
+                return { ...c, sources, service: { ...c.service!, port }, variants: [{ id: "cpu", parts: [{ files: [{ path: "bin.zip", size: PROGRAM.length, sha256: sha256(PROGRAM), extract: { format: "zip" as const, to: "bin" } }] }] }] };
+              }
+              if (c.id === "asr") {
+                return { ...c, sources, serve: { ...c.serve!, file: "asr.gguf" }, variants: [{ id: "q8", parts: [{ files: [{ path: "asr.gguf", size: ASR_MODEL.length, sha256: sha256(ASR_MODEL) }] }] }] };
+              }
+              return c;
+            }),
+          }),
+        };
+      }
+
+      const configFileOf = (dataDir: string) => path.join(dataDir, "config", "ergo.json");
+      const models = (url: string) => requestJson<VoiceModelsView>(url, HTTP_PATHS.voiceModels);
+      /** 等本机接口上的状态满足条件（waitUntil 只认同步的条件） */
+      async function modelsWhen(url: string, ok: (view: VoiceModelsView) => boolean): Promise<VoiceModelsView> {
+        const deadline = Date.now() + 15_000;
+        for (;;) {
+          const { body } = await models(url);
+          if (ok(body)) return body;
+          if (Date.now() > deadline) throw new Error(`等不到：${JSON.stringify(body)}`);
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+      }
+
+      it("没确认许可不下载；确认后装好、接上，配置指向 audiocpp、不用重启，语音消息走到新接入；删了指回去", async () => {
+        const fake = await startFakeDownloads();
+        const asr = await startFakeAudioCppAsr({ down: true });
+        const lsm = await startLsmStandIn({ owned: true });
+        const td = await startTestDaemon({
+          env: lsm.env,
+          speechUrl: asr.url,
+          config: { voice: { speech: { probeSeconds: 1 } } },
+          components: { manifest: recognizerManifest(fake, asr.port), probes: fakeProbes(), transport: createHttpTransport(), audiocpp: { healthTimeoutMs: 15_000, healthPollMs: 50 } },
+        });
+        await waitUntil(() => lsm.connections > 0, { timeoutMs: 10_000 });
+        // 默认识别方式没变：装之前还是 spawn、faster-whisper，"按住说话"的组件是没装
+        expect(td.daemon.config.voice.recognizer.mode).toBe("spawn");
+        expect((await models(td.url)).body).toMatchObject({ recognizerEngine: "faster-whisper" });
+        expect((await models(td.url)).body.recognizerInput).toBeUndefined();
+        const before = (await view(td.url)).body;
+        expect(one(before, "asr")).toMatchObject({ state: "missing", recommended: true, license: { name: "FunASR Model License v1.1", accepted: false, attribution: "Fun-ASR-Nano-2512 · FunAudioLLM / Alibaba Group" } });
+        expect(before.features.find((f) => f.feature === "voice.input")?.ready).toBe(false);
+        expect(before.defaultsMissing).not.toContain("asr");
+
+        const refused = await act(td.url, "asr", "install");
+        expect(refused.status).toBe(400);
+        expect(refused.body.message).toContain("FunASR Model License v1.1");
+        expect(fake.requests).toEqual([]);
+
+        const started = await requestJson<ComponentsView & HttpErrorBody>(td.url, HTTP_PATHS.component("asr"), { method: "POST", body: { action: "install", licenseAccepted: true } });
+        expect(started.status).toBe(200);
+        // 替身不起进程：它说要启动，假 audio.cpp 就开起来（扮演服务管家拉起的程序）
+        await lsm.waitFor((m) => m.type === "services.start", "启动语音服务", { timeoutMs: 15_000 });
+        await asr.up();
+        await waitUntil(() => one(td.daemon.components.view(), "audiocpp").service?.state === "running", { timeoutMs: 20_000 });
+
+        const after = (await view(td.url)).body;
+        expect(one(after, "asr")).toMatchObject({ state: "installed", license: { accepted: true } });
+        expect(after.features.find((f) => f.feature === "voice.input")?.ready).toBe(true);
+        expect(lsm.owned.services.get("audiocpp")).toMatchObject({ autostart: true, state: "RUNNING" });
+        const server = JSON.parse(fs.readFileSync(path.join(td.dataDir, "components", "audiocpp-service", "server.json"), "utf8")) as unknown;
+        expect(server).toMatchObject({ host: "127.0.0.1", port: asr.port, lazy_load: true, models: [{ id: "asr", family: "fun_asr_nano", task: "asr", mode: "offline" }] });
+
+        // 配置指过来了，语音插件当场换、预热（发一小段静音）
+        const written = JSON.parse(fs.readFileSync(configFileOf(td.dataDir), "utf8")) as { voice: { recognizer: { mode: string } } };
+        expect(written.voice.recognizer.mode).toBe("audiocpp");
+        await waitUntil(() => asr.requests.some((r) => r.silence), { timeoutMs: 15_000 });
+        await modelsWhen(td.url, (v) => v.recognizer.status === "ready");
+        expect((await models(td.url)).body).toMatchObject({ recognizerEngines: ["Fun-ASR Nano"], recognizerEngine: "Fun-ASR Nano", recognizerInput: "wav", recognizer: { model: "fun_asr_nano（audio.cpp/asr）", device: "cuda" } });
+
+        // 语音消息走到新接入（网页转好的 WAV）
+        const frontend = await TestFrontend.connect(td.url);
+        await frontend.subscribe({ [CHANNELS.secretary]: 0 });
+        const uploaded = await media.upload(td.url, fakeWavRecording({ text: "按住说的一句话" }), { name: "语音.wav", mime: "audio/wav" });
+        await frontend.sendParts([{ type: "voice", mediaId: uploaded.mediaId, mime: "audio/wav", durationMs: 1000, waveform: [8, 40] }]);
+        const done = await voiceSettled(frontend, (v) => v.mediaId === uploaded.mediaId && v.status === "done", 15_000);
+        expect(done.recognition?.text).toBe("按住说的一句话");
+        expect(asr.recognitions()).toHaveLength(1);
+        expect(asr.recognitions()[0]!.fields).toEqual({ model: "asr", language: "zh" });
+
+        // 不是 WAV 的（老版本页面、旧录音）用 ffmpeg 转（测试里是假的），传过去的是 WAV
+        const mp3 = await media.upload(td.url, fakeMp3({ seconds: 1, asr: { text: "转完的一句话" } }), { name: "语音.mp3", mime: "audio/mpeg" });
+        await frontend.sendParts([{ type: "voice", mediaId: mp3.mediaId, mime: "audio/mpeg", durationMs: 1000, waveform: [8, 40] }]);
+        const converted = await voiceSettled(frontend, (v) => v.mediaId === mp3.mediaId && v.status === "done", 15_000);
+        expect(converted.recognition?.text).toBe("转完的一句话");
+        expect(asr.recognitions()[1]!.file.toString("latin1", 0, 4)).toBe("RIFF");
+
+        // 删了：撤登记，配置里这一项没了，回到默认的接入，功能灰掉
+        expect((await act(td.url, "asr", "remove")).status).toBe(200);
+        await waitUntil(() => !lsm.owned.services.has("audiocpp"), { timeoutMs: 10_000 });
+        await waitUntil(() => td.daemon.config.voice.recognizer.mode === "spawn", { timeoutMs: 10_000 });
+        const restored = JSON.parse(fs.readFileSync(configFileOf(td.dataDir), "utf8")) as { voice?: { recognizer?: { mode?: string } } };
+        expect(restored.voice?.recognizer?.mode).toBeUndefined();
+        await modelsWhen(td.url, (v) => v.recognizerEngine === "faster-whisper");
+        expect((await models(td.url)).body.recognizerInput).toBeUndefined();
+        expect((await view(td.url)).body.features.find((f) => f.feature === "voice.input")?.ready).toBe(false);
+      });
+
+      it("重启之后还是走它（配置里写着 audiocpp）：一起来就预热；服务没开时写明原因、怎么修，开了自己接上，语音消息照常", async () => {
+        const asr = await startFakeAudioCppAsr({ down: true });
+        const td = await startTestDaemon({
+          speechUrl: asr.url,
+          recognizerRetryMs: [100],
+          config: { voice: { recognizer: { mode: "audiocpp" } } },
+          components: { probes: fakeProbes(), transport: createHttpTransport() },
+        });
+        const down = await modelsWhen(td.url, (v) => v.recognizer.status === "error");
+        expect(down).toMatchObject({ recognizerEngine: "Fun-ASR Nano", recognizerInput: "wav" });
+        expect(down.recognizer.reason).toContain(asr.url);
+
+        await asr.up();
+        await modelsWhen(td.url, (v) => v.recognizer.status === "ready");
+        const frontend = await TestFrontend.connect(td.url);
+        await frontend.subscribe({ [CHANNELS.secretary]: 0 });
+        const uploaded = await media.upload(td.url, fakeWavRecording({ text: "重启之后说的" }), { name: "语音.wav", mime: "audio/wav" });
+        await frontend.sendParts([{ type: "voice", mediaId: uploaded.mediaId, mime: "audio/wav", durationMs: 1000, waveform: [8, 40] }]);
+        expect((await voiceSettled(frontend, (v) => v.status === "done", 15_000)).recognition?.text).toBe("重启之后说的");
+      });
+
+      /** 已经配好了的：配置文件按字节留着，接口拒绝装，什么都不下、不登记 */
+      async function untouched(recognizerConfig: Record<string, unknown>, providedBy: RegExp, over: { speechUp?: boolean } = {}) {
+        const fake = await startFakeDownloads();
+        const asr = await startFakeAudioCppAsr(over.speechUp ? {} : { down: true });
+        const lsm = await startLsmStandIn({ owned: true });
+        const td = await startTestDaemon({
+          env: lsm.env,
+          speechUrl: asr.url,
+          config: { voice: { recognizer: recognizerConfig } },
+          components: { manifest: recognizerManifest(fake, asr.port), probes: undefined as unknown as ComponentProbes, transport: createHttpTransport() },
+        });
+        await waitUntil(() => lsm.connections > 0, { timeoutMs: 10_000 });
+        const file = configFileOf(td.dataDir);
+        const original = fs.readFileSync(file);
+        const shown = (await view(td.url)).body;
+        expect(one(shown, "asr").state).toBe("provided");
+        expect(one(shown, "asr").providedBy).toMatch(providedBy);
+        expect(one(shown, "asr").cannotInstall).toContain("先撤掉自己配的");
+        expect(shown.features.find((f) => f.feature === "voice.input")?.ready).toBe(true);
+        const refused = await requestJson<HttpErrorBody>(td.url, HTTP_PATHS.component("asr"), { method: "POST", body: { action: "install", licenseAccepted: true } });
+        expect(refused.status).toBe(400);
+        expect(fake.requests).toEqual([]);
+        expect(lsm.serviceRequests()).toEqual([]);
+        expect(fs.readFileSync(file).equals(original)).toBe(true);
+        return td;
+      }
+
+      it("已配 LSM 模式（这台机器就是）：不改，写已有自己配的语音识别，引擎还是 faster-whisper", async () => {
+        const td = await untouched({ mode: "lsm", url: "http://127.0.0.1:1" }, /已有自己配的语音识别.*服务管家托管的识别服务/);
+        expect(td.daemon.config.voice.recognizer.mode).toBe("lsm");
+        expect((await models(td.url)).body.recognizerEngine).toBe("faster-whisper");
+      });
+
+      it("配了 Python 的路径（spawn）：不改", async () => {
+        const python = path.join(makeTempDir("ergo-py-"), "python.exe");
+        fs.writeFileSync(python, "");
+        const td = await untouched({ mode: "spawn", python }, /已有自己配的语音识别.*配置里的 Python/);
+        expect(td.daemon.config.voice.recognizer.mode).toBe("spawn");
+      });
+
+      it("LSM 模式加手动配的 audio.cpp 同时在（这台机器就是这样）：还是不改", async () => {
+        const td = await untouched({ mode: "lsm", url: "http://127.0.0.1:1" }, /已有自己配的语音识别/, { speechUp: true });
+        expect(one((await view(td.url)).body, "audiocpp").state).toBe("provided");
+      });
     });
 
     it("已有手动配的服务：写在用它，接口拒绝安装，什么都不登记", async () => {

@@ -200,25 +200,35 @@ describe("一个组件一块", () => {
     expect(componentActions(update)).toEqual(["update", "remove"]);
   });
 
-  test("别处已经有了：写谁提供的；这一版还不能从这里装：写原因、没有安装按钮", () => {
+  test("别处已经有了：写谁提供的；不能从这里装：写原因、没有安装按钮", () => {
     const asr = component({
       id: "asr",
-      title: "语音识别",
+      title: "语音识别模型 Fun-ASR Nano",
       state: "provided",
       default: "ask",
       defaultText: "问了再装",
       wanted: false,
-      providedBy: "用的是配置里的识别程序（python）",
-      cannotInstall: "这一版还不能从这里装：Python 和 faster-whisper 那部分（用 uv 装）还没接上",
-      variant: { id: "cuda", title: "CUDA 版", reason: "这台电脑有 N 卡" },
+      providedBy: "已有自己配的语音识别，在用它（服务管家托管的识别服务 http://127.0.0.1:8091）",
+      cannotInstall: "要改用这里装的，先撤掉自己配的（配置里的 voice.recognizer.mode、voice.recognizer.python）",
+      variant: { id: "q8", title: "q8 量化版" },
     });
     const html = render([asr]);
     expect(html).toContain('class="chip chip-ok">已有<');
-    expect(html).toContain("用的是配置里的识别程序（python）");
-    expect(html).toContain("还没接上");
-    expect(html).toContain("CUDA 版（这台电脑有 N 卡）");
+    expect(html).toContain("已有自己配的语音识别，在用它");
+    expect(html).toContain("先撤掉自己配的");
     expect(html).not.toContain("照默认该装");
     expect(componentActions(asr)).toEqual([]);
+  });
+
+  test("语音识别模型（346 号票）：推荐、许可名字带链接、那一句话、标来源；要确认许可；装之前能装", () => {
+    const license = { name: "FunASR Model License v1.1", summary: "可以免费使用、修改、分享，要注明来源和作者、保留模型名", url: "https://github.com/modelscope/FunASR/blob/main/MODEL_LICENSE", confirm: true, accepted: false, attribution: "Fun-ASR-Nano-2512 · FunAudioLLM / Alibaba Group" };
+    const asr = component({ id: "asr", title: "语音识别模型 Fun-ASR Nano", state: "missing", default: "ask", defaultText: "问了再装", wanted: false, size: 1_045_334_432, recommended: true, dependsOn: ["audiocpp"], license });
+    const html = render([asr]);
+    expect(html).toContain(">推荐<");
+    expect(html).toContain('href="https://github.com/modelscope/FunASR/blob/main/MODEL_LICENSE"');
+    expect(html).toContain('class="component-attribution">Fun-ASR-Nano-2512 · FunAudioLLM / Alibaba Group<');
+    expect(componentActions(asr)).toEqual(["install"]);
+    expect(licenseSizeText(asr.size)).toBe("1.0 GB（Windows 里显示 996.9 MB）");
   });
 
   test("检测到才装：写检测到了没有；要先装的写名字；别处点过来的那一块亮一下；正在点的写处理中", () => {

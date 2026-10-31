@@ -140,7 +140,7 @@ import type {
   MemorySummaryView,
 } from "../state/index.ts";
 import { copyWebSettings, nowIso, CUSTOM_PROVIDER_ID, DEFAULT_MEMORY_SETTINGS, MEMORY_CURATOR_CONVERSATION, DEFAULT_SECRETARY_SKILLS, DEFAULT_WEB_SETTINGS, effectiveModelChoice, effectiveWebQueue, framePreviewOf, IMPORT_NAME_PATTERN, MEDIA_FRAME_MAX_BYTES, MEDIA_TEXT_MAX_BYTES, MODEL_AGENTS, modelKeyOf, reopenScope, t, textPreviewOf, webSettingsProblem } from "../state/index.ts";
-import { fakeServerWebVersion } from "./fake-connection.ts";
+import { demoParam, fakeServerWebVersion } from "./fake-connection.ts";
 import { fakeMemoryClaim, fakeMemoryClaims, fakeMemoryQuestions, fakeMemoryStrategies, fakeMemorySummary } from "./fake-memory-graph.ts";
 import { FakeDataSources } from "./fake-data-sources.ts";
 import { FakeComponents } from "./fake-components.ts";
@@ -676,13 +676,14 @@ export class FakeDaemonHttp implements DaemonHttp {
     return Promise.resolve(fakeProjectStandard(projectId));
   }
 
-  /** 原型：两个模型都已就绪 */
+  /** 原型：两个模型都已就绪；?demo-asr=running 时语音识别走组件页装的 Fun-ASR Nano（346 号票） */
   voiceModels(): Promise<VoiceModelsView> {
     const since = this.startedAt;
+    const funAsr = demoParam("demo-asr") === "running";
     return Promise.resolve({
-      recognizerEngines: ["faster-whisper"],
-      recognizerEngine: "faster-whisper",
-      recognizer: { status: "ready", model: "large-v3", device: "cuda", computeType: "int8_float16", loadMs: 4200, since },
+      recognizerEngines: [funAsr ? "Fun-ASR Nano" : "faster-whisper"],
+      recognizerEngine: funAsr ? "Fun-ASR Nano" : "faster-whisper",
+      recognizer: funAsr ? { status: "ready", model: "fun_asr_nano（audio.cpp/asr）", device: "cuda", computeType: "", loadMs: 5200, since } : { status: "ready", model: "large-v3", device: "cuda", computeType: "int8_float16", loadMs: 4200, since },
       speech: { status: "ready", model: "fish_audio（audio.cpp/tts）", loadMs: 1300, alreadyLoaded: true, since },
       startedAt: since,
       revision: 1,

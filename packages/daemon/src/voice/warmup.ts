@@ -17,8 +17,9 @@
 //   识别：识别进程一次处理一条，"加载"那一行在前，真的识别排在它后面；合成：试合成在做时，语音回复的合成等它做完再发
 //   （同时发过去也只是在 audio.cpp 的模型锁上排队，而且等过它的 busy_timeout_ms 会被回"忙"、退回只发文字）。
 //   等试合成的这段时间不算进那次合成自己的超时：最坏多等一次试合成的超时（默认约 107 秒）。
-// - 状态（VoiceModelsView）：识别引擎的清单（现在只有 faster-whisper）、两个模型各自的状态；变了就交给 onChange（守护进程推一条
+// - 状态（VoiceModelsView）：识别引擎的清单（现在只有在用的那一个：faster-whisper，或者 346 号票的 Fun-ASR Nano）、两个模型各自的状态；变了就交给 onChange（守护进程推一条
 //   临时事件 voice_models），本机接口 GET /api/voice-models 取得到同样的。给人看的说明在 texts.ts。
+// - 346 号票：组件页装好、删掉语音识别模型时接入方式当场换（recognizer-switch.ts），recognizerChanged 清掉退避、预热新的那条。
 import { nowIso, t, type VoiceModelState, type VoiceModelsView } from "@ergo/protocol";
 import type { Recognizer } from "./recognizer.ts";
 import type { ReferenceVoices } from "./reference-voices.ts";
@@ -26,7 +27,7 @@ import { createSerialQueue } from "./shared.ts";
 import { type SpeechSynthesizer, SpeechServiceBusy, SpeechServiceOff } from "./speech.ts";
 import { SPEECH_WARMUP_TEXT } from "./texts.ts";
 
-/** 识别引擎：现在只有这一个（以后加引擎时再加切换和存储） */
+/** 识别引擎：spawn、lsm 两种接入都是这一个；audio.cpp 那条是 Fun-ASR Nano（recognizer-audiocpp.ts） */
 export const RECOGNIZER_ENGINE = "faster-whisper";
 
 /** 试合成的稿子：极短，念出来不到一秒 */
@@ -52,6 +53,10 @@ export interface VoiceWarmupOptions {
   retryMs?: readonly number[];
   /** 识别进程加载好之后多久没崩算稳定（毫秒）；不给是 RECOGNIZER_STABLE_MS（测试里配小） */
   stableMs?: number;
+  /** 现在用的识别引擎（设置 · 语音里显示）；不给是 RECOGNIZER_ENGINE */
+  engine?: () => string;
+  /** 现在这种接入只认 WAV（346 号票：网页录完先转好再传）；不给是都认 */
+  wantsWav?: () => boolean;
   /** 状态变了（推给前端） */
   onChange?: (view: VoiceModelsView) => void;
   log: (line: string) => void;
@@ -64,6 +69,8 @@ export interface VoiceWarmup {
   view(): VoiceModelsView;
   /** 开始预热（后台做，马上返回） */
   start(): void;
+  /** 识别的接入方式换了（346 号票）：前一条的退避不算了，预热新的这一条 */
+  recognizerChanged(): void;
   stop(): Promise<void>;
 }
 
@@ -85,8 +92,9 @@ export function createVoiceWarmup(options: VoiceWarmupOptions): VoiceWarmup {
   const aborter = new AbortController();
 
   const view = (): VoiceModelsView => ({
-    recognizerEngines: [RECOGNIZER_ENGINE],
-    recognizerEngine: RECOGNIZER_ENGINE,
+    recognizerEngines: [options.engine?.() ?? RECOGNIZER_ENGINE],
+    recognizerEngine: options.engine?.() ?? RECOGNIZER_ENGINE,
+    ...(options.wantsWav?.() ? { recognizerInput: "wav" as const } : {}),
     recognizer: recognizer.state,
     speech: speechState,
     startedAt,
@@ -294,13 +302,26 @@ export function createVoiceWarmup(options: VoiceWarmupOptions): VoiceWarmup {
     },
   };
 
+  /** 识别进程不可用（比如配置里的 Python 还是占位符）：不预热，状态里是原因 */
+  const warmRecognizerIfUsable = () => {
+    if (recognizer.state.status === "error") log(`语音识别不可用，不预热识别模型：${recognizer.state.reason ?? "原因不明"}`);
+    else queue.enqueue(RECOGNIZER);
+  };
+
   return {
     speech: gated,
     view,
+    recognizerChanged() {
+      if (stopped) return;
+      clearTimeout(retryTimer);
+      clearTimeout(stableTimer);
+      stable = false;
+      backoffs = 0;
+      changed();
+      warmRecognizerIfUsable();
+    },
     start() {
-      // 识别进程不可用（比如配置里的 Python 还是占位符）：不预热，状态里是原因
-      if (recognizer.state.status === "error") log(`语音识别不可用，不预热识别模型：${recognizer.state.reason ?? "原因不明"}`);
-      else queue.enqueue(RECOGNIZER);
+      warmRecognizerIfUsable();
       enqueueSpeech();
       probeTimer = setInterval(() => void probe(), options.probeMs);
       probeTimer.unref();

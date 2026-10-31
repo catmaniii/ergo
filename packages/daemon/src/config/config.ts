@@ -299,19 +299,24 @@ export interface SpeechTimeoutConfig {
   perSpeechSecond: number;
 }
 
-/** 识别怎么接入（250 号票）：守护进程自己拉起 Python 子进程（spawn），或者经 HTTP 调 LSM 托管的一条（lsm） */
-export type RecognizeMode = "spawn" | "lsm";
+/**
+ * 识别怎么接入（250 号票）：守护进程自己拉起 Python 子进程（spawn），或者经 HTTP 调 LSM 托管的一条（lsm）；
+ * 346 号票加了 audiocpp：调 audio.cpp 服务上的语音识别模型（和语音合成同一个服务，地址是 voice.speech.url，模型 id 固定 asr）。
+ * 组件页装好语音识别模型时写进配置，删掉时撤掉；手动配的 audio.cpp 也可以自己写
+ */
+export type RecognizeMode = "spawn" | "lsm" | "audiocpp";
 
-export const RECOGNIZE_MODES: readonly RecognizeMode[] = Object.freeze(["spawn", "lsm"]);
+export const RECOGNIZE_MODES: readonly RecognizeMode[] = Object.freeze(["spawn", "lsm", "audiocpp"]);
 
-/** 默认还是自己拉起 Python（250 号票：LSM 托管的那条要显式写 mode: "lsm"） */
+/** 默认还是自己拉起 Python（250 号票：LSM 托管的那条要显式写 mode: "lsm"；346 号票：组件页装的那条装好时才写 mode: "audiocpp"，默认值不变） */
 export const DEFAULT_RECOGNIZE_MODE: RecognizeMode = "spawn";
 
 /**
  * 语音消息（31 号票，规格第 21、22 节）。配置里的写法：
  * voice.recognizer：mode（250 号票：spawn 是守护进程自己拉起 Python 子进程，默认，行为不变；lsm 是调 LSM 托管的
- * ergo-asr 服务，见 deploy/lsm/ergo-asr.example.yaml）、url（lsm 模式下那个服务的地址，默认 http://127.0.0.1:8091；
- * spawn 模式不用它）、python（装了 faster-whisper 的 Python，默认 PATH 上的 python；示例配置里是占位符，原样用时识别不可用；只在 spawn 模式用）、
+ * ergo-asr 服务，见 deploy/lsm/ergo-asr.example.yaml；346 号票：audiocpp 是调 audio.cpp 服务上 id 为 asr 的模型，只用 language 和后面的
+ * timeout、stripPatterns、autoRetrySeconds，不用 python、device、model、computeType、fallback、idleMinutes、initialPrompt）、url（lsm 模式下那个服务的地址，
+ * 默认 http://127.0.0.1:8091；spawn、audiocpp 模式不用它）、python（装了 faster-whisper 的 Python，默认 PATH 上的 python；示例配置里是占位符，原样用时识别不可用；只在 spawn 模式用）、
  * device / model / computeType（默认显卡上的 large-v3、int8_float16）、fallback（显卡不可用或显存不够时退回的，默认 CPU 上的 small、
  * int8；写 null 不退回）、idleMinutes（闲置多久退出、释放显存；默认 0：常驻，不因闲置退出，45 号票；只在 spawn 模式有意义，
  * lsm 模式下忽略——卸载交给那个服务自己和 LSM）、timeout（一次识别最多等多久，按语音时长和设备算，
@@ -329,7 +334,7 @@ export const DEFAULT_RECOGNIZE_MODE: RecognizeMode = "spawn";
  */
 export interface VoiceConfig {
   recognizer: {
-    /** 怎么接入（250 号票）：默认 spawn，行为与 250 之前逐字节一样 */
+    /** 怎么接入（250 号票）：默认 spawn，行为与 250 之前逐字节一样。组件页装好、删掉语音识别模型时改这一项（346 号票，components/recognizer-link.ts） */
     mode: RecognizeMode;
     /** lsm 模式下识别服务的地址（不带末尾斜杠）；spawn 模式不用 */
     url: string;
@@ -545,6 +550,21 @@ export function writeSafetyConfig(configFile: string, safety: SafetyConfig): voi
 }
 
 /**
+ * 语音识别的接入方式改了（346 号票：组件页装好、删掉语音识别模型）：写进配置文件的 voice.recognizer.mode，给 undefined 是去掉这一项（回到默认）。
+ * 别的内容原样留着，先写临时文件再改名；这一项之外什么都不碰
+ */
+export function writeRecognizerMode(configFile: string, mode: RecognizeMode | undefined): void {
+  const raw = readConfigFile(configFile);
+  const voice = isRecord(raw.voice) ? raw.voice : {};
+  const { mode: _mode, ...recognizer } = isRecord(voice.recognizer) ? voice.recognizer : {};
+  const nextRecognizer = mode === undefined ? recognizer : { ...recognizer, mode };
+  const { recognizer: _recognizer, ...otherVoice } = voice;
+  const nextVoice = Object.keys(nextRecognizer).length > 0 ? { ...otherVoice, recognizer: nextRecognizer } : otherVoice;
+  const { voice: _voice, ...others } = raw;
+  writeJsonAtomic(configFile, Object.keys(nextVoice).length > 0 ? { ...others, voice: nextVoice } : others);
+}
+
+/**
  * 首次设置向导打了标记（319 号票）：写进配置文件的 setup 节（别的字段原样留着，这一节里不认识的键也留着，
  * 照 writeSafetyConfig 的做法；先写临时文件再改名）。空的也明着写上（[ ]）：那表示"哪一步都没做"，
  * 和"没有这一节"是一个意思，但看得出来写到过
@@ -684,10 +704,10 @@ function parseVoice(value: unknown, file: string): VoiceConfig {
   const rawSpeechTimeout = speech.timeout;
   if (rawSpeechTimeout !== undefined && !isRecord(rawSpeechTimeout)) fail("speech.timeout", "必须是一个对象（{ baseSeconds, coldStartSeconds, perSpeechSecond }）", rawSpeechTimeout);
   const speechTimeout = (rawSpeechTimeout ?? {}) as Record<string, unknown>;
-  // 250 号票：认得的只有两种；写别的直接报错，说清能写什么（免得拼错一个字母就悄悄退回 spawn）
+  // 250 号票：认得的就这几种；写别的直接报错，说清能写什么（免得拼错一个字母就悄悄退回 spawn）
   const rawMode: unknown = recognizer.mode ?? d.recognizer.mode;
   if (typeof rawMode !== "string" || !(RECOGNIZE_MODES as readonly string[]).includes(rawMode)) {
-    fail("recognizer.mode", '必须是 "spawn"（守护进程自己拉起 Python 子进程）或 "lsm"（LSM 托管的识别服务）', rawMode);
+    fail("recognizer.mode", '必须是 "spawn"（守护进程自己拉起 Python 子进程）、"lsm"（LSM 托管的识别服务）或 "audiocpp"（audio.cpp 服务上的语音识别模型）', rawMode);
   }
   return {
     recognizer: {

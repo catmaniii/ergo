@@ -118,6 +118,11 @@ export interface MicMeter {
 export interface VoiceMedia {
   getUserMedia(constraints: MicConstraints): Promise<MicStream>;
   createRecorder(stream: MicStream, mimeType: string | undefined): MicRecorder;
+  /**
+   * 录好的一段交出去之前过一道（346 号票：语音识别走 audio.cpp 时服务只收 WAV，先转好）；不给是原样交。
+   * 转不了要回原样（守护进程那边还能用 ffmpeg 转），不要抛错丢掉录音
+   */
+  finishTake?(take: { blob: Blob; mime: string }): Promise<{ blob: Blob; mime: string }>;
   isTypeSupported(mime: string): boolean;
   createMeter(stream: MicStream): MicMeter;
 }
@@ -311,8 +316,15 @@ export class VoiceRecorder implements VoiceCaptureBackend {
         () => {
           const mime = recorder.mimeType || take.chunks[0]?.type || "audio/webm";
           const blob = new Blob(take.chunks, { type: mime });
-          if (blob.size === 0) reject(new Error(t("app.voice.nothingRecorded")));
-          else resolve({ blob, mime, capture: { ...captureOf(take), micLog: this.log.relativeTo(take.pressedAt) }, silent: voiceTakeSilent(take) });
+          if (blob.size === 0) {
+            reject(new Error(t("app.voice.nothingRecorded")));
+            return;
+          }
+          const silent = voiceTakeSilent(take);
+          const capture = { ...captureOf(take), micLog: this.log.relativeTo(take.pressedAt) };
+          // 整段静音的不发，不用转
+          const finished = silent || !this.media.finishTake ? Promise.resolve({ blob, mime }) : this.media.finishTake({ blob, mime });
+          finished.then((done) => resolve({ ...done, capture, silent }), () => resolve({ blob, mime, capture, silent }));
         },
         { once: true },
       );

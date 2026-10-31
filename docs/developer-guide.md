@@ -278,20 +278,22 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 
 已知没解决的：开机自启起来的服务管家不是 `ergo` 起的（`install.json` 的 `managerPid` 对不上），`switchTo` 不重启它，所以升级后这个进程是旧版本的代码，下次登录才换；它占着旧版本目录，`pruneVersions` 删不掉就留到下次。
 
-### 4.13 组件和常驻服务（语音合成）
+### 4.13 组件和常驻服务（语音合成、语音识别）
 
-组件服务（`components/service.ts`）只管下载、校验、换上、删。装好以后还要接上的（常驻服务）走 `components/host.ts` 这个接口，现在的实现是 `audiocpp-host.ts`（ADR-0038）：
+组件服务（`components/service.ts`）只管下载、校验、换上、删。装好以后还要接上的（常驻服务）走 `components/host.ts` 这个接口，现在的实现是 `audiocpp-host.ts`（ADR-0038、ADR-0039）：
 
 - **清单的字段**：`license`（名字、一句话、链接、`confirm`、`revision`、`attribution`）、`recommended`、`slowWithoutGpu`；`service`（程序组件：服务管家里的名字、程序文件名、端口、健康检查）、`serve`（模型组件：由哪个程序加载、服务上的模型 id、family、task、mode、模型文件）。`extract.format` 多了 `zip`（`components/zip.ts`，没有依赖），`extract.beside` 把这个包的文件放到某个程序旁边（运行库和程序，程序在包里第几层不写死）。
 - **包的结构没核对过**：解完（换上之前）按文件名找 `service.program`，找不到不换上；`variant.expects` 写程序旁边应该有的文件（带 `*`），缺了写进 `service.warning`，只提示不挡启动。
 - **下载失败**：`ComponentView.manualDownload` 列出还差的文件和地址（下不下来、暂停着时才有），自己下好走现有的 `POST /api/component-import`。
-- **再加一个模型**（346 号票）：清单里写一条带 `serve`、`dependsOn` 指程序的组件就行，配置生成、重启都不用改代码；语音合成的模型 id 以 `voice.speech.model` 为准。
+- **再加一个模型**：清单里写一条带 `serve`、`dependsOn` 指程序的组件就行，配置生成、重启都不用改代码；语音合成的模型 id 以 `voice.speech.model` 为准。
+- **语音识别模型**（`serve.task` 是 `asr`，346 号票）：多接一层 `components/recognizer-link.ts`。服务接上（`connect` 成功）才把配置的 `voice.recognizer.mode` 写成 `audiocpp`、经 `VoiceApi.useRecognizer` 让语音插件当场换；模型删了撤掉这一项。用户自己配的（`probes.provided("voice-recognizer")`：`lsm`、手写的 `audiocpp`、配置写了 Python 路径、默认的 `python` 真的装了 faster-whisper）不写、不让装。
+- **识别的接入**：`voice/recognizer-audiocpp.ts` 实现 `Recognizer`。和调 LSM 那条（`recognizer-client.ts`）共用状态机 `createServiceRecognizer`，接口的差别在 `ServiceProtocol` 后面。换接入不用重启：外面拿的是 `recognizer-switch.ts` 这一个，换的时候老的关掉，`warmup.recognizerChanged()` 清退避、预热新的。服务只收 WAV：`VoiceModelsView.recognizerInput` 告诉网页先转（`app/voice-browser.ts` 的 `finishTake`，按住说话、Debug、悬浮按钮共用 `VoiceRecorder`），收到不是 WAV 的用 `audio-convert.ts` 的 ffmpeg 转。真服务试出来的接口细节写在 `recognizer-audiocpp.ts` 开头。
 - **接上**：`server.json`（放 `components/audiocpp-service/`，不放程序目录：更新时程序目录整个换掉）→ `services.put` → `start` / `restart` → 等 `GET /health` → `autostart`。一步失败回滚，结果写进 `ComponentView.service`（`idle` / `starting` / `running` / `stopped` / `failed`），不抛错给下载队列。
 - **"我们的"认 `server.json`**：有它就是我们接上的；没有而端口有人、配置指别处、登记冲突，都算用户自己配的（`provided: voice-speech` 查 `host.provided()`），不覆盖。协议碰不到手写在注册表里的服务，停着的手写服务只有 `port-conflict` 看得出来，所以点安装时空跑一次 `put`。
 - **许可**：`ComponentActionBody.licenseAccepted`，没带回 400；确认过的记在组件区的 `licenses.json`。
-- **网页**：`POST /api/components/<id>` 多了 `start`、`stop`；`GET /api/components` 取之前 `refresh()` 探一次端口。原型里 `?demo-tts=missing|installing|running|stopped|failed|manual|download-failed|runtime-missing`、`?demo-gpu=none` 看几种状态。
+- **网页**：`POST /api/components/<id>` 多了 `start`、`stop`；`GET /api/components` 取之前 `refresh()` 探一次端口。原型里 `?demo-tts=missing|installing|running|stopped|failed|manual|download-failed|runtime-missing`、`?demo-asr=missing|installing|running|configured|external`、`?demo-gpu=none` 看几种状态。
 
-测试：`test/components/audiocpp-host.test.ts`（真的 `lsm/link.ts` + LSM 替身 + 假下载站 + 在系统挑的端口上起假语音服务），绝不碰 8090。
+测试：`test/components/audiocpp-host.test.ts`（真的 `lsm/link.ts` + LSM 替身 + 假下载站 + 在系统挑的端口上起假语音服务）、`test/voice/recognizer-audiocpp.test.ts`（假 audio.cpp `helpers/fake-audiocpp-asr.ts`，错误照真服务试出来的写）、`test/components/recognizer-link.test.ts`（已配的按字节核对不被改）、`test/main/components.test.ts`（真的守护进程跑通安装到语音消息），绝不碰 8090。
 
 ## 5. 插件
 

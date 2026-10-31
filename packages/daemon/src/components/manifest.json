@@ -31,64 +31,30 @@
     },
     {
       "id": "asr",
-      "version": "1",
+      "version": "ce72677f",
       "default": "ask",
       "provided": "voice-recognizer",
       "enables": ["voice.input"],
+      "dependsOn": ["audiocpp"],
       "target": "components/asr",
+      "recommended": true,
+      "license": {
+        "name": "FunASR Model License v1.1",
+        "summary": "Free to use, modify and share if you credit the source and authors and keep the model name. The text says it is for reference and learning only, with no warranty, and has no separate commercial clause: judge commercial use yourself.",
+        "url": "https://github.com/modelscope/FunASR/blob/main/MODEL_LICENSE",
+        "confirm": true,
+        "revision": "1.1",
+        "attribution": "Fun-ASR-Nano-2512 · FunAudioLLM / Alibaba Group"
+      },
+      "serve": { "host": "audiocpp", "id": "asr", "family": "fun_asr_nano", "task": "asr", "mode": "offline", "file": "fun-asr-nano-2512-q8_0.gguf" },
+      "sources": [
+        { "id": "huggingface", "title": "Hugging Face", "hub": "huggingface", "url": "https://huggingface.co/FunAudioLLM/Fun-ASR-Nano-2512-GGUF/resolve/ce72677f84900f0dc57f498ace253bfb3c9155b6/{path}" },
+        { "id": "hf-mirror", "title": "hf-mirror", "url": "https://hf-mirror.com/FunAudioLLM/Fun-ASR-Nano-2512-GGUF/resolve/ce72677f84900f0dc57f498ace253bfb3c9155b6/{path}" }
+      ],
       "variants": [
         {
-          "id": "cuda",
-          "when": { "gpu": "nvidia" },
-          "parts": [
-            { "pending": "python" },
-            {
-              "dir": "models/faster-whisper-large-v3",
-              "sources": [
-                { "id": "huggingface", "title": "Hugging Face", "hub": "huggingface", "url": "https://huggingface.co/Systran/faster-whisper-large-v3/resolve/edaa852ec7e145841d8ffdb056a99866b5f0a478/{path}" },
-                { "id": "hf-mirror", "title": "hf-mirror", "url": "https://hf-mirror.com/Systran/faster-whisper-large-v3/resolve/edaa852ec7e145841d8ffdb056a99866b5f0a478/{path}" }
-              ],
-              "files": [
-                { "path": "config.json", "size": 2394, "sha256": "a9306624f5ec14270a014b647e5c316b6e03a662c369758d1b90697a7b0655b9" },
-                { "path": "preprocessor_config.json", "size": 340, "sha256": "7ccc62c6f2765af1f3b46c00c9b5894426835a05021c8b9c01eecb6dfb542711" },
-                { "path": "tokenizer.json", "size": 2480617, "sha256": "6d8cbd7cd0d8d5815e478dac67b85a26bbe77c1f5e0c6d76d1ce2abc0e5f21ca" },
-                { "path": "vocabulary.json", "size": 1068114, "sha256": "c69260f2ab26d659b7c398f9a2b2b48ed0df16c3b47d7326782fd9cba71690c1" },
-                { "path": "model.bin", "size": 3087284237, "sha256": "69f74147e3334731bc3a76048724833325d2ec74642fb52620eda87352e3d4f1" }
-              ]
-            },
-            {
-              "dir": "models/faster-whisper-small",
-              "sources": [
-                { "id": "huggingface", "title": "Hugging Face", "hub": "huggingface", "url": "https://huggingface.co/Systran/faster-whisper-small/resolve/536b0662742c02347bc0e980a01041f333bce120/{path}" },
-                { "id": "hf-mirror", "title": "hf-mirror", "url": "https://hf-mirror.com/Systran/faster-whisper-small/resolve/536b0662742c02347bc0e980a01041f333bce120/{path}" }
-              ],
-              "files": [
-                { "path": "config.json", "size": 2370, "sha256": "b55496ac7940a7ae47d2c01eab40edfd8701feec1229d9cce3b40014383fb828" },
-                { "path": "tokenizer.json", "size": 2203239, "sha256": "fb7b63191e9bb045082c79fd742a3106a12c99513ab30df4a0d47fa6cb6fd0ab" },
-                { "path": "vocabulary.txt", "size": 459861, "sha256": "34ce3fe1c5041027b3f8d42912270993f986dbc4bb34cf27f951e34a1e453913" },
-                { "path": "model.bin", "size": 483546902, "sha256": "3e305921506d8872816023e4c273e75d2419fb89b24da97b4fe7bce14170d671" }
-              ]
-            }
-          ]
-        },
-        {
-          "id": "cpu",
-          "parts": [
-            { "pending": "python" },
-            {
-              "dir": "models/faster-whisper-small",
-              "sources": [
-                { "id": "huggingface", "title": "Hugging Face", "hub": "huggingface", "url": "https://huggingface.co/Systran/faster-whisper-small/resolve/536b0662742c02347bc0e980a01041f333bce120/{path}" },
-                { "id": "hf-mirror", "title": "hf-mirror", "url": "https://hf-mirror.com/Systran/faster-whisper-small/resolve/536b0662742c02347bc0e980a01041f333bce120/{path}" }
-              ],
-              "files": [
-                { "path": "config.json", "size": 2370, "sha256": "b55496ac7940a7ae47d2c01eab40edfd8701feec1229d9cce3b40014383fb828" },
-                { "path": "tokenizer.json", "size": 2203239, "sha256": "fb7b63191e9bb045082c79fd742a3106a12c99513ab30df4a0d47fa6cb6fd0ab" },
-                { "path": "vocabulary.txt", "size": 459861, "sha256": "34ce3fe1c5041027b3f8d42912270993f986dbc4bb34cf27f951e34a1e453913" },
-                { "path": "model.bin", "size": 483546902, "sha256": "3e305921506d8872816023e4c273e75d2419fb89b24da97b4fe7bce14170d671" }
-              ]
-            }
-          ]
+          "id": "q8",
+          "parts": [{ "files": [{ "path": "fun-asr-nano-2512-q8_0.gguf", "size": 1045334432, "sha256": "4d727357574b079b7f43336b2930f39da086ca02f5d8d50872090b4c1c3d5e0a" }] }]
         }
       ]
     },

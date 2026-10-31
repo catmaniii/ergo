@@ -22,6 +22,7 @@
 import { type AgentVoiceEventPayload, CHANNELS, type ConversationId, EVENT_TYPES, forModel, PURGED_TEXT, t, type VoiceEventPayload } from "@ergo/protocol";
 import type { HostTool } from "../agent-manager/host-tools.ts";
 import { isPlaceholder } from "../config/config.ts";
+import type { RecognizeMode } from "../config/config.ts";
 import type { PluginDataRemoval } from "../plugins/removal.ts";
 import type { PluginDefinition } from "../plugins/host.ts";
 import { KERNEL } from "../plugins/kernel.ts";
@@ -34,8 +35,10 @@ import { createDebugVoice } from "./debug-voice.ts";
 import { voiceGateOf } from "./gate.ts";
 import { RECOGNIZER_ENV, RECOGNIZER_SCRIPT, recognizerHint } from "./index.ts";
 import { voicePrompts } from "./prompt.ts";
+import { AUDIOCPP_RECOGNIZER_ENGINE, createAudioCppRecognizer } from "./recognizer-audiocpp.ts";
 import { createHttpRecognizer } from "./recognizer-client.ts";
-import { createProcessRecognizer, unavailableRecognizer } from "./recognizer.ts";
+import { createSwitchableRecognizer } from "./recognizer-switch.ts";
+import { createProcessRecognizer, type Recognizer, unavailableRecognizer } from "./recognizer.ts";
 import { createFfmpegConverter } from "./audio-convert.ts";
 import { DEFAULT_VOICE_ASSET_DIR, openReferenceVoices } from "./reference-voices.ts";
 import { createAudioCppSynthesizer } from "./speech.ts";
@@ -43,7 +46,7 @@ import { voiceToolOff } from "./texts.ts";
 import { compileStripRules } from "./transcript-filter.ts";
 import { createVoiceService } from "./voice.ts";
 import { createVoiceReplies } from "./voice-reply.ts";
-import { createVoiceWarmup } from "./warmup.ts";
+import { createVoiceWarmup, RECOGNIZER_ENGINE } from "./warmup.ts";
 
 /** 待我处理里属于语音的说明：识别进程不可用、还没有参考音色 */
 const VOICE_NOTICES = ["voice_recognizer_unavailable", "voice_reference_missing"] as const;
@@ -126,37 +129,43 @@ export const voicePlugin: PluginDefinition = {
     const voiceConfig = config.voice;
     const recognition = { language: voiceConfig.recognizer.language, initialPrompt: voiceConfig.recognizer.initialPrompt };
 
-    // 语音消息（31）：识别按配置接一条（250 号票，两种接入并存）：默认 mode 是 spawn，守护进程自己拉起 Python 子进程
+    // 语音消息（31）：识别按配置接一条（250 号票，几种接入并存）：默认 mode 是 spawn，守护进程自己拉起 Python 子进程
     // （放进它自己的 Job，环境照 agent 子进程的白名单；和 250 号票之前一模一样）；mode 是 lsm 时改调 LSM 托管的那条
-    // 识别服务（deploy/lsm/ergo-asr.example.yaml），二狗不拉起、不结束它。两条是同一个接口（Recognizer），
-    // 下面识别、预热、208 号票的健康检查、Debug 页、设置页都只认接口，一行都不用改。
+    // 识别服务（deploy/lsm/ergo-asr.example.yaml），二狗不拉起、不结束它；mode 是 audiocpp 时（346）调 audio.cpp 服务上的语音识别模型。
+    // 都是同一个接口（Recognizer），下面识别、预热、208 号票的健康检查、Debug 页、设置页都只认接口，一行都不用改。
+    // 组件页装好、删掉语音识别模型时（346）接入方式当场换，不用重启：外面拿的是 createSwitchableRecognizer 这一个。
     // 识别结果交出去之前剔掉模型自带的串词（180）：规则写错的这里跳过、写日志，不挡启动
     const recognizerConfig = voiceConfig.recognizer;
     const recognizerInit = { primary: recognizerConfig.primary, fallback: recognizerConfig.fallback };
     const stripRules = compileStripRules(recognizerConfig.stripPatterns, log);
-    const recognizer =
-      recognizerConfig.mode === "lsm"
-        ? createHttpRecognizer({ url: recognizerConfig.url, init: recognizerInit, timeout: recognizerConfig.timeout, stripRules, log })
-        : !engines.recognizerCommand && isPlaceholder(recognizerConfig.python)
-          ? unavailableRecognizer(t("daemon.recognizerPlaceholder"))
-          : createProcessRecognizer({
-              command: engines.recognizerCommand ?? [recognizerConfig.python, RECOGNIZER_SCRIPT],
-              env: buildChildEnv(engines.env, RECOGNIZER_ENV),
-              cwd: layout.tmp,
-              init: recognizerInit,
-              idleMs: recognizerConfig.idleMs,
-              timeout: recognizerConfig.timeout,
-              newJob: () => (process.platform === "win32" ? createJobObject() : undefined),
-              stripRules,
-              log,
-            });
+    // 把常见音频转成 16 kHz 单声道 WAV：参考音色导入（230）、audio.cpp 那条接入收到不是 WAV 的录音时（346）
+    const audioConverter = createFfmpegConverter({ tmpDir: layout.tmp, ...(engines.ffmpegCommand === undefined ? {} : { command: engines.ffmpegCommand }), log });
+    const speechUrl = engines.speechUrl ?? voiceConfig.speech.url;
+    const buildRecognizer = (mode: RecognizeMode): Recognizer => {
+      if (mode === "lsm") return createHttpRecognizer({ url: recognizerConfig.url, init: recognizerInit, timeout: recognizerConfig.timeout, stripRules, log });
+      if (mode === "audiocpp") return createAudioCppRecognizer({ url: speechUrl, timeout: recognizerConfig.timeout, convert: audioConverter, stripRules, log });
+      if (!engines.recognizerCommand && isPlaceholder(recognizerConfig.python)) return unavailableRecognizer(t("daemon.recognizerPlaceholder"));
+      return createProcessRecognizer({
+        command: engines.recognizerCommand ?? [recognizerConfig.python, RECOGNIZER_SCRIPT],
+        env: buildChildEnv(engines.env, RECOGNIZER_ENV),
+        cwd: layout.tmp,
+        init: recognizerInit,
+        idleMs: recognizerConfig.idleMs,
+        timeout: recognizerConfig.timeout,
+        newJob: () => (process.platform === "win32" ? createJobObject() : undefined),
+        stripRules,
+        log,
+      });
+    };
+    const recognizer = createSwitchableRecognizer(buildRecognizer(recognizerConfig.mode), log);
+    let recognizerMode = recognizerConfig.mode;
     const voice = createVoiceService({
       store,
       media,
       inbox,
       recognizer,
       recognition,
-      unavailableHint: () => recognizerHint(recognizerConfig.mode),
+      unavailableHint: () => recognizerHint(recognizerMode),
       // 识别没做成时隔一会儿自动重试（208）
       autoRetryMs: voiceConfig.recognizer.autoRetryMs,
       log,
@@ -166,7 +175,7 @@ export const voicePlugin: PluginDefinition = {
     const referenceVoices = openReferenceVoices({
       dir: layout.voices,
       log,
-      converter: createFfmpegConverter({ tmpDir: layout.tmp, ...(engines.ffmpegCommand === undefined ? {} : { command: engines.ffmpegCommand }), log }),
+      converter: audioConverter,
       recognizer,
       recognition,
       // 内置的默认参考音色（ADR-0036）：素材随程序装在 src/voice/default-voice/，装的时候不转码、不用 ffmpeg
@@ -179,11 +188,14 @@ export const voicePlugin: PluginDefinition = {
     // 两个模型的状态变了推一条临时事件（活动状态频道），本机接口 GET /api/voice-models 取得到同样的
     const warmup = createVoiceWarmup({
       recognizer,
-      speech: createAudioCppSynthesizer({ ...voiceConfig.speech, url: engines.speechUrl ?? voiceConfig.speech.url, log }),
+      speech: createAudioCppSynthesizer({ ...voiceConfig.speech, url: speechUrl, log }),
       references: referenceVoices,
       probeMs: voiceConfig.speech.probeMs,
       ...(engines.recognizerRetryMs === undefined ? {} : { retryMs: engines.recognizerRetryMs }),
       ...(engines.recognizerStableMs === undefined ? {} : { stableMs: engines.recognizerStableMs }),
+      // Fun-ASR Nano 那条只认 WAV：网页录完先转好再传（346）
+      engine: () => (recognizerMode === "audiocpp" ? AUDIOCPP_RECOGNIZER_ENGINE : RECOGNIZER_ENGINE),
+      wantsWav: () => recognizerMode === "audiocpp",
       onChange: (payload) => notifications.publish({ channel: CHANNELS.activity, seq: store.lastSeq(CHANNELS.activity), type: EVENT_TYPES.voiceModels, payload }),
       log,
     });
@@ -229,6 +241,13 @@ export const voicePlugin: PluginDefinition = {
       referenceVoices,
       segmentFile: (voiceId, index) => replies.segmentFile(voiceId, index),
       models: () => warmup.view(),
+      useRecognizer(mode) {
+        if (mode === recognizerMode) return;
+        log(`语音识别的接入方式换了：${recognizerMode} → ${mode}`);
+        recognizerMode = mode;
+        recognizer.use(buildRecognizer(mode));
+        warmup.recognizerChanged();
+      },
       recognize: (audio, mime) => debug.recognize(audio, mime),
       speak: (text) => debug.speak(text),
       async whenIdle() {

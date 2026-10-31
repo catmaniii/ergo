@@ -7,7 +7,7 @@ import path from "node:path";
 import type { ComponentsView } from "@ergo/protocol";
 import { describe, expect, onTestFinished, test } from "vitest";
 import { type AudioCppHost, type AudioCppHostOptions, createAudioCppHost } from "../../src/components/audiocpp-host.ts";
-import { createHttpTransport, createComponents, loadManifest, parseManifest } from "../../src/components/index.ts";
+import { createHttpTransport, createComponents, loadManifest, parseManifest, type RecognizerLink } from "../../src/components/index.ts";
 import type { LoadedManifest } from "../../src/components/manifest.ts";
 import { DISABLED_LSM_SERVICES, linkToLsm, type LsmServiceDefinition, type LsmServices } from "../../src/lsm/link.ts";
 import { createAudioCppSynthesizer } from "../../src/voice/speech.ts";
@@ -332,7 +332,7 @@ describe("装：程序、模型、接上服务管家", () => {
     const s = await setup();
     await s.components.act("audiocpp", "install");
     await s.settled();
-    expect(one(s.view(), "audiocpp")).toMatchObject({ state: "installed", service: { state: "idle", note: "还没有模型：装上语音合成模型后自动启动" } });
+    expect(one(s.view(), "audiocpp")).toMatchObject({ state: "installed", service: { state: "idle", note: "还没有模型：装上语音合成或语音识别模型后自动启动" } });
     expect(s.lsm.owned.services.size).toBe(0);
     expect(fs.existsSync(s.configPath)).toBe(false);
     await expect(s.components.act("audiocpp", "start")).rejects.toThrow("还没有模型");
@@ -842,6 +842,90 @@ describe("启动、停止、更新", () => {
     expect(s.configs.at(-1)?.models.map((m) => m.id)).toEqual(["asr"]);
     expect(s.lsm.owned.services.has("audiocpp")).toBe(true);
     expect(one(s.view(), "audiocpp").service?.state).toBe("running");
+  });
+
+  describe("语音识别模型（346 号票）", () => {
+    /** 记下来的：组件页告诉语音识别那一边的事 */
+    function link(configured?: string): { calls: string[]; recognizer: RecognizerLink } {
+      const calls: string[] = [];
+      return {
+        calls,
+        recognizer: { configured: () => configured, connected: () => calls.push("connected"), removed: () => calls.push("removed") },
+      };
+    }
+
+    test("只装语音识别模型也能接上：配置里只有它，服务接上了才告诉识别；删了撤登记、告诉识别", async () => {
+      const { calls, recognizer } = link();
+      const s = await setup({ extra: true, host: { recognizer } });
+      await s.components.act("asr-nano", "install");
+      await s.settled();
+      expect(s.configs.at(-1)?.models.map((m) => m.id)).toEqual(["asr"]);
+      expect(one(s.view(), "audiocpp").service).toMatchObject({ state: "running", autostart: true });
+      expect(calls).toEqual(["connected"]);
+
+      await s.components.act("asr-nano", "remove");
+      await s.host.whenIdle();
+      expect(calls).toEqual(["connected", "removed"]);
+      expect(s.lsm.owned.services.has("audiocpp")).toBe(false);
+    });
+
+    test("服务没接上（启动失败）：不告诉识别，配置和接入方式都不动；点启动接上了才告诉", async () => {
+      const { calls, recognizer } = link();
+      const s = await setup({ extra: true, host: { recognizer } });
+      s.lsm.owned.failNextStart("audiocpp", "显存不够");
+      await s.components.act("asr-nano", "install");
+      await s.settled();
+      expect(one(s.view(), "audiocpp").service).toMatchObject({ state: "failed", error: expect.stringContaining("显存不够") });
+      expect(calls).toEqual([]);
+
+      await s.components.act("audiocpp", "start");
+      await s.settled();
+      expect(one(s.view(), "audiocpp").service?.state).toBe("running");
+      expect(calls).toEqual(["connected"]);
+    });
+
+    test("只装语音合成模型：不告诉识别", async () => {
+      const { calls, recognizer } = link();
+      const s = await setup({ extra: true, host: { recognizer } });
+      await s.installAll();
+      expect(calls).toEqual([]);
+    });
+
+    test("已配了别的语音识别（LSM、Python）：语音识别模型不让装、写明；语音合成照样能装，互不影响", async () => {
+      const { calls, recognizer } = link("已有自己配的语音识别，在用它（服务管家托管的识别服务 http://127.0.0.1:8091）");
+      const s = await setup({ extra: true, host: { recognizer } });
+      expect(one(s.view(), "asr-nano").cannotInstall).toBe("要改用这里装的，先撤掉自己配的（配置里的 voice.recognizer.mode、voice.recognizer.python）");
+      await expect(s.components.act("asr-nano", "install")).rejects.toThrow("先撤掉自己配的");
+      expect(s.fake.requests).toEqual([]);
+      expect(s.lsm.serviceRequests()).toEqual([]);
+
+      await s.installAll();
+      expect(one(s.view(), "tts").state).toBe("installed");
+      expect(s.configs.at(-1)?.models.map((m) => m.id)).toEqual(["tts"]);
+      expect(calls).toEqual([]);
+    });
+
+    test("已有手动配的 audio.cpp 服务（端口有人听）：语音识别模型不让装，说清可以自己加；什么都不登记", async () => {
+      const { calls, recognizer } = link();
+      const s = await setup({ extra: true, host: { recognizer } });
+      await s.tts.up();
+      await s.components.refresh();
+      expect(one(s.view(), "asr-nano").cannotInstall).toContain("id 为 asr 的模型");
+      await expect(s.components.act("asr-nano", "install")).rejects.toThrow("id 为 asr 的模型");
+      expect(s.fake.requests).toEqual([]);
+      expect(s.lsm.serviceRequests()).toEqual([]);
+      expect(calls).toEqual([]);
+    });
+
+    test("装好以后用户又配了别的（改了配置文件）：更新不挡，不抢回来由 link 决定", async () => {
+      let configured: string | undefined;
+      const calls: string[] = [];
+      const s = await setup({ extra: true, host: { recognizer: { configured: () => configured, connected: () => calls.push("connected"), removed: () => calls.push("removed") } } });
+      await s.components.act("asr-nano", "install");
+      await s.settled();
+      configured = "已有自己配的";
+      expect(one(s.view(), "asr-nano").cannotInstall).toBeUndefined();
+    });
   });
 
   test("加模型后启动失败：配置回到原来的样子，原来的服务接着跑", async () => {

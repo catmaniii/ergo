@@ -17,7 +17,9 @@ import { fileURLToPath } from "node:url";
 import { t } from "@ergo/protocol";
 import type { RecognizeMode } from "../config/config.ts";
 
+export { type AudioCppRecognizerOptions, createAudioCppRecognizer } from "./recognizer-audiocpp.ts";
 export { createHttpRecognizer, type HttpRecognizerOptions } from "./recognizer-client.ts";
+export { createSwitchableRecognizer, type SwitchableRecognizer } from "./recognizer-switch.ts";
 export { createProcessRecognizer, type Recognizer, RecognizerUnavailable, unavailableRecognizer } from "./recognizer.ts";
 
 /** 识别进程的 Python 脚本（随仓库分发；守护进程用配置里的 Python 跑它） */
@@ -36,6 +38,6 @@ export const RECOGNIZER_ENV: Readonly<Record<string, string>> = Object.freeze({
 
 /**
  * 识别不可用时，待我处理的说明里写的怎么修（173 号票：按当前语言现取）。250 号票起按接入方式分开：
- * 自己拉起的说 Python 和模型缓存，调 LSM 托管的那条说 LSM 里的服务开没开、配置里的地址对不对
+ * 自己拉起的说 Python 和模型缓存，调 LSM 托管的那条说 LSM 里的服务开没开、配置里的地址对不对，调 audio.cpp 的那条（346 号票）说组件页
  */
-export const recognizerHint = (mode: RecognizeMode) => t(mode === "lsm" ? "voice.recognizer.lsmHint" : "voice.recognizer.hint");
+export const recognizerHint = (mode: RecognizeMode) => t(mode === "lsm" ? "voice.recognizer.lsmHint" : mode === "audiocpp" ? "voice.recognizer.audiocppHint" : "voice.recognizer.hint");

@@ -1,5 +1,5 @@
 // 设置 · 语音：分识别、合成、播放三块（45 号票定的排法）。
-// - 识别：识别引擎显示成一个选项（单选），清单由守护进程给，现在只有 faster-whisper 一项、选中，选不了别的；旁边是识别模型的状态
+// - 识别：识别引擎显示成一个选项（单选），清单由守护进程给，现在只有在用的那一项（faster-whisper 或 Fun-ASR Nano）、选中，选不了别的；旁边是识别模型的状态
 //   （用的模型、设备、加载中 / 已就绪 / 出错……）。以后加引擎时再加切换和存储；
 // - 合成：合成模型（本机 LSM 托管的 audio.cpp）的状态，和参考音色（32 号票）：你发语音时 agent 用语音回复，照这里选的参考音色克隆。
 //   可以导入（一段干净的人声录音，取个名字）、试听（参考录音本身）、选当前用哪一个、删除。参考音色是个人数据，存在数据目录里；
@@ -136,7 +136,7 @@ export function VoicePage() {
   );
 }
 
-/** 识别引擎：单选，清单由守护进程给（现在只有 faster-whisper 一项）；选中的旁边是识别模型的状态 */
+/** 识别引擎：单选，清单由守护进程给（现在只有在用的那一项）；选中的旁边是识别模型的状态 */
 function RecognizerEngines({ models }: { models: VoiceModelsView }) {
   return (
     <div className="voice-engines" role="radiogroup" aria-label={t("pages.voice.engines")}>

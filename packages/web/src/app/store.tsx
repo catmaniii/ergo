@@ -1,5 +1,6 @@
 // 把前端状态层接到 React：连接推来的输入交给 reduce，界面从这里读状态、发请求。
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useReducer, useRef } from "react";
+import { noteRecognizerInput } from "./voice-format.ts";
 import {
   type AgentRoleBody,
   type AgentRolesView,
@@ -382,6 +383,12 @@ export function StoreProvider({ connection, http, children }: { connection: Conn
     const view = await http.voiceModels();
     dispatch({ kind: "voice_models", view });
   }, [http]);
+
+  // 语音识别走 audio.cpp 时服务只收 WAV（346 号票）：录音要先知道。开页面时取一次，之后变了经 voice_models 推来
+  useEffect(() => noteRecognizerInput(ui.voiceModels), [ui.voiceModels]);
+  useEffect(() => {
+    loadVoiceModels().catch(() => undefined);
+  }, [loadVoiceModels]);
 
   // 角色（248 号票）：取回的整份进状态层（改了角色、给 agent 换了角色、删了 agent 之后重新取同一份）
   const loadAgentRoles = useCallback(async () => {

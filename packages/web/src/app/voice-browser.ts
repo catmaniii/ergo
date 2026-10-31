@@ -4,12 +4,16 @@
 // 外网（经 HTTPS）和本机 http://127.0.0.1 都是安全上下文，浏览器才给麦克风。
 // 63 号票：开在鸿蒙 App 里、App 有原生录音时（page-native.ts），录音走 App 的 AudioCapturer，不用 getUserMedia；
 // 旧版 App、不在 App 里照旧用浏览器录。
+// 346 号票：语音识别走 audio.cpp 时服务只收 WAV（守护进程经 VoiceModelsView.recognizerInput 说），浏览器录完先解码、转成 16 kHz 单声道的 WAV 再交出去；
+// 转不了（浏览器不支持这个格式）照原样交，守护进程那边还能用 ffmpeg 转。别的接入照旧传浏览器录的格式。
 import { isTextEntry, t } from "../state/index.ts";
 import { pageNativeApp } from "./page-native.ts";
 import { VOICE_FALLBACKS } from "./voice-fallbacks.ts";
+import { recognizerWantsWav } from "./voice-format.ts";
 import { VoiceMicLog } from "./voice-mic-log.ts";
 import type { MicMeter, MicRecorder, MicStream, VoiceMedia } from "./voice-recorder.ts";
 import type { VoiceSessionEnv } from "./voice-session.ts";
+import { wavOfSamples } from "./voice-wav.ts";
 
 /** 这个页面能不能录音；不能时说明原因（App 的原生录音不看浏览器支不支持） */
 export function voiceSupport(): { ok: true } | { ok: false; text: string } {
@@ -40,11 +44,23 @@ function createMeter(stream: MicStream): MicMeter {
   };
 }
 
+/** 转成 WAV 时的采样率：和鸿蒙 App 原生录音一样 */
+const WAV_SAMPLE_RATE = 16_000;
+
+/** 按需把录好的一段转成 WAV：OfflineAudioContext 解码时按它的采样率重采样，再混成单声道 */
+async function finishTake(take: { blob: Blob; mime: string }): Promise<{ blob: Blob; mime: string }> {
+  if (!recognizerWantsWav()) return take;
+  const decoded = await new OfflineAudioContext(1, 1, WAV_SAMPLE_RATE).decodeAudioData(await take.blob.arrayBuffer());
+  const channels = Array.from({ length: decoded.numberOfChannels }, (_, i) => decoded.getChannelData(i));
+  return { blob: new Blob([wavOfSamples(channels, decoded.sampleRate)], { type: "audio/wav" }), mime: "audio/wav" };
+}
+
 const media: VoiceMedia = {
   getUserMedia: (constraints) => navigator.mediaDevices.getUserMedia(constraints),
   createRecorder: (stream, mimeType): MicRecorder => new MediaRecorder(stream as MediaStream, mimeType ? { mimeType } : {}),
   isTypeSupported: (mime) => MediaRecorder.isTypeSupported(mime),
   createMeter,
+  finishTake,
 };
 
 /** 这个页面上要麦克风被拒过：页面刷新之前一直记着（离开、重新进语音模式不再自动要） */

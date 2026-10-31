@@ -1,4 +1,4 @@
-// 语音服务接到服务管家（345 号票，ADR-0038）：audio.cpp 的程序和模型是两个组件，都装好以后这里把它们接起来——
+// 语音服务接到服务管家（345 号票，ADR-0038；346 号票，ADR-0039 加了语音识别模型）：audio.cpp 的程序和模型是两个组件，都装好以后这里把它们接起来——
 // 生成 server.json（只绑 127.0.0.1、lazy_load 开、模型 id 用配置里的）→ 经 lsm/link.ts 登记 → 启动 → 等 GET /health → 进开机自启名单。
 // 哪一步失败都回滚（撤登记、删这次生成的配置）并写清哪一步、什么原因；程序和模型的文件留着，点"启动"不用重新下载。
 // 哪些模型算数看清单：写了 serve 的组件都写进 models[]，346 号票再加一条就是再加一个模型，装上、删掉都会重启服务。
@@ -7,6 +7,7 @@
 // 协议碰不到手写在注册表里的服务（名下的服务只看得到自己命名空间），手写的服务停着时只有 put 回的 port-conflict 看得出来：
 // 点安装时空跑一次 put，登记得上就马上撤掉；查出来以后每分钟再看一次它撤了没有。
 // 组件服务不等这里：装好后的接上、点"启动"都在后台排队（一次一件），页面看 service 的 state；失败不抛错，写进 state 和 error。
+// 语音识别模型（serve.task 是 asr）还要多一件（346 号票）：用户自己配了别的语音识别（recognizer-link.ts）就不让装；服务接上了才把识别指过来，删了指回去。
 import fs from "node:fs";
 import net from "node:net";
 import os from "node:os";
@@ -18,6 +19,7 @@ import { DISABLED_LSM_SERVICES, type LsmServiceDefinition, type LsmServices, typ
 import { writeFileAtomic } from "../util/atomic-file.ts";
 import type { ComponentHost, ComponentHostContext } from "./host.ts";
 import { type ManifestComponent, type ManifestService, type ManifestVariant, variantFiles } from "./manifest.ts";
+import type { RecognizerLink } from "./recognizer-link.ts";
 import { findInTree } from "./zip.ts";
 
 export interface AudioCppHostOptions {
@@ -25,6 +27,8 @@ export interface AudioCppHostOptions {
   componentsDir: string;
   /** 配置里的 voice.speech */
   speech: { url: string; model: string };
+  /** 语音识别那一边（346 号票）：有没有用户自己配的、服务接上了、模型删了；不给就只管服务 */
+  recognizer?: RecognizerLink;
   /** 启动以后最多等 GET /health 多久（毫秒）；不给是 30 秒 */
   healthTimeoutMs?: number;
   /** 等健康检查时隔多久看一次（毫秒）；不给是 500 毫秒 */
@@ -92,6 +96,8 @@ function matchesGlob(name: string, pattern: string): boolean {
   return lower.length - tail.length >= at && lower.endsWith(tail);
 }
 const concerns = (c: ManifestComponent): boolean => c.service !== undefined || c.serve !== undefined;
+/** 语音识别模型（346 号票） */
+const isRecognizerModel = (c: ManifestComponent): boolean => c.serve?.task === "asr";
 const healthUrl = (service: ManifestService) => `http://127.0.0.1:${service.port}${service.health}`;
 const replyError = (reply: LsmServicesReply): string => (reply.ok ? "" : reply.error.message);
 const errorText = (err: unknown): string => (err instanceof Error ? err.message : String(err));
@@ -369,11 +375,12 @@ export function createAudioCppHost(options: AudioCppHostOptions): AudioCppHost {
       const autostart = await lsm.autostart(service.name, true);
       if (!autostart.ok) throw new StepFailed("autostart", autostart.error.message);
       healthy = true;
-      log(`语音合成服务接上了：端口 ${service.port}，${installedModels().length} 个模型，进了开机自启名单`);
+      log(`语音服务接上了：端口 ${service.port}，${installedModels().length} 个模型，进了开机自启名单`);
+      if (installedModels().some(({ component }) => isRecognizerModel(component))) options.recognizer?.connected();
     } catch (err) {
       // 守护进程正在停：接入层已经断了，回滚也撤不掉登记。配置和登记都留着，下次起来还认得是我们的，点启动就行
       if (stopped) {
-        log(`语音合成服务接到一半守护进程停了（${errorText(err)}）`);
+        log(`语音服务接到一半守护进程停了（${errorText(err)}）`);
         return;
       }
       const notes = await rollback(service, before);
@@ -386,7 +393,7 @@ export function createAudioCppHost(options: AudioCppHostOptions): AudioCppHost {
       const step: Step = err instanceof StepFailed ? err.step : "config";
       const runtime = runtimeWarning(program, installed);
       lastError = [t("components.service.failed", { step: t(`components.service.step.${step}`), reason: errorText(err) }), ...(runtime ? [runtime] : []), ...notes].join(" ");
-      log(`语音合成服务没接上（${step}）：${errorText(err)}；已回滚`);
+      log(`语音服务没接上（${step}）：${errorText(err)}；已回滚`);
     }
   };
 
@@ -397,7 +404,7 @@ export function createAudioCppHost(options: AudioCppHostOptions): AudioCppHost {
     connecting += 1;
     changed();
     void enqueue(() => connect(restart))
-      .catch((err: unknown) => log(`语音合成服务接上时出错：${errorText(err)}`))
+      .catch((err: unknown) => log(`语音服务接上时出错：${errorText(err)}`))
       .finally(() => {
         connecting -= 1;
         changed();
@@ -415,7 +422,7 @@ export function createAudioCppHost(options: AudioCppHostOptions): AudioCppHost {
     status = undefined;
     healthy = false;
     lastError = undefined;
-    log(`撤掉了语音合成服务的登记和开机自启（${service.name}）`);
+    log(`撤掉了语音服务的登记和开机自启（${service.name}）`);
   };
 
   /** 服务停下来（文件要换、要删）：没登记的不算错 */
@@ -451,7 +458,11 @@ export function createAudioCppHost(options: AudioCppHostOptions): AudioCppHost {
     blocked(component) {
       if (!concerns(component)) return undefined;
       if (UNUSABLE_PATH.test(options.componentsDir)) return t("components.cannot.pathUnusable", { dir: options.componentsDir });
-      return external && !ours() ? t("components.cannot.speechExternal") : undefined;
+      const recognizer = isRecognizerModel(component);
+      // 用户自己配了别的语音识别：不改（已经从这里装好了的要能更新，不算）
+      if (recognizer && !context?.installed(component.id) && options.recognizer?.configured() !== undefined) return t("components.cannot.recognizerConfigured");
+      if (!external || ours()) return undefined;
+      return t(recognizer ? "components.cannot.recognizerExternal" : "components.cannot.speechExternal");
     },
     async preflight(component) {
       const program = programComponent();
@@ -489,6 +500,7 @@ export function createAudioCppHost(options: AudioCppHostOptions): AudioCppHost {
       });
     },
     removed(component) {
+      if (isRecognizerModel(component)) options.recognizer?.removed();
       if (component.serve) schedule(true);
     },
     async control(component, action) {

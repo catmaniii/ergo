@@ -10,6 +10,7 @@
 import { type DebugRecognizeResult, type DebugSpeakResult, type MessageEnvelope, type RetryVoiceParams, type RetryVoiceResult, t, type VoiceModelsView } from "@ergo/protocol";
 import type { AgentVoiceReplies } from "../conversation/agent-session.ts";
 import type { InputGate } from "../conversation/input-gate.ts";
+import type { RecognizeMode } from "../config/config.ts";
 import type { VoiceIntake } from "../conversation/messages.ts";
 import { serviceKey } from "../plugins/host.ts";
 import type { ReferenceVoices } from "./reference-voices.ts";
@@ -36,6 +37,8 @@ export interface VoiceApi {
   segmentFile(voiceId: string, index: number): string | undefined;
   /** 识别模型、合成模型现在的状态（设置 · 语音；变了另经活动状态频道推 voice_models） */
   models(): VoiceModelsView;
+  /** 识别改走这种接入（346 号票：组件页装好、删掉语音识别模型时）：当场换、预热新的那条，配置文件由调用方写 */
+  useRecognizer(mode: RecognizeMode): void;
   /** 录的一段送识别，不经会话（Debug 工具集；149 号票的悬浮按钮上说话）：识别不了不抛错，回原因 */
   recognize(audio: Buffer, mime: string): Promise<DebugRecognizeResult>;
   /** 用当前参考音色合成念一句，不经会话（Debug 工具集）：合成不了不抛错，回原因 */

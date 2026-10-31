@@ -14,6 +14,8 @@
 // - 连不上、服务回了结构化的错误（fatal）、预热失败都映射成 RecognizerUnavailable（重试没用，要人修），
 //   识别本身出错（不是 fatal）是这一次没识别成、服务还在；
 // - 180 号票的串词过滤和 spawn 那条共用（recognizer.ts 的 stripFiller），拿到的结果一样干净。
+// 346 号票：又多了一条接 HTTP 的（recognizer-audiocpp.ts，audio.cpp 服务）。状态机、超时语义、串词过滤是一样的，所以这里分成两层：
+// createServiceRecognizer 是共用的状态机，接口的差别都在 ServiceProtocol 后面；createHttpRecognizer 是 recognizer.py --serve 那一份接口。
 import fs from "node:fs";
 import { nowIso, t, VOICE_MAX_MS, type VoiceModelState } from "@ergo/protocol";
 import type { RecognizeTimeoutConfig } from "../config/config.ts";
@@ -46,7 +48,7 @@ export interface HttpRecognizerOptions {
 }
 
 /** 发一条预热 / 探活 / 识别请求最多等多久（毫秒）：这些都该马上回，等不到就是服务卡住了 */
-const CALL_TIMEOUT_MS = 10_000;
+export const CALL_TIMEOUT_MS = 10_000;
 /** 服务在后台加载模型时，多久看一次 /health */
 const POLL_MS = 500;
 
@@ -63,12 +65,117 @@ interface ServiceStatus {
 }
 
 /** 一次请求的结局：成了给正文，没成给原因（超时、守护进程在停、连不上、HTTP 状态码、正文看不懂） */
-type CallResult =
+export type CallResult =
   | { ok: true; body: Record<string, unknown> }
   | { ok: false; cause: "timeout" | "closed" | "unreachable" | "status" | "bad"; status?: number; body?: Record<string, unknown>; detail?: string };
 
+/** 发一个请求（超时、连不上、HTTP 状态码都按结局给，不抛）。body 是 JSON，form 是 multipart；signal 中止（这次识别到点了）算 closed */
+export type ServiceCall = (path: string, request: { method: "GET" | "POST"; body?: unknown; form?: FormData; timeoutMs: number; signal?: AbortSignal }) => Promise<CallResult>;
+
+/** 一条识别服务的接口：共用的状态机（createServiceRecognizer）只经这几样和它打交道 */
+export interface ServiceProtocol {
+  /** 让它加载模型、等加载好；alive() 回 false 是这一代作废了、守护进程在停，别再等。加载不了以 RecognizerUnavailable 结束 */
+  load(alive: () => boolean): Promise<RecognizerLoaded>;
+  /** 加载好、空着的问一句（限时）：正常回 undefined，不正常回原因（这一代作废、重新预热） */
+  probe(timeoutMs: number): Promise<Error | undefined>;
+  /** 识别一条：timeoutMs 是这次还能等多久，signal 中止是到点了、守护进程在停；这个服务不能用了抛 RecognizerUnavailable，这一次没做成抛别的 */
+  recognize(request: RecognizeRequest, limit: { timeoutMs: number; signal: AbortSignal; timeoutError: Error }): Promise<RecognizeResult>;
+  /** 一次识别最多等多久（毫秒）；loaded 是加载好的模型（还没加载好是 undefined） */
+  timeoutMs(audioMs: number, loaded: RecognizerLoaded | undefined): number;
+}
+
+/** 共用的状态机要的：check 问一句最多等多久、串词规则 */
+export interface ServiceRecognizerOptions {
+  /** check()（208 号票）问服务一句最多等多久（毫秒）；不给是 CHECK_TIMEOUT_MS */
+  checkTimeoutMs?: number;
+  /** 识别结果里要剔掉的模型自带串词（180 号票，编译好的规则）；不给不剔 */
+  stripRules?: readonly StripRule[];
+  log: (line: string) => void;
+}
+
+/** 没成的一次请求 → 给用户看的错误：连不上、服务说加载不了是 RecognizerUnavailable，别的这一次没做成 */
+export function failureOf(result: Extract<CallResult, { ok: false }>, url: string, timeout: () => Error): Error {
+  if (result.cause === "closed") return new Error(t("voice.recognizer.stopped"));
+  if (result.cause === "timeout") return timeout();
+  if (result.cause === "unreachable") return new RecognizerUnavailable(t("voice.recognizer.lsmOff", { url, error: result.detail ?? "" }));
+  // 服务回了错误：文字沿用 stdio 那套（"模型加载失败：…" / "识别出错：…"），fatal 的才是这个服务不能用了
+  const detail = typeof result.body?.error === "string" ? result.body.error : "";
+  if (result.body?.fatal === true) return new RecognizerUnavailable(detail || t("voice.recognizer.lsmStatus", { status: result.status ?? 0, url }));
+  return new Error(detail || t("voice.recognizer.lsmStatus", { status: result.status ?? 0, url }));
+}
+
+/** recognizer.py --serve 的接口（契约见 recognizer.py 开头） */
 export function createHttpRecognizer(options: HttpRecognizerOptions): Recognizer {
-  const { url, log } = options;
+  const { url, init } = options;
+  return createServiceRecognizer(url, options, (call) => {
+    const failure = (result: Extract<CallResult, { ok: false }>, timeout: () => Error) => failureOf(result, url, timeout);
+
+    /** 服务说的模型状态 → 加载好之后交出去的那份（模型没报的按配置里写的） */
+    const loadedOf = (status: ServiceStatus): RecognizerLoaded => {
+      const fallbackReason = textOf(status.fallbackReason);
+      return {
+        model: textOf(status.model) ?? init.primary.model,
+        device: textOf(status.device) ?? init.primary.device,
+        computeType: textOf(status.computeType) ?? init.primary.computeType,
+        loadMs: typeof status.loadMs === "number" && Number.isFinite(status.loadMs) ? status.loadMs : 0,
+        ...(fallbackReason ? { fallbackReason } : {}),
+      };
+    };
+
+    return {
+      /**
+       * 让它加载、等它加载好（预热，45 号票）：POST /v1/warmup 一句（带设置），模型还没好就每 POLL_MS 看一次 /health，
+       * 最多等 timeout.baseMs + timeout.coldStartMs（本机实测加载一次 44–58 秒）。服务说加载失败就不等了
+       */
+      async load(alive) {
+        const loadTimeoutMs = options.timeout.baseMs + options.timeout.coldStartMs;
+        const seconds = Math.max(1, Math.round(loadTimeoutMs / 1000));
+        const deadline = Date.now() + loadTimeoutMs;
+        // 一次请求最多等多久：比上限短就按剩下的加载时间，服务卡住时不会比"加载超时"晚
+        const left = () => Math.max(1, Math.min(CALL_TIMEOUT_MS, deadline - Date.now()));
+        const started = await call("/v1/warmup", { method: "POST", body: { primary: init.primary, fallback: init.fallback }, timeoutMs: left() });
+        if (!started.ok) throw failure(started, () => new RecognizerUnavailable(t("voice.recognizer.loadTimeout", { seconds })));
+        let status = started.body as ServiceStatus;
+        for (;;) {
+          const error = textOf(status.error);
+          if (error) throw new RecognizerUnavailable(error);
+          if (status.loaded === true) return loadedOf(status);
+          if (!alive()) throw new Error(t("voice.recognizer.stopped"));
+          if (Date.now() >= deadline) throw new RecognizerUnavailable(t("voice.recognizer.loadTimeout", { seconds }));
+          await sleep(POLL_MS);
+          const health = await call("/health", { method: "GET", timeoutMs: left() });
+          if (!health.ok) throw failure(health, () => new RecognizerUnavailable(t("voice.recognizer.loadTimeout", { seconds })));
+          status = health.body as ServiceStatus;
+        }
+      },
+      async probe(timeoutMs) {
+        const seconds = Math.max(1, Math.round(timeoutMs / 1000));
+        const answer = await call("/health", { method: "GET", timeoutMs });
+        // 活着、模型还加载着：马上回（和 spawn 那条问一句就回一样，不再报一次"加载好了"）
+        if (answer.ok && answer.body.loaded === true) return undefined;
+        return answer.ok ? new RecognizerUnavailable(t("voice.recognizer.lsmNotLoaded", { url })) : failure(answer, () => new RecognizerUnavailable(t("voice.recognizer.lsmNoAnswer", { seconds, url })));
+      },
+      async recognize(request, { timeoutMs, signal, timeoutError }) {
+        const audio = await fs.promises.readFile(request.path);
+        const answer = await call("/v1/transcribe", {
+          method: "POST",
+          body: { audio: audio.toString("base64"), ...(request.language ? { language: request.language } : {}), ...(request.initialPrompt ? { initialPrompt: request.initialPrompt } : {}) },
+          timeoutMs,
+          signal,
+        });
+        if (!answer.ok) throw failure(answer, () => timeoutError);
+        const result = answer.body as unknown as RecognizeResult;
+        if (typeof result.text !== "string" || !Array.isArray(result.segments)) throw new Error(t("voice.recognizer.lsmBadReply"));
+        return result;
+      },
+      timeoutMs: (audioMs, loaded) => recognizeTimeoutMs(options.timeout, init, audioMs, loaded?.device),
+    };
+  });
+}
+
+/** 接一条 HTTP 识别服务的状态机（见文件开头）：接口的差别都在 protocol 后面 */
+export function createServiceRecognizer(url: string, options: ServiceRecognizerOptions, makeProtocol: (call: ServiceCall) => ServiceProtocol): Recognizer {
+  const { log } = options;
   /** 这一代（一次从预热到"服务不正常"之间的使用）：加载好了在里面，没了就作废、下次重新预热 */
   let current: Generation | undefined;
   let closed = false;
@@ -113,7 +220,7 @@ export function createHttpRecognizer(options: HttpRecognizerOptions): Recognizer
   };
 
   /** 发一个请求（超时、连不上、HTTP 状态码都按结局给，不抛） */
-  const call = async (path: string, request: { method: "GET" | "POST"; body?: unknown; timeoutMs: number; signal?: AbortSignal }): Promise<CallResult> => {
+  const call: ServiceCall = async (path, request) => {
     const controller = new AbortController();
     inflight.add(controller);
     const timeout = AbortSignal.timeout(request.timeoutMs);
@@ -121,7 +228,7 @@ export function createHttpRecognizer(options: HttpRecognizerOptions): Recognizer
     try {
       const res = await fetch(`${url}${path}`, {
         method: request.method,
-        ...(request.body === undefined ? {} : { headers: { "content-type": "application/json" }, body: JSON.stringify(request.body) }),
+        ...(request.form !== undefined ? { body: request.form } : request.body === undefined ? {} : { headers: { "content-type": "application/json" }, body: JSON.stringify(request.body) }),
         signal: AbortSignal.any(signals),
       });
       const text = await res.text();
@@ -140,54 +247,7 @@ export function createHttpRecognizer(options: HttpRecognizerOptions): Recognizer
     }
   };
 
-  /** 没成的一次请求 → 给用户看的错误：连不上、服务说加载不了是 RecognizerUnavailable，别的这一次没做成 */
-  const failureOf = (result: Extract<CallResult, { ok: false }>, timeout: () => Error): Error => {
-    if (result.cause === "closed") return new Error(t("voice.recognizer.stopped"));
-    if (result.cause === "timeout") return timeout();
-    if (result.cause === "unreachable") return new RecognizerUnavailable(t("voice.recognizer.lsmOff", { url, error: result.detail ?? "" }));
-    // 服务回了错误：文字沿用 stdio 那套（"模型加载失败：…" / "识别出错：…"），fatal 的才是这个服务不能用了
-    const detail = typeof result.body?.error === "string" ? result.body.error : "";
-    if (result.body?.fatal === true) return new RecognizerUnavailable(detail || t("voice.recognizer.lsmStatus", { status: result.status ?? 0, url }));
-    return new Error(detail || t("voice.recognizer.lsmStatus", { status: result.status ?? 0, url }));
-  };
-
-  /** 服务说的模型状态 → 加载好之后交出去的那份（模型没报的按配置里写的） */
-  const loadedOf = (status: ServiceStatus): RecognizerLoaded => {
-    const fallbackReason = textOf(status.fallbackReason);
-    return {
-      model: textOf(status.model) ?? options.init.primary.model,
-      device: textOf(status.device) ?? options.init.primary.device,
-      computeType: textOf(status.computeType) ?? options.init.primary.computeType,
-      loadMs: typeof status.loadMs === "number" && Number.isFinite(status.loadMs) ? status.loadMs : 0,
-      ...(fallbackReason ? { fallbackReason } : {}),
-    };
-  };
-
-  /**
-   * 让它加载、等它加载好（预热，45 号票）：POST /v1/warmup 一句（带设置），模型还没好就每 POLL_MS 看一次 /health，
-   * 最多等 timeout.baseMs + timeout.coldStartMs（本机实测加载一次 44–58 秒）。服务说加载失败就不等了
-   */
-  const warmupAndWait = async (gen: Generation): Promise<RecognizerLoaded> => {
-    const loadTimeoutMs = options.timeout.baseMs + options.timeout.coldStartMs;
-    const seconds = Math.max(1, Math.round(loadTimeoutMs / 1000));
-    const deadline = Date.now() + loadTimeoutMs;
-    // 一次请求最多等多久：比上限短就按剩下的加载时间，服务卡住时不会比"加载超时"晚
-    const left = () => Math.max(1, Math.min(CALL_TIMEOUT_MS, deadline - Date.now()));
-    const started = await call("/v1/warmup", { method: "POST", body: { primary: options.init.primary, fallback: options.init.fallback }, timeoutMs: left() });
-    if (!started.ok) throw failureOf(started, () => new RecognizerUnavailable(t("voice.recognizer.loadTimeout", { seconds })));
-    let status = started.body as ServiceStatus;
-    for (;;) {
-      const error = textOf(status.error);
-      if (error) throw new RecognizerUnavailable(error);
-      if (status.loaded === true) return loadedOf(status);
-      if (closed || gen.retired) throw new Error(t("voice.recognizer.stopped"));
-      if (Date.now() >= deadline) throw new RecognizerUnavailable(t("voice.recognizer.loadTimeout", { seconds }));
-      await sleep(POLL_MS);
-      const health = await call("/health", { method: "GET", timeoutMs: left() });
-      if (!health.ok) throw failureOf(health, () => new RecognizerUnavailable(t("voice.recognizer.loadTimeout", { seconds })));
-      status = health.body as ServiceStatus;
-    }
-  };
+  const protocol = makeProtocol(call);
 
   /** 起一代：让它加载模型；加载的结局经 state / onLifecycle 报（和 spawn 那条拉起后马上加载一样） */
   const startGeneration = (): Generation => {
@@ -195,7 +255,7 @@ export function createHttpRecognizer(options: HttpRecognizerOptions): Recognizer
     // loading 紧接着补上：先建出这一代才能把它交给预热（预热要知道它有没有被作废）
     const gen: Generation = { retired: false, busy: 0 } as Generation;
     current = gen;
-    gen.loading = warmupAndWait(gen);
+    gen.loading = protocol.load(() => !closed && !gen.retired);
     // 没人等（真的识别先到、预热还没来问）时加载失败不算没处理的 rejection
     gen.loading.catch(() => {});
     gen.loading.then(
@@ -240,15 +300,9 @@ export function createHttpRecognizer(options: HttpRecognizerOptions): Recognizer
       if (!gen?.info) return load();
       // 正给别处识别着（Debug 页、悬浮按钮）：它活着，那次识别自己的超时守着，不另外问
       if (gen.busy > 0) return gen.info;
-      const timeoutMs = options.checkTimeoutMs ?? CHECK_TIMEOUT_MS;
-      const seconds = Math.max(1, Math.round(timeoutMs / 1000));
-      const answer = await call("/health", { method: "GET", timeoutMs });
+      const err = await protocol.probe(options.checkTimeoutMs ?? CHECK_TIMEOUT_MS);
       if (closed) throw new Error(t("voice.recognizer.stopped"));
-      // 活着、模型还加载着：马上回（和 spawn 那条问一句就回一样，不再报一次"加载好了"）
-      if (answer.ok && answer.body.loaded === true) return gen.info;
-      const err = answer.ok
-        ? new RecognizerUnavailable(t("voice.recognizer.lsmNotLoaded", { url }))
-        : failureOf(answer, () => new RecognizerUnavailable(t("voice.recognizer.lsmNoAnswer", { seconds, url })));
+      if (!err) return gen.info;
       log(`语音识别服务不正常（${err.message}），重新预热`);
       retire(gen, err);
       // LSM 会在服务自己挂了之后重新拉起；这里重新预热、等它好，还不行就以 RecognizerUnavailable 结束
@@ -257,7 +311,7 @@ export function createHttpRecognizer(options: HttpRecognizerOptions): Recognizer
     transcribe(request: RecognizeRequest, audioMs = VOICE_MAX_MS) {
       if (closed) return Promise.reject(new Error(t("voice.recognizer.stopped")));
       const gen = current && !current.retired ? current : startGeneration();
-      const timeoutMs = recognizeTimeoutMs(options.timeout, options.init, audioMs, gen.info?.device);
+      const timeoutMs = protocol.timeoutMs(audioMs, gen.info);
       const seconds = Math.max(1, Math.round(timeoutMs / 1000));
       const deadline = Date.now() + timeoutMs;
       const timeoutError = new Error(t("voice.recognizer.timeout", { seconds }));
@@ -279,23 +333,18 @@ export function createHttpRecognizer(options: HttpRecognizerOptions): Recognizer
             retire(gen, timeoutError);
             throw timeoutError;
           }
-          const audio = await fs.promises.readFile(request.path);
-          const answer = await call("/v1/transcribe", {
-            method: "POST",
-            body: { audio: audio.toString("base64"), ...(request.language ? { language: request.language } : {}), ...(request.initialPrompt ? { initialPrompt: request.initialPrompt } : {}) },
-            timeoutMs: remaining,
-            signal,
-          });
-          if (!answer.ok) {
+          let result: RecognizeResult;
+          try {
+            result = await protocol.recognize(request, { timeoutMs: remaining, signal, timeoutError });
+          } catch (err) {
             // 这次识别自己的超时（上面的计时器已经把它作废了）以超时结束；守护进程在停就说停了
             if (timerController.signal.aborted) throw reasonOf(timerController.signal);
-            if (closing.signal.aborted) throw new Error(t("voice.recognizer.stopped"));
-            const err = failureOf(answer, () => timeoutError);
+            if (closing.signal.aborted) throw new Error(t("voice.recognizer.stopped"), { cause: err });
+            // 这一次请求自己的时限比上面的计时器先到一点点：一样算超时，一样作废
             if (err instanceof RecognizerUnavailable) retire(gen, err);
+            else if (err === timeoutError) retire(gen, timeoutError);
             throw err;
           }
-          const result = answer.body as unknown as RecognizeResult;
-          if (typeof result.text !== "string" || !Array.isArray(result.segments)) throw new Error(t("voice.recognizer.lsmBadReply"));
           // 识别时显卡出错、退回了 CPU：模型的状态跟着变（和 spawn 那条一样）
           const info = gen.info;
           if (info && (info.model !== result.model || info.device !== result.device)) {

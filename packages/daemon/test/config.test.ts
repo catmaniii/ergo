@@ -316,6 +316,9 @@ describe("配置", () => {
     writeConfigFile(dataDir, { voice: { recognizer: { idleMinutes: 0 } } });
     expect(load().recognizer.idleMs).toBe(0);
     // 250 号票：换成正 LSM 托管的那条；地址去掉末尾的斜杠，认 http/https
+    // 346 号票：第三种接入，组件页装好语音识别模型时写的；默认还是 spawn
+    writeConfigFile(dataDir, { voice: { recognizer: { mode: "audiocpp" } } });
+    expect(load().recognizer.mode).toBe("audiocpp");
     writeConfigFile(dataDir, { voice: { recognizer: { mode: "lsm", url: "http://127.0.0.1:9200/" } } });
     expect(load().recognizer).toMatchObject({ mode: "lsm", url: "http://127.0.0.1:9200" });
     for (const wrong of [

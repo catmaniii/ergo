@@ -1,7 +1,7 @@
 // 设置 · 语音里两个语音模型的状态（45 号票：模型预热）。守护进程在后台提前加载识别模型和合成模型；状态经本机接口取
 // （GET /api/voice-models，打开页面时取一次，UiInput 的 voice_models），变了经活动状态频道推临时事件 voice_models。
 // 两条路来的都并进状态层（UiState.voiceModels），留新的：同一次启动里 revision 大的新；守护进程重启过的（startedAt 不同）取后启动的。
-// 识别引擎的清单也在里面（现在只有 faster-whisper 一项，由守护进程给，前端不写死）。
+// 识别引擎的清单也在里面（现在只有在用的那一项，由守护进程给，前端不写死）。
 import { t, tTable, VOICE_MODEL_STATUS_LABEL, type VoiceModelState, type VoiceModelsView } from "./protocol.ts";
 
 /** 并进一份状态：留新的那一个 */

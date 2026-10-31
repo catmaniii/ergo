@@ -3,6 +3,7 @@
 // - 下载器（downloader.ts、transport.ts、proxy.ts）：断点续传、几个地址探速挑快的、校验对了才换上、走系统代理；
 // - 服务（service.ts）：装、删、更新、暂停、继续、取消、离线导入，设置 · 组件和以后的 `ergo components` 共用；
 // - 检测（probes.ts）：有没有 N 卡、本机装没装 Claude Code、别处是不是已经有了；
+// - 语音识别模型和配置里的接入方式（recognizer-link.ts，346 号票）；
 // - 常驻服务（host.ts、audiocpp-host.ts，345 号票）：语音合成的程序和模型装好后生成配置、经服务管家登记启动，已有用户自己配的不覆盖。
 import { createHttpTransport, type Transport } from "./transport.ts";
 import { type ProxyFor, proxyResolver, readWindowsProxy } from "./proxy.ts";
@@ -12,6 +13,7 @@ export { type AudioCppHost, type AudioCppHostOptions, createAudioCppHost } from 
 export type { ComponentHost, ComponentHostContext } from "./host.ts";
 export { type ComponentManifest, type LoadedManifest, loadManifest, type ManifestVerifier, minisignManifestVerifier, parseManifest, pickVariant, shippedManifestVerifier } from "./manifest.ts";
 export { type ComponentProbes, createComponentProbes } from "./probes.ts";
+export { createRecognizerLink, type RecognizerLink } from "./recognizer-link.ts";
 export { createHttpTransport, type Transport } from "./transport.ts";
 export { proxyResolver, type ProxyFor } from "./proxy.ts";
 

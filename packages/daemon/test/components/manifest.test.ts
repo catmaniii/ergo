@@ -1,8 +1,9 @@
 // 组件清单（323 号票）：随程序发布的那份读得进来、和代码里锁的版本一致；默认装不装写在数据里；清单写错了读的时候就报。
 import fs from "node:fs";
 import { describe, expect, test } from "vitest";
-import { fileSources, loadManifest, parseManifest, pickVariant, variantFiles } from "../../src/components/manifest.ts";
+import { fileSources, loadManifest, parseManifest, pendingParts, pickVariant, variantFiles } from "../../src/components/manifest.ts";
 import { BGE_M3 } from "../../src/materials/embedding/bge-m3.ts";
+import { AUDIOCPP_RECOGNIZER_MODEL } from "../../src/voice/recognizer-audiocpp.ts";
 
 const { manifest, signed } = loadManifest();
 const byId = (id: string) => manifest.components.find((c) => c.id === id)!;
@@ -85,10 +86,29 @@ describe("随程序发布的清单", () => {
     expect(fileSources(c, c.variants[0]!.parts[0]!, variantFiles(c.variants[0]!)[0]!.file)[0]?.url).toBe(`https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk/-/claude-agent-sdk-${c.version}.tgz`);
   });
 
-  test("语音识别按有没有 N 卡挑 CUDA 版 / CPU 版；Claude Code 接入只有 Windows x64 的", () => {
+  test("语音识别模型（346 号票）：Fun-ASR Nano，用 audio.cpp 那个程序；不打包不镜像，地址钉死到提交，校验值是 Hugging Face 的；要确认 v1.1 许可、标来源；默认不装", () => {
     const asr = byId("asr");
-    expect(pickVariant(asr, { platform: "win32", arch: "x64", gpu: "nvidia" })?.id).toBe("cuda");
-    expect(pickVariant(asr, { platform: "win32", arch: "x64", gpu: "none" })?.id).toBe("cpu");
+    expect(asr.default).toBe("ask");
+    expect(asr.dependsOn).toEqual(["audiocpp"]);
+    expect(asr.enables).toEqual(["voice.input"]);
+    expect(asr.provided).toBe("voice-recognizer");
+    expect(asr.recommended).toBe(true);
+    // Python 那条路不再是"没接上"：能从这里装了
+    for (const v of asr.variants) expect(pendingParts(v)).toEqual([]);
+    expect(variantFiles(asr.variants[0]!)[0]?.file).toEqual({ path: "fun-asr-nano-2512-q8_0.gguf", size: 1_045_334_432, sha256: "4d727357574b079b7f43336b2930f39da086ca02f5d8d50872090b4c1c3d5e0a" });
+    expect(asr.serve).toEqual({ host: "audiocpp", id: AUDIOCPP_RECOGNIZER_MODEL, family: "fun_asr_nano", task: "asr", mode: "offline", file: "fun-asr-nano-2512-q8_0.gguf" });
+    expect(asr.version).toBe("ce72677f");
+    expect(asr.sources?.map((s) => s.url)).toEqual([
+      "https://huggingface.co/FunAudioLLM/Fun-ASR-Nano-2512-GGUF/resolve/ce72677f84900f0dc57f498ace253bfb3c9155b6/{path}",
+      "https://hf-mirror.com/FunAudioLLM/Fun-ASR-Nano-2512-GGUF/resolve/ce72677f84900f0dc57f498ace253bfb3c9155b6/{path}",
+    ]);
+    expect(asr.license).toMatchObject({ name: "FunASR Model License v1.1", url: "https://github.com/modelscope/FunASR/blob/main/MODEL_LICENSE", confirm: true, revision: "1.1", attribution: "Fun-ASR-Nano-2512 · FunAudioLLM / Alibaba Group" });
+  });
+
+  test("语音程序按有没有 N 卡挑 CUDA 版 / CPU 版；Claude Code 接入只有 Windows x64 的", () => {
+    const program = byId("audiocpp");
+    expect(pickVariant(program, { platform: "win32", arch: "x64", gpu: "nvidia" })?.id).toBe("cuda");
+    expect(pickVariant(program, { platform: "win32", arch: "x64", gpu: "none" })?.id).toBe("cpu");
     expect(pickVariant(byId("claude-code"), { platform: "win32", arch: "x64", gpu: "none" })?.id).toBe("win32-x64");
     expect(pickVariant(byId("claude-code"), { platform: "linux", arch: "x64", gpu: "none" })).toBeUndefined();
   });
