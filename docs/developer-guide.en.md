@@ -216,6 +216,48 @@ The memory system is a replaceable **plugin**, and only one runs at a time. The 
 - Config is read-only and missing items take defaults; **each threshold's default is defined once, in its own module** (`tasks/thresholds.ts`, `reminders/thresholds.ts`, `scheduled-jobs/thresholds.ts`, `event-sources/thresholds.ts`…); config files only list what changes.
 - Files are always written to a temporary file and then renamed, via `util/atomic-file.ts` ([Section 9](#9-coding-conventions)).
 
+### 4.11 Model providers
+
+Models are called on the daemon's computer; the web page only holds settings. Providers are a **registry table** (`MODEL_PROVIDERS` in `model-settings/providers.ts`) that drives the settings page, the connection test, where keys live and the default used when there is no settings file (why there is only DeepSeek plus one custom OpenAI-compatible provider is [ADR-0037](adr/0037-configurable-model-provider.md), in Chinese).
+
+| Field | Meaning |
+|---|---|
+| `id` | The provider id in pi's model catalog, the first half of "provider/model id" (`modelKeyOf`), and the key in `credentials` |
+| `label` | Name on the settings page. Translated ones are written as a getter (`get label() { return t("…") }`); never call `t()` at module top level |
+| `keyEnv` | Which environment variable the daemon reads the key from (`modelCredentials` in `config/secrets.ts` reads by it, keyed by `id`) |
+| `secretFile` | Which file in the data directory's secrets area the supervisor (LSM) injects the key from (relative to the data directory); a key entered on the web page is written to the same file |
+| `defaultModelId` | Default model when there is no settings file. Empty for the custom provider — the model id is whatever the user typed, and nothing may use it as a default |
+
+There are two entries today and **the first one is the default**: `deepseek` (`DEEPSEEK_API_KEY` / `secrets/deepseek-api-key.txt` / `deepseek-flash`) and `custom` (`CUSTOM_MODEL_API_KEY` / `secrets/custom-model-api-key.txt` / empty). `DEFAULT_MODEL_SETTINGS` is `MODEL_PROVIDERS[0]` plus thinking level `high`, and `providerOf(settings.provider) ?? MODEL_PROVIDERS[0]` appears all over `model-settings.ts`, so "the first entry is the default" must not be broken.
+
+**Registering the custom provider in a child process.** pi's model catalog does not contain `custom`; without registration `getModel("custom", modelId)` is always `undefined` (the session won't start and the connection test says "not in the model catalog"). Registration happens in exactly one place:
+
+- `customProviderConfig()` in `runtime/agent-child/custom-provider.ts` builds that `ProviderConfig` (`name` is `custom`, `baseUrl` trimmed of trailing slashes, `api` defaulting to `openai-completions`, and a single entry in `models`: the id the user typed). Model metadata cannot be entered by the user, so it is fixed by estimate: `input: ["text"]`, `reasoning: false`, `contextWindow: 128_000`, `maxTokens: 8192`, all `cost` fields 0 (the ledger still records real usage; costs for such a model are rough estimates on the usage page). Those two limits are defined only in `custom-provider.ts`.
+- `registerCustomProvider(modelRuntime, custom)` is called from exactly four child-process entry points: `session.ts` (opening a session), `probe.ts` (model probing: catalog lookup and connection test), `recorded-generation.ts`, and `translate.ts` (translating slash-command descriptions). It **must run before `setRuntimeApiKey`** — only after registering does `getModel` know the model, and the key goes in through the following `setRuntimeApiKey` call into pi's in-memory credentials; the other order reports "no such provider".
+- Metadata lives in those two functions only. Do not build a `ProviderConfig` anywhere else, and keep to the pi boundary (`pi-boundary.test.ts`: `@earendil-works/*` only under `runtime/agent-child/`).
+
+**The assembly field `SessionAssembly.custom`** (`runtime/host-protocol.ts`): `{ baseUrl, modelId, api? }`, and it is **absent** (not an empty object) when the custom provider is not selected. It contains no key — the key stays in `credentials` (under `custom`) and reaches the child over stdin. The same block also appears in three other requests: `ModelProbeRequest`'s `{ type: "catalog", custom? }` and `{ type: "ping", custom? }`, and `TranslationRequest.custom`. The daemon has a single source for it: `ModelSettingsService.customProvider()` (only when `custom` is selected; a copy of `settings.custom`), handed to the agent manager by the composition root (`customProvider: () => modelSettings.customProvider()`). While `custom` is selected, **every agent's model id becomes `custom.modelId`** (thinking levels still come from each row), because the provider has a single model — that happens in `effectiveChoiceOf`; the ids in `default` and the per-agent overrides are only what is used after switching back to DeepSeek.
+
+**The two endpoints.** Both live with the rest of the settings, and the key never enters a request body nor comes back in a response:
+
+| Endpoint | Request | Response |
+|---|---|---|
+| `POST /api/model-settings/custom-models` | `{ baseUrl? }` (falls back to the one saved in settings) | `{ ok, models: [{ id, name?, ownedBy? }], error? }` |
+| `POST /api/model-settings/test` | `{ modelId?, custom? }` (`custom` tests that copy — for trying before the page is saved; omitted means what is saved) | `{ ok, modelId, firstTokenMs?, totalMs, error? }` |
+
+- Listing models is a single `GET {baseUrl}/models` from the daemon with `Authorization: Bearer <key>` (the key of the **currently selected** provider), a 15-second timeout, at most `CUSTOM_MODELS_MAX` (500) entries; it accepts `{ data: [{ id, name?, owned_by? }] }` and also a bare array. **Failing to list is not an error**: it still returns 200 with `ok: false` and an `error` explaining why, with any key material stripped.
+- The connection test keeps the existing route — a one-shot child process that registers the provider and sends a very short request; only one runs at a time and a second one gets 409 ("the previous one hasn't finished").
+- The `custom` block in the settings file may stay while `provider` is not `custom` (switching back to DeepSeek does not clear it); if `POST /api/model-settings` omits `custom`, the saved one is kept. `checkModelCustom()` (`packages/protocol/src/model-settings.ts`) is the only place that validates it: the URL must be http(s), the model id may not be blank, trailing slashes are trimmed; `custom` selected without that block is treated as an unreadable settings file.
+
+**To add another vendor preset, change this:**
+
+1. Add a row to `MODEL_PROVIDERS` in `model-settings/providers.ts`: `id`, `label` (wrap in `t("modelSettings.provider.<id>")` if it should be translated, in both locale files), `keyEnv`, `secretFile`, `defaultModelId`.
+2. Add an entry under `env:` in `deploy/lsm/ergo-daemon.example.yaml` — `{ name: <keyEnv>, from: file, path: <home>\.ergo\secrets\<file>, optional: true }` — otherwise the supervisor will not inject the key (a key entered on the web page works until the daemon restarts).
+3. If pi's model catalog already has that vendor, nothing changes in the child process; if not, register it under `runtime/agent-child/` the way `custom-provider.ts` does (`ProviderConfig` may only be built in that layer).
+4. The settings page, the key block, the connection test and model listing all read the table, so they need no changes; extend `test/model-custom-provider.test.ts` (the fake OpenAI-compatible service is `test/helpers/fake-openai.ts`, no network).
+
+**What this layer deliberately does not cover**: the nightly memory consolidation (`memory/nightly-job.ts` builds `DeepSeekChat` from `DEEPSEEK_API_KEY`), web search and page reading (`web/deepseek.ts` is a DeepSeek-proprietary API), and the token price table (`packages/protocol/src/token-prices.ts` knows only DeepSeek). They stay DeepSeek-only even after switching to a custom provider — when touching them, take the key from the `deepseek` row's `keyEnv` / `secretFile` (or `deepseekKey()` in `config/secrets.ts`) instead of "the currently selected provider".
+
 ## 5. Plugins
 
 The daemon is split into a **kernel** and **plugins** ([ADR-0027](adr/0027-plugin-host-kernel-and-agent-contributions.md)): the kernel (event log, task execution with the guard, host protocol, gateway…) is wired by hand in the composition root; plugins are installed from the manifest `plugins/manifest.ts` via the plugin host `plugins/host.ts`, and the composition root never names a plugin. A feature plugin = a daemon plugin + a web plugin of the same name, enabled and disabled together; users can hot-plug them under Settings · Plugins.

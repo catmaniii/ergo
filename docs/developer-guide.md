@@ -216,6 +216,48 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 - 配置只读，缺的项取默认值；**每个阈值的默认值只在它自己的模块里定一次**（`tasks/thresholds.ts`、`reminders/thresholds.ts`、`scheduled-jobs/thresholds.ts`、`event-sources/thresholds.ts`……），配置里只写要改的几项。
 - 写文件一律先写临时文件再改名，走 `util/atomic-file.ts`（[第 9 节](#9-写代码的约定)）。
 
+### 4.11 模型服务商
+
+模型都在守护进程这台电脑上调，网页只放设置。服务商是一张**登记表**（`model-settings/providers.ts` 的 `MODEL_PROVIDERS`），设置页、连通测试、key 放哪、没有设置文件时的默认值都照它来（为什么只做 DeepSeek + 一个自定义的 OpenAI 兼容服务商，见 [ADR-0037](adr/0037-configurable-model-provider.md)）。
+
+| 字段 | 是什么 |
+|---|---|
+| `id` | pi 模型目录里的 provider id，也是「provider/模型 id」的前半（`modelKeyOf`）、`credentials` 里的键 |
+| `label` | 设置页上的名字。要翻译的写成取值函数（`get label() { return t("…") }`），模块顶层不取句子 |
+| `keyEnv` | 守护进程从哪个环境变量取 key（`config/secrets.ts` 的 `modelCredentials` 照它取，键名是 `id`） |
+| `secretFile` | 服务管家（LSM）从数据目录哪个文件注入 key（相对数据目录）；网页上填的 key 也写进这个文件 |
+| `defaultModelId` | 没有设置文件时的默认模型。自定义服务商是空串——模型 id 是用户填的，谁都不许拿它当默认 |
+
+现在两项，**第一项是默认**：`deepseek`（`DEEPSEEK_API_KEY` / `secrets/deepseek-api-key.txt` / `deepseek-flash`）和 `custom`（`CUSTOM_MODEL_API_KEY` / `secrets/custom-model-api-key.txt` / 空串）。`DEFAULT_MODEL_SETTINGS` 就是 `MODEL_PROVIDERS[0]` + 思考档位 `high`；`providerOf(settings.provider) ?? MODEL_PROVIDERS[0]` 这个写法在 `model-settings.ts` 里到处都是，所以"第一项是默认"这条不能破坏。
+
+**自定义服务商怎么在子进程里登记。** pi 的模型目录里没有 `custom`，不登记的话 `getModel("custom", 模型 id)` 一律是 `undefined`（会话起不来、连通测试回"模型目录里没有"）。登记只有一处：
+
+- `runtime/agent-child/custom-provider.ts` 的 `customProviderConfig()` 构造那份 `ProviderConfig`（`name` 是 `custom`、`baseUrl` 去掉末尾斜杠、`api` 默认 `openai-completions`、`models` 只有一个：用户填的那个 id）。模型元数据用户填不了，按估算写死：`input: ["text"]`、`reasoning: false`、`contextWindow: 128_000`、`maxTokens: 8192`、`cost` 全 0（账本照实际用量记，消耗页上这种模型的成本是粗估）；上下文窗口和一次最多几个 token 这两个数只在 `custom-provider.ts` 里定义。
+- `registerCustomProvider(modelRuntime, custom)` 只被四个子进程入口调用：`session.ts`（开会话）、`probe.ts`（模型探查：查目录、连通测试）、`recorded-generation.ts`、`translate.ts`（斜杠命令说明的翻译）。**必须在 `setRuntimeApiKey` 之前登记**——登记之后 `getModel` 才认得，key 由随后的 `setRuntimeApiKey` 放进 pi 的内存凭据；反过来会先报"没有这个 provider"。
+- 登记多少份元数据、key 从哪来，都在这两个函数里；别处不要自己造 `ProviderConfig`，也不要绕开 `pi-boundary.test.ts` 去碰 `@earendil-works/*`。
+
+**装配字段 `SessionAssembly.custom`**（`runtime/host-protocol.ts`）：`{ baseUrl, modelId, api? }`，不选自定义时这一项**没有**（不是空对象）。它不含 key——key 照旧只在 `credentials`（键名 `custom`）里，经 stdin 送进子进程。同一块还出现在另外三个请求里：`ModelProbeRequest` 的 `{ type: "catalog", custom? }` 和 `{ type: "ping", custom? }`、`TranslationRequest.custom`。守护进程这一侧只有一个来源：`ModelSettingsService.customProvider()`（选了 `custom` 才有，`settings.custom` 的副本），组合根把它交给 agent 管家（`customProvider: () => modelSettings.customProvider()`）。选自定义时**所有 agent 的模型 id 一律换成 `custom.modelId`**（思考档位照每一行），因为服务商只有一个模型——在 `effectiveChoiceOf` 里做，`default` 和各 agent 覆盖里写的模型 id 只是切回 DeepSeek 时接着用。
+
+**两个接口。** 都是在设置那一套里，key 从不进请求体、也不回显：
+
+| 接口 | 请求 | 回应 |
+|---|---|---|
+| `POST /api/model-settings/custom-models` | `{ baseUrl? }`（不给就用设置里存的那份） | `{ ok, models: [{ id, name?, ownedBy? }], error? }` |
+| `POST /api/model-settings/test` | `{ modelId?, custom? }`（`custom` 给了就测这一份，设置页还没存也想试一下时用；不带按设置里存的） | `{ ok, modelId, firstTokenMs?, totalMs, error? }` |
+
+- 列模型是守护进程自己发的一次 `GET {baseUrl}/models`，带 `Authorization: Bearer <key>`（key 取**当前选中的**那个服务商的），15 秒超时，最多收 `CUSTOM_MODELS_MAX`（500）个；认 `{ data: [{ id, name?, owned_by? }] }`，也认直接一个数组。**列不成不算出错**：照样回 200，`ok: false`、`error` 写原因，原因里的 key 内容去掉。
+- 连通测试还是那条路——起一个一次性子进程，在它里面登记 provider、发一条极短的请求；同一时间只跑一个，重了回 409（"上一个还没测完"）。
+- 设置文件里的 `custom` 块在 `provider` 不是 `custom` 时也可以留着（切回 DeepSeek 不清空它）；`POST /api/model-settings` 没带 `custom` 就沿用文件里原来那份。`checkModelCustom()`（`packages/protocol/src/model-settings.ts`）是唯一判合规的地方：地址要 http(s)、模型 id 不能空白、末尾斜杠去掉；选着 `custom` 却没有这一块按读文件失败处理。
+
+**要加别家预设，改这里**：
+
+1. `model-settings/providers.ts` 的 `MODEL_PROVIDERS` 加一行：`id`、`label`（要翻译就写 `t("modelSettings.provider.<id>")`，两份语言文件都加）、`keyEnv`、`secretFile`、`defaultModelId`。
+2. `deploy/lsm/ergo-daemon.example.yaml` 的 `env:` 加一条 `{ name: <keyEnv>, from: file, path: <用户主目录>\.ergo\secrets\<文件>, optional: true }`，不然服务管家不注入 key（网页上填的 key 当次有效，重启守护进程以后就没了一样）。
+3. pi 的模型目录里**有**这家就不用动子进程；**没有**的话照 `custom-provider.ts` 的样子在 `runtime/agent-child/` 里登记一份（`ProviderConfig` 只能在这一层构造）。
+4. 设置页、key 那块、连通测试、列模型都照登记表来，不用改；`test/model-custom-provider.test.ts`（本机的假 OpenAI 兼容服务在 `test/helpers/fake-openai.ts`，不联网）可以照着加。
+
+**这一层不管的**：记忆的每晚整理（`memory/nightly-job.ts` 用 `DEEPSEEK_API_KEY` 建 `DeepSeekChat`）、联网搜索和读网页（`web/deepseek.ts` 是 DeepSeek 专有接口）、token 单价表（`packages/protocol/src/token-prices.ts` 只有 DeepSeek）都只认 DeepSeek，换成自定义服务商也不跟着换——碰这几样时按登记表里 `deepseek` 的 `keyEnv` / `secretFile`（或 `config/secrets.ts` 的 `deepseekKey()`）取 key，别顺手改成"当前服务商"。
+
 ## 5. 插件
 
 守护进程分**内核**和**插件**（[ADR-0027](adr/0027-plugin-host-kernel-and-agent-contributions.md)）：内核（事件日志、任务执行连同守卫、宿主协议、网关……）在组合根里手工装；插件按插件清单 `plugins/manifest.ts` 经插件宿主 `plugins/host.ts` 装，组合根里不出现任何一个插件。一个功能插件 = 守护进程里的插件 + 网页里同名的网页插件，一起启停，用户能在设置 · 插件里热插拔。

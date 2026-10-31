@@ -39,7 +39,7 @@ ergo never starts long-running services itself; the supervisor hosts them. They 
 
 - **Windows 10 / 11 only.** ergo relies on Windows-only features (Job objects, directory junctions, Windows Sandbox, scheduled tasks). On other systems the daemon says so and exits.
 - **Node.js 22** (≥ 22.19). ergo's Node major version follows its agent core [pi](https://github.com/earendil-works/pi) ([ADR-0031](adr/0031-node-version-follows-pi.md)); CI runs only this version. The one-line installer bundles Node for you.
-- **An LLM API key**: currently [DeepSeek](https://platform.deepseek.com/). Without one ergo still starts and you can look around; it will tell you to configure a model when you talk to it.
+- **An LLM API key**: currently [DeepSeek](https://platform.deepseek.com/) (you can also switch to another vendor's OpenAI-compatible provider; see [5.5](#55-models)). Without one ergo still starts and you can look around; it will tell you to configure a model when you talk to it.
 - **Disk**: a few hundred MB for the program; ~570 MB for the semantic-search embedding model; 1–2 GB for speech recognition (both optional).
 
 **Optional** (ergo works without them; the matching features stay off)
@@ -141,6 +141,7 @@ Set-Content -NoNewline -Encoding ascii "$env:USERPROFILE\.ergo\secrets\deepseek-
 - The file holds only the key. The supervisor reads it and hands it to the daemon; no agent can read the `secrets` area of the data directory.
 - **Never put the key in the repository** or in the supervisor's registry.
 - You can skip the command line: once ergo's web page is open, enter the key in the **setup wizard**'s "Model Key" step, or under **Settings · Models**, and click "Save key". It is written to the same file (`secrets\deepseek-api-key.txt`, with the folder and file created at the tightest permissions), and the next new session can use it — no restart needed; change it in the same place later. Putting the file in place by hand remains the fallback, for when the page won't open or you want a different data directory.
+- To use another vendor's model (a custom OpenAI-compatible provider), its key lives in `secrets\custom-model-api-key.txt` and the environment variable is `CUSTOM_MODEL_API_KEY`; how to fill it in is in [5.5](#55-models).
 
 **Step 5: register the daemon with the supervisor**
 
@@ -334,6 +335,42 @@ By default `%USERPROFILE%\.ergo` (override with the `ERGO_DATA_DIR` environment 
 ergo ships with Chinese and English: switch under **More · Settings · 语言 / Language**. All devices switch together, and the secretary and owners answer in that language. Existing chats keep their original language.
 
 To add a language or change a translation, no code changes are needed: copy `packages\protocol\locales\en` from the repository to `%USERPROFILE%\.ergo\locales\<language code>\` (e.g. `fr`), edit `_meta.json` (`nativeName` is the language's own name, `modelName` tells the model which language to use, `intlLocale` is the locale for dates and numbers), then translate the text after the colon in each `.json` (keep `{name}`-style placeholders; `_one` / `_other` are plural forms). Within two seconds the language appears in Settings; untranslated sentences fall back to Chinese. To change just a few sentences, drop a `.json` with only those keys into `locales\<language code>\`. Broken files are listed in Settings · Language with what's wrong; you can also run `npm run i18n:check` in the repository root.
+
+### 5.5 Models
+
+Models are called on the server (the computer running the daemon); the web page only holds the settings. They live in `config\model-settings.json` in the data directory (a protected area no agent can write), and every device sees the same settings.
+
+**DeepSeek is the default**: DeepSeek V4.1 Flash with thinking level high, used by the secretary, maintainers, sub-agents, reviewers and scope review. Under **Settings · Models** you can change the default model, override it per agent, pick a thinking level per row, and say whether a model can see images.
+
+**Switching to a custom (OpenAI-compatible) provider** (the "Provider" block at the top of **Settings · Models**, or the "Model key" step of the **setup wizard** — the same block in both places):
+
+1. Pick "**Custom (OpenAI-compatible)**" as the provider.
+2. **Endpoint URL**: include the `/v1` part, e.g. `https://api.openai.com/v1`. Model requests go under it (`/chat/completions` or `/responses`, see step 4), and listing models is `/models` under it.
+3. **Model id**: type it if you know it; if not, hit "**Fetch list**": the daemon asks `GET {endpoint}/models` with your key and you pick from the dropdown (you can also hit "Type it instead"). If listing fails (wrong key, wrong URL, not supported by that service), the reason is shown verbatim and you can still type the id.
+4. **API style**: `OpenAI chat completions` (`POST {endpoint}/chat/completions`, the default, and what most OpenAI-compatible services use) or `OpenAI responses` (`POST {endpoint}/responses`). Keep the default if unsure.
+5. **API key**: the "API key" block further down the same page; click "Save key". It is written to `%USERPROFILE%\.ergo\secrets\custom-model-api-key.txt` (DeepSeek's is `deepseek-api-key.txt`), takes effect right away with no restart, and you can also place the file by hand as in [step 4](#2-install) (that environment variable is `CUSTOM_MODEL_API_KEY`). **Do this after the custom provider is selected and the endpoint and model id are saved**: "Save key" writes the file of whichever provider is selected, so a key entered while DeepSeek is selected goes into DeepSeek's file. If you installed an older version and upgraded, add a `CUSTOM_MODEL_API_KEY` entry (`from: file`, `optional: true`, pointing at that file) to `ergo-daemon.yaml` in the supervisor as the example does; otherwise the key is gone after the daemon restarts (entering it on the page again also works).
+6. Hit "**Connection test**": one very short request comes back as either connected (with time to first token) or the reason it failed. For a custom provider it tests the model id from step 3.
+
+Things worth knowing:
+
+- **"Fetch list" and "Connection test" save this block first**: the daemon takes the key of the provider selected in settings, so only after it is saved as "custom" does it have that key. A "Saved. Takes effect from the next new session" message confirms it.
+- **One session sticks to one model**: changing the provider or the model applies from the next new session; the secretary's main session, a project maintainer's chat and scheduled tasks start a fresh session on the next round with a handoff summary (the chat notes "switched to X"); a running task never switches midway.
+- **A custom provider has a single model**: the "Default model" row shows it, and every agent's model uses it too (thinking levels still come from each row). Switching back to DeepSeek restores the model ids those rows already had.
+
+**What does not follow the switch** (still DeepSeek-only after you move to a custom provider):
+
+- **The nightly memory consolidation**: the memory keeper always uses DeepSeek (`DEEPSEEK_API_KEY` / `secrets\deepseek-api-key.txt`). Without a key that night's consolidation is skipped (no material is lost; it continues the next night once a key is in place).
+- **Web search and page reading**: these go through DeepSeek's own search and page-fetch APIs, so they need a DeepSeek key too (searching with the browser directly and Tavily are unaffected; see [8.4](#84-web-search-and-reading-pages)).
+- So **don't delete your DeepSeek key**: after switching to custom, "Save key" on the page writes the custom file and leaves DeepSeek's alone. To change the DeepSeek key, switch back to DeepSeek and save it there, or place the file by hand as in step 4.
+- **The token price table is DeepSeek-only**: usage for a custom model is still recorded as it happens (input, output, cache), but priced at 0, so its cost under **More · Usage** is a rough estimate (it comes out as 0). Don't read it as a bill.
+
+**A custom model's capabilities are registered as estimates** (you can't enter these in Settings):
+
+- **Text only**: registered as text-only ("we don't know whether that service accepts images"), so pictures in a chat are not handed to it as images (its "Image understanding" row under Settings · Models shows "can't see images" per the model catalog by default; that switch is generic, so if you know your service does take images you can turn it on — it may still reject the request).
+- **No thinking**: registered as not supporting thinking levels, so the thinking level on its row has no effect.
+- **Context window 128k, at most 8192 tokens generated per call**: estimated from typical OpenAI-compatible services. A larger window just goes unused; a smaller one may be truncated or rejected by that service.
+
+**Switching back to DeepSeek loses nothing**: the endpoint, model id and API style you filled in stay in the settings and the key stays in `custom-model-api-key.txt`, so choosing "Custom" again needs no re-typing.
 
 ---
 
