@@ -614,6 +614,60 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     expect(empty).toEqual([]);
   }, 60_000);
 
+  test("电脑上回车发送、组合键换行，设置里能换键；组字时的回车不发；触屏上回车还是换行", async () => {
+    const { page, errors } = await open({ width: 1280, height: 800 });
+    const at = async (hash: string) => {
+      await page.evaluate(`window.location.hash = ${JSON.stringify(hash)}`);
+      await page.waitForTimeout(300);
+    };
+    await at("#/secretary");
+    const box = page.locator(".composer textarea").first();
+    await box.fill("第一行");
+    await box.press("Control+Enter");
+    await box.pressSequentially("第二行");
+    expect(await box.inputValue()).toBe("第一行\n第二行");
+    // 输入法组字时的回车是选词，不发出去
+    await page.evaluate(`document.querySelector(".composer textarea").dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true, isComposing: true }))`);
+    expect(await box.inputValue()).toBe("第一行\n第二行");
+    await box.press("Enter");
+    expect(await box.inputValue()).toBe("");
+    // 空的回车什么也不做，也不留下换行
+    await box.press("Enter");
+    expect(await box.inputValue()).toBe("");
+
+    // 设置里换成 Shift：Shift + 回车换行，Ctrl + 回车发送
+    await at("#/more/settings");
+    await page.locator(".enter-key-setting [role=radio]").nth(1).click();
+    await at("#/secretary");
+    await box.fill("一");
+    await box.press("Shift+Enter");
+    await box.pressSequentially("二");
+    expect(await box.inputValue()).toBe("一\n二");
+    await box.press("Control+Enter");
+    expect(await box.inputValue()).toBe("");
+    // 记住了：刷新以后还是 Shift
+    await page.reload();
+    await page.waitForTimeout(300);
+    expect(await page.evaluate(`window.localStorage.getItem("ergo-composer-newline")`)).toBe("shift");
+    await page.close();
+    expect(errors).toEqual([]);
+
+    const touch = await browser!.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+    const phone = await touch.newPage();
+    await phone.goto(pageUrl);
+    await phone.evaluate(`window.location.hash = "#/secretary"`);
+    await phone.waitForTimeout(300);
+    const phoneBox = phone.locator(".composer textarea").first();
+    await phoneBox.fill("一");
+    await phoneBox.press("Enter");
+    await phoneBox.pressSequentially("二");
+    expect(await phoneBox.inputValue()).toBe("一\n二");
+    await phone.evaluate(`window.location.hash = "#/more/settings"`);
+    await phone.waitForTimeout(300);
+    expect(await phone.locator(".enter-key-setting").count()).toBe(0);
+    await touch.close();
+  }, 60_000);
+
   for (const [name, viewport] of [
     ["手机宽", { width: 390, height: 844 }],
     ["电脑宽", { width: 1280, height: 800 }],

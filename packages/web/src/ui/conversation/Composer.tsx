@@ -29,6 +29,7 @@
  */
 import { type ComponentProps, useEffect, useRef, useState } from "react";
 import { useBackLayer } from "../../app/page-back.ts";
+import { isTouchDevice, pageNewlineKey } from "../../app/page-composer-keys.ts";
 import { useHoldPageUpdate, useKeptText } from "../../app/page-update.ts";
 import { unlockVoicePlayback } from "../../app/page-voice.ts";
 import { useStore } from "../../app/store.tsx";
@@ -36,6 +37,7 @@ import type { UploadProgress } from "../../app/uploader.ts";
 import type { RecordedVoice } from "../../app/voice-session.ts";
 import { usePlugins } from "../../plugins/api.ts";
 import {
+  composerEnterAction,
   attachmentPartFrom,
   COMPONENT_FEATURES,
   type ConversationId,
@@ -244,6 +246,14 @@ export function Composer({
     };
   }, [waitingTranslation, retranslate, conversation, http]);
 
+  /** 在光标处换一行：走浏览器自己的插入命令，Ctrl + Z 还能撤销；用不了时自己拼 */
+  const insertNewline = (el: HTMLTextAreaElement) => {
+    if (document.execCommand("insertText", false, "\n")) return;
+    const at = el.selectionStart;
+    setText(`${el.value.slice(0, at)}\n${el.value.slice(el.selectionEnd)}`);
+    requestAnimationFrame(() => el.setSelectionRange(at + 1, at + 1));
+  };
+
   /** 选中一个候选：输入框里换成"写法 + 空格"，光标放到最后，接着打正文 */
   const pickSlash = (entry: SlashCommandEntry) => {
     const next = slashInsertText(entry);
@@ -373,6 +383,9 @@ export function Composer({
     change((x) => ({ ...x, uploads: dropUploads(x.uploads, new Set(attachments.map((a) => a.key))) }));
   };
 
+  /** 发送按钮上的提示：电脑上回车发送、选好的键换行（触屏上没有） */
+  const sendHint = isTouchDevice() ? undefined : t(pageNewlineKey().key() === "shift" ? "ui.composer.sendHintShift" : "ui.composer.sendHintCtrl");
+
   /** 文字输入框（放大时挪到按钮那一行上面） */
   const field = (
     <div className="composer-field" ref={fieldRef}>
@@ -388,18 +401,31 @@ export function Composer({
         aria-activedescendant={slashOpen ? slashItemId(slashActive) : undefined}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) return send(true);
           if (e.key === "Escape" && big && !slashOpen) {
             e.preventDefault();
             setBig(false);
             return;
           }
-          // 候选开着：方向键挪、Enter / Tab 选中、Esc 关掉（输入法正在组字时的按键交给输入法）
-          if (!slashOpen || e.nativeEvent.isComposing || e.keyCode === 229) return;
+          // 输入法正在组字时的按键交给输入法（这时的回车是选词，不能发出去）
+          if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+          if (e.key === "Enter") {
+            const action = composerEnterAction(e, { touch: isTouchDevice(), newlineKey: pageNewlineKey().key(), picking: slashOpen });
+            if (action === "default") return;
+            e.preventDefault();
+            if (action === "send") send(true);
+            else if (action === "newline") insertNewline(e.currentTarget);
+            else {
+              const entry = candidates[slashActive];
+              if (entry) pickSlash(entry);
+            }
+            return;
+          }
+          // 候选开着：方向键挪、Tab 选中（回车在上面）、Esc 关掉
+          if (!slashOpen) return;
           if (e.key === "ArrowDown" || e.key === "ArrowUp") {
             e.preventDefault();
             setSlashActive(nextSlashIndex(slashActive, e.key === "ArrowDown" ? 1 : -1, candidates.length));
-          } else if ((e.key === "Enter" && !e.shiftKey) || e.key === "Tab") {
+          } else if (e.key === "Tab") {
             e.preventDefault();
             const entry = candidates[slashActive];
             if (entry) pickSlash(entry);
@@ -579,7 +605,7 @@ export function Composer({
             aria-label={replying && waitingNow !== "uploading" ? t("ui.composer.appendLabel") : undefined}
             disabled={waitingNow === "uploading" || waitingNow === "failed" || (!text.trim() && waiting.length === 0)}
             onClick={() => send(true)}
-            title={waitingNow === "uploading" ? t("ui.composer.stillUploading") : waitingNow === "failed" ? t("ui.composer.uploadFailedBlock") : replying ? t("ui.composer.appendHint") : undefined}
+            title={waitingNow === "uploading" ? t("ui.composer.stillUploading") : waitingNow === "failed" ? t("ui.composer.uploadFailedBlock") : replying ? t("ui.composer.appendHint") : sendHint}
           >
             {waitingNow === "uploading" ? (
               t("ui.composer.uploading")

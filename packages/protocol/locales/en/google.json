@@ -1,5 +1,5 @@
 {
-  "google.plugin.title": "Google",
+  "google.plugin.title": "Data source - Google",
   "google.plugin.summary": "Brings in data from your Google account: Calendar (private iCal address, read-only, shown in the calendar and checked live when you ask about your schedule), Gmail (app password, read-only, searched and read live when you ask; optionally imports the mail you send) and Contacts (an exported vCard dropped into the import folder goes to the profile review card)",
   "google.plugin.purge.calendar": "Synced Google Calendar events and calendar names",
   "google.plugin.purge.addresses": "The private iCal addresses you entered (in this computer's secrets area)",

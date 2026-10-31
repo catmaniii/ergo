@@ -8,7 +8,7 @@
 // - 秘书用"查 Looki"按日期和时间段现查：找得到昨天下午的时刻；
 // - 断开并连已导入的一起删：记录换成"已删除"标记、素材没了、密钥区那一格删掉；
 // - Key 不出现在日志、事件、数据源页的回包、秘书的工具结果里；
-// - 插件运行中停用：数据源页写"Looki插件没启用"，秘书没有"查 Looki"。
+// - 插件运行中停用：数据源页写"数据源-Looki穿戴式相机插件没启用"，秘书没有"查 Looki"。
 import fs from "node:fs";
 import path from "node:path";
 import { CHANNELS, EVENT_TYPES, isDeletedEventPayload, type MessageEventPayload, type ToolCallDetail } from "@ergo/protocol";
@@ -88,7 +88,7 @@ describe("Looki 插件（假 Looki 接口走真实装配路径）", () => {
     expect(looki).toMatchObject({
       title: "Looki",
       plugin: LOOKI_PLUGIN,
-      pluginTitle: "Looki",
+      pluginTitle: "数据源-Looki穿戴式相机",
       available: true,
       connection: "not_connected",
       usages: [
@@ -174,7 +174,7 @@ describe("Looki 插件（假 Looki 接口走真实装配路径）", () => {
     expect(JSON.stringify(configured.body)).not.toContain(LOOKI_TEST_KEY);
   });
 
-  it("没连时秘书没有\"查 Looki\"、连上才有（306）；插件运行中停用：数据源页写\"Looki插件没启用\"、不能同步，秘书没有\"查 Looki\"", async () => {
+  it("没连时秘书没有\"查 Looki\"、连上才有（306）；插件运行中停用：数据源页写\"数据源-Looki穿戴式相机插件没启用\"、不能同步，秘书没有\"查 Looki\"", async () => {
     const fake = await startFakeLooki();
     const td = await startTestDaemon({ extraPlugins: [createLookiPlugin({ endpoints: { cn: fake.base, global: fake.base } })], secretary: [ECHO, ECHO, ECHO] });
     const frontend = await TestFrontend.connect(td.url);
@@ -190,10 +190,10 @@ describe("Looki 插件（假 Looki 接口走真实装配路径）", () => {
     expect((await dataSourcesApi.view(td.url)).body.sources.find((s) => s.id === LOOKI_SOURCE_ID)).toMatchObject({ connection: "connected", account: "d***@example.com（海外）" });
     expect(await toolsNow()).toContain(LOOKI_QUERY_TOOL);
     expect((await pluginsApi.act(td.url, LOOKI_PLUGIN, { action: "disable", idempotencyKey: key() })).status).toBe(200);
-    expect((await dataSourcesApi.view(td.url)).body.sources.find((s) => s.id === LOOKI_SOURCE_ID)).toMatchObject({ available: false, unavailable: "Looki插件没启用", canSync: false });
+    expect((await dataSourcesApi.view(td.url)).body.sources.find((s) => s.id === LOOKI_SOURCE_ID)).toMatchObject({ available: false, unavailable: "数据源-Looki穿戴式相机插件没启用", canSync: false });
     const refused = await dataSourcesApi.act(td.url, LOOKI_SOURCE_ID, { action: "sync", idempotencyKey: key() });
     expect(refused.status).toBe(400);
-    expect(refused.body.message).toBe("Looki插件没启用");
+    expect(refused.body.message).toBe("数据源-Looki穿戴式相机插件没启用");
     expect(await toolsNow()).not.toContain(LOOKI_QUERY_TOOL);
   });
 });

@@ -1,5 +1,5 @@
 {
-  "google.plugin.title": "Google",
+  "google.plugin.title": "数据源-Google",
   "google.plugin.summary": "接 Google 账号里的数据：日历（私密 iCal 地址，只读，显示在日历里、问到安排时现查）、Gmail（应用专用密码，只读，问到时现搜现读，可选导入你发出的邮件）、联系人（导出的 vCard 放进导入文件夹，进档案候选核对卡）",
   "google.plugin.purge.calendar": "同步来的 Google 日历事件和日历的名字",
   "google.plugin.purge.addresses": "填过的私密 iCal 地址（这台电脑的密钥区里）",

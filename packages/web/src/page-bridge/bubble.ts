@@ -318,7 +318,7 @@ export function createBubble(doc: Document, tools: BubbleTools, onAction: (actio
     t.setAttribute("enterkeyhint", "enter");
     t.autocomplete = "off";
     t.addEventListener("input", fitInput);
-    // 回车换行（和二狗的输入框一样），Ctrl / ⌘ + 回车发出去
+    // 回车换行（气泡只在手机 App 的内置浏览器里，和手机上二狗的输入框一样），Ctrl / ⌘ + 回车发出去
     t.addEventListener("keydown", (e) => {
       if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && e.isTrusted) {
         e.preventDefault();

@@ -1,5 +1,5 @@
 {
-  "phone.plugin.title": "手机",
+  "phone.plugin.title": "数据源-手机",
   "phone.plugin.summary": "手机上的二狗 App 读本机：从通讯录挑人进档案候选，手机日历放进二狗的日历，照片的时间地点和位置按天整理成摘要进记忆",
   "phone.plugin.purge.contacts": "从通讯录挑的人的记录",
   "phone.plugin.purge.calendar": "手机日历同步来的日程和连接状况",

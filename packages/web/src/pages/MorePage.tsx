@@ -56,6 +56,7 @@ import { AboutPage } from "./more/AboutPage.tsx";
 import { AppearancePage, AppearanceSummary } from "./more/AppearancePage.tsx";
 import { UserNameSetting } from "./more/UserNameSetting.tsx";
 import { BrowsingPage } from "./more/BrowsingPage.tsx";
+import { EnterKeySetting } from "./more/EnterKeySetting.tsx";
 import { DebugPage } from "./more/DebugPage.tsx";
 import { DevicesPage } from "./more/DevicesPage.tsx";
 import { LanguagePage } from "./more/LanguagePage.tsx";
@@ -138,8 +139,8 @@ const pageSub = (p: Sub) => (p === "language" ? activeLocale().meta.nativeName :
  * 设置列表里的一行：一页，或者不是页的那几块（我的名字、工具调用的完整内容、备份〔335 号票〕）；"个人档案"（281 号票）是"更多"下面的页，
  * 在身份组"我的名字"下面放一个去那里的链接
  */
-type SettingsRow = Sub | "user-name" | "tool-call-storage" | "backup" | "personal-files-link";
-const isPage = (row: SettingsRow): row is Sub => row !== "user-name" && row !== "tool-call-storage" && row !== "backup" && row !== "personal-files-link";
+type SettingsRow = Sub | "user-name" | "tool-call-storage" | "backup" | "personal-files-link" | "enter-key";
+const isPage = (row: SettingsRow): row is Sub => row !== "user-name" && row !== "tool-call-storage" && row !== "backup" && row !== "personal-files-link" && row !== "enter-key";
 
 /**
  * 设置的四组和组里的项（247 号票，用户 2026-10-22 定方案 A），按显示顺序。组只是列表上的组织，每页的地址照旧 #/more/<页>。
@@ -148,7 +149,7 @@ const isPage = (row: SettingsRow): row is Sub => row !== "user-name" && row !== 
 const SETTINGS_GROUPS: readonly { id: SettingsGroupId; rows: readonly SettingsRow[] }[] = [
   // 248 号票："角色与声音"紧挨着"我的名字"（助理的名字不再单独设：就是默认角色的名字，在这一页里改），语音页只留引擎状态和自动播放
   // 281 号票："我的名字"下面一行去个人档案的链接（本人那份的姓名就是我的名字）
-  { id: "identity", rows: ["user-name", "personal-files-link", "roles", "language", "appearance", "voice"] },
+  { id: "identity", rows: ["user-name", "personal-files-link", "roles", "language", "appearance", "voice", "enter-key"] },
   // 305 号票：设置 · Claude Code（Claude Code 插件画的页，新建时的默认文件夹）排在插件后面；插件停用时不列
   // 323 号票：设置 · 组件（模型、语音这些大件按需下载）紧挨着插件
   { id: "ability", rows: ["models", "skills", "plugins", "components", "claude-code", "browsing"] },
@@ -476,6 +477,7 @@ function SettingsList({ current, go, navigate }: { current?: Sub | undefined; go
     if (s === "user-name") return <UserNameSetting key={s} />;
     if (s === "tool-call-storage") return <ToolCallStorageSetting key={s} />;
     if (s === "backup") return <BackupSetting key={s} />;
+    if (s === "enter-key") return <EnterKeySetting key={s} />;
     if (s === "personal-files-link")
       return (
         <button

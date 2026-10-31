@@ -59,7 +59,7 @@ describe("设置 · 数据源里的 Google · 联系人", () => {
     expect(google.map((s) => s.id)).toEqual(["google-calendar", "google-gmail", SOURCE]);
     expect(sourceOf(k)).toMatchObject({
       title: "Google · 联系人",
-      pluginTitle: "Google",
+      pluginTitle: "数据源-Google",
       connection: "manual",
       usages: [{ usage: "import", on: true }],
       destination: "进档案候选核对卡（逐条确认才写），不进素材",

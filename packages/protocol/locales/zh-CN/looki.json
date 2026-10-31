@@ -1,5 +1,5 @@
 {
-  "looki.plugin.title": "Looki",
+  "looki.plugin.title": "数据源-Looki穿戴式相机",
   "looki.plugin.summary": "接 Looki 挂脖相机的官方开放接口：每天的「时刻」（什么时候、在哪、在做什么）整理成素材，被问到「我昨天下午在干嘛」时现查",
   "looki.plugin.purge.records": "从 Looki 导入的时刻和 AI 日记（记录）",
   "looki.plugin.purge.key": "填过的 Looki API Key",

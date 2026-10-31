@@ -1,5 +1,5 @@
 {
-  "phone.plugin.title": "Phone",
+  "phone.plugin.title": "Data source - Phone",
   "phone.plugin.summary": "The Ergo app on your phone reads local data: pick contacts into profile suggestions, put the phone calendar into Ergo's calendar, and summarize photo times/places and locations into memory day by day",
   "phone.plugin.purge.contacts": "Records of the people picked from contacts",
   "phone.plugin.purge.calendar": "Events synced from the phone calendar and its connection status",

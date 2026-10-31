@@ -322,13 +322,19 @@ export interface DataSourceGroup {
   sources: DataSourceView[];
 }
 
+/** 插件的标题写成"数据源-Google"（设置 · 插件里一眼分得清）；这一页全是数据源，分组标题不重复前缀 */
+function groupTitle(pluginTitle: string): string {
+  const prefix = t("pages.dataSources.pluginPrefix");
+  return pluginTitle.startsWith(prefix) ? pluginTitle.slice(prefix.length) : pluginTitle;
+}
+
 /** 按插件分组（343 号票）：组的先后、组里的先后都照守护进程给的 */
 export function groupByPlugin(sources: readonly DataSourceView[]): DataSourceGroup[] {
   const groups = new Map<string, DataSourceGroup>();
   for (const source of sources) {
     const group = groups.get(source.plugin);
     if (group) group.sources.push(source);
-    else groups.set(source.plugin, { plugin: source.plugin, title: source.pluginTitle, sources: [source] });
+    else groups.set(source.plugin, { plugin: source.plugin, title: groupTitle(source.pluginTitle), sources: [source] });
   }
   return [...groups.values()];
 }

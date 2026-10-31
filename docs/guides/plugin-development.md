@@ -567,6 +567,7 @@ export function createClaudeCodePlugin(
 
 规矩（issue 25 第 2、4 节）：
 
+- **插件的标题写成 `数据源-名字`**（英文 `Data source - Name`，比如 `数据源-Google`）：设置 · 插件里一眼分得清；数据源页的分组标题会去掉这个前缀（语言文件 `pages.dataSources.pluginPrefix`）。
 - **只产素材、不产结论**：插件把拿进来的写成**自己的事件**（频道、类型写进 `records`），经 `ctx.materialSources.register` 变成素材（ADR-0006），采集规则里用 `dataSourceMaterial` 写（303 号票，下面"把记录写成素材"）；不碰推理图谱、不直接写个人档案（进档案一律经候选核对卡），理解由记忆管理员每晚整理时做。
 - **量大的先整理成摘要**：位置点、每隔几十秒一张的照片、心率曲线，插件先整理成"一段一段"的摘要再写事件；原始数据留在来源那边或插件自己的存储里。
 - **密钥只进密钥区**：API Key、应用专用密码、私密地址经函数参数里的 `ctx.secrets`（`DataSourceSecrets`）存进数据目录密钥区的 `data-sources/<id>.json`，不进仓库、日志、事件；同步、导入出错的原因里带着密钥的，内核记下之前换成 `***`。

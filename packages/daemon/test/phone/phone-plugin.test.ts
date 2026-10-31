@@ -143,12 +143,12 @@ describe("手机插件：数据源", () => {
     await pushTo(k, PHONE_CONTACTS_SOURCE, { contacts: [{ name: "王小明", phones: ["13800001111"], addresses: [] }] });
     await k.settings.act("phone", { action: "disable", idempotencyKey: key() });
     expect(k.dataSources.view().sources.map((s) => [s.id, s.available, s.unavailable])).toEqual([
-      [PHONE_CONTACTS_SOURCE, false, "手机插件没启用"],
-      [PHONE_CALENDAR_SOURCE, false, "手机插件没启用"],
-      [PHONE_PHOTOS_SOURCE, false, "手机插件没启用"],
-      [PHONE_LOCATION_SOURCE, false, "手机插件没启用"],
+      [PHONE_CONTACTS_SOURCE, false, "数据源-手机插件没启用"],
+      [PHONE_CALENDAR_SOURCE, false, "数据源-手机插件没启用"],
+      [PHONE_PHOTOS_SOURCE, false, "数据源-手机插件没启用"],
+      [PHONE_LOCATION_SOURCE, false, "数据源-手机插件没启用"],
     ]);
-    await expect(pushTo(k, PHONE_CONTACTS_SOURCE, { contacts: [{ name: "x", phones: [], addresses: [] }] })).rejects.toThrow("手机插件没启用");
+    await expect(pushTo(k, PHONE_CONTACTS_SOURCE, { contacts: [{ name: "x", phones: [], addresses: [] }] })).rejects.toThrow("数据源-手机插件没启用");
     await k.settings.act("phone", { action: "enable", idempotencyKey: key() });
     expect(sourceOf(k, PHONE_CALENDAR_SOURCE)).toMatchObject({ available: true, count: 1 });
     expect(await pushTo(k, PHONE_CALENDAR_SOURCE, { state: "granted", ...WINDOW, events: [ev("a", 10), ev("b", 11)] })).toMatchObject({ added: 1 });
@@ -274,7 +274,7 @@ describe("手机插件：照片的时间地点、位置（300 号票）", () => 
     // 停用：原始数据不列、清不了；再启用回来
     await k.settings.act("phone", { action: "disable", idempotencyKey: key() });
     expect(sourceOf(k, PHONE_LOCATION_SOURCE).raw).toBeUndefined();
-    await expect(k.dataSources.act(PHONE_LOCATION_SOURCE, { action: "clear_raw", dates: ["2026-10-25"], idempotencyKey: key() })).rejects.toThrow("手机插件没启用");
+    await expect(k.dataSources.act(PHONE_LOCATION_SOURCE, { action: "clear_raw", dates: ["2026-10-25"], idempotencyKey: key() })).rejects.toThrow("数据源-手机插件没启用");
     await k.settings.act("phone", { action: "enable", idempotencyKey: key() });
     expect(sourceOf(k, PHONE_LOCATION_SOURCE).raw?.days).toHaveLength(2);
     // 移除并连数据删：摘要换成标记、插件自己的存储整个删掉
@@ -298,7 +298,7 @@ describe("手机插件：照片的时间地点、位置（300 号票）", () => 
     // 停用：那一块不画，填设置回没启用；启用回来还在
     await k.settings.act("phone", { action: "disable", idempotencyKey: key() });
     expect(sourceOf(k, PHONE_LOCATION_SOURCE).panel).toBeUndefined();
-    await expect(k.dataSources.act(PHONE_LOCATION_SOURCE, { action: "configure", values: { places: "remove", id: "x" }, idempotencyKey: key() })).rejects.toThrow("手机插件没启用");
+    await expect(k.dataSources.act(PHONE_LOCATION_SOURCE, { action: "configure", values: { places: "remove", id: "x" }, idempotencyKey: key() })).rejects.toThrow("数据源-手机插件没启用");
     await k.settings.act("phone", { action: "enable", idempotencyKey: key() });
     expect(places()).toEqual(["家"]);
     // 连上、断开留着已导入的：起了名的留着

@@ -348,6 +348,8 @@ describe("一级页：卡片（343 号票）", () => {
       ["Google", ["a", "c"]],
       ["Looki", ["b"]],
     ]);
+    // 插件的标题写成"数据源-Google"；这一页全是数据源，分组标题不重复前缀
+    expect(groupByPlugin([source({ id: "a", plugin: "google", pluginTitle: "数据源-Google" }), source({ id: "b", plugin: "looki", pluginTitle: "数据源-Looki穿戴式相机" })]).map((g) => g.title)).toEqual(["Google", "Looki穿戴式相机"]);
     const html = cards(sources, { ...folder, pending: [{ name: "x.zip", size: 1, problem: "unrecognized", text: "认不出" }] });
     expect(html).toContain('data-source="import_folder"');
     expect(html).toContain("1 个没导入");

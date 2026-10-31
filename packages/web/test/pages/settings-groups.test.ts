@@ -57,7 +57,7 @@ describe("四组：每组的页和顺序", () => {
     host.disable("memory");
     expect(settingsGroups(host, false)).toEqual([
       // 248 号票："角色与声音"就排在名字后面（名字=默认角色名，音色=默认角色音色）；281 号票：名字下面一行去个人档案的链接
-      { id: "identity", rows: ["user-name", "personal-files-link", "roles", "language", "appearance", "voice"] },
+      { id: "identity", rows: ["user-name", "personal-files-link", "roles", "language", "appearance", "voice", "enter-key"] },
       // 305 号票：设置 · Claude Code（Claude Code 插件画的页）排在插件后面；323 号票：设置 · 组件紧挨着插件
       { id: "ability", rows: ["models", "skills", "plugins", "components", "claude-code", "browsing"] },
       { id: "rules", rows: ["watch", "prompts", "workday-rules"] },
@@ -72,7 +72,7 @@ describe("四组：每组的页和顺序", () => {
     host.disable("memory");
     const pages = settingsGroups(host, false)
       .flatMap((g) => g.rows)
-      .filter((r) => r !== "user-name" && r !== "tool-call-storage" && r !== "backup" && r !== "personal-files-link");
+      .filter((r) => r !== "user-name" && r !== "tool-call-storage" && r !== "backup" && r !== "personal-files-link" && r !== "enter-key");
     expect(pages.toSorted()).toEqual(
       ["roles", "language", "appearance", "models", "watch", "workday-rules", "skills", "prompts", "voice", "browsing", "devices", "plugins", "components", "claude-code", "data-sources", "materials-delete", "doctor", "about"].toSorted(),
     );
@@ -90,7 +90,7 @@ describe("四组：每组的页和顺序", () => {
     host.disable("memory");
     const pages = settingsGroups(host, false)
       .flatMap((g) => g.rows)
-      .filter((r) => r !== "user-name" && r !== "tool-call-storage" && r !== "backup" && r !== "personal-files-link");
+      .filter((r) => r !== "user-name" && r !== "tool-call-storage" && r !== "backup" && r !== "personal-files-link" && r !== "enter-key");
     for (const page of pages) {
       expect(toHash({ tab: "more", page })).toBe(`#/more/${page}`);
       expect(parseHash(`#/more/${page}`)).toEqual({ tab: "more", page });
@@ -111,8 +111,8 @@ describe("插件停用 / 记忆页覆盖的过滤照旧（193、214 号票），
     const on = assembled();
     const off = assembled();
     off.disable("voice");
-    expect(settingsGroups(on, false)[0]!.rows).toEqual(["user-name", "personal-files-link", "roles", "language", "appearance", "voice"]);
-    expect(settingsGroups(off, false)[0]!.rows).toEqual(["user-name", "personal-files-link", "roles", "language", "appearance"]);
+    expect(settingsGroups(on, false)[0]!.rows).toEqual(["user-name", "personal-files-link", "roles", "language", "appearance", "voice", "enter-key"]);
+    expect(settingsGroups(off, false)[0]!.rows).toEqual(["user-name", "personal-files-link", "roles", "language", "appearance", "enter-key"]);
     expect(settingsGroups(off, false).slice(1)).toEqual(settingsGroups(on, false).slice(1));
     expect(settingsShown(off)).toEqual(settingsShown(on).filter((s) => s !== "voice"));
   });

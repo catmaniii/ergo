@@ -74,13 +74,15 @@ const ICON_IDLE =
 const ICON_MIC =
   '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>';
 
+// 白圈 + 外面一道深色细线 + 阴影：白底、深底、图片上都看得清（348 号票）
+// 在听：图标不换，白圈外面一道红圈，再往外是红色的脉动（圈一直在，定格也看得出）
+// 在忙：图标不换，外面一圈白底上转蓝色的弧（深色细线描边，白底上也看得出那圈）
 const STYLE = `
 :host { all: initial; }
 .fab {
   position: fixed; left: 0; top: 0; width: ${BUTTON_SIZE}px; height: ${BUTTON_SIZE}px; box-sizing: border-box;
   display: none; align-items: center; justify-content: center;
   border-radius: 50%; background: linear-gradient(145deg, #5b8cff, #3a5bd9); color: #fff;
-  /* 白圈 + 外面一道深色细线 + 阴影：白底、深底、图片上都看得清（348 号票） */
   box-shadow: 0 0 0 2px #fff, 0 0 0 3px rgba(20, 30, 70, .4), 0 3px 10px 2px rgba(0, 0, 0, .35);
   cursor: pointer; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
   transition: transform .12s ease;
@@ -89,10 +91,8 @@ const STYLE = `
 .fab:active { transform: scale(.92); }
 .fab.has-icon { background: none; }
 .fab canvas { display: block; width: 100%; height: 100%; border-radius: 50%; pointer-events: none; }
-/* 在听：图标不换，白圈外面一道红圈，再往外是红色的脉动（圈一直在，定格也看得出） */
 .fab.listening { animation: ergo-pulse 1s ease-out infinite; }
 .fab.listening:not(.has-icon) { background: linear-gradient(145deg, #ff6b6b, #e03131); }
-/* 在忙：图标不换，外面一圈白底上转蓝色的弧（深色细线描边，白底上也看得出那圈） */
 .fab.busy::before, .fab.busy::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; pointer-events: none; }
 .fab.busy::before { border: 3px solid #fff; box-shadow: 0 0 0 1px rgba(20, 30, 70, .4), inset 0 0 0 1px rgba(20, 30, 70, .4); }
 .fab.busy::after { border: 3px solid transparent; border-top-color: #3a5bd9; border-right-color: #3a5bd9; animation: ergo-spin .8s linear infinite; }

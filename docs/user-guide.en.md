@@ -94,6 +94,7 @@ The UI is designed phone-first and switches to multi-column layouts on wide scre
 The secretary is your personal assistant (you choose its name). It only understands you, relays messages and hands out work; it never touches your projects itself.
 
 - Type or hold to talk; it can read long replies aloud.
+- On a computer, Enter sends right away and Ctrl + Enter starts a new line; if you prefer Shift + Enter, change it under **More · Settings · Send and new line** (this device only). On phones and tablets Enter still starts a new line and you send with the button.
 - Things that take one step (reminders, remembering something, a quick lookup) it does directly; anything that takes time becomes a task or project with a dedicated owner.
 - Owners write to the secretary when they make progress; their letters fold into one line, and the secretary passes them on to you.
 - Type `/` in the input box for slash commands (each with a description and argument hints).
@@ -153,7 +154,7 @@ ergo keeps a copy of everything you said on this PC (immutable, indexed by keywo
 
 ### 4.9 Plugins
 
-**More · Settings · Plugins** lists the installed plugins and lets you disable, enable or remove them (hot-pluggable, no restart). Built in: Reminders, Memory, Calendar, Voice, Built-in browser, Claude Code, Google, Looki, Phone. Disabling a plugin only hides its pages and tools; its data stays. When removing, you can choose to delete its data too.
+**More · Settings · Plugins** lists the installed plugins and lets you disable, enable or remove them (hot-pluggable, no restart). Built in: Reminders, Memory, Calendar, Voice, Built-in browser, Claude Code, plus the data-source plugins Data source - Google, Data source - Looki wearable camera and Data source - Phone. Disabling a plugin only hides its pages and tools; its data stays. When removing, you can choose to delete its data too.
 
 ---
 

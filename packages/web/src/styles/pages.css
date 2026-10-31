@@ -3798,7 +3798,8 @@ a.att-icon:hover {
  * "备份"（335 号票）同一个样子：同步目录、最近一次、最新的快照、下一次在上，"正在备份"和"立即备份"一行；路径长的折行
  */
 .tool-call-storage,
-.backup-setting {
+.backup-setting,
+.enter-key-setting {
   display: flex;
   flex-direction: column;
   gap: 8px;

@@ -66,7 +66,7 @@ describe("设置 · 数据源里的 Google · 日历", () => {
     expect(sourceOf(k)).toMatchObject({
       title: "Google · 日历",
       plugin: "google",
-      pluginTitle: "Google",
+      pluginTitle: "数据源-Google",
       available: true,
       connection: "not_connected",
       usages: [
@@ -461,7 +461,7 @@ describe("断开、停用", () => {
     await configure(k, { add: MINE });
     await k.settings.act("google", { action: "disable", idempotencyKey: key() });
     expect(week(k)).toEqual([]);
-    expect(sourceOf(k)).toMatchObject({ available: false, unavailable: "Google插件没启用" });
+    expect(sourceOf(k)).toMatchObject({ available: false, unavailable: "数据源-Google插件没启用" });
     await k.settings.act("google", { action: "enable", idempotencyKey: key() });
     expect(week(k).length).toBeGreaterThan(0);
   });

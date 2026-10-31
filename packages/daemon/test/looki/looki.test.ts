@@ -354,7 +354,7 @@ describe("断开、停用、移除", () => {
     script(fake);
     await configure(k, { key: LOOKI_TEST_KEY, region: "cn" });
     await k.settings.act(LOOKI_PLUGIN, { action: "disable", idempotencyKey: key() });
-    expect(looki(k)).toMatchObject({ available: false, unavailable: "Looki插件没启用", canSync: false, connection: "connected" });
+    expect(looki(k)).toMatchObject({ available: false, unavailable: "数据源-Looki穿戴式相机插件没启用", canSync: false, connection: "connected" });
     expect(tool(k)).toBeUndefined();
     await k.settings.act(LOOKI_PLUGIN, { action: "enable", idempotencyKey: key() });
     expect(await sync(k)).toMatchObject({ added: 4 });

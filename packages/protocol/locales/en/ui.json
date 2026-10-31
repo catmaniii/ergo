@@ -202,6 +202,8 @@
   "ui.composer.stop": "Stop",
   "ui.composer.appendLabel": "Add (Ergo gets it after this turn)",
   "ui.composer.appendHint": "Ergo gets it after this turn (queued)",
+  "ui.composer.sendHintCtrl": "Enter to send, Ctrl + Enter for a new line",
+  "ui.composer.sendHintShift": "Enter to send, Shift + Enter for a new line",
   "ui.composer.append": "Add",
   "ui.composer.send": "Send",
   "ui.composer.state.uploading": "Uploading",

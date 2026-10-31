@@ -194,6 +194,8 @@
   "ui.composer.stop": "停止",
   "ui.composer.appendLabel": "追加（二狗回完这一轮再给它）",
   "ui.composer.appendHint": "二狗回完这一轮再给它（先排队）",
+  "ui.composer.sendHintCtrl": "回车发送，Ctrl + 回车换行",
+  "ui.composer.sendHintShift": "回车发送，Shift + 回车换行",
   "ui.composer.append": "追加",
   "ui.composer.send": "发送",
   "ui.composer.state.uploading": "上传中",

@@ -1,5 +1,5 @@
 {
-  "looki.plugin.title": "Looki",
+  "looki.plugin.title": "Data source - Looki wearable camera",
   "looki.plugin.summary": "Connects to the official open API of the Looki wearable camera: each day's moments (when, where, what you were doing) become materials, and are looked up on the spot when you ask \"what was I doing yesterday afternoon\"",
   "looki.plugin.purge.records": "Moments and AI journals imported from Looki (the records)",
   "looki.plugin.purge.key": "The Looki API key you entered",
