@@ -459,7 +459,7 @@ App 里按住说话用鸿蒙的 AudioCapturer：进语音模式时建好录音�
 
 ## 12. 从 ergou 迁到 ergo
 
-二狗早先的代码名是拼音 `ergou`，后来统一成 `ergo`：包名 `@ergo/*`、环境变量 `ERGO_*`、数据目录 `~/.ergo`、`config/ergo.json`、`db/ergo.db`、配对 cookie `__Host-ergo-*`、浏览器存储的键 `ergo-*`、鸿蒙原生桥 `ergoNative`、服务管家里的 `ergo-daemon` / `ergo-tunnel` / `ergo-asr`。鸿蒙包名原来是占位的 `com.example.ergou`（52 号票时没跟着改），2026-10-30 定成正式的 `com.catmaniii.ergo`——包名在 AGC 建完就不能改，所以要赶在注册之前定。
+二狗早先的代码名是拼音 `ergou`，后来统一成 `ergo`：包名 `@ergo/*`、环境变量 `ERGO_*`、数据目录 `~/.ergo`、`config/ergo.json`、`db/ergo.db`、配对 cookie `__Host-ergo-*`、浏览器存储的键 `ergo-*`、鸿蒙原生桥 `ergoNative`、服务管家里的 `ergo-daemon` / `ergo-tunnel` / `ergo-asr`。鸿蒙包名是 `com.catmaniii.ergo`（2026-10-30 定）——包名在 AGC 建完就不能改，所以要赶在注册之前定。
 
 **兼容期旧名字照样认**：读新旧都认、新的优先，写只写新的；旧名字一律用协议包的 `oldNameOf` 从新名字推出来（`packages/protocol/src/old-names.ts`）。数据目录（`ERGOU_DATA_DIR`、`~/.ergou`）、别的环境变量、数据目录里的旧文件名、旧的配对 cookie、浏览器里的旧键、鸿蒙 App 的旧名字都有对应的兼容代码。从旧数据目录迁过来：`npm run migrate:ergo -- [--data-dir <旧的数据目录>] [--dry-run]`（守护进程要先停；改名、在原地建目录联接；每一步都能重跑）。
 

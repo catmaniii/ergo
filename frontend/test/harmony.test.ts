@@ -374,3 +374,20 @@ describe("读本机（299、300 号票）", () => {
     expect(localDayStart(timed)).toBe(timed);
   });
 });
+
+/**
+ * 包名只有一个：二狗的鸿蒙 App 是 com.catmaniii.ergo（2026-10-30 定）。早年的占位名、另一次没落地的名字
+ * 都不许再出现在代码、工程、文档、脚本里——包名在 AGC 建完就改不了，写错一处就是让人照着敲错的命令装不上。
+ */
+test("包名只认 com.catmaniii.ergo：仓库里（除了调研笔记）不许再出现旧包名", () => {
+  // 旧名字在这里拼出来：不然这条用例自己就是一处"出现"
+  const stale = [["com", "example", "ergou"].join("."), ["io", "github", "catmaniii", "ergo"].join(".")];
+  const bad = filesThatWouldBeCommitted()
+    .filter((f) => TEXT_FILE.test(f) && !f.startsWith("docs/research/"))
+    .filter((f) => {
+      const content = readFileSync(path.join(REPO, f), "utf8");
+      return stale.some((name) => content.includes(name));
+    });
+  expect(bad).toEqual([]);
+  expect(readFileSync(path.join(HARMONY_DIR, "AppScope", "app.json5"), "utf8")).toContain('"bundleName": "com.catmaniii.ergo"');
+});

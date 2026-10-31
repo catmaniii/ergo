@@ -1,7 +1,7 @@
 {
   "app": {
     // bundleName 自定（62 号票）。签名材料按 bundleName 生成：改了它要在 DevEco 里重新点一次"自动生成签名"
-    // 2026-10-30（339）：占位的 com.example.ergou 定成正式的 com.catmaniii.ergo，签过一次之后别再改（改了就是另一个 App，手机上要卸载重装）
+    // 二狗的鸿蒙 App 用的就是这个包名（2026-10-30 定）。在 AGC 建过应用之后别再改：改了就是另一个 App，手机上要卸载重装、数据会丢
     "bundleName": "com.catmaniii.ergo",
     "vendor": "ergo",
     "versionCode": 2001000,
