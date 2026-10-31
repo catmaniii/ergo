@@ -20,7 +20,7 @@
   "shell.more.calendarSub": "Workdays and days off, plus each day's reminders and scheduled tasks",
   "shell.pages.usage.title": "Usage",
   "shell.pages.usage.sub": "Token usage and estimated cost, by day and by agent",
-  "shell.pages.memory.title": "Memory Module · Subtext",
+  "shell.pages.memory.title": "Memory System · Subtext v1.0",
   "shell.pages.memory.sub": "An experimental memory system: files, conclusions, question box, materials; talk to the memory curator and do the get-to-know interview",
   "shell.pages.settings.title": "Settings",
   "shell.pages.settings.sub": "Assistant name, language, appearance & style, models, watch categories, workday rules, skills & MCP, system prompts, voice, browsing & form filling, paired devices, full tool-call records",

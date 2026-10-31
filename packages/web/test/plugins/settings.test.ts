@@ -123,7 +123,7 @@ describe("设置里的插件那一块", () => {
     expect(html).toContain('<div class="plugin-row plugin-running" data-plugin="reminders"><div class="plugin-head"><span class="plugin-name">提醒</span><span class="chip chip-ok">运行中</span></div>');
     expect(html).toContain('<div class="plugin-summary">到点或者某件事发生时提醒你一声</div>');
     expect(html).toContain("<li>给二狗的工具 4 个：建简单提醒、改简单提醒、取消简单提醒和归档简单提醒</li><li>卡片：提醒卡</li><li>网页上：看板上的简单提醒和日历里的提醒</li>");
-    expect(html).toContain("<li>网页上：导航里的「记忆」页（标题「记忆模块 · 会意」；档案、结论、问题箱、素材，和记忆管理员的对话）、对话里的「回忆了 N 条记忆」、看板上的「记忆整理 · 每天 03:00」和记忆页最下面的「记忆模块 · 会意 · 设置」：每条消息带简报、顺口问、每周约访谈三个开关（实验性）</li>");
+    expect(html).toContain("<li>网页上：导航里的「记忆」页（标题「记忆系统 · 会意 v1.0」；档案、结论、问题箱、素材，和记忆管理员的对话）、对话里的「回忆了 N 条记忆」、看板上的「记忆整理 · 每天 03:00」和记忆页最下面的「记忆系统 · 会意 v1.0 · 设置」：每条消息带简报、顺口问、每周约访谈三个开关（实验性）</li>");
     expect(html.match(/>停用</g)).toHaveLength(2);
     expect(html.match(/>移除</g)).toHaveLength(2);
     expect(html).not.toContain("已移除（");

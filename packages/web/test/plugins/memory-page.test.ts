@@ -2,7 +2,7 @@
 // （旧地址 #/more/memory/evidence[/<编号>] 换到 #/more/memory/claims[/<编号>]）；记忆插件在用时它的"档案"盖住"更多"里的个人档案
 // （#/more/files[/<编号>] 换到 #/more/memory/files[/<编号>]，"更多"里不再列），停用时个人档案照旧在"更多"里。
 // 用户 2026-10-31："记忆插件没装 / 没启用时系统也不能崩"——这里查 #/more/memory 那一条地址：
-// 插件在用时是记忆页（标题「记忆模块 · 会意」），停用了、没装上时写"记忆插件没启用，这一页暂时看不到"、不抛异常。
+// 插件在用时是记忆页（标题「记忆系统 · 会意 v1.0」），停用了、没装上时写"记忆插件没启用，这一页暂时看不到"、不抛异常。
 import { type ComponentProps, createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
@@ -77,9 +77,9 @@ describe("记忆 · 档案盖住\"更多\"里的个人档案", () => {
 });
 
 describe("记忆插件没启用时记忆页这条地址不会崩（用户 2026-10-31）", () => {
-  test("插件在用时 #/more/memory 就是记忆页：标题「记忆模块 · 会意」、四栏都在", () => {
+  test("插件在用时 #/more/memory 就是记忆页：标题「记忆系统 · 会意 v1.0」、四栏都在", () => {
     const html = moreMemoryAt(assembled());
-    expect(html).toContain("记忆模块 · 会意");
+    expect(html).toContain("记忆系统 · 会意 v1.0");
     expect(html).toContain("memory-layers");
     expect(html).not.toContain("记忆插件没启用");
   });

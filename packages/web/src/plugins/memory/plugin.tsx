@@ -6,9 +6,9 @@
 // - 会话条目 recall 的画法（RecallLine.tsx："回忆了 N 条记忆 ›"，187 号票）和它的详情"这次用到的记忆"（RecallDetail.tsx）；
 // - 卡片类型 memory_delete 的画法（MemoryDeleteCard.tsx：记忆删除卡，21 号票）；
 // - 看板条目 memory_curator 的画法（CuratorBoardCard.tsx：记忆整理 · 每天 03:00，点进去是管理员那一层，242 号票）；
-// - 记忆页最下面那块"记忆模块 · 会意 · 设置"（MemorySettingsSection.tsx，264 号票的三个开关）：336 号票起不登记成设置分节了，
+// - 记忆页最下面那块"记忆系统 · 会意 v1.0 · 设置"（MemorySettingsSection.tsx，264 号票的三个开关）：336 号票起不登记成设置分节了，
 //   跟记忆页一起画（默认收起），设置列表最下面不再有它；336 号票还给这套记忆系统起了名字（「会意」/ Subtext，键在 system.ts），
-//   以后别的记忆系统当插件接进来时认得出是哪一套；用户 2026-10-31 定：它是插件，标题写「记忆模块 · 会意」/「Memory Module · Subtext」
+//   以后别的记忆系统当插件接进来时认得出是哪一套；用户 2026-10-31 定：它是插件，标题写「记忆系统 · 会意 v1.0」/「Memory System · Subtext v1.0」
 //   （shell.pages.memory.title），记忆页顶上挂「实验性」标签和一句说明，设置块那句也写明实验性（导航那一项还是"记忆"）；
 // - 卡片类型 interview 的画法（InterviewCard.tsx：了解你访谈的约访卡，284 号票）；285 号票起随时开访谈是记忆管理员对话里输入框上面
 //   那一行的"开始访谈"（CuratorPage.tsx），/interview 照旧；

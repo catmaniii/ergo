@@ -10,9 +10,9 @@
 //   - 素材（#/more/memory/materials，MaterialsBrowse.tsx）：原始记录，列表上写现在一共几条；顶栏"成批删除"进 #/more/memory/materials-delete
 //     （MaterialsBulkDelete.tsx，原来设置里"删除素材"那一整套）；点开一条是再下一级，标题写"素材详情"；
 // - 最下面隔一道线一行"数据源"（295 号票，设置下面的内核页面：外面接进来的数据是素材的又一个来处）；
-// - 再下面一个默认收起的"记忆模块 · 会意 · 设置"块（336 号票）：记忆的三个开关（简报、顺口问、每周约访谈）从设置列表搬到了这里
+// - 再下面一个默认收起的"记忆系统 · 会意 v1.0 · 设置"块（336 号票）：记忆的三个开关（简报、顺口问、每周约访谈）从设置列表搬到了这里
 //   （MemorySettingsSection.tsx），记忆页里就能找到；页头那行写这套记忆系统的名字（「会意」/ Subtext，plugins/memory/system.ts）。
-// 用户 2026-10-31 定：它是插件，标题栏写「记忆模块 · 会意」/「Memory Module · Subtext」（shell.pages.memory.title，导航那一项还是"记忆"），
+// 用户 2026-10-31 定：它是插件，标题栏写「记忆系统 · 会意 v1.0」/「Memory System · Subtext v1.0」（shell.pages.memory.title，导航那一项还是"记忆"），
 // 标题下面挂一个「实验性」标签和一句说明（还在打磨、数据在本机、能停用能删），别只写在文档里。
 // 排法照设置（MorePage 的 SettingsSection）：记忆直接显示在导航里时，宽屏左边是首页、右边是选中的那栏（没选时是档案）；竖屏先列首页，
 // 点进去的栏返回到首页。记忆管理员的对话两种都是整页。
@@ -158,7 +158,7 @@ function MemoryHome({ current, navigate, onBack }: { current?: MemoryItem | unde
     <div className="chat-col">
       <TopBar title={t("shell.pages.memory.title")} onBack={onBack} />
       <div className="scroll">
-        {/* 用户 2026-10-31 定：标题写「记忆模块 · 会意」，这一行挂「实验性」标签、说它在做什么、数据在哪、怎么停用和删掉；
+        {/* 用户 2026-10-31 定：标题写「记忆系统 · 会意 v1.0」，这一行挂「实验性」标签、说它在做什么、数据在哪、怎么停用和删掉；
             336 号票起的名字（「会意」/ Subtext）现在在标题栏里，这里只写它做什么；导航那一项还是"记忆" */}
         <div className="menu memory-system" data-system="memory">
           <div className="memory-system-head">
