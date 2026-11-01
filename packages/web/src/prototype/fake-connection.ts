@@ -203,6 +203,7 @@ import {
 } from "../state/index.ts";
 import { nowIso } from "../util/time.ts";
 import { fakeRuntimes } from "./fake-runtimes.ts";
+import { fakeText } from "./fake-content.ts";
 import { fakeCalendarMonth } from "./fake-calendar.ts";
 import { FakePlugins } from "./fake-plugins.ts";
 import { appendRollbackDemo, type FakeBranchLog, fakeBranchView, fakeEffectUndo, fakeRollback, fakeRollbackPreview, fakeSwitchBranch } from "./fake-branches.ts";
@@ -664,9 +665,11 @@ export class FakeConnection implements Connection {
   }
 
   /** 原型的一轮回复：turn_start，一段一段推流式增量，说完了定稿、turn_end，再把排着的一起交出去 */
-  private startTurn(conversation: string, inputs: readonly string[], text: string): void {
+  private startTurn(conversation: string, inputs: readonly string[], source: string): void {
     const [input, ...more] = inputs;
     if (input === undefined) return;
+    // 一段一段流出去的是已经按语言换好的字（半句话查不了表）
+    const text = fakeText(source);
     this.emit(conversation, EVENT_TYPES.turnStart, { inputMessageId: input, ...(more.length > 0 ? { moreInputMessageIds: more } : {}) });
     const turn: FakeTurn = { inputs, replyId: `a-${input}`, text, said: 0, timer: undefined };
     turn.timer = setInterval(() => {

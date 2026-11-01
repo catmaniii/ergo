@@ -11,6 +11,7 @@ import { useStore } from "../app/store.tsx";
 import type { BoardEntry, SkillEntry, TaskSummary } from "../model/types.ts";
 import type { Card, CardAction } from "../state/index.ts";
 import { useToast } from "../ui/toast.tsx";
+import { fakeText, localized } from "./fake-content.ts";
 import { FAKE_BOARD, FAKE_SKILLS } from "./fake-data.ts";
 
 export interface ProtoState {
@@ -97,13 +98,13 @@ export function ProtoProvider({ children, realBoard = false }: { children: React
       const { action } = card.outcome;
       setProto((s) => sideEffect(s, card, action));
       const text = toastFor(card, action);
-      if (text && !handledLongAgo(card)) toast(text);
+      if (text && !handledLongAgo(card)) toast(fakeText(text));
     }
   }, [ui.cards, toast]);
 
   const value = useMemo(() => {
     const board = realBoard ? [] : proto.board;
-    return { proto: { ...proto, board }, update: setProto, realBoard };
+    return { proto: localized({ ...proto, board }), update: setProto, realBoard };
   }, [proto, realBoard]);
   return <ProtoContext.Provider value={value}>{children}</ProtoContext.Provider>;
 }

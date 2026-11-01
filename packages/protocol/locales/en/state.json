@@ -1285,7 +1285,7 @@
   "state.usage.price.unpriced": "Models with no price, not counted in cost: {models}.",
   "state.usage.price.configProblem": "Couldn't read the prices in the config, so they weren't used: {problem}",
   "state.usage.listSep": ", ",
-  "state.usage.web.price": "DeepSeek web search and page reads cost ¥{search} per call (¥{perThousand} per 1,000 calls, from {title} ({readOn})). Only successful calls with results count, charged to the agent that made the call. Browser search is free.",
+  "state.usage.web.price": "DeepSeek web search and page reads cost {symbol}{search} per call ({symbol}{perThousand} per 1,000 calls, from {title} ({readOn})). Only successful calls with results count, charged to the agent that made the call. Browser search is free.",
   "state.usage.web.unpriced": "The config's currency isn't CNY, but the built-in web call prices are in CNY, so they aren't counted in cost.",
   "state.userWords.needCriterion": "Keep at least one acceptance criterion",
   "state.userWords.needDeliverable": "Keep at least one deliverable",

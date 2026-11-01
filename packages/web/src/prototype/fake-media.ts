@@ -2,6 +2,7 @@
 // HTML、SVG 也带内容，报告页在沙箱框、<img> 里看），
 // 别的只有名字、类型、大小。原型没有守护进程：下载给的是一段说明文字（data: 地址）。名字和内容都是明显虚构的。
 import type { FilePartValue } from "../state/index.ts";
+import { fakeFormat, fakeMoney, fakeText } from "./fake-content.ts";
 
 /** 一个假附件：part 上的样子，文本类的再带内容 */
 export interface FakeMedia {
@@ -87,15 +88,15 @@ const BRIEF = `# 早报 · 10 月 7 日（周三）
 
 /** 全年账单流水：超过 1 MB（每天一节，一天八笔，按账户分了八份），报告页只显示开头一部分 */
 function yearLedger(): string {
-  const items = ["早餐", "午餐", "地铁", "超市", "咖啡", "水果", "晚餐", "停车"];
-  const lines = ["# 2026 年账单流水", "", "按账户、按天列出每一笔，金额单位是元。"];
-  for (const account of ["招行信用卡", "工行储蓄卡", "建行信用卡", "农行储蓄卡", "支付宝", "微信支付", "交通卡", "现金"]) {
+  const items = ["早餐", "午餐", "地铁", "超市", "咖啡", "水果", "晚餐", "停车"].map(fakeText);
+  const lines = [fakeText("# 2026 年账单流水"), "", fakeText("按账户、按天列出每一笔，金额单位是元。")];
+  for (const account of ["招行信用卡", "工行储蓄卡", "建行信用卡", "农行储蓄卡", "支付宝", "微信支付", "交通卡", "现金"].map(fakeText)) {
     lines.push("", `## ${account}`);
     for (let day = 0; day < 365; day++) {
       const date = new Date(Date.UTC(2026, 0, 1 + day));
-      const label = `${date.getUTCMonth() + 1} 月 ${date.getUTCDate()} 日`;
+      const label = fakeFormat("{} 月 {} 日", date.getUTCMonth() + 1, date.getUTCDate());
       lines.push("", `### ${label}`, "");
-      for (let k = 0; k < 8; k++) lines.push(`- ${items[(day + k) % items.length]}：${(((day * 7 + k * 13) % 9000) / 100 + 3).toFixed(2)} 元（${account}，第 ${k + 1} 笔）`);
+      for (let k = 0; k < 8; k++) lines.push(fakeFormat("- {}：{} 元（{}，第 {} 笔）", items[(day + k) % items.length]!, fakeMoney(((day * 7 + k * 13) % 9000) / 100 + 3).toFixed(2), account, k + 1));
     }
   }
   return lines.join("\n");

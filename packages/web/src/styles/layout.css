@@ -100,7 +100,7 @@
   flex: 1 1 0;
   min-width: 0;
   gap: 2px;
-  padding: 6px 6px 5px;
+  padding: 6px 2px 5px;
 }
 .tabbar .nav-probe .tab {
   flex: none;
@@ -584,6 +584,7 @@
 }
 /* 等你确认的计划："整个计划 · 等你确认" */
 .md-side-wait {
+  margin-inline-start: 0.5em;
   color: var(--op-fg);
 }
 .md-side-close {

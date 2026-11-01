@@ -40,12 +40,14 @@ import { TasksPage } from "./pages/TasksPage.tsx";
 import type { Connection } from "./app/connection.ts";
 import { type DaemonHttp, HttpDaemonClient } from "./app/daemon-http.ts";
 import { FakeDaemonHttp } from "./prototype/fake-http.ts";
+import { localized, localizedFake } from "./prototype/fake-content.ts";
 import { daemonSocketUrl, WebSocketConnection } from "./app/ws-connection.ts";
 import { isPrototypePage } from "./app/prototype-mode.ts";
 import { FakeConnection } from "./prototype/fake-connection.ts";
 import { SplitConnection } from "./prototype/split-connection.ts";
 import {
   type AccessInfo,
+  activeLocale,
   CHANNELS,
   type CredentialRejection,
   inboxBadge,
@@ -128,10 +130,10 @@ async function checkAccess(): Promise<AccessInfo> {
 const fakeConnection = new FakeConnection();
 const connection: Connection = SERVED_BY_DAEMON
   ? new SplitConnection(new WebSocketConnection({ url: daemonSocketUrl(window.location), channels: REAL_CHANNELS, checkAccess }), fakeConnection, REAL_CHANNELS)
-  : fakeConnection;
+  : localizedFake(fakeConnection);
 
 /** HTTP 那一半（上传附件、往上翻历史、媒体地址、改工作日历）：同样只在这里注入；原型的改工作日历交给假连接推事件 */
-const http: DaemonHttp = SERVED_BY_DAEMON ? new HttpDaemonClient() : new FakeDaemonHttp(fakeConnection);
+const http: DaemonHttp = SERVED_BY_DAEMON ? new HttpDaemonClient() : localizedFake(new FakeDaemonHttp(fakeConnection));
 
 /**
  * 网页插件宿主：一建好就按全开装上，收到守护进程报的状况再装、停。建在连接和 HTTP 之后、交给插件：
@@ -148,7 +150,7 @@ type AccessState = { kind: "checking" } | { kind: "ready"; info?: AccessInfo } |
 
 function useAccessCheck(): AccessState {
   // 原型（直接打开构建产物）假装是从已配对的一台手机上打开的：设置 · 已配对设备里标"就是这台"
-  const [state, setState] = useState<AccessState>(SERVED_BY_DAEMON ? { kind: "checking" } : { kind: "ready", info: FAKE_ACCESS });
+  const [state, setState] = useState<AccessState>(SERVED_BY_DAEMON ? { kind: "checking" } : { kind: "ready", info: localized(FAKE_ACCESS) });
   useEffect(() => {
     if (!SERVED_BY_DAEMON) return;
     checkAccess().then(
@@ -167,7 +169,7 @@ const reload = () => window.location.reload();
  * 原型里吊销、删除了"就是这台"也到这里，用假的配对接口（重新申请、模拟批准之后刷新，假数据从头来）
  */
 function Unpaired({ opening }: { opening: PairingOpening }) {
-  const [api] = useState(() => (SERVED_BY_DAEMON ? httpPairingApi : previewPairingApi(navigator.userAgent)));
+  const [api] = useState(() => (SERVED_BY_DAEMON ? httpPairingApi : localizedFake(previewPairingApi(navigator.userAgent))));
   return <PairingWait api={api} onPaired={reload} opening={opening} onReapply={() => revokedMark.set(false)} />;
 }
 
@@ -222,7 +224,8 @@ export default function App() {
   if (access.kind === "unpaired") return <Unpaired opening={access.opening} />;
   return (
     <AccessProvider access={access.info}>
-      <StoreProvider connection={connection} http={http}>
+      {/* 原型换了语言重新连一遍：假数据按语言出内容，已经推过的跟着换 */}
+      <StoreProvider key={SERVED_BY_DAEMON ? undefined : activeLocale().meta.id} connection={connection} http={http}>
         <LocaleSync />
         <AgentRolesSync />
         <UserNameSync />
@@ -407,7 +410,7 @@ function PluginOffPage({ plugin }: { plugin: string | undefined }) {
 
 /** 原型：配对等待页的预览（不连守护进程） */
 function PairingPreview({ onExit }: { onExit(): void }) {
-  const [api] = useState(() => previewPairingApi(navigator.userAgent));
+  const [api] = useState(() => localizedFake(previewPairingApi(navigator.userAgent)));
   return <PairingWait api={api} onPaired={onExit} onExit={onExit} />;
 }
 

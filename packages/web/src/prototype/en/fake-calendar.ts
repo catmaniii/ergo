@@ -1,0 +1,31 @@
+// fake-calendar.ts 里的字对应的英文。左边是中文原文（有插值的地方写 {}），右边是英文
+import type { Phrases } from "./phrases.ts";
+
+export const EN_CALENDAR: Phrases = {
+  "交房租": "Pay rent",
+  "准备周会材料": "Prepare for the team meeting",
+  "跑步": "Go running",
+  "妈妈生日，订蛋糕": "Mom's birthday, order a cake",
+  "每天 21:00 汇总当天账单": "Total the day's bills at 21:00 daily",
+  "记账本": "Ledger",
+  "每天早上出早报": "Morning brief every day",
+  "每月 1 号出月报": "Monthly report on the 1st",
+  "手机 · 日历": "Phone · Calendar",
+  "我的日历": "My calendar",
+  "看牙医": "Dentist",
+  "某某口腔": "Some dental clinic",
+  "生日": "Birthdays",
+  "妈妈生日": "Mom's birthday",
+  "工作": "Work",
+  "出差": "Business trip",
+  "Google · 日历": "Google · Calendar",
+  "家里": "Home",
+  "站会": "Standup",
+  "3 楼会议室": "Room on floor 3",
+  "出差上海": "Business trip to Shanghai",
+  "看牙": "Dentist",
+  "仁爱口腔": "Ren'ai Dental",
+  "小王生日": "Xiao Wang's birthday",
+  "银行导出的账单格式变了": "The bank's statement export format changed",
+  "有一步没等到你的批准：「通用 bash」（curl -s https://rss.example.com/tech）": "One step never got your approval: “Generic bash” (curl -s https://rss.example.com/tech)",
+};

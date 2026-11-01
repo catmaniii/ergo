@@ -5,6 +5,7 @@
 //   重试、验收通过算做完、退回 / 返工回到执行中），写一句提示；删除由调用方从看板上拿掉。
 import type { ActivityState, TaskStatus, TaskSummary } from "../model/types.ts";
 import { type MenuStage, type TaskAction, taskDeleteRefusal, type TaskMenuSubject } from "../state/index.ts";
+import { fakeText } from "./fake-content.ts";
 import { FAKE_RUN_SLOTS, taskDetailOf } from "./fake-data.ts";
 
 /** 假任务的阶段：假详情里有就用，没有按"第 N/M 阶段"排出来 */
@@ -41,6 +42,11 @@ export function protoSubject(t: TaskSummary): TaskMenuSubject {
 
 /** 假任务做了一件事之后：新的状态、活动状态（没变的不写）、提示；running 是别的在执行中的假任务有几个（执行名额） */
 export function protoAfter(action: TaskAction, running: number): { status: TaskStatus; activity?: ActivityState; toast: string } {
+  const after = afterAct(action, running);
+  return { ...after, toast: fakeText(after.toast) };
+}
+
+function afterAct(action: TaskAction, running: number): { status: TaskStatus; activity?: ActivityState; toast: string } {
   const resume = (what: string) =>
     running < FAKE_RUN_SLOTS
       ? { status: "running" as const, activity: "working" as const, toast: `${what}：执行名额没满，直接回到执行中` }

@@ -54,6 +54,7 @@ import {
   nowIso,
   type AccessInfo,
 } from "../state/index.ts";
+import { fakeMoney, isEnglishContent, localizedConstant } from "./fake-content.ts";
 import { at, MAINTAINERS } from "./fake-conversations.ts";
 import { PHOTOS_BUILD_EVENTS, RECIPES_JOBS, RECIPES_OPERATIONS, RECIPES_OPERATIONS_TASKS } from "./fake-operations.ts";
 import { LEDGER_BUILD_ID } from "./fake-long-tasks.ts";
@@ -433,7 +434,7 @@ export const FAKE_TASK_DETAILS: Record<string, TaskDetail> = {
 };
 
 export function taskDetailOf(id: string): TaskDetail {
-  return FAKE_TASK_DETAILS[id] ?? DEFAULT_DETAIL;
+  return localizedConstant(FAKE_TASK_DETAILS[id] ?? DEFAULT_DETAIL);
 }
 
 // ---------- 项目 ----------
@@ -620,7 +621,8 @@ export const FAKE_PROJECT_DETAILS: Record<string, ProjectDetail> = {
 
 /** 原型假项目的这些部分；真项目（守护进程推来的）没有，项目页上不显示这几节 */
 export function projectDetailOf(id: string): ProjectDetail | undefined {
-  return FAKE_PROJECT_DETAILS[id];
+  const detail = FAKE_PROJECT_DETAILS[id];
+  return detail && localizedConstant(detail);
 }
 
 // ---------- 待我处理 ----------
@@ -1043,7 +1045,7 @@ export function fakeUsageSummary(range: { from: string; to: string }): UsageSumm
     const rs = rows.filter((r) => r.day === date);
     return { date, total: tally(rs), system: tally(rs.filter((r) => r.system)), unattributed: tally([]), agents: agents(rs) };
   });
-  return {
+  return moneyInContentLanguage({
     ...range,
     days,
     agents: agents(rows),
@@ -1059,6 +1061,31 @@ export function fakeUsageSummary(range: { from: string; to: string }): UsageSumm
     },
     web: fakeUsageWeb(rows),
     memoryBrief: fakeUsageMemoryBrief(rows.filter((r) => r.system).length),
+  });
+}
+
+/** 消耗页的钱按界面语言：英文是美元（token 数、次数不变），花了多少和单价一起换 */
+function moneyInContentLanguage(summary: UsageSummary): UsageSummary {
+  if (!isEnglishContent()) return summary;
+  const tally = <T extends { cost: number }>(row: T): T => ({ ...row, cost: fakeMoney(row.cost) });
+  const tier = <T extends object>(price: T): T => Object.fromEntries(Object.entries(price).map(([k, v]: [string, unknown]) => [k, typeof v === "number" ? Number(fakeMoney(v).toFixed(3)) : v])) as T;
+  const { pricing, web } = summary;
+  return {
+    ...summary,
+    days: summary.days.map((d) => ({ ...d, total: tally(d.total), system: tally(d.system), unattributed: tally(d.unattributed), agents: d.agents.map(tally) })),
+    agents: summary.agents.map(tally),
+    total: tally(summary.total),
+    system: tally(summary.system),
+    unattributed: tally(summary.unattributed),
+    pricing: { ...pricing, currency: "USD", prices: pricing.prices.map((p) => ("peak" in p ? { ...p, peak: tier(p.peak), offPeak: tier(p.offPeak) } : tier(p))) },
+    web: {
+      ...web,
+      search: tally(web.search),
+      fetch: tally(web.fetch),
+      agents: web.agents.map((a) => ({ ...a, search: tally(a.search), fetch: tally(a.fetch) })),
+      ...(web.price ? { price: { ...web.price, search: Number(fakeMoney(web.price.search).toFixed(5)), fetch: Number(fakeMoney(web.price.fetch).toFixed(5)), currency: "USD" } } : {}),
+    },
+    ...(summary.memoryBrief ? { memoryBrief: tally(summary.memoryBrief) } : {}),
   };
 }
 

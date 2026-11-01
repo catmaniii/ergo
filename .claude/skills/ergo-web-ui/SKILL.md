@@ -100,7 +100,7 @@ npx vitest run packages/web/test/visual-styles packages/web/test/app/theme.test.
 2. 核心页：`src/app/route-hash.ts` 的 `MORE_PAGES` 加一项，`src/pages/` 写组件。加进 `MORE_PAGES` 的自动被页面测试切到。
 3. 别的地址加进 `packages/web/test/page-opens.test.ts` 的 `PAGES`。英文迁好的元素加进 `EN_DONE`。
 4. 要守护进程的数据：见下一节。
-5. 原型不能空着：`src/prototype/` 给假数据（`fake-connection.ts`、`fake-plugins.ts`、`fake-data-sources.ts`），不然 `file://` 打开是空的。
+5. 原型不能空着：`src/prototype/` 给假数据（`fake-connection.ts`、`fake-plugins.ts`、`fake-data-sources.ts`），不然 `file://` 打开是空的。假数据的中文写在 `fake-*.ts` 里，英文写在 `src/prototype/en/` 的同名文件里（"中文原文 → 英文"，有插值的地方写 `{}`）：结构、个数、状态、日期只有一份，英文只换字，金额换成美元（约 7 元 = 1 美元）。不进语言文件。缺的、多的 `test/prototype/fake-content.test.ts` 会报。
 6. 状态逻辑写进 `src/state/` 的纯函数，从 `state/index.ts` 导出，测试用录下的事件流回放（`packages/web/test/state/recordings/`）。
 
 ## 6. 网页要取数据

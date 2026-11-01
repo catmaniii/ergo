@@ -5,6 +5,7 @@
 // 服务首页的缩略图（画好的假网页，fakeServiceThumbnail）——菜谱网页、网盘页面（挂了：灰着标"不在线"）各一张，停用了的
 // 旧作品集网站留着最后一张；家庭菜谱两条定时任务的最近几次运行（时令菜提醒那次失败了）。
 // 服务报事件——读书笔记库的方案里多一条等"书摘同步失败"的；家庭菜谱的"菜谱网页"报过几个事件（叫醒了的、名字写错没人等的），"价格异常时比价"等它报事件。
+import { fakeText, isEnglishContent } from "./fake-content.ts";
 import {
   CHANNELS,
   EVENT_TYPES,
@@ -262,14 +263,14 @@ function fakePage(o: { bar: string; bg: string; title: string; sub: string; card
   const cards = o.cards
     .map((c, i) => {
       const x = 64 + i * 296;
-      return `<rect x="${x}" y="300" width="272" height="380" rx="18" fill="#fff" stroke="#e5e7eb" stroke-width="2"/><rect x="${x}" y="300" width="272" height="170" rx="18" fill="${c.color}"/><text x="${x + 24}" y="530" font-size="30" font-family="sans-serif" fill="#111827">${c.label}</text><rect x="${x + 24}" y="566" width="200" height="16" rx="8" fill="#e5e7eb"/><rect x="${x + 24}" y="600" width="150" height="16" rx="8" fill="#e5e7eb"/>`;
+      return `<rect x="${x}" y="300" width="272" height="380" rx="18" fill="#fff" stroke="#e5e7eb" stroke-width="2"/><rect x="${x}" y="300" width="272" height="170" rx="18" fill="${c.color}"/><text x="${x + 24}" y="530" font-size="30" font-family="sans-serif" fill="#111827">${fakeText(c.label)}</text><rect x="${x + 24}" y="566" width="200" height="16" rx="8" fill="#e5e7eb"/><rect x="${x + 24}" y="600" width="150" height="16" rx="8" fill="#e5e7eb"/>`;
     })
     .join("");
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 800" width="640" height="400"><rect width="1280" height="800" fill="${o.bg}"/><rect width="1280" height="88" fill="${o.bar}"/><circle cx="64" cy="44" r="18" fill="#fff" opacity=".85"/><rect x="100" y="34" width="180" height="20" rx="10" fill="#fff" opacity=".85"/><text x="64" y="190" font-size="56" font-weight="700" font-family="sans-serif" fill="#111827">${o.title}</text><text x="64" y="246" font-size="28" font-family="sans-serif" fill="#6b7280">${o.sub}</text>${cards}</svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 800" width="640" height="400"><rect width="1280" height="800" fill="${o.bg}"/><rect width="1280" height="88" fill="${o.bar}"/><circle cx="64" cy="44" r="18" fill="#fff" opacity=".85"/><rect x="100" y="34" width="180" height="20" rx="10" fill="#fff" opacity=".85"/><text x="64" y="190" font-size="56" font-weight="700" font-family="sans-serif" fill="#111827">${fakeText(o.title)}</text><text x="64" y="246" font-size="28" font-family="sans-serif" fill="#6b7280">${fakeText(o.sub)}</text>${cards}</svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
-const FAKE_THUMBNAILS: Record<string, string> = {
+const fakeThumbnails = (): Record<string, string> => ({
   "p-recipes-web": fakePage({
     bar: "#e8590c",
     bg: "#fff7ed",
@@ -306,11 +307,17 @@ const FAKE_THUMBNAILS: Record<string, string> = {
       { color: "#fde68a", label: "摄影" },
     ],
   }),
-};
+});
+
+/** 缩略图上的字跟着语言，每种语言画一遍 */
+const thumbnails = new Map<boolean, Record<string, string>>();
 
 /** 原型的服务首页缩略图：按应用名给画好的假网页；没画的没有 */
 export function fakeServiceThumbnail(app: string): string | undefined {
-  return FAKE_THUMBNAILS[app];
+  const english = isEnglishContent();
+  const drawn = thumbnails.get(english) ?? fakeThumbnails();
+  thumbnails.set(english, drawn);
+  return drawn[app];
 }
 
 const recipesMenu = (time: string, weekday: number, triggerText: string): OperationItem =>

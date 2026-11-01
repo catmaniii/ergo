@@ -18,6 +18,7 @@
 import type { DaemonHttp } from "../app/daemon-http.ts";
 import type { BackgroundAgentList, BackgroundAgentTranscript } from "../state/index.ts";
 import { fakeBackgroundAgents, fakeBackgroundTranscript } from "./fake-background-agents.ts";
+import { fakeText } from "./fake-content.ts";
 import { FakePersonalFiles } from "./fake-personal-files.ts";
 import type { UploadProgress } from "../app/uploader.ts";
 import { wavOf } from "../app/voice-wav.ts";
@@ -361,7 +362,7 @@ export class FakeDaemonHttp implements DaemonHttp {
     if (url) return url;
     // 假会话里的附件、刚上传的文件：下载给一段说明文字（原型没有原文件）
     const name = fakeMedia(mediaId)?.part.name ?? this.uploads.get(mediaId)?.name;
-    return name === undefined ? undefined : `data:text/plain;charset=utf-8,${encodeURIComponent(`原型里的假附件「${name}」：真的二狗在这里下载原文件。`)}`;
+    return name === undefined ? undefined : `data:text/plain;charset=utf-8,${encodeURIComponent(fakeText(`原型里的假附件「${name}」：真的二狗在这里下载原文件。`))}`;
   }
 
   /**
@@ -397,7 +398,7 @@ export class FakeDaemonHttp implements DaemonHttp {
 
   mediaFrameUrl(mediaId: string, frame: FramePreview): string | undefined {
     const text = fakeMedia(mediaId)?.text;
-    if (text !== undefined) return `data:${frame === "html" ? "text/html" : "image/svg+xml"};charset=utf-8,${encodeURIComponent(text)}`;
+    if (text !== undefined) return `data:${frame === "html" ? "text/html" : "image/svg+xml"};charset=utf-8,${encodeURIComponent(fakeText(text))}`;
     const uploaded = this.uploads.get(mediaId);
     return uploaded ? URL.createObjectURL(uploaded) : undefined;
   }

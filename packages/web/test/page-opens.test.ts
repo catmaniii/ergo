@@ -102,7 +102,7 @@ const EN_DONE: { hash: string; selector: string; except?: string; wideOnly?: boo
   { hash: "#/more/language", selector: ".language-page", except: '[lang="zh-CN"], .assistant-name' },
   // 界面组件（ui/、model/）——卡片的种类签、日期分隔、附件按钮、"详情"这类小链接、输入框（秘书的名字标签除外）、
   // 任务详情的阶段栏和待你处理的条、卡片上处理过的结果、立项要求变更的前后对照、提醒的浏览器通知开关。
-  // 卡片的标题、正文、阶段名是二狗存下的内容（原型的假数据是中文），状态名、处置名是状态层和协议包的，不在这里查
+  // 卡片的标题、正文、阶段名是二狗存下的内容（假数据的内容下面单独查），状态名、处置名是状态层和协议包的，不在这里查
   { hash: "#/secretary", selector: ".xcard-tag" },
   { hash: "#/secretary", selector: ".day-sep" },
   { hash: "#/secretary", selector: ".att-btns" },
@@ -198,6 +198,15 @@ const EN_DONE: { hash: string; selector: string; except?: string; wideOnly?: boo
   { hash: "#/more/files/p-fake-mom", selector: ".pf-label, .pf-page .sec-head, .pf-actions", except: ".assistant-name" },
   { hash: "#/secretary", selector: ".xcard-personal_file .auth-actions" },
 ];
+
+/**
+ * 英文演示里有意留的中文：选语言那里中文的本地名、配对页上中英并列的"语言 / Language"、
+ * Looki 存到本地的真实文件名（语言文件里照实写的）、这里特地打开的不存在的数据源
+ */
+const EN_KEEPS_CHINESE = ["中文", "语言 / Language", "日记.md", "说明.txt", "没有这个"];
+
+/** 英文演示里不查的：关于页的更新日志（CHANGELOG.md 只有中文，不是假数据）、名字记号之外的页面脚本和样式 */
+const EN_SKIPS_CHINESE = ".about-log, script, style";
 
 /** 中文（汉字、中文标点、全角符号） */
 const CJK = /[　-〿㐀-䶿一-鿿豈-﫿！-｠]/;
@@ -1269,6 +1278,68 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       expect(maintainerWords).toEqual([]);
     }, 60_000);
   }
+
+  for (const [name, viewport] of [
+    ["手机宽", { width: 390, height: 844 }],
+    ["电脑宽", { width: 1280, height: 800 }],
+  ] as const) {
+    test(`英文演示（?lang=en）${name}：每一页的正文都没有中文（假数据也是英文，有意留的除外）`, async () => {
+      const { page, errors } = await open(viewport, "?lang=en");
+      const found: string[] = [];
+      for (const hash of PAGES) {
+        await page.evaluate(`window.location.hash = ${JSON.stringify(hash)}`);
+        await page.waitForTimeout(150);
+        const text = (await page.evaluate(
+          `(() => { const copy = document.body.cloneNode(true); copy.querySelectorAll(${JSON.stringify(EN_SKIPS_CHINESE)}).forEach((e) => e.remove()); return copy.textContent; })()`,
+        )) as string;
+        const rest = EN_KEEPS_CHINESE.reduce((left, kept) => left.replaceAll(kept, ""), text);
+        const at = rest.search(/[　-〿㐀-䶿一-鿿豈-﫿！-｠]/u);
+        if (at >= 0) found.push(`${hash}: ${rest.slice(Math.max(0, at - 20), at + 40)}`);
+      }
+      await page.close();
+      expect(errors).toEqual([]);
+      expect(found).toEqual([]);
+    }, 120_000);
+  }
+
+  test("英文演示：秘书页是英文的对话，任务、项目、记忆的内容跟着是英文；中文下原样是中文", async () => {
+    const titles = async (search: string) => {
+      const { page, errors } = await open({ width: 1280, height: 800 }, search);
+      await page.evaluate(`window.location.hash = "#/projects"`);
+      await page.waitForTimeout(300);
+      const projects = await bodyText(page);
+      await page.evaluate(`window.location.hash = "#/more/memory/claims"`);
+      await page.waitForTimeout(300);
+      const claims = await bodyText(page);
+      await page.close();
+      expect(errors).toEqual([]);
+      return { projects, claims };
+    };
+    const en = await titles("?lang=en");
+    expect(en.projects).toContain("Ledger");
+    expect(en.claims).toContain("Needs to plan own weekends");
+    const zh = await titles("");
+    expect(zh.projects).toContain("记账本");
+    expect(zh.claims).toContain("周末需要自己安排时间");
+  }, 60_000);
+
+  test("换语言后假数据的内容马上跟着换：中文下点 English，项目名变英文；点回中文变回中文", async () => {
+    const { page, errors } = await open({ width: 1280, height: 800 });
+    const switchTo = async (label: string) => {
+      await page.evaluate(`window.location.hash = "#/more/language"`);
+      await page.locator(".language-page button, .language-page label", { hasText: label }).first().click();
+      await page.waitForTimeout(600);
+      await page.evaluate(`window.location.hash = "#/projects"`);
+      await page.waitForTimeout(400);
+      return bodyText(page);
+    };
+    expect(await switchTo("English")).toContain("Ledger");
+    const back = await switchTo("中文");
+    expect(back).toContain("记账本");
+    expect(back).not.toContain("Ledger");
+    await page.close();
+    expect(errors).toEqual([]);
+  }, 60_000);
 
   test("中文下打开设置 · 语言点 English：导航、设置列表不刷新就换成英文，再点中文换回来", async () => {
     const { page, errors } = await open({ width: 1280, height: 800 });

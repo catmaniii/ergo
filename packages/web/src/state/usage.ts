@@ -26,6 +26,7 @@ import {
   type UsageWebTally,
   t,
   tTable,
+  currencySymbol,
 } from "./protocol.ts";
 import { maintainerLabel } from "./readable-ids.ts";
 import type { UiState } from "./ui-state.ts";
@@ -198,8 +199,8 @@ export function usageWebTotal(web: UsageWeb): UsageWebTally {
 export function usageWebNotes(web: UsageWeb): string[] {
   const notes: string[] = [];
   if (web.price) {
-    const { search, source } = web.price;
-    notes.push(t("state.usage.web.price", { search, perThousand: Math.round(search * 1000 * 100) / 100, title: source.title, readOn: source.readOn }));
+    const { search, source, currency } = web.price;
+    notes.push(t("state.usage.web.price", { symbol: currencySymbol(currency), search, perThousand: Math.round(search * 1000 * 100) / 100, title: source.title, readOn: source.readOn }));
   }
   if (web.unpriced) notes.push(t("state.usage.web.unpriced"));
   return notes;

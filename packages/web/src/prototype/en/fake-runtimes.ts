@@ -1,0 +1,27 @@
+// fake-runtimes.ts 里的字对应的英文。左边是中文原文（有插值的地方写 {}），右边是英文
+import type { Phrases } from "./phrases.ts";
+
+export const EN_RUNTIMES: Phrases = {
+  "跟 Claude Code 自己的设置": "Follow Claude Code's own settings",
+  "权限模式": "Permission mode",
+  "默认（照你的放行规则）": "Default (follow your allow rules)",
+  "自动接受改文件": "Auto-accept file edits",
+  "计划模式（只看不改，先出计划）": "Plan mode (read-only, plan first)",
+  "自动（模型判断要不要放行）": "Auto (the model decides what to allow)",
+  "不问（没放行的一律拒绝）": "Don't ask (reject anything not allowed)",
+  "思考档位": "Thinking level",
+  "低": "Low",
+  "中": "Medium",
+  "高": "High",
+  "很高": "Very high",
+  "最高": "Max",
+  "压缩对话：清掉历史、只在上下文里留一份摘要；后面可以写摘要时要特别留意什么": "Compact the chat: clear history and keep only a summary in context. You can say what the summary should watch for",
+  "[摘要时要特别留意的]": "[what the summary should watch for]",
+  "看上下文用了多少：按类别画成彩色格子": "See how much context is used: colored squares by category",
+  "评审一个拉取请求（PR）": "Review a pull request (PR)",
+  "[PR 号]": "[PR number]",
+  "对当前分支还没合并的改动做一次安全审查": "Run a security review on the current branch's unmerged changes",
+  "看订阅额度用了多少": "See how much of the subscription quota is used",
+  "给当前分支写发布说明：改了什么、上线前要注意什么（假数据）": "Write release notes for the current branch: what changed, what to watch before shipping (demo data)",
+  "先写测试再写实现：红、绿、重构（假数据）": "Tests first, then implementation: red, green, refactor (demo data)",
+};

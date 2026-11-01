@@ -1224,7 +1224,7 @@
   "state.usage.price.unpriced": "没有单价、没算进成本的模型：{models}。",
   "state.usage.price.configProblem": "配置里的单价读不出来，没用它：{problem}",
   "state.usage.listSep": "、",
-  "state.usage.web.price": "DeepSeek 的联网搜索、读网页每次 ¥{search}（每 1000 次 {perThousand} 元，取自 {title}（{readOn}）），只算成功、有结果的；记在发起调用的 agent 名下。浏览器搜索不花钱。",
+  "state.usage.web.price": "DeepSeek 的联网搜索、读网页每次 {symbol}{search}（每 1000 次 {perThousand} 元，取自 {title}（{readOn}）），只算成功、有结果的；记在发起调用的 agent 名下。浏览器搜索不花钱。",
   "state.usage.web.unpriced": "配置里的货币不是人民币，联网调用的自带单价是人民币，没算进成本。",
   "state.userWords.needCriterion": "验收标准至少留一条",
   "state.userWords.needDeliverable": "交付件至少留一条",

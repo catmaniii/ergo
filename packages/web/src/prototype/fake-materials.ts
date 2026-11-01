@@ -26,6 +26,7 @@ import {
   type SaveWebPageResult,
   type VoiceRecord,
 } from "../state/index.ts";
+import { fakeText, isEnglishContent, localized } from "./fake-content.ts";
 import { at, FAKE_CARDS, FAKE_HISTORY } from "./fake-conversations.ts";
 
 /** 记下来的图的假媒体编号和假图：真的画出来，素材详情里看得到 */
@@ -359,6 +360,12 @@ function snippetOf(text: string, terms: readonly string[]): string {
   return `${start > 0 ? "…" : ""}${flat.slice(start, end)}${end < flat.length ? "…" : ""}`;
 }
 
+/** 列表里的一条：摘录是截短的，半句话查不了表，英文界面按换好的原话重新截 */
+function listed(m: FakeMaterial): MaterialListItem {
+  if (!isEnglishContent() || m.item.excerpt !== excerptOf(m.detail.segments)) return m.item;
+  return { ...m.item, excerpt: excerptOf(localized(m.detail.segments)) };
+}
+
 /** 一条你存的网页：用户主动投喂的材料，网页那一段只记网址、标题，详情里补上存下的正文 */
 function savedPageMaterial(id: string, recordId: string, seq: number, time: string, page: Omit<SaveWebPageBody, "idempotencyKey">): FakeMaterial {
   const title = page.title.trim();
@@ -468,10 +475,11 @@ export function fakeMaterialsIn(scope: MaterialScope | undefined, deleted: Reado
       if (filter.conversation !== undefined && m.item.conversation !== filter.conversation) return false;
       if (filter.dataSource !== undefined && m.dataSource !== filter.dataSource) return false;
       if (facets.length > 0 && !facetsOf(m.detail).some((f) => facets.includes(f))) return false;
-      const text = searchableText(m.detail).toLowerCase();
+      // 英文界面按英文搜（字照表换了再比）
+      const text = fakeText(searchableText(m.detail)).toLowerCase();
       return terms.every((t) => text.includes(t));
     })
-    .map((m) => (terms.length > 0 ? { ...m.item, excerpt: snippetOf(searchableText(m.detail), terms) } : m.item));
+    .map((m) => (terms.length > 0 ? { ...m.item, excerpt: snippetOf(fakeText(searchableText(m.detail)), terms) } : listed(m)));
 }
 
 /** 一条假素材的详情；删掉的、没有的是 undefined。noInfer：这一页里标过不参与推断的 */
