@@ -325,8 +325,9 @@ describe("负责人读附件全文（143 号票）", () => {
     const td = await setup(
       {
         secretary: [say("收到")],
+        // 读了长文本，上下文够大就会自动压缩，压缩的模型调用也从剧本里取：结尾多留两步，提示词长短变了也不至于用完
         maintainer: (id) =>
-          id === "pm-1" ? [ECHO, call(READ_ATTACHMENT_TOOL, { ref: LOG_REF }), ECHO, call(READ_ATTACHMENT_TOOL, { ref: SECRET_REF }), ECHO] : [],
+          id === "pm-1" ? [ECHO, call(READ_ATTACHMENT_TOOL, { ref: LOG_REF }), ECHO, call(READ_ATTACHMENT_TOOL, { ref: SECRET_REF }), ECHO, ECHO, ECHO] : [],
       },
       [BOARD, SECRETARY, CARDS, INBOX, PROJECTS, PM1],
     );

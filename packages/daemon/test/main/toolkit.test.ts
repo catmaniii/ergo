@@ -376,10 +376,12 @@ describe("按工具包装配负责人的会话", () => {
     // 只连本机一个没人听的端口（和无效代理同一个地址），不往外发任何东西
     const GET = "curl -s -m 5 http://127.0.0.1:9/notes";
     const POST = "curl -s -m 5 -X POST -d a=1 http://127.0.0.1:9/notes";
+    // 联网关着时连本机放行（362 号票），要拒的得是外面的地址；守卫先拦，不会真发（.invalid 也解析不出来）
+    const OUTSIDE = "curl -s -m 5 http://example.invalid/notes";
     const td = await startTestDaemon({
       maintainer: (_id, spawn) =>
         spawn === 1
-          ? [echo, call("bash", { command: 'echo "proxy=[$HTTPS_PROXY]"' }), call("bash", { command: GET }), say("联网被拒了")]
+          ? [echo, call("bash", { command: 'echo "proxy=[$HTTPS_PROXY]"' }), call("bash", { command: OUTSIDE }), say("联网被拒了")]
           : [echo, call("bash", { command: GET }), call("bash", { command: POST }), say("好")],
     });
     writeMcpRegistration(td.dataDir, logFile);
