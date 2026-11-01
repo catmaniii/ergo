@@ -1,6 +1,6 @@
 # 安卓 App
 
-Kotlin 原生壳加系统 WebView，加载用户配好的二狗地址，不把网页打包进 App（[ADR-0022](../../docs/adr/0022-harmony-app-native-shell-loads-daemon-page.md)）。和鸿蒙 App（`frontend/harmony/`）是同一个产品：原生画的部分照鸿蒙的 ArkTS 取值，取值集中在 `ui/ErgoTheme.kt`。
+Kotlin 原生壳加系统 WebView，加载用户配好的二狗地址，不把网页打包进 App（[ADR-0022](../../docs/architecture/adr/0022-harmony-app-native-shell-loads-daemon-page.md)）。和鸿蒙 App（`frontend/harmony/`）是同一个产品：原生画的部分照鸿蒙的 ArkTS 取值，取值集中在 `ui/ErgoTheme.kt`。
 
 - 包名 `com.catmaniii.ergo`，最低 API 26（安卓 8），目标 API 36。
 - 只侧载，不上应用商店。调试版用调试签名；正式签名材料只放本机，不进仓库。
@@ -52,7 +52,7 @@ adb -s <串号> logcat -s ErgoApp               # App 和网页的日志
 | 目录 | 内容 |
 |---|---|
 | `app/src/main/java/.../MainActivity.kt` | 外壳：地址页、扫码连接的流程、出错页、主界面 WebView、返回键、避让、外观 |
-| `app/src/main/java/.../scan/QrScanner.kt` | 扫码连接（364 号票）：Camera2 取景，ZXing 的 core 包解码（只认二维码） |
+| `app/src/main/java/.../scan/QrScanner.kt` | 扫码连接：Camera2 取景，ZXing 的 core 包解码（只认二维码） |
 | `app/src/main/java/.../common/ConnectCheck.kt`、`ConnectProbe.kt` | 扫到之后测连不连得上：判断（和鸿蒙拿同一份例子核对）和真的请求一次 |
 | `bridge/` | 原生桥。`BridgeChannel` 是消息通道和来源核对，`NativeBridge` 是方法表和分发 |
 | `assets/ergo-native-shim.js` | 网页这一侧的垫片：定义 `window.ergoNative`，只注入配好的来源 |
@@ -65,7 +65,7 @@ adb -s <串号> logcat -s ErgoApp               # App 和网页的日志
 
 ### 安全
 
-设计和理由见 [ADR-0040](../../docs/adr/0040-android-app-native-bridge-without-javascript-interface.md)。改这几处时注意：
+设计和理由见 [ADR-0040](../../docs/architecture/adr/0040-android-app-native-bridge-without-javascript-interface.md)。改这几处时注意：
 
 - 仓库里不许调 `addJavascriptInterface`（`frontend/test/android.test.ts` 查）。`ergoNative` 经只开给二狗来源的消息通道，每条消息核对来源和主框架。
 - 内置浏览器那个 WebView 不挂原生桥，外部网页只有页面桥，每句带 App 发的口令。

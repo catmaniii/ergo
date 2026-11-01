@@ -1,7 +1,7 @@
 /*
  * 像素小屋（49 号票）：只靠 token（pixel/style.ts）做不到的规则，全部限定在 :root[data-style="pixel"] 下
  * （不会漏到别的风格；设置里的预览把开头换成 :host(...)，所以根元素上只再加属性，见 src/visual-styles/preview.ts）。
- * 设计稿：docs/design/styles/h-chat、h-tasks、h-inbox、h-wide（.dc.html）。要点：
+ * 设计稿：docs/architecture/design/styles/h-chat、h-tasks、h-inbox、h-wide（.dc.html）。要点：
  * - 像素框（设计稿的 .px）：四周 3px 的墨色线，四个角各缺一格——上下左右四道不模糊、不扩散的投影（--pixel-edge）。投影画在元素外面、
  *   不占地方，所以框外要留出 3px（页面左右留白、列表的内边距都够）；小东西（小签、名字标签、未读的点）是 2px 的（--pixel-edge-s）。
  *   导航当前那一项、播放键的框画在元素里面（--pixel-frame：背景上的四道线，角上同样空着），不往外伸；

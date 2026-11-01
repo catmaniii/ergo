@@ -384,7 +384,7 @@ test("包名只认 com.catmaniii.ergo：仓库里（除了调研笔记）不许�
   // 旧名字在这里拼出来：不然这条用例自己就是一处"出现"
   const stale = [["com", "example", "ergou"].join("."), ["io", "github", "catmaniii", "ergo"].join(".")];
   const bad = filesThatWouldBeCommitted()
-    .filter((f) => TEXT_FILE.test(f) && !f.startsWith("docs/research/"))
+    .filter((f) => TEXT_FILE.test(f) && !f.startsWith("docs/architecture/research/"))
     .filter((f) => {
       const content = readFileSync(path.join(REPO, f), "utf8");
       return stale.some((name) => content.includes(name));

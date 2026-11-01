@@ -4,9 +4,9 @@
 
 > **把记忆还给你。越懂你，越放心。** 一个装在你自己电脑上、用手机语音就能指挥的个人 AI 助理。
 
-**[在线演示](https://catmaniii.github.io/ergo/)**（不用装、不用填 Key，点着看；网页原型自带编的示例数据。[English UI](https://catmaniii.github.io/ergo/?lang=en)）· [用户手册](docs/user-guide.md) · [开发者指南](docs/developer-guide.md) · [更新日志](CHANGELOG.md)
+**[在线演示](https://catmaniii.github.io/ergo/)**（不用装、不用填 Key，点着看；网页原型自带编的示例数据。[English UI](https://catmaniii.github.io/ergo/?lang=en)）· [用户指南](docs/user-guide/README.md) · [系统架构](docs/architecture/README.md) · [更新日志](CHANGELOG.md)
 
-<p align="center"><img src="docs/images/readme/classic-tasks.png" width="620" alt="任务看板"> <img src="docs/images/readme/classic-secretary-phone.png" width="178" alt="手机上的秘书"><br><sub>电脑上的任务看板和手机上的秘书。本页截图都来自在线演示，里面是编的示例数据。</sub></p>
+<p align="center"><img src="docs/user-guide/images/readme/classic-tasks.png" width="620" alt="任务看板"> <img src="docs/user-guide/images/readme/classic-secretary-phone.png" width="178" alt="手机上的秘书"><br><sub>电脑上的任务看板和手机上的秘书。本页截图都来自在线演示，里面是编的示例数据。</sub></p>
 
 > **只支持 Windows 10 / 11。** 二狗靠的是 Windows 才有的东西（Job 对象、目录联接、计划任务），在别的系统上不启动。
 
@@ -47,7 +47,7 @@ irm https://github.com/catmaniii/ergo/releases/latest/download/install.ps1 | iex
 
 装好后浏览器打开 <http://127.0.0.1:8810/> 走设置向导；以后电脑重启，二狗自己起来。已经装了的，升级跑 `ergo update`。
 
-安装选项、从源码装、升级、回滚和卸载见[安装、升级和卸载](docs/install.md)。
+安装选项、从源码装、升级、回滚和卸载见[安装、升级和卸载](docs/user-guide/install.md)。
 
 ## 一件一件讲
 
@@ -57,11 +57,11 @@ irm https://github.com/catmaniii/ergo/releases/latest/download/install.ps1 | iex
 
 在二狗里，**你只跟一个秘书说话**。它不亲自干活，只负责听懂你要什么，需要时调取你的记忆，把活分给各个项目、各个任务的负责人，盯着进展，再把大家的情况汇总给你。几个项目同时跑，互不串线；你不用在会话之间切来切去，回来听一份汇总就够了。
 
-<p align="center"><img src="docs/images/readme/classic-projects.png" width="760" alt="项目页"><br><sub>几个项目各有各的档案、工作目录和负责人。</sub></p>
+<p align="center"><img src="docs/user-guide/images/readme/classic-projects.png" width="760" alt="项目页"><br><sub>几个项目各有各的档案、工作目录和负责人。</sub></p>
 
 干活的 agent 也不配一套固定的 PM、架构、开发、测试：那样同一份上下文要转述好几遍，特别消耗 token。我们的理念是**按需组队**：每个项目、每个任务按这次的需要配工具、skill 和 MCP；拆得开的步骤临时拉起子 agent，做完就解散，不用养着一堆长期角色。
 
-**这一切都能用语音。** 人在外面，掏出手机按住说一句"把昨天那个登录的 bug 修了，修完告诉我"，家里的电脑就开工了，修完二狗念给你听。每个项目的负责人还能配上各自的名字和声音，闭着眼也知道是谁在汇报。语音识别和合成都在本机跑，要另装组件，见[用户手册](docs/user-guide.md#81-按住说话本机语音识别)；手机怎么连回家见[部署和外网访问](docs/deployment.md)。
+**这一切都能用语音。** 人在外面，掏出手机按住说一句"把昨天那个登录的 bug 修了，修完告诉我"，家里的电脑就开工了，修完二狗念给你听。每个项目的负责人还能配上各自的名字和声音，闭着眼也知道是谁在汇报。语音识别和合成都在本机跑，要另装组件，见[语音](docs/user-guide/voice.md)；手机怎么连回家见[手机上用](docs/user-guide/mobile.md)。
 
 本机登录了 Claude Code 的，负责人也可以用它干活（用你自己的订阅），二狗的守卫照样核对它的每一次工具调用。
 
@@ -78,20 +78,20 @@ irm https://github.com/catmaniii/ergo/releases/latest/download/install.ps1 | iex
 
 > **真实数据**：一个真实项目做首版，前后 247 次操作，只点了 7 次；中间跑偏了 5 次，都自动拉了回来。对长时间 vibe coding 的开发者，省下的是整块整块的注意力。
 
-<p align="center"><img src="docs/images/readme/classic-plan.png" width="760" alt="计划卡和阶段图"><br><sub>左边是阶段图，右边是计划卡：每段做什么、要什么权限，确认一次就开工。</sub></p>
+<p align="center"><img src="docs/user-guide/images/readme/classic-plan.png" width="760" alt="计划卡和阶段图"><br><sub>左边是阶段图，右边是计划卡：每段做什么、要什么权限，确认一次就开工。</sub></p>
 
 **过了很久回来看，也不用翻几十页聊天记录。** 二狗分层展示：双指捏合（电脑上 Ctrl + 滚轮），要点层每条一行，用了哪些敏感操作、对外发了什么文件都钉在页边；全局层整件事一根色条；想看细节，再展开回对话层。
 
 <table>
 <tr>
-<td align="center"><img src="docs/images/readme/classic-zoom-keypoints.png" width="420" alt="要点层"><br><b>要点层</b><br><sub>删除和对外发送的操作，都标在页边</sub></td>
-<td align="center"><img src="docs/images/readme/classic-zoom-detail.png" width="420" alt="对话层"><br><b>对话层</b><br><sub>完整内容，每次操作都能点开看</sub></td>
+<td align="center"><img src="docs/user-guide/images/readme/classic-zoom-keypoints.png" width="420" alt="要点层"><br><b>要点层</b><br><sub>删除和对外发送的操作，都标在页边</sub></td>
+<td align="center"><img src="docs/user-guide/images/readme/classic-zoom-detail.png" width="420" alt="对话层"><br><b>对话层</b><br><sub>完整内容，每次操作都能点开看</sub></td>
 </tr>
 </table>
 
 **关心哪些，你自己配。** 关注类别（花钱、以你的名义对外发送、删除或覆盖、不可逆的提交、账户与安全、越出项目目录……也能自定义）× 六档处置（直接做只记录、做完告诉我、计划里列了才做、先问我、交给我做、永不）。**三条硬底线谁说了都不放**：不写二狗自己的配置、数据库和程序目录；不读密钥区；确定要把密钥发出去的不做。
 
-<p align="center"><img src="docs/images/readme/classic-watch.png" width="760" alt="设置里的关注类别"><br><sub>设置 · 关注类别。</sub></p>
+<p align="center"><img src="docs/user-guide/images/readme/classic-watch.png" width="760" alt="设置里的关注类别"><br><sub>设置 · 关注类别。</sub></p>
 
 要你拍板的事都集中在待办一处，手机 App 上走系统通知；token 账本逐笔记下每次模型调用，记在哪个任务、哪个阶段、哪个 agent 名下。
 
@@ -128,7 +128,7 @@ irm https://github.com/catmaniii/ergo/releases/latest/download/install.ps1 | iex
 
 所以不是不爱社交，是周末不想被打扰。**不用你明确讲出来，二狗也能推测出你没说出口的真实需求。**（这个例子用的是合成数据，打分来自引擎的真实运行。）
 
-<p align="center"><img src="docs/images/readme/classic-memory.png" width="760" alt="记忆页的结论"><br><sub>记忆页：每条结论都能点开看证据链、支持和反证、竞争的解释、修订记录。</sub></p>
+<p align="center"><img src="docs/user-guide/images/readme/classic-memory.png" width="760" alt="记忆页的结论"><br><sub>记忆页：每条结论都能点开看证据链、支持和反证、竞争的解释、修订记录。</sub></p>
 
 - **原话都在**：你说过的每句话存一份不能改的原文副本，建好关键词和向量索引；对话、项目档案、任务记录、附件、花费账本也都在本机。
 - **每晚整理**：凌晨 3 点，记忆管理员把新的原话读成证据，整理成结论。
@@ -136,7 +136,7 @@ irm https://github.com/catmaniii/ergo/releases/latest/download/install.ps1 | iex
 - **了解你访谈**：记忆管理员会约你聊一个主题（随时可以拒绝），聊完把你的档案补全。
 - **安全**：**密钥放在单独的区域，任何 agent 都读不到**；每晚做一致性快照，可以另存到 NAS 或网盘同步目录。
 
-设计细节见[记忆系统](docs/memory-system.md)。
+设计细节见[记忆系统](docs/architecture/memory-system.md)。
 
 ### 5. 内置浏览器
 
@@ -146,7 +146,7 @@ irm https://github.com/catmaniii/ergo/releases/latest/download/install.ps1 | iex
 
 网页原来要你一个个去点，现在你只要说你想要什么；你的记忆和本地数据，都能直接用上。用二狗开发的 web 应用，在这个浏览器里打开也一样能用。
 
-这个功能只在手机 App 里有。App 现在要自己构建，见[鸿蒙](docs/user-guide.md#72-鸿蒙-app)和[安卓](docs/user-guide.md#73-安卓-app)。
+这个功能只在手机 App 里有。App 现在要自己构建，见[鸿蒙](docs/user-guide/mobile.md#鸿蒙-app)和[安卓](docs/user-guide/mobile.md#安卓-app)。
 
 ### 其他的也都齐了
 
@@ -160,7 +160,7 @@ irm https://github.com/catmaniii/ergo/releases/latest/download/install.ps1 | iex
 
 三种触发：现在做一次；定时（可以"按我的工作日"，中国和新加坡的节假日、调休都算进去）；事件（某个任务做完、某个文件夹来了新文件）。发起时直接写"每周一早上 8 点……"，时间表就照你写的定；跑完可以自动念给你听。
 
-**都是插件**：守护进程分内核和插件，**提醒、记忆、日历、语音、内置浏览器、Claude Code、Google（日历、联系人）、Looki、手机**都是插件，**设置 · 插件**里随时停用、启用、移除，不用重启；停用只是收起页面和工具，数据还在。以后想要新能力，再写一个插件就行，照[插件开发手册](docs/guides/plugin-development.md)，从一个最小的"笔记"插件讲起。
+**都是插件**：守护进程分内核和插件，**提醒、记忆、日历、语音、内置浏览器、Claude Code、Google（日历、联系人）、Looki、手机**都是插件，**设置 · 插件**里随时停用、启用、移除，不用重启；停用只是收起页面和工具，数据还在。以后想要新能力，再写一个插件就行，照[插件开发手册](docs/architecture/plugin-development.md)，从一个最小的"笔记"插件讲起。
 
 **按你的意思来**：
 
@@ -169,7 +169,7 @@ irm https://github.com/catmaniii/ergo/releases/latest/download/install.ps1 | iex
 - **中文、英文**自带，往数据目录里放语言文件就能加别的语言，不用改代码。
 - **手机、阔折叠、电脑都能用**：页面按手机竖屏优先设计，宽屏换成多列布局；还有鸿蒙和安卓的原生 App。
 
-<p align="center"><img src="docs/images/readme/styles-gallery.png" width="860" alt="设置·外观与风格里的风格预览"><br><sub>设置 · 外观与风格：11 套风格，每套左浅右深。</sub></p>
+<p align="center"><img src="docs/user-guide/images/readme/styles-gallery.png" width="860" alt="设置·外观与风格里的风格预览"><br><sub>设置 · 外观与风格：11 套风格，每套左浅右深。</sub></p>
 
 ## 我们的愿景
 
@@ -181,17 +181,10 @@ irm https://github.com/catmaniii/ergo/releases/latest/download/install.ps1 | iex
 
 ## 文档
 
-| | |
-|---|---|
-| [安装、升级和卸载](docs/install.md) | 一步一步安装、启动和停止、开机自启、升级、回滚、卸载 |
-| [部署和外网访问](docs/deployment.md) | 手机、平板怎么从外面连回家：Tailscale、自建 Headscale、VPS 隧道 |
-| [技术架构](docs/architecture.md) | 一个请求怎么走、部署结构、代码组成、和 OpenClaw 的取舍 |
-| [用户手册](docs/user-guide.md) | 日常怎么用、设置、备份、出问题怎么办 |
-| [开发者指南](docs/developer-guide.md) | 仓库结构、插件、网页、多语言、测试 |
-| [插件开发手册](docs/guides/plugin-development.md) | 从一个最小的插件讲起 |
-| [记忆系统](docs/memory-system.md) | 记忆系统的模块、接口和工作流 |
-| [CHANGELOG.md](CHANGELOG.md) | 版本变更 |
-| [SECURITY.md](SECURITY.md) | 安全模型、已知限制、怎么报漏洞 |
+- **想用二狗：** 看[用户指南](docs/user-guide/README.md)。二狗是什么、怎么装、每个功能怎么用，都在这里。
+- **想知道它怎么做的：** 看[系统架构](docs/architecture/README.md)。架构、记忆系统、部署和设计记录，都在这里。
+
+给开发者：[开发](docs/architecture/development.md)、[插件开发手册](docs/architecture/plugin-development.md)、[CHANGELOG.md](CHANGELOG.md)、[SECURITY.md](SECURITY.md)。
 
 ## 参与
 

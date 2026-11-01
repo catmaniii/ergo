@@ -2,7 +2,7 @@
 // 写死的本机地址（http://127.0.0.1:5173/…）手机上打不开。抓服务的首页，把这两种找出来——负责人在建设期间、交运营方案之前跑一遍
 // （npm run check:app-prefix，见 prefix-check-cli.ts），133 号票上线前也能用 checkAppPrefix 再查一次。
 // 只看首页的 HTML：标签上的地址属性（src、href、action、formaction、poster、data、srcset）、<style> 和 style 属性里的 url(…)、@import。
-// 脚本里拼出来的地址（fetch("/api/…")）看不出来，前缀约定照样要守（docs/developer-guide.md"转发本机服务的页面"）。
+// 脚本里拼出来的地址（fetch("/api/…")）看不出来，前缀约定照样要守（docs/architecture/README.md"转发本机服务的页面"）。
 // @i18n-ignore-file model：自检的报告给负责人（模型）和命令行看
 import { APP_PREFIX_HEADER, appBasePath } from "@ergo/protocol";
 import { isLoopbackHost, type AppPrefixMode } from "./registry.ts";

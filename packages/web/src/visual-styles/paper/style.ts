@@ -1,4 +1,4 @@
-// 暖纸手帐（40 号票，设计稿 docs/design/styles/a-*.dc.html）：Noto Serif SC 宋体、米纸底、墨绿印章色、1px 细边卡片、
+// 暖纸手帐（40 号票，设计稿 docs/architecture/design/styles/a-*.dc.html）：Noto Serif SC 宋体、米纸底、墨绿印章色、1px 细边卡片、
 // 小圆角、个人助理的话前面一个圆形字头像（名字的第一个字）。主按钮、你发的消息、选中的东西是墨绿；"要你"的事也用墨绿，
 // 出错、命中关注类别的小签、未读是赭石色（设计稿的 --warn）。
 // token 在这里；只靠 token 做不到的（个人助理的话不套气泡、圆形字头像、线条图标、下划线页签……）在 style.css。

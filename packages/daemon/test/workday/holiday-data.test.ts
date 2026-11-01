@@ -1,4 +1,4 @@
-// 框架自带的节假日数据（29 号票）：从调研文件 docs/research/13-holidays-sg-cn.md 导入已公布的全部年份，
+// 框架自带的节假日数据（29 号票）：从调研文件 docs/architecture/research/13-holidays-sg-cn.md 导入已公布的全部年份，
 // 每年注明官方来源。这里按调研文件里的表逐日核对：日期、种类（假日、补假、调休上班），星期也对一遍；
 // 名字去掉"（放假 1/3）"这类计数后一致。
 import fs from "node:fs";
@@ -7,7 +7,7 @@ import type { HolidayDayKind, HolidayRegion, HolidayYear } from "@ergo/protocol"
 import { describe, expect, test } from "vitest";
 import { loadBuiltinHolidays } from "../../src/workday/index.ts";
 
-const RESEARCH = fileURLToPath(new URL("../../../../docs/research/13-holidays-sg-cn.md", import.meta.url));
+const RESEARCH = fileURLToPath(new URL("../../../../docs/architecture/research/13-holidays-sg-cn.md", import.meta.url));
 
 interface ResearchRow {
   date: string;

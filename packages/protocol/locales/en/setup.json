@@ -74,7 +74,7 @@
   "setup.steps.phone.sub": "In the Ergo app on your phone, tap Scan to connect and scan the code below. When the phone sends a request, check the short code and approve it right here",
   "setup.steps.phone.ready": "A device is already paired",
   "setup.steps.phone.notReady": "No device paired yet (no rush, use this computer first)",
-  "setup.steps.phone.how": "The code needs an address that reaches this computer from outside. How to expose one is on the last page of this wizard, Access from outside, or the Outside access section of the user guide.",
+  "setup.steps.phone.how": "The code needs an address that reaches this computer from outside. How to expose one is on the last page of this wizard, Access from outside, or the \"On your phone\" chapter of the user guide.",
   "setup.steps.phone.go": "See paired devices: Settings · Device pairing",
   "setup.steps.safety.title": "Safety defaults",
   "setup.steps.safety.sub": "Both are off by default, so it gets on with things and interrupts you less. Tick them if you want it more careful: risky things ask you first, and tasks stop when they go over budget. You can change this later in Settings.",
@@ -94,6 +94,6 @@
   "setup.external.vps.title": "Way three: VPS + ssh reverse tunnel + nginx (public)",
   "setup.external.vps.sub": "One VPS and a domain certificate; nginx terminates HTTPS and forwards through an ssh reverse tunnel to port 8811 on this computer. The address is:",
   "setup.external.vps.address": "https://ergo.<IP of the VPS>.sslip.io/",
-  "setup.external.guide": "This version only spells out the three ways, it does not configure them; the detailed steps are in the Outside access section of the user guide.",
+  "setup.external.guide": "This version only spells out the three ways, it does not configure them; the detailed steps are in the \"On your phone\" chapter of the user guide.",
   "setup.external.back": "Back to the wizard"
 }

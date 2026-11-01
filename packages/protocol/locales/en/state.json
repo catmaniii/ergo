@@ -675,7 +675,7 @@
   "state.modelSettings.apiKey.configured": "Configured",
   "state.modelSettings.apiKey.configuredDetail": "From the environment variable {envVar}: the service manager reads it from {secretFile} in the data directory's secrets area and injects it when starting the daemon{lsm}. The key itself isn't shown; enter a new one below to replace it.",
   "state.modelSettings.apiKey.missing": "Not configured",
-  "state.modelSettings.apiKey.missingDetail": "No key yet: enter one below (it's saved to {secretFile} in the data directory's secrets area) and the next new session can use it; or follow the user guide and put the file in place by hand, then restart ergo-daemon in the service manager{lsm}.",
+  "state.modelSettings.apiKey.missingDetail": "No key yet: enter one below (it's saved to {secretFile} in the data directory's secrets area) and the next new session can use it; or follow the development docs and put the file in place by hand, then restart ergo-daemon in the service manager{lsm}.",
   "state.modelKey.savedNow": "Configured: the next new session will use this key, no restart needed.",
   "state.modelKey.savedRestart": "Saved: takes effect after restarting {brand}.",
   "state.modelKey.restartHow": "With the one-line install, run ergo restart in a terminal; if the daemon isn't started by the supervisor, start it again.",

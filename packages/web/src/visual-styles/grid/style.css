@@ -1,7 +1,7 @@
 /*
  * 净白格栅（39 号票）：只靠 token（grid/style.ts）做不到的规则，全部限定在 :root[data-style="grid"] 下
  * （不会漏到别的风格；设置里的预览把开头换成 :host(...)，所以根元素上只再加属性，见 src/visual-styles/preview.ts）。
- * 设计稿：docs/design/styles/b-chat、b-tasks、b-inbox、b-wide（.dc.html）。要点：黑白细线、无阴影、细线分隔、
+ * 设计稿：docs/architecture/design/styles/b-chat、b-tasks、b-inbox、b-wide（.dc.html）。要点：黑白细线、无阴影、细线分隔、
  * 列表排得密；个人助理的话不套气泡；"要你"的事（等你、问你、未读）才用信号橙（--you）。
  * 只换样子，不改结构：导航、页面上有什么、怎么排都和经典一样。
  */

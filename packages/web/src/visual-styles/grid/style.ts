@@ -1,4 +1,4 @@
-// 净白格栅（39 号票，设计稿 docs/design/styles/b-*.dc.html）：Noto Sans SC、黑白细线、一抹信号橙只给"要你"的事、
+// 净白格栅（39 号票，设计稿 docs/architecture/design/styles/b-*.dc.html）：Noto Sans SC、黑白细线、一抹信号橙只给"要你"的事、
 // 无阴影、细线分隔、密度高。主按钮和你发的消息是墨色块（浅色下黑底白字，深色下反过来）。
 // token 在这里；只靠 token 做不到的（聊天里个人助理的话不套气泡、看板是一行一行的列表……）在 style.css。
 import { t } from "@ergo/protocol";

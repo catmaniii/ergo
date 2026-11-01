@@ -57,7 +57,7 @@ const TEST_SCAN_KEY = 'ergoTestScan';
  * 二狗的鸿蒙 App（62 号票）：原生壳。
  * 第一次打开先填二狗的地址（存在应用本地）；之后 ArkWeb 加载这个地址，网页照常由守护进程提供，
  * App 和手机浏览器一样是一台要配对的设备。网页不打包进 HAP：二狗的网页要带设备凭证（__Host- cookie），
- * Origin 要和 Host 一致，打包进来的网页属于另一个来源，见 docs/adr/0022。
+ * Origin 要和 Host 一致，打包进来的网页属于另一个来源，见 docs/architecture/adr/0022。
  */
 @Entry
 @Component
@@ -195,7 +195,7 @@ struct Index {
     // 用户点开了通知栏里的一条（110 号票，EntryAbility 的 onNewWant 记下的）：让网页来取
     notifyTaps.listen(() => this.pushNotifyOpen());
     // WebView 调试（PC 上的 Chrome DevTools 经 hdc 端口转发）默认关：开着的话，接上 USB 的人能用 hdc 取到设备凭证 cookie。
-    // 只有构建时显式要了（npm run build:harmony -- --webview-debug）才开，见 entry/hvigorfile.ts 和 docs/developer-guide.md 的"鸿蒙 App"
+    // 只有构建时显式要了（npm run build:harmony -- --webview-debug）才开，见 entry/hvigorfile.ts 和 docs/architecture/development.md 的"鸿蒙 App"
     if (BuildProfile.WEBVIEW_DEBUG) {
       webview.WebviewController.setWebDebuggingAccess(true);
     }

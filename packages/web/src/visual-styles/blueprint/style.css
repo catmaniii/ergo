@@ -1,7 +1,7 @@
 /*
  * 工程蓝图（47 号票）：只靠 token（blueprint/style.ts）做不到的规则，全部限定在 :root[data-style="blueprint"] 下
  * （不会漏到别的风格；设置里的预览把开头换成 :host(...)，所以根元素上只再加属性，见 src/visual-styles/preview.ts）。
- * 设计稿：docs/design/styles/f-chat、f-tasks、f-inbox、f-wide（.dc.html）。要点：直角、1.5px 的钴蓝线框，框的左上、右下各一个
+ * 设计稿：docs/architecture/design/styles/f-chat、f-tasks、f-inbox、f-wide（.dc.html）。要点：直角、1.5px 的钴蓝线框，框的左上、右下各一个
  * 加粗的角标；页面底是 24px 的网格；时间、计数、代码用 IBM Plex Mono（--font-num / --font-mono）；状态是直角的实色小签
  * （等你橙、在做钴蓝、其余线框）；主按钮是钴蓝实色块，往右下错开一块淡蓝的硬边影子。密度比别的风格低。
  * 只换样子，不改结构：导航、页面上有什么都和经典一样。

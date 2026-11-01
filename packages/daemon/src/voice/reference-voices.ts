@@ -13,7 +13,7 @@
 //   voices/.default-voice-installed.json   { format: 1, voiceId, installedAt }：装过一次就留下
 // 删除语义（用户在设置里删掉内置的这条）：删了就是用户的意思，不再自动长回来。所以标记在**装的时候**写，不在删的时候写——
 // 装过之后再启动就看到标记、什么都不做；从来没装过的（用户一上来就自己导入了）照"一条都没有时装内置的"办。
-// 理由和取舍见 docs/adr/0036-builtin-default-voice.md。
+// 理由和取舍见 docs/architecture/adr/0036-builtin-default-voice.md。
 // 语音回复用"现在的那个"：设置里选过的；没选过（或选的被删了）就用最早导入的（只有一个时就是它）。
 // 230 号票（用户定"导入音频要支持更多类型……大不了用本地 ffmpeg 转""直接用语音转文本识别逐字稿"）：
 // - 导入收 wav、mp3、m4a、aac、opus、ogg、flac、webm 等常见音频，转码在 audio-convert.ts（可注入，测试不真跑 ffmpeg）；

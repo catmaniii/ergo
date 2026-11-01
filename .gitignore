@@ -47,10 +47,8 @@ dist-demo/
 #   cat .scratch/ergo-v2/tools/public-gitignore-additions.txt >> .gitignore
 # 内部笔记、票、导出工具和敏感词名单（整个 .scratch 不公开）
 /.scratch/
-# 内部开发记录（约 2 MB，按票记的实现细节和用户原话）；公开版拆成了 docs/user-guide* 和 docs/developer-guide*
+# 内部开发记录（约 2 MB，按票记的实现细节和用户原话）；公开版拆成了 docs/user-guide/ 和 docs/architecture/
 /docs/dev.md
-# 给内部 agent 的规矩（.scratch/docs/agents）和它对票系统的说明
-/docs/agents/
 # 记忆的评测、演示和评测数据（只在私有仓库/本机）
 /packages/memory-eval/
 # 用户自己的 CLAUDE.md（个人规矩、本机路径）；公开仓库只留 AGENTS.md（给贡献者的那份）

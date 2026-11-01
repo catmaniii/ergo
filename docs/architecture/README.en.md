@@ -1,0 +1,488 @@
+[中文](README.md) | **English**
+
+# System architecture
+
+For people who want to read or change the code, or write plugins: this layer covers ergo's architecture and technical details. If you just want to use ergo, see the [user guide](../user-guide/README.md).
+
+## What's in this layer
+
+| Document | What it covers |
+|---|---|
+| This page | System overview: how a request flows, where it runs, repository and modules, each part of the architecture, plugin host, web UI, internationalization |
+| [Development](development.en.md) | Setting up, running from source, common commands, building and debugging the phone apps, coding conventions, testing, upgrading pi, submitting changes |
+| [Plugin guide](plugin-development.md) | From a minimal "notes" plugin to going live (in Chinese) |
+| [Memory system overview](memory-system.md) | Modules, interfaces and workflows, checked by tests (in Chinese) |
+| [Memory engine architecture](memory-architecture.md) | The engine's data model and algorithms (in Chinese) |
+| [Memory vocabulary](memory-vocabulary.md) | Names across the reasoning graph template, the store and the code (in Chinese) |
+| [Deployment and outside access](deployment.en.md) | Technical details of outside entry points: self-hosted Headscale, VPS tunnel |
+| [Huawei push setup](huawei-agc-push-setup.md) | What HarmonyOS push needs on Huawei AGC; not yet verified on a device (in Chinese) |
+| [adr/](adr/) | Decision records: why things are the way they are (in Chinese) |
+| [research/](research/README.md) | Research done for the design (in Chinese) |
+| [design/styles/](design/styles/README.md) | Visual style drafts |
+
+**Terms** follow [CONTEXT.md](../../CONTEXT.md) (in Chinese); code, UI and docs share one vocabulary. **Why things are the way they are** is recorded in ADRs, cited below by number.
+
+## How a request flows
+
+```mermaid
+flowchart LR
+    U(["You"]) -->|"type / talk"| SEC["Secretary<br/>understands, delegates, sums up"]
+    SEC -->|"one-step things"| QA["Quick actions / reminders"]
+    SEC -->|"hand off"| M["Project / task owners<br/>own context, tools, model"]
+    M -->|"parallel work"| SUB["Sub-agents"]
+    M --> PLAN["Plan card<br/>one confirmation = authorization"]
+    PLAN --> G{"Guard<br/>checks every call"}
+    G -->|"within grant"| GO["Just do it<br/>logged in the timeline"]
+    G -->|"fixable drift"| FIX["Pulled back"]
+    G -->|"needs you"| INBOX["Inbox"]
+    INBOX --> U
+    M -->|"letters"| SEC
+    SEC -->|"one-line relay / read aloud"| U
+    SEC <-->|"ask memory"| MEM["Memory curator<br/>nightly, evidence-backed"]
+```
+
+## Where it runs
+
+```mermaid
+flowchart TB
+    CLIENTS["Phone, tablet, laptop<br/>browser or HarmonyOS app"]
+    ENTRY["Outside access<br/>Tailscale / Headscale / VPS tunnel"]
+    subgraph PC["Your Windows PC"]
+        LOCAL["Local browser"]
+        SUP["Service supervisor<br/>hosts services, autostart, watchdog"]
+        DAEMON["ergo daemon<br/>event log, guard, dispatch, scheduling, plugins"]
+        AGENTS["Agent child processes<br/>secretary, owners, sub-agents, reviewers, memory curator"]
+        DATA[("Data directory<br/>memory, chats, dossiers, ledger, secrets")]
+    end
+    LLM["LLM (currently DeepSeek)<br/>only what this turn needs"]
+    CLIENTS -->|"after pairing"| ENTRY -->|"external port 8811"| DAEMON
+    LOCAL -->|"local port 8810"| DAEMON
+    SUP -.->|"hosts"| DAEMON
+    DAEMON -->|"launches, checks every call"| AGENTS
+    AGENTS --> LLM
+    DAEMON --> DATA
+```
+
+## The code
+
+- **Two processes**: the ergo daemon (`packages/daemon`) and the service supervisor (`packages/supervisor`). The supervisor is small and stable: it starts at login, restarts ergo if killed, and hosts services from projects that go live; its data defaults to `%LOCALAPPDATA%\ergo\supervisor`, ergo's to `%USERPROFILE%\.ergo`.
+- **Code**: TypeScript (the daemon runs directly via Node's type stripping), npm workspaces; the web UI is React 19 + Vite; the HarmonyOS shell is in `frontend/harmony`. About 280k lines of code and 8,000+ automated tests; CI runs only on Windows and only Node 22 (the Node major version follows pi, [ADR-0031](adr/0031-node-version-follows-pi.md)).
+- **Agent runtime**: pi appears only in a thin wrapper layer ([ADR-0001](adr/0001-pi-coding-agent-sdk-as-runtime.md)); domain state such as approvals, tasks and the ledger lives in ergo's own event log (SQLite).
+
+The Claude Code Agent SDK is under Anthropic's own license; ergo treats it as an optional dependency and doesn't ship it in the package. Third-party license lists ship with the package: `THIRD_PARTY_NOTICES.txt` in the install directory has the full texts, `third-party-licenses.json` the list.
+
+## Trade-offs against OpenClaw
+
+OpenClaw is a general-purpose, multi-channel personal agent with far broader scope than ergo, also running on your own machine. ergo serves one person and makes different trade-offs in these places (the OpenClaw column follows [research note 03](research/03-openclaw-and-pi.md), as of 2026-10-06).
+
+| | OpenClaw | ergo |
+|---|---|---|
+| Who does the work | The main agent can delegate to specialist sub-agents via prompts; officially, delegation is prompt-guided, not a scheduler | The secretary understands you, hands out work and sums up, without touching anything itself; each task and project has a fixed owner with its own context, toolkit and model; dispatch is part of the runtime |
+| Projects | No first-class "project" entity | Projects have a dossier, working directory, fixed owner and charter; scope review checks for overreach; you decide when the first version is done |
+| Permissions | Sandbox and exec approvals are off by default; full access by default | Watch categories × six handlings, plan grants, temporal rules, three hard bottom lines; every call recorded and explained in plain words |
+| Long-running tasks | heartbeat, cron | Staged plans, independent reviewer acceptance, automatic correction; plan changes pause only affected stages; resumes after restart without silently redoing side effects |
+| Looking back | Chat history | Three-level timeline zoom with key markers pinned in the margin |
+| Memory | Engineered layered memory (dreaming, hybrid retrieval); explicitly no person profiles | Every word kept locally; distilled nightly into conclusions with evidence chains and competing explanations, reasoning up to motives and what you care about; asks when unsure |
+| Platforms | Cross-platform | Windows only |
+
+## What's in the repository
+
+### Packages and directories
+
+```
+packages/
+  protocol/    @ergo/protocol    Protocol shared by daemon and frontends: frames, channel events, messages, cards (TypeBox); i18n runtime and language files
+  daemon/      @ergo/daemon      The daemon: a steward that launches and manages agent child processes; event store, gateway, guard, tasks, plugin host
+  web/         @ergo/web         Web UI: React 19 + Vite, hand-written CSS; a prototype with built-in sample data
+  memory/      @ergo/memory      Memory engine: evidence, knowledge graph, reasoning graph, hybrid retrieval, nightly consolidation, a single write gate
+  supervisor/  @ergo/supervisor  The service supervisor (command lsm): a separate small process hosting long-running services, autostart, watchdog, tunnels
+frontend/
+  harmony/     HarmonyOS app: a DevEco project; a native shell loading ergo's web UI
+  android/     Android app: a Gradle project; a native shell loading ergo's web UI
+config/        Config examples (ergo.example.json, watch-categories.example.json, mcp.example.json)
+deploy/lsm/    Example supervisor entries (ergo-daemon, ergo-tunnel, ergo-asr)
+docs/          user-guide/ for everyday users; architecture/ is this layer (ADRs, memory system, research, design drafts)
+```
+
+npm workspaces manage the packages. `frontend/` is not a workspace (the HarmonyOS project's ArkTS is not checked by the root tsc, oxlint or vitest; hvigor type-checks it when compiling).
+
+### Daemon modules (`packages/daemon/src/`)
+
+| Directory / file | What it is |
+|---|---|
+| `main.ts`, `preflight.ts`, `stop.ts` | Entry: preflight checks (Windows only, Node version), then load the composition root; `stop.ts` is the supervisor's stop hook (verifies the pid file before ending the process) |
+| `daemon.ts` | **Composition root**: reads config, opens the event store, creates the Job object, wires modules, installs plugins from the manifest, opens both ports; shutdown and failed startup share one reverse-order cleanup list |
+| `config/` | Read-only config, the data directory layout (`dataDirLayout()`; modules get paths only from here), which env var holds which secret |
+| `storage/` | A thin SQLite interface: all database access goes through it, so swapping drivers touches one file |
+| `events/` | **Event store**: the event log is the single source of truth (`ergo.db`, WAL); derived views are projected from it |
+| `gateway/`, `pairing/` | The two ports, HTTP API, WebSocket; device pairing and credentials |
+| `guard/`, `guard-runtime/`, `approvals/`, `hand-over/` | **Guard**: a pure judging function (`judgeToolCall`); wiring into the runtime (live environment facts, approval cards, effect log, "hand it to me") |
+| `agent-manager/`, `agent-host/`, `runtime/`, `process/` | Launching agent child processes (assembly, env, Job object, resource limits); host for the three owner kinds; the runtime layer (pi lives only in `runtime/agent-child/`); process utilities |
+| `secretary/`, `maintainers/`, `conversation/` | The secretary (a resident child process), waking owners, conversations (derived views, input queues, rollback and branches) |
+| `tasks/`, `sub-agents/`, `scheduled-jobs/`, `event-sources/`, `recovery/` | Tasks (plans, execution, stage acceptance, drift and thresholds, workflows), parallel sub-agents, scheduled and event triggers, recovery after being killed |
+| `projects/`, `work-orders/`, `operations/`, `project-ops/`, `project-services/`, `scope-review/` | **The project system**: dossiers and standards, work-order dispatch, operations plans and APIs, project services (hosted by the supervisor), scope review. Outsiders may only import `projects/api.ts` |
+| `cards/`, `inbox/`, `board/`, `activity/`, `ledger/` | Card types and the button loop, the inbox, the board as the secretary sees it, activity state (a new kind of card the user must handle gets a line in `CARD_WAITS` in `activity/card-waits.ts`: the detail carries the card id, so the "waiting" text in the web title becomes clickable, see `web/src/state/activity-jump.ts`; put it in the inbox when creating the card), the token ledger |
+| `plugins/`, `deletion/`, `data-sources/`, `components/` | Plugin host, deletion participant registry, data sources and the shared import folder, on-demand components and the downloader |
+| `materials/`, `memory/`, `quick-actions/` | Materials store (verbatim copies, keyword and vector index), the memory plugin (nightly consolidation, memory curator, interviews), quick actions |
+| `reminders/`, `calendar/`, `voice/`, `browsing/`, `claude-code/`, `google/`, `looki/`, `phone/` | Plugins (each has a `plugin.ts`; other modules only take things from its `api.ts`) |
+| `scheduler/`, `workday/`, `backup/` | Scheduler with an injectable clock, internal jobs; the personal work calendar and holidays; backup, verification, restore |
+| `web/`, `typed-shell/`, `skills/`, `mcp/`, `toolkit/`, `apps/` | Web tools, typed shell tools (git, builds…), skill library (`skills/change.ts`: the card for owners submitting skills, built like `mcp/change.ts`, with validation shared with imports in `library.ts`), MCP registry, toolkits, proxying local service pages |
+| `prompts/`, `agent-settings/`, `model-settings/`, `assistant/`, `agent-roles/`, `i18n/` | System prompts (markdown files users can edit), each agent's ⚙ panel, model settings, the assistant's name, roles, i18n |
+| `lsm/` | The supervisor link protocol (health and busy reports, graceful stop, owned services) |
+| `deploy/`, `deploy-nginx.ts`, `restore.ts`, `run-backup.ts`, `download-model.ts` | Command-line tools: generate and deploy the nginx site, restore, back up, download models |
+
+Web directories are listed in [Where pages come from](#where-pages-come-from-prototype-and-online-demo).
+
+## Architecture
+
+### Two processes
+
+| | The daemon (`packages/daemon`) | The supervisor (`packages/supervisor`) |
+|---|---|---|
+| Does | Everything ergo is | Hosts long-running services: launch, probe, restart when killed, logs, autostart list, public tunnels, tailnet entries |
+| Lifecycle | Restarts the most (every merge, config change) | Small, stable, rarely restarted |
+| Data | `~/.ergo` (`ERGO_DATA_DIR`) | `%LOCALAPPDATA%\ergo\supervisor` (`--data-dir` / `LSM_DATA_DIR`) |
+
+The supervisor passes only an allowlist of env vars to the services it launches, not its own `--data-dir`, and no API reports that folder directly. The daemon's checkup reads the supervisor's registry, so when the supervisor isn't in its default location the ergo entry has to declare `LSM_DATA_DIR`. Entries written by `ergo start` include it; for hand-written ones see `deploy/lsm/ergo-daemon.example.yaml`.
+
+They talk only over the **link protocol** (`packages/supervisor/docs/link-protocol.md`) and never import each other's code. After opening its ports the daemon connects out to the supervisor (if any of the four `LSM_*` env vars is missing it silently skips this, as in tests and manual runs), announces its capabilities, and its heartbeat reports health (`ok` / `degraded`) and **busy** (a task is executing, or any agent has a side-effecting call in flight), so "stop when idle" waits for that work. Services from projects that go live are registered over the protocol as the daemon's **owned services** and launched and hosted by the supervisor. ergo itself never starts long-running services.
+
+### The daemon is a steward; agents are child processes
+
+- The daemon runs no models itself. The secretary, owners, sub-agents, reviewers and the memory curator are each a **child process** ([ADR-0002](adr/0002-one-process-per-agent.md)), launched by the agent manager into a Windows Job object (cleaned up together if the daemon exits), with only an allow-listed environment plus explicit injections; model keys go to the child over stdin, never via environment variables.
+- Children run [pi](https://github.com/earendil-works/pi) ([ADR-0001](adr/0001-pi-coding-agent-sdk-as-runtime.md)). **pi appears only in `runtime/agent-child/`**; daemon and child speak ergo's own host protocol ([ADR-0004](adr/0004-agent-host-protocol-sdk-over-stdio.md)), and `test/pi-boundary.test.ts` guards the boundary. Claude Code is another runtime plugged in through the same host protocol.
+- Every project and task has a fixed owner (`maintainer` in code) with its own context, toolkit and model ([ADR-0003](adr/0003-no-roles-toolkit-per-project.md)).
+
+### The event log is the single source of truth
+
+- Domain state — approvals, tasks, plans, cards, inbox, ledger — consists of **events** appended to `db/ergo.db` (SQLite, WAL); UIs and modules read **derived views** projected from them. pi's session files are only the agent's context, not domain state.
+- Frontends subscribe to **channels** over WebSocket (the secretary conversation, the board, the inbox, an owner's conversation…) and receive event streams; the frontend state layer is pure functions folding the stream into UI state (`packages/web/src/state/`).
+- **Hard deletes** rewrite events rather than deleting rows: every event type that a delete might touch must register a rewriter, and deletes touching an unregistered type are refused entirely ([ADR-0008](adr/0008-purge-scope-and-session-rewrite.md)).
+- The daemon is designed to be killed at any moment: on restart, work resumes by its rules, and side-effecting operations whose outcome is unknown go to the user to confirm rather than being silently redone (`recovery/`).
+
+### Gateway: two ports
+
+Both ports listen only on `127.0.0.1`:
+
+- **Local port** (default 8810), trusted automatically. Every HTTP request and WebSocket handshake checks that Host is `127.0.0.1:<port>` or `localhost:<port>` (against DNS rebinding) and that Origin, if present, is one of those (against cross-site requests); `Origin: null` is always rejected.
+- **External port** (default 8811), the only target for tunnels, Tailscale and similar: it ignores source IP and Host and looks only at the device credential (cookie `__Host-ergo-device`). Without a valid credential only three things pass: the page itself (showing the pairing page), `/api/access`, and the pairing API; everything else gets 401. Endpoints added later are automatically behind this gate.
+- `/healthz`: whether the secretary is running, the web UI is built, and enabled plugins loaded (a plugin that failed to load means `degraded`, still 200).
+- `/fonts/`: fonts for the visual styles (credentials required on the external port too). The web UI makes no requests to external hosts at runtime.
+
+### Device pairing
+
+- A new device `POST /api/pairing`s on the external port → a 6-digit code and an 8-hex-digit fingerprint (derived from a pairing cookie) → in one transaction a request event, a pairing request card and an inbox item → the user checks and approves locally (card button loop, first come first served) → the new device collects within 5 minutes → a 256-bit random credential is generated (only its hash is stored), and the raw value appears only in that one response.
+- At most 5 requests per source per 10 minutes; pending requests expire after 5 minutes; a collected credential that is never used within 24 hours is voided (guarding against "ghost devices" whose response was lost); once used it lasts 365 days, extended on use.
+- Requests that look automated (headless browsers, command-line tools, crawler user agents) are flagged on the card; the rules don't change.
+- Revoking a device immediately closes its open WebSockets.
+
+### The guard
+
+`judgeToolCall(input)` in `packages/daemon/src/guard/` is a **pure function**: it reads no files, runs no commands, looks at no clock or environment (`test/guard/judge-basics.test.ts` scans the source), and the same input always yields the same verdict. Its caller (`guard-runtime/`) gathers live environment facts (does the file exist, real paths, git state…) and passes them in.
+
+- **Input**: the call; which agent (working directory, toolkit); data directory areas and protected areas; the task's plan (grants, task-specific watch categories, each stage's temporal rules); the effect log (successful calls only); global watch-category settings; environment facts.
+- **Verdict**: which watch categories match, the strictest of six handlings (just do it and log / do it and tell me / only if in the plan / ask me first / hand it to me / never), whether it's within a grant, which temporal rules it violates; every reason is written in plain words and stored in the tool-call detail.
+- **Three hard bottom lines** nobody can override: never write ergo's own config area, database area or program directory; never read the secrets area; never send something known to be a secret.
+- Anything that cannot be judged (missing facts, arguments that can't be normalized…) is "ask me first".
+- **Authorized folders** (`GuardInput.authorizedFolders`, re-read by the caller on every judgement): reading files inside doesn't count as leaving the project directory, and plan conformance doesn't count it as out of bounds either. Reading only, compared by real path; no real path means it doesn't count; the data directory, protected areas, secret files, running scripts, git, `cd` and bash paths written with `..` don't count ([ADR-0041](adr/0041-authorized-folders-read-only-in-guard.md), Chinese).
+- **With the network switch off, reaching only this machine doesn't count as network**: curl sending only to `127.0.0.1`, `localhost` or `::1` (Ergo's own ports don't count as local); scripts using libraries that can stay local (`socket`, `urllib`, `http.server`, `fetch`) whose addresses are all local (`localOnly` in `guard-runtime/script-scan.ts`). Processes started by bash have those hosts in `NO_PROXY` (`process/child-env.ts`). Addresses coming from arguments or environment variables can't be seen: this layer is best effort anyway.
+- Defaults follow "features first, security later" ([ADR-0026](adr/0026-features-first-security-later.md)); new installs leave two switches off (see [watch categories](../user-guide/settings.md#关注类别), in Chinese).
+
+#### Temporal rules
+
+Rules like "back up before deleting", "run tests before pushing", "never send anything out after reading a secret" use a format compatible with planguard and run on its engine unchanged ([ADR-0005](adr/0005-temporal-rules-planguard-engine.md)):
+
+- Four shapes: `before` (A must have happened before B), `not_before` (A must not have happened before B), `check` (a condition must hold now), and no `require` (always forbidden).
+- "Before" looks only at the effect log (blocked or failed calls don't count); within a task, the same task; outside tasks, the same agent and conversation segment. Calls split out of one bash command are ordered by what can really run first (in `a && b`, a is before b).
+- On violation: `pull_back` sends the agent back to fix it itself (no user prompt; counts as a pull-back), `block` means never, `confirm` or nothing means ask me first.
+- What rules can use (`$current`, `$prior`, `$facts`, `$agent`, `$task`, `$now`, plus the `path_within` extension) is documented at the top of `guard/rule-validation.ts`; field tables live next to the code that builds them (`rule-steps.ts`, `rule-env.ts`). A malformed rule is rejected when the plan is saved.
+
+### Deletion participant registry
+
+Deleting a project, a task, a plugin's data (and deleting a person from personal files) all go through one registry (`deletion/participants.ts`). Deletion code only stops things, re-checks, commits and removes files; which events are rewritten and how is decided by **registered participants**:
+
+- `deletionKind<S>(id)` defines a kind of deletion (`PROJECT_DELETION`, `TASK_DELETION`, `PLUGIN_DATA_DELETION`…) carrying what is being deleted; `participants.register(kind, { owner, join(subject, plan) })` registers and returns an undo function.
+- Steps in order: `scope` (define the scope) → `claim` (replace whole events with a deleted marker, replace payloads, rewrite fields with registered rewriters; drop or rewrite whole cards; append events in the same transaction; work to do after commit) → `follow` (for participants that need to see which cards others claimed) → the registry collects cards and does field-level rewrites (**an event type without a registered rewriter throws here and the whole deletion is refused**) → `settle` (for participants that need the full rewrite list).
+- **Adding a new event type that belongs to a project / task**: register a participant that claims it in the owning module and register its rewriter; deletion code needn't change. **A new module needing a new kind of deletion**: define a `deletionKind`, register participants, and call `participants.plan(kind, subject, context)`. See `test/deletion/participants.test.ts`.
+
+### Proxying local service pages
+
+Project services run on `127.0.0.1:<port>`, which a phone can't reach. The daemon proxies by path: `/apps/<app name>/…` → `http://127.0.0.1:<port>/…` (`apps/`), and the built-in browser opens that address.
+
+- **Only registered apps are proxied** (`AppRegistry.register({ name, target, title?, prefix? })`); it is not an open proxy: `target` must be a local address, host and port only. The kernel registers project services when they go live; plugins use `ctx.apps.register`.
+- Authentication is the same as ergo's own pages: local port trusted, external port requires a device credential; ergo's own cookies (`__Host-ergo-*`) are never forwarded to services, and services cannot set them. Host, Origin, `Location` and `Set-Cookie` paths are rewritten, frame-blocking headers removed; streaming responses and WebSockets pass through.
+- **Prefix convention** (for service authors): to the browser a service lives under `/apps/<app name>/`. By default (`prefix: "strip"`) the prefix is stripped, the service thinks it's at the root, and its pages must **use only relative URLs** (`fetch("api/items")`, not `/api/items` — a leading `/` hits ergo's own root). For absolute URLs read the `ERGO_BASE_PATH` env var or the `X-Forwarded-Prefix` header. Frameworks with their own base path (Vite `base`, Next `basePath`…) set it to `ERGO_BASE_PATH` and register with `prefix: "keep"`. Don't hard-code local addresses; don't use `__Host-` cookies in services. `npm run check:app-prefix` fetches the service's home page and lists URLs outside the prefix.
+- **Known trade-off of same-origin proxying (not fixed)**: service pages run on ergo's origin, so their scripts can call ergo's API with the user's device credential (it's HttpOnly, so unreadable, but usable). Following "features first, security later", only services built by owners and approved by the user to go live are proxied; the plan is to move them to separate origins (own port or subdomain, own pairing or short-lived proxy tokens). See [SECURITY.md](../../SECURITY.md).
+
+### The memory system
+
+- **Materials**: the kernel's materials store collects the user's verbatim words (plus voice transcripts, avoidance signals…) from the event log, keeps immutable copies and builds keyword and vector indexes (`db/materials.db`). Agent voices don't count: when the secretary relays an owner's update as voice (`AgentVoiceRecord.parts`, the text stays on the voice object, the owner's part counts as the owner's words, and it never becomes a material or the secretary's own conclusion.
+- **The memory plugin** (`memory/plugin.ts`): at 03:00 an internal job wakes the **memory curator** (an on-demand agent), which uses the `@ergo/memory` engine to turn new materials into evidence and consolidate it into the reasoning store `memory/subtext/rg.db` (conclusions, evidence chains, competing explanations, predictions, a question box), with at most `memory.maxModelCalls` model calls per night; all writes go through a single write gate ([ADR-0030](adr/0030-memory-keeper-maintains-reasoning-graph-through-write-gate.md)).
+- The secretary gets a brief each time it wakes and a memory brief whenever the user's message touches relevant memories, and can "ask memory" on demand; deep discussion and edits are routed to the curator.
+- Some `memory.*` switches in the config (e.g. per-context tags for emotion, finance, relationships, location) are placeholders for now: setting them does not change behavior; defaults live only in `config/config.ts`.
+- Details: [memory system overview](memory-system.md), [memory engine architecture](memory-architecture.md), [vocabulary](memory-vocabulary.md), [ADR-0032](adr/0032-memory-reasoning-rules.md) (all in Chinese).
+
+#### Degradation, acceptance and rollback
+
+- **Degradation** (all four are tested): **no embedding model** — consolidation runs anyway, materials search falls back to keywords and says so; **consolidation model unavailable** (no key, failed requests) — the night is recorded as "skipped" (no key: no store built, nothing spent) or "failed" (reason in the record, plus an inbox item); no material is lost and the next night continues; **`rg.db` can't be opened or its version doesn't match** — no automatic migration, a "rebuild the reasoning store" notice is recorded, materials search keeps working, briefs are empty and "ask memory" answers "memory isn't ready yet"; **a crash mid-consolidation** — evidence and facts already written are kept, and the next night continues incrementally.
+- **Switches**: `memory.enabled: false` only skips consolidation and store building (materials search and briefs keep working) — not the same as disabling the memory plugin; `memory.extractor: "rule"` extracts facts with rules (no model calls; a fallback only); `memory.nightlyTimeoutMinutes` caps each night's run (default 60).
+- **Read-only acceptance**: `npm run memory:acceptance [-- --data-dir <dir>]` checks that `rg.db` opens with the right versions, shows the latest consolidation record, computes a brief and runs a search on a snapshot copy of the materials store. It changes nothing, never prints raw materials, and exits 1 if any check fails.
+- **Offline consolidation** `npm run memory:build` (`--rebuild` to start over, `--max-model-calls <n>`) and **full re-judging** `npm run memory:rejudge` (re-evaluates all existing conclusions after the rules change; `--max-yuan` caps the spend, a snapshot is saved first, `--undo <report>` restores it): both require the daemon to be stopped and write only `memory/subtext/rg.db` (since 338 it lives in the memory plugin's own data directory, `dataDirLayout().rgDb`).
+- **Rollback**: to just stop consolidation, disable "Memory" in Settings · Plugins (`rg.db` is kept, the materials store untouched); to rebuild the reasoning store from materials, stop the daemon → delete `memory/subtext/rg.db*` in the data directory (materials and verbatim copies stay; `rg.db` holds no raw text) → start the daemon → click "consolidate now" or wait for 03:00 (a first build may take several nights within the nightly budget) → confirm with `npm run memory:acceptance`.
+
+#### The memory plugin interface (Subtext / 会意)
+
+The memory system is a replaceable **plugin**, and only one runs at a time. The interface lives in `packages/protocol/src/memory-provider.ts` (types only); the host lives in `packages/daemon/src/memory/provider/host.ts`:
+
+- **Core methods** every memory system needs: `info()`, `start()`/`stop()`, `observe()` (feed one piece of raw material), `remember()` (store verbatim what the user asked you to remember; it may carry a `file` and an `origin` when the user says to remember a long-pressed web element, in which case `text` is the secretary's description. Set `extra.fileStored = true` on the returned item once the file is stored; otherwise the host tells the user only the words were saved), `search()` (returns the unified `MemoryItem`, **always with sources**), `forget()` (by item / source / time range / all — this is what privacy deletion relies on), `health()`.
+- **Optional capabilities** declared in `capabilities`; the host uses them to decide behaviour and UI: `brief` (per-turn brief; if absent the host builds a default one from `search`), `consolidate` (its own consolidation), `settings` (setting declarations the host renders), `tabs` (which tabs the memory page has), `tools` (extra tools), `subject`/`timeline`/`graph` (profile, timeline, relationship graph).
+- **Host rules**: only one provider runs at a time (`activate` stops the old one first); each plugin owns `<data dir>/memory/<id>/` and the core only copies/restores/migrates that whole directory without parsing it; plugins may not talk to models or open ports themselves — they use the host's `llm()`/`embed()`; a mismatched `api` version is refused.
+- **The built-in one is "Subtext" (会意, id `subtext`)**: conclusions, evidence chains, competing explanations and a prediction ledger (the memory system above). Its implementation is `packages/daemon/src/memory/provider/subtext.ts`; the engine is still `@ergo/memory`, and the store lives in its own data directory, `<data dir>/memory/subtext/rg.db`. In the UI it is called **Memory System · Subtext v1.0** and marked **Experimental** (`pages.memory.*` in `packages/web/src/plugins/memory/system.ts`; the navigation entry still says "Memory"), so a different memory system plugged in later changes those strings too.
+- **Adding another memory system**: implement `MemoryProvider`, register a factory (with `api`/`id`/`name`/`capabilities`/`requirements`), set `memory.provider` to its id. The two fake providers under `packages/daemon/test/memory/provider/` are the smallest example (test-only; they prove that swapping is easy).
+
+### Data directory and config
+
+- Modules get paths only from `dataDirLayout()` in `config/data-dir.ts`, never by joining strings themselves. The two databases in the db area (`ergo.db`, `materials.db`) go into the nightly snapshot (consistent copies via `VACUUM INTO`), and the reasoning store `memory/subtext/rg.db` lives in the plugin's own data directory and follows the whole directory into the snapshot; `secrets`, `tmp`, `backups`, `models`, `cache`, `components` and `imports` are excluded.
+- Config is read-only and missing items take defaults; **each threshold's default is defined once, in its own module** (`tasks/thresholds.ts`, `reminders/thresholds.ts`, `scheduled-jobs/thresholds.ts`, `event-sources/thresholds.ts`…); config files only list what changes.
+- Files are always written to a temporary file and then renamed, via `util/atomic-file.ts` ([Coding conventions](development.en.md#coding-conventions)).
+
+### Model providers
+
+Models are called on the daemon's computer; the web page only holds settings. Providers are a **registry table** (`MODEL_PROVIDERS` in `model-settings/providers.ts`) that drives the settings page, the connection test, where keys live and the default used when there is no settings file (why there is only DeepSeek plus one custom OpenAI-compatible provider is [ADR-0037](adr/0037-configurable-model-provider.md), in Chinese).
+
+| Field | Meaning |
+|---|---|
+| `id` | The provider id in pi's model catalog, the first half of "provider/model id" (`modelKeyOf`), and the key in `credentials` |
+| `label` | Name on the settings page. Translated ones are written as a getter (`get label() { return t("…") }`); never call `t()` at module top level |
+| `keyEnv` | Which environment variable the daemon reads the key from (`modelCredentials` in `config/secrets.ts` reads by it, keyed by `id`) |
+| `secretFile` | Which file in the data directory's secrets area the supervisor (LSM) injects the key from (relative to the data directory); a key entered on the web page is written to the same file |
+| `defaultModelId` | Default model when there is no settings file. Empty for the custom provider — the model id is whatever the user typed, and nothing may use it as a default |
+
+There are two entries today and **the first one is the default**: `deepseek` (`DEEPSEEK_API_KEY` / `secrets/deepseek-api-key.txt` / `deepseek-flash`) and `custom` (`CUSTOM_MODEL_API_KEY` / `secrets/custom-model-api-key.txt` / empty). `DEFAULT_MODEL_SETTINGS` is `MODEL_PROVIDERS[0]` plus thinking level `high`, and `providerOf(settings.provider) ?? MODEL_PROVIDERS[0]` appears all over `model-settings.ts`, so "the first entry is the default" must not be broken.
+
+**Registering the custom provider in a child process.** pi's model catalog does not contain `custom`; without registration `getModel("custom", modelId)` is always `undefined` (the session won't start and the connection test says "not in the model catalog"). Registration happens in exactly one place:
+
+- `customProviderConfig()` in `runtime/agent-child/custom-provider.ts` builds that `ProviderConfig` (`name` is `custom`, `baseUrl` trimmed of trailing slashes, `api` defaulting to `openai-completions`, and a single entry in `models`: the id the user typed). Model metadata cannot be entered by the user, so it is fixed by estimate: `input: ["text"]`, `reasoning: false`, `contextWindow: 128_000`, `maxTokens: 8192`, all `cost` fields 0 (the ledger still records real usage; costs for such a model are rough estimates on the usage page). Those two limits are defined only in `custom-provider.ts`.
+- `registerCustomProvider(modelRuntime, custom)` is called from exactly four child-process entry points: `session.ts` (opening a session), `probe.ts` (model probing: catalog lookup and connection test), `recorded-generation.ts`, and `translate.ts` (translating slash-command descriptions). It **must run before `setRuntimeApiKey`** — only after registering does `getModel` know the model, and the key goes in through the following `setRuntimeApiKey` call into pi's in-memory credentials; the other order reports "no such provider".
+- Metadata lives in those two functions only. Do not build a `ProviderConfig` anywhere else, and keep to the pi boundary (`pi-boundary.test.ts`: `@earendil-works/*` only under `runtime/agent-child/`).
+
+**The assembly field `SessionAssembly.custom`** (`runtime/host-protocol.ts`): `{ baseUrl, modelId, api? }`, and it is **absent** (not an empty object) when the custom provider is not selected. It contains no key — the key stays in `credentials` (under `custom`) and reaches the child over stdin. The same block also appears in three other requests: `ModelProbeRequest`'s `{ type: "catalog", custom? }` and `{ type: "ping", custom? }`, and `TranslationRequest.custom`. The daemon has a single source for it: `ModelSettingsService.customProvider()` (only when `custom` is selected; a copy of `settings.custom`), handed to the agent manager by the composition root (`customProvider: () => modelSettings.customProvider()`). While `custom` is selected, **every agent's model id becomes `custom.modelId`** (thinking levels still come from each row), because the provider has a single model — that happens in `effectiveChoiceOf`; the ids in `default` and the per-agent overrides are only what is used after switching back to DeepSeek.
+
+**The two endpoints.** Both live with the rest of the settings, and the key never enters a request body nor comes back in a response:
+
+| Endpoint | Request | Response |
+|---|---|---|
+| `POST /api/model-settings/custom-models` | `{ baseUrl? }` (falls back to the one saved in settings) | `{ ok, models: [{ id, name?, ownedBy? }], error? }` |
+| `POST /api/model-settings/test` | `{ modelId?, custom? }` (`custom` tests that copy — for trying before the page is saved; omitted means what is saved) | `{ ok, modelId, firstTokenMs?, totalMs, error? }` |
+
+- Listing models is a single `GET {baseUrl}/models` from the daemon with `Authorization: Bearer <key>` (the key is **always the custom provider's**: even when DeepSeek is still the selected provider, the DeepSeek key is never sent to the address in the request), a 15-second timeout, at most `CUSTOM_MODELS_MAX` (500) entries; it accepts `{ data: [{ id, name?, owned_by? }] }` and also a bare array. **Failing to list is not an error**: it still returns 200 with `ok: false` and an `error` explaining why, with any key material stripped.
+- The connection test keeps the existing route — a one-shot child process that registers the provider and sends a very short request; only one runs at a time and a second one gets 409 ("the previous one hasn't finished").
+- The `custom` block in the settings file may stay while `provider` is not `custom` (switching back to DeepSeek does not clear it); if `POST /api/model-settings` omits `custom`, the saved one is kept. `checkModelCustom()` (`packages/protocol/src/model-settings.ts`) is the only place that validates it: the URL must be http(s), the model id may not be blank, trailing slashes are trimmed; `custom` selected without that block is treated as an unreadable settings file.
+
+**To add another vendor preset, change this:**
+
+1. Add a row to `MODEL_PROVIDERS` in `model-settings/providers.ts`: `id`, `label` (wrap in `t("modelSettings.provider.<id>")` if it should be translated, in both locale files), `keyEnv`, `secretFile`, `defaultModelId`.
+2. Add an entry under `env:` in `deploy/lsm/ergo-daemon.example.yaml` — `{ name: <keyEnv>, from: file, path: <home>\.ergo\secrets\<file>, optional: true }` — otherwise the supervisor will not inject the key (a key entered on the web page works until the daemon restarts).
+3. If pi's model catalog already has that vendor, nothing changes in the child process; if not, register it under `runtime/agent-child/` the way `custom-provider.ts` does (`ProviderConfig` may only be built in that layer).
+4. The settings page, the key block, the connection test and model listing all read the table, so they need no changes; extend `test/model-custom-provider.test.ts` (the fake OpenAI-compatible service is `test/helpers/fake-openai.ts`, no network).
+
+**What this layer deliberately does not cover**: the nightly memory consolidation (`memory/nightly-job.ts` builds `DeepSeekChat` from `DEEPSEEK_API_KEY`), web search and page reading (`web/deepseek.ts` is a DeepSeek-proprietary API), and the token price table (`packages/protocol/src/token-prices.ts` knows only DeepSeek). They stay DeepSeek-only even after switching to a custom provider — when touching them, take the key from the `deepseek` row's `keyEnv` / `secretFile` (or `deepseekKey()` in `config/secrets.ts`) instead of "the currently selected provider".
+
+### The install chain
+
+After downloading, verifying and extracting, `install.ps1` writes `current` → fills `bin` → adds to PATH → runs `ergo svc install-autostart` (`ergo svc` passes through to lsm, with `LSM_DATA_DIR`) → runs `ergo onboard` (`ergo start` plus a line pointing at the wizard) → prints a summary. Only a failure before `current` is written fails the install (exit code 1, the version in use unchanged); each later step that fails is reported, the rest still runs, exit code 0. Switches: `-NoAutostart`, `-NoStart`; environment variables for `irm | iex`.
+
+Three things bring ergo up at login, and they belong to different owners:
+
+| | Where | Who writes it | On a version switch |
+|---|---|---|---|
+| Scheduled task `LocalServiceManager` | Hard-codes that version's `node.exe` and `lsm.mjs`, and `--data-dir` | The installer registers it by default (`supervisor/src/autostart.mjs`) | `syncAutostart` checks and re-registers |
+| Autostart list `registry/autostart.yaml` | The supervisor's data directory | The first `ergo start` writes one with only `ergo-daemon` (`wx`: never touched once it exists); after that it belongs to the supervisor (web UI, `lsm autostart`) | Untouched |
+| ergo's entry `registry/services/ergo-daemon.yaml` | The supervisor's data directory | Rewritten for the current version by every `ergo start` and version switch; `env` items the user added (the ones ergo writes itself are overwritten as before) and a top-level `exposure:` the user wrote are kept, hand edits elsewhere are not | Rewritten |
+
+`syncAutostart` (`cli/service.ts`) only acts on installed copies, and is called from `ensureSvc` (`start`, `restart`) and `switchTo` (`update`, `rollback`): no task means nothing is created (the user removed it); a task pointing outside the install folder is left alone (the user's own supervisor; same rule as `ergo uninstall` and the installer); only a task pointing at another version in the install folder is re-registered; a failure is reported in one line. The `switchTo` process still runs on the old version (the launcher finds the version folder through `current`), so after switching, the entry, the supervisor and the task must all use the new version's context (`contextOfVersion`).
+
+At login the supervisor decides "new login session" with `bootPlan`, comparing the previous `sessionEpoch` in its ledger: the first start has no record and counts as not a boot. So after a `-NoStart` install, restarting before ever running `ergo start` doesn't bring ergo up (there's no entry or list yet either).
+
+Known and unsolved: a supervisor started by the autostart task wasn't started by `ergo` (`managerPid` in `install.json` doesn't match), so `switchTo` doesn't restart it; after an update that process runs the old version's code until the next login. It occupies the old version folder, which `pruneVersions` leaves for next time when it can't be deleted.
+
+### Components and long-running services (speech synthesis, speech recognition)
+
+The component service (`components/service.ts`) only downloads, verifies, swaps in and deletes. Anything that must be connected after installing (a long-running service) goes through the `components/host.ts` interface; today's implementation is `audiocpp-host.ts` (ADR-0038, ADR-0039):
+
+- **Manifest fields**: `license` (name, one sentence, link, `confirm`, `revision`, `attribution`), `recommended`, `slowWithoutGpu`; `service` (program component: its name in the supervisor, program file name, port, health check), `serve` (model component: which program loads it, the model id on the service, family, task, mode, model file). `extract.format` gained `zip` (`components/zip.ts`, no dependencies), and `extract.beside` puts a package's files next to a given program (the runtime next to the program, wherever it sits in its package).
+- **The package layout is unverified**: after extracting and before swapping in, `service.program` is looked up by file name, and nothing is swapped in if it's missing; `variant.expects` lists files that should sit next to the program (with `*`), and missing ones go into `service.warning`, which warns but never blocks starting.
+- **Failed downloads**: `ComponentView.manualDownload` lists the files still needed and their links (only when a download failed or is paused); once downloaded, they go through the existing `POST /api/component-import`.
+- **Adding another model**: write one more component with `serve` and a `dependsOn` on the program; generating the config and restarting need no code. For speech synthesis the model id follows `voice.speech.model`.
+- **The speech recognition model** (`serve.task` is `asr`: one more layer, `components/recognizer-link.ts`. Only once the service is connected (`connect` succeeded) does it write `audiocpp` to `voice.recognizer.mode` and have the voice plugin switch on the spot through `VoiceApi.useRecognizer`; removing the model removes that entry. If the user set up their own (`probes.provided("voice-recognizer")`: `lsm`, a hand-written `audiocpp`, a Python path in the config, or the default `python` really having faster-whisper), nothing is written and it can't be installed.
+- **Connecting recognition**: `voice/recognizer-audiocpp.ts` implements `Recognizer`. It shares the state machine `createServiceRecognizer` with the LSM one (`recognizer-client.ts`); what differs sits behind `ServiceProtocol`. Switching needs no restart: everyone holds the one from `recognizer-switch.ts`; on a switch the old one closes and `warmup.recognizerChanged()` clears the backoff and warms the new one. The service only takes WAV: `VoiceModelsView.recognizerInput` tells the web page to convert first (`finishTake` in `app/voice-browser.ts`; push-to-talk, Debug and the floating button all share `VoiceRecorder`), and anything else that arrives goes through ffmpeg in `audio-convert.ts`. Interface details found by trying the real service are at the top of `recognizer-audiocpp.ts`.
+- **Connecting**: `server.json` (under `components/audiocpp-service/`, not the program directory, which is replaced whole on update) → `services.put` → `start` / `restart` → wait for `GET /health` → `autostart`. A failed step rolls back, and the result goes into `ComponentView.service` (`idle` / `starting` / `running` / `stopped` / `failed`) rather than being thrown at the download queue.
+- **"Ours" means `server.json` exists**: with it, we connected this service; without it, someone on the port, a config pointing elsewhere or a registration conflict all count as the user's own setup (`provided: voice-speech` asks `host.provided()`) and are never overwritten. The protocol can't touch services hand-written in the registry, and a stopped hand-written service only shows up as `port-conflict`, so clicking Install does a dry-run `put`.
+- **License**: `ComponentActionBody.licenseAccepted`; without it the answer is 400. Confirmations are kept in `licenses.json` in the components area.
+- **Web**: `POST /api/components/<id>` gained `start` and `stop`; `GET /api/components` calls `refresh()` first, which probes the port. In the prototype, `?demo-tts=missing|installing|running|stopped|failed|manual|download-failed|runtime-missing`, `?demo-asr=missing|installing|running|configured|external` and `?demo-gpu=none` show the states.
+- **Update check** (`components/update-check.ts`, ADR-0042): `createUpdateChecker` fetches `components-manifest.json` and its signature from the release page, verifies them with the release public key and keeps them in the components area. `Components.checkUpdates()` puts entries newer than the shipped ones into `offered` (`release` greater than the shipped one, different version), and `view().updates` gives the address, the last result and the components with a new version. The `byId` entry in use stays as it is: what to download and show comes from `goalOf(c)`, and only a successful `commit` calls `adopt`, which also records the entry in `installed.json` (`entry`, `entryRelease`; used after a restart only if newer than the shipped one). The nightly job and the to-do reminder are `createComponentUpdateJob` (`component_update_available`, once per version, archived once replaced). API: `POST /api/components {"action":"check_updates"}`, answered when the check ends, 200 even if it failed. If the release page doesn't have the list yet (a 404 on the list itself), that's `updates.notPublished`, not a failed check. At release time `stageVersion` writes the version into the manifest's `release`, and `build/release.ts` puts the manifest and signature in the release folder. In the prototype, `?demo-updates=available|failed|not-published`.
+
+Tests: `test/components/audiocpp-host.test.ts` (the real `lsm/link.ts` + the LSM stand-in + a fake download site + a fake speech service on a port the system picks), `test/voice/recognizer-audiocpp.test.ts` (a fake audio.cpp, `helpers/fake-audiocpp-asr.ts`, with errors written from what the real service does), `test/components/recognizer-link.test.ts` (existing setups checked byte for byte) and `test/main/components.test.ts` (the real daemon from install to a voice message); never touches 8090.
+
+**The wizard's capabilities step** (`pages/more/CapabilitiesStep.tsx`, pure logic in `app/setup-capabilities.ts`) has no API of its own: components use `GET /api/components` and `POST /api/components/<id>`, plugins use `GET /api/plugins` and `POST /api/plugins/<name>`. What's ticked by default comes from the component's `wanted`, with no second list; among stopped plugins only memory is ticked (`DEFAULT_ON_PLUGINS`). In `SETUP_STEPS` the step replaced the old "components" one. It has no condition (`NO_CONDITION` in `setup-state.ts`): it counts as done only after the user has seen it. So the config's `setup.format` records this step's format, currently 2. The start-at-boot switch is `lsm/autostart-switch.ts` (`GET / PUT /api/autostart`). It uses `runTaskCommand` in `cli/autostart.ts`, which like `runLsm` goes through `interceptTaskCommand` first; it only touches a task that belongs to this install, and a source run only shows the state. In the prototype, `?demo-bge=missing|failed`, `?demo-fail=<component id>`, `?demo-autostart=off|elsewhere|dev`. The end-to-end test `test/main/setup-capabilities.browser.test.ts` needs `npm run build:web` first.
+
+### Project services reporting events
+
+When a project's own service finds something that matters, it reports an event that wakes the task in the operations plan waiting for it (ADR-0043.
+
+- **API**: `POST /api/service-events` (local port only; `gateway.ts` refuses it on the external port right away, even with a device credential). Header `Authorization: Bearer <ERGO_SERVICE_TOKEN>`, body `{ "event": "<event name>", "data": <any JSON, optional> }` (`ServiceEventBody`). On success it returns 202 and `{ ok, event, runs: [{ taskId, runId, merged }] }` without waiting for the owner. Errors use the usual `{ code, message }`: 401 credential missing, wrong or revoked; 400 bad body; 404 nothing waits for this name (`message` lists the names you can report); 409 the waiting task is paused; 413 data too large; 429 over this service's rate limit; 403 external port.
+- **Command**: `ergo notify <event name> [--data <JSON>]` (`cli/notify.ts`) reads `ERGO_NOTIFY_URL` and `ERGO_SERVICE_TOKEN`. Exit codes: 0 reported, 1 refused, 2 wrong usage (including missing environment variables), 3 can't connect. In development: `npm run ergo -- notify <event name>`. A `git clone` has no `ergo` command and the service manager's `PATH` is a snapshot from when it started, so the instructions tell service code to prefer the request.
+- **Source**: `event-sources/service.ts` (`service` in the registry, one event `reported`, the name in the `name` filter, `planOnly`) only tracks who is waiting and hands the event over through `triggers.ts` → `ScheduledJobs.fire`; queue merging and auto-pause are reused. `DeliveringContext.deliver` is `emit` that also tells the source whether delivery worked.
+- **Ops layer**: `project-services/service-events.ts` owns credentials (`secrets/service-tokens/<app name>.token`; only a digest stays in memory), the rate and size limits (`event-sources/thresholds.ts`, config `eventSources.serviceReportsPerMinute` and `serviceDataMaxBytes`), recent events (`event-sources/service-events.json`, `SERVICE_EVENTS_KEPT` per service, no data) and the owner's `recent_service_events`. `bringUp` in `project-services.ts` issues a credential if there is none and restarts a running service that got a new one; a withdrawing `service_desired` revokes it as soon as it is committed; deleting the project removes both. When a rollout is recorded as failed but the supervisor reports the service online (`heal`, and the user hasn't switched it off and the project is in use, the service is registered again in full and goes back to live (`service_rollout` with `heal`, no notice); one missing a credential or with a changed definition is restarted once. These services don't take the re-registration on connect (`resync` only covers live ones), so this is where they get their credential. When a start reports `already-running`, `health-check.ts` looks first: if the service really is running it isn't a failure.
+- **Where the data goes**: only `JobRun.events` (rewritten when the project is deleted). `eventsBlock` in `scheduled-jobs/texts.ts` marks it as data, not instructions, when it is handed to the agent. No material source reads it, so it stays out of memory.
+- **Instructions for owners**: the "woken by a service" passage in `prompts/project-maintainer.md` (the full recipe) and the means descriptions in `operations/builtin-means.ts` and `project-services/means.ts` (the fields). Change them together.
+- **Notices when a service has trouble**: failed to go live, went down, recovered and failed prefix checks are all marked `chatOnly` (`MessageEventPayload`): they stay out of work order segments and wait for a chat segment once the owner is free (`accepts` in `work-orders/segments.ts`), so an alarm run isn't interrupted and `propose_operations` is actually there. The notice carries the service manager's reason and the health check address, and asks the owner to check for itself first.
+- **Tests**: `test/main/grow-frictions.test.ts` (trouble notices don't interrupt an alarm), `test/main/service-events.test.ts` (fake LSM, faux owner), `test/main/service-events-real.test.ts` (real service manager, real child process, real command), `test/cli/notify.test.ts`, `test/build/stage.test.ts` (run from a version directory).
+
+### Stage budgets
+
+With budget control on (`tasks.thresholds.budgetControl`), each stage counts usage in tool calls and tokens (`tasks/thresholds.ts`): over budget asks the owner to explain its progress; over twice the budget stops the branch until the user decides.
+
+- **Usage**: `budgetTokensOf` in `ledger/views.ts` is uncached input + output + one tenth of cached input (the factor is `BUDGET_CACHE_HIT_DIVISOR`, defined once). Only budgets use this number (`stageTokens(..., { budget: true })`, `budgetTokens` on the board); ledger entries and the Usage page show real tokens.
+- **Budget**: the owner only estimates calls (`budget.toolCalls`); `tokens` and `tokenEstimate` it writes do not count (`planFromSubmission`, `withStoredTokens`). When a stage starts, `budgetFor` in `execution.ts` records `TaskStage.budget`: calls × call scale (`callScale`, 0.5 to 5) × call meter (the ledger's `callMeter`), plus a rough cost at the ledger's prices. "Add budget and continue" and confirming a plan change that adds budget (`budgetReset`) work out a new one.
+- **Calibration**: acceptance records `TaskStage.calls` (estimated and actual calls). The context block and the project owner's fixed context show them to the owner.
+- **Stopping**: on a stage stopped over budget, the guard asks `heldCall` before judging and refuses everything except `complete_stage` and `propose_plan_change` (`report_step` for workflows) with `blockedBy: over_budget`; five refusals in a row abort the current turn. `refusalText` in `execution-tools.ts` says why a task isn't executing and what it is waiting for. If a declaration that was let through fails acceptance while usage is still over, the branch stops again.
+- **Notices**: the three execution notices (explain progress, branch stopped, carry on) carry a `taskNotice` tag. When the state changes, `dropQueued` voids queued ones (`turn_end`, `aborted`), and a newer one of the same kind replaces the older, so stale notices alone never wake the model. A stop over budget with nothing else to do sends no notice.
+
+## Plugins
+
+The daemon is split into a **kernel** and **plugins** ([ADR-0027](adr/0027-plugin-host-kernel-and-agent-contributions.md)): the kernel (event log, task execution with the guard, host protocol, gateway…) is wired by hand in the composition root; plugins are installed from the manifest `plugins/manifest.ts` via the plugin host `plugins/host.ts`, and the composition root never names a plugin. A feature plugin = a daemon plugin + a web plugin of the same name, enabled and disabled together; users can hot-plug them under Settings · Plugins.
+
+**To write a plugin, follow [docs/architecture/plugin-development.md](plugin-development.md)** (in Chinese): it starts from a minimal "notes" plugin and walks through the three parts (in the daemon, for the agents, on the web), dependencies and boundaries, data contracts and "delete with data", hot-plugging, i18n, testing and shipping; its code excerpts and names are checked against the code by `test/plugins/plugin-guide-doc.test.ts`. When an agent writes plugins, use the skill `.claude/skills/ergo-plugin/SKILL.md` (a checklist). Below is a reference for the host itself.
+
+### What a plugin can register
+
+During setup a plugin receives a `PluginContext`; every `register` returns an undo function and is recorded under the plugin's name, and the host undoes them in reverse order when the plugin is disabled:
+
+| Registration | Goes into | On undo |
+|---|---|---|
+| `cardTypes.register` | Card types (`cards/registry.ts`) | Only its own registration is removed |
+| `purge.register` / `purge.registerQuotes` | Hard-delete rewriters and quotes | This registration is removed |
+| `quickActions.register` | Quick actions | Only its own |
+| `internalJobs.register` | Internal jobs (below) | Timer cancelled; a run in progress finishes and is recorded |
+| `boardKinds.register` | Board kinds | The secretary's board no longer lists it |
+| `eventSubscribers.register` | Event-trigger subscribers | Events no longer go to it |
+| `apps.register` | The proxy registry ([Proxying local service pages](#proxying-local-service-pages)) | 404 from then on; open pipes are closed |
+| `register` on `agent.tools` / `agent.context` / `agent.hooks` / `agent.notes` | Tools for agents, per-turn context blocks, hooks, input notes | Agents assembled afterwards no longer get it; the resident secretary reassembles after its current message |
+| `effect(execute)` | Timers, subscriptions and the like: run it and keep its undo | Its undo is called |
+| `lifecycle({ start, stop })` | The plugin's own start / stop | `stop` is called (first) |
+| `provide(key, value)` | A service the plugin provides | Removed; others get `undefined` |
+
+Views and system-prompt fragments are declared in the definition. **Data contracts** (`contracts`: card types, rewriters, material sources, frontend requests, what to delete on removal) stay registered even when the plugin is disabled — events it wrote earlier must still be purgeable and still collectable as materials.
+
+**Dependencies** are typed services (`serviceKey<T>(name)`): `needs` is required (the host orders installation by it; a plugin whose needs are unmet isn't installed, with the reason in the startup log and `/healthz`), `wants` is optional (fetch it live with `ctx.optional(key)`, don't store it). Kernel modules that need something from a plugin import only its `api.ts` (boundary tests enforce this).
+
+**When disabled**: by config (`plugins.disabled`, effective after restart) or at runtime (disable / enable / remove in Settings · Plugins, effective immediately). All its registrations are undone and its views become dormant (tables kept but no longer updated; rebuilt from the event log when re-enabled); its past items in chats and the inbox show as one line "(plugin X is not enabled; this item can't be shown for now)"; calling its tools mid-turn returns "plugin X is not enabled". Removal can also hard-delete its data (as declared with `removal.declare`).
+
+### Plugin internal jobs
+
+`ctx.internalJobs.register({ name, schedule, run })`: work the daemon does on a schedule, on its own scheduler rather than Windows scheduled tasks.
+
+- `schedule` uses the same time rules as reminders (e.g. `{ kind: "daily", time: "03:00" }`), plus `{ kind: "every", minutes }` (counted from the end of the previous run).
+- `run(trigger, signal)`: `trigger` says whether it's on time (`scheduled`) or catching up a missed run at startup (`catch_up`); `signal` fires when the daemon stops and the job should stop quickly (throwing `AbortError` counts as not run, so it catches up next start).
+- A job's own errors only go to the log, and it is rescheduled as usual; to make an error visible, write it to the inbox yourself.
+- The first time a job is seen it only records "from now on" without running; runs missed while stopped are caught up once at startup. Time always comes from the injected clock (tests advance a `ManualClock` instead of waiting).
+- Register in `setup` with `ctx.effect(() => ctx.internalJobs.register(job))`; an in-flight run is not aborted by the undo, so the plugin should signal abort in `lifecycle.stop` and wait for it.
+
+Data sources (`ctx.dataSources.register`, section 7 of the plugin guide) have two levels on the web: `#/more/data-sources` is a card overview (`pages/more/DataSourcesPage.tsx`, with no inputs or action buttons) and `#/more/data-sources/<id>` is a separate full-page detail (`pages/more/DataSourceDetail.tsx`: status, settings, data). The two tabs in the data block map to two optional source methods: `stored` (fetched data; sources that don't produce materials list their own, and the kernel lists the rest by `origin.dataSource`, the same result as `filter.dataSource` on `POST /api/materials/list`) and `live` (available now: asks the upstream, read-only, with no events, materials, memory or model involved). The endpoints are `POST /api/data-sources/<id>/stored` and `POST /api/data-sources/<id>/live`. On the external port they need a device credential like every other endpoint.
+
+Gmail can connect several accounts, `google/gmail-accounts.ts`). In the secrets area, `values` in `secrets/data-sources/google-gmail.json` holds `accounts` (account ids, comma-separated) and `account.<id>.address`, `.password` and `.enabled` (`on` / `off`) for each account. The id is the first 10 hex digits of the hash of the lower-cased address, so the same address keeps its id if it's disconnected and added again; events record the id, which can't be turned back into the address. Each value has its own entry rather than one JSON blob, because the kernel replaces entries with `***` in error messages. Message numbers include the account (`<account id>.<mailbox>-<UIDVALIDITY>-<UID>`) since UIDs collide across accounts. Pages show the full address; logs and anything given to a model show a masked one. The kernel strips the full addresses in this entry from error messages, so the plugin writes masked ones there.
+
+### Web plugins
+
+The web UI uses **typed slots** and plugins never import each other (`packages/web/src/plugins/`). The daemon pushes each plugin's status on the plugins channel and the web plugin host installs and stops web plugins accordingly.
+
+| Slot | Where the core renders it | When the plugin is disabled |
+|---|---|---|
+| `pages` pages and routes | Inserted into the core navigation by `order`; the right-hand column when folded into More | Gone from navigation; a still-open address says "plugin X is not enabled" |
+| `settingsSections` / `settingsPages` | Sections in the settings list, settings pages drawn by the plugin | Not shown |
+| `chatItems` / `details` | Conversation items, detail panel content | Replaced by a one-line placeholder |
+| `cards` | Cards (one component for chat, inbox, task details) | One-line placeholder |
+| `boardEntries` | Board entries and menu items | Consecutive entries in a group collapse into one placeholder |
+| `calendar` | Calendar legend, cell marks, a section in the day view | Not shown |
+| `composerVoice` | The input box's voice mode | Typing only |
+| `background` | Renders nothing, only runs hooks (e.g. autoplay) | Not run |
+| `tabs` | Tabs in the main navigation (currently only "Browse") | Tab removed |
+
+A plugin declares the places it owns (`owns`) in its definition and must register exactly those; plugins import only `plugins/api.ts` and the core, and the manifest `plugins/manifest.ts` is imported only by `App.tsx` (`test/plugins/boundary.test.ts`). In the prototype, `?demo-plugins-off=memory,reminders` shows what disabled plugins look like.
+
+## Web UI
+
+### Where pages come from: prototype and online demo
+
+- **Served by the daemon**: after `npm run build:web`, the daemon serves `packages/web/dist/index.html` at `http://127.0.0.1:8810/` (Vite + `vite-plugin-singlefile`, all JS and CSS inlined; re-read on every request, so no daemon restart is needed). Open pages show "new version · refresh" within seconds.
+- **Prototype**: opening the build output directly (`file://`) has no daemon, so everything uses the prototype's built-in sample data (`src/prototype/`: a fake connection and fake data with obviously made-up names and paths). UI review and the page test (`test/page-opens.test.ts`) open it this way. Add `?lang=en` for English.
+- **Online demo**: `npm run build:demo` (`vite build --mode demo --outDir dist-demo`) builds another copy; the page recognizes the demo build via `import.meta.env.MODE` and always uses the prototype data (`src/app/prototype-mode.ts`). The whole `dist-demo/` goes to GitHub Pages (`.github/workflows/pages.yml`), so people can click around without installing anything or entering a key.
+
+**Web directories**:
+
+| Directory | What it is |
+|---|---|
+| `src/state/` | **Frontend state layer**: pure functions folding the event stream into UI state, no React or DOM (enforced by its own tsconfig) |
+| `src/app/` | The state layer wired into React (`store.tsx`), connections (WebSocket and HTTP), pairing, routing, theme, language, recording and playback |
+| `src/ui/` | Shared parts: the conversation component (shared by secretary and owners), cards, panes and popovers, main navigation, line icons (`icons.tsx`) |
+| `src/pages/` | Pages |
+| `src/plugins/` | Web plugin host, manifest, plugins |
+| `src/visual-styles/` | Style list and tokens ([Visual styles](#visual-styles)) |
+| `src/prototype/` | Fake connection and data, prototype only |
+| `src/page-bridge/` | A standalone script injected into external pages in Browse (floating button, form filling; the long-press element button is in `element.ts`: it only listens to `contextmenu`, never blocks the system menu, and doesn't classify actions, so what the user says goes to the secretary's main conversation as is). A site's CSP can block `<style>`, `style` attributes and `data:` images: styles go through `adoptedStyleSheets` and `style.cssText`, images are decoded to bitmaps and drawn into a canvas |
+| `src/styles/` | The Classic style's rules, using only `var(--token)` |
+| `build/` | Build plugins (styles, version hash, build info for the About page), `smoke-page.ts` |
+
+### Visual styles
+
+11 styles (Classic, Paper journal, Clean grid, Night cockpit, Soft candy, Glass glow, Blueprint, Sticker bento, Pixel cottage, Ink wash, Retro magazine), each with light and dark variants. **Styles only reskin**: page structure, features and navigation logic are shared; a style overrides only tokens and scoped rules ([ADR-0021](adr/0021-visual-styles-tokens-in-ts-fonts-from-gateway.md)).
+
+- **A style = a set of tokens + rules scoped to that style.** Token names are in `TOKEN_NAMES` in `src/visual-styles/tokens.ts`; Classic defines them all in `classic/style.ts` and other styles only what differs; page CSS uses only `var(--token)` — no hard-coded colors, radii or shadows. Rules live in `<id>/style.css`, each starting with `:root[data-style="<id>"]` (`test/visual-styles/scope.test.ts` checks every one).
+- Easy-to-confuse tokens: three fonts (`font-body`, `font-title`, `font-num`); the accent `primary` vs. solid fills `primary-fill`; borders `card-border` (bordered cards) vs. `panel-border` (panels); shadow colors written once with `light-dark()`.
+- **ergo serves its own fonts**: a style's `fonts` names an npm fontsource package (its license must allow redistribution); the build copies it into `dist/fonts/<package>@<version>/` sliced by `unicode-range`, the daemon serves it under `/fonts/`, and it loads only when that style is selected. No external CDN at runtime.
+- **Icons**: navigation, options and buttons use `<Icon name="…" />` from `src/ui/icons.tsx` (hand-drawn line SVGs in `currentColor`), not emoji.
+- **Adding a style**: create `src/visual-styles/<id>/style.ts` (`{ id, name, blurb, tokens, fonts? }`) and `style.css`, add one line to `src/visual-styles/index.ts`; for fonts, `npm install -D --save-exact <fontsource package>@<version> -w @ergo/web`; run `npx vitest run packages/web/test/visual-styles packages/web/test/app/theme.test.ts packages/web/test/build.test.ts` (contrast, fonts and rule prefixes are checked automatically), then `npm run build:web` and look at light and dark. The style preview in Settings comes for free.
+
+### Conversation zoom and scrolling to the end
+
+Secretary, task and project conversations share one component, `ZoomHistory` (viewport > sizer > content); the three zoom levels scale the sizer. Anything sticking out of the content (side annotations, arrows) is clipped by `overflow-y: clip` on `.zh-sizer`, so the scroll range equals the sizer's height; visible annotations hanging below the last item when zoomed out count as a "zoomed-out tail" (`zoomedOutTail` in `state/scroll-end.ts`). The rules for the "jump to latest" ↓ button are in the same file. jsdom doesn't lay out, so verify with real layout: open the build output in headless Chrome, scroll to the end with the wheel, and check that `.zh-viewport`'s `scrollHeight` equals `.zh-sizer`'s `offsetHeight` at each of the three levels.
+
+### One agent, one conversation; background agents
+
+There is one **conversation view**: `AgentDialog` in `pages/AgentConversation.tsx` (title bar `TaskHead`, stage bar on top, messages, input box, records column). The project page and the task page both draw it. The only differences are the records and the text they pass to `useTaskScene`.
+
+- **Routes**: `#/projects/<p>/tasks/<t>[/at/<id>]` is the project's conversation with a task named. `TaskDetail` in `TasksPage` asks `taskHomeProject` where a task lives (an internal task's `internal.projectId`, or the project whose owner is this task's owner) and uses `replaceRoute` to swap the address without adding history, so no caller of `#/tasks/<id>` had to change. Cross-project tasks and tasks outside any project stay on the task page. The old `/chat` address still works and is the same page as `#/projects/<p>`.
+- **Which task it shows**: `projectConversationTask`: the one named in the address → the task of the owner's current work order → running, waiting for you, planning, paused → the latest ended and not archived. Queued tasks don't take the spot; they're in the "internal tasks" section of the records.
+- **Input box**: `sayingScopeOf` and `userMessageScope` are unchanged. An internal plain task (active, or named and `taskAcceptsMessages`) carries `taskId`; everything else uses the project conversation's scope.
+- **Stage bar**: `useStagePanel` in `ui/conversation/stage-panel.tsx`: one line (`data-stage-bar="live"|"done"`) + half-open rail + handle for the full graph. Collapsing is per device (`ergo-stage-side`); a finished task defaults to collapsed without writing the setting. The old wide-screen stage column is gone; wide and narrow share this.
+- **Records on a phone**: a layer of the detail slide-in (`DetailTarget` `{type:"archive"}`), opened from the title or the first "⋯" item; drilling in from there uses `detail.go`, and ‹ returns to the records.
+
+**Background agents**: `daemon/sub-agents/background.ts`.
+
+- Data: a `DerivedView` projects sub-agent events (internal channel `sub_agents`), tool calls and the ledger into `background_agents` and `background_agent_lines`. It refills on first start, so old data is listed too. Tool calls stay in `tool_call_details`, indexed by agent.
+- New events, all on `sub_agents`: `sub_agent_said` (the `transcript` hook in `one-shot.ts`, written on each `message_final` with text, stored by `sub-agents.ts`); `review_started` and `review_finished` (the `record` hook in `tasks/review.ts`). A failed write is only logged and doesn't affect the work. Old reviews without `review_started` are derived from the ledger; old runs without `sub_agent_said` report `saidRecorded: false`.
+- Deletion: `purgedParallelPayload` in `material-source.ts` replaces the text in these events with the purged marker; the list filters out deleted tasks with `tasks.get`.
+- API: `GET /api/agents/<owner>/background` and `GET /api/agents/<sub-agent>/transcript`, read-only. There's no way to send to one (`maintainer:sa-1` isn't a conversation you can post to).
+- Push: an ephemeral event that doesn't enter the event log (channel `background_agents`, `EPHEMERAL_EVENT_TYPES`), carrying only the owner id and throttled per owner to 400 ms. The web `ui-state` folds it into a version number, and `useBackgroundAgents` refetches when the version changes. That also keeps it out of recorded replays.
+- Sub-agents inside a runtime (Claude Code's `parentCallId`) don't count; they appear as tool calls in the owner's conversation.
+
+### Yielding the microphone
+
+In voice mode ergo keeps the microphone warmed up for instant push-to-talk; but whenever **a text-entry element gets focus**, or the window loses system focus, all tracks stop immediately so the system keyboard's voice input isn't blocked ("microphone in use"). After focus returns it waits 0.5 s before warming up again; focus changes never interrupt a recording in progress. The rules live in one place in the state layer (`voiceMicCloseReason` / `voiceMicOpenReason` in `state/voice-mic.ts`, table-tested in `test/state/voice-mic.test.ts`), wired to the browser in `app/voice-browser.ts`. Recordings carry diagnostics (`capture`: backend, press-to-record latency, peak…), and silent recordings are not sent. The HarmonyOS app uses native recording and doesn't need to yield ([Native recording](development.en.md#native-recording)).
+
+## Internationalization
+
+UI text and messages ergo generates for users (cards, notifications, receipts) go through `t()`; the secretary and owners answer in the selected language. System prompts and tool descriptions are for the model and stay in Chinese, with one line appended: "answer the user in <language>". **There is one global language** shared by all devices ([ADR-0029](adr/0029-i18n-runtime-in-protocol-one-active-language.md)).
+
+- **The runtime** lives in the protocol package (`packages/protocol/src/i18n/`): `t(key, params?)` (`{name}` interpolation; missing sentences fall back to Chinese), plurals (with a numeric `count`, `_one` / `_other`…), `tParts` and the web's `<T k="…" params={…} />` (elements inside a sentence), `tTable` (constant tables written as keys, looked up on access), `followLocale` (an exported string constant that follows the language), `forModel` (run code with Chinese `t()` for the model-facing copy), `formatNumber` / `formatDate`.
+- **Language files**: built-ins in `packages/protocol/locales/<code>/`, where the file name is the key's first segment (its region); users drop the same format into `~/.ergo/locales/`, which the daemon checks every 2 seconds, no restart needed.
+- **Keys**: `<region>.<module or page>.<meaning>`, lowerCamelCase segments, naming the **meaning**, not the source text. Regions the web may use are listed in `WEB_NAMESPACES` in the protocol package; daemon keys start with the directory they live in. Both languages must use the same interpolation parameters.
+- **Never call `t()` at module top level**, nor read `tTable` values there (the language may not be loaded yet): make it a function evaluated at render time. Memoized components and `useMemo`s that call `t()` must call `useLocale()` or depend on it.
+- **Excluding Chinese meant for the model**: the annotation must be the first thing in the comment — `// @i18n-ignore model: reason` (this line), `// @i18n-ignore-next model`, `// @i18n-ignore-start model` … `// @i18n-ignore-end`, `// @i18n-ignore-file model: …` at the top of a file, `{/* @i18n-ignore fixed */}` in JSX. Valid reasons: `model`, `log`, `fixed`, `data`. Text written directly inside `log(…)` or `console.*(…)` needn't be annotated.
+- **The hard-coded Chinese ratchet**: `packages/daemon/test/i18n/hardcoded.test.ts` counts hard-coded Chinese per region (comments, tests and prototype sample data don't count), and every region's baseline is 0 — all new user-facing text goes through `t()`.
+- **Checking**: `npm run i18n:check` (missing, extra and mismatched-parameter sentences per language; unreadable files in `~/.ergo/locales`; exits 1 only if the built-in English is incomplete). User-facing steps for adding a language are in the [adding a language yourself](#adding-a-language-yourself); to make one built-in, put the translated directory into `packages/protocol/locales/<code>/` with file names matching `zh-CN`.
+
+### Adding a language yourself
+
+To add a language or change a translation, no code changes are needed: copy `packages\protocol\locales\en` from the repository to `%USERPROFILE%\.ergo\locales\<language code>\` (e.g. `fr`), edit `_meta.json` (`nativeName` is the language's own name, `modelName` tells the model which language to use, `intlLocale` is the locale for dates and numbers), then translate the text after the colon in each `.json` (keep `{name}`-style placeholders; `_one` / `_other` are plural forms). Within two seconds the language appears in Settings; untranslated sentences fall back to Chinese. To change just a few sentences, drop a `.json` with only those keys into `locales\<language code>\`. Broken files are listed in Settings · Language with what's wrong; you can also run `npm run i18n:check` in the repository root.

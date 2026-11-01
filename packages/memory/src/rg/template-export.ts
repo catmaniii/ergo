@@ -1,7 +1,7 @@
 // 推理库 → 一份 YAML（通用的有向无环图格式：每个节点 id、kind、statement、deps、status），给人看图、拿别的工具查用。253 号票的导出器（守护进程的 npm run memory:dump-template），
 // 256 号票补了三处（结论 → 结论的边、--with-evidence 的证据层、domain 和 title）。267 号票起挪到这里；326 号票起每晚校验不再用它（改成直接查库的图谱自检 graph-check.ts）。
 //
-// 只读：只用 source.all(sql)（守护进程的只读连接、引擎的存储都行），不写任何东西。映射（和 docs/memory-vocabulary.md 那张对照表一致）：
+// 只读：只用 source.all(sql)（守护进程的只读连接、引擎的存储都行），不写任何东西。映射（和 docs/architecture/memory-vocabulary.md 那张对照表一致）：
 // - `evidence` → `kind: fact`，`deps: []`（只在 withEvidence 时导）：原话就是最底下那一层，状态一律 verified；
 // - `facts` → `kind: fact`，默认 `deps: []`（凭据在图外）；withEvidence 时 `deps` 挂上它那几条证据（`fact_evidence`）；
 //   状态：active → verified、contested → unverified、corrected/superseded/retracted → retracted；
@@ -202,7 +202,7 @@ export function exportReasoningTemplate(source: TemplateSource, options: Templat
     "# 别手改这份文件——改数据请改库；要调导出规则改 packages/memory/src/rg/template-export.ts。",
     `# 生成时间：${stamp}`,
     ...(options.sourceLabel === undefined ? [] : [`# 数据：${options.sourceLabel}`]),
-    `# 映射见 docs/memory-vocabulary.md：evidence → kind: fact（${options.withEvidence === true ? "这一份带证据层" : "默认不导，--with-evidence 才带"}）；` +
+    `# 映射见 docs/architecture/memory-vocabulary.md：evidence → kind: fact（${options.withEvidence === true ? "这一份带证据层" : "默认不导，--with-evidence 才带"}）；` +
       "facts → kind: fact；claims → kind: inference（deps 是前提事实和前提结论）；questions → kind: question。",
     "",
     "version: 1",

@@ -1,4 +1,4 @@
-// 玻璃光纹（46 号票，设计稿 docs/design/styles/e-*.dc.html）：磨砂玻璃面板浮在点阵底上、电光蓝微光，正文 Noto Sans SC，
+// 玻璃光纹（46 号票，设计稿 docs/architecture/design/styles/e-*.dc.html）：磨砂玻璃面板浮在点阵底上、电光蓝微光，正文 Noto Sans SC，
 // 时间、时长、计数这些数字用 Chakra Petch。按钮、你发的消息是电光蓝实色块；"要你"的事（等你验收、卡住、未读）是砖红（设计稿的 --warn）。
 // token 在这里；只靠 token 做不到的（点阵底、磨砂玻璃、浮起的标题栏 / 导航 / 输入栏、带微光的选中条和进度条……）在 style.css。
 //

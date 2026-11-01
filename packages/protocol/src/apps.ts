@@ -4,7 +4,7 @@
 // 前缀怎么写、应用名能用哪些字、前缀约定的环境变量和请求头都只写在这里，守护进程的转发、Web 的内置浏览器和地址、测试都从这里取。
 // 不引用 TypeBox。
 //
-// 前缀约定（docs/developer-guide.md"转发本机服务的页面"）：转发到服务时，浏览器眼里服务在 /apps/<应用名>/ 下面。服务要么只用相对地址
+// 前缀约定（docs/architecture/README.md"转发本机服务的页面"）：转发到服务时，浏览器眼里服务在 /apps/<应用名>/ 下面。服务要么只用相对地址
 // （<script src="assets/app.js">，不写 /assets/app.js），要么读环境变量 ERGO_BASE_PATH（"/apps/<应用名>"）拼地址；
 // 每个转发过去的请求也带着 X-Forwarded-Prefix（同一个值）。
 
@@ -19,7 +19,7 @@ export const APP_PREFIX_HEADER = "x-forwarded-prefix";
 
 /**
  * 应用名：小写字母、数字、连字符，字母或数字开头结尾，最长 63——就是一段域名（以后改成独立的源，比如 <应用名>.<二狗的域名>，
- * 用得上，见 docs/developer-guide.md 同源转发的安全取舍）。133 号票登记成 <项目>-<服务>
+ * 用得上，见 docs/architecture/README.md 同源转发的安全取舍）。133 号票登记成 <项目>-<服务>
  */
 const APP_NAME = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 

@@ -1,4 +1,4 @@
-// 软糖圆角（42 号票，设计稿 docs/design/styles/d-*.dc.html）：ZCOOL 快乐体标题（正文是 Noto Sans SC，不用它）、大圆角、
+// 软糖圆角（42 号票，设计稿 docs/architecture/design/styles/d-*.dc.html）：ZCOOL 快乐体标题（正文是 Noto Sans SC，不用它）、大圆角、
 // 浮起的胶囊导航和输入栏、紫罗兰强调色，"要你"的事和未读是珊瑚红。卡片、气泡都是白色浮在淡紫底上，靠柔和的紫色投影分层，不描边。
 // token 在这里；只靠 token 做不到的（胶囊导航、浮起的输入栏、按钮一律胶囊、看板和待办一行一张浮卡……）在 style.css。
 // 颜色取设计稿 renderVals() 的浅色、深色两套（--bg、--surface、--border、--text、--muted、--accent、--accent-ink、

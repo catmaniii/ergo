@@ -1,4 +1,4 @@
-// 夜航仪表（41 号票，设计稿 docs/design/styles/c-*.dc.html）：深色为主、青绿指示色、JetBrains Mono 等宽数字、带点的状态药丸。
+// 夜航仪表（41 号票，设计稿 docs/architecture/design/styles/c-*.dc.html）：深色为主、青绿指示色、JetBrains Mono 等宽数字、带点的状态药丸。
 // 风格和明暗正交：设计稿以深色为主，renderVals() 里也有一套浅色取值（青绿换成深一档的 #0F766E），浅色照它做；
 // 用户选"跟随系统"时照常跟系统。颜色取自设计稿的 --bg、--surface、--raised、--border、--text、--muted、--accent、
 // --accent-ink、--accent-dim、--warn、--warn-dim；对比度不够的几处沿原来的色相调了（标着"设计稿是"）。

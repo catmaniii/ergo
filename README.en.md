@@ -4,9 +4,9 @@
 
 > **Your memory, back to you. The more it knows you, the more at ease you feel.** A personal AI assistant that lives on your own computer and takes orders by voice from your phone.
 
-**[Online demo](https://catmaniii.github.io/ergo/?lang=en)** (nothing to install, no key needed; the web prototype ships with made-up sample data) · [User Guide](docs/user-guide.en.md) · [Developer Guide](docs/developer-guide.en.md) · [Changelog](CHANGELOG.md)
+**[Online demo](https://catmaniii.github.io/ergo/?lang=en)** (nothing to install, no key needed; the web prototype ships with made-up sample data) · [User guide](docs/user-guide/README.md) · [System architecture](docs/architecture/README.en.md) · [Changelog](CHANGELOG.md)
 
-<p align="center"><img src="docs/images/readme/classic-tasks-en.png" width="620" alt="Task board"> <img src="docs/images/readme/classic-secretary-phone-en.png" width="178" alt="The secretary on a phone"><br><sub>The task board on a PC and the secretary on a phone. Every screenshot here comes from the online demo and shows made-up sample data.</sub></p>
+<p align="center"><img src="docs/user-guide/images/readme/classic-tasks-en.png" width="620" alt="Task board"> <img src="docs/user-guide/images/readme/classic-secretary-phone-en.png" width="178" alt="The secretary on a phone"><br><sub>The task board on a PC and the secretary on a phone. Every screenshot here comes from the online demo and shows made-up sample data.</sub></p>
 
 > **Windows 10 / 11 only.** ergo relies on things only Windows has (Job objects, directory junctions, scheduled tasks) and won't start on other systems.
 
@@ -47,7 +47,7 @@ irm https://github.com/catmaniii/ergo/releases/latest/download/install.ps1 | iex
 
 Then open <http://127.0.0.1:8810/> and follow the setup wizard; from now on ergo starts by itself when the PC restarts. Already installed? Update with `ergo update`.
 
-Install options, source installs, updating, rolling back and uninstalling are in [Install, update and uninstall](docs/install.en.md).
+Install options, source installs, updating, rolling back and uninstalling are in [Install, update and uninstall](docs/user-guide/install.en.md).
 
 ## One at a time
 
@@ -57,11 +57,11 @@ You may have tried it: give one OpenClaw session several development jobs. It go
 
 In ergo, **you talk only to a secretary**. It doesn't do the work itself. It understands what you want, draws on your memory when needed, hands the work to the owner of each project and task, keeps an eye on progress, and sums it all up for you. Several projects run at once without crossing wires; you don't switch between sessions, you come back to one summary.
 
-<p align="center"><img src="docs/images/readme/classic-projects-en.png" width="760" alt="Projects page"><br><sub>Each project has its own dossier, working directory and owner.</sub></p>
+<p align="center"><img src="docs/user-guide/images/readme/classic-projects-en.png" width="760" alt="Projects page"><br><sub>Each project has its own dossier, working directory and owner.</sub></p>
 
 The working agents aren't a fixed cast of PM, architect, developer and tester either: that means retelling the same context over and over, which burns tokens. Our idea is **assembling a team on demand**: each project and task gets the tools, skills and MCP servers this job needs; steps that can run in parallel get temporary sub-agents that disband when done. No crowd of permanent roles to keep around.
 
-**All of it works by voice.** Out and about, hold the button on your phone and say "fix that login bug from yesterday and tell me when it's done"; the PC at home gets to work, and ergo reads you the result when it's finished. Each project's owner can have its own name and voice, so you know who's reporting with your eyes closed. Speech recognition and synthesis run locally and need extra components, see the [User Guide](docs/user-guide.en.md#82-voice-replies-local-speech-synthesis); to reach home from your phone, see [Deployment and outside access](docs/deployment.en.md).
+**All of it works by voice.** Out and about, hold the button on your phone and say "fix that login bug from yesterday and tell me when it's done"; the PC at home gets to work, and ergo reads you the result when it's finished. Each project's owner can have its own name and voice, so you know who's reporting with your eyes closed. Speech recognition and synthesis run locally and need extra components, see the [Voice](docs/user-guide/voice.md) (in Chinese); to reach home from your phone, see [On your phone](docs/user-guide/mobile.md) (in Chinese).
 
 If Claude Code is signed in on your PC, owners can also work through it (on your own subscription), with ergo's guard still checking each tool call.
 
@@ -78,20 +78,20 @@ ergo **runs long tasks the way you'd manage a project**:
 
 > **From real use**: a real project's first version took 247 operations and only 7 clicks; it drifted 5 times and was pulled back automatically each time. For developers who vibe-code for hours, what you save is whole blocks of attention.
 
-<p align="center"><img src="docs/images/readme/classic-plan-en.png" width="760" alt="Plan card and stage graph"><br><sub>The stage graph on the left and the plan card on the right: what each stage does and what it may touch. Confirm once and work begins.</sub></p>
+<p align="center"><img src="docs/user-guide/images/readme/classic-plan-en.png" width="760" alt="Plan card and stage graph"><br><sub>The stage graph on the left and the plan card on the right: what each stage does and what it may touch. Confirm once and work begins.</sub></p>
 
 **Come back much later without reading dozens of pages of chat.** ergo shows the work in layers. Pinch (Ctrl + scroll on a PC): the key-points level shows one line per item, with sensitive operations and files sent out pinned in the margin; the overview shows the whole job as one colored bar; for details, expand back to the conversation level.
 
 <table>
 <tr>
-<td align="center"><img src="docs/images/readme/classic-zoom-keypoints-en.png" width="420" alt="Key-points level"><br><b>Key points</b><br><sub>Deletions and outgoing sends are marked in the margin</sub></td>
-<td align="center"><img src="docs/images/readme/classic-zoom-detail-en.png" width="420" alt="Conversation level"><br><b>Conversation</b><br><sub>Full content; every operation opens up</sub></td>
+<td align="center"><img src="docs/user-guide/images/readme/classic-zoom-keypoints-en.png" width="420" alt="Key-points level"><br><b>Key points</b><br><sub>Deletions and outgoing sends are marked in the margin</sub></td>
+<td align="center"><img src="docs/user-guide/images/readme/classic-zoom-detail-en.png" width="420" alt="Conversation level"><br><b>Conversation</b><br><sub>Full content; every operation opens up</sub></td>
 </tr>
 </table>
 
 **You decide what matters.** Watch categories (spending money, sending in your name, deleting or overwriting, irreversible commits, accounts and security, leaving the project directory… plus your own) × six handlings (just do it and log, do it and tell me, only if in the plan, ask me first, hand it to me, never). **Three hard bottom lines nobody can override**: never write ergo's own config, database or program directory; never read the secrets area; never send something known to be a secret.
 
-<p align="center"><img src="docs/images/readme/classic-watch-en.png" width="760" alt="Watch categories in Settings"><br><sub>Settings · Watch categories.</sub></p>
+<p align="center"><img src="docs/user-guide/images/readme/classic-watch-en.png" width="760" alt="Watch categories in Settings"><br><sub>Settings · Watch categories.</sub></p>
 
 Everything that needs your decision is in the inbox, with system notifications in the phone app; a token ledger records each model call against its task, stage and agent.
 
@@ -128,7 +128,7 @@ How did it know? ergo infers needs **with a reasoning graph**: from the literal 
 
 So it isn't that you dislike socializing; you just don't want your weekend disturbed. **Without your having to spell it out, ergo can infer the need you didn't say.** (This example uses synthetic data; the scoring comes from a real run of the engine.)
 
-<p align="center"><img src="docs/images/readme/classic-memory-en.png" width="760" alt="Conclusions on the memory page"><br><sub>The memory page: each conclusion opens to its evidence chain, supporting and contrary evidence, competing explanations and revision history.</sub></p>
+<p align="center"><img src="docs/user-guide/images/readme/classic-memory-en.png" width="760" alt="Conclusions on the memory page"><br><sub>The memory page: each conclusion opens to its evidence chain, supporting and contrary evidence, competing explanations and revision history.</sub></p>
 
 - **Every word kept**: an immutable verbatim copy of everything you said, indexed by keyword and vector; conversations, project dossiers, task records, attachments and the spending ledger all live locally too.
 - **Distilled nightly**: at 3 am the memory curator turns new material into evidence and consolidates it into conclusions.
@@ -136,7 +136,7 @@ So it isn't that you dislike socializing; you just don't want your weekend distu
 - **Getting-to-know-you interviews**: the memory curator may invite you to talk through one topic at a time (decline any time) and fills in your personal files from it.
 - **Safety**: **secrets live in a separate area no agent can read**; a consistent snapshot every night, optionally copied to a NAS or a cloud-drive sync folder.
 
-Design details are in [the memory system](docs/memory-system.md) (in Chinese).
+Design details are in [the memory system](docs/architecture/memory-system.md) (in Chinese).
 
 ### 5. Built-in browser
 
@@ -146,7 +146,7 @@ Open a page and tap a text box or a photo upload area; a small ergo button appea
 
 Web pages used to make you click through everything. Now you just say what you want, and your memory and local data are right there. Web apps built with ergo work the same way when opened in this browser.
 
-This is only in the phone app, which you currently build yourself: see [HarmonyOS](docs/user-guide.en.md#72-harmonyos-app) and [Android](docs/user-guide.en.md#73-android-app).
+This is only in the phone app, which you currently build yourself: see [HarmonyOS](docs/user-guide/mobile.md#鸿蒙-app) and [Android](docs/user-guide/mobile.md#安卓-app) (in Chinese).
 
 ### The rest is there too
 
@@ -160,7 +160,7 @@ This is only in the phone app, which you currently build yourself: see [HarmonyO
 
 Three triggers: once now; scheduled (optionally "on my working days", with Chinese and Singaporean holidays and make-up days); on an event (another task finished, a new file arrived in a folder). Write "every Monday at 8 am…" when starting a task and the schedule is set from it; results can be read aloud to you automatically.
 
-**Everything is a plugin**: the daemon is split into a kernel and plugins. **Reminders, memory, calendar, voice, built-in browser, Claude Code, Google (calendar, contacts), Looki and phone** are all plugins that you can disable, enable or remove under **Settings · Plugins** without restarting; disabling only hides pages and tools, the data stays. Want a new ability later? Write another plugin, following the [plugin guide](docs/guides/plugin-development.md) (in Chinese), which starts from a minimal "notes" plugin.
+**Everything is a plugin**: the daemon is split into a kernel and plugins. **Reminders, memory, calendar, voice, built-in browser, Claude Code, Google (calendar, contacts), Looki and phone** are all plugins that you can disable, enable or remove under **Settings · Plugins** without restarting; disabling only hides pages and tools, the data stays. Want a new ability later? Write another plugin, following the [plugin guide](docs/architecture/plugin-development.md) (in Chinese), which starts from a minimal "notes" plugin.
 
 **Your way**:
 
@@ -169,7 +169,7 @@ Three triggers: once now; scheduled (optionally "on my working days", with Chine
 - **Chinese and English** built in; add other languages by dropping language files into the data directory, no code changes.
 - **Phone, wide foldable and PC**: designed phone-first, with multi-column layouts on wide screens; there are also native HarmonyOS and Android apps.
 
-<p align="center"><img src="docs/images/readme/styles-gallery.png" width="860" alt="Style previews under Settings · Appearance & style"><br><sub>Settings · Appearance & style: all 11 styles, each shown light (left) and dark (right).</sub></p>
+<p align="center"><img src="docs/user-guide/images/readme/styles-gallery.png" width="860" alt="Style previews under Settings · Appearance & style"><br><sub>Settings · Appearance & style: all 11 styles, each shown light (left) and dark (right).</sub></p>
 
 ## Our vision
 
@@ -181,17 +181,10 @@ Large models still live elsewhere today, so we're handing back everything except
 
 ## Documentation
 
-| | |
-|---|---|
-| [Install, update and uninstall](docs/install.en.md) | Step-by-step install, starting and stopping, starting automatically, updating, rolling back, uninstalling |
-| [Deployment and outside access](docs/deployment.en.md) | Reaching home from a phone or tablet: Tailscale, self-hosted Headscale, VPS tunnel |
-| [Architecture](docs/architecture.en.md) | How a request flows, where it runs, the code, trade-offs against OpenClaw |
-| [User Guide](docs/user-guide.en.md) | Everyday use, settings, backup, troubleshooting |
-| [Developer Guide](docs/developer-guide.en.md) | Repo layout, plugins, web, i18n, tests |
-| [Plugin guide](docs/guides/plugin-development.md) | Starts from a minimal plugin (in Chinese) |
-| [Memory system](docs/memory-system.md) | Modules, interfaces and workflows (in Chinese) |
-| [CHANGELOG.md](CHANGELOG.md) | Version changes |
-| [SECURITY.md](SECURITY.md) | Security model, known limits, reporting vulnerabilities |
+- **To use ergo:** see the [user guide](docs/user-guide/README.md). What ergo is, how to install it and how to use each feature.
+- **To see how it's built:** see [System architecture](docs/architecture/README.en.md). Architecture, the memory system, deployment and decision records.
+
+For developers: [Development](docs/architecture/development.en.md), the [plugin guide](docs/architecture/plugin-development.md) (in Chinese), [CHANGELOG.md](CHANGELOG.md), [SECURITY.md](SECURITY.md).
 
 ## Contributing
 

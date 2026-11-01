@@ -1,7 +1,7 @@
 /*
  * 夜航仪表（41 号票）：只靠 token（night/style.ts）做不到的规则，全部限定在 :root[data-style="night"] 下
  * （不会漏到别的风格；设置里的预览把开头换成 :host(...)，所以根元素上只再加属性，见 src/visual-styles/preview.ts）。
- * 设计稿：docs/design/styles/c-chat、c-tasks、c-inbox、c-wide（.dc.html）。要点：深色仪表盘、青绿指示色（--primary）、
+ * 设计稿：docs/architecture/design/styles/c-chat、c-tasks、c-inbox、c-wide（.dc.html）。要点：深色仪表盘、青绿指示色（--primary）、
  * 时间和数字用 JetBrains Mono（--font-num）、状态写成带点的药丸、卡片和行都是 12px 圆角的细线框；
  * 个人助理的话不套气泡，上面一行"小方块 + 时间"；"要你"的事（等你、审批、卡住任务、未读）是琥珀色（--you）。
  * 只换样子，不改结构：导航、页面上有什么都和经典一样。

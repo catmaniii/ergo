@@ -62,7 +62,7 @@ export interface HolidayImportResult {
 }
 
 // @i18n-ignore-start model：任务书里给负责人的验收标准、约束（官方来源）
-/** 官方来源（调研文件 docs/research/13-holidays-sg-cn.md "来源"和"更新方法"两节），写进任务书 */
+/** 官方来源（调研文件 docs/architecture/research/13-holidays-sg-cn.md "来源"和"更新方法"两节），写进任务书 */
 export function officialSources(region: HolidayRegion, year: number): string[] {
   if (region === "sg") {
     return [

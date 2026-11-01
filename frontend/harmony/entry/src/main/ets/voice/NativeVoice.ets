@@ -119,7 +119,7 @@ function failure(reason: string, message: string): string {
  * - discard：丢掉这一段；release：离开语音模式、切到后台、页面重新加载时放掉录音器（release()）。
  * 录音器上的操作（建、开始、停、放）都是异步的，排成一队一个一个做；每放掉一次 generation 加一，还没建好的那次建好后马上放掉。
  * 录着的时候被系统打断（来电、别的应用要麦克风）：放掉录音器，告诉网页（error），网页提示、下次按下再备好。
- * 音源用 SOURCE_TYPE_MIC（理由见 docs/developer-guide.md"鸿蒙 App"一节的原生录音）；ArkTS 的 AudioCapturer 没有低时延模式（capturerFlags 只能是 0，
+ * 音源用 SOURCE_TYPE_MIC（理由见 docs/architecture/development.md"鸿蒙 App"一节的原生录音）；ArkTS 的 AudioCapturer 没有低时延模式（capturerFlags 只能是 0，
  * 低时延通路只在 C 接口 OHAudio 里），用的是普通通路。
  */
 export class NativeVoice {

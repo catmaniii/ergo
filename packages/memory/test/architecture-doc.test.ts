@@ -1,4 +1,4 @@
-// 197 号票：记忆系统的总览文档（docs/memory-system.md）和代码对得上。改了接口名、挪了文件而没改文档，这里就红。
+// 197 号票：记忆系统的总览文档（docs/architecture/memory-system.md）和代码对得上。改了接口名、挪了文件而没改文档，这里就红。
 // 查三样：
 // 1. 接口表：每张前面写着 <!-- 接口表 --> 的表，表头是"状态、接口、文件、参数要点、返回"。状态是 ✅ 或 🧪 的行：
 //    - 文件要存在；
@@ -19,7 +19,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 const REPO = fileURLToPath(new URL("../../../", import.meta.url));
-const DOC = path.join(REPO, "docs", "memory-system.md");
+const DOC = path.join(REPO, "docs", "architecture", "memory-system.md");
 /**
  * 公开仓库里没有评测包 packages/memory-eval（326 号票：评测和评测数据只留私有仓库）。
  * 文档里的接口表会提到它的源文件，公开版里那些行没法核——读文档时按"目录在不在"决定要不要把那些行去掉，
@@ -395,7 +395,7 @@ export function mermaidProblems(md: string): string[] {
 
 // ---------- 测试 ----------
 
-describe("docs/memory-system.md 和代码对得上", () => {
+describe("docs/architecture/memory-system.md 和代码对得上", () => {
   const md = docForChecks(fs.readFileSync(DOC, "utf8"));
   const parsed = parseInterfaceTables(md);
 

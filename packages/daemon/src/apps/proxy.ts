@@ -11,7 +11,7 @@
 // - 服务没在跑、连不上：回一页简短的说明（"服务「X」现在没在运行"），不是裸的 502。
 // - 正文一律原样转，不改；以后要改（136 号票给 HTML 注入二狗的页面桥）的位置在 serve 里收到响应那一段，见那里的注释。
 // 撤销登记、设备被吊销、网关关闭时，开着的 WebSocket 管道和还在流的响应一并断开。
-// 同源转发的安全取舍（服务页面的脚本跑在二狗的源上）见 docs/developer-guide.md"转发本机服务的页面"：现在先这样，以后改成独立的源。
+// 同源转发的安全取舍（服务页面的脚本跑在二狗的源上）见 docs/architecture/README.md"转发本机服务的页面"：现在先这样，以后改成独立的源。
 import http from "node:http";
 import type { Socket } from "node:net";
 import type { Duplex } from "node:stream";

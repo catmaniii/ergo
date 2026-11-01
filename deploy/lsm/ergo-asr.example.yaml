@@ -3,7 +3,7 @@
 #
 # 这是服务管家（LSM）注册表条目的**示例**（格式见 packages/supervisor/docs/service-schema.md）。登记时复制一份，把下面的占位符换成本机的值，
 # 放进服务管家数据目录（默认 %LOCALAPPDATA%\ergo\supervisor）的 registry/services/ergo-asr.yaml。真实条目不进本仓库。
-# 登记步骤见本仓库 docs/user-guide.md 的"按住说话（本机语音识别）"一节。
+# 登记步骤见本仓库 docs/architecture/README.md 的"手动配语音（备用）"一节。
 #
 #   <Python 绝对路径>  装了 faster-whisper（和它的 ctranslate2、PyAV）的那个 Python 里的 python.exe。
 #                       用绝对路径，不吃 PATH 上先出现的另一个 python。和 config/ergo.example.json 里

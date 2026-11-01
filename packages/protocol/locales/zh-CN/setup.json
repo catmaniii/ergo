@@ -74,7 +74,7 @@
   "setup.steps.phone.sub": "用手机上的二狗 App 点「扫码连接」，扫下面的码；手机发来请求时就在这里核对短码、点批准",
   "setup.steps.phone.ready": "已经配对过设备了",
   "setup.steps.phone.notReady": "还没有配对过的设备（不急，先用这台电脑）",
-  "setup.steps.phone.how": "二维码要有一条能从外面连进来的地址。外网地址怎么接出来，看向导最后一页「外网访问」，或者用户手册的「外网访问」那一节。",
+  "setup.steps.phone.how": "二维码要有一条能从外面连进来的地址。外网地址怎么接出来，看向导最后一页「外网访问」，或者用户指南的「手机上用」那一章。",
   "setup.steps.phone.go": "看已配对的设备：设置 · 设备配对",
   "setup.steps.safety.title": "安全默认值",
   "setup.steps.safety.sub": "这两项默认不勾，二狗放手去做，少打扰你。想稳一点就勾上：有风险的事先问你，任务超预算就停下等你。以后在设置里也能改。",
@@ -94,6 +94,6 @@
   "setup.external.vps.title": "方法三：VPS + ssh 反向隧道 + nginx（公网）",
   "setup.external.vps.sub": "一台 VPS、域名证书；nginx 收 HTTPS 再经 ssh 反向隧道转回这台电脑的 8811，地址是：",
   "setup.external.vps.address": "https://ergo.<VPS 的 IP>.sslip.io/",
-  "setup.external.guide": "这一版只写清楚三条路，不自动配置；每一步的详细做法见用户手册的「外网访问」那一节。",
+  "setup.external.guide": "这一版只写清楚三条路，不自动配置；每一步的详细做法见用户指南的「手机上用」那一章。",
   "setup.external.back": "回到向导"
 }

@@ -10,7 +10,7 @@
 //   npm run memory:dump-template -- --all-facts --no-questions
 //   npm run memory:dump-template -- --with-evidence        # 连证据层一起导（图里多出一层）
 //
-// 映射见 packages/memory/src/rg/template-export.ts 的开头（和 docs/memory-vocabulary.md 那张对照表一致）。
+// 映射见 packages/memory/src/rg/template-export.ts 的开头（和 docs/architecture/memory-vocabulary.md 那张对照表一致）。
 // 这一版是单向导出（rg.db → YAML）；反向导入另说。
 import fs from "node:fs";
 import os from "node:os";

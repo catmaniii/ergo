@@ -1,7 +1,7 @@
 /*
  * 贴纸便当（48 号票）：只靠 token（sticker/style.ts）做不到的规则，全部限定在 :root[data-style="sticker"] 下
  * （不会漏到别的风格；设置里的预览把开头换成 :host(...)，所以根元素上只再加属性，见 src/visual-styles/preview.ts）。
- * 设计稿：docs/design/styles/g-chat、g-tasks、g-inbox、g-wide（.dc.html）。要点：卡片、气泡、按钮、输入栏都是"贴纸"——
+ * 设计稿：docs/architecture/design/styles/g-chat、g-tasks、g-inbox、g-wide（.dc.html）。要点：卡片、气泡、按钮、输入栏都是"贴纸"——
  * 2px 墨色描边（--card-border / --panel-border，墨色就是正文色 --text）加不模糊的硬投影（--shadow-note，3px 3px 0 墨色）；
  * 主按钮、你发的消息、选中的导航和分段是柠檬黄（--primary-fill），个人助理的语音、在做的事、按住说话是薄荷（--data-bg），
  * 附件钮、命中关注类别的小签是蜜桃（--op-bg）；"要你"的事是暖红实心药丸（--you）。

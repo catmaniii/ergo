@@ -13,7 +13,7 @@ import { GeoSpot, PhoneAddress, PhoneGeocoder } from './PhoneGeocode';
 /**
  * 读本机：照片的时间地点（300 号票）。二狗的网页经原生桥调（NativeBridge.ets 的 phonePhotos* 三个方法），读到的交回网页，网页再交给
  * 用户自己的守护进程（POST /api/data-sources/phone-photos/push）；App 自己不存、不另外发到别处。网页一侧的包装在 packages/web/src/app/native-phone.ts。
- * - 授权：READ_IMAGEVIDEO（读相册；受限权限，调试包走自动签名，上架要审核，docs/research/36、39）和 MEDIA_LOCATION（照片里的位置，
+ * - 授权：READ_IMAGEVIDEO（读相册；受限权限，调试包走自动签名，上架要审核，docs/architecture/research/36）和 MEDIA_LOCATION（照片里的位置，
  *   没有它系统把照片的 GPS 信息去掉）一起要，用到时弹系统的授权框；拒过的只有用户自己点（userAction）才拉起二次授权；
  * - 只读 [from, to) 里拍的图片（不读视频）：相册给的拍摄时间（DATE_TAKEN_MS），有读照片位置的授权时再打开文件读 EXIF 里的经纬度
  *   （GPSLatitude / GPSLongitude 和南北东西）；不读、不交照片本身，交给网页的编号是相册里这张照片的地址（守护进程只存它的哈希）。

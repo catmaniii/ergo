@@ -1,4 +1,4 @@
-// 运营层对外的入口（280 号票，方案 C 第 4 点，docs/research/29-plugin-expansion-review.html）。运营层是 project-ops/（秘书的
+// 运营层对外的入口（280 号票，方案 C 第 4 点）。运营层是 project-ops/（秘书的
 // project_ops、负责人的 check_ops、运营接口清单的验收和登记）和 project-services/（替项目到 LSM 上线、撤下、一键启停、/apps 转发、
 // 缩略图）两个目录，照插件的纪律写，但一直开着、不给开关（不是插件，ADR-0027 的"五个插件，其余留内核"照旧）：
 // - 项目系统的其余部分（projects/、work-orders/、operations/）和内核只从这里拿运营层的东西，不 import 这两个目录里的别的文件；

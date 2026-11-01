@@ -17,7 +17,7 @@
       },
       {
         // 读本机（299 号票，phone/PhoneData.ets）：只读手机日历里的日程（全部日历账户，只有 READ_CALENDAR 读不到系统日历和别的应用建的）。
-        // 受限权限：调试包走 DevEco 的自动签名（签名时要带上它），上架要审核（docs/research/36、39）。用户在数据源页点"连上手机日历"时才要。
+        // 受限权限：调试包走 DevEco 的自动签名（签名时要带上它），上架要审核（docs/architecture/research/36）。用户在数据源页点"连上手机日历"时才要。
         // 通讯录选人用系统的选人界面，不用权限
         "name": "ohos.permission.READ_WHOLE_CALENDAR",
         "reason": "$string:calendar_reason",
@@ -30,7 +30,7 @@
       },
       {
         // 读本机（300 号票，phone/PhonePhotos.ets）：读相册里照片的拍摄时间（不读照片本身）。受限权限：调试包走 DevEco 的自动签名
-        // （签名时要带上它），上架要审核（docs/research/36、39）。用户在数据源页点"连上相册"时才要
+        // （签名时要带上它），上架要审核（docs/architecture/research/36）。用户在数据源页点"连上相册"时才要
         "name": "ohos.permission.READ_IMAGEVIDEO",
         "reason": "$string:photos_reason",
         "usedScene": {

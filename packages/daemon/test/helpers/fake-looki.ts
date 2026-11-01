@@ -1,6 +1,6 @@
 // 本机的假 Looki 开放接口（296 号票，只在测试里）：一个只听 127.0.0.1 临时端口的服务，Looki 插件的请求都发到这里
 // （createLookiPlugin 的 endpoints），从不连真的 open.looki.tech / open.looki.ai、不用真 Key。
-// 剧本照调研（docs/research/38-looki-and-life-data-sources.md 1.3 节）里官方文档的写法：
+// 剧本照调研（docs/architecture/research/38-looki-and-life-data-sources.md 1.3 节）里官方文档的写法：
 // - 只读、全部 GET，请求头 X-API-Key；Key 不对回 401；每分钟 60 次，超了回 429（这里由测试拨 mode 模拟）；
 // - GET /api/v1/me：账号资料（id、邮箱、姓名、时区、性别、生日、地区）；
 // - GET /api/v1/moments?on_date=YYYY-MM-DD：那一天的时刻（id、title、description、media_types、封面文件、date、tz、start_time、end_time；

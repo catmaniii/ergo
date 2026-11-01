@@ -1,7 +1,7 @@
 /*
  * 玻璃光纹（46 号票）：只靠 token（glass/style.ts）做不到的规则，全部限定在 :root[data-style="glass"] 下
  * （不会漏到别的风格；设置里的预览把开头换成 :host(...)，所以根元素上只再加属性，见 src/visual-styles/preview.ts）。
- * 设计稿：docs/design/styles/e-chat、e-tasks、e-inbox、e-wide（.dc.html）。要点：整页是点阵底；标题栏、导航、输入栏是浮起的磨砂玻璃
+ * 设计稿：docs/architecture/design/styles/e-chat、e-tasks、e-inbox、e-wide（.dc.html）。要点：整页是点阵底；标题栏、导航、输入栏是浮起的磨砂玻璃
  * （半透明底 + 亮边 + 淡蓝微光 + backdrop-filter）；卡片、个人助理的气泡、看板卡、待办行同样浮在点阵上，带亮边和微光，底色不透明；
  * 电光蓝的选中条、进度条、未读点带一圈微光；时间、时长、计数用 Chakra Petch 600（--font-num）。
  * 只换样子，不改结构：导航、页面上有什么、怎么排都和经典一样。浅色深色都只靠 token 和 light-dark() 切。

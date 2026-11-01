@@ -1,4 +1,4 @@
-// 记忆 PoC 的数据模型（docs/memory-architecture.md 第 4 节）：证据、实体、事实、断言、关联、推断、追问、修订。
+// 记忆 PoC 的数据模型（docs/architecture/memory-architecture.md 第 4 节）：证据、实体、事实、断言、关联、推断、追问、修订。
 // 这里只有类型和枚举；校验在 validate.ts，id 在 ids.ts，时间在 time.ts。
 // 时间一律是带时区的 ISO 8601 字符串（合成数据写 +08:00），比较先换成毫秒（time.ts）。
 // 四个时间分开记（第 5 节）：eventTime 发生的时间、observedAt 二狗知道的时间、validFrom / validTo 有效期、inferredAt / reviewedAt 推断和复核的时间。

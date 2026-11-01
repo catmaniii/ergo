@@ -1,4 +1,4 @@
-// 主切面：插件开发手册（docs/guides/plugin-development.md，215 号票）的例子"笔记"走真实装配路径——笔记插件接在插件清单后面
+// 主切面：插件开发手册（docs/architecture/plugin-development.md，215 号票）的例子"笔记"走真实装配路径——笔记插件接在插件清单后面
 // （startTestDaemon 的 extraPlugins，和清单里的五个走同一条装配路径），经组合根起真的守护进程：秘书真的调到"记笔记"（agent 贡献经宿主协议
 // 下发、子进程的桥接带给 pi），设置 · 插件的 HTTP 接口停用、启用、移除并连数据删，插件频道推新的状况、写数据目录配置。
 // 只在假内核里测的那条在 test/plugins/plugin-guide.test.ts。

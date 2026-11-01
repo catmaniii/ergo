@@ -1,6 +1,6 @@
 // 会话滚到最后一条就停（108 号票）：滚动范围要等于 sizer 的高度，内容里伸到内容下面的东西（对话层看不见的右侧标注、
 // 缩小后被挤下去的标注和箭头）不能再撑出空白。真的排版这里没有（jsdom 不排版），只锁住样式里那一条裁剪；
-// 在浏览器里量的办法见 docs/developer-guide.md 的"会话的缩放和滚到底"（viewport 的 scrollHeight 等于 sizer 的高度）。
+// 在浏览器里量的办法见 docs/architecture/README.md 的"会话的缩放和滚到底"（viewport 的 scrollHeight 等于 sizer 的高度）。
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, test } from "vitest";

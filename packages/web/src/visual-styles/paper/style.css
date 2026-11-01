@@ -1,7 +1,7 @@
 /*
  * 暖纸手帐（40 号票）：只靠 token（paper/style.ts）做不到的规则，全部限定在 :root[data-style="paper"] 下
  * （不会漏到别的风格；设置里的预览把开头换成 :host(...)，所以根元素上只再加属性，见 src/visual-styles/preview.ts）。
- * 设计稿：docs/design/styles/a-chat、a-tasks、a-inbox、a-wide（.dc.html）。要点：宋体、米纸底、墨绿印章色、1px 细边卡片、
+ * 设计稿：docs/architecture/design/styles/a-chat、a-tasks、a-inbox、a-wide（.dc.html）。要点：宋体、米纸底、墨绿印章色、1px 细边卡片、
  * 小圆角；个人助理的话不套气泡，前面一个圆形字头像（名字的第一个字，秘书的会话挂在 --assistant-initial 上）；
  * 页面标题 22 号粗宋；看板、待我处理一张张细边卡片；页签是下划线；导航换成设计稿的线条图标，选中的下面一个小圆点。
  * 只换样子，不改结构：导航、页面上有什么、怎么排都和经典一样。

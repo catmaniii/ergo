@@ -119,7 +119,7 @@ describe("棘轮：每个区域写死的中文只许降不许升", () => {
       expect(baseline, `还没有 ${region} 的基线：npm run i18n:check -- --lower-baseline 写一份`).toBeDefined();
       const problem =
         count > baseline!
-          ? `${region} 写死的中文从 ${baseline} 处多到了 ${count} 处：新写的界面文字走 t()（docs/developer-guide.md 的"多语言"一节），给模型看的、日志标 @i18n-ignore。` +
+          ? `${region} 写死的中文从 ${baseline} 处多到了 ${count} 处：新写的界面文字走 t()（docs/architecture/README.md 的"多语言"一节），给模型看的、日志标 @i18n-ignore。` +
             `npm run i18n:check -- --list ${region} 列出每一处，前面几处：\n${places()}`
           : count < baseline!
             ? `${region} 写死的中文降到了 ${count} 处（基线 ${baseline}）：把基线改下来——npm run i18n:check -- --lower-baseline`

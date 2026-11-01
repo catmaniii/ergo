@@ -114,7 +114,7 @@ export const VoiceDurationMs = Type.Integer({ minimum: 0, maximum: VOICE_MAX_MS 
  * event：open 开始要麦克风（reason 是原因）、ready 要到了（ms 是 getUserMedia 的毫秒数）、fail 没要到（reason 是错误名）、
  * close 停掉音轨（reason 是原因）、mute / unmute / ended 音轨被系统静音、恢复、收走，silent 录完一段整段是静音（ms 是这一段的毫秒数）。
  * 每条还带上那一刻的页面信号（document.hasFocus()、document.visibilityState），鸿蒙浏览器、原生壳里焦点或前后台报得不对时能查出来。
- * 原因见 docs/developer-guide.md"麦克风让路"一节；以后多出来的事件、原因照收（字符串）
+ * 原因见 docs/architecture/README.md"麦克风让路"一节；以后多出来的事件、原因照收（字符串）
  */
 export const VoiceMicLogEntry = Type.Object({
   /** 相对这一段按下的毫秒数（负数是按下之前） */

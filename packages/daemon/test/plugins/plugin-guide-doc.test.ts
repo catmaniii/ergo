@@ -1,4 +1,4 @@
-// 215 号票：插件开发手册（docs/guides/plugin-development.md）和给 agent 用的 skill（.claude/skills/ergo-plugin/SKILL.md）跟代码对得上。
+// 215 号票：插件开发手册（docs/architecture/plugin-development.md）和给 agent 用的 skill（.claude/skills/ergo-plugin/SKILL.md）跟代码对得上。
 // 照 @ergo/memory 的 architecture-doc.test.ts（197 号票）的做法，只读文件、不跑代码，用正则认声明。查五样：
 // 1. 代码片段：手册里每个 ts / tsx 代码块前面一行写着 <!-- 摘自 <仓库里的路径> -->，块里每一行（去掉首尾空白、空行不算，
 //    单独一行的 "// …" 是省略号）按先后都在那个文件里找得到。没写摘自哪里的 ts / tsx 代码块算错（手册里不放编的代码）。
@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 const REPO = fileURLToPath(new URL("../../../../", import.meta.url));
-const GUIDE = path.join(REPO, "docs", "guides", "plugin-development.md");
+const GUIDE = path.join(REPO, "docs", "architecture", "plugin-development.md");
 const SKILL = path.join(REPO, ".claude", "skills", "ergo-plugin", "SKILL.md");
 
 /** 手册要讲全的接口：文件 → 接口（或常量）名 */
@@ -273,7 +273,7 @@ describe("插件开发手册和代码对得上", () => {
   it("skill 指向手册，写的路径、链接都存在", () => {
     const skill = fs.readFileSync(SKILL, "utf8");
     expect(skill).toMatch(/^---\r?\nname: ergo-plugin\r?\ndescription: .+\r?\n---\r?\n/);
-    expect(skill).toContain("docs/guides/plugin-development.md");
+    expect(skill).toContain("docs/architecture/plugin-development.md");
     expect(missingPaths(skill)).toEqual([]);
     expect(missingLinks(skill, path.dirname(SKILL))).toEqual([]);
   });
@@ -335,6 +335,6 @@ describe("检查本身管用", () => {
 
   it("抓得到不存在的路径和链接", () => {
     expect(missingPaths("`packages/daemon/src/plugins/host.ts`、`packages/daemon/src/plugins/nope.ts`、`docs/<x>.md`")).toEqual(["packages/daemon/src/plugins/nope.ts"]);
-    expect(missingLinks("[a](../developer-guide.md) [b](nope.md#x) [c](#一) [d](https://example.com)", path.dirname(GUIDE))).toEqual(["nope.md#x"]);
+    expect(missingLinks("[a](README.md) [b](nope.md#x) [c](#一) [d](https://example.com)", path.dirname(GUIDE))).toEqual(["nope.md#x"]);
   });
 });

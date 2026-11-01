@@ -1,4 +1,4 @@
-// 项目系统的组装（278 号票，方案 C，docs/research/29-plugin-expansion-review.html 第 4 节）：组合根 daemon.ts 里原来约 225 行项目接线、
+// 项目系统的组装（278 号票，方案 C）：组合根 daemon.ts 里原来约 225 行项目接线、
 // 35 处后接线（wired("...")）里为项目系统设的 17 处收到这里。项目系统是 projects/、work-orders/、operations/、project-ops/、
 // project-services/ 五个目录；组合根只 import 这个文件（test/projects/boundary.test.ts 守着），内核别的模块只经入口 api.ts。
 // 交出去的都是各调用方自己要的小接口（入口 api.ts 里的类型、任务模块和执行控制器自己声明的那几个），内部服务只在 handles 里交给组合根

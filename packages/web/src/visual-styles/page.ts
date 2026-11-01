@@ -12,7 +12,7 @@ export interface StylePageInfo {
   readonly accents?: readonly string[];
 }
 
-/** 字体文件放在构建产物的哪个目录（守护进程按 /fonts/ 提供，见 docs/developer-guide.md 的"视觉风格"） */
+/** 字体文件放在构建产物的哪个目录（守护进程按 /fonts/ 提供，见 docs/architecture/README.md 的"视觉风格"） */
 export const FONTS_DIR = "fonts";
 
 /** 一套风格的字体样式表：dist/fonts/<风格 id>.css，里面的 @font-face 按 unicode-range 切片，只下页面上用到的字 */

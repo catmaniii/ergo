@@ -2,7 +2,6 @@
 // - 读的时候新旧都认，新的优先；写的时候只写新的（旧的读到了就换成新的写回，或者原样放着等迁移脚本改名）；
 // - 旧名字一律用 oldNameOf 从新名字推出来，别处不写旧的拼法。`git grep -i ergou` 只剩这里、迁移脚本
 //   （packages/daemon/src/migrate-ergo.ts）、鸿蒙 App 的 common/OldNames.ets、页面桥里给旧 App 留的口令占位和兼容的测试。
-// 守护进程、网页、鸿蒙 App 认旧名字的地方见 docs/developer-guide.md 的"从 ergou 迁到 ergo"。
 
 /** 旧的拼法 */
 export const OLD_SPELLING = "ergou";

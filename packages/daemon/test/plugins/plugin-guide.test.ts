@@ -1,4 +1,4 @@
-// 插件开发手册（docs/guides/plugin-development.md，215 号票）的例子：照手册写的最小插件"笔记"（notes-example/），在假内核
+// 插件开发手册（docs/architecture/plugin-development.md，215 号票）的例子：照手册写的最小插件"笔记"（notes-example/），在假内核
 // （helpers/plugin-kernel.ts：真的插件宿主、真的登记表和设置 · 插件那一层、临时数据目录）里装上、停用、启用、移除。
 // 这条测试也是手册的例子：手册"跑起来"一节摘的就是这里的代码（plugin-guide-doc.test.ts 核对摘录和代码对得上，改了这里记得看手册）。
 // 走真实装配路径（组合根、插件清单、HTTP 接口）的那条在 test/main/plugin-guide.test.ts。

@@ -11,7 +11,7 @@
  * classic/style.ts），构建时生成样式表：浅深不一样的颜色写成 light-dark(浅色, 深色)，跟着这里的 color-scheme 取值。
  * 不认 light-dark() 的旧浏览器：构建时 Lightning CSS 按 vite.config.ts 的 cssTarget 把它降成两个开关变量，照样能切
  * （test/build.test.ts 查产物里没有 light-dark( 留下）。data-theme 由 index.html 的内联脚本和 app/theme.ts 挂。
- * 页面样式里只用 var(--token)，不写死颜色、圆角、阴影，见 docs/developer-guide.md 的"视觉风格"。
+ * 页面样式里只用 var(--token)，不写死颜色、圆角、阴影，见 docs/architecture/README.md 的"视觉风格"。
  */
 :root {
   color-scheme: light;

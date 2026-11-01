@@ -1,5 +1,5 @@
 // 节假日数据（29 号票）：一个地区一年一份（共享协议包 workday-calendar.ts 的 HolidayYear），两种来源同一个格式：
-// - 框架自带的公开数据：本包的 holidays/<地区>-<年>.json，从调研文件 docs/research/13-holidays-sg-cn.md 导入，
+// - 框架自带的公开数据：本包的 holidays/<地区>-<年>.json，从调研文件 docs/architecture/research/13-holidays-sg-cn.md 导入，
 //   靠框架发版更新；
 // - 用户的更新任务交付、运行时校验后导入的：数据目录配置区的 holidays/<地区>-<年>.json（agent 写不进配置区）。
 // 两边合在一起用（协议包的 mergeHolidayYears：同一地区同一年以导入的为准）。校验（checkHolidayYear）、文件名

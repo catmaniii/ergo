@@ -1,4 +1,4 @@
-// 插件开发手册（docs/guides/plugin-development.md，215 号票）里的例子"笔记"：守护进程这一半的插件定义。
+// 插件开发手册（docs/architecture/plugin-development.md，215 号票）里的例子"笔记"：守护进程这一半的插件定义。
 // 一个插件三部分里的两部分在这里（网页那一半是 packages/web/test/plugins/notes-example/plugin.tsx）：
 // - 守护进程里的：派生视图、笔记的服务、彻底删除的改写函数和"连数据删"（数据契约，停用也登记）；
 // - 给二狗的：秘书的"记笔记"工具、每轮醒来时的"最近的笔记"上下文块、系统提示里的条件"笔记"和工具名占位符（经 agent 贡献缝，不写 pi 扩展）。

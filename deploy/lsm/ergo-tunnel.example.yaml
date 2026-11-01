@@ -4,7 +4,7 @@
 #
 # 这是服务管家（LSM）注册表条目的**示例**（格式见 packages/supervisor/docs/service-schema.md）。登记时复制一份，把下面的占位符换成本机的值，
 # 放进服务管家数据目录（默认 %LOCALAPPDATA%\ergo\supervisor）的 registry/services/ergo-tunnel.yaml。真实条目（VPS 地址、私钥路径）不进本仓库。
-# 登记步骤见本仓库 docs/user-guide.md 的"方式三：VPS + ssh 反向隧道 + nginx"一节。
+# 登记步骤见本仓库 docs/architecture/deployment.md 的"方式三：VPS + ssh 反向隧道 + nginx"一节。
 #
 #   <仓库路径>        主分支的检出目录（钩子的工作目录；隧道本身不用它）
 #   <ssh 私钥路径>    连 VPS 用的私钥的绝对路径

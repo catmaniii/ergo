@@ -8,7 +8,7 @@
 *.iml
 *.log
 
-# 签名：只在本机（docs/developer-guide.md 的"安卓 App"），放在哪里都不进仓库
+# 签名：只在本机（docs/architecture/development.md 的"安卓 App"），放在哪里都不进仓库
 /keystore.properties
 *.jks
 *.keystore

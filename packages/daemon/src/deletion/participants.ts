@@ -1,4 +1,4 @@
-// "删除参与方"登记表（279 号票，方案 C：docs/research/29-plugin-expansion-review.html 第 5、7 节；ADR-0010 补记）。
+// "删除参与方"登记表（279 号票，方案 C；ADR-0010 补记）。
 // 删项目（projects/deletion.ts，ADR-0010）、删任务（tasks/deletion.ts，186 号票）、移除插件时连数据删（plugins/removal.ts，211 号票）
 // 走同一张表：哪个模块拥有"属于某个项目 / 某个任务 / 某个插件"的事件，就由它登记一个参与方——怎么找到属于这次删除的、换成什么。
 // 删除代码只管先停、复查、提交、删文件，删的范围由登记表决定：新加一种属于项目的事件，在拥有它的模块里登记就能随项目删，
@@ -18,7 +18,7 @@
 // cards（改写过的卡片的新版本）→ materials（素材的记忆命令和它连带的）；段里按追加的先后。三种删除原来追加的先后就是这样。
 //
 // 删除的种类（DeletionKind）带着这次删的是什么（subject）：这里定了现有的四种（295 号票加了断开数据源时连已导入的一起删）；别的模块要一种新的删除（比如以后删掉一个人的档案）
-// 自己 deletionKind 一个，登记它的参与方，调 plan（见 docs/developer-guide.md"删除参与方登记表"）。
+// 自己 deletionKind 一个，登记它的参与方，调 plan（见 docs/architecture/README.md"删除参与方登记表"）。
 import { type CardDismissedEventPayload, type CardEventPayload, CHANNELS, EVENT_TYPES, isDeletedEventPayload, type PluginPurgeCounts, type Project, type Task } from "@ergo/protocol";
 import type { CardService } from "../cards/cards.ts";
 import type { EventStore, NewEvent, PurgeRewrite, StoredEvent } from "../events/event-store.ts";

@@ -111,7 +111,7 @@ private fun schemeOf(url: String): String {
 /**
  * 二狗的安卓 App（349 号票）：原生壳，对应鸿蒙的 pages/Index.ets 和 entryability/EntryAbility.ets。
  * 第一次打开先填二狗的地址（存在应用本地）；之后 WebView 加载这个地址，网页照常由守护进程提供，App 和手机浏览器一样是一台要配对的设备。
- * 网页不打包进 APK：二狗的网页要带设备凭证（__Host- cookie），Origin 要和 Host 一致，见 docs/adr/0022。
+ * 网页不打包进 APK：二狗的网页要带设备凭证（__Host- cookie），Origin 要和 Host 一致，见 docs/architecture/adr/0022。
  */
 class MainActivity : Activity() {
     private lateinit var settings: AppSettings

@@ -1,4 +1,4 @@
-// 项目系统的边界（277 号票，方案 C，docs/research/29-plugin-expansion-review.html；照 test/calendar/boundary.test.ts 扫 import）：
+// 项目系统的边界（277 号票，方案 C；照 test/calendar/boundary.test.ts 扫 import）：
 // 项目系统是 projects/、work-orders/、operations/、project-ops/、project-services/ 五个目录，对外只有入口 projects/api.ts
 // （280 号票起运营层另有自己的入口 project-ops/api.ts，见第 4 条）。
 // 1. 这五个目录之外只 import 入口（静态 import、export … from、import() 都算）；组合根 daemon.ts 另外只准 import 组装函数

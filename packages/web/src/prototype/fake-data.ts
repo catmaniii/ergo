@@ -1070,10 +1070,10 @@ function fakeUsageMemoryBrief(secretaryRows: number): UsageSummary["memoryBrief"
 }
 
 /**
- * 工作日历的假数据（29 号票）：节假日只带 2026 年 9–12 月（摘自 docs/research/13-holidays-sg-cn.md，是公开数据），
+ * 工作日历的假数据（29 号票）：节假日只带 2026 年 9–12 月（摘自 docs/architecture/research/13-holidays-sg-cn.md，是公开数据），
  * 个人设置是虚构的。由守护进程提供页面时用的是框架自带的完整数据和真的个人设置。
  */
-const PROTO_SOURCE = [{ title: "原型：摘自调研文件 docs/research/13-holidays-sg-cn.md", url: "https://www.mom.gov.sg/employment-practices/public-holidays" }];
+const PROTO_SOURCE = [{ title: "原型：摘自调研文件 docs/architecture/research/13-holidays-sg-cn.md", url: "https://www.mom.gov.sg/employment-practices/public-holidays" }];
 export const FAKE_HOLIDAYS: HolidayYear[] = [
   {
     format: 1,

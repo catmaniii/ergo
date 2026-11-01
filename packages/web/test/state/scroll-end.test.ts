@@ -1,5 +1,5 @@
 // 会话滚到底（108 号票）：右下角"回到最新"的 ↓ 什么时候出、上面标什么；缩小后伸到最后一条下面的标注算进滚动范围多少。
-// 滚到底就停（sizer 把伸出去的裁掉）靠真实排版，这里测不了：核对办法见 docs/developer-guide.md 的"会话的缩放和滚到底"。
+// 滚到底就停（sizer 把伸出去的裁掉）靠真实排版，这里测不了：核对办法见 docs/architecture/README.md 的"会话的缩放和滚到底"。
 import { describe, expect, test } from "vitest";
 import { AT_LATEST_PX, afterScroll, atLatest, type ContentKind, jumpBadge, jumpToLatestShown, maxSeq, newSince, ZOOM_TAIL_GAP_PX, zoomedOutTail } from "../../src/state/index.ts";
 

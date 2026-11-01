@@ -30,7 +30,7 @@
 
 - 用户自己的：在 **设置 · 角色与声音** 里导入自己的参考音色、选中它（内置的这条可以留着，也可以删掉）。
 - 开源版要换"出厂默认"：换掉这里的两个文件（逐字稿必须和录音一字不差）、更新本说明里的时长和 sha256，
-  然后跑一遍 `npx vitest run --project daemon test/voice/default-voice.test.ts`。取舍见 `docs/adr/0036-builtin-default-voice.md`。
+  然后跑一遍 `npx vitest run --project daemon test/voice/default-voice.test.ts`。取舍见 `docs/architecture/adr/0036-builtin-default-voice.md`。
 
 ## 别改的东西
 

@@ -88,7 +88,7 @@ export function InAppBrowser({ route, leaveTo }: { route: Extract<Route, { tab: 
           outside={inApp ? undefined : { label: t("ui.inAppBrowser.openOutside"), run: () => session.openOutside() }}
         />
       )}
-      {/* 不加 sandbox：服务的页面要同源（cookie、二狗读它的标题和地址）又要跑脚本，同源加脚本的沙箱形同虚设；同源转发的安全取舍见 docs/developer-guide.md */}
+      {/* 不加 sandbox：服务的页面要同源（cookie、二狗读它的标题和地址）又要跑脚本，同源加脚本的沙箱形同虚设；同源转发的安全取舍见 docs/architecture/README.md */}
       {/* oxlint-disable-next-line react/iframe-missing-sandbox */}
       <iframe ref={frameRef} className="iab-frame" src={session.src} title={shown.title} onLoad={onLoad} style={file ? { display: "none" } : undefined} />
     </div>,

@@ -1,7 +1,7 @@
 /*
  * 水墨国风（50 号票）：只靠 token（ink/style.ts）做不到的规则，全部限定在 :root[data-style="ink"] 下
  * （不会漏到别的风格；设置里的预览把开头换成 :host(...)，所以根元素上只再加属性，见 src/visual-styles/preview.ts）。
- * 设计稿：docs/design/styles/i-chat、i-tasks、i-inbox、i-wide（.dc.html）。要点：宣纸底、墨色字、朱砂是唯一的颜色；
+ * 设计稿：docs/architecture/design/styles/i-chat、i-tasks、i-inbox、i-wide（.dc.html）。要点：宣纸底、墨色字、朱砂是唯一的颜色；
  * 标题是马善政书法（--font-title，只有一种字重：用到它的地方都不加粗），正文 Noto Serif SC 宋体；个人助理的名字是朱砂印章；
  * 标题栏、输入栏、导航都落在宣纸底上，只隔一道淡墨细线；看板、待我处理是一行一行的列表，行与行之间一道虚线（"虚线细格"）；
  * 2px 直角、无阴影；点（未读、状态）是小方块。

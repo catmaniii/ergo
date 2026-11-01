@@ -1,4 +1,4 @@
-// 工程蓝图（47 号票，设计稿 docs/design/styles/f-*.dc.html）：直角、1.5px 线框带角标、网格底、钴蓝；深色就是真正的蓝图纸
+// 工程蓝图（47 号票，设计稿 docs/architecture/design/styles/f-*.dc.html）：直角、1.5px 线框带角标、网格底、钴蓝；深色就是真正的蓝图纸
 // （深蓝底、浅蓝线）。密度比别的风格低：标题栏 60、消息之间 16、卡片内边距大。
 // 颜色取自设计稿样式里 .root（浅色）、.root.dark（深色）两套变量 --bg、--surface、--line、--text、--muted、--accent、
 // --accent-ink、--accent-soft、--warn、--warn-ink、--code（renderVals() 只挑强调色：默认钴蓝，深色下换成 #9DB4FF）；

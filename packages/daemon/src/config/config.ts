@@ -54,7 +54,7 @@ export interface MemoryConfig {
   /**
    * 敏感类别（234 号票）：健康、情绪、财务、关系、位置（295 号票加的）。**默认是空 = 都允许记录、不用于推断**；列表里写的是
    * "允许用来推断的"类别（设置里逐类打开）。v1 只有健康按场景标签 domain=health 生效；
-   * 情绪、财务、关系、位置是开关占位（现在没有对应的场景标签，写进来也不改变行为），见 docs/developer-guide.md 的"记忆系统"一节
+   * 情绪、财务、关系、位置是开关占位（现在没有对应的场景标签，写进来也不改变行为），见 docs/architecture/README.md 的"记忆系统"一节
    */
   sensitiveCategories: readonly SensitiveCategory[];
   /** 这台机器上跑不跑整理（默认 true）：false = 不排 03:00 的作业、不建库，手动整理也回"关着"；采集、检索、简报、ask_memory 照常 */

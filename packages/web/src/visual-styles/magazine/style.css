@@ -1,7 +1,7 @@
 /*
  * 复古杂志（51 号票）：只靠 token（magazine/style.ts）做不到的规则，全部限定在 :root[data-style="magazine"] 下
  * （不会漏到别的风格；设置里的预览把开头换成 :host(...)，所以根元素上只再加属性，见 src/visual-styles/preview.ts）。
- * 设计稿：docs/design/styles/j-chat、j-tasks、j-inbox、j-wide（.dc.html）。要点：
+ * 设计稿：docs/architecture/design/styles/j-chat、j-tasks、j-inbox、j-wide（.dc.html）。要点：
  * - 粗宋大标题：页面标题、看板和待我处理的分组、卡片的类型都是 900 的 Noto Serif SC；
  * - 粗细双线：标题栏下面一道 3px 墨线；底部导航、聊天里的卡片、看板和待我处理的分组头上（下）是"1px 细线、隔 5px、3px 粗线"
  *   （设计稿的 .dbl）；输入栏、有框的卡片四周是 1px 墨线；看板、待我处理一行一行，每行下面一道 1px 墨线（设计稿的 .row）；

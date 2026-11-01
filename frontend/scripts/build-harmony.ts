@@ -1,6 +1,6 @@
 // `npm run build:harmony`（62 号票）：用 DevEco Studio 自带的 hvigor 构建鸿蒙 App，产出 HAP。
 // 依赖本机装的 DevEco（DEVECO_HOME，或默认安装位置），所以不进 `npm run check`。
-// 本机没配签名时产出 unsigned 的 HAP，并提示怎么签；签名材料只在本机（docs/developer-guide.md"鸿蒙 App"）。
+// 本机没配签名时产出 unsigned 的 HAP，并提示怎么签；签名材料只在本机（docs/architecture/development.md"鸿蒙 App"）。
 // WebView 调试默认关，`npm run build:harmony -- --webview-debug` 才开（开着的 App 接上 USB 就能被取走设备凭证）。
 // 134 号票：先把页面桥（packages/web/src/page-bridge，注入"浏览"里的网页的脚本）打包进 App 的 rawfile/page-bridge.js。
 // 175 号票：App 原生的字（共享协议包 locales/<语言>/harmony.json）收进 rawfile/harmony-texts.json。
@@ -87,7 +87,7 @@ if (existsSync(outputs.signed)) {
       "  1. 手机打开开发者模式和 USB 调试，用 USB 连上电脑（DevEco 把这台手机登记进调试用的描述文件）；",
       "  2. DevEco Studio 打开 frontend/harmony，File → Project Structure → Project → Signing Configs，登录华为账号，勾上 Automatically generate signature，确定；",
       "  3. 再跑一次 npm run build:harmony，就会产出 entry-default-signed.hap。",
-      "签名材料只写进本机的 frontend/harmony/build-profile.json5（不进仓库）和用户目录下的 .ohos/config。详见 docs/developer-guide.md 的\"鸿蒙 App\"。",
+      "签名材料只写进本机的 frontend/harmony/build-profile.json5（不进仓库）和用户目录下的 .ohos/config。详见 docs/architecture/development.md 的\"鸿蒙 App\"。",
     ].join("\n"),
   );
 } else {

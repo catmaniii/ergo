@@ -1,4 +1,4 @@
-// 插件的假内核（215 号票；插件开发手册 docs/guides/plugin-development.md 的"怎么测"）：把插件按**真的**插件宿主（plugins/host.ts）装起来，
+// 插件的假内核（215 号票；插件开发手册 docs/architecture/plugin-development.md 的"怎么测"）：把插件按**真的**插件宿主（plugins/host.ts）装起来，
 // 内核那一边换成临时目录里的真实现——事件存储（连同插件声明的视图、停着的视图）、卡片类型和卡片、彻底删除的改写函数、素材库（只保管，
 // 不采成素材）、快速动作、内部作业、看板种类、事件触发的订阅方、运营手段、agent 贡献、转发登记表、待我处理——外加设置 · 插件那一层
 // （plugins/settings.ts：停用、启用、移除写临时数据目录里的 ergo.json，移除时连数据删走 plugins/removal.ts 和"删除参与方"登记表）。

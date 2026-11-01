@@ -39,4 +39,4 @@ body:
     attributes:
       label: 做成插件？ / As a plugin?
       options:
-        - label: 我觉得它可以做成插件（见 docs/guides/plugin-development.md），也愿意试着写 / It could be a plugin (see docs/guides/plugin-development.md) and I'd like to try writing it
+        - label: 我觉得它可以做成插件（见 docs/architecture/plugin-development.md），也愿意试着写 / It could be a plugin (see docs/architecture/plugin-development.md) and I'd like to try writing it

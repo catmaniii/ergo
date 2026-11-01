@@ -15,7 +15,7 @@ export const hasGitBash = gitBash !== undefined;
 
 /** 真找不到 Git Bash 时的一句话：跳过、超时错误里带上，省得让人以为功能坏了 */
 export const NO_GIT_BASH =
-  "这台机器上没找到 Git Bash（C:\\Program Files\\Git\\bin\\bash.exe，或者 PATH 上不带 WSL 的那个）；先把 Git for Windows 的 bin 放进 PATH（docs/developer-guide.md 的“前提”），靠 bash 跑的测试才跑得起来";
+  "这台机器上没找到 Git Bash（C:\\Program Files\\Git\\bin\\bash.exe，或者 PATH 上不带 WSL 的那个）；先把 Git for Windows 的 bin 放进 PATH（docs/architecture/development.md 的“前提”），靠 bash 跑的测试才跑得起来";
 
 /**
  * 工具起的进程里 `SHELL` 的期望值（238 号票统一到这一条）。实现（`typed-shell/index.ts`）把 `findGitBash` 找到的路径

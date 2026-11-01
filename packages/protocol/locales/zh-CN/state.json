@@ -642,7 +642,7 @@
   "state.modelSettings.apiKey.configured": "已配置",
   "state.modelSettings.apiKey.configuredDetail": "来自环境变量 {envVar}：服务管家从数据目录密钥区的 {secretFile} 读出，启动守护进程时注入{lsm}。key 的内容不显示；想换一个就在下面填。",
   "state.modelSettings.apiKey.missing": "没配置",
-  "state.modelSettings.apiKey.missingDetail": "还没有 key：在下面填一个（存进数据目录密钥区的 {secretFile}），保存后下一个新会话就能用；也可以照用户手册手动放到那个文件，再重启服务管家里的 ergo-daemon{lsm}。",
+  "state.modelSettings.apiKey.missingDetail": "还没有 key：在下面填一个（存进数据目录密钥区的 {secretFile}），保存后下一个新会话就能用；也可以照开发文档手动放到那个文件，再重启服务管家里的 ergo-daemon{lsm}。",
   "state.modelKey.savedNow": "已配好：下一个新会话起就用这个 key，不用重启。",
   "state.modelKey.savedRestart": "已保存：重启{brand}后生效。",
   "state.modelKey.restartHow": "装了一行命令的版本在终端里跑 ergo restart；不是经服务管家启动的，就把守护进程重新启动一遍。",

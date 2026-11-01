@@ -156,7 +156,7 @@ describe("老配置转成一条账号", () => {
     const { file, secrets, values } = open();
     oldConfig(secrets);
     migrateGmailSecrets(secrets);
-    // docs/developer-guide.md 写的回退办法：只把备份写回 address、password
+    // 回退办法：只把备份写回 address、password
     const stored = JSON.parse(fs.readFileSync(file, "utf8")) as { format: 1; values: Record<string, string> };
     stored.values.address = stored.values["backup.pre-344.address"]!;
     stored.values.password = stored.values["backup.pre-344.password"]!;

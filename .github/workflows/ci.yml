@@ -1,4 +1,4 @@
-# 自动测试（316 号票）：只在 Windows 上、只跑 Node 22 一个版本（二狗只支持 Windows；Node 大版本跟着 pi 走，见 docs/adr/0031）。
+# 自动测试（316 号票）：只在 Windows 上、只跑 Node 22 一个版本（二狗只支持 Windows；Node 大版本跟着 pi 走，见 docs/architecture/adr/0031）。
 # - 平时（推到 main、PR）：快车道——类型检查、lint、多语言检查、构建网页、npm run test:fast、服务管家的测试，十来分钟；
 # - 发版前（推 v* 标签）和手动勾"全量"：npm test 全量（快车道 + 主切面 + pi 契约测试，约 35 分钟）+ 服务管家的测试。
 # 私有仓库上不自动跑：GitHub 托管的 Windows 机器在私有仓库上按 2 倍分钟数计费，跑不跑先问过维护者。

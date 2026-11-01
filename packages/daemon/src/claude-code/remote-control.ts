@@ -1,4 +1,4 @@
-// Claude Code 会话交给官方 App（Remote Control）、再收回来，运行时自己的那一半（292 号票；实测见 docs/research/35-remote-control-takeover-switch-probe.md
+// Claude Code 会话交给官方 App（Remote Control）、再收回来，运行时自己的那一半（292 号票
 // 第 3、4 节）。二狗这一侧的顺序（打断、关掉自己的进程、记下在哪边、只读跟随、收回后接着同一个会话）在接管服务（takeover/）。
 //
 // 交出去（open）：

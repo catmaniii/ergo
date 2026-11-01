@@ -9,16 +9,17 @@ ergo（二狗）是一个装在用户自己 Windows 电脑上的个人 AI 助理
 ## 动手前先读
 
 - **`CONTEXT.md`**：术语表。代码、界面、文档用同一套词；新概念先在这里定名。
-- **`docs/developer-guide.md`**：仓库结构、架构、插件、网页、多语言、写代码的约定、测试。
-- **`docs/adr/`**：和你要动的部分相关的设计记录。推翻已有决定之前先说明理由。
-- 写插件、改插件：先读 `docs/guides/plugin-development.md`，并按 skill `.claude/skills/ergo-plugin/SKILL.md` 的清单做。
-- 改记忆系统：`docs/memory-system.md`（有测试核对接口表和路径）。
+- **`docs/architecture/README.md`**：系统总览、仓库结构、架构、插件、网页、多语言。
+- **`docs/architecture/development.md`**：搭环境、常用命令、写代码的约定、测试。
+- **`docs/architecture/adr/`**：和你要动的部分相关的设计记录。推翻已有决定之前先说明理由。
+- 写插件、改插件：先读 `docs/architecture/plugin-development.md`，并按 skill `.claude/skills/ergo-plugin/SKILL.md` 的清单做。
+- 改记忆系统：`docs/architecture/memory-system.md`（有测试核对接口表和路径）。
 
 ## 硬规矩
 
 - **不碰真数据**：不读、不写、不打印用户主目录下的 `.ergo`、`.ssh`，也不碰服务管家的数据目录（`%LOCALAPPDATA%\ergo\supervisor`）。测试一律用临时目录。
 - **不起常驻服务、不碰正在跑的二狗**：不占用 8810、8811、7420 端口；测试里的守护进程由测试底座在系统挑的端口上起、测试结束销毁。
-- **测试不联网**：测试里只许连本机回环（`vitest.setup-no-network.mjs` 会拦）；要测网络就起本机假服务。不调真的模型、不花 token。
+- **测试不联网**：测试里只许连本机回环。`vitest.setup-no-network.mjs` 只拦全局 `fetch`，`net`、`tls` 直连拦不住，要自己守住；要测网络就起本机假服务。不调真的模型、不花 token。
 - **密钥永不进仓库**：测试里像真密钥的样本在运行时拼（`packages/daemon/test/helpers/fake-secrets.ts`）。
 - **pi 的边界**：`@earendil-works/*` 只能在 `packages/daemon/src/runtime/agent-child/` 里引用。
 - **模块边界**：项目系统外面只 import `projects/api.ts`；内核只 import 插件的 `api.ts`；网页插件之间不互相 import。边界测试会红。
@@ -30,7 +31,7 @@ ergo（二狗）是一个装在用户自己 Windows 电脑上的个人 AI 助理
 
 ## 语言
 
-- 文档、注释、提交信息用中文；标识符用英文。README、用户手册、开发者指南有中英两份，改一份要同步另一份。
+- 文档、注释、提交信息用中文；标识符用英文。README、`docs/architecture/` 和 `docs/user-guide/` 里有中英两份的文档，改一份要同步另一份。
 - 系统提示文件里的占位符名用中文（`{{拉回次数}}`），是"标识符用英文"的例外。
 
 ## 常用命令（仓库根目录，PowerShell 或 Git Bash）
@@ -51,9 +52,9 @@ Windows 上跑测试前确认 `where bash` 的第一条是 Git for Windows 的 `
 ## 做完一件事
 
 1. 跑上面和改动相关的测试，加上 `typecheck`、`lint`、`i18n:check`。
-2. 改了行为就在同一个提交里改文档：用户看得到的改 `docs/user-guide.md` / `.en.md`，模块和约定改 `docs/developer-guide.md` / `.en.md`，新词改 `CONTEXT.md`，取舍大的写一份 ADR，用户能感到的变化写进 `CHANGELOG.md`。
+2. 改了行为就在同一个提交里改文档：用户看得到的改 `docs/user-guide/` 里对应的章，模块和约定改 `docs/architecture/README.md`、`development.md`（中英两份），新词改 `CONTEXT.md`，取舍大的写一份 ADR，用户能感到的变化写进 `CHANGELOG.md`。
 3. 提交信息：`<类型>: <一句话说清改了什么>`，类型用 `feat`、`fix`、`docs`、`test`、`refactor`、`chore`。
 
 ## 问题和需求
 
-在 GitHub Issues 上；安全问题按 `SECURITY.md` 私下报告，不要开公开的 issue。单一上下文：根目录一个 `CONTEXT.md`，决策记录在 `docs/adr/`。
+在 GitHub Issues 上；安全问题按 `SECURITY.md` 私下报告，不要开公开的 issue。单一上下文：根目录一个 `CONTEXT.md`，决策记录在 `docs/architecture/adr/`。

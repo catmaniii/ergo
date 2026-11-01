@@ -1,4 +1,4 @@
-// 复古杂志（51 号票，设计稿 docs/design/styles/j-*.dc.html）：粗宋大标题、粗细双线、编号分节、芥末黄高亮。
+// 复古杂志（51 号票，设计稿 docs/architecture/design/styles/j-*.dc.html）：粗宋大标题、粗细双线、编号分节、芥末黄高亮。
 // 正文是 Noto Serif SC 宋体，按钮、导航、时间、说明小字这些是 Noto Sans SC 黑体（设计稿的 .sans / .lbl）；全部直角、不用阴影，
 // 靠墨色的线分块：标题栏下面一道 3px 粗线，导航、卡片、看板分组的头上是"细线 + 粗线"的双线，输入栏、分隔是 1px 细线。
 // 颜色取自设计稿样式里 .root（浅色）、.root.dark（深色）两套变量 --bg、--surface、--text、--muted、--accent、--accent-ink、

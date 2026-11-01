@@ -1,7 +1,7 @@
 /*
  * 软糖圆角（42 号票）：只靠 token（candy/style.ts）做不到的规则，全部限定在 :root[data-style="candy"] 下
  * （不会漏到别的风格；设置里的预览把开头换成 :host(...)，所以根元素上只再加属性，见 src/visual-styles/preview.ts）。
- * 设计稿：docs/design/styles/d-chat、d-tasks、d-inbox、d-wide（.dc.html）。要点：淡紫底上的白卡片、气泡都靠柔和的投影
+ * 设计稿：docs/architecture/design/styles/d-chat、d-tasks、d-inbox、d-wide（.dc.html）。要点：淡紫底上的白卡片、气泡都靠柔和的投影
  * （--shadow-note，设计稿的 --shadow）浮起来，不描边；大圆角；导航和输入栏是浮起的胶囊；按钮一律胶囊（主按钮紫罗兰实色，
  * 次要按钮淡紫底深紫字：--data-bg / --data-fg）；"要你"的事和未读是珊瑚红；
  * ZCOOL 快乐体只用在标题上（页面标题、看板分组、卡片类型），它只有一种字重，这些地方不加粗。

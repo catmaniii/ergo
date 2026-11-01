@@ -1,4 +1,4 @@
-// 插件开发手册（docs/guides/plugin-development.md，215 号票）的例子：照手册写的网页插件"笔记"（notes-example/plugin.tsx），
+// 插件开发手册（docs/architecture/plugin-development.md，215 号票）的例子：照手册写的网页插件"笔记"（notes-example/plugin.tsx），
 // 按守护进程报的状况（插件频道上的 plugin_status）装上、停用、启用、移除：插槽里的东西跟着收起、放回，停用时它拥有的位置交回占位用的名字。
 // 这条测试也是手册的例子（plugin-guide-doc.test.ts 核对手册里的摘录和代码对得上）。走真实装配路径的那条见 assembly.test.ts。
 import { describe, expect, test } from "vitest";

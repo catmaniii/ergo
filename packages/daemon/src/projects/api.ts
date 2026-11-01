@@ -1,4 +1,4 @@
-// 项目系统对外的入口（277 号票，方案 C，docs/research/29-plugin-expansion-review.html）。项目系统是 projects/、work-orders/、
+// 项目系统对外的入口（277 号票，方案 C）。项目系统是 projects/、work-orders/、
 // operations/、project-ops/、project-services/ 五个目录；组合根 daemon.ts 以外的内核模块只从这里拿项目系统的东西，不 import 这五个
 // 目录里的别的文件（test/projects/boundary.test.ts 检查）。五个目录共用这一个入口：调用方只学一个文件。组合根自己也只经组装函数
 // projects/system.ts（278 号票）装项目系统。

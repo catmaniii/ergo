@@ -21,7 +21,7 @@ import { PhonePhotos } from './PhonePhotos';
  * 308 号票：两者共用一个坐标转地名（PhoneGeocode.ets，geocoder：缓存、暂停一处管），"常去的地方"按地名找也经它。
  */
 
-/** 读全部日历的权限（受限权限：调试包走自动签名，上架要审核，见 docs/research/39） */
+/** 读全部日历的权限（受限权限：调试包走自动签名，上架要审核） */
 const READ_CALENDAR: Permissions = 'ohos.permission.READ_WHOLE_CALENDAR';
 /** 一次最多挑几个人（和守护进程那边 PHONE_CONTACTS_MAX 一样） */
 const CONTACTS_MAX = 20;

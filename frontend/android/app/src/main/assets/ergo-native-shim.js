@@ -1,4 +1,4 @@
-// 二狗的原生桥在网页这一侧的垫片（349 号票，安全设计见 docs/adr/0040）。
+// 二狗的原生桥在网页这一侧的垫片（349 号票，安全设计见 docs/architecture/adr/0040）。
 // App 用 WebViewCompat.addDocumentStartJavaScript 注入它、用 addWebMessageListener 给它一个通道对象，两者都只对配好的二狗来源：
 // 外部网页、别的来源的 iframe 里既没有这段脚本，也没有通道。不用 addJavascriptInterface——那个对象所有页面和框架都看得见，调用时还分不清谁调的。
 // 网页（packages/web/src/app/native*.ts）照鸿蒙的样子同步调 ergoNative：

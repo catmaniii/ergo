@@ -1,4 +1,4 @@
-// @ergo/memory：二狗的记忆系统（docs/memory-system.md、docs/memory-architecture.md；188 号票起叫 memory-lab，326 号票改名，评测、演示和评测数据不在这个包里）。
+// @ergo/memory：二狗的记忆系统（docs/architecture/memory-system.md、docs/architecture/memory-architecture.md；188 号票起叫 memory-lab，326 号票改名，评测、演示和评测数据不在这个包里）。
 // 对外的入口是 MemoryEngine；各层也单独导出，给守护进程的记忆插件、评测和测试用。
 // ④ 号票加了推理图谱（rg/）、用户模型（user-model/）、模型版（llm/、kg/llm-extractor.ts、rg/llm-reasoner.ts）。
 // 196 号票加了为任务调出相关的用户模型（rg/domains、claim-index、value-retrieval）和交互策略（rg/strategies、advice）。

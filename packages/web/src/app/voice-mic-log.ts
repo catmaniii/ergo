@@ -1,5 +1,5 @@
 // 麦克风诊断记录（61 号票）：最近的麦克风开关和音轨事件的时刻和原因，随每条语音带给守护进程（VoiceCapture.micLog），
-// 用户在真机上试完（输入法的语音、分屏、iOS 听写……）之后在本机接口看，证实或推翻调研 docs/research/16 的推断。
+// 用户在真机上试完（输入法的语音、分屏、iOS 听写……）之后在本机接口看，证实或推翻调研 docs/architecture/research/16 的推断。
 // 每条带上那一刻的页面信号（document.hasFocus()、visibilityState）：鸿蒙浏览器、原生壳里焦点或前后台报得不对时能查出来。
 // 一个页面一份（app/voice-browser.ts），离开、重新进语音模式时接着记；只在内存里，刷新就没了。
 // 只留最近 VOICE_MIC_LOG_MAX（40）条：一次完整的开关是 open、ready、close 三条，放得下最近 10 次以上。
