@@ -71,7 +71,7 @@
   "setup.autostart.turnedOn": "Start at boot is on",
   "setup.autostart.turnedOff": "Start at boot is off",
   "setup.steps.phone.title": "Pair your phone",
-  "setup.steps.phone.sub": "In the Ergo app on your phone, tap Scan to connect and scan the code below. When the phone sends a request, check the short code and approve it right here",
+  "setup.steps.phone.sub": "In the ergo app on your phone, tap Scan to connect and scan the code below. When the phone sends a request, check the short code and approve it right here",
   "setup.steps.phone.ready": "A device is already paired",
   "setup.steps.phone.notReady": "No device paired yet (no rush, use this computer first)",
   "setup.steps.phone.how": "The code needs an address that reaches this computer from outside. How to expose one is on the last page of this wizard, Access from outside, or the \"On your phone\" chapter of the user guide.",

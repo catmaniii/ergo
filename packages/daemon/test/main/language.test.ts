@@ -20,6 +20,8 @@ import { waitUntil } from "../helpers/process.ts";
 const { language: LANGUAGE, secretary: SECRETARY, board: BOARD } = CHANNELS;
 const ECHO: FauxStep = { kind: "echo_context" };
 const LINE = "用 English 回答用户，给用户看的报告、文件也用 English。";
+/** 379 号票：紧跟着说清提示里的产品名对英文用户怎么写 */
+const PRODUCT_NAME_LINE = "系统提示和工具说明里的“二狗”是这个产品的中文名，对用户说的时候写 ergo。";
 
 const languageEvents = (frontend: TestFrontend) => frontend.events({ channel: LANGUAGE, type: EVENT_TYPES.language }).map((f) => f.payload as LanguageEventPayload);
 const localeEvents = (frontend: TestFrontend) => frontend.events({ channel: LANGUAGE, type: EVENT_TYPES.locale }).map((f) => f.payload as LocaleEventPayload);
@@ -183,7 +185,9 @@ describe("秘书和负责人用所选语言回答", () => {
     const latest = latestSystem(agentTexts(frontend, SECRETARY)[1]!);
     expect(latest).toContain(LINE);
     // 那句在系统提示的末尾：后面紧跟着的是这一轮的用户消息
-    expect(latest.slice(latest.indexOf(LINE) + LINE.length).trimStart()).toMatch(/^\[user\]/);
+    const tail = latest.slice(latest.indexOf(LINE) + LINE.length);
+    expect(tail.startsWith(PRODUCT_NAME_LINE)).toBe(true);
+    expect(tail.slice(PRODUCT_NAME_LINE.length).trimStart()).toMatch(/^\[user\]/);
 
     await daemon.stop();
     expect(t("shell.nav.secretary")).toBe("秘书");

@@ -92,6 +92,14 @@ export function sentencesOf(text: string): string[] {
   return text.match(SENTENCES) ?? [];
 }
 
+/** 同上，英文句点也分句：后面是空白或结尾才算句末（v1.2、example.com 里的点不算） */
+const SENTENCES_WITH_PERIOD = /(?:[^。！？!?；;\n.]|\.(?!\s|$))+(?:[。！？!?；;\n]|\.(?=\s|$))?/g;
+
+/** 一段话拆成一句一句，认英文句点（看英文说法的用，379 号票；sentencesOf 是任务控制从严的那一套，不动它） */
+export function sentencesWithPeriodOf(text: string): string[] {
+  return text.match(SENTENCES_WITH_PERIOD) ?? [];
+}
+
 /** 一句话拆成分句（逗号、顿号分） */
 export function clausesOf(sentence: string): string[] {
   return sentence.split(CLAUSE);

@@ -320,7 +320,7 @@ Calendar, photos and location each pop up the system's permission box on the pho
 Clicking "Disconnect" opens a confirmation box; pick one:
 
 - **Keep what was imported**: no more syncing or on-demand lookups, and any key you entered is deleted from this computer. What was imported stays.
-- **Delete what was imported too**: the records, the materials organized from them and the original copies are all permanently deleted, and can't be recovered. The copy in backup snapshots disappears as snapshots rotate.
+- **Delete what was imported too**: the records, the materials organized from them and the original copies are all completely deleted, and can't be recovered. The copy in backup snapshots disappears as snapshots rotate.
 
 The box spells out what will actually be deleted for each data source.
 

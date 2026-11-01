@@ -71,7 +71,7 @@ try {
 
   console.log("地址页");
   await run.step("第一次打开是地址页，没连上过二狗时是英文", async () => {
-    await device.waitText("Enter Ergo's address");
+    await device.waitText("Enter ergo's address");
     await sleep(1200);
     run.shot("01-address-en-light");
   });
@@ -84,26 +84,26 @@ try {
   console.log("出错页");
   await run.step("连不上：出错页，有重试和改地址", async () => {
     await submitAddress("http://127.0.0.1:1/");
-    await device.waitText("Can't open Ergo");
+    await device.waitText("Can't open ergo");
     await device.waitText("Retry");
     run.shot("03-error-en-light");
   });
   await run.step("出错页点改地址回到地址页", async () => {
     const edit = await device.waitText("Edit address");
     device.tap(edit.x, edit.y);
-    await device.waitText("Enter Ergo's address");
+    await device.waitText("Enter ergo's address");
   });
 
   console.log("这不是二狗？");
   await run.step("地址填成了别的网站：8 秒后底部提示", async () => {
     await submitAddress(`${notErgoSite.origin}/`);
-    await device.waitText("Not Ergo?", 25_000);
+    await device.waitText("Not ergo?", 25_000);
     run.shot("04-not-ergo-en-light");
   });
   await run.step("这不是二狗？点换地址回到地址页", async () => {
     const change = await device.waitText("Change address");
     device.tap(change.x, change.y);
-    await device.waitText("Enter Ergo's address");
+    await device.waitText("Enter ergo's address");
   });
 
   console.log("配对");

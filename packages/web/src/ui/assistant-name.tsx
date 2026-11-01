@@ -9,7 +9,7 @@ import { Fragment, useCallback } from "react";
 import { useStore } from "../app/store.tsx";
 import { assistantNameOf, daemonTextPlain, daemonTextSegments } from "../state/index.ts";
 
-/** 现在的名字（没起过名是默认的"二狗"） */
+/** 现在的名字（没起过名是默认的，跟当前语言走） */
 export function useAssistantName(): string {
   return assistantNameOf(useStore().ui);
 }

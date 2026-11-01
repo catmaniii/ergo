@@ -246,7 +246,7 @@ It takes effect right away: its pages and panels close immediately, the tools it
 
 1. Click "Remove". The confirmation box says `Turns it off and moves it to "Removed" below. You can put it back later.`
 2. If you only want to put it away, just click "Remove".
-3. To delete its data too, tick "Also permanently delete its data" and click "Next".
+3. To delete its data too, tick "Also delete its data completely" and click "Next".
 4. The second step spells out "This deletes:" and "This can't delete:". When you've read it, click "Remove and delete". **Deleting can't be undone.**
 
 Removed plugins are kept under "Removed (N)" lower on the page; open it to "Put back".

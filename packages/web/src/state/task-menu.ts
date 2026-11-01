@@ -278,7 +278,7 @@ export function taskPanels(p: { plain: boolean; timed: boolean; orders: number; 
  */
 export function statusChipText(full: string, wide: boolean): string {
   if (wide) return full;
-  // 等我的前缀照 board.ts 的 taskStatusText 那一句（"等我 · "，英文"Needs you · "）
+  // 等我的前缀照 board.ts 的 taskStatusText 那一句（"等我 · "，英文"Waiting for me · "）
   const waiting = t("state.board.status.waiting", { reason: "" });
   if (full.startsWith(waiting)) return full.slice(waiting.length);
   // 170 号票：英文的括号是半角、前面空一格

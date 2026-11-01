@@ -18,7 +18,7 @@ import { dataDirLayout } from "../../src/config/data-dir.ts";
 import { startTestDaemon } from "../helpers/daemon.ts";
 import { stripTimeMarkers } from "../helpers/echo.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
-import { assistantNameApi } from "../helpers/http.ts";
+import { agentRolesApi, assistantNameApi, languageApi } from "../helpers/http.ts";
 import { waitUntil } from "../helpers/process.ts";
 import { withoutFoldersBlock } from "../helpers/folders-block.ts";
 
@@ -162,6 +162,120 @@ describe("秘书知道自己叫什么", () => {
     expect(latest).toContain("用户叫你「阿福」");
     expect(latest).not.toContain("用户叫你「二狗」");
     expect(latest).toMatch(/\[user\] [^\n]*\n第二条$/);
+  });
+});
+
+// 379 号票：名字存在配置区（文件）或名字频道（事件）里的是用户的，任何语言下原样；两边都没有才算没起过名，默认名跟当前语言走
+const nameFileOf = (dataDir: string) => path.join(dataDirLayout(dataDir).config, "assistant-name.json");
+const defaultRoleName = async (url: string) => (await agentRolesApi.list(url)).body.roles.find((role) => role.isDefault)?.name;
+const secretaryName = async (url: string) => (await agentRolesApi.list(url)).body.agents.find((agent) => agent.agentId === SECRETARY)?.identity.name;
+
+describe("没起过名字时默认名跟着语言走，起过的不变", () => {
+  it("从没起过名：中文是二狗，英文是 ergo，换回来又是二狗；不写配置文件、不推名字事件，角色表里也跟着变", async () => {
+    const { url, daemon, dataDir } = await startTestDaemon();
+    const frontend = await TestFrontend.connect(url);
+    await frontend.subscribe({ [ASSISTANT]: 0 });
+    expect(daemon.assistantName.current()).toBe("二狗");
+    expect(await defaultRoleName(url)).toBe("二狗");
+
+    await languageApi.change(url, "en");
+    expect(daemon.assistantName.current()).toBe("ergo");
+    expect(await defaultRoleName(url)).toBe("ergo");
+    expect(await secretaryName(url)).toBe("ergo");
+
+    await languageApi.change(url, "zh-CN");
+    expect(daemon.assistantName.current()).toBe("二狗");
+    expect(await defaultRoleName(url)).toBe("二狗");
+
+    expect(fs.existsSync(nameFileOf(dataDir))).toBe(false);
+    expect(nameEvents(frontend)).toEqual([]);
+  });
+
+  it("从没起过名、英文：秘书的系统提示里是 ergo，末尾说清提示里的二狗是产品的中文名；中文时没有这句", async () => {
+    const { url } = await startTestDaemon({ secretary: [{ kind: "echo_context" }, { kind: "echo_context" }] });
+    const frontend = await TestFrontend.connect(url);
+    await frontend.subscribe({ [SECRETARY]: 0 });
+    await frontend.sendText("你叫什么");
+    await frontend.next(SECRETARY, EVENT_TYPES.message);
+    const zh = textOf((await frontend.next(SECRETARY, EVENT_TYPES.message)).payload as MessageEventPayload);
+    await frontend.next(SECRETARY, EVENT_TYPES.turnEnd);
+    expect(zh).toContain("用户叫你「二狗」");
+    expect(zh).not.toContain("中文名");
+
+    await languageApi.change(url, "en");
+    await frontend.sendText("what's your name");
+    await frontend.next(SECRETARY, EVENT_TYPES.message);
+    const echoed = textOf((await frontend.next(SECRETARY, EVENT_TYPES.message)).payload as MessageEventPayload);
+    const latest = echoed.slice(echoed.lastIndexOf("[system] "));
+    expect(latest).toContain("用户叫你「ergo」");
+    expect(latest).not.toContain("用户叫你「二狗」");
+    expect(latest).toContain("“二狗”是这个产品的中文名，对用户说的时候写 ergo");
+  });
+
+  it("从没起过名时把默认名原样存一次（脚本、旧客户端都可能这样）：不算起名，还跟着语言走", async () => {
+    const { url, daemon, dataDir } = await startTestDaemon();
+    expect(await assistantNameApi.change(url, "二狗")).toMatchObject({ status: 200, body: { name: "二狗", changed: false } });
+    expect(fs.existsSync(nameFileOf(dataDir))).toBe(false);
+    await languageApi.change(url, "en");
+    expect(daemon.assistantName.current()).toBe("ergo");
+    expect(await assistantNameApi.change(url, "ergo")).toMatchObject({ status: 200, body: { name: "ergo", changed: false } });
+    expect(fs.existsSync(nameFileOf(dataDir))).toBe(false);
+    await languageApi.change(url, "zh-CN");
+    expect(daemon.assistantName.current()).toBe("二狗");
+  });
+
+  it("起过名的：哪种语言都原样，重启也一样；英文下特意起名叫二狗也原样", async () => {
+    const first = await startTestDaemon();
+    await languageApi.change(first.url, "en");
+    await assistantNameApi.change(first.url, "小满");
+    expect(first.daemon.assistantName.current()).toBe("小满");
+    await languageApi.change(first.url, "zh-CN");
+    expect(first.daemon.assistantName.current()).toBe("小满");
+    await languageApi.change(first.url, "en");
+    await first.daemon.stop();
+
+    const second = await startTestDaemon({ reuse: { dataDir: first.dataDir, homeDir: first.homeDir } });
+    expect(second.daemon.assistantName.current()).toBe("小满");
+    await assistantNameApi.change(second.url, "二狗");
+    expect(second.daemon.assistantName.current()).toBe("二狗");
+    expect(JSON.parse(fs.readFileSync(nameFileOf(first.dataDir), "utf8"))).toEqual({ format: 1, name: "二狗" });
+    await languageApi.change(second.url, "zh-CN");
+    await languageApi.change(second.url, "en");
+    expect(second.daemon.assistantName.current()).toBe("二狗");
+  });
+
+  it("升级前存下的二狗算用户的：只有配置文件、只有名字事件都一样，换成英文还是二狗；只有角色表里那份镜像不算", async () => {
+    // 升级前只有配置文件（停着时放回去的、备份恢复的）
+    const fileOnly = await startTestDaemon();
+    await fileOnly.daemon.stop();
+    fs.mkdirSync(path.dirname(nameFileOf(fileOnly.dataDir)), { recursive: true });
+    fs.writeFileSync(nameFileOf(fileOnly.dataDir), JSON.stringify({ format: 1, name: "二狗" }));
+    const fileOnlyAgain = await startTestDaemon({ reuse: { dataDir: fileOnly.dataDir, homeDir: fileOnly.homeDir } });
+    await languageApi.change(fileOnlyAgain.url, "en");
+    expect(fileOnlyAgain.daemon.assistantName.current()).toBe("二狗");
+    expect(await defaultRoleName(fileOnlyAgain.url)).toBe("二狗");
+    await fileOnlyAgain.daemon.stop();
+
+    // 升级前改过名又改回二狗（"恢复默认"就是这样），配置文件后来没了：名字频道上最后一条还是二狗
+    const eventOnly = await startTestDaemon();
+    await assistantNameApi.change(eventOnly.url, "小美");
+    await assistantNameApi.change(eventOnly.url, "二狗");
+    await eventOnly.daemon.stop();
+    fs.rmSync(nameFileOf(eventOnly.dataDir));
+    const eventOnlyAgain = await startTestDaemon({ reuse: { dataDir: eventOnly.dataDir, homeDir: eventOnly.homeDir } });
+    await languageApi.change(eventOnlyAgain.url, "en");
+    expect(eventOnlyAgain.daemon.assistantName.current()).toBe("二狗");
+    await eventOnlyAgain.daemon.stop();
+
+    // 老用户从没起过名：角色表里那份镜像写着二狗（第一次启动时迁移写的），它不算起名
+    const mirrorOnly = await startTestDaemon();
+    await mirrorOnly.daemon.stop();
+    const rolesFile = dataDirLayout(mirrorOnly.dataDir).agentRolesFile;
+    expect(JSON.parse(fs.readFileSync(rolesFile, "utf8")).roles[0].name).toBe("二狗");
+    const mirrorOnlyAgain = await startTestDaemon({ reuse: { dataDir: mirrorOnly.dataDir, homeDir: mirrorOnly.homeDir } });
+    await languageApi.change(mirrorOnlyAgain.url, "en");
+    expect(mirrorOnlyAgain.daemon.assistantName.current()).toBe("ergo");
+    expect(await defaultRoleName(mirrorOnlyAgain.url)).toBe("ergo");
   });
 });
 

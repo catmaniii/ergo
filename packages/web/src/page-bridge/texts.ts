@@ -46,8 +46,8 @@ export type PageBridgeTexts = Partial<Record<BridgeTextKey, string>> & { assista
 /** 页面桥自己的全部 key（二狗的网页按它取好交过来） */
 export const BRIDGE_TEXT_KEYS = Object.keys(ZH) as BridgeTextKey[];
 
-/** 没交来名字时的名字（同协议包的 DEFAULT_ASSISTANT_NAME；页面桥不引协议包的运行时，测试核对两边一样） */
-export const BRIDGE_DEFAULT_NAME = "二狗"; // @i18n-ignore fixed：用户起的名字不翻
+/** 没交来名字时的名字：页面桥这时显示自带的中文句子，所以是中文的默认名字（协议包的 defaultAssistantName；页面桥不引协议包的运行时，测试核对两边一样） */
+export const BRIDGE_DEFAULT_NAME = "二狗"; // @i18n-ignore fixed：和页面桥自带的中文句子配套
 
 /** 一句最多多长（宿主是可信的，这里只防写错） */
 const TEXT_MAX = 200;

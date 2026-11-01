@@ -185,7 +185,7 @@ try {
   device.adb("logcat", "-c");
   device.shell("cmd uimode night no");
   device.shell(`am start -W -n ${PACKAGE}/.MainActivity`);
-  await device.waitText("Enter Ergo's address");
+  await device.waitText("Enter ergo's address");
   await submitAddress(`${daemon.external}/`);
 
   const views = await WebViews.connect(device, CDP_PORT);

@@ -144,7 +144,7 @@ Taken over as a task, it starts working right away. Taken over as a project, it'
 ![How it looks when the session is in the official app](images/claude-code/05-gear-remote.png)
 
 1. Click "Hand to the official app". Wait a few seconds to half a minute; the button says "Handing to the official app…".
-2. Once it works, this section gains "Open in the official app" and a link. The task card says "Needs you · In the official app".
+2. Once it works, this section gains "Open in the official app" and a link. The task card says "Waiting for me · In the official app".
 3. Open the link and continue in the official app.
 4. To bring it back, go to ⚙ and click "Take back to ergo". The background session over there stops, and the same session continues here.
 

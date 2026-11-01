@@ -24,7 +24,7 @@ import {
   ASSISTANT_NAME_MARK,
   checkAgentPromptDraft,
   checkAssistantName,
-  DEFAULT_ASSISTANT_NAME,
+  defaultAssistantName,
   effectiveModelChoice,
   fillAssistantName,
   MAINTAINER_CHANNEL_PREFIX,
@@ -123,7 +123,7 @@ export class FakeAgentSettings {
   ]);
   /** 角色（248 号票），只在内存里：名字 + 音色绑成一个，每个 agent 选一个；默认角色的名字是全局名字（原型里就是默认的"二狗"） */
   private roles: { id: string; name: string; voiceId?: string }[] = [
-    { id: "role-default", name: DEFAULT_ASSISTANT_NAME },
+    { id: "role-default", name: defaultAssistantName() },
     { id: "role-xiaoming", name: "小明" },
   ];
   private defaultRoleId = "role-default";
@@ -235,7 +235,7 @@ export class FakeAgentSettings {
 
   /** 默认角色：名字是全局名字（原型里就是默认的"二狗"），音色是现在选中的参考音色 */
   private defaultRole(): { id: string; name: string; voiceId?: string } {
-    return this.roles.find((role) => role.id === this.defaultRoleId) ?? { id: this.defaultRoleId, name: DEFAULT_ASSISTANT_NAME };
+    return this.roles.find((role) => role.id === this.defaultRoleId) ?? { id: this.defaultRoleId, name: defaultAssistantName() };
   }
 
   /** 这个 agent 现在用哪个角色、名字和音色（248 号票），和守护进程同一套算法：指定的角色优先，没指定跟默认角色 */
@@ -250,8 +250,8 @@ export class FakeAgentSettings {
     const voice = pinned ?? fallback;
     return {
       roleId: role.id,
-      name: isDefault ? DEFAULT_ASSISTANT_NAME : role.name,
-      defaultName: DEFAULT_ASSISTANT_NAME,
+      name: isDefault ? defaultAssistantName() : role.name,
+      defaultName: defaultAssistantName(),
       nameSource: own === undefined || isDefault ? "default" : "own",
       ...(own === undefined || isDefault ? {} : { ownRoleId: role.id }),
       ...(voice ? { voiceId: voice.id, voiceName: voice.name } : {}),
@@ -272,7 +272,7 @@ export class FakeAgentSettings {
 
   /** 无副作用（每次现取） */
   roleOptions(): AgentRoleOption[] {
-    return this.roles.map((role) => ({ id: role.id, name: role.id === this.defaultRoleId ? DEFAULT_ASSISTANT_NAME : role.name, isDefault: role.id === this.defaultRoleId }));
+    return this.roles.map((role) => ({ id: role.id, name: role.id === this.defaultRoleId ? defaultAssistantName() : role.name, isDefault: role.id === this.defaultRoleId }));
   }
 
   /** 设置 · 角色与声音那一页（248 号票）：编的，和守护进程的 GET /api/agent-roles 一个样子 */
@@ -291,7 +291,7 @@ export class FakeAgentSettings {
       const voice = pinned ?? fallback;
       return {
         id: role.id,
-        name: isDefault ? DEFAULT_ASSISTANT_NAME : role.name,
+        name: isDefault ? defaultAssistantName() : role.name,
         isDefault,
         ...(voice ? { voiceId: voice.id, voiceName: voice.name } : {}),
         usedBy: usedBy.get(role.id) ?? [],
@@ -334,7 +334,7 @@ export class FakeAgentSettings {
     if (role === undefined) throw new Error(`没有这个角色：${roleId}`);
     if (role.isDefault) throw new Error("默认角色不能删：先把别的角色设成默认角色");
     // 和守护进程一样写 agent 的叫法：秘书的叫法是名字占位，这句话直接显示，换成名字（371 号票）
-    if (role.usedBy.length > 0) throw new Error(`这个角色还有 agent 在用：${role.usedBy.map((agentId) => fillAssistantName(this.who(agentId).label, DEFAULT_ASSISTANT_NAME)).join("、")}`);
+    if (role.usedBy.length > 0) throw new Error(`这个角色还有 agent 在用：${role.usedBy.map((agentId) => fillAssistantName(this.who(agentId).label, defaultAssistantName())).join("、")}`);
     this.roles = this.roles.filter((item) => item.id !== roleId);
     return this.rolesView();
   }
@@ -501,7 +501,7 @@ function renderFake(template: SystemPromptDetail, source: string, values: Record
   const spec = systemPromptSpec(template);
   const parsed = parsePromptTemplate(normalizePromptSource(source), spec);
   if (!parsed.ok) return source;
-  const filled: Record<string, string | boolean> = { 名字: DEFAULT_ASSISTANT_NAME, ...values };
+  const filled: Record<string, string | boolean> = { 名字: defaultAssistantName(), ...values };
   for (const p of template.placeholders) if (!(p.name in filled) && p.kind !== "partial") filled[p.name] = p.kind === "flag" ? false : p.name;
   const partial = (id: string): readonly PromptNode[] => {
     const detail = prompts.detail(id);

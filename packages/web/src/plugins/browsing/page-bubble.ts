@@ -13,7 +13,7 @@
 // 不碰 DOM 和浏览器的全局变量，测试在 Node 里跑。
 import { PAGE_BUBBLE_NONE, type PageBubbleView, type PageNamedPart, type PageNamedText } from "../../page-bridge/protocol.ts";
 import { BRIDGE_ASSISTANT_KEYS, BRIDGE_TEXT_KEYS, type NameTagColors, type PageBridgeTexts } from "../../page-bridge/texts.ts";
-import { DEFAULT_ASSISTANT_NAME, t, tParts } from "../../state/index.ts";
+import { defaultAssistantName, t, tParts } from "../../state/index.ts";
 import { BASE_STYLE, effectiveTokens, resolveColor, type Theme, VISUAL_STYLES } from "../../visual-styles/index.ts";
 import type { NativeBrowserEvent, NativePageControl } from "../../app/native-browser.ts";
 import type { BusyNote, CommandTarget, PageCommands, PagePanel } from "./page-commands.ts";
@@ -85,7 +85,7 @@ export interface BridgeLook {
  * 页面桥自己的那几句，按当前语言（169 号票）。181 号票：说到助理的那几句名字换好（不认 assistant 的旧版页面桥照样显示起的名字），
  * 原样（带 {name}）、名字、名字标签的颜色放在 assistant 里
  */
-export function bridgeTexts(look: BridgeLook = { name: DEFAULT_ASSISTANT_NAME }): PageBridgeTexts {
+export function bridgeTexts(look: BridgeLook = { name: defaultAssistantName() }): PageBridgeTexts {
   const own = new Set<string>(BRIDGE_ASSISTANT_KEYS);
   const texts: PageBridgeTexts = Object.fromEntries(BRIDGE_TEXT_KEYS.map((key) => [key, own.has(key) ? t(key, { name: look.name }) : t(key)]));
   const templates: Record<string, string> = Object.fromEntries(BRIDGE_ASSISTANT_KEYS.map((key) => [key, t(key)]));
@@ -123,7 +123,7 @@ export function replyTooLong(text: string): boolean {
  * 网页上下指令的面板 → 气泡的样子；sidebar 是有没有浏览侧边栏（147 号票：有的话太长的回话下面给"去侧边栏看"）；
  * name 是助理现在的名字（181 号票）
  */
-export function bubbleView(panel: PagePanel, sidebar = false, name = DEFAULT_ASSISTANT_NAME): PageBubbleView {
+export function bubbleView(panel: PagePanel, sidebar = false, name = defaultAssistantName()): PageBubbleView {
   switch (panel.kind) {
     case "idle":
       return PAGE_BUBBLE_NONE;
@@ -202,7 +202,7 @@ export class PageBubbleSync {
   }
 
   private look(): BridgeLook {
-    return this.deps.look?.() ?? { name: DEFAULT_ASSISTANT_NAME };
+    return this.deps.look?.() ?? { name: defaultAssistantName() };
   }
 
   private sendTexts(force: boolean): void {

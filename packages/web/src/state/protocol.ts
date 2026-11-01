@@ -10,7 +10,7 @@ export {
   checkUserName,
   USER_NAME_MAX,
   currentWording,
-  DEFAULT_ASSISTANT_NAME,
+  defaultAssistantName,
   LEGACY_WORDING,
   fillAssistantName,
   splitAssistantName,

@@ -111,7 +111,7 @@ import {
   type LocaleEventPayload,
   type LocaleListView,
   checkAssistantName,
-  DEFAULT_ASSISTANT_NAME,
+  defaultAssistantName,
   ASSISTANT_NAME_MARK,
   type CalendarMonthView,
   BLOCKING_URGENCIES,
@@ -238,8 +238,8 @@ export class FakeConnection implements Connection {
   private readonly inbox = new Map<string, InboxItem>();
   private readonly devices = new Map<string, PairedDevice>();
   private workday: WorkdaySettings = FAKE_WORKDAY_SETTINGS;
-  /** 个人助理的名字（43 号票）：原型里从默认的开始，只记在内存里 */
-  private assistantName = DEFAULT_ASSISTANT_NAME;
+  /** 个人助理的名字（43 号票）：原型里从没起过名开始（默认的跟着语言走），只记在内存里 */
+  private assistantName: string | undefined;
   /** 我的名字（249 号票，用户自己的名字）：原型里一开始没设，只记在内存里 */
   private userName: string | undefined;
   /** 语言（168 号票）：原型里从地址的 ?lang= 开始（没写是中文），只记在内存里；只有打包进去的几种 */
@@ -334,7 +334,7 @@ export class FakeConnection implements Connection {
   setAssistantName(raw: string): AssistantNameResult {
     const checked = checkAssistantName(raw);
     if (!checked.ok) throw new Error(checked.error);
-    if (checked.name === this.assistantName) return { name: checked.name, changed: false };
+    if (checked.name === (this.assistantName ?? defaultAssistantName())) return { name: checked.name, changed: false };
     this.assistantName = checked.name;
     later(150, () => this.emit(CHANNELS.assistantName, EVENT_TYPES.assistantName, { name: checked.name, source: "settings" } satisfies AssistantNameEventPayload));
     return { name: checked.name, changed: true };

@@ -4,7 +4,7 @@
   "model.labels.taskStatus.scheduled": "Scheduled",
   "model.labels.taskStatus.queued": "Queued",
   "model.labels.taskStatus.running": "Running",
-  "model.labels.taskStatus.waitingForUser": "Waiting on me",
+  "model.labels.taskStatus.waitingForUser": "Waiting for me",
   "model.labels.taskStatus.paused": "Paused",
   "model.labels.taskStatus.operating": "Operating",
   "model.labels.taskStatus.done": "Done",

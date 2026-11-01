@@ -6,7 +6,7 @@
   "claudeCode.runtime.title": "Claude Code",
   "claudeCode.child.ended": "The Claude Code process ended",
   "claudeCode.child.compactFailed": "Compaction failed",
-  "claudeCode.navigate.ownSummary": "Claude Code doesn't write branch summaries itself (Ergo has to write one and pass it in)",
+  "claudeCode.navigate.ownSummary": "Claude Code doesn't write branch summaries itself (ergo has to write one and pass it in)",
   "claudeCode.navigate.noOps": "This Claude Code child process has no session-forking functions, so it can't roll back",
   "claudeCode.navigate.noInput": "There's no record of this message being given to Claude Code (sent by an older version, or never given to it), so it can't roll back to before it",
   "claudeCode.navigate.notFound": "Can't find where this message is in the Claude Code session (it may be from before its last compaction), so it can't roll back to before it",

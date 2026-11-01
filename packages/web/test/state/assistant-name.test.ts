@@ -2,21 +2,25 @@
 // 守护进程生成的话里的名字占位按现在的名字显示，所以改名后旧的话也跟着变。
 import { afterEach, describe, expect, test, vi } from "vitest";
 import {
+  activeLocaleFrom,
   ASSISTANT_NAME_MARK,
   assistantInitial,
   assistantNameOf,
   CHANNELS,
   daemonTextPlain,
   daemonTextSegments,
+  DEFAULT_LANGUAGE,
   EVENT_TYPES,
   inboxEntries,
   reduce,
   replay,
   secretaryTitle,
+  setActiveLocale,
   splitAssistantName,
   type UiInput,
   type UiState,
 } from "../../src/state/index.ts";
+import { TEST_LOCALES } from "../setup-locales.ts";
 import { frame, inboxItem, textMessage } from "./events.ts";
 
 const named = (seq: number, name: string, source: "settings" | "config_file" = "settings") => frame(CHANNELS.assistantName, seq, EVENT_TYPES.assistantName, { name, source });
@@ -39,10 +43,34 @@ const inbox = (seq: number, source: string, body: string): UiInput => ({
 /** 会话里最后一条消息的文字，名字占位按现在的名字换好（界面上显示成带底色的小标签，这里只看换成了什么） */
 const lastText = (state: UiState) => daemonTextPlain(textOf(state, -1), assistantNameOf(state));
 
+const english = () => setActiveLocale(activeLocaleFrom(TEST_LOCALES, "en"));
+
 describe("个人助理的名字", () => {
   // 89 号票（用户 2026-10-11 定）：默认名字从"个人助理"改成"二狗"
   test("没收到过名字事件：默认的\"二狗\"", () => {
     expect(assistantNameOf(replay([]))).toBe("二狗");
+  });
+
+  // 379 号票：没起过名字时默认名跟当前语言走，起过的任何语言下原样（只看名字频道上有没有事件）
+  describe("默认名跟着语言", () => {
+    afterEach(() => setActiveLocale(activeLocaleFrom(TEST_LOCALES, DEFAULT_LANGUAGE)));
+
+    test("没起过名：中文是二狗，英文是 ergo；同一份状态换了语言跟着变", () => {
+      const state = replay([]);
+      expect(assistantNameOf(state)).toBe("二狗");
+      english();
+      expect(assistantNameOf(state)).toBe("ergo");
+      expect(secretaryTitle(assistantNameOf(state)).plain).toBe("Secretary: ergo");
+      setActiveLocale(activeLocaleFrom(TEST_LOCALES, DEFAULT_LANGUAGE));
+      expect(assistantNameOf(state)).toBe("二狗");
+    });
+
+    test("起过名：任何语言下原样；存下的就叫二狗（升级前起的、恢复过默认的）在英文下也还是二狗", () => {
+      english();
+      expect(assistantNameOf(replay([named(1, "小美")]))).toBe("小美");
+      expect(assistantNameOf(replay([named(1, "二狗")]))).toBe("二狗");
+      expect(assistantNameOf(replay([named(1, "二狗", "config_file")]))).toBe("二狗");
+    });
   });
 
   test("以最新的一条为准：设置页改的、启动时从配置文件读到的都一样", () => {

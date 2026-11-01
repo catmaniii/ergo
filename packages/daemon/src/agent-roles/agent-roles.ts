@@ -414,6 +414,9 @@ export function openAgentRoles(options: AgentRolesOptions): AgentRoles {
       const role = mustRole(doc, roleId);
       if (role.id === doc.defaultRoleId) return doc;
       const previous = doc.defaultRoleId;
+      // 旧的默认角色留下现在显示的名字：没起过名时全局名字跟着语言走（379 号票），文件里那份镜像可能还是换语言之前的
+      const outgoing = findRole(doc, previous);
+      if (outgoing !== undefined) outgoing.name = defaultName();
       doc.defaultRoleId = role.id;
       // 默认角色的名字和音色就是全局的名字和音色：把全局换成这个角色的
       busy = true;

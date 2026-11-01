@@ -59,7 +59,7 @@
 // 秘书会话的 ⚙（114 号票，agent-settings/）：单独的提示词（追加在秘书的通用模板后面，或整份自己写）和改了系统提示一样，
 // 手头这一条处理完就按新的重新拉起（接着同一条主线会话），直接改了数据目录里那个文件也一样（revision 算上它）；
 // 清空当前对话是新开一条主线会话（AgentSession.clear：旧的聊天不删，看板变化照常追加，秘书照常能查看板）；"现在压缩"照旧用秘书专用的压缩指令。
-import { ASSISTANT_NAME_MARK, CHANNELS, DEFAULT_ASSISTANT_NAME, type MessagesPurgedEventPayload, type SessionModelView, t } from "@ergo/protocol";
+import { ASSISTANT_NAME_MARK, CHANNELS, defaultAssistantName, type MessagesPurgedEventPayload, type SessionModelView, t } from "@ergo/protocol";
 import type { AgentContributions, ContributionTarget } from "../agent-host/contributions.ts";
 import type { AgentHandle } from "../agent-settings/index.ts";
 import type { AgentManager } from "../agent-manager/agent-manager.ts";
@@ -219,8 +219,8 @@ const DEFAULT_DOWN_THRESHOLD_MS = 30_000;
 export function startSecretary(options: SecretaryOptions): Secretary {
   const { store } = options;
   const downThresholdMs = options.downThresholdMs ?? DEFAULT_DOWN_THRESHOLD_MS;
-  // 秘书叫什么：自己在 ⚙ 里配的（241 号票）优先，没配就是设置里的全局名字（43），都没有是默认的"二狗"
-  const currentName = () => options.profileName?.() ?? options.assistantName?.current() ?? DEFAULT_ASSISTANT_NAME;
+  // 秘书叫什么：自己在 ⚙ 里配的（241 号票）优先，没配就是设置里的全局名字（43），都没有是默认的（跟当前语言走，379 号票）
+  const currentName = () => options.profileName?.() ?? options.assistantName?.current() ?? defaultAssistantName();
   /** 从什么时候起不在运行（闲着或干活时为 undefined） */
   let downSince: number | undefined = Date.now();
   const { contributions } = options;

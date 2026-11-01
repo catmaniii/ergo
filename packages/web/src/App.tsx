@@ -186,13 +186,16 @@ function LocaleSync() {
 
 /**
  * 角色（248 号票）：打开页面时取一次（每个 agent 现在用哪个角色、它的名字和音色要在界面各处现取；
- * 角色页、⚙ 面板打开时另取）。取不到按"跟默认"显示
+ * 角色页、⚙ 面板打开时另取）。取不到按"跟默认"显示。
+ * 换了语言再取一次（379 号票）：没起过名时默认名跟语言走，手里这份是守护进程按旧语言算的
  */
 function AgentRolesSync() {
   const { loadAgentRoles } = useStore();
+  const localeRev = useLocale();
+  // eslint-disable-next-line react-hooks/exhaustive-deps, react/exhaustive-effect-dependencies -- localeRev 只用来在换了语言时重取
   useEffect(() => {
     loadAgentRoles().catch(() => undefined);
-  }, [loadAgentRoles]);
+  }, [loadAgentRoles, localeRev]);
   return null;
 }
 

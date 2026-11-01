@@ -15,7 +15,7 @@
 // 不碰 DOM 和浏览器的全局变量（页面桥、取缩略图、对卡做动作都由参数给），测试在 Node 里跑。
 import type { PageBubbleFile, PagePickAction, PagePickView } from "../../page-bridge/protocol.ts";
 import { PAGE_PICK_NONE } from "../../page-bridge/protocol.ts";
-import { type BrowsePickConfirmInput, type BrowsePickView, DEFAULT_ASSISTANT_NAME, initialPick, PAGE_CHOOSER_TARGET, PAGE_FILES_TOTAL_MAX_BYTES, type PageCommandFile, pageUrlForModel, t, togglePick } from "../../state/index.ts";
+import { type BrowsePickConfirmInput, type BrowsePickView, defaultAssistantName, initialPick, PAGE_CHOOSER_TARGET, PAGE_FILES_TOTAL_MAX_BYTES, type PageCommandFile, pageUrlForModel, t, togglePick } from "../../state/index.ts";
 import type { NativeBrowserEvent, NativePageControl } from "../../app/native-browser.ts";
 import { namedText } from "./page-bubble.ts";
 import type { PageStage } from "./page-stage.ts";
@@ -205,7 +205,7 @@ export class PagePickSync {
       phase = "failed";
       note = t("app.pagePick.failedRetry", { reason: p.failed });
     }
-    const title = namedText("app.pagePick.title", this.deps.assistantName?.() ?? DEFAULT_ASSISTANT_NAME, { field: p.field, count: p.files.length });
+    const title = namedText("app.pagePick.title", this.deps.assistantName?.() ?? defaultAssistantName(), { field: p.field, count: p.files.length });
     this.push({ kind: "pick", id: view.card.id, title: title.text, ...(title.parts ? { titleParts: title.parts } : {}), note, files, multiple: p.multiple, phase });
   }
 

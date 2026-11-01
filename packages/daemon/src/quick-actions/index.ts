@@ -31,6 +31,7 @@ export {
   ownWords,
   type OwnWordsSource,
   sentencesOf,
+  sentencesWithPeriodOf,
   type UserTurn,
 } from "./explicit.ts";
 export { type QuickActionGuard, quickActionToolName } from "./judge.ts";

@@ -17,7 +17,7 @@
   "google.calendar.itemDetail_one": "{address} · {n} event",
   "google.calendar.itemDetail_other": "{address} · {n} events",
   "google.calendar.calendarOff": "{reason}: synced events don't show in the calendar for now (syncing and lookups still work)",
-  "google.calendar.disconnectNote": "The synced Google events no longer show in Ergo's calendar; Google Calendar itself is untouched.",
+  "google.calendar.disconnectNote": "The synced Google events no longer show in ergo's calendar; Google Calendar itself is untouched.",
   "google.calendar.listSep": ", ",
   "google.calendar.problemSep": "; ",
   "google.calendar.noSuchFeed": "No such calendar (it may already be removed)",

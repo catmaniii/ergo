@@ -13,6 +13,7 @@ import {
   fillAssistantName,
   t,
 } from "./protocol.ts";
+import { assistantNameOf } from "./assistant-name.ts";
 import type { UiState } from "./ui-state.ts";
 
 /** 这个 agent 现在用的角色、名字和音色（还没取过时 undefined：界面上都按"没取到"显示） */
@@ -73,7 +74,7 @@ export function canCreateRoleName(draft: string): boolean {
 /** agent 在那个页面上的叫法（秘书是名字占位，换成现在的名字）："谁在用"那行、下拉的提示都用它 */
 export function agentLabelText(state: UiState, agentId: string): string {
   const entry = state.agentRoles?.agents.find((item) => item.agentId === agentId);
-  return entry === undefined ? agentId : fillAssistantName(entry.label, state.assistantName ?? "");
+  return entry === undefined ? agentId : fillAssistantName(entry.label, assistantNameOf(state));
 }
 
 /** "谁在用"最多列几个叫法：默认角色往往所有 agent 都在用，列全了那一行长得没法看（后面写"等 N 个 agent"） */

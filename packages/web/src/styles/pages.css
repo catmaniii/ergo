@@ -7545,7 +7545,7 @@ button.progress:active {
   font-size: var(--fs-title);
   font-weight: 600;
 }
-/* 英文名 Ergo（用户 2026-10-15 定）：跟在"二狗"后面，次要字色 */
+/* 英文名 ergo（用户 2026-10-15 定）：跟在"二狗"后面，次要字色 */
 .about-name-en {
   margin-left: 4px;
   color: var(--muted);

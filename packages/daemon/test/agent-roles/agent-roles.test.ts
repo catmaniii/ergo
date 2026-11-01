@@ -206,6 +206,20 @@ describe("默认角色：名字和音色就是全局那两个", () => {
     // 不指定角色的 agent 现在叫小明
     expect(roles.roleOf("secretary")).toMatchObject({ name: "小明", isDefault: true });
   });
+
+  // 379 号票：没起过名时全局名字跟着语言走，文件里那份镜像不跟（语言改了不写文件）；旧的默认角色留下的是用户眼前的名字，不是过时的镜像
+  it("换了语言之后把别的角色设成默认：旧的默认角色留下现在显示的名字，不留文件里过时的镜像", () => {
+    const { roles, read, setName } = setup();
+    roles.start();
+    expect((read() as { roles: { name: string }[] }).roles[0]!.name).toBe("二狗");
+    setName("ergo");
+    // 读的时候默认角色按全局现取，不看镜像
+    expect(roles.defaultRole().name).toBe("ergo");
+    const xiaoming = roles.create({ name: "Sam" }).roles.find((role) => role.name === "Sam")!;
+    roles.setDefault(xiaoming.id);
+    const stored = read() as { roles: { id: string; name: string }[] };
+    expect(stored.roles.find((role) => role.id === DEFAULT_AGENT_ROLE_ID)!.name).toBe("ergo");
+  });
 });
 
 describe("角色的增删改：校验、默认唯一、删在用", () => {

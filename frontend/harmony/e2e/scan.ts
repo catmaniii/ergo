@@ -275,7 +275,7 @@ try {
   console.log("地址页");
   await run.step("地址页最上面是扫码连接，手填在下面", async () => {
     const scan = await device.waitText("Scan to connect");
-    const heading = await device.waitText("Enter Ergo's address");
+    const heading = await device.waitText("Enter ergo's address");
     expectTrue(scan.y < heading.y, "扫码按钮在手填上面");
     await sleep(800);
     run.shot("harmony-address");
@@ -289,14 +289,14 @@ try {
     device.tap(126, 233);
     await sleep(1500);
     run.shot("harmony-scan-closed");
-    await device.waitText("Enter Ergo's address");
+    await device.waitText("Enter ergo's address");
     expectTrue(!device.ui().some((n) => n.text.includes("Scanning isn't available")), "退出来不算出错");
   });
 
   console.log("报错");
   await run.step("扫到的不是地址：直接说，没有重试，有重新扫码", async () => {
     device.feed("WIFI:S:home;T:WPA;P:secret;;");
-    await device.waitText("That isn't an Ergo address");
+    await device.waitText("That isn't an ergo address");
     await device.waitText("Scan again");
     expectTrue(!device.ui().some((n) => n.text === "Try again"), "不是地址的没有重试");
     await sleep(300);
@@ -304,12 +304,12 @@ try {
   });
   await run.step("不是 https 的网址：一样说不是二狗地址", async () => {
     device.feed("http://ergo.example.test/");
-    await device.waitText("That isn't an Ergo address");
+    await device.waitText("That isn't an ergo address");
   });
   await run.step("解析不了域名：说清原因，提醒检查；普通域名的提醒里电脑那条在前", async () => {
     device.feed(`https://${TOO_LONG}.example.invalid/`);
     await device.waitText("This domain doesn't resolve", 20_000);
-    const computer = await device.waitText("Are Ergo and the service manager running");
+    const computer = await device.waitText("Are ergo and the service manager running");
     const tailnet = await device.waitText("Is Tailscale on for this phone");
     expectTrue(computer.y < tailnet.y, "普通域名：电脑那条在前");
     await device.waitText("Try again");
@@ -320,7 +320,7 @@ try {
     device.feed(`https://${TOO_LONG}.tail.example.invalid/`);
     await device.waitText("tail.example.invalid");
     await device.waitText("This domain doesn't resolve", 20_000);
-    const computer = await device.waitText("Are Ergo and the service manager running");
+    const computer = await device.waitText("Are ergo and the service manager running");
     const tailnet = await device.waitText("Is Tailscale on for this phone");
     expectTrue(tailnet.y < computer.y, "tailnet 地址：tailnet 那条在前");
     run.shot("harmony-error-tailnet");
@@ -346,7 +346,7 @@ try {
   });
   await run.step("回的不是二狗：能打开，但不是二狗", async () => {
     device.feed(`${site.origin}/`);
-    await device.waitText("what answered is not Ergo", 20_000);
+    await device.waitText("what answered is not ergo", 20_000);
     run.shot("harmony-error-not-ergo");
   });
   if (badCert) {
@@ -359,7 +359,7 @@ try {
   await run.step("连不上的时候没有进配对页：返回回到地址页", async () => {
     const back = await device.waitText("Back");
     device.tap(back.x, back.y);
-    await device.waitText("Enter Ergo's address");
+    await device.waitText("Enter ergo's address");
   });
 
   console.log("真的二维码");
@@ -382,7 +382,7 @@ try {
     const shown = device.ui().map((n) => n.text);
     console.log(`        喂图片之后界面上：${shown.slice(0, 7).map((t) => t.slice(0, 30)).join(" | ")}`);
     // 系统解码器在这台模拟器上解不出来时退回喂文字（解码另有 ZXing 的核对），日志里写清楚
-    if (shown.some((t) => t.includes("That isn't an Ergo address")) || !(await webOpened(device, external))) {
+    if (shown.some((t) => t.includes("That isn't an ergo address")) || !(await webOpened(device, external))) {
       console.log("        系统解码器没解出来，改喂文字");
       device.feed(qrText);
     } else {
@@ -405,12 +405,12 @@ try {
     const page = main!;
     // 可能还有系统的通知授权框挡着：点掉网页才接着走
     const until = Date.now() + 40_000;
-    while (!(await page.eval<boolean>("[...document.querySelectorAll('button')].some(b => /进入二狗|Open Ergo/.test(b.textContent))"))) {
+    while (!(await page.eval<boolean>("[...document.querySelectorAll('button')].some(b => /进入二狗|Open ergo/.test(b.textContent))"))) {
       device.dismissNotifyDialog(device.ui());
       if (Date.now() > until) throw new Error("等不到进入二狗的按钮");
       await sleep(800);
     }
-    await page.eval("[...document.querySelectorAll('button')].find(b => /进入二狗|Open Ergo/.test(b.textContent)).click()");
+    await page.eval("[...document.querySelectorAll('button')].find(b => /进入二狗|Open ergo/.test(b.textContent)).click()");
     await sleep(3000);
     device.dismissNotifyDialog(device.ui());
     await sleep(1000);

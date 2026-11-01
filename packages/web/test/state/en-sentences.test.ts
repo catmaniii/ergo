@@ -69,8 +69,8 @@ describe("英文下的浏览菜单、工具调用的完整内容", () => {
     const groups = browseMenu({ url: "", title: "", side: false, text: true, tools: true, sites: {}, ownOrigin: "" });
     const items = groups.flatMap((g) => g.items);
     expect(items.map((i) => i.label)).toEqual([
-      "Ask Ergo to summarize this page",
-      "Save to Ergo's materials",
+      "Ask ergo to summarize this page",
+      "Save to ergo's materials",
       "Find in page",
       "Text size",
       "Desktop site",

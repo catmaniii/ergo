@@ -20,6 +20,7 @@
   "protocol.activity.detail.idleExit": "闲置退出",
   "protocol.activity.turnFailed": "{name}这次没能回复：{reason}",
   "protocol.activity.turnFailedMark": "这次没能回复：",
+  "protocol.assistantName.default": "二狗",
   "protocol.assistantName.empty": "名字不能是空的",
   "protocol.assistantName.lineBreak": "名字里不能有换行",
   "protocol.assistantName.control": "名字里不能有控制字符（比如制表符）",

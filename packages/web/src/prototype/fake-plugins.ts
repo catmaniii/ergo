@@ -48,7 +48,7 @@ function about(name: string): Omit<PluginInfo, "state" | "needs" | "neededBy" | 
       title: say("手机", "Phone"),
       summary: say(
         "手机上的二狗 App 读本机：从通讯录挑人进档案候选，手机日历放进二狗的日历，照片的时间地点和位置按天整理成摘要进记忆",
-        "The Ergo app on your phone reads local data: pick contacts into profile suggestions, put the phone calendar into Ergo's calendar, and summarize photo times/places and locations into memory day by day",
+        "The ergo app on your phone reads local data: pick contacts into profile suggestions, put the phone calendar into ergo's calendar, and summarize photo times/places and locations into memory day by day",
       ),
       brings: { tools: [], cards: [], jobs: [] },
       removal: {
@@ -105,7 +105,7 @@ function about(name: string): Omit<PluginInfo, "state" | "needs" | "neededBy" | 
             "由它们整理出的素材：素材属于内核，要删请去 记忆 · 素材 的成批删除；或者移除之前先在 设置 · 数据源 里断开 Looki、选「连已导入的一起删」",
             'Materials made from them: materials belong to the core — to delete them, use bulk delete in Memory · Materials, or before removing, disconnect Looki in Settings · Data sources and choose "Delete what was imported too"',
           ),
-          say("聊天里查过 Looki 的那几轮（查到的时刻、二狗的回话）", "The chat turns that looked up Looki (the moments found, Ergo's replies)"),
+          say("聊天里查过 Looki 的那几轮（查到的时刻、二狗的回话）", "The chat turns that looked up Looki (the moments found, ergo's replies)"),
           backup,
         ],
       },
@@ -159,18 +159,18 @@ function about(name: string): Omit<PluginInfo, "state" | "needs" | "neededBy" | 
     return {
       name,
       title: say("语音", "Voice"),
-      summary: say("按住说话发语音、识别成文字；二狗用语音回复、发语音，设置里管参考音色", "Hold to talk and send voice messages, transcribed to text; Ergo replies and sends messages by voice; manage reference voices in Settings"),
+      summary: say("按住说话发语音、识别成文字；二狗用语音回复、发语音，设置里管参考音色", "Hold to talk and send voice messages, transcribed to text; ergo replies and sends messages by voice; manage reference voices in Settings"),
       brings: { tools: [say("口语总结", "Spoken summary"), say("发语音", "Send voice message")], cards: [], jobs: [] },
       removal: {
         deletes: [
           say("你发过的语音的录音", "Recordings of the voice messages you sent"),
-          say("二狗合成出的语音（音频文件）", "Voice messages Ergo synthesized (the audio files)"),
-          say("语音记录里的文字：识别出的文字、二狗念的原文（聊天里语音气泡的「转文字」）", 'Text in voice records: what was recognized and what Ergo read aloud ("To text" on voice bubbles in chats)'),
+          say("二狗合成出的语音（音频文件）", "Voice messages ergo synthesized (the audio files)"),
+          say("语音记录里的文字：识别出的文字、二狗念的原文（聊天里语音气泡的「转文字」）", 'Text in voice records: what was recognized and what ergo read aloud ("To text" on voice bubbles in chats)'),
           say("参考音色（设置 · 语音里导入的录音和逐字稿）", "Reference voices (the recordings and transcripts imported in Settings · Voice)"),
           say("待办里「语音识别不可用」「要合成语音，得先导入参考音色」这两种说明", 'Notes in the inbox like "Speech recognition unavailable" and "Import a reference voice to get voice replies"'),
         ],
         keeps: [
-          say("会话里转写成文字交给过二狗的那部分（二狗看到的语音转写、它的回话）：归会话，不删", "What reached Ergo as text in conversations (the transcripts Ergo saw and its replies): it belongs to the conversation and stays"),
+          say("会话里转写成文字交给过二狗的那部分（二狗看到的语音转写、它的回话）：归会话，不删", "What reached ergo as text in conversations (the transcripts ergo saw and its replies): it belongs to the conversation and stays"),
           say(
             "素材库里由语音转写成的素材：素材属于内核，要删请去 记忆 · 素材 的成批删除（记忆插件不在时是 设置 · 删除素材）",
             "Materials transcribed from voice: materials belong to the core — to delete them, use bulk delete in Memory · Materials (Settings · Delete materials when the Memory plugin is gone)",
@@ -183,11 +183,11 @@ function about(name: string): Omit<PluginInfo, "state" | "needs" | "neededBy" | 
   return {
     name,
     title: say("记忆", "Memory"),
-    summary: say("把你说过的话采成素材，记住、忘掉、彻底删除、别推断，二狗回答时检索记忆", "Turns what you've said into materials; remember, forget, purge and don't-infer commands; Ergo searches memory when answering"),
+    summary: say("把你说过的话采成素材，记住、忘掉、彻底删除、别推断，二狗回答时检索记忆", "Turns what you've said into materials; remember, forget, purge and don't-infer commands; ergo searches memory when answering"),
     brings: { tools: [say("检索素材", "Search materials"), say("读素材", "Read material")], cards: [say("记忆删除卡", "Memory deletion cards")], jobs: [] },
     removal: {
       deletes: [
-        say("你让二狗「记住」的话（记忆命令里的那段内容）", 'What you asked Ergo to "remember" (the text in those memory commands)'),
+        say("你让二狗「记住」的话（记忆命令里的那段内容）", 'What you asked ergo to "remember" (the text in those memory commands)'),
         say("建议卡、提问卡长期没处理的记录", "Records of suggestion and question cards left unhandled for a long time"),
         say("记忆删除卡的每个版本（聊天、待办里的）", "Every version of memory deletion cards (in chats and the inbox)"),
       ],

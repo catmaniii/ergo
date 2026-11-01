@@ -1,6 +1,6 @@
 {
   "styles.classic.name": "Classic",
-  "styles.classic.blurb": "Rounded cards, a choice of accent colors (blue by default): the way Ergo has always looked",
+  "styles.classic.blurb": "Rounded cards, a choice of accent colors (blue by default): the way ergo has always looked",
   "styles.classic.accent.blue": "Blue",
   "styles.classic.accent.indigo": "Indigo",
   "styles.classic.accent.teal": "Teal",

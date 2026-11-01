@@ -180,7 +180,7 @@ describe("英文也有，界面文字不出现秘书 / 待我处理", () => {
     expect(html).not.toMatch(/[　-〿一-鿿！-｠]/);
     expect(renderToStaticMarkup(createElement(ModelKeySaved, { result: result("now") }))).toContain("Configured");
     const restart = renderToStaticMarkup(createElement(ModelKeySaved, { result: result("restart") }));
-    expect(restart).toContain("after restarting Ergo");
+    expect(restart).toContain("after restarting ergo");
     expect(restart).toContain("ergo restart");
   });
 

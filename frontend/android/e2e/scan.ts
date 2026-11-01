@@ -116,7 +116,7 @@ try {
   console.log("地址页");
   await run.step("地址页最上面是扫码连接，手填在下面", async () => {
     const scan = await device.waitText("Scan to connect");
-    const heading = await device.waitText("Enter Ergo's address");
+    const heading = await device.waitText("Enter ergo's address");
     const input = device.ui().find((n) => n.className.includes("EditText"));
     expectTrue(scan.y < heading.y && input !== undefined && scan.y < input.y, "扫码按钮在手填上面");
     await sleep(800);
@@ -143,20 +143,20 @@ try {
     run.shot("android-scan-viewfinder");
     expectTrue(!device.appLog().includes("scan unavailable"), "相机开得起来");
     device.tap(cancel.x, cancel.y);
-    await device.waitText("Enter Ergo's address");
+    await device.waitText("Enter ergo's address");
   });
 
   console.log("报错");
   await run.step("扫到的不是地址：直接说，没有重试，有重新扫码", async () => {
     feedText("WIFI:S:home;T:WPA;P:secret;;");
-    await device.waitText("That isn't an Ergo address");
+    await device.waitText("That isn't an ergo address");
     await device.waitText("Scan again");
     expectTrue(!device.ui().some((n) => n.text === "Try again"), "不是地址的没有重试");
     run.shot("android-error-not-address");
   });
   await run.step("不是 https 的网址：一样说不是二狗地址", async () => {
     feedText("http://ergo.example.test/");
-    await device.waitText("That isn't an Ergo address");
+    await device.waitText("That isn't an ergo address");
   });
   // 这台电脑的网络可能把不存在的域名也解析出来（代理的 fake-ip）：关掉模拟器的网才是真的解析不了；adb reverse 不走它的网，不受影响
   device.shell("svc wifi disable; svc data disable");
@@ -164,7 +164,7 @@ try {
   await run.step("解析不了域名：说清原因，提醒检查；普通域名的提醒里电脑那条在前", async () => {
     feedText("https://ergo-nonexistent.invalid/");
     await device.waitText("This domain doesn't resolve", 20_000);
-    const computer = await device.waitText("Are Ergo and the service manager running");
+    const computer = await device.waitText("Are ergo and the service manager running");
     const tailnet = await device.waitText("Is Tailscale on for this phone");
     expectTrue(computer.y < tailnet.y, "普通域名：电脑那条在前");
     await device.waitText("Try again");
@@ -175,7 +175,7 @@ try {
     feedText("https://ergo.tail.nonexistent.invalid/");
     await device.waitText("ergo.tail.nonexistent.invalid");
     await device.waitText("This domain doesn't resolve", 20_000);
-    const computer = await device.waitText("Are Ergo and the service manager running");
+    const computer = await device.waitText("Are ergo and the service manager running");
     const tailnet = await device.waitText("Is Tailscale on for this phone");
     expectTrue(tailnet.y < computer.y, "tailnet 地址：tailnet 那条在前");
     run.shot("android-error-tailnet");
@@ -211,7 +211,7 @@ try {
   });
   await run.step("回的不是二狗：能打开，但不是二狗", async () => {
     feedText(`${site.origin}/`);
-    await device.waitText("what answered is not Ergo", 20_000);
+    await device.waitText("what answered is not ergo", 20_000);
     run.shot("android-error-not-ergo");
   });
   if (badCert) {
@@ -224,7 +224,7 @@ try {
   await run.step("连不上的时候没有进配对页：返回回到地址页，手填还在", async () => {
     const back = await device.waitText("Back");
     device.tap(back.x, back.y);
-    await device.waitText("Enter Ergo's address");
+    await device.waitText("Enter ergo's address");
     expectTrue(!savedAddress(), "连不上的地址没有记下来");
   });
 
@@ -273,14 +273,14 @@ try {
       await narrow.screenshot({ path: path.join(shotsDir, "web-qr-connected-390.png") });
     }
     const page = main!;
-    await page.waitFor("[...document.querySelectorAll('button')].some(b => /进入二狗|Enter Ergo/.test(b.textContent))", 20_000).catch(async (e: unknown) => {
+    await page.waitFor("[...document.querySelectorAll('button')].some(b => /进入二狗|Enter ergo/.test(b.textContent))", 20_000).catch(async (e: unknown) => {
       console.log(`        App 上的页面：${String(await page.eval("document.body.innerText")).replace(/\s+/g, " ").slice(0, 300)}`);
       throw e;
     });
-    await page.eval("[...document.querySelectorAll('button')].find(b => /进入二狗|Enter Ergo/.test(b.textContent)).click()");
+    await page.eval("[...document.querySelectorAll('button')].find(b => /进入二狗|Enter ergo/.test(b.textContent)).click()");
     await sleep(2500);
     run.shot("android-connected");
-    expectTrue(!device.ui().some((n) => n.text.includes("Enter Ergo's address")), "不在地址页");
+    expectTrue(!device.ui().some((n) => n.text.includes("Enter ergo's address")), "不在地址页");
   });
   // 配对之后 App 的原生字跟着二狗的语言（中文）
   await run.step("已连接的手机换地址：入口也能扫码，有取消", async () => {

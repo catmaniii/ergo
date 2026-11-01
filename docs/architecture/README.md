@@ -555,6 +555,7 @@ Gmail 可以连几个账号（`google/gmail-accounts.ts`）。密钥区 `secrets
 - **模块顶层不要调 `t()`**，也不要在模块顶层取 `tTable` 的值（那时可能还没装上语言）：写成函数、渲染时取。`memo` 了的组件、`useMemo` 里用了 `t()` 的，自己调 `useLocale()` 或把它放进依赖。
 - **给模型看的中文怎么排除**：标注要是那条注释开头的第一样东西——`// @i18n-ignore model：原因`（这一行）、`// @i18n-ignore-next model`、`// @i18n-ignore-start model` … `// @i18n-ignore-end`、文件开头的 `// @i18n-ignore-file model：……`、JSX 里 `{/* @i18n-ignore fixed */}`。原因只能是 `model`、`log`、`fixed`、`data`。直接写在 `log(…)`、`console.*(…)` 括号里的不用标。
 - **写死中文的棘轮**：`packages/daemon/test/i18n/hardcoded.test.ts` 数每个区域写死的中文（注释、测试、原型的演示数据不算），每个区域的基线都是 0——新写的给用户看的字一律走 `t()`。
+- **助理的默认名字跟语言走**：用户没起过名字时（`config/assistant-name.json` 和名字频道上都没有）名字是协议包的 `defaultAssistantName()`，取 `protocol.assistantName.default`（中文二狗、英文 ergo），现取、不存；起过的（哪怕就叫二狗）任何语言下原样。角色表里默认角色那份只是镜像，不算起名。
 - **检查**：`npm run i18n:check`（每种语言缺的、多的、插值参数对不上的句子，`~/.ergo/locales` 里读不进来的文件；自带的英文不全才以 1 退出）。做成自带的语言：译好的目录放进 `packages/protocol/locales/<语言代码>/`，文件名和 `zh-CN` 的一一对应。
 
 ### 用户自己加一种语言

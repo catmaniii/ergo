@@ -16,7 +16,7 @@ import { type BridgeLook, bridgeTexts, BUSY_KEY, bubbleView, nameTagColors, Page
 import { type CommandTarget, PageCommands, type PagePanel } from "../../src/plugins/browsing/page-commands.ts";
 import type { PageBubbleView } from "../../src/page-bridge/protocol.ts";
 import { BRIDGE_ASSISTANT_KEYS, BRIDGE_DEFAULT_NAME, NAME_TAG_CLASSIC, type PageBridgeTexts } from "../../src/page-bridge/texts.ts";
-import { activeLocaleFrom, type ButtonTurn, DEFAULT_ASSISTANT_NAME, DEFAULT_LANGUAGE, type PageField, setActiveLocale, t } from "../../src/state/index.ts";
+import { activeLocaleFrom, type ButtonTurn, defaultAssistantName, DEFAULT_LANGUAGE, type PageField, setActiveLocale, t } from "../../src/state/index.ts";
 import { BASE_STYLE, effectiveTokens, resolveColor, VISUAL_STYLES } from "../../src/visual-styles/index.ts";
 import { TEST_LOCALES } from "../setup-locales.ts";
 
@@ -246,14 +246,14 @@ describe("169 号票：跟着当前语言", () => {
   test("气泡上的字是英文；悬浮按钮出来、选中的框变了时把页面桥自己的那几句交过去（按钮收起时不交）", () => {
     setActiveLocale(activeLocaleFrom(TEST_LOCALES, "en"));
     expect(bubbleView({ kind: "bar", target: textTarget })).toEqual({ kind: "input", fieldId: "f1", label: "Talk to “标题”", placeholder: "e.g. Make the title “A weekend in Hangzhou”" });
-    expect(bubbleView({ kind: "busy", target: textTarget, said: "", note: "thinking" })).toMatchObject({ text: "二狗 is thinking…" });
+    expect(bubbleView({ kind: "busy", target: textTarget, said: "", note: "thinking" })).toMatchObject({ text: "ergo is thinking…" });
     expect(bubbleView({ kind: "chooser", chooser: { accept: ["image/*"], multiple: true, capture: false, fieldId: "" } })).toMatchObject({ text: "This page wants images (you can pick several)" });
     setup();
     sync.after({ type: "page", event: { type: "field", field: TITLE } });
     sync.after({ type: "page", event: { type: "field", field: null } });
     sync.after({ type: "page", event: { type: "selected", field: null, page: PAGE } });
     expect(page.sentTexts).toHaveLength(2);
-    expect(page.sentTexts[0]).toMatchObject({ "bridge.fab.label": "Ask 二狗: tap to type, hold to talk", "bridge.bubble.thinking": "二狗 is thinking…" });
+    expect(page.sentTexts[0]).toMatchObject({ "bridge.fab.label": "Ask ergo: tap to type, hold to talk", "bridge.bubble.thinking": "ergo is thinking…" });
     setActiveLocale(activeLocaleFrom(TEST_LOCALES, DEFAULT_LANGUAGE));
     sync.after({ type: "page", event: { type: "field", field: TITLE } });
     expect(page.sentTexts[2]).toMatchObject({ "bridge.fab.label": "让二狗帮忙：点一下打字，按住说话" });
@@ -305,7 +305,7 @@ describe("181 号票：助理的名字和名字标签", () => {
     for (const key of BRIDGE_ASSISTANT_KEYS) expect(t(key)).toContain("{name}");
     expect(bridgeTexts({ name: "Jo" })).toMatchObject({ "bridge.bubble.letErgoPick": "Let Jo pick", assistant: { name: "Jo", templates: { "bridge.bubble.letErgoPick": "Let {name} pick" } } });
     // 没给：默认的名字，不带颜色（页面桥用经典的）
-    expect(bridgeTexts().assistant).toMatchObject({ name: DEFAULT_ASSISTANT_NAME });
+    expect(bridgeTexts().assistant).toMatchObject({ name: "ergo" }); // 英文的默认名字（379 号票）
     expect(bridgeTexts().assistant?.tag).toBeUndefined();
   });
 
@@ -323,7 +323,7 @@ describe("181 号票：助理的名字和名字标签", () => {
     expect(nameTagColors("classic", "nope")).toEqual(nameTagColors("classic"));
     // 页面桥没交来时用的（打包在页面桥里，不引风格清单）和经典的、默认的名字一样
     expect(NAME_TAG_CLASSIC).toEqual(nameTagColors("classic"));
-    expect(BRIDGE_DEFAULT_NAME).toBe(DEFAULT_ASSISTANT_NAME);
+    expect(BRIDGE_DEFAULT_NAME).toBe(defaultAssistantName());
   });
 
   test("名字、风格、语言变了：页面桥装上过才重交那几句（一样的不交）；开着的气泡照新的名字、语言再交", () => {

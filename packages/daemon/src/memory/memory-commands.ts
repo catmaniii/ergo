@@ -2,9 +2,9 @@
 // - 记住（remember）：用户说"记住……"，内容作为"显式记忆命令"素材入库。"点明了"的判定：用户这条消息里（打的字或语音转写）
 //   有"记住"一类的触发词，前面没有否定词，而且提议的内容和触发词后面到句末的那一段（去掉标点和空白）一致；那一段只是"这个""这段"之类的指代时，
 //   内容要和用户的引用块或引用的卡片一致。点明了直接执行，秘书推断出来的一律先问。来源按内容从哪里来标（REMEMBER_SOURCES）。
-//   第一阶段不产出任何记忆；
+//   英文认一句话开头的 "Remember: …" "Remember that …"（379 号票，见 REMEMBER_EN）。第一阶段不产出任何记忆；
 // - 忘掉（forget）、彻底删除（purge）、别推断（no_infer）：秘书先用素材检索工具找出匹配的素材，再提议；
-//   总要过一张记忆删除卡由用户核对（可以去掉几条、换一种删法），确认后执行（deletion.ts）：
+//   总要过一张记忆删除卡由用户核对（可以去掉几条、换一种删法），确认后执行（deletion.ts）。没有触发词，所以也没有中英文之分：
 //   - 忘掉：素材及其原文副本从 materials.db 删除，聊天记录里仍看得到原话；
 //   - 彻底删除：再改写事件日志里的原始事件和带原话的记录，会话文件里的原文由秘书跟着改（purge.ts、messages_purged）；
 //   - 别推断：素材和索引保留，标上"不参与推断"。
@@ -37,8 +37,12 @@ import {
   commandTails,
   defineQuickAction,
   type ExplicitFinding,
+  isQuestion,
+  ownWords,
+  type OwnWordsSource,
   type QuickActionContext,
   type QuickActionExecutor,
+  sentencesWithPeriodOf,
   type UserTurn,
 } from "../quick-actions/index.ts";
 import { deletionEvents, memoryCommandEvent } from "./deletion.ts";
@@ -46,6 +50,32 @@ import type { PurgeDeps } from "./purge.ts";
 
 /** "记住"的触发词 */
 export const REMEMBER_TRIGGERS: readonly string[] = ["记住", "记下来", "记下", "记一下"]; // @i18n-ignore data：认用户中文原话里的触发词
+
+/** 英文的说法前面只许有这些：称呼、客气词 */
+const REMEMBER_LEAD_EN = "(?:(?:ergo|please|pls|kindly|(?:can|could|would|will) you)\\s*,?\\s*)*";
+/**
+ * 英文的"记住"（379 号票）：一句话开头（去掉句末标点之后）的 "Remember: …" "Remember that …" "Remember this: …"，
+ * 或者只有 "Remember" "Remember this" 这样的指代。不分大小写。不认正常句子里的："I remember that …"（不在句首）、
+ * "Remember to …" "Remember when …" "Remember, …"（要做的事、回忆、提醒对方）：这些秘书提议时照旧出卡问一句
+ */
+// @i18n-ignore-next data：认用户原话，字符类里有全角冒号
+const REMEMBER_EN = new RegExp(`^\\s*${REMEMBER_LEAD_EN}remember(?:\\s+(?:this|that|these|the following))?\\s*(?:[:：]|$)|^\\s*${REMEMBER_LEAD_EN}remember\\s+that\\b`, "i");
+/** 问句的样子其实是要你做 */
+const REMEMBER_POLITE_EN = /^\s*(?:ergo\s*,?\s*)?(?:please|pls|kindly|(?:can|could|would|will) you)\b/i;
+// @i18n-ignore-next data：认用户原话，字符类里有中文标点
+const SENTENCE_TAIL = /[。！？!?；;.\s]+$/u;
+
+/** 用户自己说的话里，英文的"记住"后面到句末的那一段（照 commandTails） */
+function englishRememberTails(turn: UserTurn): Array<{ text: string; source: OwnWordsSource }> {
+  return ownWords(turn).flatMap(({ text, source }) =>
+    sentencesWithPeriodOf(text).flatMap((sentence) => {
+      if (isQuestion(sentence) && !REMEMBER_POLITE_EN.test(sentence)) return [];
+      const body = sentence.replace(SENTENCE_TAIL, "");
+      const found = REMEMBER_EN.exec(body);
+      return found ? [{ text: body.slice(found[0].length), source }] : [];
+    }),
+  );
+}
 
 /** 忘掉、彻底删除、别推断在"提议快速动作"工具说明里的那一句（三种动作写同一句，说明里只出现一次） */
 const DELETION_HINT = "忘掉、彻底删除、别推断总要用户核对：先用 search_materials 找出匹配的素材，再把素材 id 放进 params.materialIds。"; // @i18n-ignore model：工具说明
@@ -65,7 +95,7 @@ export interface MemoryCommandsOptions extends PurgeDeps {
 export function rememberExplicit(content: string, turn: UserTurn): ExplicitFinding | undefined {
   const wanted = bareText(content);
   if (wanted === "") return undefined;
-  for (const tail of commandTails(turn, REMEMBER_TRIGGERS)) {
+  for (const tail of [...commandTails(turn, REMEMBER_TRIGGERS), ...englishRememberTails(turn)]) {
     const said = bareText(tail.text);
     if (said === wanted) return { source: tail.source };
     if (!DEICTIC.has(said)) continue;
@@ -98,8 +128,8 @@ export function memoryCommandExecutors(options: MemoryCommandsOptions): QuickAct
       return MEMORY_COMMAND_LABEL.remember;
     },
     // @i18n-ignore-start model：给秘书的用法和参数说明
-    usage: "用户说\"记住……\"",
-    params: Type.Object({ content: Type.String({ minLength: 1, description: "要记住的那句话：照抄用户说的原话（\"记住\"后面的那一段）" }) }, { additionalProperties: false }),
+    usage: "用户说\"记住……\"（英文 Remember: …、Remember that …）",
+    params: Type.Object({ content: Type.String({ minLength: 1, description: "要记住的那句话：照抄用户说的原话（\"记住\"、Remember that 后面的那一段）" }) }, { additionalProperties: false }),
     // @i18n-ignore-end
     // 记住只写素材库，不落入任何内置类别；但推断出来的不是用户的命令，一律先问
     watch: { categories: [] },

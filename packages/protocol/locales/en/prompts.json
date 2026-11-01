@@ -61,7 +61,7 @@
   "prompts.flag.conversationApprovals": "True when config guard.conversationApprovals is on (off by default)",
   "prompts.flag.triggered": "True when the task is scheduled (ticket 76: runs again and again on its schedule) or event-triggered (ticket 77: runs once for each awaited event)",
   "prompts.value.jobFailures": "How many failures in a row before a scheduled task pauses itself (config scheduledJobs.jobFailures)",
-  "prompts.value.assistantName": "The name you gave it (set in Settings)",
+  "prompts.value.assistantName": "The name you gave it (set in Settings; “ergo” by default)",
   "prompts.value.projectName": "The project's name",
   "prompts.value.projectId": "Project ID (p-<n>)",
   "prompts.value.projectGoal": "The project's one-sentence goal",

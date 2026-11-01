@@ -16,30 +16,32 @@
 //     后面几句里收回（"算了""不用了""没必要"）的也不算；
 //   - 问句不算（以问号结尾，或者以"吗""么""呢"收尾），客气的请求除外（"能帮我按流程做吗？"）。
 //   两种都说了的按流程（说得更具体）。宁可漏判（秘书最多给一张建议卡，用户点一下就建出），不要误判。
-// @i18n-ignore-file data：这里的说法认用户的中文输入；交回秘书的拒绝原因（launchRefusal、delegateRefusal）给模型看，照旧中文（172 号票）
+// - 英文（379 号票，英文界面教用户这样说）：判定走同一条路，不分大小写。流程："Follow a workflow: X""Follow this workflow: X"
+//   "Start a workflow: X"；长程任务："Start a task: X""Start a new task: X""Start a long-running task: X"。
+//   前面只许有 ergo、please、can / could / would / will you、just；后面除了冒号之后的事，只许跟逗号、to、for、on、about、with、and、
+//   then、now、please、first 或者什么都没有，别的（is、or、if、when、button……）一律不算，同一句里有否定、拿不定、问功能的词也不算。
+// @i18n-ignore-file data：这里的说法认用户的原话；交回秘书的拒绝原因（launchRefusal、delegateRefusal）给模型看，照旧中文（172 号票）
 import { forModel, type PlannedTaskKind, TASK_KIND_LABEL } from "@ergo/protocol";
-import { ownWords, type OwnWordsSource, type UserTurn } from "../quick-actions/index.ts";
+import { ownWords, type OwnWordsSource, sentencesWithPeriodOf, type UserTurn } from "../quick-actions/index.ts";
 import { commandAt, LAUNCH_COMMAND_ALIASES, LAUNCH_COMMANDS, launchCommandText } from "../slash-commands/commands.ts";
 
-/** 一句话（连同它结尾的标点）：句号、叹号、问号、分号、换行 */
-const SENTENCES = /[^。！？!?；;\n]+[。！？!?；;\n]?/g;
 /** 分句：逗号、顿号 */
 const CLAUSE = /[，,、]/;
 /** 问句的收尾（去掉结尾的标点和空白之后） */
 const QUESTION_ENDINGS = ["吗", "么", "呢", "没有", "嘛"];
 /** 客气的请求（问句的样子，其实是要你做）的说法 */
-const POLITE_REQUEST = /帮我|帮忙|给我|替我|麻烦|请|能不能|可不可以|能否|可否|行不行|好不好/;
+const POLITE_REQUEST = /帮我|帮忙|给我|替我|麻烦|请|能不能|可不可以|能否|可否|行不行|好不好|\bplease\b|\b(?:can|could|would|will) you\b/i;
 /** 商量的问句（还没定要不要做）：不算点明 */
 const DELIBERATION = /要不要|该不该|需不需要|是不是|有没有必要|用不用|是否|值不值得|还是/;
 
 /** 称呼 */
-const ADDRESS = "(?:二狗|狗子|你|您)";
+const ADDRESS = "(?:二狗|狗子|你|您|ergo)";
 /** 客气词 */
-const POLITE = "(?:请|麻烦|劳驾|拜托|帮个忙|(?:能不能|可不可以|能否|可否|能|可以)?\\s*(?:你|您)?\\s*(?:帮我|替我|给我|帮忙)|能不能|可不可以|能否|可否)";
+const POLITE = "(?:请|麻烦|劳驾|拜托|帮个忙|(?:能不能|可不可以|能否|可否|能|可以)?\\s*(?:你|您)?\\s*(?:帮我|替我|给我|帮忙)|能不能|可不可以|能否|可否|please|(?:can|could|would|will) you)";
 /** 原来就算点明的几个引子（"这件事作为流程来做吧""这次用流程做""不管怎样都按流程做""不如发起任务慢慢弄"） */
-const LEAD_IN = "(?:这件事|这事|这个|这次|这回|那就|就|直接|不管怎样|无论如何|反正|总之|不如|干脆)(?:都|也)?";
+const LEAD_IN = "(?:这件事|这事|这个|这次|这回|那就|就|直接|不管怎样|无论如何|反正|总之|不如|干脆|just)(?:都|也)?";
 /** 句首：说法前面只许有这些 */
-const LEAD = new RegExp(`^\\s*(?:(?:${ADDRESS}|${POLITE}|${LEAD_IN})\\s*[，,、]?\\s*)*`);
+const LEAD = new RegExp(`^\\s*(?:(?:${ADDRESS}|${POLITE}|${LEAD_IN})\\s*[，,、]?\\s*)*`, "i");
 
 /** 斜杠命令：打的字开头就是它（登记在二狗的斜杠命令表里，82 号票；这里照旧导出，别处不用改引用） */
 export { LAUNCH_COMMAND_ALIASES, LAUNCH_COMMANDS, launchCommandText };
@@ -56,13 +58,29 @@ const LONG_RUNNING_SAYINGS = [
   /^(?:发起|新建|建|开)\s*(?:一个|个)?\s*任务/,
 ];
 
+/** 英文说法的词尾：workflows、task-runner、workflow-like 都不算 */
+const WORD_END = "(?![\\w-])";
+/** 英文的说法（从句首起，不分大小写） */
+const WORKFLOW_SAYINGS_EN = [
+  new RegExp(`^follow\\s+(?:(?:a|the|this|that)\\s+)?workflow${WORD_END}`, "i"),
+  new RegExp(`^start\\s+(?:a\\s+)?(?:new\\s+)?workflow${WORD_END}`, "i"),
+];
+const LONG_RUNNING_SAYINGS_EN = [new RegExp(`^start\\s+(?:a\\s+)?(?:new\\s+)?(?:long[- ]running\\s+)?task${WORD_END}`, "i")];
+
 /** 说法后面紧跟着这些：说的是这件事本身，不是要做（"发起任务的时候""按流程做了""发起任务是要花钱的"） */
 const ABOUT_IT = /^\s*(?:的|了|过|是|时|会|还是|或)/;
+/**
+ * 英文说法后面只许接着这些，别的都是在说这件事本身（"Start a task is overkill""Start a task button""Start a task or …"）：
+ * 中文的宾语紧贴动词、只能排除，英文能这样挑（58 号票说的"黑名单补不完"）
+ */
+const GOES_ON_EN = /^\s*(?:$|[,，、.。!！;；]|[–—]|-\s|(?:to|for|on|about|with|and|then|now|please|first)\b)/i;
+/** 英文说法后面（同一句里）有这些就不算：否定、拿不定、条件、问功能 */
+const AFTER_REJECTS_EN = /n't\b|\b(?:or|not|no|cannot|never|without|instead|rather|but|if|when|whenever|whether|unless|how|what|why|which|where|overkill|pointless|useless|unnecessary)\b/i;
 /** 说法后面（同一句里）有这些就不算：否定、贬低、拿不定、问功能本身 */
 const AFTER_REJECTS =
   /还是|或者|不如|不用|不要|不必|不需要|不想|不行|不好|不了|不值|没必要|没用|没意思|没什么|用不着|犯不着|无需|无须|甭|算了|拉倒|作罢|免了|太|麻烦|费劲|多余|反而|的话|的时候|报错|出错|失败|有问题|有什么用|干嘛|何必|怎么|怎样|多久|多少|什么|哪|为什么|为啥|区别|意思|是否|会不会|能不能|要不要|好不好|行不行/;
 /** 后面几句里收回 */
-const TAKEN_BACK = /算了|不用了|不要了|不了|免了|拉倒|作罢|没必要|不必了/;
+const TAKEN_BACK = /算了|不用了|不要了|不了|免了|拉倒|作罢|没必要|不必了|\bnever\s?mind\b|\bno need\b|\bforget it\b|\bscratch that\b|\bcancel that\b|\bdon'?t bother\b|\bno thanks\b/i;
 /** 句末的语气词和标点：看说法后面的话时先去掉 */
 const TAIL = /[\s\p{P}\p{S}吗么呢吧啊呀哈嘛啦]+$/u;
 
@@ -81,16 +99,18 @@ function isQuestion(sentence: string): boolean {
 /** 问句里算不算点明：客气的请求算，商量的不算 */
 const politeRequest = (sentence: string) => POLITE_REQUEST.test(sentence) && !DELIBERATION.test(sentence);
 
-/** 一段话（句首或分句首）去掉称呼、客气词、引子之后，开头是不是发起的说法：是哪种、说法后面剩下的话 */
-function sayingAt(text: string): { kind: PlannedTaskKind; after: string } | undefined {
+/** 一段话（句首或分句首）去掉称呼、客气词、引子之后，开头是不是发起的说法：是哪种、说法后面剩下的话、是不是英文的说法 */
+function sayingAt(text: string): { kind: PlannedTaskKind; after: string; english: boolean } | undefined {
   const rest = text.slice(LEAD.exec(text)?.[0].length ?? 0);
-  for (const [kind, sayings] of [
-    ["workflow", WORKFLOW_SAYINGS],
-    ["long_running", LONG_RUNNING_SAYINGS],
+  for (const [kind, sayings, english] of [
+    ["workflow", WORKFLOW_SAYINGS, false],
+    ["workflow", WORKFLOW_SAYINGS_EN, true],
+    ["long_running", LONG_RUNNING_SAYINGS, false],
+    ["long_running", LONG_RUNNING_SAYINGS_EN, true],
   ] as const) {
     for (const saying of sayings) {
       const found = saying.exec(rest);
-      if (found) return { kind, after: rest.slice(found[0].length) };
+      if (found) return { kind, after: rest.slice(found[0].length), english };
     }
   }
   return undefined;
@@ -103,9 +123,9 @@ function launchIn(sentence: string): PlannedTaskKind | undefined {
   if (!found) return undefined;
   // 冒号之后是要做的事
   if (/^\s*[：:]/.test(found.after)) return found.kind;
-  if (ABOUT_IT.test(found.after)) return undefined;
+  if (found.english ? !GOES_ON_EN.test(found.after) : ABOUT_IT.test(found.after)) return undefined;
   const after = found.after.replace(TAIL, "");
-  if (AFTER_REJECTS.test(after)) return undefined;
+  if ((found.english ? AFTER_REJECTS_EN : AFTER_REJECTS).test(after)) return undefined;
   // 两种都说了的按流程："发起任务，按流程做"
   const more = after.split(CLAUSE).slice(1).some((clause) => sayingAt(clause)?.kind === "workflow");
   return more ? "workflow" : found.kind;
@@ -113,7 +133,7 @@ function launchIn(sentence: string): PlannedTaskKind | undefined {
 
 /** 这段话里点明了哪种：一句一句看，后面几句里收回的不算；两种都点明了的按流程 */
 function launchInText(text: string): PlannedTaskKind | undefined {
-  const sentences = text.match(SENTENCES) ?? [];
+  const sentences = sentencesWithPeriodOf(text);
   let kind: PlannedTaskKind | undefined;
   sentences.forEach((sentence, i) => {
     const found = launchIn(sentence);
@@ -154,7 +174,7 @@ function launchRefusalText(turn: UserTurn, wanted: PlannedTaskKind, tools: Reado
     return `用户这一轮点明的是${TASK_KIND_LABEL[intent.kind]}，不是${TASK_KIND_LABEL[wanted]}：用 ${tools[intent.kind]} 发起。（只说“发起任务”没说种类的按长程任务。）`;
   }
   return (
-    `用户这一轮没有点明要发起任务（一句话开头就是“按流程做：……”“发起一个流程：……”“发起任务：……”“建个长程任务……”这类祈使的说法，或者输入 ${launchCommandText("workflow")}、${launchCommandText("long_running")}），不能建任务。` +
+    `用户这一轮没有点明要发起任务（一句话开头就是“按流程做：……”“发起一个流程：……”“发起任务：……”“建个长程任务……”“Follow a workflow: …”“Start a task: …”这类祈使的说法，或者输入 ${launchCommandText("workflow")}、${launchCommandText("long_running")}），不能建任务。` +
     `按普通对话处理：能直接回答的直接回答；你觉得该发起任务时，最多用 ${tools.suggest} 给一张“建议发起任务”卡，用户点卡上的“作为流程”或“作为长程任务”才建出。`
   );
 }

@@ -2,14 +2,22 @@
 // 原来是"个人助理"，已经存下的名字照旧用、不迁移），设置里改，各设备一样。
 // 不引用 TypeBox（事件负载、配置文件、HTTP 请求体的 schema 在 assistant-name-schema.ts），Web 的状态层直接用这里的。
 //
+// 默认名跟当前语言走（379 号票）：中文"二狗"，英文 ergo。只有从没起过名的才跟（配置文件和名字频道上都没有名字），
+// 存下的名字（哪怕就叫二狗）是用户的，任何语言下原样。名字是现取的，所以换了语言不写配置、不推名字事件。
+//
 // 名字占位：守护进程生成、在界面上显示的话里要提到秘书的（会话里的系统说明、待我处理事项的来源和说明、卡片上的说明……），
 // 不把名字写死进事件，而是写 ASSISTANT_NAME_MARK；前端按当前的名字显示（带底色的小标签），所以改名后旧的也跟着变。
 // 交给 agent 的话里一律换成领域术语"秘书"（守护进程在宿主协议的出口换，runtime/agent-process.ts），模型看不到占位。
 // 43 号票之前存下的事件里写死的旧说法，前端显示时按 LEGACY_WORDING 换成现在的说法（currentWording）。
 import { t } from "./i18n/runtime.ts";
 
-/** 默认的名字（也是"恢复默认"之后的名字） */
-export const DEFAULT_ASSISTANT_NAME = "二狗"; // @i18n-ignore fixed：用户起的名字不翻
+/**
+ * 没起过名时的名字，按当前语言现取（379 号票）。模块顶层别调，那时可能还没装上语言；要它的地方都写成取值的时候才调。
+ * 用户自己加的语言没翻这一句时和别的句子一样退回中文的
+ */
+export function defaultAssistantName(): string {
+  return t("protocol.assistantName.default");
+}
 
 /** 名字最多几个字（按 Unicode 码点数：一个汉字、一个字母、一个 emoji 都算一个） */
 export const ASSISTANT_NAME_MAX = 8;

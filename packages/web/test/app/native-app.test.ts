@@ -596,7 +596,7 @@ describe("App 原生的字跟着二狗的语言（175 号票）", () => {
     try {
       const en = appTexts();
       expect(en.language).toBe("en");
-      expect(en.texts["harmony.address.heading"]).toBe("Enter Ergo's address");
+      expect(en.texts["harmony.address.heading"]).toBe("Enter ergo's address");
       expect(Object.keys(en.texts).toSorted()).toEqual(Object.keys(zh.texts).toSorted());
       expect(Object.values(en.texts).some((v) => /[一-鿿]/.test(v))).toBe(false);
     } finally {

@@ -140,6 +140,12 @@ describe("写成话", () => {
     expect(agentLabelText(state, "secretary")).toBe("阿福");
     expect(agentLabelText(state, "nobody")).toBe("nobody");
   });
+
+  // 379 号票：名字频道上没有事件（没起过名）时，"谁在用"里的秘书是默认的名字，不是一段空白
+  test("没起过名：秘书的叫法是默认的名字", () => {
+    const state = replay([withRoles(view({ agents: [{ agentId: "secretary", kind: "secretary", label: ASSISTANT_NAME_MARK, identity: identity() }] }))]);
+    expect(agentLabelText(state, "secretary")).toBe("二狗");
+  });
 });
 
 describe("改角色名字边打边查", () => {

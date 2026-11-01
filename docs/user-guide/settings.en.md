@@ -55,7 +55,7 @@ See [Memory](memory.en.md) for more.
 
 ### Roles & voices
 
-**What it is:** A name and a voice bound into a role; pick one for each agent. The assistant's name is changed here too: it's the default role's name.
+**What it is:** A name and a voice bound into a role; pick one for each agent. The assistant's name is changed here too: it's the default role's name. Until you name it, the name follows the interface language: ergo in English, 二狗 in Chinese. Once you've named it, it stays the same in every language.
 
 See [Voice](voice.en.md) for more.
 
@@ -494,7 +494,7 @@ After restoring:
 - Writing to the sync folder counts as success. Whether the cloud drive client has finished uploading, ergo doesn't know and doesn't wait.
 - When a backup fails there's a "Backup failed" item in the Inbox saying why; click "Retry" to try again right away. The local snapshot is kept regardless.
 - The log is at `logs\backup.log` in the data folder.
-- If you run from source, or your data folder isn't the default, the commands differ. Follow what "How to restore" on the page says; it's worked out for your install. If you run from source, you can also see the [development docs](../architecture/development.en.md#common-commands).
+- If you run from source, or your data folder isn't the default, the commands differ. Follow what "How to restore" on the page says; it's worked out for your install. If you run from source, you can also see the [development docs](../architecture/development.en.md#backup-and-restore).
 
 ### Device pairing
 
@@ -530,7 +530,7 @@ See [On your phone](mobile.en.md) for more.
 - Something the service manager doesn't know about, such as running `tailscale serve` by hand, counts as fine once a phone has paired.
 - An entry connected to local port 8810 counts as unhealthy for this check. Port 8810 automatically trusts local requests and must never be connected to the outside.
 
-### About Ergo
+### About ergo
 
 **What it is:** The version and changelog. Copy the version from here when reporting a problem.
 
@@ -540,7 +540,7 @@ See [On your phone](mobile.en.md) for more.
 
 **What it is:** For troubleshooting. Normally hidden.
 
-**How to open it:** In About Ergo, tap the version number 8 times in a row, with no more than 2 seconds between taps. From the 4th tap, a note at the bottom says how many remain. Once open, a new item appears at the bottom of the Settings list, valid for 1 hour; refreshing the page or reopening the app makes it go away. "Close now" closes it right away.
+**How to open it:** In About ergo, tap the version number 8 times in a row, with no more than 2 seconds between taps. From the 4th tap, a note at the bottom says how many remain. Once open, a new item appears at the bottom of the Settings list, valid for 1 hour; refreshing the page or reopening the app makes it go away. "Close now" closes it right away.
 
 **What's in it:** System notifications, version & environment, connection, voice, logs & local storage. When someone's helping you look into a problem, click "Copy all" to send them the version and environment.
 
@@ -569,6 +569,8 @@ See [On your phone](mobile.en.md) for more.
 - To see just one task: "⋯" · "Usage" in the task details. Plain tasks don't have this.
 
 ## Service manager
+
+This page only comes in Chinese for now, so the button names below are written as they appear on the page, with the English meaning in brackets.
 
 **What it is:** A small, stable watchdog process that runs separately from ergo. It brings ergo up at boot, brings it back if it's killed, and also hosts the speech service and services that projects build.
 

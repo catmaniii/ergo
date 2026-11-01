@@ -222,7 +222,7 @@ describe("App 原生的字（175 号票）", () => {
     const texts = harmonyTexts(LOCALES_DIR);
     expect(Object.keys(texts)).toEqual(expect.arrayContaining(["zh-CN", "en"]));
     expect(texts["zh-CN"]!["harmony.address.heading"]).toBe("填二狗的地址");
-    expect(texts.en!["harmony.address.heading"]).toBe("Enter Ergo's address");
+    expect(texts.en!["harmony.address.heading"]).toBe("Enter ergo's address");
     expect(Object.keys(texts.en!).toSorted()).toEqual(Object.keys(texts["zh-CN"]!).toSorted());
     for (const messages of Object.values(texts)) expect(Object.keys(messages).every((k) => k.startsWith("harmony."))).toBe(true);
   });

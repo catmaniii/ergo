@@ -12,7 +12,7 @@
   "materials.modelMissing.title": "The embedding model for semantic search isn't downloaded yet",
   "materials.modelMissing.body": "Materials are still saved and searchable by keyword; semantic search needs the model files. {hint}",
   "materials.modelMissing.source": "System",
-  "materials.modelMissing.hint": "The bge-m3 model files go in {dir}. Install \"Embedding model bge-m3\" under Settings · Components (about 570 MB; the fastest download source is picked automatically and interrupted downloads resume), or run this in Ergo's repository folder: {command}. No restart needed afterwards: the daemon fills in the vectors within a few minutes.",
+  "materials.modelMissing.hint": "The bge-m3 model files go in {dir}. Install \"Embedding model bge-m3\" under Settings · Components (about 560 MB; the fastest download source is picked automatically and interrupted downloads resume), or run this in ergo's repository folder: {command}. No restart needed afterwards: the daemon fills in the vectors within a few minutes.",
   "materials.kind.userUtterance": "What you said",
   "materials.kind.outputReaction": "Your reaction to output",
   "materials.kind.approvalDecision": "Approval decision",

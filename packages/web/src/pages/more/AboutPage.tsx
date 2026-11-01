@@ -96,10 +96,10 @@ export function AboutPage({ onDebug }: { onDebug(): void }) {
       <div className="about-head">
         <img className="about-icon" src={ergoIcon} alt="" width={72} height={72} />
         <div className="about-name">
-          {/* 英文时产品名本身就是 Ergo，不再并排写一遍 */}
-          {productName === "Ergo" ? productName : (
+          {/* 英文时产品名本身就是 ergo，不再并排写一遍 */}
+          {productName === "ergo" ? productName : (
             <>
-              {productName} <span className="about-name-en">Ergo</span>
+              {productName} <span className="about-name-en">ergo</span>
             </>
           )}
         </div>

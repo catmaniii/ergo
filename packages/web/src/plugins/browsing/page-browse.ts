@@ -26,7 +26,7 @@ import {
   browsePicksOf,
   buttonTurnOf,
   CHANNELS,
-  DEFAULT_ASSISTANT_NAME,
+  defaultAssistantName,
   desktopUserAgent,
   localeRevision,
   type PageCommandFile,
@@ -262,8 +262,9 @@ function pageStage(browser: NativeBrowser, http: Pick<DaemonHttp, "pageFileBytes
 
 /** 气泡那一层（181 号票：名字、语言、风格变了告诉它） */
 let bubbleSync: PageBubbleSync | undefined;
-/** 助理现在的名字（usePageButtonSync 照 store 改） */
-let assistantName = DEFAULT_ASSISTANT_NAME;
+/** 助理现在的名字（usePageButtonSync 照 store 改）；还没改过是 undefined，取的时候按当前语言取默认的（模块顶层还没装上语言） */
+let assistantName: string | undefined;
+const assistantNameNow = () => assistantName ?? defaultAssistantName();
 /** 名字标签现在的颜色（usePageButtonSync 照视觉风格改；还没算是 undefined，页面桥用经典的） */
 let tagColors: NameTagColors | undefined;
 /** 上次告诉气泡那一层时的名字和语言 */
@@ -272,7 +273,7 @@ let lookKey = "";
 /** 语音插件在不在（214 号票；setPageVoiceAvailable 照输入框的语音插槽改）：不在时悬浮按钮只能打字 */
 let voiceAvailable = true;
 
-const pageLook = (): BridgeLook => ({ name: assistantName, ...(tagColors ? { tag: tagColors } : {}), ...(voiceAvailable ? {} : { typeOnly: true }) });
+const pageLook = (): BridgeLook => ({ name: assistantNameNow(), ...(tagColors ? { tag: tagColors } : {}), ...(voiceAvailable ? {} : { typeOnly: true }) });
 
 /**
  * 语音插件在不在（212、214 号票：浏览插件挂在主框架里的那一个看输入框的语音插槽有没有东西，变了调这里）：不在时悬浮按钮长按不录、
@@ -396,7 +397,7 @@ export function connectBrowseSide(connection: Pick<Connection, "browserStatus" |
     thumbnail: (file: PageCommandFile) => thumbnailOf(http.pageFileThumbUrl(file.token)),
     currentUrl: () => (watch?.state() ?? BLANK_BROWSER).url || undefined,
     now: () => Date.now(),
-    assistantName: () => assistantName,
+    assistantName: assistantNameNow,
   });
   browser.subscribe((event) => pickSync.handle(event));
   pick = pickSync;

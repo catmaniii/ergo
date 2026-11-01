@@ -138,6 +138,105 @@ describe("用户点明了哪种任务", () => {
   });
 });
 
+// 379 号票：英文界面教用户说 "Follow a workflow: …" "Start a task: …"（pages.projects.internalEmpty），走和中文一样的判定：
+// 一句话开头、祈使、不分大小写，宁可漏判
+describe("英文的说法", () => {
+  it.each([
+    ["Follow a workflow: sort the downloads folder", "workflow"],
+    ["follow a workflow: sort the downloads folder", "workflow"],
+    ["FOLLOW A WORKFLOW: sort the downloads folder", "workflow"],
+    ["Follow a workflow：sort the downloads folder", "workflow"],
+    ["Follow a workflow", "workflow"],
+    ["Follow a workflow.", "workflow"],
+    ["Follow a workflow to sort the downloads folder", "workflow"],
+    ["Follow this workflow: back up first, then clean", "workflow"],
+    ["Start a workflow: sort the downloads folder", "workflow"],
+    ["start a new workflow to sort the downloads folder", "workflow"],
+    ["Start a task: research home NAS", "long_running"],
+    ["start a task: research home NAS", "long_running"],
+    ["START A TASK: research home NAS", "long_running"],
+    ["Start a task", "long_running"],
+    ["Start a task to research home NAS", "long_running"],
+    ["Start a new task: research home NAS", "long_running"],
+    ["Start a long-running task: research home NAS", "long_running"],
+    // 称呼、客气词：和中文一样可以在前面
+    ["Please follow a workflow: sort the downloads folder", "workflow"],
+    ["ergo, start a task: research home NAS", "long_running"],
+    ["Ergo, please start a task: research home NAS", "long_running"],
+    // 客气的请求：问句的样子，其实是要你做
+    ["Can you start a task to research home NAS?", "long_running"],
+    ["Could you please follow a workflow for this?", "workflow"],
+    // 前面先说一句：句号也分句（版本号、网址里的点不算）
+    ["The downloads folder is a mess. Follow a workflow: sort it by type", "workflow"],
+    ["Downloads v1.2 is a mess! Start a task: tidy it up", "long_running"],
+    // 两种都说了：按流程
+    ["Start a task, follow a workflow", "workflow"],
+    // 冒号之后是要做的事，不再看
+    ["Start a task: find out why not all files sync, or what's wrong", "long_running"],
+  ] as const)("%s → %s", (text, kind) => {
+    expect(kindOf(typed(text))).toBe(kind);
+  });
+
+  it.each([
+    // 不在句首：叙述、转述、否定、条件、问功能
+    "Don't follow a workflow",
+    "Do not start a task",
+    "I started a task yesterday",
+    "I want to start a task sometime",
+    "We should follow a workflow here",
+    "My boss said start a task",
+    "How do I start a task?",
+    "If you follow a workflow it takes longer",
+    "The docs say: start a task",
+    // 句首是说法，但后面不是要做：问句、拿不定、否定、贬低、说的是这件事本身
+    "Start a task?",
+    "Follow a workflow?",
+    "Start a task or just answer me",
+    "Follow a workflow or not",
+    "Start a task if you think it helps",
+    "Start a task when you have time",
+    "Start a task is overkill",
+    "Follow a workflow is too slow",
+    "Start a task button is broken",
+    "Follow a workflow diagram",
+    "Follow a workflow-like approach",
+    "Start a task, no wait, don't",
+    "Start a task. Never mind",
+    "Follow a workflow. Actually, no need",
+    "Start a tasks list",
+    "Follow a workflows page",
+    // 只说了别的词
+    "Follow the instructions",
+    "Start the task board",
+    "Start a timer",
+    "Follow a recipe: make pancakes",
+    // 问能不能，不是要你做
+    "Can I start a task?",
+    "Should I follow a workflow?",
+    "Can you start a task or not?",
+  ])("没点明：%s", (text) => {
+    expect(kindOf(typed(text))).toBeUndefined();
+  });
+
+  it("语音转写一样算；引用块和引用的卡片里的不算", () => {
+    expect(launchIntent({ typed: [], spoken: ["start a task to research home NAS"], quotes: [], cards: [] })).toEqual({ kind: "long_running", source: "voice" });
+    expect(launchIntent({ typed: ["look at this"], spoken: [], quotes: ["Start a task: research home NAS"], cards: [["Follow a workflow"]] })).toBeUndefined();
+  });
+
+  it("交回秘书的话里写明英文说法也算；种类对不上照样说清用哪个工具", () => {
+    expect(launchRefusal(typed("Start a task: research NAS"), "long_running", TOOLS)).toBeUndefined();
+    expect(launchRefusal(typed("Start a task: research NAS"), "workflow", TOOLS)).toMatch(/点明的是长程任务.*create_task/);
+    expect(launchRefusal(typed("research NAS for me"), "long_running", TOOLS)).toContain("Start a task: …");
+    expect(launchRefusal(typed("research NAS for me"), "long_running", TOOLS)).toContain("Follow a workflow: …");
+  });
+
+  it("加了英文以后中文的判定没变：句点只在后面是空白或结尾时分句，中文句子里夹英文的照旧", () => {
+    expect(kindOf(typed("开个长程任务调研 NAS or DAS"))).toBe("long_running");
+    expect(kindOf(typed("按流程做. 算了"))).toBeUndefined();
+    expect(kindOf(typed("Follow a workflow，按类型整理"))).toBe("workflow");
+  });
+});
+
 describe("秘书要发起的种类对不上时交回的原因", () => {
   it("点明的种类和要建的一样：可以建", () => {
     expect(launchRefusal(typed("发起任务：调研 NAS"), "long_running", TOOLS)).toBeUndefined();

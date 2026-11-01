@@ -1238,13 +1238,17 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       const empty: string[] = [];
       // 365 号票：英文界面叫 owner，一个 maintainer 都不能露出来（impl.type 的写法只在出错时的提示里，这些页上没有）
       const oldNames: string[] = [];
+      // 379 号票：原型没起过名，英文下名字标签一律是默认的 ergo，不是二狗（下面查中文时名字标签是除外的，得单独看）
+      const names = new Set<string>();
       for (const hash of PAGES) {
         await page.evaluate(`window.location.hash = ${JSON.stringify(hash)}`);
         await page.waitForTimeout(150);
         const shown = await bodyText(page);
         if (shown === "") empty.push(hash);
         for (const hit of shown.matchAll(/.{0,30}maintainer.{0,30}/gi)) oldNames.push(`${hash}：${hit[0]}`);
+        for (const tag of (await page.evaluate(`Array.from(document.querySelectorAll(".assistant-name"), (el) => el.textContent)`)) as string[]) names.add(tag);
       }
+      expect([...names]).toEqual(["ergo"]);
       const leaks: string[] = [];
       for (const { hash, selector, except, wideOnly } of EN_DONE) {
         if (wideOnly && viewport.width < 900) continue;
@@ -1271,6 +1275,9 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     await page.evaluate(`window.location.hash = "#/more/language"`);
     await page.waitForSelector(".language-list");
     expect(await page.innerText("nav")).toContain("秘书");
+    // 379 号票：没起过名时默认名跟语言走，开着的页面不刷新也跟着换（取回的角色表里那份要重取，不然停在旧语言）
+    const nameTag = () => page.innerText(".language-page .assistant-name");
+    expect(await nameTag()).toBe("二狗");
     // 中文时竖栏和原来一样宽（经典：两个字 11px × 2 + 21px），英文时按最长的那项名字加宽
     const railWidth = async () => (await page.evaluate(`document.querySelector("nav.siderail").getBoundingClientRect().width`)) as number;
     expect(await railWidth()).toBe(43);
@@ -1282,11 +1289,13 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     expect(CJK.test(nav)).toBe(false);
     expect(await railWidth()).toBeGreaterThan(55);
     expect(await page.innerText(".pane-list")).toContain("Settings");
+    expect(await nameTag()).toBe("ergo");
     await page.click('.language-list [role="radio"]:has-text("中文")');
     await page.waitForFunction(`document.documentElement.lang === "zh-CN"`);
     await page.waitForTimeout(200);
     expect(await page.innerText("nav")).toContain("秘书");
     expect(await railWidth()).toBe(43);
+    expect(await nameTag()).toBe("二狗");
     await page.close();
     expect(errors).toEqual([]);
   }, 30_000);

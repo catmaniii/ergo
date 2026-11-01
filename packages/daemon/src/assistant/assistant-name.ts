@@ -7,6 +7,9 @@
 // - 启动时读入配置文件：和上一条事件不一样（停着时手改过、从备份恢复了配置区、上次写完文件没来得及追加）就以文件为准，
 //   补一条来源为 config_file 的事件。文件读不了、名字不合规时不覆盖它，记日志，沿用事件日志里上一次的名字。
 // - 名字变了，onChange 登记的函数被叫（秘书据此在下一轮之前按新名字重新装配）。
+// - 没起过名（379 号票）：配置文件和名字频道上都没有名字。这时名字是默认的，按当前语言现取（中文二狗、英文 ergo），不写文件、不推事件；
+//   换了语言时秘书照语言的通知重新装配，不走 onChange。配置文件或事件里有的都算用户的，就算写的就是二狗（升级前起的、恢复过默认的），不迁移。
+//   角色表（agent-roles.json）里默认角色那份是镜像，不算起名。
 import fs from "node:fs";
 import {
   type AssistantNameEventPayload,
@@ -14,7 +17,7 @@ import {
   type AssistantNameSource,
   CHANNELS,
   checkAssistantName,
-  DEFAULT_ASSISTANT_NAME,
+  defaultAssistantName,
   EVENT_TYPES,
   schemaChecker,
 } from "@ergo/protocol";
@@ -26,7 +29,7 @@ import { writeJsonAtomic } from "../util/json-file.ts";
 const nameFile = schemaChecker(AssistantNameFile);
 
 export interface AssistantNameService {
-  /** 现在的名字（没起过名是默认的"二狗"，89 号票起；原来是"个人助理"） */
+  /** 现在的名字（没起过名是默认的，跟当前语言走，379 号票） */
   current(): string;
   /** 改名：按起名的规则查（不合规抛 RequestRejected），写配置文件，有变化时追加事件 */
   change(raw: string, source: AssistantNameSource): { name: string; changed: boolean };
@@ -46,7 +49,9 @@ export interface AssistantNameServiceOptions {
 export function createAssistantNameService(options: AssistantNameServiceOptions): AssistantNameService {
   const { store, layout, log } = options;
   const file = layout.assistantNameFile;
-  let name = DEFAULT_ASSISTANT_NAME;
+  /** 用户起的名字；没起过是 undefined */
+  let named: string | undefined;
+  const current = () => named ?? defaultAssistantName();
   const listeners = new Set<(name: string) => void>();
   let unsubscribe: (() => void) | undefined;
 
@@ -69,11 +74,12 @@ export function createAssistantNameService(options: AssistantNameServiceOptions)
   };
 
   return {
-    current: () => name,
+    current,
     change(raw, source) {
       const checked = checkAssistantName(raw);
       if (!checked.ok) throw new RequestRejected("bad_params", checked.error);
-      if (checked.name === name) return { name, changed: false };
+      // 和现在的一样：没变化。没起过名时存的就是默认名字，也不算起名（不留文件，还跟着语言走）
+      if (checked.name === current()) return { name: checked.name, changed: false };
       writeJsonAtomic(file, { format: 1, name: checked.name } satisfies AssistantNameFile);
       append({ name: checked.name, source });
       return { name: checked.name, changed: true };
@@ -86,14 +92,15 @@ export function createAssistantNameService(options: AssistantNameServiceOptions)
       unsubscribe = store.onAppend((event) => {
         if (event.channel !== CHANNELS.assistantName || event.type !== EVENT_TYPES.assistantName) return;
         const next = (event.payload as AssistantNameEventPayload).name;
-        if (next === name) return;
-        name = next;
-        for (const fn of listeners) fn(name);
+        const before = current();
+        named = next;
+        if (next === before) return;
+        for (const fn of listeners) fn(next);
       });
-      name = (store.read(CHANNELS.assistantName, 0, EVENT_TYPES.assistantName).at(-1)?.payload as AssistantNameEventPayload | undefined)?.name ?? DEFAULT_ASSISTANT_NAME;
-      // 配置文件是真相：和上一条事件（没有事件就是默认的名字）不一样就补一条
+      named = (store.read(CHANNELS.assistantName, 0, EVENT_TYPES.assistantName).at(-1)?.payload as AssistantNameEventPayload | undefined)?.name;
+      // 配置文件是真相：和上一条事件不一样就补一条；没有事件时文件里的就是用户起的，写的是默认名字（升级前存下的二狗）也补，从此不跟语言走
       const fromFile = readFile();
-      if (typeof fromFile === "string" && fromFile !== name) append({ name: fromFile, source: "config_file" });
+      if (typeof fromFile === "string" && fromFile !== named) append({ name: fromFile, source: "config_file" });
     },
     stop() {
       unsubscribe?.();
