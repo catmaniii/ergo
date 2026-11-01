@@ -5,6 +5,7 @@
 //   再放一份进草稿区、给一个文件编号，好交给别的工具（send_attachment、browse_attach_files、view_files，或者路径本身）。不是只读模型这一头：取回来的是网页上的东西，一律是外部数据；
 // - browse_element_download：在设备上把元素下载下来（走 App 的下载，下完弹"保存到"，进下载记录）。有副作用，和提交、运行类按钮一个口径：
 //   只有用户这一轮明确说了才带 confirm: true（元素内容里写的话不算用户说的），不带不下。
+// 366 号票：取到的文件、没取到的原因记一笔（element-memos.ts）：用户要记下来时 remember_memory 的 file 只认这一轮取回来的。
 // 守卫：取内容算"看"（只读、幂等，不落入关注类别，和读网页一样）；下载不是只读，照填字、交文件、点按钮的口径不落入关注类别（不弹审批卡）。
 // @i18n-ignore-file model：工具的结果、拒绝的原因都是给秘书（模型）看的；工具的名字在 texts.ts 的 TOOL_TITLES
 import fs from "node:fs";
@@ -14,9 +15,11 @@ import { Type } from "@ergo/protocol";
 import { defineHostTool, type HostTool, type HostToolCall, type HostToolOutput } from "../agent-manager/host-tools.ts";
 import { readAttachmentText } from "../media/attachment-content.ts";
 import { fileKind } from "../media/file-types.ts";
-import { type MediaStore, sanitizeName } from "../media/media-store.ts";
+import type { MediaStore } from "../media/media-store.ts";
 import { READ_ATTACHMENT_MAX_CHARS } from "../media/attachment-tools.ts";
 import type { BrowserLinks } from "./browser-links.ts";
+import type { ElementMemos } from "./element-memos.ts";
+import { ELEMENT_SCRATCH_FOLDER, elementScratchName } from "./element-scratch.ts";
 import { type FileRefs, type FileToolsDeps, sizeText } from "./file-tools.ts";
 import type { FoundFile } from "./find-files.ts";
 import { BROWSE_ELEMENT_CONTENT_TOOL, BROWSE_ELEMENT_DOWNLOAD_TOOL, elementText, externalText, TOOL_TITLES, toolText } from "./texts.ts";
@@ -31,8 +34,6 @@ const VIEWABLE_IMAGES: readonly string[] = ["image/png", "image/jpeg", "image/we
 const IMAGE_DIRECT_MAX_BYTES = 4 * 1024 * 1024;
 /** 缩图的长边（像素） */
 const IMAGE_EDGE = 1568;
-/** 放进草稿区的子文件夹 */
-const SCRATCH_FOLDER = "element-files";
 
 export interface ElementToolDeps {
   links: BrowserLinks;
@@ -40,6 +41,8 @@ export interface ElementToolDeps {
   scratchDir: string;
   files: Pick<FileToolsDeps, "thumbnails" | "log">;
   refs: FileRefs;
+  /** 这一轮取回来的文件（366 号票：记下来时只认它们） */
+  memos: ElementMemos;
   /** 这一轮能不能用网页工具 */
   browsingOf(call: HostToolCall): Browsing | { refused: string };
   now(): number;
@@ -55,11 +58,11 @@ function pickedOf(deps: ElementToolDeps, call: HostToolCall): { browsing: Browsi
 /** 放一份进草稿区（别的工具、send_attachment 用得上）；放不了回 undefined */
 function copyToScratch(deps: ElementToolDeps, file: ElementFile): string | undefined {
   try {
-    const dir = path.join(deps.scratchDir, SCRATCH_FOLDER);
+    const dir = path.join(deps.scratchDir, ELEMENT_SCRATCH_FOLDER);
     fs.mkdirSync(dir, { recursive: true });
-    const name = `${file.mediaId.slice(0, 8)}-${sanitizeName(file.name)}`;
+    const name = elementScratchName(file.mediaId, file.name);
     fs.copyFileSync(deps.media.filePath(file.mediaId), path.join(dir, name));
-    return `${SCRATCH_FOLDER}/${name}`;
+    return `${ELEMENT_SCRATCH_FOLDER}/${name}`;
   } catch (err) {
     deps.files.log(`元素的内容放进草稿区出错：${err instanceof Error ? err.message : String(err)}`);
     return undefined;
@@ -98,9 +101,11 @@ async function imageFor(deps: ElementToolDeps, file: ElementFile): Promise<{ mim
 }
 
 /** 取回来之后交给模型的：图、读出来的字，连同放在哪、编号是什么 */
-async function contentOutput(deps: ElementToolDeps, file: ElementFile, vision: boolean): Promise<HostToolOutput> {
+async function contentOutput(deps: ElementToolDeps, file: ElementFile, call: HostToolCall): Promise<HostToolOutput> {
+  const vision = call.vision === true;
   const scratch = copyToScratch(deps, file);
   const ref = refOf(deps, file);
+  deps.memos.fetched(call, ref, file);
   const head = elementText.got(file, sizeText(file.size), scratch, ref);
   if (file.mime.startsWith("image/")) {
     if (!vision) return { text: `${head}\n${elementText.noVision}` };
@@ -126,13 +131,20 @@ export function elementTools(deps: ElementToolDeps): HostTool[] {
     nature: "look",
     async run(_args, call) {
       const picked = pickedOf(deps, call);
-      if ("refused" in picked) return { text: picked.refused, isError: true };
+      if ("refused" in picked) {
+        deps.memos.failed(call, picked.refused);
+        return { text: picked.refused, isError: true };
+      }
       const { browsing, element } = picked;
       if (element.kind === "text") return { text: elementText.textInMessage(element) };
       const outcome = await deps.links.request(browsing.mark.browser, { op: "element_file", element: element.id, url: browsing.mark.url }, ELEMENT_REQUEST_TIMEOUT_MS);
-      if (!outcome.ok) return { text: elementText.fetchFailed(outcome.reason), isError: true };
-      if (!outcome.file) return { text: elementText.fetchFailed("设备没交回文件"), isError: true };
-      return contentOutput(deps, outcome.file, call.vision === true);
+      const file = outcome.ok ? outcome.file : undefined;
+      if (!file) {
+        const reason = outcome.ok ? "设备没交回文件" : outcome.reason;
+        deps.memos.failed(call, reason);
+        return { text: elementText.fetchFailed(reason), isError: true };
+      }
+      return contentOutput(deps, file, call);
     },
   });
 

@@ -15,7 +15,7 @@ import { randomUUID } from "node:crypto";
 import { type ConversationId, type DeleteCommandPayload, EVENT_TYPES, INTERVIEW_TOPICS, type InterviewMainTopic, type MessageEnvelope, t, Type } from "@ergo/protocol";
 import { defineHostTool, type HostTool, type HostToolCall, type HostToolOutput } from "../agent-manager/host-tools.ts";
 import type { EventStore } from "../events/event-store.ts";
-import { MATERIALS_CHANNEL } from "../materials/commands.ts";
+import { MATERIALS_CHANNEL, rememberedMediaOf } from "../materials/commands.ts";
 import type { Materials } from "../materials/index.ts";
 import type { MemoryInterviews } from "./interview.ts";
 import { INTERVIEW_BOX_MAX, type InterviewBoxQuestion, interviewAlreadyText, interviewBeginText, interviewFinishedText, interviewOpeningContext, interviewTurnContext } from "./interview-guide.ts";
@@ -141,13 +141,17 @@ export function interviewTools(deps: InterviewToolDeps): HostTool[] {
         const current = [call.inputMessageId, ...(call.moreInputMessageIds ?? [])].filter((id): id is string => id !== undefined && answers.includes(id));
         const end = current.length > 0 ? answers.indexOf(current.at(-1)!) + 1 : answers.length;
         const picked = answers.slice(Math.max(0, end - args.count), end);
-        const materialIds = [...new Set(picked.flatMap((messageId) => deps.materials.list({ messageId }).map((m) => m.id)))];
+        const found = picked.flatMap((messageId) => deps.materials.list({ messageId }));
+        const materialIds = [...new Set(found.map((m) => m.id))];
+        // 366 号票：这几句里记下来的文件一起删（命令记着媒体编号，memory/after-purge.ts）
+        const mediaIds = rememberedMediaOf(found);
         if (materialIds.length === 0) return { text: "这几句话没有在素材里（已经忘掉了，或者语音还没识别出来）。照实告诉用户这段不会记。" };
         const payload: DeleteCommandPayload = {
           commandId: `curator-interview-${randomUUID().slice(0, 8)}`,
           command: "forget",
           materialIds,
           from: { kind: "curator", conversation: deps.conversation },
+          ...(mediaIds.length === 0 ? {} : { mediaIds }),
         };
         deps.store.append({ channel: MATERIALS_CHANNEL, type: EVENT_TYPES.memoryCommand, payload });
         log(`记忆管理员按用户的话忘掉了访谈 ${session.id} 里的 ${picked.length} 句（${materialIds.join("、")}）：${args.reason ?? "这个别记"}`);

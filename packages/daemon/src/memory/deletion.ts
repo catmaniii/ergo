@@ -1,10 +1,11 @@
 // 记一条记忆命令、做一次删除（规格第 15 节，21 号票）：对话里的记忆删除卡和设置里的批量删除共用这一个函数。
 // - 先在事件日志里记一条 memory_command（ADR-0006：否则重建时素材会回来），素材模块据此删除、标记素材、删原文副本；
-// - 彻底删除另外在同一事务里改写原始事件和带原话的记录（purge.ts），追加 messages_purged 和改写后的卡片新版本。
+// - 彻底删除另外在同一事务里改写原始事件和带原话的记录（purge.ts），追加 messages_purged 和改写后的卡片新版本；
+// - 366 号票：忘掉、彻底删除的命令记着这些素材记下来的文件，之后没人引用就删媒体文件（after-purge.ts）。
 import { randomUUID } from "node:crypto";
 import { type DeleteCommandPayload, EVENT_TYPES, type MemoryCommandEventPayload, type MemoryDeleteMode } from "@ergo/protocol";
 import type { NewEvent, PurgeRewrite, StoredEvent } from "../events/event-store.ts";
-import { type Material, MATERIALS_CHANNEL } from "../materials/index.ts";
+import { type Material, MATERIALS_CHANNEL, rememberedMediaOf } from "../materials/index.ts";
 import { type PurgeDeps, purgePlan, type QuickActionTrace, type ToolCallMention } from "./purge.ts";
 
 /** 记忆命令事件（素材频道）；命令 id 在这里生成 */
@@ -34,7 +35,9 @@ export interface DeletionRequest {
 
 /** 一次删除要追加的事件（记忆命令在最前）和要改写的事件 */
 export function deletionEvents(deps: PurgeDeps, request: DeletionRequest): { events: NewEvent[]; purge: PurgeRewrite[] } {
-  const command = memoryCommandEvent({ command: request.mode, materialIds: request.materials.map((m) => m.id), from: request.from }, request.idempotencyKey);
+  // 366 号票：记下来的文件跟着忘掉、彻底删除一起删（命令记着媒体编号，之后没人引用就删，memory/after-purge.ts）
+  const mediaIds = request.mode === "no_infer" ? [] : rememberedMediaOf(request.materials);
+  const command = memoryCommandEvent({ command: request.mode, materialIds: request.materials.map((m) => m.id), from: request.from, ...(mediaIds.length === 0 ? {} : { mediaIds }) }, request.idempotencyKey);
   if (request.mode !== "purge") return { events: [command], purge: [] };
   const plan = purgePlan(deps, request.materials, {
     ...(request.exceptCard === undefined ? {} : { exceptCard: request.exceptCard }),

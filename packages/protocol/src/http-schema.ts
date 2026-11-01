@@ -325,10 +325,21 @@ export const MaterialSegmentView = Type.Object({
   cardId: Type.Optional(Type.String()),
   /** 内容哈希（sha256 十六进制） */
   sha256: Type.Optional(Type.String()),
-  media: Type.Optional(Type.Object({ mediaId: Type.String(), name: Type.Optional(Type.String()), mime: Type.Optional(Type.String()) })),
+  media: Type.Optional(
+    Type.Object({
+      mediaId: Type.String(),
+      name: Type.Optional(Type.String()),
+      mime: Type.Optional(Type.String()),
+      /** 记下来的文件（366 号票）：怎么画（图片还是文件）、大小、宽高 */
+      kind: Type.Optional(Type.Union([Type.Literal("image"), Type.Literal("file")])),
+      size: Type.Optional(Type.Integer({ minimum: 0 })),
+      width: Type.Optional(Type.Integer()),
+      height: Type.Optional(Type.Integer()),
+    }),
+  ),
   /** 引用块的原文（素材只记了哈希）：出处的消息还在时从消息里取 */
   quoted: Type.Optional(Type.String()),
-  /** 附件、语音在出处的消息里的那个 part（图片、文件、视频、语音） */
+  /** 附件、语音在出处的消息里的那个 part（图片、文件、视频、语音）；记下来的文件（366 号票）不在消息里，由素材里记的媒体拼出来 */
   part: Type.Optional(MessagePart),
   /**
    * 你存的网页（165 号票，网页那一段）：存下的标题、正文（网页上的外部数据，素材里只记了网址和哈希）、截没截、原文一共多少字——

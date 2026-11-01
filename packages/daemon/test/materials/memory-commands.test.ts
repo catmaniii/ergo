@@ -11,11 +11,12 @@ import {
   maintainerChannel,
   type MemoryCommandEventPayload,
   type MemoryDeleteMode,
+  PURGED_TEXT,
   type RememberCommandPayload,
 } from "@ergo/protocol";
 import { describe, expect, test } from "vitest";
 import { deletedMarker } from "../../src/events/purge.ts";
-import { MATERIALS_CHANNEL } from "../../src/materials/commands.ts";
+import { MATERIALS_CHANNEL, REMEMBERED_FILE_FIELD, rememberCommandPurge, rememberedMediaOf } from "../../src/materials/commands.ts";
 import { BACKFILL_DELAY_MS } from "../../src/materials/vectors.ts";
 import { vectorsSettled } from "../helpers/embedder.ts";
 import { materialsSetup, postMessage, text } from "./helpers.ts";
@@ -25,7 +26,7 @@ type Setup = ReturnType<typeof materialsSetup>;
 let commandNo = 0;
 
 type CommandInput =
-  | Pick<RememberCommandPayload, "command" | "content" | "source">
+  | (Pick<RememberCommandPayload, "command" | "content" | "source"> & Pick<Partial<RememberCommandPayload>, "file" | "origin">)
   | { command: MemoryDeleteMode; materialIds: string[]; from?: DeleteCommandPayload["from"] };
 
 /** 追加一条记忆命令（默认是对话里的快速动作） */
@@ -134,6 +135,70 @@ describe("别推断", () => {
     await t.reopen({ deleteChannel: maintainer, deleteMaterialsDb: true });
     expect(t.materials.get(sleep!.id)?.noInfer).toBe(true);
     expect(t.materials.get(mover!.id)?.noInfer).toBe(true);
+  });
+});
+
+describe("记下来的文件（366 号票）", () => {
+  const mediaId = "a".repeat(64);
+  const file = { mediaId, kind: "image" as const, name: "cat.png", mime: "image/png", size: 120, width: 8, height: 6, via: "original" as const, fetchCallId: "call-fetch" };
+  const origin = { page: { title: "相册", url: "https://photos.example.cn/album" }, address: "https://cdn.example.cn/cat.png?sig=abc" };
+
+  test("素材里是描述、附件（文件本身在媒体库，内容哈希就是媒体编号）、来源网页、地址；地址不进说明和关键词索引；重建 materials.db 一样", () => {
+    const t = materialsSetup();
+    command(t, { command: "remember", content: "窗台上的橘猫", source: "proposed", file, origin });
+    const [material] = t.materials.list({ kind: "memory_command" });
+    expect(material).toMatchObject({
+      source: "self",
+      context: ["command:remember", "secretary", "with_attachment"],
+      segments: [
+        { form: "choice", source: "self", notes: ["agent_proposed"], text: "窗台上的橘猫" },
+        { form: "attachment", source: "external_untrusted", notes: [], sha256: mediaId, label: "cat.png", locator: { field: REMEMBERED_FILE_FIELD }, media: { mediaId, name: "cat.png", mime: "image/png", kind: "image", size: 120, width: 8, height: 6 } },
+        { form: "web_page", source: "external_untrusted", label: "相册（https://photos.example.cn/album）", url: origin.page.url },
+        { form: "web_page", source: "external_untrusted", url: origin.address },
+      ],
+    });
+    expect(material!.segments[3]!.label).toBeUndefined();
+    expect(t.materials.referencesMedia(mediaId)).toBe(true);
+    expect(rememberedMediaOf([material!])).toEqual([mediaId]);
+    expect(t.materials.searchKeyword("窗台上的橘猫").map((m) => m.id)).toEqual([material!.id]);
+    expect(t.materials.searchKeyword("cat.png").map((m) => m.id)).toEqual([material!.id]);
+    expect(t.materials.searchKeyword("sig=abc")).toEqual([]);
+  });
+
+  test("截图：注明、说明里写明；只截到一部分另有注明", () => {
+    const t = materialsSetup();
+    command(t, { command: "remember", content: "截的图", source: "proposed", file: { ...file, via: "screenshot" } });
+    command(t, { command: "remember", content: "截了一部分", source: "proposed", file: { ...file, via: "screenshot", partial: true } });
+    expect(t.materials.list({ kind: "memory_command" }).map((m) => m.segments[1])).toMatchObject([
+      { notes: ["screenshot"], label: "截图：cat.png" },
+      { notes: ["screenshot_partial"], label: "截图：cat.png" },
+    ]);
+  });
+
+  test("只记了文字（什么都没取到）：没有附件，来源照记，不算记下来的文件", () => {
+    const t = materialsSetup();
+    command(t, { command: "remember", content: "一只猫", source: "proposed", origin });
+    const [material] = t.materials.list({ kind: "memory_command" });
+    expect(material!.segments.map((s) => s.form)).toEqual(["choice", "web_page", "web_page"]);
+    expect(material!.context).not.toContain("with_attachment");
+    expect(rememberedMediaOf([material!])).toEqual([]);
+  });
+
+  test("用户发的附件不算记下来的文件（忘掉不跟着删，有消息引用着）", () => {
+    const t = materialsSetup();
+    postMessage(t.store, [{ type: "image", mediaId, name: "cat.png", mime: "image/png" }]);
+    expect(rememberedMediaOf(t.materials.list())).toEqual([]);
+  });
+
+  test("彻底删除的改写：内容换成删除标记，文件和来源去掉，命令 id、出处不变", () => {
+    const t = materialsSetup();
+    const event = command(t, { command: "remember", content: "窗台上的橘猫", source: "proposed", file, origin });
+    const rewritten = rememberCommandPurge.rewrite(event, { deletedAt: "2026-11-01T00:00:00.000Z", materialIds: new Set() }) as RememberCommandPayload;
+    expect(rewritten.content).toBe(PURGED_TEXT);
+    expect(rewritten).not.toHaveProperty("file");
+    expect(rewritten).not.toHaveProperty("origin");
+    expect(rewritten.commandId).toBe((event.payload as RememberCommandPayload).commandId);
+    expect(rewritten.from).toEqual((event.payload as RememberCommandPayload).from);
   });
 });
 

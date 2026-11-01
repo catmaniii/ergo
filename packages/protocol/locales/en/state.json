@@ -636,6 +636,8 @@
   "state.materials.noText": "(no text)",
   "state.materials.blockTitle": "{source} · {form}",
   "state.materials.blockTitleProposed": "{source} · {form} (suggested by the agent)",
+  "state.materials.blockTitleScreenshot": "{source} · {form} (screenshot; the original file couldn't be fetched)",
+  "state.materials.blockTitleScreenshotPartial": "{source} · {form} (screenshot of what was on screen; the original file couldn't be fetched)",
   "state.materials.quoteRefGone": "Only a reference was kept (content hash {hash}…). The original was in the source message, which no longer exists",
   "state.materials.attachment": "Attachment",
   "state.materials.attachmentRefGone": "{name} (only a reference was kept; the source message no longer exists)",

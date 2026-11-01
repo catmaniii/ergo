@@ -25,6 +25,7 @@
   "materials.kind.receivedWriting": "Written to you by someone else",
   "materials.kind.ownWriting": "Something you wrote",
   "materials.webPageLabel": "{title} ({url})",
+  "materials.screenshotLabel": "Screenshot: {name}",
   "materials.deletion.personalFile_one": "{command}: {n} material, removed with an entry in your personal files",
   "materials.deletion.personalFile_other": "{command}: {n} materials, removed with entries in your personal files",
   "materials.interviewQuestion": "Memory curator asked: {question}"

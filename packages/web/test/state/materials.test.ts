@@ -94,6 +94,35 @@ describe("详情里的每一段", () => {
   });
 });
 
+describe("记下来的文件（366 号票）", () => {
+  const remembered = { form: "attachment" as const, source: "external_untrusted" as const, label: image.name, media: { mediaId: image.mediaId, name: image.name, mime: image.mime, kind: "image" as const }, part: image };
+
+  test("描述、图（照附件画）、来源网页和地址（能点）", () => {
+    const blocks = materialBlocks(
+      view({
+        kind: "显式记忆命令",
+        segments: [
+          { form: "choice", source: "self", notes: ["agent_proposed"], text: "窗台上的橘猫" },
+          { ...remembered, notes: [] },
+          { form: "web_page", source: "external_untrusted", notes: [], label: "相册（https://photos.example.com/album）", url: "https://photos.example.com/album" },
+          { form: "web_page", source: "external_untrusted", notes: [], url: "https://cdn.example.com/cat.png?sig=abc" },
+        ],
+      }),
+    );
+    expect(blocks).toEqual([
+      { kind: "text", title: "本人 · 你的选择（agent 先提出）", text: "窗台上的橘猫" },
+      { kind: "part", title: "外部、不可信 · 附件", part: image },
+      { kind: "ref", title: "外部、不可信 · 网页", text: "相册（https://photos.example.com/album）", url: "https://photos.example.com/album" },
+      { kind: "ref", title: "外部、不可信 · 网页", text: "https://cdn.example.com/cat.png?sig=abc", url: "https://cdn.example.com/cat.png?sig=abc" },
+    ]);
+  });
+
+  test("存的是截图：小标题上写明；只截到一部分的也写明", () => {
+    const titles = materialBlocks(view({ segments: [{ ...remembered, notes: ["screenshot"] }, { ...remembered, notes: ["screenshot_partial"] }] })).map((b) => b.title);
+    expect(titles).toEqual(["外部、不可信 · 附件（截图，原文件取不到）", "外部、不可信 · 附件（截图，原文件取不到，只截到屏幕上看得见的部分）"]);
+  });
+});
+
 describe("你存的网页（165 号票）", () => {
   const page = "https://travel.example.com/hangzhou";
   const saved = (truncated: boolean) =>

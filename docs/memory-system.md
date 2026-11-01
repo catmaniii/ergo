@@ -161,7 +161,7 @@ flowchart TB
 
 - 插件经 `ctx.agent` 给 agent 三样：工具、每轮的上下文块（`input` 跟在每条输入后，`wake` 在唤起和压缩后）、钩子订阅。
 - 工具由守护进程代为执行（`serveHostTools`），子进程里只转手；上下文块和钩子当数据经宿主协议下发，子进程里的 `ContributionBridge` 翻译给 pi。
-- 记忆插件现在用了三样：工具（`search_materials`、`read_material`、`ask_memory`、`ask_curator`、`mark_woven_question`、`remember_memory`，只给秘书；最后一个 337 号票加，用户说"帮我记一句"时把原话交给记忆插件槽的宿主 `remember`，插件没在跑时没有）、`wake` 上下文块（醒来简报 `memory.brief`，只给秘书）和两块 `input` 上下文块（266 号票的记忆简报在前、264 号票的顺口问在后，都只给秘书、这一轮有内容才有）。钩子没用。266 号票起 `input` 块的文字可以异步算（会话等齐了再交这条输入，出错的那块当没有），还能给 `replyParts`：结构化的部分放进这一轮的第一条回话。
+- 记忆插件现在用了三样：工具（`search_materials`、`read_material`、`ask_memory`、`ask_curator`、`mark_woven_question`、`remember_memory`，只给秘书；最后一个 337 号票加，用户说"帮我记一句"时把原话交给记忆插件槽的宿主 `remember`，插件没在跑时没有；366 号票加可选的 `file`：用户在长按的网页元素上说记下来时带上 `browse_element_content` 这一轮给的文件编号，文件、来源网页和地址一起进"显式记忆命令"素材，忘掉、彻底删除连文件删）、`wake` 上下文块（醒来简报 `memory.brief`，只给秘书）和两块 `input` 上下文块（266 号票的记忆简报在前、264 号票的顺口问在后，都只给秘书、这一轮有内容才有）。钩子没用。266 号票起 `input` 块的文字可以异步算（会话等齐了再交这条输入，出错的那块当没有），还能给 `replyParts`：结构化的部分放进这一轮的第一条回话。
 
 **网页，素材这一半**（167、187、193 号票）：
 
@@ -685,7 +685,7 @@ flowchart LR
 | ✅ | `ask_memory` | 秘书 | `packages/daemon/src/memory/tool-names.ts` | 问记忆：D 式记忆简报，≤4000 字，只读、不调模型；网页画成"回忆了 N 条记忆"（263） |
 | ✅ | `ask_curator` | 秘书 | `packages/daemon/src/memory/tool-names.ts` | 把用户的话转给记忆管理员，等它答完（最多 90 秒）带回来 |
 | ✅ | `mark_woven_question` | 秘书 | `packages/daemon/src/memory/tool-names.ts` | 标一下这一轮用自己的话问了【顺口问】交给它的那个问题（271）：编号对得上才记下，这一轮做完由记忆插件记"问过"；只在内存里记个标记，不改记忆 |
-| 🧪 | `remember_memory` | 秘书 | `packages/daemon/src/memory/tool-names.ts` | 用户明确让"帮我记一句"时把用户的原话交给记忆插件槽（宿主的 `remember`）：按原话存成一条记忆（337），说明里写明只有用户让你记时才用；记忆插件没在跑时没有这个工具 |
+| 🧪 | `remember_memory` | 秘书 | `packages/daemon/src/memory/tool-names.ts` | 用户明确让"帮我记一句"时把用户的原话交给记忆插件槽（宿主的 `remember`）：按原话存成一条记忆（337），说明里写明只有用户让你记时才用；带 `file` 时连文件存（366，编号只认这一轮 `browse_element_content` 给的，这时 text 是秘书写的描述）；记忆插件没在跑时没有这个工具 |
 | ✅ | `run_memory_consolidation` | 记忆管理员 | `packages/daemon/src/memory/curator-tools.ts` | 现在整理一次：03:00 是这一夜的 `run`，平时是 `runNow` |
 | ✅ | `inspect_memory` | 记忆管理员 | `packages/daemon/src/memory/curator-tools.ts` | 看一条结论的来龙去脉（记忆页同一份只读视图） |
 | ✅ | `review_memory_claim` | 记忆管理员 | `packages/daemon/src/memory/curator-tools.ts` | 记下用户对一条结论的表态：对（确认，已验证）、不对（撤回）、拿不准（加复核标记，329 起不改真值状态）；走引擎的 `recordClaimVerdict`，整理不改回（263） |

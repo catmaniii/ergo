@@ -94,14 +94,17 @@ export function createSubtextRuntime(options: SubtextRuntimeOptions): SubtextRun
         {
           command: "remember",
           content: command.text,
-          // 用户自己说的话（秘书只是照抄过来）：和快速动作那条路的"本人打的字"同一个来源标记
-          source: "typed",
+          // 用户自己说的话（秘书只是照抄过来）：和快速动作那条路的"本人打的字"同一个来源标记。
+          // 366 号票：带着文件、来源的（"这张图记下来"）文字是秘书写的描述：用户的选择，注明 agent 先提出
+          source: command.file === undefined && command.origin === undefined ? "typed" : "proposed",
           from: {
             kind: "secretary",
             conversation: command.conversation,
             ...(command.inputMessageId === undefined ? {} : { inputMessageId: command.inputMessageId }),
             ...(command.toolCallId === undefined ? {} : { toolCallId: command.toolCallId }),
           },
+          ...(command.file === undefined ? {} : { file: command.file }),
+          ...(command.origin === undefined ? {} : { origin: command.origin }),
         },
         command.idempotencyKey,
       ),

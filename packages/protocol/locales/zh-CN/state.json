@@ -603,6 +603,8 @@
   "state.materials.noText": "（没有文字）",
   "state.materials.blockTitle": "{source} · {form}",
   "state.materials.blockTitleProposed": "{source} · {form}（agent 先提出）",
+  "state.materials.blockTitleScreenshot": "{source} · {form}（截图，原文件取不到）",
+  "state.materials.blockTitleScreenshotPartial": "{source} · {form}（截图，原文件取不到，只截到屏幕上看得见的部分）",
   "state.materials.quoteRefGone": "只记了引用（内容哈希 {hash}…），原文在出处的消息里，消息已经不在了",
   "state.materials.attachment": "附件",
   "state.materials.attachmentRefGone": "{name}（只记了引用，出处的消息已经不在了）",

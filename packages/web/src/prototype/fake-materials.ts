@@ -7,6 +7,7 @@
 // 各种都有（说的话、语音、附件、存的网页、记忆命令、审批、关掉的卡、任务结局，几个会话）；按时间段、种类、会话、关键词筛照守护进程的口径
 // （materials/facets.ts、memory/browse.ts）在这里再做一遍，搜的时候摘录换成命中的那一段。
 // 343 号票（数据源详情的"已获取的"）：另编几条数据源导入的（fake-data-source-materials：示例相机、手机的位置和照片、编的账单），按 filter.dataSource 筛。
+// 366 号票（"这张图记下来"）：另编两条记下来的图：一张原图、一张截图，连同描述、来源网页和地址。
 import {
   type Card,
   CHANNELS,
@@ -26,6 +27,26 @@ import {
   type VoiceRecord,
 } from "../state/index.ts";
 import { at, FAKE_CARDS, FAKE_HISTORY } from "./fake-conversations.ts";
+
+/** 记下来的图（366 号票）的假媒体编号和假图：真的画出来，素材详情里看得到 */
+const FAKE_REMEMBERED_CAT = "sha256:fake-remembered-cat";
+const FAKE_REMEMBERED_CHART = "sha256:fake-remembered-route";
+const svgUrl = (body: string) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" width="640" height="400">${body}</svg>`)}`;
+/** 原型里能真的显示的假图（媒体编号 → 地址，fake-http.ts 的 mediaUrl 用） */
+export const FAKE_MATERIAL_IMAGES: ReadonlyMap<string, string> = new Map([
+  [
+    FAKE_REMEMBERED_CAT,
+    svgUrl(
+      '<defs><linearGradient id="s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f7b267"/><stop offset="1" stop-color="#7d5ba6"/></linearGradient></defs><rect width="640" height="400" fill="url(#s)"/><rect y="300" width="640" height="100" fill="#efe6d8"/><ellipse cx="320" cy="285" rx="110" ry="55" fill="#e58e3a"/><circle cx="405" cy="235" r="44" fill="#e58e3a"/><path d="M372 205l6-38 26 26zM438 205l-6-38-26 26z" fill="#e58e3a"/><circle cx="392" cy="232" r="5" fill="#333"/><circle cx="420" cy="232" r="5" fill="#333"/><path d="M215 285q-50-10-40-60" stroke="#e58e3a" stroke-width="18" fill="none" stroke-linecap="round"/>',
+    ),
+  ],
+  [
+    FAKE_REMEMBERED_CHART,
+    svgUrl(
+      '<rect width="640" height="400" fill="#fbfaf6"/><path d="M60 330 C200 320 220 150 340 170 S520 110 590 70" stroke="#3a7bd5" stroke-width="10" fill="none"/><circle cx="60" cy="330" r="16" fill="#d9534f"/><circle cx="340" cy="170" r="14" fill="#f0ad4e"/><circle cx="590" cy="70" r="16" fill="#5cb85c"/>',
+    ),
+  ],
+]);
 
 /** 一条假素材：列表的一行和详情 */
 interface FakeMaterial {
@@ -236,6 +257,24 @@ const fileSeg = (name: string, mime: string, size: number): MaterialSegmentView 
   const mediaId = `${"c".repeat(58)}${String(size).padStart(6, "0").slice(-6)}`;
   return { form: "attachment", source: "external_untrusted", notes: [], label: name, media: { mediaId, name, mime }, part: { type: "file", mediaId, name, mime, size } };
 };
+/** 记下来的一张图（366 号票）：描述、图（照附件画）、来源网页、地址；存的是截图时注明 */
+function rememberedImage(n: number, time: string, description: string, image: { mediaId: string; name: string; width: number; height: number }, source: { title: string; url: string; address?: string }, notes: MaterialSegmentView["notes"] = []): FakeMaterial {
+  const part: MessagePart = { type: "image", mediaId: image.mediaId, name: image.name, mime: "image/png", width: image.width, height: image.height };
+  return recent(
+    n,
+    time,
+    "显式记忆命令",
+    "say",
+    [
+      chose(description),
+      { form: "attachment", source: "external_untrusted", notes, label: notes.length > 0 ? `截图：${image.name}` : image.name, media: { mediaId: image.mediaId, name: image.name, mime: "image/png", kind: "image" }, part },
+      { form: "web_page", source: "external_untrusted", notes: [], label: `${source.title}（${source.url}）`, url: source.url },
+      ...(source.address === undefined ? [] : [{ form: "web_page" as const, source: "external_untrusted" as const, notes: [], url: source.address }]),
+    ],
+    { conversation: CHANNELS.secretary, context: ["command:remember", CHANNELS.secretary, "with_attachment"] },
+  );
+}
+
 const LEDGER = "maintainer:project-ledger";
 const PHOTOS = "maintainer:project-photos";
 const INVOICES = "maintainer:tm-invoices";
@@ -243,6 +282,8 @@ const INVOICES = "maintainer:tm-invoices";
 /** 近几天的十几条（167 号票）：默认的近 7 天、往前一段、近 30 天都有得看 */
 function recentMaterials(): FakeMaterial[] {
   return [
+    rememberedImage(17, ago(0, "10:30"), "窗台上趴着的一只橘猫，背后是傍晚的天", { mediaId: FAKE_REMEMBERED_CAT, name: "orange-cat.png", width: 640, height: 400 }, { title: "相册 · 秋天的猫", url: "https://photos.example.com/autumn", address: "https://cdn.example.com/photos/orange-cat.png" }),
+    rememberedImage(18, ago(0, "10:05"), "一张手绘的通勤路线图，地铁换公交", { mediaId: FAKE_REMEMBERED_CHART, name: "route.png", width: 640, height: 400 }, { title: "新家怎么走 - 示例论坛", url: "https://forum.example.com/t/commute" }, ["screenshot"]),
     recent(1, ago(0, "09:12"), "用户发言", "say", [said("下周三上午体检，提前一天提醒我别吃早饭")], { conversation: CHANNELS.secretary }),
     recent(2, ago(0, "08:40"), "用户发言", "say", [{ form: "voice", source: "self", notes: ["transcribed"], text: "明天早上七点半叫我起床，顺便看看会不会下雨" }], {
       conversation: CHANNELS.secretary,
@@ -354,7 +395,8 @@ let cache: FakeMaterial[] | undefined;
 const savedHere: FakeMaterial[] = [];
 const savedKeys = new Map<string, SaveWebPageResult>();
 let fromSources: FakeMaterial[] | undefined;
-const all = () => [...savedHere, ...(fromSources ??= dataSourceMaterials()), ...(cache ??= fakeMaterials())];
+/** 全部假素材，新的在前（照守护进程的口径；不排的话同一天分成几组，列表里 key 重复，换筛选时画不对） */
+const all = () => [...savedHere, ...(fromSources ??= dataSourceMaterials()), ...(cache ??= fakeMaterials())].toSorted((a, b) => Date.parse(b.item.time) - Date.parse(a.item.time));
 
 /** 编的数据源导入的素材（343 号票）：观察到的本人行为，时间按打开页面的这一刻往前推 */
 function dataSourceMaterials(): FakeMaterial[] {

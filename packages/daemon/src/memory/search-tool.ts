@@ -24,7 +24,7 @@ import { INTERVIEW_CONTEXT, INTERVIEW_QUESTION_FIELD, MEMORY_RECALL_WHY_MAX, typ
 import { defineHostTool, type HostTool } from "../agent-manager/host-tools.ts";
 import type { SavedPage } from "../browsing/api.ts";
 import { PAGE_TEXT_BEGIN, PAGE_TEXT_END } from "../browsing/api.ts";
-import { EmbeddingUnavailable, excerptOf, type Material, type Materials, snippetOf } from "../materials/index.ts";
+import { EmbeddingUnavailable, excerptOf, type Material, type Materials, REMEMBERED_FILE_FIELD, snippetOf } from "../materials/index.ts";
 import { SCENE_LINE_PREFIX, sceneParts } from "./data-source-evidence.ts";
 import { READ_MATERIAL, SEARCH_MATERIALS } from "./tool-names.ts";
 
@@ -174,7 +174,7 @@ const KIND_LABEL: Readonly<Record<Material["kind"], string>> = {
 };
 
 /** 本人的段的注明 */
-const NOTE_LABEL = { transcribed: "（语音转写）", agent_proposed: "（agent 先提出、用户接受了的）" } as const;
+const NOTE_LABEL = { transcribed: "（语音转写）", agent_proposed: "（agent 先提出、用户接受了的）", screenshot: "（截图）", screenshot_partial: "（截图，只截到一部分）" } as const;
 
 /** 存的网页那一段：存下的正文夹在外部数据标记里，截断了写明 */
 function savedPageText(url: string | undefined, saved: SavedPage): string {
@@ -208,7 +208,10 @@ export function readMaterialTool(materials: Materials, options: MaterialToolOpti
         if (s.source === "self" && s.text !== undefined) return `${s.notes.map((n) => NOTE_LABEL[n]).join("")}${s.text}`;
         // 284 号票：访谈里管理员问的那一句（上下文，不是用户的话）
         if (s.locator.field === INTERVIEW_QUESTION_FIELD && s.label) return `（上下文，不是用户的话）${s.label}`;
-        return `（${FORM_LABEL[s.form]}${s.label ? `：${s.label}` : ""}，只记了引用，没有内容）`;
+        // 366 号票：记下来的文件（文件本身存在素材里，用户在记忆 · 素材能看到）；元素自己的地址没有说明，写地址
+        if (s.locator.field === REMEMBERED_FILE_FIELD) return `（记下来的文件${s.label ? `：${s.label}` : ""}${s.notes.map((n) => NOTE_LABEL[n]).join("")}，文件本身存着，用户在记忆 · 素材里能看到）`;
+        const said = s.label ?? s.url;
+        return `（${FORM_LABEL[s.form]}${said ? `：${said}` : ""}，只记了引用，没有内容）`;
       });
       // 303 号票：数据源的素材另给一行场景（检索、读素材不受敏感类别的推断开关管，地点照给）
       if (m.origin !== undefined) body.push(`${SCENE_LINE_PREFIX}${sceneParts(m, true).join(" · ")}`);

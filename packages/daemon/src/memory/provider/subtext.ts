@@ -13,6 +13,7 @@
 //             "显式记忆命令"素材 → 立刻用每晚整理同一个 evidenceDraftOf 读成证据、经推理库的唯一写入口入库；整理时按出处跳过）。
 //             这一步**不**再要求快速动作和卡片：REMEMBER 的 from 多了一支没有卡片的来源（protocol 的 RememberCommandPayload），
 //             老事件（chat 来源）照旧。组合根没给 write 时明着回 not_implemented，不编造事件。
+//             366 号票：能带文件和来源（用户说"这张图记下来"）：一起写进那条命令，素材里多一段附件（文件本身在媒体库）和来源，条目上写 extra.fileStored。
 //   forget   → 推理库那一侧现成的彻底删除（purge-rg.ts 的 purgeMaterials：按素材 id 删证据和只靠它的事实、依赖的结论加复核标记、
 //             写审计），按来源把素材 id 找出来交给它（material 直接是它；conversation / message 查素材库；task / project 在素材库里按
 //             信封上的 task / project 过滤）。只动推理库：素材库、原话副本是内核的，这里不碰。
@@ -45,6 +46,8 @@ import {
   type MemorySearchQuery,
   type MemorySearchResult,
   type MemorySource,
+  type RememberedFile,
+  type RememberedOrigin,
 } from "@ergo/protocol";
 import { type MemoryEngine, type PurgeReport } from "@ergo/memory";
 import { RequestRejected } from "../../errors.ts";
@@ -96,6 +99,9 @@ export interface SubtextRememberCommand {
   inputMessageId?: string;
   toolCallId?: string;
   idempotencyKey: string;
+  /** 366 号票：连同这句一起存的文件、记下来的东西的来源；有它们时 text 是秘书写的描述，不是用户的原话 */
+  file?: RememberedFile;
+  origin?: RememberedOrigin;
 }
 
 /** 记下以后的样子：命中的素材、进了检索的证据（只保管、敏感类别挡住时没有）、事件的记时 */
@@ -275,7 +281,9 @@ export function createSubtextProvider(deps: SubtextProviderDeps): SubtextProvide
         conversation,
         ...(messageId === undefined ? {} : { inputMessageId: messageId }),
         ...(toolCallId === undefined ? {} : { toolCallId }),
-        idempotencyKey: rememberKey(text, conversation, messageId),
+        ...(input.file === undefined ? {} : { file: input.file }),
+        ...(input.origin === undefined ? {} : { origin: input.origin }),
+        idempotencyKey: rememberKey(text, conversation, messageId, input.file?.mediaId),
       });
       // 出处：素材（采到的那条"显式记忆命令"）+ 这条会话 + 那条消息 + 那次工具调用（都没有的就不硬编）
       const itemSources: MemorySource[] = [
@@ -295,7 +303,7 @@ export function createSubtextProvider(deps: SubtextProviderDeps): SubtextProvide
         createdAt: record.at,
         tags: input.tags ?? ["manual"],
         sources: itemSources,
-        extra: { conversation, ...(messageId === undefined ? {} : { messageId }), ...(toolCallId === undefined ? {} : { toolCallId }), ingested: record.evidenceId !== undefined },
+        extra: { conversation, ...(messageId === undefined ? {} : { messageId }), ...(toolCallId === undefined ? {} : { toolCallId }), ingested: record.evidenceId !== undefined, ...(input.file === undefined ? {} : { fileStored: true }) },
       };
     },
 
@@ -392,8 +400,8 @@ const messageOf = (err: unknown) => (err instanceof Error ? err.message : String
 
 /**
  * 按原话记一条的幂等键：同一个会话、同一条消息里的同一句话再记一次不落第二条事件（模型重试、同一句调用两次）。
- * 换个会话、换句话就是另一条；哈希一下免得把整句原话当键存进库里
+ * 换个会话、换句话就是另一条；哈希一下免得把整句原话当键存进库里。366 号票：带了文件的另算（先只记了文字，取到文件再带上记一次时不能算重复）
  */
-function rememberKey(text: string, conversation: string, messageId: string | undefined): string {
-  return `memory-remember:${createHash("sha256").update([conversation, messageId ?? "", text].join("\u0000"), "utf8").digest("hex").slice(0, 32)}`;
+function rememberKey(text: string, conversation: string, messageId: string | undefined, mediaId: string | undefined): string {
+  return `memory-remember:${createHash("sha256").update([conversation, messageId ?? "", text, ...(mediaId === undefined ? [] : [mediaId])].join("\u0000"), "utf8").digest("hex").slice(0, 32)}`;
 }

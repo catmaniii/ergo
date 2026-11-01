@@ -9,7 +9,9 @@
 // 337 号票为记忆插件加了记忆插件槽（按原话记一条、每条消息的简报，转给在跑的那个记忆插件）。
 import type { ChatModel } from "@ergo/memory";
 import type { CalendarExternalEntry, MemoryBriefInput, MemoryBriefResult, MemoryItem, MemoryRememberInput } from "@ergo/protocol";
+import type { HostToolCall } from "../agent-manager/host-tools.ts";
 import type { AgentRoles } from "../agent-roles/index.ts";
+import type { ElementToRemember } from "../browsing/api.ts";
 import type { CardService } from "../cards/cards.ts";
 import type { DataDirLayout } from "../config/data-dir.ts";
 import type { ErgoConfig } from "../config/config.ts";
@@ -70,6 +72,14 @@ export interface WebSearchNotes {
 export interface MemorySlot {
   remember(input: MemoryRememberInput): Promise<MemoryItem>;
   brief(input: MemoryBriefInput): Promise<MemoryBriefResult | undefined>;
+}
+
+/**
+ * 366 号票：用户说"这张图记下来"时能带上的文件。记忆插件的"记一句"问它，组合根现转给浏览插件（BROWSING，插件没在运行是 undefined）。
+ * 不让记忆插件直接 wants 浏览插件：wants 会改装配顺序，秘书拿到的工具先后、别的插件的先后都跟着变
+ */
+export interface ElementFiles {
+  toRemember(ref: string | undefined, call: HostToolCall): ElementToRemember | undefined;
 }
 
 /**
@@ -185,6 +195,8 @@ export const KERNEL = {
    * 宿主建在插件装配之后，组合根现转给它；没接上时记忆插件不给"记一句"这个工具
    */
   memorySlot: serviceKey<MemorySlot>("memorySlot"),
+  /** 用户说"这张图记下来"时能带上的文件（366 号票，见 ElementFiles） */
+  elementFiles: serviceKey<ElementFiles>("elementFiles"),
 } as const;
 
 /** 内核提供的全部服务（建插件宿主时交给它，排依赖用） */

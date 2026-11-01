@@ -119,7 +119,7 @@
   "protocol.memoryDelete.purgeLimits": "删不掉的：{assistant}回复里转述过的话，{assistant}转达给任务、项目维护者的话，{assistant}看任务看板时看到过的等我原因，交给项目维护者的工单内容里转述的话，维护者引用、运行时核实后抄进计划变更卡、立项要求变更卡、运营方案的卡、阶段验收记录和立项书变更记录里的原话，和确认计划时改的假设栏、加的关注类别（已是计划的一部分）；备份快照里仍有一份，随快照轮换消失（本机约 7 天，同步目录最长约 5 周）。",
   "protocol.memoryDelete.projectDeleteLimits": "删不掉的：认不出读的是这个项目的调用里读到的内容（命令里用环境变量拼出的路径、python -c 这类看不透的命令），命令输出太长时另存的临时文件（pi-bash 开头的 .log），{assistant}和别的 agent 据此说过的话；备份快照里仍有一份，随快照轮换消失（本机约 7 天，同步目录最长约 5 周）。",
   "protocol.memoryDelete.forget.done": "忘掉",
-  "protocol.memoryDelete.forget.note": "从素材库删掉；聊天记录里仍看得到原话。",
+  "protocol.memoryDelete.forget.note": "从素材库删掉，记下来的图和文件一起删；聊天记录里仍看得到原话。",
   "protocol.memoryDelete.purge.done": "彻底删除",
   "protocol.memoryDelete.purge.note": "连会话原文一起删：事件日志、会话文件里的原话换成删除标记，没有别的消息引用的附件一起删，不可恢复。{limits}",
   "protocol.memoryDelete.noInfer.done": "标记为不参与推断",

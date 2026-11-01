@@ -257,7 +257,8 @@ export function purgePlan(
   /**
    * "记住"的命令：操作记录、快速动作卡的每个版本、提议它的那次工具调用。
    * 337 号票：秘书按用户的话记的（`from.kind: "secretary"`）没有卡、没有快速动作，原话在记它的那次工具调用里——改写那次调用
-   * （记录、完整内容、执行记录，会话文件里的参数和结果整个换掉）；没有工具调用 id 的（不是经工具记的）没有别的要改
+   * （记录、完整内容、执行记录，会话文件里的参数和结果整个换掉）；没有工具调用 id 的（不是经工具记的）没有别的要改。
+   * 366 号票：带着文件的，取回文件的那次调用同样改写（结果里有文件名，会话文件里有图本身）
    */
   const targetRemember = (command: Extract<MemoryCommandEventPayload, { command: "remember" }>) => {
     const from = command.from;
@@ -265,11 +266,12 @@ export function purgePlan(
       targetQuickAction(from);
       return;
     }
-    const callId = from.toolCallId;
-    if (callId === undefined) return;
-    targetToolCalls(callId, (call) => call.callId === callId);
-    targetExecution(callId);
-    rewriteInSession(from.conversation, callId);
+    for (const callId of [from.toolCallId, command.file?.fetchCallId]) {
+      if (callId === undefined) continue;
+      targetToolCalls(callId, (call) => call.callId === callId);
+      targetExecution(callId);
+      rewriteInSession(from.conversation, callId);
+    }
   };
 
   for (const material of materials) {

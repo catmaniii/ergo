@@ -31,6 +31,23 @@ const secretaryRemember = (over: Record<string, unknown> = {}): unknown => ({
   ...over,
 });
 
+describe("记住带文件和来源（366 号票）", () => {
+  const file = { mediaId: "a".repeat(64), kind: "image", name: "cat.png", mime: "image/png", size: 120, via: "original" };
+
+  test("文件、来源都可以不带；带的时候写全；截图写明怎么来的", () => {
+    expect(accepts(secretaryRemember({ source: "proposed", file, origin: { page: { title: "相册", url: "https://a.example.cn/" }, address: "https://b.example.cn/cat.png" } }))).toBe(true);
+    expect(accepts(secretaryRemember({ source: "proposed", origin: { address: "https://b.example.cn/cat.png" } }))).toBe(true);
+    expect(accepts(secretaryRemember({ source: "proposed", file: { ...file, via: "screenshot", partial: true, width: 8, height: 6, fetchCallId: "call-1" } }))).toBe(true);
+    expect(accepts(secretaryRemember({ file: { ...file, via: "stolen" } }))).toBe(false);
+    expect(accepts(secretaryRemember({ file: { mediaId: file.mediaId } }))).toBe(false);
+  });
+
+  test("删除类的命令可以带媒体编号", () => {
+    expect(accepts({ commandId: "mc-9", command: "forget", materialIds: ["mat-1"], mediaIds: [file.mediaId], from: { kind: "curator", conversation: "memory-curator" } })).toBe(true);
+    expect(accepts({ commandId: "mc-9", command: "purge", materialIds: ["mat-1"], from: { kind: "curator", conversation: "memory-curator" } })).toBe(true);
+  });
+});
+
 describe("记忆命令：老事件照旧解析", () => {
   test("chat 来源的记得住（带不带 inputMessageId 都行）", () => {
     expect(accepts(chatRemember())).toBe(true);

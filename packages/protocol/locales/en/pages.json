@@ -691,7 +691,7 @@
   "pages.materialDetail.noContent": "(no content)",
   "pages.materialDetail.source": "Source",
   "pages.materialDetail.deleteSection": "Delete this item",
-  "pages.materialDetail.deleteNote": "Same options as bulk delete: Forget removes it from the material store only, so it still shows in chat history; Delete completely also deletes the original conversation text; Don't infer keeps it but leaves it out of inference.",
+  "pages.materialDetail.deleteNote": "Same options as bulk delete: Forget removes it from the material store only, so it still shows in chat history; Delete completely also deletes the original conversation text; both also delete any image or file you saved with it; Don't infer keeps it but leaves it out of inference.",
   "pages.materialDetail.cancel": "Cancel",
   "pages.materialDetail.working": "Working…",
   "pages.materialDetail.noPageText": "(no text was captured from this page)",

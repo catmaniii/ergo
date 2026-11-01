@@ -37,7 +37,7 @@ import { DEVICE_BATCH_MAX, DEVICE_EXTEND_MAX_DAYS, PAIRING_FINGERPRINT_HEX_DIGIT
 import { EventTrigger } from "./event-source-schema.ts";
 import { ReminderSchedule } from "./reminder-schedule.ts";
 import { PageCommandMark } from "./page-commands.ts";
-import { BrowsingContext, BrowsingMark } from "./browsing.ts";
+import { BrowsingContext, BrowsingMark, ELEMENT_FILE_VIAS } from "./browsing.ts";
 import { SentFrom } from "./user-words.ts";
 import { VOICE_CAPTURE_TEXT_MAX, VOICE_DURATION_SLACK_MS, VOICE_MAX_MS, VOICE_MIC_LOG_MAX, VOICE_WAVEFORM_MAX, VOICE_WAVEFORM_MAX_BARS } from "./voice.ts";
 
@@ -1333,13 +1333,41 @@ const SecretaryCommandOrigin = Type.Object({
   toolCallId: Type.Optional(Type.String()),
 });
 
-/** "记住"：要记住的内容和它从哪里来（素材的来源标记跟着它，见 REMEMBER_SOURCES） */
+/**
+ * 366 号票：跟着"记住"一起存的文件（用户说"这张图记下来"，秘书把长按的元素取回来的文件带上）。文件本身在媒体库，这里记媒体编号和给人看的样子：
+ * via 写明是元素本身还是截图（partial：只截到屏幕上看得见的部分）；fetchCallId 是取回它的那次工具调用（彻底删除时连同改写：会话文件里那次调用的结果里有图）
+ */
+export const RememberedFile = Type.Object({
+  mediaId: Type.String(),
+  /** 浏览器能直接显示的图片是 image，别的（文件、SVG……）是 file */
+  kind: Type.Union([Type.Literal("image"), Type.Literal("file")]),
+  name: Type.String(),
+  mime: Type.String(),
+  size: Type.Integer({ minimum: 0 }),
+  width: Type.Optional(Type.Integer()),
+  height: Type.Optional(Type.Integer()),
+  via: Type.Enum(ELEMENT_FILE_VIAS),
+  partial: Type.Optional(Type.Literal(true)),
+  fetchCallId: Type.Optional(Type.String()),
+});
+export type RememberedFile = Static<typeof RememberedFile>;
+
+/** 366 号票：记下来的东西从哪来：来源网页（标题、地址）、元素自己的地址（只有 http、https 的才写）。都是网页上的，外部数据 */
+export const RememberedOrigin = Type.Object({
+  page: Type.Optional(Type.Object({ title: Type.String(), url: Type.String() })),
+  address: Type.Optional(Type.String()),
+});
+export type RememberedOrigin = Static<typeof RememberedOrigin>;
+
+/** "记住"：要记住的内容和它从哪里来（素材的来源标记跟着它，见 REMEMBER_SOURCES）；366 号票起能带上文件和来源 */
 export const RememberCommandPayload = Type.Object({
   commandId: Type.String(),
   command: Type.Literal("remember"),
   content: Type.String(),
   source: Type.Enum(REMEMBER_SOURCES),
   from: Type.Union([ChatCommandOrigin, SecretaryCommandOrigin]),
+  file: Type.Optional(RememberedFile),
+  origin: Type.Optional(RememberedOrigin),
 });
 export type RememberCommandPayload = Static<typeof RememberCommandPayload>;
 
@@ -1351,6 +1379,8 @@ export const DeleteCommandPayload = Type.Object({
   commandId: Type.String(),
   command: MemoryDeleteMode,
   materialIds: Type.Array(Type.String()),
+  /** 366 号票：这些素材记下来的文件（媒体编号）：忘掉、彻底删除之后没有别的消息、素材引用就删掉媒体文件 */
+  mediaIds: Type.Optional(Type.Array(Type.String())),
   from: Type.Union([
     ChatCommandOrigin,
     Type.Object({ kind: Type.Literal("settings"), scope: MaterialScope }),

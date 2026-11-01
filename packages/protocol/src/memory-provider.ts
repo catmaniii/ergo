@@ -6,7 +6,7 @@
 //   - 不许绕过 ctx.llm / ctx.embed 自己去连模型服务（key 由宿主给、用量由宿主记）；不许自己起网络端口；
 //   - 核心只放每家都有的东西（检索、记一条、删、体检）；会意独有的结论/证据/预测走 capabilities.tools 和自己的页面。
 // - 版本：api 变了就是接口变了；宿主不认识的不启用，也不猜（见 MEMORY_API_VERSION）。
-import type { MemoryBriefItem, MemoryRecallHit } from "./schema.ts";
+import type { MemoryBriefItem, MemoryRecallHit, RememberedFile, RememberedOrigin } from "./schema.ts";
 
 export const MEMORY_API_VERSION = 1;
 
@@ -162,6 +162,13 @@ export interface MemoryRememberInput {
   tags?: string[];
   /** 出处：宿主按这条会话记（会话 id + 消息 id），至少一条 */
   sources?: MemorySource[];
+  /**
+   * 366 号票：要连同这句一起存下的文件（宿主核对过：只认这一轮长按的网页元素取回来的，文件在媒体库里）。给了 file 或 origin 时 text 是秘书写的描述，不是用户的原话。
+   * 插件存下了就在回的条目上写 extra.fileStored = true；不写时宿主如实告诉用户只记了文字
+   */
+  file?: RememberedFile;
+  /** 366 号票：记下来的东西的来源网页和地址（外部数据） */
+  origin?: RememberedOrigin;
 }
 
 export interface MemorySearchQuery {

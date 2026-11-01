@@ -22,6 +22,7 @@
   "materials.kind.receivedWriting": "别人写给你的",
   "materials.kind.ownWriting": "本人写的",
   "materials.webPageLabel": "{title}（{url}）",
+  "materials.screenshotLabel": "截图：{name}",
   "materials.deletion.personalFile": "删个人档案里的东西时连出处一起{command} {n} 条素材",
   "materials.interviewQuestion": "记忆管理员问：{question}"
 }

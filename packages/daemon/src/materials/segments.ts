@@ -21,10 +21,13 @@ export type MaterialPiece =
   | Piece<"text", { text: string }>
   /** 引用块（别人的话）；label 是给它的说明（303 号票：数据源里别人写给你的，说明是插件整理的摘要，比如"张三：周五的会改到下午"） */
   | Piece<"quote", { text: string; label?: string }>
-  /** 附件（图片、文件、视频） */
-  | Piece<"attachment", { media: MediaRef }>
-  /** 抓取的网页；title 是网页的标题（165 号票：你存的网页），有就写进引用的说明 */
-  | Piece<"web_page", { url: string; text?: string; title?: string }>
+  /** 附件（图片、文件、视频）；记下来的文件（366 号票）是截图时另给说明（label，不给就是文件名）和注明 */
+  | Piece<"attachment", { media: MediaRef; label?: string; notes?: MaterialSegment["notes"] }>
+  /**
+   * 抓取的网页；title 是网页的标题（165 号票：你存的网页），有就写进引用的说明。
+   * unlabeled：只记地址、没有说明（366 号票：长按的元素自己的地址，带签名的长串不进关键词索引和证据）
+   */
+  | Piece<"web_page", { url: string; text?: string; title?: string; unlabeled?: boolean }>
   /** 语音转写：语音消息的文字带着录音的引用；"记住"一类命令里点明的那段语音转写没有（31 号票） */
   | Piece<"voice", { mediaId?: string; transcript: string }>
   /** 用户接受的 agent 提议（比如点了建议卡上的"发起任务"）：text 是被接受的内容 */
@@ -70,16 +73,17 @@ function segmentOf(piece: MaterialPiece): MaterialSegment | undefined {
       return {
         form: "attachment",
         source: "external_untrusted",
-        notes: [],
+        notes: piece.notes ?? [],
         locator,
         ...(hash === undefined ? {} : { sha256: hash }),
-        ...(isBlank(piece.media.name) ? {} : { label: piece.media.name }),
+        ...(isBlank(piece.label ?? piece.media.name) ? {} : { label: piece.label ?? piece.media.name }),
         media: { ...piece.media },
       };
     }
     case "web_page": {
       const title = piece.title?.trim() ?? "";
-      return { form: "web_page", source: "external_untrusted", notes: [], locator, sha256: sha256Hex(piece.text ?? piece.url), label: title ? t("materials.webPageLabel", { title, url: piece.url }) : piece.url, url: piece.url };
+      const label = piece.unlabeled ? {} : { label: title ? t("materials.webPageLabel", { title, url: piece.url }) : piece.url };
+      return { form: "web_page", source: "external_untrusted", notes: [], locator, sha256: sha256Hex(piece.text ?? piece.url), ...label, url: piece.url };
     }
     case "agent_output":
       return {

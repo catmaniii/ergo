@@ -2,12 +2,14 @@
 // - 附件的媒体文件：被删的消息引用过的媒体，没有别的（未删的）消息、也没有素材还引用它，就删掉媒体文件
 //   （含派生文件）。启动时把以前的 messages_purged 再对一遍（上次删到一半被杀也补上；删过的不在了就跳过）；
 // - 会话文件：要改写哪些原话由这里从 messages_purged 生成（sessionRewriteFor），拉起 agent 的模块只负责停、改、拉起。
-import { EVENT_TYPES, type MessagesPurgedEventPayload, PURGED_SUMMARY_TEXT, PURGED_TEXT } from "@ergo/protocol";
+// 366 号票：记下来的文件（"这张图记下来"）不在消息里，由忘掉、彻底删除的记忆命令带着（mediaIds），走同一份清理；草稿区里放的那一份（取元素内容时放的）一起删。
+import { EVENT_TYPES, isDeletedEventPayload, type MemoryCommandEventPayload, type MessagesPurgedEventPayload, PURGED_SUMMARY_TEXT, PURGED_TEXT } from "@ergo/protocol";
+import { removeElementScratch } from "../browsing/api.ts";
 import { mediaInUse } from "../conversation/attachments-view.ts";
 import { isConversationChannel } from "../conversation/history.ts";
 import type { EventStore } from "../events/event-store.ts";
 import type { MediaStore } from "../media/media-store.ts";
-import type { Materials } from "../materials/index.ts";
+import { MATERIALS_CHANNEL, type Materials } from "../materials/index.ts";
 import { INPUT_CONTEXT_TYPE, SCOPE_REVIEW_ENTRY, type SessionRewriteRequest } from "../runtime/index.ts";
 import { ASK_CURATOR, ASK_MEMORY, SEARCH_MATERIALS } from "./tool-names.ts";
 
@@ -54,16 +56,32 @@ export interface PurgedMediaCleanupOptions {
   store: EventStore;
   media: MediaStore;
   materials: Materials;
+  /** 草稿区（366 号票：取元素内容时放在这里的一份随媒体一起删） */
+  scratchDir?: string;
   log: (line: string) => void;
 }
 
-/** 删掉彻底删除之后没人引用的媒体文件：先对一遍以前的，再跟着新的 messages_purged；返回停止的函数 */
+/**
+ * 这条事件说要清理的媒体：会话频道上的 messages_purged（被删的消息引用过的）；素材频道上忘掉、彻底删除的记忆命令（366 号票：记下来的文件）。
+ * 素材库先于这里订阅事件日志，到这里时这些素材已经不算引用了
+ */
+function mediaToClean(event: { channel: string; type: string; payload: unknown }): readonly string[] {
+  if (isPurge(event)) return (event.payload as MessagesPurgedEventPayload).mediaIds;
+  if (event.type !== EVENT_TYPES.memoryCommand || event.channel !== MATERIALS_CHANNEL || isDeletedEventPayload(event.payload)) return [];
+  const command = event.payload as MemoryCommandEventPayload;
+  return command.command === "remember" ? [] : (command.mediaIds ?? []);
+}
+
+/** 删掉彻底删除（366 号票起还有忘掉）之后没人引用的媒体文件：先对一遍以前的，再跟着新的事件；返回停止的函数 */
 export function startPurgedMediaCleanup(options: PurgedMediaCleanupOptions): () => void {
-  const { store, media, materials, log } = options;
-  const cleanup = (payload: MessagesPurgedEventPayload) => {
-    for (const mediaId of payload.mediaIds) {
-      if (!media.info(mediaId) || mediaInUse(store.reader, mediaId) || materials.referencesMedia(mediaId)) continue;
+  const { store, media, materials, scratchDir, log } = options;
+  const cleanup = (mediaIds: readonly string[]) => {
+    for (const mediaId of mediaIds) {
+      if (mediaInUse(store.reader, mediaId) || materials.referencesMedia(mediaId)) continue;
       try {
+        // 先删草稿区的：中途被杀时媒体还在，下次启动再来一遍
+        if (scratchDir !== undefined) removeElementScratch(scratchDir, mediaId);
+        if (!media.info(mediaId)) continue;
         media.remove(mediaId);
         log(`彻底删除：删掉了没人引用的媒体 ${mediaId}`);
       } catch (err) {
@@ -71,9 +89,7 @@ export function startPurgedMediaCleanup(options: PurgedMediaCleanupOptions): () 
       }
     }
   };
-  const unsubscribe = store.onAppend((event) => {
-    if (isPurge(event)) cleanup(event.payload as MessagesPurgedEventPayload);
-  });
-  for (const event of store.ofType(EVENT_TYPES.messagesPurged)) if (isPurge(event)) cleanup(event.payload as MessagesPurgedEventPayload);
+  const unsubscribe = store.onAppend((event) => cleanup(mediaToClean(event)));
+  for (const type of [EVENT_TYPES.messagesPurged, EVENT_TYPES.memoryCommand]) for (const event of store.ofType(type)) cleanup(mediaToClean(event));
   return unsubscribe;
 }

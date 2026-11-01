@@ -13,8 +13,10 @@
 //   （每个词都要有、不分大小写，同关键词检索的口径）。搜的时候列表里的摘录换成命中的那一段（存的网页按正文命中的给正文里那一段）。
 //   列表新的在前按素材的时间（以前按原始事件倒着排：识别得慢的语音、补回的素材会排错日子，页面按日期分组）。
 // - 343 号票：filter 再加一项 dataSource（素材信封出处的 origin.dataSource）：数据源详情的"已获取的"按它列。
+// - 366 号票：记下来的文件（"这张图记下来"）不在消息里，那一段的 part 由素材里记的媒体拼出来，照附件的样子画。
 // 这是内核的（同设置里的批量删除 bulk.ts）：记忆插件停用时照样能看、能删已有的素材。只读。
 import {
+  attachmentPartFrom,
   INTERVIEW_CONTEXT,
   type MaterialDetailView,
   type MaterialListFilter,
@@ -32,7 +34,7 @@ import { savedPageOf } from "../browsing/api.ts";
 import { getMessage } from "../conversation/views.ts";
 import type { EventStore } from "../events/event-store.ts";
 import { RequestRejected } from "../errors.ts";
-import { excerptOf, type Material, MATERIAL_KIND_LABEL, type Materials, matchesFacets, queryTerms, snippetOf } from "../materials/index.ts";
+import { excerptOf, type Material, MATERIAL_KIND_LABEL, type Materials, matchesFacets, queryTerms, REMEMBERED_FILE_FIELD, snippetOf } from "../materials/index.ts";
 import { materialsInScope } from "./bulk.ts";
 
 /** 列表的摘录长度（一行半左右） */
@@ -182,6 +184,7 @@ function segmentView(s: Material["segments"][number], message: MessageEnvelope |
     ...(s.cardId === undefined ? {} : { cardId: s.cardId }),
   };
   if (s.form === "web_page" && saved) return { ...view, saved };
+  if (s.form === "attachment" && s.locator.field === REMEMBERED_FILE_FIELD) return { ...view, ...rememberedPart(s.media) };
   if (!message) return view;
   const { part: index, start, end } = s.locator;
   const at = index === undefined ? undefined : message.parts[index];
@@ -193,6 +196,12 @@ function segmentView(s: Material["segments"][number], message: MessageEnvelope |
     if (voice) return { ...view, part: voice };
   }
   return view;
+}
+
+/** 记下来的文件（366 号票）：素材里记的媒体 → 消息里的 part（图片、文件卡片），照附件的样子画 */
+function rememberedPart(media: Material["segments"][number]["media"]): Pick<MaterialSegmentView, "part"> {
+  if (media?.name === undefined || media.mime === undefined) return {};
+  return { part: attachmentPartFrom({ mediaId: media.mediaId, kind: media.kind ?? "file", name: media.name, mime: media.mime, size: media.size ?? 0, width: media.width, height: media.height }) };
 }
 
 const isAttachment = (part: MessagePart): part is Extract<MessagePart, { type: "image" | "file" | "video" }> => part.type === "image" || part.type === "file" || part.type === "video";

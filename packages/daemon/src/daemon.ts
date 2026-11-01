@@ -1401,6 +1401,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         // 记忆插件要的（337）：记忆插件槽——用户说"帮我记一句"时把原话交给在跑的那个记忆插件，每条消息的简报问它要。
         // 宿主建在插件之后：现转给它
         bindService(KERNEL.memorySlot, { remember: (input) => wired("memorySlot").remember(input), brief: (input) => wired("memorySlot").brief(input) }),
+        // 记忆插件要的（366）：用户说"这张图记下来"时能带上的文件，现转给浏览插件（没在运行就只能记文字）
+        bindService(KERNEL.elementFiles, { toRemember: (ref, call) => plugins.service(BROWSING)?.elementToRemember(ref, call) }),
       ],
       surfaces: {
         cardTypes: registry,
@@ -1753,7 +1755,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 彻底删除的一次性补抹（272 号票）：265 号票以前删过的素材，事件日志里问记忆、问记忆管理员的结果还引着原话的那几行换成删除标记，
     // 秘书的会话上追加 messages_purged（会话文件跟着补）。插件起来以后、秘书起来以前跑；做完记一笔，以后不再跑
     backfillPurgedQuotes({ store, evidenceOf: (materialIds) => lookupPurgedEvidence(layout.rgDb, materialIds, log), now, log });
-    teardown.push(startPurgedMediaCleanup({ store, media, materials, log }));
+    teardown.push(startPurgedMediaCleanup({ store, media, materials, scratchDir: layout.scratch, log }));
 
     const credentials = modelCredentials(options.env);
     // 设置里的"模型"（73）：按 agent 现取、只用于新开的会话（接着的会话子进程照它开始时的）；看图能力设置页改的优先于配置文件

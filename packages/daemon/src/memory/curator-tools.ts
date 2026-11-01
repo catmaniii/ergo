@@ -22,7 +22,7 @@ import type { EventStore } from "../events/event-store.ts";
 import type { MaterialToolOptions } from "./search-tool.ts";
 import { readMaterialTool, searchMaterialsTool } from "./search-tool.ts";
 import type { Materials } from "../materials/index.ts";
-import { MATERIALS_CHANNEL } from "../materials/commands.ts";
+import { MATERIALS_CHANNEL, rememberedMediaOf } from "../materials/commands.ts";
 import { openReasoningDb } from "./rg-db.ts";
 import { materialIdsOfRef } from "./data-source-evidence.ts";
 import { type MemoryGraphReader } from "./graph.ts";
@@ -259,11 +259,14 @@ export function curatorTools(deps: CuratorToolDeps): HostTool[] {
 
   /** 追加一条记忆命令（忘掉、别推断）：234 号票的 purge-rg 订阅它，按老规矩处理推理库 */
   const command = (mode: "forget" | "no_infer", materialIds: readonly string[], reason: string) => {
+    // 366 号票：忘掉时记下来的文件一起删（命令记着媒体编号，memory/after-purge.ts）
+    const mediaIds = mode === "forget" ? rememberedMediaOf(materialIds.flatMap((id) => deps.materials.get(id) ?? [])) : [];
     const payload: DeleteCommandPayload = {
       commandId: `curator-${nowIso()}-${Math.random().toString(36).slice(2, 8)}`,
       command: mode,
       materialIds: [...materialIds],
       from: { kind: "curator", conversation: deps.conversation },
+      ...(mediaIds.length === 0 ? {} : { mediaIds }),
     };
     deps.store.append({ channel: MATERIALS_CHANNEL, type: EVENT_TYPES.memoryCommand, payload });
     log(`记忆管理员按用户的话 ${mode === "forget" ? "忘掉" : "别推断"}了 ${materialIds.join("、")}：${reason}`);

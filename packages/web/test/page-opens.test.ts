@@ -57,6 +57,7 @@ const PAGES = [
   "#/more/memory/materials-delete/mat-fake-recent-7",
   // 你存的网页（165 号票，原型的假素材）：标题、网址、存下的正文
   "#/more/memory/materials/mat-fake-webpage",
+  "#/more/memory/materials/mat-fake-recent-17",
   // 结论里点开的一条（233 号票的证据与推理，285 号票并进结论；原型的假结论）：证据链、支持/反证、竞争解释、修订
   "#/more/memory/claims/cl-0001",
   "#/more/memory/claims/cl-0002",

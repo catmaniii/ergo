@@ -106,7 +106,7 @@ export const memoryPlugin: PluginDefinition = {
     KERNEL.layout,
     KERNEL.env,
   ],
-  wants: [KERNEL.memoryModel, KERNEL.memorySettings, KERNEL.usage, KERNEL.personalFiles, KERNEL.memorySlot],
+  wants: [KERNEL.memoryModel, KERNEL.memorySettings, KERNEL.usage, KERNEL.personalFiles, KERNEL.memorySlot, KERNEL.elementFiles],
   provides: [MEMORY, MEMORY_NIGHTLY, MEMORY_INTERVIEWS],
   views: [memoryNightlyView],
   prompts: memoryPrompts,
@@ -282,7 +282,8 @@ export const memoryPlugin: PluginDefinition = {
       askCuratorTool({ store, conversation: MEMORY_CURATOR_CONVERSATION, log }),
       woven.markTool(),
       // 337 号票：用户说"帮我记一句"时秘书调它，转给记忆插件槽（在跑的那个记忆插件）。槽没接上就不给这个工具
-      ...(memorySlot === undefined ? [] : [rememberTool({ remember: (input) => memorySlot.remember(input), store })]),
+      // 366 号票：用户说"这张图记下来"时连文件一起存：这一轮长按的元素取回来的文件经组合根现取（浏览插件没启用时只能记文字）
+      ...(memorySlot === undefined ? [] : [rememberTool({ remember: (input) => memorySlot.remember(input), store, elementToRemember: (ref, call) => ctx.optional(KERNEL.elementFiles)?.toRemember(ref, call) })]),
     ];
     ctx.agent.tools.register({ to: { agents: ["secretary"] }, tools: () => tools });
 

@@ -20,12 +20,14 @@
 // app/native-browser.ts、page-bridge/）、132 号票的内置浏览器叠层（/apps/ 转发的页面、渲染附件）。
 import path from "node:path";
 import { browseSearchEngineOf, t } from "@ergo/protocol";
+import { getMessage } from "../conversation/views.ts";
 import { clockIso } from "../scheduler/clock.ts";
 import type { PluginDefinition } from "../plugins/host.ts";
 import { KERNEL } from "../plugins/kernel.ts";
 import { VOICE } from "../voice/api.ts";
 import { BROWSING } from "./api.ts";
 import { createBrowserLinks } from "./browser-links.ts";
+import { createElementMemos } from "./element-memos.ts";
 import { createPageFileTokens } from "./file-tokens.ts";
 import { createPageThumbnails } from "./page-thumbnails.ts";
 import { createPageVoice } from "./page-voice.ts";
@@ -103,6 +105,15 @@ export const browsingPlugin: PluginDefinition = {
     const pageThumbnails = createPageThumbnails({ dir: ctx.use(KERNEL.layout).pageThumbnails, thumbnails, log: (line) => ctx.log(line) });
     ctx.lifecycle({ start: () => pageThumbnails.start(), stop: () => pageThumbnails.stop() });
     ctx.lifecycle({ stop: () => links.close() });
+    // 这一轮取回来的元素文件（366）：秘书记下来时只认它们
+    const media = ctx.use(KERNEL.media);
+    const elementMemos = createElementMemos({
+      markOf: (messageId) => {
+        const message = getMessage(store.reader, messageId);
+        return message?.speaker === "user" ? message.browsing : undefined;
+      },
+      media,
+    });
     ctx.provide(BROWSING, {
       links,
       appBrowserTurn(call) {
@@ -114,6 +125,7 @@ export const browsingPlugin: PluginDefinition = {
       pageFiles,
       pageThumbnails,
       savedPages: createSavedPages({ store, now: () => clockIso(clock) }),
+      elementToRemember: (ref, call) => elementMemos.toRemember(ref, call),
     });
     // 秘书的网页工具（147；149 起悬浮按钮那一轮也是秘书）：只给秘书，排在内核的工具之后（原来的位置）
     const tools = browsingTools({
@@ -122,10 +134,10 @@ export const browsingPlugin: PluginDefinition = {
       cards,
       tokens: pageFiles,
       thumbs: pageThumbnails,
-      element: { media: ctx.use(KERNEL.media), scratchDir: ctx.use(KERNEL.layout).scratch },
+      element: { media, scratchDir: ctx.use(KERNEL.layout).scratch, memos: elementMemos },
       files: {
         materials: ctx.use(KERNEL.materials),
-        media: ctx.use(KERNEL.media),
+        media,
         folders: () => localFolders.view(),
         timeZone: config.timeZone,
         cache: new Map(),

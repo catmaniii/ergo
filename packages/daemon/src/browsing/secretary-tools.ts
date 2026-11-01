@@ -52,6 +52,7 @@ import { defineHostTool, type HostTool, type HostToolCall } from "../agent-manag
 import type { CardService } from "../cards/cards.ts";
 import { getMessage } from "../conversation/views.ts";
 import type { EventStore } from "../events/event-store.ts";
+import type { ElementMemos } from "./element-memos.ts";
 import { elementTools } from "./element-tools.ts";
 import { PAGE_FILE_TOKEN_TTL_MS, type PageFileTokens } from "./file-tokens.ts";
 import { FILE_REF, FileRefs, type FileToolsDeps, findFilesTool, sizeText, viewFilesTool } from "./file-tools.ts";
@@ -95,8 +96,8 @@ export interface BrowsingToolDeps {
   thumbs?: Pick<PageThumbnails, "warm">;
   /** 找文件、看图 */
   files: FileToolsDeps;
-  /** 取长按的元素的内容（359 号票）：媒体库（设备传进来的）、草稿区（放一份给别的工具用） */
-  element: { media: MediaStore; scratchDir: string };
+  /** 取长按的元素的内容（359 号票）：媒体库（设备传进来的）、草稿区（放一份给别的工具用）、这一轮取回来的文件（366 号票：记下来时只认它们） */
+  element: { media: MediaStore; scratchDir: string; memos: ElementMemos };
   now?: () => number;
 }
 
@@ -457,6 +458,6 @@ export function browsingTools(deps: BrowsingToolDeps): HostTool[] {
     open,
     snapshot,
     click,
-    ...elementTools({ links, media: deps.element.media, scratchDir: deps.element.scratchDir, files: deps.files, refs, browsingOf, now }),
+    ...elementTools({ links, media: deps.element.media, scratchDir: deps.element.scratchDir, memos: deps.element.memos, files: deps.files, refs, browsingOf, now }),
   ];
 }

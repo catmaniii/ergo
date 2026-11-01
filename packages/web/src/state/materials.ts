@@ -7,6 +7,7 @@
 // - 详情里的三种删法（materialDeleteChoices）：口径同设置里按范围删（MEMORY_DELETE_MODE_INFO），已经标过不参与推断的"别推断"灰着。
 // - 你存的网页（165 号票，"浏览"的 ⋮ 菜单里存进素材的）：网页那一段画成标题、网址和存下的正文（守护进程从原始事件里补上的，外部数据），
 //   截断了写明；情境标签 saved_web_page 写成"你存的网页"。
+// - 记下来的文件（366 号票，"这张图记下来"）：和附件一样按 part 画（守护进程拼好的），取不到原文件存的截图在小标题上写明。
 import { conversationAtJump, type InboxJump } from "./inbox-jump.ts";
 import {
   type MaterialDetailView,
@@ -102,6 +103,8 @@ export type MaterialBlock =
 function blockTitle(s: MaterialSegmentView): string {
   // 语音转写本身就写着"转写"，不再重复注明
   const params = { source: MATERIAL_SOURCE_LABEL[s.source], form: FORM_LABEL[s.form] };
+  if (s.notes.includes("screenshot_partial")) return t("state.materials.blockTitleScreenshotPartial", params);
+  if (s.notes.includes("screenshot")) return t("state.materials.blockTitleScreenshot", params);
   return t(s.notes.includes("agent_proposed") ? "state.materials.blockTitleProposed" : "state.materials.blockTitle", params);
 }
 

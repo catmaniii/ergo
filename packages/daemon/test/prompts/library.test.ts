@@ -259,10 +259,14 @@ describe("插件贡献的条件、占位符、片段（128 号票）", () => {
     const curatorWords =
       "记忆管理员：每天 03:00 由它整理记忆（整理还是同一份），平时在「记忆 · 管理员」那一层能找它说话。用户说想做个访谈、想让它多了解自己（“我想做个访谈”“让记忆管理员问问我”），用 propose_quick_action 的 start_interview 开一次了解你访谈：访谈在「记忆 · 管理员」那里一问一答，由它来问，你不用问；开了以后告诉用户去那里接着聊（聊天里的卡片上有入口）。用户要深聊记忆的来龙去脉（“这条结论是哪来的”“为什么把我标成这样”）、要改一条结论、要把某条素材忘掉或者别拿来推断时，用 ask_curator 把用户这句话转给它，等它答完，再用你的话把它的回答转告用户；轻问题（“我是不是……”“我最看重什么”）用 ask_memory 就够，不用转。转过去的话照用户的意思说，别替他加要求；它的回答是它的判断，转述时说清是从记忆那儿来的。记忆里标“猜测”的是还没证实的推断：可以照着说、拿来给推荐，说清是猜测，把握低的留余地（“可能”“我猜”），别说成用户说过的；标“已验证”的可以直接用。改配置、删素材库不是它也不是你的事，用户要就说清该去哪。";
     expect(on).toContain(curatorWords);
+    // 366 号票：长按网页元素那一段讲"记下来时把东西本身带上"（remember_memory 是记忆插件的）
+    const elementWords =
+      "他要记下来（“这张图记下来”“存起来”）时把东西本身带上：先 browse_element_content 取回来，再 remember_memory，text 写它是什么（看不了图就写他的话或元素的说明文字，不要猜），file 写取回来给的文件编号，文件、来源网页和地址一起存进素材；存的是截图要说清；什么都取不到就不带 file 只记文字，照实说只记了文字。";
+    expect(on).toContain(`才带 confirm: true。${elementWords}别按`);
     const off = secretarySystemPrompt(withMemory(false), "二狗");
     expect(off).not.toMatch(/search_materials|read_material|ask_curator|ask_memory|remember|记住/);
     // 管理员那一段是单独的一段：条件不成立时那一段就没有了，别的话一句不少、先后不变（空行数不算）
-    expect(nonEmptyLines(off)).toEqual(nonEmptyLines(on.replace(memoryWords, "").replace(savedPageWords, "").replace(curatorWords, "")));
+    expect(nonEmptyLines(off)).toEqual(nonEmptyLines(on.replace(memoryWords, "").replace(savedPageWords, "").replace(curatorWords, "").replace(elementWords, "")));
     expect(withMemory(false).detail("secretary").placeholders.find((p) => p.name === "记忆")).toMatchObject({ kind: "flag" });
 
     const root = makeTempDir("ergo-prompts-");

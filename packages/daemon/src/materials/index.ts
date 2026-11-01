@@ -18,7 +18,7 @@ export type { Material, MaterialKind } from "./types.ts";
 export { MATERIAL_KIND_LABEL } from "./types.ts";
 export { excerptOf, queryTerms, snippetOf } from "./excerpt.ts";
 export { materialFacets, matchesFacets } from "./facets.ts";
-export { MATERIALS_CHANNEL, MEMORY_COMMAND_SOURCE, memoryCommandSource, rememberCommandPurge, scopeLabel } from "./commands.ts";
+export { MATERIALS_CHANNEL, MEMORY_COMMAND_SOURCE, memoryCommandSource, REMEMBERED_FILE_FIELD, rememberCommandPurge, rememberedMediaOf, scopeLabel } from "./commands.ts";
 export { cardDismissedPurge, cardStalePurge, cardStaleSource, conversationKind, interviewQuestionSegments } from "./sources.ts";
 export { type Embedder, EmbeddingUnavailable } from "./embedding/embedder.ts";
 export { BGE_M3, createBgeM3Embedder } from "./embedding/bge-m3.ts";

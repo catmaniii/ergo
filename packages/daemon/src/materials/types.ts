@@ -111,11 +111,18 @@ export interface SegmentLocator {
   field?: string;
 }
 
-/** 媒体引用（09 号票的附件：媒体 id、文件名、类型；mediaId 是入库版本的 sha256） */
+/**
+ * 媒体引用（09 号票的附件：媒体 id、文件名、类型；mediaId 是入库版本的 sha256）。
+ * 记下来的文件（366 号票）不在消息里，素材页没有 part 可取，另外记着怎么画：图片还是文件、大小、宽高
+ */
 export interface MediaRef {
   mediaId: string;
   name?: string;
   mime?: string;
+  kind?: "image" | "file";
+  size?: number;
+  width?: number;
+  height?: number;
 }
 
 /**

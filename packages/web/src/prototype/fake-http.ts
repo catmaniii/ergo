@@ -158,7 +158,7 @@ import { FAKE_CLAUDE_CODE, FAKE_CLAUDE_COMMANDS, FAKE_CLAUDE_MAINTAINERS, FAKE_C
 import { fakeTakeoverSessions } from "./fake-takeover.ts";
 import { fakeAppFileText } from "./fake-app-files.ts";
 import { fakeMedia } from "./fake-media.ts";
-import { fakeMaterialConversations, fakeMaterialDetail, fakeMaterialsIn, fakeSaveWebPage } from "./fake-materials.ts";
+import { FAKE_MATERIAL_IMAGES, fakeMaterialConversations, fakeMaterialDetail, fakeMaterialsIn, fakeSaveWebPage } from "./fake-materials.ts";
 import { fakeServiceThumbnail } from "./fake-operations.ts";
 import { fakeProjectStandard } from "./fake-standard.ts";
 import { FakeSystemPrompts } from "./fake-system-prompts.ts";
@@ -348,7 +348,7 @@ export class FakeDaemonHttp implements DaemonHttp {
   }
 
   mediaUrl(mediaId: string): string | undefined {
-    const url = this.urls.get(mediaId);
+    const url = this.urls.get(mediaId) ?? FAKE_MATERIAL_IMAGES.get(mediaId);
     if (url) return url;
     // 假会话里的附件、刚上传的文件：下载给一段说明文字（原型没有原文件）
     const name = fakeMedia(mediaId)?.part.name ?? this.uploads.get(mediaId)?.name;

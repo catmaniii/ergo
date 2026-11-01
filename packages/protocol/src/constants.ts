@@ -825,8 +825,11 @@ export type MaterialSegmentForm = (typeof MATERIAL_SEGMENT_FORMS)[number];
 export const MATERIAL_SOURCE_LEVELS = ["self", "agent", "external_untrusted", "system"] as const;
 export type MaterialSourceLevel = (typeof MATERIAL_SOURCE_LEVELS)[number];
 
-/** 切段的注明：agent 先提出（用户接受了 agent 的提议）、转写（语音转写） */
-export const MATERIAL_SEGMENT_NOTES = ["agent_proposed", "transcribed"] as const;
+/**
+ * 切段的注明：agent 先提出（用户接受了 agent 的提议）、转写（语音转写）、
+ * 截图（366 号票：记下来的文件取不到原文件，存的是截的这个元素的图）、截图且只截到屏幕上看得见的部分
+ */
+export const MATERIAL_SEGMENT_NOTES = ["agent_proposed", "transcribed", "screenshot", "screenshot_partial"] as const;
 export type MaterialSegmentNote = (typeof MATERIAL_SEGMENT_NOTES)[number];
 
 /** 设置里的素材列表一页最多多少条 */
