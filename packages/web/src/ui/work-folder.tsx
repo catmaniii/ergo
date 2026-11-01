@@ -1,7 +1,7 @@
 // 新建时选工作文件夹在界面上：发起任务、新建项目选了能选工作文件夹的运行时（Claude Code）时，运行时那一排下面多一项
 // "在哪个文件夹做"（照"运行时"那一排 .seg）：在默认文件夹下新开一个（子文件夹名能改，下面一行写会建在哪）/ 用一个已有的文件夹
 // （填路径，下面列最近用过的几个——本机 Claude Code 会话的工作目录，会话列表，选到这一项时取一次）。
-// 没设默认文件夹时第一项写"二狗开的工作目录"、说明去设置 · Claude Code 里定。说法在状态层（state/work-folder.ts）。
+// 没设默认文件夹时第一项写"二狗开的工作目录"、说明去设置里这个运行时的那一页定。说法在状态层（state/work-folder.ts）。
 import { useEffect, useState } from "react";
 import { useStore } from "../app/store.tsx";
 import { type FolderDraft, folderNameShown, newFolderPreview, recentFolders, t, workFolderRuntime } from "../state/index.ts";
@@ -42,7 +42,7 @@ export function WorkFolderPicker({ runtime, as, title, draft, onChange }: { runt
       )}
       {draft.mode === "new" && (
         <div className="sc-mode-hint work-folder-hint">
-          {defaultFolder === undefined ? <T k="ui.workFolder.noDefaultHint" params={{ name: <AssistantName /> }} /> : newFolderPreview(defaultFolder, name, as)}
+          {defaultFolder === undefined ? <T k="ui.workFolder.noDefaultHint" params={{ name: <AssistantName />, runtime: found.title }} /> : newFolderPreview(defaultFolder, name, as)}
         </div>
       )}
       {draft.mode === "existing" && <ExistingFolder runtime={runtime} draft={draft} onChange={onChange} />}

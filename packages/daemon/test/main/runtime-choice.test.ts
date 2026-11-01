@@ -103,7 +103,7 @@ describe("新建任务选运行时、斜杠命令转交", () => {
     const td = await startTestDaemon({
       extraPlugins: [fakeSdkClaudeCodePlugin],
       secretary: [
-        { kind: "reply", toolCalls: [{ name: "delegate_task", arguments: { title: "整理下载目录", instructions: "把下载目录按月份分好", runtime: "codex" } }] },
+        { kind: "reply", toolCalls: [{ name: "delegate_task", arguments: { title: "整理下载目录", instructions: "把下载目录按月份分好", runtime: "gemini" } }] },
         { kind: "reply", toolCalls: [{ name: "delegate_task", arguments: { title: "整理下载目录", instructions: "把下载目录按月份分好", runtime: CLAUDE_CODE_RUNTIME_ID } }] },
         { kind: "reply", text: "交给后台了。" },
       ],
@@ -126,7 +126,7 @@ describe("新建项目选运行时", () => {
     });
     const frontend = await TestFrontend.connect(td.url);
     await frontend.subscribe({ [CHANNELS.secretary]: 0, [CHANNELS.cards]: 0 });
-    const refused = await frontend.request(METHODS.newProject, { request: "做一个家电档案", runtime: "codex" }, "k-codex");
+    const refused = await frontend.request(METHODS.newProject, { request: "做一个家电档案", runtime: "gemini" }, "k-gemini");
     expect(refused.ok).toBe(false);
     expect(ok(await frontend.request(METHODS.newProject, { request: "做一个家电档案", runtime: CLAUDE_CODE_RUNTIME_ID }, "k-new"))).toBeDefined();
     const notice = messagesOf(frontend, CHANNELS.secretary).find((m) => m.agentInput);
@@ -185,7 +185,7 @@ describe("⚙ 按运行时、中途换运行时", () => {
     const channel = maintainerChannel(task.maintainerId);
 
     // 没启用、不认得的运行时：400
-    expect((await agentSettingsApi.runtime(td.url, task.maintainerId, { runtime: "codex" })).status).toBe(400);
+    expect((await agentSettingsApi.runtime(td.url, task.maintainerId, { runtime: "gemini" })).status).toBe(400);
     const switched = await agentSettingsApi.runtime(td.url, task.maintainerId, { runtime: CLAUDE_CODE_RUNTIME_ID });
     expect(switched.status).toBe(200);
     // 换完（写好交接摘要）任务才记着新的运行时，会话里记一条

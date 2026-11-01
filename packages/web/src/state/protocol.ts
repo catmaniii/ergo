@@ -1021,7 +1021,7 @@ export type { PluginState, PluginStatusEventPayload, PluginStatusView } from "@e
 // 设置 · 插件：清单、停用 / 启用 / 移除的结果、连数据删的记录
 export type { PluginAction, PluginActionResult, PluginBrings, PluginDataPurgedEventPayload, PluginInfo, PluginPurgeCounts, PluginsView } from "@ergo/protocol";
 // agent 运行时：负责人用的运行时（pi 或者插件登记的）连同能力清单，GET /api/runtimes 取；新建时选、⚙ 里换、卡上标出
-export { PI_RUNTIME_ID, RUNTIME_OPERATIONS, RUNTIME_SWITCH_STATES, runtimeIdOf, runtimeShown, runtimeTitleOf, selectableRuntimes, TAKEOVER_ACTIONS, TAKEOVER_KINDS, TAKEOVER_PLACES, takeoverPlaceOf, WORK_FOLDER_NAME_MAX, workFolderName } from "@ergo/protocol";
+export { PI_RUNTIME_ID, RUNTIME_OPERATIONS, RUNTIME_SWITCH_STATES, runtimeBillingOf, runtimeIdOf, runtimeShown, runtimeTitleOf, selectableRuntimes, TAKEOVER_ACTIONS, TAKEOVER_KINDS, TAKEOVER_PLACES, takeoverPlaceOf, WORK_FOLDER_NAME_MAX, workFolderName } from "@ergo/protocol";
 export type {
   AgentRuntimeBody,
   AgentRuntimeStateView,

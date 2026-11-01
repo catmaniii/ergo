@@ -101,6 +101,7 @@ const PAGE_TITLES: Readonly<Record<Exclude<Sub, "language">, string>> = tTable({
   plugins: "shell.pages.plugins.title",
   components: "shell.pages.components.title",
   "claude-code": "shell.pages.claudeCode.title",
+  codex: "shell.pages.codex.title",
   "data-sources": "shell.pages.dataSources.title",
   "authorized-folders": "shell.pages.authorizedFolders.title",
   "materials-delete": "shell.pages.materialsDelete.title",
@@ -128,6 +129,7 @@ const PAGE_SUBS: Readonly<Record<Exclude<Sub, "language">, string>> = tTable({
   plugins: "shell.pages.plugins.sub",
   components: "shell.pages.components.sub",
   "claude-code": "shell.pages.claudeCode.sub",
+  codex: "shell.pages.codex.sub",
   "data-sources": "shell.pages.dataSources.sub",
   "authorized-folders": "shell.pages.authorizedFolders.sub",
   "materials-delete": "shell.pages.materialsDelete.sub",
@@ -158,9 +160,9 @@ const SETTINGS_GROUPS: readonly { id: SettingsGroupId; rows: readonly SettingsRo
   // "角色与声音"紧挨着"我的名字"（助理的名字不再单独设：就是默认角色的名字，在这一页里改），语音页只留引擎状态和自动播放
   // "我的名字"下面一行去个人档案的链接（本人那份的姓名就是我的名字）
   { id: "identity", rows: ["user-name", "personal-files-link", "roles", "language", "appearance", "voice", "enter-key"] },
-  // 设置 · Claude Code（Claude Code 插件画的页，新建时的默认文件夹）排在插件后面；插件停用时不列
+  // 设置 · Claude Code、设置 · Codex（各自的插件画的页，新建时的默认文件夹）排在插件后面；插件停用时不列
   // 设置 · 组件（模型、语音这些大件按需下载）紧挨着插件
-  { id: "ability", rows: ["models", "skills", "plugins", "components", "claude-code", "browsing"] },
+  { id: "ability", rows: ["models", "skills", "plugins", "components", "claude-code", "codex", "browsing"] },
   { id: "rules", rows: ["watch", "prompts", "workday-rules"] },
   // 数据源排在这一组最前面（外面接进来的数据，和删除素材挨着）
   // "备份"紧挨着工具调用的完整内容（是普通一行，点了进去）

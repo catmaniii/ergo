@@ -3,6 +3,16 @@ import type { Phrases } from "./phrases.ts";
 
 export const EN_RUNTIMES: Phrases = {
   "跟 Claude Code 自己的设置": "Follow Claude Code's own settings",
+  "跟 Codex 自己的设置": "Follow Codex's own settings",
+  "判不准它是不是还开着（Codex 不告诉别人谁开着它）：可能还开着，先在那边关掉，或者分叉一份接管": "Can't tell whether it's still open (Codex doesn't say who has a session open). It may be: close it there first, or take over a fork",
+  "3 分钟前还有活动，可能还开着": "Active 3 min ago, so it may still be open",
+  "把导出改成流式": "Make the export streaming",
+  "修登录页的时区问题": "Fix the time zone bug on the sign-in page",
+  "整理接口文档": "Tidy up the API docs",
+  "沙箱": "Sandbox",
+  "只读": "Read-only",
+  "只能写工作目录": "Write in the working folder only",
+  "不用沙箱（只靠守卫）": "No sandbox (the guard only)",
   "权限模式": "Permission mode",
   "默认（照你的放行规则）": "Default (follow your allow rules)",
   "自动接受改文件": "Auto-accept file edits",

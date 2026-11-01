@@ -205,7 +205,7 @@ Delete that section from `mcp.json`, or have the owner submit a card to delete i
 | Message ergo | Checkbox | Owners, sub-agents and reviewers can message the secretary, who passes it on to you. Each can send at most 3 every 10 minutes |
 | Send attachments | Checkbox | Owners can send files from the working folder as attachments in the session, where you preview or download them |
 
-After a change it says **Toolkit updated. If the owner is working, it switches to the new toolkit after its current step**. A Claude Code owner switches on the spot.
+After a change it says **Toolkit updated. If the owner is working, it switches to the new toolkit after its current step**. A Claude Code owner switches on the spot; a Codex owner restarts with the new toolkit once this turn is done.
 
 **Can owners change it themselves?**
 
@@ -242,6 +242,7 @@ Each plugin has a block: name, status, one line of description, and below it wha
 | Voice | Push-to-talk and Settings · Voice go away, and replies are text only |
 | Built-in browser | **Browse**, the sidebar and the floating button in the app go away |
 | Claude Code | Settings · Claude Code goes away, owners using it no longer start, and tasks in progress become **Waiting for me** |
+| Codex | Settings · Codex goes away, owners using it no longer start, and tasks in progress become **Waiting for me** |
 | Data source - Phone, Data source - Google, Data source - Looki wearable camera | That data source stops syncing, and ergo can't query it either |
 
 ### Turning off and on

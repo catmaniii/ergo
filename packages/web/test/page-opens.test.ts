@@ -146,6 +146,8 @@ const EN_DONE: { hash: string; selector: string; except?: string; wideOnly?: boo
   { hash: "#/more/usage", selector: ".sec-head" },
   // 设置 · 插件（原型的假守护进程按打开时的语言给插件的说法）
   { hash: "#/more/plugins", selector: ".plugins-page" },
+  // 设置 · Codex（和设置 · Claude Code 同一个页面，文字跟运行时走）
+  { hash: "#/more/codex", selector: ".runtime-folder-page" },
   // 设置 · 组件——分节标题、上面那一排按钮、每块的状况小签、几行的键、按钮、清单签没签名（组件名、说明、值是守护进程给的内容，原型编的是中文）
   { hash: "#/more/components", selector: ".components-page .sec-head, .component-toolbar, .component-head .chip, .component-line dt, .component-actions, .component-manifest" },
   // 数据源一级页的组里"共用"、导入文件夹的小字；详情的分节标题、标签、现查那一行、设置里的开关名（名字、一句话是守护进程给的内容，原型编的是中文）

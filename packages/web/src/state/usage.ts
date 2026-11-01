@@ -27,6 +27,7 @@ import {
   t,
   tTable,
   currencySymbol,
+  runtimeBillingOf,
 } from "./protocol.ts";
 import { maintainerLabel } from "./readable-ids.ts";
 import type { UiState } from "./ui-state.ts";
@@ -185,7 +186,11 @@ export function usagePricingNotes(pricing: UsagePricing): string[] {
     notes.push(t("state.usage.price.builtinSource", { title: builtin.source.title, readOn: builtin.source.readOn }));
     for (const year of builtin.missingHolidayYears) notes.push(t("state.usage.price.missingHolidays", { missing: missingHolidayDataText(year, ["cn"]) }));
   }
-  if (pricing.unpriced.length > 0) notes.push(t("state.usage.price.unpriced", { models: pricing.unpriced.join(t("state.usage.listSep")) }));
+  // 没单价的分开说：订阅额度不算钱；API key 是实际花了钱、只是这里没单价，不能写得像免费的；别的才是"没算进成本"
+  const billed = (kind: "subscription" | "metered" | undefined) => pricing.unpriced.filter((model) => runtimeBillingOf(model) === kind).join(t("state.usage.listSep"));
+  if (billed(undefined)) notes.push(t("state.usage.price.unpriced", { models: billed(undefined) }));
+  if (billed("subscription")) notes.push(t("state.usage.price.subscription", { models: billed("subscription") }));
+  if (billed("metered")) notes.push(t("state.usage.price.metered", { models: billed("metered") }));
   if (pricing.problem) notes.push(t("state.usage.price.configProblem", { problem: pricing.problem }));
   return notes;
 }

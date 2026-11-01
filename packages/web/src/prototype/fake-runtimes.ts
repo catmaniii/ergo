@@ -1,10 +1,13 @@
-// 原型里的 agent 运行时：内核自带的 pi，加上 Claude Code 插件登记的（能力清单、设置项、模型照守护进程的
+// 原型里的 agent 运行时：内核自带的 pi，加上 Claude Code、Codex 插件登记的（能力清单、设置项、模型照守护进程的
 // claude-code/runtime.ts、settings.ts；模型列表是编的，真的是 Claude Code 起来时报回的）。"个人博客"项目的负责人用 Claude Code
 // （卡上标出、⚙ 里多权限模式和思考档位、输入框的候选是 Claude Code 的命令）。
-import { type AgentRuntimeView, PI_RUNTIME_ID, RUNTIME_OPERATIONS, type RuntimeCapabilities, type SlashCommandEntry } from "../state/index.ts";
+import { type AgentRuntimeView, PI_RUNTIME_ID, type ResumableSessionView, RUNTIME_OPERATIONS, type RuntimeCapabilities, type SlashCommandEntry } from "../state/index.ts";
 
 /** Claude Code 运行时的 id（守护进程 claude-code/api.ts 的 CLAUDE_CODE_RUNTIME_ID） */
 export const FAKE_CLAUDE_CODE = "claude-code";
+
+/** Codex 运行时的 id（守护进程 codex/api.ts 的 CODEX_RUNTIME_ID） */
+export const FAKE_CODEX = "codex";
 
 /** 用 Claude Code 的负责人（原型里编的）：个人博客项目的负责人、从 Claude Code 会话接管来的"修 CI 的 flaky 测试" */
 export const FAKE_CLAUDE_MAINTAINERS: readonly string[] = ["project-blog", "tm-flaky"];
@@ -61,6 +64,48 @@ export function fakeRuntimes(): AgentRuntimeView[] {
       // 新建时选工作文件夹
       workFolder: fakeDefaultFolder === undefined ? {} : { defaultFolder: fakeDefaultFolder },
     },
+    {
+      id: FAKE_CODEX,
+      title: "Codex",
+      plugin: "codex",
+      available: true,
+      // 能力清单照守护进程 codex/runtime.ts：撤回只回对话，不恢复文件；分支摘要它不写
+      capabilities: caps(["interject", "compact", "rollback", "branch_switch", "model_handoff", "thinking_levels", "take_over", "scope_review"]),
+      models: [
+        { id: "gpt-5.5", title: "GPT-5.5" },
+        { id: "gpt-5.5-mini", title: "GPT-5.5 mini" },
+      ],
+      settings: [
+        {
+          id: "sandbox",
+          title: "沙箱",
+          options: [
+            { value: "inherit", title: "跟 Codex 自己的设置" },
+            { value: "read-only", title: "只读" },
+            { value: "workspace-write", title: "只能写工作目录" },
+            { value: "danger-full-access", title: "不用沙箱（只靠守卫）" },
+          ],
+          default: "inherit",
+        },
+        {
+          id: "effort",
+          title: "思考档位",
+          options: [{ value: "inherit", title: "跟 Codex 自己的设置" }, { value: "low", title: "低" }, { value: "medium", title: "中" }, { value: "high", title: "高" }, { value: "xhigh", title: "很高" }],
+          default: "inherit",
+        },
+      ],
+      workFolder: {},
+    },
+  ];
+}
+
+/** 原型里本机的 Codex 会话（编的）：判不准占没占的默认引导分叉，开着的、最近有活动的标占着 */
+export function fakeCodexSessions(): ResumableSessionView[] {
+  const unsure = "判不准它是不是还开着（Codex 不告诉别人谁开着它）：可能还开着，先在那边关掉，或者分叉一份接管";
+  return [
+    { id: "019a-codex-recent", title: "把导出改成流式", cwd: "D:\\code\\ledger", branch: "feat/stream", updatedAt: "2026-10-08T09:58:00+08:00", busy: "3 分钟前还有活动，可能还开着" },
+    { id: "019a-codex-old", title: "修登录页的时区问题", cwd: "D:\\code\\web-app", branch: "fix/timezone", updatedAt: "2026-10-06T18:20:00+08:00", unsure },
+    { id: "019a-codex-older", title: "整理接口文档", cwd: "D:\\code\\docs", updatedAt: "2026-10-02T11:05:00+08:00", unsure },
   ];
 }
 

@@ -240,7 +240,8 @@ export interface PluginReport {
   /** 配置里停用的（和运行中停用的，连同跟着一起停的） */
   disabled: string[];
   /** 没装上的和原因：缺依赖、循环依赖、装配或启动出错、依赖的插件停了 */
-  skipped: Array<{ plugin: string; reason: string }>;
+  /** missing：是因为它要的外部组件没装（用户没选用，不算出了问题） */
+  skipped: Array<{ plugin: string; reason: string; missing?: true }>;
   /** 移除了的（没有就不写） */
   removed?: string[];
 }
@@ -1036,7 +1037,7 @@ export function createPluginHost(options: PluginHostOptions): PluginHost {
       return {
         running: order.filter((s) => active(s)).map((s) => s.def.name),
         disabled: slots.filter((s) => s.state === "disabled").map((s) => s.def.name),
-        skipped: slots.filter((s) => s.state === "skipped").map((s) => ({ plugin: s.def.name, reason: s.reason ?? "" })),
+        skipped: slots.filter((s) => s.state === "skipped").map((s) => ({ plugin: s.def.name, reason: s.reason ?? "", ...(s.missing === undefined ? {} : { missing: true as const }) })),
         ...(gone.length > 0 ? { removed: gone } : {}),
       };
     },

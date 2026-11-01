@@ -119,5 +119,11 @@ describe("消耗页的单价", () => {
     ]);
     expect(usagePricingNotes({ ...pricing, builtin: undefined, unpriced: [], problem: "坏了" })).toEqual(["配置里的单价读不出来，没用它：坏了"]);
     expect(usagePricingNotes({ estimate: true, currency: "CNY", prices: [], unpriced: [] })).toEqual([]);
+    // Codex：订阅额度写不算钱；API key 是实际花了钱、只是没单价，不能写得像免费的；不和别的没单价的混在一起
+    expect(usagePricingNotes({ estimate: true, currency: "CNY", prices: [], unpriced: ["codex-api-key/gpt-5", "codex-subscription/gpt-5", "other/m"] })).toEqual([
+      "没有单价、没算进成本的模型：other/m。",
+      "用订阅额度、不算钱的模型：codex-subscription/gpt-5。",
+      "用 API key 按量计费的模型（实际花了钱，这里没有单价，以服务商账单为准）：codex-api-key/gpt-5。",
+    ]);
   });
 });

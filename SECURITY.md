@@ -43,7 +43,7 @@ agent 的**每一次工具调用**在执行前都过守卫（一个纯函数，�
 - **时序规则**：比如"删除前必须已备份""读过密钥之后不许往外送"。
 - **三条硬底线**谁说了都不放：不写二狗自己的配置区、数据库区和程序目录；不读密钥区；确定要把密钥发出去的不做。
 - 判断不了的（缺环境事实、参数没法规范化）一律先问你。
-- Claude Code 这类外部运行时的工具调用同样过二狗的守卫、留记录。
+- Claude Code、Codex 这类外部运行时的工具调用同样过二狗的守卫、留记录。Codex 自己做的几样（看图、生成图片、派子代理、钩子没管到的只读命令）只能事后记录、判了不放行就打断，见 [ADR-0046](docs/architecture/adr/0046-codex-runtime-guard-and-tools.md)。
 
 ### 密钥区
 
@@ -118,7 +118,7 @@ Outside access (Tailscale, self-hosted Headscale, VPS tunnel + nginx; see the [D
 - **Temporal rules**: e.g. "back up before deleting", "never send anything out after reading a secret".
 - **Three hard bottom lines** nobody can override: never write ergo's own config area, database area or program directory; never read the secrets area; never send something known to be a secret.
 - Anything that cannot be judged (missing facts, arguments that can't be normalized) asks you first.
-- Tool calls from external runtimes such as Claude Code go through the same guard and are recorded.
+- Tool calls from external runtimes such as Claude Code and Codex go through the same guard and are recorded. A few things Codex does on its own (viewing images, generating images, sending subagents, read-only commands the hook missed) can only be recorded afterwards, with the turn interrupted if the guard says no. See [ADR-0046](docs/architecture/adr/0046-codex-runtime-guard-and-tools.md).
 
 ### The secrets area
 

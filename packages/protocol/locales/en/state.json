@@ -1730,5 +1730,9 @@
   "state.backgroundAgents.hours": "{h}h {m}m",
   "state.backgroundAgents.call.blocked": "Blocked",
   "state.backgroundAgents.call.denied": "You declined",
-  "state.backgroundAgents.call.error": "Error"
+  "state.backgroundAgents.call.error": "Error",
+  "state.takeover.unsureNote": "{unsure}. {runtime} sessions have no lock: taking one over while it's open would split it and lose what one side says, so the fork is ticked by default. Untick it to take over directly once you're sure it's closed.",
+  "state.runtimes.rollbackNoFiles": "{runtime} doesn't restore files: files it changed stay as they are, and only the conversation rolls back.",
+  "state.usage.price.subscription": "Models on subscription quota, not charged per use: {models}.",
+  "state.usage.price.metered": "Models billed per use through an API key (real spend, but no unit price here; go by the provider's bill): {models}."
 }

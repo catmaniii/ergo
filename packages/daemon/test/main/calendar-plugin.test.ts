@@ -88,8 +88,8 @@ describe("日历插件", () => {
   });
 
   it("配置里停用：守护进程照常起、不算降级；按月取回\"日历插件没启用\"，插件频道上是停用了；工作日历照常改", async () => {
-    const td = await startTestDaemon({ plugins: ["reminders", "memory", "voice", "browsing", "claude-code", "phone", "google", "looki"], clock: new ManualClock(START) });
-    expect(td.daemon.plugins.report()).toEqual({ running: ["reminders", "memory", "voice", "browsing", "claude-code", "phone", "google", "looki"], disabled: ["calendar"], skipped: [] });
+    const td = await startTestDaemon({ plugins: ["reminders", "memory", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex"], clock: new ManualClock(START) });
+    expect(td.daemon.plugins.report()).toEqual({ running: ["reminders", "memory", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex"], disabled: ["calendar"], skipped: [] });
     const health = (await (await fetch(new URL("/healthz", td.url))).json()) as Record<string, unknown>;
     expect(health).toMatchObject({ status: "ok", reasons: [] });
     expect(await month(td.url)).toBe(OFF);
@@ -143,8 +143,8 @@ describe("日历插件", () => {
   });
 
   it("提醒插件在配置里停用：日历照常装上（可选依赖不算缺），只是没有提醒", async () => {
-    const td = await startTestDaemon({ plugins: ["memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki"], clock: new ManualClock(START) });
-    expect(td.daemon.plugins.report()).toEqual({ running: ["memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki"], disabled: ["reminders"], skipped: [] });
+    const td = await startTestDaemon({ plugins: ["memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex"], clock: new ManualClock(START) });
+    expect(td.daemon.plugins.report()).toEqual({ running: ["memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex"], disabled: ["reminders"], skipped: [] });
     const view = await month(td.url);
     if (typeof view === "string") throw new Error(view);
     expect(view.days).toHaveLength(31);

@@ -205,6 +205,12 @@ The **Available** tag means you've already set it up elsewhere; it's left alone 
 
 See [Claude Code](claude-code.en.md#setting-a-default-folder) for more. This item isn't in the list when the Claude Code plugin is off.
 
+### Codex
+
+**What it is:** Which folder new Codex tasks and projects go under by default. It works the same as the Claude Code page.
+
+See [Codex](codex.en.md) for more. This item isn't in the list when Codex isn't installed or the plugin is off.
+
 ### Browsing & form filling
 
 **What it is:** Two unrelated things on one page: which search engine **Browse** uses in the phone app, and which methods agents use to search the web.

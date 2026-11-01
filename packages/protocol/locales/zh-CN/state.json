@@ -1653,5 +1653,9 @@
   "state.backgroundAgents.hours": "{h} 小时 {m} 分",
   "state.backgroundAgents.call.blocked": "被拦下",
   "state.backgroundAgents.call.denied": "你拒绝了",
-  "state.backgroundAgents.call.error": "出错"
+  "state.backgroundAgents.call.error": "出错",
+  "state.takeover.unsureNote": "{unsure}。{runtime} 的会话记录没有锁，开着时直接接会分叉、丢掉一边说的话，所以默认勾着分叉；确认那边关了可以取消勾选直接接。",
+  "state.runtimes.rollbackNoFiles": "{runtime} 不恢复文件：它改过的文件留着，撤回只回对话。",
+  "state.usage.price.subscription": "用订阅额度、不算钱的模型：{models}。",
+  "state.usage.price.metered": "用 API key 按量计费的模型（实际花了钱，这里没有单价，以服务商账单为准）：{models}。"
 }

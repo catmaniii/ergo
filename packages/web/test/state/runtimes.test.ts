@@ -55,6 +55,13 @@ describe("负责人的运行时（网页状态层）", () => {
   it("撤回的确认框按运行时多说的：分支摘要不是它自己写的、撤回时恢复文件（阶段、步骤开始前不恢复）；pi 什么都不多说", () => {
     const withRollback: AgentRuntimeView = { ...CLAUDE, capabilities: caps(["rollback", "branch_switch", "rewind_files", "compact"]) };
     expect(rollbackRuntimeNotes([PI, withRollback], "pi", false)).toEqual({ lines: [], restoresFiles: false, runtimeTitle: "pi" });
+    // 恢复不了文件的（Codex：rewind_files 是 false）：写明改过的文件留着
+    const codex: AgentRuntimeView = { ...CLAUDE, id: "codex", title: "Codex", capabilities: caps(["rollback", "branch_switch"]) };
+    expect(rollbackRuntimeNotes([PI, codex], "codex", false)).toEqual({
+      lines: ["Codex 从这条之前另起一个会话接着，分支摘要由二狗按自己记下的写。", "Codex 不恢复文件：它改过的文件留着，撤回只回对话。"],
+      restoresFiles: false,
+      runtimeTitle: "Codex",
+    });
     expect(rollbackRuntimeNotes([PI, withRollback], "claude-code", false)).toEqual({
       lines: ["Claude Code 从这条之前另起一个会话接着，分支摘要由二狗按自己记下的写。", "Claude Code 用 Write、Edit 改过的文件会恢复到这条之前；Bash 改的文件追不到。"],
       restoresFiles: true,
@@ -90,6 +97,14 @@ describe("负责人的运行时（网页状态层）", () => {
     ]);
     expect(runtimeChoices([PI, OFF])).toEqual([]);
     expect(runtimeChoices(undefined)).toEqual([]);
+    // 外部程序没装的（missing）：还有别的能选时灰着列在后面、写着怎么装；只有 pi 能选时照旧不显示这一项；停用的不列
+    const codexMissing: AgentRuntimeView = { ...OFF, id: "codex", title: "Codex", missing: true, unavailable: "没装 Codex，用 npm i -g @openai/codex 安装，再 codex login" };
+    expect(runtimeChoices([PI, CLAUDE, OFF, codexMissing])).toEqual([
+      { id: "pi", title: "pi" },
+      { id: "claude-code", title: "Claude Code" },
+      { id: "codex", title: "Codex", unavailable: "没装 Codex，用 npm i -g @openai/codex 安装，再 codex login" },
+    ]);
+    expect(runtimeChoices([PI, codexMissing])).toEqual([]);
     expect(runtimeChipText([PI, CLAUDE], "claude-code")).toBe("Claude Code");
     expect(runtimeChipText([PI, CLAUDE], "pi")).toBeUndefined();
     expect(runtimeChipText([PI, CLAUDE], undefined)).toBeUndefined();

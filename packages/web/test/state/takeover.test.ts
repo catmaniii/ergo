@@ -51,6 +51,15 @@ describe("从已有的会话接管（网页状态层）", () => {
     expect(takeoverPick(held, "Claude Code").note).toBe("任务 t-9「修 CI 的 flaky 测试」在管（交还之前别的不能接管）。要另起一份，勾上下面的“分叉一份接管”（原会话不动）。");
   });
 
+  it("判不准占没占的（Codex）：不算占着、不勾分叉也能接，下面写明为什么默认分叉", () => {
+    const unsure = { ...idle, unsure: "判不准它是不是还开着：可能还开着，先在那边关掉，或者分叉一份接管" };
+    const pick = takeoverPick(unsure, "Codex");
+    expect(pick.busy).toBe(false);
+    expect(pick.note).toContain("可能还开着，先在那边关掉，或者分叉一份接管");
+    expect(pick.note).toContain("默认勾着分叉");
+    expect(takeoverReady({ session: unsure, fork: false, as: "project", request: "" })).toBe(true);
+  });
+
   it("什么时候能点接管：选了会话；被占着的要勾分叉；接成任务要写接着做什么，接成项目可以不写", () => {
     expect(takeoverReady({ session: undefined, fork: false, as: "task", request: "接着修" })).toBe(false);
     expect(takeoverReady({ session: idle, fork: false, as: "task", request: "  " })).toBe(false);

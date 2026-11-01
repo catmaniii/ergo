@@ -47,7 +47,7 @@
 3. 在「要做什么（第一行当标题）」里写清楚。第一行就是任务的标题。
 4. 「什么时候做」选一种，默认「现在做一次」。定时和事件见[定时](#定时做)、[事件](#事件发生时做)。
 5. 想让它做完直接念给你听，勾「跑完自动播报」。默认不勾。
-6. 「运行时」默认 pi，是二狗自带的。想用 Claude Code 见 [Claude Code](claude-code.md)。只有 pi 能选时没有这一项。
+6. 「运行时」默认 pi，是二狗自带的。想用 Claude Code 见 [Claude Code](claude-code.md)，想用 Codex 见 [Codex](codex.md)。只有 pi 能选时没有这一项。
 7. 「涉及哪些项目（可以多选）」按下面的表选。流程这一项写「在哪个项目里（流程只能选一个）」。
 8. 点最下面的按钮。按钮上的字跟着你选的变：
 
@@ -560,7 +560,7 @@
 
 - [项目](projects.md)：长期的事、内部任务、运营方案。
 - [和秘书说话](chat.md)：撤回、缩放、待办。
-- [Claude Code](claude-code.md)：让负责人用 Claude Code 干活。
+- [Claude Code](claude-code.md)、[Codex](codex.md)：让负责人用它们干活。
 - [skill、MCP 和插件](skills-mcp-plugins.md)：工具包里能配什么。
 - [日历和提醒](calendar-reminders.md)：只提醒一声的事。
 - [语音](voice.md)：跑完自动播报。

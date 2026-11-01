@@ -9,7 +9,7 @@ description: 给二狗（ergo）接一个新的 agent 运行时时用：让项�
 
 ## 是什么
 
-运行时是负责人跑会话用的 agent 程序。pi 是内核自带的，别的各是一个插件；仓库里现在只有 Claude Code，Codex 这类照它写。秘书、子 agent、评审永远是 pi。
+运行时是负责人跑会话用的 agent 程序。pi 是内核自带的，别的各是一个插件；仓库里有两个范本：Claude Code（SDK，进程内回调）和 Codex（外部程序的 JSON-RPC，外部命令的钩子）。秘书、子 agent、评审永远是 pi。
 
 - 每个会话一个子进程。守护进程用 `process.execPath` 拉起你的入口，名额、Job 对象、超时、闲置退出、孤儿回收都和 pi 一样。
 - 子进程的 stdin / stdout 上每行一个 JSON，stderr 只是日志。
@@ -21,7 +21,8 @@ description: 给二狗（ergo）接一个新的 agent 运行时时用：让项�
 |---|---|
 | 最小的子进程，能照抄（不跑模型，只说协议） | `packages/daemon/test/fixtures/fake-runtime-child.ts` |
 | 最小的运行时插件 | `packages/daemon/test/helpers/fake-runtime.ts` |
-| 真实现 | `packages/daemon/src/claude-code/` |
+| 真实现，外部程序给了 SDK | `packages/daemon/src/claude-code/` |
+| 真实现，外部程序只有命令行或 JSON-RPC | `packages/daemon/src/codex/`（为什么这么接见 `docs/architecture/adr/0046-codex-runtime-guard-and-tools.md`） |
 
 Claude Code 的目录照搬：
 
@@ -48,7 +49,7 @@ Claude Code 的目录照搬：
 - **能力清单逐项照实写**，`packages/protocol/src/runtimes.ts` 的 `RUNTIME_OPERATIONS` 每一项都要有布尔值，没做的填 `false`。少一项登记时抛错。
 - `take_over` 是 `true` 要给齐 `sessions`、`sessionBusy`、`forkSession`、`sessionHistory`；`remote_control` 是 `true` 要给 `remoteControl`、`currentSession`。不然登记时抛错。第一版都填 `false`。
 
-外部组件不随二狗分发的，定义里给 `missing()`，没装时交回一句"没装什么、怎么装"，依赖写成 `packages/daemon/package.json` 的 `optionalDependencies`，照 `packages/daemon/src/claude-code/sdk-installed.ts`。
+外部组件不随二狗分发的，定义里给 `missing()`，没装时交回一句"没装什么、怎么装"。npm 依赖写成 `packages/daemon/package.json` 的 `optionalDependencies`，照 `packages/daemon/src/claude-code/sdk-installed.ts`；用本机程序的按 PATH 找，照 `packages/daemon/src/codex/install.ts`。
 
 网页不用写：核心按 `GET /api/runtimes` 画新建时的选择和 ⚙，按能力清单收起按钮。要设置页才加 `settingsPages`，照 `packages/web/src/plugins/claude-code/`。
 
@@ -83,13 +84,13 @@ Claude Code 的目录照搬：
 
 ### 4. 转工具，全部过守卫
 
-`forwardToolCalls` 是 `true` 时**每次**工具调用都要先过守卫，要接在外部程序能拦住全部调用的那个口子上（Claude Code 是 `PreToolUse` 钩子，它的 `canUseTool` 不是全量的）。
+`forwardToolCalls` 是 `true` 时**每次**工具调用都要先过守卫，要接在外部程序能拦住全部调用的那个口子上（Claude Code 是 `PreToolUse` 钩子，它的 `canUseTool` 不是全量的）。没有一个口子全量的，就叠几个口子，按调用 id 只判一次，拦不住的也发 `guard_request`（**守护进程只给发过 `guard_request` 的调用写记录**），逐条写进 ADR 和手册（Codex：钩子、审批、事后核对，`child/guard.ts`）。
 
 1. 报 `tool_call_start`，再报 `guard_request`（`toolName`、`args` 映射到二狗的工具名，比如 Bash → bash；原样的放 `native`）。映射写在子进程里，照 `child/guard.ts`。
 2. 等同一 `requestId` 的 `guard_reply`。`allow: false` 就不执行，把 `reason` 交给模型。`allow: true` 带 `args` 时按它执行，带 `resultPrefix` 时加在结果前面。
 3. 外部程序自带、二狗没有的工具登记在 `guardTools`；单次可能跑很久的写进 `toolTimeouts`。
 
-二狗给的工具（`contributions.tools`，名字、说明、JSON Schema）**全部**交给外部程序（Claude Code 经进程内 MCP 服务）。模型调用时过了守卫发 `host_tool_call`，等 `host_tool_result` 交回。报回的工具名换回二狗的名字：网页和超时都按它认。
+二狗给的工具（`contributions.tools`，名字、说明、JSON Schema）**全部**交给外部程序（Claude Code 经进程内 MCP 服务，Codex 经它拉起的 stdio MCP 中转）。模型调用时过了守卫发 `host_tool_call`，等 `host_tool_result` 交回。报回的工具名换回二狗的名字：网页和超时都按它认。
 
 外部程序要问用户的：报 `ask_user`，等 `ask_user_reply`。
 
@@ -119,13 +120,15 @@ Claude Code 的目录照搬：
 
 | 测什么 | 例子 |
 |---|---|
-| 协议对照（假的外部程序，适配子进程是真的） | `packages/daemon/test/claude-code/adapter.contract.test.ts`，假 SDK `packages/daemon/test/helpers/fake-claude-sdk.ts` |
-| 守卫 | `packages/daemon/test/claude-code/guard.contract.test.ts` |
+| 协议对照（假的外部程序，适配子进程是真的） | `packages/daemon/test/claude-code/adapter.contract.test.ts`，假 SDK `packages/daemon/test/helpers/fake-claude-sdk.ts`；`packages/daemon/test/codex/adapter.contract.test.ts`，假 app-server `packages/daemon/test/helpers/fake-codex-app-server.ts`（说的话按生成的 schema 校验） |
+| 守卫 | `packages/daemon/test/claude-code/guard.contract.test.ts`、`packages/daemon/test/codex/guard.contract.test.ts` |
 | 真实装配：登记、拉起、一轮、停用转等我、启用接着 | `packages/daemon/test/main/agent-runtimes.test.ts` |
 | 换掉清单里的同名插件跑一轮，事件和 pi 跑同一个剧本一样 | `packages/daemon/test/main/claude-code-runtime.test.ts`，`packages/daemon/test/helpers/fake-claude-code.ts`、`packages/daemon/test/fixtures/fake-claude-child.ts` |
-| 边界：子进程不被 import、依赖只在 `child/`、能力清单写全 | `packages/daemon/test/claude-code/boundary.test.ts` |
+| 边界：子进程不被 import、依赖只在 `child/`、能力清单写全 | `packages/daemon/test/claude-code/boundary.test.ts`、`packages/daemon/test/codex/boundary.test.ts` |
 
 改到协议层跑 `npm run test:contract`。协议有改动要把 `HOST_PROTOCOL_VERSION` 加一，并在文件开头记一句。
+
+用本机程序、不随二狗分发的（Codex）：假的外部程序说的话要按它自己生成的协议校验（`packages/daemon/test/helpers/codex-schema.ts`），不然假的和真的会越走越远；测试结果不能看这台机器装没装：`startTestDaemon` 默认把 Codex 插件换成假的（`packages/daemon/test/helpers/fake-codex.ts`），拉起真进程的 `packages/daemon/test/main/entry.test.ts` 在 PATH 前面放一个编的"npm 装好的 codex"。再接一个同样的要照做。
 
 ## 完成前检查
 
@@ -135,5 +138,6 @@ Claude Code 的目录照搬：
 - [ ] 外部程序自带的工具和二狗给的工具都过 `guard_request`，判不放行时真的没执行。
 - [ ] `write_handoff` 回了 `handoff_written`；写不了的回了 `unsupported`，换运行时不用等到超时。
 - [ ] 交给外部程序的环境里没有改计费的变量；没有读写它的配置和会话目录。
+- [ ] 钩子、审批拦不住的调用逐条列出来，写进 ADR 和手册，不默默接受。
 - [ ] 插件停用：负责人不拉起，任务转等我，启用后接着。
 - [ ] 外部组件没装时 `missing()` 说清楚，别的功能不受影响。

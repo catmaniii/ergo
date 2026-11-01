@@ -69,7 +69,7 @@ flowchart TB
 - **代码**：TypeScript（守护进程靠 Node 的类型剥离直接跑），npm workspaces；网页是 React 19 + Vite；鸿蒙外壳在 `frontend/harmony`。约 28 万行代码，8000 多条自动化测试，CI 只在 Windows、只跑 Node 22（Node 大版本跟着 pi 走，[ADR-0031](adr/0031-node-version-follows-pi.md)）。
 - **agent 运行时**：pi 只出现在一层薄封装里（[ADR-0001](adr/0001-pi-coding-agent-sdk-as-runtime.md)），审批、任务、账本这些领域状态存在二狗自己的事件日志（SQLite）里。
 
-Claude Code 的 Agent SDK 是 Anthropic 自己的许可，二狗只把它当可选依赖，不随安装包分发。第三方依赖和字体的许可证清单随安装包提供：装好的目录里 `THIRD_PARTY_NOTICES.txt` 是全文，`third-party-licenses.json` 是清单。
+Claude Code 的 Agent SDK 是 Anthropic 自己的许可，二狗只把它当可选依赖，不随安装包分发。Codex 不是依赖，用的是用户本机自己装的 `codex`（ADR-0046）。第三方依赖和字体的许可证清单随安装包提供：装好的目录里 `THIRD_PARTY_NOTICES.txt` 是全文，`third-party-licenses.json` 是清单。
 
 
 ## 和 OpenClaw 的取舍
@@ -125,7 +125,7 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 | `cards/`、`inbox/`、`board/`、`activity/`、`ledger/` | 卡片类型和按钮闭环、待我处理、秘书眼里的看板、活动状态（新的要用户处理的卡往 `activity/card-waits.ts` 的 `CARD_WAITS` 加一行：说明带上卡片编号，网页标题上的"等你……"就能点，见 `web/src/state/activity-jump.ts`；建卡时同时放进待我处理）、token 账本 |
 | `plugins/`、`deletion/`、`data-sources/`、`components/` | 插件宿主、删除参与方登记表、数据源和共用导入文件夹、按需下载的组件和下载器 |
 | `materials/`、`memory/`、`quick-actions/` | 素材库（原话副本、关键词和向量索引）、记忆插件（每晚整理、记忆管理员、访谈）、快速动作 |
-| `reminders/`、`calendar/`、`voice/`、`browsing/`、`claude-code/`、`google/`、`looki/`、`phone/` | 各个插件（每个目录里有 `plugin.ts`，别的模块只从它的 `api.ts` 取东西） |
+| `reminders/`、`calendar/`、`voice/`、`browsing/`、`claude-code/`、`codex/`、`google/`、`looki/`、`phone/` | 各个插件（每个目录里有 `plugin.ts`，别的模块只从它的 `api.ts` 取东西） |
 | `scheduler/`、`workday/`、`backup/` | 调度器和可注入的时钟、内部作业；个人工作日历和节假日；备份、校验、恢复 |
 | `web/`、`typed-shell/`、`skills/`、`mcp/`、`toolkit/`、`apps/` | 联网工具、带类型的 bash 工具（git、构建……）、skill 库（`skills/change.ts`：负责人提交 skill 的卡，路子和 `mcp/change.ts` 一样，校验和导入共用 `library.ts`）、MCP 登记（用户写的和[项目自动转的](#项目自动转的-mcp)）、工具包、转发本机服务的页面 |
 | `prompts/`、`agent-settings/`、`model-settings/`、`assistant/`、`agent-roles/`、`i18n/` | 系统提示（md 文件，用户能改）、每个 agent 的 ⚙、模型设置、助理的名字、角色、多语言 |

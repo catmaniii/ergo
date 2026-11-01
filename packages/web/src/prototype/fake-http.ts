@@ -157,7 +157,7 @@ import { FAKE_HISTORY, FAKE_TAKEOVER_TASK } from "./fake-conversations.ts";
 import { FAKE_CURATOR_COMMANDS, FAKE_GRANT_USES, FAKE_SESSIONS, FAKE_SLASH_COMMANDS, FAKE_SLASH_SKILLS, FAKE_STAGE_EFFECTS, FAKE_TOOLKIT_CATALOG, fakeUsageSummary, taskDetailOf } from "./fake-data.ts";
 import { longTaskStageView } from "./fake-long-tasks.ts";
 import { FakeAgentSettings } from "./fake-agent-settings.ts";
-import { FAKE_CLAUDE_CODE, FAKE_CLAUDE_COMMANDS, FAKE_CLAUDE_MAINTAINERS, FAKE_CLAUDE_SKILLS, fakeRuntimes, setFakeDefaultFolder } from "./fake-runtimes.ts";
+import { FAKE_CLAUDE_CODE, FAKE_CLAUDE_COMMANDS, FAKE_CLAUDE_MAINTAINERS, FAKE_CLAUDE_SKILLS, FAKE_CODEX, fakeCodexSessions, fakeRuntimes, setFakeDefaultFolder } from "./fake-runtimes.ts";
 import { fakeTakeoverSessions } from "./fake-takeover.ts";
 import { fakeAppFileText } from "./fake-app-files.ts";
 import { fakeMedia } from "./fake-media.ts";
@@ -943,6 +943,7 @@ export class FakeDaemonHttp implements DaemonHttp {
 
   // 从已有的会话接管：本机的会话是编的（fake-takeover.ts）；原型里不真的接管，交回那个编好的接管来的任务
   runtimeSessions(runtimeId: string): Promise<RuntimeSessionsView> {
+    if (runtimeId === FAKE_CODEX) return Promise.resolve({ sessions: fakeCodexSessions() });
     if (runtimeId !== FAKE_CLAUDE_CODE) return Promise.reject(new Error(`${runtimeId}不能接管已有的会话`));
     return new Promise((resolve) => setTimeout(() => resolve({ sessions: fakeTakeoverSessions(Date.now()) }), 300));
   }

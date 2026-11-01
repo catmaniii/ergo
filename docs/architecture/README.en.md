@@ -69,7 +69,7 @@ flowchart TB
 - **Code**: TypeScript (the daemon runs directly via Node's type stripping), npm workspaces; the web UI is React 19 + Vite; the HarmonyOS shell is in `frontend/harmony`. About 280k lines of code and 8,000+ automated tests; CI runs only on Windows and only Node 22 (the Node major version follows pi, [ADR-0031](adr/0031-node-version-follows-pi.md)).
 - **Agent runtime**: pi appears only in a thin wrapper layer ([ADR-0001](adr/0001-pi-coding-agent-sdk-as-runtime.md)); domain state such as approvals, tasks and the ledger lives in ergo's own event log (SQLite).
 
-The Claude Code Agent SDK is under Anthropic's own license; ergo treats it as an optional dependency and doesn't ship it in the package. Third-party license lists ship with the package: `THIRD_PARTY_NOTICES.txt` in the install directory has the full texts, `third-party-licenses.json` the list.
+The Claude Code Agent SDK is under Anthropic's own license; ergo treats it as an optional dependency and doesn't ship it in the package. Codex isn't a dependency: ergo uses the `codex` you installed yourself (ADR-0046). Third-party license lists ship with the package: `THIRD_PARTY_NOTICES.txt` in the install directory has the full texts, `third-party-licenses.json` the list.
 
 ## Trade-offs against OpenClaw
 
@@ -124,7 +124,7 @@ npm workspaces manage the packages. `frontend/` is not a workspace (the HarmonyO
 | `cards/`, `inbox/`, `board/`, `activity/`, `ledger/` | Card types and the button loop, the inbox, the board as the secretary sees it, activity state (a new kind of card the user must handle gets a line in `CARD_WAITS` in `activity/card-waits.ts`: the detail carries the card id, so the "waiting" text in the web title becomes clickable, see `web/src/state/activity-jump.ts`; put it in the inbox when creating the card), the token ledger |
 | `plugins/`, `deletion/`, `data-sources/`, `components/` | Plugin host, deletion participant registry, data sources and the shared import folder, on-demand components and the downloader |
 | `materials/`, `memory/`, `quick-actions/` | Materials store (verbatim copies, keyword and vector index), the memory plugin (nightly consolidation, memory curator, interviews), quick actions |
-| `reminders/`, `calendar/`, `voice/`, `browsing/`, `claude-code/`, `google/`, `looki/`, `phone/` | Plugins (each has a `plugin.ts`; other modules only take things from its `api.ts`) |
+| `reminders/`, `calendar/`, `voice/`, `browsing/`, `claude-code/`, `codex/`, `google/`, `looki/`, `phone/` | Plugins (each has a `plugin.ts`; other modules only take things from its `api.ts`) |
 | `scheduler/`, `workday/`, `backup/` | Scheduler with an injectable clock, internal jobs; the personal work calendar and holidays; backup, verification, restore |
 | `web/`, `typed-shell/`, `skills/`, `mcp/`, `toolkit/`, `apps/` | Web tools, typed shell tools (git, builds…), skill library (`skills/change.ts`: the card for owners submitting skills, built like `mcp/change.ts`, with validation shared with imports in `library.ts`), MCP registry, toolkits, proxying local service pages |
 | `prompts/`, `agent-settings/`, `model-settings/`, `assistant/`, `agent-roles/`, `i18n/` | System prompts (markdown files users can edit), each agent's ⚙ panel, model settings, the assistant's name, roles, i18n |

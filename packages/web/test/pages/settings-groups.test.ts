@@ -59,7 +59,7 @@ describe("四组：每组的页和顺序", () => {
       // "角色与声音"就排在名字后面（名字=默认角色名，音色=默认角色音色）；名字下面一行去个人档案的链接
       { id: "identity", rows: ["user-name", "personal-files-link", "roles", "language", "appearance", "voice", "enter-key"] },
       // 设置 · Claude Code（Claude Code 插件画的页）排在插件后面；设置 · 组件紧挨着插件
-      { id: "ability", rows: ["models", "skills", "plugins", "components", "claude-code", "browsing"] },
+      { id: "ability", rows: ["models", "skills", "plugins", "components", "claude-code", "codex", "browsing"] },
       { id: "rules", rows: ["watch", "prompts", "workday-rules"] },
       // 数据源排在数据与设备组的第一项；授权的文件夹排在它后面
       // "备份"紧挨着工具调用的完整内容（是一页）
@@ -83,7 +83,7 @@ describe("四组：每组的页和顺序", () => {
       .flatMap((g) => g.rows)
       .filter((r) => r !== "user-name" && r !== "tool-call-storage" && r !== "personal-files-link" && r !== "enter-key");
     expect(pages.toSorted()).toEqual(
-      ["roles", "language", "appearance", "models", "watch", "workday-rules", "skills", "prompts", "voice", "browsing", "devices", "plugins", "components", "claude-code", "data-sources", "authorized-folders", "materials-delete", "backup", "doctor", "about"].toSorted(),
+      ["roles", "language", "appearance", "models", "watch", "workday-rules", "skills", "prompts", "voice", "browsing", "devices", "plugins", "components", "claude-code", "codex", "data-sources", "authorized-folders", "materials-delete", "backup", "doctor", "about"].toSorted(),
     );
   });
 
@@ -138,7 +138,7 @@ describe("插件停用 / 记忆页覆盖的过滤照旧，只是组里列不列"
   test("settingsShown 还是按显示顺序的那一串页（不含名字、工具调用完整内容）：四组摊平", () => {
     const host = assembled();
     host.disable("memory");
-    expect(settingsShown(host)).toEqual(["roles", "language", "appearance", "voice", "models", "skills", "plugins", "components", "claude-code", "browsing", "watch", "prompts", "workday-rules", "data-sources", "authorized-folders", "materials-delete", "backup", "devices", "doctor", "about"]);
+    expect(settingsShown(host)).toEqual(["roles", "language", "appearance", "voice", "models", "skills", "plugins", "components", "claude-code", "codex", "browsing", "watch", "prompts", "workday-rules", "data-sources", "authorized-folders", "materials-delete", "backup", "devices", "doctor", "about"]);
   });
 });
 

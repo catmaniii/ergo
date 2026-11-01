@@ -77,6 +77,8 @@ export interface AgentRuntimeView {
   available: boolean;
   /** 不能用的原因（"Claude Code插件没启用"）；能用时没有 */
   unavailable?: string;
+  /** 不能用是因为它要的外部程序没装（说了怎么装）：新建时灰着列出来，点一下看 unavailable；停用了的不列 */
+  missing?: true;
   capabilities: RuntimeCapabilities;
   /** 可选的模型；没有这一项是按设置 · 模型（二狗自己的模型目录，pi 就是这样） */
   models?: RuntimeModelView[];
@@ -122,6 +124,16 @@ export function runtimeTitleOf(runtimes: readonly Pick<AgentRuntimeView, "id" | 
   return runtimes?.find((r) => r.id === runtime)?.title ?? runtime;
 }
 
+/**
+ * 这笔用量怎么计费（账本的"provider/模型"认得出的）：Codex 运行时按登录方式记 codex-subscription（订阅额度，不算钱）、
+ * codex-api-key（API key，按量花钱，没有单价不等于免费）。别的（要按单价算的）是 undefined
+ */
+export function runtimeBillingOf(modelKey: string): "subscription" | "metered" | undefined {
+  if (modelKey.startsWith("codex-subscription/")) return "subscription";
+  if (modelKey.startsWith("codex-api-key/")) return "metered";
+  return undefined;
+}
+
 /** 新建项目、任务时能选的运行时：现在能用的（pi 一直能用，插件登记的要插件在运行） */
 export const selectableRuntimes = <T extends Pick<AgentRuntimeView, "available">>(runtimes: readonly T[] | undefined): T[] => (runtimes ?? []).filter((r) => r.available);
 
@@ -143,6 +155,10 @@ export interface ResumableSessionView {
    * 被占着的不能直接接管（终端里开着的不锁，接了会分叉、丢轮），先在那边关掉，或者分叉一份接管
    */
   busy?: string;
+  /**
+   * 占没占判不准（这个运行时没有“谁开着”的接口，只有信号）：给人看的说明；没写 busy 时才有。界面默认引导分叉一份接管，用户确认那边关了可以直接接
+   */
+  unsure?: string;
   /** 二狗自己的任务、项目在管它（写入锁，交还之前别的不能接管）：是哪个 */
   heldBy?: { kind: TakeoverKind; id: string; title: string; maintainerId: string };
 }

@@ -2,6 +2,7 @@
 // "从 Claude Code 会话接管"的入口；点进去列本机的会话（GET /api/runtimes/<运行时>/sessions，每次现取），选一个：
 // - 空闲的直接接；被占着的（终端里开着、后台会话在跑、二狗自己的任务 / 项目在管、查不到占没占）不直接接——终端里开着的会话没有锁，
 //   直接接会分叉、丢掉一边的话——先在那边关掉再刷新，或者勾上"分叉一份接管"（原会话不动）；
+// - 判不准占没占的（Codex 没有"谁开着"的接口，只有信号，unsure）：写明，默认勾上分叉，确认那边关了可以取消勾选直接接；
 // - 接成任务要写"接着让它做什么"（第一条输入）；接成项目可以不写（一句话目标，空着用会话标题）；
 // - 工作目录用会话原来的（守卫的项目目录就是它）。
 // 行里的说法：标题、工作目录、分支 · 最近活动 · 大小，被占着的写明在哪。⚙ 里接管来的那一行（交还 / 收回）的说法也在这里。
@@ -46,12 +47,12 @@ export function sessionMetaLine(session: ResumableSessionView, now: number): str
 export interface TakeoverPick {
   /** 被占着（只能分叉接管） */
   busy: boolean;
-  /** 选中被占着的那个时下面那一段说明 */
+  /** 选中被占着的（或者判不准占没占的）那个时下面那一段说明 */
   note: string | undefined;
 }
 
 export function takeoverPick(session: ResumableSessionView, runtimeTitle: string): TakeoverPick {
-  if (session.busy === undefined) return { busy: false, note: undefined };
+  if (session.busy === undefined) return { busy: false, note: session.unsure === undefined ? undefined : t("state.takeover.unsureNote", { unsure: session.unsure, runtime: runtimeTitle }) };
   if (session.heldBy) return { busy: true, note: t("state.takeover.heldNote", { busy: session.busy, runtime: runtimeTitle }) };
   return { busy: true, note: t("state.takeover.busyNote", { busy: session.busy, runtime: runtimeTitle }) };
 }

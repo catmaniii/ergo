@@ -58,8 +58,8 @@ describe("运行时贡献点：插件登记的运行时", () => {
   it("GET /api/runtimes：pi 在最前（内核自带），假运行时带插件名、能力清单、可选模型和设置项；插件运行中停用后写明不能用的原因", async () => {
     const td = await startTestDaemon({ extraPlugins: [fakeRuntimePlugin] });
     const view = (await runtimesApi.view(td.url)).body;
-    //清单里自带 Claude Code 插件，排在 pi 后面
-    expect(view.runtimes.map((r) => r.id)).toEqual(["pi", "claude-code", FAKE_RUNTIME_ID]);
+    //清单里自带 Claude Code、Codex 插件，排在 pi 后面
+    expect(view.runtimes.map((r) => r.id)).toEqual(["pi", "claude-code", "codex", FAKE_RUNTIME_ID]);
     expect(view.runtimes[0]).toMatchObject({ id: "pi", title: "pi", available: true, settings: [] });
     expect(view.runtimes[0]!.plugin).toBeUndefined();
     expect(view.runtimes[0]!.capabilities).toMatchObject({ rollback: true, compact: true, slash_passthrough: false, take_over: false });

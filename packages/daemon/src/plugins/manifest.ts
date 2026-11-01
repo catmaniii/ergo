@@ -12,9 +12,11 @@
 // Google 插件（第一个真的数据源插件）排在手机后面、最后：日历订阅登记成数据源（按需查的工具由内核替它给秘书，排在插件贡献的工具那一处的最后）；
 // 它可选地要日历插件（wants，只为写"日历插件没启用"），宿主照样把它排在日历后面装。
 // Looki 插件排在 Google 后面、最后：数据契约里登记数据源 looki（按需查的工具由内核替它给秘书），网页那一半在设置 · 数据源里画填 Key 的那一块。
+// Codex 插件和 Claude Code 插件一样只带来一个 agent 运行时（数据契约里登记），网页那一半是设置 · Codex 这一页；排在最后。
 import { browsingPlugin } from "../browsing/plugin.ts";
 import { calendarPlugin } from "../calendar/plugin.ts";
 import { claudeCodePlugin } from "../claude-code/plugin.ts";
+import { codexPlugin } from "../codex/plugin.ts";
 import { googlePlugin } from "../google/plugin.ts";
 import { lookiPlugin } from "../looki/plugin.ts";
 import { memoryPlugin } from "../memory/plugin.ts";
@@ -23,4 +25,4 @@ import { remindersPlugin } from "../reminders/plugin.ts";
 import { voicePlugin } from "../voice/plugin.ts";
 import type { PluginDefinition } from "./host.ts";
 
-export const PLUGIN_MANIFEST: readonly PluginDefinition[] = [remindersPlugin, memoryPlugin, calendarPlugin, voicePlugin, browsingPlugin, claudeCodePlugin, phonePlugin, googlePlugin, lookiPlugin];
+export const PLUGIN_MANIFEST: readonly PluginDefinition[] = [remindersPlugin, memoryPlugin, calendarPlugin, voicePlugin, browsingPlugin, claudeCodePlugin, phonePlugin, googlePlugin, lookiPlugin, codexPlugin];

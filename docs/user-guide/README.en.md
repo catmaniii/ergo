@@ -146,7 +146,8 @@ Each row below is something it can do for you. Click the text on the left to see
 | [Have it operate web pages](browser.en.md) | "Summarize this page"; "Post the photos I took in Hangzhou at the weekend". Only in the phone app |
 | [See your calendar, set reminders](calendar-reminders.en.md) | "Remind me to pay the rent at 9 am on the 8th of every month"; see which days are workdays and which are days off (by Chinese and Singaporean public holidays) |
 | [Bring in outside data](data-sources.en.md) | Connect Google Calendar, Gmail or a wearable camera, then ask "What did that flight email last month say?" For now, contacts and photos on a phone can only be connected through the HarmonyOS app |
-| [Have Claude Code write code](claude-code.en.md) | Claude Code is an AI tool for writing code. If it's installed on your computer, owners can work through it, using your own subscription quota. Codex, a similar tool, isn't connected yet |
+| [Have Claude Code write code](claude-code.en.md) | Claude Code is an AI tool for writing code. If it's installed on your computer, owners can work through it, using your own subscription quota |
+| [Have Codex write code](codex.en.md) | Codex is a similar tool. If it's installed on your computer, owners can work through it too; what the guard covers is spelled out |
 | [Teach it new skills](skills-mcp-plugins.en.md) | Write a guide telling it how to do your weekly report; switch off whole features you don't want |
 | [Change settings, see what you've spent](settings.en.md) | Switch models, change the interface style and language, set up backups; see usage by day |
 

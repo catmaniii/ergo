@@ -1,5 +1,5 @@
-// 从运行时已有的会话接管在界面上：新建任务、项目的对话框里选了能接管已有会话的运行时（Claude Code）时，运行时那一排下面多一个
-// "从 Claude Code 会话接管…"（TakeoverLink）；点了换成接管的对话框（TakeoverSheet）：列本机的会话（每次现取，能刷新），一行一个——标题、
+// 从运行时已有的会话接管在界面上：新建任务、项目的对话框里选了能接管已有会话的运行时（Claude Code、Codex）时，运行时那一排下面多一个
+// "从 <运行时> 会话接管…"（TakeoverLink）；点了换成接管的对话框（TakeoverSheet）：列本机的会话（每次现取，能刷新），一行一个——标题、
 // 工作目录、分支 · 最近活动 · 大小，被占着的带一个签写明在哪；选中被占着的下面说清为什么不能直接接（终端里开着的没有锁，接了会分叉、丢话），
 // 能勾"分叉一份接管"；接成任务要写接着让它做什么，接成项目可以不写。说法在状态层（state/takeover.ts）。
 // ⚙ 里接管来的那一行（交还 / 收回）在 agent-settings.tsx 的运行时一块里（TakeoverPanel）；它也是"会话在哪边"那一块：交给官方 App、
@@ -88,7 +88,8 @@ export function TakeoverSheet({ runtime, as, initial, onBack, onClose }: { runti
 
   const choose = (id: string) => {
     setPicked(id);
-    setFork(false);
+    // 判不准占没占的默认引导分叉（Codex）；用户确认关了可以取消勾选
+    setFork(sessions?.find((s) => s.id === id)?.unsure !== undefined);
     setSendError(undefined);
     setKey(newKey());
   };
@@ -141,12 +142,13 @@ export function TakeoverSheet({ runtime, as, initial, onBack, onClose }: { runti
               <span className="takeover-meta">
                 <span>{sessionMetaLine(s, listed!.at)}</span>
                 {s.busy !== undefined && <span className={`chip ${s.heldBy ? "chip-quiet" : "chip-no"} takeover-busy`}>{s.heldBy ? t("ui.takeover.held") : t("ui.takeover.busy")}</span>}
+                {s.busy === undefined && s.unsure !== undefined && <span className="chip chip-quiet takeover-busy">{t("ui.takeover.unsure")}</span>}
               </span>
             </button>
           ))}
         </div>
       )}
-      {session && pick?.busy && (
+      {session && pick?.note !== undefined && (
         <div className="takeover-note">
           <div>{pick.note}</div>
           <label className="check-row">

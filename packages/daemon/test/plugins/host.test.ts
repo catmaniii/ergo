@@ -817,7 +817,7 @@ describe("运行中启用、移除（设置里的热插拔）", () => {
     const info = host.info().find((p) => p.name === "fake-runtime")!;
     expect(info).toMatchObject({ state: "skipped", missing: true, problem: "没装外面那个组件：运行 npm install 外面那个", cannotEnable: "没装外面那个组件：运行 npm install 外面那个" });
     expect(host.report().skipped).toEqual([
-      { plugin: "fake-runtime", reason: "要的外部组件没装：没装外面那个组件：运行 npm install 外面那个" },
+      { plugin: "fake-runtime", reason: "要的外部组件没装：没装外面那个组件：运行 npm install 外面那个", missing: true },
       { plugin: "child", reason: "依赖的插件 fake-runtime 没装上（要的外部组件没装：没装外面那个组件：运行 npm install 外面那个）" },
     ]);
     expect(host.info().find((p) => p.name === "child")).toMatchObject({ state: "skipped", problem: "它要用的「假运行时」插件没装上" });

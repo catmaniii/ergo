@@ -55,6 +55,11 @@
             "name": "looki",
             "title": "数据源-Looki穿戴式相机",
             "state": "running"
+          },
+          {
+            "name": "codex",
+            "title": "Codex",
+            "state": "running"
           }
         ]
       }

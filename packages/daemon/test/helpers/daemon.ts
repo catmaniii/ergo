@@ -1,5 +1,7 @@
 // 在临时数据目录里起一个守护进程实例（测试的一部分，用完即销毁，不算服务，不在 LSM 登记），
 // 秘书接 faux provider 按剧本回话；也能另外拉起接 faux provider 的 agent。
+import { CODEX_PLUGIN } from "../../src/codex/api.ts";
+import { fakeCodexPlugin } from "./fake-codex.ts";
 import fs from "node:fs";
 import path from "node:path";
 import { type ChatModel, FakeChatModel } from "@ergo/memory";
@@ -332,7 +334,8 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
     kickoffOpening: options.kickoffOpening ?? false,
     ...(options.clock === undefined ? {} : { clock: options.clock }),
     ...(options.cardTypes === undefined ? {} : { extraCardTypes: options.cardTypes }),
-    ...(options.extraPlugins === undefined ? {} : { extraPlugins: options.extraPlugins }),
+    // Codex 插件默认换成接假 app-server、假本机的（结果不看这台机器装没装 Codex，绝不起真的 codex）；测试自己给了同名的用它的
+    extraPlugins: [...(options.extraPlugins ?? []), ...((options.extraPlugins ?? []).some((plugin) => plugin.name === CODEX_PLUGIN) ? [] : [fakeCodexPlugin])],
     ...(options.sessionRollbackHook === undefined ? {} : { sessionRollbackHook: options.sessionRollbackHook }),
     ...(options.embedder === "bge-m3" ? {} : { embedder: options.embedder ?? new FakeEmbedder() }),
     // 记忆整理用的模型：没给就是假的（假模型立即回空对象，作业照常跑、永远不连真的 DeepSeek）

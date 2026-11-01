@@ -16,7 +16,7 @@ description: 写或改二狗（ergo）插件时用：新功能做成插件、改
 | `calendar` 日历 | 最小的真插件：只提供一个服务，可选依赖，不拥有数据 |
 | `voice` 语音 | 设置页、后台部件、移除时删媒体文件 |
 | `browsing` 内置浏览器 | `at: "end"` 的工具、输入附注、`ctx.page` |
-| `claude-code` | 运行时，见 ergo-agent-runtime |
+| `claude-code`、`codex` | 运行时，见 ergo-agent-runtime |
 | `phone`、`google`、`looki` | 数据源，见 ergo-data-source |
 
 事件日志、任务执行连同守卫、宿主协议、网关、项目系统是内核。清单只有 `packages/daemon/src/plugins/manifest.ts` 和 `packages/web/src/plugins/manifest.ts` 两处。插件和代码一起构建：没有运行时装外部插件包这条路。
@@ -85,7 +85,7 @@ description: 写或改二狗（ergo）插件时用：新功能做成插件、改
 |---|---|---|
 | `pages` | 自己一页和导航项，地址默认 `#/more/<id>`，不改核心 | 记忆；有自己地址的看日历 |
 | `settingsSections` | 设置列表最下面的一节，不改核心 | `packages/web/test/plugins/host.test.ts` |
-| `settingsPages` | 设置下面单独一页，要改核心，见下 | 语音、Claude Code |
+| `settingsPages` | 设置下面单独一页，要改核心，见下 | 语音、Claude Code、Codex |
 | `cards`、`boardEntries`、`calendar` | 卡片的画法、看板条目、日历上的东西 | 提醒 |
 | `chatItems`、`details` | 对话里的条目和详情 | 记忆 |
 | `composerVoice`、`background` | 输入框的语音、不画东西的后台部件 | 语音 |

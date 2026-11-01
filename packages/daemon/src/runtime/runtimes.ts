@@ -43,8 +43,11 @@ export interface AgentRuntime {
    * （查不到占没占的也写上，一律当占着）。插件没在运行时不会叫它
    */
   sessions?(): Promise<readonly ResumableSessionView[]>;
-  /** 这个会话现在有没有被别处占着（take_over 要给，接管、收回前再核对一次）：占着的给人看的说明，空闲是 undefined；查不到抛错 */
-  sessionBusy?(sessionId: string): Promise<string | undefined>;
+  /**
+   * 这个会话现在有没有被别处占着（take_over 要给，接管、收回前再核对一次）：占着的给人看的说明，空闲是 undefined；查不到抛错。
+   * returnedAt：收回前核对时给，交还的时刻（只看最近活动判断的运行时只算那之后的，交还之前是二狗自己写的）
+   */
+  sessionBusy?(sessionId: string, returnedAt?: string): Promise<string | undefined>;
   /** 分叉一份（take_over 要给："分叉一份接管"）：新会话的 id；原会话不动 */
   forkSession?(sessionId: string, cwd: string): Promise<string>;
   /** 读会话主线最近一段（take_over 要给：前情）：大会话只读尾部，翻成二狗的样子 */
@@ -185,7 +188,7 @@ export interface RuntimeRegistry {
   /** 列这个运行时在本机能接管的会话：不能用、不能接管的抛 RequestRejected（not_allowed，给人看的原因） */
   sessions(id: string): Promise<readonly ResumableSessionView[]>;
   /** 一个会话现在有没有被别处占着：同上核对；占着的说明，空闲是 undefined */
-  sessionBusy(id: string, sessionId: string): Promise<string | undefined>;
+  sessionBusy(id: string, sessionId: string, returnedAt?: string): Promise<string | undefined>;
   /** 分叉一份：同上核对；新会话的 id */
   forkSession(id: string, sessionId: string, cwd: string): Promise<string>;
   /** 读主线最近一段：同上核对 */
@@ -317,7 +320,7 @@ export function createRuntimeRegistry(options: {
     supports: (id, operation) => find(id)?.runtime.capabilities[operation] === true,
     // 不能用、不能接管的以被拒的 Promise 交回（和别的出错一样）
     sessions: async (id) => takeOverOf(id).sessions!(),
-    sessionBusy: async (id, sessionId) => takeOverOf(id).sessionBusy!(sessionId),
+    sessionBusy: async (id, sessionId, returnedAt) => takeOverOf(id).sessionBusy!(sessionId, returnedAt),
     forkSession: async (id, sessionId, cwd) => takeOverOf(id).forkSession!(sessionId, cwd),
     sessionHistory: async (id, sessionId, cwd) => takeOverOf(id).sessionHistory!(sessionId, cwd),
     remoteControl: (id) => remoteOf(id).remoteControl,
@@ -336,6 +339,7 @@ export function createRuntimeRegistry(options: {
             ...(owner ? { plugin: owner.plugin } : {}),
             available: off === undefined,
             ...(off ? { unavailable: off.reason } : {}),
+            ...(off && owner?.missing?.() !== undefined ? { missing: true as const } : {}),
             capabilities: { ...runtime.capabilities },
             ...(models ? { models: models.map((m) => ({ ...m })) } : {}),
             settings: (runtime.settings?.() ?? []).map((s) => ({ ...s, options: s.options.map((o) => ({ ...o })) })),

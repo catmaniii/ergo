@@ -155,6 +155,15 @@ function about(name: string): Omit<PluginInfo, "state" | "needs" | "neededBy" | 
       brings: { tools: [], cards: [], jobs: [] },
     };
   }
+  // Codex 插件（运行时；网页的那一半是设置 · Codex）。不拥有数据，没有连数据删
+  if (name === "codex") {
+    return {
+      name,
+      title: "Codex",
+      summary: say("项目、任务的负责人能用本机的 Codex 跑会话；能接管本机已有的会话；设置里定新建时的默认文件夹", "Lets project and task owners run sessions with Codex on this computer and take over existing sessions; set the default folder for new work in Settings"),
+      brings: { tools: [], cards: [], jobs: [] },
+    };
+  }
   if (name === "voice") {
     return {
       name,
@@ -210,7 +219,7 @@ export class FakePlugins {
   private readonly states = new Map<string, PluginState>();
 
   constructor(off: ReadonlySet<string>, removed: ReadonlySet<string>) {
-    for (const name of ["reminders", "memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki"]) this.states.set(name, removed.has(name) ? "removed" : off.has(name) ? "disabled" : "running");
+    for (const name of ["reminders", "memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex"]) this.states.set(name, removed.has(name) ? "removed" : off.has(name) ? "disabled" : "running");
   }
 
   /** 插件频道上的临时事件 plugin_status 的负载 */

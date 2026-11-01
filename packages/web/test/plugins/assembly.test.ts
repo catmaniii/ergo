@@ -101,6 +101,7 @@ describe("按真守护进程报的状况装网页插件", () => {
       ["phone", "running"],
       ["google", "running"],
       ["looki", "running"],
+      ["codex", "running"],
     ]);
     expect([host.running("reminders"), host.running("memory")]).toEqual([true, false]);
     expect(slotsOf(host)).toEqual({ pages: ["calendar"], tabs: ["browse"], chatItems: [], details: [], cards: ["reminder", "browse_pick"], boardEntries: ["reminder"], calendar: ["reminders"], dataSources: ["phone-contacts", "phone-calendar", "phone-photos", "phone-location", "google-calendar", "google-gmail", "google-contacts", "looki"] });
@@ -132,6 +133,7 @@ describe("按真守护进程报的状况装网页插件", () => {
       ["phone", "running"],
       ["google", "running"],
       ["looki", "running"],
+      ["codex", "running"],
     ]);
     expect([host.running("reminders"), host.running("memory"), host.running("calendar")]).toEqual([true, true, false]);
     expect(slotsOf(host)).toEqual({ pages: ["memory"], tabs: ["browse"], chatItems: ["recall"], details: ["recall"], cards: ["reminder", "memory_delete", "interview", "interview_files", "browse_pick"], boardEntries: ["reminder", "memory_curator"], calendar: ["reminders"], dataSources: ["phone-contacts", "phone-calendar", "phone-photos", "phone-location", "google-calendar", "google-gmail", "google-contacts", "looki"] });
@@ -161,6 +163,7 @@ describe("按真守护进程报的状况装网页插件", () => {
       ["phone", "running"],
       ["google", "running"],
       ["looki", "running"],
+      ["codex", "running"],
     ]);
     expect(host.running("browsing")).toBe(false);
     expect(slotsOf(host)).toEqual({ pages: ["calendar", "memory"], tabs: [], chatItems: ["recall"], details: ["recall"], cards: ["reminder", "memory_delete", "interview", "interview_files"], boardEntries: ["reminder", "memory_curator"], calendar: ["reminders"], dataSources: ["phone-contacts", "phone-calendar", "phone-photos", "phone-location", "google-calendar", "google-gmail", "google-contacts", "looki"] });
@@ -181,9 +184,10 @@ describe("按真守护进程报的状况装网页插件", () => {
 
   test("配置里停用 Google 插件（录下的事件流）：设置 · 数据源里没有 Google · 日历、Google · 联系人下面那一块，交回\"Google\"；日历照常", () => {
     const { state, host } = assembled("plugins-google-off");
-    expect(state.pluginStatus?.plugins.map((p) => [p.name, p.state]).slice(-2)).toEqual([
+    expect(state.pluginStatus?.plugins.map((p) => [p.name, p.state]).slice(-3)).toEqual([
       ["google", "disabled"],
       ["looki", "running"],
+      ["codex", "running"],
     ]);
     expect(host.running("google")).toBe(false);
     expect(slotsOf(host)).toMatchObject({ pages: ["calendar", "memory"], dataSources: ["phone-contacts", "phone-calendar", "phone-photos", "phone-location", "looki"] });

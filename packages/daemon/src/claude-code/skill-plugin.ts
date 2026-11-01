@@ -12,9 +12,9 @@
 // - 二狗只写这个目录，不写用户的 ~/.claude、项目的 .claude/（用户自己的 skill 照常由 Claude Code 自己加载）。
 // 守护进程这边也用 pluginSkillNames 算斜杠命令（runtime.ts 的 toolkitSkillCommands：输入框的 / 补全），和子进程拼目录用同一套名字。
 // @i18n-ignore-file log：日志；插件清单里的说明是给 Claude Code 看的
-import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { skillDirNames, syncSkillDirs } from "../runtime/skill-dirs.ts";
 
 /** 插件名：Claude Code 里插件的 skill 写成 ergo:<目录名>，定了别改 */
 export const ERGO_PLUGIN = "ergo";
@@ -25,37 +25,16 @@ const MANIFEST = path.join(".claude-plugin", "plugin.json");
 const STAMPS = "ergo-skills.json";
 
 /** 工具包里的 skill 在插件里的目录名（和 skillDirs 一一对应、同样的先后）：目录自己的名字，重名的后面加 -2、-3…… */
-export function pluginSkillNames(skillDirs: readonly string[]): string[] {
-  const used = new Set<string>();
-  return skillDirs.map((dir) => {
-    const base = safeName(path.basename(dir));
-    let name = base;
-    for (let n = 2; used.has(name); n++) name = `${base}-${n}`;
-    used.add(name);
-    return name;
-  });
-}
+export const pluginSkillNames = skillDirNames;
 
 /** Claude Code 里这个 skill 的斜杠命令（不带 /） */
 export const pluginSkillCommand = (name: string): string => `${ERGO_PLUGIN}:${name}`;
-
-/** 目录名里不能放的字符换成 -（skill 库的目录名本来就是规范的，这里只防手放进 skill 区的） */
-function safeName(name: string): string {
-  const cleaned = name.replace(/[\s<>:"/\\|?*]+/g, "-").replace(/^-+|-+$/g, "");
-  return cleaned === "" || cleaned === "." || cleaned === ".." ? "skill" : cleaned;
-}
 
 /** 拼好的插件：根目录（交给 query 的 plugins）、各 skill 的目录名，这次和上次比 skill 有没有变 */
 export interface BuiltSkillPlugin {
   root: string;
   names: string[];
   changed: boolean;
-}
-
-interface Stamp {
-  name: string;
-  source: string;
-  print: string;
 }
 
 /**
@@ -71,37 +50,8 @@ export function buildSkillPlugin(runtimeDir: string, skillDirs: readonly string[
   const manifestText = `${JSON.stringify({ name: ERGO_PLUGIN, version: "1.0.0", description: "二狗交给这个会话的 skill（负责人工具包里的）" }, null, 2)}\n`;
   if (readText(manifest) !== manifestText) fs.writeFileSync(manifest, manifestText);
 
-  const before = readStamps(path.join(root, STAMPS));
-  const names = pluginSkillNames(skillDirs);
-  const stamps: Stamp[] = [];
-  let changed = false;
-  skillDirs.forEach((source, i) => {
-    const name = names[i]!;
-    let print: string;
-    try {
-      print = fingerprint(source);
-    } catch (err) {
-      log(`工具包里的 skill 读不了，没放进插件：${source}（${err instanceof Error ? err.message : String(err)}）`);
-      return;
-    }
-    stamps.push({ name, source, print });
-    const target = path.join(skillsDir, name);
-    const old = before.find((s) => s.name === name);
-    if (old && old.source === source && old.print === print && fs.existsSync(path.join(target, "SKILL.md"))) return;
-    changed = true;
-    removeTree(target);
-    copySkill(source, target);
-  });
-  // 不在工具包里的（含上次没拼成留下的）删掉
-  const wanted = new Set(stamps.map((s) => s.name));
-  for (const entry of fs.readdirSync(skillsDir)) {
-    if (wanted.has(entry)) continue;
-    changed = true;
-    removeTree(path.join(skillsDir, entry));
-  }
-  if (before.length !== stamps.length) changed = true;
-  fs.writeFileSync(path.join(root, STAMPS), `${JSON.stringify(stamps, null, 2)}\n`);
-  return { root, names: stamps.map((s) => s.name), changed };
+  const { names, changed } = syncSkillDirs(skillsDir, skillDirs, log, path.join(root, STAMPS));
+  return { root, names, changed };
 }
 
 function readText(file: string): string | undefined {
@@ -110,72 +60,4 @@ function readText(file: string): string | undefined {
   } catch {
     return undefined;
   }
-}
-
-function readStamps(file: string): Stamp[] {
-  try {
-    const parsed = JSON.parse(fs.readFileSync(file, "utf8")) as unknown;
-    return Array.isArray(parsed) ? parsed.filter((s): s is Stamp => typeof s === "object" && s !== null && typeof (s as Stamp).name === "string") : [];
-  } catch {
-    return [];
-  }
-}
-
-/** skill 目录的指纹：各文件的相对路径、大小、修改时间（链接记它指到哪） */
-function fingerprint(dir: string): string {
-  const hash = createHash("sha256");
-  const walk = (rel: string) => {
-    const abs = path.join(dir, rel);
-    for (const entry of fs.readdirSync(abs, { withFileTypes: true }).toSorted((a, b) => (a.name < b.name ? -1 : 1))) {
-      const relPath = path.join(rel, entry.name);
-      const st = fs.lstatSync(path.join(dir, relPath));
-      if (st.isSymbolicLink()) hash.update(`L ${relPath} ${linkTarget(path.join(dir, relPath))}\n`);
-      else if (st.isDirectory()) walk(relPath);
-      else hash.update(`F ${relPath} ${st.size} ${st.mtimeMs}\n`);
-    }
-  };
-  if (!fs.statSync(dir).isDirectory()) throw new Error("不是目录");
-  walk("");
-  return hash.digest("hex");
-}
-
-function linkTarget(file: string): string {
-  try {
-    return fs.realpathSync(file);
-  } catch {
-    return "";
-  }
-}
-
-/** 复制一个 skill：文件照拷；目录链接（依赖目录的联接）建一个指到同一处的联接；指向文件的链接拷它指的内容；坏了的链接跳过 */
-function copySkill(source: string, target: string): void {
-  fs.mkdirSync(target, { recursive: true });
-  for (const entry of fs.readdirSync(source, { withFileTypes: true })) {
-    const from = path.join(source, entry.name);
-    const to = path.join(target, entry.name);
-    const st = fs.lstatSync(from);
-    if (st.isSymbolicLink()) {
-      const real = linkTarget(from);
-      if (!real) continue;
-      if (fs.statSync(real).isDirectory()) fs.symlinkSync(real, to, "junction");
-      else fs.copyFileSync(real, to);
-    } else if (st.isDirectory()) copySkill(from, to);
-    else fs.copyFileSync(from, to);
-  }
-}
-
-/** 删掉一个目录（或文件）：链接只删链接本身，不进去（依赖目录的联接指着 skill 库外面的东西） */
-export function removeTree(target: string): void {
-  let st: fs.Stats;
-  try {
-    st = fs.lstatSync(target);
-  } catch {
-    return;
-  }
-  if (st.isSymbolicLink() || !st.isDirectory()) {
-    fs.unlinkSync(target);
-    return;
-  }
-  for (const entry of fs.readdirSync(target)) removeTree(path.join(target, entry));
-  fs.rmdirSync(target);
 }

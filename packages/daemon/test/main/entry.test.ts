@@ -8,6 +8,7 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { describe, expect, it, onTestFinished } from "vitest";
+import { CODEX_MIN_VERSION } from "../../src/codex/install.ts";
 import { dataDirLayout } from "../../src/config/data-dir.ts";
 import { type PidRecord, readPidFile } from "../../src/process/pid-file.ts";
 import { startLsmStandIn } from "../helpers/lsm-stand-in.ts";
@@ -35,7 +36,7 @@ describe("ergo-daemon 入口", () => {
     }
     expect(health.secretary).toBe("idle");
     // 插件：入口经组合根和插件清单装好了插件（走的是正式的装配路径）
-    expect(health.plugins).toEqual({ running: ["reminders", "memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki"], disabled: [], skipped: [] });
+    expect(health.plugins).toEqual({ running: ["reminders", "memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex"], disabled: [], skipped: [] });
     // 插件都装上了：不降级（Web UI 没构建时整体不健康，和插件无关）
     expect(health.status).toBe(health.webUi === true ? "ok" : "unhealthy");
   });
@@ -133,7 +134,7 @@ async function startEntry(extraEnv: Record<string, string> = {}): Promise<EntryP
   const dataDir = makeTempDir("ergo-data-");
   const homeDir = makeTempDir("ergo-home-");
   const port = await writePortConfig(dataDir);
-  const env = withEnv(process.env, NO_LSM_ENV, tempUserProfileEnv(homeDir), { ERGO_DATA_DIR: dataDir, DEEPSEEK_API_KEY: undefined }, extraEnv);
+  const env = withEnv(process.env, NO_LSM_ENV, tempUserProfileEnv(homeDir), { ERGO_DATA_DIR: dataDir, DEEPSEEK_API_KEY: undefined, ...fakeCodexOnPath() }, extraEnv);
 
   const child = spawn(process.execPath, [path.join(SRC, "main.ts")], { env, stdio: ["ignore", "ignore", "pipe"], windowsHide: true });
   let stderr = "";
@@ -145,6 +146,18 @@ async function startEntry(extraEnv: Record<string, string> = {}): Promise<EntryP
   });
   await waitUntil(() => stderr.includes("已启动"), { timeoutMs: 20_000, describe: () => stderr });
   return { port, child, exited, env, pidFile: dataDirLayout(dataDir).pidFile, stderr: () => stderr };
+}
+
+/** PATH 前面放一个编的"npm 装好的 codex"（不会被拉起：只看得出装了、版本够）：Codex 插件的结果不看这台机器装没装 */
+function fakeCodexOnPath(): Record<string, string> {
+  const dir = makeTempDir("ergo-fake-npm-");
+  const pkg = path.join(dir, "node_modules", "@openai", "codex");
+  fs.mkdirSync(path.join(pkg, "bin"), { recursive: true });
+  fs.writeFileSync(path.join(dir, process.platform === "win32" ? "codex.cmd" : "codex"), "");
+  fs.writeFileSync(path.join(pkg, "bin", "codex.js"), "");
+  fs.writeFileSync(path.join(pkg, "package.json"), JSON.stringify({ version: CODEX_MIN_VERSION }));
+  const pathKey = Object.keys(process.env).find((name) => name.toUpperCase() === "PATH") ?? "PATH";
+  return { [pathKey]: [dir, process.env[pathKey]].filter(Boolean).join(path.delimiter) };
 }
 
 function runStop(env: Record<string, string | undefined>) {

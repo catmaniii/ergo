@@ -65,11 +65,13 @@ export function RemoteBadge({ badge, className }: { badge: { label: string; url?
 
 /**
  * 新建项目、任务时选运行时：现在能用的几个排成一排；只有 pi 能选时什么都不显示。
- * Claude Code 接入的组件没装（别处也没有）时那一项灰掉，点一下去设置 · 组件装
+ * Claude Code 接入的组件没装（别处也没有）时那一项灰掉，点一下去设置 · 组件装；
+ * 要的外部程序没装的（Codex：runtimeChoices 的 unavailable）也灰掉，点一下写明缺什么、怎么装
  */
 export function RuntimePicker({ value, onChange }: { value: string; onChange(runtime: string): void }) {
   const choices = runtimeChoices(useRuntimes(true));
   const claudeCodeOff = useComponentGate(COMPONENT_FEATURES.runtimeClaudeCode);
+  const [why, setWhy] = useState<string>();
   if (choices.length === 0) return null;
   const off = (id: string) => (id === "claude-code" ? claudeCodeOff : undefined);
   const missing = choices.map((choice) => off(choice.id)).find((gate) => gate !== undefined);
@@ -79,6 +81,13 @@ export function RuntimePicker({ value, onChange }: { value: string; onChange(run
       <div className="seg runtime-seg" role="radiogroup" aria-label={t("ui.runtimes.legend")}>
         {choices.map((choice) => {
           const gate = off(choice.id);
+          if (!gate && choice.unavailable !== undefined) {
+            return (
+              <button key={choice.id} type="button" role="radio" aria-checked={false} aria-disabled="true" className="seg-btn component-off" title={choice.unavailable} onClick={() => setWhy(choice.unavailable)}>
+                {choice.title}
+              </button>
+            );
+          }
           return gate ? (
             <button key={choice.id} type="button" role="radio" aria-checked={false} aria-disabled="true" className="seg-btn component-off" title={t("ui.components.offHint", { title: gate.title })} onClick={() => goInstallComponent(gate.component)}>
               {choice.title}
@@ -91,6 +100,7 @@ export function RuntimePicker({ value, onChange }: { value: string; onChange(run
         })}
       </div>
       {missing && <ComponentMissing gate={missing} />}
+      {why !== undefined && <div className="sc-mode-hint">{why}</div>}
       <div className="sc-mode-hint">{t("ui.runtimes.hint")}</div>
     </fieldset>
   );

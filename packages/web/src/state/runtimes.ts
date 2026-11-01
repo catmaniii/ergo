@@ -26,10 +26,15 @@ export function conversationRuntime(state: { tasks: Readonly<Record<string, Task
   return runtimeIdOf(Object.values(state.tasks).find((task) => task.maintainerId === maintainerId)?.runtime);
 }
 
-/** 新建项目、任务时能选的运行时（现在能用的）；只有一个（只有 pi）时不显示这一项，是空的 */
-export function runtimeChoices(runtimes: readonly AgentRuntimeView[] | undefined): Array<{ id: string; title: string }> {
+/**
+ * 新建项目、任务时能选的运行时（现在能用的）；只有一个（只有 pi）时不显示这一项，是空的（没装的写在设置 · 插件里）。
+ * 还有别的能选时，外部程序没装的（missing）也灰着列在后面：unavailable 写着缺什么、怎么装
+ */
+export function runtimeChoices(runtimes: readonly AgentRuntimeView[] | undefined): Array<{ id: string; title: string; unavailable?: string }> {
   const usable = selectableRuntimes(runtimes).map((r) => ({ id: r.id, title: r.title }));
-  return usable.length > 1 ? usable : [];
+  if (usable.length <= 1) return [];
+  const missing = (runtimes ?? []).filter((r) => !r.available && r.missing === true).map((r) => ({ id: r.id, title: r.title, ...(r.unavailable === undefined ? {} : { unavailable: r.unavailable }) }));
+  return [...usable, ...missing];
 }
 
 /** 卡上标的运行时名字：默认的 pi 不标（undefined） */
@@ -62,7 +67,7 @@ export function runtimeStateLine(state: AgentRuntimeStateView): string | undefin
 /**
  * 撤回的确认框里按运行时多说的（能力清单 branch_summary、rewind_files）：分支摘要不是运行时自己写的（Claude Code：从这条之前另起一个会话接着，
  * 摘要由二狗按自己记下的写）；撤回时运行时会把它改过的文件恢复到这条之前（只追它的 Write、Edit，Bash 改的追不到）——撤回到阶段、步骤开始前
- * （callPoint）时不恢复（检查点只按整条输入记）。pi（自己写摘要、不动文件）什么都不多说。restoresFiles：这次撤回会恢复文件（"做了的事"下面的说明跟着换）
+ * （callPoint）时不恢复（检查点只按整条输入记）；恢复不了文件的（Codex）写明改过的文件留着。pi（自己写摘要、不动文件）什么都不多说。restoresFiles：这次撤回会恢复文件（"做了的事"下面的说明跟着换）
  */
 export function rollbackRuntimeNotes(
   runtimes: readonly AgentRuntimeView[] | undefined,
@@ -74,6 +79,7 @@ export function rollbackRuntimeNotes(
   if (!runtimeSupports(runtimes, runtime, "branch_summary")) lines.push(t("state.runtimes.rollbackForks", { runtime: runtimeTitle }));
   const rewinds = runtimeSupports(runtimes, runtime, "rewind_files");
   if (rewinds) lines.push(callPoint ? t("state.runtimes.rollbackNoFilesAtCall", { runtime: runtimeTitle }) : t("state.runtimes.rollbackFiles", { runtime: runtimeTitle }));
+  else if (runtimeIdOf(runtime) !== PI_RUNTIME_ID) lines.push(t("state.runtimes.rollbackNoFiles", { runtime: runtimeTitle }));
   return { lines, restoresFiles: rewinds && !callPoint, runtimeTitle };
 }
 

@@ -23,7 +23,7 @@
   "shell.pages.memory.title": "Memory System · Subtext v1.0",
   "shell.pages.memory.sub": "An experimental memory system: files, conclusions, question box, materials; talk to the memory curator and do the get-to-know interview",
   "shell.pages.settings.title": "Settings",
-  "shell.pages.settings.sub": "My name, personal files, roles & voices, language, appearance & style, voice, send and new line, models, skills & MCP, plugins, components, Claude Code, browsing & form filling, watch categories, system prompts, workday rules, data sources, authorized folders, delete materials, full tool-call records, backup, device pairing, checkup, about ergo",
+  "shell.pages.settings.sub": "My name, personal files, roles & voices, language, appearance & style, voice, send and new line, models, skills & MCP, plugins, components, Claude Code, Codex, browsing & form filling, watch categories, system prompts, workday rules, data sources, authorized folders, delete materials, full tool-call records, backup, device pairing, checkup, about ergo",
   "shell.pages.setup.title": "Setup wizard",
   "shell.pages.setup.sub": "Two minutes the first time: language, how to call you, model key, capabilities, phone, safety defaults, and how to reach it from outside",
   "shell.pages.roles.title": "Roles & voices",
@@ -99,5 +99,7 @@
   "shell.pages.files.sub": "IDs, birthdays, phones and addresses of you, your family and others",
   "shell.pages.files.fromSettings": "The name in your own file is \"My name\" above",
   "shell.pages.claudeCode.title": "Claude Code",
-  "shell.pages.claudeCode.sub": "Default folder for new tasks and projects"
+  "shell.pages.claudeCode.sub": "Default folder for new tasks and projects",
+  "shell.pages.codex.title": "Codex",
+  "shell.pages.codex.sub": "Default folder for new tasks and projects"
 }

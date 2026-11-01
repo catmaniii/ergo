@@ -7,9 +7,11 @@
 // Google 插件排在手机后面，和守护进程的清单一样。
 // Looki 插件（设置 · 数据源里填 Key 的那一块）排在 Google 后面、最后。
 // Claude Code 插件有了网页的那一半（设置 · Claude Code），照守护进程的清单排在浏览后面、手机前面。
+// Codex 插件（设置 · Codex）排在最后，和守护进程的清单一样。
 import { browsingWebPlugin } from "./browsing/plugin.tsx";
 import { calendarWebPlugin } from "./calendar/plugin.tsx";
 import { claudeCodeWebPlugin } from "./claude-code/plugin.tsx";
+import { codexWebPlugin } from "./codex/plugin.tsx";
 import { googleWebPlugin } from "./google/plugin.tsx";
 import { lookiWebPlugin } from "./looki/plugin.tsx";
 import { memoryWebPlugin } from "./memory/plugin.tsx";
@@ -18,4 +20,4 @@ import { remindersWebPlugin } from "./reminders/plugin.tsx";
 import { voiceWebPlugin } from "./voice/plugin.tsx";
 import type { WebPluginDefinition } from "./api.ts";
 
-export const WEB_PLUGIN_MANIFEST: readonly WebPluginDefinition[] = [remindersWebPlugin, memoryWebPlugin, calendarWebPlugin, voiceWebPlugin, browsingWebPlugin, claudeCodeWebPlugin, phoneWebPlugin, googleWebPlugin, lookiWebPlugin];
+export const WEB_PLUGIN_MANIFEST: readonly WebPluginDefinition[] = [remindersWebPlugin, memoryWebPlugin, calendarWebPlugin, voiceWebPlugin, browsingWebPlugin, claudeCodeWebPlugin, phoneWebPlugin, googleWebPlugin, lookiWebPlugin, codexWebPlugin];

@@ -28,6 +28,7 @@
 | 日历 `calendar` | [calendar/plugin.ts](../../packages/daemon/src/calendar/plugin.ts)：只提供一个服务 | 没有 | [plugins/calendar/](../../packages/web/src/plugins/calendar/plugin.tsx)：有自己地址的页面 | 最小的；可选依赖、不拥有数据 |
 | 语音 `voice` | [voice/plugin.ts](../../packages/daemon/src/voice/plugin.ts)：识别进程、合成、前端请求、移除时删媒体文件 | 两个工具随会话给（不经贡献缝）、条件"语音" | [plugins/voice/](../../packages/web/src/plugins/voice/plugin.tsx)：输入框的语音、后台部件、设置页 | 数据契约留在内核（`voice-records/`） |
 | 内置浏览器 `browsing` | [browsing/plugin.ts](../../packages/daemon/src/browsing/plugin.ts)：设备通路、取件码、缩略图 | 八个工具（排在最后）、输入附注、条件"浏览" | [plugins/browsing/](../../packages/web/src/plugins/browsing/plugin.tsx)：页签、卡片 | 可选依赖别的插件、`at: "end"`、`ctx.page` |
+| Codex `codex` | [codex/plugin.ts](../../packages/daemon/src/codex/plugin.ts)：只在数据契约里登记一个 agent 运行时，子进程入口 `codex/child/main.ts`，里面拉起本机的 `codex app-server` | 没有（负责人整个会话跑在 Codex 里） | [plugins/codex/](../../packages/web/src/plugins/codex/plugin.tsx)：设置 · Codex | 不随二狗分发、没装时 `missing()`；守卫接在钩子、审批、事后核对（ADR-0046） |
 | Claude Code `claude-code` | [claude-code/plugin.ts](../../packages/daemon/src/claude-code/plugin.ts)：只在数据契约里登记一个 agent 运行时，子进程入口 `claude-code/child/main.ts` | 没有（负责人整个会话跑在 Claude Code 里） | [plugins/claude-code/](../../packages/web/src/plugins/claude-code/plugin.tsx)：设置 · Claude Code 这一页（新建时选运行时、⚙、斜杠补全在内核的界面里） | 带 agent 运行时的插件、自带 npm 依赖只在子进程里用（第 7 节"运行时贡献点"） |
 | Google `google` | [google/plugin.ts](../../packages/daemon/src/google/plugin.ts)：数据契约里登记数据源 Google · 日历（日程经数据源的 `calendar()` 交给日历插件）、Google · Gmail（导入的你发出的邮件采成"本人写的"素材） | 查 Google 日历、搜 / 读 Gmail 邮件（数据源的按需查，内核替它给秘书） | [plugins/google/](../../packages/web/src/plugins/google/plugin.tsx)：设置 · 数据源里填地址、填 Gmail 应用专用密码的那两块（`dataSources` 插槽） | 有连接、要定时拉的数据源插件、定期导入每隔几分钟；只按需查、外部内容夹在外部数据标记里的数据源；自己写协议客户端不加依赖（第 7 节"数据源贡献点"） |
 | Looki `looki` | [looki/plugin.ts](../../packages/daemon/src/looki/plugin.ts)：数据契约里登记数据源、两条采集规则、改写函数、连数据删；装配提供 Looki 服务（接官方开放接口） | 按需查的工具"查 Looki"（数据源的 `tools`，内核替它给秘书） | [plugins/looki/](../../packages/web/src/plugins/looki/plugin.tsx)：设置 · 数据源里填 Key 的那一块（`dataSources` 插槽） | 数据源插件：接外部接口、密钥只进密钥区、导入写成素材、测试接本机假接口（第 7 节"数据源贡献点"） |
@@ -471,7 +472,7 @@ export const notesWebPlugin: WebPluginDefinition = {
 
 ### 运行时贡献点：接一个 agent 运行时
 
-负责人（任务的、项目的、定时作业的）跑会话用哪个 **agent 运行时**是它的一个属性（`Task.runtime`、`Project.runtime`，没写是 pi）。pi 是内核自带的；Claude Code、以后的 Codex 各是一个插件，经同一个贡献点登记（ADR-0027 的"运行时是插件贡献点，宿主协议是运行时的接缝"）。插件在数据契约里 `ctx.runtimes.register(运行时)`，运行时（`AgentRuntime`，`packages/daemon/src/runtime/runtimes.ts`）有这几样：
+负责人（任务的、项目的、定时作业的）跑会话用哪个 **agent 运行时**是它的一个属性（`Task.runtime`、`Project.runtime`，没写是 pi）。pi 是内核自带的；Claude Code、Codex 各是一个插件，经同一个贡献点登记（ADR-0027 的"运行时是插件贡献点，宿主协议是运行时的接缝"）。插件在数据契约里 `ctx.runtimes.register(运行时)`，运行时（`AgentRuntime`，`packages/daemon/src/runtime/runtimes.ts`）有这几样：
 
 | 字段 | 是什么 |
 |---|---|
@@ -512,12 +513,13 @@ pi 照同一个接口由组合根登记（不是插件、不能停用）：
 - **子进程入口是插件自己的文件**（照 pi 的 `packages/daemon/src/runtime/agent-child/main.ts`，最小的例子是测试里的 `packages/daemon/test/fixtures/fake-runtime-child.ts`）：只由守护进程按路径拉起，守护进程里别的代码不 import 它；运行时自己的 npm 依赖只在子进程里用（ADR-0001 的封装边界照旧）。
 - **网页**：`GET /api/runtimes`（`RuntimesView`）列出登记了的运行时连同能力清单、能不能用。新建任务、项目时选运行时（只有 pi 能用时不显示），卡上标出（pi 不标），负责人的 ⚙ 里换运行时、选它的模型和设置项（`PUT /api/agents/<id>/runtime`），界面按能力清单收起它不支持的按钮（撤回、切分支、现在压缩）。
 - **换运行时**：等手头这一条做完，原来的运行时写一份交接摘要（宿主协议 `write_handoff` → `handoff_written`，每个运行时都要实现：pi 照换模型的写法，Claude Code 推一条只读的交接提示；实在写不了的回 code 为 `unsupported` 的 `error`，守护进程马上按没写成换，不等到超时），新的运行时新开一段会话、摘要作为下一条输入的上下文。这条错误不带是哪条命令的，等摘要时收到的 `unsupported` 都算写不了，所以实现了 `write_handoff` 的运行时也该实现别的命令（比如 `contribution`），别一律回 `unsupported`。
-- **新建时选工作文件夹**（`AgentRuntime.workFolder: true`）：新建它的任务、项目时多"在哪个文件夹做"（在设置里定的默认文件夹下新开、或用已有的），选定的就是负责人的工作目录；默认文件夹由内核的 `work-folders/` 按运行时存（登记表经 `defaultFolder` 带进运行时清单），插件不管存取。Claude Code 的网页那一半画"设置 · Claude Code"（`settingsPages` 插槽）。
+- **新建时选工作文件夹**（`AgentRuntime.workFolder: true`）：新建它的任务、项目时多"在哪个文件夹做"（在设置里定的默认文件夹下新开、或用已有的），选定的就是负责人的工作目录；默认文件夹由内核的 `work-folders/` 按运行时存（登记表经 `defaultFolder` 带进运行时清单），插件不管存取。Claude Code、Codex 的网页那一半各画一页设置（`settingsPages` 插槽，页面都是核心的 `ui/runtime-folder-page.tsx`）。
 - **斜杠命令转交**（能力清单 `slash_passthrough`）：用户发的以 `/` 开头的话（二狗自己的命令除外）原样当输入交给子进程，不加时间标记、不展开 skill；子进程把能用的命令报回 `runtime_catalog.commands`，输入框的补全列它们。给了 `toolkitSkillCommands`（工具包里的 skill 在运行时里的命令名）的，用户按 pi 的习惯打的 `/<目录名>` 是工具包里的 skill、又不是运行时报过的命令时，交过去之前换成它的写法（Claude Code 是 `/ergo:<目录名>`）。
 - **范围审视做不了的**（`AgentRuntime.recordedScopeReview: true`）：子进程里调不了二狗的审视模型的运行时，能力清单 `scope_review` 照样写 `true`，压缩之前报宿主协议 `compacting`，守护进程按二狗自己记下的事件另起一次性子进程审视（工单结束时也是，不送 `scope_review`），结果和 pi 的一样记下。分支摘要同理在能力清单写 `branch_summary: false`。
 - **测**：主切面 `packages/daemon/test/main/agent-runtimes.test.ts` 用假运行时插件走真实装配路径：负责人经它的子进程拉起、插件停用时任务转等我、启用后接着。
 
-**真插件：Claude Code**（[claude-code/plugin.ts](../../packages/daemon/src/claude-code/plugin.ts)）——接 Codex 这类的照它写：
+**真插件：Claude Code**（[claude-code/plugin.ts](../../packages/daemon/src/claude-code/plugin.ts)）和 **Codex**（[codex/plugin.ts](../../packages/daemon/src/codex/plugin.ts)，见下面最后一条）——再接一个照它们写：
+
 
 <!-- 摘自 packages/daemon/src/claude-code/plugin.ts -->
 ```ts
@@ -560,6 +562,7 @@ export function createClaudeCodePlugin(
 - **接管已有会话**（能力 `take_over`）：运行时给齐 `sessions()`（列本机的会话、标出占着的）、`sessionBusy()`（收回前核对）、`forkSession()`、`sessionHistory()`（前情：主线最近一段，`RuntimeHistory`）四样，登记表核对少一样不收。外部程序的会话列表、读会话做成可注入的会话来源（Claude Code 是 `ClaudeSessionSource`，真的经内核服务 `KERNEL.oneShot` 拉一次性子进程 `child/sessions-main.ts` 用 SDK 读，SDK 还是只在 `child/` 里；主切面给 `createClaudeCodePlugin({ sessions })` 一个假的，`packages/daemon/test/helpers/fake-claude-sessions.ts`，不读用户真实的会话文件）。接管成任务 / 项目、前情事件、写入锁、交还收回是内核的（`takeover/`），插件不管。
 - **交给官方 App、再收回来**（能力 `remote_control`）：运行时给 `remoteControl`（`RuntimeRemoteControl`：开 / 唤醒自己的后台会话连上官方 App 并交回链接、停掉、只读跟随读新内容）和 `currentSession(会话目录)`（负责人现在接着的是哪个会话），登记表核对少一样不收。外部程序的命令行做成可注入的（Claude Code 是 `ClaudeCli`：真的由守护进程直接拉起本机的 claude，detached、**不进二狗的 Job**——`claude --bg` 会拉起它自己的后台服务，放进 Job 会被孤儿回收结束；主切面给 `createClaudeCodePlugin({ cli })` 一个扮演本机 claude 的假的，`packages/daemon/test/helpers/fake-claude-cli.ts`）。"现在在哪边"（二狗接管 / 官方 App / 空着）、打断关掉二狗的进程、只读跟随补记、收回后接着是内核的（`takeover/`，和交还 / 收回同一套状态），插件不管。
 - **主切面换掉清单里的同名插件**：`startTestDaemon` 的 `extraPlugins` 里和清单同名的换掉清单里那个（位置不变），子进程入口换成接假 SDK 的（`packages/daemon/test/helpers/fake-claude-code.ts`、`packages/daemon/test/fixtures/fake-claude-child.ts`）；`packages/daemon/test/main/claude-code-runtime.test.ts` 让它的负责人跑完一轮，会话频道里的事件和 pi 跑同一个剧本的一样。
+- **Codex 和 Claude Code 不一样的地方**（`packages/daemon/src/codex/`，ADR-0046）：不用 SDK，子进程拉起用户本机的 `codex app-server`（stdio 上的 JSON-RPC），协议按 0.166 生成的 schema 核对（`packages/daemon/test/fixtures/codex-app-server.schema.json`，假 app-server `packages/daemon/test/helpers/fake-codex-app-server.ts` 说的话都按它校验）。不是 npm 依赖，`missing()` 按 PATH 找 `codex`、核对最低版本。守卫接三个口子：PreToolUse 钩子（外部命令，`-c` 配、按 `hooks/list` 报的 hash 信任）、审批请求（策略固定最严）、`item/started` 上的事后核对（拦不住的照样记录、判了不放行就打断）；拦不住的逐条写在 ADR。二狗的工具走 stdio MCP 中转（`child/mcp-relay.ts`，Codex 按 `-c mcp_servers.ergo.*` 拉起），不用动态工具（`thread/resume`、`thread/fork` 带不了）。占没占判不准的写 `ResumableSessionView.unsure`，界面默认引导分叉；外部程序没装的运行时带 `missing`，新建时灰着列出来。
 
 ### 数据源贡献点：接一种外部数据
 
@@ -887,6 +890,9 @@ export const remindersPlugin: PluginDefinition = {
 | `startTestDaemon` | `packages/daemon/test/helpers/daemon.ts` | 主切面的测试守护进程（`plugins`、`extraPlugins`） |
 | `fakeRuntimePlugin`、`fakeRuntime` | `packages/daemon/test/helpers/fake-runtime.ts` | 测试用的假运行时插件 |
 | `createClaudeCodePlugin`、`claudeCodePlugin` | `packages/daemon/src/claude-code/plugin.ts` | Claude Code 插件（带 agent 运行时的真插件） |
+| `createCodexPlugin`、`codexPlugin` | `packages/daemon/src/codex/plugin.ts` | Codex 插件（带 agent 运行时的真插件，不随二狗分发） |
+| `FakeCodexServer` | `packages/daemon/test/helpers/fake-codex-app-server.ts` | 假的 codex app-server，说的话按生成的 schema 校验（契约测试、主切面） |
+| `fakeCodexPlugin`、`FakeCodexSessions` | `packages/daemon/test/helpers/fake-codex.ts` | 接假 app-server 的 Codex 插件、假的本机会话来源（主切面） |
 | `ClaudeSessionSource`、`oneShotSessionSource`、`listResumable` | `packages/daemon/src/claude-code/sessions.ts` | Claude Code 本机会话的来源（列会话、占用、前情、分叉；真的经一次性子进程） |
 | `KERNEL.oneShot` | `packages/daemon/src/plugins/kernel.ts` | 拉一次性子进程（白名单环境、Job 对象、超时；内核服务） |
 | `FakeClaudeSessions`、`fakeTakeoverClaudeCodePlugin` | `packages/daemon/test/helpers/fake-claude-sessions.ts` | 假的本机会话来源（主切面） |

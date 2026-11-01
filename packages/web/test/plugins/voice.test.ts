@@ -57,10 +57,11 @@ describe("语音插件的网页这一半", () => {
       ["phone", "running"],
       ["google", "running"],
       ["looki", "running"],
+      ["codex", "running"],
     ]);
     expect(host.running("voice")).toBe(false);
-    // 设置页里只剩别的插件的（设置 · Claude Code）
-    expect([host.list("composerVoice"), host.list("settingsPages").map((e) => e.id)]).toEqual([[], ["claude-code"]]);
+    // 设置页里只剩别的插件的（设置 · Claude Code、设置 · Codex）
+    expect([host.list("composerVoice"), host.list("settingsPages").map((e) => e.id)]).toEqual([[], ["claude-code", "codex"]]);
     // 后台部件里只剩别的插件的（手机插件同步手机日历；同步照片、位置）
     expect(host.list("background").map((e) => e.id)).toEqual(["phone-calendar-sync", "phone-media-sync"]);
     expect([host.unavailable("composerVoice", "voice"), host.unavailable("background", "voice-autoplay"), host.unavailable("settingsPages", "voice")]).toEqual(["语音", "语音", "语音"]);
@@ -73,7 +74,7 @@ describe("语音插件的网页这一半", () => {
     expect(host.running("voice")).toBe(true);
     expect(host.list("composerVoice").map((e) => e.id)).toEqual(["voice"]);
     expect(host.list("background").map((e) => e.id)).toEqual(["voice-autoplay", "phone-calendar-sync", "phone-media-sync"]);
-    expect(host.list("settingsPages").map((e) => e.id)).toEqual(["voice", "claude-code"]);
+    expect(host.list("settingsPages").map((e) => e.id)).toEqual(["voice", "claude-code", "codex"]);
   });
 
   test("输入框：开着时右边有话筒（切到语音）；停用时没有，一律打字", () => {

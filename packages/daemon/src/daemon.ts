@@ -765,8 +765,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 什么时候起来的（设置里的关于二狗显示守护进程已运行多久）
     const startedAt = now();
     // 启用着（没在 plugins.disabled 里）的插件没装上（缺依赖、循环依赖、装配或启动出错）：/healthz 和报给 LSM 的健康都算降级，写明哪个、为什么；
-    // 配置里主动停用的不算
-    const pluginProblems = () => plugins.report().skipped.map(({ plugin, reason }) => `插件 ${plugin} 没装上：${reason}`); // @i18n-ignore log：健康检查的说明（LSM 里看）
+    // 配置里主动停用的不算；要的外部组件没装的（本机没装 Codex、没装 Claude Code 的 SDK）也不算：用户没选用，别的功能不受影响，设置 · 插件里写着怎么装
+    const pluginProblems = () => plugins.report().skipped.filter((s) => s.missing !== true).map(({ plugin, reason }) => `插件 ${plugin} 没装上：${reason}`); // @i18n-ignore log：健康检查的说明（LSM 里看）
     const store = openEventStore({
       file: layout.eventsDb,
       views: [

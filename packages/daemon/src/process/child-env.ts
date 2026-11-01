@@ -45,6 +45,8 @@ const SYSTEM_VARIABLES = [
   "USER",
   "LOGNAME",
   "SHELL",
+  // Codex 把配置、登录、会话放在哪（用户自己设了别的位置的话；Codex 运行时要和终端里的同一份。里面的文件二狗不读）
+  "CODEX_HOME",
   // 语言与时区
   "LANG",
   "LC_ALL",

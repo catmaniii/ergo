@@ -3,7 +3,7 @@
   "workFolders.missing": "文件夹「{path}」不存在",
   "workFolders.notFolder": "「{path}」是一个文件，不是文件夹",
   "workFolders.forbidden": "「{path}」在{area}里：不能在那里干活，换一个文件夹",
-  "workFolders.defaultUnusable": "新建时的默认文件夹用不了：{reason}。在设置 · Claude Code 里重新定一个，或者选一个已有的文件夹",
+  "workFolders.defaultUnusable": "新建时的默认文件夹用不了：{reason}。到设置里这个运行时的那一页重新定一个，或者选一个已有的文件夹",
   "workFolders.untitled": "新的工作",
   "workFolders.createFailed": "在「{folder}」下新开「{name}」没成：{error}",
   "workFolders.tooMany": "重名的太多了",

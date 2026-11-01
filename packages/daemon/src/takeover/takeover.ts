@@ -405,7 +405,7 @@ export function createTakeoverService(options: TakeoverServiceOptions): Takeover
       const checked = current.remote?.sessionId ?? current.sessionId;
       let busy: string | undefined;
       try {
-        busy = await runtimes.sessionBusy(current.runtime, checked);
+        busy = await runtimes.sessionBusy(current.runtime, checked, current.returnedAt);
       } catch (err) {
         throw new RequestRejected("conflict", t("takeover.checkFailed", { error: err instanceof Error ? err.message : String(err) }));
       }

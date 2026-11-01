@@ -51,14 +51,14 @@ describe("记忆插件", () => {
   it("配置里停用记忆插件：照常起、不算降级；不采成素材但照样留原话副本；没有记忆命令、秘书没有素材检索、提示里不讲记忆命令；提醒、工作日历照常", async () => {
     const logs: string[] = [];
     const td = await startTestDaemon({
-      plugins: ["reminders", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki"],
+      plugins: ["reminders", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex"],
       log: (line) => logs.push(line),
       secretary: [call("propose_quick_action", { type: "remember", params: { content: "下周三上午体检" } }), echo],
     });
-    expect(td.daemon.plugins.report()).toEqual({ running: ["reminders", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki"], disabled: ["memory"], skipped: [] });
+    expect(td.daemon.plugins.report()).toEqual({ running: ["reminders", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex"], disabled: ["memory"], skipped: [] });
     expect(logs).toContain("插件 memory（记忆）在配置里停用了");
     const health = (await (await fetch(new URL("/healthz", td.url))).json()) as Record<string, unknown>;
-    expect(health).toMatchObject({ status: "ok", plugins: { running: ["reminders", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki"], disabled: ["memory"], skipped: [] } });
+    expect(health).toMatchObject({ status: "ok", plugins: { running: ["reminders", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex"], disabled: ["memory"], skipped: [] } });
 
     const frontend = await TestFrontend.connect(td.url);
     await frontend.subscribe(ALL);
@@ -95,7 +95,7 @@ describe("记忆插件", () => {
   });
 
   it("停用记忆插件时 HTTP 那几条：访谈接口回\"记忆插件没启用\"（404，不是 500）、记忆的设置照常能读能改、推理库的只读接口 200 加一句原因", async () => {
-    const td = await startTestDaemon({ plugins: ["reminders", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki"], secretary: [echo] });
+    const td = await startTestDaemon({ plugins: ["reminders", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex"], secretary: [echo] });
     // 了解你访谈是记忆插件的服务，网关每次现取：插件没启用时 404 加一句"记忆插件没启用"，不是 500
     const interview = await requestJson<HttpErrorBody>(td.url, HTTP_PATHS.memoryInterview);
     expect(interview.status).toBe(404);
@@ -147,7 +147,7 @@ describe("记忆插件", () => {
 
     // 停用着起来
     const reuse = { dataDir: first.dataDir, homeDir: first.homeDir };
-    const second = await startTestDaemon({ plugins: ["reminders", "voice", "browsing", "claude-code", "phone", "google", "looki"], reuse, secretary: [say("好"), say("好")] });
+    const second = await startTestDaemon({ plugins: ["reminders", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex"], reuse, secretary: [say("好"), say("好")] });
     const f2 = await TestFrontend.connect(second.url);
     await f2.subscribe(ALL);
     expect(refusalOf(await f2.cardAction({ cardId: card.id, action: "delete", expectedVersion: 1, input: { mode: "forget", materialIds: [moving!.id] } }))).toBe(
@@ -171,7 +171,7 @@ describe("记忆插件", () => {
     await second.daemon.stop();
 
     // 再启用：停用期间没删的那句补采成素材（能检索），删过的不回来
-    const third = await startTestDaemon({ plugins: ["reminders", "memory", "voice", "browsing", "claude-code", "phone", "google", "looki"], reuse });
+    const third = await startTestDaemon({ plugins: ["reminders", "memory", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex"], reuse });
     expect(third.daemon.materials.searchKeyword("周五复查").map((m) => m.kind)).toEqual(["user_utterance"]);
     expect(third.daemon.materials.searchKeyword("周三体检")).toEqual([]);
     expect(third.daemon.materials.searchKeyword("搬家")).toEqual([]);

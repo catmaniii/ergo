@@ -111,7 +111,7 @@ describe("Google 日历订阅（假日历服务走真实装配路径）", () => 
   it("日历插件没启用：Google · 日历写\"日历插件没启用\"，照样能填地址、同步；按月取回日历插件没启用", { timeout: 60_000 }, async () => {
     const remote = await startFakeCalendarServer();
     remote.routes.set(remote.address(PATH), { status: 200, body: myCalendar() });
-    const td = await startTestDaemon({ plugins: ["reminders", "memory", "voice", "browsing", "claude-code", "phone", "google", "looki"], clock: new ManualClock(START) });
+    const td = await startTestDaemon({ plugins: ["reminders", "memory", "voice", "browsing", "claude-code", "phone", "google", "looki", "codex"], clock: new ManualClock(START) });
     expect(td.daemon.plugins.report()).toMatchObject({ disabled: ["calendar"] });
     const source = (await dataSourcesApi.view(td.url)).body.sources.find((s) => s.id === SOURCE)!;
     expect(source.note).toBe("日历插件没启用：同步来的事件现在在日历里看不到（照样同步、照样查得到）");

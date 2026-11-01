@@ -49,7 +49,7 @@ The dialog also has a fourth option, **Just remind me**: no agent, just a notifi
 3. Write it clearly in **What to do (the first line becomes the title)**. The first line is the task's title.
 4. Under **When**, pick one; the default is **Once, now**. For scheduling and events, see [Running on a schedule](#running-on-a-schedule) and [Running when something happens](#running-when-something-happens).
 5. To have it read out straight away when done, tick **Read out when done**. Not ticked by default.
-6. **Runtime** defaults to pi, which comes with ergo. To use Claude Code, see [Claude Code](claude-code.en.md). When pi is the only choice, this item isn't shown.
+6. **Runtime** defaults to pi, which comes with ergo. To use Claude Code, see [Claude Code](claude-code.en.md); for Codex, see [Codex](codex.en.md). When pi is the only choice, this item isn't shown.
 7. For **Projects involved (pick any)**, choose according to the table below. For a workflow, this item says **Which project (a workflow can have only one)**.
 8. Click the button at the very bottom. Its text follows what you picked:
 
@@ -564,7 +564,7 @@ When an owner makes small changes to the plan without widening its grants, it do
 
 - [Projects](projects.en.md): long-term work, internal tasks, operations plans.
 - [Talking to the secretary](chat.en.md): rollback, zoom, Inbox.
-- [Claude Code](claude-code.en.md): having owners work through Claude Code.
+- [Claude Code](claude-code.en.md), [Codex](codex.en.md): having owners work through them.
 - [Skills, MCP and plugins](skills-mcp-plugins.en.md): what you can put in a toolkit.
 - [Calendar and reminders](calendar-reminders.en.md): for things that only need a reminder.
 - [Voice](voice.en.md): read out when done.

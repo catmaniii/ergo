@@ -51,7 +51,7 @@ describe("Claude Code 插件（假 SDK）", () => {
   it("GET /api/runtimes 里有 Claude Code：插件登记的，能力清单照实写", async () => {
     const td = await startTestDaemon();
     const view = (await runtimesApi.view(td.url)).body;
-    expect(view.runtimes.map((r) => r.id)).toEqual(["pi", CLAUDE_CODE_RUNTIME_ID]);
+    expect(view.runtimes.map((r) => r.id)).toEqual(["pi", CLAUDE_CODE_RUNTIME_ID, "codex"]);
     // 带上可选的模型（还没有子进程报回时是三个别名）和设置项（权限模式、思考档位）
     expect(view.runtimes[1]).toEqual({
       id: CLAUDE_CODE_RUNTIME_ID,
