@@ -19,8 +19,9 @@ export interface TestDaemonHandle {
   stop(): Promise<void>;
 }
 
-export async function startDaemon(): Promise<TestDaemonHandle> {
-  const child: ChildProcess = spawn(process.execPath, [path.join(HERE, "test-daemon.ts")], { cwd: HERE, stdio: ["pipe", "pipe", "ignore"] });
+export async function startDaemon(options: { fakeLsm?: boolean } = {}): Promise<TestDaemonHandle> {
+  const env = options.fakeLsm ? { ...process.env, E2E_FAKE_LSM: "1" } : process.env;
+  const child: ChildProcess = spawn(process.execPath, [path.join(HERE, "test-daemon.ts")], { cwd: HERE, stdio: ["pipe", "pipe", "ignore"], env });
   const lines: Array<Record<string, unknown>> = [];
   const reader = readline.createInterface({ input: child.stdout! });
   reader.on("line", (line) => {
@@ -92,9 +93,9 @@ export class Run {
   readonly failed: Array<{ name: string; error: string }> = [];
   readonly shots: string[] = [];
   private readonly shotsDir: string | undefined;
-  private readonly device: Device;
+  private readonly device: Pick<Device, "screenshot">;
 
-  constructor(device: Device, shotsDir: string | undefined) {
+  constructor(device: Pick<Device, "screenshot">, shotsDir: string | undefined) {
     this.device = device;
     this.shotsDir = shotsDir;
     if (shotsDir) mkdirSync(shotsDir, { recursive: true });

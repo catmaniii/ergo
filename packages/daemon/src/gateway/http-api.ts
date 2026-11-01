@@ -51,6 +51,7 @@ import {
   LanguageBody,
   t,
   checkHttpBody,
+  ConnectionAddressesBody,
   CompleteUploadBody,
   BackupConfigBody,
   BackupFolderCheckBody,
@@ -146,6 +147,7 @@ import type { SafetySettingsService } from "../config/safety-settings.ts";
 import type { AutostartSwitch } from "../lsm/autostart-switch.ts";
 import type { SetupStateService } from "../config/setup-state.ts";
 import type { DoctorService } from "../doctor/doctor.ts";
+import type { ConnectionAddressesService } from "../pairing/addresses.ts";
 import type { WebSettingsService } from "../web/index.ts";
 import type { PluginSettings } from "../plugins/settings.ts";
 import type { RuntimeRegistry } from "../runtime/index.ts";
@@ -261,6 +263,8 @@ export interface HttpApiOptions {
   setup?: Pick<SetupStateService, "view" | "mark">;
   /** 体检（319 号票的 319b）：GET /api/doctor（八项检查现在的样子，每次现算）；不给就没有这个接口 */
   doctor?: Pick<DoctorService, "view">;
+  /** 连接地址（364 号票）：GET / POST /api/connection-addresses（设备配对页的二维码界面用）；不给就没有这个接口 */
+  connectionAddresses?: Pick<ConnectionAddressesService, "view" | "setManual">;
   /** 设置里 agent 的联网搜索、读网页走哪条路（154 号票）；不给就没有这个接口 */
   webSettings?: Pick<WebSettingsService, "view" | "problem" | "change">;
   /** 设置 · 插件（211 号票）：列出、运行中停用、启用、移除；不给就没有这两个接口 */
@@ -1120,6 +1124,26 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
           async GET(_req, res) {
             if (!options.doctor) throw new HttpError("not_found", t("gateway.http.noDoctor"));
             sendJson(res, 200, await options.doctor.view());
+          },
+        };
+      case "connection_addresses":
+        return {
+          // 连接地址（364 号票）：手机从外面连到二狗能用的地址，问服务管家的加手填的，每次现算、不碰网络
+          GET(_req, res) {
+            if (!options.connectionAddresses) throw new HttpError("not_found", t("gateway.http.noConnectionAddresses"));
+            sendJson(res, 200, options.connectionAddresses.view());
+          },
+          // 改手填的那个（null 是去掉）：写进配置文件，回改完之后的整份；写法不对、是局域网地址回 400 和原因
+          async POST(req, res) {
+            if (!options.connectionAddresses) throw new HttpError("not_found", t("gateway.http.noConnectionAddresses"));
+            const body = checkHttpBody(ConnectionAddressesBody, await readJson(req));
+            if (!body.ok) throw new HttpError("bad_request", t("gateway.http.badConnectionAddress", { message: body.message }));
+            try {
+              sendJson(res, 200, options.connectionAddresses.setManual(body.value.manual));
+            } catch (err) {
+              if (err instanceof RequestRejected) throw new HttpError("bad_request", err.message);
+              throw err;
+            }
           },
         };
       case "model_settings_key":

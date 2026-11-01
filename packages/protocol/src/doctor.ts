@@ -6,6 +6,7 @@
 //   网页见到这个键就写"这次没查出来"，不拿 data 拼句子——别的项照常。
 // - 只查本机：不联网（除了探本机端口）、不调用模型、不改任何状态；每次查现算，不缓存。
 // 不引用 TypeBox：网页只用常量和类型。
+import type { RejectedConnectionAddress } from "./connection-addresses.ts";
 
 /** 八项检查，顺序就是网页上从上到下的顺序 */
 export const DOCTOR_CHECKS = ["ports", "node", "pi", "supervisor", "model", "components", "disk", "external"] as const;
@@ -21,7 +22,8 @@ export type DoctorCheckId = (typeof DOCTOR_CHECKS)[number];
  * - components：照清单的默认该装、现在还不能用的功能（清单是随程序发布的那份）；空数组是都装好了；
  * - disk：数据目录所在卷还剩多少、一共多少（GB）、是哪个目录；
  * - external：本机记着的外网入口依据（不真连出去）：configured 是查到了依据——服务管家里的 tailnet、隧道登记（kind 是哪一种），
- *   或者没被吊销的已配对设备（kind 是 paired，devices 是几台）。没查到依据不等于没配：手动跑的 tailscale serve 服务管家不知道
+ *   或者没被吊销的已配对设备（kind 是 paired，devices 是几台）。没查到依据不等于没配：手动跑的 tailscale serve 服务管家不知道。
+ *   rejected（364 号票）是服务管家给了、手机却用不了的入口（接到了别的端口、不是 https）：有就算不健康，修法是 doctor.fix.externalRejected
  */
 export interface DoctorCheckDataById {
   ports: { local: number; external: number; localUp: boolean; externalUp: boolean };
@@ -31,7 +33,7 @@ export interface DoctorCheckDataById {
   model: { configured: boolean };
   components: { missing: string[] };
   disk: { freeGb: number; totalGb: number; path: string };
-  external: { configured: boolean; kind?: "tailscale" | "headscale" | "tunnel" | "paired"; devices?: number };
+  external: { configured: boolean; kind?: "tailscale" | "headscale" | "tunnel" | "manual" | "paired"; devices?: number; rejected?: RejectedConnectionAddress[] };
 }
 
 export type DoctorCheckData = DoctorCheckDataById[DoctorCheckId];

@@ -73,5 +73,7 @@ dependencies {
     implementation("androidx.webkit:webkit:1.14.0")
     // 窗口避让（webkit 本来就带着它，这里只是让代码能直接用）；别的都用系统自带的
     implementation("androidx.core:core:1.16.0")
+    // 扫码连接（364 号票）：只要 ZXing 的解码核心，不要它带界面的那些包；取景用系统的 Camera2
+    implementation("com.google.zxing:core:3.5.3")
     testImplementation("junit:junit:4.13.2")
 }

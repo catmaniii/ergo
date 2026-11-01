@@ -153,5 +153,7 @@
   "gateway.http.noWorkFolders": "这个守护进程不能定新建时的默认文件夹",
   "gateway.http.badRuntimeFolder": "默认文件夹的请求不对：{message}",
   "gateway.http.badDataSourceStored": "看已获取的数据，参数不对：{message}",
-  "gateway.http.badDataSourceLive": "现查的参数不对：{message}"
+  "gateway.http.badDataSourceLive": "现查的参数不对：{message}",
+  "gateway.http.noConnectionAddresses": "这个版本还没有连接地址的接口",
+  "gateway.http.badConnectionAddress": "连接地址的参数不对：{message}"
 }

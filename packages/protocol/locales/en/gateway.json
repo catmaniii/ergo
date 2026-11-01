@@ -153,5 +153,7 @@
   "gateway.http.noWorkFolders": "This daemon can't set a default folder for new work",
   "gateway.http.badRuntimeFolder": "Bad default folder request: {message}",
   "gateway.http.badDataSourceStored": "Bad parameters for listing fetched data: {message}",
-  "gateway.http.badDataSourceLive": "Bad parameters for the live check: {message}"
+  "gateway.http.badDataSourceLive": "Bad parameters for the live check: {message}",
+  "gateway.http.noConnectionAddresses": "This version doesn't have the connection address endpoints yet",
+  "gateway.http.badConnectionAddress": "Bad parameters for the connection address: {message}"
 }

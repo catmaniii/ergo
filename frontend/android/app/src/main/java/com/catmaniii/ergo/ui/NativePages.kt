@@ -22,6 +22,7 @@ import android.view.inputmethod.EditorInfo
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.TextView
 import com.catmaniii.ergo.common.t
@@ -83,11 +84,15 @@ class AddressPage(
     private val onSubmit: (String) -> Unit,
     private val onCancel: () -> Unit,
     private val onChange: () -> Unit,
+    onScan: () -> Unit,
 ) : NativePage {
     private val title = TextView(context).apply {
         textSp(ErgoTheme.ADDRESS_TITLE_SP)
         typeface = Typeface.DEFAULT_BOLD
     }
+    /** 最上面的大按钮（364 号票）：手填放下面 */
+    private val scan = ErgoButton(context, ButtonKind.EMPHASIZED).apply { setOnClickListener { onScan() } }
+    private val scanHint = TextView(context).apply { textSp(ErgoTheme.ADDRESS_HINT_SP) }
     private val heading = TextView(context).apply { textSp(ErgoTheme.ADDRESS_HEADING_SP) }
     private val hint = TextView(context).apply { textSp(ErgoTheme.ADDRESS_HINT_SP) }
     val input = EditText(context).apply {
@@ -135,7 +140,12 @@ class AddressPage(
         val gap = ErgoTheme.ADDRESS_SPACE_DP
         column.setPadding(pad, pad, pad, pad)
         column.addView(title)
-        column.addView(heading, context.space(heading, gap))
+        column.addView(
+            scan,
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, context.dp(ErgoTheme.SCAN_BUTTON_HEIGHT_DP)).apply { topMargin = context.dp(gap) },
+        )
+        column.addView(scanHint, context.space(scanHint, gap))
+        column.addView(heading, context.space(heading, gap * 2))
         column.addView(hint, context.space(hint, gap))
         column.addView(
             input,
@@ -178,6 +188,8 @@ class AddressPage(
 
     override fun refresh(palette: ErgoTheme.Palette) {
         title.text = t("harmony.address.title")
+        scan.text = t("harmony.address.scan")
+        scanHint.text = t("harmony.address.scanHint")
         heading.text = t("harmony.address.heading")
         hint.text = t("harmony.address.hint")
         cancel.text = t("harmony.address.cancel")
@@ -185,6 +197,8 @@ class AddressPage(
         // 底色铺到手势条底下（expandSafeArea），内容留在它上面
         scroll.background = ColorDrawable(palette.background)
         title.setTextColor(palette.textPrimary)
+        scan.applyPalette(palette)
+        scanHint.setTextColor(palette.textSecondary)
         heading.setTextColor(palette.textPrimary)
         hint.setTextColor(palette.textSecondary)
         error.setTextColor(palette.warning)
@@ -268,6 +282,139 @@ class ErrorPage(private val context: Context, onRetry: () -> Unit, onEdit: () ->
         address.setTextColor(palette.textSecondary)
         retry.applyPalette(palette)
         edit.applyPalette(palette)
+    }
+}
+
+/**
+ * 扫码之后测连接的那一页（364 号票，pages/Index.ets 的 ConnectPage）：正在连、连不上（原因、提醒检查什么、重试和重新扫码）。
+ * 连得上就直接进配对页，这一页只是一闪
+ */
+class ConnectPage(private val context: Context, onRetry: () -> Unit, onRescan: () -> Unit, onBack: () -> Unit) : NativePage {
+    private val title = TextView(context).apply {
+        textSp(ErgoTheme.ERROR_TITLE_SP)
+        typeface = weighted(500)
+        gravity = Gravity.CENTER
+    }
+    private val spinner = ProgressBar(context)
+    private val reason = TextView(context).apply {
+        textSp(ErgoTheme.ERROR_REASON_SP)
+        gravity = Gravity.CENTER
+    }
+    private val address = TextView(context).apply {
+        textSp(ErgoTheme.ERROR_ADDRESS_SP)
+        gravity = Gravity.CENTER
+    }
+    private val checkTitle = TextView(context).apply { textSp(ErgoTheme.CONNECT_CHECK_SP) }
+    private val checks = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+    private val retry = ErgoButton(context, ButtonKind.EMPHASIZED).apply { setOnClickListener { onRetry() } }
+    private val rescan = ErgoButton(context, ButtonKind.NORMAL).apply { setOnClickListener { onRescan() } }
+    private val back = ErgoButton(context, ButtonKind.NORMAL).apply { setOnClickListener { onBack() } }
+    private val row = LinearLayout(context).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_HORIZONTAL
+    }
+    private val column = LinearLayout(context).apply {
+        orientation = LinearLayout.VERTICAL
+        gravity = Gravity.CENTER
+    }
+    private val scroll = ScrollView(context).apply {
+        isFillViewport = true
+        defaultFocusHighlightEnabled = false
+        isFocusable = false
+        addView(column, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT))
+    }
+    private var checkKeys: List<String> = emptyList()
+    private var palette: ErgoTheme.Palette? = null
+    override val view: View = scroll
+
+    init {
+        val pad = context.dp(ErgoTheme.ERROR_PADDING_DP)
+        val gap = ErgoTheme.ERROR_SPACE_DP
+        column.setPadding(pad, pad, pad, pad)
+        column.addView(title, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+        column.addView(spinner, context.space(spinner, gap))
+        column.addView(reason, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = context.dp(gap) })
+        column.addView(address, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = context.dp(gap) })
+        column.addView(checkTitle, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = context.dp(gap) })
+        column.addView(checks, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+        row.addView(retry, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, context.dp(ErgoTheme.BUTTON_HEIGHT_DP)))
+        row.addView(
+            rescan,
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, context.dp(ErgoTheme.BUTTON_HEIGHT_DP)).apply {
+                marginStart = context.dp(ErgoTheme.BUTTON_ROW_SPACE_DP)
+            },
+        )
+        column.addView(row, context.space(row, gap))
+        column.addView(back, context.space(back, ErgoTheme.BUTTON_ROW_SPACE_DP).apply { height = context.dp(ErgoTheme.BUTTON_HEIGHT_DP) })
+    }
+
+    /** 手势条那一截（像素）：内容留在它上面，底色铺到底下 */
+    fun setBottomInset(px: Int) {
+        val pad = context.dp(ErgoTheme.ERROR_PADDING_DP)
+        column.setPadding(pad, pad, pad, pad + px)
+    }
+
+    /** 正在连 */
+    fun showTesting(href: String) {
+        title.text = t("harmony.connect.testing")
+        spinner.visibility = View.VISIBLE
+        reason.visibility = View.GONE
+        address.text = href
+        checkTitle.visibility = View.GONE
+        checks.visibility = View.GONE
+        row.visibility = View.GONE
+        back.visibility = View.VISIBLE
+    }
+
+    /** 连不上：原因、提醒检查什么（先后已经排好）、重试和重新扫码。canRetry 假的是扫到的根本不是地址，重试没有意义 */
+    fun showFailed(titleText: String, reasonText: String, href: String, checkList: List<String>, canRetry: Boolean) {
+        title.text = titleText
+        spinner.visibility = View.GONE
+        reason.text = reasonText
+        reason.visibility = View.VISIBLE
+        address.text = href
+        address.visibility = if (href.isEmpty()) View.GONE else View.VISIBLE
+        checkKeys = checkList
+        checkTitle.visibility = if (checkList.isEmpty()) View.GONE else View.VISIBLE
+        checks.visibility = if (checkList.isEmpty()) View.GONE else View.VISIBLE
+        retry.visibility = if (canRetry) View.VISIBLE else View.GONE
+        rescan.layoutParams = (rescan.layoutParams as LinearLayout.LayoutParams).apply {
+            marginStart = if (canRetry) context.dp(ErgoTheme.BUTTON_ROW_SPACE_DP) else 0
+        }
+        row.visibility = View.VISIBLE
+        back.visibility = View.VISIBLE
+        renderChecks()
+    }
+
+    private fun renderChecks() {
+        val colors = palette ?: return
+        checks.removeAllViews()
+        for (key in checkKeys) {
+            val line = TextView(context).apply {
+                textSp(ErgoTheme.CONNECT_CHECK_SP)
+                text = "• ${t("harmony.connect.check.$key")}"
+                setTextColor(colors.textSecondary)
+            }
+            checks.addView(line, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = context.dp(ErgoTheme.CONNECT_CHECK_SPACE_DP) })
+        }
+    }
+
+    override fun refresh(palette: ErgoTheme.Palette) {
+        this.palette = palette
+        checkTitle.text = t("harmony.connect.checkTitle")
+        retry.text = t("harmony.connect.retry")
+        rescan.text = t("harmony.connect.rescan")
+        back.text = t("harmony.connect.back")
+        scroll.background = ColorDrawable(palette.background)
+        title.setTextColor(palette.textPrimary)
+        reason.setTextColor(palette.textSecondary)
+        address.setTextColor(palette.textSecondary)
+        checkTitle.setTextColor(palette.textPrimary)
+        spinner.indeterminateTintList = ColorStateList.valueOf(palette.emphasize)
+        retry.applyPalette(palette)
+        rescan.applyPalette(palette)
+        back.applyPalette(palette)
+        renderChecks()
     }
 }
 

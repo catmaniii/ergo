@@ -1,0 +1,48 @@
+# 扫码连接（364 号票）：两个 App 和网页同一份例子。frontend/test/connect.test.ts 跑鸿蒙的 .ets 和协议包，安卓的 ConnectCheckTest 在 JVM 上跑。
+# 一行一个，用 Tab 分开。第一列是哪一种：
+# address <扫到的文字> <ok 或文案键>：走地址校验
+# tailnet <主机> <true/false>：看不看得出是 tailnet
+# checks <主机> <提醒检查的先后>
+# access <状态码> <回话> <true/false>：对面是不是二狗
+address	https://ergo.example.com/	ok
+address	https://ergo.example.com	ok
+address	ergo.example.com	ok
+address	https://ergo.tail1234.ts.net/	ok
+address	https://ergo.example.com:8443/path?x=1#/inbox	ok
+address	http://127.0.0.1:8811	ok
+address	http://localhost:8811/	ok
+address	http://ergo.example.com/	harmony.address.httpsOnly
+address	http://10.0.2.2:8811	harmony.address.httpsOnly
+address	http://192.168.1.5:8811/	harmony.address.httpsOnly
+address	http://127.0.0.1.evil.example/	harmony.address.httpsOnly
+address	ftp://ergo.example.com	harmony.address.malformed
+address	WIFI://S:home	harmony.address.malformed
+address	https://exa mple.com	harmony.address.malformed
+address	https://example.com:99999	harmony.address.malformed
+address	https://user:pass@ergo.example.com	harmony.address.credentials
+tailnet	ergo.tail1234.ts.net	true
+tailnet	ERGO.TAIL1234.TS.NET	true
+tailnet	ergo.tailscale.net	true
+tailnet	ergo.tail.example.com	true
+tailnet	ergo.tailnet.example.com	true
+tailnet	ergo.headscale.example.com	true
+tailnet	100.64.0.1	true
+tailnet	100.127.255.1	true
+tailnet	ergo.example.com	false
+tailnet	tail.com	false
+tailnet	mytail.example.com	false
+tailnet	100.63.0.1	false
+tailnet	100.128.0.1	false
+tailnet	203.0.113.9	false
+checks	ergo.tail1234.ts.net	tailnet,computer,remote
+checks	ergo.example.com	computer,remote,tailnet
+access	200	{"access":"none"}	true
+access	200	{"access":"device","device":{"id":"d1","name":"x"}}	true
+access	200	{"access":"local"}	true
+access	200	{ "access" : "none", "reason": "revoked" }	true
+access	200	<!doctype html><html></html>	false
+access	200	{"access":"everyone"}	false
+access	200	{"other":"none"}	false
+access	401	{"access":"none"}	false
+access	404	not found	false
+access	302		false

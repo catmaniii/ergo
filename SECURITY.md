@@ -30,7 +30,8 @@ ergo（二狗）跑在你自己的电脑上，能读写文件、跑命令、联�
 - 新设备打开外网地址 → 页面显示设备名、6 位短码、8 位短指纹 → 电脑上的待办里出现配对请求卡，你核对一致才批准 → 新设备 5 分钟内领走凭证。
 - 凭证是 256 位随机数，服务端只存哈希；放在 `HttpOnly`、`Secure`、`__Host-` 前缀的 cookie 里，页面脚本读不到。有效期 365 天、用一次往后推；领到后 24 小时内一次没用过就作废。
 - 同一来源 10 分钟内最多 5 个配对请求；待批的 5 分钟后过期；看起来像程序、爬虫的请求在卡片上会提示。
-- 设置 · 已配对设备里随时能吊销，吊销后这台设备开着的连接立刻断开。
+- 设置 · 设备配对里随时能吊销，吊销后这台设备开着的连接立刻断开。
+- 配对二维码里只有地址（普通网址），不放口令，扫码不跳过批准；地址只算接到外网端口的入口，指向本机端口的入口不给手机，并写进日志和体检。App 的 https 规则不因扫码放宽；喂二维码的测试入口只在 `--webview-debug` 的包里有。
 
 ### 守卫
 
@@ -63,7 +64,7 @@ agent 的**每一次工具调用**在执行前都过守卫（一个纯函数，�
 - **agent 以你的 Windows 账号运行，没有系统级沙箱**：守卫是策略层的把关（判定、审批、记录），不是隔离；系统级沙箱、审查 agent、高危操作的原生签名确认还在计划里。
 - **默认值偏宽**：秘书默认能联网；老版本升级上来的数据目录里"有风险的事先问我""任务超预算就停下"默认关着（新装的开着）。
 - **转发的项目服务和二狗同源**：项目上线的服务经 `/apps/<名字>/` 转发，它的页面脚本能带着你的设备凭证调二狗的接口（读不到凭证原值，但能用）。现在只转发你确认上线的服务；以后改成独立的源（[开发者指南](docs/developer-guide.md#48-转发本机服务的页面)）。
-- **设备凭证是持有即可用的**（bearer）：设备被偷、浏览器数据被拷走时，请在已配对设备里吊销。
+- **设备凭证是持有即可用的**（bearer）：设备被偷、浏览器数据被拷走时，请在设备配对里吊销。
 - **站在按域名分流的前门后面**、前门又没开 `proxy_protocol` 时，配对请求的限频按 127.0.0.1 算，实际上是全局的（仍然安全，只是陌生人刷请求时你自己的配对也要等）。
 - **发给模型的内容由模型服务商处理**：每一轮用得上的对话和资料会发给你配的模型（现在是 DeepSeek），请按它的隐私条款判断。授权的文件夹里读到的内容也一样。
 - **整目录搜索认不出里面的密钥文件**：守卫只认路径参数，在授权的文件夹（和工作目录）上 `grep -r` 会读到里面的密钥文件，也不算"读过密钥"。请不要授权放密钥的文件夹。
@@ -104,7 +105,8 @@ Outside access (Tailscale, self-hosted Headscale, VPS tunnel + nginx; see the [U
 - A new device opens the external address → the page shows a device name, a 6-digit code and an 8-character fingerprint → a pairing request card appears in the inbox on your PC, and you approve only after checking they match → the device collects its credential within 5 minutes.
 - The credential is 256 random bits; the server stores only its hash. It lives in an `HttpOnly`, `Secure`, `__Host-`-prefixed cookie that page scripts cannot read. It is valid for 365 days, extended on use, and voided if never used within 24 hours of collection.
 - At most 5 pairing requests per source per 10 minutes; pending requests expire after 5 minutes; requests that look automated are flagged on the card.
-- Revoke any device at any time under Settings · Paired devices; its open connections drop immediately.
+- Revoke any device at any time under Settings · Device pairing; its open connections drop immediately.
+- The pairing code only holds the address (a plain URL), no secret, and scanning doesn't skip approval. Only entries that go to the external port count; an entry pointing at the local port is never given to a phone and is flagged in the log and the checkup. The apps' https rule doesn't loosen for scanning, and the test entry for feeding a code exists only in `--webview-debug` builds.
 
 ### The guard
 
@@ -137,7 +139,7 @@ ergo is built "features first, security later" ([ADR-0026](docs/adr/0026-feature
 - **Agents run as your Windows account with no OS-level sandbox**: the guard is a policy layer (verdicts, approvals, records), not isolation; an OS-level sandbox, a reviewer agent and native signed confirmation for high-risk actions are planned.
 - **Lenient defaults**: the secretary can go online by default; data directories upgraded from older versions have "ask me before risky things" and "stop tasks that go over budget" off (new installs have them on).
 - **Proxied project services share ergo's origin**: services that go live are proxied under `/apps/<name>/`, so their page scripts can call ergo's API with your device credential (unreadable, but usable). Only services you approved are proxied; the plan is to move them to separate origins ([Developer Guide](docs/developer-guide.en.md#48-proxying-local-service-pages)).
-- **Device credentials are bearer tokens**: if a device is stolen or its browser data copied, revoke it under Paired devices.
+- **Device credentials are bearer tokens**: if a device is stolen or its browser data copied, revoke it under Device pairing.
 - **Behind a SNI front door without `proxy_protocol`**, pairing rate limits are keyed on 127.0.0.1 and thus effectively global (still safe, but strangers spamming requests delay your own pairing).
 - **Content sent to the model is processed by the model provider**: whatever the current turn needs goes to the model you configured (currently DeepSeek); judge by its privacy terms. The same goes for what is read from authorized folders.
 - **Searching a whole directory can't tell secret files apart**: the guard only sees path arguments, so `grep -r` over an authorized folder (or a working directory) reads the secret files inside and doesn't count as having read a secret. Please don't authorize folders that hold keys.

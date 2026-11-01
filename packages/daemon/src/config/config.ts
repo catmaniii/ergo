@@ -5,7 +5,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
-import { BACKUP_SCHEDULES, type BackupSchedule, ClockTime, DEFAULT_MAX_UPLOAD_BYTES, MEMORY_PROVIDER_ID, schemaChecker, SETUP_STEPS, type SetupStepId, t, type TokenPrice } from "@ergo/protocol";
+import { BACKUP_SCHEDULES, type BackupSchedule, checkManualConnectionAddress, ClockTime, DEFAULT_MAX_UPLOAD_BYTES, MEMORY_PROVIDER_ID, schemaChecker, SETUP_STEPS, type SetupStepId, t, type TokenPrice } from "@ergo/protocol";
 import { type AgentLimits, DEFAULT_AGENT_LIMITS } from "../agent-manager/agent-manager.ts";
 import { CONVERSATION_APPROVALS, type ConversationApprovals } from "../guard/types.ts";
 import { DEFAULT_REMINDER_THRESHOLDS, type ReminderThresholds } from "../reminders/thresholds.ts";
@@ -191,10 +191,20 @@ export interface ErgoConfig {
   /** 联网搜索、读网页和 agent-browser 用的浏览器（70 号票）。配置里写 web: { browserPath }，见 WebConfig */
   web: WebConfig;
   /**
+   * 连接地址（364 号票）：用户手填的固定地址（自己搭的反代、frp，服务管家不知道的）。配置里写 connection: { manualAddress }，
+   * 设备配对页的二维码界面改它（writeConnectionConfig）。写坏了当没写
+   */
+  connection: ConnectionConfig;
+  /**
    * 插件（126 号票，ADR-0027）。配置里写 plugins: { disabled: ["reminders"] } 停用某个插件，默认全开，见 PluginsConfig；
    * 211 号票起设置 · 插件里停用、启用、移除也写这里（writePluginsConfig）
    */
   plugins: PluginsConfig;
+}
+
+/** 连接地址（364 号票）：见 ErgoConfig 的 connection */
+export interface ConnectionConfig {
+  manualAddress?: string;
 }
 
 /**
@@ -493,9 +503,10 @@ export function loadConfig({ env, homeDir }: LoadConfigOptions): ErgoConfig {
   const toolCallDetails = parseToolCallDetails(raw.toolCallDetails, file);
   const guard = parseGuard(raw.guard, file);
   const setup = parseSetup(raw.setup);
+  const connection = parseConnection(raw.connection);
   const web = parseWeb(raw.web, file);
   const plugins = parsePlugins(raw.plugins, file);
-  return { dataDir, dataDirFrom, ports, media, models, timeZone, materials, memory, backup, approvalWaitMs, agentLimits, holidayCheck, shellTools, tasks, reminders, scheduledJobs, eventSources, tokenPrices, voice, toolCallDetails, guard, setup, web, plugins };
+  return { dataDir, dataDirFrom, ports, media, models, timeZone, materials, memory, backup, approvalWaitMs, agentLimits, holidayCheck, shellTools, tasks, reminders, scheduledJobs, eventSources, tokenPrices, voice, toolCallDetails, guard, setup, connection, web, plugins };
 }
 
 /**
@@ -579,6 +590,15 @@ export function writeSetupConfig(configFile: string, setup: SetupConfig): void {
   const raw = readConfigFile(configFile);
   const section = isRecord(raw.setup) ? raw.setup : {};
   writeJsonAtomic(configFile, { ...raw, setup: { ...section, format: setup.format, skipped: setup.skipped, done: setup.done } });
+}
+
+/**
+ * 设备配对页改手填的地址（364 号票）：只动配置文件的 connection 节（别的内容原样留着，先写临时文件再改名）。
+ * 去掉时整节去掉：没填过和填过又去掉是一个意思
+ */
+export function writeConnectionConfig(configFile: string, manualAddress: string | undefined): void {
+  const { connection: _old, ...rest } = readConfigFile(configFile);
+  writeJsonAtomic(configFile, manualAddress === undefined ? rest : { ...rest, connection: { manualAddress } });
 }
 
 /** 设置 · 备份改的这几项（356 号票）：syncDir 给 null 是去掉（只留本机那份）；不给的不动 */
@@ -683,6 +703,12 @@ function parseSetup(value: unknown): SetupConfig {
   };
   const legacyMarked = format === 1 && [value.skipped, value.done].some((list) => Array.isArray(list) && list.includes("components"));
   return { format, skipped: steps("skipped"), done: steps("done"), ...(legacyMarked ? { legacyComponentsMarked: true as const } : {}) };
+}
+
+/** connection：手填的地址收拾一下，写坏了当没写（不挡启动） */
+function parseConnection(value: unknown): ConnectionConfig {
+  const manual = isRecord(value) && typeof value.manualAddress === "string" ? checkManualConnectionAddress(value.manualAddress) : undefined;
+  return manual?.ok ? { manualAddress: manual.url } : {};
 }
 
 /** web：browserPath 是绝对路径；不写、写空、写占位符都当没写（按默认的顺序找） */

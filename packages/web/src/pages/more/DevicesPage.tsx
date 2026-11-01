@@ -1,4 +1,5 @@
-// 设置 · 已配对设备：从外网用二狗的设备，可以随时延期、吊销、删除（吊销、删除后它开着的页面立刻被断开，回到配对页）。
+// 设置 · 设备配对（364 号票前叫"已配对设备"）：最上面一个醒目的"显示配对二维码"（进 PairingQrPage），下面是已配对的设备。
+// 从外网用二狗的设备，可以随时延期、吊销、删除（吊销、删除后它开着的页面立刻被断开，回到配对页）。
 // PC 本机直接用，不需要配对。列表来自前端状态层（已配对设备频道上的 device 事件）。
 // 领到凭证、还没带着它来过的设备标"等待首次使用"（领取的响应可能丢了），到期还没用过就自动作废。
 // 时长、位数都取共享协议包里的常量。
@@ -90,7 +91,7 @@ interface DeviceEntry {
   soon?: number | undefined;
 }
 
-export function DevicesPage({ title, onBack, onPreviewPairing }: { title: string; onBack?: (() => void) | undefined; onPreviewPairing(): void }) {
+export function DevicesPage({ title, onBack, onPreviewPairing, onShowQr }: { title: string; onBack?: (() => void) | undefined; onPreviewPairing(): void; onShowQr(): void }) {
   const { ui, deviceBatchAction } = useStore();
   const access = useAccess();
   const toast = useToast();
@@ -171,6 +172,11 @@ export function DevicesPage({ title, onBack, onPreviewPairing }: { title: string
         <SelectToggle selecting={selecting} onStart={() => setSelecting(true)} onStop={stopSelecting} disabled={!selecting && all.length === 0} />
       </TopBar>
       <div className={`scroll page-pad device-list${selecting ? " selecting" : ""}`}>
+        {!selecting && (
+          <button type="button" className="btn primary device-show-qr" data-action="show-pairing-qr" onClick={onShowQr}>
+            {t("pages.devices.showQr")}
+          </button>
+        )}
         <div className="card device-row device-local">
           <div>
             <b>

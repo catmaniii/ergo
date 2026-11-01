@@ -7,6 +7,7 @@
 // 257 号票：holdNextStart 让某个服务下次启动停在"启动中"、等测试放行才回（做到一半又点）。
 // 269 号票：owned.reboot 扮演"电脑重启了、LSM 没按开机自启拉"（名下的服务全停、不推送）；drop 断开现在的连接（服务端照开着），
 // 守护进程按退避重连，重连后照常 welcome、推全量（扮演 LSM 重启了、二狗重新接上）。
+// 364 号票：entries 给了时扮演支持"指向自己的入口"的管理器（协议 §8）——welcome 里带 "entries"、接入时推一次，setEntries 改了再推。不给时 welcome 里没有（老管理器）。
 import { randomUUID } from "node:crypto";
 import type { AddressInfo } from "node:net";
 import { onTestFinished } from "vitest";
@@ -45,6 +46,12 @@ export interface OwnedServices {
   reboot(): void;
 }
 
+/** 替身推的入口清单（协议 §8.2） */
+export interface StandInEntries {
+  entries: Array<Record<string, unknown>>;
+  wrongPort: Array<Record<string, unknown>>;
+}
+
 export interface LsmStandIn {
   /** 放进守护进程环境的四个变量 */
   env: Record<string, string>;
@@ -63,11 +70,13 @@ export interface LsmStandIn {
   send(message: Record<string, unknown>): void;
   /** 断开现在的连接（服务端照开着）：守护进程按退避（1 秒起）重连（269 号票） */
   drop(): void;
+  /** 改入口清单并推给守护进程（364 号票；entries 打开时才有意义） */
+  setEntries(view: StandInEntries): void;
   close(): Promise<void>;
 }
 
 export async function startLsmStandIn(
-  options: { heartbeatIntervalMs?: number; conflict?: boolean; port?: number; token?: string; serviceId?: string; owned?: boolean } = {},
+  options: { heartbeatIntervalMs?: number; conflict?: boolean; port?: number; token?: string; serviceId?: string; owned?: boolean; entries?: StandInEntries } = {},
 ): Promise<LsmStandIn> {
   const token = options.token ?? randomUUID();
   const serviceId = options.serviceId ?? "ergo-daemon";
@@ -79,6 +88,7 @@ export async function startLsmStandIn(
   const failStart = new Map<string, string>();
   const takenPorts = new Map<number, string>();
   const startHolds = new Map<string, Promise<void>>();
+  let entries = options.entries;
 
   const send = (message: Record<string, unknown>) => latest?.send(JSON.stringify(message));
   const statusOf = (name: string, s: OwnedService) => ({
@@ -195,12 +205,13 @@ export async function startLsmStandIn(
       if (options.owned && message.type.startsWith("services.")) return handleService(message);
       if (message.type !== "hello") return;
       if (options.conflict) return ws.send(JSON.stringify({ type: "conflict", reason: "该 serviceId 已有活跃会话" }));
-      ws.send(JSON.stringify({ type: "welcome", sessionId: "s-test", heartbeatIntervalMs: options.heartbeatIntervalMs ?? 5000, ...(options.owned ? { features: ["services"] } : {}) }));
+      ws.send(JSON.stringify({ type: "welcome", sessionId: "s-test", heartbeatIntervalMs: options.heartbeatIntervalMs ?? 5000, ...(options.owned || entries ? { features: [...(options.owned ? ["services"] : []), ...(entries ? ["entries"] : [])] } : {}) }));
       // 新管理器：hello 里声明了要用名下的服务，welcome 之后推一次全量
       const features = message.features;
       if (options.owned && Array.isArray(features) && features.includes("services")) {
         ws.send(JSON.stringify({ type: "services.status", full: true, services: [...services].map(([n, s]) => statusOf(n, s)), removed: [] }));
       }
+      if (entries && Array.isArray(features) && features.includes("entries")) ws.send(JSON.stringify({ type: "entries.status", ...entries }));
     });
   });
   const port = (wss.address() as AddressInfo).port;
@@ -249,6 +260,10 @@ export async function startLsmStandIn(
     send,
     drop() {
       for (const client of wss.clients) client.terminate();
+    },
+    setEntries(view) {
+      entries = view;
+      send({ type: "entries.status", ...view });
     },
     close: () =>
       new Promise<void>((resolve) => {

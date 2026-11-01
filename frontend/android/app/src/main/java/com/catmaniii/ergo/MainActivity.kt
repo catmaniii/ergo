@@ -64,7 +64,10 @@ import com.catmaniii.ergo.common.AppSettings
 import com.catmaniii.ergo.common.AppTexts
 import com.catmaniii.ergo.common.ServerAddress
 import com.catmaniii.ergo.common.TAG
+import com.catmaniii.ergo.common.ConnectProbe
+import com.catmaniii.ergo.common.ConnectResult
 import com.catmaniii.ergo.common.checkServerAddress
+import com.catmaniii.ergo.common.connectChecklist
 import com.catmaniii.ergo.common.isWebUrl
 import com.catmaniii.ergo.common.originOf
 import com.catmaniii.ergo.common.t
@@ -75,7 +78,10 @@ import com.catmaniii.ergo.notify.NativeNotify
 import com.catmaniii.ergo.notify.NotifyPermission
 import com.catmaniii.ergo.notify.NotifyTaps
 import com.catmaniii.ergo.notify.appNotificationSettings
+import com.catmaniii.ergo.scan.QrDecoder
+import com.catmaniii.ergo.scan.ScanPage
 import com.catmaniii.ergo.ui.AddressPage
+import com.catmaniii.ergo.ui.ConnectPage
 import com.catmaniii.ergo.ui.ErgoTheme
 import com.catmaniii.ergo.ui.ErrorPage
 import com.catmaniii.ergo.ui.NotErgoBar
@@ -91,6 +97,8 @@ import org.json.JSONObject
 private val IN_PAGE_SCHEMES = setOf("about", "blob", "data", "javascript")
 /** 页面加载完这么久网页还没调过原生桥，就不是二狗的网页（地址填成了别的网站）：提示"这不是二狗？换地址" */
 private const val NOT_ERGO_AFTER_MS = 8000L
+/** 扫到的不是地址时，报错页上最多写出来多少个字（二维码里可能是一大段别的东西） */
+private const val SCANNED_TEXT_SHOWN = 120
 
 /** 系统的图库选择器一次最多选几张（和鸿蒙的 pickBySystem 一样） */
 private const val PICK_IMAGES_MAX = 50
@@ -111,6 +119,8 @@ class MainActivity : Activity() {
     /** 盖在状态栏下面的那一层：主界面的 WebView、内置浏览器、侧边栏都摆在里面，坐标和网页报的一致 */
     private lateinit var content: FrameLayout
     private lateinit var addressPage: AddressPage
+    private lateinit var scanPage: ScanPage
+    private lateinit var connectPage: ConnectPage
     private lateinit var errorPage: ErrorPage
     private lateinit var notErgoBar: NotErgoBar
     private lateinit var toast: ToastHost
@@ -124,6 +134,13 @@ class MainActivity : Activity() {
     private var bridge: NativeBridge? = null
     /** 显示地址页：第一次打开，或者网页设置里点了"换地址"、出错页上点了"改地址" */
     private var editing = false
+    /** 扫码连接（364 号票）：取景页开着 */
+    private var scanning = false
+    /** 扫到了、在测或者测完连不上：那一页开着 */
+    private var connecting = false
+    private var connectProbe: ConnectProbe? = null
+    /** 这次要测的地址（重试用） */
+    private var connectTarget: ServerAddress? = null
     /** 网页打不开的原因；空串是没出错 */
     private var loadError = ""
     private var notErgo = false
@@ -351,9 +368,12 @@ class MainActivity : Activity() {
         notifyTaps.fromIntent(intent)
         val saved = checkServerAddress(settings.serverUrl()).address
         if (saved != null) openServer(saved) else startEditing()
+        testScanFromIntent(intent)
     }
 
     override fun onDestroy() {
+        connectProbe?.cancel()
+        scanPage.stop()
         handler.removeCallbacks(notErgoCheck)
         AppTexts.listen(null)
         bridge?.close()
@@ -363,8 +383,15 @@ class MainActivity : Activity() {
         super.onDestroy()
     }
 
+    override fun onResume() {
+        super.onResume()
+        // 切后台时相机放掉了（下面的 onPause）：回来接着扫
+        if (scanning) scanPage.start()
+    }
+
     override fun onPause() {
         super.onPause()
+        if (scanning) scanPage.stop()
         // 设备凭证在 cookie 里：离开前台就落盘（onStop 可能来不及，WebView 自己大约 30 秒才写一次），App 被系统杀掉也不用重新配对
         CookieManager.getInstance().flush()
     }
@@ -374,6 +401,7 @@ class MainActivity : Activity() {
         super.onNewIntent(intent)
         setIntent(intent)
         notifyTaps.fromIntent(intent)
+        testScanFromIntent(intent)
     }
 
     /** App 回到前台：系统通知不再往通知栏发；用户可能刚在系统设置里开关过通知 */
@@ -434,12 +462,16 @@ class MainActivity : Activity() {
             editing = false
             hideKeyboard()
             renderPages()
-        }, { addressPage.setError("") })
+        }, { addressPage.setError("") }, { startScan() })
+        scanPage = ScanPage(this, { onScanned(it) }, { stopScan() }, { scanUnavailable(it) })
+        connectPage = ConnectPage(this, { retryConnect() }, { rescan() }, { backFromConnect() })
         toast = ToastHost(this)
         permissionNote = PermissionNote(this)
         content.addView(errorPage.view, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
         content.addView(notErgoBar.view, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM))
         content.addView(addressPage.view, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+        content.addView(connectPage.view, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+        content.addView(scanPage.view, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
         content.addView(toast.view, toast.layoutParams())
         content.addView(permissionNote.view, permissionNote.layoutParams())
         setContentView(root)
@@ -468,6 +500,8 @@ class MainActivity : Activity() {
             notErgoBar.setBottomInset(overlap)
             addressPage.setBottomInset(overlap)
             errorPage.setBottomInset(overlap)
+            connectPage.setBottomInset(overlap)
+            scanPage.setBottomInset(overlap)
             // 这里都让开了：不再往下传。传下去 WebView 会把状态栏高度算进 env(safe-area-inset-top)，网页的标题栏再让一遍，顶上多出一大条空白
             WindowInsetsCompat.CONSUMED
         }
@@ -524,6 +558,8 @@ class MainActivity : Activity() {
         sideWeb?.setBackgroundColor(palette.background)
         sideShadow?.setFill(palette.background)
         addressPage.refresh(palette)
+        scanPage.refresh(palette)
+        connectPage.refresh(palette)
         errorPage.refresh(palette)
         notErgoBar.refresh(palette)
         toast.refresh(palette)
@@ -541,6 +577,8 @@ class MainActivity : Activity() {
         errorPage.view.visibility = if (hasServer && loadError.isNotEmpty() && !editing) View.VISIBLE else View.GONE
         notErgoBar.view.visibility = if (hasServer && notErgo && loadError.isEmpty() && !editing) View.VISIBLE else View.GONE
         addressPage.view.visibility = if (editing) View.VISIBLE else View.GONE
+        connectPage.view.visibility = if (connecting) View.VISIBLE else View.GONE
+        scanPage.view.visibility = if (scanning) View.VISIBLE else View.GONE
         // 藏起来时 WebView 留着，切回来页面原样还在（鸿蒙 Visibility.Hidden）
         browser.web?.visibility = if (browserShown()) View.VISIBLE else View.INVISIBLE
         val side = if (sideShown()) View.VISIBLE else View.INVISIBLE
@@ -565,6 +603,14 @@ class MainActivity : Activity() {
 
     /** 对应 Index.ets 的 onBackPress：地址页先回到网页；网页报过还能在内部返回就交给网页；否则退到后台（进程留着，后台还能发通知） */
     private fun handleBack() {
+        if (scanning) {
+            stopScan()
+            return
+        }
+        if (connecting) {
+            backFromConnect()
+            return
+        }
         if (editing) {
             if (server != null) {
                 editing = false
@@ -1069,6 +1115,120 @@ class MainActivity : Activity() {
         } catch (e: Exception) {
             Log.w(TAG, "open outside failed", e)
         }
+    }
+
+    // ---------------- 扫码连接（364 号票）：点按钮才要相机权限；扫到了先测，连得上才进配对页，连不上报错、不进配对页
+
+    /** 点"扫码连接"：这时才要相机权限；拒绝了说明还能手填 */
+    private fun startScan() {
+        addressPage.setError("")
+        hideKeyboard()
+        if (checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            showScanner()
+            return
+        }
+        permissionNote.show(t("harmony.scan.cameraReason"))
+        requestPermission(Manifest.permission.CAMERA) { granted ->
+            permissionNote.hide()
+            if (granted) showScanner() else addressPage.setError(t("harmony.scan.cameraDenied"))
+        }
+    }
+
+    private fun showScanner() {
+        scanning = true
+        renderPages()
+        scanPage.start()
+    }
+
+    private fun stopScan() {
+        scanning = false
+        scanPage.stop()
+        renderPages()
+    }
+
+    private fun scanUnavailable(why: String) {
+        scanning = false
+        renderPages()
+        addressPage.setError(t("harmony.scan.unavailable", mapOf("error" to why)))
+    }
+
+    /** 扫到了（相机、联调的测试入口都走这里）：走同一套地址校验，不是地址的直接说；是地址的真的请求一次 */
+    private fun onScanned(text: String) {
+        scanning = false
+        scanPage.stop()
+        val address = checkServerAddress(text).address
+        connecting = true
+        if (address == null) {
+            connectProbe?.cancel()
+            connectTarget = null
+            connectPage.showFailed(t("harmony.connect.notAddressTitle"), t("harmony.connect.notAddress", mapOf("text" to text.take(SCANNED_TEXT_SHOWN))), "", emptyList(), false)
+            renderPages()
+            return
+        }
+        connectTarget = address
+        testConnect(address)
+    }
+
+    private fun testConnect(address: ServerAddress) {
+        connectProbe?.cancel()
+        connectPage.showTesting(address.href)
+        renderPages()
+        val probe = ConnectProbe(address.origin) { connectTested(address, it) }
+        connectProbe = probe
+        probe.start()
+    }
+
+    private fun connectTested(address: ServerAddress, result: ConnectResult) {
+        connectProbe = null
+        val failure = result.failure
+        if (failure == null) {
+            // 连得上：和手填地址点连接之后一样，进现有的配对页
+            connecting = false
+            renderPages()
+            saveDraft(address.href)
+            return
+        }
+        connectPage.showFailed(
+            t("harmony.connect.failedTitle"),
+            t("harmony.connect.reason.${failure.key}", mapOf("error" to result.detail)),
+            address.href,
+            connectChecklist(address.host),
+            true,
+        )
+        renderPages()
+    }
+
+    private fun retryConnect() {
+        connectTarget?.let { testConnect(it) }
+    }
+
+    private fun rescan() {
+        connectProbe?.cancel()
+        connectProbe = null
+        connecting = false
+        // 先回到地址页：相机权限被拒的说明写在那一页上
+        renderPages()
+        startScan()
+    }
+
+    /** 回到地址页（手填就在那里） */
+    private fun backFromConnect() {
+        connectProbe?.cancel()
+        connectProbe = null
+        connecting = false
+        renderPages()
+    }
+
+    /**
+     * 联调的测试入口：模拟器的相机对不准屏幕，喂一张二维码图片（走同一个解码器）或者直接一段文字。
+     * 只有 --webview-debug 的包才有：正式的包里别的 App 不能这样塞一个地址进来
+     */
+    private fun testScanFromIntent(intent: Intent?) {
+        if (!BuildConfig.WEBVIEW_DEBUG || intent == null) return
+        val image = intent.getStringExtra("ergoTestScanImage")
+        val text = intent.getStringExtra("ergoTestScanText") ?: image?.let { QrDecoder.decodeFile(java.io.File(it)) ?: "" } ?: return
+        if (!editing) startEditing()
+        onScanned(text)
     }
 
     private fun startEditing() {

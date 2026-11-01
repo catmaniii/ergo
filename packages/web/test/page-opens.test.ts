@@ -73,6 +73,8 @@ const PAGES = [
   "#/more/data-sources/looki",
   "#/more/data-sources/phone-location",
   "#/more/data-sources/没有这个",
+  // 设备配对的二维码界面（364 号票）
+  "#/more/devices/qr",
   "#/more/data-sources/import_folder",
   // 设置里删除素材的旧地址（167 号票之前）：跳到记忆 · 素材
   "#/more/materials",

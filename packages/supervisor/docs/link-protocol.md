@@ -262,3 +262,49 @@ WebSocket，项目**出站**连接 `LSM_URL`，`Authorization: Bearer <LSM_TOKEN
 客户端：`clients/lsm-link.mjs` 的 `lsm.services`（`ready()` / `put` / `start` / `stop` / `restart` / `autostart` / `remove` / `list` / `onStatus`），
 所有方法都不抛异常，失败一律 `{ok:false, error:{code, message}}`；没接入时 `code` 是 `not-linked`，老管理器是 `unsupported`。
 Python 客户端（`lsm_link.py`）暂未加，它会忽略这些消息。
+
+## 8. 指向自己的入口（2026-11-01）
+
+接入的服务常常只听 127.0.0.1，自己不知道外面的人经哪个地址能连到它；管理器知道（公网隧道、tailnet 入口、VPS 上的站点）。
+这一项让它问管理器：**有哪些入口接到了我的对外端口，最近一次从外面打通了没有**。典型用法：二狗的设备配对页要给手机一个能扫的地址。
+只读：管理器不因此开隧道、不改注册表。和 §7 一样不升版本号，只加消息。
+
+### 8.1 声明
+
+```jsonc
+// 项目 → 管理器：hello 多两个字段
+{"type":"hello", /* … */ "features":["services","entries"], "externalPort":8811}   // externalPort：我对外的端口
+// 管理器 → 项目
+{"type":"welcome", /* … */ "features":["services","entries"]}                       // 老管理器的 welcome 里没有：当它不支持，只能靠别的办法知道地址
+```
+
+### 8.2 推送
+
+`hello.features` 里带了 `"entries"` 的项目，接入时推一次（没有入口也推，`entries` 是空的），之后**变了才推**
+（探活每轮比一遍；实测结果在慢周期里更新，所以最慢约一分钟才反映）。重连后再推一次，以它为准。没声明的项目什么都不会多收到。
+
+```jsonc
+{"type":"entries.status",
+ "entries":[                     // 接到 externalPort 的入口
+   {"kind":"public","url":"https://ergo.example.com/","port":8811,"reachable":true,"why":null},
+   {"kind":"tailnet","url":"https://ergo.tail.example.com/","port":8811,"reachable":false,"why":"DNS：ENOTFOUND"}
+ ],
+ "wrongPort":[                   // 接到别的端口的入口：不算能用的，给项目写日志、提醒用户
+   {"kind":"tailnet","url":"https://other.tail.example.com/","port":8810,"reachable":null,"why":null}
+ ]}
+```
+
+| 字段 | 含义 |
+|---|---|
+| `kind` | `public`：公网（`exposure.publicUrl`；或者 VPS 站点 `lsm vps site add`，上游正好是这条隧道在 VPS 上的端口）。`tailnet`：`registry/tailnet.yaml` 的入口 |
+| `url` | 网址，原样 |
+| `port` | 这个入口实际接到本机哪个端口：公网看隧道的 `-R`（读不出才用 `exposure.localPort`、再退回探活端口），tailnet 是网关路由表用的那个（`exposure.localPort`，没写是探活端口）。隧道不是 ssh、也没写 `localPort` 时算到探活端口上 |
+| `reachable` | 最近一次**管理器这边**从外面打的结果：`true` 通、`false` 不通、`null` 没测过（`check: false`、慢周期还没轮到、VPS 站点管理器不测）。不通不等于手机连不上（tailnet 那段管理器测不到），项目应该标明但仍然列出 |
+| `why` | 不通的原因，给日志看的一句话，不保证格式 |
+
+`hello` 没有 `externalPort` 时不分对错，全部在 `entries` 里（`wrongPort` 是空的）。
+
+参考客户端（`clients/lsm-link.mjs`、`lsm_link.py`）还没加这一项：它们不声明，所以什么都收不到。二狗自己的接入层在 `packages/daemon/src/lsm/link.ts`。
+
+**为什么要分 `wrongPort`**：对外端口和本机端口不是一回事。二狗的 8810 对本机请求自动信任，8811 才每个请求都要设备凭证；
+有东西把 8810 接到外面是要修的事故，不是一个能给手机用的地址。项目自己也要再核对一遍 `port`（管理器版本不同的时候别只靠这边筛）。

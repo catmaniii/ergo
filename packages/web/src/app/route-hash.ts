@@ -169,8 +169,9 @@ export function parseHash(hash: string): Route {
       const page = a && isMorePage(a) ? a : a ? RENAMED_MORE_PAGES[a] : undefined;
       // 网页插件的页面（193 号票）：#/more/<页面 id>[/<item>[/<sub>]]，item、sub 原样留着由插件自己认（不认得的页面画成"更多"）
       if (a && page === undefined) return { tab: "more", page: a, ...(b ? { item: b } : {}), ...(b && c ? { sub: c } : {}) };
-      // 有下一级的页（71 号票：系统提示；193 号票：删除素材里点开的一条素材；281 号票：个人档案里点开的一个人；343 号票：数据源详情）：
-      // #/more/prompts/<编号>、#/more/materials-delete/<素材 id>、#/more/files/<档案编号>、#/more/data-sources/<数据源 id>
+      // 有下一级的页（71 号票：系统提示；193 号票：删除素材里点开的一条素材；281 号票：个人档案里点开的一个人；343 号票：数据源详情；364 号票：设备配对的二维码界面）：
+      // #/more/prompts/<编号>、#/more/materials-delete/<素材 id>、#/more/files/<档案编号>、#/more/data-sources/<数据源 id>、#/more/devices/qr
+      if (page === "devices") return b === "qr" ? { tab: "more", page, item: b } : { tab: "more", page };
       return (page === "prompts" || page === "materials-delete" || page === "files" || page === "data-sources") && b ? { tab: "more", page, item: b } : { tab: "more", page };
     }
     case "card":

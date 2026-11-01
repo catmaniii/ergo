@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import { listPendingCards } from "../../../packages/daemon/src/cards/views.ts";
 import { startTestDaemon } from "../../../packages/daemon/test/helpers/daemon.ts";
 import { removeDir } from "../../../packages/daemon/test/helpers/temp-dir.ts";
+import { type WebSocket, WebSocketServer } from "ws";
 
 const WEB_ROOT = fileURLToPath(new URL("../../../packages/web/dist/", import.meta.url));
 
@@ -18,13 +19,36 @@ const SCRIPT = Array.from({ length: 200 }, () => ({ kind: "reply", text: "好的
 /** 服务管家的数据目录也是临时的、端口连不上：绝不碰真的服务管家 */
 const lsmDir = fs.mkdtempSync(path.join(os.tmpdir(), "ergo-android-e2e-lsm-"));
 
+/**
+ * 假的服务管家（364 号票，E2E_FAKE_LSM=1 时才有）：只会 link 协议 §8，把 stdin 的 entries <json> 推给守护进程。
+ * 二维码界面上的地址从这里来；绝不碰真的服务管家
+ */
+let entries: unknown = { entries: [], wrongPort: [] };
+let linked: WebSocket | undefined;
+const fakeLsm = process.env.E2E_FAKE_LSM === "1" ? new WebSocketServer({ host: "127.0.0.1", port: 0 }) : undefined;
+if (fakeLsm) {
+  await new Promise((resolve) => fakeLsm.once("listening", resolve));
+  fakeLsm.on("connection", (ws) => {
+    linked = ws;
+    ws.on("message", (raw) => {
+      const message = JSON.parse(String(raw)) as { type: string };
+      if (message.type !== "hello") return;
+      ws.send(JSON.stringify({ type: "welcome", sessionId: "e2e", heartbeatIntervalMs: 5000, features: ["entries"] }));
+      ws.send(JSON.stringify({ type: "entries.status", ...(entries as object) }));
+    });
+  });
+}
+const lsmEnv = fakeLsm
+  ? { LSM_URL: `ws://127.0.0.1:${(fakeLsm.address() as { port: number }).port}/link`, LSM_SERVICE_ID: "ergo-daemon", LSM_TOKEN: "e2e", LSM_PROTOCOL: "1" }
+  : {};
+
 const td = await startTestDaemon({
   stopOnTestFinished: false,
   webRoot: path.resolve(WEB_ROOT),
   secretary: [...SCRIPT],
   // 组件都算装好了（实际接的是测试底座的假识别）：网页上才有按住说话；什么都不下载
   components: { probes: { gpu: () => "none", detect: () => undefined, provided: () => "e2e" } },
-  env: { DEEPSEEK_API_KEY: undefined, ERGO_SVC_PORT: "1", LSM_DATA_DIR: lsmDir },
+  env: { DEEPSEEK_API_KEY: undefined, ERGO_SVC_PORT: "1", LSM_DATA_DIR: lsmDir, ...lsmEnv },
 });
 
 console.log(JSON.stringify({ local: td.url, external: td.externalUrl, dataDir: td.dataDir }));
@@ -48,6 +72,7 @@ async function stop(): Promise<void> {
   if (stopping) return;
   stopping = true;
   await td.daemon.stop();
+  fakeLsm?.close();
   for (const dir of [...(td.tempDirs ?? []), lsmDir]) removeDir(dir);
   process.exit(0);
 }
@@ -55,7 +80,10 @@ async function stop(): Promise<void> {
 process.stdin.on("data", (chunk) => {
   for (const line of String(chunk).split("\n")) {
     const command = line.trim();
-    if (command === "stop") void stop();
+    if (command.startsWith("entries ")) {
+      entries = JSON.parse(command.slice("entries ".length));
+      linked?.send(JSON.stringify({ type: "entries.status", ...(entries as object) }));
+    } else if (command === "stop") void stop();
     else if (COMMANDS[command]) void COMMANDS[command]();
   }
 });

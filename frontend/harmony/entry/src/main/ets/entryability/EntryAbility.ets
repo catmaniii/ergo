@@ -2,9 +2,42 @@ import { AbilityConstant, UIAbility, Want } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
 import { webview } from '@kit.ArkWeb';
+import { detectBarcode, scanBarcode, scanCore } from '@kit.ScanKit';
+import { BusinessError } from '@kit.BasicServicesKit';
+import BuildProfile from 'BuildProfile';
 import { AppSettings, colorModeOf, DOMAIN, TAG } from '../common/AppSettings';
 import { appTexts } from '../common/AppTexts';
 import { notifyTaps } from '../notify/NativeNotify';
+
+/** 联调的测试入口交给 Index.ets 的那段文字（AppStorage 的键） */
+export const TEST_SCAN_KEY: string = 'ergoTestScan';
+
+/**
+ * 联调的测试入口（364 号票）：模拟器没有能对准屏幕的相机，App 开着时 aa start 带 --ps ergoTestScanText <文字> 或 --ps ergoTestScanImage <file:// 路径>
+ * （图片走系统的解码器 detectBarcode）。只有 --webview-debug 的包才有：正式的包里别的应用不能这样塞一个地址进来
+ */
+function takeTestScan(want: Want): void {
+  if (!BuildProfile.WEBVIEW_DEBUG) {
+    return;
+  }
+  const text = want.parameters?.['ergoTestScanText'];
+  if (typeof text === 'string') {
+    AppStorage.setOrCreate(TEST_SCAN_KEY, `${Date.now()}|${text}`);
+    return;
+  }
+  const image = want.parameters?.['ergoTestScanImage'];
+  if (typeof image !== 'string') {
+    return;
+  }
+  const options: scanBarcode.ScanOptions = { scanTypes: [scanCore.ScanType.QR_CODE], enableMultiMode: false, enableAlbum: false };
+  detectBarcode.decode({ uri: image }, options).then((results: scanBarcode.ScanResult[]) => {
+    hilog.info(DOMAIN, TAG, 'test scan image: %{public}d results', results.length);
+    AppStorage.setOrCreate(TEST_SCAN_KEY, `${Date.now()}|${results.length > 0 ? results[0].originalValue : ''}`);
+  }).catch((err: BusinessError) => {
+    hilog.error(DOMAIN, TAG, 'test scan image failed: %{public}d', err.code);
+    AppStorage.setOrCreate(TEST_SCAN_KEY, `${Date.now()}|`);
+  });
+}
 
 export default class EntryAbility extends UIAbility {
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
@@ -26,6 +59,7 @@ export default class EntryAbility extends UIAbility {
   // 记下那一条，Index.ets 让网页来取
   onNewWant(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     notifyTaps.fromWant(want);
+    takeTestScan(want);
     hilog.info(DOMAIN, TAG, 'Ability onNewWant');
   }
 

@@ -10,6 +10,8 @@
 //   才算支持（老管理器没有这个字段：当成不支持，什么都不发）。支持时经 services 登记 / 更新（put）、启动、停止、重启、开关开机自启、
 //   撤销、列出名下的服务，每条请求带自己编的 id、等回复（启动要等服务就绪，给足 180 秒）；状态推送（services.status，接入时一次全量，
 //   之后只推变了的）交给 onStatus 的订阅者。断线时在途的请求一律回"断了"（管理器那边可能做完了也可能没做，以重连后的全量推送为准）。
+// - 指向自己的入口（协议 §8，364 号票）：hello 里声明 features: ["entries"] 和外网端口，管理器的 welcome 里有 "entries" 才算支持；
+//   入口清单（公网、tailnet，最近一次从外面打通了没有）接入时推一次、变了再推，交给 entries.onChange 的订阅者。二狗只读，从不让管理器开入口。
 // 铁律（协议第 0 节）：没有注入身份（四个变量缺一个、协议版本不是 1）时静默跳过，什么都不连；连不上、断线一律只是重连
 // （1 秒起翻倍、最多 30 秒，无限重试），从不抛错、从不挡守护进程启动。services 的方法也从不抛错，失败一律 { ok: false, error }。
 // 照 LSM 的参考客户端 clients/lsm-link.mjs 的做法写，没有照搬它（它用 Node 自带的 WebSocket，零依赖）：
@@ -22,6 +24,9 @@ export const LSM_LINK_PROTOCOL_VERSION = 1;
 
 /** 名下的服务（协议 §7）这个扩展的名字：hello、welcome 的 features 里写它 */
 export const LSM_SERVICES_FEATURE = "services";
+
+/** 指向自己的入口（协议 §8）这个扩展的名字：hello、welcome 的 features 里写它 */
+export const LSM_ENTRIES_FEATURE = "entries";
 
 /** 默认心跳间隔（管理器的 welcome 给了就按它的） */
 const DEFAULT_HEARTBEAT_MS = 5_000;
@@ -47,6 +52,8 @@ export interface LsmLinkOptions {
   env: Readonly<Record<string, string | undefined>>;
   /** 本机端口 */
   port: number;
+  /** 外网端口：问管理器"指向它的入口"时告诉它（协议 §8）；不给就不问 */
+  externalPort?: number;
   version: string;
   busy(): LsmBusy;
   health(): LsmHealth;
@@ -150,11 +157,45 @@ export interface LsmServices {
   onSupport(listener: (support: LsmServicesSupport) => void): () => void;
 }
 
+/** 一个入口（协议 §8.2） */
+export interface LsmEntry {
+  kind: "public" | "tailnet";
+  url: string;
+  /** 实际接到本机哪个端口；管理器说不清是 null */
+  port: number | null;
+  /** 最近一次管理器从外面打的结果；null 是没测过 */
+  reachable: boolean | null;
+  /** 不通的原因，给日志看 */
+  why?: string | null;
+}
+
+/** 入口清单（entries.status） */
+export interface LsmEntriesMessage {
+  /** 接到外网端口的 */
+  entries: LsmEntry[];
+  /** 接到别的端口的：不算能用的 */
+  wrongPort: LsmEntry[];
+}
+
+/** 指向自己的入口（协议 §8）：只读，从不抛错 */
+export interface LsmEntries {
+  /** 含义和名下的服务那个一样：disabled 没接入；waiting 还没收到 welcome；unsupported 管理器太老 */
+  readonly support: LsmServicesSupport;
+  /** 最近一次推来的；还没收到是 undefined（断线时留着上一次的，重连后以新推来的为准） */
+  readonly current: LsmEntriesMessage | undefined;
+  /** 清单或支不支持变了；返回退订 */
+  onChange(listener: () => void): () => void;
+}
+
 export interface LsmLink {
   /** 注入了身份、在接入（连没连上另说） */
   readonly enabled: boolean;
   /** 名下的服务（133 号票） */
   readonly services: LsmServices;
+  /** 指向自己的入口（364 号票） */
+  readonly entries: LsmEntries;
+  /** 管理器的网页（从 LSM_URL 算的，只在这台电脑上打得开）；没接入是 undefined */
+  readonly managerUrl: string | undefined;
   /** 忙闲变了：马上补一次心跳；有"等空闲再停"挂着、现在不忙了就停机 */
   notifyBusy(): void;
   /** 守护进程停完时：发 bye、断开、不再重连 */
@@ -177,7 +218,21 @@ export const DISABLED_LSM_SERVICES: LsmServices = {
   onSupport: () => () => {},
 };
 
-const DISABLED: LsmLink = { enabled: false, services: DISABLED_LSM_SERVICES, notifyBusy() {}, close() {} };
+/** 没接入时的入口清单：什么都没有 */
+export const DISABLED_LSM_ENTRIES: LsmEntries = { support: "disabled", current: undefined, onChange: () => () => {} };
+
+const DISABLED: LsmLink = { enabled: false, services: DISABLED_LSM_SERVICES, entries: DISABLED_LSM_ENTRIES, managerUrl: undefined, notifyBusy() {}, close() {} };
+
+/** 管理器接入端点（ws://127.0.0.1:7420/link）→ 它的网页（http://127.0.0.1:7420/）；写法不对是 undefined */
+export function managerPageOf(linkUrl: string): string | undefined {
+  try {
+    const url = new URL(linkUrl);
+    if (url.protocol !== "ws:" && url.protocol !== "wss:") return undefined;
+    return `${url.protocol === "wss:" ? "https:" : "http:"}//${url.host}/`;
+  } catch {
+    return undefined;
+  }
+}
 
 /** 管理器发来的消息 */
 type ManagerMessage =
@@ -187,7 +242,18 @@ type ManagerMessage =
   | { type: "cancel"; id: string }
   | { type: "stop" | "restart"; id: string; mode?: "now" | "when-idle"; deadlineMs?: number }
   | ({ type: "services.reply"; id: string } & Record<string, unknown>)
-  | { type: "services.status"; full?: boolean; services?: LsmServiceStatus[]; removed?: string[] };
+  | { type: "services.status"; full?: boolean; services?: LsmServiceStatus[]; removed?: string[] }
+  | { type: "entries.status"; entries?: unknown; wrongPort?: unknown };
+
+/** 管理器推来的一个入口：字段不对的丢掉（别让它把网页弄坏） */
+function readEntries(list: unknown): LsmEntry[] {
+  if (!Array.isArray(list)) return [];
+  return list.flatMap((item: unknown): LsmEntry[] => {
+    const e = item as Partial<LsmEntry> | null;
+    if ((e?.kind !== "public" && e?.kind !== "tailnet") || typeof e.url !== "string") return [];
+    return [{ kind: e.kind, url: e.url, port: typeof e.port === "number" ? e.port : null, reachable: typeof e.reachable === "boolean" ? e.reachable : null, why: typeof e.why === "string" ? e.why : null }];
+  });
+}
 
 /** LSM 注入的身份：四个变量都在、协议版本是 1 才算 */
 export function lsmIdentity(env: Readonly<Record<string, string | undefined>>): { url: string; serviceId: string; token: string } | undefined {
@@ -221,6 +287,10 @@ export function linkToLsm(options: LsmLinkOptions): LsmLink {
   let requestSeq = 0;
   const statusListeners = new Set<(message: LsmServicesStatusMessage) => void>();
   const supportListeners = new Set<(support: LsmServicesSupport) => void>();
+  // 指向自己的入口（协议 §8）：welcome 带来的支不支持、最近一次推来的清单、订阅者
+  let entriesSupport: LsmServicesSupport = "waiting";
+  let entries: LsmEntriesMessage | undefined;
+  const entriesListeners = new Set<() => void>();
 
   const send = (message: unknown) => {
     try {
@@ -258,6 +328,12 @@ export function linkToLsm(options: LsmLinkOptions): LsmLink {
     support = next;
     notifyAll(supportListeners, next, "名下服务的接入状态通知"); // @i18n-ignore log：出错时日志里的说明
   };
+  const notifyEntries = () => notifyAll(entriesListeners, undefined, "入口清单的通知"); // @i18n-ignore log：出错时日志里的说明
+  const setEntriesSupport = (next: LsmServicesSupport) => {
+    if (next === entriesSupport) return;
+    entriesSupport = next;
+    notifyEntries();
+  };
   /** 在途的请求一律回失败（断了、关掉了） */
   const failPending = (code: string, message: string) => {
     for (const [id, p] of pending) {
@@ -269,7 +345,10 @@ export function linkToLsm(options: LsmLinkOptions): LsmLink {
   /** 连接断了：在途的请求回"断了"，等重连后的 welcome */
   const lost = () => {
     failPending("disconnected", t("lsm.disconnected"));
-    if (!closed) setSupport("waiting");
+    if (!closed) {
+      setSupport("waiting");
+      setEntriesSupport("waiting");
+    }
   };
 
   const shutdown = () => {
@@ -306,6 +385,13 @@ export function linkToLsm(options: LsmLinkOptions): LsmLink {
         heartbeat();
         // 老管理器的 welcome 没有 features：当成不支持名下的服务，别发了等不到回复
         setSupport(Array.isArray(message.features) && message.features.includes(LSM_SERVICES_FEATURE) ? "supported" : "unsupported");
+        // 同样：老管理器不给入口清单，二狗只有用户手填的地址
+        {
+          const supported = options.externalPort !== undefined && Array.isArray(message.features) && message.features.includes(LSM_ENTRIES_FEATURE);
+          // 换成了老管理器（回退了版本）：之前推来的清单不算数了
+          if (!supported) entries = undefined;
+          setEntriesSupport(supported ? "supported" : "unsupported");
+        }
         return;
       case "conflict":
         // 同一个 serviceId 已有活跃会话：被重复启动了，交给调用方退出，别抢端口
@@ -350,6 +436,10 @@ export function linkToLsm(options: LsmLinkOptions): LsmLink {
           "名下服务的状态推送处理", // @i18n-ignore log：出错时日志里的说明
         );
         return;
+      case "entries.status":
+        entries = { entries: readEntries(message.entries), wrongPort: readEntries(message.wrongPort) };
+        notifyEntries();
+        return;
     }
   };
 
@@ -383,7 +473,8 @@ export function linkToLsm(options: LsmLinkOptions): LsmLink {
         protocol: LSM_LINK_PROTOCOL_VERSION,
         capabilities: ["busy", "stop", "restart", "health"],
         logs: [],
-        features: [LSM_SERVICES_FEATURE],
+        features: options.externalPort === undefined ? [LSM_SERVICES_FEATURE] : [LSM_SERVICES_FEATURE, LSM_ENTRIES_FEATURE],
+        ...(options.externalPort === undefined ? {} : { externalPort: options.externalPort }),
       });
       // 管理器回 welcome 之前也按默认间隔报（老的管理器可能不回 welcome）
       startBeating();
@@ -456,9 +547,24 @@ export function linkToLsm(options: LsmLinkOptions): LsmLink {
     },
   };
 
+  const entriesView: LsmEntries = {
+    get support() {
+      return entriesSupport;
+    },
+    get current() {
+      return entries;
+    },
+    onChange(listener) {
+      entriesListeners.add(listener);
+      return () => void entriesListeners.delete(listener);
+    },
+  };
+
   const link: LsmLink = {
     enabled: true,
     services,
+    entries: entriesView,
+    managerUrl: managerPageOf(url),
     notifyBusy() {
       if (closed) return;
       heartbeat();

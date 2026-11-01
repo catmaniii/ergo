@@ -6,6 +6,9 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <!-- 系统通知（notify/NativeNotify.kt）：本地通知，安卓 13 起要向用户申请。不接 FCM、不做前台服务 -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- 扫码连接（364 号票）：只在点"扫码连接"时才要；没有相机的设备照样能装，手填地址 -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application
         android:allowBackup="false"

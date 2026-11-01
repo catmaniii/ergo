@@ -391,3 +391,151 @@ button.device-main {
   color: var(--high-fg);
   font-weight: 600;
 }
+
+/* ---------- 设备配对（364 号票）：最上面的"显示配对二维码"，配对二维码界面。颜色、字号一律用 token；只有二维码本身永远白底黑块（ui/qr-code.tsx） ---------- */
+.device-show-qr {
+  width: 100%;
+  min-height: 48px;
+  margin-bottom: 12px;
+  font-size: var(--fs-l);
+}
+.pair-qr {
+  width: 100%;
+  max-width: 460px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.pair-qr-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+.qr-code {
+  display: block;
+  width: min(300px, 100%);
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: 8px;
+}
+.pair-qr-url {
+  font-size: var(--fs-m);
+  word-break: break-all;
+}
+.pair-qr-desc {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px 8px;
+  font-size: var(--fs-s);
+}
+.pair-qr-wait {
+  font-size: var(--fs-l);
+}
+.pair-qr-hint {
+  font-size: var(--fs-s);
+  line-height: 1.5;
+}
+.pair-qr-warn {
+  color: var(--high-fg);
+}
+.pair-qr-switch {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pair-qr-switch-title {
+  font-weight: 600;
+  font-size: var(--fs-m);
+}
+.pair-qr-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  padding: 10px 12px;
+  text-align: left;
+  color: inherit;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  cursor: pointer;
+}
+.pair-qr-option.on {
+  border-color: var(--primary);
+}
+.pair-qr-option .pair-qr-desc {
+  justify-content: flex-start;
+}
+.pair-qr-option-url {
+  font-size: var(--fs-s);
+  word-break: break-all;
+}
+.pair-qr-none {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.pair-qr-none h2,
+.pair-qr-request h2 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.4;
+}
+.pair-qr-none p {
+  margin: 0;
+  line-height: 1.55;
+  font-size: var(--fs-m);
+}
+.pair-qr-way {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.pair-qr-way a.btn {
+  text-decoration: none;
+}
+.pair-qr-way h3 {
+  margin: 0;
+  font-size: var(--fs-l);
+}
+.pair-qr-manual {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+.pair-qr-manual p {
+  margin: 0;
+  line-height: 1.5;
+  font-size: var(--fs-s);
+}
+.pair-qr-manual input {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 12px;
+  color: inherit;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+}
+.pair-qr-manual-open {
+  align-self: center;
+}
+.pair-qr-request {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-color: var(--primary);
+}
+.pair-qr-result.ok {
+  color: var(--ok);
+  font-weight: 600;
+}

@@ -203,6 +203,8 @@ If only the web pages changed, the daemon doesn't need a restart.
 
 ### On your phone
 
+For a new phone: on your computer, open **More · Settings · Device pairing**, choose "Show pairing code", and tap "Scan to connect" in the Ergo app on your phone (if it can't connect, the app says why).
+
 Open pages (including a HarmonyOS app left open) offer to refresh within seconds, and refreshing gets you the new version. The app itself usually doesn't need reinstalling; its native parts and the script for giving commands on web pages are packaged with the app, so it only needs rebuilding when those change, and the CHANGELOG says so.
 
 ### When an update goes wrong

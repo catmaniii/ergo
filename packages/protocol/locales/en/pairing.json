@@ -16,5 +16,12 @@
   "pairing.reject.noRequest": "No such pairing request",
   "pairing.reject.handled": "Already handled",
   "pairing.source.tunnel": "Via tunnel · {source}",
-  "pairing.source.external": "External port · {source}"
+  "pairing.source.external": "External port · {source}",
+  "pairing.address.invalid.empty": "Enter an address first",
+  "pairing.address.invalid.tooLong": "That address is too long",
+  "pairing.address.invalid.malformed": "That doesn't look like an address. It should look like https://ergo.example.com",
+  "pairing.address.invalid.noHost": "The address has no host name",
+  "pairing.address.invalid.credentials": "Don't put a user name or password in the address",
+  "pairing.address.invalid.httpsOnly": "It must be an https address: the phone app only accepts https",
+  "pairing.address.invalid.lan": "That address only works on this computer or your local network, so a phone outside can't use it. Enter an https address that opens from outside"
 }

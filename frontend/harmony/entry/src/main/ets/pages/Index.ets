@@ -3,10 +3,13 @@ import { abilityAccessCtrl, common, Permissions } from '@kit.AbilityKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { call } from '@kit.TelephonyKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
+import { scanBarcode, scanCore } from '@kit.ScanKit';
 import { window } from '@kit.ArkUI';
 import BuildProfile from 'BuildProfile';
 import { AppSettings, DOMAIN, TAG } from '../common/AppSettings';
 import { appTexts, t } from '../common/AppTexts';
+import { connectChecklist } from '../common/ConnectCheck';
+import { ConnectProbe, ConnectResult } from '../common/ConnectProbe';
 import { oldNameOf, webCallScript } from '../common/OldNames';
 import { checkServerAddress, originOf, ServerAddress } from '../common/ServerAddress';
 import {
@@ -45,6 +48,10 @@ const IGNORED_NET_ERRORS: number[] = [-3, -20, -302];
 const IN_PAGE_SCHEMES: string[] = ['about', 'blob', 'data', 'javascript'];
 /** 页面加载完这么久网页还没调过原生桥，就不是二狗的网页（地址填成了别的网站）：提示"这不是二狗？换地址" */
 const NOT_ERGO_AFTER_MS = 8000;
+/** 扫到的不是地址时，报错页上最多写出来多少个字（二维码里可能是一大段别的东西） */
+const SCANNED_TEXT_SHOWN = 120;
+/** EntryAbility.ets 的 TEST_SCAN_KEY：联调的测试入口交来的文字 */
+const TEST_SCAN_KEY = 'ergoTestScan';
 
 /**
  * 二狗的鸿蒙 App（62 号票）：原生壳。
@@ -149,6 +156,18 @@ struct Index {
   @State loadError: string = '';
   /** 加载完一阵网页还没调过原生桥：底部提示"这不是二狗？换地址" */
   @State notErgo: boolean = false;
+  /** 扫码之后测连接的那一页（364 号票）：testing 在连，failed 连不上，空串是没开 */
+  @State connectStage: string = '';
+  @State connectTitle: string = '';
+  @State connectReason: string = '';
+  @State connectHref: string = '';
+  /** 提醒检查的那几条（键），先后已经排好 */
+  @State connectChecks: string[] = [];
+  private connectProbe: ConnectProbe | undefined = undefined;
+  /** 这次要测的地址（重试用）；扫到的不是地址时是 undefined */
+  private connectTarget: ServerAddress | undefined = undefined;
+  /** 联调的测试入口交来的文字（只有 --webview-debug 的包才会有，见 EntryAbility.ets） */
+  @StorageProp(TEST_SCAN_KEY) @Watch('onTestScan') testScan: string = '';
   /**
    * App 原生的字换过几次（175 号票）：二狗的网页经原生桥 setTexts 交来了不一样的语言时加一，地址页、出错页、"这不是二狗？"跟着重画
    * （它们的字经 tx() 取，tx() 读了它）
@@ -191,6 +210,10 @@ struct Index {
   // 系统返回手势：在地址页上先回到网页；网页报过还能在内部返回（setCanGoBack）就交给网页
   // （window.__ergoBack：先关弹窗、详情，再回上一级），否则交给系统退出 App
   onBackPress(): boolean {
+    if (this.connectStage.length > 0) {
+      this.backFromConnect();
+      return true;
+    }
     if (this.editing) {
       if (this.hasServer) {
         this.editing = false;
@@ -225,6 +248,7 @@ struct Index {
   }
 
   aboutToDisappear(): void {
+    this.connectProbe?.cancel();
     clearTimeout(this.notErgoTimer);
     this.bridge?.releaseVoice('closed');
     this.sideBridge?.releaseVoice('closed');
@@ -702,6 +726,97 @@ struct Index {
     this.openServer(checked.address);
   }
 
+  // ---------------- 扫码连接（364 号票）：鸿蒙用系统的扫码界面（不用应用要相机权限）；扫到了先测，连得上才进配对页，连不上报错、不进配对页
+
+  /** 点"扫码连接"：用户自己退出来的不算出错；用不了说明还能手填 */
+  private startScan(): void {
+    this.draftError = '';
+    const options: scanBarcode.ScanOptions = { scanTypes: [scanCore.ScanType.QR_CODE], enableMultiMode: false, enableAlbum: true };
+    scanBarcode.startScanForResult(this.context, options).then((result: scanBarcode.ScanResult) => {
+      this.onScanned(result.originalValue);
+    }).catch((err: BusinessError) => {
+      if (err.code === scanCore.ScanErrorCode.SCAN_SERVICE_CANCELED) {
+        return;
+      }
+      hilog.warn(DOMAIN, TAG, 'scan failed: %{public}d', err.code);
+      this.connectStage = '';
+      this.draftError = t('harmony.scan.unavailable', { 'error': String(err.code) });
+    });
+  }
+
+  /** 扫到了（系统扫码界面、联调的测试入口都走这里）：走同一套地址校验，不是地址的直接说；是地址的真的请求一次 */
+  private onScanned(text: string): void {
+    const checked = checkServerAddress(text);
+    this.connectProbe?.cancel();
+    if (checked.address === undefined) {
+      this.connectTarget = undefined;
+      this.connectTitle = t('harmony.connect.notAddressTitle');
+      this.connectReason = t('harmony.connect.notAddress', { 'text': text.substring(0, SCANNED_TEXT_SHOWN) });
+      this.connectHref = '';
+      this.connectChecks = [];
+      this.connectStage = 'failed';
+      return;
+    }
+    this.connectTarget = checked.address;
+    this.testConnect(checked.address);
+  }
+
+  private testConnect(address: ServerAddress): void {
+    this.connectProbe?.cancel();
+    this.connectHref = address.href;
+    this.connectStage = 'testing';
+    const probe = new ConnectProbe((result: ConnectResult) => this.connectTested(address, result));
+    this.connectProbe = probe;
+    probe.start(address.origin);
+  }
+
+  private connectTested(address: ServerAddress, result: ConnectResult): void {
+    this.connectProbe = undefined;
+    if (result.failure === undefined) {
+      // 连得上：和手填地址点连接之后一样，进现有的配对页
+      this.connectStage = '';
+      this.draft = address.href;
+      this.saveDraft();
+      return;
+    }
+    this.connectTitle = t('harmony.connect.failedTitle');
+    this.connectReason = t(`harmony.connect.reason.${result.failure}`, { 'error': result.detail });
+    this.connectChecks = connectChecklist(address.host);
+    this.connectStage = 'failed';
+  }
+
+  private retryConnect(): void {
+    if (this.connectTarget !== undefined) {
+      this.testConnect(this.connectTarget);
+    }
+  }
+
+  private rescan(): void {
+    this.connectProbe?.cancel();
+    this.connectProbe = undefined;
+    this.connectStage = '';
+    this.startScan();
+  }
+
+  /** 回到地址页（手填就在那里） */
+  private backFromConnect(): void {
+    this.connectProbe?.cancel();
+    this.connectProbe = undefined;
+    this.connectStage = '';
+  }
+
+  /** 联调的测试入口（EntryAbility.ets 的 takeTestScan）：<时间>|<文字> */
+  onTestScan(): void {
+    const at = this.testScan.indexOf('|');
+    if (at < 0) {
+      return;
+    }
+    if (!this.editing) {
+      this.startEditing();
+    }
+    this.onScanned(this.testScan.substring(at + 1));
+  }
+
   private retry(): void {
     if (this.server === undefined) {
       return;
@@ -1044,6 +1159,75 @@ struct Index {
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
   }
 
+  /** 扫码之后测连接的那一页（364 号票）：正在连、连不上（原因、提醒检查什么、重试和重新扫码）。连得上就直接进配对页，这一页只是一闪 */
+  @Builder
+  ConnectPage() {
+    Scroll() {
+      Column({ space: 16 }) {
+        Text(this.connectStage === 'testing' ? this.tx('harmony.connect.testing') : this.connectTitle)
+          .fontSize(22)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.ohos_id_color_text_primary'))
+          .textAlign(TextAlign.Center)
+          .width('100%')
+        if (this.connectStage === 'testing') {
+          LoadingProgress()
+            .width(48)
+            .height(48)
+            .color($r('sys.color.ohos_id_color_emphasize'))
+        } else {
+          Text(this.connectReason)
+            .fontSize(15)
+            .fontColor($r('sys.color.ohos_id_color_text_secondary'))
+            .textAlign(TextAlign.Center)
+            .width('100%')
+        }
+        if (this.connectHref.length > 0) {
+          Text(this.connectHref)
+            .fontSize(13)
+            .fontColor($r('sys.color.ohos_id_color_text_secondary'))
+            .textAlign(TextAlign.Center)
+            .width('100%')
+        }
+        if (this.connectStage === 'failed' && this.connectChecks.length > 0) {
+          Column({ space: 6 }) {
+            Text(this.tx('harmony.connect.checkTitle'))
+              .fontSize(14)
+              .fontColor($r('sys.color.ohos_id_color_text_primary'))
+              .width('100%')
+            ForEach(this.connectChecks, (key: string) => {
+              Text(`• ${this.tx(`harmony.connect.check.${key}`)}`)
+                .fontSize(14)
+                .fontColor($r('sys.color.ohos_id_color_text_secondary'))
+                .width('100%')
+            }, (key: string) => key)
+          }
+          .width('100%')
+        }
+        if (this.connectStage === 'failed') {
+          Row({ space: 12 }) {
+            if (this.connectTarget !== undefined) {
+              Button(this.tx('harmony.connect.retry'))
+                .onClick(() => this.retryConnect())
+            }
+            Button(this.tx('harmony.connect.rescan'), { buttonStyle: ButtonStyleMode.NORMAL })
+              .onClick(() => this.rescan())
+          }
+        }
+        Button(this.tx('harmony.connect.back'), { buttonStyle: ButtonStyleMode.NORMAL })
+          .onClick(() => this.backFromConnect())
+      }
+      .width('100%')
+      .constraintSize({ minHeight: '100%' })
+      .padding(24)
+      .justifyContent(FlexAlign.Center)
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor($r('sys.color.ohos_id_color_background'))
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
+  }
+
   @Builder
   AddressPage() {
     Column({ space: 14 }) {
@@ -1051,9 +1235,18 @@ struct Index {
         .fontSize(30)
         .fontWeight(FontWeight.Bold)
         .fontColor($r('sys.color.ohos_id_color_text_primary'))
+      // 最上面的大按钮（364 号票）：手填放下面
+      Button(this.tx('harmony.address.scan'))
+        .width('100%')
+        .height(48)
+        .onClick(() => this.startScan())
+      Text(this.tx('harmony.address.scanHint'))
+        .fontSize(14)
+        .fontColor($r('sys.color.ohos_id_color_text_secondary'))
       Text(this.tx('harmony.address.heading'))
         .fontSize(17)
         .fontColor($r('sys.color.ohos_id_color_text_primary'))
+        .margin({ top: 14 })
       Text(this.tx('harmony.address.hint'))
         .fontSize(14)
         .fontColor($r('sys.color.ohos_id_color_text_secondary'))
@@ -1115,6 +1308,9 @@ struct Index {
       }
       if (this.editing) {
         this.AddressPage()
+      }
+      if (this.connectStage.length > 0) {
+        this.ConnectPage()
       }
     }
     .width('100%')

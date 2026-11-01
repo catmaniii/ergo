@@ -513,6 +513,8 @@ adb -s <设备号> logcat -s ErgoApp                  # App 和网页的日志
 
 **联调**：`frontend/android/e2e/` 在模拟器上连临时守护进程跑，不进 `npm run check`，adb 命令都带串口，串口不是 `emulator-` 开头的直接报错。`e2e/browser.ts` 里有外部页面碰不到 `ergoNative` 的证明，改原生桥或页面桥时要跑。
 
+**扫码连接**（鸿蒙和安卓一样）：地址页最上面"扫码连接"，扫到的文字走 `checkServerAddress`，再 `GET <来源>/api/access` 约 10 秒确认回话的是二狗（不带 cookie、不跟跳转），连不上不进配对页。判断在 `common/ConnectCheck.*`（只有判断，不碰网络），两边和协议包拿 `frontend/test/connect-vectors.tsv` 同一份例子核对。安卓用 Camera2 + ZXing 的 core 包，点按钮才要相机权限；鸿蒙用系统的 ScanKit 界面，不要相机权限。模拟器没有能对准屏幕的相机，`--webview-debug` 的包认两个测试入口（`ergoTestScanText`、`ergoTestScanImage`），正式的包没有。联调：`frontend/android/e2e/scan.ts`、`frontend/harmony/e2e/scan.ts`；安卓的相机帧到 ZXing 这一段用 `frontend/android/e2e/scan-camera.ts`（虚拟场景相机对着墙上的二维码海报）。
+
 **原生录音**用 `AudioRecord`：进语音模式时建好、不采集，按下才 `startRecording`，松手 `stop`；切到后台、离开语音模式时 `release`。格式和鸿蒙一样（16 kHz、单声道、16 位 PCM），网页一侧不变。音源用 `MIC`。
 
 **系统通知**是本地通知，不接 FCM，没有前台服务：进程活着才发得出，被系统杀掉后收不到。其余规矩和鸿蒙一样：第一次问授权，前台不发，同一件事只出一条，点了回到对应的页面。

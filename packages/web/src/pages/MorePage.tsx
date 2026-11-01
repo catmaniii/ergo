@@ -8,6 +8,7 @@
 // 167 号票：设置里的"删除素材"去掉，并进"记忆"：记忆分几层（233 号票起是素材、结论、证据与推理、问题箱），每层单独点进去（plugins/memory/MemoryPage.tsx）；
 // 记忆直接显示在导航里时自己排（MemorySection：宽屏左边几项、右边那一层），收进"更多"时在"更多"右边那一栏里（MemoryColumn）。
 // 73 号票：设置下面加一页"模型"（#/more/models）：服务商、API key 的状态、默认模型和各个 agent 的模型、看图能力、连通测试。
+// 364 号票：设置列表里的"已配对设备"改名"设备配对"，地址不变；最上面"显示配对二维码"，点进下一级 #/more/devices/qr（pages/more/PairingQrPage.tsx）。
 // 123 号票：已配对设备自己排一栏（标题栏上的"多选"、多选时贴在底边的操作栏，和待办一样），别的页照旧是标题栏加一整块滚动区（SubPageCol）。
 // 124 号票：设置最下面加"关于二狗"（#/more/about：版本、更新日志）；关于页连点版本号 8 次打开的"Debug 工具集"（#/more/debug），
 // 打开后列表里"关于二狗"下面多出一项，1 小时后消失。
@@ -61,6 +62,7 @@ import { BrowsingPage } from "./more/BrowsingPage.tsx";
 import { EnterKeySetting } from "./more/EnterKeySetting.tsx";
 import { DebugPage } from "./more/DebugPage.tsx";
 import { DevicesPage } from "./more/DevicesPage.tsx";
+import { PairingQrPage } from "./more/PairingQrPage.tsx";
 import { LanguagePage } from "./more/LanguagePage.tsx";
 import { MaterialsBulkDelete } from "./more/MaterialsBulkDelete.tsx";
 import { ModelsPage } from "./more/ModelsPage.tsx";
@@ -304,7 +306,9 @@ function SettingsSection({ wide, page, item, go, navigate }: { wide: boolean; pa
 
 /** 子页的一栏：标题栏和一整块滚动区。已配对设备（123 号票）自己排这一栏：标题栏上的"多选"、多选时贴在底边的操作栏 */
 function SubPageCol({ page, item, onBack, go, navigate }: { page: Sub; item?: string | undefined; onBack: (() => void) | undefined; go(p: Sub): void; navigate: Navigate }) {
-  if (page === "devices") return <DevicesPage title={pageTitle("devices")} onBack={onBack} onPreviewPairing={() => navigate({ tab: "pair-wait" })} />;
+  // 配对二维码（364）是设备配对的下一级：返回回到设备配对
+  if (page === "devices" && item === "qr") return <PairingQrPage title={t("pages.devices.qr.title")} onBack={onBack} />;
+  if (page === "devices") return <DevicesPage title={pageTitle("devices")} onBack={onBack} onPreviewPairing={() => navigate({ tab: "pair-wait" })} onShowQr={() => navigate({ tab: "more", page: "devices", item: "qr" })} />;
   // 设置向导（319 号票）：标题栏上除了返回还有它自己的"先不弄了"（任何时候都能出去接着用），内容和步骤在 pages/SetupWizard.tsx
   if (page === "setup") return <SetupPage title={pageTitle("setup")} onBack={onBack} navigate={navigate} />;
   // 体检（319b）：标题栏右上"再查一遍"，八项在 pages/more/DoctorPage.tsx

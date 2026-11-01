@@ -89,9 +89,16 @@ const FACT: { readonly [Id in DoctorCheckId]: (data: DoctorCheckDataById[Id]) =>
     }),
   // 没查到依据时只说查到的（服务管家里没登记），不断言"没配"：手动跑的 tailscale serve 服务管家不知道（340 号票）
   external: (data) => {
-    if (!data.configured) return t("doctor.fact.externalUnregistered");
-    if (data.kind === "paired") return t("doctor.fact.externalPaired", { count: data.devices ?? 0 });
-    return t("doctor.fact.external", { kind: t(`doctor.kind.${data.kind ?? "tailscale"}`) });
+    const rejected = data.rejected ?? [];
+    const base = !data.configured
+      ? t("doctor.fact.externalUnregistered")
+      : data.kind === "paired"
+        ? t("doctor.fact.externalPaired", { count: data.devices ?? 0 })
+        : t("doctor.fact.external", { kind: t(`doctor.kind.${data.kind ?? "tailscale"}`) });
+    if (rejected.length === 0) return base;
+    // 服务管家给了、手机用不了的入口（364 号票）：写清是哪个、为什么（接错端口是要修的事故）
+    const entries = rejected.map((r) => (r.reason === "wrong_port" ? t("doctor.fact.externalRejected.wrongPort", { url: r.url, port: r.port ?? "?" }) : t("doctor.fact.externalRejected.notHttps", { url: r.url })));
+    return t("doctor.fact.externalRejected", { base, count: rejected.length, entries: formatList(entries) });
   },
 };
 

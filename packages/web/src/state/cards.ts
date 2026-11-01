@@ -31,6 +31,17 @@ export function automatedPairingReason(card: Card | undefined): string | undefin
   return card?.type === "pairing" ? (card.payload as PairingCardPayload).automated?.reason : undefined;
 }
 
+/**
+ * 还在等批准的配对请求（设备配对的二维码界面上就地批准，364 号票）：按来的先后。过期的不算，
+ * 守护进程要过一会儿才把它标成过期，这边按卡上的时间先当它没了
+ */
+export function pendingPairingCardIds(state: UiState, now: number): string[] {
+  return Object.values(state.cards)
+    .filter(({ card }) => card.type === "pairing" && card.status === "pending" && Date.parse((card.payload as PairingCardPayload).expiresAt) > now)
+    .toSorted((a, b) => a.card.createdAt.localeCompare(b.card.createdAt))
+    .map(({ card }) => card.id);
+}
+
 /** Web 里单独显示一张卡的页面 */
 export function cardWebPath(cardId: string): string {
   return `#/card/${encodeURIComponent(cardId)}`;

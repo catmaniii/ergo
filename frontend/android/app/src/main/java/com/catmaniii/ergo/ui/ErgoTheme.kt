@@ -78,6 +78,11 @@ object ErgoTheme {
     const val ADDRESS_HEADING_SP = 17f
     const val ADDRESS_HINT_SP = 14f
     const val ADDRESS_ERROR_SP = 14f
+    /** 地址页最上面的"扫码连接"（364 号票）：比普通按钮高，铺满一行 */
+    const val SCAN_BUTTON_HEIGHT_DP = 48
+    /** 连不上的那一页（364 号票）：提醒检查的那几条 */
+    const val CONNECT_CHECK_SP = 14f
+    const val CONNECT_CHECK_SPACE_DP = 6
 
     /** pages/Index.ets 的 ErrorPage */
     const val ERROR_PADDING_DP = 24

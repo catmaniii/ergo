@@ -305,6 +305,7 @@ const AUTOSTART = "autostart";
 const SERVICE_EVENTS = "service-events";
 const SETUP = "setup";
 const DOCTOR = "doctor";
+const CONNECTION_ADDRESSES = "connection-addresses";
 const WEB_SETTINGS = "web-settings";
 const TEST = "test";
 const KEY = "key";
@@ -539,6 +540,11 @@ export const HTTP_PATHS = {
    * 每次现算，只查本机（除探本机端口外不联网、不调用模型、不改状态）
    */
   doctor: api(DOCTOR),
+  /**
+   * 连接地址（364 号票，形状在 connection-addresses.ts）：GET 手机从外面连到二狗能用的地址（ConnectionAddressesView，问服务管家的加手填的，排好序）；
+   * POST 改手填的那个（ConnectionAddressesBody → ConnectionAddressesView）。设备配对页的二维码界面用
+   */
+  connectionAddresses: api(CONNECTION_ADDRESSES),
   /** 设置里 agent 的联网搜索、读网页走哪条路：GET 取（WebSettingsView），POST 整份存（WebSettingsBody → WebSettingsView，154 号票；162 号票起是队列） */
   webSettings: api(WEB_SETTINGS),
   /** GET：设置 · 插件，清单里的全部插件（PluginsView，211 号票） */
@@ -719,6 +725,7 @@ export type HttpRoute =
   | { route: "service_events" }
   | { route: "setup" }
   | { route: "doctor" }
+  | { route: "connection_addresses" }
   | { route: "web_settings" }
   | { route: "plugins" }
   | { route: "plugin"; name: string }
@@ -862,6 +869,7 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
   if (head === SERVICE_EVENTS && id === undefined) return { route: "service_events" };
   if (head === SETUP && id === undefined) return { route: "setup" };
   if (head === DOCTOR && id === undefined) return { route: "doctor" };
+  if (head === CONNECTION_ADDRESSES && id === undefined) return { route: "connection_addresses" };
   if (head === MODEL_SETTINGS && tail === undefined) {
     if (id === undefined) return { route: "model_settings" };
     if (id === TEST) return { route: "model_settings_test" };

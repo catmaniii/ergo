@@ -53,7 +53,7 @@ import { createSessionRollbacks, type RollbackSession, type SessionRollbackHook 
 import { isConversationChannel } from "./conversation/history.ts";
 import { type CardTypeDefinition, CardTypeRegistry } from "./cards/registry.ts";
 import { cardsView } from "./cards/views.ts";
-import { DEFAULT_MEMORY_PROVIDER, loadConfig, readTokenPrices, type ErgoConfig, writeFreshInstallDefaults } from "./config/config.ts";
+import { DEFAULT_MEMORY_PROVIDER, loadConfig, readTokenPrices, type ErgoConfig, writeConnectionConfig, writeFreshInstallDefaults } from "./config/config.ts";
 import { oldNameNotes } from "./config/old-names.ts";
 import { dataDirLayout, type DataDirLayout } from "./config/data-dir.ts";
 import { modelConfigKey } from "./config/model-key.ts";
@@ -174,6 +174,7 @@ import { createPluginSettings, type PluginSettings } from "./plugins/settings.ts
 import { createEventTriggers, createServiceEventDesk, dataDirTitle, EventSubscriberRegistry, eventSourceImplementations, type EventTriggers } from "./event-sources/index.ts";
 import { daemonBusy, mayChangeBusy } from "./lsm/busy.ts";
 import { linkToLsm, type LsmLink } from "./lsm/link.ts";
+import { type ConnectionAddressesService, createConnectionAddresses } from "./pairing/addresses.ts";
 import { daemonRunning, removePidFile, writePidFile } from "./process/pid-file.ts";
 import { ownersText, portProblem } from "./process/port-owner.ts";
 import { createJobObject, type JobObject } from "./process/job-object.ts";
@@ -1816,6 +1817,12 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const svcDataDir = options.env.LSM_DATA_DIR?.trim() ? path.resolve(options.env.LSM_DATA_DIR.trim()) : defaultSvcDataDir(options.env);
     // 向导里的开机自启开关（347）：走 ergo svc 同一条路；不归这份安装管的任务不动
     const autostart: AutostartSwitch = createAutostartSwitch({ env: options.env, layout: installLayout, svcDataDir, log });
+    // 连接地址（364）：手机从外面连到二狗用的地址。入口问服务管家（接入层建好之后接上，见 linkToLsm 那里），手填的在配置文件
+    const connectionAddresses: ConnectionAddressesService = createConnectionAddresses({
+      manual: config.connection.manualAddress,
+      save: (manual) => writeConnectionConfig(layout.configFile, manual),
+      log,
+    });
     const doctor: DoctorService = createDoctor({
       probes: {
         ports: portsProbe(() => boundPorts),
@@ -1832,7 +1839,14 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         },
         disk: diskProbe(layout.root),
         // 配对设备的算法和设置向导"手机"那一步一样：吊销了还没删的算现在用不上，不算
-        external: externalProbe({ svcDataDir, pairedDevices: () => pairing.list().filter((device) => !device.revoked).length }),
+        external: externalProbe({
+          svcDataDir,
+          pairedDevices: () => pairing.list().filter((device) => !device.revoked).length,
+          addresses: () => {
+            const view = connectionAddresses.view();
+            return { manual: view.manual !== undefined, rejected: view.rejected };
+          },
+        }),
       },
       now: () => clock.now(),
     });
@@ -2728,6 +2742,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         autostart,
         // 体检（319b）：八项检查现在的样子（GET /api/doctor）
         doctor,
+        // 连接地址（364）：设备配对页的二维码界面用（GET / POST /api/connection-addresses）
+        connectionAddresses,
         // 设置 · 插件（211）：列出、运行中停用、启用、移除
         plugins: pluginSettings,
         // agent 运行时（286）：登记了的运行时连同能力清单、能不能用（网页接通，289 号票起有界面）
@@ -2824,6 +2840,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const lsm = linkToLsm({
       env: options.env,
       port: gateway.port,
+      // 问服务管家"指向外网端口的入口"（364）：只算接到这个端口的
+      externalPort: gateway.externalPort,
       version: DAEMON_VERSION,
       busy: lsmBusy,
       // 秘书不在运行、启用着的插件没装上（126）都报 degraded：LSM 上亮黄灯
@@ -2833,6 +2851,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       log,
     });
     lsmEnabled = lsm.enabled;
+    teardown.push(connectionAddresses.attach({ entries: lsm.entries, managerUrl: lsm.managerUrl, externalPort: gateway.externalPort }));
     // 项目的服务（133）：接入层建好了，开始做（上线了的先登记转发、没做完的接着做、接 LSM 推来的状态）；之后按网关实际监听的端口
     projectSystem.startServices({ lsm: lsm.services, ports: { local: gateway.port, external: gateway.externalPort } });
     audioCppHost.attachLsm(lsm.services);

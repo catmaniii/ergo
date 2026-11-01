@@ -212,7 +212,7 @@ ergo keeps a copy of everything you said on this PC (immutable, indexed by keywo
 | Identity | My name, personal files, roles & voices (assistant name and voice), language, appearance & style, voice |
 | Abilities | Models, skills & MCP, plugins, components (large downloads on demand), Claude Code, browsing & form filling |
 | Rules | Watch categories (which operations to tell you about and how to handle them), system prompts, workday rules |
-| Data | Data sources, Authorized folders, delete materials, full tool-call content, backup, paired devices, checkup, About Ergo |
+| Data | Data sources, Authorized folders, delete materials, full tool-call content, backup, device pairing, checkup, About Ergo |
 
 **Watch categories** are the heart of ergo's guard. Built-in ones include spending money, sending in your name, deleting or overwriting, irreversible commits, accounts and security, and leaving the project directory; you can add your own. Each has six possible handlings: just do it and log, do it and tell me, only if listed in the plan, ask me first, hand it to me, never.
 
@@ -316,6 +316,14 @@ Things worth knowing:
 
 How to reach home from a phone or tablet (Tailscale, self-hosted Headscale, VPS tunnel) has its own document: [Deployment and outside access](deployment.en.md).
 
+Once that's set up, open **More · Settings · Device pairing** on your computer (`#/more/devices`; the setup wizard's "Pair your phone" step goes there too). **Show pairing code** is at the top, with your paired devices below it:
+
+- **The pairing code screen**: a large code, the address under it, and "Waiting for the phone to scan". Ergo gets the addresses from the service manager. Only entries that go to the external port 8811 count, public first, then tailnet, with the ones reached from outside on top. One it can't reach is marked but still listed, because the problem may be on the service manager's side. A tailnet address notes that the phone must join the same tailnet first. If there's more than one, you can switch.
+- **Addresses the service manager doesn't know about** (a hand-run `tailscale serve`, your own reverse proxy, frp): enter a fixed address on this screen. It must be an https address that opens from outside; local network addresses aren't accepted.
+- **No usable address**: no code is shown. The screen says Ergo can't be reached from outside right now and gives two ways forward: set it up in the service manager (a public tunnel or a tailnet entry both work), or enter your own address.
+- **When a phone sends a pairing request**: its name, short code, short fingerprint and the approve and deny buttons appear right on this screen. Approve once they match and it says "Connected".
+- The code only holds the address, a plain URL with no secret. A regular camera can read it and open it in the phone's browser, and you still approve the device on your computer.
+
 ---
 
 ## 7. On your phone
@@ -340,7 +348,7 @@ The HarmonyOS app is a native shell running the same web UI, plus native recordi
    hdc -t <device> shell aa start -a EntryAbility -b com.catmaniii.ergo
    ```
 
-6. On first launch enter ergo's external address ([Section 6](#6-access-from-outside-phone-tablet)) and pair as prompted.
+6. On first launch tap **Scan to connect** and scan the pairing code on your computer ([Section 6](#6-access-from-outside-phone-tablet)), or type the address below it, then pair as prompted. The app tests the address first: if it can't connect, it says why (the domain doesn't resolve, it timed out, the certificate is wrong, what answered isn't Ergo) and what to check, with "Try again" and "Scan again". HarmonyOS uses the system scanner, so the app doesn't need camera permission.
 
 The app's final bundle name is `com.catmaniii.ergo` (decided 2026-10-30; `app.json5` in the project already uses it). Click Signing Configs -> "Automatically generate signature" once more in DevEco and the build from then on carries that name - put it after `-b` in step 5.
 
@@ -361,7 +369,7 @@ The app isn't in any app store; for now you build it and install it yourself:
 
    You can also send the APK to the phone and open it there; Android will ask whether to allow installing apps from unknown sources.
 
-4. The first time you open it, enter ergo's outside address ([Section 6](#6-access-from-outside-phone-tablet)), then pair as the page tells you.
+4. The first time you open it, tap **Scan to connect** and scan the pairing code on your computer ([Section 6](#6-access-from-outside-phone-tablet)), or type the address below it, then pair as the page tells you. The app only asks for the camera when you tap the button, and you can still type the address if you say no. It tests the address first; if it can't connect, it says why and what to check.
 
 After pairing, the app asks whether it may send notifications. Choose Allow if you want system notifications.
 
@@ -521,7 +529,7 @@ How to update, roll back, stop and uninstall has its own document: [Install, upd
 
 **Run a checkup first**: **More · Settings · Data & devices → "Checkup"** (`#/more/doctor`) runs eight checks — ports, Node, pi, the service manager, the model key, components, disk, outside access — and gives the fact it found plus how to fix each one; "Run again" is in the top right. Everything it looks at is local: no network (other than probing ergo's own ports), no model calls, no settings changed.
 
-The outside access check doesn't connect anywhere. It only looks at what this machine has on record: a tailnet or tunnel entry in the service manager, or a paired device that hasn't been revoked. Any one of those passes the check (for paired devices it says "N paired devices"). A setup the service manager doesn't know about, such as running `tailscale serve` by hand, passes once a phone is paired. With nothing on record it says "No outside access is registered in the service manager; if your phone already connects, you can ignore this", which doesn't mean outside access isn't set up.
+The outside access check doesn't connect anywhere. It only looks at what this machine has on record: a tailnet or tunnel entry in the service manager, an address you entered on the Device pairing page, or a paired device that hasn't been revoked. An entry the service manager has but a phone can't use (it goes to the local port 8810, or isn't https) is named and makes this check unhealthy: the local port must never be reachable from outside, so fix it when you see this. Any one of those passes the check (for paired devices it says "N paired devices"). A setup the service manager doesn't know about, such as running `tailscale serve` by hand, passes once a phone is paired. With nothing on record it says "No outside access is registered in the service manager; if your phone already connects, you can ignore this", which doesn't mean outside access isn't set up.
 
 **Logs**: the daemon's output is in `logs\ergo-daemon.out.log` under the supervisor's data directory, and live in the supervisor's web UI; ergo's own health: <http://127.0.0.1:8810/healthz>.
 
@@ -537,7 +545,8 @@ The outside access check doesn't connect anywhere. It only looks at what this ma
 | Voice replies are text only | TTS service not running, or `voice.speech.model` is still the placeholder | See [8.2](#82-voice-replies-local-speech-synthesis); the note in the chat says why |
 | Memory search misses things with similar meaning | Embedding model not installed | Install under **Settings · Components**, or `npm run download-model` |
 | The phone can't open ergo or stays on the pairing page | Outside access not set up, or the request expired / was rate-limited | Make sure 8811 is what's exposed; approve the request in **Inbox** on the PC within 5 minutes; after repeated failures wait 10 minutes |
-| The phone says "this device has been revoked" | It was revoked under Paired devices | Tap "Request pairing" to apply again |
+| The phone says it can't connect after scanning | The phone can't reach that address | Follow the hints on the screen: is Tailscale on for the phone and on the same tailnet; are Ergo and the service manager running on the computer; is your VPS, tunnel or reverse proxy running |
+| The phone says "this device has been revoked" | It was revoked under Device pairing | Tap "Request pairing" to apply again |
 | The supervisor shows ergo yellow (degraded) | An enabled plugin failed to load | See `reasons` in `/healthz`, or the plugin's note in **Settings · Plugins** |
 | Every backup says it wasn't copied to the sync folder | `backup.syncDir` is still the example placeholder, or the folder is missing | Pick another folder in **Settings · Backup**, or use "Clear" |
 | Web tools say no browser was found | No Chrome / Edge, or installed somewhere unusual | Set its exe path in `web.browserPath` |

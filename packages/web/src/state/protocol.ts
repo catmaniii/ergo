@@ -1169,6 +1169,9 @@ export type { SetupMarkBody, SetupStepId, SetupStepView, SetupView } from "@ergo
 // 体检（319 号票的 319b）：八项检查是哪八项、GET /api/doctor 的形状（每项的事实按 id 各不同）；
 // doctorCheck / doctorDataOf 是取某一项、按 id 收窄事实类型的两个小函数
 export { DOCTOR_CHECKS, DOCTOR_FIX_UNKNOWN, doctorCheck, doctorDataOf } from "@ergo/protocol";
+// 连接地址（364 号票）：手机从外面连到二狗用的地址，校验和排序和守护进程同一份
+export { checkManualConnectionAddress, orderConnectionAddresses } from "@ergo/protocol";
+export type { ConnectionAddress, ConnectionAddressesView, RejectedConnectionAddress } from "@ergo/protocol";
 export type { DoctorCheckData, DoctorCheckDataById, DoctorCheckId, DoctorCheckView, DoctorView } from "@ergo/protocol";
 // 330 号票：做法（交互策略）列表、猜测为什么还是猜测
 export { MEMORY_STRATEGY_STATUSES } from "@ergo/protocol";

@@ -49,5 +49,10 @@
   "doctor.fix.components": "去设置 · 组件装上缺的那几个（点「装上默认的组件」最省事）；装好之前，用到它们的功能是灰的",
   "doctor.fix.disk": "腾出数据目录所在盘的 1 GB 以上：清一清旧的备份、下载缓存、日志，或者把数据目录挪到空间大的盘上",
   "doctor.fix.external": "手机还连不上的话：想在手机流量下也能用二狗，就在设置向导的外网访问那一屏按三种方式之一配（Tailscale 最省事），配好后手机配对一次，这一项就好了；只在家里用就不用管这一项",
-  "doctor.fix.retry": "这一项这次没查成：点「再查一遍」；还这样的话，看服务管家的日志（%LOCALAPPDATA%\\ergo\\supervisor\\logs）里二狗报了什么"
+  "doctor.fix.retry": "这一项这次没查成：点「再查一遍」；还这样的话，看服务管家的日志（%LOCALAPPDATA%\\ergo\\supervisor\\logs）里二狗报了什么",
+  "doctor.kind.manual": "你填的地址",
+  "doctor.fact.externalRejected": "{base}。有 {count} 个入口手机用不了：{entries}",
+  "doctor.fact.externalRejected.wrongPort": "{url}（接到了端口 {port}）",
+  "doctor.fact.externalRejected.notHttps": "{url}（不是 https）",
+  "doctor.fix.externalRejected": "接到本机端口的入口要改接外网端口：本机端口对这台电脑上的请求自动信任，绝不能接到外面。在服务管家里改这个入口的 exposure.localPort，或者隧道 -R 后面的端口；不是 https 的换成 https。改好之后手机才用得上它，二维码里也才会有它"
 }

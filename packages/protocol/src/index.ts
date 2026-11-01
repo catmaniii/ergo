@@ -91,6 +91,7 @@
 //   上下文、能力清单、条目/素材/查询/删除/体检的形状、几个可选能力（简报、整理、额外工具）和接口版本（MEMORY_API_VERSION）。
 // - memory-settings-schema.ts：记忆的设置（264 号票）——秘书顺口问开不开，配置文件和设置接口 GET / PUT /api/memory/settings 的 schema。
 // - safety-settings-schema.ts：安全和预算的两个开关（315 号票）——先问我、任务的预算，设置接口 GET / PUT /api/safety-settings 的 schema。
+// - connection-addresses.ts、connection-addresses-schema.ts：连接地址（364 号票）——手机从外面连到二狗用的地址：种类、校验、排序，GET / POST /api/connection-addresses 的样子。
 // - autostart.ts、autostart-schema.ts：服务管家的开机自启（347 号票）——向导里的开关，GET / PUT /api/autostart 的样子。
 // - setup.ts / setup-schema.ts：首次设置向导（319 号票）——网页上要走的五步、每步做完了没有（GET /api/setup 的样子）、
 //   标"以后再说"和"看过了"的请求体（POST /api/setup）的 schema。
@@ -208,6 +209,8 @@ export * from "./safety-settings-schema.ts";
 export * from "./setup.ts";
 export * from "./setup-schema.ts";
 export * from "./doctor.ts";
+export * from "./connection-addresses.ts";
+export * from "./connection-addresses-schema.ts";
 export * from "./memory-interview.ts";
 export * from "./memory-interview-schema.ts";
 export * from "./i18n/index.ts";

@@ -20,7 +20,7 @@ import { execFile } from "node:child_process";
 import fs from "node:fs";
 import net from "node:net";
 import path from "node:path";
-import { DOCTOR_CHECKS, DOCTOR_FIX_UNKNOWN, type ComponentsView, type DoctorCheckData, type DoctorCheckDataById, type DoctorCheckId, type DoctorCheckView, type DoctorView } from "@ergo/protocol";
+import { DOCTOR_CHECKS, DOCTOR_FIX_UNKNOWN, type ComponentsView, type DoctorCheckData, type DoctorCheckDataById, type DoctorCheckId, type DoctorCheckView, type DoctorView, type RejectedConnectionAddress } from "@ergo/protocol";
 import { DAEMON_SERVICE_ID } from "../cli/service.ts";
 import { listeningPids } from "../process/port-owner.ts";
 
@@ -56,7 +56,7 @@ const OK: { readonly [Id in DoctorCheckId]: (data: DoctorCheckDataById[Id]) => b
   model: (data) => data.configured,
   components: (data) => data.missing.length === 0,
   disk: (data) => data.freeGb > DOCTOR_DISK_MIN_GB,
-  external: (data) => data.configured,
+  external: (data) => data.configured && (data.rejected?.length ?? 0) === 0,
 };
 
 /**
@@ -75,6 +75,11 @@ const FALLBACK: { readonly [Id in DoctorCheckId]: DoctorCheckDataById[Id] } = {
 };
 
 /** 按 id 挑判法（两边是同一种形状，TS 认不出这层对应关系） */
+/** 怎么修的文案键：外网入口接错了端口（364 号票）和没配是两回事，修法不一样 */
+function fixOf(id: DoctorCheckId, data: DoctorCheckData): string {
+  return id === "external" && ((data as DoctorCheckDataById["external"]).rejected?.length ?? 0) > 0 ? "doctor.fix.externalRejected" : `doctor.fix.${id}`;
+}
+
 function judge(id: DoctorCheckId, data: DoctorCheckData): boolean {
   return (OK[id] as (data: DoctorCheckData) => boolean)(data);
 }
@@ -92,7 +97,7 @@ export function createDoctor(options: DoctorOptions): DoctorService {
         try {
           const data = (await (options.probes[id] as DoctorProbe<DoctorCheckId>)()) as DoctorCheckData;
           const ok = judge(id, data);
-          return { id, ok, data, ...(ok ? {} : { fix: `doctor.fix.${id}` }) };
+          return { id, ok, data, ...(ok ? {} : { fix: fixOf(id, data) }) };
         } catch {
           return { id, ok: false, data: FALLBACK[id], fix: DOCTOR_FIX_UNKNOWN };
         }
@@ -244,17 +249,29 @@ export function missingDefaultFeatures(view: ComponentsView): string[] {
  * - registry/services/ergo-daemon.yaml 的 exposure.via → 经某条隧道出网（VPS 隧道）；
  * - 有已配对的设备 → 报几台（两个端口都只绑 127.0.0.1，设备配得上一般说明有东西把外面接了进来，只有在这台电脑上打开外网端口配对的例外；手动跑的 tailscale serve 服务管家不知道，靠这一条认）。
  * 本机的外网端口 8811 有人听不算依据：它默认就开，算了这一项就永远是好的。
- * 都没有是 configured: false，只表示没查到依据、不等于没配（文件读不了也算没查到）；网页就照这个说，不断言"没配"
+ * 用户在设备配对页手填了地址（364 号票）也算依据（排在已配对设备前面：手机还没配对时它就是唯一的依据）。
+ * 都没有是 configured: false，只表示没查到依据、不等于没配（文件读不了也算没查到）；网页就照这个说，不断言"没配"。
+ * 服务管家给了、手机用不了的入口（接到了别的端口、不是 https，364 号票）放进 rejected：不管别的依据有没有，这一项都算不健康
  */
-export function externalProbe(options: { svcDataDir: string; pairedDevices: () => number }): () => DoctorCheckDataById["external"] {
-  return () => {
+export function externalProbe(options: {
+  svcDataDir: string;
+  pairedDevices: () => number;
+  /** 连接地址那边算好的（pairing/addresses.ts）：手填了没有、哪些入口用不了；不给是都没有 */
+  addresses?: () => { manual: boolean; rejected: RejectedConnectionAddress[] };
+}): () => DoctorCheckDataById["external"] {
+  const found = (): DoctorCheckDataById["external"] => {
     const registry = path.join(options.svcDataDir, "registry");
     if (hasTailnetEntry(path.join(registry, "tailnet.yaml"))) {
       return { configured: true, kind: hasHeadscale(path.join(options.svcDataDir, "vps-setup.json")) ? "headscale" : "tailscale" };
     }
     if (exposureVia(path.join(registry, "services", `${DAEMON_SERVICE_ID}.yaml`)) !== undefined) return { configured: true, kind: "tunnel" };
+    if (options.addresses?.().manual) return { configured: true, kind: "manual" };
     const devices = options.pairedDevices();
     return devices > 0 ? { configured: true, kind: "paired", devices } : { configured: false };
+  };
+  return () => {
+    const rejected = options.addresses?.().rejected ?? [];
+    return { ...found(), ...(rejected.length > 0 ? { rejected } : {}) };
   };
 }
 

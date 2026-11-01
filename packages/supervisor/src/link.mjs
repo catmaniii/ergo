@@ -5,12 +5,13 @@ import crypto from 'node:crypto';
 import { WebSocketServer } from 'ws';
 import { info, warn, audit } from './log.mjs';
 import { FEATURE as OWNED_FEATURE, wireReply } from './owned.mjs';
+import { FEATURE as ENTRIES_FEATURE, entriesFor } from './entries.mjs';
 
 const HEARTBEAT_GRACE_MS = 15000;   // 3 个心跳周期
 const PROTOCOL = 1;
 // 协议还是 v1：新能力只加消息，在 welcome.features 里声明（docs/link-protocol.md §7）。
 // 不升版本号是因为现有客户端见到 LSM_PROTOCOL 不是 1 就整个不接入——升了等于让所有老服务静默掉线。
-const FEATURES = [OWNED_FEATURE];
+const FEATURES = [OWNED_FEATURE, ENTRIES_FEATURE];
 
 export function attachLink(sup) {
   const wss = new WebSocketServer({ noServer: true });
@@ -55,6 +56,23 @@ export function attachLink(sup) {
   sup.on?.('change', pushOwnedAll);
   sup.on?.('registry-changed', pushOwnedAll);
 
+  // ---- 指向自己的入口（docs/link-protocol.md §8）
+
+  /** 入口变了（或者刚接入）就推给说了要的接入方；探活每轮都比一遍，实测结果在慢周期里变，下一轮探活就推出去。 */
+  function pushEntries(id, { force = false } = {}) {
+    const s = sessions.get(id);
+    if (!s?.features.includes(ENTRIES_FEATURE)) return;
+    const view = entriesFor(sup, id, s.externalPort);
+    const sig = JSON.stringify(view);
+    if (!force && sig === s.entriesSig) return;
+    s.entriesSig = sig;
+    if (view.wrongPort.length) warn(`${id} 有入口没接到它的对外端口 ${s.externalPort}，不算能用的入口`, { wrongPort: view.wrongPort.map((e) => `${e.url} → ${e.port ?? '端口不明'}`) });
+    send(s.ws, { type: 'entries.status', ...view });
+  }
+  const pushEntriesAll = () => { for (const id of sessions.keys()) pushEntries(id); };
+  sup.on?.('refresh', pushEntriesAll);
+  sup.on?.('registry-changed', pushEntriesAll);
+
   function onServices(ws, ownerId, msg) {
     // id 放最后：回复的内容里绝不能盖掉请求编号，否则登记方永远对不上这条回复
     const reply = (r) => send(ws, { type: 'services.reply', ...wireReply(r), id: msg.id ?? null });
@@ -94,6 +112,7 @@ export function attachLink(sup) {
         version: msg.version || '', capabilities: msg.capabilities || [],
         logs: msg.logs || [], health: 'ok', busy: false, busyReason: null,
         features: Array.isArray(msg.features) ? msg.features.filter((f) => typeof f === 'string') : [],
+        externalPort: Number.isInteger(msg.externalPort) ? msg.externalPort : null,
         lastBeat: Date.now(), since: Date.now(),
       };
       sessions.set(ctx.serviceId, session);
@@ -103,6 +122,7 @@ export function attachLink(sup) {
       // 接入时推一次名下服务的全量。只推给说了要的（hello.features 里有 services）或者名下真有服务的——
       // 老项目什么都不会多收到（除了 welcome 里多一个它不认识的字段）
       if (session.features.includes(OWNED_FEATURE) || sup.owned?.listFor(ctx.serviceId).length) pushOwned(ctx.serviceId, { full: true });
+      pushEntries(ctx.serviceId, { force: true });
       bus.emit('change');
       return;
     }
@@ -185,6 +205,7 @@ export function attachLink(sup) {
     close() {
       clearInterval(sweep);
       sup.off?.('refresh', pushOwnedAll); sup.off?.('change', pushOwnedAll); sup.off?.('registry-changed', pushOwnedAll);
+      sup.off?.('refresh', pushEntriesAll); sup.off?.('registry-changed', pushEntriesAll);
       for (const id of Array.from(sessions.keys())) drop(id, '管理器退出');   // 先拷一份：drop 会删 sessions 里的项
       wss.close();
     },

@@ -51,7 +51,9 @@ adb -s <串号> logcat -s ErgoApp               # App 和网页的日志
 
 | 目录 | 内容 |
 |---|---|
-| `app/src/main/java/.../MainActivity.kt` | 外壳：地址页、出错页、主界面 WebView、返回键、避让、外观 |
+| `app/src/main/java/.../MainActivity.kt` | 外壳：地址页、扫码连接的流程、出错页、主界面 WebView、返回键、避让、外观 |
+| `app/src/main/java/.../scan/QrScanner.kt` | 扫码连接（364 号票）：Camera2 取景，ZXing 的 core 包解码（只认二维码） |
+| `app/src/main/java/.../common/ConnectCheck.kt`、`ConnectProbe.kt` | 扫到之后测连不连得上：判断（和鸿蒙拿同一份例子核对）和真的请求一次 |
 | `bridge/` | 原生桥。`BridgeChannel` 是消息通道和来源核对，`NativeBridge` 是方法表和分发 |
 | `assets/ergo-native-shim.js` | 网页这一侧的垫片：定义 `window.ergoNative`，只注入配好的来源 |
 | `browser/` | 内置浏览器（`InAppBrowser`）、页面桥（`PageControl`）、⋮ 菜单（`BrowserTools`）、能渲染的文件（`FileDocs`）、侧边栏（`SidePanel`） |
@@ -88,6 +90,8 @@ emulator -avd Medium_Phone_API_36.0 -port 5570 -no-window -no-audio -no-boot-ani
 npm run build:android -- --webview-debug
 node frontend/android/e2e/run.ts emulator-5570 <截图目录>       # 外壳、配对、语言、外观、返回键、录音、通知
 node frontend/android/e2e/browser.ts emulator-5570 <截图目录>   # 外部页面碰不到 ergoNative、内置浏览器、侧边栏、下载、⋮ 菜单
+node frontend/android/e2e/scan.ts emulator-5570 <截图目录>      # 扫码连接：相机权限、取景、每种连不上的报错、真的二维码喂给 ZXing、就地批准
+node frontend/android/e2e/scan-camera.ts run emulator-5570 17590 <截图目录>   # 相机这条路：虚拟场景相机对着墙上的二维码海报（模拟器的启动参数不同，见文件开头）
 ```
 
 `-no-audio` 下麦克风全静音：网页收到录音、判为没声音，联调到这一步为止。真人说话和上传识别要真机验。

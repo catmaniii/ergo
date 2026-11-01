@@ -55,6 +55,10 @@ test("外观与风格是设置下面的一页：地址拆得开、拼得回，�
 
 test("系统提示是设置下面的一页，点进某一份是下一级（71 号票）：地址拆得开、拼得回，属于主导航的设置", () => {
   // 343 号票：数据源详情、共用的导入文件夹
+  // 设备配对的二维码界面（364 号票）：只认 qr 这一个下一级，别的回到设备配对
+  expect(parseHash("#/more/devices/qr")).toEqual({ tab: "more", page: "devices", item: "qr" });
+  expect(toHash({ tab: "more", page: "devices", item: "qr" })).toBe("#/more/devices/qr");
+  expect(parseHash("#/more/devices/other")).toEqual({ tab: "more", page: "devices" });
   expect(parseHash("#/more/data-sources")).toEqual({ tab: "more", page: "data-sources" });
   expect(parseHash("#/more/data-sources/google-gmail")).toEqual({ tab: "more", page: "data-sources", item: "google-gmail" });
   expect(toHash({ tab: "more", page: "data-sources", item: "google-gmail" })).toBe("#/more/data-sources/google-gmail");

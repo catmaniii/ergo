@@ -50,5 +50,10 @@
   "doctor.fix.components": "Install the missing ones in Settings · Components (\"Install the default components\" is the quickest way). Until then the features they enable are greyed out",
   "doctor.fix.disk": "Free at least 1 GB on the volume that holds the data folder: clear old backups, download caches, logs, or move the data folder to a bigger disk",
   "doctor.fix.external": "If your phone can't connect yet: to use Ergo on mobile data too, set up one of the three ways in the setup wizard's outside-access screen (Tailscale is the easiest), then pair the phone once and this check clears; if you only use it at home you can ignore this check",
-  "doctor.fix.retry": "This check didn't run this time: press \"Run again\". If it keeps failing, look in the service manager logs (%LOCALAPPDATA%\\ergo\\supervisor\\logs) for what Ergo reported"
+  "doctor.fix.retry": "This check didn't run this time: press \"Run again\". If it keeps failing, look in the service manager logs (%LOCALAPPDATA%\\ergo\\supervisor\\logs) for what Ergo reported",
+  "doctor.kind.manual": "an address you entered",
+  "doctor.fact.externalRejected": "{base}. {count} entries can't be used by a phone: {entries}",
+  "doctor.fact.externalRejected.wrongPort": "{url} (goes to port {port})",
+  "doctor.fact.externalRejected.notHttps": "{url} (not https)",
+  "doctor.fix.externalRejected": "An entry that goes to the local port must be moved to the external port: the local port trusts requests from this computer automatically, so it must never be reachable from outside. In the service manager, change that entry's exposure.localPort or the port after the tunnel's -R. Replace non-https entries with https. Only then can a phone use the entry, and it will show up in the pairing code"
 }
