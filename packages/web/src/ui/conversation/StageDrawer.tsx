@@ -1,5 +1,5 @@
 /**
- * 对话框顶部的阶段条（368 号票起宽屏、手机一样，放在哪、展开到哪一档见 stage-panel.tsx）：
+ * 手机：对话框顶部的阶段条；宽屏：左边栏里的整张图（StageSideBody，用户 2026-11-01，和档案共用栏位；放在哪、展开到哪一档见 stage-panel.tsx）：
  * - 第一行一个阶段标签（StageChip）："◐ 第 N 阶段 · 已验收几个/共几个 ▾"（60 号票；小三角表示能点，展开时朝上），点它展开、收起；
  *   任务做完了换成一句话（比如"✓ 首版已完成 · 4/4 ▾"，368 号票）；计划还没确认时写"计划图"；刚被拉回、拦下、你拒绝时闪一下；
  * - 下面是抽屉：半开是横向的阶段条，全开是整个计划的依赖图（91 号票，StageGraph.tsx；同层并排、曲线连线），下面一行是出过的状况
@@ -180,6 +180,37 @@ export function StageChip({
 function Counts({ graph, counts }: { graph: StageGraph; counts: ReactNode }) {
   if (graph.kind === "plan") return <div className="md-counts ic-none">{t("ui.stageDrawer.countsPending")}</div>;
   return counts ? <div className="md-counts">{counts}</div> : null;
+}
+
+/** 宽屏左边栏里的阶段进展（用户 2026-11-01：和项目档案共用一个栏位）：整张依赖图，最下面一行是出过的状况。点一个阶段：选中它，右边详情栏打开它 */
+export function StageSideBody({
+  graph,
+  selected,
+  onSelect,
+  onDetail,
+  counts,
+}: {
+  graph: StageGraph;
+  selected?: string | undefined;
+  onSelect(id: string): void;
+  onDetail(id: string): void;
+  counts?: ReactNode;
+}) {
+  return (
+    <>
+      <div className="md-side-graph">
+        <StageGraphView
+          graph={graph}
+          focus={selected}
+          onNode={(id) => {
+            onSelect(id);
+            onDetail(id);
+          }}
+        />
+      </div>
+      <Counts graph={graph} counts={counts} />
+    </>
+  );
 }
 
 /**

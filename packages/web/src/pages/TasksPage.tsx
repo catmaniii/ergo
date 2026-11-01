@@ -807,6 +807,7 @@ function ProtoTaskDetail({ taskId, wide, at, onBack }: { taskId: string; wide: b
   // 会话按阶段成框：原型照假阶段、假的活动状态
   const chatList = useMemo(() => detail.stages.map((s) => ({ id: s.id, title: s.title, after: s.after, state: s.status, waitReason: s.waitReason })), [detail.stages]);
   const stagePanel = useStagePanel({
+    wide,
     taskId,
     graph,
     progress: stageProgress(detail.stages),
@@ -934,6 +935,7 @@ function ProtoTaskDetail({ taskId, wide, at, onBack }: { taskId: string; wide: b
         onPick: (item) => acts.run(target, item),
       }}
       bar={stagePanel.bar}
+      stageSide={stagePanel.side}
       onChatPointerDown={stagePanel.onChatPointerDown}
       stages={stageSource}
       panel={panel}

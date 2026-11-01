@@ -715,7 +715,8 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
         agent: await page.locator("[data-agent-dialog]").getAttribute("data-agent-dialog"),
         title: await page.locator(".topbar .th-name").first().innerText(),
         stage: await page.locator('[data-stage-bar="live"] .stage-chip').count(),
-        rail: await page.locator(".stage-bar-line + .md .rail").count(),
+        // 手机是顶部的阶段条，宽屏是左边栏里的整张图
+        rail: await page.locator(".stage-bar-line + .md .rail, .md-side-graph").count(),
         composer: await page.locator(".composer textarea").count(),
       };
     };
@@ -744,7 +745,8 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       // 手机上不再多一层项目页：档案点标题滑进来；宽屏就在左边。档案里有项目的详情和内部任务（排队的也在），点了定位到它
       const phone = viewport.width < 900;
       expect(await page.locator(".proj-side").count()).toBe(phone ? 0 : 1);
-      if (phone) await page.locator(".th-name-link").click();
+      // 宽屏：在做的任务左边栏先是阶段进展，点"项目档案"换过来
+      await page.locator(phone ? ".th-name-link" : ".proj-side-chip").click();
       await page.locator(phone ? ".dp-page.at-detail .proj-head" : ".proj-side .proj-head").waitFor();
       expect(await page.locator("[data-task-brief=t-photos]").count()).toBe(1);
 
@@ -752,7 +754,8 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       await go("#/tasks/t-newpc");
       await page.locator("[data-agent-dialog] .composer").waitFor();
       expect(await hash()).toBe("#/tasks/t-newpc");
-      expect(await dialog()).toMatchObject({ title: "换新电脑：把旧电脑的资料搬过去", stage: 1, rail: 1, composer: 1 });
+      // 宽屏刚才换成了档案，这台设备记住了，这里左边栏也先是档案
+      expect(await dialog()).toMatchObject({ title: "换新电脑：把旧电脑的资料搬过去", stage: 1, rail: phone ? 1 : 0, composer: 1 });
       // 原型的假任务也是
       await go("#/tasks/t-bills");
       await page.locator("[data-agent-dialog]").waitFor();
@@ -765,7 +768,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
   test.each([
     ["手机", { width: 390, height: 844 }],
     ["电脑", { width: 1280, height: 800 }],
-  ])("%s宽：阶段条在对话框顶部，点一个阶段看交付件和验收标准；做完收成一行，点开能看；没有任务不占地方", async (_what, viewport) => {
+  ])("%s宽：阶段进展（手机在对话框顶部，宽屏在左边栏），点一个阶段看交付件和验收标准；做完收起来，点开能看；没有任务不占地方", async (_what, viewport) => {
     const { page, errors } = await open(viewport);
     const go = (to: string) => page.evaluate(`window.location.hash = ${JSON.stringify(to)}`);
     try {
@@ -774,10 +777,12 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       const done = page.locator('[data-stage-bar="done"] .stage-chip');
       await done.waitFor();
       expect(await done.innerText()).toContain("首版已完成");
-      expect(await page.locator(".md .rail").count()).toBe(0);
+      const phone = viewport.width < 900;
+      const graph = phone ? ".md .rail" : ".md-side-graph";
+      expect(await page.locator(graph).count()).toBe(0);
       await done.click();
-      await page.locator(".md .rail").waitFor();
-      await page.locator('.rail-node:has-text("按月出报表")').click();
+      await page.locator(graph).waitFor();
+      await page.locator(phone ? '.rail-node:has-text("按月出报表")' : '.md-side-graph :text("按月出报表")').first().click();
       const stage = viewport.width < 900 ? page.locator(".dp-page.at-detail") : page.locator(".pane-detail");
       await stage.waitFor();
       await expect.poll(() => stage.innerText(), { timeout: 5000 }).toContain("九月份月报的合计和银行对账单对得上");
@@ -787,6 +792,48 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       await page.locator('[data-agent-dialog="project-netdisk"] .composer').waitFor();
       expect(await page.locator(".stage-bar-line").count()).toBe(0);
       expect(await page.locator(".topbar .pst").count()).toBe(1);
+      expect(errors).toEqual([]);
+    } finally {
+      await page.close();
+    }
+  }, 60_000);
+
+  // 用户 2026-11-01：宽屏的阶段进展和档案抢一个左边栏，不同时显示；两边用同一个宽度，× 了就都不占
+  test("电脑宽：阶段进展和档案共用左边栏，点谁显示谁，× 了空出来，刷新后记得", async () => {
+    const { page, errors } = await open({ width: 1280, height: 800 });
+    const head = () => page.locator(".md-side .md-side-head span").first().innerText();
+    const chip = page.locator(".topbar .stage-head-chip .stage-chip");
+    try {
+      await page.evaluate(`window.location.hash = "#/tasks/t-newpc"`);
+      await page.locator(".md-side-graph").waitFor();
+      expect(await page.locator(".md-side").count()).toBe(1);
+      expect(await head()).toBe("阶段进展");
+      expect(await page.locator(".stage-bar-line").count()).toBe(0);
+      // 点档案：顶替阶段进展
+      await page.locator(".proj-side-chip").click();
+      await expect.poll(head).toBe("任务档案");
+      expect(await page.locator(".md-side").count()).toBe(1);
+      expect(await page.locator(".md-side-graph").count()).toBe(0);
+      // 点阶段标签：换回来
+      await chip.click();
+      await page.locator(".md-side-graph").waitFor();
+      expect(await page.locator(".md-side").count()).toBe(1);
+      // 换来换去宽度不变
+      const width = await page.locator(".md-side").evaluate((el) => el.getBoundingClientRect().width);
+      await page.locator(".proj-side-chip").click();
+      await expect.poll(head).toBe("任务档案");
+      expect(await page.locator(".md-side").evaluate((el) => el.getBoundingClientRect().width)).toBe(width);
+      // ×：左边栏空出来，再进来也是空的
+      await page.locator(".md-side-close").click();
+      await expect.poll(() => page.locator(".md-side").count()).toBe(0);
+      await page.reload();
+      await page.locator("[data-agent-dialog] .composer").waitFor();
+      expect(await page.locator(".md-side").count()).toBe(0);
+      // 点阶段标签打开，刷新后还是它
+      await chip.click();
+      await page.locator(".md-side-graph").waitFor();
+      await page.reload();
+      await page.locator(".md-side-graph").waitFor();
       expect(errors).toEqual([]);
     } finally {
       await page.close();

@@ -83,7 +83,7 @@ import { ActivityDot, Section, Sheet, Splitter } from "../ui/common.tsx";
 import { type ConversationHandle, ZoomToggle } from "../ui/conversation/Conversation.tsx";
 import { PlanProgress, PlanTimeline } from "../ui/conversation/PlanTimeline.tsx";
 import { StageCard, stageProgress, usePing } from "../ui/conversation/StageDrawer.tsx";
-import { type StagePanel, useStagePanel } from "../ui/conversation/stage-panel.tsx";
+import { type StagePanel, type StageSidePanel, useStagePanel } from "../ui/conversation/stage-panel.tsx";
 import { BackgroundAgentsEntry } from "../ui/detail/BackgroundAgents.tsx";
 import { type DetailController, DetailLayout, FrameWidth } from "../ui/detail/DetailLayout.tsx";
 import { IncidentCounts } from "../ui/detail/incidents.tsx";
@@ -128,6 +128,7 @@ export function AgentDialog({
   head,
   archive,
   bar,
+  stageSide,
   onChatPointerDown,
   stages,
   panel,
@@ -147,6 +148,8 @@ export function AgentDialog({
   archive?: AgentArchive | undefined;
   /** 阶段条（useStagePanel 的 bar、TaskBar） */
   bar?: ReactNode;
+  /** 宽屏的阶段进展：和项目档案共用左边栏（用户 2026-11-01），不同时显示 */
+  stageSide?: StageSidePanel | undefined;
   onChatPointerDown?: (() => void) | undefined;
   stages?: StageDetailSource | undefined;
   panel?: ((panel: TaskPanel) => ReactNode) | undefined;
@@ -164,7 +167,9 @@ export function AgentDialog({
   /** 这一次开着的：你自己开合之后按你的 */
   const [forced, setForced] = useState(archive?.forced === true);
   const layout = projectSideLayout({ pref, job: forced ? "job" : undefined });
-  const open = layout === "side" && archive !== undefined && wide;
+  // 左边栏只有一个栏位：阶段进展开着就是它；地址点名要看档案里的东西（forced）时先给档案，点了阶段标签再换
+  const showStages = wide && stageSide !== undefined && stageSide.open && !forced;
+  const open = layout === "side" && archive !== undefined && wide && !showStages;
   const setSide = (next: "open" | "closed") => {
     setForced(false);
     pageProjectSide().set(next);
@@ -191,11 +196,35 @@ export function AgentDialog({
           onBack={onBack}
           onTitle={wide ? undefined : showArchive}
           lead={
-            wide &&
-            archive && (
-              <button type="button" className="stage-chip proj-side-chip" onClick={() => setSide(open ? "closed" : "open")} aria-expanded={open} aria-label={open ? t("pages.projects.side.hide") : t("pages.projects.side.show")}>
-                {archive.label}
-              </button>
+            wide && (
+              <>
+                {archive && (
+                  <button
+                    type="button"
+                    className="stage-chip proj-side-chip"
+                    onClick={() => {
+                      if (showStages) stageSide.close();
+                      setSide(open ? "closed" : "open");
+                    }}
+                    aria-expanded={open}
+                    aria-label={open ? t("pages.projects.side.hide") : t("pages.projects.side.show")}
+                  >
+                    {archive.label}
+                  </button>
+                )}
+                {stageSide && (
+                  <span
+                    onClickCapture={(e) => {
+                      if (!forced) return;
+                      // 地址点名开着档案时：这一下是换成阶段进展，不是关掉它
+                      setForced(false);
+                      if (stageSide.open) e.stopPropagation();
+                    }}
+                  >
+                    {stageSide.chip}
+                  </span>
+                )}
+              </>
             )
           }
           moreHead={!wide && archive && showArchive ? { label: archive.label, onPick: showArchive } : undefined}
@@ -206,16 +235,22 @@ export function AgentDialog({
         />
         {phoneSettings.sheet}
         <div className="chat-row">
-          {open && (
+          {(open || showStages) && (
             <>
-              <aside className="md-side proj-side" style={{ width: dragging ?? remembered }} aria-label={archive.label}>
+              <aside className="md-side proj-side" style={{ width: dragging ?? remembered }} aria-label={showStages ? t("ui.stageDrawer.sideTitle") : archive?.label}>
                 <div className="md-side-head">
-                  <span>{archive.label}</span>
-                  <button type="button" className="md-side-close" onClick={() => setSide("closed")} aria-label={t("pages.projects.side.hide")} title={t("pages.projects.side.hideTitle")}>
+                  <span>{showStages ? stageSide.title : archive?.label}</span>
+                  <button
+                    type="button"
+                    className="md-side-close"
+                    onClick={() => (showStages ? stageSide.close() : setSide("closed"))}
+                    aria-label={showStages ? t("ui.stageDrawer.sideClose") : t("pages.projects.side.hide")}
+                    title={showStages ? t("ui.stageDrawer.sideClose") : t("pages.projects.side.hideTitle")}
+                  >
                     ×
                   </button>
                 </div>
-                <div className="scroll proj-side-body">{archive.body}</div>
+                {showStages ? stageSide.body : <div className="scroll proj-side-body">{archive?.body}</div>}
               </aside>
               <Splitter
                 label={t("pages.projects.side.resize")}
@@ -289,6 +324,7 @@ export interface TaskScene {
  * - doneText：任务结束了那一行怎么说（不给就写状态）。
  */
 export function useTaskScene({
+  wide,
   task,
   conversation,
   conversationRef,
@@ -299,6 +335,7 @@ export function useTaskScene({
   focusHref,
   onDeleted,
 }: {
+  wide: boolean;
   task: Task | undefined;
   conversation: ConversationId;
   conversationRef: RefObject<ConversationHandle | null>;
@@ -343,7 +380,7 @@ export function useTaskScene({
   const stepAt = useMemo(() => stageAtItems(ui, items, taskId), [ui, items, taskId]);
   const done = !task || !ended ? undefined : { text: doneText ?? taskStatusText(task), ok: task.state === "done" };
   // 项目的对话框（caption 给了）：会话里还有别的任务、项目自己的条目，只把这个任务在阶段里的成框
-  const stagePanel = useStagePanel({ taskId, graph, progress: stageProgress(stages), show: detail.show, counts, ping, stepAt, lastItemId: items.at(-1)?.id, done, caption: done ? undefined : caption, chatStages: { shared: caption !== undefined } });
+  const stagePanel = useStagePanel({ wide, taskId, graph, progress: stageProgress(stages), show: detail.show, counts, ping, stepAt, lastItemId: items.at(-1)?.id, done, caption: done ? undefined : caption, chatStages: { shared: caption !== undefined } });
   const [ledger, setLedger] = useState(false);
   const acts = useTaskActs();
   // 地址点名定位到这个任务（没带 at 的）：会话滚到它开始的那一条，只定位一次。要等历史取回来（第一条会往前变）
@@ -403,8 +440,9 @@ export function useTaskScene({
   const onBriefPanel = (p: TaskPanel) => detail.go({ type: "panel", taskId: task.id, panel: p });
   const onPick = (item: TaskMenuItem) => acts.run(target, item);
   // 阶段条：长程任务建好了阶段的是阶段条；流程是进度（点开是计划台账）；别的只在要写清是哪个任务时有一行（任务自己的对话框标题就是它，不占地方）
-  const bar =
-    stagePanel.bar ??
+  const bar = stagePanel.side
+    ? null
+    : stagePanel.bar ??
     (workflow && progress ? (
       <div className="stage-bar-line" data-stage-bar={ended ? "done" : "live"}>
         <PlanProgress progress={progress} onOpen={() => setLedger(true)} />
@@ -552,7 +590,7 @@ export function TaskConversation({ task, wide, at, onBack }: { task: Task; wide:
   // 打开详情时订阅它的负责人会话（订阅过的一直保留）
   useEffect(() => watchChannels([conversation]), [watchChannels, conversation]);
   const [conversationRef, detail] = useConversationPane(wide, conversation);
-  const { scene, stagePanel } = useTaskScene({ task, conversation, conversationRef, detail, focused: false, onDeleted: onBack });
+  const { scene, stagePanel } = useTaskScene({ wide, task, conversation, conversationRef, detail, focused: false, onDeleted: onBack });
   if (!scene) return null;
   const { plain, timed, workflow } = scene;
   return (
@@ -567,6 +605,7 @@ export function TaskConversation({ task, wide, at, onBack }: { task: Task; wide:
       head={{ ...scene.head, activity: scene.activity }}
       archive={{ label: t("pages.agent.taskArchive"), body: <TaskBrief scene={scene} /> }}
       bar={scene.bar}
+      stageSide={stagePanel.side}
       onChatPointerDown={stagePanel.onChatPointerDown}
       stages={scene.stages}
       panel={scene.panel}

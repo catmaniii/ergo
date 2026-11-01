@@ -1,4 +1,5 @@
 /**
+ * 宽屏（用户 2026-11-01）：阶段标签在标题栏上，点了整张阶段图开在左边栏，和项目档案共用这个栏位、不同时显示（side，AgentDialog 摆）。下面说的阶段条是手机上的。
  * 对话框顶部的阶段条（368 号票，用户 2026-11-01："阶段条就是显示在我点击卡片之后进去的那个聊天窗口，而不要再展开一层"；91 号票的计划栏、88 号票的阶段标签并进来）：
  * 真任务、项目的对话框、原型的假任务共用，任务详情只管把依赖图、出过的状况、详情的开法交进来，把返回的阶段条放到会话上面。宽屏、手机一样：
  * - 第一行：阶段标签 + 这一阶段的名字（项目的对话框还写是哪个任务）。写的是哪一阶段：你手动点的 > 聊天里正在看的那一段（滚动时跟着变；停在最新一条时是
@@ -13,13 +14,28 @@
  */
 import { type ReactNode, useMemo, useState } from "react";
 import { useBackLayer } from "../../app/page-back.ts";
+import { pageProjectSide } from "../../app/page-project-wall.ts";
 import { pageStageSide, useStageSidePref } from "../../app/page-stage-side.ts";
-import { type DetailTarget, type GuardPingKind, type StageBoxStage, type StageGraph, shownStage } from "../../state/index.ts";
-import { type DrawerMode, StageChip, StageDrawer } from "./StageDrawer.tsx";
+import { type DetailTarget, type GuardPingKind, type StageBoxStage, type StageGraph, shownStage, t } from "../../state/index.ts";
+import { type DrawerMode, StageChip, StageDrawer, StageSideBody } from "./StageDrawer.tsx";
+
+/** 宽屏左边栏里的阶段进展 */
+export interface StageSidePanel {
+  /** 标题栏上的阶段标签：点了在左边栏打开、关上 */
+  readonly chip: ReactNode;
+  /** 现在该不该占左边栏 */
+  readonly open: boolean;
+  /** 关上：左边栏空出来，不自动换成项目档案（换成项目档案的调用方接着打开它） */
+  close(): void;
+  readonly title: ReactNode;
+  readonly body: ReactNode;
+}
 
 export interface StagePanel {
-  /** 阶段条：放在对话框标题栏下面、会话上面；没有阶段的任务没有 */
+  /** 阶段条：手机上放在对话框标题栏下面、会话上面；宽屏没有（见 side）；没有阶段的任务没有 */
   readonly bar: ReactNode;
+  /** 宽屏左边栏里的阶段进展；手机上、没有阶段的任务没有 */
+  readonly side?: StageSidePanel | undefined;
   /** 整个计划开着时点聊天区：缩回阶段条（挂在会话外面那一层的 onPointerDownCapture 上） */
   readonly onChatPointerDown: (() => void) | undefined;
   /** 会话报来屏幕上正在看的那一条（视口 40% 高处）、是不是停在最新一条：阶段标签跟着变 */
@@ -42,6 +58,7 @@ export interface StageChatProps {
 }
 
 export function useStagePanel({
+  wide,
   taskId,
   graph,
   progress,
@@ -54,6 +71,7 @@ export function useStagePanel({
   done,
   caption,
 }: {
+  wide: boolean;
   taskId: string;
   /** 依赖图（state 的 taskStageGraph，原型的从假阶段排）；没有阶段的任务没有 */
   graph: StageGraph | undefined;
@@ -110,7 +128,7 @@ export function useStagePanel({
     }
   }
   // 整个计划开着时，返回键先缩回阶段条
-  useBackLayer("overlay", hasStages && mode === "full", () => setMode("half"));
+  useBackLayer("overlay", !wide && hasStages && mode === "full", () => setMode("half"));
   const live = graph?.nodes.filter((n) => n.state !== "removed") ?? [];
   const selected = shownStage({ pinned, focus, current: graph?.current, stepAt, lastItemId, first: live[0]?.id });
   const onFocusChat = setFocusIfChanged(setFocus);
@@ -132,6 +150,61 @@ export function useStagePanel({
     // 做完了的展开只算这一次；没做完的记到这台设备上
     if (done === undefined) pageStageSide().set(next === "closed" ? "closed" : "open");
   };
+  const chat: StageChatProps = {
+    onFocusChat,
+    onStep,
+    onStage: (stageId) => show({ type: "stage", taskId, stageId }),
+    onPlan: (cardId, stageId) => show({ type: "plan", cardId, ...(stageId === undefined ? {} : { focus: stageId }) }),
+    stageChat,
+  };
+  if (wide) {
+    const close = () => {
+      setPinned(undefined);
+      setMode("closed");
+      if (done === undefined) pageStageSide().set("closed");
+      pageProjectSide().set("closed");
+    };
+    return {
+      bar: null,
+      side: {
+        open: mode !== "closed",
+        close,
+        chip: (
+          <span className="stage-head-chip" data-stage-bar={done !== undefined ? "done" : "live"}>
+            <StageChip
+              graph={graph}
+              selected={selected}
+              progress={progress}
+              open={mode !== "closed"}
+              ping={ping}
+              done={done}
+              onTap={() => {
+                if (mode !== "closed") {
+                  close();
+                  return;
+                }
+                setMode("half");
+                if (done === undefined) pageStageSide().set("open");
+              }}
+            />
+          </span>
+        ),
+        title: (
+          <>
+            {t("ui.stageDrawer.sideTitle")}
+            {graph.kind !== "live" && <span className="md-side-wait">{t("ui.stageDrawer.sideAwaiting")}</span>}
+            {caption !== undefined && <span className="md-side-wait">{caption}</span>}
+          </>
+        ),
+        body: <StageSideBody graph={graph} selected={selected} onSelect={setPinned} onDetail={openStage} counts={counts} />,
+      },
+      onChatPointerDown: undefined,
+      onFocusChat,
+      onStep,
+      selected,
+      chat,
+    };
+  }
   const shown = live.find((n) => n.id === selected) ?? live[0];
   return {
     bar: (
@@ -162,13 +235,7 @@ export function useStagePanel({
     onFocusChat,
     onStep,
     selected,
-    chat: {
-      onFocusChat,
-      onStep,
-      onStage: (stageId) => show({ type: "stage", taskId, stageId }),
-      onPlan: (cardId, stageId) => show({ type: "plan", cardId, ...(stageId === undefined ? {} : { focus: stageId }) }),
-      stageChat,
-    },
+    chat,
   };
 }
 

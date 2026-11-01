@@ -367,6 +367,7 @@ function ProjectDialog({ view, wide, job, focus, at }: { view: ProjectView; wide
   const task = projectConversationTask(ui, p, focus);
   const focused = focus !== undefined && task?.id === focus;
   const { scene, stagePanel } = useTaskScene({
+    wide,
     task,
     conversation,
     conversationRef,
@@ -425,6 +426,7 @@ function ProjectDialog({ view, wide, job, focus, at }: { view: ProjectView; wide
         ),
       }}
       bar={scene?.bar}
+      stageSide={stagePanel.side}
       onChatPointerDown={stagePanel.onChatPointerDown}
       stages={scene?.stages}
       panel={scene?.panel}
