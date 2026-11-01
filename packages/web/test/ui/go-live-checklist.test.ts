@@ -9,7 +9,7 @@ import { GoLiveChecklist } from "../../src/ui/cards/cards.tsx";
 const ITEMS: GoLiveChecklistItem[] = [
   { id: "architecture", label: "架构图写清服务和对外接口", done: false, detail: "缺架构图 architecture.md（有服务的项目照开发类要它）" },
   { id: "ops", label: "运营接口清单验收通过（ops.json）", done: false, detail: "缺 ops.json" },
-  { id: "services", label: "服务按模板在 LSM 登记（写进运营方案）", done: true, detail: "确认后交给 LSM 登记：「gallery」" },
+  { id: "services", label: "服务写进运营方案（确认后由服务管家上线）", done: true, detail: "确认后交给服务管家上线：「gallery」" },
   { id: "public_entry", label: "要外网的开好 /apps/<项目>/", done: true, detail: "确认后开 /apps/p-photos-gallery/" },
   { id: "progress_written", label: "进展已写回", done: true },
 ];
@@ -25,6 +25,14 @@ describe("转运营检查清单", () => {
     expect(html).toContain('<span class="golive-label">运营接口清单验收通过（ops.json）</span><span class="golive-detail">缺 ops.json</span>');
     expect(html).toContain("确认后开 /apps/p-photos-gallery/");
     expect(html).toContain("缺的不挡确认：照样确认会写明缺什么，也可以先让维护者补齐。");
+  });
+
+  test("上线后再验（362 号票）：标出来、不算缺", () => {
+    const html = renderToStaticMarkup(createElement(GoLiveChecklist, { items: [{ id: "ops", label: "运营接口清单验收通过（ops.json）", done: true, later: true, detail: "上线后自动复验" }], pending: true }));
+    expect(html).toContain("golive-later");
+    expect(html).toContain("上线后再验");
+    expect(html).toContain("上线后自动复验");
+    expect(html).toContain("都做到了");
   });
 
   test("都做到了：小签写都做到了，没有提醒；确认过的写照样确认时缺了哪几项", () => {

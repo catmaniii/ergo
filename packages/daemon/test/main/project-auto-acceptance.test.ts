@@ -138,7 +138,8 @@ describe("项目里的任务：起草时只写脚本、评审，之后自动验�
         ];
       },
       // 评审先在工作目录里跑一条命令（任务的工具包开了 bash，112 号票返修：能跑的跑一遍再判），再交结论
-      reviewer: () => [call("bash", { command: "cat sources.md report.md 2>/dev/null; echo 评审跑过了" }), ...pass()],
+      // 362 号票：还读了项目档案（立项书、规格）：只读，不出审批卡
+      reviewer: () => [call("read", { path: path.join(path.dirname(d.progress()), "charter.md") }), call("bash", { command: "cat ../spec.md >/dev/null; cat sources.md report.md 2>/dev/null; echo 评审跑过了" }), ...pass()],
     });
     const frontend = await connect(td.url);
     const task = projectTaskWithBrief(td);
@@ -169,6 +170,9 @@ describe("项目里的任务：起草时只写脚本、评审，之后自动验�
     expect(reviewed).toContain("评审跑过了");
     expect(reviewed).toContain("- 来源");
     expect(inboxOf(frontend).filter((i) => i.kind === "notice" && i.notice === "stage_acceptance")).toEqual([]);
+    // 评审读项目档案没出审批卡；读到了立项书，写项目档案照旧不行（子 agent）
+    expect(reviewed).toContain("# 立项书");
+    expect(cardsOf(frontend).filter((c) => c.type === "approval")).toEqual([]);
     await inputsDone(frontend, PM1);
   }, 90_000);
 

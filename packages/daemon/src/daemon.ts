@@ -392,6 +392,8 @@ export interface StartDaemonOptions {
    * 不填用 secretary/task-done.ts 的 TASK_DONE_SETTLE_MS（2 秒）。按时钟算
    */
   taskDoneSettleMs?: number;
+  /** 立项后叫醒维护者先开口（362 号票）：默认开；测试里假模型的剧本大多不想多一轮，默认关（要测的自己开） */
+  kickoffOpening?: boolean;
   /** 守护进程的日志；不填写到 stderr */
   log?: (line: string) => void;
   /** 时钟（调度器、插件、事件时间都跟着它）；不填用系统时钟。测试换成手动拨的 */
@@ -1083,6 +1085,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 项目的服务报事件的前台（357）：运营层核过凭证后经它交事件，事件来源的分发建好时接上（在项目系统之后）
     const serviceDesk = createServiceEventDesk();
     const projectSystem = createProjectSystem({
+      ...(options.kickoffOpening === undefined ? {} : { kickoffOpening: options.kickoffOpening }),
       serviceEvents: { desk: serviceDesk, stateDir: realLayout.eventSources, thresholds: config.eventSources },
       store,
       cards,
@@ -2195,6 +2198,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       toolkits: {
         skillPaths: toolkits.skillPaths,
         mcpTools: toolkits.mcpTools,
+        registeredMcp: () => mcpTexts.registeredMcpText(mcp.brief()),
         skillTool: (scope) => toolkits.skillTool({ kind: "task", scope }),
         mcpChangeTool: (scope) => mcpChanges.requestTool({ kind: "task", taskId: scope.taskId, maintainerId: scope.maintainerId }),
         skillChangeTool: (scope) => skillChanges.requestTool({ kind: "task", taskId: scope.taskId, maintainerId: scope.maintainerId }),

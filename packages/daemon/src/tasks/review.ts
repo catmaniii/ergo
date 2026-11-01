@@ -71,7 +71,7 @@ export interface ReviewInput {
   userWords?: readonly VerifiedUserWords[];
   /** 能跑命令（112 号票返修）：维护者此刻的工具包开了 bash（照子 agent 从维护者收窄的做法） */
   bash?: boolean;
-  /** 交付件不在工作目录里时它另能读的地方（17 号票：涉及的各项目的档案和工作目录），只读 */
+  /** 交付件不在工作目录里时它另能读的地方（17 号票：涉及的各项目的档案和工作目录；362 号票：项目自己的任务是这个项目的档案），只读 */
   readOnly?: { projectRecords: readonly string[]; workingDirs: readonly string[] };
   /** 守卫看到的任务和当前阶段 */
   guardTask: () => GuardTask | null;
@@ -216,6 +216,8 @@ export function createReviewer(options: ReviewerOptions): (input: ReviewInput) =
             `交付件（在工作目录 ${input.cwd} 里）：`,
             ...input.deliverables.map((d) => `- ${d}`),
             ...(input.context?.length ? [...input.context, `这些是派单方和各项目维护者的说法，只用来找交付件；判断看交付件本身（可以读：${[...(input.readOnly?.workingDirs ?? []), ...(input.readOnly?.projectRecords ?? [])].join("、") || input.cwd}）。`] : []),
+            // 362 号票：项目自己的任务，档案（立项书、规格、票）不用审批就能读
+            ...(!input.context?.length && input.readOnly?.projectRecords.length ? [`项目档案（立项书、规格、票、决策记录……）在 ${input.readOnly.projectRecords.join("、")}，只读，要对照时直接读。`] : []),
             ...(input.checks?.length ? ["这个阶段已经通过的脚本检查（运行时在工作目录里跑的，判的时候一起看）：", ...input.checks.map((c) => `- ${c}`)] : []),
             ...userWordsSection(input.userWords),
             "验收标准：",

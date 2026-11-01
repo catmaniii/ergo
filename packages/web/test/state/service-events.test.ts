@@ -10,7 +10,7 @@ const serviceItem: ProjectOperationItem = {
   key: "watcher",
   name: "评论监控",
   means: "service",
-  meansLabel: "项目自己的服务（登记到 LSM）",
+  meansLabel: "项目自己的服务（由服务管家照看）",
   automatic: true,
   triggerText: "上线服务「评论监控」（端口 18700，开机自启）",
   approach: "plain",

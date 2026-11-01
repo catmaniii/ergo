@@ -530,7 +530,7 @@ export const FAKE_CARDS: Card[] = [
     status: "handled",
     outcome: { action: "kickoff" },
   }),
-  card("c-sp-2", "suggest_project", { name: "健身记录", goal: "记下每次训练和体重，每月给我一张趋势图。" } satisfies SuggestProjectPayload),
+  card("c-sp-2", "suggest_project", { name: "健身记录", goal: "记下每次训练和体重，每月给我一张趋势图。", userWords: "把训练记录放在 D:\\运动\\训练.xlsx 里，每月 1 号给我一张趋势图，别动原表格。" } satisfies SuggestProjectPayload),
   card("c-q-1", "questions", {
     intro: "先对齐几件事，每题我都给了推荐：",
     questions: [
@@ -850,8 +850,8 @@ export const FAKE_CARDS: Card[] = [
       why: "照片按事件归档、去重都做完了，浏览页在手机上试过能翻；可以转入使用了。",
       checklist: [
         { id: "architecture", label: "架构图写清服务和对外接口", done: false, detail: "缺架构图 architecture.md（有服务的项目照开发类要它）" },
-        { id: "ops", label: "运营接口清单验收通过（ops.json）", done: false, detail: "缺 ops.json" },
-        { id: "services", label: "服务按模板在 LSM 登记（写进运营方案）", done: true, detail: "确认后交给 LSM 登记：「gallery」" },
+        { id: "ops", label: "运营接口清单验收通过（ops.json）", done: true, later: true, detail: "6 个操作格式对、能跑的测试都过了；项目服务上的 4 个要服务在跑才能测，上线后自动复验" },
+        { id: "services", label: "服务写进运营方案（确认后由服务管家上线）", done: true, detail: "确认后交给服务管家上线：「gallery」" },
         { id: "public_entry", label: "要外网的开好 /apps/<项目>/", done: true, detail: "确认后开 /apps/p-photos-gallery/" },
         { id: "progress_written", label: "进展已写回", done: true },
       ],

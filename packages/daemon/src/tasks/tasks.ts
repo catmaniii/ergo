@@ -455,6 +455,7 @@ export function briefText(task: Task, brief: TaskBrief, revision: number, catego
     `目标：${brief.goal}`,
     `验收标准：${bullets(brief.acceptanceCriteria)}`,
     `约束：${bullets(brief.constraints)}`,
+    ...(brief.dataSources?.length ? [`数据源：${bullets(brief.dataSources)}`] : []),
     // 项目内部任务（64 号票）只动它自己那个项目
     `涉及的项目：${isProjectInternal(task) ? internalBriefScope(task) : brief.projects.length === 0 ? "不涉及项目" : brief.projects.join("、")}`,
     `记忆范围提议：${brief.memoryScope || "（无）"}（第一阶段只占位）`,
@@ -476,6 +477,7 @@ function workflowBriefLines(task: Task, brief: TaskBrief, revision: number): str
     `目标：${brief.goal}`,
     `验收标准：${bullets(brief.acceptanceCriteria)}`,
     `约束：${bullets(brief.constraints)}`,
+    ...(brief.dataSources?.length ? [`数据源：${bullets(brief.dataSources)}`] : []),
     ...(isProjectInternal(task) ? [`涉及的项目：${internalBriefScope(task)}`] : []),
     ...(triggerLine(task) ? [triggerLine(task)!] : []),
     ...(brief.constraints.length > 0 ? ["约束里用户说过的限制，写成计划的条件（rules：时序规则）。"] : []),

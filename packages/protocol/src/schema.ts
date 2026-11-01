@@ -669,6 +669,11 @@ export const MessageEventPayload = Type.Object({
    */
   interject: Type.Optional(Type.Boolean()),
   /**
+   * 运行时给项目维护者的通知里，只在对话段处理的（362 号票：服务没上线、挂了这类和手头工单无关的事）：正在做工单时排着，不打断这张工单，
+   * 空下来开一个对话段交给它。对话段里才有修它要用的工具（propose_operations）
+   */
+  chatOnly: Type.Optional(Type.Literal(true)),
+  /**
    * 用户自己发的消息从哪来（125 号票）：本机端口，或者外网端口上的已配对设备。运行时核实用户原话时写"从哪台设备来的"；
    * 125 号票之前的、秘书转达的、agent 和系统的消息没有
    */

@@ -191,7 +191,7 @@ describe("运营手段“服务”：确认后经 LSM 上线，项目卡片上�
     await settled(td, "pm-1");
     const echo = textOf(messagesOf(frontend, PM1).filter((m) => m.message.speaker === "agent").at(-1)!);
     // 工具说明里列着"服务"这种手段、要写哪几项
-    expect(td.daemon.operations.tool("p-1", "pm-1").spec.description).toContain("service（项目自己的服务（登记到 LSM））：项目做成一个要常驻的服务");
+    expect(td.daemon.operations.tool("p-1", "pm-1").spec.description).toContain("service（项目自己的服务（由服务管家照看））：项目做成一个要常驻的服务");
     expect(echo).toContain("运营方案（第 1 份，2 条）收下了");
     expect(echo).toContain("服务「简报站」的首页前缀下自检过了");
 
@@ -291,7 +291,7 @@ describe("运营手段“服务”：确认后经 LSM 上线，项目卡片上�
     expect((await openApp(td)).status).toBe(404);
     // 维护者收到通知（写明原因、怎么办）
     await waitUntil(
-      () => messagesOf(frontend, PM1).some((m) => textOf(m).includes("运营方案里的服务「简报站」（p-1-site，端口") && textOf(m).includes(`没上线：端口 ${app.port} 已被 node.exe (4321) 占着`)),
+      () => messagesOf(frontend, PM1).some((m) => textOf(m).includes("运营方案里的服务「简报站」（p-1-site，端口") && textOf(m).includes(`没上线。服务管家（LSM）判断的依据：端口 ${app.port} 已被 node.exe (4321) 占着`)),
       { describe: () => "维护者收到上线失败的通知" },
     );
     await settled(td, "pm-1");
@@ -348,7 +348,7 @@ describe("运营手段“服务”：确认后经 LSM 上线，项目卡片上�
     expect(notices()).toEqual([]);
     clock.advance(21_000);
     await waitUntil(() => notices().length === 1, { describe: () => `维护者收到挂了的通知：${JSON.stringify(notices())}` });
-    expect(notices()[0]).toContain(`服务「简报站」（p-1-site，端口 ${app.port}）上线后挂了，现在不在线：进程退出了（退出码 1）。它开着挂了自动重启`);
+    expect(notices()[0]).toContain(`服务「简报站」（p-1-site，端口 ${app.port}）上线后挂了，现在不在线。服务管家（LSM）判断的依据：进程退出了（退出码 1）。它开着挂了自动重启`);
     await settled(td, "pm-1");
     // 同一次故障只报一次
     lsm.owned.setState("p-1-site", "STARTING");
@@ -680,7 +680,7 @@ describe("二狗接上 LSM 时兜底：该在线、用户没关的服务停着�
     await untilService(again, (v) => v.status === "failed", "又挂了");
     clock.advance(31_000);
     await waitUntil(() => notices().length === 1, { describe: () => `维护者收到挂了的通知：${JSON.stringify(notices())}` });
-    expect(notices()[0]).toContain("上线后挂了，现在不在线：进程退出了（退出码 1）");
+    expect(notices()[0]).toContain("上线后挂了，现在不在线。服务管家（LSM）判断的依据：进程退出了（退出码 1）");
     await again.daemon.projectServices.idle();
     expect(requestTypes(lsm, from)).toEqual([]);
     expect(serviceNow(again)).toMatchObject({ rollout: "live", status: "failed" });

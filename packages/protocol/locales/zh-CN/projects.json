@@ -1,5 +1,5 @@
 {
-  "projects.notes.kickoff": "项目「{name}」立项了（筹备中）：{goal}\n{maintainer}会和你做立项问答：把规格、术语表、决策记录写进项目档案，最后交出立项书。在这里说话就能叫醒它。",
+  "projects.notes.kickoff": "项目「{name}」立项了（筹备中）：{goal}\n{maintainer}会先开口，和你做立项问答：把规格、术语表、决策记录写进项目档案，最后交出立项书。",
   "projects.notes.firstBuildTask": "首个建设任务 {task}",
   "projects.notes.firstBuildCreated": "首个建设任务 {task}已建出（规划中）。",
   "projects.notes.nextBuildTask": "下一轮建设任务 {task}",
@@ -209,7 +209,7 @@
   "projects.standard.check.noServices": "没有服务，不用登记",
   "projects.standard.check.noPlan": "还没交运营方案：架构图里的服务{names}要写进运营方案（means: service）",
   "projects.standard.check.serviceNotInPlan": "架构图里的服务{names}没写进运营方案（means: service）",
-  "projects.standard.check.servicesInPlan": "确认后交给 LSM 登记：{names}",
+  "projects.standard.check.servicesInPlan": "确认后交给服务管家上线：{names}",
   "projects.standard.check.noOutside": "不要外网",
   "projects.standard.check.appsOpened": "确认后开 {urls}",
   "projects.standard.check.outsideWithoutWeb": "对外接口{names}要走 /apps/ 或公网，运营方案里没有对应的带网页（web）的服务",

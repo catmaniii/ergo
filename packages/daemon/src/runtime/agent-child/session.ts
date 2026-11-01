@@ -18,6 +18,7 @@ import {
   type ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
 import { modelKeyOf } from "@ergo/protocol";
+import { fileSearchOverrides } from "./file-search.ts";
 import {
   type CatalogModelSpec,
   errorReport,
@@ -210,7 +211,7 @@ async function startPiSession(
     sessionManager,
     // 白名单里加上守护进程代为执行的工具（通用贡献清单里的；白名单之外的工具都不启用，自定义工具也一样）
     tools: [...assembly.tools, ...assembly.contributions.tools.map((t) => t.name)],
-    customTools: [...hostTools.tools(assembly.contributions.tools), ...shellOverrides(assembly)],
+    customTools: [...hostTools.tools(assembly.contributions.tools), ...shellOverrides(assembly), ...fileSearchOverrides(assembly.tools, assembly.cwd)],
   });
   piSession = session;
   // 接着会话时工具清单以这次交的为准（273 号票）：发给模型的工具按这次交的先后、开头一份，不按 pi 重放会话里增减的结果

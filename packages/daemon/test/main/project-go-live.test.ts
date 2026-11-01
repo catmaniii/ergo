@@ -183,7 +183,7 @@ describe("转入使用不管谁发起都要用户在确认卡上确认（259 号
     expect(echo).toContain("用户在卡上确认才转入使用：你不能自己转，也不要说已经转了。");
     expect(echo).toContain("检查清单（建设中 → 使用中，5 项，缺 3 项）：");
     expect(echo).toContain("- ✗ 运营接口清单验收通过（ops.json）：ops.json 还是模板原样");
-    expect(echo).toContain("- ✓ 服务按模板在 LSM 登记（写进运营方案）：没有服务，不用登记");
+    expect(echo).toContain("- ✓ 服务写进运营方案（确认后由服务管家上线）：没有服务，不用登记");
 
     // 维护者补齐了再提：同一张卡，清单刷新（都做到了），项目照旧建设中
     fillRecords(recordsOf(td));
@@ -391,7 +391,7 @@ describe("停用反向收回、重新启用全部拉起（259 号票；用户 20
     expect(payload.checklist.map((i) => [i.id, i.done, i.detail])).toEqual([
       ["architecture", true, undefined],
       ["ops", true, "验收通过：0 个操作的测试都跑通，只读的没写东西"],
-      ["services", true, "确认后交给 LSM 登记：「site」"],
+      ["services", true, "确认后交给服务管家上线：「site」"],
       ["public_entry", true, "确认后开 /apps/p-1-site/"],
       ["progress_written", true, undefined],
     ]);

@@ -59,7 +59,7 @@ export const READING_OPERATIONS: OperationsPlanView = {
       key: "page",
       name: "随手翻页面",
       means: "service",
-      meansLabel: "项目自己的服务（登记到 LSM）",
+      meansLabel: "项目自己的服务（由服务管家照看）",
       triggerText: "上线服务「随手翻页面」（端口 18640，开机自启）",
       instructions: "随手翻页面常开着，手机上随时能翻",
       service: {
@@ -99,7 +99,7 @@ export const PHOTOS_OPERATIONS: OperationsPlanView = {
       key: "gallery",
       name: "相册浏览页",
       means: "service",
-      meansLabel: "项目自己的服务（登记到 LSM）",
+      meansLabel: "项目自己的服务（由服务管家照看）",
       triggerText: "上线服务「相册浏览页」（端口 18660，开机自启）",
       instructions: "相册浏览页常开着，手机上按事件翻照片",
       service: {
@@ -140,7 +140,7 @@ const recipesWebItem = (command: string): OperationItem =>
     key: "web",
     name: "菜谱网页",
     means: "service",
-    meansLabel: "项目自己的服务（登记到 LSM）",
+    meansLabel: "项目自己的服务（由服务管家照看）",
     triggerText: "上线服务「菜谱网页」（端口 18650，开机自启，挂了自动重启）",
     instructions: "本周菜单、买菜清单和菜谱做成网页，手机上随时看",
     service: recipesWeb(command),

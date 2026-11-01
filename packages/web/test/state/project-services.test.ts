@@ -42,7 +42,7 @@ const serviceItem = (key: string, extra: Partial<OperationItem> = {}): Operation
   key,
   name: key,
   means: "service",
-  meansLabel: "项目自己的服务（登记到 LSM）",
+  meansLabel: "项目自己的服务（由服务管家照看）",
   automatic: true,
   triggerText: `上线服务「${key}」（端口 18080，开机自启）`,
   approach: "plain",

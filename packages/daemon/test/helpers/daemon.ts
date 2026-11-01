@@ -253,6 +253,8 @@ export interface StartTestDaemonOptions {
   extraPlugins?: readonly PluginDefinition[];
   /** 会话回退之后的撤销接口（150 号票）：测"回退之后调到了它"；不填是守护进程默认的什么都不做 */
   sessionRollbackHook?: SessionRollbackHook;
+  /** 立项后叫醒维护者先开口（362 号票）：测试里默认关，假模型的剧本不多一轮；要测的写 true */
+  kickoffOpening?: boolean;
   /**
    * 用例结束就停掉（默认）。一个 describe 共用一个守护进程时写 false（用 suiteDaemon 起它，由 afterAll 停，
    * 或者在测试文件里自己 afterAll(() => td.daemon.stop())）——245 号票
@@ -327,6 +329,7 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
     // 242 号票：记忆管理员的模型（不填是空的 faux 剧本：一被调用就出错，和秘书的默认一样）
     curatorModel: options.curatorModel ?? fauxModel(options.curator ?? []),
     taskDoneSettleMs: options.taskDoneSettleMs ?? TASK_DONE_TEST_SETTLE_MS,
+    kickoffOpening: options.kickoffOpening ?? false,
     ...(options.clock === undefined ? {} : { clock: options.clock }),
     ...(options.cardTypes === undefined ? {} : { extraCardTypes: options.cardTypes }),
     ...(options.extraPlugins === undefined ? {} : { extraPlugins: options.extraPlugins }),

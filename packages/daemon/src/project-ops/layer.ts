@@ -24,6 +24,8 @@ import type { Clock } from "../scheduler/clock.ts";
 import { runsOfJob, type ScheduledJobs } from "../scheduled-jobs/index.ts";
 import { realPathOf } from "../util/real-path.ts";
 import type { BrowserDriver } from "../web/index.ts";
+import { OPERATIONS_CHANNEL } from "../projects/api.ts";
+import { PROJECT_SERVICE_EVENTS, type ServiceRolloutPayload } from "../project-services/events.ts";
 import { serviceMeans } from "../project-services/means.ts";
 import { createProjectServices, type ProjectServices } from "../project-services/project-services.ts";
 import { openServiceTool, serviceBoardSection, serviceEntryCardType, switchServicesTool } from "../project-services/secretary-tool.ts";
@@ -186,6 +188,7 @@ export function createOpsLayer(ctx: OpsLayerContext, deps: OpsLayerDeps): OpsLay
   });
 
   const projectName = (projectId: string) => projects.get(projectId)?.name;
+  let offRollout: (() => void) | undefined;
 
   return {
     goLive: {
@@ -215,8 +218,17 @@ export function createOpsLayer(ctx: OpsLayerContext, deps: OpsLayerDeps): OpsLay
       ports = link.ports;
       lsm = link.lsm;
       projectServices.start();
+      // 362 号票：服务上线了，等它上线才能测的那几个操作自动复验（不等秘书第一次用到）
+      offRollout = store.onAppend((event) => {
+        if (event.channel !== OPERATIONS_CHANNEL || event.type !== PROJECT_SERVICE_EVENTS.rollout) return;
+        const payload = event.payload as ServiceRolloutPayload;
+        if (payload.state === "live") void projectOps.recheckAfterLive(payload.projectId);
+      });
     },
-    stop: () => projectServices.stop(),
+    stop: () => {
+      offRollout?.();
+      return projectServices.stop();
+    },
     handles: { projectServices, projectOps },
   };
 }

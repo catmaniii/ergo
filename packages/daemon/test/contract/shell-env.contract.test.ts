@@ -43,6 +43,13 @@ describe("pi 契约：bash 起的进程的环境", () => {
     expect(out).not.toContain(KEY);
   });
 
+  it("联网开关关着也连得上本机（362 号票）：NO_PROXY 写着本机；开着关着 Python 都用 UTF-8", async () => {
+    const closed = await runEnv(undefined);
+    expect(closed).toContain("NO_PROXY=127.0.0.1,localhost,::1");
+    expect(closed).toContain("PYTHONUTF8=1");
+    expect(await runEnv(true)).toContain("PYTHONUTF8=1");
+  });
+
   it("联网开关开着：不加代理", async () => {
     const out = await runEnv(true);
     expect(out).toContain("proxy=|| node= browser=");

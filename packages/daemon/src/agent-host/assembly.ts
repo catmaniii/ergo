@@ -142,6 +142,8 @@ export interface ToolkitResources {
   skillChangeTool?(scope: MaintainerScope): HostTool;
   /** 库里每个 skill 的斜杠命令（82 号票）：用户打 /目录名 时展开会话装配了的那个；不给就按装配的目录自己算 */
   skillCommands?(): readonly SkillCommand[];
+  /** 已登记的 MCP 清单（362 号票）：拼在维护者的系统提示里；一个都没登记、不给就没有 */
+  registeredMcp?(): string | undefined;
 }
 
 /** 交给会话（AgentSession）的斜杠命令（82 号票）：工具包给了 skillCommands 时带上 */

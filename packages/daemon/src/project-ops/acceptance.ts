@@ -8,7 +8,7 @@
 //   ergo、maintainer 的有副作用的只看做不做得了），要做成、要有实现自己给的能念的那句 say（sayIncludes 写了的要包含它）；
 // - 只读的真不写：只读查询的测试前后比一比项目档案和工作目录（snapshot.ts），新建、改过、删掉了文件的不过。
 // http 的测试要服务在跑：服务还没起来（建设中服务还没交给 LSM、关着、还在上线、连不上）的记成 waiting——别的都过了就是"等服务上线后再跑"，
-// 不算没过（照 259 号票清单里"确认后交给 LSM 登记"的写法）；服务起来以后再验一次才算全过。
+// 不算没过（照 259 号票清单里"确认后交给服务管家上线"的写法，卡上写"上线后再验"，362 号票）；服务起来以后再验一次才算全过。
 import { type Project, t } from "@ergo/protocol";
 import { placeholdersIn, prepareArgs, propertiesOf, schemaProblems, schemaWarnings } from "./args.ts";
 import type { OpsManifestRead, ProjectOp } from "./manifest.ts";

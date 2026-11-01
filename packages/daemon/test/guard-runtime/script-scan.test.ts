@@ -38,6 +38,44 @@ describe("Python 脚本", () => {
   });
 });
 
+describe("只连本机（362 号票）", () => {
+  const LOCAL: [string, string, string][] = [
+    ["smoke.py", "import urllib.request\nprint(urllib.request.urlopen('http://127.0.0.1:8765/health').read())\n", "urllib.request"],
+    ["server.py", "from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler\nHOST = '127.0.0.1'\nThreadingHTTPServer((HOST, 8765), BaseHTTPRequestHandler).serve_forever()\n", "http.server"],
+    ["sock.py", "import socket\ns = socket.create_connection(('localhost', 8765))\n", "socket"],
+    ["six.py", "import socket\ns = socket.socket(socket.AF_INET6)\ns.connect(('::1', 8765))\n", "socket"],
+    ["smoke.mjs", "const r = await fetch('http://127.0.0.1:8765/health');\n", "fetch"],
+    ["serve.js", "const http = require('http');\nhttp.createServer(() => {}).listen(8765, '127.0.0.1');\n", "http"],
+    ["curl.py", "import subprocess\nsubprocess.run(['curl', 'http://localhost:8765/health'])\n", "curl"],
+    ["fstring.py", "import urllib.request\nHOST = '127.0.0.1'\nurllib.request.urlopen(f'http://{HOST}:8765/health')\n", "urllib.request"],
+  ];
+  for (const [name, text, hit] of LOCAL) {
+    it(`${name} 写的都是本机地址：不算联网，单独列着`, () => {
+      expect(scanScript(script(name, text))).toMatchObject({ networkUsage: [], localOnly: expect.arrayContaining([hit]) });
+    });
+  }
+
+  const OUTSIDE: [string, string, string][] = [
+    ["mixed.py", "import urllib.request\nurllib.request.urlopen('http://127.0.0.1:1/')\nurllib.request.urlopen('https://example.com/')\n", "urllib.request"],
+    ["no-host.py", "import urllib.request, os\nurllib.request.urlopen(os.environ['URL'])\n", "urllib.request"],
+    ["ip.py", "import socket\nsocket.create_connection(('203.0.113.1', 80))\n# 127.0.0.1 写在注释里不算\n", "socket"],
+    ["host.py", "import http.client\nc = http.client.HTTPSConnection('example.com')\nb = '127.0.0.1'\n", "http.client"],
+    ["all.py", "import socket\ns = socket.socket()\ns.bind(('0.0.0.0', 80))\nc = '127.0.0.1'\n", "socket"],
+    ["empty.py", "from http.server import HTTPServer, BaseHTTPRequestHandler\nHTTPServer(('', 80), BaseHTTPRequestHandler)\nc = '127.0.0.1'\n", "http.server"],
+    ["mail.py", "import smtplib\nsmtplib.SMTP('127.0.0.1')\n", "smtplib"],
+    ["both.py", "import socket, boto3\nsocket.create_connection(('127.0.0.1', 1))\n", "boto3"],
+    ["out.mjs", "await fetch('http://127.0.0.1:1/');\nawait fetch('https://api.example.com/');\n", "fetch"],
+    ["localhost-lookalike.py", "import urllib.request\nurllib.request.urlopen('http://localhost.example.com/')\n", "urllib.request"],
+  ];
+  for (const [name, text, hit] of OUTSIDE) {
+    it(`${name} 不只连本机：照旧算联网`, () => {
+      const fact = scanScript(script(name, text));
+      expect(fact?.networkUsage).toContain(hit);
+      expect(fact?.localOnly).toBeUndefined();
+    });
+  }
+});
+
 describe("Node 脚本", () => {
   const NETWORKED: [string, string, string][] = [
     ["sync.js", "const r = await fetch('https://example.com');", "fetch"],

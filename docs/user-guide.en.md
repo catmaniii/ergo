@@ -151,7 +151,9 @@ Or run the command: `ergo notify comment-anomaly --data "{\"count\":3}"`. Exit c
 
 ### 4.3 Projects
 
-A project is something long-lived (a website, a tool) with a dossier (charter, spec, progress), a working directory and a fixed owner. The owner's work is queued as work orders, one at a time; after each work order a second model checks whether it strayed out of scope. When the first version is done, you decide: put it into use, keep building, or abandon and archive. Once a project goes live as a service, the supervisor hosts it and you can open its pages in ergo's built-in browser.
+A project is something long-lived (a website, a tool) with a dossier (charter, spec, progress), a working directory and a fixed owner. Once you start a project, the owner speaks first, and it already has the paths and limits you gave your assistant, so you don't have to repeat them. The owner's work is queued as work orders, one at a time; after each work order a second model checks whether it strayed out of scope. When the first version is done, you decide: put it into use, keep building, or abandon and archive. Once a project goes live as a service, the supervisor hosts it and you can open its pages in ergo's built-in browser.
+
+When the owner is writing a local service, it can reach this machine (`127.0.0.1`, `localhost`) to debug even with the network switch off; anything else stays blocked. On the put-in-use card, operations that need the running service to test are marked "Checked after it's up" and don't count as missing: Ergo checks them itself once the service is up. If a service fails to come up or goes down, the owner finishes its current work order before looking into it.
 
 ### 4.4 Inbox
 

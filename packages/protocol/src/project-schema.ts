@@ -21,6 +21,8 @@ const ProjectStateSchema = Type.Enum(PROJECT_STATES);
 /** 项目名、一句话目标的长度 */
 export const PROJECT_NAME_MAX = 40;
 export const PROJECT_GOAL_MAX = 300;
+/** 建议立项卡上用户的原话最多多少字（362 号票） */
+export const PROJECT_USER_WORDS_MAX = 2000;
 
 /**
  * 工作目录：默认在项目档案里面（external 为 false）；开发类项目的立项书确认绑定外部路径后，就是这个外部路径。
@@ -176,6 +178,8 @@ export const GoLiveChecklistItem = Type.Object({
   label: Type.String(),
   done: Type.Boolean(),
   detail: Type.Optional(Type.String()),
+  /** 现在还验不了、上线后再验（362 号票：服务还没上线，转入使用才上线）：算做到了，卡上单独标出来 */
+  later: Type.Optional(Type.Boolean()),
 });
 export type GoLiveChecklistItem = Static<typeof GoLiveChecklistItem>;
 
@@ -252,6 +256,8 @@ export type GoLiveCardPayload = Static<typeof GoLiveCardPayload>;
 export const SuggestProjectCardPayload = Type.Object({
   name: Type.String({ minLength: 1, maxLength: PROJECT_NAME_MAX }),
   goal: Type.String({ minLength: 1, maxLength: PROJECT_GOAL_MAX }),
+  /** 用户的原话（362 号票：路径、限制不能在立项时丢了）：卡上写着，点"立项"时原样交给维护者 */
+  userWords: Type.Optional(Type.String({ maxLength: PROJECT_USER_WORDS_MAX })),
   projectId: Type.Optional(Type.String()),
   /** 项目的维护者用的运行时（289 号票：用户点"新建项目"时选的，秘书照写；没写是 pi）；点"立项"时定进项目 */
   runtime: Type.Optional(Type.String({ minLength: 1, maxLength: 80 })),

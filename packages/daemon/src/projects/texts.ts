@@ -8,6 +8,18 @@ import { maintainerIdLabel, namedIdLabel, type Project, type Task, t } from "@er
 export const kickoffNote = (project: Pick<Project, "name" | "goal" | "maintainerId">) =>
   t("projects.notes.kickoff", { name: project.name, goal: project.goal, maintainer: maintainerIdLabel(project.maintainerId, { kind: "project", name: project.name }) });
 
+// @i18n-ignore-start model：交给维护者的通知
+/**
+ * 立项后叫醒维护者先开口（362 号票：真模型试验里秘书说"它会问你"，维护者却等用户先说话）；立项时用户的原话原样带上
+ * （路径、限制不能丢：试验里立项卡只剩一个文件名，维护者又问了一遍）
+ */
+export const kickoffOpeningText = (userWords: string | undefined) =>
+  [
+    "用户刚在卡上点了“立项”，还没和你说过话。不用等用户开口：你先说出你对这个项目的理解，问第一轮问题（一次一两个）。",
+    ...(userWords ? ["立项时用户的原话（路径、文件名、限制、数字以这里为准，先读能读的、原样记进规格，已经说清的别再问）：", userWords] : []),
+  ].join("\n");
+// @i18n-ignore-end
+
 /** 立项书卡"确认并开工"的处理结果 */
 export const buildTaskNote = (task: Pick<Task, "id" | "title">) => t("projects.notes.firstBuildTask", { task: namedIdLabel(task.id, task.title) });
 

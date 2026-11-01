@@ -69,8 +69,20 @@ const allowed = new Set(SYSTEM_VARIABLES.map((name) => name.toUpperCase()));
 export const OFFLINE_PROXY = "http://127.0.0.1:9";
 
 /**
+ * 联网关着时不走代理的地址（362 号票）：只有本机。写本机服务的项目要连自己的服务、连自己起的测试服务器，走死代理就连不上了。
+ * [::1] 是 Node 的写法（undici 拿 URL.hostname 比，带方括号），::1 是 curl、Python 的写法
+ */
+export const OFFLINE_NO_PROXY = "127.0.0.1,localhost,::1,[::1]";
+
+/**
+ * agent 的 bash、阶段验收脚本、运营接口的脚本起的进程固定加的（362 号票）：中文 Windows 上 Python 的控制台默认 GBK，
+ * 打印中文报错、输出乱码（真模型试验里一次验收因此没过）。语音模块（voice/index.ts）也设了
+ */
+export const SCRIPT_UTF8_ENV: Readonly<Record<string, string>> = Object.freeze({ PYTHONUTF8: "1" });
+
+/**
  * 联网开关关着的 agent（70 号票起秘书是开着的），它的 bash 起的进程环境里加上这些（规格第 7 节，尽力而为、不是硬隔离）：
- * 代理地址一律设成无效值，curl、wget、git、pip、Python 的 requests / urllib 走代理就连不上；
+ * 代理地址一律设成无效值，curl、wget、git、pip、Python 的 requests / urllib 走代理就连不上；只连本机的不走代理（362 号票，OFFLINE_NO_PROXY）；
  * NODE_USE_ENV_PROXY 让 Node（≥22.21）的 fetch 和 http 也按环境变量走代理。
  * 只加在 bash 起的进程上（子进程里的 bash 工具在起进程前加），agent 子进程自己的环境不受影响（它要连模型）。
  * Windows 上环境变量名不分大小写，同名的只写大写一份（Node 起进程时同名不同大小写的只传字典序第一个）。
@@ -80,7 +92,7 @@ export const OFFLINE_SHELL_ENV: Readonly<Record<string, string>> = Object.freeze
   HTTPS_PROXY: OFFLINE_PROXY,
   ALL_PROXY: OFFLINE_PROXY,
   FTP_PROXY: OFFLINE_PROXY,
-  NO_PROXY: "",
+  NO_PROXY: OFFLINE_NO_PROXY,
   NODE_USE_ENV_PROXY: "1",
   // 打开 NODE_USE_ENV_PROXY 后 Node 每次启动都提示"EnvHttpProxyAgent 还是实验性的"，混进脚本的输出里；只关这一条
   NODE_OPTIONS: "--disable-warning=UNDICI-EHPA",

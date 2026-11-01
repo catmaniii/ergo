@@ -87,6 +87,8 @@ export interface ProjectOps {
   goLiveEvents(project: Project): NewEvent[];
   /** 转入使用的请求之前：档案里那份重验一遍（维护者、秘书提转入使用时等它，卡上直接是结论） */
   prepareGoLive(projectId: string): Promise<void>;
+  /** 项目的服务上线了（362 号票）：使用中的项目，档案里那份重验一遍，全过了登记成新的一版；没过的告诉维护者 */
+  recheckAfterLive(projectId: string): Promise<void>;
 }
 
 /** 还算在项目上的服务（上线中、上线了、上线失败、要你手动；撤下的、撤下中的、撤下失败的不算） */
@@ -323,8 +325,8 @@ export function createProjectOps(deps: ProjectOpsDeps): ProjectOps {
 
   const checklistItem = (project: Project): StandardChecklistItem => {
     const view: OpsChecklistView = registry.checklistView(project);
-    const { done, detail } = text.checklistDetail(view);
-    return { id: "ops", label: STANDARD_CHECKLIST_ITEM_LABEL.ops, done, detail };
+    const { done, detail, later } = text.checklistDetail(view);
+    return { id: "ops", label: STANDARD_CHECKLIST_ITEM_LABEL.ops, done, detail, ...(later ? { later } : {}) };
   };
 
   return {
@@ -355,6 +357,18 @@ export function createProjectOps(deps: ProjectOpsDeps): ProjectOps {
     checkTool: (scope) => checkOpsTool({ registry, projects: deps.projects, scope }),
     checklistItem,
     goLiveEvents: (project) => registry.goLiveEvents(project),
+    async recheckAfterLive(projectId) {
+      const project = deps.projects.list().find((p) => p.id === projectId);
+      if (project?.state !== "in_use") return;
+      try {
+        // 没交、还是模板原样的不验；登记着的就是档案里这一份的不用再验（重启、重新上线都会走到这里）
+        const state = registry.fileState(project);
+        if (state.kind !== "present" || deps.isTemplate(state.text) || registry.registered(projectId)?.hash === state.hash) return;
+        await registry.check(project, { by: "go_live", force: true });
+      } catch (err) {
+        deps.log(`服务上线后复验项目 ${projectId} 的运营接口清单出错：${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);
+      }
+    },
     async prepareGoLive(projectId) {
       const project = deps.projects.list().find((p) => p.id === projectId);
       if (!project) return;

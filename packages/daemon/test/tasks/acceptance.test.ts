@@ -56,6 +56,15 @@ function shell() {
 }
 
 describe.skipIf(!hasGitBash)("在工作目录里真的跑（Git Bash）", () => {
+  it("验收脚本里 Python 用 UTF-8（362 号票：中文 Windows 上默认 GBK，打印中文报错）", async () => {
+    const work = realPathOf(makeTempDir("ergo-work-"))!;
+    const home = makeTempDir("ergo-home-");
+    const shell = createTypedShell({ parentEnv: withEnv(process.env, tempUserProfileEnv(home)), homeDir: home, timeouts: { defaultMs: 60_000, longMs: 60_000 }, log: () => {} });
+    const run = await shell.runScript({ cwd: work, script: 'echo "PYTHONUTF8=$PYTHONUTF8"', network: false, timeoutMs: 30_000 });
+    expect(run.exitCode).toBe(0);
+    expect(run.stdout).toContain("PYTHONUTF8=1");
+  });
+
   it("当前目录是工作目录；标准输出和标准错误合在一起和期望的输出比", async () => {
     const work = realPathOf(makeTempDir("ergo-work-"))!;
     fs.writeFileSync(path.join(work, "report.md"), "# 报告\n");

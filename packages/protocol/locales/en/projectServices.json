@@ -17,7 +17,7 @@
   "projectServices.outage.stopping": "It never stopped or came back up (stopping in LSM)",
   "projectServices.healthFailing": "Health check failing",
   "projectServices.reasonSep": "; ",
-  "projectServices.means.label": "The project's own service (registered in LSM)",
+  "projectServices.means.label": "The project's own service (run by the service manager)",
   "projectServices.means.trigger": "Bring service online",
   "projectServices.entry.url": "Service “{title}” of project “{project}”: entry {url} (opens in Ergo's built-in browser)",
   "projectServices.entry.noWeb": "Service “{title}” of project “{project}” (no web page)",

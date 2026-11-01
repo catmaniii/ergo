@@ -149,7 +149,13 @@ describe("存计划时的检查", () => {
     [
       "授权项的工具没登记",
       (p: Plan) => withStagePolicy(p, 0, { grants: [{ id: "g-x", tool: "teleport", title: "传送", scope: {} }] }),
-      ["授权项 g-x：没有 teleport 这个工具"],
+      ["授权项 g-x：teleport 不能写进授权项（授权项只写内置工具、带类型的 bash 工具和工具包里的 MCP）。运行时代为执行的工具（比如 propose_operations、check_ops）不用授权，执行时照样有：去掉这一项；是写错了名字的改对"],
+    ],
+    [
+      // 362 号票：真模型试验里它说"没有 propose_operations 这个工具"，负责人白担心了一场
+      "授权项写了运行时代为执行的工具：不说没有，说执行时照样有",
+      (p: Plan) => withStagePolicy(p, 0, { grants: [{ id: "propose-ops", tool: "propose_operations", title: "交方案", scope: {} }] }),
+      ["授权项 propose-ops：propose_operations 不能写进授权项（授权项只写内置工具、带类型的 bash 工具和工具包里的 MCP）。运行时代为执行的工具（比如 propose_operations、check_ops）不用授权，执行时照样有：去掉这一项；是写错了名字的改对"],
     ],
     [
       "授权项的对象范围写了工具没有的参数",

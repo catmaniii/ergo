@@ -5,6 +5,9 @@
 //
 // 只认常见写法（import / require 联网的库、fetch、WebSocket、在字符串里调 curl / wget……），扫不出来的写法挡不住：
 // 第一阶段没有系统级沙箱（规格 Out of Scope），bash 起的进程另有无效代理兜一层（process/child-env.ts）。
+// 362 号票：写本机服务的项目要跑连本机的脚本（测试服务器、冒烟脚本）。只连本机的不算联网：能连本机的库（socket、urllib、http.server、
+// fetch……）在脚本里写着本机地址、又没写别的地址时，不报进 networkUsage，单独列在 localOnly（onlyLoopback）。这也是尽力而为：
+// 地址从参数、环境变量来的看不出来，这种情况本来就挡不住（见上）。发信、云服务这类本来就不是连本机的库不在此列。
 import fs from "node:fs";
 import path from "node:path";
 import { absolutePathsIn, NETWORK_PROGRAMS, type ScriptFact } from "../guard/index.ts";
@@ -39,7 +42,64 @@ export function scanScript(file: string, interpreter = ""): ScriptFact | undefin
   for (const language of languages) for (const hit of SCANNERS[language](text)) found.add(hit);
   // 写着的绝对路径：守卫据此判它会不会碰受保护区域（26 号票）
   const mentionedPaths = absolutePathsIn(text);
-  return { networkUsage: [...found], ...(mentionedPaths.length > 0 ? { mentionedPaths } : {}) };
+  const hits = [...found];
+  const local = hits.length > 0 && hits.every((hit) => LOOPBACK_CAPABLE.has(hit)) && onlyLoopback(text);
+  return { networkUsage: local ? [] : hits, ...(local ? { localOnly: hits } : {}), ...(mentionedPaths.length > 0 ? { mentionedPaths } : {}) };
+}
+
+/** 能只连本机的库、函数、程序（362 号票）：这些写着本机地址、又没写别的地址的，算只连本机 */
+const LOOPBACK_CAPABLE: ReadonlySet<string> = new Set([
+  // Python
+  "socket",
+  "socketserver",
+  "http.server",
+  "http.client",
+  "urllib.request",
+  "urllib3",
+  "requests",
+  "httpx",
+  "aiohttp",
+  "websocket",
+  "websockets",
+  // Node
+  "http",
+  "https",
+  "http2",
+  "net",
+  "dgram",
+  "fetch",
+  "undici",
+  "node-fetch",
+  "axios",
+  "got",
+  "ws",
+  "WebSocket",
+  "EventSource",
+  // 程序
+  "curl",
+  "wget",
+]);
+
+const LOOPBACK_HOST = /^(?:localhost|::1|\[::1\]|127(?:\.\d{1,3}){3})$/i;
+/** 写着本机地址（字符串、网址里）：127.x、localhost、::1 */
+const LOOPBACK_MENTION = /(?:^|[^\w.-])(?:127(?:\.\d{1,3}){3}|localhost)(?![\w-])|\[?::1\]?(?![\w:])/i;
+/** 网址（协议 + 主机） */
+const URL_HOST = /\b(?:https?|wss?|ftps?|tcp|udp):\/\/(\[[^\]\s]*\]|[^\s"'`/:?#]+)/gi;
+/** 写在字符串里的 IPv4 */
+const QUOTED_IP = /["'`]\s*(\d{1,3}(?:\.\d{1,3}){3})\s*["'`]/g;
+/** 交给连接函数、host 参数的主机名（字符串）：connect(("example.com", 80))、HTTPSConnection("x")、host="x"、hostname: "x" */
+const QUOTED_HOST =
+  /(?:\b(?:connect|connect_ex|create_connection|create_server|bind|HTTPConnection|HTTPSConnection|getaddrinfo|gethostbyname|createConnection|listen)\s*\(\s*\(?\s*(?:\d+\s*,\s*)?|\b(?:host|hostname|address)\s*[:=]\s*)["'`]([^"'`]*)["'`]/gi;
+/** 绑在所有网卡上的：bind(("", 80))、HTTPServer(("", 80), …)（0.0.0.0 按写着的 IP 算） */
+const ALL_INTERFACES = /\(\s*\(\s*(?:""|'')\s*,/;
+
+/** 脚本写着本机地址，又没写别的地址（362 号票）：别的网址、IP、主机名，绑在所有网卡上的都不算 */
+function onlyLoopback(source: string): boolean {
+  const text = source.replace(/(^|\s)#.*$/gm, "$1").replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`\\])\/\/.*$/gm, "$1");
+  if (!LOOPBACK_MENTION.test(text) || ALL_INTERFACES.test(text)) return false;
+  const named = [...[...text.matchAll(URL_HOST)].map((m) => m[1]!), ...[...text.matchAll(QUOTED_IP)].map((m) => m[1]!), ...[...text.matchAll(QUOTED_HOST)].map((m) => m[1]!)];
+  // 拼出来的主机名（f"http://{HOST}:8765"、`http://${host}`）看不出是谁：不算写了别的地址
+  return named.filter((host) => !/[{$%]/.test(host)).every((host) => LOOPBACK_HOST.test(host.trim()));
 }
 
 const EXTENSIONS: Record<string, Language> = {

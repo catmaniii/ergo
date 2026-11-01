@@ -502,8 +502,8 @@ export interface MultiProjectTasks {
 
 /** 项目的任务在执行控制器这里的差异（派单器在 daemon.ts 里接上，16 号票） */
 export interface ProjectTasks {
-  /** 这个任务由哪个项目的维护者执行：项目编号、项目的工作目录（真实路径）、项目的工具包；任务自己的维护者执行的是 undefined */
-  of(task: Task): { projectId: string; workDir: string; toolkit: PlanToolkit | undefined } | undefined;
+  /** 这个任务由哪个项目的维护者执行：项目编号、项目的工作目录和档案（真实路径）、项目的工具包；任务自己的维护者执行的是 undefined */
+  of(task: Task): { projectId: string; workDir: string; recordsDir: string; toolkit: PlanToolkit | undefined } | undefined;
   /** 排队的任务能不能进入执行中（全局名额另看）；events 和这次变化同一事务追加（工单开始、开一段会话，或者补派的工单） */
   admit(task: Task): { admit: boolean; events: NewEvent[] };
 }
@@ -941,6 +941,16 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
    * （计划里的工具包是给各项目工单的，在项目维护者那边和项目的工具包取交集）
    */
   const toolkitOf = (task: Task, plan: Plan): PlanToolkit => options.multiProject?.toolkit(task) ?? effectiveToolkit(plan.toolkit, projectOf(task)?.toolkit);
+  /**
+   * 评审能只读访问的：涉及多个项目的任务是本阶段涉及的各项目（17 号票），项目自己的任务是这个项目的档案（362 号票：评审读自己项目的立项书、
+   * 规格、票也要审批，真模型试验里 83 张审批有 49 张是这个）；不涉及项目的没有
+   */
+  const reviewReadOnly = (task: Task, stageId: string) => {
+    const places = options.multiProject?.reviewPlaces(task, stageId);
+    const records = projectOf(task)?.recordsDir;
+    if (!places && records === undefined) return {};
+    return { readOnly: { projectRecords: [...(places?.projectRecords ?? []), ...(records === undefined ? [] : [records])], workingDirs: places?.workingDirs ?? [] } };
+  };
   /** 本阶段另写的几行交代（涉及多个项目的任务：发往各项目的工单） */
   const stageNotes = (task: Task, stageId: string) => options.multiProject?.stageLines(task, stageId) ?? [];
   /** 项目的任务能不能进入执行中（项目的维护者空着、它的执行工单排在队首），以及同一事务追加的事件 */
@@ -3291,7 +3301,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
         ...(extra.signal ? { signal: extra.signal } : {}),
         // 维护者宣布完成时引用、运行时核实过的用户原话（125 号票）：评审的输入里单独一栏，只有它算用户的话
         ...(extra.userWords && extra.userWords.length > 0 ? { userWords: [...extra.userWords] } : {}),
-        ...(options.multiProject ? { readOnly: options.multiProject.reviewPlaces(task, stageId) } : {}),
+        ...reviewReadOnly(task, stageId),
         // 能跑命令（112 号票返修，用户 2026-10-13 同意）：照维护者此刻的工具包（任务授权和项目工具包的交集），开了 bash 才有
         ...(toolkitOf(task, plan).bash ? { bash: true } : {}),
         guardTask: () => guardTask(task.id),

@@ -1,5 +1,5 @@
 {
-  "projects.notes.kickoff": "Project \"{name}\" has been started (preparing): {goal}\n{maintainer} will work out the project with you: writing the spec, glossary and decision records into the project records, then submitting a charter. Say something here to wake it up.",
+  "projects.notes.kickoff": "Project \"{name}\" has been started (preparing): {goal}\n{maintainer} speaks first and works out the project with you: writing the spec, glossary and decision records into the project records, then submitting a charter.",
   "projects.notes.firstBuildTask": "First build task {task}",
   "projects.notes.firstBuildCreated": "First build task {task} has been created (planning).",
   "projects.notes.nextBuildTask": "Next build task {task}",
@@ -209,7 +209,7 @@
   "projects.standard.check.noServices": "No services to register",
   "projects.standard.check.noPlan": "No operations plan yet: services {names} from the architecture have to go into it (means: service)",
   "projects.standard.check.serviceNotInPlan": "Services {names} from the architecture aren't in the operations plan (means: service)",
-  "projects.standard.check.servicesInPlan": "Registered with LSM on confirmation: {names}",
+  "projects.standard.check.servicesInPlan": "Handed to the service manager on confirmation: {names}",
   "projects.standard.check.noOutside": "No outside access needed",
   "projects.standard.check.appsOpened": "Opens {urls} on confirmation",
   "projects.standard.check.outsideWithoutWeb": "Interfaces {names} need /apps/ or public access, but the operations plan has no matching service with a web page (web)",

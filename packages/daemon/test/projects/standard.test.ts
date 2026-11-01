@@ -406,7 +406,7 @@ describe("转运营检查清单（259 号票）", () => {
     expect(items.map((i) => [i.id, i.label, i.done, i.detail])).toEqual([
       ["architecture", "架构图写清服务和对外接口", true, undefined],
       ["ops", "运营接口清单验收通过（ops.json）", true, "1 个接口"],
-      ["services", "服务按模板在 LSM 登记（写进运营方案）", true, "确认后交给 LSM 登记：「site」"],
+      ["services", "服务写进运营方案（确认后由服务管家上线）", true, "确认后交给服务管家上线：「site」"],
       ["public_entry", "要外网的开好 /apps/<项目>/", true, "确认后开 /apps/p-1-site/"],
       ["progress_written", "进展已写回", true, undefined],
     ]);
@@ -449,7 +449,7 @@ describe("转运营检查清单（259 号票）", () => {
     expect(item(checklist(p, paths), "services")).toMatchObject({ done: false, detail: "还没交运营方案：架构图里的服务「site」、「worker」要写进运营方案（means: service）" });
     expect(item(checklist(p, paths, { items: [servicePlan("site")] }), "services")).toMatchObject({ done: false, detail: "架构图里的服务「worker」没写进运营方案（means: service）" });
     const plan = { items: [servicePlan("site"), { name: "抓取 worker", service: { name: "fetch", app: "p-1-fetch" } }, { name: "日报" }] };
-    expect(item(checklist(p, paths, plan), "services")).toMatchObject({ done: true, detail: "确认后交给 LSM 登记：「site」、「fetch」" });
+    expect(item(checklist(p, paths, plan), "services")).toMatchObject({ done: true, detail: "确认后交给服务管家上线：「site」、「fetch」" });
   });
 
   test("要外网的：对外接口里走 /apps/、公网的要有对应的带网页的服务；点名了 /apps/<应用名>/ 的按应用名对", () => {
@@ -495,7 +495,7 @@ describe("转运营检查清单（259 号票）", () => {
       ["public_entry", true],
       ["progress_written", true],
     ]);
-    expect(item(noArchitecture, "services").detail).toBe("确认后交给 LSM 登记：「site」");
+    expect(item(noArchitecture, "services").detail).toBe("确认后交给服务管家上线：「site」");
     expect(item(noArchitecture, "public_entry").detail).toBe("确认后开 /apps/p-1-site/");
     // 两份都不要、也没有服务：只剩服务（没有，不用登记）、/apps/、进展
     const neither = goLiveChecklist({ project: p, paths, stateSince: T0, overrides: [archDropped, opsDropped] });

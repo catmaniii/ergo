@@ -726,6 +726,7 @@ function assemble(options: ProjectMaintainersOptions, first: Project): ProjectAs
         toolkit,
         // 这一段能用的工具：和守卫看到的同一份
         tools: assembledTools(assembly),
+        registeredMcp: host.registeredMcp(),
         records: { spec: read(paths.spec), progress: read(paths.progress), glossary: read(paths.glossary) },
         previous: workOrders.previous(maintainerId),
         workOrder: wo,

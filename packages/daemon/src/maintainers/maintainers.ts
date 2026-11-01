@@ -340,9 +340,12 @@ function taskSystemPrompt(options: MaintainersOptions, task: Task): string {
   const failureLimit = host.runFailureLimit;
   if (isPlainTask(task)) return plainTaskSystemPrompt(host.prompts, host.conversationApprovals, isTriggered(task) ? { failureLimit } : undefined, task.maintainerId);
   if (operating(task)) return workflowMaintainerSystemPrompt(host.prompts, host.thresholds, { failureLimit }, task.maintainerId);
-  if (options.multiProject && multiProjectToolkit(task)) return multiProjectSystemPrompt(host.prompts, host.thresholds, task.maintainerId);
-  if (taskKind(task) === "workflow") return workflowMaintainerSystemPrompt(host.prompts, host.thresholds, isTriggered(task) ? { failureLimit } : undefined, task.maintainerId);
-  return taskMaintainerSystemPrompt(host.prompts, host.thresholds, task.maintainerId);
+  // 362 号票：起草计划、提计划变更时要知道库里有哪些 MCP（普通任务、运行中的流程不写计划，不用）
+  const mcp = host.registeredMcp();
+  const withMcp = (prompt: string) => (mcp ? `${prompt}\n\n${mcp}` : prompt);
+  if (options.multiProject && multiProjectToolkit(task)) return withMcp(multiProjectSystemPrompt(host.prompts, host.thresholds, task.maintainerId));
+  if (taskKind(task) === "workflow") return withMcp(workflowMaintainerSystemPrompt(host.prompts, host.thresholds, isTriggered(task) ? { failureLimit } : undefined, task.maintainerId));
+  return withMcp(taskMaintainerSystemPrompt(host.prompts, host.thresholds, task.maintainerId));
 }
 
 /**
@@ -361,7 +364,7 @@ function clearedTaskLines(tasks: TaskService, task: Task): string {
     "【运行时注入】这个对话清空过：之前聊的不在你的上下文里了（记录照样留着）。正在做的事照下面接着做。",
     `${label}，现在${TASK_STATE_LABEL[task.state]}。`,
     ...(current
-      ? [`任务书（第 ${current.revision} 版）：`, `目标：${current.brief.goal}`, `验收标准：${bulletList(current.brief.acceptanceCriteria)}`, `约束：${bulletList(current.brief.constraints)}`]
+      ? [`任务书（第 ${current.revision} 版）：`, `目标：${current.brief.goal}`, `验收标准：${bulletList(current.brief.acceptanceCriteria)}`, `约束：${bulletList(current.brief.constraints)}`, ...(current.brief.dataSources?.length ? [`数据源：${bulletList(current.brief.dataSources)}`] : [])]
       : [`要做的事：${task.summary}`]),
   ].join("\n");
 }

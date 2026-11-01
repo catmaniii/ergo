@@ -174,7 +174,7 @@ describe("建设期间交运营方案，“首版做完了”卡上确认一次�
         { key: "site", name: "简报站网页", means: "public_entry", automatic: false, manual: "在 nginx 站点里给工作目录的 site/ 开一个公网入口" },
       ],
     });
-    expect(oneLine(card.text, 200)).toContain("转入使用后会开起来的：日报（每天 08:00，普通任务）、简报站网页（这一项二狗现在还做不了，需要你手动：在 nginx 站点里给工作目录的 site/");
+    expect(oneLine(card.text, 200)).toContain("转入使用后会开起来的：日报（每天 08:00，直接做）、简报站网页（这一项二狗现在还做不了，需要你手动：在 nginx 站点里给工作目录的 site/");
     expect(card.text).toContain("等你选：确认并转入使用、继续建设、放弃并归档");
 
     // 卡出了以后再交：卡跟着更新（版本加 1），照旧的按钮按新的这份
@@ -346,7 +346,7 @@ describe("使用中的项目改运营方案：出“运营方案变更”卡，�
     expect(p1.userWords).toEqual([expect.objectContaining({ text: "告诉AI 简报站，每天早上 8 点出日报，周日晚上 6 点出周报", relayedBy: "secretary" })]);
     await waitUntil(() => messagesOf(frontend, SECRETARY).some((m) => m.message.parts.some((p) => p.type === "card_ref" && p.cardId === first.id)), { describe: () => "卡出在秘书会话里" });
     expect(await eventually(() => inboxOf(frontend), (i) => i.kind === "card" && i.cardId === first.id, "待办里的卡")).toMatchObject({ title: "运营方案变更等你确认：AI 简报站", source: "项目「AI 简报站」" });
-    expect(first.text).toContain("- 加上：日报（每天 08:00，普通任务）");
+    expect(first.text).toContain("- 加上：日报（每天 08:00，直接做）");
     await turns(frontend, PM1, 1);
     await settled(td, "pm-1");
 
@@ -449,7 +449,7 @@ describe("使用中的项目改运营方案：出“运营方案变更”卡，�
     await turns(frontend, PM1, 3);
     const echo = textOf(messagesOf(frontend, PM1).filter((m) => m.message.speaker === "agent").at(-1)!);
     expect(echo).toContain("[toolResult] propose_operations: 和现在生效的运营方案一样，没有要改的（照旧在跑）。");
-    expect(echo).toContain("第 1 条「日报」：没有这种运营手段「webhook」（现在登记的：schedule 定时触发的任务、event 事件触发的任务、service 项目自己的服务（登记到 LSM）、public_entry 公网入口）");
+    expect(echo).toContain("第 1 条「日报」：没有这种运营手段「webhook」（现在登记的：schedule 定时触发的任务、event 事件触发的任务、service 项目自己的服务（由服务管家照看）、public_entry 公网入口）");
     expect(echo).toContain("第 2 条「坏事件」：");
     expect(cardsOf(frontend).filter((c) => c.type === "operations_change").map((c) => c.id)).toEqual([card.id, card.id]);
   }, 120_000);

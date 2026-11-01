@@ -199,6 +199,8 @@ export interface AppendMessageOptions extends MessageScope {
   idempotencyKey?: string;
   /** agent 正在干活时以插话送达，不等这一轮结束（14 号票：现在只有无进展的催促这样送）；只用于 agentInput 的通知 */
   interject?: boolean;
+  /** 只在项目维护者的对话段里处理（362 号票，MessageEventPayload.chatOnly）；只用于 agentInput 的通知 */
+  chatOnly?: boolean;
 }
 
 /** agent 或系统的一条定稿消息和它的事件（不追加）：调用方和别的事件一起放进 appendBatch */
@@ -211,6 +213,7 @@ export function buildMessage(
     message: full,
     ...(options.agentInput ? { agentInput: true } : {}),
     ...(options.agentInput && options.interject ? { interject: true } : {}),
+    ...(options.agentInput && options.chatOnly ? { chatOnly: true as const } : {}),
     ...pickMessageScope(options),
   };
   const event: NewEvent = { channel: full.conversation, type: EVENT_TYPES.message, payload, ...(options.idempotencyKey === undefined ? {} : { idempotencyKey: options.idempotencyKey }) };
@@ -297,17 +300,18 @@ export function appendAgentNotice(store: EventStore, conversation: ConversationI
  * 交给 agent 的通知和它的事件（不追加）：和别的事件一起放进 appendBatch。维护者会话里的带上所属的任务。
  * interject：agent 正在干活时以插话送达，不等这一轮结束（14 号票：现在只有无进展的催促这样送）。
  * summary：会话里折成一行时显示的一句话总结（115 号票，来信才有：任务做完、维护者来信），只给界面看，交给 agent 的照旧是全文。
- * relaySources：这条通知能转述谁（354 号票，MessageEnvelope.relaySources），只给运行时看
+ * relaySources：这条通知能转述谁（354 号票，MessageEnvelope.relaySources），只给运行时看。
+ * chatOnly：只在项目维护者的对话段里处理，不打断正在做的工单（362 号票）
  */
 export function buildAgentNotice(
   conversation: ConversationId,
   text: string,
   key: string,
   scope: MessageScope = {},
-  options: { interject?: boolean; summary?: string | undefined; relaySources?: MessageEnvelope["relaySources"] } = {},
+  options: { interject?: boolean; chatOnly?: boolean; summary?: string | undefined; relaySources?: MessageEnvelope["relaySources"] } = {},
 ): { message: MessageEnvelope; event: NewEvent } {
   return buildMessage(
     { conversation, speaker: "system", parts: [{ type: "text", text }], ...(options.summary ? { summary: options.summary } : {}), ...(options.relaySources?.length ? { relaySources: options.relaySources } : {}) },
-    { agentInput: true, idempotencyKey: key, ...scope, ...(options.interject ? { interject: true } : {}) },
+    { agentInput: true, idempotencyKey: key, ...scope, ...(options.interject ? { interject: true } : {}), ...(options.chatOnly ? { chatOnly: true } : {}) },
   );
 }

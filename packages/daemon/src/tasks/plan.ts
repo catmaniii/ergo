@@ -241,7 +241,8 @@ function policyProblems(plan: Plan, tools: ToolRegistry): string[] {
 
 function grantProblems(grant: PlanGrant, tools: ToolRegistry): string[] {
   const tool = findTool(tools, grant.tool);
-  if (!tool) return [`授权项 ${grant.id}：没有 ${grant.tool} 这个工具`];
+  // 362 号票：别说"没有这个工具"。propose_operations、check_ops 这类运行时代为执行的工具执行时照样有，只是不用（也不能）写进授权项；真写错名字的也按这句改
+  if (!tool) return [`授权项 ${grant.id}：${grant.tool} 不能写进授权项（授权项只写内置工具、带类型的 bash 工具和工具包里的 MCP）。运行时代为执行的工具（比如 propose_operations、check_ops）不用授权，执行时照样有：去掉这一项；是写错了名字的改对`];
   return Object.keys(grant.scope)
     .filter((param) => !Object.hasOwn(tool.args, param))
     .map((param) => `授权项 ${grant.id}：${grant.tool} 没有参数 ${param}`);

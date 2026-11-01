@@ -162,12 +162,21 @@ export function replyReason(reply: Extract<LsmServicesReply, { ok: false }>): st
   return [reply.error.message, ...details, ...(last ? [last] : [])].join(t("projectServices.reasonSep"));
 }
 
-type Outcome = { state: ServiceRolloutState; reason?: string; registered: boolean };
+/** basis：LSM 回复里带着的这个服务的状态（362 号票：通知维护者时写上它判断的依据），只进通知 */
+type Outcome = { state: ServiceRolloutState; reason?: string; basis?: string; registered: boolean };
+
+/** LSM 回的失败里，这个服务现在的状态：状态、健康检查、它的说明 */
+const statusBasis = (s: LsmServiceStatus | undefined): string | undefined => {
+  if (!s) return undefined;
+  const parts = [`状态 ${s.state}`, ...(s.health ? [`健康检查 ${s.health}`] : []), ...(s.detail && s.detail !== s.lastError ? [s.detail] : [])]; // @i18n-ignore model：交给维护者的通知
+  return parts.join("，"); // @i18n-ignore model
+};
 
 /** LSM 回的失败 → 上线失败（连接没了的不记：等重新接上再做） */
 const failed = (reply: Extract<LsmServicesReply, { ok: false }>, registered: boolean): Outcome | undefined => {
   if (WAIT_CODES.has(reply.error.code)) return undefined;
-  return { state: "failed", reason: reply.error.code === "timeout" ? rolloutText.timeout() : replyReason(reply), registered };
+  const basis = statusBasis(reply.service);
+  return { state: "failed", reason: reply.error.code === "timeout" ? rolloutText.timeout() : replyReason(reply), ...(basis ? { basis } : {}), registered };
 };
 
 /** 在不在线归成四种：在线、挂了（失败、停了、LSM 里没有了）、中间（启动中、停止中）、不知道（LSM 没连上） */
@@ -177,6 +186,9 @@ const livenessOf = (s: ServiceStatus): Liveness => {
   if (s === "failed" || s === "offline" || s === "missing") return "down";
   return s === "unknown" ? "unknown" : "between";
 };
+
+/** 维护者自己核实时连哪（362 号票）：健康检查的地址，没写健康检查的连首页 */
+const probeUrl = (row: ServiceRow) => `http://127.0.0.1:${row.desired.service.port}${row.desired.service.health?.path ?? "/"}`;
 
 /** 这一行做完了没有：没有结果的是还没做完；要你手动的、撤下失败的重新接上 LSM 时再做 */
 const unfinished = (row: ServiceRow, retry: boolean): boolean =>
@@ -414,7 +426,7 @@ export function createProjectServices(options: ProjectServicesOptions): ProjectS
   };
 
   /**
-   * 上线失败、要你手动：通知项目的维护者（唤起它；项目已归档的不通知）。269：接上 LSM 时兜底拉不起来的说明是接上时拉的
+   * 上线失败、要你手动：通知项目的维护者（唤起它；项目已归档的不通知）。362 号票：这些通知都只在对话段里处理，不打断正在做的工单。269：接上 LSM 时兜底拉不起来的说明是接上时拉的
    * （revive 是那一次结果的幂等键：每次接上各通知一次）
    */
   const notices = (row: ServiceRow, outcome: Outcome, revive?: string): NewEvent[] => {
@@ -423,9 +435,12 @@ export function createProjectServices(options: ProjectServicesOptions): ProjectS
     if (!project || project.state === "archived") return [];
     const v = viewOf(row);
     const reason = outcome.reason ?? "";
-    const text = outcome.state === "manual" ? noticeText.manual(v, reason) : revive ? noticeText.reviveFailed(v, reason) : noticeText.failed(v, reason);
+    // 362 号票：依据写全（LSM 给的原因，加上它报的状态），提示先自己连健康检查的地址核实
+    // @i18n-ignore-next model：交给维护者的通知
+    const said = outcome.basis ? `${reason}（${outcome.basis}）` : reason;
+    const text = outcome.state === "manual" ? noticeText.manual(v, reason) : revive ? noticeText.reviveFailed(v, said, probeUrl(row)) : noticeText.failed(v, said, probeUrl(row));
     const key = revive ? `${revive}:notice` : `service-rollout:${row.app}:${row.desiredSeq}:${outcome.state}:notice`;
-    return [buildAgentNotice(maintainerChannel(project.maintainerId), text, key, { projectId: project.id }).event];
+    return [buildAgentNotice(maintainerChannel(project.maintainerId), text, key, { projectId: project.id }, { chatOnly: true }).event];
   };
 
   /** 上线了的、有网页的：首页跑一遍前缀下自检，有问题告诉维护者（不挡上线） */
@@ -439,7 +454,7 @@ export function createProjectServices(options: ProjectServicesOptions): ProjectS
         const project = options.project(row.projectId);
         if (!project || project.state === "archived") return;
         store.appendBatch([
-          buildAgentNotice(maintainerChannel(project.maintainerId), noticeText.prefix(viewOf(row), prefixCheckReport(result)), `service-rollout:${row.app}:${row.desiredSeq}:prefix`, { projectId: project.id }).event,
+          buildAgentNotice(maintainerChannel(project.maintainerId), noticeText.prefix(viewOf(row), prefixCheckReport(result)), `service-rollout:${row.app}:${row.desiredSeq}:prefix`, { projectId: project.id }, { chatOnly: true }).event,
         ]);
       })
       .catch(() => {
@@ -514,10 +529,10 @@ export function createProjectServices(options: ProjectServicesOptions): ProjectS
     };
     // 第几次故障：同一次故障的"挂了""好了"用同一个号
     const key = `service-outage:${app}:${row.desiredSeq}:${to === "down" ? row.outages + 1 : row.outages}:${to}`;
-    const text = to === "down" ? noticeText.down(v, reason ?? "", row.desired.service.autoRestart) : noticeText.recovered(v);
+    const text = to === "down" ? noticeText.down(v, reason ?? "", row.desired.service.autoRestart, probeUrl(row)) : noticeText.recovered(v);
     store.appendBatch([
       { channel: OPERATIONS_CHANNEL, type: PROJECT_SERVICE_EVENTS.outage, payload, idempotencyKey: key },
-      buildAgentNotice(maintainerChannel(project.maintainerId), text, `${key}:notice`, { projectId: project.id }).event,
+      buildAgentNotice(maintainerChannel(project.maintainerId), text, `${key}:notice`, { projectId: project.id }, { chatOnly: true }).event,
     ]);
   };
 

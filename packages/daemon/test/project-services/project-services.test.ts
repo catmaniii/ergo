@@ -393,7 +393,7 @@ describe("上线、撤下（project-services.ts）", () => {
     expect(notices()).toEqual([]);
     clock.advance(2_000);
     expect(notices()).toHaveLength(1);
-    expect(notices()[0]).toContain("服务「网页」（p-1-web，端口 18080）上线后挂了，现在不在线：进程退出了（退出码 1）。它没开挂了自动重启");
+    expect(notices()[0]).toContain("服务「网页」（p-1-web，端口 18080）上线后挂了，现在不在线。服务管家（LSM）判断的依据：进程退出了（退出码 1）。它没开挂了自动重启");
     // 同一次故障：又失败一次、再等也不重报
     push("FAILED", { lastError: "进程退出了（退出码 1）" });
     clock.advance(60_000);
@@ -702,7 +702,7 @@ describe("项目的服务全部关闭、启动（257 号票）", () => {
     expect(services.view()[0]).toMatchObject({ rollout: "failed", reason: "端口 18080 已被 node.exe (4321) 占着" });
     expect(services.view()[0]?.paused).toBeUndefined();
     const texts = () => store.read(maintainerChannel("pm-1"), 0, EVENT_TYPES.message).map((e) => (e.payload as MessageEventPayload).message.parts.map((p) => ("text" in p ? p.text : "")).join(""));
-    expect(texts().some((t) => t.includes("没上线：端口 18080 已被 node.exe (4321) 占着"))).toBe(true);
+    expect(texts().some((t) => t.includes("没上线。服务管家（LSM）判断的依据：端口 18080 已被 node.exe (4321) 占着"))).toBe(true);
 
     // 上线失败的照样能关（登记着的取消开机自启、停掉）；LSM 停不下来：关闭失败
     lsm.replies.stop = [{ ok: false, error: { code: "failed", message: "停不下来：进程不响应" } }];
@@ -914,7 +914,7 @@ describe("接上 LSM 时兜底（269 号票）", () => {
     expect(services.view()[0]).toMatchObject({ rollout: "failed", reason: "端口 18080 已被 node.exe (4321) 占着" });
     expect(revivesOf(store)).toEqual([expect.objectContaining({ app: "p-1-web", state: "failed", reason: "端口 18080 已被 node.exe (4321) 占着", registered: true })]);
     expect(noticesOf(store)).toHaveLength(1);
-    expect(noticesOf(store)[0]).toContain("服务「网页」（p-1-web，端口 18080）本该在线（上线了、用户没关），二狗接上 LSM 时它没在跑，去拉起来没起来：端口 18080 已被 node.exe (4321) 占着");
+    expect(noticesOf(store)[0]).toContain("服务「网页」（p-1-web，端口 18080）本该在线（上线了、用户没关），二狗接上 LSM 时它没在跑，去拉起来没起来。服务管家（LSM）判断的依据：端口 18080 已被 node.exe (4321) 占着");
     clock.advance(120_000);
     expect(noticesOf(store)).toHaveLength(1);
 

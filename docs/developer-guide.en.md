@@ -162,6 +162,7 @@ Both ports listen only on `127.0.0.1`:
 - **Three hard bottom lines** nobody can override: never write ergo's own config area, database area or program directory; never read the secrets area; never send something known to be a secret.
 - Anything that cannot be judged (missing facts, arguments that can't be normalized…) is "ask me first".
 - **Authorized folders** (`GuardInput.authorizedFolders`, re-read by the caller on every judgement): reading files inside doesn't count as leaving the project directory, and plan conformance doesn't count it as out of bounds either. Reading only, compared by real path; no real path means it doesn't count; the data directory, protected areas, secret files, running scripts, git, `cd` and bash paths written with `..` don't count ([ADR-0041](adr/0041-authorized-folders-read-only-in-guard.md), Chinese).
+- **With the network switch off, reaching only this machine doesn't count as network**: curl sending only to `127.0.0.1`, `localhost` or `::1` (Ergo's own ports don't count as local); scripts using libraries that can stay local (`socket`, `urllib`, `http.server`, `fetch`) whose addresses are all local (`localOnly` in `guard-runtime/script-scan.ts`). Processes started by bash have those hosts in `NO_PROXY` (`process/child-env.ts`). Addresses coming from arguments or environment variables can't be seen: this layer is best effort anyway.
 - Defaults follow "features first, security later" ([ADR-0026](adr/0026-features-first-security-later.md)); new installs tighten two of them (see the [User Guide](user-guide.en.md#32-doing-it-without-the-wizard)).
 
 #### Temporal rules
@@ -312,7 +313,8 @@ When a project's own service finds something that matters, it reports an event t
 - **Ops layer**: `project-services/service-events.ts` owns credentials (`secrets/service-tokens/<app name>.token`; only a digest stays in memory), the rate and size limits (`event-sources/thresholds.ts`, config `eventSources.serviceReportsPerMinute` and `serviceDataMaxBytes`), recent events (`event-sources/service-events.json`, `SERVICE_EVENTS_KEPT` per service, no data) and the maintainer's `recent_service_events`. `bringUp` in `project-services.ts` issues a credential if there is none and restarts a running service that got a new one; a withdrawing `service_desired` revokes it as soon as it is committed; deleting the project removes both.
 - **Where the data goes**: only `JobRun.events` (rewritten when the project is deleted). `eventsBlock` in `scheduled-jobs/texts.ts` marks it as data, not instructions, when it is handed to the agent. No material source reads it, so it stays out of memory.
 - **Instructions for maintainers**: the "woken by a service" passage in `prompts/project-maintainer.md` (the full recipe) and the means descriptions in `operations/builtin-means.ts` and `project-services/means.ts` (the fields). Change them together.
-- **Tests**: `test/main/service-events.test.ts` (fake LSM, faux maintainer), `test/main/service-events-real.test.ts` (real service manager, real child process, real command), `test/cli/notify.test.ts`, `test/build/stage.test.ts` (run from a version directory).
+- **Notices when a service has trouble**: failed to go live, went down, recovered and failed prefix checks are all marked `chatOnly` (`MessageEventPayload`): they stay out of work order segments and wait for a chat segment once the maintainer is free (`accepts` in `work-orders/segments.ts`), so an alarm run isn't interrupted and `propose_operations` is actually there. The notice carries the service manager's reason and the health check address, and asks the maintainer to check for itself first.
+- **Tests**: `test/main/grow-frictions.test.ts` (trouble notices don't interrupt an alarm), `test/main/service-events.test.ts` (fake LSM, faux maintainer), `test/main/service-events-real.test.ts` (real service manager, real child process, real command), `test/cli/notify.test.ts`, `test/build/stage.test.ts` (run from a version directory).
 
 ## 5. Plugins
 
@@ -531,6 +533,7 @@ To debug pages in the WebView, install the `--webview-debug` build and use Chrom
 
 ### 10.2 Test harness
 
+- **The maintainer speaks first after a kickoff**: in production, tapping "Start project" wakes the maintainer (`kickoffFromCard` in `projects.ts`); `startTestDaemon` keeps this off by default (`kickoffOpening`) so faux model scripts don't gain a turn. Tests that need it pass `true`.
 - **Main slice** (`packages/daemon/test/main/`): `startTestDaemon(options)` starts a real daemon (temporary data directory, system-chosen free ports, **never 8810 or 8811**); the secretary, maintainers, reviewers and sub-agents talk to pi's faux provider following scripts, and child processes are really launched; `TestFrontend` plays the frontend over WebSocket and HTTP and waits for events per channel. Time is advanced with `ManualClock`, never waited out.
 - **Guard slice** (`packages/daemon/test/guard/`): calls the judging function only, no processes; scenario files `scenarios/*.guard.json` run one by one.
 - **pi contract tests** (`packages/daemon/test/contract/`): verify only the pi behavior ergo depends on.

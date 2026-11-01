@@ -167,7 +167,7 @@ describe("立项的入口", () => {
     const notices = messagesOf(frontend, SECRETARY).filter((m) => m.agentInput);
     expect(notices).toHaveLength(1);
     expect(notices[0]!.message.id).toBe(first.messageId);
-    expect(textOf(notices[0]!)).toBe("用户点「新建项目」要立项：做一个家电档案\n不用判断这是不是项目：直接用 suggest_project 出一张建议立项卡（名字、一句话目标），用户点“立项”后项目就诞生，维护者接着和用户做立项问答。");
+    expect(textOf(notices[0]!)).toBe("用户点「新建项目」要立项：做一个家电档案\n不用判断这是不是项目：直接用 suggest_project 出一张建议立项卡（名字、一句话目标；用户写的路径、限制原样抄进 userWords），用户点“立项”后项目就诞生，维护者接着和用户做立项问答。");
   }, 60_000);
 });
 

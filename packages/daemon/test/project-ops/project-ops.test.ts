@@ -443,7 +443,7 @@ describe("清单验收和版本号（照 112 号票的自动验收）", () => {
       ops: { "p-1": LEDGER_OPS },
     });
     await s.ops.prepareGoLive("p-1");
-    expect(s.ops.checklistItem(building)).toMatchObject({ done: true, detail: "2 个操作格式对、能跑的测试都过了；项目服务上的 2 个确认后服务上线时再测" });
+    expect(s.ops.checklistItem(building)).toMatchObject({ done: true, later: true, detail: "2 个操作格式对、能跑的测试都过了；项目服务上的 2 个要服务在跑才能测，上线后自动复验" });
     // 转入使用时不登记（还没全过）
     expect(s.ops.goLiveEvents(building)).toEqual([]);
     // 转入使用、服务起来了：秘书第一次用到时验、过了登记
@@ -453,6 +453,45 @@ describe("清单验收和版本号（照 112 号票的自动验收）", () => {
     const listed = await s.run({ action: "list" });
     expect(listed.text).toContain("项目 p-1「记账本」（运营接口清单第 1 版");
     expect(s.registered().map((r) => r.version)).toEqual([1]);
+  });
+
+  it("先验清单、后交方案（362 号票）：当时调用口对不上记的“没过”过时了，卡上不再写没过，重验", async () => {
+    const idle = await freePort();
+    const building = project("p-1", "记账本", "building", { kind: "dev" });
+    const plans: Record<string, OperationsPlanView> = {};
+    const s = setup({ projects: [building], plans, ops: { "p-1": LEDGER_OPS } });
+    expect((await s.check("p-1")).text).toContain("清单里调用口写在服务「ledger」上");
+    expect(s.ops.checklistItem(building).done).toBe(false);
+    // 运营方案交上来了：对得上了。清单上是"正在验收"，验完（服务还没跑）写上线后再验
+    plans["p-1"] = { revision: 1, items: [{ name: "记账本网页", service: { name: "ledger", app: "p-1-ledger", port: idle } }] } as unknown as OperationsPlanView;
+    expect(s.ops.checklistItem(building)).toMatchObject({ done: false, detail: "2 个操作，正在验收" });
+    await waitFor(() => s.ops.checklistItem(building).done);
+    expect(s.ops.checklistItem(building)).toMatchObject({ done: true, later: true });
+    expect(s.ops.checklistItem(building).detail).toContain("上线后自动复验");
+  });
+
+  it("服务上线了（362 号票）：不等秘书用到，自动复验、全过了登记；登记着的就是这一份不再验；没过的告诉维护者", async () => {
+    const idle = await freePort();
+    const building = project("p-1", "记账本", "building", { kind: "dev" });
+    const s = setup({
+      projects: [building],
+      plans: { "p-1": { revision: 1, items: [{ name: "记账本网页", service: { name: "ledger", app: "p-1-ledger", port: idle } }] } as unknown as OperationsPlanView },
+      ops: { "p-1": LEDGER_OPS },
+    });
+    await s.ops.prepareGoLive("p-1");
+    expect(s.registered()).toEqual([]);
+    // 建设中的不验
+    await s.ops.recheckAfterLive("p-1");
+    expect(s.registered()).toEqual([]);
+    const app = await startFakeOpsApp();
+    s.setProjects([{ ...building, state: "in_use" }]);
+    s.setServices([service("p-1", "ledger", app.port)]);
+    await s.ops.recheckAfterLive("p-1");
+    expect(s.registered().map((r) => r.version)).toEqual([1]);
+    const calls = app.calls().length;
+    await s.ops.recheckAfterLive("p-1");
+    expect(app.calls()).toHaveLength(calls);
+    expect(s.notified).toEqual([]);
   });
 
   it("使用中改了清单：重新验收、全过了登记成下一版（秘书马上用新的）；没过的照旧用上一版，告诉维护者一次；记录里带版本号", async () => {
@@ -811,7 +850,7 @@ describe("call", () => {
     s.setServices([service("p-1", "ledger", app.port), service("p-1", "admin", app.port + 1)]);
     expect((await s.check("p-1")).text).toContain("这个项目有好几个服务（ledger、admin），清单的 endpoint.service 要写调用口在哪个服务上");
     s.setServices([]);
-    expect((await s.check("p-1")).text).toContain("这个项目没有在 LSM 上的服务");
+    expect((await s.check("p-1")).text).toContain("这个项目现在没有服务");
     expect(app.calls()).toEqual([]);
   });
 });

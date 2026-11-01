@@ -5,9 +5,10 @@
 //   运行时据此生成立项书卡放进待我处理。工具绑定在一个项目上：维护者只能给它维护的那个项目交。
 // 两个都只产生卡片，不落入任何关注类别。
 // @i18n-ignore-file model：工具说明、参数说明、结果给模型看（173 号票）；工具的名字走 t()
-import { Charter, PI_RUNTIME_ID, PROJECT_GOAL_MAX, PROJECT_NAME_MAX, toolkitBashWording, Type, t, type WorkFolderChoice } from "@ergo/protocol";
-import { defineHostTool, type HostTool } from "../agent-manager/host-tools.ts";
+import { Charter, CHANNELS, PI_RUNTIME_ID, PROJECT_GOAL_MAX, PROJECT_NAME_MAX, PROJECT_USER_WORDS_MAX, toolkitBashWording, Type, t, type WorkFolderChoice } from "@ergo/protocol";
+import { defineHostTool, type HostTool, type HostToolCall } from "../agent-manager/host-tools.ts";
 import type { CardService } from "../cards/cards.ts";
+import { type UserWordsDeps, verifyUserWords } from "../conversation/user-words.ts";
 import { RequestRejected } from "../errors.ts";
 import type { ProjectService, ProjectWorkFolder } from "./projects.ts";
 import { SUBMIT_CHARTER_TOOL, SUGGEST_PROJECT_TOOL } from "./tool-names.ts";
@@ -16,6 +17,13 @@ const SuggestProjectParams = Type.Object(
   {
     name: Type.String({ minLength: 1, maxLength: PROJECT_NAME_MAX, description: "项目名（短）" }),
     goal: Type.String({ minLength: 1, maxLength: PROJECT_GOAL_MAX, description: "一句话目标" }),
+    userWords: Type.Optional(
+      Type.String({
+        minLength: 1,
+        maxLength: PROJECT_USER_WORDS_MAX,
+        description: "用户说的具体要求，原样抄、一个字别改：完整路径、文件名、限制、数量、时间。目标里放不下的都写这里，点“立项”时原样交给维护者（它只看得到这个，你转述丢了的它会再问用户一遍）。用户这句话运行时自己也会带上，这里写前面几句里说的",
+      }),
+    ),
     runtime: Type.Optional(
       Type.String({
         minLength: 1,
@@ -58,10 +66,22 @@ const SubmitCharterParams = Type.Object(
 );
 
 /**
- * 秘书的"建议立项"；runtimeRefusal：写的运行时现在能不能用（289 号票，不给就不查）；workFolder：写的文件夹（305 号票：已有的核对路径，
- * 不给就不查）
+ * 卡上带的用户原话（362 号票）：秘书正在处理的那几句（运行时核实过，发言方是用户才算：语音是识别出的文字，"新建项目"的通知不算）在前，
+ * 秘书抄的前面几句里说的接在后面；一样的不写两遍，太长的截掉
  */
-export function suggestProjectTool(cards: CardService, runtimeRefusal?: (runtime: string) => string | undefined, workFolder?: Pick<ProjectWorkFolder, "precheck">): HostTool {
+function kickoffWords(copied: string | undefined, deps: UserWordsDeps | undefined, call: HostToolCall): string | undefined {
+  const ids = [...(call.inputMessageId === undefined ? [] : [call.inputMessageId]), ...(call.moreInputMessageIds ?? [])];
+  const said = deps ? verifyUserWords(deps, ids, CHANNELS.secretary).verified.map((w) => w.text).join("\n") : "";
+  const extra = copied?.trim() ?? "";
+  const words = said.includes(extra) ? said : extra.includes(said) ? extra : `${said}\n${extra}`;
+  return words.trim().slice(0, PROJECT_USER_WORDS_MAX) || undefined;
+}
+
+/**
+ * 秘书的"建议立项"；runtimeRefusal：写的运行时现在能不能用（289 号票，不给就不查）；workFolder：写的文件夹（305 号票：已有的核对路径，
+ * 不给就不查）；userWords：核实用户这句话（362 号票：出卡时原样带上，不靠秘书转述；不给就只有秘书抄的）
+ */
+export function suggestProjectTool(cards: CardService, runtimeRefusal?: (runtime: string) => string | undefined, workFolder?: Pick<ProjectWorkFolder, "precheck">, userWords?: UserWordsDeps): HostTool {
   return defineHostTool({
     name: SUGGEST_PROJECT_TOOL,
     title: t("projects.tools.suggest"),
@@ -69,7 +89,7 @@ export function suggestProjectTool(cards: CardService, runtimeRefusal?: (runtime
       "一件事更像一个要长期用、长期维护的功能模块时，给用户一张“建议立项”卡（名字、一句话目标）。它不建项目：用户点卡上的“立项”项目才诞生，维护者随之产生，接着和用户做立项问答。用户明说要立项、或者点了“新建项目”时，不用判断是不是项目，直接用它收口。",
     parameters: SuggestProjectParams,
     readOnlyOrIdempotent: false,
-    run: (args) => {
+    run: (args, call) => {
       const runtime = args.runtime === undefined || args.runtime === PI_RUNTIME_ID ? undefined : args.runtime;
       const refused = runtime === undefined ? undefined : runtimeRefusal?.(runtime);
       if (refused !== undefined) return { text: refused, isError: true };
@@ -82,7 +102,8 @@ export function suggestProjectTool(cards: CardService, runtimeRefusal?: (runtime
         if (err instanceof RequestRejected) return { text: err.message, isError: true };
         throw err;
       }
-      const card = cards.create({ type: "suggest_project", payload: { name: args.name, goal: args.goal, ...(runtime === undefined ? {} : { runtime }), ...(folder === undefined ? {} : { folder }) } });
+      const words = kickoffWords(args.userWords, userWords, call);
+      const card = cards.create({ type: "suggest_project", payload: { name: args.name, goal: args.goal, ...(words ? { userWords: words } : {}), ...(runtime === undefined ? {} : { runtime }), ...(folder === undefined ? {} : { folder }) } });
       return { text: "已在聊天里放了一张“建议立项”卡（项目还没建）。用户点“立项”项目才诞生，到时你会收到通知；立项问答由项目的维护者做。", cardIds: [card.id] };
     },
   });

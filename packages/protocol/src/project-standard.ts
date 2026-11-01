@@ -153,6 +153,8 @@ export interface StandardChecklistItem {
    * （"没有服务，不用登记"、"确认后开 /apps/p-1-site/"）
    */
   detail?: string;
+  /** 现在还验不了、上线后再验（362 号票：服务还没上线，转入使用才上线）：算做到了，卡上单独标出来 */
+  later?: boolean;
 }
 
 /** 清单里还没做到的几项 */

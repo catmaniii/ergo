@@ -808,10 +808,20 @@ function ownPageRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector): v
   if (own.length > 0) out.category("external_send", t("guard.judge.ownPage", { what: kc.what }) + sep() + ownApiNote(own));
 }
 
+/**
+ * 只发往本机的 HTTP 请求（curl 127.0.0.1 这类，362 号票：写本机服务的项目要自己连 /health 核实）：不算联网。
+ * 发往二狗自己端口的不算本机（139 号票），照旧拒
+ */
+function localHttpRequest(ctx: JudgeContext, kc: KnownCall): boolean {
+  if (kc.call.tool !== TOOL.http_request) return false;
+  const urls = argValues(kc, "url");
+  return urls.length > 0 && ownPortsOf(urls, ctx.input.places.ownPorts).length === 0 && urls.every((u) => typeof u === "string" && isLocalUrl(u));
+}
+
 /** 联网开关：联网的工具，以及（调用方扫描后报上来的）用到联网库或函数的脚本 */
 function networkRule(ctx: JudgeContext, kc: KnownCall, out: FindingCollector): void {
   if (!ctx.networkOff) return;
-  if (kc.tool.network) out.refuse("network_off", t("guard.judge.network", { what: kc.what, networkOff: ctx.words.networkOff }));
+  if (kc.tool.network && !localHttpRequest(ctx, kc)) out.refuse("network_off", t("guard.judge.network", { what: kc.what, networkOff: ctx.words.networkOff }));
   if (kc.call.tool !== TOOL.run_script) return;
   for (const p of pathArgs(ctx, kc)) {
     if (p.resolved.kind === "device") continue;

@@ -9,7 +9,7 @@
 // 工具起的进程：环境是系统变量白名单（buildChildEnv，没有守护进程的密钥；推送、建远端仓库靠本机已登录的 git 和
 // GitHub 命令行，二狗不另外注入凭据），联网开关关着时另加一组无效代理（OFFLINE_SHELL_ENV）；每次调用一个 Job 对象（runner.ts）。
 import type { HostTool } from "../agent-manager/host-tools.ts";
-import { buildChildEnv, OFFLINE_SHELL_ENV } from "../process/child-env.ts";
+import { buildChildEnv, OFFLINE_SHELL_ENV, SCRIPT_UTF8_ENV } from "../process/child-env.ts";
 import { createJobObject, type JobObject } from "../process/job-object.ts";
 import { findGitBash } from "./git-bash.ts";
 import { runShell, type ShellRunResult } from "./runner.ts";
@@ -79,6 +79,8 @@ export function createTypedShell(options: TypedShellOptions): TypedShell {
     // 只在 Windows 上设：别的系统上 findGitBash 给的是 PATH 上的 "bash"，不是路径。
     const env = buildChildEnv(options.parentEnv, {
       ...SHELL_ENV,
+      // 362 号票：阶段验收脚本和带类型的 bash 工具里 Python 用 UTF-8（中文 Windows 的控制台默认 GBK，打印中文报错）
+      ...SCRIPT_UTF8_ENV,
       ...(process.platform === "win32" ? { SHELL: bash } : {}),
       ...(input.network ? {} : OFFLINE_SHELL_ENV),
     });

@@ -5,7 +5,7 @@
 //   force（维护者的 check_ops、转入使用的请求）不管验没验过都重验。
 // - 登记（ops_manifest_registered）：使用中的项目，清单全过了才登记，版本号从 1 起每登记一次加一，登记的是读出来的那一份——秘书用的
 //   是登记着的版本，档案里改了不影响，直到改过的那份验收全过、登记成下一版。转入使用时（goLiveEvents，和转入使用同一事务）登记
-//   验收全过的那份；验收还在等服务上线的，服务起来以后秘书第一次用到时验、过了登记。
+//   验收全过的那份；验收还在等服务上线的，服务上线时运行时自己复验（362 号票，tool.ts 的 recheckAfterLive），过了登记；没赶上的秘书第一次用到时验。
 // - 使用中的项目秘书用到时（usable）：档案里的和登记着的一样就用登记着的；不一样（或者还没登记过）先验，全过登记新的一版再用；
 //   没过的照旧用登记着的那一版（没有就只有通用操作），没过的原因告诉维护者一次（notifyMaintainer）。
 // - 建设中的项目转运营检查清单里那一项（checklistView，同步）：没交、模板原样、读不通、格式不对的马上说；格式对的看这份内容验过没有，
@@ -83,6 +83,9 @@ export interface OpsRegistry {
   checklistView(project: Project): OpsChecklistView;
 }
 
+/** 调用口对不上服务的几种问题：运营方案、服务变了就可能过时（362 号票） */
+const ENDPOINT_PROBLEMS: ReadonlySet<string> = new Set(["endpointNoService", "endpointUnknownService", "endpointAmbiguous"]);
+
 /** 内存里按项目和内容认一次验收 */
 const keyOf = (projectId: string, hash: string) => `${projectId}:${hash}`;
 
@@ -156,6 +159,16 @@ export function createOpsRegistry(deps: OpsRegistryDeps): OpsRegistry {
     return check;
   };
 
+  /**
+   * 记下的"没过"已经过时了（362 号票）：当时调用口对不上服务（先验的清单、后交的运营方案；真模型试验里卡上因此一直写着"验收没过"），
+   * 现在对得上了。同一份内容不再自动验的规矩不管这种：重验
+   */
+  const outdated = (project: Project, state: Extract<OpsFileState, { kind: "present" }>, done: OpsCheck): boolean => {
+    if (done.outcome !== "failed" || state.read.kind !== "ok") return false;
+    if (!done.problems.some((p) => ENDPOINT_PROBLEMS.has(p.code))) return false;
+    return !formatProblems({ project, read: state.read, run: deps.context(project).run }).problems.some((p) => ENDPOINT_PROBLEMS.has(p.code));
+  };
+
   /** 验一遍（同一份同时只验一遍） */
   const runCheck = (project: Project, state: Extract<OpsFileState, { kind: "present" }>, by: OpsCheckBy): Promise<OpsCheck> => {
     const key = keyOf(project.id, state.hash);
@@ -192,7 +205,7 @@ export function createOpsRegistry(deps: OpsRegistryDeps): OpsRegistry {
     if (state.kind !== "present") return undefined;
     if (!opts.force) {
       const done = lastCheck(project.id, state.hash);
-      if (done && done.outcome !== "waiting") return done;
+      if (done && done.outcome !== "waiting" && !outdated(project, state, done)) return done;
     }
     return runCheck(project, state, opts.by);
   };
@@ -210,7 +223,7 @@ export function createOpsRegistry(deps: OpsRegistryDeps): OpsRegistry {
       if (state.kind === "unreadable") return { ...base, file: "unreadable", problem: state.problem };
       if (reg?.hash === state.hash) return { ...base, file: "same" };
       let done = lastCheck(project.id, state.hash);
-      if (!done || done.outcome === "waiting") done = await runCheck(project, state, "secretary");
+      if (!done || done.outcome === "waiting" || outdated(project, state, done)) done = await runCheck(project, state, "secretary");
       // 建设中验过、转入使用那一刻还没验完的：这会儿是使用中了，全过的补登记
       if (done.outcome === "passed" && project.state === "in_use") {
         const reg = registerEvent(project, state);
@@ -238,6 +251,8 @@ export function createOpsRegistry(deps: OpsRegistryDeps): OpsRegistry {
       const format = formatProblems({ project, read: state.read, run: deps.context(project).run });
       if (format.problems.length > 0) return { state: "failed", problems: format.problems };
       let done = lastCheck(project.id, state.hash);
+      // 362 号票：当时调用口对不上、现在对得上了的不算数，重验
+      if (done && outdated(project, state, done)) done = undefined;
       // 一个操作都没有（项目只用通用操作）：没有测试要跑，格式对就是全过，当场记下
       if (!done && count === 0) done = recordCheck(project, state.hash, { outcome: "passed", problems: [], warnings: format.warnings, ops: [] }, "go_live");
       if (!done) {

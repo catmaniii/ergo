@@ -162,6 +162,7 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 - **三条硬底线**谁说了都不放：不写二狗自己的配置区、数据库区和程序目录；不读密钥区；确定要把密钥发出去的不做。
 - 判断不了的（缺环境事实、参数没法规范化……）一律先问。
 - **授权的文件夹**（`GuardInput.authorizedFolders`，调用方每次判定现读）：读里面的文件不算越出项目目录，计划比对也不算越界。只放开读，按真实路径比，取不到真实路径的不算；数据目录、受保护区域、密钥文件、跑脚本、git、`cd`、bash 里写着 `..` 的路径都不算（[ADR-0041](adr/0041-authorized-folders-read-only-in-guard.md)）。
+- **联网开关关着时只连本机的不算联网**：curl 只发往 `127.0.0.1`、`localhost`、`::1`（发往二狗自己端口的不算本机）；脚本用到 `socket`、`urllib`、`http.server`、`fetch` 这些能连本机的库，里面写的地址又都是本机（`guard-runtime/script-scan.ts` 的 `localOnly`）。bash 起的进程 `NO_PROXY` 写着本机（`process/child-env.ts`）。地址从参数、环境变量来的看不出来，这一层本来就是尽力而为。
 - 默认值按"功能先跑通、安全后接"（[ADR-0026](adr/0026-features-first-security-later.md)），新装时收紧两项（见[用户手册](user-guide.md#32-不用向导的做法)）。
 
 #### 时序规则
@@ -313,7 +314,8 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 - **运营层**：`project-services/service-events.ts` 管凭证（`secrets/service-tokens/<应用名>.token`，内存里只留摘要）、限速和大小上限（`event-sources/thresholds.ts`，配置 `eventSources.serviceReportsPerMinute`、`serviceDataMaxBytes`）、最近收到的（`event-sources/service-events.json`，每个服务 `SERVICE_EVENTS_KEPT` 条，不存数据）和维护者的 `recent_service_events`。上线时 `project-services.ts` 的 `bringUp` 没有凭证就发一份，发了新的而服务在跑的重启一次；`service_desired` 撤下一落盘就作废；删项目时一起删。
 - **数据的去向**：只在 `JobRun.events` 里（删项目时跟着改写）。交给 agent 时 `scheduled-jobs/texts.ts` 的 `eventsBlock` 写明是数据不是指令。没有素材来源接它，不进记忆。
 - **给维护者的说明**：`prompts/project-maintainer.md` 的"被服务叫醒"一段（完整做法），`operations/builtin-means.ts`、`project-services/means.ts` 的手段说明（字段）。改做法要改这几处。
-- **测试**：`test/main/service-events.test.ts`（假 LSM、faux 维护者）、`test/main/service-events-real.test.ts`（真的服务管家、真子进程、真命令行）、`test/cli/notify.test.ts`、`test/build/stage.test.ts`（版本目录里跑）。
+- **服务出事的通知**：上线失败、挂了、好了、前缀自检没过都标 `chatOnly`（`MessageEventPayload`）：不进工单段，排到维护者空下来开一个对话段（`work-orders/segments.ts` 的 `accepts`），报警工单不被打断，这一段也才有 `propose_operations`。通知写服务管家判断的依据和健康检查的地址，提示先自己连一下核实。
+- **测试**：`test/main/grow-frictions.test.ts`（服务出事的通知不打断报警）、`test/main/service-events.test.ts`（假 LSM、faux 维护者）、`test/main/service-events-real.test.ts`（真的服务管家、真子进程、真命令行）、`test/cli/notify.test.ts`、`test/build/stage.test.ts`（版本目录里跑）。
 
 ## 5. 插件
 
@@ -532,6 +534,7 @@ adb -s <设备号> logcat -s ErgoApp                  # App 和网页的日志
 
 ### 10.2 测试底座
 
+- **立项后维护者先开口**：正式跑时点"立项"会叫醒维护者（`projects.ts` 的 `kickoffFromCard`）；`startTestDaemon` 默认关着（`kickoffOpening`），假模型的剧本不多一轮，要测的写 `true`。
 - **主切面**（`packages/daemon/test/main/`）：`startTestDaemon(options)` 起一个真的守护进程（临时数据目录、系统挑的空闲端口，**从不占用 8810、8811**），秘书、维护者、评审、子 agent 接 pi 的 faux provider 按剧本回话，子进程真的拉起；`TestFrontend` 扮演前端，经 WebSocket 和 HTTP 收发、按频道等事件。时钟用 `ManualClock` 拨，不真等。
 - **守卫切面**（`packages/daemon/test/guard/`）：只调判定函数，不起进程；场景文件 `scenarios/*.guard.json` 逐个跑。
 - **pi 契约测试**（`packages/daemon/test/contract/`）：只验二狗依赖的 pi 行为。

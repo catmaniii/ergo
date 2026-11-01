@@ -7,6 +7,27 @@ import { type McpChangeAction, type McpChangeCardPayload, type McpChangeRegistra
 /** 几个名字之间 */
 const listOf = (names: readonly string[]) => names.join(t("toolkit.listSep"));
 
+/** 清单里一个工具的说明最多放这么多字 */
+const REGISTERED_TOOL_NOTE_MAX = 80;
+
+// @i18n-ignore-start model：写进维护者的系统提示
+/**
+ * 已登记的 MCP 清单（362 号票：真模型试验里新任务的负责人问"看板叫什么名字"，要用户告诉它）：拼在维护者的系统提示里，起草计划、申请工具包变更时对得上。
+ * 一个都没登记的是 undefined
+ */
+export function registeredMcpText(servers: ReadonlyArray<{ name: string; title: string; tools: ReadonlyArray<{ name: string; title: string; description?: string }> }>): string | undefined {
+  if (servers.length === 0) return undefined;
+  const toolLine = (tool: { name: string; title: string; description?: string }) => {
+    const note = tool.description?.trim().split(/\r?\n/)[0]?.slice(0, REGISTERED_TOOL_NOTE_MAX);
+    return `${tool.name}（${tool.title}${note && note !== tool.title ? `：${note}` : ""}）`;
+  };
+  return [
+    "已登记的 MCP（库里现在有这些。用户说的数据源、看板对得上哪个就用哪个，不用再问它叫什么；要用就把名字写进工具包：起草计划时写进计划的工具包 toolkit.mcp，项目的对话段里用 request_toolkit_change 申请）：",
+    ...servers.map((s) => `- ${s.name}${s.title === s.name ? "" : `（${s.title}）`}：${s.tools.map(toolLine).join("；") || "没登记工具"}`),
+  ].join("\n");
+}
+// @i18n-ignore-end
+
 /** 一个提交的人的叫法（"项目「X」的维护者"、"任务「T」的维护者"） */
 export function whoText(submitter: McpChangeSubmitter): string {
   return submitter.kind === "project" ? t("mcp.change.who.project", { project: submitter.projectName }) : t("mcp.change.who.task", { task: submitter.taskTitle });

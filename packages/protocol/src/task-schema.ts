@@ -430,6 +430,11 @@ export const TaskBrief = Type.Object(
     goal: Type.String({ minLength: 1, maxLength: 2000, description: "目标" }),
     acceptanceCriteria: Type.Array(Type.String({ minLength: 1 }), { minItems: 1, description: "验收标准：做到什么样算完成" }),
     constraints: Type.Array(Type.String({ minLength: 1 }), { description: "约束（用户说过的限制、不能做的事），尽量用用户的原话：维护者据此编译成规则，计划卡上和原话一起列出" }),
+    dataSources: Type.Optional(
+      Type.Array(Type.String({ minLength: 1 }), {
+        description: "数据源（362 号票）：要用到的数据在哪，登记过的 MCP 写名字（比如“MCP retention-board”），文件写完整路径。维护者只看得到任务书：你对用户说写了数据源，这里就要真写上；不用数据就不写",
+      }),
+    ),
     projects: Type.Array(Type.String({ minLength: 1 }), { description: "涉及的项目（不涉及就写空数组；用户发起时选了项目的，以它为依据）" }),
     memoryScope: Type.String({ maxLength: 500, description: "记忆范围提议：执行时可能要用到哪些关于用户的记忆（第一阶段只占位）" }),
   },

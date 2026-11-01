@@ -593,7 +593,7 @@ const TEMPLATES: Readonly<Record<string, Template>> = {
     return questions.length > 1 ? t("state.callSentence.askQuestions", { question: questions[0], total: questions.length }) : t("state.callSentence.askQuestion", { question: questions[0] });
   },
   write_task_brief: (s, named) => {
-    const a = summaryArgs(s, ["taskId", "goal", "acceptanceCriteria", "constraints", "projects", "memoryScope"]);
+    const a = summaryArgs(s, ["taskId", "goal", "acceptanceCriteria", "constraints", "dataSources", "projects", "memoryScope"]);
     return a.taskId && t(a.goal ? "state.callSentence.writeBriefGoal" : "state.callSentence.writeBrief", { task: named(a.taskId), goal: a.goal });
   },
 };

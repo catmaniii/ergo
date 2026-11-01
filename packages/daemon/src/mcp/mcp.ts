@@ -43,11 +43,20 @@ export interface McpQuickActionTool {
   serverTitle: string;
 }
 
+/** 给维护者看的一条 MCP（362 号票） */
+export interface RegisteredMcp {
+  name: string;
+  title: string;
+  tools: Array<{ name: string; title: string; description?: string }>;
+}
+
 export interface McpService {
   /** 现读的登记 */
   registrations(): McpRegistrationRead;
   /** 给界面看的登记（工具包区、skill 库页） */
   catalog(): { servers: McpServerEntry[]; problem?: string };
+  /** 给维护者看的清单（362 号票）：登记了哪些 MCP，叫什么、是什么、有哪些工具；说明优先用登记写的，没写用服务进程报过的 */
+  brief(): RegisteredMcp[];
   /** 登记了这个 MCP */
   has(server: string): boolean;
   /** 全部登记的 MCP 工具在守卫工具注册表里的登记（设置页自定义类别能匹配的工具也有它们） */
@@ -212,6 +221,15 @@ export function createMcpService(options: McpServiceOptions): McpService {
         ...(read.problem === undefined ? {} : { problem: read.problem }),
       };
     },
+    brief: () =>
+      Object.entries(registrations().servers).map(([name, s]) => ({
+        name,
+        title: s.title ?? name,
+        tools: Object.entries(s.tools).map(([tool, reg]) => {
+          const description = reg.description ?? listed.get(name)?.find((known) => known.name === tool)?.description;
+          return { name: tool, title: reg.title, ...(description === undefined ? {} : { description }) };
+        }),
+      })),
     has: (server) => Object.hasOwn(registrations().servers, server),
     descriptors: () => allTools(registrations()).map(({ server, serverReg, tool, reg }) => descriptorOf(server, serverReg, tool, reg)),
     hostToolsFor(toolkit) {

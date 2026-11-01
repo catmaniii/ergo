@@ -47,6 +47,8 @@ export function suggestProjectCardType(projects: ProjectService) {
       dismiss: { input: undefined, run: () => ({ status: "dismissed" }) },
     },
     toText: (p) => t("projects.cards.suggestText", { name: p.name, goal: p.goal }),
+    // 彻底删除、删除项目时：用户的原话（362）换成删除标记
+    purge: (p) => (p.userWords === undefined ? p : { ...p, userWords: PURGED_TEXT }),
   });
 }
 

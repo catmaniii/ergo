@@ -4,6 +4,7 @@
 // 280 号票：给出服务入口、启停项目的服务、project_ops 和查看板时那一节是运营层的，经运营层的入口（project-ops/api.ts 的 OpsSecretary）拿。
 // 先后是秘书看到的工具顺序（测试比对它），别随手调。
 import type { CardService } from "../cards/cards.ts";
+import type { UserWordsDeps } from "../conversation/user-words.ts";
 import type { OpsGoLive, OpsSecretary } from "../project-ops/api.ts";
 import type { SecretaryProjects } from "./api.ts";
 import { secretaryGoLiveTool } from "./go-live-tools.ts";
@@ -22,12 +23,14 @@ export interface SecretaryProjectsDeps {
   runtimeRefusal?: (runtime: string) => string | undefined;
   /** 建议立项卡上写的文件夹（305）：已有的核对路径；不给就不查 */
   workFolder?: Pick<ProjectWorkFolder, "precheck">;
+  /** 核实用户这句话（362）：建议立项卡上原样带上；不给就只有秘书抄的 */
+  userWords?: UserWordsDeps;
 }
 
 export function createSecretaryProjects(deps: SecretaryProjectsDeps): SecretaryProjects {
   const { cards, projects, ops, goLive } = deps;
   return {
-    suggestTool: () => suggestProjectTool(cards, deps.runtimeRefusal, deps.workFolder),
+    suggestTool: () => suggestProjectTool(cards, deps.runtimeRefusal, deps.workFolder, deps.userWords),
     boardSection: () => ops.boardSection(),
     tools: () => [
       readProjectRecordsTool(projects),

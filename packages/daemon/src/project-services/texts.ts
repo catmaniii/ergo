@@ -65,16 +65,23 @@ export const rolloutText = {
 };
 
 // @i18n-ignore-start model：交给维护者的通知
-/** 交给维护者的通知（唤起它） */
+/**
+ * 服务管家的判断也可能错（362 号票：真模型试验里它把活着的服务判成失败，负责人照着改了代码、写进了决策记录和 skill）：
+ * 先自己连一下健康检查的地址核实，活着就别为这个改东西
+ */
+const verifyFirst = (probe: string) =>
+  `这是服务管家（LSM）的判断，它也可能判错：先自己连一下 ${probe}（比如 curl，联网关着也连得上本机）核实服务到底活没活。活着就别为这个改代码、也别写进决策记录或 skill，把你看到的告诉用户；`;
+
+/** 交给维护者的通知（唤起它；362 号票起都在对话段里处理，不打断正在做的工单，这里说的工具对话段都有） */
 export const noticeText = {
-  failed: (view: Pick<ProjectServiceView, "title" | "app" | "port">, reason: string) =>
-    `运营方案里的服务「${view.title}」（${view.app}，端口 ${view.port}）没上线：${reason}。看看是什么原因（端口被占、命令写错、依赖没装、健康检查不过……），改好了用 ${PROPOSE_OPERATIONS_TOOL} 再交一份完整的运营方案（照旧的那几条也写上，这一条运行时会重新开起来），告诉用户。`,
+  failed: (view: Pick<ProjectServiceView, "title" | "app" | "port">, reason: string, probe: string) =>
+    `运营方案里的服务「${view.title}」（${view.app}，端口 ${view.port}）没上线。服务管家（LSM）判断的依据：${reason}。${verifyFirst(probe)}真没起来再看是什么原因（端口被占、命令写错、依赖没装、健康检查不过……），改好了用 ${PROPOSE_OPERATIONS_TOOL} 再交一份完整的运营方案（照旧的那几条也写上，这一条运行时会重新开起来），告诉用户。`,
   manual: (view: Pick<ProjectServiceView, "title" | "app">, reason: string) => `运营方案里的服务「${view.title}」（${view.app}）现在没法替用户上线：${reason}。项目页上标着"要你手动"，别跟用户说已经上线了。`,
-  down: (view: Pick<ProjectServiceView, "title" | "app" | "port">, reason: string, autoRestart: boolean) =>
-    `服务「${view.title}」（${view.app}，端口 ${view.port}）上线后挂了，现在不在线：${reason}。${autoRestart ? "它开着挂了自动重启，LSM 会按退避重拉几次；" : "它没开挂了自动重启，LSM 不会自己重拉；"}看看是什么原因（日志、依赖、端口、数据……），修好后用 ${PROPOSE_OPERATIONS_TOOL} 再交一份完整的运营方案（照旧的那几条也写上，这一条运行时会重新开起来，用户在卡上确认）。用户那边的入口、项目页上已经标着不在线，不用专门去告诉用户，要用户做什么时再说。好了运行时会再告诉你。`,
+  down: (view: Pick<ProjectServiceView, "title" | "app" | "port">, reason: string, autoRestart: boolean, probe: string) =>
+    `服务「${view.title}」（${view.app}，端口 ${view.port}）上线后挂了，现在不在线。服务管家（LSM）判断的依据：${reason}。${autoRestart ? "它开着挂了自动重启，LSM 会按退避重拉几次。" : "它没开挂了自动重启，LSM 不会自己重拉。"}${verifyFirst(probe)}真挂了再看是什么原因（日志、依赖、端口、数据……），修好后用 ${PROPOSE_OPERATIONS_TOOL} 再交一份完整的运营方案（照旧的那几条也写上，这一条运行时会重新开起来，用户在卡上确认）。用户那边的入口、项目页上已经标着不在线，不用专门去告诉用户，要用户做什么时再说。好了运行时会再告诉你。`,
   /** 269：接上 LSM 时兜底去拉，没起来 */
-  reviveFailed: (view: Pick<ProjectServiceView, "title" | "app" | "port">, reason: string) =>
-    `服务「${view.title}」（${view.app}，端口 ${view.port}）本该在线（上线了、用户没关），二狗接上 LSM 时它没在跑，去拉起来没起来：${reason}。看看是什么原因（端口被占、依赖没起来、日志、数据……）；修好后请用户在项目卡片上点“启动”重新拉起，要改服务的定义就用 ${PROPOSE_OPERATIONS_TOOL} 再交一份完整的运营方案。项目页上标着上线失败，不用专门去告诉用户，要用户做什么时再说。`,
+  reviveFailed: (view: Pick<ProjectServiceView, "title" | "app" | "port">, reason: string, probe: string) =>
+    `服务「${view.title}」（${view.app}，端口 ${view.port}）本该在线（上线了、用户没关），二狗接上 LSM 时它没在跑，去拉起来没起来。服务管家（LSM）判断的依据：${reason}。${verifyFirst(probe)}真没起来再看是什么原因（端口被占、依赖没起来、日志、数据……）；修好后请用户在项目卡片上点“启动”重新拉起，要改服务的定义就用 ${PROPOSE_OPERATIONS_TOOL} 再交一份完整的运营方案。项目页上标着上线失败，不用专门去告诉用户，要用户做什么时再说。`,
   recovered: (view: Pick<ProjectServiceView, "title" | "app">) => `服务「${view.title}」（${view.app}）又在线了：之前说的它挂了的事不用再处理（查到了原因的话记进项目档案）。`,
   prefix: (view: Pick<ProjectServiceView, "title" | "app">, report: string) =>
     `服务「${view.title}」（${view.app}）上线了，但首页的前缀下自检发现有地址不在前缀下（经二狗转发、在手机上打开时会坏）：\n${report}\n改成相对地址或用 ${APP_BASE_PATH_ENV} 拼，改好后重启服务（再交一份运营方案，或者让用户在 LSM 里重启）。`,

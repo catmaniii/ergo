@@ -21,6 +21,7 @@ import { startTestDaemon, type TestDaemon } from "../helpers/daemon.ts";
 import { type FakeOpsApp, LEDGER_OPS, startFakeOpsApp } from "../helpers/fake-ops-app.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
 import { startLsmStandIn } from "../helpers/lsm-stand-in.ts";
+import { freePort } from "../helpers/ports.ts";
 import { waitUntil } from "../helpers/process.ts";
 import { internalTask, seedProject } from "../helpers/projects.ts";
 import { eventually, ok } from "../helpers/running-task.ts";
@@ -158,6 +159,41 @@ const calledEvents = (td: TestDaemon) => td.daemon.store.read(OPERATIONS_CHANNEL
 const registeredEvents = (td: TestDaemon) => td.daemon.store.read(OPERATIONS_CHANNEL, 0, PROJECT_OPS_EVENTS.registered).map((e) => e.payload as OpsManifestRegisteredPayload);
 /** 真的调用（不是验收的测试调用） */
 const realCalls = (app: FakeOpsApp) => app.calls().filter((c) => c["_meta"] === undefined);
+
+describe("上线后再验（362 号票）", () => {
+  it("建设期间服务没跑：卡上写“上线后再验”、不算缺；转入使用、服务上线后不等秘书用到，自动复验、登记第 1 版", async () => {
+    const d = dirs();
+    const lsm = await startLsmStandIn({ owned: true, heartbeatIntervalMs: 60_000 });
+    const port = await freePort();
+    const td = await startTestDaemon({
+      clock: new ManualClock(START),
+      reuse: { dataDir: d.dataDir, homeDir: d.homeDir },
+      env: lsm.env,
+      secretary: [say("好的")],
+      maintainer: () => Array.from({ length: 40 }, () => say("好")),
+    });
+    const frontend = await connect(td);
+    await lsm.waitFor((m) => m.type === "hello", "握手");
+    writeOps(d.records("p-1"), LEDGER_OPS);
+    await ledgerBuilt(td, frontend, port);
+
+    // 卡刷新成结论：格式对，项目服务上的操作等上线，不算缺
+    const latest = () => cardsOf(frontend).findLast((c) => c.type === "build_done")!;
+    await waitUntil(() => opsItem(latest())?.later === true, { timeoutMs: 20_000, describe: () => `清单：${JSON.stringify(opsItem(latest()))}` });
+    expect(opsItem(latest())).toMatchObject({ done: true, later: true });
+    expect(opsItem(latest())!.detail).toContain("上线后自动复验");
+    expect(registeredEvents(td)).toEqual([]);
+
+    // 服务起来了（真的在听）；用户确认转入使用：上线后自己复验、登记，秘书一次都没用到
+    const app = await startFakeOpsApp({ port });
+    await putInUse(td, frontend, latest());
+    await waitUntil(() => registeredEvents(td).length === 1, { timeoutMs: 20_000, describe: () => `登记：${JSON.stringify(registeredEvents(td))}` });
+    expect(registeredEvents(td)[0]).toMatchObject({ projectId: "p-1", version: 1 });
+    expect(calledEvents(td)).toEqual([]);
+    // 测试调用带着测试标记，没真记账
+    expect(realCalls(app)).toEqual([]);
+  }, 60_000);
+});
 
 describe("秘书的 project_ops：照草稿补齐（268 号票）", () => {
   it("清单建设期间验收（测试调用带测试标记、不真记）、转入使用时登记第 1 版；list、describe、call：参数不对退回、say 必有、四种实现方式各一条、通用操作，不出卡；记录带版本号", async () => {

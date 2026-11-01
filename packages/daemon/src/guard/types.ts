@@ -355,6 +355,8 @@ export interface GitFact {
 export interface ScriptFact {
   /** 脚本里用到的联网库或函数（如 `requests`、`fetch`）；空数组表示没扫到 */
   networkUsage: string[];
+  /** 只连本机的（362 号票）：用到了能联网的库，但脚本里写的地址都是本机。不算联网，联网开关关着也能跑；没有就不写 */
+  localOnly?: string[];
   /**
    * 脚本里写着的绝对路径（guard 的 absolutePathsIn；尽力而为）。看不出读还是写，按拆不开算：写着密钥区里的路径判"永不"，
    * 写着别的受保护区域里的路径落入"未知的写操作"（先问用户）（26 号票）

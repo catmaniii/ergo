@@ -12,7 +12,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { StringDecoder } from "node:string_decoder";
 import { withOldEnvNames } from "../config/old-names.ts";
-import { buildChildEnv } from "../process/child-env.ts";
+import { buildChildEnv, SCRIPT_UTF8_ENV } from "../process/child-env.ts";
 import { type GatedChild, spawnGated } from "../process/gated-spawn.ts";
 import type { JobObject } from "../process/job-object.ts";
 import { callBody, type OpReach } from "./call.ts";
@@ -79,6 +79,7 @@ export function runScriptOp(input: {
   const env = buildChildEnv(
     process.env,
     withOldEnvNames({
+      ...SCRIPT_UTF8_ENV,
       ERGO_OPS_PROJECT: input.projectId,
       ERGO_OPS_OP: input.name,
       ...(input.test ? { ERGO_OPS_TEST: "1" } : {}),

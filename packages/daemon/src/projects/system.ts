@@ -131,8 +131,10 @@ export interface ProjectSystemDeps {
    * 素材库那一份带着随项目彻底删除的素材）
    */
   deletion: Pick<DeletionParticipants, "register" | "plan">;
-  /** 运行时核实用户原话（125 号票）：立项要求变更、规范改写、运营方案里维护者引用的 */
+  /** 运行时核实用户原话（125 号票）：立项要求变更、规范改写、运营方案里维护者引用的；362 号票起建议立项卡上也带 */
   userWords: UserWordsDeps;
+  /** 立项后叫醒维护者先开口（362 号票）：默认开 */
+  kickoffOpening?: boolean;
   /** 临时事件的推送：项目的服务给前端看的样子变了推项目列表频道（133） */
   notifications: Pick<EphemeralBus, "publish">;
   /** 转发登记表的登记口（132）：运营层的服务上线时登记 /apps/<项目>-<服务>/（和插件宿主的 ctx.apps 同一个口子，280） */
@@ -280,6 +282,7 @@ export function createProjectSystem(deps: ProjectSystemDeps): ProjectSystem {
 
   // 项目（15）："建议立项"卡、立项书卡；项目档案在数据目录的项目区
   const projects = createProjectService({
+    ...(deps.kickoffOpening === undefined ? {} : { kickoffOpening: deps.kickoffOpening }),
     store,
     cards,
     inbox,
@@ -367,7 +370,8 @@ export function createProjectSystem(deps: ProjectSystemDeps): ProjectSystem {
         return { taskId: tasks.delegate({ title, instructions, projects: [project.name] }).id };
       },
       isTemplate: (text) => standardTemplates().isTemplate("ops.json", text),
-      notifyMaintainer: (project, text, key) => store.append(buildAgentNotice(maintainerChannel(project.maintainerId), text, key, { projectId: project.id }).event),
+      // 362 号票：不打断正在做的工单
+      notifyMaintainer: (project, text, key) => store.append(buildAgentNotice(maintainerChannel(project.maintainerId), text, key, { projectId: project.id }, { chatOnly: true }).event),
       onChecked: (project) => projects.refreshGoLiveChecklist(project.id),
       notifications: deps.notifications,
       secretsDir: deps.realDirs.secrets,
@@ -427,6 +431,7 @@ export function createProjectSystem(deps: ProjectSystemDeps): ProjectSystem {
     goLive: ops.goLive,
     ...(deps.runtimeRefusal ? { runtimeRefusal: deps.runtimeRefusal } : {}),
     ...(deps.workFolder ? { workFolder: deps.workFolder } : {}),
+    userWords,
   });
 
   // 派单器（16）：工单和项目维护者的会话分段；写回最多催几次和执行中的催促同一个阈值（14）。
@@ -487,7 +492,7 @@ export function createProjectSystem(deps: ProjectSystemDeps): ProjectSystem {
       // 只涉及一个项目的任务（16）：在项目的工作目录里做，工具包取任务授权和项目工具包的交集，项目的维护者正忙时留在排队中
       of: (task) => {
         const project = projects.projectOf(task);
-        return project && { projectId: project.id, workDir: real(projects.workdir(project)), toolkit: projectToolkit(project) };
+        return project && { projectId: project.id, workDir: real(projects.workdir(project)), recordsDir: real(projects.records(project.id).root), toolkit: projectToolkit(project) };
       },
       admit: (task) => workOrders.admit(task),
     },

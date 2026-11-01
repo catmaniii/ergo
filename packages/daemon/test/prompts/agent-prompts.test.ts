@@ -6,7 +6,9 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { RequestRejected } from "../../src/errors.ts";
 import { createPromptLibrary, DEFAULT_PROMPTS_DIR } from "../../src/prompts/index.ts";
+import { taskMaintainerSystemPrompt } from "../../src/maintainers/system-prompt.ts";
 import { secretarySystemPrompt } from "../../src/secretary/system-prompt.ts";
+import { DEFAULT_TASK_THRESHOLDS } from "../../src/tasks/thresholds.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 
 function library() {
@@ -31,6 +33,16 @@ const rejection = (fn: () => unknown): string => {
 };
 
 const DEFAULT_SECRETARY = (name: string) => secretarySystemPrompt(createPromptLibrary(), name);
+
+describe("负责人就是维护者（362 号票）", () => {
+  it("写了计划的那几种维护者的提示都说明用户说的负责人就是它；计划的写法说明运行时工具不用写进授权项", () => {
+    const { prompts } = library();
+    const plan = taskMaintainerSystemPrompt(prompts, DEFAULT_TASK_THRESHOLDS);
+    expect(plan).toContain("用户说“负责人”就是指你");
+    expect(plan).toContain("propose_operations、check_ops 这类");
+    expect(plan).toContain("已登记的 MCP");
+  });
+});
 
 describe("单独的提示词：存在数据目录配置区，按 agent 分", () => {
   it("追加：接在通用模板后面（空一行），能用通用模板的占位符；只有这个 agent 有，别的照旧", () => {

@@ -189,12 +189,12 @@ describe("项目系统只起它自己加假内核（278）", () => {
     expect(project).toMatchObject({ name: "记账本", state: "preparing", maintainerId: "pm-1" });
     expect(directory.checkTaskProjects(["记账本"])).toEqual(["p-1"]);
     expect(directory.maintainedBy("pm-1")?.id).toBe("p-1");
-    // 维护者会话里的那条说明唤起了项目的维护者（假的 agent 宿主记下了拉起的是谁）
+    // 维护者会话里的那条通知唤起了项目的维护者（假的 agent 宿主记下了拉起的是谁），开了一个对话段（362 号票：立项后它先开口）
     expect(calls.sessions).toContain("pm-1");
 
-    // 用户往维护者的会话里说话：消息属于这个项目；手上没有在进行的段，先开一个对话段
+    // 用户往维护者的会话里说话：消息属于这个项目；手上已经有对话段了，不用再开
     expect(system.conversationScope(maintainerChannel("pm-1"))).toEqual({ projectId: "p-1" });
-    expect(system.messagePrelude("pm-1", "say-1").length).toBeGreaterThan(0);
+    expect(system.messagePrelude("pm-1", "say-1")).toEqual([]);
 
     // 网关的请求：重置维护者（项目 → 派单器，组装函数里的现取）
     const pokesBefore = calls.pokes;

@@ -43,7 +43,7 @@ const json = (res: http.ServerResponse, status: number, body: unknown) => {
   res.end(JSON.stringify(body));
 };
 
-export async function startFakeOpsApp(options: { path?: string; writeDir?: string } = {}): Promise<FakeOpsApp> {
+export async function startFakeOpsApp(options: { path?: string; writeDir?: string; port?: number } = {}): Promise<FakeOpsApp> {
   const opsPath = options.path ?? "/ops";
   const seen: FakeOpsCall[] = [];
   const expenses: Array<{ amount: number; note: string; category: string }> = [];
@@ -101,7 +101,7 @@ export async function startFakeOpsApp(options: { path?: string; writeDir?: strin
       }
     });
   });
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  await new Promise<void>((resolve) => server.listen(options.port ?? 0, "127.0.0.1", resolve));
   const port = (server.address() as AddressInfo).port;
   let closed = false;
   const close = async () => {

@@ -150,7 +150,7 @@ import { CHARTER_EVENTS, CHARTERS_CHANNEL, type CharterDecidedPayload, type Char
 import { createProjectDirectory } from "./directory.ts";
 import { charterForWorkdir, ensureProjectRecords, preservePaths, type ProjectRecordsPaths, projectWorkdir, writeConfirmedCharter } from "./records.ts";
 import { type ChecklistPlan, goLiveChecklist, projectStandardView } from "./standard.ts";
-import { buildTaskNote, charterBuildText, kickoffNote, nextBuildNote, nextBuildText } from "./texts.ts";
+import { buildTaskNote, charterBuildText, kickoffNote, kickoffOpeningText, nextBuildNote, nextBuildText } from "./texts.ts";
 import { SUBMIT_CHARTER_TOOL, SUGGEST_PROJECT_TOOL } from "./tool-names.ts";
 import { countProjects, getProjectRow, latestCharter, listProjects, projectNamed, projectOfMaintainer, standardOverrides } from "./views.ts";
 
@@ -325,6 +325,8 @@ export interface ProjectServiceOptions {
    * 和转入使用同一事务）。不给就只查最基本的几样、不登记。280 号票起是运营层交的（经它的入口 project-ops/api.ts）
    */
   projectOps?: () => Pick<OpsGoLive, "checklistItem" | "goLiveEvents">;
+  /** 立项后叫醒维护者先开口（362 号票）：默认开；测试的假模型剧本不想多一轮时关 */
+  kickoffOpening?: boolean;
   /** 点"新建项目"时选的运行时现在能不能用（289 号票）：不能用的原因，能用是 undefined；不给就不查 */
   runtimeRefusal?: (runtime: string) => string | undefined;
   /** 新建时定工作文件夹（305 号票，work-folders/）：点"新建项目"时先核对，点"立项"时定下；不给就都照旧（工作目录在项目档案里） */
@@ -383,7 +385,7 @@ function newProjectNotice(text: string, runtime: string | undefined, folder: Wor
           ? ""
           : `用户要在默认文件夹下新开一个叫 ${JSON.stringify(folder.name)} 的子文件夹：出卡时 folderName 原样写它。`; // @i18n-ignore model
   // @i18n-ignore-next model
-  return `用户点「新建项目」要立项：${text}\n不用判断这是不是项目：直接用 ${SUGGEST_PROJECT_TOOL} 出一张建议立项卡（名字、一句话目标），用户点“立项”后项目就诞生，维护者接着和用户做立项问答。${choose}${where}`;
+  return `用户点「新建项目」要立项：${text}\n不用判断这是不是项目：直接用 ${SUGGEST_PROJECT_TOOL} 出一张建议立项卡（名字、一句话目标；用户写的路径、限制原样抄进 userWords），用户点“立项”后项目就诞生，维护者接着和用户做立项问答。${choose}${where}`;
 }
 
 const projectEvent = (project: Project, change: ProjectChange, from: ProjectState | null, by: TaskActor): NewEvent => {
@@ -855,11 +857,15 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
         ...(payload.runtime === undefined ? {} : { runtime: payload.runtime }),
         ...(workdir === undefined ? {} : { workdir }),
       });
-      const note = maintainerNote(project, kickoffNote(project), `${idempotencyKey}#note`);
+      // 362 号票：立项后叫醒维护者先开口（这条是交给它的通知，排进它的输入队列、开一个对话段），用户的原话原样带上；不叫醒的（kickoffOpening 关着）只放一条说明
+      const note =
+        options.kickoffOpening === false
+          ? maintainerNote(project, kickoffNote(project), `${idempotencyKey}#note`)
+          : buildAgentNotice(maintainerChannel(project.maintainerId), `${kickoffNote(project)}\n${kickoffOpeningText(payload.userWords)}`, `${idempotencyKey}#note`, { projectId: project.id }).event;
       const notice = buildAgentNotice(
         CHANNELS.secretary,
         // @i18n-ignore-next model：交给秘书的通知
-        `用户在建议立项卡上点了「立项」：项目 ${project.id}「${project.name}」已诞生（筹备中），维护者 ${project.maintainerId} 会在它的会话里和用户做立项问答（项目页上的“和维护者交流”）。立项问答不归你，不用转述。`,
+        `用户在建议立项卡上点了「立项」：项目 ${project.id}「${project.name}」已诞生（筹备中），维护者 ${project.maintainerId} 会先开口，在它的会话里和用户做立项问答（项目页上的“和维护者交流”）。立项问答不归你，不用转述。`,
         `${idempotencyKey}#notice`,
       );
       return {

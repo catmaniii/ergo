@@ -235,7 +235,7 @@ export const timelineDetail = (input: { version: number | null; args: Readonly<R
 // ───────────────────────── 转运营检查清单那一项（给用户） ─────────────────────────
 
 /** 清单那一项写什么（standard.ts 拿它做 ops 那一项）：做到没有、差什么 */
-export function checklistDetail(view: OpsChecklistView): { done: boolean; detail: string } {
+export function checklistDetail(view: OpsChecklistView): { done: boolean; detail: string; later?: boolean } {
   switch (view.state) {
     case "missing":
       return { done: false, detail: t("projects.standard.check.opsMissing") };
@@ -246,7 +246,8 @@ export function checklistDetail(view: OpsChecklistView): { done: boolean; detail
     case "checking":
       return { done: false, detail: t("projectOps.check.checking", { count: view.count }) };
     case "waiting":
-      return { done: true, detail: t("projectOps.check.waiting", { count: view.count, waiting: view.waiting }) };
+      // 362 号票：服务还没上线、这几个测不了的不算没过：卡上写"上线后再验"，服务上线时运行时自己复验
+      return { done: true, later: true, detail: t("projectOps.check.waiting", { count: view.count, waiting: view.waiting }) };
     case "passed":
       return { done: true, detail: t("projectOps.check.passed", { count: view.count }) };
   }

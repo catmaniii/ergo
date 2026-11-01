@@ -241,6 +241,8 @@ export interface AgentHost {
   readonly thresholds: TaskThresholds;
   readonly runFailureLimit: number;
   readonly conversationApprovals: ConversationApprovals | undefined;
+  /** 已登记的 MCP 清单（362 号票）：拼在维护者的系统提示里，每次唤起现取；没有就是 undefined */
+  registeredMcp(): string | undefined;
   /** 任务在输出区里的那一格（真实路径；create 时先建好） */
   taskDir(taskId: string, options?: { create?: boolean }): string;
   /** 这次唤起的装配（小接口：哪种维护者、哪个 agent、在哪个工作目录、用哪个工具包、哪种会话） */
@@ -312,6 +314,7 @@ export function createAgentHost(options: AgentHostOptions): AgentHost {
     get conversationApprovals() {
       return options.conversationApprovals;
     },
+    registeredMcp: () => options.toolkits?.registeredMcp?.(),
     taskDir(taskId, opts = {}) {
       const dir = path.join(options.outputsDir, taskId);
       if (opts.create) fs.mkdirSync(dir, { recursive: true });

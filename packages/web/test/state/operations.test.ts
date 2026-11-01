@@ -52,7 +52,7 @@ const project: Project = {
       { ...item("daily"), taskId: "t-2" },
       { ...item("weekly", { triggerText: "每周日 18:00" }), taskId: "t-3" },
       { ...item("folder", { means: "event", meansLabel: "事件触发的任务", capabilities: { bash: true } }), failed: "要的能力超出了项目现在的工具包（bash）" },
-      { ...item("site", { means: "service", meansLabel: "项目自己的服务（登记到 LSM）", automatic: false, manual: "在 LSM 里登记一个静态网页服务", capabilities: {} }) },
+      { ...item("site", { means: "service", meansLabel: "项目自己的服务（由服务管家照看）", automatic: false, manual: "在 LSM 里登记一个静态网页服务", capabilities: {} }) },
       { ...item("old"), taskId: "t-4" },
     ],
   },
@@ -103,7 +103,7 @@ describe("项目页的运营方案", () => {
       ["old", "ended", "已结束（已取消）", undefined],
     ]);
     expect(rows[0]!.nextAt).toBe("2026-10-09T08:00:00.000+08:00");
-    expect(rows[0]!.howText).toBe("普通任务 · 联网");
+    expect(rows[0]!.howText).toBe("直接做 · 联网");
     expect(rows[3]!.howText).toBe("不用额外的能力");
     // 没有运营方案的项目：没有这一节的行
     expect(projectOperationRows(state, { id: "p-1", operations: undefined })).toEqual([]);

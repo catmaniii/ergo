@@ -35,6 +35,16 @@ describe("联网开关关着", () => {
     });
   }
 
+  it("只发往本机的 HTTP 请求不算联网（362 号票）：curl 连自己的服务照常做；发往二狗自己端口的、混着外面地址的照旧拒", () => {
+    for (const url of ["http://127.0.0.1:8765/health", "http://localhost:8765/health", "http://[::1]:8765/health"]) {
+      const j = judgeToolCall(withTools(inChat(offline, bash(`curl -s ${url}`))));
+      expect({ url, hardRefusal: j.hardRefusal }).toEqual({ url, hardRefusal: null });
+    }
+    expect(judgeToolCall(withTools(inChat(offline, bash("curl -s http://127.0.0.1:8765/health && curl https://example.com")))).hardRefusal).toContain("network_off");
+    const input = withTools(inChat(offline, bash("curl -s http://127.0.0.1:18810/api/x")));
+    expect(judgeToolCall({ ...input, places: { ...input.places, ownPorts: [18810] } }).hardRefusal).toContain("network_off");
+  });
+
   it("秘书按传入的联网开关判（70 号票）：开着时联网照常判定，关着时拒绝", () => {
     const online = judgeToolCall(withTools(inChat(secretary({ toolkit: { bash: true, network: true } }), call("mcp_web_search", { query: "x" }))));
     expect([online.hardRefusal, online.disposition]).toEqual([null, "log_only"]);
@@ -53,6 +63,10 @@ describe("联网开关关着", () => {
     expect(j.hardRefusal).toContain("network_off");
     expect(j.explanation).toMatch(/requests\.get/);
     expect(j.explanation).toMatch(/联网请发起任务/);
+
+    // 362 号票：只连本机的不算联网
+    const local = { scripts: { [`${P.scratch}\\smoke.py`]: { networkUsage: [], localOnly: ["urllib.request", "http.server"] } } };
+    expect(judgeToolCall(inChat(secretary(), bash("python smoke.py"), { facts: local })).hardRefusal).toBeNull();
 
     const clean = { scripts: { [`${P.scratch}\\calc.py`]: { networkUsage: [] } } };
     expect(judgeToolCall(inChat(secretary(), bash("python calc.py"), { facts: clean })).disposition).toBe("log_only");

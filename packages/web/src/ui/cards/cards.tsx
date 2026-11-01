@@ -452,6 +452,8 @@ export function SuggestProjectCard({ state, payload: p, act }: CardProps<Suggest
       }
     >
       <div className="sp-goal">{p.goal}</div>
+      {/* 用户的原话（362 号票）：点"立项"时原样交给维护者 */}
+      {p.userWords !== undefined && <div className="muted sp-words">{t("ui.cards.suggestProject.userWords", { words: p.userWords })}</div>}
       {/* 维护者用的运行时（289 号票：点"新建项目"时选的）：插件登记的才写 */}
       {p.runtime !== undefined && <SuggestedRuntime runtime={p.runtime} />}
       {/* 在哪个文件夹做（305 号票：选了能选工作文件夹的运行时才写） */}
@@ -813,12 +815,15 @@ export function GoLiveChecklist({ items, pending, missingAtConfirm }: { items: r
       </div>
       <ul className="golive-list">
         {items.map((i) => (
-          <li key={i.id} className={`golive-item ${i.done ? "golive-ok" : "golive-miss"}`}>
+          <li key={i.id} className={`golive-item ${i.later ? "golive-later" : i.done ? "golive-ok" : "golive-miss"}`}>
             <span className="golive-mark" aria-hidden="true">
-              {i.done ? "✓" : "✗"}
+              {i.later ? "…" : i.done ? "✓" : "✗"}
             </span>
             <span className="golive-text">
-              <span className="golive-label">{i.label}</span>
+              <span className="golive-label">
+                {i.label}
+                {i.later && <span className="chip golive-later-chip">{t("ui.cards.goLive.later")}</span>}
+              </span>
               {i.detail && <span className="golive-detail">{i.detail}</span>}
             </span>
           </li>

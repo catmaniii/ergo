@@ -36,6 +36,8 @@ export interface FixedContextInput {
   toolkit: Pick<PlanToolkit, "skills" | "mcp" | "bash" | "network">;
   /** 这一段能用的工具名（pi 的工具和代为执行的工具） */
   tools: readonly string[];
+  /** 已登记的 MCP 清单（362 号票）：起草计划、申请工具包变更时对得上；没有就不写 */
+  registeredMcp?: string | undefined;
   /** 项目档案里的几份文档的内容（读不到是空串） */
   records: { spec: string; progress: string; glossary: string };
   /** 上一段（重置维护者开的段、第一段没有） */
@@ -102,6 +104,7 @@ export function fixedContextText(input: FixedContextInput): string {
   return [
     `【固定上下文】这是会话分段 ${input.segment.segmentId} 开始时运行时给你的；以项目档案为准。`,
     toolkitLine(input.toolkit, input.tools),
+    ...(input.registeredMcp ? [input.registeredMcp] : []),
     input.standard,
     ...standardNoteLines(input.projectStandard),
     "项目档案快照：",

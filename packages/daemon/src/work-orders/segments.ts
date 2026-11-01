@@ -11,6 +11,7 @@
 //   例外是用户在项目内部的普通任务的详情里说的话（75 号票，带着它的编号）：只在它的工单段里处理（做完了接着说时，等它的执行工单开始），
 //   也不为它开对话段；
 //   刚建好的项目内部任务的通知（64 号票，带着任务编号，还没有工单）只在对话段里处理：正在做工单时排着，空下来开一个对话段交给它；
+//   标了 chatOnly 的通知（362 号票：服务没上线、挂了这类和手头工单无关的事）也一样，不打断正在做的工单；
 // - 工单段结束之前（写回之后，或者催到了次数转用户拍板时）先做范围审视（18 号票，scope-review/）：维护者的子进程还活着时
 //   在子进程里另开一次模型调用，结果（范围记录、时间线记录、越界通知）和这一段、工单的结束同一事务追加。对话段不在这时审视。
 //   重置维护者时直接结束的工单段（写回中途、审视做到一半、工单做到一半）不强行审视，时间线上如实记"重置时这段没做范围审视"。
@@ -367,6 +368,8 @@ export function createSegments(options: SegmentsOptions): Segments {
     if (!segment) return false;
     // 用户直接说的话总是作为插话进当前这一段；在项目内部的普通任务的详情里说的（75 号票）只进它的工单段
     if (input.payload.message.speaker === "user") return !internalPlain(maintainerId, input.payload.taskId) || segment.taskId === input.payload.taskId;
+    // 362 号票：服务没上线这类通知不进工单段（真模型试验里它插进报警运行，排着的报警等了 11 分钟）
+    if (input.payload.chatOnly === true) return segment.kind === "chat";
     const taskId = input.payload.taskId;
     // 定时作业的一次运行（19 号票）：只在这个作业的工单段里处理
     const jobId = input.payload.scheduledJobId;

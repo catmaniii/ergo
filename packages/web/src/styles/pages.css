@@ -1559,6 +1559,12 @@ a.att-icon:hover {
 .golive-miss .golive-mark {
   color: var(--high-fg);
 }
+.golive-later .golive-mark {
+  color: var(--op-fg);
+}
+.golive-later-chip {
+  margin-left: 6px;
+}
 .golive-text {
   display: flex;
   flex-direction: column;
@@ -1822,6 +1828,10 @@ a.att-icon:hover {
 }
 .sp-goal {
   font-size: var(--fs-l);
+}
+.sp-words {
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 /* 提问卡 */
 .qa legend {

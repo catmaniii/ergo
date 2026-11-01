@@ -17,7 +17,7 @@
   "projectServices.outage.stopping": "一直没停下也没起来（LSM 里它在停止中）",
   "projectServices.healthFailing": "健康检查不过",
   "projectServices.reasonSep": "；",
-  "projectServices.means.label": "项目自己的服务（登记到 LSM）",
+  "projectServices.means.label": "项目自己的服务（由服务管家照看）",
   "projectServices.means.trigger": "上线服务",
   "projectServices.entry.url": "项目「{project}」的服务「{title}」：入口 {url}（在二狗的内置浏览器里打开）",
   "projectServices.entry.noWeb": "项目「{project}」的服务「{title}」（没有网页）",

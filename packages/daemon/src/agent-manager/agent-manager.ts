@@ -27,7 +27,7 @@ import { RequestRejected } from "../errors.ts";
 import type { DataDirLayout } from "../config/data-dir.ts";
 import { modelConfigKey } from "../config/model-key.ts";
 import { BUILTIN_TOOL_REGISTRY } from "../guard/index.ts";
-import { buildChildEnv, COMPONENTS_DIR_ENV, OFFLINE_SHELL_ENV } from "../process/child-env.ts";
+import { buildChildEnv, COMPONENTS_DIR_ENV, OFFLINE_SHELL_ENV, SCRIPT_UTF8_ENV } from "../process/child-env.ts";
 import { AGENT_BROWSER_ENV } from "../web/index.ts";
 import type { AgentUsage, UsageAttribution } from "../ledger/index.ts";
 import type { JobObject } from "../process/job-object.ts";
@@ -371,7 +371,7 @@ export const AGENT_BROWSER_SOCKET_DIR_ENV = "AGENT_BROWSER_SOCKET_DIR";
 export const AGENT_BROWSER_IDLE_ENV = "AGENT_BROWSER_IDLE_TIMEOUT_MS";
 
 /**
- * bash 起的进程额外的环境变量（宿主协议的 shellEnv）：联网开关关着时的无效代理（OFFLINE_SHELL_ENV），
+ * bash 起的进程额外的环境变量（宿主协议的 shellEnv）：Python 用 UTF-8（362 号票，SCRIPT_UTF8_ENV），联网开关关着时的无效代理（OFFLINE_SHELL_ENV），
  * 加上浏览器的路径（70 号票：agent-browser 靠 AGENT_BROWSER_EXECUTABLE_PATH 找浏览器），
  * 以及这个 agent 自己的 agent-browser socket 目录和闲置时长（178 号票）
  */
@@ -381,6 +381,7 @@ export function shellEnvFor(
   agentBrowser?: { socketDir: string; idleMs: number },
 ): Record<string, string> {
   return {
+    ...SCRIPT_UTF8_ENV,
     ...(network ? {} : OFFLINE_SHELL_ENV),
     ...(browserPath ? { [AGENT_BROWSER_ENV]: browserPath } : {}),
     ...(agentBrowser ? { [AGENT_BROWSER_SOCKET_DIR_ENV]: agentBrowser.socketDir, [AGENT_BROWSER_IDLE_ENV]: String(Math.round(agentBrowser.idleMs)) } : {}),
