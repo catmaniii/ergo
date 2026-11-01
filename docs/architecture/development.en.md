@@ -21,13 +21,36 @@ How to submit changes: [CONTRIBUTING](../../CONTRIBUTING.md). Each section below
 
 - **Windows 10 / 11.** Job objects, directory junctions, Windows Sandbox and scheduled tasks exist only on Windows; tests relying on them are skipped elsewhere, and the daemon refuses to start elsewhere.
 - **Node 22** (≥ 22.19). **The Node major version follows pi** ([ADR-0031](adr/0031-node-version-follows-pi.md)): whatever major version pi's CI and installer use is what ergo packages, runs and tests on; when pi upgrades we follow, otherwise we stay. Sources are TypeScript run directly via Node's type stripping; the daemon has no build step.
-- **Git for Windows (Git Bash)**: pi's `bash` tool and a number of integration tests need it. `where bash` should list `C:\Program Files\Git\bin\bash.exe` first; if only `C:\Windows\System32\bash.exe` (the WSL stub) is found, prepend Git's bin to PATH: `$env:PATH = "C:\Program Files\Git\bin;" + $env:PATH`. Without Git Bash, bash-dependent tests are explicitly skipped or say so in their timeout error.
+- **Git for Windows (Git Bash)**: pi's `bash` tool and a number of integration tests need it. `where bash` should list `C:\Program Files\Git\bin\bash.exe` first; if only `C:\Windows\System32\bash.exe` (the WSL stub) is found, prepend Git's bin to PATH, in PowerShell: `$env:PATH = "C:\Program Files\Git\bin;" + $env:PATH`. Without Git Bash, bash-dependent tests are explicitly skipped or say so in their timeout error; that doesn't mean a feature is broken.
 - **Dependency install scripts**: `allowScripts` in the root `package.json` marks the existing ones (esbuild, koffi, onnxruntime-node, protobufjs, @google/genai) as not run — their native files ship prebuilt. When adding a dependency with an install script, decide whether it must run and record it. npm 10 (bundled with Node 22) ignores this field and runs them anyway.
-- **Don't start long-running services directly on a dev machine**: ergo's services are registered with and started by the supervisor (see the [Install from source](../user-guide/install.en.md#install-from-source)). Daemons and child processes started by tests belong to the tests and are torn down with them.
+- **Don't start long-running services directly on a dev machine**: ergo's services are registered with and started by the service manager (see [Install from source](../user-guide/install.en.md#install-from-source)). Daemons and child processes started by tests belong to the tests and are torn down with them.
 
 ## Running from source
 
 The steps for installing and updating from source are in [Install, update and uninstall](../user-guide/install.en.md#install-from-source).
+
+### Backup and restore
+
+Installed builds use `ergo backup` and `ergo restore`; for how, see [Backup](../user-guide/settings.en.md#backup). Running from source there is no `ergo` command:
+
+```powershell
+npm run backup                   # back up now; add -- --scheduled when a timer calls it
+# in packages\supervisor: stop the daemon first
+node bin\lsm.mjs stop ergo-daemon
+# in the ergo directory: the data directory must match the one in the service manager's entry
+$env:ERGO_DATA_DIR = "$env:USERPROFILE\.ergo"
+D:\apps\node22\node.exe packages\daemon\src\restore.ts --list                   # list the snapshots
+D:\apps\node22\node.exe packages\daemon\src\restore.ts 2026-10-15               # restore a given day
+D:\apps\node22\node.exe packages\daemon\src\restore.ts 2026-10-15 --from sync   # this machine's copy is broken: restore from the extra copy in the sync folder
+# back in packages\supervisor: start it again
+node bin\lsm.mjs start ergo-daemon
+```
+
+If the data directory isn't the default (you set `ERGO_DATA_DIR`), set this variable in the same window before using `ergo` commands too. The restore command refuses to run while the daemon is up.
+
+### Claude Code integration
+
+The Agent SDK (`@anthropic-ai/claude-agent-sdk`) is under Anthropic's own license, and ergo treats it only as an optional dependency. Running from source, run `npm install --no-save @anthropic-ai/claude-agent-sdk@<version>` in the ergo directory (the version is in `optionalDependencies` in `packages/daemon/package.json`), then click "Turn on" in Settings · Plugins.
 
 ## Common commands
 
@@ -40,11 +63,11 @@ From the repository root:
 | The main slice (real daemon and agent child processes) plus opening every page in a real browser | `npm run test:integration` (10+ minutes) |
 | Everything (fast lane + main slice + pi contract tests) | `npm test` (~35 minutes; on Windows consider `$env:ERGO_TEST_WORKERS=2`) |
 | pi contract tests (only when upgrading pi or changing `agent-host/`, `runtime/`, prompt assembly) | `npm run test:contract` |
-| Supervisor tests (`node --test`, not vitest) | `npm run test:supervisor` |
-| One package, one file, by name | `npm test -w @ergo/daemon`; `npx vitest run packages/daemon/test/agent-process.test.ts`; `npx vitest run --project daemon -t "<name>"` |
+| Service manager tests (`node --test`, not vitest) | `npm run test:supervisor` |
+| One package, one file, by name | `npm test -w @ergo/daemon`; `npx vitest run packages/daemon/test/agent-process.test.ts`; `npx vitest run --project daemon -t "中止"` |
 | Type check | `npm run typecheck` |
 | Lint | `npm run lint` (oxlint, configured in `.oxlintrc.json`) |
-| The full pre-merge set | `npm run check` (typecheck + lint + all tests + supervisor) |
+| The full pre-merge set | `npm run check` (typecheck + lint + all tests + service manager) |
 | i18n check | `npm run i18n:check` ([Internationalization](README.en.md#internationalization)) |
 | Build the web UI | `npm run build:web` (a single file, `packages/web/dist/index.html`) |
 | Build the online demo | `npm run build:demo` (into `packages/web/dist-demo/`, [Where pages come from](README.en.md#where-pages-come-from-prototype-and-online-demo)) |
@@ -56,11 +79,11 @@ From the repository root:
 | Restore from a snapshot | `node packages/daemon/src/restore.ts <date>` (installed builds: `ergo restore <date>`; stop the daemon first either way) |
 | Deploy the VPS nginx site for the public entry | `npm run deploy:nginx` (`-- --print` only prints) |
 | Check a project service's pages against the prefix convention | `npm run check:app-prefix -- <service url> --name <app name>` ([Proxying local service pages](README.en.md#proxying-local-service-pages)) |
-| Check an operations manifest or plan without starting Ergo | `npm run check:ops -- <ops.json or plan.json> [--url <service url>] [--workdir <project workdir>]` (http operations are only called with `--url`; exit 0 passed, 1 failed, 2 bad usage) |
+| Check an operations manifest or plan without starting ergo | `npm run check:ops -- <ops.json or plan.json> [--url <service url>] [--workdir <project workdir>]` (http operations are only called with `--url`; exit 0 passed, 1 failed, 2 bad usage) |
 
 ## Phone apps
 
-8.1 to 8.4 cover HarmonyOS; for Android see [Android app](#android-app).
+HarmonyOS comes first; for Android see [Android app](#android-app).
 
 `frontend/harmony/` is a DevEco project (stage model, `entry` module): a native shell whose ArkWeb loads the ergo address the user configured, serving the same web UI as the daemon (why the web UI isn't bundled into the app: [ADR-0022](adr/0022-harmony-app-native-shell-loads-daemon-page.md)). The native bridge `window.ergoNative` is exposed only to the configured origin's main frame; external pages in Browse never get it.
 
@@ -121,7 +144,7 @@ To debug pages in the WebView, install the `--webview-debug` build and use Chrom
 
 **Integration runs**: `frontend/android/e2e/` runs on an emulator against a temporary daemon. It isn't part of `npm run check`, every adb command carries a serial, and a serial not starting with `emulator-` is an error. `e2e/browser.ts` holds the proof that external pages can't reach `ergoNative`; run it when you change the native bridge or the page bridge.
 
-**Scan to connect** (the same on HarmonyOS and Android): "Scan to connect" sits at the top of the address page. The scanned text goes through `checkServerAddress`, then `GET <origin>/api/access` confirms within about 10 seconds that what answered is Ergo (no cookies, no redirects). If it can't connect, the app doesn't open the pairing page. The judging is in `common/ConnectCheck.*` (no network), and both apps and the protocol package are checked against the same examples in `frontend/test/connect-vectors.tsv`. Android uses Camera2 with ZXing's core package and asks for the camera only when the button is tapped; HarmonyOS uses the system ScanKit screen and needs no camera permission. Emulators have no camera that can point at a screen, so `--webview-debug` builds accept two test entries (`ergoTestScanText`, `ergoTestScanImage`); release builds don't. Integration runs: `frontend/android/e2e/scan.ts`, `frontend/harmony/e2e/scan.ts`; for Android's camera frames through ZXing, `frontend/android/e2e/scan-camera.ts` (the virtual scene camera facing a QR poster on the wall).
+**Scan to connect** (the same on HarmonyOS and Android): "Scan to connect" sits at the top of the address page. The scanned text goes through `checkServerAddress`, then `GET <origin>/api/access` confirms within about 10 seconds that what answered is ergo (no cookies, no redirects). If it can't connect, the app doesn't open the pairing page. The judging is in `common/ConnectCheck.*` (no network), and both apps and the protocol package are checked against the same examples in `frontend/test/connect-vectors.tsv`. Android uses Camera2 with ZXing's core package and asks for the camera only when the button is tapped; HarmonyOS uses the system ScanKit screen and needs no camera permission. Emulators have no camera that can point at a screen, so `--webview-debug` builds accept two test entries (`ergoTestScanText`, `ergoTestScanImage`); release builds don't. Integration runs: `frontend/android/e2e/scan.ts`, `frontend/harmony/e2e/scan.ts`; for Android's camera frames through ZXing, `frontend/android/e2e/scan-camera.ts` (the virtual scene camera facing a QR poster on the wall).
 
 **Native recording** uses `AudioRecord`: created without capturing when voice mode starts, `startRecording` on press, `stop` on release, `release` when the app goes to the background or leaves voice mode. The format matches HarmonyOS (16 kHz, mono, 16-bit PCM) and the web side is unchanged. The source is `MIC`.
 
@@ -135,6 +158,7 @@ To debug pages in the WebView, install the `--webview-debug` build and use Chrom
 - **Personal data and secrets never enter the repository**: the data directory comes from config, and tests always use temporary directories. Never read or print real data under the user's `.ergo`, `.ssh` and so on.
 - **Write a temporary file, then rename — always through `util/atomic-file.ts`** (`writeFileAtomic`, `renameRetrying` and async variants): on Windows, renaming over a file another process has open fails (even if it's only reading), and these helpers retry; never `fs.renameSync` a freshly written temp file directly.
 - **User-facing text goes through `t()`** ([Internationalization](README.en.md#internationalization)); model-facing text and logs are annotated `@i18n-ignore`.
+- **An owner is a maintainer in code**: the UI, prompts and docs say owner; code identifiers, event types, API fields, channel names and language file keys say `maintainer`.
 - **Identifiers in English, comments in Chinese**; domain concepts use the words in `CONTEXT.md`. Exception: placeholder names in system-prompt files are Chinese (`{{拉回次数}}`, `{{#立项书已确认}}`, and the matching keys in code) — those files are shown to and edited by users, who type these names in the settings editor.
 - **Each threshold's default is defined once, in its own module**; config only lists what changes.
 - **Styles use only `var(--token)`**, never hard-coded colors, radii or shadows ([Visual styles](README.en.md#visual-styles)).
@@ -150,7 +174,7 @@ To debug pages in the WebView, install the `--webview-debug` build and use Chrom
 | `npm run test:integration` | The main slice (real daemon and agent child processes) plus `page-opens` (build once, open every page in real Chrome) | When touching the daemon's main paths, composition root or assembly, or before merging |
 | `npm test` | Everything = fast lane + main slice + pi contract tests | Before a release (GitHub Actions runs it on tags) |
 
-`npm run test:contract` (pi contract tests) launches a child process per test case and is only needed when upgrading pi or changing `agent-host/`, `runtime/` or prompt assembly. The supervisor's tests use `node --test`; run them with `npm run test:supervisor`. The two lanes' vitest configs are `vitest.fast.config.ts` and `vitest.integration.config.ts` at the root; the full run uses the root `vitest.config.ts`. When changing a package's `setupFiles` / `include`, update all of them.
+`npm run test:contract` (pi contract tests) launches a child process per test case and is only needed when upgrading pi or changing `agent-host/`, `runtime/` or prompt assembly. The service manager's tests use `node --test`; run them with `npm run test:supervisor`. The two lanes' vitest configs are `vitest.fast.config.ts` and `vitest.integration.config.ts` at the root; the full run uses the root `vitest.config.ts`. When changing a package's `setupFiles` / `include`, update all of them.
 
 ### Test harness
 
@@ -185,7 +209,7 @@ To debug pages in the WebView, install the `--webview-debug` build and use Chrom
 
 ## Docs, CHANGELOG, decision records
 
-- **When behavior changes, update the docs in the same commit**: user-visible changes go into the [user guide](../user-guide/README.md) (chapters that have an English version in both languages); modules, protocols and conventions into [this layer](README.en.md) (both languages); plugins into the plugin guide (tests check its excerpts and names); new terms into [CONTEXT.md](../../CONTEXT.md).
+- **When behavior changes, update the docs in the same commit**: user-visible changes go into the [user guide](../user-guide/README.en.md) (chapters that have an English version in both languages); modules, protocols and conventions into [this layer](README.en.md) (both languages); plugins into the plugin guide (tests check its excerpts and names); new terms into [CONTEXT.md](../../CONTEXT.md).
 - **CHANGELOG**: one section per version, describing changes users can notice.
 - **Decision records** (`docs/architecture/adr/`): write an ADR for decisions that are hard to reverse, surprising, or chosen among alternatives — next number, with context, decision and consequences.
 - **Memory system** docs (`docs/architecture/memory-system.md`) are checked against the code (interface tables, tool tables, paths) by `packages/memory/test/architecture-doc.test.ts`.
