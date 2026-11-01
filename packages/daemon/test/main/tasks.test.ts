@@ -357,11 +357,13 @@ describe("任务书交给维护者，维护者提交计划", () => {
     const sample = samplePlan();
     expect(payload.plan).toEqual({
       ...sample,
-      stages: sample.stages.map((s, i) => ({ ...s, code: `${i + 1}` })),
+      // 361 号票：负责人只估调用次数，token 预算由运行时算：阶段上存 0，总估计是运行时算的（具体怎么算有 budget 那边的测试）
+      stages: sample.stages.map((s, i) => ({ ...s, code: `${i + 1}`, budget: { tokens: 0, toolCalls: s.budget.toolCalls } })),
+      tokenEstimate: expect.any(Number),
       watchCategories: daemon.tasks.globalWatchCategories().map((c) => ({ id: c.id, title: c.title })),
     });
     expect(daemon.tasks.plan("t-1-p1")).toMatchObject({ status: "pending", cardId: card.id, plan: payload.plan });
-    expect(card).toMatchObject({ urgency: "blocking", text: "计划：X 的调研（第 1 版，2 个阶段，约 320000 token）" });
+    expect(card).toMatchObject({ urgency: "blocking", text: expect.stringMatching(/^计划：X 的调研（第 1 版，2 个阶段，约 \d+ token）$/) });
 
     const item = await eventually(() => frontend.events({ channel: INBOX, type: EVENT_TYPES.inboxItem }).map((f) => (f.payload as InboxItemEventPayload).item), () => true, "待我处理");
     expect(item).toMatchObject({ kind: "card", cardId: card.id, title: "计划等你确认：X 的调研", source: "任务「X 的调研」", urgency: "blocking" });
