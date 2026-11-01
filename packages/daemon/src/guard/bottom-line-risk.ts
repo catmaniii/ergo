@@ -7,7 +7,7 @@
 //   和它的 8.3 短名；
 // - 一段文字是不是要往外送（秘书的特别敏感：往外 POST、发信……；目标都是本机的不算）；网址是不是本机；
 // - 网址是不是二狗自己（139 号票：本机的、端口是守护进程实际监听的本机端口或外网端口；"发往本机不算对外"的例外不包括它）。
-import { oldNameOf, t } from "@ergo/protocol";
+import { t } from "@ergo/protocol";
 import { win32 } from "node:path";
 import { absolutePathsIn, comparable, isWithin, isWithinAny } from "./paths.ts";
 
@@ -106,19 +106,14 @@ export function dataDirMentions(text: string, ctx: MentionContext): Mentions {
   const areas: RiskArea[] = [];
   let dataDir = false;
   const names = dataDirNames(ctx.dataDir);
-  // 312 号票：旧名字的数据目录（~/.ergou）迁移后是指到数据目录的目录联接，写在它下面的路径照数据目录里的同一处判
-  // （自己的地方照样算自己的：接着的 Claude Code 会话的工作目录可能还是旧写法）
-  const oldRoot = win32.join(win32.dirname(ctx.dataDir), oldNameOf(win32.basename(ctx.dataDir)));
-  const viaOld = (p: string) => (comparable(oldRoot) !== comparable(ctx.dataDir) && isWithin(p, oldRoot) ? win32.join(ctx.dataDir, win32.relative(oldRoot, p)) : p);
-  for (const written of paths) {
-    const p = viaOld(written);
+  for (const p of paths) {
     const area = ctx.areas.find((a) => isWithin(p, a.dir));
     if (area) {
       if (!areas.includes(area)) areas.push(area);
       continue;
     }
     if (isWithin(p, ctx.dataDir)) {
-      if (!isWithinAny(p, ctx.ownDirs.map(viaOld))) dataDir = true;
+      if (!isWithinAny(p, ctx.ownDirs)) dataDir = true;
       continue;
     }
     if (isWithin(ctx.dataDir, p) || hasSegment(p, names)) dataDir = true;
@@ -131,18 +126,13 @@ export function dataDirMentions(text: string, ctx: MentionContext): Mentions {
 /** 路径里的一段（前后是分隔符、引号、空白，或者开头结尾） */
 const segment = (body: string) => new RegExp(String.raw`(?:^|[\\/'"\s=:])${body}(?=$|[\\/'"\s;,)])`, "i");
 
-/**
- * 数据目录的目录名（`.ergo`）和它的 8.3 短名（`ERGO~1`），作为路径里的一段来认。312 号票：旧名字（`.ergou`，迁移后是指到
- * 数据目录的目录联接）和它的短名同样认
- */
+/** 数据目录的目录名（`.ergo`）和它的 8.3 短名（`ERGO~1`），作为路径里的一段来认 */
 function dataDirNames(dataDir: string): RegExp[] {
   const base = win32.basename(comparable(dataDir));
   if (base.length < 3) return [];
-  return [...new Set([base, oldNameOf(base)])].flatMap((name) => {
-    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const short = name.replace(/[^a-z0-9_\-$!#%&@'`^~{}]/gi, "").slice(0, 6).replace(/[.*+?^${}()|[\]\\-]/g, "\\$&");
-    return [segment(escaped), ...(short.length > 0 ? [segment(`${short}~\\d+`)] : [])];
-  });
+  const escaped = base.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const short = base.replace(/[^a-z0-9_\-$!#%&@'`^~{}]/gi, "").slice(0, 6).replace(/[.*+?^${}()|[\]\\-]/g, "\\$&");
+  return [segment(escaped), ...(short.length > 0 ? [segment(`${short}~\\d+`)] : [])];
 }
 
 function hasSegment(p: string, names: readonly RegExp[]): boolean {

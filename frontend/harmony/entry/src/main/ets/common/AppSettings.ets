@@ -1,11 +1,12 @@
 import { preferences } from '@kit.ArkData';
 import { common, ConfigurationConstant } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
-import { PREFS_NAME } from './OldNames';
 
 export const DOMAIN = 0x0E60;
 export const TAG = 'ErgoApp';
 
+/** App 自己的设置存在这个偏好文件里（应用沙箱，不进仓库） */
+const PREFS_NAME = 'ergo_app';
 /** 用户配好的二狗地址 */
 const KEY_SERVER = 'server_url';
 /** 网页设置里选的外观：system / light / dark；开场先按它定深浅色，不等网页 */

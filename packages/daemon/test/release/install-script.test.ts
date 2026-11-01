@@ -201,11 +201,11 @@ describe.runIf(process.platform === "win32")("install.ps1 整个装一遍（本�
     expect(state).toMatchObject({ source: { url: base }, installedBy: "install.ps1" });
 
     // 别的钥匙签的：不装，在用的版本不变
-    for (const [name, body] of fakeRelease("0.4.0", releaseKey().secret).files) fake.put(name, body);
+    for (const [name, body] of fakeRelease("0.3.1", releaseKey().secret).files) fake.put(name, body);
     const bad = await powershell(["-File", SCRIPT, "-InstallDir", root, "-BaseUrl", base, "-PublicKey", key.publicLine, "-NoPath", "-NoOnboard"]);
     expect(bad.code).toBe(1);
     expect(bad.out).toContain("Signature check failed; not installing: signed by another key");
-    expect(fs.existsSync(path.join(root, "versions", "0.4.0"))).toBe(false);
+    expect(fs.existsSync(path.join(root, "versions", "0.3.1"))).toBe(false);
     expect(fs.readFileSync(path.join(root, "current"), "utf8").trim()).toBe("0.3.0");
 
     // 没测过的 Node 版本、没有公钥：不装

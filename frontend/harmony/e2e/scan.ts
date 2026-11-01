@@ -419,7 +419,7 @@ try {
   // 配对之后 App 的原生字跟着二狗的语言（中文）
   await run.step("已连接的手机换地址：入口也能扫码，有取消", async () => {
     main = await attachWeb(device, (url) => url.startsWith(external));
-    await main.eval("(window.ergoNative || window.ergouNative).editServer()");
+    await main.eval("window.ergoNative.editServer()");
     await device.waitText("扫码连接");
     await device.waitText("取消");
     run.shot("harmony-address-connected");

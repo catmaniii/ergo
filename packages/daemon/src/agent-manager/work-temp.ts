@@ -5,10 +5,8 @@
 //   Git Bash 和别的项目的 `/tmp` 都会跟着指到这个项目里。所以 `/tmp` 照旧是系统的临时目录（守卫按 bashTmpMount 判，在项目外）；
 // - 目录里放一个只写着 `*` 的 .gitignore：git 不收里面的东西（不改项目自己的 .gitignore，工作目录之后才 git init 的也一样）；
 // - 每次拉起 agent 时建好，顺手删掉 7 天没动过的文件和空目录（和临时区一样按修改时间，backup/tmp-cleanup.ts）；
-// - 312 号票：目录以前叫 .ergou-tmp，建的时候新的还没有、旧的在就把旧的改名过来（里面的东西照留）。
 import fs from "node:fs";
 import path from "node:path";
-import { oldNameOf } from "@ergo/protocol";
 import { cleanTmpDir } from "../backup/tmp-cleanup.ts";
 import { WORK_TEMP_DIR } from "../guard/index.ts";
 import { realPathOf } from "../util/real-path.ts";
@@ -31,14 +29,6 @@ export function workTempVars(dir: string): Record<string, string> {
 
 /** 建好临时目录、写上 .gitignore，再在后台删掉 7 天没动过的东西（删不掉的记日志，不影响拉起） */
 export function ensureWorkTempDir(dir: string, now: number, log: (line: string) => void): void {
-  const old = path.join(path.dirname(dir), oldNameOf(path.basename(dir)));
-  if (old !== dir && !fs.existsSync(dir) && fs.existsSync(old)) {
-    try {
-      fs.renameSync(old, dir);
-    } catch (err) {
-      log(`旧的临时目录 ${old} 改名成 ${path.basename(dir)} 没成（${err instanceof Error ? err.message : String(err)}），新建一个`); // @i18n-ignore log：日志
-    }
-  }
   fs.mkdirSync(dir, { recursive: true });
   // 每次都重写：修改时间是新的，清理时不会把它当成 7 天没动过的删掉
   fs.writeFileSync(path.join(dir, ".gitignore"), GITIGNORE);

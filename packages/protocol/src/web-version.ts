@@ -7,16 +7,13 @@
 // - 页面读自己 <head> 里的那一个（packages/web/src/app/web-version.ts），对不上就提示。
 // 写法和认法只在这里一处。不引用 TypeBox。
 
-import { oldNameOf } from "./old-names.ts";
-
 /** 版本号写在哪个 meta 里 */
 export const WEB_VERSION_META = "ergo-web-version";
 
 /** 版本号里能有的字（构建时是十六进制的哈希；认的时候放宽到字母数字和 . _ -，最长 64） */
 const VERSION_PATTERN = "[0-9A-Za-z._-]{1,64}";
 
-/** 认的时候 312 号票之前构建的页面（meta 名是旧名字）也认：守护进程换了新版、网页还没重新构建时照样知道是哪一版 */
-const META_RE = new RegExp(`<meta\\s+name="(?:${WEB_VERSION_META}|${oldNameOf(WEB_VERSION_META)})"\\s+content="(${VERSION_PATTERN})"\\s*/?>`);
+const META_RE = new RegExp(`<meta\\s+name="${WEB_VERSION_META}"\\s+content="(${VERSION_PATTERN})"\\s*/?>`);
 
 /** 写进 <head> 的那一行 */
 export function webVersionMeta(version: string): string {

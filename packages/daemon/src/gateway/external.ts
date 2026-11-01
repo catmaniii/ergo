@@ -18,7 +18,7 @@ import {
   t,
 } from "@ergo/protocol";
 import { RequestRejected } from "../errors.ts";
-import { DEVICE_COOKIE, oldCookieClears, PAIRING_COOKIE, readCookieOrOld, setCookieHeader } from "../pairing/credentials.ts";
+import { DEVICE_COOKIE, PAIRING_COOKIE, readCookie, setCookieHeader } from "../pairing/credentials.ts";
 import type { PairingService } from "../pairing/pairing.ts";
 import { sendError, sendJson } from "./http-api.ts";
 import type { OriginCheck } from "./local-origin.ts";
@@ -68,8 +68,7 @@ const HTTP_CODE_OF: Partial<Record<ErrorCode, HttpErrorCode>> = {
  * - PATCH 改设备名。
  */
 export function handlePairingRoute(req: http.IncomingMessage, res: http.ServerResponse, pairing: DevicePairing, log: (line: string) => void): void {
-  // 312 号票：旧名字的配对 cookie 也认（发起配对时还是旧名字、切换之后来领凭证的）
-  const secret = readCookieOrOld(req.headers.cookie, PAIRING_COOKIE);
+  const secret = readCookie(req.headers.cookie, PAIRING_COOKIE);
   const run = (fn: () => void) => {
     try {
       fn();
@@ -86,7 +85,7 @@ export function handlePairingRoute(req: http.IncomingMessage, res: http.ServerRe
         const found = pairing.claim(secret);
         if (!found) return sendError(res, "not_found", t("gateway.noPairingRequest"));
         // 领到了凭证：放进 HttpOnly cookie（页面脚本看不到），配对 cookie 用完删掉
-        if (found.credential !== undefined) res.setHeader("Set-Cookie", [deviceCookie(found.credential), setCookieHeader(PAIRING_COOKIE, "", 0), ...oldCookieClears(req.headers.cookie, [PAIRING_COOKIE])]);
+        if (found.credential !== undefined) res.setHeader("Set-Cookie", [deviceCookie(found.credential), setCookieHeader(PAIRING_COOKIE, "", 0)]);
         sendJson(res, 200, { request: found.request });
       });
     case "POST":

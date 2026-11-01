@@ -58,18 +58,6 @@ describe("真向量适配器（不加载模型）", () => {
     expect(resolveModelsDir(undefined, {}, home)).toBe(path.join(home, ".ergo", "models"));
   });
 
-  it("312 号票：两个环境变量的旧名字也认（新的优先），~/.ergo 不在而旧的 ~/.ergou 在时用旧的", () => {
-    expect(resolveModelsDir(undefined, { ERGOU_MODELS_DIR: "E:/old" })).toBe(path.resolve("E:/old"));
-    expect(resolveModelsDir(undefined, { ERGO_MODELS_DIR: "E:/x", ERGOU_MODELS_DIR: "E:/old" })).toBe(path.resolve("E:/x"));
-    expect(resolveModelsDir(undefined, { ERGOU_DATA_DIR: "F:/old" })).toBe(path.resolve("F:/old/models"));
-    const home = tempDir();
-    expect(resolveModelsDir(undefined, {}, home)).toBe(path.join(home, ".ergo", "models"));
-    fs.mkdirSync(path.join(home, ".ergou"));
-    expect(resolveModelsDir(undefined, {}, home)).toBe(path.join(home, ".ergou", "models"));
-    fs.mkdirSync(path.join(home, ".ergo"));
-    expect(resolveModelsDir(undefined, {}, home)).toBe(path.join(home, ".ergo", "models"));
-  });
-
   it("文件不在时 available 是 false、给出提示，算向量直接报错，不去加载", async () => {
     const dir = tempDir();
     const embedder = createBgeM3Embedder({ modelsDir: dir });

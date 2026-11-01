@@ -13,7 +13,6 @@
  *   不重复要"浏览"页签、不接管外链，侧边栏里点的外部网页链接改到内置浏览器里打开（Index.ets 的 sideIntercept）。外部网页那个原生浏览器照旧不挂原生桥；
  * - 键盘：照主界面的 Web（ArkWeb 默认的 RESIZE_CONTENT，键盘弹起时网页的视口跟着变矮，输入框不被挡），侧边栏的 Web 写明同一个设法。
  */
-import { oldNameOf } from '../common/OldNames';
 
 /** 侧边栏的网页里看到的名字：window.ergoSide */
 export const SIDE_HOST_NAME = 'ergoSide';
@@ -78,11 +77,11 @@ export function parseSideLayout(json: string): SideLayoutMessage | undefined {
   return value;
 }
 
-/** 侧边栏的网页的地址：二狗的地址（去掉 # 后面的）加 ergo=side（312 号票：旧的参数名也带上，网页还是旧版时照样认得出） */
+/** 侧边栏的网页的地址：二狗的地址（去掉 # 后面的）加 ergo=side */
 export function sideUrlOf(href: string): string {
   const hash = href.indexOf('#');
   const base = hash < 0 ? href : href.substring(0, hash);
-  return `${base}${base.indexOf('?') < 0 ? '?' : '&'}ergo=side&${oldNameOf('ergo')}=side`;
+  return `${base}${base.indexOf('?') < 0 ? '?' : '&'}ergo=side`;
 }
 
 /** 侧边栏的网页能调的对象（javaScriptProxy：window.ergoSide）：收起、取消选中、网页起来了 */

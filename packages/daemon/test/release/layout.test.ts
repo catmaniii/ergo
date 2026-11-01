@@ -93,7 +93,7 @@ describe("安装布局", () => {
   it("current 是一行文本（在用的版本目录名）：切过去、切回来；老安装的目录联接也认；列版本按版本号排；只留两个版本", () => {
     const root = path.join(tmp(), "inst");
     for (const v of ["0.2.9", "0.2.10", "0.3.0"]) fakeVersion(root, v);
-    fs.mkdirSync(path.join(installPaths(root).versions, "0.4.0.partial"));
+    fs.mkdirSync(path.join(installPaths(root).versions, "0.3.1.partial"));
     expect(listVersions(root).map((v) => v.name)).toEqual(["0.2.9", "0.2.10", "0.3.0"]);
     switchCurrent(root, "0.2.10");
     const current = installPaths(root).current;
@@ -120,7 +120,7 @@ describe("安装布局", () => {
     expect(currentHome(root)).toBeUndefined();
     switchCurrent(root, "0.3.0");
     const pruned = pruneVersions(root, ["0.3.0", "0.2.10"]);
-    expect(pruned.removed.sort()).toEqual(["0.2.9", "0.4.0.partial"]);
+    expect(pruned.removed.sort()).toEqual(["0.2.9", "0.3.1.partial"]);
     expect(listVersions(root).map((v) => v.name)).toEqual(["0.2.10", "0.3.0"]);
   });
 
@@ -136,8 +136,8 @@ describe("安装布局", () => {
   it("install.json 读写（不在时是空的）", () => {
     const root = path.join(tmp(), "inst");
     expect(readInstallState(root)).toEqual({ format: 1 });
-    writeInstallState(root, { format: 1, previous: "0.2.1", source: { url: "http://127.0.0.1:1" } });
-    expect(readInstallState(root)).toEqual({ format: 1, previous: "0.2.1", source: { url: "http://127.0.0.1:1" } });
+    writeInstallState(root, { format: 1, previous: "0.2.9", source: { url: "http://127.0.0.1:1" } });
+    expect(readInstallState(root)).toEqual({ format: 1, previous: "0.2.9", source: { url: "http://127.0.0.1:1" } });
   });
 
   it("版本号比大小", () => {

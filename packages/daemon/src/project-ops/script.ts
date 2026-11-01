@@ -2,7 +2,7 @@
 // - 哪个脚本：impl.file，相对项目工作目录的路径（要在工作目录里面、要已经存在；链接出去的不算），impl.args 是固定的附加参数；
 //   按扩展名选解释器：.mjs .js .cjs .ts .mts 用二狗自己的 node，.py 用 python，.ps1 用 PowerShell，.cmd .bat 经 cmd，.exe 直接跑；
 // - JSON 进：标准输入是和 http 一样的请求体 { "name", "arguments", "_meta"? }（验收的测试调用带 "_meta": { "ergo/test": true }），
-//   环境变量另有 ERGO_OPS_PROJECT、ERGO_OPS_OP，测试调用还有 ERGO_OPS_TEST=1（312 号票：每个都另带一份旧名字的，早先写的脚本照样读得到）；
+//   环境变量另有 ERGO_OPS_PROJECT、ERGO_OPS_OP，测试调用还有 ERGO_OPS_TEST=1；
 // - JSON 出：标准输出照 reply.ts 取能念的那句和附件（{ "say", "detail" } 或 MCP 的 CallToolResult，纯文本整个当附件）；
 //   退出码不是 0 的算没做成（标准错误的结尾带回去）；
 // - 以工作目录为当前目录，环境照 agent 的子进程那样显式构造（系统变量白名单，不带守护进程的密钥）；每次一个 Job 对象（Windows），
@@ -11,7 +11,6 @@
 import fs from "node:fs";
 import path from "node:path";
 import { StringDecoder } from "node:string_decoder";
-import { withOldEnvNames } from "../config/old-names.ts";
 import { buildChildEnv, SCRIPT_UTF8_ENV } from "../process/child-env.ts";
 import { type GatedChild, spawnGated } from "../process/gated-spawn.ts";
 import type { JobObject } from "../process/job-object.ts";
@@ -76,15 +75,12 @@ export function runScriptOp(input: {
   const located = scriptPath(input.workdir, input.file);
   if (!located.ok) return Promise.resolve(failed("refused", located.reason));
   if (input.signal?.aborted) return Promise.resolve(failed("aborted", "这次调用被中止了"));
-  const env = buildChildEnv(
-    process.env,
-    withOldEnvNames({
-      ...SCRIPT_UTF8_ENV,
-      ERGO_OPS_PROJECT: input.projectId,
-      ERGO_OPS_OP: input.name,
-      ...(input.test ? { ERGO_OPS_TEST: "1" } : {}),
-    }),
-  );
+  const env = buildChildEnv(process.env, {
+    ...SCRIPT_UTF8_ENV,
+    ERGO_OPS_PROJECT: input.projectId,
+    ERGO_OPS_OP: input.name,
+    ...(input.test ? { ERGO_OPS_TEST: "1" } : {}),
+  });
   let gated: GatedChild;
   try {
     gated = spawnGated({ cwd: input.workdir, env, ...(input.newJob ? { newJob: input.newJob } : {}) });

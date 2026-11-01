@@ -4,10 +4,8 @@
 // - 配对 cookie：新设备发起配对请求时拿到的另一个随机值（同样 HttpOnly），之后查状态、改设备名、领凭证都靠它认出
 //   是哪个请求。服务端同样只存哈希；短指纹由它推出来。
 // cookie 名带 __Host- 前缀：浏览器只接受 Secure、Path=/、不带 Domain 的，同一 sslip.io 下别的子域名没法覆盖它。
-// 312 号票：cookie 名从旧的 __Host-ergou-* 换成 __Host-ergo-*。读时新旧都认（readCookieOrOld，已配对的设备不用重新配对），
-// 回应时写新的、把旧的清掉（oldCookieClears）。
 import { createHash, randomBytes, randomInt } from "node:crypto";
-import { oldNameOf, PAIRING_FINGERPRINT_HEX_DIGITS, PAIRING_SHORT_CODE_DIGITS } from "@ergo/protocol";
+import { PAIRING_FINGERPRINT_HEX_DIGITS, PAIRING_SHORT_CODE_DIGITS } from "@ergo/protocol";
 
 export const DEVICE_COOKIE = "__Host-ergo-device";
 export const PAIRING_COOKIE = "__Host-ergo-pairing";
@@ -51,14 +49,4 @@ export function readCookie(header: string | undefined, name: string): string | u
     if (part.slice(0, eq).trim() === name) return part.slice(eq + 1).trim();
   }
   return undefined;
-}
-
-/** 某个 cookie 的值：先认新名字的，没有再认旧名字的（312 号票） */
-export function readCookieOrOld(header: string | undefined, name: string): string | undefined {
-  return readCookie(header, name) ?? readCookie(header, oldNameOf(name));
-}
-
-/** 请求里带着旧名字的这几个 cookie 的，回应里把旧的清掉（新的由调用方照常写） */
-export function oldCookieClears(header: string | undefined, names: readonly string[]): string[] {
-  return names.filter((name) => readCookie(header, oldNameOf(name)) !== undefined).map((name) => setCookieHeader(oldNameOf(name), "", 0));
 }

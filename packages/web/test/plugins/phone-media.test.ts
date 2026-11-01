@@ -27,7 +27,7 @@ import { type DataSourcePushResult, type DataSourcesView, type DataSourceView, n
 
 vi.mock("../../src/app/build-info.ts", () => ({ APP_VERSION: "0.0.0-test", CHANGELOG: "", PAGE_WEB_VERSION: undefined }));
 
-const BASE = { appVersion: () => "0.2.1", phoneContactsPick: () => Promise.resolve(""), phoneCalendarState: () => "", phoneCalendarPrepare: () => Promise.resolve(""), phoneCalendarRead: () => Promise.resolve("") };
+const BASE = { appVersion: () => "0.1.0", phoneContactsPick: () => Promise.resolve(""), phoneCalendarState: () => "", phoneCalendarPrepare: () => Promise.resolve(""), phoneCalendarRead: () => Promise.resolve("") };
 const PHOTOS = { phonePhotosState: () => "", phonePhotosPrepare: () => Promise.resolve(""), phonePhotosRead: () => Promise.resolve("") };
 const LOCATION = { phoneLocationState: () => "", phoneLocationPrepare: () => Promise.resolve(""), phoneLocationRecord: () => Promise.resolve(""), phoneLocationRead: () => Promise.resolve(""), phoneLocationAck: () => "ok" };
 const ms = (d: number, hh: number, mm = 0) => new Date(2026, 9, d, hh, mm).getTime();

@@ -108,7 +108,7 @@ Image: the Secretary page on a phone. Under your voice message is the recognized
 
 - ergo runs on your computer. The computer has to be on and online for your phone to connect.
 - Your phone needs a route back to the computer, even on the same Wi-Fi. The simplest way is to install a connection app called Tailscale on both and sign in with the same account. It signs in with an account such as Google or Microsoft, and may be slow in mainland China. For how to connect, see [On your phone](mobile.en.md).
-- A phone browser works with nothing to install. The built-in browser, which lets it operate web pages for you, is only in the app. The HarmonyOS and Android apps aren't in the app stores for now: you have to package them yourself with developer tools and install them, which isn't easy if you've never written code.
+- A phone browser works with nothing to install. The built-in browser, which lets it operate web pages for you, is only in the app. The apps aren't in the app stores: on Android you download the package and install it, no coding needed; on HarmonyOS you have to sign it with your own Huawei account using developer tools, which isn't easy if you've never written code.
 - Voice isn't in the install package and is downloaded separately. Speech recognition alone is a 1 to 2 GB download. Read-aloud takes nearly 6 GB more, and it reads slowly without a good graphics card.
 
 ### 5. The small tools you make keep running and become ergo's skills

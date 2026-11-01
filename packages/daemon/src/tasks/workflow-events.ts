@@ -11,7 +11,6 @@
 //   agentShellEnv），看到的路径和真正跑的一样。交给负责人的步骤、守卫逐步比对的步骤都是代入之后的，59 号票的核对按代入后的值比；
 // - 执行时按执行它的负责人现取代入后的路径的真实路径、推出授权项：workflow-plan.ts 的 boundRunWorkflow（和规划时同一套办法）。
 import { EVENT_PLACEHOLDER_PATTERN, type EventFieldDescriptor, eventFieldNamed, eventPassStepId, eventPlaceholdersIn, eventSourceOf, eventValueOf, eventValueText, substituteEventValues, t, type TriggerEvent, type WorkflowPlanDraft, type WorkflowStepView } from "@ergo/protocol";
-import { withOldEnvNames } from "../config/old-names.ts";
 import { isUnknownArg, TOOL } from "../guard/index.ts";
 
 /** 一步里写了哪些占位（参数和标题里的，去掉重复） */
@@ -80,7 +79,7 @@ export const eventShellVar = (n: number, key: string): string => `ERGO_EVENT_${n
 
 /**
  * 这次运行 bash 的环境变量：一批里每个事件（从 1 起编号）、它的来源登记的每个字段一个变量，值是这个事件里的值（没有的是空字符串）。
- * 命令里引用它们（shellCommandWithVars），值从不拼进命令。312 号票：每个都另带一份旧名字的（ERGOU_EVENT_…，agent 照早先的命令原样再跑也有值）
+ * 命令里引用它们（shellCommandWithVars），值从不拼进命令
  */
 export function eventShellEnv(events: readonly TriggerEvent[]): Record<string, string> {
   const env: Record<string, string> = {};
@@ -90,7 +89,7 @@ export function eventShellEnv(events: readonly TriggerEvent[]): Record<string, s
       env[eventShellVar(i + 1, field.key)] = v === undefined || v === null ? "" : eventValueText(v);
     }
   });
-  return withOldEnvNames(env);
+  return env;
 }
 
 /** 扫命令时的一层：不在引号里、双引号里、单引号里、$'…' 里、$(…) 或反引号的命令替换里（里面又是不在引号里） */

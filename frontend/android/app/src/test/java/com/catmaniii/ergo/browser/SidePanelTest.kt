@@ -7,11 +7,11 @@ import org.junit.Test
 class SidePanelTest {
     @Test
     fun addsBothParamNames() {
-        assertEquals("https://ergo.example/?ergo=side&ergou=side", sideUrlOf("https://ergo.example/"))
+        assertEquals("https://ergo.example/?ergo=side", sideUrlOf("https://ergo.example/"))
     }
 
     @Test
     fun keepsQueryAndDropsHash() {
-        assertEquals("https://ergo.example/?a=1&ergo=side&ergou=side", sideUrlOf("https://ergo.example/?a=1#/tasks"))
+        assertEquals("https://ergo.example/?a=1&ergo=side", sideUrlOf("https://ergo.example/?a=1#/tasks"))
     }
 }

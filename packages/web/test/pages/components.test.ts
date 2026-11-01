@@ -39,7 +39,7 @@ function view(components: ComponentView[]): ComponentsView {
   return {
     components,
     features: components.flatMap((c) => c.enables.map((f) => ({ feature: f.id, component: c.id, title: c.title, ready: c.state === "installed" || c.state === "provided" || c.state === "update" }))),
-    manifest: { release: "0.2.1", signed: false },
+    manifest: { release: "0.1.0", signed: false },
     defaultsMissing: [],
   };
 }

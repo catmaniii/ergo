@@ -165,7 +165,6 @@ export function followNotifyInApp(notify: NativeNotify, scope: NotifyOpenScope, 
     if (opened) open(opened);
   };
   take();
-  // 312 号票：新旧两个名字都挂（旧 App 调的是旧名字）
   const unexpose = exposeToApp(scope, "__ergoNotifyOpen", take);
   const state = notify.state();
   if (state && !state.enabled && !state.asked && visible()) void notify.prepare(false);

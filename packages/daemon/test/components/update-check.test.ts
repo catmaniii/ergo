@@ -56,7 +56,7 @@ async function rig(): Promise<Rig> {
   const root = makeTempDir("ergo-component-updates-");
   const key = releaseKey();
   const base = `${fake.url}/release`;
-  const shipped = { signed: false, manifest: parseManifest({ format: 1, release: "0.4.0", components: [entry(fake, "v1", "v1.bin", V1), other(fake)] }) };
+  const shipped = { signed: false, manifest: parseManifest({ format: 1, release: "0.1.0", components: [entry(fake, "v1", "v1.bin", V1), other(fake)] }) };
   return {
     fake,
     root,
@@ -234,9 +234,9 @@ describe("查更新", () => {
     const r = await rig();
     const components = r.start();
     await installV1(components);
-    r.publish({ ...newer(r), release: "0.3.0" });
+    r.publish({ ...newer(r), release: "0.0.9" });
     expect((await components.checkUpdates()).updates?.available).toEqual([]);
-    r.publish({ ...newer(r), release: "0.4.0" });
+    r.publish({ ...newer(r), release: "0.1.0" });
     expect((await components.checkUpdates()).updates?.available).toEqual([]);
     r.publish({ format: 1, release: "0.5.0", components: [entry(r.fake, "v1", "v1.bin", V1), other(r.fake)] });
     expect((await components.checkUpdates()).updates?.available).toEqual([]);

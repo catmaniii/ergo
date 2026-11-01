@@ -54,7 +54,6 @@ import { isConversationChannel } from "./conversation/history.ts";
 import { type CardTypeDefinition, CardTypeRegistry } from "./cards/registry.ts";
 import { cardsView } from "./cards/views.ts";
 import { DEFAULT_MEMORY_PROVIDER, loadConfig, readTokenPrices, type ErgoConfig, writeConnectionConfig, writeFreshInstallDefaults } from "./config/config.ts";
-import { oldNameNotes } from "./config/old-names.ts";
 import { dataDirLayout, type DataDirLayout } from "./config/data-dir.ts";
 import { modelConfigKey } from "./config/model-key.ts";
 import { createSafetySettings, type SafetySettingsService, withLiveBudgetControl } from "./config/safety-settings.ts";
@@ -666,8 +665,6 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
   const log = options.log ?? ((line: string) => process.stderr.write(`${line}\n`));
   let config = loadConfig({ env: options.env, homeDir: options.homeDir });
   const layout = dataDirLayout(config.dataDir);
-  // 312 号票：用的是旧的环境变量名、旧的数据目录、数据目录里旧名字的文件时提示一次（照样能用）
-  for (const note of oldNameNotes(config, layout, options.env)) log(note);
   const localPort = options.localPort ?? config.ports.local;
   const externalPort = options.externalPort ?? config.ports.external;
   // 一个数据目录只有一个实例（23 号票）：已经有一个在跑（被重复启动了）就立即退出，什么状态都不碰——
@@ -678,7 +675,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
   await checkPorts(localPort, externalPort, layout.configFile);
   // 数据目录不存在时建好（315 号票：第一次装的人什么都不用先建）
   if (!fs.existsSync(layout.root)) log(`数据目录 ${layout.root} 还没有，新建一个`); // @i18n-ignore log：启动时的说明
-  // 新装（315 号票）：数据目录里还没有事件库（312 号票之前的旧名字也算有）——对话审批、任务的预算控制两项收紧，明着写进配置文件
+  // 新装（315 号票）：数据目录里还没有事件库——对话审批、任务的预算控制两项收紧，明着写进配置文件
   // （里面已经写了的不碰），再读一遍配置。已有的数据目录不写：没写这两项的照旧是代码里的默认（关着）
   const freshInstall = !fs.existsSync(layout.eventsDb);
   for (const dir of [layout.config, layout.db, layout.sessions, layout.tmp, layout.scratch, layout.logs]) fs.mkdirSync(dir, { recursive: true });

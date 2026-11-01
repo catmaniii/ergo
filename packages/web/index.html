@@ -16,30 +16,6 @@
         var choice = null;
         var style = null;
         var accent = null;
-        // 312 号票：这台设备上记着的旧名字的键（ergou-theme、ergou.input_mode，刷新前存的 ergou.reload_drafts 这种）第一次打开时
-        // 搬成新名字（ergo-…），搬完删旧的；新名字已经有了的不盖。页面脚本里的各个键、下面的外观都在这之后才读（test/app/old-storage-keys.test.ts）
-        function moveOld(area) {
-          var old = [];
-          for (var i = 0; i < area.length; i++) {
-            var key = area.key(i);
-            if (key && /^ergou[-.]/.test(key)) old.push(key);
-          }
-          for (var j = 0; j < old.length; j++) {
-            var to = "ergo" + old[j].slice(5);
-            if (area.getItem(to) === null) area.setItem(to, area.getItem(old[j]));
-            area.removeItem(old[j]);
-          }
-        }
-        try {
-          moveOld(localStorage);
-        } catch (e) {
-          // 存储用不了：没有可搬的
-        }
-        try {
-          moveOld(sessionStorage);
-        } catch (e) {
-          // 同上
-        }
         try {
           choice = localStorage.getItem("ergo-theme");
           style = localStorage.getItem("ergo-style");

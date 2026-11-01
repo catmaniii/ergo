@@ -1,7 +1,5 @@
 // 数据目录的各区（规格第 18 节）。每类东西有固定归宿，任何模块都从这里取路径，不自己拼。
-// 312 号票：配置文件 config/ergo.json、事件库 db/ergo.db 以前叫旧名字；新名字的不在、旧名字的在时用旧的（迁移脚本会改名，这是兜底）。
 import path from "node:path";
-import { pathOrOld } from "./old-names.ts";
 
 export interface DataDirLayout {
   root: string;
@@ -9,7 +7,7 @@ export interface DataDirLayout {
   pidFile: string;
   /** 配置（含 MCP 登记、关注类别注册表） */
   config: string;
-  /** 配置文件 config/ergo.json（312 号票之前的旧名字还在、新的不在时是旧的） */
+  /** 配置文件 config/ergo.json */
   configFile: string;
   /** 关注类别注册表里用户的部分：内置类别的调整和自定义类别（守卫，03 号票） */
   watchCategoriesFile: string;
@@ -95,7 +93,7 @@ export interface DataDirLayout {
   importedDir: string;
   /** 数据库：内核的 ergo.db、materials.db（推理库 338 号票起在记忆插件自己的目录里，见 rgDb） */
   db: string;
-  /** 事件库 db/ergo.db（事件日志和派生视图；312 号票之前的旧名字还在、新的不在时是旧的） */
+  /** 事件库 db/ergo.db（事件日志和派生视图） */
   eventsDb: string;
   /**
    * 素材库 db/materials.db（内核的，ADR-0006、ADR-0035）：素材和索引的单独的库。
@@ -183,6 +181,18 @@ export function memoryProviderDir(dataDir: string, id: string = DEFAULT_MEMORY_P
   return path.join(path.resolve(dataDir), "memory", id);
 }
 
+/** 默认的数据目录名（用户主目录下） */
+export const DATA_DIR_NAME = ".ergo";
+
+/** 指定数据目录的环境变量 */
+export const DATA_DIR_ENV = "ERGO_DATA_DIR";
+
+/** 数据目录：环境变量 ERGO_DATA_DIR（去掉首尾空白，空的当没设）> 主目录下的 .ergo */
+export function resolveDataDir(env: Readonly<Record<string, string | undefined>>, homeDir: string): string {
+  const explicit = env[DATA_DIR_ENV]?.trim();
+  return explicit ? path.resolve(explicit) : path.resolve(homeDir, DATA_DIR_NAME);
+}
+
 export function dataDirLayout(dataDir: string): DataDirLayout {
   const root = path.resolve(dataDir);
   const config = path.join(root, "config");
@@ -192,7 +202,7 @@ export function dataDirLayout(dataDir: string): DataDirLayout {
     root,
     pidFile: path.join(root, "daemon.pid"),
     config,
-    configFile: pathOrOld(path.join(config, "ergo.json")),
+    configFile: path.join(config, "ergo.json"),
     watchCategoriesFile: path.join(config, "watch-categories.json"),
     workdayCalendarFile: path.join(config, "workday-calendar.json"),
     assistantNameFile: path.join(config, "assistant-name.json"),
@@ -218,7 +228,7 @@ export function dataDirLayout(dataDir: string): DataDirLayout {
     imports: path.join(root, "imports"),
     importedDir: path.join(root, "imports", "imported"),
     db: path.join(root, "db"),
-    eventsDb: pathOrOld(path.join(root, "db", "ergo.db")),
+    eventsDb: path.join(root, "db", "ergo.db"),
     materialsDb: path.join(root, "db", "materials.db"),
     legacyMemoryDb: path.join(root, "db", "memory.db"),
     memory: path.join(root, "memory"),

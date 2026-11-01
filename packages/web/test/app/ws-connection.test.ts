@@ -504,7 +504,7 @@ describe("WebSocket 连接", () => {
 });
 
 describe("关于页、Debug 工具集要的（124 号票）", () => {
-  const INFO = { version: "0.2.1", startedAt: "2026-10-14T18:00:00.000+08:00", now: "2026-10-14T21:12:00.000+08:00" };
+  const INFO = { version: "0.1.0", startedAt: "2026-10-14T18:00:00.000+08:00", now: "2026-10-14T21:12:00.000+08:00" };
 
   test("守护进程的版本：发 daemon_info（不带幂等键），等到回的结果；没连上时直接说没连上，不排队", async () => {
     const { connection } = connect();

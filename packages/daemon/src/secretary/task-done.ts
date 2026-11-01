@@ -54,7 +54,6 @@ import {
   maintainerChannel,
   type MessageEventPayload,
   type MessagePart,
-  OLD_MAINTAINER_LETTER_TAG,
   runEvents,
   type ScheduledJobEventPayload,
   TASK_KIND_LABEL,
@@ -110,8 +109,6 @@ export const LETTER_NOTICE_KEY_PREFIX = "maintainer-letter:";
 const NOTICE_KINDS = [
   { tag: TASK_DONE_TAG, prefix: TASK_DONE_KEY_PREFIX },
   { tag: MAINTAINER_LETTER_TAG, prefix: LETTER_NOTICE_KEY_PREFIX },
-  // 365 号票之前交的来信：还写着老标记，查交到哪了要算上，否则升级后重启会把交过的信再交一遍
-  { tag: OLD_MAINTAINER_LETTER_TAG, prefix: LETTER_NOTICE_KEY_PREFIX },
 ] as const;
 type NoticePrefix = (typeof NOTICE_KINDS)[number]["prefix"];
 

@@ -112,8 +112,6 @@ describe("一个服务写得对不对（spec.ts）", () => {
         { name: "KEY", from: "file", path: path.join("D:/data/secrets", "k.txt") },
         { name: "EMPTY", from: "literal", value: "", optional: true },
         { name: "ERGO_BASE_PATH", from: "literal", value: "/apps/p-1-web" },
-        // 312 号票：另带一份旧名字的（早先做的服务读的是它）
-        { name: "ERGOU_BASE_PATH", from: "literal", value: "/apps/p-1-web" },
       ],
       autostart: true,
       autoRestart: false,

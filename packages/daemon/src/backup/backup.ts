@@ -49,8 +49,7 @@ import {
   t,
 } from "@ergo/protocol";
 import { type BackupConfig, type BackupConfigChange, writeBackupConfig } from "../config/config.ts";
-import type { DataDirLayout } from "../config/data-dir.ts";
-import { resolveDataDir } from "../config/old-names.ts";
+import { type DataDirLayout, resolveDataDir } from "../config/data-dir.ts";
 import { RequestRejected } from "../errors.ts";
 import type { InboxService } from "../inbox/inbox.ts";
 import type { InstallLayout } from "../release/layout.ts";
@@ -384,7 +383,7 @@ export function createBackupService(options: BackupServiceOptions): BackupServic
   const { layout, config, inbox, clock, internalJobs, log } = options;
   const files = options.files ?? nodeSnapshotFiles;
   const install = options.install ?? installLayoutOfDaemon();
-  const customDataDir = path.relative(resolveDataDir({}, options.homeDir).dir, layout.root) !== "";
+  const customDataDir = path.relative(resolveDataDir({}, options.homeDir), layout.root) !== "";
   /** 事项里提到的定时命令（短的那个说法） */
   const scheduledName = install.kind === "dev" ? "npm run backup" : "ergo backup";
   const controller = new AbortController();

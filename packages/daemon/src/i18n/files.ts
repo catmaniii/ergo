@@ -4,7 +4,7 @@
 // 用户放坏了文件不能让守护进程起不来，设置 · 语言里写明是哪个文件、哪里错。
 import fs from "node:fs";
 import path from "node:path";
-import { isLanguageId, LOCALE_META_FILE, type LocaleFileProblem, type Messages, newNameOf, parseMessagesFile } from "@ergo/protocol";
+import { isLanguageId, LOCALE_META_FILE, type LocaleFileProblem, type Messages, parseMessagesFile } from "@ergo/protocol";
 
 /** 一个语言目录里读到的 */
 export interface LocaleDirContent {
@@ -52,19 +52,6 @@ function listDir(dir: string): fs.Dirent[] {
   }
 }
 
-/**
- * 312 号票：key 里的旧写法（protocol.eventSources.ergou.label 这种，ergo 以前的拼法）换成新的——用户早先放的语言文件照样盖得上；
- * 同一份文件里新旧两种都写了的，新的为准
- */
-function withNewKeys(messages: Messages): Messages {
-  const keys = Object.keys(messages);
-  if (keys.every((k) => newNameOf(k) === k)) return messages;
-  const out: Record<string, string> = {};
-  for (const k of keys) if (newNameOf(k) === k) out[k] = messages[k]!;
-  for (const k of keys) if (newNameOf(k) !== k && !(newNameOf(k) in out)) out[newNameOf(k)] = messages[k]!;
-  return out;
-}
-
 /** 读一个语言根目录（不存在就是空的） */
 export function readLocaleRoot(root: string): LocaleRootContent {
   const dirs: LocaleDirContent[] = [];
@@ -88,7 +75,7 @@ export function readLocaleRoot(root: string): LocaleRootContent {
       }
       const parsed = parseMessagesFile(read.value);
       for (const p of parsed.problems) problems.push({ ...p, file: rel });
-      content.files.push({ name: file.name, messages: withNewKeys(parsed.messages) });
+      content.files.push({ name: file.name, messages: parsed.messages });
     }
     dirs.push(content);
   }

@@ -28,7 +28,7 @@ const autostart = (url: string, enabled?: boolean) =>
 
 function installedLayout(): { layout: InstallLayout; dir: string } {
   const dir = makeTempDir("ergo-install-");
-  const home = path.join(dir, "versions", "0.4.0");
+  const home = path.join(dir, "versions", "0.1.0");
   return { dir, layout: { kind: "installed", root: dir, home, appDir: path.join(home, "app"), node: path.join(home, "node", "node.exe") } };
 }
 
@@ -88,7 +88,7 @@ describe("向导的能力那一步", () => {
     const td = await startTestDaemon({
       fresh: true,
       env: { DEEPSEEK_API_KEY: undefined },
-      components: { manifest: { signed: false, manifest: parseManifest({ format: 1, release: "0.4.0", components: [entry(fake, "v1", "v1.bin", blob(30_000, 73))] }) }, transport: createHttpTransport() },
+      components: { manifest: { signed: false, manifest: parseManifest({ format: 1, release: "0.1.0", components: [entry(fake, "v1", "v1.bin", blob(30_000, 73))] }) }, transport: createHttpTransport() },
     });
     expect(capabilitiesOf((await setupApi.view(td.url)).body)).toEqual({ id: "capabilities", done: false, ready: false, optional: true });
 
@@ -151,7 +151,7 @@ describe("查更新", () => {
   const start = async (fake: FakeDownloads, env: Record<string, string> = {}) =>
     startTestDaemon({
       env: { ERGO_RELEASE_URL: `${fake.url}/release`, ERGO_RELEASE_PUBKEY: key.publicLine, ...env },
-      components: { manifest: { signed: false, manifest: parseManifest({ format: 1, release: "0.4.0", components: [entry(fake, "v1", "v1.bin", V1)] }) }, transport: createHttpTransport() },
+      components: { manifest: { signed: false, manifest: parseManifest({ format: 1, release: "0.1.0", components: [entry(fake, "v1", "v1.bin", V1)] }) }, transport: createHttpTransport() },
     });
   const install = async (td: Awaited<ReturnType<typeof start>>) => {
     expect((await requestJson(td.url, HTTP_PATHS.component("bge-m3"), { method: "POST", body: { action: "install" } })).status).toBe(200);

@@ -229,9 +229,8 @@ describe("秘书的 project_ops：照草稿补齐（268 号票）", () => {
     expect(opsItem(card)).toMatchObject({ label: "运营接口清单验收通过（ops.json）", done: true, detail: "验收通过：5 个操作的测试都跑通，只读的没写东西" });
     // 测试调用带测试标记：有副作用的没真记账
     expect(app.calls().map((c) => [c.name, c["_meta"]])).toEqual([
-      // 312 号票：测试标记另带一份旧名字的（早先做的服务照样认得出）
-      ["add_expense", { "ergo/test": true, "ergou/test": true }],
-      ["list_expenses", { "ergo/test": true, "ergou/test": true }],
+      ["add_expense", { "ergo/test": true }],
+      ["list_expenses", { "ergo/test": true }],
     ]);
     expect(app.expenses()).toEqual([]);
     // 转入使用：同一事务登记成第 1 版

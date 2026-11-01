@@ -5,7 +5,6 @@
 // 连不上（端口没人听）、等不到（timeoutMs）、被中止：没做成，说清是哪一种（reach）。
 // 只连 127.0.0.1（服务都在这台电脑上，LSM 管着）；不带任何凭据、不跟跳转。
 // @i18n-ignore-file model：连不上的说法交给秘书（工具结果）
-import { oldNameOf } from "@ergo/protocol";
 import { type ParsedReply, parseReply } from "./reply.ts";
 
 const LOCAL_HOST = "127.0.0.1";
@@ -32,9 +31,9 @@ export function opsUrl(port: number, path: string): string {
   return `http://${LOCAL_HOST}:${port}${path}`;
 }
 
-/** 请求体（http 和脚本一样）：MCP tools/call 的 params，测试调用带上标记（312 号票：另带一份旧名字的，早先做的服务照样认得出是测试） */
+/** 请求体（http 和脚本一样）：MCP tools/call 的 params，测试调用带上标记 */
 export function callBody(name: string, args: Record<string, unknown>, test: boolean): string {
-  return JSON.stringify({ name, arguments: args, ...(test ? { _meta: { [OPS_TEST_META]: true, [oldNameOf(OPS_TEST_META)]: true } } : {}) });
+  return JSON.stringify({ name, arguments: args, ...(test ? { _meta: { [OPS_TEST_META]: true } } : {}) });
 }
 
 /** 连不上：fetch 的错里一层层找 ECONNREFUSED 这类 */

@@ -1237,7 +1237,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       expect(await page.evaluate("document.documentElement.lang")).toBe("en");
       const empty: string[] = [];
       // 365 号票：英文界面叫 owner，一个 maintainer 都不能露出来（impl.type 的写法只在出错时的提示里，这些页上没有）
-      const oldNames: string[] = [];
+      const maintainerWords: string[] = [];
       // 379 号票：原型没起过名，英文下名字标签一律是默认的 ergo，不是二狗（下面查中文时名字标签是除外的，得单独看）
       const names = new Set<string>();
       for (const hash of PAGES) {
@@ -1245,7 +1245,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
         await page.waitForTimeout(150);
         const shown = await bodyText(page);
         if (shown === "") empty.push(hash);
-        for (const hit of shown.matchAll(/.{0,30}maintainer.{0,30}/gi)) oldNames.push(`${hash}：${hit[0]}`);
+        for (const hit of shown.matchAll(/.{0,30}maintainer.{0,30}/gi)) maintainerWords.push(`${hash}：${hit[0]}`);
         for (const tag of (await page.evaluate(`Array.from(document.querySelectorAll(".assistant-name"), (el) => el.textContent)`)) as string[]) names.add(tag);
       }
       expect([...names]).toEqual(["ergo"]);
@@ -1266,7 +1266,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       expect(errors).toEqual([]);
       expect(empty).toEqual([]);
       expect(leaks).toEqual([]);
-      expect(oldNames).toEqual([]);
+      expect(maintainerWords).toEqual([]);
     }, 60_000);
   }
 

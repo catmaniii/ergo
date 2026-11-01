@@ -22,7 +22,6 @@ import {
   type AgentReport,
   CONTEXT_BLOCK_TYPE,
   INPUT_CONTEXT_TYPE,
-  isSessionType,
   SCOPE_REVIEW_ENTRY,
   type ScopeFinding,
   type ScopeReviewReport,
@@ -44,7 +43,7 @@ export function reviewPrompt(reference: string, conversation: string): string {
 const SKIPPED_CUSTOM_TYPES: readonly string[] = [CONTEXT_BLOCK_TYPE, INPUT_CONTEXT_TYPE];
 function isWork(message: SessionMessage): boolean {
   if (message.role === "compactionSummary" || message.role === "branchSummary") return false;
-  if (message.role === "custom" && SKIPPED_CUSTOM_TYPES.some((type) => isSessionType(message.customType, type))) return false;
+  if (message.role === "custom" && SKIPPED_CUSTOM_TYPES.some((type) => message.customType === type)) return false;
   return true;
 }
 
@@ -56,7 +55,7 @@ export function conversationText(messages: readonly SessionMessage[]): string {
 /** 会话（当前分支）里交给 agent 的输入：输入标记（SESSION_INPUT_TAG）里的 id，按先后 */
 function inputIdsOf(sessionManager: Pick<SessionManager, "getBranch">): string[] {
   return sessionManager.getBranch().flatMap((entry) => {
-    if (entry.type !== "custom" || !isSessionType(entry.customType, SESSION_INPUT_TAG)) return [];
+    if (entry.type !== "custom" || entry.customType !== SESSION_INPUT_TAG) return [];
     const id = (entry.data as { inputId?: unknown } | undefined)?.inputId;
     return typeof id === "string" ? [id] : [];
   });

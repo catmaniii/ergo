@@ -1,41 +1,16 @@
 // 115 号票：来信在会话里折成一行。守护进程写的几种通知开头的标记和协议包的那一份一样（Web 按它认哪些折）；
 // 交给秘书的通知上存一句话总结（任务做完的由运行时拼，几件、几封并在一起的写几件），旧的信没有总结的取原话的第一句。
-import { CHANNELS, LETTER_TAGS, letterKindOf, OLD_MAINTAINER_LETTER_TAG } from "@ergo/protocol";
-import path from "node:path";
-import { describe, expect, onTestFinished, test } from "vitest";
+import { LETTER_TAGS, letterKindOf } from "@ergo/protocol";
+import { describe, expect, test } from "vitest";
 import { buildAgentNotice } from "../../src/conversation/messages.ts";
-import { conversationViews } from "../../src/conversation/views.ts";
-import { openEventStore } from "../../src/events/event-store.ts";
 import { NUDGE_PREFIX } from "../../src/guard/index.ts";
 import { runPendingNudge } from "../../src/scheduled-jobs/texts.ts";
 import { letterNoticeSummary } from "../../src/secretary/letter-texts.ts";
 import { describeLetter, LETTER_EVENT, LETTERS_CHANNEL } from "../../src/secretary/letters.ts";
-import { ANNOUNCE_HEADS, AUTO_ANNOUNCE_TAG, isAutoAnnounceNotice, isMaintainerLetterNotice, MAINTAINER_LETTER_TAG, TASK_DONE_TAG } from "../../src/secretary/notice-tags.ts";
-import { isRedeliveredNotice, LETTER_NOTICE_KEY_PREFIX, noticeAttempts, taskDoneItemSummary, taskDoneSummary } from "../../src/secretary/task-done.ts";
+import { MAINTAINER_LETTER_TAG, TASK_DONE_TAG } from "../../src/secretary/notice-tags.ts";
+import { taskDoneItemSummary, taskDoneSummary } from "../../src/secretary/task-done.ts";
 import { nudgeOf } from "../../src/tasks/workflow-run.ts";
 import type { StoredEvent } from "../../src/events/event-store.ts";
-import { makeTempDir } from "../helpers/temp-dir.ts";
-
-describe("365 号票之前交的来信：老消息开头还是老标记，运行时照样认", () => {
-  const old = (text: string, key = "k-1") => buildAgentNotice(CHANNELS.secretary, text, key, {});
-  const OLD_LETTER = `${OLD_MAINTAINER_LETTER_TAG}后台的一个 agent 让你转告用户一件事`;
-
-  test("被打断了由运行时重新交（不出“请重发”的说明）、自动播报的开头都认", () => {
-    expect(isMaintainerLetterNotice(old(OLD_LETTER).message)).toBe(true);
-    expect(isRedeliveredNotice(old(OLD_LETTER).message)).toBe(true);
-    expect(isAutoAnnounceNotice(old(`${OLD_MAINTAINER_LETTER_TAG}${AUTO_ANNOUNCE_TAG}后台的一个 agent`).message)).toBe(true);
-    // 重新交的时候把自动播报的标记去掉，留下的是原来那个标记
-    expect(ANNOUNCE_HEADS.find(({ head }) => head.startsWith(OLD_MAINTAINER_LETTER_TAG))?.tag).toBe(OLD_MAINTAINER_LETTER_TAG);
-  });
-
-  test("查交到哪了算上老标记的：不然升级后第一次起来，交过的信会再交一遍", () => {
-    const store = openEventStore({ file: path.join(makeTempDir("ergo-old-letters-"), "ergo.db"), views: conversationViews });
-    onTestFinished(() => store.close());
-    store.append(old(OLD_LETTER, `${LETTER_NOTICE_KEY_PREFIX}7`).event);
-    store.append(old(`${MAINTAINER_LETTER_TAG}后台的一个 agent 让你转告用户一件事`, `${LETTER_NOTICE_KEY_PREFIX}9`).event);
-    expect(noticeAttempts(store).map((a) => a.seq).toSorted()).toEqual([7, 9]);
-  });
-});
 
 describe("通知开头的标记和协议包的一样", () => {
   test("任务做完、负责人来信、计划检查（守卫里另写的那一份、定时运行的收尾提醒）", () => {

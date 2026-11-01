@@ -139,7 +139,6 @@ function eventOf(json: unknown): NativeVoiceEvent | undefined {
 export function wrapNativeVoice(bridge: BridgeObject, scope: NativeVoiceScope): NativeVoice | undefined {
   if (!NATIVE_VOICE_METHODS.every((m) => typeof bridge[m] === "function")) return undefined;
   const listeners = new Set<(event: NativeVoiceEvent) => void>();
-  // 312 号票：新旧两个名字都挂（旧 App 调的是旧名字）
   exposeToApp(scope, "__ergoVoice", (json: string) => {
     const event = eventOf(json);
     if (event) for (const listener of listeners) listener(event);

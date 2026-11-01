@@ -20,7 +20,7 @@ import path from "node:path";
 import type { BranchSummaryEntry, CompactionEntry, CustomEntry, CustomMessageEntry, FileEntry, SessionMessageEntry } from "@earendil-works/pi-coding-agent";
 import { writeFileAtomic } from "../../util/atomic-file.ts";
 import { replaceMentionLines } from "../../util/mentions.ts";
-import { HANDOFF_SUMMARY_TYPE, isSessionType, SESSION_INPUT_TAG, type SessionRewriteRequest, type SessionRewriteResult } from "../host-protocol.ts";
+import { HANDOFF_SUMMARY_TYPE, SESSION_INPUT_TAG, type SessionRewriteRequest, type SessionRewriteResult } from "../host-protocol.ts";
 
 const SESSION_EXT = ".jsonl";
 
@@ -103,7 +103,7 @@ export function rewriteSessionText(text: string, request: SessionRewriteRequest,
   lines.forEach((line, index) => {
     const entry = line.entry;
     if (!entry) return;
-    if (entry.type === "custom_message" && isSessionType((entry as CustomMessageEntry).customType, HANDOFF_SUMMARY_TYPE)) {
+    if (entry.type === "custom_message" && (entry as CustomMessageEntry).customType === HANDOFF_SUMMARY_TYPE) {
       const from = ((entry as CustomMessageEntry).details as { fromSession?: unknown } | undefined)?.fromSession;
       if (typeof from === "string") handoffFrom = from;
       handoffAt = index;
@@ -122,9 +122,9 @@ export function rewriteSessionText(text: string, request: SessionRewriteRequest,
     }
     if (entry.type === "custom") {
       const custom = entry as CustomEntry;
-      if (isSessionType(custom.customType, SESSION_INPUT_TAG)) tagged = inputs.has(String((custom.data as { inputId?: unknown } | undefined)?.inputId));
+      if (custom.customType === SESSION_INPUT_TAG) tagged = inputs.has(String((custom.data as { inputId?: unknown } | undefined)?.inputId));
       // 范围审视结果的副本（18 号票）：数据里的文字全换掉（不进模型的上下文，不影响摘要）
-      if ([...customTypes].some((type) => isSessionType(custom.customType, type))) {
+      if (customTypes.has(custom.customType)) {
         const next = { ...custom, data: purgedStrings(custom.data, request.marker) };
         const raw = JSON.stringify(next);
         if (raw === JSON.stringify(custom)) return;
@@ -228,7 +228,7 @@ function markedAlready(text: string, needles: readonly string[], marker: string)
  * 提到了被删字串的（已经换过的也算，摘要覆不覆盖按它判断）交回改后的样子，没提到的是 undefined
  */
 function rewriteContextMessage(entry: CustomMessageEntry, request: SessionRewriteRequest): CustomMessageEntry | undefined {
-  const rule = request.contextLines?.find((r) => isSessionType(entry.customType, r.customType));
+  const rule = request.contextLines?.find((r) => entry.customType === r.customType);
   if (!rule) return undefined;
   const replace = (text: string) => replaceMentionLines(text, rule.needles, request.marker, { continuation: rule.continuation === true });
   if (typeof entry.content === "string") {

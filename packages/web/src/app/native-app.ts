@@ -104,7 +104,6 @@ function callBridge(bridge: BridgeObject, method: string, ...args: (string | boo
 /**
  * 页面的全局对象里有没有 App 注入的原生桥；没有、形状不对、App 拒绝了这个页面都返回 undefined。
  * 有原生录音时在 scope 上登记 App 推送用的 __ergoVoice，有原生浏览器时登记 __ergoBrowser（134 号票）。
- * 312 号票：原生桥 ergoNative 优先，没有就用旧名字的（旧 App 装不上新包时照样能用）
  */
 export function detectNativeApp(scope: { ergoNative?: unknown } & NativeVoiceScope & NativeBrowserScope): NativeApp | undefined {
   const bridge = appObject(scope, "ergoNative");
@@ -184,7 +183,6 @@ export interface BackScope {
  */
 export function followBackInApp(app: NativeApp, back: Pick<BackRegistry, "back" | "canGoBack" | "subscribe">, scope: BackScope): () => void {
   const goBack = () => back.back();
-  // 312 号票：新旧两个名字都挂（旧 App 调的是旧名字）
   const unexpose = exposeToApp(scope, "__ergoBack", goBack);
   let told = back.canGoBack();
   app.setCanGoBack(told);
@@ -217,6 +215,5 @@ export function followInsetsInApp(app: NativeApp, scope: InsetsScope, apply: (in
     const insets = parseNativeInsets(json);
     if (insets) apply(insets);
   };
-  // 312 号票：新旧两个名字都挂（旧 App 调的是旧名字）
   return exposeToApp(scope, "__ergoInsets", pushed);
 }

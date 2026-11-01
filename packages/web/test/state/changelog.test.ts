@@ -26,7 +26,7 @@ const SAMPLE = [
   "## 代码块里的标题不算",
   "```",
   "",
-  "## 0.2.1",
+  "## 0.2.5",
   "",
   "- 乙",
   "",
@@ -41,7 +41,7 @@ describe("更新日志按版本分节", () => {
     expect(changelogSections(SAMPLE)).toEqual([
       { version: "未发布", body: "- 还没发的" },
       { version: "0.3.0", date: "2026-11-01", body: "### 新增\n\n- 甲\n\n```md\n## 代码块里的标题不算\n```" },
-      { version: "0.2.1", body: "- 乙" },
+      { version: "0.2.5", body: "- 乙" },
       { version: "0.2.0", date: "2026-10-12", body: "- 丙" },
     ]);
   });
@@ -49,19 +49,18 @@ describe("更新日志按版本分节", () => {
   test("当前版本那一节，和它之后（更早）的几版；比它新的（未发布）不算以前的", () => {
     const { current, earlier } = changelogFor(SAMPLE, "0.3.0");
     expect(current?.version).toBe("0.3.0");
-    expect(earlier.map((s) => s.version)).toEqual(["0.2.1", "0.2.0"]);
+    expect(earlier.map((s) => s.version)).toEqual(["0.2.5", "0.2.0"]);
   });
 
   test("日志里没有当前版本（忘了写）：没有这一版那一节，以前的版本照列（只列比文件里第一个正式版本旧的全部）", () => {
     expect(changelogFor(SAMPLE, "9.9.9")).toEqual({ current: undefined, earlier: changelogSections(SAMPLE).filter((s) => s.version !== "未发布") });
-    expect(changelogFor("", "0.2.1")).toEqual({ current: undefined, earlier: [] });
+    expect(changelogFor("", "0.2.5")).toEqual({ current: undefined, earlier: [] });
   });
 
-  test("仓库里真的 CHANGELOG.md：取得到根 package.json 的版本那一节，正文有内容，以前的版本里有 0.2.0", () => {
-    const { current, earlier } = changelogFor(REPO_CHANGELOG, REPO_VERSION);
+  test("仓库里真的 CHANGELOG.md：取得到根 package.json 的版本那一节，正文有内容", () => {
+    const { current } = changelogFor(REPO_CHANGELOG, REPO_VERSION);
     expect(current?.version).toBe(REPO_VERSION);
     expect(current?.body).toContain("### ");
-    expect(earlier.map((s) => s.version)).toContain("0.2.0");
   });
 });
 

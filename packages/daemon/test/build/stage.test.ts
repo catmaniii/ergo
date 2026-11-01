@@ -264,10 +264,10 @@ describe("组件清单写上版本号", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ergo-stamp-"));
     try {
       const file = path.join(dir, "manifest.json");
-      const text = '{\n  "format": 1,\n  "release": "0.2.1",\n  "components": [{ "id": "x", "version": "release" }]\n}\n';
+      const text = '{\n  "format": 1,\n  "release": "0.1.0",\n  "components": [{ "id": "x", "version": "release" }]\n}\n';
       fs.writeFileSync(file, text);
       stampManifestRelease(file, "0.9.0");
-      expect(fs.readFileSync(file, "utf8")).toBe(text.replace('"0.2.1"', '"0.9.0"'));
+      expect(fs.readFileSync(file, "utf8")).toBe(text.replace('"0.1.0"', '"0.9.0"'));
       // 已经是这个版本：不算出错
       stampManifestRelease(file, "0.9.0");
       // 清单里没有这个字段：是发版的错，要报出来

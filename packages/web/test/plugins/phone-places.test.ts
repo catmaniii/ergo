@@ -14,7 +14,7 @@ import { nowIso, type PhonePlacesView } from "../../src/state/index.ts";
 
 vi.mock("../../src/app/build-info.ts", () => ({ APP_VERSION: "0.0.0-test", CHANGELOG: "", PAGE_WEB_VERSION: undefined }));
 
-const BASE = { appVersion: () => "0.2.1", phoneContactsPick: () => Promise.resolve(""), phoneCalendarState: () => "", phoneCalendarPrepare: () => Promise.resolve(""), phoneCalendarRead: () => Promise.resolve("") };
+const BASE = { appVersion: () => "0.1.0", phoneContactsPick: () => Promise.resolve(""), phoneCalendarState: () => "", phoneCalendarPrepare: () => Promise.resolve(""), phoneCalendarRead: () => Promise.resolve("") };
 const html = (el: Parameters<typeof renderToStaticMarkup>[0]) => renderToStaticMarkup(el);
 const noop = () => {};
 const at = (hh: number) => new Date(2026, 9, 25, hh).getTime();

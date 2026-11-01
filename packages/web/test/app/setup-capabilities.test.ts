@@ -29,7 +29,7 @@ function fresh(over: Record<string, Partial<ComponentView>> = {}): ComponentsVie
     component("tts", { size: 6000, dependsOn: ["audiocpp"], enables: [{ id: "voice.reply", title: "语音回复" }], license: { name: "Fish", summary: "s", url: "https://x", confirm: true, accepted: false }, ...over.tts }),
     component("claude-code", { default: "detected", size: 110, enables: [{ id: "runtime.claude-code", title: "Claude Code" }], ...over["claude-code"] }),
   ];
-  return { components, features: [], manifest: { release: "0.4.0", signed: false }, defaultsMissing: [] };
+  return { components, features: [], manifest: { release: "0.1.0", signed: false }, defaultsMissing: [] };
 }
 
 function plugin(name: string, state: PluginState = "running", extra: Partial<PluginInfo> = {}): PluginInfo {

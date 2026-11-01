@@ -2,7 +2,6 @@
 // 上一条就是要回的那一页（经这里跳过来的）就后退一步，否则把这一条换成那一页。这样看板 → 点卡进任务 → ‹ 之后按浏览器后退，
 // 不会重新打开刚才的任务。鸿蒙的返回键走返回栈的 page 层（page-back.ts），调的是同一个 ‹。
 // 不碰浏览器的全局变量：location、history 换成接口，测试在 Node 里跑（test/app/history-nav.test.ts）；页面上那一份在 route.ts。
-import { oldNameOf } from "@ergo/protocol";
 import { parseHash, toHash } from "./route-hash.ts";
 
 /** 用到的那一点 window.location / window.history */
@@ -16,11 +15,10 @@ interface CameFrom {
   readonly ergoFrom: string;
 }
 
-/** 记下的来处；312 号票：刷新到新版之前记的那几条用的是旧名字，照样认 */
+/** 记下的来处 */
 function fromOf(state: unknown): string | undefined {
   if (typeof state !== "object" || state === null) return undefined;
-  const s = state as Record<string, unknown>;
-  const from = s["ergoFrom" satisfies keyof CameFrom] ?? s[oldNameOf("ergoFrom")];
+  const from = (state as Record<string, unknown>)["ergoFrom" satisfies keyof CameFrom];
   return typeof from === "string" ? from : undefined;
 }
 

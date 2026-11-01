@@ -46,7 +46,6 @@ import {
   type ImportReportLine,
   type ImportSkillBody,
   type ImportSkillResult,
-  oldNameOf,
   schemaChecker,
   SKILL_CHANGE_FILES_SHOWN,
   type SkillChangeSource,
@@ -56,7 +55,6 @@ import {
   Type,
   t,
 } from "@ergo/protocol";
-import { pathOrOld } from "../config/old-names.ts";
 import { RequestRejected } from "../errors.ts";
 import { isWithin } from "../guard/index.ts";
 import { renameRetrying } from "../util/atomic-file.ts";
@@ -387,7 +385,7 @@ export function createSkillLibrary(options: SkillLibraryOptions): SkillLibrary {
       target,
       spec.name,
       (staging) => {
-        if ([COLLECTION_MANIFEST, oldNameOf(COLLECTION_MANIFEST)].some((name) => fs.existsSync(path.join(staging, name)))) throw new RequestRejected("bad_params", t("skills.import.manifestClash", { file: COLLECTION_MANIFEST }));
+        if (fs.existsSync(path.join(staging, COLLECTION_MANIFEST))) throw new RequestRejected("bad_params", t("skills.import.manifestClash", { file: COLLECTION_MANIFEST }));
         // 点名改名的成员动目录名和 SKILL.md 的 name 一行；目录名不规范的只改目录名（82 号票）；别的一个字不动
         for (const m of members) {
           if (m.name === m.original && m.finalDir === m.dirName) continue;
@@ -901,8 +899,7 @@ function scanUserDir(root: string, log: (line: string) => void): { singles: Libr
       if (found) singles.push(found);
       continue;
     }
-    // 312 号票：早先导入的集合里清单还是旧名字的照样认（迁移脚本会改名）
-    const manifestFile = pathOrOld(path.join(dir, COLLECTION_MANIFEST));
+    const manifestFile = path.join(dir, COLLECTION_MANIFEST);
     if (!fs.existsSync(manifestFile)) continue;
     const manifest = readManifest(manifestFile, log);
     if (!manifest) continue;

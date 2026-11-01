@@ -19,11 +19,8 @@ export const LETTER_TAGS = {
   plan_check: "【计划检查】", // @i18n-ignore model
 } as const;
 
-/**
- * 365 号票（负责人原来叫别的名字）之前交的来信开头的标记：事件日志不可改，老消息还写着它。认来信时新旧都认（Web 折成一行、
- * 守护进程查交到哪了、被打断了重新交），新的只写 LETTER_TAGS 里的；显示全文时 currentWording 换成新说法
- */
-export const OLD_MAINTAINER_LETTER_TAG = "【维护者来信】"; // @i18n-ignore fixed：认老消息 @keep-old-name
+/** 来信通知开头的标记的形状：会话里认来信只看形状，不比对写信人的称呼（事件日志里的消息写好了就不改） */
+const LETTER_TAG_SHAPE = /^【[^】\n]*来信】/; // @i18n-ignore data
 
 /**
  * 来信的种类：上面几种通知，秘书按用户的话转达进任务、项目负责人会话的那一句（103 号票：发言方是用户、标着 relayedBy），
@@ -52,9 +49,9 @@ export function letterKindOf(message: Pick<MessageEnvelope, "speaker" | "parts" 
   if (message.speaker !== "system") return undefined;
   const first = message.parts[0];
   if (first?.type !== "text") return undefined;
-  if (first.text.startsWith(OLD_MAINTAINER_LETTER_TAG)) return "maintainer_letter";
   const tagged = (Object.keys(LETTER_TAGS) as (keyof typeof LETTER_TAGS)[]).find((kind) => first.text.startsWith(LETTER_TAGS[kind]));
   if (tagged) return tagged;
+  if (LETTER_TAG_SHAPE.test(first.text)) return "maintainer_letter";
   const onlyText = message.parts.every((p) => p.type === "text");
   return agentInput && onlyText && isLongNotice(message.parts.map((p) => (p.type === "text" ? p.text : "")).join("")) ? "notice" : undefined;
 }

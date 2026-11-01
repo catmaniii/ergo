@@ -24,7 +24,7 @@
 // 参数说明写得对不对、测试跑不跑得通是验收的事（acceptance.ts）。
 import crypto from "node:crypto";
 import fs from "node:fs";
-import { isNameOrOld, t } from "@ergo/protocol";
+import { t } from "@ergo/protocol";
 import { problem, type OpsMsg } from "./problems.ts";
 
 /** 三种操作（草稿：只读查询 / 有副作用的动作 / 触发一次运行） */
@@ -181,8 +181,7 @@ const relativeFile = (file: string) => file.trim() !== "" && !/^([a-zA-Z]:|[\\/]
 function implOf(name: string, value: unknown, actions: readonly string[]): OpImpl {
   if (value === undefined) return { type: "http" };
   if (!isObject(value)) throw new Broken(problem("implNotObject", { name }));
-  // 312 号票：二狗自带动作的实现方式以前写作 ergou，早先交的清单里的旧写法照样认（读出来是 ergo）
-  const type = isNameOrOld(value.type, "ergo") ? "ergo" : (value.type ?? "http");
+  const type = value.type ?? "http";
   if (typeof type !== "string" || !(OP_IMPL_TYPES as readonly string[]).includes(type)) throw new Broken(problem("implTypeInvalid", { name, value: String(type) }));
   if (type === "http") return { type: "http" };
   if (type === "script") {

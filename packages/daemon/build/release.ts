@@ -1,4 +1,4 @@
-// 打发布包（318 号票，npm run release）：安装包和源码安装共用这一套（stage.ts），发版用的 zip 就是它在 GitHub Actions 上打出来的。
+// 打发布包（318 号票，npm run release）：安装包和源码安装共用这一套（stage.ts）。
 //   1. 构建网页（vite）；
 //   2. 拿到要带的 Node（node-dist.ts：本机的目录 / 官方 zip / 下载并核对 SHASUMS256.txt）；
 //   3. 编 ergo.exe（编不了、跑不起来就只带 ergo.cmd）；

@@ -29,8 +29,8 @@ fun parseSideLayout(json: String): SideLayout? {
     return SideLayout(frame, view)
 }
 
-/** 侧边栏的网页的地址：二狗的地址（去掉 # 后面的）加 ergo=side（旧的参数名也带上，网页还是旧版时照样认得出，和鸿蒙一样） */
+/** 侧边栏的网页的地址：二狗的地址（去掉 # 后面的）加 ergo=side */
 fun sideUrlOf(href: String): String {
     val base = href.substringBefore('#')
-    return "$base${if (base.contains('?')) "&" else "?"}ergo=side&ergou=side"
+    return "$base${if (base.contains('?')) "&" else "?"}ergo=side"
 }

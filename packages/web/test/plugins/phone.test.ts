@@ -18,7 +18,7 @@ vi.mock("../../src/app/build-info.ts", () => ({ APP_VERSION: "0.0.0-test", CHANG
 
 describe("原生桥上读本机这一组方法", () => {
   test("四个都在才有 NativeApp.phone；少一个是旧版 App", () => {
-    const methods = { appVersion: () => "0.2.1", phoneContactsPick: () => Promise.resolve(""), phoneCalendarState: () => "", phoneCalendarPrepare: () => Promise.resolve(""), phoneCalendarRead: () => Promise.resolve("") };
+    const methods = { appVersion: () => "0.1.0", phoneContactsPick: () => Promise.resolve(""), phoneCalendarState: () => "", phoneCalendarPrepare: () => Promise.resolve(""), phoneCalendarRead: () => Promise.resolve("") };
     expect(detectNativeApp({ ergoNative: methods })?.phone).toBeDefined();
     const { phoneCalendarRead: _gone, ...old } = methods;
     expect(detectNativeApp({ ergoNative: old })?.phone).toBeUndefined();

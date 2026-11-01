@@ -50,7 +50,7 @@ import { defineHostTool, type HostTool, type HostToolOutput } from "../agent-man
 import { getMessage } from "../conversation/views.ts";
 import type { EventStore } from "../events/event-store.ts";
 import type { InterruptedToolResult } from "../runtime/index.ts";
-import { isAutoAnnounceNotice, MAINTAINER_LETTER_TAGS, TASK_DONE_TAG } from "../secretary/notice-tags.ts";
+import { isAutoAnnounceNotice, MAINTAINER_LETTER_TAG, TASK_DONE_TAG } from "../secretary/notice-tags.ts";
 import type { ReadonlyDatabase } from "../storage/sqlite.ts";
 import { getAgentVoice, recentToolVoices, toolVoicesAwaitingTurnEnd } from "../voice-records/index.ts";
 import type { OwnVoice } from "./agent-voice-ref.ts";
@@ -200,7 +200,7 @@ export function createSendVoice(options: SendVoiceOptions): SendVoice {
    */
   const relaySenders = (said: MessageEnvelope, source: string): string[] => {
     // 通知上记的在事件里（会话视图只有显示要的那几列）
-    const delivered = [TASK_DONE_TAG, ...MAINTAINER_LETTER_TAGS]
+    const delivered = [TASK_DONE_TAG, MAINTAINER_LETTER_TAG]
       .flatMap((tag) => store.mentioning(EVENT_TYPES.message, tag))
       .filter((e) => e.channel === CHANNELS.secretary && !isDeletedEventPayload(e.payload))
       .toSorted((a, b) => b.globalSeq - a.globalSeq)

@@ -5,7 +5,7 @@ import path from "node:path";
 import { componentTransport } from "../components/index.ts";
 import type { Transport } from "../components/transport.ts";
 import { DEFAULT_PORTS } from "../config/config.ts";
-import { resolveDataDir } from "../config/old-names.ts";
+import { resolveDataDir } from "../config/data-dir.ts";
 import { defaultInstallRoot, type InstallLayout } from "../release/layout.ts";
 
 export interface CliIo {
@@ -41,7 +41,7 @@ export function createContext(layout: InstallLayout, env: NodeJS.ProcessEnv, io:
     env,
     io,
     homeDir,
-    dataDir: resolveDataDir(env, homeDir).dir,
+    dataDir: resolveDataDir(env, homeDir),
     svcDataDir: env.LSM_DATA_DIR?.trim() ? path.resolve(env.LSM_DATA_DIR.trim()) : defaultSvcDataDir(env),
     installRoot: layout.root ?? defaultInstallRoot(env),
     transport: () => componentTransport(env, "ergo-cli"),

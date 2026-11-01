@@ -23,7 +23,7 @@ export interface PublicAccess {
   sshKey: string;
   /** 隧道在 VPS 上的端口 */
   tunnelPort: number;
-  /** 公网域名，默认 ergo.<VPS>.sslip.io（2026-10-18 起；之前是 ergou.<VPS>.sslip.io） */
+  /** 公网域名，默认 ergo.<VPS>.sslip.io */
   domain: string;
   /**
    * 照样提供的旧域名（换域名的过渡期用）：每个一份和主域名一样的站点，证书在 /etc/letsencrypt/live/<旧域名>。

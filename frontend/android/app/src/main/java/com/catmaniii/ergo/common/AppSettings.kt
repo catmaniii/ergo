@@ -4,7 +4,6 @@ import android.content.Context
 
 /**
  * App 自己的设置（对应鸿蒙 common/AppSettings.ets，第一版没有手机数据源那几项）。存在应用沙箱，不进备份（AndroidManifest 的 allowBackup=false）。
- * 安卓是新 App，没有旧名字要留，文件名不用鸿蒙的旧拼法
  */
 class AppSettings(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)

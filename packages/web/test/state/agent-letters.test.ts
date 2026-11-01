@@ -12,8 +12,6 @@ import {
   chatItems,
   type ConversationId,
   chatLook,
-  daemonTextPlain,
-  daemonTextSegments,
   detailContent,
   type EventFrame,
   fileCards,
@@ -124,52 +122,32 @@ describe("回放：普通任务的 agent 做到一半给秘书发一条、接着
   });
 });
 
-describe("老事件回放（365 号票：负责人原来的叫法还存在事件日志里，不可改）", () => {
-  // 把录下的事件流里的新说法换回老的，就是改名之前存下的事件
-  const OLD_WORD = "维护者"; // @keep-old-name
-  const oldInputs = (inputs: UiInput[]) => JSON.parse(JSON.stringify(inputs).replaceAll("负责人", OLD_WORD)) as UiInput[];
-  const inputs = oldInputs(load("secretary-letter"));
+describe("来信的标记认形状（事件日志里的消息写好了就不改）", () => {
+  // 把录下的事件流里的称呼换一个，就是别的称呼写下的事件
+  const OTHER_WORD = "管家";
+  const otherInputs = (inputs: UiInput[]) => JSON.parse(JSON.stringify(inputs).replaceAll("负责人", OTHER_WORD)) as UiInput[];
+  const inputs = otherInputs(load("secretary-letter"));
   const noSummary = inputs.map((input) => {
     if (input.kind !== "frame" || input.frame.channel !== SECRETARY || input.frame.type !== "message") return input;
     const { summary: _dropped, ...message } = (input.frame.payload as MessageEventPayload).message;
     return { ...input, frame: { ...input.frame, payload: { ...(input.frame.payload as MessageEventPayload), message } } };
   });
 
-  test("老标记的来信照常折成一行：种类、要点那一行是新说法", () => {
-    const state = replay(inputs);
-    const items = chatItems(state, SECRETARY);
+  test("【…来信】开头的照常折成一行：种类、要点那一行用现在的说法", () => {
+    const items = chatItems(replay(inputs), SECRETARY);
     const first = items[0];
     if (first?.kind !== "system") throw new Error("不是系统消息");
-    // 事件里存的还是老标记
-    expect(first.parts[0]).toMatchObject({ type: "text", text: expect.stringMatching(new RegExp(`^【${OLD_WORD}来信】`)) });
+    // 事件里存的是写下时的标记
+    expect(first.parts[0]).toMatchObject({ type: "text", text: expect.stringMatching(new RegExp(`^【${OTHER_WORD}来信】`)) });
     expect(lines(items)[0]).toEqual(["system", "负责人来信：先下了 mp3", "maintainer_letter"]);
     expect(letterOf(items[0]!)).toEqual({ kind: "maintainer_letter", label: "负责人来信", icon: "✉️", summary: "先下了 mp3" });
     expect(chatLook(items[0]!).form).toBe("letter");
   });
 
-  test("更老的（115 号票之前，没存总结）也照常折，总结取正文第一句", () => {
+  test("没存总结的也照常折，总结取正文第一句", () => {
     const items = chatItems(replay(noSummary), SECRETARY);
     expect(letterOf(items[0]!)?.kind).toBe("maintainer_letter");
     expect(letterOf(items[0]!)?.summary).toBe("先下了 mp3");
-  });
-
-  test("点开：全文存的还是老说法，显示时换成新的（详情页、系统说明都过 daemonText）", () => {
-    const state = replay(inputs);
-    const items = chatItems(state, SECRETARY);
-    const content = detailContent(state, items, { type: "item", id: items[0]!.id });
-    expect(content).toMatchObject({ kind: "text", label: "负责人来信", letter: "maintainer_letter", markdown: true });
-    if (content.kind !== "text") throw new Error("不是文本详情");
-    expect(content.text).toContain(`的${OLD_WORD}说：`);
-    const shown = daemonTextPlain(content.text, "二狗");
-    expect(shown).not.toContain(OLD_WORD);
-    expect(shown.startsWith("【负责人来信】")).toBe(true);
-    expect(shown).toContain("的负责人说：\n先下了 mp3");
-    expect(daemonTextSegments(`转给「记账本」的${OLD_WORD}了。`)).toEqual([{ text: "转给「记账本」的负责人了。" }]);
-  });
-
-  test("不折的系统说明里的老说法：要点那一行也是新说法", () => {
-    const state = replay([{ kind: "frame", frame: messageFrame(TM, 1, { id: "s1", speaker: "system", parts: [text(`转给「记账本」的${OLD_WORD}了。`)] }) }]);
-    expect(lines(chatItems(state, TM))).toEqual([["system", "系统：转给「记账本」的负责人了。", "-"]]);
   });
 });
 

@@ -1,7 +1,7 @@
 // agent 之间的来信（115 号票）：哪些消息算来信、一句话总结从哪来（存着的 summary，旧消息退回第一句）。
 // 367 号票：交给 agent 的长通知没有标记也折，阶段说明那一行认得出是哪一步。
 import { describe, expect, test } from "vitest";
-import { firstSentence, LETTER_SUMMARY_MAX, LETTER_TAGS, letterKindOf, letterSummaryOf, type MessageEnvelope, NOTICE_FOLD, OLD_MAINTAINER_LETTER_TAG, stageBriefLine, stageBriefOf } from "../src/index.ts";
+import { firstSentence, LETTER_SUMMARY_MAX, LETTER_TAGS, letterKindOf, letterSummaryOf, type MessageEnvelope, NOTICE_FOLD, stageBriefLine, stageBriefOf } from "../src/index.ts";
 
 const message = (speaker: MessageEnvelope["speaker"], text: string, extra: Partial<MessageEnvelope> = {}): MessageEnvelope => ({
   id: "m-1",
@@ -19,10 +19,11 @@ describe("哪些算来信", () => {
     ["system", `${LETTER_TAGS.maintainer_letter}后台的一个 agent 让你转告用户一件事`, {}, "maintainer_letter"],
     ["system", `${LETTER_TAGS.plan_check}已授权的计划里还有 s2「发邮件」既没有执行`, {}, "plan_check"],
     ["user", "以后早报里把 GitHub 热门也加上", { relayedBy: "secretary" }, "secretary_relay"],
-    // 365 号票之前交的来信：老消息开头还是老标记，照样算来信；agent 自己说的照样不算
-    ["system", `${OLD_MAINTAINER_LETTER_TAG}后台的一个 agent 让你转告用户一件事`, {}, "maintainer_letter"],
-    ["system", `${OLD_MAINTAINER_LETTER_TAG}【跑完自动播报】后台的一个 agent 让你转告用户一件事`, {}, "maintainer_letter"],
-    ["agent", `${OLD_MAINTAINER_LETTER_TAG}它说的`, {}, undefined],
+    // 来信的标记认形状（【…来信】），不比对称呼：事件日志里的消息写好了就不改；agent 自己说的照样不算
+    ["system", "【管家来信】后台的一个 agent 让你转告用户一件事", {}, "maintainer_letter"],
+    ["system", "【管家来信】【跑完自动播报】后台的一个 agent 让你转告用户一件事", {}, "maintainer_letter"],
+    ["agent", "【管家来信】它说的", {}, undefined],
+    ["system", "【来信说明】不是这个形状", {}, undefined],
     // 给用户看的系统说明、没有标记的运行时通知照旧
     ["system", "计划已确认，开始执行。", {}, undefined],
     ["system", "项目「记账本」里交出去的一件事做完了。", {}, undefined],
@@ -36,13 +37,6 @@ describe("哪些算来信", () => {
 
   test("开头不是文字（工单分隔线、卡片）的系统消息不算", () => {
     expect(letterKindOf({ ...message("system", ""), parts: [{ type: "card_ref", cardId: "c-1" }, { type: "text", text: `${LETTER_TAGS.task_done}x` }] })).toBeUndefined();
-  });
-});
-
-describe("老标记（365 号票）", () => {
-  test("和新标记不是同一个：新写的只用新的", () => {
-    expect(OLD_MAINTAINER_LETTER_TAG).toBe("【维护者来信】"); // @keep-old-name
-    expect(LETTER_TAGS.maintainer_letter).toBe("【负责人来信】");
   });
 });
 
@@ -79,12 +73,12 @@ describe("一句话总结", () => {
       "在主线里主动用你自己的话转告用户。",
     ].join("\n\n");
     expect(letterSummaryOf(message("system", letter))).toBe("官方有录音室版和现场版");
-    // 365 号票之前交的来信（老标记、引子里是老叫法）：一样去掉标记、跳过引子
-    const oldLetter = [
-      `${OLD_MAINTAINER_LETTER_TAG}后台的一个 agent 让你转告用户一件事（运行时转交的，不是用户说的）：`,
-      "普通任务 t-song「下载《晴天》的音频」的维护者说：\n官方有录音室版和现场版。我先下了录音室版", // @keep-old-name
+    // 标记、引子里的称呼不一样的：一样去掉标记、跳过引子
+    const otherLetter = [
+      "【管家来信】后台的一个 agent 让你转告用户一件事（运行时转交的，不是用户说的）：",
+      "普通任务 t-song「下载《晴天》的音频」的管家说：\n官方有录音室版和现场版。我先下了录音室版",
     ].join("\n\n");
-    expect(letterSummaryOf(message("system", oldLetter))).toBe("官方有录音室版和现场版");
+    expect(letterSummaryOf(message("system", otherLetter))).toBe("官方有录音室版和现场版");
     expect(letterSummaryOf(message("system", `${LETTER_TAGS.plan_check}已授权的计划里还有 s3「发周报」既没有执行，也没有报告跳过。请继续按计划执行`))).toBe(
       "已授权的计划里还有 s3「发周报」既没有执行，也没有报告跳过",
     );

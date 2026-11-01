@@ -30,7 +30,7 @@ function components(over: Record<string, Partial<ComponentView>> = {}): Componen
       component("tts", { title: "语音合成模型", size: 1024 * 1024 * 6000, dependsOn: ["audiocpp"], enables: [{ id: "voice.reply", title: "语音回复" }], ...over.tts }),
     ],
     features: [],
-    manifest: { release: "0.4.0", signed: false },
+    manifest: { release: "0.1.0", signed: false },
     defaultsMissing: [],
   };
 }

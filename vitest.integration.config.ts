@@ -1,5 +1,4 @@
 import { defineConfig } from "vitest/config";
-import { oldNameOf } from "./packages/protocol/src/old-names.ts";
 
 // `npm run test:integration` 用的配置：主切面（244 号票）。
 // 这里只有最慢的两类：daemon/test/main（真的拉起守护进程和 agent 子进程，占了全量 86% 的时间）和网页的
@@ -8,8 +7,7 @@ import { oldNameOf } from "./packages/protocol/src/old-names.ts";
 // 各 project 的 include 在这里重写了一遍（理由见 vitest.fast.config.ts 的文件头）。
 export default defineConfig({
   test: {
-    // 312 号票：兼容期旧的变量名（ERGOU_TEST_WORKERS）也认
-    maxWorkers: Number(process.env.ERGO_TEST_WORKERS || process.env[oldNameOf("ERGO_TEST_WORKERS")]) || "50%",
+    maxWorkers: Number(process.env.ERGO_TEST_WORKERS) || "50%",
     // 244 号票：转译缓存，和快车道共用 node_modules/.vitest-cache。
     fsModuleCache: true,
     projects: [

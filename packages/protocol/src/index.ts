@@ -70,7 +70,6 @@
 // - service-events-schema.ts：项目的服务报事件（357 号票）的请求体；地址、结局的说法在 project-services.ts。
 // - i18n/、i18n-schema.ts：多语言（168 号票）——语言文件的形状和检查、运行时的 t()、单复数、回退中文、按语言格式化（不读文件、不引用 TypeBox），
 //   全局语言设置的事件、配置文件、设置接口和网页取词典的接口的 schema。
-// - old-names.ts：ergou 换成 ergo 之后认旧名字（312 号票）——旧名字一律从新名字推出来（oldNameOf），读新旧都认、写只写新的。
 // - plugins.ts、plugins-schema.ts：插件的状况（193 号票）——守护进程清单里每个插件在运行、停用了、没装上，网页按它装、停自己的网页插件（插件频道上的临时事件）；
 //   设置 · 插件（211 号票）的清单、停用 / 启用 / 移除的请求体和结果、连数据删的记录。
 // - runtimes.ts：agent 运行时（286 号票）——负责人用的运行时（pi 或者插件登记的）、能力清单、可选模型和设置项、能接管的会话，
@@ -217,4 +216,3 @@ export * from "./memory-interview.ts";
 export * from "./memory-interview-schema.ts";
 export * from "./i18n/index.ts";
 export * from "./i18n-schema.ts";
-export * from "./old-names.ts";

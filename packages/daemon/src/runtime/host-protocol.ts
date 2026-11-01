@@ -12,7 +12,7 @@
 // runtime_catalog、error、heartbeat。
 // 先定义好、还没有实现的：work_order（16 号票的工单经会话里的通知送达，没用到它）。
 // 子进程收到还没实现的命令时回一条 code 为 "unsupported" 的 error，不崩溃。
-import { type BranchFilesRewind, isNameOrOld, type ModelCustomProvider, type RuntimeQuestion, type RuntimeQuestionReply, type ToolResultMedia } from "@ergo/protocol";
+import { type BranchFilesRewind, type ModelCustomProvider, type RuntimeQuestion, type RuntimeQuestionReply, type ToolResultMedia } from "@ergo/protocol";
 
 // 版本：1 是 02 号票的第一版；2 加了守护进程代为执行的工具（hostTools、host_tool_call、host_tool_result，
 // 06 和 09 号票合成一套）和用户输入里的图片（user_input.images，09）；3 在装配参数里加了必填的 shellEnv
@@ -114,14 +114,6 @@ export interface InterruptedToolResult {
  * （模型看到的是用户角色的消息），不改系统提示
  */
 export const CONTEXT_BLOCK_TYPE = "ergo-context";
-
-/**
- * 会话文件里的自定义类型（CONTEXT_BLOCK_TYPE、INPUT_CONTEXT_TYPE、SCOPE_REVIEW_ENTRY、SESSION_MODEL_ENTRY、HANDOFF_SUMMARY_TYPE、
- * SESSION_BRANCH_ENTRY、SESSION_INPUT_TAG）是不是某一种：312 号票之前的会话文件里写的是旧名字（ergo 换成拼音的那种），读时新旧都认，写只写新的
- */
-export function isSessionType(actual: unknown, type: string): boolean {
-  return isNameOrOld(actual, type);
-}
 
 /** 重注入块（13 号票：计划摘要 + 当前阶段 + 授权 + 边界）在通用贡献清单里的 id：守护进程用 contribution 命令按它换成最新的 */
 export const REINJECTION_BLOCK_ID = "reinjection";

@@ -90,7 +90,7 @@ describe("八项：坏的", () => {
 
 describe("pi 缺了怎么修：按安装方式（371）", () => {
   const fixFor = async (install?: Parameters<typeof createDoctor>[0]["install"]) => checkOf(await createDoctor({ probes: onlyBad("pi"), ...(install ? { install } : {}) }).view(), "pi").fix;
-  const info = (kind: "release" | "source" | "link") => ({ format: 1 as const, version: "0.4.0", kind });
+  const info = (kind: "release" | "source" | "link") => ({ format: 1 as const, version: "0.1.0", kind });
 
   it("一行命令装的、源码装进安装目录的：重装；npm 装的：npm 重装；仓库里跑的、开发模式联接的：npm ci", async () => {
     expect(await fixFor({ kind: "installed", info: info("release") })).toBe("doctor.fix.piInstalled");
@@ -206,7 +206,7 @@ describe("正式用的探测器", () => {
         { feature: "voice.input", component: "asr", title: "语音识别", ready: false },
         { feature: "runtime.claude-code", component: "claude-code", title: "Claude Code 接入", ready: false },
       ],
-      manifest: { release: "0.2.1", signed: false },
+      manifest: { release: "0.1.0", signed: false },
       defaultsMissing: ["bge-m3"],
     };
     // 只有默认该装的 bge-m3 没装：缺 memory.semantic，别的两项不算

@@ -22,9 +22,9 @@ const CDP_PORT = 9334;
 /** 查一个页面的全局对象里跟二狗有关的名字，以及几个绝不能有的对象（在哪个框架里跑都一样） */
 const PROBE = `(function () {
   var names = Object.getOwnPropertyNames(window).filter(function (n) { return /ergo/i.test(n); }).sort();
-  return { names: names, native: typeof window.ergoNative, oldNative: typeof window.ergouNative, side: typeof window.ergoSide, oldSide: typeof window.ergouSide, channel: typeof window.__ergoChannel };
+  return { names: names, native: typeof window.ergoNative, side: typeof window.ergoSide, channel: typeof window.__ergoChannel };
 })()`;
-const CLEAN = { native: "undefined", oldNative: "undefined", side: "undefined", oldSide: "undefined", channel: "undefined" };
+const CLEAN = { native: "undefined", side: "undefined", channel: "undefined" };
 
 /** 外部网页主框架里只许看到页面桥的这几样；iframe 里连页面桥都没装，只有通道（没口令说什么都不认） */
 const PAGE_NAMES = ["__ergoPage", "__ergoPageChannel", "ergoPageHost"];
@@ -229,13 +229,13 @@ try {
   console.log("外部页面碰不到 ergoNative");
   await run.step("外部网页主框架：没有 ergoNative、ergoSide、通道，只有页面桥那几样", async () => {
     const seen = await page!.eval<Record<string, unknown>>(PROBE);
-    expectEqual({ native: seen.native, oldNative: seen.oldNative, side: seen.side, oldSide: seen.oldSide, channel: seen.channel }, CLEAN, "原生桥的对象");
+    expectEqual({ native: seen.native, side: seen.side, channel: seen.channel }, CLEAN, "原生桥的对象");
     expectEqual(seen.names, PAGE_NAMES, "全局对象里跟二狗有关的名字");
   });
   await run.step("外部网页里的 iframe（别的来源）：一样碰不到", async () => {
     await page!.waitFor("window.__childReport !== null");
     const seen = await page!.eval<Record<string, unknown>>("window.__childReport");
-    expectEqual({ native: seen.native, oldNative: seen.oldNative, side: seen.side, oldSide: seen.oldSide, channel: seen.channel }, CLEAN, "iframe 里原生桥的对象");
+    expectEqual({ native: seen.native, side: seen.side, channel: seen.channel }, CLEAN, "iframe 里原生桥的对象");
   });
   await run.step("外部网页冒充页面桥（错的口令）：App 不认，二狗的网页什么都没收到；调页面桥的入口也不回东西", async () => {
     const before = await m.eval<number>("window.__e2eEvents.filter(e => e.type === 'page').length");
@@ -295,7 +295,7 @@ try {
       setTimeout(() => resolve(null), 8000);
     })`);
     expectTrue(report !== null, "别的来源的 iframe 加载出来了（否则这步什么都没证明）");
-    expectEqual({ native: report!.native, oldNative: report!.oldNative, side: report!.side, oldSide: report!.oldSide, channel: report!.channel }, CLEAN, "主界面里别的来源的 iframe");
+    expectEqual({ native: report!.native, side: report!.side, channel: report!.channel }, CLEAN, "主界面里别的来源的 iframe");
     expectEqual(report!.names, [], "连名字都没有");
     const same = await m.eval<Record<string, unknown>>(`new Promise((resolve) => {
       const f = document.createElement('iframe');

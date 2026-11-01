@@ -69,8 +69,6 @@ export function splitAssistantName(text: string): AssistantNameSegment[] {
  * 换成现在的说法（秘书换成名字占位，待我处理换成"待办"），效果和新的一样。只认这几句固定的话，不做全文替换：
  * 用户说的话、agent 回复里的"秘书"不动。whole 为真的只在整个字段就是这句时才换（事项、审批卡的来源）。
  * 以后改了守护进程给人看的说法、旧数据里还留着旧说法的，在这里加一行。
- * 365 号票（负责人原来叫别的名字）是唯一按词换的一行：带这个词的固定的话有几百句、中间夹着名字，一句句列不完；这个词也没有别的意思，
- * 而这里只过守护进程写的话（用户打的、agent 回复里的不过这里）
  */
 // @i18n-ignore-start fixed：认旧数据里写死的旧说法
 export const LEGACY_WORDING: ReadonlyArray<{ old: string; now: string; whole?: true }> = [
@@ -91,13 +89,8 @@ export const LEGACY_WORDING: ReadonlyArray<{ old: string; now: string; whole?: t
   // 待我处理在界面上叫"待办"：负责人会话里只给人看的两句说明
   { old: "等你验收：已放进待我处理。", now: "等你验收：已放进待办。" },
   { old: '转给你拍板（待我处理里的"卡住求助"）。', now: '转给你拍板（待办里的"卡住求助"）。' },
-  // 负责人原来的叫法（365 号票）
-  { old: "维护者", now: "负责人" }, // @keep-old-name
 ];
 // @i18n-ignore-end
-
-/** 365 号票之前英文存下的叫法：a maintainer → an owner，大小写、复数跟原来的；编号、路径（maintainer:pm-1、tell_maintainer、project-maintainer.md、maintainers/）不动 */
-const OLD_OWNER_EN = /(?<![-/_.])\b(?:([Aa]) )?([Mm])aintainer(s?)\b(?![:/-])/g;
 
 /** 守护进程写的一段话换成现在的说法（按 LEGACY_WORDING；已经是新说法的原样） */
 export function currentWording(text: string): string {
@@ -109,7 +102,7 @@ export function currentWording(text: string): string {
       out = out.replaceAll(old, now);
     }
   }
-  return out.replace(OLD_OWNER_EN, (_all, article: string | undefined, m: string, plural: string) => `${article ? `${article}n ` : ""}${m === "M" ? "O" : "o"}wner${plural}`);
+  return out;
 }
 
 /** 纯文字的地方（浏览器通知、title、aria-label）：名字占位直接换成名字 */

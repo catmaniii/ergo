@@ -1,6 +1,5 @@
 // 配置：只读。
 // - 数据目录：环境变量 ERGO_DATA_DIR 指定；没指定时取用户主目录下的 .ergo（主目录由调用方传入，不写死）。
-//   312 号票起旧名字也认：ERGO_DATA_DIR 没设看旧的变量名，.ergo 不在而旧的目录在时用旧的（config/old-names.ts），守护进程启动时提示一次。
 // - 其余配置：数据目录里的 config/ergo.json，缺省的项取默认值。仓库里只有示例 config/ergo.example.json。
 import fs from "node:fs";
 import path from "node:path";
@@ -15,9 +14,8 @@ import { DEFAULT_TASK_THRESHOLDS, type TaskThresholds } from "../tasks/threshold
 import type { SpokenPace } from "../voice/spoken-text.ts";
 import { writeFileAtomic } from "../util/atomic-file.ts";
 import { writeJsonAtomic } from "../util/json-file.ts";
-import { dataDirLayout, DEFAULT_MEMORY_PROVIDER_ID } from "./data-dir.ts";
+import { DATA_DIR_ENV, dataDirLayout, DEFAULT_MEMORY_PROVIDER_ID, resolveDataDir } from "./data-dir.ts";
 import { editJsonSection } from "./json-text-edit.ts";
-import { DATA_DIR_ENV, type DataDirSource, resolveDataDir } from "./old-names.ts";
 
 export { modelConfigKey } from "./model-key.ts";
 
@@ -127,8 +125,6 @@ export const DEFAULT_HOLIDAY_CHECK: Readonly<HolidayCheckConfig> = Object.freeze
 
 export interface ErgoConfig {
   dataDir: string;
-  /** 数据目录怎么定下来的（312 号票：用了旧的环境变量名、旧的目录时启动日志里提示一次） */
-  dataDirFrom: DataDirSource;
   ports: Ports;
   media: MediaConfig;
   /**
@@ -480,7 +476,7 @@ export interface LoadConfigOptions {
 }
 
 export function loadConfig({ env, homeDir }: LoadConfigOptions): ErgoConfig {
-  const { dir: dataDir, from: dataDirFrom } = resolveDataDir(env, homeDir);
+  const dataDir = resolveDataDir(env, homeDir);
   const file = dataDirLayout(dataDir).configFile;
   const raw = readConfigFile(file);
   const ports = parsePorts(raw.ports, file);
@@ -506,7 +502,7 @@ export function loadConfig({ env, homeDir }: LoadConfigOptions): ErgoConfig {
   const connection = parseConnection(raw.connection);
   const web = parseWeb(raw.web, file);
   const plugins = parsePlugins(raw.plugins, file);
-  return { dataDir, dataDirFrom, ports, media, models, timeZone, materials, memory, backup, approvalWaitMs, agentLimits, holidayCheck, shellTools, tasks, reminders, scheduledJobs, eventSources, tokenPrices, voice, toolCallDetails, guard, setup, connection, web, plugins };
+  return { dataDir, ports, media, models, timeZone, materials, memory, backup, approvalWaitMs, agentLimits, holidayCheck, shellTools, tasks, reminders, scheduledJobs, eventSources, tokenPrices, voice, toolCallDetails, guard, setup, connection, web, plugins };
 }
 
 /**

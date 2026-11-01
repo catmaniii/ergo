@@ -21,7 +21,7 @@ import {
   type SettingsManager,
 } from "@earendil-works/pi-coding-agent";
 import { t } from "@ergo/protocol";
-import { type AgentReport, CONTEXT_BLOCK_TYPE, type HostCommand, isSessionType, SESSION_BRANCH_ENTRY, SESSION_INPUT_TAG, type SessionNavigatedReport } from "../host-protocol.ts";
+import { type AgentReport, CONTEXT_BLOCK_TYPE, type HostCommand, SESSION_BRANCH_ENTRY, SESSION_INPUT_TAG, type SessionNavigatedReport } from "../host-protocol.ts";
 import { usageReport } from "./event-translator.ts";
 
 type NavigateCommand = Extract<HostCommand, { type: "navigate_session" }>;
@@ -107,12 +107,12 @@ function targetLeaf(branch: readonly SessionEntry[], target: NavigateCommand["ta
     }
     return branch[last]!.id;
   }
-  const tag = branch.findLastIndex((e) => e.type === "custom" && isSessionType(e.customType, SESSION_INPUT_TAG) && (e.data as { inputId?: unknown } | undefined)?.inputId === target.beforeInput);
+  const tag = branch.findLastIndex((e) => e.type === "custom" && e.customType === SESSION_INPUT_TAG && (e.data as { inputId?: unknown } | undefined)?.inputId === target.beforeInput);
   if (tag < 0) throw new NavigationError(t("runtime.navigate.noMessage"));
   let first = tag;
   while (first > 0) {
     const prev = branch[first - 1]!;
-    if (prev.type !== "custom_message" || !isSessionType(prev.customType, CONTEXT_BLOCK_TYPE)) break;
+    if (prev.type !== "custom_message" || prev.customType !== CONTEXT_BLOCK_TYPE) break;
     first--;
   }
   const parent = branch[first]!.parentId;

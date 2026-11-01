@@ -4,7 +4,6 @@ import { notificationManager } from '@kit.NotificationKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { AppSettings, DOMAIN, TAG } from '../common/AppSettings';
 import { t } from '../common/AppTexts';
-import { oldNameOf } from '../common/OldNames';
 
 /** 点开通知栏里的一条拉起 App 时 want 里带的：通知的 id、点了之后网页要去的页面地址 */
 const WANT_NOTICE_ID = 'ergoNoticeId';
@@ -81,8 +80,7 @@ function stringParam(want: Want, key: string): string {
   if (params === undefined) {
     return '';
   }
-  // 312 号票：旧版 App 发出去的通知里参数是旧名字
-  const value = params[key] ?? params[oldNameOf(key)];
+  const value = params[key];
   return typeof value === 'string' ? value as string : '';
 }
 

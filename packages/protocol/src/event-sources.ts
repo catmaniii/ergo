@@ -10,7 +10,6 @@
 // 172 号票：来源、事件、过滤条件的名字和说明跟着当前语言（取值时现查）；字段的中文名是占位里写的名字（{{事件.文件路径}}），
 // 也是交给 agent 的结构化输入里的键，不跟着语言变。
 import { t, tTable } from "./i18n/runtime.ts";
-import { isNameOrOld } from "./old-names.ts";
 
 /** 二狗内部事件 */
 export const ERGO_EVENT_SOURCE = "ergo";
@@ -266,9 +265,9 @@ export const EVENT_SOURCES: readonly EventSourceDescriptor[] = [ERGO_SOURCE, FOL
 /** 发起任务对话框、简单提醒里能选的来源（只能写在运营方案里的不算） */
 export const PICKABLE_EVENT_SOURCES: readonly EventSourceDescriptor[] = EVENT_SOURCES.filter((s) => s.planOnly !== true);
 
-/** 登记表里的来源（312 号票：二狗内部事件的来源编号以前是 ergou，存着的事件触发方式里写的旧编号照样认） */
+/** 登记表里的来源 */
 export function eventSourceOf(id: string): EventSourceDescriptor | undefined {
-  return EVENT_SOURCES.find((s) => isNameOrOld(id, s.id));
+  return EVENT_SOURCES.find((s) => s.id === id);
 }
 
 export function eventKindOf(source: EventSourceDescriptor | undefined, id: string): EventKindDescriptor | undefined {

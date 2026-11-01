@@ -4,8 +4,8 @@
     // 二狗的鸿蒙 App 用的就是这个包名（2026-10-30 定）。在 AGC 建过应用之后别再改：改了就是另一个 App，手机上要卸载重装、数据会丢
     "bundleName": "com.catmaniii.ergo",
     "vendor": "ergo",
-    "versionCode": 2001000,
-    "versionName": "0.2.1",
+    "versionCode": 1000000,
+    "versionName": "0.1.0",
     "icon": "$media:layered_image",
     "label": "$string:app_name"
   }

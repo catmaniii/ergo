@@ -79,7 +79,7 @@ function startChild(options: { session?: Partial<SessionAssembly>; env?: Record<
 
 type Child = ReturnType<typeof startChild>;
 
-/** 开始过的会话记录（312 号票那一条用：记着开始时的工作目录） */
+/** 开始过的会话记录：记着开始时的工作目录 */
 const startedRecord = (cwd: string) => ({ claudeSessionId: "6f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b", cwd, createdAt: "2026-10-20T10:00:00.000+08:00", started: true });
 
 /** 送一条输入，等假 SDK 收到（交回 query 和那条用户消息） */
@@ -473,19 +473,19 @@ describe("Claude Code 适配子进程（假 SDK）", () => {
     expect((await fresh.log.next("ready")).session).toBe("fresh-1");
   });
 
-  it("312 号票：数据目录改了名（旧路径是指到新目录的目录联接），接着早先开的会话时工作目录照记录里的旧写法（Claude Code 按它找会话记录）；不是同一个目录的、新开的照这次的", async () => {
-    const base = makeTempDir("ergo-claude-rename-");
+  it("接着早先开的会话：记录里的工作目录写法不同却是同一个目录（目录联接）时照记录里的写法（Claude Code 按它找会话记录）；不是同一个目录的、新开的照这次的", async () => {
+    const base = makeTempDir("ergo-claude-junction-");
     const workdir = path.join(base, ".ergo", "projects", "p-1", "workdir");
     fs.mkdirSync(workdir, { recursive: true });
-    fs.symlinkSync(path.join(base, ".ergo"), path.join(base, ".ergou"), "junction");
-    const oldWorkdir = path.join(base, ".ergou", "projects", "p-1", "workdir");
+    fs.symlinkSync(path.join(base, ".ergo"), path.join(base, "alias"), "junction");
+    const linkedWorkdir = path.join(base, "alias", "projects", "p-1", "workdir");
 
     const sessionDir = makeTempDir("ergo-claude-sessions-");
-    fs.writeFileSync(path.join(sessionDir, `s-1${RECORD_EXT}`), JSON.stringify(startedRecord(oldWorkdir)));
+    fs.writeFileSync(path.join(sessionDir, `s-1${RECORD_EXT}`), JSON.stringify(startedRecord(linkedWorkdir)));
     const child = startChild({ session: { sessionDir, cwd: workdir } });
     await child.log.next("ready");
     const { query } = await prompt(child, "in-1", "接着做");
-    expect(query.options).toMatchObject({ cwd: oldWorkdir, resume: "6f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b" });
+    expect(query.options).toMatchObject({ cwd: linkedWorkdir, resume: "6f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b" });
 
     const elsewhere = makeTempDir("ergo-claude-elsewhere-");
     const otherDir = makeTempDir("ergo-claude-sessions-");

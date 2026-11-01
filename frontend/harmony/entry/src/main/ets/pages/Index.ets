@@ -10,7 +10,7 @@ import { AppSettings, DOMAIN, TAG } from '../common/AppSettings';
 import { appTexts, t } from '../common/AppTexts';
 import { connectChecklist } from '../common/ConnectCheck';
 import { ConnectProbe, ConnectResult } from '../common/ConnectProbe';
-import { oldNameOf, webCallScript } from '../common/OldNames';
+import { webCallScript } from '../common/WebCall';
 import { checkServerAddress, originOf, ServerAddress } from '../common/ServerAddress';
 import {
   BrowserHost,
@@ -494,22 +494,6 @@ struct Index {
     } catch (e) {
       hilog.error(DOMAIN, TAG, 'register side host failed: %{public}s', JSON.stringify(e));
     }
-    // 312 号票：侧边栏的对象、侧边栏上的原生桥都用旧名字再挂一份（网页还是旧版时照样能用）
-    this.registerOldName(this.sideController, this.sideHost, SIDE_HOST_NAME, SIDE_HOST_METHODS, []);
-    this.registerOldName(this.sideController, this.sideBridge as NativeBridge, NATIVE_BRIDGE_NAME, NATIVE_SIDE_BRIDGE_METHODS, NATIVE_BRIDGE_ASYNC_METHODS);
-  }
-
-  /** 312 号票：同一个对象用旧名字再登记一份（只认配好的来源，和新名字的一样；登记不上只记日志，新名字的照常） */
-  private registerOldName(controller: webview.WebviewController, object: Object, name: string, methods: string[], asyncMethods: string[]): void {
-    const server = this.server;
-    if (server === undefined) {
-      return;
-    }
-    try {
-      controller.registerJavaScriptProxy(object, oldNameOf(name), methods, asyncMethods, bridgePermission(server));
-    } catch (e) {
-      hilog.warn(DOMAIN, TAG, 'register old name %{public}s failed: %{public}s', oldNameOf(name), JSON.stringify(e));
-    }
   }
 
   /** 侧边栏的网页加载完：开场的 about:blank 加载完时去二狗的侧边栏地址（只去一次）；二狗的侧边栏页面加载完推一次样子 */
@@ -942,8 +926,6 @@ struct Index {
       })
       .onControllerAttached(() => {
         this.downloads.attach(this.controller);
-        // 312 号票：原生桥用旧名字再挂一份（网页还是旧版时照样能用）
-        this.registerOldName(this.controller, this.bridge as NativeBridge, NATIVE_BRIDGE_NAME, NATIVE_BRIDGE_METHODS, NATIVE_BRIDGE_ASYNC_METHODS);
       })
       .onLoadIntercept((event: OnLoadInterceptEvent) => this.interceptLoad(event.data))
       // 页面重新加载、跳走：上一个页面备好的原生录音器放掉（新页面进语音模式时再要）；新页面要重新说它有没有"浏览"页签、

@@ -15,7 +15,6 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { oldNameOf } from "@ergo/protocol";
 
 /** 插件名：Claude Code 里插件的 skill 写成 ergo:<目录名>，定了别改 */
 export const ERGO_PLUGIN = "ergo";
@@ -62,11 +61,9 @@ interface Stamp {
 /**
  * 拼（或更新）插件目录：插件根目录是 <runtimeDir>/ergo。skill 没变的不动；变了的、新加的整个重拷；不在工具包里的删掉。
  * 读不了的 skill（目录没了）跳过、记日志。返回 changed：和目录里原来的比，skill 有增减或内容变了。
- * 312 号票：插件名从旧的 ergou 换成 ergo，旧名字的插件目录（<runtimeDir>/ergou）是缓存，拼的时候顺手删掉
  */
 export function buildSkillPlugin(runtimeDir: string, skillDirs: readonly string[], log: (line: string) => void = () => {}): BuiltSkillPlugin {
   const root = path.join(runtimeDir, ERGO_PLUGIN);
-  removeTree(path.join(runtimeDir, oldNameOf(ERGO_PLUGIN)));
   const skillsDir = path.join(root, "skills");
   fs.mkdirSync(path.join(root, ".claude-plugin"), { recursive: true });
   fs.mkdirSync(skillsDir, { recursive: true });

@@ -17,7 +17,7 @@
 // 守卫：调用之前照常过 PreToolUse 钩子（guard.ts：mcp__ergo__<工具名> 映射成二狗的工具名，按工具的登记判）。
 // @i18n-ignore-file model：交回 Claude 的工具结果；日志
 import type { McpServerConfig, McpSdkServerConfigWithInstance } from "@anthropic-ai/claude-agent-sdk";
-import { mcpToolName, oldNameOf } from "@ergo/protocol";
+import { mcpToolName } from "@ergo/protocol";
 import type { AgentReport, HostToolResult, HostToolSpec, JsonValue } from "../../runtime/host-protocol.ts";
 
 /** 二狗自己的工具所在的进程内 MCP 服务的名字：Claude 看到的工具名是 mcp__ergo__<工具名>，定了别改 */
@@ -31,16 +31,10 @@ const MCP_PROTOCOL_VERSION = "2025-06-18";
 
 const ABORTED: HostToolResult = { text: "回合已中止", isError: true };
 
-/**
- * Claude 的工具名 → 二狗的工具名：mcp__ergo__<名字> 去掉前缀；别的（工具包里的 MCP、Claude 自带的）原样。
- * 312 号票：服务名以前是 ergou，接管的旧会话记录里的 mcp__ergou__<名字> 同样去掉前缀
- */
+/** Claude 的工具名 → 二狗的工具名：mcp__ergo__<名字> 去掉前缀；别的（工具包里的 MCP、Claude 自带的）原样 */
 export function hostToolNameOf(claudeName: string): string {
-  for (const server of [ERGO_MCP_SERVER, oldNameOf(ERGO_MCP_SERVER)]) {
-    const prefix = `mcp__${server}__`;
-    if (claudeName.startsWith(prefix)) return claudeName.slice(prefix.length);
-  }
-  return claudeName;
+  const prefix = `mcp__${ERGO_MCP_SERVER}__`;
+  return claudeName.startsWith(prefix) ? claudeName.slice(prefix.length) : claudeName;
 }
 
 /** 二狗的一个工具在哪个服务、叫什么：mcp__<服务>__<工具> 的归那个服务，别的归 ergo */

@@ -15,7 +15,7 @@ import { makeTempDir } from "../helpers/temp-dir.ts";
 function rig(kind: InstallLayout["kind"] = "installed") {
   const dir = makeTempDir("ergo-autostart-");
   const root = path.join(dir, "ergo");
-  const home = path.join(root, "versions", "0.4.0");
+  const home = path.join(root, "versions", "0.1.0");
   const appDir = path.join(home, "app");
   fs.mkdirSync(path.join(appDir, "packages", "supervisor", "bin"), { recursive: true });
   const svcDataDir = path.join(dir, "svc");

@@ -113,7 +113,7 @@ import type { StreamHub } from "../conversation/stream-hub.ts";
 import { RequestRejected } from "../errors.ts";
 import type { EphemeralSource } from "../events/ephemeral.ts";
 import type { EventStore, NewEvent, StoredEvent } from "../events/event-store.ts";
-import { DEVICE_COOKIE, oldCookieClears, readCookieOrOld } from "../pairing/credentials.ts";
+import { DEVICE_COOKIE, readCookie } from "../pairing/credentials.ts";
 import { checkExternalOrigin, clearDeviceCookie, deviceCookie, type DevicePairing, handlePairingRoute, requestSource } from "./external.ts";
 import { FONTS_PREFIX, serveFont } from "./fonts.ts";
 import { type HttpApi, sendError, sendJson } from "./http-api.ts";
@@ -397,19 +397,17 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
       req.resume();
       return sendError(res, "forbidden", t("gateway.refused", { reason: check.reason }));
     }
-    // 312 号票：旧名字的 cookie 也认，回应时写成新名字、把旧的清掉
-    const credential = readCookieOrOld(req.headers.cookie, DEVICE_COOKIE);
-    const oldClears = oldCookieClears(req.headers.cookie, [DEVICE_COOKIE]);
+    const credential = readCookie(req.headers.cookie, DEVICE_COOKIE);
     const device = pairing.authenticate(credential);
     if (device && credential !== undefined) {
       // 每次使用都续期：浏览器里的 cookie 跟着服务端一起延长（延期到更远的，活到那时）
-      res.setHeader("Set-Cookie", [deviceCookie(credential, pairing.cookieMaxAgeMs(device)), ...oldClears]);
+      res.setHeader("Set-Cookie", deviceCookie(credential, pairing.cookieMaxAgeMs(device)));
       return route(req, res, { kind: "device", device });
     }
     // 带着失效的凭证（吊销了、过期了）：让浏览器删掉它；查"我有没有被信任"时顺带告诉它为什么不认
     // （页面据此在浏览器里留个"本设备已被吊销"的记号，刷新后不会自动重新申请）
     const rejection = pairing.rejectionOf(credential);
-    if (credential !== undefined) res.setHeader("Set-Cookie", [clearDeviceCookie(), ...oldClears]);
+    if (credential !== undefined) res.setHeader("Set-Cookie", clearDeviceCookie());
     const pathname = pathnameOf(req);
     if (pathname === HTTP_PATHS.pairing) return handlePairingRoute(req, res, pairing, log);
     if (pathname === HTTP_PATHS.access) return sendJson(res, 200, { access: "none", ...(rejection === undefined ? {} : { reason: rejection }) } satisfies AccessInfo);
@@ -443,7 +441,7 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
   });
   external.on("upgrade", (req, socket, head) => {
     if (!checkExternalOrigin(req.headers).ok) return refuse(socket, "403 Forbidden");
-    const device = pairing.authenticate(readCookieOrOld(req.headers.cookie, DEVICE_COOKIE));
+    const device = pairing.authenticate(readCookie(req.headers.cookie, DEVICE_COOKIE));
     if (!device) return refuse(socket, "401 Unauthorized");
     const pathname = pathnameOf(req);
     if (options.apps.handles(pathname)) return options.apps.upgrade(req, socket, head, appContext(req, { kind: "device", device }));

@@ -574,9 +574,8 @@ export class ClaudeSessionRunner {
   }
 
   /**
-   * 交给 Claude Code 的工作目录。312 号票：Claude Code 按工作目录的写法找它的会话记录（~/.claude/projects/<工作目录编码>/），数据目录从
-   * ~/.ergou 改名成 ~/.ergo 之后，早先在数据目录里开的会话记在旧写法下——接着这种会话（记录里 started）、记录里开始时的工作目录和这次的
-   * 写法不同却是同一个目录（旧路径是指到新目录的目录联接）时，照记录里的写法，才找得到。别的照这次的
+   * 交给 Claude Code 的工作目录。Claude Code 按工作目录的写法找它的会话记录（~/.claude/projects/<工作目录编码>/）：接着开始过的会话
+   * （记录里 started）、记录里开始时的工作目录和这次的写法不同却是同一个目录（目录联接、8.3 短名）时，照记录里的写法，才找得到。别的照这次的
    */
   private claudeCwd(): string {
     const { record } = this.opened;

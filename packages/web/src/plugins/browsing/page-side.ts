@@ -21,7 +21,6 @@ let remote: RemoteSide | undefined;
 export function pageRemoteSide(): RemoteSide {
   if (remote) return remote;
   const scope = window as unknown as SideScope;
-  // 312 号票：App 给的对象新名字优先、没有用旧名字的；推样子的回调新旧两个名字都挂（旧 App 用的是旧名字）
   const created = new RemoteSide(() => appObject(scope, "ergoSide") as SideHostObject | undefined, { onAppearance: (appearance) => pageTheme().adopt(appearance) });
   exposeToApp(scope, "__ergoSide", (json: string) => {
     const message = created.receive(json);

@@ -368,9 +368,8 @@ describe("清单验收和版本号（照 112 号票的自动验收）", () => {
     expect(s.ops.checklistItem(building)).toMatchObject({ id: "ops", done: true, detail: "验收通过：2 个操作的测试都跑通，只读的没写东西" });
     // 测试调用带着测试标记，有副作用的没真记
     expect(app.calls().map((c) => [c.name, c["_meta"]])).toEqual([
-      // 312 号票：测试标记另带一份旧名字的（早先做的服务照样认得出）
-      ["add_expense", { "ergo/test": true, "ergou/test": true }],
-      ["list_expenses", { "ergo/test": true, "ergou/test": true }],
+      ["add_expense", { "ergo/test": true }],
+      ["list_expenses", { "ergo/test": true }],
     ]);
     expect(app.expenses()).toEqual([]);
     // 记下了验收全过（同一份内容不再自动验）；建设中不登记

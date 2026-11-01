@@ -3,7 +3,6 @@
 // 两种都按这个角色的通用模板查占位符，写错的存不进去；文件被改坏、装配时缺值的退回通用模板，agent 照常拉起。
 import fs from "node:fs";
 import path from "node:path";
-import { LETTER_TAGS } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
 import { RequestRejected } from "../../src/errors.ts";
 import { createPromptLibrary, DEFAULT_PROMPTS_DIR } from "../../src/prompts/index.ts";
@@ -56,13 +55,6 @@ describe("单独的提示词：存在数据目录配置区，按 agent 分", () 
     // 不带 agent（或别的 agent）的照旧是通用模板
     expect(secretarySystemPrompt(prompts, "阿福")).toBe(DEFAULT_SECRETARY("阿福"));
     expect(changes).toEqual(["secretary"]);
-  });
-
-  it("365 号票：用户单独的提示词里还写着来信标记的老占位符，照样能用，不算写错", () => {
-    const { prompts } = library();
-    prompts.saveAgentPrompt("secretary", "secretary", "append", "看到{{维护者来信标记}}开头的先念。"); // @keep-old-name
-    expect(prompts.agentPrompt("secretary", "secretary")?.problem).toBeUndefined();
-    expect(secretarySystemPrompt(prompts, "阿福", "off", "secretary")).toBe(`${DEFAULT_SECRETARY("阿福")}\n\n看到${LETTER_TAGS.maintainer_letter}开头的先念。`);
   });
 
   it("追加的跟着通用模板变：设置 · 系统提示里改了通用模板，追加的照旧接在后面", () => {

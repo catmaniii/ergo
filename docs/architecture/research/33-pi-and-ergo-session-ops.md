@@ -300,7 +300,7 @@
 
 ---
 
-## B. 二狗前端对一个会话（维护者 / 秘书）能做的全部操作
+## B. 二狗前端对一个会话（负责人 / 秘书）能做的全部操作
 
 "归属"一列三种：
 - **运行时**：要运行时本身提供这个能力，换 Claude Code / Codex 时要有等价物或间接实现；
@@ -323,7 +323,7 @@
 | 归档、删除任务 | 同上 | `task_action`（archive / delete） | `exit`（停掉子进程） | `dispose` | 守护进程 |
 | 项目开工、停用、重新启用、归档、删除；把任务转成项目 | `web/pages/ProjectsPage.tsx` | `project_action`、`convert_task_to_project` | 按新装配重新拉起 | — | 混合 |
 | 定时任务：立即运行一次、改时间、暂停、恢复、跑完自动播报 | `web/ui/task-menu.tsx` | `run_job_now`、`reschedule_job`、`scheduled_job_action`、`set_voice_announce` | `start` + `user_input` | — | 混合 |
-| 工具包改了立即生效（项目页 / 任务详情改工具包、批准工具包变更卡、维护者自己增减 skill） | `web/pages/ToolkitEditor.tsx` | `set_toolkit`、`card_action` | `yield` →（`turn_end` 的结局是 yielded）→ `exit` → `start`（新装配）→ `user_input`（"工具包已变更"，`agent-session.ts:984`） | `agent.finishTurn` 返回 end + `clearQueue`；按新装配重建会话 | 运行时 ★ |
+| 工具包改了立即生效（项目页 / 任务详情改工具包、批准工具包变更卡、负责人自己增减 skill） | `web/pages/ToolkitEditor.tsx` | `set_toolkit`、`card_action` | `yield` →（`turn_end` 的结局是 yielded）→ `exit` → `start`（新装配）→ `user_input`（"工具包已变更"，`agent-session.ts:984`） | `agent.finishTurn` 返回 end + `clearQueue`；按新装配重建会话 | 运行时 ★ |
 | 唤起、闲置退出、排队等名额（界面上是活动状态） | 活动状态点（`activity` 事件） | — | `start` / `exit` / `heartbeat` | `createAgentSession` + `SessionManager.open` | 混合 |
 | 崩溃或被杀后接着做 | 会话里一条系统说明；待办里的"中断不确定" | `inbox_action` | `start.interruptedToolResults` | 修好 JSONL + `appendMessage(toolResult)` | 运行时 ★ |
 
@@ -355,7 +355,7 @@
 | 工具调用组"调用了 N 个工具 ›" | `ChatItemView.tsx` | tool_call part（`daemon/guard-runtime/tool-call-record.ts`） | `tool_call_start` / `tool_call_end` | `tool_execution_start / end` | 运行时 |
 | 单次工具调用的详情：参数、守卫怎么判的、返回、图片块、截断说明 | `web/ui/detail/DetailPane.tsx` | HTTP `GET /api/tool-calls/<id>`（`daemon/guard-runtime/tool-call-details.ts`） | `tool_call_start.args`、`tool_call_end.resultText / media`、`guard_request` | `tool_execution_end` 的结果 | 混合 |
 | 回忆记忆一行、记忆简报 | `web/plugins/memory/RecallLine.tsx`、`RecallDetail.tsx` | memory_brief part | `user_input.context`（简报作为上下文消息） | `sendCustomMessage` 的 `nextTurn` | 混合 |
-| 来信一行（任务做完、维护者来信、秘书转达） | `rows.tsx` 的 LetterLine | `message.summary` | `user_input`（通知）或 `interject` | — | 守护进程 |
+| 来信一行（任务做完、负责人来信、秘书转达） | `rows.tsx` 的 LetterLine | `message.summary` | `user_input`（通知）或 `interject` | — | 守护进程 |
 | 分隔线：工单、运行、清空、分支摘要；"已换成 X 模型，接着之前的对话" | `web/ui/conversation/parts.tsx` | work_order_divider / run_divider / conversation_cleared / branch_summary part | `ready.handoff`、`session_navigated.summary` | — | 混合 |
 | "已停止"标记 | `ChatItemView.tsx` | `turn_end` 的结局 | `turn_end`（aborted） | `agent_settled` + stopReason | 运行时 |
 | 时间线记录：压缩过一次、你停止了、偏离、范围变更 / 越界、重做、计划变更… | `web/ui/conversation/RecordRow.tsx`；种类表在 `protocol/timeline.ts` | `timeline_record` | `compacted`、`scope_review_result` 等 | `compaction_end` | 混合 |
@@ -394,8 +394,8 @@
 | 对一件遗留效果"申请撤回" | `BranchDetail.tsx` | `request_effect_undo` | — | — | 守护进程 |
 | 从这里重做（阶段返工，可以顺手改验收标准、交付件） | `web/ui/detail/StageDetail.tsx` | `task_action`（rework，带 stageId、note、stageEdit） | `abort` + `user_input`（重做通知）。**不动会话树** | `abort`、`prompt` | 混合 |
 | 彻底删除（素材详情、成批删除、记忆删除卡） | `web/pages/more/MaterialDetail.tsx`、`MaterialsBulkDelete.tsx`、`web/plugins/memory/MemoryDeleteCard.tsx` | HTTP `materialsDelete` / `card_action` | 停掉子进程 → 一次性子进程改写会话文件（`SessionRewriteRequest`）→ 重新拉起 | pi 会话 JSONL 的条目类型（message / custom / custom_message / compaction / branch_summary）；按 `ergo-input` 找原话 | 运行时 ★ |
-| 清空当前对话（秘书、任务的维护者） | `web/ui/agent-settings.tsx` | HTTP `agentClear` | `start.freshSession` | `SessionManager.create` 一个新文件 | 混合 |
-| 重置维护者（项目维护者的"清空"） | `web/ui/agent-settings.tsx` | `reset_maintainer` | 新开一段：`start`（`session` 是新段的名字） | 新会话文件 | 混合 |
+| 清空当前对话（秘书、任务的负责人） | `web/ui/agent-settings.tsx` | HTTP `agentClear` | `start.freshSession` | `SessionManager.create` 一个新文件 | 混合 |
+| 重置负责人（项目负责人的"清空"） | `web/ui/agent-settings.tsx` | `reset_maintainer` | 新开一段：`start`（`session` 是新段的名字） | 新会话文件 | 混合 |
 | 现在压缩 | `web/ui/agent-settings.tsx` | HTTP `agentCompact` | `compact` → `compacted`（reason、outcome、tokensBefore）+ `usage`（compaction）（`agent-session.ts:1139`） | `session.compact()`；`session_before_compact` 里按压缩指令自己写摘要（`compact()`）；`session_compact` 之后 `sendMessage` 重注入上下文块 | 运行时 ★ |
 | 自动压缩（没有按钮，时间线上显示） | `RecordRow.tsx` | — | `compacted`（threshold / overflow） | pi 自动做（窗口 − 16384） | 运行时 |
 | 导出、复制会话 | **没有** | — | — | pi 有 | — |
@@ -407,7 +407,7 @@
 | ⚙ 名字和音色（选角色） | `web/ui/agent-settings.tsx`、`web/pages/more/RolesPage.tsx` | HTTP `agentRoleAssignment` / `agentRoles` | 系统提示变了就重新拉起 | `systemPrompt` | 守护进程 |
 | ⚙ 单独的提示词（追加 / 整份自己写），查看实际在用的系统提示 | `web/ui/agent-settings.tsx`、`web/state/agent-settings.ts` | HTTP `agentPrompt`（PUT / DELETE） | 下一轮重新拉起，装配参数 `systemPrompt` | `DefaultResourceLoader` 的 `systemPrompt`（整份替换 pi 默认的） | 混合 |
 | ⚙ 上下文用量、上次压缩、离自动压缩还有多少 | 同上 | HTTP `agentSettings` | `ready.context`（window、reserveTokens、keepRecentTokens）+ 最近一次 `usage.totalTokens` + `compacted` | `settingsManager.getCompactionSettings`、`model.contextWindow` | 运行时 |
-| ⚙ 模型和思考档位（任务、项目的维护者单独配） | `web/ui/agent-settings.tsx` | HTTP `agentModel`（PUT / DELETE） | 下一个新会话 / 下一段 / 下一次运行时生效：`start`（model、handoff）→ `ready.model / handoff` + `usage`（handoff） | `generateSummaryWithUsage` + 新会话 + `sendCustomMessage`（交接摘要）。**不用 `setModel`** | 运行时 ★ |
+| ⚙ 模型和思考档位（任务、项目的负责人单独配） | `web/ui/agent-settings.tsx` | HTTP `agentModel`（PUT / DELETE） | 下一个新会话 / 下一段 / 下一次运行时生效：`start`（model、handoff）→ `ready.model / handoff` + `usage`（handoff） | `generateSummaryWithUsage` + 新会话 + `sendCustomMessage`（交接摘要）。**不用 `setModel`** | 运行时 ★ |
 | 设置 · 模型：各 agent 的默认模型和思考档位、看图能力、连通测试、列出模型 | `web/pages/more/ModelsPage.tsx` | HTTP `modelSettings` / `modelSettingsTest` | 一次性子进程 `ModelProbeRequest`（catalog / ping） | `ModelRuntime` 的模型目录、`getSupportedThinkingLevels`、模型 input 里有没有 image | 运行时 |
 | 工具包：skill、MCP、bash、联网 | `web/pages/ToolkitEditor.tsx`、`web/ui/skill-picker.tsx` | `set_toolkit`、HTTP `toolkitCatalog` | `start`（tools 白名单、skillPaths、contributions.tools、shellEnv）+ 用 `yield` 重新装配 | tools 白名单、`additionalSkillPaths`、`customTools`、`createBashToolDefinition(spawnHook)` | 运行时 |
 | 秘书用哪些 skill | `web/pages/more/SkillsPage.tsx` | HTTP `secretarySkills` | `skillPaths` | 同上 | 混合 |

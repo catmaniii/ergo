@@ -6,7 +6,7 @@
 //   别的订阅交给登记它的订阅方（简单提醒发一条通知：ReminderService.fireOnEvent）。去重键是订阅加上来源给的键：同一次事件重推、开机比对补发都只收一次；
 // - 检查：建任务、建提醒时事件触发方式对不对——先查登记表（来源、事件、过滤条件的键和类型、必填的），再让来源的实现现查（文件夹在不在、能不能监视）。
 // 以后接邮件：登记表里加一项，sources.ts 里加它的实现，别的不用动。
-import { CHANNELS, type EventTrigger, eventTriggerProblems, EVENT_TYPES, isNameOrOld, type TriggerEvent } from "@ergo/protocol";
+import { CHANNELS, type EventTrigger, eventTriggerProblems, EVENT_TYPES, type TriggerEvent } from "@ergo/protocol";
 import type { EventStore, StoredEvent } from "../events/event-store.ts";
 import type { ScheduledJobs } from "../scheduled-jobs/index.ts";
 import { listJobs } from "../scheduled-jobs/index.ts";
@@ -133,8 +133,7 @@ export function createEventTriggers(options: EventTriggersOptions): EventTrigger
     current = new Map(subs.map((s) => [s.id, s]));
     for (const source of sources) {
       try {
-        // 312 号票：存着的旧来源编号（ergo 以前的写法）照样交给它
-        source.sync(subs.filter((s) => isNameOrOld(s.trigger.source, source.id)));
+        source.sync(subs.filter((s) => s.trigger.source === source.id));
       } catch (err) {
         log(triggerText.syncError(source.id, errorText(err)));
       }
@@ -151,7 +150,7 @@ export function createEventTriggers(options: EventTriggersOptions): EventTrigger
     check(trigger) {
       const problems = eventTriggerProblems(trigger);
       if (problems.length > 0) return problems;
-      const source = sources.find((s) => isNameOrOld(trigger.source, s.id));
+      const source = sources.find((s) => s.id === trigger.source);
       return source ? source.check(trigger) : [sourceMissingText(trigger.source)];
     },
     start() {

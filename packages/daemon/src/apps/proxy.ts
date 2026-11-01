@@ -15,7 +15,7 @@
 import http from "node:http";
 import type { Socket } from "node:net";
 import type { Duplex } from "node:stream";
-import { activeLanguage, APP_PREFIX_HEADER, appUrl, oldNameOf, parseAppPath, t } from "@ergo/protocol";
+import { activeLanguage, APP_PREFIX_HEADER, appUrl, parseAppPath, t } from "@ergo/protocol";
 import { isLoopbackHost, type AppRegistry, type RegisteredApp } from "./registry.ts";
 
 /** 网关交来的：这个请求从哪来 */
@@ -45,9 +45,9 @@ export interface AppProxy {
 const HOP_BY_HOP = ["connection", "keep-alive", "proxy-connection", "proxy-authenticate", "proxy-authorization", "te", "trailer", "transfer-encoding", "upgrade"];
 /** 客户端自己写的转发头：一律去掉，换成转发这一层写的（客户端写的不算数） */
 const CLIENT_FORWARDED = ["forwarded", "x-forwarded-for", "x-forwarded-proto", "x-forwarded-host", "x-forwarded-prefix", "x-forwarded-port", "x-real-ip"];
-/** 二狗自己的 cookie（设备凭证、配对）都以它开头：不转给服务，也不许服务写（312 号票：旧名字的前缀同样挡着） */
-const OWN_COOKIE_PREFIXES = ["__Host-ergo-", oldNameOf("__Host-ergo-")];
-const isOwnCookie = (name: string) => OWN_COOKIE_PREFIXES.some((prefix) => name.startsWith(prefix));
+/** 二狗自己的 cookie（设备凭证、配对）都以它开头：不转给服务，也不许服务写 */
+const OWN_COOKIE_PREFIX = "__Host-ergo-";
+const isOwnCookie = (name: string) => name.startsWith(OWN_COOKIE_PREFIX);
 
 const hopByHop = (connection: string | string[] | undefined) =>
   new Set([

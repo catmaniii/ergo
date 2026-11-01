@@ -14,7 +14,7 @@
 // 命令开头是 node 的换成二狗自己那份 Node（withOwnNode：项目服务跟着二狗的 Node 版本走，用安装包装的电脑上 PATH 里可能根本没有 node）。
 import fs from "node:fs";
 import path from "node:path";
-import { APP_BASE_PATH_ENV, appBasePath, appUrl, isNameOrOld, oldNameOf, OPERATION_SERVICE_MEANS, type OperationItemDraft, type OperationService, type OperationServiceDraft, SERVICE_NOTIFY_URL_ENV, SERVICE_TOKEN_ENV, serviceAppName } from "@ergo/protocol";
+import { APP_BASE_PATH_ENV, appBasePath, appUrl, OPERATION_SERVICE_MEANS, type OperationItemDraft, type OperationService, type OperationServiceDraft, SERVICE_NOTIFY_URL_ENV, SERVICE_TOKEN_ENV, serviceAppName } from "@ergo/protocol";
 import type { LsmServiceDefinition } from "../lsm/link.ts";
 import { withOwnNode } from "../process/own-node.ts";
 import { realPathOf } from "../util/real-path.ts";
@@ -93,7 +93,7 @@ export function serviceProblems(item: OperationItemDraft, ctx: ServiceSpecContex
     if (seen.has(upper)) problems.push(specText.envDuplicate(e.name));
     seen.add(upper);
     if (upper.startsWith("LSM_")) problems.push(specText.envLsm(e.name));
-    if (isNameOrOld(upper, APP_BASE_PATH_ENV)) problems.push(specText.envBasePath);
+    if (upper === APP_BASE_PATH_ENV) problems.push(specText.envBasePath);
     if (upper === SERVICE_NOTIFY_URL_ENV || upper === SERVICE_TOKEN_ENV) problems.push(specText.envNotify(e.name));
     const sources = [e.value !== undefined, e.secret !== undefined, e.userEnv === true].filter(Boolean).length;
     if (sources !== 1) problems.push(specText.envOneSource(e.name));
@@ -149,7 +149,7 @@ export function normalizeService(draft: OperationServiceDraft, ctx: ServiceSpecC
 /** 有网页的入口地址（/apps/<应用名>/<首页>） */
 export const serviceUrl = (service: Pick<OperationService, "app" | "web">): string | undefined => (service.web ? appUrl(service.app, service.web.home.replace(/^\/+/, "")) : undefined);
 
-/** 交给 LSM 的定义（services.put）：密钥的引用换成密钥区里的绝对路径，有网页的注入 ERGO_BASE_PATH（312 号票：另带一份旧名字的，早先做的服务照样读得到） */
+/** 交给 LSM 的定义（services.put）：密钥的引用换成密钥区里的绝对路径，有网页的注入 ERGO_BASE_PATH */
 export function lsmDefinition(service: OperationService, labels: { title: string; projectName: string }, secretsDir: string, nodePath?: string, notify?: { url: string; tokenFile: string }): LsmServiceDefinition {
   const env: NonNullable<LsmServiceDefinition["env"]> = service.env.map((e) => {
     if (e.secret !== undefined) return { name: e.name, from: "file", path: path.join(secretsDir, e.secret), ...(e.optional ? { optional: true } : {}) };
@@ -157,7 +157,7 @@ export function lsmDefinition(service: OperationService, labels: { title: string
     // LSM 把空值当成取不到：空值的算可选
     return { name: e.name, from: "literal", value: e.value ?? "", ...(e.optional || !e.value ? { optional: true } : {}) };
   });
-  if (service.web) for (const name of [APP_BASE_PATH_ENV, oldNameOf(APP_BASE_PATH_ENV)]) env.push({ name, from: "literal", value: appBasePath(service.app) });
+  if (service.web) env.push({ name: APP_BASE_PATH_ENV, from: "literal", value: appBasePath(service.app) });
   // 357：报事件的地址和这个服务的专属凭证
   if (notify) env.push({ name: SERVICE_NOTIFY_URL_ENV, from: "literal", value: notify.url }, { name: SERVICE_TOKEN_ENV, from: "file", path: notify.tokenFile });
   return {

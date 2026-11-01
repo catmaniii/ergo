@@ -534,7 +534,7 @@ See [On your phone](mobile.en.md) for more.
 
 **What it is:** The version and changelog. Copy the version from here when reporting a problem.
 
-**How to look:** Open it. The large text is the version number. Below it are the web build, the daemon's version and uptime, and how this device connects. In the app there's also the app version. Further down is **What's new in this version**, and **Earlier versions** expands.
+**How to look:** Open it. The large text is the version number. Below it are the web build, the daemon's version and uptime, and how this device connects. In the app there's also the app version. Further down is **What's new in this version**. Once there are older versions, **Earlier versions** expands.
 
 ### Debug tools
 

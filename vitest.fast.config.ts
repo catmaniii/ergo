@@ -1,6 +1,5 @@
 import fs from "node:fs";
 import { defineConfig } from "vitest/config";
-import { oldNameOf } from "./packages/protocol/src/old-names.ts";
 
 // `npm run test:fast` 用的配置：做票时跑的那条车道（244 号票）。
 // 只有纯单测、协议包、网页状态层和构建检查，目标是三分钟内跑完；主切面（daemon/test/main，占了全量 86% 的时间）
@@ -11,8 +10,7 @@ import { oldNameOf } from "./packages/protocol/src/old-names.ts";
 export default defineConfig({
   test: {
     // 和根配置一样：默认只开一半的核，几套测试同时跑时不把机器挤满。
-    // 312 号票：兼容期旧的变量名（ERGOU_TEST_WORKERS）也认
-    maxWorkers: Number(process.env.ERGO_TEST_WORKERS || process.env[oldNameOf("ERGO_TEST_WORKERS")]) || "50%",
+    maxWorkers: Number(process.env.ERGO_TEST_WORKERS) || "50%",
     // 244 号票：把转译结果落到 node_modules/.vitest-cache，同一文件没改就跳过转译（第一次跑会慢一点）。
     // 缓存按文件内容算，改了文件自然失效；`npx vitest run --clearCache` 可以整个清掉。
     fsModuleCache: true,

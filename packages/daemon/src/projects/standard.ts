@@ -2,7 +2,6 @@
 // - 模板放在框架里（本包的 templates/project-standard/<版本>/<开发类 dev | 其他类 other>/<语言>/），按版本分目录，两类各一套；
 //   每份开头写清这份写什么、什么时候更新。模板只加新版本、不改旧版本：项目记着建档时用的版本（Project.standardVersion），
 //   "还是模板原样"按它所在位置的任何版本、任何一类、任何语言的模板比。
-//   唯一的例外是 365 号票改叫负责人（一个词，不值当出一版规范、让每个老项目都看见"有新版"）：老项目里按老模板生成的文件比之前先换成新说法（withOwnerWording）。
 // - 生成：项目档案里缺的从模板复制（已有的不动）。立项时项目类型还没定，按其他类那一套（规格、进展、决策记录：两类的这三份一字不差，
 //   测试查）；立项书确认成开发类时再对一遍，补上架构图、tickets/、ops.json。按建档时的语言（没有这种语言的模板用中文的）。
 //   辅助的几份（立项书、术语表、项目清单、范围记录）照旧由 records.ts 生成。
@@ -70,9 +69,6 @@ const KINDS: readonly ProjectKind[] = ["dev", "other"];
 /** 换行统一成 \n（仓库检出时可能是 \r\n） */
 const lf = (text: string) => text.replace(/\r\n/g, "\n");
 
-/** 365 号票之前按老模板生成的文件换成新说法，才比得上现在的模板（模板里只有这两种写法；impl.type 的 maintainer、tell_maintainer 是写法，模板里没改） */
-const withOwnerWording = (text: string) => text.replaceAll("维护者", "负责人").replaceAll("the maintainer", "the owner"); // @i18n-ignore data：认老文件 @keep-old-name
-
 /** 目录下的文件（相对路径，正斜杠）；目录不在是空的 */
 function filesUnder(dir: string): string[] {
   let entries: fs.Dirent[];
@@ -130,7 +126,7 @@ export function standardTemplates(dir: string = STANDARD_TEMPLATES_DIR): Standar
       const languages = tree.get(version)?.get(kind);
       return [...(languages?.get(language) ?? languages?.get(DEFAULT_LANGUAGE) ?? [])];
     },
-    isTemplate: (rel, content) => known.get(rel)?.has(withOwnerWording(lf(content))) === true,
+    isTemplate: (rel, content) => known.get(rel)?.has(lf(content)) === true,
   };
   cache.set(dir, templates);
   return templates;

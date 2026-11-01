@@ -19,7 +19,7 @@
 // （Claude Code：工具包 skill 拼成的本地插件 ergo，/ergo:<目录名>），后面的话照留；同名时运行时的命令优先，原样交。会话里记的照旧是用户打的原样。
 import fs from "node:fs";
 import path from "node:path";
-import { type MessageEnvelope, type MessagePart, newNameOf, settledVoiceText, voiceIdsOf } from "@ergo/protocol";
+import { type MessageEnvelope, type MessagePart, settledVoiceText, voiceIdsOf } from "@ergo/protocol";
 import { getCard } from "../cards/views.ts";
 import type { EventStore } from "../events/event-store.ts";
 import { loadAttachmentContents } from "../media/attachment-content.ts";
@@ -91,9 +91,6 @@ function runtimeSkillText(text: string, ctx: Pick<AgentInputContext, "runtimeSla
   const slash = ctx.runtimeSlash;
   const token = /^\/(\S+)/.exec(text)?.[1];
   if (!slash || token === undefined) return undefined;
-  // 312 号票：按旧习惯打的运行时写法（Claude Code 的插件以前叫 ergou：/ergou:<目录名>）换成现在的
-  const renamed = newNameOf(token);
-  if (renamed !== token && slash.skillCommands(ctx.skillDirs ?? []).includes(renamed)) return `/${renamed}${text.slice(1 + token.length)}`;
   const fallback = SKILL_COMMAND_PREFIX.slice(1);
   const viaFallback = token.startsWith(fallback);
   // 和运行时自己的命令同名：它的优先（/skill:目录名 是二狗的写法，明说了要 skill）

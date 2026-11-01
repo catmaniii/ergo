@@ -6,10 +6,7 @@
 // 做法：一条 ssh，VPS 上跑 `sh -s`，脚本和生成的配置都从 stdin 送过去（不在命令行上拼引号）：
 // 写进 sites-available/ergo.conf（旧的留一份 .bak）、链接到 sites-enabled、nginx -t 通过才 reload，
 // 没通过就恢复原来的配置并以非零退出。证书沿用 VPS 上现有的 Let's Encrypt 做法，这里不签证书。
-// 312 号票：站点文件以前叫 ergou.conf——部署时把旧名字的站点从 sites-enabled 拿掉（文件留着），免得两份站点抢同一个域名；
-// nginx -t 没通过时连它一起恢复。
 import { spawn } from "node:child_process";
-import { oldNameOf } from "@ergo/protocol";
 import { loadConfig } from "../config/config.ts";
 import { dataDirLayout } from "../config/data-dir.ts";
 import { nginxSiteConfig } from "./nginx.ts";
@@ -21,9 +18,6 @@ export type CommandExecutor = (argv: readonly string[], stdin: string) => Promis
 const SITE = "/etc/nginx/sites-available/ergo.conf";
 const ENABLED = "/etc/nginx/sites-enabled/ergo.conf";
 const HEREDOC = "ERGO_NGINX_SITE_EOF";
-/** 312 号票之前的站点文件（旧名字） */
-const OLD_SITE = oldNameOf(SITE);
-const OLD_ENABLED = oldNameOf(ENABLED);
 
 /** ssh 的命令行：不问密码（BatchMode）、第一次连接记下主机指纹；远端跑 sh -s，读 stdin 里的脚本 */
 export function sshArgv(access: PublicAccess): string[] {
@@ -41,15 +35,11 @@ if [ -f ${SITE} ]; then cp ${SITE} ${SITE}.bak; fi
 install -m 644 "$tmp" ${SITE}
 rm -f "$tmp"
 ln -sf ${SITE} ${ENABLED}
-old_enabled=0
-if [ -e ${OLD_ENABLED} ] || [ -L ${OLD_ENABLED} ]; then rm -f ${OLD_ENABLED}; old_enabled=1; fi
 if nginx -t; then
   systemctl reload nginx
   echo "nginx 已加载新的站点配置"
-  if [ "$old_enabled" = 1 ]; then echo "旧名字的站点 ${OLD_SITE} 已从 sites-enabled 拿掉（文件留着）"; fi
 else
   if [ -f ${SITE}.bak ]; then mv ${SITE}.bak ${SITE}; else rm -f ${SITE} ${ENABLED}; fi
-  if [ "$old_enabled" = 1 ]; then ln -sf ${OLD_SITE} ${OLD_ENABLED}; fi
   echo "nginx -t 没通过，已恢复原来的配置" >&2
   exit 1
 fi

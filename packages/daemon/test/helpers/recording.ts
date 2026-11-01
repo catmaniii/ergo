@@ -9,7 +9,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { isEphemeralEventType, oldNameOf } from "@ergo/protocol";
+import { isEphemeralEventType } from "@ergo/protocol";
 import { expect } from "vitest";
 import type { RecordedInput } from "./frontend.ts";
 
@@ -23,7 +23,7 @@ export const RECORDING_ENV = "ERGO_RECORD_EVENTS";
  */
 export function saveOrCheckRecording(name: string, inputs: readonly RecordedInput[], options: { perChannel?: boolean } = {}): void {
   const file = path.join(RECORDINGS_DIR, `${name}.json`);
-  if ((process.env[RECORDING_ENV] ?? process.env[oldNameOf(RECORDING_ENV)]) === "1") {
+  if (process.env[RECORDING_ENV] === "1") {
     fs.mkdirSync(RECORDINGS_DIR, { recursive: true });
     fs.writeFileSync(file, `${JSON.stringify(withoutLocalPaths(inputs), null, 2)}\n`);
     return;

@@ -2,13 +2,12 @@
 // 只读模型目录里的本地文件，不联网、不写缓存，CPU 推理，线程数取本机核数的四分之一（最多 4 个）。
 // 和守护进程不同的是：在当前线程里加载（PoC 是命令行脚本，不用顾着事件循环），第一次要算时才 import transformers.js，
 // 测试里不会加载它。模型目录：参数 > ERGO_MODELS_DIR > ERGO_DATA_DIR/models > ~/.ergo/models（同守护进程的模型区，
-// 用户已经 npm run download-model 下过 bge-m3 就能直接用）。312 号票起两个环境变量的旧名字也认（新的优先），~/.ergo 不在而旧的目录在时用旧的。
+// 用户已经 npm run download-model 下过 bge-m3 就能直接用）。
 // 池化方式、查询和文档的前缀是配置（TransformersModelSpec）：现在只有 bge-m3（两种角色一样、CLS 池化）；
 // 以后换 Qwen3-Embedding 这类只要加一份配置（末位池化、查询带指令前缀），不下载别的模型。
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { envValue, pathOrOld } from "../old-names.ts";
 import type { Embedder, EmbedRole } from "./embedder.ts";
 
 export interface ModelFile {
@@ -53,14 +52,12 @@ export const BGE_M3: TransformersModelSpec & { model: string } = {
   model: "Xenova/bge-m3:q8@4de13258",
 };
 
-/** 模型目录：参数 > ERGO_MODELS_DIR > ERGO_DATA_DIR/models > ~/.ergo/models（312 号票：变量的旧名字、~/.ergo 不在时旧的目录也认） */
+/** 模型目录：参数 > ERGO_MODELS_DIR > ERGO_DATA_DIR/models > ~/.ergo/models */
 export function resolveModelsDir(dir?: string, env: Record<string, string | undefined> = process.env, homeDir: string = os.homedir()): string {
   if (dir) return path.resolve(dir);
-  const models = envValue(env, "ERGO_MODELS_DIR");
-  if (models) return path.resolve(models);
-  const data = envValue(env, "ERGO_DATA_DIR");
-  if (data) return path.resolve(data, "models");
-  return path.join(pathOrOld(path.join(homeDir, ".ergo")), "models");
+  if (env.ERGO_MODELS_DIR) return path.resolve(env.ERGO_MODELS_DIR);
+  if (env.ERGO_DATA_DIR) return path.resolve(env.ERGO_DATA_DIR, "models");
+  return path.join(homeDir, ".ergo", "models");
 }
 
 export interface TransformersEmbedderOptions {

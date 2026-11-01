@@ -105,14 +105,14 @@
   });
   Object.freeze(api);
 
-  /** App 能调的网页函数：只有这几个（新名字没有时用旧名字，见 packages/web/src/app/app-names.ts） */
+  /** App 能调的网页函数：只有这几个（网页这边见 packages/web/src/app/app-names.ts） */
   var PAGE_FUNCTIONS = {
-    __ergoBack: '__ergouBack',
-    __ergoInsets: '__ergouInsets',
-    __ergoVoice: '__ergouVoice',
-    __ergoBrowser: '__ergouBrowser',
-    __ergoNotifyOpen: '__ergouNotifyOpen',
-    __ergoSide: '__ergouSide',
+    __ergoBack: true,
+    __ergoInsets: true,
+    __ergoVoice: true,
+    __ergoBrowser: true,
+    __ergoNotifyOpen: true,
+    __ergoSide: true,
   };
 
   channel.onmessage = function (event) {
@@ -138,7 +138,7 @@
   };
 
   function callPage(name, arg) {
-    var fn = window[name] || window[PAGE_FUNCTIONS[name]];
+    var fn = window[name];
     if (typeof fn !== 'function') return;
     if (arg === undefined) fn();
     else fn(arg);
@@ -148,7 +148,6 @@
     Object.defineProperty(window, name, { value: value, writable: false, configurable: false, enumerable: false });
   }
   expose('ergoNative', api);
-  expose('ergouNative', api);
 
   // 侧边栏那个 WebView 的网页多一个 window.ergoSide（收起、取消选中、起来了）
   if (boot.side) {
@@ -164,7 +163,6 @@
       },
     });
     expose('ergoSide', side);
-    expose('ergouSide', side);
   }
 
   // 告诉 App 新页面起来了：App 记下回信的通道，把开场之后变了的值再推一次

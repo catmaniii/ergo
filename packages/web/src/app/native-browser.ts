@@ -617,7 +617,6 @@ function eventOf(json: unknown): NativeBrowserEvent | undefined {
 export function wrapNativeBrowser(bridge: BridgeObject, scope: NativeBrowserScope): NativeBrowser | undefined {
   if (!NATIVE_BROWSER_METHODS.every((m) => typeof bridge[m] === "function")) return undefined;
   const listeners = new Set<(event: NativeBrowserEvent) => void>();
-  // 312 号票：新旧两个名字都挂（旧 App 调的是旧名字）
   exposeToApp(scope, "__ergoBrowser", (json: string) => {
     const event = eventOf(json);
     if (event) for (const listener of listeners) listener(event);

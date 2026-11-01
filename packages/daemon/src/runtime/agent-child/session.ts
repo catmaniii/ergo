@@ -35,7 +35,6 @@ import {
   type ModelSpec,
   SESSION_INPUT_TAG,
   SESSION_MODEL_ENTRY,
-  isSessionType,
   type SessionAssembly,
   type SessionContextInfo,
   type SessionModel,
@@ -372,7 +371,7 @@ function lastCustomData(sessionManager: SessionManager, customType: string): Rec
   const entries = sessionManager.getBranch();
   for (let i = entries.length - 1; i >= 0; i--) {
     const entry = entries[i]!;
-    if (entry.type === "custom" && isSessionType(entry.customType, customType)) return typeof entry.data === "object" && entry.data !== null ? (entry.data as Record<string, unknown>) : undefined;
+    if (entry.type === "custom" && entry.customType === customType) return typeof entry.data === "object" && entry.data !== null ? (entry.data as Record<string, unknown>) : undefined;
   }
   return undefined;
 }

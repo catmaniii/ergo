@@ -87,24 +87,8 @@ describe("名字占位：守护进程生成的话里提到秘书的地方不写�
   });
 });
 
-describe("365 号票之前存下的老叫法：显示时换成现在的（认老消息，事件日志不可改）", () => {
-  it.each<[string, string, string]>([
-    ["来信的标记和引子", "【维护者来信】后台的一个 agent 让你转告用户一件事", "【负责人来信】后台的一个 agent 让你转告用户一件事"], // @keep-old-name
-    ["中间夹着名字", "普通任务 t-1「下歌」的维护者说：", "普通任务 t-1「下歌」的负责人说："], // @keep-old-name
-    ["一句里好几处", "转给维护者了，维护者会收到通知", "转给负责人了，负责人会收到通知"], // @keep-old-name
-    ["英文：冠词、大小写、复数", "Handed to a maintainer. Maintainers and the project maintainer's chat", "Handed to an owner. Owners and the project owner's chat"],
-    ["英文：句首的冠词", "A maintainer proposed it", "An owner proposed it"],
-  ])("%s", (_case, old, now) => {
-    expect(currentWording(old)).toBe(now);
-    // 已经是新说法的原样
-    expect(currentWording(now)).toBe(now);
-  });
-
-  it.each<[string]>([
-    ["编号、频道名：maintainer:pm-1"],
-    ["工具名、路径：tell_maintainer、prompts/project-maintainer.md、maintainers/tools.ts"],
-    ["别的词：data 不是冠词，remaintainer 不算"],
-  ])("编号、路径不动：%s", (text) => {
+describe("编号、路径不动", () => {
+  it.each<[string]>([["编号、频道名：maintainer:pm-1"], ["工具名、路径：tell_maintainer、prompts/project-maintainer.md、maintainers/tools.ts"]])("%s", (text) => {
     expect(currentWording(text)).toBe(text);
   });
 });

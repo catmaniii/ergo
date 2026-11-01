@@ -48,10 +48,9 @@ export type PromptValues = Readonly<Record<string, string | boolean | undefined>
 /**
  * 读进来的提示文件统一成一个样子：去掉开头的 BOM、换行统一成 \n（Windows 上检出、编辑器存的可能是 \r\n），去掉末尾的空行。
  * 守护进程读文件、设置页比较"改没改"都先过它。
- * 365 号票：来信标记的占位符改了名，用户改过的提示里还写着老名字的照样用（换成新名字），不算写错
  */
 export function normalizePromptSource(raw: string): string {
-  return raw.replace(/^﻿/, "").replace(/\r\n?/g, "\n").replace(/\n+$/, "").replaceAll("{{维护者来信标记}}", "{{负责人来信标记}}"); // @i18n-ignore data：认用户存着的提示文件 @keep-old-name
+  return raw.replace(/^﻿/, "").replace(/\r\n?/g, "\n").replace(/\n+$/, "");
 }
 
 /** 占位符的名字里不能有的：空白、花括号、写法用的几个符号 */

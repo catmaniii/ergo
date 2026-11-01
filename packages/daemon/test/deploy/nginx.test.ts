@@ -165,17 +165,17 @@ describe("nginx 站点配置", () => {
     expect(one(body, "ssl_certificate").args).toEqual(["/etc/letsencrypt/live/203.0.113.10.sslip.io/fullchain.pem"]);
     for (const loc of locations) expect(one(loc.children!, "proxy_pass").args).toEqual(["http://127.0.0.1:19000"]);
   });
-  it("换域名的过渡期：旧域名（alsoServe）各一份同样的站点，证书用它自己的；和主域名重复的不另出", () => {
+  it("换域名的过渡期：另外的域名（alsoServe）各一份同样的站点，证书用它自己的；和主域名重复的不另出", () => {
     const access = publicAccessDefaults({
       vpsHost: "203.0.113.10",
       sshKey: "C:\\keys\\vps.pem",
-      alsoServe: ["ergou.203.0.113.10.sslip.io", "ergo.203.0.113.10.sslip.io"],
+      alsoServe: ["before.203.0.113.10.sslip.io", "ergo.203.0.113.10.sslip.io"],
     });
     const top = parseNginx(nginxSiteConfig(access));
     const servers = all(top, "server");
-    expect(servers.map((srv) => one(srv.children!, "server_name").args[0])).toEqual(["ergo.203.0.113.10.sslip.io", "ergou.203.0.113.10.sslip.io"]);
+    expect(servers.map((srv) => one(srv.children!, "server_name").args[0])).toEqual(["ergo.203.0.113.10.sslip.io", "before.203.0.113.10.sslip.io"]);
     const old = servers[1]!.children!;
-    expect(one(old, "ssl_certificate").args).toEqual(["/etc/letsencrypt/live/ergou.203.0.113.10.sslip.io/fullchain.pem"]);
+    expect(one(old, "ssl_certificate").args).toEqual(["/etc/letsencrypt/live/before.203.0.113.10.sslip.io/fullchain.pem"]);
     // 旧域名上的 location 和主域名一模一样（WebSocket、/apps/、上传都照常）
     expect(all(old, "location").map((loc) => loc.args.join(" "))).toEqual(all(servers[0]!.children!, "location").map((loc) => loc.args.join(" ")));
     // map 只出一次（nginx 里同名变量重复定义会报错）
