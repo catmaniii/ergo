@@ -58,7 +58,7 @@ export function PlanStageList({ plan }: { plan: Pick<Plan, "stages" | "stageGrou
                 {s.modeReason ? t("ui.planStages.modeReason", { reason: s.modeReason }) : ""}
                 {s.dependsOn.length ? t("ui.planStages.after", { stages: s.dependsOn.map((d) => stageCodeLabel(codes, d)).join(t("ui.common.listSep")) }) : ""}
                 {group ? t("ui.planStages.group", { title: group.title }) : ""}
-                {t("ui.planStages.budget", { tokens: tokensLabel(s.budget.tokens), count: s.budget.toolCalls })}
+                {s.budget.tokens > 0 ? t("ui.planStages.budget", { tokens: tokensLabel(s.budget.tokens), count: s.budget.toolCalls }) : t("ui.planStages.calls", { count: s.budget.toolCalls })}
               </span>
             </div>
             <div className="muted">{t("ui.planStages.deliverables", { list: s.deliverables.join(t("ui.planStages.itemSep")) })}</div>

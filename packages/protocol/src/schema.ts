@@ -674,6 +674,16 @@ export const MessageEventPayload = Type.Object({
    */
   chatOnly: Type.Optional(Type.Literal(true)),
   /**
+   * 任务执行交给维护者的通知是哪一种、说的是哪几个阶段（361 号票，只给运行时看）：状态一变，排着没交的旧通知按它作废出队，
+   * 同一种新的来了旧的也出队，免得一条叫醒一轮。别的通知没有
+   */
+  taskNotice: Type.Optional(
+    Type.Object({
+      kind: Type.Union([Type.Literal("budget_explain"), Type.Literal("branch_stopped"), Type.Literal("branch_resumed")]),
+      stageIds: Type.Array(Type.String()),
+    }),
+  ),
+  /**
    * 用户自己发的消息从哪来（125 号票）：本机端口，或者外网端口上的已配对设备。运行时核实用户原话时写"从哪台设备来的"；
    * 125 号票之前的、秘书转达的、agent 和系统的消息没有
    */

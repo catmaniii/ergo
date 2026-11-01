@@ -38,6 +38,7 @@ import {
   type RuntimeChoice,
   type RuntimeTakeover,
   type Plan,
+  type PlanSubmission,
   planStageCodes,
   type PlanCardPayload,
   type PlanConfirmInput,
@@ -91,7 +92,7 @@ import { SUBMIT_PLAN_TOOL } from "../maintainers/tools.ts";
 import { oneLine } from "../util/text.ts";
 import { type GrantTimes, type PlanDecidedPayload, type PlanSubmittedPayload, type TaskBrief, type TaskBriefPayload, TASK_EVENTS, TASKS_CHANNEL } from "./events.ts";
 import { internalOtherProjects } from "./plan-projects.ts";
-import { checkPlan, globalWatchCategories, grantInfoOf, planConfirmation, readWatchSettings, snapshotWatchCategories, type ToolkitProblems, verifiedQuotes, withoutLegacyJobs } from "./plan.ts";
+import { checkPlan, globalWatchCategories, grantInfoOf, planConfirmation, planFromSubmission, readWatchSettings, snapshotWatchCategories, type ToolkitProblems, verifiedQuotes, withoutLegacyJobs } from "./plan.ts";
 import { isoTimes } from "./grant-renewal.ts";
 import { grantTimesAfter } from "./plan-change.ts";
 import { TASK_TOOL, WORKFLOW_TOOL } from "./tool-names.ts";
@@ -284,7 +285,8 @@ export interface TaskService {
    */
   buildBriefRevision(taskId: string, patch: Partial<Pick<TaskBrief, "goal" | "acceptanceCriteria">>): NewEvent;
   /** 执行的维护者提交计划（submit_plan 工具）：检查不过时抛 RequestRejected，原因交回维护者 */
-  submitPlan(taskId: string, maintainerId: string, plan: Plan): { cardId: string; planId: string; revision: number };
+  /** 361 号票：负责人交的预算只有次数算数，token 由运行时算（planFromSubmission） */
+  submitPlan(taskId: string, maintainerId: string, plan: PlanSubmission): { cardId: string; planId: string; revision: number };
   /** 计划卡上的"确认"（勾掉、收窄授权项，改假设栏） */
   confirmFromCard(payload: PlanCardPayload, input: PlanConfirmInput, idempotencyKey: string): CardActionEffect<PlanCardPayload>;
   /** 计划卡上的"附意见打回" */
@@ -367,6 +369,8 @@ export interface TaskServiceOptions {
   cards: CardService;
   inbox: InboxService;
   now: () => string;
+  /** 单次计量（361 号票，账本的 callMeter）：计划卡上整个任务的 token 粗估、大约多少钱按它算；不给是 0 */
+  callMeter?: (agentId: string) => { perCall: number; costPerCall?: { amount: number; currency: string } };
   /** 全局的关注类别设置（数据目录配置区的文件，每次现取；文件坏了时抛错） */
   watchSettings: () => WatchCategorySettings;
   /** 计划里的授权项、时序规则照这份工具注册表查（内置的，加上维护者代为执行的工具） */
@@ -1049,14 +1053,16 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
       const payload: TaskBriefPayload = { taskId, brief: { ...current.brief, ...patch }, revision: current.revision + 1, time: now() };
       return { channel: TASKS_CHANNEL, type: TASK_EVENTS.briefWritten, payload };
     },
-    submitPlan(taskId, maintainerId, plan) {
+    submitPlan(taskId, maintainerId, submission) {
       const task = mustGet(taskId);
       // @i18n-ignore-start model：交回维护者
       if (task.maintainerId !== maintainerId) throw new RequestRejected("not_allowed", `任务 ${taskId} 不是你执行的，只有它的维护者能提交计划`);
       if (isPlainTask(task)) throw new RequestRejected("not_allowed", `任务 ${taskId} 是普通任务：不交计划，直接做`);
       // @i18n-ignore-end
       // 76 号票起计划里不再写定时作业（提交计划的工具的参数里没有这一项；直接调进来的也拒，说清改去哪里建）
-      if (Object.hasOwn(plan, "scheduledJobs")) throw new RequestRejected("bad_params", PLAN_JOBS_REFUSAL);
+      if (Object.hasOwn(submission, "scheduledJobs")) throw new RequestRejected("bad_params", PLAN_JOBS_REFUSAL);
+      // 361 号票：负责人只估次数，token 由运行时算
+      const plan = planFromSubmission(submission, options.callMeter?.(maintainerId));
       const basic = checkPlan(plan, { tools: options.planTools, settings: settings(), taskId, ...(options.toolkitProblems ? { toolkitProblems: options.toolkitProblems } : {}) });
       // 涉及的项目要对得上任务（17 号票评审后定）
       const problems = basic.ok ? (options.planProjects?.(task, basic.plan) ?? []) : basic.problems;

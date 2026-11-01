@@ -134,6 +134,11 @@ export function usageCategory(role: LedgerRole, owned: boolean): UsageCategory {
   return owned ? "owned" : "unattributed";
 }
 
+/** 大约多少钱（361 号票：阶段预算、计划卡上写的）：不到一分也写一分 */
+export function approxMoney(cost: { amount: number; currency: string }): string {
+  return `${currencySymbol(cost.currency)}${Math.max(cost.amount, 0.01).toFixed(2)}`;
+}
+
 /** 货币的符号（认不得的原样写货币代码） */
 export function currencySymbol(currency: string): string {
   const symbols: Readonly<Record<string, string>> = { CNY: "¥", RMB: "¥", USD: "$", EUR: "€", SGD: "S$" };

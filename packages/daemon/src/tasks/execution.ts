@@ -41,6 +41,9 @@
 // - 阈值：拉回（守卫的 pulled_back）满 3 次后再犯、同一次停滞里催满 3 次仍无进展、验收退回 2 次第 3 次还不过——
 //   这一支停下找用户（卡住求助，待我处理里一条事项）；每个阶段按 token（账本里这个阶段干活用掉的）加工具调用次数累计用量，
 //   用量超过预算让维护者说明进展，超过预算的 2 倍这一支停下（超预算）。都按 13 号票的规矩落地：别的分支还能推进就只停这一支，
+//   361 号票：token 预算由运行时算（负责人估的次数 × 校准比例 × 单次计量，阶段开始时记在阶段上）；超预算停下时除了宣布完成、提计划变更
+//   都不放行（heldCall），活做完了能宣布；确认加预算的计划变更和追加预算继续一样从那时重新算；状态变了排着的通知作废（dropQueued），
+//   停下了也不再叫醒维护者；
 //   都在等才转等我。用户点"继续执行""追加预算继续"（或在卡住求助的任务会话里回话）时这一支接着走，计数清零、预算重给一整份；
 // - 无进展：维护者活着、任务在执行中、维护者的当前阶段（20 号票的 focus，不算交给子 agent 的）在做，stallMs（默认 20 分钟）内
 //   没有成功的工具调用（效果日志，子 agent 的也算）也没有阶段推进，催一次（维护者正在干活时以插话送达）；有了进展，催促计数清零；
@@ -98,9 +101,11 @@ import {
   MAINTAINER_CHANNEL_PREFIX,
   maintainerChannel,
   type MessageEventPayload,
+  type StageBudget,
   type TurnEndEventPayload,
   nowIso,
   OVER_BUDGET_ACTIONS,
+  OVER_BUDGET_SETTLED,
   type ParallelCardPayload,
   type Plan,
   type PlanChangeCardPayload,
@@ -109,6 +114,7 @@ import {
   type PlanDraft,
   type PlanToolkit,
   planChangeItemText,
+  budgetRaised,
   type ProgressCardPayload,
   sameToolkit,
   capabilityText,
@@ -197,7 +203,9 @@ import {
 } from "../guard-runtime/events.ts";
 import { executionOf, interruptionNote } from "../guard-runtime/executions.ts";
 import { planHistory } from "../guard-runtime/plan-check.ts";
+import { queuedAgentInput } from "../conversation/agent-session.ts";
 import { getMessage, inputOf, pendingInputs, startedInputs } from "../conversation/views.ts";
+import type { CallMeter } from "../ledger/ledger.ts";
 import { inboxItemCreatedSeq } from "../inbox/views.ts";
 import { cardRefsElsewhere, NO_USER_WORDS, type UserWordsCheck, type UserWordsDeps, verifyUserWords } from "../conversation/user-words.ts";
 import type { HandOverData } from "../hand-over/hand-over.ts";
@@ -223,7 +231,7 @@ import {
   TASK_EVENTS,
   TASKS_CHANNEL,
 } from "./events.ts";
-import { keptAcceptedText, noticeText, spendText, stageEditLines, stageEditWhat, stageText, stopReasonText } from "./execution-tools.ts";
+import { keptAcceptedText, noticeText, refusalText, spendText, stageEditLines, stageEditWhat, stageText, stopReasonText } from "./execution-tools.ts";
 import { confirmedAtOf, createGrantRenewals, grantTimesOfPlan, isoTimes } from "./grant-renewal.ts";
 import {
   type AcceptedDifference,
@@ -236,6 +244,7 @@ import {
   stagesAfter,
   touchedAcceptedStages,
   touchedText,
+  withStoredTokens,
 } from "./plan-change.ts";
 import { AUTO_ACCEPTANCE_TEXT, autoAcceptedPlan, convertedCriteria } from "./auto-acceptance.ts";
 import { checkRevisedPlan, grantInfoOf, planConfirmation, readWatchSettings, toGuardPlan, type ToolkitProblems } from "./plan.ts";
@@ -250,8 +259,8 @@ import { assertUserCan } from "./state-machine.ts";
 import { taskWorkdir } from "./task-workdir.ts";
 import type { TaskService } from "./tasks.ts";
 import type { ExecutionSlots } from "./slots.ts";
-import { budgetRatio, type StageSpend, type TaskThresholds } from "./thresholds.ts";
-import { EXECUTION_TOOL } from "./tool-names.ts";
+import { budgetRatio, callScale, type StageAllowance, type StageSpend, type TaskThresholds } from "./thresholds.ts";
+import { EXECUTION_TOOL, WORKFLOW_TOOL } from "./tool-names.ts";
 import type { StoredPlan } from "./views.ts";
 import { guardWorkflow } from "./workflow-plan.ts";
 import { executedSteps, nudgeOf, stepStartEvent, stepsAtFinish, stepsOnStart } from "./workflow-run.ts";
@@ -284,6 +293,8 @@ export interface MaintainerScope {
 export interface StageHandoff {
   stageId: string;
   title: string;
+  /** 这一份预算（361 号票）：打开预算控制时交代里写明 */
+  budget?: StageBudget;
   /** 这一阶段的编号（93 号票：计划里存的，"1a"）、一共几个阶段号（依赖图有几层）：交代里写"第 1a/4 阶段" */
   code: string;
   layers: number;
@@ -327,7 +338,8 @@ export type CompleteStageResult = (
   /** 验收期间任务被暂停、取消、结束了：这次验收作废 */
   | { outcome: "void"; state: TaskState }
   /** 没通过：交回维护者，阶段回到进行中 */
-  | { outcome: "returned"; stageId: string; judgedBy: AcceptanceMethod; results: AcceptanceVerdict[] }
+  /** overBudget：这个阶段的用量还超着预算，退回之后这一支又停下了（361 号票） */
+  | { outcome: "returned"; stageId: string; judgedBy: AcceptanceMethod; results: AcceptanceVerdict[]; overBudget?: boolean }
   /** 没通过、而且退回次数超了阈值（14 号票：退回 2 次、第 3 次还不过）：这一支停下找用户（卡住求助） */
   | { outcome: "stuck"; stageId: string; judgedBy: AcceptanceMethod; results: AcceptanceVerdict[]; attempts: number; next: NextUp }
   /** 能自动判的都过了，还有由用户验收的：放进待我处理，阶段等用户 */
@@ -355,6 +367,8 @@ export interface PlanChangeProposal {
   planId: string;
   changes: PlanChangeItem[];
   affected: StageRef[];
+  /** 受影响、但还停在超预算的阶段（361 号票）：不改等卡，还等它的超预算事项；卡加了预算就接着走 */
+  overBudget: StageRef[];
   /** 交来的已验收阶段里和现在不一样、按现在的定义保留了的（121 号票） */
   keptAccepted: AcceptedDifference[];
   /** 维护者引用的用户原话：核实过的（卡上单独一栏）、没核实过的（交回维护者，125 号票） */
@@ -413,7 +427,7 @@ export type BranchStopReason =
    */
   | { kind: "acceptance"; returns: number; judged: string }
   /** 用量超过预算的 times 倍 */
-  | { kind: "over_budget"; used: StageSpend; budget: StageSpend; times: number }
+  | { kind: "over_budget"; used: StageSpend; budget: StageAllowance; times: number }
   /** 维护者标了做不了 */
   | { kind: "infeasible"; reason: string };
 
@@ -433,6 +447,8 @@ export interface TaskExecutionOptions {
   thresholds: TaskThresholds;
   /** 某个任务的某个阶段干活用掉的 token（24 号票 token 账本的 stageTokens(…, { budget: true })，14 号票的预算比较用它） */
   stageTokens: (taskId: string, stageId: string) => number;
+  /** 单次计量（361 号票，账本的 callMeter）：这个 agent 现在一次调用大约记多少，阶段开始、追加预算时按它算 token 预算 */
+  callMeter: (agentId: string) => CallMeter;
   /** 这个维护者现在有没有在运行的子进程（无进展的判定：维护者活着才算停滞） */
   agentAlive: (agentId: string) => boolean;
   /** 现取全局关注类别设置（26 号票的设置服务）：交给维护者的授权说法要它 */
@@ -589,6 +605,11 @@ export interface TaskExecution {
   stopAcceptance(taskId: string): Promise<void>;
   /** 账本记下了这个任务的一次用量（14 号票：token 的预算比较；daemon.ts 接在账本的 onRecorded 上） */
   tokensRecorded(taskId: string, stageId: string): void;
+  /**
+   * 这次调用所在的阶段超预算停下了（361 号票，守卫每次判定之前问）：除了宣布完成、提计划变更（流程是汇报步骤）都不放行，
+   * 给出交回 agent 的原因；连着被拒到一定次数中止手头这一轮。没停下时 undefined
+   */
+  heldCall(scope: MessageScope, tool: string): string | undefined;
   // ───── 用户 ─────
   /** 用户对任务的控制（task_action 请求）：同一个幂等键重发拿到同一个结果 */
   act(params: TaskActionParams, idempotencyKey: string): TaskActionResult | Promise<TaskActionResult>;
@@ -697,6 +718,10 @@ interface Draft {
   startNotice?: string;
   /** 阶段开始的记号已经放进事件里了（152 号票，eventsOf 只放一次） */
   marked?: boolean;
+  /** 这次变化里重新起算预算的阶段（361 号票）：起算点的事件还没落盘，这一份预算按它写 */
+  budgetResets?: Map<string, { baseTokens: number; baseToolCalls: number }>;
+  /** 这次变化里作废的排着的通知（361 号票）：同一条不作废两次 */
+  dropped?: Set<string>;
   /**
    * 从某个阶段重做时交给维护者的那条通知（274 号票）：等范围外已验收的阶段复验完，带上复验的结果再追加（
    * 先 reopen（含复验），再把"另外复验发现 … 先告诉用户"写进同一句交给维护者）。276 号票起它和重置同一事务存进事件库
@@ -744,9 +769,9 @@ const draftOf = (task: Task, projectScope: MessageScope, key?: string): Draft =>
 /** 草稿里这时的归属：任务和当时的阶段（说的是某个阶段的写那个阶段），项目的任务还有项目 */
 const scopeIn = (d: Draft, stageId?: string): MessageScope => ({ ...taskMessageScope(d.task, stageId), ...d.projectScope });
 
-/** 交给维护者的一条输入（它会话里的系统通知）；interject：它正在干活时以插话送达（14 号票：只有催促这样送） */
-const notify = (d: Draft, text: string, interject = false) => {
-  const notice = buildAgentNotice(maintainerChannel(d.task.maintainerId), text, `task-exec:${d.task.id}:${randomUUID()}`, scopeIn(d), { interject });
+/** 交给维护者的一条输入（它会话里的系统通知）；interject：它正在干活时以插话送达（14 号票：只有催促这样送）；about：是哪一种通知（361 号票，状态变了按它作废） */
+const notify = (d: Draft, text: string, interject = false, about?: MessageEventPayload["taskNotice"]) => {
+  const notice = buildAgentNotice(maintainerChannel(d.task.maintainerId), text, `task-exec:${d.task.id}:${randomUUID()}`, scopeIn(d), { interject, ...(about ? { taskNotice: about } : {}) });
   d.events.push(notice.event);
   if (d.startedStage) d.startNotice ??= notice.message.id;
 };
@@ -841,6 +866,22 @@ const rollbackPlanVoided = () => t("tasks.exec.rollbackPlanVoided");
  * 一支有了结论之后，推出来的等我恢复执行，维护者自己说的要用户点"继续执行"（或回话）
  */
 const declaredWait = (task: Task, busy: ReadonlySet<string>): boolean => task.state === "waiting_for_user" && nextStep(listOf(task), busy).kind !== "wait";
+
+/** 超预算停下的这一支（361 号票）：除了宣布完成、提计划变更都不放行 */
+const overBudgetHeld = (s: TaskStage) => s.state === "waiting" && s.waitReason === "over_budget";
+
+/** 这一份预算：阶段上算好的；升级前就开始了的阶段照计划里写的（361 号票） */
+const allowanceOf = (stage: TaskStage, planned: Pick<PlanStage, "budget"> | undefined): StageAllowance => stage.budget ?? { tokens: planned?.budget.tokens ?? 0, toolCalls: planned?.budget.toolCalls ?? 0 };
+
+/** 这张计划变更卡加了预算的阶段（361 号票）：确认后这些阶段的用量从那时重新算 */
+const raisedBudgetStages = (changes: readonly PlanChangeItem[]): string[] =>
+  changes.flatMap((c) => (c.kind === "budget" ? c.stages.filter((s) => s.before && s.after && budgetRaised(s.before, s.after)).map((s) => s.stageId) : []));
+
+/** 超预算停下时放行的工具（361 号票）：活做完了能宣布（流程是汇报步骤），要接着做能提加预算 */
+const OVER_BUDGET_ALLOWED_TOOLS: ReadonlySet<string> = new Set([EXECUTION_TOOL.completeStage, EXECUTION_TOOL.proposePlanChange, WORKFLOW_TOOL.reportStep]);
+
+/** 停下之后连着被拒几次就中止手头这一轮（361 号票）：模型照着重试也只能再花这么多次调用 */
+const HELD_CALLS_BEFORE_ABORT = 5;
 
 /** 用户点"继续"就接着走的那几支（等用户定夺的：卡住求助、超预算，协议包的 USER_DECIDES_WAIT_REASONS） */
 const userResolved = (s: TaskStage) => s.state === "waiting" && userDecidesWait(s);
@@ -1007,6 +1048,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     return {
       stageId,
       title: stage?.title ?? stageId,
+      ...(thresholds.budgetControl && stage?.budget ? { budget: stage.budget } : {}),
       code: stageCodeIn(task, stageId),
       layers: stageLayerCount(list),
       plan,
@@ -1170,12 +1212,65 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
 
   // ───────────────────────── 阶段推进 ─────────────────────────
 
-  /** 阶段开始做（第一次开始的记下开始时间；已经在做的不动） */
-  const startNow = (s: TaskStage): TaskStage => (s.state === "running" ? s : stageNow(s, "running", { startedAt: s.startedAt ?? now() }));
+  /**
+   * 这个阶段这一份预算（361 号票）：负责人估的次数（计划里的 budget.toolCalls）× 校准比例 × 单次计量，再按账本单价算大约多少钱。
+   * 计划里没写次数的（流程、之前只写了 token 的）没有
+   */
+  const budgetFor = (d: Draft, stageId: string): StageBudget | undefined => {
+    const estimated = (d.plan ?? confirmedPlan(d.task.id)?.plan)?.stages.find((s) => s.stageId === stageId)?.budget.toolCalls ?? 0;
+    if (estimated <= 0) return undefined;
+    const scale = callScale(listOf(d.task).flatMap((s) => (s.calls ? [s.calls] : [])));
+    const meter = options.callMeter(d.task.maintainerId);
+    const toolCalls = Math.max(1, Math.round(estimated * scale));
+    const usage = tasks.stageUsage(d.task.id, stageId);
+    return {
+      toolCalls,
+      tokens: toolCalls * meter.perCall,
+      perCall: meter.perCall,
+      scale,
+      ...(d.budgetResets?.get(stageId) ?? { baseTokens: usage.baseTokens, baseToolCalls: usage.total - usage.toolCalls }),
+      ...(meter.costPerCall ? { cost: { amount: toolCalls * meter.costPerCall.amount, currency: meter.costPerCall.currency } } : {}),
+    };
+  };
+
+  /** 阶段开始做（第一次开始的记下开始时间，算好这一份预算；已经在做的不动） */
+  const startNow = (d: Draft) => (s: TaskStage): TaskStage => {
+    if (s.state === "running") return s;
+    const budget = s.budget ?? budgetFor(d, s.stageId);
+    return stageNow(s, "running", { startedAt: s.startedAt ?? now(), ...(budget ? { budget } : {}) });
+  };
+
+  /** 验收时记下这个阶段估的和实际的工具调用次数（361 号票）：估的按最早写它的那一版计划（后来提计划变更加的不算估的） */
+  const withCalls = (taskId: string, s: TaskStage): TaskStage => {
+    const estimated = tasks.confirmedPlans(taskId).map((p) => p.plan.stages.find((x) => x.stageId === s.stageId)?.budget.toolCalls ?? 0).find((n) => n > 0) ?? 0;
+    return estimated > 0 ? { ...s, calls: { estimated, actual: tasks.stageUsage(taskId, s.stageId).total } } : s;
+  };
+
+  /**
+   * 排着、还没交给维护者的这几种通知作废出队（361 号票，照 84 号票的 staleInputs）：状态一变旧通知就过时了，同一种新的来了旧的也不用再交，
+   * 不然一条叫醒一轮（真模型试验里 59 轮的输入全是过期通知）。都作废了就没有要处理的，模型不会被拉起
+   */
+  const dropQueued = (d: Draft, stageIds: readonly string[], kinds: ReadonlyArray<NonNullable<MessageEventPayload["taskNotice"]>["kind"]>) => {
+    const conversation = maintainerChannel(d.task.maintainerId);
+    for (const queued of pendingInputs(store.reader, conversation)) {
+      if (queued.scope.taskId !== d.task.id || d.dropped?.has(queued.messageId)) continue;
+      const about = queuedAgentInput(store, queued).payload.taskNotice;
+      if (!about || !kinds.includes(about.kind) || !about.stageIds.some((id) => stageIds.includes(id))) continue;
+      (d.dropped ??= new Set()).add(queued.messageId);
+      const payload: TurnEndEventPayload = { inputMessageId: queued.messageId, outcome: "aborted", error: t("tasks.exec.staleNotice") };
+      d.events.push({ channel: conversation, type: EVENT_TYPES.turnEnd, payload });
+    }
+  };
+
+  /** 超预算事项不用再点了（361 号票：活宣布完了、加预算的计划变更确认了）：记成处理过，写明为什么 */
+  const closeBudgetNotice = (d: Draft, stage: TaskStage, handled: string, handledNote: string) => {
+    const item = stage.waitingOn === undefined ? undefined : inbox.get(stage.waitingOn);
+    if (item?.kind === "notice" && item.handled === undefined) d.events.push(inbox.buildUpdate(item, { handled, handledAt: now(), handledNote, urgency: "non_blocking", read: true }).event);
+  };
 
   /** 开始一个阶段；forMaintainer：是维护者（或运行时替它）开始的，记成它的当前阶段（用户同意并行时交给子 agent 的不记） */
   const startStageIn = (d: Draft, stageId: string, by: TaskActor, forMaintainer = true) => {
-    apply(d, "stage_started", by, (tk) => withList(tk, withStage(listOf(tk), stageId, startNow), forMaintainer ? stageId : tk.stages?.focus), stageId);
+    apply(d, "stage_started", by, (tk) => withList(tk, withStage(listOf(tk), stageId, startNow(d)), forMaintainer ? stageId : tk.stages?.focus), stageId);
     if (forMaintainer) d.startedStage = stageId;
   };
 
@@ -1450,6 +1545,9 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     const names = stages.map((s) => stageName(task, s)).join(t("protocol.common.listSep"));
     const why = stopReasonText(reason);
     const waitReason: TaskWaitReason = reason.kind === "over_budget" ? "over_budget" : "stuck";
+    if (reason.kind === "over_budget") heldRefusals.delete(task.id);
+    // 这几支停下了：排着的"说明进展""接着做""这一支停下"都过时了（361 号票）
+    dropQueued(d, ids, ["budget_explain", "branch_resumed", "branch_stopped"]);
     const item = addNotice(
       d,
       waitReason === "over_budget"
@@ -1471,7 +1569,10 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     apply(d, "stage_waiting", by, (tk) => withList(tk, listOf(tk).map((s) => (ids.includes(s.stageId) ? stageWaiting(s, waitReason, item.id, why) : s))), ids[0]);
     record(d, "deviation", t("tasks.exec.stoppedRecord", { names, reason: TASK_WAIT_REASON_LABEL[waitReason], why }), { stageId: ids[0]! });
     settle(d);
-    notify(d, noticeText.branchStopped(stages.map(ref), reason, d.startedStage && d.task.state === "running" ? handoff(d.task, d.startedStage) : undefined));
+    // 超预算、没有别的能做（361 号票）：手头这一轮的调用已经被拒，拒绝信息说清楚了；用户点了才有事做，这里不再叫醒它多花一轮
+    if (reason.kind === "over_budget" && d.task.state !== "running") return item;
+    const next = d.startedStage && d.task.state === "running" ? handoff(d.task, d.startedStage) : undefined;
+    notify(d, noticeText.branchStopped(stages.map(ref), reason, next, d.task.state === "running"), false, next ? undefined : { kind: "branch_stopped", stageIds: ids });
     return item;
   };
 
@@ -1488,10 +1589,25 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     return { returns, stuck: true };
   };
 
-  /** 超预算的阶段接着走：从现在起重新给一整份预算（工具调用次数从现在的起算，token 从账本里这时的数起算） */
+  /**
+   * 超预算的阶段接着走：从现在起重新给一整份预算（工具调用次数从现在的起算，token 从账本里这时的数起算）。
+   * 这一份按现在的次数、比例和单次计量重新算（361 号票：上下文比阶段开始时大了，按老的数马上又会停），记进紧跟着的那次任务变化
+   */
   const budgetReset = (d: Draft, stageId: string) => {
-    const payload: BudgetResetPayload = { taskId: d.task.id, stageId, baseTokens: options.stageTokens(d.task.id, stageId), time: now() };
+    const baseTokens = options.stageTokens(d.task.id, stageId);
+    const payload: BudgetResetPayload = { taskId: d.task.id, stageId, baseTokens, time: now() };
     d.events.push({ channel: TASKS_CHANNEL, type: TASK_EVENTS.budgetReset, payload });
+    (d.budgetResets ??= new Map()).set(stageId, { baseTokens, baseToolCalls: tasks.stageUsage(d.task.id, stageId).total });
+    heldRefusals.delete(d.task.id);
+    dropQueued(d, [stageId], ["budget_explain"]);
+    const fresh = budgetFor(d, stageId);
+    d.task = withList(
+      d.task,
+      withStage(listOf(d.task), stageId, (s) => {
+        const { budget: _old, ...rest } = s;
+        return fresh ? { ...rest, budget: fresh } : rest;
+      }),
+    );
   };
 
   /**
@@ -1512,7 +1628,12 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     }
     proceed(d, "system", declared);
     const resolved = stages.filter(userResolved);
-    if (resolved.length > 0) notify(d, withStarted(d, noticeText.branchResumed(resolved)));
+    if (resolved.length > 0) {
+      const ids = resolved.map((s) => s.stageId);
+      // 用户让它接着走了：排着的"这一支停下"过时了，同一种旧的也不用再交（361 号票）
+      dropQueued(d, ids, ["branch_stopped", "branch_resumed"]);
+      notify(d, withStarted(d, noticeText.branchResumed(resolved)), false, { kind: "branch_resumed", stageIds: ids });
+    }
     const current = d.task.state === "running" ? currentOf(d.task) : undefined;
     const active = current && (current.state === "running" || current.state === "accepting") ? current : undefined;
     const stage = stages[0]!;
@@ -1625,29 +1746,60 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
    * 用量超过预算让维护者说明进展（只说一次）；超过预算的 budgetAskTimes 倍这一支停下（超预算）。
    * 预算控制关着（93 号票，默认）时什么都不做：用量照旧记在预算账上（阶段详情照旧显示用了多少），超了不说明、不停下
    */
-  const checkBudget = (taskId: string, stageId: string) => {
-    if (!thresholds.budgetControl) return;
+  const checkBudget = (taskId: string, stageId: string): boolean => {
+    if (!thresholds.budgetControl) return false;
     const task = tasks.get(taskId);
     const stage = task ? findStage(listOf(task), stageId) : undefined;
     const planned = task ? confirmedPlan(taskId)?.plan.stages.find((s) => s.stageId === stageId) : undefined;
-    if (!task || !stage || !planned || task.state !== "running" || (stage.state !== "running" && stage.state !== "accepting")) return;
+    // 在验收的不查（361 号票）：这时停下，验收的结论就作废了；验收退回的时候再看
+    if (!task || !stage || !planned || task.state !== "running" || stage.state !== "running") return false;
     const { used, warned } = stageSpend(taskId, stageId);
-    const budget: StageSpend = { tokens: planned.budget.tokens, toolCalls: planned.budget.toolCalls };
+    const budget = allowanceOf(stage, planned);
     const ratio = budgetRatio(used, budget);
     if (ratio > thresholds.budgetAskTimes) {
       const d = draft(task);
       stopBranch(d, [stage], { kind: "over_budget", used, budget, times: thresholds.budgetAskTimes });
       commit(d);
-      return;
+      return true;
     }
     if (ratio > thresholds.budgetExplainTimes && !warned) {
       const d = draft(task);
       const mark: BudgetMarkPayload = { taskId, stageId, time: now() };
       d.events.push({ channel: TASKS_CHANNEL, type: TASK_EVENTS.budgetWarned, payload: mark });
-      notify(d, noticeText.budgetExplain(ref(stage), { used, budget }, thresholds.budgetAskTimes));
+      notify(d, noticeText.budgetExplain(ref(stage), { used, budget }, thresholds.budgetAskTimes), false, { kind: "budget_explain", stageIds: [stageId] });
       record(d, "deviation", t("tasks.exec.overBudgetRecord", { stage: stageName(task, stage), spend: spendText(used, budget) }), { stageId });
       commit(d);
     }
+    return false;
+  };
+
+  /** 超预算停下之后被拒了几次（361 号票，按任务）：到 HELD_CALLS_BEFORE_ABORT 就中止手头这一轮 */
+  const heldRefusals = new Map<string, number>();
+
+  /** 超预算停下时交回 agent 的话（361 号票）：用了多少、预算多少，在等什么，现在能做什么 */
+  const overBudgetRefusal = (task: Task, stage: TaskStage): string =>
+    refusalText.overBudget(
+      task.id,
+      ref(stage),
+      { used: stageSpend(task.id, stage.stageId).used, budget: allowanceOf(stage, confirmedPlan(task.id)?.plan.stages.find((s) => s.stageId === stage.stageId)) },
+      tasks.proposedPlan(task.id)?.planId,
+    );
+
+  const heldCall: TaskExecution["heldCall"] = (scope, tool) => {
+    if (scope.taskId === undefined || scope.stageId === undefined || OVER_BUDGET_ALLOWED_TOOLS.has(tool)) return undefined;
+    const task = tasks.get(scope.taskId);
+    const stage = task && !ENDED_TASK_STATES.includes(task.state) ? findStage(listOf(task), scope.stageId) : undefined;
+    if (!task || !stage || !overBudgetHeld(stage)) return undefined;
+    const refused = (heldRefusals.get(task.id) ?? 0) + 1;
+    heldRefusals.set(task.id, refused);
+    const reason = overBudgetRefusal(task, stage);
+    // 话说清楚了还接着试：不再花钱陪它试，这一轮停下
+    if (refused % HELD_CALLS_BEFORE_ABORT === 0) {
+      void Promise.resolve(options.stopTurn?.(task, { timeoutMs: options.reworkStopTimeoutMs ?? REWORK_STOP_TIMEOUT_MS, reason }))
+        .then((release) => release?.())
+        .catch((err: unknown) => log(`任务 ${task.id} 超预算时停下手头这一轮出错：${errorText(err)}`));
+    }
+    return reason;
   };
 
   /**
@@ -1733,7 +1885,8 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
 
   const onToolCallRecord = (p: MessageEventPayload) => {
     countWorkflowActions(p);
-    const calls = p.message.parts.filter((part) => part.type === "tool_call").length;
+    // 超预算停下时被拒的不算（361 号票）：那不是干活，估的和实际的次数也不该把它算进去
+    const calls = p.message.parts.filter((part) => part.type === "tool_call" && part.blockedBy !== "over_budget").length;
     if (calls === 0 || p.taskId === undefined || p.stageId === undefined) return;
     const task = tasks.get(p.taskId);
     if (!task || (task.state !== "running" && task.state !== "waiting_for_user") || !findStage(listOf(task), p.stageId)) return;
@@ -1765,10 +1918,12 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   const revised = (task: Task, stored: StoredPlan, input: PlanDraftInput): { plan: Plan; keptAccepted: AcceptedDifference[] } => {
     const list = listOf(task);
     const removeStages = input.removeStages ?? [];
-    const removal = removalProblems(stored.plan, input.plan, removeStages, list);
+    // 361 号票：负责人写的 token 不作数
+    const draftPlan = withStoredTokens(input.plan, stored.plan);
+    const removal = removalProblems(stored.plan, draftPlan, removeStages, list);
     if (removal.length > 0) throw new RequestRejected("not_allowed", `这些阶段去不掉：\n- ${removal.join("\n- ")}`); // @i18n-ignore model：交回维护者
     const accepted = list.filter((s) => s.state === "accepted").map((s) => s.stageId);
-    const merged = mergeDraft(stored.plan, input.plan, { accepted, removeStages });
+    const merged = mergeDraft(stored.plan, draftPlan, { accepted, removeStages });
     // skill 只查新加的（358 号票）：库里删掉了、现在的计划里还留着的名字（装配时跳过）不挡别的改动
     const checked = checkRevisedPlan(merged.plan, options.planTools, options.toolkitProblems && ((toolkit) => options.toolkitProblems!({ ...toolkit, skills: toolkit.skills.filter((s) => !stored.plan.toolkit.skills.includes(s)) })));
     // 涉及的项目要对得上任务（17 号票评审后定）
@@ -1823,6 +1978,8 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     const affected = affectedStages(changes, plan, list, input.stages ?? [], currentOf(task).stageId);
     const { revision, planId } = nextRevision(task.id);
     const affectedRefs = affected.map((id) => ref(findStage(list, id)!));
+    // 还停在超预算的阶段（361 号票）：不改等这张卡，照旧等它的超预算事项——卡被拒了还是停着，卡加了预算才接着走
+    const stillHeld = affected.filter((id) => overBudgetHeld(findStage(list, id)!));
     // 维护者引用的用户原话（125 号票）：核实过的写在卡上单独一栏（"这是因为我说了 X"）
     const words = citedWords(scope.maintainerId, input.userWords);
     const payload: PlanChangeCardPayload = {
@@ -1858,10 +2015,19 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     // 卡也出在用户说这句话的那个会话里（125 号票）：维护者自己的会话里本来就有（工具产生的卡片），秘书转达来的出在秘书会话里
     d.events.push(...cardRefsElsewhere(card.card.id, words.verified, maintainerChannel(scope.maintainerId)));
     d.alerts.push(item.item);
-    apply(d, "plan_change_proposed", "maintainer", (tk) => withList(tk, listOf(tk).map((s) => (affected.includes(s.stageId) ? stageWaiting(s, "plan_change", card.card.id, why) : s))));
+    apply(d, "plan_change_proposed", "maintainer", (tk) => withList(tk, listOf(tk).map((s) => (affected.includes(s.stageId) && !stillHeld.includes(s.stageId) ? stageWaiting(s, "plan_change", card.card.id, why) : s))));
     settle(d);
     commit(d);
-    return { cardId: card.card.id, planId, changes, affected: affectedRefs, keptAccepted, userWords: words, next: nextUp(d) };
+    return {
+      cardId: card.card.id,
+      planId,
+      changes,
+      affected: affectedRefs.filter((s) => !stillHeld.includes(s.stageId)),
+      overBudget: affectedRefs.filter((s) => stillHeld.includes(s.stageId)),
+      keptAccepted,
+      userWords: words,
+      next: nextUp(d),
+    };
   };
 
   /**
@@ -1892,18 +2058,28 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     const grantTimes = grantTimesAfter({ before: base.plan, beforeTimes: base.grantTimes, beforeConfirmedAt: confirmedAtOf(base, at), after: plan, at, tools: options.planTools });
     const declared = declaredWait(task, busyOf(task.id));
     const d = draft(task);
+    // 这一版还没落盘：这次开始的阶段、重算的预算、交代都按它
+    d.plan = plan;
     d.events.push({
       channel: TASKS_CHANNEL,
       type: TASK_EVENTS.planDecided,
       payload: { ...confirmed.decided, change: { why: payload.why, changes: payload.changes, basePlanId: base.planId }, grantTimes: isoTimes(grantTimes) },
       idempotencyKey: `${idempotencyKey}#decided`,
     });
+    // 加了预算（361 号票）：开始过的阶段用量从现在起重新算，和"追加预算继续"一个口径，不能刚加完马上又停；超预算停着的接着走，那条事项不用再点
+    const raised = raisedBudgetStages(payload.changes).filter((id) => findStage(listOf(task), id)?.startedAt !== undefined);
+    const released = listOf(task).filter((s) => overBudgetHeld(s) && raised.includes(s.stageId));
+    for (const id of raised) budgetReset(d, id);
+    for (const s of released) closeBudgetNotice(d, s, OVER_BUDGET_SETTLED.raised, t("tasks.exec.budgetRaisedNote"));
+    dropQueued(d, raised, ["branch_stopped", "branch_resumed"]);
     // 改了目标或任务的验收标准：任务书换成新的一版（重注入块、下一次比较都用它）
     const goal = payload.changes.find((c) => c.kind === "goal");
     const criteria = payload.changes.find((c) => c.kind === "criteria");
     if (goal || criteria) d.events.push(tasks.buildBriefRevision(task.id, { ...(goal ? { goal: goal.after } : {}), ...(criteria ? { acceptanceCriteria: criteria.after } : {}) }));
     // 计划和阶段跟着新的一版：等这张卡的阶段回到能开始，新加的阶段未开始，去掉的不要了；任务详情的计划取这张卡
-    const list = stagesAfter(listOf(task), plan).map((s) => (s.state === "waiting" && s.waitingOn === stored.cardId ? stageNow(s, "pending") : s));
+    const list = stagesAfter(listOf(d.task), plan).map((s) =>
+      s.state === "waiting" && s.waitingOn === stored.cardId ? stageNow(s, "pending") : released.some((r) => r.stageId === s.stageId) ? countersCleared(stageNow(s, "pending")) : s,
+    );
     apply(d, "plan_changed", "user", (tk) => ({ ...withPlanList(tk, list), planCardId: stored.cardId }));
     // 卡出来之后用户直接改过工具包：那几版排在这张卡后面，确认的这一版再记成最新的一版，现在生效的才是它
     if (after) {
@@ -1934,7 +2110,12 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
           removed: narrowing.removed.map((g) => g.title),
           narrowed: narrowing.narrowed,
           toolkit: toolkitChanged ? { added: toolkitAdded(base.plan.toolkit, plan.toolkit).map(capabilityText), after: plan.toolkit } : undefined,
-          resumed: payload.affectedStages,
+          resumed: payload.affectedStages.filter((s) => findStage(listOf(d.task), s.stageId)?.state !== "waiting"),
+          budgetReset: raised.flatMap((id) => {
+            const stage = findStage(listOf(d.task), id);
+            return stage ? [ref(stage)] : [];
+          }),
+          stillOverBudget: listOf(d.task).filter(overBudgetHeld).map(ref),
         }),
       ),
     );
@@ -1987,7 +2168,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     record(d, "plan_change", t("tasks.exec.changeRejected", { revision: stored.revision }), { detail: changeLines(payload.changes, payload.grantInfo) });
     const paused = countRejection(d);
     if (!paused) proceed(d, "system", declared);
-    notify(d, withStarted(d, noticeText.planChangeRejected(comment, waiting)));
+    notify(d, withStarted(d, noticeText.planChangeRejected(comment, waiting, listOf(d.task).filter(overBudgetHeld).map(ref))));
     return { status: "handled", ...(comment ? { note: comment } : {}), events: eventsOf(d) };
   };
 
@@ -2134,7 +2315,10 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
       apply(d, "stage_unblocked", "user", (tk) => withList(tk, listOf(tk).map((s) => (held.some((h) => h.stageId === s.stageId) ? countersCleared(stageNow(s, "pending")) : s))), held[0]!.stageId);
     }
     resume(d, "user", "resumed");
-    if (withNotice) notify(d, isPlainTask(task) ? PLAIN_RESUMED_TEXT : withStarted(d, noticeText.stuckResumed()));
+    const ids = held.map((s) => s.stageId);
+    // 用户让它接着走了：排着的"这一支停下"过时了，同一种旧的也不用再交（361 号票）
+    dropQueued(d, ids, ["branch_stopped", "branch_resumed"]);
+    if (withNotice) notify(d, isPlainTask(task) ? PLAIN_RESUMED_TEXT : withStarted(d, noticeText.stuckResumed()), false, ids.length > 0 ? { kind: "branch_resumed", stageIds: ids } : undefined);
     return d;
   };
 
@@ -2422,7 +2606,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     const d = draft(task, key);
     const at = now();
     applyStage(d, "stage_accepted", "user", stage.stageId, (s) =>
-      stageNow(s, "accepted", { acceptance: s.acceptance.map((a) => (a.method === "user" ? { ...a, result: { passed: true, at } } : a)) }),
+      withCalls(task.id, stageNow(s, "accepted", { acceptance: s.acceptance.map((a) => (a.method === "user" ? { ...a, result: { passed: true, at } } : a)) })),
     );
     outputReaction(d, stage, "accepted");
     cardRef(d, progressCard(d, stage.stageId, "acceptance", t("tasks.exec.youAccepted"), { passed: true, judgedBy: "user", results: verdictsAfterUser(stage, true), ...summaryOf(stage) }), stage.stageId);
@@ -3084,7 +3268,12 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
 
     const list = normalizedStages(then.stages?.list ?? [], stillWaiting);
     const changed = new Set(changedStages(list, listOf(task)));
-    const stages = list.map((s) => (changed.has(s.stageId) && s.state !== "accepted" ? { ...s, reopenNo: generation } : s));
+    const stages = list.map((s) => {
+      if (!changed.has(s.stageId) || s.state === "accepted") return s;
+      // 回到没开始的：这一份预算不留（361 号票），开始时按那时的实测重算
+      const { budget: _budget, ...rest } = s;
+      return { ...(s.state === "pending" ? rest : s), reopenNo: generation };
+    });
     for (const s of stages) if (changed.has(s.stageId) && s.state === "pending" && findStage(listOf(task), s.stageId)?.startedAt !== undefined) budgetReset(d, s.stageId);
     const focus = then.stages?.focus;
     const restore = (tk: Task): Task => {
@@ -3238,12 +3427,19 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
 
   // ───────────────────────── 维护者 ─────────────────────────
 
+  /** 任务不在执行时，交回维护者的话（361 号票）：因为什么停、在等什么，不让它猜 */
+  const notExecutingText = (task: Task): string => {
+    if (task.state !== "waiting_for_user") return refusalText.notRunning(task.id, task.state);
+    const held = task.waitReason === "over_budget" ? listOf(task).find(overBudgetHeld) : undefined;
+    return held ? overBudgetRefusal(task, held) : refusalText.waiting(task.id, task.waitReason ?? "stuck", task.waitNote);
+  };
+
   /** 维护者对任务做事：任务要是它执行的、还在执行中（或等我） */
   const mustExecute = (scope: MaintainerScope, states: readonly TaskState[] = ["running"]): Task => {
     const task = tasks.get(scope.taskId);
     if (!task) throw new RequestRejected("not_found", `没有任务 ${scope.taskId}`); // @i18n-ignore model：交回维护者
     if (task.maintainerId !== scope.maintainerId) throw new RequestRejected("not_allowed", `任务 ${scope.taskId} 不是你执行的`); // @i18n-ignore model：交回维护者
-    if (!states.includes(task.state)) throw new RequestRejected("not_allowed", `任务 ${scope.taskId} 现在是${TASK_STATE_LABEL[task.state]}，不能这样做`); // @i18n-ignore model：交回维护者
+    if (!states.includes(task.state)) throw new RequestRejected("not_allowed", notExecutingText(task));
     return task;
   };
 
@@ -3344,13 +3540,16 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
 
   const judgeStage = async (scope: MaintainerScope, stageId: string, summary: string, userWords: readonly VerifiedUserWords[]): Promise<CompleteStageResult> => {
     const { taskId } = scope;
-    const task = mustExecute(scope);
+    const task = mustExecute(scope, ["running", "waiting_for_user"]);
     const plan = planOf(taskId);
     const planStage = plan.stages.find((s) => s.stageId === stageId);
     const stage = findStage(listOf(task), stageId);
     // @i18n-ignore-start model：交回维护者
     if (!planStage || !stage) throw new RequestRejected("not_found", `计划里没有阶段 ${stageId}`);
-    if (stage.state !== "running") {
+    // 超预算停下的这一支（361 号票）：活做完了要能宣布——用量是模型回完才记的，这次回复里的 complete_stage 紧接着就到；挡了它点多少次"继续"都宣布不了
+    const held = overBudgetHeld(stage);
+    if (!held) mustExecute(scope);
+    if (!held && stage.state !== "running") {
       throw new RequestRejected("not_allowed", `阶段 ${stageId} 现在是${forModel(() => STAGE_STATE_LABEL[stage.state])}，只有正在做的阶段能宣布完成${stage.state === "pending" ? `（先用 ${EXECUTION_TOOL.startStage} 开始它）` : ""}`);
     }
     // @i18n-ignore-end
@@ -3360,15 +3559,21 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     const gate = options.multiProject?.stageGate(task, stageId);
     if (gate !== undefined) throw new RequestRejected("not_allowed", gate);
     const attempt = stage.attempts + 1;
+    const declared = declaredWait(task, busyOf(taskId));
     const submitted = draft(task);
     // 274 号票：交上来的这一刻，系统从效果日志里汇总这一轮做了什么（每轮结束系统直接查到的结果），和自报对一对；只存个数
     const observed = observedNow(task, stageId, summary.trim());
+    // 宣布完成了：排着的"说明进展""这一支停下"过时了；超预算事项不用再点（验收没过、用量还超着时重新放一条）（361 号票）
+    dropQueued(submitted, [stageId], ["budget_explain", "branch_stopped"]);
+    if (held) closeBudgetNotice(submitted, stage, OVER_BUDGET_SETTLED.declared, t("tasks.exec.budgetDeclaredNote"));
     applyStage(submitted, "stage_submitted", "maintainer", stageId, (s) => {
-      const { summary: _last, userWords: _words, ...rest } = s;
+      const { summary: _last, userWords: _words, ...rest } = stageNow(s, "accepting");
       // 这次引用、核实过的用户原话（125 号票）：阶段详情里列出，交给评审的就是它
-      return { ...rest, state: "accepting", attempts: attempt, ...(summary.trim() ? { summary: summary.trim() } : {}), ...(userWords.length > 0 ? { userWords: [...userWords] } : {}), observed };
+      return { ...rest, attempts: attempt, ...(summary.trim() ? { summary: summary.trim() } : {}), ...(userWords.length > 0 ? { userWords: [...userWords] } : {}), observed };
     });
     if (summary.trim()) note(submitted, t("tasks.exec.declared", { stage: stageId, title: stage.title, n: attempt, summary: summary.trim() }), stageId);
+    // 任务因为这一支在等我：验收期间回到执行中（名额满了回到排队中），照 112 号票交给评审时的做法
+    if (held) proceed(submitted, "system", declared);
     commit(submitted);
 
     // 登记成在跑的验收：删任务时停下它（脚本的进程杀掉、评审子 agent 结束），守护进程停下时也停下
@@ -3414,11 +3619,14 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     const failed = results.filter((r) => !r.passed);
     if (failed.length > 0) {
       const back = acceptanceReturn(d, stageId, "system", ACCEPTANCE_VERDICT_LABEL[judgedBy], {
-        patch: recorded("running"),
+        // 超预算时交上来的：维护者可能已经在做别的阶段了，这时这个阶段放回去
+        patch: recorded(held && fresh.stages?.focus !== stageId && listOf(fresh).some((s) => s.stageId !== stageId && s.state === "running") ? "pending" : "running"),
         after: () => cardRef(d, progressCard(d, stageId, "acceptance", t("tasks.exec.failedBack", { n: failed.length, count: failed.length }), { passed: false, judgedBy, results, ...summaryText(summary) }), stageId),
       });
       commit(d);
-      return back.stuck ? { outcome: "stuck", stageId, judgedBy, results, attempts: back.returns, next: nextUp(d) } : { outcome: "returned", stageId, judgedBy, results };
+      if (back.stuck) return { outcome: "stuck", stageId, judgedBy, results, attempts: back.returns, next: nextUp(d) };
+      // 退回了、用量还超着：这一支重新停下，要接着改得用户点"追加预算继续"（361 号票）
+      return { outcome: "returned", stageId, judgedBy, results, ...(checkBudget(taskId, stageId) ? { overBudget: true } : {}) };
     }
     const userCriteria = planStage.acceptance.filter((x) => x.method === "user");
     if (userCriteria.length > 0) {
@@ -3449,7 +3657,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
       commit(d);
       return { outcome: "awaiting_user", stageId, results, next: nextUp(d) };
     }
-    applyStage(d, "stage_accepted", "system", stageId, recorded("accepted"));
+    applyStage(d, "stage_accepted", "system", stageId, (s) => withCalls(taskId, recorded("accepted")(s)));
     cardRef(d, progressCard(d, stageId, "acceptance", t("tasks.exec.accepted"), { passed: true, judgedBy, results, ...summaryText(summary) }), stageId);
     settle(d);
     commit(d);
@@ -3503,7 +3711,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
       commit(d);
       return;
     }
-    applyStage(d, "stage_accepted", "system", stageId, recorded("accepted"));
+    applyStage(d, "stage_accepted", "system", stageId, (s) => withCalls(taskId, recorded("accepted")(s)));
     cardRef(d, progressCard(d, stageId, "acceptance", t("tasks.exec.handedAccepted"), { passed: true, judgedBy: "review", results, ...summaryOf(stage) }), stageId);
     proceed(d, "system", declared);
     if (d.completed || (d.startedStage && d.task.state === "running")) notify(d, noticeText.handedAccepted(ref(stage), d.startedStage && d.task.state === "running" ? handoff(d.task, d.startedStage) : undefined));
@@ -3598,7 +3806,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     const aside = mine.state === "running" && mine.stageId !== stageId && !subAgentsOn(task.id).has(mine.stageId) ? mine : undefined;
     const base = aside ? withStage(list, aside.stageId, (s) => ({ ...s, state: "pending" })) : list;
     const d = draft(task);
-    apply(d, "stage_started", "maintainer", (tk) => withList(tk, withStage(base, stageId, startNow), stageId), stageId);
+    apply(d, "stage_started", "maintainer", (tk) => withList(tk, withStage(base, stageId, startNow(d)), stageId), stageId);
     d.startedStage = stageId;
     commit(d);
     return { stage: handoff(d.task, stageId), alreadyRunning: false, ...(aside ? { setAside: aside.stageId } : {}) };
@@ -3866,6 +4074,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     markInfeasible,
     changeToolkit,
     tokensRecorded: checkBudget,
+    heldCall,
     stopAcceptance,
     act,
     prepareAct,
@@ -3903,6 +4112,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
         grantInfo: grantInfoFor(stored.plan),
         busy: busyOf(taskId),
         notes: (stageId) => stageNotes(task, stageId),
+        budgetControl: thresholds.budgetControl,
       });
     },
     workDir,

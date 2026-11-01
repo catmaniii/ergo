@@ -54,7 +54,7 @@ import {
   type WebCallPayload,
 } from "./entry.ts";
 import { createSummaryPricing, type SummaryPricing } from "./pricing.ts";
-import { contextUsageRows, entryAt, lastEntryOf, listEntries, ownerTotals, rangeRows, stageTokenSum, tokensOf, webCallRows } from "./views.ts";
+import { callMeterTokens, contextUsageRows, entryAt, lastEntryOf, listEntries, ownerTotals, rangeRows, recentBudgetCalls, stageTokenSum, tokensOf, webCallRows } from "./views.ts";
 
 export interface TokenLedgerOptions {
   store: EventStore;
@@ -95,12 +95,23 @@ export interface TokenLedger {
   lastOf(agentId: string, purposes: readonly LedgerPurpose[], afterSeq?: number): LedgerEntry | undefined;
   /** 某个名下的合计（总量、按 agent、按阶段），和看板上 token_totals 的负载一样；还没有用量是 undefined */
   totals(owner: LedgerOwner): TokenTotalsEventPayload | undefined;
-  /** 某个任务的某个阶段用掉了多少 token（命中 + 未命中 + 输出）；budget 为真只算干活的部分（不算评审、范围审视），预算比较用它 */
+  /**
+   * 某个任务的某个阶段用掉了多少 token（命中 + 未命中 + 输出）；budget 为真是预算用的那个数（没命中缓存的输入 + 输出 + 命中缓存的
+   * 十分之一，361 号票）、只算干活的部分（不算评审、范围审视），预算比较用它
+   */
   stageTokens(taskId: string, stageId: string, options?: { budget?: boolean }): number;
+  /** 单次计量（361 号票）：这个 agent 现在一次调用大约记多少 token、大约多少钱 */
+  callMeter(agentId: string): CallMeter;
   /** 消耗页：from 到 to（YYYY-MM-DD，含两头）按天、按 agent 的汇总，系统开销、未归属单列，粗估成本 */
   summary(range: { from: string; to: string }): UsageSummary;
   /** 每记一条叫一次（事件已经落盘）；返回取消登记的函数 */
   onRecorded(listener: (entry: LedgerEntry) => void): () => void;
+}
+
+/** 一次调用大约记多少（361 号票）：perCall 是预算用的那个数；costPerCall 按账本单价算，模型没有单价（自定义模型）、还没调用过时没有 */
+export interface CallMeter {
+  perCall: number;
+  costPerCall?: { amount: number; currency: string };
 }
 
 /** 子进程报的三块输入换成账本的两块：命中 = cacheRead，未命中 = input + cacheWrite（pi 里三块互不重叠） */
@@ -167,6 +178,15 @@ export function createTokenLedger(options: TokenLedgerOptions): TokenLedger {
     lastOf: (agentId, purposes, afterSeq) => lastEntryOf(store.reader, agentId, purposes, afterSeq),
     totals: (owner) => ownerTotals(store.reader, owner),
     stageTokens: (taskId, stageId, opts = {}) => stageTokenSum(store.reader, taskId, stageId, opts.budget === true),
+    callMeter(agentId) {
+      const recent = recentBudgetCalls(store.reader, agentId);
+      const perCall = callMeterTokens(recent.map((r) => r.tokens));
+      if (recent.length === 0) return { perCall };
+      const pricing = createSummaryPricing(options.prices, options.holidays());
+      const total = recent.reduce((n, r) => n + pricing.cost(r.model, r.time, r.tokens), 0);
+      const { currency, unpriced } = pricing.result();
+      return total > 0 && unpriced.length === 0 ? { perCall, costPerCall: { amount: total / recent.length, currency } } : { perCall };
+    },
     summary({ from, to }) {
       const pricing = createSummaryPricing(options.prices, options.holidays());
       const days = new Map<string, { tally: Record<"total" | UsageCategory, UsageTally>; agents: Map<string, UsageAgentRow> }>();

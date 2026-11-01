@@ -93,7 +93,8 @@ export function reopen(list: readonly TaskStage[], stageId: string, reopenNo?: n
     if (!reopened.has(s.stageId)) return s;
     // 125 号票：上一轮引用、核实过的用户原话（userWords）也清掉——新的一轮交上来时再引用
     // 274 号票：上一轮宣布完成时系统查到的个数（observed）也清掉——新的一轮宣布完成时重新汇总
-    const { startedAt: _started, summary: _summary, pullBacks: _p, returns: _r, nudges: _n, lastFailed: _l, userWords: _w, observed: _o, ...rest } = stageNow(s, "pending");
+    // 361 号票：这一份预算、估的和实际的次数也清掉——重新开始时按那时的实测重算
+    const { startedAt: _started, summary: _summary, pullBacks: _p, returns: _r, nudges: _n, lastFailed: _l, userWords: _w, observed: _o, budget: _b, calls: _c, ...rest } = stageNow(s, "pending");
     // 交上来过的记下最近一次没通过的标准（结论清掉了；开始这个阶段时交代里带上）
     const lastFailed = s.acceptance.some((a) => a.result) ? s.acceptance.filter((a) => a.result && !a.result.passed).map((a) => a.criterion) : s.lastFailed;
     return {

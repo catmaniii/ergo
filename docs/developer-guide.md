@@ -317,6 +317,16 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 - **服务出事的通知**：上线失败、挂了、好了、前缀自检没过都标 `chatOnly`（`MessageEventPayload`）：不进工单段，排到维护者空下来开一个对话段（`work-orders/segments.ts` 的 `accepts`），报警工单不被打断，这一段也才有 `propose_operations`。通知写服务管家判断的依据和健康检查的地址，提示先自己连一下核实。
 - **测试**：`test/main/grow-frictions.test.ts`（服务出事的通知不打断报警）、`test/main/service-events.test.ts`（假 LSM、faux 维护者）、`test/main/service-events-real.test.ts`（真的服务管家、真子进程、真命令行）、`test/cli/notify.test.ts`、`test/build/stage.test.ts`（版本目录里跑）。
 
+### 4.15 阶段预算
+
+打开预算控制（`tasks.thresholds.budgetControl`）时，每个阶段按工具调用次数和 token 两项算用量（`tasks/thresholds.ts`）：超过预算让负责人说明进展，超过两倍这一支停下等用户。
+
+- **用量**：`ledger/views.ts` 的 `budgetTokensOf`：没命中缓存的输入 + 输出 + 命中缓存的十分之一（系数是 `BUDGET_CACHE_HIT_DIVISOR`，只有这一处）。只有预算用这个数（`stageTokens(..., { budget: true })`、看板的 `budgetTokens`），账本的逐笔记录和消耗页是真实的 token。
+- **预算**：负责人只估次数（`budget.toolCalls`），写了 `tokens`、`tokenEstimate` 也不作数（`planFromSubmission`、`withStoredTokens`）。阶段开始时 `execution.ts` 的 `budgetFor` 算好记在 `TaskStage.budget`：次数 × 校准比例（`callScale`，1 到 5 倍，只放大不缩小）× 单次计量（账本的 `callMeter`），按账本单价附大约多少钱。追加预算继续、确认加预算的计划变更（`budgetReset`）重算一份。升级前就开始了的阶段没有这一项，照计划里写的数。
+- **校准**：阶段验收时记下 `TaskStage.calls`（估的和实际的次数）。重注入块和项目维护者的固定上下文里写着，给负责人看。
+- **停下**：超预算的阶段，守卫判定之前先问 `heldCall`，除了 `complete_stage`、`propose_plan_change`（流程是 `report_step`）都拒绝（`blockedBy: over_budget`），连着被拒 5 次中止手头这一轮。任务不在执行时工具被拒的话在 `execution-tools.ts` 的 `refusalText`，写明因为什么停、在等什么。宣布完成放行后，验收没过且用量还超着就重新停下。
+- **通知**：任务执行交给维护者的三种通知（说明进展、这一支停下、接着做）带 `taskNotice` 标记，状态变了由 `dropQueued` 作废出队（`turn_end`，`aborted`），同一种新的来了旧的也出队，只有过期通知时模型不会被拉起。超预算停下、没有别的能做时不发通知。
+
 ## 5. 插件
 
 守护进程分**内核**和**插件**（[ADR-0027](adr/0027-plugin-host-kernel-and-agent-contributions.md)）：内核（事件日志、任务执行连同守卫、宿主协议、网关……）在组合根里手工装；插件按插件清单 `plugins/manifest.ts` 经插件宿主 `plugins/host.ts` 装，组合根里不出现任何一个插件。一个功能插件 = 守护进程里的插件 + 网页里同名的网页插件，一起启停，用户能在设置 · 插件里热插拔。

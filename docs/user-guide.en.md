@@ -90,6 +90,10 @@ On this computer open <http://127.0.0.1:8810/>. Requests on the local port are t
 - **Ask me before risky things** (off by default): when ticked, risky actions in conversations (reading or writing files outside the agent's workspace, sending things out…) first show an approval card and wait for you; tasks also ask before doing something their plan did not authorize. Unticked, most of these just happen and are logged; only the most sensitive ones (sending in your name, accounts and passwords, irreversible commits, deleting or changing files outside the workspace) still ask.
 - **Stop tasks that go over budget** (off by default): when ticked and a task step exceeds its planned budget, the owner explains its progress first; at twice the budget it stops and waits for you, and you can add budget to continue. Unticked, usage is only recorded.
 
+  How the budget works: the owner only estimates how many tool calls each step takes. Ergou works out the token budget when the step starts (estimated calls × what each recent call actually counted, plus a rough cost at the ledger's prices; custom models without a price show no cost). If earlier steps took far more or fewer calls than estimated, later steps scale with them (at most 5 times); they never shrink. Cached input counts as one tenth, so this number differs from the real tokens on the Usage page. The Usage page and the ledger are not affected.
+
+  Once stopped, the owner can only declare the step done or send a plan change adding budget; if the work is finished, it can declare that itself. When you tap "Add budget and continue" or confirm a plan change adding budget, usage for that step counts again from that moment.
+
 They are stored in the config file as `guard.conversationApprovals` and `tasks.thresholds.budgetControl`, written when the daemon first starts, and are ordinary settings after that.
 
 ---

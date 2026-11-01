@@ -1155,7 +1155,7 @@
   "pages.safety.askFirstOn": "On: risky things ask you first",
   "pages.safety.askFirstOff": "Off: most risky things just run; the most sensitive ones still ask you",
   "pages.safety.budget": "Stop tasks that go over budget",
-  "pages.safety.budgetSub": "On: when a step of a task uses more than its planned budget, it first explains its progress, and at twice the budget it stops and waits for you; you can add budget and carry on.\nOff: usage is only recorded and nothing stops (when you pay with your own key, a task that goes off track keeps spending). Takes effect right away.",
+  "pages.safety.budgetSub": "On: when a step of a task uses more than its budget, it first explains its progress, and at twice the budget it stops and waits for you; you can add budget and carry on. The owner only estimates how many calls a step takes, and the token budget is worked out from recent actual usage. Cached input counts as one tenth, and the Usage page numbers are not affected.\nOff: usage is only recorded and nothing stops (when you pay with your own key, a task that goes off track keeps spending). Takes effect right away.",
   "pages.safety.budgetOn": "On: tasks stop when they go over budget",
   "pages.safety.budgetOff": "Off: tasks keep going over budget; usage is only recorded",
   "pages.safety.loadFailed": "Couldn't read these two switches: {reason}",

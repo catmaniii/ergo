@@ -263,6 +263,7 @@ export {
   cacheHitRate,
   COST_ESTIMATE_LABEL,
   costOf,
+  approxMoney,
   currencySymbol,
   LEDGER_OWNER_KIND_LABEL,
   LEDGER_PURPOSE_LABEL,

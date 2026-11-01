@@ -244,8 +244,13 @@ describe("不进栏的", () => {
   });
 
   test("没记来源的旧事项（105 号票之前建的）、系统的事项不进任何会话的栏", () => {
-    // task-over-budget 是 105 号票之前录的：事项没记来源
-    const raw = load("task-over-budget");
+    // 105 号票之前的事项没记来源：把录下来的来源去掉（361 号票重录之后录制里有了）
+    const raw = load("task-over-budget").map((input): UiInput => {
+      const item = payloadOf<{ item: InboxItem }>(input, "inbox_item")?.item;
+      if (input.kind !== "frame" || !item) return input;
+      const { origin: _origin, ...legacy } = item;
+      return { ...input, frame: { ...input.frame, payload: { item: legacy } } };
+    });
     const old = replay(raw.slice(0, itemAt(raw, isNotice("over_budget")) + 1));
     expect(Object.values(old.inbox).length).toBeGreaterThan(0);
     expect(Object.values(old.inbox).every((i) => i.origin === undefined)).toBe(true);

@@ -7,6 +7,8 @@
 //   （默认 1：预算用完）让维护者说明进展（任务状态不变），超过 budgetAskTimes 倍（默认 2）这一支停下，任务转等我（超预算）。
 //   这两个动作只在 budgetControl 打开时做（93 号票，用户 2026-10-11 定"先不做预算控制，以后再说"：默认关，用量照旧记、照旧显示，
 //   超了不说明、不停下；超预算的状态、事项、"追加预算继续"的代码都留着，已经停在超预算的任务照旧能追加预算继续）；
+//   361 号票：token 这一项记的是"没命中缓存的输入 + 输出 + 命中缓存的十分之一"（ledger/views.ts），预算由运行时算（负责人只估次数）：
+//   次数 × 校准比例（callScale）× 单次计量（ledger 的 callMeter）；
 // - 同一任务累计被用户拒绝 rejections 次（审批、计划变更）：整个任务转已暂停；
 // - 授权项到期前 renewalLeadMs（默认一天）待我处理里放一条续期事项；
 // - 每周的归档清单（archive-list.ts，19 号票）汇总结束超过 archiveAfterDays 天（默认 7）、还没归档的任务。
@@ -54,6 +56,27 @@ export const DEFAULT_TASK_THRESHOLDS: Readonly<TaskThresholds> = Object.freeze({
 export interface StageSpend {
   tokens: number;
   toolCalls: number;
+}
+
+/** 一个阶段这一份预算（361 号票）：token、工具调用次数，算得出钱时大约多少钱 */
+export interface StageAllowance extends StageSpend {
+  cost?: { amount: number; currency: string } | undefined;
+}
+
+/** 校准比例的上下限（361 号票）：前面阶段估得再离谱，后面的预算也只放大这么多 */
+/** 只放大不缩小：预算只是安全线，缩小只会多停，用户确认加到多少也不该打折 */
+export const BUDGET_SCALE_MIN = 1;
+export const BUDGET_SCALE_MAX = 5;
+
+/**
+ * 校准比例（361 号票）：同一个任务前面验收了的阶段，实际的工具调用次数 ÷ 估的次数（合起来算），限制在上下限之内；
+ * 还没有验收的阶段是 1
+ */
+export function callScale(done: ReadonlyArray<{ estimated: number; actual: number }>): number {
+  const estimated = done.reduce((n, d) => n + d.estimated, 0);
+  if (estimated <= 0) return 1;
+  const actual = done.reduce((n, d) => n + d.actual, 0);
+  return Math.min(BUDGET_SCALE_MAX, Math.max(BUDGET_SCALE_MIN, actual / estimated));
 }
 
 /**

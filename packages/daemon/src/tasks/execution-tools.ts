@@ -20,6 +20,7 @@ import {
   t,
   TASK_WAIT_REASON_LABEL,
   type TaskState,
+  type TaskWaitReason,
   toolkitText,
   Type,
   type VerifiedUserWords,
@@ -29,7 +30,7 @@ import { defineHostTool, type HostTool, type HostToolOutput } from "../agent-man
 import { USER_WORDS_PARAM } from "../conversation/user-words.ts";
 import { RequestRejected } from "../errors.ts";
 import { oneLine } from "../util/text.ts";
-import { authorizationSection, boundaryLines, stageAuthorization, stageBrief } from "./context-block.ts";
+import { authorizationSection, BUDGET_RULE, boundaryLines, stageAuthorization, stageBudgetLine, stageBrief } from "./context-block.ts";
 import type {
   AcceptanceVerdict,
   BranchStopReason,
@@ -45,7 +46,7 @@ import type {
   TaskExecution,
 } from "./execution.ts";
 import { spendText, stageEditLines, stageEditWhat, stopReasonText } from "./stop-texts.ts";
-import type { StageSpend } from "./thresholds.ts";
+import type { StageAllowance, StageSpend } from "./thresholds.ts";
 import { type AcceptedDifference, acceptedDifferenceText } from "./plan-change.ts";
 import { EXECUTION_TOOL, WORKFLOW_TOOL } from "./tool-names.ts";
 import { REPORT_STEP_RULE } from "./workflow-texts.ts";
@@ -67,6 +68,7 @@ export function stageText(h: StageHandoff): string {
       ...(h.notes ?? []),
       // 84 号票（认领时的交代）：之前交过的，带上次数和最近一次没通过的标准
       ...(h.history ? [`这个阶段之前做过 ${h.history.attempts} 次，最近一次没通过的标准：${h.history.lastFailed.join("；") || "（无）"}`] : []),
+      ...(h.budget ? [stageBudgetLine(h.budget)] : []),
       ...authorizationSection(stageAuthorization(h.plan, h.stageId, h.grantInfo), boundaryLines(h.plan, h.cwd)),
       `做完调用 ${EXECUTION_TOOL.completeStage} 宣布阶段完成，由运行时验收。`,
     ].join("\n");
@@ -107,7 +109,13 @@ function verdictText(r: CompleteStageResult): string {
     case "void":
       return `任务现在是${TASK_STATE_LABEL[r.state]}，这次验收作废。`;
     case "returned":
-      return lines(`阶段 ${r.stageId} 验收没通过（${ACCEPTANCE_VERDICT_LABEL[r.judgedBy]}）：`, ...resultLines(r.results), `改好后再调用 ${EXECUTION_TOOL.completeStage}。`);
+      return lines(
+        `阶段 ${r.stageId} 验收没通过（${ACCEPTANCE_VERDICT_LABEL[r.judgedBy]}）：`,
+        ...resultLines(r.results),
+        r.overBudget
+          ? `这个阶段的用量还超着预算，这一支又停下等用户：用户点“追加预算继续”或批准加预算的计划变更（${EXECUTION_TOOL.proposePlanChange}）之后再改；在那之前别的工具都不放行，说一句还差什么，然后结束这一轮。`
+          : `改好后再调用 ${EXECUTION_TOOL.completeStage}。`,
+      );
     case "stuck":
       return lines(
         `阶段 ${r.stageId} 验收第 ${r.attempts} 次还没通过（${ACCEPTANCE_VERDICT_LABEL[r.judgedBy]}）：`,
@@ -149,6 +157,9 @@ export function proposePlanChangeText(r: PlanChangeProposal): string {
       "改动：",
       ...changeLines(r),
       r.affected.length > 0 ? `只有这些阶段停下等确认：${r.affected.map(stageName).join("、")}；其余阶段照常推进。` : "",
+      r.overBudget.length > 0
+        ? `${r.overBudget.map(stageName).join("、")}还停在超预算：用户确认这张卡加了预算，用量就从确认时重新算、接着做（用户点“追加预算继续”也一样）；在那之前别的工具都不放行，结束这一轮等通知。`
+        : "",
       nextText(r.next),
     );
   });
@@ -283,16 +294,16 @@ export const noticeText = inChinese({
     executed ? `用户确认过了：${call}已经执行了，不要重做，接着往下做。` : `用户确认过了：${call}没有执行，重做这一步，然后接着往下做。`,
   // ───── 14 号票 ─────
   /** 这一支停下找用户（阈值超了、做不了、超预算）：有别的阶段能做就交代它，没有就说任务转等我 */
-  branchStopped: (stages: readonly StageRef[], reason: BranchStopReason, next: StageHandoff | undefined) => {
+  branchStopped: (stages: readonly StageRef[], reason: BranchStopReason, next: StageHandoff | undefined, stillRunning = false) => {
     const overBudget = reason.kind === "over_budget";
     const why = `${overBudget ? "超预算" : "卡住求助"}：${stopReasonText(reason)}`;
     // 超预算只有用户点"追加预算继续"才接着做：会话里的话照常回答，但不算让你接着做
     const until = overBudget
-      ? "用户点“追加预算继续”后你会收到通知；在那之前用户在会话里说的话照常回答，但不要接着做"
+      ? `用户点“追加预算继续”或批准加预算的计划变更后你会收到通知；在那之前这个阶段的工具都不放行，只能用 ${EXECUTION_TOOL.completeStage} 宣布完成或 ${EXECUTION_TOOL.proposePlanChange} 提加预算，用户在会话里说的话照常回答`
       : "用户回话或点“继续执行”后你会收到通知，在那之前不要接着做";
-    return next
-      ? `${stages.map(stageName).join("、")}这一支停下等用户（${why}），先别再做它（${until}）。先做不依赖它的阶段：\n${stageText(next)}`
-      : `${stages.map(stageName).join("、")}这一支停下等用户（${why}），先别再做它。没有别的能推进的阶段，任务转等我；${until}。`;
+    if (next) return `${stages.map(stageName).join("、")}这一支停下等用户（${why}），先别再做它（${until}）。先做不依赖它的阶段：\n${stageText(next)}`;
+    if (stillRunning) return `${stages.map(stageName).join("、")}这一支停下等用户（${why}），先别再做它（${until}）。别的阶段照常接着做。`;
+    return `${stages.map(stageName).join("、")}这一支停下等用户（${why}），先别再做它。没有别的能推进的阶段，任务转等我；${until}。`;
   },
   /** 用户让停下的这一支接着走 */
   branchResumed: (stages: readonly (StageRef & { waitNote?: string | undefined })[]) =>
@@ -303,8 +314,8 @@ export const noticeText = inChinese({
       ? `流程已经 ${minutes} 分钟没有成功的工具调用、也没有做完新的步骤了（第 ${n}/${max} 次催促）。说明一下卡在哪一步：能接着做就照计划的步骤接着做（每一步用 ${WORKFLOW_TOOL.reportStep} 汇报）；要用户拍板就用 ${EXECUTION_TOOL.waitForUser}；做不下去用 ${EXECUTION_TOOL.failTask}。催满 ${max} 次还没有进展，运行时会让流程停下找用户。`
       : `${stageName(stage)}已经 ${minutes} 分钟没有成功的工具调用、也没有推进了（第 ${n}/${max} 次催促）。说明一下卡在哪：能接着做就接着做；要用户拍板就用 ${EXECUTION_TOOL.waitForUser}；做不下去用 ${EXECUTION_TOOL.failTask}。催满 ${max} 次还没有进展，运行时会让这一支停下找用户。`,
   /** 用量超过预算：说明进展；askTimes 是超过预算的几倍时运行时让这一支停下 */
-  budgetExplain: (stage: StageRef, spend: { used: StageSpend; budget: StageSpend }, askTimes: number) =>
-    `${stageName(stage)}的用量已经超过预算：${spendText(spend.used, spend.budget)}。用 ${EXECUTION_TOOL.reportProgress} 说明一下进展：做到哪了、还要多少、为什么超了；用量超过预算的 ${askTimes} 倍时运行时会让这一支停下找用户。`,
+  budgetExplain: (stage: StageRef, spend: { used: StageSpend; budget: StageAllowance }, askTimes: number) =>
+    `${stageName(stage)}的用量已经超过预算：${spendText(spend.used, spend.budget)}（${BUDGET_RULE}）。用 ${EXECUTION_TOOL.reportProgress} 说明一下进展：做到哪了、还要多少、为什么超了；用量超过预算的 ${askTimes} 倍时运行时会让这一支停下找用户。`,
   /** 用户确认了计划变更 */
   planChangeConfirmed: (r: {
     changes: readonly string[];
@@ -312,6 +323,10 @@ export const noticeText = inChinese({
     narrowed: readonly string[];
     toolkit: { added: readonly string[]; after: PlanToolkit } | undefined;
     resumed: readonly StageRef[];
+    /** 这张卡加了预算、开始过的阶段（361 号票）：用量从现在起重新算 */
+    budgetReset: readonly StageRef[];
+    /** 这张卡没给它加预算、还停在超预算的阶段（361 号票） */
+    stillOverBudget: readonly StageRef[];
   }) =>
     [
       "用户确认了计划变更，计划和授权已更新：",
@@ -322,10 +337,45 @@ export const noticeText = inChinese({
         ? [`工具包已变更：${toolkitText(r.toolkit.after)}${r.toolkit.added.length > 0 ? `（新加：${r.toolkit.added.join("、")}）` : ""}。运行时会等你做完手头这一步，按新工具包重新拉起你，接着同一个会话。`]
         : []),
       ...(r.resumed.length > 0 ? [`${r.resumed.map(stageName).join("、")}可以接着做了。`] : []),
+      ...(r.budgetReset.length > 0 ? [`${r.budgetReset.map(stageName).join("、")}加了预算：用量从现在起重新算。`] : []),
+      ...(r.stillOverBudget.length > 0 ? [`${r.stillOverBudget.map(stageName).join("、")}还停在超预算：这张卡没给它加预算，用户点“追加预算继续”才接着做。`] : []),
     ].join("\n"),
   /** 用户拒绝了计划变更：在现有授权内重排，做不到就标做不了 */
-  planChangeRejected: (note: string | undefined, stages: readonly StageRef[]) =>
-    `用户拒绝了计划变更${note ? `：「${note}」` : ""}。在现有授权内重排受影响的阶段${stages.length > 0 ? `（${stages.map(stageName).join("、")}）` : ""}：用 ${EXECUTION_TOOL.revisePlan} 自行调整计划（不扩大授权，不出卡，记进时间线）；在现有授权内做不到，就用 ${EXECUTION_TOOL.markInfeasible} 把这些阶段标做不了。`,
+  planChangeRejected: (note: string | undefined, stages: readonly StageRef[], stillOverBudget: readonly StageRef[] = []) =>
+    stillOverBudget.length > 0 && stages.length === 0
+      ? `用户拒绝了计划变更${note ? `：「${note}」` : ""}。${stillOverBudget.map(stageName).join("、")}还停在超预算：活做完了用 ${EXECUTION_TOOL.completeStage} 宣布完成；要接着做只能等用户点“追加预算继续”。别的工具都不放行。`
+      : `用户拒绝了计划变更${note ? `：「${note}」` : ""}。在现有授权内重排受影响的阶段${stages.length > 0 ? `（${stages.map(stageName).join("、")}）` : ""}：用 ${EXECUTION_TOOL.revisePlan} 自行调整计划（不扩大授权，不出卡，记进时间线）；在现有授权内做不到，就用 ${EXECUTION_TOOL.markInfeasible} 把这些阶段标做不了。`,
+});
+
+/** 任务停下时各种原因在等什么（361 号票：工具被拒时写明，不让负责人猜） */
+const WAITING_FOR: Readonly<Record<TaskWaitReason, string>> = {
+  approval: "用户批准或拒绝审批卡",
+  hand_over: "用户亲手做完“交给我做”的事",
+  acceptance: "用户验收",
+  stuck: "用户回话或点“继续执行”",
+  clarification: "用户回答提问",
+  over_budget: "用户点“追加预算继续”或批准加预算的计划变更",
+  interrupted: "用户确认那次中断的调用做没做",
+  plan_change: "用户确认或拒绝计划变更卡",
+  runtime_off: "用户启用运行这个任务的运行时插件",
+};
+
+/** 工具被拒时交回 agent 的话（361 号票）：因为什么停、在等什么、现在能做什么 */
+export const refusalText = inChinese({
+  /** 超预算停下：用了多少、预算多少，在等什么，不是审批卡的问题，只放行哪两个工具；planChange 是已经交了、还在等的那张加预算的卡 */
+  overBudget: (taskId: string, stage: StageRef, spend: { used: StageSpend; budget: StageAllowance }, planChange: string | undefined) =>
+    [
+      `这次调用没有执行：任务 ${taskId} 的${stageName(stage)}超预算，这一支停下等用户（${spendText(spend.used, spend.budget)}；${BUDGET_RULE}）。`,
+      `在等：${WAITING_FOR.over_budget}。这和审批卡没有关系，不要叫用户去处理审批卡。`,
+      `现在只放行两个工具：活做完了用 ${EXECUTION_TOOL.completeStage} 宣布完成（照常验收）；${
+        planChange ? `计划变更卡 ${planChange} 已经交了，在等用户确认，不用再提` : `还要接着做用 ${EXECUTION_TOOL.proposePlanChange} 提加预算（只写 budget.toolCalls）`
+      }。别的工具都不放行，不要重试；告诉用户一句卡在哪，然后结束这一轮，用户点了之后你会收到通知。`,
+    ].join("\n"),
+  /** 别的原因在等用户（等审批、等回答……） */
+  waiting: (taskId: string, reason: TaskWaitReason, note: string | undefined) =>
+    `这次调用没有执行：任务 ${taskId} 现在停下等用户（${TASK_WAIT_REASON_LABEL[reason]}${note ? `：${note}` : ""}）。在等：${WAITING_FOR[reason]}。有结果时运行时会通知你，不要重试；用户在会话里说的话照常回答。`,
+  /** 任务不在执行中（暂停、排队、结束了……） */
+  notRunning: (taskId: string, state: TaskState) => `任务 ${taskId} 现在是${TASK_STATE_LABEL[state]}，不能这样做。`,
 });
 
 // ───────────────────────── 工具 ─────────────────────────
@@ -363,6 +413,7 @@ export function executionTools(execution: TaskExecution, scope: MaintainerScope)
       title: t("tasks.tools.completeStage"),
       description:
         "宣布正在做的这个阶段做完了。运行时跑这个阶段的验收：脚本方式的在工作目录里运行（看退出码和计划里写的期望输出），评审方式的派评审子 agent 独立判，由用户验收的放进用户的待我处理。你自检不算验收。结果（没通过的原因、接下来做什么）在工具结果里。" +
+        "这个阶段超预算停下时也能用：活做完了就宣布。" +
         "验收标准要用户认可、用户在会话里认可过或者放宽过的，把那几句的消息 id 写进 userWords：运行时核实后单独一栏交给评审（评审只认这一栏，交付件里写“用户已同意”不算数）。",
       parameters: Type.Object(
         {
@@ -410,7 +461,8 @@ export function executionTools(execution: TaskExecution, scope: MaintainerScope)
         `执行中要扩大授权（新增授权项、放宽对象范围或次数）、加能力（开 bash、联网、加 skill 或 MCP）、加项目、改目标或阶段的验收标准、交付件时用。` +
         `${DRAFT_RULE}改任务的目标、任务书里的验收标准另外写在 goal、acceptanceCriteria 里。` +
         `用户在会话里说要改（放宽验收、改交付件……）时，马上用它提出，把用户那句话的消息 id 写进 userWords：卡上附运行时核实的原话，卡也出在用户说话的那个会话里，用户点确认就生效。` +
-        `运行时出一张计划变更卡（只列新增或改动的部分）放进用户的待我处理，只有受影响的阶段停下等用户确认，其余阶段照常推进；用户确认就生效。不扩大授权的调整用 ${EXECUTION_TOOL.revisePlan}。`,
+        `运行时出一张计划变更卡（只列新增或改动的部分）放进用户的待我处理，只有受影响的阶段停下等用户确认，其余阶段照常推进；用户确认就生效。不扩大授权的调整用 ${EXECUTION_TOOL.revisePlan}。` +
+        `加预算只写这个阶段新的 budget.toolCalls（token 由运行时算），用户确认后用量从确认时重新算；这个阶段超预算停下时也能用。`,
       parameters: Type.Object(
         {
           plan: PlanDraft,

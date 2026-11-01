@@ -54,7 +54,7 @@ import {
 } from "../../state/index.ts";
 import { clockLabel } from "../../util/time.ts";
 import { Sheet } from "../common.tsx";
-import { budgetText, STAGE_STATUS } from "../conversation/StageDrawer.tsx";
+import { budgetText, STAGE_STATUS, tokensOverBudget } from "../conversation/StageDrawer.tsx";
 import { T } from "../i18n.tsx";
 import { UserWordsBlock } from "../user-words.tsx";
 import { IncidentIcon } from "./incidents.tsx";
@@ -272,7 +272,7 @@ export function StageDetail({
   const facts = stageDetailFacts(ui, items, taskId, stageId);
   const canReopen = source.canRework(stageId);
   const st = STAGE_STATUS[stage.status];
-  const over = (stage.budget.usedTokens ?? 0) > stage.budget.tokens;
+  const over = tokensOverBudget(stage.budget);
   const used = view.state === "ready" && view.view ? new Map(view.view.grantUses.map((g) => [g.grantId, g.used])) : undefined;
   return (
     <>
@@ -399,6 +399,14 @@ export function StageDetail({
         <div className={`dt-note ms-budget${over ? " over" : ""}`}>
           {t("ui.stageDetail.budget", { budget: budgetText(stage.budget) })}
           {over && ` · ${t("ui.stageDetail.overBudget")}`}
+        </div>
+        {/* 361 号票：这个数怎么算的、按前面的实际调过没有、估的和实际的次数 */}
+        <div className="dt-note muted">
+          {[
+            t("ui.stageDrawer.budget.how"),
+            ...(stage.budget.scale !== undefined && stage.budget.scale !== 1 ? [t("ui.stageDrawer.budget.scaled", { scale: stage.budget.scale.toFixed(1) })] : []),
+            ...(stage.calls ? [t("ui.stageDrawer.budget.calls.actual", stage.calls)] : []),
+          ].join(" ")}
         </div>
       </Section>
       <Section title={t("ui.stageDetail.mode")}>

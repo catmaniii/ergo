@@ -27,6 +27,7 @@ import {
   type PolicyOwner,
   t,
   type Task,
+  type PlanSubmission,
 } from "@ergo/protocol";
 import { RequestRejected } from "../errors.ts";
 import {
@@ -98,6 +99,21 @@ export function globalWatchCategories(settings: WatchCategorySettings): GlobalWa
 }
 
 export type PlanCheck = { ok: true; plan: Plan } | { ok: false; problems: string[] };
+
+/**
+ * 负责人交来的计划（361 号票）：它只估工具调用次数，写了 token 也不作数——存进计划的 token 是 0（阶段开始时运行时按实测算，
+ * 记在阶段上）；计划卡上整个任务的粗估和大约多少钱按此刻的单次计量算
+ */
+export function planFromSubmission(submission: PlanSubmission, meter: { perCall: number; costPerCall?: { amount: number; currency: string } } | undefined): Plan {
+  const calls = submission.stages.reduce((n, s) => n + s.budget.toolCalls, 0);
+  const { costEstimate: _cost, ...rest } = submission as PlanSubmission & { costEstimate?: unknown };
+  return {
+    ...rest,
+    stages: submission.stages.map((s) => ({ ...s, budget: { tokens: 0, toolCalls: s.budget.toolCalls } })),
+    tokenEstimate: calls * (meter?.perCall ?? 0),
+    ...(meter?.costPerCall && calls > 0 ? { costEstimate: { amount: calls * meter.costPerCall.amount, currency: meter.costPerCall.currency } } : {}),
+  };
+}
 
 /** 工具包里的 skill 要在 skill 库里、MCP 要登记过（27 号票，toolkit/ 给）：不合的一条一句 */
 export type ToolkitProblems = (toolkit: Pick<Plan["toolkit"], "skills" | "mcp">) => string[];

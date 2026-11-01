@@ -18,6 +18,7 @@ export function submitPlanTool(tasks: TaskService, scope: { taskId: string; main
     // @i18n-ignore-start model：工具说明和结果给维护者（模型）看
     description:
       "把起草好的计划以结构化数据交出。运行时检查后生成计划卡放进用户的待我处理，任务转“待确认”；没通过检查时返回原因，改好再提交。" +
+      "预算只写每个阶段大概要多少次工具调用（budget.toolCalls），token 预算由运行时按实测用量算。" +
       (task && stagesAutoAccepted(task) ? "阶段自动验收：每条验收标准的方式只能写 script（附命令）或 review（涉及多个项目的任务只写 review），写 user 会被退回。" : ""),
     parameters: PlanSubmission,
     // 每提交一次多一版计划、一张计划卡

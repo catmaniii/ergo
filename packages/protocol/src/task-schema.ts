@@ -77,6 +77,33 @@ export const StageObservedCounts = Type.Object({
 });
 export type StageObservedCounts = Static<typeof StageObservedCounts>;
 
+/**
+ * 一个阶段这一份预算（361 号票）：负责人只估工具调用次数（计划里的 budget.toolCalls），token 预算由运行时算——
+ * 预计次数（乘校准比例）× 单次计量（这个任务或项目最近每次调用实际记多少，没有历史时按上下文大小估）。
+ * 阶段开始时算好记在阶段上；追加预算继续、确认加预算的计划变更时重新算。升级前就开始了的阶段没有，照计划里写的数
+ */
+export const StageBudget = Type.Object({
+  /** 这一份给多少次工具调用：负责人估的次数 × 校准比例 */
+  toolCalls: Type.Integer({ minimum: 0 }),
+  /** 这一份给多少 token（账本里预算用的那个数：没命中缓存的输入 + 输出 + 命中缓存的十分之一） */
+  tokens: Type.Integer({ minimum: 0 }),
+  /** 单次计量：算这一份时每次调用记多少 token */
+  perCall: Type.Integer({ minimum: 0 }),
+  /** 校准比例：前面阶段实际的次数 ÷ 估的次数，有上下限；没有校准是 1 */
+  scale: Type.Number({ exclusiveMinimum: 0 }),
+  /** 这一份从账本里多少 token 起算（追加预算之后的用量减去它） */
+  baseTokens: Type.Integer({ minimum: 0 }),
+  /** 这一份从第几次工具调用起算 */
+  baseToolCalls: Type.Integer({ minimum: 0 }),
+  /** 按账本单价大约多少钱；模型没有单价（自定义模型）时没有 */
+  cost: Type.Optional(Type.Object({ amount: Type.Number({ minimum: 0 }), currency: Type.String() })),
+});
+export type StageBudget = Static<typeof StageBudget>;
+
+/** 一个阶段估的和实际的工具调用次数（361 号票）：验收时记下，同一任务后面的阶段按它校准，也给负责人看 */
+export const StageCalls = Type.Object({ estimated: Type.Integer({ minimum: 0 }), actual: Type.Integer({ minimum: 0 }) });
+export type StageCalls = Static<typeof StageCalls>;
+
 /** 执行中一个阶段的状态（13 号票）：控制器保管，阶段抽屉和看板的"第 N/M 阶段"取自这里 */
 export const TaskStage = Type.Object({
   stageId: Type.String(),
@@ -102,6 +129,10 @@ export const TaskStage = Type.Object({
   nudges: Type.Optional(Type.Integer({ minimum: 0 })),
   /** 这一支为什么停下等用户（14 号票：阈值写明超了什么、做不了的原因、超预算用了多少；state 为 waiting 时） */
   waitNote: Type.Optional(Type.String()),
+  /** 这一份预算（361 号票，见 StageBudget）；还没开始、升级前就开始了的阶段没有 */
+  budget: Type.Optional(StageBudget),
+  /** 估的和实际的工具调用次数（361 号票，见 StageCalls）：验收时记下，重开时清掉 */
+  calls: Type.Optional(StageCalls),
   /**
    * 最近一次是任务第几次重做时被重开的（84 号票，Task.reworks 当时的值）：效果日志里判定时任务重做次数比它小的是之前那一轮做的
    * （守卫的 GuardTask.reworkNo），"从这里重做"列已经做了的事只算这一轮。没被重开过的没有
@@ -522,13 +553,27 @@ const planStageFields = {
   policy: PlanPolicy,
   budget: Type.Object(
     { tokens: Type.Integer({ minimum: 0 }), toolCalls: Type.Integer({ minimum: 0 }) },
-    { additionalProperties: false, description: "预算：token 和工具调用次数" },
+    { additionalProperties: false, description: "预算：token（运行时算，361 号票起新计划里是 0；之前存下的计划有数）和工具调用次数" },
   ),
   groupId: Type.Optional(Type.String({ description: "所属阶段组的 id" })),
 };
 
 /** 维护者交来的一个阶段（没有编号：编号由守护进程定） */
-export const PlanStageDraft = Type.Object(planStageFields, { additionalProperties: false });
+export const PlanStageDraft = Type.Object(
+  {
+    ...planStageFields,
+    // 361 号票：负责人只估次数，token 预算由运行时按实测算；写了 tokens 也不作数（旧的调用照样过校验）
+    budget: Type.Object(
+      {
+        toolCalls: Type.Integer({ minimum: 0, description: "这个阶段大概要多少次工具调用（读一个文件、改一处、跑一次命令都算一次）" }),
+        tokens: Type.Optional(Type.Integer({ minimum: 0, description: "不用写：token 预算由运行时按次数和实测用量算，写了也不算" })),
+      },
+      { additionalProperties: false, description: "预算：只估工具调用次数" },
+    ),
+  },
+  { additionalProperties: false },
+);
+export type PlanStageDraft = Static<typeof PlanStageDraft>;
 
 /**
  * 计划里的一个阶段。code 是编号（93 号票，形如 M4a）：守护进程定计划、每次调整时按依赖层定下存进来
@@ -647,11 +692,20 @@ const planFields = <S extends TSchema>(stage: S) => ({
     },
     { additionalProperties: false },
   ),
-  tokenEstimate: Type.Integer({ minimum: 0, description: "整个任务的 token 粗估" }),
+  tokenEstimate: Type.Integer({ minimum: 0, description: "整个任务的 token 粗估（361 号票起由运行时算：各阶段预计次数 × 单次计量）" }),
+  /** 上面那个粗估按账本单价大约多少钱（361 号票，运行时算的）；模型没有单价、之前存下的计划没有 */
+  costEstimate: Type.Optional(Type.Object({ amount: Type.Number({ minimum: 0 }), currency: Type.String() })),
 });
 export const Plan = Type.Object(planFields(PlanStage), { additionalProperties: false });
-/** 维护者用"提交计划"交的计划：阶段里没有编号（编号由守护进程定，93 号票） */
-export const PlanSubmission = Type.Object(planFields(PlanStageDraft), { additionalProperties: false });
+/**
+ * 维护者用"提交计划"交的计划：阶段里没有编号（编号由守护进程定，93 号票）。
+ * 361 号票：整个任务的 token 粗估也由运行时算，不用写，写了也不算
+ */
+export const PlanSubmission = Type.Object(
+  { ...planFields(PlanStageDraft), tokenEstimate: Type.Optional(Type.Integer({ minimum: 0, description: "不用写：运行时算" })) },
+  { additionalProperties: false },
+);
+export type PlanSubmission = Static<typeof PlanSubmission>;
 export type Plan = Static<typeof Plan>;
 
 /**
@@ -743,7 +797,7 @@ export const PlanDraft = Type.Object(
     projects: Type.Optional(Type.Array(PlanProject, { description: "涉及的项目和每个项目的改动（不改就不写；写了按写的算，要写全）" })),
     assumptions: Type.Optional(draftFields.assumptions),
     stops: Type.Optional(draftFields.stops),
-    tokenEstimate: Type.Optional(draftFields.tokenEstimate),
+    tokenEstimate: Type.Optional(Type.Integer({ minimum: 0, description: "不用写：运行时算" })),
   },
   { additionalProperties: false, description: "只写要改的部分：没写到的阶段、没写的栏沿用当前计划" },
 );

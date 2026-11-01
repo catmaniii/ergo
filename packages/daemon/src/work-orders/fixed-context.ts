@@ -44,6 +44,8 @@ export interface FixedContextInput {
   previous: Pick<MaintainerSegment, "segmentId" | "workOrderId" | "summary"> | undefined;
   /** 工单段：这次的工单 */
   workOrder: WorkOrder | undefined;
+  /** 这个项目前面的阶段估的和实际的工具调用次数（361 号票）：负责人起草计划时照这个比例估；关着预算控制、没有记录时没有 */
+  callHistory?: readonly string[];
 }
 
 /** 一份文档放进快照：太长的截断，提示读全文 */
@@ -112,6 +114,7 @@ export function fixedContextText(input: FixedContextInput): string {
     snapshot("进展", "progress.md", input.records.progress),
     snapshot("术语表", "glossary.md", input.records.glossary),
     previousLine(input),
+    ...(input.callHistory ?? []),
     ...workOrderLines(input.workOrder),
   ].join("\n");
 }

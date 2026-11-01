@@ -25,6 +25,7 @@ import {
   emptyCategoryForm,
   type PlanCategoryAddition,
   type PlanCategoryOrigin,
+  approxMoney,
   planCategoryAdditionOf,
   planCategoryRows,
   userLimitRows,
@@ -147,13 +148,20 @@ export function PlanCard({ state, payload: p, done, act }: CardProps<PlanCardPay
       <div className="plan-sum">
         <span>{t("ui.planCard.sum.stages", { count: plan.stages.length })}</span>
         <span className="look-tail-you">{t("ui.planCard.sum.stops", { count: stops.length })}</span>
-        <span>{t("ui.planCard.sum.tokens", { tokens: tokensLabel(plan.tokenEstimate) })}</span>
+        <span>
+          {plan.tokenEstimate <= 0
+            ? t("ui.planCard.sum.calls", { count: plan.stages.reduce((n, s) => n + s.budget.toolCalls, 0) })
+            : plan.costEstimate
+              ? t("ui.planCard.sum.tokensCost", { tokens: tokensLabel(plan.tokenEstimate), cost: approxMoney(plan.costEstimate) })
+              : t("ui.planCard.sum.tokens", { tokens: tokensLabel(plan.tokenEstimate) })}
+        </span>
         <span>
           {t("ui.planCard.sum.categories", { count: categoryRows.length + (done ? 0 : added.length) })}
           {limits.length > 0 ? t("ui.planCard.sum.limits", { count: limits.length }) : ""}
           {t("ui.planCard.sum.seeDetails")}
         </span>
       </div>
+      <div className="muted">{t("ui.planCard.budgetHow")}</div>
       {/* 93 号票：一直列着各阶段的提纲，点一项就地展开、左边图上高亮 */}
       <PlanOutline card={state.card} />
       {stops.length > 0 && (

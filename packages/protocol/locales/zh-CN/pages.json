@@ -1130,7 +1130,7 @@
   "pages.safety.askFirstOn": "已打开：有风险的事先问你",
   "pages.safety.askFirstOff": "已关掉：有风险的事大多直接做，特别敏感的还会问你",
   "pages.safety.budget": "任务超预算就停下",
-  "pages.safety.budgetSub": "开着：任务某一步的用量超过计划里的预算时先说明进展，超过两倍就停下等你，你可以追加预算接着做。\n关掉：只记用量、不停下（用自己的 Key 付钱时，跑偏的任务会一直花下去）。改了马上生效。",
+  "pages.safety.budgetSub": "开着：任务某一步的用量超过预算时先说明进展，超过两倍就停下等你，你可以追加预算接着做。负责人只估要调用多少次，token 预算由二狗按最近的实际用量算；缓存命中的部分只算十分之一，消耗页的数字不受影响。\n关掉：只记用量、不停下（用自己的 Key 付钱时，跑偏的任务会一直花下去）。改了马上生效。",
   "pages.safety.budgetOn": "已打开：任务超预算就停下",
   "pages.safety.budgetOff": "已关掉：任务超了预算也不停，只记用量",
   "pages.safety.loadFailed": "读不到这两个开关：{reason}",

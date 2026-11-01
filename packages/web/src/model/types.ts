@@ -198,8 +198,13 @@ export interface Stage {
   code?: string;
   grants: string[];
   rules: string[];
-  /** 预算；用了多少 token（usedTokens）24 号票起来自账本，工具调用次数（usedToolCalls）在 14 号票 */
-  budget: { tokens: number; usedTokens?: number; toolCalls: number; usedToolCalls?: number };
+  /**
+   * 预算；用了多少 token（usedTokens）24 号票起来自账本，工具调用次数（usedToolCalls）在 14 号票。
+   * 361 号票：token 预算是运行时算的（阶段开始前是 0，只写次数），cost 是大约多少钱，scale 是按前面阶段的实际比例调了多少
+   */
+  budget: { tokens: number; usedTokens?: number; toolCalls: number; usedToolCalls?: number; cost?: { amount: number; currency: string }; scale?: number };
+  /** 估的和实际的工具调用次数（361 号票：验收时记下的） */
+  calls?: { estimated: number; actual: number };
   /** 宣布过几次完成（真任务才有） */
   attempts?: number;
   /** 在等用户的原因（真任务才有） */

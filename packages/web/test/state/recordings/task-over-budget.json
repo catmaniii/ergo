@@ -21,8 +21,8 @@
           "projects": [],
           "projectIds": [],
           "projectScope": "none",
-          "createdAt": "2026-10-12T00:48:05.344+08:00",
-          "updatedAt": "2026-10-12T00:48:05.344+08:00"
+          "createdAt": "2026-11-01T11:34:57.650+08:00",
+          "updatedAt": "2026-11-01T11:34:57.650+08:00"
         },
         "change": "created",
         "from": null,
@@ -46,8 +46,9 @@
               "text": "任务书：任务 t-1「预算」\n目标：整理一份 X 的调研\n验收标准：\n- 附来源\n约束：（无）\n涉及的项目：不涉及项目\n记忆范围提议：（无）（第一阶段只占位）\n全局的关注类别（计划里的 watchCategories 一个都不能少，只能增加或往严里调）：spend_money「花钱」、external_send「以我的名义对外发送或发布」、delete_or_overwrite「删除或覆盖（项目档案和工作目录内）」、irreversible_commit「不可逆的提交」、account_security「账户与安全（凭据、权限、全局装软件）」、outside_project「越出项目目录」、memory_out_of_scope「使用授权范围外的记忆」、unplanned_work_order「计划外工单」、unknown_write「未知的写操作」\n请据此起草计划，用 submit_plan 提交；用户确认之前不要动手做。"
             }
           ],
-          "id": "m-397257ee-5bbf-4519-aee3-4e1fea4bbdb6",
-          "time": "2026-10-12T00:48:05.345+08:00"
+          "taskBrief": true,
+          "id": "m-e4c90707-5fdf-4404-9f3d-c02383a0c061",
+          "time": "2026-11-01T11:34:57.653+08:00"
         },
         "agentInput": true,
         "taskId": "t-1"
@@ -61,7 +62,7 @@
       "seq": 2,
       "type": "turn_start",
       "payload": {
-        "inputMessageId": "m-397257ee-5bbf-4519-aee3-4e1fea4bbdb6"
+        "inputMessageId": "m-e4c90707-5fdf-4404-9f3d-c02383a0c061"
       }
     }
   },
@@ -78,7 +79,7 @@
         },
         "tokens": {
           "cacheHit": 0,
-          "cacheMiss": 9416,
+          "cacheMiss": 12596,
           "output": 249
         },
         "calls": 1,
@@ -89,14 +90,14 @@
             "purpose": "work",
             "tokens": {
               "cacheHit": 0,
-              "cacheMiss": 9416,
+              "cacheMiss": 12596,
               "output": 249
             },
             "calls": 1
           }
         ],
         "byStage": [],
-        "time": "2026-10-12T00:48:06.946+08:00"
+        "time": "2026-11-01T11:34:59.998+08:00"
       }
     }
   },
@@ -108,7 +109,7 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-0fe44f5c-70a8-4483-96d1-c33b62f81a26",
+          "id": "c-f5a38218-cff9-487e-b80e-1e8cd3369cfb",
           "type": "plan",
           "typeVersion": 5,
           "version": 1,
@@ -228,7 +229,7 @@
                 "count": 0,
                 "where": []
               },
-              "tokenEstimate": 320000
+              "tokenEstimate": 25690
             },
             "globalCategories": [
               "spend_money",
@@ -244,9 +245,9 @@
             "grantInfo": {},
             "verifiedQuotes": []
           },
-          "text": "计划：预算（第 1 版，2 个阶段，约 320000 token）",
+          "text": "计划：预算（第 1 版，2 个阶段，约 25690 token）",
           "urgency": "blocking",
-          "createdAt": "2026-10-12T00:48:06.956+08:00"
+          "createdAt": "2026-11-01T11:35:00.015+08:00"
         }
       }
     }
@@ -269,9 +270,9 @@
           "projects": [],
           "projectIds": [],
           "projectScope": "none",
-          "createdAt": "2026-10-12T00:48:05.344+08:00",
-          "updatedAt": "2026-10-12T00:48:06.956+08:00",
-          "planCardId": "c-0fe44f5c-70a8-4483-96d1-c33b62f81a26",
+          "createdAt": "2026-11-01T11:34:57.650+08:00",
+          "updatedAt": "2026-11-01T11:35:00.015+08:00",
+          "planCardId": "c-f5a38218-cff9-487e-b80e-1e8cd3369cfb",
           "stages": {
             "total": 2
           }
@@ -290,18 +291,21 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-75cfbc0e-6872-40a8-a051-c080046bc748",
+          "id": "i-41c241e9-786d-4df2-9963-2e2898dbbf7b",
           "version": 1,
           "title": "计划等你确认：预算",
           "source": "任务「预算」",
           "urgency": "blocking",
           "pinned": false,
-          "createdAt": "2026-10-12T00:48:06.956+08:00",
+          "createdAt": "2026-11-01T11:35:00.015+08:00",
           "read": false,
           "archived": false,
           "deleted": false,
+          "origin": {
+            "taskId": "t-1"
+          },
           "kind": "card",
-          "cardId": "c-0fe44f5c-70a8-4483-96d1-c33b62f81a26"
+          "cardId": "c-f5a38218-cff9-487e-b80e-1e8cd3369cfb"
         }
       }
     }
@@ -313,9 +317,9 @@
       "seq": 1,
       "type": "notify",
       "payload": {
-        "id": "n-i-75cfbc0e-6872-40a8-a051-c080046bc748",
+        "id": "n-i-41c241e9-786d-4df2-9963-2e2898dbbf7b",
         "title": "计划等你确认：预算",
-        "itemId": "i-75cfbc0e-6872-40a8-a051-c080046bc748"
+        "itemId": "i-41c241e9-786d-4df2-9963-2e2898dbbf7b"
       }
     }
   },
@@ -332,11 +336,11 @@
           "parts": [
             {
               "type": "card_ref",
-              "cardId": "c-0fe44f5c-70a8-4483-96d1-c33b62f81a26"
+              "cardId": "c-f5a38218-cff9-487e-b80e-1e8cd3369cfb"
             }
           ],
-          "id": "m-c5b7628e-78e8-40ee-8acc-110a95c0e1fc",
-          "time": "2026-10-12T00:48:06.958+08:00"
+          "id": "m-12894d24-8fd5-405a-91e1-5793d52437b3",
+          "time": "2026-11-01T11:35:00.017+08:00"
         },
         "taskId": "t-1"
       }
@@ -355,7 +359,7 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791737286912:zl8hssf25eq",
+              "callId": "tool:1793504099956:tyw1kqhc82b",
               "tool": "submit_plan",
               "argsSummary": "stages=[{\"stageId\":\"s1\",\"title\":\"收集资料\",\"deliverables\":[\"资料清单 sources.md\"],\"acceptance\":[{\"criterion\":\"资料清单存在\",\"method\":\"script\",\"script\":\"test -f sources.md\"}],…",
               "categoryTitles": [],
@@ -367,8 +371,8 @@
               "nature": "act"
             }
           ],
-          "id": "m-7e9e03d0-ed34-4320-9362-7f7d73ec4f7f",
-          "time": "2026-10-12T00:48:06.960+08:00"
+          "id": "m-716c14c8-b60a-4ccb-83b2-02d2eae29b65",
+          "time": "2026-11-01T11:35:00.020+08:00"
         },
         "taskId": "t-1"
       }
@@ -381,7 +385,7 @@
       "seq": 4,
       "type": "stream",
       "payload": {
-        "messageId": "m-ba9b9f3d-4f83-47cc-a799-4c66f1374ec5",
+        "messageId": "m-51a6fd76-9757-49d3-8f53-382bc279de7b",
         "deltas": [
           {
             "part": 0,
@@ -401,7 +405,7 @@
       "type": "message",
       "payload": {
         "message": {
-          "id": "m-ba9b9f3d-4f83-47cc-a799-4c66f1374ec5",
+          "id": "m-51a6fd76-9757-49d3-8f53-382bc279de7b",
           "conversation": "maintainer:tm-1",
           "speaker": "agent",
           "parts": [
@@ -410,7 +414,7 @@
               "text": "计划交上去了"
             }
           ],
-          "time": "2026-10-12T00:48:06.963+08:00"
+          "time": "2026-11-01T11:35:00.023+08:00"
         },
         "taskId": "t-1"
       }
@@ -428,8 +432,8 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 4708,
-          "cacheMiss": 9961,
+          "cacheHit": 6298,
+          "cacheMiss": 13142,
           "output": 251
         },
         "calls": 2,
@@ -439,15 +443,15 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 4708,
-              "cacheMiss": 9961,
+              "cacheHit": 6298,
+              "cacheMiss": 13142,
               "output": 251
             },
             "calls": 2
           }
         ],
         "byStage": [],
-        "time": "2026-10-12T00:48:06.964+08:00"
+        "time": "2026-11-01T11:35:00.024+08:00"
       }
     }
   },
@@ -458,16 +462,16 @@
       "seq": 6,
       "type": "turn_end",
       "payload": {
-        "inputMessageId": "m-397257ee-5bbf-4519-aee3-4e1fea4bbdb6",
+        "inputMessageId": "m-e4c90707-5fdf-4404-9f3d-c02383a0c061",
         "outcome": "completed"
       }
     }
   },
   {
     "kind": "card_action",
-    "cardId": "c-0fe44f5c-70a8-4483-96d1-c33b62f81a26",
+    "cardId": "c-f5a38218-cff9-487e-b80e-1e8cd3369cfb",
     "action": "confirm",
-    "idempotencyKey": "4648647e-2c81-48c7-85f5-efc4b25f8538"
+    "idempotencyKey": "bd14589a-e7ca-4853-86de-44d6b0657a5f"
   },
   {
     "kind": "frame",
@@ -487,9 +491,9 @@
           "projects": [],
           "projectIds": [],
           "projectScope": "none",
-          "createdAt": "2026-10-12T00:48:05.344+08:00",
-          "updatedAt": "2026-10-12T00:48:07.328+08:00",
-          "planCardId": "c-0fe44f5c-70a8-4483-96d1-c33b62f81a26",
+          "createdAt": "2026-11-01T11:34:57.650+08:00",
+          "updatedAt": "2026-11-01T11:35:00.386+08:00",
+          "planCardId": "c-f5a38218-cff9-487e-b80e-1e8cd3369cfb",
           "stages": {
             "total": 2
           }
@@ -508,7 +512,7 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-0fe44f5c-70a8-4483-96d1-c33b62f81a26",
+          "id": "c-f5a38218-cff9-487e-b80e-1e8cd3369cfb",
           "type": "plan",
           "typeVersion": 5,
           "version": 2,
@@ -628,7 +632,7 @@
                 "count": 0,
                 "where": []
               },
-              "tokenEstimate": 320000
+              "tokenEstimate": 25690
             },
             "globalCategories": [
               "spend_money",
@@ -646,10 +650,10 @@
             "removedGrants": [],
             "narrowedGrants": []
           },
-          "text": "计划：预算（第 1 版，2 个阶段，约 320000 token）",
+          "text": "计划：预算（第 1 版，2 个阶段，约 25690 token）",
           "urgency": "blocking",
-          "createdAt": "2026-10-12T00:48:06.956+08:00",
-          "handledAt": "2026-10-12T00:48:07.328+08:00",
+          "createdAt": "2026-11-01T11:35:00.015+08:00",
+          "handledAt": "2026-11-01T11:35:00.386+08:00",
           "outcome": {
             "action": "confirm"
           }
@@ -675,9 +679,9 @@
           "projects": [],
           "projectIds": [],
           "projectScope": "none",
-          "createdAt": "2026-10-12T00:48:05.344+08:00",
-          "updatedAt": "2026-10-12T00:48:07.331+08:00",
-          "planCardId": "c-0fe44f5c-70a8-4483-96d1-c33b62f81a26",
+          "createdAt": "2026-11-01T11:34:57.650+08:00",
+          "updatedAt": "2026-11-01T11:35:00.396+08:00",
+          "planCardId": "c-f5a38218-cff9-487e-b80e-1e8cd3369cfb",
           "stages": {
             "total": 2,
             "current": 1,
@@ -739,9 +743,9 @@
           "projects": [],
           "projectIds": [],
           "projectScope": "none",
-          "createdAt": "2026-10-12T00:48:05.344+08:00",
-          "updatedAt": "2026-10-12T00:48:07.331+08:00",
-          "planCardId": "c-0fe44f5c-70a8-4483-96d1-c33b62f81a26",
+          "createdAt": "2026-11-01T11:34:57.650+08:00",
+          "updatedAt": "2026-11-01T11:35:00.397+08:00",
+          "planCardId": "c-f5a38218-cff9-487e-b80e-1e8cd3369cfb",
           "stages": {
             "total": 2,
             "current": 1,
@@ -759,7 +763,15 @@
                 ],
                 "attempts": 0,
                 "code": "1",
-                "startedAt": "2026-10-12T00:48:07.331+08:00"
+                "startedAt": "2026-11-01T11:35:00.397+08:00",
+                "budget": {
+                  "toolCalls": 2,
+                  "tokens": 14022,
+                  "perCall": 7011,
+                  "scale": 1,
+                  "baseTokens": 0,
+                  "baseToolCalls": 0
+                }
               },
               {
                 "stageId": "s2",
@@ -801,11 +813,11 @@
           "parts": [
             {
               "type": "text",
-              "text": "计划已确认，开始执行任务 t-1「预算」。\n现在是第 1/2 阶段 s1「收集资料」：\n- 交付件：资料清单 sources.md\n- 验收标准：资料清单存在（脚本：test -f sources.md）\n- 模式：开放\n授权（只在当前阶段内有效）：\n- （没有）\n时序规则：\n- （没有）\n边界：\n- 工作目录 <临时目录>\\ergo-data-iBomxA\\outputs\\t-1：文件工具只能写这里；工具包：bash 开，联网开\n- 授权项只在所属阶段内有效，用到别的阶段的授权会被拉回；前置阶段没验收的阶段不能开始；“先问我”类的操作列进了授权项，执行时也照样问用户\n- 一个阶段做完调用 complete_stage 宣布完成，由运行时验收（脚本、评审、用户），你自检不算验收；进展用 report_progress 报告；卡住要用户拍板用 wait_for_user；做不下去用 fail_task 写明原因；要换去做另一个能开始的阶段用 start_stage\n- 要扩大授权、加能力、加项目、改目标或验收：用 propose_plan_change 提交计划变更（用户确认后生效，只有受影响的阶段停下等）；不扩大授权的调整（拆阶段、调顺序）用 revise_plan 自行调整计划（直接生效）\n做完调用 complete_stage 宣布阶段完成，由运行时验收。"
+              "text": "计划已确认，开始执行任务 t-1「预算」。\n现在是第 1/2 阶段 s1「收集资料」：\n- 交付件：资料清单 sources.md\n- 验收标准：资料清单存在（脚本：test -f sources.md）\n- 模式：开放\n这个阶段的预算（运行时算的）：工具调用 2 次、token 14022（每次调用约记 7011；token 按没命中缓存的输入 + 输出 + 命中缓存的十分之一算，不是账本上的真实 token）。\n授权（只在当前阶段内有效）：\n- （没有）\n时序规则：\n- （没有）\n边界：\n- 工作目录 <临时目录>\\ergo-data-qvIehB\\outputs\\t-1：文件工具只能写这里；工具包：bash 开，联网开\n- 授权项只在所属阶段内有效，用到别的阶段的授权会被拉回；前置阶段没验收的阶段不能开始；“先问我”类的操作列进了授权项，执行时也照样问用户\n- 一个阶段做完调用 complete_stage 宣布完成，由运行时验收（脚本、评审、用户），你自检不算验收；进展用 report_progress 报告；卡住要用户拍板用 wait_for_user；做不下去用 fail_task 写明原因；要换去做另一个能开始的阶段用 start_stage\n- 要扩大授权、加能力、加项目、改目标或验收：用 propose_plan_change 提交计划变更（用户确认后生效，只有受影响的阶段停下等）；不扩大授权的调整（拆阶段、调顺序）用 revise_plan 自行调整计划（直接生效）\n做完调用 complete_stage 宣布阶段完成，由运行时验收。"
             }
           ],
-          "id": "m-05413afe-dbf0-44ca-b5ba-99b1cf624275",
-          "time": "2026-10-12T00:48:07.332+08:00"
+          "id": "m-cb4bf215-1dfb-4a0b-8a11-6909241067d9",
+          "time": "2026-11-01T11:35:00.399+08:00"
         },
         "agentInput": true,
         "taskId": "t-1",
@@ -820,16 +832,16 @@
       "seq": 8,
       "type": "stage_start",
       "payload": {
-        "id": "ss-2933ae9d-1a29-4f9f-8a87-01126e98a4be",
+        "id": "ss-63aec79f-68b8-4c89-bd2d-2e7d4ce837ee",
         "conversation": "maintainer:tm-1",
         "taskId": "t-1",
         "stageId": "s1",
         "title": "收集资料",
         "code": "1",
         "via": {
-          "notice": "m-05413afe-dbf0-44ca-b5ba-99b1cf624275"
+          "notice": "m-cb4bf215-1dfb-4a0b-8a11-6909241067d9"
         },
-        "time": "2026-10-12T00:48:07.332+08:00"
+        "time": "2026-11-01T11:35:00.400+08:00"
       }
     }
   },
@@ -840,7 +852,7 @@
       "seq": 9,
       "type": "turn_start",
       "payload": {
-        "inputMessageId": "m-05413afe-dbf0-44ca-b5ba-99b1cf624275"
+        "inputMessageId": "m-cb4bf215-1dfb-4a0b-8a11-6909241067d9"
       }
     }
   },
@@ -856,9 +868,9 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 4708,
-          "cacheMiss": 33719,
-          "output": 260
+          "cacheHit": 6298,
+          "cacheMiss": 13152,
+          "output": 256
         },
         "calls": 3,
         "byAgent": [
@@ -867,9 +879,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 4708,
-              "cacheMiss": 33719,
-              "output": 260
+              "cacheHit": 6298,
+              "cacheMiss": 13152,
+              "output": 256
             },
             "calls": 3
           }
@@ -879,14 +891,14 @@
             "stageId": "s1",
             "tokens": {
               "cacheHit": 0,
-              "cacheMiss": 23758,
-              "output": 9
+              "cacheMiss": 10,
+              "output": 5
             },
             "calls": 1,
-            "budgetTokens": 23767
+            "budgetTokens": 15
           }
         ],
-        "time": "2026-10-12T00:48:09.093+08:00"
+        "time": "2026-11-01T11:35:02.197+08:00"
       }
     }
   },
@@ -903,7 +915,7 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791737289062:lma9lud1w",
+              "callId": "tool:1793504102143:6aj35hl9eyx",
               "tool": "write",
               "argsSummary": "a.md",
               "categoryTitles": [],
@@ -915,8 +927,8 @@
               "nature": "act"
             }
           ],
-          "id": "m-1947c38e-f6f0-4ff7-ab38-e90fc59c2efe",
-          "time": "2026-10-12T00:48:09.100+08:00"
+          "id": "m-6ad79153-31df-4a68-8c9d-608e087ba801",
+          "time": "2026-11-01T11:35:02.211+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -935,9 +947,9 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 16587,
-          "cacheMiss": 33765,
-          "output": 269
+          "cacheHit": 6298,
+          "cacheMiss": 13162,
+          "output": 261
         },
         "calls": 4,
         "byAgent": [
@@ -946,9 +958,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 16587,
-              "cacheMiss": 33765,
-              "output": 269
+              "cacheHit": 6298,
+              "cacheMiss": 13162,
+              "output": 261
             },
             "calls": 4
           }
@@ -957,15 +969,15 @@
           {
             "stageId": "s1",
             "tokens": {
-              "cacheHit": 11879,
-              "cacheMiss": 23804,
-              "output": 18
+              "cacheHit": 0,
+              "cacheMiss": 20,
+              "output": 10
             },
             "calls": 2,
-            "budgetTokens": 35701
+            "budgetTokens": 30
           }
         ],
-        "time": "2026-10-12T00:48:09.104+08:00"
+        "time": "2026-11-01T11:35:02.218+08:00"
       }
     }
   },
@@ -982,7 +994,7 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791737289062:1qe0c6cuin3",
+              "callId": "tool:1793504102144:ytb34a0hiho",
               "tool": "write",
               "argsSummary": "b.md",
               "categoryTitles": [],
@@ -994,8 +1006,8 @@
               "nature": "act"
             }
           ],
-          "id": "m-2c8bf75f-4751-4ac4-8bff-3299d9c8d562",
-          "time": "2026-10-12T00:48:09.109+08:00"
+          "id": "m-35fe855c-3fd9-45d5-8348-6caa324a0bc8",
+          "time": "2026-11-01T11:35:02.225+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -1014,9 +1026,9 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 28489,
-          "cacheMiss": 33811,
-          "output": 278
+          "cacheHit": 6298,
+          "cacheMiss": 13172,
+          "output": 266
         },
         "calls": 5,
         "byAgent": [
@@ -1025,9 +1037,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 28489,
-              "cacheMiss": 33811,
-              "output": 278
+              "cacheHit": 6298,
+              "cacheMiss": 13172,
+              "output": 266
             },
             "calls": 5
           }
@@ -1036,15 +1048,15 @@
           {
             "stageId": "s1",
             "tokens": {
-              "cacheHit": 23781,
-              "cacheMiss": 23850,
-              "output": 27
+              "cacheHit": 0,
+              "cacheMiss": 30,
+              "output": 15
             },
             "calls": 3,
-            "budgetTokens": 47658
+            "budgetTokens": 45
           }
         ],
-        "time": "2026-10-12T00:48:09.114+08:00"
+        "time": "2026-11-01T11:35:02.229+08:00"
       }
     }
   },
@@ -1061,7 +1073,7 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791737289062:foay96tpf1p",
+              "callId": "tool:1793504102144:jbtfre2mmtr",
               "tool": "write",
               "argsSummary": "c.md",
               "categoryTitles": [],
@@ -1073,8 +1085,8 @@
               "nature": "act"
             }
           ],
-          "id": "m-c1f0a779-3e88-412d-aaed-8216b5679729",
-          "time": "2026-10-12T00:48:09.120+08:00"
+          "id": "m-c1de9d16-548a-4d91-96da-1f44716cae25",
+          "time": "2026-11-01T11:35:02.237+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -1094,13 +1106,19 @@
           "parts": [
             {
               "type": "text",
-              "text": "阶段 s1「收集资料」的用量已经超过预算：用了 47658 token、3 次工具调用（预算 0 token、2 次）。用 report_progress 说明一下进展：做到哪了、还要多少、为什么超了；用量超过预算的 2 倍时运行时会让这一支停下找用户。"
+              "text": "阶段 s1「收集资料」的用量已经超过预算：用了 45 token、3 次工具调用（预算 14022 token、2 次）（token 按没命中缓存的输入 + 输出 + 命中缓存的十分之一算，不是账本上的真实 token）。用 report_progress 说明一下进展：做到哪了、还要多少、为什么超了；用量超过预算的 2 倍时运行时会让这一支停下找用户。"
             }
           ],
-          "id": "m-ffd47d91-9bd9-4aa8-9b60-dafc03471b9f",
-          "time": "2026-10-12T00:48:09.121+08:00"
+          "id": "m-ca556fba-850a-4507-9266-efccd0fb1376",
+          "time": "2026-11-01T11:35:02.238+08:00"
         },
         "agentInput": true,
+        "taskNotice": {
+          "kind": "budget_explain",
+          "stageIds": [
+            "s1"
+          ]
+        },
         "taskId": "t-1",
         "stageId": "s1"
       }
@@ -1114,10 +1132,10 @@
       "type": "timeline_record",
       "payload": {
         "record": {
-          "id": "r-599c37fd-9b53-4606-add9-4751792c0bc8",
+          "id": "r-e96d8aaf-267f-491d-bb97-0aee587cafa9",
           "kind": "deviation",
-          "summary": "第 1 阶段「收集资料」的用量超过预算：用了 47658 token、3 次工具调用（预算 0 token、2 次），让维护者说明进展",
-          "time": "2026-10-12T00:48:09.121+08:00"
+          "summary": "第 1 阶段「收集资料」的用量超过预算：用了 45 token、3 次工具调用（预算 14022 token、2 次），让维护者说明进展",
+          "time": "2026-11-01T11:35:02.239+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -1136,9 +1154,9 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 40414,
-          "cacheMiss": 33857,
-          "output": 288
+          "cacheHit": 6298,
+          "cacheMiss": 13182,
+          "output": 271
         },
         "calls": 6,
         "byAgent": [
@@ -1147,9 +1165,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 40414,
-              "cacheMiss": 33857,
-              "output": 288
+              "cacheHit": 6298,
+              "cacheMiss": 13182,
+              "output": 271
             },
             "calls": 6
           }
@@ -1158,15 +1176,15 @@
           {
             "stageId": "s1",
             "tokens": {
-              "cacheHit": 35706,
-              "cacheMiss": 23896,
-              "output": 37
+              "cacheHit": 0,
+              "cacheMiss": 40,
+              "output": 20
             },
             "calls": 4,
-            "budgetTokens": 59639
+            "budgetTokens": 60
           }
         ],
-        "time": "2026-10-12T00:48:09.126+08:00"
+        "time": "2026-11-01T11:35:02.242+08:00"
       }
     }
   },
@@ -1178,7 +1196,7 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-211db4cf-4477-47f0-83f4-ce149747a293",
+          "id": "c-88005260-dfb7-42ca-aa13-8ac2260cecbd",
           "type": "progress",
           "typeVersion": 1,
           "version": 1,
@@ -1195,7 +1213,7 @@
             "text": "资料找了一半，还要两三步"
           },
           "text": "进展：任务「预算」第 1 阶段「收集资料」。资料找了一半，还要两三步",
-          "createdAt": "2026-10-12T00:48:09.130+08:00"
+          "createdAt": "2026-11-01T11:35:02.247+08:00"
         }
       }
     }
@@ -1213,11 +1231,11 @@
           "parts": [
             {
               "type": "card_ref",
-              "cardId": "c-211db4cf-4477-47f0-83f4-ce149747a293"
+              "cardId": "c-88005260-dfb7-42ca-aa13-8ac2260cecbd"
             }
           ],
-          "id": "m-96a42ba5-af2d-47f5-b1d3-5cf525ef73f1",
-          "time": "2026-10-12T00:48:09.131+08:00"
+          "id": "m-b7853c6c-c2f6-4159-b924-a53bb35fa55b",
+          "time": "2026-11-01T11:35:02.248+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -1237,7 +1255,7 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791737289062:xmj9s7b2abl",
+              "callId": "tool:1793504102144:fi08gtfto14",
               "tool": "report_progress",
               "argsSummary": "text=资料找了一半，还要两三步",
               "categoryTitles": [],
@@ -1249,8 +1267,8 @@
               "nature": "act"
             }
           ],
-          "id": "m-a16938d4-55cb-4eca-a7c8-55a52949e29d",
-          "time": "2026-10-12T00:48:09.133+08:00"
+          "id": "m-10cb98ee-9e57-4039-9a17-69af9c9b3ad1",
+          "time": "2026-11-01T11:35:02.250+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -1269,9 +1287,9 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 52362,
-          "cacheMiss": 33907,
-          "output": 297
+          "cacheHit": 6298,
+          "cacheMiss": 13192,
+          "output": 276
         },
         "calls": 7,
         "byAgent": [
@@ -1280,9 +1298,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 52362,
-              "cacheMiss": 33907,
-              "output": 297
+              "cacheHit": 6298,
+              "cacheMiss": 13192,
+              "output": 276
             },
             "calls": 7
           }
@@ -1291,15 +1309,15 @@
           {
             "stageId": "s1",
             "tokens": {
-              "cacheHit": 47654,
-              "cacheMiss": 23946,
-              "output": 46
+              "cacheHit": 0,
+              "cacheMiss": 50,
+              "output": 25
             },
             "calls": 5,
-            "budgetTokens": 71646
+            "budgetTokens": 75
           }
         ],
-        "time": "2026-10-12T00:48:09.138+08:00"
+        "time": "2026-11-01T11:35:02.253+08:00"
       }
     }
   },
@@ -1310,10 +1328,10 @@
       "seq": 2,
       "type": "notify",
       "payload": {
-        "id": "n-i-13a9850e-93e9-4bea-ba0c-6b79c18fb72c",
+        "id": "n-i-ee723f7e-8d08-4f6c-a896-95ee5470cef1",
         "title": "超预算：预算",
-        "body": "任务「预算」第 1 阶段「收集资料」用了 71646 token、5 次工具调用（预算 0 token、2 次），超过预算的 2 倍，这一支先停下。\n看过之后点\"追加预算继续\"（这个阶段从现在起重新给一整份预算），或者在任务详情里暂停、取消任务。",
-        "itemId": "i-13a9850e-93e9-4bea-ba0c-6b79c18fb72c"
+        "body": "任务「预算」第 1 阶段「收集资料」用了 75 token、5 次工具调用（预算 14022 token、2 次），超过预算的 2 倍，这一支先停下。\n这里的 token 按没命中缓存的输入 + 输出 + 命中缓存的十分之一算，和消耗页显示的真实 token 不是一个数；预算是运行时按负责人估的调用次数和最近的实际用量算的。\n看过之后点\"追加预算继续\"（这个阶段从现在起重新给一整份预算），或者在任务详情里暂停、取消任务。负责人觉得做完了也能自己宣布完成，或者提一张加预算的计划变更给你确认。",
+        "itemId": "i-ee723f7e-8d08-4f6c-a896-95ee5470cef1"
       }
     }
   },
@@ -1330,7 +1348,7 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791737289062:x6z2m1qhx5",
+              "callId": "tool:1793504102144:tlrhaqyp0i",
               "tool": "write",
               "argsSummary": "d.md",
               "categoryTitles": [],
@@ -1342,11 +1360,24 @@
               "nature": "act"
             }
           ],
-          "id": "m-ee028abe-b5ef-421b-8cce-ea3ae570b2d3",
-          "time": "2026-10-12T00:48:09.146+08:00"
+          "id": "m-8db32284-ad4f-449a-99ca-5a4bbc270486",
+          "time": "2026-11-01T11:35:02.261+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
+      }
+    }
+  },
+  {
+    "kind": "frame",
+    "frame": {
+      "channel": "maintainer:tm-1",
+      "seq": 18,
+      "type": "turn_end",
+      "payload": {
+        "inputMessageId": "m-ca556fba-850a-4507-9266-efccd0fb1376",
+        "outcome": "aborted",
+        "error": "这条通知过时了，没有交给负责人"
       }
     }
   },
@@ -1358,19 +1389,22 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-13a9850e-93e9-4bea-ba0c-6b79c18fb72c",
+          "id": "i-ee723f7e-8d08-4f6c-a896-95ee5470cef1",
           "version": 1,
           "title": "超预算：预算",
           "source": "任务「预算」",
           "urgency": "blocking",
           "pinned": false,
-          "createdAt": "2026-10-12T00:48:09.147+08:00",
+          "createdAt": "2026-11-01T11:35:02.262+08:00",
           "read": false,
           "archived": false,
           "deleted": false,
+          "origin": {
+            "taskId": "t-1"
+          },
           "kind": "notice",
           "notice": "over_budget",
-          "body": "任务「预算」第 1 阶段「收集资料」用了 71646 token、5 次工具调用（预算 0 token、2 次），超过预算的 2 倍，这一支先停下。\n看过之后点\"追加预算继续\"（这个阶段从现在起重新给一整份预算），或者在任务详情里暂停、取消任务。",
+          "body": "任务「预算」第 1 阶段「收集资料」用了 75 token、5 次工具调用（预算 14022 token、2 次），超过预算的 2 倍，这一支先停下。\n这里的 token 按没命中缓存的输入 + 输出 + 命中缓存的十分之一算，和消耗页显示的真实 token 不是一个数；预算是运行时按负责人估的调用次数和最近的实际用量算的。\n看过之后点\"追加预算继续\"（这个阶段从现在起重新给一整份预算），或者在任务详情里暂停、取消任务。负责人觉得做完了也能自己宣布完成，或者提一张加预算的计划变更给你确认。",
           "actions": [
             "追加预算继续"
           ],
@@ -1402,9 +1436,9 @@
           "projects": [],
           "projectIds": [],
           "projectScope": "none",
-          "createdAt": "2026-10-12T00:48:05.344+08:00",
-          "updatedAt": "2026-10-12T00:48:09.147+08:00",
-          "planCardId": "c-0fe44f5c-70a8-4483-96d1-c33b62f81a26",
+          "createdAt": "2026-11-01T11:34:57.650+08:00",
+          "updatedAt": "2026-11-01T11:35:02.262+08:00",
+          "planCardId": "c-f5a38218-cff9-487e-b80e-1e8cd3369cfb",
           "stages": {
             "total": 2,
             "current": 1,
@@ -1422,10 +1456,18 @@
                 ],
                 "attempts": 0,
                 "code": "1",
-                "startedAt": "2026-10-12T00:48:07.331+08:00",
+                "startedAt": "2026-11-01T11:35:00.397+08:00",
+                "budget": {
+                  "toolCalls": 2,
+                  "tokens": 14022,
+                  "perCall": 7011,
+                  "scale": 1,
+                  "baseTokens": 0,
+                  "baseToolCalls": 0
+                },
                 "waitReason": "over_budget",
-                "waitingOn": "i-13a9850e-93e9-4bea-ba0c-6b79c18fb72c",
-                "waitNote": "用了 71646 token、5 次工具调用（预算 0 token、2 次），超过预算的 2 倍"
+                "waitingOn": "i-ee723f7e-8d08-4f6c-a896-95ee5470cef1",
+                "waitNote": "用了 75 token、5 次工具调用（预算 14022 token、2 次），超过预算的 2 倍"
               },
               {
                 "stageId": "s2",
@@ -1458,14 +1500,14 @@
     "kind": "frame",
     "frame": {
       "channel": "maintainer:tm-1",
-      "seq": 18,
+      "seq": 19,
       "type": "timeline_record",
       "payload": {
         "record": {
-          "id": "r-f76b60d5-049c-4f0d-9a0b-8ac3b5661a83",
+          "id": "r-6811b547-1f89-470c-aa03-f3e7531a5a48",
           "kind": "deviation",
-          "summary": "第 1 阶段「收集资料」停下等你（超预算）：用了 71646 token、5 次工具调用（预算 0 token、2 次），超过预算的 2 倍",
-          "time": "2026-10-12T00:48:09.147+08:00"
+          "summary": "第 1 阶段「收集资料」停下等你（超预算）：用了 75 token、5 次工具调用（预算 14022 token、2 次），超过预算的 2 倍",
+          "time": "2026-11-01T11:35:02.262+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -1490,9 +1532,9 @@
           "projects": [],
           "projectIds": [],
           "projectScope": "none",
-          "createdAt": "2026-10-12T00:48:05.344+08:00",
-          "updatedAt": "2026-10-12T00:48:09.147+08:00",
-          "planCardId": "c-0fe44f5c-70a8-4483-96d1-c33b62f81a26",
+          "createdAt": "2026-11-01T11:34:57.650+08:00",
+          "updatedAt": "2026-11-01T11:35:02.262+08:00",
+          "planCardId": "c-f5a38218-cff9-487e-b80e-1e8cd3369cfb",
           "stages": {
             "total": 2,
             "current": 1,
@@ -1510,10 +1552,18 @@
                 ],
                 "attempts": 0,
                 "code": "1",
-                "startedAt": "2026-10-12T00:48:07.331+08:00",
+                "startedAt": "2026-11-01T11:35:00.397+08:00",
+                "budget": {
+                  "toolCalls": 2,
+                  "tokens": 14022,
+                  "perCall": 7011,
+                  "scale": 1,
+                  "baseTokens": 0,
+                  "baseToolCalls": 0
+                },
                 "waitReason": "over_budget",
-                "waitingOn": "i-13a9850e-93e9-4bea-ba0c-6b79c18fb72c",
-                "waitNote": "用了 71646 token、5 次工具调用（预算 0 token、2 次），超过预算的 2 倍"
+                "waitingOn": "i-ee723f7e-8d08-4f6c-a896-95ee5470cef1",
+                "waitNote": "用了 75 token、5 次工具调用（预算 14022 token、2 次），超过预算的 2 倍"
               },
               {
                 "stageId": "s2",
@@ -1535,7 +1585,7 @@
             "focus": "s1"
           },
           "waitReason": "over_budget",
-          "waitNote": "用了 71646 token、5 次工具调用（预算 0 token、2 次），超过预算的 2 倍"
+          "waitNote": "用了 75 token、5 次工具调用（预算 14022 token、2 次），超过预算的 2 倍"
         },
         "change": "waiting",
         "from": "running",
@@ -1548,34 +1598,9 @@
     "frame": {
       "channel": "maintainer:tm-1",
       "seq": 19,
-      "type": "message",
-      "payload": {
-        "message": {
-          "conversation": "maintainer:tm-1",
-          "speaker": "system",
-          "parts": [
-            {
-              "type": "text",
-              "text": "阶段 s1「收集资料」这一支停下等用户（超预算：用了 71646 token、5 次工具调用（预算 0 token、2 次），超过预算的 2 倍），先别再做它。没有别的能推进的阶段，任务转等我；用户点“追加预算继续”后你会收到通知；在那之前用户在会话里说的话照常回答，但不要接着做。"
-            }
-          ],
-          "id": "m-2ee2d78f-d3a4-4c2e-a356-5979634466b0",
-          "time": "2026-10-12T00:48:09.147+08:00"
-        },
-        "agentInput": true,
-        "taskId": "t-1",
-        "stageId": "s1"
-      }
-    }
-  },
-  {
-    "kind": "frame",
-    "frame": {
-      "channel": "maintainer:tm-1",
-      "seq": 19,
       "type": "stream",
       "payload": {
-        "messageId": "m-00f3e25b-9197-4bde-98c0-7ee607332dd7",
+        "messageId": "m-51439486-0e18-4fc5-93d2-f273cb504433",
         "deltas": [
           {
             "part": 0,
@@ -1595,7 +1620,7 @@
       "type": "message",
       "payload": {
         "message": {
-          "id": "m-00f3e25b-9197-4bde-98c0-7ee607332dd7",
+          "id": "m-51439486-0e18-4fc5-93d2-f273cb504433",
           "conversation": "maintainer:tm-1",
           "speaker": "agent",
           "parts": [
@@ -1604,7 +1629,7 @@
               "text": "超了"
             }
           ],
-          "time": "2026-10-12T00:48:09.150+08:00"
+          "time": "2026-11-01T11:35:02.267+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -1623,9 +1648,9 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 64335,
-          "cacheMiss": 33953,
-          "output": 298
+          "cacheHit": 6298,
+          "cacheMiss": 13202,
+          "output": 281
         },
         "calls": 8,
         "byAgent": [
@@ -1634,9 +1659,9 @@
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 64335,
-              "cacheMiss": 33953,
-              "output": 298
+              "cacheHit": 6298,
+              "cacheMiss": 13202,
+              "output": 281
             },
             "calls": 8
           }
@@ -1645,15 +1670,15 @@
           {
             "stageId": "s1",
             "tokens": {
-              "cacheHit": 59627,
-              "cacheMiss": 23992,
-              "output": 47
+              "cacheHit": 0,
+              "cacheMiss": 60,
+              "output": 30
             },
             "calls": 6,
-            "budgetTokens": 83666
+            "budgetTokens": 90
           }
         ],
-        "time": "2026-10-12T00:48:09.150+08:00"
+        "time": "2026-11-01T11:35:02.267+08:00"
       }
     }
   },
@@ -1664,193 +1689,7 @@
       "seq": 21,
       "type": "turn_end",
       "payload": {
-        "inputMessageId": "m-05413afe-dbf0-44ca-b5ba-99b1cf624275",
-        "outcome": "completed"
-      }
-    }
-  },
-  {
-    "kind": "frame",
-    "frame": {
-      "channel": "maintainer:tm-1",
-      "seq": 22,
-      "type": "turn_start",
-      "payload": {
-        "inputMessageId": "m-ffd47d91-9bd9-4aa8-9b60-dafc03471b9f"
-      }
-    }
-  },
-  {
-    "kind": "frame",
-    "frame": {
-      "channel": "maintainer:tm-1",
-      "seq": 23,
-      "type": "message",
-      "payload": {
-        "message": {
-          "id": "m-051edc46-f7cc-4b3b-8c4f-af9ee9e8076a",
-          "conversation": "maintainer:tm-1",
-          "speaker": "agent",
-          "parts": [
-            {
-              "type": "text",
-              "text": "知道了"
-            }
-          ],
-          "time": "2026-10-12T00:48:09.158+08:00"
-        },
-        "taskId": "t-1",
-        "stageId": "s1"
-      }
-    }
-  },
-  {
-    "kind": "frame",
-    "frame": {
-      "channel": "board",
-      "seq": 16,
-      "type": "token_totals",
-      "payload": {
-        "owner": {
-          "kind": "task",
-          "id": "t-1"
-        },
-        "tokens": {
-          "cacheHit": 76331,
-          "cacheMiss": 34411,
-          "output": 299
-        },
-        "calls": 9,
-        "byAgent": [
-          {
-            "agentId": "tm-1",
-            "role": "maintainer",
-            "purpose": "work",
-            "tokens": {
-              "cacheHit": 76331,
-              "cacheMiss": 34411,
-              "output": 299
-            },
-            "calls": 9
-          }
-        ],
-        "byStage": [
-          {
-            "stageId": "s1",
-            "tokens": {
-              "cacheHit": 71623,
-              "cacheMiss": 24450,
-              "output": 48
-            },
-            "calls": 7,
-            "budgetTokens": 96121
-          }
-        ],
-        "time": "2026-10-12T00:48:09.159+08:00"
-      }
-    }
-  },
-  {
-    "kind": "frame",
-    "frame": {
-      "channel": "maintainer:tm-1",
-      "seq": 24,
-      "type": "turn_end",
-      "payload": {
-        "inputMessageId": "m-ffd47d91-9bd9-4aa8-9b60-dafc03471b9f",
-        "outcome": "completed"
-      }
-    }
-  },
-  {
-    "kind": "frame",
-    "frame": {
-      "channel": "maintainer:tm-1",
-      "seq": 25,
-      "type": "turn_start",
-      "payload": {
-        "inputMessageId": "m-2ee2d78f-d3a4-4c2e-a356-5979634466b0"
-      }
-    }
-  },
-  {
-    "kind": "frame",
-    "frame": {
-      "channel": "maintainer:tm-1",
-      "seq": 26,
-      "type": "message",
-      "payload": {
-        "message": {
-          "id": "m-b792858d-41b9-4a7b-800b-384f15822895",
-          "conversation": "maintainer:tm-1",
-          "speaker": "agent",
-          "parts": [
-            {
-              "type": "text",
-              "text": "等你"
-            }
-          ],
-          "time": "2026-10-12T00:48:09.168+08:00"
-        },
-        "taskId": "t-1",
-        "stageId": "s1"
-      }
-    }
-  },
-  {
-    "kind": "frame",
-    "frame": {
-      "channel": "board",
-      "seq": 17,
-      "type": "token_totals",
-      "payload": {
-        "owner": {
-          "kind": "task",
-          "id": "t-1"
-        },
-        "tokens": {
-          "cacheHit": 88556,
-          "cacheMiss": 34877,
-          "output": 300
-        },
-        "calls": 10,
-        "byAgent": [
-          {
-            "agentId": "tm-1",
-            "role": "maintainer",
-            "purpose": "work",
-            "tokens": {
-              "cacheHit": 88556,
-              "cacheMiss": 34877,
-              "output": 300
-            },
-            "calls": 10
-          }
-        ],
-        "byStage": [
-          {
-            "stageId": "s1",
-            "tokens": {
-              "cacheHit": 83848,
-              "cacheMiss": 24916,
-              "output": 49
-            },
-            "calls": 8,
-            "budgetTokens": 108813
-          }
-        ],
-        "time": "2026-10-12T00:48:09.169+08:00"
-      }
-    }
-  },
-  {
-    "kind": "frame",
-    "frame": {
-      "channel": "maintainer:tm-1",
-      "seq": 27,
-      "type": "turn_end",
-      "payload": {
-        "inputMessageId": "m-2ee2d78f-d3a4-4c2e-a356-5979634466b0",
+        "inputMessageId": "m-cb4bf215-1dfb-4a0b-8a11-6909241067d9",
         "outcome": "completed"
       }
     }
@@ -1863,19 +1702,22 @@
       "type": "inbox_item",
       "payload": {
         "item": {
-          "id": "i-13a9850e-93e9-4bea-ba0c-6b79c18fb72c",
+          "id": "i-ee723f7e-8d08-4f6c-a896-95ee5470cef1",
           "version": 2,
           "title": "超预算：预算",
           "source": "任务「预算」",
           "urgency": "blocking",
           "pinned": false,
-          "createdAt": "2026-10-12T00:48:09.147+08:00",
+          "createdAt": "2026-11-01T11:35:02.262+08:00",
           "read": true,
           "archived": false,
           "deleted": false,
+          "origin": {
+            "taskId": "t-1"
+          },
           "kind": "notice",
           "notice": "over_budget",
-          "body": "任务「预算」第 1 阶段「收集资料」用了 71646 token、5 次工具调用（预算 0 token、2 次），超过预算的 2 倍，这一支先停下。\n看过之后点\"追加预算继续\"（这个阶段从现在起重新给一整份预算），或者在任务详情里暂停、取消任务。",
+          "body": "任务「预算」第 1 阶段「收集资料」用了 75 token、5 次工具调用（预算 14022 token、2 次），超过预算的 2 倍，这一支先停下。\n这里的 token 按没命中缓存的输入 + 输出 + 命中缓存的十分之一算，和消耗页显示的真实 token 不是一个数；预算是运行时按负责人估的调用次数和最近的实际用量算的。\n看过之后点\"追加预算继续\"（这个阶段从现在起重新给一整份预算），或者在任务详情里暂停、取消任务。负责人觉得做完了也能自己宣布完成，或者提一张加预算的计划变更给你确认。",
           "actions": [
             "追加预算继续"
           ],
@@ -1886,7 +1728,7 @@
             ]
           },
           "handled": "追加预算继续",
-          "handledAt": "2026-10-12T00:48:09.498+08:00"
+          "handledAt": "2026-11-01T11:35:02.605+08:00"
         }
       }
     }
@@ -1895,7 +1737,7 @@
     "kind": "frame",
     "frame": {
       "channel": "board",
-      "seq": 18,
+      "seq": 16,
       "type": "task",
       "payload": {
         "task": {
@@ -1909,9 +1751,9 @@
           "projects": [],
           "projectIds": [],
           "projectScope": "none",
-          "createdAt": "2026-10-12T00:48:05.344+08:00",
-          "updatedAt": "2026-10-12T00:48:09.498+08:00",
-          "planCardId": "c-0fe44f5c-70a8-4483-96d1-c33b62f81a26",
+          "createdAt": "2026-11-01T11:34:57.650+08:00",
+          "updatedAt": "2026-11-01T11:35:02.607+08:00",
+          "planCardId": "c-f5a38218-cff9-487e-b80e-1e8cd3369cfb",
           "stages": {
             "total": 2,
             "current": 1,
@@ -1929,7 +1771,15 @@
                 ],
                 "attempts": 0,
                 "code": "1",
-                "startedAt": "2026-10-12T00:48:07.331+08:00"
+                "startedAt": "2026-11-01T11:35:00.397+08:00",
+                "budget": {
+                  "toolCalls": 2,
+                  "tokens": 6002,
+                  "perCall": 3001,
+                  "scale": 1,
+                  "baseTokens": 90,
+                  "baseToolCalls": 5
+                }
               },
               {
                 "stageId": "s2",
@@ -1951,7 +1801,7 @@
             "focus": "s1"
           },
           "waitReason": "over_budget",
-          "waitNote": "用了 71646 token、5 次工具调用（预算 0 token、2 次），超过预算的 2 倍"
+          "waitNote": "用了 75 token、5 次工具调用（预算 14022 token、2 次），超过预算的 2 倍"
         },
         "change": "stage_unblocked",
         "from": "waiting_for_user",
@@ -1964,7 +1814,7 @@
     "kind": "frame",
     "frame": {
       "channel": "board",
-      "seq": 19,
+      "seq": 17,
       "type": "task",
       "payload": {
         "task": {
@@ -1978,9 +1828,9 @@
           "projects": [],
           "projectIds": [],
           "projectScope": "none",
-          "createdAt": "2026-10-12T00:48:05.344+08:00",
-          "updatedAt": "2026-10-12T00:48:09.498+08:00",
-          "planCardId": "c-0fe44f5c-70a8-4483-96d1-c33b62f81a26",
+          "createdAt": "2026-11-01T11:34:57.650+08:00",
+          "updatedAt": "2026-11-01T11:35:02.607+08:00",
+          "planCardId": "c-f5a38218-cff9-487e-b80e-1e8cd3369cfb",
           "stages": {
             "total": 2,
             "current": 1,
@@ -1998,7 +1848,15 @@
                 ],
                 "attempts": 0,
                 "code": "1",
-                "startedAt": "2026-10-12T00:48:07.331+08:00"
+                "startedAt": "2026-11-01T11:35:00.397+08:00",
+                "budget": {
+                  "toolCalls": 2,
+                  "tokens": 6002,
+                  "perCall": 3001,
+                  "scale": 1,
+                  "baseTokens": 90,
+                  "baseToolCalls": 5
+                }
               },
               {
                 "stageId": "s2",
@@ -2030,7 +1888,7 @@
     "kind": "frame",
     "frame": {
       "channel": "board",
-      "seq": 20,
+      "seq": 18,
       "type": "task",
       "payload": {
         "task": {
@@ -2044,9 +1902,9 @@
           "projects": [],
           "projectIds": [],
           "projectScope": "none",
-          "createdAt": "2026-10-12T00:48:05.344+08:00",
-          "updatedAt": "2026-10-12T00:48:09.498+08:00",
-          "planCardId": "c-0fe44f5c-70a8-4483-96d1-c33b62f81a26",
+          "createdAt": "2026-11-01T11:34:57.650+08:00",
+          "updatedAt": "2026-11-01T11:35:02.607+08:00",
+          "planCardId": "c-f5a38218-cff9-487e-b80e-1e8cd3369cfb",
           "stages": {
             "total": 2,
             "current": 1,
@@ -2064,7 +1922,15 @@
                 ],
                 "attempts": 0,
                 "code": "1",
-                "startedAt": "2026-10-12T00:48:07.331+08:00"
+                "startedAt": "2026-11-01T11:35:00.397+08:00",
+                "budget": {
+                  "toolCalls": 2,
+                  "tokens": 6002,
+                  "perCall": 3001,
+                  "scale": 1,
+                  "baseTokens": 90,
+                  "baseToolCalls": 5
+                }
               },
               {
                 "stageId": "s2",
@@ -2097,7 +1963,7 @@
     "kind": "frame",
     "frame": {
       "channel": "maintainer:tm-1",
-      "seq": 28,
+      "seq": 22,
       "type": "message",
       "payload": {
         "message": {
@@ -2106,13 +1972,19 @@
           "parts": [
             {
               "type": "text",
-              "text": "用户让阶段 s1「收集资料」接着做（之前停下是因为：用了 71646 token、5 次工具调用（预算 0 token、2 次），超过预算的 2 倍）。看看用户在会话里说了什么，换个做法接着做；计数已经清零。\n现在是第 1/2 阶段 s1「收集资料」：\n- 交付件：资料清单 sources.md\n- 验收标准：资料清单存在（脚本：test -f sources.md）\n- 模式：开放\n授权（只在当前阶段内有效）：\n- （没有）\n时序规则：\n- （没有）\n边界：\n- 工作目录 <临时目录>\\ergo-data-iBomxA\\outputs\\t-1：文件工具只能写这里；工具包：bash 开，联网开\n- 授权项只在所属阶段内有效，用到别的阶段的授权会被拉回；前置阶段没验收的阶段不能开始；“先问我”类的操作列进了授权项，执行时也照样问用户\n- 一个阶段做完调用 complete_stage 宣布完成，由运行时验收（脚本、评审、用户），你自检不算验收；进展用 report_progress 报告；卡住要用户拍板用 wait_for_user；做不下去用 fail_task 写明原因；要换去做另一个能开始的阶段用 start_stage\n- 要扩大授权、加能力、加项目、改目标或验收：用 propose_plan_change 提交计划变更（用户确认后生效，只有受影响的阶段停下等）；不扩大授权的调整（拆阶段、调顺序）用 revise_plan 自行调整计划（直接生效）\n做完调用 complete_stage 宣布阶段完成，由运行时验收。"
+              "text": "用户让阶段 s1「收集资料」接着做（之前停下是因为：用了 75 token、5 次工具调用（预算 14022 token、2 次），超过预算的 2 倍）。看看用户在会话里说了什么，换个做法接着做；计数已经清零。\n现在是第 1/2 阶段 s1「收集资料」：\n- 交付件：资料清单 sources.md\n- 验收标准：资料清单存在（脚本：test -f sources.md）\n- 模式：开放\n这个阶段的预算（运行时算的）：工具调用 2 次、token 6002（每次调用约记 3001；token 按没命中缓存的输入 + 输出 + 命中缓存的十分之一算，不是账本上的真实 token）。\n授权（只在当前阶段内有效）：\n- （没有）\n时序规则：\n- （没有）\n边界：\n- 工作目录 <临时目录>\\ergo-data-qvIehB\\outputs\\t-1：文件工具只能写这里；工具包：bash 开，联网开\n- 授权项只在所属阶段内有效，用到别的阶段的授权会被拉回；前置阶段没验收的阶段不能开始；“先问我”类的操作列进了授权项，执行时也照样问用户\n- 一个阶段做完调用 complete_stage 宣布完成，由运行时验收（脚本、评审、用户），你自检不算验收；进展用 report_progress 报告；卡住要用户拍板用 wait_for_user；做不下去用 fail_task 写明原因；要换去做另一个能开始的阶段用 start_stage\n- 要扩大授权、加能力、加项目、改目标或验收：用 propose_plan_change 提交计划变更（用户确认后生效，只有受影响的阶段停下等）；不扩大授权的调整（拆阶段、调顺序）用 revise_plan 自行调整计划（直接生效）\n做完调用 complete_stage 宣布阶段完成，由运行时验收。"
             }
           ],
-          "id": "m-97d6255d-cd6e-4618-ae49-38af4fa4f361",
-          "time": "2026-10-12T00:48:09.499+08:00"
+          "id": "m-149a3810-e304-4a12-b58a-8b6e3979efef",
+          "time": "2026-11-01T11:35:02.608+08:00"
         },
         "agentInput": true,
+        "taskNotice": {
+          "kind": "branch_resumed",
+          "stageIds": [
+            "s1"
+          ]
+        },
         "taskId": "t-1",
         "stageId": "s1"
       }
@@ -2122,19 +1994,19 @@
     "kind": "frame",
     "frame": {
       "channel": "maintainer:tm-1",
-      "seq": 29,
+      "seq": 23,
       "type": "stage_start",
       "payload": {
-        "id": "ss-8a527cba-9018-487a-a3db-c65783587dad",
+        "id": "ss-051ec6c3-02a1-4066-91db-078b42a24efd",
         "conversation": "maintainer:tm-1",
         "taskId": "t-1",
         "stageId": "s1",
         "title": "收集资料",
         "code": "1",
         "via": {
-          "notice": "m-97d6255d-cd6e-4618-ae49-38af4fa4f361"
+          "notice": "m-149a3810-e304-4a12-b58a-8b6e3979efef"
         },
-        "time": "2026-10-12T00:48:09.499+08:00"
+        "time": "2026-11-01T11:35:02.608+08:00"
       }
     }
   },
@@ -2142,10 +2014,10 @@
     "kind": "frame",
     "frame": {
       "channel": "maintainer:tm-1",
-      "seq": 30,
+      "seq": 24,
       "type": "turn_start",
       "payload": {
-        "inputMessageId": "m-97d6255d-cd6e-4618-ae49-38af4fa4f361"
+        "inputMessageId": "m-149a3810-e304-4a12-b58a-8b6e3979efef"
       }
     }
   },
@@ -2153,7 +2025,7 @@
     "kind": "frame",
     "frame": {
       "channel": "board",
-      "seq": 21,
+      "seq": 19,
       "type": "token_totals",
       "payload": {
         "owner": {
@@ -2161,37 +2033,37 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 101014,
-          "cacheMiss": 35617,
-          "output": 312
+          "cacheHit": 6298,
+          "cacheMiss": 13212,
+          "output": 286
         },
-        "calls": 11,
+        "calls": 9,
         "byAgent": [
           {
             "agentId": "tm-1",
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 101014,
-              "cacheMiss": 35617,
-              "output": 312
+              "cacheHit": 6298,
+              "cacheMiss": 13212,
+              "output": 286
             },
-            "calls": 11
+            "calls": 9
           }
         ],
         "byStage": [
           {
             "stageId": "s1",
             "tokens": {
-              "cacheHit": 96306,
-              "cacheMiss": 25656,
-              "output": 61
+              "cacheHit": 0,
+              "cacheMiss": 70,
+              "output": 35
             },
-            "calls": 9,
-            "budgetTokens": 122023
+            "calls": 7,
+            "budgetTokens": 105
           }
         ],
-        "time": "2026-10-12T00:48:09.511+08:00"
+        "time": "2026-11-01T11:35:02.620+08:00"
       }
     }
   },
@@ -2199,7 +2071,7 @@
     "kind": "frame",
     "frame": {
       "channel": "maintainer:tm-1",
-      "seq": 31,
+      "seq": 25,
       "type": "message",
       "payload": {
         "message": {
@@ -2208,7 +2080,7 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791737289062:fp43j045eyq",
+              "callId": "tool:1793504102144:rtxrutpc5p",
               "tool": "write",
               "argsSummary": "sources.md",
               "categoryTitles": [],
@@ -2220,8 +2092,8 @@
               "nature": "act"
             }
           ],
-          "id": "m-dc94a4ad-ceea-45c8-be3c-3bc787d7be12",
-          "time": "2026-10-12T00:48:09.518+08:00"
+          "id": "m-a80b1be1-999e-4c40-8ffb-c7fdcf3d4055",
+          "time": "2026-11-01T11:35:02.627+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -2232,7 +2104,7 @@
     "kind": "frame",
     "frame": {
       "channel": "board",
-      "seq": 22,
+      "seq": 20,
       "type": "token_totals",
       "payload": {
         "owner": {
@@ -2240,37 +2112,37 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 113842,
-          "cacheMiss": 35672,
-          "output": 326
+          "cacheHit": 6298,
+          "cacheMiss": 13222,
+          "output": 291
         },
-        "calls": 12,
+        "calls": 10,
         "byAgent": [
           {
             "agentId": "tm-1",
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 113842,
-              "cacheMiss": 35672,
-              "output": 326
+              "cacheHit": 6298,
+              "cacheMiss": 13222,
+              "output": 291
             },
-            "calls": 12
+            "calls": 10
           }
         ],
         "byStage": [
           {
             "stageId": "s1",
             "tokens": {
-              "cacheHit": 109134,
-              "cacheMiss": 25711,
-              "output": 75
+              "cacheHit": 0,
+              "cacheMiss": 80,
+              "output": 40
             },
-            "calls": 10,
-            "budgetTokens": 134920
+            "calls": 8,
+            "budgetTokens": 120
           }
         ],
-        "time": "2026-10-12T00:48:09.521+08:00"
+        "time": "2026-11-01T11:35:02.630+08:00"
       }
     }
   },
@@ -2278,7 +2150,7 @@
     "kind": "frame",
     "frame": {
       "channel": "board",
-      "seq": 23,
+      "seq": 21,
       "type": "task",
       "payload": {
         "task": {
@@ -2292,9 +2164,9 @@
           "projects": [],
           "projectIds": [],
           "projectScope": "none",
-          "createdAt": "2026-10-12T00:48:05.344+08:00",
-          "updatedAt": "2026-10-12T00:48:09.525+08:00",
-          "planCardId": "c-0fe44f5c-70a8-4483-96d1-c33b62f81a26",
+          "createdAt": "2026-11-01T11:34:57.650+08:00",
+          "updatedAt": "2026-11-01T11:35:02.635+08:00",
+          "planCardId": "c-f5a38218-cff9-487e-b80e-1e8cd3369cfb",
           "stages": {
             "total": 2,
             "current": 1,
@@ -2312,8 +2184,24 @@
                 ],
                 "attempts": 1,
                 "code": "1",
-                "startedAt": "2026-10-12T00:48:07.331+08:00",
-                "summary": "阶段 s1 做完了"
+                "startedAt": "2026-11-01T11:35:00.397+08:00",
+                "budget": {
+                  "toolCalls": 2,
+                  "tokens": 6002,
+                  "perCall": 3001,
+                  "scale": 1,
+                  "baseTokens": 90,
+                  "baseToolCalls": 5
+                },
+                "summary": "阶段 s1 做完了",
+                "observed": {
+                  "at": "2026-11-01T11:35:02.635+08:00",
+                  "sent": [],
+                  "created": 5,
+                  "modified": 0,
+                  "deleted": 0,
+                  "mismatches": 0
+                }
               },
               {
                 "stageId": "s2",
@@ -2346,7 +2234,7 @@
     "kind": "frame",
     "frame": {
       "channel": "maintainer:tm-1",
-      "seq": 32,
+      "seq": 26,
       "type": "message",
       "payload": {
         "message": {
@@ -2358,8 +2246,8 @@
               "text": "维护者宣布阶段 s1「收集资料」完成（第 1 次）：阶段 s1 做完了"
             }
           ],
-          "id": "m-057acabb-9717-4017-b5c7-66de036d1f61",
-          "time": "2026-10-12T00:48:09.525+08:00"
+          "id": "m-27d7645b-2aef-48cf-af2a-21b72bf9fed2",
+          "time": "2026-11-01T11:35:02.635+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -2370,7 +2258,7 @@
     "kind": "frame",
     "frame": {
       "channel": "board",
-      "seq": 24,
+      "seq": 22,
       "type": "task",
       "payload": {
         "task": {
@@ -2384,9 +2272,9 @@
           "projects": [],
           "projectIds": [],
           "projectScope": "none",
-          "createdAt": "2026-10-12T00:48:05.344+08:00",
-          "updatedAt": "2026-10-12T00:48:09.740+08:00",
-          "planCardId": "c-0fe44f5c-70a8-4483-96d1-c33b62f81a26",
+          "createdAt": "2026-11-01T11:34:57.650+08:00",
+          "updatedAt": "2026-11-01T11:35:02.825+08:00",
+          "planCardId": "c-f5a38218-cff9-487e-b80e-1e8cd3369cfb",
           "stages": {
             "total": 2,
             "current": 2,
@@ -2403,14 +2291,34 @@
                     "result": {
                       "passed": true,
                       "note": "退出码 0",
-                      "at": "2026-10-12T00:48:09.739+08:00"
+                      "at": "2026-11-01T11:35:02.825+08:00"
                     }
                   }
                 ],
                 "attempts": 1,
                 "code": "1",
-                "startedAt": "2026-10-12T00:48:07.331+08:00",
-                "summary": "阶段 s1 做完了"
+                "startedAt": "2026-11-01T11:35:00.397+08:00",
+                "budget": {
+                  "toolCalls": 2,
+                  "tokens": 6002,
+                  "perCall": 3001,
+                  "scale": 1,
+                  "baseTokens": 90,
+                  "baseToolCalls": 5
+                },
+                "summary": "阶段 s1 做完了",
+                "observed": {
+                  "at": "2026-11-01T11:35:02.635+08:00",
+                  "sent": [],
+                  "created": 5,
+                  "modified": 0,
+                  "deleted": 0,
+                  "mismatches": 0
+                },
+                "calls": {
+                  "estimated": 2,
+                  "actual": 6
+                }
               },
               {
                 "stageId": "s2",
@@ -2447,7 +2355,7 @@
       "type": "card",
       "payload": {
         "card": {
-          "id": "c-27983a2b-483b-4321-885f-ae51502fa6ad",
+          "id": "c-9e1ddc63-6c17-489d-afb7-38ff669314af",
           "type": "progress",
           "typeVersion": 1,
           "version": 1,
@@ -2477,7 +2385,7 @@
             }
           },
           "text": "验收通过（脚本检查）：任务「预算」第 1 阶段「收集资料」。验收通过。",
-          "createdAt": "2026-10-12T00:48:09.740+08:00"
+          "createdAt": "2026-11-01T11:35:02.825+08:00"
         }
       }
     }
@@ -2486,7 +2394,7 @@
     "kind": "frame",
     "frame": {
       "channel": "maintainer:tm-1",
-      "seq": 33,
+      "seq": 27,
       "type": "message",
       "payload": {
         "message": {
@@ -2495,11 +2403,11 @@
           "parts": [
             {
               "type": "card_ref",
-              "cardId": "c-27983a2b-483b-4321-885f-ae51502fa6ad"
+              "cardId": "c-9e1ddc63-6c17-489d-afb7-38ff669314af"
             }
           ],
-          "id": "m-3205eda2-3aab-4926-84b7-afeb2232b320",
-          "time": "2026-10-12T00:48:09.740+08:00"
+          "id": "m-8aa3626e-1336-4b85-83fd-05cdc9830993",
+          "time": "2026-11-01T11:35:02.826+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -2510,7 +2418,7 @@
     "kind": "frame",
     "frame": {
       "channel": "board",
-      "seq": 25,
+      "seq": 23,
       "type": "task",
       "payload": {
         "task": {
@@ -2524,9 +2432,9 @@
           "projects": [],
           "projectIds": [],
           "projectScope": "none",
-          "createdAt": "2026-10-12T00:48:05.344+08:00",
-          "updatedAt": "2026-10-12T00:48:09.740+08:00",
-          "planCardId": "c-0fe44f5c-70a8-4483-96d1-c33b62f81a26",
+          "createdAt": "2026-11-01T11:34:57.650+08:00",
+          "updatedAt": "2026-11-01T11:35:02.826+08:00",
+          "planCardId": "c-f5a38218-cff9-487e-b80e-1e8cd3369cfb",
           "stages": {
             "total": 2,
             "current": 2,
@@ -2543,14 +2451,34 @@
                     "result": {
                       "passed": true,
                       "note": "退出码 0",
-                      "at": "2026-10-12T00:48:09.739+08:00"
+                      "at": "2026-11-01T11:35:02.825+08:00"
                     }
                   }
                 ],
                 "attempts": 1,
                 "code": "1",
-                "startedAt": "2026-10-12T00:48:07.331+08:00",
-                "summary": "阶段 s1 做完了"
+                "startedAt": "2026-11-01T11:35:00.397+08:00",
+                "budget": {
+                  "toolCalls": 2,
+                  "tokens": 6002,
+                  "perCall": 3001,
+                  "scale": 1,
+                  "baseTokens": 90,
+                  "baseToolCalls": 5
+                },
+                "summary": "阶段 s1 做完了",
+                "observed": {
+                  "at": "2026-11-01T11:35:02.635+08:00",
+                  "sent": [],
+                  "created": 5,
+                  "modified": 0,
+                  "deleted": 0,
+                  "mismatches": 0
+                },
+                "calls": {
+                  "estimated": 2,
+                  "actual": 6
+                }
               },
               {
                 "stageId": "s2",
@@ -2567,7 +2495,7 @@
                 ],
                 "attempts": 0,
                 "code": "2",
-                "startedAt": "2026-10-12T00:48:09.740+08:00"
+                "startedAt": "2026-11-01T11:35:02.826+08:00"
               }
             ],
             "focus": "s2"
@@ -2584,21 +2512,21 @@
     "kind": "frame",
     "frame": {
       "channel": "maintainer:tm-1",
-      "seq": 34,
+      "seq": 28,
       "type": "stage_start",
       "payload": {
-        "id": "ss-a4b00284-21a1-48cd-8dbb-429d7f337aef",
+        "id": "ss-6aefec97-998f-47bc-87df-da630471d472",
         "conversation": "maintainer:tm-1",
         "taskId": "t-1",
         "stageId": "s2",
         "title": "写报告",
         "code": "2",
         "via": {
-          "call": "tool:1791737289062:6va0zskk82",
+          "call": "tool:1793504102144:394h7cqv274",
           "tool": "complete_stage",
           "after": true
         },
-        "time": "2026-10-12T00:48:09.743+08:00"
+        "time": "2026-11-01T11:35:02.826+08:00"
       }
     }
   },
@@ -2606,7 +2534,7 @@
     "kind": "frame",
     "frame": {
       "channel": "maintainer:tm-1",
-      "seq": 35,
+      "seq": 29,
       "type": "message",
       "payload": {
         "message": {
@@ -2615,7 +2543,7 @@
           "parts": [
             {
               "type": "tool_call",
-              "callId": "tool:1791737289062:6va0zskk82",
+              "callId": "tool:1793504102144:394h7cqv274",
               "tool": "complete_stage",
               "argsSummary": "stageId=s1 summary=阶段 s1 做完了",
               "categoryTitles": [],
@@ -2627,8 +2555,8 @@
               "nature": "act"
             }
           ],
-          "id": "m-19e50a4f-466c-4d9b-841d-0f857f13c1fd",
-          "time": "2026-10-12T00:48:09.743+08:00"
+          "id": "m-d1afcbc6-f0e1-4042-a1b4-ed43bacb578a",
+          "time": "2026-11-01T11:35:02.829+08:00"
         },
         "taskId": "t-1",
         "stageId": "s1"
@@ -2639,10 +2567,10 @@
     "kind": "frame",
     "frame": {
       "channel": "maintainer:tm-1",
-      "seq": 35,
+      "seq": 29,
       "type": "stream",
       "payload": {
-        "messageId": "m-71114ce2-a756-4dc1-8448-ffa7b86c0ef1",
+        "messageId": "m-22c3c945-788e-4854-a630-344d81d5ae34",
         "deltas": [
           {
             "part": 0,
@@ -2658,11 +2586,11 @@
     "kind": "frame",
     "frame": {
       "channel": "maintainer:tm-1",
-      "seq": 36,
+      "seq": 30,
       "type": "message",
       "payload": {
         "message": {
-          "id": "m-71114ce2-a756-4dc1-8448-ffa7b86c0ef1",
+          "id": "m-22c3c945-788e-4854-a630-344d81d5ae34",
           "conversation": "maintainer:tm-1",
           "speaker": "agent",
           "parts": [
@@ -2671,7 +2599,7 @@
               "text": "交了"
             }
           ],
-          "time": "2026-10-12T00:48:09.747+08:00"
+          "time": "2026-11-01T11:35:02.833+08:00"
         },
         "taskId": "t-1",
         "stageId": "s2"
@@ -2682,7 +2610,7 @@
     "kind": "frame",
     "frame": {
       "channel": "board",
-      "seq": 26,
+      "seq": 24,
       "type": "token_totals",
       "payload": {
         "owner": {
@@ -2690,47 +2618,47 @@
           "id": "t-1"
         },
         "tokens": {
-          "cacheHit": 126697,
-          "cacheMiss": 36040,
-          "output": 327
+          "cacheHit": 6298,
+          "cacheMiss": 13232,
+          "output": 296
         },
-        "calls": 13,
+        "calls": 11,
         "byAgent": [
           {
             "agentId": "tm-1",
             "role": "maintainer",
             "purpose": "work",
             "tokens": {
-              "cacheHit": 126697,
-              "cacheMiss": 36040,
-              "output": 327
+              "cacheHit": 6298,
+              "cacheMiss": 13232,
+              "output": 296
             },
-            "calls": 13
+            "calls": 11
           }
         ],
         "byStage": [
           {
             "stageId": "s1",
             "tokens": {
-              "cacheHit": 109134,
-              "cacheMiss": 25711,
-              "output": 75
+              "cacheHit": 0,
+              "cacheMiss": 80,
+              "output": 40
             },
-            "calls": 10,
-            "budgetTokens": 134920
+            "calls": 8,
+            "budgetTokens": 120
           },
           {
             "stageId": "s2",
             "tokens": {
-              "cacheHit": 12855,
-              "cacheMiss": 368,
-              "output": 1
+              "cacheHit": 0,
+              "cacheMiss": 10,
+              "output": 5
             },
             "calls": 1,
-            "budgetTokens": 13224
+            "budgetTokens": 15
           }
         ],
-        "time": "2026-10-12T00:48:09.747+08:00"
+        "time": "2026-11-01T11:35:02.834+08:00"
       }
     }
   },
@@ -2738,10 +2666,10 @@
     "kind": "frame",
     "frame": {
       "channel": "maintainer:tm-1",
-      "seq": 37,
+      "seq": 31,
       "type": "turn_end",
       "payload": {
-        "inputMessageId": "m-97d6255d-cd6e-4618-ae49-38af4fa4f361",
+        "inputMessageId": "m-149a3810-e304-4a12-b58a-8b6e3979efef",
         "outcome": "completed"
       }
     }

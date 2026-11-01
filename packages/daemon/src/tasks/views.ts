@@ -348,7 +348,10 @@ export function proposedPlan(db: ReadonlyDatabase, taskId: string): StoredPlan |
 
 /** 一个阶段这一份预算的记账：工具调用次数（从上次再给一份预算起算）、token 从账本里的多少起算、超出预算时说明过进展没有 */
 export interface StageUsage {
+  /** 这一份预算里的工具调用次数（从起算点算） */
   toolCalls: number;
+  /** 这个阶段一共的工具调用次数（361 号票：估的和实际的比，不随追加预算清零） */
+  total: number;
   baseTokens: number;
   warned: boolean;
 }
@@ -359,6 +362,6 @@ export function stageUsage(db: ReadonlyDatabase, taskId: string, stageId: string
     taskId,
     stageId,
   );
-  if (!row) return { toolCalls: 0, baseTokens: 0, warned: false };
-  return { toolCalls: Number(row.tool_calls) - Number(row.base_tool_calls), baseTokens: Number(row.base_tokens), warned: Number(row.warned) === 1 };
+  if (!row) return { toolCalls: 0, total: 0, baseTokens: 0, warned: false };
+  return { toolCalls: Number(row.tool_calls) - Number(row.base_tool_calls), total: Number(row.tool_calls), baseTokens: Number(row.base_tokens), warned: Number(row.warned) === 1 };
 }

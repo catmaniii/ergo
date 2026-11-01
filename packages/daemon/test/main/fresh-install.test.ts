@@ -205,8 +205,8 @@ describe("新装时对话审批、任务的预算控制默认不勾（用户 202
     const plan: Plan = { ...base, stages: [{ ...base.stages[0]!, budget: { tokens: 0, toolCalls: 1 } }, base.stages[1]!] };
     const td = await startTestDaemon({
       fresh: true,
-      // 两个任务的维护者都照这一份：第 3 次调用之后超过预算的 2 倍
-      maintainer: maintainerScript(plan, [write("a.md", "a"), write("b.md", "b"), write("c.md", "c"), write("sources.md", "- 来源\n"), completeStage("s1"), say("交了"), say("知道了"), say("等你"), say("好")]),
+      // 第一个任务第 3 次调用之后超过 2 倍，到这儿就不接着做了（361 号票：停下后宣布完成是放行的，那就不是这条要测的了）
+      maintainer: (id, spawn) => maintainerScript(plan, id === "tm-1" ? [write("a.md", "a"), write("b.md", "b"), write("c.md", "c"), say("超了")] : [write("a.md", "a"), write("b.md", "b"), write("c.md", "c"), write("sources.md", "- 来源\n"), completeStage("s1"), say("交了"), say("知道了"), say("等你"), say("好")])(id, spawn),
     });
     expect((await safetyApi.change(td.url, { budgetControl: true })).body).toEqual({ conversationApprovals: false, budgetControl: true });
     const frontend = await connect(td.url, 2);

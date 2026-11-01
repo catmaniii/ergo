@@ -19,7 +19,7 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { ACCEPTANCE_METHOD_LABEL, tokensLabel, WAIT_REASON_LABEL } from "../../model/labels.ts";
 import type { Stage } from "../../model/types.ts";
-import { type GuardPingKind, observedLine, type StageGraph, stageCodeLabel, stageCodes, t, tTable } from "../../state/index.ts";
+import { approxMoney, type GuardPingKind, observedLine, type StageGraph, stageCodeLabel, stageCodes, t, tTable } from "../../state/index.ts";
 import { StageGraphView, StageRail } from "./StageGraph.tsx";
 
 export type DrawerMode = "closed" | "half" | "full";
@@ -60,15 +60,22 @@ export function currentStage(stages: Stage[]): Stage | undefined {
   return stages.find((s) => s.status === "running" || s.status === "accepting" || s.status === "waiting") ?? stages.find((s) => s.status === "pending") ?? stages.at(-1);
 }
 
-/** 预算一行：用了多少（token 来自账本，工具调用次数数的是这个阶段的调用记录）有数时写"用了 / 预算"，没有时只写预算（阶段卡、阶段详情共用） */
+/**
+ * 预算一行：用了多少（token 来自账本，工具调用次数数的是这个阶段的调用记录）有数时写"用了 / 预算"，没有时只写预算（阶段卡、阶段详情共用）。
+ * 361 号票：token 预算是阶段开始时运行时算的，还没算（0）时只写次数；算得出钱时带上大约多少钱
+ */
 export function budgetText(b: Stage["budget"]): string {
+  const calls = b.usedToolCalls === undefined ? t("ui.stageDrawer.budget.calls", { count: b.toolCalls }) : t("ui.stageDrawer.budget.callsUsed", { used: b.usedToolCalls, total: b.toolCalls });
+  if (b.tokens <= 0) return calls;
   const tokens =
     b.usedTokens === undefined
       ? t("ui.stageDrawer.budget.tokens", { tokens: tokensLabel(b.tokens) })
       : t("ui.stageDrawer.budget.tokensUsed", { used: tokensLabel(b.usedTokens), tokens: tokensLabel(b.tokens) });
-  const calls = b.usedToolCalls === undefined ? t("ui.stageDrawer.budget.calls", { count: b.toolCalls }) : t("ui.stageDrawer.budget.callsUsed", { used: b.usedToolCalls, total: b.toolCalls });
-  return `${tokens} · ${calls}`;
+  return [tokens, ...(b.cost ? [t("ui.stageDrawer.budget.cost", { cost: approxMoney(b.cost) })] : []), calls].join(" · ");
 }
+
+/** token 超出了预算（还没算预算的不算） */
+export const tokensOverBudget = (b: Stage["budget"]): boolean => b.tokens > 0 && (b.usedTokens ?? 0) > b.tokens;
 
 /** 整份计划验收了几个（已验收 / 总数去掉不做了的） */
 export function stageProgress(stages: readonly Stage[]): { done: number; total: number } {
@@ -180,7 +187,7 @@ export function StageCard({ stages, id }: { stages: Stage[]; id?: string }) {
   if (!s) return null;
   const codes = stageCodes(stages);
   const n = codes.get(s.id);
-  const over = (s.budget.usedTokens ?? 0) > s.budget.tokens;
+  const over = tokensOverBudget(s.budget);
   return (
     <div className="stage-card">
       <div className="stage-card-h">
@@ -233,7 +240,7 @@ export function StageCard({ stages, id }: { stages: Stage[]; id?: string }) {
         <dt>{t("ui.stageDrawer.card.rules")}</dt>
         <dd>{s.rules.length ? s.rules.join(t("ui.stageDrawer.card.itemSep")) : <span className="muted">{t("ui.stageDrawer.card.none")}</span>}</dd>
         <dt>{t("ui.stageDrawer.card.budget")}</dt>
-        <dd className={over ? "over" : undefined}>
+        <dd className={over ? "over" : undefined} title={t("ui.stageDrawer.budget.how")}>
           {budgetText(s.budget)}
           {over && t("ui.stageDrawer.card.overBudget")}
         </dd>

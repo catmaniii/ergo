@@ -4,6 +4,7 @@
 // - 每个阶段按 token（账本里这个阶段干活用掉的）加工具调用次数累计用量：打开预算控制（93 号票起默认关，配置 tasks.thresholds.budgetControl）时
 //   用量超过预算让维护者说明进展（任务状态不变），超过预算的 2 倍转等我（超预算）；超预算只有点"追加预算继续"才接着执行，会话里回话只交给维护者回答；
 //   关着时超了预算什么都不做（用量照旧记），已经停在超预算的任务照旧能追加预算继续；
+//   361 号票的（token 怎么算、预算怎么算、停下放行什么、过期通知）在 budget-real-models.test.ts；
 // - 偏离：授权内的放行只在时间线记一笔；超出授权的先问用户；没预料到的类别先问用户并马上暂停这一支；
 //   同一任务累计被用户拒绝 5 次，整个任务转已暂停，看板写明原因。
 // 这一支停下、催促、说明进展、累计被拒暂停都在任务的时间线上记一笔偏离（timeline_record，带着阶段）。
@@ -13,6 +14,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { CHANNELS, EVENT_TYPES, maintainerChannel, type Plan, type ProgressCardPayload } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
+import type { FauxStep } from "../../src/runtime/index.ts";
 import { TASK_EVENTS, TASKS_CHANNEL } from "../../src/tasks/events.ts";
 import { startTestDaemon } from "../helpers/daemon.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
@@ -161,34 +163,37 @@ async function waitUntilLength<T>(list: () => readonly T[], n: number) {
 /** 打开预算控制（93 号票：默认关着，这一组测的是打开时的行为，和之前一样） */
 const BUDGET_ON = { tasks: { thresholds: { budgetControl: true } } };
 
+/** 这几步的 token 记得很少，只看次数（361 号票起 token 预算按实测算，次数预算这么小时 faux 估的用量会先超） */
+const tiny = (step: FauxStep): FauxStep => (step.kind === "reply" ? { ...step, usage: { cacheHit: 0, cacheMiss: 10, output: 5 } } : step);
+
 describe("预算（打开预算控制）", () => {
   it("工具调用次数超出预算：让维护者说明进展（一条通知进它的会话，任务状态不变）；超出 2 倍这一支停下、任务转等我（超预算），待我处理出现事项；点\"追加预算继续\"后再给一份预算", async () => {
     const base = twoStagePlan();
     const plan: Plan = { ...base, stages: [{ ...base.stages[0]!, budget: { tokens: 0, toolCalls: 2 } }, base.stages[1]!] };
     const td = await startTestDaemon({
       config: BUDGET_ON,
-      maintainer: maintainerScript(plan, [
-        write("a.md", "a"),
-        write("b.md", "b"),
-        write("c.md", "c"),
-        // 第 3 次之后超出 1 倍：运行时让它说明进展
-        call("report_progress", { text: "资料找了一半，还要两三步" }),
-        write("d.md", "d"),
-        // 第 5 次之后超出 2 倍：这一支停下
-        say("超了"),
-        // 说明进展的通知、停下的通知各一轮
-        say("知道了"),
-        say("等你"),
-        write("sources.md", "- 来源\n"),
-        completeStage("s1"),
-        say("交了"),
-      ]),
+      maintainer: maintainerScript(
+        plan,
+        [
+          write("a.md", "a"),
+          write("b.md", "b"),
+          write("c.md", "c"),
+          // 第 3 次之后超出 1 倍：运行时让它说明进展
+          call("report_progress", { text: "资料找了一半，还要两三步" }),
+          write("d.md", "d"),
+          // 第 5 次之后超出 2 倍：这一支停下，排着的说明进展作废（361 号票），不再多叫醒它一轮
+          say("超了"),
+          write("sources.md", "- 来源\n"),
+          completeStage("s1"),
+          say("交了"),
+        ].map(tiny),
+      ),
     });
     const frontend = await connect(td.url);
     const taskId = await confirmTask(td, frontend, "预算");
 
     const explain = await eventually(() => noticesOf(frontend, M1), (m) => textOf(m).includes("用量已经超过预算"), "说明进展的通知");
-    expect(textOf(explain)).toContain("预算 0 token、2 次");
+    expect(textOf(explain)).toMatch(/预算 \d+ token、2 次/);
     expect(textOf(explain)).toContain("用量超过预算的 2 倍时运行时会让这一支停下");
     expect(recordsOf(frontend, M1).find((r) => r.record.summary.includes("让维护者说明进展"))).toMatchObject({ stageId: "s1", record: { kind: "deviation" } });
     const card = await cardWhere(frontend, (c) => c.type === "progress" && (c.payload as ProgressCardPayload).kind === "progress", "进度卡");
@@ -199,12 +204,16 @@ describe("预算（打开预算控制）", () => {
     expect(waiting.task.stages?.list?.[0]).toMatchObject({ state: "waiting", waitReason: "over_budget" });
     const item = await itemWhere(frontend, (i) => i.kind === "notice" && i.notice === "over_budget");
     expect(item).toMatchObject({ urgency: "blocking", actions: ["追加预算继续"], data: { taskId, stageIds: ["s1"] } });
-    expect(item.kind === "notice" && item.body).toMatch(/用了 \d+ token、5 次工具调用（预算 0 token、2 次），超过预算的 2 倍/);
+    expect(item.kind === "notice" && item.body).toMatch(/用了 \d+ token、5 次工具调用（预算 \d+ token、2 次），超过预算的 2 倍/);
     // 用户能在任务详情里点继续（超预算是用户点"继续"就接着走的）
     expect(td.daemon.tasks.get(taskId)?.waitReason).toBe("over_budget");
 
     await inputsDone(frontend, M1);
-    expect(frontend.events({ channel: M1, type: EVENT_TYPES.turnEnd })).toHaveLength(4);
+    // 起草一轮、执行一轮；排着的说明进展没交给它就作废了（也是一条 turn_end，出队），停下了不再叫醒它
+    const ends = frontend.events({ channel: M1, type: EVENT_TYPES.turnEnd }).map((e) => e.payload as { outcome: string; error?: string });
+    expect(ends.map((e) => e.outcome)).toEqual(["completed", "aborted", "completed"]);
+    expect(ends[1]?.error).toContain("过时");
+    expect(noticesOf(frontend, M1).some((m) => textOf(m).includes("这一支停下等用户（超预算"))).toBe(false);
     ok(await frontend.inboxAction({ itemIds: [item.id], action: "handle", choice: "追加预算继续" }));
     await taskWhere(frontend, (e) => e.change === "resumed" && e.from === "waiting_for_user", "接着执行");
     await taskWhere(frontend, (e) => e.change === "stage_accepted" && e.stageId === "s1", "s1 验收通过");
@@ -219,28 +228,26 @@ describe("预算（打开预算控制）", () => {
     const plan: Plan = { ...base, stages: [{ ...base.stages[0]!, budget: { tokens: 0, toolCalls: 1 } }, base.stages[1]!] };
     const td = await startTestDaemon({
       config: BUDGET_ON,
-      maintainer: maintainerScript(plan, [
-        write("a.md", "a"),
-        // 第 2 次之后超过预算：说明进展的通知排在这一轮之后
-        write("b.md", "b"),
-        // 第 3 次之后超过预算的 2 倍：这一支停下
-        write("c.md", "c"),
-        say("超了"),
-        say("资料比想的多"),
-        say("等你"),
-        // 用户在会话里问了一句：照常回答，不接着做
-        say("超在资料收集上，还差两三个来源"),
-        // 点了"追加预算继续"之后
-        say("接着做"),
-      ]),
+      maintainer: maintainerScript(
+        plan,
+        [
+          write("a.md", "a"),
+          // 第 2 次之后超过预算：说明进展的通知排在这一轮之后
+          write("b.md", "b"),
+          // 第 3 次之后超过预算的 2 倍：这一支停下
+          write("c.md", "c"),
+          say("超了"),
+          // 用户在会话里问了一句：照常回答，不接着做
+          say("超在资料收集上，还差两三个来源"),
+          // 点了"追加预算继续"之后
+          say("接着做"),
+        ].map(tiny),
+      ),
     });
     const frontend = await connect(td.url);
     const taskId = await confirmTask(td, frontend, "超预算回话");
     await taskWhere(frontend, (e) => e.change === "waiting" && e.task.waitReason === "over_budget", "转等我（超预算）");
     const item = await itemWhere(frontend, (i) => i.kind === "notice" && i.notice === "over_budget");
-    const stopped = await eventually(() => noticesOf(frontend, M1), (m) => textOf(m).includes("这一支停下等用户（超预算"), "停下的通知");
-    expect(textOf(stopped)).toContain("用户点“追加预算继续”后你会收到通知");
-    expect(textOf(stopped)).not.toContain("用户回话");
     await inputsDone(frontend, M1);
     const budgetResets = () => td.daemon.store.read(TASKS_CHANNEL, 0, TASK_EVENTS.budgetReset);
     const usedCalls = td.daemon.tasks.stageUsage(taskId, "s1").toolCalls;
@@ -282,7 +289,7 @@ describe("预算（打开预算控制）", () => {
         if (spawn === 1)
           return [submitPlanStep(plan), call("write_progress", { content: "调研：计划交了，等确认。" }), call("write_segment_summary", { summary: "起草了调研的计划" }), say("计划交上去了")];
         // 执行的工单段：第 2 次之后超过预算（说明进展），第 3 次之后超过 2 倍（这一支停下）
-        return [write("a.md", "a"), write("b.md", "b"), write("c.md", "c"), say("超了"), say("资料比想的多"), say("等你"), say("接着做")];
+        return [write("a.md", "a"), write("b.md", "b"), write("c.md", "c"), write("d.md", "d"), say("超了"), say("接着做")].map(tiny);
       },
     });
     seedProject(td.daemon, "记账本", { state: "in_use", charterConfirmed: true, kind: "other", toolkit: { skills: [], mcp: [], bash: false, network: false } });
@@ -303,12 +310,12 @@ describe("预算（打开预算控制）", () => {
     expect(waiting.task.stages?.list?.[0]).toMatchObject({ state: "waiting", waitReason: "over_budget" });
     const item = await itemWhere(frontend, (i) => i.kind === "notice" && i.notice === "over_budget");
     expect(item).toMatchObject({ urgency: "blocking", actions: ["追加预算继续"], data: { taskId, stageIds: ["s1"] } });
-    expect(item.kind === "notice" && item.body).toMatch(/用了 \d+ token、3 次工具调用（预算 0 token、1 次），超过预算的 2 倍/);
-    // 说明进展、停下的通知都进了项目维护者的会话，带着项目和任务、阶段
+    expect(item.kind === "notice" && item.body).toMatch(/用了 \d+ token、3 次工具调用（预算 \d+ token、1 次），超过预算的 2 倍/);
+    // 说明进展的通知进了项目维护者的会话，带着项目和任务、阶段；停下了不再叫醒它（361 号票）
     const explain = await eventually(() => noticesOf(frontend, PM1), (m) => textOf(m).includes("用量已经超过预算"), "说明进展的通知");
     expect(explain).toMatchObject({ projectId: "p-1", taskId, stageId: "s1" });
-    const stopped = await eventually(() => noticesOf(frontend, PM1), (m) => textOf(m).includes("这一支停下等用户（超预算"), "停下的通知");
-    expect(stopped).toMatchObject({ projectId: "p-1", taskId });
+    // 停下之后的调用被拒（361 号票，项目的维护者也一样）
+    await eventually(() => toolCallsOf(frontend, PM1), (c) => c.blockedBy === "over_budget", "被拒的调用");
     expect(recordsOf(frontend, PM1).find((r) => r.record.kind === "deviation" && r.record.summary.includes("超预算"))).toMatchObject({ taskId, stageId: "s1" });
     await inputsDone(frontend, PM1);
     expect(td.daemon.tasks.stageUsage(taskId, "s1").toolCalls).toBe(3);
@@ -322,14 +329,14 @@ describe("预算（打开预算控制）", () => {
 
   it("token 取自账本（这个阶段干活用掉的）：预算的 token 超过 2 倍，这一支停下（超预算）", async () => {
     const base = twoStagePlan();
-    const plan: Plan = { ...base, stages: [{ ...base.stages[0]!, budget: { tokens: 10, toolCalls: 0 } }, base.stages[1]!] };
-    const td = await startTestDaemon({ config: BUDGET_ON, maintainer: maintainerScript(plan, [say("先想想"), say("好")]) });
+    const plan: Plan = { ...base, stages: [{ ...base.stages[0]!, budget: { tokens: 0, toolCalls: 1 } }, base.stages[1]!] };
+    const td = await startTestDaemon({ config: BUDGET_ON, maintainer: maintainerScript(plan, [{ kind: "reply", text: "先想想", usage: { cacheHit: 150_000, cacheMiss: 200_000, output: 500 } }, say("好")]) });
     const frontend = await connect(td.url);
     const taskId = await confirmTask(td, frontend, "token 预算");
     await taskWhere(frontend, (e) => e.change === "waiting" && e.task.waitReason === "over_budget", "转等我（超预算）");
     const item = await itemWhere(frontend, (i) => i.kind === "notice" && i.notice === "over_budget");
     const tokens = Number(/用了 (\d+) token/.exec(item.kind === "notice" ? (item.body ?? "") : "")?.[1]);
-    expect(tokens).toBeGreaterThan(20);
+    expect(tokens).toBe(215_500);
     expect(td.daemon.ledger.stageTokens(taskId, "s1", { budget: true })).toBeGreaterThanOrEqual(tokens);
   }, 60_000);
 });
@@ -370,7 +377,7 @@ describe("预算（默认不管，93 号票）", () => {
     const first = await startTestDaemon({
       reuse: { dataDir, homeDir },
       config: BUDGET_ON,
-      maintainer: maintainerScript(plan, [write("a.md", "a"), write("b.md", "b"), write("c.md", "c"), say("超了"), say("资料比想的多"), say("等你")]),
+      maintainer: maintainerScript(plan, [write("a.md", "a"), write("b.md", "b"), write("c.md", "c"), say("超了")].map(tiny)),
     });
     const frontend = await connect(first.url);
     const taskId = await confirmTask(first, frontend, "停在超预算");

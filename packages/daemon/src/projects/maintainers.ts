@@ -90,6 +90,7 @@ import { ownershipOf, type ScopeOwner } from "../scope-review/index.ts";
 import { effectiveToolkit } from "../tasks/execution.ts";
 import type { TaskService } from "../tasks/tasks.ts";
 import { realPathOf } from "../util/real-path.ts";
+import { callHistoryLines } from "../tasks/context-block.ts";
 import { fixedContextText } from "../work-orders/fixed-context.ts";
 import { submitReceiptTool } from "../work-orders/multi-project-tools.ts";
 import { askClarificationTool, writeProgressTool, writeSegmentSummaryTool } from "../work-orders/tools.ts";
@@ -730,6 +731,7 @@ function assemble(options: ProjectMaintainersOptions, first: Project): ProjectAs
         records: { spec: read(paths.spec), progress: read(paths.progress), glossary: read(paths.glossary) },
         previous: workOrders.previous(maintainerId),
         workOrder: wo,
+        ...(host.thresholds.budgetControl ? { callHistory: projectCallHistory(tasks, maintainerId) } : {}),
       })
     : undefined;
   // 这一段的工单是流程（64 号票）：系统提示另加流程的工作方式（固定计划的那一套，和任务自己的维护者同一份）
@@ -753,6 +755,15 @@ function assemble(options: ProjectMaintainersOptions, first: Project): ProjectAs
     executing,
     segmentId: segment?.segmentId,
   };
+}
+
+/** 给负责人看前面几个阶段就够了（361 号票） */
+const CALL_HISTORY_STAGES = 8;
+
+/** 这个项目（维护者）前面的任务里验收了的阶段，估的和实际的工具调用次数（361 号票）：最近的几个 */
+function projectCallHistory(tasks: TaskService, maintainerId: string): string[] {
+  const done = tasks.list().flatMap((task) => (task.maintainerId === maintainerId ? (task.stages?.list ?? []).flatMap((s) => (s.calls ? [{ name: `${task.id} ${s.title}`, ...s.calls }] : [])) : []));
+  return callHistoryLines(done.slice(-CALL_HISTORY_STAGES), "project");
 }
 
 /** 一个项目维护者的会话（agent 宿主的一种配置）：按当前这一段和项目现在的样子装配 */

@@ -38,6 +38,7 @@ import { samplePlan, submitPlanStep } from "../helpers/plans.ts";
 import { waitUntil } from "../helpers/process.ts";
 import { byMaintainer, internalTask, seedProject } from "../helpers/projects.ts";
 import { saveOrCheckRecording } from "../helpers/recording.ts";
+import { budgetTokensOf } from "../../src/ledger/views.ts";
 import { usageInjector } from "../helpers/usage.ts";
 
 const { board: BOARD, cards: CARDS } = CHANNELS;
@@ -48,6 +49,8 @@ const today = () => localDate(new Date());
 const U = (cacheHit: number, cacheMiss: number, output: number): FauxUsage => ({ cacheHit, cacheMiss, output });
 const sum = (usages: readonly TokenCounts[]): TokenCounts => usages.reduce<TokenCounts>((a, u) => addTokens(a, u), { ...ZERO_TOKENS });
 const total = (t: TokenCounts) => t.cacheHit + t.cacheMiss + t.output;
+/** 预算用的那个数（361 号票）：逐笔算了加起来；真实的 token 还是 tokens 那一栏 */
+const budgetOf = (usages: readonly TokenCounts[]) => usages.reduce((n, u) => n + budgetTokensOf(u), 0);
 const withUsage = (step: FauxStep, usage: FauxUsage): FauxStep => ({ ...step, usage }) as FauxStep;
 const say = (text: string, usage: FauxUsage): FauxStep => ({ kind: "reply", text, usage });
 const call = (name: string, args: Record<string, unknown>, usage: FauxUsage): FauxStep => ({ kind: "reply", toolCalls: [{ name, arguments: args as never }], usage });
@@ -227,14 +230,14 @@ describe("任务的用量", () => {
       { agentId: "review-t-1-s2-1", role: "reviewer", purpose: "work", tokens: sum(reviewer), calls: reviewer.length },
     ]);
     expect(last.byStage).toEqual([
-      { stageId: "s1", tokens: sum(s1), calls: s1.length, budgetTokens: total(sum(s1)) },
-      { stageId: "s2", tokens: sum([...s2, ...reviewer]), calls: s2.length + reviewer.length, budgetTokens: total(sum(s2)) },
+      { stageId: "s1", tokens: sum(s1), calls: s1.length, budgetTokens: budgetOf(s1) },
+      { stageId: "s2", tokens: sum([...s2, ...reviewer]), calls: s2.length + reviewer.length, budgetTokens: budgetOf(s2) },
     ]);
     expect(td.daemon.ledger.totals({ kind: "task", id: taskId })).toEqual(last);
     // 预算比较（14 号票）只算干活的部分：不算评审子 agent 的
     expect(td.daemon.ledger.stageTokens(taskId, "s1")).toBe(total(sum(s1)));
     expect(td.daemon.ledger.stageTokens(taskId, "s2")).toBe(total(sum([...s2, ...reviewer])));
-    expect(td.daemon.ledger.stageTokens(taskId, "s2", { budget: true })).toBe(total(sum(s2)));
+    expect(td.daemon.ledger.stageTokens(taskId, "s2", { budget: true })).toBe(budgetOf(s2));
 
     saveOrCheckRecording("token-ledger", frontend.recording, { perChannel: true });
   });
@@ -332,10 +335,11 @@ describe("范围审视和压缩的用量", () => {
     // 20 号票的并行子 agent：拉起时带上它被派去的阶段（这里是 s2，和维护者当时在做的无关）
     inject("sub-t-7-s2", U(0, 70, 7), { attribution: { owner: task, role: "sub_agent", stageId: "s2" } });
     expect(td.daemon.ledger.stageTokens("t-7", "s1")).toBe(160 + 45 + 33 + 42);
-    expect(td.daemon.ledger.stageTokens("t-7", "s1", { budget: true })).toBe(160 + 45);
+    // 预算用的数：没命中 + 输出 + 命中的十分之一（361 号票）；上面那个真实的不变
+    expect(td.daemon.ledger.stageTokens("t-7", "s1", { budget: true })).toBe(50 + 10 + 10 + 45);
     expect(td.daemon.ledger.stageTokens("t-7", "s2", { budget: true })).toBe(77);
     expect(td.daemon.ledger.totals(task)?.byStage).toEqual([
-      { stageId: "s1", tokens: U(120, 140, 20), calls: 4, budgetTokens: 160 + 45 },
+      { stageId: "s1", tokens: U(120, 140, 20), calls: 4, budgetTokens: 50 + 10 + 10 + 45 },
       { stageId: "s2", tokens: U(0, 70, 7), calls: 1, budgetTokens: 77 },
     ]);
   });

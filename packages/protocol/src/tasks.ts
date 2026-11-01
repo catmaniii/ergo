@@ -420,6 +420,8 @@ export function interruptedNoticeData(item: object): InterruptedNoticeData | und
 // @i18n-ignore-start fixed：事项的动作按字认
 /** "超预算"事项（over_budget，14 号票）的动作：再给这个阶段一份预算，接着执行 */
 export const OVER_BUDGET_ACTIONS = { resume: "追加预算继续" } as const;
+/** "超预算"事项不用再点时记成什么（361 号票）：加预算的计划变更确认了、负责人宣布做完了交去验收 */
+export const OVER_BUDGET_SETTLED = { raised: "已加预算", declared: "已交验收" } as const; // @i18n-ignore fixed：事项的处理结果按字认
 /** "授权到期续期"事项（grant_renewal，14 号票）的动作：续期（有效期再延一期）、不续（到期后执行到那一步再问你） */
 export const GRANT_RENEWAL_ACTIONS = { renew: "续期", skip: "不续" } as const;
 /**

@@ -153,7 +153,7 @@ export function ownerTotals(db: ReadonlyDatabase, owner: LedgerOwner, pending?: 
     .map((r) => ({ agentId: r.agent_id, role: r.role, purpose: r.purpose, tokens: tokensOf(r), calls: Number(r.calls) }));
   const byStage: TokenStageRow[] = db
     .all<SumRow & { stage_id: string; budget: number | null }>(
-      `${rows} SELECT stage_id, ${SUMS}, SUM(CASE WHEN ${BUDGET_ROWS} THEN cache_hit + cache_miss + output ELSE 0 END) AS budget
+      `${rows} SELECT stage_id, ${SUMS}, SUM(CASE WHEN ${BUDGET_ROWS} THEN ${BUDGET_TOKENS_SQL} ELSE 0 END) AS budget
        FROM rows WHERE stage_id IS NOT NULL GROUP BY stage_id ORDER BY MIN(seq)`,
       ...params,
     )
@@ -166,17 +166,60 @@ export function ownerTotals(db: ReadonlyDatabase, owner: LedgerOwner, pending?: 
 const BUDGET_ROWS = "role <> 'reviewer' AND purpose <> 'scope_review'";
 
 /**
- * 任务的某个阶段用掉的 token（命中 + 未命中 + 输出）。budget 为真时只算进预算的部分（BUDGET_ROWS，14 号票的预算比较用），
- * 和看板上 byStage 的 budgetTokens 一样
+ * 算预算时命中缓存的 token 按几分之一记（361 号票）。只有这个数按它算（看板上的 budgetTokens、预算比较）：
+ * 账本的逐笔记录、消耗页显示的真实 token 和钱不变。上下文 15 万时一次调用实际只花约 ¥0.01，全算进去一两次调用预算就爆了。
+ * 不按钱算：自定义模型可能没有单价
+ */
+export const BUDGET_CACHE_HIT_DIVISOR = 10;
+
+/** 一次调用记进预算的 token：没命中缓存的输入 + 输出 + 命中缓存的十分之一 */
+export const budgetTokensOf = (tokens: TokenCounts): number => tokens.cacheMiss + tokens.output + Math.trunc(tokens.cacheHit / BUDGET_CACHE_HIT_DIVISOR);
+
+/** 同一个算法的 SQL（和 budgetTokensOf 一样按行取整，起算点相减才对得上） */
+const BUDGET_TOKENS_SQL = `cache_miss + output + CAST(cache_hit AS INTEGER) / ${BUDGET_CACHE_HIT_DIVISOR}`;
+
+/**
+ * 任务的某个阶段用掉的 token。budget 为假是真实的（命中 + 未命中 + 输出）；budget 为真是预算用的那个数（budgetTokensOf，
+ * 只算进预算的部分 BUDGET_ROWS，14 号票的预算比较用），和看板上 byStage 的 budgetTokens 一样
  */
 export function stageTokenSum(db: ReadonlyDatabase, taskId: string, stageId: string, budget: boolean): number {
-  const filter = budget ? `AND ${BUDGET_ROWS}` : "";
   const row = db.get<{ total: number | null }>(
-    `SELECT SUM(cache_hit + cache_miss + output) AS total FROM token_ledger WHERE owner_kind = 'task' AND owner_id = ? AND stage_id = ? ${filter}`,
+    `SELECT SUM(${budget ? BUDGET_TOKENS_SQL : "cache_hit + cache_miss + output"}) AS total FROM token_ledger WHERE owner_kind = 'task' AND owner_id = ? AND stage_id = ? ${budget ? `AND ${BUDGET_ROWS}` : ""}`,
     taskId,
     stageId,
   );
   return Number(row?.total ?? 0);
+}
+
+/** 单次计量看最近多少次调用（361 号票） */
+const METER_RECENT_CALLS = 20;
+/** 每次调用除了缓存着的上下文还要记的：没命中的输入加输出（真模型试验里平均 2900 + 720） */
+const METER_FRESH_TOKENS = 3_000;
+/** 一次调用都还没记过时，假定上下文有这么大 */
+const METER_DEFAULT_CONTEXT = 20_000;
+
+/** 这个 agent 最近几次算进预算的调用，最近的在前（361 号票：单次计量） */
+export function recentBudgetCalls(db: ReadonlyDatabase, agentId: string): Array<{ tokens: TokenCounts; model: string; time: string }> {
+  return db
+    .all<{ cache_hit: number; cache_miss: number; output: number; model: string; time: string }>(
+      `SELECT cache_hit, cache_miss, output, model, time FROM token_ledger WHERE agent_id = ? AND ${BUDGET_ROWS} ORDER BY global_seq DESC LIMIT ${METER_RECENT_CALLS}`,
+      agentId,
+    )
+    .map((r) => ({ tokens: { cacheHit: Number(r.cache_hit), cacheMiss: Number(r.cache_miss), output: Number(r.output) }, model: r.model, time: r.time }));
+}
+
+/** 上下文有这么大时一次调用大约记多少 */
+const meterOfContext = (context: number): number => Math.trunc(context / BUDGET_CACHE_HIT_DIVISOR) + METER_FRESH_TOKENS;
+
+/**
+ * 单次计量（361 号票）：一次调用大约记多少 token。最近的实测平均，和按最近一次的上下文大小估的，取大的（上下文只会越来越大，
+ * 平均落后于它）；一次都没记过时按假定的上下文估
+ */
+export function callMeterTokens(recent: readonly TokenCounts[]): number {
+  const latest = recent[0];
+  if (!latest) return meterOfContext(METER_DEFAULT_CONTEXT);
+  const average = recent.reduce((n, t) => n + budgetTokensOf(t), 0) / recent.length;
+  return Math.ceil(Math.max(average, meterOfContext(latest.cacheHit + latest.cacheMiss)));
 }
 
 /**

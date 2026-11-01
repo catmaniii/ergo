@@ -443,7 +443,9 @@ export function stageStops(
 // ───────────────────────── 计划变更（14 号票） ─────────────────────────
 
 const ownerText = (o: PlanChangeOwner) => (o.kind === "stage" ? t("protocol.plan.change.ownerStage", { id: o.id, title: o.title }) : t("protocol.plan.change.ownerGroup", { title: o.title }));
-const budgetText = (b: { tokens: number; toolCalls: number }) => t("protocol.plan.change.budgetAmount", { tokens: b.tokens, calls: b.toolCalls });
+/** 361 号票起新计划里没有 token 数（运行时算）：只写次数；之前存下的计划照旧两样都写 */
+const budgetText = (b: { tokens: number; toolCalls: number }) =>
+  b.tokens > 0 ? t("protocol.plan.change.budgetAmount", { tokens: b.tokens, calls: b.toolCalls }) : t("protocol.plan.change.budgetCalls", { count: b.toolCalls });
 
 /** 一项预算（token、工具调用次数）有没有加：哪一项比原来多就算 */
 export const budgetRaised = (before: { tokens: number; toolCalls: number }, after: { tokens: number; toolCalls: number }) =>

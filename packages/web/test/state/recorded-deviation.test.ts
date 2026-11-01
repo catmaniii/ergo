@@ -138,7 +138,7 @@ describe("回放：预算（task-over-budget）", () => {
     const task = selectTask(state, "t-1")!;
     expect(taskStatusText(task)).toBe("等我 · 超预算");
     expect(taskStages(state, "t-1")[0]).toMatchObject({ state: "waiting", waitReason: "over_budget" });
-    expect(taskStages(state, "t-1")[0]!.waitNote).toMatch(/用了 \d+ token、5 次工具调用（预算 0 token、2 次），超过预算的 2 倍/);
+    expect(taskStages(state, "t-1")[0]!.waitNote).toMatch(/用了 \d+ token、5 次工具调用（预算 \d+ token、2 次），超过预算的 2 倍/);
     const end = replay(inputs);
     expect(notices(end, "over_budget")).toMatchObject([{ urgency: "blocking", actions: ["追加预算继续"], handled: "追加预算继续" }]);
     expect(taskActionItems(task).map((c) => c.label)).toContain("追加预算继续");

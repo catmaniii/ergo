@@ -63,8 +63,13 @@ export interface StageView {
   /** 这个阶段（加上所属阶段组）的授权项、时序规则，写成一句话 */
   grants: string[];
   rules: string[];
-  /** 预算，和这个阶段已经用掉的 token（usedTokens，24 号票） */
-  budget?: { tokens: number; toolCalls: number; usedTokens: number };
+  /**
+   * 预算，和这一份预算里已经用掉的 token（usedTokens，24 号票）。361 号票：阶段开始了照运行时算好记在阶段上的（用量从这一份的起算点算），
+   * 没开始的照计划（新计划里只有次数）；baseToolCalls 是这一份从第几次工具调用起算
+   */
+  budget?: { tokens: number; toolCalls: number; usedTokens: number; baseToolCalls?: number; cost?: { amount: number; currency: string }; scale?: number };
+  /** 估的和实际的工具调用次数（361 号票：验收时记下的） */
+  calls?: { estimated: number; actual: number };
   /** 选这种模式的理由、开放阶段的初步思路（84 号票：计划里写了才有） */
   modeReason?: string;
   roughIdea?: string;
@@ -167,7 +172,18 @@ export function taskStages(state: UiState, taskId: string): StageView[] {
       steps: planned?.steps ?? [],
       grants: policies.flatMap((p) => p.grants.map((g) => t("state.taskDetail.grantLine", { title: g.title, text: grantText(g, grantInfo[g.id]) }))),
       rules: policies.flatMap((p) => p.temporalRules.map((r) => t("state.taskDetail.ruleLine", { title: r.title ?? r.id, text: temporalRuleText(r) }))),
-      ...(planned ? { budget: { tokens: planned.budget.tokens, toolCalls: planned.budget.toolCalls, usedTokens: used[s.stageId] ?? 0 } } : {}),
+      ...(planned
+        ? {
+            budget: {
+              tokens: s.budget?.tokens ?? planned.budget.tokens,
+              toolCalls: s.budget?.toolCalls ?? planned.budget.toolCalls,
+              usedTokens: Math.max(0, (used[s.stageId] ?? 0) - (s.budget?.baseTokens ?? 0)),
+              ...(s.budget ? { baseToolCalls: s.budget.baseToolCalls, scale: s.budget.scale } : {}),
+              ...(s.budget?.cost ? { cost: s.budget.cost } : {}),
+            },
+          }
+        : {}),
+      ...(s.calls ? { calls: s.calls } : {}),
       ...(planned?.modeReason ? { modeReason: planned.modeReason } : {}),
       ...(planned?.roughIdea ? { roughIdea: planned.roughIdea } : {}),
       started: stageStarted(s),

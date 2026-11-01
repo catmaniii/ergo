@@ -171,6 +171,11 @@ export interface GuardRuntimeOptions {
   userWaits?: UserWaits;
   /** 不在等的审批被决定时给 agent 的通知换个说法（20 号票：子 agent 的调用，见 approval-waits.ts） */
   lateNotice?: (decision: LateDecision) => string | undefined;
+  /**
+   * 这次调用所在的阶段是不是超预算停下了（361 号票，tasks/execution.ts 的 heldCall）：给出原因时不判定、不执行，结果交回原因。
+   * 宣布完成、提计划变更不拦。不给就不拦
+   */
+  heldCall?: (scope: MessageScope, tool: string) => string | undefined;
   log: (line: string) => void;
 }
 
@@ -589,6 +594,13 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
           state.outcome = "blocked";
           state.blockedBy = "superseded";
           send({ allow: false, reason: superseded });
+          return;
+        }
+        const held = options.heldCall?.(state.scope, report.toolName);
+        if (held !== undefined) {
+          state.outcome = "blocked";
+          state.blockedBy = "over_budget";
+          send({ allow: false, reason: held });
           return;
         }
         try {

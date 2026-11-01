@@ -1008,6 +1008,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       now,
       watchSettings,
       planTools: BUILTIN_TOOL_REGISTRY,
+      // 计划卡上整个任务的 token 粗估由运行时算（361）
+      callMeter: (agentId) => wired("ledger").callMeter(agentId),
       // 计划的工具包里只能是 skill 库里的 skill、登记了的 MCP（27）
       toolkitProblems: (toolkit) => toolkits.nameProblems(toolkit),
       // 只涉及一个项目的任务一律是这个项目的内部任务，由它的维护者执行（16、64）：项目要在项目列表里、立项书已确认（首个建设任务例外）、没归档
@@ -1616,6 +1618,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       autoVersioning: projectSystem.autoVersioning,
       // 子 agent 的调用挂起后才被决定：通知进维护者的会话，说法由子 agent 那边给（20）
       lateNotice: (decision) => wiring.subAgents?.lateNotice(decision),
+      // 超预算停下的这一支：除了宣布完成、提计划变更都拦（361）
+      heldCall: (scope, tool) => wiring.taskExecution?.heldCall(scope, tool),
       log,
     });
     teardown.push(() => guards.stop());
@@ -2099,6 +2103,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       thresholds: taskThresholds,
       // 预算比较的 token 从账本取（24）：这个阶段干活用掉的（不算评审、范围审视）
       stageTokens: (taskId, stageId) => ledger.stageTokens(taskId, stageId, { budget: true }),
+      // token 预算由运行时算（361）：预计次数 × 这个 agent 最近每次调用实际记多少
+      callMeter: (agentId) => ledger.callMeter(agentId),
       // 无进展的判定：维护者的子进程在运行才算"活着却没进展"
       agentAlive: (agentId) => agents.live().some((a) => a.agentId === agentId),
       watchSettings,

@@ -26,8 +26,11 @@ export function stageOf(s: StageView, toolCalls: number | undefined): Stage {
     budget: {
       tokens: s.budget?.tokens ?? 0,
       toolCalls: s.budget?.toolCalls ?? 0,
-      ...(s.budget ? { usedTokens: s.budget.usedTokens, usedToolCalls: toolCalls ?? 0 } : {}),
+      ...(s.budget ? { usedTokens: s.budget.usedTokens, usedToolCalls: Math.max(0, (toolCalls ?? 0) - (s.budget.baseToolCalls ?? 0)) } : {}),
+      ...(s.budget?.cost ? { cost: s.budget.cost } : {}),
+      ...(s.budget?.scale === undefined ? {} : { scale: s.budget.scale }),
     },
+    ...(s.calls ? { calls: s.calls } : {}),
     ...(s.attempts > 0 ? { attempts: s.attempts } : {}),
     ...(s.waitReason ? { waitReason: s.waitReason } : {}),
     ...(s.waitNote ? { waitNote: s.waitNote } : {}),

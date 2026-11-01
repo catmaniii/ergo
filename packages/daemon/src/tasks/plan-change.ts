@@ -17,6 +17,7 @@ import {
   type Plan,
   type PlanChangeItem,
   type PlanChangeOwner,
+  type PlanDraft as PlanDraftParams,
   planChangeGrant,
   planChangeStages,
   type PlanGrant,
@@ -67,6 +68,16 @@ export interface DraftMerge {
  * - 本任务的关注类别、用户的限制、记忆范围沿用当前计划。工具包里"给秘书发消息"（102 号票）、"发附件"（117 号票）
  *   不写是沿用现在的（不是默认开：用户在任务详情里关掉之后，维护者自行调整计划没写这一项不能把它悄悄打开）；写了照写的算，打开算扩大
  */
+/**
+ * 负责人在执行中交来的计划（361 号票）：它写的 token 不作数，沿用这个阶段现在计划里存的（之前存下的计划有数，新的是 0）；
+ * 整个任务的粗估也不改
+ */
+export function withStoredTokens(draft: PlanDraftParams, current: Plan): PlanDraft {
+  const { tokenEstimate: _estimate, stages, ...rest } = draft;
+  if (!stages) return rest;
+  return { ...rest, stages: stages.map((s) => ({ ...s, budget: { tokens: current.stages.find((x) => x.stageId === s.stageId)?.budget.tokens ?? 0, toolCalls: s.budget.toolCalls } })) };
+}
+
 export function mergeDraft(current: Plan, draft: PlanDraft, options: { accepted?: readonly string[]; removeStages?: readonly string[] } = {}): DraftMerge {
   const accepted = new Set(options.accepted ?? []);
   const keptAccepted: AcceptedDifference[] = [];
@@ -92,6 +103,7 @@ export function mergeDraft(current: Plan, draft: PlanDraft, options: { accepted?
     assumptions: draft.assumptions ?? current.assumptions,
     stops: draft.stops ?? current.stops,
     tokenEstimate: draft.tokenEstimate ?? current.tokenEstimate,
+    ...(current.costEstimate === undefined ? {} : { costEstimate: current.costEstimate }),
     ...(current.memoryScope === undefined ? {} : { memoryScope: current.memoryScope }),
   };
   return { plan, keptAccepted };

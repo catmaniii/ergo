@@ -52,6 +52,8 @@ const INBOX_ACTION_TEXT_KEYS: Readonly<Record<string, string>> = {
   保持暂停: "protocol.inboxAction.keepPaused",
   已接着做: "protocol.inboxAction.continued",
   已作废: "protocol.inboxAction.voided",
+  已加预算: "protocol.inboxAction.budgetRaised",
+  已交验收: "protocol.inboxAction.budgetDeclared",
   验收通过: "protocol.inboxAction.accept",
   退回: "protocol.inboxAction.return",
   重试: "protocol.inboxAction.retry",

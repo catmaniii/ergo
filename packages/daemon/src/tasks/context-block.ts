@@ -22,6 +22,8 @@ import {
   TASK_WAIT_REASON_LABEL,
   type TaskStage,
   temporalRuleText,
+  approxMoney,
+  type StageBudget,
 } from "@ergo/protocol";
 import { stagePosition } from "./stages.ts";
 import { EXECUTION_TOOL } from "./tool-names.ts";
@@ -41,6 +43,8 @@ export interface ContextBlockInput {
   busy?: ReadonlySet<string>;
   /** 当前阶段另写的几行交代（17 号票：涉及多个项目的任务里本阶段发往各项目的工单） */
   notes?: (stageId: string) => readonly string[];
+  /** 打开了预算控制（361 号票）：写上这个阶段的预算、前面估的和实际的次数 */
+  budgetControl?: boolean;
 }
 
 /** 一个阶段的状态写法："已验收"、"等我（由我验收）" */
@@ -124,6 +128,26 @@ export function authorizationSection(auth: { grants: readonly string[]; rules: r
   });
 }
 
+/** token 预算怎么算（361 号票）：给负责人的话都用这一句 */
+export const BUDGET_RULE = "token 按没命中缓存的输入 + 输出 + 命中缓存的十分之一算，不是账本上的真实 token";
+
+/** 这个阶段这一份预算（361 号票）：交代、重注入块里写明 */
+export function stageBudgetLine(budget: StageBudget): string {
+  return forModel(
+    () =>
+      `这个阶段的预算（运行时算的）：工具调用 ${budget.toolCalls} 次、token ${budget.tokens}（每次调用约记 ${budget.perCall}；${BUDGET_RULE}）` +
+      `${budget.scale === 1 ? "" : `，次数已按前面阶段的实际比例乘了 ${budget.scale.toFixed(2)}`}${budget.cost ? `，大约 ${approxMoney(budget.cost)}` : ""}。`,
+  );
+}
+
+/** 前面估的和实际的工具调用次数（361 号票）：负责人写后面的阶段、提计划变更时照这个比例估 */
+export function callHistoryLines(records: ReadonlyArray<{ name: string; estimated: number; actual: number }>, scope: "task" | "project"): string[] {
+  if (records.length === 0) return [];
+  // 同一个任务后面的阶段运行时已经按比例调了（thresholds.ts 的 callScale），它再乘一遍就算了两次；新任务的比例从 1 开始，要它自己照着估
+  const advice = scope === "task" ? "这个任务后面的阶段运行时已经按这个比例调了预算，提计划变更时次数不用自己再乘。" : "起草新任务的计划时照这个比例估。";
+  return forModel(() => [`前面估的和实际的工具调用次数：${records.map((r) => `${r.name} 估 ${r.estimated} 次，实际 ${r.actual} 次`).join("；")}。${advice}`]);
+}
+
 export function contextBlockText(input: ContextBlockInput): string {
   return forModel(() => {
     const { task, plan } = input;
@@ -144,6 +168,10 @@ export function contextBlockText(input: ContextBlockInput): string {
       ...list.map((s) => `- ${s.stageId}「${s.title}」：${stageStateText(s)}${s.dependsOn.length > 0 ? `（前置 ${s.dependsOn.join("、")}）` : ""}`),
     ];
     if (stage && focus) lines.push(`当前阶段 ${stage.stageId}「${stage.title}」（${stageStateText(focus)}）`, ...stageBrief(plan, stage.stageId), ...(input.notes?.(stage.stageId) ?? []));
+    if (input.budgetControl) {
+      if (focus?.budget) lines.push(stageBudgetLine(focus.budget));
+      lines.push(...callHistoryLines(list.flatMap((s) => (s.calls ? [{ name: s.stageId, ...s.calls }] : [])), "task"));
+    }
     const auth = stage ? stageAuthorization(plan, stage.stageId, input.grantInfo) : { grants: [], rules: [] };
     lines.push(...authorizationSection(auth, boundaryLines(plan, input.cwd)));
     return lines.join("\n");
