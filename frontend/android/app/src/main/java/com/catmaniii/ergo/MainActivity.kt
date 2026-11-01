@@ -468,7 +468,8 @@ class MainActivity : Activity() {
             notErgoBar.setBottomInset(overlap)
             addressPage.setBottomInset(overlap)
             errorPage.setBottomInset(overlap)
-            insets
+            // 这里都让开了：不再往下传。传下去 WebView 会把状态栏高度算进 env(safe-area-inset-top)，网页的标题栏再让一遍，顶上多出一大条空白
+            WindowInsetsCompat.CONSUMED
         }
     }
 

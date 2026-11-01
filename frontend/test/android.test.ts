@@ -292,4 +292,10 @@ describe("长按元素的圆钮（359 号票）：两个 App 和网页对得上"
     expect(kotlin("MainActivity.kt")).toContain("browserDownloads.saveFile(file, name, false, mime)");
     expect(read(path.join(REPO, "frontend/harmony/entry/src/main/ets/pages/Index.ets"))).toContain("this.browserDownloads.saveFile(path, name, false, mime)");
   });
+  test("状态栏只让一次：外层让开之后不把避让区传给 WebView，否则网页的 env(safe-area-inset-top) 再让一遍，顶上多一大条空白", () => {
+    const source = kotlin("MainActivity.kt");
+    const watch = source.slice(source.indexOf("private fun watchInsets"), source.indexOf("private fun pushInsets"));
+    expect(watch).toContain("content.setPadding(bars.left, bars.top, bars.right, ime.bottom)");
+    expect(watch).toContain("WindowInsetsCompat.CONSUMED");
+  });
 });
