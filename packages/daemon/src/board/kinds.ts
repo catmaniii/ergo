@@ -171,7 +171,7 @@ export function internalTaskCounts(store: EventStore): string[] {
     const name = task.internal!.projectName;
     counts.set(name, (counts.get(name) ?? 0) + 1);
   }
-  return [...counts].map(([name, n]) => `- 项目「${name}」里有 ${n} 个进行中的内部任务（细节只在项目页上，你看不到）`);
+  return [...counts].map(([name, n]) => `- 项目「${name}」里有 ${n} 个进行中的内部任务（细节只在项目里，你看不到）`);
 }
 
 /** "查看板"工具的结果：看板按组列出，后面是各项目里进行中的内部任务有几个 */
@@ -193,7 +193,7 @@ export function boardToolDescription(kinds: BoardKinds): string {
       .map((k) => k.describes)
       .join("、")}，按${BOARD_GROUPS.map((g) => BOARD_GROUP_LABEL[g].title).join("、")}分组。` +
     "项目运营方案里的那几条（项目的内部任务）也列出来、写明属于哪个项目：你的任务工具管不了它们，用户要改、要去掉，转给项目的负责人改运营方案。" +
-    "别的项目内部任务不上看板，只列出每个项目里有几个在进行（用户问起时告诉他在哪个项目里、有几个，到项目页看）。" +
+    "别的项目内部任务不上看板，只列出每个项目里有几个在进行（用户问起时告诉他在哪个项目里、有几个，到那个项目里看）。" +
     "说任务进展、回答“现在在做什么”时以它为准，不要凭记忆。只读。",
   );
 }

@@ -38,7 +38,7 @@ import {
   type StageObservedCounts,
   type VerifiedUserWords,
 } from "./protocol.ts";
-import type { UiState } from "./ui-state.ts";
+import { asksOffIn, type UiState } from "./ui-state.ts";
 import { stageTokens } from "./usage.ts";
 
 /** 阶段抽屉里的一个阶段 */
@@ -98,7 +98,8 @@ export interface StageMarkItem {
  * 一个阶段要你留意的几样（"敏"在 85 号票）：
  * - perm 敏感权限（84 号票叫本机授权，93 号票统一叫敏感权限）：算授权的授权项里不对外的（动你电脑里的东西）；只读的授权也算在这里（85 号票再分出去）；
  * - out 对外动作：算授权的授权项里对外的（守护进程给的 GrantInfo.outward，84 号票之前算的授权说法没有它，都算本机）；
- * - ask 会问你：计划的停点里落在这个阶段上的（stageStops：由你验收、落在"先问我""交给我做"类别里的授权、收窄了的）
+ * - ask 会问你：计划的停点里落在这个阶段上的（stageStops：由你验收、落在"先问我""交给我做"类别里的授权、收窄了的；
+ *   "有风险的事先问我"关着时只有由你验收、交给我做的）
  */
 export interface StageMarks {
   readonly perm: readonly StageMarkItem[];
@@ -109,8 +110,8 @@ export interface StageMarks {
 /** 生效的计划（计划卡、确认过的计划变更卡、换过版的 task_plan）：算停点要它的授权说法和收窄过的授权项 */
 type EffectivePlan = Pick<PlanCardPayload, "plan" | "grantInfo"> & { narrowedGrants?: readonly string[] | undefined };
 
-/** 一个阶段要你留意的几样（grants 是它和所属阶段组的授权项） */
-export function stageMarks(effective: EffectivePlan, stageId: string, grants: readonly PlanGrant[]): StageMarks {
+/** 一个阶段要你留意的几样（grants 是它和所属阶段组的授权项；asksOff："有风险的事先问我"关着） */
+export function stageMarks(effective: EffectivePlan, stageId: string, grants: readonly PlanGrant[], asksOff = false): StageMarks {
   const { grantInfo } = effective;
   const granted = grants.filter((g) => grantAuthorizes(grantInfo[g.id]));
   const item = (g: PlanGrant): StageMarkItem => ({ text: t("state.taskDetail.grantLine", { title: g.title, text: grantText(g, grantInfo[g.id]) }), grantId: g.id, ...(g.maxUses === undefined ? {} : { limit: g.maxUses }) });
@@ -119,7 +120,7 @@ export function stageMarks(effective: EffectivePlan, stageId: string, grants: re
     perm: granted.filter((g) => !outward(g)).map(item),
     out: granted.filter(outward).map(item),
     // 91 号票：第几阶段按依赖图的编号写（并行的 4a、4b）
-    ask: stageStops(effective, stageId, planStageCodes(effective.plan)).map((s) => ({ text: s.text })),
+    ask: stageStops(effective, stageId, planStageCodes(effective.plan), asksOff).map((s) => ({ text: s.text })),
   };
 }
 
@@ -187,7 +188,7 @@ export function taskStages(state: UiState, taskId: string): StageView[] {
       ...(planned?.modeReason ? { modeReason: planned.modeReason } : {}),
       ...(planned?.roughIdea ? { roughIdea: planned.roughIdea } : {}),
       started: stageStarted(s),
-      marks: effective ? stageMarks(effective, s.stageId, policies.flatMap((p) => p.grants)) : { perm: [], out: [], ask: [] },
+      marks: effective ? stageMarks(effective, s.stageId, policies.flatMap((p) => p.grants), asksOffIn(state)) : { perm: [], out: [], ask: [] },
       ruleDocs: policies.flatMap((p) => p.temporalRules),
       ...(s.userWords && s.userWords.length > 0 ? { userWords: s.userWords } : {}),
       // 274 号票：负责人最近一次宣布完成时写的那一两句（自报）、那时系统从效果日志里汇总的个数

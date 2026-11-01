@@ -147,7 +147,7 @@ export const internalLaunchedText = (task: Pick<Task, "internal">) => {
   const name = task.internal?.projectName ?? "";
   return (
     `已在项目「${name}」里建了内部任务：由这个项目的负责人和用户对齐、起草、执行，只在项目里看得到（你看不到它的细节，不用问，也不要写任务书、出提问卡）。` +
-    `只告诉用户“已在项目「${name}」里建了内部任务”，接下来在项目页和负责人对齐。`
+    `只告诉用户“已在项目「${name}」里建了内部任务”，接下来在项目的对话框里和负责人对齐。`
   );
 };
 

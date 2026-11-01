@@ -351,7 +351,7 @@ describe("长程任务选不了定时", () => {
     const task = td.daemon.tasks.createByRequest({ title: "写调研报告", summary: "写调研报告" });
     td.daemon.tasks.writeBrief(task.id, { goal: "写调研报告", acceptanceCriteria: ["报告写好"], constraints: [], projects: [], memoryScope: "" });
     const plan = { ...samplePlan(), scheduledJobs: [{ title: "每周一更新", schedule: { kind: "weekly", time: "09:00", weekdays: [1] }, each: "看有没有新资料" }] };
-    expect(() => td.daemon.tasks.submitPlan(task.id, task.maintainerId, plan as never)).toThrow(/计划里不再写定时作业/);
+    expect(() => td.daemon.tasks.submitPlan(task.id, task.maintainerId, plan as never)).toThrow(/计划里不再写定时任务/);
     const { Plan } = await import("@ergo/protocol");
     expect(Object.keys(Plan.properties)).not.toContain("scheduledJobs");
   });
@@ -589,7 +589,7 @@ describe("升级前交、升级后才确认的计划里的定时作业", () => {
     const result = ok(await frontend.cardAction({ cardId: legacyCard.id, action: "confirm", expectedVersion: legacyCard.version, input: {} })) as { card?: Card };
     const confirmed = await eventually(() => cardsOf(frontend), (c) => c.id === legacyCard.id && c.status !== "pending", "确认后的卡");
     expect(result).toBeDefined();
-    expect(confirmed.outcome?.note).toContain("计划里的定时作业已改成定时任务「每周一看看有没有新资料」");
+    expect(confirmed.outcome?.note).toContain("计划里定时做的事已改成定时任务「每周一看看有没有新资料」");
     // 确认的计划里不再有这一栏（卡的负载合现在的 schema）
     expect((confirmed.payload as PlanCardPayload).plan).not.toHaveProperty("scheduledJobs");
     expect(td.daemon.tasks.confirmedPlan(task.id)!.plan).not.toHaveProperty("scheduledJobs");

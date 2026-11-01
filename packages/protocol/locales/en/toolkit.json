@@ -6,7 +6,7 @@
   "toolkit.planNotConfirmed": "The plan isn't confirmed yet: the toolkit is confirmed on the plan card, and can be changed here after that",
   "toolkit.projectNotFound": "No project with ID {projectId}",
   "toolkit.taskNotFound": "No task {taskId}",
-  "toolkit.editedInProjectPage": "You changed the toolkit on the project page",
+  "toolkit.editedInProjectPage": "You changed the toolkit in the project records",
   "toolkit.editedInTaskDetail": "You changed the toolkit in the task details",
   "toolkit.tool.adjustSkills": "Add or remove skills",
   "toolkit.skillsAdjustedWhy": "The owner adjusted skills ({reason})",

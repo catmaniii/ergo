@@ -285,12 +285,17 @@ export const EVENT_TYPES = {
    * background-agents.ts），同一个负责人最多每 BACKGROUND_AGENTS_PUSH_MS 一条；开着的列表、只读对话据此重新取
    */
   backgroundAgents: "background_agents",
+  /**
+   * 关注类别频道（临时，378 号票）：两个开关现在的样子（SafetySettingsView，设置里、向导里改）——订阅关注类别频道时补推一条，
+   * 改了再推一条；网页的计划卡、授权标记、阶段的"问"按它写，关着时不说"还会问你"
+   */
+  safetySettings: "safety_settings",
 } as const;
 
 /** 事件类型的名字（EVENT_TYPES 里的值） */
 export type EventType = (typeof EVENT_TYPES)[keyof typeof EVENT_TYPES];
 
-export const EPHEMERAL_EVENT_TYPES: readonly string[] = [EVENT_TYPES.stream, EVENT_TYPES.notify, EVENT_TYPES.activityProgress, EVENT_TYPES.voiceModels, EVENT_TYPES.webVersion, EVENT_TYPES.projectServices, EVENT_TYPES.browserRequest, EVENT_TYPES.locale, EVENT_TYPES.pluginStatus, EVENT_TYPES.externalCalendar, EVENT_TYPES.backgroundAgents];
+export const EPHEMERAL_EVENT_TYPES: readonly string[] = [EVENT_TYPES.stream, EVENT_TYPES.notify, EVENT_TYPES.activityProgress, EVENT_TYPES.voiceModels, EVENT_TYPES.webVersion, EVENT_TYPES.projectServices, EVENT_TYPES.browserRequest, EVENT_TYPES.locale, EVENT_TYPES.pluginStatus, EVENT_TYPES.externalCalendar, EVENT_TYPES.backgroundAgents, EVENT_TYPES.safetySettings];
 
 export function isEphemeralEventType(type: string): boolean {
   return EPHEMERAL_EVENT_TYPES.includes(type);

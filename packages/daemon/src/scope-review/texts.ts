@@ -154,7 +154,7 @@ function jobLines(job: ScheduledJob, toolkit: PlanToolkit | undefined): string[]
       "每次运行的授权：普通任务不预先授权（按普通对话判）；流程按用户授权的那份计划（见【计划】），任务在运营就一直有效",
     ];
   return [
-    `【定时作业】${job.id}「${job.title}」（来自任务 ${job.taskId}「${job.taskTitle}」；时间表：${jobTriggerText(job)}${job.ownerTaskId === undefined ? "" : `；已迁移成定时触发的任务 ${job.ownerTaskId}`}）`,
+    `【定时任务】${job.id}「${job.title}」（来自任务 ${job.taskId}「${job.taskTitle}」；时间表：${jobTriggerText(job)}${job.ownerTaskId === undefined ? "" : `；已迁移成定时触发的任务 ${job.ownerTaskId}`}）`,
     `每次要做的事：${job.each}`,
     "每次运行的授权项（随计划卡确认，作业在就一直有效）：",
     ...(job.grants.length === 0 ? ["- （没有）"] : job.grants.map((g) => `- ${g.title}：${grantText(g, job.grantInfo[g.id], "job")}`)),

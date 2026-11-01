@@ -62,6 +62,7 @@ import {
   applyWorkdayChange,
   type PluginAction,
   type PluginActionResult,
+  type SafetySettingsView,
   type PluginsView,
   archiveCancelsFirst,
   availableTaskActions,
@@ -225,7 +226,12 @@ function fakeWorkdir(runtime: string | undefined, folder: WorkFolderChoice | und
   return parent === undefined ? undefined : joinFolder(parent, workFolderName(folder?.name ?? title) || "新的工作");
 }
 
+/** 原型开头的两个开关：都关着（新装的样子，用户 2026-11-01 定） */
+export const FAKE_SAFETY_START: SafetySettingsView = { conversationApprovals: false, budgetControl: false };
+
 export class FakeConnection implements Connection {
+  /** 两个开关现在的样子（378 号票）：假 HTTP 改了交过来，和守护进程一样推给网页 */
+  private safety = FAKE_SAFETY_START;
   private readonly log: EventFrame[] = [];
   private readonly seqs: Record<string, number> = {};
   private readonly cards = new Map<string, Card>();
@@ -400,6 +406,17 @@ export class FakeConnection implements Connection {
     return result;
   }
 
+  /** 假 HTTP 改了两个开关：关注类别频道上推新的样子 */
+  pushSafety(view: SafetySettingsView): void {
+    this.safety = view;
+    this.deliver?.({ kind: "frame", frame: this.safetyFrame() });
+  }
+
+  /** 关注类别频道上的临时事件 safety_settings */
+  private safetyFrame(): EventFrame {
+    return { channel: CHANNELS.watchCategories, seq: this.seqs[CHANNELS.watchCategories] ?? 0, type: EVENT_TYPES.safetySettings, payload: this.safety };
+  }
+
   /** 插件频道上的临时事件 plugin_status */
   private pluginStatusFrame(): EventFrame {
     return { channel: CHANNELS.plugins, seq: 0, type: EVENT_TYPES.pluginStatus, payload: this.plugins.status() };
@@ -537,6 +554,8 @@ export class FakeConnection implements Connection {
     deliver({ kind: "frame", frame: this.localeFrame() });
     // 193 号票：插件的状况（守护进程订阅插件频道时补推的那个临时事件）：原型里提醒、记忆都在运行；?demo-plugins-off=memory,reminders 看停用的样子
     deliver({ kind: "frame", frame: this.pluginStatusFrame() });
+    // 378 号票：两个开关（守护进程订阅关注类别频道时补推的那个临时事件）
+    deliver({ kind: "frame", frame: this.safetyFrame() });
     this.demoAlerts(deliver);
     this.demoSecretaryTurn();
     this.demoUpdate(deliver);

@@ -58,7 +58,7 @@ export const skillsAdjustedWhy = (reason: string) => t("toolkit.skillsAdjustedWh
 export function skillsAdjustedText(before: PlanToolkit, after: PlanToolkit, stillFromProject: readonly string[] = []): string {
   if (before.skills.length === after.skills.length && before.skills.every((s) => after.skills.includes(s))) return "skill 名单没有变化。";
   const change = forModel(() => toolkitChangeText(before, after));
-  const kept = stillFromProject.length > 0 ? `项目的工具包里也有 ${stillFromProject.join("、")}，会话里还在（要去掉得在项目的对话段里调，或者请用户在项目页改）。` : "";
+  const kept = stillFromProject.length > 0 ? `项目的工具包里也有 ${stillFromProject.join("、")}，会话里还在（要去掉得在项目的对话段里调，或者请用户在项目档案里改）。` : "";
   return `已改：${change}。${kept}这次调用结束后运行时按新的 skill 名单重新装配你的会话（下一次模型调用里就是新的名单），你接着干。`;
 }
 export const notChangedText = (reason: string) => `没改成：${reason}`;

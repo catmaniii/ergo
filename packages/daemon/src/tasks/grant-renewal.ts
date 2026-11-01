@@ -5,7 +5,7 @@
 //   挂在调度器上（键 grant-renewal:<任务 id>，按可注入时钟走），守护进程重启后错过的到点马上放；
 // - 用户续期：有效期从原来的到期时间（过了就从现在）再延一期（和计划变更后放宽的授权项同一个算法：plan-change.ts 的
 //   extendedExpiry），记成 tasks 频道的 grant_renewal_decided（带续期后这一版的全部有效期）；不续的到期后不再生效
-//   （守卫判定时看到期时间，判超出授权，执行到那一步再问用户）。
+//   （守卫判定时看到期时间，判超出授权，执行到那一步再问用户；"有风险的事先问我"关着时直接做，事项上的话按开关写，378 号票）。
 // 任务结束了、计划换了一版之后由执行控制器叫 arm 重新看一眼。
 import { ENDED_TASK_STATES, GRANT_RENEWAL_ACTIONS, type InboxItem, intlLocale, nowIso, type Plan, planGrants, t, taskInboxOrigin } from "@ergo/protocol";
 import type { EventStore } from "../events/event-store.ts";
@@ -55,6 +55,8 @@ export interface GrantRenewalOptions {
   scheduler: Scheduler;
   /** 到期前多久放续期事项（阈值的 renewalLeadMs） */
   leadMs: number;
+  /** "有风险的事先问我"现在关着：不续也不会停下来，事项上不说"会再问你" */
+  askFirstOff: () => boolean;
 }
 
 export interface GrantRenewals {
@@ -66,7 +68,7 @@ export interface GrantRenewals {
 }
 
 export function createGrantRenewals(options: GrantRenewalOptions): GrantRenewals {
-  const { store, tasks, inbox, clock, scheduler, leadMs } = options;
+  const { store, tasks, inbox, clock, scheduler, leadMs, askFirstOff } = options;
   const unsubscribes: Array<() => void> = [];
 
   /** 还在执行的任务现在生效的计划（结束了的没有） */
@@ -119,7 +121,7 @@ export function createGrantRenewals(options: GrantRenewalOptions): GrantRenewals
         kind: "notice",
         notice: "grant_renewal",
         title: oneLine(t("tasks.grantRenewal.title", { title: task.title }), 60),
-        body: [t("tasks.grantRenewal.head", { title: task.title, n: due.length, count: due.length }), ...lines, t("tasks.grantRenewal.hint")].join("\n"),
+        body: [t("tasks.grantRenewal.head", { title: task.title, n: due.length, count: due.length }), ...lines, t(askFirstOff() ? "tasks.grantRenewal.hintAskOff" : "tasks.grantRenewal.hint")].join("\n"),
         ...taskInboxOrigin(task),
         urgency: "non_blocking",
         actions: [GRANT_RENEWAL_ACTIONS.renew, GRANT_RENEWAL_ACTIONS.skip],

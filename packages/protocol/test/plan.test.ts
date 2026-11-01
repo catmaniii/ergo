@@ -1,6 +1,7 @@
 // 计划的纯函数（12 号票）：授权项列表、卡上由代码生成的授权行和时序规则说明、停点随勾选变化。
 import { describe, expect, test } from "vitest";
 import {
+  grantNotAuthorizedLabel,
   type GrantInfo,
   initialStages,
   listStageCodes,
@@ -132,6 +133,40 @@ describe("停点（授权后还会在几处停下来）", () => {
       narrowedGrants: ["push"],
     };
     expect(planStops(confirmed).map((s) => s.kind)).toEqual(["user_acceptance", "still_asks", "narrowed", "unchecked"]);
+  });
+});
+
+const kinds = (stops: readonly { kind: string }[]) => stops.map((s) => s.kind);
+
+describe("“有风险的事先问我”关着（新装默认，378 号票）", () => {
+  const none ={ removed: new Set<string>(), narrowed: new Set<string>() };
+  const asks = { plan, grantInfo: { ...grantInfo, push: { ...grantInfo.push!, disposition: "ask_first" as const } } };
+
+  test("勾掉的、收窄的不停：超出授权的也直接做", () => {
+    expect(kinds(planStops(card, { removed: new Set(["fetch"]), narrowed: new Set(["push"]) }, undefined, true))).toEqual(["user_acceptance", "still_asks"]);
+  });
+
+  test("先问我的不停，交给我做的照旧；开着时两样都停", () => {
+    expect(kinds(planStops(asks, none))).toEqual(["user_acceptance", "still_asks", "still_asks"]);
+    expect(kinds(planStops(asks, none, undefined, true))).toEqual(["user_acceptance", "still_asks"]);
+    expect(planStops(asks, none, undefined, true)[1]!.text).toContain("交给你做");
+  });
+
+  test("处理过的卡：记下的勾掉、收窄也不算停点", () => {
+    const confirmed = { plan, grantInfo, removedGrants: [plan.stages[0]!.policy.grants[0]!], narrowedGrants: ["push"] };
+    expect(kinds(planStops(confirmed, undefined, undefined, true))).toEqual(["user_acceptance", "still_asks"]);
+  });
+
+  test("一个阶段的“问”也一样", () => {
+    expect(kinds(stageStops(asks, "s2"))).toEqual(["user_acceptance", "still_asks"]);
+    expect(kinds(stageStops(asks, "s2", undefined, true))).toEqual(["user_acceptance"]);
+    expect(kinds(stageStops(asks, "s1", undefined, true))).toEqual(["still_asks"]);
+  });
+
+  test("授权行的标记：先问我的不再说执行时仍会问，交给你、永不不变", () => {
+    expect(grantNotAuthorizedLabel(asks.grantInfo.push)).toBe("执行时仍会问");
+    expect(grantNotAuthorizedLabel(asks.grantInfo.push, true)).toBe("现在直接做，不问你");
+    expect(grantNotAuthorizedLabel(grantInfo.pay!, true)).toBe("交给你做");
   });
 });
 

@@ -87,7 +87,7 @@ describe("运营方案建的内部任务上任务看板，项目在用时只能�
     expect(section(text, "进行中")).toMatch(/- 任务 t-2「发布会」：等时间；.*属于项目：AI 简报站/);
     expect(section(text, "最近结束")).toMatch(/- 任务 t-3「上周回顾」：已完成；.*属于项目：AI 简报站/);
     expect(text).not.toContain("升级依赖");
-    expect(text).toContain("- 项目「AI 简报站」里有 1 个进行中的内部任务（细节只在项目页上，你看不到）");
+    expect(text).toContain("- 项目「AI 简报站」里有 1 个进行中的内部任务（细节只在项目里，你看不到）");
 
     // 任务页暂停 → 项目页上的触发登记暂停了；项目页恢复 → 任务页看到的也恢复了
     expect(ok(await frontend.taskAction({ taskId: "t-1", action: "pause" }))).toEqual({ taskId: "t-1", state: "operating" });

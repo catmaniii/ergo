@@ -5,6 +5,7 @@
 // - 计划卡上由代码从结构化数据生成的文字：授权行（grantText，负责人写的 title 只作备注）、时序规则（temporalRuleText）；
 // - 停点（planStops）：授权后执行时还会在哪几处停下来——由你验收的阶段、落在"先问我""交给我做"类别里的授权
 //   （这类授权行不算授权、不能勾选）、被勾掉的、被收窄的。随卡上的勾选实时算；负责人填的 stops 只作参考说明。
+//   "有风险的事先问我"关着时（asksOff，新装默认，378 号票）只剩交给我做的和旧计划里由你验收的：别的都不问，直接做；
 //   一个阶段的那几处（stageStops，84 号票：阶段详情的"问"）；
 // - 从某个阶段重做的范围（stageStarted、downstreamOf、reopenScope，84 号票：守护进程重开、Web 的重做对话框都用它）；
 // - 时序规则违反了怎么办的说法（ON_VIOLATION_TEXT，84 号票合成一份）。
@@ -229,11 +230,11 @@ export function grantAuthorizes(info: GrantInfo | undefined): boolean {
   return info === undefined || !NOT_AUTHORIZING.includes(info.disposition);
 }
 
-/** 不算授权的那几类在卡上怎么标 */
-export function grantNotAuthorizedLabel(info: GrantInfo): string {
+/** 不算授权的那几类在卡上怎么标（asksOff："有风险的事先问我"关着，先问我的不问了，直接做） */
+export function grantNotAuthorizedLabel(info: GrantInfo, asksOff = false): string {
   if (info.disposition === "hand_to_me") return t("protocol.plan.notAuthorized.handToMe");
   if (info.disposition === "never") return t("protocol.plan.notAuthorized.never");
-  return t("protocol.plan.notAuthorized.asks");
+  return t(asksOff ? "protocol.plan.notAuthorized.asksOff" : "protocol.plan.notAuthorized.asks");
 }
 
 /** 对象范围写成一句话：remote 是 origin，branch 是 main 或 report；空的是不限对象 */
@@ -380,17 +381,19 @@ export interface PlanGrantChoice {
  * - 落在"先问我""交给我做"类别里的授权项（列进计划也照样问、交给你）；
  * - 被勾掉的（执行到那一步再问你）、被收窄的（超出收窄范围的部分执行时问你）。
  * 不给 choice 时按卡上记下的确认结果（已处理的卡：勾掉的授权项已经不在计划里，从 removedGrants 取）。
- * codes：给了就按编号写第几阶段（91 号票，Web 给 planStageCodes）
+ * codes：给了就按编号写第几阶段（91 号票，Web 给 planStageCodes）。
+ * asksOff："有风险的事先问我"关着（新装默认，378 号票；守卫的 letTaskAgentThrough）：先问我的、勾掉的、收窄的都不停，超出授权的
+ * 也直接做，只剩由你验收的阶段和交给我做的
  */
-export function planStops(card: Pick<PlanCardPayload, "plan" | "grantInfo" | "removedGrants" | "narrowedGrants">, choice?: PlanGrantChoice, codes?: ReadonlyMap<string, string>): PlanStop[] {
+export function planStops(card: Pick<PlanCardPayload, "plan" | "grantInfo" | "removedGrants" | "narrowedGrants">, choice?: PlanGrantChoice, codes?: ReadonlyMap<string, string>, asksOff = false): PlanStop[] {
   const removed = choice?.removed ?? new Set<string>();
   const narrowed = choice?.narrowed ?? new Set(card.narrowedGrants ?? []);
   const stops: PlanStop[] = card.plan.stages.flatMap((s, i) => userAcceptanceStop(s, i, codes));
   for (const { grant, owner } of planGrants(card.plan)) {
-    const stop = grantStop(grant, owner, card.grantInfo[grant.id], removed, narrowed, codes);
+    const stop = grantStop(grant, owner, card.grantInfo[grant.id], removed, narrowed, codes, asksOff);
     if (stop) stops.push(stop);
   }
-  if (!choice) {
+  if (!choice && !asksOff) {
     for (const grant of card.removedGrants ?? []) stops.push({ kind: "unchecked", text: t("protocol.plan.stop.unchecked", { what: grantText(grant, card.grantInfo[grant.id]) }) });
   }
   return stops;
@@ -400,7 +403,7 @@ export function planStops(card: Pick<PlanCardPayload, "plan" | "grantInfo" | "re
 const userAcceptanceStop = (s: Plan["stages"][number], index: number, codes: ReadonlyMap<string, string> | undefined): PlanStop[] =>
   s.acceptance.some((a) => a.method === "user") ? [{ kind: "user_acceptance", text: t("protocol.plan.stop.userAcceptance", { no: stageNoOf(s.stageId, index, codes), title: s.title }) }] : [];
 
-/** 一项授权执行时还会不会停下来：落在"先问我""交给我做"类别里的（"永不"的不算）、勾掉的、收窄的；不会停的是 undefined */
+/** 一项授权执行时还会不会停下来：落在"先问我""交给我做"类别里的（"永不"的不算）、勾掉的、收窄的；asksOff 时只有交给我做的；不会停的是 undefined */
 function grantStop(
   grant: PlanGrant,
   owner: PolicyOwner,
@@ -408,12 +411,14 @@ function grantStop(
   removed: ReadonlySet<string>,
   narrowed: ReadonlySet<string>,
   codes: ReadonlyMap<string, string> | undefined,
+  asksOff: boolean,
 ): PlanStop | undefined {
   const what = t("protocol.plan.stop.what", { owner: policyOwnerLabel(owner, codes), grant: grantText(grant, info, owner) });
   if (info && !grantAuthorizes(info)) {
-    if (info.disposition === "never") return undefined;
+    if (info.disposition === "never" || (asksOff && info.disposition === "ask_first")) return undefined;
     return { kind: "still_asks", text: t("protocol.plan.stop.stillAsks", { what, disposition: DISPOSITION_LABEL[info.disposition], label: grantNotAuthorizedLabel(info) }) };
   }
+  if (asksOff) return undefined;
   if (removed.has(grant.id)) return { kind: "unchecked", text: t("protocol.plan.stop.unchecked", { what }) };
   if (narrowed.has(grant.id)) return { kind: "narrowed", text: t("protocol.plan.stop.narrowed", { what }) };
   return undefined;
@@ -422,12 +427,13 @@ function grantStop(
 /**
  * 一个阶段执行时会在哪几处停下来（84 号票：阶段详情"要你留意的"里的"问"，取计划的停点）：
  * planStops 里落在这个阶段上的——它由你验收、它和所属阶段组的授权项里还会问的、收窄了的（勾掉的已经不在确认的计划里，
- * 说不清是哪个阶段的，不列）。codes：给了就按编号写第几阶段（91 号票）
+ * 说不清是哪个阶段的，不列）。codes：给了就按编号写第几阶段（91 号票）；asksOff 同 planStops
  */
 export function stageStops(
   card: Pick<PlanCardPayload, "plan" | "grantInfo"> & { narrowedGrants?: readonly string[] | undefined },
   stageId: string,
   codes?: ReadonlyMap<string, string>,
+  asksOff = false,
 ): PlanStop[] {
   const index = card.plan.stages.findIndex((s) => s.stageId === stageId);
   const stage = card.plan.stages[index];
@@ -436,7 +442,7 @@ export function stageStops(
   const mine = (owner: PolicyOwner) => (owner.kind === "stage" ? owner.stageId === stageId : owner.groupId === stage.groupId);
   return [
     ...userAcceptanceStop(stage, index, codes),
-    ...planGrants(card.plan).flatMap(({ grant, owner }) => (mine(owner) ? (grantStop(grant, owner, card.grantInfo[grant.id], new Set(), narrowed, codes) ?? []) : [])),
+    ...planGrants(card.plan).flatMap(({ grant, owner }) => (mine(owner) ? (grantStop(grant, owner, card.grantInfo[grant.id], new Set(), narrowed, codes, asksOff) ?? []) : [])),
   ];
 }
 

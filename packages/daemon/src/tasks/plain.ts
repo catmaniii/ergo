@@ -92,7 +92,7 @@ export function plainResult(recentAgentMessages: readonly MessageEnvelope[]): st
  */
 export function internalPlainDoneNotice(task: Task): string {
   const project = task.internal?.projectName ?? "";
-  return `项目「${project}」里交出去的一件事（项目内部的普通任务）做完了。你看不到它的细节：用一句话告诉用户做完了，结果在项目「${project}」的项目页里看。`;
+  return `项目「${project}」里交出去的一件事（项目内部的普通任务）做完了。你看不到它的细节：用一句话告诉用户做完了，结果到项目「${project}」里看。`;
 }
 
 /** 助理把一件事交出去之后（delegate_task 的结果）交回它的话：告诉用户一声，不用等 */

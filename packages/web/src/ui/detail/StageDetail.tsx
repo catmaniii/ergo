@@ -27,6 +27,7 @@ import { useStore } from "../../app/store.tsx";
 import { ACCEPTANCE_METHOD_LABEL, WAIT_REASON_LABEL } from "../../model/labels.ts";
 import type { Stage } from "../../model/types.ts";
 import {
+  asksOffIn,
   type ChatItem,
   describeCall,
   fallbackLine,
@@ -376,7 +377,7 @@ export function StageDetail({
             ))}
           </ul>
         ) : (
-          <div className="muted">{t("ui.stageDetail.noGrants")}</div>
+          <div className="muted">{t(asksOffIn(ui) ? "ui.stageDetail.noGrantsAskOff" : "ui.stageDetail.noGrants")}</div>
         )}
         <ul className="muted dt-note ms-mark-hints">
           {markMeta().map((x) => (

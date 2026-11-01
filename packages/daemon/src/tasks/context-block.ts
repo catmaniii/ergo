@@ -106,8 +106,8 @@ export function boundaryLines(plan: Plan, cwd: string): string[] {
   return forModel(() => {
     return [
       `- 工作目录 ${cwd}：文件工具只能写这里；工具包：${toolkitText(plan.toolkit)}`,
-      "- 授权项只在所属阶段内有效，用到别的阶段的授权会被拉回；前置阶段没验收的阶段不能开始；“先问我”类的操作列进了授权项，执行时也照样问用户",
-      `- 一个阶段做完调用 ${EXECUTION_TOOL.completeStage} 宣布完成，由运行时验收（脚本、评审、用户），你自检不算验收；进展用 ${EXECUTION_TOOL.reportProgress} 报告；` +
+      "- 授权项只在所属阶段内有效，用到别的阶段的授权会被拉回；前置阶段没验收的阶段不能开始；“先问我”类的操作列进了授权项，执行时也照样问用户（用户关了“有风险的事先问我”时，超出授权的不拦，只记下来，工具结果里会写明）",
+      `- 一个阶段做完调用 ${EXECUTION_TOOL.completeStage} 宣布完成，由运行时自动验收（脚本先跑，再派独立评审按标准判），你自检不算验收；进展用 ${EXECUTION_TOOL.reportProgress} 报告；` +
         `卡住要用户拍板用 ${EXECUTION_TOOL.waitForUser}；做不下去用 ${EXECUTION_TOOL.failTask} 写明原因；要换去做另一个能开始的阶段用 ${EXECUTION_TOOL.startStage}`,
       `- 要扩大授权、加能力、加项目、改目标或验收：用 ${EXECUTION_TOOL.proposePlanChange} 提交计划变更（用户确认后生效，只有受影响的阶段停下等）；不扩大授权的调整（拆阶段、调顺序）用 ${EXECUTION_TOOL.revisePlan} 自行调整计划（直接生效）`,
     ];

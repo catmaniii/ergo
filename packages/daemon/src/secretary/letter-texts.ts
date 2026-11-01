@@ -70,7 +70,7 @@ export const taskMaintainerName = (task: { id: string; title: string }, kind: Ta
 /** 项目的负责人："项目「家庭相册」的负责人" */
 export const projectMaintainerName = (projectName: string) => `项目「${projectName}」的负责人`;
 /** 定时作业自己的负责人（76 号票之前的定时作业）："定时作业 j-1「…」的负责人" */
-export const jobMaintainerName = (job: { id: string; title: string }) => `定时作业 ${job.id}「${job.title}」的负责人`;
+export const jobMaintainerName = (job: { id: string; title: string }) => `定时任务 ${job.id}「${job.title}」的负责人`;
 
 /** 在做一次运行："第 3 次运行时" */
 export const doingRun = (runLabel: string) => `${runLabel}时`;

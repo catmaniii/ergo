@@ -148,7 +148,7 @@ import type {
   MemorySummaryView,
 } from "../state/index.ts";
 import { copyWebSettings, nowIso, CUSTOM_PROVIDER_ID, DEFAULT_MEMORY_SETTINGS, MEMORY_CURATOR_CONVERSATION, DEFAULT_SECRETARY_SKILLS, DEFAULT_WEB_SETTINGS, effectiveModelChoice, effectiveWebQueue, framePreviewOf, IMPORT_NAME_PATTERN, MEDIA_FRAME_MAX_BYTES, MEDIA_TEXT_MAX_BYTES, MODEL_AGENTS, modelKeyOf, reopenScope, t, textPreviewOf, webSettingsProblem } from "../state/index.ts";
-import { demoParam, fakeServerWebVersion } from "./fake-connection.ts";
+import { demoParam, FAKE_SAFETY_START, fakeServerWebVersion } from "./fake-connection.ts";
 import { fakeMemoryClaim, fakeMemoryClaims, fakeMemoryQuestions, fakeMemoryStrategies, fakeMemorySummary } from "./fake-memory-graph.ts";
 import { FakeDataSources } from "./fake-data-sources.ts";
 import { fakeAutostart, FakeComponents } from "./fake-components.ts";
@@ -230,6 +230,11 @@ export interface FakeLanguage {
 }
 
 /** 假连接里插件的那一半（211 号票）：清单、停用 / 启用 / 移除，变了在插件频道上推新的状况 */
+/** 改了两个开关交给假连接，它和守护进程一样推给网页（378 号票） */
+export interface FakeSafetyPush {
+  pushSafety(view: SafetySettingsView): void;
+}
+
 export interface FakePluginSettings {
   pluginList(): PluginsView;
   pluginAction(name: string, action: PluginAction, purgeData: boolean): PluginActionResult;
@@ -273,6 +278,7 @@ export class FakeDaemonHttp implements DaemonHttp {
   private readonly userNames: FakeUserName | undefined;
   private readonly language: FakeLanguage | undefined;
   private readonly pluginSettings: FakePluginSettings | undefined;
+  private readonly safetyPush: FakeSafetyPush | undefined;
   /** 原型"启动"的时间（语音模型的状态用） */
   private readonly startedAt = new Date().toISOString();
   /** 记忆的设置（264 号票） */
@@ -310,13 +316,14 @@ export class FakeDaemonHttp implements DaemonHttp {
   );
 
   /** fake：原型的假连接（它在工作日历频道、名字频道上推事件，和守护进程一样） */
-  constructor(fake?: FakeWorkdayCalendar & FakeAssistantName & FakeUserName & FakeRollbacks & FakeLanguage & FakePluginSettings) {
+  constructor(fake?: FakeWorkdayCalendar & FakeAssistantName & FakeUserName & FakeRollbacks & FakeLanguage & FakePluginSettings & FakeSafetyPush) {
     this.workdayCalendar = fake;
     this.rollbacks = fake;
     this.assistantName = fake;
     this.userNames = fake;
     this.language = fake;
     this.pluginSettings = fake;
+    this.safetyPush = fake;
   }
 
   upload(file: File, options: { onProgress(progress: UploadProgress): void; signal: AbortSignal }): Promise<UploadedMedia> {
@@ -452,7 +459,7 @@ export class FakeDaemonHttp implements DaemonHttp {
   }
 
   /** 安全和预算的两个开关（315 号票）：原型里只记在内存里，开头都关着（新装的样子，用户 2026-11-01 改的） */
-  private safetyValue: SafetySettingsView = { conversationApprovals: false, budgetControl: false };
+  private safetyValue: SafetySettingsView = FAKE_SAFETY_START;
 
   safetySettings(): Promise<SafetySettingsView> {
     return Promise.resolve({ ...this.safetyValue });
@@ -460,6 +467,7 @@ export class FakeDaemonHttp implements DaemonHttp {
 
   saveSafetySettings(body: SafetySettingsBody): Promise<SafetySettingsView> {
     this.safetyValue = { conversationApprovals: body.conversationApprovals ?? this.safetyValue.conversationApprovals, budgetControl: body.budgetControl ?? this.safetyValue.budgetControl };
+    this.safetyPush?.pushSafety(this.safetyValue);
     return this.safetySettings();
   }
 

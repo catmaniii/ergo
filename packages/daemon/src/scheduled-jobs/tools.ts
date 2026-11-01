@@ -12,7 +12,7 @@ import { RUN_NO_PLAN_CHANGE_TEXT } from "./texts.ts";
 import { JOB_TOOL } from "./tool-names.ts";
 
 const FailParams = Type.Object(
-  { reason: Type.String({ minLength: 1, maxLength: 2000, description: "为什么这次做不了（缺什么、哪一步出了错），用户在作业卡和待我处理里看得到" }) },
+  { reason: Type.String({ minLength: 1, maxLength: 2000, description: "为什么这次做不了（缺什么、哪一步出了错），用户在任务卡和待我处理里看得到" }) },
   { additionalProperties: false },
 );
 
@@ -27,7 +27,7 @@ export function failJobRunTool(jobs: JobFailureReporter, maintainerId: string, f
   return defineHostTool({
     name: JOB_TOOL.failRun,
     title: t("scheduledJobs.tool.failRun"),
-    description: `定时作业的这次运行做不了：写明原因，这次运行记为失败。做完了就不用调用它，这一轮正常结束就算成功。连续失败 ${failureLimit} 次作业会自动暂停，等用户处理。`,
+    description: `定时任务的这次运行做不了：写明原因，这次运行记为失败。做完了就不用调用它，这一轮正常结束就算成功。连续失败 ${failureLimit} 次会自动暂停，等用户处理。`,
     parameters: FailParams,
     // 同一次运行再报一次只是换成新的原因
     readOnlyOrIdempotent: true,

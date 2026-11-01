@@ -48,7 +48,7 @@
   "workOrders.writeBack.helpChat": "一段对话",
   "workOrders.writeBack.helpQueueOrder": "工单照常结束了，项目的队列接着往下走；这一段的理解可能没留在档案里，下一段会话只能从档案和上一段的摘要重建。",
   "workOrders.writeBack.helpQueue": "项目的队列接着往下走；这一段的理解可能没留在档案里，下一段会话只能从档案和上一段的摘要重建。",
-  "workOrders.writeBack.helpFix": "可以在负责人会话里让它补写进展，或者在项目页上重置负责人。",
+  "workOrders.writeBack.helpFix": "可以在负责人会话里让它补写进展，或者点项目对话框的 ⚙ 清空当前对话（重置负责人）。",
   "workOrders.writeBack.unwrittenReset": "会话分段 {segment}{which}结束时没写回项目档案：写回中途重置了负责人，工单照常算完成",
   "workOrders.writeBack.unwrittenNudged": "会话分段 {segment}{which}结束时没写回项目档案：催写回到了次数，转给用户拍板",
   "workOrders.writeBack.whichOrder": "（工单 {order}）",

@@ -305,7 +305,7 @@ describe("按工具包装配负责人的会话", () => {
     expect(second).not.toContain("[tool-removed]");
     expect(second).not.toContain("不该走到这一步");
     // 时间线记一笔
-    expect(recordsOf(frontend, PM1).map((r) => r.record.summary)).toEqual(["你在项目页改了工具包：加上 MCP demo", "你在项目页改了工具包：加上 bash；去掉 MCP demo"]);
+    expect(recordsOf(frontend, PM1).map((r) => r.record.summary)).toEqual(["你在项目档案里改了工具包：加上 MCP demo", "你在项目档案里改了工具包：加上 bash；去掉 MCP demo"]);
   }, 60_000);
 
   it("项目负责人不在任务里时要开联网、加 MCP：只能提交工具包变更卡进待我处理，批准前工具包不变；批准后扩大并立即按新工具包重新装配（审批决定是素材），拒绝则不变；减少能力随时可以", async () => {

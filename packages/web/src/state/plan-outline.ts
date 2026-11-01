@@ -6,7 +6,7 @@
 import { type Card, type Plan, type PlanCardPayload, type PlanChangeCardPayload, planStageCodes, stageNumbers, stagePolicies, t } from "./protocol.ts";
 import { changedStages, changeStageGraph, type GraphLook, graphLook, type GraphNodeState, type StageGraph, stageChangeMark, stageGraphNodes, stageJson } from "./stage-graph.ts";
 import { type StageMarks, stageMarks } from "./task-detail.ts";
-import type { UiState } from "./ui-state.ts";
+import { asksOffIn, type UiState } from "./ui-state.ts";
 
 /** 提纲里的一项：一个阶段 */
 export interface OutlineItem {
@@ -116,7 +116,7 @@ export function planOutline(state: UiState, card: Card): PlanOutlineView | undef
         code: codes.get(s.stageId)!,
         mark,
         gone: false,
-        marks: stageMarks(payload, s.stageId, stagePolicies(plan, s.stageId).flatMap((p) => p.grants)),
+        marks: stageMarks(payload, s.stageId, stagePolicies(plan, s.stageId).flatMap((p) => p.grants), asksOffIn(state)),
         look: st && st !== "pending" ? outlineLook(st, now?.waitReason) : undefined,
         n: no.get(s.stageId)!,
       } satisfies OutlineItem & { n: number };
@@ -153,7 +153,7 @@ export function planDetailGraph(state: UiState, card: Card): StageGraph | undefi
   const list = task?.stages?.list ?? [];
   if (card.type === "plan_change") {
     const change = payload as PlanChangeCardPayload;
-    return changeStageGraph({ cardId: card.id, payload: change }, planOfId(state, payload.taskId, change.basePlanId), new Map(list.map((s) => [s.stageId, s])), task?.stages?.focus);
+    return changeStageGraph({ cardId: card.id, payload: change }, planOfId(state, payload.taskId, change.basePlanId), new Map(list.map((s) => [s.stageId, s])), task?.stages?.focus, asksOffIn(state));
   }
   const live = effectivePlanId(state, payload.taskId) === payload.planId;
   const status = new Map((live ? list : []).map((s) => [s.stageId, s]));
@@ -164,7 +164,7 @@ export function planDetailGraph(state: UiState, card: Card): StageGraph | undefi
     code: s.code,
     state: (status.get(s.stageId)?.state ?? "pending") as GraphNodeState,
     waitReason: status.get(s.stageId)?.waitReason,
-    marks: stageMarks(payload, s.stageId, stagePolicies(payload.plan, s.stageId).flatMap((p) => p.grants)),
+    marks: stageMarks(payload, s.stageId, stagePolicies(payload.plan, s.stageId).flatMap((p) => p.grants), asksOffIn(state)),
   }));
   // 确认过、在执行的画成带状态的样子（和计划变更一样），还没确认的是计划卡的样子
   return { kind: live && list.length > 0 ? "change" : "plan", cardId: card.id, nodes: stageGraphNodes(nodes), current: live ? task?.stages?.focus : undefined };

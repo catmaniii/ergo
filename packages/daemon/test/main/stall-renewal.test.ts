@@ -205,6 +205,29 @@ describe("无进展：阶段推进、负责人不在运行", () => {
 const tasksNudges = (td: Awaited<ReturnType<typeof startTestDaemon>>, taskId: string) => [td.daemon.tasks.get(taskId)?.stages?.list?.[0]?.nudges ?? 0];
 
 describe("授权项的有效期", () => {
+  it("“有风险的事先问我”关着：续期事项上不说会再问你（378 号票）", async () => {
+    const t0 = new Date(2026, 9, 8, 9, 0).getTime();
+    const clock = new ManualClock(t0);
+    const outside = real(makeTempDir("ergo-out-"));
+    const base = twoStagePlan();
+    const plan: Plan = {
+      ...base,
+      stages: [{ ...base.stages[0]!, policy: { grants: [{ id: "dir1", tool: "make_dir", title: "建 s1 目录", scope: { path: path.join(outside, "s1") } }], temporalRules: [] } }, base.stages[1]!],
+    };
+    const td = await startTestDaemon({
+      clock,
+      config: { guard: { conversationApprovals: "off" }, tasks: { thresholds: { stallMinutes: 365 * 24 * 60 } } },
+      maintainer: maintainerScript(plan, [say("开始了")]),
+    });
+    const frontend = await connect(td.url);
+    await confirmTask(td, frontend, "续期");
+    await turnsOf(frontend, M1, 2);
+    clock.advanceTo(t0 + 6 * DAY + MINUTE);
+    const item = await itemWhere(frontend, (i) => i.kind === "notice" && i.notice === "grant_renewal");
+    expect(item.kind === "notice" && item.body).toContain("不续也不会停下来");
+    expect(item.kind === "notice" && item.body).not.toContain("会再问你");
+  });
+
   it("到期前一天待我处理出现续期事项（不卡任务）；续期后有效期延长、照常放行；过期没续的不再生效，执行到那一步再问用户", async () => {
     const t0 = new Date(2026, 9, 8, 9, 0).getTime();
     const clock = new ManualClock(t0);
@@ -233,6 +256,7 @@ describe("授权项的有效期", () => {
     const first = await itemWhere(frontend, (i) => i.kind === "notice" && i.notice === "grant_renewal");
     expect(first).toMatchObject({ urgency: "non_blocking", actions: ["续期", "不续"], data: { taskId, grants: [{ grantId: "dir1" }] } });
     expect(first.kind === "notice" && first.body).toContain("建 s1 目录");
+    expect(first.kind === "notice" && first.body).toContain("不续的话到期后执行到那一步会再问你");
     expect(td.daemon.tasks.get(taskId)?.state).toBe("running");
 
     // 续期：有效期从原来的到期时间再延 7 天

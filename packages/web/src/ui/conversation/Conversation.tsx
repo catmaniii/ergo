@@ -47,6 +47,7 @@ import { useRevealHistory } from "../../app/reveal-history.ts";
 import { onRevealAgain } from "./reveal-again.ts";
 import { useStore } from "../../app/store.tsx";
 import {
+  asksOffIn,
   agentVoicePhase,
   assistantNameOf,
   branchEpochStart,
@@ -376,7 +377,7 @@ function ConversationView({
         rollbackIn={readOnly || !canRollback ? undefined : conversation}
         branches={branches}
         currentBranch={currentBranch(ui, conversation)}
-        future={future && <WorkflowFutureBox future={future} run={futureRun} />}
+        future={future && <WorkflowFutureBox future={future} run={futureRun} asksOff={asksOffIn(ui)} />}
         empty={<div className="page-placeholder">{t("ui.conversation.empty", { hint: zoomOutHint() })}</div>}
         head={
           older.canLoadOlder && (

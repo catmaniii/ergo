@@ -66,7 +66,7 @@ describe("一个项目的服务开关（projectPower，257）", () => {
   });
 
   test("LSM 没连上（都是状态未知）、LSM 不支持或二狗不是由 LSM 启动的（要你手动）：两个按钮都不能点，写原因", () => {
-    expect(projectPower("in_use", [view("web", { status: "unknown" })])).toEqual({ state: "unknown", text: "状态未知", canStart: false, canStop: false, blocked: "LSM 没连上，现在启动、关闭不了" });
+    expect(projectPower("in_use", [view("web", { status: "unknown" })])).toEqual({ state: "unknown", text: "状态未知", canStart: false, canStop: false, blocked: "服务管家没连上，现在启动、关闭不了" });
     expect(projectPower("in_use", [view("web", { rollout: "manual", status: "unknown", reason: "LSM 版本不支持名下的服务" })])).toMatchObject({ canStart: false, canStop: false, blocked: "LSM 版本不支持名下的服务" });
   });
 });

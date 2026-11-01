@@ -55,9 +55,9 @@ export type MarkTone = "ok" | "op" | "high" | "no" | "quiet";
 
 /**
  * 一步的敏感标注怎么写：计划授权了的（执行时不再问）、执行时仍会问的、交给你做的、永不的、会被直接拒绝的、
- * 只记录或做完告诉你的（不显眼）
+ * 只记录或做完告诉你的（不显眼）。asksOff："有风险的事先问我"关着（378 号票），先问我的不问了，直接做
  */
-export function workflowMarkView(mark: WorkflowStepMark): { text: string; tone: MarkTone } {
+export function workflowMarkView(mark: WorkflowStepMark, asksOff = false): { text: string; tone: MarkTone } {
   if (mark.category.startsWith("refusal:")) return { text: `⛔ ${mark.title}`, tone: "no" };
   if (mark.authorized) return { text: t("state.workflowCard.mark.authorized", { title: mark.title }), tone: "ok" };
   switch (mark.disposition) {
@@ -67,7 +67,7 @@ export function workflowMarkView(mark: WorkflowStepMark): { text: string; tone: 
       return { text: t("state.workflowCard.mark.handToMe", { title: mark.title }), tone: "high" };
     case "ask_first":
     case "planned_only":
-      return { text: t("state.workflowCard.mark.ask", { title: mark.title }), tone: "op" };
+      return { text: t(asksOff ? "state.workflowCard.mark.askOff" : "state.workflowCard.mark.ask", { title: mark.title }), tone: "op" };
     case "do_then_tell":
       return { text: t("state.workflowCard.mark.tell", { title: mark.title }), tone: "quiet" };
     case "do":
@@ -76,10 +76,10 @@ export function workflowMarkView(mark: WorkflowStepMark): { text: string; tone: 
 }
 
 /** 授权前的一句摘要要的数字：涉及几项敏感操作（不算只记录的），其中执行时还会停下问你、交给你做的几处 */
-export function workflowAuthFigures(plan: Pick<WorkflowPlan, "steps">): { sensitive: number; stops: number } {
-  const marks = plan.steps.flatMap((s) => s.marks.map((m) => workflowMarkView(m)));
+export function workflowAuthFigures(plan: Pick<WorkflowPlan, "steps">, asksOff = false): { sensitive: number; stops: number } {
+  const marks = plan.steps.flatMap((s) => s.marks.map((m) => workflowMarkView(m, asksOff)));
   const sensitive = marks.filter((m) => m.tone !== "quiet").length;
-  const stops = marks.filter((m) => m.tone === "op" || m.tone === "high").length;
+  const stops = marks.filter((m) => m.tone === "high" || (m.tone === "op" && !asksOff)).length;
   return { sensitive, stops };
 }
 

@@ -109,6 +109,7 @@ import {
   ledgerOwnerKey,
   type WorkdaySettings,
   type WorkdaySettingsEventPayload,
+  type SafetySettingsView,
   type WatchCategorySettingsEventPayload,
   type VoiceEventPayload,
   type VoiceRecord,
@@ -197,6 +198,8 @@ export interface UiState {
   readonly devices: Readonly<Record<string, PairedDevice>>;
   /** 关注类别设置：关注类别频道上最后一条设置事件（26 号票）；还没收到是 undefined */
   readonly watchCategories: WatchCategorySettingsEventPayload | undefined;
+  /** 两个开关现在的样子（378 号票：关注类别频道上的临时事件）；还没收到时没有 */
+  readonly safety: SafetySettingsView | undefined;
   /** 项目（键是项目 id）：项目列表频道上 project 事件里的最新状态；删掉的不在这里 */
   readonly projects: Readonly<Record<string, Project>>;
   /** 任务、定时作业名下的 token 用量合计（键是 ledgerOwnerKey：task:t-1、job:j-1）：看板频道上最新的 token_totals（24 号票） */
@@ -489,6 +492,9 @@ export type UiInput =
   /** 切回前台后问完了服务端是哪一版（116 号票；问不到也算） */
   | { kind: "page_settled" };
 
+/** "有风险的事先问我"关着（378 号票）：计划卡、授权标记、阶段的"问"都按这个写；还不知道时按开着 */
+export const asksOffIn = (state: Pick<UiState, "safety">): boolean => state.safety?.conversationApprovals === false;
+
 export const initialUiState: UiState = {
   cursors: {},
   conversations: {},
@@ -502,6 +508,7 @@ export const initialUiState: UiState = {
   activityProgress: {},
   devices: {},
   watchCategories: undefined,
+  safety: undefined,
   projects: {},
   tokenTotals: {},
   workOrders: {},
@@ -956,6 +963,8 @@ function reduceEphemeral(state: UiState, frame: EventFrame): UiState {
   if (frame.type === EVENT_TYPES.locale) return { ...state, locale: frame.payload as LocaleEventPayload };
   // 插件的状况（193 号票）：整份换掉
   if (frame.type === EVENT_TYPES.pluginStatus) return { ...state, pluginStatus: frame.payload as PluginStatusEventPayload };
+  // 两个开关（378 号票）：整份换掉
+  if (frame.type === EVENT_TYPES.safetySettings) return { ...state, safety: frame.payload as SafetySettingsView };
   // 背后的 agent 有变化（368 号票）：这个负责人的版本加一
   if (frame.type === EVENT_TYPES.backgroundAgents) {
     const { maintainerId } = frame.payload as BackgroundAgentsEventPayload;

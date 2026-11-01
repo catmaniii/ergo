@@ -127,12 +127,12 @@ describe("转入使用不管谁发起都要用户在确认卡上确认（259 号
       ["progress_written", false, "progress.md 还是模板原样"],
     ]);
     // 纯文本降级（秘书列待办时看开头）先写谁发起的、缺什么
-    expect(card.text.startsWith("项目「记账本」转入使用（你在项目页点的）；检查清单还缺 3 项：架构图写清服务和对外接口（architecture.md 还是模板原样）")).toBe(true);
+    expect(card.text.startsWith("项目「记账本」转入使用（你在项目里点的）；检查清单还缺 3 项：架构图写清服务和对外接口（architecture.md 还是模板原样）")).toBe(true);
     // 进待我处理；负责人会话里一张、一句说明（给用户看）
     const items = frontend.events({ channel: INBOX, type: EVENT_TYPES.inboxItem }).map((f) => (f.payload as { item: { cardId?: string; title: string } }).item);
     expect(items.some((i) => i.cardId === card.id && i.title === "项目「记账本」转入使用")).toBe(true);
     await eventually(() => messagesOf(frontend, PM1), (m) => textOf(m).includes(`<card_ref:${card.id}>`), "负责人会话里的卡");
-    expect(messagesOf(frontend, PM1).some((m) => textOf(m) === "你在项目页点的：要把项目「记账本」转入使用，确认卡在待我处理里，你确认了才转。")).toBe(true);
+    expect(messagesOf(frontend, PM1).some((m) => textOf(m) === "你在项目里点的：要把项目「记账本」转入使用，确认卡在待我处理里，你确认了才转。")).toBe(true);
     // 只读接口的清单就是这一份
     expect((await standardOf(td)).checklist).toMatchObject({ from: "building", to: "in_use", items: payload.checklist.map(({ id, done }) => ({ id, done })) });
 

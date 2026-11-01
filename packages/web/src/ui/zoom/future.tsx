@@ -15,7 +15,8 @@ function riskLevel(mark: WorkflowStepMark): RiskLevel {
   return tone === "high" || tone === "no" ? "high" : tone === "ok" ? "fix" : "op";
 }
 
-export function WorkflowFutureBox({ future, run }: { future: WorkflowFuture; run?: number | undefined }) {
+/** asksOff："有风险的事先问我"关着（378 号票）：先问我的标"现在直接做" */
+export function WorkflowFutureBox({ future, run, asksOff }: { future: WorkflowFuture; run?: number | undefined; asksOff?: boolean | undefined }) {
   const { slots, done, total, offPlan } = future;
   return (
     <div className="zh-future">
@@ -37,7 +38,7 @@ export function WorkflowFutureBox({ future, run }: { future: WorkflowFuture; run
           {fixed.length > 0 && <div className="zf-fixed">↺ {fixed.join(" · ")}</div>}
           <div className="zd-right zf-risks">
             {slotRiskMarks(s).map((m) => {
-              const view = workflowMarkView(m);
+              const view = workflowMarkView(m, asksOff);
               return (
                 <span key={m.category} className={`zd-risk r-${riskLevel(m)}`}>
                   <svg className="zd-risk-leader" aria-hidden="true">

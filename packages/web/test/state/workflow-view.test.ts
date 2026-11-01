@@ -6,6 +6,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
 import {
+  asksOffIn,
+  CHANNELS,
+  EVENT_TYPES,
+  initialUiState,
+  workflowAuthFigures,
+  workflowMarkView,
   canReopenStage,
   type Card,
   chatItems,
@@ -91,6 +97,26 @@ const completed = (summary: string): MessagePart => ({
 });
 /** 看板上长程任务的一个阶段 */
 const stage = (stageId: string, state: TaskStage["state"]): TaskStage => ({ stageId, title: stageId, state, dependsOn: [], acceptance: [], attempts: 0 });
+
+const safety = (conversationApprovals: boolean) => ({ channel: CHANNELS.watchCategories, seq: 0, type: EVENT_TYPES.safetySettings, payload: { conversationApprovals, budgetControl: false } });
+
+describe("两个开关（378 号票）", () => {
+  test("关注类别频道上的临时事件：整份换掉；还没收到时按开着", () => {
+    expect(asksOffIn(initialUiState)).toBe(false);
+    expect(asksOffIn(replay([safety(false)]))).toBe(true);
+    expect(asksOffIn(replay([safety(false), safety(true)]))).toBe(false);
+  });
+
+  test("流程的敏感标注：关着时先问我的不说还会问、不算停点，交给你做的照旧", () => {
+    const ask = { category: "delete", title: "删文件", authorized: false, disposition: "ask_first" } as never;
+    const hand = { category: "pay", title: "付款", authorized: false, disposition: "hand_to_me" } as never;
+    const plan = { steps: [{ marks: [ask, hand] }] } as never;
+    expect(workflowMarkView(ask).text).toBe("⚠ 删文件：执行时仍会问你");
+    expect(workflowMarkView(ask, true).text).toBe("⚠ 删文件：现在直接做，不问你");
+    expect(workflowAuthFigures(plan)).toEqual({ sensitive: 2, stops: 2 });
+    expect(workflowAuthFigures(plan, true)).toEqual({ sensitive: 2, stops: 1 });
+  });
+});
 
 describe("流程（录像 workflow.json）", () => {
   const inputs = load("workflow");
@@ -778,6 +804,11 @@ describe("阶段详情补上的几块（84 号票）：重做记录、两种备�
       "第 2 阶段「写稿」由你验收",
       expect.stringMatching(/^第 2 阶段「写稿」：写文件（write）.*（收窄了，超出的部分执行时问你）$/),
       expect.stringMatching(/^第 2 阶段「写稿」：删除（delete）.*（落在「先问我」类别里/),
+      expect.stringMatching(/^第 2 阶段「写稿」：付款（pay）.*（落在「交给我做」类别里/),
+    ]);
+    // 378 号票："有风险的事先问我"关着：收窄的、先问我的都不停，只剩由你验收的和交给我做的
+    expect(stageMarks({ plan, grantInfo: info, narrowedGrants: ["g-write"] }, "s1", grants, true).ask.map((m) => m.text)).toEqual([
+      "第 2 阶段「写稿」由你验收",
       expect.stringMatching(/^第 2 阶段「写稿」：付款（pay）.*（落在「交给我做」类别里/),
     ]);
   });

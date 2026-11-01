@@ -168,7 +168,7 @@ const DEFS: Record<BuiltinName, Omit<ProjectOp, "name" | "kindFrom" | "impl">> =
   tell_maintainer: {
     title: "跟负责人说一句",
     kind: "action",
-    description: "给这个项目的负责人捎一句话（插进它的会话，和用户在项目页上直接对它说一样）：补充要求、报个问题、让它改点什么。",
+    description: "给这个项目的负责人捎一句话（插进它的会话，和用户在项目的对话框里直接对它说一样）：补充要求、报个问题、让它改点什么。",
     userSays: ["跟简报站的负责人说加上 GitHub 热门", "告诉记账本那边下个月起分类改一下"],
     inputSchema: { type: "object", properties: { message: { type: "string", minLength: 1, maxLength: 2000, description: "要转达的话：照抄用户的原话，不改写、不替用户加要求" } }, required: ["message"] },
     returns: "say 说转给负责人了。",

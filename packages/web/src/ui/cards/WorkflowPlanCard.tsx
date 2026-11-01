@@ -22,6 +22,7 @@ import {
   type WorkflowPlan,
   type WorkflowPlanCardPayload,
   type TaskStep,
+  asksOffIn,
   workflowAuthFigures,
   workflowMarkView,
   workflowReviewFigures,
@@ -61,7 +62,7 @@ function AuthorizablePlanCard({ state, payload: p, done, act, doneLabel }: CardP
   const [comment, setComment] = useState("");
   const { asks } = workflowReviewFigures(plan.review, plan.steps);
   const missing = asks.filter((i) => !agreed[i.key]).length;
-  const auth = workflowAuthFigures(plan);
+  const auth = workflowAuthFigures(plan, asksOffIn(ui));
 
   return (
     <CardShell
@@ -366,6 +367,7 @@ function argsText(args: Readonly<Record<string, unknown>>): string {
 
 /** 步骤，另写出每一步的工具和参数、要满足的条件（计划详情里也用它，60 号票） */
 export function WorkflowSteps({ plan, progress }: { plan: WorkflowPlan; progress: Record<string, TaskStep> }) {
+  const { ui } = useStore();
   return (
     <ol className="plan-steps">
       {plan.steps.map((s) => {
@@ -417,7 +419,7 @@ export function WorkflowSteps({ plan, progress }: { plan: WorkflowPlan; progress
               {s.marks.length > 0 && (
                 <div className="chips">
                   {s.marks.map((m) => {
-                    const view = workflowMarkView(m);
+                    const view = workflowMarkView(m, asksOffIn(ui));
                     return (
                       <span key={m.category} className={`chip chip-${view.tone === "op" ? "op" : view.tone === "quiet" ? "quiet" : view.tone}`}>
                         {view.text}

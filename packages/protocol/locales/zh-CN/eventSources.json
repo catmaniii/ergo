@@ -6,7 +6,7 @@
   "eventSources.summary.taskWaitingReason": "任务 {id}「{title}」转等我：{reason}",
   "eventSources.summary.projectState": "项目「{name}」从{from}变成{to}",
   "eventSources.summary.task": "任务 {id}",
-  "eventSources.summary.job": "定时作业",
+  "eventSources.summary.job": "定时任务",
   "eventSources.summary.runFailed": "{who}「{title}」的{run}失败了",
   "eventSources.summary.runFailedReason": "{who}「{title}」的{run}失败了：{reason}",
   "eventSources.folder.added": "新增文件 {path}（{folder}）",

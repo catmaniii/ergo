@@ -366,7 +366,7 @@ describe("运行的结果只算这一次运行", () => {
     clock.advance(1000);
     await noticesArrived(frontend, 1);
     const [notice] = doneTexts(frontend);
-    expect(notice).toContain("定时作业 j-1「每天汇总资讯」的第 1 次运行做完了（触发：1 月 5 日（周一）09:00 到点）。\n它最后说：\n今天的资讯汇总好了：三条要闻\n\n");
+    expect(notice).toContain("定时任务 j-1「每天汇总资讯」的第 1 次运行做完了（触发：1 月 5 日（周一）09:00 到点）。\n它最后说：\n今天的资讯汇总好了：三条要闻\n\n");
     expect(notice).not.toContain("写回了");
   }, 90_000);
 

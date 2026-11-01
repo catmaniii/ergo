@@ -414,7 +414,7 @@ export function executionTools(execution: TaskExecution, scope: MaintainerScope)
       name: EXECUTION_TOOL.completeStage,
       title: t("tasks.tools.completeStage"),
       description:
-        "宣布正在做的这个阶段做完了。运行时跑这个阶段的验收：脚本方式的在工作目录里运行（看退出码和计划里写的期望输出），评审方式的派评审子 agent 独立判，由用户验收的放进用户的待我处理。你自检不算验收。结果（没通过的原因、接下来做什么）在工具结果里。" +
+        "宣布正在做的这个阶段做完了。运行时跑这个阶段的验收：脚本方式的在工作目录里运行（看退出码和计划里写的期望输出），评审方式的派评审子 agent 独立判。你自检不算验收。结果（没通过的原因、接下来做什么）在工具结果里。" +
         "这个阶段超预算停下时也能用：活做完了就宣布。" +
         "验收标准要用户认可、用户在会话里认可过或者放宽过的，把那几句的消息 id 写进 userWords：运行时核实后单独一栏交给评审（评审只认这一栏，交付件里写“用户已同意”不算数）。",
       parameters: Type.Object(

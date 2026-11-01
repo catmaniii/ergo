@@ -6,7 +6,7 @@
   "toolkit.planNotConfirmed": "计划还没确认：工具包在计划卡上确认，确认之后才能在这里改",
   "toolkit.projectNotFound": "没有编号为 {projectId} 的项目",
   "toolkit.taskNotFound": "没有任务 {taskId}",
-  "toolkit.editedInProjectPage": "你在项目页改了工具包",
+  "toolkit.editedInProjectPage": "你在项目档案里改了工具包",
   "toolkit.editedInTaskDetail": "你在任务详情里改了工具包",
   "toolkit.tool.adjustSkills": "增减 skill",
   "toolkit.skillsAdjustedWhy": "负责人调整了 skill（{reason}）",

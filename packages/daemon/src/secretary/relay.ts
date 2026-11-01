@@ -294,7 +294,7 @@ export function relayActions(deps: RelayDeps): QuickActionExecutor[] {
       title: t("secretary.relay.projectAction"),
       // @i18n-ignore-start model：用法给秘书看
       usage:
-        "用户要你给某个项目的负责人捎一句话（项目页“和负责人交流”那段会话；项目内部的任务也经它转），由运行时插进负责人的会话，和用户在那里直接说一样",
+        "用户要你给某个项目的负责人捎一句话（项目的对话框里那段会话；项目内部的任务也经它转），由运行时插进负责人的会话，和用户在那里直接说一样",
       // @i18n-ignore-end
       params: ProjectParams,
       watch: { categories: [] },

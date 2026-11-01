@@ -136,7 +136,7 @@ export type OperationService = Static<typeof OperationService>;
 export const OperationItemDraft = Type.Object(
   {
     key: Type.String({ pattern: OPERATION_KEY_PATTERN, description: "这一条的标识：英文小写、数字和短横线（比如 daily-report）。同一条在之后交的方案里保持不变，运行时按它比出加了、改了、去掉了哪几条" }),
-    name: Type.String({ minLength: 1, maxLength: OPERATION_NAME_MAX, description: "名字（短，用户在卡上、项目页上看到的；生效后就是这条内部任务的标题）" }),
+    name: Type.String({ minLength: 1, maxLength: OPERATION_NAME_MAX, description: "名字（短，用户在卡上、项目里看到的；生效后就是这条内部任务的标题）" }),
     means: Type.String({ minLength: 1, description: "用哪种运营手段（登记表里的编号，见工具说明）" }),
     schedule: Type.Optional(ReminderSchedule),
     event: Type.Optional(EventTrigger),

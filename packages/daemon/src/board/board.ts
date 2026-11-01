@@ -110,7 +110,7 @@ export function scheduledJobEntry(job: ScheduledJob): BoardEntry {
   ].filter((x) => x !== undefined);
   return {
     key: job.ownerTaskId === undefined ? `scheduled_job:${job.id}` : `task:${job.ownerTaskId}`,
-    name: job.ownerTaskId === undefined ? `定时作业 ${job.id}「${oneLine(job.title, 60)}」` : taskName({ id: job.ownerTaskId, title: oneLine(job.title, 60) }),
+    name: job.ownerTaskId === undefined ? `定时任务 ${job.id}「${oneLine(job.title, 60)}」` : taskName({ id: job.ownerTaskId, title: oneLine(job.title, 60) }),
     status: `${scheduledJobStatusText(job)}${mark ? ` · ${mark.text}` : ""}`,
     group: boardGroupOfScheduledJob(job.state),
     detail: detail.join("；"),

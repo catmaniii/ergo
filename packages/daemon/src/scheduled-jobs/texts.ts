@@ -112,7 +112,7 @@ function authorizationLines(job: ScheduledJob): string[] {
   const grants = job.grants.map((g) => `- ${g.title}：${grantText(g, job.grantInfo[g.id], "job")}`);
   const rules = job.temporalRules.map((r) => `- ${temporalRuleText(r)}`);
   return [
-    grants.length > 0 ? `这次运行预先授权的操作（超出的照常先问用户）：\n${grants.join("\n")}` : "这个作业没有预先授权的操作：要做落在关注类别里的事都会先问用户。",
+    grants.length > 0 ? `这次运行预先授权的操作（超出的按“有风险的事先问我”：开着时先问用户，关着时直接做、记下来）：\n${grants.join("\n")}` : "这次运行没有预先授权的操作：要做落在关注类别里的事，“有风险的事先问我”开着时先问用户，关着时直接做、记下来。",
     ...(rules.length > 0 ? [`每次运行都要守的规则：\n${rules.join("\n")}`] : []),
   ];
 }
@@ -146,7 +146,7 @@ const sameSession = (job: ScheduledJob) => job.projectId === undefined;
 /** 这个任务怎么称呼："定时触发的普通任务 t-5「每天早上出简报」"、"事件触发的流程 t-6「…」"；还没迁移的定时作业是"定时作业 j-1「…」"（99 号票：任务做完告诉秘书时也用） */
 // @i18n-ignore-start model：交给 agent 的话（一次运行的内容、任务做完告诉秘书）
 export function ownerName(job: ScheduledJob, task: Task | undefined): string {
-  if (!task) return `定时作业 ${job.id}「${job.title}」`;
+  if (!task) return `定时任务 ${job.id}「${job.title}」`;
   return `${jobTriggerKind(job)}的${TASK_KIND_LABEL[taskKind(task)]} ${task.id}「${task.title}」`;
 }
 
@@ -322,12 +322,12 @@ export const RUN_NO_PLAN_CHANGE_TEXT = `每次运行都照用户授权的那份�
 
 /** 迁移出来的普通任务的说明（任务的 summary：每次要做的事，连同它从哪来） */
 // @i18n-ignore-next data：一次性迁移时写进任务的说明（存下的数据）
-export const migratedSummary = (job: ScheduledJob) => `${job.each}\n（76 号票之前长程任务「${job.taskTitle}」的计划里定的定时作业 ${job.id}，迁移成定时触发的普通任务；每次运行的授权照旧）`;
+export const migratedSummary = (job: ScheduledJob) => `${job.each}\n（76 号票之前长程任务「${job.taskTitle}」的计划里定的定时任务 ${job.id}，迁移成定时触发的普通任务；每次运行的授权照旧）`;
 
 /** 升级前交、升级后才确认的计划里的定时作业，确认时建成的普通任务的说明（每次要做的事，连同它从哪来） */
 export const legacyPlanJobSummary = (job: ScheduledJob) =>
   // @i18n-ignore-next data：一次性迁移时写进任务的说明（存下的数据）
-  `${job.each}\n（长程任务「${job.taskTitle}」在 76 号票之前交的计划里定的定时作业 ${job.id}，确认计划时改成定时触发的普通任务；每次运行的授权照计划卡上的）`;
+  `${job.each}\n（长程任务「${job.taskTitle}」在 76 号票之前交的计划里定的定时任务 ${job.id}，确认计划时改成定时触发的普通任务；每次运行的授权照计划卡上的）`;
 
 /** 确认这样的计划时卡上的说明 */
 export const legacyPlanJobsNote = (titles: readonly string[]) =>

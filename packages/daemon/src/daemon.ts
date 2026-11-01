@@ -1446,6 +1446,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const pluginStatusFrame = (): EventFrame => ({ channel: CHANNELS.plugins, seq: store.lastSeq(CHANNELS.plugins), type: EVENT_TYPES.pluginStatus, payload: { plugins: plugins.status() } satisfies PluginStatusEventPayload });
     teardown.push(plugins.onChange(() => notifications.publish(pluginStatusFrame())));
     teardown.push(language.onChange(() => notifications.publish(pluginStatusFrame())));
+    // 两个开关（378）：关注类别频道上的临时事件，订阅时补推（网关的 snapshot）、改了再推；网页的计划卡、授权标记按它写
+    const safetyFrame = (): EventFrame => ({ channel: CHANNELS.watchCategories, seq: store.lastSeq(CHANNELS.watchCategories), type: EVENT_TYPES.safetySettings, payload: safety.view() });
+    teardown.push(safety.onChange(() => notifications.publish(safetyFrame())));
     materials.start();
     teardown.push(() => materials.stop());
     // 设置 · 数据源（295）：一处列出插件登记的数据源（连接状态、上次同步和条数、立即同步、断开、两种用法的开关、敏感类别）；
@@ -2117,6 +2120,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 任务执行（13）：确认过的任务排队、按名额开始执行，阶段推进和验收（脚本在工作目录里跑，评审派只读的评审子 agent）
     const reviewerModel = options.reviewerModel ?? (() => agentModel("reviewer"));
     const taskExecution = createTaskExecution({
+      // 续期事项的说法按开关写（378），现取
+      askFirstOff: () => safety.current().conversationApprovals === "off",
       store,
       tasks,
       cards,
@@ -2604,7 +2609,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       streams,
       notifications,
       // 订阅项目列表频道时补推项目的服务现在的样子（133：临时事件不补发）；订阅语言频道时补推实际在用的语言和词典的版本（168）；
-      // 订阅插件频道时补推插件的状况（193）；订阅工作日历频道时补推外部日历现在的版本（306）
+      // 订阅插件频道时补推插件的状况（193）；订阅工作日历频道时补推外部日历现在的版本（306）；订阅关注类别频道时补推两个开关（378）
       snapshot: (channel) =>
         channel === CHANNELS.projects
           ? [projectSystem.servicesFrame()]
@@ -2614,7 +2619,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
               ? [pluginStatusFrame()]
               : channel === CHANNELS.workdayCalendar
                 ? [externalCalendarFrame()]
-                : [],
+                : channel === CHANNELS.watchCategories
+                  ? [safetyFrame()]
+                  : [],
       requests: {
         cardAction: (params, idempotencyKey) => cards.act({ ...params, idempotencyKey }),
         inboxAction: (params, idempotencyKey) => inbox.act({ ...params, idempotencyKey }),

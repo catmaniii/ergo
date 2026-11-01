@@ -865,7 +865,7 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
       const notice = buildAgentNotice(
         CHANNELS.secretary,
         // @i18n-ignore-next model：交给秘书的通知
-        `用户在建议立项卡上点了「立项」：项目 ${project.id}「${project.name}」已诞生（筹备中），负责人 ${project.maintainerId} 会先开口，在它的会话里和用户做立项问答（项目页上的“和负责人交流”）。立项问答不归你，不用转述。`,
+        `用户在建议立项卡上点了「立项」：项目 ${project.id}「${project.name}」已诞生（筹备中），负责人 ${project.maintainerId} 会先开口，在它的会话里和用户做立项问答（项目的对话框）。立项问答不归你，不用转述。`,
         `${idempotencyKey}#notice`,
       );
       return {

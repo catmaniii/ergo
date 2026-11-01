@@ -5,7 +5,7 @@
  * 敏感信息的小签按二狗的说法（关注类别、处置、计划授权了没有，和计划卡上每一步的标注一样）。
  */
 import { useStore } from "../../app/store.tsx";
-import { t, workflowMarkView, workflowPlanDetail } from "../../state/index.ts";
+import { asksOffIn, t, workflowMarkView, workflowPlanDetail } from "../../state/index.ts";
 import { ReviewPanel, WorkflowSteps } from "../cards/WorkflowPlanCard.tsx";
 import { RuleBook } from "./RuleBook.tsx";
 import { Section } from "./section.tsx";
@@ -26,7 +26,7 @@ export function WorkflowPlanDetail({ cardId }: { cardId: string }) {
         <div className="chips">
           {d.marks.length ? (
             d.marks.map((m) => {
-              const view = workflowMarkView(m);
+              const view = workflowMarkView(m, asksOffIn(ui));
               return (
                 <span key={m.category} className={`chip chip-${view.tone}`}>
                   {view.text}

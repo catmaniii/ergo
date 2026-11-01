@@ -14,7 +14,7 @@ import { stagePolicies, type Plan, type PlanChangeCardPayload, type PlanChangeOw
 import type { ChatItem } from "./chat-items.ts";
 import { type Incident, incidentsIn, itemsByStage } from "./stage-detail.ts";
 import { effectivePlanOf, type StageMarks, stageMarks, taskStages } from "./task-detail.ts";
-import type { UiState } from "./ui-state.ts";
+import { asksOffIn, type UiState } from "./ui-state.ts";
 
 // ───────────────────────── 第几阶段、编号 ─────────────────────────
 // 阶段号、编号在协议包（plan.ts 的 stageNumbers、stageCodes，守护进程以后要写一样的号也用它），这里接着往下用
@@ -305,6 +305,7 @@ export function changeStageGraph(
   base: Plan | undefined,
   status: ReadonlyMap<string, { readonly state: GraphNodeState; readonly waitReason?: string | undefined }>,
   current: string | undefined,
+  asksOff = false,
 ): StageGraph {
   const plan = change.payload.plan;
   const touched = changedStages(change.payload);
@@ -319,7 +320,7 @@ export function changeStageGraph(
       code: s.code,
       state: now?.state ?? "pending",
       waitReason: now?.waitReason,
-      marks: stageMarks(change.payload, s.stageId, stagePolicies(plan, s.stageId).flatMap((p) => p.grants)),
+      marks: stageMarks(change.payload, s.stageId, stagePolicies(plan, s.stageId).flatMap((p) => p.grants), asksOff),
       mark,
     };
   });
@@ -339,7 +340,7 @@ export function planCardStageGraph(state: UiState, cardId: string | undefined): 
     after: s.dependsOn,
     code: s.code,
     state: "pending" as const,
-    marks: stageMarks(payload, s.stageId, stagePolicies(payload.plan, s.stageId).flatMap((p) => p.grants)),
+    marks: stageMarks(payload, s.stageId, stagePolicies(payload.plan, s.stageId).flatMap((p) => p.grants), asksOffIn(state)),
   }));
   return { kind: "plan", cardId: card.id, nodes: stageGraphNodes(nodes) };
 }
@@ -354,7 +355,7 @@ export function taskStageGraph(state: UiState, taskId: string, items: readonly C
   const live = task.stages?.list;
   // 计划变更等你确认：画变更后的那份，状态照执行中的；新加的标"新"、改过的标"改"，去掉的也画上
   const change = pendingPlanChange(state, taskId);
-  if (change) return changeStageGraph(change, effectivePlanOf(state, task)?.plan, new Map((live ?? []).map((s) => [s.stageId, s])), task.stages?.focus);
+  if (change) return changeStageGraph(change, effectivePlanOf(state, task)?.plan, new Map((live ?? []).map((s) => [s.stageId, s])), task.stages?.focus, asksOffIn(state));
   // 计划卡等你确认（还没开始执行）：每个阶段都没开始，标出要你留意的
   const pending = live ? undefined : planCardStageGraph(state, task.planCardId);
   if (pending) return pending;
@@ -393,7 +394,7 @@ export function listedStageGraph(
   if (change) {
     const base = planCardId === undefined ? undefined : state.cards[planCardId]?.card;
     const basePlan = base?.type === "plan" ? (base.payload as PlanCardPayload).plan : undefined;
-    return changeStageGraph(change, basePlan, new Map(stages.map((s) => [s.id, { state: s.status, waitReason: s.waitReason }])), current);
+    return changeStageGraph(change, basePlan, new Map(stages.map((s) => [s.id, { state: s.status, waitReason: s.waitReason }])), current, asksOffIn(state));
   }
   const pending = planCardStageGraph(state, planCardId);
   if (pending) return pending;

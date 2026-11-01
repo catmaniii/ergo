@@ -918,12 +918,22 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       await expect.poll(() => card.innerText(), { timeout: 5000 }).toContain("现在关着：超出授权的也直接做");
       expect(await card.innerText()).not.toContain("执行到那一步再问你");
       expect(await card.innerText()).not.toContain("由你验收");
+      // 378 号票：关着时勾掉一项也不算停点，"还会在 N 处停下来"这句压根不出现
+      expect(await card.innerText()).not.toContain("处停下来");
+      await card.locator(".grant-row input[type=checkbox]").first().uncheck();
+      expect(await card.innerText()).not.toContain("处停下来");
+      await card.locator(".grant-row input[type=checkbox]").first().check();
 
       await go("#/more/watch");
       await page.locator('[data-switch="conversationApprovals"] input').check();
       await go("#/inbox/i-plan");
       await expect.poll(() => page.locator(".xcard-plan").innerText(), { timeout: 5000 }).toContain("没勾的操作，执行到那一步再问你");
       expect(await page.locator(".xcard-plan").innerText()).not.toContain("现在关着");
+      // 378 号票：开着时一处停点都没有也不写"0 处"，勾掉一项才写 1 处
+      expect(await page.locator(".xcard-plan").innerText()).not.toContain("处停下来");
+      await page.locator(".xcard-plan .grant-row input[type=checkbox]").first().uncheck();
+      expect(await page.locator(".xcard-plan").innerText()).toContain("授权后还会在 1 处停下来");
+      expect(await page.locator(".xcard-plan").innerText()).toContain("勾掉了，不算授权");
       expect(errors).toEqual([]);
     } finally {
       await page.close();

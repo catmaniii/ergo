@@ -22,7 +22,7 @@ import { startFakeDeepSeek } from "../helpers/fake-deepseek.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
 import { modelSettingsApi, pluginsApi, request, runtimesApi, safetyApi } from "../helpers/http.ts";
 import { writePortsConfig } from "../helpers/ports.ts";
-import { killIfRunning } from "../helpers/process.ts";
+import { killIfRunning, waitUntil } from "../helpers/process.ts";
 import { call, completeStage, confirmTask, connect, maintainerScript, say, tasksOf, taskWhere, twoStagePlan, write } from "../helpers/task-flow.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 import { NO_LSM_ENV, tempUserProfileEnv, withEnv } from "../helpers/user-profile.ts";
@@ -184,6 +184,18 @@ describe("新装时对话审批、任务的预算控制默认不勾（用户 202
     // 参数不对的拒收
     expect((await safetyApi.change(td.url, {})).status).toBe(400);
     expect((await safetyApi.change(td.url, { budgetControl: "on" })).status).toBe(400);
+  });
+
+  it("两个开关推给网页：订阅关注类别频道时补推一条，改了再推（378 号票）", async () => {
+    const td = await startTestDaemon({ config: { guard: { conversationApprovals: "off" } } });
+    const frontend = await TestFrontend.connect(td.url);
+    await frontend.subscribe({ [CHANNELS.watchCategories]: 0 });
+    const views = () => frontend.events({ channel: CHANNELS.watchCategories, type: EVENT_TYPES.safetySettings }).map((f) => f.payload as { conversationApprovals: boolean });
+    await waitUntil(() => views().length === 1);
+    expect(views()[0]!.conversationApprovals).toBe(false);
+    await safetyApi.change(td.url, { conversationApprovals: true });
+    await waitUntil(() => views().length === 2);
+    expect(views()[1]!.conversationApprovals).toBe(true);
   });
 
   it("已有的数据目录（有事件库）、配置里没写这两项：照旧是现在的默认（都关着），不往配置里写", { timeout: 60_000 }, async () => {

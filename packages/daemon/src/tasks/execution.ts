@@ -443,6 +443,8 @@ export interface TaskExecutionOptions {
   scheduler: Scheduler;
   /** 全局执行名额（tasks/slots.ts：执行中的任务和定时作业开始了的运行共用，谁占着只在那里数） */
   slots: ExecutionSlots;
+  /** "有风险的事先问我"现在关着（378 号票）：续期事项的说法按它写 */
+  askFirstOff: () => boolean;
   /** 阈值（14 号票，thresholds.ts 的 DEFAULT_TASK_THRESHOLDS；配置 tasks.thresholds） */
   thresholds: TaskThresholds;
   /** 某个任务的某个阶段干活用掉的 token（24 号票 token 账本的 stageTokens(…, { budget: true })，14 号票的预算比较用它） */
@@ -2280,7 +2282,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   };
 
   // 授权项到期前的续期事项（grant-renewal.ts）：计划换了一版、任务结束了重新看一眼
-  const renewals = createGrantRenewals({ store, tasks, inbox, clock, scheduler, leadMs: thresholds.renewalLeadMs });
+  const renewals = createGrantRenewals({ store, tasks, inbox, clock, scheduler, leadMs: thresholds.renewalLeadMs, askFirstOff: options.askFirstOff });
 
   // ───────────────────────── 用户的控制（task_action 和待我处理里的通知共用） ─────────────────────────
 

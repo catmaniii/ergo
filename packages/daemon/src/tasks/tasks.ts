@@ -137,7 +137,7 @@ function checkedTrigger(kind: TaskKind, trigger: TaskTrigger | undefined, now: s
 
 /** 计划里写了定时作业（76 号票起不再有）：改成在发起对话框里建定时触发的普通任务或流程 */
 // @i18n-ignore-next model：交回负责人
-export const PLAN_JOBS_REFUSAL = "计划里不再写定时作业（scheduledJobs）：要定时反复做的事，请用户在发起对话框里建定时触发的普通任务或流程（“什么时候做”选定时）。把这一项去掉再提交，需要的话在假设栏里写明建议用户另建一个";
+export const PLAN_JOBS_REFUSAL = "计划里不再写定时任务（scheduledJobs）：要定时反复做的事，请用户在发起对话框里建定时触发的普通任务或流程（“什么时候做”选定时）。把这一项去掉再提交，需要的话在假设栏里写明建议用户另建一个";
 
 export interface NewTask {
   title: string;
@@ -1366,7 +1366,7 @@ function internalStartedLines(task: Task, start: TaskStart): string {
   return (
     `${how}：项目内部${kind} ${task.id}「${task.title}」已建好（规划中），由你起草、执行，只在这个项目里看得到。` +
     (triggerLine(task) ? `${triggerLine(task)!}。` : "") +
-    `先在这里说出你的理解，需要时直接问用户（用户在项目页的会话里看得到），对齐后用 ${TASK_TOOL.writeTaskBrief} 写任务书：运行时把它作为一张起草计划的工单交回给你。`
+    `先在这里说出你的理解，需要时直接问用户（用户在项目的对话框里看得到），对齐后用 ${TASK_TOOL.writeTaskBrief} 写任务书：运行时把它作为一张起草计划的工单交回给你。`
   );
 }
 // @i18n-ignore-end

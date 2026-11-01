@@ -6,7 +6,7 @@
   "eventSources.summary.taskWaitingReason": "Task {id} “{title}” is waiting for you: {reason}",
   "eventSources.summary.projectState": "Project “{name}” went from {from} to {to}",
   "eventSources.summary.task": "task {id}",
-  "eventSources.summary.job": "scheduled job",
+  "eventSources.summary.job": "scheduled task",
   "eventSources.summary.runFailed": "{run} of {who} “{title}” failed",
   "eventSources.summary.runFailedReason": "{run} of {who} “{title}” failed: {reason}",
   "eventSources.folder.added": "File added: {path} ({folder})",
