@@ -519,7 +519,7 @@ fieldset {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: calc(env(safe-area-inset-top, 0px) + 64px) 12px calc(env(safe-area-inset-bottom, 0px) + 56px);
+  padding: calc(env(safe-area-inset-top, 0px) + 64px) 12px calc(var(--safe-bottom) + 56px);
   background: rgba(0, 0, 0, 0.9);
 }
 .image-viewer img {
@@ -552,7 +552,7 @@ fieldset {
   position: absolute;
   left: 12px;
   right: 12px;
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
+  bottom: calc(var(--safe-bottom) + 14px);
   display: flex;
   justify-content: center;
   align-items: center;

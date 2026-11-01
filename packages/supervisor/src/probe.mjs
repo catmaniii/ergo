@@ -122,7 +122,7 @@ async function resolveFlakyListeners(missing, first, { retries = 6 } = {}) {
   }));
   const pending = new Set(live);
   const take = (s) => {
-    for (const p of [...pending]) {
+    for (const p of pending) {
       const rows = rowsFor(s, p);
       if (!rows.length) continue;
       first.pids.set(p, [...new Set(rows.map((r) => r.pid))]);
