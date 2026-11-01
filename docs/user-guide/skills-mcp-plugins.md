@@ -1,3 +1,5 @@
+**中文** | [English](skills-mcp-plugins.en.md)
+
 # skill、MCP、工具包和插件
 
 这一章讲怎么给二狗加本事：导入 skill、登记 MCP、配工具包、管插件。看完你能让 agent 用上你要的工具，也能随时撤掉。
