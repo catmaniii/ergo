@@ -17,7 +17,7 @@
   "doctor.check.disk.title": "Disk space",
   "doctor.check.external.title": "Outside access",
   "doctor.fact.unknown": "Couldn't check this time",
-  "doctor.fact.ports": "Local port {local}: {localState}; outside port {external}: {externalState}",
+  "doctor.fact.ports": "Local port {local}: {localState}; external port {external}: {externalState}",
   "doctor.fact.portsUp": "listening, and it's ergo itself",
   "doctor.fact.portsDown": "nobody listening",
   "doctor.fact.node": "Running Node {running}; the pi line is {expected}",

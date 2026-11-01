@@ -149,7 +149,7 @@ There are two layers, and **both must be on for ergo to come back after a restar
 | Check it | `Get-ScheduledTask -TaskName LocalServiceManager` | `ergo svc autostart` (lists them) |
 | Turn on | `ergo svc install-autostart` | `ergo svc autostart ergo-daemon on` |
 | Turn off | `ergo svc uninstall-autostart` | `ergo svc autostart ergo-daemon off` |
-| On a page | The **start at login** switch in the setup wizard's Capabilities step | The switch on the card at <http://127.0.0.1:7420/> |
+| On a page | The **Start at boot** switch in the setup wizard's Capabilities step | The switch on the card at <http://127.0.0.1:7420/> |
 
 **To check it works:** restart the computer, log in to Windows, wait a minute or two, then open PowerShell and run `ergo status`.
 
@@ -283,7 +283,7 @@ If only the web pages changed, the daemon doesn't need a restart.
 1. **Run the wizard**: open <http://127.0.0.1:8810/> (or `ergo open`) and go through the five steps of the **setup wizard**: language / how to address you / assistant name, model key (click test after filling it in), capabilities (tick which plugins and components you want: the embedding model and memory by default, voice off; models are downloaded here in the web page, not in the installer; this step also has the start-at-boot switch), pairing a phone by QR code, safe defaults, plus a screen on outside access. Any step can wait; re-enter any time from the top of **More · Settings**. See [Getting started](getting-started.en.md).
 2. **Try it**: say "remind me to drink water in two minutes".
 3. **Everyday commands**: `ergo start`, `ergo stop`, `ergo restart`, `ergo status`, `ergo logs`; for backups, `ergo backup` and `ergo restore` ([Backup](settings.en.md#backup)).
-4. **When something's wrong**: check **More · Settings · Data & devices → Doctor** first; each item says how to fix it. Then see [Troubleshooting](#troubleshooting).
+4. **When something's wrong**: check **More · Settings · Data & devices → Checkup** first; each item says how to fix it. Then see [Troubleshooting](#troubleshooting).
 
 ## Update
 

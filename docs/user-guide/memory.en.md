@@ -148,11 +148,11 @@ This block is at the bottom of every file: conclusions, facts and quotes about t
 Each one asks which method to use:
 
 - **Forget (default):** gone from the file and ergo can't read it; your words in the chat history remain.
-- **Delete completely:** erased along with its history, the check cards and the records of ergo having read it. This can't be taken back. Here you can also tick **Also permanently delete the original messages**.
+- **Delete completely:** erased along with its history, the check cards and the records of ergo having read it. This can't be taken back. Here you can also tick **Also delete the original messages completely**.
 
 **Things you can just say:**
 
-- Make a note, my mom's birthday is March 2
+- Remember: my mom's birthday is March 2
 - My ID number is …, please save it
 - When is my mom's birthday
 

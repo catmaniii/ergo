@@ -176,7 +176,7 @@ Once all five steps are ticked, the wizard says **Setup is done — go use it**.
 
 - Remind me to drink water in two minutes
 - Remind me to pay the rent at 9 am on the 8th of every month
-- Note this down: pick up the car Wednesday afternoon
+- Remember: pick up the car Wednesday afternoon
 - Check tomorrow's weather for me
 
 **Step by step:**

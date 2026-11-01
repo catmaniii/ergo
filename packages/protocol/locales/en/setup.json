@@ -84,7 +84,7 @@
   "setup.done.external": "Want to use it from outside? See Access from outside",
   "setup.external.title": "Access from outside",
   "setup.external.intro": "By default {brand} is only used on this computer. To use it on a phone or tablet there are three ways, and the first one is recommended.",
-  "setup.external.port": "All three only expose the outside port 8811: every request there needs a device credential, and a new device must be approved by you on this computer. Never expose the local port 8810.",
+  "setup.external.port": "All three only expose the external port 8811: every request there needs a device credential, and a new device must be approved by you on this computer. Never expose the local port 8810.",
   "setup.external.tailscale.title": "Way one: Tailscale (recommended)",
   "setup.external.tailscale.sub": "Install Tailscale on the computer and the phone, sign in with the same account, and use tailscale serve to offer 8811 over HTTPS to your tailnet. The address is:",
   "setup.external.tailscale.address": "https://<computer name>.<your tailnet>.ts.net/",
