@@ -2,6 +2,7 @@
 // 只显示一行——图标、种类、一句话总结、时间、"详情 ›"——点开看全文（照 Markdown 画）；交给 agent 的照旧是全文（守护进程测）。
 // 先回放主切面录下的真实事件流：task-done-voice（定时任务跑完自动播报，通知后面跟着运行时放的日报附件）、
 // secretary-letter（普通任务的 agent 做到一半给秘书发一条、接着做完）；旧消息（没存总结）、秘书转达、不折的那些按共享协议的 schema 构造。
+// 367 号票：运行时交给 agent 的长通知没有标记也折；用户截图里那一段做测试数据，再回放一遍 task-execution 看真的阶段说明。
 import fs from "node:fs";
 import path from "node:path";
 import { MessageEventPayload as MessageEventPayloadSchema, schemaChecker } from "@ergo/protocol";
@@ -17,17 +18,20 @@ import {
   LETTER_LOOK,
   LETTER_TAGS,
   letterMarkdown,
+  locateChatItem,
   type MessageEnvelope,
   type MessageEventPayload,
   type MessagePart,
   relayLabel,
   replay,
+  stageChatShown,
   type UiInput,
 } from "../../src/state/index.ts";
 import { frame } from "./events.ts";
 
 const SECRETARY = "secretary";
 const TM: ConversationId = "maintainer:tm-9";
+const TM1: ConversationId = "maintainer:tm-1";
 
 function load(name: string): UiInput[] {
   return JSON.parse(fs.readFileSync(path.join(import.meta.dirname, "recordings", `${name}.json`), "utf8")) as UiInput[];
@@ -176,5 +180,128 @@ describe("详情里全文照 Markdown 画（letterMarkdown）", () => {
     expect(letterMarkdown("普通任务 t-1「下歌」在后台做完了。\n它最后说：\n下好了")).toBe("普通任务 t-1「下歌」在后台做完了。  \n它最后说：  \n下好了");
     expect(letterMarkdown("第一段\n\n第二段")).toBe("第一段\n\n第二段");
     expect(letterMarkdown("看这段：\n```\nls -l\ncat a.md\n```\n完")).toBe("看这段：  \n```\nls -l\ncat a.md\n```\n完");
+  });
+
+  test("列表后面紧跟不缩进的一行（367 号票）：隔一个空行，免得并进上一项；缩进的续行、项与项之间不动", () => {
+    expect(letterMarkdown("授权：\n- （没有）\n时序规则：\n- 一条\n- 两条\n完")).toBe("授权：  \n- （没有）\n\n时序规则：  \n- 一条  \n- 两条\n\n完");
+    expect(letterMarkdown("- 一条\n  接着写\n- 两条")).toBe("- 一条  \n  接着写  \n- 两条");
+    expect(letterMarkdown("1. 一条\n2. 两条\n完")).toBe("1. 一条  \n2. 两条\n\n完");
+  });
+});
+
+/** 用户截图里那一段（2026-11-01）：运行时让负责人接着做第 3 阶段时交给它的阶段说明，占满一屏 */
+const STAGE_NOTICE = [
+  "用户让阶段 s3「第一波实现」接着做（之前停下是因为：用量超过预算）。看看用户在会话里说了什么，换个做法接着做；计数已经清零。",
+  "现在是第 3/5 阶段 s3「第一波实现」：",
+  "- 交付件：导入脚本 import.py；单元测试 tests/test_import.py",
+  "- 验收标准：三家银行的账单都能导入（脚本：pytest tests/test_import.py）；重复的流水不入账（评审）",
+  "- 模式：开放",
+  "授权（只在当前阶段内有效）：",
+  "- （没有）",
+  "时序规则：",
+  "- 先备份再改账目：写 ledger.db 之前先有当天的备份",
+  "边界：",
+  "- 工作目录 projects/ledger：文件工具只能写这里；工具包：bash 开，联网关",
+  "- 一个阶段做完调用 complete_stage 宣布完成，由运行时验收（脚本、评审、用户），你自检不算验收",
+  "做完调用 complete_stage 宣布阶段完成，由运行时验收。",
+].join("\n");
+
+const LONG = "字".repeat(121);
+const frames = (...list: EventFrame[]) => replay(list.map((f): UiInput => ({ kind: "frame", frame: f })));
+
+describe("交给 agent 的长通知折成一行（367 号票）", () => {
+  const state = frames(messageFrame(TM, 1, { id: "n1", speaker: "system", parts: [text(STAGE_NOTICE)] }, { agentInput: true, taskId: "t-9", stageId: "s3" }));
+  const items = chatItems(state, TM);
+  const notice = items[0]!;
+
+  test("截图那一段：对话层一行，总结写清楚是哪一步，整行点开", () => {
+    expect(letterOf(notice)).toEqual({ kind: "notice", label: "系统说明", icon: LETTER_LOOK.notice.icon, summary: "接着做第 3 阶段：第一波实现" });
+    expect(chatLook(notice)).toEqual({ form: "letter", letter: letterOf(notice), open: "row" });
+  });
+
+  test("点详情：全文原样，种类写系统说明，上面一行是总结，照 Markdown 画", () => {
+    const content = detailContent(state, items, { type: "item", id: notice.id });
+    expect(content).toMatchObject({ kind: "text", tag: "system", label: "系统说明", letter: "notice", summary: "接着做第 3 阶段：第一波实现", markdown: true, text: STAGE_NOTICE, chars: STAGE_NOTICE.length });
+  });
+
+  test("缩放的要点层、全局层不受影响：要点那一行照旧是第一行，底色还是说明和记录", () => {
+    expect(notice.keyLine.startsWith("系统：用户让阶段 s3「第一波实现」接着做（之前停下是因为：用量超过预算）")).toBe(true);
+    expect(notice.keyLine).not.toContain("交付件");
+    expect(notice.content).toBe("context");
+  });
+
+  test("定位跳转照常：按消息 id 找得到折起来的那条；任务的会话里照旧收进阶段框", () => {
+    expect(locateChatItem(items, "n1")?.item).toBe(notice);
+    expect(stageChatShown(state, notice)).toBe(false);
+  });
+
+  test("认不出是哪一步的取第一句；守护进程存了总结的用存的", () => {
+    const other = frames(
+      messageFrame(TM, 1, { id: "n1", speaker: "system", parts: [text(`项目服务挂了，上一次心跳是 10 分钟前。\n${LONG}`)] }, { agentInput: true }),
+      messageFrame(TM, 2, { id: "n2", speaker: "system", parts: [text(STAGE_NOTICE)], summary: "存着的总结" }, { agentInput: true }),
+    );
+    expect(chatItems(other, TM).map((it) => letterOf(it)?.summary)).toEqual(["项目服务挂了，上一次心跳是 10 分钟前", "存着的总结"]);
+  });
+
+  test("短通知不折；用户的话、agent 的回复、没交给 agent 的说明再长也不折", () => {
+    const other = frames(
+      messageFrame(TM, 1, { id: "s1", speaker: "system", parts: [text("用户让任务继续了。接着做。")] }, { agentInput: true }),
+      messageFrame(TM, 2, { id: "u1", speaker: "user", parts: [text(LONG)] }),
+      messageFrame(TM, 3, { id: "a1", speaker: "agent", parts: [text(LONG)] }),
+      messageFrame(TM, 4, { id: "s2", speaker: "system", parts: [text(LONG)] }),
+    );
+    const list = chatItems(other, TM);
+    expect(list.map((it) => [it.kind, letterOf(it)?.kind ?? "-", chatLook(it).form])).toEqual([
+      ["system", "-", "note"],
+      ["user", "-", "user"],
+      ["reply", "-", "reply"],
+      ["system", "-", "note"],
+    ]);
+  });
+
+  test("老消息：往上翻取回来的那一页按 agentInput 和长度一样折", () => {
+    const paged = replay([
+      {
+        kind: "history_page",
+        conversation: TM,
+        page: {
+          conversation: TM,
+          hasMore: false,
+          records: [],
+          messages: [
+            { seq: 1, message: { id: "old-1", conversation: TM, speaker: "system", time: "2026-09-01T08:00:00.000+08:00", parts: [text(STAGE_NOTICE)] }, agentInput: true, taskId: "t-9" },
+            { seq: 2, message: { id: "old-2", conversation: TM, speaker: "system", time: "2026-09-01T08:01:00.000+08:00", parts: [text(LONG)] }, taskId: "t-9" },
+          ],
+        },
+      },
+    ]);
+    expect(chatItems(paged, TM).map((it) => letterOf(it)?.kind ?? "-")).toEqual(["notice", "-"]);
+  });
+
+  test("秘书的会话一样", () => {
+    const own = frames(messageFrame(SECRETARY, 1, { id: "n1", speaker: "system", parts: [text(LONG)] }, { agentInput: true }));
+    expect(chatLook(chatItems(own, SECRETARY)[0]!).form).toBe("letter");
+  });
+
+});
+
+describe("回放：长程任务开始执行、验收通过换下一个阶段（task-execution）", () => {
+  const state = replay(load("task-execution"));
+  const items = chatItems(state, TM1);
+  const notices = items.filter((it) => letterOf(it)?.kind === "notice");
+
+  test("真的阶段说明折起来，总结是哪一步；短的通知不折；要点那一行照旧", () => {
+    expect(notices.length).toBeGreaterThan(0);
+    // 任务书也是交给负责人的长通知：总结取第一句，还留在对话层（不收进阶段框）
+    const brief = notices[0]!;
+    expect(letterOf(brief)?.summary).toBe("任务书：任务 t-1「X 的调研」");
+    expect(stageChatShown(state, brief)).toBe(true);
+    const first = notices[1]!;
+    expect(letterOf(first)?.summary).toBe("接着做第 1 阶段：收集资料");
+    expect(first.keyLine).toContain("系统：计划已确认，开始执行任务 t-1「X 的调研」");
+    const content = detailContent(state, items, { type: "item", id: first.id });
+    if (content.kind !== "text") throw new Error("不是文本详情");
+    expect(content.text).toContain("现在是第 1/2 阶段 s1「收集资料」：\n- 交付件：资料清单 sources.md");
+    expect(content.text).toContain("边界：\n- 工作目录");
   });
 });

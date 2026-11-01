@@ -28,6 +28,7 @@
 // - 时间线记录（偏离、范围变更、越界、操作记录）、"已删除"各自一条；
 // - agent 之间的来信（115 号票）：秘书会话里的任务做完、维护者来信（系统消息），维护者会话里的秘书转达（用户消息），运行时补给
 //   维护者的计划检查，条目上带着 letter（agent-letters.ts：种类、图标、一句话总结），对话层画成一行、点开看全文；
+//   367 号票：交给 agent 的长通知没有标记也一样（只改对话层，要点层那一行照旧）；
 //   要点那一行写"种类：总结"。种类照旧（system、user），底色、要点标注、详情的找法都不变。
 // - 附件一律显示在文字后面（118 号票）：agent 一轮里先发的附件（只有文件、图片的消息）、任务做完时运行时放的附件，
 //   挪到这一轮最后一段说完了的话（定稿的文字回复、语音气泡）后面；只改先后，id、序号不变（attachmentsAfterText）。
@@ -540,7 +541,7 @@ function piecesOf(state: UiState, it: TimelineItem, voiceCalls: ReadonlyMap<stri
       out.push(!streaming && main.length === 0 ? { kind: "thought", step: { kind: "thinking", id, text, ...at }, item } : { kind: "item", item });
     } else if (slot === "main") {
       const parts = main.map((i) => message.parts[i]!);
-      out.push(itemPiece(mainItem(state, message, parts, { id: key, ...at, marks: marksIn(main), streaming })));
+      out.push(itemPiece(mainItem(state, message, parts, { id: key, ...at, marks: marksIn(main), streaming }, it.agentInput === true)));
     } else {
       const part = message.parts[slot]!;
       const id = chatItemIdOf(key, slot);
@@ -584,6 +585,7 @@ function mainItem(
   message: MessageEnvelope,
   parts: MessagePart[],
   base: { id: string; seq: number | undefined; time: string | undefined; scope: MessageScope; marks: TimelineMark[]; streaming: boolean },
+  agentInput: boolean,
 ): Draft {
   const { streaming, ...rest } = base;
   const text = textOf(parts);
@@ -603,9 +605,9 @@ function mainItem(
     };
   }
   if (message.speaker === "system") {
-    // 写给 agent 的来信（115 号票）：要点那一行写"种类：总结"
-    const letter = agentLetterOf(message);
-    const keyLine = letter ? t("state.chatItems.labeled", { label: letter.label, text: letter.summary }) : t("state.chatItems.system", { text: firstLine(currentWording(text)) || attachmentsLine(parts) });
+    // 写给 agent 的来信（115 号票）：要点那一行写"种类：总结"；367 号票折起来的长通知只改对话层，要点那一行照旧
+    const letter = agentLetterOf(message, agentInput);
+    const keyLine = letter && letter.kind !== "notice" ? t("state.chatItems.labeled", { label: letter.label, text: letter.summary }) : t("state.chatItems.system", { text: firstLine(currentWording(text)) || attachmentsLine(parts) });
     return { kind: "system", ...rest, content: "context", keyLine, detail: "text", text, parts, letter, ...(message.taskBrief ? { taskBrief: true as const } : {}) };
   }
   const voice = parts.find((p): p is VoiceLikePart => p.type === "voice" || p.type === "tts_audio");

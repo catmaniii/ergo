@@ -95,9 +95,12 @@ export function LetterLine({ letter, time, onOpen }: { letter: AgentLetter; time
       <span className="letter-icon" aria-hidden="true">
         {letter.icon}
       </span>
-      <span className="letter-kind">
-        <NamedText text={letter.label} />
-      </span>
+      {/* 367 号票：折起来的长通知只写总结（"系统说明"几个字说明不了什么，手机上留给总结），种类在详情里写 */}
+      {letter.kind !== "notice" && (
+        <span className="letter-kind">
+          <NamedText text={letter.label} />
+        </span>
+      )}
       <span className="letter-sum">
         <NamedText text={letter.summary} />
       </span>

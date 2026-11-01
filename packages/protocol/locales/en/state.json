@@ -2,6 +2,7 @@
   "state.agentLetters.taskDone": "Task done",
   "state.agentLetters.maintainerLetter": "From the maintainer",
   "state.agentLetters.planCheck": "Plan check",
+  "state.agentLetters.stageSummary": "Continue with stage {code}: {title}",
   "state.agentSettings.mode.append.label": "Add to the shared template",
   "state.agentSettings.mode.append.hint": "A section of this agent's own, added after the shared template. If the shared template changes later, this agent follows it, with your section still added at the end.",
   "state.agentSettings.mode.replace.label": "Write the whole prompt",

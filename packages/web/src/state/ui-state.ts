@@ -333,6 +333,8 @@ type ConversationEntry =
       readonly scope: MessageScope;
       /** 排队交出的那一批（144 号票，消息事件里的 queueDelivery）：150 号票起同一批里第一条之后的不是回退点 */
       readonly delivery?: string;
+      /** 运行时交给 agent 的通知（消息事件里的 agentInput）：长的在会话里折成一行（367 号票） */
+      readonly agentInput?: true;
     }
   | { readonly seq: number; readonly deleted: DeletedEventPayload };
 
@@ -600,7 +602,7 @@ const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiSta
     const { message, idempotencyKey } = payload;
     const next = updateConversation(state, frame.channel, (conv) => ({
       ...conv,
-      messages: [...conv.messages, { seq: frame.seq, message, idempotencyKey, scope: pickMessageScope(payload), ...(payload.queueDelivery === undefined ? {} : { delivery: payload.queueDelivery }) }],
+      messages: [...conv.messages, { seq: frame.seq, message, idempotencyKey, scope: pickMessageScope(payload), ...(payload.queueDelivery === undefined ? {} : { delivery: payload.queueDelivery }), ...(payload.agentInput === true ? { agentInput: true as const } : {}) }],
       tail: idempotencyKey === undefined ? conv.tail : conv.tail.filter((p) => p.idempotencyKey !== idempotencyKey),
     }));
     // 正在生成的那条定稿了：换成这条权威消息
@@ -1150,6 +1152,7 @@ function mergeHistoryPage(state: UiState, conversation: ConversationId, page: Hi
           ...(m.idempotencyKey === undefined ? {} : { idempotencyKey: m.idempotencyKey }),
           scope: pickMessageScope(m),
           ...(m.queueDelivery === undefined ? {} : { delivery: m.queueDelivery }),
+          ...(m.agentInput === true ? { agentInput: true as const } : {}),
         };
       });
     const messages = [...older, ...conv.messages].toSorted((a, b) => a.seq - b.seq);
@@ -1297,7 +1300,7 @@ export function pathMessages(state: UiState, conversation: ConversationId): read
  * 记录的时间：时间线记录自带；操作记录取对应卡片处理的时间（还没收到卡片时没有）
  */
 export type TimelineItem =
-  | (ConversationItem & { readonly seq?: number; readonly scope?: MessageScope })
+  | (ConversationItem & { readonly seq?: number; readonly scope?: MessageScope; readonly agentInput?: true })
   | { kind: "record"; key: string; seq: number; time: string | undefined; record: ConversationRecord; idempotencyKey?: undefined };
 
 /**
@@ -1326,7 +1329,7 @@ export function timelineItems(state: UiState, conversation: ConversationId, bran
       if (!parts.some((p) => p.type !== "reasoning")) return [];
       return [{ ...item, message: { ...item.message, parts }, seq: m.seq, ...("scope" in m ? { scope: m.scope } : {}) }];
     }
-    return [{ ...item, seq: m.seq, ...("scope" in m ? { scope: m.scope } : {}) }];
+    return [{ ...item, seq: m.seq, ...("scope" in m ? { scope: m.scope } : {}), ...("agentInput" in m ? { agentInput: m.agentInput } : {}) }];
   });
   const records = conv.records.filter(({ seq }) => shown(seq)).map(
     ({ seq, record }): TimelineItem => ({

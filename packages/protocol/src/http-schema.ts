@@ -125,6 +125,8 @@ export const HistoryMessage = Type.Union([
     ...MessageScope.properties,
     /** 排队交出的那一批（144 号票，消息事件里的 queueDelivery）：同一批里第一条之后的不是回退点（150 号票，它们和第一条一起交给 agent） */
     queueDelivery: Type.Optional(Type.String()),
+    /** 运行时交给 agent 的通知（消息事件里的 agentInput）：长的在会话里折成一行（367 号票） */
+    agentInput: Type.Optional(Type.Boolean()),
   }),
   Type.Object({ seq: Type.Integer({ minimum: 1 }), deleted: DeletedEventPayload }),
 ]);

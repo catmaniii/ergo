@@ -167,6 +167,8 @@ Everything that needs your decision lands here: approvals, plan confirmations, r
 
 Task, project and secretary conversations can be pinched (on a PC: hold Ctrl and scroll, or use the title-bar button): **conversation** shows everything, **key points** one line per item, **overview** the whole job as one colored bar. When zoomed out, markers for approvals, pull-backs, acceptance and watch-category hits stay pinned in the margin, with lines pointing to where things happened.
 
+Long notes the runtime writes to an owner or the secretary (like the long brief at the start of each stage) fold into one line in the conversation that says which step it is, for example "Continue with stage 3: First wave"; tap "Details ›" for the full text. Short notes, what you say and their replies show as usual.
+
 ### 4.6 Tool-call details and spending
 
 - Open any tool call in a conversation: what it did, which watch category it hit, how it was handled, whether it was within the authorization, and what it actually changed, in plain words.

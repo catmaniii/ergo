@@ -696,7 +696,7 @@ export type { FilePartValue, HttpErrorCode, MediaTextView, TextPreviewMime } fro
 export { framePreviewOf, HTML_PREVIEW_SANDBOX, MEDIA_FRAME_MAX_BYTES } from "@ergo/protocol";
 export type { FramePreview } from "@ergo/protocol";
 // agent 之间的来信（115 号票）：哪些消息在会话里折成一行、一句话总结从哪来（守护进程写通知时用同一份标记）
-export { firstSentence, LETTER_SUMMARY_MAX, LETTER_TAGS, letterKindOf, letterSummaryOf } from "@ergo/protocol";
+export { firstSentence, LETTER_SUMMARY_MAX, LETTER_TAGS, letterKindOf, letterSummaryOf, NOTICE_FOLD, stageBriefOf } from "@ergo/protocol";
 export type { AgentLetterKind } from "@ergo/protocol";
 // 长程任务的阶段详情从守护进程现取的（84 号票）；274 号票起有系统查到的结果（StageObserved）、看板卡上那一行用的个数（StageObservedCounts）
 export type { StageClaimResult, StageEffect, StageEffectReach, StageFileChange, StageObserved, StageObservedCounts, StageSendKind, TaskStageView } from "@ergo/protocol";

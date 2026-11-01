@@ -2,6 +2,7 @@
   "state.agentLetters.taskDone": "任务做完",
   "state.agentLetters.maintainerLetter": "维护者来信",
   "state.agentLetters.planCheck": "计划检查",
+  "state.agentLetters.stageSummary": "接着做第 {code} 阶段：{title}",
   "state.agentSettings.mode.append.label": "在通用模板后面追加",
   "state.agentSettings.mode.append.hint": "接在通用模板后面的一段这个 agent 自己的话。通用模板以后改了，它跟着变，追加的照旧接在后面",
   "state.agentSettings.mode.replace.label": "整份自己写",

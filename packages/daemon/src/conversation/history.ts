@@ -168,6 +168,8 @@ function historyMessageOf(event: StoredEvent): HistoryMessage {
     ...pickMessageScope(payload),
     // 排队交出的那一批（150 号票：第一条之后的不是回退点）
     ...(payload.queueDelivery === undefined ? {} : { queueDelivery: payload.queueDelivery }),
+    // 交给 agent 的通知（367 号票：长的在会话里折成一行）
+    ...(payload.agentInput === true ? { agentInput: true } : {}),
   };
 }
 

@@ -15,6 +15,7 @@ import {
   type PlanToolkit,
   planChangeItemText,
   refusedUserWordsText,
+  stageBriefLine,
   type StageEffect,
   TASK_STATE_LABEL,
   t,
@@ -63,7 +64,8 @@ export function stageText(h: StageHandoff): string {
   return forModel(() => {
     if (h.stageId === WORKFLOW_STAGE_ID) return `接着按计划的步骤做（计划和进度见重注入块）。${REPORT_STEP_RULE}`;
     return [
-      `现在是第 ${h.code}/${h.layers} 阶段 ${h.stageId}「${h.title}」：`,
+      // 367 号票：这一行网页认（折成一行时写"接着做第 N 阶段：标题"），写法在协议包
+      stageBriefLine(h),
       ...stageBrief(h.plan, h.stageId),
       ...(h.notes ?? []),
       // 84 号票（认领时的交代）：之前交过的，带上次数和最近一次没通过的标准

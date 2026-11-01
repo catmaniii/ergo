@@ -1,6 +1,7 @@
 // agent 之间的来信（115 号票）：哪些消息算来信、一句话总结从哪来（存着的 summary，旧消息退回第一句）。
+// 367 号票：交给 agent 的长通知没有标记也折，阶段说明那一行认得出是哪一步。
 import { describe, expect, test } from "vitest";
-import { firstSentence, LETTER_SUMMARY_MAX, LETTER_TAGS, letterKindOf, letterSummaryOf, type MessageEnvelope } from "../src/index.ts";
+import { firstSentence, LETTER_SUMMARY_MAX, LETTER_TAGS, letterKindOf, letterSummaryOf, type MessageEnvelope, NOTICE_FOLD, stageBriefLine, stageBriefOf } from "../src/index.ts";
 
 const message = (speaker: MessageEnvelope["speaker"], text: string, extra: Partial<MessageEnvelope> = {}): MessageEnvelope => ({
   id: "m-1",
@@ -74,5 +75,51 @@ describe("一句话总结", () => {
     expect(letterSummaryOf(message("user", "以后日报加两块：\n1. GitHub 热门\n2. 论文", { relayedBy: "secretary" }))).toBe("以后日报加两块");
     // 只有引子的：引子就是总结
     expect(letterSummaryOf(message("system", `${LETTER_TAGS.task_done}后台有一件事做完了：`))).toBe("后台有一件事做完了");
+  });
+});
+
+const chars = (n: number) => "字".repeat(n);
+
+describe("没有标记的长通知（367 号票）", () => {
+  test("交给 agent 的，超过字数或行数才折；只看文字长度", () => {
+    expect(letterKindOf(message("system", chars(NOTICE_FOLD.chars)), true)).toBeUndefined();
+    expect(letterKindOf(message("system", chars(NOTICE_FOLD.chars + 1)), true)).toBe("notice");
+    expect(letterKindOf(message("system", ["一", "二"].join("\n")), true)).toBeUndefined();
+    expect(letterKindOf(message("system", ["一", "二", "三"].join("\n")), true)).toBe("notice");
+    // 前后的空白、结尾的换行不算行
+    expect(letterKindOf(message("system", "一\n二\n\n"), true)).toBeUndefined();
+  });
+
+  test("没交给 agent 的说明、用户的话、agent 的回复再长也不折", () => {
+    expect(letterKindOf(message("system", chars(500)))).toBeUndefined();
+    expect(letterKindOf(message("user", chars(500)), true)).toBeUndefined();
+    expect(letterKindOf(message("agent", chars(500)), true)).toBeUndefined();
+  });
+
+  test("带标记的还是原来那种（不管长短）；带附件的、开头不是文字的不折", () => {
+    expect(letterKindOf(message("system", `${LETTER_TAGS.plan_check}${chars(500)}`), true)).toBe("plan_check");
+    const withFile: MessageEnvelope = { ...message("system", chars(500)), parts: [{ type: "text", text: chars(500) }, { type: "card_ref", cardId: "c-1" }] };
+    expect(letterKindOf(withFile, true)).toBeUndefined();
+    expect(letterKindOf({ ...message("system", ""), parts: [{ type: "card_ref", cardId: "c-1" }] }, true)).toBeUndefined();
+  });
+
+  test("总结走来信的老路：存着的，或者第一句", () => {
+    expect(letterSummaryOf(message("system", `项目服务挂了。\n${chars(200)}`))).toBe("项目服务挂了");
+    expect(letterSummaryOf(message("system", chars(200), { summary: "存着的总结" }))).toBe("存着的总结");
+  });
+});
+
+describe("阶段说明那一行（367 号票）", () => {
+  test("守护进程照 stageBriefLine 写，从整段通知里认得出第几阶段和标题", () => {
+    const line = stageBriefLine({ code: "3", layers: 5, stageId: "s3", title: "第一波实现" });
+    expect(line).toBe("现在是第 3/5 阶段 s3「第一波实现」：");
+    expect(stageBriefOf(`用户让阶段 s3「第一波实现」接着做（之前停下是因为：超预算）。\n${line}\n- 交付件：a.py`)).toEqual({ code: "3", title: "第一波实现" });
+    expect(stageBriefOf(stageBriefLine({ code: "1a", layers: 4, stageId: "s-1", title: "标题里有「引号」的" }))).toEqual({ code: "1a", title: "标题里有「引号」的" });
+  });
+
+  test("认不出的不猜", () => {
+    expect(stageBriefOf("计划已确认，开始执行任务 t-1「整理」。")).toBeUndefined();
+    expect(stageBriefOf("说起来现在是第 3/5 阶段 s3「第一波实现」：")).toBeUndefined();
+    expect(stageBriefOf("")).toBeUndefined();
   });
 });

@@ -60,11 +60,12 @@ function openWays(items: readonly ChatItem[]): Record<string, string> {
 describe("回放：任务的维护者会话", () => {
   test("timeline-zoom：每组一行小字，顺利的标做完告诉你、授权内；问过你的那一组醒目（跟你有关），被拦下的那一组醒目（被拦下）", () => {
     const items = chatItems(replay(load("timeline-zoom")), "maintainer:tm-1");
+    // 任务书、开始执行时的阶段说明是交给维护者的长通知，折成一行（367 号票）；短的说明照旧
     expect(looks(items).map(brief)).toEqual([
-      "note",
+      "letter",
       "card",
       "reply",
-      "note",
+      "letter",
       "调用了 4 个工具 · 1 次做完告诉你 · 1 次授权内",
       "card",
       "调用了 1 个工具 · 1 次问过你 !you",
@@ -132,7 +133,7 @@ describe("回放：秘书会话", () => {
 describe("回放：项目的维护者会话（work-orders-queue）", () => {
   test("工单分隔线没有详情；组一行；卡片“详情 ›”；说明整条可点", () => {
     const items = chatItems(replay(load("work-orders-queue")), "maintainer:pm-1");
-    expect(openWays(items)).toEqual({ divider: "-", note: "whole", card: "link", "reply（只有一段）": "-", tool_line: "row" });
+    expect(openWays(items)).toEqual({ divider: "-", note: "whole", letter: "row", card: "link", "reply（只有一段）": "-", tool_line: "row" });
   });
 });
 
@@ -147,6 +148,7 @@ describe("有详情的条目怎么打开（整条可点的用户气泡和说明�
     ];
     expect(openWays(all)).toEqual({
       note: "whole",
+      letter: "row",
       card: "link",
       "reply（只有一段）": "-",
       "reply（有后文）": "link",

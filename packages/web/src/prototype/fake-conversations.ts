@@ -134,6 +134,13 @@ function scoped(scope: MessageScope, m: MessageEnvelope): MessageEnvelope {
   return m;
 }
 
+/** 运行时交给 agent 的通知（消息事件上的 agentInput，367 号票：长的在会话里折成一行） */
+const AGENT_INPUTS = new Set<string>();
+function agentInput(m: MessageEnvelope): MessageEnvelope {
+  AGENT_INPUTS.add(m.id);
+  return m;
+}
+
 // ---------- 卡片 ----------
 
 function card(id: string, type: CardType, payload: unknown, o: Partial<Card> = {}): Card {
@@ -2052,6 +2059,32 @@ const LEDGER_EARLIER: MessageEnvelope[] = [
 
 /** 10-06 晚上最后一组：发月报、清理处理过的原始账单（几次调用都有标注，缩小后右侧标注挤在最后） */
 const LEDGER_LATEST: MessageEnvelope[] = [
+  // 运行时交给负责人的阶段说明（367 号票，用户截图里那种一大段）：对话层折成一行，点开看全文
+  agentInput(
+    msg(
+      L,
+      "system",
+      at("10-06", "21:40"),
+      text(
+        [
+          "用户让阶段 s3「第一波实现」接着做（之前停下是因为：用量超过预算）。看看用户在会话里说了什么，换个做法接着做；计数已经清零。",
+          "现在是第 3/5 阶段 s3「第一波实现」：",
+          "- 交付件：导入脚本 import.py；单元测试 tests/test_import.py",
+          "- 验收标准：三家银行的账单都能导入（脚本：pytest tests/test_import.py）；重复的流水不入账（评审）",
+          "- 模式：开放",
+          "授权（只在当前阶段内有效）：",
+          "- 读账单目录：path 是 inbox/；不限次数；7 天内有效",
+          "时序规则：",
+          "- 先备份再改账目：写 ledger.db 之前先有当天的备份",
+          "边界：",
+          "- 工作目录 projects/ledger：文件工具只能写这里；工具包：bash 开，联网关",
+          "- 授权项只在所属阶段内有效，用到别的阶段的授权会被拉回；前置阶段没验收的阶段不能开始",
+          "- 一个阶段做完调用 complete_stage 宣布完成，由运行时验收（脚本、评审、用户），你自检不算验收",
+          "做完调用 complete_stage 宣布阶段完成，由运行时验收。",
+        ].join("\n"),
+      ),
+    ),
+  ),
   msg(L, "user", at("10-06", "21:45"), text("把 9 月的月报出一份发到我邮箱，9 月处理过的原始账单清掉")),
   msg(
     L,
@@ -2275,7 +2308,7 @@ export const FAKE_HISTORY: { channel: string; type: string; payload: unknown }[]
   ...FAKE_CARDS.map((c) => ({ channel: CHANNELS.cards, type: EVENT_TYPES.card, payload: { card: c } })),
   ...[...SECRETARY, ...SECRETARY_PLAIN, ...SECRETARY_VOICE, ...SECRETARY_VOICE_RETRY, ...SECRETARY_RELAY, ...SECRETARY_ATTACHMENTS, ...SECRETARY_ATTACHMENT_FIRST, ...PHOTOS, ...BILLS, ...LEDGER_EARLIER, ...LEDGER, ...LEDGER_LATEST, ...BLOG, ...APPLIANCE, ...PLAIN, ...BRIEF_MESSAGES, ...BRIEF_RELAY, ...INBOX_MESSAGES, ...TAX, ...CURATOR_MESSAGES, ...TAX_QUESTION, ...TAKEOVER, ...REMOTE].flatMap((m) => [
     ...(RECORDS_BEFORE.get(m.id) ?? []).map((payload) => ({ channel: m.conversation, type: EVENT_TYPES.timelineRecord, payload })),
-    { channel: m.conversation, type: EVENT_TYPES.message, payload: { message: m, ...SCOPES.get(m.id) } },
+    { channel: m.conversation, type: EVENT_TYPES.message, payload: { message: m, ...SCOPES.get(m.id), ...(AGENT_INPUTS.has(m.id) ? { agentInput: true } : {}) } },
   ]),
   { channel: CHANNELS.board, type: EVENT_TYPES.task, payload: { task: FAKE_PLAIN_TASK, change: "completed", from: "running", by: "system" } satisfies TaskEventPayload },
   { channel: CHANNELS.board, type: EVENT_TYPES.task, payload: { task: FAKE_TAKEOVER_TASK, change: "completed", from: "running", by: "system" } satisfies TaskEventPayload },

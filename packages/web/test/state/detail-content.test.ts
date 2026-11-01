@@ -56,10 +56,13 @@ describe("文本详情的其余几种", () => {
     const state = replay(load("timeline-zoom"));
     const items = chatItems(state, "maintainer:tm-1");
     const reply = open(state, items, items.at(-1)!.id);
-    const system = open(state, items, items[0]!.id);
-    expect([reply.kind === "text" && [reply.label, reply.task], system.kind === "text" && [system.label, system.markdown, system.task]]).toEqual([
+    // 短的说明照原话；任务书是交给维护者的长通知，折成一行，详情里全文照 Markdown 画（367 号票）
+    const system = open(state, items, items.find((it) => it.kind === "system" && it.letter === undefined)!.id);
+    const brief = open(state, items, items[0]!.id);
+    expect([reply.kind === "text" && [reply.label, reply.task], system.kind === "text" && [system.label, system.markdown, system.task], brief.kind === "text" && [brief.label, brief.markdown, brief.letter]]).toEqual([
       ["模型回复", "整理笔记和报告"],
       ["系统说明", false, "整理笔记和报告"],
+      ["系统说明", true, "notice"],
     ]);
   });
 
