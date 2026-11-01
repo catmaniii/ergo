@@ -2,7 +2,7 @@
 // 也是集中在设置里面。之前姓名设置是一个全局的单独设置，现在和语音绑在一起合理"）：
 // - 名字影响：界面上的称呼、这个 agent 自己的系统提示、语音播报的开头；
 // - 音色影响：这个 agent 说出来的所有话（语音回复、发语音、跑完自动播报、让它念网页 / 念报告），不再分场景；
-// - 范围：秘书（secretary）、每个项目维护者（pm-<n>）、每个任务维护者（tm-<n>），以及以后按 agent id 自动能配的"记忆管理员"——
+// - 范围：秘书（secretary）、每个项目负责人（pm-<n>）、每个任务负责人（tm-<n>），以及以后按 agent id 自动能配的"记忆管理员"——
 //   这里不认名单，认的是"谁是哪个 agent"（agent-settings.ts 的 AGENT_SETTINGS_KINDS），一上线就能配。
 //
 // 全局的名字（43 号票）和全局选中的音色（31 号票）仍然只有一份，是**默认**：每个 agent 配的是覆盖，没配就跟默认，行为一个字节不变。
@@ -38,11 +38,11 @@ export const AGENT_PROFILE_VOICE_SOURCE_LABEL: Readonly<Record<AgentProfileVoice
   none: "protocol.agentProfiles.voiceSource.none",
 });
 
-/** 维护者（任务、项目的）跟默认时的名字：角色称呼 */
+/** 负责人（任务、项目的）跟默认时的名字：角色称呼 */
 export const agentMaintainerName = () => t("protocol.agentProfiles.maintainerName");
 
 /**
- * 跟默认时的名字：秘书的是全局的名字（assistantName 给），维护者是角色称呼。
+ * 跟默认时的名字：秘书的是全局的名字（assistantName 给），负责人是角色称呼。
  * 界面上的"跟默认：<...>"、恢复跟默认之后的样子都按它
  */
 export function defaultAgentName(kind: AgentSettingsKind, assistantName: string): string {

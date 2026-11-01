@@ -35,12 +35,12 @@ function grouped(state: UiState, keep: (record: ScopeRecord) => boolean): ScopeR
   return groups;
 }
 
-/** 某个项目的范围记录（项目维护者的：对话段里的、各张工单里的） */
+/** 某个项目的范围记录（项目负责人的：对话段里的、各张工单里的） */
 export function projectScopeRecords(state: UiState, projectId: string): ScopeRecordGroups {
   return grouped(state, (r) => r.projectId === projectId);
 }
 
-/** 某个任务的范围记录：不属于项目的任务是它自己的维护者的；项目的任务是项目维护者做它的工单时的 */
+/** 某个任务的范围记录：不属于项目的任务是它自己的负责人的；项目的任务是项目负责人做它的工单时的 */
 export function taskScopeRecords(state: UiState, taskId: string): ScopeRecordGroups {
   return grouped(state, (r) => r.taskId === taskId);
 }

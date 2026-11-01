@@ -1,15 +1,15 @@
 // 工单的等澄清（规格第 12、21 节，16 号票）：一次往返都在这里——
-// - 维护者做工单时遇到要问派单方的（ask_clarification）：提问卡（记着是谁为哪张工单问的）进待我处理，工单转等澄清，
+// - 负责人做工单时遇到要问派单方的（ask_clarification）：提问卡（记着是谁为哪张工单问的）进待我处理，工单转等澄清，
 //   执行中的这一支停下（都在等时任务转等我，原因"澄清"）。用户发起的单项目任务就问用户；
-// - 用户回答：提问卡（tasks/cards.ts）把回答交给这里（replyEvents），作为一条通知交回提问的维护者（不交给秘书），
+// - 用户回答：提问卡（tasks/cards.ts）把回答交给这里（replyEvents），作为一条通知交回提问的负责人（不交给秘书），
 //   和卡片的处理同一事务；之后工单回到进行中，这一支接着走（名额满了回到排队中）；
-// - 用户关掉提问卡：算"按你自己的理解接着做"，工单同样回到进行中，通知维护者，时间线上记一笔。
-// 等澄清的工单仍占着维护者（一段会话只属于一张工单）。卡片处理了、工单还在等澄清（守护进程在两步之间被杀）的，启动时补上。
-// 17 号票：涉及多个项目的任务的维护者派来的工单，派单方是任务维护者——
-// - 项目维护者提问：工单转等澄清，问题作为一条消息进任务维护者的会话，不直接出给用户（不出提问卡、不停这一支）；
-// - 任务维护者答得了就直接答（answer_work_order）：回答交回项目维护者，工单回到进行中；
-// - 答不了就转问用户（forward_to_user，指明工单）：提问卡进待我处理，这一支（工单所属的阶段）停下；用户回答后回答交给任务维护者
-//   （工单仍在等澄清），由它经 answer_work_order 交回项目维护者；用户关掉提问卡，任务维护者按自己的理解回答。
+// - 用户关掉提问卡：算"按你自己的理解接着做"，工单同样回到进行中，通知负责人，时间线上记一笔。
+// 等澄清的工单仍占着负责人（一段会话只属于一张工单）。卡片处理了、工单还在等澄清（守护进程在两步之间被杀）的，启动时补上。
+// 17 号票：涉及多个项目的任务的负责人派来的工单，派单方是任务负责人——
+// - 项目负责人提问：工单转等澄清，问题作为一条消息进任务负责人的会话，不直接出给用户（不出提问卡、不停这一支）；
+// - 任务负责人答得了就直接答（answer_work_order）：回答交回项目负责人，工单回到进行中；
+// - 答不了就转问用户（forward_to_user，指明工单）：提问卡进待我处理，这一支（工单所属的阶段）停下；用户回答后回答交给任务负责人
+//   （工单仍在等澄清），由它经 answer_work_order 交回项目负责人；用户关掉提问卡，任务负责人按自己的理解回答。
 // 说法在 multi-project-texts.ts（17 号票的）和 texts.ts（16 号票的）。
 import {
   type CardDismissedEventPayload,
@@ -61,7 +61,7 @@ export interface ClarificationsOptions {
   projects: ProjectService;
   tasks: TaskService;
   segments: Segments;
-  /** 执行中的项目维护者在等回答：它所在的这一支停下；回答来了接着走 */
+  /** 执行中的项目负责人在等回答：它所在的这一支停下；回答来了接着走 */
   execution: Pick<TaskExecution, "awaitAnswer" | "answered">;
   now: () => string;
 }
@@ -71,15 +71,15 @@ export interface Clarifications {
   start(): void;
   stop(): void;
   /**
-   * 维护者向派单方提问（ask_clarification）：工单转等澄清。用户发起的单项目任务，提问卡进待我处理（to: user）；
-   * 任务维护者派来的工单，问题交给任务维护者（to: task_maintainer，没有卡）
+   * 负责人向派单方提问（ask_clarification）：工单转等澄清。用户发起的单项目任务，提问卡进待我处理（to: user）；
+   * 任务负责人派来的工单，问题交给任务负责人（to: task_maintainer，没有卡）
    */
   ask(maintainerId: string, input: { intro?: string; questions: QuestionDraft[] }): { cardId?: string; workOrderId: string; to: "user" | "task_maintainer" };
-  /** 任务维护者回答项目维护者在工单里问的（answer_work_order，17 号票）：交回项目维护者，工单回到进行中 */
+  /** 任务负责人回答项目负责人在工单里问的（answer_work_order，17 号票）：交回项目负责人，工单回到进行中 */
   answerFromTask(scope: MaintainerScope, workOrderId: string, answer: string): TaskMaintainerWorkOrder;
-  /** 任务维护者答不了、转问用户（forward_to_user，17 号票）：提问卡进待我处理，工单所属阶段这一支停下 */
+  /** 任务负责人答不了、转问用户（forward_to_user，17 号票）：提问卡进待我处理，工单所属阶段这一支停下 */
   forward(scope: MaintainerScope, input: { workOrderId: string; intro?: string; questions: QuestionDraft[] }): { cardId: string; workOrderId: string };
-  /** 提问卡上用户回答了项目维护者为工单问的：交回它的通知（和卡片的处理同一事务追加） */
+  /** 提问卡上用户回答了项目负责人为工单问的：交回它的通知（和卡片的处理同一事务追加） */
   replyEvents(payload: QuestionsCardPayload, answer: { lines: readonly string[]; allRecommended: boolean }, key: string): NewEvent[];
 }
 
@@ -89,7 +89,7 @@ export function createClarifications(options: ClarificationsOptions): Clarificat
   let unsubscribe: (() => void) | undefined;
   const refOf = (wo: TaskMaintainerWorkOrder): OrderRef => ({ wo, projectName: projects.get(wo.projectId)?.name ?? wo.projectId });
 
-  /** 任务维护者派来、在等澄清的工单（这个任务的）；不是的抛出原因 */
+  /** 任务负责人派来、在等澄清的工单（这个任务的）；不是的抛出原因 */
   const clarifyingOf = (scope: MaintainerScope, workOrderId: string): TaskMaintainerWorkOrder => {
     const wo = getWorkOrder(store.reader, workOrderId);
     if (!wo || wo.source !== "task_maintainer" || wo.taskId !== scope.taskId) throw new RequestRejected("not_found", refusal.notYours(workOrderId));
@@ -110,8 +110,8 @@ export function createClarifications(options: ClarificationsOptions): Clarificat
     const wo = clarifyingOn(cardId);
     if (!wo) return;
     if (wo.source === "task_maintainer") {
-      // 任务维护者转问用户的（17 号票）：回答交给了任务维护者（提问卡给的通知），工单仍在等澄清，等它交回项目维护者；
-      // 关掉提问卡就让任务维护者按自己的理解回答
+      // 任务负责人转问用户的（17 号票）：回答交给了任务负责人（提问卡给的通知），工单仍在等澄清，等它交回项目负责人；
+      // 关掉提问卡就让任务负责人按自己的理解回答
       const { questionsCardId: _card, ...rest } = wo;
       const events: NewEvent[] = [workOrderEvent({ ...rest, updatedAt: now() }, "updated", wo.state, "user")];
       const task = tasks.get(wo.taskId);
@@ -129,7 +129,7 @@ export function createClarifications(options: ClarificationsOptions): Clarificat
     const { questionsCardId: _card, ...rest } = wo;
     const events: NewEvent[] = [workOrderEvent({ ...rest, state: "in_progress", updatedAt: now() }, "answered", wo.state, "user")];
     if (dismissed) {
-      // 关掉提问卡算"按你自己的理解接着做"：告诉维护者，时间线上记一笔
+      // 关掉提问卡算"按你自己的理解接着做"：告诉负责人，时间线上记一笔
       const scope = segments.scopeIn(wo);
       events.push(
         buildAgentNotice(maintainerChannel(wo.maintainerId), DISMISSED_TEXT, `questions-dismissed:${cardId}`, scope).event,
@@ -164,14 +164,14 @@ export function createClarifications(options: ClarificationsOptions): Clarificat
       if (!segment || !wo || segment.state !== "open") throw new RequestRejected("not_allowed", ASK_ONLY_IN_WORK_ORDER);
       // 定时作业的一次运行（19 号票）没人等着回答：自己拿主意，做不了就报失败
       if (isJobRunWorkOrder(wo)) throw new RequestRejected("not_allowed", ASK_NOT_IN_JOB_RUN);
-      // @i18n-ignore-start model：提问工具交回维护者的原因
+      // @i18n-ignore-start model：提问工具交回负责人的原因
       if (wo.state !== "in_progress") throw new RequestRejected("not_allowed", `工单 ${wo.id} 现在${wo.state === "clarifying" ? "已经在等回答了" : "不在进行中"}`);
       const project = projects.maintainedBy(maintainerId);
-      if (!project) throw new RequestRejected("not_found", "找不到这个维护者的项目");
+      if (!project) throw new RequestRejected("not_found", "找不到这个负责人的项目");
       // @i18n-ignore-end
       const task = tasks.get(wo.taskId);
       if (wo.source === "task_maintainer" && task) {
-        // 任务维护者派来的工单（17 号票）：问题交给派单的任务维护者，不直接出给用户
+        // 任务负责人派来的工单（17 号票）：问题交给派单的任务负责人，不直接出给用户
         const question = questionLines(input.intro, input.questions);
         const next: TaskMaintainerWorkOrder = { ...wo, state: "clarifying", question, updatedAt: now() };
         store.appendBatch([
@@ -204,7 +204,7 @@ export function createClarifications(options: ClarificationsOptions): Clarificat
         workOrderEvent(next, "answered", wo.state, "maintainer"),
         buildAgentNotice(maintainerChannel(wo.maintainerId), answerText(wo, text), `work-order-answer:${wo.id}:${next.updatedAt}`, segments.scopeIn(wo)).event,
       ];
-      // 转问用户的卡还没回答：任务维护者自己答了，那张卡不用再答
+      // 转问用户的卡还没回答：任务负责人自己答了，那张卡不用再答
       const card = questionsCardId === undefined ? undefined : cards.get(questionsCardId);
       const pending = card?.status === "pending";
       if (card && pending) events.push(cards.buildUpdate(card.id, { status: "expired" }).event);
@@ -238,7 +238,7 @@ export function createClarifications(options: ClarificationsOptions): Clarificat
       const wo = getWorkOrder(store.reader, askedBy.workOrderId);
       const task = payload.taskId === undefined ? undefined : tasks.get(payload.taskId);
       if (wo?.source === "task_maintainer" && task) {
-        // 任务维护者转问用户的（17 号票）：回答交给任务维护者，由它交回项目维护者
+        // 任务负责人转问用户的（17 号票）：回答交给任务负责人，由它交回项目负责人
         const text = forwardedAnswerText(refOf(wo), answer.lines, answer.allRecommended);
         return [buildAgentNotice(maintainerChannel(askedBy.maintainerId), text, `${key}#notice`, taskMessageScope(task, wo.stageId)).event];
       }

@@ -1,13 +1,13 @@
-// 任务页：任务看板 + 任务详情（维护者会话、阶段抽屉、工单列表、计划卡、工具包）。
+// 任务页：任务看板 + 任务详情（负责人会话、阶段抽屉、工单列表、计划卡、工具包）。
 // 看板（12 号票）：任务、简单提醒和定时作业（19 号票）来自前端状态层（state/board.ts 按规格的五组排好），没有守护进程时
 // 再补上原型的假条目。作业卡上可以暂停、恢复（取消在作业卡的"更多"里）。
-// 真任务的详情（13 号票）：维护者会话（和秘书聊天共用会话组件，输入框直接给维护者下指令，它干活时作为插话）、
+// 真任务的详情（13 号票）：负责人会话（和秘书聊天共用会话组件，输入框直接给负责人下指令，它干活时作为插话）、
 // 阶段抽屉（各阶段状态、验收方式和结果，state/task-detail.ts）、计划卡和控制（暂停、继续、取消、重试、返工、由我验收）。
 // token 用量（24 号票）：任务卡、作业卡上的总量，任务详情"消耗"一栏里按 agent 的细分（state/usage.ts，来自看板频道上的合计）。
 // 工单（17 号票）：任务详情"工单"一栏列出这个任务的全部工单（发给哪个项目、现在怎样、所属阶段），含建出了还没派出的
-// （state/work-orders.ts 的 taskWorkOrders）；回执和项目维护者的提问在任务维护者的会话里。
+// （state/work-orders.ts 的 taskWorkOrders）；回执和项目负责人的提问在任务负责人的会话里。
 // 普通任务（75 号票）：看板卡标"普通任务"；详情没有计划、阶段、工具包、工单那些栏，只有会话（54 号票的缩放会话）和工具调用详情；
-// 做完了输入框照样能用（接着说它就接着做），项目内部的发的话带上任务编号（项目的维护者的会话里同时有几件事）。
+// 做完了输入框照样能用（接着说它就接着做），项目内部的发的话带上任务编号（项目的负责人的会话里同时有几件事）。
 // 定时触发的任务（76 号票）：看板"运营中"一组的任务卡上写时间表、下一次、最近一次运行的结果，能暂停、恢复、取消（落到它的触发上）；
 // 详情按运行分段：会话里每次运行开始处一条分隔线（缩小后按运行分块），"运行"一栏列出每一次运行（怎么触发的、合并了几次、结果、原因、
 // 流程这次做完几步）。
@@ -216,7 +216,7 @@ function triggerSummary(view: ScheduledJobView): NonNullable<TaskSummary["trigge
 /** 一个真任务在看板卡片、任务详情状态行上要的东西 */
 interface TaskSummarySource {
   readonly task: Task;
-  /** 维护者的活动状态 */
+  /** 负责人的活动状态 */
   readonly activity: AgentActivity;
   /** 这个任务名下的 token 总量（账本） */
   readonly tokens: number;
@@ -232,8 +232,8 @@ interface TaskSummarySource {
 
 /**
  * 真任务在看板卡片上的样子："第 N/M 阶段"的 M 取自计划，N 在开始执行后才有（13 号票），之前写 0（任务详情的状态行用）；
- * token 总量来自账本（24 号票）；维护者的活动状态连同说明（干活中在做什么、等你批准什么，25 号票）；
- * 它的工单还排着（项目的维护者正忙）时标排队、"等项目 X"（16 号票：这时维护者的活动状态是别的工单的）；
+ * token 总量来自账本（24 号票）；负责人的活动状态连同说明（干活中在做什么、等你批准什么，25 号票）；
+ * 它的工单还排着（项目的负责人正忙）时标排队、"等项目 X"（16 号票：这时负责人的活动状态是别的工单的）；
  * 进度条（60 号票）流程是做完的步数、长程任务是已验收的阶段数
  */
 function taskSummary({ task, activity, tokens, cacheHit, waitingForProject, trigger, progress }: TaskSummarySource): TaskSummary {
@@ -679,7 +679,7 @@ function TaskCard({ task: ts, onOpen, choice }: { task: TaskSummary; onOpen(): v
   );
 }
 
-/** 卡上一行：维护者在哪个文件夹做（305 号票），路径长的从前面省略 */
+/** 卡上一行：负责人在哪个文件夹做（305 号票），路径长的从前面省略 */
 function WorkdirLine({ path }: { path: string }) {
   return (
     <div className="bcard-meta bcard-workdir" title={path}>
@@ -948,14 +948,14 @@ function useStageIncidents(
 }
 
 /**
- * 真任务的详情（13 号票）：维护者会话（直接下指令；它在干活时你的话作为插话，在它下一步之前插入）、阶段抽屉、计划卡。
+ * 真任务的详情（13 号票）：负责人会话（直接下指令；它在干活时你的话作为插话，在它下一步之前插入）、阶段抽屉、计划卡。
  * 90 号票：顶部并成一行（ui/task-head.tsx）——状态签点开是原因说明、用量和这个状态能做的按钮，宽屏标题栏上一个关键按钮，
  * "⋯"里是计划、工单、工具包、消耗、运行（在详情栏打开）和任务操作；会话占满
  */
 function RealTaskDetail({ task, activity, wide, at, onBack }: { task: Task; activity: AgentActivity; wide: boolean; at?: string | undefined; onBack?: () => void }) {
   const { ui, taskAction, scheduledJobAction, rescheduleJob, runJobNow, setVoiceAnnounce, watchChannels } = useStore();
   const conversation = maintainerChannel(task.maintainerId);
-  // 打开详情时订阅它的维护者会话（订阅过的一直保留）
+  // 打开详情时订阅它的负责人会话（订阅过的一直保留）
   useEffect(() => watchChannels([conversation]), [watchChannels, conversation]);
   // 这个任务开始以来的会话历史都取回来（60 号票）：进度、偏差、阶段详情、出过的状况按整段会话算，数字不随往上翻变；
   // 定时触发的流程只要这一次运行那一段
@@ -1080,7 +1080,7 @@ function RealTaskDetail({ task, activity, wide, at, onBack }: { task: Task; acti
           progress={workflow && progress && <PlanProgress progress={progress} onOpen={() => setLedger(true)} />}
           // 任务会话：对话层不显示 ▤，缩小后才出现（固定计划的会话一直显示）
           zoom={<ZoomToggle handle={conversationRef} onlyZoomedOut={!workflow} />}
-          // 负责它的维护者的 ⚙（114 号票）
+          // 负责它的负责人的 ⚙（114 号票）
           gear={<AgentSettingsButton agentId={task.maintainerId} wide={wide} />}
           // 定时触发的任务运营中时，状态跟着它的触发：运营中用运营中的颜色，暂停着的灰
           status={{ text: statusText(summary), tone: task.state === "operating" && summary.trigger ? (summary.trigger.active ? "st-ops" : "st-paused") : `st-${task.state}` }}
@@ -1299,7 +1299,7 @@ function TaskWorkOrders({ orders }: { orders: TaskWorkOrderView[] }) {
   );
 }
 
-/** 任务详情的"消耗"一栏：按 agent 细分（维护者、评审子 agent、并行子 agent 各一行，范围审视单独一行），合计就是任务卡上的总量 */
+/** 任务详情的"消耗"一栏：按 agent 细分（负责人、评审子 agent、并行子 agent 各一行，范围审视单独一行），合计就是任务卡上的总量 */
 function TaskUsage({ usage }: { usage: ReturnType<typeof taskUsage> }) {
   return (
     <div className="td-panel">
@@ -1343,9 +1343,9 @@ function TaskUsage({ usage }: { usage: ReturnType<typeof taskUsage> }) {
 }
 
 /**
- * 转为项目（15 号票）：未结束、由自己的维护者执行的任务（不是某个项目的任务）可以转为项目。项目名由用户定
+ * 转为项目（15 号票）：未结束、由自己的负责人执行的任务（不是某个项目的任务）可以转为项目。项目名由用户定
  * （预填任务标题，可以改；和已有的项目重名时守护进程拒绝，原因在底部提示）。项目以筹备中诞生，
- * 不新建维护者，原任务的维护者接着做立项问答；原任务以"已完成 · 已转为项目"结束
+ * 不新建负责人，原任务的负责人接着做立项问答；原任务以"已完成 · 已转为项目"结束
  */
 function ConvertToProject({ task }: { task: Task }) {
   const { convertTaskToProject } = useStore();

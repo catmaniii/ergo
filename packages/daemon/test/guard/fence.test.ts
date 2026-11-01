@@ -7,7 +7,7 @@ const write = (path: string) => call("write", { path, content: "x" });
 const edit = (path: string) => call("edit", { path, edits: [{ oldText: "a", newText: "b" }] });
 const read = (path: string) => call("read", { path });
 
-describe("维护者和子 agent 的文件工具", () => {
+describe("负责人和子 agent 的文件工具", () => {
   it("写项目档案和工作目录以外：一律拒绝，不问用户", () => {
     for (const agent of [maintainer(), subAgent()]) {
       for (const scene of [inChat, inTask]) {
@@ -73,7 +73,7 @@ describe("维护者和子 agent 的文件工具", () => {
     const nested = subAgent({ workingDirs: [`${P.records}\\work`], cwd: `${P.records}\\work` });
     expect(judgeToolCall(inTask(nested, bash("echo x > out.txt"))).hardRefusal).toBeNull();
     expect(judgeToolCall(inTask(nested, bash("echo x > ../spec.md"))).hardRefusal).toEqual(["sub_agent_records"]);
-    // 维护者写项目档案照常
+    // 负责人写项目档案照常
     expect(judgeToolCall(inTask(maintainer(), bash(`echo x >> '${P.records}\\progress.md'`))).hardRefusal).toBeNull();
   });
 });
@@ -161,10 +161,10 @@ describe("受保护区域：写入一律'永不'，密钥区连读都拒绝", ()
   ] as const;
   const agents: [string, GuardAgent][] = [
     ["秘书", secretary()],
-    ["维护者", maintainer()],
+    ["负责人", maintainer()],
     ["子 agent", subAgent()],
-    // 就算维护者的工作目录正好盖住了受保护区域
-    ["工作目录盖住数据目录的维护者", maintainer({ workingDirs: [P.dataDir, P.programDir] })],
+    // 就算负责人的工作目录正好盖住了受保护区域
+    ["工作目录盖住数据目录的负责人", maintainer({ workingDirs: [P.dataDir, P.programDir] })],
   ];
 
   for (const [area, target] of PROTECTED) {
@@ -203,7 +203,7 @@ describe("受保护区域：写入一律'永不'，密钥区连读都拒绝", ()
     }
   });
 
-  it("读配置区不算写：维护者读它落入'越出项目目录'", () => {
+  it("读配置区不算写：负责人读它落入'越出项目目录'", () => {
     const j = judgeToolCall(inChat(maintainer(), read(`${P.config}\\ergo.json`)));
     expect(j.disposition).toBe("ask_first");
     expect(j.categories).toEqual(["outside_project"]);

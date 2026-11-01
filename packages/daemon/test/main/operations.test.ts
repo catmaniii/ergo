@@ -1,11 +1,11 @@
-// 主切面：运营方案（130 号票，ADR-0028）。真的守护进程，项目的维护者和秘书接 faux 剧本（维护者经 agent 宿主装配、真的调用
+// 主切面：运营方案（130 号票，ADR-0028）。真的守护进程，项目的负责人和秘书接 faux 剧本（负责人经 agent 宿主装配、真的调用
 // propose_operations），调度器的时钟手动拨，测试扮演前端。
 // - 建设期间交：能力超出项目工具包的整份退回；交了的留着，建设任务做完时出现在"首版做完了"卡上（要用户手动的标出来，秘书列待办时
 //   看得到）；卡出了以后再交，卡跟着更新（旧版本上点按钮被拒）；
 // - "确认并转入使用"：项目进入使用中、每一条建成项目的内部任务（定时的进运营中、触发登记好）、项目上记下现在生效的运营方案，
-//   维护者会话里记一笔；同一次确认重发不再建；到点由项目的维护者在一张运行工单里做完；
-// - 部分失败：交上来之后项目的工具包收窄了，要联网的那条没生效（项目上记原因、通知维护者），别的照常、项目照常使用中；
-// - 使用中的项目交新方案：秘书把用户的话转给项目的维护者（tell_project），维护者出"运营方案变更"卡（附核实过的原话，也出在秘书会话里）；
+//   负责人会话里记一笔；同一次确认重发不再建；到点由项目的负责人在一张运行工单里做完；
+// - 部分失败：交上来之后项目的工具包收窄了，要联网的那条没生效（项目上记原因、通知负责人），别的照常、项目照常使用中；
+// - 使用中的项目交新方案：秘书把用户的话转给项目的负责人（tell_project），负责人出"运营方案变更"卡（附核实过的原话，也出在秘书会话里）；
 //   拒绝什么都不动；再交、确认后照差异生效——就地改时间（同一个任务）、去掉的取消、加上的建；停用时暂停、重新启用时恢复；
 // - 流程的那一条：带着审查修补后的计划，确认方案时一起授权（流程计划卡建出就是已授权），到点照步骤做完。
 import fs from "node:fs";
@@ -56,7 +56,7 @@ const call = (name: string, args: Record<string, unknown>): FauxStep => ({ kind:
 const ECHO: FauxStep = { kind: "echo_context" };
 /** 消息 id 的样子（m-<uuid>） */
 const MESSAGE_ID = "m-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
-/** 维护者从最近一条用户消息末尾抄出 id，交运营方案（参数 userWords） */
+/** 负责人从最近一条用户消息末尾抄出 id，交运营方案（参数 userWords） */
 const citing = (args: Record<string, unknown>): FauxStep => ({ kind: "call_with_matches", from: "user", pattern: MESSAGE_ID, argument: "userWords", toolCall: { name: "propose_operations", arguments: args as never } });
 const propose = (items: readonly object[], why = "项目要每天自己跑起来"): FauxStep => call("propose_operations", { items, why });
 const progressEdit = (records: string, oldText: string, newText: string) => call("edit", { path: path.join(records, "progress.md"), edits: [{ oldText, newText }] });
@@ -79,10 +79,10 @@ const inboxOf = (frontend: TestFrontend): InboxItem[] => frontend.events({ chann
 const messagesOf = (frontend: TestFrontend, channel: string) => frontend.events({ channel, type: EVENT_TYPES.message }).map((f) => f.payload as MessageEventPayload);
 const recordsOf = (frontend: TestFrontend, channel: string) => frontend.events({ channel, type: EVENT_TYPES.timelineRecord }).map((f) => (f.payload as TimelineRecordEventPayload).record);
 const textOf = (p: MessageEventPayload) => p.message.parts.map((part) => ("text" in part ? part.text : `<${part.type}>`)).join("");
-/** 维护者会话里某个工具的结果（工具调用记录上的） */
+/** 负责人会话里某个工具的结果（工具调用记录上的） */
 const toolResults = (frontend: TestFrontend, tool: string) =>
   messagesOf(frontend, PM1).flatMap((m) => m.message.parts.flatMap((p) => (p.type === "tool_call" && p.tool === tool ? [p] : [])));
-/** 等维护者处理完 n 条输入 */
+/** 等负责人处理完 n 条输入 */
 const turns = (frontend: TestFrontend, channel: string, n: number) =>
   waitUntil(() => frontend.events({ channel, type: EVENT_TYPES.turnEnd }).length >= n, { timeoutMs: 30_000, describe: () => `等 ${channel} 处理完 ${n} 条输入` });
 /** 同一张卡最新的那一版 */
@@ -118,7 +118,7 @@ function finishBuild(td: TestDaemon, taskId = "t-1") {
 const buildDoneCard = (frontend: TestFrontend) => eventually(() => cardsOf(frontend), (c) => c.type === "build_done", "“首版做完了”卡");
 
 describe("建设期间交运营方案，“首版做完了”卡上确认一次就转入使用并开起来", () => {
-  it("超出工具包的被拒；交了的留着、卡上带着（要手动的标出来）；卡出了再交卡跟着更新；确认并转入使用：项目使用中、每条建成内部任务、幂等；到点由维护者做完", async () => {
+  it("超出工具包的被拒；交了的留着、卡上带着（要手动的标出来）；卡出了再交卡跟着更新；确认并转入使用：项目使用中、每条建成内部任务、幂等；到点由负责人做完", async () => {
     const d = dirs();
     const clock = new ManualClock(START);
     const td = await startTestDaemon({
@@ -148,7 +148,7 @@ describe("建设期间交运营方案，“首版做完了”卡上确认一次�
 
     await frontend.sendText("这个项目做完以后每天早上 8 点出一期日报，再弄个网页给手机看", { conversation: PM1 });
     await turns(frontend, PM1, 1);
-    // 维护者的对话段里有这个工具，提示里写着收尾前把运营方案交上来、不要回"建不了"
+    // 负责人的对话段里有这个工具，提示里写着收尾前把运营方案交上来、不要回"建不了"
     const echo = textOf(messagesOf(frontend, PM1).filter((m) => m.message.speaker === "agent").at(-1)!);
     expect(echo).toContain("[tool] propose_operations");
     expect(echo).toContain("用 propose_operations 交一份完整的运营方案，不要写“请用户手动建定时任务”的说明，也不要回“建不了”");
@@ -203,7 +203,7 @@ describe("建设期间交运营方案，“首版做完了”卡上确认一次�
       ],
     });
     expect(inUse.project.operations!.items[2]!.taskId).toBeUndefined();
-    // 每条建成这个项目的内部任务：定时的普通任务，运营中，由项目的维护者执行，触发登记好
+    // 每条建成这个项目的内部任务：定时的普通任务，运营中，由项目的负责人执行，触发登记好
     for (const [id, title] of [
       ["t-2", "日报"],
       ["t-3", "周报"],
@@ -214,7 +214,7 @@ describe("建设期间交运营方案，“首版做完了”卡上确认一次�
     const registered = await eventually(() => jobsOf(frontend), (e) => e.change === "registered" && e.job.ownerTaskId === "t-3", "周报的触发登记");
     expect(registered.job).toMatchObject({ projectId: "p-1", maintainerId: "pm-1", state: "active", nextAt: nowIso(at(10, 11, 18, 0)) });
     expect(td.daemon.scheduledJobs.ofTask("t-2")).toMatchObject({ state: "active", nextAt: nowIso(at(10, 8, 8, 0)) });
-    // 卡上记着每一条的结局；维护者会话里记一笔"运营方案已生效"
+    // 卡上记着每一条的结局；负责人会话里记一笔"运营方案已生效"
     const decided = await eventually(() => cardsOf(frontend), (c) => c.id === card.id && c.status === "handled", "卡处理了");
     expect((decided.payload as BuildDoneCardPayload).decided).toEqual({
       choice: "put_in_use",
@@ -233,7 +233,7 @@ describe("建设期间交运营方案，“首版做完了”卡上确认一次�
     expect(td.daemon.tasks.list().map((t) => t.id)).toEqual(["t-1", "t-2", "t-3"]);
     expect(td.daemon.operations.pendingBuildPlan("p-1")).toBeUndefined();
 
-    // 到点：日报的一次运行是一张运行工单，项目的维护者做完
+    // 到点：日报的一次运行是一张运行工单，项目的负责人做完
     clock.advanceTo(at(10, 8, 8, 0));
     const created = await eventually(() => workOrdersOf(frontend), (e) => e.change === "created" && e.workOrder.kind === "run", "日报的运行工单");
     expect(created.workOrder).toMatchObject({ source: "scheduled_job", projectId: "p-1", maintainerId: "pm-1", title: "定时触发：日报" });
@@ -243,7 +243,7 @@ describe("建设期间交运营方案，“首版做完了”卡上确认一次�
     expect(fs.readFileSync(path.join(d.records, "progress.md"), "utf8")).toContain("日报：10-09 的日报出了。");
   }, 180_000);
 
-  it("部分失败：交上来之后项目的工具包收窄了，要联网的那条没生效（项目上记原因、维护者收到通知），别的照常生效、项目照常进入使用中", async () => {
+  it("部分失败：交上来之后项目的工具包收窄了，要联网的那条没生效（项目上记原因、负责人收到通知），别的照常生效、项目照常进入使用中", async () => {
     const d = dirs();
     const clock = new ManualClock(START);
     const quiet = { key: "tidy", name: "整理收件箱", means: "schedule", schedule: { kind: "workdays", time: "09:00" }, instructions: "整理工作目录里的收件箱", capabilities: {} };
@@ -277,8 +277,8 @@ describe("建设期间交运营方案，“首版做完了”卡上确认一次�
       { key: "daily-report", name: "日报", outcome: "failed", reason: "要的能力超出了项目现在的工具包（联网）" },
       { key: "tidy", name: "整理收件箱", outcome: "created", taskId: "t-2" },
     ]);
-    // 维护者收到通知（交给它处理的），看看是什么原因
-    const notice = await eventually(() => messagesOf(frontend, PM1), (m) => m.agentInput !== undefined && textOf(m).includes("有几条没生效"), "给维护者的通知");
+    // 负责人收到通知（交给它处理的），看看是什么原因
+    const notice = await eventually(() => messagesOf(frontend, PM1), (m) => m.agentInput !== undefined && textOf(m).includes("有几条没生效"), "给负责人的通知");
     expect(textOf(notice)).toContain("- 日报：没生效：要的能力超出了项目现在的工具包（联网）");
     expect(textOf(notice)).toContain("改好了用 propose_operations 再交一份完整的运营方案");
     await turns(frontend, PM1, 2);
@@ -304,14 +304,14 @@ describe("建设期间交运营方案，“首版做完了”卡上确认一次�
 });
 
 describe("使用中的项目改运营方案：出“运营方案变更”卡，确认后照差异生效", () => {
-  it("秘书把用户的话转给项目的维护者，维护者出卡（附核实过的原话，也出在秘书会话里）；拒绝不动；再交、确认后建；再改：就地改时间、去掉的取消、加上的建；停用暂停、重新启用恢复", async () => {
+  it("秘书把用户的话转给项目的负责人，负责人出卡（附核实过的原话，也出在秘书会话里）；拒绝不动；再交、确认后建；再改：就地改时间、去掉的取消、加上的建；停用暂停、重新启用恢复", async () => {
     const d = dirs();
     const clock = new ManualClock(START);
     const runFailed = { key: "run-failed", name: "运行失败时排查", means: "event", event: { kind: "event", source: "ergo", events: ["run_failed"], filter: { projectId: "p-1" } }, instructions: "看看哪次运行失败了、为什么，写进进展", capabilities: {} };
     const td = await startTestDaemon({
       clock,
       reuse: { dataDir: d.dataDir, homeDir: d.homeDir },
-      secretary: [call("propose_quick_action", { type: "tell_project", params: { project: "AI 简报站", message: "每天早上 8 点出日报，周日晚上 6 点出周报" } }), say("转给简报站的维护者了")],
+      secretary: [call("propose_quick_action", { type: "tell_project", params: { project: "AI 简报站", message: "每天早上 8 点出日报，周日晚上 6 点出周报" } }), say("转给简报站的负责人了")],
       maintainer: () => [
         // 秘书转达来的：引用那句话，交运营方案（项目在使用中：出卡）
         citing({ items: [DAILY, WEEKLY], why: "按你说的开日报和周报" }),
@@ -335,7 +335,7 @@ describe("使用中的项目改运营方案：出“运营方案变更”卡，�
     seedProject(td.daemon, "AI 简报站", { state: "in_use", charterConfirmed: true, kind: "other", toolkit: { skills: [], mcp: [], bash: false, network: true } });
     const frontend = await connect(td);
 
-    // 用户对秘书说：秘书转给项目的维护者（用户点明了，直接转），维护者出卡
+    // 用户对秘书说：秘书转给项目的负责人（用户点明了，直接转），负责人出卡
     await frontend.sendText("告诉AI 简报站，每天早上 8 点出日报，周日晚上 6 点出周报");
     const first = await eventually(() => cardsOf(frontend), (c) => c.type === "operations_change", "运营方案变更卡");
     const p1 = first.payload as OperationsChangeCardPayload;
@@ -350,7 +350,7 @@ describe("使用中的项目改运营方案：出“运营方案变更”卡，�
     await turns(frontend, PM1, 1);
     await settled(td, "pm-1");
 
-    // 拒绝：什么都不动，维护者收到通知
+    // 拒绝：什么都不动，负责人收到通知
     ok(await frontend.cardAction({ cardId: first.id, action: "reject", expectedVersion: 1, note: "先不开" }));
     await eventually(() => messagesOf(frontend, PM1), (m) => m.agentInput !== undefined && textOf(m).includes("用户拒绝了运营方案变更（第 1 份）：「先不开」"), "拒绝的通知");
     expect((latest(frontend, first.id).payload as OperationsChangeCardPayload).decided).toMatchObject({ confirmed: false });
@@ -359,7 +359,7 @@ describe("使用中的项目改运营方案：出“运营方案变更”卡，�
     await turns(frontend, PM1, 2);
     await settled(td, "pm-1");
 
-    // 用户直接在维护者会话里说：再交一张，确认后建出两个内部任务
+    // 用户直接在负责人会话里说：再交一张，确认后建出两个内部任务
     await frontend.sendText("还是开起来吧", { conversation: PM1 });
     const second = await eventually(() => cardsOf(frontend), (c) => c.type === "operations_change" && c.id !== first.id, "第二张卡");
     expect((second.payload as OperationsChangeCardPayload).revision).toBe(2);
@@ -478,7 +478,7 @@ describe("使用中的项目改运营方案：出“运营方案变更”卡，�
     });
     seedProject(td.daemon, "AI 简报站", { state: "in_use", charterConfirmed: true, kind: "other", toolkit: { skills: [], mcp: [], bash: false, network: true } });
     const frontend = await connect(td);
-    // 维护者的工具说明每次装配时照登记表现写
+    // 负责人的工具说明每次装配时照登记表现写
     expect(td.daemon.operations.tool("p-1", "pm-1").spec.description).toContain("board（公告墙）：把项目的产出贴到公告墙上");
 
     await frontend.sendText("贴到公告墙上", { conversation: PM1 });

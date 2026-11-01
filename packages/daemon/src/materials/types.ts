@@ -10,7 +10,7 @@ import type { SensitiveCategory } from "../config/config.ts";
  * 每一种固定是"说"或"做"（MATERIAL_MODE）：说是用户说出来的话，做是用户的行为（以及系统观察到的不处理）。
  */
 export const MATERIAL_KINDS = [
-  /** 用户发言：任何会话里用户发的消息（秘书会话、维护者会话），包括附件引用 */
+  /** 用户发言：任何会话里用户发的消息（秘书会话、负责人会话），包括附件引用 */
   "user_utterance",
   /** 用户对产出的反应：采纳、修改（附 diff）、要求返工、放弃（13、15 号票接入） */
   "output_reaction",
@@ -157,7 +157,7 @@ export interface MaterialRef {
 
 /**
  * 原文副本：本人素材（来源本人，或者有本人切段的）连同信封存成素材区里的一个文件，不可修改、只追加、只有用户能删。
- * 它是本人素材的真相：事件日志里的原始事件没了（删项目时删掉维护者会话），materials.db 也能从它重建出这条素材。
+ * 它是本人素材的真相：事件日志里的原始事件没了（删项目时删掉负责人会话），materials.db 也能从它重建出这条素材。
  */
 export interface OriginalCopy {
   /** 相对素材区的路径（用 / 分隔） */
@@ -205,7 +205,7 @@ export interface Material {
   mode: MaterialMode;
   /** 带时区偏移的 ISO 时间（原始记录的时间） */
   time: string;
-  /** 来源会话（秘书、某个维护者的会话）；不来自会话的为 null */
+  /** 来源会话（秘书、某个负责人的会话）；不来自会话的为 null */
   conversation: string | null;
   /** 所属任务或项目；不知道或不属于的为 null */
   task: string | null;

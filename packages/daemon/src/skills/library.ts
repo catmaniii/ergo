@@ -191,7 +191,7 @@ export interface SkillLibrary {
   /** 不在库里的那些名字（扫一遍库） */
   missing(names: readonly string[]): string[];
   /**
-   * 名字展开成 skill 名（维护者增减 skill 时用）：skill 名原样，集合名换成它的全部成员；
+   * 名字展开成 skill 名（负责人增减 skill 时用）：skill 名原样，集合名换成它的全部成员；
    * 两样都不是的放进 unknown。skill 名和集合名同名时按 skill 算（导入时不让同名）
    */
   expand(names: readonly string[]): { skills: string[]; unknown: string[] };

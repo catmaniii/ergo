@@ -1,9 +1,9 @@
 // @i18n-ignore-file model：这里的中文都是 schema 里给模型看的参数说明
 // 项目、立项和它们的卡片的 schema（规格第 11 节，15 号票），用 TypeBox 定义，守护进程和 Web 共用生成的类型。
 // - 项目列表频道上的 project 事件：项目的最新状态（Project）；
-// - 立项书（Charter）：维护者在立项问答之后用"提交立项书"工具交出的结构化数据（工具的参数），立项书卡由代码从它生成；
+// - 立项书（Charter）：负责人在立项问答之后用"提交立项书"工具交出的结构化数据（工具的参数），立项书卡由代码从它生成；
 // - 五种卡的负载：建议立项卡（suggest_project）、立项书卡（charter）、"首版做完了"卡（build_done，112 号票；130 号票起带着
-//   维护者建设期间交的运营方案；259 号票起带着转运营检查清单）、"转入使用"确认卡（go_live，259 号票）、"立项要求变更"卡
+//   负责人建设期间交的运营方案；259 号票起带着转运营检查清单）、"转入使用"确认卡（go_live，259 号票）、"立项要求变更"卡
 //   （charter_change，125 号票）；"运营方案变更"卡在 operations-schema.ts；
 // - 三个请求：点"新建项目"（new_project）、任务转为项目（convert_task_to_project）、项目页上的动作（project_action）。
 // 名字（状态、类型、动作、变化）在 projects.ts。
@@ -40,12 +40,12 @@ export const Project = Type.Object({
   goal: Type.String(),
   state: ProjectStateSchema,
   origin: Type.Enum(PROJECT_ORIGINS),
-  /** 项目的维护者（立项时产生；任务转为项目时就是原任务的维护者）；它的会话频道是 maintainer:<维护者 id> */
+  /** 项目的负责人（立项时产生；任务转为项目时就是原任务的负责人）；它的会话频道是 maintainer:<负责人 id> */
   maintainerId: Type.String(),
   /**
-   * 项目的维护者用的 agent 运行时（286 号票，runtimes.ts）：内核自带的 pi，或者插件登记的运行时的 id；没写时照转来的任务的（Task.runtime），
-   * 再没有是 pi。登记它的插件停用时维护者不启动（活动状态"等你"，写明哪个插件没启用），启用后接着。289 号票起新建时选（点"新建项目"时选的
-   * 写在建议立项卡上，点"立项"时定下），之后在维护者的 ⚙ 里换（手头这一条做完、原来的写好交接摘要才改成新的，记一条 runtime_set）
+   * 项目的负责人用的 agent 运行时（286 号票，runtimes.ts）：内核自带的 pi，或者插件登记的运行时的 id；没写时照转来的任务的（Task.runtime），
+   * 再没有是 pi。登记它的插件停用时负责人不启动（活动状态"等你"，写明哪个插件没启用），启用后接着。289 号票起新建时选（点"新建项目"时选的
+   * 写在建议立项卡上，点"立项"时定下），之后在负责人的 ⚙ 里换（手头这一条做完、原来的写好交接摘要才改成新的，记一条 runtime_set）
    */
   runtime: Type.Optional(Type.String({ minLength: 1 })),
   /** 给运行时选的值（289 号票，⚙ 里：运行时自己的模型、权限模式、思考档位……）；没有是都跟运行时自己的默认 */
@@ -60,9 +60,9 @@ export const Project = Type.Object({
   /** 项目类型：立项书确认时生效（之前没有） */
   kind: Type.Optional(Type.Enum(PROJECT_KINDS)),
   workdir: ProjectWorkdir,
-  /** 项目的工具包：立项书确认时，维护者提议的工具包成为项目的工具包（之前没有） */
+  /** 项目的工具包：立项书确认时，负责人提议的工具包成为项目的工具包（之前没有） */
   toolkit: Type.Optional(PlanToolkit),
-  /** 最新一张立项书卡（维护者交过立项书才有） */
+  /** 最新一张立项书卡（负责人交过立项书才有） */
   charterCardId: Type.Optional(Type.String()),
   /** 立项书已确认（"只确认，稍后开工"后项目留在筹备中，标"立项书已确认"） */
   charterConfirmed: Type.Boolean(),
@@ -125,11 +125,11 @@ export const Charter = Type.Object(
 );
 export type Charter = Static<typeof Charter>;
 
-/** 立项书卡的负载：立项书和维护者提议的工具包（开发类默认带 bash）；确认后记下怎么确认的、首个建设任务 */
+/** 立项书卡的负载：立项书和负责人提议的工具包（开发类默认带 bash）；确认后记下怎么确认的、首个建设任务 */
 export const CharterCardPayload = Type.Object({
   projectId: Type.String(),
   projectName: Type.String(),
-  /** 第几版立项书（维护者重新提交加 1；旧的那张随之过期） */
+  /** 第几版立项书（负责人重新提交加 1；旧的那张随之过期） */
   revision: Type.Integer({ minimum: 1 }),
   charter: Charter,
   toolkit: PlanToolkit,
@@ -145,7 +145,7 @@ export const CharterChangeItemSchema = Type.Union([
 ]);
 
 /**
- * "立项要求变更"卡（charter_change，125 号票）：立项书确认之后，用户在会话里说要改立项要求（目标、范围、首版），维护者用
+ * "立项要求变更"卡（charter_change，125 号票）：立项书确认之后，用户在会话里说要改立项要求（目标、范围、首版），负责人用
  * propose_charter_change 提出——只交改动的几处，附上它引用、运行时核实过的用户原话。卡上逐条对照新旧，进待办，也出在用户说话的
  * 那个会话里；用户确认后改写立项书（末尾记一条变更记录：哪天、改了什么、依据的用户原话、用户确认），拒绝的立项书不变。
  * 项目类型、工作目录、工具包不走这条路（卡上写明）
@@ -155,14 +155,14 @@ export const CharterChangeCardPayload = Type.Object({
   projectName: Type.String(),
   /** 这个项目的第几次立项要求变更（提出的就算，被拒的也占号） */
   revision: Type.Integer({ minimum: 1 }),
-  /** 维护者为什么要改（它的说法） */
+  /** 负责人为什么要改（它的说法） */
   why: Type.String(),
   /** 逐条对照新旧 */
   changes: Type.Array(CharterChangeItemSchema),
   /** 改之前、改之后的整份立项书（项目类型、工作目录这几项原样） */
   before: Charter,
   after: Charter,
-  /** 维护者引用、运行时核实过的用户原话（卡上单独一栏，标明"运行时核实"） */
+  /** 负责人引用、运行时核实过的用户原话（卡上单独一栏，标明"运行时核实"） */
   userWords: Type.Optional(Type.Array(VerifiedUserWords, { maxItems: USER_WORDS_MAX })),
   /** 处理之后：确认了没有、什么时候 */
   decided: Type.Optional(Type.Object({ confirmed: Type.Boolean(), at: Type.String() })),
@@ -195,20 +195,20 @@ export const BuildDoneCardPayload = Type.Object({
   buildTaskTitle: Type.String(),
   /** 第几轮建设：1 是首版；继续建设之后的一轮加 1 */
   round: Type.Integer({ minimum: 1 }),
-  /** 建设任务最后的总结：最后验收通过的那个阶段宣布完成时维护者写的那一两句；没写的没有 */
+  /** 建设任务最后的总结：最后验收通过的那个阶段宣布完成时负责人写的那一两句；没写的没有 */
   summary: Type.Optional(Type.String()),
   /** 每个阶段一行：编号（"1a"）、名字、验收结果（"通过：脚本 1 条、评审 2 条"）、交付件 */
   stages: Type.Array(Type.Object({ code: Type.String(), title: Type.String(), result: Type.String(), deliverables: Type.Array(Type.String()) })),
   /** 交付件在哪：项目的工作目录 */
   workdir: Type.String(),
   /**
-   * 维护者建设期间交的运营方案（130 号票，版本 2）：卡上多一节"转入使用后会开起来的"，主按钮换成"确认并转入使用"——项目进入使用中、
-   * 方案里每一条生效。卡出了以后维护者再交，卡跟着更新（版本加 1，照旧的按钮按新的这份）。没交的没有，卡照 112 号票
+   * 负责人建设期间交的运营方案（130 号票，版本 2）：卡上多一节"转入使用后会开起来的"，主按钮换成"确认并转入使用"——项目进入使用中、
+   * 方案里每一条生效。卡出了以后负责人再交，卡跟着更新（版本加 1，照旧的按钮按新的这份）。没交的没有，卡照 112 号票
    */
   operations: Type.Optional(OperationsPlanView),
   /**
    * 转运营检查清单（259 号票，版本 4）：出卡时算的建设中 → 使用中那一份（架构图、ops.json、服务、/apps/、进展），没做到的写差什么；
-   * "转入使用"照样能点（缺的写进决定里）。维护者、秘书又提转入使用、运营方案又交了一份时刷新。旧卡没有
+   * "转入使用"照样能点（缺的写进决定里）。负责人、秘书又提转入使用、运营方案又交了一份时刷新。旧卡没有
    */
   checklist: Type.Optional(Type.Array(GoLiveChecklistItem)),
   /** 清单是什么时候算的 */
@@ -227,11 +227,11 @@ export const BuildDoneCardPayload = Type.Object({
 export type BuildDoneCardPayload = Static<typeof BuildDoneCardPayload>;
 
 /**
- * "转入使用"确认卡（go_live，259 号票；issue 19 第 8 条：转运营不管谁发起都必须用户确认）。用户在项目页点"转入使用"、维护者用
+ * "转入使用"确认卡（go_live，259 号票；issue 19 第 8 条：转运营不管谁发起都必须用户确认）。用户在项目页点"转入使用"、负责人用
  * propose_go_live 提、秘书照用户说的代办，都只出这张卡（"首版做完了"卡还在等的就用那一张），用户在卡上确认才转：
- * - by：谁发起的；why：维护者、秘书写的为什么现在能转（用户自己点的没有）；
+ * - by：谁发起的；why：负责人、秘书写的为什么现在能转（用户自己点的没有）；
  * - checklist：建设中 → 使用中的检查清单（出卡、刷新时算的），没做到的照样能确认，确认时按那时的再算一遍、缺的写进决定；
- * - operations：维护者建设期间交的运营方案（同"首版做完了"卡：确认时一起生效；方案又交了一份时卡跟着更新）；
+ * - operations：负责人建设期间交的运营方案（同"首版做完了"卡：确认时一起生效；方案又交了一份时卡跟着更新）；
  * - decided：确认转入使用（方案里每一条的结局、确认时清单里还缺的几项）还是先不转
  */
 export const GoLiveCardPayload = Type.Object({
@@ -256,10 +256,10 @@ export type GoLiveCardPayload = Static<typeof GoLiveCardPayload>;
 export const SuggestProjectCardPayload = Type.Object({
   name: Type.String({ minLength: 1, maxLength: PROJECT_NAME_MAX }),
   goal: Type.String({ minLength: 1, maxLength: PROJECT_GOAL_MAX }),
-  /** 用户的原话（362 号票：路径、限制不能在立项时丢了）：卡上写着，点"立项"时原样交给维护者 */
+  /** 用户的原话（362 号票：路径、限制不能在立项时丢了）：卡上写着，点"立项"时原样交给负责人 */
   userWords: Type.Optional(Type.String({ maxLength: PROJECT_USER_WORDS_MAX })),
   projectId: Type.Optional(Type.String()),
-  /** 项目的维护者用的运行时（289 号票：用户点"新建项目"时选的，秘书照写；没写是 pi）；点"立项"时定进项目 */
+  /** 项目的负责人用的运行时（289 号票：用户点"新建项目"时选的，秘书照写；没写是 pi）；点"立项"时定进项目 */
   runtime: Type.Optional(Type.String({ minLength: 1, maxLength: 80 })),
   /**
    * 在哪个文件夹做（305 号票：用户点"新建项目"时选的、秘书照写；能选工作文件夹的运行时才认）：点"立项"时定下项目的工作目录
@@ -274,7 +274,7 @@ export type SuggestProjectCardPayload = Static<typeof SuggestProjectCardPayload>
 /** 点"新建项目"：写想立个什么项目；不经"是不是项目"的判断，秘书直接收口出建议立项卡 */
 export const NewProjectParams = Type.Object({
   request: Type.String({ minLength: 1, maxLength: 4000 }),
-  /** 项目的维护者用的运行时（289 号票：pi 或者现在能用的运行时插件登记的）：不写是 pi；不认得、插件没启用的被拒。秘书照写在建议立项卡上 */
+  /** 项目的负责人用的运行时（289 号票：pi 或者现在能用的运行时插件登记的）：不写是 pi；不认得、插件没启用的被拒。秘书照写在建议立项卡上 */
   runtime: Type.Optional(Type.String({ minLength: 1, maxLength: 80 })),
   /** 在哪个文件夹做（305 号票，同 StartTaskParams.folder）：用已有文件夹的这时就核对路径；秘书照写在建议立项卡上 */
   folder: Type.Optional(WorkFolderChoice),
@@ -286,7 +286,7 @@ export const NewProjectResult = Type.Object({ messageId: Type.String() });
 export type NewProjectResult = Static<typeof NewProjectResult>;
 
 /**
- * 把一个未结束的任务转为项目：不新建维护者，原任务以"已完成 · 已转为项目"结束。
+ * 把一个未结束的任务转为项目：不新建负责人，原任务以"已完成 · 已转为项目"结束。
  * 项目名由用户定（界面预填任务标题，可以改）；和没删掉的项目重名时被拒，换个名字再转
  */
 export const ConvertTaskParams = Type.Object({
@@ -319,7 +319,7 @@ export type SetProjectVoiceAnnounceParams = Static<typeof SetProjectVoiceAnnounc
 export const SetProjectVoiceAnnounceResult = Type.Object({ projectId: Type.String(), on: Type.Boolean() });
 export type SetProjectVoiceAnnounceResult = Static<typeof SetProjectVoiceAnnounceResult>;
 
-/** 重置维护者（16 号票，projects.ts 的 canResetMaintainer）：项目状态不变，维护者新开一段会话 */
+/** 重置负责人（16 号票，projects.ts 的 canResetMaintainer）：项目状态不变，负责人新开一段会话 */
 export const ResetMaintainerParams = Type.Object({ projectId: Type.String({ minLength: 1 }) });
 export type ResetMaintainerParams = Static<typeof ResetMaintainerParams>;
 

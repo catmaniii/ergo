@@ -1,5 +1,5 @@
 // 任务里谁能做什么（规格第 8 节"谁能改"表）：只在这里定一次。守护进程按 TASK_TRANSITIONS 校验每次状态迁移
-// （tasks/state-machine.ts），控制器（tasks/execution.ts）、维护者模块、Web 的任务详情都用 availableTaskActions
+// （tasks/state-machine.ts），控制器（tasks/execution.ts）、负责人模块、Web 的任务详情都用 availableTaskActions
 // 判断现在能做什么。只有常量和纯函数，不引用 TypeBox。
 import {
   ENDED_TASK_STATES,
@@ -44,14 +44,14 @@ export type TaskActCondition = "user_decides" | "not_converted" | "stage_awaitin
  */
 export const FOLLOWS_PROJECT_ARCHIVE_STATES = ["operating", "scheduled", "done", "failed", "cancelled"] as const satisfies readonly TaskState[];
 
-/** 撤回维护者的会话能把任务带回规划中的状态（152 号票：排队中、执行中、等我、已暂停、待确认，以及已完成、失败） */
+/** 撤回负责人的会话能把任务带回规划中的状态（152 号票：排队中、执行中、等我、已暂停、待确认，以及已完成、失败） */
 const ROLLBACK_PLANNING_FROM = ["awaiting_confirm", "queued", "running", "waiting_for_user", "paused", "done", "failed"] as const satisfies readonly TaskState[];
 
-/** 撤回维护者的会话能把任务带回那时的结局（已完成、失败）的状态（152 号票：回到的那一处任务已经结束了） */
+/** 撤回负责人的会话能把任务带回那时的结局（已完成、失败）的状态（152 号票：回到的那一处任务已经结束了） */
 const ROLLBACK_ENDED_FROM = ["queued", "running", "waiting_for_user", "paused", "done", "failed"] as const satisfies readonly TaskState[];
 
 /**
- * 撤回、切换维护者的会话能把任务带回排队中的状态（152 号票：回到计划确认之后、开始执行之前的那一处；151 号票切回执行时的那条分支，
+ * 撤回、切换负责人的会话能把任务带回排队中的状态（152 号票：回到计划确认之后、开始执行之前的那一处；151 号票切回执行时的那条分支，
  * 名额空出时接着执行）。等我、待确认、已完成、失败到排队中表里本来就有
  */
 const ROLLBACK_QUEUED_FROM = ["planning", "running"] as const satisfies readonly TaskState[];
@@ -116,10 +116,10 @@ export interface TaskTransition {
  * "谁能改"表：
  * - 用户：发起任务、确认计划、暂停 / 继续、取消、批准、回答、验收、返工、归档、转为项目（以"已完成 · 已转为项目"结束）；
  * - 秘书：按用户的发起建任务卡（建卡不是迁移）、写任务书；用户要求时取消；
- * - 维护者：开始、报告进展、转为等我、完成、失败；起草计划的维护者提交计划；
+ * - 负责人：开始、报告进展、转为等我、完成、失败；起草计划的负责人提交计划；
  * - 系统：排队调度；卡住或超预算时转等我（14 号票：拉回超限、催促超限、验收第 3 次不过是卡住求助，预算超 2 倍是超预算），
  *   累计被拒太多次时暂停（pauseReason）；恢复执行而名额已满的回到排队中；全部阶段验收通过时自动完成（13 号票）。
- * 同一对状态之间可以有几行（执行中 → 已完成：维护者"完成"，用户"转为项目"），谁能做看全部这几行。
+ * 同一对状态之间可以有几行（执行中 → 已完成：负责人"完成"，用户"转为项目"），谁能做看全部这几行。
  */
 export const TASK_TRANSITIONS: readonly TaskTransition[] = [
   { from: "planning", to: "awaiting_confirm", action: "submitPlan", by: ["maintainer"] },
@@ -161,7 +161,7 @@ export const TASK_TRANSITIONS: readonly TaskTransition[] = [
   // 卡着的审批、计划变更随之作废，有能推进的就接着执行（名额满了排队）；执行中、已暂停、排队中的不改状态，见 TASK_STAY_ACTS
   { from: "waiting_for_user", to: "running", action: "redoStage", by: ["user"], act: "rework", when: "not_converted" },
   { from: "waiting_for_user", to: "queued", action: "redoStageQueued", by: ["user", "system"], act: "rework", when: "not_converted" },
-  // 152 号票：用户撤回了维护者的会话（会话回退），任务状态按保留的分支推导——回到计划确认之前的回到规划中（要重新确认计划）；
+  // 152 号票：用户撤回了负责人的会话（会话回退），任务状态按保留的分支推导——回到计划确认之前的回到规划中（要重新确认计划）；
   // 回到任务结束（完成、失败）之后的那一处的，回到那时的结局；执行中、等我、已暂停、排队中之间照 84 号票的重做（resume、settle）走上面那几行
   ...ROLLBACK_PLANNING_FROM.map((from): TaskTransition => ({ from, to: "planning", action: "rollbackToPlanning", by: ["user"] })),
   ...ROLLBACK_QUEUED_FROM.map((from): TaskTransition => ({ from, to: "queued", action: "rollbackToQueued", by: ["user"] })),
@@ -176,11 +176,11 @@ export const TASK_TRANSITIONS: readonly TaskTransition[] = [
   ...FOLLOWS_PROJECT_ARCHIVE_STATES.map((from): TaskTransition => ({ from, to: "archived", action: "archiveWithProject", by: ["system"] })),
   ...FOLLOWS_PROJECT_ARCHIVE_STATES.map((to): TaskTransition => ({ from: "archived", to, action: "unarchiveWithProject", by: ["system"] })),
   ...UNFINISHED_TASK_STATES.map((from): TaskTransition => ({ from, to: "cancelled", action: "cancel", by: ["user", "secretary"], act: "cancel" })),
-  // 转为项目（15 号票）：原任务的维护者接着做立项问答，任务以"已完成 · 已转为项目"结束（Task.endKind）
+  // 转为项目（15 号票）：原任务的负责人接着做立项问答，任务以"已完成 · 已转为项目"结束（Task.endKind）
   ...UNFINISHED_TASK_STATES.map((from): TaskTransition => ({ from, to: "done", action: "convertToProject", by: ["user"] })),
 ];
 
-/** 不改任务状态的事：用户在维护者会话里说话（message）、维护者处理会话里的输入（work） */
+/** 不改任务状态的事：用户在负责人会话里说话（message）、负责人处理会话里的输入（work） */
 export const TASK_CONVERSATION_ACTS = ["message", "work"] as const;
 export type TaskConversationAct = (typeof TASK_CONVERSATION_ACTS)[number];
 
@@ -189,14 +189,14 @@ export type TaskAct = TaskAction | TaskConversationAct;
 
 /** 不改任务状态的事，在哪些状态下谁能做 */
 export const TASK_STAY_ACTS: ReadonlyArray<{ act: TaskAct; in: readonly TaskState[]; by: readonly TaskActor[]; when?: TaskActCondition }> = [
-  // 用户在任务详情里对维护者说话：已完成、已取消、已归档的不再收（要返工用"返工"），失败的还收（重试时维护者看得到）
+  // 用户在任务详情里对负责人说话：已完成、已取消、已归档的不再收（要返工用"返工"），失败的还收（重试时负责人看得到）
   { act: "message", in: [...UNFINISHED_TASK_STATES, "failed"], by: ["user"] },
   // 普通任务（75 号票）做完了还收：用户接着说，任务回到执行中接着做（已完成 → 执行中走"返工"那一行的迁移，记成 continued）
   { act: "message", in: ["done"], by: ["user"], when: "plain" },
-  // 84 号票：执行中、已暂停、排队中的长程任务从某个开始过的阶段重做，状态不变——执行中的先停稳维护者手头这一轮，这一阶段和下游
-  // 回到未开始，维护者接着做；暂停的仍暂停、排队的仍排队，继续、轮到时维护者照重做后的样子做
+  // 84 号票：执行中、已暂停、排队中的长程任务从某个开始过的阶段重做，状态不变——执行中的先停稳负责人手头这一轮，这一阶段和下游
+  // 回到未开始，负责人接着做；暂停的仍暂停、排队的仍排队，继续、轮到时负责人照重做后的样子做
   { act: "rework", in: ["running", "paused", "queued"], by: ["user"], when: "not_converted" },
-  // 维护者处理会话里的输入：排队中、已暂停、结束了的输入留在队里；定时触发的任务运营中时处理（每次运行的通知、用户在详情里说的，76 号票）
+  // 负责人处理会话里的输入：排队中、已暂停、结束了的输入留在队里；定时触发的任务运营中时处理（每次运行的通知、用户在详情里说的，76 号票）
   { act: "work", in: ["planning", "awaiting_confirm", "running", "waiting_for_user", "operating"], by: ["maintainer"] },
   // 由我验收的阶段：验收通过、退回（等我的任务验收通过后可能接着执行，那一步走"接着执行"那行）
   { act: "accept_stage", in: ["running", "waiting_for_user"], by: ["user"], when: "stage_awaiting_user" },
@@ -226,7 +226,7 @@ export function availableTaskActions(task: TaskActSubject, actor: TaskActor): Ta
   return [...out];
 }
 
-/** 现在不能做时说明为什么（用户的控制、往维护者会话里发话；给人看，待我处理在界面上叫"待办"，43 号票） */
+/** 现在不能做时说明为什么（用户的控制、往负责人会话里发话；给人看，待我处理在界面上叫"待办"，43 号票） */
 export function taskActRefusal(task: TaskActSubject & { title?: string }, act: TaskAct): string {
   const state = TASK_STATE_LABEL[task.state];
   switch (act) {
@@ -284,9 +284,9 @@ export interface TaskDeleteSubject {
  * 任务能不能删（186 号票，用户 2026-10-20 定"任务能删除，连会话和工作目录一起删"）；不能删的给出说明，能删的是 undefined。
  * 照项目的规矩：项目还在时属于项目的东西由项目管——
  * - 项目内部任务（64 号票，含运营方案建的；项目在用的那几条另有 operationsItemLockText 那句，调用方先查）：随项目删；
- * - 执行它的维护者是一个还在的项目的维护者：任务转为项目了的（会话、工作目录跟着项目），64 号票之前由项目的维护者做的单项目任务
- *   （会话在项目的维护者会话里）。项目删掉了的不再拦（会话已经随项目删了，只剩任务本身）。
- * projectOf 给出还在（没删掉）的项目里由这个维护者维护的那一个
+ * - 执行它的负责人是一个还在的项目的负责人：任务转为项目了的（会话、工作目录跟着项目），64 号票之前由项目的负责人做的单项目任务
+ *   （会话在项目的负责人会话里）。项目删掉了的不再拦（会话已经随项目删了，只剩任务本身）。
+ * projectOf 给出还在（没删掉）的项目里由这个负责人维护的那一个
  */
 export function taskDeleteRefusal(task: TaskDeleteSubject, projectOf: (maintainerId: string) => { name: string } | undefined): string | undefined {
   if (task.internal) return t("protocol.taskTransitions.deleteRefusal.internal", { project: task.internal.projectName });

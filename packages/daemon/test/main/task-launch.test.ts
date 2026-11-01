@@ -174,7 +174,7 @@ describe("发起对话框里先选了种类", () => {
     expect(second.task.kind).toBe("long_running");
   });
 
-  it("只选了一个项目的（流程、长程任务都行）建成这个项目的内部任务，通知（带着任务编号）交给项目的维护者、不交给秘书（64 号票）；流程选了几个项目的被拒；项目还在立项的被拒", async () => {
+  it("只选了一个项目的（流程、长程任务都行）建成这个项目的内部任务，通知（带着任务编号）交给项目的负责人、不交给秘书（64 号票）；流程选了几个项目的被拒；项目还在立项的被拒", async () => {
     const { url, daemon } = await startTestDaemon({ secretary: [], maintainer: [{ kind: "reply", text: "好的" }] });
     seedProject(daemon, "记账本", { state: "in_use", charterConfirmed: true });
     seedProject(daemon, "家电档案");

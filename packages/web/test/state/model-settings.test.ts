@@ -1,5 +1,5 @@
 // 设置 · 模型（73 号票）的状态层：改一处存整份、API key 只说状态、看图能力和思考档位的说法、连通测试的结果；
-// 120 号票：单独配了模型的维护者（设置页那一行下面的一句、⚙ 上"模型"那一块的话）。
+// 120 号票：单独配了模型的负责人（设置页那一行下面的一句、⚙ 上"模型"那一块的话）。
 import { describe, expect, test } from "vitest";
 import {
   agentModelLines,
@@ -97,7 +97,7 @@ describe("看图能力和思考档位的说法", () => {
   });
 
   test("\"各个 agent\"那一节的说明列出各个 agent（秘书写名字占位）；设置文件读不出来时的提示", () => {
-    expect(modelAgentsNote()).toBe(`${ASSISTANT_NAME_MARK}、任务维护者、项目维护者、子 agent、评审、范围审视各自用什么模型：跟随默认，或者选定模型和思考档位。`);
+    expect(modelAgentsNote()).toBe(`${ASSISTANT_NAME_MARK}、任务负责人、项目负责人、子 agent、评审、范围审视各自用什么模型：跟随默认，或者选定模型和思考档位。`);
     expect(modelAgentsNote()).not.toContain("角色");
     expect(modelSettingsFileBrokenNote()).toBe("设置文件读不出来，正在用默认；保存会覆盖它");
   });
@@ -116,11 +116,11 @@ describe("连通测试的结果", () => {
   });
 });
 
-describe("单独配了模型的维护者（120 号票）", () => {
+describe("单独配了模型的负责人（120 号票）", () => {
   const PRO_HIGH = { modelId: "deepseek-v4-pro", thinkingLevel: "high" } as const;
   const FLASH_HIGH = { modelId: "deepseek-flash", thinkingLevel: "high" } as const;
 
-  test("设置页上项目维护者、任务维护者那一行下面一句：单独配了的有哪些（项目写名字，任务写编号和标题），用不了的写明跟随这一行；别的行、没有的不写", () => {
+  test("设置页上项目负责人、任务负责人那一行下面一句：单独配了的有哪些（项目写名字，任务写编号和标题），用不了的写明跟随这一行；别的行、没有的不写", () => {
     const view = {
       maintainers: [
         { agentId: "pm-1", agent: "project_maintainer", owner: { kind: "project", id: "p-1", title: "记账本" }, choice: PRO_HIGH },
@@ -143,8 +143,8 @@ describe("单独配了模型的维护者（120 号票）", () => {
 
   test("⚙ 上的\"模型\"：下拉第一项写跟随哪一行和它现在用的；下一个新会话用的、按什么定的；最近在跑的会话实际用的；什么时候换（照 83 号票）", () => {
     const follow = { agent: "project_maintainer", role: FLASH_HIGH, next: FLASH_HIGH, switchAt: "next_segment" } as const;
-    expect(maintainerFollowLabel(follow)).toBe("跟随“项目维护者”的设置（现在是 deepseek-flash · 思考高）");
-    expect(agentModelLines(follow)).toEqual({ next: "下一个新会话用 deepseek-flash · 思考高（跟随“项目维护者”的设置）", session: undefined, unavailable: undefined, switchNote: MODEL_SWITCH_NOTE.next_segment });
+    expect(maintainerFollowLabel(follow)).toBe("跟随“项目负责人”的设置（现在是 deepseek-flash · 思考高）");
+    expect(agentModelLines(follow)).toEqual({ next: "下一个新会话用 deepseek-flash · 思考高（跟随“项目负责人”的设置）", session: undefined, unavailable: undefined, switchNote: MODEL_SWITCH_NOTE.next_segment });
 
     const own = agentModelLines({ ...follow, own: PRO_HIGH, next: PRO_HIGH, session: { modelId: "deepseek-flash", thinkingLevel: "high", vision: true } });
     expect(own.next).toBe("下一个新会话用 deepseek-v4-pro · 思考高（单独配的）");
@@ -152,8 +152,8 @@ describe("单独配了模型的维护者（120 号票）", () => {
 
     // 配的模型用不了了：跟随那一行，写明原因
     const gone = agentModelLines({ ...follow, own: { modelId: "deepseek-old", thinkingLevel: "high" }, unavailable: "单独配的 deepseek-old 在 DeepSeek 的模型目录里没有了" });
-    expect(gone.next).toBe("下一个新会话用 deepseek-flash · 思考高（跟随“项目维护者”的设置）");
-    expect(gone.unavailable).toBe("单独配的 deepseek-old 在 DeepSeek 的模型目录里没有了，现在跟随“项目维护者”的设置。重新选一个，或者改回跟随。");
+    expect(gone.next).toBe("下一个新会话用 deepseek-flash · 思考高（跟随“项目负责人”的设置）");
+    expect(gone.unavailable).toBe("单独配的 deepseek-old 在 DeepSeek 的模型目录里没有了，现在跟随“项目负责人”的设置。重新选一个，或者改回跟随。");
 
     // 任务：一次性的执行中途不换，定时触发的下一次运行开头换
     expect(agentModelLines({ agent: "task_maintainer", role: FLASH_HIGH, next: FLASH_HIGH, switchAt: "new_session" }).switchNote).toMatch(/任务执行中途不换.*清空当前对话后新开的一段用新的/);

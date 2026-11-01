@@ -1,6 +1,6 @@
 // 主切面：agent 管家的资源限制（规格第 3、21 节，12 号票），数值配小：
 // - 同时存活的子进程不超过上限；满了以后新的唤起排队（活动状态"排队"），名额空出时按先后拉起；
-// - 维护者闲置到设定时间后子进程退出，再来输入时重新拉起、接着原会话；秘书常驻、不闲置退出；
+// - 负责人闲置到设定时间后子进程退出，再来输入时重新拉起、接着原会话；秘书常驻、不闲置退出；
 // - 单次模型调用、单次工具调用超时被中止并上报错误（工具可以声明更长）；
 // - 孤儿进程按周期被回收（Job 对象只在 Windows 上有）。
 import { spawnSync } from "node:child_process";
@@ -47,7 +47,7 @@ describe("子进程上限与排队", () => {
 
       expect(maxLive).toBeLessThanOrEqual(2);
       const activity = activityOf(frontend);
-      // 后两个维护者都排过队；排队的先后就是拉起的先后
+      // 后两个负责人都排过队；排队的先后就是拉起的先后
       for (const id of ["tm-2", "tm-3"]) expect(activity).toContainEqual(expect.objectContaining({ agentId: id, state: "queued" }));
       const firstRun = (id: string) => activity.findIndex((a) => a.agentId === id && a.state !== "queued");
       expect(firstRun("tm-1")).toBeLessThan(firstRun("tm-2"));
@@ -60,10 +60,10 @@ describe("子进程上限与排队", () => {
 });
 
 describe("闲置退出", () => {
-  it("维护者闲置到设定时间后子进程退出；再来输入时重新拉起、接着原会话；秘书常驻、不闲置退出", async () => {
+  it("负责人闲置到设定时间后子进程退出；再来输入时重新拉起、接着原会话；秘书常驻、不闲置退出", async () => {
     const { url, daemon } = await startTestDaemon({
       config: { agents: { idleMinutes: 0.02 } },
-      secretary: [call("create_task", { title: "X 的调研", summary: "帮我整理 X 的调研" }), writeBrief("t-1"), say("交给维护者了")],
+      secretary: [call("create_task", { title: "X 的调研", summary: "帮我整理 X 的调研" }), writeBrief("t-1"), say("交给负责人了")],
       // 第一次唤起：提交计划；闲置退出后第二次唤起：回显看到的上下文（接着原会话）
       maintainer: (_id, spawn) => (spawn === 1 ? [submitPlanStep(), say("计划交了")] : [{ kind: "echo_context" }]),
     });
@@ -78,7 +78,7 @@ describe("闲置退出", () => {
     expect(daemon.secretary.pid).toBe(secretaryPid);
     expect(isProcessAlive(secretaryPid!)).toBe(true);
 
-    // 用户打回：意见作为输入交给维护者，它被重新拉起，接着原会话
+    // 用户打回：意见作为输入交给负责人，它被重新拉起，接着原会话
     const card = daemon.tasks.latestPlan("t-1")!;
     const result = await frontend.cardAction({ cardId: card.cardId, action: "reject", expectedVersion: 1, note: "再简短一点" });
     expect(result.ok).toBe(true);

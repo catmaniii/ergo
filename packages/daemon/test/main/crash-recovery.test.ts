@@ -5,8 +5,8 @@
 // - 正在执行、有副作用的调用：任务转为等我（"中断：不确定 X 是否已执行"），待我处理里一条卡着任务的事项；不自动重做。
 //   秘书会话里的：待我处理里一条不卡任务的同样写法的事项，秘书会话照常可用；
 // - 正在等审批的调用：重启后审批卡还是那一张、仍待处理，不新建卡、不再提示，任务在等我；它不算"说不清做没做完"。
-//   用户事后批准，运行时唤起维护者"可以重试"，重试放行一次；
-// - 正在执行、只读或幂等的调用：维护者被唤起接着做，会话文件里那次调用补着"被中断"，由模型决定要不要重做；任务不转等我；
+//   用户事后批准，运行时唤起负责人"可以重试"，重试放行一次；
+// - 正在执行、只读或幂等的调用：负责人被唤起接着做，会话文件里那次调用补着"被中断"，由模型决定要不要重做；任务不转等我；
 // - 说到一半的回复：历史和会话文件里都没有碎片，会话从最后一个完整回合续上；排着的输入按原顺序处理，不丢也不重复。
 import fs from "node:fs";
 import path from "node:path";
@@ -57,7 +57,7 @@ const echo: FauxStep = { kind: "echo_context" };
 /** bash 里用正斜杠写 Windows 路径（Git Bash 认 C:/x/y） */
 const fwd = (p: string) => p.replaceAll("\\", "/");
 
-/** 维护者 tm-1：第一次唤起交计划，确认后（按计划重新装配）照 run 执行 */
+/** 负责人 tm-1：第一次唤起交计划，确认后（按计划重新装配）照 run 执行 */
 const maintainerWith = (run: FauxStep[]) => ({ "tm-1": maintainerScripts(run) });
 
 const ok = (r: ResponseFrame) => {
@@ -130,13 +130,13 @@ async function reconnect(frontend: TestFrontend, td: TestDaemon): Promise<number
 }
 
 describe("任务里被杀", () => {
-  it("有副作用的调用执行到一半：子进程和孙进程随之结束；重启后任务转为等我（中断：不确定 X 是否已执行），看板上看得到原因、待我处理里一条卡着任务的事项，不自动重做；用户确认后维护者照他说的接着做", async () => {
+  it("有副作用的调用执行到一半：子进程和孙进程随之结束；重启后任务转为等我（中断：不确定 X 是否已执行），看板上看得到原因、待我处理里一条卡着任务的事项，不自动重做；用户确认后负责人照他说的接着做", async () => {
     const command = "sleep 60 && echo 发出 >> sent.txt";
     const killable = await startKillableDaemon({ secretary: SECRETARY_BRIEFS, maintainer: maintainerWith([call("bash", { command })]) });
     const frontend = await connect(killable.url);
     await startRunningTask(frontend);
-    // bash 开始执行（有副作用：记了"开始执行"）；秘书、维护者、bash、sleep 都在 Job 里
-    await killable.waitFor((r) => r.allowed?.agentId === "tm-1" && r.allowed.toolName === "bash", "维护者的 bash 开始执行");
+    // bash 开始执行（有副作用：记了"开始执行"）；秘书、负责人、bash、sleep 都在 Job 里
+    await killable.waitFor((r) => r.allowed?.agentId === "tm-1" && r.allowed.toolName === "bash", "负责人的 bash 开始执行");
     await killable.waitFor((r) => r.guard?.type === GUARD_EVENTS.toolCallStarted, "记下开始执行");
     const oldPids = await killWithProcesses(killable, 4);
 
@@ -150,20 +150,20 @@ describe("任务里被杀", () => {
     expect(waiting).toMatchObject({ change: "waiting", from: "running", by: "system", task: { state: "waiting_for_user", waitReason: "interrupted", waitNote: why } });
     const item = await eventually(() => inboxOf(frontend), (i) => i.kind === "notice" && i.notice === "interrupted", "中断不确定事项");
     expect(item).toMatchObject({ title: why, urgency: "blocking", actions: [INTERRUPTED_ACTIONS.executed, INTERRUPTED_ACTIONS.notExecuted], source: "任务「整理笔记」" });
-    // 105 号票：记下那次调用实际所在的会话（任务自己的维护者的），待我处理里"去看看 ›"按它去、定位到那次调用
+    // 105 号票：记下那次调用实际所在的会话（任务自己的负责人的），待我处理里"去看看 ›"按它去、定位到那次调用
     expect(item.origin).toMatchObject({ taskId: "t-1", conversation: expect.stringMatching(/^maintainer:/), toolCallId: expect.any(String) });
-    // 不自动重做：维护者没被唤起，那条命令没再跑过
+    // 不自动重做：负责人没被唤起，那条命令没再跑过
     await new Promise((r) => setTimeout(r, 1500));
     expect(toolCallsOf(frontend, M1).filter((c) => c.tool === "bash")).toEqual([]);
     expect(fs.existsSync(path.join(td.daemon.layout.outputs, "t-1", "sent.txt"))).toBe(false);
     expect(td.daemon.agents.live().map((a) => a.agentId)).not.toContain("tm-1");
 
-    // 用户查过：已经执行了。任务接着执行，维护者被唤起，看得到那次调用补上的"不确定"和用户的确认
+    // 用户查过：已经执行了。任务接着执行，负责人被唤起，看得到那次调用补上的"不确定"和用户的确认
     ok(await frontend.inboxAction({ itemIds: [item.id], action: "handle", choice: INTERRUPTED_ACTIONS.executed }));
     const resumed = await eventually(() => tasksOf(frontend), (e) => e.task.id === "t-1" && e.change === "resumed", "任务接着执行");
     expect(resumed.task.state).toBe("running");
     expect(resumed.task.waitNote).toBeUndefined();
-    await waitUntil(() => echoes(frontend, M1).length > 0, { timeoutMs: 30_000, describe: () => "维护者被唤起" });
+    await waitUntil(() => echoes(frontend, M1).length > 0, { timeoutMs: 30_000, describe: () => "负责人被唤起" });
     const seen = echoes(frontend, M1).at(-1)!;
     expect(seen).toContain(`[toolResult] bash: 这次调用被中断了：执行时守护进程（或 agent 子进程）重启了，不确定${what}是否已执行。`);
     expect(seen).toContain(`用户确认过了：${what}已经执行了，不要重做`);
@@ -204,9 +204,9 @@ describe("任务里被杀", () => {
     await new Promise((r) => setTimeout(r, 1000));
     expect(inboxOf(frontend).filter((i) => i.kind === "notice" && i.notice === "interrupted" && i.title !== slowWhy)).toEqual([]);
 
-    // 用户说慢的那次没执行：维护者看到快的那次"已经执行完了，不要重做"，慢的那次"不确定"，加上用户的回答；快的那次没再跑
+    // 用户说慢的那次没执行：负责人看到快的那次"已经执行完了，不要重做"，慢的那次"不确定"，加上用户的回答；快的那次没再跑
     ok(await frontend.inboxAction({ itemIds: [item.id], action: "handle", choice: INTERRUPTED_ACTIONS.notExecuted }));
-    await waitUntil(() => echoes(frontend, M1).length > 0, { timeoutMs: 30_000, describe: () => "维护者被唤起" });
+    await waitUntil(() => echoes(frontend, M1).length > 0, { timeoutMs: 30_000, describe: () => "负责人被唤起" });
     const seen = echoes(frontend, M1).at(-1)!;
     expect(seen).toContain(`[toolResult] bash: 这次调用已经执行完了（通用 bash「${fast}」，结果：(no output)）。守护进程（或 agent 子进程）重启时结果还没写进会话；不要重做`);
     expect(seen).toContain(`[toolResult] bash: 这次调用被中断了：执行时守护进程（或 agent 子进程）重启了，不确定通用 bash「${slow}」是否已执行。`);
@@ -214,11 +214,11 @@ describe("任务里被杀", () => {
     expect(fs.readFileSync(sent, "utf8")).toBe("发出\n");
   }, 150_000);
 
-  it("子 agent（20 号票）的有副作用调用执行到一半：同样转为等我、待我处理里一条卡着任务的事项（写明哪个子 agent），不自动重做；交回维护者的\"被打断了\"写明这次调用等用户确认、别重做；用户确认后维护者照他说的做", async () => {
+  it("子 agent（20 号票）的有副作用调用执行到一半：同样转为等我、待我处理里一条卡着任务的事项（写明哪个子 agent），不自动重做；交回负责人的\"被打断了\"写明这次调用等用户确认、别重做；用户确认后负责人照他说的做", async () => {
     const command = "sleep 60 && echo 发出 >> sa-sent.txt";
     const killable = await startKillableDaemon({
       secretary: SECRETARY_BRIEFS,
-      // 维护者把 s1 交给子 agent sa-1，用户同意后等它交回
+      // 负责人把 s1 交给子 agent sa-1，用户同意后等它交回
       maintainer: maintainerWith([call("propose_parallel", { reason: "交给子 agent 做", agents: [{ stageId: "s1", instructions: "跑那条命令" }] }), say("等你确认"), say("等 sa-1 交回")]),
       subAgent: { "sa-1": [call("bash", { command }), say("做完了")] },
     });
@@ -241,7 +241,7 @@ describe("任务里被杀", () => {
     const item = await eventually(() => inboxOf(frontend), (i) => i.kind === "notice" && i.notice === "interrupted", "中断不确定事项");
     expect(item).toMatchObject({ title: why, urgency: "blocking", data: { taskId: "t-1", toolCallId: startedCall.execution.toolCallId, agentId: "sa-1" } });
     expect(item.kind === "notice" && item.body).toContain(`任务「整理笔记」里子 agent sa-1 在阶段 s1 正在执行${what}时，守护进程（或子 agent sa-1 的子进程）重启了`);
-    // 交回维护者的"被打断了"写明那次调用等用户确认、不要重做
+    // 交回负责人的"被打断了"写明那次调用等用户确认、不要重做
     const back = await eventually(() => messagesOf(frontend, M1), (m) => m.agentId === "sa-1" && m.message.speaker === "system", "sa-1 被打断的说明");
     expect(textOf(back)).toContain(`被打断了（守护进程重启），没有结果。它停下时正在执行的${what}说不清做没做完，已经放进待我处理请用户确认：用户告诉你之前不要重做`);
     // 不自动重做：那条命令没再跑过，sa-1 没被重新拉起
@@ -250,14 +250,14 @@ describe("任务里被杀", () => {
     expect(td.daemon.agents.live().map((a) => a.agentId)).not.toContain("sa-1");
     expect(td.daemon.tasks.get("t-1")?.state).toBe("waiting_for_user");
 
-    // 用户查过：没执行。任务接着执行，维护者收到的确认写明那是 sa-1 在阶段 s1 的调用
+    // 用户查过：没执行。任务接着执行，负责人收到的确认写明那是 sa-1 在阶段 s1 的调用
     ok(await frontend.inboxAction({ itemIds: [item.id], action: "handle", choice: INTERRUPTED_ACTIONS.notExecuted }));
     await eventually(() => tasksOf(frontend), (e) => e.task.id === "t-1" && e.change === "resumed", "任务接着执行");
-    const answered = await eventually(() => messagesOf(frontend, M1), (m) => m.message.speaker === "system" && textOf(m).includes("用户确认过了"), "交给维护者的确认");
+    const answered = await eventually(() => messagesOf(frontend, M1), (m) => m.message.speaker === "system" && textOf(m).includes("用户确认过了"), "交给负责人的确认");
     expect(textOf(answered)).toContain(`用户确认过了：${what}（子 agent sa-1 在阶段 s1 的调用）没有执行，重做这一步`);
   }, 150_000);
 
-  it("正在等审批的调用：重启后审批卡还是那一张、仍待处理，不新建卡也不再提示，任务在等我，不算说不清做没做完；用户事后批准后维护者被唤起重试，放行一次，再来一次重新问", async () => {
+  it("正在等审批的调用：重启后审批卡还是那一张、仍待处理，不新建卡也不再提示，任务在等我，不算说不清做没做完；用户事后批准后负责人被唤起重试，放行一次，再来一次重新问", async () => {
     // 工作目录之外的文件：任务里读它要先问（计划里没有授权），等审批时被杀
     const source = path.join(realPathOf(makeTempDir("ergo-outside-"))!, "source.txt");
     fs.writeFileSync(source, "原始资料");
@@ -287,9 +287,9 @@ describe("任务里被杀", () => {
     expect(td.daemon.store.read(GUARD_CHANNEL, 0, GUARD_EVENTS.toolCallInterrupted)).toEqual([]);
     expect(inboxOf(frontend).filter((i) => i.kind === "notice" && i.notice === "interrupted")).toEqual([]);
 
-    // 事后批准：一次性授权，维护者被唤起"可以重试"，原样重试放行一次；再来一次重新问（第二张审批卡）
+    // 事后批准：一次性授权，负责人被唤起"可以重试"，原样重试放行一次；再来一次重新问（第二张审批卡）
     ok(await frontend.cardAction({ cardId: card.id, action: "approve", expectedVersion: card.version }));
-    await waitUntil(() => echoes(frontend, M1).length > 0, { timeoutMs: 30_000, describe: () => "维护者重试完" });
+    await waitUntil(() => echoes(frontend, M1).length > 0, { timeoutMs: 30_000, describe: () => "负责人重试完" });
     expect(toolCallsOf(frontend, M1).filter((c) => c.tool === "read").map((c) => [c.tool, c.outcome])).toEqual([
       ["read", "done"],
       ["read", "blocked"],
@@ -299,26 +299,26 @@ describe("任务里被杀", () => {
       ["pending", false],
     ]);
     expect(new Set(cardsOf(frontend).filter((c) => c.type === "approval").map((c) => c.id)).size).toBe(2);
-    // 维护者看到：等审批时被打断的那次没执行（补上的结果），批准的通知，重试拿到的内容
+    // 负责人看到：等审批时被打断的那次没执行（补上的结果），批准的通知，重试拿到的内容
     const seen = echoes(frontend, M1).at(-1)!;
     expect(seen).toContain("[toolResult] read: 已提交审批，等待用户：守护进程（或 agent 子进程）重启时这次调用还在等用户批准，没有执行");
     expect(seen).toContain("已获用户批准，可以重试");
     expect(seen).toContain("[toolResult] read: 原始资料");
   }, 150_000);
 
-  it("只读的调用执行到一半：任务不转等我；维护者被唤起接着做，会话里那次调用补着\"被中断\"，由它决定要不要重做", async () => {
+  it("只读的调用执行到一半：任务不转等我；负责人被唤起接着做，会话里那次调用补着\"被中断\"，由它决定要不要重做", async () => {
     const killable = await startKillableDaemon({
       secretary: SECRETARY_BRIEFS,
       maintainer: maintainerWith([call("write", { path: "notes.md", content: "第一条笔记\n" }), call("bash", { command: "tail -f notes.md" })]),
     });
     const frontend = await connect(killable.url);
     await startRunningTask(frontend);
-    await killable.waitFor((r) => r.allowed?.agentId === "tm-1" && r.allowed.toolName === "bash", "维护者的 tail -f 开始执行");
+    await killable.waitFor((r) => r.allowed?.agentId === "tm-1" && r.allowed.toolName === "bash", "负责人的 tail -f 开始执行");
     await killWithProcesses(killable, 4);
 
     const td = await restartAfterKill(killable, { maintainer: () => [echo, say("接着做")] });
     await reconnect(frontend, td);
-    await waitUntil(() => echoes(frontend, M1).length > 0, { timeoutMs: 30_000, describe: () => "维护者被唤起" });
+    await waitUntil(() => echoes(frontend, M1).length > 0, { timeoutMs: 30_000, describe: () => "负责人被唤起" });
     const seen = echoes(frontend, M1).at(-1)!;
     expect(seen).toContain(`[toolResult] bash: ${INTERRUPTED_TOOL_RESULT}`);
     expect(seen).toContain(RESTART_WAKE_TEXT);
@@ -329,7 +329,7 @@ describe("任务里被杀", () => {
     expect(messagesOf(frontend, M1).filter((m) => m.agentInput && textOf(m) === RESTART_WAKE_TEXT)).toHaveLength(1);
   }, 150_000);
 
-  it("守护进程没被杀、只是维护者的子进程意外退出：正在执行的有副作用的调用同样记成中断，任务转为等我；用户在任务详情里点继续，维护者被提醒先查效果", async () => {
+  it("守护进程没被杀、只是负责人的子进程意外退出：正在执行的有副作用的调用同样记成中断，任务转为等我；用户在任务详情里点继续，负责人被提醒先查效果", async () => {
     const td = await startTestDaemon({
       secretary: SECRETARY_BRIEFS,
       maintainer: (_id, spawn) => maintainerScripts([call("bash", { command: "sleep 60" })])[spawn - 1] ?? [echo],
@@ -346,16 +346,16 @@ describe("任务里被杀", () => {
     expect(waiting.task).toMatchObject({ state: "waiting_for_user", waitNote: why });
     await eventually(() => inboxOf(frontend), (i) => i.kind === "notice" && i.notice === "interrupted" && i.urgency === "blocking", "中断不确定事项");
 
-    // 在任务详情里点继续：维护者被唤起，提醒它先查那次调用的效果；待我处理里那一条不再卡着任务
+    // 在任务详情里点继续：负责人被唤起，提醒它先查那次调用的效果；待我处理里那一条不再卡着任务
     ok(await frontend.taskAction({ taskId: "t-1", action: "resume" }));
-    await waitUntil(() => echoes(frontend, M1).length > 0, { timeoutMs: 30_000, describe: () => "维护者被唤起" });
+    await waitUntil(() => echoes(frontend, M1).length > 0, { timeoutMs: 30_000, describe: () => "负责人被唤起" });
     expect(echoes(frontend, M1).at(-1)).toContain(`用户让你继续执行（之前${why}`);
     expect(inboxOf(frontend).filter((i) => i.kind === "notice" && i.notice === "interrupted").at(-1)).toMatchObject({ urgency: "non_blocking" });
   }, 120_000);
 });
 
 describe("彻底删除", () => {
-  it("被中断的那次调用的审批决定彻底删除时，同一段调用摘要出现的地方一起改写：执行记录、任务等我的说明、维护者会话里的说明、\"中断不确定\"事项；任务状态不变", async () => {
+  it("被中断的那次调用的审批决定彻底删除时，同一段调用摘要出现的地方一起改写：执行记录、任务等我的说明、负责人会话里的说明、\"中断不确定\"事项；任务状态不变", async () => {
     const tools = realPathOf(makeTempDir("ergo-tools-"))!;
     const runs = path.join(tools, "runs.log");
     const script = path.join(tools, "slow.js");
@@ -377,7 +377,7 @@ describe("彻底删除", () => {
     await eventually(() => tasksOf(frontend), (e) => e.task.id === "t-1" && e.task.waitReason === "interrupted", "任务转为等我（中断不确定）");
     const item = await eventually(() => inboxOf(frontend), (i) => i.kind === "notice" && i.notice === "interrupted", "中断不确定事项");
     expect(td.daemon.tasks.get("t-1")?.waitNote).toBe(`中断：不确定${what}是否已执行`);
-    /** 维护者会话里还提到这次调用的消息 */
+    /** 负责人会话里还提到这次调用的消息 */
     const mentions = () =>
       td.daemon.store
         .read(M1, 0, EVENT_TYPES.message)

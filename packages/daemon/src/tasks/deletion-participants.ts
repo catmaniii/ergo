@@ -6,7 +6,7 @@
 // 并行的提议和决定（sub-agents/deletion.ts）、触发登记和定时作业（scheduled-jobs/purge.ts）由拥有它们的模块各自登记，按 plan.tasks 认。
 // 删项目时另外：scope 一步认出项目的内部任务（带着这个项目的标记，isInternalTo）写进 plan.tasks；没结束的同一事务取消（能删的项目
 // 没有在做、排队的工单，只会是还没派工单的规划中、计划等确认的）；负载里记着它们的任务编号、或者带着这个项目的标记的卡片整张换成标记。
-// 删任务时另外：它自己的维护者会话（任务自己的维护者、迁移来的定时任务的作业维护者）整条换成标记；负载里记着它的卡片整张换成标记，
+// 删任务时另外：它自己的负责人会话（任务自己的负责人、迁移来的定时任务的作业负责人）整条换成标记；负载里记着它的卡片整张换成标记，
 // 在别人会话里的不动（KEEP_CARD_TYPES）。
 import {
   type CardEventPayload,
@@ -24,7 +24,7 @@ import { purgedTask } from "./material-sources.ts";
 import { listTasks } from "./views.ts";
 
 /**
- * 负载里记着任务编号、但在别人会话里的卡（不随任务删）：秘书的提问卡、建议发起任务卡、快速动作卡，项目维护者为工单的提问卡、
+ * 负载里记着任务编号、但在别人会话里的卡（不随任务删）：秘书的提问卡、建议发起任务卡、快速动作卡，项目负责人为工单的提问卡、
  * 工单卡，每周的归档清单
  */
 const KEEP_CARD_TYPES: ReadonlySet<CardType> = new Set<CardType>(["questions", "suggest_task", "quick_action", "archive_list", "work_order"]);
@@ -62,7 +62,7 @@ export function registerTaskDeletion(participants: Pick<DeletionParticipants, "r
           const payload: TaskEventPayload = { task: { ...purgedTask(task), state: "cancelled", updatedAt: plan.context.deletedAt }, change: "cancelled", from: task.state, by: "user" };
           plan.append("records", { channel: CHANNELS.board, type: EVENT_TYPES.task, payload });
         }
-        // 卡片：负载里记着它们的任务编号的（计划卡、计划变更卡、并行确认卡、提问卡……）、带着这个项目的标记的（项目的维护者给的还没点的
+        // 卡片：负载里记着它们的任务编号的（计划卡、计划变更卡、并行确认卡、提问卡……）、带着这个项目的标记的（项目的负责人给的还没点的
         // 建议卡、起草段的审批卡这类负载里没有任务编号的）：每个版本整条换成标记
         for (const event of liveEvents(plan.store.read(CHANNELS.cards, 0, EVENT_TYPES.card))) {
           const { card } = event.payload as CardEventPayload;
@@ -80,7 +80,7 @@ export function registerTaskDeletion(participants: Pick<DeletionParticipants, "r
       },
       claim() {
         claimTaskRecords(plan);
-        // 它自己的维护者会话：整条换成"已删除"标记（由项目的维护者做的不碰）
+        // 它自己的负责人会话：整条换成"已删除"标记（由项目的负责人做的不碰）
         if (conversation) for (const event of liveEvents(plan.store.read(conversation))) plan.marker(event);
         // 卡片：这个任务的（别人会话里的除外）每个版本整条换成标记
         for (const event of liveEvents(plan.store.read(CHANNELS.cards, 0, EVENT_TYPES.card))) {

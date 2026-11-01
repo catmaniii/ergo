@@ -1190,7 +1190,7 @@
               "type": "work_order_divider",
               "workOrderId": "wo-1",
               "title": "加一个导出说明 export.md",
-              "from": "任务维护者"
+              "from": "任务负责人"
             }
           ],
           "id": "m-dbf276b8-2c77-41bf-9029-6f1dd11a682b",
@@ -1215,7 +1215,7 @@
           "parts": [
             {
               "type": "text",
-              "text": "开始工单 wo-1「加一个导出说明 export.md」（来自任务 t-1 的维护者）：要做的改动和验收标准在固定上下文里的“这次的工单”。做完（或者这个改动会伤害本项目、要退回，或者做不了）用 submit_receipt 交回执，退回、做不了必须写明理由；拿不准要问的用 ask_clarification（问题交给派单的任务维护者）。交回执之前照常把进展写回项目档案、用 write_segment_summary 写这一段的摘要。"
+              "text": "开始工单 wo-1「加一个导出说明 export.md」（来自任务 t-1 的负责人）：要做的改动和验收标准在固定上下文里的“这次的工单”。做完（或者这个改动会伤害本项目、要退回，或者做不了）用 submit_receipt 交回执，退回、做不了必须写明理由；拿不准要问的用 ask_clarification（问题交给派单的任务负责人）。交回执之前照常把进展写回项目档案、用 write_segment_summary 写这一段的摘要。"
             }
           ],
           "id": "m-310e327e-08bf-4158-a963-b837fc28a364",
@@ -2029,7 +2029,7 @@
               "withinGrant": false,
               "genericBash": false,
               "outcome": "done",
-              "resultSummary": "工单 wo-1 的回执记下了。这一段写回项目档案、写好摘要之后工单结束，回执交给任务维护者。",
+              "resultSummary": "工单 wo-1 的回执记下了。这一段写回项目档案、写好摘要之后工单结束，回执交给任务负责人。",
               "nature": "act"
             }
           ],
@@ -2300,7 +2300,7 @@
           "parts": [
             {
               "type": "text",
-              "text": "工单 wo-1「加一个导出说明 export.md」的回执：项目「记账本」完成。\n项目维护者的说明：加好了 export.md\n阶段 s1 的回执全部到齐、都完成了：用 complete_stage 宣布阶段完成，由运行时跑本阶段的验收。"
+              "text": "工单 wo-1「加一个导出说明 export.md」的回执：项目「记账本」完成。\n项目负责人的说明：加好了 export.md\n阶段 s1 的回执全部到齐、都完成了：用 complete_stage 宣布阶段完成，由运行时跑本阶段的验收。"
             }
           ],
           "id": "m-9793845f-3258-4dde-83bf-f511dcdb80cb",
@@ -2478,7 +2478,7 @@
           "parts": [
             {
               "type": "text",
-              "text": "维护者宣布阶段 s1「记账本加导出」完成（第 1 次）：阶段 s1 的回执到齐了"
+              "text": "负责人宣布阶段 s1「记账本加导出」完成（第 1 次）：阶段 s1 的回执到齐了"
             }
           ],
           "id": "m-c12deeb1-0967-46ab-ae9a-f08d51402139",
@@ -3099,7 +3099,7 @@
               "type": "work_order_divider",
               "workOrderId": "wo-2",
               "title": "按记账本的导出说明加导入说明 import.md",
-              "from": "任务维护者"
+              "from": "任务负责人"
             }
           ],
           "id": "m-1884ead9-bc9f-4ef4-a8aa-2b0ad80d35e7",
@@ -3124,7 +3124,7 @@
           "parts": [
             {
               "type": "text",
-              "text": "开始工单 wo-2「按记账本的导出说明加导入说明 import.md」（来自任务 t-1 的维护者）：要做的改动和验收标准在固定上下文里的“这次的工单”。做完（或者这个改动会伤害本项目、要退回，或者做不了）用 submit_receipt 交回执，退回、做不了必须写明理由；拿不准要问的用 ask_clarification（问题交给派单的任务维护者）。交回执之前照常把进展写回项目档案、用 write_segment_summary 写这一段的摘要。"
+              "text": "开始工单 wo-2「按记账本的导出说明加导入说明 import.md」（来自任务 t-1 的负责人）：要做的改动和验收标准在固定上下文里的“这次的工单”。做完（或者这个改动会伤害本项目、要退回，或者做不了）用 submit_receipt 交回执，退回、做不了必须写明理由；拿不准要问的用 ask_clarification（问题交给派单的任务负责人）。交回执之前照常把进展写回项目档案、用 write_segment_summary 写这一段的摘要。"
             }
           ],
           "id": "m-edcfe70a-1511-44d6-abfa-72a370116692",
@@ -4006,7 +4006,7 @@
               "withinGrant": false,
               "genericBash": false,
               "outcome": "done",
-              "resultSummary": "工单 wo-2 的回执记下了。这一段写回项目档案、写好摘要之后工单结束，回执交给任务维护者。",
+              "resultSummary": "工单 wo-2 的回执记下了。这一段写回项目档案、写好摘要之后工单结束，回执交给任务负责人。",
               "nature": "act"
             }
           ],
@@ -4365,7 +4365,7 @@
           "parts": [
             {
               "type": "text",
-              "text": "工单 wo-2「按记账本的导出说明加导入说明 import.md」的回执：项目「家电档案」退回。\n理由：会改动家电档案现有的表结构，伤害本项目\n项目维护者的说明：没有改\n阶段 s2 不通过：wo-2（项目「家电档案」）退回：会改动家电档案现有的表结构，伤害本项目。可以调整做法——用 dispatch_work_order 重新派单，或者用 revise_plan、propose_plan_change 改计划——算一次验收退回；或者用 wait_for_user 转为等我，让用户拍板。"
+              "text": "工单 wo-2「按记账本的导出说明加导入说明 import.md」的回执：项目「家电档案」退回。\n理由：会改动家电档案现有的表结构，伤害本项目\n项目负责人的说明：没有改\n阶段 s2 不通过：wo-2（项目「家电档案」）退回：会改动家电档案现有的表结构，伤害本项目。可以调整做法——用 dispatch_work_order 重新派单，或者用 revise_plan、propose_plan_change 改计划——算一次验收退回；或者用 wait_for_user 转为等我，让用户拍板。"
             }
           ],
           "id": "m-2165505a-2a6c-432b-a235-b7ac83dc0b1a",
@@ -5049,7 +5049,7 @@
               "type": "work_order_divider",
               "workOrderId": "wo-3",
               "title": "调整：只加一份导入说明 import.md，不动现有的表",
-              "from": "任务维护者"
+              "from": "任务负责人"
             }
           ],
           "id": "m-5131486e-d52d-4979-906c-9c9ab45331db",
@@ -5074,7 +5074,7 @@
           "parts": [
             {
               "type": "text",
-              "text": "开始工单 wo-3「调整：只加一份导入说明 import.md，不动现有的表」（来自任务 t-1 的维护者）：要做的改动和验收标准在固定上下文里的“这次的工单”。做完（或者这个改动会伤害本项目、要退回，或者做不了）用 submit_receipt 交回执，退回、做不了必须写明理由；拿不准要问的用 ask_clarification（问题交给派单的任务维护者）。交回执之前照常把进展写回项目档案、用 write_segment_summary 写这一段的摘要。"
+              "text": "开始工单 wo-3「调整：只加一份导入说明 import.md，不动现有的表」（来自任务 t-1 的负责人）：要做的改动和验收标准在固定上下文里的“这次的工单”。做完（或者这个改动会伤害本项目、要退回，或者做不了）用 submit_receipt 交回执，退回、做不了必须写明理由；拿不准要问的用 ask_clarification（问题交给派单的任务负责人）。交回执之前照常把进展写回项目档案、用 write_segment_summary 写这一段的摘要。"
             }
           ],
           "id": "m-543b5142-b75b-4411-9e09-84f667fa9990",
@@ -5108,7 +5108,7 @@
               "withinGrant": false,
               "genericBash": false,
               "outcome": "done",
-              "resultSummary": "已派出工单 wo-3 → 项目「家电档案」（计划内，阶段 s2），进了它的维护者的队列。这次是调整做法，算一次验收退回。等回执。",
+              "resultSummary": "已派出工单 wo-3 → 项目「家电档案」（计划内，阶段 s2），进了它的负责人的队列。这次是调整做法，算一次验收退回。等回执。",
               "nature": "act"
             }
           ],
@@ -6166,7 +6166,7 @@
               "withinGrant": false,
               "genericBash": false,
               "outcome": "done",
-              "resultSummary": "工单 wo-3 的回执记下了。这一段写回项目档案、写好摘要之后工单结束，回执交给任务维护者。",
+              "resultSummary": "工单 wo-3 的回执记下了。这一段写回项目档案、写好摘要之后工单结束，回执交给任务负责人。",
               "nature": "act"
             }
           ],
@@ -6534,7 +6534,7 @@
           "parts": [
             {
               "type": "text",
-              "text": "工单 wo-3「调整：只加一份导入说明 import.md，不动现有的表」的回执：项目「家电档案」完成。\n项目维护者的说明：加好了 import.md，不动现有的表\n阶段 s2 的回执全部到齐、都完成了：用 complete_stage 宣布阶段完成，由运行时跑本阶段的验收。"
+              "text": "工单 wo-3「调整：只加一份导入说明 import.md，不动现有的表」的回执：项目「家电档案」完成。\n项目负责人的说明：加好了 import.md，不动现有的表\n阶段 s2 的回执全部到齐、都完成了：用 complete_stage 宣布阶段完成，由运行时跑本阶段的验收。"
             }
           ],
           "id": "m-e045ce83-2b4c-44b3-92bc-1598ab1b6d46",
@@ -6763,7 +6763,7 @@
           "parts": [
             {
               "type": "text",
-              "text": "维护者宣布阶段 s2「家电档案接导入」完成（第 1 次）：阶段 s2 的回执到齐了"
+              "text": "负责人宣布阶段 s2「家电档案接导入」完成（第 1 次）：阶段 s2 的回执到齐了"
             }
           ],
           "id": "m-fd28a4d6-d2c5-4bab-90b2-0b97f9dd83f6",

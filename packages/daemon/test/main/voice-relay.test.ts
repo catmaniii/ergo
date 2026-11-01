@@ -1,4 +1,4 @@
-// 主切面：项目、任务的进展用负责人自己的声音汇报（354 号票，用户 2026-11-01 定）。真的守护进程，秘书、维护者接 faux 剧本，
+// 主切面：项目、任务的进展用负责人自己的声音汇报（354 号票，用户 2026-11-01 定）。真的守护进程，秘书、负责人接 faux 剧本，
 // 合成服务是假的（helpers/tts.ts，空闲端口），参考音色都是编的示例：
 // - 不增加打扰，只是换声音：开了自动播报的任务做完、开关开着的任务或项目的进展来信、用户打字或说话问进展，都是秘书开场 + 负责人的声音；
 //   开关关着、用户也没问的照旧是文字，发不了语音；
@@ -116,7 +116,7 @@ async function scheduledTask(frontend: TestFrontend, voiceAnnounce: boolean) {
   await registered(frontend);
 }
 
-/** 使用中的项目 p-1（维护者 pm-1），开关开着或关着 */
+/** 使用中的项目 p-1（负责人 pm-1），开关开着或关着 */
 const inUseProject = { state: "in_use" as const, charterConfirmed: true, kind: "dev" as const, toolkit: { skills: [], mcp: [], bash: true, network: true } };
 
 describe("什么时候用负责人的声音", () => {

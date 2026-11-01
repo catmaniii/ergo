@@ -30,5 +30,5 @@
 ## Consequences
 
 - planguard 的规则文件在二狗里原样能跑：planguard 的 storage、office 用例已经搬进守卫的场景文件。结果和原版的差别有两处：`$step` 不存在；没有计划一致性检查。
-- 写规则的人（26 号票编译对话里的限制、维护者写计划）要用二狗的规则环境，见 `rule-validation.ts` 开头的说明和 `docs/developer-guide.md` 的"时序规则"一节。规则写错了，存计划时就会被 `validateTemporalRules` 拦下。
+- 写规则的人（26 号票编译对话里的限制、负责人写计划）要用二狗的规则环境，见 `rule-validation.ts` 开头的说明和 `docs/developer-guide.md` 的"时序规则"一节。规则写错了，存计划时就会被 `validateTemporalRules` 拦下。
 - 同步上游时，`expr.ts` 导出的 `Op` 和 `PLACEHOLDER` 要补回去；扩展运算在 `rule-ops.ts` 里，不受影响。

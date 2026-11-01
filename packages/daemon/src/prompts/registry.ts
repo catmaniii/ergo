@@ -107,7 +107,7 @@ const NONE = {} as const;
 /** 对话审批开着（秘书、普通任务的 agent、迁移来的定时作业的 agent） */
 const APPROVAL_FLAGS = tTable({ 对话审批开着: "prompts.flag.conversationApprovals" });
 
-/** 定时触发的任务（76 号票）那一段的条件和值：普通任务的 agent、流程的维护者都插 triggered-runs 片段 */
+/** 定时触发的任务（76 号票）那一段的条件和值：普通任务的 agent、流程的负责人都插 triggered-runs 片段 */
 const TRIGGERED_FLAGS = tTable({ 定时触发: "prompts.flag.triggered" });
 const TRIGGERED_VALUES = {
   连续失败几次暂停: {
@@ -585,7 +585,7 @@ export function commonPlaceholders(): readonly CommonPlaceholder[] {
     SUGGEST_PROJECT_TOOL,
     SUBMIT_CHARTER_TOOL,
     PROPOSE_CHARTER_CHANGE_TOOL,
-    // 261 号票：项目维护者提本项目的规范改写
+    // 261 号票：项目负责人提本项目的规范改写
     PROPOSE_STANDARD_CHANGE_TOOL,
     PROPOSE_OPERATIONS_TOOL,
     OPEN_SERVICE_TOOL,
@@ -593,11 +593,11 @@ export function commonPlaceholders(): readonly CommonPlaceholder[] {
     SWITCH_SERVICES_TOOL,
     // 260 号票：秘书调运营中的项目的接口（list / describe / call）
     PROJECT_OPS_TOOL,
-    // 268 号票：维护者验收运营接口清单（使用中的全过了登记成新的一版）
+    // 268 号票：负责人验收运营接口清单（使用中的全过了登记成新的一版）
     CHECK_OPS_TOOL,
-    // 357 号票：维护者查自己项目的服务最近报的事件
+    // 357 号票：负责人查自己项目的服务最近报的事件
     RECENT_SERVICE_EVENTS_TOOL,
-    // 259 号票：维护者、秘书提转入使用（只出确认卡，用户确认才转）
+    // 259 号票：负责人、秘书提转入使用（只出确认卡，用户确认才转）
     PROPOSE_GO_LIVE_TOOL,
     // 147、164 号票的网页工具（browse_*）212 号票起是浏览插件的占位符（browsing/prompt.ts）
     ...Object.values(TASK_TOOL),
@@ -628,7 +628,7 @@ export function commonPlaceholders(): readonly CommonPlaceholder[] {
     described("任务做完标记", TASK_DONE_TAG, "prompts.common.taskDoneTag"),
     described("自动播报标记", AUTO_ANNOUNCE_TAG, "prompts.common.autoAnnounceTag"),
     described("秘书转达标记", SECRETARY_RELAY_TAG, "prompts.common.relayTag"),
-    described("维护者来信标记", MAINTAINER_LETTER_TAG, "prompts.common.letterTag"),
+    described("负责人来信标记", MAINTAINER_LETTER_TAG, "prompts.common.letterTag"),
     described("自动纠偏标记", CORRECTION_PREFIX, "prompts.common.correctionTag"),
     // 310 号票：英文的写法（/workflow、/task），也认的中文老写法、175 号票的别名跟一句
     described("发起流程命令", launchCommandText("workflow"), "prompts.common.launchWorkflow"),

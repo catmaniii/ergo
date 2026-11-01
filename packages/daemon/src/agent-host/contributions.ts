@@ -1,6 +1,6 @@
 // agent 贡献模块（128 号票，ADR-0027）：插件给 agent 的工具、每轮的上下文块、钩子订阅，经插件宿主登记到这里（PluginContext.agent：
-// 每次登记返回撤销函数、记在插件名下，停用时撤掉）；装配时按"给谁"——哪种 agent（秘书、三种维护者）、哪种会话、此刻的工具包——
-// 筛好交给装配。秘书（secretary/secretary.ts）和三种维护者（assembly.ts 的 sessionTools 那一处、host.ts 的会话）都经它。
+// 每次登记返回撤销函数、记在插件名下，停用时撤掉）；装配时按"给谁"——哪种 agent（秘书、三种负责人）、哪种会话、此刻的工具包——
+// 筛好交给装配。秘书（secretary/secretary.ts）和三种负责人（assembly.ts 的 sessionTools 那一处、host.ts 的会话）都经它。
 // 组合根在插件装配之前建它（秘书比 agent 宿主起得早，两边都要它），交给插件宿主、秘书、agent 宿主。
 // - 工具：守护进程代为执行的工具（HostTool），守卫的登记随工具走（HostTool.descriptor，会话拉起时加进守卫的工具注册表）；
 // - 每轮的上下文块：
@@ -12,21 +12,21 @@
 // 子进程那一侧由通用桥接扩展翻译给 pi（runtime/agent-child/bridge.ts）。系统提示的片段和占位符不在这里：插件在定义里声明
 // （PluginDefinition.prompts），插件宿主收齐交给系统提示的文件（prompts/library.ts）。
 // 一份贡献给的东西只按插件登记的先后排：工具接在每种 agent 装配里的"插件贡献的工具"那一处（秘书在两个附件工具之后，
-// 维护者在每个会话都配的工具之后），上下文块、钩子订阅排在内核的（重注入块、秘书的压缩指令）后面。
+// 负责人在每个会话都配的工具之后），上下文块、钩子订阅排在内核的（重注入块、秘书的压缩指令）后面。
 // 212 号票（浏览插件）加了两样：
-// - 工具的位置 at: "end"：排在这种 agent 装配里内核自己的工具之后（秘书：内核的工具之后、测试加的工具和联网工具之前；维护者：
+// - 工具的位置 at: "end"：排在这种 agent 装配里内核自己的工具之后（秘书：内核的工具之后、测试加的工具和联网工具之前；负责人：
 //   插件贡献的工具之后）——浏览插件的网页工具原来就排在那里，搬进插件后模型看到的工具先后不变；
-// - 输入附注（notes）：接在交给 agent 的那条输入自己的文字末尾（同一条消息里，在投影、晚到的语音那句之后、维护者的消息 id 那行之前；
+// - 输入附注（notes）：接在交给 agent 的那条输入自己的文字末尾（同一条消息里，在投影、晚到的语音那句之后、负责人的消息 id 那行之前；
 //   开始处理这条输入的那一刻现算），不是另起一条上下文消息——浏览侧边栏、悬浮按钮发的消息后面那段网页上下文（147 号票）原来就在那里。
 import type { MessageEnvelope, MessagePart, PlanToolkit } from "@ergo/protocol";
 import type { HostTool } from "../agent-manager/host-tools.ts";
 import type { ContextBlockSpec, HookKind, HookSubscription } from "../runtime/index.ts";
 import type { HostedSessionKind, MaintainerKind } from "./assembly.ts";
 
-/** 哪种 agent：秘书、三种维护者 */
+/** 哪种 agent：秘书、三种负责人 */
 export type ContributionAgent = "secretary" | MaintainerKind;
 
-/** 哪种会话：秘书的主线会话，维护者的六种（见 assembly.ts 的 HostedSessionKind） */
+/** 哪种会话：秘书的主线会话，负责人的六种（见 assembly.ts 的 HostedSessionKind） */
 export type ContributionSession = "secretary" | HostedSessionKind;
 
 /** 一份贡献给谁：此刻装配的这个 agent */
@@ -34,7 +34,7 @@ export interface ContributionTarget {
   agent: ContributionAgent;
   agentId: string;
   session: ContributionSession;
-  /** 此刻的工具包（维护者这一段生效的；秘书没有工具包） */
+  /** 此刻的工具包（负责人这一段生效的；秘书没有工具包） */
   toolkit?: PlanToolkit;
 }
 

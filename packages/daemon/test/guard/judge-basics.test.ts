@@ -19,7 +19,7 @@ describe("守卫判定：基本", () => {
     vi.useRealTimers();
   });
 
-  it("维护者在工作目录里读文件：不落在任何类别，直接做只记录", () => {
+  it("负责人在工作目录里读文件：不落在任何类别，直接做只记录", () => {
     const j = judgeToolCall(inChat(maintainer(), call("read", { path: `${P.workDir}\\README.md` })));
     expect(j.disposition).toBe("log_only");
     expect(j.categories).toEqual([]);

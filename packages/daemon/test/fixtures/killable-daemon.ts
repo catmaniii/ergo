@@ -3,7 +3,7 @@
 //
 // 用法：node killable-daemon.ts '<JSON 参数>'（KillableDaemonArgs）。起来后往 stdout 报一行 { ready: { url, externalUrl, pid } }，之后：
 // - guard 频道每追加一条事件报一行 { guard: { type, payload } }（审批、开始执行、结束……）；
-// - 守护进程拉起之后唤起的 agent（维护者、评审、子 agent）报 { agent: { agentId, pid } }，守卫放行它的一次调用时报
+// - 守护进程拉起之后唤起的 agent（负责人、评审、子 agent）报 { agent: { agentId, pid } }，守卫放行它的一次调用时报
 //   { allowed: { agentId, toolCallId, toolName } }（之后这次调用就在执行了）；
 // - stdin 每收到一行 "pids"，报一行 { pids: { job, agents } }：Job 对象里的全部进程、活着的 agent 子进程。
 // 然后一直挂着，等测试来杀。
@@ -24,7 +24,7 @@ export interface KillableDaemonArgs {
   /** 秘书的 faux 剧本 */
   secretary: FauxStep[];
   secretaryTokensPerSecond?: number;
-  /** 维护者的 faux 剧本：维护者 id → 第几次唤起（从 1 起）的剧本；没给的唤起得到空剧本（一调用就出错） */
+  /** 负责人的 faux 剧本：负责人 id → 第几次唤起（从 1 起）的剧本；没给的唤起得到空剧本（一调用就出错） */
   maintainer: Record<string, FauxStep[][]>;
   /** 并行派出的子 agent（20 号票）的 faux 剧本：子 agent id（sa-<n>）→ 剧本；没给的得到空剧本 */
   subAgent?: Record<string, FauxStep[]>;

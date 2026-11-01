@@ -1,9 +1,9 @@
 // 前缀下自检（132 号票）：转发到服务时它在 /apps/<应用名>/ 下面，页面里以 / 开头的地址（/assets/app.js）会跑到二狗的根上去、
-// 写死的本机地址（http://127.0.0.1:5173/…）手机上打不开。抓服务的首页，把这两种找出来——维护者在建设期间、交运营方案之前跑一遍
+// 写死的本机地址（http://127.0.0.1:5173/…）手机上打不开。抓服务的首页，把这两种找出来——负责人在建设期间、交运营方案之前跑一遍
 // （npm run check:app-prefix，见 prefix-check-cli.ts），133 号票上线前也能用 checkAppPrefix 再查一次。
 // 只看首页的 HTML：标签上的地址属性（src、href、action、formaction、poster、data、srcset）、<style> 和 style 属性里的 url(…)、@import。
 // 脚本里拼出来的地址（fetch("/api/…")）看不出来，前缀约定照样要守（docs/developer-guide.md"转发本机服务的页面"）。
-// @i18n-ignore-file model：自检的报告给维护者（模型）和命令行看
+// @i18n-ignore-file model：自检的报告给负责人（模型）和命令行看
 import { APP_PREFIX_HEADER, appBasePath } from "@ergo/protocol";
 import { isLoopbackHost, type AppPrefixMode } from "./registry.ts";
 
@@ -79,7 +79,7 @@ export async function checkAppPrefix(target: string, name: string, prefix: AppPr
   return { url, status: res.status, basePath, findings: findOffPrefixUrls(html, basePath) };
 }
 
-/** 给人看的报告（命令行和维护者用） */
+/** 给人看的报告（命令行和负责人用） */
 export function prefixCheckReport(result: PrefixCheckResult): string {
   const head = `前缀下自检：${result.url}（HTTP ${result.status}，前缀 ${result.basePath}/）`;
   if (result.findings.length === 0) return `${head}\n没有发现以 / 开头、不在前缀下的地址，也没有写死的本机地址。（脚本里拼的地址看不出来，照样要守前缀约定）`;

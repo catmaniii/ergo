@@ -3,14 +3,14 @@
 // （session_branch 加一条分支摘要；原型不停 agent、不写真的摘要）。
 // 151 号票：⑂ 展开的预览、分支详情要的一条分支的样子（fakeBranchView：它自己那一段的消息、遗留效果、分支摘要），切换分支（fakeSwitchBranch：
 // 照守护进程只挪末端、记一条 session_branch），申请撤回（fakeEffectUndo：记一条 effect_undo_requested）。
-// 152 号票：长程任务维护者的会话也能撤回——阶段开始的回退点照守护进程截的那一处（stage_start 记号写明维护者是怎么知道的），撤回之后
+// 152 号票：长程任务负责人的会话也能撤回——阶段开始的回退点照守护进程截的那一处（stage_start 记号写明负责人是怎么知道的），撤回之后
 // 任务的阶段照"那个阶段及之后回到未开始"推一遍（原型不翻看板上的历史：这个阶段重新开始、之后开始过的回到未开始），看板上推一条
-// rolled_back，再交给维护者一句接着做的通知（分支摘要上记着它，界面上不重复显示）和这一阶段新的开始记号。
+// rolled_back，再交给负责人一句接着做的通知（分支摘要上记着它，界面上不重复显示）和这一阶段新的开始记号。
 // 153 号票：流程的步骤开始也能撤回（同一条记号带 stepId，截在含那次 report_step 的那条消息）——那一步及之后（记号在它后面的）回到没做，
-// 看板上推一条 rolled_back；固定计划不交给维护者接着做的话、不记新的开始记号（等你说话）。
+// 看板上推一条 rolled_back；固定计划不交给负责人接着做的话、不记新的开始记号（等你说话）。
 // 155 号票：一分钟没说话的提醒在假连接里（fake-connection.ts 的 armRollbackWait）；定时、事件触发的流程任务状态不跟着走，
 // 正在跑的那次运行记"已撤回"（不算失败），看板上推一条 run_finished。
-// 293 号票：用 Claude Code 的维护者（fake-runtimes.ts 的 FAKE_CLAUDE_MAINTAINERS）撤回时照守护进程：分支摘要是二狗写的（原型照做了的事编一句），
+// 293 号票：用 Claude Code 的负责人（fake-runtimes.ts 的 FAKE_CLAUDE_MAINTAINERS）撤回时照守护进程：分支摘要是二狗写的（原型照做了的事编一句），
 // 摘要上记着按文件检查点恢复了哪些文件（被放弃那段里 write、edit 的路径；撤回到阶段、步骤开始前的不恢复）。
 import {
   type BranchEffect,
@@ -299,7 +299,7 @@ export function fakeRollback(log: FakeBranchLog, conversation: ConversationId, b
   const branchId = nextBranchId(tree);
   const mark = "stageStart" in before ? stageMarkOf(log, conversation, before.stageStart)?.mark : undefined;
   const target = "messageId" in before ? "这条请求之前" : "branchId" in before ? `分支 ${before.branchId} 开始前` : startRollbackLabel(mark ?? { title: "" }).replace(/^撤回到/, "");
-  // 293 号票：用 Claude Code 的维护者——摘要由二狗写、文件按检查点恢复
+  // 293 号票：用 Claude Code 的负责人——摘要由二狗写、文件按检查点恢复
   const claude = FAKE_CLAUDE_MAINTAINERS.some((id) => maintainerChannel(id) === conversation);
   const effects = effectsIn(log, conversation, rangesFrom(pathRanges(tree), cut));
   const summary = claude
@@ -323,7 +323,7 @@ export function fakeRollback(log: FakeBranchLog, conversation: ConversationId, b
 
 /**
  * 撤回到长程任务一个阶段开始前之后（原型，152 号票）：这个阶段重新开始、之后开始过的（记号在它后面的）回到未开始，看板上推一条 rolled_back；
- * 交给维护者一句接着做的通知（noticeId，记在分支摘要上）、这一阶段新的开始记号。返回要推的帧
+ * 交给负责人一句接着做的通知（noticeId，记在分支摘要上）、这一阶段新的开始记号。返回要推的帧
  */
 /**
  * 原型的任务跟着分支走（152 号票）：离开一条分支时它上面任务的样子（会话 + 分支 → 那时看板上的任务）。守护进程按看板事件在会话里的位置推导，
@@ -410,7 +410,7 @@ function commitRollback(
   const summaryId = `msg-rb-summary-${branchId}`;
   const next = grownTree(tree, { id: branchId, ...fork!, summary: { messageId: summaryId, text: summary }, entry: `fake-entry-${branchId}`, time }, start, `fake-tip-${tree.current}`);
   const payload: SessionBranchEventPayload = { change: "rollback", branches: next, from: tree.current, to: branchId, before, by: "user", time };
-  // 撤回到阶段开始前（152 号票）：交给维护者接着做的那句记在分支摘要上（界面上不重复显示）
+  // 撤回到阶段开始前（152 号票）：交给负责人接着做的那句记在分支摘要上（界面上不重复显示）
   const noticeId = stage ? `msg-rb-notice-${conversation}-${branchId}` : undefined;
   const frames = [
     log.append(conversation, EVENT_TYPES.sessionBranch, payload),

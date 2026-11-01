@@ -79,7 +79,7 @@ export function agentLabelText(state: UiState, agentId: string): string {
 /** "谁在用"最多列几个叫法：默认角色往往所有 agent 都在用，列全了那一行长得没法看（后面写"等 N 个 agent"） */
 const USED_BY_SHOWN = 3;
 
-/** "谁在用：秘书、项目「记账本」的维护者"、"谁在用：秘书、…… 等 14 个 agent"；没人用时"还没有 agent 用（跟默认的都用默认角色）" */
+/** "谁在用：秘书、项目「记账本」的负责人"、"谁在用：秘书、…… 等 14 个 agent"；没人用时"还没有 agent 用（跟默认的都用默认角色）" */
 export function roleUsageText(state: UiState, role: AgentRoleView): string {
   if (role.usedBy.length === 0) return t("state.agentRoles.usedByNobody");
   const labels = role.usedBy.map((agentId) => agentLabelText(state, agentId));

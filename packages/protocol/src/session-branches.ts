@@ -158,7 +158,7 @@ export function branchForks(tree: ConversationBranches): BranchFork[] {
 
 /**
  * 回退点：回到哪一条之前——一条用户消息之前，或者一条分支开始之前（它开头的分支摘要那条）；152 号票起还有长程任务的一个阶段开始之前
- * （stageStart：维护者会话频道上那条 stage_start 记号的 id，stage-starts.ts）
+ * （stageStart：负责人会话频道上那条 stage_start 记号的 id，stage-starts.ts）
  */
 export const RollbackTarget = Type.Union([
   Type.Object({ messageId: Type.String({ minLength: 1 }) }),
@@ -199,7 +199,7 @@ const MODEL_SWITCHED_NOTE = /^已换成 .+，接着之前的对话。$/; // @i18
 
 /**
  * 这条消息是不是 agent 新开一段会话的地方（之前的聊天不在它的上下文里，回退点只在这之后，用户定的第 5 条）：清空当前对话的分隔线
- * （114 号票）、换模型新开会话的说明（83 号票）、项目维护者的会话分段线（16 号票：每段一个会话）
+ * （114 号票）、换模型新开会话的说明（83 号票）、项目负责人的会话分段线（16 号票：每段一个会话）
  */
 export function agentSessionStart(message: Pick<MessageEnvelope, "speaker" | "parts" | "sessionStart">): boolean {
   if (message.sessionStart === true) return true;
@@ -216,7 +216,7 @@ export function rollbackSegmentStart(message: Pick<MessageEnvelope, "speaker" | 
   return agentSessionStart(message) || message.parts.some((p) => p.type === "run_divider");
 }
 
-/** 能回退的会话（150 号票先做秘书主会话；152 号票接上任务、项目维护者的会话：维护者会话频道） */
+/** 能回退的会话（150 号票先做秘书主会话；152 号票接上任务、项目负责人的会话：负责人会话频道） */
 export function rollbackEnabled(conversation: string): boolean {
   return conversation === CHANNELS.secretary || conversation.startsWith(MAINTAINER_CHANNEL_PREFIX);
 }

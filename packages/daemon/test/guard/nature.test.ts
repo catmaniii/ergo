@@ -5,7 +5,7 @@ import { describe, expect, test } from "vitest";
 import { BUILTIN_TOOL_REGISTRY, type EnvironmentFacts, judgeToolCall, type ToolDescriptor, type ToolNature, toolNature } from "../../src/guard/index.ts";
 import { bash, call, inTask, maintainer, P, v1Satisfied } from "./helpers/guard-input.ts";
 
-/** 任务里的维护者（工作目录 E:\work\notes）做一次调用：v1 模板的前提先满足（不影响性质，只是免得被退回） */
+/** 任务里的负责人（工作目录 E:\work\notes）做一次调用：v1 模板的前提先满足（不影响性质，只是免得被退回） */
 function natureOf(toolName: string, args: Record<string, unknown>, facts: EnvironmentFacts = {}, tools = BUILTIN_TOOL_REGISTRY): ToolNature {
   const v1 = v1Satisfied();
   const input = inTask(maintainer(), call(toolName, args), { ...v1, facts: { ...v1.facts, ...facts }, tools });

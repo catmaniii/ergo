@@ -552,7 +552,7 @@ describe("数据契约", () => {
     expect(() => k2.runtimes.resolve("fake")).toThrow(new RequestRejected("not_allowed", "假运行时插件没启用"));
     await on.host.enable("fake-runtime");
     expect(k2.runtimes.unavailable("fake")).toBeUndefined();
-    // 移除了也认得（维护者还记着它）
+    // 移除了也认得（负责人还记着它）
     await on.host.remove("fake-runtime");
     expect(k2.runtimes.unavailable("fake")?.reason).toBe("假运行时插件没启用");
   });

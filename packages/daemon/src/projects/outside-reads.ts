@@ -1,6 +1,6 @@
 // 删除项目时（66 号票，ADR-0010）找项目之外读过这个项目的东西的调用：秘书能读项目档案（读项目档案的工具、文件工具、bash），
-// 涉及多个项目的任务自己的维护者用读项目档案的工具读各项目，它的评审子 agent 读各项目的档案和工作目录。这些调用没有这个项目的
-// 归属，按"读的是不是这个项目的东西"找（这个项目自己的维护者会话里的不在这里找：deletion.ts 整条换成标记）：
+// 涉及多个项目的任务自己的负责人用读项目档案的工具读各项目，它的评审子 agent 读各项目的档案和工作目录。这些调用没有这个项目的
+// 归属，按"读的是不是这个项目的东西"找（这个项目自己的负责人会话里的不在这里找：deletion.ts 整条换成标记）：
 // - 读项目档案的工具：按返回开头写的项目编号认（不按参数里的名字：删掉的项目的名字可以被新项目重用），哪个会话里的都算；
 // - 参数里写着路径的工具（PATH_TOOLS），秘书会话里的和不在任何会话里的（评审子 agent 的）：调用碰到的路径和项目档案、
 //   工作目录有包含关系就算，任一方向都算——读了上级目录、递归扫到项目里的也算（touches）。比的时候写的路径和它的真实路径
@@ -32,7 +32,7 @@ export const PATH_TOOLS: readonly string[] = [
     .map((d) => d.name),
 ];
 
-/** 项目之外读过这个项目的调用的完整内容的事件（秘书会话里的、跨项目任务的维护者和评审子 agent 的），按全局序号 */
+/** 项目之外读过这个项目的调用的完整内容的事件（秘书会话里的、跨项目任务的负责人和评审子 agent 的），按全局序号 */
 export function outsideReadsOf(store: EventStore, project: Project, records: ProjectRecordsPaths): StoredEvent[] {
   const dirs = projectDirs(project, records);
   const own = maintainerChannel(project.maintainerId);

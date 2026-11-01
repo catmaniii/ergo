@@ -46,7 +46,7 @@ describe("列表", () => {
 
   it("状态的说法；共用片段的副标题写明插在哪几份里", () => {
     expect(SYSTEM_PROMPT_STATE_LABEL).toEqual({ default: "默认", custom: "改过", broken: "有错，在用默认的" });
-    expect(systemPromptSubtitle(summary("plan-writing", "fragment", { description: "计划怎么写", usedIn: ["长程任务的维护者", "项目的维护者"] }))).toBe("计划怎么写。插在：长程任务的维护者、项目的维护者");
+    expect(systemPromptSubtitle(summary("plan-writing", "fragment", { description: "计划怎么写", usedIn: ["长程任务的负责人", "项目的负责人"] }))).toBe("计划怎么写。插在：长程任务的负责人、项目的负责人");
     expect(systemPromptSubtitle(summary("reviewer", "role", { description: "评审" }))).toBe("评审");
   });
 });

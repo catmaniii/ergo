@@ -9,9 +9,9 @@
 //   **使用中的项目调操作不用确认**（用户 2026-10-24）：不出卡；风险标记照读照显示、不接守卫（用户 2026-10-25 定只记不做）；
 //   平台自己的守卫照旧判这一次 project_ops 调用（和别的工具一视同仁）。
 // 调不了的回原因、什么都不发、不记录：项目找不到 / 有歧义、项目不是使用中的、操作不存在（项目清单没登记过的只有通用操作）、参数不对、
-// 调用口对不上服务、服务关着（257）、还在上线、上线失败、要你手动、维护者收不了工单。
+// 调用口对不上服务、服务关着（257）、还在上线、上线失败、要你手动、负责人收不了工单。
 // 发出去了的记一条时间线（秘书会话，project_op）和 project_op_called（operations 频道，带清单的版本号），参数里像密钥的擦掉。
-// createProjectOps 把清单的验收和登记（registry.ts）、秘书的工具、维护者的 check_ops（check-tool.ts）、转运营检查清单那一项装在一起。
+// createProjectOps 把清单的验收和登记（registry.ts）、秘书的工具、负责人的 check_ops（check-tool.ts）、转运营检查清单那一项装在一起。
 import { CHANNELS, type OperationsPlanView, type Project, type ProjectServiceView, type StandardChecklistItem, STANDARD_CHECKLIST_ITEM_LABEL, t, Type } from "@ergo/protocol";
 import { defineHostTool, type HostTool } from "../agent-manager/host-tools.ts";
 import { buildTimelineRecord } from "../conversation/messages.ts";
@@ -55,13 +55,13 @@ export interface ProjectOpsDeps {
   jobs: BuiltinJobs;
   /** 触发底座（立即运行一次、暂停恢复、改时间表）：用到时现取 */
   scheduler: () => BuiltinContext["scheduler"];
-  /** 跟维护者说一句（秘书转达那条路） */
+  /** 跟负责人说一句（秘书转达那条路） */
   tellMaintainer: BuiltinContext["tellMaintainer"];
-  /** 转给维护者当工单（建项目内部的普通任务）；check 只看收不收 */
+  /** 转给负责人当工单（建项目内部的普通任务）；check 只看收不收 */
   delegate: RunContext["delegate"];
   /** 档案里的 ops.json 是不是规范模板原样 */
   isTemplate: (text: string) => boolean;
-  /** 使用中的项目自动验收没过：给维护者的会话放一条通知（会唤起它） */
+  /** 使用中的项目自动验收没过：给负责人的会话放一条通知（会唤起它） */
   notifyMaintainer?: (project: Project, text: string, key: string) => void;
   /** 一次验收做完了（建设中的项目：刷新还在等的转入使用确认卡） */
   onChecked?: (project: Project) => void;
@@ -79,15 +79,15 @@ export interface ProjectOps {
   registry: OpsRegistry;
   /** 秘书的 project_ops */
   tool(): HostTool;
-  /** 项目维护者的 check_ops（绑定在它维护的项目上） */
+  /** 项目负责人的 check_ops（绑定在它维护的项目上） */
   checkTool(scope: { projectId: string; maintainerId: string }): HostTool;
   /** 转运营检查清单里 ops 那一项（standard.ts 用；没验过的在后台开验） */
   checklistItem(project: Project): StandardChecklistItem;
   /** 转入使用时登记（和转入使用同一事务）：档案里那份验收全过了才有 */
   goLiveEvents(project: Project): NewEvent[];
-  /** 转入使用的请求之前：档案里那份重验一遍（维护者、秘书提转入使用时等它，卡上直接是结论） */
+  /** 转入使用的请求之前：档案里那份重验一遍（负责人、秘书提转入使用时等它，卡上直接是结论） */
   prepareGoLive(projectId: string): Promise<void>;
-  /** 项目的服务上线了（362 号票）：使用中的项目，档案里那份重验一遍，全过了登记成新的一版；没过的告诉维护者 */
+  /** 项目的服务上线了（362 号票）：使用中的项目，档案里那份重验一遍，全过了登记成新的一版；没过的告诉负责人 */
   recheckAfterLive(projectId: string): Promise<void>;
 }
 
@@ -254,7 +254,7 @@ export function createProjectOps(deps: ProjectOpsDeps): ProjectOps {
     return describeOf(project, await opOf(project, name));
   };
 
-  /** 发出去了的记下来：时间线（秘书会话）+ project_op_called（operations 频道），跟维护者说一句的消息同一批 */
+  /** 发出去了的记下来：时间线（秘书会话）+ project_op_called（operations 频道），跟负责人说一句的消息同一批 */
   const record = (input: { project: Project; found: Awaited<ReturnType<typeof opOf>>; args: Record<string, unknown>; why?: string; outcome: OpOutcome; say: string; sayFilled: boolean }) => {
     const { project, found, outcome } = input;
     const shown = maskSecretArgValues(input.args) as Record<string, unknown>;

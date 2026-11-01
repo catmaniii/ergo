@@ -27,7 +27,7 @@ export const CalendarJobEntry = Type.Object({
   taskId: Type.Optional(Type.String()),
   title: Type.String(),
   schedule: ReminderSchedule,
-  /** 属于哪个项目（不属于项目的没有：由作业自己的维护者执行） */
+  /** 属于哪个项目（不属于项目的没有：由作业自己的负责人执行） */
   projectId: Type.Optional(Type.String()),
   projectName: Type.Optional(Type.String()),
   /** 这一次该跑的时刻：时间表上的那一刻（有运行记录的就是它的触发时间） */

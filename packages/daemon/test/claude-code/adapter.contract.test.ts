@@ -34,7 +34,7 @@ function assemblyOf(overrides: Partial<SessionAssembly> = {}): SessionAssembly {
     tools: [],
     contributions: { tools: [], contextBlocks: [], hooks: [] },
     skillPaths: [],
-    systemPrompt: "你是二狗的维护者。MARKER_ERGO_APPEND",
+    systemPrompt: "你是二狗的负责人。MARKER_ERGO_APPEND",
     continueSession: true,
     forwardToolCalls: false,
     shellEnv: {},
@@ -128,7 +128,7 @@ describe("Claude Code 适配子进程（假 SDK）", () => {
       cwd: child.assembly.cwd,
       settingSources: ["user", "project", "local"],
       // 291 号票：后面补一句二狗的工具在 Claude Code 里叫什么
-      systemPrompt: { type: "preset", preset: "claude_code", append: expect.stringMatching(/^你是二狗的维护者。MARKER_ERGO_APPEND\n\n（二狗补充：/), snapshot: false },
+      systemPrompt: { type: "preset", preset: "claude_code", append: expect.stringMatching(/^你是二狗的负责人。MARKER_ERGO_APPEND\n\n（二狗补充：/), snapshot: false },
       includePartialMessages: true,
       permissionPrompts: "none",
       sessionId: ready.sessionId,
@@ -464,7 +464,7 @@ describe("Claude Code 适配子进程（假 SDK）", () => {
     await expect.poll(() => second.exitCode()).toBe(0);
     expect((await (async () => startChild({ session: { sessionDir } }).log.next("ready"))()).sessionId).toBe("cleared-session-id");
 
-    // 指定名字（项目维护者的分段）：没有就新开、用这个名字；清空后的新会话（freshSession）马上新开
+    // 指定名字（项目负责人的分段）：没有就新开、用这个名字；清空后的新会话（freshSession）马上新开
     const segment = startChild({ session: { sessionDir, session: "seg-2", continueSession: false } });
     const segReady = await segment.log.next("ready");
     expect(segReady.session).toBe("seg-2");

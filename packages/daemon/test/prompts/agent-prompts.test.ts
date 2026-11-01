@@ -3,6 +3,7 @@
 // 两种都按这个角色的通用模板查占位符，写错的存不进去；文件被改坏、装配时缺值的退回通用模板，agent 照常拉起。
 import fs from "node:fs";
 import path from "node:path";
+import { LETTER_TAGS } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
 import { RequestRejected } from "../../src/errors.ts";
 import { createPromptLibrary, DEFAULT_PROMPTS_DIR } from "../../src/prompts/index.ts";
@@ -34,11 +35,12 @@ const rejection = (fn: () => unknown): string => {
 
 const DEFAULT_SECRETARY = (name: string) => secretarySystemPrompt(createPromptLibrary(), name);
 
-describe("负责人就是维护者（362 号票）", () => {
-  it("写了计划的那几种维护者的提示都说明用户说的负责人就是它；计划的写法说明运行时工具不用写进授权项", () => {
+describe("用户说的负责人就是它（362 号票；365 号票起界面、手册、提示词都只有这一个叫法）", () => {
+  it("写了计划的那几种负责人的提示开头说明它是负责人，不再解释两个名字；计划的写法说明运行时工具不用写进授权项", () => {
     const { prompts } = library();
     const plan = taskMaintainerSystemPrompt(prompts, DEFAULT_TASK_THRESHOLDS);
-    expect(plan).toContain("用户说“负责人”就是指你");
+    expect(plan.startsWith("你是「二狗」里一个任务的负责人：")).toBe(true);
+    expect(plan).not.toContain("用户说“负责人”就是指你");
     expect(plan).toContain("propose_operations、check_ops 这类");
     expect(plan).toContain("已登记的 MCP");
   });
@@ -54,6 +56,13 @@ describe("单独的提示词：存在数据目录配置区，按 agent 分", () 
     // 不带 agent（或别的 agent）的照旧是通用模板
     expect(secretarySystemPrompt(prompts, "阿福")).toBe(DEFAULT_SECRETARY("阿福"));
     expect(changes).toEqual(["secretary"]);
+  });
+
+  it("365 号票：用户单独的提示词里还写着来信标记的老占位符，照样能用，不算写错", () => {
+    const { prompts } = library();
+    prompts.saveAgentPrompt("secretary", "secretary", "append", "看到{{维护者来信标记}}开头的先念。"); // @keep-old-name
+    expect(prompts.agentPrompt("secretary", "secretary")?.problem).toBeUndefined();
+    expect(secretarySystemPrompt(prompts, "阿福", "off", "secretary")).toBe(`${DEFAULT_SECRETARY("阿福")}\n\n看到${LETTER_TAGS.maintainer_letter}开头的先念。`);
   });
 
   it("追加的跟着通用模板变：设置 · 系统提示里改了通用模板，追加的照旧接在后面", () => {
@@ -82,7 +91,7 @@ describe("单独的提示词：存在数据目录配置区，按 agent 分", () 
   it("占位符照通用模板查，和设置页一样写错的存不进去（说清第几行），整份的不能是空的；追加的存空的等于恢复用通用模板", () => {
     const { prompts, agentsDir, changes } = library();
     expect(rejection(() => prompts.saveAgentPrompt("secretary", "secretary", "append", "第一行\n叫我{{老板}}"))).toContain("第 2 行：不认得的占位符 {{老板}}");
-    // 项目维护者才有的值，秘书的通用模板里没有
+    // 项目负责人才有的值，秘书的通用模板里没有
     expect(rejection(() => prompts.saveAgentPrompt("secretary", "secretary", "replace", "{{项目名}}"))).toContain("不认得的占位符 {{项目名}}");
     // 只在立项书确认之后才有的值写在条件外面（和设置页同一个检查）
     expect(rejection(() => prompts.saveAgentPrompt("pm-1", "project-maintainer", "replace", "类型：{{项目类型}}"))).toContain("{{项目类型}} 在条件“立项书已确认”不成立时没有值");
@@ -114,11 +123,11 @@ describe("单独的提示词：存在数据目录配置区，按 agent 分", () 
     const { prompts, agentsDir } = library();
     fs.mkdirSync(agentsDir, { recursive: true });
     const values = { 拉回次数: "3", 停滞分钟: "30", 催促次数: "2", 验收退回次数: "2", 验收退回次数加一: "3", 预算控制: false, 停下的用量: "x", 说明进展的用量: "y", 累计拒绝次数: "3" };
-    // 维护者的模板里都有阈值：照填
+    // 负责人的模板里都有阈值：照填
     fs.writeFileSync(path.join(agentsDir, "tm-1.append.md"), "停滞 {{停滞分钟}} 分钟就说一声");
     expect(prompts.agentPrompt("tm-1", "task-maintainer")).toEqual({ mode: "append", content: "停滞 {{停滞分钟}} 分钟就说一声" });
     expect(prompts.render("task-maintainer", values, "tm-1")).toBe(`${prompts.render("task-maintainer", values)}\n\n停滞 30 分钟就说一声`);
-    // 秘书的写法拿到维护者的模板上：不认得，用通用模板
+    // 秘书的写法拿到负责人的模板上：不认得，用通用模板
     fs.writeFileSync(path.join(agentsDir, "tm-1.append.md"), "你叫{{名字}}");
     expect(prompts.agentPrompt("tm-1", "task-maintainer")).toMatchObject({ mode: "append", problem: expect.stringContaining("不认得的占位符 {{名字}}") });
     expect(prompts.render("task-maintainer", values, "tm-1")).toBe(prompts.render("task-maintainer", values));

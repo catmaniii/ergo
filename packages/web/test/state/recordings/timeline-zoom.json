@@ -1813,7 +1813,7 @@
           "parts": [
             {
               "type": "text",
-              "text": "维护者宣布阶段 s1「整理笔记」完成（第 1 次）：笔记在 notes.md"
+              "text": "负责人宣布阶段 s1「整理笔记」完成（第 1 次）：笔记在 notes.md"
             }
           ],
           "id": "m-1f4183dd-8c69-4770-b93d-ed3fae6959cb",
@@ -2290,7 +2290,7 @@
               "withinGrant": false,
               "genericBash": false,
               "outcome": "blocked",
-              "resultSummary": "拒绝：写文件（write）要写 <临时目录>\\ergo-home-cP83nk\\outside.md，它在项目档案和工作目录之外：维护者的文件工具只能写项目档案和工作目录，越界写入一律拒绝。改写到工作目录里。这次调用不会执行，不问用户，批准和授权项都改变不了。",
+              "resultSummary": "拒绝：写文件（write）要写 <临时目录>\\ergo-home-cP83nk\\outside.md，它在项目档案和工作目录之外：负责人的文件工具只能写项目档案和工作目录，越界写入一律拒绝。改写到工作目录里。这次调用不会执行，不问用户，批准和授权项都改变不了。",
               "nature": "act"
             }
           ],
@@ -2446,7 +2446,7 @@
           "parts": [
             {
               "type": "text",
-              "text": "维护者宣布阶段 s2「写报告」完成（第 1 次）：报告在 report.md"
+              "text": "负责人宣布阶段 s2「写报告」完成（第 1 次）：报告在 report.md"
             }
           ],
           "id": "m-dccbd248-f7db-40ba-b84a-a9648775287f",

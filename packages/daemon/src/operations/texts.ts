@@ -1,7 +1,7 @@
-// 运营方案（130 号票）的说法：维护者的工具说明和工具结果、被拒的原因、交给维护者的通知、时间线上的一笔、卡的纯文本降级。
+// 运营方案（130 号票）的说法：负责人的工具说明和工具结果、被拒的原因、交给负责人的通知、时间线上的一笔、卡的纯文本降级。
 // 编排（operations.ts、builtin-means.ts）里不写文字，都从这里取。
 // 174 号票：给用户看的（卡的纯文本降级、时间线上的一笔、卡上确认时被拒的原因、一条的结局）走 t()，生成时按当时的语言；
-// 给维护者（模型）看的（工具说明、工具结果、校验的问题、通知）照旧中文，标 @i18n-ignore model。
+// 给负责人（模型）看的（工具说明、工具结果、校验的问题、通知）照旧中文，标 @i18n-ignore model。
 import {
   capabilitiesText,
   forModel,
@@ -32,20 +32,20 @@ import { PROPOSE_OPERATIONS_TOOL } from "./tool-names.ts";
 
 const NL = "\n";
 
-/** 交给维护者的那几样都按中文写（174 号票）：对象里的每个函数包一层 forModel */
+/** 交给负责人的那几样都按中文写（174 号票）：对象里的每个函数包一层 forModel */
 function inChinese<T extends Record<string, (...args: never[]) => string>>(texts: T): T {
   return Object.fromEntries(Object.entries(texts).map(([k, fn]) => [k, (...args: never[]) => forModel(() => fn(...args))])) as T;
 }
 
 /** 手段（builtin-means.ts）校验、生效时的说法 */
 export const meansText = {
-  // @i18n-ignore-start model：交给维护者的工单内容、校验的问题（维护者看）
+  // @i18n-ignore-start model：交给负责人的工单内容、校验的问题（负责人看）
   onFailure: (text: string) => `失败时：${text}`,
   noWorkflowPlan: (name: string) => `「${name}」是流程，却没有审查过的计划`,
   // @i18n-ignore-end
   /** 流程的授权记录上写的（用户看） */
   authorizedNote: () => t("operations.authorizedNote"),
-  // @i18n-ignore-start model：校验的问题（交给维护者）
+  // @i18n-ignore-start model：校验的问题（交给负责人）
   needSchedule: "定时触发的要写 schedule（时间表）",
   scheduleNotEvent: "定时触发的不写 event（事件发生时做的用 means: event）",
   oncePassed: (at: string) => forModel(() => `定的时间 ${describeTime(new Date(at))} 已经过了：写一个将来的时间，或者写重复的时间表`),
@@ -56,8 +56,8 @@ export const meansText = {
   // @i18n-ignore-end
 };
 
-// @i18n-ignore-start model：工具说明、校验的问题（交给维护者）
-/** 维护者的工具说明：有哪些手段按登记表现写 */
+// @i18n-ignore-start model：工具说明、校验的问题（交给负责人）
+/** 负责人的工具说明：有哪些手段按登记表现写 */
 export function toolDescription(means: readonly OperationMeans[]): string {
   return forModel(() => toolDescriptionText(means));
 }
@@ -66,7 +66,7 @@ function toolDescriptionText(means: readonly OperationMeans[]): string {
   const list = means.map((m) => `${m.id}（${m.label}${m.automatic ? "" : "，二狗现在还做不了、要用户手动"}）：${m.hint}`).join("；");
   return (
     `交出这个项目的运营方案：项目转入使用后怎么运转——每天定时出什么、什么事件发生时做什么……一次交完整的一份（之前交过的这次没写就算去掉）。用户在卡上确认一次就全部生效（确认就是授权，之后照方案跑，不再逐项问）：` +
-    `定时、事件触发的每一条建成这个项目的内部任务，由你（项目的维护者）执行，到点或来事件时运行时派一张运行工单给你；` +
+    `定时、事件触发的每一条建成这个项目的内部任务，由你（项目的负责人）执行，到点或来事件时运行时派一张运行工单给你；` +
     `服务那一条（means: service，写 service）确认后由运行时交给 LSM 登记、启动、开机自启，有网页的经二狗转发到 /apps/<项目编号>-<服务名>/、项目卡片上有入口（要守前缀约定）。` +
     `建设期间交的留着，建设任务做完时出现在“首版做完了”卡上（主按钮“${OPERATIONS_PUT_IN_USE_LABEL}”），卡出了以后再交，卡跟着更新；` +
     `项目已经在使用中的，运行时和现在生效的比出加了、改了、去掉哪几条，出一张“运营方案变更”卡，用户确认了才照差异生效（建、改、取消对应的内部任务）。` +
@@ -77,16 +77,16 @@ function toolDescriptionText(means: readonly OperationMeans[]): string {
   );
 }
 
-/** 第几条（给维护者看的，从 1 数） */
+/** 第几条（给负责人看的，从 1 数） */
 const nth = (i: number, name: string) => `第 ${i + 1} 条「${name}」`;
 
 export const refusal = {
-  notYours: (projectId: string) => `项目 ${projectId} 不是你维护的，只有它的维护者能交运营方案`,
+  notYours: (projectId: string) => `项目 ${projectId} 不是你维护的，只有它的负责人能交运营方案`,
   preparing: (name: string) => `项目「${name}」还在筹备中：立项书确认、开工之后再交运营方案`,
   // @i18n-ignore-end
-  /** 维护者交方案时、用户在卡上确认时都会碰到 */
+  /** 负责人交方案时、用户在卡上确认时都会碰到 */
   archived: (name: string) => t("operations.refusal.archived", { name }),
-  // @i18n-ignore-start model：校验的问题（交给维护者）
+  // @i18n-ignore-start model：校验的问题（交给负责人）
   empty: "运营方案里至少写一条",
   duplicateKey: (key: string) => `key「${key}」写了不止一条：每一条的 key 不一样`,
   noMeans: (i: number, name: string, means: string, available: readonly OperationMeans[]) =>
@@ -112,8 +112,8 @@ export const refusal = {
   missingConfirmations: (texts: readonly string[]) => t("operations.refusal.missingConfirmations", { items: texts.join(t("operations.itemSep")) }),
 };
 
-// @i18n-ignore-start model：交给维护者的工具结果
-/** 交给维护者的工具结果（按中文写：里面用到的协议包说法也是中文） */
+// @i18n-ignore-start model：交给负责人的工具结果
+/** 交给负责人的工具结果（按中文写：里面用到的协议包说法也是中文） */
 export const toolResult = inChinese({
   /** 建设期间交的 */
   build: (revision: number, count: number, onCard: boolean) =>
@@ -130,7 +130,7 @@ export const toolResult = inChinese({
 /** 一条写成一行 */
 export const itemLine = (item: OperationItem): string => operationLine(item);
 
-/** 差异写成几行（卡的纯文本降级、交给维护者的话） */
+/** 差异写成几行（卡的纯文本降级、交给负责人的话） */
 export function diffLines(p: Pick<OperationsChangeCardPayload, "added" | "changed" | "removed" | "restored" | "kept">): string[] {
   return [
     ...p.added.map((i) => t("operations.diff.line", { change: OPERATION_CHANGE_LABEL.added, item: itemLine(i) })),
@@ -168,14 +168,14 @@ export function resultCounts(results: readonly OperationResult[]): string {
   ].join(t("operations.listSep"));
 }
 
-/** 时间线上的一笔、交给维护者的通知 */
+/** 时间线上的一笔、交给负责人的通知 */
 export const decisionText = {
-  /** "首版做完了"卡上确认并转入使用：维护者会话里的说明（接在"你选了转入使用"那句后面） */
+  /** "首版做完了"卡上确认并转入使用：负责人会话里的说明（接在"你选了转入使用"那句后面） */
   putInUse: (revision: number, results: readonly OperationResult[]) => t("operations.decision.putInUse", { revision, counts: resultCounts(results) }),
   record: (revision: number, results: readonly OperationResult[]) => t("operations.decision.record", { revision, counts: resultCounts(results) }),
   rejectedRecord: (revision: number) => t("operations.decision.rejectedRecord", { revision }),
-  // @i18n-ignore-start model：交给维护者的通知
-  /** 有没生效的：通知维护者（唤起它），看看是什么原因 */
+  // @i18n-ignore-start model：交给负责人的通知
+  /** 有没生效的：通知负责人（唤起它），看看是什么原因 */
   failedNotice: (revision: number, results: readonly OperationResult[]) =>
     forModel(() => [
       `用户确认了运营方案（第 ${revision} 份），有几条没生效：`,
@@ -208,8 +208,8 @@ export function changeCardText(p: OperationsChangeCardPayload): string {
 export const wordsLines = (words: readonly VerifiedUserWords[]): string[] =>
   words.length > 0 ? [t("operations.words.head", { title: USER_WORDS_TITLE }), ...words.map((w) => `- ${userWordsLine(w)}`)] : [];
 
-/** 一条交给维护者看的详细写法（工具结果、通知里列出方案时） */
+/** 一条交给负责人看的详细写法（工具结果、通知里列出方案时） */
 export const itemDetail = (item: OperationItem): string =>
   item.automatic
-    ? `${item.name}：${item.triggerText}，${OPERATION_APPROACH_LABEL[item.approach]}；每次做什么：${item.instructions}；要的能力：${capabilitiesText(item.capabilities)}` // @i18n-ignore model：交给维护者看的
-    : `${item.name}：${OPERATIONS_MANUAL_PREFIX}${item.manual ?? ""}`; // @i18n-ignore model：交给维护者看的
+    ? `${item.name}：${item.triggerText}，${OPERATION_APPROACH_LABEL[item.approach]}；每次做什么：${item.instructions}；要的能力：${capabilitiesText(item.capabilities)}` // @i18n-ignore model：交给负责人看的
+    : `${item.name}：${OPERATIONS_MANUAL_PREFIX}${item.manual ?? ""}`; // @i18n-ignore model：交给负责人看的

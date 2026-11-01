@@ -55,7 +55,7 @@ export function jobTokenTotal(state: UiState, jobId: string): number {
 /** 任务详情里按 agent 的一行 */
 export interface TaskUsageRow {
   key: string;
-  /** "tm-1「X 的调研的任务维护者」"、"… · 范围审视"、"… · 压缩"（159 号票：维护者写编号加它属于谁）、"评审子 agent review-t-1-s2-1" */
+  /** "tm-1「X 的调研的任务负责人」"、"… · 范围审视"、"… · 压缩"（159 号票：负责人写编号加它属于谁）、"评审子 agent review-t-1-s2-1" */
   label: string;
   agentId: string;
   role: LedgerRole;
@@ -71,13 +71,13 @@ export function agentLabel(agentId: string, role: LedgerRole): string {
   return role === "secretary" ? LEDGER_ROLE_LABEL.secretary : `${LEDGER_ROLE_LABEL[role]} ${agentId}`;
 }
 
-/** 任务详情里一行 agent 的叫法：维护者写"tm-1「X 的调研的任务维护者」"（159、163 号票），别的是角色加 id */
+/** 任务详情里一行 agent 的叫法：负责人写"tm-1「X 的调研的任务负责人」"（159、163 号票），别的是角色加 id */
 function taskAgentLabel(state: UiState, agentId: string, role: LedgerRole): string {
   return role === "maintainer" ? maintainerLabel(state, agentId) : agentLabel(agentId, role);
 }
 
 /**
- * 任务详情里按 agent 细分的用量（维护者、评审子 agent、并行子 agent 各一行，范围审视、压缩各单独一行）和合计；各行之和就是任务卡上的总量。
+ * 任务详情里按 agent 细分的用量（负责人、评审子 agent、并行子 agent 各一行，范围审视、压缩各单独一行）和合计；各行之和就是任务卡上的总量。
  * cacheHit 是合计里缓存命中的（311 号票：详情顶上写"（其中缓存命中 …）"）
  */
 export function taskUsage(state: UiState, taskId: string): { rows: TaskUsageRow[]; total: number; cacheHit: number; calls: number } {
@@ -146,7 +146,7 @@ export function rangeDays(from: string, to: string): string[] {
 }
 
 /**
- * 消耗页上 agent 的叫法：维护者写编号加它属于哪个项目或任务（"pm-1「记账本的项目维护者」"，项目在前：任务转为项目后维护者归项目；
+ * 消耗页上 agent 的叫法：负责人写编号加它属于哪个项目或任务（"pm-1「记账本的项目负责人」"，项目在前：任务转为项目后负责人归项目；
  * 删掉了的"tm-9（已删除）"，159、163 号票），未归属的就写 id，别的是角色加 id
  */
 export function usageAgentName(state: UiState, agentId: string, role: LedgerRole): string {

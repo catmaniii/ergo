@@ -1,8 +1,8 @@
-// 斜杠命令原样转交给运行时（289 号票）：维护者用的运行时能转交的（Claude Code，能力清单 slash_passthrough）——
+// 斜杠命令原样转交给运行时（289 号票）：负责人用的运行时能转交的（Claude Code，能力清单 slash_passthrough）——
 // - 交给它的：用户自己在这里打的、只有文字、开头是 / 的原文（不加时间标记、不带消息 id 那一行）；二狗自己的命令（项目会话里的 /流程）、
 //   秘书转达的、带着附件的、不转交的运行时（pi）都照旧；
 // - 输入框的候选：二狗自己的命令在前，再是运行时报的命令（kind 是 runtime，集合名写运行时的名字），二狗的 skill 不列；和二狗的命令同名的不列；
-// - 运行时的登记表记下子进程报回的模型、命令：模型按运行时（view 用它），命令按维护者（它还没跑过时用这个运行时最近报的）。
+// - 运行时的登记表记下子进程报回的模型、命令：模型按运行时（view 用它），命令按负责人（它还没跑过时用这个运行时最近报的）。
 import { describe, expect, it } from "vitest";
 import { slashPassthroughText } from "../../src/conversation/agent-input.ts";
 import { createRuntimeRegistry, piRuntime } from "../../src/runtime/index.ts";
@@ -78,7 +78,7 @@ describe("斜杠命令原样转交给运行时", () => {
     expect(conversationSlashCommands(sources, "maintainer:tm-2")?.commands.map((c) => c.text)).toEqual(["/tdd"]);
   });
 
-  it("登记表记下子进程报回的：模型按运行时（view 的列表换成报回的），命令按维护者、它还没跑过时用这个运行时最近报的", () => {
+  it("登记表记下子进程报回的：模型按运行时（view 的列表换成报回的），命令按负责人、它还没跑过时用这个运行时最近报的", () => {
     const runtimes = createRuntimeRegistry({ log: () => {} });
     runtimes.register(piRuntime);
     runtimes.register(fakeRuntime);
@@ -88,7 +88,7 @@ describe("斜杠命令原样转交给运行时", () => {
     runtimes.noteCatalog(fakeRuntime.id, "tm-1", { models: [{ id: "fake-2", title: "假模型二号" }], commands: [{ name: "compact", description: "压缩" }] });
     expect(runtimes.view().runtimes.find((r) => r.id === fakeRuntime.id)?.models).toEqual([{ id: "fake-2", title: "假模型二号" }]);
     expect(runtimes.commandsOf(fakeRuntime.id, "tm-1")).toEqual([{ name: "compact", description: "压缩" }]);
-    // 别的维护者还没跑过：用这个运行时最近报的
+    // 别的负责人还没跑过：用这个运行时最近报的
     expect(runtimes.commandsOf(fakeRuntime.id, "tm-2")).toEqual([{ name: "compact", description: "压缩" }]);
     runtimes.noteCatalog(fakeRuntime.id, "tm-2", { commands: [{ name: "review", description: "评审" }] });
     expect(runtimes.commandsOf(fakeRuntime.id, "tm-1")).toEqual([{ name: "compact", description: "压缩" }]);

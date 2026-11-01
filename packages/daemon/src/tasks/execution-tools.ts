@@ -1,12 +1,12 @@
-// 维护者执行任务时的工具（守护进程代为执行，13 号票）：开始阶段、宣布阶段完成、报告进展、转为等我、失败；
+// 负责人执行任务时的工具（守护进程代为执行，13 号票）：开始阶段、宣布阶段完成、报告进展、转为等我、失败；
 // 14 号票加了提交计划变更、自行调整计划、标做不了，以及阈值、偏离的说法（这一支为什么停下 stopReasonText、催促、说明进展）；
 // 121 号票起这两个工具只交要改的（DRAFT_RULE、removeStages），交来的已验收阶段按现在的定义保留时结果里说明（keptAcceptedText）。
 // 125 号票：宣布阶段完成、计划变更、自行调整都能附用户消息的 id（userWords，USER_WORDS_PARAM）：运行时核实过的单独一栏
 // （评审的输入、计划变更卡、时间线），没核实过的那几条在结果里说明（refusedUserWordsText），其余照常。
-// 都绑定在一个任务上（维护者只能对它执行的那个任务做），逻辑在控制器（execution.ts，返回结构化的结果）；
-// 给模型看的话都在这里组织：工具结果，以及控制器交给维护者的通知（noticeText）。被拒时原因以出错的工具结果交回维护者。
+// 都绑定在一个任务上（负责人只能对它执行的那个任务做），逻辑在控制器（execution.ts，返回结构化的结果）；
+// 给模型看的话都在这里组织：工具结果，以及控制器交给负责人的通知（noticeText）。被拒时原因以出错的工具结果交回负责人。
 // 这几个工具都不落入任何关注类别（只改二狗自己的任务状态、产生卡片），在守卫的工具注册表里照样登记、照样先经守卫判定。
-// @i18n-ignore-file model：这里的话都给维护者看（工具说明、工具结果、交给它的通知），照旧中文——用到的协议包说法也包在 forModel 里取中文。
+// @i18n-ignore-file model：这里的话都给负责人看（工具说明、工具结果、交给它的通知），照旧中文——用到的协议包说法也包在 forModel 里取中文。
 // 给用户看的（这一支为什么停下、用量和预算、重做时改了什么）在 stop-texts.ts；工具的中文名（title）跟着当前语言（172 号票）
 import {
   ACCEPTANCE_VERDICT_LABEL,
@@ -197,10 +197,10 @@ export function startStageText(r: StartStageResult): string {
   });
 }
 
-/** 已经做了的一件事，交给维护者的说法：工具名（参数摘要） */
+/** 已经做了的一件事，交给负责人的说法：工具名（参数摘要） */
 const said = (e: StageEffect) => oneLine(`${e.toolTitle ?? e.tool}（${e.argsSummary}）`, 120);
 
-/** 阶段的说法；流程只有一个内部的阶段，说"流程"（58 号票：流程的维护者看到的是步骤，不是阶段） */
+/** 阶段的说法；流程只有一个内部的阶段，说"流程"（58 号票：流程的负责人看到的是步骤，不是阶段） */
 const stageName = (s: StageRef) => (s.stageId === WORKFLOW_STAGE_ID ? "流程" : `阶段 ${s.stageId}「${s.title}」`);
 
 /** 每句都按中文取（给模型看的；里面用到的协议包说法也是中文） */
@@ -208,7 +208,7 @@ function inChinese<T extends Record<string, (...args: never[]) => string>>(texts
   return Object.fromEntries(Object.entries(texts).map(([k, fn]) => [k, (...args: never[]) => forModel(() => fn(...args))])) as T;
 }
 
-/** 控制器交给维护者的通知（它会话里的系统通知） */
+/** 控制器交给负责人的通知（它会话里的系统通知） */
 export const noticeText = inChinese({
   /** 第一次开始执行（排队中开始、或者没开始过就继续了） */
   started: (task: { id: string; title: string }, stage: StageHandoff | undefined) =>
@@ -236,7 +236,7 @@ export const noticeText = inChinese({
   stuckResumed: () => "用户让你继续执行（你之前卡住求助了：看看用户在会话里说了什么、做了什么，接着做）。",
   retry: (reason: string | undefined) => `用户让你重试${reason ? `（之前判失败的原因：${reason}）` : ""}。接着做，做不下去再说明原因。`,
   /**
-   * 用户从某个阶段重做（返工，84 号票起阶段开始过就能）：重开后交给维护者的那句——重开了哪几个、
+   * 用户从某个阶段重做（返工，84 号票起阶段开始过就能）：重开后交给负责人的那句——重开了哪几个、
    * 用户说了什么，再按依赖重新做，之前那一次的尝试记录开始阶段时会给它；这一段已经做了的事不撤回，分本机、对外说清楚（同
    * 撤回到某处时那句的说法：对外已经做了的撤不回、仍然有效，重做时不要再做一遍，内容不对就跟用户说怎么补救）。
    * state 是重做之后任务的状态：暂停着的等用户继续、排队中的等名额
@@ -267,7 +267,7 @@ export const noticeText = inChinese({
     ].join("\n");
   },
   /**
-   * 用户撤回了会话之后（152 号票，撤回到阶段开始前之后让维护者接着做的那句）：任务回到那时的进度，
+   * 用户撤回了会话之后（152 号票，撤回到阶段开始前之后让负责人接着做的那句）：任务回到那时的进度，
    * 运行时替你重新开始了一个阶段。stage：撤回到的就是这个阶段开始前；external：被放弃的那段里已经对外做了的（撤不回、仍然有效）；
    * switched：是切换到了另一条分支（151 号票，不写摘要、不作废）
    */
@@ -283,7 +283,7 @@ export const noticeText = inChinese({
       how.stage ? "从这一阶段重新开始、重做；之前那一次的尝试记录开始阶段时会给你。" : "从这里接着做。",
     ].join(""),
   /**
-   * 274 号票：从某个阶段重做之后，范围外已验收的阶段按各自的验收标准再核一遍，有没过的——重开后交给维护者的那句
+   * 274 号票：从某个阶段重做之后，范围外已验收的阶段按各自的验收标准再核一遍，有没过的——重开后交给负责人的那句
    * "另外复验发现 M1 已经不合格，先告诉用户。"；运行时已经放进用户的待办、记进会话，不自动重做，由用户决定
    */
   reverifyFailed: (failed: ReadonlyArray<{ stage: StageRef; criteria: readonly string[] }>) =>
@@ -390,7 +390,7 @@ const DRAFT_RULE =
 
 const REMOVE_STAGES = Type.Array(Type.String({ minLength: 1 }), { minItems: 1, description: "要去掉的阶段 id（比如拆阶段时原来那个不要了）；已验收的、在等用户或在验收的不能去掉。不去掉就不写" });
 
-/** 控制器拒绝的（RequestRejected）作为出错的结果交回维护者，别的错照常抛 */
+/** 控制器拒绝的（RequestRejected）作为出错的结果交回负责人，别的错照常抛 */
 async function guarded(run: () => HostToolOutput | Promise<HostToolOutput>): Promise<HostToolOutput> {
   try {
     return await run();
@@ -425,7 +425,7 @@ export function executionTools(execution: TaskExecution, scope: MaintainerScope)
         },
         { additionalProperties: false },
       ),
-      // 跑验收脚本、改验收次数：不是只读或幂等。验收被打断（守护进程重启）时控制器把阶段交回维护者、让它再宣布一次
+      // 跑验收脚本、改验收次数：不是只读或幂等。验收被打断（守护进程重启）时控制器把阶段交回负责人、让它再宣布一次
       // （13 号票），所以被杀后不当成说不清做没做完的调用（23 号票）
       readOnlyOrIdempotent: false,
       recoveredByController: true,

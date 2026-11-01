@@ -264,9 +264,9 @@ describe("删除任务、没结束的先取消再归档（186 号票）", () => 
     expect(taskDeleteConfirm({ title: "整理截图", cancelsFirst: false, archived: false })).toEqual({
       title: "删除任务「整理截图」？",
       // 说到秘书写名字占位，界面上用 NamedText 显示成用户起的名字（43 号票）
-      body: `会删掉任务本身、维护者的会话、工作目录和里面的产出文件。你在里面说过的话作为素材保留，要彻底删在“记忆 · 素材”里删；${ASSISTANT_NAME_MARK}那边说过的话不改。删了收不回。只是不想在看板上看到它，可以“归档”。`,
+      body: `会删掉任务本身、负责人的会话、工作目录和里面的产出文件。你在里面说过的话作为素材保留，要彻底删在“记忆 · 素材”里删；${ASSISTANT_NAME_MARK}那边说过的话不改。删了收不回。只是不想在看板上看到它，可以“归档”。`,
     });
-    expect(taskDeleteConfirm({ title: "整理截图", cancelsFirst: true, archived: false }).body.startsWith("它还没结束：会先停下（取消，维护者和子 agent 停下，定时、事件触发的不再触发）再删。会删掉任务本身")).toBe(true);
+    expect(taskDeleteConfirm({ title: "整理截图", cancelsFirst: true, archived: false }).body.startsWith("它还没结束：会先停下（取消，负责人和子 agent 停下，定时、事件触发的不再触发）再删。会删掉任务本身")).toBe(true);
     expect(taskDeleteConfirm({ title: "整理截图", cancelsFirst: false, archived: true }).body.endsWith("删了收不回。")).toBe(true);
   });
 

@@ -53,7 +53,7 @@ const BY_TYPE: Partial<Record<CardType, ComponentType<CardProps<never>>>> = {
   parallel: ParallelCard,
   pairing: PairingCard,
   toolkit_change: ToolkitChangeCard,
-  // MCP 登记变更（239 号票）：维护者提的加、改、删一条 MCP 登记
+  // MCP 登记变更（239 号票）：负责人提的加、改、删一条 MCP 登记
   mcp_change: McpChangeCard,
   // skill 变更（358 号票）：负责人提的把一个 skill 加进 skill 库、改、删
   skill_change: SkillChangeCard,

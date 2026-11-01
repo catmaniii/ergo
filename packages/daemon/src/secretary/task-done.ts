@@ -21,21 +21,21 @@
 //   voice/send-voice.ts），要它不问、直接把要点念成语音，念不成退回文字、说原因；开没开看交的时候任务的开关。
 //   一次运行只播报一次：交通知的去重照旧；被打断后重新交时看上次那一轮（noticeTurnVoices，按这一轮的序号认）的语音——
 //   还在合成的等它有了结局再交，合成好了（done、partial）的去掉这个标记、写明念过了（ALREADY_ANNOUNCED），没念成的原样再交。
-// - 维护者来信（102 号票，letters.ts）：维护者用 tell_secretary 发出的一条（secretary_letters 频道上的 maintainer_letter）照同一套交——
+// - 负责人来信（102 号票，letters.ts）：负责人用 tell_secretary 发出的一条（secretary_letters 频道上的 maintainer_letter）照同一套交——
 //   先攒着、安静了再交，秘书闲着才交、忙时排在后面、没起来的起来后补、被打断了重交、重启不重复。交的时候自成一条
 //   （开头 MAINTAINER_LETTER_TAG，几条差不多同时到的并在一起），和同时攒着的任务做完的通知一起交、各是各的；幂等键是
 //   LETTER_NOTICE_KEY_PREFIX 加并进去的最后一封信的全局序号，和任务做完的共用"交到哪了"（全局序号）：启动时两种都从那之后补；
 //   一条都没交过的，信从头补（信是这时才有的，不会翻出一大堆）。
 // - 会话里折成一行（115 号票）：交的通知上存一句话总结（任务做完的由这里拼："t-5「AI 日报」第 2 次运行做完了，交了 1 个文件"；
-//   维护者来信是它给的总结），秘书会话里显示它，点开看全文；交给秘书的照旧是全文。被打断后重新交的总结照旧。
+//   负责人来信是它给的总结），秘书会话里显示它，点开看全文；交给秘书的照旧是全文。被打断后重新交的总结照旧。
 // - 交付的文件作为附件（115 号票，用户 2026-10-13 想在聊天里点开日报看）：任务做完的那几件交付的文件里能预览的（113 号票的
 //   textPreviewOf：Markdown、纯文本）、不超过附件上限的，由运行时入库（媒体库按内容寻址，同样的内容只存一份），作为一条给人看的
 //   系统消息（只有文件 part，不排进秘书的输入队列）紧跟在通知后面、同一事务追加，用户点"预览"去报告页。只在第一次交的时候放：
 //   被打断后重新交、重启后补交的不再放一遍。不能预览的、太大的照旧只在通知的全文里写路径。
-// - 来信带的附件（117 号票，letters.ts）：维护者用 tell_secretary 带来的文件写信时已经入库，交的时候照上面一样作为一排附件卡片
+// - 来信带的附件（117 号票，letters.ts）：负责人用 tell_secretary 带来的文件写信时已经入库，交的时候照上面一样作为一排附件卡片
 //   紧跟在那条来信通知后面（同一套：同一事务、同一个幂等键前缀、只在第一次交的时候放），不折进来信那一行；通知的全文里写附了
 //   哪几个、附件引用（秘书要看内容用 read_attachment）。同一次交的几条里同一个文件（媒体 id 一样）只放一张：几封信带了同一个的、
-//   维护者带着信发了交付件、紧接着任务做完又交了同一份的，放在先到的那条后面。
+//   负责人带着信发了交付件、紧接着任务做完又交了同一份的，放在先到的那条后面。
 // - 负责人自己的声音（354 号票，用户 2026-11-01 定：不增加打扰，只是换声音）：通知上记下这几件能转述谁（relaySources：编号和发信人），
 //   发信人有自己的声音的（ownVoiceOf，交的时候现查）那一件多写一句"负责人有自己的声音"，通知末尾多一段两段怎么写（RELAY_RULES）。
 //   开关开着的任务、项目的进展来信（信上的 owner，看交的时候的开关）单独交一条，开头紧跟 AUTO_ANNOUNCE_TAG（这一轮放行语音，不问，
@@ -54,6 +54,7 @@ import {
   maintainerChannel,
   type MessageEventPayload,
   type MessagePart,
+  OLD_MAINTAINER_LETTER_TAG,
   runEvents,
   type ScheduledJobEventPayload,
   TASK_KIND_LABEL,
@@ -102,13 +103,15 @@ export const TASK_DONE_KEY_PREFIX = "task-done:";
  * 同一件只放一次
  */
 export const TASK_DONE_FILES_KEY_PREFIX = "task-done-files:";
-/** 维护者来信的通知（102 号票）的幂等键：后面是并进去的最后一封信的全局序号，被打断后重新交的同样加 #第几次 */
+/** 负责人来信的通知（102 号票）的幂等键：后面是并进去的最后一封信的全局序号，被打断后重新交的同样加 #第几次 */
 export const LETTER_NOTICE_KEY_PREFIX = "maintainer-letter:";
 
 /** 两种通知：开头的标记、幂等键的前缀 */
 const NOTICE_KINDS = [
   { tag: TASK_DONE_TAG, prefix: TASK_DONE_KEY_PREFIX },
   { tag: MAINTAINER_LETTER_TAG, prefix: LETTER_NOTICE_KEY_PREFIX },
+  // 365 号票之前交的来信：还写着老标记，查交到哪了要算上，否则升级后重启会把交过的信再交一遍
+  { tag: OLD_MAINTAINER_LETTER_TAG, prefix: LETTER_NOTICE_KEY_PREFIX },
 ] as const;
 type NoticePrefix = (typeof NOTICE_KINDS)[number]["prefix"];
 
@@ -121,7 +124,7 @@ export function isTaskDoneNotice(message: MessageEnvelope): boolean {
   return message.speaker === "system" && first?.type === "text" && first.text.startsWith(TASK_DONE_TAG);
 }
 
-/** 被打断了由这里重新交的通知（任务做完、维护者来信）：秘书的 AgentSession 据此不出"请重发"的说明（redeliveredOnInterrupt） */
+/** 被打断了由这里重新交的通知（任务做完、负责人来信）：秘书的 AgentSession 据此不出"请重发"的说明（redeliveredOnInterrupt） */
 export function isRedeliveredNotice(message: MessageEnvelope): boolean {
   return isTaskDoneNotice(message) || isMaintainerLetterNotice(message);
 }
@@ -427,7 +430,7 @@ function closingTurnEnd(store: EventStore, job: ScheduledJob, run: JobRun, start
   return undefined;
 }
 
-/** 秘书会话里交过的一次通知（任务做完、维护者来信）：哪种、哪件（并进去的最后一条事件的全局序号）、第几次交、消息 */
+/** 秘书会话里交过的一次通知（任务做完、负责人来信）：哪种、哪件（并进去的最后一条事件的全局序号）、第几次交、消息 */
 interface NoticeAttempt {
   prefix: NoticePrefix;
   seq: number;
@@ -440,8 +443,8 @@ interface NoticeAttempt {
   relaySources: MessageEnvelope["relaySources"];
 }
 
-/** 秘书会话里交过的全部通知（任务做完的、维护者来信的；同一种里按先后） */
-function noticeAttempts(store: EventStore): NoticeAttempt[] {
+/** 秘书会话里交过的全部通知（任务做完的、负责人来信的；同一种里按先后） */
+export function noticeAttempts(store: EventStore): NoticeAttempt[] {
   const out: NoticeAttempt[] = [];
   for (const { tag, prefix } of NOTICE_KINDS) {
     for (const e of store.mentioning(EVENT_TYPES.message, tag)) {
@@ -625,7 +628,7 @@ export function startTaskDoneNotices(options: TaskDoneNoticesOptions): TaskDoneN
           attachments: [] as MessagePart[],
           relaySources: g.map((x) => x.item.relay),
         }));
-      // 维护者来信（102 号票）自成一条，几封并在一起；任务、项目开着自动播报的（354 号票）另成一条，这一轮放行语音
+      // 负责人来信（102 号票）自成一条，几封并在一起；任务、项目开着自动播报的（354 号票）另成一条，这一轮放行语音
       const letterEvents = items.filter((d) => isLetterToSecretary(d.event));
       const letterGroups = [letterEvents.filter((d) => !(speaks && letterAnnounces(d.event))), letterEvents.filter((d) => speaks && letterAnnounces(d.event))]
         .map((events, kind) => ({ events, announce: kind === 1 }))
@@ -672,7 +675,7 @@ export function startTaskDoneNotices(options: TaskDoneNoticesOptions): TaskDoneN
         ]),
       );
     } catch (err) {
-      options.log(`任务做完、维护者来信的通知没交给秘书：${err instanceof Error ? err.message : String(err)}`);
+      options.log(`任务做完、负责人来信的通知没交给秘书：${err instanceof Error ? err.message : String(err)}`);
     } finally {
       flushing = false;
       checkLater();
@@ -697,7 +700,7 @@ export function startTaskDoneNotices(options: TaskDoneNoticesOptions): TaskDoneN
         store.append(buildAgentNotice(CHANNELS.secretary, redeliveredText(a, announced === "announced"), noticeKey(a.prefix, a.seq, a.attempt + 1), {}, { summary: a.summary, relaySources: a.relaySources }).event);
         sent = true;
       } catch (err) {
-        options.log(`被打断的任务做完、维护者来信的通知没能重新交给秘书：${err instanceof Error ? err.message : String(err)}`);
+        options.log(`被打断的任务做完、负责人来信的通知没能重新交给秘书：${err instanceof Error ? err.message : String(err)}`);
       }
     }
     return sent;
@@ -754,7 +757,7 @@ export function startTaskDoneNotices(options: TaskDoneNoticesOptions): TaskDoneN
     else if (e.type === EVENT_TYPES.agentVoice) {
       if (e.channel === CHANNELS.secretary && redeliver.length > 0) checkLater();
     } else if (e.type !== EVENT_TYPES.turnEnd) return;
-    // 秘书处理任务做完、维护者来信的通知到一半被打断了（子进程崩溃）：起来闲着了重新交
+    // 秘书处理任务做完、负责人来信的通知到一半被打断了（子进程崩溃）：起来闲着了重新交
     else if (e.channel === CHANNELS.secretary && (e.payload as TurnEndEventPayload).outcome === "interrupted") {
       const id = (e.payload as TurnEndEventPayload).inputMessageId;
       const message = getMessage(store.reader, id);

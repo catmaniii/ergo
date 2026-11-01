@@ -9,7 +9,7 @@ export const SuggestTaskFixturePayload = Type.Object({ title: Type.String(), why
 export const suggestTaskFixture = defineCardType({
   type: "suggest_task",
   // 和共享协议包的 CARD_TYPE_VERSIONS 一致（2：卡上可以写涉及的项目，16 号票；3：两个按钮"作为流程""作为长程任务"，58 号票；
-  // 4：项目的维护者给的建议卡带着项目，64 号票；替身不用）
+  // 4：项目的负责人给的建议卡带着项目，64 号票；替身不用）
   version: 4,
   payload: SuggestTaskFixturePayload,
   actions: {

@@ -30,9 +30,9 @@ describe("会话", () => {
     const maintainer = "maintainer:p-notes";
     const state = replay([
       frame("secretary", 5, "message", { message: textMessage("m5", "agent", "秘书第五条") }),
-      frame(maintainer, 1, "message", { message: textMessage("w1", "agent", "维护者第一条", maintainer) }),
+      frame(maintainer, 1, "message", { message: textMessage("w1", "agent", "负责人第一条", maintainer) }),
     ]);
-    expect(texts(conversationView(state, maintainer))).toEqual(["agent:维护者第一条"]);
+    expect(texts(conversationView(state, maintainer))).toEqual(["agent:负责人第一条"]);
     expect(texts(conversationView(state, "secretary"))).toEqual(["agent:秘书第五条"]);
   });
 

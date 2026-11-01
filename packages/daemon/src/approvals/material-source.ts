@@ -52,7 +52,7 @@ export const approvalDecisionPurge: PurgeRewriter = {
 };
 
 /**
- * 审批请求（删除项目时改写那个维护者的，15 号票）：模型给的参数（原样）里的文字、参数摘要和守卫的说明换成删除标记；
+ * 审批请求（删除项目时改写那个负责人的，15 号票）：模型给的参数（原样）里的文字、参数摘要和守卫的说明换成删除标记；
  * 审批 id、卡片、来源、工具、调用指纹、命中的类别、时间不变（审批表重放出来不变，一次性授权照样按指纹匹配）
  */
 export const approvalRequestPurge: PurgeRewriter = {

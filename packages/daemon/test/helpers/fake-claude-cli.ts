@@ -30,7 +30,7 @@ export class FakeClaudeCli implements ClaudeCli {
   readonly jobs = new Map<string, FakeJob>();
   /** 终端里开着的会话（interactive，带进程号） */
   interactive: Array<{ sessionId: string; pid: number }> = [];
-  /** 二狗自己的进程（经 SDK 起的，agents 里也显示成 interactive）：测试按维护者的子进程在不在给 */
+  /** 二狗自己的进程（经 SDK 起的，agents 里也显示成 interactive）：测试按负责人的子进程在不在给 */
   ergoOpen: () => Array<{ sessionId: string; pid: number }> = () => [];
   /** 原来写进假会话来源 open 里的条目（照样列出来） */
   private extra: ClaudeRunningSession[] = [];

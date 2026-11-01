@@ -3,7 +3,7 @@
 // 最近结束（已完成、失败、已取消，以及已触发的一次性简单提醒、185 号票起已取消的简单提醒）、已归档（185 号票起有归档了的提醒；删了的不上看板）。
 // 分组表只有共享协议包里的一份（BOARD_GROUP_OF_TASK_STATE、boardGroupOfReminder），守护进程和 Web 共用。
 // 定时触发的任务（76 号票）是一张任务卡（在运营中一组：它的触发登记暂停着也在），卡上带着它的触发登记（时间表、下一次、最近一次运行、
-// 暂停恢复取消，triggers.ts）；触发登记不再单独占一张卡。还没迁移的定时作业（19 号票）照旧是一张作业卡，见 scheduled-jobs.ts。任务卡上带它的维护者的活动状态（活动状态频道，排队、干活中……）和说明
+// 暂停恢复取消，triggers.ts）；触发登记不再单独占一张卡。还没迁移的定时作业（19 号票）照旧是一张作业卡，见 scheduled-jobs.ts。任务卡上带它的负责人的活动状态（活动状态频道，排队、干活中……）和说明
 // （干活中在做什么、等你批准什么，25 号票），以及这个任务名下的 token 总量（看板频道上的 token_totals，24 号票）；
 // 16 号票起还带它在等哪个项目（它的工单还排着：看板上标"等项目 X"，见 work-orders.ts）。
 // 64 号票：项目内部的任务、定时作业不上全局看板（在项目页的"内部任务"一栏和定时作业里）。141 号票起运营方案建的内部任务例外
@@ -148,7 +148,7 @@ export function taskStatusText(task: Pick<Task, "state" | "waitReason" | "pauseR
 export function taskMenuSubject(state: UiState, task: Task): TaskMenuSubject {
   const trigger = task.state === "operating" ? taskTriggerView(state, task.id) : undefined;
   const lock = taskOperationsLock(state, task);
-  // 能不能删（186 号票，和守护进程同一份规则）：还在的项目里由这个维护者维护的那一个
+  // 能不能删（186 号票，和守护进程同一份规则）：还在的项目里由这个负责人维护的那一个
   const deleteRefusal = taskDeleteRefusal(task, (maintainerId) => Object.values(state.projects).find((p) => p.maintainerId === maintainerId));
   return {
     ...task,

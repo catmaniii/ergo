@@ -1,11 +1,11 @@
-// 主切面：计划卡上的关注类别和用户说过的限制（规格第 8、9 节，26 号票）。真的守护进程，秘书和维护者接 faux 剧本，测试扮演前端。
-// - 计划卡上"本任务要提醒的关注类别"默认等于全局设置（内置的加用户自定义的）；维护者提交的计划少了全局的类别，提交失败并返回原因；
+// 主切面：计划卡上的关注类别和用户说过的限制（规格第 8、9 节，26 号票）。真的守护进程，秘书和负责人接 faux 剧本，测试扮演前端。
+// - 计划卡上"本任务要提醒的关注类别"默认等于全局设置（内置的加用户自定义的）；负责人提交的计划少了全局的类别，提交失败并返回原因；
 // - 用户确认时在卡上给这个任务加类别（和设置页同一套名字和确定规则的检查）：写进计划，只影响这个任务；
 //   卡上没有删除；加的类别随"审批决定"素材记下；
 // - 确认时本任务调严过的全局类别连规则一起快照进计划：全局后来调严照样生效，调松、改规则、删除放松不了已确认的任务，
 //   设置页删改时事件里记下还有几个进行中的任务按确认时的设置检查它；
-// - 维护者把用户说过的限制编译成时序规则或授权收窄、附上原话：规则过规则校验（不过的提交失败），卡上列出，
-//   原话核对得上（任务书的约束、用户的消息）的才算原话。编译本身靠维护者的模型（DeepSeek 计划起草的手动冒烟），这里只测运行时一侧。
+// - 负责人把用户说过的限制编译成时序规则或授权收窄、附上原话：规则过规则校验（不过的提交失败），卡上列出，
+//   原话核对得上（任务书的约束、用户的消息）的才算原话。编译本身靠负责人的模型（DeepSeek 计划起草的手动冒烟），这里只测运行时一侧。
 // 执行中的判定这里只用确认的计划交给守卫的样子（toGuardPlan）加守卫的判定函数验证；
 // 走真实执行路径的验证在 task-execution.test.ts（13 号票）的"计划里的关注类别和用户的限制（26 号票）在执行中生效"。
 import {
@@ -57,17 +57,17 @@ async function eventually<T>(list: () => readonly T[], match: (x: T) => boolean,
 }
 const cardWhere = (frontend: TestFrontend, match: (card: Card) => boolean, what = "卡片") => eventually(() => cardsOf(frontend), match, what);
 
-/** 维护者在会话里看到的工具结果（剧本最后一步 echo_context 的回显） */
+/** 负责人在会话里看到的工具结果（剧本最后一步 echo_context 的回显） */
 async function maintainerSaw(frontend: TestFrontend, maintainerId: string): Promise<string> {
   const channel = maintainerChannel(maintainerId);
-  await waitUntil(() => frontend.events({ channel, type: EVENT_TYPES.turnEnd }).length >= 1, { timeoutMs: 20_000, describe: () => `等维护者 ${maintainerId} 处理完` });
+  await waitUntil(() => frontend.events({ channel, type: EVENT_TYPES.turnEnd }).length >= 1, { timeoutMs: 20_000, describe: () => `等负责人 ${maintainerId} 处理完` });
   return frontend.events({ channel, type: EVENT_TYPES.message }).map((f) => textOf(f.payload as MessageEventPayload)).join("\n");
 }
 
 /** 计划卡上的决定（守护进程内部的 tasks 频道） */
 const decisionsOf = (daemon: Daemon) => daemon.store.read(TASKS_CHANNEL, 0, EVENT_TYPES.planDecided).map((e) => e.payload as PlanDecidedPayload);
 
-/** 确认的计划交给守卫的样子（13 号票执行时就这么交）：任务在 s1 阶段，维护者在工作目录 E:\work\notes 里干活 */
+/** 确认的计划交给守卫的样子（13 号票执行时就这么交）：任务在 s1 阶段，负责人在工作目录 E:\work\notes 里干活 */
 function judgeInTask(daemon: Daemon, taskId: string, toolCall: ReturnType<typeof guardCall>, extra: Parameters<typeof inTask>[2] = {}) {
   const stored = daemon.tasks.latestPlan(taskId)!;
   expect(stored.status).toBe("confirmed");
@@ -90,8 +90,8 @@ describe("计划卡上本任务要提醒的关注类别", () => {
     const globalCategories = [...BUILTIN_CATEGORY_IDS.map((id) => ({ id })), { id: "c-1" }];
     const withGlobal = samplePlan({ watchCategories: globalCategories });
     const { url, daemon } = await startTestDaemon({
-      secretary: [createTask("X 的调研"), writeBrief("t-1"), createTask("Y 的调研"), writeBrief("t-2"), say("交给维护者了")],
-      // t-1 的维护者先交了一份少了全局自定义类别的计划（被拒），再交合格的；t-2 的直接交合格的
+      secretary: [createTask("X 的调研"), writeBrief("t-1"), createTask("Y 的调研"), writeBrief("t-2"), say("交给负责人了")],
+      // t-1 的负责人先交了一份少了全局自定义类别的计划（被拒），再交合格的；t-2 的直接交合格的
       maintainer: (id) => (id === "tm-1" ? [submitPlanStep(samplePlan()), submitPlanStep(withGlobal), { kind: "echo_context" }] : [submitPlanStep(withGlobal), say("交了")]),
     });
     const frontend = await TestFrontend.connect(url);
@@ -170,7 +170,7 @@ describe("计划卡上本任务要提醒的关注类别", () => {
     const card = await cardWhere(frontend, (c) => c.type === "plan", "计划卡");
     ok(await frontend.cardAction({ cardId: card.id, action: "confirm", expectedVersion: 1, input: {} }));
     await cardWhere(frontend, (c) => c.id === card.id && c.status === "handled");
-    // 维护者把 c-1 调成了"永不"：确认的计划里带上了确认时的规则；c-2 没调，不快照
+    // 负责人把 c-1 调成了"永不"：确认的计划里带上了确认时的规则；c-2 没调，不快照
     const stored = daemon.tasks.latestPlan("t-1")!.plan.watchCategories;
     expect(stored.find((c) => c.id === "c-1")).toEqual({ id: "c-1", title: "动迁移目录", disposition: "never", match: { paths: [MIGRATIONS] } });
     expect(stored.find((c) => c.id === "c-2")).toEqual({ id: "c-2", title: "动种子数据" });
@@ -214,7 +214,7 @@ describe("计划卡上本任务要提醒的关注类别", () => {
 
 const noPushMain = { id: "no-push-main", title: "不往 main 推", trigger: { tool: "git_push", where: { eq: ["$current.args.branch", "main"] } }, on_violation: "block" };
 const noPushProd = { id: "no-push-prod", title: "不往 prod 推", trigger: { tool: "git_push", where: { eq: ["$current.args.branch", "prod"] } }, on_violation: "block" };
-/** 带用户限制的计划：l1 原话出自任务书的约束（编译出规则、把推送报告收窄到一次）；l2 是维护者转述的，用户没这么说过 */
+/** 带用户限制的计划：l1 原话出自任务书的约束（编译出规则、把推送报告收窄到一次）；l2 是负责人转述的，用户没这么说过 */
 const limited = (rules: Plan["stages"][number]["policy"]["temporalRules"]): Plan =>
   samplePlan({
     userLimits: [
@@ -225,9 +225,9 @@ const limited = (rules: Plan["stages"][number]["policy"]["temporalRules"]): Plan
 
 describe("用户说过的限制：编译成时序规则或授权收窄，和原话一起列在计划卡上", () => {
 
-  it("规则不过规则校验：提交失败、原因交回维护者；合格的列在卡上（附原话），授权收窄落到授权项上；确认后违反规则的调用被拦下", async () => {
+  it("规则不过规则校验：提交失败、原因交回负责人；合格的列在卡上（附原话），授权收窄落到授权项上；确认后违反规则的调用被拦下", async () => {
     const { url, daemon } = await startTestDaemon({
-      secretary: [createTask("X 的调研"), writeBrief("t-1", ["别往 main 推，报告只推一次"]), say("交给维护者了")],
+      secretary: [createTask("X 的调研"), writeBrief("t-1", ["别往 main 推，报告只推一次"]), say("交给负责人了")],
       maintainer: [submitPlanStep(limited([{ id: "bad", trigger: { tool: "teleport" } }])), submitPlanStep(limited([noPushMain])), { kind: "echo_context" }],
     });
     const frontend = await TestFrontend.connect(url);
@@ -241,7 +241,7 @@ describe("用户说过的限制：编译成时序规则或授权收窄，和原�
     const p = card.payload as PlanCardPayload;
     expect(p.plan.userLimits?.[0]).toEqual({ id: "l1", quote: "别往 main 推，报告只推一次", temporalRules: [noPushMain], grantNarrowings: [{ grantId: "push-report", maxUses: 1 }] });
     expect(p.plan.stages[1]!.policy.grants[0]).toMatchObject({ id: "push-report", maxUses: 1 });
-    // 原话核对：l1 原样出现在任务书的约束里；l2 用户没说过，卡上显示成维护者转述
+    // 原话核对：l1 原样出现在任务书的约束里；l2 用户没说过，卡上显示成负责人转述
     expect(p.verifiedQuotes).toEqual(["l1"]);
     expect(card.text).toContain("按你说过的话加了 2 条限制");
 

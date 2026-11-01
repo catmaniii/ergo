@@ -3,7 +3,7 @@
 // 那个目录只作为子进程入口由 agent-process.ts 按路径拉起，不被别的模块 import。
 export * from "./host-protocol.ts";
 export { spawnAgentProcess, type AgentExit, type AgentProcess, type SpawnAgentProcessOptions } from "./agent-process.ts";
-// 286 号票：agent 运行时的登记表（pi 和插件登记的运行时，维护者按它拉起哪个子进程入口）
+// 286 号票：agent 运行时的登记表（pi 和插件登记的运行时，负责人按它拉起哪个子进程入口）
 export { type AgentRuntime, createRuntimeRegistry, piRuntime, type RuntimeHistory, type RuntimeHistoryItem, type RuntimeHistoryPart, type RuntimeFollow, type RuntimeOwner, type RuntimeRegistry, type RuntimeRemoteControl, type RuntimeUnavailable } from "./runtimes.ts";
 export { runSessionRewrite, type RunSessionRewriteOptions } from "./session-rewrite.ts";
 export { PROBE_TIMEOUT_MS, runModelProbe, type RunModelProbeOptions } from "./model-probe.ts";

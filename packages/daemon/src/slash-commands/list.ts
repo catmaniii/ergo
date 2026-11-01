@@ -1,13 +1,13 @@
 // 一个会话能用的斜杠命令（82 号票，GET HTTP_PATHS.slashCommands）：输入框里打 / 弹出的候选。
 // - 先是这个会话能用的二狗自己的命令（commands.ts 的表），再是这个会话能用的 skill（按命令名排）；
-// - 会话能用哪些 skill 和装配时一样现取：秘书的是设置里的名单（skills/secretary-skills.ts），项目的维护者是它此刻这一段的工具包
-//   （对话段是项目的，执行的工单段是任务授权和项目的交集），任务的维护者是任务现在生效的计划里的（起草计划时没有）；
+// - 会话能用哪些 skill 和装配时一样现取：秘书的是设置里的名单（skills/secretary-skills.ts），项目的负责人是它此刻这一段的工具包
+//   （对话段是项目的，执行的工单段是任务授权和项目的交集），任务的负责人是任务现在生效的计划里的（起草计划时没有）；
 // - skill 的写法：/目录名（几个目录名相同时集合里的是 /集合名:目录名，skills/skill-command.ts 按整个库算）；在这个会话里会被认成
 //   二狗自己的命令的（秘书、项目的会话里和 /workflow、/task 同名，中文老写法 /流程、/任务 也算）写 /skill:目录名，选了照样展开成这个 skill；任务的会话里没有这两个命令，
 //   同名的照样写 /目录名（和展开的规则一致）。
-// - 289 号票：维护者用的运行时能转交斜杠命令的（Claude Code，能力清单 slash_passthrough）——二狗自己的命令之后是运行时报的命令
+// - 289 号票：负责人用的运行时能转交斜杠命令的（Claude Code，能力清单 slash_passthrough）——二狗自己的命令之后是运行时报的命令
 //   （kind 是 runtime，集合名写运行时的名字），二狗的 skill 不按 /目录名 列（打了也原样交给运行时，不展开）。
-// - 291 号票：这个维护者工具包里的 skill 交给了运行时（Claude Code 拼成本地插件 ergo），按运行时里的写法列（kind 是 skill，/ergo:<目录名>，
+// - 291 号票：这个负责人工具包里的 skill 交给了运行时（Claude Code 拼成本地插件 ergo），按运行时里的写法列（kind 是 skill，/ergo:<目录名>，
 //   显示的名字照 SKILL.md），排在二狗自己的命令之后、运行时报的命令之前；运行时报的命令里有同名的不重复列。
 // - 310 号票：
 //   - 带参数提示（argumentHint：二狗的命令按现在的语言写的、运行时报的；空的不带），候选里写在写法后面；
@@ -51,13 +51,13 @@ export interface SlashCommandSources {
   table(): readonly SkillCommand[];
   /** 秘书现在用的 skill 名 */
   secretarySkills(): readonly string[];
-  /** 项目维护者此刻这一段的工具包里的 skill 名；不是项目的维护者时 undefined */
+  /** 项目负责人此刻这一段的工具包里的 skill 名；不是项目的负责人时 undefined */
   projectSkills(maintainerId: string): readonly string[] | undefined;
-  /** 任务维护者现在的工具包里的 skill 名；不是任务的维护者时 undefined */
+  /** 任务负责人现在的工具包里的 skill 名；不是任务的负责人时 undefined */
   taskSkills(maintainerId: string): readonly string[] | undefined;
   /**
-   * 维护者用的运行时能转交斜杠命令时（289 号票）：运行时给人看的名字和它报的命令（还没报过是空的）；不能转交（pi）是 undefined。不给就都是 pi 的规矩。
-   * skills（291 号票）：这个维护者工具包里交给了运行时的 skill 在运行时里的命令名（不带 /）、显示的名字、说明。
+   * 负责人用的运行时能转交斜杠命令时（289 号票）：运行时给人看的名字和它报的命令（还没报过是空的）；不能转交（pi）是 undefined。不给就都是 pi 的规矩。
+   * skills（291 号票）：这个负责人工具包里交给了运行时的 skill 在运行时里的命令名（不带 /）、显示的名字、说明。
    * builtin（310 号票）：运行时自带命令按用户语言的说明、参数提示（AgentRuntime.commandText）；没有的是 undefined
    */
   runtimeCommands?(maintainerId: string): RuntimeCommandSource | undefined;
@@ -68,7 +68,7 @@ export interface SlashCommandSources {
   curator?(): { interview: boolean } | undefined;
 }
 
-/** 维护者用的运行时报的命令（289、291、310 号票），见 SlashCommandSources.runtimeCommands */
+/** 负责人用的运行时报的命令（289、291、310 号票），见 SlashCommandSources.runtimeCommands */
 export interface RuntimeCommandSource {
   title: string;
   commands: ReadonlyArray<{ name: string; description: string; argumentHint?: string }>;
@@ -104,7 +104,7 @@ function runtimeEntries(kind: SlashConversationKind, runtime: RuntimeCommandSour
     });
 }
 
-/** 这个会话能用的斜杠命令；没有这个会话（不是秘书，也不是项目或任务的维护者）时 undefined */
+/** 这个会话能用的斜杠命令；没有这个会话（不是秘书，也不是项目或任务的负责人）时 undefined */
 export function conversationSlashCommands(sources: SlashCommandSources, conversation: string): SlashCommandList | undefined {
   const of = (kind: SlashConversationKind, names: readonly string[]) => {
     const wanted = new Set(names);

@@ -13,7 +13,7 @@
 // - for_each 的变量、select / find / any / all 的行变量（默认 $row，as 可以改名）；
 // - $step：planguard 规划时的计划步骤，二狗没有计划步骤，执行时一律"不存在"（为了和 planguard 的规则兼容才允许写）；
 // - 运算：planguard 的全部运算，加上二狗的扩展运算（rule-ops.ts 的 path_within）。
-// @i18n-ignore-file model：规则写错了的说明交回写规则的维护者（存计划时）；执行时判断不了的依据里只引一句（173 号票）
+// @i18n-ignore-file model：规则写错了的说明交回写规则的负责人（存计划时）；执行时判断不了的依据里只引一句（173 号票）
 import { OPS, PLACEHOLDER, isPlainObject } from "./planguard/expr.ts";
 import { REPAIR_KINDS, RULE_KEYS } from "./planguard/spec.ts";
 import { ON_VIOLATION, ruleForm, toolList, triggerTools } from "./rule-doc.ts";
@@ -144,7 +144,7 @@ export function ruleProblems(rule: unknown, options: RuleValidationOptions, name
   if (rule.repairs !== undefined) {
     const ok = Array.isArray(rule.repairs) && rule.repairs.every((r) => isPlainObject(r) && REPAIR_KINDS.filter((k) => k in r).length === 1);
     if (!ok) say(`repairs 每一项要写 ${REPAIR_KINDS.join("、")} 之一（流程的计划审查用它修补计划，58 号票；执行时不用）`);
-    // 插入的那一步要是登记过的工具（审查插进计划、用户授权后维护者照着做）
+    // 插入的那一步要是登记过的工具（审查插进计划、用户授权后负责人照着做）
     for (const r of Array.isArray(rule.repairs) ? rule.repairs : []) {
       const insert = isPlainObject(r) && isPlainObject(r.insert) ? r.insert : undefined;
       if (insert && (typeof insert.tool !== "string" || !findTool(options.tools, insert.tool))) say(`repairs 里插入的工具 ${String(insert.tool)} 没有登记`);

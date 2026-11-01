@@ -1,11 +1,11 @@
 // 主切面：每个负责人能单独配模型（120 号票）。真的守护进程，目录模型（DeepSeek）的请求一律发到本机的假 DeepSeek
 // （helpers/fake-deepseek.ts），从不连真的；key 是假的。
-// - 项目维护者的 ⚙ 里选定模型和思考档位，盖过设置 · 模型里项目维护者那一行；别的项目的维护者照那一行；
+// - 项目负责人的 ⚙ 里选定模型和思考档位，盖过设置 · 模型里项目负责人那一行；别的项目的负责人照那一行；
 // - 照 83 号票生效：对话段里下一条消息时用原来的模型写交接摘要、新开会话，聊天里记一条"已换成 X 模型"；账本照实际调用的模型记；
 // - 设置 · 模型页上列出哪些项目、任务单独配了；
 // - 模型目录里没有的、秘书、只读的不让配；项目归档、任务归档时这一条一起清掉；
-// - 任务的维护者：⚙ 上写明一次性的任务执行中途不换（改了以后清空当前对话、新开的一段才用它）。
-// 它派出的子 agent、评审、范围审视照各自那一行：拉起它们时不带维护者的 id（模块层 test/model-settings.test.ts 锁着）。
+// - 任务的负责人：⚙ 上写明一次性的任务执行中途不换（改了以后清空当前对话、新开的一段才用它）。
+// 它派出的子 agent、评审、范围审视照各自那一行：拉起它们时不带负责人的 id（模块层 test/model-settings.test.ts 锁着）。
 import fs from "node:fs";
 import { EVENT_TYPES, maintainerChannel, type MessageEventPayload, METHODS } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
@@ -44,7 +44,7 @@ const notesIn = (td: TestDaemon, channel: string) =>
 const fileOf = (td: TestDaemon) => JSON.parse(fs.readFileSync(td.daemon.layout.modelSettingsFile, "utf8")) as { maintainers?: Record<string, unknown> };
 
 describe("每个负责人单独配模型", () => {
-  it("项目维护者的 ⚙ 里单独配 v4-pro：对话段里下一条消息时写交接摘要、换成它，聊天里记一条；别的项目照那一行；设置页上列出来；账本照实际调用的模型记；改回跟随", async () => {
+  it("项目负责人的 ⚙ 里单独配 v4-pro：对话段里下一条消息时写交接摘要、换成它，聊天里记一条；别的项目照那一行；设置页上列出来；账本照实际调用的模型记；改回跟随", async () => {
     const fake = await startFakeDeepSeek();
     const td = await startTestDaemon({ modelsFromSettings: ["maintainer"], catalogBaseUrl: fake.baseUrl, env: { DEEPSEEK_API_KEY: KEY } });
     seedInUse(td, "家庭网盘");
@@ -53,7 +53,7 @@ describe("每个负责人单独配模型", () => {
     const PM2 = maintainerChannel("pm-2");
     const frontend = await TestFrontend.connect(td.url);
 
-    // 还没单独配：跟随项目维护者那一行，下一段起改了才换
+    // 还没单独配：跟随项目负责人那一行，下一段起改了才换
     expect((await agentSettingsApi.view(td.url, "pm-1")).body.model).toEqual({ agent: "project_maintainer", role: FLASH, next: FLASH, switchAt: "next_segment" });
     await frontend.sendText("网盘最近满了吗", { conversation: PM1 });
     await requests(fake, 1);
@@ -65,7 +65,7 @@ describe("每个负责人单独配模型", () => {
     expect(set.status).toBe(200);
     expect(set.body.model).toEqual({ agent: "project_maintainer", role: FLASH, own: PRO, next: PRO, session: { modelId: "deepseek-flash", thinkingLevel: "high", vision: true }, switchAt: "next_segment" });
     expect(fileOf(td).maintainers).toEqual({ "pm-1": PRO });
-    // 设置 · 模型页：项目维护者那一行照旧，下面列出单独配了的
+    // 设置 · 模型页：项目负责人那一行照旧，下面列出单独配了的
     const page = (await modelSettingsApi.view(td.url)).body;
     expect(page.effective.project_maintainer).toEqual(FLASH);
     expect(page.maintainers).toEqual([{ agentId: "pm-1", agent: "project_maintainer", owner: { kind: "project", id: "p-1", title: "家庭网盘" }, choice: PRO }]);
@@ -81,7 +81,7 @@ describe("每个负责人单独配模型", () => {
     await waitUntil(() => turnsDone(td, PM1) === 2);
     expect(notesIn(td, PM1)).toContain("已换成 DeepSeek V4 Pro 模型（思考：高），接着之前的对话。");
 
-    // 别的项目的维护者：照项目维护者那一行
+    // 别的项目的负责人：照项目负责人那一行
     await frontend.sendText("这个月花了多少", { conversation: PM2 });
     await requests(fake, 4);
     expect(fake.requests[3]!.body.model).toBe("deepseek-flash");
@@ -133,7 +133,7 @@ describe("每个负责人单独配模型", () => {
     expect(archived.model?.own).toBeUndefined();
     expect((await agentSettingsApi.model(td.url, "pm-1", PRO)).status).toBe(400);
 
-    // 任务的维护者：一次性的任务执行中途不换；归档时清掉
+    // 任务的负责人：一次性的任务执行中途不换；归档时清掉
     const task = td.daemon.tasks.createByRequest({ title: "整理发票", summary: "整理发票" });
     const set = await agentSettingsApi.model(td.url, task.maintainerId, { modelId: "deepseek-v4-pro", thinkingLevel: "off" });
     expect(set.status).toBe(200);

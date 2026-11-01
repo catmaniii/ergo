@@ -32,7 +32,7 @@ describe("消耗页的范围", () => {
 });
 
 describe("agent 的叫法", () => {
-  test("秘书写名字占位（界面按用户起的名字显示，43 号票），别的是角色加 id；消耗页上维护者写编号加它所在的项目或任务（159 号票）", () => {
+  test("秘书写名字占位（界面按用户起的名字显示，43 号票），别的是角色加 id；消耗页上负责人写编号加它所在的项目或任务（159 号票）", () => {
     expect(agentLabel("secretary", "secretary")).toBe(ASSISTANT_NAME_MARK);
     expect(agentLabel("review-t-1-s2-1", "reviewer")).toBe("评审子 agent review-t-1-s2-1");
     const state = replay([
@@ -40,8 +40,8 @@ describe("agent 的叫法", () => {
       frame("projects", 1, "project", { project: { id: "p-1", name: "记账本", maintainerId: "pm-1" }, change: "created", from: null, by: "user" }),
       { kind: "synced" },
     ]);
-    expect(usageAgentName(state, "tm-1", "maintainer")).toBe("tm-1「X 的调研的任务维护者」");
-    expect(usageAgentName(state, "pm-1", "maintainer")).toBe("pm-1「记账本的项目维护者」");
+    expect(usageAgentName(state, "tm-1", "maintainer")).toBe("tm-1「X 的调研的任务负责人」");
+    expect(usageAgentName(state, "pm-1", "maintainer")).toBe("pm-1「记账本的项目负责人」");
     expect(usageAgentName(state, "tm-9", "maintainer")).toBe("tm-9（已删除）");
     expect(usageAgentName(state, "sa-1", "sub_agent")).toBe("子 agent sa-1");
   });
@@ -69,9 +69,9 @@ describe("agent 的叫法", () => {
     ]);
     expect(taskUsage(state, "t-1")).toEqual({
       rows: [
-        expect.objectContaining({ label: "tm-1「X 的调研的任务维护者」", total: 16, purpose: "work" }),
-        expect.objectContaining({ label: "tm-1「X 的调研的任务维护者」 · 范围审视", total: 16, purpose: "scope_review" }),
-        expect.objectContaining({ label: "tm-1「X 的调研的任务维护者」 · 压缩", total: 16, purpose: "compaction" }),
+        expect.objectContaining({ label: "tm-1「X 的调研的任务负责人」", total: 16, purpose: "work" }),
+        expect.objectContaining({ label: "tm-1「X 的调研的任务负责人」 · 范围审视", total: 16, purpose: "scope_review" }),
+        expect.objectContaining({ label: "tm-1「X 的调研的任务负责人」 · 压缩", total: 16, purpose: "compaction" }),
       ],
       total: 48,
       // 311 号票：合计里缓存命中的（详情顶上写"（其中缓存命中 …）"）

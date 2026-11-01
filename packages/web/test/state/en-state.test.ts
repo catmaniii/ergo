@@ -91,7 +91,7 @@ describe("英文下的状态层", () => {
     const both = boardBatchDeleteConfirm({ tasks: 2, running: 1, reminders: 1, blocked: [{ title: "Bookkeeping", why: "managed by the project" }] });
     expect(both.title).toBe("Delete 2 tasks and 1 reminder?");
     expect(both.body).toBe(
-      "2 tasks will be deleted along with their maintainers' conversations, working folders and outputs (1 of them hasn't ended yet and will be stopped first). What you said in them is kept as material; to erase it for good, delete it in “Memory · Materials”. 1 reminder will be deleted: those that haven't fired yet won't, and they disappear from the board, calendar and inbox. 1 can't be deleted: “Bookkeeping”: managed by the project. This can't be undone. To just hide them from the board, use “Archive”.",
+      "2 tasks will be deleted along with their owners' conversations, working folders and outputs (1 of them hasn't ended yet and will be stopped first). What you said in them is kept as material; to erase it for good, delete it in “Memory · Materials”. 1 reminder will be deleted: those that haven't fired yet won't, and they disappear from the board, calendar and inbox. 1 can't be deleted: “Bookkeeping”: managed by the project. This can't be undone. To just hide them from the board, use “Archive”.",
     );
     expect(boardBatchCancelConfirm({ tasks: 0, reminders: 1, skipped: 0 }).title).toBe("Cancel 1 reminder?");
     const mixed = boardBatchCancelConfirm({ tasks: 2, reminders: 1, skipped: 1 });

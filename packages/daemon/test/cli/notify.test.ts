@@ -39,7 +39,7 @@ function cli(env: NodeJS.ProcessEnv) {
 }
 
 describe("ergo notify", () => {
-  it("报上了：带凭证发事件名和数据，退出码 0，说清不等维护者做完", async () => {
+  it("报上了：带凭证发事件名和数据，退出码 0，说清不等负责人做完", async () => {
     const api = await fakeApi(202, { ok: true, event: "评论异常", runs: [{ taskId: "t-1", runId: "j-1-r1", merged: false }] });
     const t = cli({ ERGO_NOTIFY_URL: api.url, ERGO_SERVICE_TOKEN: "tok" });
     expect(await runCli(["notify", "评论异常", "--data", '{"count":3}'], t.ctx)).toBe(NOTIFY_EXIT.ok);

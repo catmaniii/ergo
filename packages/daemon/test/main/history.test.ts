@@ -122,7 +122,7 @@ describe("会话历史分页", () => {
 
   it("时间线记录跟着它所在的那一页回来：超过一页之后，旧页里的偏离、操作记录往上翻取回；第一次补发只带最近一页里的（录给前端回放）", async () => {
     const { url, daemon } = await startTestDaemon();
-    // 维护者会话：60 条消息（前 30 条在第一阶段），第 5 条之后一条偏离、第 55 条之后一条范围变更
+    // 负责人会话：60 条消息（前 30 条在第一阶段），第 5 条之后一条偏离、第 55 条之后一条范围变更
     for (let i = 1; i <= 60; i++) {
       const scope = { taskId: "t-1", stageId: i <= 30 ? "s1" : "s2" };
       appendMessage(daemon.store, { conversation: M1, speaker: "agent", parts: [{ type: "text", text: `第 ${i} 条` }] }, scope);

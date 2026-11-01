@@ -1,12 +1,12 @@
 // 主切面：流程执行时逐步照计划核对（59 号票，ADR 0019；固定计划的执行时检查：两道判定、能修的按计划修回、
-// 监控器的外壳、收尾提醒、步骤推断）。真的守护进程，维护者接 faux 剧本，
-// 测试扮演前端。流程直接经任务服务建出、写好任务书，维护者交计划、用户授权，之后维护者按剧本执行：
+// 监控器的外壳、收尾提醒、步骤推断）。真的守护进程，负责人接 faux 剧本，
+// 测试扮演前端。流程直接经任务服务建出、写好任务书，负责人交计划、用户授权，之后负责人按剧本执行：
 // - 每次调用先过现有的守卫判定，再和授权的计划比对（计划外、超范围、顺序错、重复、禁止），两道都要过；
 // - 能修的不打扰用户：前置步骤没做的引回（redirect），参数和计划对不上的改回（rewrite）；每次修回在时间线上记一笔偏离；
 // - 同一步修了 2 次还对不上、修不了的问用户；用户点过头的同一件事不再问（计划外又落进关注类别的除外，每次都问）；
 // - 一轮收工时还有既没做、也没说明跳过的步骤，提醒一次；做完了的步骤没报的、报了在做没报做完的推断成做完——只推断真执行过的
 //   （有对上它、执行成功的调用），被拒的、超出步骤写的调用不算；
-// - 执行中维护者想改步骤，告诉它不行。
+// - 执行中负责人想改步骤，告诉它不行。
 // - 101 号票：对话审批关着时任务的 agent 超出授权先不管——计划外会改东西的、超出步骤写的对象不问、直接做，记录上照常标出；
 //   步骤先后的引回（自动纠偏）照旧。
 import fs from "node:fs";
@@ -64,9 +64,9 @@ const ok = (r: ResponseFrame) => {
 const turnsOf = (frontend: TestFrontend, n: number) =>
   waitUntil(() => frontend.events({ channel: M1, type: EVENT_TYPES.turnEnd }).length >= n, {
     timeoutMs: 60_000,
-    describe: () => `等维护者处理完 ${n} 条输入；工具调用：${toolParts(frontend).map((p) => `${p.tool}:${p.outcome}${p.blockedBy ? `/${p.blockedBy}` : ""}`).join("、")}`,
+    describe: () => `等负责人处理完 ${n} 条输入；工具调用：${toolParts(frontend).map((p) => `${p.tool}:${p.outcome}${p.blockedBy ? `/${p.blockedBy}` : ""}`).join("、")}`,
   });
-/** 维护者最后一次模型调用看到的上下文（剧本里 echo_context 的回显） */
+/** 负责人最后一次模型调用看到的上下文（剧本里 echo_context 的回显） */
 const seenByMaintainer = (frontend: TestFrontend) => textOf(messagesOf(frontend).filter((m) => m.message.speaker === "agent").at(-1)!);
 
 async function eventually<T>(list: () => readonly T[], match: (x: T) => boolean, what: string, timeoutMs = 60_000): Promise<T> {
@@ -88,7 +88,7 @@ const notesDraft = (rules: WorkflowPlanDraft["rules"] = []): WorkflowPlanDraft =
 });
 
 /**
- * 起守护进程，建一个流程、写好任务书；维护者第一次被唤起交计划，用户授权（没有要逐项确认的事项）；执行时按 execution 的剧本做。
+ * 起守护进程，建一个流程、写好任务书；负责人第一次被唤起交计划，用户授权（没有要逐项确认的事项）；执行时按 execution 的剧本做。
  * prepare：守护进程起来之前在流程的工作目录（outputs/t-1）里准备东西
  */
 async function runWorkflow(draft: WorkflowPlanDraft, execution: FauxStep[], options: { prepare?: (work: string) => void; daemon?: Partial<StartTestDaemonOptions> } = {}) {
@@ -180,12 +180,12 @@ describe("顺序错：引回前置步骤，不打扰用户；修回超过次数�
       [TOOL.read, { stepId: "s2" }],
     ]);
     expect(cardsOf(frontend).filter((c) => c.type === "approval").map((c) => c.id).filter((id, i, all) => all.indexOf(id) === i)).toEqual([card.id]);
-    // 维护者收到的是"先做哪一步、参数是什么"
+    // 负责人收到的是"先做哪一步、参数是什么"
     expect(seenByMaintainer(frontend)).toContain(
       '[toolResult] read: 【自动纠偏】这一步先不执行：步骤 s2 依赖的 s1 还没有执行。按用户已授权的计划，应先执行步骤 s1「写周报」：调用 write，参数 {"path":"notes.md","content":"# 周报\\n- 第一条\\n"}。做完再回来执行原来这一步。这是按计划纠偏，不需要询问用户。',
     );
-    // 每次修回在时间线上记一笔偏离（口径同 14 号票：维护者会话里的 timeline_record，带着任务）
-    expect(deviations(frontend)).toEqual(["自动纠偏：缺了前置步骤：先让维护者做「写周报」，再回来执行这一步", "自动纠偏：缺了前置步骤：先让维护者做「写周报」，再回来执行这一步"]);
+    // 每次修回在时间线上记一笔偏离（口径同 14 号票：负责人会话里的 timeline_record，带着任务）
+    expect(deviations(frontend)).toEqual(["自动纠偏：缺了前置步骤：先让负责人做「写周报」，再回来执行这一步", "自动纠偏：缺了前置步骤：先让负责人做「写周报」，再回来执行这一步"]);
     expect(recordsOf(frontend)[0]).toMatchObject({ taskId, record: { detail: "步骤 s2 依赖的 s1 还没有执行" } });
     // 引回不算拉回（不计入 14 号票的拉回次数）
     expect(td.daemon.tasks.get(taskId)?.stages?.list?.[0]?.pullBacks).toBeUndefined();
@@ -193,7 +193,7 @@ describe("顺序错：引回前置步骤，不打扰用户；修回超过次数�
 });
 
 describe("参数被改回", () => {
-  it("写的内容违反了计划里的条件、计划写了该写什么：按计划改回再执行（不打扰用户），维护者知道实际执行的是哪一版；时间线记一笔", async () => {
+  it("写的内容违反了计划里的条件、计划写了该写什么：按计划改回再执行（不打扰用户），负责人知道实际执行的是哪一版；时间线记一笔", async () => {
     const rule = { id: "weekly-title", title: "周报以「# 周报」开头", trigger: { tool: TOOL.write }, require: { check: { startswith: ["$current.args.content", "# 周报"] } }, on_violation: "pull_back" };
     const { frontend, work } = await runWorkflow(notesDraft([rule]), [
       report("s1", "in_progress"),
@@ -324,7 +324,7 @@ describe("收尾提醒", () => {
       "【计划检查】已授权的计划里还有 s2「读一遍周报」 既没有执行，也没有报告跳过。请继续按计划执行；如果确实不需要做，用 report_step 标记 skipped，并在 gist 里说明原因。",
     ]);
     expect(nudges[0]).toMatchObject({ taskId, agentInput: true });
-    expect(deviations(frontend)).toEqual(["自动纠偏：收尾前发现还有 s2「读一遍周报」 没做也没说明，已提醒维护者补上或说明跳过原因"]);
+    expect(deviations(frontend)).toEqual(["自动纠偏：收尾前发现还有 s2「读一遍周报」 没做也没说明，已提醒负责人补上或说明跳过原因"]);
   }, 120_000);
 
   it("没真执行过的步骤不推断成做完：被拒的、超出步骤写的（用户批准了也一样）都不算做过那一步，报着在做的照旧在做，流程不完成", async () => {
@@ -380,7 +380,7 @@ describe("收尾提醒", () => {
 });
 
 describe("执行中不能改步骤", () => {
-  it("维护者执行中又交计划：告诉它不行（要改就由用户重新发起，先用 wait_for_user 说明）", async () => {
+  it("负责人执行中又交计划：告诉它不行（要改就由用户重新发起，先用 wait_for_user 说明）", async () => {
     const { frontend } = await runWorkflow(notesDraft(), [propose(notesDraft()), echo]);
     await turnsOf(frontend, 2);
     expect(seenByMaintainer(frontend)).toContain("[toolResult] propose_plan: 执行中不能改步骤");

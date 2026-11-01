@@ -1,5 +1,5 @@
 // 主切面里走任务流程的小工具（14 号票起；13 号票的 task-execution.test.ts 里有同样的一份，各用各的）：
-// 维护者 faux 剧本的步骤、从前端收到的事件里挑任务、卡片、待我处理事项、会话消息，建任务、确认计划。
+// 负责人 faux 剧本的步骤、从前端收到的事件里挑任务、卡片、待我处理事项、会话消息，建任务、确认计划。
 import fs from "node:fs";
 import {
   type Card,
@@ -44,7 +44,7 @@ export const inboxOf = (frontend: TestFrontend): InboxItem[] => frontend.events(
 export const stageStates = (task: Task) => Object.fromEntries((task.stages?.list ?? []).map((s) => [s.stageId, s.state]));
 /** 会话里的时间线记录（25 号票的 timeline_record：偏离、计划变更、自行调整计划……） */
 export const recordsOf = (frontend: TestFrontend, channel: string) => frontend.events({ channel, type: EVENT_TYPES.timelineRecord }).map((f) => f.payload as TimelineRecordEventPayload);
-/** 维护者会话里交给它的系统通知 */
+/** 负责人会话里交给它的系统通知 */
 export const noticesOf = (frontend: TestFrontend, channel: string) => messagesOf(frontend, channel).filter((m) => m.agentInput && m.message.speaker === "system");
 
 export type ToolCallRecord = { tool: string; argsSummary: string; disposition?: string; withinGrant?: boolean; blockedBy?: string; outcome: string; resultSummary?: string };
@@ -66,11 +66,11 @@ export async function eventually<T>(list: () => readonly T[], match: (x: T) => b
 export const cardWhere = (frontend: TestFrontend, match: (card: Card) => boolean, what = "卡片") => eventually(() => cardsOf(frontend), match, what);
 export const taskWhere = (frontend: TestFrontend, match: (e: TaskEventPayload) => boolean, what = "看板上的任务") => eventually(() => tasksOf(frontend), match, what);
 export const itemWhere = (frontend: TestFrontend, match: (item: InboxItem) => boolean, what = "待我处理事项") => eventually(() => inboxOf(frontend), match, what);
-/** 等某个维护者处理完 n 条输入 */
+/** 等某个负责人处理完 n 条输入 */
 export const turnsOf = (frontend: TestFrontend, channel: string, n: number) =>
   waitUntil(() => frontend.events({ channel, type: EVENT_TYPES.turnEnd }).length >= n, { timeoutMs: 30_000, describe: () => `等 ${channel} 处理完 ${n} 条输入` });
 
-/** 维护者会话里的输入（用户的话、交给它的系统通知）都处理完了（作为一轮，或者作为插话收下）：录事件流之前等它安静下来 */
+/** 负责人会话里的输入（用户的话、交给它的系统通知）都处理完了（作为一轮，或者作为插话收下）：录事件流之前等它安静下来 */
 export async function inputsDone(frontend: TestFrontend, channel: string): Promise<void> {
   const done = () => {
     const ended = new Set(frontend.events({ channel, type: EVENT_TYPES.turnEnd }).map((f) => (f.payload as { inputMessageId: string }).inputMessageId));
@@ -117,7 +117,7 @@ export function twoStagePlan(overrides: Partial<Plan> = {}): Plan {
 
 const brief = { goal: "整理一份 X 的调研", acceptanceCriteria: ["附来源"], constraints: [], projects: [], memoryScope: "" };
 
-/** 连上前端，订阅看板、卡片、待我处理和前几个维护者的会话 */
+/** 连上前端，订阅看板、卡片、待我处理和前几个负责人的会话 */
 export async function connect(url: string, maintainers = 1) {
   const frontend = await TestFrontend.connect(url);
   const channels = [BOARD, CARDS, INBOX, ...Array.from({ length: maintainers }, (_, i) => maintainerChannel(`tm-${i + 1}`))];
@@ -125,7 +125,7 @@ export async function connect(url: string, maintainers = 1) {
   return frontend;
 }
 
-/** 建一个任务、写好任务书，等维护者起草并交出计划；返回任务 id 和计划卡 */
+/** 建一个任务、写好任务书，等负责人起草并交出计划；返回任务 id 和计划卡 */
 export async function draftTask(td: TestDaemon, frontend: TestFrontend, title: string): Promise<{ taskId: string; card: Card }> {
   const task = td.daemon.tasks.createByRequest({ title, summary: title });
   td.daemon.tasks.writeBrief(task.id, brief);
@@ -139,14 +139,14 @@ export async function confirmPlan(frontend: TestFrontend, draft: { taskId: strin
   return draft.taskId;
 }
 
-/** 建一个任务、写好任务书（维护者起草并交出计划），等它起草的这一轮结束（录下的事件流先后才固定），在计划卡上确认；返回任务 id */
+/** 建一个任务、写好任务书（负责人起草并交出计划），等它起草的这一轮结束（录下的事件流先后才固定），在计划卡上确认；返回任务 id */
 export async function confirmTask(td: TestDaemon, frontend: TestFrontend, title: string): Promise<string> {
   const draft = await draftTask(td, frontend, title);
   await inputsDone(frontend, maintainerChannel(td.daemon.tasks.get(draft.taskId)!.maintainerId));
   return confirmPlan(frontend, draft);
 }
 
-/** 维护者的剧本：第一次唤起起草计划，之后（按计划装配重新拉起）照 run 执行 */
+/** 负责人的剧本：第一次唤起起草计划，之后（按计划装配重新拉起）照 run 执行 */
 export const maintainerScript =
   (plan: Plan, run: FauxStep[] | ((spawn: number) => FauxStep[])) =>
   (_maintainerId: string, spawn: number): FauxStep[] =>

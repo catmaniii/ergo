@@ -1,5 +1,5 @@
 // 主切面：流程的会话回退（153 号票：带 report_step、状态进行中的那条 assistant 消息之前是"撤回到步骤「…」开始前"；
-// 回退、切换分支之后授权的计划和已执行的调用按保留的分支重新算；计划核对按保留的分支上成功执行过的调用重建、重放）。真的守护进程，流程的维护者接 faux 剧本，
+// 回退、切换分支之后授权的计划和已执行的调用按保留的分支重新算；计划核对按保留的分支上成功执行过的调用重建、重放）。真的守护进程，流程的负责人接 faux 剧本，
 // 测试扮演前端：
 // - 撤回到步骤开始前：那一步及之后回到没做；计划核对按保留的分支重建——被放弃那段里做过的那一步不算做过，跳过它直接做后一步被引回；
 //   固定计划撤回之后不自动接着做（等你说话）；切回原来那条分支：步骤、核对按那条分支（那条上做过的照算，后一步放行）；
@@ -91,7 +91,7 @@ const cardWhere = (frontend: TestFrontend, match: (card: Card) => boolean, what 
 const turnsOf = (frontend: TestFrontend, n: number) =>
   waitUntil(() => frontend.events({ channel: M1, type: EVENT_TYPES.turnEnd }).length >= n, {
     timeoutMs: 60_000,
-    describe: () => `等维护者处理完 ${n} 条输入；工具调用：${toolParts(frontend).map((p) => `${p.tool}:${p.outcome}${p.blockedBy ? `/${p.blockedBy}` : ""}`).join("、")}`,
+    describe: () => `等负责人处理完 ${n} 条输入；工具调用：${toolParts(frontend).map((p) => `${p.tool}:${p.outcome}${p.blockedBy ? `/${p.blockedBy}` : ""}`).join("、")}`,
   });
 const after = <T>(list: readonly T[], anchor: T) => (x: T) => list.indexOf(x) > list.indexOf(anchor);
 
@@ -117,7 +117,7 @@ async function connect(url: string, channels: string[] = [BOARD, CARDS, INBOX, M
   return frontend;
 }
 
-/** 建一个流程、写好任务书，等维护者交上来的流程计划卡 */
+/** 建一个流程、写好任务书，等负责人交上来的流程计划卡 */
 async function draftWorkflow(td: TestDaemon, frontend: TestFrontend): Promise<{ taskId: string; card: Card }> {
   const task = td.daemon.tasks.createByRequest({ title: "整理周报", summary: "整理周报", kind: "workflow" });
   td.daemon.tasks.writeBrief(task.id, brief);
@@ -193,7 +193,7 @@ describe("会话回退（流程）", { timeout: LONG_TEST_MS }, () => {
     expect(rolled).toMatchObject({ from: "running", by: "user", task: { state: "running" } });
     expect(stepStates(rolled.task)).toEqual({ s1: "in_progress", s2: "pending", s3: "pending" });
     expect(rolled.task.steps?.done).toBe(0);
-    // 固定计划撤回之后不自动接着做——没有交给维护者的交代，分支摘要上也不记
+    // 固定计划撤回之后不自动接着做——没有交给负责人的交代，分支摘要上也不记
     const summary = messagesOf(frontend).find((m) => m.message.id === result.summaryMessageId)!;
     expect(summary.message.parts[0]).toMatchObject({ type: "branch_summary", branchId: "b1" });
     expect((summary.message.parts[0] as { notice?: string }).notice).toBeUndefined();
@@ -226,7 +226,7 @@ describe("会话回退（流程）", { timeout: LONG_TEST_MS }, () => {
     const oneStep: WorkflowPlanDraft = { goal: "写资料", steps: [{ id: "s1", title: "写资料", tool: TOOL.write, args: { path: "a.md", content: "资料\n" } }], rules: [] };
     const first = await startTestDaemon({
       reuse: { dataDir, homeDir },
-      // 流程做完之后维护者可能已经退出：撤回时写分支摘要的那次是新拉起的子进程
+      // 流程做完之后负责人可能已经退出：撤回时写分支摘要的那次是新拉起的子进程
       maintainer: (_id, spawn) =>
         spawn === 1
           ? [propose(oneStep), say("计划交上去了"), say("好的，授权之后照计划写")]

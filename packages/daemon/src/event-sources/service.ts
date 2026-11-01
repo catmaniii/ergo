@@ -13,7 +13,7 @@ import type { DeliveringContext, EventSourceImpl, EventSubscription } from "./ty
 /** 一次报事件（已经核过凭证、限速、大小） */
 export interface ServiceReport {
   projectId: string;
-  /** 维护者写的服务名（事件里的"服务名"） */
+  /** 负责人写的服务名（事件里的"服务名"） */
   service: string;
   /** 运营方案里这一条的名字（一句话说明里写它） */
   title: string;

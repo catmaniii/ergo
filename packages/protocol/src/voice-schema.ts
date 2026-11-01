@@ -40,7 +40,7 @@ export const VoiceRecord = Type.Object({
   /** 发这条语音的消息 */
   messageId: Type.String(),
   conversation: ConversationId,
-  /** 消息所属的任务、项目（维护者会话里的；素材的"任务或项目"取自这里） */
+  /** 消息所属的任务、项目（负责人会话里的；素材的"任务或项目"取自这里） */
   taskId: Type.Optional(Type.String()),
   projectId: Type.Optional(Type.String()),
   /** 消息属于哪一次了解你访谈（284 号票：访谈开着时在记忆管理员的会话里说的；语音转写的素材据此标上"来自访谈"） */

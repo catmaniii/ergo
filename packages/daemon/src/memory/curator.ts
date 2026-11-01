@@ -17,17 +17,17 @@
 // - 秘书的 ask_memory 是轻量快速通道（232 号票），不动；深聊、动手（改状态、忘掉、别推断）在记忆管理员这里。秘书判断是这类事时，
 //   用 ask_curator（curator-link.ts）把用户的话转给管理员、把它的回答带回来——分工写在两边的系统提示里。
 //
-// 生命周期（243 号票：照维护者的规矩按需拉起，不占 agents.maxLive 的常驻名额）：守护进程起来（记忆插件在运行）时只建壳
+// 生命周期（243 号票：照负责人的规矩按需拉起，不占 agents.maxLive 的常驻名额）：守护进程起来（记忆插件在运行）时只建壳
 // ——会话对象、⚙ 的 handle、工具、提示都准备好，不拉起 pi 子进程；网页看历史、看板卡、⚙ 不用它活着。第一次有人跟它说话
 // （网页记忆页发消息、秘书用 ask_curator 转达）或者 03:00 的作业唤醒它时，由会话照常拉起（名额满了排队），先拉起再交那条输入；
-// 闲置到 agents.idleMinutes 后照维护者的规矩退出，再来输入时重新唤起、接着同一个会话。插件停用、守护进程停止时跟着停；
+// 闲置到 agents.idleMinutes 后照负责人的规矩退出，再来输入时重新唤起、接着同一个会话。插件停用、守护进程停止时跟着停；
 // 提示词改了从下一轮起重新拉起。
 //
 // 284 号票（了解你访谈）：
 // - 多四个访谈工具（interview-tools.ts：开一次、收尾、"这个别记"、档案信息出核对卡），访谈的记录和发起在记忆插件里（interview.ts，
 //   服务 MEMORY_INTERVIEWS，组合根和每晚整理一样从插件取来交给这里）；问法写在它的系统提示（prompts/memory-curator.md），访谈开着时
 //   另跟在每一轮输入后面（会话的 inputContext：开场那一轮的问法要点、用户每次回答的"第几个来回"，会话里看不到）；
-// - 接上语音回复（和秘书、维护者同一套，conversation/session-tools.ts 的 sessionVoice）：语音插件开着时，用户在它的会话里按住说话，
+// - 接上语音回复（和秘书、负责人同一套，conversation/session-tools.ts 的 sessionVoice）：语音插件开着时，用户在它的会话里按住说话，
 //   这一轮的回话由运行时合成语音（像打电话一样一问一答）；口语总结、发语音两个工具随语音插件现取，守卫看到的工具包跟着；
 //   语音插件运行中停用、启用时从下一轮起重新拉起。没开语音插件就是文字。
 import type { Embedder } from "@ergo/memory";
@@ -246,7 +246,7 @@ export function startMemoryCurator(options: MemoryCuratorOptions): MemoryCurator
     // 它的用量算系统开销（和秘书同列，不是谁的活）
     ledgerRole: "curator",
     // 按需拉起（243 号票）：不给 resident——起来时只建壳，来输入（用户发消息、ask_curator 转达）或 03:00 唤醒时才由会话拉起，
-    // 闲置到 agents.idleMinutes 后照维护者的规矩退出；不占 agents.maxLive 的常驻名额
+    // 闲置到 agents.idleMinutes 后照负责人的规矩退出；不占 agents.maxLive 的常驻名额
     spawn: () => {
       promptRevision = options.prompts.revision(CURATOR_PROMPTS, MEMORY_CURATOR_AGENT_ID);
       backgroundRevision = background();
@@ -267,7 +267,7 @@ export function startMemoryCurator(options: MemoryCuratorOptions): MemoryCurator
     // 330 号票（R15）：开场那一轮再带上问题箱里还开着的几个（访谈里可以连问几个；平时聊天一次对话最多一个）
     ...(options.interviews === undefined ? {} : { inputContext: (message: MessageEnvelope) => interviewInputContext(options.interviews!, message, () => openBoxQuestions(graph)) }),
     guard: () => ({ agent: guardAgent(), source: t("memory.curator.source"), segmentId: conversation }),
-    // 284 号票：语音回复（用户按住说话时这一轮的回话合成语音）、输入队列的挡板（还没识别完的语音等一等），和秘书、维护者同一套
+    // 284 号票：语音回复（用户按住说话时这一轮的回话合成语音）、输入队列的挡板（还没识别完的语音等一等），和秘书、负责人同一套
     ...sessionVoice(options.sessionTools, true),
     configuredVision: options.configuredVision,
     interruptedNote: (quoted) => t(quoted ? "memory.curator.interruptedQuoted" : "memory.curator.interrupted", { quoted }),

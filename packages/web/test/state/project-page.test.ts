@@ -1,6 +1,6 @@
 // 104 号票：项目页照任务页（88 号票）改——项目一览占满内容区（宽屏多列的"档案墙"，按项目状态分组，已归档默认收起，顶上一条概览），
 // 点卡片、从别处跳进来整页是这个项目（宽屏会话占主区、项目详情在能开合能拖宽的档案栏里），‹、浏览器后退回一览并滚回原来的位置；
-// 窄屏照旧一览 → 项目页 → 维护者会话。
+// 窄屏照旧一览 → 项目页 → 负责人会话。
 import { describe, expect, test } from "vitest";
 import { parseHash, toHash } from "../../src/app/route-hash.ts";
 import {
@@ -86,12 +86,12 @@ describe("项目页显示什么：一览和项目二选一", () => {
     expect(viewAt(toHash({ tab: "projects", projectId: "p-1" }), true)).toEqual({ kind: "project", projectId: "p-1", pane: "full" });
   });
 
-  test("从别处跳进来都直接打开整页的项目：建议立项卡的“和维护者做立项问答 ▸”（…/chat）、任务详情的“项目「X」内部”、日历里点作业（…/jobs/<作业>，点名那一行）", () => {
+  test("从别处跳进来都直接打开整页的项目：建议立项卡的“和负责人做立项问答 ▸”（…/chat）、任务详情的“项目「X」内部”、日历里点作业（…/jobs/<作业>，点名那一行）", () => {
     expect(viewAt(toHash({ tab: "projects", projectId: "p-1", chat: true }), true)).toEqual({ kind: "project", projectId: "p-1", pane: "full" });
     expect(viewAt(toHash({ tab: "projects", projectId: "p-1", jobId: "j-1" }), true)).toEqual({ kind: "project", projectId: "p-1", pane: "full", job: "j-1" });
   });
 
-  test("窄屏照旧：项目页、维护者会话各是一页；日历里点作业过来是项目页，点名那一行", () => {
+  test("窄屏照旧：项目页、负责人会话各是一页；日历里点作业过来是项目页，点名那一行", () => {
     expect(viewAt("#/projects/p-1", false)).toEqual({ kind: "project", projectId: "p-1", pane: "page" });
     expect(viewAt("#/projects/p-1/chat", false)).toEqual({ kind: "project", projectId: "p-1", pane: "chat" });
     expect(viewAt("#/projects/p-1/jobs/j-1", false)).toEqual({ kind: "project", projectId: "p-1", pane: "page", job: "j-1" });
@@ -120,7 +120,7 @@ describe("项目一览：按项目状态分组，顶上一条概览", () => {
     expect(wall.overview.states.map((s) => s.n)).toEqual([0, 0, 0, 0, 0]);
   });
 
-  test("卡片：页签写种类和状态（立项书确认前没有类型写“类型待定”）；底下一行是维护者在干什么、进行中的内部任务、定时触发的（取消了的不算）、最近一次动静", () => {
+  test("卡片：页签写种类和状态（立项书确认前没有类型写“类型待定”）；底下一行是负责人在干什么、进行中的内部任务、定时触发的（取消了的不算）、最近一次动静", () => {
     const later = "2026-10-09T20:15:00.000+08:00";
     const state = replay([
       projectFrame(1, project("p-1", { state: "in_use", kind: "dev", charterConfirmed: true })),
@@ -139,7 +139,7 @@ describe("项目一览：按项目状态分组，顶上一条概览", () => {
     expect([p2!.kindLabel, p2!.stateLabel, p2!.activity, p2!.internalOpen, p2!.scheduled, p2!.lastAt]).toEqual(["类型待定", "筹备中", "sleeping", 0, 0, T]);
   });
 
-  test("最近一次动静也看维护者的活动、项目的工单", () => {
+  test("最近一次动静也看负责人的活动、项目的工单", () => {
     const orderAt = "2026-10-10T07:30:00.000+08:00";
     const order: UserTaskWorkOrder = { id: "wo-1", projectId: "p-1", maintainerId: "pm-p-1", source: "user_task", kind: "plan", taskId: "t-9", taskTitle: "记账", title: "起草计划：记账", state: "pending", createdAt: T, updatedAt: orderAt };
     const activity = frame("activity", 1, "activity", { agentId: "pm-p-1", state: "sleeping", since: "2026-10-09T08:00:00.000+08:00" });
@@ -153,7 +153,7 @@ describe("项目一览：按项目状态分组，顶上一条概览", () => {
     expect(projectWall(withOrder).groups[0]!.cards[0]!.lastAt).toBe(orderAt);
   });
 
-  test("概览：各状态几个（一个都没有的也列）、维护者在干活的（已归档的不算）、进行中的内部任务、定时触发的", () => {
+  test("概览：各状态几个（一个都没有的也列）、负责人在干活的（已归档的不算）、进行中的内部任务、定时触发的", () => {
     const state = replay([
       projectFrame(1, project("p-1", { state: "in_use" })),
       projectFrame(2, project("p-2", { state: "in_use" })),

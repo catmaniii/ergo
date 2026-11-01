@@ -5,7 +5,7 @@
 //   定时、事件触发的任务运营中时，暂停、恢复、取消落到它的触发上（76 号票），菜单项照它的触发登记能做的；定时的多一项"改时间"
 //   （98 号票：带着现在的时间表，点了弹出改时间的对话框）；100 号票：定时、事件触发的多一项"立即运行一次"，能开关的任务
 //   多一项"跑完自动播报：开 / 关"（都在取消任务之前）；141 号票：项目在用时运营方案里的一条（operationsLock）只有暂停、恢复和立即运行一次，
-//   取消、归档换成一行说明（operations_note，点了进项目维护者的会话）；
+//   取消、归档换成一行说明（operations_note，点了进项目负责人的会话）；
 // - 标题栏的关键按钮（taskKeyItem）：只在等我、失败时出一个最要紧的——验收通过、追加预算继续 / 继续执行、重试；
 // - "⋯"的上半（taskPanels）：计划、工单 N（有才有）、工具包、消耗、运行 N（定时触发的任务），宽屏在右边的详情栏打开、手机整页；
 // - 状态签浮层要的原因说明（taskStatusNote）：守护进程写的原因（超预算的用量也照它写的，评审 2026-10-11：追加预算后工具调用重新计数，
@@ -70,11 +70,11 @@ export interface TaskMenuSubject {
   readonly announce?: boolean | undefined;
   /**
    * 项目在用时运营方案里的一条（141 号票，operations-lock.ts 的 taskOperationsLock）：只有暂停、恢复，取消、归档换成这行说明
-   * （点了进项目维护者的会话）；不是的没有
+   * （点了进项目负责人的会话）；不是的没有
    */
   readonly operationsLock?: { readonly projectId: string; readonly note: string } | undefined;
   /**
-   * 不能删的说明（186 号票，board.ts 的 taskMenuSubject 照协议包的 taskDeleteRefusal 算：项目内部任务、转为项目了的、项目的维护者做的）；
+   * 不能删的说明（186 号票，board.ts 的 taskMenuSubject 照协议包的 taskDeleteRefusal 算：项目内部任务、转为项目了的、项目的负责人做的）；
    * 能删的没有。原型的假条目都能删
    */
   readonly deleteRefusal?: string | undefined;
@@ -91,7 +91,7 @@ export type TaskMenuAct = Extract<TaskAction, "pause" | "resume" | "retry" | "ca
  * - trigger 运营中的定时、事件触发的任务落到触发上的暂停、恢复、取消；
  * - reschedule 运营中的定时触发的任务改时间（98 号票）：带着现在的时间表（预填）、触发是不是暂停着（对话框里说明改完照旧暂停）；
  * - run_now 运营中的定时、事件触发的任务立即运行一次（100 号票）；announce 跑完自动播报（on 是现在开没开，点了换成另一个）；
- * - operations_note 项目在用时运营方案里的一条（141 号票）：取消、归档换成的那行说明，点了进项目（projectId）维护者的会话；
+ * - operations_note 项目在用时运营方案里的一条（141 号票）：取消、归档换成的那行说明，点了进项目（projectId）负责人的会话；
  * - delete 删除（186 号票，先确认；cancelsFirst 是还没结束、会先停下再删）；delete_note 不能删的说明（字小、能折行，点了什么也不做）。
  * act 的归档 cancelsFirst（186 号票）：还没结束，会先取消再归档（先确认；trigger 是运营中的定时、事件触发的任务，连同触发一起取消）。
  * tone：primary 是最要紧的那个，danger 是取消这类收不回的
@@ -158,7 +158,7 @@ const started = (s: MenuStage) => s.state !== "pending" || s.startedAt !== undef
  */
 export function taskActionItems(task: TaskMenuSubject): TaskMenuItem[] {
   // 141 号票：项目在用时运营方案里的一条只有暂停、恢复（用户 2026-10-18 定），外加立即运行一次（不改任务，用户同日定放回），
-  // 后面一行说明要去掉请项目维护者改运营方案
+  // 后面一行说明要去掉请项目负责人改运营方案
   const lock = task.operationsLock;
   if (lock) {
     const keep = actionItems(task).filter((i) => i.kind === "run_now" || ((i.kind === "act" || i.kind === "trigger") && (i.action === "pause" || i.action === "resume")));

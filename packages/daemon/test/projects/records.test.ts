@@ -86,7 +86,7 @@ describe("立项书的运营方式（130 号票）", () => {
 
   test("写了的单独一节，注明不算授权；没写的没有这一节", () => {
     const text = charterMarkdown({ id: "p-1", name: "AI 简报站" }, { ...charter, operations: "每天早上 8 点出日报" }, toolkit, confirmed);
-    expect(text).toContain("## 运营方式\n\n每天早上 8 点出日报\n\n（只是个大概，不算授权：项目做完时维护者交运营方案，你确认那一次才算。）");
+    expect(text).toContain("## 运营方式\n\n每天早上 8 点出日报\n\n（只是个大概，不算授权：项目做完时负责人交运营方案，你确认那一次才算。）");
     expect(charterMarkdown({ id: "p-1", name: "AI 简报站" }, charter, toolkit, confirmed)).not.toContain("## 运营方式");
   });
 });

@@ -1,6 +1,6 @@
-// 主切面：带类型的特殊 bash 工具（规格第 9、21 节，28 号票）。真的守护进程，维护者接 faux 剧本，测试扮演前端。
+// 主切面：带类型的特殊 bash 工具（规格第 9、21 节，28 号票）。真的守护进程，负责人接 faux 剧本，测试扮演前端。
 // 任务 t-1 的工作目录（数据目录输出区里的 outputs/t-1）事先建成一个临时 git 仓库；远端是临时目录里的本地裸仓库，
-// GitHub 命令行换成假的（fixtures/fake-gh.mjs），不碰网络。13 号票按计划装配工具包之前，维护者的工具包由测试接缝
+// GitHub 命令行换成假的（fixtures/fake-gh.mjs），不碰网络。13 号票按计划装配工具包之前，负责人的工具包由测试接缝
 // maintainerToolkit 给（开 bash），调用不属于任务（起草计划那一段），按对话里的处置判：推送、建远端仓库先问我。
 // - 演示：看状态和差异 → 提交（做完告诉我）→ 建远端仓库（问过）→ 没跑测试就推送（退回）→ 测试没通过 → 推送仍退回 →
 //   测试通过 → 推送（问过、执行）→ force push（带类型的、通用 bash 的 --force-with-lease）一律禁止 → 合并有冲突（中止，
@@ -77,7 +77,7 @@ interface SetupOptions {
   daemon?: Omit<StartTestDaemonOptions, "maintainer" | "reuse" | "maintainerToolkit">;
 }
 
-/** 起守护进程（任务 t-1 的工作目录事先准备好），建任务，交给维护者一条输入 */
+/** 起守护进程（任务 t-1 的工作目录事先准备好），建任务，交给负责人一条输入 */
 async function setup(options: SetupOptions) {
   const dataDir = makeTempDir("ergo-data-");
   const homeDir = makeTempDir("ergo-home-");
@@ -117,9 +117,9 @@ const agentTexts = (frontend: TestFrontend): string[] =>
 const cardsOf = (frontend: TestFrontend): Card[] => frontend.events({ channel: CARDS, type: EVENT_TYPES.card }).map((f) => (f.payload as CardEventPayload).card);
 const turnEnds = (frontend: TestFrontend) => frontend.events({ channel: MAINTAINER, type: EVENT_TYPES.turnEnd }).map((f) => f.payload as TurnEndEventPayload);
 
-/** 等维护者这一轮结束 */
+/** 等负责人这一轮结束 */
 const turnEnded = (frontend: TestFrontend, timeoutMs = 60_000) =>
-  waitUntil(() => turnEnds(frontend).length > 0, { timeoutMs, describe: () => `等维护者这一轮结束；工具调用：${toolParts(frontend).map((p) => p.tool).join("、")}` });
+  waitUntil(() => turnEnds(frontend).length > 0, { timeoutMs, describe: () => `等负责人这一轮结束；工具调用：${toolParts(frontend).map((p) => p.tool).join("、")}` });
 
 /** 等到某个工具的审批卡（待处理）出来，批准它 */
 async function approveWhenAsked(frontend: TestFrontend, tool: string, nth = 1): Promise<Card> {
@@ -353,7 +353,7 @@ describe.skipIf(!hasGitBash)("执行失败、超时、进程和环境", () => {
   );
 
   it(
-    "这些工具随工具包的 bash 开关出现：开了 bash 的维护者有 bash 和八个工具，没开的（起草计划时）一个都没有；秘书的固定工具里没有它们",
+    "这些工具随工具包的 bash 开关出现：开了 bash 的负责人有 bash 和八个工具，没开的（起草计划时）一个都没有；秘书的固定工具里没有它们",
     async () => {
       const { daemon, frontend, url } = await setup({
         toolkit: (id) => ({ bash: id === "tm-1", network: true }),
@@ -365,13 +365,13 @@ describe.skipIf(!hasGitBash)("执行失败、超时、进程和环境", () => {
       const withBash = toolsIn(agentTexts(frontend).at(-1)!);
       expect(withBash).toEqual(expect.arrayContaining(["bash", "submit_plan", ...TYPED_TOOLS]));
 
-      // 第二个任务的维护者：工具包没开 bash
+      // 第二个任务的负责人：工具包没开 bash
       daemon.tasks.startFromButton({ request: "另一个任务" }, "k-start-2");
       const other = maintainerChannel("tm-2");
       const watcher = await TestFrontend.connect(url);
       await watcher.subscribe({ [other]: 0, [CHANNELS.secretary]: 0 });
       daemon.store.append(buildAgentNotice(other, "看看你有什么工具", "k-go-2", { taskId: "t-2" }).event);
-      await waitUntil(() => watcher.events({ channel: other, type: EVENT_TYPES.turnEnd }).length > 0, { timeoutMs: 30_000, describe: () => "等第二个维护者" });
+      await waitUntil(() => watcher.events({ channel: other, type: EVENT_TYPES.turnEnd }).length > 0, { timeoutMs: 30_000, describe: () => "等第二个负责人" });
       const planning = watcher
         .events({ channel: other, type: EVENT_TYPES.message })
         .map((f) => (f.payload as MessageEventPayload).message)

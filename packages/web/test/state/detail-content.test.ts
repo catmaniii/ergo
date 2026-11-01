@@ -56,7 +56,7 @@ describe("文本详情的其余几种", () => {
     const state = replay(load("timeline-zoom"));
     const items = chatItems(state, "maintainer:tm-1");
     const reply = open(state, items, items.at(-1)!.id);
-    // 短的说明照原话；任务书是交给维护者的长通知，折成一行，详情里全文照 Markdown 画（367 号票）
+    // 短的说明照原话；任务书是交给负责人的长通知，折成一行，详情里全文照 Markdown 画（367 号票）
     const system = open(state, items, items.find((it) => it.kind === "system" && it.letter === undefined)!.id);
     const brief = open(state, items, items[0]!.id);
     expect([reply.kind === "text" && [reply.label, reply.task], system.kind === "text" && [system.label, system.markdown, system.task], brief.kind === "text" && [brief.label, brief.markdown, brief.letter]]).toEqual([
@@ -401,7 +401,7 @@ function stepLines(d: DetailContent): string[] {
 }
 
 describe("工具调用组的详情：按先后列出每一步，出了状况的标清楚是第几次（typed-shell-tools）", () => {
-  // 录制在 packages/daemon/test/main/typed-shell-tools.test.ts：维护者用带类型的 bash 工具干活，推送被时序规则退回、测试没过、
+  // 录制在 packages/daemon/test/main/typed-shell-tools.test.ts：负责人用带类型的 bash 工具干活，推送被时序规则退回、测试没过、
   // force push 被永不拦下、合并有冲突……
   const state = replay(load("typed-shell-tools"));
   const items = chatItems(state, "maintainer:tm-1");

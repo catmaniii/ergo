@@ -43,7 +43,7 @@ import { VOICE_CAPTURE_TEXT_MAX, VOICE_DURATION_SLACK_MS, VOICE_MAX_MS, VOICE_MI
 
 // ───────────────────────── 频道 ─────────────────────────
 
-/** 会话 id（也是会话频道名）：秘书会话，或某个维护者的会话 */
+/** 会话 id（也是会话频道名）：秘书会话，或某个负责人的会话 */
 export const ConversationId = Type.Union([Type.Literal(CHANNELS.secretary), Type.TemplateLiteral(`${MAINTAINER_CHANNEL_PREFIX}\${string}`)]);
 export type ConversationId = Static<typeof ConversationId>;
 
@@ -204,7 +204,7 @@ export const MemoryRecallHit = Type.Object({
   kind: Type.String(),
   /** 素材的时间（带时区的 ISO：那句话、那个决定是什么时候的） */
   time: Type.String(),
-  /** 来源会话（秘书主线、某个维护者的会话）；不来自会话的没有 */
+  /** 来源会话（秘书主线、某个负责人的会话）；不来自会话的没有 */
   conversation: Type.Optional(Type.String()),
   /** 怎么找出来的：关键词命中（检索素材才有；读全文的没有） */
   keyword: Type.Optional(Type.Literal(true)),
@@ -306,7 +306,7 @@ export const ToolCallPart = Type.Object({
   parentCallId: Type.Optional(Type.String()),
 });
 export const CardRefPart = Type.Object({ type: Type.Literal("card_ref"), cardId: Type.String() });
-/** 维护者会话的分段线：工单段带工单号；用户直接对话（含立项问答）开的"对话段"工单号为空 */
+/** 负责人会话的分段线：工单段带工单号；用户直接对话（含立项问答）开的"对话段"工单号为空 */
 export const WorkOrderDividerPart = Type.Object({
   type: Type.Literal("work_order_divider"),
   workOrderId: Type.String(),
@@ -328,7 +328,7 @@ export type RunDividerPart = Static<typeof RunDividerPart>;
 
 /**
  * 清空当前对话的分隔线（114 号票）：用户在会话的 ⚙ 里点了"清空当前对话"，agent 从这里起新开一段会话、不再带着之前的聊天
- * （旧消息不删，界面上收在分隔线上面"更早的对话"里，往上翻照样能看）。时间就是这条消息的时间。项目维护者的"清空"是重置维护者，
+ * （旧消息不删，界面上收在分隔线上面"更早的对话"里，往上翻照样能看）。时间就是这条消息的时间。项目负责人的"清空"是重置负责人，
  * 照旧用工单分隔线（work_order_divider）
  */
 export const ConversationClearedPart = Type.Object({ type: Type.Literal("conversation_cleared") });
@@ -358,7 +358,7 @@ export const BranchSummaryPart = Type.Object({
   /** 运行时把文件恢复到撤回点没有（293 号票，见 BranchFilesRewind）；撤回不动文件的运行时没有 */
   files: Type.Optional(BranchFilesRewind),
   /**
-   * 撤回之后交给 agent 接着做的那句（152 号票：长程任务回退之后运行时替维护者重新开始一个阶段的交代，撤回后让维护者
+   * 撤回之后交给 agent 接着做的那句（152 号票：长程任务回退之后运行时替负责人重新开始一个阶段的交代，撤回后让负责人
    * 接着做的提醒）：这条分支摘要已经说清楚了，界面上不重复显示那条通知。没有接着做的没有
    */
   notice: Type.Optional(Type.String()),
@@ -426,24 +426,24 @@ export const MessageEnvelope = Type.Object({
   time: Type.String(),
   parts: Type.Array(MessagePart),
   /**
-   * 谁转达的（103 号票）：秘书按用户的话往任务、项目维护者的会话里转达的那一句。发言方照旧是用户（对方照用户在这里直接说话处理：
+   * 谁转达的（103 号票）：秘书按用户的话往任务、项目负责人的会话里转达的那一句。发言方照旧是用户（对方照用户在这里直接说话处理：
    * 在干活时是插话、闲着时唤起、做完了的普通任务接着做），只是标上是秘书转达的——交给 agent 时开头写明，界面上标出来，
    * 不算用户"本人"的原话素材（原话在秘书会话里采过）。用户自己发的消息没有这一项
    */
   relayedBy: Type.Optional(Type.Literal("secretary")),
   /**
    * 秘书转达的那一句是用户在秘书那里哪句话（125 号票）：秘书处理那条用户消息时提出的转达，记下那条消息的 id。
-   * 维护者引用转达进它会话的这一句，守护进程按它换成用户的原话核实（转达者只供审计）；之前转达的、秘书不是在回用户的话时转达的没有
+   * 负责人引用转达进它会话的这一句，守护进程按它换成用户的原话核实（转达者只供审计）；之前转达的、秘书不是在回用户的话时转达的没有
    */
   relayOf: Type.Optional(Type.String()),
   /**
-   * 一句话总结（115 号票）：别的 agent 或运行时写给 agent 的来信（agent-letters.ts：任务做完、维护者来信、秘书转达……）在会话里
-   * 折成一行时显示的那句——任务做完的由运行时拼（"t-5「AI 日报」第 2 次运行做完了，交了 1 个文件"），维护者来信是 tell_secretary
+   * 一句话总结（115 号票）：别的 agent 或运行时写给 agent 的来信（agent-letters.ts：任务做完、负责人来信、秘书转达……）在会话里
+   * 折成一行时显示的那句——任务做完的由运行时拼（"t-5「AI 日报」第 2 次运行做完了，交了 1 个文件"），负责人来信是 tell_secretary
    * 的总结参数，秘书转达是转达的话的第一句。只给界面看，交给 agent 的照旧是全文；旧消息没有，界面取正文的第一句
    */
   summary: Type.Optional(Type.String()),
   /**
-   * 这条通知能转述谁（354 号票，交给秘书的任务做完、维护者来信才有）：写在通知里的编号（任务 t-5、项目 p-1）和信上的发信人（agent id）。
+   * 这条通知能转述谁（354 号票，交给秘书的任务做完、负责人来信才有）：写在通知里的编号（任务 t-5、项目 p-1）和信上的发信人（agent id）。
    * 秘书用 send_voice 的 relay 转述时只认这里记的，声音由运行时按发信人查角色，所以通知里的文字（信的原话也在里面）写什么都指定不了别人的声音。
    * 只给运行时看，不交给 agent；之前的通知、之前的信没有（不能转述）
    */
@@ -476,19 +476,19 @@ export const MessageEnvelope = Type.Object({
    */
   calls: Type.Optional(Type.Array(Type.String())),
   /**
-   * 第一版任务书交给维护者的那条系统说明（172 号票）：网页的对话层照常显示它（不收进阶段框），按这一项认，不认文字
-   * （这句交给维护者，照旧中文；之后改过的任务书、之前的消息没有这一项，之前的那条网页按开头的"任务书："认）
+   * 第一版任务书交给负责人的那条系统说明（172 号票）：网页的对话层照常显示它（不收进阶段框），按这一项认，不认文字
+   * （这句交给负责人，照旧中文；之后改过的任务书、之前的消息没有这一项，之前的那条网页按开头的"任务书："认）
    */
   taskBrief: Type.Optional(Type.Literal(true)),
   /**
    * 前情（290 号票）：从运行时已有的会话接管时，从运行时自己的会话记录里读出来的主线最近一段（用户说的、它回的、工具调用），
-   * 导进维护者的会话给人看（缩放三档照常）。运行时那边本来就有这些，不交给 agent（不进输入队列），也不采成用户的原话素材
+   * 导进负责人的会话给人看（缩放三档照常）。运行时那边本来就有这些，不交给 agent（不进输入队列），也不采成用户的原话素材
    * （那是用户跟运行时说的，原文在运行时自己的记录里）。更早的留在运行时自己的记录里。别的消息没有
    */
   prelude: Type.Optional(Type.Literal(true)),
   /**
    * 在官方 App 里发生的（292 号票，只读跟随）：会话交给官方 App（Remote Control）期间，用户在那边说的、运行时回的、调用的工具，二狗读运行时
-   * 自己的会话记录补记进维护者的会话（不重复记）。和前情一样：运行时那边本来就有，不交给 agent、不采成用户的原话素材；界面上标"在官方 App 里"。
+   * 自己的会话记录补记进负责人的会话（不重复记）。和前情一样：运行时那边本来就有，不交给 agent、不采成用户的原话素材；界面上标"在官方 App 里"。
    * 别的消息没有
    */
   remote: Type.Optional(Type.Literal(true)),
@@ -591,7 +591,7 @@ export const SendMessageParams = Type.Object({
   conversation: ConversationId,
   parts: Type.Array(MessagePart, { minItems: 1, maxItems: 64 }),
   /**
-   * 这句话是在哪个任务的详情里说的（75 号票）：项目的维护者的会话里同时有好几件事，项目内部的普通任务做完之后用户在它的详情里
+   * 这句话是在哪个任务的详情里说的（75 号票）：项目的负责人的会话里同时有好几件事，项目内部的普通任务做完之后用户在它的详情里
    * 接着说，靠它认出说的是这件事——消息属于这个任务，任务回到执行中、派一张执行的工单接着做。别的会话、别的任务不看它
    */
   taskId: Type.Optional(Type.String({ minLength: 1, maxLength: 40 })),
@@ -630,12 +630,12 @@ export type CardActionResult = Static<typeof CardActionResult>;
  * 取值用 message-scope.ts 的 pickMessageScope。
  */
 export const MessageScope = Type.Object({
-  /** 属于哪个任务、哪个项目（维护者会话里的消息由 13、15、16 号票带上；秘书会话里没有）。素材的"任务或项目"取自这里 */
+  /** 属于哪个任务、哪个项目（负责人会话里的消息由 13、15、16 号票带上；秘书会话里没有）。素材的"任务或项目"取自这里 */
   taskId: Type.Optional(Type.String()),
   projectId: Type.Optional(Type.String()),
   /** 属于任务的：那时任务在哪个阶段（开始执行之后才有；工具调用记录取守卫判定时的阶段）。时间线的全局层据此按阶段聚色块 */
   stageId: Type.Optional(Type.String()),
-  /** 属于哪个定时作业的一次运行（19 号票交给维护者执行作业时带上）；维护者处理它时的 token 用量记在作业名下（24 号票） */
+  /** 属于哪个定时作业的一次运行（19 号票交给负责人执行作业时带上）；负责人处理它时的 token 用量记在作业名下（24 号票） */
   scheduledJobId: Type.Optional(Type.String()),
   /** 哪个 agent 说的：一个会话里不止一个 agent 时写明（20 号票的子 agent）；只有一个 agent 的会话不写 */
   agentId: Type.Optional(Type.String()),
@@ -669,12 +669,12 @@ export const MessageEventPayload = Type.Object({
    */
   interject: Type.Optional(Type.Boolean()),
   /**
-   * 运行时给项目维护者的通知里，只在对话段处理的（362 号票：服务没上线、挂了这类和手头工单无关的事）：正在做工单时排着，不打断这张工单，
+   * 运行时给项目负责人的通知里，只在对话段处理的（362 号票：服务没上线、挂了这类和手头工单无关的事）：正在做工单时排着，不打断这张工单，
    * 空下来开一个对话段交给它。对话段里才有修它要用的工具（propose_operations）
    */
   chatOnly: Type.Optional(Type.Literal(true)),
   /**
-   * 任务执行交给维护者的通知是哪一种、说的是哪几个阶段（361 号票，只给运行时看）：状态一变，排着没交的旧通知按它作废出队，
+   * 任务执行交给负责人的通知是哪一种、说的是哪几个阶段（361 号票，只给运行时看）：状态一变，排着没交的旧通知按它作废出队，
    * 同一种新的来了旧的也出队，免得一条叫醒一轮。别的通知没有
    */
   taskNotice: Type.Optional(
@@ -784,7 +784,7 @@ export type DeletedEventPayload = Static<typeof DeletedEventPayload>;
 // ───────────────────────── 项目内部（64 号票） ─────────────────────────
 
 /**
- * 项目内部的标记（64 号票，ADR-0023）：项目内部任务，以及跟着它的待我处理事项、定时作业、项目的维护者给的建议卡，
+ * 项目内部的标记（64 号票，ADR-0023）：项目内部任务，以及跟着它的待我处理事项、定时作业、项目的负责人给的建议卡，
  * 都带着它属于哪个项目。只在项目内部看得到（判断只用 project-internal.ts 的 isProjectInternal）
  */
 export const ProjectInternal = Type.Object({ projectId: Type.String(), projectName: Type.String() });
@@ -800,9 +800,9 @@ export type ProjectInternal = Static<typeof ProjectInternal>;
 export const InboxOrigin = Type.Object({
   /** 任务（含定时 / 事件触发的任务、项目内部任务）：去这个任务的整页（负责它的 agent 的会话） */
   taskId: Type.Optional(Type.String()),
-  /** 项目：去这个项目的整页（维护者的会话）。项目内部任务的事项有 taskId 时先去任务 */
+  /** 项目：去这个项目的整页（负责人的会话）。项目内部任务的事项有 taskId 时先去任务 */
   projectId: Type.Optional(Type.String()),
-  /** 卡片或调用所在的会话（秘书会话、某个维护者的会话）：没有任务、项目时按它去 */
+  /** 卡片或调用所在的会话（秘书会话、某个负责人的会话）：没有任务、项目时按它去 */
   conversation: Type.Optional(Type.String()),
   /** 那次工具调用：到了会话里定位到它（卡片事项按卡片定位，不用它） */
   toolCallId: Type.Optional(Type.String()),
@@ -968,7 +968,7 @@ export type ReminderCardPayload = Static<typeof ReminderCardPayload>;
 
 /**
  * 排队中的一条消息：二狗正在回复时用户发的话（排进来时按发消息的规矩核对过附件、收下了语音）。交出去时照它追加一条用户消息——
- * 消息 id、时间、正文就是这里的（时间是用户说这句话的时候），归属按交出去那一刻重新认（项目维护者的会话分段可能已经换了）
+ * 消息 id、时间、正文就是这里的（时间是用户说这句话的时候），归属按交出去那一刻重新认（项目负责人的会话分段可能已经换了）
  */
 export const QueuedMessage = Type.Object({
   message: MessageEnvelope,

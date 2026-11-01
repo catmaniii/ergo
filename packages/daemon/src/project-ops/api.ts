@@ -1,5 +1,5 @@
 // 运营层对外的入口（280 号票，方案 C 第 4 点，docs/research/29-plugin-expansion-review.html）。运营层是 project-ops/（秘书的
-// project_ops、维护者的 check_ops、运营接口清单的验收和登记）和 project-services/（替项目到 LSM 上线、撤下、一键启停、/apps 转发、
+// project_ops、负责人的 check_ops、运营接口清单的验收和登记）和 project-services/（替项目到 LSM 上线、撤下、一键启停、/apps 转发、
 // 缩略图）两个目录，照插件的纪律写，但一直开着、不给开关（不是插件，ADR-0027 的"五个插件，其余留内核"照旧）：
 // - 项目系统的其余部分（projects/、work-orders/、operations/）和内核只从这里拿运营层的东西，不 import 这两个目录里的别的文件；
 //   装它的只有项目系统的组装函数（projects/system.ts 经 layer.ts 的 createOpsLayer，像插件清单装 plugin.ts）；
@@ -17,13 +17,13 @@ export { OPEN_SERVICE_TOOL, RECENT_SERVICE_EVENTS_TOOL, SWITCH_SERVICES_TOOL } f
 
 // —— 项目系统的其余部分要的小接口（组装函数装好运营层，照这些交过去）——
 
-/** 转入使用那一套（268 号票）：项目服务（projects/projects.ts）、秘书和维护者提转入使用的工具（projects/go-live-tools.ts）要的 */
+/** 转入使用那一套（268 号票）：项目服务（projects/projects.ts）、秘书和负责人提转入使用的工具（projects/go-live-tools.ts）要的 */
 export interface OpsGoLive {
   /** 转运营检查清单里运营接口清单那一项：照 112 号票的自动验收（没验过的在后台开验，验完了刷新还在等的卡） */
   checklistItem(project: Project): StandardChecklistItem;
   /** 转入使用时登记（和转入使用同一事务）：档案里那份运营接口清单验收全过了才有 */
   goLiveEvents(project: Project): NewEvent[];
-  /** 提转入使用之前：档案里那份重验一遍（维护者、秘书提转入使用时等它，卡上直接是结论） */
+  /** 提转入使用之前：档案里那份重验一遍（负责人、秘书提转入使用时等它，卡上直接是结论） */
   prepareGoLive(projectId: string): Promise<void>;
 }
 
@@ -32,7 +32,7 @@ export interface ServiceEventCaller {
   /** LSM 里的名字（<项目编号>-<服务名>） */
   app: string;
   projectId: string;
-  /** 维护者写的服务名 */
+  /** 负责人写的服务名 */
   service: string;
   /** 运营方案里这一条的名字 */
   title: string;

@@ -1,10 +1,10 @@
-// 主切面：运营手段"服务"（133 号票）。真的守护进程，项目的维护者和秘书接 faux 剧本，LSM 用替身（helpers/lsm-stand-in.ts：owned 打开时
+// 主切面：运营手段"服务"（133 号票）。真的守护进程，项目的负责人和秘书接 faux 剧本，LSM 用替身（helpers/lsm-stand-in.ts：owned 打开时
 // 扮演支持名下服务的新管理器，不起真进程），"上线的服务"是起在随机端口上的假服务（helpers/fake-app.ts），测试扮演前端。
-// - 建设期间交带服务的运营方案（维护者经 agent 宿主真的调 propose_operations）：卡上写"上线服务「X」（端口 …，开机自启）"；
+// - 建设期间交带服务的运营方案（负责人经 agent 宿主真的调 propose_operations）：卡上写"上线服务「X」（端口 …，开机自启）"；
 //   确认并转入使用后经 LSM 登记（命令、工作目录、端口、开机自启、密钥的引用换成密钥区里的文件、注入 ERGO_BASE_PATH）、启动，
 //   转发登记 /apps/<项目>-<服务>/；项目的服务（在线、入口）经临时事件推给前端，新连上的前端订阅时就拿到；秘书给出入口卡，查看板看得到；
-// - 启动失败：这一条标失败（原因来自 LSM），通知维护者，项目照常使用中、别的照常；维护者照旧再交一份，确认后重新开起来；
-// - 挂了自动重启照维护者写的登记、卡上写明；上线后又挂了：不在线持续一段时间才通知维护者（LSM 给的原因），重启一下不报，
+// - 启动失败：这一条标失败（原因来自 LSM），通知负责人，项目照常使用中、别的照常；负责人照旧再交一份，确认后重新开起来；
+// - 挂了自动重启照负责人写的登记、卡上写明；上线后又挂了：不在线持续一段时间才通知负责人（LSM 给的原因），重启一下不报，
 //   同一次故障只报一次，好了再说一声；用户那边不额外打扰；
 // - LSM 版本不支持名下的服务：标"要你手动"，一条 services.* 都不发；
 // - 使用中改方案（更新登记、重启）、停用（撤下、撤掉转发）、重新启用（重新登记、启动）、归档、取消归档、方案里去掉；
@@ -12,8 +12,8 @@
 // - 257 号票：使用中的项目在项目卡片、项目页上"启动""关闭"——关闭全部停、取消开机自启，重启守护进程后仍关着；启动重新登记、
 //   恢复开机自启；做到一半又点照最新的来；秘书照用户说的启停（同一个入口）；LSM 没连上、项目停用了的被拒。
 // - 269 号票：二狗接上 LSM 时兜底——电脑重启后 LSM 没拉（替身的 owned.reboot）、LSM 重启后重新接上（替身的 drop），上线了、用户没关的
-//   服务停着就整份登记、启动，记上线的结果（带 revive）；在跑的不动；接上之后又挂了不自动拉（照 133 通知维护者）；关着的不拉；
-//   拉不起来记上线失败和原因、通知维护者。
+//   服务停着就整份登记、启动，记上线的结果（带 revive）；在跑的不动；接上之后又挂了不自动拉（照 133 通知负责人）；关着的不拉；
+//   拉不起来记上线失败和原因、通知负责人。
 // - 363 号票：回放 10-29 的事件（上线、already-running 记了失败、接上时全量里在跑）：回到上线了、不通知、缺凭证的重启一次拿到；启动报 already-running 真去看健康检查；
 //   真没在跑的、用户关着的不动。
 import fs from "node:fs";
@@ -132,7 +132,7 @@ function finishBuild(td: TestDaemon, taskId = "t-1") {
   td.daemon.projects.taskCompleted(payload.task);
 }
 
-/** 项目的维护者交运营方案（直接调它的工具：和维护者调的是同一个） */
+/** 项目的负责人交运营方案（直接调它的工具：和负责人调的是同一个） */
 async function propose(td: TestDaemon, items: readonly object[], why = "要长期运转") {
   return td.daemon.operations.tool("p-1", "pm-1").run({ items, why } as never, { toolCallId: `call-${Math.random()}` });
 }
@@ -190,9 +190,9 @@ describe("运营手段“服务”：确认后经 LSM 上线，项目卡片上�
     // 握手声明会用名下的服务
     expect(lsm.messages.find((m) => m.message.type === "hello")?.message.features).toEqual(["services"]);
 
-    // 维护者交方案：服务那一条收下（服务正好在跑：顺手做了前缀下自检）
+    // 负责人交方案：服务那一条收下（服务正好在跑：顺手做了前缀下自检）
     await frontend.sendText("做完以后每天 8 点出日报，网页也上线，手机上能打开", { conversation: PM1 });
-    await waitUntil(() => frontend.events({ channel: PM1, type: EVENT_TYPES.turnEnd }).length >= 1, { timeoutMs: 30_000, describe: () => "维护者处理完" });
+    await waitUntil(() => frontend.events({ channel: PM1, type: EVENT_TYPES.turnEnd }).length >= 1, { timeoutMs: 30_000, describe: () => "负责人处理完" });
     await settled(td, "pm-1");
     const echo = textOf(messagesOf(frontend, PM1).filter((m) => m.message.speaker === "agent").at(-1)!);
     // 工具说明里列着"服务"这种手段、要写哪几项
@@ -277,7 +277,7 @@ describe("运营手段“服务”：确认后经 LSM 上线，项目卡片上�
     expect(board).toContain("已把入口放进聊天：用户点卡上的“打开「简报站」”就在内置浏览器里打开");
   }, 180_000);
 
-  it("启动失败：这一条标失败（原因来自 LSM）、通知维护者，项目照常使用中、日报照常；照旧再交一份，确认后重新开起来", async () => {
+  it("启动失败：这一条标失败（原因来自 LSM）、通知负责人，项目照常使用中、日报照常；照旧再交一份，确认后重新开起来", async () => {
     const d = dirs();
     const lsm = await startLsmStandIn({ owned: true, heartbeatIntervalMs: 60_000 });
     const app = await startFakeApp();
@@ -294,10 +294,10 @@ describe("运营手段“服务”：确认后经 LSM 上线，项目卡片上�
     expect(td.daemon.projects.get("p-1")).toMatchObject({ state: "in_use" });
     expect(td.daemon.tasks.get("t-2")).toMatchObject({ title: "日报", state: "operating" });
     expect((await openApp(td)).status).toBe(404);
-    // 维护者收到通知（写明原因、怎么办）
+    // 负责人收到通知（写明原因、怎么办）
     await waitUntil(
       () => messagesOf(frontend, PM1).some((m) => textOf(m).includes("运营方案里的服务「简报站」（p-1-site，端口") && textOf(m).includes(`没上线。服务管家（LSM）判断的依据：端口 ${app.port} 已被 node.exe (4321) 占着`)),
-      { describe: () => "维护者收到上线失败的通知" },
+      { describe: () => "负责人收到上线失败的通知" },
     );
     await settled(td, "pm-1");
 
@@ -314,7 +314,7 @@ describe("运营手段“服务”：确认后经 LSM 上线，项目卡片上�
     expect((await openApp(td)).status).toBe(200);
   }, 120_000);
 
-  it("挂了自动重启照维护者写的登记、卡上写明；上线后又挂了：不在线持续一段时间才通知维护者（LSM 给的原因），重启一下不报，同一次故障只报一次，好了再说一声", async () => {
+  it("挂了自动重启照负责人写的登记、卡上写明；上线后又挂了：不在线持续一段时间才通知负责人（LSM 给的原因），重启一下不报，同一次故障只报一次，好了再说一声", async () => {
     const d = dirs();
     const lsm = await startLsmStandIn({ owned: true, heartbeatIntervalMs: 60_000 });
     const app = await startFakeApp();
@@ -324,7 +324,7 @@ describe("运营手段“服务”：确认后经 LSM 上线，项目卡片上�
     const frontend = await connect(td);
     await lsm.waitFor((m) => m.type === "hello", "握手");
 
-    // 维护者写了挂了自动重启：卡上那一条写明，登记时照它
+    // 负责人写了挂了自动重启：卡上那一条写明，登记时照它
     const card = await putInUse(td, frontend, [site(app.port, { autoRestart: true })]);
     const item = (card.payload as BuildDoneCardPayload).operations!.items[0]!;
     expect(item.triggerText).toBe(`上线服务「简报站」（端口 ${app.port}，开机自启，挂了自动重启）`);
@@ -346,13 +346,13 @@ describe("运营手段“服务”：确认后经 LSM 上线，项目卡片上�
     clock.advance(60_000);
     expect(notices()).toEqual([]);
 
-    // 挂了：持续 30 秒才通知维护者，写明 LSM 给的原因
+    // 挂了：持续 30 秒才通知负责人，写明 LSM 给的原因
     lsm.owned.setState("p-1-site", "FAILED", "进程退出了（退出码 1）");
     await untilService(td, (v) => v.status === "failed", "失败");
     clock.advance(10_000);
     expect(notices()).toEqual([]);
     clock.advance(21_000);
-    await waitUntil(() => notices().length === 1, { describe: () => `维护者收到挂了的通知：${JSON.stringify(notices())}` });
+    await waitUntil(() => notices().length === 1, { describe: () => `负责人收到挂了的通知：${JSON.stringify(notices())}` });
     expect(notices()[0]).toContain(`服务「简报站」（p-1-site，端口 ${app.port}）上线后挂了，现在不在线。服务管家（LSM）判断的依据：进程退出了（退出码 1）。它开着挂了自动重启`);
     await settled(td, "pm-1");
     // 同一次故障只报一次
@@ -365,7 +365,7 @@ describe("运营手段“服务”：确认后经 LSM 上线，项目卡片上�
     lsm.owned.setState("p-1-site", "RUNNING");
     await untilService(td, (v) => v.status === "online", "又在线");
     clock.advance(31_000);
-    await waitUntil(() => notices().length === 2, { describe: () => `维护者收到好了的通知：${JSON.stringify(notices())}` });
+    await waitUntil(() => notices().length === 2, { describe: () => `负责人收到好了的通知：${JSON.stringify(notices())}` });
     expect(notices()[1]).toContain("服务「简报站」（p-1-site）又在线了");
     await settled(td, "pm-1");
     // 用户这边不额外打扰：没有新的待办，秘书那边什么都没说
@@ -386,7 +386,7 @@ describe("运营手段“服务”：确认后经 LSM 上线，项目卡片上�
     expect(manual.reason).toBe("LSM 版本不支持名下的服务，需要手动在 LSM 里登记（LSM 升级、重启后二狗会自动补上）");
     expect(lsm.serviceRequests()).toEqual([]);
     expect((await openApp(td)).status).toBe(404);
-    await waitUntil(() => messagesOf(frontend, PM1).some((m) => textOf(m).includes("现在没法替用户上线：LSM 版本不支持名下的服务")), { describe: () => "维护者知道要手动" });
+    await waitUntil(() => messagesOf(frontend, PM1).some((m) => textOf(m).includes("现在没法替用户上线：LSM 版本不支持名下的服务")), { describe: () => "负责人知道要手动" });
     await eventually(() => servicesFramesOf(frontend), (s) => s.some((v) => v.app === "p-1-site" && v.rollout === "manual"), "前端看到要你手动");
   }, 120_000);
 });
@@ -646,7 +646,7 @@ const revivesOf = (td: TestDaemon) =>
 
 describe("二狗接上 LSM 时兜底：该在线、用户没关的服务停着就拉起来（269 号票）", () => {
 
-  it("电脑重启后 LSM 没拉：守护进程起来接上时停着的拉起来（整份登记、启动，记上线的结果）；接上之后又挂了不自动拉（照旧过一阵通知维护者）；LSM 重启、重新接上时还停着的再拉一次，在跑的不动", async () => {
+  it("电脑重启后 LSM 没拉：守护进程起来接上时停着的拉起来（整份登记、启动，记上线的结果）；接上之后又挂了不自动拉（照旧过一阵通知负责人）；LSM 重启、重新接上时还停着的再拉一次，在跑的不动", async () => {
     const d = dirs();
     const lsm = await startLsmStandIn({ owned: true, heartbeatIntervalMs: 60_000 });
     const app = await startFakeApp();
@@ -679,12 +679,12 @@ describe("二狗接上 LSM 时兜底：该在线、用户没关的服务停着�
     const notices = () => messagesOf(front, PM1).map(textOf).filter((t) => t.includes("上线后挂了") || t.includes("又在线了") || t.includes("接上 LSM 时"));
     expect(notices()).toEqual([]);
 
-    // 接上之后又挂了：不自动拉（免得和 LSM 的挂了自动重启打架），照 133 不在线持续 30 秒通知维护者
+    // 接上之后又挂了：不自动拉（免得和 LSM 的挂了自动重启打架），照 133 不在线持续 30 秒通知负责人
     from = lsm.serviceRequests().length;
     lsm.owned.setState("p-1-site", "FAILED", "进程退出了（退出码 1）");
     await untilService(again, (v) => v.status === "failed", "又挂了");
     clock.advance(31_000);
-    await waitUntil(() => notices().length === 1, { describe: () => `维护者收到挂了的通知：${JSON.stringify(notices())}` });
+    await waitUntil(() => notices().length === 1, { describe: () => `负责人收到挂了的通知：${JSON.stringify(notices())}` });
     expect(notices()[0]).toContain("上线后挂了，现在不在线。服务管家（LSM）判断的依据：进程退出了（退出码 1）");
     await again.daemon.projectServices.idle();
     expect(requestTypes(lsm, from)).toEqual([]);
@@ -700,7 +700,7 @@ describe("二狗接上 LSM 时兜底：该在线、用户没关的服务停着�
     expect(requestTypes(lsm, from)).toEqual(["services.put", "services.start"]);
     expect(revivesOf(again)).toHaveLength(2);
     clock.advance(31_000);
-    await waitUntil(() => notices().length === 2, { describe: () => `维护者收到又在线了的通知：${JSON.stringify(notices())}` });
+    await waitUntil(() => notices().length === 2, { describe: () => `负责人收到又在线了的通知：${JSON.stringify(notices())}` });
     expect(notices()[1]).toContain("服务「简报站」（p-1-site）又在线了");
 
     // 接上时在跑的不拉、不重启：再断一次又接上，只整份再登记一次（324：同一份定义 LSM 不改、不回 restartNeeded）
@@ -714,7 +714,7 @@ describe("二狗接上 LSM 时兜底：该在线、用户没关的服务停着�
     expect(revivesOf(again)).toHaveLength(2);
   }, 180_000);
 
-  it("用户关着的不拉（电脑重启、LSM 重新接上都一条 services.* 不发）；拉不起来：记上线失败和 LSM 给的原因，通知维护者", async () => {
+  it("用户关着的不拉（电脑重启、LSM 重新接上都一条 services.* 不发）；拉不起来：记上线失败和 LSM 给的原因，通知负责人", async () => {
     const d = dirs();
     const lsm = await startLsmStandIn({ owned: true, heartbeatIntervalMs: 60_000 });
     const app = await startFakeApp();
@@ -753,7 +753,7 @@ describe("二狗接上 LSM 时兜底：该在线、用户没关的服务停着�
     await untilService(again, (v) => v.rollout === "live" && v.status === "online" && v.paused === undefined && v.power === undefined, "启动后在线");
     await settled(again, "pm-1");
 
-    // LSM 重启了、没拉它，二狗接上去拉也起不来（端口被别的程序占着）：记上线失败和 LSM 给的原因，通知维护者
+    // LSM 重启了、没拉它，二狗接上去拉也起不来（端口被别的程序占着）：记上线失败和 LSM 给的原因，通知负责人
     const reason = `端口 ${app.port} 已被 node.exe (4321) 占着`;
     lsm.owned.failNextStart("p-1-site", reason);
     from = lsm.serviceRequests().length;
@@ -766,7 +766,7 @@ describe("二狗接上 LSM 时兜底：该在线、用户没关的服务停着�
     await again.daemon.projectServices.idle();
     expect(requestTypes(lsm, from)).toEqual(["services.put", "services.start"]);
     expect(revivesOf(again)).toEqual([expect.objectContaining({ app: "p-1-site", state: "failed", reason, revive: true })]);
-    await waitUntil(() => messagesOf(front, PM1).some((m) => textOf(m).includes("二狗接上 LSM 时它没在跑")), { describe: () => "维护者收到拉不起来的通知" });
+    await waitUntil(() => messagesOf(front, PM1).some((m) => textOf(m).includes("二狗接上 LSM 时它没在跑")), { describe: () => "负责人收到拉不起来的通知" });
     const notice = messagesOf(front, PM1).map(textOf).find((t) => t.includes("二狗接上 LSM 时它没在跑"))!;
     expect(notice).toContain(`服务「简报站」（p-1-site，端口 ${app.port}）`);
     expect(notice).toContain(reason);
@@ -859,7 +859,7 @@ describe("上线记录卡在失败、服务其实在跑（363 号票）", () => 
     expect(rolloutsOf(again)).toHaveLength(after.length);
   }, 180_000);
 
-  it("启动报 already-running：真在跑（真去看了健康检查）记上线，不记失败、不通知；服务真没了记失败、通知维护者，之后 LSM 报告停着也不误改；LSM 报告在跑（推送也算）才回来；用户关着的不被自愈拉起来", async () => {
+  it("启动报 already-running：真在跑（真去看了健康检查）记上线，不记失败、不通知；服务真没了记失败、通知负责人，之后 LSM 报告停着也不误改；LSM 报告在跑（推送也算）才回来；用户关着的不被自愈拉起来", async () => {
     const d = dirs();
     const lsm = await startLsmStandIn({ owned: true, heartbeatIntervalMs: 60_000 });
     const app = await startFakeApp();
@@ -895,7 +895,7 @@ describe("上线记录卡在失败、服务其实在跑（363 号票）", () => 
     await reconnectLsm(lsm, td);
     expect(requestTypes(lsm, from)).toEqual(["services.put", "services.start"]);
     expect(serviceNow(td)).toMatchObject({ rollout: "failed", reason: ALREADY_RUNNING, status: "failed" });
-    await waitUntil(() => notices().length === 1, { describe: () => "维护者收到拉不起来的通知" });
+    await waitUntil(() => notices().length === 1, { describe: () => "负责人收到拉不起来的通知" });
     await settled(td, "pm-1");
 
     // 没在跑时不误改

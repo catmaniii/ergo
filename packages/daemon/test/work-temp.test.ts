@@ -1,5 +1,5 @@
 // bash 的临时目录（177 号票，agent-manager/work-temp.ts）：工作目录里的 .ergo-tmp，git 不收、7 天没动过的删掉；
-// 守卫看到的维护者带着同样的 TMPDIR、TEMP、TMP 和 /tmp 挂到哪；Git Bash 的 /tmp 按守护进程的 TMP / TEMP 算。
+// 守卫看到的负责人带着同样的 TMPDIR、TEMP、TMP 和 /tmp 挂到哪；Git Bash 的 /tmp 按守护进程的 TMP / TEMP 算。
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -49,7 +49,7 @@ describe("Git Bash 的 /tmp 挂到哪", () => {
   });
 });
 
-describe("守卫看到的维护者", () => {
+describe("守卫看到的负责人", () => {
   const base: MaintainerAssembly = {
     cwd: "E:\\work\\notes",
     toolkit: { bash: true, network: true },

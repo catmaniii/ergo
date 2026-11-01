@@ -1,6 +1,6 @@
 // agent 之间的来信（115 号票，用户 2026-10-13："收到其他 agent 的来信……不要上来就把信全部展示出来，搞成一行，写一句总结，
-// 我可以点详情去查看"）：别的 agent 或运行时写给这个 agent 的消息——秘书会话里的任务做完、维护者来信，维护者会话里的秘书转达，
-// 运行时补给维护者的计划检查——会话里只显示"种类 + 一句总结"，点详情看全文。只改显示：交给 agent 的照旧是全文。
+// 我可以点详情去查看"）：别的 agent 或运行时写给这个 agent 的消息——秘书会话里的任务做完、负责人来信，负责人会话里的秘书转达，
+// 运行时补给负责人的计划检查——会话里只显示"种类 + 一句总结"，点详情看全文。只改显示：交给 agent 的照旧是全文。
 // 守护进程（通知开头的标记、写进消息的一句总结）和 Web（认哪些折、旧消息没有总结时的退路）共用这一份；不引用 TypeBox。
 // 367 号票（用户 2026-11-01："这种需求一大段文字应该默认折叠，点详情再展开"）：运行时交给 agent 的通知没有标记的，长的也折（"notice"），
 // 只看文字长度和交没交给 agent，老消息照样折，不用迁移；阶段说明那一行（stageBriefLine）守护进程照它写、界面照它认是哪一步。
@@ -13,14 +13,20 @@ import type { MessageEnvelope } from "./schema.ts";
 export const LETTER_TAGS = {
   /** 任务做完告诉秘书（99 号票），开了跑完自动播报的后面还紧跟一个标记（100 号票） */
   task_done: "【任务做完】", // @i18n-ignore model：给 agent 的通知开头的标记
-  /** 维护者等 agent 给秘书发的消息，经运行时转交（102 号票） */
-  maintainer_letter: "【维护者来信】", // @i18n-ignore model
-  /** 流程、定时触发的流程收工时还有步骤没做也没说明跳过，运行时提醒维护者（59、76 号票） */
+  /** 负责人等 agent 给秘书发的消息，经运行时转交（102 号票） */
+  maintainer_letter: "【负责人来信】", // @i18n-ignore model
+  /** 流程、定时触发的流程收工时还有步骤没做也没说明跳过，运行时提醒负责人（59、76 号票） */
   plan_check: "【计划检查】", // @i18n-ignore model
 } as const;
 
 /**
- * 来信的种类：上面几种通知，秘书按用户的话转达进任务、项目维护者会话的那一句（103 号票：发言方是用户、标着 relayedBy），
+ * 365 号票（负责人原来叫别的名字）之前交的来信开头的标记：事件日志不可改，老消息还写着它。认来信时新旧都认（Web 折成一行、
+ * 守护进程查交到哪了、被打断了重新交），新的只写 LETTER_TAGS 里的；显示全文时 currentWording 换成新说法
+ */
+export const OLD_MAINTAINER_LETTER_TAG = "【维护者来信】"; // @i18n-ignore fixed：认老消息 @keep-old-name
+
+/**
+ * 来信的种类：上面几种通知，秘书按用户的话转达进任务、项目负责人会话的那一句（103 号票：发言方是用户、标着 relayedBy），
  * 和没有标记、但长的通知（367 号票）
  */
 export type AgentLetterKind = keyof typeof LETTER_TAGS | "secretary_relay" | "notice";
@@ -46,6 +52,7 @@ export function letterKindOf(message: Pick<MessageEnvelope, "speaker" | "parts" 
   if (message.speaker !== "system") return undefined;
   const first = message.parts[0];
   if (first?.type !== "text") return undefined;
+  if (first.text.startsWith(OLD_MAINTAINER_LETTER_TAG)) return "maintainer_letter";
   const tagged = (Object.keys(LETTER_TAGS) as (keyof typeof LETTER_TAGS)[]).find((kind) => first.text.startsWith(LETTER_TAGS[kind]));
   if (tagged) return tagged;
   const onlyText = message.parts.every((p) => p.type === "text");
@@ -95,7 +102,7 @@ const LEADING_TAGS = /^(?:【[^】\n]*】)+/; // @i18n-ignore data
 
 /**
  * 运行时写的通知（旧的，没存总结）的第一句：去掉开头的标记，跳过引子——冒号结尾、后面还有内容的行（"后台有一件事做完了（……）："
- * "……的维护者说："），再取第一句
+ * "……的负责人说："），再取第一句
  */
 function noticeFirstSentence(text: string): string {
   const lines = text

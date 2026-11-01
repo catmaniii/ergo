@@ -7,7 +7,7 @@
 // - 2026-10-30：填 key 的请求体可以点名服务商（设置 · 模型按服务商逐条列出 key）：写它自己的密钥文件，不认识的服务商回 400；
 // - 连通测试在一次性子进程里发一条极短的请求，回首 token 延迟；同一时间只跑一个（再要回 409"上一个还没测完"）；
 // - 看图能力：设置页改的为准，其次配置文件写明的，都没写按模型目录；
-// - 范围审视用的模型每次审视时现取（和子 agent、评审一样）：维护者拉起之后改了设置，下一次审视就用新的。
+// - 范围审视用的模型每次审视时现取（和子 agent、评审一样）：负责人拉起之后改了设置，下一次审视就用新的。
 // 目录模型（DeepSeek）的请求一律发到本机的假 DeepSeek（helpers/fake-deepseek.ts），从不连真的；key 是假的。
 import fs from "node:fs";
 import path from "node:path";
@@ -219,24 +219,24 @@ describe("设置里的模型", () => {
       return task;
     };
 
-    // 第一个任务的维护者：默认的 deepseek-flash、思考高
+    // 第一个任务的负责人：默认的 deepseek-flash、思考高
     wake("A 的调研");
     await waitUntil(() => fake.requests.length === 1, { timeoutMs: 20_000, describe: () => JSON.stringify(fake.requests.map((r) => r.body.model)) });
     expect(fake.requests[0]!.body).toMatchObject({ model: "deepseek-flash", thinking: { type: "enabled" } });
 
-    // 任务维护者改成 v4-pro、不开思考
+    // 任务负责人改成 v4-pro、不开思考
     const changed = await modelSettingsApi.change(td.url, settings({ agents: { task_maintainer: { modelId: "deepseek-v4-pro", thinkingLevel: "off" } } }));
     expect(changed.status).toBe(200);
     expect(changed.body.effective.task_maintainer).toEqual({ modelId: "deepseek-v4-pro", thinkingLevel: "off" });
     expect(changed.body.effective.project_maintainer).toEqual({ modelId: "deepseek-flash", thinkingLevel: "high" });
 
-    // 第一个维护者闲置退出后再对它说话：接着原来的会话，照它开始时的 flash、思考高
+    // 第一个负责人闲置退出后再对它说话：接着原来的会话，照它开始时的 flash、思考高
     await waitUntil(() => !td.daemon.agents.live().some((a) => a.agentId === "tm-1"), { timeoutMs: 20_000 });
     await frontend.sendText("再查一下来源", { conversation: maintainerChannel("tm-1") });
     await waitUntil(() => fake.requests.length === 2, { timeoutMs: 20_000 });
     expect(fake.requests[1]!.body).toMatchObject({ model: "deepseek-flash", thinking: { type: "enabled" } });
 
-    // 新任务的维护者是新会话：用新的
+    // 新任务的负责人是新会话：用新的
     wake("B 的调研");
     await waitUntil(() => fake.requests.length === 3, { timeoutMs: 20_000 });
     expect(fake.requests[2]!.body).toMatchObject({ model: "deepseek-v4-pro", thinking: { type: "disabled" } });
@@ -309,7 +309,7 @@ describe("设置里的模型", () => {
     expect(fake.requests).toHaveLength(before);
   }, 60_000);
 
-  it("范围审视用的模型每次审视时现取：维护者拉起之后把它改成 v4-pro、不开思考，下一次审视（压缩会话时）就用新的；记账照实际用的", async () => {
+  it("范围审视用的模型每次审视时现取：负责人拉起之后把它改成 v4-pro、不开思考，下一次审视（压缩会话时）就用新的；记账照实际用的", async () => {
     const fake = await startFakeDeepSeek();
     const td = await startTestDaemon({
       modelsFromSettings: ["scope_review"],
@@ -324,7 +324,7 @@ describe("设置里的模型", () => {
     const task = td.daemon.tasks.createByRequest({ title: "X 的调研", summary: "X 的调研" });
     td.daemon.tasks.writeBrief(task.id, { goal: "调研 X 的现状", ...BRIEF });
     await turns(1);
-    // 维护者已经拉起（装配里审视用的是默认的 deepseek-flash）：这时改设置
+    // 负责人已经拉起（装配里审视用的是默认的 deepseek-flash）：这时改设置
     expect((await modelSettingsApi.change(td.url, settings({ agents: { scope_review: { modelId: "deepseek-v4-pro", thinkingLevel: "off" } } }))).status).toBe(200);
     await frontend.sendText(`材料：${"一段很长的材料。".repeat(12_500)}`, { conversation: TM1 });
     await turns(2);

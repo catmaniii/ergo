@@ -1,10 +1,10 @@
-// MCP 登记变更（239 号票）：给维护者一个工具 request_mcp_change——把一条 MCP 登记加、改、删。整条链照 27 号票的工具包变更：
+// MCP 登记变更（239 号票）：给负责人一个工具 request_mcp_change——把一条 MCP 登记加、改、删。整条链照 27 号票的工具包变更：
 // - 工具只校验 + 出一张"MCP 登记变更"卡（mcp_change）进待我处理，**不写任何文件**；校验不过当场回原因、不出卡；
 // - 用户在卡上确认之后，运行时按 name 合并写进数据目录配置区的 mcp.json（mcp/writer.ts：保留别的条目、原子写、
 //   写前留一份进 config/.history/），然后真把这个 MCP 拉起来一次做自检（tools/list），结果写进卡和时间线；
 // - 拉不起来时**登记留着**（和服务那条 means: service 的 put → start 一个口径），卡上写明原因，不做自动回滚：
 //   用户可以用一张 action: remove 的卡撤掉；
-// - 拒绝则一个字节都不变。批准、拒绝都记一条 mcp_decided（审批决定素材，mcp/material-source.ts）和维护者会话上的时间线；
+// - 拒绝则一个字节都不变。批准、拒绝都记一条 mcp_decided（审批决定素材，mcp/material-source.ts）和负责人会话上的时间线；
 // - 登记变了之后让提交的人的会话按新的装配重新拉起（和工具包变更一样：闲置时停掉子进程、下次唤起按新的），
 //   会话里这才看得到新登记的工具。
 // 为什么不能让 agent 自己写：配置区是受保护区域，守卫对任何方式的写入都是"永不"（越界），登记只能走这条路。
@@ -29,7 +29,7 @@ export { REQUEST_MCP_CHANGE_TOOL } from "./tool-names.ts";
 /** 守护进程内部的 mcp 频道（前端不订阅）：登记的审批决定（素材的来源） */
 export const MCP_CHANNEL = "mcp";
 
-/** 工具给谁用：项目的维护者（对话段），或者任务自己的维护者 */
+/** 工具给谁用：项目的负责人（对话段），或者任务自己的负责人 */
 export type McpChangeTarget = { kind: "project"; projectId: string; maintainerId: string } | { kind: "task"; taskId: string; maintainerId: string };
 
 /** 自检默认最多等多久（毫秒）：服务进程的握手和 tools/list 都在这之内 */
@@ -43,9 +43,9 @@ export interface McpChangeServiceOptions {
   mcp: Pick<McpService, "registrations" | "probe">;
   /** 配置区的登记文件和它的历史区（数据目录的 config/、config/.history/） */
   write: McpWriteTarget;
-  /** 提交的人：项目的维护者的项目 */
+  /** 提交的人：项目的负责人的项目 */
   projectOf(projectId: string): { id: string; name: string } | undefined;
-  /** 提交的人：任务的维护者的任务（项目内部任务带上所属的项目） */
+  /** 提交的人：任务的负责人的任务（项目内部任务带上所属的项目） */
   taskOf(taskId: string): { id: string; title: string; maintainerId: string; projectId?: string; projectName?: string } | undefined;
   /** 登记变了：让这个人的会话按新的装配重新拉起（和工具包变更一样）；不给就不管（下次唤起自然按新的） */
   mcpChanged?: (submitter: McpChangeSubmitter, name: string) => void;
@@ -56,7 +56,7 @@ export interface McpChangeServiceOptions {
 }
 
 export interface McpChangeService {
-  /** 维护者的工具：校验 + 出卡（不写文件） */
+  /** 负责人的工具：校验 + 出卡（不写文件） */
   requestTool(target: McpChangeTarget): HostTool;
   /** "MCP 登记变更"卡上的批准、拒绝（批准：写进 mcp.json + 自检） */
   decide(payload: McpChangeCardPayload, cardId: string, decision: "approved" | "denied", note: string | undefined, idempotencyKey: string): Promise<CardActionEffect<McpChangeCardPayload>>;

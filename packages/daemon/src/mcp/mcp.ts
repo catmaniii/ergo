@@ -1,4 +1,4 @@
-// MCP（规格第 3、9、20 节，27 号票）：登记在配置区（registration.ts），写进项目或任务的工具包才授权给维护者。
+// MCP（规格第 3、9、20 节，27 号票）：登记在配置区（registration.ts），写进项目或任务的工具包才授权给负责人。
 // - 服务进程由守护进程按需拉起（第一次有会话装配到它、第一次调用它时），放进它自己的 Job 对象，凭据按登记注入（client.ts）。
 //   它们不是服务：不对外监听端口，不在 LSM 登记；守护进程停止、被杀时一起结束。登记改了（命令、参数、环境）下次用到时按新的重起；
 // - 会话里的 MCP 工具是守护进程代为执行的工具（hostToolsFor）：工具包列了这个 MCP 才有，联网开关关着时没有要联网的那些；
@@ -43,7 +43,7 @@ export interface McpQuickActionTool {
   serverTitle: string;
 }
 
-/** 给维护者看的一条 MCP（362 号票） */
+/** 给负责人看的一条 MCP（362 号票） */
 export interface RegisteredMcp {
   name: string;
   title: string;
@@ -55,7 +55,7 @@ export interface McpService {
   registrations(): McpRegistrationRead;
   /** 给界面看的登记（工具包区、skill 库页） */
   catalog(): { servers: McpServerEntry[]; problem?: string };
-  /** 给维护者看的清单（362 号票）：登记了哪些 MCP，叫什么、是什么、有哪些工具；说明优先用登记写的，没写用服务进程报过的 */
+  /** 给负责人看的清单（362 号票）：登记了哪些 MCP，叫什么、是什么、有哪些工具；说明优先用登记写的，没写用服务进程报过的 */
   brief(): RegisteredMcp[];
   /** 登记了这个 MCP */
   has(server: string): boolean;

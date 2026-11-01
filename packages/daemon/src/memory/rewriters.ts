@@ -11,7 +11,7 @@
 // 宁可删不成也不胡乱改坏状态。126 号票起插件拥有的事件类型的改写函数写进插件的数据契约（contracts）：插件停用也照样登记，
 // 彻底删除照常（见 plugins/host.ts）。登记返回撤销函数。
 // 别的模块的事件里引着某类事件的原话时，由引用方另外登记"引用"（registerQuotes）：改写被引用的事件时连带改写引用它的。
-// 现在登记的：范围记录引着用户在维护者会话里的消息、审批卡上的批准（scope-review/purge.ts，18 号票）。
+// 现在登记的：范围记录引着用户在负责人会话里的消息、审批卡上的批准（scope-review/purge.ts，18 号票）。
 import type { EventStore, NewEvent, StoredEvent } from "../events/event-store.ts";
 import type { PurgeContext, PurgeQuotes, PurgeRewriter } from "../events/purge.ts";
 

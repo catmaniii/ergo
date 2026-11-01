@@ -1,10 +1,10 @@
-// 主切面：任务发起与计划确认（规格第 7、8 节，12 号票）。真的守护进程，秘书和维护者都接 faux 剧本，测试扮演前端。
+// 主切面：任务发起与计划确认（规格第 7、8 节，12 号票）。真的守护进程，秘书和负责人都接 faux 剧本，测试扮演前端。
 // - 三条发起路径：点"发起任务"按钮（原话记成"用户发言"素材，选的项目写进任务）、秘书按用户在消息里的要求建任务卡、
 //   秘书给"建议发起任务"卡（用户点了才建）；
 // - 意图澄清：提问卡成批提问、每题带推荐，"全按推荐"一次提交，答案作为通知交回秘书；
-// - 任务书交给任务自己的维护者（新拉起的子进程、新会话，起草时只能读），维护者用"提交计划"交出结构化的计划；
-// - 计划卡：勾掉、收窄授权项、改假设栏后确认（任务转排队中），附意见打回（任务回到规划中，意见交回维护者，重新提交出新卡）。
-// - 维护者会话里有消息被彻底删除（21 号票）：会话文件里的原话也改写成删除标记。
+// - 任务书交给任务自己的负责人（新拉起的子进程、新会话，起草时只能读），负责人用"提交计划"交出结构化的计划；
+// - 计划卡：勾掉、收窄授权项、改假设栏后确认（任务转排队中），附意见打回（任务回到规划中，意见交回负责人，重新提交出新卡）。
+// - 负责人会话里有消息被彻底删除（21 号票）：会话文件里的原话也改写成删除标记。
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -59,11 +59,11 @@ const messagesOf = (frontend: TestFrontend, channel: string) => frontend.events(
 const textOf = (p: MessageEventPayload) => p.message.parts.map((part) => ("text" in part ? part.text : `<${part.type}>`)).join("");
 const cardsOf = (frontend: TestFrontend): Card[] => frontend.events({ channel: CARDS, type: EVENT_TYPES.card }).map((f) => (f.payload as CardEventPayload).card);
 const tasksOf = (frontend: TestFrontend) => frontend.events({ channel: BOARD, type: EVENT_TYPES.task }).map((f) => f.payload as TaskEventPayload);
-/** 看板上任务名下的用量合计（24 号票：维护者每次模型调用记账后一条） */
+/** 看板上任务名下的用量合计（24 号票：负责人每次模型调用记账后一条） */
 const tokenTotalsOf = (frontend: TestFrontend) => frontend.events({ channel: BOARD, type: EVENT_TYPES.tokenTotals }).map((f) => f.payload as TokenTotalsEventPayload);
-/** 等维护者处理完 n 条输入 */
+/** 等负责人处理完 n 条输入 */
 const maintainerTurns = (frontend: TestFrontend, n: number) =>
-  waitUntil(() => frontend.events({ channel: MAINTAINER, type: EVENT_TYPES.turnEnd }).length >= n, { timeoutMs: 20_000, describe: () => `等维护者处理完 ${n} 条输入` });
+  waitUntil(() => frontend.events({ channel: MAINTAINER, type: EVENT_TYPES.turnEnd }).length >= n, { timeoutMs: 20_000, describe: () => `等负责人处理完 ${n} 条输入` });
 const ok = (r: ResponseFrame) => {
   if (!r.ok) throw new Error(`请求失败：${r.error.code} ${r.error.message}`);
   return r.result;
@@ -82,7 +82,7 @@ async function tell(frontend: TestFrontend, text: string) {
 }
 
 /**
- * 等到收到过满足条件的东西（不管和别的频道上的事件谁先谁后：秘书、维护者、用户的动作各走各的），返回最新的那个。
+ * 等到收到过满足条件的东西（不管和别的频道上的事件谁先谁后：秘书、负责人、用户的动作各走各的），返回最新的那个。
  * 只在同一个频道上按先后等时用 frontend.next
  */
 async function eventually<T>(list: () => readonly T[], match: (x: T) => boolean, what: string): Promise<T> {
@@ -335,10 +335,10 @@ describe("意图澄清", () => {
   }, 60_000);
 });
 
-describe("任务书交给维护者，维护者提交计划", () => {
-  it("秘书写的任务书存进二狗的存储，作为输入交给任务的维护者（新拉起的子进程、新会话，起草时只能读）；维护者用“提交计划”交出结构化的计划，生成计划卡放进待我处理，任务转待确认", async () => {
+describe("任务书交给负责人，负责人提交计划", () => {
+  it("秘书写的任务书存进二狗的存储，作为输入交给任务的负责人（新拉起的子进程、新会话，起草时只能读）；负责人用“提交计划”交出结构化的计划，生成计划卡放进待我处理，任务转待确认", async () => {
     const { url, daemon } = await startTestDaemon({
-      secretary: [createTask, writeBrief, say("任务书交给维护者了")],
+      secretary: [createTask, writeBrief, say("任务书交给负责人了")],
       maintainer: [submitPlanStep(), { kind: "echo_context" }],
     });
     const frontend = await connect(url, [SECRETARY, CARDS, BOARD, INBOX, MAINTAINER]);
@@ -372,7 +372,7 @@ describe("任务书交给维护者，维护者提交计划", () => {
     const moved = await taskWhere(frontend, (e) => e.change === "plan_submitted");
     expect(moved).toMatchObject({ change: "plan_submitted", from: "planning", by: "maintainer", task: { state: "awaiting_confirm", planCardId: card.id, stages: { total: 2 } } });
 
-    // 维护者的会话：任务书（运行时的通知）是第一条输入，消息都带着所属的任务；计划卡出现在它的会话里
+    // 负责人的会话：任务书（运行时的通知）是第一条输入，消息都带着所属的任务；计划卡出现在它的会话里
     await maintainerTurns(frontend, 1);
     const maintainerMessages = messagesOf(frontend, MAINTAINER);
     expect(maintainerMessages.every((m) => m.taskId === "t-1")).toBe(true);
@@ -382,11 +382,11 @@ describe("任务书交给维护者，维护者提交计划", () => {
     const seen = textOf(maintainerMessages.at(-1)!);
     // 新会话：上下文里只有系统提示、这一份任务书、这一次提交
     expect(seen.split("\n").filter((l) => l.startsWith("[user]"))).toHaveLength(1);
-    expect(seen).toContain("[system] 你是「二狗」里一个任务的维护者");
+    expect(seen).toContain("[system] 你是「二狗」里一个任务的负责人");
     expect(seen).toContain("[toolResult] submit_plan: 计划已提交（第 1 版）");
     // 起草计划时只能读、搜索和提交计划：确认之前不动手不只靠提示词（口语总结是每个会话都有的，没有副作用，32 号票；
-    // 70 号票起 grep、find 照给，联网搜索、读网页每个维护者都有；给秘书发消息除了秘书每个 agent 默认都有，102 号票；
-    // 发附件维护者每一段都有，117 号票：只发进自己的会话，没有对外效果；读附件也是，143 号票：只读本会话里用户发来的附件）
+    // 70 号票起 grep、find 照给，联网搜索、读网页每个负责人都有；给秘书发消息除了秘书每个 agent 默认都有，102 号票；
+    // 发附件负责人每一段都有，117 号票：只发进自己的会话，没有对外效果；读附件也是，143 号票：只读本会话里用户发来的附件）
     expect(seen.split("\n").filter((l) => l.startsWith("[tool]"))).toEqual([
       "[tool] read",
       "[tool] ls",
@@ -403,10 +403,10 @@ describe("任务书交给维护者，维护者提交计划", () => {
     ]);
   }, 60_000);
 
-  it("提交的计划不合格：少了全局关注类别（守护进程的检查）、不合 schema（pi 先拦下）都失败，原因返回给维护者，不出计划卡，任务还在规划中", async () => {
+  it("提交的计划不合格：少了全局关注类别（守护进程的检查）、不合 schema（pi 先拦下）都失败，原因返回给负责人，不出计划卡，任务还在规划中", async () => {
     const missing = samplePlan({ watchCategories: BUILTIN_CATEGORY_IDS.filter((id) => id !== "spend_money").map((id) => ({ id })) });
     const { url, daemon } = await startTestDaemon({
-      secretary: [createTask, writeBrief, say("交给维护者了")],
+      secretary: [createTask, writeBrief, say("交给负责人了")],
       maintainer: [submitPlanStep(missing), { kind: "reply", toolCalls: [{ name: "submit_plan", arguments: { stages: [] } }] }, { kind: "echo_context" }],
     });
     const frontend = await connect(url, [SECRETARY, CARDS, BOARD, MAINTAINER]);
@@ -422,9 +422,9 @@ describe("任务书交给维护者，维护者提交计划", () => {
 });
 
 describe("彻底删除", () => {
-  it("维护者会话里的消息被彻底删除：会话文件里的原话改写成删除标记；再来输入时接着同一个会话，看到的只有标记", async () => {
+  it("负责人会话里的消息被彻底删除：会话文件里的原话改写成删除标记；再来输入时接着同一个会话，看到的只有标记", async () => {
     const { url, daemon, dataDir } = await startTestDaemon({
-      secretary: [createTask, writeBrief, say("交给维护者了")],
+      secretary: [createTask, writeBrief, say("交给负责人了")],
       maintainer: (_id, spawn) => (spawn === 1 ? [say("收到任务书")] : [{ kind: "echo_context" }]),
     });
     const frontend = await connect(url, [SECRETARY, CARDS, BOARD, MAINTAINER]);
@@ -436,7 +436,7 @@ describe("彻底删除", () => {
     };
     expect(sessionText()).toContain("覆盖三种主流方案");
 
-    // 任务书那条（维护者的第一条输入）被彻底删除：事件日志由记忆模块改写，这里只看会话文件
+    // 任务书那条（负责人的第一条输入）被彻底删除：事件日志由记忆模块改写，这里只看会话文件
     const notice = frontend.events({ channel: MAINTAINER, type: EVENT_TYPES.message })[0]!;
     const purge: MessagesPurgedEventPayload = {
       messages: [{ seq: notice.seq, messageId: (notice.payload as MessageEventPayload).message.id }],
@@ -446,7 +446,7 @@ describe("彻底删除", () => {
       deletedAt: nowIso(),
     };
     daemon.store.append({ channel: MAINTAINER, type: EVENT_TYPES.messagesPurged, payload: purge });
-    await waitUntil(() => !sessionText().includes("覆盖三种主流方案"), { describe: () => "等维护者的会话文件改写完" });
+    await waitUntil(() => !sessionText().includes("覆盖三种主流方案"), { describe: () => "等负责人的会话文件改写完" });
     expect(sessionText()).toContain(PURGED_TEXT);
 
     // 再来一条输入：重新唤起，接着同一个会话，上下文里那条输入只剩删除标记
@@ -459,9 +459,9 @@ describe("彻底删除", () => {
   }, 60_000);
 });
 
-/** 走到待确认：秘书建任务、写任务书，维护者提交计划；返回计划卡 */
+/** 走到待确认：秘书建任务、写任务书，负责人提交计划；返回计划卡 */
 async function untilPlanCard(maintainer: FauxStep[] = [submitPlanStep(), say("计划交上去了")]) {
-  const test = await startTestDaemon({ secretary: [createTask, writeBrief, say("交给维护者了")], maintainer });
+  const test = await startTestDaemon({ secretary: [createTask, writeBrief, say("交给负责人了")], maintainer });
   const frontend = await connect(test.url, [SECRETARY, CARDS, BOARD, INBOX, MAINTAINER]);
   await tell(frontend, "发起任务：帮我整理一份 X 的调研");
   const card = await cardWhere(frontend, ofType("plan"), "计划卡");
@@ -518,7 +518,7 @@ describe("计划卡", () => {
     ]);
   }, 60_000);
 
-  it("附意见打回：任务回到规划中，意见作为一条消息交回起草的维护者；它重新提交后出一张新的计划卡（第 2 版）", async () => {
+  it("附意见打回：任务回到规划中，意见作为一条消息交回起草的负责人；它重新提交后出一张新的计划卡（第 2 版）", async () => {
     const revised = samplePlan({ assumptions: ["只用公开资料", "不写价格"] });
     const { frontend, card, daemon } = await untilPlanCard([submitPlanStep(), say("计划交上去了"), submitPlanStep(revised), say("改好了")]);
     expect(await frontend.cardAction({ cardId: card.id, action: "reject", expectedVersion: 1 })).toMatchObject({ ok: false, error: { code: "bad_params" } });
@@ -545,7 +545,7 @@ describe("演示流程（录给前端回放）", () => {
   it("在秘书页说“帮我整理一份 X 的调研” → 秘书直接建出任务（规划中）→ 提问卡“全按推荐” → 待我处理出现计划卡 → 收窄一行授权后确认 → 看板上任务进入排队中，有执行名额马上开始第 1 阶段（13 号票）", async () => {
     const ask = call("ask_questions", { taskId: "t-1", questions: [{ question: "调研给谁看？", options: ["自己", "团队"], recommended: "自己" }] });
     const { url, daemon } = await startTestDaemon({
-      secretary: [createTask, ask, say("我理解你要的是一份 X 的调研，对吗？先回答一个问题。"), writeBrief, say("任务书交给维护者了，计划会放进你的待我处理。")],
+      secretary: [createTask, ask, say("我理解你要的是一份 X 的调研，对吗？先回答一个问题。"), writeBrief, say("任务书交给负责人了，计划会放进你的待我处理。")],
       maintainer: (_id, spawn) => (spawn === 1 ? [submitPlanStep(), say("计划交上去了")] : [say("开始做第一阶段")]),
     });
     const frontend = await connect(url);
@@ -558,15 +558,15 @@ describe("演示流程（录给前端回放）", () => {
     const plan = await cardWhere(frontend, ofType("plan"), "计划卡");
     await eventually(() => frontend.events({ channel: INBOX, type: EVENT_TYPES.inboxItem }), () => true, "待我处理里的计划卡");
     await taskWhere(frontend, (e) => e.task.state === "awaiting_confirm");
-    // 维护者起草计划的两次模型调用都记了账再确认（看板上的事件流每次一样，24 号票）
-    await eventually(() => tokenTotalsOf(frontend), (t) => t.calls === 2, "维护者起草计划的两次调用记账");
+    // 负责人起草计划的两次模型调用都记了账再确认（看板上的事件流每次一样，24 号票）
+    await eventually(() => tokenTotalsOf(frontend), (t) => t.calls === 2, "负责人起草计划的两次调用记账");
     ok(await frontend.cardAction({ cardId: plan.id, action: "confirm", expectedVersion: 1, input: { narrowGrants: [{ grantId: "push-report", maxUses: 1 }] } }));
     await taskWhere(frontend, (e) => e.task.state === "queued");
     await cardWhere(frontend, (c) => c.id === plan.id && c.status === "handled");
     await taskWhere(frontend, (e) => e.change === "stage_started");
     expect(daemon.tasks.get("t-1")).toMatchObject({ state: "running", stages: { total: 2, current: 1 } });
-    // 开始执行后维护者的那一次调用也记了账
-    await eventually(() => tokenTotalsOf(frontend), (t) => t.calls === 3, "维护者开始执行的那次调用记账");
+    // 开始执行后负责人的那一次调用也记了账
+    await eventually(() => tokenTotalsOf(frontend), (t) => t.calls === 3, "负责人开始执行的那次调用记账");
     saveOrCheckRecording("task-initiation", frontend.recording, { perChannel: true });
   }, 60_000);
 });

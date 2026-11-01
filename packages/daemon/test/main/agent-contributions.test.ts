@@ -1,8 +1,8 @@
 // 主切面：agent 贡献缝（128 号票，ADR-0027）。走真实的装配路径：测试用的插件接在插件清单后面（startTestDaemon 的 extraPlugins，
 // 和清单里的插件同一条路：插件宿主装配 → agent 贡献模块 → 秘书、agent 宿主的装配 → 宿主协议的通用贡献清单 → 子进程里的桥接扩展）。
-// - 插件给"任务的维护者、起草计划的会话"一个工具：起草计划的维护者看得到、调用得了（守卫照它带的登记判、记下调用），
+// - 插件给"任务的负责人、起草计划的会话"一个工具：起草计划的负责人看得到、调用得了（守卫照它带的登记判、记下调用），
 //   执行的会话里没有（按会话种类筛）、秘书看不到（按 agent 筛）；
-// - 插件给任务的维护者的每轮上下文跟在交给它的输入后面，被唤起时注入的上下文块在输入之前，系统提示后缀接在系统提示末尾；
+// - 插件给任务的负责人的每轮上下文跟在交给它的输入后面，被唤起时注入的上下文块在输入之前，系统提示后缀接在系统提示末尾；
 // - 秘书也经同一个贡献模块：上下文块、钩子订阅的文字变了，下一条输入之前先送过去（同一个子进程里就是新的）；
 // - 插件运行中停用（只有测试用）：贡献撤掉，秘书手头这一条处理完就按新的重新装配。
 import { CHANNELS, maintainerChannel, type MessageEventPayload, Type } from "@ergo/protocol";
@@ -29,7 +29,7 @@ const probeTool = defineHostTool({
   run: (args) => ({ text: `探针查到了：${args.what}` }),
 });
 
-/** 测试用的插件：给任务的维护者（工具只给起草计划的会话）、给秘书的各一份；version 是被唤起时注入的那块的版本 */
+/** 测试用的插件：给任务的负责人（工具只给起草计划的会话）、给秘书的各一份；version 是被唤起时注入的那块的版本 */
 function probePlugin(state: { version: number }): PluginDefinition {
   return {
     name: "probe",
@@ -57,7 +57,7 @@ const latestPrompt = (seen: string) => {
 };
 
 describe("agent 贡献缝", () => {
-  it("插件给起草计划的任务维护者的工具、每轮上下文、上下文块、系统提示后缀：它看得到、用得了（守卫照登记判）；执行的会话没有这个工具，秘书都看不到", { timeout: 90_000 }, async () => {
+  it("插件给起草计划的任务负责人的工具、每轮上下文、上下文块、系统提示后缀：它看得到、用得了（守卫照登记判）；执行的会话没有这个工具，秘书都看不到", { timeout: 90_000 }, async () => {
     const state = { version: 1 };
     const td = await startTestDaemon({
       extraPlugins: [probePlugin(state)],
@@ -65,7 +65,7 @@ describe("agent 贡献缝", () => {
       maintainer: (_id, spawn) => (spawn === 1 ? [call("probe_lookup", { what: "资料" }), submitPlanStep(twoStagePlan()), echo, say("交了")] : [echo, echo]),
     });
     expect(td.daemon.plugins.report().running).toEqual(["reminders", "memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki", "probe"]);
-    // 测试接缝：记下拉起维护者的请求（守护进程代为执行的工具、通用贡献清单里插件的那几项）
+    // 测试接缝：记下拉起负责人的请求（守护进程代为执行的工具、通用贡献清单里插件的那几项）
     const spawned: SpawnAgentRequest[] = [];
     const original = td.daemon.agents.spawn.bind(td.daemon.agents);
     td.daemon.agents.spawn = (request) => {
@@ -76,14 +76,14 @@ describe("agent 贡献缝", () => {
     const frontend = await TestFrontend.connect(td.url);
     await frontend.subscribe({ [SECRETARY]: 0, [CHANNELS.cards]: 0, [CHANNELS.board]: 0, [TM1]: 0 });
 
-    // 秘书：这三样都只给任务的维护者（上下文块、后缀也给秘书，见下一条）
+    // 秘书：这三样都只给任务的负责人（上下文块、后缀也给秘书，见下一条）
     await frontend.sendText("你好");
     await inputsDone(frontend, SECRETARY);
     const secretarySeen = textOf(echoes(frontend, SECRETARY).at(-1)!);
     expect(toolsIn(secretarySeen)).not.toContain("probe_lookup");
     expect(secretarySeen).not.toContain("【探针：跟在输入后面】");
 
-    // 起草计划的维护者
+    // 起草计划的负责人
     const task = td.daemon.tasks.createByRequest({ title: "调研", summary: "调研" });
     td.daemon.tasks.writeBrief(task.id, { goal: "整理一份 X 的调研", acceptanceCriteria: ["附来源"], constraints: [], projects: [], memoryScope: "" });
     const card = await cardWhere(frontend, (c) => c.type === "plan", "计划卡");
@@ -115,7 +115,7 @@ describe("agent 贡献缝", () => {
     expect(maintainerSpawns()).toHaveLength(2);
     expect(execution.hostTools?.map((t) => t.name)).not.toContain("probe_lookup");
     expect(execution.contributions).toEqual({
-      // 355 号票：授权的文件夹那一块也给维护者，没有授权的文件夹时文字是空的（不注入）
+      // 355 号票：授权的文件夹那一块也给负责人，没有授权的文件夹时文字是空的（不注入）
       contextBlocks: [{ id: "probe:brief", text: "【探针：简报 v2】" }, { id: "authorized-folders", text: "" }],
       hooks: [{ id: "probe:rules", kind: "system_prompt_suffix", text: "【探针的规矩 v2】" }],
     });
@@ -163,7 +163,7 @@ describe("agent 贡献缝", () => {
   });
 });
 
-/** 等维护者会话里第 n 条回显 */
+/** 等负责人会话里第 n 条回显 */
 async function eventuallyEcho(frontend: TestFrontend, channel: string, n: number): Promise<MessageEventPayload> {
   for (let i = 0; i < 300; i++) {
     const list = echoes(frontend, channel);

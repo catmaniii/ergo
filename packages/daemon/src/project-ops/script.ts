@@ -30,7 +30,7 @@ export interface ScriptRunResult {
   exitCode?: number | null;
 }
 
-/** 脚本在工作目录里的绝对路径：在里面、存在、是文件；不是的说清（给秘书 / 维护者看） */
+/** 脚本在工作目录里的绝对路径：在里面、存在、是文件；不是的说清（给秘书 / 负责人看） */
 export function scriptPath(workdir: string, file: string): { ok: true; path: string } | { ok: false; reason: string } {
   const full = path.resolve(workdir, file);
   let real: string;

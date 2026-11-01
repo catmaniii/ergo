@@ -4,5 +4,5 @@
 /** 插件名：配置 plugins.disabled / plugins.removed、设置 · 插件里写的就是它，定了别改 */
 export const CLAUDE_CODE_PLUGIN = "claude-code";
 
-/** 运行时的 id：维护者的运行时属性（Task.runtime、Project.runtime）里写的就是它，定了别改 */
+/** 运行时的 id：负责人的运行时属性（Task.runtime、Project.runtime）里写的就是它，定了别改 */
 export const CLAUDE_CODE_RUNTIME_ID = "claude-code";

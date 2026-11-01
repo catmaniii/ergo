@@ -1,5 +1,5 @@
 // 子 agent 的派生视图（20 号票）：sub_agents 频道上的事件归并成每个子 agent 一行——属于哪个任务的哪个阶段、
-// 由哪个维护者提议、在哪个目录里干活、走到哪一步（提议了 → 用户同意或不同意 → 拉起 → 结束）。
+// 由哪个负责人提议、在哪个目录里干活、走到哪一步（提议了 → 用户同意或不同意 → 拉起 → 结束）。
 // 任务执行控制器据此知道哪些阶段有子 agent 在做；24 号票按它把子 agent 的用量归到所属任务（ownerOf）。
 import type { DerivedView } from "../events/event-store.ts";
 import type { ReadonlyDatabase } from "../storage/sqlite.ts";

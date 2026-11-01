@@ -5,9 +5,9 @@
 // - 清单验收（照 112 号票的自动验收）：转运营检查清单那一项先"正在验收"，后台验完刷新卡（建设期间服务正好在跑：项目服务上的操作也测了，
 //   测试调用带测试标记、没真记账）；验收不过时清单上标缺、写明哪里不对；转入使用时登记成第 1 版；
 // - list、describe、call：通用操作开头列一次、项目自己的操作写着第几版；参数不对不发、退回说明；能念的 say；四种实现方式各一条
-//   （http 假服务、工作目录里的假脚本、二狗自带动作绑参数、转给维护者当工单）；通用操作（状态、跟维护者说一句）；不出卡、不进待我处理；
+//   （http 假服务、工作目录里的假脚本、二狗自带动作绑参数、转给负责人当工单）；通用操作（状态、跟负责人说一句）；不出卡、不进待我处理；
 //   记录里带版本号；工具清单里只有 project_ops、系统提示里写着；
-// - 使用中改了清单：秘书用到时重新验收，没过的照旧用上一版、告诉维护者；维护者用 check_ops 验收全过登记成第 2 版，秘书马上用；
+// - 使用中改了清单：秘书用到时重新验收，没过的照旧用上一版、告诉负责人；负责人用 check_ops 验收全过登记成第 2 版，秘书马上用；
 // - 操作不存在、服务关着（257 的"关闭"）、项目不是使用中的：回原因，一个请求都不发到服务。
 import fs from "node:fs";
 import path from "node:path";
@@ -83,7 +83,7 @@ const FULL_OPS = {
     {
       name: "add_category",
       title: "加一个分类",
-      description: "给记账本加一个新的支出分类（要改代码，交给维护者做）。",
+      description: "给记账本加一个新的支出分类（要改代码，交给负责人做）。",
       userSays: ["加一个宠物分类"],
       kind: "action",
       inputSchema: { type: "object", properties: { name: { type: "string", description: "分类名" } }, required: ["name"] },
@@ -221,7 +221,7 @@ describe("秘书的 project_ops：照草稿补齐（268 号票）", () => {
     });
     const frontend = await connect(td);
     await lsm.waitFor((m) => m.type === "hello", "握手");
-    // 建设期间就交了清单（服务这会儿正在跑：维护者建设时起着它）
+    // 建设期间就交了清单（服务这会儿正在跑：负责人建设时起着它）
     writeOps(d.records("p-1"), FULL_OPS);
     await ledgerBuilt(td, frontend, app.port);
     // "首版做完了"卡上的清单：后台验完了刷新成"验收通过"
@@ -266,21 +266,21 @@ describe("秘书的 project_ops：照草稿补齐（268 号票）", () => {
     expect(app.expenses()).toEqual([{ amount: 32, note: "午饭", category: "food" }]);
 
     // 另外三种实现方式、通用操作
-    await frontend.sendText("九月花了多少？记账本还好吗？加一个宠物分类；跟维护者说以后记账默认分类改成吃饭");
+    await frontend.sendText("九月花了多少？记账本还好吗？加一个宠物分类；跟负责人说以后记账默认分类改成吃饭");
     await turnsOf(frontend, SECRETARY, 3);
     const third = lastReply(frontend);
     expect(toolResult(third, 4)).toContain("能念的一句：9 月花了 320 元");
     expect(toolResult(third, 3)).toContain("能念的一句：「记账本」使用中；服务在线");
     expect(toolResult(third, 3)).toContain("运营接口清单：第 1 版（项目自己的操作 5 个）");
-    expect(toolResult(third, 2)).toContain("能念的一句：「加一个分类」转给「记账本」的维护者当工单了");
-    expect(toolResult(third, 1)).toContain("能念的一句：转给「记账本」的维护者了。");
-    // maintainer：建了一个项目内部的普通任务（派一张执行的工单给维护者），任务书写清操作、参数、为什么
+    expect(toolResult(third, 2)).toContain("能念的一句：「加一个分类」转给「记账本」的负责人当工单了");
+    expect(toolResult(third, 1)).toContain("能念的一句：转给「记账本」的负责人了。");
+    // maintainer：建了一个项目内部的普通任务（派一张执行的工单给负责人），任务书写清操作、参数、为什么
     const handed = td.daemon.tasks.list().find((t) => t.origin === "delegated" && t.internal?.projectId === "p-1");
     expect(handed).toMatchObject({ kind: "plain", title: "加一个分类" });
     expect(handed!.summary).toContain("给记账本加一个支出分类「宠物」");
     expect(handed!.summary).toContain("为什么：用户要加宠物分类");
-    // 跟维护者说一句：插进维护者的会话，标着秘书转达
-    await waitUntil(() => messagesOf(frontend, PM1).some((m) => textOf(m).includes("以后记账默认分类改成吃饭") && m.message.relayedBy === "secretary"), { describe: () => "维护者会话里的转达" });
+    // 跟负责人说一句：插进负责人的会话，标着秘书转达
+    await waitUntil(() => messagesOf(frontend, PM1).some((m) => textOf(m).includes("以后记账默认分类改成吃饭") && m.message.relayedBy === "secretary"), { describe: () => "负责人会话里的转达" });
 
     // 不用确认：没有新卡、没有新的待我处理
     expect(cardsOf(frontend).slice(cardsBefore)).toEqual([]);
@@ -290,8 +290,8 @@ describe("秘书的 project_ops：照草稿补齐（268 号票）", () => {
       ["add_expense", 1, "action", "http", "记好了：午饭 32 元", false],
       ["month_report", 1, "query", "script", "9 月花了 320 元", false],
       ["ledger_status", 1, "query", "ergo", expect.stringContaining("「记账本」使用中"), false],
-      ["add_category", 1, "action", "maintainer", expect.stringContaining("转给「记账本」的维护者当工单了"), false],
-      ["tell_maintainer", null, "action", "ergo", "转给「记账本」的维护者了。", false],
+      ["add_category", 1, "action", "maintainer", expect.stringContaining("转给「记账本」的负责人当工单了"), false],
+      ["tell_maintainer", null, "action", "ergo", "转给「记账本」的负责人了。", false],
     ]);
     const records = recordsOf(frontend, SECRETARY)
       .map((r) => r.record)
@@ -305,7 +305,7 @@ describe("秘书的 project_ops：照草稿补齐（268 号票）", () => {
     await frontend.close();
   }, 240_000);
 
-  it("验收不过时转运营清单上标缺；补齐后刷新；使用中改了清单：没过的照旧用上一版、告诉维护者，check_ops 全过登记成第 2 版、秘书马上用", async () => {
+  it("验收不过时转运营清单上标缺；补齐后刷新；使用中改了清单：没过的照旧用上一版、告诉负责人，check_ops 全过登记成第 2 版、秘书马上用", async () => {
     const d = dirs();
     const lsm = await startLsmStandIn({ owned: true, heartbeatIntervalMs: 60_000 });
     const app = await startFakeOpsApp();
@@ -333,7 +333,7 @@ describe("秘书的 project_ops：照草稿补齐（268 号票）", () => {
     await putInUse(td, frontend, fixed);
     expect(registeredEvents(td).map((r) => r.version)).toEqual([1]);
 
-    // 使用中加了一个不回 say 的操作：秘书用到时重新验收没过，照旧用第 1 版，告诉维护者
+    // 使用中加了一个不回 say 的操作：秘书用到时重新验收没过，照旧用第 1 版，告诉负责人
     writeOps(d.records("p-1"), { ...LEDGER_OPS, tools: [...LEDGER_OPS.tools, { ...LEDGER_OPS.tools[1]!, name: "legacy_list", title: "老写法" }] });
     await frontend.sendText("记账本能做什么");
     await turnsOf(frontend, SECRETARY, 1);
@@ -341,11 +341,11 @@ describe("秘书的 project_ops：照草稿补齐（268 号票）", () => {
     expect(listed).toContain("运营接口清单第 1 版");
     expect(listed).toContain("档案里的运营接口清单改过了，验收没过：操作 legacy_list 的测试回的没有能念的 say");
     await waitUntil(() => messagesOf(frontend, PM1).some((m) => m.message.speaker === "system" && textOf(m).includes("秘书用到时验收没过") && textOf(m).includes("check_ops")), {
-      describe: () => "告诉维护者验收没过",
+      describe: () => "告诉负责人验收没过",
     });
     expect(registeredEvents(td).map((r) => r.version)).toEqual([1]);
 
-    // 维护者改对了、用 check_ops 验收：全过，登记成第 2 版
+    // 负责人改对了、用 check_ops 验收：全过，登记成第 2 版
     writeOps(d.records("p-1"), { ...LEDGER_OPS, tools: [{ ...LEDGER_OPS.tools[0]!, usage: "金额不清楚的先问用户" }, LEDGER_OPS.tools[1]!] });
     const checked = await td.daemon.projectOps.checkTool({ projectId: "p-1", maintainerId: "pm-1" }).run({} as never, { toolCallId: "call-check" });
     expect(checked.isError).toBeFalsy();

@@ -278,7 +278,7 @@ Models are called on the server (the computer running the daemon); the web page 
 
 **The page has five blocks, top to bottom**: **Provider** (DeepSeek or custom; the endpoint, model id and API style only unfold for custom) → **API key** (one row per provider, with the connection test at the bottom) → **Default model** (and thinking level) → **Agents** (what each one uses) → **Image understanding** (whether each model can see images). With a custom provider selected the later blocks collapse (see points 5 and 7 below).
 
-**DeepSeek is the default**: DeepSeek V4.1 Flash with thinking level high, used by the secretary, maintainers, sub-agents, reviewers and scope review. Under **Settings · Models** you can change the default model, override it per agent, pick a thinking level per row, and say whether a model can see images.
+**DeepSeek is the default**: DeepSeek V4.1 Flash with thinking level high, used by the secretary, owners, sub-agents, reviewers and scope review. Under **Settings · Models** you can change the default model, override it per agent, pick a thinking level per row, and say whether a model can see images.
 
 **Switching to a custom (OpenAI-compatible) provider** (the "Provider" block at the top of **Settings · Models**, or the "Model key" step of the **setup wizard** — the same block in both places):
 
@@ -292,7 +292,7 @@ Models are called on the server (the computer running the daemon); the web page 
 Things worth knowing:
 
 - **"Fetch list" and "Test the current provider" save this block first**: the daemon takes the key of the provider selected in settings, so only after it is saved as "custom" does it have that key. A "Saved. Takes effect from the next new session" message confirms it.
-- **One session sticks to one model**: changing the provider or the model applies from the next new session; the secretary's main session, a project maintainer's chat and scheduled tasks start a fresh session on the next round with a handoff summary (the chat notes "switched to X"); a running task never switches midway.
+- **One session sticks to one model**: changing the provider or the model applies from the next new session; the secretary's main session, a project owner's chat and scheduled tasks start a fresh session on the next round with a handoff summary (the chat notes "switched to X"); a running task never switches midway.
 - **A custom provider has a single model**: with custom selected, "Default model" no longer repeats the model id — it just says "Uses the model filled in under the provider: X" — and the default thinking level, the whole Agents block and the Image understanding block collapse (a custom model doesn't think, there is only one model to choose, and ergo has no way to know whether that service accepts images). Switch back to DeepSeek and all of them return; the model ids those rows already had still apply.
 
 **What does not follow the switch** (still DeepSeek-only after you move to a custom provider):

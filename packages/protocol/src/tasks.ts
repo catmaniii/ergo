@@ -46,7 +46,7 @@ export const TASK_END_KINDS = ["converted_to_project"] as const;
  * - 普通任务（plain，75 号票）：有任务卡、有自己的 agent，在后台像普通 agent 一样一轮轮直接做——不规划、不授权、不检查
  *   （守卫按普通对话那一套判，受 guard.conversationApprovals 管；受保护区域、密钥的硬拒绝照旧）。agent 这一轮做完就自动算完成；
  *   用户接着说话它就接着做。助理可以自己决定把一件事交出去建成它（delegate_task），不必等用户点明；
- * - 流程（workflow）：固定计划——维护者把要做的事排成一串步骤（每步一次工具调用，连同它要满足的条件），
+ * - 流程（workflow）：固定计划——负责人把要做的事排成一串步骤（每步一次工具调用，连同它要满足的条件），
  *   审查修补后用户一次授权，执行时按步骤做；
  * - 长程任务（long_running）：原来的任务，计划由阶段组成，逐阶段验收、可以计划变更。
  * 流程和长程任务分开之前建的任务没有记种类，都算长程任务（taskKind 补默认值，不迁移数据）
@@ -153,12 +153,12 @@ export function taskName(task: { id: string; title: string }): string {
   return t("protocol.tasks.name", { id: task.id, title: task.title });
 }
 
-/** 任务自己的维护者（建任务卡时产生，t-<n> 的是 tm-<n>）；属于项目的任务（首个建设任务）由项目的维护者执行 */
+/** 任务自己的负责人（建任务卡时产生，t-<n> 的是 tm-<n>）；属于项目的任务（首个建设任务）由项目的负责人执行 */
 export function ownMaintainerId(taskId: string): string {
   return `tm-${taskId.replace(/^t-/, "")}`;
 }
 
-/** 任务由它自己的维护者执行（不是某个项目的任务）：这样的任务才能转为项目 */
+/** 任务由它自己的负责人执行（不是某个项目的任务）：这样的任务才能转为项目 */
 export function hasOwnMaintainer(task: { id: string; maintainerId: string }): boolean {
   return task.maintainerId === ownMaintainerId(task.id);
 }
@@ -166,7 +166,7 @@ export function hasOwnMaintainer(task: { id: string; maintainerId: string }): bo
 export type TaskEndKind = (typeof TASK_END_KINDS)[number];
 
 /**
- * 任务涉及几个项目（规格第 8 节"执行者"，17 号票评审后定）：不涉及项目、单项目（由这个项目的维护者执行）、多项目（任务自己的维护者，
+ * 任务涉及几个项目（规格第 8 节"执行者"，17 号票评审后定）：不涉及项目、单项目（由这个项目的负责人执行）、多项目（任务自己的负责人，
  * 工具包固定为读项目档案、派工单、汇总回执）。建卡时定下（建卡时没写项目的，第一版任务书定下），之后不随计划改动重新判断：
  * 单项目任务的计划不能写进别的项目，不涉及项目的任务的计划不能写项目行；多项目任务删到只剩一个项目也还是多项目任务
  */
@@ -180,8 +180,8 @@ export const TASK_PROJECT_SCOPE_LABEL: Readonly<Record<TaskProjectScope, string>
 });
 
 /**
- * 任务涉及几个项目：任务上记着的；17 号票之前建的任务没有记，由项目的维护者执行的是单项目，
- * 任务自己的维护者执行、涉及两个以上项目的是多项目，其余不涉及项目
+ * 任务涉及几个项目：任务上记着的；17 号票之前建的任务没有记，由项目的负责人执行的是单项目，
+ * 任务自己的负责人执行、涉及两个以上项目的是多项目，其余不涉及项目
  */
 export function taskProjectScope(task: { id: string; maintainerId: string; projects: readonly string[]; projectScope?: TaskProjectScope | undefined }): TaskProjectScope {
   if (task.projectScope !== undefined) return task.projectScope;
@@ -209,28 +209,28 @@ export const TASK_ACTOR_LABEL: Readonly<Record<TaskActor, string>> = tTable({
  * 75 号票：delegated——助理自己决定把用户交代的一件事交给后台去做（delegate_task），建成普通任务，不必等用户点明（ADR 0025）。
  * 76 号票：migrated——ADR 0025 之前长程任务的计划里登记的定时作业，迁移成定时触发的普通任务（新事件建出，不改写原来的事件）。
  * 130 号票：operations——用户确认了项目的运营方案，方案里的一条生效成这个项目的内部任务（定时、事件触发的普通任务或流程）
- * 290 号票：takeover——用户点"发起任务"时选了"从 Claude Code 会话接管"：普通任务，维护者接着那个会话、在会话原来的工作目录里做
+ * 290 号票：takeover——用户点"发起任务"时选了"从 Claude Code 会话接管"：普通任务，负责人接着那个会话、在会话原来的工作目录里做
  */
 export const TASK_ORIGINS = ["button", "suggestion", "request", "project_build", "delegated", "migrated", "operations", "takeover"] as const;
 export type TaskOrigin = (typeof TASK_ORIGINS)[number];
 
 /**
- * 任务看板事件里"这次是什么变化"。12 号票：建出、维护者提交计划、用户确认计划、用户打回计划，以及转为项目（15 号票用）；
+ * 任务看板事件里"这次是什么变化"。12 号票：建出、负责人提交计划、用户确认计划、用户打回计划，以及转为项目（15 号票用）；
  * 13 号票：执行和阶段——
  * - started：排队中 → 执行中（名额空出，系统开始执行）；requeued：要恢复执行而名额满了，回到排队中；
- * - stage_started：开始一个阶段；stage_submitted：维护者宣布阶段完成，开始验收；stage_accepted：这个阶段验收通过；
- *   stage_returned：验收没通过（脚本、评审或用户退回），交回维护者；stage_waiting：这一支停下等用户（审批、交给我做、由我验收）；
+ * - stage_started：开始一个阶段；stage_submitted：负责人宣布阶段完成，开始验收；stage_accepted：这个阶段验收通过；
+ *   stage_returned：验收没通过（脚本、评审或用户退回），交回负责人；stage_waiting：这一支停下等用户（审批、交给我做、由我验收）；
  *   stage_unblocked：这一支不用再等了（批准或拒绝了、交给我做的事做完了）；
- * - waiting：转等我（所有能推进的分支都在等用户，或维护者卡住求助）；resumed：接着执行（等我、已暂停之后）；paused：暂停；
- * - completed：全部阶段验收通过，自动完成；failed：维护者判失败；retried：失败后重试；rework：用户要求返工；cancelled：取消。
- * 16 号票：handed_to_project：秘书写的任务书只涉及一个项目（建卡时没写），任务交给这个项目的维护者起草并执行。
- * 17 号票：projects_settled：建卡时没写项目、第一版任务书涉及多个项目，任务定为多项目任务（执行的还是任务自己的维护者）。
+ * - waiting：转等我（所有能推进的分支都在等用户，或负责人卡住求助）；resumed：接着执行（等我、已暂停之后）；paused：暂停；
+ * - completed：全部阶段验收通过，自动完成；failed：负责人判失败；retried：失败后重试；rework：用户要求返工；cancelled：取消。
+ * 16 号票：handed_to_project：秘书写的任务书只涉及一个项目（建卡时没写），任务交给这个项目的负责人起草并执行。
+ * 17 号票：projects_settled：建卡时没写项目、第一版任务书涉及多个项目，任务定为多项目任务（执行的还是任务自己的负责人）。
  * 14 号票：偏离、阈值和计划变更——
- * - pulled_back：维护者被拉回（按规则退回）一次，阶段上的拉回次数加 1；nudged：无进展时运行时催了一次，阶段上的催促次数加 1；
+ * - pulled_back：负责人被拉回（按规则退回）一次，阶段上的拉回次数加 1；nudged：无进展时运行时催了一次，阶段上的催促次数加 1；
  *   progressed：催过之后有了成功的工具调用或阶段推进，催促次数清零；rejection_counted：用户拒绝了一次（审批、计划变更），
  *   任务上的累计被拒次数加 1（满了就 paused，pauseReason 写明）；
- * - plan_change_proposed：维护者提交了计划变更，受影响的阶段停下等确认；plan_changed：用户确认了计划变更，计划和阶段随之更新；
- *   plan_change_rejected：用户拒绝了计划变更，受影响的阶段交回维护者在现有授权内重排；plan_revised：维护者自行调整了计划
+ * - plan_change_proposed：负责人提交了计划变更，受影响的阶段停下等确认；plan_changed：用户确认了计划变更，计划和阶段随之更新；
+ *   plan_change_rejected：用户拒绝了计划变更，受影响的阶段交回负责人在现有授权内重排；plan_revised：负责人自行调整了计划
  *   （拆阶段、调顺序这类不扩大授权的）。
  * 19 号票：archived：用户在归档清单上选了"归档"（已完成、失败、已取消 → 已归档）。
  * 往后的票加新的变化时往这里加
@@ -267,12 +267,12 @@ export const TASK_CHANGES = [
   "plan_changed",
   "plan_change_rejected",
   "plan_revised",
-  // 27 号票：用户在任务详情里直接改了工具包、维护者增减了 skill（现在生效的计划换了一版，只改了工具包）
+  // 27 号票：用户在任务详情里直接改了工具包、负责人增减了 skill（现在生效的计划换了一版，只改了工具包）
   "toolkit_changed",
   "archived",
-  // 58 号票：流程的维护者用 report_step 报了一步的状态
+  // 58 号票：流程的负责人用 report_step 报了一步的状态
   "step_reported",
-  // 59 号票：流程的维护者一轮收工时，运行时推断出步骤做完了（报着"在做"的、执行过却没报的）
+  // 59 号票：流程的负责人一轮收工时，运行时推断出步骤做完了（报着"在做"的、执行过却没报的）
   "steps_inferred",
   // 75 号票：普通任务做完之后用户在任务详情里接着说了（或者运行时交给它一条通知），任务回到执行中接着做
   "continued",
@@ -282,12 +282,12 @@ export const TASK_CHANGES = [
   "voice_announce_set",
   // 141 号票：项目取消归档，跟着项目归档了的运营方案的内部任务回到归档前的状态（Task.archivedFrom；跟着归档时记的是 archived，系统做的）
   "unarchived",
-  // 152 号票：用户撤回了维护者的会话（会话回退），任务的阶段、计划按保留的分支推导：
+  // 152 号票：用户撤回了负责人的会话（会话回退），任务的阶段、计划按保留的分支推导：
   // 回到某阶段开始之前，那个阶段及之后回到未开始；回到计划确认之前，任务回到规划中
   "rolled_back",
   // 186 号票：用户删了这个任务（连会话、工作目录一起删）：任务的文字换成删除标记、带 deleted，看板、日历、待办都不再有它
   "deleted",
-  // 289 号票：维护者用的运行时（Task.runtime）或给它选的值（Task.runtimeOptions）改了（状态不变）
+  // 289 号票：负责人用的运行时（Task.runtime）或给它选的值（Task.runtimeOptions）改了（状态不变）
   "runtime_set",
   // 290 号票：从运行时已有的会话接管来的（Task.takeover）交还了、收回了（状态不变）
   "takeover_set",
@@ -297,7 +297,7 @@ export type TaskChange = (typeof TASK_CHANGES)[number];
 // ───────────────────────── 执行和阶段（13 号票） ─────────────────────────
 
 /**
- * 阶段的状态：未开始、进行中（维护者在做，同一时刻最多一个）、验收中（宣布完成后跑脚本、评审）、
+ * 阶段的状态：未开始、进行中（负责人在做，同一时刻最多一个）、验收中（宣布完成后跑脚本、评审）、
  * 等我（这一支在等用户：审批挂起、交给我做、由我验收）、已验收
  */
 export const STAGE_STATES = ["pending", "running", "accepting", "waiting", "accepted"] as const;
@@ -312,9 +312,9 @@ export const STAGE_STATE_LABEL: Readonly<Record<StageState, string>> = tTable({
 });
 
 /**
- * 任务（或它的一支）在等用户的原因：审批（挂起的审批）、交给我做、由我验收、卡住求助（维护者"转为等我"；14 号票起还有
+ * 任务（或它的一支）在等用户的原因：审批（挂起的审批）、交给我做、由我验收、卡住求助（负责人"转为等我"；14 号票起还有
  * 拉回超限、催促超限、验收第 3 次不过、标了做不了）、超预算（预算超出 2 倍，14）、计划变更（等用户确认计划变更卡，14）；
- * 工单的等澄清（17）、中断不确定（23）由各自的票用；运行时没启用（286 号票：执行它的维护者用的运行时插件停用了，说明写明哪个插件，
+ * 工单的等澄清（17）、中断不确定（23）由各自的票用；运行时没启用（286 号票：执行它的负责人用的运行时插件停用了，说明写明哪个插件，
  * 启用后系统接着执行，用户点"继续"没用）
  */
 export const TASK_WAIT_REASONS = ["approval", "hand_over", "acceptance", "stuck", "clarification", "over_budget", "interrupted", "plan_change", "runtime_off"] as const;
@@ -333,10 +333,10 @@ export const TASK_WAIT_REASON_LABEL: Readonly<Record<TaskWaitReason, string>> = 
 });
 
 /**
- * 由用户直接定夺的等我原因：卡住求助（维护者"转为等我"，14 号票起还有阈值超了、标了做不了）、超预算（14 号票：用量超过预算的 2 倍）、
+ * 由用户直接定夺的等我原因：卡住求助（负责人"转为等我"，14 号票起还有阈值超了、标了做不了）、超预算（14 号票：用量超过预算的 2 倍）、
  * 中断不确定（23 号票：被杀时一次有副作用的调用说不清做没做完）。用户点"继续"（任务详情里的"继续执行"，或待我处理里那条事项上的
  * "继续执行""追加预算继续"）就接着执行，停下的那一支计数清零、超预算的阶段重新给一整份预算；在会话里回话能不能接着执行另见
- * RESUME_ON_REPLY_WAIT_REASONS（超预算不行）。维护者自己说的等我、中断不确定，别的分支有了结论也不会让任务自己恢复；
+ * RESUME_ON_REPLY_WAIT_REASONS（超预算不行）。负责人自己说的等我、中断不确定，别的分支有了结论也不会让任务自己恢复；
  * 别的等我（审批、交给我做、由我验收、计划变更……）要先在待我处理里处理掉那件事
  */
 export const USER_DECIDES_WAIT_REASONS = ["stuck", "over_budget", "interrupted"] as const satisfies readonly TaskWaitReason[];
@@ -347,9 +347,9 @@ export function userDecidesWait(task: { waitReason?: TaskWaitReason | undefined 
 }
 
 /**
- * 等用户定夺的里面，用户在任务的会话里回话就算定夺了、接着执行的：卡住求助、中断不确定（他的话就是交给维护者的输入）。
+ * 等用户定夺的里面，用户在任务的会话里回话就算定夺了、接着执行的：卡住求助、中断不确定（他的话就是交给负责人的输入）。
  * 超预算不在里面（2026-10-08 用户定的）：只有点"追加预算继续"（或任务详情里的"继续执行"）才接着执行、重新给一整份预算；
- * 会话里的话交给维护者回答，任务仍停在等我
+ * 会话里的话交给负责人回答，任务仍停在等我
  */
 export const RESUME_ON_REPLY_WAIT_REASONS = ["stuck", "interrupted"] as const satisfies readonly (typeof USER_DECIDES_WAIT_REASONS)[number][];
 
@@ -390,11 +390,11 @@ export const TASK_BATCH_MAX = 200;
 export const STAGE_ACCEPTANCE_ACTIONS = { pass: "验收通过", return: "退回" } as const;
 /** "失败后的抉择"事项（failure_choice）的两个动作 */
 export const FAILURE_CHOICE_ACTIONS = { retry: "重试", cancel: "取消任务" } as const;
-/** "卡住求助"事项（stuck_help）的动作：用户回过话、做完了维护者要的事之后点它 */
+/** "卡住求助"事项（stuck_help）的动作：用户回过话、做完了负责人要的事之后点它 */
 export const STUCK_HELP_ACTIONS = { resume: "继续执行" } as const;
 /**
  * "中断不确定"事项（interrupted，23 号票）在任务里的两个动作：守护进程被杀时一次有副作用的调用正在执行、说不清做没做完，
- * 任务转等我；用户查过之后告诉维护者做了没有，任务接着执行（也可以在任务详情里回话、点"继续"）
+ * 任务转等我；用户查过之后告诉负责人做了没有，任务接着执行（也可以在任务详情里回话、点"继续"）
  */
 export const INTERRUPTED_ACTIONS = { executed: "已经执行了，继续", notExecuted: "没执行，重做这一步" } as const;
 /** 不属于任务的"中断不确定"事项（秘书会话里的，不卡任务）只是告诉用户，动作是"知道了" */
@@ -460,7 +460,7 @@ export const ACCEPTANCE_VERDICT_LABEL: Readonly<Record<AcceptanceMethod, string>
   user: "protocol.tasks.verdict.user",
 });
 
-/** 进度卡（progress）是哪一种：维护者报告进展，或者一个阶段的验收结论 */
+/** 进度卡（progress）是哪一种：负责人报告进展，或者一个阶段的验收结论 */
 export const PROGRESS_CARD_KINDS = ["progress", "acceptance"] as const;
 
 // ───────────────────────── 看板分组 ─────────────────────────
@@ -515,7 +515,7 @@ export type AcceptanceMethod = (typeof ACCEPTANCE_METHODS)[number];
  * 阶段自动验收（112 号票，用户 2026-10-13 定：先定的是项目里的任务，同一天同意扩到所有长程任务——不涉及项目的、项目里的、
  * 跨多个项目的都一样）：每个阶段的交付件和验收标准在计划卡上由用户确认一次，之后各阶段做完由运行时自动验收（脚本先跑，再派
  * 独立评审按标准综合判，评审能在工作目录里跑命令），不再找用户验收；计划里写由你验收（user）的被计划检查退回。
- * 派到项目的工单本来就由项目的维护者交回执、不找用户验收；流程不逐步验收（它那个内部阶段写着 user 只是给人看的）。
+ * 派到项目的工单本来就由项目的负责人交回执、不找用户验收；流程不逐步验收（它那个内部阶段写着 user 只是给人看的）。
  * 例外照旧找用户：评审连续不通过到上限（验收第 3 次还不过）、卡住求助、失败后的抉择、超出授权；计划变更改了用户确认过的交付件、
  * 验收标准、授权的照旧要用户确认
  */

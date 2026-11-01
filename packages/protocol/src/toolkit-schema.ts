@@ -4,7 +4,7 @@
 // - 导入 skill（POST）：把一个含 SKILL.md 的目录复制一份进数据目录的 skill 区；可以导入并改名，也可以把一个目录作为一个集合整套导入（72 号票）；
 // - 秘书用的 skill（72 号票，GET 看、POST 改）：秘书也能用 skill 库里的 skill，默认装 agent-browser、yt-dlp，设置里的 skill 库页勾选；
 // - 用户在项目页或任务详情里直接改工具包（set_toolkit 请求）：扩大、减少都直接写进工具包，不出计划变更卡；
-// - "工具包变更"卡（toolkit_change）：项目维护者不在任务里时要开 bash、加 MCP、开联网，提交它进待我处理，用户批准或拒绝。
+// - "工具包变更"卡（toolkit_change）：项目负责人不在任务里时要开 bash、加 MCP、开联网，提交它进待我处理，用户批准或拒绝。
 // 名字和纯函数在 toolkit.ts。
 import { type Static, Type } from "typebox";
 import { PlanToolkit } from "./task-schema.ts";
@@ -92,13 +92,13 @@ export type ToolkitCatalog = Static<typeof ToolkitCatalog>;
  * 输入框里打 / 弹出的候选（82 号票）：二狗自己的命令（/workflow、/task……，310 号票起一律英文）和这个会话能用的 skill。
  * skill 的命令名就是它的目录名（/poteto-mode），几个 skill 目录名相同时集合里的写成"集合名:目录名"；
  * 和二狗自己的命令同名的 skill 要写 /skill:目录名。
- * 289 号票：维护者用的运行时能转交斜杠命令的（Claude Code，能力清单 slash_passthrough）——除了二狗自己的命令，候选是运行时报的命令
+ * 289 号票：负责人用的运行时能转交斜杠命令的（Claude Code，能力清单 slash_passthrough）——除了二狗自己的命令，候选是运行时报的命令
  * （kind 是 runtime，集合名写运行时的名字），打了原样交给它执行；二狗的 skill 不再展开
  * 310 号票：带参数提示（argumentHint）；不是用户语言的说明换成用户语言的（Claude Code 内置命令查表，别的用二狗的模型翻、缓存），
  * 原文留在 originalDescription；还没翻好的标 translating
  */
 export const SlashCommandEntry = Type.Object({
-  /** 二狗自己的命令、一个 skill，还是维护者用的运行时自己的命令（289 号票） */
+  /** 二狗自己的命令、一个 skill，还是负责人用的运行时自己的命令（289 号票） */
   kind: Type.Union([Type.Literal("command"), Type.Literal("skill"), Type.Literal("runtime")]),
   /** 选中后插进输入框的写法（后面不带空格）："/workflow"、"/poteto-mode"、"/pstack:tdd"、和命令同名时 "/skill:workflow" */
   text: Type.String({ minLength: 2 }),
@@ -240,15 +240,15 @@ export const SetToolkitResult = Type.Object({ toolkit: PlanToolkit, changed: Typ
 export type SetToolkitResult = Static<typeof SetToolkitResult>;
 
 /**
- * "工具包变更"卡（toolkit_change）：项目维护者不在任务里时要开 bash、加 MCP、开联网，提交它进待我处理。
- * 批准（approve）后这几样加进项目的工具包、维护者按新工具包重新装配；拒绝（deny）则工具包不变。
+ * "工具包变更"卡（toolkit_change）：项目负责人不在任务里时要开 bash、加 MCP、开联网，提交它进待我处理。
+ * 批准（approve）后这几样加进项目的工具包、负责人按新工具包重新装配；拒绝（deny）则工具包不变。
  * 批准、拒绝都是"审批决定"素材
  */
 export const ToolkitChangeCardPayload = Type.Object({
   projectId: Type.String(),
   projectName: Type.String(),
   maintainerId: Type.String(),
-  /** 维护者为什么要加 */
+  /** 负责人为什么要加 */
   why: Type.String(),
   /** 提交时项目的工具包 */
   before: PlanToolkit,

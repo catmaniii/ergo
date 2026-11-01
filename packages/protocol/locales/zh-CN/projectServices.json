@@ -35,7 +35,7 @@
   "projectServices.events.paused": "等事件「{name}」的任务暂停着，这次没叫醒谁。任务恢复之后再报",
   "projectServices.events.ignored": "事件「{name}」没交出去：{reason}",
   "projectServices.events.rateLimited": "服务「{title}」报得太快：每分钟最多 {limit} 次，这次没算，{seconds} 秒后再报",
-  "projectServices.events.tooLarge": "数据太大：最多 {max} 字节，这次没叫醒谁。只报要紧的部分，原文放进文件，让维护者自己读",
+  "projectServices.events.tooLarge": "数据太大：最多 {max} 字节，这次没叫醒谁。只报要紧的部分，原文放进文件，让负责人自己读",
   "projectServices.events.quoted": "「{name}」",
   "projectServices.events.noNames": "（一个也没有）",
   "projectServices.tool.recentEvents": "查服务最近报的事件",

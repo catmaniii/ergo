@@ -133,7 +133,7 @@ function applyTaskEvent(db: Database, event: StoredEvent): void {
             p.planId,
           );
         } else if (p.decision === "returned") {
-          // 让维护者改（58 号票）：这一版还是审查没通过的那一版，只记下处理的时间
+          // 让负责人改（58 号票）：这一版还是审查没通过的那一版，只记下处理的时间
           db.run("UPDATE task_plans SET decided_at = ? WHERE plan_id = ?", p.time, p.planId);
         } else {
           // 打回、拒绝；重做时作废的计划变更（84 号票）也一样不再生效；撤回会话作废的确认过的计划（152 号票）留下作废时的授予时间
@@ -149,7 +149,7 @@ function applyTaskEvent(db: Database, event: StoredEvent): void {
       }
       case TASK_EVENTS.planRevised: {
         const p = event.payload as PlanRevisedPayload;
-        // 维护者自行调整的一版没有卡片：沿用基于的那一版的卡片（任务详情里的计划卡）；流程的（153 号票：撤回、切换会话分支时换回的那一版）
+        // 负责人自行调整的一版没有卡片：沿用基于的那一版的卡片（任务详情里的计划卡）；流程的（153 号票：撤回、切换会话分支时换回的那一版）
         // 沿用那一版的流程计划（步骤和条件，执行时照它逐步核对）
         const base = db.get<{ card_id: string; workflow: string | null }>("SELECT card_id, workflow FROM task_plans WHERE plan_id = ?", p.basePlanId);
         db.run(
@@ -215,7 +215,7 @@ export function getTaskRecord(db: ReadonlyDatabase, taskId: string): Task | unde
   return row && (JSON.parse(row.task) as Task);
 }
 
-/** 某个维护者执行的任务（12 号票：任务自己的维护者，一个维护者一个任务）；删掉了的没有 */
+/** 某个负责人执行的任务（12 号票：任务自己的负责人，一个负责人一个任务）；删掉了的没有 */
 export function taskOfMaintainer(db: ReadonlyDatabase, maintainerId: string): Task | undefined {
   const row = db.get<{ task: string }>("SELECT task FROM tasks WHERE maintainer_id = ? ORDER BY created_seq DESC LIMIT 1", maintainerId);
   return live(row && (JSON.parse(row.task) as Task));
@@ -251,7 +251,7 @@ export function getBrief(db: ReadonlyDatabase, taskId: string): { brief: TaskBri
 
 /**
  * 一版计划的状态：待确认、已确认、已打回（计划变更被拒也是它），以及计划变更提出、还在等用户的（proposed，14 号票）；
- * 流程的计划审查没让它交给用户授权的（refused，58 号票：退回维护者补充、判定不可执行）
+ * 流程的计划审查没让它交给用户授权的（refused，58 号票：退回负责人补充、判定不可执行）
  */
 export type PlanStatus = "pending" | "confirmed" | "rejected" | "proposed" | "refused";
 

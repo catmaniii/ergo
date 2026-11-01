@@ -2,7 +2,7 @@
 // - 单独的提示词：存在数据目录配置区（agent-prompts/，按 agent 分）、读回、面板上拼出实际用的系统提示，从这个 agent 的下一轮起按新的；
 //   占位符照它的通用模板查，写错的存不进去；整份自己写的替换通用模板，能恢复用通用模板；
 // - 清空当前对话：新开一段会话，模型看到的上下文里没有之前的聊天（旧消息还在事件日志里，会话里一条分隔线）；任务的计划、阶段
-//   照常作为上下文给到新的一段；在处理一条时等它说完再清；项目维护者的清空就是重置维护者（新的一段只凭项目档案，设置跟着项目走）；
+//   照常作为上下文给到新的一段；在处理一条时等它说完再清；项目负责人的清空就是重置负责人（新的一段只凭项目档案，设置跟着项目走）；
 // - 上下文用量和"现在压缩"：用量和 token 账本里最近一次调用的对得上，窗口是子进程报的；"现在压缩"经宿主协议的 compact 真的压缩，
 //   压缩那次照常记账（用途"压缩"），时间线上记一笔"这里压缩过一次"。
 import fs from "node:fs";
@@ -200,10 +200,10 @@ describe("清空当前对话：新开一段会话，旧的不删", () => {
     const frontend = await TestFrontend.connect(td.url);
     await frontend.subscribe({ [BOARD]: 0, [CARDS]: 0, [TM1]: 0 });
     const taskId = await runningTask(td, frontend, "整理相册");
-    await waitUntil(() => turnEnds(frontend, TM1) >= 2, { timeoutMs: 30_000, describe: () => "等维护者处理完开始执行的通知" });
+    await waitUntil(() => turnEnds(frontend, TM1) >= 2, { timeoutMs: 30_000, describe: () => "等负责人处理完开始执行的通知" });
 
     const view = await agentSettingsApi.view(td.url, "tm-1");
-    expect(view.body).toMatchObject({ kind: "task", label: `长程任务 ${taskId}「整理相册」的维护者`, prompt: { template: { id: "task-maintainer" } }, clear: { how: "new_session" } });
+    expect(view.body).toMatchObject({ kind: "task", label: `长程任务 ${taskId}「整理相册」的负责人`, prompt: { template: { id: "task-maintainer" } }, clear: { how: "new_session" } });
     expect(await say1(frontend, "暗号是蓝鲸", TM1)).toContain("暗号是蓝鲸");
 
     expect((await agentSettingsApi.clear(td.url, "tm-1", "k-task")).status).toBe(200);
@@ -221,7 +221,7 @@ describe("清空当前对话：新开一段会话，旧的不删", () => {
     expect((await agentSettingsApi.compact(td.url, "tm-1")).status).toBe(400);
   });
 
-  it("项目维护者：清空就是重置维护者，新的一段只凭项目档案重建理解，单独的提示词跟着项目走（重置之后照旧用）", async () => {
+  it("项目负责人：清空就是重置负责人，新的一段只凭项目档案重建理解，单独的提示词跟着项目走（重置之后照旧用）", async () => {
     const td = await startTestDaemon({ maintainer: (id) => (id === "pm-1" ? echoes(3) : []) });
     const project = seedProject(td.daemon, "记账本");
     const records = td.daemon.projects.records(project.id);
@@ -231,9 +231,9 @@ describe("清空当前对话：新开一段会话，旧的不删", () => {
     const frontend = await TestFrontend.connect(td.url);
     await frontend.subscribe({ [PM1]: 0 });
 
-    expect((await agentSettingsApi.view(td.url, "pm-1")).body).toMatchObject({ kind: "project", label: "项目「记账本」的维护者", prompt: { template: { id: "project-maintainer" } }, clear: { how: "reset_maintainer" } });
+    expect((await agentSettingsApi.view(td.url, "pm-1")).body).toMatchObject({ kind: "project", label: "项目「记账本」的负责人", prompt: { template: { id: "project-maintainer" } }, clear: { how: "reset_maintainer" } });
     expect(await say1(frontend, "暗号是蓝鲸", PM1)).toContain("暗号是蓝鲸");
-    // 单独的提示词：面板上实际用的全文里有项目维护者的模板、追加的一段和这一段的固定上下文
+    // 单独的提示词：面板上实际用的全文里有项目负责人的模板、追加的一段和这一段的固定上下文
     const saved = await agentSettingsApi.savePrompt(td.url, "pm-1", { mode: "append", content: "项目「{{项目名}}」的事都先查项目档案。" });
     expect(saved.body.prompt.effective).toContain("项目「记账本」的事都先查项目档案。");
     expect(saved.body.prompt.effective).toContain("规格：记账本只记家里的开销");
@@ -331,7 +331,7 @@ describe("上下文用量和现在压缩", () => {
     expect(frontend.events({ channel: SECRETARY, type: EVENT_TYPES.timelineRecord })).toEqual([]);
   }, 90_000);
 
-  it("没在跑的维护者先拉起再压（会话还短的回\"没什么可压的\"，不在时间线上记）；项目维护者没有在进行的一段时压不了", async () => {
+  it("没在跑的负责人先拉起再压（会话还短的回\"没什么可压的\"，不在时间线上记）；项目负责人没有在进行的一段时压不了", async () => {
     const td = await startTestDaemon({
       config: { agents: { idleMinutes: 0.01 } },
       maintainer: (id, n) => (id === "tm-1" && n === 1 ? [submitPlanStep(onePlan()), say("计划交上去了")] : [say("好"), say("好")]),
@@ -348,7 +348,7 @@ describe("上下文用量和现在压缩", () => {
     expect(done.context.lastCompact).toMatchObject({ outcome: "nothing" });
     expect(frontend.events({ channel: TM1, type: EVENT_TYPES.timelineRecord }).filter((f) => (f.payload as TimelineRecordEventPayload).record.kind === "compaction")).toEqual([]);
 
-    // 项目维护者还没说过话：没有在进行的一段，压不了
+    // 项目负责人还没说过话：没有在进行的一段，压不了
     seedProject(td.daemon, "记账本");
     expect((await agentSettingsApi.view(td.url, "pm-1")).body.context.cannotCompact).toContain("没有在进行的一段会话");
     expect((await agentSettingsApi.compact(td.url, "pm-1"))).toMatchObject({ status: 400, body: { message: expect.stringContaining("没有在进行的一段会话") } });

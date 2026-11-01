@@ -66,7 +66,7 @@ describe("项目页上最近收到的事件", () => {
     ]);
     const [service, alert, quiet] = projectOperationRows(state, state.projects["p-1"]!);
     expect(service!.events!.map((e) => [e.name, e.woke, e.text])).toEqual([
-      ["评论异常", true, "叫醒了维护者"],
+      ["评论异常", true, "叫醒了负责人"],
       ["评论异长", false, "没叫醒：运营方案里没有等它的"],
       ["评论异常", false, "没叫醒：报得太快，超了限速"],
       ["评论异常", true, "并进了排着的那次运行"],

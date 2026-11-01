@@ -4,7 +4,7 @@
 // - 秘书也能用 skill：默认装 agent-browser、yt-dlp（库里有的），设置里改了（只能选库里有的），下一轮按新名单装配；
 //   名字带空格的照原样用；只在用户点名时才用的 skill（disable-model-invocation）另起一段写进系统提示；用户打 /skill:目录名
 //   在加时间标记之前展开（82 号票起命令名是目录名，/目录名 的各种情况在 slash-commands.test.ts）；
-// - 维护者用 adjust_skills 写集合名整套加上（工具包里记的是成员的 skill 名）。
+// - 负责人用 adjust_skills 写集合名整套加上（工具包里记的是成员的 skill 名）。
 import fs from "node:fs";
 import path from "node:path";
 import { CHANNELS, EVENT_TYPES, maintainerChannel, type MessageEventPayload, type ProjectEventPayload } from "@ergo/protocol";
@@ -156,7 +156,7 @@ describe("秘书也能用 skill", () => {
   });
 });
 
-describe("维护者整套加一个集合", () => {
+describe("负责人整套加一个集合", () => {
   it("adjust_skills 写集合名：工具包里加上它的全部成员（记的是 skill 名），重新装配后会话里都有", async () => {
     const td = await startTestDaemon({
       maintainer: (_id, spawn) => (spawn === 1 ? [call("adjust_skills", { add: ["fake-set"], why: "整套用这套方法论" }), say("不该走到这一步")] : [{ kind: "echo_context" }]),

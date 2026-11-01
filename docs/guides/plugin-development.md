@@ -4,7 +4,7 @@
 > 依据：[ADR-0027](../adr/0027-plugin-host-kernel-and-agent-contributions.md)（插件宿主、agent 贡献、网页插槽、热插拔、拆插件）、[CONTEXT.md](../../CONTEXT.md) 的"插件""插件宿主""网页插件""agent 贡献""停用插件""移除插件"。宿主本身的参考见[开发者指南](../developer-guide.md)的"插件"一节。
 > 最后更新：2026-10-25（286 号票：运行时贡献点；287 号票：Claude Code 插件——第一个带 agent 运行时的真插件；295 号票：数据源贡献点；299 号票：手机插件——设备交来的、外部日历；303 号票：数据源把记录写成素材；297 号票：Google 插件——第一个真的数据源插件，定期导入每隔几分钟；296 号票：Looki 插件——接外部接口的数据源、测试接本机假接口；298 号票：Google · Gmail——只读 IMAP 的按需查、导入本人写的；306 号票：按需查的工具只在连上时给、外部日历变了推给网页、断开确认框按数据源说话；343 号票：数据源详情里看数据——`stored`、`live`；344 号票：Gmail 多账号——`disconnectItem`、`migrate`、现查按组）
 
-二狗的功能分**内核**和**插件**：事件日志、任务执行连同守卫、宿主协议、网关是内核；提醒、记忆、日历、语音、内置浏览器是插件。插件还能带来一个 **agent 运行时**（Claude Code、以后 Codex：维护者用它跑会话，见第 7 节的"运行时贡献点"），或者一种**外部数据的数据源**（Looki、Google、手机……：见第 7 节的"数据源贡献点"）。插件声明自己依赖什么，经插件宿主登记它的东西，每一次登记都能撤销，所以用户能在设置 · 插件里运行中停用、启用、移除它。
+二狗的功能分**内核**和**插件**：事件日志、任务执行连同守卫、宿主协议、网关是内核；提醒、记忆、日历、语音、内置浏览器是插件。插件还能带来一个 **agent 运行时**（Claude Code、以后 Codex：负责人用它跑会话，见第 7 节的"运行时贡献点"），或者一种**外部数据的数据源**（Looki、Google、手机……：见第 7 节的"数据源贡献点"）。插件声明自己依赖什么，经插件宿主登记它的东西，每一次登记都能撤销，所以用户能在设置 · 插件里运行中停用、启用、移除它。
 
 插件**和代码一起构建**：在仓库里加、重新构建、重启守护进程（ADR-0027"构建时打包，不运行时加载"）。不在运行时加载外部插件，"装别人写好的插件包、不用重新构建"不在这份手册里。
 
@@ -29,7 +29,7 @@
 | 日历 `calendar` | [calendar/plugin.ts](../../packages/daemon/src/calendar/plugin.ts)：只提供一个服务 | 没有 | [plugins/calendar/](../../packages/web/src/plugins/calendar/plugin.tsx)：有自己地址的页面 | 最小的；可选依赖、不拥有数据 |
 | 语音 `voice` | [voice/plugin.ts](../../packages/daemon/src/voice/plugin.ts)：识别进程、合成、前端请求、移除时删媒体文件 | 两个工具随会话给（不经贡献缝）、条件"语音" | [plugins/voice/](../../packages/web/src/plugins/voice/plugin.tsx)：输入框的语音、后台部件、设置页 | 数据契约留在内核（`voice-records/`） |
 | 内置浏览器 `browsing` | [browsing/plugin.ts](../../packages/daemon/src/browsing/plugin.ts)：设备通路、取件码、缩略图 | 八个工具（排在最后）、输入附注、条件"浏览" | [plugins/browsing/](../../packages/web/src/plugins/browsing/plugin.tsx)：页签、卡片 | 可选依赖别的插件、`at: "end"`、`ctx.page` |
-| Claude Code `claude-code` | [claude-code/plugin.ts](../../packages/daemon/src/claude-code/plugin.ts)：只在数据契约里登记一个 agent 运行时，子进程入口 `claude-code/child/main.ts` | 没有（维护者整个会话跑在 Claude Code 里） | 没有网页插件（新建时选运行时、⚙、斜杠补全在内核的界面里，289 号票） | 带 agent 运行时的插件、自带 npm 依赖只在子进程里用（第 7 节"运行时贡献点"） |
+| Claude Code `claude-code` | [claude-code/plugin.ts](../../packages/daemon/src/claude-code/plugin.ts)：只在数据契约里登记一个 agent 运行时，子进程入口 `claude-code/child/main.ts` | 没有（负责人整个会话跑在 Claude Code 里） | 没有网页插件（新建时选运行时、⚙、斜杠补全在内核的界面里，289 号票） | 带 agent 运行时的插件、自带 npm 依赖只在子进程里用（第 7 节"运行时贡献点"） |
 | Google `google` | [google/plugin.ts](../../packages/daemon/src/google/plugin.ts)：数据契约里登记数据源 Google · 日历（日程经数据源的 `calendar()` 交给日历插件）、Google · Gmail（导入的你发出的邮件采成"本人写的"素材） | 查 Google 日历、搜 / 读 Gmail 邮件（数据源的按需查，内核替它给秘书） | [plugins/google/](../../packages/web/src/plugins/google/plugin.tsx)：设置 · 数据源里填地址、填 Gmail 应用专用密码的那两块（`dataSources` 插槽） | 有连接、要定时拉的数据源插件、定期导入每隔几分钟；只按需查、外部内容夹在外部数据标记里的数据源；自己写协议客户端不加依赖（第 7 节"数据源贡献点"） |
 | Looki `looki` | [looki/plugin.ts](../../packages/daemon/src/looki/plugin.ts)：数据契约里登记数据源、两条采集规则、改写函数、连数据删；装配提供 Looki 服务（接官方开放接口） | 按需查的工具"查 Looki"（数据源的 `tools`，内核替它给秘书） | [plugins/looki/](../../packages/web/src/plugins/looki/plugin.tsx)：设置 · 数据源里填 Key 的那一块（`dataSources` 插槽） | 数据源插件：接外部接口、密钥只进密钥区、导入写成素材、测试接本机假接口（第 7 节"数据源贡献点"） |
 
@@ -253,7 +253,7 @@ expect(listNotes(k.store.reader)).toEqual([]);
 
 插件给 agent 的东西经 `ctx.agent` 登记进 agent 贡献模块（`agent-host/contributions.ts`），守护进程按"给谁"筛好、当数据经宿主协议下发，子进程里的通用桥接扩展翻译给 pi。功能本身（工具的逻辑、上下文块的内容）都在守护进程的插件里，**不写 pi 扩展**（ADR-0027：pi 的扩展跟着会话生灭、工具注册了撤不掉）。
 
-**给谁**（`to`，都不写是所有 agent 的所有会话）：`agents`（`secretary` 和三种维护者 `task`、`project`、`job`）、`sessions`（`secretary`、维护者的六种）、`toolkit`（按此刻的工具包筛；写了它，没有工具包的秘书就不给）。子 agent、评审不收插件的贡献。
+**给谁**（`to`，都不写是所有 agent 的所有会话）：`agents`（`secretary` 和三种负责人 `task`、`project`、`job`）、`sessions`（`secretary`、负责人的六种）、`toolkit`（按此刻的工具包筛；写了它，没有工具包的秘书就不给）。子 agent、评审不收插件的贡献。
 
 ### 4.1 工具
 
@@ -410,7 +410,7 @@ export const notesWebPlugin: WebPluginDefinition = {
 | `ctx.materialSources.register` | 事件怎么变成素材（ADR-0006）：停用时照样给本人的话留原话副本，重建 `materials.db` 时照样采得出来 |
 | `ctx.requests.register` | 前端请求：停用时回"X插件没启用"，不是"不认得" |
 | `ctx.removal.declare` | 移除时"连数据删"删什么（下面） |
-| `ctx.runtimes.register` | agent 运行时（286 号票，下面"运行时贡献点"）：维护者记着用哪个运行时，插件停用时也要认得、写得出"X插件没启用" |
+| `ctx.runtimes.register` | agent 运行时（286 号票，下面"运行时贡献点"）：负责人记着用哪个运行时，插件停用时也要认得、写得出"X插件没启用" |
 | `ctx.dataSources.register` | 数据源（295 号票，下面"数据源贡献点"）：停用的插件的数据源照样在设置 · 数据源里列出、写"X插件没启用"，断开并删照样删得掉它导入的 |
 | `ctx.active(key)` | 只能取本插件提供的服务，没在运行时抛"X插件没启用" |
 
@@ -471,18 +471,18 @@ export const notesWebPlugin: WebPluginDefinition = {
 
 ### 运行时贡献点：接一个 agent 运行时（286 号票）
 
-维护者（任务的、项目的、定时作业的）跑会话用哪个 **agent 运行时**是它的一个属性（`Task.runtime`、`Project.runtime`，没写是 pi）。pi 是内核自带的；Claude Code（287 号票）、以后的 Codex 各是一个插件，经同一个贡献点登记（ADR-0027 的"运行时是插件贡献点，宿主协议是运行时的接缝"）。插件在数据契约里 `ctx.runtimes.register(运行时)`，运行时（`AgentRuntime`，`packages/daemon/src/runtime/runtimes.ts`）有这几样：
+负责人（任务的、项目的、定时作业的）跑会话用哪个 **agent 运行时**是它的一个属性（`Task.runtime`、`Project.runtime`，没写是 pi）。pi 是内核自带的；Claude Code（287 号票）、以后的 Codex 各是一个插件，经同一个贡献点登记（ADR-0027 的"运行时是插件贡献点，宿主协议是运行时的接缝"）。插件在数据契约里 `ctx.runtimes.register(运行时)`，运行时（`AgentRuntime`，`packages/daemon/src/runtime/runtimes.ts`）有这几样：
 
 | 字段 | 是什么 |
 |---|---|
-| `id` | 小写英文、数字和连字符，维护者的运行时属性里写的就是它，定了别改（pi 是 `pi`） |
+| `id` | 小写英文、数字和连字符，负责人的运行时属性里写的就是它，定了别改（pi 是 `pi`） |
 | `title` | 给人看的名字，写成取值函数走 `t()` |
 | `entry` | 子进程入口：实现**宿主协议**的脚本的绝对路径（和守护进程同一种扩展名）。守护进程用 `process.execPath` 拉起它，每个会话一个（ADR-0002），名额、Job 对象、超时、闲置退出、孤儿回收和 pi 一样；它收同一条"启动"、说同一套消息（ADR-0004），网页和守护进程都不用知道下面是谁 |
 | `capabilities` | 能力清单：共享协议包 `RUNTIME_OPERATIONS` 的每一项（插话、压缩、撤回、切分支、分支摘要、换模型写交接摘要、思考档位、斜杠命令转交、接管已有会话、彻底删除改写会话、做完这一步停下、范围审视、Remote Control）能不能做，**逐项写明**（加了新的一项每个运行时都得表态）。界面和守护进程按它决定显示什么、走哪条路；宿主协议里人人都要实现的（输入、中止、守卫、宿主工具、用量……）不在清单里 |
 | `models()` | 可选的模型（不给是按设置 · 模型，二狗自己的模型目录）；子进程起来后能报回真的列表（宿主协议的 `runtime_catalog`，289 号票），这里是没报过时的后备 |
-| `settings()` | 设置项：从几个里选一个（权限模式、思考档位……）。用户在维护者的 ⚙ 里选的模型和设置项经"启动"的 `runtimeOptions` 交给子进程（289 号票），默认值不交 |
+| `settings()` | 设置项：从几个里选一个（权限模式、思考档位……）。用户在负责人的 ⚙ 里选的模型和设置项经"启动"的 `runtimeOptions` 交给子进程（289 号票），默认值不交 |
 | `sessions()` | 列本机能接管的会话（能力清单里 `take_over` 是 `true` 的要给，290 号票）；要用插件服务的经 `ctx.active` 现取 |
-| `guardTools` | 运行时自带、二狗没装配的工具在守卫工具登记表里的登记（来源 `runtime`，288 号票：Claude Code 的 TodoWrite、Agent……）：用它的维护者会话里这些照登记判、不按工具白名单硬拒绝，没登记的照"未登记的写操作"判；能对上二狗工具的（Bash → bash……）由子进程在判定请求里映射过去 |
+| `guardTools` | 运行时自带、二狗没装配的工具在守卫工具登记表里的登记（来源 `runtime`，288 号票：Claude Code 的 TodoWrite、Agent……）：用它的负责人会话里这些照登记判、不按工具白名单硬拒绝，没登记的照"未登记的写操作"判；能对上二狗工具的（Bash → bash……）由子进程在判定请求里映射过去 |
 | `toolTimeouts` | 运行时自带的工具单次调用的超时（毫秒，`null` 是不按单次超时算），盖过守护进程的默认（288 号票：Claude Code 的子代理一次可能跑十几分钟） |
 
 测试用的假运行时插件（只在测试里）：
@@ -507,15 +507,15 @@ pi 照同一个接口由组合根登记（不是插件、不能停用）：
     agentRuntimes.register(piRuntime);
 ```
 
-- **为什么写在契约里**：维护者记着用哪个运行时，插件停用、没装上、移除了也要认得它、写得出"X插件没启用"；能不能用跟着插件此刻在不在运行。
-- **插件停用时**（运行时闸门 `packages/daemon/src/agent-host/runtime-gate.ts`）：用它的维护者不拉起，输入留在队里；有活拉不起时活动状态是"等你"，说明写明哪个插件没启用；执行中的任务转等我（原因"运行时没启用"，用户点"继续"没用）。正在做的那一轮做完才停（不中止），做完子进程就退出、不再拉起。启用后接着：等我的任务接着执行，排着的输入交给新拉起的子进程。
+- **为什么写在契约里**：负责人记着用哪个运行时，插件停用、没装上、移除了也要认得它、写得出"X插件没启用"；能不能用跟着插件此刻在不在运行。
+- **插件停用时**（运行时闸门 `packages/daemon/src/agent-host/runtime-gate.ts`）：用它的负责人不拉起，输入留在队里；有活拉不起时活动状态是"等你"，说明写明哪个插件没启用；执行中的任务转等我（原因"运行时没启用"，用户点"继续"没用）。正在做的那一轮做完才停（不中止），做完子进程就退出、不再拉起。启用后接着：等我的任务接着执行，排着的输入交给新拉起的子进程。
 - **子进程入口是插件自己的文件**（照 pi 的 `packages/daemon/src/runtime/agent-child/main.ts`，最小的例子是测试里的 `packages/daemon/test/fixtures/fake-runtime-child.ts`）：只由守护进程按路径拉起，守护进程里别的代码不 import 它；运行时自己的 npm 依赖只在子进程里用（ADR-0001 的封装边界照旧）。
-- **网页**：`GET /api/runtimes`（`RuntimesView`）列出登记了的运行时连同能力清单、能不能用。289 号票起：新建任务、项目时选运行时（只有 pi 能用时不显示），卡上标出（pi 不标），维护者的 ⚙ 里换运行时、选它的模型和设置项（`PUT /api/agents/<id>/runtime`），界面按能力清单收起它不支持的按钮（撤回、切分支、现在压缩）。
+- **网页**：`GET /api/runtimes`（`RuntimesView`）列出登记了的运行时连同能力清单、能不能用。289 号票起：新建任务、项目时选运行时（只有 pi 能用时不显示），卡上标出（pi 不标），负责人的 ⚙ 里换运行时、选它的模型和设置项（`PUT /api/agents/<id>/runtime`），界面按能力清单收起它不支持的按钮（撤回、切分支、现在压缩）。
 - **换运行时**（289 号票）：等手头这一条做完，原来的运行时写一份交接摘要（宿主协议 `write_handoff` → `handoff_written`，每个运行时都要实现：pi 照换模型的写法，Claude Code 推一条只读的交接提示），新的运行时新开一段会话、摘要作为下一条输入的上下文。
-- **新建时选工作文件夹**（`AgentRuntime.workFolder: true`，305 号票）：新建它的任务、项目时多"在哪个文件夹做"（在设置里定的默认文件夹下新开、或用已有的），选定的就是维护者的工作目录；默认文件夹由内核的 `work-folders/` 按运行时存（登记表经 `defaultFolder` 带进运行时清单），插件不管存取。Claude Code 的网页那一半画"设置 · Claude Code"（`settingsPages` 插槽）。
+- **新建时选工作文件夹**（`AgentRuntime.workFolder: true`，305 号票）：新建它的任务、项目时多"在哪个文件夹做"（在设置里定的默认文件夹下新开、或用已有的），选定的就是负责人的工作目录；默认文件夹由内核的 `work-folders/` 按运行时存（登记表经 `defaultFolder` 带进运行时清单），插件不管存取。Claude Code 的网页那一半画"设置 · Claude Code"（`settingsPages` 插槽）。
 - **斜杠命令转交**（能力清单 `slash_passthrough`，289 号票）：用户发的以 `/` 开头的话（二狗自己的命令除外）原样当输入交给子进程，不加时间标记、不展开 skill；子进程把能用的命令报回 `runtime_catalog.commands`，输入框的补全列它们。给了 `toolkitSkillCommands`（291 号票：工具包里的 skill 在运行时里的命令名）的，用户按 pi 的习惯打的 `/<目录名>` 是工具包里的 skill、又不是运行时报过的命令时，交过去之前换成它的写法（309 号票：Claude Code 是 `/ergo:<目录名>`）。
 - **范围审视做不了的**（`AgentRuntime.recordedScopeReview: true`，309 号票）：子进程里调不了二狗的审视模型的运行时，能力清单 `scope_review` 照样写 `true`，压缩之前报宿主协议 `compacting`，守护进程按二狗自己记下的事件另起一次性子进程审视（工单结束时也是，不送 `scope_review`），结果和 pi 的一样记下。分支摘要同理在能力清单写 `branch_summary: false`（293 号票）。
-- **测**：主切面 `packages/daemon/test/main/agent-runtimes.test.ts` 用假运行时插件走真实装配路径：维护者经它的子进程拉起、插件停用时任务转等我、启用后接着。
+- **测**：主切面 `packages/daemon/test/main/agent-runtimes.test.ts` 用假运行时插件走真实装配路径：负责人经它的子进程拉起、插件停用时任务转等我、启用后接着。
 
 **真插件：Claude Code**（287 号票，[claude-code/plugin.ts](../../packages/daemon/src/claude-code/plugin.ts)）——接 Codex 这类的照它写：
 
@@ -558,8 +558,8 @@ export function createClaudeCodePlugin(
 - **契约测试用假的外部程序**：`packages/daemon/test/helpers/fake-claude-sdk.ts` 按 SDK 的消息格式吐事件（手动挡一条条地吐、按 faux 剧本自动回两种），适配子进程是真的（`packages/daemon/test/claude-code/adapter.contract.test.ts`），不启动真的 claude、不花额度；真机验证另开一张票。
 - **守卫**（288 号票）：每次工具调用都要经宿主协议的判定请求（`guard_request`）过二狗守卫——Claude Code 是在交给 SDK 的 `PreToolUse` 钩子里发（`claude-code/child/guard.ts`，钩子是全量闸口，`canUseTool` 不是）；运行时自己要问用户的（AskUserQuestion、退出计划模式）报 `ask_user`，守护进程建提问卡、回答经 `ask_user_reply` 交回。
 - **接管已有会话**（290 号票，能力 `take_over`）：运行时给齐 `sessions()`（列本机的会话、标出占着的）、`sessionBusy()`（收回前核对）、`forkSession()`、`sessionHistory()`（前情：主线最近一段，`RuntimeHistory`）四样，登记表核对少一样不收。外部程序的会话列表、读会话做成可注入的会话来源（Claude Code 是 `ClaudeSessionSource`，真的经内核服务 `KERNEL.oneShot` 拉一次性子进程 `child/sessions-main.ts` 用 SDK 读，SDK 还是只在 `child/` 里；主切面给 `createClaudeCodePlugin({ sessions })` 一个假的，`packages/daemon/test/helpers/fake-claude-sessions.ts`，不读用户真实的会话文件）。接管成任务 / 项目、前情事件、写入锁、交还收回是内核的（`takeover/`），插件不管。
-- **交给官方 App、再收回来**（292 号票，能力 `remote_control`）：运行时给 `remoteControl`（`RuntimeRemoteControl`：开 / 唤醒自己的后台会话连上官方 App 并交回链接、停掉、只读跟随读新内容）和 `currentSession(会话目录)`（维护者现在接着的是哪个会话），登记表核对少一样不收。外部程序的命令行做成可注入的（Claude Code 是 `ClaudeCli`：真的由守护进程直接拉起本机的 claude，detached、**不进二狗的 Job**——`claude --bg` 会拉起它自己的后台服务，放进 Job 会被孤儿回收结束；主切面给 `createClaudeCodePlugin({ cli })` 一个扮演本机 claude 的假的，`packages/daemon/test/helpers/fake-claude-cli.ts`）。"现在在哪边"（二狗接管 / 官方 App / 空着）、打断关掉二狗的进程、只读跟随补记、收回后接着是内核的（`takeover/`，和 290 号票的交还 / 收回同一套状态），插件不管。
-- **主切面换掉清单里的同名插件**：`startTestDaemon` 的 `extraPlugins` 里和清单同名的换掉清单里那个（位置不变），子进程入口换成接假 SDK 的（`packages/daemon/test/helpers/fake-claude-code.ts`、`packages/daemon/test/fixtures/fake-claude-child.ts`）；`packages/daemon/test/main/claude-code-runtime.test.ts` 让它的维护者跑完一轮，会话频道里的事件和 pi 跑同一个剧本的一样。
+- **交给官方 App、再收回来**（292 号票，能力 `remote_control`）：运行时给 `remoteControl`（`RuntimeRemoteControl`：开 / 唤醒自己的后台会话连上官方 App 并交回链接、停掉、只读跟随读新内容）和 `currentSession(会话目录)`（负责人现在接着的是哪个会话），登记表核对少一样不收。外部程序的命令行做成可注入的（Claude Code 是 `ClaudeCli`：真的由守护进程直接拉起本机的 claude，detached、**不进二狗的 Job**——`claude --bg` 会拉起它自己的后台服务，放进 Job 会被孤儿回收结束；主切面给 `createClaudeCodePlugin({ cli })` 一个扮演本机 claude 的假的，`packages/daemon/test/helpers/fake-claude-cli.ts`）。"现在在哪边"（二狗接管 / 官方 App / 空着）、打断关掉二狗的进程、只读跟随补记、收回后接着是内核的（`takeover/`，和 290 号票的交还 / 收回同一套状态），插件不管。
+- **主切面换掉清单里的同名插件**：`startTestDaemon` 的 `extraPlugins` 里和清单同名的换掉清单里那个（位置不变），子进程入口换成接假 SDK 的（`packages/daemon/test/helpers/fake-claude-code.ts`、`packages/daemon/test/fixtures/fake-claude-child.ts`）；`packages/daemon/test/main/claude-code-runtime.test.ts` 让它的负责人跑完一轮，会话频道里的事件和 pi 跑同一个剧本的一样。
 
 ### 数据源贡献点：接一种外部数据（295 号票）
 
@@ -866,7 +866,7 @@ export const remindersPlugin: PluginDefinition = {
 | `PluginDataRemoval`、`purgePluginData` | `packages/daemon/src/plugins/removal.ts` | 移除时连数据删 |
 | `AgentRuntime`、`createRuntimeRegistry`、`piRuntime` | `packages/daemon/src/runtime/runtimes.ts` | agent 运行时、运行时的登记表、内核自带的 pi |
 | `RUNTIME_OPERATIONS`、`RuntimeCapabilities`、`RuntimesView` | `packages/protocol/src/runtimes.ts` | 能力清单的项、能力清单、`GET /api/runtimes` 的样子 |
-| `createRuntimeGate` | `packages/daemon/src/agent-host/runtime-gate.ts` | 运行时闸门：维护者用的运行时能不能用、该不该停在等我 |
+| `createRuntimeGate` | `packages/daemon/src/agent-host/runtime-gate.ts` | 运行时闸门：负责人用的运行时能不能用、该不该停在等我 |
 | `createPluginSettings` | `packages/daemon/src/plugins/settings.ts` | 设置 · 插件：写配置、连数据删 |
 | `ContributionScope`、`ToolContribution`、`ContextContribution`、`HookContribution`、`NoteContribution` | `packages/daemon/src/agent-host/contributions.ts` | agent 贡献：给谁、工具、上下文块、钩子、输入附注 |
 | `SECRETARY_TARGET` | `packages/daemon/src/secretary/secretary.ts` | 秘书这一份装配（测试里查秘书拿到的贡献） |

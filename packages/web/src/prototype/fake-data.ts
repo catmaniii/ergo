@@ -103,7 +103,7 @@ export const FAKE_BOARD: BoardEntry[] = (
     { kind: "task", id: "t-notes", title: "读书笔记整理成卡片", status: "waiting_for_user", waitReason: "clarification", stage: { current: 1, total: 3 }, activity: "waiting_for_user", tokens: 22_000, projects: [], updatedAt: at("10-06", "21:10") },
     // 进行中
     { kind: "task", id: "t-xian", title: "十一月西安行程", status: "planning", activity: "working", activityNote: "和你对齐意图", tokens: 8_000, projects: [], updatedAt: at("10-07", "08:31") },
-    // 289 号票：个人博客的维护者用 Claude Code（卡上标出）；311 号票：Claude Code 的用量大半是缓存命中，卡上单写
+    // 289 号票：个人博客的负责人用 Claude Code（卡上标出）；311 号票：Claude Code 的用量大半是缓存命中，卡上单写
     { kind: "task", id: "t-blog", title: "博客迁移到 Astro", status: "running", runtime: "claude-code", stage: { current: 3, total: 5 }, activity: "working", activityNote: "跑端到端测试", tokens: 356_000, cacheHitTokens: 298_000, projects: ["个人博客"], updatedAt: at("10-07", "09:10") },
     { kind: "task", id: "t-netdisk", title: "家庭网盘去重", status: "queued", activity: "queued", activityNote: "等项目「家庭网盘」", tokens: 0, projects: ["家庭网盘"], updatedAt: at("10-07", "07:40") },
     { kind: "task", id: "t-car", title: "车险比价", status: "paused", stage: { current: 1, total: 2 }, activity: "sleeping", tokens: 27_000, projects: [], updatedAt: at("10-06", "20:13") },
@@ -149,9 +149,9 @@ export const FAKE_RUN_SLOTS = 3;
 // ---------- 任务详情 ----------
 
 export interface TaskDetail {
-  /** 维护者会话的频道 */
+  /** 负责人会话的频道 */
   maintainer?: ConversationId;
-  /** 只涉及一个项目的任务由该项目的维护者执行 */
+  /** 只涉及一个项目的任务由该项目的负责人执行 */
   executedBy?: string;
   planCardId?: string;
   stages: Stage[];
@@ -235,7 +235,7 @@ const PHOTO_STAGES: Stage[] = [
     deliverable: "归档结果的说明",
     acceptance: [{ text: "你确认归档结果", method: "user" }],
     mode: "steps",
-    modeReason: "最后由你过目，维护者只写说明",
+    modeReason: "最后由你过目，负责人只写说明",
     after: ["s3"],
     grants: [],
     marks: { perm: [], out: [], ask: [{ text: "有 1 条标准要你亲自验收：你确认归档结果" }] },
@@ -385,9 +385,9 @@ export const FAKE_TASK_DETAILS: Record<string, TaskDetail> = {
     ],
     toolkit: { skills: [], mcps: [], bash: true, network: false },
     tokensByAgent: [
-      { agent: "任务维护者", tokens: 121_000 },
-      { agent: "相册库的维护者（W-21）", tokens: 38_000 },
-      { agent: "家庭网盘的维护者（W-22）", tokens: 23_000 },
+      { agent: "任务负责人", tokens: 121_000 },
+      { agent: "相册库的负责人（W-21）", tokens: 38_000 },
+      { agent: "家庭网盘的负责人（W-22）", tokens: 23_000 },
     ],
     scopeRecords: [{ id: "sr1", kind: "change", text: "你在会话里同意先扫「旧手机照片」以外的目录（范围变更）", at: at("10-06", "10:40") }],
   },
@@ -397,7 +397,7 @@ export const FAKE_TASK_DETAILS: Record<string, TaskDetail> = {
     workOrders: [],
     toolkit: { skills: ["demo-pdf-reader"], mcps: [], bash: false, network: false },
     tokensByAgent: [
-      { agent: "任务维护者", tokens: 588_000 },
+      { agent: "任务负责人", tokens: 588_000 },
       { agent: "评审子 agent", tokens: 52_000 },
     ],
     scopeRecords: [],
@@ -408,12 +408,12 @@ export const FAKE_TASK_DETAILS: Record<string, TaskDetail> = {
     stages: BILL_STAGES,
     workOrders: [],
     toolkit: { skills: ["demo-pdf-reader"], mcps: ["demo-mail-readonly"], bash: true, network: false },
-    tokensByAgent: [{ agent: "任务维护者（起草计划）", tokens: 31_000 }],
+    tokensByAgent: [{ agent: "任务负责人（起草计划）", tokens: 31_000 }],
     scopeRecords: [],
   },
   "t-blog": {
     maintainer: MAINTAINERS.blog,
-    executedBy: "个人博客的维护者",
+    executedBy: "个人博客的负责人",
     stages: BLOG_STAGES,
     workOrders: [
       { id: "W-28", title: "第 1 阶段：搭 Astro 骨架", project: "个人博客", from: "本任务", status: "done", updatedAt: at("10-03", "20:00") },
@@ -422,7 +422,7 @@ export const FAKE_TASK_DETAILS: Record<string, TaskDetail> = {
     ],
     toolkit: { skills: [], mcps: [], bash: true, network: true },
     tokensByAgent: [
-      { agent: "个人博客的维护者", tokens: 301_000 },
+      { agent: "个人博客的负责人", tokens: 301_000 },
       { agent: "评审子 agent", tokens: 55_000 },
     ],
     scopeRecords: [],
@@ -437,7 +437,7 @@ export function taskDetailOf(id: string): TaskDetail {
 
 /**
  * 假项目（15 号票起是协议包里的 Project，由假连接作为项目列表频道上的 project 事件推来）。
- * 维护者 id 和 fake-conversations.ts 里 MAINTAINERS 的会话对得上（记账本、个人博客、家电档案有假会话）
+ * 负责人 id 和 fake-conversations.ts 里 MAINTAINERS 的会话对得上（记账本、个人博客、家电档案有假会话）
  */
 function fakeProject(x: Pick<Project, "id" | "name" | "goal" | "state"> & Partial<Project>): Project {
   return {
@@ -461,7 +461,7 @@ export const FAKE_PROJECTS: Project[] = [
     kind: "dev",
     workdir: { external: true, path: "/示例/外部/blog" },
     toolkit: { skills: [], mcp: [], bash: true, network: true },
-    // 289 号票：维护者用 Claude Code（原型的运行时清单 fake-runtimes.ts）
+    // 289 号票：负责人用 Claude Code（原型的运行时清单 fake-runtimes.ts）
     runtime: "claude-code",
   }),
   fakeProject({ id: "p-photos", name: "相册库", goal: "全家的照片按事件归档，一处可查", state: "building", kind: "other", buildTaskId: "t-photos", toolkit: { skills: [], mcp: [], bash: false, network: false } }),
@@ -505,8 +505,8 @@ export const FAKE_PROJECTS: Project[] = [
 ];
 
 /**
- * 104 号票：项目一览的卡片上写维护者在干什么、定时触发的有几个——原型的假项目在项目列表频道之外再推这几条（假连接建出时推）：
- * 两个维护者的活动状态（博客的在干活、相册库的等你批准），和假项目详情里那几个定时作业（标成项目内部的，不上全局看板）。
+ * 104 号票：项目一览的卡片上写负责人在干什么、定时触发的有几个——原型的假项目在项目列表频道之外再推这几条（假连接建出时推）：
+ * 两个负责人的活动状态（博客的在干活、相册库的等你批准），和假项目详情里那几个定时作业（标成项目内部的，不上全局看板）。
  * 369 号票：秘书在等那张提问卡（标题上"等你回答提问"点了跳到它），相册库的审批卡在任务「家庭照片整理与去重」里（跳到别的页）
  */
 export const FAKE_PROJECT_EVENTS: { channel: string; type: string; payload: unknown }[] = [
@@ -672,7 +672,7 @@ const FAKE_INBOX_ITEMS: InboxItem[] = [
   cardItem({ id: "i-pair", cardId: "c-pair-1", title: "新设备请求配对：iPad · Safari", source: "设备配对", urgency: "non_blocking", createdAt: at("10-07", "09:30"), read: false }),
   // 137 号票：像网络上的自动访问的配对请求（行上标一句，详情的卡上写原因）
   cardItem({ id: "i-pair-bot", cardId: "c-pair-bot", title: "新设备请求配对：Chrome · Linux", source: "设备配对", urgency: "non_blocking", createdAt: at("10-07", "00:47"), read: false }),
-  // 107 号票：项目内部任务的等你验收（项目的维护者会话也是它的会话，项目整页的"等你处理"栏里有它）
+  // 107 号票：项目内部任务的等你验收（项目的负责人会话也是它的会话，项目整页的"等你处理"栏里有它）
   notice({
     id: "i-accept",
     notice: "stage_acceptance",
@@ -691,8 +691,8 @@ const FAKE_INBOX_ITEMS: InboxItem[] = [
   notice({
     id: "i-scope",
     notice: "out_of_scope",
-    title: "越界：记账本的维护者读了「家庭网盘」的文件",
-    body: "范围审视（10-06 21:40）：维护者读了家庭网盘里的 budget-2025.xlsx，没有授权。只记录，没有暂停它。",
+    title: "越界：记账本的负责人读了「家庭网盘」的文件",
+    body: "范围审视（10-06 21:40）：负责人读了家庭网盘里的 budget-2025.xlsx，没有授权。只记录，没有暂停它。",
     source: "项目「记账本」",
     urgency: "non_blocking",
     createdAt: at("10-06", "21:40"),
@@ -901,8 +901,8 @@ export const FAKE_TOOLKIT_CATALOG: ToolkitCatalog = {
 
 /** 原型里输入框打 / 弹出的二狗自己的命令（82 号票，说法照守护进程的） */
 export const FAKE_SLASH_COMMANDS: SlashCommandEntry[] = [
-  { kind: "command", text: "/workflow", name: "workflow", description: "发起一个流程：维护者把要做的事排成步骤，你授权一次，照步骤做", argumentHint: "<要做的事>" },
-  { kind: "command", text: "/task", name: "task", description: "发起一个长程任务：维护者分阶段做，逐阶段验收", argumentHint: "<要做的事>" },
+  { kind: "command", text: "/workflow", name: "workflow", description: "发起一个流程：负责人把要做的事排成步骤，你授权一次，照步骤做", argumentHint: "<要做的事>" },
+  { kind: "command", text: "/task", name: "task", description: "发起一个长程任务：负责人分阶段做，逐阶段验收", argumentHint: "<要做的事>" },
 ];
 
 /** 记忆管理员会话里的命令（310 号票，含了解你访谈） */
@@ -936,11 +936,11 @@ export const FAKE_SLASH_SKILLS: SlashCommandEntry[] = [
 /** 设置里删除素材时能选的会话（原型）：会话 id 和名字 */
 export const FAKE_SESSIONS = [
   { id: "secretary", name: `${ASSISTANT_NAME_MARK}主线` },
-  // 维护者的编号和看板、项目列表上的对得上（159 号票：界面按编号现取它属于谁）
-  { id: "maintainer:project-photos", name: "项目「相册库」的维护者" },
-  { id: "maintainer:project-ledger", name: "项目「记账本」的维护者" },
-  { id: "maintainer:tm-invoices", name: "任务「整理九月的发票」的维护者" },
-  { id: "maintainer:project-appliance", name: "项目「家电档案」的维护者" },
+  // 负责人的编号和看板、项目列表上的对得上（159 号票：界面按编号现取它属于谁）
+  { id: "maintainer:project-photos", name: "项目「相册库」的负责人" },
+  { id: "maintainer:project-ledger", name: "项目「记账本」的负责人" },
+  { id: "maintainer:tm-invoices", name: "任务「整理九月的发票」的负责人" },
+  { id: "maintainer:project-appliance", name: "项目「家电档案」的负责人" },
 ];
 
 // ---------- 消耗 ----------

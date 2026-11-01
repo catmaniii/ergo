@@ -2,7 +2,7 @@
 // 子进程接假 SDK 的那个（helpers/fake-claude-code.ts：运行时的 id、名字、能力清单、适配子进程都是真的，只有 SDK 是按 faux 剧本吐事件的假的，
 // 不启动真的 claude、不花额度）：
 // - GET /api/runtimes 里有 Claude Code：插件名、能力清单照实写（插话、压缩、思考档位、斜杠命令转交、接管、撤回和切分支、Remote Control 能做）；
-// - 运行时是 Claude Code 的任务：维护者经 Claude Code 的子进程跑完一轮、任务自动完成；会话频道里的事件（网页显示的就是它们）和
+// - 运行时是 Claude Code 的任务：负责人经 Claude Code 的子进程跑完一轮、任务自动完成；会话频道里的事件（网页显示的就是它们）和
 //   同一个剧本由 pi 跑出来的一样；
 // - 插件在配置里停用着：这个任务转等我，写明"Claude Code插件没启用"。
 import { EVENT_TYPES, maintainerChannel, type MessageEventPayload, type Task } from "@ergo/protocol";
@@ -40,7 +40,7 @@ function channelShape(td: TestDaemon, task: Task): string[] {
     if (event.type !== EVENT_TYPES.message) return event.type;
     const { message } = event.payload as MessageEventPayload;
     const parts = message.parts.map((part) => `${part.type}=${"text" in part ? part.text : ""}`).join(" | ");
-    // 任务书（发给维护者的那条）里有任务 id，不比文字
+    // 任务书（发给负责人的那条）里有任务 id，不比文字
     return message.speaker === "agent" ? `message:agent:${parts}` : `message:${message.speaker}`;
   });
 }
@@ -79,7 +79,7 @@ describe("Claude Code 插件（假 SDK）", () => {
     });
   });
 
-  it("运行时是 Claude Code 的任务：维护者经 Claude Code 的子进程跑完一轮、任务自动完成；会话里的事件和 pi 跑同一个剧本时一样", async () => {
+  it("运行时是 Claude Code 的任务：负责人经 Claude Code 的子进程跑完一轮、任务自动完成；会话里的事件和 pi 跑同一个剧本时一样", async () => {
     const claude = await startTestDaemon({ extraPlugins: [fakeSdkClaudeCodePlugin], maintainer: SCRIPT });
     const spawns = runtimeSpawns(claude);
     const task = claude.daemon.tasks.delegate({ title: "整理下载目录", instructions: "把下载目录按月份分好", runtime: CLAUDE_CODE_RUNTIME_ID });

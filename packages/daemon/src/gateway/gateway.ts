@@ -143,7 +143,7 @@ export interface HealthReport {
 /** 网关交给别的模块处理的请求（不满足时抛 RequestRejected，网关回成错误响应） */
 export interface RequestHandlers {
   /** 对卡片做动作（cards/cards.ts） */
-  /** 要先等一件事的动作（84 号票：归档清单上"继续"返工，先停稳维护者）结果晚一点才有（Promise） */
+  /** 要先等一件事的动作（84 号票：归档清单上"继续"返工，先停稳负责人）结果晚一点才有（Promise） */
   cardAction(params: CardActionParams, idempotencyKey: string): CardActionResult | Promise<CardActionResult>;
   /** 对待我处理事项做动作（inbox/inbox.ts） */
   inboxAction(params: InboxActionParams, idempotencyKey: string): InboxActionResult;
@@ -156,17 +156,17 @@ export interface RequestHandlers {
   /** 设置页改关注类别（watch-categories/）：设置随后在关注类别频道推送 */
   updateWatchCategories(params: UpdateWatchCategoriesParams, idempotencyKey: string): UpdateWatchCategoriesResult;
   /** 用户对任务的控制（tasks/execution.ts，13 号票）：暂停、继续、取消、重试、返工、由我验收的验收通过或退回 */
-  /** 从某个阶段重做（84 号票）要先停稳维护者手头这一轮，结果晚一点才有（Promise） */
+  /** 从某个阶段重做（84 号票）要先停稳负责人手头这一轮，结果晚一点才有（Promise） */
   taskAction?(params: TaskActionParams, idempotencyKey: string): TaskActionResult | Promise<TaskActionResult>;
   /** 一次对多个任务做同一个控制（tasks/batch.ts，90 号票：看板多选）：各自成败、逐条回报 */
   taskBatchAction?(params: TaskBatchActionParams, idempotencyKey: string): Promise<TaskBatchActionResult>;
   /**
-   * 发消息：秘书会话之外的会话（维护者会话）能不能发、消息属于哪个任务或项目（15 号票：项目维护者的会话）。
+   * 发消息：秘书会话之外的会话（负责人会话）能不能发、消息属于哪个任务或项目（15 号票：项目负责人的会话）。
    * 不认识的会话返回 undefined（这个版本还不能往那里发）；不让发就抛 RequestRejected（比如已归档的项目只读）
    */
   messageScope?(conversation: ConversationId, taskId?: string): MessageScope | undefined;
   /**
-   * 用户的消息之前、同一事务先追加的事件（16 号票：项目维护者手上没有在进行的会话段时开一个对话段，分隔线排在这句话之前）。
+   * 用户的消息之前、同一事务先追加的事件（16 号票：项目负责人手上没有在进行的会话段时开一个对话段，分隔线排在这句话之前）。
    * 事件要带由请求的幂等键派生的幂等键（重发不多开一段）
    */
   messagePrelude?(conversation: ConversationId, idempotencyKey: string, taskId?: string): NewEvent[];
@@ -181,7 +181,7 @@ export interface RequestHandlers {
    * 做不了的（LSM 没连上、项目不是使用中、没有服务）抛 RequestRejected 说清原因。不给就不能启停
    */
   projectServicesAction?(params: ProjectServicesActionParams, idempotencyKey: string): ProjectServicesActionResult;
-  /** 项目页上的"重置维护者"（projects/projects.ts，16 号票）：不改项目状态，维护者新开一段会话；不给就不能重置 */
+  /** 项目页上的"重置负责人"（projects/projects.ts，16 号票）：不改项目状态，负责人新开一段会话；不给就不能重置 */
   resetMaintainer?(params: ResetMaintainerParams, idempotencyKey: string): ResetMaintainerResult;
   /** 发消息时收下语音 part（voice/，31 号票）；不给就不能发语音 */
   voiceIntake?: VoiceIntake;
@@ -629,7 +629,7 @@ class FrontendConnection implements BrowserPeer {
     }
   }
 
-  /** 回结果；晚一点才有的（Promise：从某个阶段重做要先停稳维护者，84 号票）等到了再回，被拒、出错照常回 */
+  /** 回结果；晚一点才有的（Promise：从某个阶段重做要先停稳负责人，84 号票）等到了再回，被拒、出错照常回 */
   private respondWhenDone(request: ParsedRequest, result: unknown): void {
     if (!(result instanceof Promise)) return this.respond({ id: request.id, ok: true, result });
     result.then(

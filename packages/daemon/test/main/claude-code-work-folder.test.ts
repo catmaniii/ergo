@@ -44,7 +44,7 @@ const agentSaid = (td: TestDaemon, channel: string) =>
     .map((e) => e.payload as MessageEventPayload)
     .filter((p) => p.message.speaker === "agent")
     .map(textOf);
-/** 维护者看到的（假 SDK 的 echo_context）：第 n 条回复 */
+/** 负责人看到的（假 SDK 的 echo_context）：第 n 条回复 */
 async function echoed(td: TestDaemon, task: Task, n = 1): Promise<FakeClaudeEcho> {
   const channel = maintainerChannel(task.maintainerId);
   await waitUntil(() => agentSaid(td, channel).length >= n, { timeoutMs: 30_000, describe: () => `等 ${channel} 的第 ${n} 条回复：${JSON.stringify(agentSaid(td, channel))}` });

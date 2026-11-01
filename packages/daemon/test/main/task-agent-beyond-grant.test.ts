@@ -1,4 +1,4 @@
-// 主切面（101 号票）：对话审批关着（正式的默认）时，任务的 agent 超出授权先不管。真的守护进程，维护者接 faux 剧本，测试扮演前端。
+// 主切面（101 号票）：对话审批关着（正式的默认）时，任务的 agent 超出授权先不管。真的守护进程，负责人接 faux 剧本，测试扮演前端。
 // 长程任务执行时（阶段开始的通知引起的一轮，后台执行）：
 // - 用到别的阶段的授权项、超出授权的调用都直接做：不出审批卡、不拉回，工具调用记录照常标关注类别、记上 beyondGrant
 //   （详情里写明"超出授权，先不管"），任务不转等我；
@@ -39,7 +39,7 @@ const bashCalls = (frontend: Awaited<ReturnType<typeof connect>>) =>
     .map((p) => p as unknown as ToolCallLine)
     .filter((p) => p.tool === "bash");
 
-describe("长程任务：对话审批关着时维护者超出授权先不管", () => {
+describe("长程任务：对话审批关着时负责人超出授权先不管", () => {
   it("用到别的阶段的授权项、超出授权的直接做、照常标出，不出审批卡、不拉回；写受保护区域、读密钥区照旧拦下", async () => {
     const outside = real(makeTempDir("ergo-out-"));
     const dataDir = makeTempDir("ergo-data-");

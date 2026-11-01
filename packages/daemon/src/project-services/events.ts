@@ -8,7 +8,7 @@
 //   撤下失败。对的是哪一条 service_desired（desiredSeq）写明：之后又变了的旧结果不算。269 号票：二狗接上 LSM 时把上线了、用户
 //   没关、却没在跑的服务拉起来，结果也记在这里（revive: true；起来了是上线了，起不来是上线失败）。
 //   363 号票：记着上线失败、LSM 却报告它在线的，回到上线了也记在这里（heal: true；更新登记时重启没成的是上线失败）。历史不改写，只追加。
-// - service_outage：上线了的服务后来挂了（down: true，LSM 给的原因）、又好了（down: false），和给维护者的通知同一事务追加。
+// - service_outage：上线了的服务后来挂了（down: true，LSM 给的原因）、又好了（down: false），和给负责人的通知同一事务追加。
 //   派生视图据此记着"这次故障报过了"：同一次故障只报一次，守护进程重启了也不重报；对的也是哪一条 service_desired。
 // 257 号票：项目卡片、项目页上的"启动""关闭"（秘书也走同一个入口），按整个项目：
 // - service_power：用户要这个项目的服务全部启动（on: true）还是全部关闭（on: false），点一下记一条，最新的那条算数——关了就一直关着
@@ -68,7 +68,7 @@ export interface ServiceRolloutPayload {
   time: string;
 }
 
-/** 上线了的服务挂了 / 又好了（报给维护者的那一次） */
+/** 上线了的服务挂了 / 又好了（报给负责人的那一次） */
 export interface ServiceOutagePayload {
   projectId: string;
   key: string;

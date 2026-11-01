@@ -3,7 +3,7 @@
 //   跟着项目归档了的在已归档），每张卡带着属于哪个项目（点了进项目）；别的内部任务（维护任务、对话框里选了项目建的定时任务）照旧不上；
 //   项目删掉了的随项目一起拿掉；
 // - 和项目页、项目卡是同一份：在任务页暂停（触发登记暂停了），看板卡、项目卡的运营概况都是已暂停；
-// - 菜单：项目在用时运营方案里的一条只有暂停、恢复，取消、归档换成一行说明（点了进项目维护者的会话）；看板卡上的按钮、项目页的
+// - 菜单：项目在用时运营方案里的一条只有暂停、恢复，取消、归档换成一行说明（点了进项目负责人的会话）；看板卡上的按钮、项目页的
 //   作业行没有取消；多选里取消、归档不算它；去掉了的（不再绑在现在的方案里）照常能归档。
 import { describe, expect, test } from "vitest";
 import {
@@ -31,7 +31,7 @@ import { frame } from "./events.ts";
 const T = "2026-10-18T09:00:00.000+08:00";
 const LATER = "2026-10-18T09:05:00.000+08:00";
 const P1 = { projectId: "p-1", projectName: "AI 简报站" };
-const NOTE = "这是项目「AI 简报站」运营方案里的一条，要去掉请让项目维护者改运营方案";
+const NOTE = "这是项目「AI 简报站」运营方案里的一条，要去掉请让项目负责人改运营方案";
 
 const item = (key: string, name: string, taskId: string) => ({
   key,
@@ -194,7 +194,7 @@ describe("项目在用时运营方案里的一条只能暂停、恢复", () => {
   const note = { kind: "operations_note", label: NOTE, projectId: "p-1" };
   const runNow = { kind: "run_now", label: "立即运行一次" };
 
-  test("菜单里只有暂停（暂停着的只有恢复）和立即运行一次，取消、归档、改时间都没有，换成一行说明（带着项目，点了进维护者的会话）", () => {
+  test("菜单里只有暂停（暂停着的只有恢复）和立即运行一次，取消、归档、改时间都没有，换成一行说明（带着项目，点了进负责人的会话）", () => {
     const f = world();
     const state = replay(f.list);
     expect(taskActionItems(subject(state, "t-1"))).toEqual([{ kind: "trigger", action: "pause", label: "暂停" }, runNow, note]);

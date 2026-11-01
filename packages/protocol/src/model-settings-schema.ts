@@ -68,12 +68,12 @@ export const ModelSettingsBody = Type.Object(
 export type ModelSettingsBody = Static<typeof ModelSettingsBody>;
 
 /**
- * 单独配了模型的维护者（120 号票）：键是维护者的 agent id（tm-<n>、pm-<n>），值是选定的模型和思考档位（都要写，没有"跟随"的一半）。
- * 只经这个维护者的 ⚙ 改（PUT / DELETE /api/agents/<agent id>/model），设置页整份存时原样留着
+ * 单独配了模型的负责人（120 号票）：键是负责人的 agent id（tm-<n>、pm-<n>），值是选定的模型和思考档位（都要写，没有"跟随"的一半）。
+ * 只经这个负责人的 ⚙ 改（PUT / DELETE /api/agents/<agent id>/model），设置页整份存时原样留着
  */
 const MaintainerModels = Type.Record(Type.String({ pattern: "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$" }), ModelChoiceSchema, { additionalProperties: false });
 
-/** 设置在数据目录配置区里的文件（config/model-settings.json）：多一个格式版本；120 号票起多一项单独配了模型的维护者（没有就不写） */
+/** 设置在数据目录配置区里的文件（config/model-settings.json）：多一个格式版本；120 号票起多一项单独配了模型的负责人（没有就不写） */
 export const ModelSettingsFile = Type.Object(
   {
     format: Type.Literal(1),
@@ -89,7 +89,7 @@ export const ModelSettingsFile = Type.Object(
 );
 export type ModelSettingsFile = Static<typeof ModelSettingsFile>;
 
-/** 某个维护者单独配模型（PUT /api/agents/<agent id>/model，120 号票）：选定的模型和思考档位；改回跟随那一行是 DELETE */
+/** 某个负责人单独配模型（PUT /api/agents/<agent id>/model，120 号票）：选定的模型和思考档位；改回跟随那一行是 DELETE */
 export const AgentModelBody = ModelChoiceSchema;
 export type AgentModelBody = Static<typeof AgentModelBody>;
 

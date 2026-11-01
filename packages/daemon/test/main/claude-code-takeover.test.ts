@@ -2,12 +2,12 @@
 // 换成同名的、子进程接假 SDK、会话来源是假本机的那个（helpers/fake-claude-sessions.ts：编的会话、编的"正开着"、编的前情，
 // 不读用户真实的 ~/.claude、不起 claude、不花额度）：
 // - 列出：本机的会话连同标题、工作目录、分支、最近活动、大小；终端里开着的、后台会话、停着的后台记录标成占着；查不到占没占的一律占着；
-// - 接管空闲的成任务：普通任务、运行时 Claude Code、工作目录是会话原来的；维护者恢复的就是选中的会话（resume）、cwd 是会话原来的；
-//   前情（用户说的、它回的、工具调用，读密钥文件的不留结果）进了维护者的会话、带 prelude，不交给 agent；之后列表里标"任务在管"；
+// - 接管空闲的成任务：普通任务、运行时 Claude Code、工作目录是会话原来的；负责人恢复的就是选中的会话（resume）、cwd 是会话原来的；
+//   前情（用户说的、它回的、工具调用，读密钥文件的不留结果）进了负责人的会话、带 prelude，不交给 agent；之后列表里标"任务在管"；
 //   同一个幂等键重发拿到同一个任务（不再读前情）；
 // - 被占着的：不分叉被拒（写明在哪开着）；二狗自己在管的同样被拒；分叉一份接管：新会话，原会话不动；
-// - 交还：维护者的子进程退了、发消息被拒、列表里不再是"在管"；收回：别处开着的被拒，关掉后收回，接着同一个会话；
-// - 接管成项目：不经秘书直接建出（筹备中），工作目录是会话原来的（外部路径），用户说话时维护者接着那个会话；
+// - 交还：负责人的子进程退了、发消息被拒、列表里不再是"在管"；收回：别处开着的被拒，关掉后收回，接着同一个会话；
+// - 接管成项目：不经秘书直接建出（筹备中），工作目录是会话原来的（外部路径），用户说话时负责人接着那个会话；
 // - 前情读不出来照样接管，会话里写明。
 import fs from "node:fs";
 import path from "node:path";
@@ -228,7 +228,7 @@ describe("从已有的 Claude Code 会话接管（290 号票）", () => {
     await frontend.close();
   }, 120_000);
 
-  it("接管成项目：直接建出，工作目录是会话原来的（外部路径），用户说话时维护者接着那个会话；前情读不出来照样接管", async () => {
+  it("接管成项目：直接建出，工作目录是会话原来的（外部路径），用户说话时负责人接着那个会话；前情读不出来照样接管", async () => {
     const { td, sessions, frontend, dirs } = await setup();
     sessions.histories.set("s-proj", new Error("会话记录读不了"));
     const taken = await takeoverApi.takeOver(td.url, CC, { sessionId: "s-proj", as: "project", request: "", idempotencyKey: "k-p" });
@@ -239,7 +239,7 @@ describe("从已有的 Claude Code 会话接管（290 号票）", () => {
     expect(td.daemon.projects.workdir(project)).toBe(dirs.project);
     const channel = maintainerChannel(project.maintainerId);
     expect(payloadsOf(td, channel).map(textOf)[0]).toBe("前情没读出来（会话记录读不了）；会话照常接管，之前的对话留在 Claude Code 自己的记录里");
-    // 不自动开始：用户说话时维护者才接着那个会话
+    // 不自动开始：用户说话时负责人才接着那个会话
     expect(td.daemon.agents.live().some((a) => a.agentId === project.maintainerId)).toBe(false);
     await frontend.sendText("先看看现在有哪些页面", { conversation: channel });
     const first = await nthReply(td, channel, 1);

@@ -110,7 +110,7 @@ describe("每个模板（动词加对象，不带“了”）", () => {
     // 86 号票：发语音写口语稿的前 20 个字
     ["send_voice", "text=明早九点开会。", "发语音：明早九点开会。"],
     ["send_voice", "text=好的，我把这周的周报整理好了，下面分几块说清楚。", "发语音：好的，我把这周的周报整理好了，下面分几…"],
-    // 102 号票：维护者给秘书发消息，写原话的前 30 个字（不带"了"：被拦下的前面加 ⛔，不能说成发了）
+    // 102 号票：负责人给秘书发消息，写原话的前 30 个字（不带"了"：被拦下的前面加 ⛔，不能说成发了）
     // 名字写占位（43 号票），界面上显示用户起的名字
     ["tell_secretary", "text=发票里有 3 张抬头写错了", "给⟦个人助理⟧发消息：发票里有 3 张抬头写错了"],
     ["tell_secretary", "text=10 月的账单里有一笔 3200 元的转账没有备注，我先归到“其他”，你回头看一眼。", "给⟦个人助理⟧发消息：10 月的账单里有一笔 3200 元的转账没有备注，我先归…"],
@@ -122,7 +122,7 @@ describe("每个模板（动词加对象，不带“了”）", () => {
     ["propose_quick_action", 'type=purge params={"materialIds":["mat-1"]}', "彻底删除 1 条素材"],
     ["propose_quick_action", 'type=pause_task params={"task":"t-3"}', "暂停任务 t-3"],
     ["propose_quick_action", 'type=tell_task params={"task":"t-5","message":"以后把 GitHub 热门也加上"}', "转达给任务 t-5：以后把 GitHub 热门也加上"],
-    ["propose_quick_action", 'type=tell_project params={"project":"记账本","message":"下个月起信用卡账单也要导入"}', "转达给项目「记账本」的维护者：下个月起信用卡账单也要导入"],
+    ["propose_quick_action", 'type=tell_project params={"project":"记账本","message":"下个月起信用卡账单也要导入"}', "转达给项目「记账本」的负责人：下个月起信用卡账单也要导入"],
     ["propose_quick_action", 'type=workday_calendar params={"change":"mark_rest","date":"2026-10-12"}', "改工作日历：把 2026 年 10 月 12 日（周一）标为休息"],
     ["propose_quick_action", 'type=workday_calendar params={"change":"add_rule","rule":{"kind":"last_weekday","weekday":6}}', "改工作日历：加一条额外上班规则：每月最后一个周六"],
     // 138 号票：授权文件夹，写方向和文件夹名

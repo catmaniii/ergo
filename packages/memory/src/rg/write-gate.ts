@@ -1,5 +1,5 @@
 // 推理图谱的唯一写入口（267 号票，ADR-0030）：一组受检查的写操作。谁写都经它——每晚整理（记忆管理员的夜班）、记忆管理员、
-// 记下用户的表态、用户发起的忘掉 / 彻底删除 / 别推断；秘书和维护者只读（它们那一份引擎开成只读，写一律拒）。
+// 记下用户的表态、用户发起的忘掉 / 彻底删除 / 别推断；秘书和负责人只读（它们那一份引擎开成只读，写一律拒）。
 //
 // 用法：engine.gate.write({ op, actor?, via?, reason }, () => { engine.gate.updateClaim(…); … })。
 // - 写操作（insertClaim、putLink、insertInference……，和存储同样的签名）只能在 write 里调，不然报错——绕不过检查和留痕；
@@ -191,7 +191,7 @@ export class ReasoningWriteRefused extends Error {
 }
 
 export interface WriteGateOptions {
-  /** 只读（秘书、维护者那一份引擎）：什么都不让写 */
+  /** 只读（秘书、负责人那一份引擎）：什么都不让写 */
   readOnly?: boolean;
   /** 敏感类别里没打开推断的那几类的场景标签（守护进程按 memory.sensitiveCategories 给，健康是 health）；不给就不查 */
   sensitiveTags?: readonly string[];
@@ -293,7 +293,7 @@ export class ReasoningWriteGate implements RgGate {
     return this.frames.length > 0;
   }
 
-  /** 这一份是不是只读的（秘书、维护者那一份） */
+  /** 这一份是不是只读的（秘书、负责人那一份） */
   get isReadOnly(): boolean {
     return this.readOnly;
   }
@@ -559,7 +559,7 @@ export class ReasoningWriteGate implements RgGate {
   /** 写之前就能判的：只读、谁能做这种写 */
   private permissionProblems(frame: Frame): WriteProblem[] {
     const who = WRITE_ACTOR_LABELS[frame.actor];
-    if (this.readOnly) return [{ check: "permission", objectId: null, message: "这一份推理图谱是只读的（秘书、维护者只读，不写推理图谱）" }];
+    if (this.readOnly) return [{ check: "permission", objectId: null, message: "这一份推理图谱是只读的（秘书、负责人只读，不写推理图谱）" }];
     if (USER_ONLY_OPS.has(frame.op) && frame.actor !== "user") {
       return [{ check: "permission", objectId: null, message: `${WRITE_OP_LABELS[frame.op]}只由用户发起（要用户确认），${who}不能自己做` }];
     }

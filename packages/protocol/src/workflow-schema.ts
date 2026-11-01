@@ -1,13 +1,13 @@
 // @i18n-ignore-file model：这里的中文都是 schema 里给模型看的参数说明
 // 流程（58 号票，ADR 0019）的 schema，用 TypeBox 定义，守护进程和 Web 共用生成的类型。名字和纯函数在 workflow.ts。
 // 固定计划：
-// - 维护者用 propose_plan 交出的计划（WorkflowPlanDraft）：目标、一串步骤（PlanStep：id、标题、工具、参数、前置步骤），
-//   连同这份计划要满足的条件（rules：时序规则，planguard 格式；条件不放在单独的规则文档里，由维护者写进计划，
+// - 负责人用 propose_plan 交出的计划（WorkflowPlanDraft）：目标、一串步骤（PlanStep：id、标题、工具、参数、前置步骤），
+//   连同这份计划要满足的条件（rules：时序规则，planguard 格式；条件不放在单独的规则文档里，由负责人写进计划，
 //   框架的 v1 规则模板也算）；
 // - 审查修补之后、交给用户授权的计划（WorkflowPlan）：每步加上敏感标注（marks）、
 //   要满足的条件和审查时查出的结果（conditions），整份带上审查结果（review）和版本；审查插入、改写过的步骤带 inserted、patches；
 // - 流程计划卡（workflow_plan）的负载和"授权"的输入：需要你确认的事项逐条勾完，一次授权；
-// - 执行时每一步的状态（Task.steps，维护者用 report_step 自报）在 task-schema.ts（任务的一部分）。
+// - 执行时每一步的状态（Task.steps，负责人用 report_step 自报）在 task-schema.ts（任务的一部分）。
 import { type Static, Type } from "typebox";
 import { DISPOSITIONS } from "./constants.ts";
 import { EventTrigger } from "./event-source-schema.ts";
@@ -19,7 +19,7 @@ import { WORKFLOW_CONDITION_SOURCES, WORKFLOW_CONDITION_STATUSES, WORKFLOW_REVIE
 const Id = (description: string) => Type.String({ pattern: PLAN_ID_PATTERN, description });
 const Text = (description: string) => Type.String({ minLength: 1, description });
 
-// ───────────────────────── 维护者起草的 ─────────────────────────
+// ───────────────────────── 负责人起草的 ─────────────────────────
 
 /** 计划里的一步：一次工具调用 */
 export const WorkflowStep = Type.Object(
@@ -39,7 +39,7 @@ export const WorkflowStep = Type.Object(
 );
 export type WorkflowStep = Static<typeof WorkflowStep>;
 
-/** 维护者用 propose_plan 交出的流程计划（不带版本号，版本由运行时给） */
+/** 负责人用 propose_plan 交出的流程计划（不带版本号，版本由运行时给） */
 export const WorkflowPlanDraft = Type.Object(
   {
     goal: Text("目标：这份计划要做成什么"),
@@ -167,7 +167,7 @@ export const WorkflowReview = Type.Object({
   confirmations: Type.Array(Type.String()),
   /** 事实不足、推迟到执行时再查的 */
   deferred: Type.Array(WorkflowReviewFinding),
-  /** 退回给维护者的补充要求 */
+  /** 退回给负责人的补充要求 */
   replans: Type.Array(Type.String()),
   /** 这次扫了多少：几条规则、原计划几步 */
   scanned: Type.Object({ rules: Type.Integer({ minimum: 0 }), steps: Type.Integer({ minimum: 0 }) }),
@@ -176,7 +176,7 @@ export const WorkflowReview = Type.Object({
   /** 逐条规则单独扫一遍的结果：每条规则查了多久、原计划里查出几处违反、几处判不了 */
   rules: Type.Array(WorkflowRuleProbe),
   /**
-   * 这次审查真正用的那一份规则原文（60 号票，检测项全览用）：框架的 v1 模板加维护者写进计划的，
+   * 这次审查真正用的那一份规则原文（60 号票，检测项全览用）：框架的 v1 模板加负责人写进计划的，
    * 没写修补方案的已按违反时怎么办补上（planguard 格式）。计划详情的"检测项全览"据此写出每条的形式化写法、可选的修法和代价。
    * 60 号票之前的计划、审查没跑成的没有
    */
@@ -194,7 +194,7 @@ export const WorkflowPlan = Type.Object({
   version: Type.Integer({ minimum: 1 }),
   goal: Type.String(),
   steps: Type.Array(WorkflowStepView),
-  /** 维护者写进计划的条件（时序规则）；框架的 v1 模板不在这里，但会出现在各步的 conditions 里 */
+  /** 负责人写进计划的条件（时序规则）；框架的 v1 模板不在这里，但会出现在各步的 conditions 里 */
   rules: Type.Array(PlanTemporalRule),
   review: WorkflowReview,
   /** 按步骤推出来的工具包：用到 bash 或带类型的 bash 工具才开 bash，用到要联网的才开联网 */
@@ -204,13 +204,13 @@ export type WorkflowPlan = Static<typeof WorkflowPlan>;
 
 // ───────────────────────── 流程计划卡 ─────────────────────────
 
-/** 审查没让这版计划交给你授权的两种情形：退回维护者补充（它会改好重新提交）、判定不可执行 */
+/** 审查没让这版计划交给你授权的两种情形：退回负责人补充（它会改好重新提交）、判定不可执行 */
 export const WORKFLOW_REFUSALS = ["needs_replan", "blocked"] as const;
 
 /**
  * 流程计划卡（workflow_plan）：审查结果、步骤和每一步的条件、需要你确认的事项，一次授权。
- * 审查退回维护者、判定不可执行的那一版也出一张（refused，也把这版计划显示出来）：不能授权，
- * 写明原因和下一步——退回的等维护者改好重新提交（可以取消任务），不可执行的让维护者改（可以附说明）或者取消任务
+ * 审查退回负责人、判定不可执行的那一版也出一张（refused，也把这版计划显示出来）：不能授权，
+ * 写明原因和下一步——退回的等负责人改好重新提交（可以取消任务），不可执行的让负责人改（可以附说明）或者取消任务
  */
 export const WorkflowPlanCardPayload = Type.Object({
   taskId: Type.String(),
@@ -223,7 +223,7 @@ export const WorkflowPlanCardPayload = Type.Object({
   plan: WorkflowPlan,
   /** 授权时逐项勾了的确认事项（workflowConfirmationItems 的 key） */
   confirmed: Type.Optional(Type.Array(Type.String())),
-  /** 审查没让这版交给你授权：退回维护者补充、判定不可执行（这样的卡只能"让维护者改""知道了"或者取消任务） */
+  /** 审查没让这版交给你授权：退回负责人补充、判定不可执行（这样的卡只能"让负责人改""知道了"或者取消任务） */
   refused: Type.Optional(Type.Enum(WORKFLOW_REFUSALS)),
   /**
    * 定时触发的流程（76 号票）：它的时间表。卡上写明按时间表反复运行、授权一直有效，直到暂停或取消（TIMED_WORKFLOW_GRANT_TEXT）。

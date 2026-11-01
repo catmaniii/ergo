@@ -128,5 +128,5 @@
   "cli.notify.noEnv": "没有环境变量 {url}、{token}：这个命令是给上线了的项目服务用的，二狗上线服务时注入这两个变量，别处跑不了",
   "cli.notify.unreachable": "连不上二狗（{url}）：守护进程可能停着。这次没报上，二狗不替你存，要不要过会儿重报由服务自己定",
   "cli.notify.refused": "二狗没收（{status}）：{message}",
-  "cli.notify.ok": "报上了：事件「{name}」（运行 {runs}）。不等维护者做完"
+  "cli.notify.ok": "报上了：事件「{name}」（运行 {runs}）。不等负责人做完"
 }

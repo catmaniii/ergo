@@ -39,7 +39,7 @@ describe("用户发言", () => {
     expect(t.materials.get(material!.id)).toEqual(material);
   });
 
-  test("维护者会话里用户的发言同样产生素材，来源会话是那个维护者的会话；消息事件带了任务、项目 id 就记上", () => {
+  test("负责人会话里用户的发言同样产生素材，来源会话是那个负责人的会话；消息事件带了任务、项目 id 就记上", () => {
     const t = materialsSetup();
     postMessage(t.store, [text("这个接口先别改")], { conversation: maintainerChannel("p-notes"), taskId: "t-7", projectId: "p-notes" });
     postMessage(t.store, [text("秘书会话里没有任务")]);
@@ -160,12 +160,12 @@ describe("确定性：不重复、可重建", () => {
     expect(files.map((f) => fs.statSync(f).mtimeMs)).toEqual(stats);
   });
 
-  test("删掉某个会话的事件（删项目时删掉维护者会话）再重建：本人素材从原文副本补回来，和原来一样，照样检索得到", async () => {
+  test("删掉某个会话的事件（删项目时删掉负责人会话）再重建：本人素材从原文副本补回来，和原来一样，照样检索得到", async () => {
     const t = materialsSetup();
     const maintainer = maintainerChannel("p-house");
     postMessage(t.store, [text("下个月要搬家，这个项目先停")], { conversation: maintainer, projectId: "p-house" });
     postMessage(t.store, [text("搬家公司选便宜的"), { type: "file", mediaId: "a".repeat(64), name: "报价单.pdf", mime: "application/pdf", size: 1 }], { conversation: maintainer });
-    postMessage(t.store, [text("维护者的回复不是素材")], { conversation: maintainer, speaker: "agent" });
+    postMessage(t.store, [text("负责人的回复不是素材")], { conversation: maintainer, speaker: "agent" });
     postMessage(t.store, [text("秘书会话里的话")]);
     const before = t.materials.list();
 

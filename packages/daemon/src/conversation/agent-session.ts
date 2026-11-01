@@ -1,9 +1,9 @@
-// 一个 agent 处理一条会话的输入（规格第 3、7 节）：秘书和维护者共用这一个类，各自只配置差异
-// （常驻还是按需唤起、每次唤起的装配、守卫看到的 agent、怎么称呼它）；15、16 号票的项目维护者直接用它。
+// 一个 agent 处理一条会话的输入（规格第 3、7 节）：秘书和负责人共用这一个类，各自只配置差异
+// （常驻还是按需唤起、每次唤起的装配、守卫看到的 agent、怎么称呼它）；15、16 号票的项目负责人直接用它。
 //
 // - 输入队列就是事件日志：会话里交给 agent 的消息（用户消息、运行时的通知）排队（派生视图 agent_inputs），
 //   一次处理一条——交给子进程时追加 turn_start，处理完追加 turn_end 出队，再取下一条。内存里只记"正在处理哪一条"。
-// - 唤起：常驻的（秘书）一开始就拉起；按需的（维护者）有输入等着才经 agent 管家唤起（名额满了排队），
+// - 唤起：常驻的（秘书）一开始就拉起；按需的（负责人）有输入等着才经 agent 管家唤起（名额满了排队），
 //   闲置退出后再来输入时重新唤起。每次唤起接着会话目录里最近的会话还是新开，由装配决定。
 // - 回复：流式增量交给 StreamHub 节流推送（不落盘），定稿后只把文本和推理 part 写进会话；
 //   代为执行的工具产生的卡片以一条只有卡片引用的消息出现在会话里，发出的附件（117 号票）以一条只有附件的消息出现；
@@ -26,7 +26,7 @@
 //   记忆模块从删除事件生成，改写本身由 agent 管家在一次性子进程里做）。子进程内存里还有原文，所以等手头这一条处理完，
 //   停掉子进程、改写会话文件、再拉起（接着同一个会话）；和崩溃后的重新拉起共用一段收尾（relaunch）。
 //   start() 时把以前的 messages_purged 再对一遍（上次改写到一半被杀也补上；改写是幂等的），改完才拉起。
-// - 13 号票起（维护者执行任务）：
+// - 13 号票起（负责人执行任务）：
 //   - 什么时候能处理输入由配置的 canProcess 决定（任务排队、暂停、结束时输入留在队里），状态变了由拉起它的模块 poke()；
 //   - 每次唤起的装配、代为执行的工具和守卫看到的会话都按当时的情况现取（函数）；要换一套装配时 refresh()：
 //     等手头这一条处理完，停掉子进程，下次唤起按新的装配拉起（接着同一个会话）；
@@ -54,9 +54,9 @@
 // - 24 号票：每次模型调用的用量记在谁名下（交给 agent 管家的 ledger，现取）：正在处理（或刚处理完）的那条输入所属的定时作业，
 //   没有就是任务，再没有是项目，都没有按会话的 scope。agent 在账本里的角色由配置给（ledgerRole）；秘书的用量不论输入属于谁
 //   都是系统开销（账本按角色判）。
-// - 16 号票起（项目维护者的会话分段）：会话里的消息带上的范围可以随当前这一段变（scope 给函数）；
+// - 16 号票起（项目负责人的会话分段）：会话里的消息带上的范围可以随当前这一段变（scope 给函数）；
 //   accepts 决定现在处理哪条输入（只处理属于当前这一段的，别的留在队里，不挡着后面的）；闲置退出时告诉拉起它的模块（onIdleExit）。
-// - 18 号票起（范围审视，维护者才有，给了 scopeReview 时）：协调在 scope-reviews.ts（SessionScopeReviews），这里只接上几处——
+// - 18 号票起（范围审视，负责人才有，给了 scopeReview 时）：协调在 scope-reviews.ts（SessionScopeReviews），这里只接上几处——
 //   拉起时装配里带上审视的那一份、交每条输入之前对照物变了先送、子进程就绪后送等着的审视、有审视等着又没有子进程时拉起一个；
 //   reviewScope() 让子进程审视这个会话里还没审视过的部分（工单结束时，子进程退出之前），审视在做时不换装配、不改写会话文件。
 // - 27 号票（工具包变了立即生效）：reassemble(notice)——
@@ -68,7 +68,7 @@
 //   - 没有子进程（休眠）：什么都不用停，下次唤起自然按新的装配。
 //   后两种情况"工具包已变更"跟在下一条输入后面（上下文消息）交给它。
 // - 83 号票（换模型就新开会话，给了 modelSwitch 时）：一个会话固定一个模型，设置里改了这个 agent 的模型或思考档位，
-//   下一条能换的输入（modelSwitch.allowed：秘书是用户的消息，项目维护者是对话段里的，定时作业的维护者是一次运行的开头；
+//   下一条能换的输入（modelSwitch.allowed：秘书是用户的消息，项目负责人是对话段里的，定时作业的负责人是一次运行的开头；
 //   任务执行中途不换）之前带上 handoff 拉起——休眠的唤起时就带上；子进程活着的，就绪时报了"接着的会话和装配参数不一样"（differs）
 //   或者设置在它拉起之后改了（wanted 和拉起时的不一样），先停掉再带上 handoff 拉起。子进程用原来的模型写交接摘要、新开会话
 //   （agent-child/handoff.ts），就绪时报回换没换成：换成了会话里记一条"已换成 X 模型，接着之前的对话"，再把这条输入交给新会话；
@@ -81,7 +81,7 @@
 //   （文字按先后拼在一条输入里，图片按先后跟着），turn_start、turn_end 带上另外几条（moreInputMessageIds），一起开始、一起出队。
 //   守护进程停下时不交（重启后会话起来时交）。
 // - 114 号票（会话里的 ⚙）：
-//   - 清空当前对话（clear，秘书、任务的维护者；项目维护者的清空是重置维护者，走 16 号票的会话分段）：手头这一条处理完，会话里记一条分隔线
+//   - 清空当前对话（clear，秘书、任务的负责人；项目负责人的清空是重置负责人，走 16 号票的会话分段）：手头这一条处理完，会话里记一条分隔线
 //     （conversation_cleared），停掉子进程，之后拉起时新开一段会话（宿主协议的 freshSession，名字由分隔线的消息 id 定，所以重启后照样认得）；
 //     旧消息不删，界面上收在分隔线上面。排着的输入交给新的那一段；
 //   - 现在压缩（compactNow）：手头这一条处理完（没有子进程先拉起）送 compact，压缩时不交新的输入、不闲置退出，压完（compacted）记下结果；
@@ -94,13 +94,13 @@
 //   被放弃的那段里二狗自己记下的事件、用拉起它时的二狗模型另起一次写（navigationSummary → agent 管家的 recordedGeneration），写好的交给子进程；
 //   运行时报回的文件恢复结果（session_navigated.files）随挪成了的结果交给调用方。
 // - 286 号票（运行时，给了 launchBlocked 时）：要拉起子进程之前（有输入等着、现在压缩、范围审视、会话回退）先问一句"现在拉不拉得起"——
-//   维护者用的运行时插件停用了就不拉：输入留在队里、压缩等着、会话回退回这个原因；能拉起了由拉起它的模块 poke()。
+//   负责人用的运行时插件停用了就不拉：输入留在队里、压缩等着、会话回退回这个原因；能拉起了由拉起它的模块 poke()。
 // - 289 号票（运行时的斜杠命令、中途换运行时）：
 //   - 拉起时按子进程的运行时定"斜杠命令原样转交"（slashPassthrough：能力清单 slash_passthrough），是的话用户打的 /命令 原样交给它（agent-input.ts）；
 //   - 中途换运行时（switchRuntime，给了 runtimeSwitch 时）：和清空一样等手头这一条处理完，拦着不交下一条输入；这段会话里 agent 说过话的，
 //     先让原来的运行时写交接摘要（宿主协议 write_handoff；没有子进程的按原来的运行时拉起一个；拉不起、没写成的照样换，说明里写原因），
 //     停掉它；会话里记一条"已换成 X"（sessionStart，消息 id 以 m-rt- 开头，之后拉起都带上由它定的 freshSession：新的运行时新开一段会话，
-//     重启后照样认得），交接摘要跟在下一条输入后面交给新的（pendingNotice）；最后由拉起它的模块把维护者的运行时改成新的（commit）。
+//     重启后照样认得），交接摘要跟在下一条输入后面交给新的（pendingNotice）；最后由拉起它的模块把负责人的运行时改成新的（commit）。
 //     写交接摘要时 ⚙ 上显示"原来的在写交接摘要"。
 // - 291 号票（工具包当场换，给了 liveToolkit / retool 时）：子进程的运行时能力清单里 live_toolkit 是 true（Claude Code）的，工具包变了（reassemble）
 //   不 yield、不重新拉起——子进程就绪着就现取此刻的装配（retool：代为执行的工具、守卫看到的 agent 和工具注册表、skill），守护进程这边按新的
@@ -280,7 +280,7 @@ export interface AgentSessionOptions {
   log: (line: string) => void;
   agentId: string;
   conversation: ConversationId;
-  /** 日志里怎么称呼它："秘书"、"维护者" */
+  /** 日志里怎么称呼它："秘书"、"负责人" */
   label: string;
   /**
    * 会话里给人看的系统说明（"……这次没能回复"）里怎么称呼它；不给就用 label。
@@ -288,20 +288,20 @@ export interface AgentSessionOptions {
    */
   displayName?: string;
   /**
-   * 会话里的消息带上的归属（维护者会话：任务、项目）；给函数时每条消息现取（任务的维护者带上当时的阶段，25 号票；
-   * 项目维护者的随当前这一段变，16 号票）。守卫接入在判定一次调用时取一次，这次调用的记录用那一刻的
+   * 会话里的消息带上的归属（负责人会话：任务、项目）；给函数时每条消息现取（任务的负责人带上当时的阶段，25 号票；
+   * 项目负责人的随当前这一段变，16 号票）。守卫接入在判定一次调用时取一次，这次调用的记录用那一刻的
    */
   scope?: MessageScope | (() => MessageScope);
-  /** 这个 agent 在 token 账本里的角色（秘书、维护者）；不给是维护者 */
+  /** 这个 agent 在 token 账本里的角色（秘书、负责人）；不给是负责人 */
   ledgerRole?: LedgerRole;
   /** 现在处理不处理这条排着的输入（不给就按先后都处理）：不处理的留在队里，接着看后面的（16 号票） */
   accepts?(input: QueuedAgentInput): boolean;
-  /** 闲置退出了（按需的 agent，16 号票：对话段在维护者闲置退出时结束） */
+  /** 闲置退出了（按需的 agent，16 号票：对话段在负责人闲置退出时结束） */
   onIdleExit?(): void;
-  /** 子进程就绪了：它打开的是哪个会话（16 号票：项目维护者的第一段对话段接着以前的会话时，记下接的是哪个） */
+  /** 子进程就绪了：它打开的是哪个会话（16 号票：项目负责人的第一段对话段接着以前的会话时，记下接的是哪个） */
   onReady?(ready: { session: string }): void;
   /**
-   * 现在的子进程是不是按过时的装配拉起的（16 号票：维护者换了一段会话、项目的装配变了）：交下一条输入之前看一眼，
+   * 现在的子进程是不是按过时的装配拉起的（16 号票：负责人换了一段会话、项目的装配变了）：交下一条输入之前看一眼，
    * 过时了就停掉、按新的装配重新拉起再交。不给就只看 refresh()
    */
   outdated?(): boolean;
@@ -321,7 +321,7 @@ export interface AgentSessionOptions {
   /** 现在能不能处理输入（不给就总是能）：不能时输入留在队里，状态变了调 poke() */
   canProcess?(): boolean;
   /**
-   * 正在处理一条输入时，运行时标了插话送达的通知（14 号票：无进展的催促）、秘书转达的话（103 号票）送进去（维护者）；不打开就排队。
+   * 正在处理一条输入时，运行时标了插话送达的通知（14 号票：无进展的催促）、秘书转达的话（103 号票）送进去（负责人）；不打开就排队。
    * 144 号票起用户在这个会话里直接说的话一律不插话：正在回复时排进会话的队列，这一轮做完再交（queue）
    */
   interjectNotices?: boolean;
@@ -363,7 +363,7 @@ export interface AgentSessionOptions {
   sessionRewriteFor?(purges: readonly MessagesPurgedEventPayload[]): Omit<SessionRewriteRequest, "sessionDir">;
   onStatus?(status: AgentSessionStatus): void;
   /**
-   * 范围审视（18 号票，维护者）：审视用的模型、审视的说明、此刻的对照物（交每条输入之前、守护进程要审视时现取），
+   * 范围审视（18 号票，负责人）：审视用的模型、审视的说明、此刻的对照物（交每条输入之前、守护进程要审视时现取），
    * 压缩会话时子进程自己做的审视的结果交给 onCompactionReview。拉起时装配里由这里带上
    */
   scopeReview?: SessionScopeReviewOptions;
@@ -378,16 +378,16 @@ export interface AgentSessionOptions {
    */
   slashConversation?: SlashConversationKind;
   /**
-   * 交给它的用户消息末尾带一行消息 id（125 号票：维护者引用用户原话时照抄它，运行时据此核实）。秘书不用（它不引用），维护者都给
+   * 交给它的用户消息末尾带一行消息 id（125 号票：负责人引用用户原话时照抄它，运行时据此核实）。秘书不用（它不引用），负责人都给
    */
   userMessageIds?: boolean;
   /**
    * 换模型就新开会话（83 号票，见文件开头）：设置里改了模型，下一条能换的输入之前新开会话、附交接摘要。不给就不换
-   * （任务的维护者：一个任务一个会话，执行中途不换）
+   * （任务的负责人：一个任务一个会话，执行中途不换）
    */
   modelSwitch?: AgentSessionModelSwitch;
   /**
-   * 现在拉不起子进程的原因（286 号票：维护者用的运行时插件没在运行，"X插件没启用"）：要拉起之前问一句，有原因就不拉——
+   * 现在拉不起子进程的原因（286 号票：负责人用的运行时插件没在运行，"X插件没启用"）：要拉起之前问一句，有原因就不拉——
    * 输入留在队里，现在压缩等着，会话回退回这个原因（not_allowed）。能拉起了由拉起它的模块 poke()。不给就总能拉起
    */
   launchBlocked?(): string | undefined;
@@ -435,7 +435,7 @@ export interface AgentSessionRuntimeSwitch {
   current(): string;
   /** 运行时给人看的名字 */
   title(runtime: string): string;
-  /** 换完了（原来的停掉、会话里记好了"已换成"）：把维护者的运行时、给它选的值改成新的（任务、项目上记一条 runtime_set） */
+  /** 换完了（原来的停掉、会话里记好了"已换成"）：把负责人的运行时、给它选的值改成新的（任务、项目上记一条 runtime_set） */
   commit(to: string, options: RuntimeChoice | undefined): void;
 }
 
@@ -443,7 +443,7 @@ export interface AgentSessionRuntimeSwitch {
 export interface AgentSessionModelSwitch {
   /** 交接摘要的写法（prompts/handoff-summary.md 填好值）：带上 handoff 拉起时现取 */
   instructions(): string;
-  /** 处理这条输入之前能不能换（秘书：用户的消息；项目维护者：对话段里；定时作业的维护者：一次运行的开头）。任务执行中途不换 */
+  /** 处理这条输入之前能不能换（秘书：用户的消息；项目负责人：对话段里；定时作业的负责人：一次运行的开头）。任务执行中途不换 */
   allowed(input: QueuedAgentInput): boolean;
   /** 设置里此刻给这个 agent 的模型：子进程活着时设置改了，下一条能换的输入之前按它重新拉起（换不换由子进程比对会话开始时的） */
   wanted(): ModelSpec;
@@ -704,7 +704,7 @@ export class AgentSession {
 
   /**
    * 中途换运行时（289 号票，见文件开头）：手头这一条处理完，原来的写交接摘要、停掉，会话里记一条"已换成"，新的新开一段会话、
-   * 交接摘要跟在下一条输入后面；换完由 runtimeSwitch.commit 把维护者的运行时改成新的。正在换的时候又要换的：换成最后要的那个
+   * 交接摘要跟在下一条输入后面；换完由 runtimeSwitch.commit 把负责人的运行时改成新的。正在换的时候又要换的：换成最后要的那个
    * （已经在写交接摘要的照样写完，按最后要的换）。换成现在用的那个、又没在换：什么都不做
    */
   switchRuntime(to: string, options: RuntimeChoice | undefined): void {
@@ -966,7 +966,7 @@ export class AgentSession {
       if (!stopped) throw new RequestRejected("not_allowed", t(switching ? "conversation.session.switchNotStopped" : "conversation.session.rollbackNotStopped", { who: this.who() }));
       this.dropFollowUp();
       const proc = await this.readyProcess(timeouts.readyMs);
-      // 写分支摘要时不闲置退出（按需的维护者，152 号票）
+      // 写分支摘要时不闲置退出（按需的负责人，152 号票）
       const awake = proc.holdAwake("navigate");
       try {
         const requestId = randomUUID();
@@ -1366,7 +1366,7 @@ export class AgentSession {
     this.clearWanted = undefined;
     const { store, conversation } = this.options;
     const built = buildMessage({ conversation, speaker: "system", parts: [{ type: "conversation_cleared" }] }, { ...this.scope(), idempotencyKey: `clear:${conversation}:${key}` });
-    // 写分隔线时挡住重入的 pump（见 clearing）：不然排着的那条（秘书不收插话，用户接着说的；维护者排着的运行时通知）会交给旧的子进程
+    // 写分隔线时挡住重入的 pump（见 clearing）：不然排着的那条（秘书不收插话，用户接着说的；负责人排着的运行时通知）会交给旧的子进程
     this.clearing = true;
     let appended: ReturnType<typeof store.append>;
     try {
@@ -1527,7 +1527,7 @@ export class AgentSession {
       onRecall: (toolCallId, recall) => recalls.set(toolCallId, recall),
       // 工具产生的卡片以一条只有卡片引用的消息出现在会话里
       onCards: (cardIds) => appendMessage(options.store, { conversation: options.conversation, speaker: "agent", parts: cardIds.map((cardId) => ({ type: "card_ref", cardId })) }, this.scope()),
-      // 工具发出的附件（发附件，117 号票起维护者也有）同样是 agent 的一条消息，带上会话此刻的归属（任务、项目、阶段）
+      // 工具发出的附件（发附件，117 号票起负责人也有）同样是 agent 的一条消息，带上会话此刻的归属（任务、项目、阶段）
       onAttachments: (parts) => appendMessage(options.store, { conversation: options.conversation, speaker: "agent", parts }, this.scope()),
       // 工具据此知道正在处理哪条输入、模型能不能看图（读取附件读图）；这一轮收下的插话由子进程随调用报上来（86 号票）
       // 一起交出的一批（144 号票）：另外几条也算这一轮处理的用户消息
@@ -1787,7 +1787,7 @@ export class AgentSession {
 
   /**
    * 换运行时（289 号票）：这段会话里 agent 说过话的，先让原来的运行时写交接摘要（没有子进程的按原来的运行时拉起一个）、停掉它；
-   * 会话里记一条"已换成"，之后拉起都带上由它定的新会话名字，交接摘要跟在下一条输入后面；最后 commit 把维护者的运行时改成新的
+   * 会话里记一条"已换成"，之后拉起都带上由它定的新会话名字，交接摘要跟在下一条输入后面；最后 commit 把负责人的运行时改成新的
    */
   private async performRuntimeSwitch(wanted: NonNullable<AgentSession["runtimeWanted"]>): Promise<void> {
     const sw = this.options.runtimeSwitch!;

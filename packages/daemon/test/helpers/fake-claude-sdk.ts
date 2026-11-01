@@ -756,7 +756,7 @@ export interface FakeClaudeEcho {
     envKeys: string[];
     clientApp?: string;
     hasExecutable: boolean;
-    /** 289 号票：维护者在 ⚙ 里选的值翻成的选项 */
+    /** 289 号票：负责人在 ⚙ 里选的值翻成的选项 */
     model?: string;
     effort?: string;
     permissionMode?: string;

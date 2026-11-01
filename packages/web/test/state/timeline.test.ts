@@ -1,5 +1,5 @@
 // 时间线的缩放（25 号票）录不出来的边角，手写事件序列回放：秘书主线跨天（守护进程的消息时间是真钟，录不出跨天）、
-// 项目维护者的工单段和对话段（16 号票还没做，按共享协议的工单分隔 part 构造）、范围变更和越界（18 号票还没做）、
+// 项目负责人的工单段和对话段（16 号票还没做，按共享协议的工单分隔 part 构造）、范围变更和越界（18 号票还没做）、
 // 偏离（14 号票还没做）——这几种记录按共享协议 timeline.ts 的 schema 构造，先过 schema 校验。
 // 还有快速动作的操作记录（21 号票转来：时间线上可见，按凭什么执行的取样式；彻底删除时跟着卡片换掉原话），
 // 往上翻取回的旧页里的记录，活动状态的说明和进度、断线重连后按序号补齐。
@@ -194,7 +194,7 @@ const T = (s: string) => `2026-10-08T10:${s}.000+08:00`;
 /** 11 点几分几秒 */
 const T11 = (s: string) => `2026-10-08T11:${s}.000+08:00`;
 
-describe("项目维护者的会话：全局层按工单段聚色块，对话段也各成一块；范围变更和越界单独标出", () => {
+describe("项目负责人的会话：全局层按工单段聚色块，对话段也各成一块；范围变更和越界单独标出", () => {
   const PM = "maintainer:pm-1";
   const project = {
     id: "p-1",
@@ -229,7 +229,7 @@ describe("项目维护者的会话：全局层按工单段聚色块，对话段�
   ];
   const state = replay(inputs);
 
-  test("项目维护者的会话按段：开头的立项问答、工单 W-1、对话段、工单 W-2 各一块，块上标出越界、范围变更和做完告诉我的操作", () => {
+  test("项目负责人的会话按段：开头的立项问答、工单 W-1、对话段、工单 W-2 各一块，块上标出越界、范围变更和做完告诉我的操作", () => {
     expect(timelineGrouping(state, PM)).toBe("segment");
     const blocks = globalView(state, PM);
     expect(blocks.map((b) => [b.title, b.count])).toEqual([
@@ -264,7 +264,7 @@ describe("项目维护者的会话：全局层按工单段聚色块，对话段�
   });
 });
 
-describe("任务的维护者会话：偏离记录（14 号票）进要点层，并落在它所在阶段的色块上", () => {
+describe("任务的负责人会话：偏离记录（14 号票）进要点层，并落在它所在阶段的色块上", () => {
   const TM = "maintainer:tm-5";
   const task = {
     id: "t-5",
@@ -382,7 +382,7 @@ describe("活动状态：说明、干活中的进度、断线重连后按序号�
     expect(boardGroups(working)[1]!.items[0]).toMatchObject({ kind: "task", activity: { state: "working", detail: calling } });
     // 等你的 agent 不收进度
     expect(agentActivity(replay([...base, frame(A, 2, "activity_progress", { agentId: "pm-1", detail: calling })]), "pm-1")).toEqual({ state: "waiting_for_user", detail: approval });
-    // 项目列表上的小圆点：维护者等你
+    // 项目列表上的小圆点：负责人等你
     expect(projectViews(working)[0]).toMatchObject({ activity: { state: "waiting_for_user", detail: approval } });
     expect(activityNote(projectViews(working)[0]!.activity)).toBe("等你批准：读文件");
     const after = replay([frame(A, 3, "activity", { agentId: "tm-1", state: "sleeping", since, detail: { kind: "idle" } })], working);
@@ -404,7 +404,7 @@ describe("活动状态：说明、干活中的进度、断线重连后按序号�
     expect(agentActivity(state, "pm-1")).toEqual({ state: "working", detail: handling });
     expect(boardGroups(state)[1]!.items[0]).toMatchObject({ activity: { state: "sleeping", detail: { kind: "idle_exit" } } });
     expect(agentActivity(replay([{ kind: "resync", channel: A }], state), "tm-1")).toEqual({ state: "sleeping" });
-    // 没收到过活动状态的维护者：休眠
+    // 没收到过活动状态的负责人：休眠
     expect(agentActivity(initialState(), "pm-9")).toEqual({ state: "sleeping" });
   });
 });

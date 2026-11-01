@@ -76,7 +76,7 @@ const diff = (after: Plan, goal?: { before: string; after: string }) => diffPlan
 /** 计划不变，只改任务书里的验收标准 */
 const criteriaDiff = (before: string[], after: string[]) => diffPlan({ before: base(), after: base(), tools, criteria: { before, after } });
 
-describe("不扩大授权的调整（维护者自行调整计划，记进时间线）", () => {
+describe("不扩大授权的调整（负责人自行调整计划，记进时间线）", () => {
   it("原样：没有改动", () => {
     expect(diff(base())).toEqual([]);
   });
@@ -148,7 +148,7 @@ describe("不扩大授权的调整（维护者自行调整计划，记进时间�
     expect([closed?.kind, closed?.expands]).toEqual(["toolkit", false]);
   });
 
-  it("加 skill（27 号票）：skill 只是说明书、不增加权限，维护者自己增减，不算扩大；卡上写加了哪个", () => {
+  it("加 skill（27 号票）：skill 只是说明书、不增加权限，负责人自己增减，不算扩大；卡上写加了哪个", () => {
     const [item] = diff(edited((p) => p.toolkit.skills.push("notes-style")));
     expect([item?.kind, item?.expands]).toEqual(["toolkit", false]);
     expect(planChangeItemText(item!)).toBe("工具包变更：加上 skill notes-style（原来 bash 关、联网开；skill：无；MCP：无）");
@@ -246,7 +246,7 @@ describe("停下哪些阶段", () => {
     expect(affectedStages(diff(after), after, list(), [], "s1")).toEqual(["s3"]);
   });
 
-  it("不落在具体阶段上的（工具包、项目、目标）：停维护者点名的，没点名就停手头在做的", () => {
+  it("不落在具体阶段上的（工具包、项目、目标）：停负责人点名的，没点名就停手头在做的", () => {
     const after = edited((p) => (p.toolkit.bash = true));
     expect(affectedStages(diff(after), after, list({ s1: "accepted", s2: "running" }), [], "s2")).toEqual(["s2"]);
     expect(affectedStages(diff(after), after, list({ s1: "accepted", s2: "running" }), ["s3"], "s2")).toEqual(["s3"]);
@@ -259,7 +259,7 @@ describe("停下哪些阶段", () => {
     expect(touchedAcceptedStages(base(), edited((p) => (p.stages[1]!.title = "改名")), list({ s1: "accepted" }))).toEqual([]);
   });
 
-  it("编号不算改动（93 号票）：现在生效的那份有编号、维护者交来的没有，已验收的阶段不算碰过", () => {
+  it("编号不算改动（93 号票）：现在生效的那份有编号、负责人交来的没有，已验收的阶段不算碰过", () => {
     const coded = withStageCodes(base());
     expect(coded.stages[0]!.code).toBe("1");
     expect(touchedAcceptedStages(coded, base(), list({ s1: "accepted" }))).toEqual([]);
@@ -271,7 +271,7 @@ describe("停下哪些阶段", () => {
   });
 });
 
-/** 维护者交的计划（本任务的关注类别、用户的限制、记忆范围沿用当前计划，不写） */
+/** 负责人交的计划（本任务的关注类别、用户的限制、记忆范围沿用当前计划，不写） */
 function draftOf(plan: Plan) {
   const { watchCategories: _w, userLimits: _u, memoryScope: _m, ...rest } = plan;
   return structuredClone(rest);
@@ -368,13 +368,13 @@ describe("只交要改的（121 号票）", () => {
 });
 
 describe("改了之后", () => {
-  it("维护者交的计划合上当前计划沿用的关注类别、用户的限制、定时作业、记忆范围", () => {
+  it("负责人交的计划合上当前计划沿用的关注类别、用户的限制、定时作业、记忆范围", () => {
     const current = { ...base(), memoryScope: "（不授予）", userLimits: [{ id: "l1", quote: "别推到 main", temporalRules: [], grantNarrowings: [{ grantId: "push", maxUses: 1 }] }] };
     const { watchCategories: _w, userLimits: _u, memoryScope: _m, ...draft } = base();
     expect(mergeDraft(current, draft).plan).toEqual(current);
   });
 
-  it("工具包里给秘书发消息（102 号票）：维护者交的不写这一项是沿用现在的（用户关掉的不会被悄悄打开），写了照写的算", () => {
+  it("工具包里给秘书发消息（102 号票）：负责人交的不写这一项是沿用现在的（用户关掉的不会被悄悄打开），写了照写的算", () => {
     const { watchCategories: _w, userLimits: _u, memoryScope: _m, ...draft } = base();
     const off = { ...base(), toolkit: { ...base().toolkit, tellSecretary: false } };
     expect(mergeDraft(off, draft).plan.toolkit).toEqual(off.toolkit);

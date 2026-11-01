@@ -8,7 +8,7 @@
 // - 启动时读入；读不了、内容不对、名字不合规时只当没设（记一行日志，**不覆盖**它），不让守护进程起不来；
 // - 改名字（PUT /api/user-name）：按 checkUserName 查（不合规抛 RequestRejected，HTTP 回 400 带原因）；
 //   null 或者空串（含只有空白的）是清除，删掉文件；有变化才写；
-// - 名字变了，onChange 登记的函数被叫（秘书、记忆管理员据此手头这一条处理完就按新的系统提示重新装配；维护者在下一条输入
+// - 名字变了，onChange 登记的函数被叫（秘书、记忆管理员据此手头这一条处理完就按新的系统提示重新装配；负责人在下一条输入
 //   之前按新的重新拉起）：不走事件是因为界面上用到它的地方打开页面时经 GET 现取一次就够，不必为一句话多一个频道。
 import fs from "node:fs";
 import { checkUserName, schemaChecker, UserNameFile, type UserNameResult, type UserNameView } from "@ergo/protocol";

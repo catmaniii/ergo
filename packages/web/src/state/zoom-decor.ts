@@ -4,9 +4,9 @@
 //   连着几块的标注一模一样时只在第一块标出、写 ×N；思考不打断，别的没有标注的块打断。
 // - 底色带（zoomBands）："一个计划从提出到执行完"铺一整块浅黄底，相邻两块深浅错开，左缘竖排"任务 N · 是什么事"。
 //   二狗按会话分（规格第 19 节、25 号票全局层的分组 timelineGrouping）：
-//   - 任务的维护者会话：每个任务一整块，起止照 planSpans——从这个任务的第一条到最后一条按计划执行的（带阶段的）或者计划卡，
+//   - 任务的负责人会话：每个任务一整块，起止照 planSpans——从这个任务的第一条到最后一条按计划执行的（带阶段的）或者计划卡，
 //     不越过下一个任务的开头；没有计划、也没开始执行的任务不铺；
-//   - 项目维护者的会话：每张工单那一段一块（工单分隔线起一段，到下一条分隔线之前；对话段不是工单段，不铺）；
+//   - 项目负责人的会话：每张工单那一段一块（工单分隔线起一段，到下一条分隔线之前；对话段不是工单段，不铺）；
 //   - 定时触发的任务的会话（76 号票）：每次运行一块（运行的分隔线起一段，到下一条之前；第一次运行之前的不铺）；
 //   - 秘书主线：每天一块。
 //   分段和 globalView 的按段、按天一样（测试里对过），只是落在会话条目上（底色带的上下沿要对到缩小后的矩形）。
@@ -18,17 +18,17 @@
 //     14 号票：退回 2 次、第 3 次还不过）的是未通过（第 3 次还不过，请用户拍板）；
 //   - 还没交上来验收的那一轮：任务已经结束、或者这个阶段已经不在现行计划里（计划变更去掉了），是没做完；否则是在做；
 //   - 返工（看板频道上的 task 事件，ui-state.ts 的 taskReopens）重开的阶段，返工之前的那几轮是已重开。
-//   只画长程任务（流程、普通任务没有阶段，固定计划没有书脊），只画在执行它的维护者的会话里（验收结论的进度卡在那里；
-//   涉及多个项目的任务派给项目的工单，项目维护者那边没有验收结论）；看板上没收到过的任务照画。
+//   只画长程任务（流程、普通任务没有阶段，固定计划没有书脊），只画在执行它的负责人的会话里（验收结论的进度卡在那里；
+//   涉及多个项目的任务派给项目的工单，项目负责人那边没有验收结论）；看板上没收到过的任务照画。
 // - 左侧（zoomLeftCards）：每个任务的第一条左边一张任务卡，只写一句总结（计划的目标，没有就是任务），点开看这件事的完整情况。
-//   二狗：任务的维护者会话里每个任务的第一条一张任务卡；项目维护者的会话里每张工单的分隔线一张工单卡；秘书主线没有。
+//   二狗：任务的负责人会话里每个任务的第一条一张任务卡；项目负责人的会话里每张工单的分隔线一张工单卡；秘书主线没有。
 // - 回退点（zoomRollbacks，150 号票）——
 //   每条用户消息"撤回到这条请求之前"、每条分支摘要"撤回到这条分支开始前"，挂在那一条左边（条左侧 ↶ 加引线）；只在当前这段会话里
 //   （最近一次清空、换模型之后，用户定的第 5 条）；系统通知、网页上下的指令、排队一起交出的一批里第一条之后的不是；
 //   只在能回退的会话里有（150 号票先做秘书主会话）。
-//   152 号票起任务、项目维护者的会话也有，外加长程任务每个阶段开始"撤回到阶段「…」开始前"（同固定计划的"撤回到步骤
-//   「…」开始前"）：维护者会话频道上 stage_start 的记号写明维护者是怎么知道这个阶段开始的，回退点挂在守护进程截的那一处——那条通知、
-//   "开始阶段"那条回复（没说话的是那次调用）、别的调用（验收通过接着开始的）的结果之后那一条；项目维护者的会话最新那一段结束了就没有。
+//   152 号票起任务、项目负责人的会话也有，外加长程任务每个阶段开始"撤回到阶段「…」开始前"（同固定计划的"撤回到步骤
+//   「…」开始前"）：负责人会话频道上 stage_start 的记号写明负责人是怎么知道这个阶段开始的，回退点挂在守护进程截的那一处——那条通知、
+//   "开始阶段"那条回复（没说话的是那次调用）、别的调用（验收通过接着开始的）的结果之后那一条；项目负责人的会话最新那一段结束了就没有。
 //   153 号票：流程每个步骤开始"撤回到步骤「…」开始前"（同一条记号带 stepId，挂在含那次 report_step 的回复上，没说话的是那次调用）；
 //   定时、事件触发的一次运行就是一段会话（分段线之前的没有回退点）。
 // - 分叉点（zoomForks，150 号票）：照 deriveSessionView 的 forks——废弃分支挂在当前路径上"序号不小于分叉处的第一条"右边（⑂ 小方块），
@@ -145,7 +145,7 @@ interface Span {
 }
 
 /**
- * 一块底色：任务（任务的维护者会话）、工单段（项目维护者的会话）、一天（秘书主线）。
+ * 一块底色：任务（任务的负责人会话）、工单段（项目负责人的会话）、一天（秘书主线）。
  * index 是第几块（相邻两块按奇偶深浅错开）；左缘竖排的标签：任务写"任务 N · 是什么事"（N 是这个会话里的第几个任务），
  * 工单写"工单 N · 是什么事"（N 是工单编号里的数，和分隔线上的编号对得上），一天写"10月8日"
  */
@@ -178,7 +178,7 @@ function taskStarts(items: readonly ChatItem[]): [string, number][] {
 }
 
 /**
- * 任务的维护者会话：每个任务一块。起点是这个任务的第一条，终点是最后一条按计划执行的（落在阶段的某一轮里的，
+ * 任务的负责人会话：每个任务一块。起点是这个任务的第一条，终点是最后一条按计划执行的（落在阶段的某一轮里的，
  * roundSteps）、没有就是计划卡；不越过下一个任务的开头。计划之前的来回包进来（从第一条算起），执行完之后的零散对话不包；
  * 没有计划、也没开始执行的任务不铺
  */
@@ -196,7 +196,7 @@ function taskSpans(state: UiState, items: readonly ChatItem[]): Omit<Extract<Zoo
   });
 }
 
-/** 项目维护者的会话：每张工单那一段一块，从它的分隔线到下一条分隔线之前（对话段的分隔线结束上一块、自己不铺） */
+/** 项目负责人的会话：每张工单那一段一块，从它的分隔线到下一条分隔线之前（对话段的分隔线结束上一块、自己不铺） */
 function workOrderSpans(items: readonly ChatItem[]): Omit<Extract<ZoomBand, { kind: "work_order" }>, "index">[] {
   const out: Omit<Extract<ZoomBand, { kind: "work_order" }>, "index">[] = [];
   let current: (typeof out)[number] | undefined;
@@ -244,7 +244,7 @@ function daySpans(items: readonly ChatItem[]): Omit<Extract<ZoomBand, { kind: "d
   return out;
 }
 
-/** 这个会话的底色带：任务的维护者会话按任务，项目维护者的会话按工单段，秘书主线按天（timelineGrouping 的三种分组） */
+/** 这个会话的底色带：任务的负责人会话按任务，项目负责人的会话按工单段，秘书主线按天（timelineGrouping 的三种分组） */
 export function zoomBands(state: UiState, conversation: ConversationId, items: readonly ChatItem[]): ZoomBand[] {
   const grouping = timelineGrouping(state, conversation);
   if (grouping === "stage") return taskSpans(state, items).map((s, index) => ({ ...s, index, no: String(index + 1) }));
@@ -291,7 +291,7 @@ function isStopRecord(item: ChatItem | undefined, taskId: string, stageId: strin
 }
 
 /**
- * 在这个会话里画不画这个任务的书脊：长程任务，执行它的维护者就是这个会话的（涉及多个项目的任务，项目维护者那边只有工单，
+ * 在这个会话里画不画这个任务的书脊：长程任务，执行它的负责人就是这个会话的（涉及多个项目的任务，项目负责人那边只有工单，
  * 没有验收结论）。看板上没收到过这个任务的照画（不知道是不是结束了、计划改没改，没交上来的那一轮算在做）
  */
 function drawsSpines(state: UiState, conversation: ConversationId, taskId: string): boolean {
@@ -438,7 +438,7 @@ function planCardOf(
   return undefined;
 }
 
-/** 条目 id → 它左边的那张卡：任务的维护者会话里每个任务的第一条一张任务卡，项目维护者的会话里每张工单的分隔线一张工单卡；秘书主线没有 */
+/** 条目 id → 它左边的那张卡：任务的负责人会话里每个任务的第一条一张任务卡，项目负责人的会话里每张工单的分隔线一张工单卡；秘书主线没有 */
 export function zoomLeftCards(state: UiState, conversation: ConversationId, items: readonly ChatItem[]): Map<string, ZoomLeftCard> {
   const out = new Map<string, ZoomLeftCard>();
   const grouping = timelineGrouping(state, conversation);
@@ -580,7 +580,7 @@ function segmentStart(state: UiState, conversation: ConversationId): number {
 export function zoomRollbacks(state: UiState, conversation: ConversationId, items: readonly ChatItem[]): Map<string, ZoomRollbackPoint[]> {
   const out = new Map<string, ZoomRollbackPoint[]>();
   if (!rollbackEnabled(conversation)) return out;
-  // 项目维护者的会话（152 号票）：最新那一段结束了就没有回退点（只在当前这一段里，用户定的第 5 条）
+  // 项目负责人的会话（152 号票）：最新那一段结束了就没有回退点（只在当前这一段里，用户定的第 5 条）
   if (timelineGrouping(state, conversation) === "segment" && segmentOpen(state, conversation) === false) return out;
   const start = segmentStart(state, conversation);
   // 排队交出的一批（144 号票）：同一批里第一条之后的（它们和第一条一起交给 agent，会话文件里是一条）
@@ -626,7 +626,7 @@ export function zoomRollbacks(state: UiState, conversation: ConversationId, item
 }
 
 /**
- * 撤回到这个阶段开始前截在会话频道上哪个序号（和守护进程 rollback.ts 的 stagePlan 同一个口径）：维护者从一条通知知道的，截在那条通知；
+ * 撤回到这个阶段开始前截在会话频道上哪个序号（和守护进程 rollback.ts 的 stagePlan 同一个口径）：负责人从一条通知知道的，截在那条通知；
  * "开始阶段"那次调用，截在那条回复说的话（calls 里有这次调用的，没说话的截在这次调用的记录）；别的调用，截在这次调用的记录后面那一条。
  * 那一条不在手里（还没翻到、彻底删除了）是 undefined
  */

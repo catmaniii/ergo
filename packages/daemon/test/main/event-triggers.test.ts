@@ -1,4 +1,4 @@
-// 主切面：事件触发（77 号票，ADR 0025）。真的守护进程，秘书、维护者接 faux 剧本，调度器的时钟换成手动拨的（ManualClock），
+// 主切面：事件触发（77 号票，ADR 0025）。真的守护进程，秘书、负责人接 faux 剧本，调度器的时钟换成手动拨的（ManualClock），
 // 文件夹监视是真的（Node 自带的 fs.watch，监视测试建的临时目录），测试扮演前端：
 // - 监视一个临时文件夹，放进一个对得上模式的文件：事件触发的普通任务跑一次，agent 拿到文件路径（结构化的这一批事件）；对不上的不触发；
 // - 某个任务完成时触发另一个普通任务（二狗内部事件，按任务过滤）；
@@ -199,7 +199,7 @@ describe("事件触发的流程", () => {
     const trigger = folderTrigger(inbox, ["added"], "*.txt");
     ok(await frontend.startTask("收件箱里来了文本文件就读一遍", "k-flow", [], "workflow", trigger));
     td.daemon.tasks.writeBrief("t-1", { goal: "读新来的文本文件", acceptanceCriteria: ["每个新文件都读过"], constraints: [], projects: [], memoryScope: "" });
-    // 交给维护者的任务书里写明事件发生时做、占位怎么写、能用哪些字段
+    // 交给负责人的任务书里写明事件发生时做、占位怎么写、能用哪些字段
     await waitUntil(() => noticesIn(frontend, TM1).some((t) => t.includes("什么时候做：事件发生时") && t.includes("{{事件.文件路径}}")), { timeoutMs: 30_000, describe: () => "等任务书" });
     const card = await eventually(() => cardsOf(frontend), (c) => c.type === "workflow_plan" && c.status === "pending", "流程计划卡");
     const payload = card.payload as WorkflowPlanCardPayload;
@@ -227,7 +227,7 @@ describe("事件触发的流程", () => {
       ["s1.e2", "读新来的 b.txt（第 2 个事件）", "done"],
       ["s2.e2", "看看工作目录（第 2 个事件）", "done"],
     ]);
-    // 交给维护者的步骤是代入之后的
+    // 交给负责人的步骤是代入之后的
     const notice = noticesIn(frontend, TM1).find((t) => t.includes("j-1-r1"))!;
     expect(notice).toContain("这一批有 2 个事件，每个事件各走一遍步骤");
     expect(notice).toContain(`s1.e1. 读新来的 a.txt（第 1 个事件）（read ${JSON.stringify({ path: a })}）`);
@@ -319,7 +319,7 @@ describe("事件触发的流程：通用 bash 的步骤", () => {
     const ended = await runEnded(frontend, "j-1-r1");
     expect(ended.run).toMatchObject({ state: "done" });
     expect(ended.run!.steps!.map((st) => [st.stepId, st.title, st.state])).toEqual([["s1", `备份 ${name}`, "done"]]);
-    // 交给维护者的命令里只有变量，没有文件名
+    // 交给负责人的命令里只有变量，没有文件名
     const notice = noticesIn(frontend, TM1).find((t) => t.includes("j-1-r1"))!;
     expect(notice).toContain(`bash ${JSON.stringify({ command })}`);
     expect(notice).toContain("ERGO_EVENT_");
@@ -477,7 +477,7 @@ describe("简单提醒挂事件", () => {
     const fired = frontend.events({ channel: BOARD, type: EVENT_TYPES.reminder }).map((f) => f.payload as ReminderEventPayload).filter((p) => p.change === "fired");
     expect(fired).toHaveLength(1);
     expect(fired[0]!.reminder).toMatchObject({ status: "pending", lastEvent: `新增文件 猫.jpg（${photos}）` });
-    // 不用 agent：没有任务、没有维护者的会话
+    // 不用 agent：没有任务、没有负责人的会话
     expect(td.daemon.tasks.list()).toEqual([]);
   }, 120_000);
 });

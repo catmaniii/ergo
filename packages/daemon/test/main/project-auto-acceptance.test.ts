@@ -1,6 +1,6 @@
-// 主切面：阶段自动验收（112 号票，用户 2026-10-13 定：先是项目里的任务，同日同意扩到所有长程任务）。真的守护进程，项目的维护者、
-// 任务的维护者、评审子 agent 接 faux 剧本，测试扮演前端。
-// - 项目的任务（项目的维护者执行的）起草计划时写由你验收（user）：计划检查退回，说明"阶段自动验收，改成 script 或 review"；
+// 主切面：阶段自动验收（112 号票，用户 2026-10-13 定：先是项目里的任务，同日同意扩到所有长程任务）。真的守护进程，项目的负责人、
+// 任务的负责人、评审子 agent 接 faux 剧本，测试扮演前端。
+// - 项目的任务（项目的负责人执行的）起草计划时写由你验收（user）：计划检查退回，说明"阶段自动验收，改成 script 或 review"；
 //   改好再交才出计划卡；确认后各阶段做完自动验收（脚本、评审），不出"等你验收"；任务的工具包开了 bash 的，评审也能在工作目录里跑命令；
 // - 例外照旧找用户：评审连续不通过到上限（验收第 3 次还不过），这一支停下、卡住求助；
 // - 已经在跑的项目任务（升级前确认的计划里写着由你验收）：守护进程启动时没验收的阶段里的改由评审（运行时调整的一版计划，事件历史不动），
@@ -85,7 +85,7 @@ async function connect(url: string) {
   return frontend;
 }
 
-/** 建设中的项目「AI 简报站」（立项书已确认）和它的一个内部长程任务（项目的维护者 pm-1 执行），写好任务书：派出起草计划的工单 */
+/** 建设中的项目「AI 简报站」（立项书已确认）和它的一个内部长程任务（项目的负责人 pm-1 执行），写好任务书：派出起草计划的工单 */
 function projectTaskWithBrief(td: TestDaemon): Task {
   seedProject(td.daemon, "AI 简报站", { state: "building", charterConfirmed: true, kind: "other", toolkit: { skills: [], mcp: [], bash: true, network: false } });
   const task = internalTask(td.daemon, "AI 简报站", "做一份信息源调研");
@@ -144,7 +144,7 @@ describe("项目里的任务：起草时只写脚本、评审，之后自动验�
     const frontend = await connect(td.url);
     const task = projectTaskWithBrief(td);
 
-    // 第一次交的被计划检查退回（不出计划卡），原因交回维护者
+    // 第一次交的被计划检查退回（不出计划卡），原因交回负责人
     const card = await cardWhere(frontend, (c) => c.type === "plan" && (c.payload as PlanCardPayload).taskId === task.id, "计划卡");
     await inputsDone(frontend, PM1);
     const submits = toolCallsOf(frontend, PM1).filter((c) => c.tool === "submit_plan");
@@ -176,7 +176,7 @@ describe("项目里的任务：起草时只写脚本、评审，之后自动验�
     await inputsDone(frontend, PM1);
   }, 90_000);
 
-  it("评审连续不通过到上限照旧找用户：前 2 次只交回维护者，第 3 次还不过，这一支停下、卡住求助（不是等你验收）", async () => {
+  it("评审连续不通过到上限照旧找用户：前 2 次只交回负责人，第 3 次还不过，这一支停下、卡住求助（不是等你验收）", async () => {
     const d = dirs();
     const td = await startTestDaemon({
       reuse: { dataDir: d.dataDir, homeDir: d.homeDir },
@@ -396,7 +396,7 @@ describe("已经在跑的项目任务（升级前确认的计划里写着由你�
 });
 
 /**
- * 升级前留下的数据：不涉及项目的长程任务（自己的维护者 tm-1），计划（升级前确认的一版）两个阶段都写着由你验收；s1 已经由你验收过，
+ * 升级前留下的数据：不涉及项目的长程任务（自己的负责人 tm-1），计划（升级前确认的一版）两个阶段都写着由你验收；s1 已经由你验收过，
  * s2 正在做
  */
 function seedLegacyPlainTask(td: TestDaemon): Task {

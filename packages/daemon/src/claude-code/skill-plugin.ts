@@ -1,6 +1,6 @@
 // 工具包里的 skill 交给 Claude Code（291 号票；用户 2026-10-26 问"二狗的 skill 能不能自动配给单独的一个 Claude 进程去用"）：
 // SDK 的 plugins 选项能加载本地插件目录（{ type: "local", path }，插件里可以带 skills）。适配子进程每次起 query 之前、工具包变了的时候，
-// 按这个维护者的工具包（装配参数 skillPaths：skill 库里的目录）在它的运行时目录（装配参数 runtimeDir，数据目录缓存区下每个 agent 一格）里
+// 按这个负责人的工具包（装配参数 skillPaths：skill 库里的目录）在它的运行时目录（装配参数 runtimeDir，数据目录缓存区下每个 agent 一格）里
 // 拼一个本地插件：
 //   <runtimeDir>/ergo/.claude-plugin/plugin.json   插件清单（名字 ergo）
 //   <runtimeDir>/ergo/skills/<目录名>/...          skill 从 skill 库复制进来
@@ -71,7 +71,7 @@ export function buildSkillPlugin(runtimeDir: string, skillDirs: readonly string[
   fs.mkdirSync(path.join(root, ".claude-plugin"), { recursive: true });
   fs.mkdirSync(skillsDir, { recursive: true });
   const manifest = path.join(root, MANIFEST);
-  const manifestText = `${JSON.stringify({ name: ERGO_PLUGIN, version: "1.0.0", description: "二狗交给这个会话的 skill（维护者工具包里的）" }, null, 2)}\n`;
+  const manifestText = `${JSON.stringify({ name: ERGO_PLUGIN, version: "1.0.0", description: "二狗交给这个会话的 skill（负责人工具包里的）" }, null, 2)}\n`;
   if (readText(manifest) !== manifestText) fs.writeFileSync(manifest, manifestText);
 
   const before = readStamps(path.join(root, STAMPS));

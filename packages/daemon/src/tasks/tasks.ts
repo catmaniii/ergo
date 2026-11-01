@@ -2,7 +2,7 @@
 // 每次迁移是任务看板频道上的一条 task 事件（同一事务里还有它引起的别的事件）。
 //
 // 任务分两种（58 号票，ADR 0019）：流程和长程任务，建卡时定下（Task.kind），之后不能换。只有用户点明了才发起，
-// 建出的任务都是"规划中"，执行的维护者在建卡时产生（12 号票：任务自己的维护者）：
+// 建出的任务都是"规划中"，执行的负责人在建卡时产生（12 号票：任务自己的负责人）：
 // - 用户点"发起任务"按钮（start_task 请求）、在发起对话框里先选了种类：不经秘书判断直接建出（带上用户选的项目），
 //   同一事务给秘书一条通知，秘书接着澄清；用户写的原话从这条 task 事件记成"用户发言"素材（material-sources.ts）；
 // - 用户在消息里点明了（"按流程做""发起任务"、/workflow、/task）：秘书用 start_workflow / create_task 建任务卡
@@ -10,20 +10,20 @@
 // - 用户没点明、秘书觉得该发起的：秘书只给"建议发起任务"卡，用户点卡上的"作为流程""作为长程任务"才建出（cards.ts）。
 // 普通任务（75 号票，ADR 0025）：不规划、不授权、不检查，建出就排队（不经"规划中""待确认"），有名额就开始做（执行控制器），
 // 要做的事（Task.summary）就是交给 agent 的任务书；不写任务书、不交计划。除了用户在发起对话框里选它，助理可以自己决定交出去
-// （delegate：不必等用户点明，origin 是 delegated）。只涉及一个项目的同样建成这个项目的内部任务，由项目的维护者在执行的工单段里做。
+// （delegate：不必等用户点明，origin 是 delegated）。只涉及一个项目的同样建成这个项目的内部任务，由项目的负责人在执行的工单段里做。
 // 触发方式（76 号票，ADR 0025）：发起对话框里选了"定时"的普通任务、流程（Task.trigger；长程任务只能现在做一次，事件触发等 77 号票）。
 // 定时的普通任务建出就是运营中（不排队），由触发底座（scheduled-jobs/）登记它的触发、按时间表一次次运行；定时的流程照常规划、
 // 计划卡上授权一次，授权之后是运营中（不排队），之后每次运行都按步骤核对。76 号票之前的定时作业迁移成定时触发的普通任务（buildMigrated）。
-// 项目内部任务（64 号票）：由项目的维护者执行、只在项目内部看得到的流程或长程任务（buildInternal，Task.internal）。
-// 用户定（2026-10-09）：**只涉及一个项目的任务一律是这个项目的内部任务**，不管从哪个入口发起——项目的维护者会话里点明、
-// 维护者给的建议卡、秘书那里点明、秘书给的建议卡上写了一个项目、"发起任务"对话框里选了一个项目、项目的首个建设任务，
+// 项目内部任务（64 号票）：由项目的负责人执行、只在项目内部看得到的流程或长程任务（buildInternal，Task.internal）。
+// 用户定（2026-10-09）：**只涉及一个项目的任务一律是这个项目的内部任务**，不管从哪个入口发起——项目的负责人会话里点明、
+// 负责人给的建议卡、秘书那里点明、秘书给的建议卡上写了一个项目、"发起任务"对话框里选了一个项目、项目的首个建设任务，
 // 以及建卡时没写项目、第一版任务书只涉及一个项目的（buildCreate、settledByBrief 都按这一条）；全局看板只放跨项目的、
-// 不属于任何项目的任务。不是维护者自己建的同一事务给维护者一条通知（首个建设任务直接派起草计划的工单）。
-// 任务书由维护者自己写（writeBrief 的 writer），之后和单项目任务一样派起草计划的工单。
-// 之后：秘书写任务书（write_task_brief）→ 同一事务把任务书作为一条通知交给执行的维护者（它的会话频道，维护者模块据此唤起它）
-// → 维护者用"提交计划"工具交出结构化的计划 → 检查（plan.ts）、存进事件日志、生成计划卡放进待我处理、任务转待确认
+// 不属于任何项目的任务。不是负责人自己建的同一事务给负责人一条通知（首个建设任务直接派起草计划的工单）。
+// 任务书由负责人自己写（writeBrief 的 writer），之后和单项目任务一样派起草计划的工单。
+// 之后：秘书写任务书（write_task_brief）→ 同一事务把任务书作为一条通知交给执行的负责人（它的会话频道，负责人模块据此唤起它）
+// → 负责人用"提交计划"工具交出结构化的计划 → 检查（plan.ts）、存进事件日志、生成计划卡放进待我处理、任务转待确认
 // → 用户在计划卡上确认（可勾掉、收窄授权项、改假设栏、加本任务的关注类别，任务转排队中；本任务调严过的全局关注类别
-//   连当时的规则一起快照进计划，26 号票）或附意见打回（任务回到规划中，意见作为通知交回维护者）。
+//   连当时的规则一起快照进计划，26 号票）或附意见打回（任务回到规划中，意见作为通知交回负责人）。
 import { randomUUID } from "node:crypto";
 import {
   CHANNELS,
@@ -123,7 +123,7 @@ function checkedTrigger(kind: TaskKind, trigger: TaskTrigger | undefined, now: s
   if (!trigger || trigger.kind === "once") return undefined;
   if (kind === "long_running") throw new RequestRejected("not_allowed", LONG_RUNNING_TRIGGER_REFUSAL);
   if (trigger.kind === "event") {
-    // 357 号票：项目的服务报的事件只能写在运营方案里（用户确认过才等得到），发起任务对话框、秘书、维护者别的入口建不出
+    // 357 号票：项目的服务报的事件只能写在运营方案里（用户确认过才等得到），发起任务对话框、秘书、负责人别的入口建不出
     const planOnly = origin === "operations" ? undefined : planOnlyProblem(trigger);
     if (planOnly) throw new RequestRejected("bad_params", EVENT_TRIGGER_PROBLEMS([planOnly]));
     const problems = checkEvent ? checkEvent(trigger) : [NO_EVENT_SOURCES];
@@ -136,7 +136,7 @@ function checkedTrigger(kind: TaskKind, trigger: TaskTrigger | undefined, now: s
 }
 
 /** 计划里写了定时作业（76 号票起不再有）：改成在发起对话框里建定时触发的普通任务或流程 */
-// @i18n-ignore-next model：交回维护者
+// @i18n-ignore-next model：交回负责人
 export const PLAN_JOBS_REFUSAL = "计划里不再写定时作业（scheduledJobs）：要定时反复做的事，请用户在发起对话框里建定时触发的普通任务或流程（“什么时候做”选定时）。把这一项去掉再提交，需要的话在假设栏里写明建议用户另建一个";
 
 export interface NewTask {
@@ -155,11 +155,11 @@ export interface NewTask {
   /** 发起对话框里先勾上了"跑完自动播报"（100 号票）：建成项目内部任务的不认（做完不告诉秘书） */
   voiceAnnounce?: boolean;
   /**
-   * 任务自己的维护者用的 agent 运行时（286 号票，Task.runtime）：不给是 pi。建成项目内部任务的不认（由项目的维护者执行，照项目的）。
-   * 289 号票起新建时选（这里不查登记了没有：没登记、插件停用了的维护者不启动，任务转等我）
+   * 任务自己的负责人用的 agent 运行时（286 号票，Task.runtime）：不给是 pi。建成项目内部任务的不认（由项目的负责人执行，照项目的）。
+   * 289 号票起新建时选（这里不查登记了没有：没登记、插件停用了的负责人不启动，任务转等我）
    */
   runtime?: string;
-  /** 维护者的工作目录在数据目录外面（290 号票：接管来的，会话原来的工作目录；Task.workdir）。不涉及项目的才能给 */
+  /** 负责人的工作目录在数据目录外面（290 号票：接管来的，会话原来的工作目录；Task.workdir）。不涉及项目的才能给 */
   workdir?: string;
   /**
    * 在哪个文件夹做（305 号票）：运行时能选工作文件夹的（Claude Code）才看——用已有的、或在默认文件夹下新开（不写也是新开，按标题起名）；
@@ -186,16 +186,16 @@ export interface MigratedTask {
   title: string;
   summary: string;
   schedule: ReminderSchedule;
-  /** 执行的 agent 照旧：作业自己的维护者（jm-<n>）或项目的维护者 */
+  /** 执行的 agent 照旧：作业自己的负责人（jm-<n>）或项目的负责人 */
   maintainerId: string;
   project?: { id: string; name: string } | undefined;
   internal?: Task["internal"];
 }
 
 /**
- * 任务是怎么发起的（建出时同一事务通知谁、怎么说，由 buildCreate / buildInternal 一处定）：用户点了维护者给的建议卡、
- * 秘书给的建议卡，在秘书那里点明了（秘书替用户建的），点了"发起任务"按钮。建成项目内部任务的通知交给项目的维护者；
- * 全局任务的通知交给秘书（秘书自己建的不另通知）。项目的维护者自己建的、项目的首个建设任务不通知
+ * 任务是怎么发起的（建出时同一事务通知谁、怎么说，由 buildCreate / buildInternal 一处定）：用户点了负责人给的建议卡、
+ * 秘书给的建议卡，在秘书那里点明了（秘书替用户建的），点了"发起任务"按钮。建成项目内部任务的通知交给项目的负责人；
+ * 全局任务的通知交给秘书（秘书自己建的不另通知）。项目的负责人自己建的、项目的首个建设任务不通知
  */
 export type TaskStart = "maintainer_suggestion" | "secretary_suggestion" | "secretary" | "button";
 
@@ -208,25 +208,25 @@ export interface StartNotice {
 export interface TaskService {
   /**
    * 建出一个任务（规划中）和它的事件（不追加）：卡片动作把它们和卡片更新一起追加。只涉及一个项目的建成这个项目的内部任务
-   * （64 号票，用户定：buildInternal）。给了 start 就同一事务带上通知：内部任务的交给项目的维护者，全局任务的交给秘书
+   * （64 号票，用户定：buildInternal）。给了 start 就同一事务带上通知：内部任务的交给项目的负责人，全局任务的交给秘书
    * （秘书自己建的不另通知）——通知谁只在这里定，调用方不再判断
    */
   buildCreate(input: NewTask, by: TaskActor, start?: StartNotice): { task: Task; events: NewEvent[] };
   /**
    * 用户把一个未结束的任务转为项目（15 号票）：任务以"已完成 · 已转为项目"结束的事件（不追加）。
-   * 只有有自己维护者的任务能转（原任务的维护者接着做立项问答）
+   * 只有有自己负责人的任务能转（原任务的负责人接着做立项问答）
    */
   buildConvertToProject(taskId: string): { task: Task; event: NewEvent };
   /**
    * 秘书按用户在消息里的要求建任务卡（start_workflow / create_task 工具）：写了一个项目的建成这个项目的内部任务（64 号票），
-   * 通知交给项目的维护者
+   * 通知交给项目的负责人
    */
   createByRequest(input: { title: string; summary: string; kind?: TaskKind; projects?: readonly string[]; runtime?: string; folder?: WorkFolderChoice }): Task;
   /** 用户点"发起任务"按钮（start_task 请求）：同一个幂等键重发拿到同一个任务 */
   startFromButton(params: StartTaskParams, idempotencyKey: string): Task;
   /**
-   * 从运行时已有的会话接管成任务（290 号票，接管服务 takeover/ 叫）：普通任务（origin takeover），维护者在会话原来的工作目录里、接着那个会话做，
-   * 第一条输入是用户写的"接着让它做什么"。extra 给出要和任务一起追加的事件（前情消息：在任务书交给维护者之前进它的会话）。
+   * 从运行时已有的会话接管成任务（290 号票，接管服务 takeover/ 叫）：普通任务（origin takeover），负责人在会话原来的工作目录里、接着那个会话做，
+   * 第一条输入是用户写的"接着让它做什么"。extra 给出要和任务一起追加的事件（前情消息：在任务书交给负责人之前进它的会话）。
    * 同一个幂等键重发拿到第一次建出的；运行时不能用的抛 RequestRejected
    */
   startTakenOver(input: { title: string; request: string; runtime: string; workdir: string; takeover: RuntimeTakeover }, idempotencyKey: string, extra: (task: Task) => NewEvent[]): Task;
@@ -243,7 +243,7 @@ export interface TaskService {
   /** 开关"跑完自动播报"的事件（不追加；本来就是这样的是空的）：秘书的快速动作和卡片、操作记录同一事务追加。不能开关的抛 RequestRejected */
   buildVoiceAnnounce(taskId: string, on: boolean, by: TaskActor, idempotencyKey?: string): { task: Task; events: NewEvent[] };
   /**
-   * 任务自己的维护者用的运行时、给它选的值改了（289 号票：⚙ 里换运行时换完了、改了选的值）：记一条 runtime_set（状态不变）。
+   * 任务自己的负责人用的运行时、给它选的值改了（289 号票：⚙ 里换运行时换完了、改了选的值）：记一条 runtime_set（状态不变）。
    * pi 不写（没写就是 pi），选的值是空的不写；本来就是这样的不另记。没有的任务抛 RequestRejected
    */
   setRuntime(taskId: string, runtime: string | undefined, runtimeOptions: RuntimeChoice | undefined, by: TaskActor): Task;
@@ -253,9 +253,9 @@ export interface TaskService {
    */
   delegate(input: { title: string; instructions: string; projects?: readonly string[]; at?: string; runtime?: string; folder?: WorkFolderChoice }): Task;
   /**
-   * 项目内部任务（64 号票）的建出事件（不追加）：执行的就是项目的维护者，涉及的项目只有这一个，只在项目内部看得到。
+   * 项目内部任务（64 号票）的建出事件（不追加）：执行的就是项目的负责人，涉及的项目只有这一个，只在项目内部看得到。
    * 项目要在项目列表里、立项书已确认（只有首个建设任务例外：origin 是 project_build）、没归档，不然抛 RequestRejected 说明原因。
-   * 给了 start（不是维护者自己建的）同一事务给维护者一条带任务编号的通知：它正在做工单时排着，空下来在对话段里接着和用户对齐、写任务书
+   * 给了 start（不是负责人自己建的）同一事务给负责人一条带任务编号的通知：它正在做工单时排着，空下来在对话段里接着和用户对齐、写任务书
    */
   buildInternal(input: NewInternalTask, by: TaskActor, start?: StartNotice, nth?: number): { task: Task; events: NewEvent[] };
   /**
@@ -272,19 +272,19 @@ export interface TaskService {
    */
   /** nth：同一事务里建的第几个（从 0 起；编号接着往下排） */
   buildMigrated(input: MigratedTask, nth?: number): { task: Task; event: NewEvent };
-  /** 项目的维护者按用户在它的会话里的点明建项目内部任务并追加（start_workflow / create_task）：maintainerId 要是这个项目的维护者 */
+  /** 项目的负责人按用户在它的会话里的点明建项目内部任务并追加（start_workflow / create_task）：maintainerId 要是这个项目的负责人 */
   createInternal(input: Omit<NewInternalTask, "origin">, maintainerId: string): Task;
   /**
-   * 写（或改）任务书：同一事务交给执行的维护者。秘书写（不给 writer）的不能是项目内部任务（对秘书来说没有这个任务）；
-   * 项目内部任务的任务书由它的维护者自己写（writer 是它，64 号票），之后照样派起草计划的工单给它
+   * 写（或改）任务书：同一事务交给执行的负责人。秘书写（不给 writer）的不能是项目内部任务（对秘书来说没有这个任务）；
+   * 项目内部任务的任务书由它的负责人自己写（writer 是它，64 号票），之后照样派起草计划的工单给它
    */
   writeBrief(taskId: string, brief: TaskBrief, writer?: { maintainerId: string }): { task: Task; revision: number };
   /**
    * 执行中改任务书（14 号票：改目标或任务的验收标准的计划变更被确认后）：新的一版任务书的事件（不追加），
-   * 调用方和计划变更的其余事件一起追加；不另交给维护者（确认的通知里写了改动）
+   * 调用方和计划变更的其余事件一起追加；不另交给负责人（确认的通知里写了改动）
    */
   buildBriefRevision(taskId: string, patch: Partial<Pick<TaskBrief, "goal" | "acceptanceCriteria">>): NewEvent;
-  /** 执行的维护者提交计划（submit_plan 工具）：检查不过时抛 RequestRejected，原因交回维护者 */
+  /** 执行的负责人提交计划（submit_plan 工具）：检查不过时抛 RequestRejected，原因交回负责人 */
   /** 361 号票：负责人交的预算只有次数算数，token 由运行时算（planFromSubmission） */
   submitPlan(taskId: string, maintainerId: string, plan: PlanSubmission): { cardId: string; planId: string; revision: number };
   /** 计划卡上的"确认"（勾掉、收窄授权项，改假设栏） */
@@ -292,7 +292,7 @@ export interface TaskService {
   /** 计划卡上的"附意见打回" */
   rejectFromCard(payload: PlanCardPayload, note: string | undefined, idempotencyKey: string): CardActionEffect<PlanCardPayload>;
   /**
-   * 流程的维护者交出的计划（58 号票，propose_plan 工具）：要交给用户的那份（审查修补过、标注好的）。存进事件日志、
+   * 流程的负责人交出的计划（58 号票，propose_plan 工具）：要交给用户的那份（审查修补过、标注好的）。存进事件日志、
    * 生成流程计划卡放进待我处理、任务转待确认；任务不是它执行的流程、不在规划中时抛 RequestRejected
    */
   submitWorkflowPlan(taskId: string, maintainerId: string, reviewed: ReviewedWorkflow): { cardId: string; planId: string; revision: number };
@@ -304,15 +304,15 @@ export interface TaskService {
    */
   buildWorkflowReauthorization(task: Task, stored: StoredPlan): { events: NewEvent[]; item: InboxItem; cardId: string; planId: string; revision: number };
   /**
-   * 流程的这一版审查没让它交给用户授权（审查退回维护者补充、判定不可执行）：也把这版计划显示出来——
+   * 流程的这一版审查没让它交给用户授权（审查退回负责人补充、判定不可执行）：也把这版计划显示出来——
    * 存进事件日志（这一版的状态是 refused）、生成流程计划卡（refused，不能授权）放进待我处理，写明原因和下一步；任务还在规划中
    */
   refuseWorkflowPlan(taskId: string, maintainerId: string, reviewed: ReviewedWorkflow, why: "needs_replan" | "blocked"): { cardId: string; planId: string; revision: number };
-  /** 审查判定不可执行（或退回）的流程计划卡上的"让维护者改"（可以附说明）：交回维护者 */
+  /** 审查判定不可执行（或退回）的流程计划卡上的"让负责人改"（可以附说明）：交回负责人 */
   reviseWorkflowFromCard(payload: WorkflowPlanCardPayload, note: string | undefined, idempotencyKey: string): CardActionEffect<WorkflowPlanCardPayload>;
   /** 流程计划卡上的"授权执行"：需要你确认的事项全勾上了才行，任务转排队中 */
   confirmWorkflowFromCard(payload: WorkflowPlanCardPayload, input: WorkflowConfirmInput, idempotencyKey: string): CardActionEffect<WorkflowPlanCardPayload>;
-  /** 流程计划卡上的"拒绝"（可以附说明）：任务回到规划中，交回维护者 */
+  /** 流程计划卡上的"拒绝"（可以附说明）：任务回到规划中，交回负责人 */
   rejectWorkflowFromCard(payload: WorkflowPlanCardPayload, note: string | undefined, idempotencyKey: string): CardActionEffect<WorkflowPlanCardPayload>;
   /**
    * 任务的一次变化（13 号票起执行、阶段推进用）：next 是变化之后的任务（updatedAt 由这里填），状态变了就按"谁能改"表校验
@@ -323,7 +323,7 @@ export interface TaskService {
   list(): Task[];
   /** 排队中的任务，按进入排队的先后 */
   queued(): Task[];
-  /** 某个维护者执行的任务 */
+  /** 某个负责人执行的任务 */
   ofMaintainer(maintainerId: string): Task | undefined;
   brief(taskId: string): { brief: TaskBrief; revision: number } | undefined;
   plan(planId: string): StoredPlan | undefined;
@@ -341,7 +341,7 @@ export interface TaskService {
   usedStageCodes(taskId: string): string[];
   /** 一个阶段这一份预算的记账（14 号票）：工具调用次数、token 从账本里的多少起算、说明过进展没有 */
   stageUsage(taskId: string, stageId: string): StageUsage;
-  /** 全局的关注类别（任务书里列给维护者：本任务的关注类别只能在其上增加） */
+  /** 全局的关注类别（任务书里列给负责人：本任务的关注类别只能在其上增加） */
   globalWatchCategories(): ReturnType<typeof globalWatchCategories>;
   /**
    * 各版计划里本任务的关注类别（26 号票，关注类别设置用）：confirmed 是确认了的那版，ongoing 是任务还没结束。
@@ -373,7 +373,7 @@ export interface TaskServiceOptions {
   callMeter?: (agentId: string) => { perCall: number; costPerCall?: { amount: number; currency: string } };
   /** 全局的关注类别设置（数据目录配置区的文件，每次现取；文件坏了时抛错） */
   watchSettings: () => WatchCategorySettings;
-  /** 计划里的授权项、时序规则照这份工具注册表查（内置的，加上维护者代为执行的工具） */
+  /** 计划里的授权项、时序规则照这份工具注册表查（内置的，加上负责人代为执行的工具） */
   planTools: ToolRegistry;
   /** 计划的工具包里的 skill 要在 skill 库里、MCP 要登记过（27 号票）；不给就不查 */
   toolkitProblems?: ToolkitProblems;
@@ -381,14 +381,14 @@ export interface TaskServiceOptions {
    * 项目列表（15 号票，项目模块建在任务模块之后，用到时现取；127 号票起直接给项目模块，不再一样样转手）：点"发起任务"时选的项目要在
    * 项目列表里（checkTaskProjects：不在的抛 UnknownProjects、已归档的抛 RequestRejected 说明原因，在的给出编号）；计划里写的涉及的项目
    * 认成编号（projectIdsOf）。项目的任务的计划里不管写没写，涉及的项目都有这个项目（projectOf：任务属于哪个项目）。
-   * 只涉及一个项目的任务（64 号票：一律是这个项目的内部任务）在哪个项目里（internalHost：项目的名字和维护者，由它执行；不在项目列表里、
+   * 只涉及一个项目的任务（64 号票：一律是这个项目的内部任务）在哪个项目里（internalHost：项目的名字和负责人，由它执行；不在项目列表里、
    * 立项书还没确认——firstBuild：项目的首个建设任务例外，它在确认立项书的那一刻建出——已归档的抛 RequestRejected 说明原因）。
    * 不给就不核对、不记编号，也建不了项目内部任务
    */
   projects?: () => TaskProjects;
   /**
-   * 派单器（16 号票，建在任务模块之后，用到时现取）：项目的任务的任务书、打回意见不直接交给维护者，而是派一张起草计划的工单
-   * （dispatchPlan，工单开始时交给它；返回 undefined 的——任务自己的维护者执行的——照旧作为通知交给维护者）；涉及多个项目的任务（17 号票）
+   * 派单器（16 号票，建在任务模块之后，用到时现取）：项目的任务的任务书、打回意见不直接交给负责人，而是派一张起草计划的工单
+   * （dispatchPlan，工单开始时交给它；返回 undefined 的——任务自己的负责人执行的——照旧作为通知交给负责人）；涉及多个项目的任务（17 号票）
    * 用户确认计划时每一行建成一张工单（multiProject.planConfirmed，等阶段开始），和计划卡的处理同一事务
    */
   workOrders?: () => TaskWorkOrders;
@@ -432,7 +432,7 @@ function clarifyNext(task: Task): string {
 }
 
 /**
- * 流程涉及几个项目的被拒（58 号票）：只涉及一个项目的是这个项目的内部任务（64 号票，由项目的维护者起草、执行），全局的流程不涉及项目
+ * 流程涉及几个项目的被拒（58 号票）：只涉及一个项目的是这个项目的内部任务（64 号票，由项目的负责人起草、执行），全局的流程不涉及项目
  */
 export const workflowProjectsRefusal = () => t("tasks.tasks.workflowProjects");
 
@@ -444,14 +444,14 @@ const NL = "\n";
 /** 审查退回、判定不可执行的那一版不能授权、也不用拒绝 */
 const refusedNotAuthorizable = () => t("tasks.tasks.refusedNotAuthorizable");
 
-// 任务书、交给维护者和秘书的通知：给模型看，照旧中文
+// 任务书、交给负责人和秘书的通知：给模型看，照旧中文
 // @i18n-ignore-start model
 const bullets = (items: readonly string[]) => (items.length === 0 ? "（无）" : items.map((x) => `\n- ${x}`).join(""));
 
 /** 任务书里项目内部任务（64 号票）涉及的项目：只有它自己那个，只在项目里看得到 */
 const internalBriefScope = (task: Task) => `${task.projects.join("、")}（项目内部任务：只动这个项目，只在项目里看得到）`;
 
-/** 交给维护者的任务书（流程的另有一种说法：workflowBriefText） */
+/** 交给负责人的任务书（流程的另有一种说法：workflowBriefText） */
 export function briefText(task: Task, brief: TaskBrief, revision: number, categories: ReturnType<typeof globalWatchCategories>): string {
   if (taskKind(task) === "workflow") return workflowBriefText(task, brief, revision);
   return [
@@ -464,13 +464,13 @@ export function briefText(task: Task, brief: TaskBrief, revision: number, catego
     `涉及的项目：${isProjectInternal(task) ? internalBriefScope(task) : brief.projects.length === 0 ? "不涉及项目" : brief.projects.join("、")}`,
     `记忆范围提议：${brief.memoryScope || "（无）"}（第一阶段只占位）`,
     `全局的关注类别（计划里的 watchCategories 一个都不能少，只能增加或往严里调）：${categories.map((c) => `${c.id}「${c.title}」`).join("、")}`,
-    // 用户说过的限制由维护者编译、和原话一起显示在计划卡上（26 号票）
+    // 用户说过的限制由负责人编译、和原话一起显示在计划卡上（26 号票）
     ...(brief.constraints.length > 0 ? ["约束里用户说过的限制，编译成时序规则或授权收窄写进计划的 userLimits，附上用户的原话。"] : []),
     `请据此起草计划，用 ${SUBMIT_PLAN_TOOL} 提交；用户确认之前不要动手做。`,
   ].join("\n");
 }
 
-/** 交给流程的维护者的任务书（58 号票）：照它把要做的事排成步骤，用 propose_plan 交出 */
+/** 交给流程的负责人的任务书（58 号票）：照它把要做的事排成步骤，用 propose_plan 交出 */
 export function workflowBriefText(task: Task, brief: TaskBrief, revision: number): string {
   return forModel(() => workflowBriefLines(task, brief, revision));
 }
@@ -491,7 +491,7 @@ function workflowBriefLines(task: Task, brief: TaskBrief, revision: number): str
 // @i18n-ignore-end
 
 /**
- * 任务书交给任务自己的维护者的那条通知（和 buildAgentNotice 一样）；第一版标上 taskBrief（172 号票：网页按它认，在对话层照常显示）
+ * 任务书交给任务自己的负责人的那条通知（和 buildAgentNotice 一样）；第一版标上 taskBrief（172 号票：网页按它认，在对话层照常显示）
  */
 function briefNotice(task: Task, text: string, revision: number): NewEvent {
   return buildMessage(
@@ -500,7 +500,7 @@ function briefNotice(task: Task, text: string, revision: number): NewEvent {
   ).event;
 }
 
-/** 建出全局任务时给秘书的通知（64 号票：建成项目内部任务的交给项目的维护者，见 buildInternal）；秘书自己建的不另通知 */
+/** 建出全局任务时给秘书的通知（64 号票：建成项目内部任务的交给项目的负责人，见 buildInternal）；秘书自己建的不另通知 */
 function secretaryStartNotice(task: Task, start: StartNotice | undefined): NewEvent[] {
   const text = start?.how === "button" ? buttonStartedNotice(task) : start?.how === "secretary_suggestion" ? suggestionStartedNotice(task) : undefined;
   return start === undefined || text === undefined ? [] : [buildAgentNotice(CHANNELS.secretary, text, `${start.key}#notice`).event];
@@ -542,13 +542,13 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
     // 涉及的项目认成编号：不在项目列表里、已归档的拒绝并说明
     const projectIds = options.projects?.().checkTaskProjects(projects);
     if (kind === "workflow" && (projectIds?.length ?? projects.length) > 1) throw new RequestRejected("not_allowed", workflowProjectsRefusal());
-    // 只涉及一个项目的任务一律是这个项目的内部任务（64 号票，用户定）：由项目的维护者执行，只在项目里看得到
+    // 只涉及一个项目的任务一律是这个项目的内部任务（64 号票，用户定）：由项目的负责人执行，只在项目里看得到
     if (projectIds?.length === 1) return buildInternal({ projectId: projectIds[0]!, title: input.title, summary: input.summary, kind, origin: input.origin, ...(trigger ? { trigger } : {}) }, by, start);
     // 在哪个文件夹做（305 号票）：能选工作文件夹的运行时才定（接管来的已经给了会话原来的）
     const workdir = input.workdir ?? options.workFolder?.(input.runtime, input.folder, input.title);
     const n = countTasks(store.reader) + 1;
     const time = now();
-    // 全局任务由任务自己的维护者执行；涉及几个项目在建卡时定下（17 号票）：两个以上的是多项目。
+    // 全局任务由任务自己的负责人执行；涉及几个项目在建卡时定下（17 号票）：两个以上的是多项目。
     // 普通任务（75 号票）不规划：建出就排队，有名额就开始做（执行控制器）
     const task: Task = {
       id: `t-${n}`,
@@ -604,7 +604,7 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
   };
 
   /**
-   * 项目内部任务的归属（64 号票）：执行的是项目的维护者，涉及的项目只有它，带着项目内部的标记。建出（buildInternal）、
+   * 项目内部任务的归属（64 号票）：执行的是项目的负责人，涉及的项目只有它，带着项目内部的标记。建出（buildInternal）、
    * 第一版任务书定下只涉及一个项目（settledByBrief）都用这一份；项目不能发起时（立项书还没确认、已归档……）抛出原因
    */
   const internalOwnership = (projectId: string, origin: TaskOrigin): Pick<Task, "maintainerId" | "projects" | "projectIds" | "projectScope" | "internal"> => {
@@ -614,8 +614,8 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
   };
 
   /**
-   * 执行的是项目的维护者，涉及的项目只有它，只在项目内部看得到；不是维护者自己建的（给了 start），同一事务通知它。
-   * 通知带着任务编号：维护者正在做工单时排着（工单段里没有写任务书的工具），空下来在对话段里处理（work-orders/segments.ts）
+   * 执行的是项目的负责人，涉及的项目只有它，只在项目内部看得到；不是负责人自己建的（给了 start），同一事务通知它。
+   * 通知带着任务编号：负责人正在做工单时排着（工单段里没有写任务书的工具），空下来在对话段里处理（work-orders/segments.ts）
    */
   function buildInternal(input: NewInternalTask, by: TaskActor, start?: StartNotice, nth = 0): { task: Task; events: NewEvent[] } {
     const trigger = checkedTrigger(input.kind, input.trigger, now(), options.checkEventTrigger, input.origin);
@@ -636,7 +636,7 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
     };
     const payload: TaskEventPayload = { task, change: "created", from: null, by };
     const created: NewEvent = { channel: CHANNELS.board, type: EVENT_TYPES.task, payload };
-    // 普通任务（75 号票）不用和维护者对齐、写任务书：派单器看到它进了排队就派一张执行的工单（work-orders/），工单开始时交给维护者
+    // 普通任务（75 号票）不用和负责人对齐、写任务书：派单器看到它进了排队就派一张执行的工单（work-orders/），工单开始时交给负责人
     if (!start || isPlainTask(input)) return { task, events: [created] };
     const notice = buildAgentNotice(maintainerChannel(task.maintainerId), internalStartedNotice(task, start.how), `${start.key}#notice`, { projectId: input.projectId, taskId: task.id });
     return { task, events: [created, notice.event] };
@@ -721,7 +721,7 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
     };
   };
 
-  /** 用户自己的话（核对用户的限制里的原话）：任务书的约束、点按钮发起任务时写的、用户在这个任务的维护者会话里发的消息 */
+  /** 用户自己的话（核对用户的限制里的原话）：任务书的约束、点按钮发起任务时写的、用户在这个任务的负责人会话里发的消息 */
   const userWords = (task: Task): string[] => {
     const messages = store
       .read(maintainerChannel(task.maintainerId), 0, EVENT_TYPES.message)
@@ -732,10 +732,10 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
   };
 
   /**
-   * 秘书建卡时没写涉及的项目（任务自己的维护者还没接过任何输入）：第一版任务书定下涉及几个项目，之后的任务书、计划都不再改
+   * 秘书建卡时没写涉及的项目（任务自己的负责人还没接过任何输入）：第一版任务书定下涉及几个项目，之后的任务书、计划都不再改
    * （17 号票）。只涉及一个项目列表里的项目的，成了这个项目的内部任务（64 号票，用户定；归属同 buildInternal：internalOwnership），
-   * 改由它的维护者起草并执行（看板上的任务事件 handed_to_project，状态不变；项目还在立项、已归档的拒绝并说明）；
-   * 涉及两个以上、都在项目列表里的，定为多项目任务（projects_settled，执行的还是任务自己的维护者）。
+   * 改由它的负责人起草并执行（看板上的任务事件 handed_to_project，状态不变；项目还在立项、已归档的拒绝并说明）；
+   * 涉及两个以上、都在项目列表里的，定为多项目任务（projects_settled，执行的还是任务自己的负责人）。
    * 用户定（2026-10-10）：只管"建的时候"——定下是跨项目任务之后计划里缩到只涉及一个项目的，留在全局看板，照旧做完
    */
   const settledByBrief = (task: Task, brief: TaskBrief, revision: number): { task: Task; event: NewEvent } | undefined => {
@@ -753,13 +753,13 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
 
   /**
    * 流程的一版计划（58 号票）：存进事件日志、出流程计划卡放进待我处理。交给用户授权的（refused 不给）卡着任务、任务转待确认；
-   * 审查没让它交给用户授权的（refused）卡上不能授权，判定不可执行的卡着任务（等用户决定让维护者改还是取消），
-   * 退回的不卡任务（维护者会自己改好重新提交），任务还在规划中。之前没处理的、审查没通过的那几版的卡过期
+   * 审查没让它交给用户授权的（refused）卡上不能授权，判定不可执行的卡着任务（等用户决定让负责人改还是取消），
+   * 退回的不卡任务（负责人会自己改好重新提交），任务还在规划中。之前没处理的、审查没通过的那几版的卡过期
    */
   const putWorkflowPlan = (taskId: string, maintainerId: string, reviewed: ReviewedWorkflow, refused?: "needs_replan" | "blocked") => {
     const task = mustGet(taskId);
-    // @i18n-ignore-start model：交回维护者
-    if (task.maintainerId !== maintainerId) throw new RequestRejected("not_allowed", `任务 ${taskId} 不是你执行的，只有它的维护者能提交计划`);
+    // @i18n-ignore-start model：交回负责人
+    if (task.maintainerId !== maintainerId) throw new RequestRejected("not_allowed", `任务 ${taskId} 不是你执行的，只有它的负责人能提交计划`);
     if (isPlainTask(task)) throw new RequestRejected("not_allowed", `任务 ${taskId} 是普通任务：不交计划，直接做`);
     if (taskKind(task) !== "workflow") throw new RequestRejected("not_allowed", `任务 ${taskId} 是长程任务，计划用 ${SUBMIT_PLAN_TOOL} 提交`);
     if (task.state !== "planning") throw new RequestRejected("not_allowed", `任务 ${taskId} 现在不在规划中，不能再提交计划`);
@@ -820,7 +820,7 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
   };
 
   /**
-   * 维护者交了新的一版（流程）：之前审查没让它交给用户授权、卡还没处理的几版过期（卡不再等用户，待我处理里也不再卡着任务）
+   * 负责人交了新的一版（流程）：之前审查没让它交给用户授权、卡还没处理的几版过期（卡不再等用户，待我处理里也不再卡着任务）
    */
   const supersedeRefused = (taskId: string): NewEvent[] =>
     refusedPlans(store.reader, taskId)
@@ -828,8 +828,8 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
       .map((p) => cards.buildUpdate(p.cardId, { status: "expired" }).event);
 
   /**
-   * 流程的计划交回维护者重新起草（拒绝、让维护者改）：项目的任务（64 号票起有项目内部的流程）派一张起草计划的工单（内容是这些话
-   * 加上任务书：新的一段会话里没有上一版的对话；维护者正在起草就作为通知交给它），任务自己的维护者直接交给它
+   * 流程的计划交回负责人重新起草（拒绝、让负责人改）：项目的任务（64 号票起有项目内部的流程）派一张起草计划的工单（内容是这些话
+   * 加上任务书：新的一段会话里没有上一版的对话；负责人正在起草就作为通知交给它），任务自己的负责人直接交给它
    */
   const replanHandOver = (task: Task, text: string, idempotencyKey: string): NewEvent[] => {
     const current = getBrief(store.reader, task.id);
@@ -837,7 +837,7 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
     return forProject ?? [buildAgentNotice(maintainerChannel(task.maintainerId), text, `${idempotencyKey}#notice`, { taskId: task.id }).event];
   };
 
-  /** 审查没让它交给你授权的那一版（流程计划卡上的"让维护者改"）：这一版是 refused、任务还在规划中 */
+  /** 审查没让它交给你授权的那一版（流程计划卡上的"让负责人改"）：这一版是 refused、任务还在规划中 */
   const refusedPlan = (payload: { taskId: string; planId: string }): { task: Task; stored: StoredPlan } => {
     const stored = getPlan(store.reader, payload.planId);
     const task = getTask(store.reader, payload.taskId);
@@ -1011,15 +1011,15 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
     },
     createInternal(input, maintainerId) {
       const { task, events } = buildInternal({ ...input, origin: "request" }, "maintainer");
-      if (task.maintainerId !== maintainerId) throw new RequestRejected("not_allowed", `只有项目的维护者能在项目里发起内部任务`); // @i18n-ignore model
+      if (task.maintainerId !== maintainerId) throw new RequestRejected("not_allowed", `只有项目的负责人能在项目里发起内部任务`); // @i18n-ignore model
       store.appendBatch(events);
       return task;
     },
     writeBrief(taskId, brief, writer) {
       const task = mustGet(taskId);
-      // 项目内部任务的任务书由它的维护者自己写（64 号票）；秘书看不到项目内部任务
+      // 项目内部任务的任务书由它的负责人自己写（64 号票）；秘书看不到项目内部任务
       if (isProjectInternal(task) && writer?.maintainerId !== task.maintainerId) throw new RequestRejected("not_found", notFoundText(taskId));
-      // @i18n-ignore-start model：写任务书是秘书、维护者的工具，交回 agent
+      // @i18n-ignore-start model：写任务书是秘书、负责人的工具，交回 agent
       if (!isProjectInternal(task) && writer) throw new RequestRejected("not_allowed", `任务 ${task.id} 不是这个项目的内部任务：它的任务书由秘书写`);
       // 普通任务（75 号票）没有任务书：交代的那段话已经交给 agent 了
       if (isPlainTask(task)) throw new RequestRejected("not_allowed", `任务 ${task.id}「${task.title}」是普通任务：不写任务书，交代的事已经交给它的 agent；要补充就让用户在任务详情里接着说`);
@@ -1034,7 +1034,7 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
       }
       const revision = (getBrief(store.reader, taskId)?.revision ?? 0) + 1;
       const payload: TaskBriefPayload = { taskId, brief, revision, time: now() };
-      // 建卡时没写项目：第一版任务书定下涉及几个项目（只涉及一个的交给这个项目的维护者，成了它的内部任务，16、17、64 号票）
+      // 建卡时没写项目：第一版任务书定下涉及几个项目（只涉及一个的交给这个项目的负责人，成了它的内部任务，16、17、64 号票）
       const handed = settledByBrief(task, brief, revision);
       const owned = handed?.task ?? task;
       // 流程只在一个项目里做（成了这个项目的内部任务）或者不涉及项目（58 号票）
@@ -1042,7 +1042,7 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
         throw new RequestRejected("not_allowed", `${forModel(workflowProjectsRefusal)}（任务书的 projects 写空数组）`); // @i18n-ignore model
       }
       const text = briefText(owned, brief, revision, globalWatchCategories(settings()));
-      // 项目的任务：派一张起草计划的工单（16 号票）；任务自己的维护者：直接交给它
+      // 项目的任务：派一张起草计划的工单（16 号票）；任务自己的负责人：直接交给它
       const handOver = options.workOrders?.().dispatchPlan(owned, text, `brief:${taskId}:${revision}`) ?? [briefNotice(owned, text, revision)];
       store.appendBatch([...(handed ? [handed.event] : []), { channel: TASKS_CHANNEL, type: TASK_EVENTS.briefWritten, payload }, ...handOver]);
       return { task: owned, revision };
@@ -1055,8 +1055,8 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
     },
     submitPlan(taskId, maintainerId, submission) {
       const task = mustGet(taskId);
-      // @i18n-ignore-start model：交回维护者
-      if (task.maintainerId !== maintainerId) throw new RequestRejected("not_allowed", `任务 ${taskId} 不是你执行的，只有它的维护者能提交计划`);
+      // @i18n-ignore-start model：交回负责人
+      if (task.maintainerId !== maintainerId) throw new RequestRejected("not_allowed", `任务 ${taskId} 不是你执行的，只有它的负责人能提交计划`);
       if (isPlainTask(task)) throw new RequestRejected("not_allowed", `任务 ${taskId} 是普通任务：不交计划，直接做`);
       // @i18n-ignore-end
       // 76 号票起计划里不再写定时作业（提交计划的工具的参数里没有这一项；直接调进来的也拒，说清改去哪里建）
@@ -1193,7 +1193,7 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
         by: "user",
         time: now(),
       };
-      // @i18n-ignore-start model：交回维护者
+      // @i18n-ignore-start model：交回负责人
       const text = [
         `用户看了计划 v${stored.revision} 的审查结果（${payload.refused === "blocked" ? "判定不可执行" : "退回补充"}），让你改。${comment ? `用户说明：${comment}` : ""}`,
         `照审查给出的原因${comment ? "和用户的说明" : ""}改好后重新用 ${WORKFLOW_TOOL.proposePlan} 提交；改不了的在会话里说明为什么。`,
@@ -1272,7 +1272,7 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
         time: now(),
       };
       // 用户拒绝了计划 vN（附上用户的说明）
-      // @i18n-ignore-start model：交回维护者
+      // @i18n-ignore-start model：交回负责人
       const rejected = [
         `用户拒绝了计划 v${stored.revision}。${comment ? `用户说明：${comment}` : ""}`,
         comment
@@ -1327,7 +1327,7 @@ export function createTaskService(options: TaskServiceOptions): TaskService {
   };
 }
 
-// 交给秘书、项目的维护者的通知：给模型看，照旧中文
+// 交给秘书、项目的负责人的通知：给模型看，照旧中文
 // @i18n-ignore-start model
 /** 秘书收到的通知：用户点「发起任务」发起了全局任务（用户选的项目是秘书写任务书时的依据） */
 function buttonStartedNotice(task: Task): string {
@@ -1337,7 +1337,7 @@ function buttonStartedNotice(task: Task): string {
 function buttonStartedLines(task: Task): string {
   const chosen = task.projects.length === 0 ? "用户选了：不涉及项目。" : `用户选了涉及的项目：${task.projects.join("、")}（写任务书时以它为依据）。`;
   // 305 号票：新建时定好了工作文件夹的（选了 Claude Code 这类运行时），写明在哪做，秘书就不再问"代码放哪儿"（294 号票端到端小测里问了一遍）
-  const folder = task.workdir === undefined ? [] : [`维护者在用户新建时定好的工作文件夹里做：${task.workdir}（不用再问放在哪）。`];
+  const folder = task.workdir === undefined ? [] : [`负责人在用户新建时定好的工作文件夹里做：${task.workdir}（不用再问放在哪）。`];
   return [`用户点「发起任务」发起了${TASK_KIND_LABEL[taskKind(task)]}：${task.summary}`, chosen, ...folder, ...(triggerLine(task) ? [`${triggerLine(task)!}。写任务书时写明它是定时做的。`] : []), clarifyNext(task)].join(NL);
 }
 
@@ -1347,7 +1347,7 @@ function suggestionStartedNotice(task: Task): string {
 }
 
 /**
- * 项目的维护者收到的通知（64 号票）：不是它自己建的项目内部任务建好了（用户点了建议卡、在秘书那里点明了、点了"发起任务"按钮）；
+ * 项目的负责人收到的通知（64 号票）：不是它自己建的项目内部任务建好了（用户点了建议卡、在秘书那里点明了、点了"发起任务"按钮）；
  * 接着和用户对齐、写任务书（write_task_brief），运行时把它作为起草计划的工单交回给它
  */
 export function internalStartedNotice(task: Task, start: TaskStart): string {

@@ -1,5 +1,5 @@
 // 项目的派生视图（规格第 4 节）：项目列表频道上的 project 事件归并成每个项目的最新状态，charters 频道上的立项书
-// 归并成每个项目最新的一版，立项要求变更（125 号票）、规范改写（261 号票，standards 频道）每次一行。删掉的项目留一行（标 deleted），编号不会被新项目重用，维护者 id 也认得出"属于已删除的项目"。
+// 归并成每个项目最新的一版，立项要求变更（125 号票）、规范改写（261 号票，standards 频道）每次一行。删掉的项目留一行（标 deleted），编号不会被新项目重用，负责人 id 也认得出"属于已删除的项目"。
 import { applyStandardChange, CHANNELS, EVENT_TYPES, type Project, type ProjectEventPayload, type StandardOverrideEntry } from "@ergo/protocol";
 import type { DerivedView } from "../events/event-store.ts";
 import type { ReadonlyDatabase } from "../storage/sqlite.ts";
@@ -128,7 +128,7 @@ export function countProjects(db: ReadonlyDatabase): number {
   return Number(db.get<{ n: number }>("SELECT COUNT(*) AS n FROM projects")?.n ?? 0);
 }
 
-/** 某个维护者的项目（删掉的也在，deleted 为 true） */
+/** 某个负责人的项目（删掉的也在，deleted 为 true） */
 export function projectOfMaintainer(db: ReadonlyDatabase, maintainerId: string): { project: Project; deleted: boolean } | undefined {
   const row = db.get<ProjectRow>("SELECT project, deleted FROM projects WHERE maintainer_id = ? ORDER BY created_seq DESC LIMIT 1", maintainerId);
   return row && { project: JSON.parse(row.project) as Project, deleted: row.deleted === 1 };

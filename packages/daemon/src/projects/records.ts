@@ -1,6 +1,6 @@
 // 项目档案（规格第 11、18 节）：数据目录项目区里每个项目一格 projects/<项目 id>/，放一套最小文档
-// （立项书、规格、术语表、ADR、进展、项目清单、范围记录），默认的工作目录 workdir/ 也在里面；维护者会话在会话区
-// sessions/<维护者 id>/。项目档案随数据目录备份，永不进外部仓库。
+// （立项书、规格、术语表、ADR、进展、项目清单、范围记录），默认的工作目录 workdir/ 也在里面；负责人会话在会话区
+// sessions/<负责人 id>/。项目档案随数据目录备份，永不进外部仓库。
 // - 外部工作目录：开发类项目的立项书确认绑定外部路径后，工作目录就是那个外部路径（不建目录联接，直接用它）；
 //   绑定关系记在 binding.json 和立项书里（外部路径不随二狗备份，靠项目自己的 git 远端）；
 // - 历史区 .history/：项目档案里的文件被整体重写或删除前，运行时自动留一份旧版本（守卫接入的 autoVersioning），
@@ -11,7 +11,7 @@
 // - 258 号票（项目规范）：记了模板版本的项目（规范上线之后立项的），规格、进展、决策记录照规范模板生成，开发类另有架构图 architecture.md、
 //   票 tickets/、运营接口清单 ops.json（standard.ts）；立项书、术语表、项目清单、范围记录照旧，算辅助。规范上线之前建的项目照旧的最小文档集。
 // - 261 号票（本项目的规范改写）：补文档时跳过用户确认了不要的那几份；确认了的改写由运行时写成 standard-overrides.md（现在生效的每一条、
-//   变更记录），维护者手改不算数。
+//   变更记录），负责人手改不算数。
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -57,7 +57,7 @@ export interface ProjectRecordsPaths {
   tickets: string;
   /** 运营接口清单（258 号票：开发类，MCP 格式，转运营之前要交） */
   ops: string;
-  /** 本项目的规范改写（261 号票）：运行时照用户确认了的规范改写写，维护者改了不算数 */
+  /** 本项目的规范改写（261 号票）：运行时照用户确认了的规范改写写，负责人改了不算数 */
   standardOverrides: string;
   /** 绑定关系（外部工作目录） */
   binding: string;
@@ -95,8 +95,8 @@ export function projectWorkdir(paths: ProjectRecordsPaths, project: Pick<Project
 
 /**
  * 立项书照项目的工作目录写（311 号票）：工作目录已经在外面的（305 号票新建时选的文件夹、290 号票接管来的会话原来的；立项书确认时不改它），
- * 立项书就是绑定了那个外部路径——走绑定外部路径同一条路（立项书卡、charter.md、binding.json 都写成已绑定），维护者交的绑不绑、哪条路径不算。
- * 不限开发类：文件夹是用户新建时定的，不是维护者提议绑定。工作目录在档案里的原样
+ * 立项书就是绑定了那个外部路径——走绑定外部路径同一条路（立项书卡、charter.md、binding.json 都写成已绑定），负责人交的绑不绑、哪条路径不算。
+ * 不限开发类：文件夹是用户新建时定的，不是负责人提议绑定。工作目录在档案里的原样
  */
 export function charterForWorkdir(charter: Charter, workdir: Project["workdir"] | undefined): Charter {
   if (!workdir?.external || workdir.path === undefined) return charter;
@@ -104,7 +104,7 @@ export function charterForWorkdir(charter: Charter, workdir: Project["workdir"] 
   return { ...charter, bindExternal: true, externalPath: workdir.path };
 }
 
-/** 最小文档集：文件、标题、一开始写什么（维护者在立项问答里往里写） */
+/** 最小文档集：文件、标题、一开始写什么（负责人在立项问答里往里写） */
 // 173 号票：建档时按当时的语言写（标题、开头的说明在语言文件里：projects.records.<文档>.title / .intro）
 const MINIMAL_DOCS: ReadonlyArray<keyof ProjectRecordsPaths & ("charter" | "spec" | "glossary" | "progress" | "manifest" | "scopeRecords")> = [
   "charter",
@@ -151,7 +151,7 @@ function writeIfMissing(file: string, content: string): void {
 }
 
 /**
- * 立项书末尾的一条变更记录（125 号票）：哪天、改了什么、依据的用户原话（运行时核实过的）、维护者为什么提、用户确认
+ * 立项书末尾的一条变更记录（125 号票）：哪天、改了什么、依据的用户原话（运行时核实过的）、负责人为什么提、用户确认
  */
 export interface CharterChangeRecord {
   /** 这个项目的第几次立项要求变更 */
@@ -269,7 +269,7 @@ export interface StandardChangeRecord {
 
 /**
  * 本项目的规范改写（261 号票，项目档案里的 standard-overrides.md）：用的哪一版规范、现在生效的每一条改写，末尾是用户确认了的每一次。
- * 由运行时照事件写（维护者改了不算数，下次确认时整份重写）
+ * 由运行时照事件写（负责人改了不算数，下次确认时整份重写）
  */
 export function standardOverridesMarkdown(
   project: Pick<Project, "id" | "name">,

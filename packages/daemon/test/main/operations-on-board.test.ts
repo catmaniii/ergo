@@ -16,7 +16,7 @@ import { internalTask, seedProject } from "../helpers/projects.ts";
 import { eventually, ok } from "../helpers/running-task.ts";
 
 const { board: BOARD, inbox: INBOX, projects: PROJECTS } = CHANNELS;
-const NOTE = "这是项目「AI 简报站」运营方案里的一条，要去掉请让项目维护者改运营方案";
+const NOTE = "这是项目「AI 简报站」运营方案里的一条，要去掉请让项目负责人改运营方案";
 /** 本地时间 2026 年 10 月 d 日 hh:mm */
 const at = (d: number, hh: number) => new Date(2026, 9, d, hh, 0);
 

@@ -3,5 +3,5 @@
 // 工具自己在登记里声明参数要打码（maskArgs）。
 export const PROJECT_OPS_TOOL = "project_ops";
 
-/** 维护者验收运营接口清单（268 号票，check-tool.ts）：提示词里的占位符 {{check_ops}} */
+/** 负责人验收运营接口清单（268 号票，check-tool.ts）：提示词里的占位符 {{check_ops}} */
 export const CHECK_OPS_TOOL = "check_ops";

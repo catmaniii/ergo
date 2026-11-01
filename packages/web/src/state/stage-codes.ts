@@ -26,7 +26,7 @@ export function stageLabelIn(state: UiState, taskId: string | undefined, stageId
 }
 
 /**
- * 任务详情状态行的"第 N/M 阶段"（91 号票）：维护者正在做的那一阶段的编号 / 一共几个阶段号（并行的算一个，看板上的 current、total
+ * 任务详情状态行的"第 N/M 阶段"（91 号票）：负责人正在做的那一阶段的编号 / 一共几个阶段号（并行的算一个，看板上的 current、total
  * 是计划里的第几个、共几个）。93 号票评审：和守护进程写的"第 1a/2 阶段"同一处算（协议包 stageCodeAt：编号是存下的，M 是存下的编号里
  * 最大的阶段号）。还没开始执行（没有阶段列表）的照看板上的。不是长程任务、没有阶段的没有
  */

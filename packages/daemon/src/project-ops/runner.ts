@@ -4,7 +4,7 @@
 //   建设中验收看运营方案里的服务），关着、还在上线这类没发出去（blocked）；
 // - script：工作目录里的脚本（script.ts）；
 // - ergo：二狗自带动作（builtin.ts）：白送的通用操作直接跑，项目清单里绑了参数的先代入（"{{参数名}}"）、按那个动作的参数说明校验；
-// - maintainer：转给项目的维护者当工单——建一个项目内部的普通任务（75 号票的 delegate：排队，派一张执行的工单给维护者），
+// - maintainer：转给项目的负责人当工单——建一个项目内部的普通任务（75 号票的 delegate：排队，派一张执行的工单给负责人），
 //   任务书写清是秘书代用户调的哪个操作、参数、为什么；测试调用只看这个项目收不收内部任务、不真建。
 // @i18n-ignore-file model：结果、跑不了的原因交给秘书（工具结果）
 import type { Project } from "@ergo/protocol";
@@ -38,7 +38,7 @@ export interface OpOutcome {
   target: OpTarget;
   /** 没发出去的原因（给秘书看） */
   blocked?: string;
-  /** 要追加的事件（跟维护者说一句：插进维护者会话的消息） */
+  /** 要追加的事件（跟负责人说一句：插进负责人会话的消息） */
   events?: NewEvent[];
 }
 
@@ -49,7 +49,7 @@ export interface RunContext {
   endpoint?: OpsEndpoint;
   workdir: string;
   builtin: BuiltinContext;
-  /** 转给维护者当工单（建项目内部的普通任务）；check 只看收不收、不建。收不了的抛 RequestRejected */
+  /** 转给负责人当工单（建项目内部的普通任务）；check 只看收不收、不建。收不了的抛 RequestRejected */
   delegate(input: { project: Project; title: string; instructions: string; check?: boolean }): { taskId?: string };
   timeoutMs: number;
   newJob?: () => JobObject | undefined;
@@ -64,7 +64,7 @@ export interface RunOptions {
   signal?: AbortSignal;
 }
 
-/** 交给维护者的那段话 */
+/** 交给负责人的那段话 */
 export function maintainerInstructions(op: ProjectOp, args: Record<string, unknown>, why: string | undefined): string {
   const body = op.impl.type === "maintainer" && op.impl.instructions ? String(bindPlaceholders(op.impl.instructions, args)) : `用户要做「${op.title ?? op.name}」：${op.description}`;
   return [
@@ -130,21 +130,21 @@ export async function runOp(ctx: RunContext, op: ProjectOp, args: Record<string,
       throw err;
     }
   }
-  // maintainer：转给维护者当工单
+  // maintainer：转给负责人当工单
   const title = op.title ?? op.name;
   const instructions = maintainerInstructions(op, args, opts.why);
   try {
     if (opts.test) {
       ctx.delegate({ project: ctx.project, title, instructions, check: true });
-      return { sent: true, reach: "answered", ok: true, say: `测试：会把「${title}」转给「${ctx.project.name}」的维护者当工单（没有真转）。`, detail: instructions, target: { impl: "maintainer" } };
+      return { sent: true, reach: "answered", ok: true, say: `测试：会把「${title}」转给「${ctx.project.name}」的负责人当工单（没有真转）。`, detail: instructions, target: { impl: "maintainer" } };
     }
     const r = ctx.delegate({ project: ctx.project, title, instructions });
     return {
       sent: true,
       reach: "answered",
       ok: true,
-      say: `「${title}」转给「${ctx.project.name}」的维护者当工单了，它做完会在项目里写回。`,
-      detail: `项目内部任务 ${r.taskId ?? ""}（派一张执行的工单给维护者）。交给维护者的话：\n${instructions}`,
+      say: `「${title}」转给「${ctx.project.name}」的负责人当工单了，它做完会在项目里写回。`,
+      detail: `项目内部任务 ${r.taskId ?? ""}（派一张执行的工单给负责人）。交给负责人的话：\n${instructions}`,
       target: { impl: "maintainer", ...(r.taskId === undefined ? {} : { taskId: r.taskId }) },
     };
   } catch (err) {

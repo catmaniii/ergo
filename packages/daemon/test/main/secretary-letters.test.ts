@@ -1,10 +1,10 @@
 // 主切面：给秘书发消息（102 号票，规格第 12 节"星形通信"、第 7 节；用户 2026-10-12 定：除了秘书，所有 agent 默认都有）。
-// 真的守护进程，秘书、维护者、子 agent、评审接 faux 剧本，测试扮演前端：
-// - 长程任务的维护者执行时、普通任务的 agent 做到一半、定时触发的任务每次运行里、项目的维护者在项目内部任务的工单里、
-//   维护者派的子 agent、阶段验收的评审子 agent 调 tell_secretary：秘书收到一条"维护者来信"的通知（剧本里 echo_context 回显它收到的），
+// 真的守护进程，秘书、负责人、子 agent、评审接 faux 剧本，测试扮演前端：
+// - 长程任务的负责人执行时、普通任务的 agent 做到一半、定时触发的任务每次运行里、项目的负责人在项目内部任务的工单里、
+//   负责人派的子 agent、阶段验收的评审子 agent 调 tell_secretary：秘书收到一条"负责人来信"的通知（剧本里 echo_context 回显它收到的），
 //   写明谁（哪个项目或任务的谁、在做什么时）和原话，接着在主线里转告、问要不要念；发的那边是一条工具调用；
-// - 秘书没有这个工具；工具包里"给秘书发消息"关掉（计划里的、项目的，在任务详情里直接关）维护者、评审、子 agent 都没有；
-//   维护者自行调整计划不写这一项是沿用现在的，写明要打开算扩大；项目的维护者起草计划时也跟着项目的开关；
+// - 秘书没有这个工具；工具包里"给秘书发消息"关掉（计划里的、项目的，在任务详情里直接关）负责人、评审、子 agent 都没有；
+//   负责人自行调整计划不写这一项是沿用现在的，写明要打开算扩大；项目的负责人起草计划时也跟着项目的开关；
 // - 和任务做完同一套交法：秘书正在和用户说话时排在这一轮后面；处理到一半子进程崩溃，起来后重新交一次、只说一遍、不出"请重发"；
 //   停机前还没交的起来后补，交过的不重交；和差不多同时到的任务做完的通知一起交，各是各的；
 // - 防刷屏：每个发信人各算（评审按这个任务这个阶段的评审），10 分钟里最多 3 条，超了回"发得太频繁，攒一攒一起说"；
@@ -65,9 +65,9 @@ const messagesOf = (frontend: TestFrontend, channel: string) => frontend.events(
 const textOf = (p: MessageEventPayload) => p.message.parts.map((part) => ("text" in part ? part.text : `<${part.type}>`)).join("");
 /** 秘书会话里运行时交的通知（排进它输入队列的系统消息），按先后 */
 const noticesOf = (frontend: TestFrontend) => messagesOf(frontend, SECRETARY).filter((m) => m.agentInput === true).map(textOf);
-/** 其中维护者来信的 */
+/** 其中负责人来信的 */
 const letterTexts = (frontend: TestFrontend) => noticesOf(frontend).filter((t) => t.startsWith(MAINTAINER_LETTER_TAG));
-/** 维护者来信的通知上存的一句话总结（115 号票：会话里折成一行时显示的那句） */
+/** 负责人来信的通知上存的一句话总结（115 号票：会话里折成一行时显示的那句） */
 const letterSummaries = (frontend: TestFrontend) =>
   messagesOf(frontend, SECRETARY)
     .filter((m) => m.agentInput === true && textOf(m).startsWith(MAINTAINER_LETTER_TAG))
@@ -106,9 +106,9 @@ async function setup(options: StartTestDaemonOptions, channels?: string[]) {
   return { ...td, frontend: await connect(td.url, channels) };
 }
 
-/** 等秘书会话里有 n 条维护者来信的通知 */
+/** 等秘书会话里有 n 条负责人来信的通知 */
 const lettersArrived = (frontend: TestFrontend, n: number) =>
-  waitUntil(() => letterTexts(frontend).length >= n, { timeoutMs: 30_000, describe: () => `等第 ${n} 条维护者来信（现在：${JSON.stringify(noticesOf(frontend))}）` });
+  waitUntil(() => letterTexts(frontend).length >= n, { timeoutMs: 30_000, describe: () => `等第 ${n} 条负责人来信（现在：${JSON.stringify(noticesOf(frontend))}）` });
 /** 等秘书处理完第 n 条输入 */
 const secretaryTurns = (frontend: TestFrontend, n: number) =>
   waitUntil(() => frontend.events({ channel: SECRETARY, type: EVENT_TYPES.turnEnd }).length >= n, { timeoutMs: 30_000, describe: () => `等秘书处理完 ${n} 条输入` });
@@ -128,22 +128,22 @@ const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** 通知最后那句：要秘书在主线里转告、问要不要念 */
 const ASK_ONE =
-  "在主线里主动用你自己的话转告用户：是哪个项目或任务的谁（维护者、子 agent、评审）、说了什么；要用户做什么就说清楚。项目内部的细节只到它写的这些，不要追问。然后问“要我念给你听吗？”。他说要，就用 send_voice 把口语稿念给他听；说不用就算了。";
+  "在主线里主动用你自己的话转告用户：是哪个项目或任务的谁（负责人、子 agent、评审）、说了什么；要用户做什么就说清楚。项目内部的细节只到它写的这些，不要追问。然后问“要我念给你听吗？”。他说要，就用 send_voice 把口语稿念给他听；说不用就算了。";
 const letterNotice = (item: string) => [`${MAINTAINER_LETTER_TAG}后台的一个 agent 让你转告用户一件事（运行时转交的，不是用户说的）：`, item, ASK_ONE].join("\n\n");
 
-/** 长程任务的维护者：第一次唤起交计划，确认后（按计划重新装配）照 run 做 */
+/** 长程任务的负责人：第一次唤起交计划，确认后（按计划重新装配）照 run 做 */
 const longTask = (run: FauxStep[], plan: Plan = onePlan()) => (_id: string, spawn: number) => (spawn === 1 ? [submitPlanStep(plan), say("计划交上去了")] : run);
 
 const INVOICES = "发票里有 3 张抬头写错了，我先挪到 wrong/ 目录里了。\n等你看一眼，确认要不要重开。";
 
-describe("维护者给秘书发消息，秘书在主线里转告", () => {
-  it("长程任务的维护者执行时调 tell_secretary：秘书收到维护者来信（谁、原话），模型看到的就是它，接着在主线里转告；维护者那边是一条工具调用", async () => {
+describe("负责人给秘书发消息，秘书在主线里转告", () => {
+  it("长程任务的负责人执行时调 tell_secretary：秘书收到负责人来信（谁、原话），模型看到的就是它，接着在主线里转告；负责人那边是一条工具调用", async () => {
     const td = await startTestDaemon({ secretary: [ECHO], maintainer: longTask([tell(INVOICES, "发票里有 3 张抬头写错了"), ECHO]) });
     const frontend = await connect(td.url);
     const taskId = await runningTask(td, frontend, "整理发票");
     await lettersArrived(frontend, 1);
     const [notice] = letterTexts(frontend);
-    expect(notice).toBe(letterNotice(`长程任务 ${taskId}「整理发票」的维护者说：\n${INVOICES}`));
+    expect(notice).toBe(letterNotice(`长程任务 ${taskId}「整理发票」的负责人说：\n${INVOICES}`));
     // 115 号票：会话里这一条折成一行，显示它给的一句话总结（存在消息上；交给秘书的照旧是全文，下面核对模型看到的）
     expect(letterSummaries(frontend)).toEqual(["发票里有 3 张抬头写错了"]);
     // 交给秘书的就是它（开头标着系统通知），不是用户说的；秘书没等用户开口就在主线里回了一条；秘书没有这个工具
@@ -153,7 +153,7 @@ describe("维护者给秘书发消息，秘书在主线里转告", () => {
     expect(toolsIn(seen)).not.toContain(TELL_SECRETARY_TOOL);
     expect(messagesOf(frontend, SECRETARY).map((m) => m.message.speaker)).toEqual(["system", "agent"]);
 
-    // 维护者那边：装配里有它，调用照常记一条（结果是交给秘书了），工具结果交回模型
+    // 负责人那边：装配里有它，调用照常记一条（结果是交给秘书了），工具结果交回模型
     await turnsOf(frontend, TM1, 2);
     const own = lastEcho(frontend, TM1);
     expect(toolsIn(own)).toContain(TELL_SECRETARY_TOOL);
@@ -165,7 +165,7 @@ describe("维护者给秘书发消息，秘书在主线里转告", () => {
     expect(part.argsSummary).toBe(`summary=发票里有 3 张抬头写错了 text=${INVOICES.replace("\n", " ")}`);
     // 记在守护进程内部的频道上：谁、原话、一句话总结
     expect(td.daemon.store.read(LETTERS_CHANNEL, 0, LETTER_EVENT).map((e) => e.payload)).toEqual([
-      expect.objectContaining({ to: "secretary", agentId: "tm-1", conversation: TM1, from: `长程任务 ${taskId}「整理发票」的维护者`, text: INVOICES, summary: "发票里有 3 张抬头写错了" }),
+      expect.objectContaining({ to: "secretary", agentId: "tm-1", conversation: TM1, from: `长程任务 ${taskId}「整理发票」的负责人`, text: INVOICES, summary: "发票里有 3 张抬头写错了" }),
     ]);
   }, 60_000);
 
@@ -181,7 +181,7 @@ describe("维护者给秘书发消息，秘书在主线里转告", () => {
     ok(await frontend.startTask("去把《晴天》的音频下下来", "k-plain", [], "plain"));
     await waitUntil(() => noticesOf(frontend).length >= 2, { timeoutMs: 30_000, describe: () => `等两条通知（现在：${JSON.stringify(noticesOf(frontend))}）` });
     const [letter, done] = noticesOf(frontend);
-    expect(letter).toBe(letterNotice("普通任务 t-1「去把《晴天》的音频下下来」的维护者说：\n先下了 mp3；要 flac 的话在任务里跟我说一声。"));
+    expect(letter).toBe(letterNotice("普通任务 t-1「去把《晴天》的音频下下来」的负责人说：\n先下了 mp3；要 flac 的话在任务里跟我说一声。"));
     expect(done!.startsWith(TASK_DONE_TAG)).toBe(true);
     expect(done).toContain("普通任务 t-1「去把《晴天》的音频下下来」在后台做完了。");
     // 115 号票：两条各有各的一句话总结（信是它给的，任务做完的由运行时拼）
@@ -203,10 +203,10 @@ describe("维护者给秘书发消息，秘书在主线里转告", () => {
     expect(letterTexts(frontend)).toEqual([]);
     clock.advance(1000);
     await lettersArrived(frontend, 1);
-    expect(letterTexts(frontend)[0]).toBe(letterNotice("普通任务 t-1「每天早上出简报」的维护者（第 1 次运行时）说：\n今天的新闻源少了一个（连不上），简报只汇总了两家。"));
+    expect(letterTexts(frontend)[0]).toBe(letterNotice("普通任务 t-1「每天早上出简报」的负责人（第 1 次运行时）说：\n今天的新闻源少了一个（连不上），简报只汇总了两家。"));
   }, 60_000);
 
-  it("项目的维护者在项目内部的普通任务的工单里发：信上写项目的维护者在做项目内部的一件事时，不写是哪件", async () => {
+  it("项目的负责人在项目内部的普通任务的工单里发：信上写项目的负责人在做项目内部的一件事时，不写是哪件", async () => {
     const dataDir = makeTempDir("ergo-data-");
     const records = path.join(fs.realpathSync.native(dataDir), "projects", "p-1");
     const td = await startTestDaemon({
@@ -227,13 +227,13 @@ describe("维护者给秘书发消息，秘书在主线里转告", () => {
     const frontend = await connect(td.url, [BOARD, SECRETARY, CARDS, INBOX, PROJECTS, PM1]);
     ok(await frontend.startTask("导出 10 月的账单", "k-internal", ["记账本"], "plain"));
     await lettersArrived(frontend, 1);
-    expect(letterTexts(frontend)[0]).toBe(letterNotice("项目「记账本」的维护者（在做项目内部的一件事时）说：\n10 月的账单里有一笔 3200 元的转账没有备注，我先归到“其他”，你回头看一眼。"));
+    expect(letterTexts(frontend)[0]).toBe(letterNotice("项目「记账本」的负责人（在做项目内部的一件事时）说：\n10 月的账单里有一笔 3200 元的转账没有备注，我先归到“其他”，你回头看一眼。"));
     expect(letterTexts(frontend)[0]).not.toContain("t-1");
   }, 60_000);
 });
 
 describe("谁有这个工具", () => {
-  it("计划里的工具包关掉了给秘书发消息：执行时维护者的装配里没有它；在任务详情里打开，按新工具包重新装配后有了；再关掉又没了", async () => {
+  it("计划里的工具包关掉了给秘书发消息：执行时负责人的装配里没有它；在任务详情里打开，按新工具包重新装配后有了；再关掉又没了", async () => {
     const plan: Plan = { ...onePlan(), toolkit: { ...onePlan().toolkit, tellSecretary: false } };
     const td = await startTestDaemon({ secretary: [], maintainer: longTask([ECHO, ECHO, ECHO], plan) });
     const frontend = await connect(td.url);
@@ -243,7 +243,7 @@ describe("谁有这个工具", () => {
 
     const toolkit = { ...plan.toolkit, tellSecretary: true };
     expect(ok(await frontend.request(METHODS.setToolkit, { target: { kind: "task", taskId }, toolkit }, "k-on"))).toMatchObject({ changed: true });
-    // 维护者闲着：停掉子进程，"工具包已变更"跟在下一条输入后面交给它
+    // 负责人闲着：停掉子进程，"工具包已变更"跟在下一条输入后面交给它
     await frontend.sendText("接着做", { conversation: TM1 });
     await turnsOf(frontend, TM1, 3);
     const opened = lastEcho(frontend, TM1);
@@ -259,7 +259,7 @@ describe("谁有这个工具", () => {
     expect(toolsIn(closed)).not.toContain(TELL_SECRETARY_TOOL);
   }, 90_000);
 
-  it("用户在任务详情里关掉之后：维护者自行调整计划没写这一项，仍是关；写明要打开算扩大，自行调整被拒（要走计划变更等用户确认）", async () => {
+  it("用户在任务详情里关掉之后：负责人自行调整计划没写这一项，仍是关；写明要打开算扩大，自行调整被拒（要走计划变更等用户确认）", async () => {
     const narrowed = { ...onePlan().toolkit, network: false };
     const td = await startTestDaemon({
       secretary: [],
@@ -279,11 +279,11 @@ describe("谁有这个工具", () => {
     await turnsOf(frontend, TM1, 2);
     ok(await frontend.request(METHODS.setToolkit, { target: { kind: "task", taskId }, toolkit: { ...onePlan().toolkit, tellSecretary: false } }, "k-off"));
     await frontend.sendText("接着做", { conversation: TM1 });
-    // 第一次自行调整（关联网）之后工具包变了，维护者按新工具包重新拉起、剧本从头再来一遍（再交同一份是"没有要改的"）
+    // 第一次自行调整（关联网）之后工具包变了，负责人按新工具包重新拉起、剧本从头再来一遍（再交同一份是"没有要改的"）
     const revisions = () => toolPartsOf(frontend, TM1).filter((p) => p.tool === "revise_plan");
     await waitUntil(() => revisions().some((p) => p.resultSummary?.includes("扩大了授权")), {
       timeoutMs: 30_000,
-      describe: () => `等维护者写明要打开（现在：${JSON.stringify(revisions().map((p) => [p.outcome, p.resultSummary]))}）`,
+      describe: () => `等负责人写明要打开（现在：${JSON.stringify(revisions().map((p) => [p.outcome, p.resultSummary]))}）`,
     });
     // 没写这一项的那次：只关了联网，给秘书发消息仍是关
     expect(revisions()[0]).toMatchObject({ outcome: "done" });
@@ -296,23 +296,23 @@ describe("谁有这个工具", () => {
     expect(td.daemon.tasks.confirmedPlan(taskId)!.plan.toolkit).toEqual({ ...narrowed, tellSecretary: false });
   }, 90_000);
 
-  it("项目里关掉了给秘书发消息：项目的维护者正在起草计划（这一段的工具包固定）也跟着变，按新工具包重新装配后没有它", async () => {
+  it("项目里关掉了给秘书发消息：项目的负责人正在起草计划（这一段的工具包固定）也跟着变，按新工具包重新装配后没有它", async () => {
     const td = await startTestDaemon({ secretary: [], maintainer: (id) => (id === "pm-1" ? [ECHO, say("好"), say("好")] : []) });
     seedProject(td.daemon, "记账本", { state: "in_use", charterConfirmed: true, kind: "dev", toolkit: { skills: [], mcp: [], bash: true, network: true } });
     const frontend = await connect(td.url, [BOARD, SECRETARY, CARDS, INBOX, PROJECTS, PM1]);
     projectTask(td.daemon, "记账本", "给记账本加周报", { goal: "每周出一份周报", acceptanceCriteria: ["有周报文件"], constraints: [], memoryScope: "" });
-    await waitUntil(() => lastEcho(frontend, PM1).includes("起草计划"), { timeoutMs: 30_000, describe: () => "等项目的维护者开始起草计划" });
+    await waitUntil(() => lastEcho(frontend, PM1).includes("起草计划"), { timeoutMs: 30_000, describe: () => "等项目的负责人开始起草计划" });
     expect(toolsIn(lastEcho(frontend, PM1))).toContain(TELL_SECRETARY_TOOL);
 
     ok(await frontend.request(METHODS.setToolkit, { target: { kind: "project", projectId: "p-1" }, toolkit: { skills: [], mcp: [], bash: true, network: true, tellSecretary: false } }, "k-off"));
     await frontend.sendText("周报用表格", { conversation: PM1 });
-    await waitUntil(() => lastEcho(frontend, PM1).includes("周报用表格"), { timeoutMs: 30_000, describe: () => "等维护者按新工具包接着起草" });
+    await waitUntil(() => lastEcho(frontend, PM1).includes("周报用表格"), { timeoutMs: 30_000, describe: () => "等负责人按新工具包接着起草" });
     const after = lastEcho(frontend, PM1);
     expect(after).toContain("工具包已变更（这一段的工具包改了）：去掉 给秘书发消息。");
     expect(toolsIn(after)).not.toContain(TELL_SECRETARY_TOOL);
   }, 90_000);
 
-  it("项目的工具包关掉了给秘书发消息：项目的维护者在工单里看不到它", async () => {
+  it("项目的工具包关掉了给秘书发消息：项目的负责人在工单里看不到它", async () => {
     const td = await startTestDaemon({ secretary: [ECHO], maintainer: (id) => (id === "pm-1" ? [ECHO, call("write_segment_summary", { summary: "看了一眼" }), say("写回了")] : []) });
     seedProject(td.daemon, "记账本", { state: "in_use", charterConfirmed: true, kind: "dev", toolkit: { skills: [], mcp: [], bash: true, network: true, tellSecretary: false } });
     const frontend = await connect(td.url, [BOARD, SECRETARY, CARDS, INBOX, PROJECTS, PM1]);
@@ -323,7 +323,7 @@ describe("谁有这个工具", () => {
     expect(tools).not.toContain(TELL_SECRETARY_TOOL);
   }, 60_000);
 
-  it("子 agent 的工具包不超过派它的维护者：维护者有（工具包里开着）它才有，维护者关了它也没有", () => {
+  it("子 agent 的工具包不超过派它的负责人：负责人有（工具包里开着）它才有，负责人关了它也没有", () => {
     expect(MAINTAINER_ONLY_TOOLS).not.toContain(TELL_SECRETARY_TOOL);
     const candidates = { agentId: "sa-1", cwd: "C:\\w", hostTools: [TELL_SECRETARY_TOOL, "web_search"] };
     expect(subAgentAssembly(maintainerWith([TELL_SECRETARY_TOOL, "web_search"]), candidates).hostTools).toEqual([TELL_SECRETARY_TOOL, "web_search"]);
@@ -347,7 +347,7 @@ describe("谁有这个工具", () => {
 });
 
 describe("子 agent、评审子 agent 也能给秘书发消息", () => {
-  it("维护者派的子 agent 做到一半发一条：秘书收到，信上写哪个任务的子 agent、在做哪个阶段；结果照常交回维护者", async () => {
+  it("负责人派的子 agent 做到一半发一条：秘书收到，信上写哪个任务的子 agent、在做哪个阶段；结果照常交回负责人", async () => {
     const plan: Plan = {
       ...onePlan(),
       stages: [fileStage("s1", "a.txt"), fileStage("s2", "b.txt")],
@@ -369,7 +369,7 @@ describe("子 agent、评审子 agent 也能给秘书发消息", () => {
     ok(await frontend.cardAction({ cardId: card!.id, action: "parallel", expectedVersion: 1 }));
     await lettersArrived(frontend, 1);
     expect(letterTexts(frontend)[0]).toBe(letterNotice(`长程任务 ${taskId}「两个文件」的子 agent sa-1（在做阶段 s2「做 b.txt」时）说：\nb.txt 要写的内容和 a.txt 重了一半，我照写了，你回头看看要不要合并。`));
-    // 结果照常交回维护者（不经秘书）；它的调用记在维护者的会话里，归到子 agent
+    // 结果照常交回负责人（不经秘书）；它的调用记在负责人的会话里，归到子 agent
     await waitUntil(() => messagesOf(frontend, TM1).some((m) => m.agentId === "sa-1" && m.message.speaker === "system"), { timeoutMs: 30_000, describe: () => "等 sa-1 交回结果" });
     expect(toolPartsOf(frontend, TM1).find((p) => p.tool === TELL_SECRETARY_TOOL)).toMatchObject({ outcome: "done" });
     expect(messagesOf(frontend, TM1).find((m) => m.message.parts.some((p) => p.type === "tool_call" && p.tool === TELL_SECRETARY_TOOL))).toMatchObject({ agentId: "sa-1", stageId: "s2" });
@@ -393,13 +393,13 @@ describe("子 agent、评审子 agent 也能给秘书发消息", () => {
   }, 120_000);
 });
 
-/** 维护者交的计划（本任务的关注类别、用户的限制、记忆范围沿用当前计划，不写） */
+/** 负责人交的计划（本任务的关注类别、用户的限制、记忆范围沿用当前计划，不写） */
 function draftOf(plan: Plan): Record<string, unknown> {
   const { watchCategories: _w, userLimits: _u, memoryScope: _m, ...rest } = plan;
   return rest;
 }
 
-/** 维护者此刻的装配（子 agent 从它收窄）：代为执行的工具照给 */
+/** 负责人此刻的装配（子 agent 从它收窄）：代为执行的工具照给 */
 const maintainerWith = (hostTools: string[]) => ({ cwd: "C:\\w", toolkit: { bash: true, network: true }, skillPaths: [], piTools: ["read"], hostTools, projectRecords: [], workingDirs: ["C:\\w"], development: false });
 
 /**
@@ -517,7 +517,7 @@ describe("和任务做完同一套交法", () => {
     await lettersArrived(after, 2);
     const texts = letterTexts(after);
     expect(texts[0]).toContain("第一件：先说一声");
-    expect(texts[1]).toBe(letterNotice("普通任务 t-2「第二件」的维护者说：\n第二件：也先说一声"));
+    expect(texts[1]).toBe(letterNotice("普通任务 t-2「第二件」的负责人说：\n第二件：也先说一声"));
     await secretaryTurns(after, 4);
     await pause(300);
     expect(letterTexts(after)).toHaveLength(2);
@@ -530,7 +530,7 @@ describe("防刷屏", () => {
     const store = openEventStore({ file: path.join(makeTempDir("ergo-letters-"), "events.db"), views: conversationViews, now: () => clockIso(clock) });
     try {
       const letters = createSecretaryLetters({ store, clock });
-      const tool = (agentId: string) => letters.tool({ agentId, conversation: maintainerChannel(agentId), from: `任务 ${agentId} 的维护者` });
+      const tool = (agentId: string) => letters.tool({ agentId, conversation: maintainerChannel(agentId), from: `任务 ${agentId} 的负责人` });
       const send = async (agentId: string, toolCallId: string, text: string) => tool(agentId).run({ summary: firstSentence(text), text }, { toolCallId });
 
       expect(await send("tm-1", "c1", "第一条")).toEqual({ text: LETTER_SENT });

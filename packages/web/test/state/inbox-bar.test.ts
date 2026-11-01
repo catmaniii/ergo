@@ -30,7 +30,7 @@ const payloadOf = <T>(input: UiInput, type: string): T | undefined => (input.kin
 
 /**
  * 这几份录制在 105 号票之前，待我处理事项上还没有来源（origin）。照守护进程现在的记法补上，其余照录下的原样回放：
- * 任务的事项记任务（taskInboxOrigin），任务里的审批卡另记调用所在的会话（callInboxOrigin：任务维护者的会话）；
+ * 任务的事项记任务（taskInboxOrigin），任务里的审批卡另记调用所在的会话（callInboxOrigin：任务负责人的会话）；
  * 项目的事项记项目；秘书对话里的审批卡记秘书会话；系统的（归档清单）不记
  */
 function withOrigins(inputs: readonly UiInput[]): UiInput[] {
@@ -128,7 +128,7 @@ describe("任务整页：负责它的 agent 的会话", () => {
     expect(inboxBarEntries(replay(inputs), task("t-1"))).toEqual([]);
   });
 
-  test("任务里的审批卡（task-rejections）：记的是任务维护者的会话，在任务的栏里，看卡片定位到卡；五次都拒绝之后栏里没有了", () => {
+  test("任务里的审批卡（task-rejections）：记的是任务负责人的会话，在任务的栏里，看卡片定位到卡；五次都拒绝之后栏里没有了", () => {
     const inputs = withOrigins(load("task-rejections"));
     for (let n = 1; n <= 5; n += 1) {
       const at = itemAt(inputs, isCardItem, n);
@@ -168,7 +168,7 @@ describe("任务整页：负责它的 agent 的会话", () => {
   });
 });
 
-describe("项目整页：维护者的会话", () => {
+describe("项目整页：负责人的会话", () => {
   test("立项书（project-lifecycle）：在项目的栏里、看卡片定位到它，确认立项后消失；别的项目、秘书会话的栏里没有", () => {
     const inputs = withOrigins(load("project-lifecycle"));
     const charter = stateAt(inputs, itemAt(inputs, isCardItem));
@@ -189,7 +189,7 @@ describe("项目整页：维护者的会话", () => {
     expect(inboxBarEntries(stateAt(inputs, itemAt(inputs, isNotice("project_delete"), 1)), project("p-2"))).toEqual([]);
   });
 
-  // 项目内部任务的维护者就是项目的维护者，卡出在项目的维护者会话里；多项目任务派到项目的工单也由项目维护者做（17 号票）
+  // 项目内部任务的负责人就是项目的负责人，卡出在项目的负责人会话里；多项目任务派到项目的工单也由项目负责人做（17 号票）
   const world: UiState = {
     ...initialUiState,
     tasks: {
@@ -202,14 +202,14 @@ describe("项目整页：维护者的会话", () => {
   const internal = { internal: { projectId: "p-1", projectName: "记账本" } };
   const inbox = (...items: InboxItem[]): UiState => ({ ...world, inbox: Object.fromEntries(items.map((i) => [i.id, i])) });
 
-  test("项目内部任务的事项（去处是那个内部任务的整页）：内部任务的栏里有，项目的维护者会话也是它的会话，项目的栏里也有", () => {
+  test("项目内部任务的事项（去处是那个内部任务的整页）：内部任务的栏里有，项目的负责人会话也是它的会话，项目的栏里也有", () => {
     const state = inbox(inboxItem("i-acc", { notice: "stage_acceptance", origin: { taskId: "t-in", projectId: "p-1", stageId: "2" }, ...internal }));
     expect(brief(inboxBarEntries(state, task("t-in")))).toEqual([["stage_acceptance", null]]);
     expect(brief(inboxBarEntries(state, project("p-1")))).toEqual([["stage_acceptance", null]]);
     expect(inboxBarEntries(state, project("p-2"))).toEqual([]);
   });
 
-  test("多项目任务派到项目的工单里的审批卡：卡在项目维护者的会话里，进项目的栏，不进多项目任务的栏", () => {
+  test("多项目任务派到项目的工单里的审批卡：卡在项目负责人的会话里，进项目的栏，不进多项目任务的栏", () => {
     const state = inbox(cardInboxItem("i-appr", "c-appr", { origin: { taskId: "t-multi", projectId: "p-1", conversation: "maintainer:pm-1", toolCallId: "call-3" } }));
     expect(brief(inboxBarEntries(state, project("p-1")))).toEqual([["card", "c-appr"]]);
     expect(inboxBarEntries(state, task("t-multi"))).toEqual([]);

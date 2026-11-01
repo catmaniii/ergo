@@ -597,7 +597,7 @@ describe("退回只发文字", () => {
 });
 
 describe("各个会话和各种情况", () => {
-  it("维护者会话里一样：用户发语音，维护者的回复合成语音；语音消息带上所属的项目", async () => {
+  it("负责人会话里一样：用户发语音，负责人的回复合成语音；语音消息带上所属的项目", async () => {
     const tts = await startFakeSpeechService();
     const { url, daemon } = await startTestDaemon({ maintainer: [{ kind: "reply", text: "好的，我把上个月的流水导进来。" }], speechUrl: tts.url });
     await importReferenceVoice(url);

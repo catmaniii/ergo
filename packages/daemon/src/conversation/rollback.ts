@@ -1,5 +1,5 @@
 // 会话回退（150 号票，规格 .scratch/ergo-v2/session-rollback.md）。
-// 秘书主会话先用；任务、项目维护者的会话在 152 号票接上（同一套，入口也一样）。
+// 秘书主会话先用；任务、项目负责人的会话在 152 号票接上（同一套，入口也一样）。
 //
 // - 回退点：会话缩小视图里条左侧的 ↶，一律"回到这一条之前"：用户消息（撤回到这条请求之前）、分支摘要（撤回到这条分支开始前）。
 //   只在当前路径上、这段会话里（最近一次清空、换模型之后，用户定的第 5 条）；系统通知、网页上下的指令、排队一起交出的一批里第一条之后的不是。
@@ -23,23 +23,23 @@
 //   最后一次被回退离开时写的分支摘要（之后那条上又多了消息的不算：说的是那时的样子：按叶子对，只被切换离开过的没有）；
 // - 申请撤回（requestEffectUndo）：废弃分支上一件能申请撤回的遗留效果，记一笔 effect_undo_requested、调撤销接口的
 //   onEffectUndoRequest（默认什么都不做）；同一件只记一次。
-// 152 号票：任务、项目维护者的会话也能回退（同一套）——
-// - 回退点多一种：长程任务一个阶段开始前（stageStart：维护者会话频道上那条 stage_start 记号，stage-starts.ts）。维护者从一条通知知道的，
+// 152 号票：任务、项目负责人的会话也能回退（同一套）——
+// - 回退点多一种：长程任务一个阶段开始前（stageStart：负责人会话频道上那条 stage_start 记号，stage-starts.ts）。负责人从一条通知知道的，
 //   回到那条通知之前；从"开始阶段"那次调用知道的，回到那条回复之前（beforeCall）；在别的调用里开始的（验收通过接着开始下一个……），
 //   回到那次调用的结果之后（afterCall）；
-// - 会话自己说现在能不能回退（refusal：项目维护者这一段已经结束了、任务取消了……）；
+// - 会话自己说现在能不能回退（refusal：项目负责人这一段已经结束了、任务取消了……）；
 // - 跟着会话树走的业务状态（follow：长程任务的阶段、计划按保留的分支推导，tasks/execution.ts 的 followSession）：它的事件、作废的卡、
-//   作废出队的输入（不带到新分支）和分支事件同一事务；它交给维护者接着做的那句记在分支摘要上（界面上不重复显示）。
+//   作废出队的输入（不带到新分支）和分支事件同一事务；它交给负责人接着做的那句记在分支摘要上（界面上不重复显示）。
 //   切换分支（151 号票的 switchBranch）同样先问 refusal、同一事务调 follow（change: switch，按切过去的那条分支推导，不作废卡片；
 //   离开那条上排着的这个任务的旧通知作废出队、不带过去）。
 // 153 号票：流程的会话也有"撤回到步骤「…」开始前"——
-// - 回退点：同一条 stage_start 记号带 stepId（维护者调 report_step(status="in_progress") 时记的），回到含这次调用的那条回复之前（beforeCall）；
+// - 回退点：同一条 stage_start 记号带 stepId（负责人调 report_step(status="in_progress") 时记的），回到含这次调用的那条回复之前（beforeCall）；
 //   任务状态取看板上这次汇报（step_reported）之前的；
 // - 这段会话从哪开始多一种：定时、事件触发的任务一次运行的分段线（rollbackSegmentStart：一次运行就是一段会话，只在这一次运行里回退）；
 // - 流程的步骤、计划核对按保留的分支推导在 follow（tasks/execution.ts 的 followSession）和守卫的计划核对（guard-runtime/plan-check.ts）里。
 // 155 号票：撤回、切换期间记着这个会话在做哪一种（navigating）——定时、事件触发的任务运行中被中止的那一轮，触发底座据此把这次运行
 // 记"已撤回"（不算失败）；流程撤回之后停住等你、一分钟没说话提醒一次在 tasks/rollback-wait.ts。
-// 293 号票（Claude Code 的维护者）：同一套。运行时不自己写分支摘要的（能力清单 branch_summary 是 false），agent 的会话按被放弃的那段（这里交给它
+// 293 号票（Claude Code 的负责人）：同一套。运行时不自己写分支摘要的（能力清单 branch_summary 是 false），agent 的会话按被放弃的那段（这里交给它
 // 现算的 abandoned）里二狗自己记下的事件另起一次写；运行时把它改过的文件恢复到撤回点的（能力清单 rewind_files），恢复了哪些记在分支摘要上（files）。
 import { randomUUID } from "node:crypto";
 import {
@@ -110,16 +110,16 @@ const titleOf = (id: "external_send" | "delete_or_overwrite" | "irreversible_com
 const hasCategory = (part: { categoryTitles: readonly string[]; categories?: readonly string[] | undefined }, id: "external_send" | "delete_or_overwrite" | "irreversible_commit") =>
   part.categories ? part.categories.includes(id) : part.categoryTitles.includes(inModelLanguage(() => titleOf(id)));
 
-/** 一个能回退的会话的 agent（秘书；152 号票起任务、项目维护者）：在会话树上挪、判定副作用要的工具注册表 */
+/** 一个能回退的会话的 agent（秘书；152 号票起任务、项目负责人）：在会话树上挪、判定副作用要的工具注册表 */
 export interface RollbackSession {
   agentId: string;
   navigate(request: SessionNavigation, commit: (navigated: SessionNavigated) => void): Promise<SessionNavigated>;
   effectTools(): ToolRegistry;
-  /** 现在不能回退的原因（152 号票：项目维护者这一段会话已经结束了、任务取消了、有子 agent 在做……）；能就是 undefined */
+  /** 现在不能回退的原因（152 号票：项目负责人这一段会话已经结束了、任务取消了、有子 agent 在做……）；能就是 undefined */
   refusal?(): string | undefined;
   /**
    * 跟着会话树走的业务状态（152 号票：长程任务的阶段、计划按保留的分支推导）：挪成了、记分支事件时一起算（同一事务）。
-   * 这个会话没有跟着走的（秘书、普通任务、项目维护者的对话段……）返回 undefined
+   * 这个会话没有跟着走的（秘书、普通任务、项目负责人的对话段……）返回 undefined
    */
   follow?(input: Omit<SessionFollowInput, "taskId">): SessionFollowResult | undefined;
 }
@@ -183,7 +183,7 @@ interface RollbackPlan {
   step?: { stepId: string; title: string; startedAt: number };
 }
 
-/** 一条通知和它开始处理之间，这一条说明维护者手上在忙别的：agent 说的话、工具调用记录，别的输入的回合（152 号票） */
+/** 一条通知和它开始处理之间，这一条说明负责人手上在忙别的：agent 说的话、工具调用记录，别的输入的回合（152 号票） */
 function busyBetween(event: StoredEvent): boolean {
   if (event.type === EVENT_TYPES.turnStart || event.type === EVENT_TYPES.turnEnd) return true;
   if (event.type !== EVENT_TYPES.message || isDeletedEventPayload(event.payload)) return false;
@@ -213,7 +213,7 @@ export function createSessionRollbacks(options: SessionRollbackOptions): Session
     return event && !isDeletedEventPayload(event.payload) ? event : undefined;
   };
 
-  /** 回退点不在这段会话里时的说法（152 号票起项目维护者的是当前这一段；153 号票起定时、事件触发的是这一次运行） */
+  /** 回退点不在这段会话里时的说法（152 号票起项目负责人的是当前这一段；153 号票起定时、事件触发的是这一次运行） */
   /** 当前路径上这段会话从哪开始（最近一条"agent 新开一段会话"的消息、一次运行的分段线的序号；没有是 0） */
   const segmentStart = (conversation: ConversationId): number => {
     let before = Number.MAX_SAFE_INTEGER;
@@ -262,10 +262,10 @@ export function createSessionRollbacks(options: SessionRollbackOptions): Session
   };
 
   /**
-   * 撤回到长程任务一个阶段开始前（152 号票）：按那条 stage_start 记号写的维护者是怎么知道的——
-   * - 一条通知：回到这条通知之前（它要已经交给维护者了，而且交过去的时候维护者手上没在忙别的：会话频道上这条通知和它开始处理之间
-   *   没有别的输入的回合、agent 的话，不然两边对不上）；交来时维护者正说着手头这一轮收尾的话的，见 closingTarget；
-   * - "开始阶段"那次调用（维护者自己换去做这个阶段，撤回点在认领之前）：回到这条回复之前——会话频道上截在这条回复说的话
+   * 撤回到长程任务一个阶段开始前（152 号票）：按那条 stage_start 记号写的负责人是怎么知道的——
+   * - 一条通知：回到这条通知之前（它要已经交给负责人了，而且交过去的时候负责人手上没在忙别的：会话频道上这条通知和它开始处理之间
+   *   没有别的输入的回合、agent 的话，不然两边对不上）；交来时负责人正说着手头这一轮收尾的话的，见 closingTarget；
+   * - "开始阶段"那次调用（负责人自己换去做这个阶段，撤回点在认领之前）：回到这条回复之前——会话频道上截在这条回复说的话
    *   （calls 里有这次调用的那条），没说话的截在这次调用的记录；
    * - 别的调用（阶段在这次调用里开始，比如宣布完成验收通过之后接着开始下一个）：回到这次调用的结果之后——截在这次调用的记录后面那一条。
    * 任务状态取看板上这个阶段这次开始（stage_started）之前的（和记号同一批追加，在它前面）
@@ -322,7 +322,7 @@ export function createSessionRollbacks(options: SessionRollbackOptions): Session
   };
 
   /**
-   * 交代阶段的那条通知交来时，维护者正说着手头这一轮收尾的话（2026-10-26 查测试偶发失败时发现：维护者调用"提交计划"时计划卡就出来了，
+   * 交代阶段的那条通知交来时，负责人正说着手头这一轮收尾的话（2026-10-26 查测试偶发失败时发现：负责人调用"提交计划"时计划卡就出来了，
    * 它后面还要说一句"计划交上去了"；你在它说完之前点了确认，"开始执行"那条通知就排在这句话前面）：通知和它开始处理之间只有那一轮剩下的
    * 话（不再调用工具）和那一轮的 turn_end，没有别的输入的回合。这时两边对得上：会话频道上照旧截在这条通知（那几句收尾的话一起放弃），
    * 子进程里截在通知交来之前这一轮最后一次工具调用的结果之后（afterCall，那几句在它后面）；通知交来之前那一轮的话已经说完、只差 turn_end 的，
@@ -641,7 +641,7 @@ export function createSessionRollbacks(options: SessionRollbackOptions): Session
       busy.set(conversation, "switch");
       try {
         const tip = switchTarget(conversation, branchId, branchTreeOf(store.reader, conversation));
-        // 会话自己说现在能不能切（152 号票：项目维护者这一段已经结束了、任务取消了、子 agent 还在跑……）
+        // 会话自己说现在能不能切（152 号票：项目负责人这一段已经结束了、任务取消了、子 agent 还在跑……）
         const refusal = session.refusal?.();
         if (refusal !== undefined) throw new RequestRejected("not_allowed", refusal);
         let from: string | undefined;

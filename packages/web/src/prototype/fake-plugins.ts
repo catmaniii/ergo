@@ -151,7 +151,7 @@ function about(name: string): Omit<PluginInfo, "state" | "needs" | "neededBy" | 
     return {
       name,
       title: "Claude Code",
-      summary: say("项目、任务的维护者能用本机的 Claude Code 跑会话；能接管本机已有的会话；设置里定新建时的默认文件夹", "Lets project and task maintainers run sessions with Claude Code on this computer, take over existing sessions, and set a default folder for new work"),
+      summary: say("项目、任务的负责人能用本机的 Claude Code 跑会话；能接管本机已有的会话；设置里定新建时的默认文件夹", "Lets project and task owners run sessions with Claude Code on this computer, take over existing sessions, and set a default folder for new work"),
       brings: { tools: [], cards: [], jobs: [] },
     };
   }

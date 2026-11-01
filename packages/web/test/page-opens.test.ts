@@ -825,10 +825,14 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       const { page, errors } = await open(viewport, "?lang=en");
       expect(await page.evaluate("document.documentElement.lang")).toBe("en");
       const empty: string[] = [];
+      // 365 号票：英文界面叫 owner，一个 maintainer 都不能露出来（impl.type 的写法只在出错时的提示里，这些页上没有）
+      const oldNames: string[] = [];
       for (const hash of PAGES) {
         await page.evaluate(`window.location.hash = ${JSON.stringify(hash)}`);
         await page.waitForTimeout(150);
-        if ((await bodyText(page)) === "") empty.push(hash);
+        const shown = await bodyText(page);
+        if (shown === "") empty.push(hash);
+        for (const hit of shown.matchAll(/.{0,30}maintainer.{0,30}/gi)) oldNames.push(`${hash}：${hit[0]}`);
       }
       const leaks: string[] = [];
       for (const { hash, selector, except } of EN_DONE) {
@@ -846,6 +850,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       expect(errors).toEqual([]);
       expect(empty).toEqual([]);
       expect(leaks).toEqual([]);
+      expect(oldNames).toEqual([]);
     }, 60_000);
   }
 
@@ -909,9 +914,9 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     expect(sideText).toContain("内置浏览器插件没启用，这一页暂时看不到");
   }, 60_000);
 
-  // 275 号票（用户 2026-10-25）：工具调用、来信（维护者来信……）、回忆了 N 条记忆这几种横条照"在想什么"那条——和它在同一列
+  // 275 号票（用户 2026-10-25）：工具调用、来信（负责人来信……）、回忆了 N 条记忆这几种横条照"在想什么"那条——和它在同一列
   // （左边对齐，糖果、纸张的头像位也让出来），宽度跟着内容走、最宽到对话气泡那么宽（右边留空），窄窗口下右边不超出、
-  // 行尾的箭头（›、详情 ›）整个露在横条里、紧跟着字、点得到。每套风格量：秘书页、维护者会话页（窄 340）、秘书页（电脑宽）、侧边栏模式（320）
+  // 行尾的箭头（›、详情 ›）整个露在横条里、紧跟着字、点得到。每套风格量：秘书页、负责人会话页（窄 340）、秘书页（电脑宽）、侧边栏模式（320）
   for (const style of VISUAL_STYLES.map((s) => s.id)) {
     test(`${style}：工具调用、来信、回忆记忆的横条和"在想什么"同一列、右边不超出，箭头露全、点得到`, async () => {
       const { page, errors } = await open({ width: 340, height: 800 });
@@ -929,7 +934,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       await page.evaluate(`window.location.hash = "#/secretary"`);
       await check("秘书页 340", ["tool", "letter", "recall"]);
       await page.evaluate(`window.location.hash = "#/projects/p-ledger/chat"`);
-      await check("维护者会话页 340", ["tool"]);
+      await check("负责人会话页 340", ["tool"]);
       await page.setViewportSize({ width: 1280, height: 800 });
       await page.evaluate(`window.location.hash = "#/secretary"`);
       await check("秘书页 1280", ["tool", "letter", "recall"]);
@@ -962,7 +967,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
   }, 60_000);
 
   // 289 号票顺手发现（2026-10-25）：手机宽时 ⚙ 是底部弹层，套在它里面的确认框被它的滚动区裁掉、看不见（只剩一层灰）。
-  // ⚙ 里的确认框——恢复用通用模板、清空当前对话（重置维护者）、换运行时——都挂到 body 上：不在 ⚙ 的弹层里，两个按钮整个露在屏幕里、点得到
+  // ⚙ 里的确认框——恢复用通用模板、清空当前对话（重置负责人）、换运行时——都挂到 body 上：不在 ⚙ 的弹层里，两个按钮整个露在屏幕里、点得到
   test("手机宽：⚙ 里的确认框挂在最外层，不被底部弹层裁掉，按钮看得见、点得到", async () => {
     const { page, errors } = await open({ width: 390, height: 844 });
     await page.evaluate(`window.location.hash = "#/projects/p-ledger/chat"`);
@@ -970,7 +975,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     await page.waitForSelector(".agent-panel");
     const confirms: [string, () => Promise<unknown>][] = [
       ["恢复用通用模板", () => page.click('.agent-panel .prompt-actions button:has-text("恢复用通用模板")')],
-      ["清空当前对话（重置维护者）", () => page.click('.agent-panel button:has-text("清空当前对话（重置维护者）")')],
+      ["清空当前对话（重置负责人）", () => page.click('.agent-panel button:has-text("清空当前对话（重置负责人）")')],
       ["换运行时", () => page.selectOption(".agent-panel .agent-runtime-choice select", { label: "Claude Code" })],
     ];
     const found: unknown[] = [];

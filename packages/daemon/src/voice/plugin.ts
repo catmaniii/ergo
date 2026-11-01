@@ -20,7 +20,7 @@
 // - 354 号票：转述负责人的进展时第二段用它自己的声音（agent-voice-ref.ts 的 ownVoiceOfAgent，按角色查、和秘书现在用的比），经 replies.ownVoiceOf
 //   告诉内核（交给秘书的通知里写明）。移除时连数据删也改写各段的文字（parts）。
 // - agent 那一侧的工具（口语总结、发语音）不经 agent 贡献缝：它们是"每个会话都配的工具"（session-tools.ts），排在联网工具后面，
-//   秘书、维护者的工具顺序和搬过来之前一样。系统提示里讲念语音的几句包在条件"语音"里（prompt.ts）。
+//   秘书、负责人的工具顺序和搬过来之前一样。系统提示里讲念语音的几句包在条件"语音"里（prompt.ts）。
 import { type AgentVoiceEventPayload, CHANNELS, type ConversationId, EVENT_TYPES, forModel, PURGED_TEXT, t, type VoiceEventPayload } from "@ergo/protocol";
 import type { HostTool } from "../agent-manager/host-tools.ts";
 import { isPlaceholder } from "../config/config.ts";
@@ -203,7 +203,7 @@ export const voicePlugin: PluginDefinition = {
       log,
     });
     // 语音回复（32）：用户发语音时，agent 这一轮的回复经本机 LSM 托管的 audio.cpp 合成语音（二狗不启动它）；
-    // 秘书和维护者各段的装配都多一个口语总结工具、发语音工具（86）（在它们拉起之前开始跟回合：插件比秘书、维护者先启动）。
+    // 秘书和负责人各段的装配都多一个口语总结工具、发语音工具（86）（在它们拉起之前开始跟回合：插件比秘书、负责人先启动）。
     // 248 号票：说话的是哪个 agent 就用它那个角色指定的参考音色（没指定、被删了、插件没启用跟全局默认）
     const roles = ctx.use(KERNEL.agentRoles);
     const voiceOf = (conversation: ConversationId) => voiceOfAgent(agentIdOfConversation(conversation), { roles, voices: referenceVoices });

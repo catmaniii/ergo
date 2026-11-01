@@ -1,7 +1,7 @@
 // 每个 agent 的会话里的 ⚙（114 号票）的状态层：秘书会话、任务整页、项目整页的标题栏上点开的面板。纯函数，界面（ui/agent-settings.tsx）只管画。
 // - 单独的提示词两种写法：追加（接在通用模板后面，默认）、整份自己写（从通用模板复制一份来改）；边改边查，和守护进程同一个检查
 //   （协议包的 agentPromptProblem，能用的占位符照这个 agent 的通用模板，和设置 · 系统提示一样）；
-// - 清空当前对话：先确认（"清空后它不记得之前聊过什么，记录照样能看"）；项目维护者的清空就是重置维护者；
+// - 清空当前对话：先确认（"清空后它不记得之前聊过什么，记录照样能看"）；项目负责人的清空就是重置负责人；
 // - 上下文用量：现在用了多少 / 窗口多大（进度条）、上次压缩是什么时候、离自动压缩还有多少（pi 的规矩：用量超过窗口减 16384 自动压缩，
 //   最近约 2 万 token 原样保留）；数都是守护进程从 token 账本里取的，这里只写成话。
 import { type AgentClearKind, type AgentContextView, type AgentPromptMode, agentPromptProblem, type AgentSettingsView, formatNumber, intlLocale, normalizePromptSource, PI_COMPACTION_DEFAULTS, t, tTable } from "./protocol.ts";

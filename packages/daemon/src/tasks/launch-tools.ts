@@ -1,7 +1,7 @@
-// 发起任务的工具（秘书的，58 号票；项目的维护者的，64 号票：共用这一份）：
+// 发起任务的工具（秘书的，58 号票；项目的负责人的，64 号票：共用这一份）：
 // - start_workflow / create_task：用户这一轮（agent 正在处理的那条用户消息）点明了这一种才建，否则把原因交回 agent
-//   （launch-intent.ts 的 launchRefusal：秘书和项目的维护者共用一份判定）。建什么由调用方给：秘书建全局任务、或者替用户建
-//   某个项目的内部任务；项目的维护者建这个项目的内部任务；
+//   （launch-intent.ts 的 launchRefusal：秘书和项目的负责人共用一份判定）。建什么由调用方给：秘书建全局任务、或者替用户建
+//   某个项目的内部任务；项目的负责人建这个项目的内部任务；
 // - 建议卡（suggest_task）一轮最多一张：oncePerTurn。
 // 都只产生卡片或改任务看板，不落入任何关注类别；任务号不对、状态不对之类被拒时，原因以出错的工具结果交回 agent（guarded）。
 import { type PlannedTaskKind, type Static, type TSchema, Type } from "@ergo/protocol";

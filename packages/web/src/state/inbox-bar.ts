@@ -1,7 +1,7 @@
 // 会话里的"等你处理"栏（107 号票，纯函数）：项目整页、任务整页、秘书会话把还没处理、来源是这个会话的待办事项列在会话和输入框之间，
 // 在那里直接处理（通知点它的动作，卡片在会话里定位到那张卡），和在待办里处理是同一个请求，两边一起变。
-// - 哪些属于这个会话只用 105 号票的 inboxJump 认：去处是这个任务、这个项目、秘书会话的，不另起一套规则；项目的维护者会话也是
-//   它的内部任务的会话（内部任务的维护者就是项目的维护者，卡出在这里），去处是这个项目内部任务的（事项带着 internal 标记）也列在项目这里；
+// - 哪些属于这个会话只用 105 号票的 inboxJump 认：去处是这个任务、这个项目、秘书会话的，不另起一套规则；项目的负责人会话也是
+//   它的内部任务的会话（内部任务的负责人就是项目的负责人，卡出在这里），去处是这个项目内部任务的（事项带着 internal 标记）也列在项目这里；
 // - 已处理的（卡片看卡的状态、通知看选过动作没有，同 inboxItemProcessed）、已归档的不进，处理了就从栏里消失；
 // - 排序和待办的"待处理"一样（compareInboxItems：置顶、紧急度三档、同一档里新的在前）；
 // - 369 号票：秘书放久了的提问（事项标着 stale）不再挂在秘书会话这里，标题也不再说等你，要答去待办或聊天历史。负责人放久了的提问还卡着工作，
@@ -11,7 +11,7 @@ import { type InboxJump, inboxJump } from "./inbox-jump.ts";
 import { compareInboxItems, type InboxItem, isInternalTo } from "./protocol.ts";
 import type { UiState } from "./ui-state.ts";
 
-/** 栏挂在哪个会话上：任务整页（负责它的 agent 的会话）、项目整页（维护者的会话）、秘书会话 */
+/** 栏挂在哪个会话上：任务整页（负责它的 agent 的会话）、项目整页（负责人的会话）、秘书会话 */
 export type InboxPlace = { kind: "task"; taskId: string } | { kind: "project"; projectId: string } | { kind: "secretary" };
 
 export interface InboxBarEntry {

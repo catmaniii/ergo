@@ -1,7 +1,7 @@
 // 前端状态层回放 14 号票（偏离、阈值与计划变更）主切面录下的事件流：
 // - task-plan-change（plan-change.test.ts）：计划变更卡（只列变化）、只停受影响的阶段、拒绝、自行调整计划（时间线上一条记录，
 //   阶段抽屉按现在生效的计划显示）、做不了转等我；
-// - task-over-budget（deviation.test.ts）：用量超过预算让维护者说明进展（状态不变），超过 2 倍转等我（超预算）、追加预算继续；
+// - task-over-budget（deviation.test.ts）：用量超过预算让负责人说明进展（状态不变），超过 2 倍转等我（超预算）、追加预算继续；
 // - task-rejections（deviation.test.ts）：授权内的一笔、累计被拒 5 次转已暂停；
 // - task-nudge（stall-renewal.test.ts）：无进展的催促、催满了转等我（卡住求助）；
 // 偏离、计划变更、自行调整计划都是时间线上的记录（timeline_record），要点层里各占一行。
@@ -45,7 +45,7 @@ function atChange(inputs: readonly UiInput[], change: string, nth = 0): number {
 
 const stateAt = (inputs: readonly UiInput[], index: number) => replay(inputs.slice(0, index + 1));
 const maintainer = (state: UiState) => conversationView(state, "maintainer:tm-1");
-/** 维护者会话里系统说的话（交给维护者的通知、只给人看的说明） */
+/** 负责人会话里系统说的话（交给负责人的通知、只给人看的说明） */
 const systemTexts = (state: UiState) =>
   maintainer(state)
     .filter((it) => it.kind === "message" && msg(it).speaker === "system")
@@ -55,7 +55,7 @@ const toolCalls = (state: UiState) =>
     .flatMap((it) => (it.kind === "message" ? msg(it).parts : []))
     .filter((p): p is Extract<MessagePart, { type: "tool_call" }> => p.type === "tool_call");
 const notices = (state: UiState, notice: string) => Object.values(state.inbox).filter((i) => i.kind === "notice" && i.notice === notice);
-/** 维护者会话的时间线上的记录（偏离、计划变更、自行调整计划……） */
+/** 负责人会话的时间线上的记录（偏离、计划变更、自行调整计划……） */
 const records = (state: UiState): TimelineRecord[] =>
   timelineItems(state, "maintainer:tm-1").flatMap((it) => (it.kind === "record" && it.record.type === "timeline" ? [it.record.timeline] : []));
 /** 要点层里这些记录的种类（按出现的先后） */
@@ -87,15 +87,15 @@ describe("回放：计划变更、拒绝、重排、做不了（task-plan-change
     expect(proposed).toBeGreaterThan(0);
   });
 
-  test("用户拒绝：卡记成已处理（拒绝，带说明）；维护者在现有授权内自行调整计划，时间线上记一笔、不出新卡；阶段抽屉显示调整后现在生效的计划", () => {
+  test("用户拒绝：卡记成已处理（拒绝，带说明）；负责人在现有授权内自行调整计划，时间线上记一笔、不出新卡；阶段抽屉显示调整后现在生效的计划", () => {
     const end = replay(inputs);
     const cards = Object.values(end.cards).filter((c) => c.card.type === "plan_change");
     expect(cards).toHaveLength(1);
     expect(cards[0]!.card).toMatchObject({ status: "handled", outcome: { action: "reject", note: "别动外面的目录" } });
     // 时间线上的记录：拒绝了计划变更、自行调整计划（详细说明列出改了什么），要点层里各一行
-    expect(records(end).map((r) => [r.kind, r.summary])).toContainEqual(["plan_change", "你拒绝了计划变更（第 2 版），受影响的阶段交回维护者在现有授权内重排"]);
+    expect(records(end).map((r) => [r.kind, r.summary])).toContainEqual(["plan_change", "你拒绝了计划变更（第 2 版），受影响的阶段交回负责人在现有授权内重排"]);
     const revision = records(end).find((r) => r.kind === "plan_revision")!;
-    expect(revision.summary).toBe("维护者自行调整了计划（第 3 版，不扩大授权）：先写报告，资料只在工作目录里整理");
+    expect(revision.summary).toBe("负责人自行调整了计划（第 3 版，不扩大授权）：先写报告，资料只在工作目录里整理");
     expect(revision.detail).toContain("步骤");
     expect(gistRecordKinds(end)).toEqual(expect.arrayContaining(["plan_change", "plan_revision", "deviation"]));
     // 重排后的阶段顺序：s2 在前；阶段抽屉按看板上推来的现在生效的计划（第 3 版）：s1 改成了定步
@@ -124,7 +124,7 @@ describe("回放：计划变更、拒绝、重排、做不了（task-plan-change
 describe("回放：预算（task-over-budget）", () => {
   const inputs = load("task-over-budget");
 
-  test("用量超过预算：维护者会话里一条说明进展的通知，任务状态不变，时间线上一条偏离；之后它报了一次进展", () => {
+  test("用量超过预算：负责人会话里一条说明进展的通知，任务状态不变，时间线上一条偏离；之后它报了一次进展", () => {
     const explain = inputs.findIndex((i) => i.kind === "frame" && i.frame.type === "message" && JSON.stringify(i.frame.payload).includes("用量已经超过预算"));
     expect(explain).toBeGreaterThan(0);
     const state = stateAt(inputs, explain);
@@ -174,7 +174,7 @@ describe("回放：授权内的一笔、累计被拒（task-rejections）", () =
 describe("回放：无进展的催促（task-nudge）", () => {
   const inputs = load("task-nudge");
 
-  test("催促是维护者会话里的系统通知，写明第几次；中间有了进展计数清零；催满了转等我（卡住求助）", () => {
+  test("催促是负责人会话里的系统通知，写明第几次；中间有了进展计数清零；催满了转等我（卡住求助）", () => {
     const end = replay(inputs);
     const nudges = systemTexts(end).filter((t) => t.includes("次催促"));
     expect(nudges.map((t) => /第 (\d)\/3 次催促/.exec(t)?.[1])).toEqual(["1", "2", "1", "2", "1", "2", "3"]);

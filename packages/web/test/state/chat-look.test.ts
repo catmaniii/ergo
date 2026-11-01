@@ -1,5 +1,5 @@
 // 聊天区精简（57 号票）：对话层里每一条长什么样（state/chat-look.ts 的 chatLook）。
-// 先回放主切面录下的真实事件流（任务的维护者会话、秘书会话、项目的维护者会话），覆盖各种条目的显示形态：
+// 先回放主切面录下的真实事件流（任务的负责人会话、秘书会话、项目的负责人会话），覆盖各种条目的显示形态：
 // 工具调用组是一行"调用了 N 个工具"加小签（出了状况的醒目），思考一行"💭 Agent 的想法（点开看）"，回复切出第一段、
 // 有后文才给"展开 / 详情"，用户气泡和说明整条可点，语音在长按菜单里；录像覆盖不到的（多段的回复、正在想、执行中、
 // 等你批准、命中关注类别但直接做只记录）按共享协议的 schema 构造事件。
@@ -57,10 +57,10 @@ function openWays(items: readonly ChatItem[]): Record<string, string> {
   return Object.fromEntries(Object.entries(out).map(([k, v]) => [k, [...v].join("|")]));
 }
 
-describe("回放：任务的维护者会话", () => {
+describe("回放：任务的负责人会话", () => {
   test("timeline-zoom：每组一行小字，顺利的标做完告诉你、授权内；问过你的那一组醒目（跟你有关），被拦下的那一组醒目（被拦下）", () => {
     const items = chatItems(replay(load("timeline-zoom")), "maintainer:tm-1");
-    // 任务书、开始执行时的阶段说明是交给维护者的长通知，折成一行（367 号票）；短的说明照旧
+    // 任务书、开始执行时的阶段说明是交给负责人的长通知，折成一行（367 号票）；短的说明照旧
     expect(looks(items).map(brief)).toEqual([
       "letter",
       "card",
@@ -130,7 +130,7 @@ describe("回放：秘书会话", () => {
   });
 });
 
-describe("回放：项目的维护者会话（work-orders-queue）", () => {
+describe("回放：项目的负责人会话（work-orders-queue）", () => {
   test("工单分隔线没有详情；组一行；卡片“详情 ›”；说明整条可点", () => {
     const items = chatItems(replay(load("work-orders-queue")), "maintainer:pm-1");
     expect(openWays(items)).toEqual({ divider: "-", note: "whole", letter: "row", card: "link", "reply（只有一段）": "-", tool_line: "row" });

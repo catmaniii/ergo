@@ -100,7 +100,7 @@ export function runsIn(db: ReadonlyDatabase, states: readonly JobRunState[]): Jo
 }
 
 /**
- * 不属于项目的正在做的运行有几次（作业自己的维护者、定时触发的任务自己的 agent）：它们占着全局执行名额（tasks/slots.ts 数名额用）。
+ * 不属于项目的正在做的运行有几次（作业自己的负责人、定时触发的任务自己的 agent）：它们占着全局执行名额（tasks/slots.ts 数名额用）。
  * 属于项目的运行（带工单号的）按进行中的运行工单数（工单开始和占名额在同一事务里），这里不数
  */
 export function countRunningOwnRuns(db: ReadonlyDatabase): number {

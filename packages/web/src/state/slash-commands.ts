@@ -48,7 +48,7 @@ export function nextSlashIndex(current: number, delta: 1 | -1, count: number): n
   return (((current + delta) % count) + count) % count;
 }
 
-/** 候选的一组（310 号票）：二狗自己的命令、工具包里的 skill、维护者用的运行时自己的命令 */
+/** 候选的一组（310 号票）：二狗自己的命令、工具包里的 skill、负责人用的运行时自己的命令 */
 export interface SlashGroup {
   kind: SlashCommandEntry["kind"];
   /** 运行时那一组：运行时的名字（"Claude Code"，守护进程写在 collection 里） */

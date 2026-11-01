@@ -1,18 +1,18 @@
-// 每个 agent 的会话里的 ⚙（114 号票）：秘书会话、任务整页（负责它的维护者）、项目整页（项目维护者）的标题栏上一个 ⚙（照标题栏现有的 icon-btn），
+// 每个 agent 的会话里的 ⚙（114 号票）：秘书会话、任务整页（负责它的负责人）、项目整页（项目负责人）的标题栏上一个 ⚙（照标题栏现有的 icon-btn），
 // 点开一个面板：手机是底部弹层，宽屏是屏幕正中的对话框（照仓库现有的 Sheet）。面板四块：
 // - 这个 agent 自己的名字和音色（241 号票）：名字（输入框，占位写"跟默认：<默认名>"，影响界面上的称呼、它自己的系统提示、语音播报的开头）、
 //   音色（下拉：跟默认 / 各个参考音色，带试听；语音插件停用时写"语音插件没启用"），都能"恢复跟默认"；
 // - 这个 agent 单独的提示词：在通用模板后面追加（默认）、整份自己写两种，边改边查（和守护进程同一个检查），存了从它的下一轮起生效；
 //   "恢复用通用模板"；下面是现在实际用的系统提示全文（只读，收着）；
-// - 清空当前对话：先确认；项目维护者是重置维护者（16 号票的入口并到这里，项目档案栏里不再另放一个）；
+// - 清空当前对话：先确认；项目负责人是重置负责人（16 号票的入口并到这里，项目档案栏里不再另放一个）；
 // - 上下文用量：用了多少 / 窗口多大和进度条、上次压缩、离自动压缩还有多少，"现在压缩"；
-// - 模型（120 号票，只有项目、任务的维护者有）：跟随设置 · 模型里它那一行，或者单独选定模型和思考档位；可选的模型、看图能力的说法
+// - 模型（120 号票，只有项目、任务的负责人有）：跟随设置 · 模型里它那一行，或者单独选定模型和思考档位；可选的模型、看图能力的说法
 //   和设置 · 模型页同一套（取同一个接口），写明下一个新会话用的、最近在跑的会话实际用的、什么时候换（83 号票）。
-// - 运行时（289 号票，只有项目、任务的维护者有；只有 pi 能用、用的也是 pi 时不显示）：用哪个运行时（下拉：现在能用的；换了先确认——手头这一条做完，原来的写交接摘要，
+// - 运行时（289 号票，只有项目、任务的负责人有；只有 pi 能用、用的也是 pi 时不显示）：用哪个运行时（下拉：现在能用的；换了先确认——手头这一条做完，原来的写交接摘要，
 //   新的新开一段会话），按它的能力清单多出它的设置项（Claude Code：权限模式、思考档位，各一个下拉）；有自己模型列表的运行时多一个"模型"下拉
 //   （列表是它的），这时上面"模型"一块（二狗的模型目录，pi 用的）不显示；在换时写明"等手头这一条做完""原来的在写交接摘要"。
 //   运行时不支持"现在压缩"的，上下文一块不放那个按钮（界面按能力清单收起运行时不支持的按钮）。
-// 设置 · 模型页上点某个单独配了模型的维护者，跳到它的页面后它的 ⚙ 自己打开（openAgentSettingsOnArrival）。
+// 设置 · 模型页上点某个单独配了模型的负责人，跳到它的页面后它的 ⚙ 自己打开（openAgentSettingsOnArrival）。
 // 每次打开现取；在等清空、在压缩时过一会儿再取一次。只读的（任务结束了、项目归档了）面板照样能看，按钮都灰着。说法在状态层（state/agent-settings.ts）。
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
@@ -67,7 +67,7 @@ const clearKey = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now().toStri
 /** 在等清空、在压缩时多久再取一次 */
 const POLL_MS = 1500;
 
-/** 别的页要打开的 ⚙（120 号票：设置 · 模型页上点某个单独配了模型的维护者）：跳过去之后，它的 ⚙ 挂上时自己打开一次 */
+/** 别的页要打开的 ⚙（120 号票：设置 · 模型页上点某个单独配了模型的负责人）：跳过去之后，它的 ⚙ 挂上时自己打开一次 */
 let arrival: string | undefined;
 
 export function openAgentSettingsOnArrival(agentId: string): void {
@@ -386,7 +386,7 @@ function RuntimeBlock({ view, runtimes, onView }: { view: AgentSettingsView; run
       <div className="muted agent-note">{t("ui.agentSettings.runtime.note")}</div>
       {/* 接管自已有的会话（290 号票）：哪个会话、工作目录、交还 / 收回 */}
       <TakeoverPanel view={view} onView={onView} />
-      {/* 维护者在哪个文件夹做（305 号票）：能选工作文件夹的运行时写出来；接管来的上面那一块写了 */}
+      {/* 负责人在哪个文件夹做（305 号票）：能选工作文件夹的运行时写出来；接管来的上面那一块写了 */}
       {state.workdir !== undefined && state.takeover === undefined && <div className="muted agent-note agent-workdir">{t("ui.agentSettings.runtime.workdir", { path: state.workdir })}</div>}
       {line && (
         <div className={state.switching ? "agent-note agent-runtime-state" : "prompt-broken"} role={state.switching ? undefined : "alert"}>
@@ -483,7 +483,7 @@ function PlaceholderList({ view }: { view: AgentSettingsView }) {
   );
 }
 
-/** 清空当前对话（项目维护者：重置维护者）：先确认 */
+/** 清空当前对话（项目负责人：重置负责人）：先确认 */
 function ClearBlock({ view, onView }: { view: AgentSettingsView; onView(v: AgentSettingsView): void }) {
   const { http } = useStore();
   const toast = useToast();

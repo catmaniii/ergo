@@ -1,6 +1,6 @@
 {
   "claudeCode.plugin.title": "Claude Code",
-  "claudeCode.plugin.summary": "项目、任务的维护者可以用本机的 Claude Code 跑会话：用你自己的 Claude Code 配置（CLAUDE.md、技能、MCP、钩子）和本机登录的订阅额度",
+  "claudeCode.plugin.summary": "项目、任务的负责人可以用本机的 Claude Code 跑会话：用你自己的 Claude Code 配置（CLAUDE.md、技能、MCP、钩子）和本机登录的订阅额度",
   "claudeCode.plugin.sdkMissing": "没装 Claude Code 的 Agent SDK（{package}）：它是 Anthropic 自己的许可，不随二狗一起分发。要用 Claude Code 的话，在二狗的程序目录 {dir} 里运行 {command}，装好后回到这里点「启用」（用的是你本机 Claude Code 的登录和订阅）",
   "claudeCode.plugin.sdkMissingComponent": "没装 Claude Code 的 Agent SDK（{package}）：它是 Anthropic 自己的许可，不随二狗一起分发。要用 Claude Code 的话，到设置 · 组件里装「Claude Code 接入」（从 npm 官方下载；也可以在终端运行 ergo components add {component}），装好后回到这里点「启用」（用的是你本机 Claude Code 的登录和订阅）",
   "claudeCode.runtime.title": "Claude Code",

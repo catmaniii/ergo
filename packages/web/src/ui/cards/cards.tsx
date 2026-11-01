@@ -54,7 +54,7 @@ import {
   type McpChangeToolView,
   TASK_KIND_LABEL,
   stageLabelIn,
-  // 159 号票：给用户看的编号写"t-3「整理发票」"（163 号票）、维护者写它属于谁
+  // 159 号票：给用户看的编号写"t-3「整理发票」"（163 号票）、负责人写它属于谁
   taskLabel,
   TELL_SECRETARY_LABEL,
   tellSecretaryOn,
@@ -131,8 +131,8 @@ export function ApprovalCard({ state, payload: p, act }: CardProps<ApprovalPaylo
 }
 
 /**
- * 工具包变更卡（27 号票）：项目维护者不在任务里时要开 bash、加 MCP、开联网，提交它进待我处理。
- * 卡上的"工具包变更"一栏列出要加的能力；批准后加进项目的工具包、维护者按新工具包重新装配，拒绝则不变（可以附一句原因）
+ * 工具包变更卡（27 号票）：项目负责人不在任务里时要开 bash、加 MCP、开联网，提交它进待我处理。
+ * 卡上的"工具包变更"一栏列出要加的能力；批准后加进项目的工具包、负责人按新工具包重新装配，拒绝则不变（可以附一句原因）
  */
 export function ToolkitChangeCard({ state, payload: p, done, act }: CardProps<ToolkitChangeCardPayload>) {
   const [note, setNote] = useState("");
@@ -223,7 +223,7 @@ export function QuestionsCard({ state, payload: p, done, act }: CardProps<Questi
 }
 
 /**
- * MCP 登记变更卡（239 号票）：维护者提的加、改、删一条 MCP 登记。卡上列出启动命令、args、环境变量（凭据只写"来自环境变量 X"）、
+ * MCP 登记变更卡（239 号票）：负责人提的加、改、删一条 MCP 登记。卡上列出启动命令、args、环境变量（凭据只写"来自环境变量 X"）、
  * 暴露的工具和只读/联网/快速动作标注。批准后运行时按 name 合并写进数据目录配置区的 mcp.json、顺手拉起这个 MCP 自检，
  * 拒绝则一个字节都不动（可以附一句原因）
  */
@@ -288,7 +288,7 @@ export function McpChangeCard({ state, payload: p, done, act }: CardProps<McpCha
 }
 
 /**
- * 进度卡（13 号票）：所属任务、第 N/M 阶段；维护者报告的进展，或者一个阶段的验收结论——每条标准的方式和结果，
+ * 进度卡（13 号票）：所属任务、第 N/M 阶段；负责人报告的进展，或者一个阶段的验收结论——每条标准的方式和结果，
  * 谁判的（评审方式的标"评审判定"）。只是告诉你，唯一的动作是"知道了"
  */
 export function ProgressCard({ state, payload: p, act }: CardProps<ProgressPayload>) {
@@ -416,7 +416,7 @@ export function SuggestTaskCard({ state, payload: p, act }: CardProps<SuggestTas
       {p.projects && p.projects.length > 0 && <div className="muted">{t("ui.cards.suggestTask.projects", { list: p.projects.join(t("ui.common.listSep")) })}</div>}
       {/* 只写了一个项目（64 号票）：点了建成这个项目的内部任务 */}
       {p.projects?.length === 1 && !p.internal && <div className="muted">{t("ui.cards.suggestTask.willCreateIn", { scope: internalScopeLabel(p.projects[0]!) })}</div>}
-      {/* 项目的维护者给的建议卡（64 号票）：点了建出的是这个项目的内部任务 */}
+      {/* 项目的负责人给的建议卡（64 号票）：点了建出的是这个项目的内部任务 */}
       {p.internal && <div className="muted">{t("ui.cards.suggestTask.createdIn", { scope: internalScopeLabel(p.internal.projectName) })}</div>}
       {state.card.status === "pending" && (
         <div className="muted">
@@ -452,9 +452,9 @@ export function SuggestProjectCard({ state, payload: p, act }: CardProps<Suggest
       }
     >
       <div className="sp-goal">{p.goal}</div>
-      {/* 用户的原话（362 号票）：点"立项"时原样交给维护者 */}
+      {/* 用户的原话（362 号票）：点"立项"时原样交给负责人 */}
       {p.userWords !== undefined && <div className="muted sp-words">{t("ui.cards.suggestProject.userWords", { words: p.userWords })}</div>}
-      {/* 维护者用的运行时（289 号票：点"新建项目"时选的）：插件登记的才写 */}
+      {/* 负责人用的运行时（289 号票：点"新建项目"时选的）：插件登记的才写 */}
       {p.runtime !== undefined && <SuggestedRuntime runtime={p.runtime} />}
       {/* 在哪个文件夹做（305 号票：选了能选工作文件夹的运行时才写） */}
       {p.runtime !== undefined && <SuggestedFolder runtime={p.runtime} folder={p.folder} name={p.name} />}
@@ -644,7 +644,7 @@ function YearDayPick({ month, day, onChange }: { month: number; day: number; onC
 }
 
 /**
- * 立项书卡：由维护者交出的结构化立项书生成。项目类型、外部工作目录绑定和工具包在确认时就生效（两个按钮都是）；
+ * 立项书卡：由负责人交出的结构化立项书生成。项目类型、外部工作目录绑定和工具包在确认时就生效（两个按钮都是）；
  * "确认并开工"同时建出首个建设任务，"只确认，稍后开工"项目留在筹备中
  */
 export function CharterCard({ state, payload: p, act }: CardProps<CharterPayload>) {
@@ -696,7 +696,7 @@ export function CharterCard({ state, payload: p, act }: CardProps<CharterPayload
 /**
  * "首版做完了"卡（112 号票，用户 2026-10-13 定：项目状态变更时找你）：项目的建设任务做完了，写明做成了什么——最后的总结、
  * 每个阶段一行验收结果和交付件、交付件在哪。三个选择：转入使用（项目进入使用中）、继续建设（写一句这一轮要做什么，
- * 维护者照它起草下一轮建设任务的计划）、放弃并归档（先确认一下）。不选就一直停在建设中
+ * 负责人照它起草下一轮建设任务的计划）、放弃并归档（先确认一下）。不选就一直停在建设中
  */
 export function BuildDoneCard({ state, payload: p, done, act }: CardProps<BuildDonePayload>) {
   const [mode, setMode] = useState<"choose" | "continue" | "abandon">("choose");
@@ -838,7 +838,7 @@ export function GoLiveChecklist({ items, pending, missingAtConfirm }: { items: r
 }
 
 /**
- * "转入使用"确认卡（259 号票）：建设中的项目要转入使用——你在项目页点的、维护者提的、秘书照你说的代办的，都在这里确认才转。
+ * "转入使用"确认卡（259 号票）：建设中的项目要转入使用——你在项目页点的、负责人提的、秘书照你说的代办的，都在这里确认才转。
  * 写谁发起的、为什么、转运营检查清单（缺的照样能确认）、带着的运营方案（确认时一起生效，流程要逐项确认的勾完才行）
  */
 export function GoLiveCard({ state, payload: p, done, act }: CardProps<GoLivePayload>) {
@@ -878,8 +878,8 @@ export function GoLiveCard({ state, payload: p, done, act }: CardProps<GoLivePay
 }
 
 /**
- * 工单卡（17 号票）：涉及多个项目的任务的维护者执行中派出计划外的工单，命中"计划外工单"类别，工单待你确认。
- * "确认派出"之后才进项目维护者的队列，"拒绝"则不派（任务维护者会收到）
+ * 工单卡（17 号票）：涉及多个项目的任务的负责人执行中派出计划外的工单，命中"计划外工单"类别，工单待你确认。
+ * "确认派出"之后才进项目负责人的队列，"拒绝"则不派（任务负责人会收到）
  */
 export function WorkOrderCard({ state, payload: p, act }: CardProps<WorkOrderPayload>) {
   return (
@@ -930,8 +930,8 @@ export function WorkOrderCard({ state, payload: p, act }: CardProps<WorkOrderPay
 const WORK_ORDER_CARD_ACTION_LABEL = tTable({ dispatch: "ui.cards.workOrder.dispatch", deny: "ui.cards.deny" });
 
 /**
- * 并行确认卡（20 号票）：维护者提议派子 agent 同时做几个阶段（或几步），写明各做什么、在哪个目录里做。
- * 同意了才真正拉起子 agent；不同意（或还没处理）维护者照常一件一件做。
+ * 并行确认卡（20 号票）：负责人提议派子 agent 同时做几个阶段（或几步），写明各做什么、在哪个目录里做。
+ * 同意了才真正拉起子 agent；不同意（或还没处理）负责人照常一件一件做。
  */
 export function ParallelCard({ state, payload: p, act }: CardProps<ParallelPayload>) {
   return (

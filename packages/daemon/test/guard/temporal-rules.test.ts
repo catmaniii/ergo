@@ -215,7 +215,7 @@ describe("时序规则只看效果日志里执行成功的调用", () => {
 
 /** 判定里"读过密钥文件之后不许对外发送"的命中 */
 const secretHit = (j: GuardJudgement) => hitOf(j, "v1.no-send-after-secret-read");
-/** 任务里的维护者跑一条命令，看"读过密钥文件之后不许对外发送"命中没有 */
+/** 任务里的负责人跑一条命令，看"读过密钥文件之后不许对外发送"命中没有 */
 const secretRule = (command: string) => secretHit(judgeToolCall(inTask(maintainer(), bash(command))));
 /** 效果日志里读过工作目录里的 .env */
 const readEnv = (overrides: Partial<EffectRecord>) => effect(1, "read", { path: `${P.workDir}\\.env` }, overrides);
@@ -225,9 +225,9 @@ const runUpload = (networkUsage?: string[]) => {
   const facts = networkUsage ? { scripts: { [`${P.workDir}\\upload.py`]: { networkUsage } } } : {};
   return secretHit(judgeToolCall(inTask(maintainer(), bash("python upload.py"), { effectLog: [readEnv({})], facts })));
 };
-/** 维护者在任务里发邮件 */
+/** 负责人在任务里发邮件 */
 const emailInTask = (effectLog: EffectRecord[]) => judgeToolCall(inTask(maintainer(), email, { tools: TEST_TOOLS, effectLog }));
-/** 维护者在对话段 seg-2 里发邮件 */
+/** 负责人在对话段 seg-2 里发邮件 */
 const emailInChat = (effectLog: EffectRecord[]) => judgeToolCall(inChat(maintainer(), email, { tools: TEST_TOOLS, segmentId: "seg-2", effectLog }));
 
 describe("同一条命令里的先后：只有真正可能在前面执行的才算'之前'", () => {
@@ -274,7 +274,7 @@ describe("效果日志的范围", () => {
     expect(secretHit(emailInTask([readEnv({ agentId: "sub-notes-1" })]))).toBeDefined();
   });
 
-  it("不属于任务的（秘书会话、维护者的对话段）只看同一个 agent、同一段会话的效果；维护者会话跨工单延续，之前工单里读的不算", () => {
+  it("不属于任务的（秘书会话、负责人的对话段）只看同一个 agent、同一段会话的效果；负责人会话跨工单延续，之前工单里读的不算", () => {
     const inSegment = (segmentId: string, agentId = "maintainer-notes") => readEnv({ taskId: null, stageId: null, segmentId, agentId });
     expect(secretHit(emailInChat([inSegment("seg-2")]))).toBeDefined();
     expect(secretHit(emailInChat([inSegment("seg-1")]))).toBeUndefined();

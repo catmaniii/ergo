@@ -7,8 +7,8 @@
 //   授权项的说法和计划卡上一样，由结构化数据生成（grantText）。
 // - 审批决定（14 号票）：计划变更卡上的确认、拒绝（也是 plan_decided，带 change），授权到期续期事项上的续期、不续
 //   （grant_renewal_decided）。改动的说法和卡上一样由结构化数据生成（planChangeItemText）；拒绝时写的话是用户自己的话。
-// - 审批决定（58 号票）：流程计划卡上的授权执行（连同逐项勾了的确认事项）、拒绝、判定不可执行的那版上的"让维护者改"
-//   （也是 plan_decided，带 workflow；让维护者改的 decision 是 returned）；
+// - 审批决定（58 号票）：流程计划卡上的授权执行（连同逐项勾了的确认事项）、拒绝、判定不可执行的那版上的"让负责人改"
+//   （也是 plan_decided，带 workflow；让负责人改的 decision 是 returned）；
 //   拒绝时写的说明是用户自己的话。
 // "建议发起任务"卡、提问卡被关掉是回避信号（卡片被关闭事件，素材模块已经采集）。
 // 彻底删除时这几类事件的改写函数（80 号票，登记进记忆模块的改写函数表）在文件末尾：只换用户写的话，决定、状态原样。
@@ -75,7 +75,7 @@ export const clarificationAnswerSource: MaterialSource = {
         source: "self",
         time: p.time,
         ...(p.taskId === undefined ? {} : { task: p.taskId }),
-        // 项目维护者为工单问的（16 号票）：属于那个项目
+        // 项目负责人为工单问的（16 号票）：属于那个项目
         ...(p.projectId === undefined ? {} : { project: p.projectId }),
         context: ["card:questions", ...(p.answers.every((a) => a.followedRecommendation) ? ["all_recommended"] : [])],
         segments: segmentPieces(pieces),
@@ -92,7 +92,7 @@ export const planDecisionSource: MaterialSource = {
     const p = event.payload as PlanDecidedPayload;
     // 重做时随之作废的计划变更（84 号票）：系统记的，不是你的决定
     if (p.decision === "voided") return [];
-    // 计划变更卡上的决定（14 号票）：写明维护者要改什么（卡上列的那几处）
+    // 计划变更卡上的决定（14 号票）：写明负责人要改什么（卡上列的那几处）
     // 流程计划卡上的决定（58 号票）：授权执行（连同逐项勾了的确认事项）或拒绝（可以附说明）
     const semi = t("protocol.common.semiSep");
     const what = p.change
@@ -158,12 +158,12 @@ function planGrantById(plan: NonNullable<PlanDecidedPayload["plan"]>, id: string
 
 // ───────────────────────── 13 号票：任务结局、用户对产出的反应 ─────────────────────────
 
-/** 任务结局是谁定的：全部验收后自动完成是系统，判失败是维护者（agent），取消是用户 */
+/** 任务结局是谁定的：全部验收后自动完成是系统，判失败是负责人（agent），取消是用户 */
 const OUTCOME_SOURCE = { completed: "system", failed: "agent", cancelled: "self" } as const;
 
 /**
  * 任务结局（完成、失败、取消）：看板频道上的 task 事件。结局本身不是谁的原话，只留一条引用（说明里写任务名和结局，
- * 失败带上维护者写的原因），来源是定下这个结局的一方
+ * 失败带上负责人写的原因），来源是定下这个结局的一方
  */
 export const taskOutcomeSource: MaterialSource = {
   // 素材 id 由它算出来，定了别改
@@ -240,7 +240,7 @@ export const taskWaitNotePurge: PurgeRewriter = {
 
 /**
  * 删除项目时它的内部任务一起删掉（64 号票；279 号票起经"删除参与方"登记表，tasks/deletion-participants.ts）：任务的文字换成删除标记——标题、说明、等我和失败的原因、
- * 步骤和阶段的名字、要点、验收标准，阶段上维护者宣布完成时写的那句、重开时记下的上次没过的标准（84 号票，ADR 0010）；
+ * 步骤和阶段的名字、要点、验收标准，阶段上负责人宣布完成时写的那句、重开时记下的上次没过的标准（84 号票，ADR 0010）；
  * 编号、状态、种类、归属这些结构字段原样（看板的行留着，新任务的编号接着往下排）
  */
 export function purgedTask(task: Task): Task {
@@ -269,11 +269,11 @@ export function purgedTask(task: Task): Task {
 
 /**
  * 彻底删除：用户对产出的反应只换掉用户写的原因，任务、阶段、反应不变。原因还在别处的连带改写（84 号票）：
- * - 交给维护者的那条通知（"用户验收没通过……：「原因」""……用户说：「原因」"：按同一事务里跟在后面、引着这段话的第一条找，
+ * - 交给负责人的那条通知（"用户验收没通过……：「原因」""……用户说：「原因」"：按同一事务里跟在后面、引着这段话的第一条找，
  *   整条换成"已删除"，会话文件里的也改，同计划变更卡上拒绝时的话）；
  * - 退回时这次结论卡上由你验收的那几条的备注（卡的各个版本，按进度卡的 purge 换；84 号票之前的卡上没有）；
  * - 重做时会话里那条重做记录（"……你说：「原因」"，时间线记录的改写把它整句换成删除标记）；
- * - 重做时存下、等复验的那份交代（276 号票，tasks 频道的 rework_notice_held：交给维护者之前和之后都留着原话；整条换成"已删除"，
+ * - 重做时存下、等复验的那份交代（276 号票，tasks 频道的 rework_notice_held：交给负责人之前和之后都留着原话；整条换成"已删除"，
  *   还没交出去的就不再交）
  */
 export const outputReactionPurge: PurgeRewriter = {
@@ -299,7 +299,7 @@ export const outputReactionPurge: PurgeRewriter = {
 };
 
 /**
- * 重做时存下、等复验的那份交代（276 号票）：整条有用户的原话，彻底删除那条重做的反应时连带整条换成"已删除"标记（还没交给维护者的，
+ * 重做时存下、等复验的那份交代（276 号票）：整条有用户的原话，彻底删除那条重做的反应时连带整条换成"已删除"标记（还没交给负责人的，
  * 执行控制器见到标记就不再交；交出去了的那条通知由 noticeQuoting 找到、同样换掉）
  */
 export const reworkNoticeHeldPurge: PurgeRewriter = {
@@ -309,7 +309,7 @@ export const reworkNoticeHeldPurge: PurgeRewriter = {
 
 /** 和这条反应同一事务存下、原样引着用户这段话（「……」）的那份等复验的交代（同一个任务，跟在反应后面的第一条） */
 function heldNoticeQuoting(event: StoredEvent, store: EventStore, taskId: string, note: string): StoredEvent[] {
-  const quoted = `「${note}」`; // @i18n-ignore data：交给维护者的通知里引用户的话照旧这样写
+  const quoted = `「${note}」`; // @i18n-ignore data：交给负责人的通知里引用户的话照旧这样写
   const found = store
     .mentioning(TASK_EVENTS.reworkNoticeHeld, JSON.stringify(quoted).slice(1, -1))
     .filter((e) => {
@@ -325,7 +325,7 @@ function heldNoticeQuoting(event: StoredEvent, store: EventStore, taskId: string
 
 /**
  * 审批决定：用户在"授权到期续期"事项上续期或不续（tasks 频道的 grant_renewal_decided）。
- * 续期是用户在运行时提出的事项上做的选择（本人，注明 agent 先提出）；授权项的说法取维护者写的那一句
+ * 续期是用户在运行时提出的事项上做的选择（本人，注明 agent 先提出）；授权项的说法取负责人写的那一句
  */
 export const grantRenewalSource: MaterialSource = {
   // 素材 id 由它算出来，定了别改
@@ -358,8 +358,8 @@ function isLiveNotice(event: StoredEvent | undefined): event is StoredEvent {
 }
 
 /**
- * 卡上的动作同一事务交给 agent 的那条通知：幂等键是动作的幂等键加 #notice（提问卡的回答交回秘书或提问的维护者；计划卡打回、
- * 流程计划卡拒绝和"让维护者改"交回起草的维护者）。event 的幂等键是动作的幂等键加 suffix
+ * 卡上的动作同一事务交给 agent 的那条通知：幂等键是动作的幂等键加 #notice（提问卡的回答交回秘书或提问的负责人；计划卡打回、
+ * 流程计划卡拒绝和"让负责人改"交回起草的负责人）。event 的幂等键是动作的幂等键加 suffix
  */
 function noticeOfAction(event: StoredEvent, store: EventStore, suffix: string): StoredEvent[] {
   const key = event.idempotencyKey;
@@ -369,11 +369,11 @@ function noticeOfAction(event: StoredEvent, store: EventStore, suffix: string): 
 }
 
 /**
- * 计划变更卡上拒绝时交给维护者的通知（14 号票）没按动作的幂等键记：按同一事务里跟在决定后面、属于这个任务、
+ * 计划变更卡上拒绝时交给负责人的通知（14 号票）没按动作的幂等键记：按同一事务里跟在决定后面、属于这个任务、
  * 原样引着用户这段话（「……」）的第一条找
  */
 function noticeQuoting(event: StoredEvent, store: EventStore, taskId: string, note: string): StoredEvent[] {
-  const quoted = `「${note}」`; // @i18n-ignore data：交给维护者的通知里引用户的话照旧这样写
+  const quoted = `「${note}」`; // @i18n-ignore data：交给负责人的通知里引用户的话照旧这样写
   // 负载是 JSON：按 JSON 里的写法找（话里可能有引号、反斜杠）
   const found = store
     .mentioning(EVENT_TYPES.message, JSON.stringify(quoted).slice(1, -1))
@@ -387,10 +387,10 @@ function noticeQuoting(event: StoredEvent, store: EventStore, taskId: string, no
 }
 
 /**
- * 彻底删除计划的决定（plan_decided）：只换用户写的话（note：打回的意见、拒绝计划变更或流程计划时写的话、让维护者改时的说明），
+ * 彻底删除计划的决定（plan_decided）：只换用户写的话（note：打回的意见、拒绝计划变更或流程计划时写的话、让负责人改时的说明），
  * 决定、计划、版本、卡片、勾掉和收窄的授权、有效期原样，重放出来这一版计划还是已确认、已拒绝，授权不变。
- * 确认时改过的假设栏、在卡上加的关注类别已经成了确认的计划的一部分（维护者照它做、守卫照它判），不改写，如实写在 PURGE_LIMITS 里。
- * 写了话的，连带交给维护者的那条通知（里面原样引着这段话：整条换成"已删除"，会话文件里的也改）；项目的任务重新起草
+ * 确认时改过的假设栏、在卡上加的关注类别已经成了确认的计划的一部分（负责人照它做、守卫照它判），不改写，如实写在 PURGE_LIMITS 里。
+ * 写了话的，连带交给负责人的那条通知（里面原样引着这段话：整条换成"已删除"，会话文件里的也改）；项目的任务重新起草
  * 是一张工单（16 号票），工单内容里转述的删不掉（PURGE_LIMITS）。卡上处理结果里的这段话由卡片的改写换掉（memory/purge.ts）
  */
 export const planDecisionPurge: PurgeRewriter = {
@@ -410,7 +410,7 @@ export const planDecisionPurge: PurgeRewriter = {
 /**
  * 彻底删除提问卡的回答（questions_answered）：每题的答案换成删除标记（自己写的、选卡上现成选项的都换）；哪一题、问题、推荐的答案、
  * 按没按推荐、是不是现成的选项原样（问题和推荐是 agent 问的）。卡上记的答案由提问卡的 purge 换（cards.ts），
- * 连带交回秘书（或提问的维护者，16、17 号票）的那条通知（里面一题一行列着答案：整条换成"已删除"，会话文件里的也改）
+ * 连带交回秘书（或提问的负责人，16、17 号票）的那条通知（里面一题一行列着答案：整条换成"已删除"，会话文件里的也改）
  */
 export const clarificationAnswerPurge: PurgeRewriter = {
   eventType: EVENT_TYPES.questionsAnswered,
@@ -423,7 +423,7 @@ export const clarificationAnswerPurge: PurgeRewriter = {
 
 /**
  * 彻底删除授权续期的决定（grant_renewal_decided）：这类事件里没有用户写的话——续期事项上只有"续期""不续"两个按钮，
- * 授权项的说法是维护者写的、任务名是任务的；决定、续期前后的到期时间、续期后这一版的全部有效期是结构（重放出授权的有效期），
+ * 授权项的说法是负责人写的、任务名是任务的；决定、续期前后的到期时间、续期后这一版的全部有效期是结构（重放出授权的有效期），
  * 原样保留。登记它是写明"没有要改的"（没登记的事件类型彻底删除时整个被拒），素材照忘掉删除
  */
 export const grantRenewalPurge: PurgeRewriter = {

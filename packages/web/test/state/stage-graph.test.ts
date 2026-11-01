@@ -2,7 +2,7 @@
 // 同一阶段有几个时按计划里的先后编 4a、4b；自上而下分层、同层并排、曲线连线；节点大小按栏的宽高算；
 // 有等你确认的计划（计划卡、计划变更卡）就画它（新加的标"新"、改过的标"改"、去掉的也画上），否则画现在生效的那份
 // （被计划变更去掉的阶段也留在图上）。
-// 回放：task-plan-change（两个阶段都没有前置——并行；计划变更等你确认、被拒绝、维护者自行调整了顺序）、task-execution（一条直线）；
+// 回放：task-plan-change（两个阶段都没有前置——并行；计划变更等你确认、被拒绝、负责人自行调整了顺序）、task-execution（一条直线）；
 // 录不出来的按共享协议的 schema 构造：计划变更加一个阶段、去掉一个阶段，确认前和确认后。
 import fs from "node:fs";
 import path from "node:path";
@@ -111,7 +111,7 @@ function brief(g: StageGraph | undefined): string[] {
   return (g?.nodes ?? []).map((n) => `${n.id} ${n.code} ${n.state}${n.mark ? ` ${n.mark}` : ""}`);
 }
 
-/** task-plan-change 里那个任务的维护者会话 */
+/** task-plan-change 里那个任务的负责人会话 */
 const convItems = (state: UiState) => chatItems(state, "maintainer:tm-1");
 
 describe("画哪一份计划：回放 task-plan-change", () => {
@@ -142,12 +142,12 @@ describe("画哪一份计划：回放 task-plan-change", () => {
     expect(g!.nodes[0]!.marks?.perm.map((m) => m.grantId)).toEqual(["dir1"]);
   });
 
-  test("拒绝之后、维护者自行调整了顺序：画现在生效的那份，编号是存在计划里的、调整了先后也不变（93 号票）；执行中的状态和出过的状况", () => {
+  test("拒绝之后、负责人自行调整了顺序：画现在生效的那份，编号是存在计划里的、调整了先后也不变（93 号票）；执行中的状态和出过的状况", () => {
     const state = replay(inputs);
     const g = taskStageGraph(state, "t-1", convItems(state));
     expect(g?.kind).toBe("live");
     expect(brief(g)).toEqual(["s2 1b accepted", "s1 1a waiting"]);
-    // 正在做的（维护者最后开始的）那一阶段
+    // 正在做的（负责人最后开始的）那一阶段
     expect(g?.current).toBe(state.tasks["t-1"]!.stages?.focus);
   });
 
@@ -297,7 +297,7 @@ describe("标题栏的阶段标签跟着聊天滚动变", () => {
     // 任务书、计划卡、"计划交上去了"还没有阶段；计划确认之后开始执行 s1
     expect(items.slice(0, 3).map((it) => at.get(it.id))).toEqual([undefined, undefined, undefined]);
     expect(at.get(items[3]!.id)).toBe("s1");
-    // 带着阶段的按它：最后两句维护者的话归属是 s1，前面验收通过的进度卡是 s2
+    // 带着阶段的按它：最后两句负责人的话归属是 s1，前面验收通过的进度卡是 s2
     expect(items.slice(-3).map((it) => at.get(it.id))).toEqual(["s2", "s1", "s1"]);
     // 没带阶段的（这里把一条回复的归属去掉）跟着前面最近的那一段
     const k = items.length - 2;
@@ -371,9 +371,9 @@ describe("界面上写\"第 N 阶段\"的地方按编号（并行的写 1a、1b�
     expect(taskActionItems(both).flatMap((c) => (c.kind === "accept" ? [c.label] : []))).toEqual(["第 1b 阶段验收通过", "第 1a 阶段验收通过"]);
   });
 
-  test("任务详情状态行的\"第 N/M 阶段\"：维护者正在做的那一阶段的编号 / 一共几个阶段号（并行的算一个；93 号票评审：和守护进程写的同一处算）", () => {
+  test("任务详情状态行的\"第 N/M 阶段\"：负责人正在做的那一阶段的编号 / 一共几个阶段号（并行的算一个；93 号票评审：和守护进程写的同一处算）", () => {
     const state = replay(inputs);
-    // 两个阶段并行：都是第 1 阶段的号，一共 1 个阶段号（看板上写的是第 1/2 个）；维护者自行调整了先后，编号不变
+    // 两个阶段并行：都是第 1 阶段的号，一共 1 个阶段号（看板上写的是第 1/2 个）；负责人自行调整了先后，编号不变
     const task = state.tasks["t-1"]!;
     const focus = task.stages!.list!.find((s) => s.stageId === task.stages!.focus)!;
     expect(taskStageAt(task)).toEqual({ current: focus.code, total: 1 });

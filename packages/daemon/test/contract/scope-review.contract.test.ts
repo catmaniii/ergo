@@ -1,6 +1,6 @@
 // pi 契约测试：范围审视（规格第 10 节、Testing Decisions 切面 3，18 号票）。二狗依赖的 pi 行为：
 // - 子进程里能在会话之外另开一次模型调用（审视用的模型，faux 扮演便宜模型）并拿到用量：守护进程要的审视（scope_review）
-//   审视会话里的对话，结果报回；那次调用不进维护者的会话（会话的剧本也没被它吃掉）；
+//   审视会话里的对话，结果报回；那次调用不进负责人的会话（会话的剧本也没被它吃掉）；
 // - 压缩前钩子（session_before_compact）能拿到待压缩的消息：转成文本送审，结果 appendEntry 进会话（不进模型的上下文），
 //   同时报给守护进程；
 // - before_agent_start 能改系统提示：近期范围记录拼到系统提示末尾，守护进程用 scope_context 换成最新的。
@@ -11,7 +11,7 @@ import { defaultPromptLibrary } from "../../src/prompts/index.ts";
 import { RECENT_SCOPE_RECORDS_TITLE, scopeReviewInstructions } from "../../src/scope-review/index.ts";
 import { fauxModel, spawnTestAgent, startTestDaemon } from "../helpers/daemon.ts";
 
-const SYSTEM_PROMPT = "你是测试用的维护者。";
+const SYSTEM_PROMPT = "你是测试用的负责人。";
 /** 审视的说明：默认的那份（71 号票起在 prompts/scope-review.md） */
 const SCOPE_REVIEW_INSTRUCTIONS = scopeReviewInstructions(defaultPromptLibrary());
 
@@ -36,7 +36,7 @@ function customEntries(file: string, customType: string): unknown[] {
 }
 
 describe("pi 契约：范围审视", () => {
-  it("子进程里能在会话之外另开一次模型调用审视这段对话：结果按约定的 JSON 报回，用量另报一条（scope_review）；那次调用不出现在维护者的会话里", async () => {
+  it("子进程里能在会话之外另开一次模型调用审视这段对话：结果按约定的 JSON 报回，用量另报一条（scope_review）；那次调用不出现在负责人的会话里", async () => {
     const { daemon } = await startTestDaemon();
     const { agent, log } = spawnTestAgent(daemon, {
       agentId: "contract-scope-review",
@@ -59,7 +59,7 @@ describe("pi 契约：范围审视", () => {
     // 结果带上会话里交给它的输入（输入标记里的 id）
     expect(result).toMatchObject({ requestId: "rv-1", findings: [{ kind: "out_of_scope", summary: "改了立项书范围外的 README" }], inputIds: ["in-1"] });
     expect(result.error).toBeUndefined();
-    // 审视的输入：这段对话（用户说的、维护者回的）和守护进程给的最新对照物
+    // 审视的输入：这段对话（用户说的、负责人回的）和守护进程给的最新对照物
     const input = result.findings[0]!.detail!;
     expect(input).toContain("把记账的分类整理一下");
     expect(input).toContain("README 也顺手改了");
@@ -75,7 +75,7 @@ describe("pi 契约：范围审视", () => {
     const ready = log.ofType("ready")[0]!;
     expect(customEntries(ready.sessionFile, SCOPE_REVIEW_ENTRY)).toEqual([{ requestId: "rv-1", findings: result.findings }]);
 
-    // 维护者的会话里没有审视那次调用：下一轮看到的上下文里没有审视的提示和结果，会话的剧本接着走第二步
+    // 负责人的会话里没有审视那次调用：下一轮看到的上下文里没有审视的提示和结果，会话的剧本接着走第二步
     agent.send({ type: "user_input", inputId: "in-2", text: "接着" });
     const seen = textOf(await log.next("message_final"));
     expect(seen).toContain("[user] 把记账的分类整理一下");

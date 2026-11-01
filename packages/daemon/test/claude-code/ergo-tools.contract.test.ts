@@ -39,7 +39,7 @@ function assemblyOf(overrides: Partial<SessionAssembly> = {}): SessionAssembly {
     tools: [],
     contributions: { tools: [], contextBlocks: [], hooks: [] },
     skillPaths: [],
-    systemPrompt: "你是二狗的维护者。",
+    systemPrompt: "你是二狗的负责人。",
     continueSession: true,
     forwardToolCalls: false,
     shellEnv: {},
@@ -196,7 +196,7 @@ describe("二狗的工具交给 Claude（进程内 MCP 服务，假 SDK）", () 
     const child = startChild();
     await child.log.next("ready");
     const query = await child.fake.nth(1);
-    expect(query.options.systemPrompt).toMatchObject({ type: "preset", preset: "claude_code", snapshot: false, append: expect.stringContaining("你是二狗的维护者。") });
+    expect(query.options.systemPrompt).toMatchObject({ type: "preset", preset: "claude_code", snapshot: false, append: expect.stringContaining("你是二狗的负责人。") });
     const append = (query.options.systemPrompt as { append: string }).append;
     expect(append).toContain("mcp__ergo__submit_plan");
     expect(append).toContain("/ergo:");

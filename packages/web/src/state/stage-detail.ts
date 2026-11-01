@@ -8,9 +8,9 @@
 //   "要你看一眼"；二狗认协议包 isTurnFailedNote 那一条）、你从某个阶段重做的记录（84 号票：时间线的 reopen，算"撤回"一类，
 //   重开记录也归它；二狗不撤回本机的改动，不写"本机的改动跟着恢复了"）。"攻击"
 //   （网页里的注入）二狗没有对应的数据，不出现（85 号票）；
-// - 尝试记录：每次交上来验收的结论（验收结论的进度卡：过没过、哪几条不满足、备注——维护者宣布完成时写的那一两句，84 号票起
+// - 尝试记录：每次交上来验收的结论（验收结论的进度卡：过没过、哪几条不满足、备注——负责人宣布完成时写的那一两句，84 号票起
 //   记在卡上（acceptance.summary），之前的卡从 complete_stage 的参数里拆；你退回时写的说明记在卡上由你验收的那几条的备注里，
-//   维护者的备注、你的说明），和每次返工、从这里重做（看板上的 rework，55 号票的 taskReopens）；
+//   负责人的备注、你的说明），和每次返工、从这里重做（看板上的 rework，55 号票的 taskReopens）；
 // - 这个阶段用了几次工具调用（授权和用量的"工具调用 N/M"：会话里归属这个阶段的工具调用记录数）；
 // - 第几轮（每重开一次加 1）；
 // - "回到会话里这一段"：这个阶段的第一条；
@@ -207,7 +207,7 @@ export function incidentKinds(list: readonly Incident[]): { kind: IncidentKind; 
 // ───────────────────────── 阶段详情 ─────────────────────────
 
 /**
- * 尝试记录的一条：一次交上来验收的结论（note 是维护者宣布完成时写的那一两句，userNote 是你验收时退回写的说明），
+ * 尝试记录的一条：一次交上来验收的结论（note 是负责人宣布完成时写的那一两句，userNote 是你验收时退回写的说明），
  * 或者一次返工、从这里重做
  */
 export type StageAttempt =
@@ -247,7 +247,7 @@ function completionCalls(items: readonly ChatItem[], taskId: string, stageId: st
   return all.filter((c) => c.part.tool === "complete_stage" && c.scope.taskId === taskId && c.scope.stageId === stageId && c.seq !== undefined).toSorted((x, y) => x.seq! - y.seq!);
 }
 
-/** 宣布完成时维护者写的那一两句（complete_stage 的 summary，从工具调用记录的参数摘要里拆出来） */
+/** 宣布完成时负责人写的那一两句（complete_stage 的 summary，从工具调用记录的参数摘要里拆出来） */
 function completionNote(call: ChatToolCall | undefined): string | undefined {
   const note = call && summaryArgs(call.part.argsSummary, ["stageId", "summary"]).summary;
   return note ? note : undefined;

@@ -179,7 +179,7 @@ export function placeholdersIn(value: unknown): string[] {
   return [];
 }
 
-/** 代入参数（ergo 绑定的参数、maintainer 交给维护者的话）：没给的参数代入成空（整个值是占位的去掉这个键） */
+/** 代入参数（ergo 绑定的参数、maintainer 交给负责人的话）：没给的参数代入成空（整个值是占位的去掉这个键） */
 export function bindPlaceholders(value: unknown, args: Readonly<Record<string, unknown>>): unknown {
   if (typeof value === "string") {
     const whole = /^\{\{\s*([A-Za-z0-9_.-]+)\s*\}\}$/.exec(value);

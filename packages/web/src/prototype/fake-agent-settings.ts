@@ -1,9 +1,9 @@
 // 原型里每个 agent 的会话里的 ⚙（114 号票）：面板的数据是编的。通用模板取原型的系统提示（fake-system-prompts.ts，设置里改了这里跟着变），
 // 单独的提示词、清空、压缩只记在内存里；"现在压缩"假装压一会儿（1.5 秒）就压好，用量等下一次调用。
 // 占位符的检查和守护进程用同一个函数（状态层的 checkAgentPromptDraft），写错了照样拒收。
-// 120 号票：项目、任务的维护者的"模型"一块。编的：记账本的维护者单独配了 deepseek-v4-pro（思考高），最近一段会话已经换成它；
-// 那一行（项目维护者 / 任务维护者）取原型的模型设置（fake-http.ts，设置 · 模型里改了这里跟着变）。
-// 289 号票：项目、任务的维护者的"运行时"一块。编的：个人博客的维护者用 Claude Code（选了 Opus、自动接受改文件、思考高）；
+// 120 号票：项目、任务的负责人的"模型"一块。编的：记账本的负责人单独配了 deepseek-v4-pro（思考高），最近一段会话已经换成它；
+// 那一行（项目负责人 / 任务负责人）取原型的模型设置（fake-http.ts，设置 · 模型里改了这里跟着变）。
+// 289 号票：项目、任务的负责人的"运行时"一块。编的：个人博客的负责人用 Claude Code（选了 Opus、自动接受改文件、思考高）；
 // 换运行时假装写一会儿交接摘要（1.5 秒）再换，只改选的值的马上记下。
 import {
   type AgentCompactResult,
@@ -63,7 +63,7 @@ interface FakeAgent {
   lastCompact?: AgentCompactResult;
 }
 
-/** 编的几个：秘书清空过一次（会话里那条分隔线）；记账本的维护者有一段追加的提示、自动压缩过一次（会话里那条记录） */
+/** 编的几个：秘书清空过一次（会话里那条分隔线）；记账本的负责人有一段追加的提示、自动压缩过一次（会话里那条记录） */
 const SEEDS: Record<string, Omit<FakeAgent, "compacting">> = {
   secretary: { clearedAt: at("10-07", "08:30"), usedTokens: 82_000, measuredAt: at("10-07", "10:03") },
   "project-ledger": {
@@ -74,10 +74,10 @@ const SEEDS: Record<string, Omit<FakeAgent, "compacting">> = {
   },
 };
 
-/** 编的：单独配了模型的维护者（记账本的维护者配了 v4-pro、思考高） */
+/** 编的：单独配了模型的负责人（记账本的负责人配了 v4-pro、思考高） */
 const SEEDED_MODELS: ReadonlyArray<[string, ModelChoice]> = [["project-ledger", { modelId: "deepseek-v4-pro", thinkingLevel: "high" }]];
 
-/** 编的：用别的运行时的维护者（个人博客的维护者用 Claude Code），没写的是 pi */
+/** 编的：用别的运行时的负责人（个人博客的负责人用 Claude Code），没写的是 pi */
 const SEEDED_RUNTIMES: ReadonlyArray<[string, { id: string; options?: RuntimeChoice }]> = [
   ["project-blog", { id: FAKE_CLAUDE_CODE, options: { model: "opus", settings: { permission_mode: "acceptEdits", effort: "high" } } }],
   // 290 号票：从 Claude Code 会话接管来的普通任务
@@ -89,10 +89,10 @@ const SEEDED_RUNTIMES: ReadonlyArray<[string, { id: string; options?: RuntimeCho
 /** 原型的模型目录里有的（和 fake-http.ts 的模型设置一样） */
 const FAKE_MODEL_IDS = ["deepseek-flash", "deepseek-v4-pro"];
 
-/** 项目维护者这一段的固定上下文（原型里编的一小段，真的由守护进程从项目档案拼） */
+/** 项目负责人这一段的固定上下文（原型里编的一小段，真的由守护进程从项目档案拼） */
 const projectContext = (name: string, goal: string) => `【项目档案】（原型里的示例）\n立项书：${name}——${goal}\n进展：最近一次运行 10-06 21:00，甲银行接口 403，等用户重新授权。`;
 
-/** 原型里维护者的工作文件夹（305 号票）：项目在外面的工作目录、接管来的任务的；别的不写 */
+/** 原型里负责人的工作文件夹（305 号票）：项目在外面的工作目录、接管来的任务的；别的不写 */
 function fakeWorkdirOf(agentId: string): string | undefined {
   const project = FAKE_PROJECTS.find((p) => p.maintainerId === agentId);
   if (project) return project.workdir.external ? project.workdir.path : undefined;
@@ -106,9 +106,9 @@ export class FakeAgentSettings {
   private readonly modelSettings: () => ModelSettings;
   /** 原型设置的参考音色（fake-http.ts 的，设置 · 语音里导入了跟着变） */
   private readonly voices: () => ReferenceVoiceList;
-  /** 单独配了模型的维护者（120 号票），只在内存里 */
+  /** 单独配了模型的负责人（120 号票），只在内存里 */
   private readonly ownModels = new Map<string, ModelChoice>(SEEDED_MODELS);
-  /** 维护者用的运行时和选的值（289 号票），只在内存里；没有的是 pi */
+  /** 负责人用的运行时和选的值（289 号票），只在内存里；没有的是 pi */
   private readonly runtimes = new Map<string, { id: string; options?: RuntimeChoice }>(SEEDED_RUNTIMES);
   /** 正在换运行时的（289 号票）：换成哪个 */
   private readonly switching = new Map<string, string>();
@@ -135,7 +135,7 @@ export class FakeAgentSettings {
     this.voices = voices;
   }
 
-  /** 设置 · 模型页上列出的单独配了模型的维护者 */
+  /** 设置 · 模型页上列出的单独配了模型的负责人 */
   maintainerModels(): MaintainerModelView[] {
     return [...this.ownModels].flatMap(([agentId, choice]) => {
       const who = this.who(agentId);
@@ -177,7 +177,7 @@ export class FakeAgentSettings {
     return this.view(agentId);
   }
 
-  /** 交还 / 收回（290 号票）、交给官方 App（292 号票）：不是接管来的 Claude Code 维护者交给官方 App 时才记下（二狗自己开的会话） */
+  /** 交还 / 收回（290 号票）、交给官方 App（292 号票）：不是接管来的 Claude Code 负责人交给官方 App 时才记下（二狗自己开的会话） */
   takeover(agentId: string, action: TakeoverAction): AgentSettingsView {
     const found = this.takeovers.get(agentId);
     if (action === "remote") {
@@ -221,7 +221,7 @@ export class FakeAgentSettings {
     return this.view(agentId);
   }
 
-  /** "模型"一块：跟随那一行或者单独配的；记账本的维护者最近一段会话已经换成单独配的 */
+  /** "模型"一块：跟随那一行或者单独配的；记账本的负责人最近一段会话已经换成单独配的 */
   private modelView(agentId: string, kind: AgentSettingsKind): AgentModelView | undefined {
     if (kind === "secretary") return undefined;
     const agent = kind === "project" ? "project_maintainer" : "task_maintainer";
@@ -258,7 +258,7 @@ export class FakeAgentSettings {
     };
   }
 
-  /** 能配的 agent：秘书、原型里的每个项目的维护者、每个任务的维护者 */
+  /** 能配的 agent：秘书、原型里的每个项目的负责人、每个任务的负责人 */
   private configurableAgentIds(): string[] {
     return [
       ...new Set([
@@ -457,14 +457,14 @@ export class FakeAgentSettings {
     return state;
   }
 
-  /** 这个 agent 是谁：秘书、某个项目的维护者、某个任务的维护者（原型里的任务都用"长程任务的维护者"那份模板） */
+  /** 这个 agent 是谁：秘书、某个项目的负责人、某个任务的负责人（原型里的任务都用"长程任务的负责人"那份模板） */
   private who(agentId: string): { kind: AgentSettingsKind; label: string; template: string; values: Record<string, string>; readOnly?: string; context?: string; taskId?: string; title?: string } {
     if (agentId === "secretary") return { kind: "secretary", label: ASSISTANT_NAME_MARK, template: "secretary", values: {} };
     const project = FAKE_PROJECTS.find((p) => p.maintainerId === agentId);
     if (project) {
       return {
         kind: "project",
-        label: `项目「${project.name}」的维护者`,
+        label: `项目「${project.name}」的负责人`,
         template: "project-maintainer",
         values: { 项目名: project.name },
         ...(project.state === "archived" ? { readOnly: "项目已归档，这里只能看：取消归档后才能改提示词、重置或压缩" } : {}),
@@ -475,7 +475,7 @@ export class FakeAgentSettings {
     for (const task of [FAKE_TAKEOVER_TASK, FAKE_REMOTE_TASK]) {
       if (agentId !== task.maintainerId) continue;
       const { id, title } = task;
-      return { kind: "task", taskId: id, title, label: `${TASK_KIND_LABEL.plain} ${id}「${title}」的维护者`, template: "task-maintainer", values: {} };
+      return { kind: "task", taskId: id, title, label: `${TASK_KIND_LABEL.plain} ${id}「${title}」的负责人`, template: "task-maintainer", values: {} };
     }
     const channel = maintainerChannel(agentId);
     const taskId = Object.entries(FAKE_TASK_DETAILS).find(([, d]) => d.maintainer === channel)?.[0];
@@ -486,7 +486,7 @@ export class FakeAgentSettings {
       kind: "task",
       ...(taskId ? { taskId } : {}),
       title,
-      label: `${TASK_KIND_LABEL[task?.kind === "task" ? (task.taskKind ?? "long_running") : "long_running"]} ${taskId ?? agentId}「${title}」的维护者`,
+      label: `${TASK_KIND_LABEL[task?.kind === "task" ? (task.taskKind ?? "long_running") : "long_running"]} ${taskId ?? agentId}「${title}」的负责人`,
       template: "task-maintainer",
       values: {},
       ...(ended ? { readOnly: "任务已经结束，这里只能看：不能改提示词、清空或压缩" } : {}),

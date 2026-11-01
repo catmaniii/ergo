@@ -3,17 +3,17 @@
 //
 // - 模型在服务端（二狗守护进程这台电脑）调用，服务商做成一张登记表：DeepSeek（默认），加上一个**自定义 OpenAI 兼容服务商**
 //   （provider id 固定是 custom：用户填接口地址、模型 id、API key，账号不是 DeepSeek 的人也能用二狗）；
-// - 默认模型和思考档位，加上按 agent 的覆盖（秘书、任务维护者、项目维护者、子 agent、评审、范围审视），各自"跟随默认"或者选定；
-//   某个项目、某个任务的维护者还能在自己的 ⚙ 里单独选定，盖过它那一行（120 号票）；
+// - 默认模型和思考档位，加上按 agent 的覆盖（秘书、任务负责人、项目负责人、子 agent、评审、范围审视），各自"跟随默认"或者选定；
+//   某个项目、某个任务的负责人还能在自己的 ⚙ 里单独选定，盖过它那一行（120 号票）；
 // - 一个会话固定一个模型：改了以后下一个新会话生效，正在进行的会话（接着的会话）照旧用它开始时的模型、思考档位和看图能力；
-//   长会话（秘书的长期主线、项目维护者的对话段、定时触发的任务（76 号票）的 agent）换模型就新开会话、附一份交接摘要（83 号票），任务执行中途不换；
+//   长会话（秘书的长期主线、项目负责人的对话段、定时触发的任务（76 号票）的 agent）换模型就新开会话、附一份交接摘要（83 号票），任务执行中途不换；
 // - API key 只说配没配、从哪来：key 放在数据目录的密钥区（LSM 启动守护进程时注入环境变量），网页上能填一个（POST /api/model-settings/key，
 //   写进同一个文件）；接口回的、页面上显示的、日志里的都没有 key 的内容（请求体里那一次除外）；
 // - 看图能力：设置页改的为准，其次是配置文件 models["provider/模型 id"].vision 写明的，都没写按模型目录（79 号票）。
 import { ASSISTANT_NAME_MARK } from "./assistant-name.ts";
 import { t, tTable } from "./i18n/runtime.ts";
 
-/** 各自选模型的 agent。普通任务的 agent、迁移来的定时作业自己的维护者都算任务维护者 */
+/** 各自选模型的 agent。普通任务的 agent、迁移来的定时作业自己的负责人都算任务负责人 */
 export const MODEL_AGENTS = ["secretary", "task_maintainer", "project_maintainer", "sub_agent", "reviewer", "scope_review"] as const;
 export type ModelAgent = (typeof MODEL_AGENTS)[number];
 
@@ -137,27 +137,27 @@ export function effectiveModelChoice(settings: Pick<ModelSettings, "default" | "
 }
 
 /**
- * 能在自己的 ⚙ 里单独配模型的维护者（120 号票）：某个项目的维护者、某个任务的维护者，选定模型和思考档位，盖过它所属的那一行
- * （项目维护者 / 任务维护者）。秘书本来就单独一行；它们派出的子 agent、评审，范围审视，照旧按各自那一行，不跟着维护者走
+ * 能在自己的 ⚙ 里单独配模型的负责人（120 号票）：某个项目的负责人、某个任务的负责人，选定模型和思考档位，盖过它所属的那一行
+ * （项目负责人 / 任务负责人）。秘书本来就单独一行；它们派出的子 agent、评审，范围审视，照旧按各自那一行，不跟着负责人走
  */
 export const MAINTAINER_MODEL_AGENTS = ["task_maintainer", "project_maintainer"] as const satisfies readonly ModelAgent[];
 export type MaintainerModelAgent = (typeof MAINTAINER_MODEL_AGENTS)[number];
 
 /**
- * 单独配了模型的维护者，改了以后它什么时候换（照 83 号票：一个会话固定一个模型）：
- * - next_segment：项目的维护者——下一张工单、下一个对话段；正在进行的对话段在下一条消息时换、附交接摘要；工单做到一半不换；
+ * 单独配了模型的负责人，改了以后它什么时候换（照 83 号票：一个会话固定一个模型）：
+ * - next_segment：项目的负责人——下一张工单、下一个对话段；正在进行的对话段在下一条消息时换、附交接摘要；工单做到一半不换；
  * - next_run：定时、事件触发的任务——下一次运行开头换、附交接摘要；
  * - new_session：一次性的任务——一个任务一个会话、执行中途不换：已经开始的会话照旧，清空当前对话后新开的一段用新的
  */
 export const MODEL_SWITCH_AT = ["next_segment", "next_run", "new_session"] as const;
 export type ModelSwitchAt = (typeof MODEL_SWITCH_AT)[number];
 
-/** 设置 · 模型页上一个单独配了模型的维护者（120 号票）：在它那一行下面列出来，点了去它的 ⚙ */
+/** 设置 · 模型页上一个单独配了模型的负责人（120 号票）：在它那一行下面列出来，点了去它的 ⚙ */
 export interface MaintainerModelView {
   agentId: string;
   /** 它盖过的是哪一行 */
   agent: MaintainerModelAgent;
-  /** 是哪个项目、哪个任务的维护者 */
+  /** 是哪个项目、哪个任务的负责人 */
   owner: { kind: "project" | "task"; id: string; title: string };
   /** 单独配的 */
   choice: ModelChoice;
@@ -255,7 +255,7 @@ export interface ModelSettingsView {
   effective: Record<ModelAgent, ModelChoice>;
   /** 秘书的主线会话现在用的（秘书在运行时才有） */
   secretarySession?: SessionModelView;
-  /** 单独配了模型的项目、任务的维护者（120 号票，在各自的 ⚙ 里配；项目归档、任务归档时清掉） */
+  /** 单独配了模型的项目、任务的负责人（120 号票，在各自的 ⚙ 里配；项目归档、任务归档时清掉） */
   maintainers: MaintainerModelView[];
 }
 

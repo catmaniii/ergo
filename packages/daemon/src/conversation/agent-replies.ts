@@ -1,4 +1,4 @@
-// agent 的回复落进会话时的两个小规矩（秘书和维护者共用）。
+// agent 的回复落进会话时的两个小规矩（秘书和负责人共用）。
 import { type MessagePart, partLabel } from "@ergo/protocol";
 import type { FinalPart } from "../runtime/index.ts";
 

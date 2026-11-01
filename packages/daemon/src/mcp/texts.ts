@@ -1,7 +1,7 @@
 // MCP 登记变更（239 号票）给人和模型看的话，都在这里组织（编排在 change.ts，只给结构化的数据）：
 // 工具名、工具说明，卡上的说法（动作、是谁提的、命令、args、env、工具和标注、自检结果），待我处理里的标题和来源，
-// 时间线上的一句话和明细，审批决定的说法，交给维护者的通知。
-// 给用户看的（工具的名字、卡、待我处理、时间线、审批决定、自检结果）走 t()；给维护者的（工具说明、工具结果、通知）照旧中文。
+// 时间线上的一句话和明细，审批决定的说法，交给负责人的通知。
+// 给用户看的（工具的名字、卡、待我处理、时间线、审批决定、自检结果）走 t()；给负责人的（工具说明、工具结果、通知）照旧中文。
 import { type McpChangeAction, type McpChangeCardPayload, type McpChangeRegistration, type McpChangeSubmitter, type McpChangeToolView, type McpDecidedPayload, t } from "@ergo/protocol";
 
 /** 几个名字之间 */
@@ -10,9 +10,9 @@ const listOf = (names: readonly string[]) => names.join(t("toolkit.listSep"));
 /** 清单里一个工具的说明最多放这么多字 */
 const REGISTERED_TOOL_NOTE_MAX = 80;
 
-// @i18n-ignore-start model：写进维护者的系统提示
+// @i18n-ignore-start model：写进负责人的系统提示
 /**
- * 已登记的 MCP 清单（362 号票：真模型试验里新任务的负责人问"看板叫什么名字"，要用户告诉它）：拼在维护者的系统提示里，起草计划、申请工具包变更时对得上。
+ * 已登记的 MCP 清单（362 号票：真模型试验里新任务的负责人问"看板叫什么名字"，要用户告诉它）：拼在负责人的系统提示里，起草计划、申请工具包变更时对得上。
  * 一个都没登记的是 undefined
  */
 export function registeredMcpText(servers: ReadonlyArray<{ name: string; title: string; tools: ReadonlyArray<{ name: string; title: string; description?: string }> }>): string | undefined {
@@ -28,7 +28,7 @@ export function registeredMcpText(servers: ReadonlyArray<{ name: string; title: 
 }
 // @i18n-ignore-end
 
-/** 一个提交的人的叫法（"项目「X」的维护者"、"任务「T」的维护者"） */
+/** 一个提交的人的叫法（"项目「X」的负责人"、"任务「T」的负责人"） */
 export function whoText(submitter: McpChangeSubmitter): string {
   return submitter.kind === "project" ? t("mcp.change.who.project", { project: submitter.projectName }) : t("mcp.change.who.task", { task: submitter.taskTitle });
 }
@@ -43,16 +43,16 @@ export function actionText(action: McpChangeAction): string {
 /** 一条登记说成一行（"加 MCP album"）：卡的标题、待我处理、时间线都用它 */
 export const changeText = (action: McpChangeAction, name: string) => t("mcp.change.line", { action: actionText(action), name });
 
-// ───────────────────────── 工具（给维护者） ─────────────────────────
+// ───────────────────────── 工具（给负责人） ─────────────────────────
 
 export const requestMcpChangeTitle = () => t("mcp.tool.requestChange");
-// @i18n-ignore-start model：工具说明和参数说明（给维护者）
+// @i18n-ignore-start model：工具说明和参数说明（给负责人）
 export const requestMcpChangeDescription = [
   "把一条 MCP 登记加、改、删（action 是 add / update / remove）。你只提内容，运行时出一张“MCP 登记变更”卡放进用户的待我处理：",
   "用户在卡上点确认之后，运行时按 name 合并写进数据目录配置区的 mcp.json（别的登记不动），并顺手把这个 MCP 拉起来一次做自检；",
   "用户拒绝则什么都不改。你自己不要把登记写进 mcp.json，也不要让 bash 去改配置区：那是受保护区域，守卫会拦下并记下这次越界。",
   "env 里的密钥只写引用 { fromEnv: \"变量名\" }（运行时从自己的环境里按名字取，由 LSM 注入），不要写明文；明文会被拒。",
-  "tools 写要暴露给模型、可以授权给维护者的工具：每个工具的中文名 title、说明、只读或幂等 readOnlyOrIdempotent、要不要联网 network（不写按要联网）、",
+  "tools 写要暴露给模型、可以授权给负责人的工具：每个工具的中文名 title、说明、只读或幂等 readOnlyOrIdempotent、要不要联网 network（不写按要联网）、",
   "要不要授权给秘书当快速动作 quickAction（说法和固定的参数）。登记好之后要自己用上，还得让用户把这个 MCP 加进工具包（在任务里提交计划变更，不在任务里用 request_toolkit_change）。",
 ].join("");
 export const REQUEST_MCP_CHANGE_PARAMS = {
@@ -86,7 +86,7 @@ export const plaintextSecretText = (names: readonly string[]) => t("mcp.change.p
 export const noToolsText = () => t("mcp.change.noTools");
 /** 找不到提交的人（项目、任务被删了？） */
 export const noSubmitterText = (target: string) => t("mcp.change.noSubmitter", { target });
-// @i18n-ignore-start model：工具结果（给维护者）
+// @i18n-ignore-start model：工具结果（给负责人）
 export const requestedText = (payload: McpChangeCardPayload) =>
   `已提交“MCP 登记变更”卡：${changeText(payload.action, payload.name)}。用户确认之前 mcp.json 一个字节都不变；确认后运行时写进去并拉起这个 MCP 自检，拒绝会通知你。`;
 export const cardWaitingText = (name: string, cardId: string) => `MCP ${name} 的上一张登记变更卡（${cardId}）还在等用户，先等它有结论再提。`;
@@ -174,14 +174,14 @@ export function decisionText(p: McpDecidedPayload): string {
   return t("mcp.decision.approved", { who: whose, change, check: p.check ? checkText(p.check) : "" });
 }
 
-// ───────────────────────── 交给维护者的通知 ─────────────────────────
+// ───────────────────────── 交给负责人的通知 ─────────────────────────
 
-// @i18n-ignore-start model：交给维护者的通知
+// @i18n-ignore-start model：交给负责人的通知
 export const approvedNotice = (p: McpDecidedPayload) =>
   `用户批准了你的 MCP 登记变更：${changeText(p.action, p.name)}${p.check ? `，${checkText(p.check)}` : ""}。` +
   `${p.note ? `用户说：${p.note}。` : ""}登记已经在配置区的 mcp.json 里，下次装配会话时这个 MCP 的工具就在了（工具包里有它的话）。`;
 export const deniedNotice = (p: McpDecidedPayload) =>
   `用户拒绝了你提的 MCP 登记变更：${changeText(p.action, p.name)}${p.note ? `：${p.note}` : ""}。mcp.json 不变，在现有的登记和工具包里接着做，做不了就告诉用户。`;
-/** 登记变了、会话要按新的装配重新拉起时告诉维护者的那句（照工具包变更的"工具包已变更"） */
+/** 登记变了、会话要按新的装配重新拉起时告诉负责人的那句（照工具包变更的"工具包已变更"） */
 export const reassembledNotice = (name: string) => `MCP 的登记变了（${name}）：运行时按新的登记重新装配了你的会话，接着原来的对话干。`;
 // @i18n-ignore-end

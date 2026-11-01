@@ -153,7 +153,7 @@ describe("发一条语音", () => {
     expect(audio.headers["content-disposition"]).toMatch(/^inline/);
   });
 
-  it("维护者会话里发语音：识别完成前不唤起维护者；完成后唤起它，交给它的是识别出的文字；这条语音带上所属的项目", async () => {
+  it("负责人会话里发语音：识别完成前不唤起负责人；完成后唤起它，交给它的是识别出的文字；这条语音带上所属的项目", async () => {
     const hold = path.join(makeTempDir("ergo-hold-"), "go");
     const { url, daemon } = await startTestDaemon({ maintainer: [{ kind: "echo_context" }] });
     const project = seedProject(daemon, "家庭账本");
@@ -998,12 +998,12 @@ describe("快速动作的点明（语音转写和打的字一样参与判定）"
   });
 });
 
-describe("维护者干活时用户发的话排队（144 号票）", () => {
+describe("负责人干活时用户发的话排队（144 号票）", () => {
   const M1 = maintainerChannel("tm-1");
   const echo: FauxStep = { kind: "echo_context" };
   const turnEndsOf = (frontend: TestFrontend) => frontend.events({ channel: M1, type: TURN_END }).map((f) => f.payload as { inputMessageId: string });
 
-  it("干活时发的语音（识别还没完）和打的字一起排队：这一轮做完一起交出去，等语音识别完了作为一轮的输入交给维护者（语音在前）", async () => {
+  it("干活时发的语音（识别还没完）和打的字一起排队：这一轮做完一起交出去，等语音识别完了作为一轮的输入交给负责人（语音在前）", async () => {
     const hold = path.join(makeTempDir("ergo-hold-"), "go");
     const td = await startTestDaemon({
       maintainer: (_maintainerId, spawn) =>
@@ -1014,7 +1014,7 @@ describe("维护者干活时用户发的话排队（144 号票）", () => {
     const frontend = await TestFrontend.connect(td.url);
     await frontend.subscribe({ [M1]: 0, [CHANNELS.cards]: 0, [CHANNELS.board]: 0 });
     await runningTask(td, frontend, "整理发票");
-    // 维护者开始执行（在跑 sleep 3）：这时先发一条语音（识别卡住），再打一句字
+    // 负责人开始执行（在跑 sleep 3）：这时先发一条语音（识别卡住），再打一句字
     await waitUntil(() => frontend.events({ channel: M1, type: TURN_START }).length >= 2, { timeoutMs: 20_000 });
     await new Promise((resolve) => setTimeout(resolve, 500));
     const spoken = await sendVoice(frontend, td.url, { text: "先做三月的", holdFile: hold }, { conversation: M1 });
@@ -1057,7 +1057,7 @@ describe("第一次订阅补发的那一页带上它引用的语音对象（179 
   const PM1 = maintainerChannel("pm-1");
 
   it.each([
-    { where: "项目维护者的会话（任务页、项目的会话页）", conversation: PM1 },
+    { where: "项目负责人的会话（任务页、项目的会话页）", conversation: PM1 },
     { where: "秘书主线", conversation: SECRETARY },
   ])("$where：回复中发的语音排队时就识别完了，agent 又说了一页多才交出去——新打开的页面里，排着的、交出去之后的这条语音都显示识别出的文字", async ({ conversation }) => {
     const td = await startTestDaemon(

@@ -1,5 +1,5 @@
 // 语音插件：说话的是哪个 agent、它现在用哪个参考音色（248 号票；241 号票起是每个 agent 自己配的，现在从角色来）。
-// 从会话认 agent（秘书的主线、维护者的会话），再按它那个角色指定的音色取参考音色；没指定、那个被删了、语音插件刚停用，
+// 从会话认 agent（秘书的主线、负责人的会话），再按它那个角色指定的音色取参考音色；没指定、那个被删了、语音插件刚停用，
 // 都回退到全局选中的那一个（31 号票）——一个参考音色都没有时 undefined（这次不用语音）。
 import { CHANNELS, maintainerChannel } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
@@ -17,7 +17,7 @@ function voices(existing: readonly string[], currentId?: string): VoiceLookup {
 const roles = (own: Record<string, string>) => ({ voiceIdOf: (agentId: string) => own[agentId] });
 
 describe("说话的是哪个 agent", () => {
-  it("秘书的主线、维护者的会话认得出；别的（不该发生）没有", () => {
+  it("秘书的主线、负责人的会话认得出；别的（不该发生）没有", () => {
     expect(agentIdOfConversation(CHANNELS.secretary)).toBe("secretary");
     expect(agentIdOfConversation(maintainerChannel("pm-1"))).toBe("pm-1");
     expect(agentIdOfConversation(maintainerChannel("tm-3"))).toBe("tm-3");

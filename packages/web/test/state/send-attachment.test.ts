@@ -1,5 +1,5 @@
 // 工具包里"发附件"的开关（117 号票，state/send-attachment.ts）：默认开着（不写），关掉了写 false；拨一下之后别的几样原样；
-// 工具包写成一句话、改动的说法里关掉了才提；维护者时间线里那条发附件的调用说成人话。
+// 工具包写成一句话、改动的说法里关掉了才提；负责人时间线里那条发附件的调用说成人话。
 import { toolkitExpansions } from "@ergo/protocol";
 import { describe, expect, test } from "vitest";
 import {
@@ -47,7 +47,7 @@ describe("发附件的开关", () => {
   });
 });
 
-describe("维护者时间线里那条发附件的调用", () => {
+describe("负责人时间线里那条发附件的调用", () => {
   test("说成人话：给了名字的写名字，没给的写路径的文件名", () => {
     expect(callSentence({ tool: "send_attachment", argsSummary: "path=out/daily.html name=AI 日报.html" })).toMatchObject({ text: "把 AI 日报.html 作为附件发出" });
     expect(callSentence({ tool: "send_attachment", argsSummary: "path=charts/走势图.svg" }).text).toContain("走势图.svg");

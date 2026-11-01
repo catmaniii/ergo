@@ -1,5 +1,5 @@
 // 秘书的"读项目档案"工具（规格第 7 节"只读工具"，22 号票）：用户问某个项目进展如何时，秘书按项目（编号或名字）直接读
-// 它的项目档案作答，不唤醒、不拉起它的维护者。任意项目都能读，含已归档的（删掉的没有了）。
+// 它的项目档案作答，不唤醒、不拉起它的负责人。任意项目都能读，含已归档的（删掉的没有了）。
 // 读的是 15 号票建好的最小文档集（立项书、规格、术语表、ADR、进展、项目清单、范围记录），位置由 projectRecordsPaths 给出：
 // 秘书不用知道路径（和秘书文件工具对项目档案的只读是两回事）。只读，不落入任何关注类别；没有对应的写工具。
 // @i18n-ignore-file model：读项目档案交回模型的结果、说明（结果开头的写法 RECORDS_RESULT_HEAD 要认得出，173 号票）；工具的名字走 t()
@@ -94,7 +94,7 @@ export function projectIdOfRecordsResult(result: string): string | undefined {
 }
 
 /**
- * 读项目档案的工具。scope 不给是秘书的（任意项目）；17 号票涉及多个项目的任务的维护者也用它（固定工具包的"读项目档案"），
+ * 读项目档案的工具。scope 不给是秘书的（任意项目）；17 号票涉及多个项目的任务的负责人也用它（固定工具包的"读项目档案"），
  * 只能读这个任务涉及的项目（scope.projects），说明另写
  */
 export function readProjectRecordsTool(projects: ProjectService, scope?: { projects: () => Project[]; description: string }): HostTool {
@@ -103,7 +103,7 @@ export function readProjectRecordsTool(projects: ProjectService, scope?: { proje
     title: t("projects.tools.readRecords"),
     description:
       scope?.description ??
-      "读某个项目（含已归档的）的项目档案：立项书、规格、术语表、决策记录、进展、项目清单、范围记录。用户问某个项目进展如何、当时定了什么时用它作答，不用去问维护者（也不会唤醒它）。只读。",
+      "读某个项目（含已归档的）的项目档案：立项书、规格、术语表、决策记录、进展、项目清单、范围记录。用户问某个项目进展如何、当时定了什么时用它作答，不用去问负责人（也不会唤醒它）。只读。",
     parameters: Params,
     readOnlyOrIdempotent: true,
     nature: "look",

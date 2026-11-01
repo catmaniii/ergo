@@ -4,7 +4,7 @@
 // - 网页的词典：实际在用的语言，自带的加上 ~/.ergo/locales 里的（合好的，只有网页用到的区域），不是中文时连同中文的（回退用）；
 // - 放一个文件就能加新语言：数据目录的 locales/ 里放一个新目录，不重启，设置 · 语言里就有它、能选，缺的句子用中文补；
 //   放同名 key 能覆盖自带的译法；格式不对的写明是哪个文件、哪里错，守护进程照常；
-// - 秘书和维护者用所选语言回答：不是中文时各 agent 的系统提示末尾多一句"用 <语言> 回答用户"，改了语言手头这一条处理完按新的提示重新拉起；
+// - 秘书和负责人用所选语言回答：不是中文时各 agent 的系统提示末尾多一句"用 <语言> 回答用户"，改了语言手头这一条处理完按新的提示重新拉起；
 // - 守护进程这之后生成的话按新语言（t() 换了），停下时装回中文。
 import fs from "node:fs";
 import path from "node:path";
@@ -166,7 +166,7 @@ describe("放一个文件就能加新语言、改译法", () => {
   });
 });
 
-describe("秘书和维护者用所选语言回答", () => {
+describe("秘书和负责人用所选语言回答", () => {
   it("中文时系统提示末尾没有那句；改成英文后从下一轮起秘书的系统提示末尾多一句；守护进程停下后 t() 回到中文", async () => {
     const { url, daemon } = await startTestDaemon({ secretary: [ECHO, ECHO] });
     const frontend = await TestFrontend.connect(url);
@@ -189,7 +189,7 @@ describe("秘书和维护者用所选语言回答", () => {
     expect(t("shell.nav.secretary")).toBe("秘书");
   });
 
-  it("维护者：子进程还在时改了语言，交下一条输入之前按新的系统提示重新拉起", { timeout: 60_000 }, async () => {
+  it("负责人：子进程还在时改了语言，交下一条输入之前按新的系统提示重新拉起", { timeout: 60_000 }, async () => {
     const TM1 = maintainerChannel("tm-1");
     const { url } = await startTestDaemon({ secretary: [{ kind: "reply", text: "好" }], maintainer: () => [ECHO] });
     const frontend = await TestFrontend.connect(url);

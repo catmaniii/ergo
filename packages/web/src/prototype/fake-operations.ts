@@ -32,7 +32,7 @@ const item = (x: Pick<OperationItem, "key" | "name" | "triggerText" | "instructi
   ...x,
 });
 
-/** 读书笔记库的维护者建设期间交的（"首版做完了"卡上的"转入使用后会开起来的"） */
+/** 读书笔记库的负责人建设期间交的（"首版做完了"卡上的"转入使用后会开起来的"） */
 export const READING_OPERATIONS: OperationsPlanView = {
   revision: 1,
   why: "书摘每天都在进来：新书摘自动入库，每周日晚上出一份读书小结；随手翻页面要常开着给手机看。",
@@ -88,7 +88,7 @@ export const READING_OPERATIONS: OperationsPlanView = {
 };
 
 /**
- * 259 号票：相册库的维护者提转入使用时带着的运营方案（"转入使用"确认卡上的那一份）：相册浏览页是要上线的服务——其他类的项目真有服务，
+ * 259 号票：相册库的负责人提转入使用时带着的运营方案（"转入使用"确认卡上的那一份）：相册浏览页是要上线的服务——其他类的项目真有服务，
  * 检查清单照开发类查
  */
 export const PHOTOS_OPERATIONS: OperationsPlanView = {
@@ -323,7 +323,7 @@ const recipesMenu = (time: string, weekday: number, triggerText: string): Operat
     capabilities: { network: true },
   });
 
-/** 家庭菜谱的维护者交的新一份（第 3 份）：菜单改到周五晚上、时令菜提醒去掉、加上每天的剩菜提醒 */
+/** 家庭菜谱的负责人交的新一份（第 3 份）：菜单改到周五晚上、时令菜提醒去掉、加上每天的剩菜提醒 */
 export const RECIPES_OPERATIONS_CHANGE: OperationsChangeCardPayload = {
   projectId: "p-recipes",
   projectName: "家庭菜谱",
@@ -361,7 +361,7 @@ export const RECIPES_OPERATIONS_CHANGE: OperationsChangeCardPayload = {
       messageId: "msg-recipes-friday",
       text: "菜单提前到周五晚上吧，周六早上来不及买菜；时令菜那个不要了，剩菜每天提醒我一下",
       conversation: maintainerChannel("project-recipes"),
-      where: "项目「家庭菜谱」的维护者会话",
+      where: "项目「家庭菜谱」的负责人会话",
       time: at("10-07", "18:38"),
       device: "本机",
     },

@@ -5,7 +5,7 @@
 // - 「每周整理下载目录」（定时触发的流程，76 号票原型里已有，这里补上计划卡和会话）：第 1 次运行做完了，第 2 次运行在跑——
 //   进度条、虚线框都按这一次运行算。
 // 规则原文（审查结果的 docs）里框架的六条 v1 模板照守护进程真实给出的抄（录像 workflow.json 里的那一份）。全部是虚构的。
-// 153 号票：维护者每报一步开始（report_step in_progress），守护进程在会话频道上记一条步骤开始的记号（stage_start 带 stepId），
+// 153 号票：负责人每报一步开始（report_step in_progress），守护进程在会话频道上记一条步骤开始的记号（stage_start 带 stepId），
 // 缩小后那里有"撤回到步骤「…」开始前"；定时触发的那个只有这一次运行里的有（一次运行就是一段会话）。
 import {
   CARD_TYPE_VERSIONS,
@@ -220,7 +220,7 @@ const LIST_BEFORE_MOVE = {
   repairs: [{ move_after: { tool: "write" }, cost: { ops: 0 } }, { replan: { text: "移动发票之前先把清单写进归档目录，方便事后核对" }, cost: { interaction: 1 } }],
 };
 
-/** 第 1 版：移动之前没备份，审查退回维护者补上（审查退回，没有交给你授权） */
+/** 第 1 版：移动之前没备份，审查退回负责人补上（审查退回，没有交给你授权） */
 const INVOICE_PLAN_V1: WorkflowPlan = {
   version: 1,
   goal: "把下载目录里九月的发票归档到 归档/2026-09，并写一份清单和本月汇总",
@@ -340,7 +340,7 @@ const INVOICE_MESSAGES: MessageEnvelope[] = [
     text("任务书：流程 t-invoices「整理九月的发票」\n目标：把下载目录里九月的发票归档到 归档/2026-09，并写一份清单和本月汇总\n验收标准：\n- 发票都在归档目录里，清单和汇总写好\n请据此把要做的事排成步骤（每步一次工具调用，连同要满足的条件）。"),
   ),
   msg(INVOICES, "agent", at("10-07", "09:32"), PLANNING, think("先列出来，再移过去，最后写清单和汇总。"), cardRef("c-wf-invoice-v1")),
-  msg(INVOICES, "system", at("10-07", "09:32"), PLANNING, text("审查把计划 v1 退回维护者补充：「下载/发票」还没有 git 提交、也没有备份。先复制一份备份（cp），再移动。")),
+  msg(INVOICES, "system", at("10-07", "09:32"), PLANNING, text("审查把计划 v1 退回负责人补充：「下载/发票」还没有 git 提交、也没有备份。先复制一份备份（cp），再移动。")),
   msg(INVOICES, "agent", at("10-07", "09:45"), PLANNING, text("补上了：移动之前先把发票目录复制一份到回收区；另外加了一条条件，移动之前先把清单写好。"), cardRef("c-wf-invoice-v2")),
   msg(INVOICES, "system", at("10-07", "09:50"), FLOW, text("用户已授权计划 v2，开始执行流程 t-invoices「整理九月的发票」，请按计划执行。")),
   msg(INVOICES, "agent", at("10-07", "09:51"), FLOW, report("s1", "in_progress"), tool("ls", "path=下载/发票", { nature: "look", result: "12 个 PDF", plan: { stepId: "s1" } }), report("s1", "done", "12 张发票")),
@@ -396,7 +396,7 @@ const INVOICE_RECORD: TimelineRecordEventPayload = {
   record: {
     id: "wf-rec-1",
     kind: "deviation",
-    summary: "自动纠偏：缺了前置步骤：先让维护者做「写一份发票清单」，再回来执行这一步",
+    summary: "自动纠偏：缺了前置步骤：先让负责人做「写一份发票清单」，再回来执行这一步",
     detail: "违反规则 list-before-move：移动发票之前先把清单写进归档目录，方便事后核对",
     time: at("10-07", "09:58"),
   },

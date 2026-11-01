@@ -1,6 +1,6 @@
-// 一次运行的结局（19、155、176 号票）：这一轮怎么结束的、维护者报没报失败、流程还有没有步骤没做、这一轮里有没有一步没做成
+// 一次运行的结局（19、155、176 号票）：这一轮怎么结束的、负责人报没报失败、流程还有没有步骤没做、这一轮里有没有一步没做成
 // （等不到批准被拦下、交给用户亲手做）→ 成功、失败、中断、已撤回、部分完成。176 号票（用户 2026-10-19 定）：有一步没做成、
-// 别的维护者做完了的是"部分完成"，不再算失败；失败的原因后面跟着被拦下的那几步。
+// 别的负责人做完了的是"部分完成"，不再算失败；失败的原因后面跟着被拦下的那几步。
 import { JOB_RUN_ROLLED_BACK_REASON } from "@ergo/protocol";
 import { describe, expect, test } from "vitest";
 import { type BlockedStep, runEnd } from "../../src/scheduled-jobs/run-end.ts";
@@ -30,7 +30,7 @@ describe("运行的结局", () => {
     });
   });
 
-  test("维护者自己报了失败：失败，被拦下的那一步跟在后面", () => {
+  test("负责人自己报了失败：失败，被拦下的那一步跟在后面", () => {
     expect(runEnd({ turn: completed, reported: "新闻源连不上", blocked: [bash] })).toEqual({
       state: "failed",
       reason: "新闻源连不上；另外有一步没等到你的批准：「通用 bash」（bash daily.sh | tail -5）",
@@ -39,7 +39,7 @@ describe("运行的结局", () => {
   });
 
   test("这一轮出错、被中止：失败（被拦下的跟在后面）", () => {
-    expect(runEnd({ turn: { outcome: "error", error: "模型超时" }, blocked: [pay] })).toEqual({ state: "failed", reason: "维护者这一轮出错了：模型超时；另外有一步要你亲手做：「付款」" });
+    expect(runEnd({ turn: { outcome: "error", error: "模型超时" }, blocked: [pay] })).toEqual({ state: "failed", reason: "负责人这一轮出错了：模型超时；另外有一步要你亲手做：「付款」" });
     expect(runEnd({ turn: { outcome: "aborted" }, blocked: [] })).toEqual({ state: "failed", reason: "这一轮被中止了" });
   });
 

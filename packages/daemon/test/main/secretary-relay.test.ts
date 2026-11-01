@@ -1,7 +1,7 @@
-// 主切面：秘书转达（103 号票）。用户在和秘书说话时要它给已有的任务、项目的维护者捎一句话，秘书（faux）用"提议快速动作"提出
+// 主切面：秘书转达（103 号票）。用户在和秘书说话时要它给已有的任务、项目的负责人捎一句话，秘书（faux）用"提议快速动作"提出
 // tell_task / tell_project：
-// - 用户点明了（这句话里原样写着转给谁、转什么）：运行时直接插进对方的会话，走用户在任务详情 / 维护者会话里直接说话的那条路——
-//   普通任务在干活时是插话、做完了的重新进行中接着做；长程任务闲着时唤起；定时触发的任务、项目的维护者照用户在那里说话的做法；
+// - 用户点明了（这句话里原样写着转给谁、转什么）：运行时直接插进对方的会话，走用户在任务详情 / 负责人会话里直接说话的那条路——
+//   普通任务在干活时是插话、做完了的重新进行中接着做；长程任务闲着时唤起；定时触发的任务、项目的负责人照用户在那里说话的做法；
 //   对方收到的输入开头写明是秘书转达的，会话里的那条消息标着 relayedBy；秘书的聊天里留"已执行"卡；
 // - 没点明：出卡（写明发给谁、发什么）、进待我处理，用户确认了才发；
 // - 已归档、已取消、不存在的目标，项目内部的任务、已归档的项目：提出时就拒，原因交回秘书，不出卡、不发；
@@ -169,7 +169,7 @@ describe("用户点明了：普通任务", () => {
 });
 
 describe("长程任务：没点明出卡，确认了才发；闲着时唤起", () => {
-  it("“跟那个发票任务说一声……”没写编号和完整标题：出卡（写明发给谁、发什么）、进待我处理，确认之前不发；确认后插进维护者的会话、唤起闲置退出的维护者", async () => {
+  it("“跟那个发票任务说一声……”没写编号和完整标题：出卡（写明发给谁、发什么）、进待我处理，确认之前不发；确认后插进负责人的会话、唤起闲置退出的负责人", async () => {
     const plan = onePlan();
     const { frontend, daemon } = await setup(
       {
@@ -184,7 +184,7 @@ describe("长程任务：没点明出卡，确认了才发；闲着时唤起", (
     const planCard = await eventually(() => cardsOf(frontend), (c) => c.type === "plan", "计划卡");
     ok(await frontend.cardAction({ cardId: planCard.id, action: "confirm", expectedVersion: planCard.version, input: {} }));
     await eventually(() => tasksOf(frontend), (e) => e.change === "started", "开始执行");
-    await waitUntil(() => turnEnds(frontend, TM1).length >= 2 && !daemon.agents.live().some((a) => a.agentId === "tm-1"), { timeoutMs: 15_000, describe: () => "维护者闲置退出" });
+    await waitUntil(() => turnEnds(frontend, TM1).length >= 2 && !daemon.agents.live().some((a) => a.agentId === "tm-1"), { timeoutMs: 15_000, describe: () => "负责人闲置退出" });
 
     await tell(frontend, "跟那个发票任务说一声，先做 2025 年的");
     const [card] = quickCards(frontend);
@@ -203,7 +203,7 @@ describe("长程任务：没点明出卡，确认了才发；闲着时唤起", (
     expect(relayed).toMatchObject({ taskId: "t-1", message: { speaker: "user", relayedBy: "secretary", parts: [{ type: "text", text: "先做 2025 年的" }] } });
     expect(quickCards(frontend)[0]).toMatchObject({ status: "handled", payload: { result: "已经转给任务 t-1「整理发票」了" } });
     // 闲着：唤起它，这句话作为一轮输入交给它，开头写明是秘书转达的
-    await waitUntil(() => turnEnds(frontend, TM1).some((e) => e.inputMessageId === relayed.message.id), { timeoutMs: 20_000, describe: () => "维护者被唤起处理转达的话" });
+    await waitUntil(() => turnEnds(frontend, TM1).some((e) => e.inputMessageId === relayed.message.id), { timeoutMs: 20_000, describe: () => "负责人被唤起处理转达的话" });
     expect(lastEcho(frontend, TM1)).toContain(`${SECRETARY_RELAY_HEAD}\n先做 2025 年的`);
     // 秘书会话里有操作记录（凭什么执行的：用户在卡上确认后）
     const executed = frontend.events({ channel: SECRETARY, type: EVENT_TYPES.quickActionExecuted }).map((f) => f.payload as { action: { type: string }; basis: string; explicit: boolean });
@@ -211,8 +211,8 @@ describe("长程任务：没点明出卡，确认了才发；闲着时唤起", (
   }, 90_000);
 });
 
-describe("定时触发的任务、项目的维护者；收不了的目标", () => {
-  it("运营中的定时任务、项目维护者的会话照用户在那里说话一样收到（项目的开一个对话段）；已取消、已归档、不存在的任务，项目内部的任务（和没有的同一个说法）、已归档的项目被拒，原因交回秘书，不出卡、不发", async () => {
+describe("定时触发的任务、项目的负责人；收不了的目标", () => {
+  it("运营中的定时任务、项目负责人的会话照用户在那里说话一样收到（项目的开一个对话段）；已取消、已归档、不存在的任务，项目内部的任务（和没有的同一个说法）、已归档的项目被拒，原因交回秘书，不出卡、不发", async () => {
     const DAILY_9 = { kind: "schedule" as const, schedule: { kind: "daily" as const, time: "09:00" } };
     const { frontend, daemon } = await setup(
       {
@@ -245,16 +245,16 @@ describe("定时触发的任务、项目的维护者；收不了的目标", () =
     await waitUntil(() => turnEnds(frontend, TM1).some((e) => e.inputMessageId === timed.message.id), { timeoutMs: 20_000, describe: () => "t-1 的 agent 处理转达的话" });
     expect(lastEcho(frontend, TM1)).toContain(`${SECRETARY_RELAY_HEAD}\n以后把 GitHub 热门也加上`);
 
-    // 项目的维护者：开一个对话段，消息属于这个项目
+    // 项目的负责人：开一个对话段，消息属于这个项目
     const ledger = seedProject(daemon, "记账本", { state: "in_use", charterConfirmed: true });
-    await tell(frontend, "告诉记账本的维护者：下个月起信用卡账单也要导入");
-    const toProject = await eventually(() => relayedIn(frontend, PM1), () => true, "转给记账本维护者的那一句");
+    await tell(frontend, "告诉记账本的负责人：下个月起信用卡账单也要导入");
+    const toProject = await eventually(() => relayedIn(frontend, PM1), () => true, "转给记账本负责人的那一句");
     expect(toProject).toMatchObject({ projectId: ledger.id, message: { relayedBy: "secretary", parts: [{ type: "text", text: "下个月起信用卡账单也要导入" }] } });
-    await waitUntil(() => turnEnds(frontend, PM1).some((e) => e.inputMessageId === toProject.message.id), { timeoutMs: 20_000, describe: () => "记账本的维护者处理转达的话" });
+    await waitUntil(() => turnEnds(frontend, PM1).some((e) => e.inputMessageId === toProject.message.id), { timeoutMs: 20_000, describe: () => "记账本的负责人处理转达的话" });
     expect(lastEcho(frontend, PM1)).toContain(`${SECRETARY_RELAY_HEAD}\n下个月起信用卡账单也要导入`);
     expect(quickCards(frontend).map((c) => [(c.payload as QuickActionCardPayload).action.type, c.status, (c.payload as QuickActionCardPayload).result])).toEqual([
       ["tell_task", "handled", "已经转给任务 t-1「每天出 AI 新闻日报」了"],
-      ["tell_project", "handled", "已经转给项目「记账本」的维护者了"],
+      ["tell_project", "handled", "已经转给项目「记账本」的负责人了"],
     ]);
 
     // 收不了的：t-2 已取消、t-3 已归档、t-99 没有、t-4 是记账本内部的任务（当没有）、旧相册已归档
@@ -268,7 +268,7 @@ describe("定时触发的任务、项目的维护者；收不了的目标", () =
     expect([cancelled.id, archived.id, inner.id]).toEqual(["t-2", "t-3", "t-4"]);
     const cardsBefore = quickCards(frontend).length;
     const reasons: string[] = [];
-    for (const text of ["告诉 t-2，还是做吧", "告诉 t-3，归档的也说一句", "告诉 t-99，没有这个任务", "告诉 t-4，内部的", "告诉旧相册的维护者，归档的项目"]) {
+    for (const text of ["告诉 t-2，还是做吧", "告诉 t-3，归档的也说一句", "告诉 t-99，没有这个任务", "告诉 t-4，内部的", "告诉旧相册的负责人，归档的项目"]) {
       await tell(frontend, text);
       const result = lastToolResult(frontend)!;
       expect(result).toMatchObject({ tool: "propose_quick_action", outcome: "error" });
@@ -276,11 +276,11 @@ describe("定时触发的任务、项目的维护者；收不了的目标", () =
     }
     expect(reasons[0]).toContain("任务「写周报」已取消，不再收消息");
     expect(reasons[1]).toContain("任务「旧手机数据迁移」已归档，不再收消息");
-    expect(reasons[2]).toBe("不能这样做：没有任务「t-99」：用 view_board 查看板，写任务编号；项目里的事请用 tell_project 转给项目的维护者");
+    expect(reasons[2]).toBe("不能这样做：没有任务「t-99」：用 view_board 查看板，写任务编号；项目里的事请用 tell_project 转给项目的负责人");
     // 项目内部的任务和真没有的一个说法（64、66 号票）：不带项目名、不说它在不在，免得按编号试出项目内部有哪些任务
     expect(reasons[3]).toBe(reasons[2]!.replace("t-99", "t-4"));
     expect(reasons[3]).not.toContain("记账本");
-    expect(reasons[4]).toContain("项目「旧相册」已归档：维护者会话只读");
+    expect(reasons[4]).toContain("项目「旧相册」已归档：负责人会话只读");
     for (const reason of reasons) expect(reason).toMatch(/^不能这样做：/);
     expect(quickCards(frontend)).toHaveLength(cardsBefore);
     expect(relayedIn(frontend, TM2)).toEqual([]);

@@ -1,6 +1,6 @@
 // 秘书（规格第 7 节）：守护进程启动时拉起秘书的子进程，跑一条长期主线会话（重启后接着同一个会话）；
 // 子进程意外退出就重新拉起。输入队列、回复、被打断的输入、重新拉起都由 conversation/agent-session.ts 的 AgentSession 做
-// （和维护者共用），这里只配置秘书的差异：常驻、工具、草稿区、守卫看到的秘书，以及 /healthz 用的健康状态。
+// （和负责人共用），这里只配置秘书的差异：常驻、工具、草稿区、守卫看到的秘书，以及 /healthz 用的健康状态。
 //
 // 处理到一半被打断（子进程崩溃、守护进程重启）的那条输入不再自动重送：标成"中断"出队，
 // 会话里追加一条系统说明请用户需要时重发。重新拉起时从会话文件最后一个完整回合续上（23 号票，见 recovery/）。
@@ -25,14 +25,14 @@
 //
 // 联网（70 号票，用户 2026-10-10 定"先把功能跑通，安全机制后接"，ADR-0026）：秘书和别的 agent 一样能联网——工具包的联网开关开着，
 // bash 起的进程不再设无效代理，守卫不再拒绝联网的工具和命令；另配联网搜索、读网页两个工具（web/）。联网关着时的那套
-// （守卫拒绝、脚本扫描、无效代理）代码都还在，联网开关关着的维护者照旧用它。
+// （守卫拒绝、脚本扫描、无效代理）代码都还在，联网开关关着的负责人照旧用它。
 // 运行时给秘书的通知（"某某已获批准，可以重试"、"交给我做"的事用户已完成）是会话里的系统消息，和用户消息一样排队交给秘书。
 //
 // 看板感知（22 号票）：秘书掌握任务靠看板，不靠对话记忆。看板自上次以来有变化时，交给秘书的用户消息后面跟一条"看板变化"
 // 上下文消息（board/board-watch.ts），系统提示不动；重启、子进程意外退出后从事件日志对一遍"上次看到的样子"。
 // 任务做完（99 号票）不等用户开口：任务做完、定时 / 事件触发的任务每运行完一次，马上给秘书一条"任务做完"的通知（task-done.ts：
 // 几件差不多同时做完的并成一条，秘书闲着才交——忙时排在这一轮后面、没起来时起来后再交），秘书在主线里说一声、问要不要念出来。
-// 维护者来信（102 号票）：维护者用 tell_secretary 发来的话（letters.ts）照同一套交给秘书（task-done.ts），秘书在主线里转告用户。
+// 负责人来信（102 号票）：负责人用 tell_secretary 发来的话（letters.ts）照同一套交给秘书（task-done.ts），秘书在主线里转告用户。
 // 主线靠自动压缩控制长度，压缩时用秘书专用的压缩指令（system-prompt.ts 的 secretaryCompactionInstructions）；
 // 压缩后还是同一条主线会话，看板变化照常追加。
 //
@@ -99,7 +99,7 @@ export const SECRETARY_PI_TOOLS: readonly string[] = [TOOL.read, TOOL.write, TOO
 
 /**
  * 秘书的联网开关：开着（70 号票，用户 2026-10-10 定"先把功能跑通，安全机制后接"，ADR-0026；之前写死关着）。
- * 守卫、agent 管家都照它：关着时守卫拒绝联网的工具和命令、bash 起的进程设无效代理（那套代码还在，联网关着的维护者照旧用）
+ * 守卫、agent 管家都照它：关着时守卫拒绝联网的工具和命令、bash 起的进程设无效代理（那套代码还在，联网关着的负责人照旧用）
  */
 export const SECRETARY_NETWORK = true;
 
@@ -310,7 +310,7 @@ export function startSecretary(options: SecretaryOptions): Secretary {
     guard: () => ({ agent: guardAgent(hostTools()), source: secretarySource(), segmentId: SECRETARY_SEGMENT_ID }),
     configuredVision: options.configuredVision,
     interruptedNote: (quoted) => t(quoted ? "secretary.interruptedQuoted" : "secretary.interrupted", { quoted, name: ASSISTANT_NAME_MARK }),
-    // 任务做完、维护者来信的通知被打断了不出上面那句（用户没法重发系统通知）：task-done.ts 等秘书起来后重新交一次（99、102 号票）
+    // 任务做完、负责人来信的通知被打断了不出上面那句（用户没法重发系统通知）：task-done.ts 等秘书起来后重新交一次（99、102 号票）
     redeliveredOnInterrupt: isRedeliveredNotice,
     sessionRewriteFor: options.sessionRewriteFor,
     // 回复中用户发的话排的队（144 号票）：这一轮结束时一起交出去

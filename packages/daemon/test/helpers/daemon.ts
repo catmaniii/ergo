@@ -75,17 +75,17 @@ export interface StartTestDaemonOptions {
   /** 直接指定记忆管理员的模型（比如一个装配不起来的模型）；给了就不看 curator 剧本 */
   curatorModel?: ModelSpec;
   /**
-   * 维护者的 faux 模型每秒吐多少 token（不填是 pi 的默认，很快）：要维护者"正说着"的时候做点什么时用。给函数时按维护者 id 和
+   * 负责人的 faux 模型每秒吐多少 token（不填是 pi 的默认，很快）：要负责人"正说着"的时候做点什么时用。给函数时按负责人 id 和
    * 它第几次被唤起给（同 maintainer 的剧本；返回 undefined 是默认的快），只让某一次说得慢
    */
   maintainerTokensPerSecond?: number | ((maintainerId: string, spawn: number) => number | undefined);
   /**
-   * 维护者的 faux 剧本：每一步对应一次模型调用。给函数时按维护者 id 和这是它第几次被唤起（1 起）给剧本
-   * （闲置退出后再唤起是新的子进程，剧本从头开始，会话接着原来的）；不填则维护者一被调用就得到错误回复
+   * 负责人的 faux 剧本：每一步对应一次模型调用。给函数时按负责人 id 和这是它第几次被唤起（1 起）给剧本
+   * （闲置退出后再唤起是新的子进程，剧本从头开始，会话接着原来的）；不填则负责人一被调用就得到错误回复
    */
   maintainer?: FauxStep[] | ((maintainerId: string, spawn: number) => FauxStep[]);
   /**
-   * 范围审视用的模型（faux 扮演便宜模型，18 号票）的剧本：按维护者 id 和它第几次被唤起（和 maintainer 一起数）给，每次审视取一步，
+   * 范围审视用的模型（faux 扮演便宜模型，18 号票）的剧本：按负责人 id 和它第几次被唤起（和 maintainer 一起数）给，每次审视取一步，
    * 回复要是约定的 JSON（{"records":[…]}）。不填（或者给的剧本用完了）是 NO_SCOPE_FINDINGS：每次审视都"在范围之内"
    */
   scopeReviewer?: (maintainerId: string, spawn: number) => FauxStep[];
@@ -93,7 +93,7 @@ export interface StartTestDaemonOptions {
   scopeReviewerTokensPerSecond?: number;
   /** 工单结束时的范围审视最多等多久（毫秒；不填是配置的单次模型调用超时再加半分钟）：测审视超时时用 */
   scopeReviewTimeoutMs?: number;
-  /** 从某个阶段重做之前停稳维护者最多等多久（毫秒；不填是 10 秒）：测到点没停下的那一轮作废时用（84 号票） */
+  /** 从某个阶段重做之前停稳负责人最多等多久（毫秒；不填是 10 秒）：测到点没停下的那一轮作废时用（84 号票） */
   reworkStopTimeoutMs?: number;
   /**
    * 评审子 agent 的 faux 剧本（13 号票）：每次评审一个新的子进程，按它的 agent id（review-<任务>-<阶段>-<第几次>）给剧本；
@@ -113,7 +113,7 @@ export interface StartTestDaemonOptions {
   components?: StartDaemonOptions["components"];
   /**
    * 并行派出的子 agent 的 faux 剧本（20 号票）：每个子 agent 一个新的子进程，按它的 id（sa-<n>）和这是它第几次被拉起（1 起；
-   * 工具包变了重新装配时再拉起，会话接着原来的）给剧本；不填则子 agent 一被调用就得到错误回复（交回维护者的是"出错了"）
+   * 工具包变了重新装配时再拉起，会话接着原来的）给剧本；不填则子 agent 一被调用就得到错误回复（交回负责人的是"出错了"）
    */
   subAgent?: (agentId: string, spawn: number) => FauxStep[];
   /** 直接指定秘书的模型（比如一个装配不起来的模型，测秘书起不来）；给了就不看 secretary 剧本 */
@@ -194,7 +194,7 @@ export interface StartTestDaemonOptions {
   log?: (line: string) => void;
   /** 额外登记（或替换）的快速动作（比如 quick-action-fixtures.ts 里的替身） */
   quickActions?: readonly QuickActionExecutor[];
-  /** 维护者会话的工具包（bash、联网开关）；不填是起草计划时的（没有 bash，70 号票起联网开着）。测带类型的 bash 工具时给开了 bash 的（28 号票） */
+  /** 负责人会话的工具包（bash、联网开关）；不填是起草计划时的（没有 bash，70 号票起联网开着）。测带类型的 bash 工具时给开了 bash 的（28 号票） */
   maintainerToolkit?: (maintainerId: string) => ShellToolkit;
   /** GitHub 命令行换成假的（程序和它前面的固定参数，见 fixtures/fake-gh.mjs）；不填时是 PATH 上的 gh，测试里别让它真跑 */
   ghCommand?: readonly string[];
@@ -234,12 +234,12 @@ export interface StartTestDaemonOptions {
   browserPath?: string;
   /**
    * 按设置里的"模型"拉起的几类 agent（73 号票）：列出的不给 faux 剧本，守护进程按设置取目录模型（DeepSeek），请求都发到
-   * catalogBaseUrl（本机的假 DeepSeek，fake-deepseek.ts）；maintainer 是任务、项目、定时作业的维护者。不列的照旧是 faux
+   * catalogBaseUrl（本机的假 DeepSeek，fake-deepseek.ts）；maintainer 是任务、项目、定时作业的负责人。不列的照旧是 faux
    */
   modelsFromSettings?: ReadonlyArray<"secretary" | "maintainer" | "reviewer" | "sub_agent" | "scope_review">;
   /**
-   * 只有这些维护者按设置里的"模型"取目录模型（83 号票：定时作业的维护者用目录模型，建作业的任务的维护者照旧按 faux 剧本交计划）；
-   * 项目维护者（pm-）按项目维护者的设置，别的按任务维护者的。modelsFromSettings 里有 maintainer 时不看它
+   * 只有这些负责人按设置里的"模型"取目录模型（83 号票：定时作业的负责人用目录模型，建作业的任务的负责人照旧按 faux 剧本交计划）；
+   * 项目负责人（pm-）按项目负责人的设置，别的按任务负责人的。modelsFromSettings 里有 maintainer 时不看它
    */
   maintainersFromSettings?: (maintainerId: string) => boolean;
   /** 目录模型（设置里的"模型"）的请求和连通测试发到哪（73 号票）；不填是本机 1 号端口（连不上），永远不连真的 DeepSeek */
@@ -253,7 +253,7 @@ export interface StartTestDaemonOptions {
   extraPlugins?: readonly PluginDefinition[];
   /** 会话回退之后的撤销接口（150 号票）：测"回退之后调到了它"；不填是守护进程默认的什么都不做 */
   sessionRollbackHook?: SessionRollbackHook;
-  /** 立项后叫醒维护者先开口（362 号票）：测试里默认关，假模型的剧本不多一轮；要测的写 true */
+  /** 立项后叫醒负责人先开口（362 号票）：测试里默认关，假模型的剧本不多一轮；要测的写 true */
   kickoffOpening?: boolean;
   /**
    * 用例结束就停掉（默认）。一个 describe 共用一个守护进程时写 false（用 suiteDaemon 起它，由 afterAll 停，
@@ -307,7 +307,7 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
   if (options.recognizerLoad) setFakeLoad(recognizerLog, options.recognizerLoad);
   const ffmpegLog = path.join(tempDir("ergo-ffmpeg-"), "ffmpeg.jsonl");
   const fromSettings = new Set(options.modelsFromSettings ?? []);
-  /** 按设置取模型的维护者要现取设置（守护进程起来之后才有） */
+  /** 按设置取模型的负责人要现取设置（守护进程起来之后才有） */
   let started: Daemon | undefined;
   const daemon = await startDaemon({
     env: withEnv(process.env, NO_LSM_ENV, tempUserProfileEnv(homeDir), options.env ?? {}, { ERGO_DATA_DIR: dataDir }),
@@ -439,7 +439,7 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
  *
  * **不能共用的**（老老实实每例 startTestDaemon）：验重启 / 崩溃 / 被杀、改配置再起、闲置退出、看"数据目录从零开始"的；
  * 还有每例的 faux 剧本不一样、而剧本是随守护进程一次给死的（秘书的剧本就是这样：共用就只能按顺序接下去，
- * 用例会变得顺序敏感）。维护者 / 评审 / 子 agent 的剧本是按 agent id 和拉起次数现给函数，可以共用，但也是各用例各自算次数。
+ * 用例会变得顺序敏感）。负责人 / 评审 / 子 agent 的剧本是按 agent id 和拉起次数现给函数，可以共用，但也是各用例各自算次数。
  */
 export function suiteDaemon(options: StartTestDaemonOptions = {}): () => TestDaemon {
   let shared: TestDaemon | undefined;

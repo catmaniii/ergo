@@ -1,8 +1,8 @@
 // 工具包（27 号票）给人和模型看的话，都在这里组织（编排在 toolkit.ts，只给结构化的数据）：
 // 工具名、提交计划变更的工具名一律插值常量；"增减 skill"、"申请工具包变更"两个工具的说明和结果，改工具包被拒的原因，
-// 时间线上记的为什么改，交给维护者的通知，"工具包变更"卡的纯文本降级和待我处理里的标题。
+// 时间线上记的为什么改，交给负责人的通知，"工具包变更"卡的纯文本降级和待我处理里的标题。
 // 174 号票：给用户看的（改工具包被拒的原因、时间线上记的为什么改、卡片、待我处理的标题和来源、工具的名字）走 t()；
-// 给维护者的（工具说明、工具结果、通知）照旧中文，用到协议包的说法的包一层 forModel。
+// 给负责人的（工具说明、工具结果、通知）照旧中文，用到协议包的说法的包一层 forModel。
 import { forModel, type PlanToolkit, type SkillCollectionEntry, type SkillEntry, t, toolkitChangeText, toolkitText } from "@ergo/protocol";
 import { EXECUTION_TOOL } from "../tasks/tool-names.ts";
 import { ADJUST_SKILLS_TOOL, REQUEST_TOOLKIT_CHANGE_TOOL } from "./tool-names.ts";
@@ -28,10 +28,10 @@ export const taskNotFoundText = (taskId: string) => t("toolkit.taskNotFound", { 
 export const editedInProjectPage = () => t("toolkit.editedInProjectPage");
 export const editedInTaskDetail = () => t("toolkit.editedInTaskDetail");
 
-// ───────────────────────── 维护者增减 skill ─────────────────────────
+// ───────────────────────── 负责人增减 skill ─────────────────────────
 
 export const adjustSkillsTitle = () => t("toolkit.tool.adjustSkills");
-// @i18n-ignore-start model：工具说明、参数说明和工具结果（给维护者）
+// @i18n-ignore-start model：工具说明、参数说明和工具结果（给负责人）
 export const adjustSkillsDescription = [
   "给自己的工具包加上或去掉 skill（只能从二狗的 skill 库里选；skill 只是说明书，不增加权限，不用用户批准）。",
   "库里整套导入的集合（比如 pstack、matt-pocock）可以写集合名，整套加上或去掉它的全部成员；也可以只写其中几个 skill 的名字。",
@@ -53,8 +53,8 @@ export function notInLibraryText(unknown: readonly string[], library: readonly S
 export const notYourTaskText = (taskId: string) => `任务 ${taskId} 不是你执行的`;
 // @i18n-ignore-end
 export const skillsAdjustedWhy = (reason: string) => t("toolkit.skillsAdjustedWhy", { reason });
-// @i18n-ignore-start model：工具结果（给维护者）
-/** 增减 skill 之后给维护者的话；stillFromProject：任务里去掉了、但项目的工具包里还有的（会话里还在） */
+// @i18n-ignore-start model：工具结果（给负责人）
+/** 增减 skill 之后给负责人的话；stillFromProject：任务里去掉了、但项目的工具包里还有的（会话里还在） */
 export function skillsAdjustedText(before: PlanToolkit, after: PlanToolkit, stillFromProject: readonly string[] = []): string {
   if (before.skills.length === after.skills.length && before.skills.every((s) => after.skills.includes(s))) return "skill 名单没有变化。";
   const change = forModel(() => toolkitChangeText(before, after));
@@ -64,10 +64,10 @@ export function skillsAdjustedText(before: PlanToolkit, after: PlanToolkit, stil
 export const notChangedText = (reason: string) => `没改成：${reason}`;
 // @i18n-ignore-end
 
-// ───────────────────────── 项目维护者申请工具包变更 ─────────────────────────
+// ───────────────────────── 项目负责人申请工具包变更 ─────────────────────────
 
 export const requestToolkitChangeTitle = () => t("toolkit.tool.requestChange");
-// @i18n-ignore-start model：工具说明、参数说明和工具结果（给维护者）
+// @i18n-ignore-start model：工具说明、参数说明和工具结果（给负责人）
 export const requestToolkitChangeDescription = [
   "不在任务里时调整项目的工具包：开 bash、开联网、加已登记的 MCP 要用户批准——运行时出一张“工具包变更”卡放进用户的待我处理，批准之前工具包不变；",
   "关 bash、关联网、去掉 MCP 是减少能力，直接生效。工具包变了之后运行时按新工具包重新装配你的会话，你接着原来的对话干。",
@@ -83,7 +83,7 @@ export const REQUEST_TOOLKIT_CHANGE_PARAMS = {
 export const unregisteredMcpText = (unknown: readonly string[], registered: readonly string[]) => `没有登记 MCP ${unknown.join("、")}。登记了的：${registered.join("、") || "（还没有）"}`;
 // @i18n-ignore-end
 export const reducedWhy = (reason: string) => t("toolkit.reducedWhy", { reason });
-// @i18n-ignore-start model：工具结果（给维护者）
+// @i18n-ignore-start model：工具结果（给负责人）
 export const reducedText = (before: PlanToolkit, after: PlanToolkit, changed: boolean) =>
   changed ? `已减少：${forModel(() => toolkitChangeText(before, after))}，直接生效。` : "要减少的能力本来就没有。";
 export const NOTHING_TO_REQUEST = "工具包里本来就有这些能力，不用申请。";
@@ -98,7 +98,7 @@ export const toolkitChangeSource = (projectName: string) => t("toolkit.source", 
 // ───────────────────────── 用户在卡上批准、拒绝 ─────────────────────────
 
 export const approvedWhy = () => t("toolkit.approvedWhy");
-// @i18n-ignore-start model：交给维护者的通知
+// @i18n-ignore-start model：交给负责人的通知
 export const deniedNotice = (additions: readonly string[], comment: string | undefined) =>
   `用户拒绝了你申请的工具包变更（要加 ${additions.join("、")}）${comment ? `：${comment}` : ""}。工具包不变：在现有的工具包里接着做，做不了就告诉用户。`;
 export const approvedNotice = (before: PlanToolkit, after: PlanToolkit, comment: string | undefined) =>

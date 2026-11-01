@@ -31,21 +31,21 @@ export const MCP_CALL_PARAMS = {
 /** 这个 MCP 没登记 */
 export function notRegisteredServerText(server: string, registered: readonly string[]): string {
   if (registered.length === 0) {
-    return `没有登记 MCP ${server}：一个 MCP 都还没登记（配置区的 mcp.json 里没有）。要接一个 MCP，让维护者用 request_mcp_change 提一条登记、用户在卡上确认之后才有。`;
+    return `没有登记 MCP ${server}：一个 MCP 都还没登记（配置区的 mcp.json 里没有）。要接一个 MCP，让负责人用 request_mcp_change 提一条登记、用户在卡上确认之后才有。`;
   }
-  return `没有登记 MCP ${server}。现在登记着的几个 MCP 有：${listOf([...new Set(registered.map((name) => name.split("/")[0]!))])}；它们的工具：${listOf(registered)}。要接新的 MCP 让维护者用 request_mcp_change 提登记。`;
+  return `没有登记 MCP ${server}。现在登记着的几个 MCP 有：${listOf([...new Set(registered.map((name) => name.split("/")[0]!))])}；它们的工具：${listOf(registered)}。要接新的 MCP 让负责人用 request_mcp_change 提登记。`;
 }
 
 /** 这个 MCP 有这个工具吗：没有时列出它登记了哪些（写成 <MCP 名>/<工具名>，能直接抄） */
 export function toolNotRegisteredText(server: string, serverTitle: string, available: readonly string[]): string {
   return available.length === 0
-    ? `MCP「${serverTitle}」（${server}）没有登记任何工具：看看配置区 mcp.json 里这个 MCP 的 tools，或者让维护者用 request_mcp_change 补上。`
+    ? `MCP「${serverTitle}」（${server}）没有登记任何工具：看看配置区 mcp.json 里这个 MCP 的 tools，或者让负责人用 request_mcp_change 补上。`
     : `MCP「${serverTitle}」（${server}）没有登记这个工具。它登记了：${listOf(available.map((tool) => `${server}/${tool}`))}。tool 照 <MCP 名>/<工具名> 写。`;
 }
 
 /** 登记文件读不了 */
 export const registrationProblemText = (problem: string) =>
-  `配置区的 MCP 登记读不了：${problem}。修好之前一个 MCP 都调不了；让维护者用 request_mcp_change 改，或者让用户去改配置区。`;
+  `配置区的 MCP 登记读不了：${problem}。修好之前一个 MCP 都调不了；让负责人用 request_mcp_change 改，或者让用户去改配置区。`;
 
 /** 服务进程起不来、端口对不上时补的一句 */
 export const notStartedHint = () => "看起来是这个 MCP 的服务进程没起来：看看登记的 command、args、cwd 对不对，它要的端口有没有被别的程序占着（端口可能和登记里写的不一致）。";

@@ -1,10 +1,10 @@
-// 主切面：流程（58 号票，ADR 0019；固定计划）。真的守护进程，维护者接 faux 剧本，测试扮演前端。
+// 主切面：流程（58 号票，ADR 0019；固定计划）。真的守护进程，负责人接 faux 剧本，测试扮演前端。
 // 流程直接经任务服务建出、写好任务书（发起那一段在 task-launch.test.ts 测过），之后：
-// - 维护者用 propose_plan 交出步骤（每步一次工具调用：工具、参数、前置步骤）和条件（时序规则）；
+// - 负责人用 propose_plan 交出步骤（每步一次工具调用：工具、参数、前置步骤）和条件（时序规则）；
 // - 运行时审查修补（插入步骤、改写参数），给每一步加敏感标注和要满足的条件（写成人话，连同审查时查出的结果），
-//   出流程计划卡；审查退回的交回维护者、判定不可执行的让维护者告诉用户（都不出卡，时间线上记一笔）；
-// - 需要你确认的事项勾完才能授权，授权后排队、开始执行，维护者照（修补后的）步骤做，report_step 自报，步骤都做完时流程完成；
-// - 用户拒绝计划（可以附说明）：回到规划中，说明交回维护者。
+//   出流程计划卡；审查退回的交回负责人、判定不可执行的让负责人告诉用户（都不出卡，时间线上记一笔）；
+// - 需要你确认的事项勾完才能授权，授权后排队、开始执行，负责人照（修补后的）步骤做，report_step 自报，步骤都做完时流程完成；
+// - 用户拒绝计划（可以附说明）：回到规划中，说明交回负责人。
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -57,8 +57,8 @@ async function eventually<T>(list: () => readonly T[], match: (x: T) => boolean,
 const cardWhere = (frontend: TestFrontend, match: (card: Card) => boolean, what = "卡片") => eventually(() => cardsOf(frontend), match, what);
 const taskWhere = (frontend: TestFrontend, match: (e: TaskEventPayload) => boolean, what = "看板上的任务") => eventually(() => tasksOf(frontend), match, what);
 const turnsOf = (frontend: TestFrontend, n: number) =>
-  waitUntil(() => frontend.events({ channel: M1, type: EVENT_TYPES.turnEnd }).length >= n, { timeoutMs: 30_000, describe: () => `等维护者处理完 ${n} 条输入` });
-/** 维护者最后一次模型调用看到的上下文（剧本里 echo_context 的回显） */
+  waitUntil(() => frontend.events({ channel: M1, type: EVENT_TYPES.turnEnd }).length >= n, { timeoutMs: 30_000, describe: () => `等负责人处理完 ${n} 条输入` });
+/** 负责人最后一次模型调用看到的上下文（剧本里 echo_context 的回显） */
 const seenByMaintainer = (frontend: TestFrontend) => textOf(messagesOf(frontend, M1).at(-1)!);
 
 const brief = { goal: "整理一份笔记", acceptanceCriteria: ["笔记写好、读过一遍"], constraints: [], projects: [], memoryScope: "" };
@@ -69,7 +69,7 @@ async function connect(url: string) {
   return frontend;
 }
 
-/** 建一个流程、写好任务书（交给维护者起草） */
+/** 建一个流程、写好任务书（交给负责人起草） */
 function startWorkflow(td: TestDaemon, title = "整理笔记"): string {
   const task = td.daemon.tasks.createByRequest({ title, summary: title, kind: "workflow" });
   td.daemon.tasks.writeBrief(task.id, brief);
@@ -89,7 +89,7 @@ const notesDraft: WorkflowPlanDraft = {
 };
 
 describe("起草 → 审查 → 计划卡 → 授权 → 执行到完成（录给前端回放：workflow）", () => {
-  it("维护者交出步骤和条件；卡上逐步列出工具、参数和每一步要满足的条件（写成人话、审查时查出的结果）；授权后照步骤执行，report_step 自报，步骤都做完时流程完成", async () => {
+  it("负责人交出步骤和条件；卡上逐步列出工具、参数和每一步要满足的条件（写成人话、审查时查出的结果）；授权后照步骤执行，report_step 自报，步骤都做完时流程完成", async () => {
     const td = await startTestDaemon({
       maintainer: (_id, spawn) =>
         spawn === 1
@@ -123,7 +123,7 @@ describe("起草 → 审查 → 计划卡 → 授权 → 执行到完成（录�
     ]);
     expect(p.plan.review.deferred).toEqual([expect.objectContaining({ stepId: "s1", property: V1_TEMPLATE_IDS.backupBeforeOverwrite })]);
     expect(workflowConfirmationItems(p.plan.review)).toEqual([]);
-    // 每一步：工具、参数（照维护者写的）、前置步骤，连同要满足的条件
+    // 每一步：工具、参数（照负责人写的）、前置步骤，连同要满足的条件
     expect(p.plan.steps.map((s) => [s.id, s.tool, s.args, s.after])).toEqual([
       ["s1", "write", { path: "notes.md", content: "# 笔记\n- 第一条\n" }, []],
       ["s2", "read", { path: "notes.md" }, ["s1"]],
@@ -147,7 +147,7 @@ describe("起草 → 审查 → 计划卡 → 授权 → 执行到完成（录�
     expect(submitted.task).toMatchObject({ state: "awaiting_confirm", kind: "workflow", planCardId: card.id, steps: { total: 2, done: 0 } });
     // 授权项由步骤推出：写死的参数全部进对象范围（路径换成绝对路径），只认写了的参数，路径另记真实路径，次数按步骤数
     const execution = td.daemon.store.read(TASKS_CHANNEL, 0, TASK_EVENTS.planSubmitted).map((e) => (e.payload as PlanSubmittedPayload).plan)[0]!;
-    // 维护者的工作目录（这个任务的输出目录）按真实路径解析
+    // 负责人的工作目录（这个任务的输出目录）按真实路径解析
     expect(taskId).toBe("t-1");
     const notes = expect.stringMatching(/outputs[\\/]t-1[\\/]notes\.md$/);
     expect(execution.stages.map((s) => [s.stageId, s.policy.grants])).toEqual([
@@ -178,7 +178,7 @@ describe("起草 → 审查 → 计划卡 → 授权 → 执行到完成（录�
     expect(tasksOf(frontend).filter((e) => e.change === "step_reported").map((e) => e.task.steps?.done)).toEqual([0, 1, 1, 2]);
     expect(fs.readFileSync(path.join(td.daemon.layout.outputs, taskId, "notes.md"), "utf8")).toContain("第一条");
     await turnsOf(frontend, 2);
-    // 开始执行时交给维护者的说明：按计划执行，列出步骤和每一步的条件；会话里一条"流程完成"
+    // 开始执行时交给负责人的说明：按计划执行，列出步骤和每一步的条件；会话里一条"流程完成"
     const startedNotice = messagesOf(frontend, M1).find((m) => m.agentInput && textOf(m).includes("用户已授权计划 v1"));
     expect(textOf(startedNotice!)).toContain(`开始执行流程 ${taskId}「整理笔记」，请按计划执行`);
     expect(textOf(startedNotice!)).toContain('s2. 读一遍笔记（read {"path":"notes.md"}），在 s1 之后');
@@ -191,7 +191,7 @@ describe("起草 → 审查 → 计划卡 → 授权 → 执行到完成（录�
 });
 
 describe("审查修补", () => {
-  it("推送之前没跑测试：审查插入一步跑测试，推送那一步记上它；卡上标出插入的步骤和修补动作，推送的条件写明并已满足；授权后交给维护者的说明里是修补后的计划", async () => {
+  it("推送之前没跑测试：审查插入一步跑测试，推送那一步记上它；卡上标出插入的步骤和修补动作，推送的条件写明并已满足；授权后交给负责人的说明里是修补后的计划", async () => {
     const td = await startTestDaemon({
       maintainer: (_id, spawn) =>
         spawn === 1
@@ -228,7 +228,7 @@ describe("审查修补", () => {
     expect(p.plan.toolkit).toMatchObject({ bash: true, network: true });
     expect(p.plan.steps[2]!.marks).toContainEqual(expect.objectContaining({ category: "external_send", authorized: true }));
     expect(td.daemon.cards.get(card.id)?.text).toBe("流程的计划：推送改动（第 1 版，3 步，审查已修补，审查插入了 1 步）");
-    // 维护者知道交上去的是修补后的版本
+    // 负责人知道交上去的是修补后的版本
     await turnsOf(frontend, 1);
     expect(seenByMaintainer(frontend)).toContain("计划审查改过这份计划（审查已修补），用户授权的是改过之后的版本");
 
@@ -301,18 +301,18 @@ describe("审查修补", () => {
     expect(seen).toContain("- 步骤 s1 的前置步骤 s9 不在计划里");
     expect(td.daemon.tasks.get(taskId)?.state).toBe("planning");
 
-    // 两张卡：退回的那版不卡任务（维护者会改好重新提交），不可执行的那版卡着任务（等你决定）；交了新的一版，之前没处理的那张过期
+    // 两张卡：退回的那版不卡任务（负责人会改好重新提交），不可执行的那版卡着任务（等你决定）；交了新的一版，之前没处理的那张过期
     const latest = new Map(cardsOf(frontend).map((c) => [c.id, c]));
     const refused = [...latest.values()].filter((c) => c.type === "workflow_plan");
     expect(refused.map((c) => [(c.payload as WorkflowPlanCardPayload).revision, (c.payload as WorkflowPlanCardPayload).refused, c.urgency, c.status])).toEqual([
       [1, "needs_replan", "non_blocking", "expired"],
       [2, "blocked", "blocking", "pending"],
     ]);
-    expect(td.daemon.cards.get(refused[0]!.id)?.text).toBe("流程的计划没交给你授权：整理笔记（第 1 版，审查已退回维护者）");
+    expect(td.daemon.cards.get(refused[0]!.id)?.text).toBe("流程的计划没交给你授权：整理笔记（第 1 版，审查已退回负责人）");
     expect((refused[1]!.payload as WorkflowPlanCardPayload).plan.review).toMatchObject({ status: "blocked", violations: [expect.objectContaining({ property: V1_TEMPLATE_IDS.noForcePushOrRmRfOutside })] });
     const items = inboxOf(frontend).filter((i) => i.kind === "card");
     expect(items.map((i) => [i.title, i.urgency])).toEqual([
-      ["流程的计划被审查退回维护者补充：整理笔记", "non_blocking"],
+      ["流程的计划被审查退回负责人补充：整理笔记", "non_blocking"],
       ["流程的计划不能执行：整理笔记", "blocking"],
     ]);
     // 这样的卡不能授权
@@ -321,7 +321,7 @@ describe("审查修补", () => {
     // 不可执行的那版没有"知道了"（点了任务会一直停在规划中）
     expect(await frontend.cardAction({ cardId: refused[1]!.id, action: "ack", expectedVersion: 1 })).toMatchObject({ ok: false, error: { code: "not_allowed" } });
 
-    // 不可执行的那版：让维护者改（附说明），交回维护者；它改好重新提交，是第 3 版、等你授权的卡
+    // 不可执行的那版：让负责人改（附说明），交回负责人；它改好重新提交，是第 3 版、等你授权的卡
     ok(await frontend.cardAction({ cardId: refused[1]!.id, action: "return", expectedVersion: 1, note: "不要强推，写笔记就行" }));
     const third = await cardWhere(frontend, (c) => c.type === "workflow_plan" && (c.payload as WorkflowPlanCardPayload).revision === 3, "第 3 版的卡");
     expect((third.payload as WorkflowPlanCardPayload).refused).toBeUndefined();
@@ -351,7 +351,7 @@ describe("审查修补", () => {
 });
 
 describe("用户拒绝计划", () => {
-  it("拒绝（附说明）：任务回到规划中，说明交回维护者；维护者改好重新提交，是第 2 版、新的一张卡", async () => {
+  it("拒绝（附说明）：任务回到规划中，说明交回负责人；负责人改好重新提交，是第 2 版、新的一张卡", async () => {
     const td = await startTestDaemon({
       maintainer: () => [propose(notesDraft), say("交了"), propose({ ...notesDraft, steps: [notesDraft.steps[0]!] }), { kind: "echo_context" }],
     });

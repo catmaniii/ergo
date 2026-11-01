@@ -7,7 +7,7 @@
 // 要涉及别的项目就重新发起任务。planProjectProblems 是纯函数（项目名怎么认成编号由调用方给）；planProjectsCheck 接上项目列表，
 // 交给任务服务（提交计划）和执行控制器（计划变更、自行调整），daemon.ts 接。
 // 112 号票：长程任务的阶段自动验收（不管涉及几个项目），没验收的阶段不能写由你验收（auto-acceptance.ts）。
-// @i18n-ignore-file model：计划检查的问题、写任务书被拒的原因都交回维护者（工具结果），照旧中文（172 号票）
+// @i18n-ignore-file model：计划检查的问题、写任务书被拒的原因都交回负责人（工具结果），照旧中文（172 号票）
 import { isProjectInternal, type Plan, stagesAutoAccepted, type Task, type TaskProjectScope, taskProjectScope } from "@ergo/protocol";
 import type { ProjectLookup } from "../projects/api.ts";
 import { userCriteriaProblems } from "./auto-acceptance.ts";

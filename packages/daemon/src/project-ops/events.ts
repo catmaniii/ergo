@@ -5,7 +5,7 @@
 //   找不到项目、参数不对、服务关着、清单没登记这些没发出去的不记）。记着用的是清单第几版（通用操作没有版本）、种类、风险标记
 //   （只记不做）、实现方式、能念的那句和是不是二狗补的；参数里像密钥的擦掉（发给实现的是原参数）。
 // - ops_manifest_checked：验收了一份清单（内容的指纹 hash），全过或没过（等服务上线的不记：服务起来以后再验）。同一份内容验过就不再自动验，
-//   维护者用 check_ops、转入使用的请求会重验。
+//   负责人用 check_ops、转入使用的请求会重验。
 // - ops_manifest_registered：登记了一版清单（使用中的项目：转入使用时、之后档案里的改了验收全过时），版本号从 1 起每登记一次加一，
 //   带着读出来的操作（秘书用的是登记着的这一份，档案里的再改也不影响，直到新的一份验收过了登记）。
 import type { OpsCheckOp } from "./acceptance.ts";
@@ -56,7 +56,7 @@ export interface ProjectOpCalledPayload {
   time: string;
 }
 
-/** 谁要的验收：维护者用 check_ops、转入使用的请求和确认、秘书用到时（档案里的改了）、守护进程自己 */
+/** 谁要的验收：负责人用 check_ops、转入使用的请求和确认、秘书用到时（档案里的改了）、守护进程自己 */
 export type OpsCheckBy = "maintainer" | "go_live" | "secretary" | "system";
 
 export interface OpsManifestCheckedPayload {

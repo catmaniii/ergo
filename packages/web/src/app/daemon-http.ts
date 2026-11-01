@@ -11,7 +11,7 @@
 // 设置里的"模型"：取、整份存、连通测试（73 号票）。报告页取文本类附件的内容（113 号票）。设置 · 插件：列出、停用 / 启用 / 移除（211 号票）。
 // 网页现在是哪一版（116 号票：切回前台时问一次，和页面自己的对不上就提示刷新）。项目页上的"规范"一块（258 号票）。
 // Debug 工具集的语音组：录一段送识别、合成念一句（124 号票，不经会话）。
-// 每个 agent 的会话里的 ⚙：面板、单独的提示词、清空当前对话、现在压缩（114 号票）；项目、任务的维护者单独配模型（120 号票）。
+// 每个 agent 的会话里的 ⚙：面板、单独的提示词、清空当前对话、现在压缩（114 号票）；项目、任务的负责人单独配模型（120 号票）。
 // 和 Connection 一样只在 App.tsx 里注入一次（StoreProvider 的 http）：页面由守护进程提供时是 HttpDaemonClient，
 // 直接打开构建产物（file://）时是原型的假实现（prototype/fake-http.ts）。
 import { type AutostartBody, type AutostartView, type AgentModelBody, type AgentPromptBody, type AgentRuntimeBody, type RuntimeFolderBody, type RuntimeSessionsView, type WorkFolderCheckResult, type TakeoverAction, type TakeOverBody, type TakeOverResult, type AgentRoleAssignmentBody, type AgentRoleBody, type AgentRolesView, type AgentRoleUpdateBody, type AgentSettingsView, type AssistantNameResult, type BranchView, type CalendarMonthView, type ConversationId, type DebugRecognizeBody, type DebugRecognizeResult, type DebugSpeakBody, type DebugSpeakResult, type DeleteMaterialsBody, type DeleteMaterialsResult, type FileTextResult, type FolderBrowseView, type FramePreview, type HistoryPage, HTTP_PATHS, type HttpErrorBody, type ImportReferenceVoiceBody, type ImportSkillBody, type ImportSkillResult, type InterviewStartResult, type InterviewStatusView, type LanguageResult, type LocaleDictionaryView, type LocaleListView, type LocalFoldersBody, type LocalFoldersChangeBody, type LocalFoldersView, type MaterialDetailView, type MaterialListFilter, type MaterialListPage, type MaterialScope, type MaterialScopeSummary, type MediaTextResult, type MediaTextView, type MemoryClaimDetailView, type MemoryClaimListPage, type MemoryClaimQuery, type MemoryDeleteMode, type MemoryQuestionsView, type MemoryStrategiesView, type MemorySettingsBody, type MemorySettingsView, type MemorySummaryView, type SafetySettingsBody, type SafetySettingsView, type ModelSettingsBody, type ModelSettingsView, type ModelTestBody, type ModelTestResult, type ModelCustomModelsBody, type ModelCustomModelsResult, type PageVoiceBody, type PageVoiceResult, type PluginAction, type PluginActionResult, type PluginsView, type ProjectStandardView, type ReferenceVoice, type ReferenceVoiceList, type RollbackPreview, type RollbackTarget, type SaveWebPageBody, type SaveWebPageResult, type SecretarySkillsBody, type SecretarySkillsView, type SlashCommandList, type SystemPromptBody, type SystemPromptDetail, type SystemPromptList, t, type TaskStageView, type ToolCallCleanupResult, type ToolCallDetail, type ToolCallStorageView, type BackupConfigBody, type BackupFolderCheck, type BackupOpenResult, type BackupPlace, type BackupSnapshotsView, type BackupStatusView, type ToolkitCatalog, type UploadedMedia, type UsageSummary, type UserNameResult, type UserNameView, type AddPersonBody, type PersonalFileChangeBody, type PersonalFileDeleteBody, type PersonalFileDeleteResult, type PersonalFileLearnedView, type PersonalFilesView, type PersonalFileView, type VoiceModelsView, type WebSettingsBody, type WebSettingsView, type WebVersionView, type WorkdayChange, type WorkdayChangeResult, type RuntimesView, type DataSourceActionBody, type DataSourceActionResult, type DataSourceLiveBody, type DataSourceLiveResult, type DataSourceStoredBody, type DataSourceStoredPage, type DataSourcesView, type ImportFolderActionBody, type ImportFolderActionResult, type DataSourcePushBody, type DataSourcePushResult, type ModelKeyBody, type ModelKeyView, type ModelKeyWriteResult, type ComponentAction, type ComponentImportResult, type ComponentsView } from "../state/index.ts";
@@ -260,11 +260,11 @@ export interface DaemonHttp {
   clearAgent(agentId: string, idempotencyKey: string): Promise<AgentSettingsView>;
   /** 现在压缩：不等压完（面板按 compaction 的状态再取） */
   compactAgent(agentId: string): Promise<AgentSettingsView>;
-  /** 项目、任务的维护者单独配模型（120 号票）：模型目录里没有的、只读的抛错（message 是原因）；下一个新会话起生效 */
+  /** 项目、任务的负责人单独配模型（120 号票）：模型目录里没有的、只读的抛错（message 是原因）；下一个新会话起生效 */
   setAgentModel(agentId: string, body: AgentModelBody): Promise<AgentSettingsView>;
-  /** 改回跟随它那一行（设置 · 模型里的项目维护者 / 任务维护者） */
+  /** 改回跟随它那一行（设置 · 模型里的项目负责人 / 任务负责人） */
   followAgentModel(agentId: string): Promise<AgentSettingsView>;
-  /** 项目、任务的维护者用哪个运行时、给它选的模型和设置项（289 号票）：换运行时的等手头这一条做完、原来的写好交接摘要才换 */
+  /** 项目、任务的负责人用哪个运行时、给它选的模型和设置项（289 号票）：换运行时的等手头这一条做完、原来的写好交接摘要才换 */
   setAgentRuntime(agentId: string, body: AgentRuntimeBody): Promise<AgentSettingsView>;
   /** 这个运行时在本机能接管的会话（290 号票，每次现取）：正被占着的、二狗自己在管的写明 */
   runtimeSessions(runtimeId: string): Promise<RuntimeSessionsView>;

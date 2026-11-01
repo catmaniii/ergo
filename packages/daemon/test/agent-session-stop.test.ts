@@ -89,7 +89,7 @@ function setup() {
     log: () => {},
     agentId: "tm-stop",
     conversation: CONVERSATION,
-    label: "维护者",
+    label: "负责人",
     interjectNotices: true,
     spawn: () => ({ cwd: makeTempDir("ergo-stop-cwd-"), model: { provider: "faux", script: [] } }) as never,
     hostTools: () => [],

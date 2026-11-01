@@ -1,11 +1,11 @@
-// 长程任务维护者会话的回退点（152 号票）的前端状态：回放维护者会话频道上的事件（手写的，照主切面
+// 长程任务负责人会话的回退点（152 号票）的前端状态：回放负责人会话频道上的事件（手写的，照主切面
 // daemon/test/main/session-rollback-tasks.test.ts 的形状），看
-// - 用户消息、分支摘要的回退点照旧（150 号票），维护者的会话也有；
+// - 用户消息、分支摘要的回退点照旧（150 号票），负责人的会话也有；
 // - 阶段开始的回退点挂在守护进程截的那一处：通知交代的挂在那条通知上；在"宣布阶段完成"那次调用里开始的挂在那次调用之后的第一块上
 //   （顺利执行的内部工具不画，跳过）；"开始阶段"那次挂在那条回复上；回退点的说法是"撤回到阶段「…」开始前"；
 // - 往上翻取回的一页里的记号照样并进来；不在当前分支上的记号没有回退点；
-// - 撤回之后交给维护者接着做的那句（分支摘要上记着它）不显示；
-// - 项目维护者的会话最新那一段结束了就没有回退点。
+// - 撤回之后交给负责人接着做的那句（分支摘要上记着它）不显示；
+// - 项目负责人的会话最新那一段结束了就没有回退点。
 import { describe, expect, test } from "vitest";
 import {
   chatItems,
@@ -44,7 +44,7 @@ const call = (callId: string, tool: string, argsSummary: string): MessagePart =>
 const mark = (seq: number, id: string, stageId: string, title: string, via: StageStartEventPayload["via"]): EventFrame =>
   frame(M, seq, "stage_start", { id, conversation: M, taskId: "t-1", stageId, title, code: stageId.slice(1), via, time: T } satisfies StageStartEventPayload);
 
-/** s1 是"开始执行"那条通知交代的；s2 在"宣布阶段完成"那次调用里开始；s3 是维护者自己"开始阶段"换过去的 */
+/** s1 是"开始执行"那条通知交代的；s2 在"宣布阶段完成"那次调用里开始；s3 是负责人自己"开始阶段"换过去的 */
 const frames: EventFrame[] = [
   message(1, "m-start", "system", [text("计划已确认，开始执行任务 t-1「X 的调研」。")], {}, { agentInput: true, stageId: "s1" }),
   mark(2, "ss-1", "s1", "收集资料", { notice: "m-start" }),
@@ -101,7 +101,7 @@ describe("阶段开始的回退点（前端）", () => {
     expect(pointsOf(state).filter((p) => p.includes("阶段"))).toHaveLength(3);
   });
 
-  test("撤回之后：废弃分支上的记号没有回退点；交给维护者接着做的那句不显示，重新开始的阶段有新的回退点", () => {
+  test("撤回之后：废弃分支上的记号没有回退点；交给负责人接着做的那句不显示，重新开始的阶段有新的回退点", () => {
     const tree: ConversationBranches = {
       current: "b1",
       branches: [
@@ -133,7 +133,7 @@ describe("阶段开始的回退点（前端）", () => {
     expect(labels.some((p) => p.includes("撤回到这条分支开始前"))).toBe(true);
   });
 
-  test("项目维护者的会话：最新那一段结束了就没有回退点", () => {
+  test("项目负责人的会话：最新那一段结束了就没有回退点", () => {
     const P: ConversationId = "maintainer:pm-1";
     const seg = (seq: number, state: "open" | "closed") =>
       frame(P, seq, "segment", {

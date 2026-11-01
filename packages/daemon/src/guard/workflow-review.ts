@@ -1,14 +1,14 @@
 // 流程计划的审查修补（58 号票，ADR 0019）：计划交给用户授权之前先让 planguard 的
 // 规划时审查（planguard/reviewer.ts + search.ts）看一遍——按规则找出违规，能修的地方给出修补（插一步、改写参数、调顺序），
-// 修不了的退回维护者或判定不可执行。修补后的计划才是拿去请用户授权的那份。纯函数（不读文件、不看时钟）。
+// 修不了的退回负责人或判定不可执行。修补后的计划才是拿去请用户授权的那份。纯函数（不读文件、不看时钟）。
 //
 // 在引擎外面加的（引擎本身不动，ADR 0005 的口径）：
-// - 规则 = 框架的 v1 模板（rule-templates.ts，默认生效）+ 维护者写进计划的规则。模板和计划规则都是 planguard 格式；
+// - 规则 = 框架的 v1 模板（rule-templates.ts，默认生效）+ 负责人写进计划的规则。模板和计划规则都是 planguard 格式；
 // - 计划里的一步交给引擎之前先变成规则看到的"一步"（rule-steps.ts 的 ruleStep：参数规范化，推出 paths、recipients、outward……），
 //   和执行时同一种形式，所以同一条规则规划时、执行时判的是同一样东西；审查插入的步骤只有修补方案给的参数，没有推出来的字段；
 // - 规划时不取环境事实（文件在不在、git 状态……）：要用到它们的规则判不了，推迟到执行时再查，
 //   执行时守卫照常现取事实再判；
-// - 规则没写修补方案（repairs）的，按违反时怎么办补一个：on_violation 写 pull_back 的（agent 自己能补救）退回维护者重写，
+// - 规则没写修补方案（repairs）的，按违反时怎么办补一个：on_violation 写 pull_back 的（agent 自己能补救）退回负责人重写，
 //   写 confirm 或不写的（先问我）交给用户确认，写 block 的（永不）没有修补——计划判定不可执行；
 // - 时间预算默认 1 秒（在守护进程里跑，比端侧的 50 毫秒宽），超了一律"没审查"（skipped），不把整个流程卡死。
 // 另把规则逐条单独扫一遍（同一个引擎、不重跑求解），记下每条花了多久、查出几处违反、几处判不了
@@ -32,7 +32,7 @@ import { isUnknownArg } from "./workflow-steps.ts";
 /** 审查的时间预算（毫秒）：纯搜索是穷举，违规一多组合数会炸，超了就不等了 */
 export const WORKFLOW_REVIEW_BUDGET_MS = 1000;
 
-/** 维护者起草的一步 */
+/** 负责人起草的一步 */
 export interface WorkflowDraftStep {
   id: string;
   title: string;
@@ -41,7 +41,7 @@ export interface WorkflowDraftStep {
   after?: readonly string[];
 }
 
-/** 审查修补之后的一步：参数是交给维护者照着做的那版（没改过的参数照维护者写的） */
+/** 审查修补之后的一步：参数是交给负责人照着做的那版（没改过的参数照负责人写的） */
 export interface ReviewedStep {
   id: string;
   title: string;
@@ -143,7 +143,7 @@ export interface WorkflowReviewInput {
 
 export interface WorkflowReviewResult {
   review: WorkflowReviewOutcome;
-  /** 修补后的步骤（没修补时就是原来的，补齐了 args、after）；判定不可执行、退回维护者时也是原来的 */
+  /** 修补后的步骤（没修补时就是原来的，补齐了 args、after）；判定不可执行、退回负责人时也是原来的 */
   steps: ReviewedStep[];
   /** 每一步要满足的条件（按 steps 的 id） */
   conditions: Record<string, StepCondition[]>;
@@ -168,7 +168,7 @@ function engineStep(view: RuleView, step: { id: string; title: string; tool: str
 }
 
 /**
- * 修补后的参数交回维护者的那版：原来的步骤里没被改写的参数照维护者写的（不换成规范化之后的绝对路径），
+ * 修补后的参数交回负责人的那版：原来的步骤里没被改写的参数照负责人写的（不换成规范化之后的绝对路径），
  * 改写过的取修补后的值；规范化时补上的（默认取工作目录的路径、推送补的 headCommit）和"未知"的不要
  * （去掉"未知"的口径同 workflow-steps.ts 的 plainArgs）
  */

@@ -335,7 +335,7 @@ export interface MemoryLastNight {
 
 /**
  * 记忆管理员（242 号票）的 agent 编号和它的会话：按需拉起的 agent（243 号票：起来时只建壳，来输入、到 03:00 才拉起，闲置退出），
- * 每晚 03:00 被唤醒去整理，平时是记忆页上可以找它说话的那一层（#/more/memory/curator）。会话照维护者的频道开（maintainer:<agent id>），网页按这个频道订阅、发消息。
+ * 每晚 03:00 被唤醒去整理，平时是记忆页上可以找它说话的那一层（#/more/memory/curator）。会话照负责人的频道开（maintainer:<agent id>），网页按这个频道订阅、发消息。
  */
 export const MEMORY_CURATOR_AGENT_ID = "memory-curator";
 export const MEMORY_CURATOR_CONVERSATION = maintainerChannel(MEMORY_CURATOR_AGENT_ID);

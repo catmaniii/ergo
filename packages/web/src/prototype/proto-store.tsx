@@ -55,7 +55,7 @@ function sideEffect(s: ProtoState, card: Card, action: CardAction): ProtoState {
 /** 卡片处理后的短提示 */
 function toastFor(card: Card, action: CardAction): string | undefined {
   const payload = card.payload as Record<string, unknown>;
-  if (card.type === "suggest_project" && action === "kickoff") return `项目「${String(payload.name)}」诞生了（筹备中），维护者随之产生`;
+  if (card.type === "suggest_project" && action === "kickoff") return `项目「${String(payload.name)}」诞生了（筹备中），负责人随之产生`;
   if (card.type === "suggest_task" && action === "start_task") return `已发起任务「${String(payload.title)}」（规划中）`;
   if (card.type === "charter") return action === "confirm_start" ? "已开工：发起了首个建设任务，项目进入建设中" : "立项书已确认，项目留在筹备中";
   // 125 号票：立项要求变更
@@ -63,8 +63,8 @@ function toastFor(card: Card, action: CardAction): string | undefined {
   // 261 号票：规范改写
   if (card.type === "standard_change") return action === "confirm" ? "规范改好了，记进了项目档案" : "已拒绝，规范不变";
   // 262 号票：补齐规范文档
-  if (card.type === "standard_backfill") return action === "confirm" ? "改用了规范，建了任务交给维护者补" : "不补了，不会再问";
-  if (card.id === "c-plan-bills") return action === "confirm" ? "计划已确认，任务进入排队中" : "已打回，意见交给了起草计划的维护者";
+  if (card.type === "standard_backfill") return action === "confirm" ? "改用了规范，建了任务交给负责人补" : "不补了，不会再问";
+  if (card.id === "c-plan-bills") return action === "confirm" ? "计划已确认，任务进入排队中" : "已打回，意见交给了起草计划的负责人";
   if (card.type === "pairing" && action === "approve") return "已批准，新设备拿到凭证";
   return undefined;
 }

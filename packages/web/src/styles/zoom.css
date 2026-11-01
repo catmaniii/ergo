@@ -1590,7 +1590,7 @@ button.zd-note {
   background: var(--primary);
   box-shadow: 0 0 0 2px var(--surface);
 }
-/* 293 号票：维护者用的运行时多说的几句（分支摘要谁写、文件恢复不恢复） */
+/* 293 号票：负责人用的运行时多说的几句（分支摘要谁写、文件恢复不恢复） */
 .rb-pop-runtime {
   font-size: var(--fs-s);
 }

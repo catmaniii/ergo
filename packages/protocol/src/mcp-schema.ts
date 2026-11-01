@@ -1,5 +1,5 @@
 ﻿// MCP 登记变更（239 号票）和秘书带参调用（240 号票）的卡、事件和审批决定的 schema（240 号票的在文件后半）。
-// 239 号票：维护者用 request_mcp_change 提"加、改、删一条 MCP 登记"，运行时出一张"MCP 登记变更"卡进待我处理，
+// 239 号票：负责人用 request_mcp_change 提"加、改、删一条 MCP 登记"，运行时出一张"MCP 登记变更"卡进待我处理，
 // 用户确认之后由运行时按 name 合并写进数据目录配置区的 mcp.json（mcp/writer.ts），拒绝则一个字节都不动。
 // 卡上要显示：启动命令、args、env（密钥只写引用 { fromEnv }，卡上写"来自环境变量 X"）、暴露的工具和只读/联网标注、快速动作。
 // 这里的登记 schema 是给界面和卡片负载用的（比守护进程 registration.ts 的宽：那边多一层校验、写之前还会按它再校一遍，
@@ -49,7 +49,7 @@ export const McpChangeRegistration = Type.Object(
 export type McpChangeRegistration = Static<typeof McpChangeRegistration>;
 
 /**
- * 是谁提的：项目的维护者（对话段）还是任务的维护者。项目内部的（64 号票）带上所属的项目。
+ * 是谁提的：项目的负责人（对话段）还是任务的负责人。项目内部的（64 号票）带上所属的项目。
  * 卡上的标题、待我处理里的来源、时间线记录、审批决定素材都由它写
  */
 export const McpChangeSubmitter = Type.Union([
@@ -89,7 +89,7 @@ export const McpRegistrationCheck = Type.Object({
 export type McpRegistrationCheck = Static<typeof McpRegistrationCheck>;
 
 /**
- * "MCP 登记变更"卡（mcp_change）：维护者提的加、改、删一条 MCP 登记。批准（approve）后运行时写进配置区的 mcp.json 并自检，
+ * "MCP 登记变更"卡（mcp_change）：负责人提的加、改、删一条 MCP 登记。批准（approve）后运行时写进配置区的 mcp.json 并自检，
  * 拒绝（deny）则不变。批准、拒绝都是"审批决定"素材
  */
 export const McpChangeCardPayload = Type.Object({
@@ -98,7 +98,7 @@ export const McpChangeCardPayload = Type.Object({
   /** 要写进去的登记；remove 时不带 */
   registration: Type.Optional(McpChangeRegistration),
   submitter: McpChangeSubmitter,
-  /** 维护者为什么要这么改（卡上显示） */
+  /** 负责人为什么要这么改（卡上显示） */
   why: Type.Optional(Type.String()),
   /** 批准之后由运行时补上 */
   check: Type.Optional(McpRegistrationCheck),

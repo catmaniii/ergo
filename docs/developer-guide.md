@@ -4,7 +4,7 @@
 
 给想读代码、改代码、写插件的人。怎么装、怎么用见[用户手册](user-guide.md)；怎么提交改动见 [CONTRIBUTING](../CONTRIBUTING.md)。
 
-- **术语**以 [CONTEXT.md](../CONTEXT.md) 为准（秘书、任务、项目、维护者、守卫、时间线……），代码、界面、文档用同一套词。
+- **术语**以 [CONTEXT.md](../CONTEXT.md) 为准（秘书、任务、项目、负责人、守卫、时间线……），代码、界面、文档用同一套词。
 - **为什么这么做**记在[架构决策记录](adr/)（ADR）里，下文按编号引用。
 - **代码注释里的"N 号票"**是开发时的内部记录编号，公开仓库里没有这些票；注释本身已经写清了做什么、为什么。
 
@@ -94,8 +94,8 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 | `events/` | **事件存储**：事件日志是唯一真相（`ergo.db`，WAL），派生视图从它投影 |
 | `gateway/`、`pairing/` | 网关的两个端口、HTTP 接口、WebSocket；设备配对和凭证 |
 | `guard/`、`guard-runtime/`、`approvals/`、`hand-over/` | **守卫**：纯函数判定（`judgeToolCall`）；接入运行时（现取环境事实、审批卡、效果日志、"交给我做"） |
-| `agent-manager/`、`agent-host/`、`runtime/`、`process/` | 拉起 agent 子进程（装配参数、注入环境、放进 Job、资源限制）；三种维护者的宿主；运行时封装层（pi 只在 `runtime/agent-child/` 里）；进程工具 |
-| `secretary/`、`maintainers/`、`conversation/` | 秘书（常驻子进程）、维护者的唤起、会话（派生视图、输入队列、回退和分支） |
+| `agent-manager/`、`agent-host/`、`runtime/`、`process/` | 拉起 agent 子进程（装配参数、注入环境、放进 Job、资源限制）；三种负责人的宿主；运行时封装层（pi 只在 `runtime/agent-child/` 里）；进程工具 |
+| `secretary/`、`maintainers/`、`conversation/` | 秘书（常驻子进程）、负责人的唤起、会话（派生视图、输入队列、回退和分支） |
 | `tasks/`、`sub-agents/`、`scheduled-jobs/`、`event-sources/`、`recovery/` | 任务（计划、执行、阶段验收、偏离和阈值、流程）、子 agent 并行、定时和事件触发、被杀后的恢复 |
 | `projects/`、`work-orders/`、`operations/`、`project-ops/`、`project-services/`、`scope-review/` | **项目系统**：档案和规范、工单派单、运营方案和运营接口、项目服务（经服务管家托管）、范围审视。外面只能引 `projects/api.ts` |
 | `cards/`、`inbox/`、`board/`、`activity/`、`ledger/` | 卡片类型和按钮闭环、待我处理、秘书眼里的看板、活动状态（新的要用户处理的卡往 `activity/card-waits.ts` 的 `CARD_WAITS` 加一行：说明带上卡片编号，网页标题上的"等你……"就能点，见 `web/src/state/activity-jump.ts`；建卡时同时放进待我处理）、token 账本 |
@@ -103,7 +103,7 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 | `materials/`、`memory/`、`quick-actions/` | 素材库（原话副本、关键词和向量索引）、记忆插件（每晚整理、记忆管理员、访谈）、快速动作 |
 | `reminders/`、`calendar/`、`voice/`、`browsing/`、`claude-code/`、`google/`、`looki/`、`phone/` | 各个插件（每个目录里有 `plugin.ts`，别的模块只从它的 `api.ts` 取东西） |
 | `scheduler/`、`workday/`、`backup/` | 调度器和可注入的时钟、内部作业；个人工作日历和节假日；备份、校验、恢复 |
-| `web/`、`typed-shell/`、`skills/`、`mcp/`、`toolkit/`、`apps/` | 联网工具、带类型的 bash 工具（git、构建……）、skill 库（`skills/change.ts`：维护者提交 skill 的卡，路子和 `mcp/change.ts` 一样，校验和导入共用 `library.ts`）、MCP 登记、工具包、转发本机服务的页面 |
+| `web/`、`typed-shell/`、`skills/`、`mcp/`、`toolkit/`、`apps/` | 联网工具、带类型的 bash 工具（git、构建……）、skill 库（`skills/change.ts`：负责人提交 skill 的卡，路子和 `mcp/change.ts` 一样，校验和导入共用 `library.ts`）、MCP 登记、工具包、转发本机服务的页面 |
 | `prompts/`、`agent-settings/`、`model-settings/`、`assistant/`、`agent-roles/`、`i18n/` | 系统提示（md 文件，用户能改）、每个 agent 的 ⚙、模型设置、助理的名字、角色、多语言 |
 | `lsm/` | 接入服务管家的 link 协议（报健康和忙不忙、优雅停机、名下的服务） |
 | `deploy/`、`deploy-nginx.ts`、`restore.ts`、`run-backup.ts`、`download-model.ts` | 命令行工具：生成和部署 nginx 站点、恢复、备份、下载模型 |
@@ -126,14 +126,14 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 
 ### 4.2 守护进程是管家，agent 是子进程
 
-- 守护进程自己不跑模型。秘书、维护者、子 agent、评审、记忆管理员各是一个**子进程**（[ADR-0002](adr/0002-one-process-per-agent.md)），由 agent 管家拉起、放进 Windows Job 对象（守护进程退出时一起清掉），环境变量只给白名单加显式注入的，模型 key 经 stdin 交给子进程、不走环境变量。
+- 守护进程自己不跑模型。秘书、负责人、子 agent、评审、记忆管理员各是一个**子进程**（[ADR-0002](adr/0002-one-process-per-agent.md)），由 agent 管家拉起、放进 Windows Job 对象（守护进程退出时一起清掉），环境变量只给白名单加显式注入的，模型 key 经 stdin 交给子进程、不走环境变量。
 - 子进程里跑 [pi](https://github.com/earendil-works/pi)（[ADR-0001](adr/0001-pi-coding-agent-sdk-as-runtime.md)）。**pi 只出现在 `runtime/agent-child/` 这一层**，守护进程和子进程之间走二狗自己的宿主协议（[ADR-0004](adr/0004-agent-host-protocol-sdk-over-stdio.md)）；`test/pi-boundary.test.ts` 守着这条边界。Claude Code 是另一种运行时，同样经宿主协议接进来。
-- 每个项目、每个任务有固定的负责人（维护者），各有自己的上下文、工具包和模型（[ADR-0003](adr/0003-no-roles-toolkit-per-project.md)）。
+- 每个项目、每个任务有固定的负责人（代码里叫 maintainer），各有自己的上下文、工具包和模型（[ADR-0003](adr/0003-no-roles-toolkit-per-project.md)）。
 
 ### 4.3 事件日志是唯一真相
 
 - 审批、任务、计划、卡片、待我处理、账本这些领域状态都是**事件**，追加进 `db/ergo.db`（SQLite，WAL）；界面和模块读的是从事件投影出来的**派生视图**。pi 的会话文件只是 agent 的上下文，不是领域状态。
-- 前端经 WebSocket 订阅**频道**（秘书会话、看板、待我处理、某个维护者的会话……），收到的是事件流；前端状态层是把事件流归并成界面状态的纯函数（`packages/web/src/state/`）。
+- 前端经 WebSocket 订阅**频道**（秘书会话、看板、待我处理、某个负责人的会话……），收到的是事件流；前端状态层是把事件流归并成界面状态的纯函数（`packages/web/src/state/`）。
 - **彻底删除**改写事件而不是删行：每种可能被删到的事件类型都要登记改写函数，没登记的整个拒删（[ADR-0008](adr/0008-purge-scope-and-session-rewrite.md)）。
 - 守护进程按"随时可能被杀"设计：重新起来后正在做的事按规则恢复，有副作用又说不清做没做完的操作转给用户确认，不悄悄重做（`recovery/`）。
 
@@ -189,7 +189,7 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 - **只转发登记过的**（`AppRegistry.register({ name, target, title?, prefix? })`），不是开放代理：`target` 只认本机地址、只到端口。项目服务上线时由内核登记，插件经 `ctx.apps.register`。
 - 鉴权和二狗的页面一样：本机端口照旧信任，外网端口要设备凭证；二狗自己的 cookie（`__Host-ergo-*`）不转给服务，服务也写不了二狗的 cookie。转发时改写 Host、Origin、`Location`、`Set-Cookie` 的 Path，去掉挡嵌入的头；流式响应和 WebSocket 原样接上。
 - **前缀约定**（给写项目服务的人）：浏览器眼里服务在 `/apps/<应用名>/` 下面。默认（`prefix: "strip"`）转发时去掉前缀，服务当自己在根上，页面里**只用相对地址**（`fetch("api/items")`，不写 `/api/items`——以 `/` 开头的会跑到二狗的根上）；要拼绝对地址的读环境变量 `ERGO_BASE_PATH` 或请求头 `X-Forwarded-Prefix`。框架自己有 base 路径的（Vite 的 `base`、Next 的 `basePath`……）把它设成 `ERGO_BASE_PATH`、登记时写 `prefix: "keep"`。不要写死本机地址；服务的 cookie 别用 `__Host-` 前缀。`npm run check:app-prefix` 抓服务首页、列出不在前缀下的地址。
-- **同源转发的安全取舍（已知，没做）**：服务的页面跑在二狗的源上，它的脚本能带着用户的设备凭证调二狗的接口（凭证是 HttpOnly 的，读不到原值，但能用）。按"功能先跑通、安全后接"，现在只转发维护者建的、用户确认上线的服务；以后改成独立的源（单独的端口或子域名、各自配对或短期转发令牌）。见 [SECURITY.md](../SECURITY.md)。
+- **同源转发的安全取舍（已知，没做）**：服务的页面跑在二狗的源上，它的脚本能带着用户的设备凭证调二狗的接口（凭证是 HttpOnly 的，读不到原值，但能用）。按"功能先跑通、安全后接"，现在只转发负责人建的、用户确认上线的服务；以后改成独立的源（单独的端口或子域名、各自配对或短期转发令牌）。见 [SECURITY.md](../SECURITY.md)。
 
 ### 4.9 记忆系统
 
@@ -308,14 +308,14 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 
 项目自己的服务发现要紧的事时报一个事件，叫醒运营方案里等它的任务（ADR-0043，357 号票）。
 
-- **接口**：`POST /api/service-events`（只在本机端口开，`gateway.ts` 在外网端口一进来就拒，带设备凭证也拒）。请求头 `Authorization: Bearer <ERGO_SERVICE_TOKEN>`，请求体 `{ "event": "<事件名>", "data": <任意 JSON，可不带> }`（`ServiceEventBody`）。收下回 202 和 `{ ok, event, runs: [{ taskId, runId, merged }] }`，不等维护者做完。错误体是通用的 `{ code, message }`：401 没带凭证、凭证不对或已作废；400 请求体不对；404 事件名没人等（`message` 写着现在能报哪些）；409 等它的任务暂停着；413 数据太大；429 超了这个服务的限速；403 外网端口。
+- **接口**：`POST /api/service-events`（只在本机端口开，`gateway.ts` 在外网端口一进来就拒，带设备凭证也拒）。请求头 `Authorization: Bearer <ERGO_SERVICE_TOKEN>`，请求体 `{ "event": "<事件名>", "data": <任意 JSON，可不带> }`（`ServiceEventBody`）。收下回 202 和 `{ ok, event, runs: [{ taskId, runId, merged }] }`，不等负责人做完。错误体是通用的 `{ code, message }`：401 没带凭证、凭证不对或已作废；400 请求体不对；404 事件名没人等（`message` 写着现在能报哪些）；409 等它的任务暂停着；413 数据太大；429 超了这个服务的限速；403 外网端口。
 - **命令**：`ergo notify <事件名> [--data <JSON>]`（`cli/notify.ts`），读 `ERGO_NOTIFY_URL`、`ERGO_SERVICE_TOKEN`。退出码 0 报上了、1 被拒、2 用法不对（含环境变量不在）、3 连不上。开发时 `npm run ergo -- notify <事件名>`。`git clone` 跑的机器上没有 `ergo` 命令，服务管家的 `PATH` 又是它启动时的快照，所以说明里让服务代码优先发请求。
 - **来源**：`event-sources/service.ts`（登记表里 `service`，只有一种事件 `reported`，名字在过滤条件 `name`，`planOnly`）只管谁在等、交出去，走 `triggers.ts` → `ScheduledJobs.fire`，排队合并、自动暂停都是沿用的。`DeliveringContext.deliver` 比 `emit` 多告诉来源交没交成。
-- **运营层**：`project-services/service-events.ts` 管凭证（`secrets/service-tokens/<应用名>.token`，内存里只留摘要）、限速和大小上限（`event-sources/thresholds.ts`，配置 `eventSources.serviceReportsPerMinute`、`serviceDataMaxBytes`）、最近收到的（`event-sources/service-events.json`，每个服务 `SERVICE_EVENTS_KEPT` 条，不存数据）和维护者的 `recent_service_events`。上线时 `project-services.ts` 的 `bringUp` 没有凭证就发一份，发了新的而服务在跑的重启一次；`service_desired` 撤下一落盘就作废；删项目时一起删。记着上线失败、服务管家却报告它在线的（`heal`，363 号票）：用户没关、项目使用中的整份再登记一次，回到上线了（`service_rollout` 带 `heal`，不通知），缺凭证、定义变了的重启一次；这样的服务不走接上时重新登记（`resync` 只管上线了的），所以凭证是在这里发的。启动报 `already-running` 时先按 `health-check.ts` 看一眼，真在跑不算失败。
+- **运营层**：`project-services/service-events.ts` 管凭证（`secrets/service-tokens/<应用名>.token`，内存里只留摘要）、限速和大小上限（`event-sources/thresholds.ts`，配置 `eventSources.serviceReportsPerMinute`、`serviceDataMaxBytes`）、最近收到的（`event-sources/service-events.json`，每个服务 `SERVICE_EVENTS_KEPT` 条，不存数据）和负责人的 `recent_service_events`。上线时 `project-services.ts` 的 `bringUp` 没有凭证就发一份，发了新的而服务在跑的重启一次；`service_desired` 撤下一落盘就作废；删项目时一起删。记着上线失败、服务管家却报告它在线的（`heal`，363 号票）：用户没关、项目使用中的整份再登记一次，回到上线了（`service_rollout` 带 `heal`，不通知），缺凭证、定义变了的重启一次；这样的服务不走接上时重新登记（`resync` 只管上线了的），所以凭证是在这里发的。启动报 `already-running` 时先按 `health-check.ts` 看一眼，真在跑不算失败。
 - **数据的去向**：只在 `JobRun.events` 里（删项目时跟着改写）。交给 agent 时 `scheduled-jobs/texts.ts` 的 `eventsBlock` 写明是数据不是指令。没有素材来源接它，不进记忆。
-- **给维护者的说明**：`prompts/project-maintainer.md` 的"被服务叫醒"一段（完整做法），`operations/builtin-means.ts`、`project-services/means.ts` 的手段说明（字段）。改做法要改这几处。
-- **服务出事的通知**：上线失败、挂了、好了、前缀自检没过都标 `chatOnly`（`MessageEventPayload`）：不进工单段，排到维护者空下来开一个对话段（`work-orders/segments.ts` 的 `accepts`），报警工单不被打断，这一段也才有 `propose_operations`。通知写服务管家判断的依据和健康检查的地址，提示先自己连一下核实。
-- **测试**：`test/main/grow-frictions.test.ts`（服务出事的通知不打断报警）、`test/main/service-events.test.ts`（假 LSM、faux 维护者）、`test/main/service-events-real.test.ts`（真的服务管家、真子进程、真命令行）、`test/cli/notify.test.ts`、`test/build/stage.test.ts`（版本目录里跑）。
+- **给负责人的说明**：`prompts/project-maintainer.md` 的"被服务叫醒"一段（完整做法），`operations/builtin-means.ts`、`project-services/means.ts` 的手段说明（字段）。改做法要改这几处。
+- **服务出事的通知**：上线失败、挂了、好了、前缀自检没过都标 `chatOnly`（`MessageEventPayload`）：不进工单段，排到负责人空下来开一个对话段（`work-orders/segments.ts` 的 `accepts`），报警工单不被打断，这一段也才有 `propose_operations`。通知写服务管家判断的依据和健康检查的地址，提示先自己连一下核实。
+- **测试**：`test/main/grow-frictions.test.ts`（服务出事的通知不打断报警）、`test/main/service-events.test.ts`（假 LSM、faux 负责人）、`test/main/service-events-real.test.ts`（真的服务管家、真子进程、真命令行）、`test/cli/notify.test.ts`、`test/build/stage.test.ts`（版本目录里跑）。
 
 ### 4.15 阶段预算
 
@@ -323,9 +323,9 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 
 - **用量**：`ledger/views.ts` 的 `budgetTokensOf`：没命中缓存的输入 + 输出 + 命中缓存的十分之一（系数是 `BUDGET_CACHE_HIT_DIVISOR`，只有这一处）。只有预算用这个数（`stageTokens(..., { budget: true })`、看板的 `budgetTokens`），账本的逐笔记录和消耗页是真实的 token。
 - **预算**：负责人只估次数（`budget.toolCalls`），写了 `tokens`、`tokenEstimate` 也不作数（`planFromSubmission`、`withStoredTokens`）。阶段开始时 `execution.ts` 的 `budgetFor` 算好记在 `TaskStage.budget`：次数 × 校准比例（`callScale`，1 到 5 倍，只放大不缩小）× 单次计量（账本的 `callMeter`），按账本单价附大约多少钱。追加预算继续、确认加预算的计划变更（`budgetReset`）重算一份。升级前就开始了的阶段没有这一项，照计划里写的数。
-- **校准**：阶段验收时记下 `TaskStage.calls`（估的和实际的次数）。重注入块和项目维护者的固定上下文里写着，给负责人看。
+- **校准**：阶段验收时记下 `TaskStage.calls`（估的和实际的次数）。重注入块和项目负责人的固定上下文里写着，给负责人看。
 - **停下**：超预算的阶段，守卫判定之前先问 `heldCall`，除了 `complete_stage`、`propose_plan_change`（流程是 `report_step`）都拒绝（`blockedBy: over_budget`），连着被拒 5 次中止手头这一轮。任务不在执行时工具被拒的话在 `execution-tools.ts` 的 `refusalText`，写明因为什么停、在等什么。宣布完成放行后，验收没过且用量还超着就重新停下。
-- **通知**：任务执行交给维护者的三种通知（说明进展、这一支停下、接着做）带 `taskNotice` 标记，状态变了由 `dropQueued` 作废出队（`turn_end`，`aborted`），同一种新的来了旧的也出队，只有过期通知时模型不会被拉起。超预算停下、没有别的能做时不发通知。
+- **通知**：任务执行交给负责人的三种通知（说明进展、这一支停下、接着做）带 `taskNotice` 标记，状态变了由 `dropQueued` 作废出队（`turn_end`，`aborted`），同一种新的来了旧的也出队，只有过期通知时模型不会被拉起。超预算停下、没有别的能做时不发通知。
 
 ## 5. 插件
 
@@ -411,7 +411,7 @@ node -e "const fs=require('fs'),f=process.argv[1],j=JSON.parse(fs.readFileSync(f
 |---|---|
 | `src/state/` | **前端状态层**：把事件流归并成界面状态的纯函数，不依赖 React 和 DOM（单独一份 tsconfig 守着） |
 | `src/app/` | 状态层接到 React（`store.tsx`）、连接（WebSocket 和 HTTP）、配对、路由、主题、语言、录音和播放 |
-| `src/ui/` | 共用部件：会话组件（秘书和维护者共用）、卡片、分栏和弹层、主导航、线条图标（`icons.tsx`） |
+| `src/ui/` | 共用部件：会话组件（秘书和负责人共用）、卡片、分栏和弹层、主导航、线条图标（`icons.tsx`） |
 | `src/pages/` | 各页面 |
 | `src/plugins/` | 网页插件宿主、插件清单、各插件 |
 | `src/visual-styles/` | 视觉风格清单和 token（[6.2](#62-视觉风格)） |
@@ -440,7 +440,7 @@ node -e "const fs=require('fs'),f=process.argv[1],j=JSON.parse(fs.readFileSync(f
 
 ## 7. 多语言
 
-界面文字、二狗生成给用户看的话（卡片、通知、回执）走 `t()`；秘书和维护者用所选语言回答。系统提示和工具说明是给模型看的，照旧中文，末尾加一句"用 <语言> 回答用户"。**全局一个语言**，所有设备一起换（[ADR-0029](adr/0029-i18n-runtime-in-protocol-one-active-language.md)）。
+界面文字、二狗生成给用户看的话（卡片、通知、回执）走 `t()`；秘书和负责人用所选语言回答。系统提示和工具说明是给模型看的，照旧中文，末尾加一句"用 <语言> 回答用户"。**全局一个语言**，所有设备一起换（[ADR-0029](adr/0029-i18n-runtime-in-protocol-one-active-language.md)）。
 
 - **运行时**在共享协议包（`packages/protocol/src/i18n/`）：`t(key, params?)`（`{name}` 插值；缺的用中文补）、单复数（参数里有 `count` 时找 `_one` / `_other`……）、`tParts` / 网页的 `<T k="…" params={…} />`（句子中间放元素）、`tTable`（常量表写成 key，取值时现查）、`followLocale`（导出的单个字符串常量跟着语言变）、`forModel`（一段代码里的 `t()` 都按中文，给模型的那份用它包）、`formatNumber` / `formatDate`。
 - **语言文件**：自带的在 `packages/protocol/locales/<语言代码>/`，文件名就是 key 的第一段（区域）；用户放在 `~/.ergo/locales/` 的同格式，守护进程每 2 秒看一眼，不用重启。
@@ -544,8 +544,8 @@ adb -s <设备号> logcat -s ErgoApp                  # App 和网页的日志
 
 ### 10.2 测试底座
 
-- **立项后维护者先开口**：正式跑时点"立项"会叫醒维护者（`projects.ts` 的 `kickoffFromCard`）；`startTestDaemon` 默认关着（`kickoffOpening`），假模型的剧本不多一轮，要测的写 `true`。
-- **主切面**（`packages/daemon/test/main/`）：`startTestDaemon(options)` 起一个真的守护进程（临时数据目录、系统挑的空闲端口，**从不占用 8810、8811**），秘书、维护者、评审、子 agent 接 pi 的 faux provider 按剧本回话，子进程真的拉起；`TestFrontend` 扮演前端，经 WebSocket 和 HTTP 收发、按频道等事件。时钟用 `ManualClock` 拨，不真等。
+- **立项后负责人先开口**：正式跑时点"立项"会叫醒负责人（`projects.ts` 的 `kickoffFromCard`）；`startTestDaemon` 默认关着（`kickoffOpening`），假模型的剧本不多一轮，要测的写 `true`。
+- **主切面**（`packages/daemon/test/main/`）：`startTestDaemon(options)` 起一个真的守护进程（临时数据目录、系统挑的空闲端口，**从不占用 8810、8811**），秘书、负责人、评审、子 agent 接 pi 的 faux provider 按剧本回话，子进程真的拉起；`TestFrontend` 扮演前端，经 WebSocket 和 HTTP 收发、按频道等事件。时钟用 `ManualClock` 拨，不真等。
 - **守卫切面**（`packages/daemon/test/guard/`）：只调判定函数，不起进程；场景文件 `scenarios/*.guard.json` 逐个跑。
 - **pi 契约测试**（`packages/daemon/test/contract/`）：只验二狗依赖的 pi 行为。
 - **网页**：状态层用录下的事件流回放（`recordings/`，主切面现场录：`ERGO_RECORD_EVENTS=1 npx vitest run packages/daemon/test/main/recordings.test.ts`），页面用 `page-opens.test.ts` 在真 Chrome 里打开原型（本机没有 Chrome 时跳过）。
@@ -578,6 +578,8 @@ adb -s <设备号> logcat -s ErgoApp                  # App 和网页的日志
 二狗早先的代码名是拼音 `ergou`，后来统一成 `ergo`：包名 `@ergo/*`、环境变量 `ERGO_*`、数据目录 `~/.ergo`、`config/ergo.json`、`db/ergo.db`、配对 cookie `__Host-ergo-*`、浏览器存储的键 `ergo-*`、鸿蒙原生桥 `ergoNative`、服务管家里的 `ergo-daemon` / `ergo-tunnel` / `ergo-asr`。鸿蒙包名是 `com.catmaniii.ergo`（2026-10-30 定）——包名在 AGC 建完就不能改，所以要赶在注册之前定。
 
 **兼容期旧名字照样认**：读新旧都认、新的优先，写只写新的；旧名字一律用协议包的 `oldNameOf` 从新名字推出来（`packages/protocol/src/old-names.ts`）。数据目录（`ERGOU_DATA_DIR`、`~/.ergou`）、别的环境变量、数据目录里的旧文件名、旧的配对 cookie、浏览器里的旧键、鸿蒙 App 的旧名字都有对应的兼容代码。从旧数据目录迁过来：`npm run migrate:ergo -- [--data-dir <旧的数据目录>] [--dry-run]`（守护进程要先停；改名、在原地建目录联接；每一步都能重跑）。
+
+**负责人的老叫法也认**（365 号票）：界面、提示词、手册都叫负责人（英文 owner），代码标识符、事件类型、接口字段、频道名、语言文件的键仍叫 maintainer，存着的数据不迁移。事件日志不可改，老说法这样认：来信的老标记是协议包的 `OLD_MAINTAINER_LETTER_TAG`（`letterKindOf` 折成一行，`secretary/notice-tags.ts` 的 `MAINTAINER_LETTER_TAGS` 重新交、自动播报，`task-done.ts` 查交到哪了，`voice/send-voice.ts` 查转述谁）；显示守护进程写的话时 `currentWording` 换成新说法（中文是 `LEGACY_WORDING` 的一行，英文另有一条正则）；老项目按老模板生成的文件比模板时先换（`projects/standard.ts` 的 `withOwnerWording`）；用户存着的提示里的老占位符（`normalizePromptSource`）；用户话里说惯的老叫法（`secretary/relay.ts` 的 `THEN_SAY`）。
 
 ## 13. 文档、CHANGELOG、设计记录
 

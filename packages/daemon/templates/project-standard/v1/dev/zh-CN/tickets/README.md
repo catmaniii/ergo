@@ -23,5 +23,5 @@ Blocked by: 无
 ## Comments
 ~~~
 
-Status 的取值：needs-triage（要维护者看一下）、needs-info（等补充信息）、ready-for-agent（写清楚了，可以交给子 agent）、ready-for-human（要人来做）、done（做完了，验收标准全勾上）、wontfix（不做）。
+Status 的取值：needs-triage（要负责人看一下）、needs-info（等补充信息）、ready-for-agent（写清楚了，可以交给子 agent）、ready-for-human（要人来做）、done（做完了，验收标准全勾上）、wontfix（不做）。
 Blocked by 写依赖的票的编号（逗号隔开），没有写"无"。按依赖分波做：一票一个子 agent，测试通过才合并。

@@ -129,7 +129,7 @@ describe("pi 契约", () => {
     expect(seen).toContain("[user] 刚才说了什么？");
   });
 
-  it("换了工作目录也接着会话目录里最近的会话（任务转为项目、绑定外部工作目录时维护者的工作目录会变），之后的工具按新的工作目录", async () => {
+  it("换了工作目录也接着会话目录里最近的会话（任务转为项目、绑定外部工作目录时负责人的工作目录会变），之后的工具按新的工作目录", async () => {
     const { daemon } = await startTestDaemon();
     const before = makeTempDir("ergo-cwd-a-");
     const after = makeTempDir("ergo-cwd-b-");
@@ -156,7 +156,7 @@ describe("pi 契约", () => {
     expect(seen).toContain("[toolResult] read: 新的工作目录");
   });
 
-  it("指定会话的名字（16 号票：维护者会话分段，接哪一段由守护进程明确指定）：还没有时新开、用这个名字存；再次拉起打开的是它，不是会话目录里修改时间最近的那个；ready 报回会话的名字", async () => {
+  it("指定会话的名字（16 号票：负责人会话分段，接哪一段由守护进程明确指定）：还没有时新开、用这个名字存；再次拉起打开的是它，不是会话目录里修改时间最近的那个；ready 报回会话的名字", async () => {
     const { daemon, dataDir } = await startTestDaemon();
     const agentId = "contract-segments";
     const dir = path.join(dataDir, "sessions", agentId);
@@ -184,9 +184,9 @@ describe("pi 契约", () => {
     expect(seen).not.toContain("MARKER_SEGMENT_TWO");
   });
 
-  it("指定的名字还没有会话、又选了 continueSession（项目维护者的第一段对话段）：接着会话目录里最近的那个（以前的会话），ready 报回它的名字；目录里没有会话时用指定的名字新开", async () => {
+  it("指定的名字还没有会话、又选了 continueSession（项目负责人的第一段对话段）：接着会话目录里最近的那个（以前的会话），ready 报回它的名字；目录里没有会话时用指定的名字新开", async () => {
     const { daemon } = await startTestDaemon();
-    // 以前的会话（任务的维护者留下的，名字由 pi 起）
+    // 以前的会话（任务的负责人留下的，名字由 pi 起）
     const before = spawnTestAgent(daemon, { agentId: "contract-legacy", model: fauxModel([{ kind: "reply", text: "立项问答记下了" }]), tools: [], continueSession: true });
     const legacy = await before.log.next("ready");
     before.agent.send({ type: "user_input", inputId: "in-1", text: "MARKER_LEGACY" });
@@ -217,7 +217,7 @@ describe("pi 契约", () => {
     expect(textOf(await second.log.next("message_final"))).not.toContain("MARKER_OLD_TURN");
   });
 
-  it("工具白名单之外的工具用不了：只给 read、ls（起草计划的维护者）时模型调用 write、bash，都以“没有这个工具”出错，什么也没做", async () => {
+  it("工具白名单之外的工具用不了：只给 read、ls（起草计划的负责人）时模型调用 write、bash，都以“没有这个工具”出错，什么也没做", async () => {
     const { daemon } = await startTestDaemon();
     const cwd = makeTempDir("ergo-cwd-");
     const { agent, log } = spawnTestAgent(daemon, {

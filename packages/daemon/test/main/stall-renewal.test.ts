@@ -1,7 +1,7 @@
 // 主切面（可注入时钟）：无进展的催促、授权项的有效期和续期（规格第 8 节"阈值"、第 9 节"授权项"，14 号票）。
-// - 维护者活着、任务在执行中、有阶段在做，20 分钟内没有成功的工具调用、也没有阶段推进：催一次（维护者正在干活时以插话送达）；
+// - 负责人活着、任务在执行中、有阶段在做，20 分钟内没有成功的工具调用、也没有阶段推进：催一次（负责人正在干活时以插话送达）；
 //   中间有了成功的工具调用或阶段推进，从那一刻重新计时，催促计数清零；同一次停滞里催满 3 次仍无进展，这一支停下、
-//   任务转等我（卡住求助）；维护者的子进程不在运行（闲置退出了）不算停滞，不催；
+//   任务转等我（卡住求助）；负责人的子进程不在运行（闲置退出了）不算停滞，不催；
 // - 授权项默认有效期 7 天：到期前一天待我处理出现续期事项（不卡任务），续期后有效期延长；过期没续的不再生效，
 //   执行到那一步时再问用户。
 import path from "node:path";
@@ -50,7 +50,7 @@ const inputDone = (frontend: TestFrontend, messageId: string) =>
     describe: () => `等输入 ${messageId} 处理完`,
   });
 
-/** 第 n 条催促（1 起）：等它出现，再等维护者处理完 */
+/** 第 n 条催促（1 起）：等它出现，再等负责人处理完 */
 async function nudgeHandled(frontend: TestFrontend, n: number): Promise<MessageEventPayload> {
   const nudge = await eventually(
     () => [noticesOf(frontend, M1).filter((m) => textOf(m).includes("没有成功的工具调用"))],
@@ -100,18 +100,18 @@ describe("无进展的催促", () => {
     expect(first.interject).toBe(true);
     expect((await taskWhere(frontend, (e) => e.change === "nudged")).task.stages?.list?.[0]?.nudges).toBe(1);
 
-    // 第 2 次：维护者写了文件，计数清零（progressed）
+    // 第 2 次：负责人写了文件，计数清零（progressed）
     clock.advance(20 * MINUTE);
     expect(textOf(await nudgeHandled(frontend, 2))).toContain("第 2/3 次催促");
     const cleared = await taskWhere(frontend, (e) => e.change === "progressed", "催促计数清零");
     expect(cleared.task.stages?.list?.[0]?.nudges).toBeUndefined();
 
-    // 计数清零后（从写文件那一刻算）20 分钟：又是第 1 次；维护者跑 sleep 3 时再到点，第 2 次以插话送达（不另起一轮）
+    // 计数清零后（从写文件那一刻算）20 分钟：又是第 1 次；负责人跑 sleep 3 时再到点，第 2 次以插话送达（不另起一轮）
     clock.advance(20 * MINUTE);
     const third = await eventually(() => noticesOf(frontend, M1), (m) => textOf(m).includes("第 1/3 次催促") && m.message.id !== first.message.id, "清零后的第 1 次催促");
     await waitUntil(() => frontend.events({ channel: M1, type: EVENT_TYPES.turnStart }).some((f) => (f.payload as { inputMessageId: string }).inputMessageId === third.message.id), {
       timeoutMs: 15_000,
-      describe: () => "维护者开始处理催促",
+      describe: () => "负责人开始处理催促",
     });
     await new Promise((r) => setTimeout(r, 1000));
     const earlier = new Set(noticesOf(frontend, M1).map((m) => m.message.id));
@@ -154,7 +154,7 @@ describe("无进展的催促", () => {
   }, 120_000);
 });
 
-describe("无进展：阶段推进、维护者不在运行", () => {
+describe("无进展：阶段推进、负责人不在运行", () => {
   it("换去做另一个阶段（阶段推进）：从那一刻重新计时，催过的阶段计数清零，下一次催的是新的阶段", async () => {
     const clock = new ManualClock(new Date(2026, 9, 8, 9, 0));
     const base = twoStagePlan();
@@ -183,13 +183,13 @@ describe("无进展：阶段推进、维护者不在运行", () => {
     expect(textOf(next)).toContain("第 1/3 次催促");
   }, 90_000);
 
-  it("维护者闲置退出了（子进程不在运行）：到点不算停滞、不催，从那一刻重新计时", async () => {
+  it("负责人闲置退出了（子进程不在运行）：到点不算停滞、不催，从那一刻重新计时", async () => {
     const clock = new ManualClock(new Date(2026, 9, 8, 9, 0));
     const td = await startTestDaemon({ clock, config: { agents: { idleMinutes: 0.01 } }, maintainer: maintainerScript(twoStagePlan(), [say("开始了")]) });
     const frontend = await connect(td.url);
     const taskId = await confirmTask(td, frontend, "闲置");
     await turnsOf(frontend, M1, 2);
-    await waitUntil(() => !td.daemon.agents.live().some((a) => a.agentId === "tm-1"), { timeoutMs: 15_000, describe: () => "维护者闲置退出" });
+    await waitUntil(() => !td.daemon.agents.live().some((a) => a.agentId === "tm-1"), { timeoutMs: 15_000, describe: () => "负责人闲置退出" });
 
     for (let n = 1; n <= 3; n++) {
       clock.advance(20 * MINUTE);
@@ -259,7 +259,7 @@ describe("授权项的有效期", () => {
     const renewals = () => td.daemon.materials.list({ kind: "approval_decision" }).filter((m) => m.context.includes("notice:grant_renewal"));
     await waitUntil(() => renewals().length >= 2, { timeoutMs: 10_000, describe: () => "续期的素材" });
     expect(renewals().map((m) => m.context.find((c) => c.startsWith("decision:")))).toEqual(["decision:renewed", "decision:declined"]);
-    // 给 Web 的回放：续期事项、过期后的审批卡（拒绝它，维护者这一轮接着走完）
+    // 给 Web 的回放：续期事项、过期后的审批卡（拒绝它，负责人这一轮接着走完）
     ok(await frontend.cardAction({ cardId: card.id, action: "deny", expectedVersion: card.version }));
     await inputsDone(frontend, M1);
     saveOrCheckRecording("grant-renewal", frontend.recording, { perChannel: true });

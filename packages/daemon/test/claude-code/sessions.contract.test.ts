@@ -217,7 +217,7 @@ describe("读本机 Claude Code 会话（290 号票）", () => {
 describe("适配子进程的会话记录：接管的会话（290 号票）", () => {
   it("给了接管的会话 id：不新开 Claude 会话，按 id 恢复；接着已有的照旧；换段接着同一条线（/clear 换了 id 的接着新的）；freshSession 照旧新开", () => {
     const dir = makeTempDir("ergo-cc-records-");
-    // 任务的维护者：接着最近的、还没有记录 → 接管的那个，按 id 恢复
+    // 任务的负责人：接着最近的、还没有记录 → 接管的那个，按 id 恢复
     const first = openSessionRecord(assemblyOf(dir, { continueSession: true, resumeRuntimeSession: "s-idle" }));
     expect(first.record).toMatchObject({ claudeSessionId: "s-idle", started: true, takenOver: "s-idle" });
     expect(first.existing).toBe(false);

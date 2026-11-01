@@ -82,7 +82,7 @@ export function pinnedReplay(store: EventStore, conversation: string, from: numb
   return event ? [event] : [];
 }
 
-/** 是不是一个会话频道（秘书会话、某个维护者的会话） */
+/** 是不是一个会话频道（秘书会话、某个负责人的会话） */
 function conversationChannel(channel: string): boolean {
   return isChannel(channel) && (channel === CHANNELS.secretary || channel.startsWith(MAINTAINER_CHANNEL_PREFIX));
 }

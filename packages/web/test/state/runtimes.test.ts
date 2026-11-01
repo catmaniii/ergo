@@ -1,4 +1,4 @@
-// 维护者的运行时在网页这一侧（289 号票）的状态层：会话的维护者用哪个运行时（项目的照项目、没写照转来的任务，任务的照任务，秘书是 pi）、
+// 负责人的运行时在网页这一侧（289 号票）的状态层：会话的负责人用哪个运行时（项目的照项目、没写照转来的任务，任务的照任务，秘书是 pi）、
 // 能力清单（清单还没取到、不认得的当都支持）、新建时能选的（只有 pi 时不显示）、卡上的签（pi 不标）、⚙ 里换运行时的选项和那一行说明。
 import { describe, expect, it } from "vitest";
 import {
@@ -37,8 +37,8 @@ const OFF: AgentRuntimeView = { ...CLAUDE, id: "codex", title: "Codex", availabl
 const task = (id: string, runtime?: string): Task => ({ id, maintainerId: `tm-${id}`, ...(runtime ? { runtime } : {}) }) as Task;
 const project = (id: string, extra: Partial<Project> = {}): Project => ({ id, maintainerId: `pm-${id}`, ...extra }) as Project;
 
-describe("维护者的运行时（网页状态层）", () => {
-  it("会话的维护者用哪个运行时：项目的照项目、没写照转来的任务；任务的照任务；秘书和不认得的是 pi", () => {
+describe("负责人的运行时（网页状态层）", () => {
+  it("会话的负责人用哪个运行时：项目的照项目、没写照转来的任务；任务的照任务；秘书和不认得的是 pi", () => {
     const state = {
       tasks: { t1: task("t1", "claude-code"), t2: task("t2") },
       projects: { p1: project("p1", { runtime: "codex" }), p2: project("p2", { fromTaskId: "t1" }), p3: project("p3") },

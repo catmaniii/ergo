@@ -83,7 +83,7 @@ export interface MentionContext {
   areas: readonly RiskArea[];
   /** 用户主目录：`~`、`$HOME` 这些按它展开 */
   homeDir: string;
-  /** 这个 agent 自己的地方（秘书的草稿区，维护者的项目档案和工作目录）：写着它们的不算 */
+  /** 这个 agent 自己的地方（秘书的草稿区，负责人的项目档案和工作目录）：写着它们的不算 */
   ownDirs: readonly string[];
 }
 

@@ -1,10 +1,10 @@
-// 项目维护者在工单和会话分段上的工具（守护进程代为执行，16 号票）：
+// 项目负责人在工单和会话分段上的工具（守护进程代为执行，16 号票）：
 // - write_segment_summary：写（或改）这一段的摘要。一段结束时运行时检查它写了没有、进展文档改了没有，下一段固定上下文里的
 //   "上一段摘要"就是它；
-// - write_progress：起草计划的工单段里写回进展（这一段工作目录和项目档案只读，和 12 号票"起草计划的维护者只读"一致；
+// - write_progress：起草计划的工单段里写回进展（这一段工作目录和项目档案只读，和 12 号票"起草计划的负责人只读"一致；
 //   写回要的只有进展文档和段摘要）：整份换掉 progress.md，旧版本运行时先留进历史区；
 // - ask_clarification：做工单时遇到要问派单方的（用户发起的单项目任务就问用户）：工单转等澄清，问题以提问卡进待我处理，
-//   执行中的这一支停下；回答作为通知交回维护者。
+//   执行中的这一支停下；回答作为通知交回负责人。
 // 这几个工具都只改二狗自己的状态（写回进展是运行时要求的写回）、产生卡片，不落入任何关注类别，照样先经守卫。
 // @i18n-ignore-file model：工具说明、参数说明、结果和拒绝的原因给模型看（173 号票）；工具的名字走 t()
 import { QuestionDraft, Type, t } from "@ergo/protocol";
@@ -82,14 +82,14 @@ export function askClarificationTool(workOrders: Pick<WorkOrders, "askClarificat
     name: WORK_ORDER_TOOL.askClarification,
     title: t("workOrders.tools.askClarification"),
     description:
-      "做工单时遇到必须由派单方拍板的问题（用户发起的任务就是问用户；别的任务的维护者派来的工单是问那个任务维护者）：把问题成批交出（每题带推荐答案），工单转“等澄清”。问用户时提问卡进用户的待我处理，执行中的这一支先停下。回答作为通知交给你，接着做；用户关掉提问卡就按你自己的理解接着做。能自己定的不要问。",
+      "做工单时遇到必须由派单方拍板的问题（用户发起的任务就是问用户；别的任务的负责人派来的工单是问那个任务负责人）：把问题成批交出（每题带推荐答案），工单转“等澄清”。问用户时提问卡进用户的待我处理，执行中的这一支先停下。回答作为通知交给你，接着做；用户关掉提问卡就按你自己的理解接着做。能自己定的不要问。",
     parameters: ClarificationParams,
     readOnlyOrIdempotent: false,
     run: (args) =>
       guarded(() => {
         const asked = workOrders.askClarification(maintainerId, { ...(args.intro === undefined ? {} : { intro: args.intro }), questions: args.questions });
-        // 任务维护者派来的工单（17 号票）：问题交给派单的任务维护者，不出提问卡
-        if (asked.cardId === undefined) return { text: `工单 ${asked.workOrderId} 转为等澄清，问题交给了派单的任务维护者。等回答（会作为通知交给你），这一轮先到这里。` };
+        // 任务负责人派来的工单（17 号票）：问题交给派单的任务负责人，不出提问卡
+        if (asked.cardId === undefined) return { text: `工单 ${asked.workOrderId} 转为等澄清，问题交给了派单的任务负责人。等回答（会作为通知交给你），这一轮先到这里。` };
         return { text: `工单 ${asked.workOrderId} 转为等澄清，提问卡放进了用户的待我处理。等回答（会作为通知交给你），这一轮先到这里。`, cardIds: [asked.cardId] };
       }),
   });

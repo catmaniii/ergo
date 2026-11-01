@@ -1,9 +1,9 @@
-// 维护者每段会话开头的固定上下文（规格第 11、21 节，16 号票）：工具包说明、项目规范（第一阶段是一段内置的简短说明；261 号票起后面
+// 负责人每段会话开头的固定上下文（规格第 11、21 节，16 号票）：工具包说明、项目规范（第一阶段是一段内置的简短说明；261 号票起后面
 // 接本项目的规范改写和"有新版规范"的提示）、
 // 项目档案快照（规格摘要、进展、术语表）、上一段的摘要、这次的工单（对话段没有）。重注入块（执行任务时）另由运行时
 // 作为上下文消息注入，不在这里。纯函数：读项目档案、取上一段由调用方做好交进来。
-// 每段是一个新的 pi 会话，更早的分段不进上下文：维护者对项目的理解靠项目档案和上一段的摘要。
-// @i18n-ignore-file model：会话分段开始时交给维护者的固定上下文（173 号票）
+// 每段是一个新的 pi 会话，更早的分段不进上下文：负责人对项目的理解靠项目档案和上一段的摘要。
+// @i18n-ignore-file model：会话分段开始时交给负责人的固定上下文（173 号票）
 import {
   isJobRunWorkOrder,
   type MaintainerSegment,
@@ -40,7 +40,7 @@ export interface FixedContextInput {
   registeredMcp?: string | undefined;
   /** 项目档案里的几份文档的内容（读不到是空串） */
   records: { spec: string; progress: string; glossary: string };
-  /** 上一段（重置维护者开的段、第一段没有） */
+  /** 上一段（重置负责人开的段、第一段没有） */
   previous: Pick<MaintainerSegment, "segmentId" | "workOrderId" | "summary"> | undefined;
   /** 工单段：这次的工单 */
   workOrder: WorkOrder | undefined;
@@ -64,7 +64,7 @@ function toolkitLine(toolkit: FixedContextInput["toolkit"], tools: readonly stri
 }
 
 function previousLine(input: FixedContextInput): string {
-  if (input.segment.reset) return "上一段的摘要：没有。用户重置了维护者：只凭项目档案重建理解。";
+  if (input.segment.reset) return "上一段的摘要：没有。用户重置了负责人：只凭项目档案重建理解。";
   const p = input.previous;
   if (!p) return "上一段的摘要：没有（这是第一段）。";
   if (!p.summary) return `上一段的摘要：上一段（${p.segmentId}）没有留下摘要。`;
@@ -78,13 +78,13 @@ function workOrderLines(wo: WorkOrder | undefined): string[] {
     `这次的工单：${wo.id}「${wo.title}」，来自${forModel(() => WORK_ORDER_SOURCE_LABEL[wo.source])}，${belongs}，要做的是${forModel(() => WORK_ORDER_KIND_LABEL[wo.kind])}。`,
     ...(wo.instructions ? [`工单的内容：\n${wo.instructions}`] : []),
     ...(wo.kind === "plan"
-      ? [`这一段只起草计划：工作目录和项目档案只读（和任务自己的维护者起草计划时一样）；写回要的进展用 ${WORK_ORDER_TOOL.writeProgress} 写，摘要用 ${WORK_ORDER_TOOL.writeSegmentSummary} 写。`]
+      ? [`这一段只起草计划：工作目录和项目档案只读（和任务自己的负责人起草计划时一样）；写回要的进展用 ${WORK_ORDER_TOOL.writeProgress} 写，摘要用 ${WORK_ORDER_TOOL.writeSegmentSummary} 写。`]
       : []),
-    // 别的任务的维护者派来的改动（17 号票）：所属阶段、验收标准，做完交回执
+    // 别的任务的负责人派来的改动（17 号票）：所属阶段、验收标准，做完交回执
     ...(wo.source === "task_maintainer"
       ? [
           `所属阶段：${wo.stageId}${wo.planned ? "" : "（计划外的工单，用户确认过才派来）"}。这张工单的验收标准：${wo.acceptance.join("；")}。`,
-          `这个改动会伤害本项目时可以退回（写明理由）；做完、退回或做不了都用 ${WORK_ORDER_TOOL.submitReceipt} 交回执，回执交给派单的任务维护者。拿不准要问的用 ${WORK_ORDER_TOOL.askClarification}（问题交给任务维护者，不直接问用户）。`,
+          `这个改动会伤害本项目时可以退回（写明理由）；做完、退回或做不了都用 ${WORK_ORDER_TOOL.submitReceipt} 交回执，回执交给派单的任务负责人。拿不准要问的用 ${WORK_ORDER_TOOL.askClarification}（问题交给任务负责人，不直接问用户）。`,
         ]
       : []),
   ];
@@ -101,7 +101,7 @@ export function standardNoteLines(view: FixedContextInput["projectStandard"]): s
   ];
 }
 
-/** 一段会话开头的固定上下文（拼在项目维护者的系统提示后面） */
+/** 一段会话开头的固定上下文（拼在项目负责人的系统提示后面） */
 export function fixedContextText(input: FixedContextInput): string {
   return [
     `【固定上下文】这是会话分段 ${input.segment.segmentId} 开始时运行时给你的；以项目档案为准。`,

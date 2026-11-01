@@ -3,7 +3,7 @@
 // - 新的里有、现在没有：加上（added）；现在有、新的里没有：去掉（removed，取消它的内部任务）；
 // - 两边都有、写得不一样：改了（changed）——手段能就地改的（只改了重复的时间表）标 inPlace，就地改时间；别的撤了重建；
 // - 两边都有、一样：照旧（kept）；但它现在没跑着的（上次没生效、它的内部任务被取消了或结束了）重新开起来（restored）。
-// 比"写得一样不一样"只看维护者写的（名字、手段、触发、做法、每次做什么、要的能力、失败时怎样、要手动的、流程的步骤和条件、
+// 比"写得一样不一样"只看负责人写的（名字、手段、触发、做法、每次做什么、要的能力、失败时怎样、要手动的、流程的步骤和条件、
 // 服务的定义——133 号票，补过默认值的那一份），运行时补上的（手段的说法、审查的耗时这些）不算。
 import type { OperationItem } from "@ergo/protocol";
 
@@ -22,7 +22,7 @@ export interface OperationsDiff {
   kept: Array<{ before: ActiveOperation; after: OperationItem }>;
 }
 
-/** 维护者写的那部分（比较用）：流程的只看步骤（id、标题、工具、参数、前置）和条件，不看审查的结果 */
+/** 负责人写的那部分（比较用）：流程的只看步骤（id、标题、工具、参数、前置）和条件，不看审查的结果 */
 export function writtenForm(item: OperationItem): string {
   const caps = item.capabilities;
   return JSON.stringify({

@@ -1,23 +1,23 @@
 // 派单器（规格第 11、12、21 节，16 号票）：派单队列，以及把会话分段（segments.ts）、澄清（clarifications.ts）接在一起。
 //
-// 工单：交给某个项目维护者的一份工作。只涉及一个项目的任务由这个项目的维护者起草计划并执行，维护者要做的事都以工单送达：
-// - 起草计划（plan）：秘书写好任务书、用户打回计划、项目开工建出首个建设任务时，派一张起草计划的工单，内容就是交给维护者的话；
+// 工单：交给某个项目负责人的一份工作。只涉及一个项目的任务由这个项目的负责人起草计划并执行，负责人要做的事都以工单送达：
+// - 起草计划（plan）：秘书写好任务书、用户打回计划、项目开工建出首个建设任务时，派一张起草计划的工单，内容就是交给负责人的话；
 // - 执行（execute）：用户确认计划后派一张；失败后重试、完成后返工时再派一张。
-// 工单写进事件日志（项目列表频道的 work_order 事件）时注明收件项目，派单器把它放进收件维护者的队列：一次只做一件、先来先做。
-// 维护者空着（手上没有工单、也没有进行中或收尾中的会话段）就开始队首的工单：起草计划的直接开始，执行的交给执行控制器——
+// 工单写进事件日志（项目列表频道的 work_order 事件）时注明收件项目，派单器把它放进收件负责人的队列：一次只做一件、先来先做。
+// 负责人空着（手上没有工单、也没有进行中或收尾中的会话段）就开始队首的工单：起草计划的直接开始，执行的交给执行控制器——
 // 全局执行名额也有空时任务才进入执行中（admit），正忙时任务留在排队中（看板上"等项目 X"）。
-// 发给已归档项目的工单直接以"退回"结束并附原因，维护者不被唤起；已停用的项目照常接单。
+// 发给已归档项目的工单直接以"退回"结束并附原因，负责人不被唤起；已停用的项目照常接单。
 // 工单状态：待接 → 进行中 ⇄ 等澄清 → 已结束（完成、退回、做不了），每次迁移是一条 work_order 事件。
 // 工单的结局：起草计划的在计划交了（任务离开规划中）时、执行的在任务完成 / 失败 / 取消时，先让这一段收尾，
 // 写回之后（或者催写回到了次数，转为用户拍板）工单才结束；任务结束时还排着的工单退回。
-// 17 号票：涉及多个项目的任务的维护者派来的工单（source 是 task_maintainer）在 multi-project.ts——计划确认时建出、阶段开始时派出、
-// 计划外的待你确认、回执交回任务维护者；派出之后照样进这里的队列，由派单器直接开始（不经执行控制器），项目维护者交回执时收尾。
-// 项目内部的普通任务（75 号票）：建出就进排队中，照样派一张执行的工单（内容是要做的那件事），开始时执行控制器交给维护者任务书；
+// 17 号票：涉及多个项目的任务的负责人派来的工单（source 是 task_maintainer）在 multi-project.ts——计划确认时建出、阶段开始时派出、
+// 计划外的待你确认、回执交回任务负责人；派出之后照样进这里的队列，由派单器直接开始（不经执行控制器），项目负责人交回执时收尾。
+// 项目内部的普通任务（75 号票）：建出就进排队中，照样派一张执行的工单（内容是要做的那件事），开始时执行控制器交给负责人任务书；
 // 做完（任务自动完成）这一段收尾；做完之后用户接着说，任务回到排队中、再派一张执行的工单。
 // 定时作业的一次运行（19 号票，scheduled-jobs/）：属于项目的作业到点时，作业模块经 dispatchRun 派一张来源为"定时作业"的工单
-// （JobRunWorkOrder：不属于任何任务，记着作业和这次运行），照样排进项目维护者的队列、一段一张、写回之后结束。
+// （JobRunWorkOrder：不属于任何任务，记着作业和这次运行），照样排进项目负责人的队列、一段一张、写回之后结束。
 // 它排到了还要有全局执行名额才开始（tasks/slots.ts：开始了才占名额，在队列里排着不占）；名额空出来时派单器再看一遍。
-// 维护者这一轮做完（或报了失败）时作业模块叫 finishRun，这一段收尾；作业暂停、取消时还排着的经 dropRun 退回。
+// 负责人这一轮做完（或报了失败）时作业模块叫 finishRun，这一段收尾；作业暂停、取消时还排着的经 dropRun 退回。
 // 建出、派出和"工单该以什么结局结束"三边共用 orders.ts。
 import {
   CHANNELS,
@@ -74,11 +74,11 @@ export interface WorkOrderServiceOptions {
    * 涉及多个项目的任务（17 号票）：守卫看到的任务、调整做法算一次验收退回
    */
   execution: Pick<TaskExecution, "kick" | "awaitAnswer" | "answered" | "countReturn" | "guardTask">;
-  /** 计划外工单交给守卫判定（17 号票，unplanned.ts；daemon.ts 接上守卫的各区、关注类别设置和任务维护者此刻的装配） */
+  /** 计划外工单交给守卫判定（17 号票，unplanned.ts；daemon.ts 接上守卫的各区、关注类别设置和任务负责人此刻的装配） */
   judgeUnplanned: MultiProjectOptions["judgeUnplanned"];
   /** 一段收尾时最多催几次写回：同第 8 节的催促阈值，取配置里的 tasks.thresholds.nudges（14 号票），和执行中的催促同一个 */
   nudges: number;
-  /** 工单结束时的范围审视（18 号票，项目维护者模块做）：见 segments.ts 的 SegmentsOptions.reviewScope */
+  /** 工单结束时的范围审视（18 号票，项目负责人模块做）：见 segments.ts 的 SegmentsOptions.reviewScope */
   reviewScope?: (segment: MaintainerSegment) => Promise<NewEvent[]>;
   /** 全局执行名额（tasks/slots.ts）：定时作业的运行工单排到了还要有名额才开始；名额空出来时再看一遍 */
   slots: Pick<ExecutionSlots, "hasSlot" | "onFreed">;
@@ -87,19 +87,19 @@ export interface WorkOrderServiceOptions {
 }
 
 /**
- * 派单器。会话分段（segments）、澄清（clarifications）的入口都从这里给出去：项目维护者模块、网关、提问卡、项目模块经它接上。
- * Segments 的方法里 current、currentWorkOrder、scopeIn、scopeOf、accepts、idleExited、writeSummary、recordSession、messagePrelude 给项目维护者模块和网关用
+ * 派单器。会话分段（segments）、澄清（clarifications）的入口都从这里给出去：项目负责人模块、网关、提问卡、项目模块经它接上。
+ * Segments 的方法里 current、currentWorkOrder、scopeIn、scopeOf、accepts、idleExited、writeSummary、recordSession、messagePrelude 给项目负责人模块和网关用
  */
 export interface WorkOrders extends Pick<Segments, "current" | "previous" | "currentWorkOrder" | "scopeIn" | "scopeOf" | "accepts" | "idleExited" | "writeSummary" | "recordSession" | "messagePrelude"> {
   start(): void;
   stop(): void;
   /**
-   * 交给项目维护者起草计划（任务书、打回意见、首个建设任务的交代）：返回要和引起它的事件同一事务追加的事件。
-   * 不是项目的任务返回 undefined（照旧交给任务自己的维护者）
+   * 交给项目负责人起草计划（任务书、打回意见、首个建设任务的交代）：返回要和引起它的事件同一事务追加的事件。
+   * 不是项目的任务返回 undefined（照旧交给任务自己的负责人）
    */
   dispatchPlan(task: Task, instructions: string, key: string): NewEvent[] | undefined;
   /**
-   * 执行控制器问：这个排队的任务现在能不能进入执行中（全局名额另由控制器看）。项目的任务要等项目的维护者空着、
+   * 执行控制器问：这个排队的任务现在能不能进入执行中（全局名额另由控制器看）。项目的任务要等项目的负责人空着、
    * 它的执行工单排在队首；能开始时 events 里是工单开始、开一段会话的事件（和任务进入执行中同一事务）。
    * 不能开始时 events 里可能有补派的执行工单（任务留在排队中，看板上"等项目 X"），项目已归档的是退回的工单
    */
@@ -107,20 +107,20 @@ export interface WorkOrders extends Pick<Segments, "current" | "previous" | "cur
   get(workOrderId: string): WorkOrder | undefined;
   /** 项目还没结束的工单（有就不能归档） */
   openOf(projectId: string): WorkOrder[];
-  /** 维护者干活中遇到要问派单方的（ask_clarification）：工单转等澄清，提问卡进待我处理 */
+  /** 负责人干活中遇到要问派单方的（ask_clarification）：工单转等澄清，提问卡进待我处理 */
   askClarification: Clarifications["ask"];
-  /** 提问卡上用户回答了项目维护者为工单问的：交回它的通知 */
+  /** 提问卡上用户回答了项目负责人为工单问的：交回它的通知 */
   clarificationReply: Clarifications["replyEvents"];
-  /** 重置维护者（项目页上）：当前这段直接结束，新开一段，只凭项目档案 */
+  /** 重置负责人（项目页上）：当前这段直接结束，新开一段，只凭项目档案 */
   reset: Segments["reset"];
   /** 涉及多个项目的任务的工单（17 号票）：计划确认时建出、阶段开始时派出、派工单、回执、阶段的回执门槛、工单卡 */
   multiProject: MultiProject;
-  /** 任务维护者回答项目维护者在工单里问的（17 号票）：交回项目维护者，工单回到进行中 */
+  /** 任务负责人回答项目负责人在工单里问的（17 号票）：交回项目负责人，工单回到进行中 */
   answerWorkOrder: Clarifications["answerFromTask"];
-  /** 任务维护者答不了、转问用户（17 号票）：提问卡进待我处理，用户回答后交回任务维护者 */
+  /** 任务负责人答不了、转问用户（17 号票）：提问卡进待我处理，用户回答后交回任务负责人 */
   forwardClarification: Clarifications["forward"];
   /**
-   * 派一张定时作业的一次运行的工单（19 号票，不追加）：发给已归档项目的直接退回；维护者空着、前面没有排着的、
+   * 派一张定时作业的一次运行的工单（19 号票，不追加）：发给已归档项目的直接退回；负责人空着、前面没有排着的、
    * 又有全局执行名额，就同一事务开始。key 是派出的幂等键（作业模块给）
    */
   dispatchRun(input: { job: ScheduledJob; run: JobRun; project: Project; instructions: string; key: string }): { workOrder: JobRunWorkOrder; events: NewEvent[] };
@@ -181,7 +181,7 @@ export function createWorkOrders(options: WorkOrderServiceOptions): WorkOrders {
   /**
    * 执行的工单的内容：有计划的任务是"照计划执行"；项目内部的普通任务（75 号票）第一张是要做的那件事，做完之后用户在详情里接着说
    * 续派的（以前有过结束了的执行工单）是"接着做：用户这次说的"，原来交代的只留摘要、连同上一轮的结果作为背景
-   * （新的一段是新会话，任务书不会再交一遍：不写明的话维护者会把原来的事重做一遍）
+   * （新的一段是新会话，任务书不会再交一遍：不写明的话负责人会把原来的事重做一遍）
    */
   const executeOrderInstructions = (task: Task): string => {
     if (!isPlainTask(task)) return executeInstructions(task);
@@ -198,7 +198,7 @@ export function createWorkOrders(options: WorkOrderServiceOptions): WorkOrders {
       .map((m) => m!.parts.map((p) => (p.type === "text" ? p.text : "")).join("").trim())
       .filter((t) => t !== "");
 
-  /** 普通任务上一轮的结果：最后一次做完（看板上的 completed）之前，维护者最后说的话 */
+  /** 普通任务上一轮的结果：最后一次做完（看板上的 completed）之前，负责人最后说的话 */
   const lastPlainResult = (task: Task): string | undefined => {
     const completed = store
       .mentioning(EVENT_TYPES.task, `"id":"${task.id}"`)
@@ -219,12 +219,12 @@ export function createWorkOrders(options: WorkOrderServiceOptions): WorkOrders {
   /** 派出一张工单：发给已归档项目的直接退回（同一事务，附原因） */
   const dispatched = (wo: WorkOrder, project: Project, by: "user" | "system", key?: string): NewEvent[] => dispatchedEvents(wo, project, by, now(), key);
 
-  /** 维护者手上的工单（进行中、等澄清） */
+  /** 负责人手上的工单（进行中、等澄清） */
   const activeWorkOrder = (maintainerId: string) => workOrdersOf(store.reader, maintainerId, ["in_progress", "clarifying"])[0];
 
   /**
    * 现在能开始的待接工单：起草计划的要任务还在规划中，执行的要任务在排队中（暂停了的跳过）；
-   * 任务维护者派来的改动（17 号票）要它的任务在执行中（或一支在等我）；定时作业的运行要有全局执行名额（开始了才占，19 号票）
+   * 任务负责人派来的改动（17 号票）要它的任务在执行中（或一支在等我）；定时作业的运行要有全局执行名额（开始了才占，19 号票）
    */
   const startable = (wo: WorkOrder): boolean => {
     if (isJobRunWorkOrder(wo)) return options.slots.hasSlot();
@@ -241,7 +241,7 @@ export function createWorkOrders(options: WorkOrderServiceOptions): WorkOrders {
     workOrdersOfTask(store.reader, taskId).find((w): w is UserTaskWorkOrder => w.source === "user_task" && w.kind === kind && w.state !== "ended");
 
   /**
-   * 工单开始：工单进行中、开一段会话；起草计划的、任务维护者派来的改动（17 号票）、定时作业的运行（19 号票）另给维护者一条
+   * 工单开始：工单进行中、开一段会话；起草计划的、任务负责人派来的改动（17 号票）、定时作业的运行（19 号票）另给负责人一条
    * 开始的通知（执行的由执行控制器交代）
    */
   const startEvents = (wo: WorkOrder, project: Project): NewEvent[] => {
@@ -260,10 +260,10 @@ export function createWorkOrders(options: WorkOrderServiceOptions): WorkOrders {
     return task ? taskKind(task) : "long_running";
   };
 
-  /** 维护者空着、前面没有排着的（这张工单派出时就能马上开始） */
+  /** 负责人空着、前面没有排着的（这张工单派出时就能马上开始） */
   const freeFor = (project: Project) => !activeWorkOrder(project.maintainerId) && !segments.current(project.maintainerId) && !headOf(project.maintainerId);
 
-  /** 维护者空着就开始队首的工单；正在对话段里、有工单在等就先让对话段收尾 */
+  /** 负责人空着就开始队首的工单；正在对话段里、有工单在等就先让对话段收尾 */
   function tryStart(maintainerId: string): void {
     try {
       if (activeWorkOrder(maintainerId)) return;
@@ -282,7 +282,7 @@ export function createWorkOrders(options: WorkOrderServiceOptions): WorkOrders {
       if (head.kind === "execute") options.execution.kick();
       else store.appendBatch(startEvents(head, project));
     } catch (err) {
-      log(`派单器给维护者 ${maintainerId} 开始工单时出错：${errorText(err)}`);
+      log(`派单器给负责人 ${maintainerId} 开始工单时出错：${errorText(err)}`);
     }
   }
 
@@ -303,7 +303,7 @@ export function createWorkOrders(options: WorkOrderServiceOptions): WorkOrders {
       const pending = workOrdersOfTask(store.reader, task.id).filter((w) => w.state === "pending");
       if (pending.length > 0) store.appendBatch(pending.map((w) => ended(w, "returned", taskEndedReason())));
     }
-    // 刚进排队中（确认了计划、重试、返工）：还没有执行工单就派一张（项目已归档的直接退回、附原因，维护者不被唤起；
+    // 刚进排队中（确认了计划、重试、返工）：还没有执行工单就派一张（项目已归档的直接退回、附原因，负责人不被唤起；
     // 只在进排队中的那一下派，不会每次任务变化都派一张再退回）
     if (task.state === "queued" && from !== "queued" && !openOfTask(task.id, "execute")) {
       store.appendBatch(dispatched(userTaskOrder(task, project, "execute", executeOrderInstructions(task)), project, "system"));
@@ -321,7 +321,7 @@ export function createWorkOrders(options: WorkOrderServiceOptions): WorkOrders {
     if (event.channel === CHANNELS.projects && event.type === EVENT_TYPES.project) return onProject(event.payload as ProjectEventPayload);
     if (event.channel === CHANNELS.projects && event.type === EVENT_TYPES.workOrder) {
       const { workOrder, change } = event.payload as WorkOrderEventPayload;
-      // 进了收件维护者的队列（派出；17 号票的等阶段开始、待你确认的派出时才进）：空着就开始
+      // 进了收件负责人的队列（派出；17 号票的等阶段开始、待你确认的派出时才进）：空着就开始
       if (change === "created" || change === "dispatched") tryStart(workOrder.maintainerId);
       return;
     }
@@ -341,13 +341,13 @@ export function createWorkOrders(options: WorkOrderServiceOptions): WorkOrders {
         }
       });
       clarifications.start();
-      // 涉及多个项目的任务（17 号票）：到了阶段的工单派出、回执交回任务维护者
+      // 涉及多个项目的任务（17 号票）：到了阶段的工单派出、回执交回任务负责人
       multiProject.start();
       // 名额空出来：项目队列里排到的定时作业运行看看能不能开始（19 号票）
       options.slots.onFreed(() => {
         for (const project of projects.list()) tryStart(project.maintainerId);
       });
-      // 守护进程重启前在收尾的段：接着收尾；空着的维护者：开始队首的工单
+      // 守护进程重启前在收尾的段：接着收尾；空着的负责人：开始队首的工单
       segments.start();
       for (const project of projects.list()) tryStart(project.maintainerId);
     },
@@ -362,7 +362,7 @@ export function createWorkOrders(options: WorkOrderServiceOptions): WorkOrders {
       if (!project) return undefined;
       const open = openOfTask(task.id, "plan");
       const drafting = open && isActiveWorkOrder(open) && segments.current(open.maintainerId)?.state === "open";
-      // 维护者正在起草：改了的任务书作为一条通知交给它（属于这一段）
+      // 负责人正在起草：改了的任务书作为一条通知交给它（属于这一段）
       if (open && drafting) return [buildAgentNotice(maintainerChannel(open.maintainerId), instructions, `${key}#notice`, segments.scopeIn(open)).event];
       // 还在排队：换成新的内容
       if (open?.state === "pending") return [workOrderEvent({ ...open, instructions, updatedAt: now() }, "updated", open.state, "system", `${key}#wo`)];
@@ -370,7 +370,7 @@ export function createWorkOrders(options: WorkOrderServiceOptions): WorkOrders {
       const wo = userTaskOrder(task, project, "plan", instructions);
       const events = dispatched(wo, project, "user", `${key}#wo`);
       if (project.state === "archived") return events;
-      // 维护者空着、前面没有排着的：马上开始（分隔线、开始的通知和派出在同一事务）
+      // 负责人空着、前面没有排着的：马上开始（分隔线、开始的通知和派出在同一事务）
       return freeFor(project) ? [...events, ...startEvents(wo, project)] : events;
     },
 
@@ -406,14 +406,14 @@ export function createWorkOrders(options: WorkOrderServiceOptions): WorkOrders {
       const active = activeWorkOrder(maintainerId);
       if (active && active.source === "user_task" && active.taskId === task.id && active.kind === "execute") return { admit: true, events: [] };
       const existing = openOfTask(task.id, "execute");
-      // 已归档的项目：派单器把发给它的工单直接退回、说明原因，维护者不被唤起（任务留在排队中，取消归档后接着排）。
+      // 已归档的项目：派单器把发给它的工单直接退回、说明原因，负责人不被唤起（任务留在排队中，取消归档后接着排）。
       // 排着的退回；没有排着的不再补派（补派在任务进入排队中时做，那里同样退回）
       if (project.state === "archived") return { admit: false, events: existing?.state === "pending" ? [ended(existing, "returned", archivedReason(project))] : [] };
       // 还没有执行工单（重试、返工）：补派一张
       const wo = existing ?? userTaskOrder(task, project, "execute", executeOrderInstructions(task));
       const created = existing ? [] : [workOrderEvent(wo, "created", null, "system")];
       if (active || segments.current(maintainerId)) {
-        // 维护者正忙（或者在对话段里：等它收尾）：任务留在排队中
+        // 负责人正忙（或者在对话段里：等它收尾）：任务留在排队中
         queueMicrotask(() => tryStart(maintainerId));
         return { admit: false, events: created };
       }

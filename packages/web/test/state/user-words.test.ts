@@ -21,7 +21,7 @@ const words: VerifiedUserWords = {
   messageId: "m-1",
   text: "测完直接切过去吧",
   conversation: "maintainer:pm-blog",
-  where: "项目「个人博客」的维护者会话",
+  where: "项目「个人博客」的负责人会话",
   time: "2026-10-06T22:58:10.000+08:00",
   device: "设备「我的手机」",
 };
@@ -45,7 +45,7 @@ describe("运行时核实过的用户原话", () => {
     expect(userWordsRows(undefined)).toEqual([]);
     const where = `和${ASSISTANT_NAME_MARK}的对话`;
     expect(userWordsRows([words, { ...words, messageId: "m-2", text: "好", where, device: "本机", relayedBy: "secretary", relayMessageId: "m-3" }])).toEqual([
-      { key: "m-1:0", text: "测完直接切过去吧", source: "10-06 22:58 · 项目「个人博客」的维护者会话 · 设备「我的手机」" },
+      { key: "m-1:0", text: "测完直接切过去吧", source: "10-06 22:58 · 项目「个人博客」的负责人会话 · 设备「我的手机」" },
       // 提到秘书的是名字占位，界面上按现在的名字显示
       { key: "m-2:1", text: "好", source: `10-06 22:58 · ${where} · 本机 · 经${ASSISTANT_NAME_MARK}转达` },
     ]);

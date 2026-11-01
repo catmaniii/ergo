@@ -1,9 +1,9 @@
 // 待我处理在"删除参与方"登记表里的那一份（279 号票；登记表见 deletion/participants.ts）：属于这次删除的事项。要看别人认领了哪些卡片，
 // 在 follow 一步里做。原来在 projects/deletion.ts（ADR-0010）、tasks/deletion.ts（186 号票）里各写一遍。
 // - 删项目：项目内部的事项（建的时候标上的，64 号票）、整张换成标记的卡的事项、记着它的内部任务的通知——这几条的卡也整张换成标记，
-//   事项再追加一版删掉的（不会一直卡着）；连同删除的二次确认（数据里有项目编号的）、字段级改写的卡的事项、这个维护者的"中断不确定"：
+//   事项再追加一版删掉的（不会一直卡着）；连同删除的二次确认（数据里有项目编号的）、字段级改写的卡的事项、这个负责人的"中断不确定"：
 //   照彻底删除的改写函数换掉标题和正文（inboxItemPurge，状态不变：二次确认还是"确认删除"）。
-// - 删任务：数据、来处里记着它的，它的卡（整张换成标记的）的，它的维护者和子 agent 的"中断不确定"：标题、正文、来源（"任务「X」"）
+// - 删任务：数据、来处里记着它的，它的卡（整张换成标记的）的，它的负责人和子 agent 的"中断不确定"：标题、正文、来源（"任务「X」"）
 //   换成删除标记，再追加一版删掉的（待办里不再有）。
 import { CHANNELS, EVENT_TYPES, type InboxItem, type InboxItemEventPayload, inboxItemProjectId, interruptedNoticeData, isInternalTo, PURGED_TEXT } from "@ergo/protocol";
 import { type DeletionParticipants, liveEvents, PROJECT_DELETION, TASK_DELETION } from "../deletion/participants.ts";

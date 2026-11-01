@@ -16,9 +16,9 @@ const FailParams = Type.Object(
   { additionalProperties: false },
 );
 
-/** 维护者报这次运行失败：报给定时作业模块 */
+/** 负责人报这次运行失败：报给定时作业模块 */
 export interface JobFailureReporter {
-  /** 维护者手上正在运行的那一次（属于项目的作业是它手上这张工单的那一次）记下失败的原因；没有在运行的抛 RequestRejected */
+  /** 负责人手上正在运行的那一次（属于项目的作业是它手上这张工单的那一次）记下失败的原因；没有在运行的抛 RequestRejected */
   reportFailure(maintainerId: string, reason: string): { runId: string };
 }
 

@@ -7,10 +7,10 @@
 // - 输入框上面一行了解你访谈（285 号票，用户 2026-10-26 定的）：没在聊时写聊过几个、下次聊什么和"开始访谈"（POST /api/memory/interview，
 //   已经开着就是那一次；和 /interview 斜杠命令开的同一次）；正在聊时写主题和怎么停，不再给按钮。会话里来了新消息就重取一次
 //   （管理员收尾了、开了一次，这一行跟着变）；取不到就不画这一行；
-// - 点标题栏的 ⚙ 能改它单独的提示词、清空对话、看上下文用量（和秘书、维护者同一个面板；模型那行先跟随秘书的）；
+// - 点标题栏的 ⚙ 能改它单独的提示词、清空对话、看上下文用量（和秘书、负责人同一个面板；模型那行先跟随秘书的）；
 // - 宽屏标题栏的副标题是最近一次整理（哪一夜、跑成什么样、管理员自己额外花了几次模型调用）。
 // 它和秘书的"问记忆"分工：轻问题走秘书的 ask_memory，深聊/动手在这里（秘书会把话转过来）。
-// 数据都来自会话频道（维护者那一套）、GET /api/memory/summary 和 GET /api/memory/interview，这里只画。
+// 数据都来自会话频道（负责人那一套）、GET /api/memory/summary 和 GET /api/memory/interview，这里只画。
 import { useEffect, useState } from "react";
 import { useStore } from "../../app/store.tsx";
 import { retryLoad } from "../../app/retry-load.ts";

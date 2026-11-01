@@ -1,10 +1,10 @@
 // 转入使用的两个代为执行的工具（259 号票；issue 19 第 8 条：转运营不管谁发起都必须用户确认）：
-// - 项目维护者的 propose_go_live：建设中、它觉得可以转入使用（转运营）时提，绑定在它维护的项目上；
+// - 项目负责人的 propose_go_live：建设中、它觉得可以转入使用（转运营）时提，绑定在它维护的项目上；
 // - 秘书的 propose_go_live：用户对秘书说"简报站可以上线了""把记账本转运营"时代办，写明哪个项目。
 // 268 号票：出卡之前先把运营接口清单重验一遍（prepare），卡上的清单直接是验收的结论。
 // 两个都只交给项目模块的 requestGoLive：出一张"转入使用"确认卡（"首版做完了"卡、"转入使用"卡还在等的就用那一张，卡上的检查清单刷新），
-// 用户在卡上确认才转——工具本身不改项目状态，秘书、维护者都没有能对卡片做动作的工具，没有绕过的路。工具结果里写检查清单缺什么，
-// 维护者能补的先补齐（补完再调一次刷新卡上的清单），秘书照实转告用户。
+// 用户在卡上确认才转——工具本身不改项目状态，秘书、负责人都没有能对卡片做动作的工具，没有绕过的路。工具结果里写检查清单缺什么，
+// 负责人能补的先补齐（补完再调一次刷新卡上的清单），秘书照实转告用户。
 // @i18n-ignore-file model：工具说明、参数说明、结果给模型看；工具的名字走 t()
 import { checklistMissing, type GoLiveChecklistItem, PROJECT_STATE_LABEL, type Project, Type, forModel, t } from "@ergo/protocol";
 import { defineHostTool, type HostTool } from "../agent-manager/host-tools.ts";
@@ -23,7 +23,7 @@ export function checklistLines(items: readonly GoLiveChecklistItem[]): string {
   ].join("\n");
 }
 
-/** 出了卡 / 用了还在等的那张：给维护者看的那句 */
+/** 出了卡 / 用了还在等的那张：给负责人看的那句 */
 function cardSentence(r: GoLiveRequested): string {
   if (r.created) return `已出“转入使用”确认卡（${r.cardId}），放进了用户的待我处理。`;
   return r.cardType === "build_done"
@@ -41,7 +41,7 @@ const MaintainerParams = Type.Object(
 /** 转入使用的请求之前要等的（268 号票：运营接口清单重验一遍，卡上直接是结论）；不给就不等 */
 export type GoLivePrepare = (projectId: string) => Promise<void>;
 
-/** 项目维护者的"提转入使用"：绑定在它维护的项目上 */
+/** 项目负责人的"提转入使用"：绑定在它维护的项目上 */
 export function maintainerGoLiveTool(projects: Pick<ProjectService, "requestGoLive">, scope: { projectId: string; maintainerId: string }, prepare?: GoLivePrepare): HostTool {
   return defineHostTool({
     name: PROPOSE_GO_LIVE_TOOL,
@@ -108,7 +108,7 @@ export function secretaryGoLiveTool(projects: Pick<ProjectService, "requestGoLiv
     title: t("projects.tools.proposeGoLive"),
     description:
       "用户要把建设中的项目转入使用（转运营）时用（“简报站可以上线了”“把记账本转运营”）：运行时出一张“转入使用”确认卡放进聊天和待我处理（“首版做完了”卡还在等的就用那一张），" +
-      "卡上列着转运营检查清单。用户在卡上确认才转——这一件用户说了也不算确认，你不能替他确认，也不要说已经转了。清单缺的照实告诉用户（他可以照样确认，或者先让项目的维护者补齐）。" +
+      "卡上列着转运营检查清单。用户在卡上确认才转——这一件用户说了也不算确认，你不能替他确认，也不要说已经转了。清单缺的照实告诉用户（他可以照样确认，或者先让项目的负责人补齐）。" +
       "说不清是哪个项目时先问用户。",
     parameters: SecretaryParams,
     readOnlyOrIdempotent: false,
@@ -131,7 +131,7 @@ export function secretaryGoLiveTool(projects: Pick<ProjectService, "requestGoLiv
               : `项目 ${target.id}「${target.name}」已经有一张转入使用的确认卡在等用户（${r.cardType === "build_done" ? "“首版做完了”卡" : "“转入使用”卡"}），放进了聊天；卡上的检查清单照现在的刷新了。`,
             "用户在卡上点确认才转入使用：这一件用户说了也不算确认，你不能替他确认，也不要说已经转了。",
             checklistLines(r.checklist),
-            checklistMissing(r.checklist).length > 0 ? "缺的照实告诉用户：他可以照样确认，或者先让项目的维护者补齐。" : "",
+            checklistMissing(r.checklist).length > 0 ? "缺的照实告诉用户：他可以照样确认，或者先让项目的负责人补齐。" : "",
           ]
             .filter(Boolean)
             .join("\n"),

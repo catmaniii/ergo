@@ -145,7 +145,7 @@ describe("会话树", () => {
     expect(agentSessionStart({ speaker: "user", parts: [{ type: "text", text: "已换成 X，接着之前的对话。" }] })).toBe(false);
   });
 
-  it("能回退的会话：秘书主会话、任务和项目维护者的会话（152 号票）；阶段开始的回退点的说法", () => {
+  it("能回退的会话：秘书主会话、任务和项目负责人的会话（152 号票）；阶段开始的回退点的说法", () => {
     expect(rollbackEnabled("secretary")).toBe(true);
     expect(rollbackEnabled("maintainer:tm-1")).toBe(true);
     expect(rollbackEnabled("maintainer:pm-1")).toBe(true);

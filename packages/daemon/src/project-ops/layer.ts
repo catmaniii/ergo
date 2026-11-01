@@ -5,7 +5,7 @@
 //   （apps，132 号票；原来交给它的是整张转发登记表）；
 // - 要的项目系统的东西、内核的服务都在 OpsLayerDeps 里由组装函数给（像插件 needs 里的服务），它自己不 import 项目系统的内部文件
 //   （只经项目系统的入口 projects/api.ts）；
-// - 交出去的是各调用方的小接口：转入使用那一套（项目服务、提转入使用的工具）、秘书的工具、维护者的 check_ops、网关的启停请求、
+// - 交出去的是各调用方的小接口：转入使用那一套（项目服务、提转入使用的工具）、秘书的工具、负责人的 check_ops、网关的启停请求、
 //   订阅时补推的服务、缩略图；接入 LSM 之后 start（组合根原来的位置，经组装函数的 startServices），停机时 stop。
 // 建这些都没有副作用（订阅事件、接 LSM 都在 start 里），所以组装函数在原来建项目的服务的位置装它：卡片类型、运营手段登记的先后照原来。
 import { CHANNELS, EVENT_TYPES, type EventFrame, HTTP_PATHS, type OperationsPlanView, type Project, type ProjectServiceView } from "@ergo/protocol";
@@ -64,13 +64,13 @@ export interface OpsLayerDeps {
   pendingPlan: (projectId: string) => OperationsPlanView | undefined;
   /** 触发底座（建在项目系统之后）：用到时现取 */
   scheduledJobs: () => OpsLayerJobs;
-  /** project_ops 的"跟维护者说一句"：和秘书转达（tell_project）同一条路，插进项目维护者的会话 */
+  /** project_ops 的"跟负责人说一句"：和秘书转达（tell_project）同一条路，插进项目负责人的会话 */
   tellMaintainer: BuiltinContext["tellMaintainer"];
-  /** project_ops 转给维护者当工单：建一个项目内部的普通任务；check 只看收不收 */
+  /** project_ops 转给负责人当工单：建一个项目内部的普通任务；check 只看收不收 */
   delegate: RunContext["delegate"];
   /** 档案里的 ops.json 是不是规范模板原样 */
   isTemplate: (text: string) => boolean;
-  /** 使用中的项目自动验收没过：给维护者的会话放一条通知（会唤起它） */
+  /** 使用中的项目自动验收没过：给负责人的会话放一条通知（会唤起它） */
   notifyMaintainer: (project: Project, text: string, key: string) => void;
   /** 一次验收做完了：刷新还在等的转入使用确认卡 */
   onChecked: (project: Project) => void;
@@ -99,9 +99,9 @@ export interface OpsLayer {
   readonly goLive: OpsGoLive;
   /** 秘书的工具里运营层给的、查看板时那一节 */
   readonly secretary: OpsSecretary;
-  /** 项目维护者的 check_ops（268）：绑在它维护的项目上 */
+  /** 项目负责人的 check_ops（268）：绑在它维护的项目上 */
   checkTool(scope: { projectId: string; maintainerId: string }): HostTool;
-  /** 项目维护者查自己项目的服务最近报的事件（357）：绑在它维护的项目上 */
+  /** 项目负责人查自己项目的服务最近报的事件（357）：绑在它维护的项目上 */
   serviceEventsTool(projectId: string): HostTool;
   /** 网关的 POST /api/service-events（357）：项目的服务报事件 */
   readonly serviceEvents: ServiceEventsApi;
@@ -171,7 +171,7 @@ export function createOpsLayer(ctx: OpsLayerContext, deps: OpsLayerDeps): OpsLay
   );
 
   // 秘书调使用中的项目的操作（260）；268：白送的通用操作、参数校验、能念的 say、四种实现方式（http / script / ergo / maintainer）、
-  // 清单照 112 号票的自动验收和版本号（转运营检查清单那一项、转入使用时登记、维护者的 check_ops）
+  // 清单照 112 号票的自动验收和版本号（转运营检查清单那一项、转入使用时登记、负责人的 check_ops）
   const projectOps = createProjectOps({
     store,
     projects: { list: () => projects.list(), records: (projectId) => projects.records(projectId), workdir: (project) => projects.workdir(project) },

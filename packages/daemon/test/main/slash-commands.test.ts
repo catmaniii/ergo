@@ -4,7 +4,7 @@
 //   不认识的 /nope 原样交过去；
 // - 候选列表（GET 会话的 slash-commands）：秘书、项目的会话先列 /流程、/任务，再列这个会话能用的 skill（显示的名字照原样、集合名作小标，
 //   和命令同名的写成 /skill:目录名）；任务的会话没有发起任务的命令，起草计划时也没有 skill，执行时是计划里的；没有的会话 404；
-// - 维护者（项目的、任务的）的会话里一样在加时间标记之前展开。
+// - 负责人（项目的、任务的）的会话里一样在加时间标记之前展开。
 import fs from "node:fs";
 import path from "node:path";
 import { CHANNELS, EVENT_TYPES, HTTP_PATHS, maintainerChannel, type SlashCommandList, type TaskEventPayload } from "@ergo/protocol";
@@ -145,7 +145,7 @@ describe("秘书：/目录名 直接展开 skill", () => {
   }, 60_000);
 });
 
-describe("维护者的会话", () => {
+describe("负责人的会话", () => {
   it("项目：候选里有 /流程、/任务 和这一段工具包里的 skill；用户打 /fancy-mode 在加时间标记之前展开；没有的会话 404", async () => {
     const dataDir = makeTempDir("ergo-data-");
     const homeDir = makeTempDir("ergo-home-");
@@ -190,7 +190,7 @@ describe("维护者的会话", () => {
     expect((await slashCommands(td.url, TM1)).body).toEqual({ commands: [] });
     await inputsDone(frontend, TM1);
     await confirmPlan(frontend, draft);
-    await eventually(() => repliesOf(frontend, TM1), (r) => r === "开始做", "维护者开始做");
+    await eventually(() => repliesOf(frontend, TM1), (r) => r === "开始做", "负责人开始做");
     // 执行时：计划里的 skill；任务的会话里没有 /流程 命令，同名的 skill 写 /流程
     expect((await slashCommands(td.url, TM1)).body).toEqual({
       commands: [
@@ -204,7 +204,7 @@ describe("维护者的会话", () => {
     const users = userTurns(await nthReply(frontend, TM1, 4));
     const [mpTdd, flow] = users.slice(-2) as [string, string];
     expect(mpTdd).toMatch(/^\[user\] \[[^\]]*\]\n<skill name="mp-tdd" location="[^"]*mp-tdd[\\/]SKILL\.md">/);
-    // 维护者会话里用户的话末尾带一行消息 id（125 号票：引用用户原话时照抄）
+    // 负责人会话里用户的话末尾带一行消息 id（125 号票：引用用户原话时照抄）
     expect(mpTdd).toMatch(/照着做。\n<\/skill>\n\n照着做\n\[用户消息 id：m-[^\]]+\]$/);
     // 和展开一致：同名的 skill 直接展开
     expect(flow).toMatch(/^\[user\] \[[^\]]*\]\n<skill name="流程" location="[^"]*流程[\\/]SKILL\.md">/);

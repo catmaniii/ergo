@@ -2,13 +2,13 @@
 // 每次变化是项目列表频道上的一条 project 事件（同一事务里还有它引起的别的事件）；状态迁移按共享协议包的
 // PROJECT_ACTION_RULES（projectActions 校验能不能做、projectActionTarget 给出到哪个状态），项目页上的入口也按它给出。
 //
-// 立项有三个入口，项目都以"筹备中"诞生、维护者随之产生：
+// 立项有三个入口，项目都以"筹备中"诞生、负责人随之产生：
 // - 秘书收口的"建议立项"卡上点"立项"（秘书自己建议的、用户在消息里明说的、用户点"新建项目"后秘书出的，都是这张卡）：
-//   新的维护者 pm-<n>，它的会话里放一条说明；用户进"和维护者交流"说话时才唤起它（maintainers.ts）；
-// - 任务转为项目（用户定项目名）：不新建维护者，原任务的维护者接着做立项问答（同一事务给它一条通知），
+//   新的负责人 pm-<n>，它的会话里放一条说明；用户进"和负责人交流"说话时才唤起它（maintainers.ts）；
+// - 任务转为项目（用户定项目名）：不新建负责人，原任务的负责人接着做立项问答（同一事务给它一条通知），
 //   原任务以"已完成 · 已转为项目"结束；
 // - 点"新建项目"本身不建项目：给秘书一条通知，它不经"是不是项目"的判断，直接出建议立项卡。
-// 立项问答之后维护者交出立项书（submitCharter）→ 立项书卡放进待我处理 → 用户"确认并开工"（项目转建设中，建出首个建设任务）
+// 立项问答之后负责人交出立项书（submitCharter）→ 立项书卡放进待我处理 → 用户"确认并开工"（项目转建设中，建出首个建设任务）
 // 或"只确认，稍后开工"（留在筹备中，标"立项书已确认"）；不管哪个，项目类型、外部工作目录绑定、工具包在确认时就生效。
 // 立项书确认之后不能再交：项目类型、外部路径绑定以后要改，归后续的票。
 // 建设任务做完（13 号票的任务完成回调 taskCompleted，daemon.ts 接上）：112 号票起（用户 2026-10-13 定：项目状态变更时找用户）
@@ -16,18 +16,18 @@
 // 交付件在哪），用户选转入使用（进入使用中）、继续建设（项目留在建设中，按用户写的一句话建出下一轮建设任务、派起草计划的工单）
 // 或放弃并归档（照项目页上的放弃）；不选就一直挂在待我处理里，项目停在建设中。项目页上放弃了的，没选的卡作废；
 // 放弃之后取消归档回到建设中的，再出一张（建设任务已经做完了，不出卡就永远停在建设中）。
-// 130 号票：维护者建设期间交了运营方案的（operations/），卡上带着它（buildDonePayload 取 pendingBuildPlan），主按钮是"确认并转入使用"：
+// 130 号票：负责人建设期间交了运营方案的（operations/），卡上带着它（buildDonePayload 取 pendingBuildPlan），主按钮是"确认并转入使用"：
 // 转入使用的同一事务里方案里每一条生效（建成项目的内部任务），项目上记下现在生效的运营方案（同一条 in_use 的 project 事件）。
 // 之后的任务、服务在不在线都不改项目状态。
 // 删除只能从已归档发起：先在待我处理里放一条二次确认，用户选"确认删除"才删（deletion.ts，ADR-0010）。
 // 16 号票：
-// - 只涉及一个项目的任务由这个项目的维护者执行：projectOf(task) 是"任务属于哪个项目"唯一的一处；
+// - 只涉及一个项目的任务由这个项目的负责人执行：projectOf(task) 是"任务属于哪个项目"唯一的一处；
 // - 项目还有正在做或排队的工单时不能归档（放弃、归档都被拒，说明先完成或取消哪几个任务）；
-// - 重置维护者（resetMaintainer）不改项目状态，不在状态机里；
+// - 重置负责人（resetMaintainer）不改项目状态，不在状态机里；
 // - 开发类项目用默认工作目录的，立项书确认时把工作目录初始化成 git 仓库（子 agent 并行要各用一个 git worktree）；
 // - 起草计划的工单段里进展文档经 writeProgress 写回（整份重写前留旧版本，同守卫接入的自动留旧版本）。
-// 27 号票：项目的工具包可以改（changeToolkit）：用户在项目页直接改、批准维护者提交的"工具包变更"卡、维护者自己增减 skill 或减少能力。
-// 每次改是一条 toolkit_changed 的 project 事件，维护者会话的时间线上记一笔；项目维护者模块据此按新工具包重新装配。
+// 27 号票：项目的工具包可以改（changeToolkit）：用户在项目页直接改、批准负责人提交的"工具包变更"卡、负责人自己增减 skill 或减少能力。
+// 每次改是一条 toolkit_changed 的 project 事件，负责人会话的时间线上记一笔；项目负责人模块据此按新工具包重新装配。
 // 258 号票（项目规范）：立项时项目记下建档用的规范模板版本（standardVersion），档案里的规格、进展、决策记录照模板生成；立项书确认成
 // 开发类时补上架构图、tickets/、ops.json（standard.ts）。项目规范的只读视图（standard）给 GET /api/projects/<id>/standard。
 // 261 号票（本项目的规范改写，standard-change.ts）：建档案、补文档时不要的那几份跳过；规范改写确认了（standard_changed）再对一遍档案，
@@ -35,9 +35,9 @@
 // 262 号票（现有项目补齐规范文档，standard-backfill.ts）：规范上线之前建的项目在"补齐规范文档"卡上选了补齐，项目列表频道上一条 standard_adopted
 // （记下现在的规范版本），这里据此按这一版的模板补上缺的几份（已有的不动）。
 // 259 号票（issue 19 第 3、8 条）：建设中 → 使用中只有一道门——用户在确认卡上确认（goLive）。用户在项目页点"转入使用"（act 的 go_live）、
-// 维护者用 propose_go_live 提、秘书照用户说的代办（requestGoLive），都只出确认卡："首版做完了"卡、"转入使用"卡（go_live）还在等的
+// 负责人用 propose_go_live 提、秘书照用户说的代办（requestGoLive），都只出确认卡："首版做完了"卡、"转入使用"卡（go_live）还在等的
 // 就用那一张（清单刷新），没有就出一张"转入使用"卡。卡上列建设中 → 使用中的检查清单（standard.ts 的 goLiveChecklist），没做到的
-// 照样能确认，确认时按那时的再算一遍、缺的写进卡上的决定和维护者会话里的那句说明。确认了，别的还在等的转入使用确认卡作废。
+// 照样能确认，确认时按那时的再算一遍、缺的写进卡上的决定和负责人会话里的那句说明。确认了，别的还在等的转入使用确认卡作废。
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -154,7 +154,7 @@ import { buildTaskNote, charterBuildText, kickoffNote, kickoffOpeningText, nextB
 import { SUBMIT_CHARTER_TOOL, SUGGEST_PROJECT_TOOL } from "./tool-names.ts";
 import { countProjects, getProjectRow, latestCharter, listProjects, projectNamed, projectOfMaintainer, standardOverrides } from "./views.ts";
 
-/** 维护者交出的立项书：工具包里没写的按默认补上（开发类带 bash） */
+/** 负责人交出的立项书：工具包里没写的按默认补上（开发类带 bash） */
 export interface CharterSubmission {
   charter: Charter;
   toolkit?: Partial<PlanToolkit>;
@@ -164,15 +164,15 @@ export interface ProjectService {
   get(projectId: string): Project | undefined;
   /** 没删掉的项目 */
   list(): Project[];
-  /** 某个维护者的项目（删掉的也认：deleted 为 true） */
+  /** 某个负责人的项目（删掉的也认：deleted 为 true） */
   ofMaintainer(maintainerId: string): { project: Project; deleted: boolean } | undefined;
-  /** 某个维护者维护的、没删掉的项目 */
+  /** 某个负责人维护的、没删掉的项目 */
   maintainedBy(maintainerId: string): Project | undefined;
-  /** 任务属于哪个项目（16 号票）：由这个项目的维护者执行的任务（只涉及一个项目的）；任务自己的维护者执行的、项目删掉了的没有 */
+  /** 任务属于哪个项目（16 号票）：由这个项目的负责人执行的任务（只涉及一个项目的）；任务自己的负责人执行的、项目删掉了的没有 */
   projectOf(task: Task): Project | undefined;
   /** 写回进展（起草计划的工单段，16 号票）：整份换成这些内容，旧版本先留进历史区 */
   writeProgress(projectId: string, text: string): void;
-  /** 重置维护者（项目页上，16 号票）：项目状态不变，维护者新开一段会话，只凭项目档案重建理解；已归档的不能 */
+  /** 重置负责人（项目页上，16 号票）：项目状态不变，负责人新开一段会话，只凭项目档案重建理解；已归档的不能 */
   resetMaintainer(projectId: string, idempotencyKey: string): ResetMaintainerResult;
   /** 项目档案各文件的位置 */
   records(projectId: string): ProjectRecordsPaths;
@@ -188,7 +188,7 @@ export interface ProjectService {
   /** 点"新建项目"：给秘书一条通知，它直接收口出建议立项卡（289 号票：选了运行时的，通知里写明，秘书照写在卡上） */
   newProject(params: NewProjectParams, idempotencyKey: string): NewProjectResult;
   /**
-   * 项目的维护者用的运行时、给它选的值改了（289 号票：⚙ 里换运行时换完了、改了选的值）：记一条 runtime_set（项目状态不变）。
+   * 项目的负责人用的运行时、给它选的值改了（289 号票：⚙ 里换运行时换完了、改了选的值）：记一条 runtime_set（项目状态不变）。
    * pi 不写，选的值是空的不写；本来就是这样的不另记。没有的、删掉的项目抛 RequestRejected
    */
   setRuntime(projectId: string, runtime: string | undefined, runtimeOptions: RuntimeChoice | undefined): Project;
@@ -200,9 +200,9 @@ export interface ProjectService {
   /** 开关自动播报的事件（快速动作用，和卡片同一事务）：本来就是这样的没有事件 */
   buildVoiceAnnounce(projectId: string, on: boolean, idempotencyKey?: string): { project: Project; events: NewEvent[] };
   /**
-   * 从运行时已有的会话接管成项目（290 号票，接管服务 takeover/ 叫）：不经秘书、直接建出（筹备中，origin takeover），维护者用这个运行时、
+   * 从运行时已有的会话接管成项目（290 号票，接管服务 takeover/ 叫）：不经秘书、直接建出（筹备中，origin takeover），负责人用这个运行时、
    * 接着那个会话，工作目录是会话原来的（外部路径，删项目时不删）；名字和已有的重了加序号。extra 给出和项目一起追加的事件（前情消息）。
-   * 不通知秘书、不自动开始：用户在项目的会话里说话时维护者才接着做。同一个幂等键重发拿到第一次建出的；运行时不能用的抛 RequestRejected
+   * 不通知秘书、不自动开始：用户在项目的会话里说话时负责人才接着做。同一个幂等键重发拿到第一次建出的；运行时不能用的抛 RequestRejected
    */
   takeOver(input: { name: string; goal: string; runtime: string; workdir: string; takeover: RuntimeTakeover }, idempotencyKey: string, extra: (project: Project) => NewEvent[]): Project;
   /**
@@ -212,7 +212,7 @@ export interface ProjectService {
   setTakeover(projectId: string, takeover: RuntimeTakeover): Project;
   /** 任务转为项目 */
   convertTask(params: ConvertTaskParams, idempotencyKey: string): ConvertTaskResult;
-  /** 维护者交出立项书（submit_charter 工具）：立项书卡放进待我处理；不让交时抛 RequestRejected，原因交回维护者 */
+  /** 负责人交出立项书（submit_charter 工具）：立项书卡放进待我处理；不让交时抛 RequestRejected，原因交回负责人 */
   /** fixedWorkdir：工作目录在立项之前就定在外面了（311 号票），立项书照它写成绑定了这个路径（交的绑不绑、哪条路径不算） */
   submitCharter(projectId: string, maintainerId: string, submission: CharterSubmission): { cardId: string; revision: number; toolkit: PlanToolkit; fixedWorkdir?: string };
   /** 立项书卡上的"确认并开工"（start）/"只确认，稍后开工"（later） */
@@ -232,12 +232,12 @@ export interface ProjectService {
   /** 项目页上的动作（259 号票：转入使用 go_live 只出确认卡，结果里是那张卡） */
   act(params: ProjectActionParams, idempotencyKey: string): ProjectActionResult;
   /**
-   * 建设中 → 使用中的检查清单（259 号票）：项目现在的样子；plan 不给就用维护者建设期间交的那份运营方案。没有这个项目的是空的
+   * 建设中 → 使用中的检查清单（259 号票）：项目现在的样子；plan 不给就用负责人建设期间交的那份运营方案。没有这个项目的是空的
    */
   goLiveChecklist(projectId: string, plan?: ChecklistPlan): GoLiveChecklistItem[];
   /**
-   * 要转入使用（259 号票）：用户在项目页点的（act 的 go_live）、维护者提的、秘书代办的，都只出确认卡——"首版做完了"卡、"转入使用"卡
-   * 还在等的就用那一张（卡上的清单刷新），没有就出一张"转入使用"卡（进待我处理，维护者会话里也有一张）。不是建设中的抛 RequestRejected
+   * 要转入使用（259 号票）：用户在项目页点的（act 的 go_live）、负责人提的、秘书代办的，都只出确认卡——"首版做完了"卡、"转入使用"卡
+   * 还在等的就用那一张（卡上的清单刷新），没有就出一张"转入使用"卡（进待我处理，负责人会话里也有一张）。不是建设中的抛 RequestRejected
    */
   requestGoLive(projectId: string, request: GoLiveRequest): GoLiveRequested;
   /**
@@ -255,17 +255,17 @@ export interface ProjectService {
   ): CardActionEffect<GoLiveCardPayload>;
   /**
    * 改项目的工具包（27 号票）：整个换成 toolkit（名字的合法性由调用方查过）。立项书确认之前没有工具包、已归档的项目，不能改。
-   * 和项目事件同一事务追加维护者会话时间线上的一笔和 events；没有改动时什么都不追加
+   * 和项目事件同一事务追加负责人会话时间线上的一笔和 events；没有改动时什么都不追加
    */
   changeToolkit(projectId: string, toolkit: PlanToolkit, change: ToolkitChange): ToolkitChanged;
   /** 同 changeToolkit，但不追加：给出要追加的事件（卡片动作和卡片更新同一事务追加） */
   buildToolkitChange(projectId: string, toolkit: PlanToolkit, change: ToolkitChange): ToolkitChanged & { events: NewEvent[] };
-  /** 往维护者会话发消息：项目维护者的会话给出所属的项目；已归档的只读、删掉的没有了（抛出原因）；不是项目的返回 undefined */
+  /** 往负责人会话发消息：项目负责人的会话给出所属的项目；已归档的只读、删掉的没有了（抛出原因）；不是项目的返回 undefined */
   conversationScope(conversation: ConversationId, taskId?: string): MessageScope | undefined;
   /** 发起任务时说的项目要在项目列表里（不在的抛 UnknownProjects）、没有归档：返回它们的编号 */
   checkTaskProjects(names: readonly string[]): string[];
   /**
-   * 项目内部任务（64 号票）在这个项目里能不能发起：项目要在项目列表里、立项书已确认、没归档；能的话给出名字和维护者，
+   * 项目内部任务（64 号票）在这个项目里能不能发起：项目要在项目列表里、立项书已确认、没归档；能的话给出名字和负责人，
    * 不能的抛 RequestRejected 说明原因（还在立项的："项目「X」还在立项，确认立项书后再发起"）。
    * firstBuild：项目的首个建设任务，它在确认立项书的那一刻建出，不要立项书已确认（项目还没建过首个建设任务的才算）
    */
@@ -306,16 +306,16 @@ export interface ProjectServiceOptions {
   tasks: TaskService;
   /** 删除项目时改写属于它的事件："删除参与方"登记表（279 号票：拥有属于项目的事件的模块各自登记，deletion.ts） */
   deletion: Pick<DeletionParticipants, "plan">;
-  /** 删除项目时先停维护者（项目维护者模块，建在项目模块之后，删除时现取；127 号票起直接给它，不再一样样转手） */
+  /** 删除项目时先停负责人（项目负责人模块，建在项目模块之后，删除时现取；127 号票起直接给它，不再一样样转手） */
   maintainers: () => MaintainerSuspension;
   /**
-   * 派单器（16 号票，建在项目模块之后，用到时现取；127 号票起直接给它，不再一样样转手）：首个建设任务派一张起草计划的工单给项目的维护者
-   * （dispatchPlan）；重置维护者（reset）；维护者会话里的消息属于当前这一段（scopeOf：项目，做工单时还有任务）；项目还没结束的工单
+   * 派单器（16 号票，建在项目模块之后，用到时现取；127 号票起直接给它，不再一样样转手）：首个建设任务派一张起草计划的工单给项目的负责人
+   * （dispatchPlan）；重置负责人（reset）；负责人会话里的消息属于当前这一段（scopeOf：项目，做工单时还有任务）；项目还没结束的工单
    * （openOf：有就不能归档）
    */
   workOrders?: () => ProjectWorkOrders;
   /**
-   * 运营方案（130 号票，运营方案模块建在项目模块之后，用到时现取）："首版做完了"卡上带的维护者建设期间交的那一份（pendingBuildPlan）、
+   * 运营方案（130 号票，运营方案模块建在项目模块之后，用到时现取）："首版做完了"卡上带的负责人建设期间交的那一份（pendingBuildPlan）、
    * 卡上确认并转入使用时方案里每一条生效（putInUse）。不给就没有运营方案（卡照 112 号票）
    */
   operations?: () => Pick<Operations, "pendingBuildPlan" | "putInUse">;
@@ -325,7 +325,7 @@ export interface ProjectServiceOptions {
    * 和转入使用同一事务）。不给就只查最基本的几样、不登记。280 号票起是运营层交的（经它的入口 project-ops/api.ts）
    */
   projectOps?: () => Pick<OpsGoLive, "checklistItem" | "goLiveEvents">;
-  /** 立项后叫醒维护者先开口（362 号票）：默认开；测试的假模型剧本不想多一轮时关 */
+  /** 立项后叫醒负责人先开口（362 号票）：默认开；测试的假模型剧本不想多一轮时关 */
   kickoffOpening?: boolean;
   /** 点"新建项目"时选的运行时现在能不能用（289 号票）：不能用的原因，能用是 undefined；不给就不查 */
   runtimeRefusal?: (runtime: string) => string | undefined;
@@ -340,7 +340,7 @@ export interface ProjectServiceOptions {
   log: (line: string) => void;
 }
 
-/** 要转入使用（259 号票）：谁发起的、为什么（维护者、秘书写的；用户自己点的没有）、幂等键 */
+/** 要转入使用（259 号票）：谁发起的、为什么（负责人、秘书写的；用户自己点的没有）、幂等键 */
 export interface GoLiveRequest {
   by: GoLiveBy;
   why?: string;
@@ -358,7 +358,7 @@ export interface GoLiveRequested {
 /** 工具包怎么改的（27 号票）：谁改的、为什么（时间线上的那一笔）、同一事务追加的别的事件 */
 export interface ToolkitChange {
   by: TaskActor;
-  /** 时间线上那一笔的说法开头："你在项目页改了工具包"、"维护者加了 skill" */
+  /** 时间线上那一笔的说法开头："你在项目页改了工具包"、"负责人加了 skill" */
   why: string;
   idempotencyKey?: string;
   events?: NewEvent[];
@@ -375,7 +375,7 @@ export interface ToolkitChanged {
 /** 秘书收到的通知：用户点"新建项目"了，直接出建议立项卡（289 号票：选了运行时的写明，卡上照写；305 号票：选了文件夹的也写明） */
 function newProjectNotice(text: string, runtime: string | undefined, folder: WorkFolderChoice | undefined): string {
   // @i18n-ignore-next model
-  const choose = runtime === undefined ? "" : `用户选了维护者用的运行时 ${runtime}：出卡时 runtime 写 ${runtime}。`;
+  const choose = runtime === undefined ? "" : `用户选了负责人用的运行时 ${runtime}：出卡时 runtime 写 ${runtime}。`;
   const where =
     runtime === undefined || folder === undefined
       ? ""
@@ -385,7 +385,7 @@ function newProjectNotice(text: string, runtime: string | undefined, folder: Wor
           ? ""
           : `用户要在默认文件夹下新开一个叫 ${JSON.stringify(folder.name)} 的子文件夹：出卡时 folderName 原样写它。`; // @i18n-ignore model
   // @i18n-ignore-next model
-  return `用户点「新建项目」要立项：${text}\n不用判断这是不是项目：直接用 ${SUGGEST_PROJECT_TOOL} 出一张建议立项卡（名字、一句话目标；用户写的路径、限制原样抄进 userWords），用户点“立项”后项目就诞生，维护者接着和用户做立项问答。${choose}${where}`;
+  return `用户点「新建项目」要立项：${text}\n不用判断这是不是项目：直接用 ${SUGGEST_PROJECT_TOOL} 出一张建议立项卡（名字、一句话目标；用户写的路径、限制原样抄进 userWords），用户点“立项”后项目就诞生，负责人接着和用户做立项问答。${choose}${where}`;
 }
 
 const projectEvent = (project: Project, change: ProjectChange, from: ProjectState | null, by: TaskActor): NewEvent => {
@@ -393,7 +393,7 @@ const projectEvent = (project: Project, change: ProjectChange, from: ProjectStat
   return { channel: CHANNELS.projects, type: EVENT_TYPES.project, payload };
 };
 
-/** 维护者会话里的一条说明（给用户看，不交给维护者处理） */
+/** 负责人会话里的一条说明（给用户看，不交给负责人处理） */
 const maintainerNote = (project: Project, text: string, key: string): NewEvent =>
   buildMessage({ conversation: maintainerChannel(project.maintainerId), speaker: "system", parts: [{ type: "text", text }] }, { projectId: project.id, idempotencyKey: key }).event;
 
@@ -406,7 +406,7 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
   const deleting = new Set<string>();
   const pending = new Set<Promise<void>>();
 
-  // 只读的那几样（按编号、按维护者、按任务、按名字找，项目档案在哪）在项目列表的只读视图里（278 号票：任务模块建在项目系统之前也能用）
+  // 只读的那几样（按编号、按负责人、按任务、按名字找，项目档案在哪）在项目列表的只读视图里（278 号票：任务模块建在项目系统之前也能用）
   const directory = createProjectDirectory({ store, projectsDir: options.projectsDir });
   const { records, maintainedBy } = directory;
 
@@ -469,9 +469,9 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
   const patched = (project: Project, patch: Partial<Project>): Project => ({ ...project, ...patch, updatedAt: now() });
 
   /**
-   * 首个建设任务（规划中，这个项目的内部任务，由项目的维护者执行，64 号票）；要做到什么程度看项目档案里的立项书。
+   * 首个建设任务（规划中，这个项目的内部任务，由项目的负责人执行，64 号票）；要做到什么程度看项目档案里的立项书。
    * 它在确认立项书的那一刻建出（这时项目列表里还没记下确认）：项目内部任务要立项书已确认，只有它例外（origin 是 project_build）。
-   * 16 号票：同一事务派一张起草计划的工单给项目的维护者（维护者正忙时排队）。
+   * 16 号票：同一事务派一张起草计划的工单给项目的负责人（负责人正忙时排队）。
    * 112 号票：用户在"首版做完了"卡上选继续建设时建出下一轮（next：第几轮、用户写的那句话、上一轮做完的那张卡），任务书照那句话写
    */
   const buildTask = (project: Project, key: string, next?: { round: number; request: string; previous: BuildDoneCardPayload }): { task: Task; events: NewEvent[] } => {
@@ -528,7 +528,7 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
         participants: options.deletion,
         maintainers: options.maintainers(),
         records,
-        // 运营方案（130 号票）里维护者写的文字不跟着留在删除的那一条里
+        // 运营方案（130 号票）里负责人写的文字不跟着留在删除的那一条里
         deletedEvent: ({ operations: _operations, ...project }) => projectEvent(patched(project, {}), "deleted", "archived", "user"),
         now,
         log,
@@ -552,7 +552,7 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
   /** 还在等的转入使用确认卡（259 号票）："首版做完了"卡、"转入使用"卡 */
   const pendingGoLive = (projectId: string) => pendingCardsOf(projectId, ["build_done", "go_live"]);
 
-  /** 要随转入使用生效的那份运营方案：维护者建设期间交的、还没确认的（130 号票） */
+  /** 要随转入使用生效的那份运营方案：负责人建设期间交的、还没确认的（130 号票） */
   const goLivePlan = (projectId: string): OperationsPlanView | undefined => options.operations?.().pendingBuildPlan(projectId);
 
   /** 建设中 → 使用中的检查清单（259 号票，standard.ts）：按本项目的规范改写（261 号票：不要的那份对应的项不列） */
@@ -602,7 +602,7 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
         deliverables: [...(confirmedPlan?.stages.find((p) => p.stageId === s.stageId)?.deliverables ?? [])],
       })),
       workdir: projectWorkdir(records(project.id), project),
-      // 维护者建设期间交的运营方案（130 号票）：卡上多一节"转入使用后会开起来的"
+      // 负责人建设期间交的运营方案（130 号票）：卡上多一节"转入使用后会开起来的"
       ...withOperations(plan),
       // 转运营检查清单（259 号票）：没做到的照样能转入使用，卡上写明差什么
       checklist: checklistOf(project, plan),
@@ -612,7 +612,7 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
 
   /**
    * 出一张"首版做完了"卡的事件（112 号票）：卡片（带幂等键 key）、待我处理里的一项（来源是项目，不卡任务；不是项目内部的事项，
-   * 秘书列待办时看得到卡上写的）、维护者会话里的一张（"去项目 ›"定位得到）。提交之后要 inbox.alert 那一项
+   * 秘书列待办时看得到卡上写的）、负责人会话里的一张（"去项目 ›"定位得到）。提交之后要 inbox.alert 那一项
    */
   const buildDoneEvents = (project: Project, task: Task, key: string): { events: NewEvent[]; item: InboxItem } => {
     const payload = buildDonePayload(project, task);
@@ -748,7 +748,7 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
 
   /**
    * 转入使用（259 号票）：建设中 → 使用中唯一的一道门，只从确认卡上的确认走到这里（"首版做完了"卡、"转入使用"卡）。
-   * 项目进入使用中；卡上带着运营方案的，方案里每一条一起生效（130 号票）；确认时按那时的再算一遍检查清单，缺的写进维护者会话里的
+   * 项目进入使用中；卡上带着运营方案的，方案里每一条一起生效（130 号票）；确认时按那时的再算一遍检查清单，缺的写进负责人会话里的
    * 那句说明（也交回给卡记进决定）；别的还在等的转入使用确认卡作废
    */
   const goLive = (
@@ -818,7 +818,7 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
       origin: { projectId: project.id },
       urgency: "non_blocking",
     });
-    // 维护者会话里也有一张、一句说明（维护者自己提的：它的工具产生的卡本来就在它的会话里）
+    // 负责人会话里也有一张、一句说明（负责人自己提的：它的工具产生的卡本来就在它的会话里）
     const inMaintainerChat =
       request.by === "maintainer"
         ? []
@@ -857,7 +857,7 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
         ...(payload.runtime === undefined ? {} : { runtime: payload.runtime }),
         ...(workdir === undefined ? {} : { workdir }),
       });
-      // 362 号票：立项后叫醒维护者先开口（这条是交给它的通知，排进它的输入队列、开一个对话段），用户的原话原样带上；不叫醒的（kickoffOpening 关着）只放一条说明
+      // 362 号票：立项后叫醒负责人先开口（这条是交给它的通知，排进它的输入队列、开一个对话段），用户的原话原样带上；不叫醒的（kickoffOpening 关着）只放一条说明
       const note =
         options.kickoffOpening === false
           ? maintainerNote(project, kickoffNote(project), `${idempotencyKey}#note`)
@@ -865,7 +865,7 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
       const notice = buildAgentNotice(
         CHANNELS.secretary,
         // @i18n-ignore-next model：交给秘书的通知
-        `用户在建议立项卡上点了「立项」：项目 ${project.id}「${project.name}」已诞生（筹备中），维护者 ${project.maintainerId} 会先开口，在它的会话里和用户做立项问答（项目页上的“和维护者交流”）。立项问答不归你，不用转述。`,
+        `用户在建议立项卡上点了「立项」：项目 ${project.id}「${project.name}」已诞生（筹备中），负责人 ${project.maintainerId} 会先开口，在它的会话里和用户做立项问答（项目页上的“和负责人交流”）。立项问答不归你，不用转述。`,
         `${idempotencyKey}#notice`,
       );
       return {
@@ -960,10 +960,10 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
       const project = newProject({ name: params.name, goal, origin: "task", maintainerId: task.maintainerId, fromTaskId: task.id });
       const notice = buildAgentNotice(
         maintainerChannel(project.maintainerId),
-        // @i18n-ignore-start model：交给维护者的通知
+        // @i18n-ignore-start model：交给负责人的通知
         [
           `任务 ${task.id}「${task.title}」已由用户转为项目 ${project.id}「${project.name}」（筹备中），原任务以“已完成 · 已转为项目”结束。`,
-          `你现在是这个项目的维护者：接着和用户做立项问答（一次问一两个问题），把规格、术语表、决策记录写进项目档案（${records(project.id).root}），`,
+          `你现在是这个项目的负责人：接着和用户做立项问答（一次问一两个问题），把规格、术语表、决策记录写进项目档案（${records(project.id).root}），`,
           `问清范围、目标、首版要做到什么程度、项目类型（开发类还是其他）、要不要把工作目录绑定到一个外部路径之后，用 ${SUBMIT_CHARTER_TOOL} 交出立项书和你提议的工具包。`,
         ].join("\n"),
         // @i18n-ignore-end
@@ -976,13 +976,13 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
 
     submitCharter(projectId, maintainerId, submission) {
       const project = mustGet(projectId);
-      // @i18n-ignore-start model：交立项书的工具交回维护者的原因
-      if (project.maintainerId !== maintainerId) throw new RequestRejected("not_allowed", `项目 ${projectId} 不是你维护的，只有它的维护者能交立项书`);
+      // @i18n-ignore-start model：交立项书的工具交回负责人的原因
+      if (project.maintainerId !== maintainerId) throw new RequestRejected("not_allowed", `项目 ${projectId} 不是你维护的，只有它的负责人能交立项书`);
       if (project.state !== "preparing") throw new RequestRejected("not_allowed", `项目「${project.name}」现在是${forModel(() => PROJECT_STATE_LABEL[project.state])}，只有筹备中的项目能交立项书`);
       if (project.charterConfirmed) throw new RequestRejected("not_allowed", `项目「${project.name}」的立项书已经确认了，不能再交`);
       const { charter } = submission;
       // 311 号票：工作目录在立项之前就定在外面了（305 号票新建时选的文件夹、290 号票接管来的会话原来的；确认时不改它）——立项书照它写成
-      // 绑定了那个外部路径（charterForWorkdir），交的绑不绑、哪条路径不算；不限开发类（文件夹是用户新建时定的，不是维护者提议绑定）
+      // 绑定了那个外部路径（charterForWorkdir），交的绑不绑、哪条路径不算；不限开发类（文件夹是用户新建时定的，不是负责人提议绑定）
       const fixedWorkdir = project.workdir.external ? project.workdir.path : undefined;
       if (fixedWorkdir === undefined && charter.bindExternal && charter.kind !== "dev") throw new RequestRejected("bad_params", "只有开发类项目能把工作目录绑定到外部路径");
       // @i18n-ignore-end
@@ -1217,7 +1217,7 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
       if (project.state !== "building") throw new RequestRejected("conflict", t("projects.goLive.cardStale", { name: project.name, state: PROJECT_STATE_LABEL[project.state] }));
       const chose = t("projects.build.chose", { title: goLiveTitle(payload), choice: choice === "put_in_use" && payload.operations ? OPERATIONS_PUT_IN_USE_LABEL : GO_LIVE_CHOICE_LABEL[choice] });
       if (choice === "dismiss") {
-        // 先不转：项目留在建设中；维护者提的告诉它一声（唤起它：用户没同意，接着建设或者补齐清单）
+        // 先不转：项目留在建设中；负责人提的告诉它一声（唤起它：用户没同意，接着建设或者补齐清单）
         const comment = note?.trim();
         return {
           status: "handled",
@@ -1328,9 +1328,9 @@ function missingItemsText(items: readonly GoLiveChecklistItem[]): string {
   return items.map((i) => (i.detail ? t("projects.goLive.missingItem", { label: i.label, detail: i.detail }) : i.label)).join(t("pages.common.listSep"));
 }
 
-/** 维护者提的转入使用，用户选了先不转：告诉维护者（交给它处理） */
+/** 负责人提的转入使用，用户选了先不转：告诉负责人（交给它处理） */
 function goLiveDismissedNotice(project: Project, comment: string | undefined): string {
-  // @i18n-ignore-next model：交给维护者的通知
+  // @i18n-ignore-next model：交给负责人的通知
   return `用户在“转入使用”确认卡上选了先不转${comment ? `，说：“${comment}”` : ""}：项目「${project.name}」留在建设中。接着建设、把检查清单缺的补齐，等用户说可以了再提。`;
 }
 

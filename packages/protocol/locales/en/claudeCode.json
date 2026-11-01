@@ -1,6 +1,6 @@
 {
   "claudeCode.plugin.title": "Claude Code",
-  "claudeCode.plugin.summary": "Lets project and task maintainers run their sessions in Claude Code on this computer, with your own Claude Code setup (CLAUDE.md, skills, MCP, hooks) and the subscription you're signed in with",
+  "claudeCode.plugin.summary": "Lets project and task owners run their sessions in Claude Code on this computer, with your own Claude Code setup (CLAUDE.md, skills, MCP, hooks) and the subscription you're signed in with",
   "claudeCode.plugin.sdkMissing": "The Claude Code Agent SDK ({package}) isn't installed: it's under Anthropic's own license and doesn't ship with ergo. To use Claude Code, run {command} in ergo's program folder {dir}, then come back here and click Turn on (it uses your own Claude Code login and subscription)",
   "claudeCode.plugin.sdkMissingComponent": "The Claude Code Agent SDK ({package}) isn't installed: it's under Anthropic's own license and doesn't ship with ergo. To use Claude Code, install \"Claude Code integration\" under Settings · Components (downloaded from the official npm registry; or run ergo components add {component} in a terminal), then come back here and click Turn on (it uses your own Claude Code login and subscription)",
   "claudeCode.runtime.title": "Claude Code",

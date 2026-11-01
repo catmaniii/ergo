@@ -1,14 +1,14 @@
-// 主切面：偏离和阈值（规格第 8 节"阈值""偏离的逐级升级"，14 号票）。真的守护进程，维护者接 faux 剧本，测试扮演前端。
+// 主切面：偏离和阈值（规格第 8 节"阈值""偏离的逐级升级"，14 号票）。真的守护进程，负责人接 faux 剧本，测试扮演前端。
 // - 拉回满 3 次后再犯、验收退回 2 次第 3 次还不过：这一支停下、任务转等我（卡住求助），待我处理出现卡住求助事项；
 //   用户回话（或点"继续执行"）后这一支接着走，计数清零；
 // - 每个阶段按 token（账本里这个阶段干活用掉的）加工具调用次数累计用量：打开预算控制（93 号票起默认关，配置 tasks.thresholds.budgetControl）时
-//   用量超过预算让维护者说明进展（任务状态不变），超过预算的 2 倍转等我（超预算）；超预算只有点"追加预算继续"才接着执行，会话里回话只交给维护者回答；
+//   用量超过预算让负责人说明进展（任务状态不变），超过预算的 2 倍转等我（超预算）；超预算只有点"追加预算继续"才接着执行，会话里回话只交给负责人回答；
 //   关着时超了预算什么都不做（用量照旧记），已经停在超预算的任务照旧能追加预算继续；
 //   361 号票的（token 怎么算、预算怎么算、停下放行什么、过期通知）在 budget-real-models.test.ts；
 // - 偏离：授权内的放行只在时间线记一笔；超出授权的先问用户；没预料到的类别先问用户并马上暂停这一支；
 //   同一任务累计被用户拒绝 5 次，整个任务转已暂停，看板写明原因。
 // 这一支停下、催促、说明进展、累计被拒暂停都在任务的时间线上记一笔偏离（timeline_record，带着阶段）。
-// 只涉及一个项目的任务由项目的维护者执行（16 号票）：预算一样算，超了一样转等我。
+// 只涉及一个项目的任务由项目的负责人执行（16 号票）：预算一样算，超了一样转等我。
 // 无进展的催促和授权项的续期要拨时钟，在 stall-renewal.test.ts；计划变更在 plan-change.test.ts。
 import fs from "node:fs";
 import path from "node:path";
@@ -70,7 +70,7 @@ function grantPlan(outside: string, overrides: Partial<Plan> = {}): Plan {
 const mkdir = (dir: string) => call("bash", { command: `mkdir -p "${fwd(dir)}"` });
 
 describe("拉回超限", () => {
-  it("用到别的阶段的授权被拉回：前 3 次只交回维护者，满 3 次后再犯，这一支停下、任务转等我（卡住求助），待我处理出现卡住求助；用户回话后接着执行，计数清零", async () => {
+  it("用到别的阶段的授权被拉回：前 3 次只交回负责人，满 3 次后再犯，这一支停下、任务转等我（卡住求助），待我处理出现卡住求助；用户回话后接着执行，计数清零", async () => {
     const outside = real(makeTempDir("ergo-out-"));
     const td = await startTestDaemon({
       maintainer: maintainerScript(grantPlan(outside), [
@@ -105,7 +105,7 @@ describe("拉回超限", () => {
     const calls = await eventually(() => [toolCallsOf(frontend, M1).filter((c) => c.tool === "bash" && c.blockedBy !== undefined)], (cs) => cs.length === 4, "4 次被拉回的调用");
     expect(calls.map((c) => c.blockedBy)).toEqual(["pull_back", "pull_back", "pull_back", "pull_back"]);
     expect(fs.existsSync(path.join(outside, "s2"))).toBe(false);
-    // 维护者收到"这一支停下"的通知；时间线上记一笔偏离（属于 s1）
+    // 负责人收到"这一支停下"的通知；时间线上记一笔偏离（属于 s1）
     await eventually(() => noticesOf(frontend, M1), (m) => textOf(m).includes("这一支停下等用户"), "停下的通知");
     const deviation = recordsOf(frontend, M1).find((r) => r.record.kind === "deviation");
     expect(deviation).toMatchObject({ taskId, stageId: "s1", record: { summary: expect.stringContaining("被拉回（按规则退回）3 次后又被拉回") } });
@@ -124,7 +124,7 @@ describe("拉回超限", () => {
 });
 
 describe("验收第 3 次还不过", () => {
-  it("前 2 次退回只交回维护者；第 3 次还不过，这一支停下、任务转等我（卡住求助），待我处理出现事项；点\"继续执行\"后这一支接着走、退回次数清零", async () => {
+  it("前 2 次退回只交回负责人；第 3 次还不过，这一支停下、任务转等我（卡住求助），待我处理出现事项；点\"继续执行\"后这一支接着走、退回次数清零", async () => {
     const td = await startTestDaemon({
       maintainer: maintainerScript(twoStagePlan(), [completeStage("s1"), completeStage("s1"), completeStage("s1"), say("三次都没过"), say("等你"), write("sources.md", "- 来源\n"), completeStage("s1"), say("过了")]),
     });
@@ -146,7 +146,7 @@ describe("验收第 3 次还不过", () => {
     const help = await itemWhere(frontend, (i) => i.kind === "notice" && i.notice === "stuck_help");
     expect(help.kind === "notice" && help.body).toContain("验收退回 2 次后");
 
-    // 在待我处理里点"继续执行"：这一支接着走，退回次数清零；维护者改好再宣布完成，通过
+    // 在待我处理里点"继续执行"：这一支接着走，退回次数清零；负责人改好再宣布完成，通过
     ok(await frontend.inboxAction({ itemIds: [help.id], action: "handle", choice: "继续执行" }));
     const unblocked = await taskWhere(frontend, (e) => e.change === "stage_unblocked" && e.stageId === "s1");
     expect(unblocked.task.stages?.list?.[0]?.returns).toBeUndefined();
@@ -167,7 +167,7 @@ const BUDGET_ON = { tasks: { thresholds: { budgetControl: true } } };
 const tiny = (step: FauxStep): FauxStep => (step.kind === "reply" ? { ...step, usage: { cacheHit: 0, cacheMiss: 10, output: 5 } } : step);
 
 describe("预算（打开预算控制）", () => {
-  it("工具调用次数超出预算：让维护者说明进展（一条通知进它的会话，任务状态不变）；超出 2 倍这一支停下、任务转等我（超预算），待我处理出现事项；点\"追加预算继续\"后再给一份预算", async () => {
+  it("工具调用次数超出预算：让负责人说明进展（一条通知进它的会话，任务状态不变）；超出 2 倍这一支停下、任务转等我（超预算），待我处理出现事项；点\"追加预算继续\"后再给一份预算", async () => {
     const base = twoStagePlan();
     const plan: Plan = { ...base, stages: [{ ...base.stages[0]!, budget: { tokens: 0, toolCalls: 2 } }, base.stages[1]!] };
     const td = await startTestDaemon({
@@ -195,7 +195,7 @@ describe("预算（打开预算控制）", () => {
     const explain = await eventually(() => noticesOf(frontend, M1), (m) => textOf(m).includes("用量已经超过预算"), "说明进展的通知");
     expect(textOf(explain)).toMatch(/预算 \d+ token、2 次/);
     expect(textOf(explain)).toContain("用量超过预算的 2 倍时运行时会让这一支停下");
-    expect(recordsOf(frontend, M1).find((r) => r.record.summary.includes("让维护者说明进展"))).toMatchObject({ stageId: "s1", record: { kind: "deviation" } });
+    expect(recordsOf(frontend, M1).find((r) => r.record.summary.includes("让负责人说明进展"))).toMatchObject({ stageId: "s1", record: { kind: "deviation" } });
     const card = await cardWhere(frontend, (c) => c.type === "progress" && (c.payload as ProgressCardPayload).kind === "progress", "进度卡");
     expect(card.payload).toMatchObject({ text: "资料找了一半，还要两三步" });
 
@@ -223,7 +223,7 @@ describe("预算（打开预算控制）", () => {
     saveOrCheckRecording("task-over-budget", frontend.recording, { perChannel: true });
   }, 90_000);
 
-  it("超预算的任务在会话里收到用户的话：交给维护者回答，任务仍是等我（超预算）、预算没重给；点\"追加预算继续\"后才接着执行、重新给一整份预算", async () => {
+  it("超预算的任务在会话里收到用户的话：交给负责人回答，任务仍是等我（超预算）、预算没重给；点\"追加预算继续\"后才接着执行、重新给一整份预算", async () => {
     const base = twoStagePlan();
     const plan: Plan = { ...base, stages: [{ ...base.stages[0]!, budget: { tokens: 0, toolCalls: 1 } }, base.stages[1]!] };
     const td = await startTestDaemon({
@@ -253,7 +253,7 @@ describe("预算（打开预算控制）", () => {
     const usedCalls = td.daemon.tasks.stageUsage(taskId, "s1").toolCalls;
     expect(usedCalls).toBe(3);
 
-    // 用户在会话里问一句：维护者照常回答，任务仍是等我（超预算），预算没重给，超预算事项还在等处理
+    // 用户在会话里问一句：负责人照常回答，任务仍是等我（超预算），预算没重给，超预算事项还在等处理
     const turns = frontend.events({ channel: M1, type: EVENT_TYPES.turnEnd }).length;
     await frontend.sendText("为什么超了？", { conversation: M1 });
     await turnsOf(frontend, M1, turns + 1);
@@ -277,7 +277,7 @@ describe("预算（打开预算控制）", () => {
     await inputsDone(frontend, M1);
   }, 90_000);
 
-  it("项目的维护者执行的任务（16 号票）：工具调用超出预算的 2 倍，这一支停下、任务转等我（超预算），停下的通知进项目维护者的会话（带着项目和任务）；点\"追加预算继续\"后接着执行", async () => {
+  it("项目的负责人执行的任务（16 号票）：工具调用超出预算的 2 倍，这一支停下、任务转等我（超预算），停下的通知进项目负责人的会话（带着项目和任务）；点\"追加预算继续\"后接着执行", async () => {
     const PM1 = maintainerChannel("pm-1");
     const base = twoStagePlan();
     const plan: Plan = { ...base, stages: [{ ...base.stages[0]!, budget: { tokens: 0, toolCalls: 1 } }, base.stages[1]!] };
@@ -299,7 +299,7 @@ describe("预算（打开预算控制）", () => {
     const created = await taskWhere(frontend, (e) => e.change === "created" && e.task.title === "项目里的调研", "建好的任务");
     const taskId = created.task.id;
     td.daemon.tasks.writeBrief(taskId, { goal: "整理一份 X 的调研", acceptanceCriteria: ["附来源"], constraints: [], projects: ["记账本"], memoryScope: "" }, byMaintainer(td.daemon, taskId));
-    // 由项目的维护者执行（不新建任务自己的维护者）
+    // 由项目的负责人执行（不新建任务自己的负责人）
     expect(td.daemon.tasks.get(taskId)).toMatchObject({ maintainerId: "pm-1" });
     const card = await cardWhere(frontend, (c) => c.type === "plan" && (c.payload as { taskId?: string }).taskId === taskId, "计划卡");
     await inputsDone(frontend, PM1);
@@ -311,10 +311,10 @@ describe("预算（打开预算控制）", () => {
     const item = await itemWhere(frontend, (i) => i.kind === "notice" && i.notice === "over_budget");
     expect(item).toMatchObject({ urgency: "blocking", actions: ["追加预算继续"], data: { taskId, stageIds: ["s1"] } });
     expect(item.kind === "notice" && item.body).toMatch(/用了 \d+ token、3 次工具调用（预算 \d+ token、1 次），超过预算的 2 倍/);
-    // 说明进展的通知进了项目维护者的会话，带着项目和任务、阶段；停下了不再叫醒它（361 号票）
+    // 说明进展的通知进了项目负责人的会话，带着项目和任务、阶段；停下了不再叫醒它（361 号票）
     const explain = await eventually(() => noticesOf(frontend, PM1), (m) => textOf(m).includes("用量已经超过预算"), "说明进展的通知");
     expect(explain).toMatchObject({ projectId: "p-1", taskId, stageId: "s1" });
-    // 停下之后的调用被拒（361 号票，项目的维护者也一样）
+    // 停下之后的调用被拒（361 号票，项目的负责人也一样）
     await eventually(() => toolCallsOf(frontend, PM1), (c) => c.blockedBy === "over_budget", "被拒的调用");
     expect(recordsOf(frontend, PM1).find((r) => r.record.kind === "deviation" && r.record.summary.includes("超预算"))).toMatchObject({ taskId, stageId: "s1" });
     await inputsDone(frontend, PM1);
@@ -342,7 +342,7 @@ describe("预算（打开预算控制）", () => {
 });
 
 describe("预算（默认不管，93 号票）", () => {
-  it("超了预算的好几倍：不让维护者说明进展、不停下、不转等我，阶段照常验收；用量照旧记在预算账上", async () => {
+  it("超了预算的好几倍：不让负责人说明进展、不停下、不转等我，阶段照常验收；用量照旧记在预算账上", async () => {
     const base = twoStagePlan();
     const plan: Plan = { ...base, stages: [{ ...base.stages[0]!, budget: { tokens: 0, toolCalls: 1 } }, base.stages[1]!] };
     const td = await startTestDaemon({
@@ -456,7 +456,7 @@ describe("偏离的逐级升级", () => {
     const outside = real(makeTempDir("ergo-out-"));
     const plan = grantPlan(outside);
     const td = await startTestDaemon({
-      // 先做一次授权内的（只在时间线记一笔），再五次超出授权。第 5 次被拒时任务转已暂停、中止维护者手头这一轮，被拒之后的那次模型调用
+      // 先做一次授权内的（只在时间线记一笔），再五次超出授权。第 5 次被拒时任务转已暂停、中止负责人手头这一轮，被拒之后的那次模型调用
       // 和中止谁先到子进程每次不一样（满载时常是中止先到），有三种结果：调用做完、回复落盘；调用做到一半被中止，用掉了剧本的一步、
       // 回复不落盘；还没调用就被中止，剧本的这一步留给继续之后的那次调用。三种都照样记一次账。
       // 让这两次调用都什么也不说（空回复不落盘），不管用掉的是剧本的哪一步，录下的事件流都一样
@@ -474,7 +474,7 @@ describe("偏离的逐级升级", () => {
     expect(paused).toMatchObject({ by: "system", task: { state: "paused", pauseReason: "too_many_rejections", rejections: 5 } });
     expect(recordsOf(frontend, M1).some((r) => r.record.kind === "deviation" && r.record.summary.includes("累计拒绝了 5 次"))).toBe(true);
 
-    // 暂停时维护者手头这一轮（被拒后的那次模型调用）先收尾，再继续（录下的事件流每次一样）
+    // 暂停时负责人手头这一轮（被拒后的那次模型调用）先收尾，再继续（录下的事件流每次一样）
     await inputsDone(frontend, M1);
     ok(await frontend.taskAction({ taskId, action: "resume" }));
     const resumed = await taskWhere(frontend, (e) => e.change === "resumed" && e.from === "paused");

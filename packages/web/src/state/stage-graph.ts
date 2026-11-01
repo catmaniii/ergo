@@ -1,7 +1,7 @@
 // 长程任务的依赖图（91 号票，用户 2026-10-11："项目的多个阶段有可能是并行的"）：
 // 阶段号和编号、分层、整张图和小图、画哪一份计划、横向阶段条，写成纯函数；界面（ui/conversation/StageGraph.tsx）只管画。
 // - 第几阶段 = 最长那条前置链的长度（没有前置的是第 1 阶段），同号的就是并行的；同一阶段有几个时按计划里的先后编 4a、4b、4c
-//   （stageCodes：编号形如 4a，阶段 id 是维护者起的 s1、s2，编号现算）。图、阶段标签、聊天里的阶段框、
+//   （stageCodes：编号形如 4a，阶段 id 是负责人起的 s1、s2，编号现算）。图、阶段标签、聊天里的阶段框、
 //   阶段条写"第 4 阶段"（只写阶段号），阶段详情、待办、时间线这些说的是某一个阶段的地方写"第 4a 阶段"；
 // - 图：自上而下分层、同一层按计划里的先后并排居中，线从上游底边的中点连到下游顶边的中点（三次贝塞尔，下端留 3px 箭头位）；
 //   节点大小按栏的宽高算（fillNodeSize），放不下时整张图缩小到栏宽（fillScale），栏里能上下滑时字不缩小；
@@ -209,7 +209,7 @@ export function railColumns(nodes: readonly StageGraphNode[]): StageGraphNode[][
 
 /**
  * 左栏、抽屉里画的那份计划：kind 是 live（现在生效的）、plan（计划卡等你确认）、change（计划变更等你确认）；
- * cardId 是等你确认的那张卡；current 是维护者正在做的那一阶段
+ * cardId 是等你确认的那张卡；current 是负责人正在做的那一阶段
  */
 export interface StageGraph {
   readonly kind: "live" | "plan" | "change";
@@ -345,7 +345,7 @@ export function planCardStageGraph(state: UiState, cardId: string | undefined): 
 }
 
 /**
- * 长程任务的左栏、抽屉里画什么；不是长程任务、还没有计划的没有。items 是这个任务的维护者会话
+ * 长程任务的左栏、抽屉里画什么；不是长程任务、还没有计划的没有。items 是这个任务的负责人会话
  * （整段，算每个阶段出过的状况）
  */
 export function taskStageGraph(state: UiState, taskId: string, items: readonly ChatItem[]): StageGraph | undefined {

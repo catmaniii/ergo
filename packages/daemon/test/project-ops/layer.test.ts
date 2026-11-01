@@ -2,7 +2,7 @@
 // 不起守护进程、不接 LSM。看三件事：
 // - 装配时只经宿主现成的登记口登记（就是插件宿主给插件的 ctx 里那几样）：服务入口卡、运营手段"服务"；上线了的服务的 /apps 转发经转发登记口，
 //   不再拿整张转发登记表；
-// - 交出去的小接口：秘书的工具先后照原来、查看板那一节、维护者的 check_ops、网关订阅时补推的服务；
+// - 交出去的小接口：秘书的工具先后照原来、查看板那一节、负责人的 check_ops、网关订阅时补推的服务；
 // - project_ops 自己声明参数要打码，聊天里的工具调用摘要按登记擦，结果和原来按名字认时一样。
 // 走项目系统的组装函数的在 test/projects/system.test.ts（运营手段的整张先后），走组合根的整条路在主切面（test/main/project-ops.test.ts、
 // operation-services.test.ts 等）。
@@ -79,10 +79,10 @@ function opsLayer() {
     projects: { get: (projectId) => (projectId === project.id ? project : undefined), list: () => [project], records: () => records, workdir: () => workdir },
     pendingPlan: () => undefined,
     scheduledJobs: unexpected("触发底座"),
-    tellMaintainer: unexpected("跟维护者说一句"),
-    delegate: unexpected("转给维护者当工单"),
+    tellMaintainer: unexpected("跟负责人说一句"),
+    delegate: unexpected("转给负责人当工单"),
     isTemplate: () => false,
-    notifyMaintainer: unexpected("通知维护者"),
+    notifyMaintainer: unexpected("通知负责人"),
     onChecked: () => {},
     notifications: {
       publish: (frame) => {
@@ -134,7 +134,7 @@ describe("运营层照插件的纪律写（280）", () => {
     expect(logs.filter((line) => line.includes("出错"))).toEqual([]);
   });
 
-  it("交出去的小接口：秘书的工具先后照原来；project_ops 自己声明参数要打码，聊天里的摘要按登记擦、和原来按名字认时一样；维护者的 check_ops", () => {
+  it("交出去的小接口：秘书的工具先后照原来；project_ops 自己声明参数要打码，聊天里的摘要按登记擦、和原来按名字认时一样；负责人的 check_ops", () => {
     const { ops } = opsLayer();
     const tools = ops.secretary.tools();
     expect(tools.map((tool) => tool.spec.name)).toEqual([OPEN_SERVICE_TOOL, SWITCH_SERVICES_TOOL, PROJECT_OPS_TOOL]);
@@ -146,7 +146,7 @@ describe("运营层照插件的纪律写（280）", () => {
     expect(summary).not.toContain("abc-123-xyz");
     expect(summary).toContain("家用");
     expect(summary).toBe(summarizeArgs(BUILTIN_TOOL_REGISTRY, PROJECT_OPS_TOOL, maskSecretArgValues(args)));
-    // 没有服务时查看板不多那一节；维护者的 check_ops 绑在它的项目上
+    // 没有服务时查看板不多那一节；负责人的 check_ops 绑在它的项目上
     expect(ops.secretary.boardSection()).toBeUndefined();
     expect(ops.checkTool({ projectId: "p-1", maintainerId: "pm-1" }).spec.name).toBe(CHECK_OPS_TOOL);
     expect(ops.servicesFrame()).toMatchObject({ payload: { services: [] } });

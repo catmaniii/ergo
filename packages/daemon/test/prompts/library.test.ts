@@ -79,19 +79,19 @@ describe("用户改的放在数据目录，有就用用户的", () => {
     expect(secretarySystemPrompt(prompts, "小美")).toBe(before);
   });
 
-  it("改了共用的片段，插它的几份都跟着变（长程任务的维护者、项目的维护者）", () => {
+  it("改了共用的片段，插它的几份都跟着变（长程任务的负责人、项目的负责人）", () => {
     const { prompts, write } = library();
     write("plan-writing", "计划写短一点，用 {{submit_plan}} 交。");
     expect(taskMaintainerSystemPrompt(prompts, DEFAULT_TASK_THRESHOLDS)).toContain("\n计划写短一点，用 submit_plan 交。\n执行：");
     expect(projectMaintainerSystemPrompt(prompts, project, { root: "D:\\p" } as never, "D:\\w", DEFAULT_TASK_THRESHOLDS)).toContain("\n计划写短一点，用 submit_plan 交。\n执行：");
-    expect(prompts.list().prompts.find((p) => p.id === "plan-writing")).toMatchObject({ group: "fragment", state: "custom", usedIn: ["长程任务的维护者", "项目的维护者"] });
+    expect(prompts.list().prompts.find((p) => p.id === "plan-writing")).toMatchObject({ group: "fragment", state: "custom", usedIn: ["长程任务的负责人", "项目的负责人"] });
   });
 
   it("前缀加在每个 agent 的系统提示最前面（空行隔开），默认是空的、原样返回", () => {
     const { prompts, write } = library();
-    expect(prompts.withPrefix("你是维护者。")).toBe("你是维护者。");
+    expect(prompts.withPrefix("你是负责人。")).toBe("你是负责人。");
     write("prefix", "\uFEFF我住在新加坡，回答用简体中文。\r\n\r\n");
-    expect(prompts.withPrefix("你是维护者。")).toBe("我住在新加坡，回答用简体中文。\n\n你是维护者。");
+    expect(prompts.withPrefix("你是负责人。")).toBe("我住在新加坡，回答用简体中文。\n\n你是负责人。");
   });
 
   it("运行中直接把文件改坏了：这次装配用默认的，记一行日志（同样的内容只记一次），列表上标有错", () => {
@@ -162,13 +162,13 @@ describe("启动时查一遍", () => {
 
   it("只在某个条件成立时才有值的写在条件外面：启动报错、设置页存不进去，说清第几行、哪个占位符、在什么情况下会缺", () => {
     const { prompts, userDir, write } = library();
-    const moved = "你是项目「{{项目名}}」的维护者。\n{{项目类型}}项目。\n{{#立项书已确认}}立项书已确认。{{/立项书已确认}}";
+    const moved = "你是项目「{{项目名}}」的负责人。\n{{项目类型}}项目。\n{{#立项书已确认}}立项书已确认。{{/立项书已确认}}";
     const why = "第 2 行：{{项目类型}} 在条件“立项书已确认”不成立时没有值，要写在 {{#立项书已确认}}……{{/立项书已确认}} 里面";
     expect(rejection(() => prompts.save("project-maintainer", moved))).toContain(why);
     expect(rejection(() => prompts.save("project-maintainer", moved.replace("{{#立项书已确认}}立项书已确认。{{/立项书已确认}}", "{{^立项书已确认}}{{项目类型}}{{/立项书已确认}}")))).toContain(why);
     write("project-maintainer", moved);
     expect(() => prompts.check()).toThrow(`${path.join(userDir, "project-maintainer.md")} 有错（改好，或者删掉它恢复默认）：\n${why}`);
-    // 运行中直接改成这样的：筹备中的项目照样拉得起维护者（用默认的）
+    // 运行中直接改成这样的：筹备中的项目照样拉得起负责人（用默认的）
     const preparing = { ...(project as object), state: "preparing", charterConfirmed: false, kind: undefined };
     expect(projectMaintainerSystemPrompt(prompts, preparing as never, { root: "D:/data/projects/p-1" } as never, "D:/data/projects/p-1/workdir", DEFAULT_TASK_THRESHOLDS)).toBe(
       projectMaintainerSystemPrompt(defaultPromptLibrary(), preparing as never, { root: "D:/data/projects/p-1" } as never, "D:/data/projects/p-1/workdir", DEFAULT_TASK_THRESHOLDS),
@@ -284,7 +284,7 @@ describe("插件贡献的条件、占位符、片段（128 号票）", () => {
     expect(on).toContain("然后同样问“要我念给你听吗？”");
     const off = secretarySystemPrompt(withVoice(false), "二狗");
     expect(off).not.toMatch(/send_voice|念给你听|自动播报/);
-    // 少的只是包在条件里的那几句：任务做完说一声、部分完成、维护者来信转告照旧
+    // 少的只是包在条件里的那几句：任务做完说一声、部分完成、负责人来信转告照旧
     expect(off).toContain("用一两句话说哪个任务做完了、结果大概是什么。定时、事件触发的任务有一次运行");
     expect(off).toContain("项目内部的任务和作业做完没有这条通知。\n");
     expect(off).toContain("不要追问、也不要去翻。\n");
@@ -307,7 +307,7 @@ describe("插件贡献的条件、占位符、片段（128 号票）", () => {
 describe("设置页：看、保存、恢复默认", () => {
   it("列表：前缀、各角色、共用片段，各自用的是默认的还是改过的", () => {
     const { prompts, userDir, write } = library();
-    write("job-maintainer", "你是定时作业的维护者，失败 {{连续失败几次暂停}} 次暂停。");
+    write("job-maintainer", "你是定时作业的负责人，失败 {{连续失败几次暂停}} 次暂停。");
     const list = prompts.list();
     expect(list.userDir).toBe(userDir);
     // 插件的片段（128 号票：提醒插件的 reminders）排在内核的后面

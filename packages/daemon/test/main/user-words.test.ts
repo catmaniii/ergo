@@ -1,9 +1,9 @@
-// 主切面：运行时作证，用户的原话由守护进程核实（125 号票；方案"用户授权的效力"第 2 节第一层）。真的守护进程，秘书、维护者、
-// 评审都接 faux 剧本。维护者从用户消息末尾那一行"[用户消息 id：…]"抄出 id（faux 的 call_with_matches 在用户消息里找），
+// 主切面：运行时作证，用户的原话由守护进程核实（125 号票；方案"用户授权的效力"第 2 节第一层）。真的守护进程，秘书、负责人、
+// 评审都接 faux 剧本。负责人从用户消息末尾那一行"[用户消息 id：…]"抄出 id（faux 的 call_with_matches 在用户消息里找），
 // 评审剧本按它的输入里有没有核实过的原话、新标准判（faux 的 branch_on_context）：
 // - 宣布阶段完成时引用的消息逐条核对：运行时的通知、不存在的、别的会话里的退回（写明哪一条、为什么），交付件里写"用户已同意"不算数；
 //   核实过的原话进评审输入单独一栏，评审据此通过"由用户认可"的标准，阶段上记着它（原文、会话、设备）；
-// - 秘书转达的话带着用户在秘书那里那句话的 id，维护者引用转达的那句等于引用原话；计划变更卡附原话、也出在秘书会话里，
+// - 秘书转达的话带着用户在秘书那里那句话的 id，负责人引用转达的那句等于引用原话；计划变更卡附原话、也出在秘书会话里，
 //   确认后评审拿到新标准；
 // - 从这里重做时直接改这一阶段的验收标准和交付件：不出卡，点重做就生效（计划换一版），时间线记前后对照，评审拿到新标准；
 // - 立项书确认之后的立项要求变更：卡上逐条对照、附原话；确认后改写立项书（末尾记变更记录），拒绝的不变。
@@ -52,7 +52,7 @@ const PM1 = maintainerChannel("pm-1");
 
 /** 消息 id 的样子（m-<uuid>） */
 const MESSAGE_ID = "m-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
-/** 维护者从最近一条用户消息末尾抄出 id，调用工具（参数 userWords） */
+/** 负责人从最近一条用户消息末尾抄出 id，调用工具（参数 userWords） */
 const citing = (name: string, args: Record<string, unknown>): FauxStep => ({ kind: "call_with_matches", from: "user", pattern: MESSAGE_ID, argument: "userWords", toolCall: { name, arguments: args as never } });
 const ECHO: FauxStep = { kind: "echo_context" };
 /** 评审：输入里这几段都在就判通过，否则不通过（只有一条标准） */
@@ -107,7 +107,7 @@ describe("宣布阶段完成时引用用户原话（125 号票）", () => {
     const plan = weeklyPlan("周报样张的内容与可读性用户认可");
     let td: TestDaemon | undefined;
     let secretaryWords = "";
-    // 维护者会话里第一条运行时的通知（任务书）
+    // 负责人会话里第一条运行时的通知（任务书）
     const noticeId = () => listMessages(td!.daemon.store.reader, M1).find((m) => m.speaker === "system")!.id;
     td = await startTestDaemon({
       secretary: [say("好的")],
@@ -129,7 +129,7 @@ describe("宣布阶段完成时引用用户原话（125 号票）", () => {
     const taskId = await confirmTask(td, frontend, "周报样张");
 
     // 第一次：三条都退回（写明哪一条、为什么）；评审的输入里那一栏是"没有"，交付件里的"用户已同意"不算数 → 没通过
-    const echoed = await eventually(() => messagesOf(frontend, M1).filter((m) => m.message.speaker === "agent"), (m) => textOf(m).includes("[toolResult] complete_stage"), "维护者看到的验收结果");
+    const echoed = await eventually(() => messagesOf(frontend, M1).filter((m) => m.message.speaker === "agent"), (m) => textOf(m).includes("[toolResult] complete_stage"), "负责人看到的验收结果");
     const result = textOf(echoed).slice(textOf(echoed).lastIndexOf("[toolResult] complete_stage"));
     expect(result).toContain("这几条用户原话没核实过，没算进去：");
     expect(result).toContain(`${noticeId()}（这是运行时的通知，不是用户说的）`);
@@ -138,7 +138,7 @@ describe("宣布阶段完成时引用用户原话（125 号票）", () => {
     expect(result).toContain("验收没通过");
     expect(stageOf(frontend, taskId)?.userWords).toBeUndefined();
 
-    // 用户在任务的会话里说了：维护者引用这一句再交，评审的输入里有核实过的原话 → 通过
+    // 用户在任务的会话里说了：负责人引用这一句再交，评审的输入里有核实过的原话 → 通过
     const said = await frontend.sendText("周报样张我看过了，内容和可读性我认可", { conversation: M1, taskId });
     await taskWhere(frontend, (e) => e.change === "completed", "任务完成");
     const accepted = stageOf(frontend, taskId)!;
@@ -157,7 +157,7 @@ describe("宣布阶段完成时引用用户原话（125 号票）", () => {
 });
 
 describe("计划变更卡出在用户说话的会话里（125 号票）", () => {
-  it("秘书转达的话带着用户在秘书那里那句话的 id：维护者引用它提计划变更，卡上附原话（经秘书转达）、也出在秘书会话里；确认后评审拿到新标准", async () => {
+  it("秘书转达的话带着用户在秘书那里那句话的 id：负责人引用它提计划变更，卡上附原话（经秘书转达）、也出在秘书会话里；确认后评审拿到新标准", async () => {
     const plan = weeklyPlan("周报覆盖完整一周（W42）");
     const relaxed = { ...plan.stages[0]!, acceptance: [{ criterion: "周报覆盖到今天就行（不用等满一周）", method: "review" as const }] };
     const td = await startTestDaemon({
@@ -186,7 +186,7 @@ describe("计划变更卡出在用户说话的会话里（125 号票）", () => 
     const relayed = await eventually(() => messagesOf(frontend, M1), (m) => m.message.relayedBy === "secretary", "转达进去的那句");
     expect(relayed.message.relayOf).toBe(said.messageId);
 
-    // 计划变更卡：附核实过的原话（用户在秘书那里的原话，经秘书转达），卡也出在秘书会话里、照旧进待办；维护者会话里本来就有
+    // 计划变更卡：附核实过的原话（用户在秘书那里的原话，经秘书转达），卡也出在秘书会话里、照旧进待办；负责人会话里本来就有
     const card = await cardWhere(frontend, (c) => c.type === "plan_change", "计划变更卡");
     const payload = card.payload as PlanChangeCardPayload;
     expect(payload.userWords).toEqual([
@@ -202,7 +202,7 @@ describe("计划变更卡出在用户说话的会话里（125 号票）", () => 
       },
     ]);
     const cardIn = (channel: string) => messagesOf(frontend, channel).some((m) => m.message.parts.some((p) => p.type === "card_ref" && p.cardId === card.id));
-    await waitUntil(() => cardIn(SECRETARY) && cardIn(M1), { describe: () => "秘书会话、维护者会话里的计划变更卡" });
+    await waitUntil(() => cardIn(SECRETARY) && cardIn(M1), { describe: () => "秘书会话、负责人会话里的计划变更卡" });
     const inSecretary = messagesOf(frontend, SECRETARY).find((m) => m.message.parts.some((p) => p.type === "card_ref" && p.cardId === card.id))!;
     expect(inSecretary.message.speaker).toBe("system");
     expect(inSecretary.agentInput).toBeUndefined();
@@ -218,7 +218,7 @@ describe("计划变更卡出在用户说话的会话里（125 号票）", () => 
 });
 
 describe("从这里重做时直接改验收标准（125 号票）", () => {
-  it("改这一阶段的验收标准和交付件：不出卡、点重做就生效（计划换一版，看板上推现在生效的计划），时间线记前后对照，维护者收到改了什么，评审拿到新标准", async () => {
+  it("改这一阶段的验收标准和交付件：不出卡、点重做就生效（计划换一版，看板上推现在生效的计划），时间线记前后对照，负责人收到改了什么，评审拿到新标准", async () => {
     const plan = weeklyPlan("周报覆盖完整一周（W42）");
     const td = await startTestDaemon({
       maintainer: maintainerScript(plan, (spawn) =>
@@ -256,7 +256,7 @@ describe("从这里重做时直接改验收标准（125 号票）", () => {
     expect(record.detail).toBe(
       ["验收标准改前：", "1. 周报覆盖完整一周（W42）", "验收标准改后：", "1. 周报覆盖到今天就行（不用等满一周）", "交付件改前：", "1. 周报样张 weekly.md", "交付件改后：", "1. 周报样张 weekly.md", "2. 说明 notes.md"].join("\n"),
     );
-    // 维护者收到的重做通知写明改了什么
+    // 负责人收到的重做通知写明改了什么
     const notice = noticesOf(frontend, M1).find((m) => textOf(m).includes("用户从阶段 s1"))!;
     expect(textOf(notice)).toContain("用户在重做时直接改了阶段 s1「周报样张」（这就是用户的确认，计划已换成第 2 版");
     expect(textOf(notice)).toContain("1. 周报覆盖到今天就行（不用等满一周）");
@@ -265,7 +265,7 @@ describe("从这里重做时直接改验收标准（125 号票）", () => {
 });
 
 describe("立项要求变更（125 号票）", () => {
-  it("立项书确认之后维护者引用用户的话提出：卡上逐条对照新旧、附原话、进待办；确认后改写立项书（末尾记变更记录），范围审视按改过的对照；拒绝的不变；立项书确认之前没有这个工具", async () => {
+  it("立项书确认之后负责人引用用户的话提出：卡上逐条对照新旧、附原话、进待办；确认后改写立项书（末尾记变更记录），范围审视按改过的对照；拒绝的不变；立项书确认之前没有这个工具", async () => {
     const charter = { goal: "每天出一份 AI 情报", scope: ["抓取公开来源", "不做付费内容"], firstVersion: "能出一份覆盖完整一周的周报样张", kind: "other", bindExternal: false };
     const hostTools: string[][] = [];
     const td = await startTestDaemon({
@@ -297,14 +297,14 @@ describe("立项要求变更（125 号票）", () => {
     const project = td.daemon.projects.list()[0]!;
     await waitUntil(() => td.daemon.charterChanges.current(project.id) !== undefined, { describe: () => "立项书确认" });
 
-    // 用户在维护者会话里说要改首版：维护者引用这句提出，卡上逐条对照、附核实过的原话
+    // 用户在负责人会话里说要改首版：负责人引用这句提出，卡上逐条对照、附核实过的原话
     const said = await frontend.sendText("首版不用等满一周，覆盖到今天就行", { conversation: PM1 });
     const card = await cardWhere(frontend, (c) => c.type === "charter_change", "立项要求变更卡");
     const payload = card.payload as CharterChangeCardPayload;
     expect(payload).toMatchObject({ projectId: project.id, projectName: "AI 简报站", revision: 1, why: "用户说首版不用等满一周" });
     expect(payload.changes).toEqual([{ field: "firstVersion", before: "能出一份覆盖完整一周的周报样张", after: "能出一份覆盖到今天的周报样张（不用等满一周）" }]);
     expect(payload.userWords).toEqual([
-      { messageId: said.messageId, text: "首版不用等满一周，覆盖到今天就行", conversation: PM1, where: "项目「AI 简报站」的维护者会话", time: expect.any(String), device: "本机" },
+      { messageId: said.messageId, text: "首版不用等满一周，覆盖到今天就行", conversation: PM1, where: "项目「AI 简报站」的负责人会话", time: expect.any(String), device: "本机" },
     ]);
     // 立项书确认之前没有这个工具，之后有
     expect(hostTools[0]).not.toContain("propose_charter_change");
@@ -312,7 +312,7 @@ describe("立项要求变更（125 号票）", () => {
     await itemWhere(frontend, (i) => i.kind === "card" && i.cardId === card.id && i.origin?.projectId === project.id, "待办里的立项要求变更卡");
     await waitUntil(() => messagesOf(frontend, PM1).some((m) => m.message.parts.some((p) => p.type === "card_ref" && p.cardId === card.id)), { describe: () => "会话里的立项要求变更卡" });
 
-    // 确认：立项书改写，末尾记变更记录；范围审视的对照物按改过的；维护者收到通知，时间线上记一笔
+    // 确认：立项书改写，末尾记变更记录；范围审视的对照物按改过的；负责人收到通知，时间线上记一笔
     await inputsDone(frontend, PM1);
     ok(await frontend.cardAction({ cardId: card.id, action: "confirm", expectedVersion: card.version }));
     await eventually(() => frontend.events({ channel: PROJECTS, type: EVENT_TYPES.project }).map((f) => f.payload as ProjectEventPayload), (e) => e.change === "charter_changed", "立项书改了");

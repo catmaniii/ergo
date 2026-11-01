@@ -1,21 +1,21 @@
-// agent 运行时的登记表（286 号票，ADR-0027 的"运行时"贡献点）：维护者用哪个运行时跑它的会话。
+// agent 运行时的登记表（286 号票，ADR-0027 的"运行时"贡献点）：负责人用哪个运行时跑它的会话。
 // - 一个运行时（AgentRuntime）：id、给人看的名字、子进程入口（实现宿主协议的脚本，守护进程用 process.execPath 拉起，每个会话一个，
 //   ADR-0002、ADR-0004）、能力清单（共享协议包 RUNTIME_OPERATIONS 每一项能不能做）、可选模型和设置项、（可选）列本机能接管的会话。
 // - 内核自带的 pi 由组合根照同一个接口登记（piRuntime：不是插件、不能停用）；插件的在数据契约里登记（plugins/host.ts 的
-//   ContractContext.runtimes）：不管插件开没开都登记——维护者记着的运行时在插件停用时也认得、写得出"X插件没启用"；
+//   ContractContext.runtimes）：不管插件开没开都登记——负责人记着的运行时在插件停用时也认得、写得出"X插件没启用"；
 //   能不能用跟着插件在不在运行（RuntimeOwner.running）。
-// - 用它的：agent 管家拉起维护者时按它解析子进程入口（resolve：不能用的抛"X插件没启用"）；运行时闸门（agent-host/runtime-gate.ts）
-//   按它判维护者能不能启动、执行中的任务要不要转等我；网页经 GET /api/runtimes 拿到全部（view）。
+// - 用它的：agent 管家拉起负责人时按它解析子进程入口（resolve：不能用的抛"X插件没启用"）；运行时闸门（agent-host/runtime-gate.ts）
+//   按它判负责人能不能启动、执行中的任务要不要转等我；网页经 GET /api/runtimes 拿到全部（view）。
 // - 能不能用变了（插件运行中停用、启用）由组合根在插件宿主的状况变了时叫 changed()，订阅的跟着看一眼。
 // - 289 号票：有自己的模型、斜杠命令的运行时（Claude Code）在子进程起来时报回它们（宿主协议 runtime_catalog），agent 管家交给
-//   noteCatalog 记下（只在内存里）：view() 的模型列表以报回的为准（还没报过用运行时自己给的 models()）；斜杠命令按维护者记
-//   （commandsOf：这个维护者最近报的，它还没跑过时用这个运行时最近报的）。
+//   noteCatalog 记下（只在内存里）：view() 的模型列表以报回的为准（还没报过用运行时自己给的 models()）；斜杠命令按负责人记
+//   （commandsOf：这个负责人最近报的，它还没跑过时用这个运行时最近报的）。
 // - 290 号票（接管已有会话）：能接管的运行时（能力清单 take_over）要给四个函数——列本机的会话（sessions：标题、工作目录、分支、
 //   最近活动、大小，正被别处占着的写明）、核对一个会话现在有没有被别处占着（sessionBusy：接管、收回前再看一次）、分叉一份
 //   （forkSession：被占着的"分叉一份接管"）、读主线最近一段（sessionHistory：前情，大会话只读尾部）。登记表经同名的方法转给接管服务
 //   （takeover/），先核对运行时能用、能接管。二狗自己的写入锁（哪个任务、项目在管）不在这里，在接管服务里。
 // - 292 号票（交给官方 App、再收回来）：能力清单 remote_control 的运行时要给 remoteControl（开 / 唤醒运行时自己的后台会话连上官方 App、
-//   拿链接、停掉、只读跟随读新内容）和 currentSession（维护者现在接着的是哪个会话：看会话目录里运行时自己记的）。登记表经 remoteControl()、
+//   拿链接、停掉、只读跟随读新内容）和 currentSession（负责人现在接着的是哪个会话：看会话目录里运行时自己记的）。登记表经 remoteControl()、
 //   currentSession() 转给接管服务，先核对运行时能用、能交；"现在在哪边"记在任务、项目上（接管服务管）。
 // 宿主协议不分运行时：pi 的子进程和插件的子进程收同一条"启动"、说同一套消息（ADR-0004），所以守护进程、网页都不用知道下面是谁。
 import type { RuntimeCatalogReport } from "./host-protocol.ts";
@@ -26,7 +26,7 @@ import { PI_CHILD_ENTRY } from "./agent-process.ts";
 
 /** 一个 agent 运行时（插件在数据契约里登记的、内核自带的 pi 都是这个形状） */
 export interface AgentRuntime {
-  /** 运行时的 id：小写英文、数字和连字符（维护者的运行时属性 Task.runtime、Project.runtime 里写的就是它），定了别改；pi 是 "pi" */
+  /** 运行时的 id：小写英文、数字和连字符（负责人的运行时属性 Task.runtime、Project.runtime 里写的就是它），定了别改；pi 是 "pi" */
   readonly id: string;
   /** 给人看的名字（写成取值函数 get title()，跟着当前语言） */
   readonly title: string;
@@ -51,7 +51,7 @@ export interface AgentRuntime {
   sessionHistory?(sessionId: string, cwd: string): Promise<RuntimeHistory>;
   /**
    * 新建时能选工作文件夹（305 号票，Claude Code 是 true、pi 没有）：新建它的任务、项目时多"在哪个文件夹做"，设置里能定新建时的
-   * 默认文件夹（work-folders/）；选定的文件夹就是维护者的工作目录
+   * 默认文件夹（work-folders/）；选定的文件夹就是负责人的工作目录
    */
   readonly workFolder?: true;
   /**
@@ -62,7 +62,7 @@ export interface AgentRuntime {
   readonly recordedScopeReview?: true;
   /**
    * 运行时自带、二狗没装配的工具在守卫工具登记表里的登记（288 号票：Claude Code 的 TodoWrite、Agent、Skill、AskUserQuestion……，来源是 runtime）。
-   * 用这个运行时的维护者的会话：守卫的登记表加上它们、工具包标上 runtimeTools（这些和没登记的不按工具白名单硬拒绝，没登记的照未登记的写操作判）。
+   * 用这个运行时的负责人的会话：守卫的登记表加上它们、工具包标上 runtimeTools（这些和没登记的不按工具白名单硬拒绝，没登记的照未登记的写操作判）。
    * 能对上二狗工具的（Claude 的 Bash、Read……）由子进程在 guard_request 里映射过去，不在这里。pi 没有
    */
   readonly guardTools?: readonly ToolDescriptor[];
@@ -84,7 +84,7 @@ export interface AgentRuntime {
   /** 交给官方 App 接着、再收回来（能力清单 remote_control 是 true 的要给，292 号票），见 RuntimeRemoteControl */
   remoteControl?: RuntimeRemoteControl;
   /**
-   * 维护者现在接着的运行时会话（remote_control 要给，292 号票）：看维护者会话目录里运行时自己记的（最近用的那个）——二狗自己开的会话交给官方 App
+   * 负责人现在接着的运行时会话（remote_control 要给，292 号票）：看负责人会话目录里运行时自己记的（最近用的那个）——二狗自己开的会话交给官方 App
    * 时按它，接管来的中途换过会话 id（/clear）的也按它。会话 id、开始时的工作目录；还没开始（运行时那边还没有这个会话）是 undefined
    */
   currentSession?(sessionDir: string): { sessionId: string; cwd: string } | undefined;
@@ -123,7 +123,7 @@ export interface RuntimeFollow {
 }
 
 /**
- * 接管时读到的会话主线最近一段（290 号票，前情）：运行时自己的记录翻成二狗的样子，接管服务据此在维护者的会话里记成前情消息。
+ * 接管时读到的会话主线最近一段（290 号票，前情）：运行时自己的记录翻成二狗的样子，接管服务据此在负责人的会话里记成前情消息。
  * 按先后：用户说的一句、它的一条回复（文字、思考、工具调用：工具名照二狗守卫的登记表映射过的，结果只留摘要）、压缩过的标记。
  * truncated：更早的还有（留在运行时自己的记录里）
  */
@@ -178,7 +178,7 @@ export interface RuntimeRegistry {
   get(id: string): AgentRuntime | undefined;
   /** 这个运行时现在不能用的原因；能用是 undefined。不认得的 id（登记它的插件不在清单里了）也算不能用 */
   unavailable(id: string): RuntimeUnavailable | undefined;
-  /** 拉起维护者时用：能用就交回运行时，不能用抛 RequestRejected（not_allowed，给人看的原因） */
+  /** 拉起负责人时用：能用就交回运行时，不能用抛 RequestRejected（not_allowed，给人看的原因） */
   resolve(id: string): AgentRuntime;
   /** 能不能做某项会话操作（不认得的 id 当不能；插件停用了照它登记的说，能不能用另看 unavailable） */
   supports(id: string, operation: RuntimeOperation): boolean;
@@ -192,7 +192,7 @@ export interface RuntimeRegistry {
   sessionHistory(id: string, sessionId: string, cwd: string): Promise<RuntimeHistory>;
   /** 交给官方 App 用的那几样（292 号票）：不能用、不能交的抛 RequestRejected（not_allowed，给人看的原因） */
   remoteControl(id: string): RuntimeRemoteControl;
-  /** 维护者现在接着的运行时会话（292 号票）：同上核对；还没开始是 undefined */
+  /** 负责人现在接着的运行时会话（292 号票）：同上核对；还没开始是 undefined */
   currentSession(id: string, sessionDir: string): { sessionId: string; cwd: string } | undefined;
   /** 给网页的：pi 在最前，插件的按登记的先后（停用了的插件的也在，available 是 false） */
   view(): RuntimesView;
@@ -201,11 +201,11 @@ export interface RuntimeRegistry {
   /** 订阅"能不能用变了"；返回取消订阅 */
   onChange(listener: () => void): () => void;
   /**
-   * 记下运行时的子进程报回的模型列表、斜杠命令（289 号票，宿主协议 runtime_catalog）：模型按运行时记（view 用它），命令按维护者记，
+   * 记下运行时的子进程报回的模型列表、斜杠命令（289 号票，宿主协议 runtime_catalog）：模型按运行时记（view 用它），命令按负责人记，
    * 也记成这个运行时最近报的
    */
   noteCatalog(runtimeId: string, agentId: string, catalog: Omit<RuntimeCatalogReport, "type">): void;
-  /** 这个维护者能用的运行时斜杠命令（289 号票）：它最近报的；它还没跑过时是这个运行时最近报的；都没有是 undefined */
+  /** 这个负责人能用的运行时斜杠命令（289 号票）：它最近报的；它还没跑过时是这个运行时最近报的；都没有是 undefined */
   commandsOf(runtimeId: string, agentId: string): RuntimeCatalogReport["commands"];
 }
 
@@ -247,7 +247,7 @@ export function createRuntimeRegistry(options: {
 }): RuntimeRegistry {
   const entries: Array<{ runtime: AgentRuntime; owner: RuntimeOwner | undefined }> = [];
   const listeners = new Set<() => void>();
-  /** 子进程报回的（289 号票）：运行时 → 模型列表、最近报的命令；维护者 → 它的命令 */
+  /** 子进程报回的（289 号票）：运行时 → 模型列表、最近报的命令；负责人 → 它的命令 */
   const catalogs = new Map<string, { models?: RuntimeModelView[]; commands?: RuntimeCatalogReport["commands"] }>();
   const agentCommands = new Map<string, { runtime: string; commands: NonNullable<RuntimeCatalogReport["commands"]> }>();
   const find = (id: string) => entries.find((e) => e.runtime.id === id);

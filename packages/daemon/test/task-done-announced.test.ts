@@ -72,17 +72,17 @@ describe("开着、关着的不并在一条里", () => {
 });
 
 describe("语音插件没在运行（214 号票）", () => {
-  test("任务做完、维护者来信的通知只用文字说一声，不问要不要念、不提发语音；开着时照旧问", () => {
+  test("任务做完、负责人来信的通知只用文字说一声，不问要不要念、不提发语音；开着时照旧问", () => {
     const off = { text: "普通任务 t-2「周报」在后台做完了。", announce: false };
     const quiet = taskDoneNoticeText([off], false);
     expect(quiet).toContain("在主线里主动跟用户说一声：用一两句话说这件做完了、结果大概是什么。");
     expect(quiet).not.toContain("念给你听");
     expect(quiet).not.toContain("send_voice");
     expect(taskDoneNoticeText([off])).toBe(taskDoneNoticeText([off], true));
-    const letter = letterNoticeText(["项目 p-1「记账本」的维护者说：导入做完了。"], false, false);
+    const letter = letterNoticeText(["项目 p-1「记账本」的负责人说：导入做完了。"], false, false);
     expect(letter).toContain("不要追问。");
     expect(letter).not.toContain("念给你听");
-    expect(letterNoticeText(["项目 p-1「记账本」的维护者说：导入做完了。"])).toContain("然后问“要我念给你听吗？”");
+    expect(letterNoticeText(["项目 p-1「记账本」的负责人说：导入做完了。"])).toContain("然后问“要我念给你听吗？”");
   });
 });
 
@@ -90,12 +90,12 @@ describe("负责人自己的声音（354 号票）", () => {
   const notice = (text: string) => ({ id: "m-1", conversation: CHANNELS.secretary, speaker: "system" as const, time: TIME, parts: [{ type: "text" as const, text }] });
 
   test("开着自动播报的来信：开头紧跟标记、不问、这一轮放行语音；关着的照旧问、不放行", () => {
-    const on = letterNoticeText(["项目「简报站」的维护者说：\n写好了"], false, true, { announce: true });
+    const on = letterNoticeText(["项目「简报站」的负责人说：\n写好了"], false, true, { announce: true });
     expect(on.startsWith(`${MAINTAINER_LETTER_TAG}${AUTO_ANNOUNCE_TAG}`)).toBe(true);
     expect(on).toContain("不用问，直接用 send_voice");
     expect(on).not.toContain("要我念给你听吗");
     expect(isAutoAnnounceNotice(notice(on))).toBe(true);
-    const off = letterNoticeText(["项目「简报站」的维护者说：\n写好了"]);
+    const off = letterNoticeText(["项目「简报站」的负责人说：\n写好了"]);
     expect(off.startsWith(MAINTAINER_LETTER_TAG)).toBe(true);
     expect(off).not.toContain(AUTO_ANNOUNCE_TAG);
     expect(isAutoAnnounceNotice(notice(off))).toBe(false);

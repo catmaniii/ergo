@@ -1,6 +1,6 @@
-// 主切面：删除任务、没结束的任务先取消再归档（186 号票）。真的守护进程，秘书、维护者、子 agent 都接 faux 剧本，测试扮演前端。
-// - 删除（task_action / task_batch_action 的 delete）：任务、维护者会话（事件整条换成"已删除"标记、pi 的会话文件整个删掉）、
-//   子 agent 的会话、工作目录（outputs/<任务>）都删掉；执行中的先停（取消、维护者和子 agent 停下），定时的不再触发；
+// 主切面：删除任务、没结束的任务先取消再归档（186 号票）。真的守护进程，秘书、负责人、子 agent 都接 faux 剧本，测试扮演前端。
+// - 删除（task_action / task_batch_action 的 delete）：任务、负责人会话（事件整条换成"已删除"标记、pi 的会话文件整个删掉）、
+//   子 agent 的会话、工作目录（outputs/<任务>）都删掉；执行中的先停（取消、负责人和子 agent 停下），定时的不再触发；
 //   用户本人在里面说过的话作为素材留着（原文副本），系统记下的结局这类记录随任务删；别的任务一点不动；
 // - 不能删的（转为项目了的……）拒绝、写明原因，什么都不动；
 // - 没结束的任务点归档：先取消（运营中的定时任务落到触发上）再归档；
@@ -85,7 +85,7 @@ const outputsOf = (td: TestDaemon, taskId: string) => path.join(dataDirLayout(td
 const sessionOf = (td: TestDaemon, agentId: string) => path.join(td.dataDir, "sessions", agentId);
 
 describe("删除任务", () => {
-  it("已完成的普通任务：任务、维护者会话（事件和会话文件）、工作目录都删掉；用户说过的话作为素材留着，任务的结局随任务删；别的任务一点不动；重发拿到同一个结果", async () => {
+  it("已完成的普通任务：任务、负责人会话（事件和会话文件）、工作目录都删掉；用户说过的话作为素材留着，任务的结局随任务删；别的任务一点不动；重发拿到同一个结果", async () => {
     const { td, frontend } = await setup({
       secretary: [say("好"), say("好"), say("好"), say("好")],
       maintainer: (id) => (id === "tm-1" ? [say("截图整理好了：在 screenshots 里"), say("重复的也删了")] : [say("另一件也做好了")]),
@@ -119,13 +119,13 @@ describe("删除任务", () => {
     // 看板上没有了（派生视图读任务时跳过），编号不收回：下一个任务是 t-3
     expect(daemon.tasks.get("t-1")).toBeUndefined();
     expect(daemon.tasks.list().map((x) => x.id)).toEqual(["t-2"]);
-    // 维护者会话：事件整条换成"已删除"标记，会话文件、工作目录整个删掉
+    // 负责人会话：事件整条换成"已删除"标记，会话文件、工作目录整个删掉
     const left = daemon.store.read(TM1);
     expect(left.length).toBeGreaterThan(0);
     expect(left.every((e) => isDeletedEventPayload(e.payload))).toBe(true);
     expect(fs.existsSync(sessionOf(td, "tm-1"))).toBe(false);
     expect(fs.existsSync(outputsOf(td, "t-1"))).toBe(false);
-    // 任务书、标题、维护者说的话一个字不留（秘书会话之外）
+    // 任务书、标题、负责人说的话一个字不留（秘书会话之外）
     expect(leftIn(td, ["整理下载目录的截图", "按月份归档", "截图整理好了", "重复的也删了", "顺便把重复的截图删掉"])).toEqual([]);
     // 用户本人的话还在素材库里，原文副本也在；任务的结局随任务删了
     const [said] = daemon.materials.searchKeyword("顺便把重复的截图删掉");
@@ -156,7 +156,7 @@ describe("删除任务", () => {
     expect(fresh.events({ channel: TM1 }).every((f) => isDeletedEventPayload(f.payload))).toBe(true);
   }, 120_000);
 
-  it("执行中、有子 agent 在等审批的长程任务：先停（取消，维护者、子 agent 停下），再删任务、会话（维护者和子 agent 的）、审批卡和待办、工作目录", async () => {
+  it("执行中、有子 agent 在等审批的长程任务：先停（取消，负责人、子 agent 停下），再删任务、会话（负责人和子 agent 的）、审批卡和待办、工作目录", async () => {
     const homeDir = makeTempDir("ergo-home-");
     const outside = path.join(homeDir, "参考资料-甲.txt");
     fs.writeFileSync(outside, "参考");
@@ -185,11 +185,11 @@ describe("删除任务", () => {
     fs.writeFileSync(path.join(outputsOf(td, task.id), "a.txt"), "半成品");
     for (const agentId of ["tm-1", "sa-1"]) expect({ agentId, exists: fs.existsSync(sessionOf(td, agentId)) }).toEqual({ agentId, exists: true });
 
-    // 删除：先取消（维护者、子 agent 停下），再删；返回删的时候的状态（已取消）
+    // 删除：先取消（负责人、子 agent 停下），再删；返回删的时候的状态（已取消）
     expect(ok(await frontend.taskAction({ taskId: task.id, action: "delete" }))).toEqual({ taskId: task.id, state: "cancelled" });
     expect(changesOf(frontend, task.id).slice(-2)).toEqual(["cancelled", "deleted"]);
     expect(daemon.agents.live().filter((a) => a.agentId === "tm-1" || a.agentId === "sa-1")).toEqual([]);
-    // 会话：维护者会话里的事件（含子 agent 的工具调用、交回的说明）都是"已删除"标记；维护者、子 agent 的会话文件、工作目录都没了
+    // 会话：负责人会话里的事件（含子 agent 的工具调用、交回的说明）都是"已删除"标记；负责人、子 agent 的会话文件、工作目录都没了
     expect(daemon.store.read(TM1).every((e) => isDeletedEventPayload(e.payload))).toBe(true);
     for (const agentId of ["tm-1", "sa-1"]) expect({ agentId, exists: fs.existsSync(sessionOf(td, agentId)) }).toEqual({ agentId, exists: false });
     expect(fs.existsSync(outputsOf(td, task.id))).toBe(false);
@@ -334,7 +334,7 @@ describe("秘书删除任务", () => {
     expect(td.daemon.tasks.get("t-1")?.state).toBe("planning");
     ok(await frontend.cardAction({ cardId: pending.id, action: "execute", expectedVersion: pending.version }));
     const handled = await cardWhere(frontend, (c) => c.id === pending.id && (c.payload as QuickActionCardPayload).result?.startsWith("已删除") === true, "删完补上结果");
-    expect((handled.payload as QuickActionCardPayload).result).toBe("已删除任务 t-1「查资料」：任务、维护者的会话、工作目录和产出都删了；用户在里面说过的话作为素材保留");
+    expect((handled.payload as QuickActionCardPayload).result).toBe("已删除任务 t-1「查资料」：任务、负责人的会话、工作目录和产出都删了；用户在里面说过的话作为素材保留");
     expect(td.daemon.tasks.get("t-1")).toBeUndefined();
 
     await frontend.sendText("把 t-2 也删了");
@@ -362,7 +362,7 @@ function acceptancePlan(acceptance: Plan["stages"][number]["acceptance"]): Plan 
   return { ...base, stages: [{ ...stage("s1", "a.txt"), acceptance }], stageGroups: [], toolkit: { ...base.toolkit, bash: false, network: false }, stops: { count: 0, where: [] } };
 }
 
-/** 建一个长程任务、写好任务书，等维护者交计划，在计划卡上确认；返回任务 id */
+/** 建一个长程任务、写好任务书，等负责人交计划，在计划卡上确认；返回任务 id */
 async function confirmLongTask(td: TestDaemon, frontend: TestFrontend): Promise<string> {
   const task = td.daemon.tasks.createByRequest({ title: "写一个文件", summary: "写一个文件" });
   td.daemon.tasks.writeBrief(task.id, { goal: "写出 a.txt", acceptanceCriteria: ["a.txt 在"], constraints: [], projects: [], memoryScope: "" });

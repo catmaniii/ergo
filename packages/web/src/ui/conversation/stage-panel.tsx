@@ -77,7 +77,7 @@ export function useStagePanel({
   /** 聊天里每一条属于哪个阶段（state 的 stageAtItems）、会话最后一条 */
   stepAt: ReadonlyMap<string, string>;
   lastItemId: string | undefined;
-  /** 会话按阶段成框要的阶段、维护者在不在干活：真任务不给（按看板上的），原型给假的 */
+  /** 会话按阶段成框要的阶段、负责人在不在干活：真任务不给（按看板上的），原型给假的 */
   chatStages?: { list?: readonly StageBoxStage[] | undefined; running?: boolean | undefined } | undefined;
 }): StagePanel {
   const frameWidth = useContext(FrameWidth);

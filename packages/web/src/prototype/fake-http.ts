@@ -7,8 +7,8 @@
 // 设置里工具调用的完整内容占了多大（65 号票）是编的一份，"现在就清理"把可清的清掉（只在内存里）。
 // 设置里的系统提示（71 号票）是编的几份（fake-system-prompts.ts），改的只记在内存里。
 // 输入框里打 / 弹出的候选（82 号票）：二狗自己的命令加一份编的 skill（FAKE_SLASH_SKILLS），任务详情里的会话不列命令；
-// 310 号票：记忆管理员的会话列 /interview、/consolidate；用 Claude Code 的维护者另列工具包里的 skill（/ergo:…）；说明、参数提示是守护进程换好的样子；
-// 289 号票起用 Claude Code 的维护者列 Claude Code 报的命令（fake-runtimes.ts）。
+// 310 号票：记忆管理员的会话列 /interview、/consolidate；用 Claude Code 的负责人另列工具包里的 skill（/ergo:…）；说明、参数提示是守护进程换好的样子；
+// 289 号票起用 Claude Code 的负责人列 Claude Code 报的命令（fake-runtimes.ts）。
 // 设置里的"模型"（73 号票）是编的一份（DeepSeek 两个模型、key 已配置），改了只记在内存里，连通测试回一个编的延迟。
 // 每个 agent 的 ⚙（114 号票）是编的（fake-agent-settings.ts）：通用模板取上面那几份系统提示，单独的提示词、清空、压缩只记在内存里。
 // 附件卡片和报告页（113 号票）：假会话里的附件见 fake-media.ts，下载给一段说明文字；报告页照真接口的规矩回内容（超过 1 MB 的截断）
@@ -538,12 +538,12 @@ export class FakeDaemonHttp implements DaemonHttp {
 
   /**
    * 原型：秘书和项目的会话先列二狗自己的命令，任务详情里的不列；skill 都是同一份编的。
-   * 289 号票：用 Claude Code 的维护者（个人博客项目的）列 Claude Code 报的命令，不列 skill
+   * 289 号票：用 Claude Code 的负责人（个人博客项目的）列 Claude Code 报的命令，不列 skill
    */
   slashCommands(conversation: string): Promise<SlashCommandList> {
     // 310 号票：记忆管理员的会话（含了解你访谈）有 /interview、/consolidate
     if (conversation === MEMORY_CURATOR_CONVERSATION) return Promise.resolve({ commands: FAKE_CURATOR_COMMANDS });
-    // 任务自己的维护者 id 是 tm- 开头（ownMaintainerId）
+    // 任务自己的负责人 id 是 tm- 开头（ownMaintainerId）
     const commands = conversation.startsWith("maintainer:tm-") ? [] : FAKE_SLASH_COMMANDS;
     if (FAKE_CLAUDE_MAINTAINERS.some((id) => conversation === `maintainer:${id}`)) return Promise.resolve({ commands: [...commands, ...FAKE_CLAUDE_SKILLS, ...FAKE_CLAUDE_COMMANDS] });
     return Promise.resolve({ commands: [...commands, ...FAKE_SLASH_SKILLS] });
@@ -907,7 +907,7 @@ export class FakeDaemonHttp implements DaemonHttp {
     return attempt(() => this.agentPanels.compact(agentId));
   }
 
-  // 项目、任务的维护者单独配模型（120 号票）：编的，只在内存里（记账本的维护者配了 v4-pro）
+  // 项目、任务的负责人单独配模型（120 号票）：编的，只在内存里（记账本的负责人配了 v4-pro）
   setAgentModel(agentId: string, body: AgentModelBody): Promise<AgentSettingsView> {
     return attempt(() => this.agentPanels.setModel(agentId, body));
   }
@@ -916,7 +916,7 @@ export class FakeDaemonHttp implements DaemonHttp {
     return attempt(() => this.agentPanels.followModel(agentId));
   }
 
-  // 项目、任务的维护者用哪个运行时（289 号票）：编的，只在内存里（个人博客的维护者用 Claude Code）
+  // 项目、任务的负责人用哪个运行时（289 号票）：编的，只在内存里（个人博客的负责人用 Claude Code）
   setAgentRuntime(agentId: string, body: AgentRuntimeBody): Promise<AgentSettingsView> {
     return attempt(() => this.agentPanels.setRuntime(agentId, body));
   }

@@ -65,7 +65,7 @@ export function claudeReadRules(folders: readonly string[]): string[] {
   return [...new Set(rules)];
 }
 
-/** 维护者选的值翻成 query 的选项：没选的、"跟 Claude Code 自己的设置"、不认得的都不传（用 Claude Code 自己的设置） */
+/** 负责人选的值翻成 query 的选项：没选的、"跟 Claude Code 自己的设置"、不认得的都不传（用 Claude Code 自己的设置） */
 export function claudeQueryChoices(chosen: { model?: string; settings?: Record<string, string> } | undefined): { model?: string; effort?: ClaudeEffortLevel; permissionMode?: ClaudePermissionMode } {
   const mode = chosen?.settings?.[CLAUDE_SETTING.permissionMode];
   const effort = chosen?.settings?.[CLAUDE_SETTING.effort];

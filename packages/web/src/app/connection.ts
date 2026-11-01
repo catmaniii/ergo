@@ -3,7 +3,7 @@
 // - 发：带幂等键的请求（发消息、对卡片做动作、对待我处理事项做动作、发起任务、控制任务（13 号票）、改关注类别设置；15 号票起还有
 //   新建项目、任务转为项目、项目页上的动作）；多数只管发，结果随后在频道上推来、被拒的变成 request_failed。要等结果的（90 号票：一次处理
 //   多个任务，逐条回报；123 号票：已配对设备的延期、吊销、删除，逐台回报）返回 Promise，被拒时同样变成 request_failed，Promise 也随之拒绝；
-// - 多订阅几个频道（watchChannels，15 号票）：打开某个项目的维护者会话、任务详情（13 号票）时才订阅那个维护者的会话频道。
+// - 多订阅几个频道（watchChannels，15 号票）：打开某个项目的负责人会话、任务详情（13 号票）时才订阅那个负责人的会话频道。
 // 用哪个实现由 App.tsx 注入（StoreProvider 的 connection）：WebSocket 实现（ws-connection.ts），
 // 原型的假实现（prototype/fake-connection.ts），过渡期按频道分流（prototype/split-connection.ts）。
 import type {
@@ -123,14 +123,14 @@ export interface UpdateWatchCategoriesRequest {
 /** 点"新建项目"：写想立个什么项目；秘书不判断"是不是项目"，直接出建议立项卡 */
 export interface NewProjectRequest {
   request: string;
-  /** 项目的维护者用的运行时（289 号票）：不给是 pi */
+  /** 项目的负责人用的运行时（289 号票）：不给是 pi */
   runtime?: string;
   /** 在哪个文件夹做（305 号票）：能选工作文件夹的运行时才给 */
   folder?: WorkFolderChoice;
   idempotencyKey: string;
 }
 
-/** 把一个未结束的任务转为项目（原任务的维护者接着做立项问答）：项目名由用户定（预填任务标题） */
+/** 把一个未结束的任务转为项目（原任务的负责人接着做立项问答）：项目名由用户定（预填任务标题） */
 export interface ConvertTaskRequest {
   taskId: string;
   name: string;
@@ -286,9 +286,9 @@ export interface Connection {
   projectAction(req: ProjectActionRequest): void;
   /** 项目卡片、项目页上的"启动""关闭"（257 号票）：只管发，做到哪了随后经 project_services 推来；被拒时原因进 request_failed */
   projectServicesAction(req: ProjectServicesActionRequest): void;
-  /** 项目页上的"重置维护者"（16 号票）：不改项目状态 */
+  /** 项目页上的"重置负责人"（16 号票）：不改项目状态 */
   resetMaintainer(req: ResetMaintainerRequest): void;
-  /** 多订阅几个频道（比如打开一个项目的维护者会话）：连着就马上订阅，断线重连时一起订阅；已经订阅的不重复 */
+  /** 多订阅几个频道（比如打开一个项目的负责人会话）：连着就马上订阅，断线重连时一起订阅；已经订阅的不重复 */
   watchChannels(channels: readonly string[]): void;
   taskAction(req: TaskActionRequest): void;
   /** 一次处理多个任务（90 号票）：等到逐条的结果（任务的新状态随后在看板频道推来）；整个被拒时拒绝 */

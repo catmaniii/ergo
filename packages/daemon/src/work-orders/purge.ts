@@ -1,7 +1,7 @@
 // 工单事件的改写函数（彻底删除的改写函数表，见 memory/rewriters.ts；删除项目时也用它，279 号票起由这里在"删除参与方"登记表里登记）：
-// 工单的内容（交给维护者的任务书、打回意见、定时作业这次运行要做的事；17 号票任务维护者派来的改动还有提问和回执）换成删除标记；
+// 工单的内容（交给负责人的任务书、打回意见、定时作业这次运行要做的事；17 号票任务负责人派来的改动还有提问和回执）换成删除标记；
 // 工单的标题、状态、结局、所属的任务（或定时作业）和项目原样保留，工单是哪一支（来源）不变。
-// 会话分段的事件在维护者会话频道上，删除项目时随整条会话换成"已删除"标记，不用另登记。
+// 会话分段的事件在负责人会话频道上，删除项目时随整条会话换成"已删除"标记，不用另登记。
 // 项目内部任务（64 号票）随项目一起删掉时，它的工单连标题、任务名、原因也换掉（purgedWorkOrder 的 whole）。
 import { CHANNELS, EVENT_TYPES, isInternalTo, PURGED_TEXT, type WorkOrder, type WorkOrderEventPayload } from "@ergo/protocol";
 import { type DeletionParticipants, liveEvents, PROJECT_DELETION } from "../deletion/participants.ts";

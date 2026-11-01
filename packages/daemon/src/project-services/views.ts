@@ -101,7 +101,7 @@ export interface ServiceRow {
   rollout?: ServiceRolloutPayload;
   /** LSM 里有没有它的登记 */
   registered: boolean;
-  /** 上线后挂了、报给了维护者、还没好的那次故障 */
+  /** 上线后挂了、报给了负责人、还没好的那次故障 */
   outage?: ServiceOutagePayload;
   /** 这一条要求上线以来报过几次故障（通知的幂等键用） */
   outages: number;

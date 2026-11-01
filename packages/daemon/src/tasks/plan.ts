@@ -1,5 +1,5 @@
 // 计划（规格第 8 节）在守护进程里的纯函数：
-// - checkPlan：维护者提交时，查 schema 管不到的（schema 由 pi 按工具参数先校验，守护进程再按同一个 schema 校验一次）：
+// - checkPlan：负责人提交时，查 schema 管不到的（schema 由 pi 按工具参数先校验，守护进程再按同一个 schema 校验一次）：
 //   阶段和阶段组的引用、前置关系不成环、每份策略（授权项：id 唯一、工具登记过、对象范围的参数是这个工具的；
 //   时序规则：validateTemporalRules，05 号票）、本任务的关注类别（全局的一个不能少、处置只能更严、新加的要写确定的规则）、
 //   用户说过的限制（26 号票：编译出的规则过规则校验，授权收窄只能收窄、提交时就落到授权项上）；
@@ -133,7 +133,7 @@ export function checkPlan(plan: Plan, ctx: PlanCheckContext & { taskId: string }
 
 /**
  * 计划变更和自行调整时对新计划的检查（14 号票）：阶段（引用、前置不成环、定步有步骤、脚本有命令）和每份策略（授权项、时序规则）照提交计划时查；
- * 本任务的关注类别、用户的限制沿用当前计划（维护者改不了），限制里的授权收窄重新落到授权项上——收窄的授权项已经去掉了的跳过
+ * 本任务的关注类别、用户的限制沿用当前计划（负责人改不了），限制里的授权收窄重新落到授权项上——收窄的授权项已经去掉了的跳过
  */
 export function checkRevisedPlan(plan: Plan, tools: ToolRegistry, toolkitProblems?: ToolkitProblems): PlanCheck {
   const problems = [...stageProblems(plan), ...policyProblems(plan, tools), ...(toolkitProblems?.(plan.toolkit) ?? [])];
@@ -145,7 +145,7 @@ export function checkRevisedPlan(plan: Plan, tools: ToolRegistry, toolkitProblem
   return narrowed.ok ? { ok: true, plan: narrowed.plan } : { ok: false, problems: narrowed.grantProblems };
 }
 
-// 计划检查的问题交回维护者（提交、修改计划的工具结果），照旧中文
+// 计划检查的问题交回负责人（提交、修改计划的工具结果），照旧中文
 // @i18n-ignore-start model
 /**
  * 用户说过的限制（26 号票）：id 唯一；每条至少编译出一条时序规则或授权收窄（编译不了的写进假设栏）；规则过规则校验
@@ -323,7 +323,7 @@ function quoteForm(text: string): string {
 
 /**
  * 用户的限制里核对得上原话的（限制 id）：quote 原样出现在 sources 的某一段里（用户自己的话：任务书的约束、
- * 发起任务时写的话、用户在这个任务的会话里的消息）。对不上的，计划卡上显示成"维护者转述"（26 号票）
+ * 发起任务时写的话、用户在这个任务的会话里的消息）。对不上的，计划卡上显示成"负责人转述"（26 号票）
  */
 export function verifiedQuotes(limits: readonly { id: string; quote: string }[], sources: readonly string[]): string[] {
   const texts = sources.map((text) => text.replace(/\s+/g, " "));

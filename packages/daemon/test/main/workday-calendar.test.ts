@@ -371,7 +371,7 @@ describe("节假日数据的续期：每月检查（12 月起查下一年）、�
     expect(noticesOf(test)).toMatchObject([{ data: { year: 2027, regions: ["cn"] } }]);
   });
 
-  it("点\"发起更新任务\"：发起一个任务（用户发起，规划中，出现在看板上），任务书写明年份、哪一边、官方来源、交付格式和要开联网；维护者交出计划，照常在计划卡上确认（录给前端回放：holiday-update-task）", async () => {
+  it("点\"发起更新任务\"：发起一个任务（用户发起，规划中，出现在看板上），任务书写明年份、哪一边、官方来源、交付格式和要开联网；负责人交出计划，照常在计划卡上确认（录给前端回放：holiday-update-task）", async () => {
     const clock = new ManualClock(new Date(2026, 10, 30, 12));
     const plan = samplePlan({ toolkit: { skills: [], mcp: [], bash: true, network: true } });
     const test = await startTestDaemon({
@@ -380,7 +380,7 @@ describe("节假日数据的续期：每月检查（12 月起查下一年）、�
     });
     const frontend = await TestFrontend.connect(test.url);
     await frontend.subscribe({ [INBOX]: 0, [BOARD]: 0, [CARDS]: 0 });
-    // 看板上维护者每次模型调用记账后的合计（24 号票）：等它们到齐再往下走，录下的事件流每次一样
+    // 看板上负责人每次模型调用记账后的合计（24 号票）：等它们到齐再往下走，录下的事件流每次一样
     const tokenCalls = (n: number) => waitUntil(() => frontend.events({ channel: BOARD, type: EVENT_TYPES.tokenTotals }).some((f) => (f.payload as { calls: number }).calls === n));
     clock.advanceTo(new Date(2026, 11, 1, 10));
     await test.daemon.internalJobs.whenIdle();
@@ -403,7 +403,7 @@ describe("节假日数据的续期：每月检查（12 月起查下一年）、�
     expect(text).toContain("toolkit.network 为 true");
     expect(text).toContain('"format": 1');
     expect(text).not.toContain("mom.gov.sg");
-    // 维护者收到任务书、交出计划：计划卡（卡着任务）放进待我处理，任务转待确认，照常在卡上确认
+    // 负责人收到任务书、交出计划：计划卡（卡着任务）放进待我处理，任务转待确认，照常在卡上确认
     const card = await waitFor(() => latestCards(frontend).find((c) => c.type === "plan"));
     expect(card).toMatchObject({ status: "pending", urgency: "blocking", payload: { taskId, plan: { toolkit: { network: true } } } });
     expect(card.typeVersion).toBe(CARD_TYPE_VERSIONS.plan);

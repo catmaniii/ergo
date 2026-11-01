@@ -1,4 +1,4 @@
-// 105 号票：待办里每一项"去看看 ›"跳到它从哪来的地方。事项上记了来源（origin）的按来源去：任务的整页、项目的整页（维护者的会话）、
+// 105 号票：待办里每一项"去看看 ›"跳到它从哪来的地方。事项上记了来源（origin）的按来源去：任务的整页、项目的整页（负责人的会话）、
 // 秘书会话，能定位的带上要定位的卡片或调用；系统的事项按种类去对应的页面；旧事项没记来源的不出按钮。
 import { describe, expect, test } from "vitest";
 import { type CardInboxItem, initialUiState, type InboxItem, type InboxJump, inboxJump, inboxJumpLabel, localDate, type NoticeInboxItem, type Project, type Task, type UiState } from "../../src/state/index.ts";
@@ -12,7 +12,7 @@ function withCards(...cards: [id: string, type: string][]): UiState {
   return { ...initialUiState, cards: Object.fromEntries(cards.map(([id, type]) => [id, { card: card(id, 1, { type }) }])) };
 }
 
-/** 会话只记了维护者的会话时，按维护者认出是哪个任务、哪个项目 */
+/** 会话只记了负责人的会话时，按负责人认出是哪个任务、哪个项目 */
 const withMaintainers: UiState = {
   ...initialUiState,
   tasks: { "t-9": { id: "t-9", maintainerId: "tm-9" } as Task },
@@ -20,8 +20,8 @@ const withMaintainers: UiState = {
 };
 
 /**
- * 记了会话的事项按"卡在哪个会话"去：t-1 是有自己维护者的任务，t-4 是项目 p-1 的内部任务（维护者就是项目的维护者 pm-1），
- * t-multi 是多项目任务（17 号票，自己的维护者 tm-multi），派到项目 p-1 的工单由项目维护者 pm-1 做
+ * 记了会话的事项按"卡在哪个会话"去：t-1 是有自己负责人的任务，t-4 是项目 p-1 的内部任务（负责人就是项目的负责人 pm-1），
+ * t-multi 是多项目任务（17 号票，自己的负责人 tm-multi），派到项目 p-1 的工单由项目负责人 pm-1 做
  */
 const world: UiState = {
   ...initialUiState,
@@ -51,28 +51,28 @@ describe("事项种类 → 去处", () => {
     ["任务还没收到（页面上没有它）：当是任务自己的会话", notice("hand_over", { origin: ownCall("call-8") }), { kind: "task", taskId: "t-1", at: "call-8" }],
     ["定时触发的任务被自动暂停：任务的整页", notice("scheduled_job_auto_paused", { origin: { taskId: "t-3" }, data: { jobId: "j-3" } }), { kind: "task", taskId: "t-3" }],
     ["项目内部任务的事项：去这个内部任务的整页（有任务先去任务）", cardItem("c-int", { origin: { taskId: "t-4", projectId: "p-1" }, internal: { projectId: "p-1", projectName: "官网" } }), { kind: "task", taskId: "t-4", at: "c-int" }],
-    ["项目内部任务里的审批卡：会话是项目维护者的、也是这个任务的，去任务", cardItem("c-int-a", { origin: internalCall("call-5") }), { kind: "task", taskId: "t-4", at: "c-int-a" }, world],
-    // ── 多项目任务派到项目的工单（17 号票）：调用记着多项目任务，卡出在项目维护者的会话里——去项目，不去任务整页（那里没有这张卡）
+    ["项目内部任务里的审批卡：会话是项目负责人的、也是这个任务的，去任务", cardItem("c-int-a", { origin: internalCall("call-5") }), { kind: "task", taskId: "t-4", at: "c-int-a" }, world],
+    // ── 多项目任务派到项目的工单（17 号票）：调用记着多项目任务，卡出在项目负责人的会话里——去项目，不去任务整页（那里没有这张卡）
     ["工单里的审批卡", cardItem("c-wo-a", { origin: workOrderCall("call-6") }), { kind: "project", projectId: "p-1", chat: true, at: "c-wo-a" }, world],
     ["工单里的交给我做", notice("hand_over", { origin: workOrderCall("call-9") }), { kind: "project", projectId: "p-1", chat: true, at: "call-9" }, world],
     ["工单里的中断不确定", notice("interrupted", { origin: workOrderCall("call-10") }), { kind: "project", projectId: "p-1", chat: true, at: "call-10" }, world],
     ["多项目任务还没收到也一样去项目", cardItem("c-wo-b", { origin: workOrderCall("call-11") }), { kind: "project", projectId: "p-1", chat: true, at: "c-wo-b" }, { ...world, tasks: {} }],
-    ["项目的维护者换过（原来的会话不在了）：不出按钮", cardItem("c-wo-c", { origin: { ...workOrderCall("call-12"), conversation: "maintainer:pm-old" } }), undefined, world],
-    // ── 项目的事项：项目的整页（维护者的会话）
+    ["项目的负责人换过（原来的会话不在了）：不出按钮", cardItem("c-wo-c", { origin: { ...workOrderCall("call-12"), conversation: "maintainer:pm-old" } }), undefined, world],
+    // ── 项目的事项：项目的整页（负责人的会话）
     ["立项书", cardItem("c-charter", { origin: { projectId: "p-1" } }), { kind: "project", projectId: "p-1", chat: true, at: "c-charter" }],
-    ["工具包变更卡、维护者在问（项目的工单）", cardItem("c-tk", { origin: { projectId: "p-1" } }), { kind: "project", projectId: "p-1", chat: true, at: "c-tk" }],
-    ["越界通知（项目维护者的工作）", notice("out_of_scope", { origin: { projectId: "p-1" } }), { kind: "project", projectId: "p-1", chat: true }],
+    ["工具包变更卡、负责人在问（项目的工单）", cardItem("c-tk", { origin: { projectId: "p-1" } }), { kind: "project", projectId: "p-1", chat: true, at: "c-tk" }],
+    ["越界通知（项目负责人的工作）", notice("out_of_scope", { origin: { projectId: "p-1" } }), { kind: "project", projectId: "p-1", chat: true }],
     ["工单没写回的卡住求助", notice("stuck_help", { origin: { projectId: "p-1" } }), { kind: "project", projectId: "p-1", chat: true }],
     ["删除项目的确认：项目页（不是会话）", notice("project_delete", { origin: { projectId: "p-1" } }), { kind: "project", projectId: "p-1", chat: false }],
-    ["项目维护者会话里的审批：定位到卡", cardItem("c-pa", { origin: { projectId: "p-1", conversation: "maintainer:pm-1", toolCallId: "call-2" } }), { kind: "project", projectId: "p-1", chat: true, at: "c-pa" }, world],
+    ["项目负责人会话里的审批：定位到卡", cardItem("c-pa", { origin: { projectId: "p-1", conversation: "maintainer:pm-1", toolCallId: "call-2" } }), { kind: "project", projectId: "p-1", chat: true, at: "c-pa" }, world],
     // ── 秘书会话
     ["快速动作卡、记忆删除卡：秘书会话里那张卡", cardItem("c-qa", { origin: { conversation: "secretary" } }), { kind: "secretary", at: "c-qa" }],
     ["秘书对话里的审批卡", cardItem("c-sa", { origin: { conversation: "secretary", toolCallId: "call-3" } }), { kind: "secretary", at: "c-sa" }],
     ["秘书对话里的中断不确定、交给我做：那次调用", notice("interrupted", { origin: { conversation: "secretary", toolCallId: "call-4" } }), { kind: "secretary", at: "call-4" }],
-    // ── 只记了维护者的会话：按维护者认出任务、项目；认不出不出按钮
-    ["维护者会话里的快速动作卡：认出是任务", cardItem("c-m1", { origin: { conversation: "maintainer:tm-9" } }), { kind: "task", taskId: "t-9", at: "c-m1" }, withMaintainers],
-    ["维护者会话里的快速动作卡：认出是项目", cardItem("c-m2", { origin: { conversation: "maintainer:pm-9" } }), { kind: "project", projectId: "p-9", chat: true, at: "c-m2" }, withMaintainers],
-    ["认不出的维护者会话", cardItem("c-m3", { origin: { conversation: "maintainer:gone" } }), undefined, withMaintainers],
+    // ── 只记了负责人的会话：按负责人认出任务、项目；认不出不出按钮
+    ["负责人会话里的快速动作卡：认出是任务", cardItem("c-m1", { origin: { conversation: "maintainer:tm-9" } }), { kind: "task", taskId: "t-9", at: "c-m1" }, withMaintainers],
+    ["负责人会话里的快速动作卡：认出是项目", cardItem("c-m2", { origin: { conversation: "maintainer:pm-9" } }), { kind: "project", projectId: "p-9", chat: true, at: "c-m2" }, withMaintainers],
+    ["认不出的负责人会话", cardItem("c-m3", { origin: { conversation: "maintainer:gone" } }), undefined, withMaintainers],
     // ── 简单提醒：日历上那一天
     ["到点的提醒", notice("reminder_due", { createdAt: "2026-10-07T12:00:00", cardId: "c-rem" }), { kind: "calendar", date: localDate(new Date("2026-10-07T12:00:00")) }],
     ["错过的提醒", notice("missed_reminder", { createdAt: "2026-10-08T12:00:00" }), { kind: "calendar", date: localDate(new Date("2026-10-08T12:00:00")) }],

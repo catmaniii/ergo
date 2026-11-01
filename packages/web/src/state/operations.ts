@@ -56,9 +56,9 @@ export interface OperationRow {
 export interface OperationEventView {
   name: string;
   at: string;
-  /** 有没有叫醒维护者 */
+  /** 有没有叫醒负责人 */
   woke: boolean;
-  /** "叫醒了维护者"、"没叫醒：运营方案里没有等它的"…… */
+  /** "叫醒了负责人"、"没叫醒：运营方案里没有等它的"…… */
   text: string;
 }
 

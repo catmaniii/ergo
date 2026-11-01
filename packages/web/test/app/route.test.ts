@@ -151,8 +151,8 @@ describe("待办里跳过去的地址", () => {
   test.each<[string, InboxJump, string]>([
     ["任务的整页，定位到卡", { kind: "task", taskId: "t-1", at: "c-1" }, "#/tasks/t-1/at/c-1"],
     ["任务的整页", { kind: "task", taskId: "t-1" }, "#/tasks/t-1"],
-    ["项目的维护者会话，定位到卡", { kind: "project", projectId: "p-1", chat: true, at: "c-2" }, "#/projects/p-1/chat/at/c-2"],
-    ["项目的维护者会话", { kind: "project", projectId: "p-1", chat: true }, "#/projects/p-1/chat"],
+    ["项目的负责人会话，定位到卡", { kind: "project", projectId: "p-1", chat: true, at: "c-2" }, "#/projects/p-1/chat/at/c-2"],
+    ["项目的负责人会话", { kind: "project", projectId: "p-1", chat: true }, "#/projects/p-1/chat"],
     ["项目页（删除项目的确认）", { kind: "project", projectId: "p-1", chat: false }, "#/projects/p-1"],
     ["项目页上那个作业", { kind: "project", projectId: "p-1", chat: false, jobId: "j-1" }, "#/projects/p-1/jobs/j-1"],
     ["秘书会话，定位到调用", { kind: "secretary", at: "call:1" }, "#/secretary/at/call%3A1"],

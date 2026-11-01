@@ -1,4 +1,4 @@
-// 输入框左边的"＋"（附件菜单，ui/conversation/Composer.tsx；143 号票）：秘书、任务和项目的维护者会话用的是同一个输入框，
+// 输入框左边的"＋"（附件菜单，ui/conversation/Composer.tsx；143 号票）：秘书、任务和项目的负责人会话用的是同一个输入框，
 // "＋"三处都有，菜单一样（图片、文件、作为材料投喂）；只读的会话（任务已结束、归档的项目）没有输入框，"＋"也就没有，
 // 换成一行说明（会话组件底部那一格 ComposerSlot）。用 React 在 Node 里渲染出来查（挂一个不连线的 StoreProvider：
 // 渲染时不跑副作用，连接、HTTP 都用不到）。
@@ -33,20 +33,20 @@ describe("输入框的＋", () => {
     expect(composer("secretary")).toContain(ATTACH_BUTTON);
   });
 
-  test("任务和项目的维护者会话的输入框也有＋，和秘书的是同一个按钮", () => {
+  test("任务和项目的负责人会话的输入框也有＋，和秘书的是同一个按钮", () => {
     expect(composer("maintainer", "maintainer:tm-1")).toContain(ATTACH_BUTTON);
     expect(composer("maintainer", "maintainer:pm-1")).toContain(ATTACH_BUTTON);
     // 选文件的框也在（菜单里点图片、文件时打开它）
     expect(composer("maintainer")).toContain('<input type="file" multiple="" hidden=""/>');
   });
 
-  test("只读的维护者会话：没有输入框，也就没有＋，换成一行说明", () => {
+  test("只读的负责人会话：没有输入框，也就没有＋，换成一行说明", () => {
     const html = slot(true);
     expect(html).toBe('<div class="composer composer-note muted">任务已结束</div>');
     expect(html).not.toContain("attach-btn");
   });
 
-  test("能发消息的维护者会话（会话组件底部同一格）有＋", () => {
+  test("能发消息的负责人会话（会话组件底部同一格）有＋", () => {
     expect(slot(false)).toContain(ATTACH_BUTTON);
   });
 });

@@ -44,7 +44,7 @@ export interface CardActionEffect<P> {
   afterCommit?: () => void;
   /**
    * 没落盘时叫一次（84 号票：晚一点才有结果的动作等着的时候卡在别处改了、或者落盘出错）：放开动作占着的东西
-   * （归档清单上"继续"返工时停稳了的维护者会话）
+   * （归档清单上"继续"返工时停稳了的负责人会话）
    */
   abandon?: () => void;
 }
@@ -60,7 +60,7 @@ export interface CardActionSpec<P, I = undefined> {
   input: I;
   /**
    * 执行动作；不让做时抛 RequestRejected（比如提醒已经响过了，不能再改）。要先等一件事的（84 号票：归档清单上"继续"返工，
-   * 先停稳维护者手头这一轮）返回 Promise：等到了再按卡片那时的样子核一遍（期间被别处改过就不落盘）
+   * 先停稳负责人手头这一轮）返回 Promise：等到了再按卡片那时的样子核一遍（期间被别处改过就不落盘）
    */
   run(ctx: CardActionContext<P, CardActionInput<I>>): CardActionEffect<P> | Promise<CardActionEffect<P>>;
 }

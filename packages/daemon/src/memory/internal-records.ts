@@ -13,7 +13,7 @@ export interface MaterialOwners {
   task(taskId: string): { internal?: ProjectInternal | undefined } | undefined;
   /** 审批（"审批决定"素材的记录编号）：调用从哪儿来 */
   approvalOrigin(approvalId: string): { internal?: ProjectInternal | undefined } | undefined;
-  /** 卡片的负载（项目的维护者给的建议卡带着标记）和它在待我处理里的事项 */
+  /** 卡片的负载（项目的负责人给的建议卡带着标记）和它在待我处理里的事项 */
   cardPayload(cardId: string): unknown;
   inboxItemsOfCard(cardId: string): ReadonlyArray<{ internal?: ProjectInternal | undefined }>;
 }

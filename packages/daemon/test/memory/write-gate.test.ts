@@ -1,7 +1,7 @@
 // 267 号票：推理图谱的唯一写入口（ADR-0030），守护进程这一侧。
 // - 守护进程的代码不直接写推理库（证据、事实、结论、关联、推断、追问、预测），一律经 @ergo/memory 的 engine.gate；
-// - 秘书和维护者没有写的路：秘书只有只读的素材、问记忆工具（问记忆那份引擎的写入口开成只读，写一律拒），记忆页也只读；
-//   能写的工具只在记忆管理员的工具包里；维护者拿不到任何记忆工具；
+// - 秘书和负责人没有写的路：秘书只有只读的素材、问记忆工具（问记忆那份引擎的写入口开成只读，写一律拒），记忆页也只读；
+//   能写的工具只在记忆管理员的工具包里；负责人拿不到任何记忆工具；
 // - 记忆命令（忘掉、彻底删除、别推断）在推理库里记成"用户发起"，经谁转达进留痕；
 // - 每晚校验用的是 @ergo/memory 自己的图谱自检（326 号票起不再起 Python、不找本机的东西）：插件接上的就是它。
 import fs from "node:fs";
@@ -134,7 +134,7 @@ function offerQuestion(engine: MemoryEngine, claimId: string): string {
   return offered.question.id;
 }
 
-describe("秘书和维护者没有写推理图谱的路", () => {
+describe("秘书和负责人没有写推理图谱的路", () => {
   it("秘书的记忆工具只读（检索素材、读素材、问记忆；271 号票的标顺口问只在内存里记个标记），能写的工具只在记忆管理员的工具包里", () => {
     const materials = {} as Materials;
     const woven = createWovenQuestions({ withEngine: () => undefined, store: {} as never, materials, enabled: () => true, inferableSensitiveCategories: () => [], log: () => {} });
@@ -145,7 +145,7 @@ describe("秘书和维护者没有写推理图谱的路", () => {
     for (const name of writers) expect(CURATOR_TOOL_NAMES).toContain(name);
   });
 
-  it("记忆插件只把记忆工具给秘书（记忆管理员的另装），维护者拿不到", () => {
+  it("记忆插件只把记忆工具给秘书（记忆管理员的另装），负责人拿不到", () => {
     const plugin = fs.readFileSync(path.join(SRC, "memory", "plugin.ts"), "utf8");
     const targets = [...plugin.matchAll(/tools\.register\(\{\s*to:\s*\{\s*agents:\s*\[([^\]]*)\]/g)].map((m) => m[1]!.trim());
     expect(targets.length).toBeGreaterThan(0);

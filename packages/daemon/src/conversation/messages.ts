@@ -56,7 +56,7 @@ export interface VoiceIntake {
 /**
  * 用户往会话里发一条消息。同一个幂等键重发拿到第一次的结果，不多出消息（也就不会多一次回复：
  * agent 的输入队列就是这些消息事件）。
- * 秘书会话之外的会话由 scopeOf 认（15 号票起是项目维护者的会话：消息带上所属的项目，已归档的只读；13 号票起是任务维护者的会话：
+ * 秘书会话之外的会话由 scopeOf 认（15 号票起是项目负责人的会话：消息带上所属的项目，已归档的只读；13 号票起是任务负责人的会话：
  * 消息带上所属的任务，已结束的任务不再收）。part 可以是文本、图片、文件（09），以及引用的卡片（21：
  * 用户引用一张卡说话，快速动作据此判定"用户明确点了"；卡片要存在）：
  * 附件先经 HTTP 上传入库，消息里引用入库版本的哈希（媒体 id）。图片的类型和尺寸、文件的大小以服务端入库的为准，
@@ -84,7 +84,7 @@ export function postUserMessage(
     if (!result) throw new RequestRejected("bad_params", t("conversation.messages.keyReused"));
     return result;
   }
-  // 秘书会话之外：认得的会话（15 号票起是项目维护者的会话）给出消息所属的任务、项目（不让发的在这里就抛出原因）
+  // 秘书会话之外：认得的会话（15 号票起是项目负责人的会话）给出消息所属的任务、项目（不让发的在这里就抛出原因）
   const scope = request.conversation === CHANNELS.secretary ? {} : scopeOf?.(request.conversation);
   if (!scope) throw new RequestRejected("not_implemented", t("conversation.messages.cannotSendTo", { conversation: request.conversation }));
   const id = newMessageId();
@@ -183,9 +183,9 @@ function existing(attachments: AttachmentLookup, mediaId: string, name: string) 
 }
 
 /**
- * 消息的归属（共享协议包里唯一的一份）：维护者会话里的消息所属的任务、项目（素材的"任务或项目"取自这里，12 号票起），
+ * 消息的归属（共享协议包里唯一的一份）：负责人会话里的消息所属的任务、项目（素材的"任务或项目"取自这里，12 号票起），
  * 属于任务的那时任务在哪个阶段（25 号票：时间线的全局层按阶段聚色块；任务里的取 tasks/stages.ts 的 taskMessageScope），
- * 定时作业的一次运行（24 号票：维护者处理它时的用量记在作业名下，19 号票交给维护者执行作业时带上）
+ * 定时作业的一次运行（24 号票：负责人处理它时的用量记在作业名下，19 号票交给负责人执行作业时带上）
  */
 export type { MessageScope };
 
@@ -199,9 +199,9 @@ export interface AppendMessageOptions extends MessageScope {
   idempotencyKey?: string;
   /** agent 正在干活时以插话送达，不等这一轮结束（14 号票：现在只有无进展的催促这样送）；只用于 agentInput 的通知 */
   interject?: boolean;
-  /** 只在项目维护者的对话段里处理（362 号票，MessageEventPayload.chatOnly）；只用于 agentInput 的通知 */
+  /** 只在项目负责人的对话段里处理（362 号票，MessageEventPayload.chatOnly）；只用于 agentInput 的通知 */
   chatOnly?: boolean;
-  /** 任务执行交给维护者的是哪一种通知、说的是哪几个阶段（361 号票，MessageEventPayload.taskNotice）；只用于 agentInput 的通知 */
+  /** 任务执行交给负责人的是哪一种通知、说的是哪几个阶段（361 号票，MessageEventPayload.taskNotice）；只用于 agentInput 的通知 */
   taskNotice?: MessageEventPayload["taskNotice"];
 }
 
@@ -262,11 +262,11 @@ export const SECRETARY_RELAY_TAG = "【秘书转达】"; // @i18n-ignore model�
 export const SECRETARY_RELAY_HEAD = `${SECRETARY_RELAY_TAG}用户在和秘书的对话里让秘书把下面这句话转告你（不是用户在这里直接打的字），照用户在这里说的话一样处理：`; // @i18n-ignore model
 
 /**
- * 秘书按用户的话往任务、项目维护者的会话里转达的一句（103 号票）和它的事件（不追加：和快速动作卡、操作记录同一事务）。
- * 走用户在任务详情、项目维护者会话里直接说话的那条路：发言方是用户，归属（scope）和要先追加的事件（开对话段）由调用方
+ * 秘书按用户的话往任务、项目负责人的会话里转达的一句（103 号票）和它的事件（不追加：和快速动作卡、操作记录同一事务）。
+ * 走用户在任务详情、项目负责人会话里直接说话的那条路：发言方是用户，归属（scope）和要先追加的事件（开对话段）由调用方
  * 照网关发消息时的算法给；只多一个 relayedBy 标记。幂等键由快速动作的动作 id 推出，同一个动作只转一次。
  * 115 号票：对方会话里这一句折成一行，一句话总结是转达的话本身的第一句（截到 30 字）。
- * 125 号票：relayOf 是用户在秘书那里说的那句（秘书处理它时提出的转达）：维护者引用这一句，运行时按它换成用户的原话核实
+ * 125 号票：relayOf 是用户在秘书那里说的那句（秘书处理它时提出的转达）：负责人引用这一句，运行时按它换成用户的原话核实
  */
 export function buildRelayedMessage(
   conversation: ConversationId,
@@ -300,11 +300,11 @@ export function appendAgentNotice(store: EventStore, conversation: ConversationI
 }
 
 /**
- * 交给 agent 的通知和它的事件（不追加）：和别的事件一起放进 appendBatch。维护者会话里的带上所属的任务。
+ * 交给 agent 的通知和它的事件（不追加）：和别的事件一起放进 appendBatch。负责人会话里的带上所属的任务。
  * interject：agent 正在干活时以插话送达，不等这一轮结束（14 号票：现在只有无进展的催促这样送）。
- * summary：会话里折成一行时显示的一句话总结（115 号票，来信才有：任务做完、维护者来信），只给界面看，交给 agent 的照旧是全文。
+ * summary：会话里折成一行时显示的一句话总结（115 号票，来信才有：任务做完、负责人来信），只给界面看，交给 agent 的照旧是全文。
  * relaySources：这条通知能转述谁（354 号票，MessageEnvelope.relaySources），只给运行时看。
- * chatOnly：只在项目维护者的对话段里处理，不打断正在做的工单（362 号票）
+ * chatOnly：只在项目负责人的对话段里处理，不打断正在做的工单（362 号票）
  * taskNotice：任务执行的通知是哪一种（361 号票），状态变了排着的旧通知按它作废，只给运行时看
  */
 export function buildAgentNotice(

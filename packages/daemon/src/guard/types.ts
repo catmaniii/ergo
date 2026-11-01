@@ -47,13 +47,13 @@ export interface SecretaryAgent {
   scratchDir: string;
 }
 
-/** 干活的 agent：维护者或子 agent。子 agent 不能写项目档案 */
+/** 干活的 agent：负责人或子 agent。子 agent 不能写项目档案 */
 export interface ExecutingAgent {
   kind: "maintainer" | "sub_agent";
   agentId: string;
   cwd: string;
   toolkit: GuardToolkit;
-  /** 项目档案（单项目一个；任务维护者是任务自己的档案） */
+  /** 项目档案（单项目一个；任务负责人是任务自己的档案） */
   projectRecords: string[];
   /** 工作目录（含绑定的外部路径） */
   workingDirs: string[];
@@ -149,7 +149,7 @@ export interface GuardWorkflowStep {
   id: string;
   title: string;
   tool: string;
-  /** 维护者写的参数（照原样，相对路径按工作目录解析） */
+  /** 负责人写的参数（照原样，相对路径按工作目录解析） */
   args: Readonly<Record<string, unknown>>;
   /** 前置步骤 */
   after: readonly string[];
@@ -159,7 +159,7 @@ export interface GuardWorkflowStep {
   realPaths?: Readonly<Record<string, string>>;
 }
 
-/** 流程的计划在守卫眼里（59 号票）：哪一版、目标、步骤，连同维护者说明跳过的步骤（report_step skipped） */
+/** 流程的计划在守卫眼里（59 号票）：哪一版、目标、步骤，连同负责人说明跳过的步骤（report_step skipped） */
 export interface GuardWorkflow {
   planId: string;
   goal: string;
@@ -226,7 +226,7 @@ export interface EffectRecord {
   /** 阶段；对话里为 null */
   stageId: string | null;
   agentId: string;
-  /** 会话段（秘书会话、维护者的工单段或对话段）：不属于任务的调用，时序规则只看同一段里的效果 */
+  /** 会话段（秘书会话、负责人的工单段或对话段）：不属于任务的调用，时序规则只看同一段里的效果 */
   segmentId?: string;
   /** 工具或伪工具 */
   tool: string;
@@ -258,9 +258,9 @@ export interface EffectRecord {
 /**
  * 临时文件怎么认（111 号票，用户 2026-10-13 定"覆盖和删除的限制，只对系统已有的资源、数据、配置以及项目阶段交付件"，
  * 又补充"任务和项目的临时文件都是一样的"）：按发起调用的 agent 所属的范围给——
- * - 项目里（项目的维护者：直接和用户对话、做工单、做内部任务、定时运行，和它派的子 agent）：按项目，项目开始之后生成的、
+ * - 项目里（项目的负责人：直接和用户对话、做工单、做内部任务、定时运行，和它派的子 agent）：按项目，项目开始之后生成的、
  *   不是交付件的都算项目的临时文件，不要求是哪一个任务建的；
- * - 项目外的任务（任务自己的维护者执行、定时 / 事件触发的运行、子 agent、普通任务的 agent）：按这个任务。
+ * - 项目外的任务（任务自己的负责人执行、定时 / 事件触发的运行、子 agent、普通任务的 agent）：按这个任务。
  * 秘书、项目外任务的起草计划不给。删除、整体重写临时文件不落入"删除或覆盖"，也不受 v1 模板"删除或覆盖之前必须已备份或已提交"约束。
  * 认法见 own-temp.ts；不给就没有临时文件，一切照旧
  */
@@ -370,11 +370,11 @@ export interface GuardInput {
   places: GuardPlaces;
   /** 所属任务；对话里为 null */
   task: GuardTask | null;
-  /** 这次调用所在的会话段（秘书会话、维护者的工单段或对话段），追加效果日志时记进去 */
+  /** 这次调用所在的会话段（秘书会话、负责人的工单段或对话段），追加效果日志时记进去 */
   segmentId?: string;
   /**
    * 效果日志。时序规则只看范围之内的：任务里只看同一个任务的；不属于任务的只看同一个 agent、同一段会话的
-   * （维护者会话跨工单延续，一次读 .env 不能永久生效）。07、13 号票按这个范围传，判定时也再过滤一遍。
+   * （负责人会话跨工单延续，一次读 .env 不能永久生效）。07、13 号票按这个范围传，判定时也再过滤一遍。
    * 授权项计次另有自己的范围（同一任务、授权项所属阶段）。
    */
   effectLog: readonly EffectRecord[];
@@ -400,7 +400,7 @@ export interface GuardInput {
    * - 秘书：大部分"先问我"按"直接做"（依据记 approvalsOff），含判断不了的（keepAsking）；特别敏感的照旧要用户授权——以我的名义
    *   对外发送或发布、账户与安全、不可逆的提交（SECRETARY_ASKS），和写草稿区之外（writesOutsideScratch：文件工具写草稿区外原来是
    *   硬拒绝，改成先问用户；bash 确定要写、删的路径在草稿区外）；
-   * - 别的 agent（任务的维护者、定时 / 事件触发的运行、子 agent、评审子 agent、项目维护者，起草计划和对话段也一样）：超出授权的
+   * - 别的 agent（任务的负责人、定时 / 事件触发的运行、子 agent、评审子 agent、项目负责人，起草计划和对话段也一样）：超出授权的
    *   一律不拦——"先问我"、"计划里列了才做"没被授权项覆盖的、判断不了的（含时序规则判断不了的）、对被判过"永不"的对象再做对外动作，
    *   都按"直接做"（依据记 beyondGrant），用到别的阶段的授权项也不拉回；任务里判断出来确实违反、要问的时序规则照旧问。
    * 两边都不变的：三条硬底线（写受保护区域、读密钥区、已经确定要把密钥内容往外送）、硬拒绝、永不、交给我做、做完告诉我、

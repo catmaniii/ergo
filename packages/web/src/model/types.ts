@@ -35,9 +35,9 @@ export interface TaskSummary {
   status: TaskStatus;
   /** 任务的种类（58 号票）：流程或长程任务；原型的假条目没有，按长程任务 */
   taskKind?: TaskKind;
-  /** 维护者用的运行时（289 号票，Task.runtime）：没有是 pi（卡上不标） */
+  /** 负责人用的运行时（289 号票，Task.runtime）：没有是 pi（卡上不标） */
   runtime?: string;
-  /** 维护者的工作文件夹在外面（305 号票新建时选的、290 号票接管来的，Task.workdir）：卡上写出来；在产出区的没有 */
+  /** 负责人的工作文件夹在外面（305 号票新建时选的、290 号票接管来的，Task.workdir）：卡上写出来；在产出区的没有 */
   workdir?: string;
   /** 会话交给了官方 App（292 号票，Task.takeover 在官方 App 里）：卡上标"在官方 App 里"，拿到的链接放在提示里 */
   remote?: { label: string; url?: string };
@@ -54,7 +54,7 @@ export interface TaskSummary {
   progress?: { done: number; total: number; unit: "step" | "stage"; run?: number };
   /**
    * 长程任务：最近一次交上来的那个阶段系统查到的结果（274 号票，会话列表那一行——最近一轮系统直接查到的结果的第一句；
-   * 二狗是效果日志汇总的个数，"第 2 阶段：git 推送 1 次；修改 1 个文件"），mismatches 是那一次和维护者自报对不上的几处
+   * 二狗是效果日志汇总的个数，"第 2 阶段：git 推送 1 次；修改 1 个文件"），mismatches 是那一次和负责人自报对不上的几处
    */
   observed?: { text: string; mismatches: number };
   activity: ActivityState;
@@ -226,7 +226,7 @@ export interface Stage {
   deliverables?: string[];
   /** 最近一次宣布完成时评审输入里运行时核实过的用户原话（125 号票） */
   userWords?: VerifiedUserWords[];
-  /** 维护者最近一次宣布完成时写的那一两句（274 号票：阶段详情里"系统查到的结果"和它摆在一起）；原型的假阶段可以没有 */
+  /** 负责人最近一次宣布完成时写的那一两句（274 号票：阶段详情里"系统查到的结果"和它摆在一起）；原型的假阶段可以没有 */
   summary?: string;
   /** 最近一次宣布完成时系统从效果日志里汇总的个数（274 号票）；没交上来过、重开之后没有 */
   observed?: StageObservedCounts;

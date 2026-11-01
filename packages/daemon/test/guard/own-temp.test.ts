@@ -6,7 +6,7 @@
 //   新建了它（EffectRecord.created），或者创建时间（FileFact.createdAt）晚于范围开始；不是交付件——交出去了的阶段的交付件写到的路径，
 //   产出区里（交付件认不出路径时工作目录里）最近一次交出去时已经有了的；
 // - 递归删除目录：它自己和里面的东西（FileFact.contents）都得是，列不全的不算；带通配符的，展开成的每一个都得是；
-// - 项目里不要求是哪一张工单、哪一个任务建的（前一张工单建的靠创建时间认），维护者直接和用户对话时也一样。
+// - 项目里不要求是哪一张工单、哪一个任务建的（前一张工单建的靠创建时间认），负责人直接和用户对话时也一样。
 // 照旧的：开始之前就在的、认不出的（创建时间读不到又没有效果日志的记录、路径没法确定）、交出去了的交付件、项目档案、
 // 不给 ownWork 的（秘书、项目外任务的起草计划）。
 import { describe, expect, it } from "vitest";
@@ -76,7 +76,7 @@ describe("任务自己新建的脚本、中间数据：重写、删除不落类�
     expect(gist(judge(bash("mv data.json out.csv"), facts))).toEqual(FREE);
   });
 
-  it("子 agent 也一样（同一个任务）；效果日志里是维护者新建的也算", () => {
+  it("子 agent 也一样（同一个任务）；效果日志里是负责人新建的也算", () => {
     const j = judgeToolCall(inTask(subAgent(), bash("rm gen.js"), { ownWork: ownWork(), facts: { ...NOT_REPO, files: { [at("gen.js")]: file() } }, effectLog: [created(1, "gen.js")] }));
     expect(gist(j)).toEqual(FREE);
   });
@@ -176,7 +176,7 @@ describe("交付件：交出去之后照旧受保护", () => {
   });
 });
 
-/** 项目维护者在一段会话（工单段、对话段）里：不属于任务，效果日志只看这一段 */
+/** 项目负责人在一段会话（工单段、对话段）里：不属于任务，效果日志只看这一段 */
 const inSegment = (toolCall: ToolCall, files: Record<string, FileFact>, extra: Partial<GuardInput> = {}) =>
   judgeToolCall(inChat(maintainer(), toolCall, { segmentId: "maintainer-notes:wo-2", ownWork: ownWork(), facts: { ...NOT_REPO, files }, ...extra }));
 
@@ -194,7 +194,7 @@ describe("项目里按项目认（用户补充：任务和项目的临时文件�
     expect([unknown.categories, unknown.pullBack]).toEqual([["delete_or_overwrite"], [BACKUP]]);
   });
 
-  it("维护者直接和用户对话（不属于任务）：删项目里自己先前生成的中间数据，不拦", () => {
+  it("负责人直接和用户对话（不属于任务）：删项目里自己先前生成的中间数据，不拦", () => {
     const j = inSegment(bash("rm -f data.json && rm -rf tmp"), {
       [at("data.json")]: file(AFTER),
       [at("tmp")]: file(AFTER, { isDirectory: true, contents: { complete: true, entries: [{ path: at("tmp\\a.csv"), createdAt: AFTER }] } }),

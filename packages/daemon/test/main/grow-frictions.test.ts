@@ -1,7 +1,7 @@
 // 主切面：在二狗内部长服务这条路上的摩擦（362 号票，真模型试验 live-closed-loop-2026-11-01 查出来的）。真的守护进程，agent 接 faux 剧本，LSM 用替身：
-// - 立项：秘书出卡时用户的话原样带上；点"立项"后维护者没等用户说话就开口，手里有用户的原话；
+// - 立项：秘书出卡时用户的话原样带上；点"立项"后负责人没等用户说话就开口，手里有用户的原话；
 // - 服务没上线、挂了的通知不打断正在跑的报警工单：报警做完才开对话段处理，通知里写着服务管家的依据和先自己连一下核实；
-// - 已登记的 MCP 进维护者的系统提示，任务书里的数据源真写进去；
+// - 已登记的 MCP 进负责人的系统提示，任务书里的数据源真写进去；
 // - 联网关着：真的子进程连得上本机、连不上外面（代理挡着），Python 用 UTF-8。
 import { execFile, spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -54,8 +54,8 @@ async function connect(td: TestDaemon) {
   return frontend;
 }
 
-describe("立项：用户的话不丢，维护者先开口", () => {
-  it("卡上带着用户那句话的原文和秘书抄的前面几句；点“立项”后维护者没等用户说话就开口，手里有用户的原话", async () => {
+describe("立项：用户的话不丢，负责人先开口", () => {
+  it("卡上带着用户那句话的原文和秘书抄的前面几句；点“立项”后负责人没等用户说话就开口，手里有用户的原话", async () => {
     const PATH = "C:\\Users\\假的\\drama\\retention.json";
     const td = await startTestDaemon({
       kickoffOpening: true,
@@ -71,13 +71,13 @@ describe("立项：用户的话不丢，维护者先开口", () => {
     expect(payload.userWords).toContain("前面说的：每分钟看一次");
 
     ok(await frontend.cardAction({ cardId: card.id, action: "kickoff", expectedVersion: 1 }));
-    // 用户一句话都没对维护者说，它开口了：第一轮看到的输入里有用户的原话
+    // 用户一句话都没对负责人说，它开口了：第一轮看到的输入里有用户的原话
     const replies = () => messagesOf(frontend, PM1).filter((m) => m.message.speaker === "agent").map(textOf);
-    await waitUntil(() => replies().length > 0, { timeoutMs: 30_000, describe: () => `维护者开口：${JSON.stringify(messagesOf(frontend, PM1).map(textOf))}` });
+    await waitUntil(() => replies().length > 0, { timeoutMs: 30_000, describe: () => `负责人开口：${JSON.stringify(messagesOf(frontend, PM1).map(textOf))}` });
     expect(messagesOf(frontend, PM1).filter((m) => m.message.speaker === "user")).toEqual([]);
     const opening = replies().join("\n");
-    // 系统提示写明"负责人"就是它
-    expect(opening).toContain("用户说“负责人”就是指你");
+    // 系统提示开头写明它是这个项目的负责人（用户说的负责人就是它）
+    expect(opening).toContain("的负责人：这个项目由你长期维护");
     expect(opening).toContain("不用等用户开口");
     expect(opening).toContain(PATH);
     // 通知上写着项目，开了一个对话段（有 submit_charter 的那一段）
@@ -85,7 +85,7 @@ describe("立项：用户的话不丢，维护者先开口", () => {
     expect(td.daemon.workOrders.current("pm-1")).toMatchObject({ kind: "chat", projectId: "p-1" });
   }, 60_000);
 
-  it("默认不开的测试档（kickoffOpening 关着）照旧：只放一条说明，维护者休眠", async () => {
+  it("默认不开的测试档（kickoffOpening 关着）照旧：只放一条说明，负责人休眠", async () => {
     const td = await startTestDaemon({ secretary: [], maintainer: () => [] });
     const frontend = await connect(td);
     const card = td.daemon.cards.create({ type: "suggest_project", payload: { name: "记账本", goal: "把账管起来" } });
@@ -192,7 +192,7 @@ describe("负责人知道库里有哪些 MCP；任务书里的数据源真写进
     expect(registeredMcpText([])).toBeUndefined();
   });
 
-  it("项目维护者每一段的固定上下文里有清单", () => {
+  it("项目负责人每一段的固定上下文里有清单", () => {
     const text = fixedContextText({
       segment: { segmentId: "pm-1-s1", maintainerId: "pm-1", projectId: "p-1", kind: "chat", session: "pm-1-s1", reset: false, state: "open", progressHash: "x", openedAt: "2026-11-01T00:00:00+08:00" },
       standard: "规范",
@@ -207,7 +207,7 @@ describe("负责人知道库里有哪些 MCP；任务书里的数据源真写进
     expect(text).toContain("retention-board");
   });
 
-  it("任务的维护者系统提示里有清单（起草计划时就看得到）；任务书的数据源写进交给它的那条", async () => {
+  it("任务的负责人系统提示里有清单（起草计划时就看得到）；任务书的数据源写进交给它的那条", async () => {
     const dataDir = makeTempDir("ergo-data-");
     const config = path.join(fs.realpathSync.native(dataDir), "config");
     fs.mkdirSync(config, { recursive: true });
@@ -220,15 +220,15 @@ describe("负责人知道库里有哪些 MCP；任务书里的数据源真写进
     const channel = maintainerChannel(task.maintainerId);
     await frontend.subscribe({ [channel]: 0 });
     const seen = () => messagesOf(frontend, channel).filter((m) => m.message.speaker === "agent").map(textOf).join("\n");
-    await waitUntil(() => seen().includes("[system]"), { timeoutMs: 30_000, describe: () => `维护者起草：${seen()}` });
+    await waitUntil(() => seen().includes("[system]"), { timeoutMs: 30_000, describe: () => `负责人起草：${seen()}` });
     // 系统提示里有清单，还没配进工具包也看得到；任务书里写着数据源
     expect(seen()).toContain("已登记的 MCP");
     expect(seen()).toContain("retention-board（短剧看板）：list_episodes（列出各集）");
     expect(seen()).toContain("数据源：");
     expect(seen()).toContain("MCP retention-board");
     expect(seen()).toContain("D:\\数据\\retention.json");
-    // 系统提示写明"负责人"就是它
-    expect(seen()).toContain("用户说“负责人”就是指你");
+    // 系统提示开头写明它是这个任务的负责人（用户说的负责人就是它）
+    expect(seen()).toContain("一个任务的负责人：");
   }, 60_000);
 });
 

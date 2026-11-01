@@ -46,7 +46,7 @@ export const JobRun = Type.Object({
   queuedAt: Type.String(),
   startedAt: Type.Optional(Type.String()),
   endedAt: Type.Optional(Type.String()),
-  /** 失败、中断、没运行、已撤回的原因（维护者报的、出错的、工单退回的、停机打断的、排着时作业暂停了的……）；部分完成的是哪几步没做成（176 号票） */
+  /** 失败、中断、没运行、已撤回的原因（负责人报的、出错的、工单退回的、停机打断的、排着时作业暂停了的……）；部分完成的是哪几步没做成（176 号票） */
   reason: Type.Optional(Type.String()),
   /**
    * 这次运行最后说的话（76 号票：一两句，压成一行截短）：后面的运行知道前几次的结果——属于项目的每次运行是一张新工单、新会话，
@@ -77,7 +77,7 @@ export const ScheduledJob = Type.Object({
   /** 属于哪个项目（不属于项目的没有） */
   projectId: Type.Optional(Type.String()),
   projectName: Type.Optional(Type.String()),
-  /** 执行的维护者：属于项目的是项目的维护者，不属于项目的是作业自己的维护者（jm-<n>） */
+  /** 执行的负责人：属于项目的是项目的负责人，不属于项目的是作业自己的负责人（jm-<n>） */
   maintainerId: Type.String(),
   /**
    * 授权所在的任务：76 号票起登记的就是它属于的那个定时触发的任务（流程的授权在它确认的计划里）；
@@ -190,7 +190,7 @@ export const ArchiveListCardPayload = Type.Object({
 });
 export type ArchiveListCardPayload = Static<typeof ArchiveListCardPayload>;
 
-/** 归档清单卡的动作 decide 的输入：对其中一项的选择；继续改已完成的任务时可以指明从哪个阶段返工（不写是最后一个阶段），可附一句话交给维护者 */
+/** 归档清单卡的动作 decide 的输入：对其中一项的选择；继续改已完成的任务时可以指明从哪个阶段返工（不写是最后一个阶段），可附一句话交给负责人 */
 export const ArchiveListDecideInput = Type.Object({
   taskId: Type.String({ minLength: 1 }),
   choice: Type.Enum(ARCHIVE_CHOICES),

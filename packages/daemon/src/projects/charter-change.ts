@@ -1,12 +1,12 @@
 // 立项要求变更（125 号票；方案"用户授权的效力"第 2 节第 3 条）：立项书确认之后，用户在会话里说要改立项要求（目标、范围、首版），
-// 项目的维护者用 propose_charter_change 提出——只交改动的几处（照 121 号票：没写的照旧，写了的整项按写的算），附上它引用的用户
+// 项目的负责人用 propose_charter_change 提出——只交改动的几处（照 121 号票：没写的照旧，写了的整项按写的算），附上它引用的用户
 // 消息 id（运行时核实，conversation/user-words.ts）。运行时出一张"立项要求变更"卡（charter_change）：
 // - 卡上逐条对照新旧（协议包 projects.ts 的 charterChangeItems），附运行时核实过的用户原话；进待办（不卡任务），也出在用户说话的
-//   那个会话里（项目维护者的会话本来就有：工具产生的卡片；秘书转达来的出在秘书会话里）；同一个项目一次只有一张在等；
+//   那个会话里（项目负责人的会话本来就有：工具产生的卡片；秘书转达来的出在秘书会话里）；同一个项目一次只有一张在等；
 // - 用户确认：立项书改写——charters 频道上一条 charter_change_decided（confirmed），从此现在的立项书是改过的那份（currentCharter，
 //   范围审视的对照物也按它）；项目档案里的 charter.md 重写，末尾记一条变更记录（哪天、改了什么、依据的用户原话、用户确认）；
-//   维护者收到通知，时间线上记一笔；
-// - 用户拒绝（可附说明）：立项书不变，维护者收到通知，时间线上记一笔。
+//   负责人收到通知，时间线上记一笔；
+// - 用户拒绝（可附说明）：立项书不变，负责人收到通知，时间线上记一笔。
 // 决定运行时行为的那几项不走这条路（CHARTER_FIXED_NOTE）：工具包照旧走工具包变更卡，项目类型和工作目录照旧不能改——工具的参数里
 // 根本没有它们。立项书确认之前没有这个工具可用（立项问答里照旧用 submit_charter 交整份立项书）。
 import {
@@ -58,14 +58,14 @@ export interface CharterChangesOptions {
   inbox: InboxService;
   /** 项目档案的位置 */
   records(projectId: string): ProjectRecordsPaths;
-  /** 核实维护者引用的用户原话；不给就不核实（引用的一律当没核实过） */
+  /** 核实负责人引用的用户原话；不给就不核实（引用的一律当没核实过） */
   userWords?: UserWordsDeps;
   now: () => string;
   log: (line: string) => void;
 }
 
 export interface CharterChanges {
-  /** 项目维护者的"提立项要求变更"工具（立项书确认之后才给） */
+  /** 项目负责人的"提立项要求变更"工具（立项书确认之后才给） */
   tool(projectId: string, maintainerId: string): HostTool;
   /** "立项要求变更"卡上的确认、拒绝（卡片动作，和卡片更新同一事务） */
   decide(payload: CharterChangeCardPayload, confirmed: boolean, note: string | undefined, idempotencyKey: string): CardActionEffect<CharterChangeCardPayload>;
@@ -84,7 +84,7 @@ const projectChanged = (project: Project, time: string): NewEvent => {
   return { channel: CHANNELS.projects, type: EVENT_TYPES.project, payload };
 };
 
-/** 卡的纯文本降级、交给维护者的通知、时间线说明里的改动（一条一行） */
+/** 卡的纯文本降级、交给负责人的通知、时间线说明里的改动（一条一行） */
 const changeLines = (p: { changes: CharterChangeCardPayload["changes"] }) => p.changes.map((c) => `- ${charterChangeItemText(c)}`);
 
 /** 依据的用户原话（运行时核实过的）的几行 */
@@ -92,10 +92,10 @@ const changeLines = (p: { changes: CharterChangeCardPayload["changes"] }) => p.c
 const wordsLines = (words: readonly VerifiedUserWords[]) => (words.length > 0 ? [t("projects.charterChange.words", { title: USER_WORDS_TITLE }), ...words.map((w) => `- ${userWordsLine(w)}`)] : []);
 
 /**
- * 维护者的工具说明（工具名都插值）。里面引了协议包的标签（立项书各栏的名字、"不走这条路"的说明），那些跟着当前语言：
+ * 负责人的工具说明（工具名都插值）。里面引了协议包的标签（立项书各栏的名字、"不走这条路"的说明），那些跟着当前语言：
  * 给模型看的这份在中文下现取（173 号票：不在模块加载时取，那时只有启动时的语言）
  */
-// @i18n-ignore-start model：工具说明、参数说明给维护者看
+// @i18n-ignore-start model：工具说明、参数说明给负责人看
 const toolDescription = () =>
   "立项书确认之后，用户在会话里说要改立项要求（目标、范围、首版）时用：只交改动的几项（没写的照旧；范围要改就写全新的整栏），" +
   "把用户那句话的消息 id（用户消息末尾“[用户消息 id：…]”里的）写进 userWords。运行时出一张“立项要求变更”卡，逐条对照新旧、附运行时核实过的用户原话，" +
@@ -178,7 +178,7 @@ export function createCharterChanges(options: CharterChangesOptions): CharterCha
 
   const propose = (projectId: string, maintainerId: string, draft: CharterDraft, why: string, cited: readonly string[] | undefined) => {
     const project = projectOf(projectId);
-    // @i18n-ignore-start model：提的时候的拒绝原因交回维护者（工具结果）
+    // @i18n-ignore-start model：提的时候的拒绝原因交回负责人（工具结果）
     if (project.maintainerId !== maintainerId) throw new RequestRejected("not_allowed", `项目 ${projectId} 不是你维护的`);
     if (project.state === "archived") throw new RequestRejected("not_allowed", `项目「${project.name}」已归档，立项要求不能再改`);
     const before = current(projectId);
@@ -221,7 +221,7 @@ export function createCharterChanges(options: CharterChangesOptions): CharterCha
       { channel: CHARTERS_CHANNEL, type: CHARTER_EVENTS.changeProposed, payload: proposed },
       card.event,
       item.event,
-      // 卡也出在用户说那句话的会话里（维护者自己的会话里本来就有：工具产生的卡片）
+      // 卡也出在用户说那句话的会话里（负责人自己的会话里本来就有：工具产生的卡片）
       ...cardRefsElsewhere(card.card.id, words.verified, maintainerChannel(maintainerId)),
     ]);
     inbox.alert(item.item);
@@ -257,7 +257,7 @@ export function createCharterChanges(options: CharterChangesOptions): CharterCha
     const conversation = maintainerChannel(project.maintainerId);
     const scope = { projectId: project.id };
     const changeText = changeLines(row.proposed);
-    // @i18n-ignore-start model：交给维护者的通知
+    // @i18n-ignore-start model：交给负责人的通知
     const notice = confirmed
       ? [
           `用户确认了立项要求变更（第 ${payload.revision} 次），立项书已改写（项目档案里的 charter.md，末尾记了这条变更）：`,
@@ -367,7 +367,7 @@ export function charterChangeCardType(changes: Pick<CharterChanges, "decide">) {
         ...wordsLines(p.userWords ?? []),
         CHARTER_FIXED_NOTE,
       ].join("\n"),
-    // 彻底删除、删除项目时：立项书正文、维护者的说明、引用的原话换成删除标记，改了哪几项、确认结果不变
+    // 彻底删除、删除项目时：立项书正文、负责人的说明、引用的原话换成删除标记，改了哪几项、确认结果不变
     purge: (p) => ({ ...p, why: PURGED_TEXT, before: purgedCharter(p.before), after: purgedCharter(p.after), changes: p.changes.map(purgedItem), ...(p.userWords ? { userWords: p.userWords.map(purgedWords) } : {}) }),
   });
 }

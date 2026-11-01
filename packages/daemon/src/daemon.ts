@@ -1,5 +1,5 @@
 // 守护进程的组装：读配置、找到数据目录、打开事件存储、建 Job 对象、立起 agent 管家和秘书、
-// 任务和维护者（12 号票）、项目和项目的维护者（15 号票）、token 账本（24 号票）、开本机端口和外网端口（设备配对在 10 号票）；
+// 任务和负责人（12 号票）、项目和项目的负责人（15 号票）、token 账本（24 号票）、开本机端口和外网端口（设备配对在 10 号票）；
 // skill 库、MCP 登记和工具包（27 号票）。
 // 126 号票（ADR-0027）起这里只装内核，插件按插件清单（plugins/manifest.ts）经插件宿主（plugins/host.ts）装：
 // 插件的视图在打开事件存储之前收齐，内核的登记表（卡片类型、改写函数、素材来源、快速动作、内部作业、看板种类、事件触发的订阅方）
@@ -302,7 +302,7 @@ export const DEFAULT_WEB_ROOT = fileURLToPath(new URL("../../web/dist/", import.
 
 // 各 agent 的模型（规格第 1 节）：73 号票起按设置里的"模型"取（model-settings/：默认模型和思考档位、按 agent 的覆盖），
 // 拉起时现取、只用于新开的会话；没有设置文件时和以前写死的一样，全是 DeepSeek V4.1 Flash、思考档位高
-// （范围审视用的"便宜模型"第一阶段也是它，在维护者自己的子进程里另开一次调用）。
+// （范围审视用的"便宜模型"第一阶段也是它，在负责人自己的子进程里另开一次调用）。
 
 /** 一条验收脚本最多跑多久 */
 const ACCEPTANCE_SCRIPT_TIMEOUT_MS = 10 * 60_000;
@@ -394,7 +394,7 @@ export interface StartDaemonOptions {
    * 不填用 secretary/task-done.ts 的 TASK_DONE_SETTLE_MS（2 秒）。按时钟算
    */
   taskDoneSettleMs?: number;
-  /** 立项后叫醒维护者先开口（362 号票）：默认开；测试里假模型的剧本大多不想多一轮，默认关（要测的自己开） */
+  /** 立项后叫醒负责人先开口（362 号票）：默认开；测试里假模型的剧本大多不想多一轮，默认关（要测的自己开） */
   kickoffOpening?: boolean;
   /** 守护进程的日志；不填写到 stderr */
   log?: (line: string) => void;
@@ -441,11 +441,11 @@ export interface StartDaemonOptions {
    * 不填是什么都不做的那个
    */
   sessionRollbackHook?: SessionRollbackHook;
-  /** 维护者的模型（spawn 是第几次唤起它）；不填按设置里的"模型"（任务维护者、定时作业的维护者、项目维护者各按各的 agent）。测试换成 faux provider */
+  /** 负责人的模型（spawn 是第几次唤起它）；不填按设置里的"模型"（任务负责人、定时作业的负责人、项目负责人各按各的 agent）。测试换成 faux provider */
   maintainerModel?: (maintainerId: string, spawn: number) => ModelSpec;
   /**
-   * 测试用：起草计划时维护者会话的工具包（bash、联网开关），不填是起草计划时的（没有 bash，70 号票起联网开着）；执行时一律照确认的计划（13 号票）。
-   * 28 号票的测试靠它给起草中的维护者一个开了 bash 的会话，驱动带类型的 bash 工具
+   * 测试用：起草计划时负责人会话的工具包（bash、联网开关），不填是起草计划时的（没有 bash，70 号票起联网开着）；执行时一律照确认的计划（13 号票）。
+   * 28 号票的测试靠它给起草中的负责人一个开了 bash 的会话，驱动带类型的 bash 工具
    */
   maintainerToolkit?: (maintainerId: string) => ShellToolkit;
   /** 测试用：GitHub 命令行（程序和它前面的固定参数），换成假的，建远端仓库不真的连 GitHub；不填用 PATH 上的 gh */
@@ -457,13 +457,13 @@ export interface StartDaemonOptions {
   /** 并行派出的子 agent 的模型（agentId 是它的 id：sa-<n>）；不填按设置里的"模型"。测试换成 faux provider（20 号票） */
   subAgentModel?: (agentId: string) => ModelSpec;
   /**
-   * 范围审视用的模型（按维护者 id 和第几次唤起它，和 maintainerModel 一起数；每次审视时现取）；不填按设置里的"模型"。
+   * 范围审视用的模型（按负责人 id 和第几次唤起它，和 maintainerModel 一起数；每次审视时现取）；不填按设置里的"模型"。
    * 测试换成 faux provider（18 号票）
    */
   scopeReviewModel?: (maintainerId: string, spawn: number) => ModelSpec;
   /** 测试用：工单结束时的范围审视最多等多久（毫秒）；不填是配置的单次模型调用超时再加半分钟（18 号票） */
   scopeReviewTimeoutMs?: number;
-  /** 测试用：从某个阶段重做之前停稳维护者最多等多久（毫秒）；不填是 10 秒（84 号票，测到点没停下的那一轮作废时调短） */
+  /** 测试用：从某个阶段重做之前停稳负责人最多等多久（毫秒）；不填是 10 秒（84 号票，测到点没停下的那一轮作废时调短） */
   reworkStopTimeoutMs?: number;
   /**
    * 测试用：语音识别进程（程序和参数），换成假的，不加载真模型、不占显卡；不填用配置里的 Python 跑 recognizer.py（31 号票）。
@@ -591,23 +591,23 @@ export interface Daemon {
   readonly projects: ProjectService;
   /** 立项要求变更（125 号票）：现在的立项书（用户确认了的改动之后）、它的全文（范围审视的对照物） */
   readonly charterChanges: CharterChanges;
-  /** 本项目的规范改写（261 号票）：维护者提、用户在"规范改写"卡上确认才生效，确认的写进项目档案的 standard-overrides.md */
+  /** 本项目的规范改写（261 号票）：负责人提、用户在"规范改写"卡上确认才生效，确认的写进项目档案的 standard-overrides.md */
   readonly standardChanges: StandardChanges;
-  /** 运营方案（130 号票）：维护者交运营方案、"首版做完了"卡上确认并转入使用时生效、使用中的出"运营方案变更"卡 */
+  /** 运营方案（130 号票）：负责人交运营方案、"首版做完了"卡上确认并转入使用时生效、使用中的出"运营方案变更"卡 */
   readonly operations: Operations;
   /** 运营手段登记表（130 号票）：内核登记的定时、事件触发的任务、项目自己的服务（133）和要用户手动的公网入口，插件经插件宿主登记的 */
   readonly operationMeans: OperationMeansRegistry;
   /** 项目的服务（133 号票）：运营手段"服务"生效之后到 LSM 上线、撤下，LSM 推来的状态，给前端、秘书看的样子 */
   readonly projectServices: ProjectServices;
-  /** 使用中的项目的操作（260、268 号票）：运营接口清单的验收和登记（带版本号）、秘书的 project_ops、维护者的 check_ops */
+  /** 使用中的项目的操作（260、268 号票）：运营接口清单的验收和登记（带版本号）、秘书的 project_ops、负责人的 check_ops */
   readonly projectOps: ProjectOps;
   /** 任务执行（13 号票）：排队和执行名额、阶段推进、验收、用户的控制、任务完成后的回调（onCompleted） */
   readonly taskExecution: TaskExecution;
-  /** 子 agent 并行（20 号票）：提议、并行确认卡、拉起子 agent、结果交回维护者；ownerOf 给出子 agent 属于哪个任务的哪个阶段 */
+  /** 子 agent 并行（20 号票）：提议、并行确认卡、拉起子 agent、结果交回负责人；ownerOf 给出子 agent 属于哪个任务的哪个阶段 */
   readonly subAgents: SubAgents;
   /** token 账本（24 号票）：每次模型调用的用量、按任务 / 阶段 / agent / 天的汇总、消耗页的粗估成本 */
   readonly ledger: TokenLedger;
-  /** 派单器（16 号票）：工单和项目维护者的会话分段 */
+  /** 派单器（16 号票）：工单和项目负责人的会话分段 */
   readonly workOrders: WorkOrders;
   /** 定时作业（19 号票）：登记、到点、名额、运行和结局、暂停恢复取消、启动时补跑错过的 */
   readonly scheduledJobs: ScheduledJobs;
@@ -627,7 +627,7 @@ export interface Daemon {
   readonly secretarySkills: SecretarySkills;
   /** MCP：登记、服务进程、转发调用（27 号票） */
   readonly mcp: McpService;
-  /** 工具包：改工具包、维护者增减 skill、工具包变更卡（27 号票） */
+  /** 工具包：改工具包、负责人增减 skill、工具包变更卡（27 号票） */
   readonly toolkits: ToolkitService;
   readonly scheduler: Scheduler;
   /** 内部作业（每晚备份、每周校验、每天清理临时区……）；whenIdle() 等正在跑的做完 */
@@ -846,7 +846,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const language = createLanguageService({ store, layout, locales, publish: (frame) => notifications.publish(frame), log });
     language.start();
     teardown.push(() => language.stop());
-    /** 实际在用的语言（连同给模型的名字）：变了维护者交下一条输入之前按新的系统提示重新拉起 */
+    /** 实际在用的语言（连同给模型的名字）：变了负责人交下一条输入之前按新的系统提示重新拉起 */
     const languageKey = () => {
       const meta = language.effective();
       return `${meta.id}/${meta.modelName}`;
@@ -905,8 +905,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     };
     // 唯一的后接接线点（解循环依赖）：任务模块要派单器派起草计划的工单（项目系统要任务模块，建在它之后；278 号票起项目系统自己的后接线
     // 收在 projects/system.ts 里，这里只剩这一处），任务控制快速动作要执行控制器（22，执行控制器建在快速动作登记之后）。
-    // 子 agent（20）：任务执行控制器要知道哪些阶段有子 agent 在做，维护者要"提议并行"工具（经 agent 宿主），子 agent 模块建在它们之后。
-    // 执行控制器从某个阶段重做前要停稳维护者手头这一轮（84）：经 agent 宿主（127，它建在执行控制器之后）问三种维护者。
+    // 子 agent（20）：任务执行控制器要知道哪些阶段有子 agent 在做，负责人要"提议并行"工具（经 agent 宿主），子 agent 模块建在它们之后。
+    // 执行控制器从某个阶段重做前要停稳负责人手头这一轮（84）：经 agent 宿主（127，它建在执行控制器之后）问三种负责人。
     // 用到时现取，模块都建好之后在下面"接上"处一起填
     // 定时作业（19）：执行控制器数全局名额时要算上正在运行的作业，作业模块建在项目系统（它的派单器）之后；工作日历变了作业跟着重算。
     // 工具调用完整内容的清理（65）要认得的工具的登记（280：清掉后剩的参数摘要按工具自己声明的"参数要打码"擦），秘书的工具建在它之后
@@ -970,12 +970,12 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       skillDecisionPurge,
       // "浏览"里存进素材的网页（165）的改写函数 212 号票起由浏览插件的数据契约登记
     );
-    // 范围记录引着用户在维护者会话里的话、审批卡上的批准（18）：彻底删除那些时连带改写
+    // 范围记录引着用户在负责人会话里的话、审批卡上的批准（18）：彻底删除那些时连带改写
     purgeRewriters.registerQuotes(...scopeRecordQuotes);
     // "删除参与方"登记表（279，方案 C）：删项目（15）、删任务（186）、移除插件时连数据删（211）走同一张表——拥有属于项目、任务、插件的
     // 事件的模块各自登记怎么找、怎么改写。项目系统的在组装函数里登记，内核的在下面项目系统建好之后，插件写明的由设置 · 插件登记
     const deletionParticipants = new DeletionParticipants({ store, cards, rewriters: purgeRewriters });
-    // 项目列表的只读视图（278）：按编号、按维护者、按任务、按名字找没删掉的项目，只读派生视图、不要项目服务——
+    // 项目列表的只读视图（278）：按编号、按负责人、按任务、按名字找没删掉的项目，只读派生视图、不要项目服务——
     // 任务模块建在项目系统之前（项目系统要它），核对项目名、任务属于哪个项目这些从这里拿，不用后接线；后面要找项目的内核模块也用它
     const projectDirectory = createProjectDirectory({ store, projectsDir: realLayout.projects });
     // 任务（12）："建议发起任务"卡、提问卡、计划卡；计划里的授权项和时序规则照内置的工具注册表查。
@@ -1014,7 +1014,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       callMeter: (agentId) => wired("ledger").callMeter(agentId),
       // 计划的工具包里只能是 skill 库里的 skill、登记了的 MCP（27）
       toolkitProblems: (toolkit) => toolkits.nameProblems(toolkit),
-      // 只涉及一个项目的任务一律是这个项目的内部任务，由它的维护者执行（16、64）：项目要在项目列表里、立项书已确认（首个建设任务例外）、没归档
+      // 只涉及一个项目的任务一律是这个项目的内部任务，由它的负责人执行（16、64）：项目要在项目列表里、立项书已确认（首个建设任务例外）、没归档
       projects: () => projectDirectory,
       // 项目的任务的任务书、打回意见派成起草计划的工单（16）；涉及多个项目的任务的计划确认时每一行建成工单（17）。派单器在项目系统里，
       // 项目系统建在任务模块之后：现取
@@ -1034,7 +1034,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     registry.register(planCardType(tasks));
     // 流程计划卡（58 号票）：一次授权执行，或拒绝
     registry.register(workflowPlanCardType(tasks, () => wired("taskExecution")));
-    // 被杀后的恢复（23）第 1 步：任何 agent 会话开始之前，记下上次被杀时正处理到一半的任务维护者
+    // 被杀后的恢复（23）第 1 步：任何 agent 会话开始之前，记下上次被杀时正处理到一半的任务负责人
     const restart = scanBeforeStart(store, tasks);
     // 素材引着的任务、审批、卡片和待我处理的事项：认出项目内部的记录（64：秘书检索不到；66：删除项目时随项目删）
     const materialOwners: MaterialOwners = {
@@ -1071,8 +1071,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 被删素材在推理库里的证据编号（265 号票）：问记忆的结果按证据编号引原话，彻底删除时按它找到那次调用的记录、完整内容和会话文件里的行
     // （272 号票起删项目、删任务时连带彻底删除的系统记录也按它找，所以建在项目系统前面）
     const purgedEvidence = (materialIds: readonly string[]) => purgedEvidenceIds(layout.rgDb, materialIds, log);
-    // 运行时核实用户原话（125）：维护者引用的用户消息由守护进程核对（还在、是用户说的、是它会话里的，秘书转达的换成原话）；
-    // 会话写成给人看的说法（秘书会话、项目的维护者会话、任务的会话）
+    // 运行时核实用户原话（125）：负责人引用的用户消息由守护进程核对（还在、是用户说的、是它会话里的，秘书转达的换成原话）；
+    // 会话写成给人看的说法（秘书会话、项目的负责人会话、任务的会话）
     const userWords: UserWordsDeps = {
       store,
       whereOf: conversationWhere({
@@ -1084,8 +1084,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const apps = createAppRegistry();
     // 项目系统（15、16、17、125、130、133、259–262、268；278 号票收成一个组装函数，方案 C）：项目、立项要求变更、规范改写、补齐规范、
     // 运营方案和运营手段、项目的服务、project_ops、派单器都在 projects/system.ts 里装，它登记自己的卡片类型、改写函数、素材来源；
-    // 这里只给内核的依赖。内核模块要它的什么，照各自的小接口从它拿（下面工具包、秘书的工具、执行控制器、任务的维护者、触发底座……）。
-    // 建在它之后的内核模块在下面 connect 交进去（派单器那时开始），项目的维护者在 start 里建出、项目开始，项目的服务接入 LSM 之后开始
+    // 这里只给内核的依赖。内核模块要它的什么，照各自的小接口从它拿（下面工具包、秘书的工具、执行控制器、任务的负责人、触发底座……）。
+    // 建在它之后的内核模块在下面 connect 交进去（派单器那时开始），项目的负责人在 start 里建出、项目开始，项目的服务接入 LSM 之后开始
     // 项目的服务报事件的前台（357）：运营层核过凭证后经它交事件，事件来源的分发建好时接上（在项目系统之后）
     const serviceDesk = createServiceEventDesk();
     const projectSystem = createProjectSystem({
@@ -1118,7 +1118,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       ...(options.serviceThumbnail ? { serviceThumbnail: options.serviceThumbnail } : {}),
       // 服务首页的缩略图（140）：浏览器和联网工具同一个（下面的浏览器探测）
       browser: () => playwrightDriver({ executablePath: browserPath, missing: () => browserLocator.missingReason() }),
-      // project_ops 跟维护者说一句：和秘书转达、网关发消息同一条路（下面 userMessageScopeOf、userMessagePreludeOf）
+      // project_ops 跟负责人说一句：和秘书转达、网关发消息同一条路（下面 userMessageScopeOf、userMessagePreludeOf）
       relay: { scopeOf: (c, taskId) => sayingScopeOf(c, taskId), preludeOf: (c, key, taskId) => userMessagePreludeOf(c, key, taskId) },
       newJob: () => (process.platform === "win32" ? createJobObject() : undefined),
       // 触发底座、事件来源的分发要项目系统的派单器，建在它之后：现转给它们
@@ -1153,7 +1153,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     });
     // 项目的服务停在插件之后（停的时候倒着来）
     teardown.push(() => projectSystem.stopServices());
-    // 提问卡上的回答：项目维护者为工单问的交回它（16，派单器的澄清给通知）
+    // 提问卡上的回答：项目负责人为工单问的交回它（16，派单器的澄清给通知）
     registry.register(questionsCardType(projectSystem.clarificationReply));
     // skill 库、MCP 登记和工具包（27）：skill 库是框架自带的加数据目录 skill 区里导入的；MCP 登记在配置区（只读），
     // 服务进程按需拉起、各放进自己的 Job 对象（不放 agent 管家的：那里按"从活着的 agent 走不到"回收孤儿）
@@ -1171,8 +1171,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     fs.mkdirSync(defaultMcpCwd(layout.tmp), { recursive: true });
     teardown.push(() => mcp.stop());
     const toolkits = createToolkitService({ store, cards, inbox, projects: projectSystem.toolkitProjects, tasks, execution: () => wired("taskExecution"), skills, mcp, now, log });
-    // MCP 登记变更（239）：维护者用 request_mcp_change 提加、改、删一条登记，用户在卡上确认之后运行时才写 mcp.json 并自检。
-    // 登记变了：让提交的人的会话按新的装配重新拉起（维护者和项目的两个模块各试一次，不是它的会话时不做事）
+    // MCP 登记变更（239）：负责人用 request_mcp_change 提加、改、删一条登记，用户在卡上确认之后运行时才写 mcp.json 并自检。
+    // 登记变了：让提交的人的会话按新的装配重新拉起（负责人和项目的两个模块各试一次，不是它的会话时不做事）
     const mcpChanges = createMcpChangeService({
       store,
       cards,
@@ -1197,7 +1197,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       log,
     });
     // skill 变更（358）：负责人用 request_skill_change 提加、改、删一个 skill，用户在卡上确认之后运行时才写 skill 区并自检，配进提交人的工具包。
-    // 来源只能是提交人自己的工作目录、项目档案（任务由项目的维护者执行的，按项目）
+    // 来源只能是提交人自己的工作目录、项目档案（任务由项目的负责人执行的，按项目）
     const skillChanges = createSkillChangeService({
       store,
       cards,
@@ -1296,9 +1296,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 向量函数（正式运行是数据目录模型区里的 bge-m3，测试注入假的）：记忆插件、记忆管理员共用一份
     // （打开推理库时 manifest 里记着它的名字；管理员改一条结论时不能把它写成"没有"）
     const memoryEmbedder = options.embedder ?? createBgeM3Embedder(layout.root);
-    // agent 运行时（286，ADR-0027 的"运行时"贡献点）：维护者用哪个运行时跑它的会话。登记表在插件装配之前建好（插件在数据契约里登记它们的），
-    // 内核自带的 pi 照同一个接口登记（不是插件、不能停用）。维护者的运行时存在任务、项目上（Task.runtime、Project.runtime，没写是 pi）：
-    // 项目的维护者照项目的（没写照转来的任务的），任务自己的、定时作业自己的维护者照它执行的那个任务的。运行时闸门交给 agent 宿主（拉起哪个
+    // agent 运行时（286，ADR-0027 的"运行时"贡献点）：负责人用哪个运行时跑它的会话。登记表在插件装配之前建好（插件在数据契约里登记它们的），
+    // 内核自带的 pi 照同一个接口登记（不是插件、不能停用）。负责人的运行时存在任务、项目上（Task.runtime、Project.runtime，没写是 pi）：
+    // 项目的负责人照项目的（没写照转来的任务的），任务自己的、定时作业自己的负责人照它执行的那个任务的。运行时闸门交给 agent 宿主（拉起哪个
     // 子进程入口、拉不拉得起、停用时停掉子进程）和执行控制器（执行中的任务转等我、启用后接着），登记表交给 agent 管家（解析子进程入口）；
     // 插件的状况变了（运行中停用、启用）登记表通知一声。下面执行控制器、agent 宿主、网关那几处各接一行
     const runtimeGate = createRuntimeGate({
@@ -1308,7 +1308,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         if (owned) return owned.project.runtime ?? (owned.project.fromTaskId === undefined ? undefined : tasks.get(owned.project.fromTaskId)?.runtime);
         return tasks.ofMaintainer(maintainerId)?.runtime;
       },
-      // 给运行时选的值（289）：项目的维护者照项目的，任务自己的照任务的（⚙ 里选的，拉起时交给子进程）
+      // 给运行时选的值（289）：项目的负责人照项目的，任务自己的照任务的（⚙ 里选的，拉起时交给子进程）
       optionsOf: (maintainerId) => {
         const owned = projectDirectory.ofMaintainer(maintainerId);
         if (owned) return owned.project.runtimeOptions;
@@ -1547,7 +1547,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     teardown.push(() => activity.stop());
     teardown.push(startQuestionStaleWatch({ store, scheduler, inbox, staleAfterMs, now, onStale: () => activity.cardWaitsChanged() }));
     // token 账本（24）：子进程每次模型调用报的用量记一条；任务名下的记上任务的当前阶段（结束了、全部验收之后的收尾调用不算进阶段）；
-    // 当前阶段是维护者的（20：它最后一次开始的那个，taskMessageScope 按任务里记的 focus 算）；
+    // 当前阶段是负责人的（20：它最后一次开始的那个，taskMessageScope 按任务里记的 focus 算）；
     // 子 agent、评审子 agent 拉起时自己带上阶段，不走这里。成本按现读的配置里的单价算，没配的按框架自带的价格表分时段算（94）
     const ledger = createTokenLedger({
       store,
@@ -1587,7 +1587,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       onUsage: ledger.record,
       // 接着会话时给被中断的工具调用补上的结果（23）：等审批的、有副作用说不清做没做完的，按事件日志现取
       interruptedToolResults: (agentId) => interruptedToolResults(store.reader, agentId),
-      // 维护者按运行时拉起哪个子进程入口（286）
+      // 负责人按运行时拉起哪个子进程入口（286）
       runtimes: agentRuntimes,
       // 前缀（71）：拉起时加在每个 agent 的系统提示最前面，每次现读；不是中文时末尾加"用 <语言> 回答用户"（168）
       systemPromptPrefix: effectiveSystemPrompt,
@@ -1623,14 +1623,14 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       userWaits: agents,
       // 项目档案（不含工作目录和历史区）里的文件被整体重写或删除前，运行时先留一份旧版本（15），所以守卫对它传 backedUp
       autoVersioning: projectSystem.autoVersioning,
-      // 子 agent 的调用挂起后才被决定：通知进维护者的会话，说法由子 agent 那边给（20）
+      // 子 agent 的调用挂起后才被决定：通知进负责人的会话，说法由子 agent 那边给（20）
       lateNotice: (decision) => wiring.subAgents?.lateNotice(decision),
       // 超预算停下的这一支：除了宣布完成、提计划变更都拦（361）
       heldCall: (scope, tool) => wiring.taskExecution?.heldCall(scope, tool),
       log,
     });
     teardown.push(() => guards.stop());
-    // 运行时自己要问用户的（288：Claude Code 的 AskUserQuestion、退出计划模式的批准，宿主协议 23 的 ask_user）：提问卡进维护者的会话和待我处理，
+    // 运行时自己要问用户的（288：Claude Code 的 AskUserQuestion、退出计划模式的批准，宿主协议 23 的 ask_user）：提问卡进负责人的会话和待我处理，
     // 卡上答了交回子进程；在等你回答时这个 agent 的活动状态是"等你"
     const runtimeQuestions = createRuntimeQuestions({ store, cards, inbox, userWaits: agents, log });
     registry.register(runtimeQuestionCardType(runtimeQuestions));
@@ -1646,9 +1646,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     for (const executor of taskRunActions({ tasks, scheduledJobs: () => wired("scheduledJobs") })) quickActionRegistry.register(executor);
     // 项目的自动播报（354）：用户说"以后简报站有进展直接念给我"
     quickActionRegistry.register(projectAnnounceAction({ store, projects: () => projectSystem.handles.projects }));
-    // 删除任务（186）：用户说"把 t-3 删了"，总会先出卡确认；执行走删除任务的模块（先停维护者、等子进程退出，所以要等结果）
+    // 删除任务（186）：用户说"把 t-3 删了"，总会先出卡确认；执行走删除任务的模块（先停负责人、等子进程退出，所以要等结果）
     quickActionRegistry.register(taskDeleteAction({ tasks, deletion: () => wired("taskDeletion") }));
-    // 秘书转达（103）：按用户的话往已有的任务、项目维护者的会话里插一句，和用户在那里直接说话同一条路（下面 userMessageScopeOf、
+    // 秘书转达（103）：按用户的话往已有的任务、项目负责人的会话里插一句，和用户在那里直接说话同一条路（下面 userMessageScopeOf、
     // userMessagePreludeOf，网关发消息也用它们），消息标上秘书转达
     for (const executor of relayActions({ store, tasks, scopeOf: (c, taskId) => sayingScopeOf(c, taskId), preludeOf: (c, key, taskId) => userMessagePreludeOf(c, key, taskId) })) {
       quickActionRegistry.register(executor);
@@ -1777,7 +1777,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       probe: (request) => agents.probeModels(request),
       lsm: () => lsmEnabled,
       secretarySession: () => secretary.sessionModel,
-      // 单独配了模型的维护者是谁（120）：设置页上列在项目维护者、任务维护者那一行下面，点了去它的 ⚙
+      // 单独配了模型的负责人是谁（120）：设置页上列在项目负责人、任务负责人那一行下面，点了去它的 ⚙
       maintainerOwner: (agentId) => {
         const project = projectDirectory.maintainedBy(agentId);
         if (project) return { agent: "project_maintainer", owner: { kind: "project", id: project.id, title: project.name } };
@@ -1837,7 +1837,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       now: () => clock.now(),
     });
     const agentModel = (agent: ModelAgent) => modelSettings.modelFor(agent);
-    // 项目归档（含放弃）、删除，任务归档：这个维护者单独配的模型一起清掉（120）。任务转为项目后原任务的维护者成了项目的维护者，
+    // 项目归档（含放弃）、删除，任务归档：这个负责人单独配的模型一起清掉（120）。任务转为项目后原任务的负责人成了项目的负责人，
     // 原任务归档时不清（它单独配的模型跟着项目走）
     teardown.push(
       store.onAppend((event) => {
@@ -1852,7 +1852,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       }),
     );
     const configuredVision = () => modelSettings.configuredVision();
-    // 联网搜索、读网页（70）：秘书、任务维护者（起草和执行）、项目维护者、定时作业的维护者、子 agent 都配上（评审子 agent 不配）；
+    // 联网搜索、读网页（70）：秘书、任务负责人（起草和执行）、项目负责人、定时作业的负责人、子 agent 都配上（评审子 agent 不配）；
     // 联网开关关着的会话里守卫拒绝。154 起几种方式并列：浏览器（DDG → Bing → Google）、DeepSeek 的搜索接口（key 和模型共用，
     // 每次现取）、Tavily（key 只从环境里取，只在指定时用）。162 起按设置里的队列（DeepSeek、浏览器、agent-browser，能排序、能停用）：
     // 不指定时依次试启用的，没成换下一个；读网页先直接请求，被拦了按队列交给 DeepSeek 读网页、浏览器。工具说明跟着队列写，每次装配现做，
@@ -1952,7 +1952,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     };
     // 读一遍设置文件：频道上还没有事件、或者文件在停机时被改过，记一条（设置页据此显示）
     watchCategories.start();
-    // 回复中用户发的话排的队（144）：秘书、维护者的会话在这一轮结束时一起交出去，归属、要先开的对话段照网关发消息时的认
+    // 回复中用户发的话排的队（144）：秘书、负责人的会话在这一轮结束时一起交出去，归属、要先开的对话段照网关发消息时的认
     // （这两个在派单器接上之后才有：之前交出去的照排进来时的归属，秘书的会话不用认）
     const queueDelivery = createQueueDelivery(store, {
       scopeOf: (conversation, taskId) => userMessageScopeOf(conversation, taskId),
@@ -2088,7 +2088,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       log,
     });
 
-    // 给秘书发消息（102）：除了秘书，每个 agent（维护者、子 agent、评审）默认都有；发出的记在守护进程内部的频道上，
+    // 给秘书发消息（102）：除了秘书，每个 agent（负责人、子 agent、评审）默认都有；发出的记在守护进程内部的频道上，
     // 交给秘书由秘书模块照任务做完的那一套交
     const letters = createSecretaryLetters({ store, clock, media });
     // 全局执行名额（13、19）：执行中的任务和开始了的定时作业运行共用，谁占着只在 tasks/slots.ts 里数
@@ -2112,15 +2112,15 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       stageTokens: (taskId, stageId) => ledger.stageTokens(taskId, stageId, { budget: true }),
       // token 预算由运行时算（361）：预计次数 × 这个 agent 最近每次调用实际记多少
       callMeter: (agentId) => ledger.callMeter(agentId),
-      // 无进展的判定：维护者的子进程在运行才算"活着却没进展"
+      // 无进展的判定：负责人的子进程在运行才算"活着却没进展"
       agentAlive: (agentId) => agents.live().some((a) => a.agentId === agentId),
       watchSettings,
       planTools: BUILTIN_TOOL_REGISTRY,
       // 阶段详情列已经做了的事、算授权已用几次（84）：框架自带的工具加登记的 MCP
       effectTools: () => ({ ...BUILTIN_TOOL_REGISTRY, ...Object.fromEntries(mcp.descriptors().map((d) => [d.name, d])) }),
       homeDir: places.homeDir,
-      // 从某个阶段重做之前先停稳维护者手头这一轮（84）：任务自己的维护者，连同手上是这个任务的工单的项目维护者
-      // （单项目任务由项目维护者执行；涉及多个项目的任务，派出的工单在各项目维护者那里做）一起停
+      // 从某个阶段重做之前先停稳负责人手头这一轮（84）：任务自己的负责人，连同手上是这个任务的工单的项目负责人
+      // （单项目任务由项目负责人执行；涉及多个项目的任务，派出的工单在各项目负责人那里做）一起停
       stopTurn: (task, how) => wired("agentHost").stopTaskTurn(task, how),
       ...(options.reworkStopTimeoutMs === undefined ? {} : { reworkStopTimeoutMs: options.reworkStopTimeoutMs }),
       toolkitProblems: (toolkit) => toolkits.nameProblems(toolkit),
@@ -2132,16 +2132,16 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         review: createReviewer({ agents, guards, model: reviewerModel, credentials, prompts, letters, typedShell, foldersBlock: () => agentFoldersBlock(localFolders.view()), log }),
       },
       subAgentsOn: (taskId) => wired("subAgents").busyStages(taskId),
-      // 只涉及一个项目的任务（16）：在项目的工作目录里做，工具包取任务授权和项目工具包的交集，项目的维护者正忙时留在排队中
+      // 只涉及一个项目的任务（16）：在项目的工作目录里做，工具包取任务授权和项目工具包的交集，项目的负责人正忙时留在排队中
       projectTasks: projectSystem.projectTasks,
-      // 计划变更、自行调整之后维护者的工具包变了：活着的子 agent 按新的交集重新装配（14 接 20）
+      // 计划变更、自行调整之后负责人的工具包变了：活着的子 agent 按新的交集重新装配（14 接 20）
       toolkitChanged: (taskId) => wired("subAgents").reassemble(taskId),
-      // 涉及多个项目的任务（17）：维护者的工具包固定，本阶段的回执全部到齐且都完成才能宣布阶段完成
+      // 涉及多个项目的任务（17）：负责人的工具包固定，本阶段的回执全部到齐且都完成才能宣布阶段完成
       multiProject: projectSystem.multiProjectTasks,
       planProjects,
-      // 维护者宣布完成、计划变更、自行调整时引用的用户原话（125）：运行时核实过的单独一栏
+      // 负责人宣布完成、计划变更、自行调整时引用的用户原话（125）：运行时核实过的单独一栏
       userWords,
-      // 执行它的维护者用的运行时没启用（286）：执行中的转等我，启用后接着
+      // 执行它的负责人用的运行时没启用（286）：执行中的转等我，启用后接着
       runtimeHold: { held: (task) => runtimeGate.held(task.maintainerId)?.reason, off: (task) => runtimeGate.off(task.maintainerId)?.reason },
       log,
     });
@@ -2157,14 +2157,14 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 任务完成（全部阶段验收通过）后：节假日数据的更新任务（29）导入交付件；项目的建设任务（15、112）由项目系统接（下面 connect，排在它后面）
     taskExecution.onCompleted((completed) => holidayUpdates.taskCompleted(completed));
 
-    // 范围审视（18）：对照物和近期范围记录交给维护者的子进程（审视在子进程里做），审视的结果存成范围记录、写进项目档案或任务的产出区
+    // 范围审视（18）：对照物和近期范围记录交给负责人的子进程（审视在子进程里做），审视的结果存成范围记录、写进项目档案或任务的产出区
     // 125：对照物里的立项书按现在的（用户确认了的立项要求变更改过的，从事件算），用户的话按运行时核实过的格式
     const scopeReviewService = createScopeReview({ store, inbox, projects: projectDirectory, tasks, outputsDir: realLayout.outputs, charterText: (projectId) => projectSystem.charterText(projectId), userWords, now, log });
     scopeReviewService.start();
     teardown.push(() => scopeReviewService.stop());
     const scopeReview: MaintainerScopeReview = {
       service: scopeReviewService,
-      // 审视用的模型每次审视时现取（拉起维护者时、交每条输入之前、工单结束时的审视），设置里改了下一次审视就用新的（73）
+      // 审视用的模型每次审视时现取（拉起负责人时、交每条输入之前、工单结束时的审视），设置里改了下一次审视就用新的（73）
       model: options.scopeReviewModel ?? (() => agentModel("scope_review")),
       // 工单结束时的审视最多等一次模型调用的超时（再多给半分钟收尾）
       prompts,
@@ -2172,7 +2172,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     };
 
     // 流程（58）：交来的计划先审查修补（planguard 的规划时审查），按执行时的守卫标注每一步；审查的耗时用真实的计时器。
-    // 任务自己的维护者和项目的维护者（64：项目内部的流程）共用，执行它的维护者的样子由各自给
+    // 任务自己的负责人和项目的负责人（64：项目内部的流程）共用，执行它的负责人的样子由各自给
     const workflowReview =
       (task: Task, executor: WorkflowExecutor): WorkflowReviewer =>
       (draft, version) => {
@@ -2190,8 +2190,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
           elapsed: () => performance.now() - started,
         });
       };
-    // agent 宿主（127）：三种维护者（任务自己的、定时作业自己的、项目的）共用的装配和会话，只建这一次；下面三个维护者模块各是它的一种配置，
-    // 只给自己的差异。子 agent 要维护者此刻的装配、执行控制器从某个阶段重做前停稳手头这一轮、设置里的 ⚙ 都经它问
+    // agent 宿主（127）：三种负责人（任务自己的、定时作业自己的、项目的）共用的装配和会话，只建这一次；下面三个负责人模块各是它的一种配置，
+    // 只给自己的差异。子 agent 要负责人此刻的装配、执行控制器从某个阶段重做前停稳手头这一轮、设置里的 ⚙ 都经它问
     const agentHost = createAgentHost({
       // 授权的文件夹（355）：带运行时的会话（Claude Code）拉起时交给运行时的只读放行
       authorizedFolders: () => authorizedFolderRoots(localFolders.list()),
@@ -2205,7 +2205,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       execution: taskExecution,
       typedShell,
       sessionTools,
-      // 插件给维护者的工具、上下文块、钩子订阅（128）：装配时按哪种维护者、哪种会话、工具包筛
+      // 插件给负责人的工具、上下文块、钩子订阅（128）：装配时按哪种负责人、哪种会话、工具包筛
       contributions: agentContributions,
       // 工具包里的 skill、MCP，执行时增减 skill 的工具（27），登记 MCP 的工具（239），提交 skill 的工具（358）
       toolkits: {
@@ -2223,11 +2223,11 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       // 流程（58、64）：交来的计划先审查修补
       workflowReview,
       prompts,
-      // 换了语言（168）：维护者交下一条输入之前按新的系统提示重新拉起
+      // 换了语言（168）：负责人交下一条输入之前按新的系统提示重新拉起
       language: languageKey,
       // 改了"我的名字"（249）：同样交下一条输入之前按新的系统提示重新拉起
       userName: () => userName.current(),
-      // 系统提示里给维护者讲的阈值（14）、连续失败几次自动暂停（19、76）、工作目录外的说法跟着对话审批的开关（70、75）
+      // 系统提示里给负责人讲的阈值（14）、连续失败几次自动暂停（19、76）、工作目录外的说法跟着对话审批的开关（70、75）
       thresholds: taskThresholds,
       runFailureLimit: config.scheduledJobs.jobFailures,
       get conversationApprovals() {
@@ -2237,7 +2237,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       // Git Bash 里 /tmp 挂到哪（177）：按守护进程自己的 TMP / TEMP（agent 的 bash 进程本身带着的就是这一份），守卫按它解析 /tmp
       bashTmp,
       outputsDir: realLayout.outputs,
-      // 维护者的模型（73）：项目、任务的维护者单独配了模型的按它的，不然按它那一行（120）；定时作业自己的维护者算任务维护者（作业来自任务的计划），
+      // 负责人的模型（73）：项目、任务的负责人单独配了模型的按它的，不然按它那一行（120）；定时作业自己的负责人算任务负责人（作业来自任务的计划），
       // 照那一行。子 agent、评审、范围审视照各自那一行（上面的 agentModel）
       model: (maintainer, maintainerId, spawn) =>
         options.maintainerModel
@@ -2249,7 +2249,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       credentials,
       timeZone: config.timeZone,
       sessionRewriteFor,
-      // 维护者的运行时（286）：拉起哪个子进程入口、拉不拉得起；有活拉不起来时活动状态"等你"（写明哪个插件没启用）
+      // 负责人的运行时（286）：拉起哪个子进程入口、拉不拉得起；有活拉不起来时活动状态"等你"（写明哪个插件没启用）
       runtimes: runtimeGate,
       onRuntimeWait: (agentId, wait) =>
         activity.runtimeWait(agentId, wait === undefined ? undefined : wait.remote ? { kind: "in_remote", runtime: wait.plugin } : wait.returned ? { kind: "handed_back", runtime: wait.plugin } : { kind: "runtime_off", plugin: wait.plugin }),
@@ -2267,7 +2267,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       log,
     });
     wiring.agentHost = agentHost;
-    // 会话回退（150）：秘书的主线会话先用；任务、项目维护者的会话在 152 号票接上（它们的 agentHandle 给了 rollback 就能回退）
+    // 会话回退（150）：秘书的主线会话先用；任务、项目负责人的会话在 152 号票接上（它们的 agentHandle 给了 rollback 就能回退）
     const rollbacks = createSessionRollbacks({ store, cards, hook: options.sessionRollbackHook, log });
     const rollbackSessionOf = (conversation: ConversationId): RollbackSession => {
       const handle =
@@ -2279,23 +2279,23 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       if (!rollbackEnabled(conversation) || !handle?.rollback) throw new RequestRejected("not_allowed", t("daemon.noRollback"));
       return handle.rollback;
     };
-    // 维护者（12：任务自己的维护者；13：执行时按计划装配）：会话里来了输入就唤起；秘书先起来，占着它预留的名额
+    // 负责人（12：任务自己的负责人；13：执行时按计划装配）：会话里来了输入就唤起；秘书先起来，占着它预留的名额
     const maintainers = createMaintainers({
       host: agentHost,
       ...(options.maintainerToolkit ? { toolkit: options.maintainerToolkit } : {}),
-      // 项目的维护者（含任务转为项目后原任务的维护者）由项目模块接；作业自己的维护者（jm-<n>，76 号票之前的定时作业迁移成
-      // 定时触发的普通任务后照旧由它做）由作业维护者模块接
+      // 项目的负责人（含任务转为项目后原任务的负责人）由项目模块接；作业自己的负责人（jm-<n>，76 号票之前的定时作业迁移成
+      // 定时触发的普通任务后照旧由它做）由作业负责人模块接
       excluded: (maintainerId) => projectDirectory.ofMaintainer(maintainerId) !== undefined || isJobMaintainerId(maintainerId),
-      // 涉及多个项目的任务（17）：维护者的工具包固定为三样（读项目档案、派工单、汇总回执），加上转问用户
+      // 涉及多个项目的任务（17）：负责人的工具包固定为三样（读项目档案、派工单、汇总回执），加上转问用户
       multiProject: projectSystem.multiProjectMaintainer,
       // 普通任务（75）的 agent：skill 用助理的那一份（每次唤起现取）
       plainSkills: () => secretarySkills.view().skills,
-      // 定时触发的任务（76）：触发底座建在维护者模块之后，现取（每次运行一段、"报告这次运行失败"、流程的授权）
+      // 定时触发的任务（76）：触发底座建在负责人模块之后，现取（每次运行一段、"报告这次运行失败"、流程的授权）
       triggers: () => wiring.scheduledJobs,
     });
     wiring.maintainers = maintainers;
-    // 子 agent 并行（20）：维护者提议、用户在并行确认卡上同意后拉起子 agent（占子进程名额，不占任务的执行名额），
-    // 装配从维护者此刻的装配收窄，结果交回维护者的会话
+    // 子 agent 并行（20）：负责人提议、用户在并行确认卡上同意后拉起子 agent（占子进程名额，不占任务的执行名额），
+    // 装配从负责人此刻的装配收窄，结果交回负责人的会话
     const subAgents = createSubAgents({
       foldersBlock: () => agentFoldersBlock(localFolders.view()),
       store,
@@ -2307,9 +2307,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       guards,
       typedShell,
       sessionTools,
-      // 子 agent 也能给秘书发消息（102）：维护者有的它才有
+      // 子 agent 也能给秘书发消息（102）：负责人有的它才有
       letters,
-      // 维护者此刻的装配（任务自己的维护者、执行项目的任务的项目维护者，16）：经 agent 宿主问
+      // 负责人此刻的装配（任务自己的负责人、执行项目的任务的项目负责人，16）：经 agent 宿主问
       maintainerAssembly: (taskId) => agentHost.assemblyOf(taskId),
       projectOf: (taskId) => {
         const task = tasks.get(taskId);
@@ -2328,10 +2328,10 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     subAgents.start();
     teardown.push(() => subAgents.stop());
     /**
-     * 用户往维护者的会话里说话时消息的归属：项目的（15）带上项目，任务的（13）带上任务；别的会话不认（收不了的抛出原因）。
+     * 用户往负责人的会话里说话时消息的归属：项目的（15）带上项目，任务的（13）带上任务；别的会话不认（收不了的抛出原因）。
      * taskId 是用户在哪个任务的详情里说的（75：项目内部的普通任务做完了接着说，消息属于它）。网关发消息、秘书转达（103）、排队的消息交出去（144）共用
      */
-    // 242 号票：记忆管理员的会话不是谁的活（不归属任务、项目）；它没起来时不认（像没有这个维护者一样）
+    // 242 号票：记忆管理员的会话不是谁的活（不归属任务、项目）；它没起来时不认（像没有这个负责人一样）
     // 284 号票：了解你访谈开着时，用户在管理员会话里说的话带上访谈编号和管理员问的那一句（素材据此标"来自访谈"、把问的那句放进上下文；
     // 语音对象跟着带）
     const curatorScope = (): MessageScope => plugins.service(MEMORY_INTERVIEWS)?.messageScope() ?? {};
@@ -2345,7 +2345,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       return userMessageScopeOf(conversation, taskId);
     };
     // 从运行时已有的会话接管（290）：列本机会话（运行时登记的）、二狗自己的写入锁（任务、项目上记着的接管）、接管成任务或项目、
-    // 交还和收回（交还了的维护者运行时闸门不拉起；交还等它的子进程退干净）
+    // 交还和收回（交还了的负责人运行时闸门不拉起；交还等它的子进程退干净）
     const takeoverService = createTakeoverService({
       store,
       runtimes: agentRuntimes,
@@ -2356,7 +2356,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       tools: BUILTIN_TOOL_REGISTRY,
       // 会话原来的工作目录在数据目录、二狗程序目录里的不接（305）
       checkFolder: (folder) => workFolders.check(folder),
-      // 交给官方 App（292）：在做一轮的先打断；现在接着的会话看维护者会话目录里运行时记的；在官方 App 里的定时只读跟随
+      // 交给官方 App（292）：在做一轮的先打断；现在接着的会话看负责人会话目录里运行时记的；在官方 App 里的定时只读跟随
       stopTurn: (maintainerId) => agentHost.agentHandle(maintainerId)?.stopReply() ?? false,
       sessionDir: (maintainerId) => agentSessionDir(layout, maintainerId),
       ...(options.remoteFollowMs === undefined ? {} : { followMs: options.remoteFollowMs }),
@@ -2364,24 +2364,24 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       log,
     });
     teardown.push(takeoverService.startFollowing());
-    /** 交还了的会话（290）、交给了官方 App 的（292）：用户在维护者的会话里说话被拒（先收回） */
+    /** 交还了的会话（290）、交给了官方 App 的（292）：用户在负责人的会话里说话被拒（先收回） */
     const refuseReturned = (conversation: ConversationId) => {
       if (!conversation.startsWith(MAINTAINER_CHANNEL_PREFIX)) return;
       const refusal = takeoverService.sendRefusal(conversation.slice(MAINTAINER_CHANNEL_PREFIX.length));
       if (refusal !== undefined) throw new RequestRejected("not_allowed", refusal);
     };
-    /** 项目维护者手上没有在进行的段时，用户的话开一个对话段（分隔线在这句话之前，16）；在项目内部的普通任务的详情里说的不开（75） */
+    /** 项目负责人手上没有在进行的段时，用户的话开一个对话段（分隔线在这句话之前，16）；在项目内部的普通任务的详情里说的不开（75） */
     const userMessagePreludeOf = (conversation: ConversationId, key: string, taskId?: string) =>
       conversation.startsWith(MAINTAINER_CHANNEL_PREFIX) ? projectSystem.messagePrelude(conversation.slice(MAINTAINER_CHANNEL_PREFIX.length), key, taskId) : [];
-    // 项目系统接上建在它之后的内核模块（278）：执行控制器、agent 宿主、执行名额、任务的维护者、子 agent、工具包、MCP 登记变更、skill 变更都建好了。
+    // 项目系统接上建在它之后的内核模块（278）：执行控制器、agent 宿主、执行名额、任务的负责人、子 agent、工具包、MCP 登记变更、skill 变更都建好了。
     // 接着（和原来同一个位置）：项目的建设任务做完了出"首版做完了"卡（任务完成回调）、运营方案跟着项目停用启用（订阅项目事件）、派单器开始
-    // （派单器写回最多催几次和执行中的催促同一个阈值，14；工单结束时的范围审视由项目的维护者做，18）
+    // （派单器写回最多催几次和执行中的催促同一个阈值，14；工单结束时的范围审视由项目的负责人做，18）
     projectSystem.connect({ execution: taskExecution, agentHost, slots, taskMaintainers: maintainers, subAgents, toolkits, mcpChanges, skillChanges }, teardown);
-    // 任务的维护者在派单器接上之后再起：重启时马上要拉起的涉及多个项目的任务的维护者，一起来就可能派工单（17）
+    // 任务的负责人在派单器接上之后再起：重启时马上要拉起的涉及多个项目的任务的负责人，一起来就可能派工单（17）
     maintainers.start();
     teardown.push(() => maintainers.stop());
-    // 定时作业（19）：确认计划后登记，到点时一次运行进队列，真正开始时占一个全局名额（属于项目的派工单给项目维护者，
-    // 不属于项目的交给作业自己的维护者）。先接上事件（项目维护者、作业维护者开始接输入时把被打断的运行标成中断，这里要看到），
+    // 定时作业（19）：确认计划后登记，到点时一次运行进队列，真正开始时占一个全局名额（属于项目的派工单给项目负责人，
+    // 不属于项目的交给作业自己的负责人）。先接上事件（项目负责人、作业负责人开始接输入时把被打断的运行标成中断，这里要看到），
     // 补跑错过的放在恢复之后
     const scheduledJobs = createScheduledJobs({
       store,
@@ -2422,7 +2422,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     });
     wiring.eventTriggers = eventTriggers;
     teardown.push(() => eventTriggers.stop());
-    // 定时作业自己的维护者（19；76 号票之前的作业）：agent 宿主的一种配置，每次运行的装配由作业模块给
+    // 定时作业自己的负责人（19；76 号票之前的作业）：agent 宿主的一种配置，每次运行的装配由作业模块给
     const jobMaintainers = createJobMaintainers({
       host: agentHost,
       runAssembly: (jobId, maintainerId) => scheduledJobs.runAssembly(jobId, maintainerId),
@@ -2433,9 +2433,9 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 每周的归档清单（19）：任务模块的内部作业（错过了开机后补一次），选"继续改"时走执行控制器
     registry.register(archiveListCardType({ tasks, execution: () => taskExecution }));
     const archiveList = createArchiveList({ store, tasks, cards, inbox, internalJobs, clock, afterDays: config.tasks.thresholds.archiveAfterDays });
-    // 维护者接上之后再开始执行：排着的任务按名额开始，交给维护者的通知由它们接着处理
+    // 负责人接上之后再开始执行：排着的任务按名额开始，交给负责人的通知由它们接着处理
     taskExecution.start();
-    // agent 运行时（286）：运行时能不能用变了、运行时不能用的维护者做完了手头那一轮，执行中的任务转等我或接着执行；
+    // agent 运行时（286）：运行时能不能用变了、运行时不能用的负责人做完了手头那一轮，执行中的任务转等我或接着执行；
     // 起来时看一遍（配置里停用了运行时插件的）
     teardown.push(runtimeGate.onChange(() => taskExecution.followRuntimes()));
     taskExecution.followRuntimes();
@@ -2449,12 +2449,12 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       const descriptors = [...Object.values(BUILTIN_TOOL_REGISTRY), ...hostTools.map((tool) => tool.descriptor), ...mcp.descriptors()];
       return Object.fromEntries(descriptors.map((d) => [d.name, d]));
     };
-    // 项目系统开始（278；和原来同一个位置）：建出项目的维护者（15：用户在它的会话里说话时唤起，任务转为项目时从任务的维护者模块接过来；
-    // 登记进 agent 宿主排在任务的、定时作业的维护者后面），项目对一遍档案、立项要求变更、规范改写、补齐规范（规范上线记一次、给缺文档的现有项目出卡）、
-    // 项目的维护者开始接输入
+    // 项目系统开始（278；和原来同一个位置）：建出项目的负责人（15：用户在它的会话里说话时唤起，任务转为项目时从任务的负责人模块接过来；
+    // 登记进 agent 宿主排在任务的、定时作业的负责人后面），项目对一遍档案、立项要求变更、规范改写、补齐规范（规范上线记一次、给缺文档的现有项目出卡）、
+    // 项目的负责人开始接输入
     projectSystem.start(teardown);
     // 被杀后的恢复（23）第 2 步：各模块都接上之后（执行控制器订阅好了，agent 会话标好了中断的输入），
-    // 待审批的从审批表恢复（记成挂起，不新建卡、不再提示），被杀时正在执行的有副作用的调用记成中断，被打断的维护者接着做
+    // 待审批的从审批表恢复（记成挂起，不新建卡、不再提示），被杀时正在执行的有副作用的调用记成中断，被打断的负责人接着做
     recoverAfterRestart({ store, approvals, inbox, tasks, now, log }, restart);
     // 错过的定时触发（规格第 13、17 节）：恢复做完之后，重启前在跑的运行对一遍，停机期间错过的作业只补跑一次；
     // 每周的归档清单登记成内部作业（错过了同样补一次）
@@ -2478,13 +2478,13 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     };
 
     /**
-     * 删除任务（186）：先停（没结束的照下面 taskAction 的取消走；维护者停稳这一轮、停掉；子 agent 停下），再在一个事务里删任务、
-     * 维护者会话和属于它的记录，最后删会话文件和工作目录
+     * 删除任务（186）：先停（没结束的照下面 taskAction 的取消走；负责人停稳这一轮、停掉；子 agent 停下），再在一个事务里删任务、
+     * 负责人会话和属于它的记录，最后删会话文件和工作目录
      */
     const taskDeletion = createTaskDeletion({
       store,
       participants: deletionParticipants,
-      // 任务自己的维护者（tm-N）、迁移来的定时任务的作业维护者（jm-N）：两个模块各管各的，停、恢复都交给两边
+      // 任务自己的负责人（tm-N）、迁移来的定时任务的作业负责人（jm-N）：两个模块各管各的，停、恢复都交给两边
       maintainers: {
         suspend: async (maintainerId) => {
           await Promise.all([maintainers.suspend(maintainerId), jobMaintainers.suspend(maintainerId)]);
@@ -2508,7 +2508,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     wiring.taskDeletion = taskDeletion;
 
     /**
-     * 维护者工具包里的 skill 交给运行时之后的斜杠命令（291）：和装配时一样现取工具包里的 skill 目录（同样的先后），运行时给出它那边的命令名
+     * 负责人工具包里的 skill 交给运行时之后的斜杠命令（291）：和装配时一样现取工具包里的 skill 目录（同样的先后），运行时给出它那边的命令名
      * （Claude Code：/ergo:<目录名>），显示的名字、说明照 skill 库。运行时不管 skill 的（pi）是空的
      */
     const runtimeSkillCommands = (runtime: string, maintainerId: string): Array<{ command: string; name: string; description: string }> => {
@@ -2621,13 +2621,13 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         markRead: (params, idempotencyKey) => readMarks.markRead(params, idempotencyKey),
         // 设置里的关于二狗、Debug 工具集（124）：版本、起来的时间、此刻的时间（守护进程的钟）
         daemonInfo: () => ({ version: DAEMON_VERSION, startedAt, now: now() }),
-        // 会话回退（150）：缩小视图里点 ↶、确认之后回到某条之前（秘书先用，152 号票接上任务、项目维护者）
+        // 会话回退（150）：缩小视图里点 ↶、确认之后回到某条之前（秘书先用，152 号票接上任务、项目负责人）
         rollbackSession: (params, idempotencyKey) => rollbacks.rollback(params.conversation, params.before, rollbackSessionOf(params.conversation), idempotencyKey),
-        // 切换分支（151）：展开的 ⑂ 预览上点"切换到这条分支"（同回退：秘书先用，152 号票接上任务、项目维护者）
+        // 切换分支（151）：展开的 ⑂ 预览上点"切换到这条分支"（同回退：秘书先用，152 号票接上任务、项目负责人）
         switchBranch: (params, idempotencyKey) => rollbacks.switchBranch(params.conversation, params.branchId, rollbackSessionOf(params.conversation), idempotencyKey),
         // 废弃分支详情里的「申请撤回」（151）：记一笔、调撤销接口
         requestEffectUndo: (params) => rollbacks.requestEffectUndo(params.conversation, params.branchId, params.callId, rollbackSessionOf(params.conversation)),
-        // 输入框旁的"停止"（144）：秘书、任务自己的维护者、项目维护者各自停自己的这一轮
+        // 输入框旁的"停止"（144）：秘书、任务自己的负责人、项目负责人各自停自己的这一轮
         stopReply: (params) => {
           const handle =
             params.conversation === CHANNELS.secretary
@@ -2637,10 +2637,10 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
                 : undefined;
           return { stopped: handle?.stopReply() ?? false };
         },
-        // 用户往维护者的会话里说话：归属和要先追加的事件（秘书转达也走这两个，103）
+        // 用户往负责人的会话里说话：归属和要先追加的事件（秘书转达也走这两个，103）
         messageScope: sayingScopeOf,
         messagePrelude: userMessagePreludeOf,
-        // 新建项目、任务转为项目、项目页上的动作、重置维护者、项目卡片和项目页上的"启动""关闭"（257）：项目系统给
+        // 新建项目、任务转为项目、项目页上的动作、重置负责人、项目卡片和项目页上的"启动""关闭"（257）：项目系统给
         ...projectSystem.requests,
         // 发消息时收下语音 part、气泡菜单里的"重新识别"（31）：214 号票起由语音插件在数据契约里登记（下面 plugins.requests()）
         setToolkit: (params, idempotencyKey) => toolkits.set(params, idempotencyKey),
@@ -2694,7 +2694,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
               secretarySkills: () => secretarySkills.view().skills,
               projectSkills: (maintainerId) => projectSystem.skillsOf(maintainerId),
               taskSkills: (maintainerId) => maintainers.skillsOf(maintainerId),
-              // 维护者用的运行时转交斜杠命令的（289）：候选是它报的命令；工具包里的 skill 按运行时里的写法（291：Claude Code 是 /ergo:<目录名>）
+              // 负责人用的运行时转交斜杠命令的（289）：候选是它报的命令；工具包里的 skill 按运行时里的写法（291：Claude Code 是 /ergo:<目录名>）
               runtimeCommands: (maintainerId) => {
                 const runtime = runtimeGate.runtimeOf(maintainerId);
                 if (!runtimeGate.supports(runtime, "slash_passthrough")) return undefined;
@@ -2752,20 +2752,20 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
           if (!isConversationChannel(conversation)) throw new RequestRejected("bad_params", t("daemon.notConversation", { conversation }));
           return rollbacks.branchView(conversation, branchId, against, rollbackSessionOf(conversation));
         },
-        // 每个 agent 的会话里的 ⚙（114）：秘书、任务自己的维护者、项目维护者各自认自己的
+        // 每个 agent 的会话里的 ⚙（114）：秘书、任务自己的负责人、项目负责人各自认自己的
         agentSettings: createAgentSettings({
           // ⚙ 面板里"实际生效的"系统提示和拉起时一样：前缀 + 角色的 + 不是中文时末尾那句（168）
           prompts: { ...prompts, withPrefix: effectiveSystemPrompt },
           ledger,
           agents,
-          // 项目、任务的维护者单独配模型（120）
+          // 项目、任务的负责人单独配模型（120）
           models: modelSettings,
           // 角色（248 号票）：配置区里的 agent-roles.json；没指定角色就跟默认角色（名字是全局的名字、音色是全局选中的参考音色）
           roles: agentRoles,
-          // 秘书跟默认时用全局的名字（43）；维护者的默认名字是角色称呼
+          // 秘书跟默认时用全局的名字（43）；负责人的默认名字是角色称呼
           assistantName: () => assistantName.current(),
-          // 能配的有哪些：秘书、每个在的项目维护者、每个在的任务维护者，以及记忆管理员（242 起在跑就有）；
-          // 以后按 agent id 自动有的也不写死在这里：认不得的（删了的任务、项目的维护者）跳过
+          // 能配的有哪些：秘书、每个在的项目负责人、每个在的任务负责人，以及记忆管理员（242 起在跑就有）；
+          // 以后按 agent id 自动有的也不写死在这里：认不得的（删了的任务、项目的负责人）跳过
           candidates: () => [
             CHANNELS.secretary,
             ...projectDirectory.list().map((project) => project.maintainerId),
@@ -2774,7 +2774,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
           ],
           // 语音插件没启用：音色改不了（名字照常）
           voiceUnavailable: () => (plugins.service(VOICE) === undefined ? voiceOffReason() : undefined),
-          // 项目、任务的维护者用哪个运行时、给它选的值（289）：按登记表核对
+          // 项目、任务的负责人用哪个运行时、给它选的值（289）：按登记表核对
           runtimes: agentRuntimes,
           // 接管来的会话交还、收回（290）
           takeover: takeoverService,

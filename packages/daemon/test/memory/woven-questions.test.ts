@@ -40,7 +40,7 @@ describe("夜里判回答要的'问过以后用户说的话'", () => {
     postMessage(t.store, [toolCall(MARK_WOVEN_QUESTION, "id=qu-0003")], { speaker: "agent", time: time(10, 11, 0) });
     postMessage(t.store, [text("去不去看你状态。最近是不是挺忙的？")], { speaker: "agent", time: time(10, 11, 1) });
     const busy = postMessage(t.store, [text("最近在赶项目，天天弄到很晚")], { time: time(10, 11, 5) }).message.id;
-    postMessage(t.store, [text("维护者那边说的话")], { conversation: "task:t-1:maintainer" as never, time: time(10, 11, 6) });
+    postMessage(t.store, [text("负责人那边说的话")], { conversation: "task:t-1:maintainer" as never, time: time(10, 11, 6) });
     const clock = postMessage(t.store, [text("周六早上的闹钟帮我关掉")], { time: time(10, 11, 10) }).message.id;
     postMessage(t.store, [text("隔了一天多才说的话")], { time: time(11, 12, 0) });
     /** 素材 id → 它是哪条消息 */

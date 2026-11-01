@@ -308,7 +308,7 @@ export class FakeConnection implements Connection {
     if (demoParam("demo-unread") !== null) {
       for (const e of awayDemo()) this.append(e.channel, e.type, e.payload);
       // 秘书会话里还有一张没处理的快速动作卡进了待办：输入框上面"等你处理"栏（107 号票）和不在时念的语音小栏一起出现
-      const item: InboxItem = { id: "i-demo-relay", kind: "card", cardId: "c-qa-4", title: "转达给项目「记账本」的维护者", source: ASSISTANT_NAME_MARK, urgency: "non_blocking", createdAt: nowIso(), read: false, version: 1, pinned: false, archived: false, deleted: false, origin: { conversation: CHANNELS.secretary } };
+      const item: InboxItem = { id: "i-demo-relay", kind: "card", cardId: "c-qa-4", title: "转达给项目「记账本」的负责人", source: ASSISTANT_NAME_MARK, urgency: "non_blocking", createdAt: nowIso(), read: false, version: 1, pinned: false, archived: false, deleted: false, origin: { conversation: CHANNELS.secretary } };
       this.inbox.set(item.id, item);
       this.append(CHANNELS.inbox, EVENT_TYPES.inboxItem, { item } satisfies InboxItemEventPayload);
     }
@@ -1038,10 +1038,10 @@ export class FakeConnection implements Connection {
   }
 
   resetMaintainer(req: ResetMaintainerRequest): void {
-    // 重置维护者不改项目状态（原型里没有维护者的会话分段，只核对能不能重置）
+    // 重置负责人不改项目状态（原型里没有负责人的会话分段，只核对能不能重置）
     later(300, () => {
       const project = this.projects.get(req.projectId);
-      if (!project || !canResetMaintainer(project)) this.deliver?.({ kind: "request_failed", idempotencyKey: req.idempotencyKey, error: project ? "项目已归档：维护者会话只读，不能重置" : "没有这个项目" });
+      if (!project || !canResetMaintainer(project)) this.deliver?.({ kind: "request_failed", idempotencyKey: req.idempotencyKey, error: project ? "项目已归档：负责人会话只读，不能重置" : "没有这个项目" });
     });
   }
 
@@ -1102,7 +1102,7 @@ export class FakeConnection implements Connection {
       notice: "project_delete",
       version: 1,
       title: `删除项目「${project.name}」？`,
-      body: "项目档案和维护者会话都会删掉，不可恢复；你在维护者会话里说过的话作为素材保留。",
+      body: "项目档案和负责人会话都会删掉，不可恢复；你在负责人会话里说过的话作为素材保留。",
       source: `项目「${project.name}」`,
       urgency: "non_blocking",
       actions: [PROJECT_DELETE_CONFIRM, PROJECT_DELETE_CANCEL],
@@ -1710,7 +1710,7 @@ const FAKE_DAEMON_UPTIME_MS = 3 * 3_600_000 + 12 * 60_000;
 const DEMO_LONG_ALERT: NotifyEventPayload = {
   id: "n-demo-long",
   title: "卡住求助：任务「NAS 硬盘健康巡检」第 2 阶段拉回 3 次仍没进展，smartctl 对 /dev/sdb 一直返回权限错误",
-  body: "维护者试过换用 sudo、重新挂载、换一根数据线后再读，都是同样的权限错误；任务已转为等我，需要你决定是跳过 sdb、自己去看看，还是取消这个任务。",
+  body: "负责人试过换用 sudo、重新挂载、换一根数据线后再读，都是同样的权限错误；任务已转为等我，需要你决定是跳过 sdb、自己去看看，还是取消这个任务。",
   itemId: "i-nas",
 };
 

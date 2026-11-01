@@ -1,9 +1,9 @@
 // 主切面里要一个"执行中"的任务，两种走法：
-// - runningTask（22 号票：秘书的看板感知、任务控制）：任务直接经任务服务建出、写好任务书，维护者（faux）交一份只有一个阶段的计划，
+// - runningTask（22 号票：秘书的看板感知、任务控制）：任务直接经任务服务建出、写好任务书，负责人（faux）交一份只有一个阶段的计划，
 //   测试在计划卡上确认，有名额就开始执行。
 //   用法：startTestDaemon({ maintainer: maintainerScript() })，连上订阅了看板和卡片频道的前端，再 runningTask(td, frontend, "标题")。
 // - startRunningTask（23 号票的被杀恢复、LSM 报忙）：只经前端协议走，守护进程在测试进程里、在独立进程里都能用。
-//   前端点"发起任务"，秘书按剧本写任务书交给 t-1 的维护者 tm-1，维护者按剧本交一份一个阶段、开 bash 的计划，前端在计划卡上确认。
+//   前端点"发起任务"，秘书按剧本写任务书交给 t-1 的负责人 tm-1，负责人按剧本交一份一个阶段、开 bash 的计划，前端在计划卡上确认。
 //     const td = await startTestDaemon({ secretary: SECRETARY_BRIEFS, maintainer: (_id, n) => maintainerScripts(执行时的剧本)[n - 1] ?? [] });
 //     const frontend = await TestFrontend.connect(td.url);
 //     await frontend.subscribe({ [CHANNELS.board]: 0, [CHANNELS.cards]: 0 });
@@ -37,7 +37,7 @@ export function onePlan(): Plan {
   };
 }
 
-/** 维护者的剧本：第一次唤起交计划，之后（按计划重新装配后）每次唤起只回一句 */
+/** 负责人的剧本：第一次唤起交计划，之后（按计划重新装配后）每次唤起只回一句 */
 export const maintainerScript =
   (plan: Plan = onePlan()) =>
   (_maintainerId: string, spawn: number): FauxStep[] =>
@@ -58,7 +58,7 @@ export const ok = (r: ResponseFrame) => {
   return r.result;
 };
 
-/** 建一个任务、维护者交计划、在计划卡上确认，等它开始执行；返回任务 id（前端要订阅看板和卡片频道） */
+/** 建一个任务、负责人交计划、在计划卡上确认，等它开始执行；返回任务 id（前端要订阅看板和卡片频道） */
 export async function runningTask(td: TestDaemon, frontend: TestFrontend, title: string): Promise<string> {
   const task = td.daemon.tasks.createByRequest({ title, summary: title });
   td.daemon.tasks.writeBrief(task.id, { goal: title, acceptanceCriteria: ["做完"], constraints: [], projects: [], memoryScope: "" });
@@ -76,7 +76,7 @@ export const RUNNING_TASK_TITLE = "整理笔记";
 
 const call = (name: string, args: Record<string, unknown>): FauxStep => ({ kind: "reply", toolCalls: [{ name, arguments: args as never }] });
 
-/** 秘书收到"发起任务"按钮的通知后写好任务书，交给 t-1 的维护者 tm-1 */
+/** 秘书收到"发起任务"按钮的通知后写好任务书，交给 t-1 的负责人 tm-1 */
 export const SECRETARY_BRIEFS: FauxStep[] = [
   call("write_task_brief", { taskId: RUNNING_TASK_ID, goal: RUNNING_TASK_TITLE, acceptanceCriteria: ["notes.md 写好"], constraints: [], projects: [], memoryScope: "" }),
   { kind: "reply", text: "任务书写好了" },
@@ -108,12 +108,12 @@ export function bashPlan(): Plan {
   };
 }
 
-/** 维护者每次唤起的剧本：第一次交计划（bashPlan），确认后（按计划重新装配）照 run 执行 */
+/** 负责人每次唤起的剧本：第一次交计划（bashPlan），确认后（按计划重新装配）照 run 执行 */
 export function maintainerScripts(run: FauxStep[]): FauxStep[][] {
   return [[submitPlanStep(bashPlan()), { kind: "reply", text: "计划交上去了" }], run];
 }
 
-/** 点"发起任务"、秘书写任务书、维护者交计划、在计划卡上确认：任务 t-1 开始执行（前端要订阅了看板和卡片） */
+/** 点"发起任务"、秘书写任务书、负责人交计划、在计划卡上确认：任务 t-1 开始执行（前端要订阅了看板和卡片） */
 export async function startRunningTask(frontend: TestFrontend): Promise<void> {
   ok(await frontend.startTask(RUNNING_TASK_TITLE));
   const plan = await eventually(() => cardsOf(frontend), (c) => c.type === "plan" && (c.payload as PlanCardPayload).taskId === RUNNING_TASK_ID, "计划卡");

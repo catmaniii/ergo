@@ -28,7 +28,7 @@ export const toolkitDecisionSource: MaterialSource = {
         ...(p.target.kind === "project" ? { project: p.target.projectId } : { task: p.target.taskId }),
         context: [`decision:${p.decision}`, p.cardId ? "card:toolkit_change" : "toolkit:edited"],
         ref: { recordId: `${p.target.kind === "project" ? p.target.projectId : p.target.taskId}@${p.time}`, ...(p.cardId ? { cardId: p.cardId } : {}) },
-        // 批准、拒绝的是维护者先提出的申请；直接改的是用户在界面上选的（开关、名单），都按"选择"记
+        // 批准、拒绝的是负责人先提出的申请；直接改的是用户在界面上选的（开关、名单），都按"选择"记
         accepted: text,
         typed: p.note ? [{ text: p.note, field: "note" }] : [],
       }),

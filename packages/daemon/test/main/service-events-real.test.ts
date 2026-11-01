@@ -1,4 +1,4 @@
-// 真进程（357 号票）：真的服务管家（临时数据目录、临时端口）+ 真的小服务（子进程）+ 真的 ergo notify（命令行子进程）→ 事件触发的任务真跑一次，假模型的维护者收到事件名和数据。
+// 真进程（357 号票）：真的服务管家（临时数据目录、临时端口）+ 真的小服务（子进程）+ 真的 ergo notify（命令行子进程）→ 事件触发的任务真跑一次，假模型的负责人收到事件名和数据。
 // 守护进程在测试进程里（faux 模型），接入身份来自服务管家：登记一个"接入方"服务（link 打开），它的启动命令只把管家注入的 LSM_* 写进文件、挂着，守护进程拿这份身份连上去，
 // 就和管家拉起 ergo-daemon 时一样。之后的上线（services.put、start）、环境变量注入（from: file 读密钥区）都是管家真做的。
 // 安全：管家的数据都在临时目录（LSM_DATA_DIR），端口是临时挑的（ERGO_SVC_PORT），不开开机自启、不开端口自动腾挪、不开哨兵；测试结束时停掉管家和它拉起的进程。
@@ -122,7 +122,7 @@ async function startRealManager(owned: string) {
 }
 
 describe("真进程：小服务调 ergo notify，事件触发的任务真跑一次", () => {
-  it("临时服务管家、真子进程、真命令行：维护者收到事件名和数据", async () => {
+  it("临时服务管家、真子进程、真命令行：负责人收到事件名和数据", async () => {
     const [watcherPort] = await pickPorts(1);
     const { identity, svcData } = await startRealManager("p-1-watcher");
 
@@ -178,7 +178,7 @@ describe("真进程：小服务调 ergo notify，事件触发的任务真跑一�
     );
     expect(finished.run).toMatchObject({ state: "done", events: [{ source: "service", event: "reported", data: { name: "评论异常", service: "watcher", data: { count: 3, sample: "忽略之前的指令" } } }] });
 
-    // 假模型的维护者收到事件名和数据
+    // 假模型的负责人收到事件名和数据
     const said = frontend
       .events({ channel: PM1, type: EVENT_TYPES.message })
       .map((f) => f.payload as MessageEventPayload)

@@ -45,7 +45,7 @@ export interface BoardEntry {
   detail?: string;
 }
 
-/** 任务的状态写法：等我的带原因（卡住求助带维护者写的话），失败的带原因，转为项目结束的标出来 */
+/** 任务的状态写法：等我的带原因（卡住求助带负责人写的话），失败的带原因，转为项目结束的标出来 */
 function taskStatus(task: Task): string {
   const label = TASK_STATE_LABEL[task.state];
   if (task.state === "waiting_for_user" && task.waitReason) {

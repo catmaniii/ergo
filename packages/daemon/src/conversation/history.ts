@@ -40,7 +40,7 @@ import { voicesOfMessages } from "../voice-records/views.ts";
 /** 一页最多取多少条 */
 export const MAX_HISTORY_LIMIT = 200;
 
-/** 是不是一个会话频道（秘书会话、某个维护者的会话） */
+/** 是不是一个会话频道（秘书会话、某个负责人的会话） */
 export function isConversationChannel(channel: string): channel is ConversationId {
   return isChannel(channel) && (channel === CHANNELS.secretary || channel.startsWith(MAINTAINER_CHANNEL_PREFIX));
 }

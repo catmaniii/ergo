@@ -166,7 +166,7 @@ describe("订阅", () => {
     const store = openStore();
     try {
       const seen: Array<[string, number]> = [];
-      // 看到看板上的变化就去处理会话里已经落盘的输入（维护者就是这样做的）：追加一条 turn_start
+      // 看到看板上的变化就去处理会话里已经落盘的输入（负责人就是这样做的）：追加一条 turn_start
       store.onAppend((e) => {
         if (e.channel === "board") store.append({ channel: "maintainer:tm-1", type: "turn_start", payload: { inputMessageId: "m1" } });
       });

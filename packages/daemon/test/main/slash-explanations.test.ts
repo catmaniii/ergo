@@ -19,7 +19,7 @@ const slashCommands = async (url: string, conversation: string) => (await reques
 const byText = (list: readonly SlashCommandEntry[]) => Object.fromEntries(list.map((c) => [c.text, c]));
 const taskNow = (td: TestDaemon, taskId: string): Task => td.daemon.tasks.get(taskId)!;
 
-/** 起一个用 Claude Code 的任务、等它做完（Claude Code 报过命令）；返回维护者的会话 */
+/** 起一个用 Claude Code 的任务、等它做完（Claude Code 报过命令）；返回负责人的会话 */
 async function claudeTask(td: TestDaemon): Promise<string> {
   const frontend = await TestFrontend.connect(td.url);
   const started = await frontend.startTask("整理下载目录", undefined, undefined, "plain", undefined, { runtime: CLAUDE_CODE_RUNTIME_ID });

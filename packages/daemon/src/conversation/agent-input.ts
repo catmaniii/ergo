@@ -1,8 +1,8 @@
-// 会话里的一条输入交给 agent 之前的样子（秘书和维护者共用）：带版本号的投影（conversation/model-projection.ts：
+// 会话里的一条输入交给 agent 之前的样子（秘书和负责人共用）：带版本号的投影（conversation/model-projection.ts：
 // 时间标记、卡片换成一行摘要、附件按规则内联或只给名字、语音换成识别出的文字，注明"语音转写"），支持视觉的模型另外收到图片；
 // 运行时的通知（发言方是 system 的 agentInput 消息）开头标 SYSTEM_NOTICE_TAG，免得模型当成用户说的；
 // 秘书转达的话（103 号票：发言方是用户、标着 relayedBy）开头一行 SECRETARY_RELAY_HEAD，对方看得出不是用户在这里打的字。
-// 125 号票：维护者的会话里，用户的消息（含秘书转达的）末尾再带一行消息 id（userMessageIdLine）——引用用户原话时照抄它，
+// 125 号票：负责人的会话里，用户的消息（含秘书转达的）末尾再带一行消息 id（userMessageIdLine）——引用用户原话时照抄它，
 // 运行时据此核实（转达的那句按它记下的原话核实）。这一行在投影之外，不改投影的版本。
 // 147 号票：浏览侧边栏里发的消息（MessageEnvelope.browsing）末尾再带一段——用户正在内置浏览器里看哪个网页、选中了哪个框、
 // 这一轮能用哪几个网页工具，网页上的文字是外部数据。同样在投影之外，不改投影的版本。182 号票：秘书的那段里另加一句"这一轮联网搜索算上
@@ -12,7 +12,7 @@
 // （lateVoiceNote），免得 agent 以为是刚说的。同样在投影之外，不改投影的版本；给模型看的，照旧只用中文（多语言第 6 条）。
 // 用户打的 `/目录名`（82 号票；`/skill:目录名` 是后备写法，72 号票）在投影（加时间标记）之前展开成 skill 的全文
 // （skills/skill-command.ts，照 pi 的写法；二狗自己的命令 /workflow、/task 优先，不展开）。
-// 289 号票：维护者用的运行时能转交斜杠命令的（Claude Code，能力清单 slash_passthrough），用户打的 `/命令 参数` 原样交给它执行——
+// 289 号票：负责人用的运行时能转交斜杠命令的（Claude Code，能力清单 slash_passthrough），用户打的 `/命令 参数` 原样交给它执行——
 // 不展开二狗的 skill、不加时间标记、不带消息 id 那一行（运行时只认开头就是 / 的）；二狗自己的命令（项目会话里的 /workflow、/task）照旧；
 // 带着附件、语音、卡片的不算（照常投影）。
 // 309 号票：转交时用户按 pi 的习惯打的 /<目录名>（或 /skill:<目录名>）是这次装配的 skill、又不是运行时自己的命令（它报过的）时，换成运行时里的写法
@@ -48,7 +48,7 @@ export interface AgentInputContext {
   skillCommands?: () => readonly SkillCommand[];
   /** 这个会话里有的二狗自己的命令（82 号票：打的字被认成它们时 skill 不展开）；不给就没有 */
   ergoCommands?: readonly ErgoCommand[];
-  /** 用户的消息末尾带一行消息 id（125 号票：维护者引用用户原话时照抄）；不给就不带 */
+  /** 用户的消息末尾带一行消息 id（125 号票：负责人引用用户原话时照抄）；不给就不带 */
   userMessageIds?: boolean;
   /**
    * 输入附注（212 号票，插件经 agent 贡献给的：浏览侧边栏、悬浮按钮发的消息后面那段网页上下文）：接在这条输入自己的文字末尾，
@@ -56,7 +56,7 @@ export interface AgentInputContext {
    */
   inputNote?: (message: MessageEnvelope) => string | undefined;
   /**
-   * 斜杠命令原样交给运行时（289 号票：维护者用的运行时能力清单里 slash_passthrough 是 true，拉起时按子进程的运行时定）。
+   * 斜杠命令原样交给运行时（289 号票：负责人用的运行时能力清单里 slash_passthrough 是 true，拉起时按子进程的运行时定）。
    * 是的话二狗的 skill 也不展开（运行时有它自己的技能和命令）
    */
   slashPassthrough?: boolean;

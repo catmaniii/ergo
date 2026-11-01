@@ -74,7 +74,7 @@ describe("接入 LSM：握手和心跳", () => {
     // welcome 之后马上报一次：不忙
     expect(await lsm.waitFor(heartbeat, "第一次心跳")).toMatchObject({ busy: false });
 
-    // （秘书写任务书、维护者交计划这些调用执行时也短暂报忙，见下面"有副作用的调用"那条）
+    // （秘书写任务书、负责人交计划这些调用执行时也短暂报忙，见下面"有副作用的调用"那条）
     const before = lsm.messages.length;
     await startRunningTask(frontend);
     const taskReason = `正在执行 1 个任务：「${RUNNING_TASK_TITLE}」`;
@@ -169,7 +169,7 @@ describe("接入 LSM：停机", () => {
 
   it("子 agent（20 号票）有正在执行的有副作用的调用、任务本身在等我：也报忙（原因写子 agent 的调用）；等空闲再停会等它做完", async () => {
     const lsm = await startLsmStandIn({ heartbeatIntervalMs: 200 });
-    // 维护者把 s1 交给 sa-1，用户同意后自己转为等我；sa-1 跑一个等 go.txt 出现才结束的脚本
+    // 负责人把 s1 交给 sa-1，用户同意后自己转为等我；sa-1 跑一个等 go.txt 出现才结束的脚本
     const run = [
       { kind: "reply", toolCalls: [{ name: "propose_parallel", arguments: { reason: "交给子 agent 做", agents: [{ stageId: "s1", instructions: "跑 wait.js" }] } }] },
       { kind: "reply", text: "等你确认" },

@@ -80,7 +80,7 @@ describe("授权项和生成的文字", () => {
     ]);
   });
 
-  test("授权行的主文由工具、类别、对象范围、次数、有效期生成，不用维护者写的标题", () => {
+  test("授权行的主文由工具、类别、对象范围、次数、有效期生成，不用负责人写的标题", () => {
     expect(grantText(plan.stages[1]!.policy.grants[0]!, grantInfo.push)).toBe("推送（git_push） · 以我的名义对外发送或发布：remote 是 origin，branch 是 main 或 report；最多 2 次；7 天内有效");
     expect(grantText(plan.stageGroups[0]!.policy.grants[0]!, grantInfo.write)).toBe("写文件（write）：path 是 out；不限次数；3 天内有效");
     expect(grantText(plan.stages[0]!.policy.grants[0]!, undefined)).toBe("web_fetch：不限对象；最多 20 次；7 天内有效");

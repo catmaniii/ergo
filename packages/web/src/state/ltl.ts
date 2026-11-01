@@ -269,7 +269,7 @@ export interface RepairOption {
   costs: Record<string, number>;
 }
 
-/** 规则声明的修法（说成"维护者""你"） */
+/** 规则声明的修法（说成"负责人""你"） */
 export function repairsOf(rule: Obj): RepairOption[] {
   return asList(rule.repairs).map((r) => {
     const o = isObj(r) ? r : {};

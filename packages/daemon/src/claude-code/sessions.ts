@@ -65,7 +65,7 @@ export function busyOf(entries: readonly ClaudeRunningSession[]): string | undef
   return entries.length > 0 ? t("claudeCode.sessions.busyOther") : undefined;
 }
 
-/** 本机能接管的会话（见文件开头）：工作目录不知道的不列（接管后维护者没地方干活） */
+/** 本机能接管的会话（见文件开头）：工作目录不知道的不列（接管后负责人没地方干活） */
 export async function listResumable(source: ClaudeSessionSource, log: (line: string) => void): Promise<ResumableSessionView[]> {
   const [sessions, running] = await Promise.all([
     source.list(),

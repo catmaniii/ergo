@@ -4,7 +4,7 @@
 > **When to update**: write the first version during kickoff; update it whenever the scope or the acceptance criteria change (after a charter change is confirmed, or when something turns out to be missing).
 > Project standard v1 · Required (checked)
 
-What this project should become. Written by the maintainer during kickoff.
+What this project should become. Written by the owner during kickoff.
 
 ## Scope
 

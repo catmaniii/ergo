@@ -1,4 +1,4 @@
-// 阈值（14 号票）：预算的比值、催促的计数，以及给维护者看的说法里的数字都照阈值（不写死）。纯函数。
+// 阈值（14 号票）：预算的比值、催促的计数，以及给负责人看的说法里的数字都照阈值（不写死）。纯函数。
 import { describe, expect, it } from "vitest";
 import { thresholdsText } from "../../src/maintainers/system-prompt.ts";
 import { defaultPromptLibrary } from "../../src/prompts/index.ts";

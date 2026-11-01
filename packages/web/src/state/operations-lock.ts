@@ -4,7 +4,7 @@
 import { operationsItemLock, type Task } from "./protocol.ts";
 import type { UiState } from "./ui-state.ts";
 
-/** 只能暂停、恢复时：属于哪个项目（菜单里那行说明点了进它的维护者会话）、那行说明 */
+/** 只能暂停、恢复时：属于哪个项目（菜单里那行说明点了进它的负责人会话）、那行说明 */
 export interface OperationsLock {
   projectId: string;
   note: string;

@@ -3,11 +3,11 @@
 // - 计划是一串步骤（每步一次工具调用：工具和参数，连同前置步骤），连同这份计划要满足的条件（时序规则）；
 // - 计划先过审查修补（planguard 的 reviewer），审查结果的几种状态、修补动作的说法见计划审查面板；
 // - 需要用户逐项明确同意的事项（confirmationItems）勾完才能授权；
-// - 执行时步骤的状态由维护者用 report_step 自报（StepStatus）。
+// - 执行时步骤的状态由负责人用 report_step 自报（StepStatus）。
 import { followLocale, t, tTable } from "./i18n/runtime.ts";
 import type { WorkflowReview, WorkflowStepView } from "./workflow-schema.ts";
 
-/** 审查结果的状态：通过、已修补、需你逐项确认、退回维护者重写、判定不可执行 */
+/** 审查结果的状态：通过、已修补、需你逐项确认、退回负责人重写、判定不可执行 */
 export const WORKFLOW_REVIEW_STATUSES = ["pass", "patched", "needs_confirmation", "needs_replan", "blocked"] as const;
 export type WorkflowReviewStatus = (typeof WORKFLOW_REVIEW_STATUSES)[number];
 
@@ -85,7 +85,7 @@ export const WORKFLOW_CONDITION_STATUS_LABEL: Readonly<Record<WorkflowConditionS
   unknown: "protocol.workflow.condition.unknown",
 });
 
-/** 一步的条件从哪里来：框架自带的 v1 规则模板、维护者写进计划的规则 */
+/** 一步的条件从哪里来：框架自带的 v1 规则模板、负责人写进计划的规则 */
 export const WORKFLOW_CONDITION_SOURCES = ["template", "plan"] as const;
 export type WorkflowConditionSource = (typeof WORKFLOW_CONDITION_SOURCES)[number];
 
@@ -106,11 +106,11 @@ export const WORKFLOW_STEP_STATE_LABEL: Readonly<Record<WorkflowStepState, strin
 /** 步骤状态的图标 */
 export const WORKFLOW_STEP_ICON: Readonly<Record<WorkflowStepState, string>> = { pending: "○", in_progress: "◐", done: "●", failed: "✕", skipped: "–" };
 
-/** 维护者用 report_step 能报的状态（"没做"不用报） */
+/** 负责人用 report_step 能报的状态（"没做"不用报） */
 export const REPORTED_STEP_STATES = ["in_progress", "done", "failed", "skipped"] as const satisfies readonly WorkflowStepState[];
 export type ReportedStepState = (typeof REPORTED_STEP_STATES)[number];
 
-/** 算"结束了"的步骤：做完、跳过（失败的不算，维护者要接着处理或判任务失败） */
+/** 算"结束了"的步骤：做完、跳过（失败的不算，负责人要接着处理或判任务失败） */
 export const SETTLED_STEP_STATES: readonly WorkflowStepState[] = ["done", "skipped"];
 
 /** 流程执行时的那个阶段（执行控制器按一个阶段管名额、暂停、审批挂起……；界面上不显示阶段，显示步骤） */

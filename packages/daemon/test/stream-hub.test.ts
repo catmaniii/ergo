@@ -66,7 +66,7 @@ describe("流式增量的节流", () => {
   test("不同会话各自节流", () => {
     const h = hub();
     h.delta("secretary", "m1", "text", "秘书");
-    h.delta("maintainer:p-notes", "w1", "text", "维护者");
+    h.delta("maintainer:p-notes", "w1", "text", "负责人");
     expect(frames.map((f) => f.frame.channel)).toEqual(["secretary", "maintainer:p-notes"]);
   });
 });

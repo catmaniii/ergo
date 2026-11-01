@@ -1,11 +1,11 @@
-// 主切面：对话里能停止、回复中发的消息排队（144 号票）。真的守护进程，秘书、项目维护者接 faux provider（吐字放慢，好在"正说着"时动手）；
+// 主切面：对话里能停止、回复中发的消息排队（144 号票）。真的守护进程，秘书、项目负责人接 faux provider（吐字放慢，好在"正说着"时动手）；
 // 测试扮演前端（几台设备各一个连接），经 WebSocket 收发并断言：
 // - 回复中发的话不进会话，排进这个会话的队列（message_queue 事件带整队），几台设备看到的一样，后连上的也看得到；
 //   能叉掉、能改顺序；这一轮做完按队列的顺序一起交给 agent 作为下一轮（turn_start 带上另外几条），交出去的是普通的用户消息
 //   （负载里带着发送请求的幂等键：界面上同一个气泡）；
-// - 停止：秘书、项目维护者回复中点停止，这一轮以中止结束，已经说出来的留着（标"已停止"），时间线上记一笔"你停止了这一轮"，
+// - 停止：秘书、项目负责人回复中点停止，这一轮以中止结束，已经说出来的留着（标"已停止"），时间线上记一笔"你停止了这一轮"，
 //   排着的马上交出去；没在回复时点了什么都不做；
-// - 维护者回复中用户发的话不再插进当前这一轮（以前是插话）；
+// - 负责人回复中用户发的话不再插进当前这一轮（以前是插话）；
 // - 守护进程重启后排着的还在，起来时交给秘书。
 import {
   CHANNELS,
@@ -210,7 +210,7 @@ describe("回复中发的消息排队", () => {
     expect(td.daemon.store.read(SECRETARY, 0, EVENT_TYPES.timelineRecord)).toHaveLength(1);
   });
 
-  it("项目维护者：回复中用户发的话不插进这一轮（排队，这一轮之后才交）；回复中点停止同样停下、记一笔，排着的马上交出去", async () => {
+  it("项目负责人：回复中用户发的话不插进这一轮（排队，这一轮之后才交）；回复中点停止同样停下、记一笔，排着的马上交出去", async () => {
     const td = await startTestDaemon({ maintainer: (id) => (id === "pm-1" ? [{ kind: "reply", text: LONG }, { kind: "reply", text: "收到，按你说的改。" }] : []), maintainerTokensPerSecond: 20 });
     seedProject(td.daemon, "家庭网盘", { state: "in_use", charterConfirmed: true, kind: "other", toolkit: { skills: [], mcp: [], bash: false, network: false } });
     const frontend = await TestFrontend.connect(td.url);

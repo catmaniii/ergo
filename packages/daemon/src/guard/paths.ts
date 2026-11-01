@@ -193,7 +193,7 @@ export function historyDirOf(recordsRoot: string): string {
   return win32.join(recordsRoot, PROJECT_HISTORY_DIR);
 }
 
-/** agent 能碰的范围：维护者和子 agent 是项目档案和工作目录，秘书是草稿区 */
+/** agent 能碰的范围：负责人和子 agent 是项目档案和工作目录，秘书是草稿区 */
 export function agentScope(agent: GuardAgent): string[] {
   return agent.kind === "secretary" ? [agent.scratchDir] : [...agent.projectRecords, ...agent.workingDirs];
 }

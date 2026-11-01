@@ -36,7 +36,7 @@ export function providerOf(id: string): ModelProvider | undefined {
 
 /**
  * 没有设置文件时的设置：DeepSeek V4.1 Flash，思考档位高，各个 agent 都跟随默认——和 73 号票之前写死在代码里的一样
- * （秘书、维护者、评审、子 agent、范围审视都是 deepseek-flash、high）
+ * （秘书、负责人、评审、子 agent、范围审视都是 deepseek-flash、high）
  */
 export const DEFAULT_MODEL_SETTINGS: Readonly<ModelSettings> = Object.freeze<ModelSettings>({
   provider: MODEL_PROVIDERS[0]!.id,

@@ -491,7 +491,7 @@ describe("谁能用", () => {
     expect(tts.requests).toEqual([]);
   });
 
-  it("用户直接跟项目维护者说话：一样能发，语音消息带上所属的项目", async () => {
+  it("用户直接跟项目负责人说话：一样能发，语音消息带上所属的项目", async () => {
     const tts = await startFakeSpeechService();
     const { url, daemon } = await startTestDaemon({ maintainer: [sendVoiceCall("上个月的流水导进来了。"), say("好了。")], speechUrl: tts.url });
     await importReferenceVoice(url);
@@ -506,7 +506,7 @@ describe("谁能用", () => {
     expect((await finishedSendVoice(frontend, 1, pm)).categoryTitles).toEqual([]);
   });
 
-  it("后台在做的任务里用不了；用户在任务详情里说话（维护者在忙，排队，144 号票）：这一轮里还不算，这一轮做完交出去、下一轮能用", async () => {
+  it("后台在做的任务里用不了；用户在任务详情里说话（负责人在忙，排队，144 号票）：这一轮里还不算，这一轮做完交出去、下一轮能用", async () => {
     const tts = await startFakeSpeechService();
     // 第二步一次调两个工具：先跑 sleep，再发语音——用户在 sleep 时说的话排着队（这一轮做完才交给它）
     const sleepThenVoice: FauxStep = {

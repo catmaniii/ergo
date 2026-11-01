@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 import { REINJECTION_BLOCK_ID } from "../../src/runtime/index.ts";
 import { fauxModel, spawnTestAgent, startTestDaemon } from "../helpers/daemon.ts";
 
-const SYSTEM_PROMPT = "你是测试用的维护者。";
+const SYSTEM_PROMPT = "你是测试用的负责人。";
 
 function linesOf(final: { message: { parts: Array<{ type: string; text?: string }> } }): string[] {
   return final.message.parts

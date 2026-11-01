@@ -1,7 +1,7 @@
-// 工单和维护者会话分段的派生视图（ergo.db，规格第 4 节"工单"）：
+// 工单和负责人会话分段的派生视图（ergo.db，规格第 4 节"工单"）：
 // - work_orders：每张工单的最新状态（项目列表频道上的 work_order 事件，按工单号留最后一条）；
-// - maintainer_segments：每个维护者的每一段会话的最新状态（维护者会话频道上的 segment 事件）。
-// 删除项目时维护者会话频道上的事件整条换成"已删除"标记（ADR-0010），派生视图整体重放时它的分段也就没了。
+// - maintainer_segments：每个负责人的每一段会话的最新状态（负责人会话频道上的 segment 事件）。
+// 删除项目时负责人会话频道上的事件整条换成"已删除"标记（ADR-0010），派生视图整体重放时它的分段也就没了。
 import {
   CHANNELS,
   EVENT_TYPES,
@@ -103,7 +103,7 @@ export function workOrderInternal(db: ReadonlyDatabase, wo: WorkOrder | undefine
   return isJobRunWorkOrder(wo) ? getJob(db, wo.scheduledJobId)?.internal : getTask(db, wo.taskId)?.internal;
 }
 
-/** 某个维护者收到的、处于这些状态的工单，先派出的在前 */
+/** 某个负责人收到的、处于这些状态的工单，先派出的在前 */
 export function workOrdersOf(db: ReadonlyDatabase, maintainerId: string, states: readonly WorkOrderState[]): WorkOrder[] {
   const marks = states.map(() => "?").join(", ");
   return db
@@ -134,12 +134,12 @@ export function countWorkOrders(db: ReadonlyDatabase): number {
   return Number(db.get<{ n: number }>("SELECT COUNT(*) AS n FROM work_orders")?.n ?? 0);
 }
 
-/** 某个维护者的各段会话，先开的在前 */
+/** 某个负责人的各段会话，先开的在前 */
 export function segmentsOf(db: ReadonlyDatabase, maintainerId: string): MaintainerSegment[] {
   return db.all<{ segment: string }>("SELECT segment FROM maintainer_segments WHERE maintainer_id = ? ORDER BY created_seq", maintainerId).map(parseSegment);
 }
 
-/** 维护者手上的那一段（进行中或收尾中）；没有是 undefined */
+/** 负责人手上的那一段（进行中或收尾中）；没有是 undefined */
 export function currentSegment(db: ReadonlyDatabase, maintainerId: string): MaintainerSegment | undefined {
   const row = db.get<{ segment: string }>(
     "SELECT segment FROM maintainer_segments WHERE maintainer_id = ? AND state != 'closed' ORDER BY created_seq DESC LIMIT 1",
@@ -153,7 +153,7 @@ export function closingSegments(db: ReadonlyDatabase): MaintainerSegment[] {
   return db.all<{ segment: string }>("SELECT segment FROM maintainer_segments WHERE state = 'closing' ORDER BY created_seq").map(parseSegment);
 }
 
-/** 这一段开段的事件在维护者会话频道里的序号（之后的事件都在这一段里） */
+/** 这一段开段的事件在负责人会话频道里的序号（之后的事件都在这一段里） */
 export function segmentOpenedSeq(db: ReadonlyDatabase, segmentId: string): number | undefined {
   return db.get<{ opened_seq: number }>("SELECT opened_seq FROM maintainer_segments WHERE segment_id = ?", segmentId)?.opened_seq;
 }

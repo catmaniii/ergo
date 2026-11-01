@@ -1,6 +1,6 @@
 // 设置里的"模型"（73 号票，规格第 1 节"模型"）：模型在服务端（守护进程这台电脑）调用；DeepSeek 是默认，另有一个
 // 自定义的 OpenAI 兼容服务商（provider id 固定是 custom，用户填接口地址、模型 id、key）；
-// 默认模型和思考档位，按 agent（秘书、任务维护者、项目维护者、子 agent、评审、范围审视）覆盖；连通测试；看图能力。
+// 默认模型和思考档位，按 agent（秘书、任务负责人、项目负责人、子 agent、评审、范围审视）覆盖；连通测试；看图能力。
 //
 // - 存：数据目录配置区的 model-settings.json 是真相，只由运行时写（设置接口），各设备看到的一样；配置区是受保护区域，agent 写不进。
 //   没有这个文件时全按默认（providers.ts 的 DEFAULT_MODEL_SETTINGS，和 73 号票之前写死的一样）；文件读不了、不合规时先不覆盖它，
@@ -15,8 +15,8 @@
 //   （思考档位照旧按那一行）。pi 的模型目录里没有它，子进程要先 registerProvider，所以拉起 agent 的装配（SessionAssembly.custom）
 //   和模型探查的请求里都带上它（customProvider()）；密钥照旧只走 credentials（键名 custom）。
 //   连通测试测它里面的 modelId；列它的模型是守护进程直接发的一次 GET {baseUrl}/models（不经过模型，也不花 token）。
-// - 单独配了模型的维护者（120 号票）：某个项目、某个任务的维护者在自己的 ⚙ 里选定模型和思考档位，盖过它那一行（项目维护者 /
-//   任务维护者）；存在同一个文件的 maintainers 里（按 agent id），设置页整份存时原样留着。拉起它时按 agent id 现取（modelFor 的第二个参数），
+// - 单独配了模型的负责人（120 号票）：某个项目、某个任务的负责人在自己的 ⚙ 里选定模型和思考档位，盖过它那一行（项目负责人 /
+//   任务负责人）；存在同一个文件的 maintainers 里（按 agent id），设置页整份存时原样留着。拉起它时按 agent id 现取（modelFor 的第二个参数），
 //   所以和那一行一样只用于新开的会话、长会话照 83 号票换。它派出的子 agent、评审，范围审视照各自那一行。配的模型在模型目录里没有了：
 //   退回跟随那一行（记一次日志），⚙ 和设置页上写明原因；项目归档、任务归档时由守护进程清掉（followRole）。
 // - 模型目录只有子进程查得到（pi 边界）：设置页要的模型列表（名字、能不能看图、支持哪几档思考）经一次性子进程查一次、记住
@@ -73,7 +73,7 @@ import { DEFAULT_MODEL_SETTINGS, MODEL_PROVIDERS, type ModelProvider, providerOf
 
 const settingsFile = schemaChecker(ModelSettingsFile);
 
-/** 一个维护者用什么模型（120 号票，⚙ 上显示的） */
+/** 一个负责人用什么模型（120 号票，⚙ 上显示的） */
 export interface MaintainerModel {
   /** 它那一行现在实际会用的 */
   role: ModelChoice;
@@ -85,7 +85,7 @@ export interface MaintainerModel {
   next: ModelChoice;
 }
 
-/** 单独配了模型的维护者是谁（设置页上列出来、点了去它的 ⚙）：不认得（项目删了、任务没了）的不列 */
+/** 单独配了模型的负责人是谁（设置页上列出来、点了去它的 ⚙）：不认得（项目删了、任务没了）的不列 */
 export type MaintainerOwnerOf = (agentId: string) => Pick<MaintainerModelView, "agent" | "owner"> | undefined;
 
 export interface ModelSettingsService {
@@ -98,11 +98,11 @@ export interface ModelSettingsService {
    */
   customProvider(): ModelCustomProvider | undefined;
   /**
-   * 这个 agent 下一个新会话用的模型和思考档位（目录里的模型）。给了 maintainerId（项目、任务的维护者）时，
+   * 这个 agent 下一个新会话用的模型和思考档位（目录里的模型）。给了 maintainerId（项目、任务的负责人）时，
    * 它单独配了、配的模型还能用就是单独配的（120 号票），不然按 agent 那一行
    */
   modelFor(agent: ModelAgent, maintainerId?: string): CatalogModelSpec;
-  /** 一个维护者用什么模型（⚙ 上显示的，120 号票） */
+  /** 一个负责人用什么模型（⚙ 上显示的，120 号票） */
   maintainerModel(agentId: string, agent: MaintainerModelAgent): MaintainerModel;
   /** 单独配模型：查过能选（不能选抛 RequestRejected，HTTP 回 400）再写文件；下一个新会话起生效 */
   setMaintainerModel(agentId: string, choice: ModelChoice): Promise<void>;
@@ -161,7 +161,7 @@ export interface ModelSettingsOptions {
   lsm: () => boolean;
   /** 秘书的主线会话现在用的（秘书在运行时才有）；现取 */
   secretarySession: () => SessionModelView | undefined;
-  /** 单独配了模型的维护者是谁（120 号票，设置页上列出来）；不给时不列 */
+  /** 单独配了模型的负责人是谁（120 号票，设置页上列出来）；不给时不列 */
   maintainerOwner?: MaintainerOwnerOf;
   /** 测试用：目录里的模型的请求都发到这个地址（本机的假 DeepSeek），连通测试也是；正式的不给 */
   catalogBaseUrl?: string;
@@ -189,7 +189,7 @@ export function createModelSettings(options: ModelSettingsOptions): ModelSetting
   const file = layout.modelSettingsFile;
   const loaded = readSettings(file, log);
   let settings: ModelSettings = loaded.settings;
-  /** 单独配了模型的维护者（120 号票）：agent id → 选定的 */
+  /** 单独配了模型的负责人（120 号票）：agent id → 选定的 */
   let maintainers: Record<string, ModelChoice> = loaded.maintainers;
   /** 单独配的模型用不了、退回跟随那一行时记过日志的（agent id → 那个模型；不刷屏） */
   const fallbackLogged = new Map<string, string>();
@@ -256,7 +256,7 @@ export function createModelSettings(options: ModelSettingsOptions): ModelSetting
     return t("modelSettings.ownUnavailable", { modelId, provider: provider.label });
   };
 
-  /** 这个维护者单独配的、还能用的（用不了的记一次日志，退回跟随那一行） */
+  /** 这个负责人单独配的、还能用的（用不了的记一次日志，退回跟随那一行） */
   const usableOwn = (agentId: string): ModelChoice | undefined => {
     const own = maintainers[agentId];
     if (!own) return undefined;
@@ -272,7 +272,7 @@ export function createModelSettings(options: ModelSettingsOptions): ModelSetting
     return undefined;
   };
 
-  /** 写设置文件：设置加上单独配了模型的维护者（没有就不写这一项） */
+  /** 写设置文件：设置加上单独配了模型的负责人（没有就不写这一项） */
   const save = (next: ModelSettings, nextMaintainers: Record<string, ModelChoice>, where: string) => {
     writeJsonAtomic(file, { format: 1, ...next, ...(Object.keys(nextMaintainers).length === 0 ? {} : { maintainers: nextMaintainers }) } satisfies ModelSettingsFile);
     settings = next;
@@ -281,7 +281,7 @@ export function createModelSettings(options: ModelSettingsOptions): ModelSetting
     fileError = undefined;
   };
 
-  /** 设置页上列出的单独配了模型的维护者 */
+  /** 设置页上列出的单独配了模型的负责人 */
   const maintainerViews = (): MaintainerModelView[] =>
     Object.entries(maintainers).flatMap(([agentId, choice]) => {
       const who = options.maintainerOwner?.(agentId);
@@ -353,7 +353,7 @@ export function createModelSettings(options: ModelSettingsOptions): ModelSetting
   /**
    * 这个 agent 实际会用的（设置页上的"实际会用的"、拉起 agent 时的 model）：自定义（OpenAI 兼容）服务商只有一个模型，
    * 模型 id 一律按设置里的 custom.modelId——default、各个 agent 覆盖里写的模型 id 是切回 DeepSeek 时接着用的，自定义时不起作用；
-   * 思考档位照旧按那一行（给了 own 就是维护者单独配的那一份）
+   * 思考档位照旧按那一行（给了 own 就是负责人单独配的那一份）
    */
   const effectiveChoiceOf = (agent: ModelAgent, own?: ModelChoice): ModelChoice => {
     const choice = own ?? effectiveModelChoice(settings, agent);
@@ -389,7 +389,7 @@ export function createModelSettings(options: ModelSettingsOptions): ModelSetting
     }
   };
 
-  // 有单独配了模型的维护者：起来时就查一次模型目录（在一次性子进程里，不连网），好知道配的模型还在不在
+  // 有单独配了模型的负责人：起来时就查一次模型目录（在一次性子进程里，不连网），好知道配的模型还在不在
   if (Object.keys(maintainers).length > 0) void catalog(settings.provider, customOf());
 
   return {
@@ -492,7 +492,7 @@ export function createModelSettings(options: ModelSettingsOptions): ModelSetting
         vision[key] = value;
       }
       const next: ModelSettings = { provider: provider.id, default: { modelId: body.default.modelId, thinkingLevel: body.default.thinkingLevel }, agents, vision, ...(custom === undefined ? {} : { custom }) };
-      // 设置文件读不出来时，存一次就覆盖它（哪怕和正在用的默认一样）；单独配了模型的维护者原样留着（120 号票，只经 ⚙ 改）
+      // 设置文件读不出来时，存一次就覆盖它（哪怕和正在用的默认一样）；单独配了模型的负责人原样留着（120 号票，只经 ⚙ 改）
       if (fileError !== undefined || JSON.stringify(next) !== JSON.stringify(settings)) {
         save(next, maintainers, "设置页"); // @i18n-ignore log：只进日志
         // 自定义服务商的地址、模型 id 变了：模型目录那份记的不作数了，下次要用时重查（在一次性子进程里登记后查）
@@ -581,7 +581,7 @@ function modelIdsOf(provider: string, keys: readonly string[]): string[] {
   }));
 }
 
-/** 设置里提到的模型（默认、各个 agent 的、改过看图能力的、单独配了模型的维护者的） */
+/** 设置里提到的模型（默认、各个 agent 的、改过看图能力的、单独配了模型的负责人的） */
 function mentioned(s: ModelSettings, maintainers: Readonly<Record<string, ModelChoice>>): string[] {
   return unique([
     s.default.modelId,

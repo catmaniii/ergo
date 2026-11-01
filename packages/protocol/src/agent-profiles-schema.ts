@@ -58,7 +58,7 @@ export type AgentIdentityView = Static<typeof AgentIdentityView>;
 export const AgentProfileEntryView = Type.Object({
   agentId: Type.String({ minLength: 1 }),
   kind: Type.Enum(AGENT_SETTINGS_KINDS),
-  /** 给人看的：秘书是名字占位（界面上换成名字标签）、长程任务 t-3「…」的维护者、项目「…」的维护者 */
+  /** 给人看的：秘书是名字占位（界面上换成名字标签）、长程任务 t-3「…」的负责人、项目「…」的负责人 */
   label: Type.String(),
   readOnly: Type.Optional(Type.String()),
   identity: AgentIdentityView,

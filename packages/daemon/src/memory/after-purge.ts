@@ -26,7 +26,7 @@ export interface SessionRewriteSources {
  * 问记忆（ask_memory，265 号票）结果里提到被删素材的证据编号的行，连同这一条下面的续行（记录的原话、精炼）；
  * 问记忆管理员（ask_curator，272 号票）的回答里提到这些证据编号、被删素材 id 的行，同样连同续行；
  * 每条消息的记忆简报（266 号票，跟在用户输入后面的上下文消息）里提到这些证据编号的行，同样连同续行；
- * 维护者会话里范围审视结果的副本（18 号票：副本里可能引着被删的话，整个换掉）
+ * 负责人会话里范围审视结果的副本（18 号票：副本里可能引着被删的话，整个换掉）
  */
 export function sessionRewriteFor(purges: readonly MessagesPurgedEventPayload[], sources: SessionRewriteSources = {}): Omit<SessionRewriteRequest, "sessionDir"> {
   const materialIds = [...new Set(purges.flatMap((p) => p.materialIds))];

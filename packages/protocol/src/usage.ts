@@ -8,7 +8,7 @@ import { ASSISTANT_NAME_MARK } from "./assistant-name.ts";
 import { followLocale, t, tTable } from "./i18n/runtime.ts";
 import type { LedgerOwner, TokenCounts, TokenPrice } from "./usage-schema.ts";
 
-/** agent 在账本里的角色：秘书、维护者（任务的、项目的、作业的）、评审子 agent、子 agent（20 号票）、记忆管理员（242 号票），以及拉起时没给归属的（未归属） */
+/** agent 在账本里的角色：秘书、负责人（任务的、项目的、作业的）、评审子 agent、子 agent（20 号票）、记忆管理员（242 号票），以及拉起时没给归属的（未归属） */
 export const LEDGER_ROLES = ["secretary", "maintainer", "reviewer", "sub_agent", "curator", "unattributed"] as const;
 export type LedgerRole = (typeof LEDGER_ROLES)[number];
 

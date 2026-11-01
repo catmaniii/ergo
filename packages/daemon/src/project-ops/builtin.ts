@@ -1,5 +1,5 @@
 // 白送的通用操作（268 号票，草稿："每个转运营的项目白送一组通用操作（状态、最近运行、最新交付件、立即跑一次、暂停恢复、改时间、
-// 跟维护者说一句），项目只补特有的"）。每个使用中的项目不用写清单就有，list / describe / call 和项目自己的操作一样用；
+// 跟负责人说一句），项目只补特有的"）。每个使用中的项目不用写清单就有，list / describe / call 和项目自己的操作一样用；
 // 它们也是 ergo 实现方式能绑的"二狗自带动作"（项目清单里写 { "type": "ergo", "action": "run_now", "params": { "job": "daily-report" } }
 // 就是把"立即跑一次"绑上参数做成项目自己的一个操作）。
 // - status 状态（只读查询）：使用中没有、服务在不在线、各条定时 / 事件触发的任务在跑还是暂停、下一次、最近一次、运营接口清单第几版；
@@ -9,7 +9,7 @@
 // - pause_resume 暂停恢复（有副作用的动作）：暂停、恢复这个项目的定时 / 事件触发的任务（不写 job 是全部）；服务的启停是另一回事
 //   （switch_project_services）；
 // - reschedule 改时间（有副作用的动作）：只改钟点（每天 / 每周几 / 每月几号照旧），走触发底座的改时间表（98 号票）；
-// - tell_maintainer 跟维护者说一句（有副作用的动作）：插进项目维护者的会话（和秘书转达 tell_project 同一条路）。
+// - tell_maintainer 跟负责人说一句（有副作用的动作）：插进项目负责人的会话（和秘书转达 tell_project 同一条路）。
 // job 参数：运营方案那一条的 key、任务编号、触发登记编号、任务的名字都认；describe 时按项目现在有的几条列成枚举（值和中文名）。
 // 验收的测试调用（test）：只读的照常查，别的只看做不做得了、说"会怎样"，不真做。
 // @i18n-ignore-file model：操作的说明、能念的那句、附件交给秘书（工具结果）
@@ -72,7 +72,7 @@ export interface BuiltinContext {
     act(params: { jobId: string; action: "pause" | "resume" }, key: string): { state: string };
     reschedule(params: { jobId: string; schedule: ReminderSchedule }, key: string): { schedule: ReminderSchedule; nextAt?: string };
   };
-  /** 跟维护者说一句（秘书转达那条路）：要追加的事件；收不了的抛 RequestRejected。check 只看收不收 */
+  /** 跟负责人说一句（秘书转达那条路）：要追加的事件；收不了的抛 RequestRejected。check 只看收不收 */
   tellMaintainer(input: { project: Project; message: string; key: string; inputMessageId?: string; check?: boolean }): NewEvent[];
   /** 项目现在的工作目录（最新交付件在这里找） */
   workdir: string;
@@ -166,12 +166,12 @@ const DEFS: Record<BuiltinName, Omit<ProjectOp, "name" | "kindFrom" | "impl">> =
     risk: "direct",
   },
   tell_maintainer: {
-    title: "跟维护者说一句",
+    title: "跟负责人说一句",
     kind: "action",
-    description: "给这个项目的维护者捎一句话（插进它的会话，和用户在项目页上直接对它说一样）：补充要求、报个问题、让它改点什么。",
-    userSays: ["跟简报站的维护者说加上 GitHub 热门", "告诉记账本那边下个月起分类改一下"],
+    description: "给这个项目的负责人捎一句话（插进它的会话，和用户在项目页上直接对它说一样）：补充要求、报个问题、让它改点什么。",
+    userSays: ["跟简报站的负责人说加上 GitHub 热门", "告诉记账本那边下个月起分类改一下"],
     inputSchema: { type: "object", properties: { message: { type: "string", minLength: 1, maxLength: 2000, description: "要转达的话：照抄用户的原话，不改写、不替用户加要求" } }, required: ["message"] },
-    returns: "say 说转给维护者了。",
+    returns: "say 说转给负责人了。",
     risk: "direct",
   },
 };
@@ -399,10 +399,10 @@ function runIn(name: BuiltinName, params: Record<string, unknown>, ctx: BuiltinC
       if (!message) throw new RequestRejected("bad_params", "message 要写转达的话");
       if (opts.test) {
         ctx.tellMaintainer({ project, message, key: opts.key, check: true });
-        return { ok: true, say: `测试：会把这句话转给「${project.name}」的维护者（没有真转）。`, detail: message };
+        return { ok: true, say: `测试：会把这句话转给「${project.name}」的负责人（没有真转）。`, detail: message };
       }
       const events = ctx.tellMaintainer({ project, message, key: opts.key, ...(opts.inputMessageId === undefined ? {} : { inputMessageId: opts.inputMessageId }) });
-      return { ok: true, say: `转给「${project.name}」的维护者了。`, detail: message, events };
+      return { ok: true, say: `转给「${project.name}」的负责人了。`, detail: message, events };
     }
   }
 }

@@ -1,5 +1,5 @@
 // 项目系统只起它自己加假内核（278 号票，方案 C："接口就是测试面"，docs/research/29-plugin-expansion-review.html）：不起守护进程、不拉 agent 子进程。
-// 内核那一边是临时目录里的真事件存储、卡片、待我处理、任务模块（它们便宜），建在项目系统之后的（执行控制器、agent 宿主、执行名额、任务的维护者、
+// 内核那一边是临时目录里的真事件存储、卡片、待我处理、任务模块（它们便宜），建在项目系统之后的（执行控制器、agent 宿主、执行名额、任务的负责人、
 // 子 agent、工具包、MCP 登记变更、触发底座）换成假的；只经 createProjectSystem 交出来的小接口和生命周期操作、观察。
 // 走组合根的整条路照旧在主切面（test/main/projects.test.ts 等）测。
 import fs from "node:fs";
@@ -160,7 +160,7 @@ function projectSystemWithFakeKernel() {
 }
 
 describe("项目系统只起它自己加假内核（278）", () => {
-  it("建出来就登记好卡片类型、改写函数、素材来源、删除参与方；接上、开始之后经小接口立项、找项目、开对话段、重置维护者，秘书的工具先后照旧", async () => {
+  it("建出来就登记好卡片类型、改写函数、素材来源、删除参与方；接上、开始之后经小接口立项、找项目、开对话段、重置负责人，秘书的工具先后照旧", async () => {
     const { system, kernel, stops, cards, cardTypes, rewriters, deletion, sources, directory, calls, logs, close } = projectSystemWithFakeKernel();
     // 第一步建出来：项目系统自己的卡片类型、改写函数、素材来源都登记进了内核给的登记表（组合根不再一样样登记）
     const types = ["suggest_project", "charter", "charter_change", "standard_change", "standard_backfill", "build_done", "go_live", "service_entry", "operations_change", "work_order"];
@@ -173,7 +173,7 @@ describe("项目系统只起它自己加假内核（278）", () => {
     // 删除参与方（279）：项目自己的、项目之外读过它的调用、工单、运营方案（内核的由组合根在这之后登记）
     expect(deletion.owners(PROJECT_DELETION)).toEqual(["projects", "projects:outside-reads", "work-orders", "operations"]);
 
-    // 第二步、第三步：接上建在它之后的内核模块（派单器开始、任务完成回调登记上），开始（建出项目的维护者，登记进 agent 宿主）
+    // 第二步、第三步：接上建在它之后的内核模块（派单器开始、任务完成回调登记上），开始（建出项目的负责人，登记进 agent 宿主）
     system.connect(kernel, stops);
     expect(calls.completedListeners).toHaveLength(1);
     system.start(stops);
@@ -189,14 +189,14 @@ describe("项目系统只起它自己加假内核（278）", () => {
     expect(project).toMatchObject({ name: "记账本", state: "preparing", maintainerId: "pm-1" });
     expect(directory.checkTaskProjects(["记账本"])).toEqual(["p-1"]);
     expect(directory.maintainedBy("pm-1")?.id).toBe("p-1");
-    // 维护者会话里的那条通知唤起了项目的维护者（假的 agent 宿主记下了拉起的是谁），开了一个对话段（362 号票：立项后它先开口）
+    // 负责人会话里的那条通知唤起了项目的负责人（假的 agent 宿主记下了拉起的是谁），开了一个对话段（362 号票：立项后它先开口）
     expect(calls.sessions).toContain("pm-1");
 
-    // 用户往维护者的会话里说话：消息属于这个项目；手上已经有对话段了，不用再开
+    // 用户往负责人的会话里说话：消息属于这个项目；手上已经有对话段了，不用再开
     expect(system.conversationScope(maintainerChannel("pm-1"))).toEqual({ projectId: "p-1" });
     expect(system.messagePrelude("pm-1", "say-1")).toEqual([]);
 
-    // 网关的请求：重置维护者（项目 → 派单器，组装函数里的现取）
+    // 网关的请求：重置负责人（项目 → 派单器，组装函数里的现取）
     const pokesBefore = calls.pokes;
     const reset = system.requests.resetMaintainer({ projectId: "p-1" }, "reset-1");
     expect(reset).toMatchObject({ projectId: "p-1", segmentId: expect.any(String) });
@@ -213,13 +213,13 @@ describe("项目系统只起它自己加假内核（278）", () => {
 
   it("交出去的小接口建好就能用；建在它之后的内核模块没接上就用到的，报还没接上（MCP 登记变了的通知没接上时什么都不做）", () => {
     const { system, stops } = projectSystemWithFakeKernel();
-    // 没 connect 就 start：项目的维护者要 agent 宿主
+    // 没 connect 就 start：项目的负责人要 agent 宿主
     expect(() => system.start(stops)).toThrow("agentHost 还没接上");
     expect(stops).toEqual([]);
-    // 项目的维护者在 start 里才建出
+    // 项目的负责人在 start 里才建出
     expect(() => system.skillsOf("pm-1")).toThrow("projectMaintainers 还没接上");
     expect(() => system.reassemble("pm-1", "MCP 登记变了")).not.toThrow();
-    // 只读的、派单器的小接口建出来就是现成的对象（执行控制器、触发底座、任务的维护者拿到的不是现取的函数）
+    // 只读的、派单器的小接口建出来就是现成的对象（执行控制器、触发底座、任务的负责人拿到的不是现取的函数）
     expect(system.projectTasks.of({ id: "t-1", maintainerId: "tm-1" } as never)).toBeUndefined();
     expect(typeof system.multiProjectTasks.stageGate).toBe("function");
     expect(typeof system.jobWorkOrders.dispatchRun).toBe("function");

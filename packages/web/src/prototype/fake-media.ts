@@ -133,7 +133,7 @@ const EVENT_PAGE = `<!doctype html>
 `;
 
 /**
- * 117 号票：定时任务"每天早上出早报"的维护者发的网页版早报（HTML）：目录跳到各节（页内锚点）、内嵌的柱状图、
+ * 117 号票：定时任务"每天早上出早报"的负责人发的网页版早报（HTML）：目录跳到各节（页内锚点）、内嵌的柱状图、
  * "标成已读"按钮（框里的脚本能跑：点了改字、数一下读了几条）。只用内联的样式和图，不从外面拉东西
  */
 const BRIEF_PAGE = `<!doctype html>
@@ -238,7 +238,7 @@ export const FAKE_BRIEF: FakeMedia = { ...textFile("sha256:fake-brief-1007", "br
 export const FAKE_VIDEOS = [1, 2, 3].map((n) => ({ part: file(`sha256:fake-video-${n}`, `周会录像-第${n}段.mp4`, "video/mp4", 180_000_000 + n * 3_100_000) }));
 export const FAKE_ZIP: FakeMedia = { part: file("sha256:fake-zip", "活动页源码.zip", "application/zip", 2_516_582) };
 export const FAKE_HTML: FakeMedia = textFile("sha256:fake-html", "活动页预览.html", "text/html", EVENT_PAGE);
-/** 117 号票：维护者发的网页版早报、走势图（在沙箱里预览） */
+/** 117 号票：负责人发的网页版早报、走势图（在沙箱里预览） */
 export const FAKE_BRIEF_HTML = textFile("sha256:fake-brief-html-1007", "10 月 7 日早报.html", "text/html", BRIEF_PAGE);
 export const FAKE_TREND_SVG = textFile("sha256:fake-trend-41", "本周 star 走势.svg", "image/svg+xml", TREND_SVG);
 /** 消息里的全年账单流水（大小就是生成出来的字节数，不在打开页面时就生成一遍） */

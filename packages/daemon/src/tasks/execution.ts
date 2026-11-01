@@ -5,32 +5,32 @@
 //   等我、已暂停的不占名额；要恢复执行（继续、一支不用再等了、重试、返工）而名额满了就回到排队中（变化记成 requeued）；
 // - 阶段：控制器保管当前阶段（stages.ts 的纯函数）。第一次进入执行中（排队中开始，或者排队时暂停、没开始过就继续了）
 //   建好各阶段，开始第一个能开始的阶段；一个阶段验收通过之后，自动开始下一个能开始的阶段；
-//   维护者也可以用 start_stage 换去做另一个能开始的阶段（前置阶段没验收的不能开始）；
+//   负责人也可以用 start_stage 换去做另一个能开始的阶段（前置阶段没验收的不能开始）；
 // - 某一支在等用户（审批挂起、"交给我做"、由我验收）：这一支停下，不依赖它的阶段接着推进，任务仍是执行中、占名额；
 //   所有能推进的分支都在等用户时，任务才转等我（写明原因）；用户处理了（批准或拒绝、点"已完成"、验收）这一支接着走，
-//   任务在等我的就恢复执行。挂起的审批批准了、可维护者正在做别的阶段时，通知它先切回那个阶段再重试
+//   任务在等我的就恢复执行。挂起的审批批准了、可负责人正在做别的阶段时，通知它先切回那个阶段再重试
 //   （授权和调用指纹都按阶段，在别的阶段里重试会再问用户）；
-// - 验收：维护者调用"宣布阶段完成"（complete_stage）后，脚本方式的标准在工作目录里跑（看退出码和计划里写的期望输出），
-//   评审方式的派评审子 agent，都过了还有"由你验收"的就放进待我处理等用户；不通过的把结果交回维护者，阶段不推进；
+// - 验收：负责人调用"宣布阶段完成"（complete_stage）后，脚本方式的标准在工作目录里跑（看退出码和计划里写的期望输出），
+//   评审方式的派评审子 agent，都过了还有"由你验收"的就放进待我处理等用户；不通过的把结果交回负责人，阶段不推进；
 //   全部阶段验收通过，任务自动完成，叫"任务完成后"的回调（onCompleted；转为项目结束的不叫）；
-// - 维护者"报告进展"（进度卡）、"转为等我"（卡住求助，写明原因）、"失败"（必须写原因，待我处理里出"失败后的抉择"）；
+// - 负责人"报告进展"（进度卡）、"转为等我"（卡住求助，写明原因）、"失败"（必须写原因，待我处理里出"失败后的抉择"）；
 // - 用户的控制（task_action）：能不能做看共享协议包的 availableTaskActions（"谁能改"表推出），暂停、继续、取消、失败后重试、
-//   从某个阶段重做（返工：按依赖重开指定阶段和全部下游；84 号票起阶段开始过就能，先停稳维护者手头这一轮再重置，卡着的验收、
-//   审批、计划变更随之作废，这几个阶段这一轮已经做了的事从效果日志里列出来告诉维护者、不撤回，会话里一条重做记录；274 号票起
-//   范围外已验收的阶段复验完才把交代交给维护者，276 号票起这条交代和重置一起存进事件库等复验，守护进程起来时照它补做复验再交）、
+//   从某个阶段重做（返工：按依赖重开指定阶段和全部下游；84 号票起阶段开始过就能，先停稳负责人手头这一轮再重置，卡着的验收、
+//   审批、计划变更随之作废，这几个阶段这一轮已经做了的事从效果日志里列出来告诉负责人、不撤回，会话里一条重做记录；274 号票起
+//   范围外已验收的阶段复验完才把交代交给负责人，276 号票起这条交代和重置一起存进事件库等复验，守护进程起来时照它补做复验再交）、
 //   由我验收的验收通过或退回；
 //   待我处理里通知的动作走同样的函数。
-// - 并行（20 号票）：维护者提议派子 agent 做的阶段先过 checkParallel（任务在执行、阶段在做或能开始、没有子 agent 在做），
+// - 并行（20 号票）：负责人提议派子 agent 做的阶段先过 checkParallel（任务在执行、阶段在做或能开始、没有子 agent 在做），
 //   用户在并行确认卡上同意时，没开始的那几个阶段随卡片更新一起开始（parallelStartEvents），几个阶段同时在做；
-//   维护者的当前阶段（守卫看到的、重注入块和看板上的）是它最后一次开始的阶段（任务里的 stages.focus：维护者 start_stage 的、
+//   负责人的当前阶段（守卫看到的、重注入块和看板上的）是它最后一次开始的阶段（任务里的 stages.focus：负责人 start_stage 的、
 //   运行时替它开始的，交给子 agent 的不算；stages.ts 的 currentStage），不按计划里的顺序取；
-//   有子 agent 在做的阶段（subAgentsOn）维护者不能宣布完成、不能切过去（等结果回来），子 agent 交回结果后维护者用 start_stage 切过去；
-//   维护者手头空着（在做的只剩子 agent 的）时，看下一步替它开始一个能开始的阶段（nextStep 的 busy）。
+//   有子 agent 在做的阶段（subAgentsOn）负责人不能宣布完成、不能切过去（等结果回来），子 agent 交回结果后负责人用 start_stage 切过去；
+//   负责人手头空着（在做的只剩子 agent 的）时，看下一步替它开始一个能开始的阶段（nextStep 的 busy）。
 // - 流程（58 号票）：确认的流程计划推出一份只有一个阶段（WORKFLOW_STAGE_ID）的计划（workflow-plan.ts），排队、名额、暂停、
-//   审批挂起、催促都照上面走；开始执行时建好各步的状态（Task.steps.list），交给维护者"按计划执行"的说明（含审查修补后的步骤）；
-//   维护者用 report_step 自报每一步（reportStep），步骤都做完或说明跳过时这个阶段算完成、流程完成（不逐步验收）。
+//   审批挂起、催促都照上面走；开始执行时建好各步的状态（Task.steps.list），交给负责人"按计划执行"的说明（含审查修补后的步骤）；
+//   负责人用 report_step 自报每一步（reportStep），步骤都做完或说明跳过时这个阶段算完成、流程完成（不逐步验收）。
 //   重注入块是流程的那一种（workflow-texts.ts）。执行时和计划逐步比对是 59 号票。
-// - 普通任务（75 号票，plain.ts）：没有计划、阶段，排队和名额照上面走（项目内部的同样等项目的维护者空着、派执行的工单）；
+// - 普通任务（75 号票，plain.ts）：没有计划、阶段，排队和名额照上面走（项目内部的同样等项目的负责人空着、派执行的工单）；
 //   第一次开始时交给 agent 任务书（用户或助理交代的那段话）；agent 这一轮正常结束、手上没有这个任务的别的输入了就自动完成，
 //   助理收到一句结果在对话里转告；出错、被打断的一轮转等我（卡住求助），用户回一句就接着做；做完之后用户接着说
 //   （或者运行时交给它一条通知），任务回到执行中（continued）。守卫看不到它（guardTask 是 null）：按普通对话那一套判。
@@ -40,27 +40,27 @@
 // 计划的比较在 plan-change.ts）：
 // - 阈值：拉回（守卫的 pulled_back）满 3 次后再犯、同一次停滞里催满 3 次仍无进展、验收退回 2 次第 3 次还不过——
 //   这一支停下找用户（卡住求助，待我处理里一条事项）；每个阶段按 token（账本里这个阶段干活用掉的）加工具调用次数累计用量，
-//   用量超过预算让维护者说明进展，超过预算的 2 倍这一支停下（超预算）。都按 13 号票的规矩落地：别的分支还能推进就只停这一支，
+//   用量超过预算让负责人说明进展，超过预算的 2 倍这一支停下（超预算）。都按 13 号票的规矩落地：别的分支还能推进就只停这一支，
 //   361 号票：token 预算由运行时算（负责人估的次数 × 校准比例 × 单次计量，阶段开始时记在阶段上）；超预算停下时除了宣布完成、提计划变更
 //   都不放行（heldCall），活做完了能宣布；确认加预算的计划变更和追加预算继续一样从那时重新算；状态变了排着的通知作废（dropQueued），
-//   停下了也不再叫醒维护者；
+//   停下了也不再叫醒负责人；
 //   都在等才转等我。用户点"继续执行""追加预算继续"（或在卡住求助的任务会话里回话）时这一支接着走，计数清零、预算重给一整份；
-// - 无进展：维护者活着、任务在执行中、维护者的当前阶段（20 号票的 focus，不算交给子 agent 的）在做，stallMs（默认 20 分钟）内
-//   没有成功的工具调用（效果日志，子 agent 的也算）也没有阶段推进，催一次（维护者正在干活时以插话送达）；有了进展，催促计数清零；
+// - 无进展：负责人活着、任务在执行中、负责人的当前阶段（20 号票的 focus，不算交给子 agent 的）在做，stallMs（默认 20 分钟）内
+//   没有成功的工具调用（效果日志，子 agent 的也算）也没有阶段推进，催一次（负责人正在干活时以插话送达）；有了进展，催促计数清零；
 // - 同一任务累计被用户拒绝 5 次（审批、计划变更）：整个任务转已暂停（系统，写明原因）；
-// - 计划变更（维护者要扩大授权、加能力、加项目、改目标或验收标准）：出计划变更卡、进待我处理，只有受影响的阶段停下等确认，
+// - 计划变更（负责人要扩大授权、加能力、加项目、改目标或验收标准）：出计划变更卡、进待我处理，只有受影响的阶段停下等确认，
 //   其余阶段照常推进；同一任务一次只有一张在等。确认后计划和授权项随之更新（新的一版计划，授权项的有效期原样留着的照旧），
-//   改了目标或任务的验收标准的任务书也换成新的一版，受影响的阶段恢复，工具包变了维护者按新工具包重新拉起、
+//   改了目标或任务的验收标准的任务书也换成新的一版，受影响的阶段恢复，工具包变了负责人按新工具包重新拉起、
 //   活着的子 agent 按新的交集重新装配（toolkitChanged → 20 号票的 subAgents.reassemble）；
-//   拒绝后受影响的阶段交回维护者在现有授权内重排（自行调整计划），做不到就标做不了；
+//   拒绝后受影响的阶段交回负责人在现有授权内重排（自行调整计划），做不到就标做不了；
 // - 自行调整计划（拆阶段、调顺序这类不扩大授权的）：直接生效，时间线记一笔；想借这条路扩大授权的被拒；已验收的阶段不能改；
 // - 计划变更和自行调整都只交要改的（121 号票）：没写到的阶段、没写的栏从当前计划原样带上（plan-change.ts 的 mergeDraft），
 //   交来的已验收阶段按现在的定义保留（结果里说明哪几处有出入），去掉阶段要点名（removeStages）；被拒时说清是哪一处；
 // - 现在生效的计划换了一版（计划变更确认、自行调整）时看板上推一条 task_plan：任务详情的阶段抽屉按它显示；
 // - 偏离、阈值的经过，计划变更的结论、自行调整计划在任务的时间线上各记一笔（25 号票的 timeline_record：偏离、计划变更、自行调整计划）。
-// - 涉及多个项目的任务（17 号票，multiProject）：任务维护者的工具包固定（不写文件、不跑 bash、不联网，toolkit），阶段里有发往
+// - 涉及多个项目的任务（17 号票，multiProject）：任务负责人的工具包固定（不写文件、不跑 bash、不联网，toolkit），阶段里有发往
 //   各项目的工单：本阶段的回执全部到齐且都完成，才能宣布阶段完成、跑本阶段的验收（stageGate）；有工单被退回、做不了的，本阶段不通过，
-//   任务维护者调整做法时算一次验收退回（countReturn，和脚本、评审的退回同一份计数和阈值）；阶段的交代、重注入块、由我验收的事项、
+//   任务负责人调整做法时算一次验收退回（countReturn，和脚本、评审的退回同一份计数和阈值）；阶段的交代、重注入块、由我验收的事项、
 //   评审的输入里写上本阶段的工单和回执（stageLines），评审子 agent 能只读访问各项目的档案和工作目录（reviewPlaces）。
 //   交上来的计划（计划变更、自行调整）里涉及的项目要对得上任务（planProjects，17 号票评审后定）。
 // 112 号票（用户 2026-10-13 定，先是项目里的任务，同日扩到所有长程任务）：阶段自动验收（协议包的 stagesAutoAccepted，纯函数和
@@ -71,8 +71,8 @@
 // （judgeHandedOver：只验原定由你验收的那几条），待办里那条记成处理过。原定由你验收的那几条，评审的结论备注里写明。
 // 评审另拿到同一阶段已经通过的脚本检查（能脚本查的先脚本查，评审再按标准综合看）；任务的工具包开了 bash 的，评审也能在工作目录里
 // 跑命令（review.ts）。
-// 交给维护者的话都是它会话里的系统通知（带 taskId），维护者模块据此唤起它；什么时候能处理输入看任务的状态（maintainers/）。
-// 维护者的工具和给它看的话在 execution-tools.ts（包括这一支为什么停下的说法），这里只返回结构化的结果。
+// 交给负责人的话都是它会话里的系统通知（带 taskId），负责人模块据此唤起它；什么时候能处理输入看任务的状态（maintainers/）。
+// 负责人的工具和给它看的话在 execution-tools.ts（包括这一支为什么停下的说法），这里只返回结构化的结果。
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import {
@@ -272,7 +272,7 @@ export interface CompletedTask {
   task: Task;
   brief: TaskBrief | undefined;
   plan: Plan;
-  /** 交付件的位置：维护者的工作目录（任务的产出区，数据目录 outputs/<任务 id>） */
+  /** 交付件的位置：负责人的工作目录（任务的产出区，数据目录 outputs/<任务 id>） */
   workDir: string;
 }
 
@@ -283,13 +283,13 @@ export interface AcceptanceRunner {
   review(input: ReviewInput): Promise<ReviewResult>;
 }
 
-/** 维护者对哪个任务做（它只能对它执行的那个任务做） */
+/** 负责人对哪个任务做（它只能对它执行的那个任务做） */
 export interface MaintainerScope {
   taskId: string;
   maintainerId: string;
 }
 
-/** 交给维护者的一个阶段（开始执行、换阶段、阶段变化时）：execution-tools.ts 写成交代、授权、边界 */
+/** 交给负责人的一个阶段（开始执行、换阶段、阶段变化时）：execution-tools.ts 写成交代、授权、边界 */
 export interface StageHandoff {
   stageId: string;
   title: string;
@@ -301,7 +301,7 @@ export interface StageHandoff {
   plan: Plan;
   /** 每项授权在守卫眼里的样子（和计划卡上的说法一样） */
   grantInfo: Readonly<Record<string, GrantInfo>>;
-  /** 维护者的工作目录 */
+  /** 负责人的工作目录 */
   cwd: string;
   /** 本阶段的另外几行交代（17 号票：涉及多个项目的任务里本阶段发往各项目的工单） */
   notes?: string[];
@@ -333,11 +333,11 @@ export type NextUp =
   /** 接着做手头在做的 */
   | { kind: "continue" };
 
-/** 宣布阶段完成的结论；refused 是维护者引用的用户原话里没核实过的（125 号票：哪一条、为什么，其余照常进评审的输入） */
+/** 宣布阶段完成的结论；refused 是负责人引用的用户原话里没核实过的（125 号票：哪一条、为什么，其余照常进评审的输入） */
 export type CompleteStageResult = (
   /** 验收期间任务被暂停、取消、结束了：这次验收作废 */
   | { outcome: "void"; state: TaskState }
-  /** 没通过：交回维护者，阶段回到进行中 */
+  /** 没通过：交回负责人，阶段回到进行中 */
   /** overBudget：这个阶段的用量还超着预算，退回之后这一支又停下了（361 号票） */
   | { outcome: "returned"; stageId: string; judgedBy: AcceptanceMethod; results: AcceptanceVerdict[]; overBudget?: boolean }
   /** 没通过、而且退回次数超了阈值（14 号票：退回 2 次、第 3 次还不过）：这一支停下找用户（卡住求助） */
@@ -355,13 +355,13 @@ export interface StartStageResult {
   setAside?: string;
 }
 
-/** 一个阶段的名字（交给维护者的话、待我处理事项里用） */
+/** 一个阶段的名字（交给负责人的话、待我处理事项里用） */
 export interface StageRef {
   stageId: string;
   title: string;
 }
 
-/** 维护者提交的计划变更（14 号票）：出了哪张卡、改了什么、哪些阶段停下等确认、接下来做什么 */
+/** 负责人提交的计划变更（14 号票）：出了哪张卡、改了什么、哪些阶段停下等确认、接下来做什么 */
 export interface PlanChangeProposal {
   cardId: string;
   planId: string;
@@ -371,31 +371,31 @@ export interface PlanChangeProposal {
   overBudget: StageRef[];
   /** 交来的已验收阶段里和现在不一样、按现在的定义保留了的（121 号票） */
   keptAccepted: AcceptedDifference[];
-  /** 维护者引用的用户原话：核实过的（卡上单独一栏）、没核实过的（交回维护者，125 号票） */
+  /** 负责人引用的用户原话：核实过的（卡上单独一栏）、没核实过的（交回负责人，125 号票） */
   userWords: UserWordsCheck;
   next: NextUp;
 }
 
-/** 维护者自行调整了计划（14 号票）：新的一版、改了什么、接下来做什么 */
+/** 负责人自行调整了计划（14 号票）：新的一版、改了什么、接下来做什么 */
 export interface PlanRevision {
   planId: string;
   revision: number;
   changes: PlanChangeItem[];
   /** 交来的已验收阶段里和现在不一样、按现在的定义保留了的（121 号票） */
   keptAccepted: AcceptedDifference[];
-  /** 维护者引用的用户原话（125 号票）：核实过的记进时间线那一笔，没核实过的交回维护者 */
+  /** 负责人引用的用户原话（125 号票）：核实过的记进时间线那一笔，没核实过的交回负责人 */
   userWords: UserWordsCheck;
   next: NextUp;
 }
 
-/** 维护者把几个阶段标成做不了（14 号票）：待我处理里的事项、接下来做什么 */
+/** 负责人把几个阶段标成做不了（14 号票）：待我处理里的事项、接下来做什么 */
 export interface InfeasibleResult {
   itemId: string;
   stages: StageRef[];
   next: NextUp;
 }
 
-/** 维护者在执行中交来的新计划（计划变更和自行调整；121 号票起只交要改的，没写到的阶段、没写的栏沿用当前计划） */
+/** 负责人在执行中交来的新计划（计划变更和自行调整；121 号票起只交要改的，没写到的阶段、没写的栏沿用当前计划） */
 export interface PlanDraftInput {
   plan: PlanDraft;
   /** 为什么要改（给用户看） */
@@ -414,8 +414,8 @@ export interface PlanChangeInput extends PlanDraftInput {
 }
 
 /**
- * 这一支为什么停下找用户（14 号票）：阈值超了（拉回、催促、验收退回、预算）、维护者标了做不了。
- * 说法由 execution-tools.ts 的 stopReasonText 生成（给维护者的通知、待我处理事项、任务和阶段上的说明共用）
+ * 这一支为什么停下找用户（14 号票）：阈值超了（拉回、催促、验收退回、预算）、负责人标了做不了。
+ * 说法由 execution-tools.ts 的 stopReasonText 生成（给负责人的通知、待我处理事项、任务和阶段上的说明共用）
  */
 export type BranchStopReason =
   /** 拉回满了阈值后又被拉回：count 是算上这次一共几次 */
@@ -428,7 +428,7 @@ export type BranchStopReason =
   | { kind: "acceptance"; returns: number; judged: string }
   /** 用量超过预算的 times 倍 */
   | { kind: "over_budget"; used: StageSpend; budget: StageAllowance; times: number }
-  /** 维护者标了做不了 */
+  /** 负责人标了做不了 */
   | { kind: "infeasible"; reason: string };
 
 export interface TaskExecutionOptions {
@@ -449,15 +449,15 @@ export interface TaskExecutionOptions {
   stageTokens: (taskId: string, stageId: string) => number;
   /** 单次计量（361 号票，账本的 callMeter）：这个 agent 现在一次调用大约记多少，阶段开始、追加预算时按它算 token 预算 */
   callMeter: (agentId: string) => CallMeter;
-  /** 这个维护者现在有没有在运行的子进程（无进展的判定：维护者活着才算停滞） */
+  /** 这个负责人现在有没有在运行的子进程（无进展的判定：负责人活着才算停滞） */
   agentAlive: (agentId: string) => boolean;
-  /** 现取全局关注类别设置（26 号票的设置服务）：交给维护者的授权说法要它 */
+  /** 现取全局关注类别设置（26 号票的设置服务）：交给负责人的授权说法要它 */
   watchSettings: () => WatchCategorySettings;
   /** 计划里的授权项、时序规则照这份工具注册表查 */
   planTools: ToolRegistry;
   /** 计划变更、自行调整时工具包里的 skill 要在 skill 库里、MCP 要登记过（27 号票）；不给就不查 */
   toolkitProblems?: ToolkitProblems;
-  /** 数据目录的输出区（真实路径）：不属于项目的任务的产出，每个任务一格，也是维护者的工作目录 */
+  /** 数据目录的输出区（真实路径）：不属于项目的任务的产出，每个任务一格，也是负责人的工作目录 */
   outputsDir: string;
   /**
    * 认得效果日志里各种工具的注册表（84 号票：阶段详情列"已经做了的事"分本机、对外，授权已用几次按对象范围比）：
@@ -467,9 +467,9 @@ export interface TaskExecutionOptions {
   /** 用户主目录（agent 的 bash 里 ~ 指的地方）：授权已用几次时解析效果日志里的路径；不给就不认 ~ */
   homeDir?: string;
   /**
-   * 停稳维护者手头这一轮（84 号票：从某个阶段重做之前，先 abort 再 waitForIdle）：维护者模块拦住执行这个任务的
+   * 停稳负责人手头这一轮（84 号票：从某个阶段重做之前，先 abort 再 waitForIdle）：负责人模块拦住执行这个任务的
    * 会话不再开始下一条输入、中止手头这一轮、等它真的结束（最多 timeoutMs；到点还没停的，那一轮之后的调用守卫不放行，交回 reason）。
-   * 返回放开的函数（提交了重置再叫）；没有在执行这个任务的维护者会话时 undefined。不给就不停（测试里的执行控制器）
+   * 返回放开的函数（提交了重置再叫）；没有在执行这个任务的负责人会话时 undefined。不给就不停（测试里的执行控制器）
    */
   stopTurn?: (task: Task, how: { timeoutMs: number; reason: string }) => Promise<(() => void) | undefined>;
   /** 停稳最多等多久（毫秒，84 号票）；不给是 REWORK_STOP_TIMEOUT_MS（测试里调短，测到点没停下的那一轮作废） */
@@ -478,11 +478,11 @@ export interface TaskExecutionOptions {
   /** 有子 agent 在做的阶段（20 号票）：阶段 id → 在做它的子 agent；不给是都没有 */
   subAgentsOn?: (taskId: string) => ReadonlyMap<string, readonly string[]>;
   /**
-   * 只涉及一个项目的任务（16 号票：由项目的维护者执行）：属于哪个项目（工作目录、工具包按项目的，消息带上项目），
-   * 以及排队的任务现在能不能进入执行中（项目的维护者正忙时不能：留在排队中，看板上"等项目 X"）。不给就都按任务自己的维护者
+   * 只涉及一个项目的任务（16 号票：由项目的负责人执行）：属于哪个项目（工作目录、工具包按项目的，消息带上项目），
+   * 以及排队的任务现在能不能进入执行中（项目的负责人正忙时不能：留在排队中，看板上"等项目 X"）。不给就都按任务自己的负责人
    */
   projectTasks?: ProjectTasks;
-  /** 维护者的工具包变了（14 号票：计划变更确认、自行调整计划之后，事件已经落盘）：活着的子 agent 跟着重新装配（20 号票的 subAgents.reassemble） */
+  /** 负责人的工具包变了（14 号票：计划变更确认、自行调整计划之后，事件已经落盘）：活着的子 agent 跟着重新装配（20 号票的 subAgents.reassemble） */
   toolkitChanged?: (taskId: string) => void;
   /** 涉及多个项目的任务（17 号票，派单器在 daemon.ts 里接上）。不给就没有这样的任务 */
   multiProject?: MultiProjectTasks;
@@ -492,12 +492,12 @@ export interface TaskExecutionOptions {
    */
   planProjects?: (task: Task, plan: Plan) => string[];
   /**
-   * 核实维护者引用的用户原话（125 号票，conversation/user-words.ts）：宣布阶段完成、计划变更、自行调整时附的用户消息 id。
+   * 核实负责人引用的用户原话（125 号票，conversation/user-words.ts）：宣布阶段完成、计划变更、自行调整时附的用户消息 id。
    * 不给就不核实（引用的一律当没核实过）
    */
   userWords?: UserWordsDeps;
   /**
-   * 执行它的维护者用的运行时（286 号票，agent-host/runtime-gate.ts）：held 是该不该停在等我（运行时插件没启用、维护者手头也没有
+   * 执行它的负责人用的运行时（286 号票，agent-host/runtime-gate.ts）：held 是该不该停在等我（运行时插件没启用、负责人手头也没有
    * 在做的一轮），off 是运行时现在能不能用；都是给人看的原因（"Claude Code插件没启用"），没事是 undefined。不给就都是 pi、一直能用
    */
   runtimeHold?: { held(task: Task): string | undefined; off(task: Task): string | undefined };
@@ -506,7 +506,7 @@ export interface TaskExecutionOptions {
 
 /** 涉及多个项目的任务在执行控制器这里的差异（17 号票） */
 export interface MultiProjectTasks {
-  /** 涉及多个项目的任务的维护者的工具包（固定为三样，不写文件、不跑 bash、不联网）；不是这样的任务是 undefined */
+  /** 涉及多个项目的任务的负责人的工具包（固定为三样，不写文件、不跑 bash、不联网）；不是这样的任务是 undefined */
   toolkit(task: Task): PlanToolkit | undefined;
   /** 宣布阶段完成之前：本阶段的工单回执到齐、都完成了没有；没有时给出原因（不让宣布完成，不算一次） */
   stageGate(task: Task, stageId: string): string | undefined;
@@ -518,7 +518,7 @@ export interface MultiProjectTasks {
 
 /** 项目的任务在执行控制器这里的差异（派单器在 daemon.ts 里接上，16 号票） */
 export interface ProjectTasks {
-  /** 这个任务由哪个项目的维护者执行：项目编号、项目的工作目录和档案（真实路径）、项目的工具包；任务自己的维护者执行的是 undefined */
+  /** 这个任务由哪个项目的负责人执行：项目编号、项目的工作目录和档案（真实路径）、项目的工具包；任务自己的负责人执行的是 undefined */
   of(task: Task): { projectId: string; workDir: string; recordsDir: string; toolkit: PlanToolkit | undefined } | undefined;
   /** 排队的任务能不能进入执行中（全局名额另看）；events 和这次变化同一事务追加（工单开始、开一段会话，或者补派的工单） */
   admit(task: Task): { admit: boolean; events: NewEvent[] };
@@ -547,27 +547,27 @@ export function effectiveToolkit(planned: PlanToolkit, project: PlanToolkit | un
 }
 
 export interface TaskExecution {
-  /** 接上事件：排队的开始执行、审批挂起和"交给我做"让一支停下……；守护进程重启时验收被打断的阶段交回维护者 */
+  /** 接上事件：排队的开始执行、审批挂起和"交给我做"让一支停下……；守护进程重启时验收被打断的阶段交回负责人 */
   start(): void;
   stop(): void;
-  // ───── 维护者（execution-tools.ts 的工具）：被拒时抛 RequestRejected ─────
+  // ───── 负责人（execution-tools.ts 的工具）：被拒时抛 RequestRejected ─────
   /** 换去做另一个能开始的阶段（前置阶段没验收的不能开始） */
   startStage(scope: MaintainerScope, stageId: string): StartStageResult;
   /** 宣布阶段完成：跑这个阶段的验收；userWords 是引用的用户消息 id（125 号票：核实过的进评审的输入） */
   completeStage(scope: MaintainerScope, stageId: string, summary: string, userWords?: readonly string[]): Promise<CompleteStageResult>;
-  /** 报告进展：一张进度卡（出现在维护者的会话里） */
+  /** 报告进展：一张进度卡（出现在负责人的会话里） */
   reportProgress(scope: MaintainerScope, text: string): { cardId: string };
   /** 转为等我（卡住求助）：写明原因，待我处理里放一条"卡住求助" */
   waitForUser(scope: MaintainerScope, reason: string): { itemId: string };
   /** 判任务失败：必须写原因，待我处理里放一条"失败后的抉择" */
   fail(scope: MaintainerScope, reason: string): { itemId: string };
   /**
-   * 流程的维护者汇报某一步的状态（58 号票，report_step）：步骤都做完或说明跳过时流程完成（completed）。
+   * 流程的负责人汇报某一步的状态（58 号票，report_step）：步骤都做完或说明跳过时流程完成（completed）。
    * 不是流程、没有这一步的抛 RequestRejected
    */
   reportStep(scope: MaintainerScope, input: { stepId: string; state: Exclude<WorkflowStepState, "pending">; gist?: string }): { done: number; total: number; completed: boolean };
   /**
-   * 并行（20 号票）：这几个阶段现在能不能交给子 agent 并行做——任务是这个维护者在执行的、在执行中；每个阶段在计划里、
+   * 并行（20 号票）：这几个阶段现在能不能交给子 agent 并行做——任务是这个负责人在执行的、在执行中；每个阶段在计划里、
    * 正在做或能开始（前置阶段都验收了），没有子 agent 已经在做。不能的抛 RequestRejected（说明哪个阶段为什么不行）
    */
   checkParallel(scope: MaintainerScope, stageIds: readonly string[]): void;
@@ -587,8 +587,8 @@ export interface TaskExecution {
   /** 把几个阶段标成做不了（14 号票，计划变更被拒、在现有授权内也重排不了时）：这一支停下找用户 */
   markInfeasible(scope: MaintainerScope, input: { stageIds: string[]; reason: string }): InfeasibleResult;
   /**
-   * 改任务的工具包（27 号票）：用户在任务详情里直接改（扩大、减少都直接生效，不出计划变更卡），维护者增减 skill。
-   * 现在生效的计划换成新的一版（只改了工具包），时间线记一笔，工具包变了的维护者按新工具包重新装配、子 agent 跟着收窄。
+   * 改任务的工具包（27 号票）：用户在任务详情里直接改（扩大、减少都直接生效，不出计划变更卡），负责人增减 skill。
+   * 现在生效的计划换成新的一版（只改了工具包），时间线记一笔，工具包变了的负责人按新工具包重新装配、子 agent 跟着收窄。
    * 计划还没确认的、已经结束的任务不能改；有计划变更卡在等的先等它有结论。没有改动时什么都不追加
    */
   changeToolkit(input: { taskId: string; toolkit: PlanToolkit; by: "user" | "maintainer"; why: string; idempotencyKey?: string; events?: NewEvent[] }): {
@@ -598,7 +598,7 @@ export interface TaskExecution {
     changed: boolean;
   };
   /**
-   * 停下这个任务在跑的验收（删除任务时，和停维护者、子 agent 同一步）：宣布完成时的验收（脚本、评审）、交给评审的验收（112 号票）、
+   * 停下这个任务在跑的验收（删除任务时，和停负责人、子 agent 同一步）：宣布完成时的验收（脚本、评审）、交给评审的验收（112 号票）、
    * 重做后复验（274、276 号票）。验收脚本的进程杀掉、评审子 agent 结束，这次的结论作废（复验的交代照 274 号票照给），收完尾才回——
    * 之后任务的工作目录里不再有它们起的进程。没有在跑的马上回
    */
@@ -621,30 +621,30 @@ export interface TaskExecution {
   prepareAct(params: TaskActionParams, idempotencyKey: string): PreparedTaskAct;
   /**
    * 从某个阶段重做，先不落盘（84 号票：归档清单上的"继续"和卡片更新同一事务追加）：和 act 的重做同一条路——先查能不能做，
-   * 再停稳维护者手头这一轮，按此刻的任务算出事件。调用方落盘之后叫 afterCommit；release 不管落没落盘都要叫一次（放开维护者的会话，
+   * 再停稳负责人手头这一轮，按此刻的任务算出事件。调用方落盘之后叫 afterCommit；release 不管落没落盘都要叫一次（放开负责人的会话，
    * 同一任务的下一次重做才接着）
    */
   prepareReworkAct(params: TaskActionParams, idempotencyKey: string): Promise<PreparedTaskAct & { release(): void; handedOver(): Promise<void> }>;
   /** 计划变更卡上的"确认"（可以勾掉、收窄授权项，加本任务的关注类别）：卡片动作的结果（和卡片更新同一事务） */
   confirmPlanChange(payload: PlanChangeCardPayload, input: PlanConfirmInput, idempotencyKey: string): CardActionEffect<PlanChangeCardPayload>;
-  /** 计划变更卡上的"拒绝"（可附说明）：受影响的阶段交回维护者在现有授权内重排 */
+  /** 计划变更卡上的"拒绝"（可附说明）：受影响的阶段交回负责人在现有授权内重排 */
   rejectPlanChange(payload: PlanChangeCardPayload, note: string | undefined, idempotencyKey: string): CardActionEffect<PlanChangeCardPayload>;
   // ───── 别的模块读 ─────
   /** 守卫看到的任务（计划、当前阶段）；还没开始执行的是 null */
   guardTask(taskId: string): GuardTask | null;
   /**
-   * 守卫认临时文件要的（111 号票，tasks/own-work.ts）：范围开始的时间、交出去了的交付件。项目的维护者执行的任务按项目（projectOwnWork），
-   * 项目外的任务按这个任务（三种做法、各种触发方式都有）；还没开始的是 null。任务的 agent 的会话（维护者执行、定时 / 事件触发的运行、
+   * 守卫认临时文件要的（111 号票，tasks/own-work.ts）：范围开始的时间、交出去了的交付件。项目的负责人执行的任务按项目（projectOwnWork），
+   * 项目外的任务按这个任务（三种做法、各种触发方式都有）；还没开始的是 null。任务的 agent 的会话（负责人执行、定时 / 事件触发的运行、
    * 子 agent、普通任务）每次判定现取
    */
   ownWork(taskId: string): GuardOwnWork | null;
-  /** 项目的（111 号票，用户补充"任务和项目的临时文件都是一样的"）：项目开始的时间、项目里各任务交出去了的交付件；项目的维护者做什么都按它 */
+  /** 项目的（111 号票，用户补充"任务和项目的临时文件都是一样的"）：项目开始的时间、项目里各任务交出去了的交付件；项目的负责人做什么都按它 */
   projectOwnWork(projectId: string): GuardOwnWork | null;
   /** 执行时此刻的工具包（现在生效的计划和项目工具包的交集，27 号票：子 agent 的守卫每次判定现取）；没有确认的计划时没有 */
   toolkitNow(taskId: string): PlanToolkit | undefined;
   /** 重注入块（计划摘要 + 当前阶段 + 授权 + 边界）；还没开始执行的没有 */
   contextBlock(taskId: string): string | undefined;
-  /** 维护者的工作目录：任务的产出区；项目的任务是项目的工作目录（16 号票） */
+  /** 负责人的工作目录：任务的产出区；项目的任务是项目的工作目录（16 号票） */
   workDir(taskId: string): string;
   /**
    * 阶段详情从守护进程现取的（84 号票，GET /api/tasks/<任务>/stages/<阶段>）：授权已用几次、从这里重做的范围、这几个阶段这一轮
@@ -652,8 +652,8 @@ export interface TaskExecution {
    */
   stageView(taskId: string, stageId: string): TaskStageView | undefined;
   /**
-   * 维护者的会话树换了分支之后（152 号票：会话回退；151 号票的切换分支照同一个口），任务的阶段、计划按要回到的那条路径推导：
-   * 返回要和分支事件同一事务追加的事件、作废出队的输入、作废的卡、交给维护者接着做的那句，落盘之后叫 afterCommit
+   * 负责人的会话树换了分支之后（152 号票：会话回退；151 号票的切换分支照同一个口），任务的阶段、计划按要回到的那条路径推导：
+   * 返回要和分支事件同一事务追加的事件、作废出队的输入、作废的卡、交给负责人接着做的那句，落盘之后叫 afterCommit
    */
   followSession(input: SessionFollowInput): SessionFollowResult;
   /** 这个任务的会话现在能不能撤回（取消了、归档了、有子 agent 在做的不能）：能就是 undefined，不能是原因 */
@@ -661,20 +661,20 @@ export interface TaskExecution {
   /** 项目空出来了（派单器）：看看排队的任务能不能开始（16 号票） */
   kick(): void;
   /**
-   * 一支在等用户回答、确认（16 号票：项目维护者做工单时在等派单方回答；17 号票：任务维护者转问用户、计划外的工单待你确认）：
-   * 这一支停下，都在等时任务转等我。不写阶段是维护者手上在做的那个，原因默认"澄清"
+   * 一支在等用户回答、确认（16 号票：项目负责人做工单时在等派单方回答；17 号票：任务负责人转问用户、计划外的工单待你确认）：
+   * 这一支停下，都在等时任务转等我。不写阶段是负责人手上在做的那个，原因默认"澄清"
    */
   awaitAnswer(taskId: string, waitingOn: string, branch?: { stageId?: string; reason?: TaskWaitReason; what?: string }): void;
   /** 等的回答来了：这一支接着走，任务在等我的恢复执行（名额满了回到排队中） */
   answered(waitingOn: string): void;
   /**
-   * 运行时能不能用变了（286 号票：运行时插件运行中停用、启用，或者运行时不能用的维护者做完了手头那一轮；守护进程起来时也叫一次）：
-   * 执行中的、执行它的维护者停在运行时上的任务转等我（原因"运行时没启用"，说明写明哪个插件）；因为它在等我、运行时又能用了的接着执行
+   * 运行时能不能用变了（286 号票：运行时插件运行中停用、启用，或者运行时不能用的负责人做完了手头那一轮；守护进程起来时也叫一次）：
+   * 执行中的、执行它的负责人停在运行时上的任务转等我（原因"运行时没启用"，说明写明哪个插件）；因为它在等我、运行时又能用了的接着执行
    * （名额满了排队）
    */
   followRuntimes(): void;
   /**
-   * 调整做法算一次验收退回（17 号票：涉及多个项目的任务里，本阶段的工单被退回、做不了，任务维护者重新派单或改了计划）：
+   * 调整做法算一次验收退回（17 号票：涉及多个项目的任务里，本阶段的工单被退回、做不了，任务负责人重新派单或改了计划）：
    * 和脚本、评审的退回同一份计数（14 号票的 returns）和阈值，会话里一条说明（why：为什么不通过、怎么调整的；judged：怎么判的），
    * 返回要和调整同一事务追加的事件（不追加）。退回超了阈值（退回 2 次、第 3 次还不过）时这一支停下找用户（卡住求助，已经落盘）：stuck
    */
@@ -699,7 +699,7 @@ export interface PreparedTaskAct {
 /** 一次变化的草稿：一串要在同一事务里追加的事件，之后要做的事 */
 interface Draft {
   task: Task;
-  /** 交给维护者的话、会话里的说明在任务的归属（taskMessageScope）之外带上的：项目的任务还有项目（16 号票） */
+  /** 交给负责人的话、会话里的说明在任务的归属（taskMessageScope）之外带上的：项目的任务还有项目（16 号票） */
   projectScope: MessageScope;
   events: NewEvent[];
   /** 追加之后马上提示用户的待我处理事项 */
@@ -712,9 +712,9 @@ interface Draft {
   completed: boolean;
   /** 这次是从某个阶段重做（84 号票）：任务事件上带着你点的阶段和重开了哪几个 */
   reworkOf?: { stageId: string; reopened: readonly string[] };
-  /** 这次变化换上的新计划（125 号票：重做时你改了这一阶段的验收标准），还没落盘：交给维护者的交代按它写 */
+  /** 这次变化换上的新计划（125 号票：重做时你改了这一阶段的验收标准），还没落盘：交给负责人的交代按它写 */
   plan?: Plan;
-  /** 开始了维护者的阶段之后交给它的第一条通知（152 号票：阶段开始的记号写明维护者是从这条通知知道的） */
+  /** 开始了负责人的阶段之后交给它的第一条通知（152 号票：阶段开始的记号写明负责人是从这条通知知道的） */
   startNotice?: string;
   /** 阶段开始的记号已经放进事件里了（152 号票，eventsOf 只放一次） */
   marked?: boolean;
@@ -723,8 +723,8 @@ interface Draft {
   /** 这次变化里作废的排着的通知（361 号票）：同一条不作废两次 */
   dropped?: Set<string>;
   /**
-   * 从某个阶段重做时交给维护者的那条通知（274 号票）：等范围外已验收的阶段复验完，带上复验的结果再追加（
-   * 先 reopen（含复验），再把"另外复验发现 … 先告诉用户"写进同一句交给维护者）。276 号票起它和重置同一事务存进事件库
+   * 从某个阶段重做时交给负责人的那条通知（274 号票）：等范围外已验收的阶段复验完，带上复验的结果再追加（
+   * 先 reopen（含复验），再把"另外复验发现 … 先告诉用户"写进同一句交给负责人）。276 号票起它和重置同一事务存进事件库
    * （tasks 频道的 rework_notice_held，等复验），这里记着是哪一条
    */
   reworkNotice?: HeldNotice;
@@ -736,7 +736,7 @@ interface AcceptanceRun {
   done: Promise<void>;
 }
 
-/** 等复验的那条交代（276 号票）：哪次重做、从哪个阶段、交给维护者的哪条通知 */
+/** 等复验的那条交代（276 号票）：哪次重做、从哪个阶段、交给负责人的哪条通知 */
 interface HeldNotice {
   taskId: string;
   reworkNo: number;
@@ -769,24 +769,24 @@ const draftOf = (task: Task, projectScope: MessageScope, key?: string): Draft =>
 /** 草稿里这时的归属：任务和当时的阶段（说的是某个阶段的写那个阶段），项目的任务还有项目 */
 const scopeIn = (d: Draft, stageId?: string): MessageScope => ({ ...taskMessageScope(d.task, stageId), ...d.projectScope });
 
-/** 交给维护者的一条输入（它会话里的系统通知）；interject：它正在干活时以插话送达（14 号票：只有催促这样送）；about：是哪一种通知（361 号票，状态变了按它作废） */
+/** 交给负责人的一条输入（它会话里的系统通知）；interject：它正在干活时以插话送达（14 号票：只有催促这样送）；about：是哪一种通知（361 号票，状态变了按它作废） */
 const notify = (d: Draft, text: string, interject = false, about?: MessageEventPayload["taskNotice"]) => {
   const notice = buildAgentNotice(maintainerChannel(d.task.maintainerId), text, `task-exec:${d.task.id}:${randomUUID()}`, scopeIn(d), { interject, ...(about ? { taskNotice: about } : {}) });
   d.events.push(notice.event);
   if (d.startedStage) d.startNotice ??= notice.message.id;
 };
 
-/** 维护者会话里的一条系统说明（只给人看，不交给维护者）；说的是某个阶段的就写上它 */
+/** 负责人会话里的一条系统说明（只给人看，不交给负责人）；说的是某个阶段的就写上它 */
 const note = (d: Draft, text: string, stageId?: string) => {
   d.events.push(buildMessage({ conversation: maintainerChannel(d.task.maintainerId), speaker: "system", parts: [{ type: "text", text }] }, scopeIn(d, stageId)).event);
 };
 
-/** 维护者会话里一张卡片（验收结论的进度卡：属于它验收的那个阶段） */
+/** 负责人会话里一张卡片（验收结论的进度卡：属于它验收的那个阶段） */
 const cardRef = (d: Draft, cardId: string, stageId: string) => {
   d.events.push(buildMessage({ conversation: maintainerChannel(d.task.maintainerId), speaker: "system", parts: [{ type: "card_ref", cardId }] }, scopeIn(d, stageId)).event);
 };
 
-/** 被中断的调用（23 号票）是谁的：维护者自己的，或者它派出的子 agent 的（20 号票：写明哪个子 agent、在哪个阶段） */
+/** 被中断的调用（23 号票）是谁的：负责人自己的，或者它派出的子 agent 的（20 号票：写明哪个子 agent、在哪个阶段） */
 const interruptedBy = (task: Task, execution: ExecutionRecord) => {
   const { agentId, stageId } = execution.origin;
   if (agentId === task.maintainerId) return { whose: t("tasks.exec.interrupted.maintainer"), where: "", call: execution.call };
@@ -794,7 +794,7 @@ const interruptedBy = (task: Task, execution: ExecutionRecord) => {
   return {
     whose: t("tasks.exec.interrupted.subAgent", { agent: agentId }),
     where: t("tasks.exec.interrupted.whereSubAgent", { agent: agentId, at }),
-    // 交给维护者的说法（照旧中文）
+    // 交给负责人的说法（照旧中文）
     call: `${execution.call}（子 agent ${agentId} ${stageId === null ? "" : `在阶段 ${stageId} `}的调用）`, // @i18n-ignore model
   };
 };
@@ -833,14 +833,14 @@ const reworkStage = (task: Task, params: TaskActionParams): TaskStage => {
   return stage;
 };
 
-/** 从某个阶段重做之前停稳维护者手头这一轮最多等多久（84 号票，到点还没停的那一轮作废） */
+/** 从某个阶段重做之前停稳负责人手头这一轮最多等多久（84 号票，到点还没停的那一轮作废） */
 const REWORK_STOP_TIMEOUT_MS = 10_000;
 
 /** 重做之后作废的东西：旧按钮点了回这几句，通知记成处理过时的那一项（84 号票，用户 2026-10-11 定：作废，不只是"不卡着"） */
 /** 直接归档了的任务还没处理的通知：作废（90 号票），再点它的按钮时被拒的原因 */
 const archivedNotice = () => t("tasks.exec.archivedNotice");
 
-/** 卡上、事项上、会话里给你看的几句按当时的语言写；choice 是事项的处理结果（按字认，不跟着语言变）；turn 交给维护者（照旧中文） */
+/** 卡上、事项上、会话里给你看的几句按当时的语言写；choice 是事项的处理结果（按字认，不跟着语言变）；turn 交给负责人（照旧中文） */
 const VOIDED = {
   get card() {
     return t("tasks.exec.voided.card");
@@ -862,8 +862,8 @@ const switchVoidedInput = () => t("tasks.exec.switchVoidedInput");
 const rollbackPlanVoided = () => t("tasks.exec.rollbackPlanVoided");
 
 /**
- * 任务在等我是不是维护者自己说的（转为等我）：等我时还有能推进的阶段（在做的、能开始的），就不是"所有分支都在等用户"推出来的。
- * 一支有了结论之后，推出来的等我恢复执行，维护者自己说的要用户点"继续执行"（或回话）
+ * 任务在等我是不是负责人自己说的（转为等我）：等我时还有能推进的阶段（在做的、能开始的），就不是"所有分支都在等用户"推出来的。
+ * 一支有了结论之后，推出来的等我恢复执行，负责人自己说的要用户点"继续执行"（或回话）
  */
 const declaredWait = (task: Task, busy: ReadonlySet<string>): boolean => task.state === "waiting_for_user" && nextStep(listOf(task), busy).kind !== "wait";
 
@@ -898,7 +898,7 @@ const verdictsAfterUser = (stage: TaskStage, passed: boolean, why?: string): Acc
   ...stage.acceptance.filter((a) => a.method === "user").map((a) => ({ criterion: a.criterion, method: a.method, passed, ...(why ? { note: why } : {}) })),
 ];
 
-/** 结论卡上带的维护者宣布完成时写的那句（84 号票：尝试记录的备注）；没写的不带 */
+/** 结论卡上带的负责人宣布完成时写的那句（84 号票：尝试记录的备注）；没写的不带 */
 const summaryText = (summary: string | undefined): { summary?: string } => (summary?.trim() ? { summary: summary.trim() } : {});
 
 /** 由你验收的阶段：这次交上来时写的那句（宣布完成时记在阶段上） */
@@ -937,7 +937,7 @@ const wordsLines = (words: readonly VerifiedUserWords[]): string[] => (words.len
 
 /** 计划变更、自行调整交来的和当前计划一样、没有要改的：交来的已验收阶段有出入（按现在的定义保留了，121 号票）的一并说明 */
 const nothingToChange = (keptAccepted: readonly AcceptedDifference[]) =>
-  new RequestRejected("bad_params", ["和当前计划一样，没有要改的。", keptAcceptedText(keptAccepted)].filter(Boolean).join("")); // @i18n-ignore model：交回维护者
+  new RequestRejected("bad_params", ["和当前计划一样，没有要改的。", keptAcceptedText(keptAccepted)].filter(Boolean).join("")); // @i18n-ignore model：交回负责人
 
 /** 现在生效的计划换了一版（计划变更确认、自行调整）：看板上推一条，任务详情的阶段抽屉按它显示 */
 const planEvent = (d: Draft, planned: { planId: string; revision: number; plan: Plan }, grantInfo: Readonly<Record<string, GrantInfo>>) => {
@@ -966,20 +966,20 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
 
   /** 项目的任务（16 号票）：项目编号、工作目录、工具包 */
   const projectOf = (task: Task | undefined) => (task ? options.projectTasks?.of(task) : undefined);
-  /** 维护者干活的地方：项目的任务是项目的工作目录，别的照 taskWorkdir（新建时选的工作文件夹、接管来的会话的工作目录，没有的是产出区里的一格） */
+  /** 负责人干活的地方：项目的任务是项目的工作目录，别的照 taskWorkdir（新建时选的工作文件夹、接管来的会话的工作目录，没有的是产出区里的一格） */
   const workDir = (taskId: string) => {
     const task = tasks.get(taskId);
     return projectOf(task)?.workDir ?? (task ? taskWorkdir(task, options.outputsDir) : path.join(options.outputsDir, taskId));
   };
-  /** 项目的任务交给维护者的话、会话里的说明还带上项目 */
+  /** 项目的任务交给负责人的话、会话里的说明还带上项目 */
   const projectScopeOf = (task: Task): MessageScope => {
     const project = projectOf(task);
     return project ? { projectId: project.projectId } : {};
   };
   const draft = (task: Task, key?: string): Draft => draftOf(task, projectScopeOf(task), key);
   /**
-   * 执行时的工具包：项目的任务取交集；涉及多个项目的任务（17 号票）的维护者工具包固定，不写文件、不跑 bash、不联网
-   * （计划里的工具包是给各项目工单的，在项目维护者那边和项目的工具包取交集）
+   * 执行时的工具包：项目的任务取交集；涉及多个项目的任务（17 号票）的负责人工具包固定，不写文件、不跑 bash、不联网
+   * （计划里的工具包是给各项目工单的，在项目负责人那边和项目的工具包取交集）
    */
   const toolkitOf = (task: Task, plan: Plan): PlanToolkit => options.multiProject?.toolkit(task) ?? effectiveToolkit(plan.toolkit, projectOf(task)?.toolkit);
   /**
@@ -994,7 +994,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   };
   /** 本阶段另写的几行交代（涉及多个项目的任务：发往各项目的工单） */
   const stageNotes = (task: Task, stageId: string) => options.multiProject?.stageLines(task, stageId) ?? [];
-  /** 项目的任务能不能进入执行中（项目的维护者空着、它的执行工单排在队首），以及同一事务追加的事件 */
+  /** 项目的任务能不能进入执行中（项目的负责人空着、它的执行工单排在队首），以及同一事务追加的事件 */
   const admit = (task: Task) => options.projectTasks?.admit(task) ?? { admit: true, events: [] };
 
   /** 有子 agent 在做的阶段（20 号票） */
@@ -1003,22 +1003,22 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   /** 有子 agent 在做的阶段的集合 */
   const busyOf = (taskId: string): ReadonlySet<string> => new Set(subAgentsOn(taskId).keys());
 
-  /** 阶段改了之后的任务（第 N 阶段跟着重算）；focus 是维护者最后一次开始的阶段，不给就照旧 */
+  /** 阶段改了之后的任务（第 N 阶段跟着重算）；focus 是负责人最后一次开始的阶段，不给就照旧 */
   const withList = (task: Task, list: TaskStage[], focus = task.stages?.focus): Task => ({
     ...task,
     stages: { total: task.stages?.total ?? list.length, current: stagePosition(list, focus, busyOf(task.id)), list, ...(focus === undefined ? {} : { focus }) },
   });
 
-  /** 计划改了之后的任务（14 号票）：阶段数也跟着新的计划；维护者最后开始的阶段被去掉了就不再记 */
+  /** 计划改了之后的任务（14 号票）：阶段数也跟着新的计划；负责人最后开始的阶段被去掉了就不再记 */
   const withPlanList = (task: Task, list: TaskStage[]): Task => {
     const focus = task.stages?.focus !== undefined && findStage(list, task.stages.focus) ? task.stages.focus : undefined;
     return { ...task, stages: { total: list.length, current: stagePosition(list, focus, busyOf(task.id)), list, ...(focus === undefined ? {} : { focus }) } };
   };
 
-  /** 维护者的当前阶段（20 号票起按它最后一次开始的阶段） */
+  /** 负责人的当前阶段（20 号票起按它最后一次开始的阶段） */
   const currentOf = (task: Task): TaskStage => currentStage(listOf(task), task.stages?.focus, busyOf(task.id));
 
-  /** 维护者手头在做的阶段（无进展的计时、催促按它，14 号票）：它的当前阶段在做、没交给子 agent；不是的没有 */
+  /** 负责人手头在做的阶段（无进展的计时、催促按它，14 号票）：它的当前阶段在做、没交给子 agent；不是的没有 */
   const workingStage = (task: Task): TaskStage | undefined => {
     // 还没建阶段的（普通任务没有阶段，75 号票）不计时
     if (listOf(task).length === 0) return undefined;
@@ -1038,7 +1038,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
 
   const grantInfoFor = (plan: Plan) => grantInfoOf(plan, { tools: options.planTools, settings: options.watchSettings() });
 
-  /** 交给维护者的一个阶段：交代、授权、边界都按确认的计划和现在的关注类别设置 */
+  /** 交给负责人的一个阶段：交代、授权、边界都按确认的计划和现在的关注类别设置 */
   const handoff = (task: Task, stageId: string, pending?: Plan): StageHandoff => {
     const confirmed = pending ?? planOf(task.id);
     // 边界里写的 bash、联网开关按执行时真正的工具包（项目的任务取交集）
@@ -1073,7 +1073,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   const applyStage = (d: Draft, change: TaskChange, by: TaskActor, stageId: string, patch: (s: TaskStage) => TaskStage) =>
     apply(d, change, by, (tk) => withList(tk, withStage(listOf(tk), stageId, patch)), stageId);
 
-  /** 进度卡，出现在维护者的会话里 */
+  /** 进度卡，出现在负责人的会话里 */
   const progressCard = (d: Draft, stageId: string, kind: ProgressCardPayload["kind"], text: string, acceptance?: ProgressCardPayload["acceptance"]): string => {
     const list = listOf(d.task);
     const payload: ProgressCardPayload = {
@@ -1114,7 +1114,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
 
   /**
    * 放一条卡着任务的通知进待我处理（追加之后提示用户）。origin：一次调用引出的（中断不确定）记那次调用实际所在的会话
-   * （105 号票：多项目任务派到项目的工单由项目维护者做，调用在项目维护者的会话里），不给就是任务自己的
+   * （105 号票：多项目任务派到项目的工单由项目负责人做，调用在项目负责人的会话里），不给就是任务自己的
    */
   const addNotice = (
     d: Draft,
@@ -1164,9 +1164,9 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   };
 
   /**
-   * 草稿要落盘的事件：这次开始了维护者的一个阶段（长程任务，152 号票）就在维护者的会话频道上补一条阶段开始的记号（stage_start），
-   * 写明维护者是怎么知道的——交给它的那条通知，或者它此刻正在调用的工具（阶段在这次调用里开始，结果里交代了它）。都不是的不记
-   * （没交代给维护者的不算它会话里的阶段开始）
+   * 草稿要落盘的事件：这次开始了负责人的一个阶段（长程任务，152 号票）就在负责人的会话频道上补一条阶段开始的记号（stage_start），
+   * 写明负责人是怎么知道的——交给它的那条通知，或者它此刻正在调用的工具（阶段在这次调用里开始，结果里交代了它）。都不是的不记
+   * （没交代给负责人的不算它会话里的阶段开始）
    */
   const eventsOf = (d: Draft): NewEvent[] => {
     if (d.marked || d.startedStage === undefined) return d.events;
@@ -1247,7 +1247,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   };
 
   /**
-   * 排着、还没交给维护者的这几种通知作废出队（361 号票，照 84 号票的 staleInputs）：状态一变旧通知就过时了，同一种新的来了旧的也不用再交，
+   * 排着、还没交给负责人的这几种通知作废出队（361 号票，照 84 号票的 staleInputs）：状态一变旧通知就过时了，同一种新的来了旧的也不用再交，
    * 不然一条叫醒一轮（真模型试验里 59 轮的输入全是过期通知）。都作废了就没有要处理的，模型不会被拉起
    */
   const dropQueued = (d: Draft, stageIds: readonly string[], kinds: ReadonlyArray<NonNullable<MessageEventPayload["taskNotice"]>["kind"]>) => {
@@ -1268,7 +1268,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     if (item?.kind === "notice" && item.handled === undefined) d.events.push(inbox.buildUpdate(item, { handled, handledAt: now(), handledNote, urgency: "non_blocking", read: true }).event);
   };
 
-  /** 开始一个阶段；forMaintainer：是维护者（或运行时替它）开始的，记成它的当前阶段（用户同意并行时交给子 agent 的不记） */
+  /** 开始一个阶段；forMaintainer：是负责人（或运行时替它）开始的，记成它的当前阶段（用户同意并行时交给子 agent 的不记） */
   const startStageIn = (d: Draft, stageId: string, by: TaskActor, forMaintainer = true) => {
     apply(d, "stage_started", by, (tk) => withList(tk, withStage(listOf(tk), stageId, startNow(d)), forMaintainer ? stageId : tk.stages?.focus), stageId);
     if (forMaintainer) d.startedStage = stageId;
@@ -1285,7 +1285,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   /** 执行中的任务看下一步：接着做、开始一个能开始的阶段、全都在等用户就转等我（写明第一支在等什么）、全验收了就完成 */
   const settle = (d: Draft) => {
     if (d.task.state !== "running") return;
-    // 在做的都是子 agent 的（并行，20 号票）时，维护者手头空着：开始一个能开始的阶段
+    // 在做的都是子 agent 的（并行，20 号票）时，负责人手头空着：开始一个能开始的阶段
     const step = nextStep(listOf(d.task), busyOf(d.task.id));
     if (step.kind === "continue") return;
     if (step.kind === "start") return startStageIn(d, step.stageId, "system");
@@ -1303,7 +1303,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
 
   /**
    * 进入执行中，再看下一步。第一次（还没建阶段：从排队中开始，或者排队时暂停、没开始过就继续了）建好各阶段，
-   * 开始第一个能开始的阶段，交给维护者"开始执行"的交代
+   * 开始第一个能开始的阶段，交给负责人"开始执行"的交代
    */
   const enterRunning = (d: Draft, by: TaskActor, change: TaskChange, edit: (t: Task) => Task = (tk) => tk) => {
     if (isPlainTask(d.task)) return enterPlain(d, by, change, edit);
@@ -1321,7 +1321,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
       return withList({ ...next, ...steps(next), state: "running" }, next.stages?.list ?? initialStages(plan));
     });
     settle(d);
-    // 维护者用的运行时没启用（286 号票）：转等我；交代照样交给维护者（排在它的队里，插件启用后接着）
+    // 负责人用的运行时没启用（286 号票）：转等我；交代照样交给负责人（排在它的队里，插件启用后接着）
     holdForRuntime(d);
     if (!first) return;
     if (workflow && stored) notify(d, workflowNoticeText.started(d.task, workflow, { cwd: workDir(d.task.id) }));
@@ -1335,11 +1335,11 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   const enterPlain = (d: Draft, by: TaskActor, change: TaskChange, edit: (t: Task) => Task) => {
     apply(d, change, by, (tk) => ({ ...cleared(edit(tk)), state: "running" }));
     d.events.push(buildAgentNotice(maintainerChannel(d.task.maintainerId), plainBriefText(d.task), plainBriefKey(d.task.id), scopeIn(d)).event);
-    // 维护者用的运行时没启用（286 号票）：转等我；任务书照样交过去（排在队里，插件启用后接着）
+    // 负责人用的运行时没启用（286 号票）：转等我；任务书照样交过去（排在队里，插件启用后接着）
     holdForRuntime(d);
   };
 
-  /** 输入没写属于哪个任务时：任务自己的维护者（tm-<n>）就是它那个任务的；项目的维护者同时有几件事，认不出 */
+  /** 输入没写属于哪个任务时：任务自己的负责人（tm-<n>）就是它那个任务的；项目的负责人同时有几件事，认不出 */
   const ownTaskOf = (maintainerId: string): Task | undefined => {
     const task = tasks.ofMaintainer(maintainerId);
     return task && hasOwnMaintainer(task) ? task : undefined;
@@ -1360,7 +1360,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     if (isProjectInternal(d.task)) d.events.push(buildAgentNotice(CHANNELS.secretary, internalPlainDoneNotice(d.task), `plain-done:${d.task.id}:${randomUUID()}`).event);
   };
 
-  /** 这个普通任务的 agent 最后一轮的结局：全局的是它会话里的最后一轮，项目内部的是项目的维护者处理带着它编号的输入的最后一轮 */
+  /** 这个普通任务的 agent 最后一轮的结局：全局的是它会话里的最后一轮，项目内部的是项目的负责人处理带着它编号的输入的最后一轮 */
   const lastPlainTurn = (task: Task): TurnEndEventPayload | undefined => {
     const turns = store.read(maintainerChannel(task.maintainerId), 0, EVENT_TYPES.turnEnd).map((e) => e.payload as TurnEndEventPayload);
     if (!isProjectInternal(task)) return turns.at(-1);
@@ -1404,14 +1404,14 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   /**
    * 做完了的普通任务又来了输入（75 号票）：用户在任务详情里接着说了（项目内部的：带着它的编号，网关按用户在哪个任务的详情里说的认），
    * 或者运行时交给它的 agent 一条通知（事后批准了一次调用、交给我做的事用户做完了……，只认任务自己的 agent 的会话）：
-   * 任务回到执行中接着做（名额满了、项目的维护者正忙时回到排队中），它的话就是交给 agent 的输入
+   * 任务回到执行中接着做（名额满了、项目的负责人正忙时回到排队中），它的话就是交给 agent 的输入
    */
   const onPlainInput = (maintainerId: string, payload: MessageEventPayload) => {
     const user = payload.message.speaker === "user";
     if (!user && payload.agentInput !== true) return;
     const task = payload.taskId !== undefined ? tasks.get(payload.taskId) : ownTaskOf(maintainerId);
     if (!task || !isPlainTask(task) || task.state !== "done" || task.maintainerId !== maintainerId) return;
-    // 项目的维护者的会话里同时有几件事：带着这个任务编号的运行时通知（工单段收尾时催写回）不算接着说
+    // 项目的负责人的会话里同时有几件事：带着这个任务编号的运行时通知（工单段收尾时催写回）不算接着说
     if (isProjectInternal(task) && !user) return;
     const d = draft(task);
     resume(d, "user", "continued");
@@ -1420,7 +1420,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
 
   /**
    * 恢复执行（继续、一支不用再等了、重试、返工）：有名额回到执行中，满了回到排队中（记成 requeued；从某个阶段重做的照样记成
-   * rework，84 号票：看板上的重做记录、重开了哪几个只看这一条）。项目的任务还要项目的维护者能接（16 号票）：正忙时同样回到排队中
+   * rework，84 号票：看板上的重做记录、重开了哪几个只看这一条）。项目的任务还要项目的负责人能接（16 号票）：正忙时同样回到排队中
    */
   const resume = (d: Draft, by: TaskActor, change: TaskChange, edit: (t: Task) => Task = (tk) => tk) => {
     if (hasSlot(d.task.id)) {
@@ -1432,7 +1432,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   };
 
   /**
-   * 一支有了结论之后（验收、退回、不用再等了）：在等我的恢复执行（维护者自己说的等我、中断不确定的除外，declared 在这一支有结论之前算），
+   * 一支有了结论之后（验收、退回、不用再等了）：在等我的恢复执行（负责人自己说的等我、中断不确定的除外，declared 在这一支有结论之前算），
    * 全验收了就完成；执行中的看下一步
    */
   const proceed = (d: Draft, by: TaskActor, declared: boolean) => {
@@ -1444,7 +1444,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   };
 
   /**
-   * 执行它的维护者用的运行时没启用（286 号票：运行时插件停用了，维护者手头也没有在做的一轮）：执行中的任务转等我，原因"运行时没启用"，
+   * 执行它的负责人用的运行时没启用（286 号票：运行时插件停用了，负责人手头也没有在做的一轮）：执行中的任务转等我，原因"运行时没启用"，
    * 说明写明哪个插件没启用（用户点"继续"没用，插件启用了由 followRuntimes 接着执行）。进了执行中马上看一眼（排队的轮到了、继续执行、重做……）
    */
   const holdForRuntime = (d: Draft) => {
@@ -1470,7 +1470,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     }
   };
 
-  /** 交给维护者的通知后面接上这次开始的阶段（交代、授权、边界） */
+  /** 交给负责人的通知后面接上这次开始的阶段（交代、授权、边界） */
   const withStarted = (d: Draft, text: string) => (d.startedStage && d.task.state === "running" ? `${text}\n${stageText(handoff(d.task, d.startedStage, d.plan))}` : text);
 
   /** 一个阶段有了结论之后接下来做什么 */
@@ -1483,7 +1483,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
 
   // ───────────────────────── 排队与名额 ─────────────────────────
 
-  /** 名额空出时，排在最前的排队中任务开始执行；项目的任务要项目的维护者空着（正忙时跳过它，留在排队中） */
+  /** 名额空出时，排在最前的排队中任务开始执行；项目的任务要项目的负责人空着（正忙时跳过它，留在排队中） */
   const fill = () => {
     fillQueued = false;
     for (const task of tasks.queued()) {
@@ -1536,7 +1536,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
 
   /**
    * 这一支停下找用户（14 号票：阈值超了、标了做不了、超预算）：待我处理里放一条事项（卡住求助 / 超预算，卡着任务），
-   * 这几个阶段转等我（写明为什么），别的能推进就接着推进，都在等就转等我；维护者收到通知（排在手头这一条之后），
+   * 这几个阶段转等我（写明为什么），别的能推进就接着推进，都在等就转等我；负责人收到通知（排在手头这一条之后），
    * 时间线上记一笔偏离
    */
   const stopBranch = (d: Draft, stages: readonly TaskStage[], reason: BranchStopReason, by: TaskActor = "system"): InboxItem => {
@@ -1577,7 +1577,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   };
 
   /**
-   * 一次验收退回（14 号票：脚本、评审没通过；17 号票：多项目任务的工单被退回、做不了，任务维护者调整做法）：阶段的退回计数加 1
+   * 一次验收退回（14 号票：脚本、评审没通过；17 号票：多项目任务的工单被退回、做不了，任务负责人调整做法）：阶段的退回计数加 1
    * （patch 顺带改阶段的别的），after 里追加这次退回的说明；超了阈值（退回 2 次、第 3 次还不过）这一支停下找用户（卡住求助）
    */
   const acceptanceReturn = (d: Draft, stageId: string, by: TaskActor, judged: string, extra: { patch?: (s: TaskStage) => TaskStage; after?: () => void } = {}): { returns: number; stuck: boolean } => {
@@ -1613,7 +1613,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   /**
    * 这一支不用再等了（批准或拒绝了、交给我做的事做完了、用户让卡住或超预算的这一支接着走）：在等它的阶段回到能开始，接着走。
    * 卡住求助、超预算的计数清零（超预算的再给一份预算）。
-   * 维护者自己的调用批准了（approvedFor 是发起调用的 agent）、可它正在做别的阶段：通知它先切回去再重试（授权和调用指纹按阶段）；
+   * 负责人自己的调用批准了（approvedFor 是发起调用的 agent）、可它正在做别的阶段：通知它先切回去再重试（授权和调用指纹按阶段）；
    * 子 agent 的调用批准了，通知由子 agent 那边给（sub-agents/texts.ts 的 lateDecisionText），这里不再说
    */
   const branchUnblocked = (waitingOn: string, approvedFor?: string) => {
@@ -1676,7 +1676,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
 
   // ───────────────────────── 阈值：拉回、催促、预算、被拒（14 号票） ─────────────────────────
 
-  /** 维护者被拉回一次：这一支的拉回次数加 1，满了再犯就停下找用户 */
+  /** 负责人被拉回一次：这一支的拉回次数加 1，满了再犯就停下找用户 */
   const onPulledBack = (p: PulledBackPayload) => {
     if (p.origin.taskId === null) return;
     const task = tasks.get(p.origin.taskId);
@@ -1691,7 +1691,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     commit(d);
   };
 
-  /** 停滞了（stall.ts 判的：维护者活着、它手头的阶段在做、stallMs 内没有进展）：催一次（正在干活时以插话送达）；催满了这一支停下 */
+  /** 停滞了（stall.ts 判的：负责人活着、它手头的阶段在做、stallMs 内没有进展）：催一次（正在干活时以插话送达）；催满了这一支停下 */
   const onStall = (taskId: string) => {
     const task = tasks.get(taskId);
     const active = task?.state === "running" ? workingStage(task) : undefined;
@@ -1743,7 +1743,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   };
 
   /**
-   * 用量超过预算让维护者说明进展（只说一次）；超过预算的 budgetAskTimes 倍这一支停下（超预算）。
+   * 用量超过预算让负责人说明进展（只说一次）；超过预算的 budgetAskTimes 倍这一支停下（超预算）。
    * 预算控制关着（93 号票，默认）时什么都不做：用量照旧记在预算账上（阶段详情照旧显示用了多少），超了不说明、不停下
    */
   const checkBudget = (taskId: string, stageId: string): boolean => {
@@ -1803,13 +1803,13 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   };
 
   /**
-   * 任务里的工具调用记录（维护者和它的子 agent 的，都记在维护者的会话里，带着调用时的阶段）：工具调用次数记到那个阶段的预算上。
+   * 任务里的工具调用记录（负责人和它的子 agent 的，都记在负责人的会话里，带着调用时的阶段）：工具调用次数记到那个阶段的预算上。
    * 被拦下的调用也算一次
    */
   // ───────────────────────── 流程的一轮（59 号票，workflow-run.ts） ─────────────────────────
 
   /**
-   * 流程的维护者处理一条输入算一轮；收尾提醒替它补的那条输入接着同一轮。这一轮调用了几次步骤能用的工具
+   * 流程的负责人处理一条输入算一轮；收尾提醒替它补的那条输入接着同一轮。这一轮调用了几次步骤能用的工具
    * （不算 report_step 这些推进流程的工具）、提醒过没有：只在内存里（一轮一份）
    */
   const workflowRuns = new Map<string, { actions: number; nudged: boolean }>();
@@ -1829,8 +1829,8 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   };
 
   /**
-   * 流程的维护者一轮结束（收尾前看一眼计划、推断步骤的状态）：
-   * - 这一轮做了事、还有既没执行也没说明跳过的步骤、这一轮还没提醒过：提醒维护者一次（会话里一条通知，时间线记一笔偏离）；
+   * 流程的负责人一轮结束（收尾前看一眼计划、推断步骤的状态）：
+   * - 这一轮做了事、还有既没执行也没说明跳过的步骤、这一轮还没提醒过：提醒负责人一次（会话里一条通知，时间线记一笔偏离）；
    * - 否则这一轮就收工了：报着"在做"的、执行过却没报的步骤推断成做完；步骤都做完或说明跳过时流程完成。
    * 出错、被中止、被打断的那一轮不算收工；流程那一支在等用户（审批挂起、卡住求助）时不提醒
    */
@@ -1912,7 +1912,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   // ───────────────────────── 计划变更、自行调整计划、做不了（14 号票） ─────────────────────────
 
   /**
-   * 维护者交来的计划合上当前计划（121 号票：只交要改的，没写到的阶段、没写的栏原样带上；交来的已验收阶段按现在的定义保留）、
+   * 负责人交来的计划合上当前计划（121 号票：只交要改的，没写到的阶段、没写的栏原样带上；交来的已验收阶段按现在的定义保留）、
    * 过一遍检查（前置关系等在补全之后的完整计划上查）；去掉已验收的、在等用户或在验收的阶段不行。被拒时说清是哪一处
    */
   const revised = (task: Task, stored: StoredPlan, input: PlanDraftInput): { plan: Plan; keptAccepted: AcceptedDifference[] } => {
@@ -1921,21 +1921,21 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     // 361 号票：负责人写的 token 不作数
     const draftPlan = withStoredTokens(input.plan, stored.plan);
     const removal = removalProblems(stored.plan, draftPlan, removeStages, list);
-    if (removal.length > 0) throw new RequestRejected("not_allowed", `这些阶段去不掉：\n- ${removal.join("\n- ")}`); // @i18n-ignore model：交回维护者
+    if (removal.length > 0) throw new RequestRejected("not_allowed", `这些阶段去不掉：\n- ${removal.join("\n- ")}`); // @i18n-ignore model：交回负责人
     const accepted = list.filter((s) => s.state === "accepted").map((s) => s.stageId);
     const merged = mergeDraft(stored.plan, draftPlan, { accepted, removeStages });
     // skill 只查新加的（358 号票）：库里删掉了、现在的计划里还留着的名字（装配时跳过）不挡别的改动
     const checked = checkRevisedPlan(merged.plan, options.planTools, options.toolkitProblems && ((toolkit) => options.toolkitProblems!({ ...toolkit, skills: toolkit.skills.filter((s) => !stored.plan.toolkit.skills.includes(s)) })));
     // 涉及的项目要对得上任务（17 号票评审后定）
     const problems = checked.ok ? (options.planProjects?.(task, checked.plan) ?? []) : checked.problems;
-    if (!checked.ok || problems.length > 0) throw new RequestRejected("bad_params", `新的计划（没写到的阶段已从当前计划带上）没通过检查，改好再交：\n- ${problems.join("\n- ")}`); // @i18n-ignore model：交回维护者
+    if (!checked.ok || problems.length > 0) throw new RequestRejected("bad_params", `新的计划（没写到的阶段已从当前计划带上）没通过检查，改好再交：\n- ${problems.join("\n- ")}`); // @i18n-ignore model：交回负责人
     // 兜底：交来的已验收阶段已经换回现在的定义，还碰到了就拒（说清哪一处）
     const touched = touchedAcceptedStages(stored.plan, checked.plan, list);
     if (touched.length > 0) {
-      throw new RequestRejected("not_allowed", `已验收的阶段不能改（要改让用户在任务详情里返工）：${touched.map((id) => touchedText(stored.plan, checked.plan, id)).join("；")}`); // @i18n-ignore model：交回维护者
+      throw new RequestRejected("not_allowed", `已验收的阶段不能改（要改让用户在任务详情里返工）：${touched.map((id) => touchedText(stored.plan, checked.plan, id)).join("；")}`); // @i18n-ignore model：交回负责人
     }
     const busy = list.filter((s) => (s.state === "waiting" || s.state === "accepting") && !checked.plan.stages.some((p) => p.stageId === s.stageId));
-    if (busy.length > 0) throw new RequestRejected("not_allowed", `阶段 ${busy.map((s) => s.stageId).join("、")} 在等用户或在验收，不能去掉`); // @i18n-ignore model：交回维护者
+    if (busy.length > 0) throw new RequestRejected("not_allowed", `阶段 ${busy.map((s) => s.stageId).join("、")} 在等用户或在验收，不能去掉`); // @i18n-ignore model：交回负责人
     // 编号（93 号票，计划调整时"已有的不改名，新加的按它所在的阶段编"）：已有的阶段沿用现在生效的那一版的号，
     // 新加的按依赖层给号，不用之前几版用过的号
     return { plan: withStageCodes(checked.plan, stored.plan, tasks.usedStageCodes(task.id)), keptAccepted: merged.keptAccepted };
@@ -1944,7 +1944,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   /** 还在等用户的计划变更（同一任务一次只有一张） */
   const pendingChangeRefusal = (taskId: string) => {
     const pending = tasks.proposedPlan(taskId);
-    if (pending) throw new RequestRejected("not_allowed", `上一张计划变更卡（${pending.planId}）还在等用户，先等它有结论`); // @i18n-ignore model：交回维护者
+    if (pending) throw new RequestRejected("not_allowed", `上一张计划变更卡（${pending.planId}）还在等用户，先等它有结论`); // @i18n-ignore model：交回负责人
   };
 
   /** 下一版计划的编号 */
@@ -1955,7 +1955,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
 
   const proposePlanChange = (scope: MaintainerScope, input: PlanChangeInput): PlanChangeProposal => {
     const why = input.why.trim();
-    if (!why) throw new RequestRejected("bad_params", "计划变更要写明为什么改（用户在卡上看得到）"); // @i18n-ignore model：交回维护者
+    if (!why) throw new RequestRejected("bad_params", "计划变更要写明为什么改（用户在卡上看得到）"); // @i18n-ignore model：交回负责人
     const task = mustExecute(scope, ["running", "waiting_for_user"]);
     const stored = confirmedPlan(task.id)!;
     pendingChangeRefusal(task.id);
@@ -1970,17 +1970,17 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     });
     if (changes.length === 0) throw nothingToChange(keptAccepted);
     if (expanding(changes).length === 0) {
-      throw new RequestRejected("not_allowed", `这些改动不扩大授权，也不改目标、验收：直接用 ${EXECUTION_TOOL.revisePlan} 自行调整计划（不出卡，记进时间线）`); // @i18n-ignore model：交回维护者
+      throw new RequestRejected("not_allowed", `这些改动不扩大授权，也不改目标、验收：直接用 ${EXECUTION_TOOL.revisePlan} 自行调整计划（不出卡，记进时间线）`); // @i18n-ignore model：交回负责人
     }
     const list = listOf(task);
     const unknown = (input.stages ?? []).filter((id) => !findStage(list, id));
-    if (unknown.length > 0) throw new RequestRejected("bad_params", `没有这些阶段：${unknown.join("、")}`); // @i18n-ignore model：交回维护者
+    if (unknown.length > 0) throw new RequestRejected("bad_params", `没有这些阶段：${unknown.join("、")}`); // @i18n-ignore model：交回负责人
     const affected = affectedStages(changes, plan, list, input.stages ?? [], currentOf(task).stageId);
     const { revision, planId } = nextRevision(task.id);
     const affectedRefs = affected.map((id) => ref(findStage(list, id)!));
     // 还停在超预算的阶段（361 号票）：不改等这张卡，照旧等它的超预算事项——卡被拒了还是停着，卡加了预算才接着走
     const stillHeld = affected.filter((id) => overBudgetHeld(findStage(list, id)!));
-    // 维护者引用的用户原话（125 号票）：核实过的写在卡上单独一栏（"这是因为我说了 X"）
+    // 负责人引用的用户原话（125 号票）：核实过的写在卡上单独一栏（"这是因为我说了 X"）
     const words = citedWords(scope.maintainerId, input.userWords);
     const payload: PlanChangeCardPayload = {
       taskId: task.id,
@@ -2012,7 +2012,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     };
     const d = draft(task);
     d.events.push({ channel: TASKS_CHANNEL, type: TASK_EVENTS.planChangeProposed, payload: proposed }, card.event, item.event);
-    // 卡也出在用户说这句话的那个会话里（125 号票）：维护者自己的会话里本来就有（工具产生的卡片），秘书转达来的出在秘书会话里
+    // 卡也出在用户说这句话的那个会话里（125 号票）：负责人自己的会话里本来就有（工具产生的卡片），秘书转达来的出在秘书会话里
     d.events.push(...cardRefsElsewhere(card.card.id, words.verified, maintainerChannel(scope.maintainerId)));
     d.alerts.push(item.item);
     apply(d, "plan_change_proposed", "maintainer", (tk) => withList(tk, listOf(tk).map((s) => (affected.includes(s.stageId) && !stillHeld.includes(s.stageId) ? stageWaiting(s, "plan_change", card.card.id, why) : s))));
@@ -2121,7 +2121,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     );
     const added = narrowing.added ?? [];
     return {
-      // 工具包变了：事件落盘之后活着的子 agent 跟着重新装配（维护者自己的由维护者模块看到任务变化后换）
+      // 工具包变了：事件落盘之后活着的子 agent 跟着重新装配（负责人自己的由负责人模块看到任务变化后换）
       ...(toolkitChanged && options.toolkitChanged ? { afterCommit: () => options.toolkitChanged?.(task.id) } : {}),
       status: "handled",
       payload: {
@@ -2162,7 +2162,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
       },
       idempotencyKey: `${idempotencyKey}#decided`,
     });
-    // 受影响的阶段交回维护者：在现有授权内重排，做不到再标做不了
+    // 受影响的阶段交回负责人：在现有授权内重排，做不到再标做不了
     const waiting = listOf(task).filter((s) => s.state === "waiting" && s.waitingOn === stored.cardId);
     apply(d, "plan_change_rejected", "user", (tk) => withList(tk, listOf(tk).map((s) => (waiting.some((w) => w.stageId === s.stageId) ? stageNow(s, "pending") : s))));
     record(d, "plan_change", t("tasks.exec.changeRejected", { revision: stored.revision }), { detail: changeLines(payload.changes, payload.grantInfo) });
@@ -2174,7 +2174,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
 
   const revisePlan = (scope: MaintainerScope, input: PlanDraftInput): PlanRevision => {
     const why = input.why.trim();
-    if (!why) throw new RequestRejected("bad_params", "自行调整计划要写明为什么（记进任务时间线）"); // @i18n-ignore model：交回维护者
+    if (!why) throw new RequestRejected("bad_params", "自行调整计划要写明为什么（记进任务时间线）"); // @i18n-ignore model：交回负责人
     const task = mustExecute(scope, ["running", "waiting_for_user"]);
     const stored = confirmedPlan(task.id)!;
     pendingChangeRefusal(task.id);
@@ -2186,7 +2186,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     if (widening.length > 0) {
       throw new RequestRejected(
         "not_allowed",
-        // @i18n-ignore-start model：交回维护者
+        // @i18n-ignore-start model：交回负责人
         [
           "这些改动扩大了授权、或者改了目标、验收，不能自行调整：",
           ...widening.map((c) => `- ${planChangeItemText(c, grantInfo)}`),
@@ -2199,7 +2199,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     const grantTimes = grantTimesAfter({ before: stored.plan, beforeTimes: stored.grantTimes, beforeConfirmedAt: confirmedAtOf(stored, at), after: plan, at, tools: options.planTools });
     const { revision, planId } = nextRevision(task.id);
     const payload: PlanRevisedPayload = { taskId: task.id, planId, revision, basePlanId: stored.planId, plan, changes, why, grantTimes: isoTimes(grantTimes), maintainerId: scope.maintainerId, time: nowIso(new Date(at)) };
-    // 维护者引用的用户原话（125 号票）：核实过的记在时间线这一笔的说明里
+    // 负责人引用的用户原话（125 号票）：核实过的记在时间线这一笔的说明里
     const words = citedWords(scope.maintainerId, input.userWords);
     const d = draft(task);
     d.events.push({ channel: TASKS_CHANNEL, type: TASK_EVENTS.planRevised, payload });
@@ -2215,16 +2215,16 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
 
   const markInfeasible = (scope: MaintainerScope, input: { stageIds: string[]; reason: string }): InfeasibleResult => {
     const why = input.reason.trim();
-    if (!why) throw new RequestRejected("bad_params", "标做不了要写明原因"); // @i18n-ignore model：交回维护者
+    if (!why) throw new RequestRejected("bad_params", "标做不了要写明原因"); // @i18n-ignore model：交回负责人
     const task = mustExecute(scope, ["running", "waiting_for_user"]);
     const list = listOf(task);
     const ids = [...new Set(input.stageIds)];
-    if (ids.length === 0) throw new RequestRejected("bad_params", "要写明哪几个阶段做不了"); // @i18n-ignore model：交回维护者
+    if (ids.length === 0) throw new RequestRejected("bad_params", "要写明哪几个阶段做不了"); // @i18n-ignore model：交回负责人
     const unknown = ids.filter((id) => !findStage(list, id));
-    if (unknown.length > 0) throw new RequestRejected("not_found", `计划里没有阶段 ${unknown.join("、")}`); // @i18n-ignore model：交回维护者
+    if (unknown.length > 0) throw new RequestRejected("not_found", `计划里没有阶段 ${unknown.join("、")}`); // @i18n-ignore model：交回负责人
     const stages = ids.map((id) => findStage(list, id)!);
     const done = stages.filter((s) => s.state === "accepted" || s.state === "accepting");
-    if (done.length > 0) throw new RequestRejected("not_allowed", `阶段 ${done.map((s) => s.stageId).join("、")} 已经验收或正在验收`); // @i18n-ignore model：交回维护者
+    if (done.length > 0) throw new RequestRejected("not_allowed", `阶段 ${done.map((s) => s.stageId).join("、")} 已经验收或正在验收`); // @i18n-ignore model：交回负责人
     const d = draft(task);
     const item = stopBranch(d, stages, { kind: "infeasible", reason: why }, "maintainer");
     commit(d);
@@ -2274,7 +2274,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     planEvent(d, { planId, revision, plan }, grantInfoFor(plan));
     record(d, "toolkit", t("tasks.exec.toolkitRecord", { why: input.why, change: toolkitChangeText(before, after) }));
     commit(d);
-    // 活着的子 agent 跟着收窄（维护者自己的由维护者模块看到任务变化后按新工具包重新装配）
+    // 活着的子 agent 跟着收窄（负责人自己的由负责人模块看到任务变化后按新工具包重新装配）
     options.toolkitChanged?.(task.id);
     return { task: d.task, before, after, changed: true };
   };
@@ -2303,7 +2303,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   };
 
   /**
-   * 卡住求助、超预算的接着执行：用户点了"继续执行""追加预算继续"（交代维护者看会话），或者在会话里回了话（他的话就是输入，不另交代）。
+   * 卡住求助、超预算的接着执行：用户点了"继续执行""追加预算继续"（交代负责人看会话），或者在会话里回了话（他的话就是输入，不另交代）。
    * 停下的那几支（14 号票：阈值、做不了、超预算）一起接着走，计数清零、超预算的重新给一整份预算；
    * which 是哪几支接着走（回话时只有卡住求助的，超预算的还等"追加预算继续"）
    */
@@ -2324,7 +2324,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
 
   /**
    * 中断不确定的接着执行（23 号票）：用户在待我处理里说了那次调用做没做（answered），或者在任务详情里点了"继续"、回了话
-   * （回话时他的话就是交给维护者的输入，不另交代）。这个任务别的"中断不确定"事项不再卡着任务
+   * （回话时他的话就是交给负责人的输入，不另交代）。这个任务别的"中断不确定"事项不再卡着任务
    */
   const resumeInterrupted = (task: Task, how: { key?: string; answered?: { call: string; executed: boolean }; notice?: boolean } = {}): Draft => {
     const d = draft(task, how.key);
@@ -2381,8 +2381,8 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
    * 从某个阶段重做时作废的待我处理事项和卡（84 号票，用户 2026-10-11 定：作废，不只是"不卡着"；重开时停掉这一轮，
    * 它等着的确认一起作废）：
    * - 重开的那几个阶段在等的（等你验收、卡住求助、超预算、交给我做）和这几个阶段的审批卡；
-   * - 这个任务还没确认的计划变更卡（维护者按之前那一轮提的）：提议记成作废（不算你拒绝），在等它的阶段（重开范围外的）回到未开始；
-   * - 整个任务的：维护者自己转为等我的卡住求助、中断不确定（任务在等你确认它时）、失败后的抉择（失败的任务重做时）。
+   * - 这个任务还没确认的计划变更卡（负责人按之前那一轮提的）：提议记成作废（不算你拒绝），在等它的阶段（重开范围外的）回到未开始；
+   * - 整个任务的：负责人自己转为等我的卡住求助、中断不确定（任务在等你确认它时）、失败后的抉择（失败的任务重做时）。
    * 通知记成处理过（"已作废"）、卡过期，都不再卡着任务；再点旧按钮回"已经重做过，这……作废了"（inbox.act、cards.act 按
    * handledNote、expiredNote 说）。返回要追加的事件和要一起回到未开始的阶段
    */
@@ -2457,7 +2457,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   };
 
   /**
-   * 重做之前排在维护者会话里、还没交给它的运行时通知：重开范围里的阶段的、整个任务的（没写阶段的）作废出队，不再交给它——
+   * 重做之前排在负责人会话里、还没交给它的运行时通知：重开范围里的阶段的、整个任务的（没写阶段的）作废出队，不再交给它——
    * 重开时的 generation：旧一轮的结果不交给新一轮，重做的交代里说清楚了。你说的话照旧留着；别的阶段的照旧
    */
   const staleInputs = (task: Task, inScope: ReadonlySet<string>): NewEvent[] => {
@@ -2472,12 +2472,12 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
 
   /**
    * 从某个阶段重做（返工）：长程任务的阶段开始过就能做（84 号票，用户 2026-10-11 定）
-   * ——调用前维护者手头那一轮已经停稳（actRework）；
+   * ——调用前负责人手头那一轮已经停稳（actRework）；
    * - 这个阶段和它的全部下游回到未开始（验收结果、这一轮的计数清掉，开始过的记下第几次重做时重开的、上次没过的标准），其余不动；
    *   任务的重做次数加 1（守卫判定时记进效果日志：重做之前那一轮迟到的结果不算新的一轮）；
    * - 重开范围里的阶段在等的、计划变更这些作废（staleItems）；
-   * - 这几个阶段这一轮已经做了的事从效果日志里列出来（本机、对外），不撤回，告诉维护者（对外的别再做一遍），上次的尝试记录开始阶段时给它；
-   * - 会话里一条重做记录（时间线的 reopen，落在你点的那个阶段），交给维护者接着做的那句由它替着说清楚（界面上不再重复显示）；
+   * - 这几个阶段这一轮已经做了的事从效果日志里列出来（本机、对外），不撤回，告诉负责人（对外的别再做一遍），上次的尝试记录开始阶段时给它；
+   * - 会话里一条重做记录（时间线的 reopen，落在你点的那个阶段），交给负责人接着做的那句由它替着说清楚（界面上不再重复显示）；
    * - 执行中的接着做（看下一步），已暂停的仍暂停、排队中的仍排队；已完成、等我、失败的恢复执行（名额满了回到排队中），一律记成 rework；
    * - 有子 agent 在做重开范围里的阶段时不能重做（等它交回结果）；没开始过的阶段不用重做。
    * 会话不分支（撤回到这里那种会话树退回在 85 号票）
@@ -2531,8 +2531,8 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     const reopenRecord = buildTimelineRecord(conversation, { kind: "reopen", summary, noticeId: notice.message.id }, scopeIn(d, stage.stageId));
     outputReaction(d, stage, "rework", { note: why, reopened: [...scope], recordId: reopenRecord.record.id });
     d.events.push(reopenRecord.event);
-    // 交给维护者的那条等复验做完再追加（274 号票，prepareReworkAct 的 afterCommit）：维护者这时被拦着，放开之前一定追加。
-    // 276 号票：它和重置同一事务存进事件库、标"等复验"（维护者看不到）——复验途中守护进程退出了，起来时照它补做复验再交
+    // 交给负责人的那条等复验做完再追加（274 号票，prepareReworkAct 的 afterCommit）：负责人这时被拦着，放开之前一定追加。
+    // 276 号票：它和重置同一事务存进事件库、标"等复验"（负责人看不到）——复验途中守护进程退出了，起来时照它补做复验再交
     const held: ReworkNoticeHeldPayload = {
       taskId: task.id,
       reworkNo,
@@ -2615,7 +2615,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     return d;
   };
 
-  /** 由我验收的阶段：用户退回（交回维护者，阶段不推进） */
+  /** 由我验收的阶段：用户退回（交回负责人，阶段不推进） */
   const returnStage = (task: Task, stage: TaskStage, why: string | undefined, key?: string): Draft => {
     const declared = declaredWait(task, busyOf(task.id));
     const d = draft(task, key);
@@ -2623,7 +2623,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     applyStage(d, "stage_returned", "user", stage.stageId, (s) =>
       stageNow(s, "pending", { acceptance: s.acceptance.map((a) => (a.method === "user" ? { ...a, result: { passed: false, at } } : a)) }),
     );
-    // 退回的原因是用户自己的话：记在"用户对产出的反应"事件里（素材的来源）、交给维护者的通知里，84 号票起也记在这次结论卡上
+    // 退回的原因是用户自己的话：记在"用户对产出的反应"事件里（素材的来源）、交给负责人的通知里，84 号票起也记在这次结论卡上
     // 由你验收的那几条的备注里（尝试记录里看得到；彻底删除那条反应时连带换成删除标记，见 material-sources.ts 的 outputReactionPurge）。
     // 阶段的验收结果（看板上的任务）里不记
     const cardId = progressCard(d, stage.stageId, "acceptance", why ? t("tasks.exec.youReturnedWhy") : t("tasks.exec.youReturned"), { passed: false, judgedBy: "user", results: verdictsAfterUser(stage, false, why), ...summaryOf(stage) });
@@ -2716,8 +2716,8 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   };
 
   const prepareAct = (params: TaskActionParams, key: string): PreparedTaskAct => {
-    // 从某个阶段重做要先停稳维护者：走 act 或 prepareReworkAct
-    if (params.action === "rework") throw new Error("从某个阶段重做要先停稳维护者手头这一轮：用 act 或 prepareReworkAct"); // @i18n-ignore log：编程错误
+    // 从某个阶段重做要先停稳负责人：走 act 或 prepareReworkAct
+    if (params.action === "rework") throw new Error("从某个阶段重做要先停稳负责人手头这一轮：用 act 或 prepareReworkAct"); // @i18n-ignore log：编程错误
     return preparedOf(params, key);
   };
 
@@ -2746,13 +2746,13 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     return { taskId: d.task.id, state: d.task.state };
   };
 
-  /** 正在停稳维护者、还没提交的重做（按幂等键：重发拿到同一个结果）；同一任务的几次重做一个接一个（按任务：上一次放开了才接着） */
+  /** 正在停稳负责人、还没提交的重做（按幂等键：重发拿到同一个结果）；同一任务的几次重做一个接一个（按任务：上一次放开了才接着） */
   const reworking = new Map<string, Promise<TaskActionResult>>();
   const reworkQueue = new Map<string, Promise<void>>();
 
   /** 在跑的验收（按任务）：删任务时停下（stopAcceptance），守护进程停下时停下（stop） */
   const acceptanceRuns = new Map<string, Set<AcceptanceRun>>();
-  /** 守护进程在停（stop 之后）：在跑的验收什么也不写（复验的交代留在事件库里等复验；验收中的阶段起来时交回维护者） */
+  /** 守护进程在停（stop 之后）：在跑的验收什么也不写（复验的交代留在事件库里等复验；验收中的阶段起来时交回负责人） */
   let halted = false;
 
   /**
@@ -2809,9 +2809,9 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
 
   /**
    * 从某个阶段重做（84 号票：先 generation++，再 abort + waitForIdle，然后才 reopen）：
-   * 先查能不能做（做不了的马上拒绝，不去停维护者），排在同一任务上一次重做之后，再停稳执行这个任务的维护者手头这一轮
+   * 先查能不能做（做不了的马上拒绝，不去停负责人），排在同一任务上一次重做之后，再停稳执行这个任务的负责人手头这一轮
    * （options.stopTurn：到点没停的那一轮作废，之后的调用守卫不放行），然后按此刻的任务算出重置（不落盘）。
-   * release 放开维护者的会话、让同一任务的下一次重做接着
+   * release 放开负责人的会话、让同一任务的下一次重做接着
    */
   const prepareReworkAct = (params: TaskActionParams, key: string): Promise<PreparedTaskAct & { release(): void; handedOver(): Promise<void> }> => {
     const task = mustTask(params.taskId);
@@ -2821,7 +2821,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     return previous.then(async () => {
       let releaseTurn: (() => void) | undefined;
       let released = false;
-      /** 重置落盘之后的复验（274 号票）：做完了才放开维护者、让同一任务的下一次重做接着 */
+      /** 重置落盘之后的复验（274 号票）：做完了才放开负责人、让同一任务的下一次重做接着 */
       let checking: Promise<void> | undefined;
       const free = () => {
         releaseTurn?.();
@@ -2843,12 +2843,12 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
           afterCommit: () => {
             runAfterCommit(d);
             noticeHandled();
-            // 274 号票：重置落了盘，范围外已验收的阶段再核一遍，带上结果把交给维护者的那条（276 号票：和重置一起存在事件库里等复验）
-            // 追加上；都做完了才放开维护者（release 等它）
+            // 274 号票：重置落了盘，范围外已验收的阶段再核一遍，带上结果把交给负责人的那条（276 号票：和重置一起存在事件库里等复验）
+            // 追加上；都做完了才放开负责人（release 等它）
             checking = reverify(params.taskId, params.stageId, told).catch((err: unknown) => log(`任务 ${params.taskId} 重做之后复验出错：${errorText(err)}`)); // @i18n-ignore log
           },
           release,
-          // 复验做完、交给维护者的那条追加上了（没落盘的是马上）
+          // 复验做完、交给负责人的那条追加上了（没落盘的是马上）
           handedOver: () => checking ?? Promise.resolve(),
         };
       } catch (err) {
@@ -2858,7 +2858,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     });
   };
 
-  /** task_action 的重做：先停稳再重置（prepareReworkAct），落盘，复验完、交给维护者的那条追加上之后放开维护者的会话去处理它（274 号票），再回 */
+  /** task_action 的重做：先停稳再重置（prepareReworkAct），落盘，复验完、交给负责人的那条追加上之后放开负责人的会话去处理它（274 号票），再回 */
   const actRework = (params: TaskActionParams, key: string): Promise<TaskActionResult> => {
     const inFlight = reworking.get(key);
     if (inFlight) return inFlight;
@@ -2869,7 +2869,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
       } finally {
         prepared.release();
       }
-      // 274 号票：等范围外已验收的阶段复验完、交给维护者的那条追加上再回（复验完才返回结果）
+      // 274 号票：等范围外已验收的阶段复验完、交给负责人的那条追加上再回（复验完才返回结果）
       await prepared.handedOver();
       return prepared.result;
     });
@@ -2915,14 +2915,14 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
 
   /**
    * 从某个阶段重做之后复验（274 号票：重开落盘之后，范围外状态还是已验收的里程碑用各自的
-   * 验收标准对照现在的世界再核一遍，有没过的列出来，再告诉维护者"另外复验发现 … 已经不合格，先告诉用户"，
+   * 验收标准对照现在的世界再核一遍，有没过的列出来，再告诉负责人"另外复验发现 … 已经不合格，先告诉用户"，
    * 界面上提示"重开之后复验没过"，"先不管"或"把 M1 也重开"）。二狗：
-   * - 重置落盘之后、放开维护者之前做（prepareReworkAct 的 release 等它）：维护者先知道复验的结果，再开始做重做的交代；
+   * - 重置落盘之后、放开负责人之前做（prepareReworkAct 的 release 等它）：负责人先知道复验的结果，再开始做重做的交代；
    * - 范围外已验收的 = 重置之后还是已验收的阶段（重开范围里的都回到了未开始）；
-   * - 没过的先告诉你：待办里一条"重做之后复验没过"（不卡任务，动作"先不管""把没过的阶段也重做"）、维护者的会话里一条记录（任务里看得到）；
-   *   维护者也收到一条，不自动重做；阶段照旧算已验收。
+   * - 没过的先告诉你：待办里一条"重做之后复验没过"（不卡任务，动作"先不管""把没过的阶段也重做"）、负责人的会话里一条记录（任务里看得到）；
+   *   负责人也收到一条，不自动重做；阶段照旧算已验收。
    * 复验期间任务结束了、又重做了一次、阶段不再是已验收的：这一份结果作废，不报。
-   * told 是和重置一起存在事件库里等复验的那条交代（276 号票）：复验完照存着的原样交给维护者（复验没过的接上那一句），同一事务记下
+   * told 是和重置一起存在事件库里等复验的那条交代（276 号票）：复验完照存着的原样交给负责人（复验没过的接上那一句），同一事务记下
    * 交出去了。守护进程起来时补做的复验也走这里（resumeHeldNotices）
    */
   const reverify = async (taskId: string, originStageId: string | undefined, told: HeldNotice | undefined): Promise<void> => {
@@ -2941,7 +2941,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
       }
       // 守护进程在停（stop）：什么也不写，交代留在事件库里等复验，起来时补做（276 号票）
       if (halted) return;
-      // 复验期间任务结束了、又重做了一次、阶段不再是已验收的、被停下了（删任务）：这一份结果作废，不报（交给维护者的那条照样追加）
+      // 复验期间任务结束了、又重做了一次、阶段不再是已验收的、被停下了（删任务）：这一份结果作废，不报（交给负责人的那条照样追加）
       const fresh = tasks.get(taskId);
       const still =
         fresh && !run.signal.aborted && !ENDED_TASK_STATES.includes(fresh.state) && (fresh.reworks ?? 0) === reworkNo
@@ -2959,7 +2959,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   };
 
   /**
-   * 把等复验的那条交代交给维护者（276 号票）：从事件库里取存着的原样，复验没过的把"另外复验发现 … 先告诉用户"接在
+   * 把等复验的那条交代交给负责人（276 号票）：从事件库里取存着的原样，复验没过的把"另外复验发现 … 先告诉用户"接在
    * 同一句后面，同一事务记下交出去了（rework_notice_handed，不再等复验）。已经交过的不再交；存着的那条被彻底删除了的（那条重做的反应
    * 被彻底删除时连带换掉，见 material-sources.ts 的 outputReactionPurge）不交——交出去了的那条这时也会整条换成"已删除"
    */
@@ -2989,8 +2989,8 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
 
   /**
    * 守护进程起来时还在等复验的交代（276 号票：上次在复验途中退出了——重启、部署、死机）：照 274 号票的样子再做一遍——排进这个任务的
-   * 重做队列（之后的重做排在它后面），拦住维护者，重新复验（复验本来就是幂等的：照各阶段自己的验收标准对现在的世界再核），带上结果把
-   * 交代交给维护者，再放开它。复验期间任务结束了、又重做了一次、阶段不再是已验收的，照 274 号票作废这份结果，交代照常给；任务删掉了的不交
+   * 重做队列（之后的重做排在它后面），拦住负责人，重新复验（复验本来就是幂等的：照各阶段自己的验收标准对现在的世界再核），带上结果把
+   * 交代交给负责人，再放开它。复验期间任务结束了、又重做了一次、阶段不再是已验收的，照 274 号票作废这份结果，交代照常给；任务删掉了的不交
    */
   const resumeHeldNotices = () => {
     for (const held of heldNotices()) {
@@ -2998,14 +2998,14 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
       const { previous, done } = reworkTurn(held.taskId);
       void previous
         .then(async () => {
-          log(`任务 ${held.taskId} 第 ${held.reworkNo} 次重做的交代还在等复验：重新复验，复验完再交给维护者`); // @i18n-ignore log
+          log(`任务 ${held.taskId} 第 ${held.reworkNo} 次重做的交代还在等复验：重新复验，复验完再交给负责人`); // @i18n-ignore log
           let releaseTurn: (() => void) | undefined;
           try {
-            // 拦住维护者（照 prepareReworkAct；会话还没建起来的没有要拦的：交代交上去它才被唤起）。拦不住也照样复验、交代——交代不能丢
+            // 拦住负责人（照 prepareReworkAct；会话还没建起来的没有要拦的：交代交上去它才被唤起）。拦不住也照样复验、交代——交代不能丢
             const task = tasks.get(held.taskId);
             if (task) {
               releaseTurn = await Promise.resolve(options.stopTurn?.(task, { timeoutMs: options.reworkStopTimeoutMs ?? REWORK_STOP_TIMEOUT_MS, reason: VOIDED.turn })).catch((err: unknown) => {
-                log(`任务 ${held.taskId} 重启后补做复验前拦维护者出错：${errorText(err)}`); // @i18n-ignore log
+                log(`任务 ${held.taskId} 重启后补做复验前拦负责人出错：${errorText(err)}`); // @i18n-ignore log
                 return undefined;
               });
             }
@@ -3035,7 +3035,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     return failed;
   };
 
-  /** 复验没过的先告诉你（274 号票）：待办里一条（不卡任务）、维护者的会话里一条记录 */
+  /** 复验没过的先告诉你（274 号票）：待办里一条（不卡任务）、负责人的会话里一条记录 */
   const reverifyFailedEvents = (d: Draft, fresh: Task, still: ReadonlyArray<{ stage: TaskStage; verdicts: AcceptanceVerdict[] }>, reworkNo: number, originStageId: string | undefined) => {
     const taskId = fresh.id;
     const name = (s: TaskStage) => t("protocol.plan.owner.stage", { no: stageCodeIn(fresh, s.stageId), title: s.title });
@@ -3073,7 +3073,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
       .catch((err: unknown) => log(`复验没过的「${item.title}」从 ${first.stageId} 重做时出错：${errorText(err)}`)); // @i18n-ignore log
   };
 
-  // ───────────────────────── 跟着维护者的会话树走（152 号票） ─────────────────────────
+  // ───────────────────────── 跟着负责人的会话树走（152 号票） ─────────────────────────
 
   /**
    * 这个任务的会话现在能不能撤回（会话回退、切换分支之前查，152 号票）：取消了、归档了的不能（它的会话只能看）；有子 agent 在做的
@@ -3111,20 +3111,20 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   };
 
   /**
-   * 维护者的会话树换了分支之后（152 号票，用户定的第 6 条：会话回退、切换分支之后
+   * 负责人的会话树换了分支之后（152 号票，用户定的第 6 条：会话回退、切换分支之后
    * 都调它）：任务的阶段、计划按要回到的那条路径推导，返回要和分支事件同一事务追加的事件——
    * - 那时的样子：路径上、回退点之前最后一条 task 事件（session-follow.ts 的 taskAt），各阶段整理过（在验收的、等的事已经不在等的回到
    *   能开始）；那时生效的计划（planInForce）和现在的不一样就换回那一版（plan_revised，系统；被放弃的那段里确认的计划变更、自行调整不算了）；
-   * - 回到计划确认之前（那时还没有生效的计划）：任务回到规划中，现在生效的各版计划作废（要重新确认计划，维护者重新交）；那时在等你确认的
+   * - 回到计划确认之前（那时还没有生效的计划）：任务回到规划中，现在生效的各版计划作废（要重新确认计划，负责人重新交）；那时在等你确认的
    *   计划卡还在等的，回到待确认；
-   * - 别的：阶段照那时的，执行状态照 84 号票的重做——执行中的看下一步（回到某阶段开始之前，运行时替维护者重新开始它）、已暂停的仍暂停、
+   * - 别的：阶段照那时的，执行状态照 84 号票的重做——执行中的看下一步（回到某阶段开始之前，运行时替负责人重新开始它）、已暂停的仍暂停、
    *   排队中的仍排队，已完成、等我、失败的恢复执行（名额满了回到排队中）；回到的那一处任务已经结束了的，回到那时的结局；
    * - 任务的重做次数（generation）加 1：被放弃的那段里判定、结束得晚的调用不算进新的一轮（回退时 generation++），
    *   跟着变了的阶段记下这一轮从这里重开、重新给一份预算；
    * - 回退时（切换不作废）：被放弃的那段里发起、还没处理的卡和待办作废，写明"用户撤回了会话"（审批卡、计划变更卡、并行确认卡、
-   *   计划卡、等你验收、卡住求助、超预算、交给我做、中断不确定、失败后的抉择），还没确认的计划随之作废；那段里还排着、没交给维护者的
+   *   计划卡、等你验收、卡住求助、超预算、交给我做、中断不确定、失败后的抉择），还没确认的计划随之作废；那段里还排着、没交给负责人的
    *   运行时通知作废出队（照 84 号票的 staleInputs，不带到新分支）；
-   * - 运行时替维护者开始了一个阶段时交给它一句（noticeText.rolledBack，撤回后让维护者接着做的那句）。
+   * - 运行时替负责人开始了一个阶段时交给它一句（noticeText.rolledBack，撤回后让负责人接着做的那句）。
    * 时序规则、授权项的次数不跟着退（ADR 0003：按仍然生效的效果、跨分支算——效果日志不分分支，守卫照旧从它现算）。
    * 普通任务、定时和事件触发的任务（按次运行）不跟：会话照样回退，任务状态不动
    */
@@ -3168,7 +3168,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
         voidedItems.add(item.id);
       }
     }
-    // 被放弃（切换时是离开）的那段里还排着、没交给维护者的运行时通知（这个任务的）：作废出队，不带到新分支（照 84 号票的 staleInputs）
+    // 被放弃（切换时是离开）的那段里还排着、没交给负责人的运行时通知（这个任务的）：作废出队，不带到新分支（照 84 号票的 staleInputs）
     for (const queued of pendingInputs(store.reader, conversation)) {
       if (queued.scope.taskId !== task.id || getMessage(store.reader, queued.messageId)?.speaker !== "system") continue;
       const event = store.readGlobal(queued.globalSeq - 1, 1)[0];
@@ -3207,7 +3207,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
       const awaiting = then.state === "awaiting_confirm" && card?.status === "pending" && !expiredCards.includes(card.id);
       // 流程（153 号票，用户定的"回到计划授权之前：流程回到待授权，要重新授权"）：那时在等你授权的那一版后来授权了（随这次撤回作废），
       // 同样的计划作为新的一版重新放进待我处理等你授权；那一版是你拒绝了的不重新放（你拒绝过的不倒回）
-      // （现在在规划中的不走这条：规划中到待确认只有维护者交计划能做）
+      // （现在在规划中的不走这条：规划中到待确认只有负责人交计划能做）
       const reauth = !awaiting && taskKind(task) === "workflow" && then.state === "awaiting_confirm" && task.state !== "planning" ? workflowReauthorization(task, then.planCardId) : undefined;
       for (const stored of tasks.confirmedPlans(task.id)) {
         const voided: PlanDecidedPayload = {
@@ -3306,8 +3306,8 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
       // 切回执行时的那条分支（151 号票）：回到排队中，名额空出时接着执行
       apply(d, "rolled_back", "user", (tk) => ({ ...restore(tk), state: "queued" }));
     } else resume(d, "user", "rolled_back", restore);
-    // 流程不交代（153 号票，固定计划：撤回之后不自动接着做，等你说话；阶段撤回点才让维护者接着做）。
-    // 155 号票：一分钟没说话提醒你一次、等的期间不催维护者（rollback-wait.ts 看这条 rolled_back）
+    // 流程不交代（153 号票，固定计划：撤回之后不自动接着做，等你说话；阶段撤回点才让负责人接着做）。
+    // 155 号票：一分钟没说话提醒你一次、等的期间不催负责人（rollback-wait.ts 看这条 rolled_back）
     if (d.startedStage && d.task.state === "running" && taskKind(task) !== "workflow") {
       notify(d, withStarted(d, noticeText.rolledBack({ ...(input.stage ? { stage: { stageId: input.stage.stageId, title: input.stage.title } } : {}), external: input.external, switched: !rollback })));
     }
@@ -3331,7 +3331,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     return rejectedByUser ? undefined : tasks.buildWorkflowReauthorization(task, stored);
   };
 
-  /** 跟着走的草稿收尾：事件（含阶段开始的记号）、交给维护者的那句、落盘之后要做的（提示用户、排队的看能不能开始） */
+  /** 跟着走的草稿收尾：事件（含阶段开始的记号）、交给负责人的那句、落盘之后要做的（提示用户、排队的看能不能开始） */
   const finishFollow = (d: Draft, voidedInputs: ReadonlySet<string>, expiredCards: readonly string[]): SessionFollowResult => {
     const notice = d.startNotice;
     const focus = d.task.state === "running" || d.task.state === "waiting_for_user" || d.task.state === "paused" ? d.task.stages?.focus : undefined;
@@ -3360,7 +3360,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
 
   /**
    * 卡住求助、超预算事项上点了"继续"：这一支（14 号票：阈值、做不了、超预算，在等这条事项的阶段）接着走；
-   * 维护者自己"转为等我"的（13 号票，没有阶段在等它）按继续执行处理
+   * 负责人自己"转为等我"的（13 号票，没有阶段在等它）按继续执行处理
    */
   const onContinueNotice = (item: InboxItem) => {
     if (tasks.list().some((tk) => listOf(tk).some((s) => s.state === "waiting" && s.waitingOn === item.id))) return branchUnblocked(item.id);
@@ -3369,7 +3369,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
 
   /**
    * 用户在等他定夺的任务的会话里说话了：回话就接着执行的（卡住求助、中断不确定，RESUME_ON_REPLY_WAIT_REASONS）接着执行，
-   * 他的话就是交给维护者的输入。超预算的不接着执行、不重给预算（要点"追加预算继续"）：他的话照常交给维护者回答，任务仍等我；
+   * 他的话就是交给负责人的输入。超预算的不接着执行、不重给预算（要点"追加预算继续"）：他的话照常交给负责人回答，任务仍等我；
    * 别的分支卡住求助的照样接着走
    */
   const onUserMessage = (payload: MessageEventPayload) => {
@@ -3383,7 +3383,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   };
 
   /**
-   * 一次有副作用的调用被中断、说不清做没做完（23 号票：守护进程被杀，维护者或它派出的子 agent 的子进程意外退出时还在执行）：
+   * 一次有副作用的调用被中断、说不清做没做完（23 号票：守护进程被杀，负责人或它派出的子 agent 的子进程意外退出时还在执行）：
    * 任务转为等我，原因"中断：不确定 X 是否已执行"，待我处理里一条卡着任务的"中断不确定"（用户查过之后选做了没有）；运行时不自动重做
    */
   const onInterrupted = (p: ToolCallInterruptedPayload) => {
@@ -3415,7 +3415,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     commit(d);
   };
 
-  /** 用户在"中断不确定"事项上说了做没做：还在等我（中断不确定）的任务接着执行，维护者照他说的做 */
+  /** 用户在"中断不确定"事项上说了做没做：还在等我（中断不确定）的任务接着执行，负责人照他说的做 */
   const answerInterrupted = (item: InboxItem, executed: boolean) =>
     fromNotice(item, "resume", (task) => {
       if (task.state !== "waiting_for_user" || task.waitReason !== "interrupted") return undefined;
@@ -3425,20 +3425,20 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
       return resumeInterrupted(task, { answered: { call, executed } });
     });
 
-  // ───────────────────────── 维护者 ─────────────────────────
+  // ───────────────────────── 负责人 ─────────────────────────
 
-  /** 任务不在执行时，交回维护者的话（361 号票）：因为什么停、在等什么，不让它猜 */
+  /** 任务不在执行时，交回负责人的话（361 号票）：因为什么停、在等什么，不让它猜 */
   const notExecutingText = (task: Task): string => {
     if (task.state !== "waiting_for_user") return refusalText.notRunning(task.id, task.state);
     const held = task.waitReason === "over_budget" ? listOf(task).find(overBudgetHeld) : undefined;
     return held ? overBudgetRefusal(task, held) : refusalText.waiting(task.id, task.waitReason ?? "stuck", task.waitNote);
   };
 
-  /** 维护者对任务做事：任务要是它执行的、还在执行中（或等我） */
+  /** 负责人对任务做事：任务要是它执行的、还在执行中（或等我） */
   const mustExecute = (scope: MaintainerScope, states: readonly TaskState[] = ["running"]): Task => {
     const task = tasks.get(scope.taskId);
-    if (!task) throw new RequestRejected("not_found", `没有任务 ${scope.taskId}`); // @i18n-ignore model：交回维护者
-    if (task.maintainerId !== scope.maintainerId) throw new RequestRejected("not_allowed", `任务 ${scope.taskId} 不是你执行的`); // @i18n-ignore model：交回维护者
+    if (!task) throw new RequestRejected("not_found", `没有任务 ${scope.taskId}`); // @i18n-ignore model：交回负责人
+    if (task.maintainerId !== scope.maintainerId) throw new RequestRejected("not_allowed", `任务 ${scope.taskId} 不是你执行的`); // @i18n-ignore model：交回负责人
     if (!states.includes(task.state)) throw new RequestRejected("not_allowed", notExecutingText(task));
     return task;
   };
@@ -3495,10 +3495,10 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
         ...(extra.handedOver ? { handedOver: true } : {}),
         ...(extra.reverify !== undefined ? { reverify: extra.reverify } : {}),
         ...(extra.signal ? { signal: extra.signal } : {}),
-        // 维护者宣布完成时引用、运行时核实过的用户原话（125 号票）：评审的输入里单独一栏，只有它算用户的话
+        // 负责人宣布完成时引用、运行时核实过的用户原话（125 号票）：评审的输入里单独一栏，只有它算用户的话
         ...(extra.userWords && extra.userWords.length > 0 ? { userWords: [...extra.userWords] } : {}),
         ...reviewReadOnly(task, stageId),
-        // 能跑命令（112 号票返修，用户 2026-10-13 同意）：照维护者此刻的工具包（任务授权和项目工具包的交集），开了 bash 才有
+        // 能跑命令（112 号票返修，用户 2026-10-13 同意）：照负责人此刻的工具包（任务授权和项目工具包的交集），开了 bash 才有
         ...(toolkitOf(task, plan).bash ? { bash: true } : {}),
         guardTask: () => guardTask(task.id),
         // 给秘书发消息（102 号票）：任务的工具包里开着就有（涉及多个项目的任务看计划里的开关）
@@ -3517,12 +3517,12 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   };
 
   /**
-   * 维护者引用的用户原话（125 号票）：只认它自己会话里的（秘书转达进来的换成用户在秘书那里的原话），核实过的单独一栏，
+   * 负责人引用的用户原话（125 号票）：只认它自己会话里的（秘书转达进来的换成用户在秘书那里的原话），核实过的单独一栏，
    * 没核实过的交回它
    */
   const citedWords = (maintainerId: string, ids: readonly string[] | undefined): UserWordsCheck => {
     if (!ids || ids.length === 0) return NO_USER_WORDS;
-    if (!options.userWords) return { verified: [], refused: ids.map((id) => ({ id, reason: "这个版本还不能核实用户原话" })) }; // @i18n-ignore model：交回维护者
+    if (!options.userWords) return { verified: [], refused: ids.map((id) => ({ id, reason: "这个版本还不能核实用户原话" })) }; // @i18n-ignore model：交回负责人
     return verifyUserWords(options.userWords, ids, maintainerChannel(maintainerId));
   };
 
@@ -3544,7 +3544,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     const plan = planOf(taskId);
     const planStage = plan.stages.find((s) => s.stageId === stageId);
     const stage = findStage(listOf(task), stageId);
-    // @i18n-ignore-start model：交回维护者
+    // @i18n-ignore-start model：交回负责人
     if (!planStage || !stage) throw new RequestRejected("not_found", `计划里没有阶段 ${stageId}`);
     // 超预算停下的这一支（361 号票）：活做完了要能宣布——用量是模型回完才记的，这次回复里的 complete_stage 紧接着就到；挡了它点多少次"继续"都宣布不了
     const held = overBudgetHeld(stage);
@@ -3554,7 +3554,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     }
     // @i18n-ignore-end
     const working = subAgentsOn(taskId).get(stageId) ?? [];
-    if (working.length > 0) throw new RequestRejected("not_allowed", `阶段 ${stageId} 还有子 agent（${working.join("、")}）在做：等它交回结果（在 worktree 里改的先合并回来）再宣布完成`); // @i18n-ignore model：交回维护者
+    if (working.length > 0) throw new RequestRejected("not_allowed", `阶段 ${stageId} 还有子 agent（${working.join("、")}）在做：等它交回结果（在 worktree 里改的先合并回来）再宣布完成`); // @i18n-ignore model：交回负责人
     // 涉及多个项目的任务（17 号票）：本阶段的回执全部到齐且都完成才跑验收；有工单被退回、做不了的，本阶段不通过
     const gate = options.multiProject?.stageGate(task, stageId);
     if (gate !== undefined) throw new RequestRejected("not_allowed", gate);
@@ -3605,12 +3605,12 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     } finally {
       run.end();
     }
-    // 停下了（删任务；守护进程在停，验收中的阶段起来时交回维护者）：这次作废，什么也不写
+    // 停下了（删任务；守护进程在停，验收中的阶段起来时交回负责人）：这次作废，什么也不写
     if (halted) return { outcome: "void", state: task.state };
     if (run.signal.aborted) return { outcome: "void", state: tasks.get(taskId)?.state ?? task.state };
 
     // 验收期间任务可能被暂停、取消了：取消、结束了的这次作废；还在的照常记下结论。验收期间从这个阶段重做过（84 号票）：
-    // 重开之后维护者又交了一次，阶段又在验收，但那是新的一次提交（attempts 不一样了）——这次的结论作废，不记到新的那次上
+    // 重开之后负责人又交了一次，阶段又在验收，但那是新的一次提交（attempts 不一样了）——这次的结论作废，不记到新的那次上
     const fresh = tasks.get(taskId)!;
     const freshStage = findStage(listOf(fresh), stageId);
     if (ENDED_TASK_STATES.includes(fresh.state) || freshStage?.state !== "accepting" || freshStage.attempts !== attempt) return { outcome: "void", state: fresh.state };
@@ -3619,7 +3619,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     const failed = results.filter((r) => !r.passed);
     if (failed.length > 0) {
       const back = acceptanceReturn(d, stageId, "system", ACCEPTANCE_VERDICT_LABEL[judgedBy], {
-        // 超预算时交上来的：维护者可能已经在做别的阶段了，这时这个阶段放回去
+        // 超预算时交上来的：负责人可能已经在做别的阶段了，这时这个阶段放回去
         patch: recorded(held && fresh.stages?.focus !== stageId && listOf(fresh).some((s) => s.stageId !== stageId && s.state === "running") ? "pending" : "running"),
         after: () => cardRef(d, progressCard(d, stageId, "acceptance", t("tasks.exec.failedBack", { n: failed.length, count: failed.length }), { passed: false, judgedBy, results, ...summaryText(summary) }), stageId),
       });
@@ -3667,8 +3667,8 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
   /**
    * 在等你验收的阶段按新规矩交给评审之后（112 号票，autoAcceptStages）：只验原定由你验收、还没有结论的那几条（之前那次提交里脚本、
    * 评审判过的照旧算），通过了的脚本检查一起给评审看。都通过了这个阶段验收，接着往下走；没通过算一次验收退回，阶段回到未开始
-   * （维护者手头可能在做别的阶段），结论交给维护者；超了阈值照旧这一支停下找用户（卡住求助）。验收期间任务结束了、阶段又变了
-   * （从这里重做、守护进程重启时交回维护者重新宣布完成）的，这次作废
+   * （负责人手头可能在做别的阶段），结论交给负责人；超了阈值照旧这一支停下找用户（卡住求助）。验收期间任务结束了、阶段又变了
+   * （从这里重做、守护进程重启时交回负责人重新宣布完成）的，这次作废
    */
   const judgeHandedOver = async (taskId: string, stageId: string, attempt: number) => {
     const task = tasks.get(taskId);
@@ -3778,10 +3778,10 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
         ...handed.map((s) => t("tasks.exec.autoHanded", { stage: nameOf(s.stageId, s.title) })),
       ].join("\n"),
     });
-    // 交给评审的那几支不再等你：在等我的任务恢复执行（名额满了回到排队中；维护者自己说的等我照旧）
+    // 交给评审的那几支不再等你：在等我的任务恢复执行（名额满了回到排队中；负责人自己说的等我照旧）
     if (handed.length > 0) proceed(d, "system", declared);
     commit(d);
-    // 出错不能让守护进程退出（没接住的 rejection）：记日志，阶段停在验收中，重启时照常交回维护者
+    // 出错不能让守护进程退出（没接住的 rejection）：记日志，阶段停在验收中，重启时照常交回负责人
     for (const stage of handed) void judgeHandedOver(taskId, stage.stageId, stage.attempts).catch((err: unknown) => log(`任务 ${taskId} 阶段 ${stage.stageId} 交给评审验收时出错：${errorText(err)}`));
   };
 
@@ -3789,20 +3789,20 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     const task = mustExecute(scope);
     const list = listOf(task);
     const stage = findStage(list, stageId);
-    if (!stage) throw new RequestRejected("not_found", `计划里没有阶段 ${stageId}`); // @i18n-ignore model：交回维护者
+    if (!stage) throw new RequestRejected("not_found", `计划里没有阶段 ${stageId}`); // @i18n-ignore model：交回负责人
     // 有子 agent 在做的（20 号票）：等它交回结果再切过去
     const working = subAgentsOn(task.id).get(stageId) ?? [];
-    if (working.length > 0) throw new RequestRejected("not_allowed", `阶段 ${stageId} 有子 agent（${working.join("、")}）在做：等它交回结果再切过去`); // @i18n-ignore model：交回维护者
+    if (working.length > 0) throw new RequestRejected("not_allowed", `阶段 ${stageId} 有子 agent（${working.join("、")}）在做：等它交回结果再切过去`); // @i18n-ignore model：交回负责人
     const mine = currentOf(task);
     if (stage.state === "running" && mine.stageId === stageId) return { stage: handoff(task, stageId), alreadyRunning: true };
-    if (stage.state === "accepted") throw new RequestRejected("not_allowed", `阶段 ${stageId} 已经验收了`); // @i18n-ignore model：交回维护者
-    if (stage.state === "waiting") throw new RequestRejected("not_allowed", `阶段 ${stageId} 在等用户（${forModel(() => TASK_WAIT_REASON_LABEL[stage.waitReason ?? "approval"])}），不能开始`); // @i18n-ignore model：交回维护者
-    if (stage.state === "accepting") throw new RequestRejected("not_allowed", `阶段 ${stageId} 正在验收`); // @i18n-ignore model：交回维护者
+    if (stage.state === "accepted") throw new RequestRejected("not_allowed", `阶段 ${stageId} 已经验收了`); // @i18n-ignore model：交回负责人
+    if (stage.state === "waiting") throw new RequestRejected("not_allowed", `阶段 ${stageId} 在等用户（${forModel(() => TASK_WAIT_REASON_LABEL[stage.waitReason ?? "approval"])}），不能开始`); // @i18n-ignore model：交回负责人
+    if (stage.state === "accepting") throw new RequestRejected("not_allowed", `阶段 ${stageId} 正在验收`); // @i18n-ignore model：交回负责人
     const missing = missingPrerequisites(list, stageId);
-    if (missing.length > 0) throw new RequestRejected("not_allowed", `阶段 ${stageId} 的前置阶段 ${missing.join("、")} 还没验收，不能开始`); // @i18n-ignore model：交回维护者
-    if (mine.state === "accepting") throw new RequestRejected("not_allowed", `阶段 ${mine.stageId} 正在验收，等它有结论再换`); // @i18n-ignore model：交回维护者
-    // 维护者手头在做的那个放回去（开始过，之后能开始时优先接着做；交给了子 agent 的不动），和开始新的记成同一次变化。
-    // 子 agent 交回结果后它的阶段仍在做：切过去就是记成维护者的当前阶段
+    if (missing.length > 0) throw new RequestRejected("not_allowed", `阶段 ${stageId} 的前置阶段 ${missing.join("、")} 还没验收，不能开始`); // @i18n-ignore model：交回负责人
+    if (mine.state === "accepting") throw new RequestRejected("not_allowed", `阶段 ${mine.stageId} 正在验收，等它有结论再换`); // @i18n-ignore model：交回负责人
+    // 负责人手头在做的那个放回去（开始过，之后能开始时优先接着做；交给了子 agent 的不动），和开始新的记成同一次变化。
+    // 子 agent 交回结果后它的阶段仍在做：切过去就是记成负责人的当前阶段
     const aside = mine.state === "running" && mine.stageId !== stageId && !subAgentsOn(task.id).has(mine.stageId) ? mine : undefined;
     const base = aside ? withStage(list, aside.stageId, (s) => ({ ...s, state: "pending" })) : list;
     const d = draft(task);
@@ -3819,15 +3819,15 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     if (!task || !stored || list.length === 0) return null;
     const confirmedAt = stored.decidedAt ? Date.parse(stored.decidedAt) : Date.parse(task.updatedAt);
     // 每项授权的授予时间、到期时间：计划变更、续期之后记下的（14 号票）；之前确认的按确认时刻算
-    // 维护者的当前阶段：它最后一次开始的那个（并行，20 号票），不按计划里的顺序取
+    // 负责人的当前阶段：它最后一次开始的那个（并行，20 号票），不按计划里的顺序取
     const plan = toGuardPlan(stored.plan, { confirmedAt, ...(stored.grantTimes ? { grantTimes: stored.grantTimes } : {}) });
-    // 流程（59 号票）：守卫把每次调用和授权的那份计划比对，连同维护者说明跳过的步骤
+    // 流程（59 号票）：守卫把每次调用和授权的那份计划比对，连同负责人说明跳过的步骤
     const workflow = taskKind(task) === "workflow" && stored.workflow ? guardWorkflow(stored.planId, stored.workflow, task) : undefined;
     // 重做过的记下重做次数（84 号票）：效果日志按判定那一刻的值分轮
     return { taskId, plan: workflow ? { ...plan, workflow } : plan, currentStageId: currentOf(task).stageId, ...(task.reworks ? { reworkNo: task.reworks } : {}) };
   };
 
-  /** 项目的临时文件怎么认（111 号票）：项目里的任务——项目的维护者执行的、涉及这个项目的——交出去了的交付件都算项目的 */
+  /** 项目的临时文件怎么认（111 号票）：项目里的任务——项目的负责人执行的、涉及这个项目的——交出去了的交付件都算项目的 */
   const projectOwnWorkOf = (projectId: string): GuardOwnWork | null =>
     projectOwnWork({
       reader: store.reader,
@@ -3852,23 +3852,23 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
 
   // ───────────────────────── 并行（20 号票） ─────────────────────────
 
-  /** 维护者对这几个阶段提议并行、用户同意时都查一遍；不行的抛 RequestRejected */
+  /** 负责人对这几个阶段提议并行、用户同意时都查一遍；不行的抛 RequestRejected */
   const checkParallel = (scope: MaintainerScope, stageIds: readonly string[]): Task => {
     const task = mustExecute(scope);
-    if (stageIds.length === 0) throw new RequestRejected("bad_params", "要写明并行做哪些阶段"); // @i18n-ignore model：交回维护者
+    if (stageIds.length === 0) throw new RequestRejected("bad_params", "要写明并行做哪些阶段"); // @i18n-ignore model：交回负责人
     const list = listOf(task);
     const busy = subAgentsOn(task.id);
     const problems = [...new Set(stageIds)].flatMap((stageId) => {
       const stage = findStage(list, stageId);
-      if (!stage) return [`计划里没有阶段 ${stageId}`]; // @i18n-ignore model：交回维护者
-      if (stage.state !== "pending" && stage.state !== "running") return [`阶段 ${stageId} 现在是${STAGE_STATE_LABEL[stage.state]}，只有正在做或能开始的阶段能并行`]; // @i18n-ignore model：交回维护者
+      if (!stage) return [`计划里没有阶段 ${stageId}`]; // @i18n-ignore model：交回负责人
+      if (stage.state !== "pending" && stage.state !== "running") return [`阶段 ${stageId} 现在是${STAGE_STATE_LABEL[stage.state]}，只有正在做或能开始的阶段能并行`]; // @i18n-ignore model：交回负责人
       const missing = missingPrerequisites(list, stageId);
-      if (missing.length > 0) return [`阶段 ${stageId} 的前置阶段 ${missing.join("、")} 还没验收，不能和它们同时做`]; // @i18n-ignore model：交回维护者
+      if (missing.length > 0) return [`阶段 ${stageId} 的前置阶段 ${missing.join("、")} 还没验收，不能和它们同时做`]; // @i18n-ignore model：交回负责人
       const working = busy.get(stageId) ?? [];
-      if (working.length > 0) return [`阶段 ${stageId} 已经有子 agent（${working.join("、")}）在做`]; // @i18n-ignore model：交回维护者
+      if (working.length > 0) return [`阶段 ${stageId} 已经有子 agent（${working.join("、")}）在做`]; // @i18n-ignore model：交回负责人
       return [];
     });
-    if (problems.length > 0) throw new RequestRejected("not_allowed", problems.join("；")); // @i18n-ignore model：交回维护者
+    if (problems.length > 0) throw new RequestRejected("not_allowed", problems.join("；")); // @i18n-ignore model：交回负责人
     return task;
   };
 
@@ -3960,7 +3960,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
         // 274 号票：复验没过的待办里点了"把没过的阶段也重做"——从第一个还算已验收、没过的阶段重做（和任务详情里的"从这里重做"同一条路）
         inbox.onNoticeHandled("reverify_failed", REVERIFY_ACTIONS.redo, redoReverified),
       );
-      // 守护进程重启前验收做到一半的：交回维护者，重新宣布完成
+      // 守护进程重启前验收做到一半的：交回负责人，重新宣布完成
       for (const task of tasks.list()) {
         const accepting = listOf(task).filter((s) => s.state === "accepting");
         if (accepting.length === 0 || ENDED_TASK_STATES.includes(task.state)) continue;
@@ -3971,8 +3971,8 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
         }
         commit(d);
       }
-      // 守护进程重启前重做的交代还在等复验的（276 号票）：重新复验、再交给维护者。拦维护者那一步在这一段同步代码之后（排进重做队列的
-      // then 里）：项目的维护者这时还没起来，等它们起来、把有输入的会话建好再拦（子进程拉起要等 I/O，拦住之前不会开始处理输入）
+      // 守护进程重启前重做的交代还在等复验的（276 号票）：重新复验、再交给负责人。拦负责人那一步在这一段同步代码之后（排进重做队列的
+      // then 里）：项目的负责人这时还没起来，等它们起来、把有输入的会话建好再拦（子进程拉起要等 I/O，拦住之前不会开始处理输入）
       resumeHeldNotices();
       // 阶段自动验收（112 号票）：升级前确认的计划里还写着由你验收的，改由评审（在等你验收的交给评审去验）
       for (const task of tasks.list()) {
@@ -3983,7 +3983,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
         }
       }
       // 普通任务（75 号票）：上次停机时 agent 这一轮刚做完、还没来得及算完成的（这个任务的最后一轮正常结束，没有别的输入了），补上完成。
-      // 项目内部的看项目的维护者处理这个任务的输入的那几轮（它同时还做别的事）。被打断的那一轮（最后一轮是中断）不在这里：被杀后的恢复唤起它接着做
+      // 项目内部的看项目的负责人处理这个任务的输入的那几轮（它同时还做别的事）。被打断的那一轮（最后一轮是中断）不在这里：被杀后的恢复唤起它接着做
       for (const task of tasks.list()) {
         if (!isPlainTask(task) || task.state !== "running" || !plainStarted(task.id) || plainInputsLeft(task)) continue;
         if (lastPlainTurn(task)?.outcome !== "completed") continue;
@@ -4000,7 +4000,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     stop() {
       for (const off of unsubscribes.splice(0)) off();
       // 在跑的验收（276 号票返修起）：停下（脚本进程杀掉、评审子 agent 结束），什么也不写——复验的交代留在事件库里起来时补做，
-      // 验收中的阶段起来时交回维护者重新宣布完成
+      // 验收中的阶段起来时交回负责人重新宣布完成
       halted = true;
       for (const list of acceptanceRuns.values()) for (const r of list) r.controller.abort();
       rollbackWait.stop();
@@ -4018,7 +4018,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     },
     waitForUser(scope, reason) {
       const why = reason.trim();
-      if (!why) throw new RequestRejected("bad_params", "转为等我要写明原因：卡在哪、要用户做什么决定"); // @i18n-ignore model：交回维护者
+      if (!why) throw new RequestRejected("bad_params", "转为等我要写明原因：卡在哪、要用户做什么决定"); // @i18n-ignore model：交回负责人
       const task = mustExecute(scope);
       const d = draft(task);
       apply(d, "waiting", "maintainer", (tk) => ({ ...tk, state: "waiting_for_user", waitReason: "stuck", waitNote: why }));
@@ -4034,22 +4034,22 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     },
     reportStep(scope, input) {
       const task = mustExecute(scope, ["running", "waiting_for_user"]);
-      if (taskKind(task) !== "workflow") throw new RequestRejected("not_allowed", `任务 ${task.id} 是长程任务，没有步骤：做完一个阶段用 ${EXECUTION_TOOL.completeStage} 宣布完成`); // @i18n-ignore model：交回维护者
+      if (taskKind(task) !== "workflow") throw new RequestRejected("not_allowed", `任务 ${task.id} 是长程任务，没有步骤：做完一个阶段用 ${EXECUTION_TOOL.completeStage} 宣布完成`); // @i18n-ignore model：交回负责人
       const list = task.steps?.list ?? [];
       const step = list.find((s) => s.stepId === input.stepId);
-      if (!step) throw new RequestRejected("not_found", `计划里没有步骤 ${input.stepId}（有的是 ${list.map((s) => s.stepId).join("、")}）`); // @i18n-ignore model：交回维护者
+      if (!step) throw new RequestRejected("not_found", `计划里没有步骤 ${input.stepId}（有的是 ${list.map((s) => s.stepId).join("、")}）`); // @i18n-ignore model：交回负责人
       const gist = input.gist?.trim();
       // 开始一个新步骤：别的还报着"在做"的算做完（推断，59 号票）
       const stored = confirmedPlan(task.id);
       const executed = stored ? executedSteps(planHistory(store, task.id, stored.planId, maintainerChannel(task.maintainerId))) : new Set<string>();
       const before = input.state === "in_progress" ? stepsOnStart(list, input.stepId, executed) : list;
       const next = before.map((s): TaskStep => (s.stepId === input.stepId ? { stepId: s.stepId, title: s.title, state: input.state, ...(gist ? { gist } : s.gist ? { gist: s.gist } : {}) } : s));
-      // 报某一步开始了：在维护者的会话频道上记一条步骤开始的记号（153 号票，回退点"撤回到步骤「…」开始前"）
+      // 报某一步开始了：在负责人的会话频道上记一条步骤开始的记号（153 号票，回退点"撤回到步骤「…」开始前"）
       return settleSteps(task, next, "maintainer", input.state === "in_progress" ? step : undefined);
     },
     fail(scope, reason) {
       const why = reason.trim();
-      if (!why) throw new RequestRejected("bad_params", "判失败必须写明原因"); // @i18n-ignore model：交回维护者
+      if (!why) throw new RequestRejected("bad_params", "判失败必须写明原因"); // @i18n-ignore model：交回负责人
       const task = mustExecute(scope);
       const d = draft(task);
       apply(d, "failed", "maintainer", (tk) => ({ ...cleared(tk), state: "failed", failReason: why }));
@@ -4085,7 +4085,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     ownWork(taskId) {
       const task = tasks.get(taskId);
       if (!task) return null;
-      // 项目的维护者执行的（项目内部任务、只涉及一个项目的）：按项目认
+      // 项目的负责人执行的（项目内部任务、只涉及一个项目的）：按项目认
       const project = projectOf(task);
       if (project) return projectOwnWorkOf(project.projectId);
       return taskOwnWork({ reader: store.reader, task, plan: confirmedPlan(taskId)?.plan, outputsDir: options.outputsDir });
@@ -4130,7 +4130,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
     countReturn(scope, stageId, how) {
       const task = mustExecute(scope, ["running", "waiting_for_user"]);
       const stage = findStage(listOf(task), stageId);
-      if (!stage) throw new RequestRejected("not_found", `计划里没有阶段 ${stageId}`); // @i18n-ignore model：交回维护者
+      if (!stage) throw new RequestRejected("not_found", `计划里没有阶段 ${stageId}`); // @i18n-ignore model：交回负责人
       const d = draft(task);
       const back = acceptanceReturn(d, stageId, "maintainer", how.judged, {
         after: () => note(d, t("tasks.exec.countedReturn", { stage: stageName(task, stage), why: how.why, n: (stage.returns ?? 0) + 1 }), stageId),

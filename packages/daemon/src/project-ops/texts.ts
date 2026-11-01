@@ -1,5 +1,5 @@
 // 秘书调使用中的项目的操作（260 号票；268 号票补齐）的说法：编排在 tool.ts、check-tool.ts，只给结构化的数据，文字都在这里。
-// 给秘书、维护者的（工具说明、参数说明、工具结果）照旧中文；给用户看的（工具名、时间线、转运营检查清单那一项）走 t()。
+// 给秘书、负责人的（工具说明、参数说明、工具结果）照旧中文；给用户看的（工具名、时间线、转运营检查清单那一项）走 t()。
 import { forModel, PROJECT_STATE_LABEL, type Project, type ProjectServiceView, serviceLine, t } from "@ergo/protocol";
 import { SWITCH_SERVICES_TOOL } from "../project-services/tool-names.ts";
 import { oneLine } from "../util/text.ts";
@@ -18,7 +18,7 @@ const projectRef = (p: Pick<Project, "id" | "name">) => `${p.id}「${p.name}」`
 export const toolTitle = () => t("projectOps.tool.title");
 export const checkToolTitle = () => t("projectOps.checkTool.title");
 
-// @i18n-ignore-start model：工具说明、参数说明、交给秘书和维护者的工具结果
+// @i18n-ignore-start model：工具说明、参数说明、交给秘书和负责人的工具结果
 
 /** 三种操作的说法 */
 export const KIND_TEXT: Readonly<Record<OpKind, string>> = { query: "只读查询", action: "有副作用的动作", run: "触发一次运行" };
@@ -27,12 +27,12 @@ export const KIND_TEXT: Readonly<Record<OpKind, string>> = { query: "只读查�
 export const RISK_TEXT: Readonly<Record<OpRisk, string>> = { direct: "直接做", confirm: "要确认", handoff: "交给我做" };
 
 /** 实现方式的说法 */
-const IMPL_TEXT = { http: "项目服务的本机调用口", script: "工作目录里的脚本", ergo: "二狗自带动作", maintainer: "转给维护者当工单" } as const;
+const IMPL_TEXT = { http: "项目服务的本机调用口", script: "工作目录里的脚本", ergo: "二狗自带动作", maintainer: "转给负责人当工单" } as const;
 
 export const PROJECT_OPS_DESCRIPTION = [
   "使用中的项目（转入使用、在运营的）对外的操作：用户要查某个项目的数据、让它做一件事、改它的设置、看它跑得怎样（“记一笔午饭 32 块”“简报站今天抓了几条”“日报改成 7 点”）时用。",
   "三个动作：list 列出使用中的项目和各自的操作（不写 project 列全部）；describe 看一个操作的完整说明和参数；call 调用它，args 照 describe 给的参数写。",
-  "每个使用中的项目都有一组通用操作（状态、最近运行、最新交付件、立即跑一次、暂停恢复、改时间、跟维护者说一句），项目自己的操作写在它的运营接口清单里。",
+  "每个使用中的项目都有一组通用操作（状态、最近运行、最新交付件、立即跑一次、暂停恢复、改时间、跟负责人说一句），项目自己的操作写在它的运营接口清单里。",
   "不知道有哪些操作先 list，拿不准参数先 describe；参数不对时不发出去，结果里退回这个操作的说明，照它改了再调。使用中的项目调操作不用问用户确认，用户说了就调。",
   "结果里“能念的一句”就是告诉用户的话（语音时直接念它），附件是细节，用户问再说。调不了的结果里写着原因，照实告诉用户，别说已经做了。",
 ].join("");
@@ -58,7 +58,7 @@ export const notInUse = (p: Project) =>
 
 /** 清单的几种问题（项目自己的操作用不了；通用操作照样能用） */
 export const manifestText = {
-  missing: (p: Pick<Project, "name">) => `项目「${p.name}」还没交运营接口清单（档案里没有 ops.json），只有通用操作。要它自己的操作得让维护者把操作写进 ops.json。`,
+  missing: (p: Pick<Project, "name">) => `项目「${p.name}」还没交运营接口清单（档案里没有 ops.json），只有通用操作。要它自己的操作得让负责人把操作写进 ops.json。`,
   unreadable: (p: Pick<Project, "name">, m: OpsMsg) => `项目「${p.name}」档案里的运营接口清单读不了：${problemForModel(m)}`,
   notRegistered: (p: Pick<Project, "name">) => `项目「${p.name}」的运营接口清单还没有验收过的版本，只有通用操作。`,
   empty: (p: Pick<Project, "name">, version: number) => `项目「${p.name}」的运营接口清单第 ${version} 版里没有项目自己的操作，只有通用操作。`,
@@ -69,7 +69,7 @@ export function pendingText(p: Pick<Project, "name">, check: OpsCheck | undefine
   const still = version === undefined ? "现在只有通用操作" : `秘书照旧用第 ${version} 版`;
   if (!check) return `项目「${p.name}」档案里的运营接口清单改过了，还没验收；${still}。`;
   if (check.outcome === "waiting") return `项目「${p.name}」档案里的运营接口清单格式对、能跑的测试都过了，项目服务的操作要等服务在跑时才能测；${still}。`;
-  return `项目「${p.name}」档案里的运营接口清单改过了，验收没过：${check.problems.map(problemForModel).join("；")}。${still}；让维护者修好后用 ${CHECK_OPS_TOOL} 重新验收。`;
+  return `项目「${p.name}」档案里的运营接口清单改过了，验收没过：${check.problems.map(problemForModel).join("；")}。${still}；让负责人修好后用 ${CHECK_OPS_TOOL} 重新验收。`;
 }
 
 /** 操作不存在 */
@@ -85,7 +85,7 @@ export const serviceBlocked = {
     `项目「${p.name}」的服务关着（用户点了“关闭”，或者让你关的），调不了它的服务上的操作。告诉用户它关着；用户要用，先用 ${SWITCH_SERVICES_TOOL} 把它启动起来再调。`,
   pending: (p: Pick<Project, "name">) => `项目「${p.name}」的服务还在上线（LSM 在登记、启动），等它上线了再调。`,
   failed: (p: Pick<Project, "name">, reason: string | undefined) =>
-    `项目「${p.name}」的服务上线失败${reason ? `：${reason}` : ""}。调不了它的服务上的操作；维护者已经收到通知，照实告诉用户。`,
+    `项目「${p.name}」的服务上线失败${reason ? `：${reason}` : ""}。调不了它的服务上的操作；负责人已经收到通知，照实告诉用户。`,
   manual: (p: Pick<Project, "name">, reason: string | undefined) => `项目「${p.name}」的服务现在要用户手动上线${reason ? `：${reason}` : ""}。调不了它的服务上的操作，照实告诉用户。`,
 };
 
@@ -176,20 +176,20 @@ export const callText = {
       describe,
     ].join("\n"),
   refused: (p: Pick<Project, "name">, op: ProjectOp, where: string, service: ProjectServiceView | undefined) =>
-    `项目「${p.name}」的操作 ${op.name} 没做成：${where}${service ? `。${forModel(() => serviceLine(service))}` : ""}。服务没在跑、或者还没开调用口，照实告诉用户（服务挂了维护者会收到通知）。`,
+    `项目「${p.name}」的操作 ${op.name} 没做成：${where}${service ? `。${forModel(() => serviceLine(service))}` : ""}。服务没在跑、或者还没开调用口，照实告诉用户（服务挂了负责人会收到通知）。`,
   timeout: (p: Pick<Project, "name">, op: ProjectOp, waited: string, service: ProjectServiceView | undefined) =>
     `项目「${p.name}」的操作 ${op.name} 没做成：${waited}${service ? `。${forModel(() => serviceLine(service))}` : ""}。它可能还在做，别马上重调有副作用的操作；照实告诉用户。`,
   aborted: (p: Pick<Project, "name">, op: ProjectOp) => `项目「${p.name}」的操作 ${op.name} 这次调用被中止了，不知道那边做没做。`,
 };
 
-// ───────────────────────── 维护者的 check_ops ─────────────────────────
+// ───────────────────────── 负责人的 check_ops ─────────────────────────
 
 export const CHECK_OPS_DESCRIPTION =
   "验收这个项目的运营接口清单（档案里的 ops.json）：格式对（每个操作写了中文标题、什么时候用、用户可能怎么说、种类、参数、一条测试）、每个操作的测试照 test.args 跑一遍" +
   "（带测试标记，有副作用的不要真改东西）、要回能念的 say、只读查询前后项目档案和工作目录里不能有文件改动。改了 ops.json 就用它看过没过；" +
   "使用中的项目全过了登记成新的一版（版本号加一，秘书马上用新的），没过的秘书照旧用上一版。建设中的项目转运营检查清单也看它。";
 
-/** 验收的结果写给维护者看 */
+/** 验收的结果写给负责人看 */
 export function checkReport(input: { project: Project; check: OpsCheck | undefined; missing?: boolean; unreadable?: OpsMsg; registered?: number; registeredNow: boolean }): string {
   const { project, check } = input;
   if (input.missing) return `项目「${project.name}」的档案里没有 ops.json。照档案里的模板写，再用 ${CHECK_OPS_TOOL} 验收。`;
@@ -206,7 +206,7 @@ export function checkReport(input: { project: Project; check: OpsCheck | undefin
   return [head, ...(ops.length > 0 ? ["每个操作的测试：", ...ops] : []), ...(warnings.length > 0 ? ["提醒（不挡验收）：", ...warnings] : [])].join("\n");
 }
 
-/** 使用中的项目自动验收没过：告诉维护者 */
+/** 使用中的项目自动验收没过：告诉负责人 */
 export const notifyText = (project: Project, check: OpsCheck, version: number | undefined) =>
   `项目「${project.name}」档案里的运营接口清单（ops.json）改过之后，秘书用到时验收没过：\n${check.problems.map((p) => `- ${problemForModel(p)}`).join("\n")}\n${version === undefined ? "秘书现在只能用通用操作" : `秘书照旧用第 ${version} 版`}。修好后用 ${CHECK_OPS_TOOL} 重新验收。`;
 // @i18n-ignore-end

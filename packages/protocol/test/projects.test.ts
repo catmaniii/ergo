@@ -75,14 +75,14 @@ describe("做了动作之后", () => {
     expect(projectActionTarget({ state: "archived" }, "unarchive")).toEqual({ state: "preparing", change: "unarchived" });
   });
 
-  test("除了删除、转入使用（都等用户确认），每个动作都在项目列表频道上记一种变化（重置维护者不改项目状态，不在项目动作里，16 号票）", () => {
+  test("除了删除、转入使用（都等用户确认），每个动作都在项目列表频道上记一种变化（重置负责人不改项目状态，不在项目动作里，16 号票）", () => {
     for (const action of PROJECT_ACTIONS) expect(projectActionTarget({ state: "archived", archivedFrom: "in_use" }, action) === undefined).toBe(action === "delete" || action === "go_live");
     expect(PROJECT_ACTIONS).not.toContain("reset_maintainer");
   });
 });
 
-describe("重置维护者和归档（16 号票）", () => {
-  test("重置维护者是项目页上单独的入口（不改项目状态，不在项目动作里）：没归档的都能重置，已归档的维护者会话只读、不能", () => {
+describe("重置负责人和归档（16 号票）", () => {
+  test("重置负责人是项目页上单独的入口（不改项目状态，不在项目动作里）：没归档的都能重置，已归档的负责人会话只读、不能", () => {
     for (const state of PROJECT_STATES) expect(canResetMaintainer({ state })).toBe(state !== "archived");
   });
 
@@ -116,7 +116,7 @@ describe("别处共用的小函数", () => {
     expect(inboxItemProjectId({})).toBeUndefined();
   });
 
-  test("任务由自己的维护者执行（能转为项目），项目的任务不是", () => {
+  test("任务由自己的负责人执行（能转为项目），项目的任务不是", () => {
     expect(hasOwnMaintainer({ id: "t-12", maintainerId: "tm-12" })).toBe(true);
     expect(hasOwnMaintainer({ id: "t-12", maintainerId: "pm-1" })).toBe(false);
   });

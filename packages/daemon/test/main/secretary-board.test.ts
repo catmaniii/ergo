@@ -2,7 +2,7 @@
 // - 看板自上次以来有变化时（新出现的、状态变了的、换了阶段的），用户的下一条消息后面多一条"看板变化"上下文消息，
 //   列出变化；没变时不加；系统提示不动；守护进程重启、秘书子进程崩溃之后变化照样报（可能重报，不能丢）；
 // - "查看板"只读工具返回看板的当前内容（和看板频道推给前端的一致）；
-// - "读项目档案"只读工具按项目读任意项目（含已归档）的项目档案，不拉起、不唤醒它的维护者；
+// - "读项目档案"只读工具按项目读任意项目（含已归档）的项目档案，不拉起、不唤醒它的负责人；
 // - 主线压缩时用秘书专用的压缩指令，压缩后还是同一条主线会话，之后的看板变化消息照常追加。
 import fs from "node:fs";
 import path from "node:path";
@@ -68,7 +68,7 @@ describe("看板变化消息", () => {
       ].join("\n"),
     );
 
-    // 维护者卡住求助：任务从执行中转为等我
+    // 负责人卡住求助：任务从执行中转为等我
     td.daemon.taskExecution.waitForUser({ taskId, maintainerId: "tm-1" }, "缺发票原件");
     await eventually(() => tasksOf(frontend), (e) => e.change === "waiting", "任务转等我");
     const third = await tell(frontend, "第三句");
@@ -202,7 +202,7 @@ describe("查看板", () => {
 });
 
 describe("读项目档案", () => {
-  it("按项目（编号或名字）读任意项目的项目档案，已归档的也能读；不拉起、不唤醒它的维护者，活动状态不变", async () => {
+  it("按项目（编号或名字）读任意项目的项目档案，已归档的也能读；不拉起、不唤醒它的负责人，活动状态不变", async () => {
     const td = await startTestDaemon({
       secretary: [call("read_project_records", { project: "记账" }), ECHO, call("read_project_records", { project: "p-2", docs: ["progress"] }), ECHO],
     });
@@ -235,7 +235,7 @@ describe("读项目档案", () => {
     expect(second).toContain("## 进展（progress.md）\n# 进展\n停用前做完了录入");
     expect(second).not.toContain("立项书");
 
-    // 维护者一直休眠：没拉起任何 agent，活动状态频道上没有它们
+    // 负责人一直休眠：没拉起任何 agent，活动状态频道上没有它们
     expect(spawned()).toBe(0);
     const touched = frontend.events({ channel: CHANNELS.activity, type: EVENT_TYPES.activity }).map((f) => (f.payload as ActivityEventPayload).agentId);
     expect(touched.filter((id) => id.startsWith("pm-"))).toEqual([]);

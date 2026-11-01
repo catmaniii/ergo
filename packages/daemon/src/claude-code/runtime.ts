@@ -1,4 +1,4 @@
-// Claude Code 运行时（287 号票，issue 24 方案 2.1、2.4）：维护者用本机的 Claude Code 跑会话。插件在数据契约里把它登记进运行时的
+// Claude Code 运行时（287 号票，issue 24 方案 2.1、2.4）：负责人用本机的 Claude Code 跑会话。插件在数据契约里把它登记进运行时的
 // 登记表（runtime/runtimes.ts 的 AgentRuntime，286 号票的"运行时"贡献点）。
 // - 子进程入口 child/main.ts：守护进程用 process.execPath 拉起，每个会话一个；里面用 Agent SDK 的 query()（流式输入）驱动 claude，
 //   把宿主协议翻成 SDK 调用、把 SDK 事件翻回宿主协议（child/session.ts、child/translator.ts）。守护进程里别的代码不 import 子进程的模块，
@@ -7,7 +7,7 @@
 //   不加 client_composed）、接管已有会话（290 号票）、交给官方 App 再收回来（292 号票，remote-control.ts）；换模型写交接摘要留给后面的票；
 // - 293 号票：撤回（对话按 SDK 的 forkSession 从撤回点之前分叉出新的 Claude 会话接着用，记下撤回前的会话 id）、切到废弃分支（接着那条分支的
 //   会话 id）能做；撤回时把 Claude 自己的 Write、Edit 改过的文件按文件检查点恢复到撤回点（rewind_files，Bash 改的追不到）；分支摘要它自己不写
-//   （branch_summary 是 false：Claude 子进程里没有 pi 的生成函数），由二狗按自己记下的事件、用维护者的二狗模型写好交给子进程（child/navigation.ts）；
+//   （branch_summary 是 false：Claude 子进程里没有 pi 的生成函数），由二狗按自己记下的事件、用负责人的二狗模型写好交给子进程（child/navigation.ts）；
 //   彻底删除改写会话不做（Claude 的会话文件是内部格式，用户定"现阶段不管"）；做完这一步停下不需要：工具包变了当场换（291 号票，live_toolkit：
 //   宿主协议 toolkit，进程内 MCP 服务的工具清单当场换、skill 重拼插件目录再叫 SDK 重新加载）；范围审视不在 Claude 的会话里做。
 // - 309 号票：范围审视做得成（scope_review 是 true）——由二狗按自己记下的事件另起一次（recordedScopeReview）：压缩之前子进程的 PreCompact 钩子报
@@ -119,7 +119,7 @@ export function claudeCodeRuntime(entry: string = CLAUDE_CODE_CHILD_ENTRY, takeO
     sessionBusy: (sessionId) => sessionBusy(source(), sessionId),
     forkSession: (sessionId, cwd) => source().fork(sessionId, cwd),
     sessionHistory: (sessionId, cwd) => source().history(sessionId, cwd),
-    // 交给官方 App、再收回来（292 号票，remote-control.ts）；维护者现在接着的会话看会话目录里子进程记的（session-records.ts）
+    // 交给官方 App、再收回来（292 号票，remote-control.ts）；负责人现在接着的会话看会话目录里子进程记的（session-records.ts）
     remoteControl: claudeRemoteControl({ cli, source, log: (line) => takeOver?.log(line), ...(takeOver?.remoteTiming ? { timing: takeOver.remoteTiming } : {}) }),
     currentSession: currentClaudeSession,
   };

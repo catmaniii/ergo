@@ -2,9 +2,9 @@
 // - 策略和授权项的列表：阶段的在前（按阶段顺序），阶段组的其次（planPolicies、planGrants；76 号票起计划里没有定时作业了）；
 //   一个阶段的策略（它自己的加所属阶段组的，stagePolicies）；
 // - 开始执行时各阶段的样子（initialStages，13 号票：守护进程建阶段、Web 在还没开始执行时按计划列出都用它）；
-// - 计划卡上由代码从结构化数据生成的文字：授权行（grantText，维护者写的 title 只作备注）、时序规则（temporalRuleText）；
+// - 计划卡上由代码从结构化数据生成的文字：授权行（grantText，负责人写的 title 只作备注）、时序规则（temporalRuleText）；
 // - 停点（planStops）：授权后执行时还会在哪几处停下来——由你验收的阶段、落在"先问我""交给我做"类别里的授权
-//   （这类授权行不算授权、不能勾选）、被勾掉的、被收窄的。随卡上的勾选实时算；维护者填的 stops 只作参考说明。
+//   （这类授权行不算授权、不能勾选）、被勾掉的、被收窄的。随卡上的勾选实时算；负责人填的 stops 只作参考说明。
 //   一个阶段的那几处（stageStops，84 号票：阶段详情的"问"）；
 // - 从某个阶段重做的范围（stageStarted、downstreamOf、reopenScope，84 号票：守护进程重开、Web 的重做对话框都用它）；
 // - 时序规则违反了怎么办的说法（ON_VIOLATION_TEXT，84 号票合成一份）。
@@ -12,7 +12,7 @@
 //   同一阶段有几个时编 4a、4b）。93 号票起编号存进计划（withStageCodes：守护进程定计划、每次调整时定下，已有的阶段不改号，
 //   编号形如 M4a）；读的地方（stageCodes、planStageCodes、listStageCodes）照存的，之前存下的计划没有编号，按依赖图现算。
 //   计划卡上的停点、授权挂在哪个阶段的说法给了编号就写编号（Web 给）；不给照旧按计划里的顺序。
-// - 计划变更卡（14 号票）上每一处改动的说法（planChangeItemText）：和计划卡一样由结构化数据生成，守护进程（交给维护者的话、素材）
+// - 计划变更卡（14 号票）上每一处改动的说法（planChangeItemText）：和计划卡一样由结构化数据生成，守护进程（交给负责人的话、素材）
 //   和 Web（卡片）共用。
 import { DISPOSITION_LABEL } from "./constants.ts";
 import { followLocale, t, tTable } from "./i18n/runtime.ts";
@@ -102,7 +102,7 @@ export function stageCodeAt(list: readonly Pick<TaskStage, "stageId" | "dependsO
 
 /**
  * 定下各阶段的编号存进计划（93 号票。不让模型照规则起名、检查不对再退回：二狗的阶段 id 是 s1、s2，
- * 编号由守护进程定，维护者不用写）：
+ * 编号由守护进程定，负责人不用写）：
  * - 第一版（prev 不给）：这一阶段只有一个就是阶段号，有几个按计划里的先后加 a、b（stageCodes）；
  * - 计划调整（prev 是现在生效的那一份）：已有的阶段（prev 里有同一个阶段 id）沿用原来的号——哪怕前置改了、阶段号变了也不改名；
  *   新加的按它所在的阶段编：这一阶段只有它一个、阶段号没被用过就是阶段号，否则取第一个没被用过的字母（已经有不带字母的"4"时
@@ -316,7 +316,7 @@ export function temporalRuleForm(rule: Readonly<Record<string, unknown>>): Tempo
 }
 
 /**
- * 时序规则的说明，按规则结构生成（维护者写的 title 只作备注）：
+ * 时序规则的说明，按规则结构生成（负责人写的 title 只作备注）：
  * "git_push 之前必须已经成功做过 run_tests；违反时退回，先补上再做"
  */
 export function temporalRuleText(rule: PlanTemporalRule): string {
@@ -350,7 +350,7 @@ export type OnViolation = "block" | "pull_back" | "confirm";
 export const onViolationOf = (rule: Readonly<Record<string, unknown>>): OnViolation => (rule.on_violation === "block" ? "block" : rule.on_violation === "pull_back" ? "pull_back" : "confirm");
 
 /**
- * 违反了怎么办的说法：计划卡（交给维护者的授权和边界也是它）、检测项全览、阶段详情共用这一份（84 号票评审后合成一份，
+ * 违反了怎么办的说法：计划卡（交给负责人的授权和边界也是它）、检测项全览、阶段详情共用这一份（84 号票评审后合成一份，
  * 用计划卡一直以来的说法；比"违反后直接拦截"多一级退回）
  */
 export const ON_VIOLATION_TEXT: Readonly<Record<OnViolation, string>> = tTable({
@@ -460,7 +460,7 @@ export type ComparableToolkit = Pick<PlanToolkit, "bash" | "network"> & Partial<
 /** 两个名字的集合一样不一样（不看先后；没有的当空） */
 const sameSet = (x: readonly string[] = [], y: readonly string[] = []) => x.length === y.length && x.every((v) => y.includes(v)) && y.every((v) => x.includes(v));
 
-/** 两个工具包一样不一样（不看 skill、MCP 的先后）：计划变更前后、维护者会话要不要换装配都用它 */
+/** 两个工具包一样不一样（不看 skill、MCP 的先后）：计划变更前后、负责人会话要不要换装配都用它 */
 export function sameToolkit(a: ComparableToolkit, b: ComparableToolkit): boolean {
   return (
     a.bash === b.bash &&
@@ -497,7 +497,7 @@ function addedRemovedText<T extends { stageId: string }>(head: string, item: { a
 }
 
 /**
- * 计划变更里的每种改动（14 号票）：说法（卡上、交给维护者的话、素材都用它，planChangeItemText）、对应计划里的哪一项授权、
+ * 计划变更里的每种改动（14 号票）：说法（卡上、交给负责人的话、素材都用它，planChangeItemText）、对应计划里的哪一项授权、
  * 扩大时停下哪些阶段（守护进程的 affectedStages）。新加一种改动只改这张表
  */
 export const PLAN_CHANGE_KINDS: { readonly [K in PlanChangeItem["kind"]]: PlanChangeKindInfo<K> } = {
@@ -584,7 +584,7 @@ export const PLAN_CHANGE_KINDS: { readonly [K in PlanChangeItem["kind"]]: PlanCh
 const kindOf = <K extends PlanChangeItem["kind"]>(item: ChangeOf<K>): PlanChangeKindInfo<K> => PLAN_CHANGE_KINDS[item.kind as K] as unknown as PlanChangeKindInfo<K>;
 
 /**
- * 计划变更里一处改动的说法（卡上、交给维护者的话、素材都用它）：
+ * 计划变更里一处改动的说法（卡上、交给负责人的话、素材都用它）：
  * "新增授权（阶段 s2「写报告」）：git 推送（git_push） · 以我的名义对外发送或发布：remote 是 origin；最多 1 次；7 天内有效"
  */
 export function planChangeItemText(item: PlanChangeItem, grantInfo: Readonly<Record<string, GrantInfo>> = {}): string {

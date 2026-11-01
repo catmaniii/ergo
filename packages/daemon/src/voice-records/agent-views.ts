@@ -1,5 +1,5 @@
 // agent 语音对象的派生视图（32 号票）：会话频道上 agent_voice 事件里每条 agent 语音的最新状态，随事件在同一事务里更新，
-// 可从事件日志重建（被删掉的项目的维护者会话里的，事件换成"已删除"标记，重建后就没有了）。读取函数只拿只读连接。
+// 可从事件日志重建（被删掉的项目的负责人会话里的，事件换成"已删除"标记，重建后就没有了）。读取函数只拿只读连接。
 // 214 号票起语音是插件（voice/），这里是内核的数据契约（voice-records/index.ts）：语音插件停用了也照样登记、照样更新，
 // 历史里 agent 的语音气泡照样带上它的语音对象（送进 TTS 的原文、合成好的音频）。
 import { agentVoiceIdsOf, type AgentVoiceEventPayload, type AgentVoiceRecord, EVENT_TYPES, type MessageEnvelope } from "@ergo/protocol";

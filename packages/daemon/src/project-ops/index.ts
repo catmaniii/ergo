@@ -5,10 +5,10 @@
 // - args.ts：参数的整理和校验（中文名换成值、补默认值、按 JSON Schema 校验）、参数说明本身写得对不对；
 // - reply.ts：回的东西里取能念的 say 和附件、没给 say 时二狗补的那句；
 // - call.ts（http）、script.ts（script）、builtin.ts（ergo：白送的通用操作，也是能绑参数的二狗自带动作）、runner.ts（按实现方式分派、
-//   maintainer 转给维护者当工单）；
+//   maintainer 转给负责人当工单）；
 // - acceptance.ts（照 112 号票的自动验收：格式对、每个操作一条能跑通的测试、只读的真不写）、snapshot.ts（只读的真不写比文件）、
 //   registry.ts（验收、登记、版本号）；
-// - tool.ts：秘书的 project_ops 和装配（createProjectOps）；check-tool.ts：维护者的 check_ops；
+// - tool.ts：秘书的 project_ops 和装配（createProjectOps）；check-tool.ts：负责人的 check_ops；
 // - events.ts：operations 频道上的事件；texts.ts：说法；problems.ts：清单的问题（key 加参数，用到时按语言说）；tool-names.ts：工具名。
 export { type OpsCheckOp, type OpsCheckResult } from "./acceptance.ts";
 export { bindPlaceholders, enumOptions, prepareArgs, schemaProblems, schemaWarnings } from "./args.ts";

@@ -1,8 +1,8 @@
-// 主切面：项目状态流程和转运营检查清单（259 号票；issue 19 第 2、3、8 条）。真的守护进程，秘书、项目的维护者接 faux 剧本，测试扮演前端。
-// - 转入使用不管谁发起都要用户确认：用户在项目页点"转入使用"（project_action go_live）、维护者用 propose_go_live 提、秘书照用户说的
-//   代办，都只出"转入使用"确认卡，项目一直是建设中；只有用户在卡上点确认才进入使用中（秘书、维护者都没有能对卡片做动作的工具）；
-// - 卡上列建设中 → 使用中的检查清单，缺的写明差什么；补齐再提，卡上的清单刷新；缺着照样能确认，缺的记进卡上的决定和维护者会话；
-//   只读接口 GET /api/projects/<id>/standard 的清单就是这一份；先不转的项目留在建设中，维护者提的收到通知；
+// 主切面：项目状态流程和转运营检查清单（259 号票；issue 19 第 2、3、8 条）。真的守护进程，秘书、项目的负责人接 faux 剧本，测试扮演前端。
+// - 转入使用不管谁发起都要用户确认：用户在项目页点"转入使用"（project_action go_live）、负责人用 propose_go_live 提、秘书照用户说的
+//   代办，都只出"转入使用"确认卡，项目一直是建设中；只有用户在卡上点确认才进入使用中（秘书、负责人都没有能对卡片做动作的工具）；
+// - 卡上列建设中 → 使用中的检查清单，缺的写明差什么；补齐再提，卡上的清单刷新；缺着照样能确认，缺的记进卡上的决定和负责人会话；
+//   只读接口 GET /api/projects/<id>/standard 的清单就是这一份；先不转的项目留在建设中，负责人提的收到通知；
 // - "首版做完了"卡还在等的，三种发起方都用那一张（不另出卡）；一张确认了，别的转入使用卡作废；
 // - 停用时反向收回（照 133：服务撤出 LSM、撤掉 /apps/ 转发）；用户 2026-10-24 定：关着服务的项目停用后重新启用，就把服务全部拉起来。
 import fs from "node:fs";
@@ -48,7 +48,7 @@ const START = new Date(2026, 9, 24, 9, 0);
 const say = (text: string): FauxStep => ({ kind: "reply", text });
 const call = (name: string, args: Record<string, unknown>): FauxStep => ({ kind: "reply", toolCalls: [{ name, arguments: args as never }] });
 const ECHO: FauxStep = { kind: "echo_context" };
-/** 维护者的剧本：先照 steps 做，后面多垫几句"好"（会话收尾、催写回时用） */
+/** 负责人的剧本：先照 steps 做，后面多垫几句"好"（会话收尾、催写回时用） */
 const maintainerSteps = (steps: FauxStep[]) => () => [...steps, ...Array.from({ length: 10 }, () => say("好"))];
 
 const cardsOf = (frontend: TestFrontend): Card[] => frontend.events({ channel: CARDS, type: EVENT_TYPES.card }).map((f) => (f.payload as CardEventPayload).card);
@@ -104,7 +104,7 @@ function fillRecords(records: string, opts: { services?: string[]; interfaces?: 
 const missingIds = (items: GoLiveCardPayload["checklist"]) => items.filter((i) => !i.done).map((i) => i.id);
 
 describe("转入使用不管谁发起都要用户在确认卡上确认（259 号票）", () => {
-  it("用户在项目页点“转入使用”：只出确认卡（卡上列清单、缺的写明差什么），项目还是建设中；再点用同一张；照样确认才进入使用中，缺的记进决定和维护者会话", async () => {
+  it("用户在项目页点“转入使用”：只出确认卡（卡上列清单、缺的写明差什么），项目还是建设中；再点用同一张；照样确认才进入使用中，缺的记进决定和负责人会话", async () => {
     const td = await startTestDaemon({ secretary: [say("好的")], maintainer: maintainerSteps([]) });
     buildingProject(td);
     const frontend = await connect(td);
@@ -128,10 +128,10 @@ describe("转入使用不管谁发起都要用户在确认卡上确认（259 号
     ]);
     // 纯文本降级（秘书列待办时看开头）先写谁发起的、缺什么
     expect(card.text.startsWith("项目「记账本」转入使用（你在项目页点的）；检查清单还缺 3 项：架构图写清服务和对外接口（architecture.md 还是模板原样）")).toBe(true);
-    // 进待我处理；维护者会话里一张、一句说明（给用户看）
+    // 进待我处理；负责人会话里一张、一句说明（给用户看）
     const items = frontend.events({ channel: INBOX, type: EVENT_TYPES.inboxItem }).map((f) => (f.payload as { item: { cardId?: string; title: string } }).item);
     expect(items.some((i) => i.cardId === card.id && i.title === "项目「记账本」转入使用")).toBe(true);
-    await eventually(() => messagesOf(frontend, PM1), (m) => textOf(m).includes(`<card_ref:${card.id}>`), "维护者会话里的卡");
+    await eventually(() => messagesOf(frontend, PM1), (m) => textOf(m).includes(`<card_ref:${card.id}>`), "负责人会话里的卡");
     expect(messagesOf(frontend, PM1).some((m) => textOf(m) === "你在项目页点的：要把项目「记账本」转入使用，确认卡在待我处理里，你确认了才转。")).toBe(true);
     // 只读接口的清单就是这一份
     expect((await standardOf(td)).checklist).toMatchObject({ from: "building", to: "in_use", items: payload.checklist.map(({ id, done }) => ({ id, done })) });
@@ -142,7 +142,7 @@ describe("转入使用不管谁发起都要用户在确认卡上确认（259 号
     expect(goLiveCards(frontend)).toHaveLength(1);
     expect(stateOf(td)).toBe("building");
 
-    // 照样确认：进入使用中；确认时还缺的三项记进卡上的决定，维护者会话里那句说明写明缺什么
+    // 照样确认：进入使用中；确认时还缺的三项记进卡上的决定，负责人会话里那句说明写明缺什么
     ok(await frontend.cardAction({ cardId: card.id, action: "put_in_use", expectedVersion: latest(frontend, card.id).version }, "k-confirm"));
     await eventually(() => projectEventsOf(frontend), (e) => e.change === "in_use" && e.by === "user", "项目进入使用中");
     expect(stateOf(td)).toBe("in_use");
@@ -150,7 +150,7 @@ describe("转入使用不管谁发起都要用户在确认卡上确认（259 号
     expect(decided.status).toBe("handled");
     expect(missingIds((decided.payload as GoLiveCardPayload).decided!.missing!)).toEqual(["architecture", "ops", "progress_written"]);
     expect(decided.text).toContain("你选了确认转入使用（照样确认，清单缺 3 项）");
-    const note = await eventually(() => messagesOf(frontend, PM1), (m) => textOf(m).includes("进入使用中"), "维护者会话里的说明");
+    const note = await eventually(() => messagesOf(frontend, PM1), (m) => textOf(m).includes("进入使用中"), "负责人会话里的说明");
     expect(textOf(note)).toContain("你在“项目「记账本」转入使用”卡上选了确认转入使用：项目「记账本」进入使用中。确认时检查清单还缺：架构图写清服务和对外接口（architecture.md 还是模板原样）、运营接口清单验收通过（ops.json）（ops.json 还是模板原样）、进展已写回（progress.md 还是模板原样）。");
     // 使用中了：不能再点转入使用，清单换成使用中 → 已停用（只要进展写回）
     const again = await frontend.request(METHODS.projectAction, { projectId: "p-1", action: "go_live" }, "k-go-live-3");
@@ -158,7 +158,7 @@ describe("转入使用不管谁发起都要用户在确认卡上确认（259 号
     expect((await standardOf(td)).checklist).toMatchObject({ from: "in_use", to: "retired", items: [{ id: "progress_written" }] });
   }, 60_000);
 
-  it("维护者提（propose_go_live）：只出确认卡、项目还是建设中；补齐再提，卡上的清单刷新；用户选先不转，项目留在建设中，维护者收到；再提再确认才转", async () => {
+  it("负责人提（propose_go_live）：只出确认卡、项目还是建设中；补齐再提，卡上的清单刷新；用户选先不转，项目留在建设中，负责人收到；再提再确认才转", async () => {
     const td = await startTestDaemon({
       secretary: [say("好的")],
       maintainer: maintainerSteps([
@@ -172,7 +172,7 @@ describe("转入使用不管谁发起都要用户在确认卡上确认（259 号
     const frontend = await connect(td);
 
     await frontend.sendText("可以上线了吧？", { conversation: PM1 });
-    const card = await eventually(() => goLiveCards(frontend), () => true, "维护者提的“转入使用”卡");
+    const card = await eventually(() => goLiveCards(frontend), () => true, "负责人提的“转入使用”卡");
     await settled(td, "pm-1");
     expect(stateOf(td)).toBe("building");
     expect(card.payload as GoLiveCardPayload).toMatchObject({ by: "maintainer", why: "首版做完了：能导入招行的 CSV、出月报" });
@@ -185,30 +185,30 @@ describe("转入使用不管谁发起都要用户在确认卡上确认（259 号
     expect(echo).toContain("- ✗ 运营接口清单验收通过（ops.json）：ops.json 还是模板原样");
     expect(echo).toContain("- ✓ 服务写进运营方案（确认后由服务管家上线）：没有服务，不用登记");
 
-    // 维护者补齐了再提：同一张卡，清单刷新（都做到了），项目照旧建设中
+    // 负责人补齐了再提：同一张卡，清单刷新（都做到了），项目照旧建设中
     fillRecords(recordsOf(td));
     await frontend.sendText("补齐了再提一次", { conversation: PM1 });
     await waitUntil(() => missingIds((latest(frontend, card.id).payload as GoLiveCardPayload).checklist).length === 0, { timeoutMs: 30_000, describe: () => JSON.stringify((latest(frontend, card.id).payload as GoLiveCardPayload).checklist) });
     await settled(td, "pm-1");
     expect(goLiveCards(frontend)).toHaveLength(1);
     expect(stateOf(td)).toBe("building");
-    // 卡已经在了：等维护者那句"没有另出卡、清单刷新了"出现再断言（慢一点的机器上最后一条消息可能还是 <tool_call:> 占位）
+    // 卡已经在了：等负责人那句"没有另出卡、清单刷新了"出现再断言（慢一点的机器上最后一条消息可能还是 <tool_call:> 占位）
     const refreshed = await eventually(
       () => messagesOf(frontend, PM1).filter((m) => m.message.speaker === "agent"),
       (m) => textOf(m).includes(`“转入使用”确认卡（${card.id}）已经在等用户确认了`),
-      "维护者回：卡已经在等确认",
+      "负责人回：卡已经在等确认",
     );
     expect(textOf(refreshed)).toContain(`“转入使用”确认卡（${card.id}）已经在等用户确认了，没有另出卡；卡上的检查清单照现在的刷新了。`);
     expect(latest(frontend, card.id).text).toContain("检查清单 5 项都做到了");
 
-    // 先不转：留在建设中，维护者收到（唤起它）
+    // 先不转：留在建设中，负责人收到（唤起它）
     const turns = frontend.events({ channel: PM1, type: EVENT_TYPES.turnEnd }).length;
     ok(await frontend.cardAction({ cardId: card.id, action: "dismiss", expectedVersion: latest(frontend, card.id).version, note: "等月报再看看" }, "k-dismiss"));
     await waitUntil(() => latest(frontend, card.id).status === "handled", { describe: () => "卡处理了" });
     expect((latest(frontend, card.id).payload as GoLiveCardPayload).decided).toEqual({ choice: "dismiss" });
     expect(stateOf(td)).toBe("building");
-    await eventually(() => messagesOf(frontend, PM1), (m) => textOf(m).includes("用户在“转入使用”确认卡上选了先不转，说：“等月报再看看”"), "维护者收到先不转");
-    await waitUntil(() => frontend.events({ channel: PM1, type: EVENT_TYPES.turnEnd }).length > turns, { timeoutMs: 30_000, describe: () => "维护者处理了通知" });
+    await eventually(() => messagesOf(frontend, PM1), (m) => textOf(m).includes("用户在“转入使用”确认卡上选了先不转，说：“等月报再看看”"), "负责人收到先不转");
+    await waitUntil(() => frontend.events({ channel: PM1, type: EVENT_TYPES.turnEnd }).length > turns, { timeoutMs: 30_000, describe: () => "负责人处理了通知" });
     await settled(td, "pm-1");
 
     // 再从项目页点：先不转过的那张不算在等，另出一张；确认了才转，清单都做到了（决定里没有缺的）
@@ -290,13 +290,13 @@ describe("转入使用不管谁发起都要用户在确认卡上确认（259 号
     await waitUntil(() => latest(frontend, goLive.id).status === "expired", { describe: () => "“转入使用”卡作废" });
     expect(latest(frontend, goLive.id).expiredNote).toContain("“首版做完了”卡接替了这张");
 
-    // 三种发起方都用首版卡：项目页点的结果就是它，维护者、秘书的工具结果也指着它；补齐之后清单刷新
+    // 三种发起方都用首版卡：项目页点的结果就是它，负责人、秘书的工具结果也指着它；补齐之后清单刷新
     fillRecords(recordsOf(td));
     const byUser = ok(await frontend.request(METHODS.projectAction, { projectId: "p-1", action: "go_live" }, "k-go-live-2")) as { confirmCardId: string };
     expect(byUser.confirmCardId).toBe(buildDone.id);
     await waitUntil(() => missingIds((latest(frontend, buildDone.id).payload as BuildDoneCardPayload).checklist!).length === 0, { describe: () => "首版卡上的清单刷新" });
     await frontend.sendText("可以上线了吗", { conversation: PM1 });
-    await eventually(() => messagesOf(frontend, PM1).filter((m) => m.message.speaker === "agent"), (m) => textOf(m).includes(`“首版做完了”卡（${buildDone.id}）已经在等用户选了，它的“转入使用”就是这道确认，没有另出卡`), "维护者的工具结果");
+    await eventually(() => messagesOf(frontend, PM1).filter((m) => m.message.speaker === "agent"), (m) => textOf(m).includes(`“首版做完了”卡（${buildDone.id}）已经在等用户选了，它的“转入使用”就是这道确认，没有另出卡`), "负责人的工具结果");
     await settled(td, "pm-1");
     await frontend.sendText("记账本可以上线了");
     await eventually(() => messagesOf(frontend, SECRETARY).filter((m) => m.message.speaker === "agent"), (m) => textOf(m).includes("已经有一张转入使用的确认卡在等用户（“首版做完了”卡），放进了聊天"), "秘书的工具结果");
@@ -381,7 +381,7 @@ describe("停用反向收回、重新启用全部拉起（259 号票；用户 20
       ["public_entry", "对外接口「记账网页」要走 /apps/ 或公网，运营方案里没有对应的带网页（web）的服务"],
     ]);
 
-    // 维护者交带网页服务的运营方案（直接调它的工具）：清单都做到了；从项目页要卡，卡上带着方案
+    // 负责人交带网页服务的运营方案（直接调它的工具）：清单都做到了；从项目页要卡，卡上带着方案
     const proposed = await td.daemon.operations.tool("p-1", "pm-1").run({ items: [site(app.port)], why: "网页给手机看" } as never, { toolCallId: "call-ops" });
     expect(proposed.isError).toBeFalsy();
     const asked = ok(await frontend.request(METHODS.projectAction, { projectId: "p-1", action: "go_live" }, "k-go-live")) as { confirmCardId: string };

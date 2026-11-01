@@ -1,8 +1,8 @@
 // 项目列表和项目页的视图（纯函数，15 号票）：项目列表频道上的项目，带上进行中的任务数（看板频道上未结束、涉及它的任务，
 // 按项目编号认：同名的项目删掉之后再立，旧任务不算到新项目头上）、
-// 维护者的活动状态，以及项目页上现在能做的动作（按协议包的 projectActions：守护进程按同一份校验）。
+// 负责人的活动状态，以及项目页上现在能做的动作（按协议包的 projectActions：守护进程按同一份校验）。
 // 16 号票：项目还有正在做或排队的工单时不能归档（放弃、归档的按钮不能点，写明先完成或取消哪几个任务）；
-// 重置维护者是单独的入口（不在项目状态动作里），已归档的不能。
+// 重置负责人是单独的入口（不在项目状态动作里），已归档的不能。
 // 64 号票：项目页的"内部任务"一栏（projectInternalTasks：项目内部任务不上全局看板，在这里列出状态和进度）。
 // 259 号票：转入使用（go_live）只出确认卡；已经有一张在等（"首版做完了"卡、"转入使用"卡）时项目页上不再给这个按钮（卡就在"现在"里）。
 import {
@@ -31,15 +31,15 @@ export interface ProjectView {
   project: Project;
   /** 进行中的任务数：涉及这个项目、还没结束的任务 */
   activeTasks: number;
-  /** 维护者的活动状态和说明（干活中在做什么、等你批准什么，25 号票；没收到过是休眠） */
+  /** 负责人的活动状态和说明（干活中在做什么、等你批准什么，25 号票；没收到过是休眠） */
   activity: AgentActivity;
   /** 首个建设任务现在的状态 */
   buildTaskState: TaskState | undefined;
-  /** 项目页上现在能做的项目状态动作（开工、停用、归档……；重置维护者不在这里） */
+  /** 项目页上现在能做的项目状态动作（开工、停用、归档……；重置负责人不在这里） */
   actions: ProjectAction[];
   /** 自动播报开没开（354 号票，默认关）；已归档的不能开关，没有这一项 */
   announce: boolean | undefined;
-  /** 现在能不能重置维护者（16 号票：项目页上单独的入口；已归档的不能） */
+  /** 现在能不能重置负责人（16 号票：项目页上单独的入口；已归档的不能） */
   canResetMaintainer: boolean;
   /** 不能归档的原因（16 号票）：还有正在做或排队的工单时，写明先完成或取消哪几个任务；能归档时没有 */
   archiveBlocked: string | undefined;
@@ -116,7 +116,7 @@ function internalTaskView(state: UiState, task: Task): InternalTaskView {
     progress: projectRowProgress(state, task),
     tokens: taskTokenTotal(state, task.id),
     cacheHitTokens: taskTokenCacheHit(state, task.id),
-    // 141 号票：项目在用时运营方案里的一条不能归档（要去掉请项目维护者改运营方案）
+    // 141 号票：项目在用时运营方案里的一条不能归档（要去掉请项目负责人改运营方案）
     archivable: availableTaskActions(task, "user").includes("archive") && taskOperationsLock(state, task) === undefined,
   };
 }
@@ -132,7 +132,7 @@ export interface ProjectInternalTasks {
 }
 
 /**
- * 项目页的"内部任务"一栏（64 号票）：这个项目的内部任务（由项目的维护者执行的，不上全局看板），没结束的、结束了的、
+ * 项目页的"内部任务"一栏（64 号票）：这个项目的内部任务（由项目的负责人执行的，不上全局看板），没结束的、结束了的、
  * 归档了的三组，各自新近有变化的在前。项目删掉了（不在项目列表里）就没有
  */
 export function projectInternalTasks(state: UiState, projectId: string): ProjectInternalTasks {

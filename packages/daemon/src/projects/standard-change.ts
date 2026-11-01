@@ -1,5 +1,5 @@
 // 本项目的规范改写（261 号票；issue 19 Decisions 第 5 条，照立项要求变更那套：charter-change.ts）：用户在会话里说这个项目不要规范里的
-// 某一份（"不用画架构图"）、某一份换一种写法（"进展按周写"）、多一份文档、恢复照默认规范，或者要跟新版规范，项目的维护者用
+// 某一份（"不用画架构图"）、某一份换一种写法（"进展按周写"）、多一份文档、恢复照默认规范，或者要跟新版规范，项目的负责人用
 // propose_standard_change 提出——只交要改的几处，附上它引用的用户消息 id（运行时核实，conversation/user-words.ts）。运行时出一张
 // "规范改写"卡（standard_change）：
 // - 卡上逐处对照（同一份改写前后：照默认 → 不要、换写法 → 另一种写法、不要 → 恢复照默认……），跟新版规范写明从哪一版到哪一版，附运行时
@@ -7,14 +7,14 @@
 // - 用户确认：standards 频道上一条 standard_change_decided（confirmed），从此按改过的规范算（projects/views.ts 的 standardOverrides：
 //   只读接口、项目页、检查清单、守护进程补文档都按它）；同一事务项目列表频道上一条 standard_changed（跟新版规范的，项目上记着的版本换成新的；
 //   之后项目模块按新版模板补上缺的文档，已有的不动）；项目档案里的 standard-overrides.md 重写（现在生效的每一条，末尾记一条变更记录：
-//   哪天、改了什么、依据的用户原话、用户确认）；维护者收到通知，时间线上记一笔；
-// - 用户拒绝（可附说明）：规范不变，维护者收到通知，时间线上记一笔。
+//   哪天、改了什么、依据的用户原话、用户确认）；负责人收到通知，时间线上记一笔；
+// - 用户拒绝（可附说明）：规范不变，负责人收到通知，时间线上记一笔。
 // 模板出了新版不自动带旧项目（只读接口里 latest 比项目记着的新，项目页提示"有新版规范"），要跟也走这条路。规范上线之前建的项目没有版本：
-// 先由补齐文档的卡（262 号票）问一次；272 号票起这里也放开——卡上选了不补、之后用户又要补，维护者照样提"跟新版"（upgrade），卡上写明是
+// 先由补齐文档的卡（262 号票）问一次；272 号票起这里也放开——卡上选了不补、之后用户又要补，负责人照样提"跟新版"（upgrade），卡上写明是
 // 补齐规范文档、缺哪几份；确认后照 262 的补齐做：项目列表频道上一条 standard_adopted（记下版本，项目模块从模板放进缺的几份，已有的不动），
-// 再建一个项目内部的普通任务交给维护者照项目现状写好（确认时又都齐了就不建）。补齐卡还在等用户选时不让提（两张卡都能补齐，免得重了）。
+// 再建一个项目内部的普通任务交给负责人照项目现状写好（确认时又都齐了就不建）。补齐卡还在等用户选时不让提（两张卡都能补齐，免得重了）。
 // 立项书确认之前没有这个工具（项目类型没定，规范里有哪几份还没定）。
-// 运行时不删档案里已有的文件（"不要架构图"只是不再要求、不再从模板补回来），多出来的那份由维护者建。
+// 运行时不删档案里已有的文件（"不要架构图"只是不再要求、不再从模板补回来），多出来的那份由负责人建。
 import path from "node:path";
 import {
   CHANNELS,
@@ -78,7 +78,7 @@ export interface StandardChangesOptions {
   inbox: InboxService;
   /** 项目档案的位置 */
   records(projectId: string): ProjectRecordsPaths;
-  /** 核实维护者引用的用户原话；不给就不核实（引用的一律当没核实过） */
+  /** 核实负责人引用的用户原话；不给就不核实（引用的一律当没核实过） */
   userWords?: UserWordsDeps;
   /** 规范模板（不给是框架里的）：跟新版规范跟到里面最新的那一版 */
   templates?: StandardTemplates;
@@ -94,7 +94,7 @@ export interface StandardChangesOptions {
 }
 
 export interface StandardChanges {
-  /** 项目维护者的"提规范改写"工具（立项书确认之后才给） */
+  /** 项目负责人的"提规范改写"工具（立项书确认之后才给） */
   tool(projectId: string, maintainerId: string): HostTool;
   /** "规范改写"卡上的确认、拒绝（卡片动作，和卡片更新同一事务） */
   decide(payload: StandardChangeCardPayload, confirmed: boolean, note: string | undefined, idempotencyKey: string): CardActionEffect<StandardChangeCardPayload>;
@@ -103,7 +103,7 @@ export interface StandardChanges {
   stop(): void;
 }
 
-/** 维护者交上来的改法（工具的参数，去掉了为什么和原话） */
+/** 负责人交上来的改法（工具的参数，去掉了为什么和原话） */
 interface StandardDraft {
   drop?: readonly string[];
   change?: ReadonlyArray<{ doc: string; how: string }>;
@@ -126,7 +126,7 @@ const projectChanged = (project: Project, time: string, upgrade: StandardUpgrade
   return { channel: CHANNELS.projects, type: EVENT_TYPES.project, payload };
 };
 
-/** 卡的纯文本降级、交给维护者的通知、时间线说明里的改动（一处一行；跟新版规范在最前） */
+/** 卡的纯文本降级、交给负责人的通知、时间线说明里的改动（一处一行；跟新版规范在最前） */
 const changeLines = (p: { items: readonly StandardChangeItem[]; upgrade?: StandardUpgrade | undefined }) => [
   ...(p.upgrade ? [`- ${standardUpgradeText(p.upgrade)}`] : []),
   ...p.items.map((item) => `- ${standardChangeItemText(item)}`),
@@ -135,7 +135,7 @@ const changeLines = (p: { items: readonly StandardChangeItem[]; upgrade?: Standa
 /** 依据的用户原话（运行时核实过的）的几行（给用户看：生成时按当时的语言） */
 const wordsLines = (words: readonly VerifiedUserWords[]) => (words.length > 0 ? [t("projects.standardChange.words", { title: USER_WORDS_TITLE }), ...words.map((w) => `- ${userWordsLine(w)}`)] : []);
 
-/** 规范里的一份叫什么、多出来的那份写位置（给维护者的拒绝原因里） */
+/** 规范里的一份叫什么、多出来的那份写位置（给负责人的拒绝原因里） */
 const docName = (doc: StandardDocKey) => inModelLanguage(() => STANDARD_DOC_LABEL[doc]);
 
 /** 多出来的那份在档案里的位置：相对档案、正斜杠、目录以 / 结尾；不合规矩的（绝对路径、..、空的段、Windows 不让用的字）是 undefined */
@@ -160,9 +160,9 @@ function reservedPlace(paths: ProjectRecordsPaths, rel: string): boolean {
 }
 
 /**
- * 维护者的工具说明。里面引了协议包的标签（文档的名字），那些跟着当前语言：给模型看的这份在中文下现取（173 号票）
+ * 负责人的工具说明。里面引了协议包的标签（文档的名字），那些跟着当前语言：给模型看的这份在中文下现取（173 号票）
  */
-// @i18n-ignore-start model：工具说明、参数说明给维护者看
+// @i18n-ignore-start model：工具说明、参数说明给负责人看
 const toolDescription = () =>
   "用户在会话里说这个项目的规范要改时用（立项书确认之后）：这个项目不要规范里的某一份（drop，比如不画架构图；进展不能不要）、" +
   "某一份照样要但换一种写法（change，比如进展按周写）、多一份文档（add，写位置、名字、写什么；算必须有的，会检查）、" +
@@ -250,7 +250,7 @@ export function createStandardChanges(options: StandardChangesOptions): Standard
   /** 还在等用户的那张（同一个项目一次只有一张） */
   const pendingOf = (projectId: string) => standardChanges(store.reader, projectId).find((c) => !c.decided && cards.get(c.proposed.cardId)?.status === "pending");
 
-  /** 维护者交上来的改法算成逐处的变化（同一份改写前后）和跟新版规范；不合规矩的抛 RequestRejected（原因交回维护者） */
+  /** 负责人交上来的改法算成逐处的变化（同一份改写前后）和跟新版规范；不合规矩的抛 RequestRejected（原因交回负责人） */
   const itemsOf = (project: Project, draft: StandardDraft): { items: StandardChangeItem[]; upgrade?: StandardUpgrade } => {
     const paths = options.records(project.id);
     const current = currentOverrides(project.id);
@@ -263,7 +263,7 @@ export function createStandardChanges(options: StandardChangesOptions): Standard
     const kindLabel = inModelLanguage(() => PROJECT_KIND_LABEL[project.kind ?? "other"]);
     const items: StandardChangeItem[] = [];
     const touched = new Set<string>();
-    // @i18n-ignore-start model：提的时候的拒绝原因交回维护者（工具结果）
+    // @i18n-ignore-start model：提的时候的拒绝原因交回负责人（工具结果）
     const take = (after: StandardOverride | undefined, target: string, label: string, restoring = false) => {
       if (touched.has(target)) throw new RequestRejected("bad_params", `同一份只能改一处：${label}`);
       touched.add(target);
@@ -324,7 +324,7 @@ export function createStandardChanges(options: StandardChangesOptions): Standard
 
   const propose = (projectId: string, maintainerId: string, draft: StandardDraft, why: string, cited: readonly string[] | undefined) => {
     const project = projectOf(projectId);
-    // @i18n-ignore-start model：提的时候的拒绝原因交回维护者（工具结果）
+    // @i18n-ignore-start model：提的时候的拒绝原因交回负责人（工具结果）
     if (project.maintainerId !== maintainerId) throw new RequestRejected("not_allowed", `项目 ${projectId} 不是你维护的`);
     if (project.state === "archived") throw new RequestRejected("not_allowed", `项目「${project.name}」已归档，规范不能再改`);
     if (!project.charterConfirmed) throw new RequestRejected("not_allowed", `项目「${project.name}」的立项书还没确认：项目类型定了，规范里有哪几份才定下来`);
@@ -362,7 +362,7 @@ export function createStandardChanges(options: StandardChangesOptions): Standard
       { channel: STANDARDS_CHANNEL, type: STANDARD_EVENTS.changeProposed, payload: proposed },
       card.event,
       item.event,
-      // 卡也出在用户说那句话的会话里（维护者自己的会话里本来就有：工具产生的卡片）
+      // 卡也出在用户说那句话的会话里（负责人自己的会话里本来就有：工具产生的卡片）
       ...cardRefsElsewhere(card.card.id, words.verified, maintainerChannel(maintainerId)),
     ]);
     inbox.alert(item.item);
@@ -387,8 +387,8 @@ export function createStandardChanges(options: StandardChangesOptions): Standard
     }
     const comment = note?.trim() || undefined;
     const time = now();
-    // 272 号票：规范上线之前建的项目补齐规范文档，确认后照 262 号票的补齐做——按现在的样子再算一遍缺哪几份（卡出来之后维护者可能已经补了），
-    // 缺的建一个项目内部的普通任务交给维护者照项目现状写好
+    // 272 号票：规范上线之前建的项目补齐规范文档，确认后照 262 号票的补齐做——按现在的样子再算一遍缺哪几份（卡出来之后负责人可能已经补了），
+    // 缺的建一个项目内部的普通任务交给负责人照项目现状写好
     const adopting = confirmed && row.proposed.upgrade !== undefined && row.proposed.upgrade.from === undefined;
     if (adopting && project.state === "archived") throw new RequestRejected("not_allowed", t("projects.standardBackfill.archived", { name: project.name }));
     const view = adopting ? options.standard?.(project.id) : undefined;
@@ -425,7 +425,7 @@ export function createStandardChanges(options: StandardChangesOptions): Standard
     const scope = { projectId: project.id };
     const changeText = changeLines(row.proposed);
     const added = row.proposed.items.flatMap((item) => (item.after?.kind === "add" && !item.before ? [item.after.path] : []));
-    // @i18n-ignore-start model：交给维护者的通知
+    // @i18n-ignore-start model：交给负责人的通知
     const notice = confirmed
       ? [
           `用户确认了规范改写（第 ${payload.revision} 次），从现在起这个项目按改过的规范做（项目档案里的 standard-overrides.md 记着现在生效的每一条和这次变更）：`,
@@ -449,7 +449,7 @@ export function createStandardChanges(options: StandardChangesOptions): Standard
       { channel: STANDARDS_CHANNEL, type: STANDARD_EVENTS.changeDecided, payload: decided, idempotencyKey: `${idempotencyKey}#decided` },
       // 确认的：项目列表上记一笔"规范改了"（跟新版规范的版本换成新的；项目模块据此按新版模板补缺的文档）
       ...(confirmed ? [projectChanged(project, time, row.proposed.upgrade)] : []),
-      // 补齐的任务建在项目改用规范之后：维护者开工时模板已经在档案里了（同 262 号票）
+      // 补齐的任务建在项目改用规范之后：负责人开工时模板已经在档案里了（同 262 号票）
       ...(task?.events ?? []),
       buildTimelineRecord(conversation, { kind: "standard_change", summary, detail: [...changeText, ...wordsLines(row.proposed.userWords)].join("\n") }, scope).event,
       buildAgentNotice(conversation, notice, `${idempotencyKey}#notice`, scope).event,
@@ -538,7 +538,7 @@ export function standardChangeCardType(changes: Pick<StandardChanges, "decide">)
         ...changeLines(p),
         ...wordsLines(p.userWords ?? []),
       ].join("\n"),
-    // 彻底删除、删除项目时：维护者的说明、改写里写的话（怎么写、写什么）、引用的原话换成删除标记，改了哪几份、确认结果不变
+    // 彻底删除、删除项目时：负责人的说明、改写里写的话（怎么写、写什么）、引用的原话换成删除标记，改了哪几份、确认结果不变
     purge: (p) => ({ ...p, why: PURGED_TEXT, items: p.items.map(purgedItem), ...(p.userWords ? { userWords: p.userWords.map(purgedWords) } : {}) }),
   });
 }

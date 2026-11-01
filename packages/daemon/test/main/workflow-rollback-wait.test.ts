@@ -1,7 +1,7 @@
 // 主切面：流程撤回之后停住等你、一分钟没说话提醒一次；定时触发的任务运行中撤回记"已撤回"不算失败（155 号票，用户 2026-10-18 定）。
-// 真的守护进程，流程的维护者接 faux 剧本，手动拨的时钟，测试扮演前端：
+// 真的守护进程，流程的负责人接 faux 剧本，手动拨的时钟，测试扮演前端：
 // - 一次性的流程撤回到步骤开始前：停在那里（不交代、不自己接着做）；一分钟内你没在这个任务里说话，待办里一条"流程在等你"加推送
-//   （只提醒一次，再过二十分钟也不再提醒，也不再催维护者）；你在任务里说一句，维护者从撤回到的那一步接着做，这条处理掉；
+//   （只提醒一次，再过二十分钟也不再提醒，也不再催负责人）；你在任务里说一句，负责人从撤回到的那一步接着做，这条处理掉；
 // - 定时触发的流程运行中撤回：这次运行记"已撤回"（不是失败），不算进连续失败次数、不触发连续失败自动暂停，"最近一次失败"照旧。
 import {
   type Card,
@@ -84,7 +84,7 @@ const cardWhere = (frontend: TestFrontend, match: (card: Card) => boolean, what 
 const turnsOf = (frontend: TestFrontend, n: number) =>
   waitUntil(() => frontend.events({ channel: M1, type: EVENT_TYPES.turnEnd }).length >= n, {
     timeoutMs: 60_000,
-    describe: () => `等维护者处理完 ${n} 条输入；工具调用：${toolParts(frontend).map((p) => `${p.tool}:${p.outcome}${p.blockedBy ? `/${p.blockedBy}` : ""}`).join("、")}`,
+    describe: () => `等负责人处理完 ${n} 条输入；工具调用：${toolParts(frontend).map((p) => `${p.tool}:${p.outcome}${p.blockedBy ? `/${p.blockedBy}` : ""}`).join("、")}`,
   });
 /** 让守护进程把手头的事件处理完（拨时钟之后到点的计时器在同一轮里追加事件，前端收到要一会儿） */
 const quiet = () => new Promise((resolve) => setTimeout(resolve, 300));
@@ -112,7 +112,7 @@ async function connect(url: string) {
 const authorize = async (frontend: TestFrontend, card: Card) => ok(await frontend.cardAction({ cardId: card.id, action: "confirm", expectedVersion: card.version, input: { confirmations: [] } }));
 
 describe("流程撤回之后等你（155 号票）", { timeout: LONG_TEST_MS }, () => {
-  it("撤回到步骤开始前之后停住：一分钟没说话，待办里一条加推送提醒一次（只一次），不再催维护者；你说一句就从那一步接着做，这条处理掉", async () => {
+  it("撤回到步骤开始前之后停住：一分钟没说话，待办里一条加推送提醒一次（只一次），不再催负责人；你说一句就从那一步接着做，这条处理掉", async () => {
     const clock = new ManualClock(at(10, 8, 9, 0));
     const td: TestDaemon = await startTestDaemon({
       clock,
@@ -173,7 +173,7 @@ describe("流程撤回之后等你（155 号票）", { timeout: LONG_TEST_MS }, 
     expect((reminder.kind === "notice" ? (reminder.data as RollbackWaitNoticeData) : undefined)?.taskId).toBe(task.id);
     await waitUntil(() => notifiesOf(frontend).some((n) => n.itemId === reminder.id), { describe: () => "等推送" });
 
-    // 只提醒一次；之后二十多分钟也不催维护者（原来维护者活着时 20 分钟没进展会被催一次）
+    // 只提醒一次；之后二十多分钟也不催负责人（原来负责人活着时 20 分钟没进展会被催一次）
     clock.advance(25 * MINUTE);
     await quiet();
     expect(remindersOf(frontend)).toHaveLength(1);
@@ -181,7 +181,7 @@ describe("流程撤回之后等你（155 号票）", { timeout: LONG_TEST_MS }, 
     expect(turnStarts(frontend)).toBe(turnsAfterRollback);
     expect(td.daemon.tasks.get(task.id)!.state).toBe("running");
 
-    // 你在任务里说一句：维护者从 s3 接着做，流程做完；那条提醒处理掉（标成已读）
+    // 你在任务里说一句：负责人从 s3 接着做，流程做完；那条提醒处理掉（标成已读）
     await frontend.sendText("接着做", { conversation: M1, taskId: task.id });
     const handled = await eventually(() => remindersOf(frontend), (i) => i.kind === "notice" && i.handled !== undefined, "提醒处理掉");
     expect(handled).toMatchObject({ read: true, urgency: "non_blocking" });

@@ -1,10 +1,10 @@
 // 工具调用的完整参数和返回（53 号票，详情页用；规格第 19 节）：聊天里的工具调用 part 只有摘要（参数 160 字、结果 200 字），
-// 完整的在这里——每次经守卫的调用（秘书、维护者、子 agent、评审，被拦下的、出错的都算）在 tool_call_end 时另存一份。
+// 完整的在这里——每次经守卫的调用（秘书、负责人、子 agent、评审，被拦下的、出错的都算）在 tool_call_end 时另存一份。
 //
 // 为什么调用结束时另存、不去读 pi 的会话文件：
 // - 隐私要在那一刻处理：读过的密钥值（read-secrets.ts）只在内存里，守护进程重启后就没了，事后读会话文件擦不掉；
 // - 会话文件是 pi 的格式，只能在 agent-child/ 里读（ADR-0004），按调用 id 找还得先知道在哪个 agent 的哪个会话文件里；
-// - 评审子 agent 的会话不留，维护者的会话随删除项目整个删掉。
+// - 评审子 agent 的会话不留，负责人的会话随删除项目整个删掉。
 //
 // 存法：事件日志里守护进程内部的频道 tool_calls（前端不订阅它）上的 tool_call_detail 事件，负载就是协议包的
 // ToolCallDetail；派生视图 tool_call_details 只记调用 id → 事件的全局序号，外加工具、agent、会话、项目（彻底删除、
@@ -21,7 +21,7 @@
 // 归属（任务、项目、阶段）和工具调用记录同一份，判定那一刻取的；评审子 agent 的调用不在任何会话里，也带着它评审的任务、
 // 阶段和项目（tasks/review.ts）。
 // 彻底删除（ADR-0008 的口径）：工具调用记录被改写的那些调用、执行记录被改写的调用、返回里提到被删素材的检索调用，
-// 它们的完整内容一起改写（memory/purge.ts）；删除项目时项目维护者会话里的（含子 agent 的）、维护者的、归属这个项目的
+// 它们的完整内容一起改写（memory/purge.ts）；删除项目时项目负责人会话里的（含子 agent 的）、负责人的、归属这个项目的
 // （含评审子 agent 的）一起改写（279 号票起经"删除参与方"登记表，guard-runtime/deletion.ts），66 号票起还有项目之外读过这个项目的（projects/outside-reads.ts：
 // 先按视图的几列筛，再逐条读负载，detailRowsOf、detailEventAt）：参数和返回里的文字换成删除标记，工具、结局这些结构字段不变，
 // 删除项目时的另记 purgedBy。
@@ -191,7 +191,7 @@ export function detailEventsOfCall(store: EventStore, callId: string): StoredEve
 }
 
 /**
- * 属于一个项目的调用的完整内容的事件（删除项目时找）：项目维护者会话里的（含子 agent 的）、维护者自己的、
+ * 属于一个项目的调用的完整内容的事件（删除项目时找）：项目负责人会话里的（含子 agent 的）、负责人自己的、
  * 归属这个项目的（评审子 agent 的调用不在任何会话里，靠归属找）
  */
 export function detailEventsOfProject(store: EventStore, project: { maintainerConversation: string; maintainerId: string; projectId: string }): StoredEvent[] {
@@ -199,8 +199,8 @@ export function detailEventsOfProject(store: EventStore, project: { maintainerCo
 }
 
 /**
- * 属于一个任务的调用的完整内容的事件（删除任务时找，186 号票）：它的维护者会话里的（含子 agent 的；任务转为项目、项目删掉了的
- * 不给会话）、这几个 agent（维护者、子 agent）自己的、归属这个任务又不在任何会话里的（评审子 agent 的）。秘书会话里归属这个任务的调用不算
+ * 属于一个任务的调用的完整内容的事件（删除任务时找，186 号票）：它的负责人会话里的（含子 agent 的；任务转为项目、项目删掉了的
+ * 不给会话）、这几个 agent（负责人、子 agent）自己的、归属这个任务又不在任何会话里的（评审子 agent 的）。秘书会话里归属这个任务的调用不算
  */
 export function detailEventsOfTask(store: EventStore, task: { conversation?: string | undefined; agentIds: readonly string[]; taskId: string }): StoredEvent[] {
   const agents = task.agentIds.length > 0 ? ` OR agent_id IN (${task.agentIds.map(() => "?").join(", ")})` : "";

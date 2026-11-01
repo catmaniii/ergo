@@ -18,7 +18,7 @@ export const RECORDINGS_DIR = path.resolve(import.meta.dirname, "../../../web/te
 export const RECORDING_ENV = "ERGO_RECORD_EVENTS";
 
 /**
- * 录下来或核对。perChannel：秘书、维护者、用户的动作各走各的，几个频道之间谁先到每次不一样（比如维护者交计划和秘书的回复），
+ * 录下来或核对。perChannel：秘书、负责人、用户的动作各走各的，几个频道之间谁先到每次不一样（比如负责人交计划和秘书的回复），
  * 只核对每个频道里的先后和本地动作的先后（12 号票起的任务流程）
  */
 export function saveOrCheckRecording(name: string, inputs: readonly RecordedInput[], options: { perChannel?: boolean } = {}): void {

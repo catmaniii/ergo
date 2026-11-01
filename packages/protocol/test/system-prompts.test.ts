@@ -112,5 +112,7 @@ describe("读进来的文件统一成一个样子", () => {
     expect(normalizePromptSource("﻿第一行\r\n第二行\r\n\r\n")).toBe("第一行\n第二行");
     expect(normalizePromptSource("一行\n")).toBe("一行");
     expect(normalizePromptSource("")).toBe("");
+    // 365 号票：用户改过的提示里还写着来信标记的老占位符，换成新名字
+    expect(normalizePromptSource("开头是{{维护者来信标记}}的通知")).toBe("开头是{{负责人来信标记}}的通知"); // @keep-old-name
   });
 });

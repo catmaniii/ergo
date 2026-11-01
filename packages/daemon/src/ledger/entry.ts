@@ -10,7 +10,7 @@ export const LEDGER_CHANNEL = "ledger";
 export const TOKEN_USAGE_EVENT = "token_usage";
 
 /**
- * 用量记在谁名下：拉起 agent 的模块给（每次用量上来时现取，归属会变：项目维护者执行任务的工单时记在任务名下，
+ * 用量记在谁名下：拉起 agent 的模块给（每次用量上来时现取，归属会变：项目负责人执行任务的工单时记在任务名下，
  * 执行定时作业时记在作业名下，不在任务里时记在项目名下）。
  * - owner 为 null：秘书（角色 secretary）的是系统开销；别的角色没有归属就是"未归属"；秘书的不论给了什么 owner 都按系统开销记；
  * - stageId：记在任务名下时这次调用算哪个阶段。子 agent、评审子 agent 拉起时带上它被派去 / 评审的阶段；不给就取任务的当前阶段

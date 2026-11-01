@@ -9,7 +9,7 @@
 //   认不出的工具（守护进程代为执行的二狗自己的工具）不列。
 // 274 号票加的：一个阶段这一轮系统查到的结果（本该是每轮结束系统直接查世界写出的结果、验收时系统查到的证据；
 // 二狗查不了世界，票面定了用效果日志代替）——发了什么（消息、请求、对外动作）、改了哪些文件（新建 / 修改 / 删除）、本机做的别的事
-// （里面改的文件效果日志记不到），维护者宣布完成时写的那一两句里提到的文件对不对得上（stageObserved、claimedFiles、claimChecks），
+// （里面改的文件效果日志记不到），负责人宣布完成时写的那一两句里提到的文件对不对得上（stageObserved、claimedFiles、claimChecks），
 // 和存进任务的个数（observedCounts：看板卡、阶段框上那一行，只记个数和工具名）。
 // 纯函数，执行控制器（execution.ts 的 stageView、rework、宣布完成）调用。
 import type { StageEffect, StageFileChange, StageObserved, StageObservedCounts, StageSendKind, Task, TaskStage, TaskStageView } from "@ergo/protocol";
@@ -191,7 +191,7 @@ const normalPath = (p: string) =>
 const blank = (m: string) => " ".repeat(m.length);
 
 /**
- * 维护者宣布完成时写的那一两句里提到的文件和目录（按出现的先后，同一个只算一次）：引号、书名号、反引号里的（可以有中文、空格），
+ * 负责人宣布完成时写的那一两句里提到的文件和目录（按出现的先后，同一个只算一次）：引号、书名号、反引号里的（可以有中文、空格），
  * 和不带引号的路径、文件名（带路径分隔符，或者以认得的扩展名结尾）。网址、邮箱、版本号、Node.js 这类技术名不算；句末的点去掉
  */
 export function claimedFiles(summary: string | undefined): string[] {
@@ -228,7 +228,7 @@ function sameFile(claim: string, file: string): boolean {
 }
 
 /**
- * 自报里提到的文件对不对得上（"维护者交的"和"系统查到"摆在一起，再把对不上的标出来）：这一轮新建或改过的是 found；
+ * 自报里提到的文件对不对得上（"负责人交的"和"系统查到"摆在一起，再把对不上的标出来）：这一轮新建或改过的是 found；
  * 只查到删了它的是 deleted；都没有是 untouched（脚本、命令里面改的文件效果日志记不到，界面上照实说"没查到"）
  */
 export function claimChecks(summary: string | undefined, files: StageObserved["files"]): StageObserved["claims"] {

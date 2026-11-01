@@ -92,9 +92,9 @@ interface Store {
   projectAction(projectId: string, action: ProjectAction): void;
   /** 项目卡片、项目页上的"启动""关闭"（257 号票）：做到哪了随后经 project_services 推来；被拒时原因出现在 ui.failures 里 */
   projectServicesAction(projectId: string, action: ProjectServicesAction): void;
-  /** 项目页上的"重置维护者"（16 号票） */
+  /** 项目页上的"重置负责人"（16 号票） */
   resetMaintainer(projectId: string): void;
-  /** 多订阅几个频道（打开一个项目的维护者会话时） */
+  /** 多订阅几个频道（打开一个项目的负责人会话时） */
   watchChannels(channels: readonly string[]): void;
   /** 控制任务（13 号票）：暂停、继续、取消、重试、返工、由我验收的验收通过或退回；被拒时原因出现在 ui.failures 里 */
   /** stageEdit：从这里重做时直接改的这一阶段（125 号票） */

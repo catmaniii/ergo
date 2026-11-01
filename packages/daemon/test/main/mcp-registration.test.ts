@@ -1,8 +1,8 @@
-// 主切面（239 号票）：维护者用 request_mcp_change 提一条 MCP 登记的加、改、删，用户在"MCP 登记变更"卡上确认之后，
+// 主切面（239 号票）：负责人用 request_mcp_change 提一条 MCP 登记的加、改、删，用户在"MCP 登记变更"卡上确认之后，
 // 运行时才按 name 合并写进数据目录配置区的 config/mcp.json，顺手把这个 MCP 真拉起来一次做自检。真的守护进程、真的端口、
 // 真的 mcp.json；MCP 服务进程是测试里的假 MCP 服务（test/fixtures/fake-mcp-server.mjs，stdio，不连任何真的 MCP）。
 // 覆盖的验收：
-// - 批准后 mcp.json 里多出那条登记（原有条目不动），维护者的会话按新装配重新拉起、里面能看到这个 MCP 的工具；
+// - 批准后 mcp.json 里多出那条登记（原有条目不动），负责人的会话按新装配重新拉起、里面能看到这个 MCP 的工具；
 // - 未确认时文件一个字节都不变（对比前后全文）；
 // - 删一条同样要卡，确认后工具从会话里消失（别的登记不动）；
 // - 校验不通过（command 空）时不出卡，文件不动；
@@ -24,10 +24,10 @@ import { makeTempDir } from "../helpers/temp-dir.ts";
 import { FAKE_MCP_SERVER, MCP_TOKEN, MCP_TOKEN_ENV, mcpLog, seedToolkitProject, toolkit, writeMcpRegistration } from "../helpers/toolkit.ts";
 
 const PM1 = maintainerChannel("pm-1");
-/** echo_context：回的是维护者看到的上下文（系统提示、工具、工具结果） */
+/** echo_context：回的是负责人看到的上下文（系统提示、工具、工具结果） */
 const echo = { kind: "echo_context" } as const;
 
-/** 给维护者的假 MCP 服务（相册桥）：命令、args、凭据只写引用、两个只读工具（假服务报的是 echo、status） */
+/** 给负责人的假 MCP 服务（相册桥）：命令、args、凭据只写引用、两个只读工具（假服务报的是 echo、status） */
 const albumRegistration = (logFile: string) => ({
   title: "旅行相册",
   command: process.execPath,
@@ -39,22 +39,22 @@ const albumRegistration = (logFile: string) => ({
   },
 });
 
-/** 维护者此刻能用的工具那几行：开头那一份（按新装配接着会话也是开头一份、按这次交的先后，273 号票）；以前回显的旧上下文不算 */
+/** 负责人此刻能用的工具那几行：开头那一份（按新装配接着会话也是开头一份、按这次交的先后，273 号票）；以前回显的旧上下文不算 */
 const toolLines = (seen: string) => toolsNow(seen).map((name) => `[tool] ${name}`);
 
-/** 维护者会话里 agent 的回复（echo_context 回的是它看到的上下文） */
+/** 负责人会话里 agent 的回复（echo_context 回的是它看到的上下文） */
 const repliesOf = (frontend: TestFrontend, channel: string) =>
   messagesOf(frontend, channel)
     .filter((m) => m.message.speaker === "agent" && m.message.parts.some((p) => p.type === "text"))
     .map(textOf);
 
-/** 维护者会话里第 n 条回复（从 1 起） */
+/** 负责人会话里第 n 条回复（从 1 起） */
 async function nthReply(frontend: TestFrontend, channel: string, n: number): Promise<string> {
   await waitUntil(() => repliesOf(frontend, channel).length >= n, { timeoutMs: 60_000, describe: () => `等 ${channel} 的第 ${n} 条回复；现在是：\n${repliesOf(frontend, channel).map((t) => t.slice(0, 200)).join("\n")}` });
   return repliesOf(frontend, channel)[n - 1]!;
 }
 
-/** 连上前端，订阅卡片、待我处理、项目和项目维护者的会话 */
+/** 连上前端，订阅卡片、待我处理、项目和项目负责人的会话 */
 async function connect(td: TestDaemon): Promise<TestFrontend> {
   const frontend = await TestFrontend.connect(td.url);
   await frontend.subscribe(Object.fromEntries([CHANNELS.cards, CHANNELS.inbox, CHANNELS.projects, PM1].map((channel) => [channel, 0])));
@@ -69,7 +69,7 @@ const cardOf = (frontend: TestFrontend, cardId: string) =>
 type McpChangeCardShape = { id: string; type: string; status: string; payload: Partial<McpChangeCardPayload>; outcome?: { note?: string } };
 
 describe("MCP 登记变更（239）", () => {
-  it("维护者提一条登记，用户在卡上确认后才写进 mcp.json：原有条目不动，自检真把服务拉起来，会话里看得到它的工具；时间线、审计、素材都记着", { timeout: 120_000 }, async () => {
+  it("负责人提一条登记，用户在卡上确认后才写进 mcp.json：原有条目不动，自检真把服务拉起来，会话里看得到它的工具；时间线、审计、素材都记着", { timeout: 120_000 }, async () => {
     const logFile = path.join(makeTempDir("ergo-mcp-log-"), "mcp.jsonl");
     const albumLog = path.join(makeTempDir("ergo-mcp-album-"), "mcp.jsonl");
     const td = await startTestDaemon({
@@ -98,7 +98,7 @@ describe("MCP 登记变更（239）", () => {
     expect(card.text).toContain("原样回话");
     expect(card.text).toContain("只读或幂等");
     expect(card.text).not.toContain(MCP_TOKEN);
-    // 待我处理里有一条；工具结果告诉维护者卡进待我处理了、用户确认之前文件不变
+    // 待我处理里有一条；工具结果告诉负责人卡进待我处理了、用户确认之前文件不变
     expect(inboxOf(frontend).some((item) => item.kind === "card" && item.cardId === card.id)).toBe(true);
     expect(await nthReply(frontend, PM1, 1)).toContain("已提交“MCP 登记变更”卡");
     // 未确认：文件一个字节都不变，服务也还没被拉起过
@@ -125,7 +125,7 @@ describe("MCP 登记变更（239）", () => {
     expect(toolLines(seen)).toEqual(expect.arrayContaining(["[tool] mcp__album__echo", "[tool] mcp__album__status"]));
     // 时间线：谁提的、批准了、自检结果
     const record = recordsOf(frontend, PM1).map((r) => r.record).filter((r) => r.kind === "mcp").at(-1)!;
-    expect(record.summary).toContain("项目「旅行相册」的维护者");
+    expect(record.summary).toContain("项目「旅行相册」的负责人");
     expect(record.summary).toContain("拉起来了");
     expect(record.detail).toContain("原样回话");
     // 审计：mcp_decided 记着项目、时间、自检结果
@@ -134,11 +134,11 @@ describe("MCP 登记变更（239）", () => {
       { decision: "approved", action: "add", name: "album", cardId: card.id, applied: true, check: { ok: true }, submitter: { kind: "project", projectId: project.id }, note: "接吧" },
     ]);
     expect(Number.isNaN(Date.parse(decided[0]!.time))).toBe(false);
-    // 审批决定（素材）：批准的是维护者先提的申请，写着用户那句"接吧"
+    // 审批决定（素材）：批准的是负责人先提的申请，写着用户那句"接吧"
     const decisions = () => td.daemon.materials.list({ kind: "approval_decision" }).filter((m) => m.context.includes("card:mcp_change"));
     const decision = await eventually(decisions, (m) => m.context.includes("decision:approved"), "MCP 登记变更的审批决定素材");
     expect(decision.segments.map((s) => s.text).join("\n")).toContain("接吧");
-    // 维护者收到了批准的通知
+    // 负责人收到了批准的通知
     expect(messagesOf(frontend, PM1).some((m) => m.agentInput === true && textOf(m).includes("批准了你的 MCP 登记变更"))).toBe(true);
     await frontend.close();
   });
@@ -160,7 +160,7 @@ describe("MCP 登记变更（239）", () => {
     await frontend.sendText("看看有什么", { conversation: PM1 });
     const first = await nthReply(frontend, PM1, 1);
     expect(toolLines(first)).toEqual(expect.arrayContaining(["[tool] mcp__demo__echo"]));
-    // 让维护者删掉：出一张卡，批准之前文件不变
+    // 让负责人删掉：出一张卡，批准之前文件不变
     await frontend.sendText("把 demo 桥去掉", { conversation: PM1 });
     const card = await cardWhere(frontend, (c) => c.type === "mcp_change", "删登记的卡");
     expect(card.payload).toMatchObject({ action: "remove", name: "demo" });

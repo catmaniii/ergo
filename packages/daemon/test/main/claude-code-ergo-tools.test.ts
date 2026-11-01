@@ -1,10 +1,10 @@
 // 主切面：二狗的工具、上下文、工具包里的 skill 交给 Claude Code（291 号票）。真的守护进程走组合根和插件清单，清单里的 Claude Code 插件经
 // extraPlugins 换成子进程接假 SDK 的那个（helpers/fake-claude-code.ts：运行时、适配子进程、守卫的钩子、进程内 MCP 服务、上下文钩子、插件目录都是真的；
 // SDK 按 faux 剧本扮演 claude——调 mcp__<服务>__<工具> 时经进程内 MCP 服务调，每条输入之前叫 SessionStart / UserPromptSubmit 钩子），
-// 不启动真的 claude、不花额度、不碰用户真实的 ~/.claude（守护进程的主目录是临时的）。测试用的插件"探针"扮演给维护者工具和上下文的插件：
-// - Claude 调二狗的问记忆工具（探针给任务维护者的 ask_memory）拿到结果：守卫照工具的登记判、调用记进会话；记忆简报（跟在输入后面的那块）、
+// 不启动真的 claude、不花额度、不碰用户真实的 ~/.claude（守护进程的主目录是临时的）。测试用的插件"探针"扮演给负责人工具和上下文的插件：
+// - Claude 调二狗的问记忆工具（探针给任务负责人的 ask_memory）拿到结果：守卫照工具的登记判、调用记进会话；记忆简报（跟在输入后面的那块）、
 //   项目规范（被唤起时注入的那块）进了模型的上下文（钩子的 additionalContext），界面上（会话频道里的消息）不显示；
-// - 工具包改了（项目的工具包打开"发附件"）：维护者正在这一轮里（探针的工具卡着），下一次调用就能用新工具 send_attachment，子进程没有重新拉起，
+// - 工具包改了（项目的工具包打开"发附件"）：负责人正在这一轮里（探针的工具卡着），下一次调用就能用新工具 send_attachment，子进程没有重新拉起，
 //   "工具包已变更"随那次工具结果交给模型；
 // - 工具包里的 skill 拼成本地插件交给 query（plugins 里有它，目录里是这个 skill），输入框的 / 补全列出 /ergo:<目录名>；
 //   用户的 ~/.claude、项目工作目录里的 .claude/ 没被写。
@@ -67,7 +67,7 @@ function gate() {
   return { opened, open, calls: 0 };
 }
 
-/** 测试用的插件"探针"：给任务维护者问记忆、给项目维护者一个会卡住的工具；每条输入后面跟记忆简报，被唤起时注入项目规范 */
+/** 测试用的插件"探针"：给任务负责人问记忆、给项目负责人一个会卡住的工具；每条输入后面跟记忆简报，被唤起时注入项目规范 */
 function probePlugin(hold: ReturnType<typeof gate>): PluginDefinition {
   const askMemory = defineHostTool({
     name: "ask_memory",
@@ -136,7 +136,7 @@ describe("二狗的工具和上下文交给 Claude Code（假 SDK）", () => {
     expect(fs.existsSync(path.join(td.homeDir, ".claude"))).toBe(false);
   }, 90_000);
 
-  it("工具包改了：维护者这一轮正卡在二狗的工具上，下一次调用就能用新加的 send_attachment；子进程没重新拉起，工具包已变更随那次结果交给模型", async () => {
+  it("工具包改了：负责人这一轮正卡在二狗的工具上，下一次调用就能用新加的 send_attachment；子进程没重新拉起，工具包已变更随那次结果交给模型", async () => {
     const hold = gate();
     const td = await startTestDaemon({
       extraPlugins: [fakeSdkClaudeCodePlugin, probePlugin(hold)],
@@ -153,7 +153,7 @@ describe("二狗的工具和上下文交给 Claude Code（假 SDK）", () => {
     await frontend.subscribe({ [CHANNELS.board]: 0, [pm]: 0 });
     await frontend.sendText("把说明发给我", { conversation: pm });
 
-    await waitUntil(() => hold.calls === 1, { timeoutMs: 60_000, describe: () => `等维护者调到探针的工具；调用：${JSON.stringify(toolParts(td, pm))}` });
+    await waitUntil(() => hold.calls === 1, { timeoutMs: 60_000, describe: () => `等负责人调到探针的工具；调用：${JSON.stringify(toolParts(td, pm))}` });
     // 这时候还没有 send_attachment（工具包里关着）；打开它
     td.daemon.projects.changeToolkit(project.id, { ...toolkit, sendAttachment: true }, { by: "user", why: "你在项目页打开了发附件" });
     hold.open();
@@ -183,7 +183,7 @@ describe("二狗的工具和上下文交给 Claude Code（假 SDK）", () => {
     const frontend = await TestFrontend.connect(td.url);
     await frontend.subscribe({ [pm]: 0 });
     await frontend.sendText("列个清单", { conversation: pm });
-    await waitUntil(() => lastEcho(td, pm) !== undefined, { timeoutMs: 60_000, describe: () => "等维护者回显" });
+    await waitUntil(() => lastEcho(td, pm) !== undefined, { timeoutMs: 60_000, describe: () => "等负责人回显" });
     const seen = lastEcho(td, pm)!;
     const pluginRoot = path.join(td.dataDir, "cache", "runtimes", project.maintainerId, "ergo");
     expect(seen.options.plugins).toEqual([pluginRoot]);
@@ -193,7 +193,7 @@ describe("二狗的工具和上下文交给 Claude Code（假 SDK）", () => {
     const after = (await slashCommands(td.url, pm)).body.commands;
     expect(after.filter((c) => c.text === "/ergo:example-checklist")).toHaveLength(1);
 
-    // 工具包里加一个 skill（手放进 skill 区的）：维护者闲着、子进程还在——当场重拼插件目录（子进程叫 SDK 重新加载插件），补全跟着列出
+    // 工具包里加一个 skill（手放进 skill 区的）：负责人闲着、子进程还在——当场重拼插件目录（子进程叫 SDK 重新加载插件），补全跟着列出
     const weekly = path.join(td.dataDir, "skills", "weekly-report");
     fs.mkdirSync(weekly, { recursive: true });
     fs.writeFileSync(path.join(weekly, "SKILL.md"), "---\nname: weekly-report\ndescription: 写周报\n---\n\n照着写周报。\n");

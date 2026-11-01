@@ -3,7 +3,7 @@
 // - 存在数据目录配置区的 config/user-name.json（{ format: 1, name }），没有这个文件就是没设；
 // - 启动时读入；读坏了、内容不对、名字不合规只当没设（记一行日志，不覆盖文件），不让守护进程起不来；
 // - 改名字照 checkAssistantName 的规矩查（不合规抛 RequestRejected，网关回 400 带原因），null / 空串 / 只有空白 = 清除；
-// - 有变化才写、才叫 onChange（秘书、记忆管理员、维护者据此从下一轮起按新的系统提示重新装配）；
+// - 有变化才写、才叫 onChange（秘书、记忆管理员、负责人据此从下一轮起按新的系统提示重新装配）；
 // - 系统提示：设了就在前缀后面加一句"用户叫「…」"；没设时和以前**逐字节一样**（前缀、角色提示一个字都不变）。
 // 它和个人助理的名字（43 号票）各存各的文件，改一个不动另一个。
 import fs from "node:fs";
@@ -157,37 +157,37 @@ describe("系统提示：设了名字加一句，没设一个字都不变", () =
     const root = makeTempDir();
     const userDir = path.join(root, "prompts");
     const plain = createPromptLibrary({ log: () => {} });
-    expect(plain.withPrefix("你是维护者。")).toBe("你是维护者。");
+    expect(plain.withPrefix("你是负责人。")).toBe("你是负责人。");
     // 设了名字的对照：多一句（只有这一句在前面、空一行）
     const named = createPromptLibrary({ userName: () => "小明", log: () => {} });
-    expect(named.withPrefix("你是维护者。")).toBe(`${LINE("小明")}\n\n你是维护者。`);
+    expect(named.withPrefix("你是负责人。")).toBe(`${LINE("小明")}\n\n你是负责人。`);
     // 前缀有内容：用户自己的那段还是最前，名字那句跟在它后面
     fs.mkdirSync(userDir, { recursive: true });
     fs.writeFileSync(path.join(userDir, "prefix.md"), "我住在新加坡，回答用简体中文。\n");
     const withoutName = createPromptLibrary({ userDir, log: () => {} });
     const withName = createPromptLibrary({ userDir, userName: () => "小明", log: () => {} });
-    expect(withoutName.withPrefix("你是维护者。")).toBe("我住在新加坡，回答用简体中文。\n\n你是维护者。");
-    expect(withName.withPrefix("你是维护者。")).toBe(`我住在新加坡，回答用简体中文。\n\n${LINE("小明")}\n\n你是维护者。`);
+    expect(withoutName.withPrefix("你是负责人。")).toBe("我住在新加坡，回答用简体中文。\n\n你是负责人。");
+    expect(withName.withPrefix("你是负责人。")).toBe(`我住在新加坡，回答用简体中文。\n\n${LINE("小明")}\n\n你是负责人。`);
   });
 
   it("名字现取：改了（设了、清了）下一次装配就是新的；空串当没设", () => {
     let name: string | undefined;
     const library = createPromptLibrary({ userName: () => name, log: () => {} });
-    expect(library.withPrefix("你是维护者。")).toBe("你是维护者。");
+    expect(library.withPrefix("你是负责人。")).toBe("你是负责人。");
     name = "小明";
-    expect(library.withPrefix("你是维护者。")).toContain(LINE("小明"));
+    expect(library.withPrefix("你是负责人。")).toContain(LINE("小明"));
     name = undefined;
-    expect(library.withPrefix("你是维护者。")).toBe("你是维护者。");
+    expect(library.withPrefix("你是负责人。")).toBe("你是负责人。");
     name = "   ";
-    expect(library.withPrefix("你是维护者。")).toBe("你是维护者。");
+    expect(library.withPrefix("你是负责人。")).toBe("你是负责人。");
   });
 
   it("和 241 号票那句（agent 自己的名字）不是一回事：一个在前缀后面，一个在角色提示末尾", () => {
     const library = createPromptLibrary({ userName: () => "小明", agentName: () => "阿福", log: () => {} });
-    const withPrefix = library.withPrefix("你是维护者。");
+    const withPrefix = library.withPrefix("你是负责人。");
     expect(withPrefix).toContain(LINE("小明"));
     expect(withPrefix).not.toContain("用户叫你");
-    // 角色提示（带 agent id 的维护者那份）末尾才是"用户叫你「阿福」"
+    // 角色提示（带 agent id 的负责人那份）末尾才是"用户叫你「阿福」"
     const rendered = library.render("plain-task", { 连续失败几次暂停: "3", 对话审批开着: false, 定时触发: false }, "tm-1");
     expect(rendered.trimEnd().endsWith("用户叫你「阿福」：自我介绍、说到你自己时用这个名字。")).toBe(true);
     expect(rendered).not.toContain(ASSISTANT_NAME_MARK);

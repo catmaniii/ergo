@@ -156,7 +156,7 @@ async function startPiSession(
 
   const guard = new GuardForwarder(emit);
   const hostTools = new HostToolBridge(emit);
-  // 范围审视（18 号票，维护者的会话才有）：审视用的模型是 faux 时注册成另一个 provider，和会话的各按各的剧本
+  // 范围审视（18 号票，负责人的会话才有）：审视用的模型是 faux 时注册成另一个 provider，和会话的各按各的剧本
   const reviewer = assembly.scopeReview
     ? new ScopeReviewer(assembly.scopeReview, resolveModel(assembly.scopeReview.model, modelRuntime, FAUX_REVIEW_PROVIDER_ID), {
         modelRuntime,
@@ -169,7 +169,7 @@ async function startPiSession(
   const settingsManager = SettingsManager.inMemory({});
   /** 建好的 pi 会话（按压缩指令写摘要要它的模型调用函数；会话建好之后才会压缩） */
   let piSession: AgentSession | undefined;
-  // 通用桥接扩展（128 号票）：守卫转发（打开了才接）、上下文块、钩子订阅、范围审视（维护者，18 号票）都经它翻译给 pi；
+  // 通用桥接扩展（128 号票）：守卫转发（打开了才接）、上下文块、钩子订阅、范围审视（负责人，18 号票）都经它翻译给 pi；
   // 一样都没有就不挂（和 128 号票之前一个内联扩展都不挂时一样）
   const bridge = new ContributionBridge(assembly.contributions, {
     guard: assembly.forwardToolCalls ? guard : undefined,
@@ -399,8 +399,8 @@ export function sessionNameOf(file: string): string {
 
 /**
  * 会话从哪来：
- * - 指定了名字（16 号票：维护者会话分段）：有这个会话就接着它；还没有时选了 continueSession 就接着最近的那个
- *   （项目维护者的第一段对话段接着任务转来的、16 号票之前的会话），目录里没有会话就新开一个、用这个名字存
+ * - 指定了名字（16 号票：负责人会话分段）：有这个会话就接着它；还没有时选了 continueSession 就接着最近的那个
+ *   （项目负责人的第一段对话段接着任务转来的、16 号票之前的会话），目录里没有会话就新开一个、用这个名字存
  *   （pi 在第一条消息之后才真正写盘）；
  * - 没指定：选了 continueSession 接着最近的，都没有就新开。
  * 工作目录变了（任务转为项目、绑定外部工作目录，15 号票）也接着同一个会话：pi 的 continueRecent 在指定了会话目录时只挑

@@ -108,10 +108,10 @@ describe("规范模板：框架里按版本分目录，开发类、其他类各�
     expect(differ).toEqual([]);
   });
 
-  test("中文的规格、进展里留着原来那句开头的话（只出现一次）：维护者照旧把它整句换成内容", () => {
+  test("中文的规格、进展里留着原来那句开头的话（只出现一次）：负责人照旧把它整句换成内容", () => {
     const dir = path.join(STANDARD_TEMPLATES_DIR, PROJECT_STANDARD_LATEST, "dev", "zh-CN");
     for (const [rel, line] of [
-      ["spec.md", "这个项目要做成什么样：立项问答时由维护者写。"],
+      ["spec.md", "这个项目要做成什么样：立项问答时由负责人写。"],
       ["progress.md", "做到哪了、下一步做什么：每段工作结束时写回。"],
     ] as const) {
       expect(read(path.join(dir, rel)).split(line)).toHaveLength(2);
@@ -156,7 +156,7 @@ describe("新项目按类型从模板生成档案", () => {
 
   test("规范上线之前建的项目（没记模板版本）：照旧的最小文档集，不补开发类的", () => {
     const { paths } = setup(project({ standardVersion: undefined, kind: "dev", charterConfirmed: true }));
-    expect(read(paths.spec)).toBe("# 规格\n\n项目「记账本」（p-1）：把家里的账管起来\n\n这个项目要做成什么样：立项问答时由维护者写。\n");
+    expect(read(paths.spec)).toBe("# 规格\n\n项目「记账本」（p-1）：把家里的账管起来\n\n这个项目要做成什么样：立项问答时由负责人写。\n");
     expect(fs.existsSync(paths.architecture)).toBe(false);
     expect(fs.existsSync(paths.tickets)).toBe(false);
   });
@@ -323,6 +323,27 @@ function templatesWithV2(): string {
   fs.writeFileSync(path.join(dir, "v2", "dev", "zh-CN", "security.md"), "# 安全说明\n\n> **这份写什么**：…\n");
   return dir;
 }
+
+describe("365 号票之前按老模板生成的文件（模板里的叫法改了一个词）", () => {
+  // 把现在的模板换回老说法，就是老项目档案里的样子
+  const oldZh = (text: string) => text.replaceAll("负责人", "维护者"); // @keep-old-name
+  const oldEn = (text: string) => text.replaceAll("the owner", "the maintainer");
+
+  test.each([
+    ["中文的规格", "other", "zh-CN", "spec.md", oldZh],
+    ["中文的运营接口清单", "dev", "zh-CN", "ops.json", oldZh],
+    ["中文的票的说明", "dev", "zh-CN", "tickets/README.md", oldZh],
+    ["英文的规格", "other", "en", "spec.md", oldEn],
+    ["英文的运营接口清单", "dev", "en", "ops.json", oldEn],
+  ] as const)("%s照样算模板原样（没写过）", (_name, kind, language, rel, toOld) => {
+    const now = read(path.join(STANDARD_TEMPLATES_DIR, "v1", kind, language, rel));
+    expect(toOld(now)).not.toBe(now);
+    expect(standardTemplates().isTemplate(rel, toOld(now))).toBe(true);
+    expect(standardTemplates().isTemplate(rel, now)).toBe(true);
+    // 用户写过的不算
+    expect(standardTemplates().isTemplate(rel, `${toOld(now)}\n写了一句`)).toBe(false);
+  });
+});
 
 describe("模板出了新版只提示（261 号票）", () => {
   test("项目照旧用建档时的版本：新版多的不补、已有的不换，视图里 latest 是新版；跟了新版（版本换成 v2）才补缺的，已有的照旧不动、仍算模板原样", () => {

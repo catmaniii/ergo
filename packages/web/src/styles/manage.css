@@ -176,7 +176,7 @@
 .menu-empty {
   padding: 8px 10px;
 }
-/* 141 号票：运营方案里的一条，取消、归档换成的那行说明（字小、能折行，点了进项目维护者的会话） */
+/* 141 号票：运营方案里的一条，取消、归档换成的那行说明（字小、能折行，点了进项目负责人的会话） */
 .task-menu button.menu-note {
   max-width: 240px;
   white-space: normal;

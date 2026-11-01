@@ -131,11 +131,11 @@
 // PUT /api/agents/<agent id>/prompt 存这个 agent 单独的提示词（{ mode, content }，占位符写错回 400），DELETE 恢复用通用模板
 // （改动本身幂等，不带幂等键）；POST /api/agents/<agent id>/clear 清空当前对话（请求体带幂等键，重发只清一次）；
 // POST /api/agents/<agent id>/compact 现在压缩（不带请求体；已经在等、在压时再点没有变化，所以不带幂等键）；
-// PUT /api/agents/<agent id>/model 项目、任务的维护者单独配模型（{ modelId, thinkingLevel }，120 号票），DELETE 改回跟随它那一行
+// PUT /api/agents/<agent id>/model 项目、任务的负责人单独配模型（{ modelId, thinkingLevel }，120 号票），DELETE 改回跟随它那一行
 // （改动本身幂等，不带幂等键）。都回 AgentSettingsView。
 //
 // 每个 agent 自己的名字和音色（241 号票，请求体和响应体见 agent-profiles-schema.ts）：GET /api/agent-profiles 列出全部能配的 agent
-// （秘书、每个在的项目维护者、每个在的任务维护者……按 agent id 来，不写死名单），带着每个人的名字和音色以及来源（自己配的 / 跟默认）；
+// （秘书、每个在的项目负责人、每个在的任务负责人……按 agent id 来，不写死名单），带着每个人的名字和音色以及来源（自己配的 / 跟默认）；
 // PUT /api/agent-profiles/<agent id> 改一个（{ name?, voiceId? }，null 或是不写这一项 = 恢复跟默认），回同样的 AgentProfilesView。
 // 名字不合规、音色不存在回 400 带原因。全局的名字（43）和全局选中的音色（31）还是默认，没配的 agent 跟着它走。
 //
@@ -234,7 +234,7 @@ export const HTTP_QUERY = {
   message: "message",
   /** 回退前的确认（150 号票）：回到这条分支开始前；一条分支的样子（151 号票）：哪条分支 */
   branch: "branch",
-  /** 回退前的确认（152 号票）：回到长程任务这个阶段开始前（维护者会话里那条 stage_start 记号的 id） */
+  /** 回退前的确认（152 号票）：回到长程任务这个阶段开始前（负责人会话里那条 stage_start 记号的 id） */
   stage: "stage",
   /** 一条分支的样子（151 号票）：和哪条分支比（不给是当前分支），给的是它路径上不在那条路径上的一段 */
   against: "against",
@@ -526,7 +526,7 @@ export const HTTP_PATHS = {
   autostart: api(AUTOSTART),
   /**
    * 项目的服务报事件（357 号票，ADR-0043，形状在 project-services.ts、service-events-schema.ts）：POST（ServiceEventBody → ServiceEventReply），
-   * 带 Authorization: Bearer <服务的专属凭证>。只在本机端口开，外网端口一律拒绝；不等维护者做完就回
+   * 带 Authorization: Bearer <服务的专属凭证>。只在本机端口开，外网端口一律拒绝；不等负责人做完就回
    */
   serviceEvents: api(SERVICE_EVENTS),
   /**
@@ -577,7 +577,7 @@ export const HTTP_PATHS = {
   componentImport: api(COMPONENT_IMPORT),
   /** 长程任务一个阶段的授权已用次数、从这里重做的范围和已经做了的事（GET，响应 TaskStageView，84 号票） */
   taskStage: (taskId: string, stageId: string) => api(TASKS, taskId, STAGES, stageId),
-  /** 一个 agent 的 ⚙ 面板（GET，响应 AgentSettingsView，114 号票）：agent id 是秘书的 secretary、维护者的 tm-<n> / pm-<n> */
+  /** 一个 agent 的 ⚙ 面板（GET，响应 AgentSettingsView，114 号票）：agent id 是秘书的 secretary、负责人的 tm-<n> / pm-<n> */
   agentSettings: (agentId: string) => api(AGENTS, agentId),
   /** 这个 agent 单独的提示词：PUT 存（请求体 AgentPromptBody）、DELETE 恢复用通用模板，响应都是 AgentSettingsView */
   agentPrompt: (agentId: string) => api(AGENTS, agentId, PROMPT),
@@ -585,10 +585,10 @@ export const HTTP_PATHS = {
   agentClear: (agentId: string) => api(AGENTS, agentId, CLEAR),
   /** 现在压缩（POST，不带请求体，响应 AgentSettingsView） */
   agentCompact: (agentId: string) => api(AGENTS, agentId, COMPACT),
-  /** 项目、任务的维护者单独配模型（120 号票）：PUT 选定（请求体 AgentModelBody）、DELETE 改回跟随它那一行，响应都是 AgentSettingsView */
+  /** 项目、任务的负责人单独配模型（120 号票）：PUT 选定（请求体 AgentModelBody）、DELETE 改回跟随它那一行，响应都是 AgentSettingsView */
   agentModel: (agentId: string) => api(AGENTS, agentId, MODEL),
   /**
-   * 项目、任务的维护者用哪个运行时、给它选的模型和设置项（289 号票）：PUT（请求体 AgentRuntimeBody，响应 AgentSettingsView）。
+   * 项目、任务的负责人用哪个运行时、给它选的模型和设置项（289 号票）：PUT（请求体 AgentRuntimeBody，响应 AgentSettingsView）。
    * 换了运行时的：手头这一条做完，原来的写交接摘要、新的新开会话；只改模型、设置项的从下一轮起
    */
   agentRuntime: (agentId: string) => api(AGENTS, agentId, RUNTIME),

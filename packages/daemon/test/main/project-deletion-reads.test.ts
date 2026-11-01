@@ -1,11 +1,11 @@
-// 主切面：删除项目时补齐清理（66 号票）——项目之外读过这个项目的调用。真的守护进程，秘书、维护者、评审子 agent 接 faux 剧本，
+// 主切面：删除项目时补齐清理（66 号票）——项目之外读过这个项目的调用。真的守护进程，秘书、负责人、评审子 agent 接 faux 剧本，
 // 测试扮演前端。
 // - 秘书读过这个项目的（文件工具读写死的路径、经草稿区里的目录联接读、读项目档案的工具、列项目区这个上级目录）：删项目之后
 //   完整内容和返回都取不到，详情注明"已随项目删除"（purgedBy；过了保留期清掉过的也不再注明清掉），聊天里的工具调用记录只剩
 //   删除标记（messages_purged 给出改写后的样子），效果日志、秘书的会话文件里也没有了；秘书当时据此说的话不改；读别的项目、
 //   读项目外文件的不受影响；删除的二次确认上写着删不掉的（PROJECT_DELETE_LIMITS）；
-// - 涉及多个项目的任务自己的维护者读项目档案读到的、评审子 agent 读过这个项目的（工作目录、项目档案、经别的项目工作目录里的
-//   联接读到的）：一样取不到，任务维护者的聊天记录和会话文件也改；读别的项目的不受影响。
+// - 涉及多个项目的任务自己的负责人读项目档案读到的、评审子 agent 读过这个项目的（工作目录、项目档案、经别的项目工作目录里的
+//   联接读到的）：一样取不到，任务负责人的聊天记录和会话文件也改；读别的项目的不受影响。
 // 找哪些调用的规矩（包含关系、真实路径、通配符、按返回开头的项目编号）的表格在 test/projects/outside-reads.test.ts。
 import fs from "node:fs";
 import path from "node:path";
@@ -228,7 +228,7 @@ describe("秘书读过的项目档案", () => {
 });
 
 describe("跨项目任务读过的项目内容", () => {
-  it("删其中一个项目之后：任务自己的维护者读项目档案读到的、评审子 agent 读这个项目的（工作目录、项目档案、经别的项目工作目录里的联接读到的）完整内容和返回都取不到，详情注明已随项目删除，效果日志、任务维护者的聊天记录和会话文件里也没有；读另一个项目的不受影响", async () => {
+  it("删其中一个项目之后：任务自己的负责人读项目档案读到的、评审子 agent 读这个项目的（工作目录、项目档案、经别的项目工作目录里的联接读到的）完整内容和返回都取不到，详情注明已随项目删除，效果日志、任务负责人的聊天记录和会话文件里也没有；读另一个项目的不受影响", async () => {
     const { dataDir, homeDir, recordsA, recordsB } = places();
     // 家电档案的工作目录里一个目录联接，指向记账本的工作目录：写的路径在家电档案里，真实路径在记账本里
     fs.symlinkSync(path.join(recordsA, "workdir"), path.join(recordsB, "workdir", "link-a"), "junction");
@@ -303,7 +303,7 @@ describe("跨项目任务读过的项目内容", () => {
     expect(progressRead.result).toContain("记账本导出三列");
     expect(linkRead.result).toContain("日期、金额、备注");
     expect(importRead.result).toContain("型号、保修期");
-    // 任务自己的维护者规划时读的两个项目的档案：在它的会话里，归属是这个任务
+    // 任务自己的负责人规划时读的两个项目的档案：在它的会话里，归属是这个任务
     const tmReads = td.daemon.store
       .read("tool_calls")
       .map((e) => e.payload as ToolCallDetail)
@@ -326,12 +326,12 @@ describe("跨项目任务读过的项目内容", () => {
       expect(body).toMatchObject({ tool: "read", outcome: "done", conversation: null, taskId, purged: true, purgedBy: "project_deletion", result: PURGED_TEXT });
       expect(body).not.toHaveProperty("effects");
     }
-    // 任务维护者读记账本档案的那次：完整内容一样；聊天里的工具调用记录只换掉参数摘要和结果摘要，会话文件里那次调用也改
+    // 任务负责人读记账本档案的那次：完整内容一样；聊天里的工具调用记录只换掉参数摘要和结果摘要，会话文件里那次调用也改
     expect((await toolCallDetail(td.url, tmReadA.callId)).body).toMatchObject({ tool: "read_project_records", conversation: TM1, purged: true, purgedBy: "project_deletion", result: PURGED_TEXT });
     const tmPurged = (await frontend.next(TM1, EVENT_TYPES.messagesPurged)).payload as MessagesPurgedEventPayload;
     expect(tmPurged).toMatchObject({ materialIds: [], mediaIds: [], toolCallIds: [tmReadA.callId] });
     expect(tmPurged.messages.map((m) => m.replacement?.parts)).toEqual([[expect.objectContaining({ callId: tmReadA.callId, argsSummary: PURGED_TEXT, resultSummary: PURGED_TEXT })]]);
-    await waitUntil(() => !sessionText(td.daemon.layout.sessions, "tm-1").includes("月底按三列对账"), { timeoutMs: 60_000, describe: () => "等任务维护者的会话文件改写" });
+    await waitUntil(() => !sessionText(td.daemon.layout.sessions, "tm-1").includes("月底按三列对账"), { timeoutMs: 60_000, describe: () => "等任务负责人的会话文件改写" });
     expect(sessionText(td.daemon.layout.sessions, "tm-1")).toContain("保修卡拍照存档");
     expect((await toolCallDetail(td.url, tmReadB.callId)).body).toMatchObject({ result: expect.stringContaining("保修卡拍照存档") });
     // 读家电档案的那次照旧（连同效果记录）
@@ -346,7 +346,7 @@ describe("跨项目任务读过的项目内容", () => {
       [true, null],
       [false, importRead.callId],
     ]);
-    // 事件日志里记账本的内容一个字都不剩（维护者写的、评审读的）；家电档案的还在
+    // 事件日志里记账本的内容一个字都不剩（负责人写的、评审读的）；家电档案的还在
     const log = everything(td.daemon.store);
     expect(log).not.toContain("日期、金额、备注");
     expect(log).not.toContain("记账本导出三列");
@@ -356,10 +356,10 @@ describe("跨项目任务读过的项目内容", () => {
   }, 240_000);
 });
 
-/** 进展文档一开始的那句（项目档案的最小文档集）换成另一句：项目维护者写回项目档案 */
+/** 进展文档一开始的那句（项目档案的最小文档集）换成另一句：项目负责人写回项目档案 */
 const PROGRESS_INTRO = "做到哪了、下一步做什么：每段工作结束时写回。";
 const progressEdit = (records: string, newText: string) => call("edit", { path: path.join(records, "progress.md"), edits: [{ oldText: PROGRESS_INTRO, newText }] });
-/** 项目维护者交回执（完成） */
+/** 项目负责人交回执（完成） */
 const receipt = (text: string) => call("submit_receipt", { outcome: "done", summary: text });
 
 /** 一个阶段（评审验收），两个项目各一行 */

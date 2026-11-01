@@ -34,7 +34,7 @@ export interface ProjectServiceView {
   key: string;
   /** 这一条的名字（入口上写"打开「X」"） */
   title: string;
-  /** 维护者写的服务名 */
+  /** 负责人写的服务名 */
   name: string;
   /** LSM 里的名字、转发的应用名（<项目编号>-<服务名>） */
   app: string;
@@ -80,7 +80,7 @@ export const SERVICE_TOKEN_ENV = "ERGO_SERVICE_TOKEN";
 export const SERVICE_EVENT_OUTCOMES = ["woke", "merged", "no_waiter", "paused", "ignored", "rate_limited", "too_large"] as const;
 export type ServiceEventOutcome = (typeof SERVICE_EVENT_OUTCOMES)[number];
 
-/** 最近报的一个事件（项目页上这一条、维护者查的都是它） */
+/** 最近报的一个事件（项目页上这一条、负责人查的都是它） */
 export interface ServiceEventRecord {
   /** 事件名（服务自己写的，超长的截短） */
   name: string;
@@ -91,7 +91,7 @@ export interface ServiceEventRecord {
   runIds?: string[];
 }
 
-/** 每个服务留最近几条（项目页、维护者查的） */
+/** 每个服务留最近几条（项目页、负责人查的） */
 export const SERVICE_EVENTS_KEPT = 10;
 
 /** 这一条算不算叫醒了 */

@@ -1,4 +1,4 @@
-// agent 运行时（286 号票，ADR-0027 的"运行时"贡献点）：维护者用哪个 agent 运行时跑它的会话——内核自带的 pi，或者插件登记的
+// agent 运行时（286 号票，ADR-0027 的"运行时"贡献点）：负责人用哪个 agent 运行时跑它的会话——内核自带的 pi，或者插件登记的
 // （Claude Code、以后 Codex……）。每个运行时是一个实现宿主协议的子进程入口（ADR-0004），守护进程只认宿主协议，网页只认二狗自己的事件。
 // 守护进程把登记了的运行时连同能力清单交给网页（GET /api/runtimes，RuntimesView）：界面和守护进程按能力清单决定显示什么、走哪条路
 // （一套界面几种运行时：取交集，没有的不显示或由二狗间接补，issue 24 第三节）。286 号票只接通、没有界面：
@@ -7,7 +7,7 @@
 // branch_summary、rewind_files 说清分支摘要谁写、文件恢复不恢复）。
 // 不引用 TypeBox。
 
-/** 内核自带的运行时 pi 的 id：维护者没写运行时（Task.runtime、Project.runtime 没有）就是它 */
+/** 内核自带的运行时 pi 的 id：负责人没写运行时（Task.runtime、Project.runtime 没有）就是它 */
 export const PI_RUNTIME_ID = "pi";
 
 /**
@@ -17,7 +17,7 @@ export const PI_RUNTIME_ID = "pi";
  * - compact：现在压缩（⚙ 的按钮，宿主协议 compact）；
  * - rollback：撤回到某条输入、某次工具调用之前（navigate_session 的 beforeInput / beforeCall / afterCall，150、152 号票）；
  * - branch_switch：切回废弃分支（navigate_session 的 entry，151 号票）；
- * - branch_summary：撤回时运行时自己给被放弃的那段写分支摘要（没有的由二狗按自己记下的事件、用这个维护者的二狗模型另起一次写，293 号票）；
+ * - branch_summary：撤回时运行时自己给被放弃的那段写分支摘要（没有的由二狗按自己记下的事件、用这个负责人的二狗模型另起一次写，293 号票）；
  * - rewind_files：撤回时运行时把它改过的文件也恢复到撤回点（293 号票：Claude Code 的文件检查点，只追它自己的 Write、Edit 改的文件，
  *   Bash 改的追不到；撤回到一次工具调用前后（阶段、步骤开始前）时不恢复——检查点只按整条输入记）。pi 没有：撤回不动文件；
  * - model_handoff：换模型时原来的模型写交接摘要、新开会话（start.handoff，83 号票）；
@@ -95,9 +95,9 @@ export interface RuntimesView {
 }
 
 /**
- * 维护者给它用的运行时选的值（289 号票，⚙ 里；任务、项目上记着 runtimeOptions）：运行时自己的模型 id（没写是跟运行时自己的设置，
+ * 负责人给它用的运行时选的值（289 号票，⚙ 里；任务、项目上记着 runtimeOptions）：运行时自己的模型 id（没写是跟运行时自己的设置，
  * pi 不用这一项：pi 的模型在 ⚙ 的"模型"一块，照 120 号票）、设置项的值（设置项 id → 选的 value；没写的是那一项默认的）。
- * 守护进程拉起维护者时原样交给子进程（宿主协议的装配参数 runtimeOptions），子进程按自己的运行时翻译（Claude Code：model、effort、permissionMode）
+ * 守护进程拉起负责人时原样交给子进程（宿主协议的装配参数 runtimeOptions），子进程按自己的运行时翻译（Claude Code：model、effort、permissionMode）
  */
 export interface RuntimeChoice {
   model?: string;
@@ -110,7 +110,7 @@ export interface RuntimeChoice {
 export const RUNTIME_SWITCH_STATES = ["waiting", "handoff"] as const;
 export type RuntimeSwitchState = (typeof RUNTIME_SWITCH_STATES)[number];
 
-/** 维护者用的运行时 id：没写是 pi（Task.runtime、Project.runtime 的规矩） */
+/** 负责人用的运行时 id：没写是 pi（Task.runtime、Project.runtime 的规矩） */
 export const runtimeIdOf = (runtime: string | undefined): string => runtime ?? PI_RUNTIME_ID;
 
 /** 卡上要不要标出运行时（289 号票）：默认的 pi 不标，插件登记的才标 */
@@ -130,7 +130,7 @@ export interface ResumableSessionView {
   /** 运行时自己的会话 id */
   id: string;
   title: string;
-  /** 会话原来的工作目录（接管后维护者就在这里干活） */
+  /** 会话原来的工作目录（接管后负责人就在这里干活） */
   cwd: string;
   /** git 分支（有就写） */
   branch?: string;
@@ -166,8 +166,8 @@ export type TakeoverAction = (typeof TAKEOVER_ACTIONS)[number];
 
 /**
  * 一个运行时会话现在在哪边（292 号票，任务、项目上记着的 RuntimeTakeover 算出来的，二狗以自己的记录为准）：
- * - ergo：二狗接管着（只有二狗的维护者写它）；
- * - remote：在官方 App 里（运行时自己的后台会话连着 Remote Control，二狗不写它，只读跟随、把那边的进度补记进维护者的会话）；
+ * - ergo：二狗接管着（只有二狗的负责人写它）；
+ * - remote：在官方 App 里（运行时自己的后台会话连着 Remote Control，二狗不写它，只读跟随、把那边的进度补记进负责人的会话）；
  * - returned：交还了、空着（二狗不写它，用户可以回终端里用）
  */
 export const TAKEOVER_PLACES = ["ergo", "remote", "returned"] as const;

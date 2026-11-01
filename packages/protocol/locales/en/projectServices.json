@@ -35,7 +35,7 @@
   "projectServices.events.paused": "The task waiting for the event “{name}” is paused, so nothing was woken. Report again once the task is resumed",
   "projectServices.events.ignored": "The event “{name}” wasn't delivered: {reason}",
   "projectServices.events.rateLimited": "Service “{title}” is reporting too fast: at most {limit} per minute. This one wasn't counted; try again in {seconds} seconds",
-  "projectServices.events.tooLarge": "The data is too large: at most {max} bytes, so nothing was woken. Report only what matters and put the full text in a file for the maintainer to read",
+  "projectServices.events.tooLarge": "The data is too large: at most {max} bytes, so nothing was woken. Report only what matters and put the full text in a file for the owner to read",
   "projectServices.events.quoted": "“{name}”",
   "projectServices.events.noNames": "(none)",
   "projectServices.tool.recentEvents": "Check recent service events",

@@ -179,7 +179,7 @@ describe("语音对象", () => {
     expect(voiceBubble(state, PART)).toMatchObject({ status: "done", text: "早" });
   });
 
-  test("任务页第一次打开维护者会话（179 号票）：排队时就识别完的语音，交出去时已经过了一页多——补发先到它的最后一版（序号在这一页之前），再到这一页；按定时触发的范围看的那条语音显示识别出的文字", () => {
+  test("任务页第一次打开负责人会话（179 号票）：排队时就识别完的语音，交出去时已经过了一页多——补发先到它的最后一版（序号在这一页之前），再到这一页；按定时触发的范围看的那条语音显示识别出的文字", () => {
     const M = maintainerChannel("pm-1");
     const part: VoicePart = { ...PART, voiceId: "v-q" };
     const voice = recognized(3, "这个权限要审批啊，你为啥要用这个权限呢？");
@@ -190,7 +190,7 @@ describe("语音对象", () => {
       frame(M, 1543, "message", { message: { ...message, id: "m-earlier", speaker: "agent", parts: [{ type: "text", text: "查第 1 个来源" }] }, projectId: "p-1", scheduledJobId: "j-2" }),
       frame(M, 1592, "message", { message, projectId: "p-1", scheduledJobId: "j-2", queueDelivery: "qd-m-q" }),
     ]);
-    // 任务页显示维护者的整段会话（TasksPage 的 chatItems），那条语音是一个语音气泡
+    // 任务页显示负责人的整段会话（TasksPage 的 chatItems），那条语音是一个语音气泡
     const item = chatItems(state, M).find((it) => it.kind === "voice" && it.message.id === "m-q");
     expect(item && item.kind === "voice" && item.part).toEqual(part);
     expect(voiceBubble(state, part)).toMatchObject({ status: "done", caption: { kind: "text", text: "这个权限要审批啊，你为啥要用这个权限呢？" } });

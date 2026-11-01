@@ -206,7 +206,7 @@ export function createSkillChangeService(options: SkillChangeServiceOptions): Sk
       }
     }
     const event: SkillDecidedPayload = { ...base, decision: "approved", applied: true, check, time: options.now() };
-    // 工具包变了的，维护者模块收到事件自己按新工具包重新拉起；没变的（改了内容、工具包里本来就有）这里叫。改、删还要叫上别的在用它的
+    // 工具包变了的，负责人模块收到事件自己按新工具包重新拉起；没变的（改了内容、工具包里本来就有）这里叫。改、删还要叫上别的在用它的
     // （在通知落盘之前标记好，照 MCP 登记变更的做法）
     const maintainerIds = new Set([...(toolkitChanged ? [] : [submitter.maintainerId]), ...before.maintainerIds]);
     options.skillChanged?.({ maintainerIds: [...maintainerIds], assistant: before.assistant, name: payload.name });

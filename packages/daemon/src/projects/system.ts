@@ -8,9 +8,9 @@
 // 1. createProjectSystem(deps)：任务模块建好之后、工具包和插件之前。装好项目、立项要求变更、规范改写、补齐规范、运营方案和运营手段、运营层
 //    （项目的服务、project_ops：280 号票照插件的纪律写，只经它的装配 project-ops/layer.ts 装、经它的入口 project-ops/api.ts 用，
 //    它的登记走宿主现成的登记口）、派单器，登记卡片类型、改写函数、素材来源。建这些都没有副作用（订阅事件都在 start 里）；
-// 2. connect(kernel, stops)：执行控制器、agent 宿主、执行名额、任务的维护者、子 agent、工具包、MCP 登记变更都建好之后，原来派单器开始的那一刻：
+// 2. connect(kernel, stops)：执行控制器、agent 宿主、执行名额、任务的负责人、子 agent、工具包、MCP 登记变更都建好之后，原来派单器开始的那一刻：
 //    交进这些建在项目系统之后的内核模块；任务完成回调、运营方案跟着项目停用启用、派单器开始；
-// 3. start(stops)：执行控制器开始之后，原来项目维护者建出、项目开始的那一刻：建出项目的维护者，项目、立项要求变更、规范改写、补齐规范、项目维护者开始；
+// 3. start(stops)：执行控制器开始之后，原来项目负责人建出、项目开始的那一刻：建出项目的负责人，项目、立项要求变更、规范改写、补齐规范、项目负责人开始；
 // 4. startServices(link)：接入 LSM 之后：运营层（项目的服务）开始。它的收尾（stopServices）组合根在建出之后就排上（停的时候在插件之后）。
 // 为什么不合成一步：同一条事件按订阅的先后交给各订阅者，订阅者在里面追加的事件按这个先后编号；订阅、开始的先后挪了，事件的顺序就可能变
 // （录制要重录）。只把能说清不影响先后的合到了一处（connect、start 里写着），别的照原来的位置。
@@ -18,7 +18,7 @@
 // 原来组合根为项目系统设的 17 处后接线，解开了 12 处：
 // - 任务 → 项目（2 处）：任务模块要的 TaskProjects、计划里涉及的项目的核对只读项目列表，改由项目列表的只读视图（directory.ts）给，
 //   组合根在任务模块之前建一份，不用等项目系统；
-// - 执行控制器（4 处）、任务的维护者（3 处）、提问卡、工单卡 → 派单器（共 9 处）：派单器在这里第一步就建好，交出去的小接口是现成的对象
+// - 执行控制器（4 处）、任务的负责人（3 处）、提问卡、工单卡 → 派单器（共 9 处）：派单器在这里第一步就建好，交出去的小接口是现成的对象
 //   （触发底座要的派单器原来就直接给，现在给的也是现成的 jobWorkOrders）；
 // - project_ops → 运营方案（1 处）：运营方案先建，直接给。
 // 解不开的 5 处（1 处留在组合根，4 处收在这里），连同组装带来的几处现取：
@@ -27,7 +27,7 @@
 //   执行控制器建在项目系统之后，connect 交进来，派单器到那时才开始；计划外工单的判定要 agent 宿主、定时运行的工单要执行名额，同理；
 // - 项目 ⇄ 派单器、项目 ⇄ 运营方案（这两处原来就是后接线）、项目 ⇄ project_ops（原来是一个引用）：互相要（首个建设任务派工单 / 工单要项目，
 //   转入使用时方案生效 / 方案的转运营清单，运营接口清单那一项 / project_ops 要项目档案），项目服务先建，另外三样用到时现取；
-// - 项目、派单器 → 项目的维护者（原来 2 处）：删项目要先停维护者、工单结束时它做范围审视；项目的维护者要 agent 宿主（建在项目系统之后），
+// - 项目、派单器 → 项目的负责人（原来 2 处）：删项目要先停负责人、工单结束时它做范围审视；项目的负责人要 agent 宿主（建在项目系统之后），
 //   start 里才建；
 // - 触发底座、事件来源的分发：它们要派单器（建在项目系统之后），组合根给的是现取的函数（deps.scheduledJobs、deps.checkEventTrigger）。
 import fs from "node:fs";
@@ -131,9 +131,9 @@ export interface ProjectSystemDeps {
    * 素材库那一份带着随项目彻底删除的素材）
    */
   deletion: Pick<DeletionParticipants, "register" | "plan">;
-  /** 运行时核实用户原话（125 号票）：立项要求变更、规范改写、运营方案里维护者引用的；362 号票起建议立项卡上也带 */
+  /** 运行时核实用户原话（125 号票）：立项要求变更、规范改写、运营方案里负责人引用的；362 号票起建议立项卡上也带 */
   userWords: UserWordsDeps;
-  /** 立项后叫醒维护者先开口（362 号票）：默认开 */
+  /** 立项后叫醒负责人先开口（362 号票）：默认开 */
   kickoffOpening?: boolean;
   /** 临时事件的推送：项目的服务给前端看的样子变了推项目列表频道（133） */
   notifications: Pick<EphemeralBus, "publish">;
@@ -150,7 +150,7 @@ export interface ProjectSystemDeps {
   nudges: number;
   clock: Clock;
   now: () => string;
-  /** 数据目录：项目维护者的会话目录、服务首页缩略图的缓存区 */
+  /** 数据目录：项目负责人的会话目录、服务首页缩略图的缓存区 */
   layout: DataDirLayout;
   /** 真实路径：数据目录的项目区（项目档案）、数据目录、密钥区，二狗程序目录（外部工作目录不能在它们里面） */
   realDirs: { projects: string; data: string; secrets: string; program: string };
@@ -161,7 +161,7 @@ export interface ProjectSystemDeps {
   /** 项目的服务报事件（357）：交事件的前台（内核的事件来源，建在项目系统之前）、最近收到的记录放哪、限速和大小上限 */
   serviceEvents: { desk: ServiceEventDesk; stateDir: string; thresholds: EventSourceThresholds };
   browser: () => BrowserDriver;
-  /** project_ops 的"跟维护者说一句"：和秘书转达（tell_project）、网关发消息同一条路（消息的归属、要先开的段） */
+  /** project_ops 的"跟负责人说一句"：和秘书转达（tell_project）、网关发消息同一条路（消息的归属、要先开的段） */
   relay: Pick<RelayDeps, "scopeOf" | "preludeOf">;
   /** project_ops 跑脚本时进的 Job 对象（只在 Windows 上有） */
   newJob: () => JobObject | undefined;
@@ -180,18 +180,18 @@ export interface ProjectSystemDeps {
 export interface ProjectSystemKernel {
   /** 执行控制器：派单器要（项目空出来了看排队的、等澄清、守卫看到的任务……），任务完成回调 */
   execution: Pick<TaskExecution, "kick" | "awaitAnswer" | "answered" | "countReturn" | "guardTask" | "onCompleted">;
-  /** agent 宿主：项目的维护者是它的一种配置；计划外工单判定时问任务维护者此刻的装配 */
+  /** agent 宿主：项目的负责人是它的一种配置；计划外工单判定时问任务负责人此刻的装配 */
   agentHost: AgentHost;
   /** 全局执行名额：定时作业的运行工单排到了还要有名额才开始 */
   slots: Pick<ExecutionSlots, "hasSlot" | "onFreed">;
-  /** 任务的维护者模块：任务转为项目时先让它放手 */
+  /** 任务的负责人模块：任务转为项目时先让它放手 */
   taskMaintainers: { release(maintainerId: string): Promise<void> };
-  /** 子 agent：项目的工具包变了、维护者正在执行某个任务，它的子 agent 重新装配 */
+  /** 子 agent：项目的工具包变了、负责人正在执行某个任务，它的子 agent 重新装配 */
   subAgents: Pick<SubAgents, "reassemble">;
-  /** 工具包、MCP 登记变更：项目维护者对话段里增减 skill、申请工具包变更、登记 MCP 的工具 */
+  /** 工具包、MCP 登记变更：项目负责人对话段里增减 skill、申请工具包变更、登记 MCP 的工具 */
   toolkits: Pick<ToolkitService, "skillTool" | "requestTool">;
   mcpChanges: Pick<McpChangeService, "requestTool">;
-  /** skill 变更（358）：项目维护者把 skill 提交进 skill 库的工具 */
+  /** skill 变更（358）：项目负责人把 skill 提交进 skill 库的工具 */
   skillChanges: Pick<SkillChangeService, "requestTool">;
 }
 
@@ -212,11 +212,11 @@ export interface ProjectSystem {
   readonly projectTasks: ProjectTasks;
   /** 执行控制器：涉及多个项目的任务 */
   readonly multiProjectTasks: MultiProjectTasks;
-  /** 任务的维护者模块（maintainers/）：涉及多个项目的任务的维护者固定的工具（读项目档案、派工单、汇总回执、答工单、转问用户） */
+  /** 任务的负责人模块（maintainers/）：涉及多个项目的任务的负责人固定的工具（读项目档案、派工单、汇总回执、答工单、转问用户） */
   readonly multiProjectMaintainer: FixedTools;
   /** 触发底座（scheduled-jobs/）：属于项目的一次运行派成工单 */
   readonly jobWorkOrders: JobWorkOrders;
-  /** 提问卡（tasks/cards.ts）上的回答：项目维护者为工单问的交回它 */
+  /** 提问卡（tasks/cards.ts）上的回答：项目负责人为工单问的交回它 */
   readonly clarificationReply: WorkOrderReply;
   /** 范围审视：对照物里的立项书按现在的（立项要求变更改过的，125） */
   charterText(projectId: string): string | undefined;
@@ -224,15 +224,15 @@ export interface ProjectSystem {
   readonly autoVersioning: { covers(path: string): boolean; preserve(paths: readonly string[]): void };
   /** 运营手段登记表（130）：插件宿主的登记口 ctx.operationMeans 登记进来 */
   readonly operationMeans: { register: OperationMeansRegistry["register"] };
-  /** 用户往项目维护者的会话里说话时消息的归属（15、16、75）；不是项目的会话 undefined */
+  /** 用户往项目负责人的会话里说话时消息的归属（15、16、75）；不是项目的会话 undefined */
   conversationScope(conversation: ConversationId, taskId?: string): MessageScope | undefined;
-  /** 项目维护者手上没有在进行的段时，用户的话开一个对话段（16）：要先追加的事件 */
+  /** 项目负责人手上没有在进行的段时，用户的话开一个对话段（16）：要先追加的事件 */
   messagePrelude(maintainerId: string, key: string, taskId?: string): NewEvent[];
   /** 负责人提交 skill 时能当来源的地方（358）：项目的工作目录（第一个）、项目档案；没这个项目时是空的 */
   skillSourceRoots(projectId: string): string[];
-  /** MCP 登记变了（239）：是项目维护者的会话就按新的装配重新拉起（项目的维护者还没建出时什么都不做） */
+  /** MCP 登记变了（239）：是项目负责人的会话就按新的装配重新拉起（项目的负责人还没建出时什么都不做） */
   reassemble(maintainerId: string, notice: string): void;
-  /** 网关的几个请求：新建项目、任务转为项目、项目页上的动作、重置维护者、启停项目的服务（257） */
+  /** 网关的几个请求：新建项目、任务转为项目、项目页上的动作、重置负责人、启停项目的服务（257） */
   readonly requests: Required<Pick<RequestHandlers, "newProject" | "convertTaskToProject" | "projectAction" | "resetMaintainer" | "projectServicesAction">>;
   /** 订阅项目列表频道时补推的项目的服务现在的样子（133：临时事件不补发） */
   servicesFrame(): EventFrame;
@@ -242,7 +242,7 @@ export interface ProjectSystem {
   readonly serviceEvents: ServiceEventsApi;
   /** 项目规范的只读视图（258） */
   projectStandard: ProjectService["standard"];
-  /** 项目维护者此刻能用的 skill（82：输入框里打 / 的候选）；不是项目的维护者 undefined */
+  /** 项目负责人此刻能用的 skill（82：输入框里打 / 的候选）；不是项目的负责人 undefined */
   skillsOf(maintainerId: string): readonly string[] | undefined;
   // —— 生命周期（见文件开头：各在组合根原来的位置）——
   connect(kernel: ProjectSystemKernel, stops: Stops): void;
@@ -269,7 +269,7 @@ export function createProjectSystem(deps: ProjectSystemDeps): ProjectSystem {
   const { store, cards, inbox, tasks, places, watchSettings, clock, now, userWords, log } = deps;
   const directory = createProjectDirectory({ store, projectsDir: deps.realDirs.projects });
 
-  // 建在项目系统之后的内核模块（connect 交进来）和项目的维护者（start 里建出）：用到时现取，还没接上就是编程错误
+  // 建在项目系统之后的内核模块（connect 交进来）和项目的负责人（start 里建出）：用到时现取，还没接上就是编程错误
   const late: Partial<ProjectSystemKernel & { projectMaintainers: ProjectMaintainers }> = {};
   const wired = <K extends keyof typeof late>(key: K): NonNullable<(typeof late)[K]> => {
     const target = late[key];
@@ -288,9 +288,9 @@ export function createProjectSystem(deps: ProjectSystemDeps): ProjectSystem {
     inbox,
     tasks,
     deletion: deps.deletion,
-    // 删除项目时先停维护者（项目的维护者在 start 里建出，删除时现取）
+    // 删除项目时先停负责人（项目的负责人在 start 里建出，删除时现取）
     maintainers: () => wired("projectMaintainers"),
-    // 首个建设任务派工单、重置维护者、维护者会话里的消息属于当前这一段、有工单没结束的不能归档（16；派单器建在下面）
+    // 首个建设任务派工单、重置负责人、负责人会话里的消息属于当前这一段、有工单没结束的不能归档（16；派单器建在下面）
     workOrders: () => workOrders,
     // "首版做完了"卡上带的运营方案、确认并转入使用时每一条生效（130；运营方案建在下面）
     operations: () => operations,
@@ -306,15 +306,15 @@ export function createProjectSystem(deps: ProjectSystemDeps): ProjectSystem {
   });
   deps.cardTypes.register(suggestProjectCardType(projects));
   deps.cardTypes.register(charterCardType(projects));
-  // 删除参与方（279）：项目自己的（维护者会话、立项书和规范改写、说的是这个项目的卡、项目之外读过它的调用）、工单、运营方案。
+  // 删除参与方（279）：项目自己的（负责人会话、立项书和规范改写、说的是这个项目的卡、项目之外读过它的调用）、工单、运营方案。
   // 登记在内核模块的参与方之前（组合根在组装函数之后登记）：字段级改写的卡追加新版本的先后照原来——立项书卡、规范改写卡在审批卡前面
   registerProjectDeletion(deps.deletion, { records: (projectId) => projects.records(projectId) });
   registerWorkOrderDeletion(deps.deletion);
   registerOperationsDeletion(deps.deletion);
-  // 立项要求变更（125）：立项书确认之后项目的维护者提出，用户在卡上确认后改写立项书（末尾记变更记录），拒绝的不变
+  // 立项要求变更（125）：立项书确认之后项目的负责人提出，用户在卡上确认后改写立项书（末尾记变更记录），拒绝的不变
   const charterChanges = createCharterChanges({ store, cards, inbox, records: (projectId) => projects.records(projectId), userWords, now, log });
   deps.cardTypes.register(charterChangeCardType(charterChanges));
-  // 本项目的规范改写（261）：项目的维护者提出，用户在卡上确认才生效（记进项目档案的 standard-overrides.md），拒绝的不变
+  // 本项目的规范改写（261）：项目的负责人提出，用户在卡上确认才生效（记进项目档案的 standard-overrides.md），拒绝的不变
   // 272：规范上线之前建的项目（没有版本）"不补"之后又要补，也走这条路（upgrade）：算缺哪几份、确认后建补齐任务，补齐卡还在等你选时不让提
   const standardChanges = createStandardChanges({
     store,
@@ -329,12 +329,12 @@ export function createProjectSystem(deps: ProjectSystemDeps): ProjectSystem {
     log,
   });
   deps.cardTypes.register(standardChangeCardType(standardChanges));
-  // 现有项目补齐规范文档（262）：规范上线之前建的项目缺文档的各出一张卡，你选补齐才改用规范、建任务交给维护者补，选不补就不补
+  // 现有项目补齐规范文档（262）：规范上线之前建的项目缺文档的各出一张卡，你选补齐才改用规范、建任务交给负责人补，选不补就不补
   const standardBackfill = createStandardBackfill({ store, cards, inbox, standard: (projectId) => projects.standard(projectId), tasks, now, log });
   deps.cardTypes.register(standardBackfillCardType(standardBackfill));
   // "首版做完了"卡（112）：建设任务做完时出，转入使用、继续建设、放弃并归档
   deps.cardTypes.register(buildDoneCardType(projects));
-  // "转入使用"确认卡（259）：用户在项目页点的、维护者提的、秘书代办的转入使用，用户在卡上确认才转
+  // "转入使用"确认卡（259）：用户在项目页点的、负责人提的、秘书代办的转入使用，用户在卡上确认才转
   deps.cardTypes.register(goLiveCardType(projects));
 
   // 运营手段登记表（130）：内核的定时、事件触发的任务（生效成项目的内部任务），运营层的"服务"（133：项目自己的服务到 LSM 上线），
@@ -345,7 +345,7 @@ export function createProjectSystem(deps: ProjectSystemDeps): ProjectSystem {
   for (const means of kernelMeans.triggered) operationMeans.register(means);
 
   // 运营层（280，照插件的纪律写，入口 project-ops/api.ts）：项目的服务（133：替运营手段"服务"到 LSM 上线、撤下，/apps 转发，缩略图，
-  // 257 的一键启停）和 project_ops（260、268：秘书调使用中的项目的操作，运营接口清单的验收和登记，维护者的 check_ops）。
+  // 257 的一键启停）和 project_ops（260、268：秘书调使用中的项目的操作，运营接口清单的验收和登记，负责人的 check_ops）。
   // 它的登记走宿主现成的登记口（服务入口卡、运营手段"服务"、转发）；要的项目系统的东西在这里给。运营方案建在下面：用到时现取
   const ops = createOpsLayer(
     { cardTypes: deps.cardTypes, operationMeans, apps: deps.apps },
@@ -355,13 +355,13 @@ export function createProjectSystem(deps: ProjectSystemDeps): ProjectSystem {
       projects: { get: (projectId) => directory.get(projectId), list: () => projects.list(), records: (projectId) => projects.records(projectId), workdir: (project) => projects.workdir(project) },
       pendingPlan: (projectId) => operations.pendingBuildPlan(projectId),
       scheduledJobs: () => deps.scheduledJobs(),
-      // 跟维护者说一句：和秘书转达（tell_project）同一条路，插进项目维护者的会话
+      // 跟负责人说一句：和秘书转达（tell_project）同一条路，插进项目负责人的会话
       tellMaintainer: ({ project, message, key, inputMessageId, check }) =>
         relayEvents(
           { store, scopeOf: (c, taskId) => deps.relay.scopeOf(c, taskId), preludeOf: (c, k, taskId) => deps.relay.preludeOf(c, k, taskId) },
           { conversation: maintainerChannel(project.maintainerId), message, key: `relay:${key}`, inputMessageId, ...(check ? { check } : {}) },
         ),
-      // 转给维护者当工单：建一个项目内部的普通任务（75 号票的 delegate：排队，派一张执行的工单给维护者）
+      // 转给负责人当工单：建一个项目内部的普通任务（75 号票的 delegate：排队，派一张执行的工单给负责人）
       delegate: ({ project, title, instructions, check }) => {
         if (check) {
           projects.internalHost(project.id);
@@ -388,8 +388,8 @@ export function createProjectSystem(deps: ProjectSystemDeps): ProjectSystem {
   );
   for (const means of kernelMeans.manual) operationMeans.register(means);
 
-  // 运营方案（130）：项目的维护者交运营方案（逐条校验：手段登记表、要的能力不超出项目的工具包、流程的那几条和 propose_plan 一样先检查
-  // 再审查修补，守卫眼里执行它的是项目的维护者）；"首版做完了"卡上确认并转入使用、"运营方案变更"卡上确认时每一条生效
+  // 运营方案（130）：项目的负责人交运营方案（逐条校验：手段登记表、要的能力不超出项目的工具包、流程的那几条和 propose_plan 一样先检查
+  // 再审查修补，守卫眼里执行它的是项目的负责人）；"首版做完了"卡上确认并转入使用、"运营方案变更"卡上确认时每一条生效
   const operations = createOperations({
     store,
     cards,
@@ -434,9 +434,9 @@ export function createProjectSystem(deps: ProjectSystemDeps): ProjectSystem {
     userWords,
   });
 
-  // 派单器（16）：工单和项目维护者的会话分段；写回最多催几次和执行中的催促同一个阈值（14）。
+  // 派单器（16）：工单和项目负责人的会话分段；写回最多催几次和执行中的催促同一个阈值（14）。
   // 执行控制器、agent 宿主、执行名额建在项目系统之后：connect 交进来，派单器到那时才开始（start）。
-  // 工单结束时的范围审视（18）由项目维护者模块做（子进程退出之前）：审视是异步的，到时候项目的维护者已经建出
+  // 工单结束时的范围审视（18）由项目负责人模块做（子进程退出之前）：审视是异步的，到时候项目的负责人已经建出
   const workOrders = createWorkOrders({
     store,
     tasks,
@@ -453,9 +453,9 @@ export function createProjectSystem(deps: ProjectSystemDeps): ProjectSystem {
     nudges: deps.nudges,
     reviewScope: (segment) => wired("projectMaintainers").reviewScope(segment),
     // 计划外工单（17）：作为伪工具调用交给守卫的判定函数（任务里、工单所属的阶段，现取的关注类别设置）
-    // 派单的维护者在守卫眼里的样子取它此刻的装配（和它别的调用一样）；对话审批关着时超出授权先不管、直接派出（101）
+    // 派单的负责人在守卫眼里的样子取它此刻的装配（和它别的调用一样）；对话审批关着时超出授权先不管、直接派出（101）
     judgeUnplanned: ({ task, maintainerId, project }) => {
-      // 涉及多个项目的任务由它自己的维护者执行：宿主问到的就是它此刻的装配
+      // 涉及多个项目的任务由它自己的负责人执行：宿主问到的就是它此刻的装配
       const assembly = wired("agentHost").assemblyOf(task.taskId);
       if (!assembly) return { refused: workOrderRefusal.notExecuting(task.taskId) };
       return judgeUnplannedWorkOrder({
@@ -489,27 +489,27 @@ export function createProjectSystem(deps: ProjectSystemDeps): ProjectSystem {
     secretary,
     taskWorkOrders: workOrders,
     projectTasks: {
-      // 只涉及一个项目的任务（16）：在项目的工作目录里做，工具包取任务授权和项目工具包的交集，项目的维护者正忙时留在排队中
+      // 只涉及一个项目的任务（16）：在项目的工作目录里做，工具包取任务授权和项目工具包的交集，项目的负责人正忙时留在排队中
       of: (task) => {
         const project = projects.projectOf(task);
         return project && { projectId: project.id, workDir: real(projects.workdir(project)), recordsDir: real(projects.records(project.id).root), toolkit: projectToolkit(project) };
       },
       admit: (task) => workOrders.admit(task),
     },
-    // 涉及多个项目的任务（17）：维护者的工具包固定，本阶段的回执全部到齐且都完成才能宣布阶段完成
+    // 涉及多个项目的任务（17）：负责人的工具包固定，本阶段的回执全部到齐且都完成才能宣布阶段完成
     multiProjectTasks: {
       toolkit: multiProjectToolkit,
       stageGate: (task, stageId) => workOrders.multiProject.stageGate(task, stageId),
       stageLines: (task, stageId) => workOrders.multiProject.stageLines(task, stageId),
       reviewPlaces: (task, stageId) => workOrders.multiProject.reviewPlaces(task, stageId),
     },
-    // 涉及多个项目的任务（17）：维护者的工具包固定为三样（读项目档案、派工单、汇总回执），加上转问用户
+    // 涉及多个项目的任务（17）：负责人的工具包固定为三样（读项目档案、派工单、汇总回执），加上转问用户
     multiProjectMaintainer: {
       tools: (scope): HostTool[] => multiProjectTools({ workOrders: () => workOrders, projects, tasks }, scope),
       executionTools: (scope): HostTool[] => [answerWorkOrderTool(() => workOrders, scope), forwardToUserTool(() => workOrders, scope)],
     },
     jobWorkOrders: workOrders,
-    // 提问卡上的回答：项目维护者为工单问的交回它（16，派单器的澄清给通知）
+    // 提问卡上的回答：项目负责人为工单问的交回它（16，派单器的澄清给通知）
     clarificationReply: (payload, answer, key) => workOrders.clarificationReply(payload, answer, key),
     charterText: (projectId) => charterChanges.text(projectId),
     autoVersioning: { covers: (p) => isAutoVersioned(deps.realDirs.projects, p), preserve: (paths) => preserveVersions(deps.realDirs.projects, paths, now()) },
@@ -552,8 +552,8 @@ export function createProjectSystem(deps: ProjectSystemDeps): ProjectSystem {
 
     start(stops) {
       const kernel = { agentHost: wired("agentHost"), taskMaintainers: wired("taskMaintainers"), subAgents: wired("subAgents"), toolkits: wired("toolkits"), mcpChanges: wired("mcpChanges"), skillChanges: wired("skillChanges") };
-      // 项目的维护者（15）：用户在它的会话里说话时唤起；任务转为项目时从任务的维护者模块接过来。
-      // 建出时登记进 agent 宿主（此刻的装配、停稳手头这一轮、⚙）：排在任务的、定时作业的维护者后面，和原来一样
+      // 项目的负责人（15）：用户在它的会话里说话时唤起；任务转为项目时从任务的负责人模块接过来。
+      // 建出时登记进 agent 宿主（此刻的装配、停稳手头这一轮、⚙）：排在任务的、定时作业的负责人后面，和原来一样
       const projectMaintainers = createProjectMaintainers({
         host: kernel.agentHost,
         projects,
@@ -582,7 +582,7 @@ export function createProjectSystem(deps: ProjectSystemDeps): ProjectSystem {
         // 查自己项目的服务最近报的事件（357）：调试服务、等不到运行工单时看
         serviceEventsTool: (projectId) => ops.serviceEventsTool(projectId),
         layout: deps.layout,
-        // 项目内部任务（64）：对话段里发起任务的工具（点明了才建，看维护者正在处理的那条用户消息）
+        // 项目内部任务（64）：对话段里发起任务的工具（点明了才建，看负责人正在处理的那条用户消息）
         internalTaskTools: (scope) => internalTaskTools({ tasks, cards, projects, userTurn: (inputMessageId) => readUserTurn(store, cards, inputMessageId) }, scope),
       });
       late.projectMaintainers = projectMaintainers;

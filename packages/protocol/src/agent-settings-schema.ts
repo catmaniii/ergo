@@ -6,8 +6,8 @@
 // DELETE /api/agents/<agent id>/prompt 恢复用通用模板；
 // POST /api/agents/<agent id>/clear 清空当前对话（AgentClearBody，带幂等键）：在处理一条时等它说完再清；
 // POST /api/agents/<agent id>/compact 现在压缩：在处理一条时等它说完，没在跑的先拉起再压；不等压完，面板按 compaction 的状态再取；
-// PUT /api/agents/<agent id>/model 项目、任务的维护者单独配模型（AgentModelBody，120 号票），DELETE 改回跟随它那一行；
-// PUT /api/agents/<agent id>/runtime 项目、任务的维护者用哪个运行时、给它选的模型和设置项（AgentRuntimeBody，289 号票）。
+// PUT /api/agents/<agent id>/model 项目、任务的负责人单独配模型（AgentModelBody，120 号票），DELETE 改回跟随它那一行；
+// PUT /api/agents/<agent id>/runtime 项目、任务的负责人用哪个运行时、给它选的模型和设置项（AgentRuntimeBody，289 号票）。
 // 都回 AgentSettingsView。只读的（任务结束了、项目归档了）存、清、压、配模型都回 400，写明原因。
 import { type Static, Type } from "typebox";
 import { AgentIdentityView } from "./agent-profiles-schema.ts";
@@ -38,14 +38,14 @@ export const AgentPromptView = Type.Object({
   /** 自己写的那份有错（这时用的是通用模板）：错在哪 */
   problem: Type.Optional(Type.String()),
   template: AgentPromptTemplate,
-  /** 现在实际用的系统提示全文（前缀、模板 + 追加或整份；项目维护者后面还有这一段的固定上下文），只读 */
+  /** 现在实际用的系统提示全文（前缀、模板 + 追加或整份；项目负责人后面还有这一段的固定上下文），只读 */
   effective: Type.String(),
 });
 export type AgentPromptView = Static<typeof AgentPromptView>;
 
 /** 清空当前对话 */
 export const AgentClearView = Type.Object({
-  /** 新开一段会话；项目维护者是重置维护者 */
+  /** 新开一段会话；项目负责人是重置负责人 */
   how: Type.Enum(AGENT_CLEAR_KINDS),
   /** 等它说完手头这一条再清 */
   pending: Type.Boolean(),
@@ -89,7 +89,7 @@ export const AgentContextView = Type.Object({
   compaction: Type.Enum(AGENT_COMPACTION_STATES),
   /** 上一次手动压缩的结果（守护进程这次起来以后的） */
   lastCompact: Type.Optional(AgentCompactResult),
-  /** 现在压不了的原因（项目维护者没有在进行的一段会话）；压得了没有 */
+  /** 现在压不了的原因（项目负责人没有在进行的一段会话）；压得了没有 */
   cannotCompact: Type.Optional(Type.String()),
 });
 export type AgentContextView = Static<typeof AgentContextView>;
@@ -98,7 +98,7 @@ export type AgentContextView = Static<typeof AgentContextView>;
 const AgentModelChoice = Type.Object({ modelId: Type.String({ minLength: 1 }), thinkingLevel: Type.Enum(MODEL_THINKING_LEVELS) });
 
 /**
- * 这个维护者用什么模型（120 号票，只有项目、任务的维护者有）：跟随它那一行（设置 · 模型里的项目维护者 / 任务维护者），
+ * 这个负责人用什么模型（120 号票，只有项目、任务的负责人有）：跟随它那一行（设置 · 模型里的项目负责人 / 任务负责人），
  * 或者单独选定模型和思考档位。可选的模型、看图能力和设置 · 模型页是同一份（GET /api/model-settings 的 models）
  */
 export const AgentModelView = Type.Object({
@@ -112,7 +112,7 @@ export const AgentModelView = Type.Object({
   unavailable: Type.Optional(Type.String()),
   /** 下一个新会话用的 */
   next: AgentModelChoice,
-  /** 这个维护者最近一次在跑的会话实际用的（接着的会话是它开始时的；守护进程这次起来以后它跑过才有） */
+  /** 这个负责人最近一次在跑的会话实际用的（接着的会话是它开始时的；守护进程这次起来以后它跑过才有） */
   session: Type.Optional(Type.Object({ modelId: Type.String(), thinkingLevel: Type.String(), vision: Type.Boolean() })),
   /** 改了以后什么时候换（83 号票的规矩：一个会话固定一个模型） */
   switchAt: Type.Enum(MODEL_SWITCH_AT),
@@ -123,7 +123,7 @@ export type AgentModelView = Static<typeof AgentModelView>;
 export const AgentSettingsView = Type.Object({
   agentId: Type.String({ minLength: 1 }),
   kind: Type.Enum(AGENT_SETTINGS_KINDS),
-  /** 给人看的：秘书是名字占位（界面上换成用户起的名字）、长程任务 t-3「…」的维护者、项目「…」的维护者 */
+  /** 给人看的：秘书是名字占位（界面上换成用户起的名字）、长程任务 t-3「…」的负责人、项目「…」的负责人 */
   label: Type.String(),
   /** 只能看不能改的原因（任务结束了、项目归档了）；能改是没有 */
   readOnly: Type.Optional(Type.String()),
@@ -141,11 +141,11 @@ export const AgentSettingsView = Type.Object({
   clear: AgentClearView,
   context: AgentContextView,
   /**
-   * 用什么模型（120 号票）：项目、任务的维护者才有；秘书的在设置 · 模型里。289 号票起这是二狗自己的模型目录（pi 用的）：
-   * 维护者用的运行时有自己的模型列表的（Claude Code）不看它，看 runtime 里选的
+   * 用什么模型（120 号票）：项目、任务的负责人才有；秘书的在设置 · 模型里。289 号票起这是二狗自己的模型目录（pi 用的）：
+   * 负责人用的运行时有自己的模型列表的（Claude Code）不看它，看 runtime 里选的
    */
   model: Type.Optional(AgentModelView),
-  /** 用哪个运行时、给它选的模型和设置项（289 号票）：项目、任务的维护者才有 */
+  /** 用哪个运行时、给它选的模型和设置项（289 号票）：项目、任务的负责人才有 */
   runtime: Type.Optional(AgentRuntimeStateView),
 });
 export type AgentSettingsView = Static<typeof AgentSettingsView>;

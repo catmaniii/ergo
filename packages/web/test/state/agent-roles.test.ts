@@ -82,7 +82,7 @@ describe("秘书指定的角色优先于全局的名字", () => {
           ],
           agents: [
             { agentId: "secretary", kind: "secretary", label: ASSISTANT_NAME_MARK, identity: identity({ voiceId: "v-1", voiceName: "音色甲", voiceSource: "default" }) },
-            { agentId: "pm-1", kind: "project", label: "项目「记账本」的维护者", identity: identity({ roleId: "role-xiaoming", ownRoleId: "role-xiaoming", name: "小明", nameSource: "own", voiceId: "v-2", voiceName: "音色乙", voiceSource: "own" }) },
+            { agentId: "pm-1", kind: "project", label: "项目「记账本」的负责人", identity: identity({ roleId: "role-xiaoming", ownRoleId: "role-xiaoming", name: "小明", nameSource: "own", voiceId: "v-2", voiceName: "音色乙", voiceSource: "own" }) },
           ],
         }),
       ),
@@ -124,19 +124,19 @@ describe("写成话", () => {
           ],
           agents: [
             { agentId: "secretary", kind: "secretary", label: ASSISTANT_NAME_MARK, identity: identity({ name: "阿福", defaultName: "阿福" }) },
-            { agentId: "pm-1", kind: "project", label: "项目「记账本」的维护者", identity: identity({ roleId: "role-xiaoming", ownRoleId: "role-xiaoming", name: "小明", nameSource: "own" }) },
-            { agentId: "tm-2", kind: "task", label: "长程任务 t-2「整理笔记」的维护者", identity: identity({ roleId: "role-xiaoming", ownRoleId: "role-xiaoming", name: "小明", nameSource: "own" }) },
-            { agentId: "pm-9", kind: "project", label: "项目「花店」的维护者", identity: identity({ roleId: "role-many", ownRoleId: "role-many", name: "阿满", nameSource: "own" }) },
-            { agentId: "tm-9", kind: "task", label: "长程任务 t-9「做海报」的维护者", identity: identity({ roleId: "role-many", ownRoleId: "role-many", name: "阿满", nameSource: "own" }) },
+            { agentId: "pm-1", kind: "project", label: "项目「记账本」的负责人", identity: identity({ roleId: "role-xiaoming", ownRoleId: "role-xiaoming", name: "小明", nameSource: "own" }) },
+            { agentId: "tm-2", kind: "task", label: "长程任务 t-2「整理笔记」的负责人", identity: identity({ roleId: "role-xiaoming", ownRoleId: "role-xiaoming", name: "小明", nameSource: "own" }) },
+            { agentId: "pm-9", kind: "project", label: "项目「花店」的负责人", identity: identity({ roleId: "role-many", ownRoleId: "role-many", name: "阿满", nameSource: "own" }) },
+            { agentId: "tm-9", kind: "task", label: "长程任务 t-9「做海报」的负责人", identity: identity({ roleId: "role-many", ownRoleId: "role-many", name: "阿满", nameSource: "own" }) },
           ],
         }),
       ),
     ]);
     const roles = state.agentRoles!.roles;
     expect(roleUsageText(state, roles[0]!)).toBe("谁在用：阿福");
-    expect(roleUsageText(state, roles[1]!)).toBe("谁在用：项目「记账本」的维护者、长程任务 t-2「整理笔记」的维护者");
+    expect(roleUsageText(state, roles[1]!)).toBe("谁在用：项目「记账本」的负责人、长程任务 t-2「整理笔记」的负责人");
     expect(roleUsageText(state, roles[2]!)).toBe("还没有 agent 用");
-    expect(roleUsageText(state, roles[3]!)).toBe("谁在用：阿福、项目「记账本」的维护者、长程任务 t-2「整理笔记」的维护者 等 5 个 agent");
+    expect(roleUsageText(state, roles[3]!)).toBe("谁在用：阿福、项目「记账本」的负责人、长程任务 t-2「整理笔记」的负责人 等 5 个 agent");
     expect(agentLabelText(state, "secretary")).toBe("阿福");
     expect(agentLabelText(state, "nobody")).toBe("nobody");
   });

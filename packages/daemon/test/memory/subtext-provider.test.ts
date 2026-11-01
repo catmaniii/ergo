@@ -134,7 +134,7 @@ async function built(options: { materials?: Pick<Materials, "get" | "list">; log
   };
 }
 
-/** 素材：ev-a1 那条在秘书的会话里，其余的在维护者的会话里（测按会话删时好一次只删一条） */
+/** 素材：ev-a1 那条在秘书的会话里，其余的在负责人的会话里（测按会话删时好一次只删一条） */
 const CONVERSATION_OF = (evidenceId: string) => (evidenceId === "ev-a1" ? "secretary" : "maintainer:p-notes");
 
 const ALL_MATERIALS = STORY.filter((draft) => draft.sourceRef !== null).map((draft) => materialOf(draft.sourceRef!, { messageId: `m-${draft.id}`, conversation: CONVERSATION_OF(draft.id!) }));
@@ -212,7 +212,7 @@ describe("search：交给现有的引擎检索，每条都带出处", () => {
     // 种类对不上就是空
     expect((await scalar.search({ text: QUERY, kinds: ["action"] })).items).toEqual([]);
 
-    // 范围（会话）：这几条素材在维护者的那个会话里（secretary 里只有"不吃香菜"那条）
+    // 范围（会话）：这几条素材在负责人的那个会话里（secretary 里只有"不吃香菜"那条）
     const provider = await started(deps);
     expect((await provider.search({ text: QUERY, scope: { conversationId: "maintainer:p-notes" } })).items.length).toBeGreaterThan(0);
     expect((await provider.search({ text: QUERY, scope: { conversationId: "secretary" } })).items).toEqual([]);

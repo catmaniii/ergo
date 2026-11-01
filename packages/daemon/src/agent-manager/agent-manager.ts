@@ -2,7 +2,7 @@
 // 资源限制（12 号票）：
 // - 同时存活的子进程有上限（默认 8）。满了以后新的唤起不报错，而是排队，名额空出时按先后拉起；排队期间活动状态是"排队"。
 //   常驻的 agent（秘书）占一个预留的名额：它意外退出、等着重新拉起时，这个名额也不让给别人；
-// - 非常驻的 agent（维护者）闲置到设定时间（默认 10 分钟）就让子进程正常退出；再来输入时由拉起它的模块重新唤起、接着原会话；
+// - 非常驻的 agent（负责人）闲置到设定时间（默认 10 分钟）就让子进程正常退出；再来输入时由拉起它的模块重新唤起、接着原会话；
 // - 单次模型调用（默认 5 分钟）和单次工具调用（默认 10 分钟，工具可以声明更长）超时：送"中止"，这一轮以出错结束，
 //   错误里写明是哪种超时（拉起它的模块据此在会话里说明）；中止之后还不结束就结束子进程；
 // - 孤儿进程按周期（默认每分钟）回收（orphans.ts，只在 Windows 上有 Job 对象）。
@@ -73,7 +73,7 @@ export interface SpawnAgentRequest {
   /** agent 的标识，也是它在会话区里的子目录名 */
   agentId: string;
   /**
-   * 用哪个 agent 运行时（286 号票：维护者的运行时属性）：拉起它登记的子进程入口；不写是 pi（秘书、子 agent、评审都是）。
+   * 用哪个 agent 运行时（286 号票：负责人的运行时属性）：拉起它登记的子进程入口；不写是 pi（秘书、子 agent、评审都是）。
    * 宿主协议不分运行时，下面这些装配参数原样交给它
    */
   runtime?: string;
@@ -102,10 +102,10 @@ export interface SpawnAgentRequest {
   skillPaths?: string[];
   /** 固定的系统提示（替换 pi 默认的编程助手提示） */
   systemPrompt?: string;
-  /** 接着会话目录里最近的会话（秘书的长期主线会话、维护者闲置退出后再唤起）；默认每次新开 */
+  /** 接着会话目录里最近的会话（秘书的长期主线会话、负责人闲置退出后再唤起）；默认每次新开 */
   continueSession?: boolean;
   /**
-   * 接会话目录里这个名字的会话（16 号票：项目维护者的会话分段，每段一个，接哪一段明确指定，不靠修改时间）：
+   * 接会话目录里这个名字的会话（16 号票：项目负责人的会话分段，每段一个，接哪一段明确指定，不靠修改时间）：
    * 还没有时选了 continueSession 就接着最近的那个，否则新开、用这个名字存（宿主协议的 session，会话怎么存由子进程定）
    */
   session?: string;
@@ -153,7 +153,7 @@ export interface SpawnAgentRequest {
    */
   contributions?: { contextBlocks: readonly ContextBlockSpec[]; hooks: readonly HookSubscription[] };
   /**
-   * 用量记在谁名下（24 号票）：每次模型调用的用量上来时现取（归属会变，比如项目维护者执行任务的工单时记在任务名下）。
+   * 用量记在谁名下（24 号票）：每次模型调用的用量上来时现取（归属会变，比如项目负责人执行任务的工单时记在任务名下）。
    * 拉起 agent 的模块都要给（子 agent 带上它被派去的阶段 stageId）；不给的记成"未归属"（消耗页单列，账本的日志里提醒）
    */
   ledger?: () => UsageAttribution;
@@ -163,7 +163,7 @@ export interface SpawnAgentRequest {
    */
   interruptedToolResults?: Record<string, InterruptedToolResult>;
   /**
-   * 范围审视（18 号票，维护者才有）：审视用的模型、审视的说明、对照物、近期范围记录（见宿主协议的 scopeReview）。
+   * 范围审视（18 号票，负责人才有）：审视用的模型、审视的说明、对照物、近期范围记录（见宿主协议的 scopeReview）。
    * 审视那次调用的用量记账时的模型是这里的 model（审视在做时不闲置退出由拉起它的模块用 holdAwake 拿着）
    */
   scopeReview?: ScopeReviewSetup;
@@ -172,7 +172,7 @@ export interface SpawnAgentRequest {
    * 再新开会话。写摘要那次最多等多久由管家按单次模型调用的超时给
    */
   handoff?: { instructions: string };
-  /** 维护者给运行时选的值（289 号票，见宿主协议的 runtimeOptions）：原样交给子进程，不给是都跟运行时自己的默认 */
+  /** 负责人给运行时选的值（289 号票，见宿主协议的 runtimeOptions）：原样交给子进程，不给是都跟运行时自己的默认 */
   runtimeOptions?: RuntimeOptionsSetup;
   /** 授权的文件夹（355 号票，见宿主协议的 readOnlyDirs）：原样交给子进程 */
   readOnlyDirs?: readonly string[];
@@ -690,7 +690,7 @@ class Entry implements ManagedAgent {
 
   /**
    * 手动压缩的超时（114 号票）：压缩不在一轮里，轮的计时管不到它，压缩那次模型调用卡住时会话会一直"忙"着。按单次模型调用的超时计时
-   * （装配了范围审视的维护者压缩前先审视一次，是两次调用，给两倍），到点还没报 compacted 就结束子进程；拉起它的模块在退出时按"没压成"收尾
+   * （装配了范围审视的负责人压缩前先审视一次，是两次调用，给两倍），到点还没报 compacted 就结束子进程；拉起它的模块在退出时按"没压成"收尾
    */
   private armCompact(): void {
     this.clearCompact();

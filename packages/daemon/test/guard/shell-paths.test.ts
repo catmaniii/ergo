@@ -28,7 +28,7 @@ function touched(command: string, env: ShellEnv = ENV): string[] {
 }
 const unresolved = (command: string, env?: ShellEnv) => touched(command, env).filter((p) => p.startsWith("<unresolved:"));
 
-/** 任务里的维护者（v1 模板的前提满足），对话审批开着（不传按 on）：看的是判定本身，不靠"超出授权先不管" */
+/** 任务里的负责人（v1 模板的前提满足），对话审批开着（不传按 on）：看的是判定本身，不靠"超出授权先不管" */
 const judge = (command: string, agent: ExecutingAgent = maintainer() as ExecutingAgent): GuardJudgement =>
   judgeToolCall(inTask(agent, bash(command), v1Satisfied()));
 const asks = (j: GuardJudgement) => j.disposition === "ask_first" || j.disposition === "never" || j.hardRefusal !== null;
@@ -245,7 +245,7 @@ describe("Git Bash 的 /tmp 和 $TMPDIR", () => {
     expect(touched('TMPDIR=out; echo x > "$TMPDIR/a"', env)).toEqual([W("out\\a")]);
   });
 
-  it("维护者写 /tmp（挂到系统临时目录）：在项目外、但看得准，不再按\"看不准、可能碰到受保护区域\"问", () => {
+  it("负责人写 /tmp（挂到系统临时目录）：在项目外、但看得准，不再按\"看不准、可能碰到受保护区域\"问", () => {
     const agent = maintainer({ bashTmp: TEMP }) as ExecutingAgent;
     const j = judge("node x.js > /tmp/cand.txt 2>&1; wc -l /tmp/cand.txt", agent);
     expect(j.categories).toEqual(["outside_project"]);
@@ -286,7 +286,7 @@ describe("Git Bash 的 /tmp 和 $TMPDIR", () => {
 });
 
 describe("wo-10 的 5 条命令（原样）：改之后不再问；反例照旧问", () => {
-  // 那一轮的环境：项目 p-1 的维护者在定时运行里（不属于任务，按对话判），工作目录在数据目录的项目区里，对话审批关着
+  // 那一轮的环境：项目 p-1 的负责人在定时运行里（不属于任务，按对话判），工作目录在数据目录的项目区里，对话审批关着
   const HOME = "C:\\Users\\someone";
   const DATA = `${HOME}\\.ergo`;
   const RECORDS = `${DATA}\\projects\\p-1`;
@@ -308,7 +308,7 @@ describe("wo-10 的 5 条命令（原样）：改之后不再问；反例照旧�
     ...extra,
   });
   const WORK_TMP = `${WORKDIR}\\.ergo-tmp`;
-  /** 177 号票之后的维护者：bash 里 TMPDIR 这些指到工作目录里的临时目录，守卫知道 /tmp 挂到系统临时目录 */
+  /** 177 号票之后的负责人：bash 里 TMPDIR 这些指到工作目录里的临时目录，守卫知道 /tmp 挂到系统临时目录 */
   const after = () => pm1({ bashTmp: TEMP, shellVars: { TMPDIR: WORK_TMP, TEMP: WORK_TMP, TMP: WORK_TMP } });
   const run = (command: string, agent: ExecutingAgent, approvals: "on" | "off" = "off") =>
     judgeToolCall(inChat(agent, bash(command), { places, conversationApprovals: approvals }));

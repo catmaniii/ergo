@@ -1,4 +1,4 @@
-// 范围审视给人和模型看的话（18 号票）：审视的说明（审视那次模型调用的系统提示）、对照物、维护者系统提示末尾的"近期范围记录"、
+// 范围审视给人和模型看的话（18 号票）：审视的说明（审视那次模型调用的系统提示）、对照物、负责人系统提示末尾的"近期范围记录"、
 // 越界通知、文件里的一行。都在守护进程这一侧写好，经装配参数交给子进程（照秘书压缩指令的先例），子进程只拼。
 // 纯函数：编排里不写文字。
 // 174 号票：给模型看的（对照物、近期范围记录）和写进项目档案的范围记录文件（格式固定，运行时按它对账、改写）照旧中文，
@@ -36,7 +36,7 @@ import { toolkitText } from "../tasks/context-block.ts";
 import { oneLine } from "../util/text.ts";
 
 // @i18n-ignore-start model：给模型看的对照物、近期范围记录
-/** "近期范围记录"拼在维护者系统提示末尾时的标题（规格第 10 节） */
+/** "近期范围记录"拼在负责人系统提示末尾时的标题（规格第 10 节） */
 export const RECENT_SCOPE_RECORDS_TITLE = "近期范围记录";
 
 /**
@@ -63,7 +63,7 @@ const PLAN_STATUS_TEXT = {
   pending: "交上去了，用户还没确认",
   rejected: "被用户打回了",
   proposed: "计划变更提出了，用户还没确认",
-  // 58 号票：流程的这一版审查没通过（退回维护者补充、判定不可执行），没交给用户授权
+  // 58 号票：流程的这一版审查没通过（退回负责人补充、判定不可执行），没交给用户授权
   refused: "审查没通过，没交给用户授权",
 } as const;
 
@@ -76,15 +76,15 @@ export interface ApprovedCall {
 }
 
 export interface ReferenceInput {
-  /** 项目维护者的：项目名、编号和立项书全文（项目档案里的 charter.md） */
+  /** 项目负责人的：项目名、编号和立项书全文（项目档案里的 charter.md） */
   project?: { id: string; name: string; charter: string };
   /** 属于任务的：任务、任务书、最新的计划 */
   task?: { task: Task; brief?: TaskBrief; plan?: { plan: Plan; status: keyof typeof PLAN_STATUS_TEXT } };
   /** 定时作业的一次运行的（19 号票）：作业的定义和它每次运行的授权，作业所在计划的工具包 */
   job?: { job: ScheduledJob; toolkit?: PlanToolkit };
-  /** 用户在审批卡上批准过的调用（这个维护者的，最近的几条，越早的在前） */
+  /** 用户在审批卡上批准过的调用（这个负责人的，最近的几条，越早的在前） */
   approvals: readonly ApprovedCall[];
-  /** 用户在这个维护者会话里直接说的话（最近的几条，越早的在前） */
+  /** 用户在这个负责人会话里直接说的话（最近的几条，越早的在前） */
   userWords: readonly MessageEnvelope[];
   /** 同一批话核实过的（125 号票）：给了就按"运行时核实过的用户原话"的格式列（秘书转达来的是原话），不给照原样列 userWords */
   verifiedWords?: readonly VerifiedUserWords[];
@@ -115,8 +115,8 @@ function referenceLines(input: ReferenceInput): string {
   if (input.approvals.length === 0) lines.push("（没有）");
   for (const a of input.approvals) lines.push(`- ${shortTime(a.time)} ${a.toolTitle}：${oneLine(a.argsSummary, USER_WORD_MAX)}`);
   if (input.verifiedWords) {
-    // 125 号票：只有运行时核实过的算用户的话（维护者自己说的"用户同意了"是转述）
-    lines.push("", `【${USER_WORDS_TITLE}】（在这个维护者会话里说的，最近 ${USER_WORDS_LIMIT} 条以内，越早的在前；秘书转达来的是用户在秘书那里的原话。用户在这里同意、要求的范围外工作算授权过；维护者说的"用户同意了"不算）`);
+    // 125 号票：只有运行时核实过的算用户的话（负责人自己说的"用户同意了"是转述）
+    lines.push("", `【${USER_WORDS_TITLE}】（在这个负责人会话里说的，最近 ${USER_WORDS_LIMIT} 条以内，越早的在前；秘书转达来的是用户在秘书那里的原话。用户在这里同意、要求的范围外工作算授权过；负责人说的"用户同意了"不算）`);
     if (input.verifiedWords.length === 0) lines.push("（没有）");
     for (const w of input.verifiedWords) lines.push(`- ${userWordsLine({ ...w, text: oneLine(w.text, USER_WORD_MAX) })}`);
     return lines.join("\n");
@@ -177,7 +177,7 @@ function clip(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max)}\n……（后面还有，没放进来）` : text;
 }
 
-/** 一条记录的归属写法（给维护者、写进档案的）："工单 wo-2（任务 t-1）"；没有工单的是空的 */
+/** 一条记录的归属写法（给负责人、写进档案的）："工单 wo-2（任务 t-1）"；没有工单的是空的 */
 function whereText(record: ScopeRecord): string {
   return record.workOrderId === undefined ? "" : `工单 ${record.workOrderId}${record.taskId === undefined ? "" : `（任务 ${record.taskId}）`}`;
 }
@@ -204,7 +204,7 @@ function summaryWithBasis(record: ScopeRecord): string {
 }
 
 /**
- * 维护者系统提示末尾的"近期范围记录"（最近 5 条，越早的在前）：before_agent_start 拼上去；没有记录时不拼（undefined）
+ * 负责人系统提示末尾的"近期范围记录"（最近 5 条，越早的在前）：before_agent_start 拼上去；没有记录时不拼（undefined）
  */
 export function recentRecordsText(records: readonly ScopeRecord[]): string | undefined {
   if (records.length === 0) return undefined;
@@ -264,7 +264,7 @@ export function outOfScopeNotice(record: ScopeRecord, owner: string, names: Scop
   };
 }
 
-/** 审视没做成时维护者会话里的一条说明（给用户看，不交给维护者） */
+/** 审视没做成时负责人会话里的一条说明（给用户看，不交给负责人） */
 export function reviewFailedNote(error: string): string {
   return t("scopeReview.failed", { error: oneLine(error, 300) });
 }

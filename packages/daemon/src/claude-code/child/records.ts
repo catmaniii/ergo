@@ -9,7 +9,7 @@
 // 选了 continueSession 接着最近的（记录文件的修改时间）；都没有就新开。
 // 290 号票（接管已有会话）：装配参数给了 resumeRuntimeSession（接管的 Claude 会话 id）时，"新开"不新开 Claude 的会话：记录接着接管的那条线——
 // 会话目录里已有记着同一个接管来源（takenOver）的记录就接着它最近的那个 id（中途 /clear 换了 id 的接着新的），没有就是接管的那个 id，
-// started 记成 true（按 id 恢复）。项目维护者换段（新的段名）也接着同一条线。freshSession（清空当前对话、换运行时）照旧新开，不接管。
+// started 记成 true（按 id 恢复）。项目负责人换段（新的段名）也接着同一条线。freshSession（清空当前对话、换运行时）照旧新开，不接管。
 // 293 号票（撤回和分支）：记录里另记 lineage（navigation.ts）——每条输入推进了哪个 Claude 会话、每个会话从哪分叉来的、还没交给模型的分支摘要；
 // 撤回、切分支之后 claudeSessionId 换成新分叉出来的、切过去的那个，之后接着它。
 import { randomUUID } from "node:crypto";

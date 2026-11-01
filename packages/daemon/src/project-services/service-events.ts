@@ -4,8 +4,8 @@
 //   服务撤下、项目停用归档、删除时作废（revokeCredential，文件删掉），重新上线发新的。内存里只留它的摘要，比对时比摘要。
 //   凭证只认"该在 LSM 上、项目使用中"的服务：撤下的要求一落盘就不认，不等 LSM 真撤完。不做别的 agent 的通道，也不发给手工托管在服务管家里的服务；
 // - 报事件（report）按这个次序：限速（每个服务按最近一分钟数）→ 大小 → 事件名有没有人等。不过的回明确的错（code、message 交给网关回 HTTP），
-//   不叫醒任何 agent，不花钱；服务发完就走，不等维护者做完；
-// - 最近收到的事件（每个服务 SERVICE_EVENTS_KEPT 条，只有名字、时间、结局，不存数据）：项目页这一条、维护者的 recent_service_events 看它，
+//   不叫醒任何 agent，不花钱；服务发完就走，不等负责人做完；
+// - 最近收到的事件（每个服务 SERVICE_EVENTS_KEPT 条，只有名字、时间、结局，不存数据）：项目页这一条、负责人的 recent_service_events 看它，
 //   存在数据目录 event-sources/service-events.json（重启后还在），删项目时一起删。超了限速的一阵只记一条；
 // - 服务报来的数据只进这次运行（JobRun.events，删项目时跟着删）：不是用户说的话，不进素材和记忆，不算用户授权，交给 agent 时写明是数据不是指令
 //   （scheduled-jobs/texts.ts 的 eventsBlock）。
@@ -63,7 +63,7 @@ export interface ServiceEvents extends ServiceEventsApi {
   forgetProject(projectId: string): void;
   /** 最近收到的变了时叫 fn（项目页的样子跟着推）；返回取消 */
   onChange(fn: () => void): () => void;
-  /** 项目维护者查最近收到的事件的工具 */
+  /** 项目负责人查最近收到的事件的工具 */
   tool(projectId: string): HostTool;
 }
 

@@ -237,9 +237,9 @@ describe("运营概况里的“启动”“关闭”（257 号票）", () => {
 });
 
 describe("“现在”按项目状态挑内容", () => {
-  test("筹备中：起草中（和维护者交流）、立项书等你确认（去确认）、你打回了在改、已确认等你开工", () => {
+  test("筹备中：起草中（和负责人交流）、立项书等你确认（去确认）、你打回了在改、已确认等你开工", () => {
     const at = preparingAt;
-    expect(at({})).toEqual({ kind: "preparing", step: "drafting", text: "维护者在和你做立项问答、起草立项书", action: "chat" });
+    expect(at({})).toEqual({ kind: "preparing", step: "drafting", text: "负责人在和你做立项问答、起草立项书", action: "chat" });
     expect(at({ charterCardId: "c-ch" }, [card("c-ch", 1, { type: "charter" })])).toMatchObject({ step: "awaiting_confirm", text: "立项书交上来了，等你确认", action: "charter" });
     expect(at({ charterCardId: "c-ch" }, [card("c-ch", 2, { type: "charter", status: "dismissed" })])).toMatchObject({ step: "revising", action: "chat" });
     expect(at({ charterCardId: "c-ch", charterConfirmed: true })).toMatchObject({ step: "confirmed", text: "立项书已确认，等你开工", action: "start_build" });
@@ -264,7 +264,7 @@ describe("“现在”按项目状态挑内容", () => {
         },
       }),
     );
-    // 进行中、刚有动静的：正在做（维护者睡着了也不算超时）
+    // 进行中、刚有动静的：正在做（负责人睡着了也不算超时）
     f.workOrder(wo("wo-1", { updatedAt: new Date(NOW - 60_000).toISOString() }));
     // 内部任务等你批准（被拦）、等你验收（等你）、做不了的工单（任务还没结束：失败）、等澄清的工单（等你）、很久没动静的（超时没动）
     f.task(task("t-2", { title: "补抓取源", state: "waiting_for_user", waitReason: "approval", kind: "workflow" }));
@@ -286,14 +286,14 @@ describe("“现在”按项目状态挑内容", () => {
         ["blocked", "补抓取源", "被拦下，等你批准"],
         ["waiting", "写周报模板", "等你卡住求助：缺少 API key"],
         ["failed", "工单 wo-4", "RSS 源 403"],
-        ["waiting", "工单 wo-5", "维护者在等你回答提问"],
+        ["waiting", "工单 wo-5", "负责人在等你回答提问"],
         ["stale", "工单 wo-6", "进行中，35 分钟没有动静"],
       ].toSorted(),
     );
     expect(now.latest).toBe("「抓取」验收了：三个来源都能抓到");
     expect(now.buildDoneCardId).toBe("c-done");
 
-    // 维护者在干活：进行中的工单不算超时没动
+    // 负责人在干活：进行中的工单不算超时没动
     f.activity("working");
     const working = projectNow(replay(f.list), "p-1", NOW);
     expect(working?.kind === "building" && working.stuck.some((s) => s.kind === "stale")).toBe(false);

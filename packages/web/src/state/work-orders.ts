@@ -1,7 +1,7 @@
 // 工单的视图（纯函数，16 号票）：
 // - 项目页上的工单流水线：排队中（待接）、进行中（含等澄清）、已结束三栏，每张工单显示来源、所属任务和这个任务现在到哪了；
 // - 看板上任务卡的"等项目 X"：只在真被项目挡住时标——任务有一张还排着（待接）的工单、任务正等着它（起草计划的还在规划中，
-//   执行的在排队中），而项目的维护者手上有别的工单（一次只做一件）。全局执行名额满了、任务暂停了都不算。
+//   执行的在排队中），而项目的负责人手上有别的工单（一次只做一件）。全局执行名额满了、任务暂停了都不算。
 // 工单不在看板上单独占卡：看板上只有任务，工单挂在任务和项目上。
 // 17 号票：任务详情里的工单列表（taskWorkOrders）：涉及多个项目的任务的全部工单，含建出了还没派出的。
 // 19 号票：定时作业的一次运行也是一张工单（来源"定时作业"，不属于任务）：流水线上写它是哪个作业的运行、这次运行到哪了。
@@ -48,7 +48,7 @@ export interface WorkOrderView {
 export const ENDED_WORK_ORDERS_SHOWN = 10;
 
 /**
- * 任务现在到哪了：状态，执行起来之后加上第几阶段（91 号票：按依赖图的阶段号写"第 N/M 阶段"——维护者正在做的那一阶段的阶段号 /
+ * 任务现在到哪了：状态，执行起来之后加上第几阶段（91 号票：按依赖图的阶段号写"第 N/M 阶段"——负责人正在做的那一阶段的阶段号 /
  * 一共几个阶段号，并行的算一个，和任务详情的状态行一样）
  */
 function stageOf(task: Task | undefined): string | undefined {
@@ -110,7 +110,7 @@ function awaited(order: WorkOrder, task: Task | undefined): boolean {
 }
 
 /**
- * 任务在等哪个项目（看板上标"等项目 X"）：它有一张排着的、正等着的工单，而项目的维护者手上有别的工单（进行中、等澄清）时
+ * 任务在等哪个项目（看板上标"等项目 X"）：它有一张排着的、正等着的工单，而项目的负责人手上有别的工单（进行中、等澄清）时
  * 是那个项目的名字，否则 undefined
  */
 export function taskWaitingForProject(state: UiState, taskId: string): string | undefined {
@@ -134,7 +134,7 @@ export interface TaskWorkOrderView {
   unplanned: boolean;
 }
 
-/** 工单所属的阶段（任务维护者派来的工单才有） */
+/** 工单所属的阶段（任务负责人派来的工单才有） */
 const stageIdOf = (w: WorkOrder) => (w.source === "task_maintainer" ? w.stageId : undefined);
 
 /**

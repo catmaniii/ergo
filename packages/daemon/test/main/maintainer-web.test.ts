@@ -1,4 +1,4 @@
-// 主切面（70 号票）：任务的维护者也配上联网搜索、读网页，grep、find 照给。联网搜索、读网页是假的（不起浏览器、不连真网络）。
+// 主切面（70 号票）：任务的负责人也配上联网搜索、读网页，grep、find 照给。联网搜索、读网页是假的（不起浏览器、不连真网络）。
 // - 起草计划时（PLANNING_TOOLKIT：没有 bash，70 号票起联网开着）：能搜、能读网页、能用 grep、find（守卫不拦）；
 // - 执行时照确认的计划的工具包：联网开着照常，联网关着守卫硬拒绝。
 import { maintainerChannel, type Plan } from "@ergo/protocol";
@@ -23,7 +23,7 @@ const web = () =>
 /** 计划的工具包换一下联网开关 */
 const planWithNetwork = (network: boolean): Plan => ({ ...onePlan(), toolkit: { skills: [], mcp: [], bash: false, network } });
 
-describe("任务的维护者的联网工具", () => {
+describe("任务的负责人的联网工具", () => {
   it("起草计划时：联网搜索、读网页、grep、find 守卫都不拦（联网搜索、读网页直接做）", async () => {
     const td = await startTestDaemon({
       webAccess: web(),

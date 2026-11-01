@@ -124,7 +124,7 @@ describe("本票之前的数据目录", () => {
       fs.mkdirSync(work, { recursive: true });
       fs.writeFileSync(path.join(work, "report.md"), "# 装修报告\n");
 
-      // 第一次：执行中的任务，维护者先看报告（还没写过笔记，被规则拦下），写笔记、改笔记，再看报告（照常），
+      // 第一次：执行中的任务，负责人先看报告（还没写过笔记，被规则拦下），写笔记、改笔记，再看报告（照常），
       // 最后用 bash 写一个文件（拆出来的写文件只带路径：最近的一条写文件里没有内容，迁移不能只看它）
       const first = await startTestDaemon({
         maintainer: (_id, spawn) =>

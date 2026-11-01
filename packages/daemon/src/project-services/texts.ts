@@ -1,4 +1,4 @@
-// 项目的服务（133 号票）的说法：校验不过的原因、上线不了的原因、交给维护者的通知、秘书工具的说明和结果。编排里不写文字，都从这里取。
+// 项目的服务（133 号票）的说法：校验不过的原因、上线不了的原因、交给负责人的通知、秘书工具的说明和结果。编排里不写文字，都从这里取。
 // 174 号票：上线不了的原因、挂了的原因、确认时生效不了的原因给用户看（项目页、运营方案的结局），走 t()；
 // 交方案时校验的问题、通知、秘书工具的说明和结果给模型看，照旧中文。
 import { APP_BASE_PATH_ENV, forModel, type ProjectServiceView, serviceLine, serviceOpenLabel, t, tTable } from "@ergo/protocol";
@@ -6,18 +6,18 @@ import { PROPOSE_OPERATIONS_TOOL } from "../projects/api.ts";
 
 /** 服务写得对不对（spec.ts） */
 export const specText = {
-  /** 交方案时（维护者看）、确认时生效不了（用户看）都会碰到 */
+  /** 交方案时（负责人看）、确认时生效不了（用户看）都会碰到 */
   needService: () => t("projectServices.spec.needService"),
-  // @i18n-ignore-start model：交方案时校验的问题（交给维护者）
+  // @i18n-ignore-start model：交方案时校验的问题（交给负责人）
   noTrigger: "服务那一条不写 schedule、event（服务是常驻的：确认后上线，一直跑着）",
   noWorkflow: "服务那一条不能是流程（approach 不写或写 plain，不写 workflow）",
   noManual: "服务二狗现在能替你上线了：不写 manual",
   nameDash: (name: string) => `服务名「${name}」里不能有连着的两个连字符（LSM 的名字不许 "--"）`,
   commandOneLine: "启动命令只能是一行",
   // @i18n-ignore-end
-  /** 交方案时（维护者看）、确认时生效不了（用户看）都会碰到 */
+  /** 交方案时（负责人看）、确认时生效不了（用户看）都会碰到 */
   cwdMissing: (dir: string) => t("projectServices.spec.cwdMissing", { dir }),
-  // @i18n-ignore-start model：交方案时校验的问题（交给维护者）
+  // @i18n-ignore-start model：交方案时校验的问题（交给负责人）
   cwdOutside: (dir: string, workdir: string, records: string) => `工作目录 ${dir} 出界了：要在项目的工作目录（${workdir}）或项目档案（${records}）里面`,
   envDuplicate: (name: string) => `环境变量 ${name} 写了不止一次（不分大小写）`,
   envLsm: (name: string) => `环境变量 ${name}：LSM_ 开头的是 LSM 注入的接入身份，不能自己写`,
@@ -30,9 +30,9 @@ export const specText = {
   envOneLine: (name: string) => `环境变量 ${name} 的值只能是一行`,
   envSecretFile: (name: string, file: string) => `环境变量 ${name} 的 secret「${file}」要是密钥区里的文件名（字母、数字、点、短横线、下划线，不带路径）`,
   // @i18n-ignore-end
-  /** 交方案时（维护者看）、确认时生效不了（用户看）都会碰到 */
+  /** 交方案时（负责人看）、确认时生效不了（用户看）都会碰到 */
   portTaken: (port: number, holder: string) => t("projectServices.spec.portTaken", { port, holder }),
-  // @i18n-ignore-start model：交方案时校验的问题（交给维护者）
+  // @i18n-ignore-start model：交方案时校验的问题（交给负责人）
   homeSpace: "网页的首页路径里不能有空格",
   planSameName: (service: string, first: string, second: string) => `「${first}」和「${second}」的服务名都是 ${service}：一个项目里的服务名不能重`,
   planSamePort: (port: number, first: string, second: string) => `「${first}」和「${second}」都用端口 ${port}：换一个`,
@@ -46,7 +46,7 @@ export const portHolderText = {
   service: (projectId: string, title: string) => t("projectServices.port.service", { projectId, title }),
 };
 
-// @i18n-ignore-start model：交给维护者的工具结果
+// @i18n-ignore-start model：交给负责人的工具结果
 /** 交方案时的前缀下自检 */
 export const selfCheckText = {
   notRunning: (title: string, port: number) => `服务「${title}」现在没在跑（本机端口 ${port} 没有响应），没做前缀下自检：上线后运行时再查一遍，有问题会告诉你。`,
@@ -64,7 +64,7 @@ export const rolloutText = {
   timeout: () => t("projectServices.rollout.timeout"),
 };
 
-// @i18n-ignore-start model：交给维护者的通知
+// @i18n-ignore-start model：交给负责人的通知
 /**
  * 服务管家的判断也可能错（362 号票：真模型试验里它把活着的服务判成失败，负责人照着改了代码、写进了决策记录和 skill）：
  * 先自己连一下健康检查的地址核实，活着就别为这个改东西
@@ -72,7 +72,7 @@ export const rolloutText = {
 const verifyFirst = (probe: string) =>
   `这是服务管家（LSM）的判断，它也可能判错：先自己连一下 ${probe}（比如 curl，联网关着也连得上本机）核实服务到底活没活。活着就别为这个改代码、也别写进决策记录或 skill，把你看到的告诉用户；`;
 
-/** 交给维护者的通知（唤起它；362 号票起都在对话段里处理，不打断正在做的工单，这里说的工具对话段都有） */
+/** 交给负责人的通知（唤起它；362 号票起都在对话段里处理，不打断正在做的工单，这里说的工具对话段都有） */
 export const noticeText = {
   failed: (view: Pick<ProjectServiceView, "title" | "app" | "port">, reason: string, probe: string) =>
     `运营方案里的服务「${view.title}」（${view.app}，端口 ${view.port}）没上线。服务管家（LSM）判断的依据：${reason}。${verifyFirst(probe)}真没起来再看是什么原因（端口被占、命令写错、依赖没装、健康检查不过……），改好了用 ${PROPOSE_OPERATIONS_TOOL} 再交一份完整的运营方案（照旧的那几条也写上，这一条运行时会重新开起来），告诉用户。`,
@@ -166,7 +166,7 @@ export const boardText = {
 };
 // @i18n-ignore-end
 
-/** 项目的服务报事件（357 号票）：回给服务的错（进服务的日志，给人和维护者看）；工具的说明和结果给模型看 */
+/** 项目的服务报事件（357 号票）：回给服务的错（进服务的日志，给人和负责人看）；工具的说明和结果给模型看 */
 export const eventsText = {
   noCredential: (env: string) => t("projectServices.events.noCredential", { env }),
   badCredential: (env: string) => t("projectServices.events.badCredential", { env }),

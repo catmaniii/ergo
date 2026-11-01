@@ -127,7 +127,7 @@ function msg(conversation: ConversationId, speaker: Speaker, time: string, ...pa
   return { id: `msg-${msgNo}`, conversation, speaker, time, parts };
 }
 
-/** 消息的归属（任务、阶段）：守护进程在维护者会话里的消息上带着，缩小后的底色带、书脊、任务卡按它分（55 号票） */
+/** 消息的归属（任务、阶段）：守护进程在负责人会话里的消息上带着，缩小后的底色带、书脊、任务卡按它分（55 号票） */
 const SCOPES = new Map<string, MessageScope>();
 function scoped(scope: MessageScope, m: MessageEnvelope): MessageEnvelope {
   SCOPES.set(m.id, scope);
@@ -158,7 +158,7 @@ function fakeCardText(type: CardType, payload: unknown): string {
 }
 
 export const MAINTAINERS = {
-  // 任务「家庭照片整理与去重」是项目「相册库」的内部任务，维护者就是项目的（真任务的详情按它取会话，369 号票）
+  // 任务「家庭照片整理与去重」是项目「相册库」的内部任务，负责人就是项目的（真任务的详情按它取会话，369 号票）
   photos: maintainerChannel("project-photos"),
   bills: maintainerChannel("task-bills"),
   ledger: maintainerChannel("project-ledger"),
@@ -369,13 +369,13 @@ const planChangeBlog: PlanChangeCardPayload = {
   revision: 2,
   basePlanId: "t-blog-p1",
   why: "原计划没写切 DNS；测完要直接切过去，上线阶段得加一条改 DNS 记录的授权。",
-  // 125 号票：维护者引用、运行时核实过的你的原话（你在手机上说的）
+  // 125 号票：负责人引用、运行时核实过的你的原话（你在手机上说的）
   userWords: [
     {
       messageId: "msg-blog-cutover",
       text: "测完直接切过去吧",
       conversation: MAINTAINERS.blog,
-      where: "项目「个人博客」的维护者会话",
+      where: "项目「个人博客」的负责人会话",
       time: at("10-06", "22:58"),
       device: "设备「我的手机」",
     },
@@ -386,7 +386,7 @@ const planChangeBlog: PlanChangeCardPayload = {
   grantInfo: { dns: { toolTitle: "发 HTTP 请求", categoryTitles: ["以我的名义对外发送或发布"], disposition: "planned_only" } },
 };
 
-/** 记账本的立项书（确认过的）和你在维护者会话里说要改之后（125 号票：立项要求变更） */
+/** 记账本的立项书（确认过的）和你在负责人会话里说要改之后（125 号票：立项要求变更） */
 const ledgerCharter = {
   goal: "所有银行和支付账单进一个本子，按月出报表",
   scope: ["导入三张卡和两个支付平台的账单", "按月出报表", "不碰投资账户"],
@@ -411,14 +411,14 @@ const charterChangeLedger: CharterChangePayload = {
       messageId: "msg-ledger-weekly",
       text: "报表改成每周出一份吧，月报就不要了",
       conversation: MAINTAINERS.ledger,
-      where: "项目「记账本」的维护者会话",
+      where: "项目「记账本」的负责人会话",
       time: at("10-06", "21:37"),
       device: "本机",
     },
   ],
 };
 
-/** 家庭网盘的规范改写（261 号票）：你说要一份运维手册、跟上新版规范，维护者提的第 2 次（第 1 次不画架构图、进展按周写，早就确认了） */
+/** 家庭网盘的规范改写（261 号票）：你说要一份运维手册、跟上新版规范，负责人提的第 2 次（第 1 次不画架构图、进展按周写，早就确认了） */
 const standardChangeNetdisk: StandardChangePayload = {
   projectId: "p-netdisk",
   projectName: "家庭网盘",
@@ -431,7 +431,7 @@ const standardChangeNetdisk: StandardChangePayload = {
       messageId: "msg-netdisk-runbook",
       text: "给网盘写一份运维手册吧，规范也跟上新版",
       conversation: "maintainer:project-netdisk",
-      where: "项目「家庭网盘」的维护者会话",
+      where: "项目「家庭网盘」的负责人会话",
       time: at("10-07", "08:40"),
       device: "本机",
     },
@@ -519,9 +519,9 @@ export const FAKE_CARDS: Card[] = [
     actionId: "qa-fake-relay-2",
     conversation: "secretary",
     action: { type: "tell_project", params: { projectId: "p-ledger", message: "下个月起信用卡账单也要导入" } },
-    name: "转达给项目的维护者",
-    title: "转达给项目「记账本」的维护者",
-    target: "项目「记账本」的维护者",
+    name: "转达给项目的负责人",
+    title: "转达给项目「记账本」的负责人",
+    target: "项目「记账本」的负责人",
     content: "下个月起信用卡账单也要导入",
     explicit: false,
     categories: [],
@@ -555,7 +555,7 @@ export const FAKE_CARDS: Card[] = [
       { materialId: "mat-fake-1", kind: "用户发言", excerpt: "其实我在考虑要不要换工作", time: at("09-03", "22:41"), conversation: "secretary" },
       { materialId: "mat-fake-2", kind: "用户发言", excerpt: "猎头又来找了，薪资涨 30%", time: at("09-11", "21:05"), conversation: "secretary" },
       { materialId: "mat-fake-3", kind: "用户发言", excerpt: "先别跟任何人说换工作的事", time: at("09-12", "08:15"), conversation: "secretary" },
-      // 维护者会话里的素材：来源写编号加它属于谁（159 号票）
+      // 负责人会话里的素材：来源写编号加它属于谁（159 号票）
       { materialId: "mat-fake-4", kind: "用户发言", excerpt: "换工作前把这半年的工资流水单独导一份", time: at("09-14", "20:30"), conversation: "maintainer:project-ledger" },
     ],
   } satisfies MemoryDeleteCardPayload),
@@ -667,7 +667,7 @@ export const FAKE_CARDS: Card[] = [
     { urgency: "blocking_deadline", createdAt: at("10-07", "09:20") },
   ),
   // 55 号票：第 1 阶段验收通过、第 2 阶段第一次交上来被退回（缩小后的书脊一段绿、一段橙，接着做的那一轮在做）
-  // 84 号票：第 1 阶段第一次交上来你退回了（你写的说明记在由你验收的那条上），卡上记着维护者宣布完成时写的那句
+  // 84 号票：第 1 阶段第一次交上来你退回了（你写的说明记在由你验收的那条上），卡上记着负责人宣布完成时写的那句
   card(
     "c-acc-photos-s1a",
     "progress",
@@ -679,7 +679,7 @@ export const FAKE_CARDS: Card[] = [
       stageIndex: 1,
       stageTotal: 4,
       kind: "acceptance",
-      text: "你退回了，交回维护者修改。",
+      text: "你退回了，交回负责人修改。",
       acceptance: {
         passed: false,
         judgedBy: "user",
@@ -727,7 +727,7 @@ export const FAKE_CARDS: Card[] = [
       stageIndex: 2,
       stageTotal: 4,
       kind: "acceptance",
-      text: "没通过 1 条，交回维护者修改。",
+      text: "没通过 1 条，交回负责人修改。",
       acceptance: {
         passed: false,
         judgedBy: "script",
@@ -803,7 +803,7 @@ export const FAKE_CARDS: Card[] = [
     } satisfies CharterPayload,
     { urgency: "non_blocking", createdAt: at("10-06", "22:30") },
   ),
-  // 记账本的立项书（早就确认并开工了）和你说要改之后维护者提的立项要求变更（125 号票）
+  // 记账本的立项书（早就确认并开工了）和你说要改之后负责人提的立项要求变更（125 号票）
   card(
     "c-charter-ledger",
     "charter",
@@ -833,7 +833,7 @@ export const FAKE_CARDS: Card[] = [
         { code: "3", title: "随手翻页面", result: "验收通过：脚本检查 1 条、评审判定 1 条", deliverables: ["本地页面 index.html", "使用说明 README.md"] },
       ],
       workdir: "/示例/项目/读书笔记库/workdir",
-      // 130 号票：维护者建设期间交的运营方案，主按钮是"确认并转入使用"
+      // 130 号票：负责人建设期间交的运营方案，主按钮是"确认并转入使用"
       operations: READING_OPERATIONS,
       // 259 号票：转运营检查清单（ops.json 还没交）
       checklist: [
@@ -847,7 +847,7 @@ export const FAKE_CARDS: Card[] = [
     } satisfies BuildDonePayload,
     { urgency: "non_blocking", createdAt: at("10-07", "10:05") },
   ),
-  // 259 号票：相册库的维护者提转入使用（"转入使用"确认卡：清单缺架构图和 ops.json，照样能确认）
+  // 259 号票：相册库的负责人提转入使用（"转入使用"确认卡：清单缺架构图和 ops.json，照样能确认）
   card(
     "c-go-live-photos",
     "go_live",
@@ -882,7 +882,7 @@ export const FAKE_CARDS: Card[] = [
     handledAt: at("10-05", "21:12"),
     createdAt: at("10-05", "21:00"),
   }),
-  // 130 号票：家庭菜谱的维护者交的新一份运营方案（菜单改时间、去掉一条、加上一条；133 号票起还改了菜谱网页的启动命令），等你确认
+  // 130 号票：家庭菜谱的负责人交的新一份运营方案（菜单改时间、去掉一条、加上一条；133 号票起还改了菜谱网页的启动命令），等你确认
   card("c-ops-recipes", "operations_change", RECIPES_OPERATIONS_CHANGE, { urgency: "non_blocking", createdAt: at("10-07", "18:40") }),
   card(
     "c-pair-1",
@@ -916,7 +916,7 @@ export const FAKE_CARDS: Card[] = [
   ...WORKFLOW_CARDS,
   // 三个长程任务的计划卡、验收结论、计划变更卡（91 号票，fake-long-tasks.ts）：并行的阶段、计划等你确认、计划调整中
   ...LONG_TASK_CARDS,
-  // 288 号票：运行时的提问卡——Claude Code 自己要问你的两道选择题（第二道能多选），等你答（在个税汇算那个维护者的会话最后）
+  // 288 号票：运行时的提问卡——Claude Code 自己要问你的两道选择题（第二道能多选），等你答（在个税汇算那个负责人的会话最后）
   card(
     "c-rq-demo",
     "runtime_question",
@@ -1012,17 +1012,17 @@ const BRIEF_DONE = letter(
 );
 const BRIEF_DONE_FILES: MessageEnvelope = { id: "msg-brief-done-3-files", conversation: S, speaker: "system", time: at("10-07", "08:06"), parts: [FAKE_BRIEF.part] };
 /**
- * 117 号票：t-brief 第 3 次运行时维护者用 tell_secretary 带附件发来的信（照 task-done.ts、letter-texts.ts 的写法）：会话里折成一行，
+ * 117 号票：t-brief 第 3 次运行时负责人用 tell_secretary 带附件发来的信（照 task-done.ts、letter-texts.ts 的写法）：会话里折成一行，
  * 网页版早报照任务做完的附件那样作为只有文件的系统消息紧跟在后面（秘书回完挪到回复后面，118 号票），用户在这里直接点得开
  */
 const BRIEF_LETTER = letter(
   "msg-brief-letter-3",
   at("10-07", "08:06"),
   [
-    "【维护者来信】后台的一个 agent 让你转告用户一件事（运行时转交的，不是用户说的）：",
-    `定时触发的普通任务 t-brief「每天早上出早报」的维护者（第 3 次运行时）说：\n今天的早报做了网页版，Bun 这周 star 涨得最快，值得看一眼。\n（附了 1 个文件：${FAKE_BRIEF_HTML.part.name}（附件引用 ${FAKE_BRIEF_HTML.part.mediaId}））`,
+    "【负责人来信】后台的一个 agent 让你转告用户一件事（运行时转交的，不是用户说的）：",
+    `定时触发的普通任务 t-brief「每天早上出早报」的负责人（第 3 次运行时）说：\n今天的早报做了网页版，Bun 这周 star 涨得最快，值得看一眼。\n（附了 1 个文件：${FAKE_BRIEF_HTML.part.name}（附件引用 ${FAKE_BRIEF_HTML.part.mediaId}））`,
     "附件已经作为附件卡片放在这条通知后面给用户看了，用户点得开（预览或下载），不用再用 send_attachment 发一遍；要看内容用 read_attachment（附件引用写在上面的文件名后面）。转告时提一句附了什么。",
-    "在主线里主动用你自己的话转告用户：是哪个项目或任务的谁（维护者、子 agent、评审）、说了什么；要用户做什么就说清楚。项目内部的细节只到它写的这些，不要追问。然后问“要我念给你听吗？”。他说要，就用 send_voice 把口语稿念给他听；说不用就算了。",
+    "在主线里主动用你自己的话转告用户：是哪个项目或任务的谁（负责人、子 agent、评审）、说了什么；要用户做什么就说清楚。项目内部的细节只到它写的这些，不要追问。然后问“要我念给你听吗？”。他说要，就用 send_voice 把口语稿念给他听；说不用就算了。",
   ].join("\n\n"),
   "早报做了网页版，Bun 这周 star 涨得最快",
 );
@@ -1095,7 +1095,7 @@ const SECRETARY: MessageEnvelope[] = [
   msg(S, "user", at("10-07", "07:58"), { type: "voice", voiceId: "v-fake-demo", mediaId: "sha256:fake-voice", mime: "audio/webm", durationMs: 6200, waveform: [6, 22, 48, 71, 60, 35, 18, 52, 80, 66, 30, 12, 40, 58, 26, 9] }),
   msg(S, "agent", at("10-07", "07:58"), text("好，周五下午三点的牙医改到下周一同一时间了。")),
   FAKE_AGENT_VOICE_MESSAGE,
-  // 117 号票：同一次运行里维护者带着网页版早报发来的信（一行"维护者来信"），附件卡片在秘书的回复后面
+  // 117 号票：同一次运行里负责人带着网页版早报发来的信（一行"负责人来信"），附件卡片在秘书的回复后面
   BRIEF_LETTER,
   BRIEF_LETTER_FILES,
   BRIEF_LETTER_REPLY,
@@ -1177,13 +1177,13 @@ const SECRETARY: MessageEnvelope[] = [
   ),
 ];
 
-// ---------- 任务「家庭照片整理与去重」的维护者 ----------
+// ---------- 任务「家庭照片整理与去重」的负责人 ----------
 
 const P = MAINTAINERS.photos;
 
 /**
- * 84 号票：第 2 阶段退回之后、维护者还在做的时候你从这里重做（执行中也能重做）：会话里一条重做记录，
- * 后面交给维护者"接着做"的那句通知界面上不显示（记录替它说了）
+ * 84 号票：第 2 阶段退回之后、负责人还在做的时候你从这里重做（执行中也能重做）：会话里一条重做记录，
+ * 后面交给负责人"接着做"的那句通知界面上不显示（记录替它说了）
  */
 const photosReopenNotice = scoped(
   { taskId: "t-photos", stageId: "s2" },
@@ -1205,7 +1205,7 @@ const PHOTOS_REOPEN: TimelineRecordEventPayload = {
   taskId: "t-photos",
   stageId: "s2",
 };
-/** 时间线记录排在哪条消息前面（守护进程先写记录、再写交给维护者的通知） */
+/** 时间线记录排在哪条消息前面（守护进程先写记录、再写交给负责人的通知） */
 const RECORDS_BEFORE = new Map<string, TimelineRecordEventPayload[]>([[photosReopenNotice.id, [PHOTOS_REOPEN]]]);
 
 const PHOTOS: MessageEnvelope[] = [
@@ -1252,7 +1252,7 @@ const PHOTOS: MessageEnvelope[] = [
         disposition: "planned_only",
         withinGrant: false,
         outcome: "blocked",
-        result: "计划里没列，已拦下并提醒维护者回到计划",
+        result: "计划里没列，已拦下并提醒负责人回到计划",
       }),
       tool("bash", "rm -rf /示例/相册/2019/草稿", { generic: true, categories: ["删除或覆盖"], disposition: "ask_first", outcome: "denied", result: "你拒绝了：「草稿目录别动」" }),
     ),
@@ -1292,7 +1292,7 @@ const PHOTOS: MessageEnvelope[] = [
   ),
 ];
 
-// ---------- 任务「每周汇总银行账单」的维护者 ----------
+// ---------- 任务「每周汇总银行账单」的负责人 ----------
 
 const B = MAINTAINERS.bills;
 
@@ -1302,13 +1302,13 @@ const BILLS: MessageEnvelope[] = [
     B,
     "agent",
     at("10-07", "08:40"),
-    think("只涉及记账本一个项目，按规格应该由记账本的维护者执行；这里演示的是计划卡本身。对话里的两条限制要编译成规则和授权收窄。"),
+    think("只涉及记账本一个项目，按规格应该由记账本的负责人执行；这里演示的是计划卡本身。对话里的两条限制要编译成规则和授权收窄。"),
     text("计划草稿好了。你在对话里说的两条限制，我编成了一条时序规则和一条授权收窄，写在卡片上。"),
     cardRef("c-plan-bills"),
   ),
 ];
 
-// ---------- 项目「记账本」的维护者 ----------
+// ---------- 项目「记账本」的负责人 ----------
 
 const L = MAINTAINERS.ledger;
 
@@ -1364,7 +1364,7 @@ RECORDS_BEFORE.set(LEDGER.find((m) => m.speaker === "user" && m.parts.some((p) =
   },
 ]);
 
-// ---------- 项目「个人博客」的维护者 ----------
+// ---------- 项目「个人博客」的负责人 ----------
 
 const G = MAINTAINERS.blog;
 
@@ -1387,7 +1387,7 @@ const BLOG: MessageEnvelope[] = [
   msg(G, "agent", at("10-07", "09:10"), tool("run_tests", 'args=["e2e"]', { outcome: "running" })),
 ];
 
-// ---------- 项目「家电档案」的维护者（立项问答） ----------
+// ---------- 项目「家电档案」的负责人（立项问答） ----------
 
 const A = MAINTAINERS.appliance;
 
@@ -1507,9 +1507,9 @@ const SECRETARY_PLAIN: MessageEnvelope[] = [
     "msg-song-letter",
     at("10-07", "08:44"),
     [
-      "【维护者来信】后台的一个 agent 让你转告用户一件事（运行时转交的，不是用户说的）：",
-      "普通任务 t-song「下载《晴天》的音频」的维护者说：\n官方有录音室版和现场版两个版本，我先下了录音室版；要现场版的话在任务里跟我说一声。",
-      "在主线里主动用你自己的话转告用户：是哪个项目或任务的谁（维护者、子 agent、评审）、说了什么；要用户做什么就说清楚。项目内部的细节只到它写的这些，不要追问。然后问“要我念给你听吗？”。他说要，就用 send_voice 把口语稿念给他听；说不用就算了。",
+      "【负责人来信】后台的一个 agent 让你转告用户一件事（运行时转交的，不是用户说的）：",
+      "普通任务 t-song「下载《晴天》的音频」的负责人说：\n官方有录音室版和现场版两个版本，我先下了录音室版；要现场版的话在任务里跟我说一声。",
+      "在主线里主动用你自己的话转告用户：是哪个项目或任务的谁（负责人、子 agent、评审）、说了什么；要用户做什么就说清楚。项目内部的细节只到它写的这些，不要追问。然后问“要我念给你听吗？”。他说要，就用 send_voice 把口语稿念给他听；说不用就算了。",
     ].join("\n\n"),
     "官方有录音室版和现场版，先下了录音室版",
   ),
@@ -1753,7 +1753,7 @@ const BRIEF_MESSAGES: MessageEnvelope[] = [
     think("上次新闻源超时：先试一下，不通就换备用源。"),
     tool("web_fetch", "rss.example.com/tech", { nature: "look", result: "通了，昨天的 9 条" }),
     tool("write", "brief.md", { nature: "act", result: "写了 1.4 KB" }),
-    // 117 号票：维护者也能发附件——网页版早报和走势图作为附件发进任务的会话，点开在沙箱里看
+    // 117 号票：负责人也能发附件——网页版早报和走势图作为附件发进任务的会话，点开在沙箱里看
     tool("write", "brief.html", { nature: "act", result: "写了 3.2 KB" }),
     tool("write", "charts/trend.svg", { nature: "act", result: "写了 1.4 KB" }),
     tool("send_attachment", `path=brief.html name=${FAKE_BRIEF_HTML.part.name}`, { nature: "act", result: `已把「${FAKE_BRIEF_HTML.part.name}」（3.2 KB）作为附件发给用户` }),
@@ -1793,7 +1793,7 @@ const SECRETARY_RELAY: MessageEnvelope[] = [
     cardRef("c-qa-3"),
   ),
   msg(S, "user", at("10-07", "10:45"), text("跟管账的那个项目说一声，下个月起信用卡账单也要导入")),
-  msg(S, "agent", at("10-07", "10:45"), text("我理解是转给「记账本」的维护者？这是我推断的，你确认了我才发："), cardRef("c-qa-4")),
+  msg(S, "agent", at("10-07", "10:45"), text("我理解是转给「记账本」的负责人？这是我推断的，你确认了我才发："), cardRef("c-qa-4")),
 ];
 
 /**
@@ -1963,7 +1963,7 @@ const INBOX_EVENTS: { channel: string; type: string; payload: unknown }[] = [
 ];
 
 /** 原型启动时服务端"已有"的事件，按频道分组前的顺序 */
-// ---------- 任务「个税年度汇算材料」的维护者（90 号票：等我 · 超预算的长程任务） ----------
+// ---------- 任务「个税年度汇算材料」的负责人（90 号票：等我 · 超预算的长程任务） ----------
 // 写在别的会话后面：假消息按先后编号（msg-N），别处引用了前面的编号
 
 const X = MAINTAINERS.tax;
@@ -2002,10 +2002,10 @@ const TAX: MessageEnvelope[] = [
   ),
 ];
 
-// ---------- 项目「记账本」的维护者：更早的几天、最后一组（108 号票） ----------
+// ---------- 项目「记账本」的负责人：更早的几天、最后一组（108 号票） ----------
 // 原来的会话不满一屏多一点，看不出滚到底停不停、"到最新"的 ↓。写在最后面：不动前面的编号（msg-N、call-N）
 
-/** 你直接和维护者说的一段：分隔线、你问的、它查完回的 */
+/** 你直接和负责人说的一段：分隔线、你问的、它查完回的 */
 function ledgerAsk(day: string, ask: string, calls: MessagePart[], reply: string): MessageEnvelope[] {
   return [
     msg(L, "system", at(day, "20:30"), { type: "work_order_divider", workOrderId: "", title: "你直接对话", from: "你" }),
@@ -2163,7 +2163,7 @@ const CURATOR_MESSAGES: MessageEnvelope[] = [
   msg(MEMORY_CURATOR_CONVERSATION, "agent", at("10-22", "20:15"), text("这次听到的档案信息放在上面那张卡里，你逐条看一眼再确认。这次就聊到这里，谢谢你，下周再约你聊聊工作和一天怎么过。")),
 ];
 
-// ---------- 288 号票：个税汇算的维护者问你两件事（运行时的提问卡）。写在最后面：不动前面的编号（msg-N） ----------
+// ---------- 288 号票：个税汇算的负责人问你两件事（运行时的提问卡）。写在最后面：不动前面的编号（msg-N） ----------
 const TAX_QUESTION: MessageEnvelope[] = [scoped({ taskId: "t-tax", stageId: "s2" }, msg(X, "agent", at("10-06", "16:50"), cardRef("c-rq-demo")))];
 
 // ---------- 290 号票：从 Claude Code 会话接管来的普通任务：前情（会话里原来的最近几条）、接管说明、接着做的一轮。写在最后面：不动前面的编号 ----------

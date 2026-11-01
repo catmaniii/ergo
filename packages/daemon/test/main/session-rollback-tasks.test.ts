@@ -1,13 +1,13 @@
-// 主切面：长程任务维护者的会话回退（152 号票：回退之后状态按保留的分支推导）。真的守护进程，维护者、评审子 agent
+// 主切面：长程任务负责人的会话回退（152 号票：回退之后状态按保留的分支推导）。真的守护进程，负责人、评审子 agent
 // 接 faux 剧本，测试扮演前端：
 // - 撤回到阶段开始前（阶段是在"宣布阶段完成"验收通过之后接着开始的：回到那次调用的结果之后）：之前那个阶段的验收照样算数，这个阶段
-//   回到未开始、运行时替维护者重新开始它（交代里说撤回了、对外做过的别再做），废弃分支上挂着的审批卡作废、写明"用户撤回了会话"；
-//   交给维护者的那句记在分支摘要上；之后照常做完。切换到废弃分支（151 号票的切换）时任务按那条分支推导；
+//   回到未开始、运行时替负责人重新开始它（交代里说撤回了、对外做过的别再做），废弃分支上挂着的审批卡作废、写明"用户撤回了会话"；
+//   交给负责人的那句记在分支摘要上；之后照常做完。切换到废弃分支（151 号票的切换）时任务按那条分支推导；
 // - 撤回到阶段开始前、再切回原来那条分支：阶段状态回到原来那条的样子（那条上验收了的照算、在做的接着做），卡片不作废；
-// - 确认计划时维护者还没说完（开始执行的通知排在它收尾的话前面）：照样能撤回到 s1 开始前，会话频道和子进程都截在提交计划的结果之后；
-// - 撤回到计划确认之前（回到一条在计划卡等确认时说的话之前）：任务回到规划中、确认过的计划作废；重启后照旧；维护者重新交计划，再确认；
+// - 确认计划时负责人还没说完（开始执行的通知排在它收尾的话前面）：照样能撤回到 s1 开始前，会话频道和子进程都截在提交计划的结果之后；
+// - 撤回到计划确认之前（回到一条在计划卡等确认时说的话之前）：任务回到规划中、确认过的计划作废；重启后照旧；负责人重新交计划，再确认；
 // - 授权项的次数不随回退清零（ADR 0003：按仍然生效的效果、跨分支算）：废弃分支上用掉的那次照样算，再做一次就要问你；
-// - 项目维护者：当前这一段里能撤回（没有它执行的任务，只回退会话）；这一段结束了（重置维护者）就不能撤回了。
+// - 项目负责人：当前这一段里能撤回（没有它执行的任务，只回退会话）；这一段结束了（重置负责人）就不能撤回了。
 import fs from "node:fs";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
@@ -82,7 +82,7 @@ async function eventually<T>(list: () => readonly T[], match: (x: T) => boolean,
 const taskWhere = (frontend: TestFrontend, match: (e: TaskEventPayload) => boolean, what = "看板上的任务") => eventually(() => tasksOf(frontend), match, what);
 const cardWhere = (frontend: TestFrontend, match: (card: Card) => boolean, what = "卡片") => eventually(() => cardsOf(frontend), match, what);
 const turnsOf = (frontend: TestFrontend, n: number) =>
-  waitUntil(() => frontend.events({ channel: M1, type: EVENT_TYPES.turnEnd }).length >= n, { timeoutMs: 30_000, describe: () => `等维护者处理完 ${n} 条输入` });
+  waitUntil(() => frontend.events({ channel: M1, type: EVENT_TYPES.turnEnd }).length >= n, { timeoutMs: 30_000, describe: () => `等负责人处理完 ${n} 条输入` });
 
 /** 两个阶段：s1 收集资料（脚本验收），s2 写报告（评审验收，在 s1 之后） */
 function twoStagePlan(overrides: Partial<Plan> = {}): Plan {
@@ -133,7 +133,7 @@ async function draftTask(td: TestDaemon, frontend: TestFrontend, title: string):
 }
 
 /**
- * 确认计划：等维护者交计划的这一轮说完再点（计划卡在它调用"提交计划"时就出来了，后面它还要说一句）。这样"开始执行"那条通知在它闲着时交过去，
+ * 确认计划：等负责人交计划的这一轮说完再点（计划卡在它调用"提交计划"时就出来了，后面它还要说一句）。这样"开始执行"那条通知在它闲着时交过去，
  * 撤回到 s1 开始前回到那条通知之前；它还没说完就确认的那种另有一条用例（机器忙时两种都会碰上，这里不让用例随机走哪条路）
  */
 async function confirmPlan(frontend: TestFrontend, draft: { taskId: string; card: Card }): Promise<string> {
@@ -165,8 +165,8 @@ async function localHook(): Promise<{ url: string; posts: () => number; close():
   return { url: `http://127.0.0.1:${port}/hook`, posts: () => posts, close: () => new Promise((resolve) => server.close(() => resolve())) };
 }
 
-describe("会话回退（长程任务的维护者）", { timeout: LONG_TEST_MS }, () => {
-  it("撤回到阶段开始前：之前的验收照样算，这个阶段回到未开始、运行时替维护者重新开始；废弃分支上的审批卡作废；切换到废弃分支时按那条分支推导", async () => {
+describe("会话回退（长程任务的负责人）", { timeout: LONG_TEST_MS }, () => {
+  it("撤回到阶段开始前：之前的验收照样算，这个阶段回到未开始、运行时替负责人重新开始；废弃分支上的审批卡作废；切换到废弃分支时按那条分支推导", async () => {
     const td = await startTestDaemon({
       config: { approvals: { waitMinutes: 0.02 } },
       maintainer: maintainerScript(twoStagePlan(), [
@@ -181,7 +181,7 @@ describe("会话回退（长程任务的维护者）", { timeout: LONG_TEST_MS }
         { kind: "branch_on_context", contains: ["用户撤回到阶段 s2「写报告」开始前", SUMMARY], matched: write("report.md", "# X 的调研\n"), otherwise: say("没收到撤回的交代") },
         completeStage("s2", "报告在 report.md"),
         say("做完了"),
-        // 切换到废弃分支之后：运行时替维护者重新开始 s2
+        // 切换到废弃分支之后：运行时替负责人重新开始 s2
         say("切过来了"),
       ]),
       reviewer: () => review("report.md"),
@@ -204,7 +204,7 @@ describe("会话回退（长程任务的维护者）", { timeout: LONG_TEST_MS }
 
     const result = ok<RollbackSessionResult>(await rollback(frontend, { stageStart: marks[1]!.id }, "k-s2"));
     expect(result.branchId).toBe("b1");
-    // 任务按保留的分支推导：s1 验收照样算，s2 回到未开始（从等我恢复执行），运行时替维护者重新开始 s2
+    // 任务按保留的分支推导：s1 验收照样算，s2 回到未开始（从等我恢复执行），运行时替负责人重新开始 s2
     const rolled = await taskWhere(frontend, (e) => e.change === "rolled_back", "撤回会话");
     expect(rolled).toMatchObject({ from: "waiting_for_user", by: "user", task: { state: "running", reworks: 1 } });
     expect(stageStates(rolled.task)).toEqual({ s1: "accepted", s2: "pending" });
@@ -216,7 +216,7 @@ describe("会话回退（长程任务的维护者）", { timeout: LONG_TEST_MS }
     expect(await cardWhere(frontend, (c) => c.id === approval.id && c.status === "expired")).toMatchObject({ expiredNote: ROLLBACK_VOIDED_CARD });
     const branchEvent = frontend.events({ channel: M1, type: EVENT_TYPES.sessionBranch }).at(-1)!;
     expect((branchEvent.payload as SessionBranchEventPayload).expiredCards).toContain(approval.id);
-    // 交给维护者接着做的那句：写明撤回到哪、从这一阶段重新开始，带着 s2 的交代；分支摘要上记着它（界面上不重复显示）
+    // 交给负责人接着做的那句：写明撤回到哪、从这一阶段重新开始，带着 s2 的交代；分支摘要上记着它（界面上不重复显示）
     const summary = messagesOf(frontend, M1).find((m) => m.message.id === result.summaryMessageId)!;
     const part = summary.message.parts[0] as BranchSummaryPart;
     expect(part).toMatchObject({ type: "branch_summary", branchId: "b1", summary: SUMMARY, notice: expect.any(String) });
@@ -242,7 +242,7 @@ describe("会话回退（长程任务的维护者）", { timeout: LONG_TEST_MS }
     expect(texts).toContain("做完了");
 
     // 切换到废弃分支（151 号票的切换，同一事务里执行控制器按目标分支推导，不写摘要、不作废）：那条分支上 s1 验收了、s2 在等批准，
-    // 批准的卡已经作废了——s2 回到能开始，任务从已完成恢复执行，运行时替维护者开始 s2，交代里说是切换过来的
+    // 批准的卡已经作废了——s2 回到能开始，任务从已完成恢复执行，运行时替负责人开始 s2，交代里说是切换过来的
     expect(ok(await frontend.request(METHODS.switchBranch, { conversation: M1, branchId: "b0" }, "k-switch"))).toEqual({ branchId: "b0" });
     const back = await taskWhere(frontend, (e) => e.change === "rolled_back" && e.from === "done", "切换到废弃分支");
     expect(back.task.state).toBe("running");
@@ -266,7 +266,7 @@ describe("会话回退（长程任务的维护者）", { timeout: LONG_TEST_MS }
         write("report.md", "# 草稿\n"),
         say("s2 写了一半"),
         summaryStep("摘要：s1 做完了，s2 写了一半。"),
-        // 撤回到 s1 开始前之后：运行时替维护者重新开始 s1
+        // 撤回到 s1 开始前之后：运行时替负责人重新开始 s1
         say("从 s1 重新来"),
       ]),
     });
@@ -280,7 +280,7 @@ describe("会话回退（长程任务的维护者）", { timeout: LONG_TEST_MS }
     const marks = stageStarts(frontend, M1);
     expect(marks.map((m) => m.stageId)).toEqual(["s1", "s2"]);
 
-    // 撤回到 s1 开始前：s1、s2 都回到未开始，运行时替维护者重新开始 s1
+    // 撤回到 s1 开始前：s1、s2 都回到未开始，运行时替负责人重新开始 s1
     ok<RollbackSessionResult>(await rollback(frontend, { stageStart: marks[0]!.id }, "k-s1"));
     const rolled = await taskWhere(frontend, (e) => e.change === "rolled_back", "撤回到 s1 开始前");
     expect(stageStates(rolled.task)).toEqual({ s1: "pending", s2: "pending" });
@@ -305,7 +305,7 @@ describe("会话回退（长程任务的维护者）", { timeout: LONG_TEST_MS }
     expect(td.daemon.tasks.get(taskId)).toMatchObject({ state: "running", stages: { focus: "s2" } });
   });
 
-  it("确认计划时维护者还没说完（开始执行的通知排在它收尾的话前面）：照样能撤回到 s1 开始前，收尾那几句和通知一起放到废弃分支，子进程里也截在提交计划的结果之后", async () => {
+  it("确认计划时负责人还没说完（开始执行的通知排在它收尾的话前面）：照样能撤回到 s1 开始前，收尾那几句和通知一起放到废弃分支，子进程里也截在提交计划的结果之后", async () => {
     // 交计划那一轮收尾的话说得慢（4400 字、每秒 400 token，将近 3 秒），计划卡一出来、它一开口就确认："开始执行"那条通知在它说完之前交来
     const closing = "计划交上去了，你看看。".repeat(400);
     const td = await startTestDaemon({
@@ -320,11 +320,11 @@ describe("会话回退（长程任务的维护者）", { timeout: LONG_TEST_MS }
     });
     const frontend = await connect(td.url);
     const draft = await draftTask(td, frontend, "X 的调研");
-    await waitUntil(() => frontend.events({ channel: M1, type: EVENT_TYPES.stream }).length > 0, { describe: () => "等维护者说起收尾的话" });
+    await waitUntil(() => frontend.events({ channel: M1, type: EVENT_TYPES.stream }).length > 0, { describe: () => "等负责人说起收尾的话" });
     ok(await frontend.cardAction({ cardId: draft.card.id, action: "confirm", expectedVersion: draft.card.version, input: {} }));
     await waitUntil(() => messagesOf(frontend, M1).some((m) => textOf(m) === "s1 在做"));
     await turnsOf(frontend, 2);
-    // 前提：开始执行的通知排在收尾那几句前面（交来时维护者手上正忙着）
+    // 前提：开始执行的通知排在收尾那几句前面（交来时负责人手上正忙着）
     const s1 = stageStarts(frontend, M1)[0]!;
     expect(s1.via).toMatchObject({ notice: expect.any(String) });
     const seqOf = (match: (m: MessageEventPayload) => boolean) => frontend.events({ channel: M1, type: EVENT_TYPES.message }).find((f) => match(f.payload as MessageEventPayload))!.seq;
@@ -344,7 +344,7 @@ describe("会话回退（长程任务的维护者）", { timeout: LONG_TEST_MS }
     expect(echoed).not.toContain("s1 在做");
   });
 
-  it("撤回到计划确认之前：任务回到规划中、确认过的计划作废，重启后照旧；维护者重新交计划，确认后接着执行", async () => {
+  it("撤回到计划确认之前：任务回到规划中、确认过的计划作废，重启后照旧；负责人重新交计划，确认后接着执行", async () => {
     const dataDir = makeTempDir("ergo-rollback-task-data-");
     const homeDir = makeTempDir("ergo-rollback-task-home-");
     const base = twoStagePlan();
@@ -380,7 +380,7 @@ describe("会话回退（长程任务的维护者）", { timeout: LONG_TEST_MS }
     expect(first.daemon.tasks.plan(draft.card.payload ? (draft.card.payload as PlanCardPayload).planId : "")?.status).toBe("rejected");
     await first.daemon.stop();
 
-    // 重启：任务还在规划中、会话树照旧；你重新说，维护者（按起草计划装配，上下文从你那句之前接着、带着摘要）重新交一版计划
+    // 重启：任务还在规划中、会话树照旧；你重新说，负责人（按起草计划装配，上下文从你那句之前接着、带着摘要）重新交一版计划
     const again = await startTestDaemon({
       reuse: { dataDir, homeDir },
       maintainer: () => [
@@ -444,7 +444,7 @@ describe("会话回退（长程任务的维护者）", { timeout: LONG_TEST_MS }
     }
   });
 
-  it("项目维护者：当前这一段里能撤回（没有它执行的任务，只回退会话）；这一段结束了就不能撤回", async () => {
+  it("项目负责人：当前这一段里能撤回（没有它执行的任务，只回退会话）；这一段结束了就不能撤回", async () => {
     const PM1 = maintainerChannel("pm-1");
     const td = await startTestDaemon({ maintainer: (id) => (id === "pm-1" ? [say("网盘现在 2 TB，用了一半。"), summaryStep("摘要：聊了网盘容量。"), say("照片目录 300 GB。")] : []) });
     const project = seedProject(td.daemon, "家庭网盘", { state: "in_use", charterConfirmed: true, kind: "other", toolkit: { skills: [], mcp: [], bash: false, network: false } });
@@ -461,10 +461,10 @@ describe("会话回退（长程任务的维护者）", { timeout: LONG_TEST_MS }
     expect(summary.taskId).toBeUndefined();
     const second = await frontend.sendText("照片目录多大", { conversation: PM1 });
     await waitUntil(() => messagesOf(frontend, PM1).some((m) => textOf(m) === "照片目录 300 GB。"));
-    // 重置维护者：这一段结束了（重置开了新的一段），上一段里的撤回不了
+    // 重置负责人：这一段结束了（重置开了新的一段），上一段里的撤回不了
     ok(await frontend.request(METHODS.resetMaintainer, { projectId: project.id }, "k-reset"));
     const refused = await frontend.request(METHODS.rollbackSession, { conversation: PM1, before: { messageId: second.messageId } }, "k-rb-pm-2");
     expect(refused.ok).toBe(false);
-    expect(refused.ok ? "" : refused.error.message).toContain("项目维护者是当前这一段");
+    expect(refused.ok ? "" : refused.error.message).toContain("项目负责人是当前这一段");
   });
 });

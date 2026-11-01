@@ -450,7 +450,7 @@ describe("彻底删除", () => {
 });
 
 describe("删除项目", () => {
-  it("评审子 agent 的调用（不在任何会话里）带着任务、阶段、项目的归属；删除项目后它读过的内容和维护者写的一样取不到", async () => {
+  it("评审子 agent 的调用（不在任何会话里）带着任务、阶段、项目的归属；删除项目后它读过的内容和负责人写的一样取不到", async () => {
     const dataDir = makeTempDir("ergo-data-");
     const homeDir = makeTempDir("ergo-home-");
     const records = path.join(fs.realpathSync.native(dataDir), "projects", "p-1");
@@ -474,7 +474,7 @@ describe("删除项目", () => {
     const frontend = await TestFrontend.connect(td.url);
     await frontend.subscribe({ [BOARD]: 0, [CARDS]: 0, [INBOX]: 0, [PROJECTS]: 0 });
 
-    // 用户发起一个记账本的任务，秘书写好任务书；维护者交计划，用户确认；维护者写周报、宣布完成，评审子 agent 读周报、判通过
+    // 用户发起一个记账本的任务，秘书写好任务书；负责人交计划，用户确认；负责人写周报、宣布完成，评审子 agent 读周报、判通过
     internalTask(td.daemon, "记账本", "给记账本加周报");
     const taskId = (await eventually(() => boardOf(frontend), (e) => e.change === "created", "任务建出来")).task.id;
     td.daemon.tasks.writeBrief(taskId, { goal: "每周出一份周报", acceptanceCriteria: ["有周报文件"], constraints: [], projects: ["记账本"], memoryScope: "" }, byMaintainer(td.daemon, taskId));
@@ -499,7 +499,7 @@ describe("删除项目", () => {
       "执行工单结束",
     );
 
-    // 加上调用 id 之前的旧效果日志也要找到（没有调用 id，也不在维护者名下）：
+    // 加上调用 id 之前的旧效果日志也要找到（没有调用 id，也不在负责人名下）：
     // - 评审子 agent 交评审的那次（53 号票之后、56 号票之前的样子）：紧跟在它的完整内容后面；
     const store = td.daemon.store;
     const submit = store
@@ -509,7 +509,7 @@ describe("删除项目", () => {
     asLegacyEffects(store, submit.callId);
     const submitSeq = effectLog(store).find((r) => r.agentId === submit.agentId && r.tool === "submit_review")!.seq;
     expect((await toolCallDetail(td.url, submit.callId)).body.effects?.map((e) => e.seq)).toEqual([submitSeq]);
-    // - 维护者会话里子 agent 的一次调用（53 号票之前的样子，没有完整内容）：紧跟在它的工具调用记录后面
+    // - 负责人会话里子 agent 的一次调用（53 号票之前的样子，没有完整内容）：紧跟在它的工具调用记录后面
     const pmChannel = maintainerChannel("pm-1");
     const writeRecord = store
       .read(pmChannel, 0, EVENT_TYPES.message)
@@ -536,7 +536,7 @@ describe("删除项目", () => {
     // 注明是随项目删掉的（66 号票：详情页写"已随项目删除"）
     expect(after.body).toMatchObject({ purged: true, purgedBy: "project_deletion", result: PURGED_TEXT, projectId: "p-1" });
     expect(after.body).not.toHaveProperty("effects");
-    // 完整内容里一个字都不剩：评审读的、维护者写的；效果日志里也是（评审子 agent 的按调用 id 找到，调用 id 去掉）
+    // 完整内容里一个字都不剩：评审读的、负责人写的；效果日志里也是（评审子 agent 的按调用 id 找到，调用 id 去掉）
     expect(JSON.stringify(td.daemon.store.read("tool_calls"))).not.toContain("谈妥了续租");
     expect(JSON.stringify(effectLog(td.daemon.store))).not.toContain("谈妥了续租");
     const reviewerEffect = effectLog(td.daemon.store).find((r) => r.seq === reviewed.effects![0]!.seq)!;
@@ -564,7 +564,7 @@ describe("隐私", () => {
     expect(JSON.stringify(daemon.store.readGlobal(0, 100_000))).not.toContain(token);
   });
 
-  it("维护者读过 .env 之后：读密钥文件的调用不记返回；别的调用的参数、返回里读过的值换成（密钥）；数据库区的文件里找不到这个值", async () => {
+  it("负责人读过 .env 之后：读密钥文件的调用不记返回；别的调用的参数、返回里读过的值换成（密钥）；数据库区的文件里找不到这个值", async () => {
     const dataDir = makeTempDir("ergo-data-");
     const homeDir = makeTempDir("ergo-home-");
     const work = path.join(dataDirLayout(dataDir).outputs, "t-1");
@@ -585,7 +585,7 @@ describe("隐私", () => {
     await frontend.subscribe({ [MAINTAINER]: 0 });
     daemon.tasks.startFromButton({ request: "看看配置" }, "k-start");
     daemon.store.append(buildAgentNotice(MAINTAINER, "开始干活：看看 .env 里的配置", "k-go", { taskId: "t-1" }).event);
-    await waitUntil(() => frontend.events({ channel: MAINTAINER, type: EVENT_TYPES.turnEnd }).length > 0, { timeoutMs: 90_000, describe: () => "等维护者这一轮结束" });
+    await waitUntil(() => frontend.events({ channel: MAINTAINER, type: EVENT_TYPES.turnEnd }).length > 0, { timeoutMs: 90_000, describe: () => "等负责人这一轮结束" });
 
     const [read, printf, cat] = toolPartsOf(frontend, MAINTAINER);
     expect([read, printf, cat].map((p) => p?.outcome)).toEqual(["done", "done", "done"]);

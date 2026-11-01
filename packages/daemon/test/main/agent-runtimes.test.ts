@@ -2,13 +2,13 @@
 // （helpers/fake-runtime.ts，只在测试里）经 extraPlugins 接在清单后面，在数据契约里登记运行时 fake，子进程入口是
 // fixtures/fake-runtime-child.ts（不跑模型，只说宿主协议——和 pi 的子进程收同一条"启动"、说同一套消息）：
 // - GET /api/runtimes：pi 在最前（内核自带，照同一个接口登记），假运行时带插件名、能力清单、可选模型、设置项；停用了写明原因；
-// - 运行时是 fake 的任务：它的维护者经假运行时的子进程入口拉起，普通任务照常做完；没写运行时的照旧是 pi；
-// - 插件停用着：运行时是 fake 的任务一开始做就转等我（运行时没启用，写明哪个插件没启用），维护者不拉起、点"继续"没用，
+// - 运行时是 fake 的任务：它的负责人经假运行时的子进程入口拉起，普通任务照常做完；没写运行时的照旧是 pi；
+// - 插件停用着：运行时是 fake 的任务一开始做就转等我（运行时没启用，写明哪个插件没启用），负责人不拉起、点"继续"没用，
 //   活动状态"等你"；启用后接着做完；
-// - 插件运行中停用：手头在做的那一轮做完（不中止，任务照常自动完成），排着队还没拉起的维护者不再拉起、它的任务转等我；
+// - 插件运行中停用：手头在做的那一轮做完（不中止，任务照常自动完成），排着队还没拉起的负责人不再拉起、它的任务转等我；
 //   之后接着说的任务也转等我；启用后都接着做完；
-// - 项目的维护者用它、插件在配置里停用着：用户说话时维护者不拉起，活动状态"等你"写明哪个插件没启用；启用后接着回话。
-// pi 的维护者行为不变由现有的主切面锁着（它们照旧全过、录制不用重录）。
+// - 项目的负责人用它、插件在配置里停用着：用户说话时负责人不拉起，活动状态"等你"写明哪个插件没启用；启用后接着回话。
+// pi 的负责人行为不变由现有的主切面锁着（它们照旧全过、录制不用重录）。
 import { type ActivityEventPayload, activityDetailText, CHANNELS, EVENT_TYPES, maintainerChannel, type MessageEventPayload, type Task } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
 import type { Daemon } from "../../src/daemon.ts";
@@ -76,7 +76,7 @@ describe("运行时贡献点：插件登记的运行时", () => {
     expect((await runtimesApi.view(td.url)).body.runtimes.find((r) => r.id === FAKE_RUNTIME_ID)).toMatchObject({ available: false, unavailable: "假运行时插件没启用" });
   });
 
-  it("运行时是 fake 的普通任务：维护者经假运行时的子进程拉起（同一套宿主协议），回了话、这一轮做完任务自动完成；没写运行时的照旧是 pi", async () => {
+  it("运行时是 fake 的普通任务：负责人经假运行时的子进程拉起（同一套宿主协议），回了话、这一轮做完任务自动完成；没写运行时的照旧是 pi", async () => {
     const td = await startTestDaemon({ extraPlugins: [fakeRuntimePlugin], maintainer: [{ kind: "reply", text: "pi 做好了" }] });
     const spawns = runtimeSpawns(td.daemon);
     const fake = td.daemon.tasks.delegate({ title: "整理下载目录", instructions: "把下载目录按月份分好", runtime: FAKE_RUNTIME_ID });
@@ -94,13 +94,13 @@ describe("运行时贡献点：插件登记的运行时", () => {
     ]);
   }, 60_000);
 
-  it("插件停用着：运行时是 fake 的任务一开始做就转等我（运行时没启用，写明哪个插件没启用），维护者不拉起、活动状态\"等你\"、点\"继续\"没用；启用后接着做完", async () => {
+  it("插件停用着：运行时是 fake 的任务一开始做就转等我（运行时没启用，写明哪个插件没启用），负责人不拉起、活动状态\"等你\"、点\"继续\"没用；启用后接着做完", async () => {
     const td = await startTestDaemon({ extraPlugins: [fakeRuntimePlugin], config: { plugins: { disabled: [FAKE_RUNTIME_PLUGIN] } } });
     const spawns = runtimeSpawns(td.daemon);
     const task = td.daemon.tasks.delegate({ title: "整理下载目录", instructions: "把下载目录按月份分好", runtime: FAKE_RUNTIME_ID });
     await waitState(td, task.id, "waiting_for_user");
     expect(taskNow(td, task.id)).toMatchObject({ waitReason: "runtime_off", waitNote: "假运行时插件没启用" });
-    // 任务书照样排进维护者的队里，维护者拉不起：活动状态"等你"，写明哪个插件没启用
+    // 任务书照样排进负责人的队里，负责人拉不起：活动状态"等你"，写明哪个插件没启用
     await waitUntil(() => activityOf(td, task.maintainerId)?.state === "waiting_for_user", { describe: () => JSON.stringify(activityOf(td, task.maintainerId)) });
     const waiting = activityOf(td, task.maintainerId)!;
     expect(waiting.detail).toEqual({ kind: "runtime_off", plugin: "假运行时" });
@@ -118,20 +118,20 @@ describe("运行时贡献点：插件登记的运行时", () => {
     await waitUntil(() => activityOf(td, task.maintainerId)?.state !== "waiting_for_user");
   }, 60_000);
 
-  it("插件运行中停用：手头在做的那一轮做完（不中止，任务照常自动完成），排着队还没拉起的维护者不再拉起、它的任务转等我；之后接着说的也转等我；启用后都接着做完", async () => {
-    // 子进程最多 2 个（秘书占一个）：第二个维护者排队等名额；维护者闲着很快退出，让出名额
+  it("插件运行中停用：手头在做的那一轮做完（不中止，任务照常自动完成），排着队还没拉起的负责人不再拉起、它的任务转等我；之后接着说的也转等我；启用后都接着做完", async () => {
+    // 子进程最多 2 个（秘书占一个）：第二个负责人排队等名额；负责人闲着很快退出，让出名额
     const td = await startTestDaemon({ extraPlugins: [fakeRuntimePlugin], config: { agents: { maxLive: 2, idleMinutes: 0.01 } } });
     const spawns = runtimeSpawns(td.daemon);
     const slow = td.daemon.tasks.delegate({ title: "慢慢整理", instructions: "【慢】把下载目录按月份分好", runtime: FAKE_RUNTIME_ID });
     const slowChannel = maintainerChannel(slow.maintainerId);
-    await waitUntil(() => td.daemon.store.read(slowChannel, 0, EVENT_TYPES.turnStart).length === 1, { describe: () => "等慢的那个维护者开始这一轮" });
+    await waitUntil(() => td.daemon.store.read(slowChannel, 0, EVENT_TYPES.turnStart).length === 1, { describe: () => "等慢的那个负责人开始这一轮" });
     const queued = td.daemon.tasks.delegate({ title: "整理桌面", instructions: "把桌面上的截图挪走", runtime: FAKE_RUNTIME_ID });
     await waitUntil(() => spawns().some((s) => s.agentId === queued.maintainerId), { describe: () => JSON.stringify(spawns()) });
     expect(taskNow(td, queued.id).state).toBe("running");
     expect(td.daemon.agents.live().map((a) => a.agentId)).not.toContain(queued.maintainerId);
 
     await toggle(td, "disable");
-    // 排着队的：维护者手头没在做，任务马上转等我；做着的那一轮照样做完，任务自动完成（没被中止）
+    // 排着队的：负责人手头没在做，任务马上转等我；做着的那一轮照样做完，任务自动完成（没被中止）
     expect(taskNow(td, queued.id)).toMatchObject({ state: "waiting_for_user", waitReason: "runtime_off", waitNote: "假运行时插件没启用" });
     expect(taskNow(td, slow.id).state).toBe("running");
     await waitState(td, slow.id, "done");
@@ -142,7 +142,7 @@ describe("运行时贡献点：插件登记的运行时", () => {
     });
     expect(taskNow(td, queued.id).state).toBe("waiting_for_user");
 
-    // 在做完了的任务里接着说：回到执行中，维护者拉不起，转等我
+    // 在做完了的任务里接着说：回到执行中，负责人拉不起，转等我
     const frontend = await TestFrontend.connect(td.url);
     await frontend.sendText("再按年份分一遍", { conversation: slowChannel });
     await waitState(td, slow.id, "waiting_for_user");
@@ -157,7 +157,7 @@ describe("运行时贡献点：插件登记的运行时", () => {
     expect(spawns().slice(spawnsWhileOff).every((s) => s.runtime === FAKE_RUNTIME_ID)).toBe(true);
   }, 90_000);
 
-  it("项目的维护者用假运行时、插件在配置里停用着：用户说话时维护者不拉起，活动状态\"等你\"写明哪个插件没启用；启用后接着回话", async () => {
+  it("项目的负责人用假运行时、插件在配置里停用着：用户说话时负责人不拉起，活动状态\"等你\"写明哪个插件没启用；启用后接着回话", async () => {
     const td = await startTestDaemon({ extraPlugins: [fakeRuntimePlugin], config: { plugins: { disabled: [FAKE_RUNTIME_PLUGIN] } } });
     const project = seedProject(td.daemon, "家庭网盘", {
       state: "in_use",

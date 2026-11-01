@@ -8,15 +8,15 @@
 // - 守卫按普通对话那一套判（调用不属于任务：守卫看不到计划和授权，受 guard.conversationApprovals 管，默认关着：
 //   它是任务的 agent，"先问我"的一律直接做、照常标出，101 号票；受保护区域、密钥的硬拒绝和"永不"照旧）。
 // 执行的 agent：不涉及项目或涉及多个项目的，是任务自己的 agent（tm-<n>，maintainers/ 里的普通任务装配，工具包是 plainToolkit）；
-// 只涉及一个项目的建成这个项目的内部任务（64 号票），由项目的维护者在一张执行的工单段里做（projects/maintainers.ts）。
+// 只涉及一个项目的建成这个项目的内部任务（64 号票），由项目的负责人在一张执行的工单段里做（projects/maintainers.ts）。
 // 172 号票：交给 agent、助理的话照旧中文（标 model，用到的时间说法也取中文）；会话里、待办里给人看的两句（plainStuckNote、plainDoneNote）按当时的语言写
 import { describeTime, forModel, isProjectInternal, type MessageEnvelope, onceAt, type PlanToolkit, t, type Task } from "@ergo/protocol";
 import { oneLine } from "../util/text.ts";
 
 /**
- * 不属于项目的普通任务的 agent 的工具包（75 号票）：和维护者同一套装配——读写文件、bash、联网（联网搜索、读网页）都开着，
+ * 不属于项目的普通任务的 agent 的工具包（75 号票）：和负责人同一套装配——读写文件、bash、联网（联网搜索、读网页）都开着，
  * skill 用助理那一份（设置里的 skill 库页勾的，默认 agent-browser、yt-dlp：交出去的事多是"搜一下、下下来"这类），没有 MCP。
- * 项目内部的普通任务用项目的工具包（项目的维护者在这个项目里能用什么就是什么）
+ * 项目内部的普通任务用项目的工具包（项目的负责人在这个项目里能用什么就是什么）
  */
 export function plainToolkit(skills: readonly string[]): PlanToolkit {
   return { skills: [...skills], mcp: [], bash: true, network: true };
@@ -102,7 +102,7 @@ export function delegatedText(task: Task): string {
   if (isProjectInternal(task)) {
     const project = task.internal?.projectName ?? "";
     return (
-      `已交给项目「${project}」的维护者在后台做（项目内部的普通任务，只在项目里看得到，你看不到它的细节）${when ? `，等到 ${when} 才开始` : ""}。` +
+      `已交给项目「${project}」的负责人在后台做（项目内部的普通任务，只在项目里看得到，你看不到它的细节）${when ? `，等到 ${when} 才开始` : ""}。` +
       `告诉用户一声“已交给项目「${project}」${when ? `，${when} 去做` : "在后台去做"}，做完告诉你”，不用等它；做完了你会收到通知。`
     );
   }

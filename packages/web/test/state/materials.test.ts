@@ -207,7 +207,7 @@ describe("跳到出处的那条消息", () => {
     projects: { "p-1": { id: "p-1", maintainerId: "pm-1" } as Project },
   };
 
-  test("秘书会话里的去秘书页定位到那条；维护者会话里的按是哪个任务、哪个项目的去整页", () => {
+  test("秘书会话里的去秘书页定位到那条；负责人会话里的按是哪个任务、哪个项目的去整页", () => {
     expect(materialJump(world, view())).toEqual({ kind: "secretary", at: "msg-9" });
     expect(materialJump(world, view({ conversation: "maintainer:tm-1", taskId: "t-1" }))).toEqual({ kind: "task", taskId: "t-1", at: "msg-9" });
     expect(materialJump(world, view({ conversation: "maintainer:pm-1", projectId: "p-1" }))).toEqual({ kind: "project", projectId: "p-1", chat: true, at: "msg-9" });

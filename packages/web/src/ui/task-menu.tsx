@@ -5,7 +5,7 @@
 //   退回写原因（原来状态行下面那个输入框改成点了按钮弹出的对话框）、返工 / 从某阶段重做先选阶段，再照 84 号票的
 //   ReopenDialog 写这次要怎么改；改时间（98 号票）弹出改时间的对话框（ui/reschedule-dialog.tsx），保存后提示改成了什么、下次什么时候；
 //   别的直接做（100 号票的立即运行一次、跑完自动播报：做完按守护进程回的提示一句）。"打开""多选"由用的地方自己接。
-// - 141 号票：项目在用时运营方案里的一条，取消、归档换成一行说明（menu-note，字小、能折行），点了进项目维护者的会话。
+// - 141 号票：项目在用时运营方案里的一条，取消、归档换成一行说明（menu-note，字小、能折行），点了进项目负责人的会话。
 // - 186 号票：删除先确认（写清删掉什么、本人的话作为素材保留、没结束的先停下），删了以后详情页回到看板（TaskActsTarget.deleted）；
 //   不能删的是一行说明（同样的 menu-note，点不了）；没结束的任务归档也先确认（会先取消再归档）。
 import { type ReactNode, type RefObject, useState } from "react";
@@ -172,7 +172,7 @@ export function useTaskActs(): { run(target: TaskActsTarget, item: TaskMenuItem)
           (result) => toast(announceToast(result.on)),
           () => undefined,
         );
-      // 运营方案里的一条（141 号票）：进项目维护者的会话，请它改运营方案
+      // 运营方案里的一条（141 号票）：进项目负责人的会话，请它改运营方案
       case "operations_note":
         window.location.hash = toHash({ tab: "projects", projectId: item.projectId, chat: true });
         return;

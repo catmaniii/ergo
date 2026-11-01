@@ -1,8 +1,8 @@
-// 主切面：彻底删除计划的决定、提问卡的回答、授权续期的决定（规格第 15 节，80 号票）。秘书和维护者接 faux 剧本，测试扮演前端。
+// 主切面：彻底删除计划的决定、提问卡的回答、授权续期的决定（规格第 15 节，80 号票）。秘书和负责人接 faux 剧本，测试扮演前端。
 // 三类事件产生的素材都能在记忆删除卡上彻底删除（设置里的批量删除同一套），只换用户写的话，决定和状态不变：
 // - 提问卡的回答：事件里每题的答案、卡上记的答案换成删除标记，交回秘书的那条通知整条换成"已删除"，秘书的会话文件里也没有；
-// - 计划卡打回的意见：事件和卡上处理结果里的话换成删除标记，交回维护者的那条通知整条换成"已删除"，维护者的会话文件里也没有；
-//   计划还是已拒绝；计划变更卡上拒绝时写的话同样（交给维护者的通知按引着这段话找）；
+// - 计划卡打回的意见：事件和卡上处理结果里的话换成删除标记，交回负责人的那条通知整条换成"已删除"，负责人的会话文件里也没有；
+//   计划还是已拒绝；计划变更卡上拒绝时写的话同样（交给负责人的通知按引着这段话找）；
 // - 授权续期的决定：没有用户写的话，事件原样，续期后的有效期不变；
 // 整体重建派生视图后也一样。
 import fs from "node:fs";
@@ -98,7 +98,7 @@ const sessionText = (dataDir: string, agentId: string): string => {
 const messagesPurgedOf = (frontend: TestFrontend, channel: string) => frontend.events({ channel, type: EVENT_TYPES.messagesPurged }).map((f) => f.payload as MessagesPurgedEventPayload);
 
 describe("彻底删除提问卡的回答、计划卡打回的意见", () => {
-  it("记忆删除卡上彻底删除后：事件、卡片、交回秘书和维护者的通知、会话文件里都没有原话；提问卡还是已处理、计划还是已拒绝，重建派生视图后也一样", async () => {
+  it("记忆删除卡上彻底删除后：事件、卡片、交回秘书和负责人的通知、会话文件里都没有原话；提问卡还是已处理、计划还是已拒绝，重建派生视图后也一样", async () => {
     const answer = "给我爸看，他眼神不好字要大";
     const note = "别用英文资料，我爸看不懂";
     const { url, daemon, dataDir } = await startTestDaemon({
@@ -129,12 +129,12 @@ describe("彻底删除提问卡的回答、计划卡打回的意见", () => {
     await frontend.next(SECRETARY, EVENT_TYPES.turnEnd);
     const answersNotice = await eventually(() => noticesOf(frontend, SECRETARY), (m) => textOf(m).includes(answer), "交回秘书的回答");
 
-    // 计划卡：附意见打回，意见交回维护者
+    // 计划卡：附意见打回，意见交回负责人
     daemon.tasks.writeBrief(task.id, { goal: "整理一份 X 的调研", acceptanceCriteria: ["附来源"], constraints: [], projects: [], memoryScope: "" });
     const planCard = await cardWhere(frontend, (c) => c.type === "plan", "计划卡");
     await inputsDone(frontend, M1);
     ok(await frontend.cardAction({ cardId: planCard.id, action: "reject", expectedVersion: 1, note }));
-    const rejectNotice = await eventually(() => noticesOf(frontend, M1), (m) => textOf(m).includes(note), "交回维护者的意见");
+    const rejectNotice = await eventually(() => noticesOf(frontend, M1), (m) => textOf(m).includes(note), "交回负责人的意见");
     await inputsDone(frontend, M1);
     expect(daemon.tasks.plan("t-1-p1")?.status).toBe("rejected");
 
@@ -183,7 +183,7 @@ describe("彻底删除提问卡的回答、计划卡打回的意见", () => {
     expect(daemon.tasks.plan("t-1-p1")?.status).toBe("rejected");
     expect(daemon.tasks.get("t-1")?.state).toBe("planning");
 
-    // 交回秘书、维护者的通知整条换成"已删除"；两个会话各追加 messages_purged（前端据此换掉，agent 据此改写会话文件）
+    // 交回秘书、负责人的通知整条换成"已删除"；两个会话各追加 messages_purged（前端据此换掉，agent 据此改写会话文件）
     for (const [channel, notice] of [
       [SECRETARY, answersNotice],
       [M1, rejectNotice],
@@ -197,10 +197,10 @@ describe("彻底删除提问卡的回答、计划卡打回的意见", () => {
       });
     }
 
-    // 会话文件：秘书（停下、改写、接着同一个会话拉起）和维护者的都改写了
+    // 会话文件：秘书（停下、改写、接着同一个会话拉起）和负责人的都改写了
     await waitUntil(() => !sessionText(dataDir, "secretary").includes("他眼神不好") && !sessionText(dataDir, "tm-1").includes("别用英文资料"), {
       timeoutMs: 20_000,
-      describe: () => "等秘书和维护者的会话文件改写完",
+      describe: () => "等秘书和负责人的会话文件改写完",
     });
     expect(sessionText(dataDir, "secretary")).toContain(PURGED_TEXT);
     expect(sessionText(dataDir, "tm-1")).toContain(PURGED_TEXT);
@@ -214,7 +214,7 @@ describe("彻底删除提问卡的回答、计划卡打回的意见", () => {
 });
 
 describe("彻底删除计划变更卡上拒绝时写的话", () => {
-  it("设置里按时间段彻底删除：决定和卡上的话换成删除标记，交给维护者的通知整条换成“已删除”（按引着这段话找），这版计划还是已拒绝", async () => {
+  it("设置里按时间段彻底删除：决定和卡上的话换成删除标记，交给负责人的通知整条换成“已删除”（按引着这段话找），这版计划还是已拒绝", async () => {
     const note = "别动外面的目录，那是我放私人照片的";
     const outside = real(makeTempDir("ergo-out-"));
     const base = twoStagePlan();
@@ -255,9 +255,9 @@ describe("彻底删除计划变更卡上拒绝时写的话", () => {
       .map((e) => (e.payload as MessageEventPayload).message.id);
     expect(live).not.toContain(notice.message.id);
     expect(live).toEqual(expect.arrayContaining(others));
-    const purged = await eventually(() => messagesPurgedOf(frontend, M1), () => true, "维护者会话的 messages_purged");
+    const purged = await eventually(() => messagesPurgedOf(frontend, M1), () => true, "负责人会话的 messages_purged");
     expect(purged.messages.map((m) => m.messageId)).toEqual([notice.message.id]);
-    await waitUntil(() => !sessionText(td.dataDir, "tm-1").includes("私人照片"), { timeoutMs: 20_000, describe: () => "等维护者的会话文件改写完" });
+    await waitUntil(() => !sessionText(td.dataDir, "tm-1").includes("私人照片"), { timeoutMs: 20_000, describe: () => "等负责人的会话文件改写完" });
 
     td.daemon.store.rebuildViews();
     expect(td.daemon.tasks.plan(`${taskId}-p2`)?.status).toBe("rejected");
@@ -343,7 +343,7 @@ describe("彻底删除重做时写的原因（84 号票）", () => {
 
     const all = JSON.stringify(td.daemon.store.readGlobal(0, 100_000));
     expect(all).not.toContain("学术来源");
-    // 276 号票：重做时存下、等复验的那份交代（交给维护者之后也留着）连带整条换成"已删除"
+    // 276 号票：重做时存下、等复验的那份交代（交给负责人之后也留着）连带整条换成"已删除"
     const held = td.daemon.store.read(TASKS_CHANNEL, 0, TASK_EVENTS.reworkNoticeHeld);
     expect(held).toHaveLength(1);
     expect(isDeletedEventPayload(held[0]!.payload)).toBe(true);

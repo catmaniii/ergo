@@ -1,9 +1,9 @@
 // 任务发起和计划确认用到的三种卡（卡片类型注册表，规格第 5、7、8 节）：
 // - "建议发起任务"卡（suggest_task）：秘书觉得该发起、但用户没点明的事。"作为流程""作为长程任务"建出这种任务
-//   （规划中，用户发起，58 号票），同一事务给一条通知（建成项目内部任务的交给项目的维护者，别的交给秘书，64 号票）；
+//   （规划中，用户发起，58 号票），同一事务给一条通知（建成项目内部任务的交给项目的负责人，别的交给秘书，64 号票）；
 //   "不用了"关掉（回避信号）；
 // - 提问卡（questions）：成批提问、每题带推荐。"提交回答"（"全按推荐"就是每题都填推荐的那个）同一事务追加
-//   questions_answered（"澄清问题的回答"素材的来源），并把答案作为一条通知交回提问的一方（秘书；16 号票起项目维护者为工单
+//   questions_answered（"澄清问题的回答"素材的来源），并把答案作为一条通知交回提问的一方（秘书；16 号票起项目负责人为工单
 //   提问时交回它，交回的通知由派单器的澄清给：work-orders/clarifications.ts）；"不用了"关掉（回避信号）。
 //   彻底删除这份回答时卡上记的答案换成删除标记（purge，80 号票）；
 // - 计划卡（plan）：代码从结构化计划生成。唯一的"确认"按钮（可带勾掉、收窄的授权项），或附意见"打回"；
@@ -53,8 +53,8 @@ import type { TaskService } from "./tasks.ts";
  */
 export function suggestTaskCardType(tasks: TaskService) {
   /**
-   * 用户点了哪个按钮，就建哪种任务（用户发起），同一事务的通知由 TaskService 定：建成项目内部任务的交给项目的维护者
-   * （64 号票：项目的维护者给的卡、秘书给的卡上恰好写了一个项目），别的交给秘书
+   * 用户点了哪个按钮，就建哪种任务（用户发起），同一事务的通知由 TaskService 定：建成项目内部任务的交给项目的负责人
+   * （64 号票：项目的负责人给的卡、秘书给的卡上恰好写了一个项目），别的交给秘书
    */
   const start = (kind: PlannedTaskKind) => ({
     input: undefined,
@@ -68,7 +68,7 @@ export function suggestTaskCardType(tasks: TaskService) {
   });
   return defineCardType({
     type: "suggest_task",
-    // 4（64 号票）：项目的维护者给的建议卡带着项目（internal），点了建出的是这个项目的内部任务
+    // 4（64 号票）：项目的负责人给的建议卡带着项目（internal），点了建出的是这个项目的内部任务
     version: 4,
     payload: SuggestTaskCardPayload,
     actions: {
@@ -109,10 +109,10 @@ export function createSecretaryQuestions(deps: { store: Pick<EventStore, "append
   return created.card;
 }
 
-/** 提问卡上的回答交回项目维护者（16 号票，派单器的澄清给）：返回和卡片的处理同一事务追加的事件 */
+/** 提问卡上的回答交回项目负责人（16 号票，派单器的澄清给）：返回和卡片的处理同一事务追加的事件 */
 export type WorkOrderReply = (payload: QuestionsCardPayload, answer: { lines: readonly string[]; allRecommended: boolean }, key: string) => NewEvent[];
 
-/** 提问卡（2：项目维护者为工单提问时卡上记着是谁问的，回答交回它，16 号票） */
+/** 提问卡（2：项目负责人为工单提问时卡上记着是谁问的，回答交回它，16 号票） */
 export function questionsCardType(workOrderReply: WorkOrderReply) {
   return defineCardType({
     type: "questions",
@@ -140,10 +140,10 @@ export function questionsCardType(workOrderReply: WorkOrderReply) {
             time: now,
           };
           const allRecommended = answers.every((a) => a.followedRecommendation);
-          // 交回提问的一方（秘书、项目维护者）的回答，照旧中文
+          // 交回提问的一方（秘书、项目负责人）的回答，照旧中文
           // @i18n-ignore-start model
           const lines = answers.map((a, i) => `${i + 1}. ${a.question} → ${a.answer}${a.followedRecommendation ? "（推荐的）" : ""}`);
-          // 项目维护者为工单问的（16 号票）：回答交回它（派单器的澄清给通知）；别的交回秘书
+          // 项目负责人为工单问的（16 号票）：回答交回它（派单器的澄清给通知）；别的交回秘书
           const replies = askedBy
             ? workOrderReply(payload, { lines, allRecommended }, idempotencyKey)
             : [buildAgentNotice(CHANNELS.secretary, `用户回答了提问卡${payload.taskId === undefined ? "" : `（任务 ${payload.taskId}）`}${allRecommended ? "，全按推荐" : ""}：\n${lines.join("\n")}`, `${idempotencyKey}#notice`).event];
@@ -186,8 +186,8 @@ export function planCardType(tasks: TaskService) {
 
 
 /**
- * 审查没让它交给你授权的那一版上的动作：取消任务两种都有；让维护者改只在判定不可执行的上有，
- * 知道了只在退回维护者补充的上有（维护者自己会改好重新提交；不可执行的点"知道了"任务会一直停在规划中）
+ * 审查没让它交给你授权的那一版上的动作：取消任务两种都有；让负责人改只在判定不可执行的上有，
+ * 知道了只在退回负责人补充的上有（负责人自己会改好重新提交；不可执行的点"知道了"任务会一直停在规划中）
  */
 function refusedOnly(payload: WorkflowPlanCardPayload, only?: NonNullable<WorkflowPlanCardPayload["refused"]>): void {
   if (!payload.refused) throw new RequestRejected("not_allowed", t("tasks.cards.planWaiting"));
@@ -197,8 +197,8 @@ function refusedOnly(payload: WorkflowPlanCardPayload, only?: NonNullable<Workfl
 
 /**
  * 流程计划卡（58 号票）：授权执行（confirm）、拒绝（reject，可以附说明）；审查退回、判定不可执行的那一版（refused）
- * 判定不可执行的只能让维护者改（return，可以附说明）或者取消任务（cancel：和任务详情里的"取消"同一个控制），
- * 退回维护者补充的只能知道了（ack）或者取消任务
+ * 判定不可执行的只能让负责人改（return，可以附说明）或者取消任务（cancel：和任务详情里的"取消"同一个控制），
+ * 退回负责人补充的只能知道了（ack）或者取消任务
  */
 export function workflowPlanCardType(tasks: TaskService, execution: () => Pick<TaskExecution, "prepareAct">) {
   return defineCardType({

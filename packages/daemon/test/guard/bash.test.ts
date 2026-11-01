@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { judgeToolCall, type Disposition } from "../../src/guard/index.ts";
 import { bash, call, inChat, inTask, maintainer, P, secretary, v1Satisfied } from "./helpers/guard-input.ts";
 
-/** 任务里的维护者（工作目录 E:\work\notes，联网开着）跑一条命令。这里看的是拆解和类别：v1 模板的前提（跑过测试、已提交）先满足 */
+/** 任务里的负责人（工作目录 E:\work\notes，联网开着）跑一条命令。这里看的是拆解和类别：v1 模板的前提（跑过测试、已提交）先满足 */
 const taskJudge = (command: string) => judgeToolCall(inTask(maintainer(), bash(command), v1Satisfied()));
 const tools = (command: string) => taskJudge(command).calls.map((c) => c.tool);
 const httpMethod = (command: string) => taskJudge(command).calls.find((c) => c.tool === "http_request")!.args.method;

@@ -4,7 +4,7 @@
 // projects/system.ts（278 号票）装项目系统。
 //
 // 这里露的是窄接口——每个调用方要什么给什么，不把项目服务、派单器、项目的服务、project_ops 这些内部服务原样转出去：
-// 1. 工具名：系统提示的占位符（prompts/registry.ts）、交给维护者的通知（tasks/internal-tools.ts）；运营层的四个从它自己的入口
+// 1. 工具名：系统提示的占位符（prompts/registry.ts）、交给负责人的通知（tasks/internal-tools.ts）；运营层的四个从它自己的入口
 //    project-ops/api.ts 转出（280 号票）。守卫运行时给 project_ops 的参数打码 280 号票起看工具自己的登记（maskArgs），不再要工具名；
 // 2. 只读查派生视图：没删掉的项目（看板 board/kinds.ts、秘书转达 secretary/relay.ts）、工单（范围审视）、占着执行名额的运行工单
 //    （tasks/slots.ts）；
@@ -44,15 +44,15 @@ export { countActiveRunWorkOrders, getWorkOrder, workOrderInternal } from "../wo
 export interface ProjectLookup {
   /** 没删掉的项目（删掉了的、没有的是 undefined） */
   get(projectId: string): Project | undefined;
-  /** 任务属于哪个项目（16 号票）：由这个项目的维护者执行的任务（只涉及一个项目的）；任务自己的维护者执行的、项目删掉了的没有 */
+  /** 任务属于哪个项目（16 号票）：由这个项目的负责人执行的任务（只涉及一个项目的）；任务自己的负责人执行的、项目删掉了的没有 */
   projectOf(task: Task): Project | undefined;
 }
 
-/** 工具包（toolkit/）要的：找项目，改项目的工具包（项目页上直接改、维护者增减 skill 和减少能力、"工具包变更"卡批准） */
+/** 工具包（toolkit/）要的：找项目，改项目的工具包（项目页上直接改、负责人增减 skill 和减少能力、"工具包变更"卡批准） */
 export interface ToolkitProjects extends ProjectLookup {
   /**
    * 改项目的工具包（27 号票）：整个换成 toolkit（名字的合法性由调用方查过）。立项书确认之前没有工具包、已归档的项目，不能改。
-   * 和项目事件同一事务追加维护者会话时间线上的一笔和 change.events；没有改动时什么都不追加
+   * 和项目事件同一事务追加负责人会话时间线上的一笔和 change.events；没有改动时什么都不追加
    */
   changeToolkit(projectId: string, toolkit: PlanToolkit, change: ToolkitChange): ToolkitChanged;
   /** 同 changeToolkit，但不追加：给出要追加的事件（卡片动作和卡片更新同一事务追加） */
@@ -63,16 +63,16 @@ export type { ToolkitChange, ToolkitChanged };
 
 /** 范围审视（scope-review/）要的：项目的名字和立项书（对照物）、范围记录写进哪个项目档案 */
 export interface ScopeReviewProjects extends Pick<ProjectLookup, "get"> {
-  /** 某个维护者的项目（删掉的也认：deleted 为 true） */
+  /** 某个负责人的项目（删掉的也认：deleted 为 true） */
   ofMaintainer(maintainerId: string): { project: Project; deleted: boolean } | undefined;
   /** 项目档案里立项书、范围记录两份文件的位置 */
   records(projectId: string): { charter: string; scopeRecords: string };
 }
 
-/** 触发底座（scheduled-jobs/）要的派单器：属于项目的一次运行是项目维护者的一张工单（19、76 号票） */
+/** 触发底座（scheduled-jobs/）要的派单器：属于项目的一次运行是项目负责人的一张工单（19、76 号票） */
 export interface JobWorkOrders {
   /**
-   * 派一张定时作业的一次运行的工单（19 号票，不追加）：发给已归档项目的直接退回；维护者空着、前面没有排着的、
+   * 派一张定时作业的一次运行的工单（19 号票，不追加）：发给已归档项目的直接退回；负责人空着、前面没有排着的、
    * 又有全局执行名额，就同一事务开始。key 是派出的幂等键（作业模块给）
    */
   dispatchRun(input: { job: ScheduledJob; run: JobRun; project: Project; instructions: string; key: string }): { workOrder: JobRunWorkOrder; events: NewEvent[] };
@@ -83,7 +83,7 @@ export interface JobWorkOrders {
   /** 定时作业暂停、取消了（19 号票，不追加）：这次运行的工单还排着就退回（附原因）；已经开始的照常做完 */
   dropRun(workOrderId: string, reason: string): NewEvent[];
   get(workOrderId: string): WorkOrder | undefined;
-  /** 维护者手上这一段的工单（工单段的；对话段、没有段时没有） */
+  /** 负责人手上这一段的工单（工单段的；对话段、没有段时没有） */
   currentWorkOrder(maintainerId: string): WorkOrder | undefined;
 }
 
@@ -104,8 +104,8 @@ export interface SecretaryProjects {
 }
 
 /**
- * 从运行时已有的会话接管（290 号票，takeover/takeover.ts）要的：列项目（找二狗自己在管的会话）、按维护者找、接管成项目（不经秘书直接建出）、
- * 改写入锁（交还 / 收回；292 号票：交给官方 App，二狗自己开的会话第一次交出去时记下）、维护者的工作目录（292 号票：后台会话在那里开）
+ * 从运行时已有的会话接管（290 号票，takeover/takeover.ts）要的：列项目（找二狗自己在管的会话）、按负责人找、接管成项目（不经秘书直接建出）、
+ * 改写入锁（交还 / 收回；292 号票：交给官方 App，二狗自己开的会话第一次交出去时记下）、负责人的工作目录（292 号票：后台会话在那里开）
  */
 export type TakeoverProjects = Pick<ProjectService, "list" | "maintainedBy" | "takeOver" | "setTakeover" | "workdir">;
 

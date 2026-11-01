@@ -74,7 +74,7 @@ describe("从已有的会话接管（网页状态层，290 号票）", () => {
     });
     const returned = takeoverStateLines({ ...state, takeover: { ...state.takeover!, forkedFrom: "s-0", returned: true, place: "returned" } });
     expect(returned?.head).toBe("接管自 Claude Code 会话「修 CI 的 flaky 测试」分叉的一份");
-    expect(returned?.note).toBe("已交还给 Claude Code：这里不再写它，维护者也不接着做；收回前会核对它没在别处开着。");
+    expect(returned?.note).toBe("已交还给 Claude Code：这里不再写它，负责人也不接着做；收回前会核对它没在别处开着。");
     expect(takeoverStateLines({ id: "pi", title: "pi", settings: {} })).toBeUndefined();
   });
 

@@ -1,10 +1,10 @@
 // 全局执行名额（规格第 8 节"并发"、第 13 节，13、19 号票）：执行中的任务和真正开始了的定时作业运行共用 tasks.maxRunning 个名额。
 // 谁占着名额只在这里数（都从派生视图现数，占名额和状态变化在同一事务里，不会数错）：
 // - 执行中的任务；
-// - 作业自己的维护者正在做的运行（不属于项目的作业）；
+// - 作业自己的负责人正在做的运行（不属于项目的作业）；
 // - 进行中的定时作业运行工单（属于项目的作业：工单真正开始才占，在项目的队列里排着不占）。
 // 名额可能空出来时（任务离开执行中、运行结束、运行工单结束）叫等名额的几家，各自看看能不能开始：执行控制器（排队的任务）、
-// 派单器（项目队列里排到的运行工单）、定时作业（作业自己的维护者那边排队的运行）。
+// 派单器（项目队列里排到的运行工单）、定时作业（作业自己的负责人那边排队的运行）。
 import { CHANNELS, EVENT_TYPES, type ScheduledJobEventPayload, type TaskEventPayload, type WorkOrderEventPayload } from "@ergo/protocol";
 import type { EventStore, StoredEvent } from "../events/event-store.ts";
 import { countRunningOwnRuns } from "../scheduled-jobs/index.ts";

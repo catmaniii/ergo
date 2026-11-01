@@ -1,5 +1,5 @@
 // 工具包里"给秘书发消息"的开关（102 号票，state/tell-secretary.ts）：默认开着（不写），关掉了写 false；拨一下之后别的几样原样；
-// 工具包写成一句话、改动的说法里关掉了才提；维护者时间线里那条工具调用说成人话。
+// 工具包写成一句话、改动的说法里关掉了才提；负责人时间线里那条工具调用说成人话。
 import { describe, expect, test } from "vitest";
 import {
   callSentence,
@@ -43,7 +43,7 @@ describe("给秘书发消息的开关", () => {
   });
 });
 
-describe("维护者时间线里那条工具调用", () => {
+describe("负责人时间线里那条工具调用", () => {
   test("说成人话：给秘书发消息加原话的前几个字；没写原话的退回中文名", () => {
     expect(callSentence({ tool: "tell_secretary", argsSummary: "text=发票里有 3 张抬头写错了，我先挪到 wrong/ 目录里了。" })).toEqual({ text: "给⟦个人助理⟧发消息：发票里有 3 张抬头写错了，我先挪到 wrong/ 目录里…", said: true });
     expect(callSentence({ tool: "tell_secretary", argsSummary: "" })).toEqual({ text: "给⟦个人助理⟧发消息", said: false });

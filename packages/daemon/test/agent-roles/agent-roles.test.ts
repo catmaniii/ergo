@@ -102,7 +102,7 @@ describe("迁移：从旧的名字音色配置 + 全局名字 + 全局音色造�
     expect(stored.roles[0]).toEqual({ id: DEFAULT_AGENT_ROLE_ID, name: "二狗", voiceId: "v-1" });
     // pm-2 和默认角色完全一样：不单独建角色（它现在就是那两样，不丢）
     expect(stored.assignments["pm-2"]).toBeUndefined();
-    // 两个维护者名字音色一样：共用一个角色
+    // 两个负责人名字音色一样：共用一个角色
     expect(stored.assignments["tm-1"]).toBe(stored.assignments["tm-2"]);
     expect(stored.roles.filter((role) => role.name === "老王")).toHaveLength(1);
 

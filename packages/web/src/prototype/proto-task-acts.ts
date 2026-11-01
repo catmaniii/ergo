@@ -62,7 +62,7 @@ export function protoAfter(action: TaskAction, running: number): { status: TaskS
     case "accept_stage":
       return { status: "done", activity: "sleeping", toast: "验收通过，任务完成" };
     case "return_stage":
-      return resume("已退回，原因交给了维护者");
+      return resume("已退回，原因交给了负责人");
     case "rework":
       return resume("已从这里重做，重开这个阶段和它的下游");
   }

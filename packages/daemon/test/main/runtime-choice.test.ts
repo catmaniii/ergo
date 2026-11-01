@@ -1,10 +1,10 @@
 // 主切面：新建任务选运行时、⚙ 按运行时、斜杠命令转交、中途换运行时（289 号票，Claude Code 接入一期之四）。真的守护进程走组合根和插件清单；
 // 清单里的 Claude Code 插件经 extraPlugins 换成同名的、子进程接假 SDK 的那个（helpers/fake-claude-code.ts：运行时、适配子进程都是真的，
 // 只有 SDK 是按 faux 剧本吐事件的假的，不启动真的 claude、不花额度）：
-// - 点"发起任务"选 Claude Code（start_task 的 runtime）：任务记着运行时，维护者经 Claude Code 的子进程跑；输入框里打的 /compact
+// - 点"发起任务"选 Claude Code（start_task 的 runtime）：任务记着运行时，负责人经 Claude Code 的子进程跑；输入框里打的 /compact
 //   原样交给 Claude Code（不加时间标记、不带消息 id 那一行）；输入框的候选里有 Claude Code 报的命令；没选的 pi 任务照旧（/compact 照常加时间标记）；
 // - 秘书交给后台时带上运行时（delegate_task 的 runtime）：建出的任务用它；写了没启用的运行时，工具回错、不建任务；
-// - ⚙：Claude Code 的维护者按能力清单多"权限模式""思考档位"，模型列表是 Claude Code 报的；选的值交给子进程（下一轮的 query 选项里有）；
+// - ⚙：Claude Code 的负责人按能力清单多"权限模式""思考档位"，模型列表是 Claude Code 报的；选的值交给子进程（下一轮的 query 选项里有）；
 //   不认得的值回 400；
 // - 中途换运行时（pi → Claude Code）：原来的 pi 写交接摘要，Claude Code 新开会话，摘要跟着下一条输入交过去；会话里记一条"已换成"；
 //   任务记着新的运行时。
@@ -52,8 +52,8 @@ async function nthAgentReply(td: TestDaemon, channel: string, n: number): Promis
 const slashCommands = (url: string, conversation: string) => requestJson<SlashCommandList & { message?: string }>(url, HTTP_PATHS.slashCommands(conversation));
 
 describe("新建任务选运行时、斜杠命令转交（289 号票）", () => {
-  it("点发起任务选 Claude Code：维护者用它；输入框里的 /compact 原样交给 Claude Code，候选里有它报的命令；没选的 pi 任务照旧", async () => {
-    // 每个维护者第一次拉起回一句做完，之后（任务做完接着说）把看到的回显出来
+  it("点发起任务选 Claude Code：负责人用它；输入框里的 /compact 原样交给 Claude Code，候选里有它报的命令；没选的 pi 任务照旧", async () => {
+    // 每个负责人第一次拉起回一句做完，之后（任务做完接着说）把看到的回显出来
     const td = await startTestDaemon({ extraPlugins: [fakeSdkClaudeCodePlugin], maintainer: (_id, spawn) => (spawn === 1 ? [{ kind: "reply", text: "整理好了。" }, echo] : [echo]) });
     const spawns = runtimeSpawns(td);
     const frontend = await TestFrontend.connect(td.url);
@@ -117,7 +117,7 @@ describe("新建任务选运行时、斜杠命令转交（289 号票）", () => 
 });
 
 describe("新建项目选运行时（289 号票）", () => {
-  it("点新建项目选 Claude Code：通知里写明，秘书照写在建议立项卡上；点立项后项目的维护者用它；选了不认得的被拒", async () => {
+  it("点新建项目选 Claude Code：通知里写明，秘书照写在建议立项卡上；点立项后项目的负责人用它；选了不认得的被拒", async () => {
     const td = await startTestDaemon({
       extraPlugins: [fakeSdkClaudeCodePlugin],
       secretary: [{ kind: "reply", toolCalls: [{ name: "suggest_project", arguments: { name: "家电档案", goal: "记下家电的保修", runtime: CLAUDE_CODE_RUNTIME_ID } }] }, { kind: "reply", text: "给你一张建议立项卡" }],
@@ -138,7 +138,7 @@ describe("新建项目选运行时（289 号票）", () => {
 });
 
 describe("⚙ 按运行时、中途换运行时（289 号票）", () => {
-  it("Claude Code 的维护者：⚙ 里多权限模式、思考档位，模型列表是它报的；选的值交给子进程；不认得的值回 400", async () => {
+  it("Claude Code 的负责人：⚙ 里多权限模式、思考档位，模型列表是它报的；选的值交给子进程；不认得的值回 400", async () => {
     const td = await startTestDaemon({ extraPlugins: [fakeSdkClaudeCodePlugin], maintainer: (_id, spawn) => (spawn === 1 ? [{ kind: "reply", text: "整理好了。" }, echo] : [echo]) });
     const task = td.daemon.tasks.delegate({ title: "整理下载目录", instructions: "把下载目录按月份分好", runtime: CLAUDE_CODE_RUNTIME_ID });
     await waitState(td, task.id, "done");
@@ -171,7 +171,7 @@ describe("⚙ 按运行时、中途换运行时（289 号票）", () => {
   it("中途换运行时（pi → Claude Code）：pi 写交接摘要，Claude Code 新开会话、摘要跟着下一条输入交过去；会话里记一条已换成，任务记着新的", async () => {
     const SUMMARY = "交接摘要：下载目录已按月份分好，用户还想按年份再分一遍。";
     let td: TestDaemon | undefined;
-    // pi 的维护者：第一次拉起先做完任务，之后被叫去写交接摘要；换成 Claude Code 之后回显看到的
+    // pi 的负责人：第一次拉起先做完任务，之后被叫去写交接摘要；换成 Claude Code 之后回显看到的
     const runtimeNow = (maintainerId: string) => td?.daemon.tasks.ofMaintainer(maintainerId)?.runtime;
     td = await startTestDaemon({
       extraPlugins: [fakeSdkClaudeCodePlugin],

@@ -1,7 +1,7 @@
 // 主切面（139 号票）：守护进程把自己实际监听的端口传进守卫。"发往本机的请求不算对外"不包括二狗自己的端口，用浏览器工具打开二狗
-// 自己的页面也算"以我的名义对外发送或发布"。真的守护进程（两个端口都由系统随机挑），维护者接 faux 剧本（剧本在维护者被拉起时才给，
+// 自己的页面也算"以我的名义对外发送或发布"。真的守护进程（两个端口都由系统随机挑），负责人接 faux 剧本（剧本在负责人被拉起时才给，
 // 那时端口已经知道了），测试扮演前端。
-// 维护者起草计划那一段按对话里的处置判（测试底座对话审批开着）：非 GET 地调二狗本机端口的接口、用浏览器打开二狗外网端口的页面
+// 负责人起草计划那一段按对话里的处置判（测试底座对话审批开着）：非 GET 地调二狗本机端口的接口、用浏览器打开二狗外网端口的页面
 // 都出审批卡，原因写着"发往二狗自己的接口（本机端口 N），不算本机例外"，N 是实际监听的端口；拒绝之后都没执行。
 // 守卫的各种写法在守卫切面（test/guard/conversation-approvals.test.ts）。
 import fs from "node:fs";
@@ -41,7 +41,7 @@ describe("二狗自己的端口（守护进程实际监听的）不算本机例�
   it(
     "非 GET 地调二狗本机端口的接口、用浏览器打开二狗外网端口的页面：出审批卡，原因里是实际监听的端口；拒绝后都没执行",
     async () => {
-      // 端口在守护进程起来之后才知道（系统随机挑的）：维护者的剧本在它被拉起时才取
+      // 端口在守护进程起来之后才知道（系统随机挑的）：负责人的剧本在它被拉起时才取
       let ports: { local: string; external: string } | undefined;
       const { daemon, url, externalUrl } = await startTestDaemon({
         secretary: [{ kind: "reply", text: "好的" }],
@@ -76,7 +76,7 @@ describe("二狗自己的端口（守护进程实际监听的）不算本机例�
         const r = await frontend.cardAction({ cardId: card.id, action: "deny", expectedVersion: card.version });
         if (!r.ok) throw new Error(`审批卡没处理成：${r.error.message}`);
       }
-      await waitUntil(() => turnEnds(frontend).length > 0, { timeoutMs: 60_000, describe: () => "等维护者这一轮结束" });
+      await waitUntil(() => turnEnds(frontend).length > 0, { timeoutMs: 60_000, describe: () => "等负责人这一轮结束" });
 
       expect(reasons[0]).toContain(`发往二狗自己的接口（本机端口 ${ports.local}），不算本机例外`);
       expect(reasons[1]).toContain(`发往二狗自己的接口（本机端口 ${ports.external}），不算本机例外`);

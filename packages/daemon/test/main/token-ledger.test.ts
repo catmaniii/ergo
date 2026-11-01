@@ -1,11 +1,11 @@
-// 主切面：token 账本与消耗页（规格第 16 节、第 21 节"token 记账"，24 号票）。真的守护进程，秘书、维护者、评审子 agent
+// 主切面：token 账本与消耗页（规格第 16 节、第 21 节"token 记账"，24 号票）。真的守护进程，秘书、负责人、评审子 agent
 // 都接 faux 剧本，剧本里每次回话带固定的用量；测试扮演前端：
 // - 每次模型调用在账本里记一条（归属、agent、会话、模型、输入缓存命中 / 未命中、输出、时间），条数和各项之和与剧本一致；
 // - 秘书的调用归属为空，消耗页上单列为系统开销；
-// - 任务卡上的总量随每次调用经看板频道更新，任务详情按 agent 细分（维护者、评审子 agent 各一行）；
-// - 范围审视（18 号票）：工单结束时项目维护者子进程里另开的那一次，剧本给定用量，记在任务名下、标范围审视；任务自己的维护者
+// - 任务卡上的总量随每次调用经看板频道更新，任务详情按 agent 细分（负责人、评审子 agent 各一行）；
+// - 范围审视（18 号票）：工单结束时项目负责人子进程里另开的那一次，剧本给定用量，记在任务名下、标范围审视；任务自己的负责人
 //   压缩时的审视、对话段里的用构造的、带标记的用量（压缩时的审视在 scope-review.test.ts 里真的走一遍）；压缩的用量照常（契约测试验子进程报的那一条）；
-// - 定时作业的一次运行：输入带着作业身份时记在作业名下（作业自己的维护者 19 号票才有，用构造的）；
+// - 定时作业的一次运行：输入带着作业身份时记在作业名下（作业自己的负责人 19 号票才有，用构造的）；
 // - 消耗页：选一个时间范围，成本 = 用量 × 单价（粗估）：配置里写了单价的按配置（改了单价再算随之变），没写的 DeepSeek 模型
 //   按框架自带的价格表、按每一笔的时段算（94 号票）。
 import {
@@ -102,7 +102,7 @@ async function eventually<T>(list: () => readonly T[], match: (x: T) => boolean,
 const turnsOf = (frontend: TestFrontend, channel: string, n: number) =>
   waitUntil(() => frontend.events({ channel, type: EVENT_TYPES.turnEnd }).length >= n, { timeoutMs: 30_000, describe: () => `等 ${channel} 处理完 ${n} 条输入` });
 
-/** 建一个任务、写好任务书，等维护者交出计划、这一轮结束，在计划卡上确认；返回任务 id */
+/** 建一个任务、写好任务书，等负责人交出计划、这一轮结束，在计划卡上确认；返回任务 id */
 async function confirmTask(td: TestDaemon, frontend: TestFrontend, title: string): Promise<string> {
   const task = td.daemon.tasks.createByRequest({ title, summary: title });
   td.daemon.tasks.writeBrief(task.id, brief);
@@ -170,7 +170,7 @@ describe("秘书的用量和未归属的用量", () => {
 });
 
 describe("任务的用量", () => {
-  it("跑完一个任务：每次模型调用记一条，条数和各项之和与剧本一致；任务卡上的总量随每次调用经看板频道更新；任务详情里维护者和评审子 agent 各占一行；评审记在它评审的阶段、收尾调用不算进阶段（录给前端回放：token-ledger）", async () => {
+  it("跑完一个任务：每次模型调用记一条，条数和各项之和与剧本一致；任务卡上的总量随每次调用经看板频道更新；任务详情里负责人和评审子 agent 各占一行；评审记在它评审的阶段、收尾调用不算进阶段（录给前端回放：token-ledger）", async () => {
     // 起草计划（第一次唤起）的两次调用，执行（按计划重新拉起）的五次，评审子 agent 的三次
     const planning = [U(0, 2000, 300), U(2000, 100, 20)];
     const s1 = [U(2500, 400, 60), U(2900, 100, 30)];
@@ -224,7 +224,7 @@ describe("任务的用量", () => {
     expect(totals.map((t) => t.calls)).toEqual(all.map((_, i) => i + 1));
     const last = totals.at(-1)!;
     expect(last.tokens).toEqual(sum(all));
-    // 任务详情：维护者、评审子 agent 各占一行，各行之和等于总量
+    // 任务详情：负责人、评审子 agent 各占一行，各行之和等于总量
     expect(last.byAgent).toEqual([
       { agentId: "tm-1", role: "maintainer", purpose: "work", tokens: sum(maintainerAll), calls: maintainerAll.length },
       { agentId: "review-t-1-s2-1", role: "reviewer", purpose: "work", tokens: sum(reviewer), calls: reviewer.length },
@@ -244,8 +244,8 @@ describe("任务的用量", () => {
 });
 
 describe("范围审视和压缩的用量", () => {
-  it("维护者在任务里时记在任务名下、标范围审视 / 压缩：任务详情里各单独一行，计入任务卡上的总量，范围审视不算进阶段预算；项目维护者做工单时记在工单的任务名下，和用户直接对话（不在任务里）时记在项目名下", async () => {
-    // 项目维护者起草计划的工单段：交计划、写回进展、写这一段的摘要（16 号票：写回之后这一段和工单才结束）
+  it("负责人在任务里时记在任务名下、标范围审视 / 压缩：任务详情里各单独一行，计入任务卡上的总量，范围审视不算进阶段预算；项目负责人做工单时记在工单的任务名下，和用户直接对话（不在任务里）时记在项目名下", async () => {
+    // 项目负责人起草计划的工单段：交计划、写回进展、写这一段的摘要（16 号票：写回之后这一段和工单才结束）
     const td = await startTestDaemon({
       secretary: [say("好的", U(0, 100, 10))],
       maintainer: (id, spawn) => {
@@ -270,7 +270,7 @@ describe("范围审视和压缩的用量", () => {
     const PM = maintainerChannel(project.maintainerId);
     await frontend.subscribe({ [BOARD]: 0, [CARDS]: 0, [M1]: 0, [PM]: 0, [CHANNELS.projects]: 0 });
 
-    // 任务的维护者：起草计划时（在任务里）做了一次范围审视、压缩了一次会话
+    // 任务的负责人：起草计划时（在任务里）做了一次范围审视、压缩了一次会话
     const task = td.daemon.tasks.createByRequest({ title: "X 的调研", summary: "X 的调研" });
     td.daemon.tasks.writeBrief(task.id, brief);
     await turnsOf(frontend, M1, 1);
@@ -289,7 +289,7 @@ describe("范围审视和压缩的用量", () => {
       expect.objectContaining({ agentId: "tm-1", purpose: "compaction", tokens: U(0, 900, 200) }),
     ]);
 
-    // 项目的维护者做单项目任务的工单（16 号票：工单段里交给它的输入带着任务）：这时的用量记在那个任务名下；
+    // 项目的负责人做单项目任务的工单（16 号票：工单段里交给它的输入带着任务）：这时的用量记在那个任务名下；
     // 工单结束时的范围审视（18 号票，在回合之后、子进程退出之前）记在刚处理完的那条输入所属的任务名下
     internalTask(td.daemon, "记账本", "给记账本加周报");
     const projectTask = await eventually(() => tasksOf(frontend), (e) => e.change === "created" && e.task.title === "给记账本加周报", "项目的任务");
@@ -324,7 +324,7 @@ describe("范围审视和压缩的用量", () => {
     expect(td.daemon.ledger.entries(null)).toEqual([]);
   }, 60_000);
 
-  it("阶段预算只算干活的部分：同一阶段里维护者干活和压缩算，范围审视不算；子 agent 带着它被派去的阶段记账", async () => {
+  it("阶段预算只算干活的部分：同一阶段里负责人干活和压缩算，范围审视不算；子 agent 带着它被派去的阶段记账", async () => {
     const td = await startTestDaemon();
     const inject = usageInjector(td.daemon);
     const task = { kind: "task" as const, id: "t-7" };
@@ -332,7 +332,7 @@ describe("范围审视和压缩的用量", () => {
     inject("tm-7", U(0, 40, 5), { attribution: { owner: task, role: "maintainer", stageId: "s1" }, purpose: "compaction" });
     inject("tm-7", U(0, 30, 3), { attribution: { owner: task, role: "maintainer", stageId: "s1" }, purpose: "scope_review" });
     inject("review-t-7-s1-1", U(20, 20, 2), { attribution: { owner: task, role: "reviewer", stageId: "s1" } });
-    // 20 号票的并行子 agent：拉起时带上它被派去的阶段（这里是 s2，和维护者当时在做的无关）
+    // 20 号票的并行子 agent：拉起时带上它被派去的阶段（这里是 s2，和负责人当时在做的无关）
     inject("sub-t-7-s2", U(0, 70, 7), { attribution: { owner: task, role: "sub_agent", stageId: "s2" } });
     expect(td.daemon.ledger.stageTokens("t-7", "s1")).toBe(160 + 45 + 33 + 42);
     // 预算用的数：没命中 + 输出 + 命中的十分之一（361 号票）；上面那个真实的不变
@@ -345,7 +345,7 @@ describe("范围审视和压缩的用量", () => {
   });
 });
 
-/** 作业 j-1 的归属（19 号票随输入带上作业身份；作业自己的维护者拉起时给。真的作业运行按输入记账见 scheduled-jobs.test.ts） */
+/** 作业 j-1 的归属（19 号票随输入带上作业身份；作业自己的负责人拉起时给。真的作业运行按输入记账见 scheduled-jobs.test.ts） */
 const JOB = { owner: { kind: "scheduled_job" as const, id: "j-1" }, role: "maintainer" as const };
 
 // 拨时钟跨过 03:00 的用例不带记忆插件（255 号票查出的竞态；265 号票起底座在给了 clock 时默认停掉它，这里不用再写）：插件在运行时，
@@ -353,7 +353,7 @@ const JOB = { owner: { kind: "scheduled_job" as const, id: "j-1" }, role: "maint
 // 赶没赶在查汇总之前全看机器忙不忙。这几条只验作业 / 秘书 / 价格的账，不该带上它；管理员那一笔怎么记见下面"记忆管理员的用量"
 
 describe("定时作业的用量（按作业身份记账；真的作业运行时输入带着作业身份，见 scheduled-jobs.test.ts，这里直接记；可注入时钟）", () => {
-  it("每次运行的用量（处理作业输入的项目维护者、作业自己的维护者）都记在作业名下，不算系统开销；看板上作业名下的合计和任务一样推送；按天汇总跟着时钟", async () => {
+  it("每次运行的用量（处理作业输入的项目负责人、作业自己的负责人）都记在作业名下，不算系统开销；看板上作业名下的合计和任务一样推送；按天汇总跟着时钟", async () => {
     const clock = new ManualClock(new Date(2026, 9, 5, 9, 0));
     const td = await startTestDaemon({
       clock,
@@ -365,10 +365,10 @@ describe("定时作业的用量（按作业身份记账；真的作业运行时�
     const frontend = await TestFrontend.connect(td.url);
     await frontend.subscribe({ [BOARD]: 0, [CHANNELS.secretary]: 0, [PM]: 0 });
 
-    // 10 月 5 日：作业的一次运行由项目维护者做（输入带着作业身份），它两次模型调用的用量记在作业名下
+    // 10 月 5 日：作业的一次运行由项目负责人做（输入带着作业身份），它两次模型调用的用量记在作业名下
     inject(project.maintainerId, U(1000, 300, 50), { attribution: JOB });
     inject(project.maintainerId, U(1200, 100, 30), { attribution: JOB });
-    // 10 月 6 日：作业自己的维护者执行
+    // 10 月 6 日：作业自己的负责人执行
     clock.advanceTo(new Date(2026, 9, 6, 9, 0));
     inject("jm-1", U(0, 800, 40), { attribution: JOB });
     // 同一天秘书也聊了一句：系统开销

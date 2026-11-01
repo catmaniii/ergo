@@ -253,7 +253,7 @@ describe("权限分档", () => {
     expect(engine.getEvidence("ev-w01")!.text).toContain("这周六的聚会");
   });
 
-  it("只读的引擎（秘书、维护者那一份）：什么都写不进去", async () => {
+  it("只读的引擎（秘书、负责人那一份）：什么都写不进去", async () => {
     const built = await afterFour();
     const autonomy = claimOf(built.engine, "scene_autonomy");
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "rg-readonly-"));

@@ -1,12 +1,12 @@
 // 运营方案（130 号票，ADR-0028）的名字和纯函数，守护进程和 Web 共用，不引用 TypeBox（schema 在 operations-schema.ts）：
-// - 运营方案：项目转入使用后怎么运转。由项目的维护者起草（propose_operations），用户在卡上确认一次就全部生效——确认就是授权，
+// - 运营方案：项目转入使用后怎么运转。由项目的负责人起草（propose_operations），用户在卡上确认一次就全部生效——确认就是授权，
 //   之后照方案跑，不再逐项问。建设期间交的出现在"首版做完了"卡上（主按钮"确认并转入使用"）；使用中的项目交新的一份，
 //   运行时比出差异出"运营方案变更"卡，确认后照差异生效；
 // - 一份方案由若干条组成，每一条用一种运营手段。手段做成登记表（守护进程的 operations/means.ts：校验、给人看的说法、生效、撤销、
 //   暂停和恢复），"运营模式不限"靠它落实：二狗现在能做的全部登记上（定时触发的任务、事件触发的任务），以后有新的往表里加；
 //   还做不了的（公网入口，第二阶段）也登记着、标成要用户手动，卡上写明，不假装生效；项目自己的服务 133 号票起能上线到 LSM 了
 //   （运营手段"服务"，这一条带 service，下面 OPERATION_SERVICE_MEANS 起的几个名字）；
-// - 每一条写明名字、手段、触发、每次做什么（交给维护者的工单内容）、要的能力、失败时怎样。要的能力（联网、bash、skill、MCP、
+// - 每一条写明名字、手段、触发、每次做什么（交给负责人的工单内容）、要的能力、失败时怎样。要的能力（联网、bash、skill、MCP、
 //   给秘书发消息）不能超出项目的工具包（capabilitiesBeyond）。
 // 卡上的说法、按钮的字、流程的确认事项在运营方案卡上怎么记，都在这里，守护进程和 Web 用同一份。
 import { followLocale, t, tTable } from "./i18n/runtime.ts";
@@ -16,7 +16,7 @@ import { workflowConfirmationItems } from "./workflow.ts";
 import type { WorkflowReview, WorkflowStepView } from "./workflow-schema.ts";
 
 /**
- * 每一条怎么做（和任务的做法同名）：普通任务（每次运行由维护者照"每次做什么"直接做）、流程（带它的固定计划，
+ * 每一条怎么做（和任务的做法同名）：普通任务（每次运行由负责人照"每次做什么"直接做）、流程（带它的固定计划，
  * 用户确认方案时一起授权，每次运行照步骤核对）
  */
 export const OPERATION_APPROACHES = ["plain", "workflow"] as const;
@@ -59,7 +59,7 @@ export function capabilitiesText(c: OperationCapabilitiesShape): string {
   return list.length > 0 ? list.join(t("protocol.common.listSep")) : t("protocol.operations.noCapabilities");
 }
 
-/** 要的能力里超出项目工具包的那几样（skill 也算：项目的工具包里没有的 skill 维护者在运行时用不上） */
+/** 要的能力里超出项目工具包的那几样（skill 也算：项目的工具包里没有的 skill 负责人在运行时用不上） */
 export function capabilitiesBeyond(c: OperationCapabilitiesShape, toolkit: ToolkitShape): ToolkitCapability[] {
   return toolkitAdded(toolkit, capabilitiesToolkit(c));
 }
@@ -123,7 +123,7 @@ export function operationsConfirmationItems(
   );
 }
 
-/** 一条写成一行（卡的纯文本降级、交给维护者的通知、秘书列待办时看到的）："日报（每天 08:00，普通任务）"；要用户手动的写明；服务的就是它的说法 */
+/** 一条写成一行（卡的纯文本降级、交给负责人的通知、秘书列待办时看到的）："日报（每天 08:00，普通任务）"；要用户手动的写明；服务的就是它的说法 */
 export function operationLine(item: { name: string; triggerText: string; approach: OperationApproach; automatic: boolean; manual?: string | undefined; service?: unknown }): string {
   if (!item.automatic) return t("protocol.operations.lineManual", { name: item.name, prefix: OPERATIONS_MANUAL_PREFIX, manual: item.manual ?? item.triggerText });
   if (item.service !== undefined) return item.triggerText;

@@ -107,7 +107,7 @@ export function runningExecutions(db: ReadonlyDatabase, agentId?: string): Execu
 
 /**
  * 这个 agent 说不清做没做完的调用：还在执行的（守护进程刚起来、还没记中断的，或者子进程刚退出）和已经记成中断的。
- * 20 号票的子 agent 被打断、随任务停下时，交回维护者的说明里写明这些调用等用户确认、不要重做
+ * 20 号票的子 agent 被打断、随任务停下时，交回负责人的说明里写明这些调用等用户确认、不要重做
  */
 export function uncertainExecutions(db: ReadonlyDatabase, agentId: string): ExecutionRecord[] {
   return rowsOf(db, ["running", "interrupted"], agentId).map((row) => JSON.parse(row.record) as ExecutionRecord);
@@ -265,7 +265,7 @@ export function executionEventsOfCall(store: EventStore, toolCallId: string, age
   );
 }
 
-/** 这个 agent 的执行记录事件（删除项目时改写维护者的） */
+/** 这个 agent 的执行记录事件（删除项目时改写负责人的） */
 export function executionEventsOfAgent(store: EventStore, agentId: string): StoredEvent[] {
   return EXECUTION_TEXT_EVENTS.flatMap((type) => store.read(GUARD_CHANNEL, 0, type).filter((e) => executionKey(e).agentId === agentId));
 }

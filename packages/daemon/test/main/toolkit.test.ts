@@ -1,9 +1,9 @@
 // 主切面：skill 库、MCP 登记与工具包（27 号票，规格第 3、11、20、21 节）。
 // - skill 库：列出框架自带的和数据目录 skill 区里的；设置里导入的复制一份进 skill 区，能写进工具包；~/.claude/skills 里的不出现；
-// - 维护者的会话严格按工具包装配：只有工具包列的 skill（skillPaths），bash、MCP、联网照开关；用户目录里的 skill 一个都没有；
-// - 工具包一变立即生效：维护者正在干活时等它做完手头这一步（当前的工具调用结束、下一次模型调用之前）就重启子进程、
+// - 负责人的会话严格按工具包装配：只有工具包列的 skill（skillPaths），bash、MCP、联网照开关；用户目录里的 skill 一个都没有；
+// - 工具包一变立即生效：负责人正在干活时等它做完手头这一步（当前的工具调用结束、下一次模型调用之前）就重启子进程、
 //   按新工具包重新装配、从会话文件接着干，下一次模型调用里就是新的；
-// - 维护者自己增减 skill（记进时间线）；不在任务里时要加能力提交"工具包变更"卡，批准后才扩大；
+// - 负责人自己增减 skill（记进时间线）；不在任务里时要加能力提交"工具包变更"卡，批准后才扩大；
 // - 用户在项目页、任务详情里直接改工具包，不出计划变更卡；
 // - MCP：服务进程由守护进程拉起、放进 Job 对象、按登记注入凭据；agent 和它的孙进程碰不到凭据；调用先过守卫再转发；
 // - 秘书的快速动作"调用 MCP 工具"。
@@ -46,20 +46,20 @@ const TM1 = maintainerChannel("tm-1");
 const taskPlansOf = (frontend: TestFrontend) => frontend.events({ channel: CHANNELS.board, type: EVENT_TYPES.taskPlan }).map((f) => f.payload as TaskPlanEventPayload);
 const cardsOfType = (frontend: TestFrontend, type: string) => cardsOf(frontend).filter((c) => c.type === type);
 
-/** 维护者交的计划（本任务的关注类别、用户的限制、定时作业、记忆范围沿用当前计划，不写） */
+/** 负责人交的计划（本任务的关注类别、用户的限制、定时作业、记忆范围沿用当前计划，不写） */
 function draftOf(plan: Plan): Record<string, unknown> {
   const { watchCategories: _w, userLimits: _u, memoryScope: _m, ...rest } = plan;
   return rest;
 }
 const echo: FauxStep = { kind: "echo_context" };
 
-/** 维护者会话里 agent 的回复（echo_context 回的是它看到的上下文） */
+/** 负责人会话里 agent 的回复（echo_context 回的是它看到的上下文） */
 const repliesOf = (frontend: TestFrontend, channel: string) =>
   messagesOf(frontend, channel)
     .filter((m) => m.message.speaker === "agent" && m.message.parts.some((p) => p.type === "text"))
     .map(textOf);
 
-/** 等维护者回出第 n 条（从 1 起）回复 */
+/** 等负责人回出第 n 条（从 1 起）回复 */
 async function nthReply(frontend: TestFrontend, channel: string, n: number): Promise<string> {
   await waitUntil(() => repliesOf(frontend, channel).length >= n, {
     timeoutMs: 30_000,
@@ -133,8 +133,8 @@ describe("skill 库", () => {
   });
 });
 
-describe("按工具包装配维护者的会话", () => {
-  it("项目维护者只加载工具包里的 skill（用户目录里的一个都没有），bash 关着时没有 bash 和带类型的 bash 工具；增减 skill 记进时间线，这次调用结束后重启子进程、按新名单接着原会话，下一次模型调用里就是新的", async () => {
+describe("按工具包装配负责人的会话", () => {
+  it("项目负责人只加载工具包里的 skill（用户目录里的一个都没有），bash 关着时没有 bash 和带类型的 bash 工具；增减 skill 记进时间线，这次调用结束后重启子进程、按新名单接着原会话，下一次模型调用里就是新的", async () => {
     const td = await startTestDaemon({
       maintainer: (_id, spawn) =>
         spawn === 1
@@ -165,7 +165,7 @@ describe("按工具包装配维护者的会话", () => {
       project: { toolkit: toolkit({ skills: ["example-checklist"] }) },
     });
     expect(await eventually(() => recordsOf(frontend, PM1), (r) => r.record.kind === "toolkit", "时间线上工具包变更的一笔")).toMatchObject({
-      record: { summary: "维护者调整了 skill（要列清单）：加上 skill example-checklist；去掉 skill notes-style" },
+      record: { summary: "负责人调整了 skill（要列清单）：加上 skill example-checklist；去掉 skill notes-style" },
       projectId: "p-1",
     });
     // 子进程重启（第 2 次唤起），接着原会话：下一次模型调用里就是新的 skill 名单，还看得到"工具包已变更"
@@ -182,7 +182,7 @@ describe("按工具包装配维护者的会话", () => {
     expect(frontend.events({ channel: PM1, type: EVENT_TYPES.turnEnd }).map((f) => (f.payload as { outcome: string }).outcome)).toEqual(["completed", "completed"]);
   });
 
-  it("MCP：只有工具包授权了它的维护者会话里才有它的工具；服务进程由守护进程拉起、放进 Job、按登记注入凭据，agent 和它起的 bash 碰不到凭据；调用先过守卫（按登记的类别：对外发送先问），再由守护进程转发；守护进程停掉时服务进程一起结束", { timeout: 60_000 }, async () => {
+  it("MCP：只有工具包授权了它的负责人会话里才有它的工具；服务进程由守护进程拉起、放进 Job、按登记注入凭据，agent 和它起的 bash 碰不到凭据；调用先过守卫（按登记的类别：对外发送先问），再由守护进程转发；守护进程停掉时服务进程一起结束", { timeout: 60_000 }, async () => {
     const logFile = path.join(makeTempDir("ergo-mcp-log-"), "mcp.jsonl");
     const td = await startTestDaemon({
       env: { [MCP_TOKEN_ENV]: MCP_TOKEN },
@@ -271,7 +271,7 @@ describe("按工具包装配维护者的会话", () => {
     expect(all.filter((e) => JSON.stringify(e.payload).includes(MCP_TOKEN)).map((e) => `${e.channel}/${e.type}`)).toEqual([]);
   });
 
-  it("用户在项目页直接改工具包（不出卡）：维护者正在调用工具时，等这一步做完就重启子进程、按新工具包接着干——新开的 bash 下一次模型调用里就有，去掉的 MCP 不再出现、调用它用不了；子进程不在时下次唤起就按新的", async () => {
+  it("用户在项目页直接改工具包（不出卡）：负责人正在调用工具时，等这一步做完就重启子进程、按新工具包接着干——新开的 bash 下一次模型调用里就有，去掉的 MCP 不再出现、调用它用不了；子进程不在时下次唤起就按新的", async () => {
     const logFile = path.join(makeTempDir("ergo-mcp-log-"), "mcp.jsonl");
     const td = await startTestDaemon({
       maintainer: (_id, spawn) =>
@@ -280,7 +280,7 @@ describe("按工具包装配维护者的会话", () => {
     writeMcpRegistration(td.dataDir, logFile);
     const project = seedToolkitProject(td.daemon, "笔记", toolkit());
     const frontend = await connect(td);
-    // 维护者还没被唤起过（没有子进程）：改了直接写进工具包，下次唤起按新的
+    // 负责人还没被唤起过（没有子进程）：改了直接写进工具包，下次唤起按新的
     expect(ok(await frontend.request(METHODS.setToolkit, { target: { kind: "project", projectId: project.id }, toolkit: toolkit({ mcp: ["demo"] }) }, "k-1"))).toMatchObject({ changed: true });
     await frontend.sendText("看看你有什么", { conversation: PM1 });
     const first = await nthReply(frontend, PM1, 1);
@@ -288,7 +288,7 @@ describe("按工具包装配维护者的会话", () => {
     expect(toolLines(first)).not.toContain("[tool] bash");
     // 正在调用 wait（要 1.5 秒）时把 bash 打开、MCP 去掉
     await frontend.sendText("等一会儿", { conversation: PM1 });
-    await waitUntil(() => mcpLog(logFile).some((e) => e.call === "wait"), { describe: () => "等维护者调用 wait" });
+    await waitUntil(() => mcpLog(logFile).some((e) => e.call === "wait"), { describe: () => "等负责人调用 wait" });
     const set = ok(await frontend.request(METHODS.setToolkit, { target: { kind: "project", projectId: project.id }, toolkit: toolkit({ bash: true }) }, "k-2"));
     expect(set).toEqual({ toolkit: toolkit({ bash: true }), changed: true });
     // 没出任何卡；项目的工具包马上就是新的
@@ -308,7 +308,7 @@ describe("按工具包装配维护者的会话", () => {
     expect(recordsOf(frontend, PM1).map((r) => r.record.summary)).toEqual(["你在项目页改了工具包：加上 MCP demo", "你在项目页改了工具包：加上 bash；去掉 MCP demo"]);
   }, 60_000);
 
-  it("项目维护者不在任务里时要开联网、加 MCP：只能提交工具包变更卡进待我处理，批准前工具包不变；批准后扩大并立即按新工具包重新装配（审批决定是素材），拒绝则不变；减少能力随时可以", async () => {
+  it("项目负责人不在任务里时要开联网、加 MCP：只能提交工具包变更卡进待我处理，批准前工具包不变；批准后扩大并立即按新工具包重新装配（审批决定是素材），拒绝则不变；减少能力随时可以", async () => {
     const logFile = path.join(makeTempDir("ergo-mcp-log-"), "mcp.jsonl");
     const td = await startTestDaemon({
       // 第 1 次：申请（关 bash 直接生效，工具包一变就在这次调用结束后重新装配）；第 2 次接着这一轮；第 3 次是批准之后
@@ -338,7 +338,7 @@ describe("按工具包装配维护者的会话", () => {
     // 批准前工具包不变（只有直接生效的减少）
     expect(td.daemon.projects.get(project.id)?.toolkit).toEqual(toolkit());
 
-    // 下面每个动作之前都等维护者这一轮说完（回复落盘之后 turn_end 才到）：批准、拒绝的时间线记录和通知不插进它这一轮，
+    // 下面每个动作之前都等负责人这一轮说完（回复落盘之后 turn_end 才到）：批准、拒绝的时间线记录和通知不插进它这一轮，
     // 用户的话是新的一轮而不是插话，录下的事件流才确定
     await settled(td, "pm-1");
     ok(await frontend.cardAction({ cardId: card.id, action: "approve", expectedVersion: card.version, note: "可以" }));
@@ -346,13 +346,13 @@ describe("按工具包装配维护者的会话", () => {
     expect(td.daemon.store.read("toolkits", 0).map((e) => e.payload)).toEqual([
       expect.objectContaining({ decision: "approved", target: { kind: "project", projectId: project.id }, after: toolkit({ mcp: ["demo"], network: true }), cardId: card.id, note: "可以" }),
     ]);
-    // 维护者收到通知，按新工具包拉起：要联网的 MCP 工具也在了
+    // 负责人收到通知，按新工具包拉起：要联网的 MCP 工具也在了
     const after = await nthReply(frontend, PM1, 2);
     expect(after).toContain("用户批准了你申请的工具包变更：加上 MCP demo、联网");
     expect(toolLines(after)).toContain("[tool] mcp__demo__send_note");
-    expect(recordsOf(frontend, PM1).map((r) => r.record.summary)).toEqual(["维护者减少了能力（要给老王发笔记）：去掉 bash", "你批准了工具包变更：加上 MCP demo、联网"]);
+    expect(recordsOf(frontend, PM1).map((r) => r.record.summary)).toEqual(["负责人减少了能力（要给老王发笔记）：去掉 bash", "你批准了工具包变更：加上 MCP demo、联网"]);
 
-    // 再申请开 bash：拒绝，工具包不变，维护者收到通知
+    // 再申请开 bash：拒绝，工具包不变，负责人收到通知
     await settled(td, "pm-1");
     await frontend.sendText("跑个脚本", { conversation: PM1 });
     const second = await cardWhere(frontend, (c) => c.type === "toolkit_change" && c.id !== card.id, "第二张工具包变更卡");
@@ -466,7 +466,7 @@ describe("按工具包装配维护者的会话", () => {
 
 
 describe("任务的工具包", () => {
-  it("用户在任务详情里直接改工具包：现在生效的计划换一版（只改工具包），不出计划变更卡，时间线记一笔、审批决定是素材；维护者按新工具包重新装配，收窄后守卫的下一次判定就用不到去掉的能力", async () => {
+  it("用户在任务详情里直接改工具包：现在生效的计划换一版（只改工具包），不出计划变更卡，时间线记一笔、审批决定是素材；负责人按新工具包重新装配，收窄后守卫的下一次判定就用不到去掉的能力", async () => {
     const td = await startTestDaemon({
       maintainer: (_id, spawn) =>
         spawn === 1 ? [submitPlanStep(twoStagePlan({ toolkit: toolkit() })), say("计划交上去了")] : spawn === 2 ? [say("开始做")] : spawn === 3 ? [echo] : [call("bash", { command: "echo hi" }), echo],
@@ -474,7 +474,7 @@ describe("任务的工具包", () => {
     const frontend = await TestFrontend.connect(td.url);
     await frontend.subscribe(Object.fromEntries([CHANNELS.board, CHANNELS.cards, CHANNELS.inbox, TM1].map((c) => [c, 0])));
     const taskId = await confirmTask(td, frontend, "整理笔记");
-    await eventually(() => repliesOf(frontend, TM1), (r) => r === "开始做", "维护者开始做");
+    await eventually(() => repliesOf(frontend, TM1), (r) => r === "开始做", "负责人开始做");
     expect(td.daemon.tasks.confirmedPlan(taskId)?.plan.toolkit.bash).toBe(false);
 
     // 打开 bash：计划换一版，不出计划变更卡
@@ -486,7 +486,7 @@ describe("任务的工具包", () => {
     expect(recordsOf(frontend, TM1).find((r) => r.record.kind === "toolkit")?.record.summary).toBe("你在任务详情里改了工具包：加上 bash");
     expect(td.daemon.store.read("toolkits", 0).map((e) => e.payload)).toEqual([expect.objectContaining({ decision: "edited", target: { kind: "task", taskId }, after: toolkit({ bash: true }) })]);
     await waitUntil(() => td.daemon.materials.list({ kind: "approval_decision" }).some((m) => m.context.includes("toolkit:edited")), { timeoutMs: 10_000, describe: () => "直接改工具包的审批决定素材" });
-    // 维护者闲着：停掉子进程，下一条输入按新工具包拉起，跟着一句"工具包已变更"
+    // 负责人闲着：停掉子进程，下一条输入按新工具包拉起，跟着一句"工具包已变更"
     await frontend.sendText("看看你有什么", { conversation: TM1 });
     const seen = await nthReply(frontend, TM1, 3);
     expect(toolLines(seen)).toContain("[tool] bash");
@@ -518,7 +518,7 @@ describe("任务的工具包", () => {
     await frontend.subscribe(Object.fromEntries([CHANNELS.board, CHANNELS.cards, CHANNELS.inbox, TM1].map((c) => [c, 0])));
     const taskId = await confirmTask(td, frontend, "调研");
     const card = await cardWhere(frontend, (c) => c.type === "plan_change", "计划变更卡");
-    await eventually(() => repliesOf(frontend, TM1), (r) => r === "等你确认", "维护者交了计划变更");
+    await eventually(() => repliesOf(frontend, TM1), (r) => r === "等你确认", "负责人交了计划变更");
     // 扩大（开联网）要等卡处理完；收窄（关 bash）照样直接改
     expect(await frontend.request(METHODS.setToolkit, { target: { kind: "task", taskId }, toolkit: toolkit({ bash: true, network: true }) }, "k-wide")).toMatchObject({
       ok: false,
@@ -530,8 +530,8 @@ describe("任务的工具包", () => {
     ok(await frontend.cardAction({ cardId: card.id, action: "confirm", expectedVersion: card.version, input: {} }));
     expect(td.daemon.tasks.confirmedPlan(taskId)).toMatchObject({ revision: 4, plan: { toolkit: toolkit({ network: true }) } });
     expect((await eventually(() => taskPlansOf(frontend), (p) => p.revision === 4, "现在生效的计划")).plan.toolkit).toEqual(toolkit({ network: true }));
-    // 维护者按最新的一版重新拉起：bash 去掉了
-    const seen = await eventually(() => repliesOf(frontend, TM1), (r) => r.includes("[system]"), "按新工具包拉起的维护者");
+    // 负责人按最新的一版重新拉起：bash 去掉了
+    const seen = await eventually(() => repliesOf(frontend, TM1), (r) => r.includes("[system]"), "按新工具包拉起的负责人");
     expect(toolLines(seen)).not.toContain("[tool] bash");
     expect(seen).not.toContain("[tool-removed]");
   }, 60_000);
@@ -551,7 +551,7 @@ describe("任务的工具包", () => {
     const frontend = await TestFrontend.connect(td.url);
     await frontend.subscribe(Object.fromEntries([CHANNELS.board, CHANNELS.cards, CHANNELS.inbox, TM1].map((c) => [c, 0])));
     await confirmTask(td, frontend, "整理笔记");
-    await eventually(() => repliesOf(frontend, TM1), (r) => r === "都没成", "维护者试完");
+    await eventually(() => repliesOf(frontend, TM1), (r) => r === "都没成", "负责人试完");
     const results = Object.fromEntries(toolCallsOf(frontend, TM1).map((c) => [c.tool, c.resultSummary ?? ""]));
     const submits = toolCallsOf(frontend, TM1).filter((c) => c.tool === "submit_plan");
     expect(submits[0]!.resultSummary).toContain("skill 库里没有 chart-maker");
@@ -561,7 +561,7 @@ describe("任务的工具包", () => {
     expect(cardsOfType(frontend, "plan_change")).toEqual([]);
   }, 60_000);
 
-  it("项目的任务里维护者加 skill：只记在任务上，项目页的工具包不变；执行时 skill 取项目和任务的并集，会话里两边的都有", async () => {
+  it("项目的任务里负责人加 skill：只记在任务上，项目页的工具包不变；执行时 skill 取项目和任务的并集，会话里两边的都有", async () => {
     const td = await startTestDaemon({
       secretary: [say("好的")],
       maintainer: (id, spawn) =>
@@ -581,7 +581,7 @@ describe("任务的工具包", () => {
     td.daemon.tasks.writeBrief(created.task.id, { goal: "整理笔记", acceptanceCriteria: ["整理好"], constraints: [], projects: ["笔记"], memoryScope: "" }, byMaintainer(td.daemon, created.task.id));
     const planCard = await cardWhere(frontend, (c) => c.type === "plan", "计划卡");
     ok(await frontend.cardAction({ cardId: planCard.id, action: "confirm", expectedVersion: planCard.version, input: {} }));
-    const seen = await eventually(() => repliesOf(frontend, PM1), (r) => r.includes("[system]") && r.includes("example-checklist"), "加了 skill 之后的维护者");
+    const seen = await eventually(() => repliesOf(frontend, PM1), (r) => r.includes("[system]") && r.includes("example-checklist"), "加了 skill 之后的负责人");
     expect(td.daemon.tasks.confirmedPlan(created.task.id)?.plan.toolkit.skills).toEqual(["example-checklist"]);
     expect(td.daemon.projects.get(project.id)?.toolkit).toEqual(toolkit({ skills: ["notes-style"] }));
     const skillsNow = latestSystem(seen);

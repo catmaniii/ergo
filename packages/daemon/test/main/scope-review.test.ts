@@ -1,15 +1,15 @@
-// 主切面：范围审视（规格第 10 节，18 号票）。真的守护进程，秘书、维护者接 faux 剧本，审视用的便宜模型也由 faux 扮演，测试扮演前端。
-// - 每张工单结束时（写回之后、维护者子进程退出之前），子进程里另开一次模型调用审视这段工作：输入有这段工作的对话、立项书、
-//   任务计划和授权（含用户在会话里直接说的话），输出范围记录交给守护进程保存；这次调用不出现在维护者的会话里，用量记在任务名下；
-// - 越界：待我处理里一条不推送的越界通知（不卡任务，照常算未读）；范围变更：写进项目档案的范围记录；两种都不暂停维护者；
-// - 每条范围记录都作为事件出现在维护者会话的频道里（timeline_record，带种类），项目列表频道上另有 scope_record（项目页显示）；
-// - 维护者会话压缩时，扩展把待压缩的消息送审，结果 appendEntry 进会话、同时交给守护进程保存；
-// - 下一次唤起维护者（新的一段会话，旧段的 appendEntry 不在上下文里）时，系统提示末尾有"近期范围记录"（最近 5 条）；
+// 主切面：范围审视（规格第 10 节，18 号票）。真的守护进程，秘书、负责人接 faux 剧本，审视用的便宜模型也由 faux 扮演，测试扮演前端。
+// - 每张工单结束时（写回之后、负责人子进程退出之前），子进程里另开一次模型调用审视这段工作：输入有这段工作的对话、立项书、
+//   任务计划和授权（含用户在会话里直接说的话），输出范围记录交给守护进程保存；这次调用不出现在负责人的会话里，用量记在任务名下；
+// - 越界：待我处理里一条不推送的越界通知（不卡任务，照常算未读）；范围变更：写进项目档案的范围记录；两种都不暂停负责人；
+// - 每条范围记录都作为事件出现在负责人会话的频道里（timeline_record，带种类），项目列表频道上另有 scope_record（项目页显示）；
+// - 负责人会话压缩时，扩展把待压缩的消息送审，结果 appendEntry 进会话、同时交给守护进程保存；
+// - 下一次唤起负责人（新的一段会话，旧段的 appendEntry 不在上下文里）时，系统提示末尾有"近期范围记录"（最近 5 条）；
 // - 不属于项目的任务：压缩时同样审视（对照任务书、计划和用户的话），范围记录写进任务自己的产出区，越界同样放通知；
 // - 审视没做成（回复不是约定的 JSON、超时）：工单照常结束，会话里一条说明；
-// - 重置维护者时没审视的那段工作（工单做到一半、写回中途、审视做到一半）：不强行审视，时间线上如实记"重置时这段没做范围审视"；
+// - 重置负责人时没审视的那段工作（工单做到一半、写回中途、审视做到一半）：不强行审视，时间线上如实记"重置时这段没做范围审视"；
 // - 对照物里有用户在审批卡上批准过的调用（算授权过）；
-// - 彻底删除一条被范围记录引用的用户消息：范围记录、时间线、越界通知、项目档案、维护者的会话文件里都不再有原话。
+// - 彻底删除一条被范围记录引用的用户消息：范围记录、时间线、越界通知、项目档案、负责人的会话文件里都不再有原话。
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -73,7 +73,7 @@ const scopeRecordEvents = (frontend: TestFrontend, channel: string = PROJECTS) =
 const scopeRecordsOf = (frontend: TestFrontend, channel: string = PROJECTS) => scopeRecordEvents(frontend, channel).map((p) => p.record);
 const cardsOf = (frontend: TestFrontend): Card[] => frontend.events({ channel: CARDS, type: EVENT_TYPES.card }).map((f) => (f.payload as CardEventPayload).card);
 const segmentsOf = (frontend: TestFrontend) => frontend.events({ channel: PM1, type: EVENT_TYPES.segment }).map((f) => f.payload as SegmentEventPayload);
-/** 维护者会话目录里全部会话文件的内容 */
+/** 负责人会话目录里全部会话文件的内容 */
 const sessionText = (dataDir: string, maintainerId = "pm-1") => {
   const dir = path.join(dataDir, "sessions", maintainerId);
   return fs.existsSync(dir) ? fs.readdirSync(dir).map((f) => fs.readFileSync(path.join(dir, f), "utf8")).join("\n") : "";
@@ -152,7 +152,7 @@ function bookkeeping(td: TestDaemon, records: string) {
   return project;
 }
 
-describe("范围审视：项目的维护者", () => {
+describe("范围审视：项目的负责人", () => {
   it("工单结束时审视（子进程退出之前、另开一次调用）：越界进待我处理（不推送、不卡任务、未读）、项目页和时间线上有记录、项目档案里记下；下一段会话的系统提示末尾有近期范围记录；用户在会话里说了先做 X，压缩时审视把它记为范围变更写进项目档案，结果也 appendEntry 进会话", async () => {
     const d = dirs();
     const records = d.records();
@@ -185,7 +185,7 @@ describe("范围审视：项目的维护者", () => {
     });
     const project = bookkeeping(td, records);
     const frontend = await connect(td.url, [BOARD, CARDS, INBOX, PROJECTS, PM1]);
-    // 前端回放用：只录项目列表、待我处理、看板、卡片（维护者会话里有很长的材料，不录）
+    // 前端回放用：只录项目列表、待我处理、看板、卡片（负责人会话里有很长的材料，不录）
     const recorder = await connect(td.url, [PROJECTS, INBOX, BOARD, CARDS]);
 
     internalTask(td.daemon, "记账本", "给记账本加周报");
@@ -225,7 +225,7 @@ describe("范围审视：项目的维护者", () => {
     expect(input).toContain("写出周报");
     expect(input).toContain("weekly.md");
     expect(input).toContain("别动账本数据");
-    // 维护者没被暂停：任务照常完成
+    // 负责人没被暂停：任务照常完成
     expect(tasksOf(frontend).at(-1)!.task).toMatchObject({ id: taskId, state: "done" });
 
     // 越界：待我处理里一条不推送、不卡任务、未读的通知
@@ -235,7 +235,7 @@ describe("范围审视：项目的维护者", () => {
     expect(notice!.title).toContain("顺手改了立项书范围外的 README");
     expect(notice!.kind === "notice" && notice!.data).toMatchObject({ recordId: overreach!.id, maintainerId: "pm-1", projectId: project.id, taskId, workOrderId: executed.workOrder.id });
     expect(pushedOutOfScope(frontend)).toEqual([]);
-    // 维护者会话频道上的时间线记录（带种类、工单、归属）
+    // 负责人会话频道上的时间线记录（带种类、工单、归属）
     const marks = timelineOf(frontend).filter((r) => r.record.kind === "out_of_scope");
     expect(marks).toHaveLength(1);
     expect(marks[0]).toMatchObject({ record: { summary: "顺手改了立项书范围外的 README", workOrderId: executed.workOrder.id }, projectId: project.id, taskId });
@@ -243,14 +243,14 @@ describe("范围审视：项目的维护者", () => {
     const file = () => fs.readFileSync(path.join(records, "scope-records.md"), "utf8");
     expect(file()).toContain(`越界 · 工单结束时 · 工单 ${executed.workOrder.id}（任务 ${taskId}）：顺手改了立项书范围外的 README`);
     expect(file()).not.toContain("范围变更 ·");
-    // 审视那次调用不在维护者的会话里；用量记在刚处理完的那条输入所属的任务名下，标"范围审视"
+    // 审视那次调用不在负责人的会话里；用量记在刚处理完的那条输入所属的任务名下，标"范围审视"
     expect(messagesOf(frontend, PM1).some((m) => textOf(m).includes("范围审视员"))).toBe(false);
     await waitUntil(() => td.daemon.ledger.entries({ kind: "task", id: taskId }).filter((e) => e.purpose === "scope_review").length >= 2, { describe: () => "等审视的用量记账" });
     expect(td.daemon.ledger.entries({ kind: "task", id: taskId }).filter((e) => e.purpose === "scope_review").map((e) => e.agentId)).toEqual(["pm-1", "pm-1"]);
 
-    // 用户直接和维护者说话：新的一段会话（旧段的 appendEntry 不在上下文里），系统提示末尾有近期范围记录
+    // 用户直接和负责人说话：新的一段会话（旧段的 appendEntry 不在上下文里），系统提示末尾有近期范围记录
     await frontend.sendText("先帮我做下 X：把分类表导出成 CSV", { conversation: PM1 });
-    const echoed = await eventually(() => messagesOf(frontend, PM1), (m) => m.message.speaker === "agent" && textOf(m).includes("[system]"), "维护者回显上下文");
+    const echoed = await eventually(() => messagesOf(frontend, PM1), (m) => m.message.speaker === "agent" && textOf(m).includes("[system]"), "负责人回显上下文");
     const system = textOf(echoed).slice(0, textOf(echoed).indexOf("[user]"));
     expect(system).toContain("## 近期范围记录");
     expect(system).toContain("越界");
@@ -259,18 +259,18 @@ describe("范围审视：项目的维护者", () => {
 
     // 接着发一大段材料，第三句时上下文溢出：压缩会话，扩展把要压缩的消息（含用户说的"先帮我做下 X"）送审
     await frontend.sendText(LONG, { conversation: PM1 });
-    await eventually(() => messagesOf(frontend, PM1), (m) => textOf(m) === "收到了一大段", "维护者收下材料");
+    await eventually(() => messagesOf(frontend, PM1), (m) => textOf(m) === "收到了一大段", "负责人收下材料");
     await frontend.sendText("第三句", { conversation: PM1 });
     const change = await eventually(() => scopeRecordsOf(frontend), (r) => r.kind === "scope_change", "范围变更", 60_000);
     expect(change).toMatchObject({ summary: "按用户说的先导出了分类表 CSV", basis: "用户在会话里说：先帮我做下 X", trigger: "compaction", projectId: project.id });
     expect(change.taskId).toBeUndefined();
     expect(change.detail).toContain("先帮我做下 X：把分类表导出成 CSV");
-    // 范围变更写进项目档案；不放通知；时间线上标出；维护者照常回话
+    // 范围变更写进项目档案；不放通知；时间线上标出；负责人照常回话
     await waitUntil(() => file().includes("范围变更"), { describe: () => "等范围变更写进项目档案" });
     expect(file()).toContain("范围变更 · 压缩会话时：按用户说的先导出了分类表 CSV（依据：用户在会话里说：先帮我做下 X）");
     expect(outOfScopeNotices(frontend)).toHaveLength(1);
     expect(timelineOf(frontend).filter((r) => r.record.kind === "scope_change")).toHaveLength(1);
-    await eventually(() => messagesOf(frontend, PM1), (m) => textOf(m) === "好，导出了 CSV", "维护者重试这一轮");
+    await eventually(() => messagesOf(frontend, PM1), (m) => textOf(m) === "好，导出了 CSV", "负责人重试这一轮");
     // 审视的结果 appendEntry 进了这一段的会话文件（副本）
     const sessionDir = path.join(d.dataDir, "sessions", "pm-1");
     const entries = fs
@@ -309,7 +309,7 @@ describe("范围审视：项目的维护者", () => {
     expect(outOfScopeNotices(frontend)).toHaveLength(6);
 
     await frontend.sendText("现在怎么样了", { conversation: PM1 });
-    const echoed = await eventually(() => messagesOf(frontend, PM1), (m) => m.message.speaker === "agent" && textOf(m).includes("[system]"), "维护者回显上下文");
+    const echoed = await eventually(() => messagesOf(frontend, PM1), (m) => m.message.speaker === "agent" && textOf(m).includes("[system]"), "负责人回显上下文");
     const system = textOf(echoed).slice(0, textOf(echoed).indexOf("[user]"));
     expect(system).toContain("## 近期范围记录");
     expect(system).not.toContain("越界的第 1 件事");
@@ -346,7 +346,7 @@ describe("范围审视：子进程退出之前", () => {
         frontend
           .events({ channel: CHANNELS.activity, type: EVENT_TYPES.activity })
           .some((f) => (f.payload as { agentId: string; detail?: { kind: string } }).agentId === "pm-1" && (f.payload as { detail?: { kind: string } }).detail?.kind === "idle_exit"),
-      { describe: () => "等维护者闲置退出" },
+      { describe: () => "等负责人闲置退出" },
     );
     expect(messagesOf(frontend, PM1).filter((m) => m.message.parts.some((p) => p.type === "work_order_divider"))).toHaveLength(1);
   }, 120_000);
@@ -391,7 +391,7 @@ describe("范围审视：和工具包的重新装配（27 号票）", () => {
     ok(await frontend.cardAction({ cardId: card.id, action: "confirm", expectedVersion: card.version, input: {} }));
 
     // 执行完、写回之后开始审视；审视在做时用户在项目页打开 bash（执行时的交集跟着变了）
-    await eventually(() => messagesOf(frontend, PM1), (m) => m.message.speaker === "agent" && textOf(m).includes("做完了"), "维护者做完了");
+    await eventually(() => messagesOf(frontend, PM1), (m) => m.message.speaker === "agent" && textOf(m).includes("做完了"), "负责人做完了");
     await new Promise((resolve) => setTimeout(resolve, 1000));
     expect(workOrdersOf(frontend).some((e) => e.change === "ended" && e.workOrder.kind === "execute")).toBe(false);
     ok(await frontend.request(METHODS.setToolkit, { target: { kind: "project", projectId: project.id }, toolkit: { skills: [], mcp: [], bash: true, network: false } }, "k-bash"));
@@ -404,7 +404,7 @@ describe("范围审视：和工具包的重新装配（27 号票）", () => {
 });
 
 describe("范围审视：不属于项目的任务", () => {
-  it("任务自己的维护者压缩会话时同样审视（对照任务书、计划和用户的话）：范围记录写进任务的产出区、看板频道上有记录，越界放不推送的通知", async () => {
+  it("任务自己的负责人压缩会话时同样审视（对照任务书、计划和用户的话）：范围记录写进任务的产出区、看板频道上有记录，越界放不推送的通知", async () => {
     const td = await startTestDaemon({
       secretary: [say("好的")],
       maintainer: (id) => (id === "tm-1" ? [say("收到任务书"), say("收到了一大段"), { kind: "context_overflow" }, say("摘要：任务书和一大段材料"), say("好")] : []),
@@ -434,10 +434,10 @@ describe("范围审视：不属于项目的任务", () => {
     expect(notice).toMatchObject({ notice: "out_of_scope", urgency: "non_blocking", read: false });
     expect(notice!.kind === "notice" && notice!.data).toMatchObject({ recordId: record.id, maintainerId: "tm-1", taskId: task.id });
     expect(pushedOutOfScope(frontend)).toEqual([]);
-    // 时间线上标出（114 号票起压好了另记一笔"这里压缩过一次"，机器忙时会晚一点到）；维护者照常回话
+    // 时间线上标出（114 号票起压好了另记一笔"这里压缩过一次"，机器忙时会晚一点到）；负责人照常回话
     await waitUntil(() => timelineOf(frontend, TM1).some((r) => r.record.kind === "compaction"), { describe: () => "等压缩完的时间线记录" });
     expect(timelineOf(frontend, TM1).map((r) => r.record.kind)).toEqual(["out_of_scope", "compaction"]);
-    await eventually(() => messagesOf(frontend, TM1), (m) => textOf(m) === "好", "维护者重试这一轮");
+    await eventually(() => messagesOf(frontend, TM1), (m) => textOf(m) === "好", "负责人重试这一轮");
   }, 120_000);
 });
 
@@ -457,7 +457,7 @@ const failureNotes = (frontend: TestFrontend) => messagesOf(frontend, PM1).filte
 const unreviewed = (frontend: TestFrontend) => timelineOf(frontend).filter((r) => r.record.kind === "scope_review_missing");
 
 describe("范围审视没做成（18 号票评审后）", () => {
-  it("审视模型回了不合约定的结果：工单照常结束，维护者会话里一条说明（给用户看），不记范围记录", async () => {
+  it("审视模型回了不合约定的结果：工单照常结束，负责人会话里一条说明（给用户看），不记范围记录", async () => {
     const d = dirs();
     const td = await startTestDaemon({
       reuse: { dataDir: d.dataDir, homeDir: d.homeDir },
@@ -475,7 +475,7 @@ describe("范围审视没做成（18 号票评审后）", () => {
     expect(failureNotes(frontend)).toHaveLength(1);
     expect(textOf(note!)).toContain("审视模型的回复里没有约定的 JSON：这段工作都在范围里，没什么要记的。");
     expect(textOf(note!)).toContain("这段工作这次没有记范围记录");
-    // 说明不交给维护者（不是给它的输入），也不记范围记录、不出越界通知
+    // 说明不交给负责人（不是给它的输入），也不记范围记录、不出越界通知
     expect(note!.agentInput).toBeUndefined();
     expect(scopeRecordsOf(frontend)).toEqual([]);
     expect(outOfScopeNotices(frontend)).toEqual([]);
@@ -502,20 +502,20 @@ describe("范围审视没做成（18 号票评审后）", () => {
   }, 120_000);
 });
 
-describe("重置维护者时的范围审视（18 号票评审后）", () => {
+describe("重置负责人时的范围审视（18 号票评审后）", () => {
   it("工单做到一半重置：这一段不强行审视，时间线上如实记“重置时这段没做范围审视”；工单留在新的一段接着做", async () => {
     const d = dirs();
     const td = await startTestDaemon({
       reuse: { dataDir: d.dataDir, homeDir: d.homeDir },
       secretary: [say("好的")],
-      // 起草计划时慢慢想（还在说的时候用户重置了维护者）
+      // 起草计划时慢慢想（还在说的时候用户重置了负责人）
       maintainer: (id, spawn) => (id === "pm-1" && spawn === 1 ? [say("先想想周报怎么排，".repeat(40))] : []),
       maintainerTokensPerSecond: 20,
     });
     bookkeeping(td, d.records());
     const frontend = await connect(td.url, [BOARD, CARDS, INBOX, PROJECTS, PM1]);
     const { taskId, wo } = await startWeekly(td, frontend);
-    await waitUntil(() => frontend.events({ channel: PM1, type: EVENT_TYPES.turnStart }).length === 1, { describe: () => "等维护者开始起草" });
+    await waitUntil(() => frontend.events({ channel: PM1, type: EVENT_TYPES.turnStart }).length === 1, { describe: () => "等负责人开始起草" });
 
     ok(await frontend.request(METHODS.resetMaintainer, { projectId: "p-1" }, "k-reset"));
     const [record] = await eventually(() => [unreviewed(frontend)], (list) => list.length > 0, "时间线上的记录");
@@ -535,7 +535,7 @@ describe("重置维护者时的范围审视（18 号票评审后）", () => {
     const td = await startTestDaemon({
       reuse: { dataDir: d.dataDir, homeDir: d.homeDir },
       secretary: [say("好的")],
-      // 交了计划不写回；被催时慢慢回一段长话（约 4 秒，还在说的时候用户重置了维护者）。吐字速度是整个剧本共用的：
+      // 交了计划不写回；被催时慢慢回一段长话（约 4 秒，还在说的时候用户重置了负责人）。吐字速度是整个剧本共用的：
       // 调快、那段话加长，交计划那一步（计划的 JSON 很长）就不用陪着慢慢吐（92 号票）
       maintainer: (id, spawn) => (id !== "pm-1" ? [] : spawn === 1 ? [submitPlanStep(onePlan("weekly.md")), say("计划交了"), say("这一段先不写回，".repeat(200))] : []),
       maintainerTokensPerSecond: 100,
@@ -544,7 +544,7 @@ describe("重置维护者时的范围审视（18 号票评审后）", () => {
     const frontend = await connect(td.url, [BOARD, CARDS, INBOX, PROJECTS, PM1]);
     const { wo } = await startWeekly(td, frontend);
     await eventually(() => messagesOf(frontend, PM1), (m) => m.agentInput === true && textOf(m).includes("还没写回"), "催写回");
-    await waitUntil(() => frontend.events({ channel: PM1, type: EVENT_TYPES.turnStart }).length === 2, { describe: () => "等维护者开始回催写回的通知" });
+    await waitUntil(() => frontend.events({ channel: PM1, type: EVENT_TYPES.turnStart }).length === 2, { describe: () => "等负责人开始回催写回的通知" });
 
     ok(await frontend.request(METHODS.resetMaintainer, { projectId: "p-1" }, "k-reset"));
     const ended = await eventually(() => workOrdersOf(frontend), (e) => e.change === "ended" && e.workOrder.id === wo.id, "工单结束");
@@ -564,7 +564,7 @@ describe("重置维护者时的范围审视（18 号票评审后）", () => {
       reuse: { dataDir: d.dataDir, homeDir: d.homeDir },
       secretary: [say("好的")],
       maintainer: (id, spawn) => (id === "pm-1" && spawn === 1 ? draftPlan() : []),
-      // 审视的回复慢慢吐（约十几秒）：工单写回之后、审视还没交上来的时候用户重置了维护者
+      // 审视的回复慢慢吐（约十几秒）：工单写回之后、审视还没交上来的时候用户重置了负责人
       scopeReviewer: (id, spawn) => (id === "pm-1" && spawn === 1 ? [say(JSON.stringify({ records: [{ kind: "out_of_scope", summary: `审到一半的越界${"。".repeat(60)}` }] }))] : []),
       scopeReviewerTokensPerSecond: 10,
     });
@@ -630,7 +630,7 @@ describe("对照物里的审批（18 号票评审后）", () => {
     expect(section).toContain("批准过的算授权过");
     expect(section).toContain(`${toolTitle}：${argsSummary}`);
     // 用户在会话里说的话是运行时核实过的格式（125 号票）：原文、哪个会话、时间、从哪台设备来的
-    expect(input.slice(input.indexOf("【运行时核实过的用户原话】"))).toMatch(/「把术语表重写一下」（\d{2}-\d{2} \d{2}:\d{2} · 项目「记账本」的维护者会话 · 本机）/);
+    expect(input.slice(input.indexOf("【运行时核实过的用户原话】"))).toMatch(/「把术语表重写一下」（\d{2}-\d{2} \d{2}:\d{2} · 项目「记账本」的负责人会话 · 本机）/);
     // 范围记录记着这次审视看到的批准：彻底删除这次批准（审批决定）时，这条记录里的文字一起换成删除标记
     expect(scopeRecordEvents(frontend).find((p) => p.record.id === change.id)!.sources.approvalIds).toEqual([approvalId]);
     await waitUntil(() => td.daemon.materials.list().some((m) => m.kind === "approval_decision" && m.ref.recordId === approvalId), { describe: () => "等审批决定成为素材" });
@@ -642,7 +642,7 @@ describe("对照物里的审批（18 号票评审后）", () => {
 });
 
 describe("彻底删除范围记录里的原话（18 号票评审后）", () => {
-  it("彻底删除一条被范围记录引用的用户消息：范围记录（追加一条改写后的）、时间线、越界通知、项目档案的范围记录、维护者的会话文件（含审视结果的副本）里都不再有原话", async () => {
+  it("彻底删除一条被范围记录引用的用户消息：范围记录（追加一条改写后的）、时间线、越界通知、项目档案的范围记录、负责人的会话文件（含审视结果的副本）里都不再有原话", async () => {
     const d = dirs();
     const records = d.records();
     const SECRET = "顺便把分类表导出成 CSV，暗号是青蛙";
@@ -669,7 +669,7 @@ describe("彻底删除范围记录里的原话（18 号票评审后）", () => {
     await turnsOf(frontend, PM1, 2);
     await frontend.sendText("第三句", { conversation: PM1 });
     await eventually(() => scopeRecordsOf(frontend), (r) => r.kind === "out_of_scope", "范围记录", 60_000);
-    await eventually(() => messagesOf(frontend, PM1), (m) => textOf(m) === "好，导出了", "维护者重试这一轮");
+    await eventually(() => messagesOf(frontend, PM1), (m) => textOf(m) === "好，导出了", "负责人重试这一轮");
     const file = path.join(records, "scope-records.md");
     // 删除之前：原话在范围记录（依据、审视的输入）、时间线、项目档案、会话文件的副本里；记录记着审视看到了这条消息
     const before = scopeRecordEvents(frontend);
@@ -707,8 +707,8 @@ describe("彻底删除范围记录里的原话（18 号票评审后）", () => {
     expect(text).toContain(`范围变更 · 压缩会话时：${PURGED_TEXT}（依据：${PURGED_TEXT}） <!-- ${latest[0]!.id} -->`);
     expect(text).toContain(`越界 · 压缩会话时：${PURGED_TEXT} <!-- ${latest[1]!.id} -->`);
     expect(text.split("<!-- sr-")).toHaveLength(3);
-    // 维护者的会话文件：用户的那条输入、审视结果的副本（appendEntry）都改写了
-    await waitUntil(() => !sessionText(d.dataDir).includes("暗号是青蛙"), { describe: () => "等维护者的会话文件改写" });
+    // 负责人的会话文件：用户的那条输入、审视结果的副本（appendEntry）都改写了
+    await waitUntil(() => !sessionText(d.dataDir).includes("暗号是青蛙"), { describe: () => "等负责人的会话文件改写" });
     expect(td.daemon.materials.get(material.id)).toBeUndefined();
     // 重新连上的页面拿到的也只有改写后的
     const fresh = await connect(td.url, [INBOX, PROJECTS, PM1]);

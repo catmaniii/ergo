@@ -6,8 +6,8 @@
 //   对一遍，之后这几个项目有变化（取消归档、立项书确认……）时再对一遍。卡的幂等键是 standard-backfill:<项目编号>：出过就不再出，
 //   一个项目只出一次；不缺的不出；
 // - "补齐"：同一事务项目列表频道上一条 standard_adopted（项目记下现在的规范版本；项目模块据此按这一版的模板补上缺的几份，已有的不动）、
-//   建一个项目内部的普通任务（交给维护者照项目现状补：缺哪几份、每份写什么；确认时又都齐了就不建）、维护者会话时间线上记一笔；
-// - "不补"：什么都不动（项目还是没有版本，档案不补），时间线上记一笔；卡不会再出，272 号票起之后用户又要补，由维护者提"跟新版"
+//   建一个项目内部的普通任务（交给负责人照项目现状补：缺哪几份、每份写什么；确认时又都齐了就不建）、负责人会话时间线上记一笔；
+// - "不补"：什么都不动（项目还是没有版本，档案不补），时间线上记一笔；卡不会再出，272 号票起之后用户又要补，由负责人提"跟新版"
 //   （standard-change.ts：没有版本的项目写 upgrade 就是补齐，确认后照这里的补齐做）；
 // - 不硬卡：卡一直挂着也不碍事，项目照常用。删除项目时卡随项目整条删掉（deletion-participants.ts）。
 import {
@@ -68,7 +68,7 @@ const LAUNCH_KEY = "standard-backfill:launched";
 /** 一个项目的"补齐规范文档"卡的幂等键：出过就不再出 */
 const offerKey = (projectId: string) => `standard-backfill:${projectId}`;
 
-/** 这个项目的"补齐规范文档"卡出过、还在等用户选（272 号票：这时维护者不另提"跟新版"补齐） */
+/** 这个项目的"补齐规范文档"卡出过、还在等用户选（272 号票：这时负责人不另提"跟新版"补齐） */
 export function backfillOfferPending(store: Pick<EventStore, "eventByIdempotencyKey">, cards: Pick<CardService, "get">, projectId: string): boolean {
   const offered = store.eventByIdempotencyKey(offerKey(projectId));
   if (!offered) return false;
@@ -76,7 +76,7 @@ export function backfillOfferPending(store: Pick<EventStore, "eventByIdempotency
   return cardId !== undefined && cards.get(cardId)?.status === "pending";
 }
 
-/** 规范里每一份补的时候写什么（交给维护者的任务书里）；改写里多出来的那份写改写里说的 */
+/** 规范里每一份补的时候写什么（交给负责人的任务书里）；改写里多出来的那份写改写里说的 */
 const docHint = (doc: StandardBackfillDoc, view: ProjectStandardView | undefined): string => {
   if (doc.key !== STANDARD_CUSTOM_DOC) return t(`projects.standardBackfill.hint.${doc.key}`);
   const added = view?.overrides.find((o) => o.kind === "add" && o.path === doc.path);
@@ -84,8 +84,8 @@ const docHint = (doc: StandardBackfillDoc, view: ProjectStandardView | undefined
 };
 
 /**
- * 交给维护者的任务书（项目内部的普通任务，任务详情里你也看得到）：缺哪几份、每份写什么、只补文档。
- * 272 号票：卡上选了不补、之后维护者照用户的话提"跟新版"补齐时（standard-change.ts）也用这一份
+ * 交给负责人的任务书（项目内部的普通任务，任务详情里你也看得到）：缺哪几份、每份写什么、只补文档。
+ * 272 号票：卡上选了不补、之后负责人照用户的话提"跟新版"补齐时（standard-change.ts）也用这一份
  */
 export function backfillTaskSummary(project: Project, kind: ProjectKind, version: string, missing: readonly StandardBackfillDoc[], view: ProjectStandardView | undefined, note: string | undefined): string {
   const docs = missing.map((doc) => t("projects.standardBackfill.docLine", { doc: standardBackfillDocText(doc), hint: docHint(doc, view) })).join("\n");
@@ -159,7 +159,7 @@ export function createStandardBackfill(options: StandardBackfillOptions): Standa
     }
     if (project.standardVersion !== undefined) throw new RequestRejected("conflict", t("projects.standardBackfill.adopted", { name: project.name, version: project.standardVersion }));
     if (project.state === "archived") throw new RequestRejected("not_allowed", t("projects.standardBackfill.archived", { name: project.name }));
-    // 按现在的样子再算一遍：出卡之后维护者可能已经补了几份
+    // 按现在的样子再算一遍：出卡之后负责人可能已经补了几份
     const view = options.standard(project.id);
     const version = view?.latest ?? payload.version;
     const missing = view ? standardBackfillDocs(view) : payload.missing;
@@ -174,7 +174,7 @@ export function createStandardBackfill(options: StandardBackfillOptions): Standa
         : undefined;
     const summary = task ? t("projects.standardBackfill.backfillSummary", { taskId: task.task.id }) : t("projects.standardBackfill.backfillNoTaskSummary", { version });
     const events: NewEvent[] = [
-      // 项目先改用规范（项目模块据此从模板补上缺的几份），再建任务：维护者开工时模板已经在档案里了
+      // 项目先改用规范（项目模块据此从模板补上缺的几份），再建任务：负责人开工时模板已经在档案里了
       { channel: CHANNELS.projects, type: EVENT_TYPES.project, payload: adopted },
       ...(task?.events ?? []),
       buildTimelineRecord(conversation, { kind: "standard_backfill", summary, detail }, scope).event,

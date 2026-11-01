@@ -20,7 +20,7 @@
 //
 // 自动修回（tryAutoFix）：查出的问题都是能修的（超范围、顺序错、违反时序规则），并且没有直接拦下的（重复、禁止），先试着不打扰用户：
 // 1. 引回前置步骤：这次调用对上了计划里的某一步，前置步骤还没做（顺序错，或规则声明的修法是"先插一步 X / 挪到 X 之后"，
-//    而计划里正好有还没做的 X）——这次先不执行，告诉维护者先做那一步；
+//    而计划里正好有还没做的 X）——这次先不执行，告诉负责人先做那一步；
 // 2. 按计划改回参数：同一工具、还没做完的步骤里，不认对象的参数和计划写的不一样，改回计划的值，改后两道重新判一遍，
 //    完全没问题才放行（认对象的参数不改——换对象不是小偏差，见 identityArgsOf）。
 // 同一个"工具 + 步骤"最多修 MAX_AUTO_FIX 次，修不了、超过次数的交回常规流程（拦下或问用户）。
@@ -43,8 +43,8 @@ import { isUnknownArg, plainArgs, stepCalls } from "./workflow-steps.ts";
 
 /** 自动纠偏在工具结果里的开头 */
 export const CORRECTION_PREFIX = "【自动纠偏】"; // @i18n-ignore model：工具结果的开头（给模型看）
-/** 计划检查替维护者补的提醒的开头 */
-export const NUDGE_PREFIX = "【计划检查】"; // @i18n-ignore model：补给维护者的提醒的开头
+/** 计划检查替负责人补的提醒的开头 */
+export const NUDGE_PREFIX = "【计划检查】"; // @i18n-ignore model：补给负责人的提醒的开头
 /** 同一个步骤自动修了这么多次还对不上，就说明不是小偏差，交给用户 */
 export const MAX_AUTO_FIX = 2;
 
@@ -100,8 +100,8 @@ function objectValue(value: unknown, isPath: boolean, ctx: { env: ShellEnv; real
 /**
  * 执行时的自动纠偏：修回的是用户已经授权过的那份计划，所以不需要再问：
  * - rewrite：参数和计划对不上，按计划改回来再执行（只改属性，不换对象）；
- * - redirect：前置步骤还没做，这次先不执行，让维护者先做计划里的那一步；
- * - nudge：一轮收尾时计划还有步骤既没做也没说跳过，提醒维护者补上或说明（执行控制器发，tasks/workflow-run.ts）
+ * - redirect：前置步骤还没做，这次先不执行，让负责人先做计划里的那一步；
+ * - nudge：一轮收尾时计划还有步骤既没做也没说跳过，提醒负责人补上或说明（执行控制器发，tasks/workflow-run.ts）
  */
 export interface PlanCorrection {
   kind: "rewrite" | "redirect" | "nudge";
@@ -373,7 +373,7 @@ export interface PlanCheckInput {
  * - pass：和计划对得上，或者对不上但不用问（只读的计划外、用户点过头的），照第一道走；
  * - ask：要用户当场确认（askAbout 是这次真正要问的判定）；第一道也要问的合成一次；
  * - block：直接拦下，不打扰用户（审查时已经排除的对象、只许做一次的事）；
- * - redirect：这次先不执行，把 text 交给维护者，让它先做计划里的前置步骤；
+ * - redirect：这次先不执行，把 text 交给负责人，让它先做计划里的前置步骤；
  * - rewrite：按计划把参数改回来再执行（judgement 是改后第一道的判定，已经确认会执行）。
  * 自动修了的给出 spent：用掉了哪个"工具|步骤"的一次修回额度
  */
@@ -517,7 +517,7 @@ function tryAutoFix(input: PlanCheckInput, monitor: PlanMonitor, stepId: string 
           // 纠偏的说法：时间线上记一笔（给用户看）、改回参数时写在工具结果前面（给模型看）——按比对时的语言
           text: t("guard.planMonitor.missingPrerequisite", { title }),
         },
-        // @i18n-ignore-start model：交回维护者的话
+        // @i18n-ignore-start model：交回负责人的话
         text:
           `${CORRECTION_PREFIX}这一步先不执行：${why}。按用户已授权的计划，应先执行步骤 ${target.id}「${title}」：` +
           `调用 ${target.tool}${Object.keys(shown).length ? `，参数 ${JSON.stringify(shown)}` : ""}。` +

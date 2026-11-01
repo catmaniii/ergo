@@ -1,5 +1,5 @@
 // 项目列表（15 号票）：项目列表频道上的 project 事件归并成每个项目的最新状态；进行中任务数来自看板频道上的任务；
-// 项目页上的入口按协议包的 projectActions；删掉的项目连同它的维护者会话从界面上拿掉。
+// 项目页上的入口按协议包的 projectActions；删掉的项目连同它的负责人会话从界面上拿掉。
 import { describe, expect, test } from "vitest";
 import {
   availableTaskActions,
@@ -103,7 +103,7 @@ describe("项目列表", () => {
     expect(selectProject(other, "p-1")?.actions).toEqual(["abandon", "go_live"]);
   });
 
-  test("删掉的项目：从列表里拿掉，它的维护者会话也从界面上拿掉（游标归零）", () => {
+  test("删掉的项目：从列表里拿掉，它的负责人会话也从界面上拿掉（游标归零）", () => {
     const pm = maintainerChannel("pm-p-1");
     const state = replay([
       projectFrame(1, project("p-1", { state: "archived" })),
@@ -131,7 +131,7 @@ const orderFrame = (seq: number, w: WorkOrder, change: WorkOrderEventPayload["ch
   frame("projects", seq, "work_order", { workOrder: w, change, from: null, by: "system" } satisfies WorkOrderEventPayload);
 
 describe("工单（16 号票）", () => {
-  test("重置维护者是项目页上单独的入口（不和项目状态动作排在一起）：已归档的不能重置", () => {
+  test("重置负责人是项目页上单独的入口（不和项目状态动作排在一起）：已归档的不能重置", () => {
     const state = replay([projectFrame(1, project("p-1", { state: "in_use" })), projectFrame(2, project("p-2", { state: "archived" }))]);
     expect(selectProject(state, "p-1")).toMatchObject({ actions: ["retire", "archive"], canResetMaintainer: true, archiveBlocked: undefined });
     expect(selectProject(state, "p-2")).toMatchObject({ actions: ["unarchive", "delete"], canResetMaintainer: false });
@@ -152,14 +152,14 @@ describe("工单（16 号票）", () => {
     expect(selectProject(done, "p-1")?.archiveBlocked).toBeUndefined();
   });
 
-  test("“等项目 X”只在真被项目挡住时标：任务正等着这张排着的工单、项目的维护者手上有别的工单；全局执行名额满了、任务暂停了都不算", () => {
+  test("“等项目 X”只在真被项目挡住时标：任务正等着这张排着的工单、项目的负责人手上有别的工单；全局执行名额满了、任务暂停了都不算", () => {
     const base = [projectFrame(1, project("p-1", { state: "in_use", name: "记账本" }))];
     const queued = { ...task("t-2", "queued", ["p-1"]), maintainerId: "pm-p-1" };
     const execute = order("wo-2", "p-1", "pending", { taskId: "t-2", kind: "execute" });
     const busy = orderFrame(3, order("wo-1", "p-1", "in_progress", { taskId: "t-1", kind: "execute" }));
-    // 项目的维护者正忙着别的工单：等项目
+    // 项目的负责人正忙着别的工单：等项目
     expect(taskWaitingForProject(replay([...base, taskFrame(1, queued), busy, orderFrame(4, execute)]), "t-2")).toBe("记账本");
-    // 维护者空着（工单还排着，是全局执行名额满了）：不标
+    // 负责人空着（工单还排着，是全局执行名额满了）：不标
     expect(taskWaitingForProject(replay([...base, taskFrame(1, queued), orderFrame(4, execute)]), "t-2")).toBeUndefined();
     // 任务暂停了：不标
     expect(taskWaitingForProject(replay([...base, taskFrame(1, { ...queued, state: "paused" }), busy, orderFrame(4, execute)]), "t-2")).toBeUndefined();

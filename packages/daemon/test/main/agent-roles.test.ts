@@ -5,7 +5,7 @@
 // - 旧配置（241 号票的 agent-profiles.json）自动迁移，一个不丢；旧的 GET /api/agent-profiles 只保留只读兼容。
 // 这里跑的是真的守护进程（模型是 faux、合成服务是假的、参考音色是编的示例）：
 // - 迁移：起之前放着旧配置和全局名字，起来之后角色表对得上、名字和音色都没丢、旧文件还在、再起一次不重复迁移；
-// - 列表：秘书、每个在的项目维护者、每个在的任务维护者、记忆管理员，默认角色标出来，谁在用写清楚；
+// - 列表：秘书、每个在的项目负责人、每个在的任务负责人、记忆管理员，默认角色标出来，谁在用写清楚；
 // - 增删改：名字不合规、音色不存在 400，默认角色不能删、在用角色不能删（说清是谁）；
 // - 生效：改默认角色 → 没指定的 agent 名字和音色一起变（系统提示 + 假 TTS 的 voice_ref）；给某个 agent 指定角色 → 只有它变；
 // - 语音插件停用：名字和角色照常，音色写"语音插件没启用"；
@@ -121,7 +121,7 @@ describe("迁移：旧的名字音色配置一个不丢地迁进角色表", () =
 });
 
 describe("角色表：默认角色标出来，谁在用写清楚", () => {
-  it("列出秘书、项目/任务维护者、记忆管理员；新建之后没人用；给 agent 指定之后谁在用跟着变", async () => {
+  it("列出秘书、项目/任务负责人、记忆管理员；新建之后没人用；给 agent 指定之后谁在用跟着变", async () => {
     const td = await startTestDaemon();
     seedProject(td.daemon, "记账本");
     const listed = await agentRolesApi.list(td.url);
@@ -171,7 +171,7 @@ describe("角色的增删改：校验、默认唯一、删在用回 400", () => 
     await agentRolesApi.assign(td.url, "pm-1", xiaoming.id);
     const refused = await agentRolesApi.remove(td.url, xiaoming.id);
     expect(refused.status).toBe(400);
-    expect((refused.body as { message?: string }).message).toContain("项目「记账本」的维护者");
+    expect((refused.body as { message?: string }).message).toContain("项目「记账本」的负责人");
 
     await agentRolesApi.assign(td.url, "pm-1", null);
     expect((await agentRolesApi.remove(td.url, xiaoming.id)).status).toBe(200);

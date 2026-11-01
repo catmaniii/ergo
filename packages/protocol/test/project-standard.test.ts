@@ -75,7 +75,7 @@ describe("说法", () => {
           { key: "adr", path: "adr/", state: "template" },
         ],
       }),
-    ).toBe("补齐规范文档：改用规范 v1，缺 架构图（architecture.md）、决策记录（adr/，只有说明）（规范上线之前建的项目；缺的从模板补上、已有的不动，再建一个任务交给维护者照项目现状写好）");
+    ).toBe("补齐规范文档：改用规范 v1，缺 架构图（architecture.md）、决策记录（adr/，只有说明）（规范上线之前建的项目；缺的从模板补上、已有的不动，再建一个任务交给负责人照项目现状写好）");
     expect(standardUpgradeText({ to: "v1" })).toContain("补齐规范文档：改用规范 v1（");
   });
 });

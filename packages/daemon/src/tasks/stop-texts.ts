@@ -1,5 +1,5 @@
 // 任务执行里给用户看的几句（172 号票从 execution-tools.ts 挪出来）：这一支为什么停下、用量和预算（任务和阶段上的说明、
-// 待我处理事项，生成时按当时的语言写）、重做时改了这一阶段的什么（时间线那一笔）。交给维护者的通知里用到时包一层 forModel 照旧中文。
+// 待我处理事项，生成时按当时的语言写）、重做时改了这一阶段的什么（时间线那一笔）。交给负责人的通知里用到时包一层 forModel 照旧中文。
 import { approxMoney, type PlanStage, t } from "@ergo/protocol";
 import type { BranchStopReason } from "./execution.ts";
 import type { StageAllowance, StageSpend } from "./thresholds.ts";
@@ -17,7 +17,7 @@ const editBlock = (title: string, a: readonly string[], b: readonly string[]): s
     ? []
     : [t("tasks.stop.before", { title }), ...a.map((x, i) => `${i + 1}. ${x}`), t("tasks.stop.after", { title }), ...b.map((x, i) => `${i + 1}. ${x}`)];
 
-/** 重做时改的前后对照（125 号票：时间线那一笔的说明、交给维护者的通知）：改了的那一栏写改前、改后 */
+/** 重做时改的前后对照（125 号票：时间线那一笔的说明、交给负责人的通知）：改了的那一栏写改前、改后 */
 export function stageEditLines(before: PlanStage, after: PlanStage): string[] {
   return [
     ...editBlock(
@@ -35,7 +35,7 @@ export const spendText = (used: StageSpend, budget: StageAllowance) =>
     ? t("tasks.stop.spendCost", { tokens: used.tokens, calls: used.toolCalls, budgetTokens: budget.tokens, budgetCalls: budget.toolCalls, cost: approxMoney(budget.cost) })
     : t("tasks.stop.spend", { tokens: used.tokens, calls: used.toolCalls, budgetTokens: budget.tokens, budgetCalls: budget.toolCalls });
 
-/** 这一支为什么停下（给维护者的通知、待我处理事项、任务和阶段上的说明共用一句） */
+/** 这一支为什么停下（给负责人的通知、待我处理事项、任务和阶段上的说明共用一句） */
 export function stopReasonText(reason: BranchStopReason): string {
   switch (reason.kind) {
     case "pull_backs":

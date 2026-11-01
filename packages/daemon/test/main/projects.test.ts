@@ -1,11 +1,11 @@
-// 主切面：项目立项与项目档案（规格第 11 节，15 号票）。真的守护进程，秘书和维护者都接 faux 剧本，测试扮演前端。
-// - 立项的三个入口：秘书的"建议立项"卡（点"立项"项目诞生、维护者随之产生）、点"新建项目"（秘书不判断，直接收口出卡）、
-//   任务转为项目（不新建维护者，原任务的维护者在同一会话里接着做立项问答）；
-// - 立项问答：用户说话唤起休眠的维护者，它把规格、术语表、ADR 写进项目档案（写到外面被拒），交出立项书卡；
+// 主切面：项目立项与项目档案（规格第 11 节，15 号票）。真的守护进程，秘书和负责人都接 faux 剧本，测试扮演前端。
+// - 立项的三个入口：秘书的"建议立项"卡（点"立项"项目诞生、负责人随之产生）、点"新建项目"（秘书不判断，直接收口出卡）、
+//   任务转为项目（不新建负责人，原任务的负责人在同一会话里接着做立项问答）；
+// - 立项问答：用户说话唤起休眠的负责人，它把规格、术语表、ADR 写进项目档案（写到外面被拒），交出立项书卡；
 // - 立项书卡："确认并开工"（建设中 + 首个建设任务）、"只确认，稍后开工"（筹备中，立项书已确认），类型和外部工作目录立即生效；
 // - 项目状态机：建设任务做完出"首版做完了"卡（112 号票：转入使用、继续建设、放弃并归档，不选停在建设中），停用 ⇄ 重新启用，
 //   放弃、归档、取消归档，删除要二次确认，非法迁移被拒；
-// - 已归档的维护者会话只读；删除项目删掉项目档案和维护者会话，用户说过的话作为素材保留；
+// - 已归档的负责人会话只读；删除项目删掉项目档案和负责人会话，用户说过的话作为素材保留；
 // - 项目档案里的文件被整体重写前运行时自动留旧版本。
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -81,7 +81,7 @@ async function eventually<T>(list: () => readonly T[], match: (x: T) => boolean,
 const cardWhere = (frontend: TestFrontend, match: (card: Card) => boolean, what = "卡片") => eventually(() => cardsOf(frontend), match, what);
 const projectWhere = (frontend: TestFrontend, match: (e: ProjectEventPayload) => boolean, what = "项目列表上的变化") => eventually(() => projectEventsOf(frontend), match, what);
 const ofType = (type: string) => (card: Card) => card.type === type;
-/** 等维护者处理完 n 条输入 */
+/** 等负责人处理完 n 条输入 */
 const turns = (frontend: TestFrontend, channel: string, n: number) =>
   waitUntil(() => frontend.events({ channel, type: EVENT_TYPES.turnEnd }).length >= n, { timeoutMs: 20_000, describe: () => `等 ${channel} 处理完 ${n} 条输入` });
 
@@ -99,7 +99,7 @@ async function kickoff(test: TestDaemon, frontend: TestFrontend, name = "记账�
 }
 
 describe("立项的入口", () => {
-  it("秘书的“建议立项”工具只产生一张卡；用户点“立项”后项目以筹备中出现在项目列表，维护者随之产生（休眠），项目档案建好最小文档集；关掉的建议卡是回避信号", async () => {
+  it("秘书的“建议立项”工具只产生一张卡；用户点“立项”后项目以筹备中出现在项目列表，负责人随之产生（休眠），项目档案建好最小文档集；关掉的建议卡是回避信号", async () => {
     const test = await startTestDaemon({
       secretary: [suggest("记账本", "把家里的账管起来"), say("给你一张建议立项卡"), say("项目建好了"), suggest("家电档案", "记下家电的保修"), say("再给你一张")],
     });
@@ -125,7 +125,7 @@ describe("立项的入口", () => {
     });
     expect(await cardWhere(frontend, (c) => c.id === card.id && c.status === "handled")).toMatchObject({ outcome: { action: "kickoff" }, payload: { projectId: "p-1" } });
 
-    // 维护者随之产生：它的会话里有一条说明（带所属的项目），不交给它处理，它还在休眠
+    // 负责人随之产生：它的会话里有一条说明（带所属的项目），不交给它处理，它还在休眠
     const note = (await frontend.next(PM1, EVENT_TYPES.message)).payload as MessageEventPayload;
     expect(note).toMatchObject({ projectId: "p-1", message: { speaker: "system", conversation: PM1 } });
     expect(note.agentInput).toBeUndefined();
@@ -167,7 +167,7 @@ describe("立项的入口", () => {
     const notices = messagesOf(frontend, SECRETARY).filter((m) => m.agentInput);
     expect(notices).toHaveLength(1);
     expect(notices[0]!.message.id).toBe(first.messageId);
-    expect(textOf(notices[0]!)).toBe("用户点「新建项目」要立项：做一个家电档案\n不用判断这是不是项目：直接用 suggest_project 出一张建议立项卡（名字、一句话目标；用户写的路径、限制原样抄进 userWords），用户点“立项”后项目就诞生，维护者接着和用户做立项问答。");
+    expect(textOf(notices[0]!)).toBe("用户点「新建项目」要立项：做一个家电档案\n不用判断这是不是项目：直接用 suggest_project 出一张建议立项卡（名字、一句话目标；用户写的路径、限制原样抄进 userWords），用户点“立项”后项目就诞生，负责人接着和用户做立项问答。");
   }, 60_000);
 });
 
@@ -202,8 +202,8 @@ function shortNameOf(p: string): string {
 }
 
 /**
- * 立项问答一路到立项书卡：立项（p-1，维护者 pm-1）→ 用户在维护者会话里说话唤起它 → 它往项目档案里写 ADR、补规格、
- * 想往外面写（被拒）→ 交出立项书。later 是维护者之后几次被唤起的剧本
+ * 立项问答一路到立项书卡：立项（p-1，负责人 pm-1）→ 用户在负责人会话里说话唤起它 → 它往项目档案里写 ADR、补规格、
+ * 想往外面写（被拒）→ 交出立项书。later 是负责人之后几次被唤起的剧本
  */
 async function untilCharter(charter: (d: Dirs) => Record<string, unknown>, later: (spawn: number, d: Dirs) => FauxStep[] = () => [], d = dirs()) {
   const test = await startTestDaemon({
@@ -214,7 +214,7 @@ async function untilCharter(charter: (d: Dirs) => Record<string, unknown>, later
         ? [
             calls(
               ["write", { path: path.join(d.records, "adr", "0001-csv-first.md"), content: "# 先只导 CSV\n\n银行的接口不稳定，首版只导 CSV。\n" }],
-              ["edit", { path: path.join(d.records, "spec.md"), edits: [{ oldText: "这个项目要做成什么样：立项问答时由维护者写。", newText: "导入银行流水，按月出报表。" }] }],
+              ["edit", { path: path.join(d.records, "spec.md"), edits: [{ oldText: "这个项目要做成什么样：立项问答时由负责人写。", newText: "导入银行流水，按月出报表。" }] }],
               ["write", { path: path.join(d.outside, "notes.md"), content: "写到外面去" }],
             ),
             call("submit_charter", charter(d)),
@@ -231,7 +231,7 @@ async function untilCharter(charter: (d: Dirs) => Record<string, unknown>, later
 }
 
 describe("立项问答", () => {
-  it("用户在维护者会话里说话唤起休眠的维护者：它把 ADR、规格写进项目档案，写到外面被拒；交出的立项书生成立项书卡放进待我处理，开发类提议的工具包默认带 bash", async () => {
+  it("用户在负责人会话里说话唤起休眠的负责人：它把 ADR、规格写进项目档案，写到外面被拒；交出的立项书生成立项书卡放进待我处理，开发类提议的工具包默认带 bash", async () => {
     const { frontend, card, daemon, records, outside, external } = await untilCharter((d) => devCharter(d.external));
     // 写进项目档案：新的 ADR、补了规格
     expect(fs.readFileSync(path.join(records, "adr", "0001-csv-first.md"), "utf8")).toContain("首版只导 CSV");
@@ -249,18 +249,18 @@ describe("立项问答", () => {
     expect(card.text).toBe(`立项书：记账本（第 1 版，开发类，工作目录绑定 ${external}，工具包带 bash）`);
     const item = await eventually(() => inboxOf(frontend), (i) => i.kind === "card" && i.cardId === card.id, "待我处理里的立项书卡");
     expect(item).toMatchObject({ title: "立项书等你确认：记账本", source: "项目「记账本」", urgency: "non_blocking" });
-    // 立项书卡也出现在维护者的会话里；项目记下最新的立项书卡，还在筹备中，类型还没生效
+    // 立项书卡也出现在负责人的会话里；项目记下最新的立项书卡，还在筹备中，类型还没生效
     expect(messagesOf(frontend, PM1).some((m) => m.message.parts.some((p) => p.type === "card_ref" && p.cardId === card.id))).toBe(true);
     expect(await projectWhere(frontend, (e) => e.change === "charter_submitted")).toMatchObject({ by: "maintainer", project: { state: "preparing", charterCardId: card.id, charterConfirmed: false } });
     expect(daemon.projects.get("p-1")?.kind).toBeUndefined();
 
-    // 维护者会话里的消息都带着所属的项目；用户在里面说的话记成"用户发言"素材
+    // 负责人会话里的消息都带着所属的项目；用户在里面说的话记成"用户发言"素材
     expect(messagesOf(frontend, PM1).every((m) => m.projectId === "p-1" && m.taskId === undefined)).toBe(true);
     await waitUntil(() => daemon.materials.list({ kind: "user_utterance" }).length > 0);
     expect(daemon.materials.list({ kind: "user_utterance" })).toEqual([expect.objectContaining({ conversation: PM1, project: "p-1", segments: [expect.objectContaining({ text: "开始立项问答吧" })] })]);
   }, 60_000);
 
-  it("立项书不合格（其他类的项目要绑定外部路径、外部路径不是绝对路径）：原因交回维护者，不出卡；维护者的系统提示写着它是哪个项目的维护者", async () => {
+  it("立项书不合格（其他类的项目要绑定外部路径、外部路径不是绝对路径）：原因交回负责人，不出卡；负责人的系统提示写着它是哪个项目的负责人", async () => {
     const d = dirs();
     const test = await startTestDaemon({
       reuse: { dataDir: d.dataDir, homeDir: d.homeDir },
@@ -274,7 +274,7 @@ describe("立项问答", () => {
     const seen = textOf(messagesOf(frontend, PM1).at(-1)!);
     expect(seen).toContain("[toolResult] submit_charter: 只有开发类项目能把工作目录绑定到外部路径");
     expect(seen).toContain("[toolResult] submit_charter: 外部工作目录要写绝对路径（比如 D:\\code\\ledger），不是「ledger」");
-    expect(seen).toContain("[system] 你是「二狗」里项目「记账本」（p-1）的维护者");
+    expect(seen).toContain("[system] 你是「二狗」里项目「记账本」（p-1）的负责人");
     expect(cardsOf(frontend).filter(ofType("charter"))).toEqual([]);
   }, 60_000);
 
@@ -372,7 +372,7 @@ function builtStages(test: TestDaemon, taskId: string): NonNullable<Task["stages
 }
 
 describe("立项书卡", () => {
-  it("确认并开工：项目转建设中，建出属于本项目的首个建设任务（规划中，看板上），提议的工具包成为项目的工具包，类型和外部工作目录立即生效；维护者按新的装配重新拉起，围栏覆盖外部路径；备份不包含外部路径", async () => {
+  it("确认并开工：项目转建设中，建出属于本项目的首个建设任务（规划中，看板上），提议的工具包成为项目的工具包，类型和外部工作目录立即生效；负责人按新的装配重新拉起，围栏覆盖外部路径；备份不包含外部路径", async () => {
     const t = await untilCharter(
       (d) => devCharter(d.external),
       (spawn, d) =>
@@ -417,8 +417,8 @@ describe("立项书卡", () => {
       }),
     ]);
 
-    // 首个建设任务派成起草计划的工单（16 号票）：立项问答的对话段先收尾——运行时催维护者写回项目档案、写这一段的摘要；
-    // 维护者按新的装配重新拉起：文件工具的围栏覆盖外部路径，工具包带 bash，系统提示里是新的工作目录
+    // 首个建设任务派成起草计划的工单（16 号票）：立项问答的对话段先收尾——运行时催负责人写回项目档案、写这一段的摘要；
+    // 负责人按新的装配重新拉起：文件工具的围栏覆盖外部路径，工具包带 bash，系统提示里是新的工作目录
     await turns(frontend, PM1, 2);
     expect(fs.readFileSync(path.join(external, "README.md"), "utf8")).toBe("# 记账本\n");
     const seen = textOf(messagesOf(frontend, PM1).findLast((m) => m.message.speaker === "agent" && textOf(m).includes("[tool] "))!);
@@ -450,13 +450,13 @@ describe("立项书卡", () => {
     expect(tasksOf(frontend)).toEqual([]);
     await waitUntil(() => fs.readFileSync(path.join(records, "charter.md"), "utf8").includes("只确认，稍后开工"));
     expect(fs.readFileSync(path.join(records, "charter.md"), "utf8")).toContain("项目档案里的 workdir/");
-    // 维护者会话里有一条说明（不交给维护者处理）
+    // 负责人会话里有一条说明（不交给负责人处理）
     expect(lastText(frontend, PM1)).toBe("立项书已确认（只确认，稍后开工）：其他项目，工作目录是项目档案里的 workdir，工具包不带 bash。");
   }, 60_000);
 
-  // 311 号票（294 号票端到端小测第 3 条）：项目在新建时就定了外部工作文件夹（305 号票选的、290 号票接管来的），立项问答时维护者不知道，
+  // 311 号票（294 号票端到端小测第 3 条）：项目在新建时就定了外部工作文件夹（305 号票选的、290 号票接管来的），立项问答时负责人不知道，
   // 还问"绑不绑外部仓库"、交 bindExternal: false，立项书卡写"项目档案里（默认）"，档案里写成没绑定、还多建一个空的 workdir/
-  it("新建时就定了工作文件夹的项目：维护者立项问答时知道文件夹已经定了；交的立项书照它写成已绑定（其他类也一样，交的路径不算），档案里写成已绑定，不多建空的 workdir/", async () => {
+  it("新建时就定了工作文件夹的项目：负责人立项问答时知道文件夹已经定了；交的立项书照它写成已绑定（其他类也一样，交的路径不算），档案里写成已绑定，不多建空的 workdir/", async () => {
     const d = dirs();
     fs.mkdirSync(d.external, { recursive: true });
     const test = await startTestDaemon({
@@ -472,7 +472,7 @@ describe("立项书卡", () => {
     expect(seen).toContain(`工作目录是 ${d.external}（绑定的外部路径）`);
     expect(seen).toContain("工作目录在立项之前就定了");
     expect(seen).not.toContain("要不要把工作目录绑定到一个外部路径");
-    // 交的两版都照已定的写成已绑定：其他类的也是（文件夹是新建时定的，不是维护者提议绑定）；交的另一条路径不算。工具结果里写明
+    // 交的两版都照已定的写成已绑定：其他类的也是（文件夹是新建时定的，不是负责人提议绑定）；交的另一条路径不算。工具结果里写明
     const charters = cardsOf(frontend).filter((c) => c.type === "charter" && c.status === "pending");
     expect(charters.map((c) => (c.payload as CharterCardPayload).charter)).toEqual([
       { ...otherCharter, bindExternal: true, externalPath: d.external },
@@ -492,7 +492,7 @@ describe("立项书卡", () => {
     expect(lastText(frontend, PM1)).toBe(`立项书已确认（只确认，稍后开工）：开发类项目，工作目录是外部路径 ${d.external}，工具包带 bash。`);
   }, 60_000);
 
-  it("维护者重新交立项书：上一张没确认的立项书卡过期，确认的总是最新的一版", async () => {
+  it("负责人重新交立项书：上一张没确认的立项书卡过期，确认的总是最新的一版", async () => {
     const d = dirs();
     const test = await startTestDaemon({
       reuse: { dataDir: d.dataDir, homeDir: d.homeDir },
@@ -515,7 +515,7 @@ describe("立项书卡", () => {
 });
 
 describe("项目状态", () => {
-  it("首个建设任务做完时出“首版做完了”卡（进待办，来源是项目；写明做成了什么），项目停在建设中，点“转入使用”才进入使用中；别的任务（包括之后的）完成不改项目状态；使用中 ⇄ 已停用，已停用的维护者照常对话；非法迁移被拒", async () => {
+  it("首个建设任务做完时出“首版做完了”卡（进待办，来源是项目；写明做成了什么），项目停在建设中，点“转入使用”才进入使用中；别的任务（包括之后的）完成不改项目状态；使用中 ⇄ 已停用，已停用的负责人照常对话；非法迁移被拒", async () => {
     const d = dirs();
     const test = await startTestDaemon({
       reuse: { dataDir: d.dataDir, homeDir: d.homeDir },
@@ -536,7 +536,7 @@ describe("项目状态", () => {
     const { cardId } = test.daemon.projects.submitCharter(project.id, project.maintainerId, { charter: otherCharter as never });
     ok(await frontend.cardAction({ cardId, action: "confirm_start", expectedVersion: 1 }));
     await projectWhere(frontend, (e) => e.change === "building_started");
-    // 维护者接了起草首个建设任务计划的工单（16 号票），写回了进展和摘要
+    // 负责人接了起草首个建设任务计划的工单（16 号票），写回了进展和摘要
     await turns(frontend, PM1, 1);
     // 另一个涉及这个项目的任务（64 号票起是这个项目的内部任务）完成了：项目状态不变
     internalTask(test.daemon, "记账本", "给记账本加个导出");
@@ -574,11 +574,11 @@ describe("项目状态", () => {
     expect(done.text).toBe(
       `项目「记账本」首版做完了（建设任务 t-1「建设「记账本」首版」）：月度报表在 report.md；第 1 阶段「收集资料」验收通过：脚本检查 1 条、评审判定 1 条；第 2 阶段「写报告」验收通过：评审判定 1 条；检查清单 1 项都做到了；交付件在 ${path.join(records, "workdir")}。等你选：转入使用、继续建设、放弃并归档`,
     );
-    // 进待办（来源是项目，"去项目 ›"能跳；不卡任务，秘书看得到）；维护者的会话里也有这张卡
+    // 进待办（来源是项目，"去项目 ›"能跳；不卡任务，秘书看得到）；负责人的会话里也有这张卡
     const item = await eventually(() => inboxOf(frontend), (i) => i.kind === "card" && i.cardId === done.id, "待办里的“首版做完了”卡");
     expect(item).toMatchObject({ title: "项目「记账本」首版做完了", source: "项目「记账本」", origin: { projectId: "p-1" }, urgency: "non_blocking" });
     expect(item.internal).toBeUndefined();
-    await eventually(() => messagesOf(frontend, PM1), (m) => m.message.parts.some((p) => p.type === "card_ref" && p.cardId === done.id), "维护者会话里的卡");
+    await eventually(() => messagesOf(frontend, PM1), (m) => m.message.parts.some((p) => p.type === "card_ref" && p.cardId === done.id), "负责人会话里的卡");
     // 不选就停在建设中
     expect(test.daemon.projects.get("p-1")?.state).toBe("building");
     expect(projectEventsOf(frontend).filter((e) => e.change === "in_use")).toEqual([]);
@@ -606,7 +606,7 @@ describe("项目状态", () => {
     expect(ok(await act(frontend, "p-1", "retire", "k-retire"))).toEqual({ projectId: "p-1", state: "retired" });
     expect(await projectWhere(frontend, (e) => e.change === "retired")).toMatchObject({ from: "in_use", by: "user", project: { state: "retired" } });
     expect(projectEventsOf(frontend).filter((e) => e.change === "retired")).toHaveLength(1);
-    // 已停用的项目，维护者照常对话（首个建设任务那张工单的一段之后，开一个对话段）
+    // 已停用的项目，负责人照常对话（首个建设任务那张工单的一段之后，开一个对话段）
     await frontend.sendText("停用了还在吗", { conversation: PM1 });
     await turns(frontend, PM1, 2);
     expect(lastText(frontend, PM1)).toBe("在的，项目停用了也照常聊");
@@ -641,7 +641,7 @@ describe("项目状态", () => {
     expect(await projectWhere(frontend, (e) => e.change === "in_use")).toMatchObject({ by: "user", project: { buildTaskId: "t-2" } });
   }, 60_000);
 
-  it("“首版做完了”卡上继续建设：要写一句这一轮要做什么；项目留在建设中，建出下一轮建设任务（项目内部的长程任务）、派起草计划的工单给维护者；它做完再出一张（第 2 轮），放弃并归档", async () => {
+  it("“首版做完了”卡上继续建设：要写一句这一轮要做什么；项目留在建设中，建出下一轮建设任务（项目内部的长程任务）、派起草计划的工单给负责人；它做完再出一张（第 2 轮），放弃并归档", async () => {
     const test = await startTestDaemon({ secretary: [say("好的"), say("好的")], maintainer: draftingMaintainer });
     const frontend = await connect(test.url);
     const project = await kickoff(test, frontend);
@@ -654,14 +654,14 @@ describe("项目状态", () => {
     // 继续建设要写一句话
     expect(await frontend.cardAction({ cardId: first.id, action: "keep_building", expectedVersion: 1 })).toMatchObject({
       ok: false,
-      error: { code: "bad_params", message: "继续建设要写一句这一轮要做什么：维护者照它起草下一轮建设任务的计划" },
+      error: { code: "bad_params", message: "继续建设要写一句这一轮要做什么：负责人照它起草下一轮建设任务的计划" },
     });
     ok(await frontend.cardAction({ cardId: first.id, action: "keep_building", note: "再加上按月导出 Excel", expectedVersion: 1 }));
     const continued = await projectWhere(frontend, (e) => e.change === "build_continued");
     expect(continued).toMatchObject({ from: "building", by: "user", project: { state: "building", buildTaskId: "t-2" } });
     const next = await eventually(() => tasksOf(frontend), (e) => e.task.id === "t-2" && e.change === "created", "下一轮建设任务");
     expect(next.task).toMatchObject({ title: "建设「记账本」第 2 轮", summary: "再加上按月导出 Excel", kind: "long_running", origin: "project_build", state: "planning", maintainerId: "pm-1", internal: { projectId: "p-1" } });
-    // 起草计划的工单派给项目的维护者：任务书里写着用户这句话
+    // 起草计划的工单派给项目的负责人：任务书里写着用户这句话
     const order = await eventually(() => workOrdersOf(frontend), (e) => e.change === "created" && workOrderTaskId(e.workOrder) === "t-2", "起草计划的工单");
     expect(order.workOrder).toMatchObject({ kind: "plan" });
     expect(order.workOrder.instructions).toContain("再加上按月导出 Excel");
@@ -722,7 +722,7 @@ describe("项目状态", () => {
     expect(test.daemon.inbox.list().filter((i) => i.kind === "card" && (i.cardId === done.id || i.cardId === again.id))).toEqual([]);
   }, 60_000);
 
-  it("放弃 → 已归档（维护者会话只读，发话被拒并说明原因）→ 取消归档回到原来的状态 → 开工 → 首个建设任务的工单在做时不能放弃（16 号票）→ 取消首个建设任务后放弃 → 删除要在待我处理里二次确认：删掉项目档案和维护者会话、立项书正文、维护者的审批和效果日志里的原话，用户在里面说过的话在素材库里仍在", async () => {
+  it("放弃 → 已归档（负责人会话只读，发话被拒并说明原因）→ 取消归档回到原来的状态 → 开工 → 首个建设任务的工单在做时不能放弃（16 号票）→ 取消首个建设任务后放弃 → 删除要在待我处理里二次确认：删掉项目档案和负责人会话、立项书正文、负责人的审批和效果日志里的原话，用户在里面说过的话在素材库里仍在", async () => {
     const GLOSSARY = "# 术语表\n\n流水：银行导出的交易记录\n";
     const { frontend, card, daemon, records, dataDir, url } = await untilCharter(
       () => otherCharter,
@@ -740,7 +740,7 @@ describe("项目状态", () => {
     );
     ok(await frontend.cardAction({ cardId: card.id, action: "confirm_later", expectedVersion: 1 }));
     await projectWhere(frontend, (e) => e.change === "charter_confirmed");
-    // 维护者整体重写术语表：先问用户，批准后执行（留下审批卡、审批记录和效果日志）
+    // 负责人整体重写术语表：先问用户，批准后执行（留下审批卡、审批记录和效果日志）
     await frontend.sendText("把术语表重写一下", { conversation: PM1 });
     const approval = await cardWhere(frontend, ofType("approval"), "审批卡");
     ok(await frontend.cardAction({ cardId: approval.id, action: "approve", expectedVersion: 1 }));
@@ -748,10 +748,10 @@ describe("项目状态", () => {
 
     expect(ok(await act(frontend, "p-1", "abandon"))).toEqual({ projectId: "p-1", state: "archived" });
     expect(await projectWhere(frontend, (e) => e.change === "abandoned")).toMatchObject({ from: "preparing", project: { state: "archived", archivedFrom: "preparing" } });
-    // 已归档：维护者会话只读
+    // 已归档：负责人会话只读
     expect(await frontend.request(METHODS.sendMessage, { conversation: PM1, parts: [{ type: "text", text: "还在吗" }] }, "k-ro")).toMatchObject({
       ok: false,
-      error: { code: "not_allowed", message: "项目「记账本」已归档：维护者会话只读。要接着和维护者说话，先在项目页上取消归档" },
+      error: { code: "not_allowed", message: "项目「记账本」已归档：负责人会话只读。要接着和负责人说话，先在项目页上取消归档" },
     });
     // 已归档的项目不能选进新任务
     expect(await frontend.startTask("给记账本加功能", "k-t", ["记账本"])).toMatchObject({ ok: false, error: { code: "not_allowed" } });
@@ -785,16 +785,16 @@ describe("项目状态", () => {
     expect(await projectWhere(frontend, (e) => e.change === "deleted")).toMatchObject({ from: "archived", by: "user", project: { id: "p-1" } });
     await waitUntil(() => !fs.existsSync(records), { describe: () => "等项目档案删掉" });
     expect(fs.existsSync(path.join(dataDir, "sessions", "pm-1"))).toBe(false);
-    // 维护者会话频道上的事件和彻底删除一样改写成"已删除"标记：序号还在，原话一个字不留
+    // 负责人会话频道上的事件和彻底删除一样改写成"已删除"标记：序号还在，原话一个字不留
     const left = daemon.store.read(PM1);
     expect(left.length).toBeGreaterThan(0);
     expect(left.every((e) => isDeletedEventPayload(e.payload))).toBe(true);
     expect(JSON.stringify(left)).not.toContain("开始立项问答吧");
     expect(daemon.projects.list()).toEqual([]);
-    // 立项书正文（立项书的事件和立项书卡）、维护者的审批和效果日志里的原话、待我处理里属于项目的事项：换成删除标记，状态不变
+    // 立项书正文（立项书的事件和立项书卡）、负责人的审批和效果日志里的原话、待我处理里属于项目的事项：换成删除标记，状态不变
     const log = JSON.stringify(daemon.store.readGlobal(0, 1_000_000));
     for (const text of [otherCharter.goal, ...otherCharter.scope, otherCharter.firstVersion, "首版只导 CSV", "流水：银行导出的交易记录"]) expect({ text, found: log.includes(text) }).toEqual({ text, found: false });
-    // 项目的工单（16 号票）：内容（交给维护者的任务书）换成删除标记，状态留着
+    // 项目的工单（16 号票）：内容（交给负责人的任务书）换成删除标记，状态留着
     const orders = daemon.store.read(PROJECTS, 0, EVENT_TYPES.workOrder).map((e) => (e.payload as WorkOrderEventPayload).workOrder);
     expect(orders.length).toBeGreaterThan(0);
     expect(orders.every((w) => w.projectId === "p-1" && w.instructions === PURGED_TEXT)).toBe(true);
@@ -802,11 +802,11 @@ describe("项目状态", () => {
     expect(daemon.cards.get(card.id)).toMatchObject({ status: "handled", outcome: { action: "confirm_later" }, payload: { charter: { goal: PURGED_TEXT, kind: "other", bindExternal: false } } });
     expect(daemon.cards.get(approval.id)).toMatchObject({ status: "handled", outcome: { action: "approve" }, payload: { argsSummary: PURGED_TEXT } });
     expect(daemon.inbox.get(asked.confirmItemId)).toMatchObject({ title: PURGED_TEXT, handled: "确认删除" });
-    // 用户在维护者会话里说过的话还在素材库里，原文副本也在
+    // 用户在负责人会话里说过的话还在素材库里，原文副本也在
     const [said] = daemon.materials.searchKeyword("开始立项问答吧");
     expect(said).toMatchObject({ kind: "user_utterance", conversation: PM1, project: "p-1" });
     expect(fs.existsSync(path.join(dataDir, "materials", said!.original!.path))).toBe(true);
-    // 删掉的项目：维护者会话发不了；再订阅这个会话只拿到"已删除"标记
+    // 删掉的项目：负责人会话发不了；再订阅这个会话只拿到"已删除"标记
     expect(await frontend.request(METHODS.sendMessage, { conversation: PM1, parts: [{ type: "text", text: "在吗" }] }, "k-gone")).toMatchObject({ ok: false, error: { code: "not_found" } });
     const fresh = await connect(url, [PM1]);
     await new Promise((r) => setTimeout(r, 200));
@@ -816,7 +816,7 @@ describe("项目状态", () => {
 });
 
 describe("删除被中止", () => {
-  it("确认删除之后、停维护者的时候用户取消了归档：整个中止，什么都不删，维护者恢复成能唤起", async () => {
+  it("确认删除之后、停负责人的时候用户取消了归档：整个中止，什么都不删，负责人恢复成能唤起", async () => {
     const { frontend, daemon, records, dataDir } = await untilCharter(
       () => otherCharter,
       (spawn) => (spawn === 2 ? [say("我还在")] : []),
@@ -824,11 +824,11 @@ describe("删除被中止", () => {
     ok(await act(frontend, "p-1", "abandon"));
     await projectWhere(frontend, (e) => e.change === "abandoned");
     const { confirmItemId } = ok(await act(frontend, "p-1", "delete")) as { confirmItemId: string };
-    // 同一段同步代码里：确认删除（删除开始，先停维护者），紧接着取消归档（停维护者要等，删除还没往下走）
+    // 同一段同步代码里：确认删除（删除开始，先停负责人），紧接着取消归档（停负责人要等，删除还没往下走）
     daemon.inbox.act({ itemIds: [confirmItemId], action: "handle", choice: "确认删除", idempotencyKey: "k-confirm" });
     daemon.projects.act({ projectId: "p-1", action: "unarchive" }, "k-unarchive");
     await projectWhere(frontend, (e) => e.change === "unarchived");
-    // 维护者恢复成能唤起：在它的会话里说话，它回答
+    // 负责人恢复成能唤起：在它的会话里说话，它回答
     await frontend.sendText("还在吗", { conversation: PM1 });
     await turns(frontend, PM1, 2);
     expect(lastText(frontend, PM1)).toBe("我还在");
@@ -843,15 +843,15 @@ describe("删除被中止", () => {
 });
 
 describe("任务转为项目", () => {
-  it("用户定项目名（重名时提示换名）；不新建维护者：原任务的维护者在同一会话里接着做立项问答；原任务以“已完成 · 已转为项目”结束（看板的最近结束分组）", async () => {
+  it("用户定项目名（重名时提示换名）；不新建负责人：原任务的负责人在同一会话里接着做立项问答；原任务以“已完成 · 已转为项目”结束（看板的最近结束分组）", async () => {
     const TM1 = maintainerChannel("tm-1");
-    // 任务的维护者先收到任务书；转为项目后由项目模块接过它（重新拉起，接着同一个会话）
+    // 任务的负责人先收到任务书；转为项目后由项目模块接过它（重新拉起，接着同一个会话）
     let wakes = 0;
     const test = await startTestDaemon({
       secretary: [
         call("create_task", { title: "记账调研", summary: "帮我调研家里记账怎么做" }),
         call("write_task_brief", { taskId: "t-1", goal: "调研家里记账的做法", acceptanceCriteria: ["覆盖三种记账方式"], constraints: [], projects: [], memoryScope: "" }),
-        say("任务书交给维护者了"),
+        say("任务书交给负责人了"),
       ],
       maintainer: () => (++wakes === 1 ? [say("收到任务书")] : [{ kind: "echo_context" }]),
     });
@@ -877,15 +877,15 @@ describe("任务转为项目", () => {
     expect(ok(await frontend.request(METHODS.convertTaskToProject, { taskId: "t-1", name: "家庭记账" }, "k-conv"))).toEqual({ projectId: "p-2" });
     expect(await frontend.request(METHODS.convertTaskToProject, { taskId: "t-1", name: "另一个名字" }, "k-again")).toMatchObject({ ok: false, error: { code: "not_allowed" } });
 
-    // 原任务的维护者收到通知，在同一个会话里接着做立项问答：上下文里还有原来的任务书，系统提示换成了项目的维护者
+    // 原任务的负责人收到通知，在同一个会话里接着做立项问答：上下文里还有原来的任务书，系统提示换成了项目的负责人
     await turns(frontend, TM1, 2);
     const notice = messagesOf(frontend, TM1).find((m) => m.agentInput && m.projectId === "p-2")!;
     expect(textOf(notice)).toContain("任务 t-1「记账调研」已由用户转为项目 p-2「家庭记账」（筹备中）");
     const seen = lastText(frontend, TM1);
-    expect(seen).toContain("[system] 你是「二狗」里项目「家庭记账」（p-2）的维护者");
+    expect(seen).toContain("[system] 你是「二狗」里项目「家庭记账」（p-2）的负责人");
     expect(seen).toContain("覆盖三种记账方式");
     expect(seen).toContain("已由用户转为项目 p-2");
-    // 不新建维护者：会话区只有这一个维护者的会话
+    // 不新建负责人：会话区只有这一个负责人的会话
     expect(fs.readdirSync(path.join(test.dataDir, "sessions")).toSorted()).toEqual(["secretary", "tm-1"]);
     // 用户在这个会话里说的话属于项目
     await frontend.sendText("首版先做导入", { conversation: TM1 });
@@ -912,7 +912,7 @@ describe("发起任务时选的项目", () => {
 });
 
 describe("项目档案的旧版本", () => {
-  it("维护者整体重写项目档案里的文件：在对话里先问用户（删除或覆盖），批准后执行前运行时先把旧版本留进历史区；工作目录里的不留（没提交、没备份的按 v1 模板退回）；历史区写不进（永不）", async () => {
+  it("负责人整体重写项目档案里的文件：在对话里先问用户（删除或覆盖），批准后执行前运行时先把旧版本留进历史区；工作目录里的不留（没提交、没备份的按 v1 模板退回）；历史区写不进（永不）", async () => {
     const d = dirs();
     const glossary = path.join(d.records, "glossary.md");
     const workNotes = path.join(d.records, "workdir", "notes.md");
@@ -992,7 +992,7 @@ describe("演示流程（录给前端回放）", () => {
     ok(await frontend.cardAction({ cardId: charter.id, action: "confirm_start", expectedVersion: 1 }));
     await projectWhere(frontend, (e) => e.change === "building_started");
     await eventually(() => tasksOf(frontend), (e) => e.change === "created", "首个建设任务");
-    await eventually(() => messagesOf(frontend, PM1), (m) => textOf(m).startsWith("立项书已确认"), "维护者会话里的说明");
+    await eventually(() => messagesOf(frontend, PM1), (m) => textOf(m).startsWith("立项书已确认"), "负责人会话里的说明");
     // 立项问答的对话段收尾（催写回），然后起草首个建设任务计划的工单开始（16 号票）
     await turns(frontend, PM1, 3);
     // 首个建设任务做完 → "首版做完了"卡（112 号票）上转入使用 → 使用中 → 停用 → 重新启用
@@ -1013,7 +1013,7 @@ describe("演示流程（录给前端回放）", () => {
     ok(await frontend.cardAction({ cardId: second.id, action: "kickoff", expectedVersion: 1 }));
     await projectWhere(frontend, (e) => e.change === "created" && e.project.id === "p-2");
     await frontend.next(SECRETARY, EVENT_TYPES.turnEnd);
-    await eventually(() => messagesOf(frontend, PM2), () => true, "第二个维护者会话里的说明");
+    await eventually(() => messagesOf(frontend, PM2), () => true, "第二个负责人会话里的说明");
     ok(await act(frontend, "p-2", "abandon"));
     await projectWhere(frontend, (e) => e.change === "abandoned");
     ok(await act(frontend, "p-2", "unarchive"));

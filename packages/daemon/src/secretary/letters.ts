@@ -1,19 +1,19 @@
-// 给秘书发消息（102 号票，规格第 12 节"星形通信"、第 7 节）：除了秘书，所有 agent（任务的维护者、项目的维护者——起草计划、工单里、
-// 项目内部任务里、定时 / 事件触发的运行里——维护者派的子 agent、阶段验收的评审子 agent，用户 2026-10-12 定）默认都有 tell_secretary，
+// 给秘书发消息（102 号票，规格第 12 节"星形通信"、第 7 节）：除了秘书，所有 agent（任务的负责人、项目的负责人——起草计划、工单里、
+// 项目内部任务里、定时 / 事件触发的运行里——负责人派的子 agent、阶段验收的评审子 agent，用户 2026-10-12 定）默认都有 tell_secretary，
 // 给秘书写一条要转告用户的话。不做 agent 之间的互发、群聊：agent 之间只有工单，外加这一条到秘书的单向消息，经运行时转交，
 // 两边都有记录（发的那边是一条工具调用，秘书主线里是它转告的那条回复）。
 // - 收件人写成可扩展的形式（letter-texts.ts 的 LETTER_RECIPIENTS，现在只有秘书）；
-// - 工具包里的一项能力开关（"给秘书发消息"，PlanToolkit.tellSecretary，默认开）：关掉了装配里就没有这个工具（维护者的装配只在
-//   canTellSecretary 时给；子 agent 的工具包不超过派它的维护者，维护者关了它也没有；评审跟着任务的工具包）；
+// - 工具包里的一项能力开关（"给秘书发消息"，PlanToolkit.tellSecretary，默认开）：关掉了装配里就没有这个工具（负责人的装配只在
+//   canTellSecretary 时给；子 agent 的工具包不超过派它的负责人，负责人关了它也没有；评审跟着任务的工具包）；
 // - 发出去 = 守护进程内部的 secretary_letters 频道上记一条 maintainer_letter（谁发的、在做什么、原话；同一次工具调用只记一次），
 //   交给秘书由 task-done.ts 照任务做完的那一套交：秘书闲着才交、忙时排在这一轮后面、没起来的起来后补、处理到一半被打断起来后重交、
 //   幂等（重启不重复），几条差不多同时到的并成一条（和差不多同时到的任务做完通知一起交，各自一条）；
 // - 一句话总结（115 号票）：工具的必填参数 summary（30 字以内），记在信上；交给秘书的通知上存着它（几封并在一起的连起来），
 //   秘书会话里这条通知折成一行时显示它，点开看全文。交给秘书的照旧是全文；
-// - 防刷屏：每个发信人各算（按稳定身份：维护者、子 agent 是 agent id，评审是这个任务这个阶段的评审，重启后重新验收不换人），
+// - 防刷屏：每个发信人各算（按稳定身份：负责人、子 agent 是 agent id，评审是这个任务这个阶段的评审，重启后重新验收不换人），
 //   10 分钟里最多 3 条，超了工具回"发得太频繁，攒一攒一起说"；和它上一条一字不差的不再发；
 // - 不加新的拦截（用户 2026-10-10 定"功能先跑通"）：调用照现有守卫照常判、照常记录。
-// - 带附件（117 号票）：维护者的那一份（装配时给了它的工作目录，工具包里"发附件"也开着）多一个可选的 attachments：工作目录里的
+// - 带附件（117 号票）：负责人的那一份（装配时给了它的工作目录，工具包里"发附件"也开着）多一个可选的 attachments：工作目录里的
 //   几个文件（最多 LETTER_ATTACHMENTS_MAX 个），调用时就复制进媒体库（之后改了、删了工作目录里的文件不影响），记在信上；
 //   交给秘书时照任务做完交付的文件那样（115 号票，task-done.ts）作为一排附件卡片紧跟在那条通知后面，用户在秘书会话里直接点得开，
 //   秘书不用再复制一遍；通知的全文里写附了哪几个、附件引用是什么（秘书要看内容用 read_attachment）。
@@ -82,17 +82,17 @@ export interface LetterOwner {
 /** maintainer_letter 的负载 */
 export interface LetterPayload {
   to: LetterRecipient;
-  /** 谁发的（agent id：维护者 tm-1 / pm-1、子 agent sa-1、评审 review-…） */
+  /** 谁发的（agent id：负责人 tm-1 / pm-1、子 agent sa-1、评审 review-…） */
   agentId: string;
   /**
-   * 发信人的稳定身份（防刷屏、查重按它各算）：维护者、子 agent 就是 agent id；评审是"这个任务这个阶段的评审"
+   * 发信人的稳定身份（防刷屏、查重按它各算）：负责人、子 agent 就是 agent id；评审是"这个任务这个阶段的评审"
    * （review:<任务>:<阶段>）——验收做到一半守护进程重启，重新验收的评审 id 跟着次数变，同一句话不再发一遍
    */
   senderKey: string;
   /** 它那边的工具调用记在哪个会话里（评审的调用不进会话，没有） */
   conversation?: ConversationId;
   toolCallId: string;
-  /** 谁发的（发的那一刻的说法）："长程任务 t-3「整理发票」的维护者"、"项目「家庭相册」的维护者"、"……的子 agent sa-1" */
+  /** 谁发的（发的那一刻的说法）："长程任务 t-3「整理发票」的负责人"、"项目「家庭相册」的负责人"、"……的子 agent sa-1" */
   from: string;
   /** 那时在做什么："在做任务 t-5「…」的工单 wo-2 时"、"第 3 次运行时"、"在做阶段 s2「…」时"；没有就不写 */
   doing?: string;
@@ -163,17 +163,17 @@ export interface LetterSender {
 /** 任务的信算谁的：项目内部的算那个项目（开关在项目上；秘书也看不到项目内部的任务） */
 const ownerOfTask = (task: { id: string; internal?: ProjectInternal | undefined }): LetterOwner => (task.internal ? { kind: "project", id: task.internal.projectId } : { kind: "task", id: task.id });
 
-/** 任务自己的维护者（定时触发的任务写第几次运行：runLabel 由调用方给） */
+/** 任务自己的负责人（定时触发的任务写第几次运行：runLabel 由调用方给） */
 export function taskSender(task: { id: string; title: string; maintainerId: string; internal?: ProjectInternal | undefined }, kind: TaskKind, conversation: ConversationId, runLabel?: string): LetterSender {
   return { agentId: task.maintainerId, conversation, from: taskMaintainerName(task, kind), doing: runLabel === undefined ? undefined : doingRun(runLabel), owner: ownerOfTask(task) };
 }
 
-/** 项目的维护者：doing 是这一段在做什么（letter-texts.ts 里的几种说法） */
+/** 项目的负责人：doing 是这一段在做什么（letter-texts.ts 里的几种说法） */
 export function projectSender(project: { id: string; name: string; maintainerId: string }, conversation: ConversationId, doing: string | undefined): LetterSender {
   return { agentId: project.maintainerId, conversation, from: projectMaintainerName(project.name), doing, owner: { kind: "project", id: project.id } };
 }
 
-/** 定时作业自己的维护者（76 号票之前的定时作业；有所属任务的算任务） */
+/** 定时作业自己的负责人（76 号票之前的定时作业；有所属任务的算任务） */
 export function jobSender(job: { id: string; title: string; maintainerId: string; ownerTaskId?: string | undefined }, conversation: ConversationId, runLabel?: string): LetterSender {
   return {
     agentId: job.maintainerId,
@@ -188,7 +188,7 @@ export function jobSender(job: { id: string; title: string; maintainerId: string
 const taskOf = (task: { id: string; title: string; internal?: ProjectInternal | undefined }, kind: TaskKind) =>
   forModel(() => (task.internal ? `${internalScopeLabel(task.internal.projectName)}一个任务` : `${TASK_KIND_LABEL[kind]} ${task.id}「${task.title}」`)); // @i18n-ignore model：发信人的说法给秘书看
 
-/** 维护者派的子 agent（20 号票）："长程任务 t-3「…」的子 agent sa-1"，在做哪个阶段；项目内部的不写是哪个任务、哪个阶段 */
+/** 负责人派的子 agent（20 号票）："长程任务 t-3「…」的子 agent sa-1"，在做哪个阶段；项目内部的不写是哪个任务、哪个阶段 */
 export function subAgentSender(
   task: { id: string; title: string; internal?: ProjectInternal | undefined },
   kind: TaskKind,
@@ -214,7 +214,7 @@ export interface SecretaryLettersOptions {
 
 export interface SecretaryLetters {
   /**
-   * 这个 agent 的 tell_secretary（装配的地方先看工具包里开着没有：canTellSecretary）。给了 attachFrom（维护者的工作目录，
+   * 这个 agent 的 tell_secretary（装配的地方先看工具包里开着没有：canTellSecretary）。给了 attachFrom（负责人的工作目录，
    * 工具包里"发附件"也开着，117 号票）的多一个 attachments 参数，能带上那里的文件
    */
   tool(sender: LetterSender, attachFrom?: string): HostTool;
@@ -229,7 +229,7 @@ export function createSecretaryLetters(options: SecretaryLettersOptions): Secret
   // 一句话总结写在原话前面（115 号票：模型多半按这个顺序给参数，工具调用的参数摘要截短时总结还在）
   const summaryParam = Type.String({ minLength: 1, maxLength: LETTER_SUMMARY_MAX, description: TELL_SECRETARY_SUMMARY_PARAM });
   const textParam = Type.String({ minLength: 1, maxLength: LETTER_MAX_CHARS, description: TELL_SECRETARY_PARAM });
-  /** 维护者的那一份（117 号票）：能带附件 */
+  /** 负责人的那一份（117 号票）：能带附件 */
   const withAttachments = Type.Object(
     {
       summary: summaryParam,

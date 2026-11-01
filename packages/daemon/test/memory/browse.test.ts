@@ -152,7 +152,7 @@ describe("一条的完整内容", () => {
 /** 2026 年 10 月某天某时（167 号票的筛选用） */
 const day = (d: string, hm: string) => `2026-10-${d}T${hm}:00.000+08:00`;
 
-/** 几天里的几条：秘书主线说的话、维护者会话里说的话、发的图片、存的网页 */
+/** 几天里的几条：秘书主线说的话、负责人会话里说的话、发的图片、存的网页 */
 function seed() {
   const t = materialsSetup({ sources: [webPageSavedSource] });
   postMessage(t.store, [text("周末想去杭州爬山")], { time: day("13", "09:00") });

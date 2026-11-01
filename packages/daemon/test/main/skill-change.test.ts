@@ -32,7 +32,7 @@ const echo = { kind: "echo_context" } as const;
 const MARKER = "MARKER_NOTES_STYLE";
 const SKILL_TEXT = `---\nname: notes-style\ndescription: ${MARKER}\n---\n\n# 笔记的写法\n\n照着做。\n`;
 
-/** 维护者会话里 agent 的回复（echo_context 回的是它看到的上下文） */
+/** 负责人会话里 agent 的回复（echo_context 回的是它看到的上下文） */
 const repliesOf = (frontend: TestFrontend, channel: string) =>
   messagesOf(frontend, channel)
     .filter((m) => m.message.speaker === "agent" && m.message.parts.some((p) => p.type === "text"))

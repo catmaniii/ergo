@@ -1,24 +1,24 @@
-// 守卫切面：为并行派出的子 agent（20 号票）。子 agent 的装配从它的维护者收窄（sub-agents/assembly.ts），
+// 守卫切面：为并行派出的子 agent（20 号票）。子 agent 的装配从它的负责人收窄（sub-agents/assembly.ts），
 // 判定照常走守卫的纯函数：
-// - 工具包是维护者工具包的子集：维护者没有的工具（bash 关着时的 bash 和带类型的 bash 工具、MCP），子 agent 也没有；
-//   维护者推进任务的工具（宣布阶段完成、提议并行……）子 agent 不给；
+// - 工具包是负责人工具包的子集：负责人没有的工具（bash 关着时的 bash 和带类型的 bash 工具、MCP），子 agent 也没有；
+//   负责人推进任务的工具（宣布阶段完成、提议并行……）子 agent 不给；
 // - 写项目档案一律拒绝（不问），写工作目录（含自己的 worktree）照常判定，写受保护区域一律永不，读密钥区照常拒绝；
-// - 按维护者所属任务的计划、子 agent 所在的阶段和授权项判定：别的阶段的授权项用不到（拉回）。
+// - 按负责人所属任务的计划、子 agent 所在的阶段和授权项判定：别的阶段的授权项用不到（拉回）。
 import { describe, expect, it } from "vitest";
 import { GRANT_OTHER_STAGE, type Grant, type GuardAgent, judgementExecutes, judgeToolCall, type ToolCall } from "../../src/guard/index.ts";
 import type { MaintainerAssembly } from "../../src/agent-host/assembly.ts";
 import { MAINTAINER_ONLY_TOOLS, subAgentAssembly, subAgentGuardTask } from "../../src/sub-agents/assembly.ts";
 import { bash, call, DAY, inTask, NOW, P, task, v1Satisfied } from "./helpers/guard-input.ts";
 
-/** 子 agent 的 worktree：维护者建在工作目录里 */
+/** 子 agent 的 worktree：负责人建在工作目录里 */
 const WORKTREE = `${P.workDir}\\.worktrees\\a`;
 
-/** 带类型的 bash 工具（维护者开了 bash 时有） */
+/** 带类型的 bash 工具（负责人开了 bash 时有） */
 const TYPED = ["git_status_diff", "git_commit", "git_merge", "git_push", "create_remote_repo", "run_tests", "install_deps", "start_build"];
-/** 维护者推进任务、提议并行的工具 */
+/** 负责人推进任务、提议并行的工具 */
 const DRIVING = ["start_stage", "complete_stage", "report_progress", "wait_for_user", "fail_task", "propose_parallel"];
 
-/** notes 项目的维护者在执行任务：开着 bash 和联网 */
+/** notes 项目的负责人在执行任务：开着 bash 和联网 */
 const maintainer = (overrides: Partial<MaintainerAssembly> = {}): MaintainerAssembly => ({
   cwd: P.workDir,
   toolkit: { bash: true, network: true },
@@ -31,7 +31,7 @@ const maintainer = (overrides: Partial<MaintainerAssembly> = {}): MaintainerAsse
   ...overrides,
 });
 
-/** 子 agent 在自己的 worktree 里；代为执行的工具只有带类型的 bash 工具（维护者开了 bash 时） */
+/** 子 agent 在自己的 worktree 里；代为执行的工具只有带类型的 bash 工具（负责人开了 bash 时） */
 const subAgentOf = (m: MaintainerAssembly, hostTools: readonly string[] = m.toolkit.bash ? ["git_status_diff", "git_commit"] : []): GuardAgent =>
   subAgentAssembly(m, { agentId: "sa-1", cwd: WORKTREE, hostTools }).guardAgent;
 
@@ -39,8 +39,8 @@ const write = (path: string) => call("write", { path, content: "x" });
 const read = (path: string) => call("read", { path });
 const newFile = (path: string) => ({ facts: { files: { [path]: { exists: false } } } });
 
-describe("子 agent 的工具包是维护者的子集", () => {
-  it("pi 工具、bash 和联网开关照维护者的；工作目录换成子 agent 自己的，围栏还是维护者的", () => {
+describe("子 agent 的工具包是负责人的子集", () => {
+  it("pi 工具、bash 和联网开关照负责人的；工作目录换成子 agent 自己的，围栏还是负责人的", () => {
     const m = maintainer();
     const sub = subAgentAssembly(m, { agentId: "sa-1", cwd: WORKTREE, hostTools: ["git_commit"] });
     expect(sub.piTools).toEqual(m.piTools);
@@ -57,24 +57,24 @@ describe("子 agent 的工具包是维护者的子集", () => {
       workingDirs: [P.workDir],
       shellVars: { TMPDIR: temp, TEMP: temp, TMP: temp },
     });
-    // /tmp 挂到哪照维护者的；没开 bash 的没有临时目录
+    // /tmp 挂到哪照负责人的；没开 bash 的没有临时目录
     expect(subAgentAssembly(maintainer({ bashTmp: "C:\\Temp" }), { agentId: "sa-1", cwd: WORKTREE, hostTools: [] }).guardAgent).toMatchObject({ bashTmp: "C:\\Temp" });
     const noBash = subAgentAssembly(maintainer({ toolkit: { bash: false, network: true }, piTools: ["read"] }), { agentId: "sa-1", cwd: WORKTREE, hostTools: [] });
     expect([noBash.tempDir, "shellVars" in noBash.guardAgent]).toEqual([undefined, false]);
   });
 
-  // 表格：不管调用方给了什么候选，子 agent 的工具一定是维护者的子集，维护者推进任务的工具一个都没有
+  // 表格：不管调用方给了什么候选，子 agent 的工具一定是负责人的子集，负责人推进任务的工具一个都没有
   const noBash = maintainer({ toolkit: { bash: false, network: true }, piTools: ["read", "write", "edit", "ls"], hostTools: DRIVING });
   const readOnly = maintainer({ toolkit: { bash: false, network: false }, piTools: ["read", "ls"], hostTools: ["submit_plan"] });
   const CASES: Array<[string, MaintainerAssembly, string[], string[]]> = [
     ["开了 bash：候选的带类型工具都给", maintainer(), TYPED, TYPED],
     ["候选里混进推进任务的工具：去掉", maintainer(), [...TYPED, ...DRIVING, "submit_plan"], TYPED],
-    ["候选里有维护者没有的工具（MCP）：去掉", maintainer(), ["git_commit", "mcp_mail_send"], ["git_commit"]],
-    ["维护者没开 bash：候选的带类型工具都不给", noBash, TYPED, []],
-    ["只读的维护者：什么都不给", readOnly, [...TYPED, "submit_plan"], []],
-    // 70 号票：联网搜索、读网页是候选，维护者有的子 agent 也有（联网开关照维护者的）
-    ["联网工具：维护者有就给", maintainer({ hostTools: [...TYPED, ...DRIVING, "web_search", "web_fetch"] }), [...TYPED, "web_search", "web_fetch"], [...TYPED, "web_search", "web_fetch"]],
-    ["联网工具：维护者没有就不给", readOnly, ["web_search", "web_fetch"], []],
+    ["候选里有负责人没有的工具（MCP）：去掉", maintainer(), ["git_commit", "mcp_mail_send"], ["git_commit"]],
+    ["负责人没开 bash：候选的带类型工具都不给", noBash, TYPED, []],
+    ["只读的负责人：什么都不给", readOnly, [...TYPED, "submit_plan"], []],
+    // 70 号票：联网搜索、读网页是候选，负责人有的子 agent 也有（联网开关照负责人的）
+    ["联网工具：负责人有就给", maintainer({ hostTools: [...TYPED, ...DRIVING, "web_search", "web_fetch"] }), [...TYPED, "web_search", "web_fetch"], [...TYPED, "web_search", "web_fetch"]],
+    ["联网工具：负责人没有就不给", readOnly, ["web_search", "web_fetch"], []],
   ];
   for (const [name, m, candidates, expected] of CASES) {
     it(`收窄：${name}`, () => {
@@ -89,7 +89,7 @@ describe("子 agent 的工具包是维护者的子集", () => {
     });
   }
 
-  it("维护者推进任务、起草计划的工具和 MCP 工具，子 agent 的工具包里没有：一律拒绝，不问", () => {
+  it("负责人推进任务、起草计划的工具和 MCP 工具，子 agent 的工具包里没有：一律拒绝，不问", () => {
     const agent = subAgentOf(maintainer());
     for (const c of [call("complete_stage", { stageId: "s1", summary: "x" }), call("propose_parallel", {}), call("submit_plan", {}), call("start_stage", { stageId: "s2" })]) {
       const j = judgeToolCall(inTask(agent, c));
@@ -98,7 +98,7 @@ describe("子 agent 的工具包是维护者的子集", () => {
     }
   });
 
-  it("维护者没开 bash：子 agent 也没有 bash 和带类型的 bash 工具", () => {
+  it("负责人没开 bash：子 agent 也没有 bash 和带类型的 bash 工具", () => {
     const m = maintainer({ toolkit: { bash: false, network: true }, piTools: ["read", "write", "edit", "ls", "grep", "find"], hostTools: DRIVING });
     const sub = subAgentAssembly(m, { agentId: "sa-1", cwd: WORKTREE, hostTools: TYPED });
     expect(sub.piTools).not.toContain("bash");
@@ -108,7 +108,7 @@ describe("子 agent 的工具包是维护者的子集", () => {
     }
   });
 
-  it("维护者没开联网：子 agent 联网也被拒绝", () => {
+  it("负责人没开联网：子 agent 联网也被拒绝", () => {
     const agent = subAgentOf(maintainer({ toolkit: { bash: true, network: false } }));
     expect(judgeToolCall(inTask(agent, bash("curl https://example.com/a"))).hardRefusal).toEqual(["network_off"]);
   });
@@ -117,7 +117,7 @@ describe("子 agent 的工具包是维护者的子集", () => {
 describe("子 agent 的围栏", () => {
   const agent = subAgentOf(maintainer());
 
-  it("写自己的 worktree（相对路径落在 worktree 里）和维护者工作目录里别处：照常判定", () => {
+  it("写自己的 worktree（相对路径落在 worktree 里）和负责人工作目录里别处：照常判定", () => {
     for (const [c, file] of [
       [write("a.txt"), `${WORKTREE}\\a.txt`],
       [write(`${WORKTREE}\\src\\b.ts`), `${WORKTREE}\\src\\b.ts`],
@@ -151,20 +151,20 @@ describe("子 agent 的围栏", () => {
     expect(judgeToolCall(inTask(agent, read(`${P.secrets}\\deepseek-api-key.txt`))).hardRefusal).toEqual(["secrets_area"]);
   });
 
-  it("写维护者工作目录以外：一律拒绝", () => {
+  it("写负责人工作目录以外：一律拒绝", () => {
     expect(judgeToolCall(inTask(agent, write(`${P.outside}\\x.txt`))).hardRefusal).toEqual(["fence"]);
   });
 });
 
-describe("按维护者所属任务的计划、子 agent 所在的阶段和授权项判定", () => {
+describe("按负责人所属任务的计划、子 agent 所在的阶段和授权项判定", () => {
   const pushOrigin: Grant = { grantId: "push-origin", tool: "git_push", scope: { remote: "origin" }, stageId: "s1", grantedAt: NOW - DAY };
   const push = call("git_push", { remote: "origin", branch: "main" });
   const ready = v1Satisfied(WORKTREE);
   const agent = subAgentOf(maintainer());
-  /** 维护者此刻在做 s1；子 agent 被派去做 s2 或 s1 */
+  /** 负责人此刻在做 s1；子 agent 被派去做 s2 或 s1 */
   const maintainerTask = task({ currentStageId: "s1", plan: { grants: [pushOrigin] } });
 
-  it("子 agent 的当前阶段是它被派去做的阶段（维护者在做别的阶段也一样），计划和授权项是任务的", () => {
+  it("子 agent 的当前阶段是它被派去做的阶段（负责人在做别的阶段也一样），计划和授权项是任务的", () => {
     expect(subAgentGuardTask(maintainerTask, "s2")).toEqual({ ...maintainerTask, currentStageId: "s2" });
     expect(subAgentGuardTask(null, "s2")).toBeNull();
   });
@@ -175,7 +175,7 @@ describe("按维护者所属任务的计划、子 agent 所在的阶段和授权
     expect(judgementExecutes(j)).toBe(true);
   });
 
-  it("别的阶段的授权项用不到：拉回，不问用户（维护者此刻在那个阶段也一样）", () => {
+  it("别的阶段的授权项用不到：拉回，不问用户（负责人此刻在那个阶段也一样）", () => {
     const j = judgeToolCall(inTask(agent, push, { ...ready, task: subAgentGuardTask(maintainerTask, "s2") }));
     expect(j.withinGrant).toBe(false);
     expect(j.pullBack).toEqual([GRANT_OTHER_STAGE]);

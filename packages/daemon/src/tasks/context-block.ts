@@ -1,8 +1,8 @@
-// 重注入块（规格第 8 节"重注入块"，13 号票）：每次唤起维护者、每次压缩之后，运行时作为一条上下文消息注入的固定内容——
+// 重注入块（规格第 8 节"重注入块"，13 号票）：每次唤起负责人、每次压缩之后，运行时作为一条上下文消息注入的固定内容——
 // 计划摘要 + 当前阶段 + 授权 + 边界。系统提示不变；计划、授权、阶段只存在二狗自己的存储里，这一块每次由它现生成。
-// 一个阶段的交代（交付件、验收标准、模式）、授权和时序规则、边界也用在阶段变化时交给维护者的通知里（execution-tools.ts）。
+// 一个阶段的交代（交付件、验收标准、模式）、授权和时序规则、边界也用在阶段变化时交给负责人的通知里（execution-tools.ts）。
 // 纯函数：同样的任务、计划、授权说法，生成同样的文字。
-// @i18n-ignore-file model：重注入块和阶段交代都给维护者（子 agent、范围审查）看，照旧中文——导出的几个都包一层 forModel，
+// @i18n-ignore-file model：重注入块和阶段交代都给负责人（子 agent、范围审查）看，照旧中文——导出的几个都包一层 forModel，
 // 里面用到的协议包说法（状态名、授权项说法、时序规则）也取中文（172 号票）
 import {
   ACCEPTANCE_METHOD_LABEL,
@@ -35,11 +35,11 @@ export interface ContextBlockInput {
   goal: string;
   /** 任务书里的验收标准（没有的不写；计划变更改了的是新的） */
   criteria?: readonly string[];
-  /** 维护者的工作目录（任务的产出区） */
+  /** 负责人的工作目录（任务的产出区） */
   cwd: string;
   /** 每项授权在守卫眼里的样子（和计划卡上的说法一样） */
   grantInfo: Readonly<Record<string, GrantInfo>>;
-  /** 有子 agent 在做的阶段（20 号票）：当前阶段按维护者最后一次开始的阶段定，这几个不算它手头的 */
+  /** 有子 agent 在做的阶段（20 号票）：当前阶段按负责人最后一次开始的阶段定，这几个不算它手头的 */
   busy?: ReadonlySet<string>;
   /** 当前阶段另写的几行交代（17 号票：涉及多个项目的任务里本阶段发往各项目的工单） */
   notes?: (stageId: string) => readonly string[];
@@ -94,7 +94,7 @@ export function stageAuthorization(plan: Plan, stageId: string, grantInfo: Reado
   });
 }
 
-/** 工具包的两个开关写成一句："bash 开，联网关"（维护者的边界、交给子 agent 的工作说明共用） */
+/** 工具包的两个开关写成一句："bash 开，联网关"（负责人的边界、交给子 agent 的工作说明共用） */
 export function toolkitText(toolkit: { bash: boolean; network: boolean }): string {
   return forModel(() => {
     return `bash ${toolkit.bash ? "开" : "关"}，联网${toolkit.network ? "开" : "关"}`;

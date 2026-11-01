@@ -1061,7 +1061,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "service_events":
         return {
-          // 项目的服务报事件（357 号票，ADR-0043）：先认凭证（不对的不读请求体），再读（超了上限的不留在内存里），再报；不等维护者做完就回
+          // 项目的服务报事件（357 号票，ADR-0043）：先认凭证（不对的不读请求体），再读（超了上限的不留在内存里），再报；不等负责人做完就回
           async POST(req, res) {
             if (!options.serviceEvents) throw new HttpError("not_found", t("gateway.serviceEvents.none"));
             const who = options.serviceEvents.authenticate(bearerToken(req.headers.authorization));
@@ -1206,20 +1206,20 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "agent_model":
         return {
-          // 项目、任务的维护者单独配模型（120 号票）：模型目录里没有的拒收（400）；下一个新会话起生效
+          // 项目、任务的负责人单独配模型（120 号票）：模型目录里没有的拒收（400）；下一个新会话起生效
           async PUT(req, res) {
             const body = checkHttpBody(AgentModelBody, await readJson(req));
             if (!body.ok) throw new HttpError("bad_request", t("gateway.http.badAgentModel", { message: body.message }));
             sendJson(res, 200, await agentSettings().setModel(route.agentId, body.value));
           },
-          // 改回跟随它那一行（设置 · 模型里的项目维护者 / 任务维护者）
+          // 改回跟随它那一行（设置 · 模型里的项目负责人 / 任务负责人）
           DELETE(_req, res) {
             sendJson(res, 200, agentSettings().followRoleModel(route.agentId));
           },
         };
       case "agent_runtime":
         return {
-          // 项目、任务的维护者用哪个运行时、给它选的模型和设置项（289 号票）：不认得的、没启用的、不在列表里的拒收（400）；
+          // 项目、任务的负责人用哪个运行时、给它选的模型和设置项（289 号票）：不认得的、没启用的、不在列表里的拒收（400）；
           // 换运行时的等手头这一条做完、原来的写好交接摘要才换
           async PUT(req, res) {
             const body = checkHttpBody(AgentRuntimeBody, await readJson(req));

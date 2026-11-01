@@ -59,7 +59,7 @@ export interface TextDetail {
   /** 模型回复本来就是 Markdown，按渲染后的样子看；agent 之间的来信（115 号票）也照 Markdown 画；其余按原文看 */
   readonly markdown: boolean;
   /**
-   * agent 之间的来信（115 号票：任务做完、维护者来信、秘书转达、计划检查）：哪种。会话里只有一行，这里是全文——种类写在 label，
+   * agent 之间的来信（115 号票：任务做完、负责人来信、秘书转达、计划检查）：哪种。会话里只有一行，这里是全文——种类写在 label，
    * 标题行是那一句总结；运行时写的单个换行照样分行（agent-letters.ts 的 letterMarkdown）。别的没有
    */
   readonly letter: AgentLetterKind | undefined;
@@ -313,7 +313,7 @@ export function detailContent(state: UiState, items: readonly ChatItem[], ref: D
       const detail = textOf("system", item.text, item.parts);
       // 分支摘要（150 号票）：种类写"分支摘要"
       if (item.branch) return { ...detail, label: t("state.detailContent.branchSummary") };
-      // 写给 agent 的来信（115 号票）：种类写"任务做完""维护者来信"……，不是"系统说明"
+      // 写给 agent 的来信（115 号票）：种类写"任务做完""负责人来信"……，不是"系统说明"
       return item.letter ? asLetter(detail, item.letter) : detail;
     }
     case "voice":

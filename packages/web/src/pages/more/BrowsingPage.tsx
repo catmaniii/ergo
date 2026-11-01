@@ -1,7 +1,7 @@
 // 设置 · 浏览与填框（134 号票）：
 // - 搜索引擎："浏览"页签（鸿蒙 App 里的原生内置浏览器）地址栏里打关键词时用哪个（只记在这台设备上，默认必应），选中的下面写着它的搜索地址；
 // - 授权的文件夹（355 号票起单独一页 #/more/authorized-folders，这里留一行去那里的链接）：见 AuthorizedFolders.tsx。
-// - agent 联网搜索、读网页（154 号票；162 号票起是三种方式的队列）：秘书、维护者、子 agent 联网搜索、读网页按什么顺序用哪几种，
+// - agent 联网搜索、读网页（154 号票；162 号票起是三种方式的队列）：秘书、负责人、子 agent 联网搜索、读网页按什么顺序用哪几种，
 //   见 WebToolsSetting.tsx。存在守护进程那边，所有设备共用；和上面"浏览"地址栏的搜索引擎是两回事。
 import { pageBrowseSettings, useSearchEngine } from "../../app/page-browse-settings.ts";
 import { SEARCH_ENGINE_IDS, SEARCH_ENGINES, type SearchEngineId, t } from "../../state/index.ts";

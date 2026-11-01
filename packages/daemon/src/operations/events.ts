@@ -1,6 +1,6 @@
 // 运营方案（130 号票）在事件日志里的事件：守护进程内部的 operations 频道（前端不订阅；前端看到的是"首版做完了"卡上的那一节、
 // "运营方案变更"卡和项目上现在生效的运营方案 Project.operations）。
-// - operations_proposed：维护者交了一份运营方案（逐条校验过的每一条、流程那几条审查修补后推出的执行用的计划、引用的用户原话）。
+// - operations_proposed：负责人交了一份运营方案（逐条校验过的每一条、流程那几条审查修补后推出的执行用的计划、引用的用户原话）。
 //   建设期间交的（mode: build）等建设任务做完出现在"首版做完了"卡上（卡已经出了就同一事务更新卡）；使用中、已停用的项目交的
 //   （mode: change）同一事务出"运营方案变更"卡；
 // - operations_decided：用户在卡上确认、拒绝了（和卡片更新同一事务）。确认的同一事务里每一条生效（建成项目的内部任务……），项目上
@@ -14,7 +14,7 @@ export const OPERATIONS_EVENTS = {
   decided: EVENT_TYPES.operationsDecided,
 } as const;
 
-/** 维护者交的一份运营方案 */
+/** 负责人交的一份运营方案 */
 export interface OperationsProposedPayload {
   projectId: string;
   /** 这个项目的第几份（交上来就算，被拒的、被新的一份顶掉的也占号） */

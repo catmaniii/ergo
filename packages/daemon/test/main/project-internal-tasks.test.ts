@@ -1,8 +1,8 @@
-// 主切面：项目内部任务（64 号票，规格第 8 节"项目内部任务"）。真的守护进程，秘书、项目维护者都接 faux 剧本，测试扮演前端。
-// - 发起的规矩和秘书一样：用户在项目的维护者会话里点明了（"按流程做：……""发起任务：……"、/流程、/任务）才建，点明的判断和秘书
-//   共用一份；没点明的维护者最多给一张建议卡（卡上"作为流程""作为长程任务"），用户点了才建出，通知交给维护者；
-//   用户在秘书那里点明了要做某个项目的事，秘书替用户建成这个项目的内部任务（通知交给维护者，秘书看不到细节）；
-// - 种类和执行：流程或长程任务，由这个项目的维护者自己执行——任务书由它写，之后和单项目任务一样派起草计划的工单、
+// 主切面：项目内部任务（64 号票，规格第 8 节"项目内部任务"）。真的守护进程，秘书、项目负责人都接 faux 剧本，测试扮演前端。
+// - 发起的规矩和秘书一样：用户在项目的负责人会话里点明了（"按流程做：……""发起任务：……"、/流程、/任务）才建，点明的判断和秘书
+//   共用一份；没点明的负责人最多给一张建议卡（卡上"作为流程""作为长程任务"），用户点了才建出，通知交给负责人；
+//   用户在秘书那里点明了要做某个项目的事，秘书替用户建成这个项目的内部任务（通知交给负责人，秘书看不到细节）；
+// - 种类和执行：流程或长程任务，由这个项目的负责人自己执行——任务书由它写，之后和单项目任务一样派起草计划的工单、
 //   计划卡一次授权、执行（流程执行时照计划逐步核对），照常占全局执行名额，用量记在任务名下；
 // - 可见范围：看板频道上的任务、定时触发的内部任务的触发登记（76 号票）带着 internal（前端不放上全局看板、放在项目页上），要用户处理的照常进待我处理、
 //   来源写明"项目「X」内部"、事项带着标记，秘书的只读工具（查看板、列出待我处理、把卡片放进聊天、检索素材）看不到细节；
@@ -90,12 +90,12 @@ function dirs() {
   return { dataDir, homeDir: makeTempDir("ergo-home-"), records: (projectId = "p-1") => path.join(fs.realpathSync.native(dataDir), "projects", projectId) };
 }
 
-/** 进展文档的一句改成另一句（维护者在对话段里写回项目档案） */
+/** 进展文档的一句改成另一句（负责人在对话段里写回项目档案） */
 const progressEdit = (records: string, oldText: string, newText: string) => call("edit", { path: path.join(records, "progress.md"), edits: [{ oldText, newText }] });
 /** 进展文档一开始的那句（项目档案的最小文档集） */
 const PROGRESS_INTRO = "做到哪了、下一步做什么：每段工作结束时写回。";
 
-/** 项目的维护者 pm-1 在项目 p-1 里建一个内部任务（用户在它的会话里点明了） */
+/** 项目的负责人 pm-1 在项目 p-1 里建一个内部任务（用户在它的会话里点明了） */
 const newInternal = (td: TestDaemon, title: string, what: string, kind: NewInternalTask["kind"]) =>
   td.daemon.tasks.createInternal({ projectId: "p-1", title, summary: what, kind }, "pm-1");
 
@@ -122,8 +122,8 @@ const notesDraft: WorkflowPlanDraft = {
 
 const INTERNAL_SOURCE = "项目「记账本」内部 · 任务「整理周报目录」";
 
-describe("点明了才发起：用户在项目的维护者会话里点明", () => {
-  it("说了“按流程做”：维护者建出项目内部流程（它执行、只动这个项目）；它写任务书后对话段收尾，起草计划的工单段用 propose_plan 交出步骤，流程计划卡进待我处理、来源写明“项目「记账本」内部”；授权后执行、照计划逐步核对，report_step 做完；看板频道上的任务带着 internal，用量记在任务名下", async () => {
+describe("点明了才发起：用户在项目的负责人会话里点明", () => {
+  it("说了“按流程做”：负责人建出项目内部流程（它执行、只动这个项目）；它写任务书后对话段收尾，起草计划的工单段用 propose_plan 交出步骤，流程计划卡进待我处理、来源写明“项目「记账本」内部”；授权后执行、照计划逐步核对，report_step 做完；看板频道上的任务带着 internal，用量记在任务名下", async () => {
     const d = dirs();
     const records = d.records();
     const td = await startTestDaemon({
@@ -203,12 +203,12 @@ describe("点明了才发起：用户在项目的维护者会话里点明", () =
     expect(fs.readFileSync(path.join(records, "progress.md"), "utf8")).toContain("流程 t-1 做完了");
     // 看板频道上这个任务的每条事件都带着 internal（前端据此不放上全局看板）
     expect(tasksOf(frontend).every((e) => isProjectInternal(e.task))).toBe(true);
-    // 用量记在这个任务名下（任务详情、项目页看得到），消耗页按项目的维护者列出
+    // 用量记在这个任务名下（任务详情、项目页看得到），消耗页按项目的负责人列出
     const totals = frontend.events({ channel: BOARD, type: EVENT_TYPES.tokenTotals }).map((f) => f.payload as TokenTotalsEventPayload);
     expect(totals.some((t) => t.owner.kind === "task" && t.owner.id === "t-1" && t.byAgent.some((r) => r.agentId === "pm-1"))).toBe(true);
   }, 120_000);
 
-  it("说了“发起任务”：维护者建出项目内部长程任务；起草计划的工单段用 submit_plan 交出，计划卡的来源写明“项目「记账本」内部”", async () => {
+  it("说了“发起任务”：负责人建出项目内部长程任务；起草计划的工单段用 submit_plan 交出，计划卡的来源写明“项目「记账本」内部”", async () => {
     const d = dirs();
     const records = d.records();
     const plan = samplePlan({ toolkit: { skills: [], mcp: [], bash: false, network: false } });
@@ -243,7 +243,7 @@ describe("点明了才发起：用户在项目的维护者会话里点明", () =
 });
 
 describe("项目内部流程的计划被拒", () => {
-  it("用户拒绝了项目内部流程的计划（附说明）：任务回到规划中，重新起草是一张新的起草计划工单（新的一段），说明连同任务书交回维护者", async () => {
+  it("用户拒绝了项目内部流程的计划（附说明）：任务回到规划中，重新起草是一张新的起草计划工单（新的一段），说明连同任务书交回负责人", async () => {
     const td = await startTestDaemon({
       secretary: [say("好的")],
       maintainer: (id, spawn) => {
@@ -266,13 +266,13 @@ describe("项目内部流程的计划被拒", () => {
     expect(second.workOrder.instructions).toContain("涉及的项目：记账本（项目内部任务：只动这个项目，只在项目里看得到）");
     await waitUntil(() => messagesOf(frontend, PM1).some((m) => m.message.speaker === "agent" && textOf(m).includes("[system]") && textOf(m).includes("用户拒绝了计划 v1")), {
       timeoutMs: 30_000,
-      describe: () => "维护者在新的一段里看到拒绝的说明",
+      describe: () => "负责人在新的一段里看到拒绝的说明",
     });
   }, 90_000);
 });
 
 describe("没点明：最多给一张建议卡", () => {
-  it("用户只说了要做的事：维护者去建任务被拒（原因交回它），改给一张建议卡（卡上带着项目）；一轮只能给一张；不建任务", async () => {
+  it("用户只说了要做的事：负责人去建任务被拒（原因交回它），改给一张建议卡（卡上带着项目）；一轮只能给一张；不建任务", async () => {
     const td = await startTestDaemon({
       secretary: [say("好的")],
       maintainer: (id) =>
@@ -302,7 +302,7 @@ describe("没点明：最多给一张建议卡", () => {
     expect(tasksOf(frontend)).toEqual([]);
   });
 
-  it("点建议卡上的“作为流程”：在这个项目里建出项目内部流程（用户发起），卡上记着种类和任务编号，通知交给维护者（不交给秘书）；另一张点“作为长程任务”", async () => {
+  it("点建议卡上的“作为流程”：在这个项目里建出项目内部流程（用户发起），卡上记着种类和任务编号，通知交给负责人（不交给秘书）；另一张点“作为长程任务”", async () => {
     const td = await startTestDaemon({
       secretary: [say("好的")],
       maintainer: (id) =>
@@ -328,7 +328,7 @@ describe("没点明：最多给一张建议卡", () => {
     expect(workflow).toMatchObject({ by: "user", task: { id: "t-1", title: "升级依赖", origin: "suggestion", kind: "workflow", internal: P1, maintainerId: "pm-1", projectIds: ["p-1"] } });
     const handled = await cardWhere(frontend, (c) => c.id === first.id && c.status === "handled", "处理过的建议卡");
     expect(handled.payload).toMatchObject({ taskId: "t-1", kind: "workflow" });
-    // 通知交给维护者（带着任务编号，在对话段里接着对齐、写任务书），秘书什么都没收到
+    // 通知交给负责人（带着任务编号，在对话段里接着对齐、写任务书），秘书什么都没收到
     await turnsOf(frontend, PM1, 2);
     expect(lastSeen(frontend, PM1)).toContain("用户在你的建议卡上点了「作为流程」：项目内部流程 t-1「升级依赖」已建好（规划中）");
     expect(messagesOf(frontend, SECRETARY)).toEqual([]);
@@ -419,7 +419,7 @@ describe("名额", () => {
 });
 
 describe("秘书那里点明：替用户建成项目内部任务", () => {
-  it("用户在秘书那里说“按流程做：记账本的……”：秘书建流程时写上这个项目，建出的是记账本的内部流程（由项目的维护者执行，通知交给它）；秘书只知道建在哪个项目里；项目名不对、写了几个项目的流程被拒；说“发起任务”的同样建成内部长程任务", async () => {
+  it("用户在秘书那里说“按流程做：记账本的……”：秘书建流程时写上这个项目，建出的是记账本的内部流程（由项目的负责人执行，通知交给它）；秘书只知道建在哪个项目里；项目名不对、写了几个项目的流程被拒；说“发起任务”的同样建成内部长程任务", async () => {
     const td = await startTestDaemon({
       secretary: [
         call("start_workflow", { title: "升级依赖", summary: "把记账本的依赖升到最新", projects: ["账本"] }),
@@ -445,7 +445,7 @@ describe("秘书那里点明：替用户建成项目内部任务", () => {
     expect(seen).toContain("[toolResult] start_workflow: 已在项目「记账本」里建了内部任务");
     // 秘书只知道建在哪个项目里：交回它的话里没有任务编号
     expect(seen).not.toContain("t-1");
-    // 通知交给项目的维护者（在对话段里和用户对齐、写任务书）
+    // 通知交给项目的负责人（在对话段里和用户对齐、写任务书）
     await turnsOf(frontend, PM1, 1);
     const notice = messagesOf(frontend, PM1).find((m) => m.agentInput && textOf(m).includes("用户在秘书那里点明了要在这个项目里做"))!;
     expect(textOf(notice)).toContain("项目内部流程 t-1「升级依赖」已建好（规划中）");
@@ -459,7 +459,7 @@ describe("秘书那里点明：替用户建成项目内部任务", () => {
 });
 
 describe("秘书给的建议卡上写了一个项目", () => {
-  it("用户点了卡上的按钮：建成这个项目的内部任务（只涉及一个项目的一律是内部任务），通知交给项目的维护者、不交给秘书", async () => {
+  it("用户点了卡上的按钮：建成这个项目的内部任务（只涉及一个项目的一律是内部任务），通知交给项目的负责人、不交给秘书", async () => {
     const td = await startTestDaemon({ secretary: [say("好的")], maintainer: (id) => (id === "pm-1" ? [say("我理解你要整理分类，对吗？")] : []) });
     inUseProject(td, "记账本");
     const frontend = await connect(td.url, [BOARD, CARDS, INBOX, PROJECTS, PM1, SECRETARY]);
@@ -493,8 +493,8 @@ describe("立项书确认之前", () => {
   }, 60_000);
 });
 
-describe("维护者正在做工单时发起", () => {
-  it("用户从发起对话框发起项目内部任务时维护者正在做别的工单：通知带着任务编号排着，不进这张工单的一段（那里没有写任务书的工具）；工单结束、维护者空下来，开一个对话段交给它，它接着写任务书，派起草计划的工单", async () => {
+describe("负责人正在做工单时发起", () => {
+  it("用户从发起对话框发起项目内部任务时负责人正在做别的工单：通知带着任务编号排着，不进这张工单的一段（那里没有写任务书的工具）；工单结束、负责人空下来，开一个对话段交给它，它接着写任务书，派起草计划的工单", async () => {
     const d = dirs();
     const plan = samplePlan({ toolkit: { skills: [], mcp: [], bash: false, network: false } });
     const td = await startTestDaemon({
@@ -519,13 +519,13 @@ describe("维护者正在做工单时发起", () => {
     ok(await frontend.startTask("给记账本加导出", "k-export", ["记账本"]));
     const created = await taskWhere(frontend, (e) => e.change === "created" && e.task.id === "t-2", "建出的项目内部任务");
     expect(created.task).toMatchObject({ internal: P1, maintainerId: "pm-1" });
-    const notice = await eventually(() => messagesOf(frontend, PM1), (m) => m.agentInput === true && textOf(m).includes("用户点「发起任务」、选了这个项目"), "交给维护者的通知");
+    const notice = await eventually(() => messagesOf(frontend, PM1), (m) => m.agentInput === true && textOf(m).includes("用户点「发起任务」、选了这个项目"), "交给负责人的通知");
     expect(notice).toMatchObject({ taskId: "t-2", projectId: "p-1" });
     // 正在做 t-1 的工单：通知排着，不进这一段
     await new Promise((r) => setTimeout(r, 500));
     expect(frontend.events({ channel: PM1, type: EVENT_TYPES.turnEnd })).toHaveLength(1);
 
-    // t-1 的计划交了：这张工单收尾、写回后结束；维护者空下来，开一个对话段把通知交给它，它写了 t-2 的任务书
+    // t-1 的计划交了：这张工单收尾、写回后结束；负责人空下来，开一个对话段把通知交给它，它写了 t-2 的任务书
     td.daemon.tasks.submitPlan(first.id, "pm-1", plan);
     const second = await eventually(() => workOrdersOf(frontend), (e) => e.workOrder.kind === "plan" && e.workOrder.taskId === "t-2" && e.change === "started", "t-2 起草计划的工单开始", 60_000);
     expect(second.workOrder.maintainerId).toBe("pm-1");
@@ -605,7 +605,7 @@ describe("检索素材", () => {
     const card = td.daemon.tasks.submitPlan(internal.id, "pm-1", plan).cardId;
     ok(await frontend.cardAction({ cardId: card, action: "reject", expectedVersion: 1, note: "重构先别动 ledger" }));
     ok(await frontend.taskAction({ taskId: internal.id, action: "cancel" }));
-    // 项目的维护者给的建议卡被关掉（回避信号）
+    // 项目的负责人给的建议卡被关掉（回避信号）
     const suggestion = td.daemon.cards.create({ type: "suggest_task", payload: { title: "顺手重构日志", why: "日志太乱", internal: P1 } });
     ok(await frontend.cardAction({ cardId: suggestion.id, action: "dismiss", expectedVersion: 1 }));
     // 普通任务取消了
@@ -630,7 +630,7 @@ describe("检索素材", () => {
 });
 
 describe("归档和定时触发", () => {
-  it("项目内部任务结束了由用户在项目页上归档（task_action 的 archive）；结束了的全局任务也能这样直接归档（90 号票）；定时触发的内部任务（76 号票）由项目的维护者运行，它的触发登记带着标记，不上秘书的看板", async () => {
+  it("项目内部任务结束了由用户在项目页上归档（task_action 的 archive）；结束了的全局任务也能这样直接归档（90 号票）；定时触发的内部任务（76 号票）由项目的负责人运行，它的触发登记带着标记，不上秘书的看板", async () => {
     const td = await startTestDaemon({
       secretary: [call("view_board", {}), { kind: "echo_context" }],
       maintainer: () => [],
@@ -720,14 +720,14 @@ describe("删除项目", () => {
 });
 
 describe("删除项目时的素材（66 号票）", () => {
-  it("素材库里这个项目的内部任务由系统记下的记录（结局、计划的决定、建议卡被关掉）随项目彻底删掉：检索不到、素材库里也没有了，记成一条出处是删除项目的彻底删除（不产生显式记忆命令素材）；用户本人在维护者会话里说的话、普通任务的记录照旧在", async () => {
+  it("素材库里这个项目的内部任务由系统记下的记录（结局、计划的决定、建议卡被关掉）随项目彻底删掉：检索不到、素材库里也没有了，记成一条出处是删除项目的彻底删除（不产生显式记忆命令素材）；用户本人在负责人会话里说的话、普通任务的记录照旧在", async () => {
     const td = await startTestDaemon({
       secretary: [say("好的")],
       maintainer: (id) => (id === "pm-1" ? [say("好，我记着")] : []),
     });
     inUseProject(td, "记账本");
     const frontend = await connect(td.url, [BOARD, CARDS, INBOX, PROJECTS, PM1]);
-    // 项目内部任务：计划被打回（用户写了原因），然后取消；项目的维护者给的建议卡被关掉；普通任务取消了；用户在项目的会话里说的话
+    // 项目内部任务：计划被打回（用户写了原因），然后取消；项目的负责人给的建议卡被关掉；普通任务取消了；用户在项目的会话里说的话
     const internal = newInternal(td, "内部重构", "重构记账逻辑", "long_running");
     const plan = samplePlan({ toolkit: { skills: [], mcp: [], bash: false, network: false } });
     const card = td.daemon.tasks.submitPlan(internal.id, "pm-1", plan).cardId;
@@ -769,7 +769,7 @@ describe("删除项目时的素材（66 号票）", () => {
     expect(command.materialIds.toSorted()).toEqual(records.map((m) => m.id).toSorted());
     expect(materials.list({ kind: "memory_command" })).toHaveLength(commandsBefore);
     expect(askMemoryNow(td.daemon.store, "call-ask-272")).toEqual({ summary: PURGED_TEXT, result: PURGED_TEXT });
-    // 用户本人在维护者会话里说的话、普通任务的结局照旧在
+    // 用户本人在负责人会话里说的话、普通任务的结局照旧在
     expect(materials.searchKeyword("内部重构要小心").map((m) => m.id)).toEqual(said.map((m) => m.id));
     expect(materials.searchKeyword("外部重构调研").map((m) => m.id)).toEqual(outside.map((m) => m.id));
     // 事件日志里也没有这些记录的原话

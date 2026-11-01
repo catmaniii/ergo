@@ -1,12 +1,12 @@
 // 范围记录的派生视图（ergo.db，18 号票）：scope_records，每条范围记录一行（项目列表频道、任务看板频道上的 scope_record 事件）。
-// "近期范围记录"（每次唤起维护者时拼到系统提示末尾的最近 5 条）、项目档案和产出区里文件的对账都从这里取。
+// "近期范围记录"（每次唤起负责人时拼到系统提示末尾的最近 5 条）、项目档案和产出区里文件的对账都从这里取。
 // 删除项目时项目的范围记录被改写成删除标记（"删除参与方"登记表里范围审视的那一份，purge.ts），派生视图整体重放时跟着变；彻底删除改写过的记录另追加一条新版本
 // （同一个 id），这里换成新的内容。
 import { CHANNELS, EVENT_TYPES, isDeletedEventPayload, type ScopeRecord, type ScopeRecordEventPayload } from "@ergo/protocol";
 import type { DerivedView } from "../events/event-store.ts";
 import type { ReadonlyDatabase } from "../storage/sqlite.ts";
 
-/** 范围记录在哪些频道上：项目维护者的在项目列表频道，不属于项目的任务的在任务看板频道 */
+/** 范围记录在哪些频道上：项目负责人的在项目列表频道，不属于项目的任务的在任务看板频道 */
 export const SCOPE_RECORD_CHANNELS: readonly string[] = [CHANNELS.projects, CHANNELS.board];
 
 export const scopeRecordsView: DerivedView = {
@@ -45,7 +45,7 @@ export const scopeRecordsView: DerivedView = {
 
 const parse = (row: { record: string }) => JSON.parse(row.record) as ScopeRecord;
 
-/** 某个维护者最近的几条范围记录，越早的在前 */
+/** 某个负责人最近的几条范围记录，越早的在前 */
 export function recentScopeRecords(db: ReadonlyDatabase, maintainerId: string, limit: number): ScopeRecord[] {
   return db.all<{ record: string }>("SELECT record FROM scope_records WHERE maintainer_id = ? ORDER BY global_seq DESC LIMIT ?", maintainerId, limit).map(parse).toReversed();
 }

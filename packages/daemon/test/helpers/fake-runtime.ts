@@ -13,7 +13,7 @@ export const FAKE_RUNTIME_PLUGIN = "fake-runtime";
 export const FAKE_RUNTIME_TITLE = "假运行时";
 /** 假运行时的子进程入口 */
 export const FAKE_RUNTIME_ENTRY = fileURLToPath(new URL("../fixtures/fake-runtime-child.ts", import.meta.url));
-/** 假运行时每次回复的开头（测试据此认出维护者是经它拉起的） */
+/** 假运行时每次回复的开头（测试据此认出负责人是经它拉起的） */
 export const FAKE_REPLY = "假运行时收到了";
 
 /** 假运行时：能插话、能接管（列一个假的会话），别的都不能；可选模型、设置项各一个 */

@@ -1,5 +1,5 @@
 // 二狗的工具交给 Claude（291 号票，issue 24 方案 2.4 的 host_tool_call）：守护进程代为执行的工具（装配参数 contributions.tools：提交计划、
-// 汇报进展、给秘书发消息、发附件、读附件、联网搜索、工具包里的 MCP……，插件给维护者的也在里面）经 SDK 的进程内 MCP 服务交给 Claude。
+// 汇报进展、给秘书发消息、发附件、读附件、联网搜索、工具包里的 MCP……，插件给负责人的也在里面）经 SDK 的进程内 MCP 服务交给 Claude。
 // Claude 调用时（MCP 的 tools/call）这里发 host_tool_call、等守护进程的 host_tool_result，结果照 MCP 的写法交回（文字，看图的附图片）。
 // - 服务：二狗自己的工具在一个叫 ergo 的服务里（Claude 看到的名字是 mcp__ergo__<工具名>）；工具包里的 MCP 在二狗这边本来就叫
 //   mcp__<服务>__<工具>，按服务各起一个同名的进程内服务（Claude 看到的名字和二狗的一样，不叠两层前缀）。
@@ -9,7 +9,7 @@
 // - 工具包变了（宿主协议 toolkit，守护进程只在能力清单 live_toolkit 的运行时送）：同一个服务的工具清单当场换，发 notifications/tools/list_changed，
 //   Claude Code 重新列工具，下一次调用就是新的。SDK 的 setMcpServers 对同名、已登记的服务保留原来的连接（sdk.mjs 里 already registered 那段），
 //   换不了它的工具，所以只在服务增减时（工具包加减了 MCP）用 setMcpServers；同一个服务里的工具增减不重连——重连会把手头在等结果的调用
-//   （比如正是维护者自己调"增减 skill"引起的这次变更）断掉。
+//   （比如正是负责人自己调"增减 skill"引起的这次变更）断掉。
 // - 调用 id：Claude Code 在 tools/call 的 _meta 里带 claudecode/toolUseId（就是 assistant 消息里 tool_use 的 id，守卫、记录都按它）；
 //   没带（老版本）时按工具名取还没交过结果的那次调用（resolveId，translator 记着）。
 // - 一次一个：几个调用排队按先后执行（和 pi 那边一样：连发几个附件，聊天里的先后和模型说的一致）。

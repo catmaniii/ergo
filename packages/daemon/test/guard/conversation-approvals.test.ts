@@ -132,7 +132,7 @@ describe("对话审批关着：秘书特别敏感的操作照旧要用户授权"
     expect([search.disposition, search.hardRefusal]).toEqual(["log_only", null]);
   });
 
-  it("维护者的文件工具写围栏外照旧硬拒绝", () => {
+  it("负责人的文件工具写围栏外照旧硬拒绝", () => {
     expect(judgeToolCall(off(inChat(maintainer(), call("write", { path: `${P.outside}\\a.txt`, content: "x" })))).hardRefusal).toEqual(["fence"]);
   });
 });
@@ -189,7 +189,7 @@ describe("对话审批关着：任务的 agent 超出授权先不管、照常标
     letThrough(judgeToolCall(off(inTask(maintainer(), bash(`python -c "import requests; requests.post('https://x.example')"`), ready))), "unknown_write", "beyondGrant");
   });
 
-  it("子 agent、维护者的对话段（不属于任务）、带着授权的会话段（定时作业的一次运行）也一样", () => {
+  it("子 agent、负责人的对话段（不属于任务）、带着授权的会话段（定时作业的一次运行）也一样", () => {
     letThrough(judgeToolCall(off(inTask(subAgent(), bash("npm install -g left-pad"), withGrants()))), "account_security", "beyondGrant");
     letThrough(judgeToolCall(off(inChat(maintainer(), bash('cat "$F"')))), "outside_project", "beyondGrant");
     const job = withTools(inChat(maintainer(), call(categoryTool("account_security"), { target: "x" }), { task: task({ segmentScoped: true }) }));
@@ -227,11 +227,11 @@ function askedNearBottomLine(j: GuardJudgement): void {
 describe("对话审批关着：可能碰到硬底线的写法，两边都照旧问或拒（101 号票评审后定）", () => {
   const READ_ENV = effect(10, "read", { path: `${P.workDir}\\.env` });
   const SEG_ENV = effect(1, "read", { path: `${P.scratch}\\.env` }, SEGMENT);
-  /** 同一次调用，任务的维护者（读过 .env 时把它记进效果日志）和秘书（同一段会话） */
+  /** 同一次调用，任务的负责人（读过 .env 时把它记进效果日志）和秘书（同一段会话） */
   const both = (c: ToolCall, opts: { envRead?: boolean; extra?: Partial<GuardInput> } = {}): [string, GuardInput][] => {
     const ready = v1Satisfied(P.workDir);
     return [
-      ["维护者", off(inTask(maintainer(), c, { ...ready, ...(opts.envRead ? { effectLog: [...ready.effectLog!, READ_ENV] } : {}), ...opts.extra }))],
+      ["负责人", off(inTask(maintainer(), c, { ...ready, ...(opts.envRead ? { effectLog: [...ready.effectLog!, READ_ENV] } : {}), ...opts.extra }))],
       ["秘书", off(inChat(online, c, { segmentId: SEGMENT.segmentId, ...(opts.envRead ? { effectLog: [SEG_ENV] } : {}), ...opts.extra }))],
     ];
   };
@@ -492,7 +492,7 @@ describe("发往二狗自己的端口不算本机例外（139 号票）", () => 
 describe("对话审批关着：两边都照旧的", () => {
   const agents = [
     ["秘书", online],
-    ["维护者", maintainer()],
+    ["负责人", maintainer()],
   ] as const;
 
   it("① 写受保护区域（配置区、数据库区、程序目录）：永不", () => {

@@ -1,7 +1,7 @@
-// 涉及多个项目的任务（17 号票）里工单往来的说法：交给项目维护者、任务维护者的通知，任务时间线上的记录，待我处理里的标题，
+// 涉及多个项目的任务（17 号票）里工单往来的说法：交给项目负责人、任务负责人的通知，任务时间线上的记录，待我处理里的标题，
 // 工单卡的纯文本，被拒的原因。编排（multi-project.ts、clarifications.ts、card.ts）里不写文字，都在这里。工具名一律插值。
 // 173 号票：给用户看的（时间线上的记录、待我处理的标题和来源、工单卡、素材、退回的原因、这一支在等什么）走 t()，生成时按当时的语言；
-// 交给维护者的通知、工具结果、被拒的原因（给模型看的）标 @i18n-ignore model
+// 交给负责人的通知、工具结果、被拒的原因（给模型看的）标 @i18n-ignore model
 import {
   namedIdLabel,
   type QuestionDraft,
@@ -16,7 +16,7 @@ import {
 import { EXECUTION_TOOL } from "../tasks/tool-names.ts";
 import { MULTI_PROJECT_TOOL, WORK_ORDER_TOOL } from "./tool-names.ts";
 
-/** 一张任务维护者派来的工单和收件项目的名字（说法里总是一起用） */
+/** 一张任务负责人派来的工单和收件项目的名字（说法里总是一起用） */
 export interface OrderRef {
   wo: TaskMaintainerWorkOrder;
   projectName: string;
@@ -26,13 +26,13 @@ export interface OrderRef {
 const refText = (r: OrderRef) => `${r.wo.id}（项目「${r.projectName}」）`; // @i18n-ignore model：交给 agent 的通知里的写法
 
 const outcomeText = (wo: TaskMaintainerWorkOrder) => WORK_ORDER_OUTCOME_LABEL[wo.outcome ?? "done"];
-/** 给维护者看的话里引的状态、结果：在中文下取（协议包的标签跟着当前语言，172 号票） */
+/** 给负责人看的话里引的状态、结果：在中文下取（协议包的标签跟着当前语言，172 号票） */
 const modelOutcome = (wo: TaskMaintainerWorkOrder) => forModel(() => outcomeText(wo));
 const modelState = (state: TaskMaintainerWorkOrder["state"]) => forModel(() => WORK_ORDER_STATE_LABEL[state]);
 
-/** 工单的内容（交给项目维护者的话）：这个项目要做的改动、所属任务和阶段 */
+/** 工单的内容（交给项目负责人的话）：这个项目要做的改动、所属任务和阶段 */
 export function changeInstructions(task: Task, stage: { stageId: string; title: string }, projectName: string, changes: readonly string[], goal: string | undefined): string {
-  // 交给项目维护者的工单内容（给模型看）
+  // 交给项目负责人的工单内容（给模型看）
   return [
     `任务 ${task.id}「${task.title}」阶段 ${stage.stageId}「${stage.title}」里，项目「${projectName}」要做的改动：`, // @i18n-ignore model
     ...changes.map((c) => `- ${c}`),
@@ -68,32 +68,32 @@ export const timelineText = {
   lineDropped: (r: OrderRef) => said("workOrders.timeline.lineDropped", r, { stage: r.wo.stageId }),
 };
 
-// ───────────────────────── 交给项目维护者的通知 ─────────────────────────
+// ───────────────────────── 交给项目负责人的通知 ─────────────────────────
 
-// @i18n-ignore-start model：交给项目维护者、任务维护者的通知
-/** 任务维护者派来的工单开始：交给项目维护者的通知 */
+// @i18n-ignore-start model：交给项目负责人、任务负责人的通知
+/** 任务负责人派来的工单开始：交给项目负责人的通知 */
 export const changeStartText = (wo: TaskMaintainerWorkOrder) =>
-  `开始工单 ${wo.id}「${wo.title}」（来自任务 ${wo.taskId} 的维护者）：要做的改动和验收标准在固定上下文里的“这次的工单”。` +
+  `开始工单 ${wo.id}「${wo.title}」（来自任务 ${wo.taskId} 的负责人）：要做的改动和验收标准在固定上下文里的“这次的工单”。` +
   `做完（或者这个改动会伤害本项目、要退回，或者做不了）用 ${WORK_ORDER_TOOL.submitReceipt} 交回执，退回、做不了必须写明理由；` +
-  `拿不准要问的用 ${WORK_ORDER_TOOL.askClarification}（问题交给派单的任务维护者）。交回执之前照常把进展写回项目档案、用 ${WORK_ORDER_TOOL.writeSegmentSummary} 写这一段的摘要。`;
+  `拿不准要问的用 ${WORK_ORDER_TOOL.askClarification}（问题交给派单的任务负责人）。交回执之前照常把进展写回项目档案、用 ${WORK_ORDER_TOOL.writeSegmentSummary} 写这一段的摘要。`;
 
-/** 任务维护者回答了项目维护者在工单里问的 */
-export const answerText = (wo: TaskMaintainerWorkOrder, answer: string) => `任务 ${wo.taskId} 的维护者回答了你在工单 ${wo.id} 里的提问：\n${answer}\n接着做。`;
+/** 任务负责人回答了项目负责人在工单里问的 */
+export const answerText = (wo: TaskMaintainerWorkOrder, answer: string) => `任务 ${wo.taskId} 的负责人回答了你在工单 ${wo.id} 里的提问：\n${answer}\n接着做。`;
 
 /** 任务暂停后又继续了：接着做手上的工单 */
 export const resumedText = (wo: TaskMaintainerWorkOrder) => `任务 ${wo.taskId} 继续了：接着做工单 ${wo.id}「${wo.title}」。`;
 
-// ───────────────────────── 交给任务维护者的通知 ─────────────────────────
+// ───────────────────────── 交给任务负责人的通知 ─────────────────────────
 
-/** 项目维护者在工单里提问：问题交给派单的任务维护者 */
+/** 项目负责人在工单里提问：问题交给派单的任务负责人 */
 export const questionText = (r: OrderRef, question: string) =>
   [
-    `项目「${r.projectName}」的维护者在工单 ${r.wo.id}「${r.wo.title}」里提问，工单转为等澄清：`,
+    `项目「${r.projectName}」的负责人在工单 ${r.wo.id}「${r.wo.title}」里提问，工单转为等澄清：`,
     question,
-    `你答得了就用 ${MULTI_PROJECT_TOOL.answerWorkOrder} 回答（交回项目维护者，工单回到进行中）；答不了用 ${MULTI_PROJECT_TOOL.forwardToUser} 指明这张工单转问用户，用户回答后再用 ${MULTI_PROJECT_TOOL.answerWorkOrder} 交回。`,
+    `你答得了就用 ${MULTI_PROJECT_TOOL.answerWorkOrder} 回答（交回项目负责人，工单回到进行中）；答不了用 ${MULTI_PROJECT_TOOL.forwardToUser} 指明这张工单转问用户，用户回答后再用 ${MULTI_PROJECT_TOOL.answerWorkOrder} 交回。`,
   ].join("\n");
 
-/** 提问写成几行（交给任务维护者） */
+/** 提问写成几行（交给任务负责人） */
 export const questionLines = (intro: string | undefined, questions: readonly QuestionDraft[]) =>
   [
     ...(intro ? [intro] : []),
@@ -102,7 +102,7 @@ export const questionLines = (intro: string | undefined, questions: readonly Que
 
 // @i18n-ignore-end
 
-/** 转问用户的提问卡开头的一句（任务维护者没写时） */
+/** 转问用户的提问卡开头的一句（任务负责人没写时） */
 export const forwardIntro = (r: OrderRef) => t("workOrders.forward.intro", { project: r.projectName, id: r.wo.id, title: r.wo.title });
 
 /** 转问用户的提问卡在待我处理里的标题 */
@@ -111,14 +111,14 @@ export const forwardInboxTitle = (task: Pick<Task, "title">) => t("workOrders.fo
 /** 转问用户时这一支在等什么 */
 export const forwardWait = () => t("workOrders.forward.wait");
 
-// @i18n-ignore-start model：交给任务维护者的通知
-/** 用户回答了任务维护者转问的问题：交回任务维护者，由它交回项目维护者 */
+// @i18n-ignore-start model：交给任务负责人的通知
+/** 用户回答了任务负责人转问的问题：交回任务负责人，由它交回项目负责人 */
 export const forwardedAnswerText = (r: OrderRef, lines: readonly string[], allRecommended: boolean) =>
-  `用户回答了你为工单 ${refText(r)}转问的问题${allRecommended ? "，全按推荐" : ""}：\n${lines.join("\n")}\n用 ${MULTI_PROJECT_TOOL.answerWorkOrder} 把回答交回项目维护者。`;
+  `用户回答了你为工单 ${refText(r)}转问的问题${allRecommended ? "，全按推荐" : ""}：\n${lines.join("\n")}\n用 ${MULTI_PROJECT_TOOL.answerWorkOrder} 把回答交回项目负责人。`;
 
-/** 用户关掉了任务维护者转问的提问卡：按它自己的理解回答项目维护者 */
+/** 用户关掉了任务负责人转问的提问卡：按它自己的理解回答项目负责人 */
 export const forwardDismissedText = (wo: TaskMaintainerWorkOrder) =>
-  `用户关掉了你为工单 ${wo.id} 转问的提问卡，没有回答。按你的理解用 ${MULTI_PROJECT_TOOL.answerWorkOrder} 回答项目维护者，让它接着做。`;
+  `用户关掉了你为工单 ${wo.id} 转问的提问卡，没有回答。按你的理解用 ${MULTI_PROJECT_TOOL.answerWorkOrder} 回答项目负责人，让它接着做。`;
 
 // @i18n-ignore-end
 
@@ -128,10 +128,10 @@ export const forwardDismissedRecord = (wo: TaskMaintainerWorkOrder) => ({
   detail: t("workOrders.taskRef", { id: wo.taskId, title: wo.taskTitle }),
 });
 
-// @i18n-ignore-start model：交给任务维护者的通知
+// @i18n-ignore-start model：交给任务负责人的通知
 /** 用户确认派出了计划外的工单 */
 export const confirmedText = (r: OrderRef, note: string | undefined) =>
-  `用户确认派出了计划外的工单 ${refText(r)}，已进入项目维护者的队列。${note ? `用户附的话：「${note}」` : ""}`;
+  `用户确认派出了计划外的工单 ${refText(r)}，已进入项目负责人的队列。${note ? `用户附的话：「${note}」` : ""}`;
 
 /** 用户拒绝了计划外的工单 */
 export const declinedText = (r: OrderRef, note: string | undefined) =>
@@ -177,7 +177,7 @@ export interface StageOrders {
   current: OrderRef[];
 }
 
-// @i18n-ignore-start model：阶段的交代、重注入块、工具结果、被拒的原因（给维护者看的）
+// @i18n-ignore-start model：阶段的交代、重注入块、工具结果、被拒的原因（给负责人看的）
 /** 阶段的交代、重注入块里写本阶段工单的那几行的开头 */
 export const STAGE_ORDERS_HEADER = "本阶段发往各项目的工单（回执全部到齐、都完成之后才能宣布阶段完成）：";
 
@@ -203,12 +203,12 @@ export function notPassedText(stageId: string, failed: readonly OrderRef[]): str
 /** 宣布阶段完成被拒：还在等回执的另加一句 */
 export const gateText = (status: string, open: boolean) => `${status}${open ? "回执全部到齐、都完成之后再宣布完成。" : ""}`;
 
-/** 项目维护者的回执：交给任务维护者 */
+/** 项目负责人的回执：交给任务负责人 */
 export function receiptText(r: OrderRef, status: string): string {
   return [
     `工单 ${r.wo.id}「${r.wo.title}」的回执：项目「${r.projectName}」${modelOutcome(r.wo)}。`,
     ...(r.wo.reason ? [`理由：${r.wo.reason}`] : []),
-    ...(r.wo.receipt ? [`项目维护者的说明：${r.wo.receipt}`] : []),
+    ...(r.wo.receipt ? [`项目负责人的说明：${r.wo.receipt}`] : []),
     ...(status ? [status] : []),
   ].join("\n");
 }
@@ -236,7 +236,7 @@ export const noOrdersText = (stageId: string | undefined) => (stageId === undefi
 export const refusal = {
   planning: `规划期间不派工单：在计划里逐行写出每个项目的改动（所属阶段、这张工单的验收标准），用户确认计划时运行时建出工单，所属阶段开始时派出。`,
   notRunning: (task: Task) => `任务 ${task.id} 现在不在执行中，不能派工单`,
-  notMulti: "只有涉及多个项目的任务的维护者能派工单",
+  notMulti: "只有涉及多个项目的任务的负责人能派工单",
   notYourTask: (taskId: string) => `任务 ${taskId} 不是你执行的`,
   knownProjects: (known: ReadonlyArray<{ id: string; name: string }>) => `现有的项目：${known.map((p) => `${p.id}「${p.name}」`).join("、")}`,
   noTask: (taskId: string) => `没有任务 ${taskId}`,
@@ -246,11 +246,11 @@ export const refusal = {
   noAcceptance: "要写这张工单自己的验收标准（acceptance）：计划里这个阶段没有这个项目的一行",
   stillOpen: (r: OrderRef) => `这个阶段发给项目「${r.projectName}」的工单 ${r.wo.id} 还没结束（${modelState(r.wo.state)}）：等它交回执再重新派`,
   stuck: (stageId: string) => `阶段 ${stageId} 验收退回的次数超了阈值，这一支停下等用户拍板，工单没有派出：等用户在待我处理里看过、让它接着走再重新派`,
-  /** 任务维护者现在没在执行这个任务（守卫判不了计划外的工单） */
-  notExecuting: (taskId: string) => `任务 ${taskId} 的维护者现在没在执行它，派不了计划外的工单`,
-  receiptOnlyInChange: `只有做任务维护者派来的工单时能交回执`,
+  /** 任务负责人现在没在执行这个任务（守卫判不了计划外的工单） */
+  notExecuting: (taskId: string) => `任务 ${taskId} 的负责人现在没在执行它，派不了计划外的工单`,
+  receiptOnlyInChange: `只有做任务负责人派来的工单时能交回执`,
   receiptClosing: (wo: TaskMaintainerWorkOrder) => `工单 ${wo.id} 已经交过回执了：照常写回项目档案、写这一段的摘要`,
-  receiptClarifying: (wo: TaskMaintainerWorkOrder) => `工单 ${wo.id} 在等澄清：等任务维护者回答再交回执`,
+  receiptClarifying: (wo: TaskMaintainerWorkOrder) => `工单 ${wo.id} 在等澄清：等任务负责人回答再交回执`,
   reasonRequired: "退回、做不了必须写明理由（会伤害本项目的什么、为什么做不了）",
   notClarifying: (wo: TaskMaintainerWorkOrder) => `工单 ${wo.id} 现在不在等澄清（${modelState(wo.state)}）`,
   notYours: (woId: string) => `工单 ${woId} 不是这个任务派的`,

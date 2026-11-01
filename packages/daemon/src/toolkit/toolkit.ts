@@ -4,11 +4,11 @@
 // - 装配：skill 名单经 skill 库解析成目录（宿主协议的 skillPaths），MCP 名单变成守护进程代为执行的 MCP 工具（mcp/）；
 // - 工具包里的 skill 只能从 skill 库里选、MCP 只能选登记了的（nameProblems：改工具包、提交计划、计划变更、自行调整都查）；
 // - 用户在项目页、任务详情里直接改（set_toolkit 请求）：扩大、减少都直接写进工具包，不出计划变更卡；
-// - 维护者自己增减 skill（ADJUST_SKILLS_TOOL）：写进它所在的那一层（任务里的只改任务，不改项目），记进时间线；
+// - 负责人自己增减 skill（ADJUST_SKILLS_TOOL）：写进它所在的那一层（任务里的只改任务，不改项目），记进时间线；
 //   可以写集合名整套增减（72 号票：比如 pstack，展开成它的全部成员；工具包里记的始终是 skill 名）；
-// - 维护者要开 bash、加 MCP、开联网：在任务里只能提交计划变更（14 号票，卡上列出"工具包变更"）；不在任务里时（项目维护者的对话段）
+// - 负责人要开 bash、加 MCP、开联网：在任务里只能提交计划变更（14 号票，卡上列出"工具包变更"）；不在任务里时（项目负责人的对话段）
 //   用 REQUEST_TOOLKIT_CHANGE_TOOL 提交一张"工具包变更"卡进待我处理，批准后加进项目的工具包，拒绝则不变；减少能力随时可以，直接生效；
-// - 工具包变了（不论谁改的）：项目、任务的事件落盘后，维护者模块按新工具包重新装配会话（等它做完手头这一步，接着原会话干）。
+// - 工具包变了（不论谁改的）：项目、任务的事件落盘后，负责人模块按新工具包重新装配会话（等它做完手头这一步，接着原会话干）。
 // 用户的批准、拒绝、直接改都是"审批决定"素材（toolkit_decided，material-source.ts）。给人和模型看的话在 texts.ts。
 import {
   capabilityText,
@@ -51,7 +51,7 @@ export { ADJUST_SKILLS_TOOL, REQUEST_TOOLKIT_CHANGE_TOOL } from "./tool-names.ts
 /** 守护进程内部的 toolkits 频道（前端不订阅）：工具包的审批决定（素材的来源） */
 export const TOOLKITS_CHANNEL = "toolkits";
 
-/** 维护者增减 skill 时改的是谁的工具包：执行中的任务（只改任务这一层），或项目（对话段） */
+/** 负责人增减 skill 时改的是谁的工具包：执行中的任务（只改任务这一层），或项目（对话段） */
 export type SkillTarget = { kind: "task"; scope: MaintainerScope } | { kind: "project"; projectId: string; maintainerId: string };
 
 export interface ToolkitServiceOptions {
@@ -89,9 +89,9 @@ export interface ToolkitService {
    * 任务的当场改好（执行控制器自己追加）。已经有了 changed 是 false；不能改的（项目归档了、任务结束了）抛 RequestRejected
    */
   addSkill(target: { kind: "project"; projectId: string } | { kind: "task"; taskId: string }, name: string, why: string): { changed: boolean; events: NewEvent[] };
-  /** 维护者增减 skill 的工具 */
+  /** 负责人增减 skill 的工具 */
   skillTool(target: SkillTarget): HostTool;
-  /** 项目维护者不在任务里时申请加能力（出"工具包变更"卡）、减少能力（直接生效）的工具 */
+  /** 项目负责人不在任务里时申请加能力（出"工具包变更"卡）、减少能力（直接生效）的工具 */
   requestTool(projectId: string, maintainerId: string): HostTool;
   /** "工具包变更"卡上的批准、拒绝 */
   decide(payload: ToolkitChangeCardPayload, cardId: string, decision: "approved" | "denied", note: string | undefined, idempotencyKey: string): CardActionEffect<ToolkitChangeCardPayload>;

@@ -1,6 +1,6 @@
 /**
- * 会话组件：秘书聊天、任务和项目的维护者会话共用这一个。
- * 维护者会话多出工单分隔线（work_order_divider part）、阶段抽屉（由外面的任务详情放在会话上方或左侧）
+ * 会话组件：秘书聊天、任务和项目的负责人会话共用这一个。
+ * 负责人会话多出工单分隔线（work_order_divider part）、阶段抽屉（由外面的任务详情放在会话上方或左侧）
  * 和直接下指令的输入框；输入框左边的"＋"附件菜单（含"作为材料投喂"，见 Composer.tsx）143 号票起三处都有。
  *
  * 54 号票起是一镜到底的缩放（规格第 19 节"会话区"，ui/zoom/ZoomHistory.tsx）：双指捏合、Ctrl/⌘ + 滚轮、
@@ -14,8 +14,8 @@
  * 32 号票起：用语音回复的那一轮，会话末尾标一行"正在回复…"（回复的文字不流式显示）；合成语音时标"正在合成语音…"。
  * 38 号票起分段合成：第一段到了，"正在合成语音…"换成合成中的语音气泡（时长随已到的段增长，能边收边播），合成完了换成那条语音消息。
  * 36 号票起：挂着时登记"开着这个会话"，新到的 agent 语音只在开着的会话里自动播放（app/voice-autoplay.ts）。
- * 55 号票起：缩小后条外的装饰——右侧标注的 ×N、左侧任务卡或工单卡（点开看完整情况）、底色带（任务的维护者会话按任务、
- * 项目维护者的会话按工单段、秘书主线按天）、长程任务每个阶段一轮一段的书脊；数据由状态层的 zoomDecor 给，画法在 ZoomHistory。
+ * 55 号票起：缩小后条外的装饰——右侧标注的 ×N、左侧任务卡或工单卡（点开看完整情况）、底色带（任务的负责人会话按任务、
+ * 项目负责人的会话按工单段、秘书主线按天）、长程任务每个阶段一轮一段的书脊；数据由状态层的 zoomDecor 给，画法在 ZoomHistory。
  * 91 号票起：长程任务的会话（stageChat）按阶段成框——你说的、Agent 说的、计划和出错照常显示，其余每个阶段收成一个框
  * （状态层 stageBoxes 给，框怎么画在 StageBox.tsx，三档里怎么摆在 ZoomHistory），框上"验收和规则 ›"
  * 经 onStage 打开阶段详情。
@@ -117,12 +117,12 @@ interface ConversationProps {
   onDetail?: ((id: string) => void) | undefined;
   /** 会话历史的句柄（useConversationPane 给的）：标题栏的 ▤ / 💬、详情页的"在对话中定位"经它 */
   ref: RefObject<ConversationHandle | null>;
-  /** 只读（比如已归档项目的维护者会话）：不显示输入框 */
+  /** 只读（比如已归档项目的负责人会话）：不显示输入框 */
   readOnly?: boolean;
   /** 只读时在输入框的位置显示的说明 */
   readOnlyNote?: string;
   /**
-   * 在哪个任务的详情里（75 号票）：发的话带上它——项目的维护者的会话里同时有几件事，项目内部的普通任务做完了在它的详情里接着说，
+   * 在哪个任务的详情里（75 号票）：发的话带上它——项目的负责人的会话里同时有几件事，项目内部的普通任务做完了在它的详情里接着说，
    * 守护进程据此认出说的是这件事、让它接着做。别的会话不用给
    */
   taskId?: string | undefined;
@@ -195,7 +195,7 @@ function ConversationView({
   const onReorderQueued = useCallback((ids: string[]) => reorderQueued(conversation, ids), [reorderQueued, conversation]);
   // 开着这个会话：新到的 agent 语音只在开着的会话里自动播放（36 号票）
   useOpenConversation(conversation);
-  // 维护者用的运行时不支持的（289 号票：Claude Code 还不能撤回、切换分支）：不放这些按钮
+  // 负责人用的运行时不支持的（289 号票：Claude Code 还不能撤回、切换分支）：不放这些按钮
   const runtimes = useRuntimes();
   const runtime = conversationRuntime(ui, conversation);
   const canRollback = runtimeSupports(runtimes, runtime, "rollback");
@@ -372,7 +372,7 @@ function ConversationView({
         onDetail={onDetail}
         boxes={boxes}
         onStage={onStage}
-        // 会话回退（150 号票）：只读的会话（详情页里看的）不能回退；维护者用的运行时不能撤回的（289 号票）也不放
+        // 会话回退（150 号票）：只读的会话（详情页里看的）不能回退；负责人用的运行时不能撤回的（289 号票）也不放
         rollbackIn={readOnly || !canRollback ? undefined : conversation}
         branches={branches}
         currentBranch={currentBranch(ui, conversation)}
@@ -452,7 +452,7 @@ export function useConversationPane(wide: boolean, conversation: ConversationId 
 /**
  * 标题栏的 ▤ / 💬：对话层显示 ▤，点了缩到全局层；缩小后显示 💬，点了回到对话层。
  * 122 号票起两个符号换成共用的线条图标（ui/icons.tsx 的 overview、chat），按钮照旧靠 aria-label 说清是什么。
- * onlyZoomedOut：任务的维护者会话在对话层不显示，缩小后才出现（用户 2026-10-09 定）；秘书和项目会话一直显示
+ * onlyZoomedOut：任务的负责人会话在对话层不显示，缩小后才出现（用户 2026-10-09 定）；秘书和项目会话一直显示
  */
 export function ZoomToggle({ handle, onlyZoomedOut = false }: { handle: RefObject<ConversationHandle | null>; onlyZoomedOut?: boolean | undefined }) {
   const level = useZoomLevel();

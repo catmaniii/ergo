@@ -17,7 +17,7 @@ export type TokenCounts = Static<typeof TokenCounts>;
 export const LedgerOwner = Type.Object({ kind: Type.Enum(LEDGER_OWNER_KINDS), id: Type.String() });
 export type LedgerOwner = Static<typeof LedgerOwner>;
 
-/** 某个名下按 agent 分的一行：维护者、评审子 agent、并行子 agent 各一行；范围审视、压缩的用量各另占一行（purpose） */
+/** 某个名下按 agent 分的一行：负责人、评审子 agent、并行子 agent 各一行；范围审视、压缩的用量各另占一行（purpose） */
 export const TokenAgentRow = Type.Object({
   agentId: Type.String(),
   role: Type.Enum(LEDGER_ROLES),

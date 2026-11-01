@@ -349,7 +349,7 @@ describe("鸿蒙 App 的内置浏览器（182 号票）", () => {
     expect(middle).toContain("那一轮的顺序是 DeepSeek → 鸿蒙 App 的内置浏览器 → 浏览器 → agent-browser：不填 engine 时 web_search 只试 DeepSeek，没成就停下、给出搜索结果页的地址");
     const last = webSearchDescription({ queue: FOUR, tavily: false }, true, true);
     expect(last).toContain("那一轮的顺序是 DeepSeek → 浏览器 → agent-browser → 鸿蒙 App 的内置浏览器：它排在后面，前面的都没成时再用（web_search 停下时会写明，给出搜索结果页的地址）");
-    // 维护者这类没有 browse_* 工具的：顺序里不写它，也不提
+    // 负责人这类没有 browse_* 工具的：顺序里不写它，也不提
     const maintainer = webSearchDescription({ queue: ["app-browser", "deepseek", "browser", "agent-browser"], tavily: false }, true);
     expect(maintainer).toContain("用户在设置里排的联网搜索顺序：DeepSeek → 浏览器 → agent-browser，排前面的先用。");
     expect(maintainer).not.toMatch(/内置浏览器|browse_/);

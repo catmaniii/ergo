@@ -8,8 +8,8 @@
 //   通用 bash 的命令里不拼值：占位换成引用环境变量（shellCommandWithVars，ERGO_EVENT_<第几个事件>_<字段>，按占位所在的引号换成
 //   "${X}"、${X} 或 '"${X}"'），值放进这次运行 bash 的环境变量（eventShellEnv，经 JobRunAssembly.shellEnv 交给拉起的 agent）——
 //   文件名里有引号、$、反引号、换行、{{ 都改变不了命令的意思，路径也不会多出字符。守卫拆命令时按同一份值展开这些变量（guard/paths.ts 的
-//   agentShellEnv），看到的路径和真正跑的一样。交给维护者的步骤、守卫逐步比对的步骤都是代入之后的，59 号票的核对按代入后的值比；
-// - 执行时按执行它的维护者现取代入后的路径的真实路径、推出授权项：workflow-plan.ts 的 boundRunWorkflow（和规划时同一套办法）。
+//   agentShellEnv），看到的路径和真正跑的一样。交给负责人的步骤、守卫逐步比对的步骤都是代入之后的，59 号票的核对按代入后的值比；
+// - 执行时按执行它的负责人现取代入后的路径的真实路径、推出授权项：workflow-plan.ts 的 boundRunWorkflow（和规划时同一套办法）。
 import { EVENT_PLACEHOLDER_PATTERN, type EventFieldDescriptor, eventFieldNamed, eventPassStepId, eventPlaceholdersIn, eventSourceOf, eventValueOf, eventValueText, substituteEventValues, t, type TriggerEvent, type WorkflowPlanDraft, type WorkflowStepView } from "@ergo/protocol";
 import { withOldEnvNames } from "../config/old-names.ts";
 import { isUnknownArg, TOOL } from "../guard/index.ts";
@@ -20,9 +20,9 @@ export function stepEventValues(step: { title: string; args?: Readonly<Record<st
 }
 
 /**
- * 交来的流程计划里的占位对不对（不对的原因，交回维护者）：fields 是这个流程等的事件带的字段（不是事件触发的流程是 undefined：一个占位都不能写）
+ * 交来的流程计划里的占位对不对（不对的原因，交回负责人）：fields 是这个流程等的事件带的字段（不是事件触发的流程是 undefined：一个占位都不能写）
  */
-// @i18n-ignore-start model：交回维护者
+// @i18n-ignore-start model：交回负责人
 export function draftEventProblems(draft: WorkflowPlanDraft, fields: readonly EventFieldDescriptor[] | undefined): string[] {
   const problems: string[] = [];
   for (const step of draft.steps) {

@@ -1,9 +1,9 @@
 // 主切面：Claude Code 会话的撤回和分支（293 号票，issue 24 第三节丙类）。真的守护进程走组合根和插件清单，清单里的 Claude Code 插件经 extraPlugins
 // 换成子进程接假 SDK 的那个（helpers/fake-claude-code.ts：运行时、适配子进程、撤回的分叉和文件恢复都是真的代码；SDK 按 faux 剧本扮演 claude，
 // 会话记录、forkSession、getSessionMessages、文件检查点是 helpers/fake-claude-sdk.ts 的 FakeClaudeStore），不启动真的 claude、不花额度、
-// 不碰用户真实的 ~/.claude（守护进程的主目录是临时的）。测试扮演前端，项目「家庭网盘」的维护者用 Claude Code：
+// 不碰用户真实的 ~/.claude（守护进程的主目录是临时的）。测试扮演前端，项目「家庭网盘」的负责人用 Claude Code：
 // - ↶ 撤回到"把照片目录整理一下"之前：对话从那条之前分叉出一个新的 Claude 会话接着用（下一轮 Claude 看到的主线里没有被放弃的那段、接着的是新会话），
-//   那条之后 Claude 用 Write 写的文件按检查点恢复了（文件没了，分支摘要上记着恢复了哪个文件）；分支摘要是二狗用维护者的二狗模型（faux 扮演）
+//   那条之后 Claude 用 Write 写的文件按检查点恢复了（文件没了，分支摘要上记着恢复了哪个文件）；分支摘要是二狗用负责人的二狗模型（faux 扮演）
 //   按自己记下的事件另起一次写的——写进时间线（新分支开头那条分支摘要）、记账（purpose: branch_summary）、交给了新会话的下一轮（钩子的 additionalContext）；
 // - 切回废弃分支：接着撤回前的那个 Claude 会话（主线里又是被放弃的那段）；
 // - 能力清单：撤回、切分支能做，分支摘要不是它自己写的，撤回时恢复文件。
@@ -49,7 +49,7 @@ const echo: FauxStep = { kind: "echo_context" };
 const messagesOf = (frontend: TestFrontend) => frontend.events({ channel: PM, type: EVENT_TYPES.message }).map((f) => f.payload as MessageEventPayload);
 const textOf = (parts: readonly MessagePart[]) => parts.map((p) => ("text" in p ? p.text : "")).join("");
 const turnEnds = (frontend: TestFrontend) => frontend.events({ channel: PM, type: EVENT_TYPES.turnEnd }).length;
-const waitTurns = (frontend: TestFrontend, n: number) => waitUntil(() => turnEnds(frontend) >= n, { timeoutMs: 60_000, describe: () => `等维护者处理完 ${n} 条输入（现在 ${turnEnds(frontend)}）` });
+const waitTurns = (frontend: TestFrontend, n: number) => waitUntil(() => turnEnds(frontend) >= n, { timeoutMs: 60_000, describe: () => `等负责人处理完 ${n} 条输入（现在 ${turnEnds(frontend)}）` });
 /** 会话里最近一条 echo_context 的回显（agent 的回复是那段 JSON） */
 const lastEcho = (frontend: TestFrontend): FakeClaudeEcho => {
   const text = messagesOf(frontend)
@@ -65,7 +65,7 @@ const ok = <T>(r: ResponseFrame): T => {
   if (!r.ok) throw new Error(`请求失败：${r.error.code} ${r.error.message}`);
   return r.result as T;
 };
-/** 假 SDK 存在维护者会话目录里的会话记录（分叉、恢复过哪些） */
+/** 假 SDK 存在负责人会话目录里的会话记录（分叉、恢复过哪些） */
 const storeOf = (td: TestDaemon) => FakeClaudeStore.load(path.join(dataDirLayout(td.dataDir).sessions, "pm-1", FAKE_CLAUDE_STORE));
 const usageOf = (td: TestDaemon) => td.daemon.store.read(LEDGER_CHANNEL, 0, TOKEN_USAGE_EVENT).map((e) => e.payload as TokenUsagePayload);
 
@@ -130,7 +130,7 @@ describe("Claude Code 会话的撤回和分支（假 SDK）", () => {
     expect(before.messages(fork!.from).find((m) => m.uuid === fork!.upTo)?.type).toBe("assistant");
     expect(after.rewinds.map((r) => [r.session, r.files])).toEqual([[fork!.from, [index]]]);
 
-    // 分支摘要：二狗写的，写进时间线（新分支开头那一条），上面记着恢复了哪个文件；那次调用记账（purpose: branch_summary，记在维护者名下）
+    // 分支摘要：二狗写的，写进时间线（新分支开头那一条），上面记着恢复了哪个文件；那次调用记账（purpose: branch_summary，记在负责人名下）
     const summary = messagesOf(frontend).find((m) => m.message.id === result.summaryMessageId)!;
     const part = summary.message.parts.find((p): p is BranchSummaryPart => p.type === "branch_summary")!;
     expect(part).toMatchObject({ branchId: "b1", summary: SUMMARY, files: { restored: [index] } });

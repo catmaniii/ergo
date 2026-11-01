@@ -1,7 +1,7 @@
-// 流程（58 号票）交给维护者的话：开始执行的说明（授权之后的那段：审查改过计划的，
+// 流程（58 号票）交给负责人的话：开始执行的说明（授权之后的那段：审查改过计划的，
 // 要照改过之后的版本做，插进来的步骤也要做）、完成时的说明、重注入块（每次唤起和每次压缩之后注入：计划的步骤、
 // 每一步的状态和条件、边界）。纯函数。
-// @i18n-ignore-file model：都交给维护者，照旧中文（导出的包一层 forModel，用到的协议包说法也取中文；172 号票）
+// @i18n-ignore-file model：都交给负责人，照旧中文（导出的包一层 forModel，用到的协议包说法也取中文；172 号票）
 import { forModel, type PlanToolkit, type Task, TASK_STATE_LABEL, TASK_WAIT_REASON_LABEL, WORKFLOW_STEP_ICON, WORKFLOW_STEP_STATE_LABEL, type WorkflowPlan } from "@ergo/protocol";
 import { toolkitText } from "./context-block.ts";
 import { EXECUTION_TOOL, WORKFLOW_TOOL } from "./tool-names.ts";
@@ -12,7 +12,7 @@ import { onceAtNote } from "./plain.ts";
 /** 每开始一步、做完一步怎么汇报 */
 export const REPORT_STEP_RULE = `每开始一个步骤调用 ${WORKFLOW_TOOL.reportStep}(status="in_progress")，完成后调用 ${WORKFLOW_TOOL.reportStep}(status="done", gist=一句话要点)。一个步骤可包含多次同类工具调用（如删多个文件、给多人发消息）。明说不做的步骤用 ${WORKFLOW_TOOL.reportStep}(status="skipped", gist=原因)。`;
 
-/** 每一步要满足的条件（交给维护者的说明里列出来；没有条件的步骤不列） */
+/** 每一步要满足的条件（交给负责人的说明里列出来；没有条件的步骤不列） */
 function conditionsText(plan: WorkflowPlan): string[] {
   const lines = plan.steps.flatMap((s) => stepConditionLines(s).map((c) => `- ${s.id}：${c}`));
   return lines.length === 0 ? [] : ["每一步要满足的条件（执行时守卫照样检查）：", ...lines];

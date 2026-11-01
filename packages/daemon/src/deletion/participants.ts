@@ -41,7 +41,7 @@ export interface ProjectDeletionSubject {
   readonly project: Project;
 }
 
-/** 删任务（186 号票）：复查过的这个任务、它自己的维护者会话（任务自己的维护者、迁移来的作业维护者；不是它自己的 undefined）、它的 agent（自己的维护者和子 agent） */
+/** 删任务（186 号票）：复查过的这个任务、它自己的负责人会话（任务自己的负责人、迁移来的作业负责人；不是它自己的 undefined）、它的 agent（自己的负责人和子 agent） */
 export interface TaskDeletionSubject {
   readonly task: Task;
   readonly conversation: string | undefined;

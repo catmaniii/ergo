@@ -120,7 +120,7 @@ export function archiveListCardType(deps: { tasks: TaskService; execution: () =>
               events.push(...prepared.events);
               afterCommit = prepared.afterCommit;
             } else {
-              // 返工和"从这里重做"同一条路（84 号票）：先停稳维护者手头这一轮再重置，和卡片更新同一事务落盘，落盘后（或没落盘）放开
+              // 返工和"从这里重做"同一条路（84 号票）：先停稳负责人手头这一轮再重置，和卡片更新同一事务落盘，落盘后（或没落盘）放开
               const params = { taskId: task.id, action: "rework" as const, ...(stageId === undefined ? {} : { stageId }), ...note };
               return deps
                 .execution()

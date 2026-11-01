@@ -1,12 +1,12 @@
 // 项目页的布局（纯函数，104 号票，用户 2026-10-12："项目页面也和任务改成类似的风格吧：项目一览全屏显示，点击项目卡片进入全屏的
-// 和项目维护者的对话和详情界面……全屏的项目一览和管理界面的风格要和任务一览和管理界面体现出一定视觉差异"）。照 88 号票任务页的做法：
+// 和项目负责人的对话和详情界面……全屏的项目一览和管理界面的风格要和任务一览和管理界面体现出一定视觉差异"）。照 88 号票任务页的做法：
 // - 项目一览和项目二选一：没点项目时整页是项目一览（宽屏每组排成多列的"档案墙"，窄屏一列），按项目状态分组（使用中、建设中、
 //   筹备中、已停用、已归档；没有项目的组不列），每组标题点一下收起 / 展开，按设备记住，默认已归档收起（照 90 号票的看板分组）；
-//   顶上一条概览（各状态几个、维护者在干活的、进行中的内部任务、定时触发的）；
-// - 宽屏点卡片、从别处跳进来（#/projects/<项目>，也认 …/chat、…/jobs/<作业>）整页是这个项目：和维护者的会话占主区，项目的详情
-//   （项目头、立项书、内部任务、定时触发的、工单流水线、工具包、范围记录、维护者）在会话左边的档案栏里，栏顶 × 整栏藏掉、
+//   顶上一条概览（各状态几个、负责人在干活的、进行中的内部任务、定时触发的）；
+// - 宽屏点卡片、从别处跳进来（#/projects/<项目>，也认 …/chat、…/jobs/<作业>）整页是这个项目：和负责人的会话占主区，项目的详情
+//   （项目头、立项书、内部任务、定时触发的、工单流水线、工具包、范围记录、负责人）在会话左边的档案栏里，栏顶 × 整栏藏掉、
 //   标题栏左边的"项目档案"标签再打开，分界线能拖，开合和宽度按设备记住（照长程任务的阶段栏）；日历里点作业过来时这一次把档案栏打开；
-// - 窄屏照旧：一览 → 项目页（#/projects/<项目>）→ 维护者会话（…/chat）；
+// - 窄屏照旧：一览 → 项目页（#/projects/<项目>）→ 负责人会话（…/chat）；
 // - 从项目回到一览时滚回离开时的位置（宽窄屏一样，照 88 号票用户定的任务看板）。
 import { type ActivityState, isInternalTo, PROJECT_KIND_LABEL, PROJECT_STATE_LABEL, t, UNFINISHED_TASK_STATES } from "./protocol.ts";
 import { foldedOf, foldedText } from "./board-fold.ts";
@@ -19,7 +19,7 @@ export type ProjectGroup = (typeof PROJECT_GROUPS)[number];
 
 /**
  * 项目页现在显示什么：项目一览（宽屏 grid 多列档案墙、窄屏 list 一列），或者一个项目——宽屏 full（会话 + 档案栏，整页），
- * 窄屏 page（项目页）或 chat（维护者会话）。job 是日历里点名的那个定时作业（项目详情里那一行高亮）
+ * 窄屏 page（项目页）或 chat（负责人会话）。job 是日历里点名的那个定时作业（项目详情里那一行高亮）
  */
 export type ProjectPageView = { kind: "wall"; layout: "grid" | "list" } | { kind: "project"; projectId: string; pane: "full" | "page" | "chat"; job?: string };
 
@@ -37,13 +37,13 @@ export interface ProjectCard {
   /** 页签上的种类：开发类、其他；立项书确认之前没有类型，写"类型待定" */
   readonly kindLabel: string;
   readonly stateLabel: string;
-  /** 维护者在干什么（休眠、干活中……） */
+  /** 负责人在干什么（休眠、干活中……） */
   readonly activity: ActivityState;
-  /** 进行中的内部任务（64 号票：维护者在项目里执行的、还没结束的） */
+  /** 进行中的内部任务（64 号票：负责人在项目里执行的、还没结束的） */
   readonly internalOpen: number;
   /** 定时触发的（76 号票：这个项目名下没取消的定时作业） */
   readonly scheduled: number;
-  /** 最近一次动静：项目自己、维护者的活动、内部任务、工单最近一次变化的时间 */
+  /** 最近一次动静：项目自己、负责人的活动、内部任务、工单最近一次变化的时间 */
   readonly lastAt: string;
 }
 
@@ -57,7 +57,7 @@ export interface ProjectWallGroup {
 export interface ProjectOverview {
   /** 各状态几个（使用中、建设中、筹备中、已停用、已归档，一个都没有的也列） */
   readonly states: readonly { readonly state: ProjectGroup; readonly label: string; readonly n: number }[];
-  /** 维护者在干活的项目 */
+  /** 负责人在干活的项目 */
   readonly working: number;
   /** 所有项目进行中的内部任务 */
   readonly internalOpen: number;

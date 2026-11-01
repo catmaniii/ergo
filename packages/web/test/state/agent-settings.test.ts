@@ -131,9 +131,9 @@ describe("上下文用量和现在压缩", () => {
 });
 
 describe("清空当前对话", () => {
-  it("确认框的话：秘书、任务新开一段；项目维护者是重置维护者", () => {
+  it("确认框的话：秘书、任务新开一段；项目负责人是重置负责人", () => {
     expect(AGENT_CLEAR_COPY.new_session.body).toContain("清空后它不记得之前聊过什么，记录照样能看");
-    expect(AGENT_CLEAR_COPY.reset_maintainer.title).toBe("重置维护者？");
+    expect(AGENT_CLEAR_COPY.reset_maintainer.title).toBe("重置负责人？");
   });
 
   it("在等它说完、上次清空（重置）的时间；面板开着时在等清空、在压缩要再取", () => {

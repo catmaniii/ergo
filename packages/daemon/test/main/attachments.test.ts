@@ -205,7 +205,7 @@ describe("用户给秘书发附件", () => {
     });
     await media.upload(url, log, { name: "日志.txt", mime: "text/plain" });
     await media.upload(url, secret, { name: "秘密.txt", mime: "text/plain" });
-    // 别的会话（维护者会话，13 号票才能从前端发消息）里有一个附件：直接往事件日志里追加一条消息来布置
+    // 别的会话（负责人会话，13 号票才能从前端发消息）里有一个附件：直接往事件日志里追加一条消息来布置
     appendMessage(daemon.store, { conversation: maintainerChannel("demo"), speaker: "user", parts: [{ type: "file", mediaId: otherRef, name: "秘密.txt", mime: "text/plain", size: secret.length }] });
 
     const frontend = await TestFrontend.connect(url);

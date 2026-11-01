@@ -1,12 +1,12 @@
-// 主切面：计划变更和自行调整计划（规格第 8 节"计划变更"、第 5 节卡片，14 号票）。真的守护进程，维护者接 faux 剧本。
-// - 维护者提交计划变更（扩大授权、加能力……）：待我处理出现计划变更卡，卡上只列变化的部分；只有受影响的阶段停下等确认，
-//   其余阶段照常推进；用户确认后计划和授权项随之更新，受影响的阶段恢复，工具包变了维护者按新工具包重新拉起；
+// 主切面：计划变更和自行调整计划（规格第 8 节"计划变更"、第 5 节卡片，14 号票）。真的守护进程，负责人接 faux 剧本。
+// - 负责人提交计划变更（扩大授权、加能力……）：待我处理出现计划变更卡，卡上只列变化的部分；只有受影响的阶段停下等确认，
+//   其余阶段照常推进；用户确认后计划和授权项随之更新，受影响的阶段恢复，工具包变了负责人按新工具包重新拉起；
 //   看板上推一条 task_plan（阶段抽屉显示现在生效的计划），时间线上记一笔计划变更；
 // - 改目标、任务的验收标准的计划变更确认后：任务书换成新的一版，重注入块和下一次比较都用新的；
-// - 用户拒绝：维护者在现有授权内重排（revise_plan 自行调整计划，记进时间线、不出卡），做不到就标做不了，任务转等我；
+// - 用户拒绝：负责人在现有授权内重排（revise_plan 自行调整计划，记进时间线、不出卡），做不到就标做不了，任务转等我；
 // - 不扩大授权的调整直接改；借调整扩大授权的被拒，提示改走计划变更；不扩大授权的变更也不出卡，提示直接调整；
 //   同一任务一次只有一张计划变更卡在等；
-// - 收窄工具包的计划变更确认后：维护者按新工具包重新拉起，活着的子 agent 做完手头这一步后按新的交集重新装配（20 号票的 reassemble）；
+// - 收窄工具包的计划变更确认后：负责人按新工具包重新拉起，活着的子 agent 做完手头这一步后按新的交集重新装配（20 号票的 reassemble）；
 // - 阶段编号存进计划（93 号票）：第一版按依赖层定，调整时已有的不变、新加的按所在的阶段给号；看板上的阶段、进度卡写编号。
 import fs from "node:fs";
 import path from "node:path";
@@ -52,7 +52,7 @@ function parallelPlan(): Plan {
   return { ...base, stages: [base.stages[0]!, { ...base.stages[1]!, dependsOn: [] }], toolkit: { ...base.toolkit, network: false } };
 }
 
-/** 维护者交的计划（本任务的关注类别、用户的限制、定时作业、记忆范围沿用当前计划，不写） */
+/** 负责人交的计划（本任务的关注类别、用户的限制、定时作业、记忆范围沿用当前计划，不写） */
 function draftOf(plan: Plan): Record<string, unknown> {
   const { watchCategories: _w, userLimits: _u, memoryScope: _m, ...rest } = plan;
   return rest;
@@ -70,7 +70,7 @@ const propose = (plan: Plan, why: string, extra: Record<string, unknown> = {}): 
 const revise = (plan: Plan, why: string): FauxStep => call("revise_plan", { plan: draftOf(plan), why });
 
 describe("计划变更", () => {
-  it("提交计划变更：出卡（只列变化），只有受影响的阶段停下、其余照常推进；确认后计划和授权更新、受影响的阶段恢复，工具包变了维护者按新工具包重新拉起", async () => {
+  it("提交计划变更：出卡（只列变化），只有受影响的阶段停下、其余照常推进；确认后计划和授权更新、受影响的阶段恢复，工具包变了负责人按新工具包重新拉起", async () => {
     const outside = real(makeTempDir("ergo-out-"));
     const plan = parallelPlan();
     const changed: Plan = { ...withDirGrant(plan, outside), toolkit: { ...plan.toolkit, network: true } };
@@ -126,7 +126,7 @@ describe("计划变更", () => {
     expect(textOf(confirmed)).toContain("工具包已变更");
     expect(textOf(confirmed)).toContain("阶段 s1「收集资料」可以接着做了");
 
-    // 工具包变了：维护者按新工具包重新拉起（第 3 次），新授权内的操作放行
+    // 工具包变了：负责人按新工具包重新拉起（第 3 次），新授权内的操作放行
     await taskWhere(frontend, (e) => e.change === "completed", "任务完成");
     expect(spawns).toContain(3);
     const mkdir = toolCallsOf(frontend, M1).find((c) => c.tool === "bash")!;
@@ -138,7 +138,7 @@ describe("计划变更", () => {
     expect(material.context).toContain("decision:confirmed");
   }, 90_000);
 
-  it("用户拒绝：受影响的阶段交回维护者在现有授权内重排（记进时间线、不出卡）；借调整扩大授权被拒；做不到就标做不了，其余阶段做完后任务转等我", async () => {
+  it("用户拒绝：受影响的阶段交回负责人在现有授权内重排（记进时间线、不出卡）；借调整扩大授权被拒；做不到就标做不了，其余阶段做完后任务转等我", async () => {
     const outside = real(makeTempDir("ergo-out-"));
     const plan = parallelPlan();
     const widened = withDirGrant(plan, outside);
@@ -174,7 +174,7 @@ describe("计划变更", () => {
     expect(textOf(notice)).toContain("「别动外面的目录」");
     expect(textOf(notice)).toContain("revise_plan");
 
-    expect(recordsOf(frontend, M1).find((r) => r.record.kind === "plan_change")?.record.summary).toBe("你拒绝了计划变更（第 2 版），受影响的阶段交回维护者在现有授权内重排");
+    expect(recordsOf(frontend, M1).find((r) => r.record.kind === "plan_change")?.record.summary).toBe("你拒绝了计划变更（第 2 版），受影响的阶段交回负责人在现有授权内重排");
 
     // 自行调整（重排）：不出卡，计划第 3 版直接生效，时间线记一笔（timeline_record：自行调整计划），看板上推现在生效的计划
     const revised = await taskWhere(frontend, (e) => e.change === "plan_revised");
@@ -183,7 +183,7 @@ describe("计划变更", () => {
     expect(td.daemon.tasks.confirmedPlan(taskId)).toMatchObject({ planId: `${taskId}-p3`, revision: 3 });
     expect(td.daemon.tasks.confirmedPlan(taskId)!.plan.stages[1]!.steps).toEqual(["只整理工作目录里已有的资料", "写清单"]);
     const record = await eventually(() => recordsOf(frontend, M1), (r) => r.record.kind === "plan_revision", "时间线上的自行调整记录");
-    expect(record.record.summary).toBe("维护者自行调整了计划（第 3 版，不扩大授权）：先写报告，资料只在工作目录里整理");
+    expect(record.record.summary).toBe("负责人自行调整了计划（第 3 版，不扩大授权）：先写报告，资料只在工作目录里整理");
     expect(record.record.detail).toContain("步骤");
     const effective = await eventually(() => taskPlansOf(frontend), (p) => p.planId === `${taskId}-p3`, "现在生效的计划");
     expect(effective.plan.stages.map((s) => s.stageId)).toEqual(["s2", "s1"]);
@@ -419,7 +419,7 @@ describe("改目标和任务的验收标准", () => {
 });
 
 describe("收窄工具包的计划变更和子 agent", () => {
-  it("确认后维护者按新工具包重新拉起；活着的子 agent 做完手头这一步（当前的工具调用结束）后按新的交集重新装配，接着原来的会话做", async () => {
+  it("确认后负责人按新工具包重新拉起；活着的子 agent 做完手头这一步（当前的工具调用结束）后按新的交集重新装配，接着原来的会话做", async () => {
     const homeDir = makeTempDir("ergo-home-");
     const outside = path.join(homeDir, "参考资料.txt");
     fs.writeFileSync(outside, "参考");
@@ -468,12 +468,12 @@ describe("收窄工具包的计划变更和子 agent", () => {
     const result = await eventually(() => messagesOf(frontend, M1), (m) => m.agentId === "sa-1" && m.message.speaker === "system" && m.agentInput === true, "sa-1 交回的结果");
     const again = requests().filter((r) => r.agentId === "sa-1");
     expect(again).toHaveLength(2);
-    // 联网搜索、读网页每个会话都配（70 号票），和 bash 开关无关；给秘书发消息维护者有它就有（102 号票）
+    // 联网搜索、读网页每个会话都配（70 号票），和 bash 开关无关；给秘书发消息负责人有它就有（102 号票）
     expect(again[1]).toMatchObject({ continueSession: true, hostTools: ["web_search", "web_fetch", "tell_secretary"] });
     expect(again[1]!.tools).not.toContain("bash");
     expect(textOf(result)).toContain("工具包已变更");
-    // 维护者也按新工具包重新拉起（第 3 次：起草、执行、变更之后；没有 bash）
-    await waitUntil(() => requests().filter((r) => r.agentId === "tm-1").length >= 3, { timeoutMs: 30_000, describe: () => "维护者重新拉起" });
+    // 负责人也按新工具包重新拉起（第 3 次：起草、执行、变更之后；没有 bash）
+    await waitUntil(() => requests().filter((r) => r.agentId === "tm-1").length >= 3, { timeoutMs: 30_000, describe: () => "负责人重新拉起" });
     const maintainer = requests().filter((r) => r.agentId === "tm-1");
     expect(maintainer[1]!.tools).toContain("bash");
     expect(maintainer[2]).toMatchObject({ continueSession: true });

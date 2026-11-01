@@ -3,7 +3,7 @@
 //   凭据经守护进程的环境变量 MCP_TOKEN_ENV 按登记注入（fromEnv）；
 // - 读假 MCP 服务的记录（起来时的 pid、收到的凭据、每次调用）；
 // - 写一个 skill 目录（SKILL.md），skill 库的 HTTP 接口（导入单个、导入并改名、整套导入集合；秘书用的 skill，72 号票）；
-// - 放进项目列表一个立项书已确认、带工具包的项目（维护者休眠，用户在它的会话里说话时唤起）。
+// - 放进项目列表一个立项书已确认、带工具包的项目（负责人休眠，用户在它的会话里说话时唤起）。
 import fs from "node:fs";
 import path from "node:path";
 import { HTTP_PATHS, type ImportSkillBody, type ImportSkillResult, type PlanToolkit, type Project, type SecretarySkillsView, type ToolkitCatalog } from "@ergo/protocol";
@@ -85,7 +85,7 @@ export const toolkitApi = {
 /** 工具包 */
 export const toolkit = (overrides: Partial<PlanToolkit> = {}): PlanToolkit => ({ skills: [], mcp: [], bash: false, network: false, ...overrides });
 
-/** 立项书已确认、使用中、带这个工具包的项目（维护者 pm-<n> 休眠） */
+/** 立项书已确认、使用中、带这个工具包的项目（负责人 pm-<n> 休眠） */
 export function seedToolkitProject(daemon: Daemon, name: string, kit: PlanToolkit, overrides: Partial<Project> = {}): Project {
   return seedProject(daemon, name, { state: "in_use", charterConfirmed: true, kind: "other", toolkit: kit, ...overrides });
 }

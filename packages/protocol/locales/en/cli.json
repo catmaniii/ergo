@@ -128,5 +128,5 @@
   "cli.notify.noEnv": "The environment variables {url} and {token} aren't set. This command is for project services that have gone live: ergo injects both when it launches a service, so it can't run elsewhere",
   "cli.notify.unreachable": "Can't reach ergo ({url}): the daemon may be stopped. This event wasn't reported and ergo doesn't queue it; the service decides whether to report it again later",
   "cli.notify.refused": "ergo refused it ({status}): {message}",
-  "cli.notify.ok": "Reported “{name}” (run {runs}). Not waiting for the maintainer to finish"
+  "cli.notify.ok": "Reported “{name}” (run {runs}). Not waiting for the owner to finish"
 }

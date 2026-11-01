@@ -18,7 +18,7 @@
   "gateway.textOnly": "只收文本帧",
   "gateway.credentialExpired": "这台设备的凭证已失效",
   "gateway.protocolMismatch": "前端协议版本 {frontend}，守护进程是 {daemon}：请刷新页面",
-  "gateway.ws.resetMaintainer": "这个版本还不能重置维护者",
+  "gateway.ws.resetMaintainer": "这个版本还不能重置负责人",
   "gateway.ws.projectServicesAction": "这个版本还不能启动、关闭项目的服务",
   "gateway.ws.taskAction": "这个版本还不能控制任务",
   "gateway.ws.taskBatchAction": "这个版本还不能一次处理多个任务",

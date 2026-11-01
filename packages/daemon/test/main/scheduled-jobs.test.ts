@@ -1,8 +1,8 @@
 // 主切面：定时触发的任务的每次运行与错过补发（规格第 8、13、17 节；19 号票的定时作业，76 号票起并进定时触发的任务，ADR 0025）。
-// 真的守护进程，秘书、维护者接 faux 剧本，调度器的时钟换成手动拨的（ManualClock），测试扮演前端。
+// 真的守护进程，秘书、负责人接 faux 剧本，调度器的时钟换成手动拨的（ManualClock），测试扮演前端。
 // （发起、排队合并、接着同一段会话、流程逐步核对、迁移见 triggers.test.ts）
 // - 登记：发起对话框里选"定时"建出就登记它的触发（触发底座的一条 scheduled_job），看板的"运营中"一组出现这个任务；
-// - 到点：属于项目的作为一张来源为"定时触发"的工单交给项目维护者，不属于项目的由任务自己的 agent 执行；
+// - 到点：属于项目的作为一张来源为"定时触发"的工单交给项目负责人，不属于项目的由任务自己的 agent 执行；
 //   每次运行真正开始时占一个全局执行名额（在项目队列里排着不占），满了排队；每次运行留一条运行记录；用量记在任务名下；
 // - 迁移来的定时作业的授权：授权内的对外发送不问，超出的先问（等不到批准被拦下，别的做完了这次记部分完成，176 号票），用户的限制编出的规则禁止的被拦；
 // - 失败：标"最近一次失败"，连续失败 3 次自动暂停、待我处理里一条"已自动暂停"；
@@ -137,7 +137,7 @@ describe("登记", () => {
 
 /**
  * 起一个守护进程（时钟停在 START）：定时触发的任务的 agent（tm-1）照 run 的剧本（每次运行唤起一次：第 n 次唤起做第 n 次运行），
- * 别的任务的维护者交只有一个阶段的计划、执行时干活不出结果（一直在执行中）
+ * 别的任务的负责人交只有一个阶段的计划、执行时干活不出结果（一直在执行中）
  */
 async function jobDaemon(run: (spawn: number) => FauxStep[]) {
   const clock = new ManualClock(START);
@@ -262,7 +262,7 @@ describe("迁移来的定时作业的授权", () => {
         if (id === "jm-1") return n === 1 ? [curl(daily), curl(secret), curl(other), say("发完了")] : [say("好")];
         return n === 1 ? [submitPlanStep(plan), say("计划交上去了")] : [say("好"), say("好")];
       };
-      // 76 号票之前：一个任务的计划确认了（工具包开着 bash、联网），作业随它登记（作业自己的维护者 jm-1、授权项、限制编出的规则）
+      // 76 号票之前：一个任务的计划确认了（工具包开着 bash、联网），作业随它登记（作业自己的负责人 jm-1、授权项、限制编出的规则）
       const first = await startTestDaemon({ clock: new ManualClock(START), reuse: { dataDir: d.dataDir, homeDir: d.homeDir }, maintainer });
       const before = await connect(first);
       const task = first.daemon.tasks.createByRequest({ title: "每天早上发日报", summary: "每天早上发日报" });
@@ -341,7 +341,7 @@ describe("迁移来的定时作业的授权", () => {
   }, 120_000);
 });
 
-/** 进展文档的一句改成另一句（维护者写回项目档案） */
+/** 进展文档的一句改成另一句（负责人写回项目档案） */
 const progressEdit = (records: string, oldText: string, newText: string) => call("edit", { path: path.join(records, "progress.md"), edits: [{ oldText, newText }] });
 const summary = (text: string) => call("write_segment_summary", { summary: text });
 const writeProgress = (content: string) => call("write_progress", { content });
@@ -373,7 +373,7 @@ function projectPlan(): Plan {
   };
 }
 
-/** 项目里的一个长程任务（64 号票起只涉及一个项目的任务是这个项目的内部任务）：项目的维护者建好、写好任务书 */
+/** 项目里的一个长程任务（64 号票起只涉及一个项目的任务是这个项目的内部任务）：项目的负责人建好、写好任务书 */
 async function startProjectTask(td: TestDaemon, frontend: TestFrontend, title: string, project: string): Promise<string> {
   const task = projectTask(td.daemon, project, title, { goal: title, acceptanceCriteria: ["每周都有周报"], constraints: [], memoryScope: "" });
   await eventually(() => tasksOf(frontend), (e) => e.change === "created" && e.task.id === task.id, `任务「${title}」`);
@@ -385,7 +385,7 @@ const scopeRecordsOf = (frontend: TestFrontend): ScopeRecord[] => frontend.event
 const PM1 = maintainerChannel("pm-1");
 
 describe("属于项目的", () => {
-  it("在发起对话框里选了项目的定时触发的任务是这个项目的内部任务，由项目的维护者执行：到点时派单器开一张来源为定时触发的工单，维护者被唤起做完、写回项目档案，工单结束，多一条成功的运行记录；用量记在任务名下", async () => {
+  it("在发起对话框里选了项目的定时触发的任务是这个项目的内部任务，由项目的负责人执行：到点时派单器开一张来源为定时触发的工单，负责人被唤起做完、写回项目档案，工单结束，多一条成功的运行记录；用量记在任务名下", async () => {
     const d = dirs();
     const records = d.records();
     const clock = new ManualClock(START);
@@ -882,7 +882,7 @@ describe("归档清单", () => {
         if (id === "tm-3") return [call("fail_task", { reason: "航司页面改版，抓不到价格" }), say("失败了"), say("重试中")];
         return [call("complete_stage", { stageId: "s1", summary: "做完了" }), say("做完了"), say("好，接着改")];
       },
-      // 搬家清单的评审没过（交回维护者，任务还在执行，之后被取消）；别的通过
+      // 搬家清单的评审没过（交回负责人，任务还在执行，之后被取消）；别的通过
       reviewer: (reviewId) => [
         call("submit_review", { results: [{ index: 1, passed: !reviewId.includes("t-4"), reason: reviewId.includes("t-4") ? "清单缺了家电那一项" : "看过了，能用" }] }),
         say("评审完了"),
@@ -897,7 +897,7 @@ describe("归档清单", () => {
       await settled(td, `tm-${task.id.slice(2)}`);
       ok(await frontend.cardAction({ cardId: card.id, action: "confirm", expectedVersion: card.version, input: {} }));
       await eventually(() => tasksOf(frontend), (e) => e.task.id === task.id && e.change === "started", `${task.id} 开始执行`);
-      // 一个一个来：录下来的事件流里各个维护者不同时干活
+      // 一个一个来：录下来的事件流里各个负责人不同时干活
       await settled(td, `tm-${task.id.slice(2)}`);
     }
     // 整理发票、写周报：评审通过、完成；订机票：失败；搬家清单：评审没过（还在执行），取消

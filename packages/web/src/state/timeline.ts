@@ -1,12 +1,12 @@
-// 时间线的要点（规格第 19 节，25 号票）：秘书聊天和维护者会话里哪些是要点、怎么说、怎么聚块。
+// 时间线的要点（规格第 19 节，25 号票）：秘书聊天和负责人会话里哪些是要点、怎么说、怎么聚块。
 // 54 号票起会话的缩放换成一镜到底（ui/zoom/ZoomHistory.tsx，条目来自 chat-items.ts），25 号票的分段按钮和要点层、全局层
 // 两套单独的渲染去掉了；要点（marksOf、partMarksOf）照旧在这里推，缩小后右侧的标注用它们。gistView、globalView 留着：
 // 测试拿 gistView 核对条目层的要点一条不少；globalView 的聚块（按天、按工单段、按阶段）是 55 号票底色带要的分段。
 // 纯函数，输入是前端状态层的时间线（ui-state.ts 的 timelineItems：消息和时间线记录按序号排好）：
 // - 要点层（gistView）：只留要点——关注类别命中的操作、审批、偏离、验收、通用 bash、范围变更和越界，以及被拦下、问过的操作，
 //   以及快速动作的操作记录（21 号票转来：每次执行都标出）、秘书转达进来的话（103 号票）；其余条目收起成"收起了 N 条"；
-// - 全局层（globalView）：把会话聚成色块——任务的维护者会话按阶段（消息带着的 stageId；开始执行之前是"规划"），
-//   项目维护者的会话按工单段（工单分隔 part 起一段，对话段也各成一块），秘书主线按天；色块上仍标出这些要点；
+// - 全局层（globalView）：把会话聚成色块——任务的负责人会话按阶段（消息带着的 stageId；开始执行之前是"规划"），
+//   项目负责人的会话按工单段（工单分隔 part 起一段，对话段也各成一块），秘书主线按天；色块上仍标出这些要点；
 // - 三种样式（授权内放行、做完告诉我、被拦下或问过）和更细的说法（被拦下、问过、你点明的、你确认后）、结果的文字、
 //   通用 bash 标记都在这里推出来，界面只管画：工具调用按守卫的判定（opOfToolCall），操作记录按它凭什么执行的（点明、授权内、确认后）；
 //   通用 bash 标记取自工具调用 part 的 genericBash（守卫判定时定的），带类型的特殊 bash 工具（28 号票）不带。
@@ -75,7 +75,7 @@ export const TIMELINE_TONE_COUNT = 6;
 const cycledTone = (n: number) => 1 + ((n - 1) % (TIMELINE_TONE_COUNT - 1));
 
 /**
- * 秘书转达的话（103 号票：秘书按用户的话插进任务、项目维护者会话的那一句）在界面上的说法：气泡上方的小标注、要点、详情的种类。
+ * 秘书转达的话（103 号票：秘书按用户的话插进任务、项目负责人会话的那一句）在界面上的说法：气泡上方的小标注、要点、详情的种类。
  * 写名字占位，界面按名字标签画（"二狗转达"）。170 号票起按当前语言现取
  */
 export function relayLabel(): string {
@@ -130,7 +130,7 @@ export interface TimelineMark {
 /** 要点层的一行：一条带要点的条目，或者收起的若干条（itemKey 是收起的第一条：点它回到完整视图跳到那里） */
 export type GistRow = { kind: "marks"; key: string; itemKey: string; time: string | undefined; marks: TimelineMark[] } | { kind: "folded"; key: string; itemKey: string; count: number };
 
-/** 全局层怎么聚色块：按阶段（任务的维护者会话）、按段（项目维护者的工单段和对话段）、按天（秘书主线） */
+/** 全局层怎么聚色块：按阶段（任务的负责人会话）、按段（项目负责人的工单段和对话段）、按天（秘书主线） */
 export type TimelineGrouping = "stage" | "segment" | "day" | "run";
 
 /** 全局层的一个色块 */
@@ -338,8 +338,8 @@ export function gistView(state: UiState, conversation: ConversationId): GistRow[
 }
 
 /**
- * 这个会话在全局层怎么聚色块：秘书主线按天；项目维护者的会话（或者会话里有工单分隔线）按段；定时触发的任务的会话（有运行的分隔线，
- * 76 号票）按运行；别的（任务的维护者）按阶段
+ * 这个会话在全局层怎么聚色块：秘书主线按天；项目负责人的会话（或者会话里有工单分隔线）按段；定时触发的任务的会话（有运行的分隔线，
+ * 76 号票）按运行；别的（任务的负责人）按阶段
  */
 export function timelineGrouping(state: UiState, conversation: ConversationId): TimelineGrouping {
   if (conversation === CHANNELS.secretary) return "day";

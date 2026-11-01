@@ -4,10 +4,10 @@
 // - 参数（args.ts）：中文名换成值、补默认值、按 JSON Schema 校验；参数说明本身的毛病（枚举没中文名、默认值不合、required 写了没有的）；
 // - 回的东西（reply.ts）：{ say, detail }、CallToolResult 的 structuredContent.say、纯文本；没给 say 时二狗补的那句；
 // - 验收和版本号（registry.ts、acceptance.ts）：格式不对、测试没回 say、只读的写了文件不过；服务没在跑的等着；全过了登记，改了重新验、
-//   版本号加一，没过的照旧用上一版、告诉维护者一次；转运营检查清单那一项的几种样子；
+//   版本号加一，没过的照旧用上一版、告诉负责人一次；转运营检查清单那一项的几种样子；
 // - list / describe / call：通用操作和项目自己的操作；参数不对不发、退回说明；say 必有（没给的二狗补、记下）；四种实现方式各一条
-//   （假的项目服务、工作目录里的假脚本、二狗自带动作绑参数、转给维护者当工单）；通用操作（状态、最近运行、最新交付件、立即跑一次、
-//   暂停恢复、改时间、跟维护者说一句）；记录里带版本号；260 号票的那些（服务关着、连不上、等不到、调用口对不上服务）照旧。
+//   （假的项目服务、工作目录里的假脚本、二狗自带动作绑参数、转给负责人当工单）；通用操作（状态、最近运行、最新交付件、立即跑一次、
+//   暂停恢复、改时间、跟负责人说一句）；记录里带版本号；260 号票的那些（服务关着、连不上、等不到、调用口对不上服务）照旧。
 // 真守护进程、真端口的主切面在 test/main/project-ops.test.ts。
 import fs from "node:fs";
 import path from "node:path";
@@ -243,7 +243,7 @@ describe("运营接口清单（ops.json）", () => {
     expect(parseOpsManifest(JSON.stringify({ tools: [{ name: "r", kind: "run", annotations: { readOnlyHint: false } }] }))).toMatchObject({ kind: "ok", ops: [{ kind: "run" }] });
   });
 
-  it("四种实现方式：http（默认）、script（工作目录里的脚本，按扩展名）、ergo（二狗自带动作绑参数）、maintainer（转给维护者当工单）", () => {
+  it("四种实现方式：http（默认）、script（工作目录里的脚本，按扩展名）、ergo（二狗自带动作绑参数）、maintainer（转给负责人当工单）", () => {
     const read = parseOpsManifest(
       JSON.stringify({
         tools: [
@@ -405,7 +405,7 @@ describe("清单验收和版本号（照 112 号票的自动验收）", () => {
     expect(app.calls().length).toBe(testCalls);
   });
 
-  it("没过的说清：没写中文标题、用户可能怎么说、种类、测试；枚举没中文名；测试回的没有 say；只读查询写了文件；脚本不在工作目录；维护者收不了", async () => {
+  it("没过的说清：没写中文标题、用户可能怎么说、种类、测试；枚举没中文名；测试回的没有 say；只读查询写了文件；脚本不在工作目录；负责人收不了", async () => {
     const s = setup({ projects: [project("p-1", "记账本", "in_use"), project("p-2", "旅行相册", "in_use")], refuseInternal: ["p-2"] });
     // 自称只读的 leaky_query 往项目的工作目录里写文件
     const app = await startFakeOpsApp({ writeDir: s.workdirOf("p-1") });
@@ -429,9 +429,9 @@ describe("清单验收和版本号（照 112 号票的自动验收）", () => {
     expect(tested.text).toContain("操作 legacy_list 的测试回的没有能念的 say");
     expect(tested.text).toContain("只读查询 leaky_query 的测试改了文件");
     expect(s.registered()).toEqual([]);
-    // 维护者收不了工单的
+    // 负责人收不了工单的
     s.writeOps("p-2", { tools: [op("ask", { kind: "action", impl: { type: "maintainer" } })] });
-    expect((await s.check("p-2")).text).toContain("要转给维护者当工单，可这个项目现在收不了：项目「旅行相册」已归档");
+    expect((await s.check("p-2")).text).toContain("要转给负责人当工单，可这个项目现在收不了：项目「旅行相册」已归档");
   });
 
   it("项目服务没在跑的：别的都过了就等着（清单上打勾、写明确认后再测），服务起来后秘书第一次用到时验、过了登记", async () => {
@@ -470,7 +470,7 @@ describe("清单验收和版本号（照 112 号票的自动验收）", () => {
     expect(s.ops.checklistItem(building).detail).toContain("上线后自动复验");
   });
 
-  it("服务上线了（362 号票）：不等秘书用到，自动复验、全过了登记；登记着的就是这一份不再验；没过的告诉维护者", async () => {
+  it("服务上线了（362 号票）：不等秘书用到，自动复验、全过了登记；登记着的就是这一份不再验；没过的告诉负责人", async () => {
     const idle = await freePort();
     const building = project("p-1", "记账本", "building", { kind: "dev" });
     const s = setup({
@@ -494,14 +494,14 @@ describe("清单验收和版本号（照 112 号票的自动验收）", () => {
     expect(s.notified).toEqual([]);
   });
 
-  it("使用中改了清单：重新验收、全过了登记成下一版（秘书马上用新的）；没过的照旧用上一版，告诉维护者一次；记录里带版本号", async () => {
+  it("使用中改了清单：重新验收、全过了登记成下一版（秘书马上用新的）；没过的照旧用上一版，告诉负责人一次；记录里带版本号", async () => {
     const app = await startFakeOpsApp();
     const s = setup({ projects: [project("p-1", "记账本", "in_use")], services: [service("p-1", "ledger", app.port)], ops: { "p-1": LEDGER_OPS } });
     // 第一次用到：验、登记第 1 版
     expect((await s.run({ action: "call", project: "记账本", op: "list_expenses" })).text).toContain("（运营接口清单第 1 版）做好了");
     // 加一个操作：用到时重新验收、登记第 2 版
     s.writeOps("p-1", { ...LEDGER_OPS, tools: [...LEDGER_OPS.tools, op("legacy_list_v2", { kind: "query", test: { args: {} } })] });
-    // legacy_list_v2 这个名字服务不认得（404）：验收没过，照旧用第 1 版、告诉维护者
+    // legacy_list_v2 这个名字服务不认得（404）：验收没过，照旧用第 1 版、告诉负责人
     const listed = await s.run({ action: "list" });
     expect(listed.text).toContain("运营接口清单第 1 版");
     expect(listed.text).toContain("档案里的运营接口清单改过了，验收没过：操作 legacy_list_v2 的测试没跑通");
@@ -513,7 +513,7 @@ describe("清单验收和版本号（照 112 号票的自动验收）", () => {
     expect(s.notified).toHaveLength(1);
     // 新操作没登记，调不了；老的照常用第 1 版
     expect((await s.run({ action: "call", project: "记账本", op: "legacy_list_v2" })).text).toContain("没有操作「legacy_list_v2」");
-    // 维护者用 check_ops 验：legacy_list 回的没有 say，没过
+    // 负责人用 check_ops 验：legacy_list 回的没有 say，没过
     s.writeOps("p-1", { ...LEDGER_OPS, tools: [...LEDGER_OPS.tools, op("legacy_list", { kind: "query", test: { args: {} } })] });
     const report = await s.check("p-1");
     expect(report.isError).toBe(true); // legacy_list 没回 say：没过
@@ -560,7 +560,7 @@ describe("list、describe", () => {
     });
     const listed = await s.run({ action: "list" });
     expect(listed.isError).toBe(false);
-    expect(listed.text).toContain("每个使用中的项目都有的通用操作（op 照写）：status「状态」、recent_runs「最近运行」、latest_deliverables「最新交付件」、run_now「立即跑一次」、pause_resume「暂停恢复」、reschedule「改时间」、tell_maintainer「跟维护者说一句」");
+    expect(listed.text).toContain("每个使用中的项目都有的通用操作（op 照写）：status「状态」、recent_runs「最近运行」、latest_deliverables「最新交付件」、run_now「立即跑一次」、pause_resume「暂停恢复」、reschedule「改时间」、tell_maintainer「跟负责人说一句」");
     expect(listed.text).toContain(`项目 p-1「记账本」（运营接口清单第 1 版；调用口在服务「记账本网页」（p-1 · p-1-ledger · 端口 ${app.port}）：在线）：`);
     expect(listed.text).toContain("- add_expense「记一笔支出」（有副作用的动作 · 直接做）：记一笔支出：金额（元）、分类和备注。");
     expect(listed.text).toContain("- list_expenses「查支出」（只读查询）：查最近记的支出和合计。");
@@ -664,7 +664,7 @@ describe("call", () => {
     expect(s.called().at(-1)).toMatchObject({ op: "jammed", outcome: "failed", say: "账本被锁着，稍后再试", sayFilled: false });
   });
 
-  it("四种实现方式各一条：script（工作目录里的脚本，JSON 进出）、ergo（二狗自带动作绑参数）、maintainer（转给维护者当工单）", async () => {
+  it("四种实现方式各一条：script（工作目录里的脚本，JSON 进出）、ergo（二狗自带动作绑参数）、maintainer（转给负责人当工单）", async () => {
     const ledger = project("p-1", "记账本", "in_use", { operations: { revision: 1, confirmedAt: nowIso(), items: [{ key: "daily-report", name: "日报", taskId: "t-1" }] } as unknown as Project["operations"] });
     const s = setup({ projects: [ledger], jobs: [job("j-1", "p-1", "日报")] });
     fs.mkdirSync(path.join(s.workdirOf("p-1"), "scripts"), { recursive: true });
@@ -716,7 +716,7 @@ describe("call", () => {
     expect(s.scheduled.at(-1)).toBe("run j-1 secretary project-op:call-refresh");
     // maintainer：建一个项目内部的普通任务，任务书写清操作、参数、为什么
     const handed = await s.run({ action: "call", project: "记账本", op: "add_source", args: { url: "https://news.example.com/rss" }, why: "用户要加个源" });
-    expect(handed.text).toContain("能念的一句：「加信息源」转给「记账本」的维护者当工单了");
+    expect(handed.text).toContain("能念的一句：「加信息源」转给「记账本」的负责人当工单了");
     const real = s.delegated.filter((d) => !d.check);
     expect(real).toHaveLength(1);
     expect(real[0]!.instructions).toContain("把 https://news.example.com/rss 加进信息源");
@@ -729,7 +729,7 @@ describe("call", () => {
     ]);
   });
 
-  it("通用操作（不用写清单）：状态、最近运行、最新交付件、立即跑一次、暂停恢复、改时间、跟维护者说一句", async () => {
+  it("通用操作（不用写清单）：状态、最近运行、最新交付件、立即跑一次、暂停恢复、改时间、跟负责人说一句", async () => {
     const ledger = project("p-1", "记账本", "in_use", { operations: { revision: 1, confirmedAt: nowIso(), items: [{ key: "daily-report", name: "日报", taskId: "t-1" }] } as unknown as Project["operations"] });
     const started = new Date(Date.now() - 60_000).toISOString();
     const ended = new Date(Date.now() + 60_000).toISOString();
@@ -776,9 +776,9 @@ describe("call", () => {
     expect(s.scheduled.at(-1)).toBe('reschedule j-1 {"kind":"daily","time":"07:30"} project-op:call-move');
     expect((await s.run({ action: "call", project: "记账本", op: "reschedule", args: { time: "25:00" } })).text).toContain("time 要写几点几分");
 
-    // 跟维护者说一句
+    // 跟负责人说一句
     const told = await s.run({ action: "call", project: "记账本", op: "tell_maintainer", args: { message: "下个月起分类加一个“宠物”" } });
-    expect(told.text).toContain("能念的一句：转给「记账本」的维护者了。");
+    expect(told.text).toContain("能念的一句：转给「记账本」的负责人了。");
     expect(s.told).toEqual([{ projectId: "p-1", message: "下个月起分类加一个“宠物”" }]);
     expect((await s.run({ action: "call", project: "记账本", op: "tell_maintainer", args: {} })).text).toContain("参数不对，没发出去");
 

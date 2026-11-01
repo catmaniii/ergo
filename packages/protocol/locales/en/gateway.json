@@ -18,7 +18,7 @@
   "gateway.textOnly": "Only text frames are accepted",
   "gateway.credentialExpired": "This device's credentials have expired",
   "gateway.protocolMismatch": "Frontend protocol version is {frontend}, the daemon's is {daemon}: please refresh the page",
-  "gateway.ws.resetMaintainer": "This version can't reset maintainers yet",
+  "gateway.ws.resetMaintainer": "This version can't reset owners yet",
   "gateway.ws.projectServicesAction": "This version can't start or shut down project services yet",
   "gateway.ws.taskAction": "This version can't control tasks yet",
   "gateway.ws.taskBatchAction": "This version can't handle several tasks at once yet",

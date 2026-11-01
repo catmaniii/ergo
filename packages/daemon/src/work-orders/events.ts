@@ -1,6 +1,6 @@
 // 工单和会话分段的事件（派单队列 work-orders.ts、会话分段 segments.ts、澄清 clarifications.ts 共用）：
 // - 项目列表频道上的 work_order 事件：工单的最新状态和这次的变化；
-// - 维护者会话频道上的 segment 事件：一段会话的最新状态和这次的变化。
+// - 负责人会话频道上的 segment 事件：一段会话的最新状态和这次的变化。
 import {
   CHANNELS,
   EVENT_TYPES,

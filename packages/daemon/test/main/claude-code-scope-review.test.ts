@@ -84,7 +84,7 @@ describe("Claude Code 的范围审视由二狗另起（假 SDK、假模型）", 
     expect(CLAUDE_CODE_CAPABILITIES.scope_review).toBe(true);
   });
 
-  it("任务的维护者用 Claude Code：压缩前守护进程按自己记下的这段会话另起一次审视，照 pi 的格式记下；下一次压缩只审视上次压缩之后的", async () => {
+  it("任务的负责人用 Claude Code：压缩前守护进程按自己记下的这段会话另起一次审视，照 pi 的格式记下；下一次压缩只审视上次压缩之后的", async () => {
     const td = await startTestDaemon({
       extraPlugins: [fakeSdkClaudeCodePlugin],
       secretary: [say("好的")],
@@ -136,7 +136,7 @@ describe("Claude Code 的范围审视由二狗另起（假 SDK、假模型）", 
     await waitUntil(() => scopeUsage(td, task.id).length >= 2, { describe: () => "等第二次审视的用量记账" });
   }, 150_000);
 
-  it("项目的维护者用 Claude Code：工单结束时的审视也由二狗另起（不送给 Claude 子进程），越界照 pi 的格式记下", async () => {
+  it("项目的负责人用 Claude Code：工单结束时的审视也由二狗另起（不送给 Claude 子进程），越界照 pi 的格式记下", async () => {
     const plan: Plan = { ...samplePlan(), toolkit: { skills: [], mcp: [], bash: false, network: false } };
     const td = await startTestDaemon({
       extraPlugins: [fakeSdkClaudeCodePlugin],

@@ -76,7 +76,7 @@ export function StartTaskButton({ compact, iconOnly }: { compact?: boolean; icon
  * 58 号票：先选种类（两个页签，副标题说清两种的区别），建卡时定下、之后不能换；
  * 默认是长程任务。第一行当标题。涉及的项目可以多选，选项来自项目列表（15 号票起是真的：没归档的项目；守护进程同样核对，
  * 不在项目列表里的被拒）；选的项目写进任务，秘书写任务书时以它为依据。
- * 64 号票（用户定）：只选了一个项目的建成这个项目的内部任务（由项目的维护者在项目会话里和你对齐、执行，只在项目页看得到，
+ * 64 号票（用户定）：只选了一个项目的建成这个项目的内部任务（由项目的负责人在项目会话里和你对齐、执行，只在项目页看得到，
  * 不上任务看板）；选了几个项目的是跨项目的任务。流程只能选一个项目（或者不涉及项目）。只选了一个还在立项的项目时说明原因、不让发起。
  * 75 号票（ADR 0025）：做法多一个"普通任务"，排在最前面、默认选中——不经助理澄清，写的这段话就是交给 agent 的任务书，
  * 建出就排队、有名额就开始做，不规划、不授权、不检查，做完自动算完成。
@@ -109,7 +109,7 @@ function StartTaskDialog({ onClose }: { onClose(): void }) {
   const [remindEvent, setRemindEvent] = useState<EventTrigger>(() => defaultEventTrigger("folder"));
   /** 跑完自动播报（100 号票）：先勾上，做完秘书直接把要点念成语音，不先问 */
   const [announce, setAnnounce] = useState(false);
-  /** 执行它的维护者用的运行时（289 号票）：默认 pi；只选了一个项目的照项目的（不显示这一项） */
+  /** 执行它的负责人用的运行时（289 号票）：默认 pi；只选了一个项目的照项目的（不显示这一项） */
   const [runtime, setRuntime] = useState<string>(PI_RUNTIME_ID);
   /** 从已有的会话接管（290 号票）：换成接管的对话框 */
   const [taking, setTaking] = useState(false);

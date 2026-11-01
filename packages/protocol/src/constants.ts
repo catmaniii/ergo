@@ -8,7 +8,7 @@ import { followLocale, t, tTable } from "./i18n/runtime.ts";
 export const FRONTEND_PROTOCOL_VERSION = 1;
 
 /**
- * 频道名。会话频道的名字就是会话 id：秘书会话是 `secretary`，某个维护者的会话是 `maintainer:<维护者 id>`。
+ * 频道名。会话频道的名字就是会话 id：秘书会话是 `secretary`，某个负责人的会话是 `maintainer:<负责人 id>`。
  * 其余是全局频道：任务看板、项目列表、待我处理、卡片、活动状态、已配对设备。
  */
 export const CHANNELS = {
@@ -49,7 +49,7 @@ export const CHANNELS = {
 
 export const MAINTAINER_CHANNEL_PREFIX = "maintainer:";
 
-/** 某个维护者的会话 id（也是它的会话频道名）；类型和 schema 里的 ConversationId 一致 */
+/** 某个负责人的会话 id（也是它的会话频道名）；类型和 schema 里的 ConversationId 一致 */
 export function maintainerChannel(maintainerId: string): `${typeof MAINTAINER_CHANNEL_PREFIX}${string}` {
   return `${MAINTAINER_CHANNEL_PREFIX}${maintainerId}`;
 }
@@ -147,9 +147,9 @@ export const EVENT_TYPES = {
   voice: "voice",
   /** 项目列表频道：一张工单的最新状态，以及这次的变化（派出、开始、等澄清、有了回答、结束）（16 号票） */
   workOrder: "work_order",
-  /** 维护者会话频道：会话分段的最新状态（开了一段、写了摘要、开始收尾、结束）（16 号票） */
+  /** 负责人会话频道：会话分段的最新状态（开了一段、写了摘要、开始收尾、结束）（16 号票） */
   segment: "segment",
-  /** 任务看板频道：执行中任务现在生效的计划换了一版（计划变更确认、维护者自行调整计划，14 号票）。阶段抽屉按它显示 */
+  /** 任务看板频道：执行中任务现在生效的计划换了一版（计划变更确认、负责人自行调整计划，14 号票）。阶段抽屉按它显示 */
   taskPlan: "task_plan",
   /**
    * 守护进程内部的 tasks 频道（前端不订阅）：用户在"授权到期续期"事项上续期或不续（14 号票）。"审批决定"素材的来源
@@ -158,8 +158,8 @@ export const EVENT_TYPES = {
   /** 会话频道：agent 发的一条语音（语音回复）的最新状态（开始合成、合成完成或失败）（32 号票） */
   agentVoice: "agent_voice",
   /**
-   * 项目列表频道（项目维护者的）、任务看板频道（不属于项目的任务的）：一条范围记录（范围变更或越界，18 号票）。
-   * 同一事务里维护者会话频道上另有一条 timeline_record 供时间线标出
+   * 项目列表频道（项目负责人的）、任务看板频道（不属于项目的任务的）：一条范围记录（范围变更或越界，18 号票）。
+   * 同一事务里负责人会话频道上另有一条 timeline_record 供时间线标出
    */
   scopeRecord: "scope_record",
   /**
@@ -243,7 +243,7 @@ export const EVENT_TYPES = {
    */
   sessionBranch: "session_branch",
   /**
-   * 维护者会话频道：长程任务的一个阶段在这个会话里开始了（152 号票，StageStartEventPayload，stage-starts.ts）。界面上不显示成一条，
+   * 负责人会话频道：长程任务的一个阶段在这个会话里开始了（152 号票，StageStartEventPayload，stage-starts.ts）。界面上不显示成一条，
    * 缩小视图据它在那一处画"撤回到阶段「…」开始前"的回退点；守护进程撤回时据它找到会话树上回到哪
    */
   stageStart: "stage_start",
@@ -306,11 +306,11 @@ export const METHODS = {
   updateWatchCategories: "update_watch_categories",
   /** 点"新建项目"：不经"是不是项目"的判断，秘书直接收口出"建议立项"卡（15 号票） */
   newProject: "new_project",
-  /** 把一个未结束的任务转为项目：原任务的维护者接着做立项问答，任务以"已完成 · 已转为项目"结束（15 号票） */
+  /** 把一个未结束的任务转为项目：原任务的负责人接着做立项问答，任务以"已完成 · 已转为项目"结束（15 号票） */
   convertTaskToProject: "convert_task_to_project",
   /** 项目页上的动作：开工、放弃、停用、重新启用、归档、取消归档、删除（删除要在待我处理里二次确认）（15 号票） */
   projectAction: "project_action",
-  /** 项目页上的"重置维护者"：项目状态不变，维护者新开一段会话、只凭项目档案重建理解（16 号票） */
+  /** 项目页上的"重置负责人"：项目状态不变，负责人新开一段会话、只凭项目档案重建理解（16 号票） */
   resetMaintainer: "reset_maintainer",
   /** 项目卡片、项目页上的"启动""关闭"（257 号票）：经 LSM 把使用中的项目的服务全部拉起、全部关掉（关了一直关着，直到再启动） */
   projectServicesAction: "project_services_action",
@@ -437,7 +437,7 @@ export const ERROR_CODES = [
 
 export type ErrorCode = (typeof ERROR_CODES)[number];
 
-/** 发言方：用户本人、agent（秘书或维护者）、系统（运行时追加的说明，比如"工具包已变更"）。 */
+/** 发言方：用户本人、agent（秘书或负责人）、系统（运行时追加的说明，比如"工具包已变更"）。 */
 export const SPEAKERS = ["user", "agent", "system"] as const;
 
 /** 守卫对一次工具调用的处置（六档）。 */
@@ -534,7 +534,7 @@ export const CARD_TYPES = [
   /** "首版做完了"卡（112 号票）：项目的建设任务做完了，做成了什么、每个阶段的验收结果；你选转入使用、继续建设或放弃并归档 */
   "build_done",
   /**
-   * "转入使用"确认卡（259 号票）：建设中的项目要转入使用（用户在项目页点的、维护者提的、秘书代办的），卡上列转运营检查清单；
+   * "转入使用"确认卡（259 号票）：建设中的项目要转入使用（用户在项目页点的、负责人提的、秘书代办的），卡上列转运营检查清单；
    * 你确认了才转
    */
   "go_live",
@@ -547,7 +547,7 @@ export const CARD_TYPES = [
   /** 网页候选卡（147 号票）：秘书在浏览侧边栏里替选中的上传框找文件、拿不准时给用户挑的候选；单张的框单选、多张的框多选，"交"或"都不要" */
   "browse_pick",
   /**
-   * "MCP 登记变更"卡（239 号票）：维护者提的加、改、删一条 MCP 登记，卡上列出启动命令、args、env（密钥只写"来自环境变量 X"）、
+   * "MCP 登记变更"卡（239 号票）：负责人提的加、改、删一条 MCP 登记，卡上列出启动命令、args、env（密钥只写"来自环境变量 X"）、
    * 暴露的工具和只读/联网标注、快速动作；你确认之后由运行时按 name 合并写进配置区的 mcp.json，顺手真拉起一次做自检
    */
   "mcp_change",
@@ -557,13 +557,13 @@ export const CARD_TYPES = [
    */
   "skill_change",
   /**
-   * "规范改写"卡（261 号票）：维护者提的本项目的规范改写（不要某一份、某一份换写法、多一份、恢复照默认）或跟新版规范，
+   * "规范改写"卡（261 号票）：负责人提的本项目的规范改写（不要某一份、某一份换写法、多一份、恢复照默认）或跟新版规范，
    * 逐条对照、附运行时核实过的用户原话；你确认了才生效（记进项目档案的 standard-overrides.md）
    */
   "standard_change",
   /**
    * "补齐规范文档"卡（262 号票）：规范上线之前建的项目，按它的类型和本项目的规范改写还缺哪几份；你选"补齐"才改用现在的规范、
-   * 建任务交给维护者补，选"不补"就不补；一个项目只出一次
+   * 建任务交给负责人补，选"不补"就不补；一个项目只出一次
    */
   "standard_backfill",
   /**
@@ -587,7 +587,7 @@ export const CARD_TYPES = [
    */
   "interview_files",
   /**
-   * 运行时的提问卡（288 号票）：维护者的运行时自己要问你的——Claude Code 的 AskUserQuestion（选择题，可多选、可自己写）、
+   * 运行时的提问卡（288 号票）：负责人的运行时自己要问你的——Claude Code 的 AskUserQuestion（选择题，可多选、可自己写）、
    * 退出计划模式时的批准；答案交回那次调用，这一轮结束了还没答的作废
    */
   "runtime_question",
@@ -603,7 +603,7 @@ export function isCardType(value: string): value is CardType {
  * 每种卡片负载的版本（卡片类型注册表登记的版本）。负载的形状改了就把版本加 1：
  * 前端只认识自己构建时的版本，遇到更高版本的卡片和不认识的类型一样，显示纯文本降级版本加"去 Web 处理"的链接。
  * reminder 2、plan 2：时间表（提醒的、计划里定时作业的）多了"按我的工作日"（29 号票）。
- * questions 2（16 号票）：项目维护者为工单提问时，卡上记着是谁在问（askedBy），回答交回它。
+ * questions 2（16 号票）：项目负责人为工单提问时，卡上记着是谁在问（askedBy），回答交回它。
  * plan 5、plan_change 2（76 号票）：计划里不再有定时作业（scheduledJobs）。
  * reminder 4、workflow_plan 3（282 号票）：时间表多了"每年某月某日"（yearly）。
  */
@@ -619,9 +619,9 @@ export const CARD_TYPE_VERSIONS: Readonly<Record<CardType, number>> = {
   progress: 1,
   quick_action: 1,
   /**
-   * 2（16 号票）：卡上可以带涉及的项目（只涉及一个项目的任务由这个项目的维护者执行）；
+   * 2（16 号票）：卡上可以带涉及的项目（只涉及一个项目的任务由这个项目的负责人执行）；
    * 3（58 号票）：两个按钮"作为流程""作为长程任务"，建出后记着种类；
-   * 4（64 号票）：项目的维护者给的建议卡带着项目（internal），点了建出的是这个项目的内部任务
+   * 4（64 号票）：项目的负责人给的建议卡带着项目（internal），点了建出的是这个项目的内部任务
    */
   suggest_task: 4,
   suggest_project: 1,
@@ -635,13 +635,13 @@ export const CARD_TYPE_VERSIONS: Readonly<Record<CardType, number>> = {
   memory_delete: 1,
   /** 2（137 号票）：看起来像网络上的自动访问的请求，卡上带着判断和原因（automated） */
   pairing: 2,
-  /** 27 号票：项目维护者不在任务里时要开 bash、加 MCP、开联网 */
+  /** 27 号票：项目负责人不在任务里时要开 bash、加 MCP、开联网 */
   toolkit_change: 1,
   archive_list: 1,
   /** 2（76 号票）：定时触发的流程带着时间表（schedule），卡上写明授权一直有效，直到暂停或取消；3（282 号票）：时间表多了每年某月某日 */
   workflow_plan: 3,
   /**
-   * 2（130 号票）：卡上带着维护者建设期间交的运营方案（operations），选了以后记着每一条的结局；
+   * 2（130 号票）：卡上带着负责人建设期间交的运营方案（operations），选了以后记着每一条的结局；
    * 3（133 号票）：方案里的一条可以是服务（service：命令、工作目录、端口、开机自启、网页……）；
    * 4（259 号票）：卡上带着转运营检查清单（checklist），确认时还缺的几项记在决定里
    */
@@ -653,7 +653,7 @@ export const CARD_TYPE_VERSIONS: Readonly<Record<CardType, number>> = {
   operations_change: 2,
   service_entry: 1,
   browse_pick: 1,
-  /** 239 号票：维护者提的 MCP 登记变更（加、改、删），确认后由运行时写配置区的 mcp.json */
+  /** 239 号票：负责人提的 MCP 登记变更（加、改、删），确认后由运行时写配置区的 mcp.json */
   mcp_change: 1,
   /** 358 号票：负责人提的 skill 变更（加、改、删），确认后由运行时写 skill 区 */
   skill_change: 1,
@@ -754,8 +754,8 @@ export const MEMORY_COMMAND_LABEL: Readonly<Record<MemoryCommandKind, string>> =
 
 /**
  * 彻底删除删不掉的东西，如实告诉用户（设置页、记忆删除卡上都写）；秘书写名字占位，界面按用户起的名字显示（43 号票）。
- * 确认计划时在卡上改的假设栏、加的关注类别（80 号票）成了确认的计划的一部分，维护者照它做、守卫照它判，不改写；
- * 秘书转达进任务、项目维护者会话的那一句（103 号票）不是用户本人的素材，不随用户在秘书会话里的原话一起改写
+ * 确认计划时在卡上改的假设栏、加的关注类别（80 号票）成了确认的计划的一部分，负责人照它做、守卫照它判，不改写；
+ * 秘书转达进任务、项目负责人会话的那一句（103 号票）不是用户本人的素材，不随用户在秘书会话里的原话一起改写
  */
 export let PURGE_LIMITS = "";
 
@@ -931,7 +931,7 @@ export const NOTICE_TYPES = [
    */
   "interrupted",
   /**
-   * 越界通知（18 号票）：范围审视发现维护者做了没授权的范围外工作。不推送、不卡任务（维护者照常继续），照常算未读；
+   * 越界通知（18 号票）：范围审视发现负责人做了没授权的范围外工作。不推送、不卡任务（负责人照常继续），照常算未读；
    * 动作"知道了"（OUT_OF_SCOPE_ACK），数据见 scope-records.ts 的 OutOfScopeNoticeData
    */
   "out_of_scope",
@@ -947,9 +947,9 @@ export const NOTICE_TYPES = [
   /** 预留的名字：19 号票的归档清单做成了卡片（卡片类型 archive_list，每项单独选），不用这个通知类型 */
   "archive_list",
   "grant_renewal",
-  /** 维护者"转为等我"（卡住求助，13 号票）：写明原因；用户回过话、做完要做的事后点"继续执行" */
+  /** 负责人"转为等我"（卡住求助，13 号票）：写明原因；用户回过话、做完要做的事后点"继续执行" */
   "stuck_help",
-  /** 维护者判任务失败（13 号票）：写明原因，用户选"重试"或"取消任务" */
+  /** 负责人判任务失败（13 号票）：写明原因，用户选"重试"或"取消任务" */
   "failure_choice",
   /** 计划里标明"由你验收"的阶段等用户验收（13 号票）：动作"验收通过""退回" */
   "stage_acceptance",
@@ -985,7 +985,7 @@ export const NOTICE_TYPES = [
   "rollback_wait",
   /**
    * 重做之后复验没过（274 号票，"重开之后复验没过"）：从某个阶段重做之后，
-   * 范围外已经验收过的阶段按各自的验收标准再核一遍，有标准不满足了。不卡任务（维护者照常重做重开的那几个），不自动重做；
+   * 范围外已经验收过的阶段按各自的验收标准再核一遍，有标准不满足了。不卡任务（负责人照常重做重开的那几个），不自动重做；
    * 动作"先不管""把没过的阶段也重做"（REVERIFY_ACTIONS，界面上写"把第 N 阶段也重做…"，先出重做对话框），data 是 ReverifyNoticeData
    */
   "reverify_failed",

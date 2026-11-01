@@ -23,5 +23,5 @@ Blocked by: none
 ## Comments
 ~~~
 
-Status values: needs-triage (the maintainer should take a look), needs-info (waiting for more information), ready-for-agent (clear enough to hand to a sub-agent), ready-for-human (needs a person), done (finished, all acceptance criteria ticked), wontfix (not doing it).
+Status values: needs-triage (the owner should take a look), needs-info (waiting for more information), ready-for-agent (clear enough to hand to a sub-agent), ready-for-human (needs a person), done (finished, all acceptance criteria ticked), wontfix (not doing it).
 Blocked by lists the numbers of the tickets it depends on (comma-separated), or "none". Work in waves by dependency: one sub-agent per ticket, merged only when the tests pass.

@@ -1,5 +1,5 @@
 // 会话条目层（52 号票）：把会话拆成条目（ChatItem）——用户消息、思考、回复、工具调用组（含出了状况的调用）、
-// 卡片、系统说明、时间线记录、工单分隔、语音。先回放主切面录下的真实事件流（秘书会话、任务的维护者会话、项目的维护者会话），
+// 卡片、系统说明、时间线记录、工单分隔、语音。先回放主切面录下的真实事件流（秘书会话、任务的负责人会话、项目的负责人会话），
 // 录像覆盖不到的情形（思考并进组、各种状况、内部工具、换 agent、往上翻、乐观显示……）按共享协议的 schema 构造事件。
 import fs from "node:fs";
 import path from "node:path";
@@ -91,7 +91,7 @@ function issues(item: ChatItem | undefined): string[] {
 /** 回放之后各条的 id */
 const idsAfter = (inputs: Array<EventFrame | UiInput>) => chatItems(replay(inputs), TM).map((it) => it.id);
 
-describe("回放：任务的维护者会话（timeline-zoom）", () => {
+describe("回放：任务的负责人会话（timeline-zoom）", () => {
   // 录制在 packages/daemon/test/main/timeline.test.ts：两阶段任务，第一阶段里写文件、通用 bash（ls）、授权内的建目录（bash）、
   // 做完告诉我的提交、问过的读主目录（审批卡、批准）、脚本验收；第二阶段写报告、写围栏外被硬拒绝、脚本验收
   const state = replay(load("timeline-zoom"));
@@ -157,10 +157,10 @@ describe("回放：任务的维护者会话（timeline-zoom）", () => {
       ["调用了 4 个工具：写文件、通用 bash ×2、git 提交", "notify"],
       [expect.stringMatching(/^审批（任务「整理笔记和报告」）：读文件「.+readme\.txt」 · 越出项目目录 · 已处理$/), null],
       ["调用了 1 个工具：读文件（1 次问过你）", "stopped"],
-      ["系统：维护者宣布阶段 s1「整理笔记」完成（第 1 次）：笔记在 notes.md", null],
+      ["系统：负责人宣布阶段 s1「整理笔记」完成（第 1 次）：笔记在 notes.md", null],
       ["验收通过（脚本检查）：任务「整理笔记和报告」第 1 阶段「整理笔记」。验收通过。", null],
       ["调用了 2 个工具：写文件 ×2（1 次被拦下）", "stopped"],
-      ["系统：维护者宣布阶段 s2「写报告」完成（第 1 次）：报告在 report.md", null],
+      ["系统：负责人宣布阶段 s2「写报告」完成（第 1 次）：报告在 report.md", null],
       ["验收通过（脚本检查）：任务「整理笔记和报告」第 2 阶段「写报告」。验收通过。", null],
       ["系统：全部阶段验收通过，任务完成。", null],
       ["回复：两个阶段都做完了", null],
@@ -295,8 +295,8 @@ describe("回放：秘书会话", () => {
   });
 });
 
-describe("回放：项目的维护者会话（work-orders-queue）", () => {
-  // 录制在 packages/daemon/test/main/work-orders.test.ts：项目维护者依次起草两张工单的计划，再依次执行
+describe("回放：项目的负责人会话（work-orders-queue）", () => {
+  // 录制在 packages/daemon/test/main/work-orders.test.ts：项目负责人依次起草两张工单的计划，再依次执行
   const items = chatItems(replay(load("work-orders-queue")), "maintainer:pm-1");
 
   test("工单分隔线各成一条；一张工单里两段话之间的调用成一组，验收的说明和卡片把它隔开；内部工具不显示", () => {
@@ -517,7 +517,7 @@ describe("录像覆盖不到的：思考并进工具调用组（用户 2026-10-0
   });
 });
 
-/** 守护进程里已经有对应卡片、说明或记录的内部工具，和代表它的那一条（用户点名的五个，加上检查过的其他维护者内部工具） */
+/** 守护进程里已经有对应卡片、说明或记录的内部工具，和代表它的那一条（用户点名的五个，加上检查过的其他负责人内部工具） */
 const INTERNAL: ReadonlyArray<readonly [string, "card" | "record" | "system" | "reply" | "none", string?]> = [
   ["submit_plan", "card", "plan"],
   ["complete_stage", "card", "progress"],
@@ -548,7 +548,7 @@ function representing(kind: string, sub: string | undefined): EventFrame[] {
   if (kind === "card") return cardFrames(1, 1, "rep", sub!);
   if (kind === "record") return [recordFrame(1, { record: { id: "rep", kind: sub!, summary: "记一笔", time: at("00:01") } })];
   if (kind === "reply") return [messageFrame(1, "rep", "agent", [text("周报整理好了")])];
-  return [messageFrame(1, "rep", "system", [text("维护者判任务失败：做不下去")])];
+  return [messageFrame(1, "rep", "system", [text("负责人判任务失败：做不下去")])];
 }
 
 describe("录像覆盖不到的：内部工具不算进组（用户 2026-10-09 定）", () => {
@@ -616,7 +616,7 @@ describe("录像覆盖不到的：时间线记录、附件、引用的卡片、�
       replay([
         messageFrame(1, "u1", "user", [{ type: "image", mediaId: "md-1", name: "收据.png", mime: "image/png" }, { type: "file", mediaId: "md-2", name: "账单_10月.pdf", mime: "application/pdf", size: 10 }]),
         messageFrame(2, "u2", "user", [text("这张卡什么意思"), { type: "card_ref", cardId: "c-1" }]),
-        messageFrame(3, "s1", "system", [text("维护者宣布阶段完成"), { type: "card_ref", cardId: "c-2" }]),
+        messageFrame(3, "s1", "system", [text("负责人宣布阶段完成"), { type: "card_ref", cardId: "c-2" }]),
         messageFrame(4, "s4", "system", [text("秘书这次没能回复：模型出错")]),
       ]),
       TM,
@@ -624,7 +624,7 @@ describe("录像覆盖不到的：时间线记录、附件、引用的卡片、�
     expect(items.map((it) => [it.id, it.kind, it.keyLine])).toEqual([
       ["u1", "user", "你：[图片：收据.png] [附件：账单_10月.pdf]"],
       ["u2", "user", "你：这张卡什么意思"],
-      ["s1", "system", "系统：维护者宣布阶段完成"],
+      ["s1", "system", "系统：负责人宣布阶段完成"],
       ["s1#1", "card", "卡片"],
       ["s4", "system", "系统：⟦个人助理⟧这次没能回复：模型出错"],
     ]);
@@ -716,7 +716,7 @@ describe("录像覆盖不到的：正在生成的回复、乐观显示", () => {
 
 describe("条目 id：往上翻、实时追加之后不变（例外：组跨两页时组的 id 会变，靠 locateChatItem 找）", () => {
   test("回放（timeline-history）：翻回更早的一页之后，原来手里的每一条 id 不变、内容不变，更早的排在前面", () => {
-    // 录制在 packages/daemon/test/main/history.test.ts：维护者会话、秘书会话各 60 条消息，第一次补发只到最近 50 条，旧页里另有记录
+    // 录制在 packages/daemon/test/main/history.test.ts：负责人会话、秘书会话各 60 条消息，第一次补发只到最近 50 条，旧页里另有记录
     const inputs = load("timeline-history");
     const firstPage = inputs.findIndex((i) => i.kind === "history_page");
     for (const conversation of ["maintainer:tm-1", "secretary"] as const) {

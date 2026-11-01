@@ -56,11 +56,11 @@ function load(name: string): UiInput[] {
 }
 
 const at = (hm: string) => `2026-10-12T${hm}:00+08:00`;
-/** 录像里流程 t-1 的维护者会话 */
+/** 录像里流程 t-1 的负责人会话 */
 const flowItems = (state: UiState) => chatItems(state, maintainerChannel(ownMaintainerId("t-1")));
 /** 定时触发的流程 t-w 第 r 次运行开始处的分隔线 */
 const divider = (r: number): MessagePart => ({ type: "run_divider", jobId: "j-w", runId: `j-w-r${r}`, title: `第 ${r} 次运行` });
-/** 项目维护者会话里一张工单那一段开头的分隔线 */
+/** 项目负责人会话里一张工单那一段开头的分隔线 */
 const woDivider = (wo: string): MessagePart => ({ type: "work_order_divider", workOrderId: wo, title: "每天检查依赖", from: "定时作业" });
 /** 一次带着和计划比对结果的工具调用 */
 const planCall = (id: string, tool: string, plan: Extract<MessagePart, { type: "tool_call" }>["plan"]): MessagePart => ({
@@ -76,7 +76,7 @@ const planCall = (id: string, tool: string, plan: Extract<MessagePart, { type: "
   nature: "act",
   ...(plan ? { plan } : {}),
 });
-/** 宣布第 1 阶段完成（代为执行的内部工具），summary 是维护者写的那一两句 */
+/** 宣布第 1 阶段完成（代为执行的内部工具），summary 是负责人写的那一两句 */
 const completed = (summary: string): MessagePart => ({
   type: "tool_call",
   callId: `call-done-${summary.length}`,
@@ -561,7 +561,7 @@ describe("阶段详情：出过的状况、尝试记录、第几轮、从这里�
     frame(conversation, 3, "message", message("m3", at("09:20"), "s1", { type: "card_ref", cardId: "c-a1" })),
     frame(conversation, 4, "message", message("m4", at("09:35"), "s1", completed("补上了网盘那一边"))),
     frame(conversation, 5, "message", message("m5", at("09:40"), "s1", { type: "card_ref", cardId: "c-a2" })),
-    frame(conversation, 6, "message", { message: { id: "m6", conversation, speaker: "system", time: at("09:50"), parts: [{ type: "text", text: "维护者这次没能回复：模型调用超时" }] } satisfies MessageEnvelope, taskId: "t-l", stageId: "s2" }),
+    frame(conversation, 6, "message", { message: { id: "m6", conversation, speaker: "system", time: at("09:50"), parts: [{ type: "text", text: "负责人这次没能回复：模型调用超时" }] } satisfies MessageEnvelope, taskId: "t-l", stageId: "s2" }),
     frame(conversation, 7, "message", message("m7", at("10:00"), "s2", { type: "text", text: "开始第 2 阶段" })),
     // 做完之后返工第 1 阶段（连同下游）
     frame("board", 2, "task", {
@@ -597,7 +597,7 @@ describe("阶段详情：出过的状况、尝试记录、第几轮、从这里�
   test("第 2 阶段：还没交过；这一轮出错算一件“要你看一眼”（出错归这一类）", () => {
     const facts = stageDetailFacts(ui, items, "t-l", "s2");
     expect([facts.rounds, facts.submissions]).toEqual([2, 0]);
-    expect(facts.incidents.map((i) => [i.kind, i.text, i.attention])).toEqual([["look", "维护者这次没能回复：模型调用超时", true]]);
+    expect(facts.incidents.map((i) => [i.kind, i.text, i.attention])).toEqual([["look", "负责人这次没能回复：模型调用超时", true]]);
   });
 
   test("整个任务出过的状况（阶段抽屉下面那一行、出过的状况一页），最近一次拉回让阶段标签闪", () => {
@@ -656,7 +656,7 @@ describe("阶段详情补上的几块（84 号票）：重做记录、两种备�
     updatedAt,
     ...extra,
   });
-  // 第 1 阶段交上来、你退回（由你验收那条写了原因），卡上记着维护者宣布完成时写的那句
+  // 第 1 阶段交上来、你退回（由你验收那条写了原因），卡上记着负责人宣布完成时写的那句
   const returned: Card = {
     id: "c-r1",
     type: "progress",
@@ -708,7 +708,7 @@ describe("阶段详情补上的几块（84 号票）：重做记录、两种备�
   ]);
   const items = chatItems(ui, conversation);
 
-  test("重做记录是出过的状况里的“撤回”一类；交给维护者接着做的那句通知不再重复显示", () => {
+  test("重做记录是出过的状况里的“撤回”一类；交给负责人接着做的那句通知不再重复显示", () => {
     const facts = stageDetailFacts(ui, items, "t-r", "s1");
     expect(facts.incidents.map((i) => [i.kind, i.text])).toEqual([
       ["pullback", "交上来的被退回重做：你看过草稿"],
@@ -717,7 +717,7 @@ describe("阶段详情补上的几块（84 号票）：重做记录、两种备�
     expect(timelineItems(ui, conversation).map((it) => (it.kind === "record" ? `记录 ${it.record.type === "timeline" ? it.record.timeline.kind : ""}` : it.kind === "message" ? it.message.id : it.kind))).toEqual(["m1", "记录 reopen"]);
   });
 
-  test("尝试记录：维护者宣布完成时写的那句取卡上的，你退回时写的说明挂在同一次上（脚本的备注不算）；重开按事件上写的范围", () => {
+  test("尝试记录：负责人宣布完成时写的那句取卡上的，你退回时写的说明挂在同一次上（脚本的备注不算）；重开按事件上写的范围", () => {
     const facts = stageDetailFacts(ui, items, "t-r", "s1");
     expect(facts.attempts).toEqual([
       { kind: "attempt", at: at("09:00"), passed: false, failed: ["你看过草稿"], note: "草稿写好了", userNote: "营销号的来源去掉", itemId: expect.any(String) },
@@ -801,9 +801,9 @@ describe("规则写成公式", () => {
     expect(expr({ and: [{ eq: ["$p.replaced", true] }, { eq: ["$p.area", "project"] }] })).toBe('($p.replaced = true ∧ $p.area = "project")');
   });
 
-  test("修法和代价：说法换成维护者、你", () => {
+  test("修法和代价：说法换成负责人、你", () => {
     expect(repairsOf(rule)).toEqual([
-      { kind: "replan", title: "退回维护者重写：先写再读", costs: {} },
+      { kind: "replan", title: "退回负责人重写：先写再读", costs: {} },
       { kind: "move_after", title: "把这一步挪到 write 之后", costs: { ops: 1 } },
     ]);
     expect(costText({ interaction: 1, ops: 2 })).toBe("打扰用户 1、多做动作 2");

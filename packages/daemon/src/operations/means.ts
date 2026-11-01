@@ -1,9 +1,9 @@
 // 运营手段登记表（130 号票，ADR-0028）：运营方案里每一条用一种运营手段，每种手段登记——
-// - 校验（check）：这一条写得对不对（触发写全了没有、时间在不在将来、事件来源认不认得……），不对的说明交回维护者；
+// - 校验（check）：这一条写得对不对（触发写全了没有、时间在不在将来、事件来源认不认得……），不对的说明交回负责人；
 //   几条之间不能撞的（同一个项目两个服务同名、同端口）另登记 checkPlan；要连出去看的（服务的前缀下自检）登记 selfCheck，交的时候异步跑；
 //   运行时补齐的（服务的工作目录换成绝对路径、默认值）登记 normalize；
-// - 给人看的说法（describe）：触发写成一句话，卡上、项目页上、交给维护者的话里都用它；
-// - 生效（apply）：建成这个项目的内部任务（执行者是项目的维护者，64 号票的规矩不变），给出和卡片更新同一事务追加的事件；
+// - 给人看的说法（describe）：触发写成一句话，卡上、项目页上、交给负责人的话里都用它；
+// - 生效（apply）：建成这个项目的内部任务（执行者是项目的负责人，64 号票的规矩不变），给出和卡片更新同一事务追加的事件；
 //   133 号票的"服务"生效成的不是任务：追加"这个服务该在 LSM 上"的事件，真正的登记、启动在事务之后异步做（project-services/）；
 // - 撤销（revoke）：方案里去掉了这一条，取消它的内部任务（服务：撤下）；
 // - 就地改（update，可选）：只改了能就地改的部分（比如时间表）时就地改，不然撤了重建；
@@ -12,7 +12,7 @@
 //   暂停、恢复这个项目的全部触发登记（scheduled-jobs 的 onProject，19 号票），这里不另做一遍；项目自己的服务（133 号票）登记它们：
 //   停用（含使用中归档）时撤出 LSM、撤掉转发，重新启用时重新登记、启动，运营方案模块在项目停用、重新启用时叫。
 // "运营模式不限"靠这张表落实：二狗现在能做的全部登记上（定时触发的任务、事件触发的任务，builtin-means.ts；服务，project-services/），
-// 以后有新的往表里加，流程不改。二狗现在还做不了的（公网入口，第二阶段）也登记着，automatic 为 false：维护者照样能写进方案，
+// 以后有新的往表里加，流程不改。二狗现在还做不了的（公网入口，第二阶段）也登记着，automatic 为 false：负责人照样能写进方案，
 // 卡上标"这一项二狗现在还做不了，需要你手动：……"，确认时不假装生效。
 // 照 ADR-0027：内核的手段由组合根登记，插件经插件宿主登记（ctx.operationMeans.register），每次登记返回撤销函数，停用时撤掉。
 // 撤掉之后方案里用它的那一条：交新方案时被拒（没有这种手段），已经生效的照旧在跑（它的内部任务还在），确认时没生效的记原因。
@@ -60,7 +60,7 @@ export interface OperationMeans {
   id: string;
   /** 给人看的名字（"定时触发的任务"） */
   label: string;
-  /** 给维护者看的说明（工具说明里列出来）：什么时候用、这一条要写哪几项 */
+  /** 给负责人看的说明（工具说明里列出来）：什么时候用、这一条要写哪几项 */
   hint: string;
   /** 二狗现在能不能替用户做：false 的照样能写进方案，卡上标"需要你手动"，确认时不生效 */
   automatic: boolean;
@@ -72,7 +72,7 @@ export interface OperationMeans {
   normalize?(item: OperationItem, draft: OperationItemDraft, ctx: OperationCheckContext): OperationItem;
   /** 交的时候要连出去看的（服务的前缀下自检）：problems 整份退回，notes 写进工具结果 */
   selfCheck?(item: OperationItem): Promise<{ problems: string[]; notes: string[] }>;
-  /** 触发写成一句话（卡上、项目页上、交给维护者的话里） */
+  /** 触发写成一句话（卡上、项目页上、交给负责人的话里） */
   describe(item: OperationItemDraft, ctx: OperationCheckContext): string;
   /** 生效（automatic 的才有）：建成项目的内部任务（服务没有任务）；做不了的抛错（RequestRejected 的说明记成这一条没生效的原因） */
   apply?(item: OperationItem, ctx: OperationApplyContext): { taskId?: string | undefined; events: NewEvent[] };
@@ -88,7 +88,7 @@ export interface OperationMeans {
   resume?(binding: OperationBinding, ctx: OperationHookContext): NewEvent[];
 }
 
-/** 运营手段登记表：登记返回撤销函数（只撤自己那一份）；重名的是编程错误。维护者的工具说明每次装配时按它现写 */
+/** 运营手段登记表：登记返回撤销函数（只撤自己那一份）；重名的是编程错误。负责人的工具说明每次装配时按它现写 */
 export class OperationMeansRegistry {
   private readonly means = new Map<string, OperationMeans>();
 

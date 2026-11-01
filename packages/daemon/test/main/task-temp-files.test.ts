@@ -1,11 +1,11 @@
 // 主切面（111 号票，用户 2026-10-13 定"任务中间的临时文件和脚本，以及为了生成每个项目阶段交付件临时生成的脚本和数据，默认可以修改或者删除，
-// 不要每次都问我或者拦住了"）。真的守护进程，维护者接 faux 剧本、在真的工作目录里写文件跑脚本，测试扮演前端：
-// - 长程任务：维护者写脚本 → 整个改写脚本 → 跑脚本生成交付件和中间数据 → 删脚本和中间数据目录，全程不退回、不计拉回、不标"删除或覆盖"，
+// 不要每次都问我或者拦住了"）。真的守护进程，负责人接 faux 剧本、在真的工作目录里写文件跑脚本，测试扮演前端：
+// - 长程任务：负责人写脚本 → 整个改写脚本 → 跑脚本生成交付件和中间数据 → 删脚本和中间数据目录，全程不退回、不计拉回、不标"删除或覆盖"，
 //   阶段照常验收推进；效果日志里照旧记着这些调用；
 // - 照旧的：任务开始之前就在的文件（比如上一个任务留下的）删除照旧按规则退回、计入拉回；交出去了的阶段的交付件也一样；
 // - 普通任务：一样放开（守卫按普通对话判，对话审批开着也不为它出审批卡），任务开始之前就在的照旧退回；
 // - 项目里按项目认（用户补充"任务和项目的临时文件都是一样的"）：前一张工单生成的临时脚本、中间数据，下一张工单删不拦；
-//   维护者直接和用户对话时删项目里先前生成的中间数据也不拦；项目开始之前就在工作目录里的照旧拦。
+//   负责人直接和用户对话时删项目里先前生成的中间数据也不拦；项目开始之前就在工作目录里的照旧拦。
 // 测试底座的对话审批默认开着：放开不是靠"任务 agent 超出授权先不管"。
 import fs from "node:fs";
 import path from "node:path";
@@ -42,7 +42,7 @@ import { waitUntil } from "../helpers/process.ts";
 const M1 = maintainerChannel("tm-1");
 const bash = (command: string) => call("bash", { command });
 type ToolCallPart = Extract<MessagePart, { type: "tool_call" }>;
-/** 维护者会话里读写文件、bash 的工具调用记录：工具、处置、拦下的原因、结局、命中的类别 */
+/** 负责人会话里读写文件、bash 的工具调用记录：工具、处置、拦下的原因、结局、命中的类别 */
 const fileCalls = (frontend: TestFrontend, channel = M1) =>
   messagesOf(frontend, channel)
     .flatMap((m) => m.message.parts.filter((p): p is ToolCallPart => p.type === "tool_call"))
@@ -165,12 +165,12 @@ describe("普通任务：一样放开", () => {
 
 const PM1 = maintainerChannel("pm-1");
 const PROGRESS_INTRO = "做到哪了、下一步做什么：每段工作结束时写回。";
-/** 项目的维护者写回进展（工单段收尾） */
+/** 项目的负责人写回进展（工单段收尾） */
 const progressEdit = (records: string, oldText: string, newText: string) => call("edit", { path: path.join(records, "progress.md"), edits: [{ oldText, newText }] });
 const workOrdersOf = (frontend: TestFrontend) => frontend.events({ channel: CHANNELS.projects, type: EVENT_TYPES.workOrder }).map((f) => f.payload as WorkOrderEventPayload);
 
 describe("项目里按项目认（用户补充：任务和项目的临时文件都是一样的）", () => {
-  it("前一张工单生成的临时脚本、中间数据，下一张工单删不拦；维护者直接对话时删先前生成的也不拦；项目开始之前就在工作目录里的照旧拦", async () => {
+  it("前一张工单生成的临时脚本、中间数据，下一张工单删不拦；负责人直接对话时删先前生成的也不拦；项目开始之前就在工作目录里的照旧拦", async () => {
     const dataDir = makeTempDir("ergo-data-");
     const records = path.join(real(dataDir), "projects", "p-1");
     const td = await startTestDaemon({

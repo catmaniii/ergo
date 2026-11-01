@@ -1,25 +1,25 @@
 // 从运行时已有的会话接管（290 号票，issue 24 方案 2.3、用户答复第 2 条；调研 31 第 1、3 节，32 第 6.2 节，35 第 4 节）。
 // 新建项目 / 任务时多一个入口"从 Claude Code 会话接管"：列本机的会话、标出正被占着的，选中一个建成任务（普通任务）或项目，
-// 维护者的运行时是那个运行时、接着选中的会话、工作目录用会话原来的（守卫的工作目录就是它）。运行时自己的那几样（列、核对、分叉、
+// 负责人的运行时是那个运行时、接着选中的会话、工作目录用会话原来的（守卫的工作目录就是它）。运行时自己的那几样（列、核对、分叉、
 // 读前情）在运行时的登记表里（插件登记的，runtime/runtimes.ts 的 AgentRuntime）；这里是内核的那一半：
-// - 写入锁：任务、项目上记着的接管（Task.takeover、Project.takeover）就是锁——记着、没交还、维护者还用那个运行时、没删掉的，二狗管着它。
-//   这期间只有那个维护者的子进程写它（agent 管家一个维护者只起一个子进程）；列会话时标"二狗的任务 / 项目在管"，别的再接管同一个被拒
-//   （只能分叉一份）。"交还"后维护者不拉起（运行时闸门当作不能用），用户可以回终端里用；"收回"先核对它没在别处开着，再接着；
+// - 写入锁：任务、项目上记着的接管（Task.takeover、Project.takeover）就是锁——记着、没交还、负责人还用那个运行时、没删掉的，二狗管着它。
+//   这期间只有那个负责人的子进程写它（agent 管家一个负责人只起一个子进程）；列会话时标"二狗的任务 / 项目在管"，别的再接管同一个被拒
+//   （只能分叉一份）。"交还"后负责人不拉起（运行时闸门当作不能用），用户可以回终端里用；"收回"先核对它没在别处开着，再接着；
 // - 占着的会话（终端里开着：CLI 不拦第二个写入者，接了会分叉、丢轮；后台会话在跑；查不到占没占）不直接接，先在那边关掉，或者分叉
 //   一份接管（原会话不动）；
-// - 前情：读主线最近一段（运行时给，大会话只读尾部），翻成维护者会话里的消息（prelude：给人看、缩放三档照常，不交给 agent、不采成素材），
+// - 前情：读主线最近一段（运行时给，大会话只读尾部），翻成负责人会话里的消息（prelude：给人看、缩放三档照常，不交给 agent、不采成素材），
 //   前面一行说明从哪读的、后面一行写明接管了、工作目录在哪；读不出来照样接管，写明没读出来；
 // - 建出的：任务是普通任务（第一条输入是用户写的"接着让它做什么"，前情在它之前进会话）；项目不经秘书直接建出（筹备中，不自动开始，
-//   用户在项目的会话里说话时维护者才接着做）。
+//   用户在项目的会话里说话时负责人才接着做）。
 // 292 号票（交给官方 App、再收回来，issue 24 用户答复第 4、6 条；调研 35）：同一套状态（任务、项目上的 RuntimeTakeover）记着会话现在在哪边——
 // 二狗接管（没交还）/ 官方 App（交还了、remote.since）/ 空着（交还了）。运行时自己的那几样（开 / 唤醒后台会话、拿链接、停掉、读会话）在登记表的
 // remoteControl 里；这里是二狗这一侧：
-// - 交给官方 App（act remote）：维护者在做一轮的先打断，记成交还了（运行时闸门让它的子进程停掉、不再拉起），等子进程退干净（到点没退不交）；
+// - 交给官方 App（act remote）：负责人在做一轮的先打断，记成交还了（运行时闸门让它的子进程停掉、不再拉起），等子进程退干净（到点没退不交）；
 //   记下会话此刻最后一条（只读跟随从它后面补记），交给运行时开（第一次）或唤醒（以后，不带参数）后台会话，拿到链接记在 remote 上、会话里写一句；
 //   交不出去（还开着、开出副本、没开起来）的回到交之前的样子。二狗自己开的会话（不是接管来的）也能交：按会话目录里现在接着的那个会话
 //   （运行时的 currentSession），第一次交时才在任务、项目上记下（own）；
 // - 在官方 App 里时：二狗不写这个会话（不拉起、会话里说话被拒、写明先收回），但只读跟随——定时（followMs）、收回时读运行时的会话记录，把那边新增的
-//   用户说的、它回的、调用的工具补记进维护者的会话（remote：标"在官方 App 里"，不交给 agent、不采成素材；按那边每条的 id 去重，补记过的不重复记）；
+//   用户说的、它回的、调用的工具补记进负责人的会话（remote：标"在官方 App 里"，不交给 agent、不采成素材；按那边每条的 id 去重，补记过的不重复记）；
 //   读到哪了记在内存里（重启后从交出去那一刻接着，靠去重不重复）；链接一时没拿到的跟随时再拿；
 // - 收回到二狗（act reclaim）：先停掉那边的后台会话（停不掉不收回），最后补记一遍，记成空着，再照 290 号票核对没在别处开着、接着同一个会话。
 import fs from "node:fs";
@@ -55,23 +55,23 @@ import type { TaskService } from "../tasks/tasks.ts";
 import { realPathOf } from "../util/real-path.ts";
 import { oneLine } from "../util/text.ts";
 
-/** 交还之后等维护者的子进程退出最多多久 */
+/** 交还之后等负责人的子进程退出最多多久 */
 const RELEASE_WAIT_MS = 15_000;
-/** 交给官方 App 时等维护者的子进程退出最多多久（在做的那一轮先打断，打断最多等 15 秒才按被打断收尾） */
+/** 交给官方 App 时等负责人的子进程退出最多多久（在做的那一轮先打断，打断最多等 15 秒才按被打断收尾） */
 const REMOTE_RELEASE_WAIT_MS = 30_000;
 /** 在官方 App 里时多久读一次那边的会话（只读跟随） */
 const FOLLOW_MS = 60_000;
 
 export interface TakeoverServiceOptions {
-  /** 同一个幂等键重发：拿到第一次建出的（不再分叉、不再读前情）；292 号票：交出去、收回的说明和只读跟随补记的消息追加进维护者的会话 */
+  /** 同一个幂等键重发：拿到第一次建出的（不再分叉、不再读前情）；292 号票：交出去、收回的说明和只读跟随补记的消息追加进负责人的会话 */
   store: Pick<EventStore, "eventByIdempotencyKey" | "appendBatch">;
   runtimes: Pick<RuntimeRegistry, "sessions" | "sessionBusy" | "forkSession" | "sessionHistory" | "get" | "remoteControl" | "currentSession" | "unavailable">;
   tasks: Pick<TaskService, "list" | "ofMaintainer" | "startTakenOver" | "setTakeover">;
   /** 项目服务建在任务之后：现取 */
   projects: () => TakeoverProjects;
-  /** 运行时闸门：维护者在不在做一轮、交还收回后各自看一眼；292 号票：正在交给官方 App 时让它停下、不拉起 */
+  /** 运行时闸门：负责人在不在做一轮、交还收回后各自看一眼；292 号票：正在交给官方 App 时让它停下、不拉起 */
   gate: Pick<RuntimeGate, "busy" | "recheck" | "runtimeOf" | "handing">;
-  /** 这个维护者的子进程还在不在（交还后等它退出） */
+  /** 这个负责人的子进程还在不在（交还后等它退出） */
   live(maintainerId: string): boolean;
   /** 参数摘要按它写（守卫的工具登记表） */
   tools: ToolRegistry;
@@ -80,9 +80,9 @@ export interface TakeoverServiceOptions {
    * 能用的交回真实路径。不给只看在不在、是不是文件夹
    */
   checkFolder?: (folder: string) => string;
-  /** 停下维护者手头这一轮（292 号票：交给官方 App 前先打断）；没在做是 false */
+  /** 停下负责人手头这一轮（292 号票：交给官方 App 前先打断）；没在做是 false */
   stopTurn?(maintainerId: string): boolean;
-  /** 维护者的会话目录（292 号票：运行时在里面记着现在接着的是哪个会话） */
+  /** 负责人的会话目录（292 号票：运行时在里面记着现在接着的是哪个会话） */
   sessionDir?(maintainerId: string): string;
   now: () => string;
   log: (line: string) => void;
@@ -98,12 +98,12 @@ export interface TakeoverService {
   /** 从选中的会话接管成任务或项目（见文件开头） */
   takeOver(runtimeId: string, body: TakeOverBody): Promise<TakeOverResult>;
   /**
-   * 交还（维护者在做一轮时拒绝；等子进程退出才交回）、收回（核对过没在别处开着；在官方 App 里的先停掉那边）、交给官方 App（292 号票，见文件开头）
+   * 交还（负责人在做一轮时拒绝；等子进程退出才交回）、收回（核对过没在别处开着；在官方 App 里的先停掉那边）、交给官方 App（292 号票，见文件开头）
    */
   act(maintainerId: string, action: TakeoverAction): Promise<void>;
-  /** 维护者的会话交还了 / 在官方 App 里：用户在它的会话里说话时拒收的说明；二狗管着的、不是接管来的是 undefined */
+  /** 负责人的会话交还了 / 在官方 App 里：用户在它的会话里说话时拒收的说明；二狗管着的、不是接管来的是 undefined */
   sendRefusal(maintainerId: string): string | undefined;
-  /** 只读跟随（292 号票）：读一遍在官方 App 里的会话（给了维护者只读它的），把新的补记进维护者的会话 */
+  /** 只读跟随（292 号票）：读一遍在官方 App 里的会话（给了负责人只读它的），把新的补记进负责人的会话 */
   follow(maintainerId?: string): Promise<void>;
   /** 开始定时只读跟随（292 号票）；返回停下的函数 */
   startFollowing(): () => void;
@@ -123,7 +123,7 @@ const heldText = (h: Holder) => t(h.kind === "task" ? "takeover.heldByTask" : "t
 /** 交给官方 App 了的写明是哪个任务 / 项目交的（292 号票） */
 const remoteText = (h: Holder) => t(h.kind === "task" ? "takeover.remote.heldByTask" : "takeover.remote.heldByProject", { id: h.id, title: h.title });
 
-/** 一个任务或项目的维护者（292 号票：二狗自己开的会话交给官方 App 时，任务、项目上还没有接管记录） */
+/** 一个任务或项目的负责人（292 号票：二狗自己开的会话交给官方 App 时，任务、项目上还没有接管记录） */
 interface Owner {
   kind: "task" | "project";
   id: string;
@@ -131,7 +131,7 @@ interface Owner {
   maintainerId: string;
   runtime: string;
   takeover: RuntimeTakeover | undefined;
-  /** 维护者的工作目录（任务：选的文件夹；项目：项目的工作目录）；任务没选的是 undefined */
+  /** 负责人的工作目录（任务：选的文件夹；项目：项目的工作目录）；任务没选的是 undefined */
   workdir: string | undefined;
 }
 
@@ -171,7 +171,7 @@ export function createTakeoverService(options: TakeoverServiceOptions): Takeover
       : undefined;
   };
 
-  /** 维护者是哪个任务、项目的（292 号票：没有接管记录的也认） */
+  /** 负责人是哪个任务、项目的（292 号票：没有接管记录的也认） */
   const ownerOf = (maintainerId: string): Owner | undefined => {
     const project = options.projects().maintainedBy(maintainerId);
     if (project) return { kind: "project", id: project.id, title: project.name, maintainerId, runtime: runtimeIdOf(project.runtime), takeover: project.takeover, workdir: options.projects().workdir(project) };
@@ -194,7 +194,7 @@ export function createTakeoverService(options: TakeoverServiceOptions): Takeover
     });
   };
 
-  /** 等维护者的子进程退出：退了是 true，到点还没退是 false */
+  /** 等负责人的子进程退出：退了是 true，到点还没退是 false */
   const waitReleased = async (maintainerId: string, waitMs = RELEASE_WAIT_MS): Promise<boolean> => {
     const deadline = Date.now() + waitMs;
     while (options.live(maintainerId)) {
@@ -214,16 +214,16 @@ export function createTakeoverService(options: TakeoverServiceOptions): Takeover
     gate.recheck();
   };
 
-  /** 往维护者的会话里写一句系统说明（292 号票：交给官方 App、收回到二狗） */
+  /** 往负责人的会话里写一句系统说明（292 号票：交给官方 App、收回到二狗） */
   const note = (owner: { kind: "task" | "project"; id: string; maintainerId: string }, text: string) => {
     const scope: MessageScope = owner.kind === "task" ? { taskId: owner.id } : { projectId: owner.id };
     options.store.appendBatch([buildMessage({ conversation: maintainerChannel(owner.maintainerId), speaker: "system", parts: [{ type: "text", text }] }, scope).event]);
   };
 
-  /** 维护者的工作目录（后台会话在那里开、读会话时给运行时）：接管来的任务、项目就是会话原来的工作目录 */
+  /** 负责人的工作目录（后台会话在那里开、读会话时给运行时）：接管来的任务、项目就是会话原来的工作目录 */
   const holderCwd = (holder: Holder): string => ownerOf(holder.maintainerId)?.workdir ?? "";
 
-  /** 只读跟随读到哪了（292 号票）：维护者 → 下次从哪一条之后接着读；没有的从交出去那一刻（remote.from）接着 */
+  /** 只读跟随读到哪了（292 号票）：负责人 → 下次从哪一条之后接着读；没有的从交出去那一刻（remote.from）接着 */
   const cursors = new Map<string, string>();
   let following: Promise<void> | undefined;
 
@@ -250,7 +250,7 @@ export function createTakeoverService(options: TakeoverServiceOptions): Takeover
     }
   };
 
-  /** 读一遍（给了维护者只读它的）：同时只跑一遍，后来的等前一遍跑完再跑 */
+  /** 读一遍（给了负责人只读它的）：同时只跑一遍，后来的等前一遍跑完再跑 */
   const followAll = (maintainerId?: string): Promise<void> => {
     const run = async () => {
       // 运行时插件停用着的不读（启用后接着读，靠去重不重复记）
@@ -271,7 +271,7 @@ export function createTakeoverService(options: TakeoverServiceOptions): Takeover
     return next;
   };
 
-  /** 正在交给官方 App 的（同一个维护者又点了一次：等同一次交完） */
+  /** 正在交给官方 App 的（同一个负责人又点了一次：等同一次交完） */
   const handing = new Map<string, Promise<void>>();
 
   /**
@@ -377,7 +377,7 @@ export function createTakeoverService(options: TakeoverServiceOptions): Takeover
         // 在做一轮的不交还：交还了它还在写，用户回终端里一用就交错（会话记录没有锁）
         if (gate.busy(maintainerId)) throw new RequestRejected("conflict", t("takeover.busyTurn", { runtime: title }));
         write({ ...holder.takeover, returnedAt: now() });
-        // 维护者的子进程退干净了才算交还（闸门让它停掉）
+        // 负责人的子进程退干净了才算交还（闸门让它停掉）
         await waitReleased(maintainerId);
         log(`${holder.id} 把 ${title} 会话 ${holder.takeover.sessionId} 交还了`);
         return;

@@ -3,7 +3,7 @@
 //   时序规则、预算来自计划卡上的计划（确认的那份是勾掉、收窄之后的）；还没开始执行时按计划列出、都是未开始
 //   （initialStages，和守护进程建阶段用的同一份）；一个阶段的授权和时序规则是它自己的加所属阶段组的（stagePolicies）；
 //   预算用了多少 token（24 号票）来自看板频道上这个任务的用量合计（按调用时的阶段）；
-//   计划换过版的（14 号票：计划变更确认、维护者自行调整计划）取看板频道上最新的 task_plan（现在生效的计划和授权说法），
+//   计划换过版的（14 号票：计划变更确认、负责人自行调整计划）取看板频道上最新的 task_plan（现在生效的计划和授权说法），
 //   去掉、收窄的授权不再显示，新加的阶段有交付件、预算和授权；
 // - 停下的阶段带上为什么停（14 号票：阈值、做不了、超预算、计划变更）；
 // - 控制：90 号票起任务详情的按钮收进状态签浮层和"⋯"，菜单项在 task-menu.ts（taskActionItems）；这里留着从某个阶段重做
@@ -79,9 +79,9 @@ export interface StageView {
   marks: StageMarks;
   /** 这一阶段（加上所属阶段组）的时序规则原文：点一条看它的详情（84 号票） */
   ruleDocs: PlanTemporalRule[];
-  /** 最近一次宣布完成时评审输入里运行时核实过的用户原话（125 号票：维护者引用、守护进程核实的；重开后清掉） */
+  /** 最近一次宣布完成时评审输入里运行时核实过的用户原话（125 号票：负责人引用、守护进程核实的；重开后清掉） */
   userWords?: VerifiedUserWords[];
-  /** 维护者最近一次宣布完成时写的那一两句（274 号票：阶段详情"系统查到的结果"里和系统查到的摆在一起；重开后清掉） */
+  /** 负责人最近一次宣布完成时写的那一两句（274 号票：阶段详情"系统查到的结果"里和系统查到的摆在一起；重开后清掉） */
   summary?: string;
   /** 最近一次宣布完成时系统从效果日志里汇总的个数（274 号票：阶段框上那一行；重开后清掉） */
   observed?: StageObservedCounts;
@@ -190,7 +190,7 @@ export function taskStages(state: UiState, taskId: string): StageView[] {
       marks: effective ? stageMarks(effective, s.stageId, policies.flatMap((p) => p.grants)) : { perm: [], out: [], ask: [] },
       ruleDocs: policies.flatMap((p) => p.temporalRules),
       ...(s.userWords && s.userWords.length > 0 ? { userWords: s.userWords } : {}),
-      // 274 号票：维护者最近一次宣布完成时写的那一两句（自报）、那时系统从效果日志里汇总的个数
+      // 274 号票：负责人最近一次宣布完成时写的那一两句（自报）、那时系统从效果日志里汇总的个数
       ...(s.summary ? { summary: s.summary } : {}),
       ...(s.observed ? { observed: s.observed } : {}),
     };
@@ -213,7 +213,7 @@ export function canReopenStage(task: Task, stageId: string): boolean {
   return stage !== undefined && stageStarted(stage) && availableTaskActions(task, "user").includes("rework");
 }
 
-/** 维护者会话还收不收用户的话（已完成、已取消、已归档的不再收，要返工用"返工"） */
+/** 负责人会话还收不收用户的话（已完成、已取消、已归档的不再收，要返工用"返工"） */
 export function taskAcceptsMessages(task: Task): boolean {
   return availableTaskActions(task, "user").includes("message");
 }

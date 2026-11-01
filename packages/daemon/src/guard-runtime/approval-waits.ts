@@ -5,7 +5,7 @@
 //   期间批准 → 接着执行；拒绝 → 拦下，模型收到"用户拒绝"；超时 → 以"已提交审批，等待用户"拦下，记挂起事件；
 //   任务里"没预料到的类别"（14 号票，suspendNow）提交审批后不等，马上以"已提交审批，等待用户"拦下、记挂起：这一支停下；
 // - 不在等的审批（已挂起，或等的时候回合中止了）之后被决定：批准记成一次性授权，往会话里给 agent 递"……已获批准，可以重试"；
-//   拒绝同样递一条"……已被用户拒绝"，免得它以为还在等。调用不是会话的主人发起的（20 号票：子 agent 的调用记在维护者的会话里，
+//   拒绝同样递一条"……已被用户拒绝"，免得它以为还在等。调用不是会话的主人发起的（20 号票：子 agent 的调用记在负责人的会话里，
 //   一次性授权只认子 agent 自己），这条通知的说法由 lateNotice 给（不给就照上面的）。
 // 时钟可注入（等审批的 5 分钟跟着它走）。被杀重启后从审批表恢复（还待处理的记成挂起，不新建卡、不再提示）在 recovery/（23 号票）。
 // 子进程里的调用停着等用户的这段时间，开始、结束都报给 userWaits（agent 管家）：这个 agent 的活动状态是"等你"（25 号票）。
@@ -19,7 +19,7 @@ import type { Clock } from "../scheduler/clock.ts";
 import { type ApprovalDecidedPayload, type ApprovalDecision, type CallOrigin, GUARD_CHANNEL, GUARD_EVENTS, originScope } from "./events.ts";
 import type { CallState } from "./tool-call-record.ts";
 
-/** 给 agent 的通知带上调用所在会话的范围（任务里的带任务，项目维护者的带项目） */
+/** 给 agent 的通知带上调用所在会话的范围（任务里的带任务，项目负责人的带项目） */
 const scopeOf = (origin: CallOrigin) => originScope(origin);
 
 /** 挂起之后用户拒绝时，给 agent 递的那条通知的幂等键（里面有用户写的说明，彻底删除时按它找） */

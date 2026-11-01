@@ -1,9 +1,9 @@
-// 主切面：项目规范（258 号票，issue 19 第 1、4、6、11 条）。真的守护进程，测试扮演前端（维护者交立项书直接调项目模块，不走剧本）。
+// 主切面：项目规范（258 号票，issue 19 第 1、4、6、11 条）。真的守护进程，测试扮演前端（负责人交立项书直接调项目模块，不走剧本）。
 // - 新项目立项时记下建档用的规范模板版本，档案里的规格、进展、决策记录照模板生成（类型还没定，按其他类那三份）；
 // - 立项书确认成开发类：补上架构图、tickets/、ops.json；其他类不补；
 // - 只读接口 GET /api/projects/<id>/standard：模板版本、每份文档在不在和最近修改时间（必须有的标出来、还是模板原样的标出来）、
 //   当前状态的检查清单（"进展已写回"）、规范改写（空的）；文档缺了照实说；规范上线之前建的项目版本是 null；没有的项目 404。
-// 261 号票（issue 19 第 5 条）：本项目的规范改写——维护者引用用户的话提（propose_standard_change，faux 剧本），"规范改写"卡上逐处对照、
+// 261 号票（issue 19 第 5 条）：本项目的规范改写——负责人引用用户的话提（propose_standard_change，faux 剧本），"规范改写"卡上逐处对照、
 // 附原话、进待办，用户确认才生效（接口、档案里的 standard-overrides.md、检查清单、重启不补回不要的那份），拒绝的不变；模板出了新版只提示，
 // 跟新版也要确认。
 import fs from "node:fs";
@@ -58,7 +58,7 @@ async function kickoff(td: TestDaemon, frontend: TestFrontend, name: string) {
   return projectEventsOf(frontend).find((e) => e.change === "created" && e.project.name === name)!.project;
 }
 
-/** 维护者交立项书（直接调项目模块），用户在立项书卡上点"只确认，稍后开工" */
+/** 负责人交立项书（直接调项目模块），用户在立项书卡上点"只确认，稍后开工" */
 async function confirmCharter(td: TestDaemon, frontend: TestFrontend, projectId: string, kind: "dev" | "other") {
   const project = td.daemon.projects.get(projectId)!;
   const { cardId } = td.daemon.projects.submitCharter(projectId, project.maintainerId, {
@@ -95,7 +95,7 @@ describe("项目规范", () => {
     for (const d of preparing.docs) expect(d.modifiedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}[+-]\d{2}:\d{2}$/);
     expect(preparing.checklist).toEqual({ from: "preparing", to: "building", items: [{ id: "progress_written", label: "进展已写回", done: false, detail: "progress.md 还是模板原样" }] });
 
-    // 维护者写了规格、进展：不再是模板原样，进展已写回
+    // 负责人写了规格、进展：不再是模板原样，进展已写回
     fs.appendFileSync(path.join(root, "spec.md"), "\n导入招行的 CSV。\n");
     fs.writeFileSync(path.join(root, "progress.md"), "# 进展\n\n立项问答问完了。\n");
     const written = await standardOf(td, ledger.id);
@@ -161,11 +161,11 @@ describe("项目规范", () => {
 
 /** 消息 id 的样子（m-<uuid>） */
 const MESSAGE_ID = "m-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
-/** 维护者从最近一条用户消息末尾抄出 id，调用工具（参数 userWords） */
+/** 负责人从最近一条用户消息末尾抄出 id，调用工具（参数 userWords） */
 const citing = (name: string, args: Record<string, unknown>): FauxStep => ({ kind: "call_with_matches", from: "user", pattern: MESSAGE_ID, argument: "userWords", toolCall: { name, arguments: args as never } });
 
 describe("本项目的规范改写（261 号票）", () => {
-  it("维护者引用用户的话提出（不要架构图、进展换写法、多一份运维手册）：卡上逐处对照、附原话、进待办；确认才生效——接口和档案里的 standard-overrides.md 看得出和默认规范哪里不同，检查清单按改写后的，重启也不补回架构图；拒绝的不变；一次只有一张在等；进展不能不要", async () => {
+  it("负责人引用用户的话提出（不要架构图、进展换写法、多一份运维手册）：卡上逐处对照、附原话、进待办；确认才生效——接口和档案里的 standard-overrides.md 看得出和默认规范哪里不同，检查清单按改写后的，重启也不补回架构图；拒绝的不变；一次只有一张在等；进展不能不要", async () => {
     const dataDir = makeTempDir("ergo-data-");
     const homeDir = makeTempDir("ergo-home-");
     const first = await startTestDaemon({
@@ -186,7 +186,7 @@ describe("本项目的规范改写（261 号票）", () => {
     const records = first.daemon.projects.records(ledger.id);
     await waitUntil(() => fs.existsSync(records.architecture), { describe: () => "开发类的规范文档" });
 
-    // 用户在维护者会话里说：维护者引用这句提出，卡上逐处对照、附核实过的原话，进待办，也出在会话里
+    // 用户在负责人会话里说：负责人引用这句提出，卡上逐处对照、附核实过的原话，进待办，也出在会话里
     const said = await frontend.sendText("这个小工具不用画架构图，进展按周写就行，再加一份运维手册", { conversation: PM1 });
     const card = await cardWhere(frontend, (c) => c.type === "standard_change", "规范改写卡");
     const payload = card.payload as StandardChangeCardPayload;
@@ -198,7 +198,7 @@ describe("本项目的规范改写（261 号票）", () => {
     ]);
     expect(payload.upgrade).toBeUndefined();
     expect(payload.userWords).toEqual([
-      { messageId: said.messageId, text: "这个小工具不用画架构图，进展按周写就行，再加一份运维手册", conversation: PM1, where: "项目「记账本」的维护者会话", time: expect.any(String), device: "本机" },
+      { messageId: said.messageId, text: "这个小工具不用画架构图，进展按周写就行，再加一份运维手册", conversation: PM1, where: "项目「记账本」的负责人会话", time: expect.any(String), device: "本机" },
     ]);
     expect(card.text).toContain("不要架构图");
     await itemWhere(frontend, (i) => i.kind === "card" && i.cardId === card.id && i.origin?.projectId === ledger.id, "待办里的规范改写卡");
@@ -210,7 +210,7 @@ describe("本项目的规范改写（261 号票）", () => {
     const busy = await tool.run({ drop: ["tickets"], why: "不要票" }, { toolCallId: "t-busy" });
     expect(busy).toMatchObject({ isError: true, text: "上一张规范改写卡（第 1 次）还在等用户，先等它有结论" });
 
-    // 确认：生效——接口里看得出哪里不同，档案里记一份，维护者收到通知，时间线上记一笔
+    // 确认：生效——接口里看得出哪里不同，档案里记一份，负责人收到通知，时间线上记一笔
     await inputsDone(frontend, PM1);
     ok(await frontend.cardAction({ cardId: card.id, action: "confirm", expectedVersion: card.version }));
     await eventually(() => projectEventsOf(frontend), (e) => e.change === "standard_changed" && e.project.id === ledger.id, "规范改写生效");
@@ -270,7 +270,7 @@ describe("本项目的规范改写（261 号票）", () => {
     await inputsDone(fresh, PM1);
   }, 120_000);
 
-  it("模板出了新版只提示：项目记着的旧版本照旧，接口里 latest 是新版、档案不动；跟新版也由维护者提、用户确认，确认后版本换成新的、缺的文档从新版模板补上（已有的不动）；已经是最新的不能再跟，规范上线之前建的这样提是补齐规范文档（272 号票）", async () => {
+  it("模板出了新版只提示：项目记着的旧版本照旧，接口里 latest 是新版、档案不动；跟新版也由负责人提、用户确认，确认后版本换成新的、缺的文档从新版模板补上（已有的不动）；已经是最新的不能再跟，规范上线之前建的这样提是补齐规范文档（272 号票）", async () => {
     const td = await startTestDaemon();
     const frontend = await connect(td.url, [CARDS, INBOX, PROJECTS]);
     // 建档时用的是以前的一版（目录里已经没有了）：照旧的最小文档集
@@ -283,7 +283,7 @@ describe("本项目的规范改写（261 号票）", () => {
     expect(standardDocState(before.docs.find((d) => d.key === "architecture")!)).toBe("missing");
     expect(fs.existsSync(records.architecture)).toBe(false);
 
-    // 维护者提跟新版：出卡，确认之前什么都不变
+    // 负责人提跟新版：出卡，确认之前什么都不变
     const tool = td.daemon.standardChanges.tool(old.id, old.maintainerId);
     const proposed = await tool.run({ upgrade: true, why: "用户说跟上新版规范" }, { toolCallId: "t-up" });
     expect(proposed.isError).toBeUndefined();

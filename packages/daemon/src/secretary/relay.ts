@@ -1,14 +1,14 @@
-// 秘书转达（103 号票，规格第 7 节、第 12 节"星形通信"）：用户在和秘书说话时要它给已有的任务、项目的维护者捎一句话
+// 秘书转达（103 号票，规格第 7 节、第 12 节"星形通信"）：用户在和秘书说话时要它给已有的任务、项目的负责人捎一句话
 // （"告诉 t-5，以后把 GitHub 热门也加上"），秘书用"提议快速动作"提出 tell_task / tell_project，参数是目标和要转达的话。
-// - 目标：看板上的任务（普通任务、流程、长程任务，含定时 / 事件触发的；就是任务详情里用户能说话的那段会话），和项目的维护者会话
-//   （项目页"和维护者交流"那段）。项目内部的任务秘书看不到（64、66 号票）：照 100 号票当"没有这个任务"，回的原因不带项目名、
-//   不说它在不在（只提示项目里的事用 tell_project 转给项目的维护者），免得秘书按编号一个个试出项目内部有哪些任务；
-// - 怎么插进去：走用户在任务详情、项目维护者会话里直接说话的那条路——消息的归属、要先追加的事件（项目维护者手上没有段时开一个
+// - 目标：看板上的任务（普通任务、流程、长程任务，含定时 / 事件触发的；就是任务详情里用户能说话的那段会话），和项目的负责人会话
+//   （项目页"和负责人交流"那段）。项目内部的任务秘书看不到（64、66 号票）：照 100 号票当"没有这个任务"，回的原因不带项目名、
+//   不说它在不在（只提示项目里的事用 tell_project 转给项目的负责人），免得秘书按编号一个个试出项目内部有哪些任务；
+// - 怎么插进去：走用户在任务详情、项目负责人会话里直接说话的那条路——消息的归属、要先追加的事件（项目负责人手上没有段时开一个
 //   对话段）和网关发消息时同一套（daemon.ts 交来 scopeOf、preludeOf），发言方照旧是用户，只多一个 relayedBy: "secretary"
 //   （conversation/messages.ts 的 buildRelayedMessage）。所以对方怎么处理照现有规矩：在干活时是插话、闲着时唤起，做完了的普通任务
 //   重新进行中接着做，长程任务涉及改范围、授权的照常提计划变更，流程执行中只当补充说明，定时 / 事件触发的照用户在它详情里说话的做法。
 //   交给 agent 时开头写明是秘书转达的（agent-input.ts），界面上标出来，不算"本人"的原话素材（materials/sources.ts）；
-//   125 号票起记下转达的是用户在秘书那里哪句话（relayOf：秘书提出转达时正在处理的那条用户消息），维护者引用转达的这一句等于引用原话；
+//   125 号票起记下转达的是用户在秘书那里哪句话（relayOf：秘书提出转达时正在处理的那条用户消息），负责人引用转达的这一句等于引用原话；
 // - 收不了的（已归档、已取消、不存在、已经结束的长程任务和流程、已归档或删掉的项目……）提出时就拒，原因交回秘书（不出卡）；
 //   卡上确认时目标可能变了，执行时再看一次，收不了的卡片保持待处理；
 // - "点明了"（照 100 号票评审后改严的判法，再按 103 号票评审收严，relayExplicit）：用户自己说的话里，转达的说法紧跟着这个目标
@@ -72,7 +72,7 @@ const TaskParams = Type.Object(
 
 const ProjectParams = Type.Object(
   {
-    project: Type.String({ minLength: 1, description: "转给哪个项目的维护者：项目编号（p-1）或完整的项目名，尽量照抄用户的说法" }),
+    project: Type.String({ minLength: 1, description: "转给哪个项目的负责人：项目编号（p-1）或完整的项目名，尽量照抄用户的说法" }),
     message: Message,
   },
   { additionalProperties: false },
@@ -87,8 +87,8 @@ export type RelayRef = NamedRef;
 /** 转达的说法，后面紧跟着目标（"告诉 t-5""转告 t-5""转达给 t-5""转给 t-5""让 t-5"）；"跟 X 说"另外认 */
 // @i18n-ignore-start data：认用户说的中文（"告诉 t-5……"）
 const RELAY_VERBS = ["告诉", "转告", "转达给", "转给", "让"];
-/** "跟 X 说"里目标和"说"之间可以有的（"跟记账本的维护者说"） */
-const THEN_SAY = /^\s*(的维护者|那边|这个项目|这个任务|项目|任务)?\s*(说|讲)/u;
+/** "跟 X 说"里目标和"说"之间可以有的（"跟记账本的负责人说"；用户说惯了的老叫法也认，365 号票） */
+const THEN_SAY = /^\s*(的负责人|的维护者|那边|这个项目|这个任务|项目|任务)?\s*(说|讲)/u; // @keep-old-name
 /** 否定：说法前面有它的不算下了命令；要转达的话外面（点到的那一段里）有它的，算秘书丢了否定 */
 const NEGATION = /[不没别甭勿莫]|无需|禁止/u;
 /** 编号形状的词（任务 t-<n>、项目 p-<n>）：段落里出现别的编号，就是说到别的目标了 */
@@ -187,7 +187,7 @@ export interface RelayDeps {
   tasks: TaskService;
   /** 用户在这个会话里说话时消息的归属（网关发消息的那一套）；收不了的抛 RequestRejected（已结束、已归档……），不认得的会话是 undefined */
   scopeOf(conversation: ConversationId, taskId?: string): MessageScope | undefined;
-  /** 和消息同一事务、排在它前面追加的事件（项目维护者手上没有在进行的段时开一个对话段，16 号票） */
+  /** 和消息同一事务、排在它前面追加的事件（项目负责人手上没有在进行的段时开一个对话段，16 号票） */
   preludeOf(conversation: ConversationId, key: string, taskId?: string): NewEvent[];
 }
 
@@ -199,8 +199,8 @@ type ProjectRelay = { projectId: string; message: string };
 const relayKey = (actionId: string) => `relay:${actionId}`;
 
 /**
- * 往一个维护者会话里转达一句（和用户在那里直接说话一样的归属、开段，消息标上秘书转达，连同用户在秘书那里的原话是哪句）：要追加的事件。
- * 收不了的（已归档、删掉了……）抛 RequestRejected。268 号票起 project_ops 的通用操作"跟维护者说一句"也走这里（check 只看收不收）
+ * 往一个负责人会话里转达一句（和用户在那里直接说话一样的归属、开段，消息标上秘书转达，连同用户在秘书那里的原话是哪句）：要追加的事件。
+ * 收不了的（已归档、删掉了……）抛 RequestRejected。268 号票起 project_ops 的通用操作"跟负责人说一句"也走这里（check 只看收不收）
  */
 export function relayEvents(
   deps: Pick<RelayDeps, "store" | "scopeOf" | "preludeOf">,
@@ -215,7 +215,7 @@ export function relayEvents(
 
 /**
  * 转达的是用户在秘书那里哪句话（125 号票）：秘书提出转达时正在处理的那条，是用户自己在秘书会话里说的才算（秘书在处理任务做完、
- * 维护者来信这类通知时提出的没有）。维护者引用转达进去的那一句，运行时按它换成用户的原话核实
+ * 负责人来信这类通知时提出的没有）。负责人引用转达进去的那一句，运行时按它换成用户的原话核实
  */
 function originalMessageOf(store: EventStore, inputMessageId: string | undefined): string | undefined {
   const input = inputMessageId === undefined ? undefined : getMessage(store.reader, inputMessageId);
@@ -237,7 +237,7 @@ export function relayActions(deps: RelayDeps): QuickActionExecutor[] {
       tasks.list().filter((task) => !isProjectInternal(task)),
       ref,
       // @i18n-ignore-next model：找不到时交回秘书的说明
-      { nameOf: (task) => task.title, what: "任务", hint: `用 ${VIEW_BOARD_TOOL} 查看板，写任务编号；项目里的事请用 ${RELAY_ACTION.project} 转给项目的维护者` },
+      { nameOf: (task) => task.title, what: "任务", hint: `用 ${VIEW_BOARD_TOOL} 查看板，写任务编号；项目里的事请用 ${RELAY_ACTION.project} 转给项目的负责人` },
     );
 
   /** 别的任务和项目（"点明了"时认名字更长的那个优先、段落遇到它们截住）；项目内部的也算上，只用来截，不往外说 */
@@ -265,7 +265,7 @@ export function relayActions(deps: RelayDeps): QuickActionExecutor[] {
       // @i18n-ignore-start model：用法给秘书看
       usage:
         "用户要你给看板上已有的某个任务（普通任务、流程、长程任务，含定时 / 事件触发的）捎一句话（补充要求、改个说法），由运行时插进它的会话，" +
-        "和用户在任务详情里直接说一样（在干活时下一步之前看到，闲着时唤起，做完了的普通任务接着做）；项目内部的任务看不到，转给那个项目的维护者",
+        "和用户在任务详情里直接说一样（在干活时下一步之前看到，闲着时唤起，做完了的普通任务接着做）；项目内部的任务看不到，转给那个项目的负责人",
       // @i18n-ignore-end
       params: TaskParams,
       watch: { categories: [] },
@@ -294,14 +294,14 @@ export function relayActions(deps: RelayDeps): QuickActionExecutor[] {
       title: t("secretary.relay.projectAction"),
       // @i18n-ignore-start model：用法给秘书看
       usage:
-        "用户要你给某个项目的维护者捎一句话（项目页“和维护者交流”那段会话；项目内部的任务也经它转），由运行时插进维护者的会话，和用户在那里直接说一样",
+        "用户要你给某个项目的负责人捎一句话（项目页“和负责人交流”那段会话；项目内部的任务也经它转），由运行时插进负责人的会话，和用户在那里直接说一样",
       // @i18n-ignore-end
       params: ProjectParams,
       watch: { categories: [] },
       confirm: "ask_when_inferred",
       normalize({ project: ref, message }): NormalizedQuickAction {
         const project = findProject(ref);
-        // 已归档的维护者会话只读：直接拒
+        // 已归档的负责人会话只读：直接拒
         scopeIn(maintainerChannel(project.maintainerId));
         return { params: { projectId: project.id, message } satisfies ProjectRelay, title: t("secretary.relay.to", { target: projectTarget(project) }), target: projectTarget(project), content: message };
       },

@@ -1,4 +1,4 @@
-// 运行时核实用户原话（125 号票；方案"用户授权的效力"第 2 节第一层，不用签名）：维护者在宣布阶段完成、提计划变更、自行调整计划、
+// 运行时核实用户原话（125 号票；方案"用户授权的效力"第 2 节第一层，不用签名）：负责人在宣布阶段完成、提计划变更、自行调整计划、
 // 提立项要求变更时附上用户消息的 id，守护进程逐条核对，核实过的写进单独一栏（协议包 user-words.ts 的 VerifiedUserWords）：
 // - 消息要在：不存在、被彻底删除了（会话消息的视图里没有了）的不认；
 // - 发言方要是用户：agent 自己的话、运行时的通知不认；
@@ -34,7 +34,7 @@ import { getMessage, messageSentFrom } from "./views.ts";
 export const userMessageIdLine = (id: string): string => `[用户消息 id：${id}]`; // @i18n-ignore model：交给 agent 的那一行
 
 /**
- * 维护者的工具里"依据的用户原话"那个参数（宣布阶段完成、计划变更、自行调整、立项要求变更共用）：用户消息末尾那一行里的 id。
+ * 负责人的工具里"依据的用户原话"那个参数（宣布阶段完成、计划变更、自行调整、立项要求变更共用）：用户消息末尾那一行里的 id。
  * 运行时核实后单独一栏写进去；它在正文里写的"用户说了……""用户已同意"只是转述，不算数
  */
 export const USER_WORDS_PARAM = Type.Array(Type.String({ minLength: 1 }), {
@@ -46,7 +46,7 @@ export const USER_WORDS_PARAM = Type.Array(Type.String({ minLength: 1 }), {
 
 /**
  * 卡片也出在用户说那句话的会话里（125 号票：计划变更卡、立项要求变更卡）：核实过的原话在哪些会话（秘书转达来的在秘书会话），
- * 除了 own（提出它的维护者自己的会话：工具产生的卡片本来就以卡片引用出现在那里），各放一条卡片引用（系统消息，不交给那里的 agent）
+ * 除了 own（提出它的负责人自己的会话：工具产生的卡片本来就以卡片引用出现在那里），各放一条卡片引用（系统消息，不交给那里的 agent）
  */
 export function cardRefsElsewhere(cardId: string, words: readonly VerifiedUserWords[], own: ConversationId): NewEvent[] {
   return [...new Set(words.map((w) => w.conversation as ConversationId))]
@@ -56,13 +56,13 @@ export function cardRefsElsewhere(cardId: string, words: readonly VerifiedUserWo
 
 export interface UserWordsDeps {
   store: Pick<EventStore, "reader">;
-  /** 会话给人看的说法（"和<名字占位>的对话""项目「记账本」的维护者会话""任务 t-6「…」的会话"） */
+  /** 会话给人看的说法（"和<名字占位>的对话""项目「记账本」的负责人会话""任务 t-6「…」的会话"） */
   whereOf(conversation: ConversationId): string;
 }
 
 /**
  * 会话给人看的说法（daemon.ts 接项目和任务）：秘书会话写"和<名字占位>的对话"（43 号票：界面上是用户起的名字，交给 agent 的是
- * "和秘书的对话"）；维护者的会话按它属于哪个项目、哪个任务说；都认不出的写"维护者会话"
+ * "和秘书的对话"）；负责人的会话按它属于哪个项目、哪个任务说；都认不出的写"负责人会话"
  */
 export function conversationWhere(lookup: {
   projectOf(maintainerId: string): { name: string } | undefined;

@@ -23,7 +23,7 @@ const hit = (j: GuardJudgement) => j.temporalRules.find((r) => r.ruleId === RULE
 /** 效果日志里读过工作目录里的 .env（排在 v1 模板的前提之后） */
 const READ_ENV = effect(10, "read", { path: `${P.workDir}\\.env` });
 
-/** 任务里的维护者（联网开着）在读过 .env 之后调用；v1 模板的其他前提（跑过测试、已提交、HEAD 是新提交）都满足 */
+/** 任务里的负责人（联网开着）在读过 .env 之后调用；v1 模板的其他前提（跑过测试、已提交、HEAD 是新提交）都满足 */
 function afterEnvRead(toolCall: ToolCall, extra: Parameters<typeof inTask>[2] = {}): GuardJudgement {
   const satisfied = v1Satisfied();
   return judgeToolCall(inTask(maintainer(), toolCall, { ...satisfied, effectLog: [...satisfied.effectLog!, READ_ENV], tools: TEST_TOOLS, ...extra }));
@@ -51,7 +51,7 @@ function pushAfterReading(path: string): GuardJudgement {
   return afterEnvRead(bash("git push origin main"), { effectLog: [...v1Satisfied().effectLog!, effect(10, "read", { path })] });
 }
 
-/** 没读过密钥的任务里，维护者跑这一条命令 */
+/** 没读过密钥的任务里，负责人跑这一条命令 */
 function command(text: string): GuardJudgement {
   return judgeToolCall(inTask(maintainer(), bash(text), v1Satisfied()));
 }

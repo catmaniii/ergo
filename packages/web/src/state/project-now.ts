@@ -1,5 +1,5 @@
 // 项目的"运营概况"和项目页最上面的"现在"（140 号票，纯函数）。
-// - 运营概况（projectOperationsSummary）：项目卡、项目头里的"现在"（项目页和维护者会话页左栏）用同一个组件（ui/operations-summary.tsx），
+// - 运营概况（projectOperationsSummary）：项目卡、项目头里的"现在"（项目页和负责人会话页左栏）用同一个组件（ui/operations-summary.tsx），
 //   数据只有这一份。内容是服务入口（"打开「X」"、在线圆点，前面一张首页的缩略图）和定时任务（项目的内部任务里定时的、事件触发的：
 //   收起时一行"2 个定时任务：每天 08:00 日报、每周日 18:00 周报"，展开每条一行：名字、时间表、下次、上次和结果、运营中还是已暂停）。
 //   只有使用中的项目有；停用、归档了的照样列，整块标"已停用""已归档"（服务撤下了也列、缩略图灰着）。没有服务的不列入口，
@@ -234,7 +234,7 @@ export interface NowWorkOrder {
   status: string;
 }
 
-/** 进行中的工单多久没有动静（维护者也没在干活）算"超时没动" */
+/** 进行中的工单多久没有动静（负责人也没在干活）算"超时没动" */
 export const STALE_WORK_ORDER_MS = 30 * 60_000;
 
 export type ProjectNow =
@@ -243,7 +243,7 @@ export type ProjectNow =
       /** 起草中（立项问答）、你打回了在改、等你确认、已确认等你开工 */
       step: "drafting" | "revising" | "awaiting_confirm" | "confirmed";
       text: string;
-      /** 要你做的：和维护者交流、去确认立项书、开工 */
+      /** 要你做的：和负责人交流、去确认立项书、开工 */
       action?: "chat" | "charter" | "start_build";
     }
   | {
@@ -256,7 +256,7 @@ export type ProjectNow =
       latest?: string;
       /** "首版做完了"卡还等你确认：卡的编号（"现在"里直接放这张卡） */
       buildDoneCardId?: string;
-      /** "转入使用"确认卡还等你确认（259 号票：你在项目页点的、维护者提的、秘书代办的）：卡的编号（"现在"里直接放这张卡） */
+      /** "转入使用"确认卡还等你确认（259 号票：你在项目页点的、负责人提的、秘书代办的）：卡的编号（"现在"里直接放这张卡） */
       goLiveCardId?: string;
     }
   | { kind: "in_use"; summary?: OperationsSummary; runs: RecentRun[] }
@@ -312,7 +312,7 @@ function stuckOf(state: UiState, project: Project, nowMs: number): NowStuck[] {
   return out;
 }
 
-/** 一张工单卡住了没有：等你回答提问、等你确认派出、做不了 / 退回了而任务还没结束、进行中却很久没动静（维护者也没在干活） */
+/** 一张工单卡住了没有：等你回答提问、等你确认派出、做不了 / 退回了而任务还没结束、进行中却很久没动静（负责人也没在干活） */
 function orderStuck(state: UiState, w: WorkOrder, sleeping: boolean, nowMs: number): Omit<NowStuck, "key" | "title" | "taskId"> | undefined {
   if (w.state === "clarifying") return { kind: "waiting", reason: t("state.projectNow.reason.clarifying") };
   if (w.state === "awaiting_confirm") return { kind: "waiting", reason: t("state.projectNow.reason.awaitingConfirm") };

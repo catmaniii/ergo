@@ -1,4 +1,4 @@
-// 115 号票：agent 之间的来信（秘书会话里的任务做完、维护者来信，维护者会话里的秘书转达，运行时补给维护者的计划检查）在会话里
+// 115 号票：agent 之间的来信（秘书会话里的任务做完、负责人来信，负责人会话里的秘书转达，运行时补给负责人的计划检查）在会话里
 // 只显示一行——图标、种类、一句话总结、时间、"详情 ›"——点开看全文（照 Markdown 画）；交给 agent 的照旧是全文（守护进程测）。
 // 先回放主切面录下的真实事件流：task-done-voice（定时任务跑完自动播报，通知后面跟着运行时放的日报附件）、
 // secretary-letter（普通任务的 agent 做到一半给秘书发一条、接着做完）；旧消息（没存总结）、秘书转达、不折的那些按共享协议的 schema 构造。
@@ -12,6 +12,8 @@ import {
   chatItems,
   type ConversationId,
   chatLook,
+  daemonTextPlain,
+  daemonTextSegments,
   detailContent,
   type EventFrame,
   fileCards,
@@ -103,31 +105,80 @@ describe("回放：普通任务的 agent 做到一半给秘书发一条、接着
   const state = replay(load("secretary-letter"));
   const items = chatItems(state, SECRETARY);
 
-  test("两条各折成一行：维护者来信显示它给的总结，任务做完显示运行时拼的；秘书的两段回复照常", () => {
+  test("两条各折成一行：负责人来信显示它给的总结，任务做完显示运行时拼的；秘书的两段回复照常", () => {
     expect(lines(items)).toEqual([
-      ["system", "维护者来信：先下了 mp3", "maintainer_letter"],
+      ["system", "负责人来信：先下了 mp3", "maintainer_letter"],
       ["system", "任务做完：t-1「去把《晴天》的音频下下来」做完了", "task_done"],
       ["reply", "回复：它说先下了 mp3，问你要不要 flac。要我念给你听吗？", "-"],
       ["reply", "回复：《晴天》下好了，要我念给你听吗？", "-"],
     ]);
-    expect(letterOf(items[0]!)).toEqual({ kind: "maintainer_letter", label: "维护者来信", icon: "✉️", summary: "先下了 mp3" });
+    expect(letterOf(items[0]!)).toEqual({ kind: "maintainer_letter", label: "负责人来信", icon: "✉️", summary: "先下了 mp3" });
     expect(items.slice(0, 2).map((it) => chatLook(it).form)).toEqual(["letter", "letter"]);
   });
 
-  test("点开维护者来信：全文是谁说的、原话，和要秘书怎么做", () => {
+  test("点开负责人来信：全文是谁说的、原话，和要秘书怎么做", () => {
     const content = detailContent(state, items, { type: "item", id: items[0]!.id });
-    expect(content).toMatchObject({ kind: "text", label: "维护者来信", summary: "先下了 mp3", markdown: true });
+    expect(content).toMatchObject({ kind: "text", label: "负责人来信", summary: "先下了 mp3", markdown: true });
     if (content.kind !== "text") throw new Error("不是文本详情");
-    expect(content.text).toContain("普通任务 t-1「去把《晴天》的音频下下来」的维护者说：\n先下了 mp3；要 flac 的话在任务里跟我说一声。");
+    expect(content.text).toContain("普通任务 t-1「去把《晴天》的音频下下来」的负责人说：\n先下了 mp3；要 flac 的话在任务里跟我说一声。");
   });
 });
 
-/** 秘书转达进维护者会话的一句（发言方是用户、标着 relayedBy；summary 是守护进程存的总结，旧消息没有） */
+describe("老事件回放（365 号票：负责人原来的叫法还存在事件日志里，不可改）", () => {
+  // 把录下的事件流里的新说法换回老的，就是改名之前存下的事件
+  const OLD_WORD = "维护者"; // @keep-old-name
+  const oldInputs = (inputs: UiInput[]) => JSON.parse(JSON.stringify(inputs).replaceAll("负责人", OLD_WORD)) as UiInput[];
+  const inputs = oldInputs(load("secretary-letter"));
+  const noSummary = inputs.map((input) => {
+    if (input.kind !== "frame" || input.frame.channel !== SECRETARY || input.frame.type !== "message") return input;
+    const { summary: _dropped, ...message } = (input.frame.payload as MessageEventPayload).message;
+    return { ...input, frame: { ...input.frame, payload: { ...(input.frame.payload as MessageEventPayload), message } } };
+  });
+
+  test("老标记的来信照常折成一行：种类、要点那一行是新说法", () => {
+    const state = replay(inputs);
+    const items = chatItems(state, SECRETARY);
+    const first = items[0];
+    if (first?.kind !== "system") throw new Error("不是系统消息");
+    // 事件里存的还是老标记
+    expect(first.parts[0]).toMatchObject({ type: "text", text: expect.stringMatching(new RegExp(`^【${OLD_WORD}来信】`)) });
+    expect(lines(items)[0]).toEqual(["system", "负责人来信：先下了 mp3", "maintainer_letter"]);
+    expect(letterOf(items[0]!)).toEqual({ kind: "maintainer_letter", label: "负责人来信", icon: "✉️", summary: "先下了 mp3" });
+    expect(chatLook(items[0]!).form).toBe("letter");
+  });
+
+  test("更老的（115 号票之前，没存总结）也照常折，总结取正文第一句", () => {
+    const items = chatItems(replay(noSummary), SECRETARY);
+    expect(letterOf(items[0]!)?.kind).toBe("maintainer_letter");
+    expect(letterOf(items[0]!)?.summary).toBe("先下了 mp3");
+  });
+
+  test("点开：全文存的还是老说法，显示时换成新的（详情页、系统说明都过 daemonText）", () => {
+    const state = replay(inputs);
+    const items = chatItems(state, SECRETARY);
+    const content = detailContent(state, items, { type: "item", id: items[0]!.id });
+    expect(content).toMatchObject({ kind: "text", label: "负责人来信", letter: "maintainer_letter", markdown: true });
+    if (content.kind !== "text") throw new Error("不是文本详情");
+    expect(content.text).toContain(`的${OLD_WORD}说：`);
+    const shown = daemonTextPlain(content.text, "二狗");
+    expect(shown).not.toContain(OLD_WORD);
+    expect(shown.startsWith("【负责人来信】")).toBe(true);
+    expect(shown).toContain("的负责人说：\n先下了 mp3");
+    expect(daemonTextSegments(`转给「记账本」的${OLD_WORD}了。`)).toEqual([{ text: "转给「记账本」的负责人了。" }]);
+  });
+
+  test("不折的系统说明里的老说法：要点那一行也是新说法", () => {
+    const state = replay([{ kind: "frame", frame: messageFrame(TM, 1, { id: "s1", speaker: "system", parts: [text(`转给「记账本」的${OLD_WORD}了。`)] }) }]);
+    expect(lines(chatItems(state, TM))).toEqual([["system", "系统：转给「记账本」的负责人了。", "-"]]);
+  });
+});
+
+/** 秘书转达进负责人会话的一句（发言方是用户、标着 relayedBy；summary 是守护进程存的总结，旧消息没有） */
 const relayed = (seq: number, id: string, said: string, summary?: string) =>
   messageFrame(TM, seq, { id, speaker: "user", parts: [text(said)], relayedBy: "secretary", ...(summary === undefined ? {} : { summary }) }, { taskId: "t-9" });
 
 describe("秘书转达的话（103 号票的那一句）", () => {
-  test("维护者会话里折成一行，种类写“<名字>转达”：总结是守护进程存的（转达的话的第一句）；旧的没存的取第一句", () => {
+  test("负责人会话里折成一行，种类写“<名字>转达”：总结是守护进程存的（转达的话的第一句）；旧的没存的取第一句", () => {
     const state = replay([
       { kind: "frame", frame: messageFrame(TM, 1, { id: "u1", speaker: "user", parts: [text("先写结论部分")] }, { taskId: "t-9" }) },
       { kind: "frame", frame: relayed(2, "r1", "以后把 GitHub 热门也加上。每天放在最后", "以后把 GitHub 热门也加上") },

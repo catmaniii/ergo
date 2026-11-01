@@ -265,13 +265,13 @@ describe("记忆管理员", () => {
   });
 
   it(
-    "不常驻（243 号票）：起来时只建壳——没有 memory-curator 子进程、不占 maxLive 名额（秘书 + 一个维护者照旧能起）；用户发消息才拉起它；闲置后退出",
+    "不常驻（243 号票）：起来时只建壳——没有 memory-curator 子进程、不占 maxLive 名额（秘书 + 一个负责人照旧能起）；用户发消息才拉起它；闲置后退出",
     { timeout: 90_000 },
     async () => {
       const td = await startTestDaemon({
-        // maxLive=2：秘书占一个，另一个给维护者；管理员常驻的话维护者就起不来（242 合进 main 后的 8 条失败就是这个）
+        // maxLive=2：秘书占一个，另一个给负责人；管理员常驻的话负责人就起不来（242 合进 main 后的 8 条失败就是这个）
         config: { agents: { maxLive: 2, idleMinutes: 0.1 } },
-        secretary: [writeBrief("t-1"), say("交给维护者了")],
+        secretary: [writeBrief("t-1"), say("交给负责人了")],
         maintainer: [submitPlanStep(), say("计划交了")],
         curator: [say("我在：记忆这边随时可以问。")],
       });
@@ -281,7 +281,7 @@ describe("记忆管理员", () => {
       // 守护进程起来（记忆插件在跑、管理员已经建好壳）：只有秘书在，管理员没有子进程
       await waitUntil(() => running("secretary"), { timeoutMs: 20_000, describe: () => JSON.stringify(live()) });
       expect(running("memory-curator")).toBe(false);
-      // 名额没被它占：maxLive=2 时"秘书 + 一个维护者"照旧能起
+      // 名额没被它占：maxLive=2 时"秘书 + 一个负责人"照旧能起
       const frontend = await TestFrontend.connect(url);
       await frontend.subscribe({ [SECRETARY]: 0, [CURATOR]: 0 });
       await frontend.startTask("任务 1");
@@ -292,7 +292,7 @@ describe("记忆管理员", () => {
       expect(working).not.toContain("memory-curator");
       expect(working.length).toBeLessThanOrEqual(2);
 
-      // 维护者闲置退出（让出第二个名额），管理员照旧没有被拉起
+      // 负责人闲置退出（让出第二个名额），管理员照旧没有被拉起
       await waitUntil(() => !running("tm-1"), { timeoutMs: 20_000, describe: () => JSON.stringify(live()) });
       expect(running("memory-curator")).toBe(false);
 
@@ -302,7 +302,7 @@ describe("记忆管理员", () => {
       await frontend.next(CURATOR, EVENT_TYPES.turnEnd);
       expect(texts(td, CURATOR).at(-1)).toContain("记忆这边随时可以问");
 
-      // 闲置到 agents.idleMinutes 后照维护者的规矩退出
+      // 闲置到 agents.idleMinutes 后照负责人的规矩退出
       await waitUntil(() => !running("memory-curator"), { timeoutMs: 20_000, describe: () => JSON.stringify(live()) });
     },
   );

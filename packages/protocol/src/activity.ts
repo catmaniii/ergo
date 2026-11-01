@@ -18,9 +18,9 @@ export const ACTIVITY_STATE_LABEL: Readonly<Record<ActivityState, string>> = tTa
 /**
  * 说明的种类：
  * - 干活中：被唤起（拉起了、还没交来输入）、处理一条输入；此刻在做什么（临时的进度）：思考、写回复、调用某个工具；
- * - 等你：等你批准（审批）、等你回答（澄清：提问卡）、等你启用它用的运行时插件（286 号票：维护者有活却拉不起来，plugin 是插件给人看的名字）、
- *   等你收回（290 号票：接管来的会话交还给运行时了，维护者有活也不拉起，runtime 是运行时给人看的名字）、在官方 App 里（292 号票：
- *   会话交给官方 App 了，维护者有活也不拉起，收回到二狗后接着）；
+ * - 等你：等你批准（审批）、等你回答（澄清：提问卡）、等你启用它用的运行时插件（286 号票：负责人有活却拉不起来，plugin 是插件给人看的名字）、
+ *   等你收回（290 号票：接管来的会话交还给运行时了，负责人有活也不拉起，runtime 是运行时给人看的名字）、在官方 App 里（292 号票：
+ *   会话交给官方 App 了，负责人有活也不拉起，收回到二狗后接着）；
  * - 休眠：空闲（子进程还在、没有输入）、闲置退出。
  */
 export const ACTIVITY_DETAIL_KINDS = ["woken", "handling_input", "thinking", "replying", "calling_tool", "approval", "clarification", "runtime_off", "handed_back", "in_remote", "idle", "idle_exit"] as const;

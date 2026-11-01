@@ -1,7 +1,7 @@
 // 主切面：各 agent 的系统提示放进可编辑的 md 文件（71 号票）。
 // - 设置里的"系统提示"经 HTTP：列出全部、看一份、保存（占位符写错的拒收，说清第几行错在哪）、恢复默认；改的存在数据目录配置区的 prompts/；
 // - 改了秘书的提示或前缀：手头这一条处理完就按新的重新拉起，从下一轮起生效（不重启守护进程）；
-// - 直接改数据目录里的文件也行：秘书下一轮（按文件的修改时间看出来）、维护者下一次被唤起时读到新的；
+// - 直接改数据目录里的文件也行：秘书下一轮（按文件的修改时间看出来）、负责人下一次被唤起时读到新的；
 // - 启动时用户改的提示有错：守护进程不启动，报清楚是哪个文件哪一行，不默默用空串。
 import fs from "node:fs";
 import path from "node:path";
@@ -107,14 +107,14 @@ describe("改了就生效，不用重启守护进程", () => {
     expect(await latestSystemPrompt(frontend, "第二句")).toBe("你是直接改过的管家「二狗」。");
   });
 
-  it("直接改数据目录里的文件：维护者下一次被唤起时读到新的", { timeout: 60_000 }, async () => {
+  it("直接改数据目录里的文件：负责人下一次被唤起时读到新的", { timeout: 60_000 }, async () => {
     const td = await startTestDaemon({ maintainer: [{ kind: "echo_context" }] });
     const frontend = await TestFrontend.connect(td.url);
     const tm1 = maintainerChannel("tm-1");
     await frontend.subscribe({ [tm1]: 0 });
     const dir = dataDirLayout(td.dataDir).prompts;
     fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(path.join(dir, "task-maintainer.md"), "你是改过的任务维护者：被拉回 {{拉回次数}} 次后再犯就停下，交计划用 {{submit_plan}}。\r\n");
+    fs.writeFileSync(path.join(dir, "task-maintainer.md"), "你是改过的任务负责人：被拉回 {{拉回次数}} 次后再犯就停下，交计划用 {{submit_plan}}。\r\n");
 
     const task = td.daemon.tasks.createByRequest({ title: "X 的调研", summary: "X 的调研" });
     td.daemon.tasks.writeBrief(task.id, { goal: "整理一份 X 的调研", acceptanceCriteria: ["附来源"], constraints: [], projects: [], memoryScope: "" });
@@ -123,8 +123,8 @@ describe("改了就生效，不用重启守护进程", () => {
         .events({ channel: tm1, type: EVENT_TYPES.message })
         .map((f) => f.payload as MessageEventPayload)
         .find((m) => m.message.speaker === "agent" && textOf(m).includes("[system] "));
-    await waitUntil(() => reply() !== undefined, { timeoutMs: 30_000, describe: () => "等维护者回显上下文" });
-    expect(latestSystemPromptIn(textOf(reply()!))).toBe("你是改过的任务维护者：被拉回 3 次后再犯就停下，交计划用 submit_plan。");
+    await waitUntil(() => reply() !== undefined, { timeoutMs: 30_000, describe: () => "等负责人回显上下文" });
+    expect(latestSystemPromptIn(textOf(reply()!))).toBe("你是改过的任务负责人：被拉回 3 次后再犯就停下，交计划用 submit_plan。");
   });
 });
 
@@ -134,7 +134,7 @@ describe("启动时查一遍", () => {
     const homeDir = makeTempDir("ergo-home-");
     const file = path.join(dataDirLayout(dataDir).prompts, "job-maintainer.md");
     fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, "你是定时作业的维护者。\n连续失败 {{连续失败次数}} 次暂停。\n");
+    fs.writeFileSync(file, "你是定时作业的负责人。\n连续失败 {{连续失败次数}} 次暂停。\n");
     await expect(startTestDaemon({ reuse: { dataDir, homeDir } })).rejects.toThrow(`${file} 有错（改好，或者删掉它恢复默认）：\n第 2 行：不认得的占位符 {{连续失败次数}}`);
   });
 });

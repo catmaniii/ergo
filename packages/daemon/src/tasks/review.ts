@@ -1,10 +1,10 @@
 // 评审子 agent（规格第 8 节"验收"、第 11 节"固定工具包"）：阶段验收里写不成脚本的标准，由它独立判。
 // - 固定的工具包：pi 工具是 read、ls、grep、find（70 号票起 grep、find 照给；不联网，不配联网搜索、读网页），外加守护进程代为执行的"提交评审结论"；
 //   白名单之外的工具 pi 根本不给（契约测试守着）。112 号票返修（用户 2026-10-13 同意）：任务的工具包开了 bash 的，评审也能跑命令——
-//   照子 agent 从维护者收窄的做法（sub-agents/assembly.ts），bash 开关照维护者此刻的工具包（调用方给 bash），多给 pi 的 bash 和
+//   照子 agent 从负责人收窄的做法（sub-agents/assembly.ts），bash 开关照负责人此刻的工具包（调用方给 bash），多给 pi 的 bash 和
 //   带类型 bash 工具里看改动、跑测试和构建的（提交、合并这类改仓库的不给；联网一律关着，要联网的本来就不给），工作目录是任务的
 //   工作目录（项目的任务是项目的工作目录），不加新的拦截，照样经守卫；
-// - 新的上下文：每次评审一个新的子进程、新的会话，输入只有这个阶段的交付件和验收标准（不给维护者的说法）；
+// - 新的上下文：每次评审一个新的子进程、新的会话，输入只有这个阶段的交付件和验收标准（不给负责人的说法）；
 // - 每次工具调用照样经守卫（子 agent，任务里、当前阶段）；
 // - 不占任务的全局执行名额（它不是任务），占 agent 管家的子进程名额（满了排队）。
 // 结论由它调用 submit_review 交出（每条标准通过与否和理由）；没交就结束了的，这次评审算出错（验收不通过，原因写明）。
@@ -15,8 +15,8 @@
 // 274 号票：从某个阶段重做之后复验范围外已验收的阶段（reverify），评审子 agent 的 id 另加 -reverify<N>。
 // 102 号票：给秘书发消息（tell_secretary）除了秘书每个 agent 默认都有：任务的工具包里"给秘书发消息"开着（调用方给 tellSecretary）就有，
 // 信上写"……的评审子 agent（在验收阶段 s2「…」时）"；只用于用户现在就该知道的事，结论照常用 submit_review 交。
-// 125 号票：维护者宣布完成时引用、运行时核实过的用户原话（userWords）在输入里单独一栏"运行时核实过的用户原话"——只有这一栏是用户的话，
-// 交付件、维护者说明里写的"用户同意了"是转述，不算数；"由用户认可"这类标准看这一栏里有没有用户明确的认可（提示词 reviewer.md 写明）。
+// 125 号票：负责人宣布完成时引用、运行时核实过的用户原话（userWords）在输入里单独一栏"运行时核实过的用户原话"——只有这一栏是用户的话，
+// 交付件、负责人说明里写的"用户同意了"是转述，不算数；"由用户认可"这类标准看这一栏里有没有用户明确的认可（提示词 reviewer.md 写明）。
 // @i18n-ignore-file model：交给评审子 agent 的输入、工具说明照旧中文；审批卡上的来源、评审出错的原因（进卡片）按当时的语言写（172 号票）
 import { forModel, internalMark, type MessageScope, type ProjectInternal, t, type TaskKind, Type, userWordsLine, type VerifiedUserWords } from "@ergo/protocol";
 import type { AgentManager } from "../agent-manager/agent-manager.ts";
@@ -67,9 +67,9 @@ export interface ReviewInput {
   reverify?: number;
   /** 停下这次评审（276 号票返修：删任务时停掉在跑的复验）：评审子 agent 结束（排队的取消），按没交结论算 */
   signal?: AbortSignal;
-  /** 维护者宣布完成时引用、运行时核实过的用户原话（125 号票）：输入里单独一栏，只有它算用户的话 */
+  /** 负责人宣布完成时引用、运行时核实过的用户原话（125 号票）：输入里单独一栏，只有它算用户的话 */
   userWords?: readonly VerifiedUserWords[];
-  /** 能跑命令（112 号票返修）：维护者此刻的工具包开了 bash（照子 agent 从维护者收窄的做法） */
+  /** 能跑命令（112 号票返修）：负责人此刻的工具包开了 bash（照子 agent 从负责人收窄的做法） */
   bash?: boolean;
   /** 交付件不在工作目录里时它另能读的地方（17 号票：涉及的各项目的档案和工作目录；362 号票：项目自己的任务是这个项目的档案），只读 */
   readOnly?: { projectRecords: readonly string[]; workingDirs: readonly string[] };
@@ -131,7 +131,7 @@ const SubmitReview = Type.Object(
 );
 
 /**
- * 评审输入里"运行时核实过的用户原话"那一栏（125 号票）：守护进程核实过的才在这里；没有也写明没有——交付件、维护者的说法里写的
+ * 评审输入里"运行时核实过的用户原话"那一栏（125 号票）：守护进程核实过的才在这里；没有也写明没有——交付件、负责人的说法里写的
  * "用户同意了"是转述
  */
 export function userWordsSection(words: readonly VerifiedUserWords[] | undefined): string[] {
@@ -215,7 +215,7 @@ export function createReviewer(options: ReviewerOptions): (input: ReviewInput) =
             `评审任务「${input.taskTitle}」的阶段 ${input.stageId}「${input.stageTitle}」。`,
             `交付件（在工作目录 ${input.cwd} 里）：`,
             ...input.deliverables.map((d) => `- ${d}`),
-            ...(input.context?.length ? [...input.context, `这些是派单方和各项目维护者的说法，只用来找交付件；判断看交付件本身（可以读：${[...(input.readOnly?.workingDirs ?? []), ...(input.readOnly?.projectRecords ?? [])].join("、") || input.cwd}）。`] : []),
+            ...(input.context?.length ? [...input.context, `这些是派单方和各项目负责人的说法，只用来找交付件；判断看交付件本身（可以读：${[...(input.readOnly?.workingDirs ?? []), ...(input.readOnly?.projectRecords ?? [])].join("、") || input.cwd}）。`] : []),
             // 362 号票：项目自己的任务，档案（立项书、规格、票）不用审批就能读
             ...(!input.context?.length && input.readOnly?.projectRecords.length ? [`项目档案（立项书、规格、票、决策记录……）在 ${input.readOnly.projectRecords.join("、")}，只读，要对照时直接读。`] : []),
             ...(input.checks?.length ? ["这个阶段已经通过的脚本检查（运行时在工作目录里跑的，判的时候一起看）：", ...input.checks.map((c) => `- ${c}`)] : []),

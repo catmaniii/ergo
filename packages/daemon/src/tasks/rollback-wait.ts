@@ -5,13 +5,13 @@
 // 固定计划的做法）。从看板上那条 rolled_back 起、任务在执行中或排队中，就算"在等你说话"：
 // - 一分钟（ROLLBACK_WAIT_REMIND_MS，按可注入的时钟）内你没在这个任务里说话：待办里放一条"流程在等你"（卡着这个流程，来源是这个任务，
 //   点了进任务会话），推送；只放一次；
-// - 等的期间无进展的催促不算它（执行控制器的 stall 问 waiting）：原来维护者活着时 20 分钟没进展会被催一次，这时它是在等你，不催；
-// - 不等了：你在这个任务里说了话、维护者开始处理这个任务的一条输入（你点了它在等的卡、秘书替你转达……都是你让它接着做）、
+// - 等的期间无进展的催促不算它（执行控制器的 stall 问 waiting）：原来负责人活着时 20 分钟没进展会被催一次，这时它是在等你，不催；
+// - 不等了：你在这个任务里说了话、负责人开始处理这个任务的一条输入（你点了它在等的卡、秘书替你转达……都是你让它接着做）、
 //   任务不在执行中也不在排队中了（暂停、取消、做完、回到待授权……）。放过的那条还没处理的，系统替你记成处理过
 //   （接着做了的"已接着做"，不在执行中的"已作废"）；
 // - 又撤回、切换了一次：从新的那条 rolled_back 重新算（上一条提醒在被放弃的那段里，跟着走时已经作废）。
 // 只在内存里记；守护进程启动时按事件日志重新认一遍：每个还在执行中、排队中的流程最后一条 rolled_back 之后你说过话没有、
-// 维护者开始处理过它的输入没有；提醒过没有按事项的 data（rollbackSeq）认。
+// 负责人开始处理过它的输入没有；提醒过没有按事项的 data（rollbackSeq）认。
 import {
   CHANNELS,
   EVENT_TYPES,
@@ -78,8 +78,8 @@ const stillWaits = (task: Task) => followsSession(task) && (task.state === "runn
 const timerKey = (taskId: string) => `rollback-wait:${taskId}`;
 
 /**
- * 一条输入、用户的话说的是不是这个任务（只看它维护者的会话里的）：写了任务的按任务认；没写的也算——任务自己的维护者的会话里就是它，
- * 项目维护者的会话里它此刻执行的就是这一件（你在项目页上跟它说话，它照样接着做）
+ * 一条输入、用户的话说的是不是这个任务（只看它负责人的会话里的）：写了任务的按任务认；没写的也算——任务自己的负责人的会话里就是它，
+ * 项目负责人的会话里它此刻执行的就是这一件（你在项目页上跟它说话，它照样接着做）
  */
 const concerns = (task: Task, taskId: string | undefined) => taskId === undefined || taskId === task.id;
 
@@ -149,7 +149,7 @@ export function createRollbackWait(options: RollbackWaitOptions): RollbackWait {
     store.append(inbox.buildUpdate(item, { handled, handledAt: now(), handledNote: note, urgency: "non_blocking", read: true }).event);
   };
 
-  /** 这个会话里你说了话、维护者开始处理一条输入（taskId 是它说的是哪个任务）：说的是在等的那个就不等了 */
+  /** 这个会话里你说了话、负责人开始处理一条输入（taskId 是它说的是哪个任务）：说的是在等的那个就不等了 */
   const resumedIn = (channel: string, taskId: string | undefined): string[] =>
     waitingIn(channel).flatMap((task) => {
       if (!concerns(task, taskId)) return [];

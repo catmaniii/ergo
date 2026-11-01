@@ -1,6 +1,6 @@
-// 运行时的提问卡（288 号票，issue 24 方案第三节丁类）：维护者的运行时自己要问你的——Claude Code 的 AskUserQuestion（一到四道选择题，
+// 运行时的提问卡（288 号票，issue 24 方案第三节丁类）：负责人的运行时自己要问你的——Claude Code 的 AskUserQuestion（一到四道选择题，
 // 每题两到四个选项、有的可以多选，都不合适可以自己写）、退出计划模式时的批准（批准计划接着干，或者打回让它接着想）。
-// 子进程经宿主协议的 ask_user 报上来，守护进程建这张卡放进那个维护者的会话和待我处理；你在卡上答，答案经 ask_user_reply 交回那次调用。
+// 子进程经宿主协议的 ask_user 报上来，守护进程建这张卡放进那个负责人的会话和待我处理；你在卡上答，答案经 ask_user_reply 交回那次调用。
 // 这一轮结束了（做完、被打断、子进程退出）还没答的，卡片作废（再点回"这一轮已经结束"）。守护进程和 Web 共用。
 import { type Static, Type } from "typebox";
 
@@ -51,7 +51,7 @@ export type RuntimeQuestionReply = Static<typeof RuntimeQuestionReply>;
 
 /** 运行时的提问卡：谁问的、哪个运行时、问的什么；答了带上回答 */
 export const RuntimeQuestionCardPayload = Type.Object({
-  /** 问的维护者 */
+  /** 问的负责人 */
   agentId: Type.String(),
   /** 运行时给人看的名字（建卡时的语言）："Claude Code" */
   runtimeTitle: Type.String(),

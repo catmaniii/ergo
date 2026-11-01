@@ -1,7 +1,7 @@
 // 前端状态层回放 27 号票（skill 库、MCP 登记与工具包）主切面录下的事件流：
-// - toolkit-change（toolkit.test.ts）：项目维护者不在任务里时申请开联网、加 MCP（同时关掉 bash：减少能力直接生效），
+// - toolkit-change（toolkit.test.ts）：项目负责人不在任务里时申请开联网、加 MCP（同时关掉 bash：减少能力直接生效），
 //   待我处理出现"工具包变更"卡；批准后项目的工具包扩大，再申请开 bash 被拒绝；
-//   每次变更都是维护者会话时间线上的一条记录（toolkit）。
+//   每次变更都是负责人会话时间线上的一条记录（toolkit）。
 // 重新录：ERGO_RECORD_EVENTS=1 npx vitest run packages/daemon/test/main/toolkit.test.ts
 import fs from "node:fs";
 import path from "node:path";
@@ -57,9 +57,9 @@ describe("回放：工具包变更卡（toolkit-change）", () => {
     expect(selectProject(final, "p-1")?.project.toolkit).toEqual({ skills: [], mcp: ["demo"], bash: false, network: true });
   });
 
-  test("维护者会话的时间线上每次变更一条记录", () => {
+  test("负责人会话的时间线上每次变更一条记录", () => {
     expect(records(final).filter((r) => r.kind === "toolkit").map((r) => r.summary)).toEqual([
-      "维护者减少了能力（要给老王发笔记）：去掉 bash",
+      "负责人减少了能力（要给老王发笔记）：去掉 bash",
       "你批准了工具包变更：加上 MCP demo、联网",
     ]);
   });

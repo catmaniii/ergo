@@ -34,7 +34,7 @@
   "operations.result.error": "出错了：{message}",
   "operations.inboxTitle": "运营方案变更等你确认：{project}",
   "operations.source": "项目「{project}」",
-  "operations.superseded": "维护者交了新的一份运营方案，这张卡不再生效：看最新的那张",
+  "operations.superseded": "负责人交了新的一份运营方案，这张卡不再生效：看最新的那张",
   "operations.tool.propose": "交运营方案",
   "operations.material.confirmed": "确认了项目「{project}」的运营方案（第 {revision} 份）：{summary}",
   "operations.material.rejected": "拒绝了项目「{project}」的运营方案（第 {revision} 份）：{summary}",

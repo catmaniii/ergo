@@ -1,9 +1,9 @@
 // 删除项目时找项目之外读过这个项目的调用（66 号票，projects/outside-reads.ts）：
-// - 读项目档案的工具（秘书、跨项目任务自己的维护者，哪个会话里的都算）按返回开头的"项目 p-N"认，不按参数里的名字；
+// - 读项目档案的工具（秘书、跨项目任务自己的负责人，哪个会话里的都算）按返回开头的"项目 p-N"认，不按参数里的名字；
 // - 参数里写着路径的，秘书会话里的和不在任何会话里的（评审子 agent 的）：碰到的路径取调用时守卫规范化过的（效果日志里的）
 //   和完整参数里写死的绝对路径（通用 bash 按守卫的拆法拆）；和项目档案、工作目录有包含关系就算，任一方向（读了上级目录、
 //   递归扫到项目里也算），按真实路径比（经目录联接读到的也算），通配符先展开，展不开的按通配符之前的那段目录。
-// 读别的项目、读项目外文件的、这个项目自己的维护者会话里的、彻底删除过的不算。主切面（真的秘书、跨项目任务的维护者和评审读，
+// 读别的项目、读项目外文件的、这个项目自己的负责人会话里的、彻底删除过的不算。主切面（真的秘书、跨项目任务的负责人和评审读，
 // 删项目之后取不到）在 test/main/project-deletion-reads.test.ts。
 import fs from "node:fs";
 import path from "node:path";
@@ -137,7 +137,7 @@ test("带通配符的先展开：cat projects/*/spec.md 只算展开到的项目
   }
 });
 
-test("读项目档案的工具按返回开头的项目编号认：秘书的、跨项目任务自己的维护者的，过了保留期只剩摘要的也认得出；名字被新项目重用了不认错；这个项目自己的维护者会话里的不在这里找", () => {
+test("读项目档案的工具按返回开头的项目编号认：秘书的、跨项目任务自己的负责人的，过了保留期只剩摘要的也认得出；名字被新项目重用了不认错；这个项目自己的负责人会话里的不在这里找", () => {
   const { a, b, store } = places();
   try {
     const records = (callId: string, ref: string, result: string, over: Partial<ToolCallDetail> = {}) =>
@@ -146,7 +146,7 @@ test("读项目档案的工具按返回开头的项目编号认：秘书的、�
     records("by-id", "P-1", "项目 p-1「记账本」（已归档）的项目档案：……");
     records("tm", "记账本", "项目 p-1「记账本」（使用中）的项目档案：……", { agentId: "tm-1", conversation: "maintainer:tm-1" });
     recordToolCallDetail(store, clearedDetail(detail("cleared", { tool: "read_project_records", args: { project: "p-1" }, result: "项目 p-1「记账本」（使用中）的项目档案：……" }), "expired", nowIso(), BUILTIN_TOOL_REGISTRY));
-    // 不算的：读的是别的项目、没读成、删掉的项目的名字被新项目 p-3 重用之后读的、这个项目自己的维护者会话里的
+    // 不算的：读的是别的项目、没读成、删掉的项目的名字被新项目 p-3 重用之后读的、这个项目自己的负责人会话里的
     records("other", "家电档案", "项目 p-2「家电档案」（使用中）的项目档案：……");
     records("not-found", "记账", "没有项目「记账」：现有的项目：……", { isError: true, outcome: "error" });
     records("reused-name", "记账本", "项目 p-3「记账本」（筹备中）的项目档案：……");
@@ -167,7 +167,7 @@ test("不在任何会话里的（评审子 agent 的）读这个项目的算，�
     review("rv-a-records", path.join(a.root, "progress.md"));
     review("rv-link", path.join(b.workdir, "link-a", "export.md"));
     review("rv-b", path.join(b.workdir, "import.md"));
-    // 别的维护者会话里的文件读取（跨项目任务的维护者没有文件工具；别的项目的维护者读不到这里）
+    // 别的负责人会话里的文件读取（跨项目任务的负责人没有文件工具；别的项目的负责人读不到这里）
     read(store, "other-conversation", path.join(a.root, "spec.md"), { agentId: "pm-2", conversation: "maintainer:pm-2" });
 
     expect(readsOf(store, A, a)).toEqual(["rv-a", "rv-a-records", "rv-link"]);
@@ -202,6 +202,6 @@ test("通配符展开：* ? [...] 按现有的文件展开（不分大小写）�
   expect(expandWildcards(path.join(scratch, "a[1].txt"))).toEqual([path.join(scratch, "a[1].txt")]);
   expect(expandWildcards(path.join(projectsDir, "p-9*"))).toEqual([projectsDir]);
   expect(expandWildcards(path.join(projectsDir, "**", "x.md"))).toEqual([projectsDir]);
-  // 拼不成正则的方括号（区间顺序不对，2026-10-13 维护者的 node -e 内联脚本被当成路径时守卫判定抛错）：当展不开，不抛错
+  // 拼不成正则的方括号（区间顺序不对，2026-10-13 负责人的 node -e 内联脚本被当成路径时守卫判定抛错）：当展不开，不抛错
   expect(expandWildcards(path.join(projectsDir, "for(const [s,arr] of x)", "y.md"))).toEqual([projectsDir]);
 });

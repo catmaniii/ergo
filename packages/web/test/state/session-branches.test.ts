@@ -98,7 +98,7 @@ describe("会话树（前端）", () => {
     expect(forksOf(state)).toEqual(["分支摘要：摘要二 → b0、b1"]);
   });
 
-  test("只在这段会话里：清空之前的没有回退点；排队一起交出的一批只有第一条有；网页上下的指令没有；152 号票起维护者的会话也有", () => {
+  test("只在这段会话里：清空之前的没有回退点；排队一起交出的一批只有第一条有；网页上下的指令没有；152 号票起负责人的会话也有", () => {
     const cleared = frame(S, 3, "message", { message: { id: "m-c", conversation: S, speaker: "system", time: "2026-10-18T09:00:00+08:00", parts: [{ type: "conversation_cleared" }] } });
     const page = frame(S, 6, "message", { message: { ...textMessage("m-p", "user", "把名字填上"), pageCommand: { url: "https://x", title: "x", field: "名字", spoken: false } } });
     const state = replay([
@@ -112,7 +112,7 @@ describe("会话树（前端）", () => {
     ]);
     expect(leftOf(state)).toEqual(["你：排队一 ← 撤回到这条请求之前", "你：最后一句 ← 撤回到这条请求之前"]);
     const maintainer: ConversationId = "maintainer:t-1";
-    const other = replay([frame(maintainer, 1, "message", { message: textMessage("m-x", "user", "维护者会话里", maintainer) })]);
+    const other = replay([frame(maintainer, 1, "message", { message: textMessage("m-x", "user", "负责人会话里", maintainer) })]);
     const items = chatItems(other, maintainer);
     expect([...zoomDecor(other, maintainer, items).rollbacks.values()].flat().map((p) => p.label)).toEqual(["撤回到这条请求之前"]);
   });

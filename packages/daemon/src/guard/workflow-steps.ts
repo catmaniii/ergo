@@ -27,7 +27,7 @@ export function isUnknownArg(value: unknown): boolean {
 
 /**
  * 去掉审查标成未知的参数：审查把判不了的参数写成 {"$unknown": 原话}，
- * 这个形状只有规则引擎认得，拿去给人看、给维护者照着做都是噪音
+ * 这个形状只有规则引擎认得，拿去给人看、给负责人照着做都是噪音
  */
 export function plainArgs(args: Readonly<Record<string, unknown>> | undefined): Record<string, unknown> {
   const out: Record<string, unknown> = {};
@@ -52,7 +52,7 @@ export function stepToolAllowed(tools: ToolRegistry, name: string): boolean {
   return tool !== undefined && (tool.source === "builtin" || tool.source === "typed_shell" || tool.source === "web");
 }
 
-/** 步骤里能写的工具的清单（按注册表的先后）：检查交来的计划、给维护者的系统提示都用它 */
+/** 步骤里能写的工具的清单（按注册表的先后）：检查交来的计划、给负责人的系统提示都用它 */
 export function workflowStepTools(tools: ToolRegistry): string[] {
   return Object.values(tools)
     .filter((t) => stepToolAllowed(tools, t.name))
@@ -105,7 +105,7 @@ export interface WorkflowGrantDraft {
   text?: string;
 }
 
-/** 推授权项要的：注册表、执行它的维护者（工作目录、围栏）、用户主目录，规划时现取的环境事实（路径的真实路径） */
+/** 推授权项要的：注册表、执行它的负责人（工作目录、围栏）、用户主目录，规划时现取的环境事实（路径的真实路径） */
 export interface WorkflowGrantInput {
   tools: ToolRegistry;
   agent: GuardAgent;

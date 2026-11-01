@@ -1,7 +1,7 @@
 // 缩小后条外的装饰（55 号票，state/zoom-decor.ts）：右侧标注的 ×N、左侧任务卡或工单卡、底色带、书脊的分段和颜色、重开之前的已废弃。
-// 先回放主切面录下的真实事件流：任务的维护者会话（timeline-zoom：两个阶段都验收通过；task-execution：做完后返工重开 s2）、
-// 项目维护者的会话（work-orders-queue：四张工单，项目维护者执行两个任务）、涉及多个项目的任务（multi-project：任务维护者的会话
-// 和两个项目维护者的会话）、计划变更（task-plan-change：一个阶段停下等你、另一个先做完）。
+// 先回放主切面录下的真实事件流：任务的负责人会话（timeline-zoom：两个阶段都验收通过；task-execution：做完后返工重开 s2）、
+// 项目负责人的会话（work-orders-queue：四张工单，项目负责人执行两个任务）、涉及多个项目的任务（multi-project：任务负责人的会话
+// 和两个项目负责人的会话）、计划变更（task-plan-change：一个阶段停下等你、另一个先做完）。
 // 录不出来的按共享协议的 schema 构造：验收退回、第 3 次还不过（未通过）、任务取消和计划变更去掉阶段（作废）、流程（不画书脊）、
 // 秘书主线跨天（守护进程的消息时间是真钟）、连着几块一样的标注（×N）。
 import fs from "node:fs";
@@ -60,7 +60,7 @@ function bandsOf(state: UiState, conversation: ConversationId): string[] {
 
 const keyLines = (items: readonly ChatItem[], from: number, to: number) => items.slice(from, to + 1).map((it) => it.keyLine.slice(0, 12));
 
-describe("回放：任务的维护者会话", () => {
+describe("回放：任务的负责人会话", () => {
   test("timeline-zoom：一个任务一整块底色，从任务书到最后一个阶段的验收结论（做完之后的说明、回复不包）；两个阶段各一段书脊，都是验收通过", () => {
     const state = replay(load("timeline-zoom"));
     const conv = "maintainer:tm-1";
@@ -107,7 +107,7 @@ describe("回放：任务的维护者会话", () => {
     // 重开之前 s2 那一轮整段（写文件、宣布完成、那张验收结论）标已废弃
     const stale = zoomDecor(state, conv, items).stale;
     expect(items.flatMap((it, i) => (stale.has(it.id) ? [i] : []))).toEqual([7, 8, 9]);
-    // 84 号票：返工是一条重做记录（交给维护者接着做的那句通知不再显示）
+    // 84 号票：返工是一条重做记录（交给负责人接着做的那句通知不再显示）
     expect(items[12]!.keyLine).toBe("重做：你从「写报告」重做（只重做这一阶段）。你说：「缺一段方案对比」");
     // 底色带到最后那张验收结论（返工后的一轮）为止
     expect(bandsOf(state, conv)).toEqual(["任务1 · X 的调研 0-15 n0"]);
@@ -121,8 +121,8 @@ describe("回放：任务的维护者会话", () => {
   });
 });
 
-describe("回放：项目维护者的会话", () => {
-  test("work-orders-queue：每张工单那一段一块底色、相邻的深浅错开，分段和全局层的按段一样；分隔线左边一张工单卡；项目维护者执行的任务照样画书脊", () => {
+describe("回放：项目负责人的会话", () => {
+  test("work-orders-queue：每张工单那一段一块底色、相邻的深浅错开，分段和全局层的按段一样；分隔线左边一张工单卡；项目负责人执行的任务照样画书脊", () => {
     const state = replay(load("work-orders-queue"));
     const conv = "maintainer:pm-1";
     expect(bandsOf(state, conv)).toEqual([
@@ -149,7 +149,7 @@ describe("回放：项目维护者的会话", () => {
     });
   });
 
-  test("multi-project：书脊只画在执行任务的维护者的会话里（验收结论在那里）；两个项目维护者那边只有工单段的底色和工单卡；连着两条一样的工单记录标 ×2", () => {
+  test("multi-project：书脊只画在执行任务的负责人的会话里（验收结论在那里）；两个项目负责人那边只有工单段的底色和工单卡；连着两条一样的工单记录标 ×2", () => {
     const state = replay(load("multi-project"));
     expect(spinesOf(state, "maintainer:tm-1")).toEqual(["t-1/s1 ok 3-3", "t-1/s2 ok 4-4", "t-1/s1 ok 5-12", "t-1/s2 ok 13-24"]);
     expect(spinesOf(state, "maintainer:pm-1")).toEqual([]);
@@ -216,7 +216,7 @@ function acceptanceFrames(seq: number, cardSeq: number, minute: number, stageId:
     stageIndex: stageId === "s1" ? 1 : 2,
     stageTotal: 2,
     kind: "acceptance",
-    text: passed ? "验收通过。" : "没通过 1 条，交回维护者修改。",
+    text: passed ? "验收通过。" : "没通过 1 条，交回负责人修改。",
     acceptance: { passed, judgedBy: "script", results: [{ criterion: "有周报", method: "script", passed }] },
   });
   const cardId = `c-acc-${seq}`;
@@ -267,7 +267,7 @@ describe("构造：书脊的颜色", () => {
     expect(SPINE_STATE_LABEL.off).toBe("没做完");
   });
 
-  test("流程不画书脊（固定计划没有）；执行它的不是这个会话的维护者也不画；看板上没收到过这个任务的照画，没交上来的算在做", () => {
+  test("流程不画书脊（固定计划没有）；执行它的不是这个会话的负责人也不画；看板上没收到过这个任务的照画，没交上来的算在做", () => {
     const workflow = replay([...roundsEvents(), taskFrame(2, { kind: "workflow" })]);
     expect(spinesOf(workflow, CONV)).toEqual([]);
     const other = replay([...roundsEvents(), taskFrame(2, { maintainerId: "tm-8" })]);

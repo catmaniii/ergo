@@ -61,7 +61,7 @@ const card = (v: ScheduledJobView) => [v.job.id, v.statusText, v.scheduleText, .
 
 describe("回放：属于项目的定时触发的任务（scheduled-job-project）", () => {
   // 录制在 scheduled-jobs.test.ts 的"属于项目的"：在发起对话框里选项目「资讯站」、定时每天 09:00 建普通任务（这个项目的内部任务，
-  // 建出就是运营中、登记触发）；拨到 09:00，派单器给项目维护者开一张来源为定时触发的工单，维护者做完、写回，工单结束，运行成功
+  // 建出就是运营中、登记触发）；拨到 09:00，派单器给项目负责人开一张来源为定时触发的工单，负责人做完、写回，工单结束，运行成功
   const inputs = load("scheduled-job-project");
 
   test("建出就登记：项目页的定时触发列表里有它（运营中、每天 09:00，普通任务没有预先授权的操作）；项目内部的不上全局看板", () => {

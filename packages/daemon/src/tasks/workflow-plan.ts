@@ -1,5 +1,5 @@
-// 流程的计划（58 号票，ADR 0019；固定计划，维护者用 propose_plan 交）：
-// 维护者用 propose_plan 交出步骤（每步一次工具调用：工具、参数、前置步骤）和这份计划要满足的条件（时序规则）→
+// 流程的计划（58 号票，ADR 0019；固定计划，负责人用 propose_plan 交）：
+// 负责人用 propose_plan 交出步骤（每步一次工具调用：工具、参数、前置步骤）和这份计划要满足的条件（时序规则）→
 // 检查（checkWorkflowDraft：步骤 id、工具、前置步骤、规则校验）→ 审查修补（guard/workflow-review.ts，planguard 的规划时审查）→
 // 每一步加敏感标注（marks：按守卫的判定，落进了哪些关注类别、授权后还会不会问）和要满足的条件（conditions：触发它的规则写成人话，
 // 连同审查时查出的结果）→ 交给用户授权的流程计划（WorkflowPlan）。
@@ -10,7 +10,7 @@
 // 自动加上），工具包按步骤推出（用到 bash 或带类型的 bash 工具才开 bash，用到要联网的才开联网），没有预算、不逐步验收。
 // 执行时每次调用和计划逐步比对（计划外、超范围、顺序错、重复）是 59 号票。
 // 事件触发的流程（77 号票）：步骤参数里可以写 {{事件.字段名}} 的占位（workflow-events.ts）——规划时不知道值，审查时当作"未知"、
-// 不标敏感不发授权；每次运行代入这次事件的值之后，按执行它的维护者现取真实路径、推出授权项（boundRunWorkflow，和规划时同一套办法）。
+// 不标敏感不发授权；每次运行代入这次事件的值之后，按执行它的负责人现取真实路径、推出授权项（boundRunWorkflow，和规划时同一套办法）。
 import {
   type EventFieldDescriptor,
   type Plan,
@@ -62,11 +62,11 @@ import { globalWatchCategories, toGuardPlan } from "./plan.ts";
 import { draftEventProblems, maskEventPlaceholders, stepEventValues, unmaskEventPlaceholders } from "./workflow-events.ts";
 
 /**
- * 交来的流程计划对不对（不对的原因，交回维护者）：步骤 id 不重复、工具能写进步骤、前置步骤是计划里的、不成环；
+ * 交来的流程计划对不对（不对的原因，交回负责人）：步骤 id 不重复、工具能写进步骤、前置步骤是计划里的、不成环；
  * 条件（时序规则）过规则校验（和长程任务的计划同一套）；事件的占位（77 号票）只有事件触发的流程能写，名字要是它等的事件带的字段
  * （eventFields：不是事件触发的流程不给）
  */
-// @i18n-ignore-start model：交回维护者
+// @i18n-ignore-start model：交回负责人
 export function checkWorkflowDraft(draft: WorkflowPlanDraft, tools: ToolRegistry, eventFields?: readonly EventFieldDescriptor[]): string[] {
   const problems: string[] = [];
   const ids = new Set<string>();
@@ -137,7 +137,7 @@ function planGrantsOf(steps: ReadonlyArray<{ id: string; title: string }>, draft
 
 /**
  * 确认的流程计划交给执行控制器的样子：只有一个阶段（WORKFLOW_STAGE_ID），授权项由步骤推出，时序规则是计划里写的条件；
- * 定步、不逐步验收（"由维护者自报做完"只是写给人看的，执行控制器在步骤都做完或跳过时直接判这个阶段完成）、没有预算
+ * 定步、不逐步验收（"由负责人自报做完"只是写给人看的，执行控制器在步骤都做完或跳过时直接判这个阶段完成）、没有预算
  */
 export function workflowExecutionPlan(plan: WorkflowPlan, grants: readonly PlanGrant[], settings: WatchCategorySettings): Plan {
   return {
@@ -148,7 +148,7 @@ export function workflowExecutionPlan(plan: WorkflowPlan, grants: readonly PlanG
         // @i18n-ignore-start data
         title: "按步骤执行",
         deliverables: [plan.goal],
-        acceptance: [{ criterion: "每一步都做完或说明跳过（维护者用 report_step 自报；流程不逐步验收）", method: "user" }],
+        acceptance: [{ criterion: "每一步都做完或说明跳过（负责人用 report_step 自报；流程不逐步验收）", method: "user" }],
         // @i18n-ignore-end
         mode: "steps",
         steps: plan.steps.map((s) => `${s.id} ${s.title}`),
@@ -179,12 +179,12 @@ export interface WorkflowReviewDeps {
   places: GuardPlaces;
   /** 授权的文件夹（355 号票）：标注和执行时一样，读它们里面的不标越出项目目录 */
   authorizedFolders?: () => readonly string[];
-  /** 执行这个流程的维护者：id 和工作目录（真实路径） */
+  /** 执行这个流程的负责人：id 和工作目录（真实路径） */
   maintainerId: string;
   cwd: string;
-  /** 项目的维护者（64 号票）：围栏里的项目档案（真实路径），和执行时一样；任务自己的维护者没有 */
+  /** 项目的负责人（64 号票）：围栏里的项目档案（真实路径），和执行时一样；任务自己的负责人没有 */
   projectRecords?: readonly string[];
-  /** 项目的维护者（64 号票）：项目的工具包，执行时的能力是它和计划推出的工具包的交集（审查时守卫眼里也取交集）；任务自己的维护者没有 */
+  /** 项目的负责人（64 号票）：项目的工具包，执行时的能力是它和计划推出的工具包的交集（审查时守卫眼里也取交集）；任务自己的负责人没有 */
   projectToolkit?: { bash: boolean; network: boolean };
   /** 现在（毫秒）：标注时授权项按这一刻授予 */
   now: number;
@@ -206,13 +206,13 @@ export async function reviewWorkflowDraft(original: WorkflowPlanDraft, version: 
   const env: ShellEnv = { cwd: deps.cwd, homeDir: deps.places.homeDir };
   // 事件的占位（77 号票）：规划时不知道值，非 bash 的参数里带占位的当作"未知"交给审查（审查完换回原来写的）
   const draft: WorkflowPlanDraft = { ...original, steps: maskEventPlaceholders(original.steps) };
-  // 守卫眼里执行它的维护者：工具包按交来的步骤推出（审查时路径围栏、联网开关和执行时一样）
+  // 守卫眼里执行它的负责人：工具包按交来的步骤推出（审查时路径围栏、联网开关和执行时一样）
   const draftToolkit = workflowToolkit(
     draft.steps.map((s) => ({ tool: s.tool, args: s.args ?? {} })),
     deps.tools,
     env,
   );
-  // 项目的维护者（64 号票）：执行时的能力是计划推出的和项目工具包的交集，围栏里还有项目档案
+  // 项目的负责人（64 号票）：执行时的能力是计划推出的和项目工具包的交集，围栏里还有项目档案
   const cap = deps.projectToolkit ?? { bash: true, network: true };
   const agent = (toolkit: { bash: boolean; network: boolean }): GuardAgent => ({
     kind: "maintainer",
@@ -287,7 +287,7 @@ export async function reviewWorkflowDraft(original: WorkflowPlanDraft, version: 
   return { plan, execution: workflowExecutionPlan(plan, grants, deps.settings) };
 }
 
-/** 这一步里真实路径落在执行它的维护者的范围（项目档案、工作目录）之外的路径（规划时现取的真实路径） */
+/** 这一步里真实路径落在执行它的负责人的范围（项目档案、工作目录）之外的路径（规划时现取的真实路径） */
 function outsidePaths(
   step: ReviewedStep,
   ctx: { tools: ToolRegistry; env: ShellEnv; agent: GuardAgent; facts: EnvironmentFacts },
@@ -383,7 +383,7 @@ function stepMarks(
 }
 
 /**
- * 事件触发的流程的一次运行（77 号票）：代入了这次事件的值的步骤（workflow-events.ts 的 runWorkflowSteps），按执行它的维护者现取路径的
+ * 事件触发的流程的一次运行（77 号票）：代入了这次事件的值的步骤（workflow-events.ts 的 runWorkflowSteps），按执行它的负责人现取路径的
  * 真实路径（执行时每次调用和这一步比对，路径按真实路径比），推出这次运行的授权项——和规划时同一套办法（守卫的 workflowGrants：
  * 步骤里写死的参数全部进对象范围、按真实路径比、次数按步骤数），所以一批里几个事件各走一遍的，每个事件的对象各有一项
  */
@@ -403,7 +403,7 @@ export function boundRunWorkflow(steps: readonly WorkflowStepView[], deps: { too
 
 /**
  * 授权的流程计划在守卫眼里（59 号票，执行时每次调用和它比对）：哪一版、目标、审查修补后的步骤（连同审查剔除的对象），
- * 以及维护者用 report_step 说明跳过的步骤
+ * 以及负责人用 report_step 说明跳过的步骤
  */
 export function guardWorkflow(planId: string, plan: WorkflowPlan, task: Pick<Task, "steps">): GuardWorkflow {
   return {
@@ -422,14 +422,14 @@ export function guardWorkflow(planId: string, plan: WorkflowPlan, task: Pick<Tas
   };
 }
 
-// 交给维护者的计划说明、条件（照旧中文）
+// 交给负责人的计划说明、条件（照旧中文）
 // @i18n-ignore-start model
-/** 修补后的计划写成几行文字交回维护者（它看不到界面上的卡片） */
+/** 修补后的计划写成几行文字交回负责人（它看不到界面上的卡片） */
 export function workflowPlanText(plan: { steps: readonly WorkflowStepView[] }): string {
   return plan.steps.map((s) => `${s.id}. ${s.title}（${s.tool} ${JSON.stringify(plainArgs(s.args))}）${s.after.length > 0 ? `，在 ${s.after.join("、")} 之后` : ""}`).join("\n");
 }
 
-/** 每一步要满足的条件写成几行（交给维护者的计划说明、重注入块） */
+/** 每一步要满足的条件写成几行（交给负责人的计划说明、重注入块） */
 export function stepConditionLines(step: Pick<WorkflowStepView, "conditions">): string[] {
   return step.conditions.map((c) => `${c.title}：${c.text}`);
 }

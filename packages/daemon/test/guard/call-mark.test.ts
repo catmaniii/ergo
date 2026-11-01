@@ -7,7 +7,7 @@ import { BUILTIN_TOOL_REGISTRY, type EnvironmentFacts, judgeToolCall, type ToolC
 import { type CallState, newCallState, toolCallPart } from "../../src/guard-runtime/tool-call-record.ts";
 import { bash, call, inTask, maintainer, P, v1Satisfied } from "./helpers/guard-input.ts";
 
-/** 任务里的维护者（工作目录 E:\work\notes）做一次调用，v1 模板的前提先满足（免得被退回）；连同命中的类别一起看 */
+/** 任务里的负责人（工作目录 E:\work\notes）做一次调用，v1 模板的前提先满足（免得被退回）；连同命中的类别一起看 */
 function markOf(toolName: string, args: Record<string, unknown>, facts: EnvironmentFacts = {}): { mark: ToolCallMark | undefined; categories: string[] } {
   const v1 = v1Satisfied(P.workDir);
   const input = inTask(maintainer(), call(toolName, args), { ...v1, facts: { ...v1.facts, ...facts } });

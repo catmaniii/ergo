@@ -1,10 +1,10 @@
 // 临时文件，任务、项目这一侧要给守卫的东西（111 号票，用户 2026-10-13 定：任务中间的临时文件和脚本、为了生成阶段交付件临时生成的
 // 脚本和数据默认可以改、删；限制只对系统已有的东西和交出去了的交付件；又补充"任务和项目的临时文件都是一样的"）：范围开始的时间、
 // 交出去了的交付件（GuardOwnWork，守卫怎么用见 guard/own-temp.ts）。守卫接入每次判定时现取（TaskExecution.ownWork / projectOwnWork）。
-// - 按范围认：项目的 agent（项目的维护者做什么都算，和它派的子 agent）按项目——项目开始之后生成的都算，交付件是项目里各任务交出去的；
+// - 按范围认：项目的 agent（项目的负责人做什么都算，和它派的子 agent）按项目——项目开始之后生成的都算，交付件是项目里各任务交出去的；
 //   项目外的任务按这个任务；
 // - 派生视图 work_times（ergo.db，看板频道的 task、scheduled_job 和项目频道的 project 事件归并）：
-//   - 任务第一次进执行中或运营中的时间（任务开始），最近一次交出去的时间——维护者宣布阶段完成（stage_submitted）、任务做完
+//   - 任务第一次进执行中或运营中的时间（任务开始），最近一次交出去的时间——负责人宣布阶段完成（stage_submitted）、任务做完
 //     （completed：普通任务每做完一次都算）、定时 / 事件触发的一次运行结束（scheduled_job 的 run_finished）；
 //   - 项目开始的时间：建出项目（立项）的时候；工作目录绑定了外部路径的，是绑定（立项书确认：只确认或确认并开工）的时候——
 //     那里原来就有的都算已有的；
@@ -147,7 +147,7 @@ export function taskOwnWork(input: { reader: ReadonlyDatabase; task: Task; plan:
 }
 
 /**
- * 项目交给守卫的（GuardOwnWork）：项目开始的时间，项目里各任务（tasks：由项目的维护者执行的、涉及这个项目的）交出去了的交付件，
+ * 项目交给守卫的（GuardOwnWork）：项目开始的时间，项目里各任务（tasks：由项目的负责人执行的、涉及这个项目的）交出去了的交付件，
  * plan 取每个任务现在生效的计划。没记下项目开始的时间的没有
  */
 export function projectOwnWork(input: { reader: ReadonlyDatabase; projectId: string; tasks: readonly Task[]; plan: (taskId: string) => Plan | undefined; outputsDir: string }): GuardOwnWork | null {

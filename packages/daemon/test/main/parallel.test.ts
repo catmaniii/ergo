@@ -1,16 +1,16 @@
-// 主切面：子 agent 并行（规格第 8、11 节，20 号票）。真的守护进程，维护者、子 agent 都接 faux 剧本，测试扮演前端。
-// 任务直接经任务服务建出、写好任务书，维护者交计划，用户在计划卡上确认；执行中维护者用"提议并行"工具提议派子 agent：
+// 主切面：子 agent 并行（规格第 8、11 节，20 号票）。真的守护进程，负责人、子 agent 都接 faux 剧本，测试扮演前端。
+// 任务直接经任务服务建出、写好任务书，负责人交计划，用户在计划卡上确认；执行中负责人用"提议并行"工具提议派子 agent：
 // - 待我处理出现并行确认卡；用户确认前不拉起任何子 agent，可并行的阶段照常按顺序做；用户拒绝则照常串行；
-// - 用户确认后每个子 agent 一个子进程，拿到维护者给它的工作说明；工具包是维护者的子集，守卫按任务的计划、它的阶段判定；
-//   做完即解散，结果作为一条消息回到维护者的会话里（带所属任务、阶段和子 agent），维护者下一回合用到；
+// - 用户确认后每个子 agent 一个子进程，拿到负责人给它的工作说明；工具包是负责人的子集，守卫按任务的计划、它的阶段判定；
+//   做完即解散，结果作为一条消息回到负责人的会话里（带所属任务、阶段和子 agent），负责人下一回合用到；
 // - 子 agent 不占任务的执行名额，占 agent 管家的子进程名额（满了排队，活动状态"排队"）；
-// - 维护者的当前阶段是它最后一次开始的那个：子 agent 做完后维护者在自己的阶段里的调用按那个阶段的授权判，
-//   切到子 agent 交回的阶段之后按那个阶段判；暂停、继续、重启后都不变；token 账本里维护者的用量记在它的当前阶段，
+// - 负责人的当前阶段是它最后一次开始的那个：子 agent 做完后负责人在自己的阶段里的调用按那个阶段的授权判，
+//   切到子 agent 交回的阶段之后按那个阶段判；暂停、继续、重启后都不变；token 账本里负责人的用量记在它的当前阶段，
 //   子 agent 的记在它自己被派去的阶段（角色子 agent）；
-// - 子 agent 的调用挂起后用户才批准：维护者收到的通知写明那是子 agent 的调用、批准用不上了；
-// - 维护者的工具包收窄：活着的子 agent 做完手头这一步后按新的交集重新拉起，接着原来的会话做；
-// - 开发类：维护者在工作目录里为每个子 agent 建 git worktree（不建、用工作目录、不是 worktree、目录重叠的提议被拒），
-//   子 agent 各自提交，维护者用带类型的 git 合并工具合并。
+// - 子 agent 的调用挂起后用户才批准：负责人收到的通知写明那是子 agent 的调用、批准用不上了；
+// - 负责人的工具包收窄：活着的子 agent 做完手头这一步后按新的交集重新拉起，接着原来的会话做；
+// - 开发类：负责人在工作目录里为每个子 agent 建 git worktree（不建、用工作目录、不是 worktree、目录重叠的提议被拒），
+//   子 agent 各自提交，负责人用带类型的 git 合并工具合并。
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -82,14 +82,14 @@ async function eventually<T>(list: () => readonly T[], match: (x: T) => boolean,
 const cardWhere = (frontend: TestFrontend, match: (card: Card) => boolean, what = "卡片") => eventually(() => cardsOf(frontend), match, what);
 const taskWhere = (frontend: TestFrontend, match: (e: TaskEventPayload) => boolean, what = "看板上的任务") => eventually(() => tasksOf(frontend), match, what);
 const messageWhere = (frontend: TestFrontend, channel: string, match: (m: MessageEventPayload) => boolean, what: string) => eventually(() => messagesOf(frontend, channel), match, what);
-/** 等某个维护者处理完 n 条输入 */
+/** 等某个负责人处理完 n 条输入 */
 const turnsOf = (frontend: TestFrontend, channel: string, n: number) =>
   waitUntil(() => frontend.events({ channel, type: EVENT_TYPES.turnEnd }).length >= n, { timeoutMs: 60_000, describe: () => `等 ${channel} 处理完 ${n} 条输入` });
 const parallelCard = (frontend: TestFrontend) => cardWhere(frontend, (c) => c.type === "parallel", "并行确认卡");
 
 /**
  * 一个开放模式的阶段：写一个文件，脚本验收它在不在。预算给足：faux 模型每次调用按整个上下文报用量（一次一万 token 上下），
- * 用量超过预算时运行时会让维护者说明进展（14 号票），多出来的一条输入会打乱剧本
+ * 用量超过预算时运行时会让负责人说明进展（14 号票），多出来的一条输入会打乱剧本
  */
 const fileStage = (stageId: string, file: string): Plan["stages"][number] => ({
   stageId,
@@ -116,13 +116,13 @@ function parallelPlan(toolkit: Partial<Plan["toolkit"]> = {}): Plan {
 
 const brief = { goal: "做两个文件", acceptanceCriteria: ["a.txt 和 b.txt 都在"], constraints: [], projects: [], memoryScope: "" };
 
-/** 维护者的剧本：第一次唤起起草计划，之后（按计划装配重新拉起）照 run 执行 */
+/** 负责人的剧本：第一次唤起起草计划，之后（按计划装配重新拉起）照 run 执行 */
 const maintainerScript =
   (plan: Plan, run: FauxStep[]) =>
   (_maintainerId: string, spawn: number): FauxStep[] =>
     spawn === 1 ? [submitPlanStep(plan), say("计划交上去了")] : run;
 
-/** 前端订阅看板、卡片、待我处理、活动状态（录给前端回放的不订阅活动状态：秘书、维护者的先后每次不一样）和维护者的会话 */
+/** 前端订阅看板、卡片、待我处理、活动状态（录给前端回放的不订阅活动状态：秘书、负责人的先后每次不一样）和负责人的会话 */
 async function connect(url: string, maintainers = 1, { activity = true } = {}) {
   const frontend = await TestFrontend.connect(url);
   const channels = [BOARD, CARDS, INBOX, ...(activity ? [ACTIVITY] : []), ...Array.from({ length: maintainers }, (_, i) => maintainerChannel(`tm-${i + 1}`))];
@@ -130,7 +130,7 @@ async function connect(url: string, maintainers = 1, { activity = true } = {}) {
   return frontend;
 }
 
-/** 建一个任务、写好任务书，等维护者交出计划、这一轮结束（录下的事件流每次一样），在计划卡上确认；返回任务 id */
+/** 建一个任务、写好任务书，等负责人交出计划、这一轮结束（录下的事件流每次一样），在计划卡上确认；返回任务 id */
 async function confirmTask(td: TestDaemon, frontend: TestFrontend, title: string): Promise<string> {
   const task = td.daemon.tasks.createByRequest({ title, summary: title });
   td.daemon.tasks.writeBrief(task.id, brief);
@@ -143,7 +143,7 @@ async function confirmTask(td: TestDaemon, frontend: TestFrontend, title: string
 /** 子 agent 相关的内部事件（守护进程内部的 sub_agents 频道） */
 const subAgentEvents = (td: TestDaemon, type: string) => td.daemon.store.read(SUB_AGENTS_CHANNEL, 0, type).map((e) => e.payload as Record<string, unknown>);
 
-/** 守卫此刻看到的维护者的当前阶段 */
+/** 守卫此刻看到的负责人的当前阶段 */
 const currentStageOf = (td: TestDaemon, taskId: string) => td.daemon.taskExecution.guardTask(taskId)?.currentStageId;
 
 /** 记下 agent 管家收到的每次拉起请求（谁、pi 工具、代为执行的工具、接不接着原来的会话） */
@@ -158,7 +158,7 @@ function spawnRequests(td: TestDaemon) {
 }
 
 describe("提议并行", () => {
-  it("维护者提议后待我处理出现并行确认卡（写明任务、阶段、子 agent 个数和各自的工作说明）；用户确认前不拉起子 agent，阶段照常按顺序做；用户拒绝后维护者收到通知，照常串行做完", async () => {
+  it("负责人提议后待我处理出现并行确认卡（写明任务、阶段、子 agent 个数和各自的工作说明）；用户确认前不拉起子 agent，阶段照常按顺序做；用户拒绝后负责人收到通知，照常串行做完", async () => {
     const td = await startTestDaemon({
       maintainer: maintainerScript(parallelPlan(), [
         // 开始执行（s1）：提议把 s1、s2 并行，没等确认就照常先做 s1
@@ -196,7 +196,7 @@ describe("提议并行", () => {
     expect(card.text).toContain("两个文件");
     expect(card.text).toContain("2 个子 agent");
     expect(card.text).toContain("写 a.txt，内容是 A");
-    // 待我处理里有它（不卡任务：维护者照常按顺序做），维护者会话里有它的引用
+    // 待我处理里有它（不卡任务：负责人照常按顺序做），负责人会话里有它的引用
     expect(inboxOf(frontend).find((i) => i.kind === "card" && i.cardId === card.id)).toMatchObject({ urgency: "non_blocking" });
     await messageWhere(frontend, M1, (m) => m.message.parts.some((p) => p.type === "card_ref" && p.cardId === card.id), "会话里的卡片引用");
 
@@ -206,7 +206,7 @@ describe("提议并行", () => {
     expect(spawned().filter((id) => id.startsWith("sa-"))).toEqual([]);
     await turnsOf(frontend, M1, 2);
 
-    // 用户拒绝：卡片处理掉，维护者收到通知（附用户写的话），照常串行做完；一个子 agent 都没拉起
+    // 用户拒绝：卡片处理掉，负责人收到通知（附用户写的话），照常串行做完；一个子 agent 都没拉起
     ok(await frontend.cardAction({ cardId: card.id, action: "sequential", expectedVersion: 1, note: "按顺序就行" }));
     const rejected = await cardWhere(frontend, (c) => c.id === card.id && c.status === "handled", "处理过的并行确认卡");
     expect(rejected.outcome).toMatchObject({ action: "sequential" });
@@ -238,7 +238,7 @@ describe("提议并行", () => {
     saveOrCheckRecording("parallel-sequential", frontend.recording, { perChannel: true });
   }, 120_000);
 
-  it("用户确认后为每个子 agent 拉起独立的子进程，递送工作说明；工具包是维护者的子集；做完即退出，结果作为一条消息回到维护者的会话，维护者下一回合用到；两个前端同时点，后到的得到“已被处理”", async () => {
+  it("用户确认后为每个子 agent 拉起独立的子进程，递送工作说明；工具包是负责人的子集；做完即退出，结果作为一条消息回到负责人的会话，负责人下一回合用到；两个前端同时点，后到的得到“已被处理”", async () => {
     const td = await startTestDaemon({
       maintainer: maintainerScript(parallelPlan(), [
         propose([
@@ -284,24 +284,24 @@ describe("提议并行", () => {
       ["sa-2", "s2"],
     ]);
 
-    // 结果：维护者会话里各一条（交给维护者的输入，带所属任务、阶段和子 agent）
+    // 结果：负责人会话里各一条（交给负责人的输入，带所属任务、阶段和子 agent）
     const resultA = await messageWhere(frontend, M1, (m) => m.agentId === "sa-1" && m.message.speaker === "system", "sa-1 的结果");
     const resultB = await messageWhere(frontend, M1, (m) => m.agentId === "sa-2" && m.message.speaker === "system", "sa-2 的结果");
     expect(resultA).toMatchObject({ agentInput: true, taskId, stageId: "s1", agentId: "sa-1" });
     expect(resultB).toMatchObject({ agentInput: true, taskId, stageId: "s2", agentId: "sa-2" });
     expect(textOf(resultB)).toContain("子 agent sa-2 做阶段 s2「做 b.txt」，做完了");
     expect(textOf(resultB)).toContain("b.txt 写好了");
-    // sa-1 交回的是它看到的上下文：拿到了维护者给它的工作说明和阶段的交付件；工具包是维护者的子集
+    // sa-1 交回的是它看到的上下文：拿到了负责人给它的工作说明和阶段的交付件；工具包是负责人的子集
     const seenBySub = textOf(resultA);
     expect(seenBySub).toContain("[user] ");
     expect(seenBySub).toContain("写 a.txt，内容是 A");
     expect(seenBySub).toContain("阶段 s1「做 a.txt」");
     const subTools = seenBySub.split("\n").filter((l) => l.startsWith("[tool] ")).map((l) => l.slice("[tool] ".length));
-    // 维护者的计划里 bash、联网都关着：子 agent 只有读写、搜索文件的工具（70 号票起 grep、find 照给），和维护者一样配着联网搜索、读网页
-    // （联网关着，守卫拒绝），给秘书发消息（102 号票：工具包里默认开着，维护者有它就有）
+    // 负责人的计划里 bash、联网都关着：子 agent 只有读写、搜索文件的工具（70 号票起 grep、find 照给），和负责人一样配着联网搜索、读网页
+    // （联网关着，守卫拒绝），给秘书发消息（102 号票：工具包里默认开着，负责人有它就有）
     expect(subTools.toSorted()).toEqual(["edit", "find", "grep", "ls", "read", "tell_secretary", "web_fetch", "web_search", "write"]);
 
-    // 子 agent 的工具调用记录在维护者的会话里，归到所属任务、阶段和子 agent
+    // 子 agent 的工具调用记录在负责人的会话里，归到所属任务、阶段和子 agent
     const subCalls = toolCallsOf(frontend, M1).filter((c) => c.scope.agentId !== undefined);
     expect(subCalls.map((c) => [c.scope.agentId, c.scope.stageId, c.scope.taskId, c.tool, c.outcome]).toSorted()).toEqual([
       ["sa-1", "s1", taskId, "write", "done"],
@@ -311,7 +311,7 @@ describe("提议并行", () => {
     const subWrite = subCalls.find((c) => c.scope.agentId === "sa-2")!;
     expect((await toolCallDetail(td.url, subWrite.callId)).body).toMatchObject({ agentId: "sa-2", conversation: M1, taskId, stageId: "s2", tool: "write", args: { path: "b.txt", content: "B" } });
 
-    // 做完即解散：子进程都退出了；维护者下一回合看到了两条结果，宣布两个阶段完成，任务完成
+    // 做完即解散：子进程都退出了；负责人下一回合看到了两条结果，宣布两个阶段完成，任务完成
     await taskWhere(frontend, (e) => e.task.id === taskId && e.change === "completed", "任务完成");
     await waitUntil(() => !td.daemon.agents.live().some((a) => a.agentId.startsWith("sa-")), { describe: () => "等子 agent 的子进程都退出" });
     expect(subAgentEvents(td, SUB_AGENT_EVENTS.subAgentFinished).map((p) => [p.agentId, p.outcome]).toSorted()).toEqual([
@@ -333,7 +333,7 @@ describe("提议并行", () => {
 });
 
 describe("提议的检查和子 agent 在做的阶段", () => {
-  it("前置阶段没验收的、目录不在工作目录里或不存在的、没有这一步的：提议被拒，原因交回维护者；新的提议让上一张没处理的卡过期；有子 agent 在做的阶段不能宣布完成，维护者先做别的阶段", async () => {
+  it("前置阶段没验收的、目录不在工作目录里或不存在的、没有这一步的：提议被拒，原因交回负责人；新的提议让上一张没处理的卡过期；有子 agent 在做的阶段不能宣布完成，负责人先做别的阶段", async () => {
     const base = parallelPlan();
     const plan: Plan = {
       ...base,
@@ -387,7 +387,7 @@ describe("提议的检查和子 agent 在做的阶段", () => {
     const completes = toolCallsOf(frontend, M1).filter((c) => c.tool === "complete_stage" && c.scope.agentId === undefined);
     expect(completes[0]).toMatchObject({ outcome: "error" });
     expect(completes[0]!.resultSummary).toContain("还有子 agent（sa-3）在做");
-    // s1 验收后 s2 还在子 agent 手里：运行时替维护者开始了不依赖它的 s3
+    // s1 验收后 s2 还在子 agent 手里：运行时替负责人开始了不依赖它的 s3
     const s3Started = tasksOf(frontend).find((e) => e.change === "stage_started" && e.stageId === "s3")!;
     expect(s3Started).toMatchObject({ by: "system" });
     expect(stageStates(s3Started.task)).toEqual({ s1: "accepted", s2: "running", s3: "running" });
@@ -395,7 +395,7 @@ describe("提议的检查和子 agent 在做的阶段", () => {
 });
 
 /**
- * "子 agent 停下"的底座：维护者提议把 s1 交给 sa-1，用户同意后自己切到 s2；sa-1 去读项目外的文件，
+ * "子 agent 停下"的底座：负责人提议把 s1 交给 sa-1，用户同意后自己切到 s2；sa-1 去读项目外的文件，
  * 停在等用户批准上（子进程活着；等审批的时长照 config）
  */
 async function stoppableSetup(reuse?: { dataDir: string; homeDir: string }, config?: StartTestDaemonOptions["config"]) {
@@ -420,7 +420,7 @@ async function stoppableSetup(reuse?: { dataDir: string; homeDir: string }, conf
   return { td, frontend, dirs };
 }
 
-/** 发起任务、确认计划，同意 sa-1 的并行，等它停在审批上、维护者切到 s2；返回任务 id 和 sa-1 的审批卡 */
+/** 发起任务、确认计划，同意 sa-1 的并行，等它停在审批上、负责人切到 s2；返回任务 id 和 sa-1 的审批卡 */
 async function waitingSubAgent(td: TestDaemon, frontend: TestFrontend): Promise<{ taskId: string; approval: Card }> {
   const taskId = await confirmTask(td, frontend, "两个文件");
   const card = await parallelCard(frontend);
@@ -429,7 +429,7 @@ async function waitingSubAgent(td: TestDaemon, frontend: TestFrontend): Promise<
   const approval = await cardWhere(frontend, (c) => c.type === "approval", "sa-1 的审批卡");
   expect(approval.payload).toMatchObject({ source: `任务「两个文件」阶段 s1 的子 agent sa-1` });
   expect(td.daemon.approvals.list().at(-1)?.origin).toMatchObject({ agentId: "sa-1", taskId, stageId: "s1" });
-  // 维护者切到了 s2：两个阶段都在做，维护者的当前阶段是 s2（不按计划里的顺序取 s1）
+  // 负责人切到了 s2：两个阶段都在做，负责人的当前阶段是 s2（不按计划里的顺序取 s1）
   await turnsOf(frontend, M1, 3);
   expect(stageStates(td.daemon.tasks.get(taskId)!)).toEqual({ s1: "running", s2: "running" });
   expect(currentStageOf(td, taskId)).toBe("s2");
@@ -437,7 +437,7 @@ async function waitingSubAgent(td: TestDaemon, frontend: TestFrontend): Promise<
 }
 
 describe("子 agent 停下", () => {
-  it("任务暂停：它的子 agent 随之停下（进程退出），维护者会话里一条说明（继续后维护者用到）；继续后维护者的当前阶段还是它自己最后开始的那个，子 agent 不自动重拉", async () => {
+  it("任务暂停：它的子 agent 随之停下（进程退出），负责人会话里一条说明（继续后负责人用到）；继续后负责人的当前阶段还是它自己最后开始的那个，子 agent 不自动重拉", async () => {
     const { td, frontend } = await stoppableSetup();
     const { taskId } = await waitingSubAgent(td, frontend);
     const spawned = agentSpawns(td.daemon);
@@ -448,7 +448,7 @@ describe("子 agent 停下", () => {
     await waitUntil(() => !td.daemon.agents.live().some((a) => a.agentId === "sa-1"), { describe: () => "等 sa-1 的子进程退出" });
     expect(subAgentEvents(td, SUB_AGENT_EVENTS.subAgentFinished)).toEqual([expect.objectContaining({ agentId: "sa-1", outcome: "stopped" })]);
 
-    // 继续：维护者接着做（收到停下的说明），当前阶段还是 s2；sa-1 不会自动重拉
+    // 继续：负责人接着做（收到停下的说明），当前阶段还是 s2；sa-1 不会自动重拉
     ok(await frontend.taskAction({ taskId, action: "resume" }));
     await turnsOf(frontend, M1, 4);
     expect(td.daemon.tasks.get(taskId)?.state).toBe("running");
@@ -457,7 +457,7 @@ describe("子 agent 停下", () => {
     expect(spawned().filter((id) => id.startsWith("sa-"))).toEqual([]);
   }, 120_000);
 
-  it("守护进程重启：上次没做完的子 agent 交回一条“被打断了”，它的阶段不再算有子 agent 在做；维护者的当前阶段还是重启前的那个", async () => {
+  it("守护进程重启：上次没做完的子 agent 交回一条“被打断了”，它的阶段不再算有子 agent 在做；负责人的当前阶段还是重启前的那个", async () => {
     const first = await stoppableSetup();
     const { taskId } = await waitingSubAgent(first.td, first.frontend);
     await first.td.daemon.stop();
@@ -473,7 +473,7 @@ describe("子 agent 停下", () => {
 });
 
 describe("子 agent 的审批", () => {
-  it("子 agent 的调用挂起后用户才批准、子 agent 已结束：维护者收到的通知写明是子 agent 在哪个阶段的调用、批准用不上了、要做请在那个阶段里自己重新调用（会再问），不说原样重试会放行", async () => {
+  it("子 agent 的调用挂起后用户才批准、子 agent 已结束：负责人收到的通知写明是子 agent 在哪个阶段的调用、批准用不上了、要做请在那个阶段里自己重新调用（会再问），不说原样重试会放行", async () => {
     // 等审批只等 1.2 秒：sa-1 的调用挂起，它这一轮接着做完、交回结果
     const { td, frontend } = await stoppableSetup(undefined, { approvals: { waitMinutes: 0.02 } });
     const taskId = await confirmTask(td, frontend, "两个文件");
@@ -484,7 +484,7 @@ describe("子 agent 的审批", () => {
     expect(textOf(result)).toContain("做完了");
     expect(subAgentEvents(td, SUB_AGENT_EVENTS.subAgentFinished)).toEqual([expect.objectContaining({ agentId: "sa-1", outcome: "done" })]);
 
-    // 事后批准：通知进维护者的会话（交给它的输入，带任务）
+    // 事后批准：通知进负责人的会话（交给它的输入，带任务）
     ok(await frontend.cardAction({ cardId: approval.id, action: "approve", expectedVersion: approval.version }));
     const notice = await messageWhere(frontend, M1, (m) => m.agentInput === true && textOf(m).includes("用户事后批准了"), "事后批准的通知");
     expect(notice.taskId).toBe(taskId);
@@ -492,7 +492,7 @@ describe("子 agent 的审批", () => {
     expect(text).toContain("是子 agent sa-1 在阶段 s1 的调用");
     expect(text).toContain("子 agent 已结束，这次批准用不上了");
     expect(text).toContain("请在阶段 s1 里自己重新调用，会再问一次用户");
-    // 不说"原样再调用一次会直接放行"，也不叫维护者切回 s1 原样重试（那是维护者自己的调用才有的通知）
+    // 不说"原样再调用一次会直接放行"，也不叫负责人切回 s1 原样重试（那是负责人自己的调用才有的通知）
     const notices = messagesOf(frontend, M1).filter((m) => m.agentInput === true).map(textOf);
     expect(notices.filter((t) => t.includes("直接放行") || t.includes("挂起的那次调用已获批准"))).toEqual([]);
   }, 120_000);
@@ -502,8 +502,8 @@ describe("子 agent 的审批", () => {
 const MAINTAINER_IN_S2: FauxUsage = { cacheHit: 0, cacheMiss: 1234, output: 12 };
 const SUB_AGENT_IN_S1: FauxUsage = { cacheHit: 0, cacheMiss: 4321, output: 21 };
 
-describe("维护者的当前阶段", () => {
-  it("子 agent 做完 s1 后，维护者在 s2 的调用按 s2 的授权判（s1 的授权项拉回）；切到 s1（不再回“已经在做”）之后按 s1 的授权判；用量各记在各自的阶段", async () => {
+describe("负责人的当前阶段", () => {
+  it("子 agent 做完 s1 后，负责人在 s2 的调用按 s2 的授权判（s1 的授权项拉回）；切到 s1（不再回“已经在做”）之后按 s1 的授权判；用量各记在各自的阶段", async () => {
     const dataDir = makeTempDir("ergo-data-");
     const homeDir = makeTempDir("ergo-home-");
     const home = fs.realpathSync.native(homeDir);
@@ -540,13 +540,13 @@ describe("维护者的当前阶段", () => {
     const card = await parallelCard(frontend);
     ok(await frontend.cardAction({ cardId: card.id, action: "parallel", expectedVersion: 1 }));
 
-    // sa-1 停在审批上（s1 还有子 agent 在做）；维护者切到 s2：当前阶段 s2
+    // sa-1 停在审批上（s1 还有子 agent 在做）；负责人切到 s2：当前阶段 s2
     const approval = await cardWhere(frontend, (c) => c.type === "approval", "sa-1 的审批卡");
     await turnsOf(frontend, M1, 3);
     expect(currentStageOf(td, taskId)).toBe("s2");
     expect(td.daemon.tasks.get(taskId)?.stages?.focus).toBe("s2");
 
-    // 批准 sa-1 的调用：它做完、交回结果；维护者接着做完
+    // 批准 sa-1 的调用：它做完、交回结果；负责人接着做完
     ok(await frontend.cardAction({ cardId: approval.id, action: "approve", expectedVersion: approval.version }));
     await taskWhere(frontend, (e) => e.task.id === taskId && e.change === "completed", "任务完成");
     // 任务完成在最后一次宣布完成的调用结束之前就推出来了：等那次调用的记录
@@ -575,12 +575,12 @@ describe("维护者的当前阶段", () => {
     expect(calls[5]).toMatchObject({ withinGrant: true });
     expect(fs.existsSync(path.join(home, "one"))).toBe(true);
     expect(fs.existsSync(path.join(home, "two"))).toBe(true);
-    // 放下的 s2 在 s1 验收后由运行时接着开始（维护者的当前阶段跟着回到 s2）
+    // 放下的 s2 在 s1 验收后由运行时接着开始（负责人的当前阶段跟着回到 s2）
     const s2Again = tasksOf(frontend).filter((e) => e.change === "stage_started" && e.stageId === "s2").at(-1)!;
     expect(s2Again).toMatchObject({ by: "system", task: { stages: { focus: "s2" } } });
 
-    // token 账本（24 号票）：维护者在 s2 时它的用量记在 s2（不按计划顺序记成 s1）；子 agent 的用量记在它自己的阶段 s1、角色是子 agent，
-    // 不看维护者当时在哪个阶段，算进 s1 的预算
+    // token 账本（24 号票）：负责人在 s2 时它的用量记在 s2（不按计划顺序记成 s1）；子 agent 的用量记在它自己的阶段 s1、角色是子 agent，
+    // 不看负责人当时在哪个阶段，算进 s1 的预算
     const entries = td.daemon.ledger.entries({ kind: "task", id: taskId });
     expect(entries.find((e) => e.agentId === "tm-1" && e.tokens.cacheMiss === MAINTAINER_IN_S2.cacheMiss)).toMatchObject({ role: "maintainer", stageId: "s2" });
     const bySub = entries.filter((e) => e.agentId === "sa-1");
@@ -600,7 +600,7 @@ describe("维护者的当前阶段", () => {
 });
 
 describe("工具包收窄", () => {
-  it("维护者的工具包收窄（模拟 14 号票改计划）后调 reassemble：活着的子 agent 做完手头这一步（当前的工具调用结束）就停掉，按新的交集重新拉起、接着原来的会话做；工具包没变的不动", async () => {
+  it("负责人的工具包收窄（模拟 14 号票改计划）后调 reassemble：活着的子 agent 做完手头这一步（当前的工具调用结束）就停掉，按新的交集重新拉起、接着原来的会话做；工具包没变的不动", async () => {
     const dataDir = makeTempDir("ergo-data-");
     const homeDir = makeTempDir("ergo-home-");
     const outside = path.join(homeDir, "参考资料.txt");
@@ -635,7 +635,7 @@ describe("工具包收窄", () => {
 
     // 批准：读文件这一步做完，停掉它、按新的装配重新拉起（下一步写 b.txt 不再在旧的装配里做）
     ok(await frontend.cardAction({ cardId: approval.id, action: "approve", expectedVersion: approval.version }));
-    // 重新拉起：接着原来的会话，没有 bash 和带类型的 bash 工具（联网搜索、读网页每个会话都配，70 号票；给秘书发消息维护者有它就有，102 号票）；交给它一条"工具包已变更"
+    // 重新拉起：接着原来的会话，没有 bash 和带类型的 bash 工具（联网搜索、读网页每个会话都配，70 号票；给秘书发消息负责人有它就有，102 号票）；交给它一条"工具包已变更"
     const result = await messageWhere(frontend, M1, (m) => m.agentId === "sa-1" && m.message.speaker === "system", "sa-1 的结果");
     const second = requests().filter((r) => r.agentId === "sa-1")[1]!;
     expect(second).toMatchObject({ continueSession: true, hostTools: ["web_search", "web_fetch", "tell_secretary"] });
@@ -656,7 +656,7 @@ describe("名额", () => {
   it("子 agent 不占任务的执行名额：名额满时派出子 agent，排队中的任务不会提前开工；子 agent 占子进程名额，满了排队，活动状态显示“排队”", async () => {
     const plan = parallelPlan();
     const td = await startTestDaemon({
-      // 任务的执行名额只有 1 个；子进程最多 4 个：秘书（预留）、两个维护者，只剩 1 个给子 agent
+      // 任务的执行名额只有 1 个；子进程最多 4 个：秘书（预留）、两个负责人，只剩 1 个给子 agent
       config: { tasks: { maxRunning: 1 }, agents: { maxLive: 4 } },
       maintainer: (maintainerId, spawn) =>
         spawn === 1
@@ -685,7 +685,7 @@ describe("名额", () => {
     const t2 = await confirmTask(td, frontend, "任务二");
     await turnsOf(frontend, maintainerChannel("tm-2"), 1);
     expect(td.daemon.tasks.get(t2)?.state).toBe("queued");
-    // 子进程：秘书、两个维护者都活着（闲着），只剩一个名额
+    // 子进程：秘书、两个负责人都活着（闲着），只剩一个名额
     await waitUntil(() => td.daemon.agents.live().length === 3, { describe: () => `等三个子进程都活着：${td.daemon.agents.live().map((a) => a.agentId).join("、")}` });
 
     ok(await frontend.cardAction({ cardId: card.id, action: "parallel", expectedVersion: 1 }));
@@ -716,7 +716,7 @@ describe("名额", () => {
 });
 
 describe("开发类：git worktree 和合并", () => {
-  it("维护者在工作目录内为两个子 agent 各建一个 git worktree；子 agent 各在自己的 worktree 里改动并提交，主工作目录看不到；维护者用带类型的合并工具合并后两边的改动都在，合并在时间线上是带类型的工具调用、不带“通用 bash”标记", async () => {
+  it("负责人在工作目录内为两个子 agent 各建一个 git worktree；子 agent 各在自己的 worktree 里改动并提交，主工作目录看不到；负责人用带类型的合并工具合并后两边的改动都在，合并在时间线上是带类型的工具调用、不带“通用 bash”标记", async () => {
     // 任务 t-1 的工作目录（输出区里的 outputs/t-1）事先建成一个临时 git 仓库，worktree 的目录不进主仓库
     const dataDir = makeTempDir("ergo-data-");
     const homeDir = makeTempDir("ergo-home-");
@@ -755,7 +755,7 @@ describe("开发类：git worktree 和合并", () => {
     ]);
     ok(await frontend.cardAction({ cardId: card.id, action: "parallel", expectedVersion: 1 }));
 
-    // 两个子 agent 都交回了结果（维护者处理完：起草计划、开始执行、用户同意、两条结果）：各自的分支上有自己的提交，主工作目录里还看不到
+    // 两个子 agent 都交回了结果（负责人处理完：起草计划、开始执行、用户同意、两条结果）：各自的分支上有自己的提交，主工作目录里还看不到
     await turnsOf(frontend, M1, 5);
     expect(messagesOf(frontend, M1).filter((m) => m.agentId !== undefined && m.message.speaker === "system").map(textOf).join("\n")).toContain("合并回工作目录");
     expect(fs.existsSync(path.join(work, "a.txt"))).toBe(false);
@@ -770,20 +770,20 @@ describe("开发类：git worktree 和合并", () => {
       ["sa-2", "done", false],
     ]);
 
-    // 用户说合并：维护者用带类型的合并工具把两个分支合并回来，两边的改动都在工作目录里
+    // 用户说合并：负责人用带类型的合并工具把两个分支合并回来，两边的改动都在工作目录里
     await frontend.sendText("合并吧", { conversation: M1 });
     await taskWhere(frontend, (e) => e.task.id === taskId && e.change === "completed", "任务完成");
     expect(fs.readFileSync(path.join(work, "a.txt"), "utf8")).toBe("A");
     expect(fs.readFileSync(path.join(work, "b.txt"), "utf8")).toBe("B");
     const calls = toolCallsOf(frontend, M1).filter((c) => c.scope.agentId === undefined);
-    // 建 worktree 没有带类型的工具：维护者用 bash 建，标"通用 bash"
+    // 建 worktree 没有带类型的工具：负责人用 bash 建，标"通用 bash"
     expect(calls.find((c) => c.tool === "bash")).toMatchObject({ genericBash: true, outcome: "done" });
     expect(calls.filter((c) => c.tool === "git_merge").map((c) => ({ outcome: c.outcome, genericBash: c.genericBash }))).toEqual([
       { outcome: "done", genericBash: false },
       { outcome: "done", genericBash: false },
     ]);
   }, 240_000);
-  it("开发类（工作目录是 git 仓库）提议时每个子 agent 必须有自己的、建在工作目录里的这个仓库的 git worktree：不写目录、直接用工作目录、普通目录、两个子 agent 目录重叠的提议都被拒，原因交回维护者", async () => {
+  it("开发类（工作目录是 git 仓库）提议时每个子 agent 必须有自己的、建在工作目录里的这个仓库的 git worktree：不写目录、直接用工作目录、普通目录、两个子 agent 目录重叠的提议都被拒，原因交回负责人", async () => {
     const dataDir = makeTempDir("ergo-data-");
     const homeDir = makeTempDir("ergo-home-");
     const work = path.join(dataDirLayout(dataDir).outputs, "t-1");

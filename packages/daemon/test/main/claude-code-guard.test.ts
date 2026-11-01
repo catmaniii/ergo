@@ -78,7 +78,7 @@ describe("Claude Code 的工具调用都过二狗守卫（假 SDK）", () => {
     await frontend.subscribe({ [CHANNELS.cards]: 0 });
     const task = td.daemon.tasks.delegate({ title: "整理下载目录", instructions: "把下载目录整理一下", runtime: CLAUDE_CODE_RUNTIME_ID });
 
-    // AskUserQuestion：提问卡进维护者的会话和待我处理，活动状态等你；前端答了交回 Claude
+    // AskUserQuestion：提问卡进负责人的会话和待我处理，活动状态等你；前端答了交回 Claude
     let card: Card | undefined;
     await waitUntil(() => (card = cardsOf(td).find((c) => c.type === "runtime_question" && c.status === "pending")) !== undefined, {
       timeoutMs: 60_000,
@@ -136,7 +136,7 @@ describe("Claude Code 的工具调用都过二狗守卫（假 SDK）", () => {
     td.daemon.tasks.writeBrief(task.id, { goal: "写周报", acceptanceCriteria: ["周报写好"], constraints: [], projects: [], memoryScope: "" });
     await waitUntil(() => td.daemon.store.read(maintainerChannel(task.maintainerId), 0, EVENT_TYPES.turnEnd).length >= 1, { timeoutMs: 60_000, describe: () => "等起草计划的那一轮" });
 
-    // Claude Code 的维护者还没有二狗的工具（291 号票）：计划由测试照"提交计划"那样审查、交给用户授权
+    // Claude Code 的负责人还没有二狗的工具（291 号票）：计划由测试照"提交计划"那样审查、交给用户授权
     const real = fs.realpathSync.native(td.dataDir);
     const layout = dataDirLayout(real);
     const places: GuardPlaces = {

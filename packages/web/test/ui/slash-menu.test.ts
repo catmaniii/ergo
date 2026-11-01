@@ -20,7 +20,7 @@ const offline = { connection: {} as Connection, http: {} as DaemonHttp } as Comp
 const noop = () => {};
 
 const ENTRIES: SlashCommandEntry[] = [
-  { kind: "command", text: "/workflow", name: "workflow", description: "发起一个流程：维护者把要做的事排成步骤，你授权一次，照步骤做", argumentHint: "<要做的事>" },
+  { kind: "command", text: "/workflow", name: "workflow", description: "发起一个流程：负责人把要做的事排成步骤，你授权一次，照步骤做", argumentHint: "<要做的事>" },
   { kind: "skill", text: "/ergo:tdd", name: "Test Driven", description: "先写测试再写实现", collection: "demo-methods" },
   {
     kind: "runtime",

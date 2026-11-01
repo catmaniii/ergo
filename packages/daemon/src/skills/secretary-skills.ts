@@ -1,4 +1,4 @@
-// 秘书用的 skill（72 号票）：秘书也能用 skill 库里的 skill（之前只有执行中的维护者和项目维护者的对话段才有）。
+// 秘书用的 skill（72 号票）：秘书也能用 skill 库里的 skill（之前只有执行中的负责人和项目负责人的对话段才有）。
 // - 名单存在数据目录配置区的 secretary-skills.json（随数据目录备份，不进仓库），是真相；只由运行时写（设置里的 skill 库页，
 //   POST HTTP_PATHS.secretarySkills）；配置区是受保护区域，agent 用任何方式都写不进（03 号票），所以秘书不能自己给自己加 skill。
 // - 没有这个文件时按默认的（DEFAULT_SECRETARY_SKILLS：agent-browser、yt-dlp，用户 2026-10-10 定）；默认的这两个库里还没有的

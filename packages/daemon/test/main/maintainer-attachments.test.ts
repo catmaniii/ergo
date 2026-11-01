@@ -1,11 +1,11 @@
-// 主切面：任务和项目的维护者也能发附件（117 号票）。真的守护进程，秘书、维护者接 faux 剧本，测试扮演前端：
-// - 普通任务的 agent、长程任务的维护者、项目的维护者（对话段）调 send_attachment：工作目录里的文件复制进媒体库，作为它的一条消息
+// 主切面：任务和项目的负责人也能发附件（117 号票）。真的守护进程，秘书、负责人接 faux 剧本，测试扮演前端：
+// - 普通任务的 agent、长程任务的负责人、项目的负责人（对话段）调 send_attachment：工作目录里的文件复制进媒体库，作为它的一条消息
 //   出现在它自己的会话里（带上任务、阶段、项目的归属），前端看到的是附件卡片；工作目录外的发不了，原因交回模型；
-// - 工具包里"发附件"关掉了（计划里的、项目的）维护者没有这个工具，在任务详情里打开、重新装配后有了；子 agent、评审没有；
-// - tell_secretary 带附件：工作目录里的文件照任务做完交付的文件那样（115 号票），作为一条只有文件的系统消息紧跟在那条维护者来信的
+// - 工具包里"发附件"关掉了（计划里的、项目的）负责人没有这个工具，在任务详情里打开、重新装配后有了；子 agent、评审没有；
+// - tell_secretary 带附件：工作目录里的文件照任务做完交付的文件那样（115 号票），作为一条只有文件的系统消息紧跟在那条负责人来信的
 //   通知后面（不进秘书的输入），通知的全文写着附件引用，秘书按引用读得到，不用再复制；同一次交的任务做完又交了同一份的不再放一张；
 //   有一个发不了整封信不发；秘书处理到一半崩溃，重新交的只有文字，附件卡片不再放一遍。
-// - 143 号票：用户在任务、项目的会话里发的附件，维护者看到的和秘书一样（长文本、PDF 只内联开头），用 read_attachment 读全文；
+// - 143 号票：用户在任务、项目的会话里发的附件，负责人看到的和秘书一样（长文本、PDF 只内联开头），用 read_attachment 读全文；
 //   只能读自己会话里的附件，读别的会话（比如只发给了秘书）的被拒并说明原因；提示词里讲附件的那一句和秘书的对齐。
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -63,7 +63,7 @@ const textOf = (p: MessageEventPayload) => p.message.parts.map((part) => (part.t
 /** 某个会话里 agent 发出的附件消息（只有附件的那种） */
 const attachmentMessages = (frontend: TestFrontend, channel: string) =>
   messagesOf(frontend, channel).filter((m) => m.message.speaker === "agent" && m.message.parts.length > 0 && m.message.parts.every((p) => p.type === "file" || p.type === "image"));
-/** 秘书会话里维护者来信的通知 */
+/** 秘书会话里负责人来信的通知 */
 const letterNotices = (frontend: TestFrontend) => messagesOf(frontend, SECRETARY).filter((m) => m.agentInput === true && textOf(m).startsWith(MAINTAINER_LETTER_TAG));
 /** 秘书会话里运行时放的附件（只有文件的系统消息，不排进秘书的输入） */
 const runtimeFiles = (frontend: TestFrontend) =>
@@ -99,14 +99,14 @@ async function setup(options: StartTestDaemonOptions, channels?: string[]): Prom
   return { ...td, frontend: await connect(td.url, channels) };
 }
 
-/** 长程任务的维护者：第一次唤起交计划，确认后（按计划重新装配）照 run 做 */
+/** 长程任务的负责人：第一次唤起交计划，确认后（按计划重新装配）照 run 做 */
 const longTask = (run: FauxStep[], plan: Plan = onePlan()) => (_id: string, spawn: number) => (spawn === 1 ? [submitPlanStep(plan), say("计划交上去了")] : run);
 
 const DAILY_HTML = '<!doctype html><html><head><meta charset="utf-8"><title>AI 日报</title></head><body><h1>10 月 13 日 AI 日报</h1><button onclick="this.textContent=\'看过了\'">标成看过</button></body></html>';
 const DAILY_MD = "# 10 月 13 日 AI 日报\n\n- 开源模型：本周有两个新的小模型发布\n- 评测：长上下文的新基准出来了\n";
 const CHART_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="60"><polyline fill="none" stroke="#36c" points="0,50 40,30 80,35 120,10"/></svg>';
 
-describe("维护者把工作目录里的文件作为附件发出", () => {
+describe("负责人把工作目录里的文件作为附件发出", () => {
   it("普通任务的 agent：写好报告发出，进它自己的会话（带任务的归属），能在沙箱里预览；工作目录外的发不了，原因交回模型", async () => {
     const td = await setup({
       secretary: [say("日报做好了，要我念给你听吗？")],
@@ -148,24 +148,24 @@ describe("维护者把工作目录里的文件作为附件发出", () => {
     expect((await httpRequest(td.url, HTTP_PATHS.mediaHtml(part.mediaId))).status).toBe(200);
   }, 60_000);
 
-  it("长程任务的维护者执行时发：消息带任务和当前阶段的归属", async () => {
+  it("长程任务的负责人执行时发：消息带任务和当前阶段的归属", async () => {
     const td = await setup({ secretary: [], maintainer: longTask([call("write", { path: "chart.svg", content: CHART_SVG }), send({ path: "chart.svg", name: "走势图.svg" }), say("图发给你了")]) });
     const { frontend } = td;
     const taskId = await runningTask(td, frontend, "画本周走势图");
-    await waitUntil(() => attachmentMessages(frontend, TM1).length > 0, { timeoutMs: 30_000, describe: () => "等维护者发出附件" });
+    await waitUntil(() => attachmentMessages(frontend, TM1).length > 0, { timeoutMs: 30_000, describe: () => "等负责人发出附件" });
     const [sent] = attachmentMessages(frontend, TM1);
     expect(sent!.message.parts).toEqual([{ type: "file", mediaId: expect.any(String), name: "走势图.svg", mime: "image/svg+xml", size: Buffer.byteLength(CHART_SVG) }]);
     expect(sent).toMatchObject({ taskId, stageId: "s1" });
   }, 60_000);
 
-  it("项目的维护者在项目页上发：项目工作目录里的文件，进项目的会话（带项目的归属）", async () => {
+  it("项目的负责人在项目页上发：项目工作目录里的文件，进项目的会话（带项目的归属）", async () => {
     const td = await setup({ secretary: [], maintainer: (id) => (id === "pm-1" ? [send({ path: "docs/README.md" }), say("发给你了"), ECHO] : []) }, [BOARD, SECRETARY, CARDS, INBOX, PROJECTS, PM1]);
     const project = seedProject(td.daemon, "记账本", { state: "in_use", charterConfirmed: true, kind: "dev", toolkit: { skills: [], mcp: [], bash: true, network: true } });
     const workdir = td.daemon.projects.workdir(project);
     fs.mkdirSync(path.join(workdir, "docs"), { recursive: true });
     fs.writeFileSync(path.join(workdir, "docs", "README.md"), DAILY_MD);
     await td.frontend.sendText("把项目的 README 发给我看看", { conversation: PM1 });
-    await waitUntil(() => attachmentMessages(td.frontend, PM1).length > 0, { timeoutMs: 30_000, describe: () => "等项目的维护者发出附件" });
+    await waitUntil(() => attachmentMessages(td.frontend, PM1).length > 0, { timeoutMs: 30_000, describe: () => "等项目的负责人发出附件" });
     const [sent] = attachmentMessages(td.frontend, PM1);
     expect(sent!.message.parts).toEqual([{ type: "file", mediaId: expect.any(String), name: "README.md", mime: "text/markdown", size: Buffer.byteLength(DAILY_MD) }]);
     expect(sent!.projectId).toBe(project.id);
@@ -173,7 +173,7 @@ describe("维护者把工作目录里的文件作为附件发出", () => {
 });
 
 describe("工具包里的开关", () => {
-  it("计划里关掉了发附件：维护者没有 send_attachment，tell_secretary 也不带附件参数；在任务详情里打开，重新装配后有了", async () => {
+  it("计划里关掉了发附件：负责人没有 send_attachment，tell_secretary 也不带附件参数；在任务详情里打开，重新装配后有了", async () => {
     const plan: Plan = { ...onePlan(), toolkit: { ...onePlan().toolkit, sendAttachment: false } };
     const td = await startTestDaemon({ secretary: [], maintainer: longTask([ECHO, ECHO, ECHO], plan) });
     const requests = spawnRequests(td);
@@ -195,7 +195,7 @@ describe("工具包里的开关", () => {
     expect(requests().at(-1)!.letterParams).toEqual(["summary", "text", "attachments"]);
   }, 90_000);
 
-  it("项目的工具包关掉了发附件：项目的维护者在对话段里没有它；工具包写成一句话时写明关着", async () => {
+  it("项目的工具包关掉了发附件：项目的负责人在对话段里没有它；工具包写成一句话时写明关着", async () => {
     const td = await setup({ secretary: [], maintainer: (id) => (id === "pm-1" ? [ECHO] : []) }, [BOARD, SECRETARY, CARDS, INBOX, PROJECTS, PM1]);
     seedProject(td.daemon, "记账本", { state: "in_use", charterConfirmed: true, kind: "dev", toolkit: { skills: [], mcp: [], bash: true, network: true, sendAttachment: false } });
     await td.frontend.sendText("在吗", { conversation: PM1 });
@@ -205,7 +205,7 @@ describe("工具包里的开关", () => {
     expect(tools).not.toContain(SEND_ATTACHMENT_TOOL);
   }, 60_000);
 
-  it("子 agent 一律没有（结果交回维护者）；评审的 tell_secretary 不带附件参数，维护者的带", () => {
+  it("子 agent 一律没有（结果交回负责人）；评审的 tell_secretary 不带附件参数，负责人的带", () => {
     expect(MAINTAINER_ONLY_TOOLS).toContain(SEND_ATTACHMENT_TOOL);
     const maintainer = { cwd: "C:\\w", toolkit: { bash: true, network: true }, skillPaths: [], piTools: ["read"], hostTools: [SEND_ATTACHMENT_TOOL, TELL_SECRETARY_TOOL], projectRecords: [], workingDirs: ["C:\\w"], development: false };
     expect(subAgentAssembly(maintainer, { agentId: "sa-1", cwd: "C:\\w", hostTools: [SEND_ATTACHMENT_TOOL, TELL_SECRETARY_TOOL] }).hostTools).toEqual([TELL_SECRETARY_TOOL]);
@@ -219,7 +219,7 @@ describe("工具包里的开关", () => {
       const task = { id: "t-3", title: "整理笔记" };
       expect(params(letters.tool(reviewerSender(task, "long_running", "review-1", { stageId: "s1", title: "整理" })))).toEqual(["summary", "text"]);
       expect(params(letters.tool(subAgentSender(task, "long_running", "sa-1", TM1, { stageId: "s1", title: "整理" })))).toEqual(["summary", "text"]);
-      expect(params(letters.tool({ agentId: "tm-1", conversation: TM1, from: "长程任务 t-3「整理笔记」的维护者" }, dir))).toEqual(["summary", "text", "attachments"]);
+      expect(params(letters.tool({ agentId: "tm-1", conversation: TM1, from: "长程任务 t-3「整理笔记」的负责人" }, dir))).toEqual(["summary", "text", "attachments"]);
     } finally {
       store.close();
     }
@@ -227,7 +227,7 @@ describe("工具包里的开关", () => {
 });
 
 describe("tell_secretary 带附件", () => {
-  it("工作目录里的文件作为附件卡片紧跟在维护者来信后面（不进秘书的输入），通知里写着附件引用、秘书读得到；同一次交的任务做完不再放一张；有一个发不了整封信不发", async () => {
+  it("工作目录里的文件作为附件卡片紧跟在负责人来信后面（不进秘书的输入），通知里写着附件引用、秘书读得到；同一次交的任务做完不再放一张；有一个发不了整封信不发", async () => {
     const mdRef = createHash("sha256").update(DAILY_MD).digest("hex");
     const td = await setup({
       // 安静 2 秒才交：来信和紧接着的任务做完并在同一次交
@@ -243,7 +243,7 @@ describe("tell_secretary 带附件", () => {
     });
     const { frontend } = td;
     ok(await frontend.startTask("出今天的 AI 日报", "k-plain", [], "plain"));
-    await waitUntil(() => letterNotices(frontend).length > 0, { timeoutMs: 30_000, describe: () => "等维护者来信" });
+    await waitUntil(() => letterNotices(frontend).length > 0, { timeoutMs: 30_000, describe: () => "等负责人来信" });
     // 通知只有文字（折成一行时显示总结）；附件是紧跟在后面的一条只有文件的系统消息（照 115 号票任务做完交付的文件）
     const [notice] = letterNotices(frontend);
     expect(notice!.message.parts.map((p) => p.type)).toEqual(["text"]);
@@ -257,7 +257,7 @@ describe("tell_secretary 带附件", () => {
     ]);
     const svg = files.message.parts[1] as FilePart;
     const said = textOf(notice!);
-    expect(said).toContain(`普通任务 t-1「出今天的 AI 日报」的维护者说：\n今天的 AI 日报和走势图都做好了，你看一眼。\n（附了 2 个文件：daily.md（附件引用 ${mdRef}）、chart.svg（附件引用 ${svg.mediaId}））`);
+    expect(said).toContain(`普通任务 t-1「出今天的 AI 日报」的负责人说：\n今天的 AI 日报和走势图都做好了，你看一眼。\n（附了 2 个文件：daily.md（附件引用 ${mdRef}）、chart.svg（附件引用 ${svg.mediaId}））`);
     expect(said).toContain(LETTER_ATTACHMENTS_NOTE);
 
     // 秘书：输入是通知的文字（附件卡片不进它的输入），按通知里的附件引用读得到日报
@@ -268,8 +268,8 @@ describe("tell_secretary 带附件", () => {
     expect(seen).toContain(`[toolResult] ${READ_ATTACHMENT_TOOL}: 附件「daily.md」（text/markdown，`);
     expect(seen).toContain("评测：长上下文的新基准出来了");
 
-    // 维护者那边：第一封的结果写明附件交过去了；第二封有一个发不了，整封不发
-    await waitUntil(() => lastEcho(frontend, TM1).includes("旧日报.md"), { timeoutMs: 30_000, describe: () => "等维护者看到第二封的结果" });
+    // 负责人那边：第一封的结果写明附件交过去了；第二封有一个发不了，整封不发
+    await waitUntil(() => lastEcho(frontend, TM1).includes("旧日报.md"), { timeoutMs: 30_000, describe: () => "等负责人看到第二封的结果" });
     const own = lastEcho(frontend, TM1);
     expect(own).toContain("附件（daily.md、chart.svg）跟着这条消息一起交过去了");
     expect(own).toMatch(/发不了「\.\.\/t-9\/旧日报\.md」：只能发工作目录里的文件。这封信没有发/);
@@ -292,7 +292,7 @@ describe("tell_secretary 带附件", () => {
     });
     const { frontend } = td;
     await runningTask(td, frontend, "出日报");
-    await waitUntil(() => letterNotices(frontend).length >= 1, { timeoutMs: 30_000, describe: () => "等维护者来信" });
+    await waitUntil(() => letterNotices(frontend).length >= 1, { timeoutMs: 30_000, describe: () => "等负责人来信" });
     await waitUntil(() => frontend.events({ channel: SECRETARY, type: EVENT_TYPES.turnStart }).length >= 1, { timeoutMs: 30_000, describe: () => "等秘书开始处理来信" });
     await pause(500);
     process.kill(td.daemon.secretary.pid!);
@@ -308,20 +308,20 @@ describe("tell_secretary 带附件", () => {
   }, 60_000);
 });
 
-describe("维护者读附件全文（143 号票）", () => {
+describe("负责人读附件全文（143 号票）", () => {
   /** 超过 32 KB 的文本文件：消息里只内联开头 32 KB，结尾的 MARKER-END 要用 read_attachment 才读得到 */
   const LONG_LOG = Buffer.from(`开头第一行\n${"x".repeat(40_000)}\n结尾 MARKER-END`);
   const LOG_REF = createHash("sha256").update(LONG_LOG).digest("hex");
   const LOG_PART: MessagePart = { type: "file", mediaId: LOG_REF, name: "日志.txt", mime: "text/plain", size: LONG_LOG.length };
-  /** 只发给了秘书的附件：维护者读不了 */
+  /** 只发给了秘书的附件：负责人读不了 */
   const SECRET = Buffer.from("只发给了秘书的附件 MARKER-OTHER");
   const SECRET_REF = createHash("sha256").update(SECRET).digest("hex");
-  /** 维护者的提示词里讲附件的那一句（和秘书的对齐） */
+  /** 负责人的提示词里讲附件的那一句（和秘书的对齐） */
   const PROMPT_LINE = "附件：用户发来的长文本类文件和 PDF 只内联了开头一段，要看全文用 read_attachment";
   /** 回显里最后一个工具结果（从 [toolResult] 起到末尾） */
   const lastToolResult = (echo: string) => echo.slice(echo.lastIndexOf("[toolResult]"));
 
-  it("项目的维护者：用户在项目页发的长文本只内联了开头，用 read_attachment 读到全文；只发给了秘书的附件读不了", async () => {
+  it("项目的负责人：用户在项目页发的长文本只内联了开头，用 read_attachment 读到全文；只发给了秘书的附件读不了", async () => {
     const td = await setup(
       {
         secretary: [say("收到")],
@@ -364,7 +364,7 @@ describe("维护者读附件全文（143 号票）", () => {
     expect(toolPartsOf(frontend, PM1).filter((p) => p.tool === READ_ATTACHMENT_TOOL).map((p) => p.outcome)).toEqual(["done", "error"]);
   }, 60_000);
 
-  it("任务的维护者：用户在任务详情里发的长文本，用 read_attachment 读到全文；提示词里有讲附件的那一句", async () => {
+  it("任务的负责人：用户在任务详情里发的长文本，用 read_attachment 读到全文；提示词里有讲附件的那一句", async () => {
     const td = await setup({ secretary: [say("做完了")], maintainer: [say("记下了"), call(READ_ATTACHMENT_TOOL, { ref: LOG_REF.slice(0, 12) }), ECHO] });
     const { frontend } = td;
     ok(await frontend.startTask("帮我看看服务器日志", "k-plain", [], "plain"));

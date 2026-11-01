@@ -53,7 +53,7 @@ export interface KillableDaemon {
 export interface KillableDaemonOptions {
   secretary?: FauxStep[];
   secretaryTokensPerSecond?: number;
-  /** 维护者 id → 第几次唤起（从 1 起）的剧本 */
+  /** 负责人 id → 第几次唤起（从 1 起）的剧本 */
   maintainer?: Record<string, FauxStep[][]>;
   /** 并行派出的子 agent（20 号票）：子 agent id（sa-<n>）→ 剧本 */
   subAgent?: Record<string, FauxStep[]>;

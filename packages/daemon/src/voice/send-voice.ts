@@ -2,10 +2,10 @@
 // 和用户直接对话的 agent 把一段口语稿合成成和语音回复一样的语音气泡（同一个合成服务、参考音色、分段推送、长按"转文字"）。
 // "发语音"的行为都在这里：工具本身、回合结束时这一轮另写的文字收不收进气泡、重启时的收尾、被中断的调用补什么结果。
 // 回合从哪儿开始、回复了哪些消息由语音回复（voice-reply.ts）跟着会话频道上的回合记下，交给这里（openTurn、closeTurn）。
-// - 装配：和口语总结工具一样经 conversationTools 放进每个和用户说话的会话（秘书、维护者起草和执行、项目维护者各段、定时作业的运行），
+// - 装配：和口语总结工具一样经 conversationTools 放进每个和用户说话的会话（秘书、负责人起草和执行、项目负责人各段、定时作业的运行），
 //   工具列表固定（提示词前缀缓存不受影响）；用不用得了在调用时看这一轮（用户 2026-10-11 定"只给和用户直接对话的地方"）：
 //   这一轮处理的用户消息（交给 agent 的那条输入，和子进程收下、已经进了上下文的插话：HostToolCall.interjected，宿主协议 16）里
-//   有用户说的话才能发——个人助理、用户直接跟项目维护者说话、用户在任务详情里说话（维护者在忙时作为插话送进去）的那一轮；
+//   有用户说的话才能发——个人助理、用户直接跟项目负责人说话、用户在任务详情里说话（负责人在忙时作为插话送进去）的那一轮；
 //   后台在做的任务、定时 / 事件触发的运行、运行时的通知引起的一轮返回清楚的原因——只有一类通知例外（100 号票）：开了"跑完自动播报"的
 //   任务做完的通知（secretary/notice-tags.ts 的 isAutoAnnounceNotice），开关是用户事先给的授权，秘书处理它的那一轮能发；
 //   审批已批准、状态变化、开关关着的任务做完这些照旧不行。用户最后说的一句是语音（语音轮）、有参考音色时
@@ -50,7 +50,7 @@ import { defineHostTool, type HostTool, type HostToolOutput } from "../agent-man
 import { getMessage } from "../conversation/views.ts";
 import type { EventStore } from "../events/event-store.ts";
 import type { InterruptedToolResult } from "../runtime/index.ts";
-import { isAutoAnnounceNotice, MAINTAINER_LETTER_TAG, TASK_DONE_TAG } from "../secretary/notice-tags.ts";
+import { isAutoAnnounceNotice, MAINTAINER_LETTER_TAGS, TASK_DONE_TAG } from "../secretary/notice-tags.ts";
 import type { ReadonlyDatabase } from "../storage/sqlite.ts";
 import { getAgentVoice, recentToolVoices, toolVoicesAwaitingTurnEnd } from "../voice-records/index.ts";
 import type { OwnVoice } from "./agent-voice-ref.ts";
@@ -195,12 +195,12 @@ export function createSendVoice(options: SendVoiceOptions): SendVoice {
 
   /**
    * 这个来源是谁发的（354 号票）：只认通知上记的（MessageEnvelope.relaySources）。通知引起的一轮只认这条通知的；
-   * 用户问的一轮认交给秘书过的通知（任务做完的、来信的）。同一个来源有几个发信人的（维护者和它的子 agent 的信并在一条里、
+   * 用户问的一轮认交给秘书过的通知（任务做完的、来信的）。同一个来源有几个发信人的（负责人和它的子 agent 的信并在一条里、
    * 来过好几次）：按最近的在前，有自己声音的优先（relayedSpeech 取第一个有声音的）。没有是空的
    */
   const relaySenders = (said: MessageEnvelope, source: string): string[] => {
     // 通知上记的在事件里（会话视图只有显示要的那几列）
-    const delivered = [TASK_DONE_TAG, MAINTAINER_LETTER_TAG]
+    const delivered = [TASK_DONE_TAG, ...MAINTAINER_LETTER_TAGS]
       .flatMap((tag) => store.mentioning(EVENT_TYPES.message, tag))
       .filter((e) => e.channel === CHANNELS.secretary && !isDeletedEventPayload(e.payload))
       .toSorted((a, b) => b.globalSeq - a.globalSeq)

@@ -1,6 +1,6 @@
 // 联网搜索、读网页两个工具（70 号票）：守护进程代为执行（host-tools.ts），在守卫的工具注册表里的登记是框架自带的那份
 // （来源 web：只看、只往下拉，不落入任何类别，要联网——联网开关关着时守卫拒绝，见 guard/tool-registry.ts）。
-// 秘书、任务维护者（起草和执行）、项目维护者、定时作业的维护者、子 agent 都配上；评审子 agent 不配。
+// 秘书、任务负责人（起草和执行）、项目负责人、定时作业的负责人、子 agent 都配上；评审子 agent 不配。
 // 给模型看的说法照用户 web-search skill 的 SKILL.md（何时用、标准流程、搜不到怎么办）和两个脚本的输出写；
 // web_search 的选项和 search.mjs 逐个对齐（n、time、engine、region、tavily、json，用户 2026-10-10 要求）。
 // 154 号票：engine 多了 deepseek（DeepSeek 的搜索接口）、browser（浏览器的整条回退链）、tavily。

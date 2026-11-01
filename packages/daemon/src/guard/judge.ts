@@ -331,7 +331,7 @@ class JudgeContext {
   readonly readOnlyRecords: { records: string[]; workingDirs: string[] } | null;
   /** 受保护区域：写入一律永不（密钥区另外连读都拒绝） */
   readonly protectedAreas: ProtectedArea[];
-  /** 这个 agent 自己的地方（秘书的草稿区，维护者的项目档案和工作目录）：看不透的文字里写着它们不算碰到数据目录 */
+  /** 这个 agent 自己的地方（秘书的草稿区，负责人的项目档案和工作目录）：看不透的文字里写着它们不算碰到数据目录 */
   readonly ownDirs: string[];
   /** 这个范围里确实读过 .env 或密钥文件（效果日志里有、或者守护进程收着读过的密钥值；101 号票评审后定） */
   readonly secretRead: boolean;

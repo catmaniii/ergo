@@ -116,7 +116,7 @@ export type QuestionsPayload = QuestionsCardPayload;
 /** 运行时的提问卡：Claude Code 自己要问你的选择题、退出计划模式的批准（288 号票登记，负载的 schema 在共享协议包） */
 export type RuntimeQuestionPayload = RuntimeQuestionCardPayload;
 
-/** 进度卡（13 号票登记，负载的 schema 在共享协议包）：维护者报告进展，或者一个阶段的验收结论 */
+/** 进度卡（13 号票登记，负载的 schema 在共享协议包）：负责人报告进展，或者一个阶段的验收结论 */
 export type ProgressPayload = ProgressCardPayload;
 
 /** "建议发起任务"卡（12 号票登记，负载的 schema 在共享协议包） */
@@ -134,7 +134,7 @@ export type CharterChangePayload = CharterChangeCardPayload;
 /** 规范改写卡：本项目的规范改写、跟新版规范，逐处对照、附核实过的你的原话（261 号票登记，负载的 schema 在共享协议包） */
 export type StandardChangePayload = StandardChangeCardPayload;
 
-/** 补齐规范文档卡：规范上线之前建的项目缺哪几份，你选补齐才建任务交给维护者补（262 号票登记，负载的 schema 在共享协议包） */
+/** 补齐规范文档卡：规范上线之前建的项目缺哪几份，你选补齐才建任务交给负责人补（262 号票登记，负载的 schema 在共享协议包） */
 export type StandardBackfillPayload = StandardBackfillCardPayload;
 
 /** "首版做完了"卡：项目的建设任务做完了，做成了什么、你选转入使用 / 继续建设 / 放弃并归档（112 号票登记，负载的 schema 在共享协议包） */
@@ -145,7 +145,7 @@ export type GoLivePayload = GoLiveCardPayload;
 /** 工单卡：计划外的工单要你确认（17 号票登记，负载的 schema 在共享协议包） */
 export type WorkOrderPayload = WorkOrderCardPayload;
 
-/** 并行确认卡：维护者提议派子 agent 同时做的几个阶段（或几步），各做什么、在哪个目录里做（20 号票登记，负载的 schema 在共享协议包） */
+/** 并行确认卡：负责人提议派子 agent 同时做的几个阶段（或几步），各做什么、在哪个目录里做（20 号票登记，负载的 schema 在共享协议包） */
 export type ParallelPayload = ParallelCardPayload;
 
 /** 配对请求卡（schema 在共享协议包） */

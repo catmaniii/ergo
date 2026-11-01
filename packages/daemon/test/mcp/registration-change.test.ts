@@ -2,7 +2,7 @@
 // - 工具 request_mcp_change：只校验、出卡，文件一个字节都不变；名字格式、command 空、tools 不合法、密钥写明文时不出卡；
 //   add / update / remove 先对上现在的登记（add 不能覆盖已有的、update 和 remove 要有这条）；
 // - 批准：按 name 合并写进 mcp.json，然后真把服务进程拉起来一次（tools/list）把结果写进卡和时间线；拉不起来时登记留着、
-//   卡上写原因，不回滚；拒绝不写文件。两种决定都记一条 mcp_decided（审批决定素材）和维护者会话上的时间线。
+//   卡上写原因，不回滚；拒绝不写文件。两种决定都记一条 mcp_decided（审批决定素材）和负责人会话上的时间线。
 // 写入文件本身（合并、原子写、备份）在 writer.test.ts，端到端的在主切面 test/main/mcp-registration.test.ts。
 import fs from "node:fs";
 import path from "node:path";
@@ -164,7 +164,7 @@ describe("批准、拒绝", () => {
     expect(updated.status).toBe("handled");
     expect(updated.payload).toMatchObject({ applied: true, check: { ok: true, tools: ["echo", "env_token", "send_note", "wait", "status", "person.rename", "filter.set", "slideshow.start"] } });
     expect(updated.outcome?.note).toMatch(/登记好了|已登记/);
-    // 时间线：维护者会话上一条，写着谁提的、动作、名字、自检结果
+    // 时间线：负责人会话上一条，写着谁提的、动作、名字、自检结果
     expect(s.timeline("maintainer:pm-1")).toMatchObject([{ kind: "mcp", summary: expect.stringContaining("旅行相册") }]);
     expect(s.timeline("maintainer:pm-1")[0]!.detail).toContain("list_actions");
     // 审批决定

@@ -1,9 +1,9 @@
-// 主切面：普通任务（75 号票，ADR 0025）。真的守护进程，秘书、维护者都接 faux 剧本，测试扮演前端：
+// 主切面：普通任务（75 号票，ADR 0025）。真的守护进程，秘书、负责人都接 faux 剧本，测试扮演前端：
 // - 发起对话框里选"普通任务"：不经助理，建出就排队、有名额就开始，agent 在后台一轮轮直接做，这一轮做完任务自动完成，助理收到结果在对话里转告；
 // - 助理自己交出去（delegate_task）：用户没点明要发起任务也行，建出的是普通任务；工具说明写清什么时候该交、什么时候自己做、
 //   和别的发起工具的界线；用户点明了要发起流程或长程任务时它被拒，指向该用的工具；
 // - 做完了用户在任务详情里接着说：任务回到执行中，接着做；出错的一轮转等我（卡住求助），回一句就接着做；
-// - 只涉及一个项目的建成这个项目的内部任务：项目的维护者在执行的工单段里做，做完这一段照常写回；在它的详情里接着说（带着任务编号）再派一张工单，
+// - 只涉及一个项目的建成这个项目的内部任务：项目的负责人在执行的工单段里做，做完这一段照常写回；在它的详情里接着说（带着任务编号）再派一张工单，
 //   续派的工单写的是用户这次说的话（原来交代的只留摘要、连同上一轮的结果作为背景，写明不要重做）；
 // - 守护进程重启时补记完成：agent 这一轮做完了、还没来得及算完成的（项目内部的也算）；
 // - 守卫按普通对话判：对话审批关着时"先问我"的操作不出审批卡，硬拒绝照旧；开着时照原样出审批卡，事后批准了它接着做；
@@ -246,7 +246,7 @@ async function withProject(maintainer: (records: string) => StartTestDaemonOptio
 }
 
 describe("只涉及一个项目的：建成这个项目的内部任务", () => {
-  it("对话框里只选了一个项目：项目的维护者在执行的工单段里直接做，做完任务自动完成、这一段照常写回；助理只知道做完了；在它的详情里接着说再派一张工单接着做", async () => {
+  it("对话框里只选了一个项目：项目的负责人在执行的工单段里直接做，做完任务自动完成、这一段照常写回；助理只知道做完了；在它的详情里接着说再派一张工单接着做", async () => {
     const { frontend, daemon, records } = await withProject(
       (dir) => (id, n) =>
         id !== "pm-1"
@@ -265,7 +265,7 @@ describe("只涉及一个项目的：建成这个项目的内部任务", () => {
     expect((wo.workOrder as { instructions?: string }).instructions).toContain("普通任务 t-1「导出 10 月的账单」：直接做，不规划、不用计划卡。");
 
     await done(frontend, "t-1");
-    // 交给维护者的任务书只有交代的那段话（怎么做、做完怎么写回在系统提示里，不另抄一份）
+    // 交给负责人的任务书只有交代的那段话（怎么做、做完怎么写回在系统提示里，不另抄一份）
     expect(noticesIn(frontend, PM1).find((t) => t.startsWith("普通任务 t-1"))).toBe(`普通任务 t-1「导出 10 月的账单」：要做的事——\n${LONG_REQUEST}`);
     // 这一段收尾（催写回、写回）之后工单才结束
     await eventually(() => workOrdersOf(frontend), (e) => e.change === "ended" && e.workOrder.id === wo.workOrder.id, "工单结束");
@@ -297,17 +297,17 @@ describe("只涉及一个项目的：建成这个项目的内部任务", () => {
     expect(noticesIn(frontend, SECRETARY).map((t) => t.startsWith("项目「记账本」里交出去的一件事"))).toEqual([true, true]);
   });
 
-  it("守护进程重启时补记完成：项目的维护者这一轮做完了、执行控制器还没来得及算完成的，重启后补上（项目内部的也看）", async () => {
+  it("守护进程重启时补记完成：项目的负责人这一轮做完了、执行控制器还没来得及算完成的，重启后补上（项目内部的也看）", async () => {
     const dataDir = makeTempDir("ergo-data-");
     const homeDir = makeTempDir("ergo-home-");
-    // 维护者说得慢一点：执行控制器停下的时候它这一轮还没做完
+    // 负责人说得慢一点：执行控制器停下的时候它这一轮还没做完
     const first = await startTestDaemon({ reuse: { dataDir, homeDir }, maintainer: (id) => (id === "pm-1" ? [say("10 月的账单导出好了")] : []), maintainerTokensPerSecond: 5 });
     inUseProject(first, "记账本");
     const frontend = await connect(first.url, [BOARD, PM1]);
     const task = first.daemon.tasks.delegate({ title: "导出账单", instructions: "导出 10 月的账单", projects: ["记账本"] });
     await waitUntil(() => first.daemon.tasks.get(task.id)?.state === "running", { describe: () => "等它开始" });
     expect(first.daemon.tasks.get(task.id)?.maintainerId).toBe("pm-1");
-    // 模拟"这一轮刚做完就停机了"：执行控制器先停下，维护者这一轮照样做完
+    // 模拟"这一轮刚做完就停机了"：执行控制器先停下，负责人这一轮照样做完
     first.daemon.taskExecution.stop();
     await turnsOf(frontend, PM1, 1);
     expect(frontend.events({ channel: PM1, type: EVENT_TYPES.turnEnd }).at(-1)?.payload).toMatchObject({ outcome: "completed" });
@@ -326,7 +326,7 @@ describe("只涉及一个项目的：建成这个项目的内部任务", () => {
     expect(created).toMatchObject({ by: "secretary", task: { kind: "plain", origin: "delegated", maintainerId: "pm-1", internal: { projectId: "p-1" } } });
     await turnsOf(frontend, SECRETARY, 1);
     const seen = lastEcho(frontend, SECRETARY);
-    expect(seen).toContain("[toolResult] delegate_task: 已交给项目「记账本」的维护者在后台做");
+    expect(seen).toContain("[toolResult] delegate_task: 已交给项目「记账本」的负责人在后台做");
     expect(seen).not.toContain("t-1");
   });
 });

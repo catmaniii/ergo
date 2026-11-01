@@ -1,4 +1,4 @@
-// 主切面：HTML、SVG 附件在隔离的沙箱里预览（117 号票）。真的守护进程（临时数据目录）：附件经 HTTP 上传入库，再像维护者发附件那样
+// 主切面：HTML、SVG 附件在隔离的沙箱里预览（117 号票）。真的守护进程（临时数据目录）：附件经 HTTP 上传入库，再像负责人发附件那样
 // 作为一条消息追加进会话（名字、类型以消息里最近一次引用它的文件 part 为准）；测试扮演浏览器取内容：
 // - GET /api/media/<媒体 id>/html：HTML 原样发出（末尾加一小段让链接在新窗口打开的脚本），带沙箱的 CSP 等响应头（逐项核对）；
 // - GET /api/media/<媒体 id>/svg：SVG 以 image/svg+xml 发出，带 default-src 'none'; style-src 'unsafe-inline'; sandbox；
@@ -48,7 +48,7 @@ const SVG_CSP = "default-src 'none'; style-src 'unsafe-inline'; sandbox";
 /** 文件名在 Content-Disposition 里的写法（ASCII 退路名加 UTF-8 的真名） */
 const disposition = (name: string) => `inline; filename="${name.replace(/[^\x20-\x7e]/g, "_")}"; filename*=UTF-8''${encodeURIComponent(name)}`;
 
-/** 上传一个文件，作为维护者的一条消息发进它的会话（和 send_attachment 一样）；part 上的类型直接写明。返回媒体 id */
+/** 上传一个文件，作为负责人的一条消息发进它的会话（和 send_attachment 一样）；part 上的类型直接写明。返回媒体 id */
 async function sendFile(test: TestDaemon, content: string | Buffer, name: string, mime: string): Promise<string> {
   const bytes = typeof content === "string" ? Buffer.from(content, "utf8") : content;
   const stored = await media.upload(test.url, bytes, { name, mime }, 1024 * 1024);

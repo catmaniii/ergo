@@ -24,7 +24,7 @@ describe("按返回键先退哪一层", () => {
     ["弹窗上又开了一个弹窗：先关后开的", [["open", overlay(1)], ["open", overlay(2)]], 2],
     ["后开的弹窗关了：再按关先开的", [["open", overlay(1)], ["open", overlay(2)], ["close", 2]], 1],
     ["弹窗都关了：回上一级", [["open", page(1)], ["open", overlay(2)], ["close", 2]], 1],
-    ["两个页面都有返回（比如维护者会话叠在项目页上）：退后挂上的", [["open", page(1)], ["open", page(2)]], 2],
+    ["两个页面都有返回（比如负责人会话叠在项目页上）：退后挂上的", [["open", page(1)], ["open", page(2)]], 2],
     ["页面离开了（回到顶层）：交给系统", [["open", page(1)], ["close", 1]], undefined],
     ["同一层又挂一次：挪到最上面，不重复", [["open", overlay(1)], ["open", overlay(2)], ["open", overlay(1)]], 1],
     ["关一个没挂过的：不变", [["open", page(1)], ["close", 9]], 1],

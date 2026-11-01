@@ -20,7 +20,7 @@
 // SDK 的坑（调研 32 第 6.1 节）：消费循环绝不在 result 处 break（break 会结束整个会话）；出错的 result 之后迭代器可能 throw，
 // 循环 try/catch——query 结束了就记着，下一条输入按会话 id 恢复一个新的；不认得的消息一律不管。
 // 不读 Claude Code 的会话记录（超大会话不整个读：这一张根本不读；290 号票接管时只读尾部）。
-// 289 号票：维护者在 ⚙ 里给 Claude Code 选的模型、权限模式、思考档位（装配参数 runtimeOptions）翻成 query 的 model、permissionMode、effort
+// 289 号票：负责人在 ⚙ 里给 Claude Code 选的模型、权限模式、思考档位（装配参数 runtimeOptions）翻成 query 的 model、permissionMode、effort
 // （../settings.ts，没选的用 Claude Code 自己的设置）；query 起来后报一次 Claude Code 自己的模型列表和斜杠命令清单（runtime_catalog：
 // supportedModels / supportedCommands），每轮开头的 system/init、中途的 commands_changed 再按它报命令；换运行时之前的 write_handoff：
 // 推一条请 Claude 写交接摘要的消息，这一轮的回复不当成回复，最后的 result 文字就是摘要。
@@ -32,7 +32,7 @@
 // - 工具包当场换（宿主协议 toolkit）：MCP 服务的工具清单当场换（服务有增减时 setMcpServers），skill 有变重拼插件目录、叫 SDK 的
 //   reloadPlugins 当场生效（报回刷新后的斜杠命令；重新加载不成的下一个 query 起来时照新目录加载），"工具包已变更"在下一次工具结果或下一条输入时
 //   交给模型；回合不停下、不重新拉起；
-// - 追加的系统提示后面补一句二狗的工具在这里叫什么（维护者的系统提示是按 pi 写的，287 号票留的④）。
+// - 追加的系统提示后面补一句二狗的工具在这里叫什么（负责人的系统提示是按 pi 写的，287 号票留的④）。
 // 293 号票（撤回和分支，navigation.ts）：query 一律开文件检查点（enableFileCheckpointing）；每条输入记下推进了哪个 Claude 会话、二狗给它定的
 // uuid、那个会话里上一条（records.ts 的 lineage）；navigate_session 按 navigation.ts 分叉出新会话、按检查点恢复文件、切到废弃分支的会话，
 // 换会话时关掉手头的 query（下一条输入按新的会话 id 起）；守护进程写好的分支摘要在新会话的下一条输入的 UserPromptSubmit 钩子交给模型。
@@ -596,7 +596,7 @@ export class ClaudeSessionRunner {
     const readRules = claudeReadRules(this.assembly.readOnlyDirs ?? []);
     const options: Options = {
       cwd: this.claudeCwd(),
-      // 维护者在 ⚙ 里选的模型、思考档位、权限模式（289 号票）；没选的用 Claude Code 自己的设置
+      // 负责人在 ⚙ 里选的模型、思考档位、权限模式（289 号票）；没选的用 Claude Code 自己的设置
       ...claudeQueryChoices(this.assembly.runtimeOptions),
       // 授权的文件夹（355 号票）：只读放开（Read 规则，见 settings.ts）；这次起进程时的那一份，改了下一次起进程才生效
       ...(readRules.length > 0 ? { allowedTools: readRules } : {}),
@@ -1013,7 +1013,7 @@ function userMessage(uuid: UUID, text: string, images: InputImage[], priority?: 
 }
 
 /**
- * 追加的系统提示后面补的一句（291 号票）：维护者的系统提示是按 pi 写的（287 号票留的④），这里说清二狗的工具在 Claude Code 里叫什么、
+ * 追加的系统提示后面补的一句（291 号票）：负责人的系统提示是按 pi 写的（287 号票留的④），这里说清二狗的工具在 Claude Code 里叫什么、
  * 提示里说的 pi 的工具对应它自带的哪个。没有系统提示时不补
  */
 function withToolNote(systemPrompt: string | undefined): string | undefined {

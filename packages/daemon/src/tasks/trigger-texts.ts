@@ -1,5 +1,5 @@
 // 任务的触发方式的说法（76、77 号票）：任务书、通知里"什么时候做"那几句，事件触发方式被拒的原因。编排（tasks.ts）里不写文字。
-// 172 号票：被拒的原因（发起对话框里看得到）按当时的语言写；任务书里的几句交给维护者，照旧中文（用到的协议包说法也取中文）
+// 172 号票：被拒的原因（发起对话框里看得到）按当时的语言写；任务书里的几句交给负责人，照旧中文（用到的协议包说法也取中文）
 import { describeEventTrigger, describeSchedule, describeTime, type EventTrigger, forModel, type ReminderSchedule, t, triggerFields } from "@ergo/protocol";
 
 /** 事件触发的写得不对（77 号票）：来源、事件、过滤条件哪里不对 */

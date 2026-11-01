@@ -92,7 +92,7 @@ export {
   inboxItemProjectId,
   ownMaintainerId,
   projectActionTarget,
-  // 项目还有没结束的工单时不能归档、重置维护者（16 号票）
+  // 项目还有没结束的工单时不能归档、重置负责人（16 号票）
   ARCHIVING_ACTIONS,
   archiveBlockedText,
   canResetMaintainer,
@@ -279,7 +279,7 @@ export {
   describePeakHours,
   PRICE_PERIOD_LABEL,
   pricePeriodJudge,
-  // 工单与维护者会话分段（16 号票）
+  // 工单与负责人会话分段（16 号票）
   WORK_ORDER_KIND_LABEL,
   WORK_ORDER_LANE_LABEL,
   WORK_ORDER_LANES,
@@ -981,7 +981,7 @@ export { branchOwnRanges, subtractRanges, switchedTree } from "@ergo/protocol";
 export { grownTree, inRanges, nextBranchId, rangesFrom, rollbackFork, SINGLE_BRANCH } from "@ergo/protocol";
 // 给用户看的编号写成"编号「简短描述」"（159、163 号票）：写法在协议包，名字由 readable-ids.ts 从状态层现取
 export { deletedIdLabel, idLabel, maintainerIdLabel, type MaintainerOwner, namedIdLabel, shortDescription } from "@ergo/protocol";
-// 长程任务阶段开始的回退点（152 号票）：维护者会话频道上 stage_start 的记号、回退点的说法、阶段框底部那一个、确认框里多的那一句
+// 长程任务阶段开始的回退点（152 号票）：负责人会话频道上 stage_start 的记号、回退点的说法、阶段框底部那一个、确认框里多的那一句
 export type { StageStartEventPayload, StageStartVia } from "@ergo/protocol";
 export { STAGE_BOX_UNDO, STAGE_ROLLBACK_CONTINUES, stageRollbackLabel } from "@ergo/protocol";
 // 流程步骤开始的回退点（153 号票）：同一条 stage_start 记号带 stepId，说法"撤回到步骤「…」开始前"；一次运行的分段线也是这段会话的开头
@@ -1018,7 +1018,7 @@ export {
 export type { PluginState, PluginStatusEventPayload, PluginStatusView } from "@ergo/protocol";
 // 设置 · 插件（211 号票）：清单、停用 / 启用 / 移除的结果、连数据删的记录
 export type { PluginAction, PluginActionResult, PluginBrings, PluginDataPurgedEventPayload, PluginInfo, PluginPurgeCounts, PluginsView } from "@ergo/protocol";
-// agent 运行时（286 号票）：维护者用的运行时（pi 或者插件登记的）连同能力清单，GET /api/runtimes 取；289 号票起新建时选、⚙ 里换、卡上标出
+// agent 运行时（286 号票）：负责人用的运行时（pi 或者插件登记的）连同能力清单，GET /api/runtimes 取；289 号票起新建时选、⚙ 里换、卡上标出
 export { PI_RUNTIME_ID, RUNTIME_OPERATIONS, RUNTIME_SWITCH_STATES, runtimeIdOf, runtimeShown, runtimeTitleOf, selectableRuntimes, TAKEOVER_ACTIONS, TAKEOVER_KINDS, TAKEOVER_PLACES, takeoverPlaceOf, WORK_FOLDER_NAME_MAX, workFolderName } from "@ergo/protocol";
 export type {
   AgentRuntimeBody,

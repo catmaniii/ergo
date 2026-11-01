@@ -1,4 +1,4 @@
-// 每个 agent 的会话里一个 ⚙（114 号票，规格第 19 节"Web UI"、系统提示一节）：秘书会话、任务整页（负责它的维护者）、项目整页（项目维护者）
+// 每个 agent 的会话里一个 ⚙（114 号票，规格第 19 节"Web UI"、系统提示一节）：秘书会话、任务整页（负责它的负责人）、项目整页（项目负责人）
 // 的标题栏上点开一个面板——这个 agent 单独的提示词、清空当前对话、上下文用量和"现在压缩"。
 // 这里是守护进程和 Web 共用的部分（不引用 TypeBox；接口的 schema 在 agent-settings-schema.ts）：名字、单独的提示词怎么查。
 //
@@ -10,7 +10,7 @@
 import { t, tTable } from "./i18n/runtime.ts";
 import { normalizePromptSource, parsePromptTemplate, promptIssuesText, type PromptTemplateSpec } from "./system-prompts.ts";
 
-/** 有 ⚙ 的会话是谁的：秘书、任务（负责它的维护者）、项目（项目维护者）、记忆管理员（242 号票：那个按需拉起的 agent，243 号票起不常驻） */
+/** 有 ⚙ 的会话是谁的：秘书、任务（负责它的负责人）、项目（项目负责人）、记忆管理员（242 号票：那个按需拉起的 agent，243 号票起不常驻） */
 export const AGENT_SETTINGS_KINDS = ["secretary", "task", "project", "curator"] as const;
 export type AgentSettingsKind = (typeof AGENT_SETTINGS_KINDS)[number];
 
@@ -28,7 +28,7 @@ export const AGENT_PROMPT_STATE_LABEL: Readonly<Record<AgentPromptState, string>
   replace: "protocol.agentSettings.prompt.replace",
 });
 
-/** "清空当前对话"怎么做：秘书、任务的维护者新开一段会话；项目维护者就是重置维护者（16 号票，只凭项目档案重建理解） */
+/** "清空当前对话"怎么做：秘书、任务的负责人新开一段会话；项目负责人就是重置负责人（16 号票，只凭项目档案重建理解） */
 export const AGENT_CLEAR_KINDS = ["new_session", "reset_maintainer"] as const;
 export type AgentClearKind = (typeof AGENT_CLEAR_KINDS)[number];
 

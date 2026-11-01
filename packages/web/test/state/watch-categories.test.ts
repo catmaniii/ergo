@@ -147,7 +147,7 @@ const payload = (overrides: Partial<PlanCardPayload> = {}): PlanCardPayload => (
 });
 
 describe("计划卡：本任务要提醒的关注类别、用户的限制", () => {
-  test("每个类别标明来处：全局的（删不掉）、维护者调严了的、维护者为本任务加的、你在卡上加的；带处置和规则", () => {
+  test("每个类别标明来处：全局的（删不掉）、负责人调严了的、负责人为本任务加的、你在卡上加的；带处置和规则", () => {
     expect(planCategoryRows(payload()).map((r) => [r.id, r.origin, r.disposition ?? null, r.rule ?? null])).toEqual([
       ["spend_money", "global", null, null],
       ["delete_or_overwrite", "global_tightened", "ask_first", null],
@@ -157,7 +157,7 @@ describe("计划卡：本任务要提醒的关注类别、用户的限制", () =
     ]);
   });
 
-  test("用户的限制：原话（核对得上的）或维护者转述，编译出的规则和授权收窄（由结构化数据生成的文字）", () => {
+  test("用户的限制：原话（核对得上的）或负责人转述，编译出的规则和授权收窄（由结构化数据生成的文字）", () => {
     const row = { id: "l1", quote: "别往 main 推，只推一次", rules: ["git_push 一律禁止（只在满足条件时检查）；违反就不做"], narrowings: ["「推送报告」（push）：最多 1 次"] };
     expect(userLimitRows(payload({ verifiedQuotes: ["l1"] }))).toEqual([{ ...row, verified: true }]);
     expect(userLimitRows(payload())).toEqual([{ ...row, verified: false }]);

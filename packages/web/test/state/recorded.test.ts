@@ -353,7 +353,7 @@ describe("回放：彻底删除（memory-purge）", () => {
 });
 
 describe("回放：发起任务到计划确认（task-initiation）", () => {
-  // 秘书按用户的话直接建任务 → 提问卡"全按推荐" → 维护者交计划，待我处理里出现计划卡 → 收窄一项授权后确认 → 任务排队，
+  // 秘书按用户的话直接建任务 → 提问卡"全按推荐" → 负责人交计划，待我处理里出现计划卡 → 收窄一项授权后确认 → 任务排队，
   // 有执行名额马上开始第 1 阶段（13 号票）
   const inputs = load("task-initiation");
   const planCardEvent = indexOf(inputs, (i) => i.kind === "frame" && i.frame.type === "card" && (i.frame.payload as { card: { type: string } }).card.type === "plan");
@@ -380,7 +380,7 @@ describe("回放：发起任务到计划确认（task-initiation）", () => {
     expect(inboxEntries(all, "done").some((e) => e.item.cardId === card.id)).toBe(true);
   });
 
-  test("维护者交了计划：任务挪到等我（待确认），待我处理里是这张计划卡、还没处理；卡上的阶段数就是看板上的 M", () => {
+  test("负责人交了计划：任务挪到等我（待确认），待我处理里是这张计划卡、还没处理；卡上的阶段数就是看板上的 M", () => {
     const state = replay(inputs.slice(0, confirm));
     expect(groupOfTask(state, "t-1")).toBe("waiting");
     const task = selectTask(state, "t-1")!;
@@ -406,7 +406,7 @@ describe("回放：发起任务到计划确认（task-initiation）", () => {
   });
 });
 
-/** 任务 t-1 的维护者会话 */
+/** 任务 t-1 的负责人会话 */
 const maintainerView = (state: UiState) => conversationView(state, "maintainer:tm-1");
 
 describe("回放：两阶段任务到完成、再返工（task-execution）", () => {
@@ -485,13 +485,13 @@ const isParallelCard = (input: UiInput) => input.kind === "frame" && input.frame
 const cardIdOf = (state: UiState) => Object.values(state.cards).find((c) => c.card.type === "parallel")!.card.id;
 
 describe("回放：并行确认卡被拒、照常串行做完（parallel-sequential）", () => {
-  // 20 号票：执行中维护者提议把 s1、s2 派给两个子 agent 并行 → 待我处理里出现并行确认卡（不卡任务）→ 用户确认之前维护者照常
-  // 先做完 s1、开始 s2 → 用户点"不并行，按顺序做"（附一句话）→ 维护者收到通知，照常做完 s2，任务完成。没拉起任何子 agent
+  // 20 号票：执行中负责人提议把 s1、s2 派给两个子 agent 并行 → 待我处理里出现并行确认卡（不卡任务）→ 用户确认之前负责人照常
+  // 先做完 s1、开始 s2 → 用户点"不并行，按顺序做"（附一句话）→ 负责人收到通知，照常做完 s2，任务完成。没拉起任何子 agent
   const inputs = load("parallel-sequential");
   const proposed = indexOf(inputs, isParallelCard);
   const decide = indexOf(inputs, (i) => i.kind === "card_action" && i.action === "sequential");
 
-  test("提议之后：并行确认卡写明任务、为什么并行、两个子 agent 各做什么；待我处理里一项（不卡任务），维护者会话里有它的引用；任务仍在进行中", () => {
+  test("提议之后：并行确认卡写明任务、为什么并行、两个子 agent 各做什么；待我处理里一项（不卡任务），负责人会话里有它的引用；任务仍在进行中", () => {
     const state = replay(inputs.slice(0, proposed + 3));
     const cardId = cardIdOf(state);
     const display = cardDisplay(state, cardId);
@@ -510,7 +510,7 @@ describe("回放：并行确认卡被拒、照常串行做完（parallel-sequent
     expect(refs).toHaveLength(1);
   });
 
-  test("用户处理之前：维护者照常先做完 s1（脚本验收通过），开始 s2；卡片还没处理", () => {
+  test("用户处理之前：负责人照常先做完 s1（脚本验收通过），开始 s2；卡片还没处理", () => {
     const state = replay(inputs.slice(0, decide));
     expect(taskStages(state, "t-1").map((s) => [s.stageId, s.state])).toEqual([
       ["s1", "accepted"],
@@ -519,7 +519,7 @@ describe("回放：并行确认卡被拒、照常串行做完（parallel-sequent
     expect(selectCard(state, cardIdOf(state))?.card.status).toBe("pending");
   });
 
-  test("点“不并行，按顺序做”：卡片先是处理中，收到更新后已处理；待我处理里算处理过；维护者会话里一条通知（附用户写的话）；最后任务完成", () => {
+  test("点“不并行，按顺序做”：卡片先是处理中，收到更新后已处理；待我处理里算处理过；负责人会话里一条通知（附用户写的话）；最后任务完成", () => {
     const sending = replay(inputs.slice(0, decide + 1));
     const cardId = cardIdOf(sending);
     expect(selectCard(sending, cardId)?.pending).toMatchObject({ action: "sequential", status: "sending" });
@@ -538,7 +538,7 @@ describe("回放：并行确认卡被拒、照常串行做完（parallel-sequent
   });
 });
 
-describe("回放：维护者用带类型的 bash 工具干活（typed-shell-tools）", () => {
+describe("回放：负责人用带类型的 bash 工具干活（typed-shell-tools）", () => {
   // 录制在 packages/daemon/test/main/typed-shell.test.ts：看状态和差异 → 提交 → 建远端仓库（问过）→ 没跑测试就推送（退回）→
   // 测试没通过 → 推送仍退回 → 测试通过 → 推送（问过）→ force push 两次（一律禁止）→ 合并有冲突 → 合并 → 构建 → 装依赖。
   // 时间线上的样式归 25 号票；这里断言工具调用 part 的字段（判定、授权内、通用 bash、结果）
@@ -607,7 +607,7 @@ const taskCard = (s: UiState) => boardGroups(s).flatMap((g) => g.items).find((i)
 
 describe("回放：时间线的缩放和活动状态（timeline-zoom）", () => {
   // 录制在 packages/daemon/test/main/timeline.test.ts：两阶段任务，第一阶段里写文件、通用 bash（ls）、授权内的建目录（bash）、
-  // 做完告诉我的提交、问过的读主目录（审批卡、批准）、脚本验收；第二阶段写报告、写围栏外被硬拒绝、脚本验收，任务完成，维护者闲置退出
+  // 做完告诉我的提交、问过的读主目录（审批卡、批准）、脚本验收；第二阶段写报告、写围栏外被硬拒绝、脚本验收，任务完成，负责人闲置退出
   const inputs = load("timeline-zoom");
   const maintainer = "maintainer:tm-1";
   const state = replay(inputs);
@@ -632,7 +632,7 @@ describe("回放：时间线的缩放和活动状态（timeline-zoom）", () => 
     expect(marks.filter((m) => m.kind === "tool").map((m) => m.style ?? null)).toEqual([null, "granted", "notify", "stopped", "stopped"]);
   });
 
-  test("全局层：任务的维护者会话按阶段聚成色块（规划、第 1 阶段、第 2 阶段），色块上仍标出这些要点", () => {
+  test("全局层：任务的负责人会话按阶段聚成色块（规划、第 1 阶段、第 2 阶段），色块上仍标出这些要点", () => {
     expect(timelineGrouping(state, maintainer)).toBe("stage");
     const blocks = globalView(state, maintainer);
     expect(blocks.map((b) => b.title)).toEqual(["规划", "第 1 阶段 · 整理笔记", "第 2 阶段 · 写报告"]);
@@ -642,7 +642,7 @@ describe("回放：时间线的缩放和活动状态（timeline-zoom）", () => 
     expect(blocks.reduce((n, b) => n + b.count, 0)).toBe(timelineItems(state, maintainer).length);
   });
 
-  test("活动状态小圆点：被唤起、干活中（附带在做什么）、等你批准、闲置退出时跟着变；看板的任务卡上就是它的维护者", () => {
+  test("活动状态小圆点：被唤起、干活中（附带在做什么）、等你批准、闲置退出时跟着变；看板的任务卡上就是它的负责人", () => {
     const woken = replay(inputs.slice(0, activityAt((p) => p.agentId === "tm-1" && p.detail?.kind === "woken") + 1));
     expect(taskCard(woken)).toMatchObject({ activity: { state: "working", detail: { kind: "woken" } } });
     const commit = { kind: "calling_tool", tool: "git 提交" };
@@ -663,8 +663,8 @@ describe("回放：时间线的缩放和活动状态（timeline-zoom）", () => 
 const gistTitles = (s: UiState, conversation: ConversationId) => gistView(s, conversation).flatMap((r) => (r.kind === "marks" ? r.marks.map((m) => `${m.kind}:${m.title}`) : []));
 
 describe("回放：往上翻取回旧页里的时间线记录（timeline-history）", () => {
-  // 录制在 packages/daemon/test/main/history.test.ts：维护者会话、秘书会话各 60 条消息，第一次补发只到最近 50 条；
-  // 维护者会话里旧页有一条偏离（第一阶段）、最近一页有一条范围变更；秘书会话旧页、最近一页各有一次快速动作的执行
+  // 录制在 packages/daemon/test/main/history.test.ts：负责人会话、秘书会话各 60 条消息，第一次补发只到最近 50 条；
+  // 负责人会话里旧页有一条偏离（第一阶段）、最近一页有一条范围变更；秘书会话旧页、最近一页各有一次快速动作的执行
   const inputs = load("timeline-history");
   const maintainer = "maintainer:tm-1";
   const firstPage = indexOf(inputs, (i) => i.kind === "history_page");
@@ -722,7 +722,7 @@ describe("回放：项目的一生（project-lifecycle）", () => {
   const inputs = load("project-lifecycle");
   const at = (change: string) => replay(inputs.slice(0, indexOf(inputs, projectEvent(change)) + 1));
 
-  test("点了“立项”：项目以筹备中出现在项目列表，维护者会话里有一条说明", () => {
+  test("点了“立项”：项目以筹备中出现在项目列表，负责人会话里有一条说明", () => {
     const state = at("created");
     expect(projectViews(state).map((v) => [v.project.name, v.project.state, v.activeTasks])).toEqual([["记账本", "preparing", 0]]);
     expect(selectProject(state, "p-1")?.actions).toEqual(["abandon"]);
@@ -759,7 +759,7 @@ describe("回放：项目的一生（project-lifecycle）", () => {
     expect(selectProject(at("reactivated"), "p-1")?.project.state).toBe("in_use");
   });
 
-  test("另一个项目放弃到已归档（只读）、取消归档、再放弃，删除的二次确认在待我处理里；确认后项目和它的维护者会话都不在了", () => {
+  test("另一个项目放弃到已归档（只读）、取消归档、再放弃，删除的二次确认在待我处理里；确认后项目和它的负责人会话都不在了", () => {
     expect(selectProject(at("abandoned"), "p-2")).toMatchObject({ project: { state: "archived", archivedFrom: "preparing" }, actions: ["unarchive", "delete"] });
     expect(selectProject(at("unarchived"), "p-2")?.project.state).toBe("preparing");
     const state = replay(inputs);
@@ -802,7 +802,7 @@ describe("回放：两个任务排进同一项目（work-orders-queue）", () =>
     expect(projectPipeline(state, "p-1").active[0]!.stage).toMatch(/^执行中 · 第 1\/1 阶段「写出来」$/);
   });
 
-  test("第一个做完，第二个自动开始；最后都结束，流水线的已结束最近的在前；维护者会话里每张工单一条分隔线", () => {
+  test("第一个做完，第二个自动开始；最后都结束，流水线的已结束最近的在前；负责人会话里每张工单一条分隔线", () => {
     const started = at("started", "t-2", "execute");
     expect(taskWaitingForProject(started, "t-2")).toBeUndefined();
     expect(selectTask(started, "t-1")?.state).toBe("done");
@@ -822,7 +822,7 @@ const openOutOfScopeNotices = (state: UiState) => inboxEntries(state, "open").fi
 
 describe("回放：范围审视（scope-review）", () => {
   // 录制在 packages/daemon/test/main/scope-review.test.ts 的第一个用例（只录了项目列表、待我处理、看板三个频道）：
-  // 项目任务的执行工单结束时审视出一条越界；之后用户在维护者会话里说"先帮我做下 X"，压缩会话时审视出一条范围变更
+  // 项目任务的执行工单结束时审视出一条越界；之后用户在负责人会话里说"先帮我做下 X"，压缩会话时审视出一条范围变更
   const inputs = load("scope-review");
 
   test("越界记下之后：项目页的范围记录里越界一组有它（写明工单结束时、哪张工单），任务详情里也有；待我处理里一条未读的越界通知，小红点亮着", () => {
@@ -856,7 +856,7 @@ describe("回放：范围审视（scope-review）", () => {
 describe("回放：涉及多个项目的任务：派单 → 一张退回 → 重派 → 全部完成（multi-project）", () => {
   // 录制在 packages/daemon/test/main/multi-project.test.ts 的"派单、回执和阶段验收"：任务涉及记账本（s1）、家电档案（s2），
   // 计划确认时两行各建出一张工单，s1 开始时派出记账本的；记账本完成、s1 验收通过后派出家电档案的，它被退回；
-  // 任务维护者调整做法重新派单（算一次验收退回），这张完成后 s2 验收通过、任务完成
+  // 任务负责人调整做法重新派单（算一次验收退回），这张完成后 s2 验收通过、任务完成
   const inputs = load("multi-project");
   const at = (change: string, workOrderId: string) => replay(inputs.slice(0, indexOf(inputs, workOrderEvent(change, workOrderId)) + 1));
 
@@ -864,11 +864,11 @@ describe("回放：涉及多个项目的任务：派单 → 一张退回 → 重
     const state = at("dispatched", "wo-1");
     expect(workOrderRows(state)).toEqual(["wo-1 记账本 待接 | 第 1 阶段「记账本加导出」 · 进行中", "wo-2 家电档案 等阶段开始 | 第 2 阶段「家电档案接导入」 · 未开始"]);
     expect(projectPipeline(state, "p-2")).toEqual({ queued: [], active: [], ended: [] });
-    expect(projectPipeline(state, "p-1").queued.map((v) => [v.workOrder.id, v.source])).toEqual([["wo-1", "任务维护者"]]);
+    expect(projectPipeline(state, "p-1").queued.map((v) => [v.workOrder.id, v.source])).toEqual([["wo-1", "任务负责人"]]);
     expect(taskStages(state, "t-1").map((s) => s.state)).toEqual(["running", "pending"]);
   });
 
-  test("家电档案退回：工单列表上已结束 · 退回（附理由），s2 还在做；回执作为消息进了任务维护者的会话", () => {
+  test("家电档案退回：工单列表上已结束 · 退回（附理由），s2 还在做；回执作为消息进了任务负责人的会话", () => {
     const state = at("ended", "wo-2");
     expect(workOrderRows(state)).toEqual(["wo-1 记账本 已结束 · 完成 | 第 1 阶段「记账本加导出」 · 已验收", "wo-2 家电档案 已结束 · 退回 | 第 2 阶段「家电档案接导入」 · 进行中"]);
     expect(taskWorkOrders(state, "t-1")[1]!.workOrder.reason).toBe("会改动家电档案现有的表结构，伤害本项目");
@@ -977,7 +977,7 @@ describe("回放：设置里的工作日历和按我的工作日的提醒（work
 });
 
 describe("回放：节假日数据缺失 → 发起更新任务 → 计划卡（holiday-update-task）", () => {
-  // 待我处理里的"缺 2027 年国内节假日数据"→ 用户点"发起更新任务" → 任务（用户发起）在看板上规划中 → 维护者交计划，
+  // 待我处理里的"缺 2027 年国内节假日数据"→ 用户点"发起更新任务" → 任务（用户发起）在看板上规划中 → 负责人交计划，
   // 在计划卡上确认
   const inputs = load("holiday-update-task");
   const planCardEvent = indexOf(inputs, (i) => i.kind === "frame" && i.frame.type === "card");
@@ -1027,10 +1027,10 @@ describe("回放：任务的 token 用量（token-ledger）", () => {
     expect(taskTokenTotal(replay(inputs.slice(0, totalsFrames[0]!)), "t-1")).toBe(0);
   });
 
-  test("任务详情：维护者和评审子 agent 各占一行，各行之和等于任务卡上的总量", () => {
+  test("任务详情：负责人和评审子 agent 各占一行，各行之和等于任务卡上的总量", () => {
     const usage = taskUsage(replay(inputs), "t-1");
     expect(usage.rows.map((r) => ({ label: r.label, total: r.total, calls: r.calls }))).toEqual([
-      { label: "tm-1「X 的调研的任务维护者」", total: 20580, calls: 7 },
+      { label: "tm-1「X 的调研的任务负责人」", total: 20580, calls: 7 },
       { label: "评审子 agent review-t-1-s2-1", total: 3235, calls: 3 },
     ]);
     expect(usage.rows.reduce((a, r) => a + r.total, 0)).toBe(usage.total);

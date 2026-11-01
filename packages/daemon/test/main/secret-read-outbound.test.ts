@@ -1,6 +1,6 @@
-// 主切面：读过 .env 之后只拦往外送（规格第 9 节，30 号票）。真的守护进程，维护者接 faux 剧本，测试扮演前端。
+// 主切面：读过 .env 之后只拦往外送（规格第 9 节，30 号票）。真的守护进程，负责人接 faux 剧本，测试扮演前端。
 // 任务 t-1 的工作目录事先建成一个临时 git 仓库（.env 不进仓库），远端是临时目录里的本地裸仓库；装依赖按锁文件认 pnpm，
-// 守护进程的 PATH 上最前面是一个假的 pnpm（不连网）。13 号票按计划装配工具包之前，维护者的工具包由测试接缝
+// 守护进程的 PATH 上最前面是一个假的 pnpm（不连网）。13 号票按计划装配工具包之前，负责人的工具包由测试接缝
 // maintainerToolkit 给（开 bash、开联网），调用不属于任务（起草计划那一段），按对话里的处置判。
 // 读过 .env 之后：装依赖（带类型的和通用 bash 的）照常执行；推送（带类型的和通用 bash 的）一律禁止、不问用户，
 // 模型收到的说明写明原因；远端什么也没收到。把 .env 里没有前缀的随机值（正则认不出）原样或 base64 写进 GET 的网址：
@@ -64,7 +64,7 @@ const filesUnder = (dir: string): string[] =>
   fs.readdirSync(dir, { withFileTypes: true }).flatMap((d) => (d.isDirectory() ? filesUnder(path.join(dir, d.name)) : [path.join(dir, d.name)]));
 const gist = (p: ToolCallPart) => ({ tool: p.tool, disposition: p.disposition, ...(p.blockedBy ? { blockedBy: p.blockedBy } : {}), outcome: p.outcome });
 
-describe("维护者会话里读过 .env 之后", () => {
+describe("负责人会话里读过 .env 之后", () => {
   it(
     "装依赖（带类型的、通用 bash 的）照常执行；推送（带类型的、通用 bash 的）一律禁止，不问用户，模型收到原因；远端什么也没收到",
     async () => {
@@ -101,7 +101,7 @@ describe("维护者会话里读过 .env 之后", () => {
 
       await waitUntil(() => turnEnds(frontend).length > 0, {
         timeoutMs: 90_000,
-        describe: () => `等维护者这一轮结束；工具调用：${toolParts(frontend).map((p) => `${p.tool}:${p.outcome}`).join("、")}`,
+        describe: () => `等负责人这一轮结束；工具调用：${toolParts(frontend).map((p) => `${p.tool}:${p.outcome}`).join("、")}`,
       });
       expect(turnEnds(frontend)).toEqual([expect.objectContaining({ outcome: "completed" })]);
 
@@ -175,7 +175,7 @@ describe("维护者会话里读过 .env 之后", () => {
       daemon.store.append(buildAgentNotice(MAINTAINER, "开始干活：看看 .env 里的配置", "k-go", { taskId: "t-1" }).event);
       await waitUntil(() => turnEnds(frontend).length > 0, {
         timeoutMs: 90_000,
-        describe: () => `等维护者这一轮结束；工具调用：${toolParts(frontend).map((p) => `${p.tool}:${p.outcome}`).join("、")}`,
+        describe: () => `等负责人这一轮结束；工具调用：${toolParts(frontend).map((p) => `${p.tool}:${p.outcome}`).join("、")}`,
       });
 
       // 工具调用记录：读密钥文件的不记结果；别的里出现读过的值换成（密钥）
@@ -195,7 +195,7 @@ describe("维护者会话里读过 .env 之后", () => {
       expect(effects[0]!.summary).toContain("结果：（密钥文件的内容不记录）");
       expect(effects.every((e) => !JSON.stringify(e).includes(ENV_VALUE))).toBe(true);
 
-      // 事件库里找不到这个值，原样、base64 都没有：维护者会话、守卫频道（效果日志）的事件，以及数据库区的文件本身
+      // 事件库里找不到这个值，原样、base64 都没有：负责人会话、守卫频道（效果日志）的事件，以及数据库区的文件本身
       const base64Value = Buffer.from(ENV_VALUE).toString("base64").replace(/=+$/, "");
       const leaked = (text: string) => text.includes(ENV_VALUE) || text.includes(base64Value);
       expect(daemon.store.read(MAINTAINER).filter((e) => leaked(JSON.stringify(e)))).toEqual([]);

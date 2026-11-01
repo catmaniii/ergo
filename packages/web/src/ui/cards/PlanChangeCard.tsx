@@ -1,10 +1,10 @@
 /**
- * 计划变更卡（规格第 5、8 节，14 号票）：维护者执行中要扩大授权、加能力、加项目、改目标或验收时提交，负载是 PlanChangeCardPayload。
+ * 计划变更卡（规格第 5、8 节，14 号票）：负责人执行中要扩大授权、加能力、加项目、改目标或验收时提交，负载是 PlanChangeCardPayload。
  * - 只列相对当前计划新增或改动的部分（文字由代码从结构化数据生成，state/plan-change-card.ts），扩大授权的那几处标"要你确认"；
  * - 新增的授权项可以勾掉（执行到那一步再问你）；只有受影响的阶段停下来等，其余照常推进；
- * - 确认后计划和授权项随之更新；拒绝（可附说明）后维护者在现有授权内重排，做不到就标做不了。
- * - 125 号票：维护者引用、运行时核实过的你的原话单独一栏（UserWordsBlock）；你在秘书那里说的、秘书转达的，卡也出在秘书会话里。
- * 维护者不在任务里时要加能力的"工具包变更"是单独的一种卡（toolkit_change，27 号票，见 cards.tsx 的 ToolkitChangeCard）。
+ * - 确认后计划和授权项随之更新；拒绝（可附说明）后负责人在现有授权内重排，做不到就标做不了。
+ * - 125 号票：负责人引用、运行时核实过的你的原话单独一栏（UserWordsBlock）；你在秘书那里说的、秘书转达的，卡也出在秘书会话里。
+ * 负责人不在任务里时要加能力的"工具包变更"是单独的一种卡（toolkit_change，27 号票，见 cards.tsx 的 ToolkitChangeCard）。
  */
 import { useState } from "react";
 import { type PlanChangeCardPayload, planChangeAffectedText, planChangeConfirmInput, planChangeLines, t } from "../../state/index.ts";
@@ -29,7 +29,7 @@ export function PlanChangeCard({ state, payload: p, done, act }: CardProps<PlanC
     <CardShell
       state={state}
       title={t("ui.planChangeCard.title", { task: p.taskTitle, revision: p.revision })}
-      // 计划变更卡上的"拒绝"不是打回重写：拒绝后维护者在现有授权内重排
+      // 计划变更卡上的"拒绝"不是打回重写：拒绝后负责人在现有授权内重排
       doneLabel={outcome?.action === "reject" ? (outcome.note ? t("ui.planChangeCard.rejectedNote", { note: outcome.note }) : t("ui.planChangeCard.rejected")) : outcomeLabel(state.card)}
       actions={
         rejecting ? (

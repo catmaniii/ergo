@@ -1,17 +1,17 @@
-// 范围审视（规格第 10 节，18 号票）在守护进程这一侧：守护进程不跑模型，审视的模型调用在维护者自己的子进程里（运行时封装层的
+// 范围审视（规格第 10 节，18 号票）在守护进程这一侧：守护进程不跑模型，审视的模型调用在负责人自己的子进程里（运行时封装层的
 // agent-child/scope-review.ts）；这里给子进程备好对照物和"近期范围记录"，把子进程交回的结果存成范围记录。
 // - 对照物：立项书（125 号票起是现在的立项书：用户确认了的立项要求变更改过的，从事件算）、任务书和现在生效的计划（授权项、工具包、
-//   用户说过的限制）、用户在审批卡上批准过的调用（这个维护者的最近 20 条），和用户在这个维护者会话里直接说的话（最近 20 条；
+//   用户说过的限制）、用户在审批卡上批准过的调用（这个负责人的最近 20 条），和用户在这个负责人会话里直接说的话（最近 20 条；
 //   125 号票起是运行时核实过的格式：原文、会话、时间、设备，秘书转达来的换成用户在秘书那里的原话）；
-// - 近期范围记录：这个维护者最近 5 条（从守护进程保存的取，换了新的会话分段也拿得到），子进程拼到系统提示末尾；
-// - 存：每条发现一条 scope_record（落在哪个频道见协议包的 scopeRecordChannel）、维护者会话频道上一条 timeline_record
+// - 近期范围记录：这个负责人最近 5 条（从守护进程保存的取，换了新的会话分段也拿得到），子进程拼到系统提示末尾；
+// - 存：每条发现一条 scope_record（落在哪个频道见协议包的 scopeRecordChannel）、负责人会话频道上一条 timeline_record
 //   （种类 scope_change / out_of_scope，时间线标出），越界另在待我处理放一条不推送、不卡任务的通知；
 //   都在同一事务里（工单结束时的和这一段、工单的结束同一事务，由调用方放进 appendBatch）。范围记录上记着这次审视看到的
-//   用户原话从哪来（sources：对照物里的消息和审批、会话里交给维护者的输入），彻底删除其中一条时连带改写（purge.ts）；
+//   用户原话从哪来（sources：对照物里的消息和审批、会话里交给负责人的输入），彻底删除其中一条时连带改写（purge.ts）；
 // - 项目档案的范围记录 scope-records.md（不属于项目的任务：任务产出区里的同名文件）是这些事件的投影：事件追加之后往文件里
 //   添一条（同一条记录改写后追加的新版本换掉文件里原来那条），启动时把没写进去、没换掉的补上（文件里每条带记录号）。
 //   范围记录以事件为准。
-// 范围审视是软约束：不拦任何工具调用，也不暂停维护者。
+// 范围审视是软约束：不拦任何工具调用，也不暂停负责人。
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -66,13 +66,13 @@ export const TASK_RECORDS_FILE = "scope-records.md";
 /** 系统提示末尾的近期范围记录取几条（规格第 10 节） */
 export const RECENT_SCOPE_RECORDS = 5;
 
-/** 一段工作属于谁（ownership，记在范围记录和越界通知上），和它在维护者会话里的归属（scope，时间线记录、说明带上） */
+/** 一段工作属于谁（ownership，记在范围记录和越界通知上），和它在负责人会话里的归属（scope，时间线记录、说明带上） */
 export interface ScopeOwner {
   ownership: ScopeOwnership;
   scope: MessageScope;
 }
 
-/** 拼归属：没有的（undefined）不写（两个维护者模块共用，条件展开只在这里写一次） */
+/** 拼归属：没有的（undefined）不写（两个负责人模块共用，条件展开只在这里写一次） */
 export function ownershipOf(parts: { maintainerId: string; projectId?: string | undefined; taskId?: string | undefined; workOrderId?: string | undefined }): ScopeOwnership {
   const { maintainerId, projectId, taskId, workOrderId } = parts;
   return {
@@ -89,14 +89,14 @@ export const scopeTimelineKey = (recordId: string) => `scope-record:${recordId}#
 export interface ScopeReviewOptions {
   store: EventStore;
   /**
-   * 项目现在的立项书全文（125 号票：用户确认了的立项要求变更改过的，从事件算，不读维护者写得到的 charter.md）；
+   * 项目现在的立项书全文（125 号票：用户确认了的立项要求变更改过的，从事件算，不读负责人写得到的 charter.md）；
    * 不给、或者立项书还没确认的读项目档案里的 charter.md
    */
   charterText?: (projectId: string) => string | undefined;
   /** 核实用户的话（125 号票）：对照物里"用户在会话里说的话"改成运行时核实过的格式（秘书转达来的换成原话）；不给就照原样列 */
   userWords?: UserWordsDeps;
   inbox: InboxService;
-  /** 项目系统给范围审视的（277 号票的入口）：项目的名字、维护者的项目、项目档案里立项书和范围记录的位置 */
+  /** 项目系统给范围审视的（277 号票的入口）：项目的名字、负责人的项目、项目档案里立项书和范围记录的位置 */
   projects: ScopeReviewProjects;
   tasks: Pick<TaskService, "get" | "brief" | "latestPlan" | "confirmedPlan">;
   /** 数据目录的输出区：不属于项目的任务的产出，每个任务一格（范围记录写在这里） */
@@ -109,7 +109,7 @@ export interface ScopeReview {
   /** 开始把范围记录写进文件（先把以前没写进去的、没换掉的补上） */
   start(): void;
   stop(): void;
-  /** 这个维护者此刻的对照物、近期范围记录，和对照物里的用户原话从哪来（拉起时进装配，之后变了由会话交给子进程） */
+  /** 这个负责人此刻的对照物、近期范围记录，和对照物里的用户原话从哪来（拉起时进装配，之后变了由会话交给子进程） */
   context(ownership: ScopeOwnership): ScopeReviewContext;
   /** 审视的结果要追加的事件（范围记录、时间线记录、越界通知；没做成的是会话里的一条说明）：调用方放进 appendBatch */
   recordEvents(owner: ScopeOwner, trigger: ScopeReviewTrigger, result: ScopeReviewResult): NewEvent[];
@@ -140,7 +140,7 @@ function replaceEntry(existing: string, record: ScopeRecord): string | undefined
   return [...lines.slice(0, at), ...entry.slice(0, -1).split("\n"), ...lines.slice(end)].join("\n");
 }
 
-/** 越界通知从哪来（105 号票）：项目维护者的工作去项目（做任务的工单时也是，越界发生在项目维护者的会话里），任务自己的维护者的去任务 */
+/** 越界通知从哪来（105 号票）：项目负责人的工作去项目（做任务的工单时也是，越界发生在项目负责人的会话里），任务自己的负责人的去任务 */
 function scopeInboxOrigin(ownership: ScopeOwnership): { origin?: InboxOrigin } {
   if (ownership.projectId !== undefined) return { origin: { projectId: ownership.projectId } };
   return ownership.taskId !== undefined ? { origin: { taskId: ownership.taskId } } : {};
@@ -150,7 +150,7 @@ export function createScopeReview(options: ScopeReviewOptions): ScopeReview {
   const { store, inbox, projects, tasks, now, log } = options;
   let unsubscribe: (() => void) | undefined;
 
-  /** 范围记录写在哪个文件：项目维护者的在项目档案里（项目删掉了就不写），不属于项目的任务的在任务的产出区里 */
+  /** 范围记录写在哪个文件：项目负责人的在项目档案里（项目删掉了就不写），不属于项目的任务的在任务的产出区里 */
   const fileOf = (record: ScopeRecord): { file: string; header?: string } | undefined => {
     if (record.projectId !== undefined) {
       const owned = projects.ofMaintainer(record.maintainerId);
@@ -203,10 +203,10 @@ export function createScopeReview(options: ScopeReviewOptions): ScopeReview {
     const conversation = maintainerChannel(ownership.maintainerId);
     const events: NewEvent[] = [];
     if (report.error !== undefined) {
-      log(`维护者 ${ownership.maintainerId} 的范围审视没做成：${report.error}`);
+      log(`负责人 ${ownership.maintainerId} 的范围审视没做成：${report.error}`);
       events.push(buildMessage({ conversation, speaker: "system", parts: [{ type: "text", text: reviewFailedNote(report.error) }] }, scope).event);
     }
-    // 这次审视看到的用户原话从哪来：对照物里的，加上会话里交给维护者的输入（工作记录里有它们）
+    // 这次审视看到的用户原话从哪来：对照物里的，加上会话里交给负责人的输入（工作记录里有它们）
     const sources: ScopeSources = { messageIds: [...new Set([...context.sources.messageIds, ...report.inputIds])], approvalIds: context.sources.approvalIds };
     const time = now();
     for (const finding of report.findings) {
@@ -222,7 +222,7 @@ export function createScopeReview(options: ScopeReviewOptions): ScopeReview {
       };
       const payload: ScopeRecordEventPayload = { record, sources };
       events.push({ channel: scopeRecordChannel(record), type: EVENT_TYPES.scopeRecord, payload });
-      // 时间线上标出（维护者会话频道，带种类和归属）
+      // 时间线上标出（负责人会话频道，带种类和归属）
       const detail = [finding.detail, finding.basis === undefined ? undefined : basisLine(finding.basis)].filter((x) => x !== undefined).join("\n");
       events.push(
         buildTimelineRecord(

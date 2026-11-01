@@ -50,7 +50,7 @@ const cardsOf = (frontend: TestFrontend): Card[] => frontend.events({ channel: C
 const taskChanges = (frontend: TestFrontend) => frontend.events({ channel: BOARD, type: EVENT_TYPES.task }).map((f) => (f.payload as TaskEventPayload).change);
 
 describe("活动状态频道", () => {
-  it("维护者被唤起、开始干活、等你批准、批准后接着干、做完空闲、闲置退出：各推一条活动状态事件，干活中和等你写着在做什么；活动状态不引起任务的迁移", async () => {
+  it("负责人被唤起、开始干活、等你批准、批准后接着干、做完空闲、闲置退出：各推一条活动状态事件，干活中和等你写着在做什么；活动状态不引起任务的迁移", async () => {
     const dataDir = makeTempDir("ergo-data-");
     const homeDir = makeTempDir("ergo-home-");
     const outside = path.join(fs.realpathSync.native(homeDir), "notes.txt");
@@ -116,7 +116,7 @@ describe("活动状态频道", () => {
     expect(activityOf(frontend, "secretary").slice(-2)).toEqual([is("working", { kind: "handling_input" }), is("sleeping")]);
   }, 60_000);
 
-  it("任务、项目的状态变了不改写活动状态：休眠的维护者，它的任务被暂停、项目被停用，活动状态频道上没有新事件", async () => {
+  it("任务、项目的状态变了不改写活动状态：休眠的负责人，它的任务被暂停、项目被停用，活动状态频道上没有新事件", async () => {
     const td = await startTestDaemon({ config: { agents: { idleMinutes: 0.01 } }, maintainer: [submitPlanStep(), say("计划交上去了")] });
     const frontend = await TestFrontend.connect(td.url);
     await frontend.subscribe({ [ACTIVITY]: 0, [BOARD]: 0, [CARDS]: 0, [PROJECTS]: 0 });
@@ -125,11 +125,11 @@ describe("活动状态频道", () => {
     await waitUntil(() => activityOf(frontend, "tm-1").some(kindIs("idle_exit")), { timeoutMs: 30_000, describe: () => JSON.stringify(activityOf(frontend, "tm-1")) });
     const project = seedProject(td.daemon, "家庭网盘", { state: "in_use" });
     await waitUntil(() => frontend.events({ channel: PROJECTS }).length > 0);
-    // 秘书是常驻的，拉起好了才报一条"休眠"：满负载时它比维护者闲置退出还晚，先等它报过，免得被算成任务、项目变化引起的
+    // 秘书是常驻的，拉起好了才报一条"休眠"：满负载时它比负责人闲置退出还晚，先等它报过，免得被算成任务、项目变化引起的
     await waitUntil(() => activityOf(frontend, "secretary").at(-1)?.state === "sleeping", { timeoutMs: SECRETARY_START_TIMEOUT_MS, describe: () => JSON.stringify(activityOf(frontend, "secretary")) });
     const before = frontend.events({ channel: ACTIVITY, type: EVENT_TYPES.activity }).length;
 
-    // 项目停用、任务取消（都不给维护者新的输入）
+    // 项目停用、任务取消（都不给负责人新的输入）
     expect((await frontend.request("project_action", { projectId: project.id, action: "retire" }, "k-retire")).ok).toBe(true);
     await waitUntil(() => frontend.events({ channel: PROJECTS }).length > 1);
     expect((await frontend.taskAction({ taskId: task.id, action: "cancel" })).ok).toBe(true);
@@ -140,12 +140,12 @@ describe("活动状态频道", () => {
     expect(activityOf(frontend, "tm-1").at(-1)).toEqual(is("sleeping", { kind: "idle_exit" }));
   }, 60_000);
 
-  it("审批挂起、这一轮结束以后还有待处理的审批卡：维护者是等你（审批），闲置退出也不变；守护进程重启后照样是等你；批准后不再等你", async () => {
+  it("审批挂起、这一轮结束以后还有待处理的审批卡：负责人是等你（审批），闲置退出也不变；守护进程重启后照样是等你；批准后不再等你", async () => {
     const dataDir = makeTempDir("ergo-data-");
     const homeDir = makeTempDir("ergo-home-");
     const outside = path.join(fs.realpathSync.native(homeDir), "notes.txt");
     fs.writeFileSync(outside, "主目录里的笔记");
-    // 子进程里只等 0.6 秒：没人批就挂起，维护者接着交计划、做完这一轮，闲 1.2 秒退出
+    // 子进程里只等 0.6 秒：没人批就挂起，负责人接着交计划、做完这一轮，闲 1.2 秒退出
     const config = { agents: { idleMinutes: 0.02 }, approvals: { waitMinutes: 0.01 } };
     const first = await startTestDaemon({ reuse: { dataDir, homeDir }, config, maintainer: [call("read", { path: outside }), submitPlanStep(), say("计划交上去了，读笔记的事等你批准")] });
     const frontend = await TestFrontend.connect(first.url);
@@ -175,7 +175,7 @@ describe("活动状态频道", () => {
     await waitUntil(() => activityOf(fresh, "tm-1").length >= 5);
     expect(activityOf(fresh, "tm-1")).toEqual(activityOf(frontend, "tm-1"));
 
-    // 批准：卡处理掉了，不再等你（维护者收到"可以重试"，被唤起接着干，做完回到空闲）
+    // 批准：卡处理掉了，不再等你（负责人收到"可以重试"，被唤起接着干，做完回到空闲）
     const latest = cardsOf(fresh).findLast((c) => c.id === card.id)!;
     expect((await fresh.cardAction({ cardId: card.id, action: "approve", expectedVersion: latest.version })).ok).toBe(true);
     await waitUntil(() => activityOf(fresh, "tm-1").some(kindIs("idle")), { timeoutMs: 30_000, describe: () => JSON.stringify(activityOf(fresh, "tm-1")) });

@@ -1,11 +1,11 @@
-// 主切面：触发底座和定时触发（76 号票，ADR 0025）。真的守护进程，秘书、维护者接 faux 剧本，调度器的时钟换成手动拨的
+// 主切面：触发底座和定时触发（76 号票，ADR 0025）。真的守护进程，秘书、负责人接 faux 剧本，调度器的时钟换成手动拨的
 // （ManualClock），测试扮演前端：
 // - 发起对话框里选"定时"建普通任务：建出就是运营中（不排队），触发底座登记它的触发；到点一次运行，交给任务自己的 agent；
 //   各次运行接着同一段会话——第二次运行时 agent 的上下文里有第一次的通知和它的结果；用量记在任务名下；
 // - 上一次还没跑完又被触发：排队合并——新起一次排着，再来的并进它，正在跑的结束后只多跑这一次，这一批触发一起交给它；
 // - 定时的流程：计划卡上授权一次，之后每次运行都按步骤核对（顺序错的引回；每次运行的比对历史分开，第二次运行照样能做第一步）；
 // - 长程任务选不了定时、计划里不能再写定时作业；
-// - 以前的定时作业迁移成定时触发的普通任务：新事件建出任务，原来的事件一条不动，迁移后照常由原来的维护者运行、接着原来的会话；
+// - 以前的定时作业迁移成定时触发的普通任务：新事件建出任务，原来的事件一条不动，迁移后照常由原来的负责人运行、接着原来的会话；
 // - 任务详情里暂停、恢复、取消落到它的触发上；"只提醒我"建简单提醒；
 // - 改时间（98 号票）：运营中的定时任务换时间表，到新时间才运行、旧时间不运行，任务和运行记录不变；暂停着的改完照旧暂停；
 //   某个时间做一次的时间已过、事件触发的、已取消的被拒。
@@ -243,7 +243,7 @@ describe("定时的流程", () => {
     const created = await eventually(() => tasksOf(frontend), (e) => e.change === "created", "建出的流程");
     expect(created.task).toMatchObject({ kind: "workflow", state: "planning", trigger: DAILY_9 });
     td.daemon.tasks.writeBrief("t-1", { goal: "整理周报", acceptanceCriteria: ["周报写好、读过一遍"], constraints: [], projects: [], memoryScope: "" });
-    // 交给维护者的任务书里写明它是定时做的
+    // 交给负责人的任务书里写明它是定时做的
     await waitUntil(() => noticesIn(frontend, TM1).some((t) => t.includes("什么时候做：定时，每天 09:00")), { timeoutMs: 30_000, describe: () => "等任务书" });
     const card = await eventually(() => cardsOf(frontend), (c) => c.type === "workflow_plan" && c.status === "pending", "流程计划卡");
     // 卡上写明授权管多久（ADR 0017：授权随计划卡确认）：按时间表反复运行，一直有效，直到暂停或取消
@@ -480,13 +480,13 @@ describe("改时间（98 号票）", () => {
   });
 });
 
-/** 迁移前那次运行写简报（作业自己的维护者 jm-1） */
+/** 迁移前那次运行写简报（作业自己的负责人 jm-1） */
 const legacyMaintainer = (id: string): FauxStep[] => (id !== "jm-1" ? [say("好")] : [say("今天的简报写好了：brief-1008.md")]);
 /** 迁移后（重启后的守护进程里）的运行回显上下文 */
 const echoingMaintainer = (id: string): FauxStep[] => (id !== "jm-1" ? [say("好")] : [ECHO]);
 
 describe("以前的定时作业迁移", () => {
-  it("76 号票之前登记的定时作业：重启时迁移成定时触发的普通任务（新事件，原来的事件一条不动）；之后照常由原来的维护者运行、接着原来的会话，授权照旧，用量记在任务名下", async () => {
+  it("76 号票之前登记的定时作业：重启时迁移成定时触发的普通任务（新事件，原来的事件一条不动）；之后照常由原来的负责人运行、接着原来的会话，授权照旧，用量记在任务名下", async () => {
     const dataDir = makeTempDir("ergo-data-");
     const homeDir = makeTempDir("ergo-home-");
     const clock = new ManualClock(START);
@@ -494,7 +494,7 @@ describe("以前的定时作业迁移", () => {
     const echoing = echoingMaintainer;
     const first = await startTestDaemon({ clock, reuse: { dataDir, homeDir }, maintainer });
     const frontend = await connect(first.url, [BOARD, CARDS, INBOX, JM1]);
-    // 76 号票之前的数据：一个长程任务（计划里定了作业）和它登记的定时作业（作业自己的维护者 jm-1，每次运行的授权随计划卡确认）
+    // 76 号票之前的数据：一个长程任务（计划里定了作业）和它登记的定时作业（作业自己的负责人 jm-1，每次运行的授权随计划卡确认）
     const time = nowIso(START);
     const creator: Task = { id: "t-1", title: "准备每天的简报", summary: "准备每天的简报", state: "done", origin: "request", kind: "long_running", maintainerId: "tm-1", projects: [], projectScope: "none", createdAt: time, updatedAt: time };
     const legacy: ScheduledJob = {
@@ -520,7 +520,7 @@ describe("以前的定时作业迁移", () => {
       { channel: BOARD, type: EVENT_TYPES.task, payload: { task: creator, change: "created", from: null, by: "secretary" } satisfies TaskEventPayload },
       { channel: BOARD, type: EVENT_TYPES.scheduledJob, payload: { job: legacy, change: "registered", by: "user" } satisfies ScheduledJobEventPayload, idempotencyKey: "job-register:t-1-p1:0" },
     ]);
-    // 迁移之前它照旧按 19 号票运行一次（作业自己的维护者）
+    // 迁移之前它照旧按 19 号票运行一次（作业自己的负责人）
     clock.advanceTo(at(10, 8, 9, 0));
     await runEnded(frontend, "j-1-r1");
     await settled(first, "jm-1");
@@ -542,7 +542,7 @@ describe("以前的定时作业迁移", () => {
     // 运行记录留着（第一次运行属于它）
     expect(second.daemon.scheduledJobs.ofTask("t-2")!.lastRun).toMatchObject({ runId: "j-1-r1", state: "done" });
 
-    // 迁移后照常运行：同一个维护者、接着原来的会话（上下文里有迁移前那次的结果），授权照旧，用量记在任务名下
+    // 迁移后照常运行：同一个负责人、接着原来的会话（上下文里有迁移前那次的结果），授权照旧，用量记在任务名下
     clock.advanceTo(at(10, 9, 9, 0));
     await runEnded(again, "j-1-r2");
     const seen = lastEcho(again, JM1);
@@ -560,9 +560,9 @@ describe("以前的定时作业迁移", () => {
 });
 
 describe("升级前交、升级后才确认的计划里的定时作业", () => {
-  it("确认这张计划卡时不悄悄丢掉：照迁移的办法建成定时触发的普通任务（作业自己的维护者、计划卡上的授权），卡上写明改成了哪个定时任务；确认的计划里不再有这一栏；之后照常到点运行", async () => {
+  it("确认这张计划卡时不悄悄丢掉：照迁移的办法建成定时触发的普通任务（作业自己的负责人、计划卡上的授权），卡上写明改成了哪个定时任务；确认的计划里不再有这一栏；之后照常到点运行", async () => {
     const { td, clock, frontend } = await setup({ maintainer: (id) => (id === "jm-1" ? [say("看过了，这周没有新资料")] : [say("好")]) }, [BOARD, CARDS, INBOX, SECRETARY, TM1, JM1]);
-    // 76 号票之前的数据：长程任务的维护者交了一版带着定时作业的计划，计划卡还没确认（负载里的计划带着 scheduledJobs）
+    // 76 号票之前的数据：长程任务的负责人交了一版带着定时作业的计划，计划卡还没确认（负载里的计划带着 scheduledJobs）
     const task = td.daemon.tasks.createByRequest({ title: "跟进资料更新", summary: "跟进资料更新" });
     td.daemon.tasks.writeBrief(task.id, { goal: "跟进资料更新", acceptanceCriteria: ["每周看一次"], constraints: [], projects: [], memoryScope: "" });
     await settled(td, "tm-1");
@@ -593,7 +593,7 @@ describe("升级前交、升级后才确认的计划里的定时作业", () => {
     // 确认的计划里不再有这一栏（卡的负载合现在的 schema）
     expect((confirmed.payload as PlanCardPayload).plan).not.toHaveProperty("scheduledJobs");
     expect(td.daemon.tasks.confirmedPlan(task.id)!.plan).not.toHaveProperty("scheduledJobs");
-    // 建出的定时触发的普通任务：照迁移的办法（来源"迁移"、运营中、由作业自己的维护者 jm-1 运行）
+    // 建出的定时触发的普通任务：照迁移的办法（来源"迁移"、运营中、由作业自己的负责人 jm-1 运行）
     const migrated = await eventually(() => tasksOf(frontend), (e) => e.change === "created" && e.task.origin === "migrated", "建出的定时任务");
     expect(migrated.task).toMatchObject({ id: "t-2", kind: "plain", state: "operating", maintainerId: "jm-1", title: "每周一看看有没有新资料", trigger: { kind: "schedule", schedule: legacyJob.schedule } });
     // 登记的触发：以前那样的定时作业（属于建它的长程任务，每次运行的授权照计划卡上的），指向这个任务；算用户做的

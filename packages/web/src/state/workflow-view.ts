@@ -6,7 +6,7 @@
 //   被自动修回的另写一行；还有"计划外动作 N 个"→ workflowFuture；
 // - 计划详情（ui/DetailPane.tsx 的 PlanDetail：涉及的敏感信息、步骤、版本差异、计划审查、检测项全览）→ workflowPlanDetail；
 //   检测项全览（ui/RuleBook.tsx）的一条条规则 → ruleBook。
-// 二狗的数据：计划是流程计划卡（workflow_plan）上的那份；执行中各步的状态是看板上的 Task.steps.list（维护者 report_step 自报、
+// 二狗的数据：计划是流程计划卡（workflow_plan）上的那份；执行中各步的状态是看板上的 Task.steps.list（负责人 report_step 自报、
 // 守护进程推断，59 号票）；每次调用和计划比对的结果在工具调用 part 的 plan 上（60 号票：算在哪一步、查出的问题、用上的自动纠偏）。
 // 定时触发的流程（76 号票）每次运行一段：各步的状态记在这次运行上（JobRun.steps），进度条、虚线框都按这一次运行算——
 // 正在跑的那一次；没在跑的看最近开始过的那一次；还没跑过的按计划全是没做。虚线框里的偏离也只看这一次运行的调用。
@@ -64,7 +64,7 @@ export function authorizedWorkflowPlan(state: UiState, taskId: string): Workflow
 
 /**
  * 一份计划现在怎样（审查退回、审查阻止、待授权、已授权、已拒绝）。
- * 二狗多的几种：退回、不可执行的那版点了"让维护者改""取消任务""知道了"，没处理就被新的一版换掉了（已过期）
+ * 二狗多的几种：退回、不可执行的那版点了"让负责人改""取消任务""知道了"，没处理就被新的一版换掉了（已过期）
  */
 export function workflowPlanStateLabel(card: Card): string {
   const p = card.payload as WorkflowPlanCardPayload;
@@ -293,7 +293,7 @@ const FIXED_TEXT = tTable({ rewrite: "state.workflowView.fixed.rewrite", redirec
 
 /**
  * 一次运行在会话里的那一段（下标，左闭右开）：不属于项目的运行从它的运行分隔线（run_divider）起、到下一条运行分隔线为止；
- * 属于项目的运行是一张工单，在项目维护者的会话里从这张工单的工单段分隔线（work_order_divider，16 号票：每段开头一条）起、
+ * 属于项目的运行是一张工单，在项目负责人的会话里从这张工单的工单段分隔线（work_order_divider，16 号票：每段开头一条）起、
  * 到下一段的分隔线为止（这一段的消息只带作业、项目的归属，不带任务）。分隔线还没翻到（或这一次还没开始）的没有
  */
 function runSpan(items: readonly ChatItem[], run: JobRun): { from: number; to: number } | undefined {

@@ -1,4 +1,4 @@
-// 守卫切面：计划外工单（规格第 9 节的表、第 12 节，17 号票）。涉及多个项目的任务的维护者执行中派出计划外的工单时，
+// 守卫切面：计划外工单（规格第 9 节的表、第 12 节，17 号票）。涉及多个项目的任务的负责人执行中派出计划外的工单时，
 // 这次派单作为一个伪工具调用交给守卫的判定函数（和快速动作同一种做法）：命中"计划外工单"类别，任务里默认先问我；
 // 用户只能往严里调（全局设置、本任务的计划里）；计划里的授权项放不开它（先问我的类别执行时一定当场问）；用户的自定义类别也管它。
 import { describe, expect, it } from "vitest";
@@ -13,7 +13,7 @@ const places = {
   ownPorts: P.ownPorts,
 };
 
-/** 任务维护者（固定工具包：不写文件、不跑 bash、不联网）在 s2 阶段派一张计划外的工单给"家电档案" */
+/** 任务负责人（固定工具包：不写文件、不跑 bash、不联网）在 s2 阶段派一张计划外的工单给"家电档案" */
 function judge(extra: { settings?: WatchCategorySettings; plan?: Parameters<typeof task>[0] } = {}) {
   return judgeUnplannedWorkOrder({
     agent: maintainer({ agentId: "tm-1", toolkit: { bash: false, network: false }, projectRecords: [], workingDirs: [P.workDir] }),

@@ -47,10 +47,10 @@ describe("agent 贡献模块", () => {
     contributions.onChange(() => changes.push(changes.length + 1));
     const offA = contributions.context.register({ when: "input", text: (message) => `【A】${message.id}` });
     contributions.context.register({ when: "input", text: () => undefined });
-    contributions.context.register({ to: { agents: ["task"] }, when: "input", text: () => "【只给维护者】" });
+    contributions.context.register({ to: { agents: ["task"] }, when: "input", text: () => "【只给负责人】" });
     const message = { id: "m-1" } as never;
     expect(contributions.inputContextFor(secretary, message)).toBe("【A】m-1");
-    expect(contributions.inputContextFor(maintainer({}), message)).toBe("【A】m-1\n\n【只给维护者】");
+    expect(contributions.inputContextFor(maintainer({}), message)).toBe("【A】m-1\n\n【只给负责人】");
     offA();
     offA();
     expect(contributions.inputContextFor(secretary, message)).toBeUndefined();
@@ -62,7 +62,7 @@ describe("agent 贡献模块", () => {
     contributions.context.register({ when: "input", text: async (message) => `【简报】${message.id}`, replyParts: () => [{ type: "text", text: "简报的部分" }] });
     contributions.context.register({ when: "input", text: () => "【顺口问】" });
     contributions.context.register({ when: "input", text: async () => undefined, replyParts: () => undefined });
-    contributions.context.register({ to: { agents: ["task"] }, when: "input", text: () => "【只给维护者】", replyParts: () => [{ type: "text", text: "维护者的" }] });
+    contributions.context.register({ to: { agents: ["task"] }, when: "input", text: () => "【只给负责人】", replyParts: () => [{ type: "text", text: "负责人的" }] });
     const message = { id: "m-1" } as never;
     const pending = contributions.inputContextFor(secretary, message);
     expect(pending).toBeInstanceOf(Promise);
@@ -70,7 +70,7 @@ describe("agent 贡献模块", () => {
     expect(contributions.replyPartsFor(secretary, message)).toEqual([{ type: "text", text: "简报的部分" }]);
     expect(contributions.replyPartsFor(maintainer({}), message)).toEqual([
       { type: "text", text: "简报的部分" },
-      { type: "text", text: "维护者的" },
+      { type: "text", text: "负责人的" },
     ]);
     // 异步的那块出错：当它没有，别的照拼
     const failing = createAgentContributions({ log: () => {} });
@@ -98,10 +98,10 @@ describe("agent 贡献模块", () => {
     contributions.onChange(() => changes.push(changes.length + 1));
     const off = contributions.notes.register({ to: { agents: ["secretary"] }, text: (message) => `（网页上下文 ${message.id}）` });
     contributions.notes.register({ text: () => "" });
-    contributions.notes.register({ to: { agents: ["task"] }, text: () => "（只给维护者）" });
+    contributions.notes.register({ to: { agents: ["task"] }, text: () => "（只给负责人）" });
     const message = { id: "m-1" } as never;
     expect(contributions.inputNoteFor(secretary, message)).toBe("（网页上下文 m-1）");
-    expect(contributions.inputNoteFor(maintainer({}), message)).toBe("（只给维护者）");
+    expect(contributions.inputNoteFor(maintainer({}), message)).toBe("（只给负责人）");
     off();
     expect(contributions.inputNoteFor(secretary, message)).toBeUndefined();
     expect(changes).toEqual([1, 2, 3, 4]);

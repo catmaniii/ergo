@@ -6,7 +6,7 @@
 // - project-services.ts：事务之后异步去 LSM 上线、撤下，接 LSM 推来的状态，登记转发，给前端、秘书看的样子；
 // - health-check.ts：自己看一眼服务在不在跑（363 号票：LSM 说"已经有一份在跑"时用）；
 // - secretary-tool.ts：秘书给出入口（open_service、服务入口卡）、启动关闭项目的服务（switch_project_services，257 号票）、查看板时的一节；
-// - service-events.ts：服务报事件（357 号票）——凭证、限速、大小上限、最近收到的、维护者查的工具（交出事件在 event-sources/service.ts）；
+// - service-events.ts：服务报事件（357 号票）——凭证、限速、大小上限、最近收到的、负责人查的工具（交出事件在 event-sources/service.ts）；
 // - thumbnails.ts：服务首页的缩略图（140 号票：守护进程自己截、存在缓存区，什么时候截由 project-services.ts 定）；
 // - events.ts / views.ts：operations 频道上的事件和派生视图；texts.ts：说法。
 export { PROJECT_SERVICE_EVENTS, type ServiceDesiredPayload, type ServicePowerBy, type ServicePowerPayload, type ServiceRolloutPayload } from "./events.ts";

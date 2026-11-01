@@ -6,10 +6,10 @@
 //   （issue 19 第 1、4 条）；
 // - 开发类另有 tickets/（一票一文件，格式同二狗自己的票）和 ops.json（运营接口清单，MCP 格式，转运营前才要求有）（第 6、7 条）；
 // - 检查清单：当前状态转到下一个状态之前要做到的（第 3 条）。258 号票先给结构和"进展已写回"一项，其余由 259 号票填；
-// - 本项目的规范改写（第 5 条，261 号票）：维护者提、用户在"规范改写"卡上确认才生效（照立项要求变更那套）。一条改写管规范里的
+// - 本项目的规范改写（第 5 条，261 号票）：负责人提、用户在"规范改写"卡上确认才生效（照立项要求变更那套）。一条改写管规范里的
 //   某一份（这个项目不要它、换一种写法）或者多出来的一份（按档案里的位置）；规范里每一份在这个项目里算什么按改写算
 //   （effectiveStandardDocs），检查清单里看某一份文档的项，这个项目不要那一份就不列（standardChecklistApplies）。模板出了新版不自动带旧项目，
-//   只提示有新版（standardHasNewer），要跟也由维护者提、用户确认。
+//   只提示有新版（standardHasNewer），要跟也由负责人提、用户确认。
 import { t, tTable } from "./i18n/runtime.ts";
 import type { ProjectKind, ProjectState } from "./projects.ts";
 
@@ -219,7 +219,7 @@ export interface StandardChangeItem {
 /**
  * 跟新版规范：项目记着的版本换成框架里最新的（缺的文档从新版模板补上，已有的不动）。
  * 272 号票：规范上线之前建的项目（没有版本）也走这条路补齐规范文档——没有 from，missing 是提的时候算的缺的几份；
- * 确认后照 262 号票的补齐做（改用规范、从模板放进缺的几份，再建一个任务交给维护者照项目现状写好）
+ * 确认后照 262 号票的补齐做（改用规范、从模板放进缺的几份，再建一个任务交给负责人照项目现状写好）
  */
 export interface StandardUpgrade {
   from?: string;
@@ -275,7 +275,7 @@ export function standardOverrideText(o: StandardOverride): string {
   return t("protocol.projectStandard.override.add", { doc: overrideSubject(o), note: o.note });
 }
 
-/** 一处变化写成一句（卡的纯文本降级、交给维护者的通知、档案里的变更记录） */
+/** 一处变化写成一句（卡的纯文本降级、交给负责人的通知、档案里的变更记录） */
 export function standardChangeItemText(item: StandardChangeItem): string {
   if (item.before && item.after) return t("protocol.projectStandard.change.replace", { before: standardOverrideText(item.before), after: standardOverrideText(item.after) });
   if (item.before) return t("protocol.projectStandard.change.restore", { doc: overrideSubject(item.before), before: standardOverrideText(item.before) });
@@ -320,7 +320,7 @@ export type StandardOverrideView = StandardOverrideEntry & {
   path: string;
   /** 一句话（守护进程按当时的语言给）："不要架构图" */
   summary: string;
-  /** 维护者提这次改写时说的为什么 */
+  /** 负责人提这次改写时说的为什么 */
   why: string;
 };
 
@@ -365,7 +365,7 @@ export function standardDocState(doc: Pick<StandardDocView, "exists" | "untouche
 
 // ───────────────────────── 现有项目补齐规范文档（262 号票） ─────────────────────────
 // issue 19 第 10 条（用户原话："可以给个任务，但是不一定要补，我确认后再补"）：规范上线之前建的项目（没有版本）出一张"补齐规范文档"卡，
-// 写明按它的类型和本项目的规范改写缺哪几份；用户选"补齐"才改用现在的规范、建任务交给维护者补，选"不补"就不补；一个项目只出一次。
+// 写明按它的类型和本项目的规范改写缺哪几份；用户选"补齐"才改用现在的规范、建任务交给负责人补，选"不补"就不补；一个项目只出一次。
 
 /** 补齐时算进来的几种：必须有的、这类另有的（开发类的票、转运营之前要有的运营接口清单）；辅助的照旧不算 */
 const BACKFILL_ROLES: readonly StandardDocRole[] = ["required", "kind", "before_in_use"];
@@ -401,7 +401,7 @@ export function standardBackfillDocText(doc: StandardBackfillDoc): string {
   return t(doc.state === "template" ? "protocol.projectStandard.backfill.docTemplate" : "protocol.projectStandard.backfill.doc", { label, path: doc.path });
 }
 
-/** "补齐规范文档"卡上的两个选择：补齐（改用现在的规范、建任务交给维护者补）、不补 */
+/** "补齐规范文档"卡上的两个选择：补齐（改用现在的规范、建任务交给负责人补）、不补 */
 export const STANDARD_BACKFILL_CHOICES = ["backfill", "skip"] as const;
 export type StandardBackfillChoice = (typeof STANDARD_BACKFILL_CHOICES)[number];
 

@@ -145,7 +145,7 @@ export interface ErgoConfig {
   /** 守卫判定"先问我"时，子进程里这次调用最多等多久（毫秒），超时以"已提交审批，等待用户"拦下。配置里写 approvals.waitMinutes */
   approvalWaitMs: number;
   /**
-   * agent 子进程的资源限制（规格第 3 节）。配置里写 agents：maxLive（同时存活的子进程上限，默认 8）、idleMinutes（维护者闲置多久退出，
+   * agent 子进程的资源限制（规格第 3 节）。配置里写 agents：maxLive（同时存活的子进程上限，默认 8）、idleMinutes（负责人闲置多久退出，
    * 默认 10）、modelCallMinutes（单次模型调用超时，默认 5）、toolCallMinutes（单次工具调用的默认超时，默认 10）、
    * orphanSweepSeconds（多久回收一次孤儿进程，默认 60）、browserIdleMinutes（agent 开的 agent-browser 闲置多久回收，默认 30，178 号票）
    */

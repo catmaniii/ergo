@@ -320,7 +320,7 @@ describe("WebSocket 连接", () => {
     expect(sockets).toHaveLength(2);
   });
 
-  test("多订阅几个频道（打开项目的维护者会话）：连着就马上只订阅它们；它的响应不影响别的请求；断线重连时一起订阅、带上游标", () => {
+  test("多订阅几个频道（打开项目的负责人会话）：连着就马上只订阅它们；它的响应不影响别的请求；断线重连时一起订阅、带上游标", () => {
     const { connection } = connect();
     const socket = openAndSubscribe();
     connection.projectAction({ projectId: "p-1", action: "retire", idempotencyKey: "k-p" });
@@ -417,7 +417,7 @@ describe("WebSocket 连接", () => {
     expect(inputs.at(-1)).toEqual({ kind: "frame", frame: event("secretary", 1), catchUp: true });
   });
 
-  test("多订阅一个频道（打开维护者会话）：它的补发标成补发的，别的频道照常是实时的；它的回执到了就都是实时的", () => {
+  test("多订阅一个频道（打开负责人会话）：它的补发标成补发的，别的频道照常是实时的；它的回执到了就都是实时的", () => {
     const { connection } = connect();
     const socket = openAndSubscribe();
     connection.watchChannels(["maintainer:pm-1"]);

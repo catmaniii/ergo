@@ -288,7 +288,7 @@ describe("确认时把本任务调严过的全局自定义类别连规则一起�
   });
 });
 
-describe("用户说过的限制：维护者编译成时序规则或授权收窄，附上原话（26 号票）", () => {
+describe("用户说过的限制：负责人编译成时序规则或授权收窄，附上原话（26 号票）", () => {
   const noMain = { id: "no-push-main", trigger: { tool: "git_push", where: { eq: ["$current.args.branch", "main"] } }, on_violation: "block" };
   const limit = (overrides: Partial<NonNullable<Plan["userLimits"]>[number]> = {}): NonNullable<Plan["userLimits"]>[number] => ({
     id: "l1",

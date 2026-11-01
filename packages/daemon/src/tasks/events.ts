@@ -1,10 +1,10 @@
 // 任务模块在事件日志里的事件（规格第 4、8 节）。
 // - 任务看板频道（board，前端订阅）：task 事件 = 任务的最新状态 + 这次的变化 + 谁改的（负载 TaskEventPayload 在共享协议包）；
-// - 守护进程内部的 tasks 频道（前端不订阅）：任务书、维护者提交的计划、用户对计划的决定。计划是业务状态，存在这里，
+// - 守护进程内部的 tasks 频道（前端不订阅）：任务书、负责人提交的计划、用户对计划的决定。计划是业务状态，存在这里，
 //   不在 pi 会话里；前端看到的是计划卡（由代码从结构化计划生成）。
-//   14 号票加了：维护者提交的计划变更（用户在计划变更卡上的决定也是 plan_decided）、维护者自行调整的计划、
+//   14 号票加了：负责人提交的计划变更（用户在计划变更卡上的决定也是 plan_decided）、负责人自行调整的计划、
 //   授权项续期的决定、每个阶段的用量（预算计数）。
-//   276 号票加了：从某个阶段重做时交给维护者的那条交代，复验完之前存在这里（等复验），交出去时记一笔。
+//   276 号票加了：从某个阶段重做时交给负责人的那条交代，复验完之前存在这里（等复验），交出去时记一笔。
 import { EVENT_TYPES, type GrantInfo, type MessageEventPayload, type Plan, type PlanChangeItem, type PlanGrant, type PlanWatchCategory, type TaskBrief, type WorkflowPlan } from "@ergo/protocol";
 import type { GrantTime } from "./plan.ts";
 
@@ -13,9 +13,9 @@ export type { TaskBrief };
 export const TASKS_CHANNEL = "tasks";
 
 export const TASK_EVENTS = {
-  /** 秘书写了（或改了）任务书：运行时同一事务把它交给执行的维护者 */
+  /** 秘书写了（或改了）任务书：运行时同一事务把它交给执行的负责人 */
   briefWritten: "task_brief",
-  /** 执行的维护者提交了一版计划（同一事务建计划卡、放进待我处理、任务转待确认） */
+  /** 执行的负责人提交了一版计划（同一事务建计划卡、放进待我处理、任务转待确认） */
   planSubmitted: "plan_submitted",
   /** 用户在计划卡上确认或打回（和卡片更新同一事务）；"审批决定"素材的来源，事件类型登记在共享协议包 */
   planDecided: EVENT_TYPES.planDecided,
@@ -24,9 +24,9 @@ export const TASK_EVENTS = {
    * "用户对产出的反应"素材的来源，事件类型登记在共享协议包
    */
   outputReaction: EVENT_TYPES.outputReaction,
-  /** 维护者在执行中提交了计划变更（14 号票；同一事务建计划变更卡、放进待我处理、受影响的阶段停下等确认） */
+  /** 负责人在执行中提交了计划变更（14 号票；同一事务建计划变更卡、放进待我处理、受影响的阶段停下等确认） */
   planChangeProposed: "plan_change_proposed",
-  /** 维护者自行调整了计划（拆阶段、调顺序这类不扩大授权的，14 号票）：新的一版直接生效 */
+  /** 负责人自行调整了计划（拆阶段、调顺序这类不扩大授权的，14 号票）：新的一版直接生效 */
   planRevised: "plan_revised",
   /** 用户在"授权到期续期"事项上续期或不续（14 号票）；"审批决定"素材的来源，事件类型登记在共享协议包 */
   grantRenewalDecided: EVENT_TYPES.grantRenewalDecided,
@@ -34,15 +34,15 @@ export const TASK_EVENTS = {
   budgetUsed: "budget_used",
   /** 用户让超预算的阶段接着做：这个阶段从现在的用量起再给一整份预算（记下账本里这时的 token 数作起算点） */
   budgetReset: "budget_reset",
-  /** 这个阶段的用量超出了预算，运行时已经让维护者说明进展（只说一次） */
+  /** 这个阶段的用量超出了预算，运行时已经让负责人说明进展（只说一次） */
   budgetWarned: "budget_warned",
   /**
-   * 从某个阶段重做时交给维护者的那条交代（276 号票）：和重置同一事务存下、标"等复验"——范围外已验收的阶段复验完才带上结果交给维护者
-   * （274 号票），这期间维护者被拦着、看不到它；守护进程在复验途中退出的，起来时照它重新复验、再交。整条有用户的原话：彻底删除任务时
+   * 从某个阶段重做时交给负责人的那条交代（276 号票）：和重置同一事务存下、标"等复验"——范围外已验收的阶段复验完才带上结果交给负责人
+   * （274 号票），这期间负责人被拦着、看不到它；守护进程在复验途中退出的，起来时照它重新复验、再交。整条有用户的原话：彻底删除任务时
    * 随任务的别的事件一起换成删除标记，彻底删除那条重做的反应时连带换掉（material-sources.ts 的 outputReactionPurge）
    */
   reworkNoticeHeld: "rework_notice_held",
-  /** 等复验的那条交代交给维护者了（276 号票，和那条通知同一事务）：不再等复验 */
+  /** 等复验的那条交代交给负责人了（276 号票，和那条通知同一事务）：不再等复验 */
   reworkNoticeHanded: "rework_notice_handed",
 } as const;
 
@@ -57,9 +57,9 @@ export interface ReworkNoticeHeldPayload {
   reworkNo: number;
   /** 从哪个阶段重做（复验没过的通知里写"从第 N 阶段重做之后"） */
   stageId: string;
-  /** 交给维护者的那条通知的消息 id（会话里那条重做记录的 noticeId 指着它） */
+  /** 交给负责人的那条通知的消息 id（会话里那条重做记录的 noticeId 指着它） */
   noticeId: string;
-  /** 交给维护者的那条通知（维护者会话频道上的消息事件，带它自己的幂等键）：复验完原样追加，复验没过的在后面接一句 */
+  /** 交给负责人的那条通知（负责人会话频道上的消息事件，带它自己的幂等键）：复验完原样追加，复验没过的在后面接一句 */
   notice: { channel: string; type: string; payload: MessageEventPayload; idempotencyKey?: string };
   time: string;
 }
@@ -106,7 +106,7 @@ export interface PlanRevisedPayload {
   grantTimes: GrantTimes;
   maintainerId: string;
   /**
-   * 谁调整的：不写是维护者（自行调整计划）；system 是运行时按新规矩改的（112 号票：项目里的阶段自动验收，原定由你验收的标准
+   * 谁调整的：不写是负责人（自行调整计划）；system 是运行时按新规矩改的（112 号票：项目里的阶段自动验收，原定由你验收的标准
    * 改由评审验收，见 execution.ts 的 autoAcceptStages）；user 是你在"从这里重做"时直接改了这一阶段的验收标准、交付件（125 号票，
    * 你改的就是你的确认，不出计划变更卡）
    */
@@ -186,17 +186,17 @@ export interface PlanSubmittedPayload {
   plan: Plan;
   /** 流程的计划（58 号票）：审查修补之后、交给用户授权的步骤和条件；长程任务没有 */
   workflow?: WorkflowPlan;
-  /** 流程的这一版审查没让它交给用户授权（58 号票）：退回维护者补充、判定不可执行；任务还在规划中 */
+  /** 流程的这一版审查没让它交给用户授权（58 号票）：退回负责人补充、判定不可执行；任务还在规划中 */
   refused?: "needs_replan" | "blocked";
   /** 由它生成的计划卡（流程是流程计划卡） */
   cardId: string;
-  /** 起草它的维护者 */
+  /** 起草它的负责人 */
   maintainerId: string;
   time: string;
 }
 
 /**
- * 确认、打回（拒绝）；returned 是审查判定不可执行的流程计划卡上的"让维护者改"（58 号票）；voided 是从某个阶段重做时
+ * 确认、打回（拒绝）；returned 是审查判定不可执行的流程计划卡上的"让负责人改"（58 号票）；voided 是从某个阶段重做时
  * 还没确认的计划变更随之作废（84 号票，系统记的，不算你拒绝、不是素材）
  */
 export type PlanDecision = "confirmed" | "rejected" | "returned" | "voided";
@@ -227,7 +227,7 @@ export interface PlanDecidedPayload {
   /** 打回的意见（用户自己的话）；计划变更卡上拒绝时写的话 */
   note?: string;
   /**
-   * 计划变更卡上的决定（14 号票）：维护者为什么要改、改了什么（相对哪一版确认的计划）。没有就是计划卡上的决定
+   * 计划变更卡上的决定（14 号票）：负责人为什么要改、改了什么（相对哪一版确认的计划）。没有就是计划卡上的决定
    */
   change?: { why: string; changes: PlanChangeItem[]; basePlanId: string };
   /**

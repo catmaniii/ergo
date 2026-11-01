@@ -26,8 +26,8 @@
 //   挂在发出的那个气泡上（语音条目的 toolCall），气泡的详情里看得到。按语音对象上记的工具调用 id 对上（agent-voice.ts 的 toolVoiceCalls），
 //   不看先后（等太久先交回时调用记录比气泡先到）；气泡还不在手里（还在合成、在没取回的更早一页）时先不显示。没发出去的照常算进组；
 // - 时间线记录（偏离、范围变更、越界、操作记录）、"已删除"各自一条；
-// - agent 之间的来信（115 号票）：秘书会话里的任务做完、维护者来信（系统消息），维护者会话里的秘书转达（用户消息），运行时补给
-//   维护者的计划检查，条目上带着 letter（agent-letters.ts：种类、图标、一句话总结），对话层画成一行、点开看全文；
+// - agent 之间的来信（115 号票）：秘书会话里的任务做完、负责人来信（系统消息），负责人会话里的秘书转达（用户消息），运行时补给
+//   负责人的计划检查，条目上带着 letter（agent-letters.ts：种类、图标、一句话总结），对话层画成一行、点开看全文；
 //   367 号票：交给 agent 的长通知没有标记也一样（只改对话层，要点层那一行照旧）；
 //   要点那一行写"种类：总结"。种类照旧（system、user），底色、要点标注、详情的找法都不变。
 // - 附件一律显示在文字后面（118 号票）：agent 一轮里先发的附件（只有文件、图片的消息）、任务做完时运行时放的附件，
@@ -68,7 +68,7 @@ import { briefCallPart, isRecallCall, recallLine, type RecallSummary, recallSumm
 import { type ConversationRecord, type RequestStatus, type TimelineItem, timelineItems, type UiState } from "./ui-state.ts";
 
 type ToolCallPart = Extract<MessagePart, { type: "tool_call" }>;
-/** 会话里的分隔线：项目维护者会话的工单段（16 号票），定时触发的任务的一次运行（76 号票），清空当前对话（114 号票） */
+/** 会话里的分隔线：项目负责人会话的工单段（16 号票），定时触发的任务的一次运行（76 号票），清空当前对话（114 号票） */
 type DividerPart = Extract<MessagePart, { type: "work_order_divider" | "run_divider" | "conversation_cleared" }>;
 type VoiceLikePart = Extract<MessagePart, { type: "voice" | "tts_audio" }>;
 
@@ -112,7 +112,7 @@ export const INTERNAL_TOOLS: Readonly<Record<string, { readonly what: string; re
   // 用户点名的五个
   /** maintainers/tools.ts SUBMIT_PLAN_TOOL */
   submit_plan: { get what() { return WHAT.planCard; }, shownAs: { kind: "card", cardType: "plan" } },
-  /** tasks/tool-names.ts EXECUTION_TOOL.completeStage：还有一条"维护者宣布阶段完成"的系统说明 */
+  /** tasks/tool-names.ts EXECUTION_TOOL.completeStage：还有一条"负责人宣布阶段完成"的系统说明 */
   complete_stage: { get what() { return WHAT.acceptanceCard; }, shownAs: { kind: "card", cardType: "progress" } },
   /** work-orders/tool-names.ts WORK_ORDER_TOOL.writeProgress：写回进展文档 */
   write_progress: { get what() { return WHAT.bookkeeping; }, shownAs: { kind: "none" } },
@@ -120,7 +120,7 @@ export const INTERNAL_TOOLS: Readonly<Record<string, { readonly what: string; re
   write_segment_summary: { get what() { return WHAT.bookkeeping; }, shownAs: { kind: "none" } },
   /** voice/texts.ts SPOKEN_SUMMARY_TOOL：口语总结合成的语音另有一条 */
   spoken_summary: { get what() { return WHAT.summaryReply; }, shownAs: { kind: "reply" } },
-  // 检查过的其他维护者内部工具：守护进程在调用时往同一个会话里放了卡片、说明或记录（用户同意不算进 N）
+  // 检查过的其他负责人内部工具：守护进程在调用时往同一个会话里放了卡片、说明或记录（用户同意不算进 N）
   /** tasks/tool-names.ts EXECUTION_TOOL.reportProgress */
   report_progress: { get what() { return WHAT.progressCard; }, shownAs: { kind: "card", cardType: "progress" } },
   /** tasks/tool-names.ts EXECUTION_TOOL.proposePlanChange */
@@ -328,7 +328,7 @@ export type ChatItem = ChatItemBase &
         readonly kind: "system";
         readonly text: string;
         readonly parts: readonly MessagePart[];
-        /** 运行时写给 agent 的来信（115 号票：任务做完、维护者来信、计划检查）在会话里折成一行；给用户看的说明没有 */
+        /** 运行时写给 agent 的来信（115 号票：任务做完、负责人来信、计划检查）在会话里折成一行；给用户看的说明没有 */
         readonly letter: AgentLetter | undefined;
         /**
          * 分支摘要（150 号票，会话回退之后新分支开头那一条，branch_summary part）：对话层显示 🧭 加摘要，
@@ -336,7 +336,7 @@ export type ChatItem = ChatItemBase &
          * （Claude Code 的文件检查点；撤回不动文件的运行时没有）
          */
         readonly branch?: { readonly id: string; readonly summary: string; readonly files?: BranchFilesRewind };
-        /** 第一版任务书交给维护者的那条（172 号票，消息上的 taskBrief）：对话层照常显示 */
+        /** 第一版任务书交给负责人的那条（172 号票，消息上的 taskBrief）：对话层照常显示 */
         readonly taskBrief?: true;
       }
     | { readonly kind: "record"; readonly record: ConversationRecord }

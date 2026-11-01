@@ -1,6 +1,6 @@
-// 维护者的运行时在网页这一侧（289 号票，纯函数）：新建项目、任务时选、卡上标出、⚙ 里换、界面按能力清单收起运行时不支持的按钮。
+// 负责人的运行时在网页这一侧（289 号票，纯函数）：新建项目、任务时选、卡上标出、⚙ 里换、界面按能力清单收起运行时不支持的按钮。
 // - 运行时清单经 GET /api/runtimes 取（AgentRuntimeView：名字、能不能用、能力清单、模型、设置项），还没取到时一律按"都支持"（界面和以前一样）；
-// - 会话的维护者用哪个运行时：项目的维护者照项目的（没写照转来的任务的），任务自己的照任务的，秘书一直是 pi；
+// - 会话的负责人用哪个运行时：项目的负责人照项目的（没写照转来的任务的），任务自己的照任务的，秘书一直是 pi；
 // - 新建时只有 pi 能选（没启用别的运行时插件）就不显示这一项；
 // - 卡上只标插件登记的运行时（默认的 pi 不标）；⚙ 里的运行时一块同样只有 pi 时不显示。
 import { MAINTAINER_CHANNEL_PREFIX, PI_RUNTIME_ID, runtimeIdOf, runtimeShown, runtimeTitleOf, selectableRuntimes, t } from "./protocol.ts";
@@ -12,12 +12,12 @@ export function runtimeSupports(runtimes: readonly AgentRuntimeView[] | undefine
   return found === undefined ? true : found.capabilities[operation];
 }
 
-/** 项目的维护者用的运行时：没写照转来的任务的，再没有是 pi */
+/** 项目的负责人用的运行时：没写照转来的任务的，再没有是 pi */
 export function projectRuntime(project: Pick<Project, "runtime" | "fromTaskId">, tasks: Readonly<Record<string, Pick<Task, "runtime">>>): string {
   return runtimeIdOf(project.runtime ?? (project.fromTaskId === undefined ? undefined : tasks[project.fromTaskId]?.runtime));
 }
 
-/** 会话的维护者用的运行时（秘书、不认得的是 pi） */
+/** 会话的负责人用的运行时（秘书、不认得的是 pi） */
 export function conversationRuntime(state: { tasks: Readonly<Record<string, Task>>; projects: Readonly<Record<string, Project>> }, conversation: string): string {
   if (!conversation.startsWith(MAINTAINER_CHANNEL_PREFIX)) return PI_RUNTIME_ID;
   const maintainerId = conversation.slice(MAINTAINER_CHANNEL_PREFIX.length);

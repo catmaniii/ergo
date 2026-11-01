@@ -1,5 +1,5 @@
 // agent 运行时的请求体和 ⚙ 里那一块（289 号票），用 TypeBox 定义；名字、能力清单、登记表给网页的样子在 runtimes.ts（不引用 TypeBox）。
-// - RuntimeOptions：维护者给它的运行时选的值（任务、项目上记着的 runtimeOptions；宿主协议的装配参数原样带上）；
+// - RuntimeOptions：负责人给它的运行时选的值（任务、项目上记着的 runtimeOptions；宿主协议的装配参数原样带上）；
 // - AgentRuntimeBody：PUT /api/agents/<agent id>/runtime——用哪个运行时、选的模型和设置项；
 // - AgentRuntimeStateView：⚙ 面板（AgentSettingsView.runtime）里运行时一块。
 // 290 号票（从运行时已有的会话接管）：
@@ -16,7 +16,7 @@ import { RUNTIME_SWITCH_STATES, TAKEOVER_ACTIONS, TAKEOVER_KINDS, TAKEOVER_PLACE
 /** 设置项的值：设置项 id → 选的 value */
 const RuntimeSettingValues = Type.Record(Type.String({ minLength: 1, maxLength: 80 }), Type.String({ minLength: 1, maxLength: 200 }));
 
-/** 维护者给它的运行时选的值（runtimes.ts 的 RuntimeChoice）：模型没写是跟运行时自己的设置，设置项没写的是默认那个 */
+/** 负责人给它的运行时选的值（runtimes.ts 的 RuntimeChoice）：模型没写是跟运行时自己的设置，设置项没写的是默认那个 */
 export const RuntimeOptions = Type.Object({
   model: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),
   settings: Type.Optional(RuntimeSettingValues),
@@ -24,7 +24,7 @@ export const RuntimeOptions = Type.Object({
 export type RuntimeOptions = Static<typeof RuntimeOptions>;
 
 /**
- * 项目、任务的维护者用哪个运行时、给它选的值（PUT /api/agents/<agent id>/runtime）：runtime 要是现在能用的；模型要在这个运行时的模型列表里
+ * 项目、任务的负责人用哪个运行时、给它选的值（PUT /api/agents/<agent id>/runtime）：runtime 要是现在能用的；模型要在这个运行时的模型列表里
  * （它没有模型列表的不能写），设置项的值要是它给的选项之一。换了运行时、没写模型和设置项的，按新运行时的默认
  */
 export const AgentRuntimeBody = Type.Object({
@@ -34,7 +34,7 @@ export const AgentRuntimeBody = Type.Object({
 });
 export type AgentRuntimeBody = Static<typeof AgentRuntimeBody>;
 
-/** ⚙ 里运行时一块（只有项目、任务的维护者有）：现在用的、选的模型和设置项、正在换成哪个 */
+/** ⚙ 里运行时一块（只有项目、任务的负责人有）：现在用的、选的模型和设置项、正在换成哪个 */
 export const AgentRuntimeStateView = Type.Object({
   /** 现在用的运行时（没写的是 pi） */
   id: Type.String(),
@@ -49,7 +49,7 @@ export const AgentRuntimeStateView = Type.Object({
   /** 现在用的运行时不能用（"Claude Code插件没启用"）；能用是没有 */
   unavailable: Type.Optional(Type.String()),
   /**
-   * 接管自运行时已有的会话（290 号票）：哪个会话、工作目录、交还了没有（交还了的维护者不拉起，收回后接着）。不是接管来的没有
+   * 接管自运行时已有的会话（290 号票）：哪个会话、工作目录、交还了没有（交还了的负责人不拉起，收回后接着）。不是接管来的没有
    */
   takeover: Type.Optional(
     Type.Object({
@@ -69,7 +69,7 @@ export const AgentRuntimeStateView = Type.Object({
   ),
   /** 能交给官方 App（292 号票：运行时的能力清单 remote_control）；不是接管来的会话也能交（还没开始的交的时候被拒） */
   remoteControl: Type.Optional(Type.Literal(true)),
-  /** 维护者的工作文件夹（305 号票：能选工作文件夹的运行时才写；守卫的项目目录就是它） */
+  /** 负责人的工作文件夹（305 号票：能选工作文件夹的运行时才写；守卫的项目目录就是它） */
   workdir: Type.Optional(Type.String()),
 });
 export type AgentRuntimeStateView = Static<typeof AgentRuntimeStateView>;
@@ -79,7 +79,7 @@ export type AgentRuntimeStateView = Static<typeof AgentRuntimeStateView>;
  * - new：在这个运行时的默认文件夹下新开一个子文件夹；name 是子文件夹名（不写按标题生成，workFolderName），不合法的字符换掉、重名加序号。
  *   还没设默认文件夹时照旧用二狗给任务开的工作目录（项目的在项目档案里）；
  * - existing：用一个已有的文件夹（绝对路径）：不存在、是文件、在数据目录或二狗程序目录里的被拒，写明原因。
- * 不写等于 new 不写名字。选定的文件夹就是维护者的工作目录（Claude Code 的 cwd），守卫的项目目录就是它；删任务、项目时不删它
+ * 不写等于 new 不写名字。选定的文件夹就是负责人的工作目录（Claude Code 的 cwd），守卫的项目目录就是它；删任务、项目时不删它
  */
 export const WorkFolderChoice = Type.Union([
   Type.Object({ kind: Type.Literal("new"), name: Type.Optional(Type.String({ minLength: 1, maxLength: 120 })) }),
@@ -93,9 +93,9 @@ export type RuntimeFolderBody = Static<typeof RuntimeFolderBody>;
 
 /**
  * 从运行时已有的会话接管来的（290 号票，任务、项目上记着：Task.takeover、Project.takeover）。
- * 二狗的写入锁就是它：记着它、没交还、维护者还用这个运行时、任务 / 项目没删，二狗就管着这个会话——这期间只有这个维护者的子进程写它
- * （别的任务、项目再接管同一个会话被拒，只能分叉一份），交还以后维护者不拉起，收回（核对过它没在别处开着）才接着。
- * 维护者换了别的运行时（⚙ 里换运行时换完）就不再记着它（工作目录照旧）
+ * 二狗的写入锁就是它：记着它、没交还、负责人还用这个运行时、任务 / 项目没删，二狗就管着这个会话——这期间只有这个负责人的子进程写它
+ * （别的任务、项目再接管同一个会话被拒，只能分叉一份），交还以后负责人不拉起，收回（核对过它没在别处开着）才接着。
+ * 负责人换了别的运行时（⚙ 里换运行时换完）就不再记着它（工作目录照旧）
  */
 export const RuntimeTakeover = Type.Object({
   /** 哪个运行时的会话（插件登记的运行时 id，现在只有 claude-code） */
@@ -108,10 +108,10 @@ export const RuntimeTakeover = Type.Object({
   forkedFrom: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),
   /** 什么时候接管的（协议时间） */
   at: Type.String(),
-  /** 交还了（协议时间）：维护者不拉起、二狗不再写它；收回时去掉。交给官方 App（292 号票）也记它（同样不拉起、不写），另有 remote.since */
+  /** 交还了（协议时间）：负责人不拉起、二狗不再写它；收回时去掉。交给官方 App（292 号票）也记它（同样不拉起、不写），另有 remote.since */
   returnedAt: Type.Optional(Type.String()),
   /**
-   * 二狗自己开的会话（292 号票）：不是从已有的会话接管来的，第一次交给官方 App 时才记下这一条（会话 id 是那时维护者接着的那个）。
+   * 二狗自己开的会话（292 号票）：不是从已有的会话接管来的，第一次交给官方 App 时才记下这一条（会话 id 是那时负责人接着的那个）。
    * 拉起时不按它恢复（照常接着会话目录里的），⚙ 里不给"交还"（那是接管来的才有的）
    */
   own: Type.Optional(Type.Literal(true)),

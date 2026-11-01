@@ -1,6 +1,6 @@
 // 守卫接进运行时（规格第 3、9 节）：子进程里的二狗扩展在 pi 的 tool_call 钩子里把每次工具调用发成 guard_request，
 // 这里现取环境事实、用守卫的判定函数（纯函数）判定，再回 guard_reply。放行才执行；拦下的调用不执行，
-// 模型收到判定里的说明。守卫从不原地改参数。秘书、以后的维护者和子 agent 都走这一条路（agent 拉起后 attach）。
+// 模型收到判定里的说明。守卫从不原地改参数。秘书、以后的负责人和子 agent 都走这一条路（agent 拉起后 attach）。
 //
 // attach 只做编排，判定之后：
 // - 会执行（直接做只记录、做完告诉我）：放行；执行成功后追加效果日志（effect-log.ts 的 recordEffects），
@@ -17,9 +17,9 @@
 // 不论结果，每次调用在 tool_call_end 时往会话里追加一条工具调用记录（tool-call-record.ts），之前先另存一份完整的参数和返回
 // （tool-call-details.ts，53 号票：详情页按调用 id 取；经过同一份隐私处理，太长的截断）。
 // 流程（59 号票，plan-check.ts）：执行中的流程里，判定之后再和授权的计划比对（两道都要过）——前置步骤没做的引回（不执行，
-// 告诉维护者先做哪一步）、参数和计划对不上的按计划改回再放行（子进程按改后的参数执行，结果前面写明）、重复和审查剔除的对象
+// 告诉负责人先做哪一步）、参数和计划对不上的按计划改回再放行（子进程按改后的参数执行，结果前面写明）、重复和审查剔除的对象
 // 直接拦下、计划外会改东西的和超出范围的问用户（和第一道要问的合成一张审批卡）；执行成功的记下对上了哪一步，修回记进时间线。
-// 项目的维护者、项目外任务的 agent 的会话给了 ownWork（111 号票，tasks/own-work.ts）：判定时带上范围开始的时间、交出去了的交付件，
+// 项目的负责人、项目外任务的 agent 的会话给了 ownWork（111 号票，tasks/own-work.ts）：判定时带上范围开始的时间、交出去了的交付件，
 // 环境事实另取文件的创建时间、要删除的目录里面有什么——临时文件删除、整体重写不落入"删除或覆盖"、不按 v1 模板退回（guard/own-temp.ts）。
 // 被杀后的恢复（23 号票，executions.ts）：放行、开始执行的有副作用的调用记 tool_call_started，结束时记 tool_call_finished
 // （成功与否、结果摘要），agent 又出了一条助手消息、或者这一轮结束时（结果都写进会话了）记 tool_calls_settled；
@@ -116,14 +116,14 @@ export interface GuardedSession {
   /** 调用所属的任务（13 号票接）；对话里为 null。判定时交给它发起调用的 agent（77 号票：事件触发的流程按它推出这次运行的授权） */
   task?: (ctx?: GuardTaskContext) => GuardTask | null;
   /**
-   * 认临时文件要的（111 号票：范围开始的时间、交出去了的交付件，tasks/own-work.ts）：项目的维护者（做什么都算）按项目，项目外的任务的
-   * agent（任务的维护者执行、定时 / 事件触发的运行、子 agent、普通任务的 agent）按任务，每次判定现取；秘书、项目外任务的起草计划不给。
+   * 认临时文件要的（111 号票：范围开始的时间、交出去了的交付件，tasks/own-work.ts）：项目的负责人（做什么都算）按项目，项目外的任务的
+   * agent（任务的负责人执行、定时 / 事件触发的运行、子 agent、普通任务的 agent）按任务，每次判定现取；秘书、项目外任务的起草计划不给。
    * 给了的，删除、整体重写临时文件不落入"删除或覆盖"、不受 v1 模板"删除或覆盖之前必须已备份或已提交"约束，
    * 环境事实另取创建时间、要删除的目录里面有什么
    */
   ownWork?: () => GuardOwnWork | null;
   /**
-   * 维护者会话：工具调用记录这些消息带上的归属（任务、项目，素材的"任务或项目"取自这里，12 号票起；任务里还有阶段，25 号票）。
+   * 负责人会话：工具调用记录这些消息带上的归属（任务、项目，素材的"任务或项目"取自这里，12 号票起；任务里还有阶段，25 号票）。
    * 每次判定时取一次，这次调用的记录用那一刻的（宣布阶段完成的那次，记录时已经换到下一个阶段了）
    */
   messageScope?: () => MessageScope;
@@ -376,7 +376,7 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
       };
 
       /**
-       * 先问我：一次性授权或提交审批、等用户；维护者在任务里碰到没预料到的类别不等，这一支马上停下（14 号票）。
+       * 先问我：一次性授权或提交审批、等用户；负责人在任务里碰到没预料到的类别不等，这一支马上停下（14 号票）。
        * 子 agent（20 号票）只做它那一支：照常等用户（等的时候这一支就停着），不先挂起——挂起了它会接着往下做完、交回结果
        */
       const askUser = (state: CallState, judged: Judged, reply: (verdict: GuardVerdict) => void) => {
@@ -487,7 +487,7 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
         const { outcome } = checked;
         const origin = originOf(judged.input.task, state);
         if (outcome.kind === "redirect") {
-          // 前置步骤还没做：这次先不执行，把维护者引回计划；不打扰用户，不算拉回
+          // 前置步骤还没做：这次先不执行，把负责人引回计划；不打扰用户，不算拉回
           state.blockedBy = "plan_redirect";
           state.corrected = "redirect";
           const forUser = userView(state, judged).plan;

@@ -2,19 +2,19 @@
 // segments.ts、clarifications.ts），建出、派出和"工单该以什么结局结束"和派单队列共用 orders.ts，这里只管多项目任务自己的那一部分：
 // - 哪些任务算：建卡时定下的多项目任务（Task.projectScope，不随计划改动重新判断；计划里只剩一个项目也还是）；
 // - 计划的检查在 tasks/plan-projects.ts（提交计划、计划变更、自行调整都过一遍）：每个项目的一行写明所属阶段和这张工单自己的验收标准；
-// - 用户确认计划：每一行建成一张工单（计划内），先"等阶段开始"；所属阶段开始时才派出、进入项目维护者的队列
+// - 用户确认计划：每一行建成一张工单（计划内），先"等阶段开始"；所属阶段开始时才派出、进入项目负责人的队列
 //   （前置阶段没验收，后面阶段的工单不会出现在项目的工单流水线里）；按依赖重开（返工）某个阶段时，向这个阶段涉及的项目重新建出工单；
-// - 任务维护者执行中派工单（dispatch_work_order）：这个阶段有这个项目的一行的是计划内的，直接派出（可以改写内容）；本阶段这一行上次
+// - 任务负责人执行中派工单（dispatch_work_order）：这个阶段有这个项目的一行的是计划内的，直接派出（可以改写内容）；本阶段这一行上次
 //   被退回、做不了的，这次重新派单是"调整做法"，算一次验收退回。没有这一行的是计划外的：交给守卫判定（计划外工单类别，unplanned.ts），
 //   工单"待你确认"，待我处理出现工单卡（card.ts），用户确认后才派出、拒绝则不派（这一支在等用户）；
-// - 回执：项目维护者完成或退回（做不了）时交回执（submit_receipt），这一段写回之后工单结束，回执作为一条消息进任务维护者的会话；
-//   某个阶段的回执全部到齐且全部完成，任务维护者才能宣布阶段完成、跑本阶段的验收（stageGate）；任何一张被退回或做不了，本阶段不通过。
+// - 回执：项目负责人完成或退回（做不了）时交回执（submit_receipt），这一段写回之后工单结束，回执作为一条消息进任务负责人的会话；
+//   某个阶段的回执全部到齐且全部完成，任务负责人才能宣布阶段完成、跑本阶段的验收（stageGate）；任何一张被退回或做不了，本阶段不通过。
 //   只看现行计划里这一阶段的行（和计划外确认派出的）：计划变更、自行调整计划之后去掉了的行，它的工单不再挡这一阶段；
 // - 计划换了一版（14 号票的计划变更确认"加项目"、自行调整计划）：新计划里还没有工单的行照样建出工单，所属阶段已经在做的马上派出；
 //   新计划里没有了的行，还没派出的工单退回，派出了的在时间线上记一笔、不再挡阶段；去掉的是退回、做不了的那几行时算一次验收退回；
 // - 任务结束：还没派出、还在排队的工单退回，进行中的那一段收尾后以退回（任务取消了）或做不了（任务失败）结束；
-// - 工单的建出、派出、待你确认、确认或拒绝、回执都记在任务时间线上（任务维护者的会话里的 work_order 记录）。
-// agent 之间只通过工单往来：项目维护者的提问交给任务维护者、任务维护者的回答交回项目维护者（clarifications.ts）。说法都在 multi-project-texts.ts。
+// - 工单的建出、派出、待你确认、确认或拒绝、回执都记在任务时间线上（任务负责人的会话里的 work_order 记录）。
+// agent 之间只通过工单往来：项目负责人的提问交给任务负责人、任务负责人的回答交回项目负责人（clarifications.ts）。说法都在 multi-project-texts.ts。
 import {
   CHANNELS,
   ENDED_TASK_STATES,
@@ -114,9 +114,9 @@ export interface MultiProjectOptions {
   execution: Pick<TaskExecution, "awaitAnswer" | "answered" | "countReturn" | "guardTask">;
   /** 新工单的编号（和派单器共用一个计数） */
   nextId: () => string;
-  /** 项目的维护者空着就开始队首的工单 */
+  /** 项目的负责人空着就开始队首的工单 */
   tryStart: (maintainerId: string) => void;
-  /** 计划外工单交给守卫判定（unplanned.ts；daemon.ts 接上守卫的各区、关注类别设置和任务维护者此刻的装配） */
+  /** 计划外工单交给守卫判定（unplanned.ts；daemon.ts 接上守卫的各区、关注类别设置和任务负责人此刻的装配） */
   judgeUnplanned: (input: { task: GuardTask; maintainerId: string; project: Project }) => UnplannedJudgement;
   now: () => string;
   log: (line: string) => void;
@@ -125,9 +125,9 @@ export interface MultiProjectOptions {
 export interface DispatchInput {
   /** 收件项目（编号或名字） */
   project: string;
-  /** 所属阶段；不写是维护者的当前阶段 */
+  /** 所属阶段；不写是负责人的当前阶段 */
   stageId?: string;
-  /** 要做的事（交给项目维护者的话） */
+  /** 要做的事（交给项目负责人的话） */
   instructions: string;
   /** 这张工单的验收标准：计划内的不写就照计划里那一行的 */
   acceptance?: readonly string[];
@@ -152,21 +152,21 @@ export interface ReceiptInput {
 export interface MultiProject {
   start(): void;
   stop(): void;
-  /** 计划能参与的项目（任务维护者能读的项目档案）：任务上的、任务书里的、现在生效的计划里的，在项目列表里的 */
+  /** 计划能参与的项目（任务负责人能读的项目档案）：任务上的、任务书里的、现在生效的计划里的，在项目列表里的 */
   involvedProjects(task: Task): Project[];
   /** 用户确认计划：每一行建成一张工单（等阶段开始），和计划卡的处理同一事务追加 */
   planConfirmed(task: Task, plan: Plan): NewEvent[];
   /** 宣布阶段完成之前：本阶段的回执到齐、都完成了没有；没有时给出不能宣布完成的原因 */
   stageGate(task: Task, stageId: string): string | undefined;
-  /** 交给任务维护者的阶段交代、重注入块、由我验收的事项、评审的输入里多写的几行：本阶段的工单和回执 */
+  /** 交给任务负责人的阶段交代、重注入块、由我验收的事项、评审的输入里多写的几行：本阶段的工单和回执 */
   stageLines(task: Task, stageId: string): string[];
   /** 评审子 agent 能只读访问的：本阶段涉及的各项目的档案和工作目录（真实路径） */
   reviewPlaces(task: Task, stageId: string): { projectRecords: string[]; workingDirs: string[] };
-  /** 任务维护者派工单（dispatch_work_order） */
+  /** 任务负责人派工单（dispatch_work_order） */
   dispatch(scope: MaintainerScope, input: DispatchInput): DispatchResult;
   /** 汇总回执（summarize_receipts）：这个任务各阶段的工单和回执 */
   receipts(scope: MaintainerScope, stageId?: string): string;
-  /** 项目维护者交回执（submit_receipt）：这一段收尾，写回之后工单结束、回执交给任务维护者 */
+  /** 项目负责人交回执（submit_receipt）：这一段收尾，写回之后工单结束、回执交给任务负责人 */
   submitReceipt(maintainerId: string, input: ReceiptInput): TaskMaintainerWorkOrder;
   /** 工单卡上用户确认派出或拒绝 */
   decide(card: { id: string; payload: WorkOrderCardPayload }, decision: WorkOrderDecision, note: string | undefined): CardActionEffect<WorkOrderCardPayload>;
@@ -182,11 +182,11 @@ const failedOrder = (wo: TaskMaintainerWorkOrder) => wo.outcome === "returned" |
 const lineKey = (stageId: string, projectId: string) => `${stageId}@${projectId}`;
 const real = (p: string) => realPathOf(p) ?? p;
 
-/** 任务时间线上的一条工单记录（任务维护者的会话里） */
+/** 任务时间线上的一条工单记录（任务负责人的会话里） */
 const record = (task: Task, r: OrderRef, summary: string, key?: string): NewEvent =>
   buildTimelineRecord(maintainerChannel(task.maintainerId), { kind: "work_order", summary, workOrderId: r.wo.id }, taskMessageScope(task, r.wo.stageId), key ? { idempotencyKey: key } : {}).event;
 
-/** 交给任务维护者的一条通知（属于工单所在的阶段） */
+/** 交给任务负责人的一条通知（属于工单所在的阶段） */
 const notifyTask = (task: Task, r: OrderRef, text: string, key: string): NewEvent => buildAgentNotice(maintainerChannel(task.maintainerId), text, key, taskMessageScope(task, r.wo.stageId)).event;
 
 export function createMultiProject(options: MultiProjectOptions): MultiProject {
@@ -201,7 +201,7 @@ export function createMultiProject(options: MultiProjectOptions): MultiProject {
     return id === undefined ? projects.get(ref.trim()) : projects.get(id);
   };
 
-  /** 任务维护者派的工单 */
+  /** 任务负责人派的工单 */
   const ordersOf = (taskId: string): TaskMaintainerWorkOrder[] => workOrdersOfTask(store.reader, taskId).filter(fromTaskMaintainer);
 
   /** 现行计划里的行（阶段 + 项目 → 那一行） */
@@ -247,7 +247,7 @@ export function createMultiProject(options: MultiProjectOptions): MultiProject {
     return [workOrderEvent(wo, "created", null, "user"), record(task, { wo, projectName: project.name }, timelineText.created({ wo, projectName: project.name }))];
   };
 
-  /** 派出一张工单（等阶段开始的、待你确认的进收件维护者的队列；发给已归档、删掉的项目的直接退回）和时间线上"派出"的记录 */
+  /** 派出一张工单（等阶段开始的、待你确认的进收件负责人的队列；发给已归档、删掉的项目的直接退回）和时间线上"派出"的记录 */
   const dispatchOrder = (task: Task, wo: TaskMaintainerWorkOrder, by: "user" | "system"): NewEvent[] => [
     ...dispatchedEvents(wo, projects.get(wo.projectId), by, now()),
     record(task, refOf(wo), timelineText.dispatched(refOf(wo))),
@@ -278,7 +278,7 @@ export function createMultiProject(options: MultiProjectOptions): MultiProject {
     }
   };
 
-  /** 回执：工单结束了（你拒绝了的除外，那个由工单卡交代），回执交给任务维护者（任务已经结束的只记在时间线上；没派出的不算回执） */
+  /** 回执：工单结束了（你拒绝了的除外，那个由工单卡交代），回执交给任务负责人（任务已经结束的只记在时间线上；没派出的不算回执） */
   const sendReceipt = (wo: WorkOrder) => {
     if (!fromTaskMaintainer(wo) || wo.state !== "ended" || wo.outcome === "declined") return;
     if (store.eventByIdempotencyKey(`${RECEIPT_KEY(wo.id)}#record`)) return;
@@ -292,7 +292,7 @@ export function createMultiProject(options: MultiProjectOptions): MultiProject {
     store.appendBatch(events);
   };
 
-  /** 任务变了：派出到了阶段的工单；结束了的收拾；暂停后又接着执行的告诉手上有工单的项目维护者 */
+  /** 任务变了：派出到了阶段的工单；结束了的收拾；暂停后又接着执行的告诉手上有工单的项目负责人 */
   const onTask = ({ task, from }: TaskEventPayload) => {
     if (!isMulti(task)) return;
     const orders = ordersOf(task.id);
@@ -479,7 +479,7 @@ export function createMultiProject(options: MultiProjectOptions): MultiProject {
       if (!stage) throw new RequestRejected("not_found", refusal.noStage(stageId, list.map((s) => s.stageId)));
       if (stage.state !== "running" && stage.state !== "waiting") throw new RequestRejected("not_allowed", refusal.stageNotActive(stage.stageId, forModel(() => STAGE_STATE_LABEL[stage.state])));
       const known = projects.list();
-      const project = findByIdOrName(known, input.project, { nameOf: (p) => p.name, what: "项目", hint: refusal.knownProjects(known) }); // @i18n-ignore model：交回任务维护者
+      const project = findByIdOrName(known, input.project, { nameOf: (p) => p.name, what: "项目", hint: refusal.knownProjects(known) }); // @i18n-ignore model：交回任务负责人
       const instructions = input.instructions.trim();
       if (!instructions) throw new RequestRejected("bad_params", refusal.noInstructions);
       // 计划内只按"阶段 + 项目"判断（重新派单时可以改写内容）

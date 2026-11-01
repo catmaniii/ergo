@@ -1,5 +1,5 @@
 // 流程会话的步骤开始回退点（153 号票：带 report_step、状态进行中的那条 assistant 消息之前
-// 是"撤回到步骤「…」开始前"）的前端状态：回放维护者会话频道上的事件（手写的，照主切面 daemon/test/main/session-rollback-workflow.test.ts
+// 是"撤回到步骤「…」开始前"）的前端状态：回放负责人会话频道上的事件（手写的，照主切面 daemon/test/main/session-rollback-workflow.test.ts
 // 的形状），看
 // - 步骤开始的记号（stage_start 带 stepId）挂在含这次 report_step 的那条回复上；没说话的（只有调用）挂在这次调用那一块上（汇报步骤
 //   缩小后照样画）；说法是"撤回到步骤「…」开始前"，不带阶段（不是阶段框上的那一个、确认框里不说接着做）；
@@ -35,7 +35,7 @@ const pointsOf = (state: UiState, conversation: ConversationId = M) => {
   return items.flatMap((it) => [it.id, ...zoomBlocks(it).map((b) => b.id)].flatMap((id) => (decor.rollbacks.get(id) ?? []).map((p) => `${id} ← ${p.label}`)));
 };
 
-/** s1：维护者说了一句、同一条回复里报开始（回退点在这条回复上）；s2：只报开始、没说话（回退点在汇报这一步开始的那次调用上） */
+/** s1：负责人说了一句、同一条回复里报开始（回退点在这条回复上）；s2：只报开始、没说话（回退点在汇报这一步开始的那次调用上） */
 const frames: EventFrame[] = [
   message(1, "m-start", "system", [text("用户已授权计划 v1，开始执行流程 t-1「整理周报」，请按计划执行。")], {}, { agentInput: true }),
   message(2, "m-say1", "agent", [text("先写资料")], { calls: ["c-r1"] }),

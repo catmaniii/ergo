@@ -1,4 +1,4 @@
-// 现在能对任务做什么（13 号票）：按"谁能改"表推出，守护进程的控制器、维护者模块和 Web 的任务详情都用这一份。表格驱动。
+// 现在能对任务做什么（13 号票）：按"谁能改"表推出，守护进程的控制器、负责人模块和 Web 的任务详情都用这一份。表格驱动。
 import { describe, expect, it } from "vitest";
 import { archiveCancelsFirst, availableTaskActions, boardGroupOfReminder, type TaskAct, type TaskActSubject, taskActRefusal, taskDeleteRefusal, TASK_TRANSITIONS } from "../src/index.ts";
 
@@ -25,7 +25,7 @@ describe("用户能做的", () => {
     ["已暂停（建好了阶段）：还能从某个阶段重做，重做后仍暂停", { state: "paused", stages: { list: [stage("running")] } }, ["resume", "cancel", "message", "rework"]],
     ["排队中（开始过）：还能从某个阶段重做，重做后仍排队", { state: "queued", stages: { list: [stage("running")] } }, ["pause", "cancel", "message", "rework"]],
     // 90 号票：结束了的（失败、已完成、已取消）随时能直接归档，全局任务、项目内部任务都行
-    ["失败：重试、取消、说话（重试时维护者看得到）、归档", { state: "failed" }, ["retry", "cancel", "message", "archive"]],
+    ["失败：重试、取消、说话（重试时负责人看得到）、归档", { state: "failed" }, ["retry", "cancel", "message", "archive"]],
     ["失败（建好了阶段）：还能从某个阶段重做，重做后重新排队", { state: "failed", stages: { list: [stage("running")] } }, ["retry", "cancel", "message", "rework", "archive"]],
     ["已完成：返工、归档，不再收消息", { state: "done", stages: { list: [stage("accepted")] } }, ["rework", "archive"]],
     ["已完成 · 已转为项目：只能归档", { state: "done", endKind: "converted_to_project" }, ["archive"]],
@@ -43,7 +43,7 @@ describe("用户能做的", () => {
 });
 
 describe("别人能做的", () => {
-  it("维护者在规划中、待确认、执行中、等我时处理输入；排队中、已暂停、结束了的输入留在队里", () => {
+  it("负责人在规划中、待确认、执行中、等我时处理输入；排队中、已暂停、结束了的输入留在队里", () => {
     const works = (["planning", "awaiting_confirm", "queued", "running", "waiting_for_user", "paused", "done", "failed", "cancelled", "archived"] as const).filter((state) =>
       availableTaskActions({ state }, "maintainer").includes("work"),
     );
@@ -125,12 +125,12 @@ describe("任务能不能删（186 号票）", () => {
   const live = { "pm-1": { name: "记账本" } } as Record<string, { name: string }>;
   const projectOf = (maintainerId: string) => live[maintainerId];
   it.each<[string, Parameters<typeof taskDeleteRefusal>[0], string | undefined]>([
-    ["任务自己的维护者做的：能删", { maintainerId: "tm-3" }, undefined],
+    ["任务自己的负责人做的：能删", { maintainerId: "tm-3" }, undefined],
     ["项目内部任务：随项目删", { maintainerId: "pm-1", internal: { projectId: "p-1", projectName: "记账本" } }, "这是项目「记账本」的内部任务，项目还在时由项目管：删项目时它一起删掉"],
     ["转为项目了的（项目还在）：跟着项目", { maintainerId: "pm-1", endKind: "converted_to_project" }, "任务已转为项目「记账本」，会话和工作目录跟着项目走：项目还在时由项目管，删项目时一起删"],
-    ["项目的维护者做的单项目任务（64 号票之前的）：会话在项目里", { maintainerId: "pm-1" }, "这个任务由项目「记账本」的维护者做，会话在项目的维护者会话里：项目还在时由项目管，不能单独删"],
+    ["项目的负责人做的单项目任务（64 号票之前的）：会话在项目里", { maintainerId: "pm-1" }, "这个任务由项目「记账本」的负责人做，会话在项目的负责人会话里：项目还在时由项目管，不能单独删"],
     ["转为项目、项目已经删了：能删（会话随项目删过了）", { maintainerId: "tm-2", endKind: "converted_to_project" }, undefined],
-    ["项目的维护者做的、项目已经删了：能删", { maintainerId: "pm-9" }, undefined],
+    ["项目的负责人做的、项目已经删了：能删", { maintainerId: "pm-9" }, undefined],
   ])("%s", (_name, task, refusal) => {
     expect(taskDeleteRefusal(task, projectOf)).toBe(refusal);
   });

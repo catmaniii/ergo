@@ -1,16 +1,16 @@
 // 运营方案（130 号票，ADR-0028；规格第 8 节"项目内部任务"、第 11 节"项目状态变更时找用户"）：项目转入使用后怎么运转，由项目的
-// 维护者起草，用户在卡上确认一次就全部生效——确认就是授权，之后照方案跑，不再逐项问（用户 2026-10-17 定："以后项目做完之后只要我
+// 负责人起草，用户在卡上确认一次就全部生效——确认就是授权，之后照方案跑，不再逐项问（用户 2026-10-17 定："以后项目做完之后只要我
 // 确认一下就可以自动转运营，运营模式不限"）。
-// - 维护者用 propose_operations 交一份完整的运营方案（tool）：运行时逐条校验——手段在登记表里（means.ts）、手段自己的校验、要的能力
-//   不超出项目的工具包、流程的那几条先检查再审查修补（和 propose_plan 同一套，守卫眼里执行它的是项目的维护者）。不过的整份退回，写明
+// - 负责人用 propose_operations 交一份完整的运营方案（tool）：运行时逐条校验——手段在登记表里（means.ts）、手段自己的校验、要的能力
+//   不超出项目的工具包、流程的那几条先检查再审查修补（和 propose_plan 同一套，守卫眼里执行它的是项目的负责人）。不过的整份退回，写明
 //   哪一条为什么；
 // - 建设期间交的（项目在建设中）：记下（operations_proposed，mode build），等建设任务做完出现在"首版做完了"卡上（projects.ts 的
 //   buildDonePayload 取 pendingBuildPlan）；卡已经出了的同一事务更新卡（版本加 1，用户照新的那份确认）；259 号票起"转入使用"确认卡
 //   （go_live）同样带着它、同样更新，卡上的转运营检查清单跟着按新的方案重算（goLiveChecklist）；
 // - "首版做完了"卡上点"确认并转入使用"（projects.ts 的 decideBuild 叫 putInUse）：方案里每一条生效——automatic 的手段 apply，
 //   建成这个项目的内部任务（定时、事件触发的进运营中，授权一直有效）；要用户手动的记成"要你手动"；做不了的记原因、别的照常生效、
-//   项目照常转进使用中，通知维护者。项目上记下现在生效的运营方案（Project.operations，和转入使用同一条 project 事件），
-//   维护者会话的时间线上记一笔"运营方案已生效"。卡片动作带幂等键：同一次确认重发不会再建一遍；
+//   项目照常转进使用中，通知负责人。项目上记下现在生效的运营方案（Project.operations，和转入使用同一条 project 事件），
+//   负责人会话的时间线上记一笔"运营方案已生效"。卡片动作带幂等键：同一次确认重发不会再建一遍；
 // - 使用中（或已停用）的项目交的：和现在生效的比出差异（diff.ts），出"运营方案变更"卡（同一个项目一次只有一张在等：新交的顶掉旧的），
 //   进待办，也出在用户说那句话的会话里（照 125 号票的立项要求变更卡）；用户确认一次就照差异生效：加上的建、只改了时间的就地改、
 //   别的改动撤了重建、去掉的取消、照旧却没跑着的重新开起来；拒绝的什么都不动；
@@ -87,9 +87,9 @@ export interface OperationsOptions {
   checkEventTrigger: (trigger: EventTrigger) => string[];
   /** 流程的步骤照这份工具注册表检查（和 propose_plan 一样） */
   workflowTools: ToolRegistry;
-  /** 流程的那一条：审查修补（守卫眼里执行它的是项目的维护者，和执行时一样）；不给就收不了流程 */
+  /** 流程的那一条：审查修补（守卫眼里执行它的是项目的负责人，和执行时一样）；不给就收不了流程 */
   reviewWorkflow?: (project: Project, draft: WorkflowPlanDraft, version: number) => Promise<ReviewedWorkflow>;
-  /** 核实维护者引用的用户原话；不给就不核实 */
+  /** 核实负责人引用的用户原话；不给就不核实 */
   userWords?: UserWordsDeps;
   /**
    * 转运营检查清单（259 号票，项目模块的 goLiveChecklist）：建设期间又交了一份方案、更新"首版做完了""转入使用"卡时，卡上的清单
@@ -102,19 +102,19 @@ export interface OperationsOptions {
 
 /** "首版做完了"卡上确认并转入使用时，运营方案那一部分 */
 export interface PutInUseOperations {
-  /** 每一条生效的事件、记下决定、时间线上的一笔、有没生效的时给维护者的通知（排在项目转入使用那一条之后） */
+  /** 每一条生效的事件、记下决定、时间线上的一笔、有没生效的时给负责人的通知（排在项目转入使用那一条之后） */
   events: NewEvent[];
   /** 项目上记下的现在生效的运营方案（和转入使用同一条 project 事件） */
   operations: ProjectOperations;
   results: OperationResult[];
-  /** 接在维护者会话里"你选了转入使用"那句后面 */
+  /** 接在负责人会话里"你选了转入使用"那句后面 */
   note: string;
 }
 
 export interface Operations {
-  /** 项目维护者的"交运营方案"工具（执行的工单段、对话段里都有） */
+  /** 项目负责人的"交运营方案"工具（执行的工单段、对话段里都有） */
   tool(projectId: string, maintainerId: string): HostTool;
-  /** 建设任务做完出"首版做完了"卡时卡上带的：维护者建设期间交的、还没确认的那一份 */
+  /** 建设任务做完出"首版做完了"卡时卡上带的：负责人建设期间交的、还没确认的那一份 */
   pendingBuildPlan(projectId: string): OperationsPlanView | undefined;
   /**
    * "首版做完了"卡、"转入使用"确认卡（via，259 号票）上确认并转入使用（project 是转入使用之前的样子，plan 是卡上的那一份）：
@@ -142,7 +142,7 @@ const ProposeParams = Type.Object(
   { additionalProperties: false },
 );
 
-/** 校验过的方案：每一条、流程那几条执行用的计划、要告诉维护者的（服务没在跑、没自检……） */
+/** 校验过的方案：每一条、流程那几条执行用的计划、要告诉负责人的（服务没在跑、没自检……） */
 interface CheckedPlan {
   items: OperationItem[];
   executions: Record<string, Plan>;
@@ -176,7 +176,7 @@ const checkedConfirmations = (items: readonly OperationItem[], input: Operations
   return ticked;
 };
 
-/** 时间线上的一笔（项目维护者的会话） */
+/** 时间线上的一笔（项目负责人的会话） */
 const record = (project: Project, summary: string, results: readonly OperationResult[]) =>
   buildTimelineRecord(maintainerChannel(project.maintainerId), { kind: "operations", summary, ...(results.length > 0 ? { detail: results.map(resultLine).join("\n") } : {}) }, { projectId: project.id }).event;
 
@@ -241,7 +241,7 @@ export function createOperations(options: OperationsOptions): Operations {
         continue;
       }
       const approach = d.approach ?? "plain";
-      // 校验的问题交回维护者：按中文写（里面用到的协议包说法、手段的名字也是中文，174 号票）
+      // 校验的问题交回负责人：按中文写（里面用到的协议包说法、手段的名字也是中文，174 号票）
       const own = forModel(() => means.check(d, checkContext));
       for (const p of own) problems.push(refusal.item(i, name, p));
       if (d.service && means.id !== OPERATION_SERVICE_MEANS) problems.push(refusal.serviceOnly(i, name));
@@ -400,7 +400,7 @@ export function createOperations(options: OperationsOptions): Operations {
       ? NO_USER_WORDS
       : options.userWords
         ? verifyUserWords(options.userWords, cited, maintainerChannel(maintainerId))
-        : { verified: [], refused: cited.map((id) => ({ id, reason: "这个版本还不能核实用户原话" })) }; // @i18n-ignore model：交给维护者的说明
+        : { verified: [], refused: cited.map((id) => ({ id, reason: "这个版本还不能核实用户原话" })) }; // @i18n-ignore model：交给负责人的说明
 
   const propose = async (projectId: string, maintainerId: string, drafts: readonly OperationItemDraft[], why: string, cited: readonly string[] | undefined) => {
     const project = mustProject(projectId);
@@ -459,7 +459,7 @@ export function createOperations(options: OperationsOptions): Operations {
       { channel: OPERATIONS_CHANNEL, type: OPERATIONS_EVENTS.proposed, payload: { ...proposed, cardId: card.card.id } },
       card.event,
       item.event,
-      // 卡也出在用户说那句话的会话里（维护者自己的会话里本来就有：工具产生的卡片）
+      // 卡也出在用户说那句话的会话里（负责人自己的会话里本来就有：工具产生的卡片）
       ...cardRefsElsewhere(card.card.id, words.verified, maintainerChannel(maintainerId)),
     ]);
     inbox.alert(item.item);
@@ -514,7 +514,7 @@ export function createOperations(options: OperationsOptions): Operations {
       events.push(
         decidedEvent(decided, `${key}#operations`),
         record(project, decisionText.record(plan.revision, results), results),
-        // 有没生效的：通知维护者（唤起它），看看是什么原因
+        // 有没生效的：通知负责人（唤起它），看看是什么原因
         ...(failures ? [buildAgentNotice(maintainerChannel(project.maintainerId), decisionText.failedNotice(plan.revision, results), `${key}#operations-notice`, { projectId: project.id }).event] : []),
       );
       return { events, operations: { revision: plan.revision, confirmedAt: time, items: projectItems }, results, note: decisionText.putInUse(plan.revision, results) };

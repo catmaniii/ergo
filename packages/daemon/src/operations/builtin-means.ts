@@ -2,9 +2,9 @@
 // - schedule 定时触发的任务：重复的时间表（每天、每周几、每月几号、按我的工作日），或者某个时间做一次；
 // - event 事件触发的任务：77 号票的事件来源、事件、过滤（二狗内部事件、本机文件夹变化、项目的服务报的事件……）；
 //   这两种的做法都可以是普通任务或流程（流程带它的固定计划，确认方案时一起授权）。生效时建成这个项目的内部任务，执行者是项目的
-//   维护者（64 号票的规矩不变）：定时、事件触发的进运营中，触发底座登记它的触发，到点或来事件时派一张运行工单给维护者；
+//   负责人（64 号票的规矩不变）：定时、事件触发的进运营中，触发底座登记它的触发，到点或来事件时派一张运行工单给负责人；
 //   项目停用、重新启用时的暂停和恢复由触发底座按项目的状态管（不登记 pause / resume）；
-// - public_entry 公网入口：规格写明属第二阶段，二狗现在还做不了（automatic 为 false），方案的格式给它留着位置——维护者写进方案时
+// - public_entry 公网入口：规格写明属第二阶段，二狗现在还做不了（automatic 为 false），方案的格式给它留着位置——负责人写进方案时
 //   写明要用户手动做哪几步，卡上标"需要你手动"，确认时不假装生效。
 // 项目自己的服务（service，登记到 LSM 上线）133 号票起二狗能做了，在 project-services/means.ts；280 号票起由运营层自己经登记口登记
 // （project-ops/layer.ts），组装函数在事件触发和公网入口之间装运营层。
@@ -20,7 +20,7 @@ export interface BuiltinMeansDeps {
   scheduledJobs: () => Pick<ScheduledJobs, "cancelTaskEvents" | "rescheduleTaskEvents">;
 }
 
-/** 每次运行交给维护者的话（任务的说明，也是触发登记里"每次要做的事"）：每次做什么，写了失败时怎样的接在后面 */
+/** 每次运行交给负责人的话（任务的说明，也是触发登记里"每次要做的事"）：每次做什么，写了失败时怎样的接在后面 */
 export const runSummary = (item: Pick<OperationItem, "instructions" | "onFailure">): string => (item.onFailure ? `${item.instructions}\n${meansText.onFailure(item.onFailure)}` : item.instructions);
 
 /** 一条除了时间表（和它的说法）以外的部分 */

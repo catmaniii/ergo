@@ -11,7 +11,7 @@
 // - inbox.ts：待我处理事项算不算处理过、事项的先后（守护进程、Web 状态层、原型的假连接共用）；
 // - http.ts / http-schema.ts：走 HTTP 的部分（媒体上传下载、历史分页；10 号票起还有设备配对）的路径、常量和请求响应体；
 // - parts.ts：拼附件 part 的小工具、文件附件能不能预览（113 号票）；
-// - agent-letters.ts：agent 之间的来信（任务做完、维护者来信、秘书转达……）怎么认、一句话总结从哪来，守护进程和 Web 共用（115 号票）；
+// - agent-letters.ts：agent 之间的来信（任务做完、负责人来信、秘书转达……）怎么认、一句话总结从哪来，守护进程和 Web 共用（115 号票）；
 // - deleted-event.ts：认彻底删除改写后的事件（"已删除"标记）；
 // - pairing.ts：设备配对和外网端口的常量、默认设备名，已配对设备多选管理的规则（守护进程和 Web 共用；123 号票）；
 // - project-internal.ts：项目内部的标记怎么判断、怎么标注（64 号票：任务、待我处理事项、定时作业、建议卡共用一个 internal）；
@@ -28,7 +28,7 @@
 // - runtime-question-schema.ts：运行时的提问卡（288 号票：Claude Code 自己要问你的选择题、退出计划模式的批准）。
 // - voice.ts / voice-schema.ts：语音消息的限制、识别状态和纯函数（不引用 TypeBox）、语音对象的 schema（31 号票）；
 //   agent 发的语音（语音回复）和参考音色（32 号票）。
-// - work-orders.ts / work-order-schema.ts：工单和维护者会话分段的名字（不引用 TypeBox）和 schema（16 号票）。
+// - work-orders.ts / work-order-schema.ts：工单和负责人会话分段的名字（不引用 TypeBox）和 schema（16 号票）。
 // - scope-records.ts / scope-record-schema.ts：范围记录（范围变更、越界）的名字（不引用 TypeBox）和 schema（18 号票）。
 // - toolkit.ts / toolkit-schema.ts：工具包改动的说法和纯函数（不引用 TypeBox）、skill 库和 MCP 登记、改工具包、"工具包变更"卡的 schema（27 号票）。
 // - mcp-schema.ts：MCP 登记变更（加、改、删一条登记，用户确认后才写进配置区）的卡和审批决定的 schema（239 号票）。
@@ -72,8 +72,8 @@
 // - old-names.ts：ergou 换成 ergo 之后认旧名字（312 号票）——旧名字一律从新名字推出来（oldNameOf），读新旧都认、写只写新的。
 // - plugins.ts、plugins-schema.ts：插件的状况（193 号票）——守护进程清单里每个插件在运行、停用了、没装上，网页按它装、停自己的网页插件（插件频道上的临时事件）；
 //   设置 · 插件（211 号票）的清单、停用 / 启用 / 移除的请求体和结果、连数据删的记录。
-// - runtimes.ts：agent 运行时（286 号票）——维护者用的运行时（pi 或者插件登记的）、能力清单、可选模型和设置项、能接管的会话，
-//   GET /api/runtimes 交给网页的样子；runtime-schema.ts：维护者给运行时选的值、PUT /api/agents/<id>/runtime 的请求体、⚙ 里运行时一块（289 号票）。
+// - runtimes.ts：agent 运行时（286 号票）——负责人用的运行时（pi 或者插件登记的）、能力清单、可选模型和设置项、能接管的会话，
+//   GET /api/runtimes 交给网页的样子；runtime-schema.ts：负责人给运行时选的值、PUT /api/agents/<id>/runtime 的请求体、⚙ 里运行时一块（289 号票）。
 // - data-sources.ts、data-sources-schema.ts：数据源（295 号票）——设置 · 数据源一页列出的数据源（连接状态、上次同步和条数、两种用法、
 //   敏感类别）、共用的导入文件夹，GET /api/data-sources 的样子和 POST 的请求体、结果。
 // - components.ts、components-schema.ts：组件（323 号票）——模型、语音这些大件按需下载：设置 · 组件一页列出的组件（装了没有、大小、版本、
@@ -81,7 +81,7 @@
 // - phone.ts、phone-schema.ts：手机上的二狗 App 读本机（299 号票）——"手机"插件的数据源（通讯录选人、手机日历；300 号票加照片的时间地点、位置）、App 交来的样子。
 // - backup-schema.ts：备份的状况和"立即备份"（335 号票）——谁来定时、同步目录、最新的快照、最近一次的记录、正在做的，GET /api/backup 的样子。
 // - looki.ts：Looki 插件的"存一份到本地"（307 号票）——设置 · 数据源里那一块的数据（存哪几类、已存多少、补存进度）、填设置时交的值。
-// - readable-ids.ts：给用户看的编号带上名字（159 号票），写成仓库里原来的"编号「简短描述」"（163 号票）——"t-3「给记账本加周报」"、"tm-2「记账本的任务维护者」"、删掉了的"t-3（已删除）"。
+// - readable-ids.ts：给用户看的编号带上名字（159 号票），写成仓库里原来的"编号「简短描述」"（163 号票）——"t-3「给记账本加周报」"、"tm-2「记账本的任务负责人」"、删掉了的"t-3（已删除）"。
 // - project-standard.ts：项目规范（258 号票）——规范里有哪几份文档、哪几份必须有、检查清单、本项目的规范改写，
 //   只读接口 GET /api/projects/<id>/standard 的返回（守护进程和 Web 共用）；261 号票起还有本项目的规范改写（不要、换写法、多一份、跟新版）
 //   怎么合、怎么说，project-standard-schema.ts 是"规范改写"卡的负载；262 号票起还有现有项目补齐规范文档（缺哪几份、怎么说、两个选择），

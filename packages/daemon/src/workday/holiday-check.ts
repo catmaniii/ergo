@@ -3,7 +3,7 @@
 //   （默认 12 月）及以后查下一年，之前的月份查今年——整个 12 月都没开机的话，1 月补跑时照样查得出那一年缺数据。
 //   缺了就在待我处理里放一条"节假日数据缺失"事项（不卡任务），写明是哪一年、哪一边；同一年同样的缺失已经有事项就不再放。
 // - 发起更新任务：用户在事项上点"发起更新任务"，用 12 号票的任务发起建一个任务（用户发起，规划中，出现在看板上），
-//   同一事务记下"这个任务是哪一年哪一边的更新"（内部频道的 holiday_update_task），再写好任务书交给任务的维护者：
+//   同一事务记下"这个任务是哪一年哪一边的更新"（内部频道的 holiday_update_task），再写好任务书交给任务的负责人：
 //   年份、哪一边、调研文件里列的官方来源、交付件的格式；计划的工具包要开联网，照常在计划卡上确认。
 // - 导入交付件：任务完成后（13 号票的任务完成回调，daemon.ts 接到 taskCompleted）：任务的工作目录（产出区 outputs/<任务 id>/）
 //   里的 <地区>-<年>.json 逐个交给 workdayCalendar.importHolidayFile（运行时校验格式后导入，工作日历用上它）；数据补上了，
@@ -61,7 +61,7 @@ export interface HolidayImportResult {
   problems: string[];
 }
 
-// @i18n-ignore-start model：任务书里给维护者的验收标准、约束（官方来源）
+// @i18n-ignore-start model：任务书里给负责人的验收标准、约束（官方来源）
 /** 官方来源（调研文件 docs/research/13-holidays-sg-cn.md "来源"和"更新方法"两节），写进任务书 */
 export function officialSources(region: HolidayRegion, year: number): string[] {
   if (region === "sg") {
@@ -81,7 +81,7 @@ export function officialSources(region: HolidayRegion, year: number): string[] {
 }
 
 /**
- * 更新任务的标题和任务书：标题和目标（看板上、任务详情里给用户看的）按当时的语言写；验收标准、约束给维护者看，照旧中文
+ * 更新任务的标题和任务书：标题和目标（看板上、任务详情里给用户看的）按当时的语言写；验收标准、约束给负责人看，照旧中文
  */
 export function holidayUpdateBrief(year: number, regions: readonly HolidayRegion[]): { title: string; brief: TaskBrief } {
   const sides = regions.map((r) => HOLIDAY_REGION_LABEL[r]).join(t("workday.listSep"));
@@ -166,7 +166,7 @@ export function createHolidayUpdates(options: HolidayUpdatesOptions): HolidayUpd
     });
   };
 
-  /** 用户点了"发起更新任务"：建任务（规划中，看板上），记下它是哪一年哪一边的更新，写好任务书交给维护者 */
+  /** 用户点了"发起更新任务"：建任务（规划中，看板上），记下它是哪一年哪一边的更新，写好任务书交给负责人 */
   const startTask = (item: NoticeInboxItem) => {
     const data = item.data as HolidayMissingData;
     const { title, brief } = holidayUpdateBrief(data.year, data.regions);

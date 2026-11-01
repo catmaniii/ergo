@@ -2,12 +2,12 @@
 // 清单改了重新验收登记，带版本号"）：
 // - 验收（check）：档案里 ops.json 现在的内容（按内容的指纹 hash 认）跑一遍 acceptance.ts。同一份内容验过（全过、没过）就不再自动验
 //   （ops_manifest_checked 记着）；"等服务上线后再跑"的只记在内存里，下次用到再验。同一份同时只验一遍（后来的等前面那一遍）。
-//   force（维护者的 check_ops、转入使用的请求）不管验没验过都重验。
+//   force（负责人的 check_ops、转入使用的请求）不管验没验过都重验。
 // - 登记（ops_manifest_registered）：使用中的项目，清单全过了才登记，版本号从 1 起每登记一次加一，登记的是读出来的那一份——秘书用的
 //   是登记着的版本，档案里改了不影响，直到改过的那份验收全过、登记成下一版。转入使用时（goLiveEvents，和转入使用同一事务）登记
 //   验收全过的那份；验收还在等服务上线的，服务上线时运行时自己复验（362 号票，tool.ts 的 recheckAfterLive），过了登记；没赶上的秘书第一次用到时验。
 // - 使用中的项目秘书用到时（usable）：档案里的和登记着的一样就用登记着的；不一样（或者还没登记过）先验，全过登记新的一版再用；
-//   没过的照旧用登记着的那一版（没有就只有通用操作），没过的原因告诉维护者一次（notifyMaintainer）。
+//   没过的照旧用登记着的那一版（没有就只有通用操作），没过的原因告诉负责人一次（notifyMaintainer）。
 // - 建设中的项目转运营检查清单里那一项（checklistView，同步）：没交、模板原样、读不通、格式不对的马上说；格式对的看这份内容验过没有，
 //   没验过的在后台开验、清单上写"正在验收"，验完了 onChecked（刷新还在等的转入使用确认卡）。
 import { isDeletedEventPayload, type Project } from "@ergo/protocol";
@@ -59,7 +59,7 @@ export interface OpsRegistryDeps {
   isTemplate(text: string): boolean;
   /** 白送的通用操作的名字（项目清单里不能再用） */
   reserved: readonly string[];
-  /** 使用中的项目自动验的没过：告诉维护者（同一份内容只说一次：没过的记下了，不再自动验） */
+  /** 使用中的项目自动验的没过：告诉负责人（同一份内容只说一次：没过的记下了，不再自动验） */
   notifyMaintainer?(project: Project, check: OpsCheck): void;
   /** 一次验收做完了（建设中的项目：刷新还在等的转入使用确认卡上的清单） */
   onChecked?(project: Project): void;

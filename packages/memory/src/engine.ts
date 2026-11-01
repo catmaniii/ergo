@@ -16,7 +16,7 @@
 //   每条消息的记忆简报（266 号票，守护进程追加在秘书每一轮输入的尾部）：messageBrief。
 // - 用户对一条结论直接表态（263 号票）：recordClaimVerdict（对 / 不对 / 拿不准，rg/verdicts.ts）、rejectClaim、markClaimForReview。
 // - 推理图谱的唯一写入口（267 号票，ADR-0030，rg/write-gate.ts）：engine.gate。上面这些写操作一律经它——写之前按推理图谱的规矩检查（rg/graph-rules.ts 和写入口自己那几条）、
-//   权限分档、写完留痕；证据入库、抽事实、纠正、忘掉也一样（忘掉、纠正默认算用户发起）。打开时可以开成只读（秘书、维护者那一份）。
+//   权限分档、写完留痕；证据入库、抽事实、纠正、忘掉也一样（忘掉、纠正默认算用户发起）。打开时可以开成只读（秘书、负责人那一份）。
 import { USER_ENTITY_ID } from "./domain/ids.ts";
 import type { Claim, Entity, Evidence, EvidenceDraft, Fact } from "./domain/types.ts";
 import type { Strategy, StrategyStatus } from "./domain/types.ts";
@@ -105,7 +105,7 @@ export interface MemoryEngineOptions {
   relevanceGate?: Partial<RelevanceGate>;
   /** 199 号票：知识图谱和推理图谱联动（对比模式、矛盾根源、写回），默认开；false 关掉 */
   joint?: boolean;
-  /** 267 号票：唯一写入口的设置——只读（秘书、维护者那一份）、敏感类别里没打开推断的那几类的场景标签 */
+  /** 267 号票：唯一写入口的设置——只读（秘书、负责人那一份）、敏感类别里没打开推断的那几类的场景标签 */
   writeGate?: WriteGateOptions;
 }
 

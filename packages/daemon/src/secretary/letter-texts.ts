@@ -32,7 +32,7 @@ export const LETTER_LIMIT = 3;
 export const tellSecretaryDescription = [
   "给秘书（用户的个人助理）发一条消息，由它在和用户的主线对话里转告用户。运行时转交：秘书闲着时交给它，它用自己的话告诉用户、问要不要念给他听。",
   "只用于用户现在就该知道的事：做到一半的发现、阶段性的结果、要他抽空看一眼的东西；项目内部的任务或工单做完了，想把结果告诉用户。",
-  "不要用：要交回派你的维护者的结果（子 agent 做完的结果、评审的结论照常交回，不经秘书）；不属于项目的任务做完（运行时会自动告诉秘书，带着最后说的那段话）；要用户批准或决定的事（走审批、待我处理）；闲聊。",
+  "不要用：要交回派你的负责人的结果（子 agent 做完的结果、评审的结论照常交回，不经秘书）；不属于项目的任务做完（运行时会自动告诉秘书，带着最后说的那段话）；要用户批准或决定的事（走审批、待我处理）；闲聊。",
   "写成说给用户听的话：哪件事、什么结果、要用户做什么就写清楚。秘书看不到项目内部的细节，只照你写的转告，所以写全；不要写密钥、密码。",
   `summary 另写一句话总结（${LETTER_SUMMARY_MAX} 字以内）：用户在聊天里先看到的只是这一句，点开才看全文，所以要点写在这一句里。`,
   `每个 agent ${LETTER_WINDOW_MS / 60_000} 分钟里最多发 ${LETTER_LIMIT} 条，和自己上一条一字不差的不再发：没那么急的攒一攒一起说。`,
@@ -40,7 +40,7 @@ export const tellSecretaryDescription = [
 export const TELL_SECRETARY_PARAM = `要告诉用户的话（最多 ${LETTER_MAX_CHARS} 字）`;
 /** 一句话总结参数（115 号票：秘书会话里这封信折成一行，显示的就是它） */
 export const TELL_SECRETARY_SUMMARY_PARAM = `一句话总结（${LETTER_SUMMARY_MAX} 字以内），比如“发票里有 3 张抬头写错了”；聊天里先显示这一句，点开才看全文`;
-/** 带附件的参数（117 号票，只有维护者的那一份有） */
+/** 带附件的参数（117 号票，只有负责人的那一份有） */
 export const LETTER_ATTACHMENTS_PARAM =
   `可选：跟着这条消息发给用户的文件（工作目录里的相对路径，最多 ${LETTER_ATTACHMENTS_MAX} 个），比如日报、报告、图表。` +
   "它们作为附件跟着消息进秘书和用户的对话，用户直接点得开，秘书不用再复制一遍；正文里不用再写路径。只能带工作目录里的文件，有一个发不了整条消息就不发。";
@@ -65,12 +65,12 @@ export const LETTER_SUMMARY_EMPTY = "一句话总结（summary）是空的，没
 // ───────────────────────── 谁发的、在做什么 ─────────────────────────
 // 子 agent、评审子 agent 的称呼在 letters.ts（subAgentSender、reviewerSender）
 
-/** 任务自己的维护者："长程任务 t-3「整理发票」的维护者" */
-export const taskMaintainerName = (task: { id: string; title: string }, kind: TaskKind) => `${forModel(() => TASK_KIND_LABEL[kind])} ${task.id}「${task.title}」的维护者`;
-/** 项目的维护者："项目「家庭相册」的维护者" */
-export const projectMaintainerName = (projectName: string) => `项目「${projectName}」的维护者`;
-/** 定时作业自己的维护者（76 号票之前的定时作业）："定时作业 j-1「…」的维护者" */
-export const jobMaintainerName = (job: { id: string; title: string }) => `定时作业 ${job.id}「${job.title}」的维护者`;
+/** 任务自己的负责人："长程任务 t-3「整理发票」的负责人" */
+export const taskMaintainerName = (task: { id: string; title: string }, kind: TaskKind) => `${forModel(() => TASK_KIND_LABEL[kind])} ${task.id}「${task.title}」的负责人`;
+/** 项目的负责人："项目「家庭相册」的负责人" */
+export const projectMaintainerName = (projectName: string) => `项目「${projectName}」的负责人`;
+/** 定时作业自己的负责人（76 号票之前的定时作业）："定时作业 j-1「…」的负责人" */
+export const jobMaintainerName = (job: { id: string; title: string }) => `定时作业 ${job.id}「${job.title}」的负责人`;
 
 /** 在做一次运行："第 3 次运行时" */
 export const doingRun = (runLabel: string) => `${runLabel}时`;
@@ -78,15 +78,15 @@ export const doingRun = (runLabel: string) => `${runLabel}时`;
 export const doingStage = (stage: { stageId: string; title: string }) => `在做阶段 ${stage.stageId}「${stage.title}」时`;
 /** 评审子 agent 在验收一个阶段："在验收阶段 s2「整理」时" */
 export const doingAcceptance = (stage: { stageId: string; title: string }) => `在验收阶段 ${stage.stageId}「${stage.title}」时`;
-/** 项目的维护者在做一张工单："在做任务 t-5「整理照片」的工单 wo-2 时" */
+/** 项目的负责人在做一张工单："在做任务 t-5「整理照片」的工单 wo-2 时" */
 export const doingTaskWorkOrder = (wo: { id: string; taskId: string; taskTitle: string }) => `在做任务 ${wo.taskId}「${wo.taskTitle}」的工单 ${wo.id} 时`;
-/** 在做项目内部的事（64、66 号票：秘书看不到项目内部的细节，不写是哪个任务）：项目的维护者、项目内部任务的子 agent、评审都用它 */
+/** 在做项目内部的事（64、66 号票：秘书看不到项目内部的细节，不写是哪个任务）：项目的负责人、项目内部任务的子 agent、评审都用它 */
 export const DOING_INTERNAL = "在做项目内部的一件事时";
-/** 项目的维护者在做一次定时运行的工单："在做工单 wo-4「每日资讯」（第 3 次运行）时" */
+/** 项目的负责人在做一次定时运行的工单："在做工单 wo-4「每日资讯」（第 3 次运行）时" */
 export const doingRunWorkOrder = (wo: { id: string; title: string }, runLabel: string) => `在做工单 ${wo.id}「${wo.title}」（${runLabel}）时`;
 /** 项目内部的定时运行 */
 export const doingInternalRun = (runLabel: string) => `在做项目内部一件定时的事（${runLabel}）时`;
-/** 项目的维护者在项目页上和用户直接说话的那一段 */
+/** 项目的负责人在项目页上和用户直接说话的那一段 */
 export const DOING_PROJECT_CHAT = "在项目的对话里";
 
 // ───────────────────────── 交给秘书的通知 ─────────────────────────
@@ -142,7 +142,7 @@ export function letterNoticeText(items: readonly string[], withAttachments = fal
   const what = items.length === 1 ? "它" : "它们";
   const ask = announce
     ? ANNOUNCE_LETTER_ASK(what)
-    : `在主线里主动用你自己的话转告用户：是哪个项目或任务的谁（维护者、子 agent、评审）、说了什么；要用户做什么就说清楚。项目内部的细节只到${what}写的这些，不要追问。` +
+    : `在主线里主动用你自己的话转告用户：是哪个项目或任务的谁（负责人、子 agent、评审）、说了什么；要用户做什么就说清楚。项目内部的细节只到${what}写的这些，不要追问。` +
       (speaks ? `然后问“要我念给你听吗？”。他说要，就用 ${SEND_VOICE_TOOL} 把口语稿念给他听；说不用就算了。` : "");
   return [head, ...body, ...(withAttachments ? [LETTER_ATTACHMENTS_NOTE] : []), ask, ...(relay ? [RELAY_RULES] : [])].join("\n\n");
 }

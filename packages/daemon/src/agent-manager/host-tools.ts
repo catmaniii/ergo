@@ -3,8 +3,8 @@
 // 在拉起时随装配参数交给子进程（SpawnAgentRequest.hostTools）。
 // 哪个 agent 有哪些工具、工具能碰什么，由拉起它的模块决定（比如秘书的"读取附件"只能读秘书会话里的附件）。
 // 现在的工具：秘书建、改、取消简单提醒（06，reminders/tools.ts），读取附件、把文件作为附件发出（09，media/attachment-tools.ts；
-// 117 号票起维护者也能发附件）；
-// 建议发起任务、建任务卡、提问卡、写任务书（12，tasks/secretary-tools.ts）、维护者的提交计划（12，maintainers/tools.ts）；
+// 117 号票起负责人也能发附件）；
+// 建议发起任务、建任务卡、提问卡、写任务书（12，tasks/secretary-tools.ts）、负责人的提交计划（12，maintainers/tools.ts）；
 // 建议立项（15）、提议快速动作（21）照这个加。
 // 每个工具同时写明它在守卫的工具注册表里的登记（来源 host）：调用和别的工具一样先经守卫判定（07 号票）。
 import { AsyncLocalStorage } from "node:async_hooks";
@@ -23,7 +23,7 @@ export interface HostToolCall {
   /** 和它一起交给 agent 的另外几条（144 号票：排队交出的一批），按先后；只有一条时没有 */
   moreInputMessageIds?: readonly string[];
   /**
-   * 这一轮里已经进了模型上下文的插话（用户在维护者忙时又说的话，子进程收下的；送进去了还排着的不算），按先后。
+   * 这一轮里已经进了模型上下文的插话（用户在负责人忙时又说的话，子进程收下的；送进去了还排着的不算），按先后。
    * 子进程随 host_tool_call 报上来（宿主协议 16）。86 号票：发语音工具据此认出"用户在任务详情里说话的那一轮"。没有插话时没有
    */
   interjected?: readonly string[];
@@ -45,7 +45,7 @@ export interface HostToolOutput {
   /** 要出现在聊天里的卡片：拉起这个 agent 的模块往它的会话里追加一条只有卡片引用的消息（serveHostTools 的 onCards） */
   cardIds?: string[];
   /**
-   * 要作为 agent 的一条消息出现在聊天里的附件（09 号票的发附件；117 号票起维护者也有）：拉起这个 agent 的模块往它的会话里追加
+   * 要作为 agent 的一条消息出现在聊天里的附件（09 号票的发附件；117 号票起负责人也有）：拉起这个 agent 的模块往它的会话里追加
    * 一条只有这些附件的消息，带上会话此刻的归属（serveHostTools 的 onAttachments）
    */
   attachments?: MessagePart[];
@@ -154,7 +154,7 @@ export interface InFlightHostCall {
 const inFlight = new AsyncLocalStorage<InFlightHostCall & { active: boolean }>();
 
 /**
- * 此刻在哪次宿主工具调用里（152 号票：长程任务的阶段在维护者的某次工具调用里开始时，运行时记下是哪一次，会话回退据此回到这次调用的
+ * 此刻在哪次宿主工具调用里（152 号票：长程任务的阶段在负责人的某次工具调用里开始时，运行时记下是哪一次，会话回退据此回到这次调用的
  * 结果之后或这条回复之前）。工具执行完就不算了（执行期间起的计时器之后再触发时不算在这次调用里）；不在调用里的是 undefined
  */
 export function currentHostToolCall(): InFlightHostCall | undefined {

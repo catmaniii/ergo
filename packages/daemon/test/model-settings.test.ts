@@ -1,5 +1,5 @@
 // 设置里的"模型"（73 号票）的模块层测试：设置文件、按 agent 取模型、看图能力的层次、设置页的样子、连通测试的分支；
-// 120 号票：单独配了模型的维护者（盖过它那一行、别的 agent 不跟着变、配的模型没了退回跟随、设置页上列出来、改回跟随）。
+// 120 号票：单独配了模型的负责人（盖过它那一行、别的 agent 不跟着变、配的模型没了退回跟随、设置页上列出来、改回跟随）。
 // 319 号票：网页上填模型的 key（写密钥区的文件、换成现在用的、太短太长不收）。
 // 模型探查换成假的（不起子进程）；主切面在 test/main/model-settings.test.ts，pi 那一侧的契约在 test/contract/session-model.contract.test.ts。
 import fs from "node:fs";
@@ -27,7 +27,7 @@ interface Setup {
   catalog?: CatalogModel[] | Error;
   ping?: (request: Extract<ModelProbeRequest, { type: "ping" }>) => ModelProbeResult | Promise<ModelProbeResult>;
   dataDir?: string;
-  /** 单独配了模型的维护者是谁（120 号票） */
+  /** 单独配了模型的负责人是谁（120 号票） */
   maintainerOwner?: MaintainerOwnerOf;
   /** 网页上填了 key 之后组合根要做的事（319 号票：记忆整理那份环境也换掉） */
   keyApplied?: (provider: ModelProvider, key: string) => void;
@@ -282,7 +282,7 @@ describe("设置里的模型：连通测试", () => {
   });
 });
 
-/** 设置页上认得的维护者（120 号票）：pm-1 是项目「记账本」的，tm-3 是任务 t-3 的，别的不认得 */
+/** 设置页上认得的负责人（120 号票）：pm-1 是项目「记账本」的，tm-3 是任务 t-3 的，别的不认得 */
 const owners: MaintainerOwnerOf = (agentId) =>
   agentId === "pm-1"
     ? { agent: "project_maintainer", owner: { kind: "project", id: "p-1", title: "记账本" } }
@@ -290,11 +290,11 @@ const owners: MaintainerOwnerOf = (agentId) =>
       ? { agent: "task_maintainer", owner: { kind: "task", id: "t-3", title: "整理发票" } }
       : undefined;
 
-describe("单独配了模型的维护者（120 号票）", () => {
+describe("单独配了模型的负责人（120 号票）", () => {
   const PRO_HIGH = { modelId: "deepseek-v4-pro", thinkingLevel: "high" } as const;
   const FLASH_HIGH = { modelId: "deepseek-flash", thinkingLevel: "high" } as const;
 
-  it("某个项目的维护者单独配：只有它按单独配的，别的项目维护者、任务维护者照那一行；子 agent、评审、范围审视照各自那一行；写进设置文件，重启后照旧", async () => {
+  it("某个项目的负责人单独配：只有它按单独配的，别的项目负责人、任务负责人照那一行；子 agent、评审、范围审视照各自那一行；写进设置文件，重启后照旧", async () => {
     const { service, layout, dataDir, logs } = setup({ maintainerOwner: owners });
     await service.change(settings({ agents: { sub_agent: { modelId: "deepseek-flash", thinkingLevel: "off" } } }));
     await service.setMaintainerModel("pm-1", PRO_HIGH);
@@ -302,7 +302,7 @@ describe("单独配了模型的维护者（120 号票）", () => {
     expect(service.modelFor("project_maintainer", "pm-2")).toMatchObject(FLASH_HIGH);
     expect(service.modelFor("project_maintainer")).toMatchObject(FLASH_HIGH);
     expect(service.modelFor("task_maintainer", "tm-3")).toMatchObject(FLASH_HIGH);
-    // 它派出的子 agent、评审，范围审视：照各自那一行（拉起它们时不带维护者的 id）
+    // 它派出的子 agent、评审，范围审视：照各自那一行（拉起它们时不带负责人的 id）
     expect(service.modelFor("sub_agent")).toMatchObject({ modelId: "deepseek-flash", thinkingLevel: "off" });
     expect(service.modelFor("reviewer")).toMatchObject(FLASH_HIGH);
     expect(service.modelFor("scope_review")).toMatchObject(FLASH_HIGH);
@@ -374,7 +374,7 @@ describe("单独配了模型的维护者（120 号票）", () => {
     expect(service.maintainerModel("pm-1", "project_maintainer").unavailable).toBeUndefined();
   });
 
-  it("没有单独配了模型的维护者：起来时不查模型目录（和 73 号票一样，要用时才查）", () => {
+  it("没有单独配了模型的负责人：起来时不查模型目录（和 73 号票一样，要用时才查）", () => {
     const { probes } = setup();
     expect(probes).toEqual([]);
   });

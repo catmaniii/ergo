@@ -1,4 +1,4 @@
-// 给用户看的编号写成"编号「简短描述」"（159 号票加名字，163 号票统一成仓库里原来的 t-3「标题」写法）：写法、描述截短、维护者的描述、删掉了的说明。
+// 给用户看的编号写成"编号「简短描述」"（159 号票加名字，163 号票统一成仓库里原来的 t-3「标题」写法）：写法、描述截短、负责人的描述、删掉了的说明。
 import { describe, expect, test } from "vitest";
 import { deletedIdLabel, ID_DESCRIPTION_MAX, idLabel, maintainerDescription, maintainerIdLabel, namedIdLabel, shortDescription } from "../src/index.ts";
 
@@ -26,11 +26,11 @@ describe("编号「简短描述」", () => {
     expect(namedIdLabel("p-1", "记账本")).toBe("p-1「记账本」");
   });
 
-  test("维护者的描述：属于哪个任务、项目（名字截短，后缀照写）", () => {
-    expect(maintainerDescription({ kind: "task", name: "记账本" })).toBe("记账本的任务维护者");
-    expect(maintainerDescription({ kind: "project", name: "记账本" })).toBe("记账本的项目维护者");
-    expect(maintainerDescription({ kind: "job", name: "每天备份" })).toBe("每天备份的维护者");
-    expect(maintainerIdLabel("tm-2", { kind: "task", name: "记账本" })).toBe("tm-2「记账本的任务维护者」");
-    expect(maintainerIdLabel("pm-1", { kind: "project", name: LONG })).toBe(`pm-1「${LONG.slice(0, ID_DESCRIPTION_MAX)}…的项目维护者」`);
+  test("负责人的描述：属于哪个任务、项目（名字截短，后缀照写）", () => {
+    expect(maintainerDescription({ kind: "task", name: "记账本" })).toBe("记账本的任务负责人");
+    expect(maintainerDescription({ kind: "project", name: "记账本" })).toBe("记账本的项目负责人");
+    expect(maintainerDescription({ kind: "job", name: "每天备份" })).toBe("每天备份的负责人");
+    expect(maintainerIdLabel("tm-2", { kind: "task", name: "记账本" })).toBe("tm-2「记账本的任务负责人」");
+    expect(maintainerIdLabel("pm-1", { kind: "project", name: LONG })).toBe(`pm-1「${LONG.slice(0, ID_DESCRIPTION_MAX)}…的项目负责人」`);
   });
 });

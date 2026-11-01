@@ -41,7 +41,7 @@ export function stageOf(s: StageView, toolCalls: number | undefined): Stage {
     marks: s.marks,
     ruleDocs: s.ruleDocs,
     ...(s.userWords ? { userWords: s.userWords } : {}),
-    // 274 号票：维护者的自报、系统查到的个数
+    // 274 号票：负责人的自报、系统查到的个数
     ...(s.summary ? { summary: s.summary } : {}),
     ...(s.observed ? { observed: s.observed } : {}),
   };

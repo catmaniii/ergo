@@ -38,7 +38,7 @@
   "operations.result.error": "Error: {message}",
   "operations.inboxTitle": "Operations plan change awaiting your confirmation: {project}",
   "operations.source": "Project “{project}”",
-  "operations.superseded": "The maintainer submitted a newer operations plan, so this card no longer applies. See the latest one",
+  "operations.superseded": "The owner submitted a newer operations plan, so this card no longer applies. See the latest one",
   "operations.tool.propose": "Submit operations plan",
   "operations.material.confirmed": "Confirmed the operations plan for project “{project}” (revision {revision}): {summary}",
   "operations.material.rejected": "Rejected the operations plan for project “{project}” (revision {revision}): {summary}",

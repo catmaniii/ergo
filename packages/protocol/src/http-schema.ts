@@ -250,7 +250,7 @@ export type DeleteMaterialsResult = Static<typeof DeleteMaterialsResult>;
  * 记忆 · 素材的筛选（167 号票），都可以不给，给了的都要满足：
  * - from / to：时间段（带时区的 ISO 时间，两头都算，按素材的时间），可以只给一头；
  * - facets：种类（MATERIAL_FACETS），算其中任一种就行；空数组等于不筛；
- * - conversation：来源会话（秘书主线、某个维护者的会话）；不来自会话的素材这时不列；
+ * - conversation：来源会话（秘书主线、某个负责人的会话）；不来自会话的素材这时不列；
  * - query：关键词，按空白拆开、每个词都要有——用素材库的关键词检索（和秘书的素材检索同一个索引：本人的话、引用的说明、存的网页的正文）；
  *   这时列表里的摘录换成命中的那一段；
  * - dataSource：哪个数据源导入的（素材信封出处的 origin.dataSource，343 号票）；不是数据源导入的素材这时不列
@@ -452,7 +452,7 @@ export const ToolCallEffect = Type.Object({
 export type ToolCallEffect = Static<typeof ToolCallEffect>;
 
 /**
- * 一次工具调用的完整参数和返回（GET /api/tool-calls/<调用 id>）。秘书、维护者、子 agent、评审的调用都有，
+ * 一次工具调用的完整参数和返回（GET /api/tool-calls/<调用 id>）。秘书、负责人、子 agent、评审的调用都有，
  * 被拦下的、出错的也有；调用结束时由守护进程另存一份，重启后照样取得到。
  * - 和聊天里的工具调用记录一样经过隐私处理：读过的密钥值换成"（密钥）"；读了密钥文件的不记返回（resultWithheld）；
  * - 单个值（返回的文字、参数里的每个字符串）超过 TOOL_CALL_VALUE_MAX_BYTES 的只留开头，末尾注明"已截断"和原长，truncated 里列出；
@@ -471,7 +471,7 @@ export const ToolCallDetail = Type.Object({
   toolTitle: Type.Optional(Type.String()),
   /** 归属（和这次调用的工具调用记录一样，判定那一刻取的）：任务、项目、阶段、定时作业 */
   ...MessageScope.properties,
-  /** 发起调用的 agent（秘书、维护者、子 agent、评审）：总是有 */
+  /** 发起调用的 agent（秘书、负责人、子 agent、评审）：总是有 */
   agentId: Type.String(),
   /** 工具调用记录所在的会话；不在任何会话里的（评审子 agent 的调用）为 null */
   conversation: Type.Union([ConversationId, Type.Null()]),
@@ -499,7 +499,7 @@ export const ToolCallDetail = Type.Object({
   resultWithheld: Type.Optional(Type.Literal("secret_file")),
   purged: Type.Optional(Type.Literal(true)),
   /**
-   * 删掉的是哪种删除（66 号票）：删除项目时一起改写的为 project_deletion——项目维护者会话里的、属于这个项目的调用，
+   * 删掉的是哪种删除（66 号票）：删除项目时一起改写的为 project_deletion——项目负责人会话里的、属于这个项目的调用，
    * 和项目之外读过这个项目的调用（秘书会话里的、跨项目任务的评审）；彻底删除的没有这个字段
    */
   purgedBy: Type.Optional(Type.Literal("project_deletion")),
@@ -549,7 +549,7 @@ export const STAGE_FILE_CHANGES = ["created", "modified", "deleted"] as const;
 export type StageFileChange = (typeof STAGE_FILE_CHANGES)[number];
 
 /**
- * 维护者宣布完成时写的那一两句里提到的一个文件，和系统查到的对不对得上：found 这一轮新建或改过它；untouched 没查到这一轮新建或
+ * 负责人宣布完成时写的那一两句里提到的一个文件，和系统查到的对不对得上：found 这一轮新建或改过它；untouched 没查到这一轮新建或
  * 改过它；deleted 这一轮把它删了
  */
 export const STAGE_CLAIM_RESULTS = ["found", "untouched", "deleted"] as const;
@@ -561,7 +561,7 @@ export type StageClaimResult = (typeof STAGE_CLAIM_RESULTS)[number];
  * - sent：对外发送的每一件（和"从这里重做"列的对外的同一个口径：守卫的 sendsOut），按先后，同一件只列一次；
  * - files：改了哪些文件（效果日志里写、删的路径参数；工作目录、仓库这类"在哪儿做"的参数不算），按第一次动它的先后；
  * - other：本机做的、看不出改了哪些文件的（跑脚本、提交、装依赖、构建……），按工具数——里面改的文件效果日志记不到；
- * - claims：维护者宣布完成时写的那一两句（TaskStage.summary）里提到的文件，各自对不对得上；没写、没提到文件的是空的
+ * - claims：负责人宣布完成时写的那一两句（TaskStage.summary）里提到的文件，各自对不对得上；没写、没提到文件的是空的
  */
 export const StageObserved = Type.Object({
   sent: Type.Array(
@@ -584,7 +584,7 @@ export type StageObserved = Static<typeof StageObserved>;
  * - grantUses：这一阶段（连同所属阶段组）的每项授权用了几次，和守卫计次同一个口径（效果日志里本任务、这个阶段、授予之后、同一工具、
  *   对象范围之内的）；grantId 是计划里的授权项 id；
  * - reopenScope：从这里重做会重开的阶段（它和依赖它的、开始过的），按计划里的顺序；
- * - effects：这几个阶段这一轮（上次重开之后）已经做了的事。重做不撤回它们，只列出来、告诉维护者；
+ * - effects：这几个阶段这一轮（上次重开之后）已经做了的事。重做不撤回它们，只列出来、告诉负责人；
  * - observed：这个阶段这一轮系统查到的结果（274 号票）；开始过的阶段才有。
  * 宽松、向后兼容：以后只加可选字段
  */

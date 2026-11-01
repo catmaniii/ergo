@@ -1,6 +1,6 @@
 // 守卫切面：流程计划的审查修补（58 号票，guard/workflow-review.ts）：
 // 计划交给用户授权之前，按规则（框架的 v1 模板 + 计划里写的）在规划时查一遍，能修的修（插一步、改写），
-// 修不了的退回维护者或判定不可执行；另给出每一步要满足的条件和规划时查出的结果。
+// 修不了的退回负责人或判定不可执行；另给出每一步要满足的条件和规划时查出的结果。
 import { describe, expect, it } from "vitest";
 import { BUILTIN_TOOL_REGISTRY, TOOL, V1_TEMPLATE_IDS } from "../../src/guard/index.ts";
 import { reviewWorkflow, type WorkflowDraftStep } from "../../src/guard/workflow-review.ts";
@@ -25,7 +25,7 @@ describe("审查修补", () => {
     ]);
     // 插进来的那一步：参数是修补方案给的（推送那一步的仓库，默认取工作目录）
     expect(steps[1]).toMatchObject({ title: "推送之前先在这个仓库里跑一遍测试", args: { repoPath: P.workDir }, after: [] });
-    // 原来的步骤：参数照维护者写的（不换成规范化之后的样子，也不补上推送的 headCommit）
+    // 原来的步骤：参数照负责人写的（不换成规范化之后的样子，也不补上推送的 headCommit）
     expect(steps[2]).toMatchObject({ args: { remote: "origin", branch: "main" }, after: ["p1"] });
     expect(conditions.s2).toContainEqual(expect.objectContaining({ ruleId: V1_TEMPLATE_IDS.testBeforePush, template: true, status: "pass" }));
   });
@@ -43,7 +43,7 @@ describe("审查修补", () => {
     expect(r.note).toBeTruthy();
   });
 
-  it("计划里写的规则：违反时先问我的（不写 on_violation）交给用户逐项确认；退回的（pull_back）退回维护者重写", async () => {
+  it("计划里写的规则：违反时先问我的（不写 on_violation）交给用户逐项确认；退回的（pull_back）退回负责人重写", async () => {
     const confirmRule = { id: "only-once", title: "只推一次", trigger: { tool: TOOL.git_push }, require: { not_before: { tool: TOOL.git_push } }, message: "第二次推送要你点头" };
     const asked = await review([step("s1", TOOL.run_tests), step("s2", TOOL.git_push, { remote: "origin" }), step("s3", TOOL.git_push, { remote: "backup" })], [confirmRule]);
     expect(asked.review).toMatchObject({ status: "needs_confirmation", confirmations: ["第二次推送要你点头"] });

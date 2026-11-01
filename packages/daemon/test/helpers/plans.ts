@@ -1,4 +1,4 @@
-// 主切面里维护者提交的计划：一份字段齐全、能通过检查的计划（全局九类关注类别都在），以及按它写的 faux 剧本步骤。
+// 主切面里负责人提交的计划：一份字段齐全、能通过检查的计划（全局九类关注类别都在），以及按它写的 faux 剧本步骤。
 import type { Plan } from "@ergo/protocol";
 import { BUILTIN_CATEGORY_IDS } from "../../src/guard/index.ts";
 import type { FauxStep } from "../../src/runtime/index.ts";
@@ -51,7 +51,7 @@ export function samplePlan(overrides: Partial<Plan> = {}): Plan {
   };
 }
 
-/** 维护者调用"提交计划"的一步 */
+/** 负责人调用"提交计划"的一步 */
 export function submitPlanStep(plan: Plan = samplePlan()): FauxStep {
   return { kind: "reply", toolCalls: [{ name: "submit_plan", arguments: plan as never }] };
 }

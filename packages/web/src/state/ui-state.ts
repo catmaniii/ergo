@@ -18,7 +18,7 @@
 // "已删除"，原话不留；带原话的工具调用记录换成改写后的样子（messages_purged 里的 replacement）。
 // 输入框里引用的卡片（quote_card / unquote_card）也在这里：发消息时带上，发出去就清掉。
 // 29 号票起：个人工作日历（calendar 频道上的节假日数据和个人设置的最新样子），每天的结果见 workday.ts。
-// 15 号票起：项目（项目列表频道上的 project 事件，列表和项目页的入口见 projects.ts）；删掉的项目连同它的维护者会话一起拿掉。
+// 15 号票起：项目（项目列表频道上的 project 事件，列表和项目页的入口见 projects.ts）；删掉的项目连同它的负责人会话一起拿掉。
 // 24 号票起：任务和定时作业名下的 token 用量合计（看板频道上的 token_totals，每次记账后一条最新的），任务卡、作业卡、
 // 任务详情的细分见 usage.ts。
 // 25 号票起：会话里除了消息还有时间线上的记录（timeline_record：偏离、范围变更、越界；quick_action_executed：快速动作的操作记录），
@@ -29,7 +29,7 @@
 // 没收到过的是休眠。
 // 31 号票起：语音对象（会话频道上的 voice 事件，按版本留最新的；往上翻取回的一页也带着它们），气泡要的东西见 voice.ts。
 // 16 号票起：工单（项目列表频道上的 work_order 事件，项目页的工单流水线和看板上的"等项目 X"见 work-orders.ts）；
-// 删掉的项目连同它的工单一起拿掉。维护者会话的分段（segment 事件）界面不用：分隔线是会话里的工单分隔 part。
+// 删掉的项目连同它的工单一起拿掉。负责人会话的分段（segment 事件）界面不用：分隔线是会话里的工单分隔 part。
 // 32 号票起：agent 发的语音（会话频道上的 agent_voice 事件，按版本留最新的；往上翻取回的一页也带着它们），气泡和"转文字"见
 // agent-voice.ts。用语音回复的那一轮不流式显示回复；整段合成的回复文字收进语音里（时间线上不显示，长按"转文字"展开）。
 // 35 号票起：日历（calendar.ts）。经 HTTP 取回的一个月（calendar_month）按月份留着；任务看板频道上的提醒、定时作业事件和工作日历
@@ -207,12 +207,12 @@ export interface UiState {
   /** 定时作业的运行记录（键是运行号，19 号票）：scheduled_job 事件里带着的运行，留最新的 */
   readonly jobRuns: Readonly<Record<string, JobRun>>;
   /**
-   * 执行中的任务现在生效的计划（键是任务 id）：看板频道上最新的 task_plan（14 号票：计划变更确认、维护者自行调整计划之后推来）。
+   * 执行中的任务现在生效的计划（键是任务 id）：看板频道上最新的 task_plan（14 号票：计划变更确认、负责人自行调整计划之后推来）。
    * 没换过版的任务没有，阶段抽屉取计划卡上的
    */
   readonly taskPlans: Readonly<Record<string, TaskPlanEventPayload>>;
   /**
-   * 范围记录（键是记录 id，18 号票）：项目列表频道（项目维护者的）、任务看板频道（不属于项目的任务的）上的 scope_record 事件；
+   * 范围记录（键是记录 id，18 号票）：项目列表频道（项目负责人的）、任务看板频道（不属于项目的任务的）上的 scope_record 事件；
    * 删掉的项目的不在这里
    */
   readonly scopeRecords: Readonly<Record<string, ScopeRecord>>;
@@ -370,11 +370,11 @@ interface ConversationState {
    */
   readonly branches?: ConversationBranches;
   /**
-   * 长程任务阶段开始的记号（152 号票：维护者会话频道上的 stage_start，往上翻取回的更早的插在前面），按序号从早到晚：缩小视图据它在那一处
+   * 长程任务阶段开始的记号（152 号票：负责人会话频道上的 stage_start，往上翻取回的更早的插在前面），按序号从早到晚：缩小视图据它在那一处
    * 画"撤回到阶段「…」开始前"的回退点
    */
   readonly stageStarts?: readonly { readonly seq: number; readonly mark: StageStartEventPayload }[];
-  /** 项目维护者的会话最新的那一段还开着没有（152 号票：segment 事件；回退点只在当前这一段里）。没收到过 segment 事件是 undefined */
+  /** 项目负责人的会话最新的那一段还开着没有（152 号票：segment 事件；回退点只在当前这一段里）。没收到过 segment 事件是 undefined */
   readonly segmentOpen?: boolean;
   /**
    * 经 HTTP 取回的废弃分支的样子（151 号票：⑂ 预览、分支详情要的分支摘要、遗留效果），按分支 id；against 是取的时候和哪条比的
@@ -646,7 +646,7 @@ const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiSta
     const mark = frame.payload as StageStartEventPayload;
     return updateConversation(state, frame.channel, (conv) => ({ ...conv, stageStarts: [...(conv.stageStarts ?? []), { seq: frame.seq, mark }] }));
   },
-  // 项目维护者的会话分段（16 号票）：最新那一段还开着没有（152 号票：结束了就没有回退点）
+  // 项目负责人的会话分段（16 号票）：最新那一段还开着没有（152 号票：结束了就没有回退点）
   [EVENT_TYPES.segment]: (state, frame) => {
     const { segment } = frame.payload as SegmentEventPayload;
     return updateConversation(state, frame.channel, (conv) => ({ ...conv, segmentOpen: segment.state !== "closed" }));
@@ -719,7 +719,7 @@ const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiSta
   },
   [EVENT_TYPES.task]: (state, frame) => {
     const { task, change, reopened } = frame.payload as TaskEventPayload;
-    // 用户删掉了的任务（186 号票）：任务和它的维护者会话都删了（会话频道上只剩"已删除"标记），界面上一起拿掉
+    // 用户删掉了的任务（186 号票）：任务和它的负责人会话都删了（会话频道上只剩"已删除"标记），界面上一起拿掉
     if (task.deleted) return withoutTask(state, task);
     const tasks = { ...state.tasks, [task.id]: task };
     if (change !== "rework") return { ...state, tasks };
@@ -772,7 +772,7 @@ const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiSta
   [EVENT_TYPES.project]: (state, frame) => {
     const { project, change } = frame.payload as ProjectEventPayload;
     if (change !== "deleted") return { ...state, projects: { ...state.projects, [project.id]: project } };
-    // 删掉的项目：项目档案和维护者会话都删了（会话频道上只剩"已删除"标记），界面上一起拿掉
+    // 删掉的项目：项目档案和负责人会话都删了（会话频道上只剩"已删除"标记），界面上一起拿掉
     const conversation = maintainerChannel(project.maintainerId);
     return withoutStream(
       {
@@ -798,7 +798,7 @@ const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiSta
     const { workOrder } = frame.payload as WorkOrderEventPayload;
     return { ...state, workOrders: { ...state.workOrders, [workOrder.id]: workOrder } };
   },
-  // 范围记录（18 号票）：项目列表频道上的是项目维护者的，任务看板频道上的是不属于项目的任务的；删掉的项目的在它的 deleted 那里一起拿掉
+  // 范围记录（18 号票）：项目列表频道上的是项目负责人的，任务看板频道上的是不属于项目的任务的；删掉的项目的在它的 deleted 那里一起拿掉
   [EVENT_TYPES.scopeRecord]: (state, frame) => {
     if (isDeletedEventPayload(frame.payload)) return state;
     const { record } = frame.payload as ScopeRecordEventPayload;
@@ -807,8 +807,8 @@ const eventHandlers: Record<string, (state: UiState, frame: EventFrame) => UiSta
 };
 
 /**
- * 删掉的任务（186 号票）：任务、它的计划和返工记录拿掉；会话是它自己的（任务自己的维护者、迁移来的定时任务的作业维护者）也一起拿掉，
- * 由项目的维护者做的（项目删掉了才能删）不动别的会话
+ * 删掉的任务（186 号票）：任务、它的计划和返工记录拿掉；会话是它自己的（任务自己的负责人、迁移来的定时任务的作业负责人）也一起拿掉，
+ * 由项目的负责人做的（项目删掉了才能删）不动别的会话
  */
 function withoutTask(state: UiState, task: Task): UiState {
   const base = { ...state, tasks: withoutKey(state.tasks, task.id), taskPlans: withoutKey(state.taskPlans, task.id), taskReopens: withoutKey(state.taskReopens, task.id) };
@@ -1266,7 +1266,7 @@ export function conversationView(state: UiState, conversation: ConversationId): 
   return [...conv.messages.filter((m) => shown(m.seq)).map(entryItem), ...liveItems(state, conversation)];
 }
 
-/** 分支摘要替它说清楚了的通知（152 号票：撤回之后运行时交给维护者接着做的那句，BranchSummaryPart.notice） */
+/** 分支摘要替它说清楚了的通知（152 号票：撤回之后运行时交给负责人接着做的那句，BranchSummaryPart.notice） */
 function continuedNotices(conv: ConversationState): string[] {
   return conv.messages.flatMap((m) => ("message" in m ? m.message.parts.flatMap((p) => (p.type === "branch_summary" && p.notice !== undefined ? [p.notice] : [])) : []));
 }
@@ -1278,7 +1278,7 @@ export function pathStageStarts(state: UiState, conversation: ConversationId): r
   return (conv.stageStarts ?? []).filter((m) => shown(m.seq));
 }
 
-/** 项目维护者的会话最新那一段还开着没有（152 号票）；不知道（没收到过分段事件）是 undefined */
+/** 项目负责人的会话最新那一段还开着没有（152 号票）；不知道（没收到过分段事件）是 undefined */
 export function segmentOpen(state: UiState, conversation: ConversationId): boolean | undefined {
   return state.conversations[conversation]?.segmentOpen;
 }
@@ -1314,8 +1314,8 @@ export function timelineItems(state: UiState, conversation: ConversationId, bran
   // 会话回退过（150 号票）：只要当前分支上的消息和记录；给了一条废弃分支（151 号票的预览、详情）只要它自己那一段，没有正在生成的这些
   const shown = branch === undefined ? onPath(conv) : ownPart(conv, branch);
   const covered = replyCoverage(state, conversation);
-  // 记录替它说清楚了的交给 agent 的通知（84 号票：重做记录后面交给维护者接着做的那句）不再重复显示；
-  // 152 号票：分支摘要替它说清楚了的（撤回之后运行时交给维护者接着做的那句）也一样
+  // 记录替它说清楚了的交给 agent 的通知（84 号票：重做记录后面交给负责人接着做的那句）不再重复显示；
+  // 152 号票：分支摘要替它说清楚了的（撤回之后运行时交给负责人接着做的那句）也一样
   const noticesInRecords = new Set([
     ...conv.records.flatMap(({ record }) => (record.type === "timeline" && record.timeline.noticeId !== undefined ? [record.timeline.noticeId] : [])),
     ...continuedNotices(conv),
@@ -1358,7 +1358,7 @@ export function activityNote(activity: AgentActivity): string | undefined {
 
 /**
  * 一个 agent 现在的活动状态：落盘的状态和说明，干活中时说明换成最新的进度。
- * 没收到过的是休眠（还没被唤起过的维护者；默认值只在这里）
+ * 没收到过的是休眠（还没被唤起过的负责人；默认值只在这里）
  */
 export function agentActivity(state: UiState, agentId: string): AgentActivity {
   const latest = state.activity[agentId];

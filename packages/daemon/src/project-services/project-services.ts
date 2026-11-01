@@ -3,15 +3,15 @@
 //   （同一个服务的要求排队，做的时候又来了新的就照最新的再做一遍，旧的结果不记）：
 //   · 上线：经接入协议（LSM 的 link-protocol §7）登记 / 更新（put，整份替换，带开机自启）→ 没在跑的启动（等到就绪或失败）、在跑而
 //     定义改了要重启的重启（force：二狗登记的服务没有停机命令）；在跑时改端口的先停再登记。成了在转发登记表里登记
-//     /apps/<应用名>/（有网页的），之后在首页上跑一遍前缀下自检，有问题告诉维护者；
+//     /apps/<应用名>/（有网页的），之后在首页上跑一遍前缀下自检，有问题告诉负责人；
 //   · 撤下：撤掉转发，LSM 里登记着的撤销（强制停、端口空了、拿掉登记）；
 //   · LSM 版本不支持（welcome 里没有 services）、二狗不是由 LSM 启动的：记"要你手动"，不假装生效；LSM 还没连上的等连上再做。
 //     重新接上（welcome 里有 services）时，没做完的、要你手动的、撤下失败的再做一遍（LSM 升级、重启后自动补上）；
-//   · 做完记一条 service_rollout（上线了、上线失败及原因、要你手动、撤下了、撤下失败）；上线失败、要你手动的同一事务通知维护者。
+//   · 做完记一条 service_rollout（上线了、上线失败及原因、要你手动、撤下了、撤下失败）；上线失败、要你手动的同一事务通知负责人。
 // - LSM 推来的状态（services.status：接入时一次全量，之后只推变了的）只放内存：在线、启动中、离线、失败（及原因）……；LSM 没连上时
 //   是"状态未知"。
 // - 上线了的服务后来挂了（失败、停了、LSM 里没有了）持续一小段时间（outageGraceMs，默认 30 秒；中间启动中、停止中也算没好）才通知
-//   维护者，写明 LSM 给的原因；又在线持续同样一段时间再说一声好了。重启一下、健康检查抖一下不报；同一次故障只报一次（报过的记一条
+//   负责人，写明 LSM 给的原因；又在线持续同样一段时间再说一声好了。重启一下、健康检查抖一下不报；同一次故障只报一次（报过的记一条
 //   service_outage，守护进程重启了也不重报）；LSM 没连上（状态未知）时不判。用户那边照旧只在入口、项目页、秘书看板上标着。
 // - 守护进程起来时（start）：上线了的、有网页的先在转发登记表里登记上（不等 LSM），没做完的接着做。
 // - 给前端、秘书看的样子（ProjectServiceView）由派生视图和内存里的状态现算，变了就整份推一次（publish：项目列表频道的临时事件）。
@@ -22,16 +22,16 @@
 //   什么都不记），记一条 service_power（最新的一条算数），每个服务排进它那一串照最新的开关做：
 //   · 关闭：取消开机自启、强制停（二狗登记的服务没有停机命令），记 service_power_done（关好了、没关成及原因；没关成的重新接上 LSM 时再关）；
 //   · 启动：照定义整份重新登记（开机自启回到定义里的样子）、启动等到就绪——就是"上线"那一套，结果照样记 service_rollout（带 powerSeq），
-//     起不来的就是上线失败（原因来自 LSM，通知维护者）；
+//     起不来的就是上线失败（原因来自 LSM，通知负责人）；
 //   · 关着的时候又要上线（改了方案、重新接上 LSM 补做）：登记时开机自启写关、不启动，在跑的停掉——关了就一直关着；
 //   · 例外（用户 2026-10-24 定，259 号票）：关着的项目停用后重新启用（含取消归档回到使用中），重新启用就全部拉起——同一时刻记一条
 //     "全部启动"（by user），重新上线照它做；
 //   · 做的时候又点了：做完这一步，旧的结果不记，照最新的再做一遍；守护进程起来时没做完的接着做，做完了的什么都不动（关着的不拉起）；
-//   · 关着、还在启动 / 关闭的不看挂没挂（不通知维护者）；转发照样登记着，打开是"服务没在线"的说明页。
+//   · 关着、还在启动 / 关闭的不看挂没挂（不通知负责人）；转发照样登记着，打开是"服务没在线"的说明页。
 // - 269 号票（用户 2026-10-25 定"二狗自己兜底"：电脑重启后 LSM 没按开机自启拉服务，使用中的项目服务一直停着）：二狗接上 LSM
 //   （守护进程起来、LSM 重新接上，welcome 里有 services）时，记下上线了、用户没关（开关不是关着、不在启动 / 关闭中）、项目使用中的
 //   服务；接上后的第一份全量里它没在跑（停着、失败、LSM 里没有了；启动中、停止中的是 LSM 自己在弄，不动）就排进它那一串，照"上线"
-//   那一套整份登记、启动等到就绪，结果记 service_rollout（revive: true），起不来的通知维护者。只在接上时做一次：之后挂了照上面的故障
+//   那一套整份登记、启动等到就绪，结果记 service_rollout（revive: true），起不来的通知负责人。只在接上时做一次：之后挂了照上面的故障
 //   通知走，不自动反复拉（免得和 LSM 的挂了自动重启打架）；拉的时候不看挂没挂；还在上线中的、要你手动的照 133 补做，不算在里面。
 //   start() 在接入层建好、还没连上时叫（组合根里紧跟着 linkToLsm），所以守护进程起来那一次也是收到 welcome 时记下。
 // - 324 号票：同一份全量里在跑的（RUNNING / DEGRADED）照现在的方案整份再登记一次（resync）——同一份定义 LSM 不改；二狗换了 Node
@@ -45,7 +45,7 @@
 //     登记变了、刚发了凭证的重启一次；真没在跑才记失败；
 //   · 自愈（heal）：记着上线失败、LSM 报告它在线（接上时的全量和之后的推送都算）、用户没关、项目使用中的，照现在的方案整份再登记一次：登记不进去的（跑的还是
 //     旧方案的那一份）留着失败；登记成了记 service_rollout（heal: true）回到上线了，不通知、不跑前缀下自检，日志一行；定义变了（LSM 回 restartNeeded）、
-//     刚发了凭证的先重启一次，没起来才记失败、通知维护者。第二次起 LSM 就不回 restartNeeded、凭证也有了，不会再重启。
+//     刚发了凭证的先重启一次，没起来才记失败、通知负责人。第二次起 LSM 就不回 restartNeeded、凭证也有了，不会再重启。
 import {
   CHANNELS,
   EVENT_TYPES,
@@ -93,7 +93,7 @@ export interface ProjectServicesOptions {
   secretsDir: string;
   /** 二狗自己那份 Node（守护进程的 process.execPath）：命令开头是 node 的换成它（spec 的 withOwnNode）；不给就原样登记 */
   nodePath?: string;
-  /** 项目（名字、维护者、状态）；删掉的是 undefined */
+  /** 项目（名字、负责人、状态）；删掉的是 undefined */
   project: (projectId: string) => Project | undefined;
   /** 上线之后的前缀下自检（apps/prefix-check.ts 的 checkAppPrefix） */
   prefixCheck: (target: string, app: string, prefix: "strip" | "keep") => Promise<PrefixCheckResult>;
@@ -103,7 +103,7 @@ export interface ProjectServicesOptions {
   publish: (services: ProjectServiceView[]) => void;
   /** 上线了的服务挂了 / 好了要持续多久才报（按这个时钟数） */
   clock: Clock;
-  /** 挂了 / 又在线持续多久（毫秒）才报给维护者；不填是 SERVICE_OUTAGE_GRACE_MS */
+  /** 挂了 / 又在线持续多久（毫秒）才报给负责人；不填是 SERVICE_OUTAGE_GRACE_MS */
   outageGraceMs?: number;
   /**
    * 服务首页的缩略图（140 号票）：存在哪（数据目录的缓存区）、怎么截（正式的用无头浏览器，测试注入假的）、二狗本机端口的地址
@@ -116,7 +116,7 @@ export interface ProjectServicesOptions {
   log: (line: string) => void;
 }
 
-/** 上线了的服务不在线、又在线各要持续多久（毫秒）才报给维护者：LSM 重启一下、健康检查抖一下（LSM 自己也要连着两轮才判）不报 */
+/** 上线了的服务不在线、又在线各要持续多久（毫秒）才报给负责人：LSM 重启一下、健康检查抖一下（LSM 自己也要连着两轮才判）不报 */
 export const SERVICE_OUTAGE_GRACE_MS = 30_000;
 
 export interface ProjectServices {
@@ -172,13 +172,13 @@ export function replyReason(reply: Extract<LsmServicesReply, { ok: false }>): st
   return [reply.error.message, ...details, ...(last ? [last] : [])].join(t("projectServices.reasonSep"));
 }
 
-/** basis：LSM 回复里带着的这个服务的状态（362 号票：通知维护者时写上它判断的依据），只进通知 */
+/** basis：LSM 回复里带着的这个服务的状态（362 号票：通知负责人时写上它判断的依据），只进通知 */
 type Outcome = { state: ServiceRolloutState; reason?: string; basis?: string; registered: boolean };
 
 /** LSM 回的失败里，这个服务现在的状态：状态、健康检查、它的说明 */
 const statusBasis = (s: LsmServiceStatus | undefined): string | undefined => {
   if (!s) return undefined;
-  const parts = [`状态 ${s.state}`, ...(s.health ? [`健康检查 ${s.health}`] : []), ...(s.detail && s.detail !== s.lastError ? [s.detail] : [])]; // @i18n-ignore model：交给维护者的通知
+  const parts = [`状态 ${s.state}`, ...(s.health ? [`健康检查 ${s.health}`] : []), ...(s.detail && s.detail !== s.lastError ? [s.detail] : [])]; // @i18n-ignore model：交给负责人的通知
   return parts.join("，"); // @i18n-ignore model
 };
 
@@ -203,7 +203,7 @@ const livenessOf = (s: ServiceStatus): Liveness => {
   return s === "unknown" ? "unknown" : "between";
 };
 
-/** 维护者自己核实时连哪（362 号票）：健康检查的地址，没写健康检查的连首页 */
+/** 负责人自己核实时连哪（362 号票）：健康检查的地址，没写健康检查的连首页 */
 const probeUrl = (row: ServiceRow) => `http://127.0.0.1:${row.desired.service.port}${row.desired.service.health?.path ?? "/"}`;
 
 /** 这一行做完了没有：没有结果的是还没做完；要你手动的、撤下失败的重新接上 LSM 时再做 */
@@ -457,7 +457,7 @@ export function createProjectServices(options: ProjectServicesOptions): ProjectS
   };
 
   /**
-   * 上线失败、要你手动：通知项目的维护者（唤起它；项目已归档的不通知）。362 号票：这些通知都只在对话段里处理，不打断正在做的工单。269：接上 LSM 时兜底拉不起来的说明是接上时拉的；363：自愈时重启没起来的
+   * 上线失败、要你手动：通知项目的负责人（唤起它；项目已归档的不通知）。362 号票：这些通知都只在对话段里处理，不打断正在做的工单。269：接上 LSM 时兜底拉不起来的说明是接上时拉的；363：自愈时重启没起来的
    * 说明是更新登记时重启的（once 带着那一次结果的幂等键：每次各通知一次）
    */
   const notices = (row: ServiceRow, outcome: Outcome, once?: { how: RolloutHow; key: string }): NewEvent[] => {
@@ -467,14 +467,14 @@ export function createProjectServices(options: ProjectServicesOptions): ProjectS
     const v = viewOf(row);
     const reason = outcome.reason ?? "";
     // 362 号票：依据写全（LSM 给的原因，加上它报的状态），提示先自己连健康检查的地址核实
-    // @i18n-ignore-next model：交给维护者的通知
+    // @i18n-ignore-next model：交给负责人的通知
     const said = outcome.basis ? `${reason}（${outcome.basis}）` : reason;
     const text = outcome.state === "manual" ? noticeText.manual(v, reason) : once?.how === "revive" ? noticeText.reviveFailed(v, said, probeUrl(row)) : once?.how === "heal" ? noticeText.healRestartFailed(v, said, probeUrl(row)) : noticeText.failed(v, said, probeUrl(row));
     const key = once ? `${once.key}:notice` : `service-rollout:${row.app}:${row.desiredSeq}:${outcome.state}:notice`;
     return [buildAgentNotice(maintainerChannel(project.maintainerId), text, key, { projectId: project.id }, { chatOnly: true }).event];
   };
 
-  /** 上线了的、有网页的：首页跑一遍前缀下自检，有问题告诉维护者（不挡上线） */
+  /** 上线了的、有网页的：首页跑一遍前缀下自检，有问题告诉负责人（不挡上线） */
   const checkPrefix = (row: ServiceRow) => {
     const s = row.desired.service;
     if (!s.web) return;
@@ -538,7 +538,7 @@ export function createProjectServices(options: ProjectServicesOptions): ProjectS
     watches.set(app, entry);
   };
 
-  /** 挂了 / 好了持续够久了：记一条 service_outage，同一事务通知维护者 */
+  /** 挂了 / 好了持续够久了：记一条 service_outage，同一事务通知负责人 */
   const report = (app: string, to: "down" | "up", seen?: string): void => {
     if (stopped) return;
     const w = watched(app);

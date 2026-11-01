@@ -1,15 +1,15 @@
-// 计划变更和自行调整计划（规格第 8 节"计划变更"，14 号票）的纯函数：维护者交来一份新计划，和当前确认的计划比，
+// 计划变更和自行调整计划（规格第 8 节"计划变更"，14 号票）的纯函数：负责人交来一份新计划，和当前确认的计划比，
 // 列出新增或改动的部分（PlanChangeItem），并判断每一处是否扩大授权或改了目标、验收：
 // - 扩大的（新增授权项、放宽对象范围或次数、延长有效期、授权项换阶段、加工具包能力、加项目、改目标或任务的验收标准、
 //   改阶段的验收或交付件、加预算、删改时序规则、换进有授权的阶段组或离开有规则的阶段组）走计划变更：用户在计划变更卡上确认，
 //   只有受影响的阶段停下来等；
-// - 不扩大的（拆阶段、调顺序、改步骤和标题、收窄或去掉授权项、加时序规则）维护者自行调整，记进时间线。
-// 维护者交的新计划里没有本任务的关注类别、用户的限制、定时作业和记忆范围：执行中这几样沿用当前计划
+// - 不扩大的（拆阶段、调顺序、改步骤和标题、收窄或去掉授权项、加时序规则）负责人自行调整，记进时间线。
+// 负责人交的新计划里没有本任务的关注类别、用户的限制、定时作业和记忆范围：执行中这几样沿用当前计划
 // （类别只能由用户在计划变更卡上加，限制是用户说过的话），所以只比其余部分。
 // 每种改动的说法、对应的授权项、落在哪些阶段上在协议包 plan.ts 的 PLAN_CHANGE_KINDS 一张表里。
 // 已验收的阶段不能改（要改让用户返工）。授权项的有效期（授予时间、到期时间）在变更之后怎么算也在这里（grantTimesAfter）。
-// 121 号票：维护者只交要改的就行——没写到的阶段、没写的栏从当前计划原样带上（mergeDraft），交来的已验收阶段以现在的定义为准
-// （有出入的记下哪几处，交给维护者的结果里说明，不整份拒掉）；要去掉阶段写在 removeStages（removalProblems）；
+// 121 号票：负责人只交要改的就行——没写到的阶段、没写的栏从当前计划原样带上（mergeDraft），交来的已验收阶段以现在的定义为准
+// （有出入的记下哪几处，交给负责人的结果里说明，不整份拒掉）；要去掉阶段写在 removeStages（removalProblems）；
 // 不一样的地方说得出具体哪一处（stageDifferences："验收标准第 2 条"）。
 import {
   type AcceptanceCriterion,
@@ -39,7 +39,7 @@ import { type ToolRegistry, validateGrantChange } from "../guard/index.ts";
 import { type GrantTime, grantValidityMs, planGrantIdOf, toGuardGrant, toGuardPlan } from "./plan.ts";
 
 /**
- * 维护者在执行中交来的计划（协议包的 PlanDraft）：本任务的关注类别、用户的限制、记忆范围沿用当前计划，不在里面；
+ * 负责人在执行中交来的计划（协议包的 PlanDraft）：本任务的关注类别、用户的限制、记忆范围沿用当前计划，不在里面；
  * 121 号票起只交要改的——每一栏都可以不写（沿用当前计划），stages 里只写要改的、新加的阶段
  */
 export type PlanDraft = Partial<Omit<Plan, "watchCategories" | "userLimits" | "memoryScope">>;
@@ -58,15 +58,15 @@ export interface DraftMerge {
 }
 
 /**
- * 维护者交来的计划合上当前计划，成为一份完整的计划（121 号票：只交要改的就行）：
+ * 负责人交来的计划合上当前计划，成为一份完整的计划（121 号票：只交要改的就行）：
  * - stages 里写到的阶段按 stageId 换成交来的，新加的加上；没写到的从当前计划原样带上（编号、前置关系、执行状态都不变），
  *   removeStages 里的去掉（能不能去掉先过 removalProblems）。先后：写到的按交来的先后，带上的留在原来的位置，
  *   新加的阶段排在它在当前计划里的前置阶段后面（交全部阶段时就是交来的先后）；
  * - 交来的已验收阶段（accepted）以现在的定义为准、忽略交来的那份（已验收的阶段不能改，要改让用户返工）：和现在不一样的
- *   列进 keptAccepted（哪几处不一样），交给维护者的结果里说明，不再整份拒掉；
+ *   列进 keptAccepted（哪几处不一样），交给负责人的结果里说明，不再整份拒掉；
  * - 别的栏（阶段组、工具包、项目、假设栏、停点、token 粗估）不写是沿用当前计划，写了整栏按写的算；
  * - 本任务的关注类别、用户的限制、记忆范围沿用当前计划。工具包里"给秘书发消息"（102 号票）、"发附件"（117 号票）
- *   不写是沿用现在的（不是默认开：用户在任务详情里关掉之后，维护者自行调整计划没写这一项不能把它悄悄打开）；写了照写的算，打开算扩大
+ *   不写是沿用现在的（不是默认开：用户在任务详情里关掉之后，负责人自行调整计划没写这一项不能把它悄悄打开）；写了照写的算，打开算扩大
  */
 /**
  * 负责人在执行中交来的计划（361 号票）：它写的 token 不作数，沿用这个阶段现在计划里存的（之前存下的计划有数，新的是 0）；
@@ -132,7 +132,7 @@ function mergeStages(current: readonly PlanStage[], submitted: readonly PlanStag
   return out;
 }
 
-/** 内容一样就算一样：对象的字段先后不算（维护者照抄时字段先后常常不同），undefined 的字段当没写 */
+/** 内容一样就算一样：对象的字段先后不算（负责人照抄时字段先后常常不同），undefined 的字段当没写 */
 function canonical(value: unknown): string {
   return JSON.stringify(value, (_key, v: unknown) =>
     v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).toSorted().map((k) => [k, (v as Record<string, unknown>)[k]])) : v,
@@ -141,7 +141,7 @@ function canonical(value: unknown): string {
 
 const sameContent = (a: unknown, b: unknown) => canonical(a) === canonical(b);
 
-// 交来的和现在哪几处不一样、去不掉的阶段：交回维护者（工具结果），照旧中文
+// 交来的和现在哪几处不一样、去不掉的阶段：交回负责人（工具结果），照旧中文
 // @i18n-ignore-start model
 /** 两个列表逐条比，不一样的那几条（第几条；一边多出来的也算）："验收标准第 2 条" */
 function itemDifferences(label: string, before: readonly unknown[], after: readonly unknown[]): string[] {
@@ -156,7 +156,7 @@ function idDifferences<T extends { id: string }>(label: string, before: readonly
   return ids.filter((id) => !sameContent(before.find((x) => x.id === id), after.find((x) => x.id === id))).map((id) => `${label} ${id}`);
 }
 
-/** 一个阶段维护者写的各栏（编号除外：编号由守护进程定，93 号票） */
+/** 一个阶段负责人写的各栏（编号除外：编号由守护进程定，93 号票） */
 const STAGE_FIELDS = new Set(["stageId", "title", "deliverables", "acceptance", "mode", "modeReason", "steps", "roughIdea", "dependsOn", "policy", "budget", "groupId", "code"]);
 
 /** 阶段里上面那几栏以外的（之前存下的计划里可能有）：也要一样 */
@@ -253,7 +253,7 @@ const totals = (plan: Plan) => ({
   toolCalls: plan.stages.reduce((n, s) => n + s.budget.toolCalls, 0),
 });
 
-/** 任务书里改得了的两样（目标、任务的验收标准）：维护者在计划变更里写了新的才比 */
+/** 任务书里改得了的两样（目标、任务的验收标准）：负责人在计划变更里写了新的才比 */
 export interface BriefChange {
   goal?: { before: string; after: string };
   criteria?: { before: readonly string[]; after: readonly string[] };
@@ -297,7 +297,7 @@ export function diffPlan({ before, after, goal, criteria: briefCriteria, tools }
   for (const [id, b] of was) if (!now.has(id)) items.push({ kind: "grant_removed", expands: false, owner: b.owner, grant: b.grant });
 
   // ── 工具包、项目、任务书（目标、任务的验收标准） ──
-  // 开 bash、加 MCP、开联网（27 号票）、打开给秘书发消息（102 号票）算扩大：skill 只是说明书，不增加权限，维护者自己增减
+  // 开 bash、加 MCP、开联网（27 号票）、打开给秘书发消息（102 号票）算扩大：skill 只是说明书，不增加权限，负责人自己增减
   if (!sameToolkit(before.toolkit, after.toolkit)) items.push({ kind: "toolkit", expands: toolkitExpansions(before.toolkit, after.toolkit).length > 0, before: before.toolkit, after: after.toolkit });
   if (!same(before.projects, after.projects)) items.push({ kind: "projects", expands: projectAdditions(before.projects, after.projects).length > 0, before: before.projects, after: after.projects });
   if (goal && goal.after.trim() !== "" && goal.after.trim() !== goal.before.trim()) items.push({ kind: "goal", expands: true, before: goal.before, after: goal.after.trim() });
@@ -404,14 +404,14 @@ export function touchedText(before: Plan, after: Plan, id: string): string | und
   const was = before.stages.find((x) => x.stageId === id);
   const now = after.stages.find((x) => x.stageId === id);
   if (!was && !now) return undefined;
-  if (!was || !now) return now ? `阶段 ${id} 是新加的` : `阶段 ${id} 去掉了`; // @i18n-ignore model：交回维护者
+  if (!was || !now) return now ? `阶段 ${id} 是新加的` : `阶段 ${id} 去掉了`; // @i18n-ignore model：交回负责人
   const differences = stageDifferences(was, now);
   return differences.length > 0 ? acceptedDifferenceText({ stageId: id, differences }) : undefined;
 }
 
 /**
  * 计划变更要停下哪些阶段：扩大的改动落在哪些阶段上（PLAN_CHANGE_KINDS 里各种改动的 stages：授权项挂的阶段、阶段组里的各阶段、
- * 改了验收或交付件的阶段、加了预算的阶段、删改了规则的阶段……），加上维护者点名的；都不落在现有阶段上的（工具包、项目、目标）
+ * 改了验收或交付件的阶段、加了预算的阶段、删改了规则的阶段……），加上负责人点名的；都不落在现有阶段上的（工具包、项目、目标）
  * 停下手头在做的那个。只停现有的、还没验收的阶段（新加的阶段确认之后才有）
  */
 export function affectedStages(items: readonly PlanChangeItem[], after: Plan, list: readonly TaskStage[], declared: readonly string[], current: string | undefined): string[] {

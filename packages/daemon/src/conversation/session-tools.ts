@@ -1,6 +1,6 @@
-// 每个会话都配的代为执行的工具：装配用的一个对象（daemon.ts 建一次，交给秘书、任务的维护者、项目的维护者、定时作业的维护者、
+// 每个会话都配的代为执行的工具：装配用的一个对象（daemon.ts 建一次，交给秘书、任务的负责人、项目的负责人、定时作业的负责人、
 // 子 agent 的装配；70 号票评审后定：不再把联网工具一样样穿过各模块的选项）。
-// - 联网搜索、读网页（70 号票）：每个会话都配（评审子 agent 除外），联网开关关着时守卫拒绝；子 agent 从维护者收窄后也有。
+// - 联网搜索、读网页（70 号票）：每个会话都配（评审子 agent 除外），联网开关关着时守卫拒绝；子 agent 从负责人收窄后也有。
 //   162 号票起工具说明跟着设置里的队列写（停用了的方式不写，agent-browser 的位置写进去），所以每次装配现做（web(agent)：这个 agent
 //   有没有 bash 决定提不提 agent-browser）；设置改了 onWebChange 通知，常驻的秘书手头这一条处理完按新的重新装配，别的 agent 下次唤起时就是新的；
 //   182 号票：有 browse_* 工具的 agent（秘书）说明里另写"鸿蒙 App 的内置浏览器"的位置，web_search 按这一轮是不是侧边栏、悬浮按钮来的
@@ -38,7 +38,7 @@ export interface SessionTools {
   onVoiceChange?(listener: () => void): () => void;
 }
 
-/** 和用户说话的会话（秘书、维护者的每一段、定时作业的每次运行）都有的工具：联网搜索、读网页，口语总结、发语音；不给就没有 */
+/** 和用户说话的会话（秘书、负责人的每一段、定时作业的每次运行）都有的工具：联网搜索、读网页，口语总结、发语音；不给就没有 */
 export function conversationTools(tools: SessionTools | undefined, agent: WebToolsAgent): HostTool[] {
   return [...(tools?.web(agent) ?? []), ...(tools?.voiceReplies?.tools ?? [])];
 }

@@ -28,7 +28,7 @@ function assemblyOf(overrides: Partial<SessionAssembly> = {}): SessionAssembly {
     tools: [],
     contributions: { tools: [], contextBlocks: [], hooks: [] },
     skillPaths: [],
-    systemPrompt: "你是二狗的维护者。",
+    systemPrompt: "你是二狗的负责人。",
     continueSession: true,
     forwardToolCalls: false,
     shellEnv: {},

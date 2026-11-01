@@ -1,4 +1,4 @@
-// 主切面：任务做完告诉秘书（99 号票，规格第 7 节"任务做完告诉秘书"）。真的守护进程，秘书、维护者接 faux 剧本，测试扮演前端：
+// 主切面：任务做完告诉秘书（99 号票，规格第 7 节"任务做完告诉秘书"）。真的守护进程，秘书、负责人接 faux 剧本，测试扮演前端：
 // - 普通任务、流程、长程任务做完，定时触发的任务每次运行成功，秘书都收到一条"任务做完"的通知（剧本里 echo_context 回显它收到的），
 //   写明哪个任务、做它的 agent 最后说的那段话（太长截短并写明）、交付的文件；秘书接着在主线里说一声（不等用户开口）；
 // - 流程报完最后一步、长程任务最后一个阶段验收通过时 agent 这一轮还没说完：等它说完再交（通知里是它最后那段话）；
@@ -154,7 +154,7 @@ describe("做完就告诉秘书，秘书在主线里说一声", () => {
     expect(notice).not.toMatch(/pyc|node_modules|pytest_cache/);
   });
 
-  it("流程报完最后一步时维护者这一轮还没说完：等它说完再交，通知里是它最后那段话和写出的文件", async () => {
+  it("流程报完最后一步时负责人这一轮还没说完：等它说完再交，通知里是它最后那段话和写出的文件", async () => {
     const draft: WorkflowPlanDraft = {
       goal: "写好笔记并读一遍",
       steps: [
@@ -163,7 +163,7 @@ describe("做完就告诉秘书，秘书在主线里说一声", () => {
       ],
       rules: [],
     };
-    // 安静 1 毫秒：不等维护者说完的话，交的时候它最后那段话还没出来
+    // 安静 1 毫秒：不等负责人说完的话，交的时候它最后那段话还没出来
     const { frontend, daemon } = await setup({
       taskDoneSettleMs: 1,
       secretary: [say("笔记写好了，要我念给你听吗？")],
@@ -187,7 +187,7 @@ describe("做完就告诉秘书，秘书在主线里说一声", () => {
     await completed(frontend, task.id);
     await noticesArrived(frontend, 1);
     expect(doneTexts(frontend)[0]).toContain("流程 t-1「整理笔记」在后台做完了。\n它最后说：\n都做完了：笔记写好、读过一遍\n交付的文件（在任务的产出区里）：notes.md");
-    // 维护者这一轮结束之后才交
+    // 负责人这一轮结束之后才交
     const turnEnd = daemon.store.read(maintainerChannel(task.maintainerId), 0, EVENT_TYPES.turnEnd).at(-1)!;
     const noticeEvent = daemon.store.read(SECRETARY, 0, EVENT_TYPES.message).find((e) => textOf(e.payload as MessageEventPayload).startsWith(TASK_DONE_TAG))!;
     expect(noticeEvent.globalSeq).toBeGreaterThan(turnEnd.globalSeq);
@@ -195,7 +195,7 @@ describe("做完就告诉秘书，秘书在主线里说一声", () => {
     expect(secretarySaid(frontend)).toEqual(["笔记写好了，要我念给你听吗？"]);
   }, 60_000);
 
-  it("长程任务最后一个阶段验收通过：等维护者这一轮说完再交；最后说的话太长的截短并写明", async () => {
+  it("长程任务最后一个阶段验收通过：等负责人这一轮说完再交；最后说的话太长的截短并写明", async () => {
     const plan: Plan = { ...onePlan(), stages: [{ ...onePlan().stages[0]!, acceptance: [{ criterion: "跑得通", method: "script", script: "true" }] }], stops: { count: 0, where: [] } };
     const long = `发票整理好了。${"每张发票都核对过金额和抬头，".repeat(80)}`;
     const { frontend, daemon } = await setup({
@@ -330,7 +330,7 @@ describe("运行的结果只算这一次运行", () => {
     ];
     const { daemon, frontend } = await setup({ clock, reuse: { dataDir, homeDir }, secretary: [ECHO], maintainer: (id) => (id === "pm-1" ? [say("今天的资讯汇总好了：三条要闻"), ...writeBack] : []) });
     seedProject(daemon, "资讯站", { state: "in_use", charterConfirmed: true, kind: "dev", toolkit: { skills: [], mcp: [], bash: true, network: true } });
-    // 76 号票之前长程任务计划里登记的、属于项目「资讯站」的定时作业（不是项目内部的）：由项目的维护者在一张工单里做
+    // 76 号票之前长程任务计划里登记的、属于项目「资讯站」的定时作业（不是项目内部的）：由项目的负责人在一张工单里做
     const time = nowIso(at(5, 8));
     const creator: Task = { id: "t-1", title: "准备每天的资讯", summary: "准备每天的资讯", state: "done", origin: "request", kind: "long_running", maintainerId: "tm-1", projects: ["资讯站"], projectIds: ["p-1"], projectScope: "single", createdAt: time, updatedAt: time };
     const legacy: ScheduledJob = {

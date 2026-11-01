@@ -22,7 +22,7 @@ import { type BranchFilesRewind, isNameOrOld, type ModelCustomProvider, type Run
 // 6 加了用量的用途（usage.purpose：压缩会话的那次子进程照常报；范围审视预留给 18 号票）、faux 剧本里给定的用量（FauxStep.usage）、
 // 目录模型的请求地址（CatalogModelSpec.baseUrl，契约测试把真实 provider 的请求发到本机录好的响应）（24）；
 // 7 加了被杀后的恢复（装配参数 interruptedToolResults：接着会话时补上被中断的工具调用的结果，23）；
-// 8 在装配参数里加了 session（接会话目录里指定名字的那个会话，16 号票：维护者会话分段），ready 报回这次打开的会话的名字（session）；
+// 8 在装配参数里加了 session（接会话目录里指定名字的那个会话，16 号票：负责人会话分段），ready 报回这次打开的会话的名字（session）；
 // 9 加了范围审视（18 号票）：装配参数 scopeReview（审视用的模型、审视的说明、对照物、近期范围记录）、命令 scope_context（换成最新的
 // 对照物和近期范围记录）和 scope_review（守护进程要子进程审视这个会话里还没审视过的部分）、scope_review_result 定形（守护进程要的、
 // 压缩时子进程自己做的，带上会话里交给它的输入）、usage.purpose 用上 scope_review，faux 剧本的 reply_with_context；
@@ -52,7 +52,7 @@ import { type BranchFilesRewind, isNameOrOld, type ModelCustomProvider, type Run
 // 19 是会话回退（150 号票，回退和分支）：命令 navigate_session（会话树上回到某条输入之前、或者某一条，给被放弃的
 // 那段写分支摘要、叶子落盘），结果 session_navigated；写分支摘要那次调用的用量 usage.purpose 是 branch_summary。
 // 20 是长程任务阶段开始的回退点（152 号票）：navigate_session 的 target 多两种——回到某次工具调用所在的那条回复之前（beforeCall，
-// 维护者自己"开始阶段"那次，撤回点在认领之前）、回到某次工具调用的结果之后（afterCall，阶段在这次调用里开始，
+// 负责人自己"开始阶段"那次，撤回点在认领之前）、回到某次工具调用的结果之后（afterCall，阶段在这次调用里开始，
 // 之前那个阶段的验收照样留着）。
 // 21 是 bash 的临时目录（177 号票）：装配参数 shellTempDir，bash 每条命令前面 export TMPDIR、TEMP、TMP 指到它。
 // 22 在 tool_call_start / tool_call_end 里加了 parentToolCallId（287 号票：Claude Code 的子代理里的调用，挂在调用它的那次 Agent 工具调用下面；
@@ -60,7 +60,7 @@ import { type BranchFilesRewind, isNameOrOld, type ModelCustomProvider, type Run
 // 23 是 Claude Code 的守卫和全程记录（288 号票）：guard_request 加了 native（运行时自己的工具名和模型给的原样参数；toolName / args 是映射到
 // 守卫工具登记表之后的，判定按它，完整内容里存原样的）；加了运行时自己要问用户的（报告 ask_user：Claude Code 的 AskUserQuestion、退出计划模式
 // 的批准）和守护进程交回的回答（命令 ask_user_reply）。pi 不报 ask_user、不带 native。
-// 24 是 289 号票（新建时选运行时、⚙ 按运行时、斜杠命令转交、中途换运行时）：装配参数 runtimeOptions（维护者给运行时选的模型和设置项，
+// 24 是 289 号票（新建时选运行时、⚙ 按运行时、斜杠命令转交、中途换运行时）：装配参数 runtimeOptions（负责人给运行时选的模型和设置项，
 // 子进程按自己的运行时翻译；pi 不看它）；命令 write_handoff（换运行时之前让原来的运行时写交接摘要，结果以 handoff_written 报回，
 // 那次调用的用量 usage.purpose 是 handoff）；上报 runtime_catalog（运行时自己的模型列表、斜杠命令清单：Claude Code 起来时、命令有变化时报）。
 // 25 是 290 号票（从运行时已有的会话接管）：装配参数 resumeRuntimeSession（接管的运行时会话 id：子进程要新开会话时不新开，接着这个会话；
@@ -80,7 +80,7 @@ import { type BranchFilesRewind, isNameOrOld, type ModelCustomProvider, type Run
 // 子进程按它在 pi 里 registerProvider 之后 getModel("custom", …) 才认得——模型目录里没有这个 provider；一次性子进程的
 // ModelProbeRequest（catalog、ping）、RecordedGenerationRequest、TranslationRequest 也带 custom，各自的 ModelRuntime 同样先登记。
 // 兼容：守护进程和子进程同一次发布，不跨版本混用。对不上时子进程在 start 回 start_failed（fatal，写明两边的版本）并退出，
-// 不会拿看不懂的装配参数硬起会话；守护进程按"拉起失败"处理（秘书意外退出后退避重拉、维护者这一轮按出错收尾），日志里有那条原因。
+// 不会拿看不懂的装配参数硬起会话；守护进程按"拉起失败"处理（秘书意外退出后退避重拉、负责人这一轮按出错收尾），日志里有那条原因。
 // 30 是 355 号票（授权的文件夹升级成全局）：装配参数 readOnlyDirs（运行时自己也管权限的，按它的办法放开这些文件夹的读；pi 不看它）。
 export const HOST_PROTOCOL_VERSION = 30;
 
@@ -212,7 +212,7 @@ export type FauxStep =
    * 照着上一条工具结果调用一个工具（模拟"模型从工具结果里抄出 id 再调用工具"，比如从素材检索结果里抄素材 id）：
    * 在上下文里最后一条工具结果的文字中按正则 pattern 找出全部匹配（去重、按出现的先后），作为参数 argument（字符串数组）
    * 加进 toolCall 的参数里；argument 可以是点分的路径（"params.materialIds"）。
-   * from 是 "user" 时（125 号票：维护者从用户消息末尾抄消息 id）在用户的消息里找：从最近的一条往前，取第一条有匹配的；
+   * from 是 "user" 时（125 号票：负责人从用户消息末尾抄消息 id）在用户的消息里找：从最近的一条往前，取第一条有匹配的；
    * first 时只取第一个匹配、作为字符串（166 号票：读素材的参数是一个素材 id），没有匹配是空字符串
    */
   | { kind: "call_with_matches"; toolCall: FauxToolCall; argument: string; pattern: string; from?: "tool_result" | "user"; first?: boolean }
@@ -360,14 +360,14 @@ export interface SessionAssembly {
    */
   continueSession: boolean;
   /**
-   * 接会话目录里这个名字的会话（16 号票：维护者会话分段，每段一个会话，接哪一段由守护进程明确指定；会话文件怎么命名、
+   * 接会话目录里这个名字的会话（16 号票：负责人会话分段，每段一个会话，接哪一段由守护进程明确指定；会话文件怎么命名、
    * 存成什么样只有子进程知道）：已经有了就打开它接着；还没有时，选了 continueSession 就接着目录里最近的那个
-   * （项目维护者的第一段对话段接着任务转来的、16 号票之前的会话），目录里没有会话就新开一个、用这个名字存。
+   * （项目负责人的第一段对话段接着任务转来的、16 号票之前的会话），目录里没有会话就新开一个、用这个名字存。
    * ready 里报回这次打开的会话的名字
    */
   session?: string;
   /**
-   * 清空当前对话之后新开的那一段会话的名字（114 号票，秘书、任务的维护者）：会话目录里还没有这个名字的会话，就马上用这个名字
+   * 清空当前对话之后新开的那一段会话的名字（114 号票，秘书、任务的负责人）：会话目录里还没有这个名字的会话，就马上用这个名字
    * 建一个新会话（空文件先建好再交给 pi 打开，马上在盘上：之后接着最近的会话接的就是它，这时被杀、重启也接得上）、不接以前的；
    * 已经有了就当没给（照 continueSession、session 的规矩接，接到的是它或者之后换模型换过去的）。守护进程每次拉起都带上最近一次清空的名字
    */
@@ -395,7 +395,7 @@ export interface SessionAssembly {
    */
   interruptedToolResults?: Record<string, InterruptedToolResult>;
   /**
-   * 范围审视（18 号票，维护者的会话才有）：子进程的桥接扩展接上审视（128 号票之前是单独一个扩展）——
+   * 范围审视（18 号票，负责人的会话才有）：子进程的桥接扩展接上审视（128 号票之前是单独一个扩展）——
    * - before_agent_start：每条输入之前把近期范围记录拼到系统提示末尾（有才拼）；
    * - session_before_compact：把要压缩掉的消息转成文本，在会话之外另开一次模型调用审视，结果 appendEntry 进会话、报给守护进程；
    * - 命令 scope_review：同样另开一次调用，审视会话里还没审视过的部分（上次压缩留下的和之后的）。
@@ -410,7 +410,7 @@ export interface SessionAssembly {
    */
   handoff?: HandoffSetup;
   /**
-   * 维护者给运行时选的值（23，289 号票，⚙ 里；任务、项目上记着的 runtimeOptions）：运行时自己的模型 id、设置项 id → 选的 value。
+   * 负责人给运行时选的值（23，289 号票，⚙ 里；任务、项目上记着的 runtimeOptions）：运行时自己的模型 id、设置项 id → 选的 value。
    * 子进程按自己的运行时翻译（Claude Code：model、effort、permissionMode；没写的跟 Claude Code 自己的设置）；pi 不看它（pi 的模型在 model 里）。
    * 不给是都跟运行时自己的默认
    */
@@ -423,7 +423,7 @@ export interface SessionAssembly {
   /**
    * 接管的运行时会话 id（25，290 号票：任务、项目是从运行时已有的会话接管来的，二狗管着它、没交还）：照 session / continueSession /
    * freshSession 的规矩选会话、要新开一个的时候，不新开运行时的会话，接着这个（Claude Code：按 id 恢复）；接着已有的照旧接着。
-   * 子进程记下这个会话是接管来的哪一个，之后新开的段（项目维护者换段）接着同一条线上最近的那个（中途 /clear 换了 id 的接着新的）。
+   * 子进程记下这个会话是接管来的哪一个，之后新开的段（项目负责人换段）接着同一条线上最近的那个（中途 /clear 换了 id 的接着新的）。
    * pi 不接管已有会话，不看它。不给是照常新开
    */
   resumeRuntimeSession?: string;
@@ -434,7 +434,7 @@ export interface SessionAssembly {
   runtimeDir?: string;
 }
 
-/** 维护者给运行时选的值（共享协议包 RuntimeChoice 的同一个形状；宿主协议不引用协议包的这个类型） */
+/** 负责人给运行时选的值（共享协议包 RuntimeChoice 的同一个形状；宿主协议不引用协议包的这个类型） */
 export interface RuntimeOptionsSetup {
   model?: string;
   settings?: Record<string, string>;
@@ -929,7 +929,7 @@ export interface UsageReport {
   cacheWrite: number;
   totalTokens: number;
   /**
-   * 这次调用不是平常的回复：压缩会话（compaction）、范围审视（scope_review，18 号票：维护者子进程里另开的那一次）、
+   * 这次调用不是平常的回复：压缩会话（compaction）、范围审视（scope_review，18 号票：负责人子进程里另开的那一次）、
    * 换模型时写交接摘要（handoff，83 号票）、会话回退时写分支摘要（branch_summary，150 号票）、翻斜杠命令的说明（translation，310 号票：
    * 不是 agent 子进程报的，守护进程按翻译的一次性子进程交回的用量记）。账本里单独标出
    */

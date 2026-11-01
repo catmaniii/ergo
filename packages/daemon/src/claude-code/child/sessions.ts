@@ -2,7 +2,7 @@
 // 一次性子进程（sessions-main.ts）里跑：守护进程送一条请求（../sessions-protocol.ts）、等一条结果。SDK 和跑 claude 的办法由入口给（deps），
 // 契约测试给假的（不读用户真实的 ~/.claude、不起 claude）。
 // - 列：SDK 的 listSessions（直接读本机的会话记录，不起 claude、不花额度）。不列 SDK、-p 起的会话（includeProgrammatic: false，和终端里
-//   /resume 一样）：二狗自己的维护者用 SDK 起的会话不出现在这里，免得被别的任务再接管一次；
+//   /resume 一样）：二狗自己的负责人用 SDK 起的会话不出现在这里，免得被别的任务再接管一次；
 // - 正开着的：`claude agents --json`（官方说的从外面读会话状态的受支持办法；它不起守护进程，调研 35 第 2 步）。会话记录没有锁，
 //   终端里开着的会话再被恢复会分叉、丢轮，所以占没占由守护进程那一侧按它判；
 // - 前情：SDK 的 getSessionMessages（按 parentUuid 链重建主线，废弃的分支不算；超过 5MB 的记录 SDK 只读最后一次压缩之后的），

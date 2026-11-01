@@ -5,7 +5,7 @@
 // - 上线、撤下（project-services.ts，假的接入层）：二狗没接入 LSM 记"要你手动"；LSM 没连上的等连上再做，接上后补做；
 //   在跑时改端口先停再登记；LSM 里没登记过的撤下不去找 LSM；LSM 推来的状态换算成在线、失败……
 // - 接上 LSM 时兜底（269 号票）：接上后的第一份全量里上线了、用户没关、没在跑的整份登记、启动，记上线的结果（带 revive）；在跑的、
-//   关着的、还没做完的、要你手动的不算；接上之后再挂不拉；拉的时候不看挂没挂、用户点了关闭照最新的来；拉不起来通知维护者。
+//   关着的、还没做完的、要你手动的不算；接上之后再挂不拉；拉的时候不看挂没挂、用户点了关闭照最新的来；拉不起来通知负责人。
 // - 上线记录卡在失败（363 号票）：启动报"已经有一份在跑"先按健康检查再看一眼；记着失败、LSM 报告在线的回到上线了，缺凭证、登记旧了的
 //   更新登记、重启一次；没在跑的、开关关着的、登记对不上的不动。
 // - 服务首页的缩略图（140 号票，截图注入假的）：上线并在线后截一次、6 小时内有人看不重截、过了 6 小时有人看补截、改了方案或重启后重截、
@@ -118,7 +118,7 @@ describe("一个服务写得对不对（spec.ts）", () => {
       autostart: true,
       autoRestart: false,
     });
-    // 维护者写了挂了自动重启：照它登记
+    // 负责人写了挂了自动重启：照它登记
     const restarting = normalizeService(draft({ autoRestart: true, autostart: false }).service!, ctx);
     expect(restarting).toMatchObject({ autostart: false, autoRestart: true });
     expect(lsmDefinition(restarting, { title: "网页", projectName: "简报站" }, "D:/data/secrets")).toMatchObject({ autostart: false, autoRestart: true });
@@ -372,7 +372,7 @@ describe("上线、撤下（project-services.ts）", () => {
     services.stop();
   });
 
-  it("上线后又挂了：不在线持续 30 秒才通知维护者（LSM 给的原因），重启一下不报；同一次故障只报一次（守护进程重启了也不重报），又在线 30 秒说一声好了；LSM 没连上时不判", async () => {
+  it("上线后又挂了：不在线持续 30 秒才通知负责人（LSM 给的原因），重启一下不报；同一次故障只报一次（守护进程重启了也不重报），又在线 30 秒说一声好了；LSM 没连上时不判", async () => {
     const lsm = fakeLsm("supported");
     const { services, want, store, clock, make } = setup(lsm.services);
     services.start();
@@ -694,7 +694,7 @@ describe("项目的服务全部关闭、启动（257 号票）", () => {
     services.stop();
   });
 
-  it("启动没起来：照上线失败记原因（同一事务通知维护者）；关闭没做成：记成关闭失败和原因，LSM 重新接上时再关", async () => {
+  it("启动没起来：照上线失败记原因（同一事务通知负责人）；关闭没做成：记成关闭失败和原因，LSM 重新接上时再关", async () => {
     const lsm = fakeLsm("supported");
     const { services, want, store } = setup(lsm.services);
     services.start();
@@ -742,7 +742,7 @@ const reconnect = (lsm: ReturnType<typeof fakeLsm>) => {
 };
 /** 269：接上时兜底拉起的结果 */
 const revivesOf = (store: ReturnType<typeof setup>["store"]) => store.read(OPERATIONS_CHANNEL, 0, PROJECT_SERVICE_EVENTS.rollout).map((e) => e.payload as ServiceRolloutPayload).filter((p) => p.revive === true);
-/** 269：给维护者的通知 */
+/** 269：给负责人的通知 */
 const noticesOf = (store: ReturnType<typeof setup>["store"]) => store.read(maintainerChannel("pm-1"), 0, EVENT_TYPES.message).map((e) => (e.payload as MessageEventPayload).message.parts.map((p) => ("text" in p ? p.text : "")).join(""));
 
 /** 324：登记的回复（在跑的；restartNeeded 是定义变了） */
@@ -885,7 +885,7 @@ describe("接上 LSM 时兜底（269 号票）", () => {
     services.stop();
   });
 
-  it("拉的时候不看挂没挂（等就绪久也不报“上线后挂了”）；拉的时候用户点了关闭：拉的结果不记，接着关掉；拉不起来：记上线失败和原因，通知维护者说是接上时拉的，下次接上不再拉", async () => {
+  it("拉的时候不看挂没挂（等就绪久也不报“上线后挂了”）；拉的时候用户点了关闭：拉的结果不记，接着关掉；拉不起来：记上线失败和原因，通知负责人说是接上时拉的，下次接上不再拉", async () => {
     const lsm = fakeLsm("supported");
     const { services, want, store, clock } = setup(lsm.services);
     services.start();
@@ -925,7 +925,7 @@ describe("接上 LSM 时兜底（269 号票）", () => {
     clock.advance(120_000);
     expect(noticesOf(store)).toHaveLength(1);
 
-    // 下次接上：上线失败的不是"上线了"，不再拉（等用户点启动、维护者再交方案）
+    // 下次接上：上线失败的不是"上线了"，不再拉（等用户点启动、负责人再交方案）
     lsm.requests.length = 0;
     reconnect(lsm);
     fullOf(lsm, { "p-1-web": "STOPPED" });
@@ -979,7 +979,7 @@ const fakeCredentials = (have: readonly string[] = []) => {
 };
 
 describe("启动报“已经有一份在跑”：先按健康检查再看一眼（363 号票）", () => {
-  it("上线时报 already-running、健康检查过了：记上线，不记失败、不通知，转发登记上，看着是在线；健康检查不过：记失败、通知维护者", async () => {
+  it("上线时报 already-running、健康检查过了：记上线，不记失败、不通知，转发登记上，看着是在线；健康检查不过：记失败、通知负责人", async () => {
     const lsm = fakeLsm("supported");
     let alive = true;
     const checked: number[] = [];
@@ -1170,7 +1170,7 @@ describe("上线记录卡在失败、服务其实在跑：自愈（363 号票）
     expect(services.view()[0]).toMatchObject({ rollout: "live", status: "online" });
     expect(noticesOf(store)).toHaveLength(1);
 
-    // 回到上线了：挂了持续 30 秒通知维护者（失败记着的时候不看）
+    // 回到上线了：挂了持续 30 秒通知负责人（失败记着的时候不看）
     pushState(lsm, "p-1-web", "FAILED", { lastError: "退出码 1" });
     clock.advance(31_000);
     await waitUntil(() => noticesOf(store).length === 2, { describe: () => JSON.stringify(noticesOf(store)) });
@@ -1178,7 +1178,7 @@ describe("上线记录卡在失败、服务其实在跑：自愈（363 号票）
     services.stop();
   });
 
-  it("记着失败之前报过“挂了”还没好的：回来之后照 133 说一声“又在线了”（维护者等着这句），只这一句", async () => {
+  it("记着失败之前报过“挂了”还没好的：回来之后照 133 说一声“又在线了”（负责人等着这句），只这一句", async () => {
     const lsm = fakeLsm("supported");
     const { services, want, store, clock } = setup(lsm.services);
     services.start();
@@ -1317,7 +1317,7 @@ describe("上线记录卡在失败、服务其实在跑：自愈（363 号票）
     services.stop();
   });
 
-  it("重启没成：真出事了，照上线失败记新的原因、通知维护者（写明是更新登记时重启的）；重启时报 already-running、健康检查过了算回来了", async () => {
+  it("重启没成：真出事了，照上线失败记新的原因、通知负责人（写明是更新登记时重启的）；重启时报 already-running、健康检查过了算回来了", async () => {
     const lsm = fakeLsm("supported");
     const creds = fakeCredentials();
     let alive = true;

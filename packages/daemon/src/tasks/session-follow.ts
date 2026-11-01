@@ -1,4 +1,4 @@
-// 任务状态跟着维护者的会话树走（152 号票，用户定的第 6 条：阶段的状态按保留下来的
+// 任务状态跟着负责人的会话树走（152 号票，用户定的第 6 条：阶段的状态按保留下来的
 // 分支重新推导，会话回退、切换分支之后都调它）。纯函数，执行控制器（execution.ts 的 followSession）调用。
 //
 // 要是计划、阶段状态都在会话里（工具调用的结果），按分支推导就是只看这条分支上的条目；可二狗的任务状态在事件日志的看板频道里
@@ -7,7 +7,7 @@
 // 然后"按保留的分支推导"就是：在这条路径上、回退点之前的最后一条 task 事件是那时任务的样子（taskAt），最后一版生效的计划是那时的计划
 // （planInForce）。
 // 推出来的那一刻的样子再整理一下（normalizedStages）：那时在验收的（结论是在被放弃的那段里出的、或者永远出不来了）、那时在等的事已经
-// 不在等了（被放弃的那段里处理了、作废了）的，回到能开始，运行时再替维护者开始。
+// 不在等了（被放弃的那段里处理了、作废了）的，回到能开始，运行时再替负责人开始。
 import { type ConversationBranches, onBranchPath, type Plan, type Task, type TaskEventPayload, type TaskStage } from "@ergo/protocol";
 import type { NewEvent, StoredEvent } from "../events/event-store.ts";
 import { type GrantRenewalDecidedPayload, type GrantTimes, type PlanDecidedPayload, type PlanRevisedPayload, TASK_EVENTS } from "./events.ts";
@@ -97,7 +97,7 @@ export function planInForce(events: readonly StoredEvent[], taskId: string, onPa
 
 /**
  * 推出来的那一刻各阶段的样子再整理一下（回退时这一轮被中止，没有在等的确认留下来）：
- * - 那时在验收的：结论是在被放弃的那段里出的（或者那次验收还没完、出来也作废），回到能开始——运行时再替维护者开始它、交代上次没过的；
+ * - 那时在验收的：结论是在被放弃的那段里出的（或者那次验收还没完、出来也作废），回到能开始——运行时再替负责人开始它、交代上次没过的；
  * - 那时在等的：在等的那件事还在等（stillWaiting）就接着等，已经处理了、作废了的回到能开始（和"一支不用再等了"一样，branchUnblocked）。
  * 别的（未开始、在做、已验收）照那时的样子
  */
@@ -131,7 +131,7 @@ export interface SessionFollowInput {
   stage?: { stageId: string; title: string };
   /** 被放弃的那段（切换：离开的那条分支自己的那段；会话频道上的序号段）：里面还排着的这个任务的运行时通知作废出队 */
   abandoned: readonly { from: number; to: number }[];
-  /** 被放弃的那段已经对外做了的（交给维护者接着做的那句里说） */
+  /** 被放弃的那段已经对外做了的（交给负责人接着做的那句里说） */
   external: readonly { toolTitle?: string; tool: string; argsSummary: string }[];
 }
 
@@ -142,7 +142,7 @@ export interface SessionFollowResult {
   voidedInputs: ReadonlySet<string>;
   /** 作废了的卡（记进 session_branch 的 expiredCards） */
   expiredCards: readonly string[];
-  /** 交给维护者接着做的那句（分支摘要说清楚了，界面上不重复显示） */
+  /** 交给负责人接着做的那句（分支摘要说清楚了，界面上不重复显示） */
   notice?: string;
   /** 分支摘要那条消息的归属：这个任务、跟着走完之后它在做的阶段（时间线、阶段框据此把摘要放进重新开始的那个阶段）；任务状态不跟着走的没有 */
   scope?: { taskId: string; stageId?: string };

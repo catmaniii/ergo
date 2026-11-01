@@ -5,7 +5,7 @@
 // - 收回：stop 之后等到没有带进程号的条目；它已经不在了也算停了；终端里开着的停不掉；
 // - 只读跟随（followOf）：从某一条之后读，翻法同前情（元信息的用户消息不算），带着每条的 id 和时间；还没说完的最后一条回复先不交、final 时交；
 //   那边压缩过的从压缩标记读起、对不上的不补记；一次最多 max 条；tail 只要最后一条的 id；
-// - 维护者现在接着的会话（currentClaudeSession）：会话目录里最近用的那份记录（和适配子进程写的同一个格式），没开始的不算；
+// - 负责人现在接着的会话（currentClaudeSession）：会话目录里最近用的那份记录（和适配子进程写的同一个格式），没开始的不算；
 // - 守护进程这一侧的命令行：找不到本机的 claude 时直接说清楚（不起进程）。
 import fs from "node:fs";
 import path from "node:path";
@@ -204,7 +204,7 @@ describe("只读跟随：读那边新增的（292 号票）", () => {
   });
 });
 
-describe("维护者现在接着的 Claude Code 会话（292 号票）", () => {
+describe("负责人现在接着的 Claude Code 会话（292 号票）", () => {
   it("会话目录里最近用的那份记录（和适配子进程写的同一个格式）；最近那份还没开始的、没有记录的是 undefined", async () => {
     expect(SESSION_RECORD_EXT).toBe(RECORD_EXT);
     const dir = makeTempDir("ergo-records-");

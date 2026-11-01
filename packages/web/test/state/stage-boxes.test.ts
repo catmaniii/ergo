@@ -115,7 +115,7 @@ describe("哪些照常显示、其余怎么分组", () => {
 });
 
 describe("每个框上写什么", () => {
-  test("验收通过的：✓ 完成、一句小结是维护者交上来时写的那一两句；你从这里重做之前的那一轮写已作废", () => {
+  test("验收通过的：✓ 完成、一句小结是负责人交上来时写的那一两句；你从这里重做之前的那一轮写已作废", () => {
     const { state, items } = session("task-execution");
     const boxes = stageBoxes(state, items, "t-1", { stale: zoomDecor(state, CONV, items).stale });
     expect(boxes.map((b) => [b.no, b.title, b.status.text, b.status.cls, b.stale, b.latest])).toEqual([
@@ -138,7 +138,7 @@ describe("每个框上写什么", () => {
 
   test("对正在做的阶段点重做、两轮之间没有一句回复：在重做处断开成两个框，旧的一轮已作废，新的一轮照常（进行中）", () => {
     const { state, items } = session("task-execution");
-    // 改录像：去掉重做之前那句回复（第 11 条），停在新一轮的第一次调用（第 13 条），维护者还在干活
+    // 改录像：去掉重做之前那句回复（第 11 条），停在新一轮的第一次调用（第 13 条），负责人还在干活
     expect(items[11]!.kind).toBe("reply");
     expect(reopenSummary(items[12]!)).toBeDefined();
     const stale = zoomDecor(state, CONV, items).stale;
@@ -197,14 +197,14 @@ describe("每个框上写什么", () => {
     const ask = box!.notes.find((n) => n.glyph === "ask")!;
     expect(ask.text).toMatch(/（共 \d+ 次）$/);
     expect(ask.items.length).toBeGreaterThan(1);
-    // 任务在跑、维护者没在干活：不算正在做这一段；阶段在做——进行中，小结写正在做什么
+    // 任务在跑、负责人没在干活：不算正在做这一段；阶段在做——进行中，小结写正在做什么
     expect([box!.live, box!.status.text]).toEqual([false, "◐ 进行中"]);
     // 临时目录的名字每次录像都不一样
     expect(box!.summary).toMatch(/^正在：建目录 <临时目录>\/ergo-out-\w+\/other5$/);
     expect(box!.lines.at(-1)).toBe(`已做 ${box!.toolCount} 次操作`);
   });
 
-  test("维护者正在干活、最后一条在这一段里：这一段是 live（框上的状态一闪一闪）", () => {
+  test("负责人正在干活、最后一条在这一段里：这一段是 live（框上的状态一闪一闪）", () => {
     const { state, items } = session("task-rejections");
     const task = state.tasks["t-1"]!;
     const working: UiState = { ...state, activity: { ...state.activity, [task.maintainerId]: { agentId: task.maintainerId, state: "working" } as UiState["activity"][string] } };
@@ -259,7 +259,7 @@ describe("缩放里的阶段框", () => {
   test("书脊上写阶段的编号（并行的 1a、1b）", () => {
     const { state, items } = session("task-plan-change");
     const labels = new Map(zoomDecor(state, CONV, items).spines.map((sp) => [sp.stageId, sp.label]));
-    // 93 号票：编号存在计划里，维护者自行调整了先后也不变
+    // 93 号票：编号存在计划里，负责人自行调整了先后也不变
     expect(Object.fromEntries(labels)).toEqual({ s1: "1a", s2: "1b" });
   });
 
@@ -299,7 +299,7 @@ describe("框里交上来验收的结论画成横条（93 号票）", () => {
     });
   });
 
-  test("你验收的写\"你验收的\"，你写的说明单独一条；退回的写要求、维护者交的、结果；几次都没通过的交给你决定", () => {
+  test("你验收的写\"你验收的\"，你写的说明单独一条；退回的写要求、负责人交的、结果；几次都没通过的交给你决定", () => {
     const base = {
       taskId: "t-1",
       taskTitle: "X",
@@ -331,9 +331,9 @@ describe("框里交上来验收的结论画成横条（93 号票）", () => {
       tail: "和实际对不上",
       points: [
         { k: "要求", text: "有方案对比" },
-        { k: "维护者交的", text: "报告写好了" },
+        { k: "负责人交的", text: "报告写好了" },
         { k: "系统查到", text: "缺对比", sys: true },
-        { k: "结果", text: "不算完成，退回让维护者重做。" },
+        { k: "结果", text: "不算完成，退回让负责人重做。" },
       ],
     });
     expect(verdictStrip(returned, true)).toMatchObject({ tone: "failed", title: "几次都没通过：「写报告」", tail: "交给你决定" });
@@ -351,9 +351,9 @@ describe("框里交上来验收的结论画成横条（93 号票）", () => {
       tail: "验收没跑起来",
       points: [
         { k: "要求", text: "add / list / done 全流程可用" },
-        { k: "维护者交的", text: "todo.py 写好了" },
+        { k: "负责人交的", text: "todo.py 写好了" },
         { k: "系统查到", text: "脚本没跑起来：闸门进程起不来", sys: true },
-        { k: "结果", text: "验收没跑起来，不算完成，退回让维护者重做。" },
+        { k: "结果", text: "验收没跑起来，不算完成，退回让负责人重做。" },
       ],
     });
     const mixed = verdictStrip({ ...base, acceptance: { passed: false, judgedBy: "script", results: [notRun, { criterion: "有 README", method: "script", passed: false, note: "退出码 1" }] } }, false);

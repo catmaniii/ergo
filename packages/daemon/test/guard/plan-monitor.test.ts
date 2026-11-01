@@ -216,7 +216,7 @@ describe("超范围：和步骤对不上（口径同 58 号票的授权项）", 
 });
 
 describe("顺序错：引回前置步骤", () => {
-  it("前置步骤没做：这次先不执行，告诉维护者先做哪一步、参数是什么；不打扰用户", () => {
+  it("前置步骤没做：这次先不执行，告诉负责人先做哪一步、参数是什么；不打扰用户", () => {
     const o = check(TOOL.read, { path: "notes.md" });
     expect(o.kind).toBe("redirect");
     if (o.kind !== "redirect") return;
@@ -224,7 +224,7 @@ describe("顺序错：引回前置步骤", () => {
       '【自动纠偏】这一步先不执行：步骤 s2 依赖的 s1 还没有执行。按用户已授权的计划，应先执行步骤 s1「写笔记」：调用 write，参数 {"path":"notes.md","content":"# 周报\\n"}。做完再回来执行原来这一步。这是按计划纠偏，不需要询问用户。',
     );
     expect(o.spent).toBe("read|s2");
-    expect(o.assessment.correction).toMatchObject({ kind: "redirect", stepId: "s2", target: { id: "s1", title: "写笔记", tool: TOOL.write }, text: "缺了前置步骤：先让维护者做「写笔记」，再回来执行这一步" });
+    expect(o.assessment.correction).toMatchObject({ kind: "redirect", stepId: "s2", target: { id: "s1", title: "写笔记", tool: TOOL.write }, text: "缺了前置步骤：先让负责人做「写笔记」，再回来执行这一步" });
   });
 
   it("说明跳过的前置步骤不算没做", () => {

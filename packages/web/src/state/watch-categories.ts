@@ -4,7 +4,7 @@
 //   设置页拿它做请求（categoryDraftOf），计划卡拿它给本任务加类别（planCategoryAdditionOf）；写得不对先在界面上说，服务端还会再查；
 //   规则里还没登记的工具不拦，提示"登记后生效"（formUnregisteredTools）；
 // - 删除或调松一个自定义类别后，还有几个进行中的任务按确认时的设置检查它（heldByTasksNotice）；
-// - 计划卡：本任务要提醒的关注类别每个标明来处（planCategoryRows），用户的限制列出原话（核对过的）或维护者转述，
+// - 计划卡：本任务要提醒的关注类别每个标明来处（planCategoryRows），用户的限制列出原话（核对过的）或负责人转述，
 //   和编译出的规则、收窄（userLimitRows）。
 // 规则写成一句话（categoryMatchText）、内置类别哪几档不比默认松（dispositionsNotLooserThan）在共享协议包里，守护进程也用。
 import {
@@ -146,8 +146,8 @@ export function formUnregisteredTools(form: Pick<CategoryForm, "tools">, tools: 
 
 /**
  * 本任务要提醒的一个关注类别在卡上的来处：
- * - global：全局设置里的（删不掉，处置跟着全局走）；global_tightened：全局的，维护者在本任务里调严了；
- * - maintainer_added：维护者为本任务加的；user_added：你确认时在卡上加的
+ * - global：全局设置里的（删不掉，处置跟着全局走）；global_tightened：全局的，负责人在本任务里调严了；
+ * - maintainer_added：负责人为本任务加的；user_added：你确认时在卡上加的
  */
 export type PlanCategoryOrigin = "global" | "global_tightened" | "maintainer_added" | "user_added";
 
@@ -176,11 +176,11 @@ export function planCategoryRows(card: Pick<PlanCardPayload, "plan" | "globalCat
   });
 }
 
-/** 用户说过的一条限制在卡上的样子：原话（或维护者转述），编译出的规则和授权收窄（文字由结构化数据生成） */
+/** 用户说过的一条限制在卡上的样子：原话（或负责人转述），编译出的规则和授权收窄（文字由结构化数据生成） */
 export interface UserLimitRow {
   id: string;
   quote: string;
-  /** true：原话核对得上（任务书的约束、用户的消息里原样有），显示成"你说"；false 显示成"维护者转述" */
+  /** true：原话核对得上（任务书的约束、用户的消息里原样有），显示成"你说"；false 显示成"负责人转述" */
   verified: boolean;
   rules: string[];
   narrowings: string[];

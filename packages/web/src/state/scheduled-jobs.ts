@@ -49,7 +49,7 @@ export interface ScheduledJobView {
   lastRun: JobRun | undefined;
   /**
    * 每次运行的授权（随计划卡确认，作业在就一直有效；暂停、取消即收回）：授权项一行一条（主文由协议包的 grantText 生成，
-   * 维护者写的标题在前），时序规则一行一条（含用户说过的限制编出的）
+   * 负责人写的标题在前），时序规则一行一条（含用户说过的限制编出的）
    */
   grants: string[];
   rules: string[];
@@ -73,7 +73,7 @@ export function eventNames(state: UiState): EventNames {
 
 /**
  * 141 号票：项目在用时运营方案里的一条（它的任务只能暂停、恢复，operations-lock.ts）只剩暂停、恢复和立即运行一次（不改任务，
- * 用户 2026-10-18 定放回）——看板卡、任务详情、项目页作业行上的按钮都没有取消，也不能改时间（要改请项目维护者改运营方案）
+ * 用户 2026-10-18 定放回）——看板卡、任务详情、项目页作业行上的按钮都没有取消，也不能改时间（要改请项目负责人改运营方案）
  */
 export function scheduledJobView(state: UiState, job: ScheduledJob): ScheduledJobView {
   const locked = job.ownerTaskId !== undefined && taskOperationsLock(state, state.tasks[job.ownerTaskId]) !== undefined;

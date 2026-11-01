@@ -1,10 +1,10 @@
-// 主切面：涉及多个项目的任务（规格第 8、11、12 节，17 号票）。真的守护进程，秘书、任务维护者、各项目的维护者都接 faux 剧本，
+// 主切面：涉及多个项目的任务（规格第 8、11、12 节，17 号票）。真的守护进程，秘书、任务负责人、各项目的负责人都接 faux 剧本，
 // 测试扮演前端。
-// - 涉及多个项目的任务在建卡时产生自己的维护者，它的工具包固定为三样：读项目档案、派工单、汇总回执（另有运行时控制工具）；
+// - 涉及多个项目的任务在建卡时产生自己的负责人，它的工具包固定为三样：读项目档案、派工单、汇总回执（另有运行时控制工具）；
 //   不能写文件、跑 bash（70 号票起能联网搜索、读网页），改不了任何项目；规划时只读各项目档案、不发工单；
 // - 计划里逐行列出每个项目的改动（所属阶段、这张工单的验收标准）；用户确认计划时每一行建成一张工单，所属阶段开始时才派出；
-// - 项目维护者完成或退回时交回执，回执进任务维护者的会话；回执全部到齐且都完成才能跑本阶段的验收，有退回的本阶段不通过，
-//   任务维护者调整做法（重新派单，或者改计划去掉那一行）算一次验收退回；评审能读到回执和各项目的工作目录（112 号票起阶段一律
+// - 项目负责人完成或退回时交回执，回执进任务负责人的会话；回执全部到齐且都完成才能跑本阶段的验收，有退回的本阶段不通过，
+//   任务负责人调整做法（重新派单，或者改计划去掉那一行）算一次验收退回；评审能读到回执和各项目的工作目录（112 号票起阶段一律
 //   由评审自动验收，没有由我验收了）；
 // - 任务涉及几个项目建卡时就定了：计划里只剩一个项目也还是多项目任务；单项目任务、不涉及项目的任务的计划写不进别的项目；
 // - 工单的建出、派出和回执都记在任务时间线上。
@@ -81,7 +81,7 @@ async function firstOf<T>(list: () => readonly T[], match: (x: T) => boolean, wh
   await waitUntil(() => (found = list().find(match)) !== undefined, { timeoutMs, describe: () => `等${what}` });
   return found!;
 }
-/** 某个维护者的回复里带着这段话（echo_context 回出来的上下文） */
+/** 某个负责人的回复里带着这段话（echo_context 回出来的上下文） */
 const agentSaid = (frontend: TestFrontend, channel: string, text: string) =>
   eventually(() => messagesOf(frontend, channel), (m) => m.message.speaker === "agent" && textOf(m).includes(text), `${channel} 回复「${text}」`);
 
@@ -91,7 +91,7 @@ function dirs() {
   return { dataDir, homeDir: makeTempDir("ergo-home-"), records: (projectId: string) => path.join(fs.realpathSync.native(dataDir), "projects", projectId) };
 }
 
-/** 进展文档的一句改成另一句（项目维护者写回项目档案） */
+/** 进展文档的一句改成另一句（项目负责人写回项目档案） */
 const progressEdit = (records: string, oldText: string, newText: string) => call("edit", { path: path.join(records, "progress.md"), edits: [{ oldText, newText }] });
 /** 进展文档一开始的那句（项目档案的最小文档集） */
 const PROGRESS_INTRO = "做到哪了、下一步做什么：每段工作结束时写回。";
@@ -151,8 +151,8 @@ async function startTwoProjectTask(td: TestDaemon, frontend: TestFrontend): Prom
 
 const planCardOf = (frontend: TestFrontend, taskId: string) => cardWhere(frontend, (c) => c.type === "plan" && (c.payload as PlanCardPayload).taskId === taskId, `${taskId} 的计划卡`);
 
-describe("涉及多个项目的任务：任务自己的维护者和规划", () => {
-  it("建卡时产生任务自己的维护者，工具包固定为读项目档案、派工单、汇总回执三样（加上提交计划）：没有文件写入、bash、联网，写不了任何项目的档案；规划期间只读各项目档案，派工单被拒；计划卡逐行列出每个项目的改动；确认后每一行建成一张工单（带验收标准，写明所属任务和阶段），所属阶段开始时才派出，后面阶段的工单不进项目的流水线；建出和派出都记在任务时间线上", async () => {
+describe("涉及多个项目的任务：任务自己的负责人和规划", () => {
+  it("建卡时产生任务自己的负责人，工具包固定为读项目档案、派工单、汇总回执三样（加上提交计划）：没有文件写入、bash、联网，写不了任何项目的档案；规划期间只读各项目档案，派工单被拒；计划卡逐行列出每个项目的改动；确认后每一行建成一张工单（带验收标准，写明所属任务和阶段），所属阶段开始时才派出，后面阶段的工单不进项目的流水线；建出和派出都记在任务时间线上", async () => {
     const d = dirs();
     const recordsA = d.records("p-1");
     const recordsB = d.records("p-2");
@@ -164,7 +164,7 @@ describe("涉及多个项目的任务：任务自己的维护者和规划", () =
         if (spawn === 1)
           return [
             // 想直接改项目档案、跑 bash：都没有这些工具
-            call("write", { path: path.join(recordsA, "spec.md"), content: "任务维护者改的规格" }),
+            call("write", { path: path.join(recordsA, "spec.md"), content: "任务负责人改的规格" }),
             call("bash", { command: `echo 改 > "${path.join(recordsB, "workdir", "x.txt")}"` }),
             // 只能读各项目的档案
             call("read_project_records", { project: "记账本", docs: ["progress"] }),
@@ -182,12 +182,12 @@ describe("涉及多个项目的任务：任务自己的维护者和规划", () =
     const specBefore = fs.readFileSync(path.join(recordsA, "spec.md"), "utf8");
     const frontend = await connect(td.url);
     const taskId = await startTwoProjectTask(td, frontend);
-    // 涉及两个项目：任务自己的维护者，不是哪个项目的维护者
+    // 涉及两个项目：任务自己的负责人，不是哪个项目的负责人
     expect(td.daemon.tasks.get(taskId)).toMatchObject({ maintainerId: "tm-1", projects: ["记账本", "家电档案"], projectIds: ["p-1", "p-2"] });
 
     const card = await planCardOf(frontend, taskId);
     const seen = textOf(await agentSaid(frontend, TM1, "[tool] "));
-    // 工具包只有三样，加上运行时控制的"提交计划"和每个维护者会话都有的口语总结（32 号票的语音回复）、发语音（86 号票）、联网搜索和读网页（70 号票）、
+    // 工具包只有三样，加上运行时控制的"提交计划"和每个负责人会话都有的口语总结（32 号票的语音回复）、发语音（86 号票）、联网搜索和读网页（70 号票）、
     // 给秘书发消息（102 号票：除了秘书每个 agent 默认都有）、读附件（143 号票：用户在它的会话里发的附件读得了全文）；没有文件读写、bash
     expect(seen.split("\n").filter((l) => l.startsWith("[tool] ")).toSorted()).toEqual([
       "[tool] dispatch_work_order",
@@ -215,7 +215,7 @@ describe("涉及多个项目的任务：任务自己的维护者和规划", () =
     expect((card.payload as PlanCardPayload).plan.projects).toEqual(twoProjectPlan().projects);
     ok(await frontend.cardAction({ cardId: card.id, action: "confirm", expectedVersion: 1, input: {} }));
 
-    // 确认时每一行建成一张工单：等阶段开始，带验收标准，写明所属任务和阶段；派单方是任务维护者
+    // 确认时每一行建成一张工单：等阶段开始，带验收标准，写明所属任务和阶段；派单方是任务负责人
     const a = await workOrderWhere(frontend, (e) => e.change === "created" && e.workOrder.projectId === "p-1", "记账本的工单建出");
     const b = await workOrderWhere(frontend, (e) => e.change === "created" && e.workOrder.projectId === "p-2", "家电档案的工单建出");
     for (const [e, project, stageId, acceptance] of [
@@ -226,7 +226,7 @@ describe("涉及多个项目的任务：任务自己的维护者和规划", () =
     }
     // 任务涉及几个项目建卡时就定了
     expect(td.daemon.tasks.get(taskId)?.projectScope).toBe("multi");
-    // 第一阶段开始：记账本的那张派出、进了它的维护者的队列；家电档案的还没派出（前置阶段没验收）
+    // 第一阶段开始：记账本的那张派出、进了它的负责人的队列；家电档案的还没派出（前置阶段没验收）
     const dispatched = await workOrderWhere(frontend, (e) => e.change === "dispatched" && e.workOrder.id === a.workOrder.id, "记账本的工单派出");
     expect(dispatched.workOrder).toMatchObject({ state: "pending", stageId: "s1" });
     expect(dispatched.workOrder).toHaveProperty("dispatchedAt");
@@ -248,7 +248,7 @@ describe("涉及多个项目的任务：任务自己的维护者和规划", () =
     expect(records.map((r) => r.record.workOrderId)).toEqual([a.workOrder.id, b.workOrder.id, a.workOrder.id]);
     expect(records.every((r) => r.taskId === taskId)).toBe(true);
 
-    // 执行时：还是固定的三样，加上回答项目维护者、转问用户和推进任务的运行时控制；没有文件读写、bash，也没有增减 skill（27 号票的工具包四样都不开）
+    // 执行时：还是固定的三样，加上回答项目负责人、转问用户和推进任务的运行时控制；没有文件读写、bash，也没有增减 skill（27 号票的工具包四样都不开）
     const executing = await eventually(() => messagesOf(frontend, TM1), (m) => m.message.speaker === "agent" && textOf(m).includes("[tool] answer_work_order"), "执行时的工具");
     // 接着原会话换了一套工具：开头一份就是这次交的（273 号票）
     const execTools = toolsNow(textOf(executing));
@@ -259,7 +259,7 @@ describe("涉及多个项目的任务：任务自己的维护者和规划", () =
 
 const completeStage = (stageId: string) => call("complete_stage", { stageId, summary: `阶段 ${stageId} 的回执到齐了` });
 const receipt = (outcome: "done" | "returned", text: string, reason?: string) => call("submit_receipt", { outcome, summary: text, ...(reason ? { reason } : {}) });
-/** 任务维护者会话里交给它的通知（回执、提问……） */
+/** 任务负责人会话里交给它的通知（回执、提问……） */
 const noticesTo = (frontend: TestFrontend, channel: string, text: string) => messagesOf(frontend, channel).filter((m) => m.agentInput === true && textOf(m).includes(text));
 /** 某个工具调用的结果摘要（按先后） */
 const resultsOf = (frontend: TestFrontend, channel: string, tool: string) => toolCallsOf(frontend, channel).filter((p) => p.tool === tool && p.outcome !== "running");
@@ -280,7 +280,7 @@ function sessionText(td: TestDaemon, agentId: string): string {
 }
 
 describe("涉及多个项目的任务：派单、回执和阶段验收", () => {
-  it("所属阶段开始时派出工单；项目维护者完成或退回时交回执（退回附理由），回执进任务维护者的会话；回执没到齐不能宣布阶段完成；一张退回本阶段不通过，任务维护者调整做法重新派单（算一次验收退回），两张都完成、阶段验收通过；评审拿到本阶段的回执，能读项目的工作目录；工单的建出、派出、回执都在任务时间线上（录给前端回放）；返工重开 s2 时只向家电档案重新派工单", async () => {
+  it("所属阶段开始时派出工单；项目负责人完成或退回时交回执（退回附理由），回执进任务负责人的会话；回执没到齐不能宣布阶段完成；一张退回本阶段不通过，任务负责人调整做法重新派单（算一次验收退回），两张都完成、阶段验收通过；评审拿到本阶段的回执，能读项目的工作目录；工单的建出、派出、回执都在任务时间线上（录给前端回放）；返工重开 s2 时只向家电档案重新派工单", async () => {
     const d = dirs();
     const recordsA = d.records("p-1");
     const recordsB = d.records("p-2");
@@ -315,7 +315,7 @@ describe("涉及多个项目的任务：派单、回执和阶段验收", () => {
         }
         if (id === "pm-1")
           return [
-            // 先停在这里：等任务维护者回执没到齐就宣布完成被拒之后，用户在项目会话里催一句再接着做（不靠快慢）
+            // 先停在这里：等任务负责人回执没到齐就宣布完成被拒之后，用户在项目会话里催一句再接着做（不靠快慢）
             say("收到工单，先看看"),
             call("write", { path: "export.md", content: "# 导出说明\n" }),
             progressEdit(recordsA, PROGRESS_INTRO, "导出说明 export.md 加好了。"),
@@ -324,8 +324,8 @@ describe("涉及多个项目的任务：派单、回执和阶段验收", () => {
             say("交回执了"),
           ];
         if (id === "pm-2") {
-          // 前两张工单也先停在这里：任务维护者派出工单之后还要说一句，等它这一轮说完，用户再在项目会话里催一句接着做
-          // （不然家电档案的回执可能插进任务维护者这一轮里，不靠快慢）
+          // 前两张工单也先停在这里：任务负责人派出工单之后还要说一句，等它这一轮说完，用户再在项目会话里催一句接着做
+          // （不然家电档案的回执可能插进任务负责人这一轮里，不靠快慢）
           if (spawn === 1)
             return [
               say("收到工单，先看看"),
@@ -351,16 +351,16 @@ describe("涉及多个项目的任务：派单、回执和阶段验收", () => {
     inUseProject(td, "记账本");
     inUseProject(td, "家电档案");
     const frontend = await connect(td.url);
-    /** 家电档案的维护者接了第 n 张工单先停下：等它和任务维护者这一轮都说完，用户在项目会话里催一句 */
+    /** 家电档案的负责人接了第 n 张工单先停下：等它和任务负责人这一轮都说完，用户在项目会话里催一句 */
     const nudgePm2 = async (n: number, idempotencyKey: string) => {
       const paused = () => messagesOf(frontend, PM2).filter((m) => m.message.speaker === "agent" && textOf(m).includes("收到工单，先看看")).length;
-      await waitUntil(() => paused() >= n, { timeoutMs: 30_000, describe: () => `等家电档案的维护者接第 ${n} 张工单先停下` });
+      await waitUntil(() => paused() >= n, { timeoutMs: 30_000, describe: () => `等家电档案的负责人接第 ${n} 张工单先停下` });
       await settled(td, "tm-1", "pm-2");
       await frontend.sendParts([{ type: "text", text: "接着做吧" }], { conversation: PM2, idempotencyKey });
     };
     const taskId = await startTwoProjectTask(td, frontend);
     const card = await planCardOf(frontend, taskId);
-    // 任务维护者起草计划的这一轮说完再确认（它最后一句和计划确认、建出工单的先后才确定）
+    // 任务负责人起草计划的这一轮说完再确认（它最后一句和计划确认、建出工单的先后才确定）
     await settled(td, "tm-1");
     ok(await frontend.cardAction({ cardId: card.id, action: "confirm", expectedVersion: 1, input: {} }));
     const [woA, woB] = await eventually(
@@ -373,12 +373,12 @@ describe("涉及多个项目的任务：派单、回执和阶段验收", () => {
     await waitUntil(() => resultsOf(frontend, TM1, "complete_stage").length >= 1, { timeoutMs: 30_000, describe: () => "等第一次宣布完成" });
     expect(resultsOf(frontend, TM1, "complete_stage")[0]).toMatchObject({ outcome: "error" });
     expect(resultsOf(frontend, TM1, "complete_stage")[0]!.resultSummary).toContain("阶段 s1 还在等回执");
-    await eventually(() => messagesOf(frontend, PM1), (m) => m.message.speaker === "agent" && textOf(m).includes("收到工单，先看看"), "记账本的维护者先停下");
-    // 催之前等两边这一轮都说完：记账本的维护者这一轮结束了，催的话才是新的一轮（不是插话）；任务维护者说完了，记账本的回执才不会插进它这一轮
+    await eventually(() => messagesOf(frontend, PM1), (m) => m.message.speaker === "agent" && textOf(m).includes("收到工单，先看看"), "记账本的负责人先停下");
+    // 催之前等两边这一轮都说完：记账本的负责人这一轮结束了，催的话才是新的一轮（不是插话）；任务负责人说完了，记账本的回执才不会插进它这一轮
     await settled(td, "tm-1", "pm-1");
     await frontend.sendParts([{ type: "text", text: "接着做吧" }], { conversation: PM1, idempotencyKey: "k-pm1-go" });
 
-    // 记账本的回执（完成）进任务维护者的会话
+    // 记账本的回执（完成）进任务负责人的会话
     const receiptA = await eventually(() => noticesTo(frontend, TM1, `工单 ${woA!.id}「`), () => true, "记账本的回执");
     expect(textOf(receiptA)).toContain("项目「记账本」完成");
     expect(textOf(receiptA)).toContain("加好了 export.md");
@@ -386,7 +386,7 @@ describe("涉及多个项目的任务：派单、回执和阶段验收", () => {
     expect(receiptA).toMatchObject({ taskId, stageId: "s1" });
     expect(fs.readFileSync(path.join(recordsA, "workdir", "export.md"), "utf8")).toBe("# 导出说明\n");
 
-    // s1 验收通过、s2 开始：家电档案的那张派出；它的维护者退回（附理由）
+    // s1 验收通过、s2 开始：家电档案的那张派出；它的负责人退回（附理由）
     const accepted1 = await taskWhere(frontend, (e) => e.task.id === taskId && e.change === "stage_accepted" && e.stageId === "s1", "s1 验收通过");
     expect(accepted1.task.stages?.list?.find((s) => s.stageId === "s1")?.attempts).toBe(1);
     // 评审拿到了本阶段的工单和回执，读到了记账本工作目录里的交付件
@@ -435,18 +435,18 @@ describe("涉及多个项目的任务：派单、回执和阶段验收", () => {
       `派出工单 ${shown(woC)} → 项目「家电档案」`,
       `工单 ${shown(woC)}回执：项目「家电档案」完成`,
     ]);
-    // 项目维护者会话里每张工单一条分隔线，来源是任务维护者
+    // 项目负责人会话里每张工单一条分隔线，来源是任务负责人
     const dividers = messagesOf(frontend, PM2).flatMap((m) => m.message.parts.filter((p) => p.type === "work_order_divider"));
     expect(dividers).toEqual([
-      { type: "work_order_divider", workOrderId: woB!.id, title: "按记账本的导出说明加导入说明 import.md", from: "任务维护者" },
-      { type: "work_order_divider", workOrderId: woC.id, title: "调整：只加一份导入说明 import.md，不动现有的表", from: "任务维护者" },
+      { type: "work_order_divider", workOrderId: woB!.id, title: "按记账本的导出说明加导入说明 import.md", from: "任务负责人" },
+      { type: "work_order_divider", workOrderId: woC.id, title: "调整：只加一份导入说明 import.md，不动现有的表", from: "任务负责人" },
     ]);
-    // 录之前等这一轮的尾巴（不靠快慢）：任务维护者说完、这一轮结束；每次模型调用都记了账——评审交出结论之后还说一句，
-    // 任务维护者 12 次、记账本 6 次和范围审视 1 次、家电档案 11 次和范围审视 2 次、两次评审各 3 次
+    // 录之前等这一轮的尾巴（不靠快慢）：任务负责人说完、这一轮结束；每次模型调用都记了账——评审交出结论之后还说一句，
+    // 任务负责人 12 次、记账本 6 次和范围审视 1 次、家电档案 11 次和范围审视 2 次、两次评审各 3 次
     await agentSaid(frontend, TM1, "全部完成");
     await waitUntil(() => frontend.events({ channel: TM1, type: EVENT_TYPES.turnEnd }).length === frontend.events({ channel: TM1, type: EVENT_TYPES.turnStart }).length, {
       timeoutMs: 30_000,
-      describe: () => "等任务维护者这一轮结束",
+      describe: () => "等任务负责人这一轮结束",
     });
     await waitUntil(() => (frontend.events({ channel: BOARD, type: EVENT_TYPES.tokenTotals }).at(-1)?.payload as { calls?: number } | undefined)?.calls === 38, {
       timeoutMs: 30_000,
@@ -465,7 +465,7 @@ describe("涉及多个项目的任务：派单、回执和阶段验收", () => {
 });
 
 describe("涉及多个项目的任务：从某个阶段重做（84 号票）", () => {
-  it("正在做本任务工单的项目维护者也先停稳（和任务自己的维护者一起），停下了才重置", async () => {
+  it("正在做本任务工单的项目负责人也先停稳（和任务自己的负责人一起），停下了才重置", async () => {
     const d = dirs();
     const padding = Array.from({ length: 6 }, () => say("好"));
     const td = await startTestDaemon({
@@ -474,7 +474,7 @@ describe("涉及多个项目的任务：从某个阶段重做（84 号票）", (
       maintainer: (id, spawn) => {
         // 计划的工具包开 bash（工单段的工具包是计划和项目的交集）
         if (id === "tm-1") return spawn === 1 ? [submitPlanStep({ ...twoProjectPlan(), toolkit: { ...twoProjectPlan().toolkit, bash: true } }), say("计划交了")] : padding;
-        // 记账本的维护者接了 s1 的工单，在跑一条很久的命令
+        // 记账本的负责人接了 s1 的工单，在跑一条很久的命令
         if (id === "pm-1") return [call("bash", { command: "sleep 20" }), ...padding];
         return padding;
       },
@@ -486,14 +486,14 @@ describe("涉及多个项目的任务：从某个阶段重做（84 号票）", (
     const card = await planCardOf(frontend, taskId);
     await settled(td, "tm-1");
     ok(await frontend.cardAction({ cardId: card.id, action: "confirm", expectedVersion: 1, input: {} }));
-    // 记账本的维护者开始处理工单（工具调用的记录要调用结束才有，这里看它开始处理这条输入），等它跑起那条命令
-    await waitUntil(() => td.daemon.store.read(PM1).some((e) => e.type === EVENT_TYPES.turnStart), { timeoutMs: 30_000, describe: () => "等记账本的维护者开始处理工单" });
+    // 记账本的负责人开始处理工单（工具调用的记录要调用结束才有，这里看它开始处理这条输入），等它跑起那条命令
+    await waitUntil(() => td.daemon.store.read(PM1).some((e) => e.type === EVENT_TYPES.turnStart), { timeoutMs: 30_000, describe: () => "等记账本的负责人开始处理工单" });
     await new Promise((r) => setTimeout(r, 1500));
 
     const started = Date.now();
     ok(await frontend.taskAction({ taskId, action: "rework", stageId: "s1" }));
     expect(Date.now() - started).toBeLessThan(8_000);
-    // 项目维护者那一轮先停下（中止），重做的事件在它之后落盘
+    // 项目负责人那一轮先停下（中止），重做的事件在它之后落盘
     const abortedAt = td.daemon.store.read(PM1).find((e) => e.type === EVENT_TYPES.turnEnd && (e.payload as { outcome?: string }).outcome === "aborted")?.globalSeq;
     const reworkAt = td.daemon.store.read(BOARD).find((e) => e.type === EVENT_TYPES.task && (e.payload as TaskEventPayload).change === "rework")!.globalSeq;
     expect(abortedAt).toBeDefined();
@@ -505,7 +505,7 @@ const question = (text: string, recommended: string, other: string) => ({ questi
 const inboxOf = (frontend: TestFrontend): InboxItem[] => frontend.events({ channel: INBOX, type: EVENT_TYPES.inboxItem }).map((f) => (f.payload as InboxItemEventPayload).item);
 
 describe("涉及多个项目的任务：工单的等澄清", () => {
-  it("项目维护者提问：工单转等澄清，问题作为一条消息进任务维护者的会话（不出给用户）；任务维护者直接回答，回答交回项目维护者、工单回到进行中；答不了转问用户：提问卡进待我处理，用户回答后经任务维护者交回项目维护者；用户的回答是“澄清问题的回答”素材", async () => {
+  it("项目负责人提问：工单转等澄清，问题作为一条消息进任务负责人的会话（不出给用户）；任务负责人直接回答，回答交回项目负责人、工单回到进行中；答不了转问用户：提问卡进待我处理，用户回答后经任务负责人交回项目负责人；用户的回答是“澄清问题的回答”素材", async () => {
     const d = dirs();
     const recordsA = d.records("p-1");
     const td = await startTestDaemon({
@@ -522,7 +522,7 @@ describe("涉及多个项目的任务：工单的等澄清", () => {
             // 第二个问题：答不了，转问用户
             call("forward_to_user", { workOrderId: "wo-1", questions: [question("导出要不要带备注列？", "要", "不要")] }),
             say("转问用户了"),
-            // 用户回答了：交回项目维护者
+            // 用户回答了：交回项目负责人
             call("answer_work_order", { workOrderId: "wo-1", answer: "用户说要带备注列" }),
             say("交回了"),
             say("收到回执"),
@@ -550,22 +550,22 @@ describe("涉及多个项目的任务：工单的等澄清", () => {
     const card = await planCardOf(frontend, taskId);
     ok(await frontend.cardAction({ cardId: card.id, action: "confirm", expectedVersion: 1, input: {} }));
 
-    // 项目维护者提问：工单转等澄清，问题进任务维护者的会话，没有提问卡
+    // 项目负责人提问：工单转等澄清，问题进任务负责人的会话，没有提问卡
     const clarifying = await firstOf(() => workOrdersOf(frontend), (e) => e.change === "clarifying", "工单转等澄清");
     expect(clarifying).toMatchObject({ from: "in_progress", by: "maintainer", workOrder: { id: "wo-1", state: "clarifying", question: "导出的格式\n1. 导出用 CSV 还是 JSON？（推荐：CSV；选项：CSV、JSON）" } });
-    const asked = await firstOf(() => noticesTo(frontend, TM1, "在工单 wo-1"), () => true, "问题交给任务维护者");
-    expect(textOf(asked)).toContain("项目「记账本」的维护者在工单 wo-1「加一个导出说明 export.md」里提问");
+    const asked = await firstOf(() => noticesTo(frontend, TM1, "在工单 wo-1"), () => true, "问题交给任务负责人");
+    expect(textOf(asked)).toContain("项目「记账本」的负责人在工单 wo-1「加一个导出说明 export.md」里提问");
     expect(textOf(asked)).toContain("导出用 CSV 还是 JSON？");
     expect(asked).toMatchObject({ taskId, stageId: "s1" });
-    // 任务维护者直接回答：交回项目维护者，工单回到进行中
+    // 任务负责人直接回答：交回项目负责人，工单回到进行中
     const answered = await firstOf(() => workOrdersOf(frontend), (e) => e.change === "answered", "工单回到进行中");
     expect(answered).toMatchObject({ from: "clarifying", by: "maintainer", workOrder: { state: "in_progress" } });
     expect(answered.workOrder).not.toHaveProperty("question");
-    const reply = await eventually(() => noticesTo(frontend, PM1, "导出用 CSV"), () => true, "回答交回项目维护者");
+    const reply = await eventually(() => noticesTo(frontend, PM1, "导出用 CSV"), () => true, "回答交回项目负责人");
     expect(reply).toMatchObject({ projectId: "p-1", taskId });
-    expect(textOf(reply)).toContain("任务 t-1 的维护者回答了你在工单 wo-1 里的提问");
+    expect(textOf(reply)).toContain("任务 t-1 的负责人回答了你在工单 wo-1 里的提问");
 
-    // 第二个问题任务维护者答不了：转问用户，提问卡进待我处理（问的人是任务维护者），这一支停下
+    // 第二个问题任务负责人答不了：转问用户，提问卡进待我处理（问的人是任务负责人），这一支停下
     const forwarded = await cardWhere(frontend, (c) => c.type === "questions", "转问用户的提问卡");
     expect(forwarded.payload).toMatchObject({ taskId, askedBy: { maintainerId: "tm-1", projectId: "p-1", workOrderId: "wo-1" } });
     const item = await eventually(() => inboxOf(frontend), (i) => i.kind === "card" && i.cardId === forwarded.id, "待我处理里的提问卡");
@@ -580,15 +580,15 @@ describe("涉及多个项目的任务：工单的等澄清", () => {
     expect(activityOf("tm-1").at(-1)?.detail).toMatchObject({ kind: "clarification", cardId: forwarded.id });
     expect(activityOf("secretary").some((a) => a.detail?.kind === "clarification")).toBe(false);
 
-    // 用户回答：回答交给任务维护者（不交给项目维护者、秘书），工单还在等澄清；任务维护者交回后回到进行中
+    // 用户回答：回答交给任务负责人（不交给项目负责人、秘书），工单还在等澄清；任务负责人交回后回到进行中
     ok(await frontend.cardAction({ cardId: forwarded.id, action: "answer", expectedVersion: 1, input: { answers: [{ questionId: "q1", answer: "要" }] } }));
-    const toTask = await eventually(() => noticesTo(frontend, TM1, "用户回答了你为工单 wo-1"), () => true, "用户的回答交给任务维护者");
+    const toTask = await eventually(() => noticesTo(frontend, TM1, "用户回答了你为工单 wo-1"), () => true, "用户的回答交给任务负责人");
     expect(textOf(toTask)).toContain("导出要不要带备注列？ → 要");
     await taskWhere(frontend, (e) => e.task.id === taskId && e.task.state === "running" && e.from === "waiting_for_user", "任务回到执行中");
-    await eventually(() => noticesTo(frontend, PM1, "用户说要带备注列"), () => true, "任务维护者交回项目维护者");
+    await eventually(() => noticesTo(frontend, PM1, "用户说要带备注列"), () => true, "任务负责人交回项目负责人");
     expect(noticesTo(frontend, PM1, "导出要不要带备注列？ → 要")).toEqual([]);
     expect(td.daemon.store.read(CHANNELS.secretary).some((e) => JSON.stringify(e.payload).includes("导出要不要带备注列"))).toBe(false);
-    // 回执照常进任务维护者的会话
+    // 回执照常进任务负责人的会话
     await eventually(() => noticesTo(frontend, TM1, "工单 wo-1「加一个导出说明 export.md」的回执"), () => true, "回执");
     expect(fs.readFileSync(path.join(recordsA, "workdir", "export.md"), "utf8")).toContain("带备注列");
 
@@ -599,7 +599,7 @@ describe("涉及多个项目的任务：工单的等澄清", () => {
 });
 
 describe("涉及多个项目的任务：计划外的工单", () => {
-  it("执行中派出计划外的工单命中“计划外工单”类别：工单待你确认、不进项目维护者的队列，待我处理出现工单卡；确认后才派出、照常做完交回执；拒绝则不派，告诉任务维护者；确认、拒绝都是“审批决定”素材；任务取消时还没派出的工单退回", async () => {
+  it("执行中派出计划外的工单命中“计划外工单”类别：工单待你确认、不进项目负责人的队列，待我处理出现工单卡；确认后才派出、照常做完交回执；拒绝则不派，告诉任务负责人；确认、拒绝都是“审批决定”素材；任务取消时还没派出的工单退回", async () => {
     const d = dirs();
     const recordsB = d.records("p-2");
     const td = await startTestDaemon({
@@ -637,7 +637,7 @@ describe("涉及多个项目的任务：计划外的工单", () => {
     const plan = await planCardOf(frontend, taskId);
     ok(await frontend.cardAction({ cardId: plan.id, action: "confirm", expectedVersion: 1, input: {} }));
 
-    // 两张计划外的工单：待你确认，各有一张工单卡（卡住任务），不进项目维护者的队列
+    // 两张计划外的工单：待你确认，各有一张工单卡（卡住任务），不进项目负责人的队列
     const cardsWo = await eventually(() => [cardsOf(frontend).filter((c) => c.type === "work_order")], (list) => list.length >= 2, "两张工单卡");
     const [toB, toC] = cardsWo;
     expect(toB!.payload).toMatchObject({ taskId, projectId: "p-2", projectName: "家电档案", stageId: "s1", acceptance: ["分类和记账本一致"], categories: ["计划外工单"] });
@@ -658,21 +658,21 @@ describe("涉及多个项目的任务：计划外的工单", () => {
     const waitingStage = await taskWhere(frontend, (e) => e.task.id === taskId && e.task.stages?.list?.[0]?.state === "waiting", "s1 等你确认");
     expect(waitingStage.task.stages?.list?.[0]).toMatchObject({ waitReason: "approval", waitingOn: toB!.id });
 
-    // 确认派出：进家电档案维护者的队列，做完交回执
+    // 确认派出：进家电档案负责人的队列，做完交回执
     ok(await frontend.cardAction({ cardId: toB!.id, action: "dispatch", expectedVersion: 1 }));
     await workOrderWhere(frontend, (e) => e.change === "dispatched" && e.workOrder.id === woB, "确认后派出");
     const doneB = await workOrderWhere(frontend, (e) => e.change === "ended" && e.workOrder.id === woB, "家电档案做完");
     expect(doneB.workOrder).toMatchObject({ outcome: "done", receipt: "分类对齐了" });
     expect(fs.existsSync(path.join(recordsB, "workdir", "categories.md"))).toBe(true);
-    await eventually(() => noticesTo(frontend, TM1, `用户确认派出了计划外的工单 ${woB}`), () => true, "确认告诉任务维护者");
+    await eventually(() => noticesTo(frontend, TM1, `用户确认派出了计划外的工单 ${woB}`), () => true, "确认告诉任务负责人");
 
-    // 拒绝：不派，告诉任务维护者
+    // 拒绝：不派，告诉任务负责人
     ok(await frontend.cardAction({ cardId: toC!.id, action: "deny", expectedVersion: 1, note: "相册库这次别动" }));
     const declined = await workOrderWhere(frontend, (e) => e.change === "ended" && e.workOrder.id === woC, "相册库的工单没派出");
     expect(declined).toMatchObject({ from: "awaiting_confirm", workOrder: { outcome: "declined", reason: "用户拒绝了：相册库这次别动" } });
     expect(declined.workOrder).not.toHaveProperty("dispatchedAt");
     expect(workOrdersOf(frontend).filter((e) => e.workOrder.id === woC).map((e) => e.change)).toEqual(["created", "ended"]);
-    const told = await eventually(() => noticesTo(frontend, TM1, `用户拒绝了计划外的工单 ${woC}`), () => true, "拒绝告诉任务维护者");
+    const told = await eventually(() => noticesTo(frontend, TM1, `用户拒绝了计划外的工单 ${woC}`), () => true, "拒绝告诉任务负责人");
     expect(textOf(told)).toContain("相册库这次别动");
     expect(frontend.events({ channel: maintainerChannel("pm-3"), type: EVENT_TYPES.turnStart })).toEqual([]);
 
@@ -705,7 +705,7 @@ describe("涉及多个项目的任务：计划外的工单", () => {
 });
 
 describe("涉及多个项目的任务：对话审批关着时计划外的工单（101 号票）", () => {
-  it("任务的 agent 超出授权先不管：计划外的工单不出工单卡、直接派出，命中的类别照常写在回给维护者的话里，时间线上照常记一笔", async () => {
+  it("任务的 agent 超出授权先不管：计划外的工单不出工单卡、直接派出，命中的类别照常写在回给负责人的话里，时间线上照常记一笔", async () => {
     const d = dirs();
     const recordsB = d.records("p-2");
     const td = await startTestDaemon({
@@ -801,9 +801,9 @@ describe("涉及多个项目的任务：计划变更里加项目", () => {
     ok(await frontend.cardAction({ cardId: change.id, action: "confirm", expectedVersion: change.version, input: {} }));
     const created = await workOrderWhere(frontend, (e) => e.change === "created" && e.workOrder.projectId === "p-3", "相册库的工单建出");
     expect(created.workOrder).toMatchObject({ state: "planned", kind: "change", source: "task_maintainer", stageId: "s1", planned: true, acceptance: ["工作目录里有 album-export.md"] });
-    // s1 在做：马上派出，相册库的维护者开始做
+    // s1 在做：马上派出，相册库的负责人开始做
     await workOrderWhere(frontend, (e) => e.change === "dispatched" && e.workOrder.id === created.workOrder.id, "相册库的工单派出");
-    await workOrderWhere(frontend, (e) => e.change === "started" && e.workOrder.id === created.workOrder.id, "相册库的维护者开始做");
+    await workOrderWhere(frontend, (e) => e.change === "started" && e.workOrder.id === created.workOrder.id, "相册库的负责人开始做");
     // 原有的两行不重复建单
     const createdByProject = workOrdersOf(frontend)
       .filter((e) => e.change === "created")
@@ -836,7 +836,7 @@ function withoutHomeAppliances(): Plan {
 }
 
 describe("涉及多个项目的任务：改计划去掉退回的那一行", () => {
-  it("家电档案退回、本阶段不通过：任务维护者自行调整计划去掉那一行（算一次验收退回，时间线上记一笔），它不再挡本阶段，宣布完成后由评审验收，评审看得到回执；计划里只剩记账本也还是多项目任务：后面阶段的工单照样派出、回执到齐才能完成", async () => {
+  it("家电档案退回、本阶段不通过：任务负责人自行调整计划去掉那一行（算一次验收退回，时间线上记一笔），它不再挡本阶段，宣布完成后由评审验收，评审看得到回执；计划里只剩记账本也还是多项目任务：后面阶段的工单照样派出、回执到齐才能完成", async () => {
     const d = dirs();
     const recordsA = d.records("p-1");
     const recordsB = d.records("p-2");
@@ -900,7 +900,7 @@ describe("涉及多个项目的任务：改计划去掉退回的那一行", () =
     const [woA, woB, woA2] = created;
     expect([woA!.projectId, woB!.projectId, woA2!.projectId]).toEqual(["p-1", "p-2", "p-1"]);
 
-    // 家电档案退回之后，任务维护者改计划去掉那一行：算一次验收退回（任务维护者调整的），时间线上记一笔
+    // 家电档案退回之后，任务负责人改计划去掉那一行：算一次验收退回（任务负责人调整的），时间线上记一笔
     await workOrderWhere(frontend, (e) => e.change === "ended" && e.workOrder.id === woB!.id && e.workOrder.outcome === "returned", "家电档案退回");
     const adjusted = await taskWhere(frontend, (e) => e.task.id === taskId && e.change === "stage_returned" && e.stageId === "s1", "改计划算一次退回");
     expect(adjusted).toMatchObject({ by: "maintainer" });

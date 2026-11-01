@@ -1524,7 +1524,7 @@
                 "dependsOn": [],
                 "acceptance": [
                   {
-                    "criterion": "每一步都做完或说明跳过（维护者用 report_step 自报；流程不逐步验收）",
+                    "criterion": "每一步都做完或说明跳过（负责人用 report_step 自报；流程不逐步验收）",
                     "method": "user"
                   }
                 ],
@@ -1587,7 +1587,7 @@
                 "dependsOn": [],
                 "acceptance": [
                   {
-                    "criterion": "每一步都做完或说明跳过（维护者用 report_step 自报；流程不逐步验收）",
+                    "criterion": "每一步都做完或说明跳过（负责人用 report_step 自报；流程不逐步验收）",
                     "method": "user"
                   }
                 ],
@@ -1735,7 +1735,7 @@
                 "dependsOn": [],
                 "acceptance": [
                   {
-                    "criterion": "每一步都做完或说明跳过（维护者用 report_step 自报；流程不逐步验收）",
+                    "criterion": "每一步都做完或说明跳过（负责人用 report_step 自报；流程不逐步验收）",
                     "method": "user"
                   }
                 ],
@@ -1984,7 +1984,7 @@
                 "dependsOn": [],
                 "acceptance": [
                   {
-                    "criterion": "每一步都做完或说明跳过（维护者用 report_step 自报；流程不逐步验收）",
+                    "criterion": "每一步都做完或说明跳过（负责人用 report_step 自报；流程不逐步验收）",
                     "method": "user"
                   }
                 ],
@@ -2129,7 +2129,7 @@
                 "dependsOn": [],
                 "acceptance": [
                   {
-                    "criterion": "每一步都做完或说明跳过（维护者用 report_step 自报；流程不逐步验收）",
+                    "criterion": "每一步都做完或说明跳过（负责人用 report_step 自报；流程不逐步验收）",
                     "method": "user"
                   }
                 ],
@@ -2379,7 +2379,7 @@
                 "dependsOn": [],
                 "acceptance": [
                   {
-                    "criterion": "每一步都做完或说明跳过（维护者用 report_step 自报；流程不逐步验收）",
+                    "criterion": "每一步都做完或说明跳过（负责人用 report_step 自报；流程不逐步验收）",
                     "method": "user"
                   }
                 ],
@@ -2446,7 +2446,7 @@
                 "dependsOn": [],
                 "acceptance": [
                   {
-                    "criterion": "每一步都做完或说明跳过（维护者用 report_step 自报；流程不逐步验收）",
+                    "criterion": "每一步都做完或说明跳过（负责人用 report_step 自报；流程不逐步验收）",
                     "method": "user"
                   }
                 ],
@@ -2514,7 +2514,7 @@
                 "dependsOn": [],
                 "acceptance": [
                   {
-                    "criterion": "每一步都做完或说明跳过（维护者用 report_step 自报；流程不逐步验收）",
+                    "criterion": "每一步都做完或说明跳过（负责人用 report_step 自报；流程不逐步验收）",
                     "method": "user"
                   }
                 ],

@@ -4,7 +4,7 @@
 //   用途（干活、范围审视、压缩）照子进程报的记。记在 ledger 频道（守护进程内部），派生视图 token_ledger。
 // - 系统开销按角色判：秘书的用量不论它在处理什么都是系统开销（不在任何名下）；拉起时没给归属的 agent 记成"未归属"，单列，日志里提醒。
 // - 记在任务或定时作业名下的，同一事务里在看板频道推一条 token_totals：这个名下的最新合计（总量、按 agent、按阶段），
-//   任务卡、作业卡上的总量和任务详情里的细分都来自它。项目名下的（项目维护者不在任务里时）只进账本。
+//   任务卡、作业卡上的总量和任务详情里的细分都来自它。项目名下的（项目负责人不在任务里时）只进账本。
 //   合计只从派生视图的 SQL 聚合出（views.ts 的 ownerTotals）。
 // - 消耗页：选一个时间范围（含两头的日期）按天、按 agent 汇总，系统开销、未归属单列；成本是粗估（pricing.ts）：
 //   配置里写了单价的 = 用量 × 配置的单价（每次现读配置，不分时段）；没写的用框架自带的价格表（94 号票：DeepSeek，
@@ -90,7 +90,7 @@ export interface TokenLedger {
   entries(owner?: LedgerOwner | null): LedgerEntry[];
   /**
    * 某个 agent 最近一次这几种用途的调用（114 号票：⚙ 里的上下文用量是最近一次干活的调用，上次压缩是最近一次压缩的那次）；
-   * 只看全局序号大于 afterSeq 的（这段会话里的：清空、重置维护者之后）；没有是 undefined
+   * 只看全局序号大于 afterSeq 的（这段会话里的：清空、重置负责人之后）；没有是 undefined
    */
   lastOf(agentId: string, purposes: readonly LedgerPurpose[], afterSeq?: number): LedgerEntry | undefined;
   /** 某个名下的合计（总量、按 agent、按阶段），和看板上 token_totals 的负载一样；还没有用量是 undefined */

@@ -1,4 +1,4 @@
-// 主切面（177 号票）：项目的维护者在对话里跑一条 wo-10（2026-10-19 AI 简报站日报那一轮）那样的 bash——同一条命令里定义变量再用、
+// 主切面（177 号票）：项目的负责人在对话里跑一条 wo-10（2026-10-19 AI 简报站日报那一轮）那样的 bash——同一条命令里定义变量再用、
 // printf 的格式串和 echo 里写着斜杠和命令替换、临时文件写到 $TMPDIR——守卫每个路径都看得准，不出审批卡。
 // 测试底座的对话审批开着：不出卡不是靠"超出授权先不管"。临时文件落在工作目录里的 .ergo-tmp（拉起时建好，git 不收）。
 import fs from "node:fs";
@@ -27,7 +27,7 @@ const COMMAND = [
   "echo \"S01 items: $(grep -o '<item' raw/2026-10-19/S01-1.xml | wc -l) ua=$UA\"",
 ].join(" && ") + '\nnode list.cjs > "$TMPDIR/cand.txt" 2>&1; echo "exit=$?"; tail -5 "$TMPDIR/cand.txt"';
 
-describe("项目的维护者跑 wo-10 那样的命令", () => {
+describe("项目的负责人跑 wo-10 那样的命令", () => {
   it("变量代进去、echo / printf 的字不当路径、临时文件写 $TMPDIR：不出审批卡，照常执行；临时文件在工作目录的 .ergo-tmp 里", async () => {
     const dataDir = makeTempDir("ergo-data-");
     const workDir = path.join(real(dataDir), "projects", "p-1", "workdir");

@@ -58,7 +58,7 @@ const quickTools = (input: GuardInput): GuardInput => ({
     "quick_action:tidy_note": { name: "quick_action:tidy_note", title: "整理便条", source: "host", categories: [], args: {} },
   },
 });
-/** 对话里，维护者在工作目录里干活（v1 模板的前提先满足） */
+/** 对话里，负责人在工作目录里干活（v1 模板的前提先满足） */
 const judgeInChat = (tc: ReturnType<typeof call>, settings: WatchCategorySettings) => judgeToolCall(quickTools(inChat(maintainer(), tc, { ...v1Satisfied(), settings })));
 /** 判定的要点：处置、有没有硬拒绝、是不是因为受保护区域 */
 const verdictSummary = (j: ReturnType<typeof judgeToolCall>) => ({
@@ -70,7 +70,7 @@ const verdictSummary = (j: ReturnType<typeof judgeToolCall>) => ({
 const NEVER_BY_PROTECTED_AREA = { disposition: "never", hardRefusal: null, protectedArea: true, mentionsProtectedArea: true };
 
 describe("自定义类别的确定规则", () => {
-  // 每一行：规则、命中的调用、没命中的调用（对话里，维护者在工作目录里干活；v1 模板的前提先满足）
+  // 每一行：规则、命中的调用、没命中的调用（对话里，负责人在工作目录里干活；v1 模板的前提先满足）
   const CASES: { name: string; match: CustomWatchCategory["match"]; hit: ReturnType<typeof call>; miss: ReturnType<typeof call> }[] = [
     { name: "匹配工具", match: { tools: ["git_commit"] }, hit: call("git_commit", { message: "x" }), miss: call("git_status_diff", {}) },
     { name: "匹配工具：bash 拆出的伪工具", match: { tools: ["git_commit"] }, hit: bash("git commit -m x"), miss: bash("git status") },

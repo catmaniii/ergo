@@ -13,7 +13,7 @@ export interface EventSourceThresholds {
   maxRunSteps: number;
   /** 项目的服务报事件：每个服务每分钟最多报几次（按最近一分钟算；默认 30） */
   serviceReportsPerMinute: number;
-  /** 项目的服务报事件：单条数据最多多少字节（JSON 写出来的长度；默认 8 KB：一批事件都要进上下文，大了就是烧钱，原文放进文件让维护者自己读） */
+  /** 项目的服务报事件：单条数据最多多少字节（JSON 写出来的长度；默认 8 KB：一批事件都要进上下文，大了就是烧钱，原文放进文件让负责人自己读） */
   serviceDataMaxBytes: number;
 }
 

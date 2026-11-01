@@ -1,12 +1,12 @@
 // 原型里的 agent 运行时（286、289 号票）：内核自带的 pi，加上 Claude Code 插件登记的（能力清单、设置项、模型照守护进程的
-// claude-code/runtime.ts、settings.ts；模型列表是编的，真的是 Claude Code 起来时报回的）。"个人博客"项目的维护者用 Claude Code
+// claude-code/runtime.ts、settings.ts；模型列表是编的，真的是 Claude Code 起来时报回的）。"个人博客"项目的负责人用 Claude Code
 // （卡上标出、⚙ 里多权限模式和思考档位、输入框的候选是 Claude Code 的命令）。
 import { type AgentRuntimeView, PI_RUNTIME_ID, RUNTIME_OPERATIONS, type RuntimeCapabilities, type SlashCommandEntry } from "../state/index.ts";
 
 /** Claude Code 运行时的 id（守护进程 claude-code/api.ts 的 CLAUDE_CODE_RUNTIME_ID） */
 export const FAKE_CLAUDE_CODE = "claude-code";
 
-/** 用 Claude Code 的维护者（原型里编的）：个人博客项目的维护者、从 Claude Code 会话接管来的"修 CI 的 flaky 测试"（290 号票） */
+/** 用 Claude Code 的负责人（原型里编的）：个人博客项目的负责人、从 Claude Code 会话接管来的"修 CI 的 flaky 测试"（290 号票） */
 export const FAKE_CLAUDE_MAINTAINERS: readonly string[] = ["project-blog", "tm-flaky"];
 
 const caps = (yes: readonly string[]): RuntimeCapabilities => Object.fromEntries(RUNTIME_OPERATIONS.map((op) => [op, yes.includes(op)])) as RuntimeCapabilities;
@@ -100,7 +100,7 @@ export const FAKE_CLAUDE_COMMANDS: SlashCommandEntry[] = [
   },
 ];
 
-/** 用 Claude Code 的维护者工具包里的 skill（291 号票：写法 /ergo:<目录名>；310 号票：英文说明是二狗的模型翻的） */
+/** 用 Claude Code 的负责人工具包里的 skill（291 号票：写法 /ergo:<目录名>；310 号票：英文说明是二狗的模型翻的） */
 export const FAKE_CLAUDE_SKILLS: SlashCommandEntry[] = [
   { kind: "skill", text: "/ergo:demo-tdd", name: "demo-tdd", description: "先写测试再写实现：红、绿、重构（假数据）", originalDescription: "Test-driven development: red, green, refactor" },
   { kind: "skill", text: "/ergo:yt-dlp", name: "yt-dlp", description: "下载视频和图片（假数据）" },

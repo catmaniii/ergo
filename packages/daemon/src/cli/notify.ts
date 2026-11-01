@@ -1,5 +1,5 @@
 // ergo notify <事件名> [--data <JSON>]（357 号票，ADR-0043）：项目的服务报事件，叫醒等这个事件的任务。给服务用的，不是给人操作二狗的（用户定过不用命令行操作二狗）。
-// 地址和凭证从环境变量取（服务上线时二狗注入）；发完就走，不等维护者做完。退出码：
+// 地址和凭证从环境变量取（服务上线时二狗注入）；发完就走，不等负责人做完。退出码：
 //   0 报上了；1 二狗拒了（凭证、事件名没人等、任务暂停着、超限速、数据太大，原因写在 stderr）；
 //   2 用法不对（没写事件名、--data 不是 JSON、环境变量不在：不是在上线的服务里跑）；3 连不上二狗（守护进程停着）。
 // 连不上时不缓存、不重试：这次就是没报上，要不要重报由服务自己定。
@@ -8,7 +8,7 @@ import type { CliContext } from "./context.ts";
 
 export const NOTIFY_EXIT = { ok: 0, refused: 1, usage: 2, unreachable: 3 } as const;
 
-/** 等二狗回话最多多久（接口不等维护者做完，正常一下就回） */
+/** 等二狗回话最多多久（接口不等负责人做完，正常一下就回） */
 const NOTIFY_TIMEOUT_MS = 15_000;
 
 export async function cmdNotify(ctx: CliContext, name: string | undefined, dataText: string | true | undefined): Promise<number> {

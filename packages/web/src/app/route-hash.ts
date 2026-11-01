@@ -80,7 +80,7 @@ export type Route =
   | { tab: "secretary"; at?: string }
   /** 看板；jobId：定位到看板上这个定时作业的卡（日历里点作业过来，35 号票）；at：任务的会话里定位到的那一条 */
   | { tab: "tasks"; taskId?: string; jobId?: string; at?: string }
-  /** 项目；jobId：定位到项目页上这个定时作业那一行（日历里点作业过来，35 号票）；at：维护者的会话里定位到的那一条 */
+  /** 项目；jobId：定位到项目页上这个定时作业那一行（日历里点作业过来，35 号票）；at：负责人的会话里定位到的那一条 */
   | { tab: "projects"; projectId?: string; chat?: boolean; jobId?: string; at?: string }
   | { tab: "inbox"; itemId?: string }
   /**
@@ -230,7 +230,7 @@ export function inboxJumpRoute(jump: InboxJump): Route {
       return { tab: "tasks", taskId: jump.taskId, ...(jump.at ? { at: jump.at } : {}) };
     case "project":
       if (jump.jobId) return { tab: "projects", projectId: jump.projectId, jobId: jump.jobId };
-      // 要定位的在维护者的会话里：去会话（宽屏 …/chat 也是整页的项目）
+      // 要定位的在负责人的会话里：去会话（宽屏 …/chat 也是整页的项目）
       return { tab: "projects", projectId: jump.projectId, ...(jump.chat || jump.at ? { chat: true } : {}), ...(jump.at ? { at: jump.at } : {}) };
     case "secretary":
       return { tab: "secretary", ...(jump.at ? { at: jump.at } : {}) };

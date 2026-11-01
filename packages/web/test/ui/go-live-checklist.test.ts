@@ -24,7 +24,7 @@ describe("转运营检查清单", () => {
     expect(html.match(/golive-item golive-ok/g)).toHaveLength(3);
     expect(html).toContain('<span class="golive-label">运营接口清单验收通过（ops.json）</span><span class="golive-detail">缺 ops.json</span>');
     expect(html).toContain("确认后开 /apps/p-photos-gallery/");
-    expect(html).toContain("缺的不挡确认：照样确认会写明缺什么，也可以先让维护者补齐。");
+    expect(html).toContain("缺的不挡确认：照样确认会写明缺什么，也可以先让负责人补齐。");
   });
 
   test("上线后再验（362 号票）：标出来、不算缺", () => {

@@ -1,6 +1,6 @@
 # 运行时底座用 pi-coding-agent SDK，包在二狗自己的薄封装之后
 
-二狗的 agent 运行时基于 `@earendil-works/pi-coding-agent` 的 SDK（`createAgentSession()` / `AgentSession`）构建。pi 的类型只出现在二狗自己的 `runtime/` 封装层里，上层（秘书、任务、审批、网关）只依赖二狗定义的接口。选它，是因为它现成提供了会话树持久化、上下文压缩、回退加分支摘要（`navigateTree`）、不进上下文的自定义记录、扩展钩子（`tool_call` 等）和 skill 加载。这正是维护者长期会话离不开的那一整套能力。
+二狗的 agent 运行时基于 `@earendil-works/pi-coding-agent` 的 SDK（`createAgentSession()` / `AgentSession`）构建。pi 的类型只出现在二狗自己的 `runtime/` 封装层里，上层（秘书、任务、审批、网关）只依赖二狗定义的接口。选它，是因为它现成提供了会话树持久化、上下文压缩、回退加分支摘要（`navigateTree`）、不进上下文的自定义记录、扩展钩子（`tool_call` 等）和 skill 加载。这正是负责人长期会话离不开的那一整套能力。
 
 ## Considered Options
 

@@ -142,7 +142,7 @@ function lastOnPath(store: EventStore, conversation: string, type: string, match
 
 /**
  * 这段会话里还没审视过的部分（309 号票：Claude Code 的范围审视，压缩之前、工单结束时）：当前路径上，这段会话开始（agent 新开一段会话的地方：
- * 清空、换模型换运行时、项目维护者的会话分段线，agentSessionStart）和最近一次压缩（时间线上"这里压缩过一次"，压缩时审视过了）之后的序号段。
+ * 清空、换模型换运行时、项目负责人的会话分段线，agentSessionStart）和最近一次压缩（时间线上"这里压缩过一次"，压缩时审视过了）之后的序号段。
  * Claude Code 压缩时整段写进摘要（不像 pi 留着最近的一截），所以压缩过的都审视过了
  */
 export function unreviewedRanges(store: EventStore, conversation: string): SeqRange[] {

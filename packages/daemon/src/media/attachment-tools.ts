@@ -2,13 +2,13 @@
 // - read_attachment（读取附件）：按附件引用读全文，文本类读原文，PDF 读抽出的文本；图片（79 号票）：模型看得了图时
 //   把图作为图片交给它看，看不了时回一句清楚的话（图片的基本信息，图里的内容请用户用文字说）。只能读自己会话里的附件，
 //   读别的会话的附件被拒并说明原因。按引用读、不按路径读，所以不落入"越出项目目录"；它只读、幂等，
-//   不落入任何关注类别（07 号票接守卫时在工具注册表里这样登记）。143 号票：任务、项目、定时作业的维护者也有（每种会话都有，
+//   不落入任何关注类别（07 号票接守卫时在工具注册表里这样登记）。143 号票：任务、项目、定时作业的负责人也有（每种会话都有，
 //   agent-host/assembly.ts 的 readAttachmentTools），绑定在它自己的会话上。
 // - send_attachment（把文件作为附件发出）：把草稿区里的一个文件复制进媒体库（图片照样剥元数据），
 //   作为 agent 的一条消息发进聊天。之后清理草稿区不影响聊天里的附件。草稿区外的文件发不了。
-//   117 号票：任务的维护者、项目的维护者也有（工具包里"发附件"开着的，默认开；maintainerAttachmentTools），能发它工作目录里的文件
-//   （任务的产出区、项目的工作目录），发进它自己的会话（任务整页、项目整页）；子 agent、评审没有（它们的结果交回维护者，
-//   维护者决定发不发）。附件消息由拉起它的会话追加（HostToolOutput.attachments），带上会话此刻的归属。
+//   117 号票：任务的负责人、项目的负责人也有（工具包里"发附件"开着的，默认开；maintainerAttachmentTools），能发它工作目录里的文件
+//   （任务的产出区、项目的工作目录），发进它自己的会话（任务整页、项目整页）；子 agent、评审没有（它们的结果交回负责人，
+//   负责人决定发不发）。附件消息由拉起它的会话追加（HostToolOutput.attachments），带上会话此刻的归属。
 //   tell_secretary 带附件（secretary/letters.ts）也经这里的 ingestFrom 复制进媒体库。
 // @i18n-ignore-file model：工具的说明、参数说明和结果给 agent（模型）看（174 号票）；工具的名字走 t()
 import fs from "node:fs";
@@ -94,7 +94,7 @@ function readImage(media: MediaStore, attachment: ConversationAttachment, vision
   return { text: `${what}，见下面的图。`, images: [{ mime, data: fs.readFileSync(media.filePath(attachment.mediaId)).toString("base64") }] };
 }
 
-/** send_attachment 能从哪里发文件：秘书是草稿区，维护者是工作目录（117 号票） */
+/** send_attachment 能从哪里发文件：秘书是草稿区，负责人是工作目录（117 号票） */
 export interface AttachmentSource {
   /** 给模型看的说法："草稿区"、"工作目录" */
   label: string;
@@ -104,7 +104,7 @@ export interface AttachmentSource {
 
 /** 秘书的草稿区（它的工作目录 tmp/scratch） */
 export const scratchSource = (scratchDir: string): AttachmentSource => ({ label: "草稿区", roots: [scratchDir] });
-/** 维护者的工作目录（任务的产出区 outputs/<任务>、项目的工作目录；117 号票） */
+/** 负责人的工作目录（任务的产出区 outputs/<任务>、项目的工作目录；117 号票） */
 export const workDirSource = (cwd: string): AttachmentSource => ({ label: "工作目录", roots: [cwd] });
 
 /**
@@ -139,7 +139,7 @@ const SECRETARY_DESCRIPTION = [
   "文件会复制进媒体库长期保留，之后清理草稿区不影响。path 是草稿区里的相对路径；只能发草稿区里的文件。",
 ].join("");
 
-/** 维护者的那一份（117 号票）：什么时候用写清楚 */
+/** 负责人的那一份（117 号票）：什么时候用写清楚 */
 const maintainerDescription = (maxBytes: number) =>
   [
     "把你工作目录里的一个文件作为附件发进你和用户的这个会话（任务页、项目页），用户在那里看到一张附件卡片，能点开预览（Markdown、纯文本、HTML、SVG）或下载。",
@@ -181,7 +181,7 @@ export function secretaryAttachmentTool(media: MediaStore, scratchDir: string): 
   return sendAttachmentTool({ media, from: scratchSource(scratchDir) });
 }
 
-/** 维护者的发附件（117 号票）：工具包里"发附件"开着、给了媒体库才有；能发它工作目录里的文件 */
+/** 负责人的发附件（117 号票）：工具包里"发附件"开着、给了媒体库才有；能发它工作目录里的文件 */
 export function maintainerAttachmentTools(media: MediaStore | undefined, toolkit: Pick<PlanToolkit, "sendAttachment">, cwd: string): HostTool[] {
   return media && canSendAttachment(toolkit) ? [sendAttachmentTool({ media, from: workDirSource(cwd), description: maintainerDescription(media.maxUploadBytes) })] : [];
 }

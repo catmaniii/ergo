@@ -23,9 +23,9 @@ export const P = {
   tmp: "D:\\ergo-data\\tmp",
   programDir: "D:\\ergo-app",
   home: "C:\\Users\\tester",
-  /** 维护者 notes 的项目档案 */
+  /** 负责人 notes 的项目档案 */
   records: "D:\\ergo-data\\projects\\notes",
-  /** 维护者 notes 的工作目录（绑定的外部路径） */
+  /** 负责人 notes 的工作目录（绑定的外部路径） */
   workDir: "E:\\work\\notes",
   /** 秘书的草稿区 */
   scratch: "D:\\ergo-data\\tmp\\scratch",
@@ -85,7 +85,7 @@ export function bash(command: string): ToolCall {
 }
 
 /**
- * 效果日志的一条（执行成功的调用）：默认属于 task-1 的 s1 阶段、维护者 notes 做的，时间按 seq 先后排在 NOW 之前。
+ * 效果日志的一条（执行成功的调用）：默认属于 task-1 的 s1 阶段、负责人 notes 做的，时间按 seq 先后排在 NOW 之前。
  * args 要写规范化之后的形式（路径是绝对路径）。
  */
 export function effect(seq: number, tool: string, args: Record<string, unknown>, overrides: Partial<EffectRecord> = {}): EffectRecord {

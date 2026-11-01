@@ -2,6 +2,7 @@
 // - 模板放在框架里（本包的 templates/project-standard/<版本>/<开发类 dev | 其他类 other>/<语言>/），按版本分目录，两类各一套；
 //   每份开头写清这份写什么、什么时候更新。模板只加新版本、不改旧版本：项目记着建档时用的版本（Project.standardVersion），
 //   "还是模板原样"按它所在位置的任何版本、任何一类、任何语言的模板比。
+//   唯一的例外是 365 号票改叫负责人（一个词，不值当出一版规范、让每个老项目都看见"有新版"）：老项目里按老模板生成的文件比之前先换成新说法（withOwnerWording）。
 // - 生成：项目档案里缺的从模板复制（已有的不动）。立项时项目类型还没定，按其他类那一套（规格、进展、决策记录：两类的这三份一字不差，
 //   测试查）；立项书确认成开发类时再对一遍，补上架构图、tickets/、ops.json。按建档时的语言（没有这种语言的模板用中文的）。
 //   辅助的几份（立项书、术语表、项目清单、范围记录）照旧由 records.ts 生成。
@@ -69,6 +70,9 @@ const KINDS: readonly ProjectKind[] = ["dev", "other"];
 /** 换行统一成 \n（仓库检出时可能是 \r\n） */
 const lf = (text: string) => text.replace(/\r\n/g, "\n");
 
+/** 365 号票之前按老模板生成的文件换成新说法，才比得上现在的模板（模板里只有这两种写法；impl.type 的 maintainer、tell_maintainer 是写法，模板里没改） */
+const withOwnerWording = (text: string) => text.replaceAll("维护者", "负责人").replaceAll("the maintainer", "the owner"); // @i18n-ignore data：认老文件 @keep-old-name
+
 /** 目录下的文件（相对路径，正斜杠）；目录不在是空的 */
 function filesUnder(dir: string): string[] {
   let entries: fs.Dirent[];
@@ -126,7 +130,7 @@ export function standardTemplates(dir: string = STANDARD_TEMPLATES_DIR): Standar
       const languages = tree.get(version)?.get(kind);
       return [...(languages?.get(language) ?? languages?.get(DEFAULT_LANGUAGE) ?? [])];
     },
-    isTemplate: (rel, content) => known.get(rel)?.has(lf(content)) === true,
+    isTemplate: (rel, content) => known.get(rel)?.has(withOwnerWording(lf(content))) === true,
   };
   cache.set(dir, templates);
   return templates;
@@ -308,7 +312,7 @@ export function architectureTables(text: string): { services?: TableRow[]; inter
     const s = sections.find((x) => match(x.title));
     return s ? tableRows(s.body) : undefined;
   };
-  // @i18n-ignore-start data：认维护者写的架构图里的标题（中英文模板都认），不是给人看的字
+  // @i18n-ignore-start data：认负责人写的架构图里的标题（中英文模板都认），不是给人看的字
   const isInterfaces = (title: string) => title.includes("接口") || /\binterfaces?\b/.test(title);
   const services = find((title) => (title.includes("服务") || /\bservices?\b/.test(title)) && !isInterfaces(title));
   const interfaces = find(isInterfaces);
@@ -317,7 +321,7 @@ export function architectureTables(text: string): { services?: TableRow[]; inter
 }
 
 /** 一行写的是"没有"（没有服务、没有对外接口时写一行"无"） */
-// @i18n-ignore-next data：认维护者在表里写的"没有"
+// @i18n-ignore-next data：认负责人在表里写的"没有"
 const NONE_MARKS = new Set(["无", "没有", "（无）", "(无)", "none", "(none)", "n/a", "na", "-", "—", "——"]);
 const isNoneRow = (row: TableRow) => NONE_MARKS.has((row[0] ?? "").toLowerCase());
 
@@ -335,7 +339,7 @@ const sameName = (a: string, b: string) => {
 const serviceNames = (item: ChecklistPlan["items"][number]) => (item.service ? [item.service.name, item.service.app, item.name] : []);
 
 /** 一行对外接口要不要外网：写着 /apps/、公网、外网、public 的 */
-// @i18n-ignore-next data：认维护者在对外接口表里写的走哪条路
+// @i18n-ignore-next data：认负责人在对外接口表里写的走哪条路
 const wantsOutside = (row: TableRow) => row.some((c) => /\/apps\/|公网|外网|public/i.test(c));
 
 /** 一行里点名的 /apps/<应用名>/（写的是模板里的占位 <…> 不算点名） */
@@ -444,7 +448,7 @@ const checklistApplies = (overrides: readonly StandardOverride[]) => (id: Standa
 
 /**
  * 建设中 → 使用中的检查清单（259 号票）：开发类（或运营方案里有服务的）查架构图、ops.json、服务、/apps/、进展五项，别的只查进展。
- * plan：要随转入使用生效的那份运营方案（维护者建设期间交的；没交是 undefined）。
+ * plan：要随转入使用生效的那份运营方案（负责人建设期间交的；没交是 undefined）。
  * overrides：本项目的规范改写（261 号票）：不要架构图的不列架构图那项（服务、/apps/ 两项只看运营方案），不要 ops.json 的不列运营接口清单那项
  * ops：运营接口清单那一项（268 号票：照 112 号票的自动验收——格式对、每个操作一条能跑通的测试、只读的真不写，project-ops/ 的
  * checklistItem）；不给（没接上验收的单元测试）用 opsItem 只查最基本的几样

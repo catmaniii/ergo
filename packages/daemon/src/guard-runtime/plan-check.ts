@@ -4,7 +4,7 @@
 // - 执行成功的调用对上了哪一步记成 plan_call_committed（after_tool 里的 monitor.commit），下次判定时按序重放；
 // - 用户点过头的判定、每个"工具|步骤"已经自动修过几次只在内存里，按任务和计划的版本记（守护进程重启
 //   就清零）；
-// - 每次修回在维护者的会话里记一笔偏离（timeline_record，口径同 14 号票）。
+// - 每次修回在负责人的会话里记一笔偏离（timeline_record，口径同 14 号票）。
 // 153 号票（回退、切换分支之后，授权的计划和已执行的调用都按保留的分支重新算）：
 // - 比对的历史只算执行它的会话当前分支上的（planHistory 带上会话：plan_call_committed 前面最后一条会话事件在当前路径上的；那次调用的
 //   工具调用记录就在它前面）——会话回退、切换分支之后按保留的分支重建、重放，被放弃那段里做过的不算做过；
@@ -61,7 +61,7 @@ function planLineage(store: EventStore, planId: string): Set<string> {
 }
 
 /**
- * 这个流程里已经执行成功的调用（按执行先后）：对上了哪一步。给了会话（执行它的维护者的会话频道）就只算这个会话当前分支上的
+ * 这个流程里已经执行成功的调用（按执行先后）：对上了哪一步。给了会话（执行它的负责人的会话频道）就只算这个会话当前分支上的
  * （153 号票：会话回退、切换分支之后按保留的分支重建）
  */
 export function planHistory(store: EventStore, taskId: string, planId: string, conversation?: string): PlanExecutedCall[] {
@@ -154,7 +154,7 @@ export function planCategories(findings: readonly PlanFinding[]): Array<{ id: st
 /** 审批卡上计划检查要问的原因 */
 export const planAskReason = (findings: readonly PlanFinding[]) => t("guardRuntime.plan.askReason", { title: planDeviationTitle(), findings: findings.map((f) => f.message).join(t("guard.sep")) });
 
-/** 一次自动纠偏在维护者会话的时间线上记一笔偏离：说法是纠偏那一句，详细说明是纠偏前查出的问题 */
+/** 一次自动纠偏在负责人会话的时间线上记一笔偏离：说法是纠偏那一句，详细说明是纠偏前查出的问题 */
 export function correctionRecord(conversation: ConversationId, correction: PlanCorrection, scope: MessageScope): NewEvent {
   const detail = correction.findings.map((f) => f.message).join(t("guard.sep"));
   return buildTimelineRecord(conversation, { kind: "deviation", summary: t("guardRuntime.plan.correction", { text: correction.text }), ...(detail ? { detail } : {}) }, scope).event;

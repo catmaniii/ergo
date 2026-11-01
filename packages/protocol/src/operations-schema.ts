@@ -1,6 +1,6 @@
-// @i18n-ignore-file model：这里的中文都是工具参数的说明（给维护者看）
+// @i18n-ignore-file model：这里的中文都是工具参数的说明（给负责人看）
 // 运营方案（130 号票，ADR-0028）的 schema，用 TypeBox 定义，守护进程和 Web 共用生成的类型。名字和纯函数在 operations.ts。
-// - 维护者用 propose_operations 交的一条（OperationItemDraft，工具的参数）：标识、名字、运营手段、触发（时间表或事件）、
+// - 负责人用 propose_operations 交的一条（OperationItemDraft，工具的参数）：标识、名字、运营手段、触发（时间表或事件）、
 //   怎么做（普通任务或流程；流程带它的步骤）、每次做什么、要的能力、失败时怎样；要用户手动的写明要手动做什么；
 // - 运行时逐条校验之后的一条（OperationItem）：多了手段的说法、二狗能不能替用户做、触发的说法；流程的步骤换成审查修补后的计划
 //   （WorkflowPlan，用户确认方案时一起授权）。卡上、事件里都是它；
@@ -85,7 +85,7 @@ export const OperationServiceHealth = Type.Object(
 /** 服务的前缀约定（132 号票）：strip 转发时去掉前缀（服务当自己在根上，默认）；keep 原样带着（框架的 base 设成了 ERGO_BASE_PATH） */
 export const OPERATION_SERVICE_PREFIX_MODES = ["strip", "keep"] as const;
 
-/** 维护者写的一个服务（运营手段"服务"那一条的 service，133 号票） */
+/** 负责人写的一个服务（运营手段"服务"那一条的 service，133 号票） */
 export const OperationServiceDraft = Type.Object(
   {
     name: Type.String({ pattern: OPERATION_SERVICE_NAME_PATTERN, description: "服务名（英文小写、数字、连字符，比如 web）：上线后在 LSM 里叫 <项目编号>-<服务名>，网页的地址是 /apps/<项目编号>-<服务名>/" }),
@@ -132,7 +132,7 @@ export const OperationService = Type.Object({
 });
 export type OperationService = Static<typeof OperationService>;
 
-/** 维护者交的一条（propose_operations 的参数） */
+/** 负责人交的一条（propose_operations 的参数） */
 export const OperationItemDraft = Type.Object(
   {
     key: Type.String({ pattern: OPERATION_KEY_PATTERN, description: "这一条的标识：英文小写、数字和短横线（比如 daily-report）。同一条在之后交的方案里保持不变，运行时按它比出加了、改了、去掉了哪几条" }),
@@ -144,7 +144,7 @@ export const OperationItemDraft = Type.Object(
     instructions: Type.String({
       minLength: 1,
       maxLength: 2000,
-      description: "每次做什么：每次运行交给你（项目的维护者）的工单内容，你照项目档案干活，不用把脚本细节全写进来；流程的这一条就是计划的目标。要用户手动的写要做成什么样",
+      description: "每次做什么：每次运行交给你（项目的负责人）的工单内容，你照项目档案干活，不用把脚本细节全写进来；流程的这一条就是计划的目标。要用户手动的写要做成什么样",
     }),
     workflow: Type.Optional(OperationWorkflowDraft),
     capabilities: OperationCapabilities,
@@ -182,7 +182,7 @@ const ITEM_FIELDS = {
 export const OperationItem = Type.Object({ ...ITEM_FIELDS, workflow: Type.Optional(WorkflowPlan) });
 export type OperationItem = Static<typeof OperationItem>;
 
-/** 一份运营方案（"首版做完了"卡上带着的）：第几版、每一条、维护者的一句说明、引用的运行时核实过的用户原话 */
+/** 一份运营方案（"首版做完了"卡上带着的）：第几版、每一条、负责人的一句说明、引用的运行时核实过的用户原话 */
 export const OperationsPlanView = Type.Object({
   revision: Type.Integer({ minimum: 1 }),
   items: Type.Array(OperationItem),
@@ -220,9 +220,9 @@ export const ProjectOperations = Type.Object({
 export type ProjectOperations = Static<typeof ProjectOperations>;
 
 /**
- * "运营方案变更"卡（operations_change，130 号票）：使用中（或已停用）的项目，维护者交了新的一份运营方案，和现在生效的比出差异——
+ * "运营方案变更"卡（operations_change，130 号票）：使用中（或已停用）的项目，负责人交了新的一份运营方案，和现在生效的比出差异——
  * 加了哪几条、改了哪几条（就地改时间的标 inPlace）、去掉哪几条、照旧却没跑着的重新开起来。用户确认一次就照差异生效：
- * 建、改、取消对应的内部任务；拒绝什么都不动。附维护者引用的、运行时核实过的用户原话（照 125 号票的立项要求变更卡）
+ * 建、改、取消对应的内部任务；拒绝什么都不动。附负责人引用的、运行时核实过的用户原话（照 125 号票的立项要求变更卡）
  */
 export const OperationsChangeCardPayload = Type.Object({
   projectId: Type.String(),

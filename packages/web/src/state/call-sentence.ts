@@ -30,7 +30,7 @@ type ToolCallPart = Extract<MessagePart, { type: "tool_call" }>;
 
 /**
  * 工具的中文名：照守护进程登记的 title（guard/tool-registry.ts 的内置、带类型的 bash、联网工具，各模块 defineHostTool 的 title）。
- * 项目维护者的发起任务（tasks/internal-tools.ts）和秘书的同名，中文名按秘书的写
+ * 项目负责人的发起任务（tasks/internal-tools.ts）和秘书的同名，中文名按秘书的写
  */
 export const TOOL_LABELS: Readonly<Record<string, string>> = labelTable(
   {
@@ -81,12 +81,12 @@ export const TOOL_LABELS: Readonly<Record<string, string>> = labelTable(
     write_task_brief: "state.callSentence.tool.write_task_brief",
     spoken_summary: "state.callSentence.tool.spoken_summary",
     send_voice: "state.callSentence.tool.send_voice",
-    // 维护者的工具
+    // 负责人的工具
     submit_plan: "state.callSentence.tool.submit_plan",
     submit_charter: "state.callSentence.tool.submit_charter",
     propose_charter_change: "state.callSentence.tool.propose_charter_change",
     propose_standard_change: "state.callSentence.tool.propose_standard_change",
-    // 259 号票：维护者、秘书提转入使用（只出确认卡）
+    // 259 号票：负责人、秘书提转入使用（只出确认卡）
     propose_go_live: "state.callSentence.tool.propose_go_live",
     start_stage: "state.callSentence.tool.start_stage",
     complete_stage: "state.callSentence.tool.complete_stage",
@@ -400,7 +400,7 @@ function quickActionLine(type: string | undefined, params: Record<string, unknow
  * 各工具的模板（动词加对象，对象是名字、标题的用「」括起来，后面要补充的用"："接）。
  * 用户点名要有的：读、写、改、删、列目录、搜索、通用 bash（按拆出来的命令）、git 提交 / 推送 / 建仓库、联网读取、提醒、日历（快速动作
  * "改工作日历"）、看板、项目档案、附件和素材；70 号票的联网搜索、读网页；82 号票的斜杠命令调出来的发起流程、发起长程任务，
- * 和 agent 读 skill 的 SKILL.md；75 号票的交给后台（普通任务）；102 号票维护者给秘书发消息。二狗没有发邮件、日历的工具（只有 MCP 来的，退回原样）
+ * 和 agent 读 skill 的 SKILL.md；75 号票的交给后台（普通任务）；102 号票负责人给秘书发消息。二狗没有发邮件、日历的工具（只有 MCP 来的，退回原样）
  */
 const TEMPLATES: Readonly<Record<string, Template>> = {
   read: (s) => {
@@ -551,7 +551,7 @@ const TEMPLATES: Readonly<Record<string, Template>> = {
     const a = summaryArgs(s, ["text"]);
     return a.text && t("state.callSentence.sendVoice", { text: cutTo(a.text, SEND_VOICE_HEAD) });
   },
-  // 102 号票：维护者给秘书发消息（由秘书在主线里转告用户），写原话的前几个字；115 号票起有一句话总结的写它
+  // 102 号票：负责人给秘书发消息（由秘书在主线里转告用户），写原话的前几个字；115 号票起有一句话总结的写它
   tell_secretary: (s) => {
     const a = summaryArgs(s, ["summary", "text"]);
     const said = a.summary || a.text;
@@ -563,7 +563,7 @@ const TEMPLATES: Readonly<Record<string, Template>> = {
     return quickActionLine(a.type, objectOf(a.params), named);
   },
 
-  // 82 号票：/workflow、/task（老写法 /流程、/任务）调出来的（项目维护者发起项目内部任务的同名工具同样）
+  // 82 号票：/workflow、/task（老写法 /流程、/任务）调出来的（项目负责人发起项目内部任务的同名工具同样）
   start_workflow: (s) => {
     const a = summaryArgs(s, ["title", "summary", "projects"]);
     return a.title && t("state.callSentence.startWorkflow", { title: a.title });

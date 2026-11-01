@@ -160,7 +160,7 @@ describe("简单提醒和活动状态", () => {
     expect(Object.values(groupsOf(ui)).flat()).not.toContain("r:r-5");
   });
 
-  test("任务卡带上它的维护者的活动状态（排队）；重新同步看板频道清掉任务和提醒", () => {
+  test("任务卡带上它的负责人的活动状态（排队）；重新同步看板频道清掉任务和提醒", () => {
     const ui = replay([
       frame("board", 1, "task", { task: task("t-1", "planning"), change: "created", from: null, by: "user" }),
       frame("activity", 1, "activity", { agentId: "tm-t-1", state: "queued", since: "2026-10-08T09:00:01.000+08:00" }),
@@ -194,7 +194,7 @@ function job(id: string, state: ScheduledJobState, createdAt: string): Scheduled
 }
 
 describe("定时作业（19 号票）", () => {
-  test("作业卡上每次运行的授权：授权项的主文由代码生成（次数按每次运行算、作业在就一直有效），维护者写的标题在前；时序规则一行一条", () => {
+  test("作业卡上每次运行的授权：授权项的主文由代码生成（次数按每次运行算、作业在就一直有效），负责人写的标题在前；时序规则一行一条", () => {
     const lines = jobAuthorizationLines({
       grants: [{ id: "send", tool: "http_request", title: "把日报发到 hook", scope: { url: "http://127.0.0.1/daily" }, maxUses: 1 }],
       grantInfo: {},

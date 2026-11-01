@@ -7,14 +7,14 @@
 //   这一块的底部是**连通测试**（"测一下当前服务商"：测设置里选中的那个，自定义时连它那块的草稿一起传）；
 // - 默认模型和思考档位（关、低、中、高）；选了自定义时不重复显示模型 id、也不显示思考档位（自定义服务商只有一个模型、不思考），
 //   只写一句"用服务商那里填的模型：<id>"；
-// - 各个 agent：秘书、任务维护者、项目维护者、子 agent、评审、范围审视各自用什么模型，"跟随默认"或者选定模型和思考档位；
+// - 各个 agent：秘书、任务负责人、项目负责人、子 agent、评审、范围审视各自用什么模型，"跟随默认"或者选定模型和思考档位；
 //   选了自定义时整段收起（只有一个模型，不用逐个指定）；
 // - 设置文件读不出来（读不了、不合规）时最上面提示"设置文件读不出来，正在用默认；保存会覆盖它"和原因；
 // - 看图能力：每个模型能不能看图、按什么定的（这里改的、配置文件写明、模型目录），这里能改；选了自定义时收起，
 //   只写一句"这家服务商收不收图片，二狗不知道"；
-// - 生效时机写在最上面：一个会话固定一个模型，改了以后下一个新会话生效；长会话（秘书、项目维护者的对话、定时触发的任务）
+// - 生效时机写在最上面：一个会话固定一个模型，改了以后下一个新会话生效；长会话（秘书、项目负责人的对话、定时触发的任务）
 //   下一轮新开会话、附交接摘要，任务执行中途不换（83 号票）。每个 agent 一行下面另有一句它的会话什么时候换。
-// - 120 号票：项目、任务的维护者能在自己的 ⚙ 里单独配模型，盖过它那一行；项目维护者、任务维护者那一行下面一句列出哪几个单独配了，
+// - 120 号票：项目、任务的负责人能在自己的 ⚙ 里单独配模型，盖过它那一行；项目负责人、任务负责人那一行下面一句列出哪几个单独配了，
 //   点名字跳到它的页面、它的 ⚙ 自己打开。
 // 设置存在守护进程（各设备一样）：打开页面时取一次（GET /api/model-settings），每改一处就把整份存回去，守护进程查过合规才存
 // （不合规时说原因、页面照旧）。说法和"改一处、存整份"在状态层（state/model-settings.ts、state/model-custom.ts、state/model-key.ts）。
@@ -254,7 +254,7 @@ function ModelSelect({
 
 /**
  * 一个 agent：叫法、什么时候算新会话、下一个新会话用的；模型和思考档位各一个下拉（第一项是跟随默认）。
- * 项目维护者、任务维护者那一行下面另有一句：哪几个单独配了模型（120 号票），点名字去它的 ⚙
+ * 项目负责人、任务负责人那一行下面另有一句：哪几个单独配了模型（120 号票），点名字去它的 ⚙
  */
 function AgentRow({ agent, view, saving, onSave, navigate }: { agent: ModelAgent; view: ModelSettingsView; saving: boolean; onSave: SaveBody; navigate: Navigate }) {
   const named = useNamedPlain();
@@ -265,7 +265,7 @@ function AgentRow({ agent, view, saving, onSave, navigate }: { agent: ModelAgent
   const note = thinkingNote(option, effective.thinkingLevel);
   const label = named(MODEL_AGENT_LABEL[agent]);
   const overrides = maintainerOverrideLine(view, agent);
-  // 去它的 ⚙：项目去项目（宽屏是整页的项目，窄屏是维护者的会话，都有 ⚙），任务去任务详情
+  // 去它的 ⚙：项目去项目（宽屏是整页的项目，窄屏是负责人的会话，都有 ⚙），任务去任务详情
   const openGear = (m: Pick<MaintainerModelView, "agentId" | "owner">) => {
     openAgentSettingsOnArrival(m.agentId);
     navigate(m.owner.kind === "project" ? { tab: "projects", projectId: m.owner.id, chat: true } : { tab: "tasks", taskId: m.owner.id });
