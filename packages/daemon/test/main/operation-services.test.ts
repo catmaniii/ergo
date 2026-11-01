@@ -188,7 +188,7 @@ describe("运营手段“服务”：确认后经 LSM 上线，项目卡片上�
     const frontend = await connect(td);
     await lsm.waitFor((m) => m.type === "hello", "握手");
     // 握手声明会用名下的服务
-    expect(lsm.messages.find((m) => m.message.type === "hello")?.message.features).toEqual(["services"]);
+    expect(lsm.messages.find((m) => m.message.type === "hello")?.message.features).toEqual(["services", "entries"]);
 
     // 负责人交方案：服务那一条收下（服务正好在跑：顺手做了前缀下自检）
     await frontend.sendText("做完以后每天 8 点出日报，网页也上线，手机上能打开", { conversation: PM1 });
