@@ -1,3 +1,5 @@
+**中文** | [English](getting-started.en.md)
+
 # 开始使用
 
 这一章从二狗装好之后开始。还没装的，先看[安装、升级和卸载](install.md)。
