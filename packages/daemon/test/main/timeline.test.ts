@@ -195,7 +195,7 @@ describe("演示流程（录给前端回放）", () => {
     expect(run.slice(run.findLastIndex(([, d]) => d?.kind === "woken"))).toEqual([
       ["working", { kind: "woken" }],
       ["working", { kind: "handling_input" }],
-      ["waiting_for_user", { kind: "approval", tool: "读文件" }],
+      ["waiting_for_user", { kind: "approval", tool: "读文件", cardId: expect.any(String) }],
       ["working", { kind: "handling_input" }],
       ["sleeping", { kind: "idle" }],
       ["sleeping", { kind: "idle_exit" }],

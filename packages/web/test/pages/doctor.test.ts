@@ -181,7 +181,7 @@ describe("英文也有，界面文字不出现秘书 / 待我处理", () => {
     const html = render(okView());
     for (const title of ["Ports", "Node version", "pi version", "Service manager", "Model key", "Components", "Disk space", "Outside access"]) expect(html).toContain(title);
     expect(html).toContain("Local port 8810: listening, and it");
-    expect(html).toContain("outside port 8811: listening, and it");
+    expect(html).toContain("external port 8811: listening, and it");
     expect(html).toContain("The volume holding the data folder C:\\Users\\demo\\.ergo has 42.3 GB free (of 476.8 GB)");
     const broken = render(viewWith("model", { configured: false }));
     expect(broken).toContain("No key yet");
