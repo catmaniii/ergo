@@ -210,7 +210,7 @@ ergo keeps a copy of everything you said on this PC (immutable, indexed by keywo
 
 **Watch categories** are the heart of ergo's guard. Built-in ones include spending money, sending in your name, deleting or overwriting, irreversible commits, accounts and security, and leaving the project directory; you can add your own. Each has six possible handlings: just do it and log, do it and tell me, only if listed in the plan, ask me first, hand it to me, never.
 
-**Authorized folders** (Settings · Data & devices · Authorized folders): folders on your computer, up to 20. Once authorized, every agent can read files in them without asking you, and they don't need to be written into a plan; Ergo also looks there first when finding photos and files. Three things to keep in mind:
+**Authorized folders** (Settings · Data & devices · Authorized folders): folders on your computer, up to 20. Once authorized, every agent can read files in them without asking you, and they don't need to be written into a plan; this also works in the phone app's built-in browser: Ergo looks there first when finding photos and files, and when handing files to a web page's upload box. Three things to keep in mind:
 
 - Only reading is opened up. Writing, deleting and overwriting keep the usual rules, and running scripts there or `cd`-ing in doesn't count as reading;
 - What gets read is sent to your model provider, so don't authorize folders that hold keys or passwords. Secret files such as `.env` and private keys, and Ergo's own data and program directories, stay off limits even inside an authorized folder; a whole-directory search (`grep -r`) can't tell the secret files inside apart, though;
