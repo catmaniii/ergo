@@ -1,4 +1,4 @@
-// 假的 Agent SDK（287 号票，只在测试里）：Claude Code 适配子进程的 query 换成它，不启动真的 claude、不花额度。
+// 假的 Agent SDK（只在测试里）：Claude Code 适配子进程的 query 换成它，不启动真的 claude、不花额度。
 // - FakeClaudeQuery：实现适配子进程用到的那一点（流式输入、吐消息、interrupt、close）。测试扮演 claude：nextInput() 等适配子进程推来的
 //   用户消息，emit() 按顺序吐 SDK 的消息，fail() 让迭代器 throw，end() 让它结束；options 是适配子进程交给 query 的选项。
 // - createFakeClaudeSdk()：手动挡（契约测试一条一条地吐，插话、打断、压缩的时机都能卡住）；
@@ -6,22 +6,22 @@
 //   每条用户输入是一轮，剧本一步是一次模型调用——reply 吐逐字输出、几条 assistant（一块一条）、工具调用的假结果，最后一条 result；
 //   echo_context 把适配子进程交给 query 的选项和这条输入回成一段 JSON（契约测试据此核对环境里没有 ANTHROPIC_API_KEY、系统提示怎么追加的）。
 // - 消息的写法（sdk.*）照 @anthropic-ai/claude-agent-sdk 的 sdk.d.ts，只填适配子进程看的字段。
-// - 288 号票：runTool() 扮演 claude 执行一次工具调用之前的权限流程——先叫适配子进程交来的 PreToolUse 钩子（全量闸口：拦下、改参数、
+// -runTool() 扮演 claude 执行一次工具调用之前的权限流程——先叫适配子进程交来的 PreToolUse 钩子（全量闸口：拦下、改参数、
 //   放行时要不要再问），钩子没给决定时按 Claude Code 自己的规则（permissionAsks 里的工具、AskUserQuestion、ExitPlanMode 要问人，别的规则里放行），
 //   要问人的叫 canUseTool（没有就是 permissionPrompts: "none"，一律拒绝），执行完叫 PostToolUse 钩子收 additionalContext。
 //   interrupt() 让钩子、canUseTool 拿到的中止信号触发（和真的一样：打断时还在等的判定、提问按中止收尾）。
 //   按剧本自动回时每次工具调用都走它；Agent 工具的参数里写了 fake_subagent_calls（只在测试里）的，先扮演子代理把这几次调用做了
 //   （带 parent_tool_use_id 的回复和结果，钩子输入带 agent_id）。
-// - 291 号票：扮演 Claude Code 这一侧的 MCP 客户端——options.mcpServers 里 type: "sdk" 的进程内服务照 SDK 的写法接上（instance.connect(传输)），
+// -扮演 Claude Code 这一侧的 MCP 客户端——options.mcpServers 里 type: "sdk" 的进程内服务照 SDK 的写法接上（instance.connect(传输)），
 //   initialize、tools/list（收到 notifications/tools/list_changed 下一次重列）、tools/call（_meta 带 claudecode/toolUseId）；剧本里调 mcp__<服务>__<工具>
 //   的，过完权限流程就经它调（工具不在服务现在的清单里回出错）。setMcpServers 照 SDK 的规矩（同名已登记的保留原来的连接，新的接上，没列的断开）；
 //   reloadPlugins 记次数、照插件目录列出 ergo:<目录名>。钩子：每个 query 的第一条输入先叫 SessionStart（startup / resume），每条输入叫 UserPromptSubmit，
 //   收下的 additionalContext 按输入记着（contextFor）；echo_context 也回它、这一轮工具结果的 PostToolUse 交的话、插件目录里的 skill、MCP 服务和工具。
-// - 293 号票：扮演 Claude Code 的会话记录（FakeClaudeStore）——每个会话一串主线条目（推来的用户消息、吐出的主线 assistant 和工具结果，uuid 照原样），
+// -扮演 Claude Code 的会话记录（FakeClaudeStore）——每个会话一串主线条目（推来的用户消息、吐出的主线 assistant 和工具结果，uuid 照原样），
 //   forkSession 复制成新会话（换新 uuid、不带撤销历史、截到给的那条为止），getSessionMessages 读主线；文件检查点：按剧本自动回时 Write、Edit 真的写盘，
 //   每条输入（uuid）时第一次改的文件记下原来的内容，rewindFiles 把那条输入及之后改过的文件恢复回去（要开 enableFileCheckpointing）。给了文件的存进文件
 //   （子进程重启后还在，主切面里测试也能读）。echo_context 另回这个会话的主线（history）。剧本认 branch_on_context：按这条输入（连同钩子交的话）选一步。
-// - 309 号票：按剧本自动回时用户打的 /compact 扮演 Claude Code 的手动压缩（不取剧本）：先叫 PreCompact 钩子，再 compact_boundary、SessionStart（compact）、
+// -按剧本自动回时用户打的 /compact 扮演 Claude Code 的手动压缩（不取剧本）：先叫 PreCompact 钩子，再 compact_boundary、SessionStart（compact）、
 //   本地输出、result；手动挡的 preCompactHooks() 叫 PreCompact。
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
@@ -34,8 +34,8 @@ import type { FauxStep, FauxUsage } from "../../src/runtime/index.ts";
 type Out = { message: SDKMessage } | { error: Error } | { end: true };
 
 /**
- * 假 SDK 报的斜杠命令（289 号票）：system/init 的 slash_commands 也是这几个。
- * 310 号票加一个用户自己的命令（不在 Claude Code 内置命令的中文说明表里，说明要交给二狗的模型翻）
+ * 假 SDK 报的斜杠命令：system/init 的 slash_commands 也是这几个。
+ * 加一个用户自己的命令（不在 Claude Code 内置命令的中文说明表里，说明要交给二狗的模型翻）
  */
 export const FAKE_COMMANDS = [
   { name: "compact", description: "Clear conversation history but keep a summary in context", argumentHint: "<optional custom summarization instructions>" },
@@ -44,7 +44,7 @@ export const FAKE_COMMANDS = [
   { name: "deploy-notes", description: "Write release notes for the current branch", argumentHint: "[version]" },
 ];
 
-/** 假 SDK 报的模型（289 号票） */
+/** 假 SDK 报的模型 */
 export const FAKE_MODELS = [
   { value: "sonnet", displayName: "Sonnet", description: "Sonnet for everyday tasks" },
   { value: "opus", displayName: "Opus", description: "Opus for complex work" },
@@ -63,7 +63,7 @@ export interface FakeToolRun {
   asked: boolean;
   /** PostToolUse 钩子交的 additionalContext */
   context?: string;
-  /** 执行的结果（给了 execute 的：291 号票，进程内 MCP 服务的调用） */
+  /** 执行的结果（给了 execute 的：进程内 MCP 服务的调用） */
   output?: unknown;
 }
 
@@ -166,7 +166,7 @@ export class FakeMcpLink {
   }
 }
 
-/** 假 SDK 的会话记录在会话目录里的文件名（293 号票：fixtures/fake-claude-child.ts 存在这里，主切面里测试读它） */
+/** 假 SDK 的会话记录在会话目录里的文件名（fixtures/fake-claude-child.ts 存在这里，主切面里测试读它） */
 export const FAKE_CLAUDE_STORE = "fake-claude-store.json";
 
 /** 假 SDK 记的一个会话：主线条目、文件检查点（每条输入时第一次改的文件原来的内容，null 是原来没有） */
@@ -175,7 +175,7 @@ interface FakeSessionData {
   backups: Array<{ at: string; file: string; before: string | null }>;
 }
 
-/** 假 SDK 的会话记录（293 号票，见文件开头）：file 给了就存进去（每次改都写） */
+/** 假 SDK 的会话记录（见文件开头）：file 给了就存进去（每次改都写） */
 export class FakeClaudeStore {
   private sessions: Record<string, FakeSessionData> = {};
   /** 分叉过的（测试核对）：从哪个会话、截到哪条、分出的新会话 */
@@ -299,17 +299,17 @@ export class FakeClaudeQuery implements ClaudeQuery {
   onInput: ((message: SDKUserMessage) => void) | undefined;
   /** interrupt() 时（测试扮演 claude：吐打断后的 result） */
   onInterrupt: (() => void) | undefined;
-  /** 288 号票：Claude Code 自己的规则里没放行、要问人的工具（钩子没给决定时到 canUseTool） */
+  /** Claude Code 自己的规则里没放行、要问人的工具（钩子没给决定时到 canUseTool） */
   readonly permissionAsks = new Set<string>();
-  /** 291 号票：接上的进程内 MCP 服务（服务名 → 连接）；setMcpServers 换 */
+  /** 接上的进程内 MCP 服务（服务名 → 连接）；setMcpServers 换 */
   readonly mcp = new Map<string, FakeMcpLink>();
-  /** 291 号票：setMcpServers 每次给的服务名 */
+  /** setMcpServers 每次给的服务名 */
   readonly setMcpServersCalls: string[][] = [];
-  /** 291 号票：reloadPlugins 叫过几次 */
+  /** reloadPlugins 叫过几次 */
   reloads = 0;
-  /** 291 号票：每条输入（uuid）收到的钩子 additionalContext（SessionStart 的在前） */
+  /** 每条输入（uuid）收到的钩子 additionalContext（SessionStart 的在前） */
   private readonly contexts = new Map<string, string>();
-  /** 291 号票：这一轮工具结果的 PostToolUse 交的话（scripted 每轮清空） */
+  /** 这一轮工具结果的 PostToolUse 交的话（scripted 每轮清空） */
   toolContexts: string[] = [];
   private sessionStarted = false;
   private readonly out: Out[] = [];
@@ -318,9 +318,9 @@ export class FakeClaudeQuery implements ClaudeQuery {
   private inputWaiters: Array<() => void> = [];
   /** 钩子、canUseTool 拿到的中止信号：interrupt() 触发，之后换一个新的 */
   private aborter = new AbortController();
-  /** 293 号票：会话记录（主线、检查点） */
+  /** 会话记录（主线、检查点） */
   readonly store: FakeClaudeStore;
-  /** 293 号票：这一轮的输入（uuid）：这一轮里改的文件记在它名下 */
+  /** 这一轮的输入（uuid）：这一轮里改的文件记在它名下 */
   turnUuid: string | undefined;
 
   constructor(params: { prompt: AsyncIterable<SDKUserMessage>; options: Options }, store: FakeClaudeStore = new FakeClaudeStore()) {
@@ -329,7 +329,7 @@ export class FakeClaudeQuery implements ClaudeQuery {
     for (const [name, config] of Object.entries(params.options.mcpServers ?? {})) this.connectMcp(name, config);
     void (async () => {
       for await (const message of params.prompt) {
-        // 293 号票：推来的用户消息进这个会话的主线（uuid 照原样）
+        // 推来的用户消息进这个会话的主线（uuid 照原样）
         if (message.uuid) store.append(this.sessionId, { uuid: message.uuid, type: "user", message: message.message });
         this.inputs.push(message);
         for (const wake of this.inputWaiters.splice(0)) wake();
@@ -338,7 +338,7 @@ export class FakeClaudeQuery implements ClaudeQuery {
     })();
   }
 
-  /** 吐消息（按顺序）；主线的 assistant、工具结果记进会话记录（293 号票） */
+  /** 吐消息（按顺序）；主线的 assistant、工具结果记进会话记录 */
   emit(...messages: SDKMessage[]): void {
     for (const message of messages) {
       const { type, uuid, parent_tool_use_id: parent } = message as { type?: string; uuid?: string; parent_tool_use_id?: string | null };
@@ -347,7 +347,7 @@ export class FakeClaudeQuery implements ClaudeQuery {
     }
   }
 
-  /** 按检查点恢复文件（293 号票）：要开 enableFileCheckpointing */
+  /** 按检查点恢复文件：要开 enableFileCheckpointing */
   rewindFiles(userMessageId: string): Promise<ClaudeRewindResult> {
     if (!this.options.enableFileCheckpointing) return Promise.resolve({ canRewind: false, error: "File checkpointing is not enabled" });
     return Promise.resolve(this.store.rewind(this.sessionId, userMessageId));
@@ -393,13 +393,13 @@ export class FakeClaudeQuery implements ClaudeQuery {
     return Promise.resolve(undefined);
   }
 
-  /** Claude Code 能用的斜杠命令（289 号票：输入框的候选） */
+  /** Claude Code 能用的斜杠命令（输入框的候选） */
   supportedCommands(): Promise<Array<{ name: string; description: string; argumentHint: string }>> {
-    // 291 号票：插件里的 skill 也报（ergo:<目录名>）
+    // 插件里的 skill 也报（ergo:<目录名>）
     return Promise.resolve([...FAKE_COMMANDS.map((c) => ({ ...c })), ...this.pluginSkills().map((name) => ({ name: `ergo:${name}`, description: `（插件里的 ${name}）`, argumentHint: "" }))]);
   }
 
-  /** 会话中途换动态的 MCP 服务（291 号票）：照 SDK 的规矩——同名已登记的保留原来的连接，新的接上，没列的断开 */
+  /** 会话中途换动态的 MCP 服务：照 SDK 的规矩——同名已登记的保留原来的连接，新的接上，没列的断开 */
   setMcpServers(servers: Record<string, McpServerConfig>): Promise<{ added: string[]; removed: string[]; errors: Record<string, string> }> {
     this.setMcpServersCalls.push(Object.keys(servers));
     const added: string[] = [];
@@ -417,7 +417,7 @@ export class FakeClaudeQuery implements ClaudeQuery {
     return Promise.resolve({ added, removed, errors: {} });
   }
 
-  /** 从盘上重新加载插件（291 号票）：记次数，照插件目录列出 ergo:<目录名>（加上 Claude Code 自己的命令） */
+  /** 从盘上重新加载插件：记次数，照插件目录列出 ergo:<目录名>（加上 Claude Code 自己的命令） */
   reloadPlugins(): Promise<{ commands: Array<{ name: string; description: string; argumentHint: string }> }> {
     this.reloads += 1;
     return Promise.resolve({
@@ -439,7 +439,7 @@ export class FakeClaudeQuery implements ClaudeQuery {
   }
 
   /**
-   * 扮演 Claude Code 处理一条输入之前叫钩子（291 号票）：这个 query 的第一条先叫 SessionStart（接着的会话是 resume，新开的是 startup），
+   * 扮演 Claude Code 处理一条输入之前叫钩子：这个 query 的第一条先叫 SessionStart（接着的会话是 resume，新开的是 startup），
    * 再叫 UserPromptSubmit；交回收下的 additionalContext（几段空一行），也按这条输入的 uuid 记着
    */
   async promptHooks(input: SDKUserMessage): Promise<string> {
@@ -454,12 +454,12 @@ export class FakeClaudeQuery implements ClaudeQuery {
     return context;
   }
 
-  /** 压缩之后（291 号票）：叫 SessionStart（source 是 compact），交回 additionalContext */
+  /** 压缩之后：叫 SessionStart（source 是 compact），交回 additionalContext */
   async compactedHooks(): Promise<string> {
     return (await this.runHooks("SessionStart", { source: "compact" })).join("\n\n");
   }
 
-  /** 压缩之前（309 号票）：叫 PreCompact（手动的 /compact 是 manual，自动的是 auto；手动的带上 /compact 后面的指令） */
+  /** 压缩之前：叫 PreCompact（手动的 /compact 是 manual，自动的是 auto；手动的带上 /compact 后面的指令） */
   async preCompactHooks(trigger: "manual" | "auto", customInstructions: string | null = null): Promise<void> {
     await this.runHooks("PreCompact", { trigger, custom_instructions: customInstructions });
   }
@@ -490,13 +490,13 @@ export class FakeClaudeQuery implements ClaudeQuery {
     return true;
   }
 
-  /** Claude Code 能选的模型（289 号票：⚙ 的模型列表） */
+  /** Claude Code 能选的模型（⚙ 的模型列表） */
   supportedModels(): Promise<Array<{ value: string; displayName: string; description: string }>> {
     return Promise.resolve(FAKE_MODELS.map((m) => ({ ...m })));
   }
 
   /**
-   * 扮演 claude 执行一次工具调用之前的权限流程（288 号票，见文件开头）：PreToolUse 钩子 → 要问人的到 canUseTool → （调用方执行）→ PostToolUse 钩子。
+   * 扮演 claude 执行一次工具调用之前的权限流程（见文件开头）：PreToolUse 钩子 → 要问人的到 canUseTool → （调用方执行）→ PostToolUse 钩子。
    * agentId：子代理里的调用（钩子输入、canUseTool 带上）
    */
   async runTool(toolUseId: string, toolName: string, input: Record<string, unknown>, opts: { agentId?: string; execute?: (input: Record<string, unknown>) => Promise<unknown> } = {}): Promise<FakeToolRun> {
@@ -527,7 +527,7 @@ export class FakeClaudeQuery implements ClaudeQuery {
       if (!result || result.behavior === "deny") return { allowed: false, input: current, denial: result?.message ?? "denied", ...(decision ? { decision } : {}), asked };
       if (result.updatedInput) current = result.updatedInput;
     }
-    // 执行（291 号票：进程内 MCP 服务的调用）在 PostToolUse 之前，和真的一样
+    // 执行（进程内 MCP 服务的调用）在 PostToolUse 之前，和真的一样
     const executed = opts.execute ? await opts.execute(current) : undefined;
     const contexts: string[] = [];
     for (const matcher of this.options.hooks?.PostToolUse ?? []) {
@@ -588,7 +588,7 @@ function preToolUseOutput(output: HookJSONOutput): { permissionDecision?: string
 export interface FakeClaudeSdk {
   query: ClaudeQueryFunction;
   readonly queries: FakeClaudeQuery[];
-  /** 293 号票：会话记录（在内存里），和交给适配子进程的会话函数 */
+  /** 会话记录（在内存里），和交给适配子进程的会话函数 */
   readonly store: FakeClaudeStore;
   readonly sessions: ClaudeSessionOps;
   /** 等第 n 个（从 1 数）query 建出来 */
@@ -631,7 +631,7 @@ interface ApiUsage {
 }
 
 export const sdk = {
-  /** extraCommands：另外报的斜杠命令（291 号票：插件里的 skill，ergo:<目录名>） */
+  /** extraCommands：另外报的斜杠命令（插件里的 skill，ergo:<目录名>） */
   init: (sessionId: string, model = "claude-test-model", extraCommands: readonly string[] = []) =>
     as({
       type: "system",
@@ -756,24 +756,24 @@ export interface FakeClaudeEcho {
     envKeys: string[];
     clientApp?: string;
     hasExecutable: boolean;
-    /** 289 号票：负责人在 ⚙ 里选的值翻成的选项 */
+    /** 负责人在 ⚙ 里选的值翻成的选项 */
     model?: string;
     effort?: string;
     permissionMode?: string;
-    /** 291 号票：交给 query 的本地插件目录、交给它的钩子种类、进程内 MCP 服务 */
+    /** 交给 query 的本地插件目录、交给它的钩子种类、进程内 MCP 服务 */
     plugins: string[];
     hooks: string[];
     mcpServers: string[];
   };
-  /** 291 号票：这条输入收到的钩子 additionalContext（SessionStart、UserPromptSubmit），模型看得到、界面不显示 */
+  /** 这条输入收到的钩子 additionalContext（SessionStart、UserPromptSubmit），模型看得到、界面不显示 */
   hookContext: string;
-  /** 291 号票：这一轮工具结果的 PostToolUse 交的话 */
+  /** 这一轮工具结果的 PostToolUse 交的话 */
   toolContexts: string[];
-  /** 291 号票：插件目录里的 skill（目录名） */
+  /** 插件目录里的 skill（目录名） */
   pluginSkills: string[];
-  /** 291 号票：各进程内 MCP 服务现在的工具（Claude 看到的名字） */
+  /** 各进程内 MCP 服务现在的工具（Claude 看到的名字） */
   mcpTools: string[];
-  /** 293 号票：这个会话的主线（模型看到的对话），一条一行 */
+  /** 这个会话的主线（模型看到的对话），一条一行 */
   history: string[];
 }
 
@@ -794,16 +794,16 @@ export function scriptedClaudeSdk(script: readonly FauxStep[], store: FakeClaude
   };
 
   async function playTurn(query: FakeClaudeQuery, input: SDKUserMessage): Promise<void> {
-    // 309 号票：/compact 扮演 Claude Code 的手动压缩，不取剧本
+    // /compact 扮演 Claude Code 的手动压缩，不取剧本
     if (/^\/compact\b/.test(inputText(input).trim())) return playCompact(query, input);
-    // 291 号票：处理这条输入之前叫钩子（SessionStart、UserPromptSubmit），这一轮工具结果的 PostToolUse 交的话从头记
+    // 处理这条输入之前叫钩子（SessionStart、UserPromptSubmit），这一轮工具结果的 PostToolUse 交的话从头记
     const hookContext = await query.promptHooks(input);
     query.toolContexts = [];
     query.turnUuid = input.uuid;
     query.emit(sdk.init(query.sessionId, undefined, query.pluginSkills().map((name) => `ergo:${name}`)));
     for (;;) {
       let step = script[next++];
-      // 293 号票：按这条输入（连同钩子交的话）选一步
+      // 按这条输入（连同钩子交的话）选一步
       while (step?.kind === "branch_on_context") {
         const seen = `${inputText(input)}\n${hookContext}`;
         step = step.contains.every((s) => seen.includes(s)) ? step.matched : step.otherwise;
@@ -825,11 +825,11 @@ export function scriptedClaudeSdk(script: readonly FauxStep[], store: FakeClaude
       query.emit(...sdkReply(id, { ...(step.thinking ? { thinking: step.thinking } : {}), ...(step.text ? { text: step.text } : {}), toolCalls, usage: usageOf(step.usage) }));
       if (toolCalls.length === 0) break;
       for (const call of toolCalls) {
-        // 291 号票：进程内 MCP 服务的工具（mcp__<服务>__<工具>）过完权限流程就经服务调
+        // 进程内 MCP 服务的工具（mcp__<服务>__<工具>）过完权限流程就经服务调
         const mcp = mcpTarget(query, call.name);
         const run = await query.runTool(call.id, call.name, call.input, mcp ? { execute: (args) => callMcp(mcp.link, mcp.tool, args, call.id) } : {});
         if (run.context) query.toolContexts.push(run.context);
-        // 293 号票：Write、Edit 真的写盘，记进文件检查点
+        // Write、Edit 真的写盘，记进文件检查点
         if (run.allowed) applyFileTool(query, call.name, run.input);
         if (run.allowed && call.name === "Agent") await playSubagent(query, call.id, run.input);
         query.emit(toolResultOf(call.id, call.name, run));
@@ -840,7 +840,7 @@ export function scriptedClaudeSdk(script: readonly FauxStep[], store: FakeClaude
 }
 
 /**
- * 扮演 Claude Code 的手动压缩（309 号票，用户打的 /compact 原样转交过来的）：先叫 PreCompact 钩子（manual，带上 /compact 后面的指令），
+ * 扮演 Claude Code 的手动压缩（用户打的 /compact 原样转交过来的）：先叫 PreCompact 钩子（manual，带上 /compact 后面的指令），
  * 再吐 compact_boundary、叫压缩之后的 SessionStart（compact）、本地输出和这一轮的 result
  */
 async function playCompact(query: FakeClaudeQuery, input: SDKUserMessage): Promise<void> {
@@ -867,7 +867,7 @@ async function playSubagent(query: FakeClaudeQuery, agentCallId: string, input: 
   }
 }
 
-/** 扮演 Claude Code 的 Write、Edit（293 号票）：写盘，这一轮第一次改的文件记下原来的内容（文件检查点） */
+/** 扮演 Claude Code 的 Write、Edit：写盘，这一轮第一次改的文件记下原来的内容（文件检查点） */
 function applyFileTool(query: FakeClaudeQuery, toolName: string, input: Record<string, unknown>): void {
   const file = typeof input.file_path === "string" ? input.file_path : undefined;
   if (!file || !query.turnUuid) return;
@@ -879,14 +879,14 @@ function applyFileTool(query: FakeClaudeQuery, toolName: string, input: Record<s
 }
 
 /** 一次工具调用的假结果：拦下的是说明（出错）；AskUserQuestion 照 Claude Code 的写法列出回答；别的写明执行时用的参数 */
-/** 剧本里这个工具是不是接上的进程内 MCP 服务的（mcp__<服务>__<工具>，291 号票）：是的话交回连接和工具名 */
+/** 剧本里这个工具是不是接上的进程内 MCP 服务的（mcp__<服务>__<工具>）：是的话交回连接和工具名 */
 function mcpTarget(query: FakeClaudeQuery, toolName: string): { link: FakeMcpLink; tool: string } | undefined {
   const match = /^mcp__(.+?)__(.+)$/.exec(toolName);
   const link = match ? query.mcpLink(match[1]!) : undefined;
   return link && match ? { link, tool: match[2]! } : undefined;
 }
 
-/** 经进程内 MCP 服务调一次（291 号票）：工具不在服务现在的清单里（工具包里没有、刚去掉的）照 Claude Code 回出错，不调 */
+/** 经进程内 MCP 服务调一次：工具不在服务现在的清单里（工具包里没有、刚去掉的）照 Claude Code 回出错，不调 */
 async function callMcp(link: FakeMcpLink, tool: string, args: Record<string, unknown>, toolUseId: string): Promise<FakeMcpResult> {
   const tools = await link.listTools();
   if (!tools.some((t) => t.name === tool)) return { content: [{ type: "text", text: `No such tool available: mcp__${link.name}__${tool}` }], isError: true };
@@ -897,7 +897,7 @@ function toolResultOf(toolUseId: string, toolName: string, run: FakeToolRun, par
   const opts = parent ? { parent } : {};
   if (!run.allowed) return sdk.toolResult(toolUseId, run.denial ?? "denied", { ...opts, isError: true });
   if (run.output !== undefined) {
-    // 进程内 MCP 服务交回的（291 号票）：MCP 的内容块照样放进工具结果
+    // 进程内 MCP 服务交回的：MCP 的内容块照样放进工具结果
     const mcp = run.output as FakeMcpResult;
     return sdk.toolResult(
       toolUseId,

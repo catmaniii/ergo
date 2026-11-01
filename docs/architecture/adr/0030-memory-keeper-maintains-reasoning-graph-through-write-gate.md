@@ -35,7 +35,7 @@
 
 ## 实现
 
-- **写入口**：@ergo/memory 的 `ReasoningWriteGate`（`packages/memory/src/rg/write-gate.ts`；前包名是 memory-lab），引擎打开时建好（`engine.gate`）。证据、事实、结论、关联、推断、追问、预测只能在一次 `gate.write({ op, actor, via, reason }, fn)` 里写；写完按这一次留下的修订查一遍，不合格整次回滚，抛 `ReasoningWriteRefused` 逐条说明哪里不合格。第 2 条的五样检查对应 `premise`、`exists`、`confidence_cap` 和 `lift_threshold`、`dependents`、`dangling`；另有 `evidence_backed`、`user_confirm`、`sensitive`、`never`、`permission`。细节见 [记忆架构](../memory-architecture.md) 第 7.10 节。
+- **写入口**：@ergo/memory 的 `ReasoningWriteGate`（`packages/memory/src/rg/write-gate.ts`），引擎打开时建好（`engine.gate`）。证据、事实、结论、关联、推断、追问、预测只能在一次 `gate.write({ op, actor, via, reason }, fn)` 里写；写完按这一次留下的修订查一遍，不合格整次回滚，抛 `ReasoningWriteRefused` 逐条说明哪里不合格。第 2 条的五样检查对应 `premise`、`exists`、`confidence_cap` 和 `lift_threshold`、`dependents`、`dangling`；另有 `evidence_backed`、`user_confirm`、`sensitive`、`never`、`permission`。细节见 [记忆架构](../memory-architecture.md) 第 7.10 节。
 - **收进来的写路径**：每晚整理的每一步（明说的结论、提假设、撤组、追问、判状态、联动、往上抽、写回、对抗复核、预测）、记忆管理员记下用户的表态（`recordClaimVerdict`）、问题箱（出问题、过期、判回答；顺口问：记问过、跳过和回避信号、"别问这个"、回答回写，记"经秘书顺口问"——记问过算管理员白天提顺口问，回答和跳过是用户的表态，"别问这个"是用户发起；规则认不出的回答由管理员每晚整理时判：判成在答的回写记"用户的表态 · 经记忆管理员夜里判"，没答的跳过、拿不准的那一笔是夜班）、删除登记的忘掉 / 彻底删除 / 别推断 / 敏感类别、素材入库和抽事实。源码里除了存储和写入口没有别处直接写这几张表，有静态检查守着。
 - **权限分档**：第 3 条照做。"要用户确认"的几样现在的做法是**只由用户发起**（用户的表态、记忆删除卡、设置页、经管理员转达的忘掉），夜班和管理员自己下的写入口直接拒；给管理员出确认卡、让它代问用户的那条路还没做。管理员的 `forget_material` 照之前的是"用户说了才调"，记成"用户发起 · 经记忆管理员"。
 - **别的角色**：秘书的简报和问记忆那一份引擎、记忆页那一份引擎的写入口开成只读，写一律拒；负责人没有记忆工具。

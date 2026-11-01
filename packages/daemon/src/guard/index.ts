@@ -1,5 +1,4 @@
 // 守卫判定核心（规格第 9 节）。上层只从这里取东西。
-// 本模块不接任何运行时：把判定接进子进程的 tool_call、效果日志落库在 07 号票。
 export * from "./disposition.ts";
 export * from "./types.ts";
 export * from "./model-language.ts";
@@ -48,7 +47,7 @@ export * from "./tool-registry.ts";
 export * from "./watch-categories.ts";
 export { loadWatchCategorySettings, parseWatchCategorySettings, readWatchCategoryFile } from "./watch-category-store.ts";
 export { SECRET_PATTERNS, findSecretShapes, maskSecretArgValues, REDACTED_SECRET, redactSecretShapes, redactSecretValues, SECRET_NAME, type SecretPattern } from "./secrets.ts";
-// 流程（58 号票）：计划的审查修补（planguard 的规划时审查）、步骤在守卫眼里的样子（能写的工具、拆成的调用、推出的工具包和授权项）
+// 流程：计划的审查修补（planguard 的规划时审查）、步骤在守卫眼里的样子（能写的工具、拆成的调用、推出的工具包和授权项）
 export {
   reviewWorkflow,
   WORKFLOW_REVIEW_BUDGET_MS,
@@ -63,7 +62,7 @@ export {
   type WorkflowReviewOutcome,
   type WorkflowReviewResult,
 } from "./workflow-review.ts";
-// 流程执行时的计划检查（59 号票）：每次调用和已授权的计划比对，能修的自动修回
+// 流程执行时的计划检查：每次调用和已授权的计划比对，能修的自动修回
 export {
   CONFORMANCE_KINDS,
   CORRECTION_PREFIX,

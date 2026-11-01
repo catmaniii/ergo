@@ -47,7 +47,7 @@ describe("后台补算", () => {
     expect(t.materials.vectorStatus()).toMatchObject({ indexed: 2, pending: 0 });
   });
 
-  test("要索引的文字太长只算开头 EMBED_MAX_CHARS 字（166 号票：存的网页正文最多 2 万字）；长的单独一批，不让一批短的跟着补齐到它那么长", async () => {
+  test("要索引的文字太长只算开头 EMBED_MAX_CHARS 字（存的网页正文最多 2 万字）；长的单独一批，不让一批短的跟着补齐到它那么长", async () => {
     const embedder = new FakeEmbedder();
     const t = materialsSetup({ embedder });
     const release = embedder.hold();
@@ -161,7 +161,7 @@ describe("模型文件不在", () => {
       urgency: "non_blocking",
       body: expect.stringContaining(embedder.unavailableHint()),
       archived: false,
-      // 323 号票："去装组件"由网页带到设置 · 组件
+      // "去装组件"由网页带到设置 · 组件
       actions: ["去装组件", "知道了"],
     });
   });

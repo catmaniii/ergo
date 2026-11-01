@@ -1,4 +1,4 @@
-// 假的 ffmpeg（230 号票：测试里代替本机的 ffmpeg，不解码、不真转码、不装依赖）。
+// 假的 ffmpeg（测试里代替本机的 ffmpeg，不解码、不真转码、不装依赖）。
 // 用法：node fake-ffmpeg.mjs <记录文件> -hide_banner … -i 输入 -vn -ac 1 -ar 16000 -c:a pcm_s16le -f wav 输出.wav
 // 输入是测试造的假音频（helpers/audio.ts 的 fakeMp3，或者 makeWav 的真 WAV 头）：后面可以跟一行 "FAKE-FFMPEG <JSON>"：
 //   seconds      转出来的 WAV 有多长（秒）；不给时按输入 WAV 的头算，输入不是 WAV 时 3 秒

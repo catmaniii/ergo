@@ -1,4 +1,4 @@
-// 看板上的简单提醒卡（12 号票；156 号票的菜单和多选，185 号票的归档、删除）。193 号票：从任务页（pages/TasksPage.tsx）挪进提醒插件，
+// 看板上的简单提醒卡（菜单和多选，归档、删除）。从任务页（pages/TasksPage.tsx）挪进提醒插件，
 // 登记成看板条目 reminder 的画法（plugins/reminders/plugin.tsx）：
 // - ReminderBoardScope 包在整个看板外面一次：菜单点了以后要做的（useReminderActs 的改时间、删除确认的对话框画在看板那一栏的最后，
 //   和搬过来之前同一个位置）、要动手的那条提醒（useReminderTarget）；
@@ -17,7 +17,7 @@ import { useToast } from "../../ui/toast.tsx";
 import type { BoardEntryProps } from "../api.ts";
 import { type ReminderActsTarget, ReminderMenuPopup, useReminderActs } from "./reminder-menu.tsx";
 
-/** 简单提醒卡的菜单和多选（156 号票）：和任务卡一样，菜单项是提醒的（state/reminder-menu.ts） */
+/** 简单提醒卡的菜单和多选：和任务卡一样，菜单项是提醒的（state/reminder-menu.ts） */
 interface ReminderChoice {
   readonly menu: readonly ReminderMenuItem[];
   onPick(item: ReminderMenuItem): void;
@@ -61,8 +61,8 @@ export function ReminderBoardEntry({ entry, selecting, checked, onToggle, onSele
 }
 
 /**
- * 要动手的那条简单提醒（156 号票，看板卡的菜单、多选共用）：真提醒的改时间、取消落在它的提醒卡上（改时间是卡片动作 save 带新的时间表，
- * 取消是 cancel_reminder；被拒的原因由页面底部的提示说），185 号票起归档、删除交 reminder_action（没成的原因提示一句）；
+ * 要动手的那条简单提醒（看板卡的菜单、多选共用）：真提醒的改时间、取消落在它的提醒卡上（改时间是卡片动作 save 带新的时间表，
+ * 取消是 cancel_reminder；被拒的原因由页面底部的提示说），归档、删除交 reminder_action（没成的原因提示一句）；
  * 原型的假提醒在页面上演（取消了挪进最近结束，归档了挪进已归档，删了从看板上拿掉，改时间换掉时间表、下一次按新的钟点粗算），做完提示一句
  */
 function useReminderTarget(): (r: ReminderSummary) => ReminderActsTarget {
@@ -105,9 +105,9 @@ function useReminderTarget(): (r: ReminderSummary) => ReminderActsTarget {
 }
 
 /**
- * 简单提醒卡：长按 / 右键出菜单（156 号票：照提醒能做的——改时间、取消提醒，185 号票起归档、删除提醒，后面"多选"；写法照任务卡，
+ * 简单提醒卡：长按 / 右键出菜单（照提醒能做的——改时间、取消提醒，归档、删除提醒，后面"多选"；写法照任务卡，
  * state/reminder-menu.ts 算、reminder-menu.tsx 画和做）；多选时点卡片就是勾选（和任务混着选，批量动作只给两者都能做的）。
- * 平时点卡片不打开什么。状态：运营中 · 待触发，简单提醒 · 已触发 / 已取消（185 号票起已取消的也在最近结束、能归档）
+ * 平时点卡片不打开什么。状态：运营中 · 待触发，简单提醒 · 已触发 / 已取消（已取消的也在最近结束、能归档）
  */
 function ReminderCard({ r, choice }: { r: ReminderSummary; choice: ReminderChoice }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -143,7 +143,7 @@ function ReminderCard({ r, choice }: { r: ReminderSummary; choice: ReminderChoic
           <span className="bcard-num">{r.status === "pending" ? t("pages.tasks.next", { time: nextTimeLabel(r.nextAt) }) : timeLabel(r.nextAt)}</span>
         ) : null}
       </div>
-      {/* 事件发生时提醒的（77 号票）：在等什么事件、最近一次 */}
+      {/* 事件发生时提醒的：在等什么事件、最近一次 */}
       {r.waitingFor && <div className="bcard-waiting">{t("pages.tasks.waitingFor", { what: r.waitingFor })}</div>}
       {r.lastEvent && (
         <div className="bcard-waiting muted">

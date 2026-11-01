@@ -1,16 +1,16 @@
 /**
- * 语音模式下的输入框（规格第 22 节，31 号票），照微信：整个输入框变成"按住 说话"。
+ * 语音模式下的输入框（规格第 22 节），照微信：整个输入框变成"按住 说话"。
  * 按住时弹出录音面板，显示当前音量和最近一小段滚动的波形；抬手发送；按住时上划超过一段距离进"松开取消"，抬手不发送；
  * 不到 1 秒提示"说话时间太短"；最后 10 秒倒计时，到 60 秒自动发送；没有麦克风权限时提示怎么开。
- * 麦克风预热（37 号票）：输入框挂上（进语音模式）就打开麦克风流、备好音量分析，但不录；按下的那个 pointer 事件里就开始录，
- * 开头不丢。离开语音模式（卸下）、切到后台立刻关掉麦克风，语音模式里闲置不关（44 号票）；没预热好时照旧"准备中"，就绪之后才计时。
- * 61 号票：打字（页面里任何输入框拿到焦点）、分屏时也立刻放开麦克风，焦点回来 0.5 秒后再预热；录到的是一段静音就不发——
+ * 麦克风预热：输入框挂上（进语音模式）就打开麦克风流、备好音量分析，但不录；按下的那个 pointer 事件里就开始录，
+ * 开头不丢。离开语音模式（卸下）、切到后台立刻关掉麦克风，语音模式里闲置不关；没预热好时照旧"准备中"，就绪之后才计时。
+ * 打字（页面里任何输入框拿到焦点）、分屏时也立刻放开麦克风，焦点回来 0.5 秒后再预热；录到的是一段静音就不发——
  * 这些都在 session 里（app/voice-session.ts），这里不用管。
- * 63 号票：在鸿蒙 App 里录音走 App 的原生录音器（备好不占麦克风，不用让路），也在 session 里换，这里照旧。
+ * 在鸿蒙 App 里录音走 App 的原生录音器（备好不占麦克风，不用让路），也在 session 里换，这里照旧。
  * 触屏和鼠标都用 pointer 事件（不另绑 touch 事件：两者并存在手机上会重复触发），按下时抓住指针，手指滑出按钮也照样收到。
  * 手势的规矩在状态层（state/voice-gesture.ts、voice-mic.ts），接到浏览器上的在 app/voice-session.ts；
  * 录好的整段交给 onRecorded（上传后发消息）。
- * 36 号票起：按着的时候告诉播放器（在播的语音停下，新到的 agent 语音等松手再播）；抬手时顺带解锁播放器（手机浏览器要有
+ * 按着的时候告诉播放器（在播的语音停下，新到的 agent 语音等松手再播）；抬手时顺带解锁播放器（手机浏览器要有
  * 用户手势才允许出声，见 app/voice-playback.ts）。
  */
 import { useEffect, useId, useState, useSyncExternalStore } from "react";
@@ -61,14 +61,14 @@ export function VoiceInput({ onRecorded }: { onRecorded(voice: RecordedVoice): v
     return () => cancelAnimationFrame(frame);
   }, [recording, session]);
 
-  // 按着的时候（等麦克风、正在录）不播语音（36 号票）：从按下那一刻起，在播的暂停在那里（209 号票；不然会录进去，
+  // 按着的时候（等麦克风、正在录）不播语音：从按下那一刻起，在播的暂停在那里（不然会录进去，
   // 松手后不自动接着放，点气泡从那里接着放），新到的 agent 语音等松手再播。每个输入框单算一处（宽屏上可能开着几个）
   const active = state.phase !== "idle";
   const capturer = useId();
   useEffect(() => pageVoicePlayer().setCapturing(active, capturer), [active, capturer]);
-  // 按着、录着：刷新会丢掉这一段，先不提示有新版本、不直接刷新（116 号票）
+  // 按着、录着：刷新会丢掉这一段，先不提示有新版本、不直接刷新
   useHoldPageUpdate(active);
-  // 按着的时候又落下第二根手指（不管落在哪）：是在捏合缩放会话（54 号票），这一段不算，丢掉不发
+  // 按着的时候又落下第二根手指（不管落在哪）：是在捏合缩放会话，这一段不算，丢掉不发
   useEffect(() => {
     if (!active) return;
     const onTouch = (e: TouchEvent) => {
@@ -132,7 +132,7 @@ export function VoiceInput({ onRecorded }: { onRecorded(voice: RecordedVoice): v
         }}
         onPointerMove={(e) => session.move(e.clientY)}
         onPointerUp={() => {
-          // 抬手是用户手势（手机上按下不算）：趁这时让播放器出一次声，agent 的语音回复到了才能自动播放（36 号票）。
+          // 抬手是用户手势（手机上按下不算）：趁这时让播放器出一次声，agent 的语音回复到了才能自动播放。
           // 不在按下时做：免得和按下就开录挤在一起
           unlockVoicePlayback();
           session.release(performance.now());

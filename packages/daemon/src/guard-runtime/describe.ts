@@ -25,8 +25,8 @@ export function summarizeArgs(tools: ToolRegistry, toolName: string, args: unkno
   if (toolName === TOOL.web_fetch && typeof a.url === "string") return oneLine(a.url, SUMMARY_MAX);
   if (typeof a.path === "string" && PATH_TOOLS.includes(toolName)) return oneLine(a.path, SUMMARY_MAX);
   if (typeof a.pattern === "string" && SEARCH_TOOLS.includes(toolName)) return oneLine(`${a.pattern}${typeof a.path === "string" ? ` · ${a.path}` : ""}`, SUMMARY_MAX);
-  // 参数里套着别的接口的参数的工具（240 号票秘书带参调 MCP 的 mcp_call、260 号票的 project_ops）：名字看着是密钥的、像密钥的形态都擦掉再列
-  // （时间线、事件日志里另有一套）。280 号票起看工具自己的登记（maskArgs），不再按工具名认
+  // 参数里套着别的接口的参数的工具（秘书带参调 MCP 的 mcp_call、project_ops）：名字看着是密钥的、像密钥的形态都擦掉再列
+  // （时间线、事件日志里另有一套）。看工具自己的登记（maskArgs），不再按工具名认
   return oneLine(pairsText(findTool(tools, toolName)?.maskArgs === true ? (maskSecretArgValues(a) as Record<string, unknown>) : a), SUMMARY_MAX);
 }
 

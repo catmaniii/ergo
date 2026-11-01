@@ -4,19 +4,19 @@
 //   没有凭证只能拿到页面本身、查"我有没有被信任"、发配对请求（external.ts）。本机信任只看从哪个端口进来，不看来源 IP。
 // 两个端口提供同样的东西：
 // - Web UI 的静态文件（单文件构建产物 index.html，每次请求重新读，重新构建后不用重启；原样发出，不往页面里塞任何密钥或令牌）；
-//   视觉风格的字体在构建产物的 fonts/ 下，按 /fonts/ 提供（fonts.ts，39 号票）；
-//   网页是哪一版（116 号票，web-version.ts）：订阅的响应里带着，index.html 换了一版时在活动状态频道上推一条临时的 web_version，
+//   视觉风格的字体在构建产物的 fonts/ 下，按 /fonts/ 提供（fonts.ts）；
+//   网页是哪一版（web-version.ts）：订阅的响应里带着，index.html 换了一版时在活动状态频道上推一条临时的 web_version，
 //   GET /api/web-version 现问；开着的页面和自己的对不上就提示刷新；
 // - 健康探针 /healthz（LSM 用）：秘书和 Web UI 构建产物的状况，不健康时回 503 并写明原因；启用着的插件没装上算降级
-//   （status 是 degraded、写明原因，照旧回 200，126 号票）；
+//   （status 是 degraded、写明原因，照旧回 200）；
 // - /api/access：这个请求被信任吗（本机、已配对设备、都不是）；
 // - /api/：别的 HTTP 接口（媒体的分片续传上传、下载，会话历史分页），见 http-api.ts；
-// - /apps/<应用名>/…（132 号票，apps/proxy.ts）：按转发登记表把本机服务的页面转发过去（普通请求、流式、WebSocket 升级），
+// - /apps/<应用名>/…（apps/proxy.ts）：按转发登记表把本机服务的页面转发过去（普通请求、流式、WebSocket 升级），
 //   鉴权和二狗自己的页面一样（外网端口要设备凭证），没登记的 404；
 // - /ws：每个前端一条 WebSocket，帧分请求、响应、事件三种（共享协议包定义）。服务端定时 ping，
 //   一个心跳周期里没回 pong 的连接（半开的：对方已经没了、连接没正常关掉）直接断掉；
 //   已配对设备的连接在心跳时复查凭证，被吊销时立即关掉（关闭码 WS_CLOSE_UNPAIRED）。
-//   浏览侧边栏（147 号票）：连接报的浏览器（browser_status）、回的结果（browser_reply）交给 browsing/browser-links.ts，
+//   浏览侧边栏：连接报的浏览器（browser_status）、回的结果（browser_reply）交给 browsing/browser-links.ts，
 //   秘书的网页工具要这台设备办的事（browser_request）只推给报过那个浏览器的连接；连接断了告诉它。
 import fs from "node:fs";
 import http from "node:http";
@@ -121,7 +121,7 @@ import { checkLocalRequest } from "./local-origin.ts";
 import { DEFAULT_WEB_VERSION_POLL_MS, watchWebVersion } from "./web-version.ts";
 
 export const LOCAL_HOST = "127.0.0.1";
-/** 单帧上限：文本消息足够；图片和文件走 HTTP 上传（09） */
+/** 单帧上限：文本消息足够；图片和文件走 HTTP 上传 */
 const MAX_FRAME_BYTES = 1024 * 1024;
 /** WebSocket 心跳的默认间隔（nginx 的 proxy_read_timeout 比它长得多，隧道上不会因为没流量被掐） */
 export const DEFAULT_HEARTBEAT_INTERVAL_MS = 30_000;
@@ -134,7 +134,7 @@ export interface HealthReport {
   /** 不健康的原因 */
   reasons: string[];
   /**
-   * 降级的原因（126 号票：启用着的插件没装上）：服务照常能用，只是有东西没起来。不空时整体状态是 degraded，
+   * 降级的原因（启用着的插件没装上）：服务照常能用，只是有东西没起来。不空时整体状态是 degraded，
    * 原因并进 reasons；HTTP 照旧 200（LSM 的 health 档按状态码判死活，503 会被当成挂了）
    */
   degraded?: string[];
@@ -143,30 +143,30 @@ export interface HealthReport {
 /** 网关交给别的模块处理的请求（不满足时抛 RequestRejected，网关回成错误响应） */
 export interface RequestHandlers {
   /** 对卡片做动作（cards/cards.ts） */
-  /** 要先等一件事的动作（84 号票：归档清单上"继续"返工，先停稳负责人）结果晚一点才有（Promise） */
+  /** 要先等一件事的动作（归档清单上"继续"返工，先停稳负责人）结果晚一点才有（Promise） */
   cardAction(params: CardActionParams, idempotencyKey: string): CardActionResult | Promise<CardActionResult>;
   /** 对待我处理事项做动作（inbox/inbox.ts） */
   inboxAction(params: InboxActionParams, idempotencyKey: string): InboxActionResult;
   /** 吊销一台已配对设备（pairing/pairing.ts）；它开着的 WebSocket 由网关随后关掉 */
   revokeDevice(params: RevokeDeviceParams, idempotencyKey: string): RevokeDeviceResult;
-  /** 设置里多选的延期、吊销、删除（pairing/pairing.ts，123 号票）；吊销、删除的设备开着的 WebSocket 由网关随后关掉 */
+  /** 设置里多选的延期、吊销、删除（pairing/pairing.ts）；吊销、删除的设备开着的 WebSocket 由网关随后关掉 */
   deviceBatchAction(params: DeviceBatchActionParams, idempotencyKey: string): DeviceBatchActionResult;
   /** 点"发起任务"按钮（tasks/tasks.ts）：直接建出任务（规划中） */
   startTask(params: StartTaskParams, idempotencyKey: string): StartTaskResult;
   /** 设置页改关注类别（watch-categories/）：设置随后在关注类别频道推送 */
   updateWatchCategories(params: UpdateWatchCategoriesParams, idempotencyKey: string): UpdateWatchCategoriesResult;
-  /** 用户对任务的控制（tasks/execution.ts，13 号票）：暂停、继续、取消、重试、返工、由我验收的验收通过或退回 */
-  /** 从某个阶段重做（84 号票）要先停稳负责人手头这一轮，结果晚一点才有（Promise） */
+  /** 用户对任务的控制（tasks/execution.ts）：暂停、继续、取消、重试、返工、由我验收的验收通过或退回 */
+  /** 从某个阶段重做要先停稳负责人手头这一轮，结果晚一点才有（Promise） */
   taskAction?(params: TaskActionParams, idempotencyKey: string): TaskActionResult | Promise<TaskActionResult>;
-  /** 一次对多个任务做同一个控制（tasks/batch.ts，90 号票：看板多选）：各自成败、逐条回报 */
+  /** 一次对多个任务做同一个控制（tasks/batch.ts：看板多选）：各自成败、逐条回报 */
   taskBatchAction?(params: TaskBatchActionParams, idempotencyKey: string): Promise<TaskBatchActionResult>;
   /**
-   * 发消息：秘书会话之外的会话（负责人会话）能不能发、消息属于哪个任务或项目（15 号票：项目负责人的会话）。
+   * 发消息：秘书会话之外的会话（负责人会话）能不能发、消息属于哪个任务或项目（项目负责人的会话）。
    * 不认识的会话返回 undefined（这个版本还不能往那里发）；不让发就抛 RequestRejected（比如已归档的项目只读）
    */
   messageScope?(conversation: ConversationId, taskId?: string): MessageScope | undefined;
   /**
-   * 用户的消息之前、同一事务先追加的事件（16 号票：项目负责人手上没有在进行的会话段时开一个对话段，分隔线排在这句话之前）。
+   * 用户的消息之前、同一事务先追加的事件（项目负责人手上没有在进行的会话段时开一个对话段，分隔线排在这句话之前）。
    * 事件要带由请求的幂等键派生的幂等键（重发不多开一段）
    */
   messagePrelude?(conversation: ConversationId, idempotencyKey: string, taskId?: string): NewEvent[];
@@ -177,42 +177,42 @@ export interface RequestHandlers {
   /** 项目页上的动作（projects/projects.ts）：删除只放一条二次确认进待我处理 */
   projectAction(params: ProjectActionParams, idempotencyKey: string): ProjectActionResult;
   /**
-   * 项目卡片、项目页上的"启动""关闭"（project-services/，257 号票）：经 LSM 把使用中的项目的服务全部拉起、全部关掉；
+   * 项目卡片、项目页上的"启动""关闭"（project-services/）：经 LSM 把使用中的项目的服务全部拉起、全部关掉；
    * 做不了的（LSM 没连上、项目不是使用中、没有服务）抛 RequestRejected 说清原因。不给就不能启停
    */
   projectServicesAction?(params: ProjectServicesActionParams, idempotencyKey: string): ProjectServicesActionResult;
-  /** 项目页上的"重置负责人"（projects/projects.ts，16 号票）：不改项目状态，负责人新开一段会话；不给就不能重置 */
+  /** 项目页上的"重置负责人"（projects/projects.ts）：不改项目状态，负责人新开一段会话；不给就不能重置 */
   resetMaintainer?(params: ResetMaintainerParams, idempotencyKey: string): ResetMaintainerResult;
-  /** 发消息时收下语音 part（voice/，31 号票）；不给就不能发语音 */
+  /** 发消息时收下语音 part（voice/）；不给就不能发语音 */
   voiceIntake?: VoiceIntake;
-  /** 气泡菜单里的"重新识别"（voice/，31 号票） */
+  /** 气泡菜单里的"重新识别"（voice/） */
   retryVoice?(params: RetryVoiceParams, idempotencyKey: string): RetryVoiceResult;
-  /** 项目页、任务详情里直接改工具包（toolkit/，27 号票）；不给就不能改 */
+  /** 项目页、任务详情里直接改工具包（toolkit/）；不给就不能改 */
   setToolkit?(params: SetToolkitParams, idempotencyKey: string): SetToolkitResult;
-  /** 看板上对定时触发的任务的动作（scheduled-jobs/，19 号票的定时作业；76 号票）：暂停、恢复、取消 */
+  /** 看板上对定时触发的任务的动作（scheduled-jobs/，定时作业）：暂停、恢复、取消 */
   scheduledJobAction?(params: ScheduledJobActionParams, idempotencyKey: string): ScheduledJobActionResult;
-  /** 任务操作菜单里的"改时间"（scheduled-jobs/，98 号票）：换定时触发的任务的时间表 */
+  /** 任务操作菜单里的"改时间"（scheduled-jobs/）：换定时触发的任务的时间表 */
   rescheduleJob?(params: RescheduleJobParams, idempotencyKey: string): RescheduleJobResult;
-  /** 任务操作菜单里的"立即运行一次"（scheduled-jobs/，100 号票）：定时 / 事件触发的任务等同被触发一次，触发记成手动 */
+  /** 任务操作菜单里的"立即运行一次"（scheduled-jobs/）：定时 / 事件触发的任务等同被触发一次，触发记成手动 */
   runJobNow?(params: RunJobNowParams, idempotencyKey: string): RunJobNowResult;
-  /** 任务操作菜单里的"跑完自动播报：开 / 关"（tasks/，100 号票） */
+  /** 任务操作菜单里的"跑完自动播报：开 / 关"（tasks/） */
   setVoiceAnnounce?(params: SetVoiceAnnounceParams, idempotencyKey: string): SetVoiceAnnounceResult;
   setProjectVoiceAnnounce?(params: SetProjectVoiceAnnounceParams, idempotencyKey: string): SetProjectVoiceAnnounceResult;
-  /** 发起对话框里的"只提醒我"（76 号票）：建一条简单提醒 */
+  /** 发起对话框里的"只提醒我"：建一条简单提醒 */
   createReminder?(params: CreateReminderParams, idempotencyKey: string): CreateReminderResult;
-  /** 看板菜单、提醒卡上的按钮、看板多选（185 号票）：对一条或几条简单提醒取消、归档、删除，各自成败、逐条回报 */
+  /** 看板菜单、提醒卡上的按钮、看板多选：对一条或几条简单提醒取消、归档、删除，各自成败、逐条回报 */
   reminderAction?(params: ReminderActionParams, idempotencyKey: string): ReminderActionResult;
-  /** 记下会话看到哪一条了（conversation/read-marks.ts，109 号票）：秘书页上的已读位置，几台设备同步 */
+  /** 记下会话看到哪一条了（conversation/read-marks.ts）：秘书页上的已读位置，几台设备同步 */
   markRead?(params: MarkReadParams, idempotencyKey: string): MarkReadResult;
-  /** 守护进程是哪一版、什么时候起来的、它此刻的时间（124 号票：设置里的关于二狗、Debug 工具集）；只读 */
+  /** 守护进程是哪一版、什么时候起来的、它此刻的时间（设置里的关于二狗、Debug 工具集）；只读 */
   daemonInfo?(): DaemonInfo;
-  /** 输入框旁的"停止"（144 号票）：停下这个会话的 agent 正在回复的这一轮；不给就不能停 */
+  /** 输入框旁的"停止"：停下这个会话的 agent 正在回复的这一轮；不给就不能停 */
   stopReply?(params: StopReplyParams, idempotencyKey: string): StopReplyResult;
-  /** 会话回退（150 号票）：缩小视图里点 ↶、确认之后回到某条之前；做完才回响应。不给就不能回退 */
+  /** 会话回退：缩小视图里点 ↶、确认之后回到某条之前；做完才回响应。不给就不能回退 */
   rollbackSession?(params: RollbackSessionParams, idempotencyKey: string): Promise<RollbackSessionResult>;
-  /** 切换分支（151 号票）：展开的 ⑂ 预览上点"切换到这条分支"；做完才回响应。不给就不能切换 */
+  /** 切换分支：展开的 ⑂ 预览上点"切换到这条分支"；做完才回响应。不给就不能切换 */
   switchBranch?(params: SwitchBranchParams, idempotencyKey: string): Promise<SwitchBranchResult>;
-  /** 废弃分支详情里一件遗留效果的「申请撤回」（151 号票）：记一笔、调撤销接口。不给就不能申请 */
+  /** 废弃分支详情里一件遗留效果的「申请撤回」：记一笔、调撤销接口。不给就不能申请 */
   requestEffectUndo?(params: RequestEffectUndoParams, idempotencyKey: string): Promise<RequestEffectUndoResult>;
 }
 
@@ -230,14 +230,14 @@ export interface GatewayOptions {
   /** 别的临时事件（到点的提醒这类通知），和流式增量一样只推给正连着、订阅了那个频道的前端 */
   notifications: EphemeralSource;
   /**
-   * 订阅某个频道时补推的临时状态（133 号票：项目列表频道的 project_services，项目的服务现在的样子）：临时事件不补发，
+   * 订阅某个频道时补推的临时状态（项目列表频道的 project_services，项目的服务现在的样子）：临时事件不补发，
    * 连上、重连时靠它拿到现在的全量；不给就没有
    */
   snapshot?: (channel: string) => EventFrame[];
   requests: RequestHandlers;
   /** Web UI 构建产物所在的目录（里面有 index.html） */
   webRoot: string;
-  /** 多久看一眼 index.html 换没换（毫秒，116 号票），默认 2 秒 */
+  /** 多久看一眼 index.html 换没换（毫秒），默认 2 秒 */
   webVersionPollMs?: number;
   /** 守护进程其他部分的健康状况，合进 /healthz */
   health: () => HealthReport;
@@ -245,11 +245,11 @@ export interface GatewayOptions {
   api: HttpApi;
   /** 发消息时核对附件（媒体库） */
   attachments: AttachmentLookup;
-  /** 转发本机服务的页面（132 号票）：/apps/<应用名>/… 交给它（apps/proxy.ts） */
+  /** 转发本机服务的页面：/apps/<应用名>/… 交给它（apps/proxy.ts） */
   apps: AppProxy;
   /**
-   * 浏览侧边栏（147 号票）：设备报的浏览器、秘书的网页工具转给设备的事；不给就不认 browser_status、browser_reply。
-   * 212 号票起是浏览插件的，现取：插件没启用时回 undefined，这两个请求回"内置浏览器插件没启用"
+   * 浏览侧边栏：设备报的浏览器、秘书的网页工具转给设备的事；不给就不认 browser_status、browser_reply。
+   * 是浏览插件的，现取：插件没启用时回 undefined，这两个请求回"内置浏览器插件没启用"
    */
   browsers?: () => BrowserLinks | undefined;
   log: (line: string) => void;
@@ -278,7 +278,7 @@ type Trust = { kind: "local" } | { kind: "device"; device: PairedDevice };
 
 const pathnameOf = (req: http.IncomingMessage) => new URL(req.url ?? "/", `http://${LOCAL_HOST}`).pathname;
 /**
- * 转发给本机服务时写明的（132 号票）：浏览器连二狗用的协议（本机端口 http；外网端口按 nginx 覆盖写的 X-Forwarded-Proto，
+ * 转发给本机服务时写明的：浏览器连二狗用的协议（本机端口 http；外网端口按 nginx 覆盖写的 X-Forwarded-Proto，
  * 只在外网端口上信任它，没有就是直连的 http）、来源（外网端口同配对限频，以 X-Real-IP 为准）、哪台设备
  */
 const appContext = (req: http.IncomingMessage, trust: Trust): AppRequestContext => {
@@ -288,7 +288,7 @@ const appContext = (req: http.IncomingMessage, trust: Trust): AppRequestContext 
 };
 const isPage = (pathname: string) => pathname === "/" || pathname === "/index.html";
 /**
- * 这是不是浏览器的一次页面导航（254 号票）：Accept 里有 text/html，或者 Sec-Fetch-Dest 是 document / iframe / frame。
+ * 这是不是浏览器的一次页面导航：Accept 里有 text/html，或者 Sec-Fetch-Dest 是 document / iframe / frame。
  * 外网端口上没凭证时，这类请求一律给页面（前端显示配对页），不回 JSON 错误——原来只认首页，手机主屏上的快捷方式、
  * 收藏的旧地址（前端用 hash 路由，地址本该是 /#/…）、项目服务的入口链接（/apps/…）都会撞上一个 JSON；
  * 认不出的地址在已信任的请求里也一样给页面（旧书签照样进得了二狗），脚本、程序发的请求（Accept 里没有 text/html、
@@ -308,7 +308,7 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
   const indexFile = path.join(options.webRoot, "index.html");
   const connections = new Set<FrontendConnection>();
   let localPort = options.port;
-  // 网页换了一版（116 号票）：推给订阅了活动状态频道的前端（临时事件，序号沿用这个频道最后一条落盘事件的）
+  // 网页换了一版：推给订阅了活动状态频道的前端（临时事件，序号沿用这个频道最后一条落盘事件的）
   const webVersion = watchWebVersion(indexFile, {
     pollMs: options.webVersionPollMs ?? DEFAULT_WEB_VERSION_POLL_MS,
     onChange: (version) => {
@@ -317,7 +317,7 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
     },
   });
 
-  // 整体状态 status：不健康（回 503）是 unhealthy；健康但有降级的原因（启用着的插件没装上，126 号票）是 degraded，照旧回 200；都没有是 ok
+  // 整体状态 status：不健康（回 503）是 unhealthy；健康但有降级的原因（启用着的插件没装上）是 degraded，照旧回 200；都没有是 ok
   const health = (): { status: number; body: Record<string, unknown> } => {
     const webUi = fs.existsSync(indexFile);
     const rest = options.health();
@@ -353,14 +353,14 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
       }
       return handlePairingRoute(req, res, pairing, log);
     }
-    // 网页现在是哪一版（116 号票）：页面切回前台时问一次
+    // 网页现在是哪一版：页面切回前台时问一次
     if (pathname === HTTP_PATHS.webVersion) {
       const version = webVersion.current();
       return sendJson(res, 200, (version === undefined ? {} : { version }) satisfies WebVersionView);
     }
-    // 媒体上传下载、历史分页（09）
+    // 媒体上传下载、历史分页
     if (pathname.startsWith(HTTP_API_PREFIX)) return options.api(req, res, url);
-    // 转发本机服务的页面（132 号票）：登记过的才转（任何方法都转），没登记的回 404 说明页
+    // 转发本机服务的页面：登记过的才转（任何方法都转），没登记的回 404 说明页
     if (options.apps.handles(pathname)) return options.apps.serve(req, res, appContext(req, trust));
     if (req.method !== "GET" && req.method !== "HEAD") return reply(res, 405, "text/plain; charset=utf-8", `${t("gateway.getOnly")}\n`);
     if (pathname === "/healthz") {
@@ -368,9 +368,9 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
       return reply(res, status, "application/json; charset=utf-8", JSON.stringify(body));
     }
     if (isPage(pathname)) return servePage(res);
-    // 视觉风格的字体（39 号票）：构建产物 fonts/ 下的样式表、woff2、许可证
+    // 视觉风格的字体：构建产物 fonts/ 下的样式表、woff2、许可证
     if (pathname.startsWith(FONTS_PREFIX)) return serveFont(req, res, options.webRoot, pathname);
-    // 认不出的地址（254 号票）：浏览器打开的给页面（旧地址、主屏快捷方式照样进得了二狗，前端按 hash 显示默认页），
+    // 认不出的地址：浏览器打开的给页面（旧地址、主屏快捷方式照样进得了二狗，前端按 hash 显示默认页），
     // 脚本、程序发的请求照旧 404
     if (isNavigation(req.headers)) return servePage(res);
     return reply(res, 404, "text/plain; charset=utf-8", `${t("gateway.noSuchPath")}\n`);
@@ -387,7 +387,7 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
 
   // 外网端口：不看来源 IP、不看 Host，只看凭证
   const external = http.createServer((req, res) => {
-    // 项目的服务报事件（357 号票）只在本机端口开：带不带设备凭证都拒，说清楚
+    // 项目的服务报事件只在本机端口开：带不带设备凭证都拒，说清楚
     if (pathnameOf(req) === HTTP_PATHS.serviceEvents) {
       req.resume();
       return sendError(res, "forbidden", t("gateway.serviceEvents.localOnly"));
@@ -426,12 +426,12 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
       connections.add(connection);
       ws.on("close", () => {
         connections.delete(connection);
-        // 它报过的浏览器都当关了，正等着它回的事回"断开了"（147 号票）
+        // 它报过的浏览器都当关了，正等着它回的事回"断开了"
         options.browsers?.()?.drop(connection);
       });
     });
   };
-  // 握手：/ws 是前端协议；/apps/ 下面的是转发给本机服务的 WebSocket（132 号票），校验和 /ws 一样
+  // 握手：/ws 是前端协议；/apps/ 下面的是转发给本机服务的 WebSocket，校验和 /ws 一样
   local.on("upgrade", (req, socket, head) => {
     if (!checkLocalRequest(req.headers, localPort).ok) return refuse(socket, "403 Forbidden");
     const pathname = pathnameOf(req);
@@ -459,7 +459,7 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
   const offNotifications = options.notifications.onFrame((frame) => {
     for (const c of connections) c.pushEphemeral(frame);
   });
-  // 吊销：这台设备开着的 WebSocket 立即关掉（连同转发给本机服务的，132 号票）
+  // 吊销：这台设备开着的 WebSocket 立即关掉（连同转发给本机服务的）
   const offRevoked = pairing.onRevoked((deviceId) => {
     for (const c of connections) if (c.deviceId === deviceId) c.closeUnpaired(t("gateway.revoked"));
     options.apps.dropDevice(deviceId);
@@ -479,7 +479,7 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
     offNotifications();
     offRevoked();
     for (const c of connections) c.terminate();
-    // 转发给本机服务的管道和还在流的响应（132 号票）：不断开的话流式响应会一直挡着端口关不掉
+    // 转发给本机服务的管道和还在流的响应：不断开的话流式响应会一直挡着端口关不掉
     options.apps.close();
     wss.close();
     await Promise.all(listening.map((server) => new Promise<void>((resolve) => server.close(() => resolve()))));
@@ -533,14 +533,14 @@ class FrontendConnection implements BrowserPeer {
   private readonly store: EventStore;
   private readonly requests: RequestHandlers;
   private readonly attachments: AttachmentLookup;
-  /** 网页现在是哪一版（116 号票）：订阅的响应里带上 */
+  /** 网页现在是哪一版：订阅的响应里带上 */
   private readonly webVersion: () => string | undefined;
-  /** 订阅某个频道时补推的临时状态（133 号票） */
+  /** 订阅某个频道时补推的临时状态 */
   private readonly snapshot: (channel: string) => EventFrame[];
   private readonly log: (line: string) => void;
   /** 外网端口上的已配对设备：心跳时复查凭证（吊销了、过期了就关掉），还有效就算用了一次 */
   private readonly device: DeviceSession | undefined;
-  /** 浏览侧边栏（147 号票）：这条连接报的浏览器、回的结果交给它（212 号票起现取，浏览插件没启用时是 undefined） */
+  /** 浏览侧边栏：这条连接报的浏览器、回的结果交给它（现取，浏览插件没启用时是 undefined） */
   private readonly browsers: (() => BrowserLinks | undefined) | undefined;
   /** 上一次 ping 之后收到过 pong */
   private alive = true;
@@ -595,7 +595,7 @@ class FrontendConnection implements BrowserPeer {
     this.ws.terminate();
   }
 
-  /** 秘书的网页工具要这台设备办的一件事（147 号票）：秘书会话频道上的临时事件，只推给这条连接（不看订阅、不广播） */
+  /** 秘书的网页工具要这台设备办的一件事：秘书会话频道上的临时事件，只推给这条连接（不看订阅、不广播） */
   sendBrowserRequest(request: BrowserRequest): void {
     this.send({ channel: CHANNELS.secretary, seq: this.store.lastSeq(CHANNELS.secretary), type: EVENT_TYPES.browserRequest, payload: request });
   }
@@ -627,7 +627,7 @@ class FrontendConnection implements BrowserPeer {
     }
   }
 
-  /** 回结果；晚一点才有的（Promise：从某个阶段重做要先停稳负责人，84 号票）等到了再回，被拒、出错照常回 */
+  /** 回结果；晚一点才有的（Promise：从某个阶段重做要先停稳负责人）等到了再回，被拒、出错照常回 */
   private respondWhenDone(request: ParsedRequest, result: unknown): void {
     if (!(result instanceof Promise)) return this.respond({ id: request.id, ok: true, result });
     result.then(
@@ -656,18 +656,18 @@ class FrontendConnection implements BrowserPeer {
         const resync = Object.entries(cursors)
           .filter(([channel, cursor]) => cursor > this.store.lastSeq(channel))
           .map(([channel]) => channel);
-        // 网页现在是哪一版（116 号票）：连上、重连时页面据此看自己是不是旧的
+        // 网页现在是哪一版：连上、重连时页面据此看自己是不是旧的
         const webVersion = this.webVersion();
         const result: SubscribeResult = { protocolVersion: FRONTEND_PROTOCOL_VERSION, resync, ...(webVersion === undefined ? {} : { webVersion }) };
         this.respond({ id: request.id, ok: true, result });
         // 补发：每个频道序号大于前端游标的落盘事件；之后的新事件由 pushStored 接着推。
-        // 前端手里什么都没有（游标为 0、或者要重新同步）时，会话频道只补发最近一页，更早的经 HTTP 往上翻（09）
+        // 前端手里什么都没有（游标为 0、或者要重新同步）时，会话频道只补发最近一页，更早的经 HTTP 往上翻
         for (const [channel, cursor] of Object.entries(cursors)) {
           const known = resync.includes(channel) ? 0 : Math.max(cursor, this.subscriptions.get(channel) ?? 0);
           const from = known === 0 ? firstReplayAfter(this.store, channel) : known;
           const replay = this.store.read(channel, from);
-          // 只补发了最近一页的，这一页之前有几条要先补发（history.ts 的 replayPins）：会话回退过（150 号票），最新那条 session_branch
-          // （前端据此认出哪些在废弃分支上、分叉在哪）；这一页里的消息引用的语音对象最新那一版的事件（179 号票，不然气泡一直"识别中…"）
+          // 只补发了最近一页的，这一页之前有几条要先补发（history.ts 的 replayPins）：会话回退过，最新那条 session_branch
+          // （前端据此认出哪些在废弃分支上、分叉在哪）；这一页里的消息引用的语音对象最新那一版的事件（不然气泡一直"识别中…"）
           const pinned = known === 0 ? replayPins(this.store, channel, from, replay) : [];
           this.subscriptions.set(channel, pinned.length > 0 ? pinned[0]!.seq - 1 : from);
           for (const event of pinned) this.pushStored(event);
@@ -681,10 +681,10 @@ class FrontendConnection implements BrowserPeer {
       case METHODS.sendMessage: {
         const result = postUserMessage(
           this.store,
-          // 从哪台设备发来的（125 号票：运行时核实用户原话时写明）：本机端口的连接，或者外网端口上的已配对设备
+          // 从哪台设备发来的（运行时核实用户原话时写明）：本机端口的连接，或者外网端口上的已配对设备
           { ...request.params, idempotencyKey: request.idempotencyKey, sentFrom: this.deviceId === undefined ? { kind: "local" } : { kind: "device", deviceId: this.deviceId } },
           this.attachments,
-          // 在哪个任务的详情里说的（75 号票：项目内部的普通任务做完了接着说）：交给认会话的那几处
+          // 在哪个任务的详情里说的（项目内部的普通任务做完了接着说）：交给认会话的那几处
           (c) => this.requests.messageScope?.(c, request.params.taskId),
           this.requests.voiceIntake,
           (c) => this.requests.messagePrelude?.(c, request.idempotencyKey, request.params.taskId) ?? [],
@@ -764,7 +764,7 @@ class FrontendConnection implements BrowserPeer {
         if (!this.requests.stopReply) return this.fail(request.id, { code: "not_implemented", message: t("gateway.ws.stopReply") });
         return this.respond({ id: request.id, ok: true, result: this.requests.stopReply(request.params, request.idempotencyKey) });
       case METHODS.queuedMessageAction: {
-        // 聊天区里排队的消息（144 号票）：叉掉一条、拖完换个顺序，都只动这个会话的队列（message-queue.ts）
+        // 聊天区里排队的消息：叉掉一条、拖完换个顺序，都只动这个会话的队列（message-queue.ts）
         const { params } = request;
         const result: QueuedMessageActionResult =
           params.action === "remove"

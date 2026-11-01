@@ -1,4 +1,4 @@
-// 设置 · 组件（323 号票）：页面上的几块用 React 在 Node 里渲染出来查——
+// 设置 · 组件：页面上的几块用 React 在 Node 里渲染出来查——
 // - 一个组件一块：名字和状况的小签、一句话；版本、大小、默认（检测到才装的写检测到了没有）、用哪一版、打开的功能、要先装的、下载地址、装在哪；
 //   别处已经有了的写谁提供；这一版还不能从这里装的写原因、没有安装按钮；
 // - 正在下：进度条、已下 / 一共、速度、还要多久、从哪个地址；按钮按状况给（暂停 / 取消、继续 / 取消、重试、删除、更新）；
@@ -47,7 +47,7 @@ function view(components: ComponentView[]): ComponentsView {
 const render = (components: ComponentView[], over: { busy?: string; focused?: string } = {}) =>
   renderToStaticMarkup(createElement(ComponentList, { view: view(components), busy: over.busy, focused: over.focused, onAct: noop }));
 
-describe("语音合成（345 号票）", () => {
+describe("语音合成", () => {
   const fish = (extra: Partial<ComponentView> = {}) =>
     component({
       id: "tts",
@@ -220,7 +220,7 @@ describe("一个组件一块", () => {
     expect(componentActions(asr)).toEqual([]);
   });
 
-  test("语音识别模型（346 号票）：推荐、许可名字带链接、那一句话、标来源；要确认许可；装之前能装", () => {
+  test("语音识别模型：推荐、许可名字带链接、那一句话、标来源；要确认许可；装之前能装", () => {
     const license = { name: "FunASR Model License v1.1", summary: "可以免费使用、修改、分享，要注明来源和作者、保留模型名", url: "https://github.com/modelscope/FunASR/blob/main/MODEL_LICENSE", confirm: true, accepted: false, attribution: "Fun-ASR-Nano-2512 · FunAudioLLM / Alibaba Group" };
     const asr = component({ id: "asr", title: "语音识别模型 Fun-ASR Nano", state: "missing", default: "ask", defaultText: "问了再装", wanted: false, size: 1_045_334_432, recommended: true, dependsOn: ["audiocpp"], license });
     const html = render([asr]);

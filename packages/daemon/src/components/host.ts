@@ -1,4 +1,4 @@
-// 装好以后还要接上的组件（345 号票）：组件服务（service.ts）只管下载、校验、换上、删；常驻服务要做的事（生成配置、经服务管家登记启动、
+// 装好以后还要接上的组件：组件服务（service.ts）只管下载、校验、换上、删；常驻服务要做的事（生成配置、经服务管家登记启动、
 // 卸载时撤销）在这个接口后面。现在的实现是 audio.cpp 的（audiocpp-host.ts）；清单里没写 service / serve 的组件它都不管。
 import type { ComponentServiceView } from "@ergo/protocol";
 import type { ComponentManifest, ManifestComponent, ManifestVariant } from "./manifest.ts";

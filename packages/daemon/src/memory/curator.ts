@@ -1,12 +1,12 @@
-// 记忆管理员（242 号票）：一个按需拉起的 agent，负责整理记忆、解释自己的结论、按用户要求改正或忘掉东西；不编造。
+// 记忆管理员：一个按需拉起的 agent，负责整理记忆、解释自己的结论、按用户要求改正或忘掉东西；不编造。
 //
-// 为什么是 agent：用户 2026-10-21 的想法——"每天凌晨 3 点维护记忆的就是这个记忆管理 agent……平时要找他问一些事情，
-// 或者让他临时处理一些东西也可以……点它就会跳到负责管理记忆的这个 agent 入口"。225 号票起每晚整理是记忆插件的一个内部作业，
-// 没有一个能对话的对象；这一票把它升级成"03:00 由它被唤醒去整理"，平时在记忆页（#/more/memory/curator）也能找它说话。
+// 为什么是 agent：想法——"每天凌晨 3 点维护记忆的就是这个记忆管理 agent……平时要找他问一些事情，
+// 或者让他临时处理一些东西也可以……点它就会跳到负责管理记忆的这个 agent 入口"。每晚整理是记忆插件的一个内部作业，
+// 没有一个能对话的对象；这里把它升级成"03:00 由它被唤醒去整理"，平时在记忆页（#/more/memory/curator）也能找它说话。
 //
 // 和别的东西的关系：
 // - **整理还是同一条确定性路径**（评测跑的就是 runNightly）：管理员只是外面那层壳。03:00 的内部作业不自己调 runNightly，
-//   改成唤醒管理员；管理员调 run_memory_consolidation（就是 235 号票那个"立即整理一次"的内核：同一个引擎、同一份
+//   改成唤醒管理员；管理员调 run_memory_consolidation（就是那个"立即整理一次"的内核：同一个引擎、同一份
 //   memory.maxModelCalls、同一条整理记录）。管理员这一轮没调成（模型坏了、没听明白）时作业照旧补跑一次，整夜不空转；
 //   开机时补跑错过的 03:00 那一次（catch_up）赶在管理员挂上之前，直接按老路径整理（那一夜没有日记，整理照常）；
 // - 引擎那 200 次照旧是硬上限；管理员自己每夜额外最多 memory.curator.maxModelCalls 次（默认 8，只做叙述和判断）：
@@ -14,16 +14,16 @@
 // - 失败：整理失败照旧记 failed / rebuild_needed 和待我处理；管理员起不来什么都不写，也别让整夜崩（作业会补跑）；
 // - 平时：它的会话就是普通的输入输出（网页在记忆页那一层订阅、发消息），工具是那一套只读/写记忆的（见 curator-tools.ts），
 //   没有改配置、删素材库、改别人会话的工具；用户要那些，它明确说"这个我不做"；
-// - 秘书的 ask_memory 是轻量快速通道（232 号票），不动；深聊、动手（改状态、忘掉、别推断）在记忆管理员这里。秘书判断是这类事时，
+// - 秘书的 ask_memory 是轻量快速通道，不动；深聊、动手（改状态、忘掉、别推断）在记忆管理员这里。秘书判断是这类事时，
 //   用 ask_curator（curator-link.ts）把用户的话转给管理员、把它的回答带回来——分工写在两边的系统提示里。
 //
-// 生命周期（243 号票：照负责人的规矩按需拉起，不占 agents.maxLive 的常驻名额）：守护进程起来（记忆插件在运行）时只建壳
+// 生命周期（照负责人的规矩按需拉起，不占 agents.maxLive 的常驻名额）：守护进程起来（记忆插件在运行）时只建壳
 // ——会话对象、⚙ 的 handle、工具、提示都准备好，不拉起 pi 子进程；网页看历史、看板卡、⚙ 不用它活着。第一次有人跟它说话
 // （网页记忆页发消息、秘书用 ask_curator 转达）或者 03:00 的作业唤醒它时，由会话照常拉起（名额满了排队），先拉起再交那条输入；
 // 闲置到 agents.idleMinutes 后照负责人的规矩退出，再来输入时重新唤起、接着同一个会话。插件停用、守护进程停止时跟着停；
 // 提示词改了从下一轮起重新拉起。
 //
-// 284 号票（了解你访谈）：
+// 了解你访谈：
 // - 多四个访谈工具（interview-tools.ts：开一次、收尾、"这个别记"、档案信息出核对卡），访谈的记录和发起在记忆插件里（interview.ts，
 //   服务 MEMORY_INTERVIEWS，组合根和每晚整理一样从插件取来交给这里）；问法写在它的系统提示（prompts/memory-curator.md），访谈开着时
 //   另跟在每一轮输入后面（会话的 inputContext：开场那一轮的问法要点、用户每次回答的"第几个来回"，会话里看不到）；
@@ -89,7 +89,7 @@ export interface MemoryCuratorOptions {
   guards: GuardRuntime;
   media: MediaStore;
   prompts: Pick<PromptLibrary, "render" | "revision" | "onChange" | "onAgentChange">;
-  /** 用户自己的名字（249 号票）：改了下一条输入之前按新的系统提示重新拉起；不给就不管 */
+  /** 用户自己的名字：改了下一条输入之前按新的系统提示重新拉起；不给就不管 */
   userName?: { onChange(fn: () => void): () => void };
   /** 每次模型调用记一条（数管理员这一夜额外花了几次） */
   ledger: { onRecorded(listener: (entry: { agentId: string }) => void): () => void };
@@ -113,21 +113,21 @@ export interface MemoryCuratorOptions {
   /** 配置的 memory 一节（管理员的预算） */
   config: MemoryConfig;
   /**
-   * 283 号票：个人档案的摘要（号码、住址不列）——接在它的系统提示末尾当情境，不当证据；档案改了从下一轮起按新的重新拉起。
+   * 个人档案的摘要（号码、住址不列）——接在它的系统提示末尾当情境，不当证据；档案改了从下一轮起按新的重新拉起。
    * 不给就没有
    */
   background?: () => string;
-  /** 它的模型（242 号票先跟随秘书的） */
+  /** 它的模型（先跟随秘书的） */
   modelSpec: () => ModelSpec;
   credentials: Record<string, string>;
   configuredVision: () => Readonly<Record<string, boolean>>;
   /** 彻底删除之后会话文件要改写哪些原话；不给就不改写 */
   sessionRewriteFor?: (purges: readonly MessagesPurgedEventPayload[]) => Omit<SessionRewriteRequest, "sessionDir">;
-  /** 了解你访谈（284 号票，记忆插件提供的服务）：不给就没有访谈工具 */
+  /** 了解你访谈（记忆插件提供的服务）：不给就没有访谈工具 */
   interviews?: MemoryInterviews;
-  /** 访谈里听到的档案信息出核对卡（281 号票的快速动作 personal_file，总是出卡）；不给就提不了 */
+  /** 访谈里听到的档案信息出核对卡（快速动作 personal_file，总是出卡）；不给就提不了 */
   proposePersonalFile?: (params: unknown, call: HostToolCall) => HostToolOutput | Promise<HostToolOutput>;
-  /** 每个会话都配的那一份（284 号票只用它的语音回复：按住说话时回话合成语音）；不给就只有文字 */
+  /** 每个会话都配的那一份（只用它的语音回复：按住说话时回话合成语音）；不给就只有文字 */
   sessionTools?: SessionTools;
   log: (line: string) => void;
 }
@@ -192,7 +192,7 @@ export function startMemoryCurator(options: MemoryCuratorOptions): MemoryCurator
     blocked: () => options.nightly.blocked(),
     log,
   });
-  // 284 号票：了解你访谈的四个工具（访谈的服务由记忆插件提供）
+  // 了解你访谈的四个工具（访谈的服务由记忆插件提供）
   if (options.interviews !== undefined) {
     tools.push(
       ...interviewTools({
@@ -245,7 +245,7 @@ export function startMemoryCurator(options: MemoryCuratorOptions): MemoryCurator
     label: label(),
     // 它的用量算系统开销（和秘书同列，不是谁的活）
     ledgerRole: "curator",
-    // 按需拉起（243 号票）：不给 resident——起来时只建壳，来输入（用户发消息、ask_curator 转达）或 03:00 唤醒时才由会话拉起，
+    // 按需拉起：不给 resident——起来时只建壳，来输入（用户发消息、ask_curator 转达）或 03:00 唤醒时才由会话拉起，
     // 闲置到 agents.idleMinutes 后照负责人的规矩退出；不占 agents.maxLive 的常驻名额
     spawn: () => {
       promptRevision = options.prompts.revision(CURATOR_PROMPTS, MEMORY_CURATOR_AGENT_ID);
@@ -263,11 +263,11 @@ export function startMemoryCurator(options: MemoryCuratorOptions): MemoryCurator
     },
     outdated: () => options.prompts.revision(CURATOR_PROMPTS, MEMORY_CURATOR_AGENT_ID) !== promptRevision || background() !== backgroundRevision,
     hostTools,
-    // 284 号票：了解你访谈开着时，跟在这一轮输入后面的问法要点、第几个来回（不显示在会话里；开场的系统消息只有一行给人看）
-    // 330 号票（R15）：开场那一轮再带上问题箱里还开着的几个（访谈里可以连问几个；平时聊天一次对话最多一个）
+    // 了解你访谈开着时，跟在这一轮输入后面的问法要点、第几个来回（不显示在会话里；开场的系统消息只有一行给人看）
+    // ADR-0032 R15：开场那一轮再带上问题箱里还开着的几个（访谈里可以连问几个；平时聊天一次对话最多一个）
     ...(options.interviews === undefined ? {} : { inputContext: (message: MessageEnvelope) => interviewInputContext(options.interviews!, message, () => openBoxQuestions(graph)) }),
     guard: () => ({ agent: guardAgent(), source: t("memory.curator.source"), segmentId: conversation }),
-    // 284 号票：语音回复（用户按住说话时这一轮的回话合成语音）、输入队列的挡板（还没识别完的语音等一等），和秘书、负责人同一套
+    // 语音回复（用户按住说话时这一轮的回话合成语音）、输入队列的挡板（还没识别完的语音等一等），和秘书、负责人同一套
     ...sessionVoice(options.sessionTools, true),
     configuredVision: options.configuredVision,
     interruptedNote: (quoted) => t(quoted ? "memory.curator.interruptedQuoted" : "memory.curator.interrupted", { quoted }),
@@ -373,9 +373,9 @@ export function startMemoryCurator(options: MemoryCuratorOptions): MemoryCurator
   const offOwnPrompt = options.prompts.onAgentChange((agentId) => {
     if (agentId === MEMORY_CURATOR_AGENT_ID) session.refresh();
   });
-  // 改了"我的名字"（249 号票）：系统提示最前面那句"用户叫「…」"跟着变，同样从下一轮起
+  // 改了"我的名字"：系统提示最前面那句"用户叫「…」"跟着变，同样从下一轮起
   const offUserName = options.userName?.onChange(() => session.refresh());
-  // 284 号票：语音插件运行中停用、启用（口语总结、发语音两个工具跟着有没有）：同样从下一轮起按新的工具重新拉起
+  // 语音插件运行中停用、启用（口语总结、发语音两个工具跟着有没有）：同样从下一轮起按新的工具重新拉起
   const offVoice = options.sessionTools?.onVoiceChange?.(() => session.refresh());
 
   return {

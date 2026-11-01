@@ -1,6 +1,6 @@
-// 构建出的版本目录（318 号票，build/stage.ts；npm run release、npm run ergo:install、npm run build 都用它）：里面有什么、没有什么。
+// 构建出的版本目录（build/stage.ts；npm run release、npm run ergo:install、npm run build 都用它）：里面有什么、没有什么。
 // 有：转好的 JS（没有 .ts）、资源目录、服务管家、网页、Node 和它的许可证、启动器、版本信息、许可证清单（Node、sharp/libvips、字体 OFL……）；
-// 没有：.scratch、评测数据（memory-eval）、测试、服务管家的私有数据和设计记录、开发用的命令行工具。转好的命令行、组合根真能加载。
+// 没有：内部笔记、评测数据、测试、服务管家的私有数据和设计记录、开发用的命令行工具。转好的命令行、组合根真能加载。
 // 第三方包用联接（link）摆，省得每次复制 300 MB；复制哪些另由 deps.test.ts 管。
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -90,7 +90,7 @@ describe("版本目录里有什么", () => {
       "packages/daemon/src/main.js",
       "packages/daemon/src/stop.js",
       "packages/daemon/src/cli/main.js",
-      // ergo backup / ergo restore（356 号票）跑的这两个
+      // ergo backup / ergo restore跑的这两个
       "packages/daemon/src/run-backup.js",
       "packages/daemon/src/restore.js",
       "packages/daemon/src/components/manifest.json",
@@ -144,8 +144,8 @@ describe("版本目录里有什么", () => {
 describe("版本目录里没有什么", () => {
   const forbidden: Array<[string, RegExp]> = [
     ["TypeScript 源码", /\.ts$/],
-    ["内部笔记", /(^|\/)\.scratch(\/|$)/],
-    ["评测数据和评测包", /(^|\/)(memory-eval|eval2?)(\/|$)|truth(-README)?\.(json|md)$|leak-check\.json$|judging\.json$/],
+    ["隐藏目录（内部笔记这类）", /(^|\/)\.(?!bin\/)[^/]+\//],
+    ["评测数据和评测包", /(^|\/)([\w-]+-eval|eval2?)(\/|$)|truth(-README)?\.(json|md)$|leak-check\.json$|judging\.json$/],
     ["测试", /(^|\/)(test|tests|__tests__|fixtures?)(\/|$)|\.test\.(m?js|ts)$/],
     ["调研报告", /(^|\/)docs\/research(\/|$)/],
     ["个人规矩", /(^|\/)CLAUDE\.md$/],
@@ -188,7 +188,7 @@ describe("转好的程序真能跑", () => {
   }, 60_000);
 });
 
-// 357 号票：ergo notify 是给项目的服务调的，一行命令装的版本目录里真跑一遍（用法、连不上、二狗拒了、报上了的退出码和说法；启动器转出退出码）
+// ergo notify 是给项目的服务调的，一行命令装的版本目录里真跑一遍（用法、连不上、二狗拒了、报上了的退出码和说法；启动器转出退出码）
 describe("版本目录里的 ergo notify", () => {
   /** 起一个子进程跑（测试的假接口在这个进程里，不能用 spawnSync 挡着它） */
   const run = (command: string, args: readonly string[], env: Record<string, string> = {}) =>
@@ -258,7 +258,7 @@ describe("版本目录里的 ergo notify", () => {
   }, 60_000);
 });
 
-// 347 号票：组件清单的 release 是发版时写进去的，查更新按它比新旧
+// 组件清单的 release 是发版时写进去的，查更新按它比新旧
 describe("组件清单写上版本号", () => {
   it("只改 release 这一个字段，别的一个字节不动", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ergo-stamp-"));

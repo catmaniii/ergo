@@ -1,10 +1,10 @@
-// 页面桥自己的字（169 号票）：悬浮按钮的说明、气泡和挑图片窗口上的按钮、在听时的提示、页面桥先自己画的打字框的称呼。
+// 页面桥自己的字：悬浮按钮的说明、气泡和挑图片窗口上的按钮、在听时的提示、页面桥先自己画的打字框的称呼。
 // 页面桥是注入到网页里的独立脚本，没有二狗的词典：
 // - 默认用打包进去的中文（共享协议包 locales/zh-CN/bridge.json）——旧版 App 不认 texts、二狗的网页没交来时就是它；
 // - 二狗的网页经宿主交来当前语言的这几句（texts 方法，PageBridgeTexts：bridge.* 的 key → 句子；网页那边按当前语言 t() 取好，
 //   见 app/page-bubble.ts 的 bridgeTexts），交来了就用交来的，没交的那几句照旧中文。
 // 气泡、挑图片窗口上别的字（"对「标题」说"、回话、"给「上传头像」挑一张"……）本来就由二狗的网页给。
-// 181 号票：说到助理的那几句（BRIDGE_ASSISTANT_KEYS，名字处写 {name}）用用户起的名字，名字画成名字标签（bubble.ts 的 appendNamed）：
+// 说到助理的那几句（BRIDGE_ASSISTANT_KEYS，名字处写 {name}）用用户起的名字，名字画成名字标签（bubble.ts 的 appendNamed）：
 // - 二狗的网页交来的顶层那几句名字已经换好（不认 assistant 的旧页面桥照样显示起的名字，只是没有底色），原样（带 {name}）、名字、
 //   名字标签浅色深色两对颜色放在 assistant 里；
 // - 没交来（旧版网页）用默认的名字"二狗"、经典风格的颜色（bubble.ts 的样式表里写着）。
@@ -14,7 +14,7 @@ import type { PageNamedPart, PageNamedText } from "./protocol.ts";
 /** 页面桥自己的几句的 key（bridge.*） */
 export type BridgeTextKey = keyof typeof ZH;
 
-/** 说到助理的那几句（181 号票）：句子里名字处写 {name} */
+/** 说到助理的那几句：句子里名字处写 {name} */
 export const BRIDGE_ASSISTANT_KEYS = ["bridge.fab.label", "bridge.talkTo.ergo", "bridge.bubble.title", "bridge.bubble.thinking", "bridge.bubble.letErgoPick", "bridge.pick.title"] as const satisfies readonly BridgeTextKey[];
 export type BridgeAssistantKey = (typeof BRIDGE_ASSISTANT_KEYS)[number];
 
@@ -24,23 +24,23 @@ export interface NameTagPair {
   fg: string;
 }
 
-/** 名字标签的颜色（181 号票）：二狗的网页照现在的视觉风格算好，浅色、深色各一对（页面桥跟着网页的深浅色挑） */
+/** 名字标签的颜色：二狗的网页照现在的视觉风格算好，浅色、深色各一对（页面桥跟着网页的深浅色挑） */
 export interface NameTagColors {
   light: NameTagPair;
   dark: NameTagPair;
 }
 
-/** 名字标签经典风格的颜色（181 号票：二狗的网页没交来颜色时用，写在 bubble.ts 的样式表里；和风格清单里经典的 name-bg / name-fg 一样，测试核对） */
+/** 名字标签经典风格的颜色（二狗的网页没交来颜色时用，写在 bubble.ts 的样式表里；和风格清单里经典的 name-bg / name-fg 一样，测试核对） */
 export const NAME_TAG_CLASSIC: NameTagColors = { light: { bg: "#fbe3a1", fg: "#5c3d00" }, dark: { bg: "#4a3c14", fg: "#f7d57e" } };
 
-/** 二狗的网页交来的助理（181 号票）：名字、名字标签的颜色（没有是经典的）、说到助理的那几句的原样（带 {name}） */
+/** 二狗的网页交来的助理：名字、名字标签的颜色（没有是经典的）、说到助理的那几句的原样（带 {name}） */
 export interface BridgeAssistant {
   name: string;
   tag?: NameTagColors;
   templates: Partial<Record<BridgeAssistantKey, string>>;
 }
 
-/** 二狗的网页交来的：key → 当前语言的句子（说到助理的那几句名字已经换好）；181 号票起还有 assistant */
+/** 二狗的网页交来的：key → 当前语言的句子（说到助理的那几句名字已经换好）；还有 assistant */
 export type PageBridgeTexts = Partial<Record<BridgeTextKey, string>> & { assistant?: BridgeAssistant };
 
 /** 页面桥自己的全部 key（二狗的网页按它取好交过来） */
@@ -79,7 +79,7 @@ function assistantOf(value: unknown): BridgeAssistant | undefined {
   return { name: v.name.slice(0, NAME_MAX), ...(light && dark ? { tag: { light, dark } } : {}), templates };
 }
 
-/** 交来的（JSON 解出来的）：只收认得的 key、是字符串的句子，和助理（181 号票）；什么都没有是 undefined */
+/** 交来的（JSON 解出来的）：只收认得的 key、是字符串的句子，和助理；什么都没有是 undefined */
 export function bridgeTextsOf(value: unknown): PageBridgeTexts | undefined {
   if (typeof value !== "object" || value === null) return undefined;
   const out: PageBridgeTexts = {};
@@ -133,9 +133,9 @@ export function plainOf(parts: PageNamedText): string {
 export interface BridgeTexts {
   /** 取一句，{参数} 换成参数；没给 name 时 {name} 是助理的名字（纯文字：读屏说明、标题这类） */
   get(key: BridgeTextKey, params?: Params): string;
-  /** 同 get，按助理的名字切开（181 号票：名字画成名字标签） */
+  /** 同 get，按助理的名字切开（名字画成名字标签） */
   parts(key: BridgeTextKey, params?: Params): PageNamedText;
-  /** 名字标签的颜色（181 号票；没交来是 undefined，用样式表里经典的） */
+  /** 名字标签的颜色（没交来是 undefined，用样式表里经典的） */
   tag(): NameTagColors | undefined;
   /** 换上交来的（整份换掉：没交的那几句回到中文，没交名字回到"二狗"） */
   set(texts: PageBridgeTexts): void;

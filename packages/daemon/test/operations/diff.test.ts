@@ -1,6 +1,6 @@
-// 运营方案的差异（130 号票）：按 key 认同一条；只比负责人写的部分；照旧却没跑着的重新开起来；只改了时间表、手段能就地改的标 inPlace。
+// 运营方案的差异：按 key 认同一条；只比负责人写的部分；照旧却没跑着的重新开起来；只改了时间表、手段能就地改的标 inPlace。
 // 内核的运营手段：定时的只在两边都是重复的时间表、别的都没变时就地改；要用户手动的（公网入口）必须写清手动步骤、不能写流程；
-// 项目自己的服务（133 号票）组合根另给（project-services/），排在事件触发的后面。
+// 项目自己的服务组合根另给（project-services/），排在事件触发的后面。
 import type { OperationItem } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
 import { builtinOperationMeans, OperationMeansRegistry } from "../../src/operations/index.ts";
@@ -44,7 +44,7 @@ describe("diffOperations", () => {
     expect(diffIsEmpty(diffOperations([active(before, "t-1")], [after], deps))).toBe(true);
   });
 
-  it("服务的定义改了算改动（133 号票）", () => {
+  it("服务的定义改了算改动", () => {
     const service = { name: "web", app: "p-1-web", command: "node a.mjs", cwd: "D:/work/p-1", env: [], port: 8899, autostart: true, autoRestart: false };
     const before = item("w", { means: "service", service });
     expect(writtenForm(before)).not.toBe(writtenForm(item("w", { means: "service", service: { ...service, port: 8900 } })));
@@ -68,7 +68,7 @@ describe("内核的运营手段", () => {
   for (const m of [...builtin.triggered, ...builtin.manual]) registry.register(m);
   const ctx = { project: {} as never, now: "2026-10-08T07:30:00.000+08:00", checkEventTrigger: () => [], names: {} };
 
-  it("登记的先后分两段（运营层的服务由组装函数在两段之间装运营层时自己登记，280 号票；整张表的先后见 test/projects/system.test.ts）、重名报错", () => {
+  it("登记的先后分两段（运营层的服务由组装函数在两段之间装运营层时自己登记，整张表的先后见 test/projects/system.test.ts）、重名报错", () => {
     expect(builtin.triggered.map((m) => m.id)).toEqual(["schedule", "event"]);
     expect(builtin.manual.map((m) => m.id)).toEqual(["public_entry"]);
     expect(registry.list().map((m) => m.id)).toEqual(["schedule", "event", "public_entry"]);

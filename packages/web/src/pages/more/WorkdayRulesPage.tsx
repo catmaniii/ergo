@@ -1,7 +1,7 @@
-// 设置 · 工作日规则（29 号票的工作日历页，35 号票起只留额外上班规则）：加删额外上班规则（每周几、每月第几个周几、每月最后一个周几）。
+// 设置 · 工作日规则（工作日历页，只留额外上班规则）：加删额外上班规则（每周几、每月第几个周几、每月最后一个周几）。
 // 每天上班还是休息、为什么，以及把某天改成上班或休息、清掉标记，都在主导航的日历里看和改（这里有入口过去）。
 // 改个人设置走 HTTP，守护进程改完在工作日历频道上推一条事件，打开着的页面（别的设备上的也一样）跟着变。
-// 213 号票：日历是插件了，这一页（工作日规则、工作日判定）是内核的、照常；日历插件停用时不出去日历的链接，手动标记那句只说对秘书说。
+// 日历是插件了，这一页（工作日规则、工作日判定）是内核的、照常；日历插件停用时不出去日历的链接，手动标记那句只说对秘书说。
 import { useState } from "react";
 import type { Navigate } from "../../app/route.ts";
 import { useStore } from "../../app/store.tsx";
@@ -30,7 +30,7 @@ export function WorkdayRulesPage({ navigate }: { navigate: Navigate }) {
   const [ruleKind, setRuleKind] = useState<RuleKind>("last_weekday");
   const [ruleN, setRuleN] = useState(1);
   const [ruleWeekday, setRuleWeekday] = useState(6);
-  // 日历插件停用时（213 号票）没有去日历的入口
+  // 日历插件停用时没有去日历的入口
   const calendar = useRouteAvailable()({ tab: "calendar" });
 
   const change = (c: WorkdayChange) => {

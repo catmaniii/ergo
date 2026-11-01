@@ -67,7 +67,7 @@ private fun lastSegment(url: String): String {
 
 private fun mimeOf(contentType: String): String = contentType.substringBefore(';').trim().lowercase()
 
-/** 拦下载时先粗筛（160 号票）：可能是能渲染的文本才拦，最后由网页的 fileRenderOf 定——筛进来但网页说不渲染的，网页让 App 照常保存 */
+/** 拦下载时先粗筛：可能是能渲染的文本才拦，最后由网页的 fileRenderOf 定——筛进来但网页说不渲染的，网页让 App 照常保存 */
 fun looksText(name: String, url: String, contentType: String): Boolean {
     var ext = extensionOf(name)
     if (ext.isEmpty()) ext = extensionOf(lastSegment(url))
@@ -81,7 +81,7 @@ fun looksText(name: String, url: String, contentType: String): Boolean {
 private fun outcome(ok: Boolean, reason: String): String = JSONObject().put("ok", ok).put("reason", reason).toString()
 
 /**
- * 原生浏览器里能渲染的文件（对应鸿蒙 browser/FileDocs.ets，160 号票）：markdown 这类文本文件交给二狗的网页用二狗的渲染画。网页说它能渲染文件了之后：
+ * 原生浏览器里能渲染的文件（对应鸿蒙 browser/FileDocs.ets）：markdown 这类文本文件交给二狗的网页用二狗的渲染画。网页说它能渲染文件了之后：
  * - 浏览器里每加载完一页，问一下它的 document.contentType，报给网页（document，via page）；取内容时现取页面上显示的字；
  * - 浏览器里的下载先粗筛（looksText，1 MB 以内、大小知道的），可能是能渲染的文本就拦下：照样下进 App 缓存，不提示、不弹"保存到"，
  *   报给网页（via download）；取内容时读缓存里那份的字节（base64）。同时只留一份，换成别的、网页说不看了（drop）就删；

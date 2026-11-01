@@ -1,4 +1,4 @@
-// skill 库按集合显示（72 号票，用户 2026-10-10 要求）：matt-pocock、pstack 这类整套导入的集合不一个一个列，各显示成一项
+// skill 库按集合显示：matt-pocock、pstack 这类整套导入的集合不一个一个列，各显示成一项
 // （集合名、来源、版本、几个 skill、一句说明），点进去才看到里面每个 skill；单个导入的、框架自带的照旧一个一个列。
 // 工具包和秘书的 skill 选择里，集合同样显示成一项：可以整套选，点开也能单选其中几个。工具包、秘书的名单里记的始终是 skill 名，
 // 集合只是显示和选择的方式。纯函数，界面（ui/skill-picker.tsx、pages/more/SkillsPage.tsx）只管画。
@@ -130,7 +130,7 @@ export function secretarySkillsNote(view: { skills: readonly string[]; isDefault
 }
 
 /**
- * 秘书的系统提示里 skill 说明有多长（主会话 2026-10-10 定）：整套选 pstack 这类集合时很长，每轮都带上，
+ * 秘书的系统提示里 skill 说明有多长：整套选 pstack 这类集合时很长，每轮都带上，
  * 超过 SECRETARY_SKILL_PROMPT_WARN_BYTES（8 KB）提醒一句
  */
 export function secretaryPromptSizeText(view: Pick<SecretarySkillsView, "promptChars" | "promptBytes">): { text: string; warn: string | undefined } {

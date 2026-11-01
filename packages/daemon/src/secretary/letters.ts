@@ -1,5 +1,5 @@
-// 给秘书发消息（102 号票，规格第 12 节"星形通信"、第 7 节）：除了秘书，所有 agent（任务的负责人、项目的负责人——起草计划、工单里、
-// 项目内部任务里、定时 / 事件触发的运行里——负责人派的子 agent、阶段验收的评审子 agent，用户 2026-10-12 定）默认都有 tell_secretary，
+// 给秘书发消息（规格第 12 节"星形通信"、第 7 节）：除了秘书，所有 agent（任务的负责人、项目的负责人——起草计划、工单里、
+// 项目内部任务里、定时 / 事件触发的运行里——负责人派的子 agent、阶段验收的评审子 agent）默认都有 tell_secretary，
 // 给秘书写一条要转告用户的话。不做 agent 之间的互发、群聊：agent 之间只有工单，外加这一条到秘书的单向消息，经运行时转交，
 // 两边都有记录（发的那边是一条工具调用，秘书主线里是它转告的那条回复）。
 // - 收件人写成可扩展的形式（letter-texts.ts 的 LETTER_RECIPIENTS，现在只有秘书）；
@@ -8,17 +8,17 @@
 // - 发出去 = 守护进程内部的 secretary_letters 频道上记一条 maintainer_letter（谁发的、在做什么、原话；同一次工具调用只记一次），
 //   交给秘书由 task-done.ts 照任务做完的那一套交：秘书闲着才交、忙时排在这一轮后面、没起来的起来后补、处理到一半被打断起来后重交、
 //   幂等（重启不重复），几条差不多同时到的并成一条（和差不多同时到的任务做完通知一起交，各自一条）；
-// - 一句话总结（115 号票）：工具的必填参数 summary（30 字以内），记在信上；交给秘书的通知上存着它（几封并在一起的连起来），
+// - 一句话总结：工具的必填参数 summary（30 字以内），记在信上；交给秘书的通知上存着它（几封并在一起的连起来），
 //   秘书会话里这条通知折成一行时显示它，点开看全文。交给秘书的照旧是全文；
 // - 防刷屏：每个发信人各算（按稳定身份：负责人、子 agent 是 agent id，评审是这个任务这个阶段的评审，重启后重新验收不换人），
 //   10 分钟里最多 3 条，超了工具回"发得太频繁，攒一攒一起说"；和它上一条一字不差的不再发；
-// - 不加新的拦截（用户 2026-10-10 定"功能先跑通"）：调用照现有守卫照常判、照常记录。
-// - 带附件（117 号票）：负责人的那一份（装配时给了它的工作目录，工具包里"发附件"也开着）多一个可选的 attachments：工作目录里的
+// - 不加新的拦截（功能先跑通）：调用照现有守卫照常判、照常记录。
+// - 带附件：负责人的那一份（装配时给了它的工作目录，工具包里"发附件"也开着）多一个可选的 attachments：工作目录里的
 //   几个文件（最多 LETTER_ATTACHMENTS_MAX 个），调用时就复制进媒体库（之后改了、删了工作目录里的文件不影响），记在信上；
-//   交给秘书时照任务做完交付的文件那样（115 号票，task-done.ts）作为一排附件卡片紧跟在那条通知后面，用户在秘书会话里直接点得开，
+//   交给秘书时照任务做完交付的文件那样（task-done.ts）作为一排附件卡片紧跟在那条通知后面，用户在秘书会话里直接点得开，
 //   秘书不用再复制一遍；通知的全文里写附了哪几个、附件引用是什么（秘书要看内容用 read_attachment）。
 //   有一个发不了（工作目录外、不在了、太大）整封信不发，原因交回模型。子 agent、评审的没有这个参数。
-// - 哪个任务、项目的信（354 号票）：信上记着（owner，装配时按发信的 agent 定：项目内部任务的算项目的）。交给秘书时按它看那个任务、项目的
+// - 哪个任务、项目的信：信上记着（owner，装配时按发信的 agent 定：项目内部任务的算项目的）。交给秘书时按它看那个任务、项目的
 //   自动播报开关，通知上记下转述来源（编号 + 发信人），秘书转述时声音由运行时按发信人查角色。之前记下的信没有（照开关关着算，不能转述）。
 import {
   type ConversationId,
@@ -73,7 +73,7 @@ export const LETTERS_CHANNEL = "secretary_letters";
 /** agent 发出的一条（秘书收到的是 task-done.ts 交的通知） */
 export const LETTER_EVENT = "maintainer_letter";
 
-/** 信是哪个任务、项目的（354 号票）：看自动播报开关、写转述来源用。76 号票之前的定时作业没有任务的，记作业 */
+/** 信是哪个任务、项目的：看自动播报开关、写转述来源用。以前的定时作业没有任务的，记作业 */
 export interface LetterOwner {
   kind: "task" | "project" | "job";
   id: string;
@@ -98,11 +98,11 @@ export interface LetterPayload {
   doing?: string;
   /** 原话 */
   text: string;
-  /** 一句话总结（115 号票：秘书会话里这封信折成一行时显示的那句）；之前记下的信没有，交的时候取原话的第一句 */
+  /** 一句话总结（秘书会话里这封信折成一行时显示的那句）；之前记下的信没有，交的时候取原话的第一句 */
   summary?: string;
-  /** 带的附件（117 号票）：调用时已复制进媒体库，交给秘书时作为附件卡片跟在通知后面；没带就不写 */
+  /** 带的附件：调用时已复制进媒体库，交给秘书时作为附件卡片跟在通知后面；没带就不写 */
   attachments?: MessagePart[];
-  /** 是哪个任务、项目的信（354 号票）；之前记下的信没有 */
+  /** 是哪个任务、项目的信；之前记下的信没有 */
   owner?: LetterOwner;
 }
 
@@ -118,25 +118,25 @@ export function isLetterToSecretary(e: StoredEvent): boolean {
 
 /**
  * 通知里的一条（交的时候写：谁、在做什么时说的、原话，带了附件的写附了哪几个、附件引用）和它的一句话总结
- * （115 号票；之前记下的信没有，取原话的第一句）
+ * （之前记下的信没有，取原话的第一句）
  */
 export function describeLetter(e: StoredEvent): { text: string; summary: string } {
   const p = e.payload as LetterPayload;
   return { text: letterItemText(p.from, p.doing, p.text, letterAttachments(e).map(attachmentLabel)), summary: p.summary ?? firstSentence(p.text) };
 }
 
-/** 信是哪个任务、项目的（354 号票；之前记下的信没有） */
+/** 信是哪个任务、项目的（之前记下的信没有） */
 export function letterOwner(e: StoredEvent): LetterOwner | undefined {
   return (e.payload as Partial<LetterPayload>).owner;
 }
 
-/** 这封信的转述来源（354 号票）：写在通知里的编号（任务、项目）和信上的发信人；之前记下的信没有 */
+/** 这封信的转述来源：写在通知里的编号（任务、项目）和信上的发信人；之前记下的信没有 */
 export function letterRelaySource(e: StoredEvent): { source: string; agentId: string } | undefined {
   const p = e.payload as LetterPayload;
   return p.owner && { source: p.owner.id, agentId: p.agentId };
 }
 
-/** 信上带的附件（117 号票；没带是空的） */
+/** 信上带的附件（没带是空的） */
 export function letterAttachments(e: StoredEvent): MessagePart[] {
   return (e.payload as Partial<LetterPayload>).attachments ?? [];
 }
@@ -156,7 +156,7 @@ export interface LetterSender {
   conversation?: ConversationId | undefined;
   from: string;
   doing?: string | undefined;
-  /** 是哪个任务、项目的信（354 号票） */
+  /** 是哪个任务、项目的信 */
   owner?: LetterOwner | undefined;
 }
 
@@ -173,7 +173,7 @@ export function projectSender(project: { id: string; name: string; maintainerId:
   return { agentId: project.maintainerId, conversation, from: projectMaintainerName(project.name), doing, owner: { kind: "project", id: project.id } };
 }
 
-/** 定时作业自己的负责人（76 号票之前的定时作业；有所属任务的算任务） */
+/** 定时作业自己的负责人（以前的定时作业；有所属任务的算任务） */
 export function jobSender(job: { id: string; title: string; maintainerId: string; ownerTaskId?: string | undefined }, conversation: ConversationId, runLabel?: string): LetterSender {
   return {
     agentId: job.maintainerId,
@@ -184,11 +184,11 @@ export function jobSender(job: { id: string; title: string; maintainerId: string
   };
 }
 
-/** 任务的称呼：项目内部的只写在哪个项目内部（64、66 号票：秘书看不到项目内部的细节） */
+/** 任务的称呼：项目内部的只写在哪个项目内部（秘书看不到项目内部的细节） */
 const taskOf = (task: { id: string; title: string; internal?: ProjectInternal | undefined }, kind: TaskKind) =>
   forModel(() => (task.internal ? `${internalScopeLabel(task.internal.projectName)}一个任务` : `${TASK_KIND_LABEL[kind]} ${task.id}「${task.title}」`)); // @i18n-ignore model：发信人的说法给秘书看
 
-/** 负责人派的子 agent（20 号票）："长程任务 t-3「…」的子 agent sa-1"，在做哪个阶段；项目内部的不写是哪个任务、哪个阶段 */
+/** 负责人派的子 agent："长程任务 t-3「…」的子 agent sa-1"，在做哪个阶段；项目内部的不写是哪个任务、哪个阶段 */
 export function subAgentSender(
   task: { id: string; title: string; internal?: ProjectInternal | undefined },
   kind: TaskKind,
@@ -199,7 +199,7 @@ export function subAgentSender(
   return { agentId, conversation, from: `${taskOf(task, kind)}的子 agent ${agentId}`, doing: task.internal ? DOING_INTERNAL : doingStage(stage), owner: ownerOfTask(task) }; // @i18n-ignore model
 }
 
-/** 阶段验收的评审子 agent（13 号票）："长程任务 t-3「…」的评审子 agent"，在验收哪个阶段；它的调用不进会话 */
+/** 阶段验收的评审子 agent："长程任务 t-3「…」的评审子 agent"，在验收哪个阶段；它的调用不进会话 */
 export function reviewerSender(task: { id: string; title: string; internal?: ProjectInternal | undefined }, kind: TaskKind, agentId: string, stage: { stageId: string; title: string }): LetterSender {
   return { agentId, senderKey: `review:${task.id}:${stage.stageId}`, from: `${taskOf(task, kind)}的评审子 agent`, doing: task.internal ? DOING_INTERNAL : doingAcceptance(stage), owner: ownerOfTask(task) }; // @i18n-ignore model
 }
@@ -208,14 +208,14 @@ export interface SecretaryLettersOptions {
   store: EventStore;
   /** 防刷屏的 10 分钟按它算（事件时间也按它记） */
   clock: Clock;
-  /** 媒体库（117 号票）：信带的附件复制进这里；不给就不能带附件 */
+  /** 媒体库：信带的附件复制进这里；不给就不能带附件 */
   media?: MediaStore;
 }
 
 export interface SecretaryLetters {
   /**
    * 这个 agent 的 tell_secretary（装配的地方先看工具包里开着没有：canTellSecretary）。给了 attachFrom（负责人的工作目录，
-   * 工具包里"发附件"也开着，117 号票）的多一个 attachments 参数，能带上那里的文件
+   * 工具包里"发附件"也开着）的多一个 attachments 参数，能带上那里的文件
    */
   tool(sender: LetterSender, attachFrom?: string): HostTool;
 }
@@ -226,10 +226,10 @@ export function createSecretaryLetters(options: SecretaryLettersOptions): Secret
   /** 这个发信人发出过的（按先后；按稳定身份认） */
   const sentBy = (senderKey: string) => store.read(LETTERS_CHANNEL, 0, LETTER_EVENT).filter((e) => isLetterToSecretary(e) && (e.payload as LetterPayload).senderKey === senderKey);
 
-  // 一句话总结写在原话前面（115 号票：模型多半按这个顺序给参数，工具调用的参数摘要截短时总结还在）
+  // 一句话总结写在原话前面（模型多半按这个顺序给参数，工具调用的参数摘要截短时总结还在）
   const summaryParam = Type.String({ minLength: 1, maxLength: LETTER_SUMMARY_MAX, description: TELL_SECRETARY_SUMMARY_PARAM });
   const textParam = Type.String({ minLength: 1, maxLength: LETTER_MAX_CHARS, description: TELL_SECRETARY_PARAM });
-  /** 负责人的那一份（117 号票）：能带附件 */
+  /** 负责人的那一份：能带附件 */
   const withAttachments = Type.Object(
     {
       summary: summaryParam,

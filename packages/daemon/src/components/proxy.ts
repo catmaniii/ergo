@@ -1,4 +1,4 @@
-// 下载走系统代理（323 号票）：先看环境变量（HTTPS_PROXY / HTTP_PROXY / ALL_PROXY，NO_PROXY 列出的不走），没设就看
+// 下载走系统代理：先看环境变量（HTTPS_PROXY / HTTP_PROXY / ALL_PROXY，NO_PROXY 列出的不走），没设就看
 // Windows 的系统代理（"设置 · 网络 · 代理"里手动设的那个：注册表 Internet Settings 的 ProxyEnable / ProxyServer / ProxyOverride）。
 // 本机回环（127.0.0.1、localhost、::1）一律不走代理。自动配置脚本（PAC，AutoConfigURL）不认：用 PAC 的请设 HTTPS_PROXY。
 // 每次开始下载时现取一遍（用户中途改了代理，下一次下载就跟着变）。

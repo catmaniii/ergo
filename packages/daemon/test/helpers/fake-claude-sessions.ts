@@ -1,8 +1,8 @@
-// 测试用的本机 Claude Code 会话（290 号票，只在测试里）：Claude Code 插件接管已有会话时的会话来源换成它——不读用户真实的 ~/.claude、
+// 测试用的本机 Claude Code 会话（只在测试里）：Claude Code 插件接管已有会话时的会话来源换成它——不读用户真实的 ~/.claude、
 // 不跑 `claude agents --json`。测试扮演本机：sessions 是本机有哪些会话（编的标题、工作目录在测试的临时目录里），open 是 agents 里
 // 正开着的（给一个 Error 就是查不到），histories 是每个会话主线最近一段（已经翻成二狗的样子，翻法另有契约测试），forks 记下分叉了谁。
 // 配上 helpers/fake-claude-code.ts 的假 SDK 子进程入口：守护进程走真的插件、真的运行时登记和接管服务。
-// 292 号票：transcripts 是只读跟随读的会话主线（SDK 的 SessionMessage 样子，编的），翻法用真的（child/sessions.ts 的 followOf）；
+// transcripts 是只读跟随读的会话主线（SDK 的 SessionMessage 样子，编的），翻法用真的（child/sessions.ts 的 followOf）；
 // 交给官方 App 的命令行配 helpers/fake-claude-cli.ts。
 import type { SessionMessage } from "@anthropic-ai/claude-agent-sdk";
 import { followOf } from "../../src/claude-code/child/sessions.ts";
@@ -21,7 +21,7 @@ export class FakeClaudeSessions implements ClaudeSessionSource {
   readonly histories = new Map<string, RuntimeHistory | Error>();
   /** 分叉过的：原会话 → 新会话 */
   readonly forks: Array<{ from: string; to: string }> = [];
-  /** 只读跟随读的会话主线（292 号票）：会话 id → SDK 读出的消息（按先后） */
+  /** 只读跟随读的会话主线：会话 id → SDK 读出的消息（按先后） */
   readonly transcripts = new Map<string, SessionMessage[]>();
   /** 每样被叫了几次 */
   readonly calls = { list: 0, running: 0, history: 0, fork: 0, follow: 0 };

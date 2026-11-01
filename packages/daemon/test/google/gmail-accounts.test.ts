@@ -1,4 +1,4 @@
-// Gmail 的几个账号（344 号票）：密钥区里怎么存，老配置怎么转过来（真的密钥区文件，临时目录）：
+// Gmail 的几个账号：密钥区里怎么存，老配置怎么转过来（真的密钥区文件，临时目录）：
 // - 转过来：老的两个键变成一条账号，备份在同一格里，老键没了；再转一次什么都不动；
 // - 中途失败：在每一步上模拟写失败——老键还在，到了备份那一步之后备份也在；没转成时照样读得出这一条；再跑一次结果和一次成功的一样；
 // - 新装的、老配置不全的不转；上次断在删老键中间的删干净；
@@ -33,7 +33,7 @@ function open() {
   return { dir, file, store, secrets, values };
 }
 
-/** 老配置（298 号票写的样子） */
+/** 老配置（写的样子） */
 function oldConfig(secrets: DataSourceSecrets) {
   secrets.set("address", OLD.address);
   secrets.set("password", OLD.password);

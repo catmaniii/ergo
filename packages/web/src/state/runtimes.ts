@@ -1,4 +1,4 @@
-// 负责人的运行时在网页这一侧（289 号票，纯函数）：新建项目、任务时选、卡上标出、⚙ 里换、界面按能力清单收起运行时不支持的按钮。
+// 负责人的运行时在网页这一侧（纯函数）：新建项目、任务时选、卡上标出、⚙ 里换、界面按能力清单收起运行时不支持的按钮。
 // - 运行时清单经 GET /api/runtimes 取（AgentRuntimeView：名字、能不能用、能力清单、模型、设置项），还没取到时一律按"都支持"（界面和以前一样）；
 // - 会话的负责人用哪个运行时：项目的负责人照项目的（没写照转来的任务的），任务自己的照任务的，秘书一直是 pi；
 // - 新建时只有 pi 能选（没启用别的运行时插件）就不显示这一项；
@@ -60,7 +60,7 @@ export function runtimeStateLine(state: AgentRuntimeStateView): string | undefin
 }
 
 /**
- * 撤回的确认框里按运行时多说的（293 号票：能力清单 branch_summary、rewind_files）：分支摘要不是运行时自己写的（Claude Code：从这条之前另起一个会话接着，
+ * 撤回的确认框里按运行时多说的（能力清单 branch_summary、rewind_files）：分支摘要不是运行时自己写的（Claude Code：从这条之前另起一个会话接着，
  * 摘要由二狗按自己记下的写）；撤回时运行时会把它改过的文件恢复到这条之前（只追它的 Write、Edit，Bash 改的追不到）——撤回到阶段、步骤开始前
  * （callPoint）时不恢复（检查点只按整条输入记）。pi（自己写摘要、不动文件）什么都不多说。restoresFiles：这次撤回会恢复文件（"做了的事"下面的说明跟着换）
  */
@@ -81,7 +81,7 @@ export function rollbackRuntimeNotes(
 const FILES_SHOWN = 3;
 
 /**
- * 分支摘要上记的运行时恢复文件的结果（293 号票，BranchSummaryPart.files）说成一句：恢复了哪些（只写文件名，最多列三个）、没有要恢复的、
+ * 分支摘要上记的运行时恢复文件的结果（BranchSummaryPart.files）说成一句：恢复了哪些（只写文件名，最多列三个）、没有要恢复的、
  * 撤回到阶段步骤开始前没恢复、出错了（恢复了一部分的照列）；都带上"Bash 改的追不到"
  */
 export function branchFilesLine(files: BranchFilesRewind): string {

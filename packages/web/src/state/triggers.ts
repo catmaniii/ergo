@@ -1,10 +1,10 @@
-// 定时触发的任务的视图（纯函数，76 号票，ADR 0025）：任务的触发登记是看板频道上的 scheduled_job（ownerTaskId 指向任务；19 号票的
+// 定时触发的任务的视图（纯函数，ADR 0025）：任务的触发登记是看板频道上的 scheduled_job（ownerTaskId 指向任务；
 // 定时作业迁移成定时触发的普通任务后也是这样）。看板"运营中"一组的任务卡、任务详情上的时间表、下一次、最近一次运行的结果、
 // 能做的动作（暂停、恢复、取消，和守护进程用同一份规则：协议包的 scheduledJobActions），以及任务详情里按运行分段的运行列表。
 // 发起对话框里"什么时候做"的几种（现在做一次、定时、事件发生时、只提醒我）和长程任务选不了定时、事件，也在这里。
-// 77 号票：事件触发的任务——在等什么事件、最近一次触发是什么事件；每次运行的这一批事件连同事件里的值；对话框里"事件发生时"的编辑
+// 事件触发的任务——在等什么事件、最近一次触发是什么事件；每次运行的这一批事件连同事件里的值；对话框里"事件发生时"的编辑
 // （选来源、选事件、填过滤条件，按事件来源登记表画）。
-// 97 号票：写的话里说了几点，对话框里没动过的几栏按它填（fillWhenFromText），下面那一行怎么写（whenTextHint）；认时间在 text-time.ts。
+// 写的话里说了几点，对话框里没动过的几栏按它填（fillWhenFromText），下面那一行怎么写（whenTextHint）；认时间在 text-time.ts。
 import {
   describeSchedule,
   describeTime,
@@ -49,17 +49,17 @@ export function taskTriggerView(state: UiState, taskId: string): ScheduledJobVie
 /** 运行号里的第几次（j-1-r3 → 3） */
 export const runNo = (runId: string): number => Number(/-r(\d+)$/.exec(runId)?.[1] ?? 0);
 
-/** 这次运行处理的触发（排队合并成一批的每一次；76 号票之前的运行只有它自己那一次到点，补法在协议包的 runEvents） */
+/** 这次运行处理的触发（排队合并成一批的每一次；以前的运行只有它自己那一次到点，补法在协议包的 runEvents） */
 const runTriggers = (run: JobRun): string[] => runEvents(run).map((e) => e.summary);
 
-/** 一次运行里的一个事件（77 号票）：一句话、时刻、事件里的值（字段的中文名 → 值，和交给 agent 的一样） */
+/** 一次运行里的一个事件：一句话、时刻、事件里的值（字段的中文名 → 值，和交给 agent 的一样） */
 export interface RunEventView {
   summary: string;
   at: string;
   values: Array<[string, string]>;
 }
 
-/** 这次运行的这一批事件（时间到了的、用户让它立即运行一次的不算，100 号票） */
+/** 这次运行的这一批事件（时间到了的、用户让它立即运行一次的不算） */
 function runEventViews(run: JobRun): RunEventView[] {
   return runEvents(run)
     .filter(isSourceEvent)
@@ -79,7 +79,7 @@ export interface RunView {
   trigger: string;
   /** 这一批触发的每一次（合并了几次时逐条列出） */
   triggers: string[];
-  /** 事件触发的（77 号票）：这一批事件，连同事件里的值 */
+  /** 事件触发的：这一批事件，连同事件里的值 */
   events: RunEventView[];
   state: JobRunState;
   /** 成功、失败、运行中、排队、中断、没运行 */
@@ -124,7 +124,7 @@ export function taskRunViews(state: UiState, taskId: string): RunView[] {
 }
 
 /**
- * 卡上"最近一次"的写法：成功 · 10 月 9 日（周五）09:00；还没运行过是 undefined。失败、中断不 ok（标红）；部分完成（176 号票）
+ * 卡上"最近一次"的写法：成功 · 10 月 9 日（周五）09:00；还没运行过是 undefined。失败、中断不 ok（标红）；部分完成
  * 不算失败，单独标出来（partial，另一种颜色）
  */
 export function lastRunText(run: JobRun | undefined): { text: string; ok: boolean; partial?: boolean } | undefined {
@@ -137,7 +137,7 @@ export function lastRunText(run: JobRun | undefined): { text: string; ok: boolea
 // ───────────────────────── 发起对话框里的"什么时候做" ─────────────────────────
 
 /**
- * 发起对话框里"什么时候做"的四种：现在做一次、定时（按时间表反复运行，或者某个时间做一次）、事件发生时（77 号票：某个事件推送过来时，
+ * 发起对话框里"什么时候做"的四种：现在做一次、定时（按时间表反复运行，或者某个时间做一次）、事件发生时（某个事件推送过来时，
  * 比如文件夹里来了新文件、某个任务完成了）、只提醒我（简单提醒，不用 agent；到点或者事件发生时）
  */
 export const START_WHEN = ["once", "schedule", "event", "remind"] as const;
@@ -155,7 +155,7 @@ export const START_WHEN_HINT: Readonly<Record<StartWhen, string>> = tTable({
   remind: "state.triggers.whenHint.remind",
 });
 
-/** "只提醒我"的两种（77 号票）：到点提醒、事件发生时提醒 */
+/** "只提醒我"的两种：到点提醒、事件发生时提醒 */
 export const REMIND_MODES = ["time", "event"] as const;
 export type RemindMode = (typeof REMIND_MODES)[number];
 export const REMIND_MODE_LABEL: Readonly<Record<RemindMode, string>> = tTable({ time: "state.triggers.remind.time", event: "state.triggers.remind.event" });
@@ -194,7 +194,7 @@ export const eventPlaceholderHint = (trigger: EventTrigger): string =>
     .join(t("state.triggers.listSep"));
 
 /**
- * 选了"定时"之后的两种（用户 2026-10-10 定）：按时间表反复做（每次一次运行，任务一直在运营中）；某个时间做一次（等到那个时间做一次，
+ * 选了"定时"之后的两种：按时间表反复做（每次一次运行，任务一直在运营中）；某个时间做一次（等到那个时间做一次，
  * 做完就算完成，和现在做一次的一样）
  */
 export const TIMED_MODES = ["repeat", "at"] as const;
@@ -214,8 +214,8 @@ export function startWhenAllowed(kind: TaskKind, when: StartWhen): boolean {
 /** 选"定时"时一开始的时间表：每天 09:00 */
 export const DEFAULT_TRIGGER_SCHEDULE: ReminderSchedule = { kind: "daily", time: "09:00" };
 
-// ───────────────────────── 写的话里说了几点，就按几点定（97 号票） ─────────────────────────
-// 用户 2026-10-12：写"明天早上8点调研一下……"、选了"定时"没动时间，建出的是每天 09:00。改成：写的话变了就重认一遍
+// ───────────────────────── 写的话里说了几点，就按几点定 ─────────────────────────
+// 写"明天早上8点调研一下……"、选了"定时"没动时间，建出的是每天 09:00。改成：写的话变了就重认一遍
 // （text-time.ts 的 timeFromText），认出来了而用户还没自己动过的几栏按它填；动过的不再改，和写的不一样时标出来（照样能发起）。
 
 /** 对话框里"什么时候做"这几栏的值 */

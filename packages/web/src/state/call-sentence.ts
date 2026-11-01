@@ -1,9 +1,8 @@
-// 工具调用说成人话的一句（67 号票，规格第 19 节"会话区"）：每种工具一个说法模板（"删除照片：…""在蓝鲸购物下单：柔丝家庭装 ×1"
+// 工具调用说成人话的一句（规格第 19 节"会话区"）：每种工具一个说法模板（"删除照片：…""在蓝鲸购物下单：柔丝家庭装 ×1"
 // 这种），加上要点层那一行的前缀。
 // 不写"工具名 + 参数摘要"，写一句"读 src/app.ts""把改动提交：修复登录超时"；没有模板的退回"中文名 · 参数值"。
-// 用在：工具调用组的要点那一行和组的详情里每一步（57 号票）、单次调用的详情（56 号票）、缩小后每一块的要点层（54、57 号票）。
+// 用在：工具调用组的要点那一行和组的详情里每一步、单次调用的详情、缩小后每一块的要点层。
 //
-// 用户 2026-10-10 定的：
 // - 说法：动词加对象，不带"了"（"读 src/app.ts"，不是"读了 src/app.ts"）——被拦下、你拒绝了的前面加了 ⛔ ✕，
 //   带"了"就把没做的事说成做了；
 // - 要点层那一行的前缀四种：⛔ 被拦下、↩ 拉回（二狗的"按规则退回"）、⏸ 等你批准、✕ 你拒绝了；
@@ -15,10 +14,10 @@
 //
 // 前端拿到的只有工具调用 part 的参数摘要（一行，守护进程截到 160 字，guard-runtime/describe.ts 的 summarizeArgs）：
 // bash 是命令原文，文件工具是路径（搜索带上模式："模式 · 路径"），联网搜索是查询词、读网页是网址，别的工具是"参数名=值 参数名=值"
-// （不是字符串的值写成 JSON）。模板按工具名查，按这个写法拆出参数（用户 2026-10-10 同意，不改协议）；拆不出要的参数（参数缺失、
+// （不是字符串的值写成 JSON）。模板按工具名查，按这个写法拆出参数（不改协议）；拆不出要的参数（参数缺失、
 // 摘要被截断、彻底删除过）就退回。工具的中文名照守护进程登记的 title 抄一份在这里；
 // MCP 工具（mcp__<MCP 名>__<工具名>）前端不知道中文名，写原名。纯函数。
-// 170 号票起句子和工具名按当前语言（state.callSentence.*；英文的说法同样是动词加对象）。
+// 句子和工具名按当前语言（state.callSentence.*；英文的说法同样是动词加对象）。
 import { describeWorkdayChange, MEMORY_COMMAND_LABEL, type MessagePart, PURGED_TEXT, type RepeatRule, describeSchedule, repeatSchedule, t, TELL_SECRETARY_CAPABILITY, tTable, type WorkdayChange } from "./protocol.ts";
 import { bashSentence } from "./shell-sentence.ts";
 import { cutTo, FALLBACK_MAX, joinList, pathsText, shortPath, shortUrl } from "./sentence-parts.ts";
@@ -42,7 +41,7 @@ export const TOOL_LABELS: Readonly<Record<string, string>> = labelTable(
     grep: "state.callSentence.tool.grep",
     find: "state.callSentence.tool.find",
     bash: "state.callSentence.tool.bash",
-    // 带类型的特殊 bash 工具（28 号票）
+    // 带类型的特殊 bash 工具
     git_status_diff: "state.callSentence.tool.git_status_diff",
     git_commit: "state.callSentence.tool.git_commit",
     git_merge: "state.callSentence.tool.git_merge",
@@ -51,18 +50,18 @@ export const TOOL_LABELS: Readonly<Record<string, string>> = labelTable(
     run_tests: "state.callSentence.tool.run_tests",
     install_deps: "state.callSentence.tool.install_deps",
     start_build: "state.callSentence.tool.start_build",
-    // 联网工具（70 号票）
+    // 联网工具
     web_search: "state.callSentence.tool.web_search",
     web_fetch: "state.callSentence.tool.web_fetch",
     // 秘书的工具
     view_board: "state.callSentence.tool.view_board",
-    // 守护进程登记的是"列出待我处理"，界面上一律叫"待办"（43 号票）
+    // 守护进程登记的是"列出待我处理"，界面上一律叫"待办"
     list_inbox: "state.callSentence.tool.list_inbox",
     show_card: "state.callSentence.tool.show_card",
     search_materials: "state.callSentence.tool.search_materials",
-    // 271 号票：记下这一轮顺口问了哪个"了解你问题"
+    // 记下这一轮顺口问了哪个"了解你问题"
     mark_woven_question: "state.callSentence.tool.mark_woven_question",
-    // 166 号票：读一条素材的全文（用户存的网页给存下的正文）
+    // 读一条素材的全文（用户存的网页给存下的正文）
     read_material: "state.callSentence.tool.read_material",
     read_attachment: "state.callSentence.tool.read_attachment",
     send_attachment: "state.callSentence.tool.send_attachment",
@@ -86,7 +85,7 @@ export const TOOL_LABELS: Readonly<Record<string, string>> = labelTable(
     submit_charter: "state.callSentence.tool.submit_charter",
     propose_charter_change: "state.callSentence.tool.propose_charter_change",
     propose_standard_change: "state.callSentence.tool.propose_standard_change",
-    // 259 号票：负责人、秘书提转入使用（只出确认卡）
+    // 负责人、秘书提转入使用（只出确认卡）
     propose_go_live: "state.callSentence.tool.propose_go_live",
     start_stage: "state.callSentence.tool.start_stage",
     complete_stage: "state.callSentence.tool.complete_stage",
@@ -111,12 +110,12 @@ export const TOOL_LABELS: Readonly<Record<string, string>> = labelTable(
     fail_job_run: "state.callSentence.tool.fail_job_run",
     adjust_skills: "state.callSentence.tool.adjust_skills",
     request_toolkit_change: "state.callSentence.tool.request_toolkit_change",
-    // 239 号票：登记 MCP
+    // 登记 MCP
     request_mcp_change: "state.callSentence.tool.request_mcp_change",
-    // 358 号票：提交 skill
+    // 提交 skill
     request_skill_change: "state.callSentence.tool.request_skill_change",
   },
-  // 102 号票：给秘书发消息（写名字占位，界面上显示用户起的名字，43 号票）；协议包的常量，现取
+  // 给秘书发消息（写名字占位，界面上显示用户起的名字）；协议包的常量，现取
   { tell_secretary: () => TELL_SECRETARY_CAPABILITY },
 );
 
@@ -140,14 +139,14 @@ export interface CallSentence {
 }
 
 /**
- * 参数里的编号换成给用户看的写法（159 号票：任务写"t-3「整理发票」"（163 号票），状态层的 readableId 现取）；认不出的（写的是标题）原样。
+ * 参数里的编号换成给用户看的写法（任务写"t-3「整理发票」"，状态层的 readableId 现取）；认不出的（写的是标题）原样。
  * 不给时照原样写编号（纯函数、测试里）
  */
 export type IdNamer = (ref: string) => string;
 
 const asIs: IdNamer = (ref) => ref;
 
-/** 一次调用说成人话；没有模板、拆不出要的参数时退回"中文名 · 参数值"（截到 60 字）。named：参数里的编号怎么写（159 号票） */
+/** 一次调用说成人话；没有模板、拆不出要的参数时退回"中文名 · 参数值"（截到 60 字）。named：参数里的编号怎么写 */
 export function callSentence(part: Pick<ToolCallPart, "tool" | "argsSummary">, named?: IdNamer): CallSentence {
   const said = describeCall(part.tool, part.argsSummary, named);
   return said === undefined ? { text: fallbackLine(part.tool, part.argsSummary), said: false } : { text: said, said: true };
@@ -155,7 +154,7 @@ export function callSentence(part: Pick<ToolCallPart, "tool" | "argsSummary">, n
 
 /**
  * 要点层那一行：前缀（⛔ 被拦下、↩ 拉回、⏸ 等你批准、✕ 你拒绝了）、读了密钥文件的 🔒，再是那一句
- * （sentence：会话条目层已经按状态层的名字说好的那一句，159 号票；不给时现说，编号照原样）
+ * （sentence：会话条目层已经按状态层的名字说好的那一句，不给时现说，编号照原样）
  */
 export function callKeyLine(part: ToolCallPart, sentence: string = callSentence(part).text): string {
   return `${callMark(part)}${part.readsSecretFile ? "🔒 " : ""}${sentence}`;
@@ -163,8 +162,8 @@ export function callKeyLine(part: ToolCallPart, sentence: string = callSentence(
 
 /**
  * 要点层的前缀（拦下 ⛔、拉回 ↩、停下说明进展 ⏸、你拒绝了 ✕）。二狗：被拦下（硬拒绝、判定出错、计划检查拦下、
- * 按处置没执行）⛔；按规则退回（时序规则，即拉回）↩；等你批准 ⏸（57 号票定的）；你拒绝了 ✕。
- * 按计划引回、问过你（当场确认）、出错都不加（用户 2026-10-10 定）
+ * 按处置没执行）⛔；按规则退回（时序规则，即拉回）↩；等你批准 ⏸；你拒绝了 ✕。
+ * 按计划引回、问过你（当场确认）、出错都不加
  */
 export function callMark(part: ToolCallPart): string {
   if (part.outcome === "denied") return "✕ ";
@@ -215,7 +214,7 @@ export function summaryArgs(summary: string, keys?: readonly string[]): Record<s
 
 // ───────────────────────── 模板 ─────────────────────────
 
-/** 一个工具的模板：参数摘要 → 一句话；拆不出要的参数时返回 undefined（退回）。named：参数里的编号怎么写（159 号票，说到任务的模板用） */
+/** 一个工具的模板：参数摘要 → 一句话；拆不出要的参数时返回 undefined（退回）。named：参数里的编号怎么写（说到任务的模板用） */
 type Template = (summary: string, named: IdNamer) => string | undefined;
 
 /** 路径工具（read、write、edit、ls）的摘要：有路径时就是路径本身；没给路径时是"参数名=值"（这几个名字是它的其他参数） */
@@ -281,7 +280,7 @@ function patternOf(summary: string): { pattern: string; path?: string } | undefi
   return cut < 0 ? { pattern: summary } : { pattern: summary.slice(0, cut), path: summary.slice(cut + 3) };
 }
 
-/** read 读到某个 skill 的 SKILL.md：pi 用 skill 时就是这样读它的说明（82 号票的斜杠命令点名之后也一样） */
+/** read 读到某个 skill 的 SKILL.md：pi 用 skill 时就是这样读它的说明（斜杠命令点名之后也一样） */
 function skillOf(path: string): string | undefined {
   const parts = path.split(/[\\/]/).filter((p) => p !== "");
   return parts.length >= 2 && /^skill\.md$/i.test(parts[parts.length - 1]!) ? parts[parts.length - 2] : undefined;
@@ -345,7 +344,7 @@ function folderName(path: string): string {
   return path.split(/[\\/]/u).findLast((part) => part !== "" && !part.endsWith(":")) ?? path;
 }
 
-/** 快速动作（quick-actions/tool.ts）：按动作类型说做什么；任务写编号的换成"t-3「整理发票」"（159、163 号票） */
+/** 快速动作（quick-actions/tool.ts）：按动作类型说做什么；任务写编号的换成"t-3「整理发票」" */
 function quickActionLine(type: string | undefined, params: Record<string, unknown> | undefined, named: IdNamer): string | undefined {
   if (!type) return undefined;
   const p = params ?? {};
@@ -366,7 +365,7 @@ function quickActionLine(type: string | undefined, params: Record<string, unknow
       return str("task") ? t("state.callSentence.qa.resumeTask", { task: named(str("task")!) }) : undefined;
     case "cancel_task":
       return str("task") ? t("state.callSentence.qa.cancelTask", { task: named(str("task")!) }) : undefined;
-    // 103 号票：秘书转达，写转给谁和那句话
+    // 秘书转达，写转给谁和那句话
     case "tell_task":
       return str("task") ? t(str("message") ? "state.callSentence.qa.tellTaskSaying" : "state.callSentence.qa.tellTask", { task: named(str("task")!), message: str("message") }) : undefined;
     case "tell_project":
@@ -382,10 +381,10 @@ function quickActionLine(type: string | undefined, params: Record<string, unknow
       else if ((change === "mark_rest" || change === "mark_work") && date) normalized = { kind: "mark", date, mark: change === "mark_work" ? "work" : "rest" };
       return normalized ? t("state.callSentence.qa.workdayChange", { change: describeWorkdayChange(normalized) }) : t("state.callSentence.qa.workday");
     }
-    // 185 号票：删除简单提醒
+    // 删除简单提醒
     case "delete_reminder":
       return str("reminderId") ? t("state.callSentence.qa.deleteReminder", { id: str("reminderId") }) : undefined;
-    // 138 号票：授权文件夹，写方向和文件夹名（完整路径在卡上）
+    // 授权文件夹，写方向和文件夹名（完整路径在卡上）
     case "authorize_folders": {
       const verb = str("change") === "remove" ? t("state.callSentence.qa.unauthorize") : t("state.callSentence.qa.authorize");
       const names = Array.isArray(p.folders) ? p.folders.flatMap((f) => (typeof f === "string" ? [folderName(f)] : [])) : [];
@@ -399,8 +398,8 @@ function quickActionLine(type: string | undefined, params: Record<string, unknow
 /**
  * 各工具的模板（动词加对象，对象是名字、标题的用「」括起来，后面要补充的用"："接）。
  * 用户点名要有的：读、写、改、删、列目录、搜索、通用 bash（按拆出来的命令）、git 提交 / 推送 / 建仓库、联网读取、提醒、日历（快速动作
- * "改工作日历"）、看板、项目档案、附件和素材；70 号票的联网搜索、读网页；82 号票的斜杠命令调出来的发起流程、发起长程任务，
- * 和 agent 读 skill 的 SKILL.md；75 号票的交给后台（普通任务）；102 号票负责人给秘书发消息。二狗没有发邮件、日历的工具（只有 MCP 来的，退回原样）
+ * "改工作日历"）、看板、项目档案、附件和素材；联网搜索、读网页；斜杠命令调出来的发起流程、发起长程任务，
+ * 和 agent 读 skill 的 SKILL.md；交给后台（普通任务）；负责人给秘书发消息。二狗没有发邮件、日历的工具（只有 MCP 来的，退回原样）
  */
 const TEMPLATES: Readonly<Record<string, Template>> = {
   read: (s) => {
@@ -502,7 +501,6 @@ const TEMPLATES: Readonly<Record<string, Template>> = {
     const a = summaryArgs(s, ["reminderId"]);
     return a.reminderId && t("state.callSentence.cancelReminder", { id: a.reminderId });
   },
-  // 185 号票
   archive_reminder: (s) => {
     const a = summaryArgs(s, ["reminderId"]);
     return a.reminderId && t("state.callSentence.archiveReminder", { id: a.reminderId });
@@ -537,21 +535,21 @@ const TEMPLATES: Readonly<Record<string, Template>> = {
     return what && t("state.callSentence.sendAttachment", { what });
   },
   search_materials: (s) => {
-    // 187 号票起多一个 why（为什么查），在它那里断开
+    // 多一个 why（为什么查），在它那里断开
     const a = summaryArgs(s, ["query", "why", "limit"]);
     return a.query && t("state.callSentence.searchMaterials", { query: a.query });
   },
-  // 166 号票：素材 id 留到前 8 位十六进制认得出就行
+  // 素材 id 留到前 8 位十六进制认得出就行
   read_material: (s) => {
     const a = summaryArgs(s, ["materialId"]);
     return a.materialId && t("state.callSentence.readMaterial", { id: a.materialId.slice(0, 12) });
   },
-  // 86 号票：用户打字时发语音，写口语稿的前几个字（整段在气泡的"转文字"里）
+  // 用户打字时发语音，写口语稿的前几个字（整段在气泡的"转文字"里）
   send_voice: (s) => {
     const a = summaryArgs(s, ["text"]);
     return a.text && t("state.callSentence.sendVoice", { text: cutTo(a.text, SEND_VOICE_HEAD) });
   },
-  // 102 号票：负责人给秘书发消息（由秘书在主线里转告用户），写原话的前几个字；115 号票起有一句话总结的写它
+  // 负责人给秘书发消息（由秘书在主线里转告用户），写原话的前几个字；有一句话总结的写它
   tell_secretary: (s) => {
     const a = summaryArgs(s, ["summary", "text"]);
     const said = a.summary || a.text;
@@ -563,7 +561,7 @@ const TEMPLATES: Readonly<Record<string, Template>> = {
     return quickActionLine(a.type, objectOf(a.params), named);
   },
 
-  // 82 号票：/workflow、/task（老写法 /流程、/任务）调出来的（项目负责人发起项目内部任务的同名工具同样）
+  // /workflow、/task（老写法 /流程、/任务）调出来的（项目负责人发起项目内部任务的同名工具同样）
   start_workflow: (s) => {
     const a = summaryArgs(s, ["title", "summary", "projects"]);
     return a.title && t("state.callSentence.startWorkflow", { title: a.title });
@@ -572,7 +570,7 @@ const TEMPLATES: Readonly<Record<string, Template>> = {
     const a = summaryArgs(s, ["title", "summary", "projects"]);
     return a.title && t("state.callSentence.createTask", { title: a.title });
   },
-  // 75 号票的普通任务：秘书交给后台直接做
+  // 普通任务：秘书交给后台直接做
   delegate_task: (s) => {
     const a = summaryArgs(s, ["title", "instructions", "projects"]);
     return a.title && t("state.callSentence.delegateTask", { title: a.title });

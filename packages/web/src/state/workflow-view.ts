@@ -1,4 +1,4 @@
-// 流程的会话和计划详情（60 号票，ADR 0019、0025）：固定计划的界面要的数据，纯函数，界面只管画：
+// 流程的会话和计划详情（ADR 0019、0025）：固定计划的界面要的数据，纯函数，界面只管画：
 // - 顶栏的进度条（done = 计划里状态是"做完"的步数，total = 计划的步数；跳过的不算做完）→ workflowProgress；
 // - 计划台账（ui/PlanTimeline.tsx：这个会话里提过的每一份计划，按先后；当前那份写"做完几步/共几步"，别的只写步数）→ workflowPlanLedger；
 // - 历史底部"接下来的计划"（ui/zoom/future.tsx）：
@@ -7,8 +7,8 @@
 // - 计划详情（ui/DetailPane.tsx 的 PlanDetail：涉及的敏感信息、步骤、版本差异、计划审查、检测项全览）→ workflowPlanDetail；
 //   检测项全览（ui/RuleBook.tsx）的一条条规则 → ruleBook。
 // 二狗的数据：计划是流程计划卡（workflow_plan）上的那份；执行中各步的状态是看板上的 Task.steps.list（负责人 report_step 自报、
-// 守护进程推断，59 号票）；每次调用和计划比对的结果在工具调用 part 的 plan 上（60 号票：算在哪一步、查出的问题、用上的自动纠偏）。
-// 定时触发的流程（76 号票）每次运行一段：各步的状态记在这次运行上（JobRun.steps），进度条、虚线框都按这一次运行算——
+// 守护进程推断）；每次调用和计划比对的结果在工具调用 part 的 plan 上（算在哪一步、查出的问题、用上的自动纠偏）。
+// 定时触发的流程每次运行一段：各步的状态记在这次运行上（JobRun.steps），进度条、虚线框都按这一次运行算——
 // 正在跑的那一次；没在跑的看最近开始过的那一次；还没跑过的按计划全是没做。虚线框里的偏离也只看这一次运行的调用。
 import {
   type Card,
@@ -116,7 +116,7 @@ export function workflowStepStates(state: UiState, taskId: string): Record<strin
 }
 
 /**
- * 这一次要照的步骤：一次性的、定时触发的就是授权的那份计划的步骤；事件触发的（77 号票）一批里有几个事件就各走一遍——
+ * 这一次要照的步骤：一次性的、定时触发的就是授权的那份计划的步骤；事件触发的一批里有几个事件就各走一遍——
  * 这次运行记着的步骤编号是 s1.e1、s1.e2……，按它把计划的步骤一遍遍排出来（标题用这次运行记着的，写着代入的值和第几个事件）
  */
 export function stepsThisRun(state: UiState, taskId: string, steps: readonly WorkflowStepView[]): readonly WorkflowStepView[] {
@@ -178,7 +178,7 @@ function stagePlanAuthorized(state: UiState, task: Task): boolean {
  * 看板卡、项目页上的进度（已完成 / 总数）：流程是做完的步数（stepsDone，同标题栏的进度条；
  * 定时触发的按这一次运行，带上第几次）；长程任务是已验收的阶段数（计划变更去掉的阶段已经不在
  * 看板上的那一份里）。计划授权了才有进度——之前（规划中、计划等你确认）两种做法都是 0/0，写"尚无计划"。
- * 普通任务没有（75 号票）
+ * 普通任务没有
  */
 export function taskBoardProgress(state: UiState, task: Task): BoardProgress | undefined {
   if (isPlainTask(task)) return undefined;
@@ -193,7 +193,7 @@ export function taskBoardProgress(state: UiState, task: Task): BoardProgress | u
 }
 
 /**
- * 项目页上一个任务那一行的进度（内部任务一栏、"现在"里的建设任务，311 号票）：和看板卡同一份，计划还没授权（0/0，看板卡上
+ * 项目页上一个任务那一行的进度（内部任务一栏、"现在"里的建设任务）：和看板卡同一份，计划还没授权（0/0，看板卡上
  * 写"尚无计划"）的不给——那一行的状态已经写了规划中、计划等你确认，只写一个
  */
 export function projectRowProgress(state: UiState, task: Task): BoardProgress | undefined {
@@ -293,7 +293,7 @@ const FIXED_TEXT = tTable({ rewrite: "state.workflowView.fixed.rewrite", redirec
 
 /**
  * 一次运行在会话里的那一段（下标，左闭右开）：不属于项目的运行从它的运行分隔线（run_divider）起、到下一条运行分隔线为止；
- * 属于项目的运行是一张工单，在项目负责人的会话里从这张工单的工单段分隔线（work_order_divider，16 号票：每段开头一条）起、
+ * 属于项目的运行是一张工单，在项目负责人的会话里从这张工单的工单段分隔线（work_order_divider：每段开头一条）起、
  * 到下一段的分隔线为止（这一段的消息只带作业、项目的归属，不带任务）。分隔线还没翻到（或这一次还没开始）的没有
  */
 function runSpan(items: readonly ChatItem[], run: JobRun): { from: number; to: number } | undefined {
@@ -315,10 +315,10 @@ function callsOf(items: readonly ChatItem[], taskId: string, run: JobRun | undef
   if (!span) return [];
   // 运行的那一段整段都是这一次的；一次性的流程按归属挑出这个任务的
   const mine = (call: ChatToolCall) => run !== undefined || call.scope.taskId === taskId;
-  // 发出了气泡的发语音调用（87 号票）不在组里、挂在气泡上，照样算这一次的调用（计划外的动作照样数）
+  // 发出了气泡的发语音调用不在组里、挂在气泡上，照样算这一次的调用（计划外的动作照样数）
   return items
     .slice(span.from, span.to)
-    // 调用记忆（187 号票）单独一条，照样是这一次的调用
+    // 调用记忆单独一条，照样是这一次的调用
     .flatMap((it) => (it.kind === "tool_group" || it.kind === "recall" ? it.steps.flatMap((s) => (s.kind === "call" ? [s.call] : [])) : it.kind === "voice" && it.toolCall ? [it.toolCall] : []))
     .filter(mine);
 }
@@ -451,7 +451,7 @@ export interface RuleBookRule {
   readonly probe: WorkflowReview["rules"][number] | undefined;
   /** 生效阶段："规划时 + 执行时" */
   readonly modes: string;
-  /** 违反了怎么办（协议包的 ON_VIOLATION_TEXT：计划卡、阶段详情同一个说法，84 号票合成一份） */
+  /** 违反了怎么办（协议包的 ON_VIOLATION_TEXT：计划卡、阶段详情同一个说法，合成一份） */
   readonly onViolation: string;
   readonly formula: RuleFormula;
   /** 同一条规则的接口写法 */
@@ -464,7 +464,7 @@ export interface RuleBookRule {
   readonly parts: readonly (readonly [string, unknown])[];
 }
 
-/** 检测项全览：这次审查用的全部规则；审查结果里没有规则原文的（60 号票之前的计划、审查没跑成的）不显示 */
+/** 检测项全览：这次审查用的全部规则；审查结果里没有规则原文的（以前的计划、审查没跑成的）不显示 */
 export interface RuleBook {
   readonly rules: readonly RuleBookRule[];
   readonly phases: WorkflowReview["phases"];
@@ -480,7 +480,7 @@ export function ruleBook(review: WorkflowReview): RuleBook | undefined {
 
 /**
  * 检测项全览里的一条：规则原文，加上这次审查在它上面的结论（流程的计划审查）。不给审查结果的（长程任务一个阶段的时序规则，
- * 84 号票：执行时守卫每次调用之前核对，没有规划时的审查）算通过、没有复测；没写生效阶段的按 defaultModes
+ * 执行时守卫每次调用之前核对，没有规划时的审查）算通过、没有复测；没写生效阶段的按 defaultModes
  */
 export function ruleBookEntry(rule: { id: string; title?: string } & Record<string, unknown>, review?: WorkflowReview, defaultModes: readonly string[] = ["plan", "runtime"]): RuleBookRule {
   const id = String(rule.id);

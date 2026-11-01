@@ -1,4 +1,4 @@
-// 每个 agent 的会话里的 ⚙（114 号票）的状态层：秘书会话、任务整页、项目整页的标题栏上点开的面板。纯函数，界面（ui/agent-settings.tsx）只管画。
+// 每个 agent 的会话里的 ⚙的状态层：秘书会话、任务整页、项目整页的标题栏上点开的面板。纯函数，界面（ui/agent-settings.tsx）只管画。
 // - 单独的提示词两种写法：追加（接在通用模板后面，默认）、整份自己写（从通用模板复制一份来改）；边改边查，和守护进程同一个检查
 //   （协议包的 agentPromptProblem，能用的占位符照这个 agent 的通用模板，和设置 · 系统提示一样）；
 // - 清空当前对话：先确认（"清空后它不记得之前聊过什么，记录照样能看"）；项目负责人的清空就是重置负责人；
@@ -61,7 +61,7 @@ export function agentPromptStateText(view: AgentSettingsView): string {
 }
 
 /**
- * token 数：一万以上写"8.2 万"（和任务卡、消耗页一样）。170 号票：按"万"数是中文的写法（语言文件里的 tokensWan），
+ * token 数：一万以上写"8.2 万"（和任务卡、消耗页一样）。按"万"数是中文的写法（语言文件里的 tokensWan），
  * 别的语言用 Intl 的紧凑写法（英文"82K""1.3M"）
  */
 export function tokensText(n: number): string {
@@ -99,7 +99,7 @@ export function agentContextLines(context: AgentContextView, readOnly: string | 
   const { usedTokens, window, autoCompactAt } = context;
   const keep = context.keepRecentTokens ?? PI_COMPACTION_DEFAULTS.keepRecentTokens;
   const compactedAfter = context.lastCompactedAt !== undefined && (context.measuredAt === undefined || context.lastCompactedAt > context.measuredAt);
-  // 311 号票：最近一次调用的上下文里缓存命中的单写（"（其中缓存命中 8 万）"），说法照消耗页
+  // 最近一次调用的上下文里缓存命中的单写（"（其中缓存命中 8 万）"），说法照消耗页
   const cacheHit = context.cacheHitTokens !== undefined && context.cacheHitTokens > 0 ? t("state.agentSettings.context.cacheHit", { hit: tokensText(context.cacheHitTokens) }) : "";
   const used =
     usedTokens !== undefined

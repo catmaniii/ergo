@@ -1,4 +1,4 @@
-// 330 号票（R3，用户 10-27 放宽）：别人转述的——可以让二狗起一个猜测、往问题箱出问题找你确认；只有转述、你没确认过的永远只是猜测，
+// ADR-0032 R3：别人转述的——可以让二狗起一个猜测、往问题箱出问题找你确认；只有转述、你没确认过的永远只是猜测，
 // 不算进"已验证"的证据；转述打不下已验证的结论，最多出一个问题。例子是自己编的（不看 fixtures/truth）。
 import { afterEach, describe, expect, it } from "vitest";
 import type { MemoryEngine } from "../../src/engine.ts";

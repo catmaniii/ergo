@@ -1,15 +1,15 @@
-// 组件清单（323 号票）：随版本发布的一份数据（同目录的 manifest.json），守护进程启动时读一次。
+// 组件清单：随版本发布的一份数据（同目录的 manifest.json），守护进程启动时读一次。
 // 每个组件写：id、版本、默认（install 默认装 / ask 问了再装 / detected 检测到才装，detect 写检测什么）、别处已经有了算不算有
 // （provided 写查什么）、打开哪些功能（enables）、依赖哪些别的组件（dependsOn）、装到数据目录的哪里（target）、几个下载地址
 // （sources，url 里的 {path} 换成文件的路径）、几版（variants：按这台电脑有没有 N 卡、什么平台挑第一个对得上的），每版几部分（parts：
 // 一组同源的文件放进 target 下的 dir；还没接上的部分写 pending，这一版就不能从这里装）。文件写大小和 sha256，压缩包写怎么解开（extract）。
-// 345 号票加了四样：license（名字、一句话、链接、下载前要不要确认）、recommended（标"推荐"）、slowWithoutGpu（没有 N 卡时写明会很慢）；
+// 加了四样：license（名字、一句话、链接、下载前要不要确认）、recommended（标"推荐"）、slowWithoutGpu（没有 N 卡时写明会很慢）；
 // service（这个程序是常驻服务：程序叫什么、服务管家里叫什么、端口、健康检查）和 serve（这个模型由哪个程序组件的服务加载）——
-// 346 号票的语音识别模型就是再写一条带 serve 的组件，服务的配置和重启不用改代码（audiocpp-host.ts）。
+// 语音识别模型就是再写一条带 serve 的组件，服务的配置和重启不用改代码（audiocpp-host.ts）。
 // - 默认装不装、哪些功能，用户以后要改只改这份数据；界面上照它显示；
-// - 安全：只认清单里的校验值（镜像只是换个地方下，内容对不上就不用）。清单的签名（发布钥匙、minisign）由 318 号票发版时加，
+// - 安全：只认清单里的校验值（镜像只是换个地方下，内容对不上就不用）。清单的签名（发布钥匙、minisign）发版时加，
 //   这里留好验签的接口（ManifestVerifier）：给了就先验，验不过不用这份清单；没给是"没签名"，照用、界面上写明。
-//   318 号票接上：发布包里清单旁边有 manifest.json.minisig（发版时用发布钥匙签的），守护进程按程序里的发布公钥验（shippedManifestVerifier）；
+//   接上：发布包里清单旁边有 manifest.json.minisig（发版时用发布钥匙签的），守护进程按程序里的发布公钥验（shippedManifestVerifier）；
 //   开发时（仓库里直接跑）没有签名文件，照"没签名"用。
 import fs from "node:fs";
 import { COMPONENT_DEFAULTS, schemaChecker, type Static, Type } from "@ergo/protocol";
@@ -90,14 +90,14 @@ const Variant = Type.Object(
     parts: Type.Array(Part, { minItems: 1 }),
     /**
      * 这一版的程序旁边应该有的文件（可以带 *，比如 CUDA 运行库的 cublas64_*.dll）：缺了只提示、不挡启动，
-     * 包里的结构是从上游的打包脚本读出来的、没有核对过，名字对不上时不能把本来能跑的挡住（345 号票）
+     * 包里的结构是从上游的打包脚本读出来的、没有核对过，名字对不上时不能把本来能跑的挡住
      */
     expects: Type.Optional(Type.Array(Type.String({ minLength: 1 }))),
   },
   { additionalProperties: false },
 );
 
-/** 组件的许可（345 号票） */
+/** 组件的许可 */
 const License = Type.Object(
   {
     /** 许可的名字：产品名，不翻 */
@@ -116,7 +116,7 @@ const License = Type.Object(
   { additionalProperties: false },
 );
 
-/** 这个程序是常驻服务（345 号票）：装好有模型后经服务管家登记、启动 */
+/** 这个程序是常驻服务：装好有模型后经服务管家登记、启动 */
 const Service = Type.Object(
   {
     /** 服务管家里的名字（名下服务的短名） */
@@ -131,7 +131,7 @@ const Service = Type.Object(
   { additionalProperties: false },
 );
 
-/** 这个模型由哪个程序组件的服务加载（345 号票；写进生成的 server.json 的 models[]） */
+/** 这个模型由哪个程序组件的服务加载（写进生成的 server.json 的 models[]） */
 const Serve = Type.Object(
   {
     /** 带 service 的那个组件，要写进 dependsOn */
@@ -198,7 +198,7 @@ const checkComponent = schemaChecker(Component);
 /** 单独一条组件是不是清单的形状（installed.json 里记着的、从新版本清单换上的那一条：重启时查一下再用） */
 export const validManifestComponent = (raw: unknown): raw is ManifestComponent => checkComponent.firstError(raw) === undefined;
 
-/** 验签（318 号票发版时接上发布钥匙）：清单的原始字节和签名文件的内容，验过回 true */
+/** 验签（发版时接上发布钥匙）：清单的原始字节和签名文件的内容，验过回 true */
 export type ManifestVerifier = (bytes: Buffer, signature: string | undefined) => boolean;
 
 /** 随程序发布的那份清单 */
@@ -210,7 +210,7 @@ export function minisignManifestVerifier(publicKey: MinisignPublicKey | undefine
 }
 
 /**
- * 随程序发布的清单怎么验（318 号票）：旁边有签名文件（发布包）就按程序里的发布公钥验（验不过 loadManifest 抛错、不用这份）；
+ * 随程序发布的清单怎么验：旁边有签名文件（发布包）就按程序里的发布公钥验（验不过 loadManifest 抛错、不用这份）；
  * 没有签名文件（开发时）不验
  */
 export function shippedManifestVerifier(env: NodeJS.ProcessEnv = process.env, url: URL = MANIFEST_URL): ManifestVerifier | undefined {

@@ -11,35 +11,35 @@ import { NativeVoice } from '../voice/NativeVoice';
 export const NATIVE_BRIDGE_NAME = 'ergoNative';
 
 /**
- * 网页能调的同步方法（62 号票：版本号、日志、设置地址、外观，加上返回键的 setCanGoBack）。
- * 63 号票的原生录音（备好、开始、停止交出音频、丢弃、释放）也在这里：要等结果的（voicePrepare、voiceStart、voiceStop）
+ * 网页能调的同步方法（版本号、日志、设置地址、外观，加上返回键的 setCanGoBack）。
+ * 原生录音（备好、开始、停止交出音频、丢弃、释放）也在这里：要等结果的（voicePrepare、voiceStart、voiceStop）
  * 是同步方法、回 Promise<string>，网页那边拿到的是 Promise（官方文档"应用侧 new Promise 作为返回值传给前端"）；
  * 不放进 asyncMethodList——那里的方法拿不到返回值。原生往网页推的实时音量、错误用 controller.runJavaScript 调网页登记的
  * window.__ergoVoice。每个新方法开头都要先过 allowed()。名字和网页一侧 packages/web/src/app/native-voice.ts 的 NATIVE_VOICE_METHODS 一致。
- * 105 号票的 safeArea：Web 组件延伸到了底部手势条底下，告诉网页那一截多高（网页一侧 packages/web/src/app/native-app.ts）
- * 110 号票的系统通知（开没开、要授权、发一条、取用户点开的那一条）：名字和网页一侧 packages/web/src/app/native-notify.ts 的
+ * safeArea：Web 组件延伸到了底部手势条底下，告诉网页那一截多高（网页一侧 packages/web/src/app/native-app.ts）
+ * 系统通知（开没开、要授权、发一条、取用户点开的那一条）：名字和网页一侧 packages/web/src/app/native-notify.ts 的
  * NATIVE_NOTIFY_METHODS 一致；notifyPrepare 要等系统的授权框，和录音一样回 Promise<string>
- * 124 号票（网页设置里的 Debug 工具集）：notifyShow 多一个可选参数 force（前台也发）、回这一条的结果（Promise<string>），
+ * 网页设置里的 Debug 工具集：notifyShow 多一个可选参数 force（前台也发）、回这一条的结果（Promise<string>），
  * notifyState 多带 foreground，新加 notifyResetAsked（清掉"问过了"）。网页认 notifyResetAsked 在不在来分新旧 App
- * 134 号票的原生内置浏览器（"浏览"页签）：browserAttach（网页有这个页签了，回浏览器的样子）、browserLayout（内容区的位置大小）、
+ * 原生内置浏览器（"浏览"页签）：browserAttach（网页有这个页签了，回浏览器的样子）、browserLayout（内容区的位置大小）、
  * browserLoad（开一个网址）、browserNav（后退、前进、刷新、停止、系统浏览器打开）。名字和网页一侧
  * packages/web/src/app/native-browser.ts 的 NATIVE_BROWSER_METHODS 一致；浏览器那个 Web 组件本身不挂这个原生桥。
- * 134 号票第二部分（网页的框上的悬浮按钮）：browserPage（调页面桥：列框、填字、按钮的样子）、browserFileChunk（把要交的文件一段一段写进
+ * 网页的框上的悬浮按钮：browserPage（调页面桥：列框、填字、按钮的样子）、browserFileChunk（把要交的文件一段一段写进
  * App 的缓存）、browserFiles（交进选文件的框，或交给拦下的选文件对话框）、browserChooser（拦下的对话框上用户选了"自己选"或取消），
  * 都回 Promise<string>；名字和网页一侧的 NATIVE_PAGE_METHODS 一致。
- * 147 号票（浏览侧边栏）：browserSide（侧边栏摆在哪、交给侧边栏网页的样子），名字和网页一侧的 NATIVE_SIDE_METHOD 一致。
- * 149 号票：browserDiscard（放掉预备好了没用上的文件），名字和网页一侧的 NATIVE_DISCARD_METHOD 一致（网页认它在不在来分新旧 App）。
- * 160 号票：browserDoc（能渲染的文件：enable / source / save / outside / drop），名字和网页一侧的 NATIVE_DOC_METHOD 一致（网页认它在不在来分新旧 App）。
- * 165 号票："浏览"的 ⋮ 菜单用到的原生工具 browserTool（页内查找、按网站的文字大小和桌面版、分享、清数据、下载记录），名字和网页一侧的
+ * 浏览侧边栏：browserSide（侧边栏摆在哪、交给侧边栏网页的样子），名字和网页一侧的 NATIVE_SIDE_METHOD 一致。
+ * browserDiscard（放掉预备好了没用上的文件），名字和网页一侧的 NATIVE_DISCARD_METHOD 一致（网页认它在不在来分新旧 App）。
+ * browserDoc（能渲染的文件：enable / source / save / outside / drop），名字和网页一侧的 NATIVE_DOC_METHOD 一致（网页认它在不在来分新旧 App）。
+ * "浏览"的 ⋮ 菜单用到的原生工具 browserTool（页内查找、按网站的文字大小和桌面版、分享、清数据、下载记录），名字和网页一侧的
  * NATIVE_TOOL_METHOD 一致（网页认它在不在来分新旧 App，旧版 App 上菜单里这几项灰掉）。
- * 175 号票：setTexts（二狗的网页交来当前语言的 App 原生的字，common/AppTexts.ets），名字和网页一侧 native-app.ts 认的一致（网页认它在不在来分新旧 App）。
- * 299 号票：读本机（phone/PhoneData.ets）——phoneContactsPick（系统的选人界面）、phoneCalendarState、phoneCalendarPrepare（要读日历的授权）、
+ * setTexts（二狗的网页交来当前语言的 App 原生的字，common/AppTexts.ets），名字和网页一侧 native-app.ts 认的一致（网页认它在不在来分新旧 App）。
+ * 读本机（phone/PhoneData.ets）——phoneContactsPick（系统的选人界面）、phoneCalendarState、phoneCalendarPrepare（要读日历的授权）、
  * phoneCalendarRead（只读一段时间里的日程），名字和网页一侧 packages/web/src/app/native-phone.ts 的 NATIVE_PHONE_METHODS 一致
  * （网页认四个都在才算新版 App）。只开给主界面那个 Web，侧边栏没有。
- * 300 号票：照片的时间地点（phone/PhonePhotos.ets）——phonePhotosState、phonePhotosPrepare、phonePhotosRead；位置（phone/PhoneLocation.ets）——
+ * 照片的时间地点（phone/PhonePhotos.ets）——phonePhotosState、phonePhotosPrepare、phonePhotosRead；位置（phone/PhoneLocation.ets）——
  * phoneLocationState、phoneLocationPrepare、phoneLocationRecord（开始 / 停下记）、phoneLocationRead（记下、没交出去的点）、phoneLocationAck
  * （交好了删掉），名字和网页一侧的 NATIVE_PHONE_PHOTOS_METHODS、NATIVE_PHONE_LOCATION_METHODS 一致。同样只开给主界面。
- * 308 号票："常去的地方"手动加一处用的 phonePlaceHere（现在在哪：定一次位、转地名）、phonePlaceFind（按地名找），名字和网页一侧的
+ * "常去的地方"手动加一处用的 phonePlaceHere（现在在哪：定一次位、转地名）、phonePlaceFind（按地名找），名字和网页一侧的
  * NATIVE_PHONE_PLACE_METHODS 一致；照片、位置点读出来时带系统地名（phone/PhoneGeocode.ets）。同样只开给主界面。
  * 侧边栏是 App 另开的一个 Web 组件（browser/SidePanel.ets），加载的也是二狗自己的网页：它另挂一个原生桥，只开 NATIVE_SIDE_BRIDGE_METHODS
  */
@@ -55,8 +55,8 @@ export const NATIVE_BRIDGE_METHODS: string[] = ['appVersion', 'log', 'editServer
   'phonePlaceHere', 'phonePlaceFind'];
 
 /**
- * 浏览侧边栏那个 Web 组件上的原生桥（147 号票，主会话定：侧边栏挂二狗原生桥走原生录音）：同一个 NativeBridge 类、自己一份原生录音器，
- * 只开版本号（网页据此认出在 App 里）、日志和录音那一组——"按住说话"照 63 号票走原生录音器，不用 getUserMedia。
+ * 浏览侧边栏那个 Web 组件上的原生桥（侧边栏挂二狗原生桥走原生录音）：同一个 NativeBridge 类、自己一份原生录音器，
+ * 只开版本号（网页据此认出在 App 里）、日志和录音那一组——"按住说话"走原生录音器，不用 getUserMedia。
  * 地址页、外观、返回键、底部避让、系统通知、内置浏览器这些只归主界面那个 Web（侧边栏那一页认不出它们，什么都不变：外观两页共用一份设置，
  * 返回手势由 App 先收侧边栏，底部让开多少由"浏览"页随侧边栏的样子交过去，通知、浏览器由主界面那一页管）
  */
@@ -67,7 +67,7 @@ export const NATIVE_SIDE_BRIDGE_METHODS: string[] = ['appVersion', 'log',
 export const NATIVE_BRIDGE_ASYNC_METHODS: string[] = [];
 
 /**
- * 底部避让区（105 号票）：Web 组件延伸到了手势条（三键导航条）底下的那一截有多高，物理像素。
+ * 底部避让区：Web 组件延伸到了手势条（三键导航条）底下的那一截有多高，物理像素。
  * safeArea() 回它的 JSON；变了（量到了、转屏）Index.ets 经 window.__ergoInsets(json) 推给网页
  */
 export interface SafeAreaMessage {
@@ -75,7 +75,7 @@ export interface SafeAreaMessage {
 }
 
 /**
- * 原生的内置浏览器（134 号票）由 Index.ets 管（Web 组件、摆放），原生桥只把网页的调用转过去
+ * 原生的内置浏览器由 Index.ets 管（Web 组件、摆放），原生桥只把网页的调用转过去
  */
 export class BrowserHost {
   /** 网页有"浏览"页签了：回浏览器现在的样子（JSON） */
@@ -94,13 +94,13 @@ export class BrowserHost {
   files: (json: string) => Promise<string>;
   /** 拦下的选文件对话框：system / cancel */
   chooser: (choice: string) => Promise<string>;
-  /** 浏览侧边栏（147 号票）：侧边栏摆在哪（JSON：CSS 像素、devicePixelRatio、要不要显示）、交给侧边栏网页的样子 */
+  /** 浏览侧边栏：侧边栏摆在哪（JSON：CSS 像素、devicePixelRatio、要不要显示）、交给侧边栏网页的样子 */
   side: (json: string) => void;
-  /** 放掉预备好了没用上的文件（149 号票，JSON：文件编号的数组） */
+  /** 放掉预备好了没用上的文件（JSON：文件编号的数组） */
   discard: (json: string) => Promise<string>;
-  /** 能渲染的文件（160 号票）：enable / source / save / outside / drop，id 是报给网页的文件编号 */
+  /** 能渲染的文件：enable / source / save / outside / drop，id 是报给网页的文件编号 */
   doc: (op: string, id: string) => Promise<string>;
-  /** ⋮ 菜单用到的原生工具（165 号票，browser/BrowserTools.ets）：op 加参数的 JSON */
+  /** ⋮ 菜单用到的原生工具（browser/BrowserTools.ets）：op 加参数的 JSON */
   tool: (op: string, json: string) => Promise<string>;
 
   constructor(attach: () => string, layout: (json: string) => void, load: (url: string) => void, nav: (action: string) => void,
@@ -123,7 +123,7 @@ export class BrowserHost {
   }
 }
 
-/** 侧边栏那份原生桥用的内置浏览器（147 号票）：浏览器那几个方法不开给侧边栏（NATIVE_SIDE_BRIDGE_METHODS 里没有），这里都不做事 */
+/** 侧边栏那份原生桥用的内置浏览器：浏览器那几个方法不开给侧边栏（NATIVE_SIDE_BRIDGE_METHODS 里没有），这里都不做事 */
 export function idleBrowserHost(): BrowserHost {
   const none = (): Promise<string> => Promise.resolve('');
   return new BrowserHost(() => '', () => {}, () => {}, () => {}, none, none, none, none, () => {}, none, none, none);
@@ -203,7 +203,7 @@ function withoutHash(href: string): string {
 }
 
 /**
- * 原生桥（62 号票）：javaScriptProxy 以 `ergoNative` 名注入 ArkWeb。
+ * 原生桥：javaScriptProxy 以 `ergoNative` 名注入 ArkWeb。
  * 只对用户配好的来源的主框架开放：ArkWeb 把这个对象注入所有框架（含 iframe），白名单按调用的那个框架的网址查，
  * 别的来源的 iframe 调不进来；每次调用再核对一遍——主框架是配好的来源，调用的框架也是这个来源、而且就是主框架那个文档
  * （controller.getLastJavascriptProxyCallingFrameUrl() 和 getUrl() 去掉 # 之后相同），不对就拒绝（不做事、返回空）。
@@ -229,13 +229,13 @@ export class NativeBridge {
   canGoBack: boolean = false;
   /** 网页调过原生桥没有：加载完一阵还没调过，就不是二狗的网页（Index.ets 提示"这不是二狗？换地址"） */
   contacted: boolean = false;
-  /** 原生录音（63 号票），一个原生桥（一个 Web 组件、一个来源）一份 */
+  /** 原生录音，一个原生桥（一个 Web 组件、一个来源）一份 */
   private voice: NativeVoice;
-  /** 系统通知（110 号票），整个页面一份（Index.ets 建，记着 App 在不在前台），换地址不重建 */
+  /** 系统通知，整个页面一份（Index.ets 建，记着 App 在不在前台），换地址不重建 */
   private notify: NativeNotify;
-  /** 原生的内置浏览器（134 号票），整个页面一份，换地址不重建 */
+  /** 原生的内置浏览器，整个页面一份，换地址不重建 */
   private browser: BrowserHost;
-  /** 读本机（299 号票），整个页面一份；侧边栏那份原生桥没有（不开那几个方法） */
+  /** 读本机，整个页面一份；侧边栏那份原生桥没有（不开那几个方法） */
   private phone: PhoneData | undefined;
 
   constructor(context: common.Context, settings: AppSettings, server: ServerAddress, voice: NativeVoice,
@@ -346,7 +346,7 @@ export class NativeBridge {
   }
 
   /**
-   * 底部避让区（105 号票）：{"bottom": 物理像素}，网页据此让页面底部只让开一小截；还没量到回空串（之后 Index.ets 推过去）
+   * 底部避让区：{"bottom": 物理像素}，网页据此让页面底部只让开一小截；还没量到回空串（之后 Index.ets 推过去）
    */
   safeArea(): string {
     if (!this.allowed('safeArea')) {
@@ -361,8 +361,8 @@ export class NativeBridge {
   }
 
   /**
-   * 系统通知（110 号票）：{"enabled", "asked", "foreground"}，系统设置里这个应用的通知开没开、向用户要过授权没有；
-   * foreground（124 号票）是 App 现在算不算在前台（Index.ets 的 onPageShow / onPageHide）
+   * 系统通知：{"enabled", "asked", "foreground"}，系统设置里这个应用的通知开没开、向用户要过授权没有；
+   * foreground是 App 现在算不算在前台（Index.ets 的 onPageShow / onPageHide）
    */
   notifyState(): string {
     if (!this.allowed('notifyState')) {
@@ -384,7 +384,7 @@ export class NativeBridge {
 
   /**
    * 系统通知：发一条到通知栏（App 在前台时不发，页面顶上已经有了）；route 是点了之后网页要去的页面地址（#/…）。
-   * 124 号票：force 为真时在前台也发（网页设置里的 Debug 工具集；平常网页只给 4 个参数），回这一条的结果
+   * force 为真时在前台也发（网页设置里的 Debug 工具集；平常网页只给 4 个参数），回这一条的结果
    * {"result": "published" | "foreground" | "disabled" | "failed", "number"?, "message"?}（旧版网页不看返回值）
    */
   notifyShow(id: string, title: string, body: string, route: string, force?: boolean): Promise<string> {
@@ -394,7 +394,7 @@ export class NativeBridge {
     return this.notify.show(id, title, body, route, force === true);
   }
 
-  /** 系统通知（124 号票）：清掉"问过用户了"，回之后的 notifyState（网页设置里 Debug 工具集的"重置首次提示"） */
+  /** 系统通知：清掉"问过用户了"，回之后的 notifyState（网页设置里 Debug 工具集的"重置首次提示"） */
   notifyResetAsked(): string {
     if (!this.allowed('notifyResetAsked')) {
       return '';
@@ -410,7 +410,7 @@ export class NativeBridge {
     return notifyTaps.take();
   }
 
-  /** 原生的内置浏览器（134 号票）：网页有"浏览"页签了，回浏览器现在的样子 {"url", "title", "progress", "loading", "canGoBack", "canGoForward"} */
+  /** 原生的内置浏览器：网页有"浏览"页签了，回浏览器现在的样子 {"url", "title", "progress", "loading", "canGoBack", "canGoForward"} */
   browserAttach(): string {
     if (!this.allowed('browserAttach')) {
       return '';
@@ -442,7 +442,7 @@ export class NativeBridge {
     this.browser.nav(typeof action === 'string' ? action : '');
   }
 
-  /** 页面桥（134 号票第二部分）：调浏览器里网页上的页面桥（fields / fill / mark），args 是参数的 JSON 数组，回页面桥回的 JSON */
+  /** 页面桥：调浏览器里网页上的页面桥（fields / fill / mark），args 是参数的 JSON 数组，回页面桥回的 JSON */
   browserPage(op: string, args: string): Promise<string> {
     if (!this.allowed('browserPage')) {
       return refused();
@@ -474,7 +474,7 @@ export class NativeBridge {
     return this.browser.chooser(typeof choice === 'string' ? choice : '');
   }
 
-  /** 放掉预备好了没用上的文件（149 号票）：["编号", ...]；回 {"ok", "count"} */
+  /** 放掉预备好了没用上的文件：["编号", ...]；回 {"ok", "count"} */
   browserDiscard(json: string): Promise<string> {
     if (!this.allowed('browserDiscard')) {
       return refused();
@@ -483,7 +483,7 @@ export class NativeBridge {
   }
 
   /**
-   * 能渲染的文件（160 号票）：enable（网页能渲染文件了）、source（取内容）、save（下载）、outside（系统浏览器打开）、drop（放掉拦下的下载），
+   * 能渲染的文件：enable（网页能渲染文件了）、source（取内容）、save（下载）、outside（系统浏览器打开）、drop（放掉拦下的下载），
    * id 是报给网页的文件编号；回 JSON（source 回内容，别的回 {"ok"}）
    */
   browserDoc(op: string, id: string): Promise<string> {
@@ -494,7 +494,7 @@ export class NativeBridge {
   }
 
   /**
-   * ⋮ 菜单用到的原生工具（165 号票）：find / findNext / findClear / findBar / sites / share / clear / downloads / openDownload /
+   * ⋮ 菜单用到的原生工具：find / findNext / findClear / findBar / sites / share / clear / downloads / openDownload /
    * removeDownloads，json 是参数；回 JSON
    */
   browserTool(op: string, json: string): Promise<string> {
@@ -504,7 +504,7 @@ export class NativeBridge {
     return this.browser.tool(typeof op === 'string' ? op : '', typeof json === 'string' ? json : '{}');
   }
 
-  /** 浏览侧边栏（147 号票）：{"dpr", "side": {"visible", "x", "y", "width", "height"}, "view"}（CSS 像素），App 照着摆侧边栏 */
+  /** 浏览侧边栏：{"dpr", "side": {"visible", "x", "y", "width", "height"}, "view"}（CSS 像素），App 照着摆侧边栏 */
   browserSide(json: string): void {
     if (!this.allowed('browserSide')) {
       return;
@@ -513,7 +513,7 @@ export class NativeBridge {
   }
 
   /**
-   * App 原生的字（175 号票）：二狗的网页交来当前语言的这几句 {"language", "texts": {"harmony.…": "…"}}（开场、换了语言时），
+   * App 原生的字：二狗的网页交来当前语言的这几句 {"language", "texts": {"harmony.…": "…"}}（开场、换了语言时），
    * App 换上（common/AppTexts.ets）。认得出来回 'ok'，不然空串
    */
   setTexts(json: string): string {
@@ -524,7 +524,7 @@ export class NativeBridge {
   }
 
   /**
-   * 读本机（299 号票）：拉起系统的选人界面（不用通讯录权限），回用户挑的人
+   * 读本机：拉起系统的选人界面（不用通讯录权限），回用户挑的人
    * {"ok": true, "device", "contacts": [{"name", "phones", "birthday"?, "addresses"}]}；取消了 {"ok": false, "reason": "cancelled"}
    */
   phoneContactsPick(): Promise<string> {
@@ -558,7 +558,7 @@ export class NativeBridge {
     return this.phone.readCalendar(typeof from === 'string' ? from : '', typeof to === 'string' ? to : '');
   }
 
-  /** 读本机（300 号票）：读相册、读照片位置的授权 {"granted", "location", "asked", "device"} */
+  /** 读本机：读相册、读照片位置的授权 {"granted", "location", "asked", "device"} */
   phonePhotosState(): string {
     if (!this.allowed('phonePhotosState') || !this.phone) {
       return '';
@@ -622,7 +622,7 @@ export class NativeBridge {
     return this.phone.location.ack(typeof until === 'string' ? until : '');
   }
 
-  /** 读本机（308 号票）：现在在哪（定一次位、转地名），回 {"ok", "lat", "lon", "address"? | "state", "message"} */
+  /** 读本机：现在在哪（定一次位、转地名），回 {"ok", "lat", "lon", "address"? | "state", "message"} */
   phonePlaceHere(): Promise<string> {
     if (!this.allowed('phonePlaceHere') || !this.phone) {
       return refused();
@@ -630,7 +630,7 @@ export class NativeBridge {
     return this.phone.location.here();
   }
 
-  /** 读本机（308 号票）：按地名找（系统的地址转坐标），回 {"ok", "lat", "lon", "address"? | "state", "message"} */
+  /** 读本机：按地名找（系统的地址转坐标），回 {"ok", "lat", "lon", "address"? | "state", "message"} */
   phonePlaceFind(text: string): Promise<string> {
     if (!this.allowed('phonePlaceFind') || !this.phone) {
       return refused();

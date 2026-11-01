@@ -1,4 +1,4 @@
-// 假的语音识别服务（250 号票）：测试里代替 LSM 托管的 recognizer.py --serve（不加载模型、不占显卡）。
+// 假的语音识别服务：测试里代替 LSM 托管的 recognizer.py --serve（不加载模型、不占显卡）。
 // node fake-asr-service.mjs <记录文件>
 // 接口和 recognizer.py 的 --serve 一样，只听 127.0.0.1，端口由系统挑：挑到的那一个写进记录文件的一行
 // {"event":"start","port":N,"pid":…}，测试（helpers/asr.ts 的 startFakeAsrService）读它连上来。

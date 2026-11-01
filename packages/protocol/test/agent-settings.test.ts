@@ -1,4 +1,4 @@
-// 每个 agent 单独的提示词怎么查（114 号票，agent-settings.ts）：守护进程存之前、设置页边改边查用同一个函数，
+// 每个 agent 单独的提示词怎么查（agent-settings.ts）：守护进程存之前、设置页边改边查用同一个函数，
 // 占位符照这个角色的通用模板查（和设置 · 系统提示一致），整份自己写的不能是空的，追加的空着等于不追加。
 import { describe, expect, it } from "vitest";
 import { agentPromptProblem } from "../src/agent-settings.ts";

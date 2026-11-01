@@ -10,7 +10,7 @@ import { closeQuietly, deviceName, errorText, permissionGranted, requestPermissi
 import { GeoSpot, PhoneAddress, PhoneGeocoder, PlaceFixResult } from './PhoneGeocode';
 
 /**
- * 读本机：位置（300 号票）。App 自己定时记位置，二狗的网页经原生桥（NativeBridge.ets 的 phoneLocation* 五个方法）取走记下的点、
+ * 读本机：位置。App 自己定时记位置，二狗的网页经原生桥（NativeBridge.ets 的 phoneLocation* 五个方法）取走记下的点、
  * 交给用户自己的守护进程（POST /api/data-sources/phone-location/push），交好了再让 App 删掉交过的。网页一侧的包装在 packages/web/src/app/native-phone.ts。
  * - 授权：APPROXIMATELY_LOCATION（大概位置）和 LOCATION（精确位置）一起要（鸿蒙要求精确位置和大概位置同时申请；用户可以只给大概的）；
  * - 怎么记（频率和省电的取舍，照鸿蒙官方的说法）：
@@ -26,7 +26,7 @@ import { GeoSpot, PhoneAddress, PhoneGeocoder, PlaceFixResult } from './PhoneGeo
  *     当作关掉了"后台也记"，回到只在 App 开着时记（网页那一行、守护进程那边的"后台也记"跟着变）；
  * - 记下的点存在 App 自己的文件里（filesDir/phone-locations.csv，一行一个点：毫秒,纬度,经度,精度），只留最近 7 天、最多交 3000 个；
  *   停下时一起删掉。在不在记、后台也记没有存在 AppSettings 里，App 重新打开时接着记。
- * - 308 号票：交给网页之前把点转成地名（PhoneGeocode.ets：200 米内转过的不再转，一次最多转 20 处，转不了的只交坐标、25 分钟里不再试），
+ * -交给网页之前把点转成地名（PhoneGeocode.ets：200 米内转过的不再转，一次最多转 20 处，转不了的只交坐标、25 分钟里不再试），
  *   状态里报系统能不能转地名（geocoder）；"常去的地方"手动加一处用的"现在在哪"（here：定一次位、转地名）。
  */
 
@@ -52,7 +52,7 @@ class LocationStateResult {
   background: boolean = false;
   /** 系统的位置开关关着（记不到） */
   switchOff: boolean = false;
-  /** 现在转得了地名没有（308 号票：系统说能转、又不在没转成以后的 25 分钟暂停里） */
+  /** 现在转得了地名没有（系统说能转、又不在没转成以后的 25 分钟暂停里） */
   geocoder: boolean = false;
   device?: string;
 }
@@ -72,7 +72,7 @@ class LocationPoint {
   lat: number = 0;
   lon: number = 0;
   accuracy?: number;
-  /** 系统地名（308 号票，交给网页时转，转得了才有；文件里不存） */
+  /** 系统地名（交给网页时转，转得了才有；文件里不存） */
   address?: PhoneAddress;
 }
 
@@ -169,7 +169,7 @@ export class PhoneLocation {
   }
 
   /**
-   * 手机上记下、还没交出去的点（按时间先后，最多 3000 个，308 号票起带系统地名）：{"ok": true, "points": [...]}；
+   * 手机上记下、还没交出去的点（按时间先后，最多 3000 个，带系统地名）：{"ok": true, "points": [...]}；
    * 没授权 {"ok": false, "state": "denied"}
    */
   async read(): Promise<string> {
@@ -188,7 +188,7 @@ export class PhoneLocation {
       result.message = t('harmony.phone.locationFailed', { 'error': errorText(err) });
       return JSON.stringify(result);
     }
-    // 转成地名（308 号票）：转不了的只交坐标
+    // 转成地名：转不了的只交坐标
     const spots = points.map((p: LocationPoint) => {
       const spot = new GeoSpot();
       spot.lat = p.lat;
@@ -208,7 +208,7 @@ export class PhoneLocation {
   }
 
   /**
-   * 现在在哪（308 号票，"常去的地方"手动加一处）：定一次位（等最多 10 秒）、转成地名：{"ok": true, "lat", "lon", "address"?}；
+   * 现在在哪（"常去的地方"手动加一处）：定一次位（等最多 10 秒）、转成地名：{"ok": true, "lat", "lon", "address"?}；
    * 没定位授权 {"ok": false, "state": "denied"}；定不了 {"ok": false, "state": "unavailable", "message"}
    */
   async here(): Promise<string> {

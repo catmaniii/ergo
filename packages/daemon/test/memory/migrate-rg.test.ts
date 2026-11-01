@@ -1,4 +1,4 @@
-// 338 号票：推理库迁移的单元测试（临时目录，不碰真的数据目录）
+// 推理库迁移的单元测试（临时目录，不碰真的数据目录）
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";

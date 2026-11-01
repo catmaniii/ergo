@@ -1,4 +1,4 @@
-// 体检（319 号票的 319b）：设置 · 更多 · 体检一页的八项检查。网关的 GET /api/doctor 经这里现算一份（DoctorView）。
+// 体检（319b）：设置 · 更多 · 体检一页的八项检查。网关的 GET /api/doctor 经这里现算一份（DoctorView）。
 // 八项是端口、Node 版本、pi 版本、服务管家、模型的 key、组件、磁盘空间、外网入口，形状在共享协议包的 doctor.ts。
 //
 // 几条规矩：
@@ -7,7 +7,7 @@
 // - 事实是结构化的（端口号、版本号、剩多少 GB），给人看的那句话和"怎么修"由网页按当前语言拼，这里不写界面的字；
 // - 每项查什么由组合根注入（DoctorProbes），测试注入假的；这一份也提供正式用的那几个探测器（进程、文件系统那些）。
 //
-// 各项的 ok 判法（票里定的八条）：
+// 各项的 ok 判法：
 // - ports：两个端口都有人在听、而且听的是二狗自己（查得到占用者时按 pid 认；查不到时只按"有人在听"算，见 portsProbe）；
 // - node：跑着的 Node 大版本对得上 ADR-0031 那条线（pi 测过的，现在是 22）；
 // - pi：读得到 pi-coding-agent 的版本；
@@ -46,11 +46,11 @@ export interface DoctorOptions {
   probes: DoctorProbes;
   /** 查的时刻（毫秒时间戳）；不给是此刻。测试换成固定的 */
   now?: () => number;
-  /** 这份二狗是怎么装的（pi 缺了时修法不一样，371 号票）；不给当仓库里直接跑的 */
+  /** 这份二狗是怎么装的（pi 缺了时修法不一样）；不给当仓库里直接跑的 */
   install?: Pick<InstallLayout, "kind" | "info">;
 }
 
-/** 每一项的 ok 判法（票里定的八条） */
+/** 每一项的 ok 判法 */
 const OK: { readonly [Id in DoctorCheckId]: (data: DoctorCheckDataById[Id]) => boolean } = {
   ports: (data) => data.localUp && data.externalUp,
   node: (data) => data.running.split(".")[0] === data.expected,
@@ -77,13 +77,13 @@ const FALLBACK: { readonly [Id in DoctorCheckId]: DoctorCheckDataById[Id] } = {
   external: { configured: false },
 };
 
-/** pi 缺了怎么修：仓库里跑的（开发模式联接的也是）装依赖；一行命令装的程序目录里没有 npm，要重装；npm 装的用 npm 重装（371 号票） */
+/** pi 缺了怎么修：仓库里跑的（开发模式联接的也是）装依赖；一行命令装的程序目录里没有 npm，要重装；npm 装的用 npm 重装 */
 function piFix(install: DoctorOptions["install"]): string {
   if (install?.kind === "npm") return "doctor.fix.piNpm";
   return install?.kind === "installed" && install.info?.kind !== "link" ? "doctor.fix.piInstalled" : "doctor.fix.pi";
 }
 
-/** 怎么修的文案键：外网入口接错了端口（364 号票）和没配是两回事，修法不一样；pi 按安装方式 */
+/** 怎么修的文案键：外网入口接错了端口和没配是两回事，修法不一样；pi 按安装方式 */
 function fixOf(id: DoctorCheckId, data: DoctorCheckData, install: DoctorOptions["install"]): string {
   if (id === "pi") return piFix(install);
   return id === "external" && ((data as DoctorCheckDataById["external"]).rejected?.length ?? 0) > 0 ? "doctor.fix.externalRejected" : `doctor.fix.${id}`;
@@ -129,7 +129,7 @@ export function nodeProbe(): DoctorCheckDataById["node"] {
 /**
  * 两个端口上是不是二狗自己在听（端口号由网关给：生产里就是配置里的 ports，测试里是系统挑的）。
  * 先连一下 127.0.0.1:port 看有没有人在听；在听的话再核占用它的进程号是不是自己（Windows 上 netstat 查得到）。
- * 查不到占用者（不是 Windows、netstat 跑不了）时只按"有人在听"算——票里说这一点做不到就只报通不通
+ * 查不到占用者（不是 Windows、netstat 跑不了）时只按"有人在听"算——这一点做不到就只报通不通
  */
 export function portsProbe(ports: () => { local: number; external: number }): () => Promise<DoctorCheckDataById["ports"]> {
   return async () => {
@@ -143,7 +143,7 @@ export function portsProbe(ports: () => { local: number; external: number }): ()
 async function portIsOurs(port: number): Promise<boolean> {
   if (!(Number.isInteger(port) && port > 0)) return false;
   if (!(await portListening(port))) return false;
-  // 连得上，已知有人在听：netstat 这一眼没有、状态乱报也再找找（353 号票）
+  // 连得上，已知有人在听：netstat 这一眼没有、状态乱报也再找找
   const owners = await listeningPids(port, { known: true });
   return owners.length === 0 || owners.includes(process.pid);
 }
@@ -255,14 +255,14 @@ export function missingDefaultFeatures(view: ComponentsView): string[] {
 }
 
 /**
- * 外网入口的依据（340 号票，都是本机记着的，不真连出去），按这个先后看，查到一样就报这一样：
+ * 外网入口的依据（都是本机记着的，不真连出去），按这个先后看，查到一样就报这一样：
  * - registry/tailnet.yaml 里有二狗的一项 → 开了 tailnet 入口（VPS 上搭的是自建 headscale 的话报 headscale，否则是 Tailscale）；
  * - registry/services/ergo-daemon.yaml 的 exposure.via → 经某条隧道出网（VPS 隧道）；
  * - 有已配对的设备 → 报几台（两个端口都只绑 127.0.0.1，设备配得上一般说明有东西把外面接了进来，只有在这台电脑上打开外网端口配对的例外；手动跑的 tailscale serve 服务管家不知道，靠这一条认）。
  * 本机的外网端口 8811 有人听不算依据：它默认就开，算了这一项就永远是好的。
- * 用户在设备配对页手填了地址（364 号票）也算依据（排在已配对设备前面：手机还没配对时它就是唯一的依据）。
+ * 用户在设备配对页手填了地址也算依据（排在已配对设备前面：手机还没配对时它就是唯一的依据）。
  * 都没有是 configured: false，只表示没查到依据、不等于没配（文件读不了也算没查到）；网页就照这个说，不断言"没配"。
- * 服务管家给了、手机用不了的入口（接到了别的端口、不是 https，364 号票）放进 rejected：不管别的依据有没有，这一项都算不健康
+ * 服务管家给了、手机用不了的入口（接到了别的端口、不是 https）放进 rejected：不管别的依据有没有，这一项都算不健康
  */
 export function externalProbe(options: {
   svcDataDir: string;

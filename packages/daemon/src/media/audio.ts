@@ -1,4 +1,4 @@
-// 按内容认音频（31 号票的语音消息）：浏览器的 MediaRecorder 能录什么格式就收什么格式（Chrome、Edge 是 webm/opus，
+// 按内容认音频（语音消息）：浏览器的 MediaRecorder 能录什么格式就收什么格式（Chrome、Edge 是 webm/opus，
 // Firefox 是 ogg/opus，Safari 是 mp4/aac），服务端不看文件名和前端声明的类型，按开头的字节认。
 // 认出来的才能作为语音发出，下载时也只有它们按音频类型在页面里直接播放（其余一律作为附件下载）。
 

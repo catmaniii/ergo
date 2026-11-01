@@ -1,16 +1,16 @@
-// 数据源（295 号票，issue 25 生活数据源）：外面的数据（挂脖相机、日历、邮件、账单……）经"数据源插件"接进来。每种数据源一个插件，
+// 数据源（生活数据源）：外面的数据（挂脖相机、日历、邮件、账单……）经"数据源插件"接进来。每种数据源一个插件，
 // 插件在数据契约里登记它的数据源（守护进程 data-sources/），设置里一页"数据源"一处列出全部（GET /api/data-sources，DataSourcesView）：
 // 名字、连接状态、上次同步时间和条数、立即同步、断开（留着已导入的 / 连已导入的一起彻底删除）、用到的敏感类别、两种用法各开没开
 // （按需查：秘书被问到时现查，不存；导入：同步、整理成摘要进素材或交给别的插件）。数据源只产素材、不产结论（理解仍由记忆管理员做）。
 // 另有一个共用的"导入文件夹"（数据目录下）：手动导出的文件放进去，二狗按数据源插件登记的"认哪种文件"交给对应的插件导入，
 // 导完挪到"已导入"，认不出的留在原地、在数据源页提示。请求体见 data-sources-schema.ts。不引用 TypeBox。
-// 299 号票加了"设备交来的"（trigger device：手机上的二狗 App 读本机的通讯录、日历，经网页 POST /api/data-sources/<id>/push 交来）、
+// 加了"设备交来的"（trigger device：手机上的二狗 App 读本机的通讯录、日历，经网页 POST /api/data-sources/<id>/push 交来）、
 // 每次同步"进来的是什么"那一句（summary，数据源写）。
-// 300 号票加了"原始数据"（raw：插件自己存储里的、不进素材的原始数据——手机位置的原始坐标点、照片的时间地点——按天列出、能按天清掉）。
-// 343 号票：数据源页分两层（卡片总览 + 全屏详情），详情里"数据"一块有两个标签——已获取的（POST /api/data-sources/<id>/stored：已经进到二狗的，
+// 加了"原始数据"（raw：插件自己存储里的、不进素材的原始数据——手机位置的原始坐标点、照片的时间地点——按天列出、能按天清掉）。
+// 数据源页分两层（卡片总览 + 全屏详情），详情里"数据"一块有两个标签——已获取的（POST /api/data-sources/<id>/stored：已经进到二狗的，
 // 分页、新的在前；进素材的内核按素材的出处列，不进素材的由数据源自己列）、现在能查到的（POST /api/data-sources/<id>/live：现查上游，只读，
 // 不写事件、不进素材、不进记忆、不经过模型）。两边的条目一个外形（DataSourceDataItem）。
-// 344 号票（Gmail 多账号）：下面的几样能单独断开（断开动作带 item）、带开关和条数；现查的结果能按几组显示（groups：每个账号一组）。
+// Gmail 多账号：下面的几样能单独断开（断开动作带 item）、带开关和条数；现查的结果能按几组显示（groups：每个账号一组）。
 
 /** 两种用法：按需查（给秘书工具，现查不存）、导入（同步进来：进素材或者交给别的插件） */
 export const DATA_SOURCE_USAGES = ["query", "import"] as const;
@@ -22,7 +22,7 @@ export type DataSourceUsage = (typeof DATA_SOURCE_USAGES)[number];
 export const DATA_SOURCE_CONNECTIONS = ["not_connected", "connected", "error", "manual"] as const;
 export type DataSourceConnection = (typeof DATA_SOURCE_CONNECTIONS)[number];
 
-/** 一次同步从哪来：点了"立即同步"、定期导入到点了、导入文件夹里的一个文件、设备交来的（299 号票：手机上的二狗 App） */
+/** 一次同步从哪来：点了"立即同步"、定期导入到点了、导入文件夹里的一个文件、设备交来的（手机上的二狗 App） */
 export const DATA_SOURCE_SYNC_TRIGGERS = ["manual", "scheduled", "file", "device"] as const;
 export type DataSourceSyncTrigger = (typeof DATA_SOURCE_SYNC_TRIGGERS)[number];
 
@@ -47,7 +47,7 @@ export interface DataSourceSyncView {
   error?: string;
   /** 导入的文件名（trigger 是 file 的） */
   file?: string;
-  /** 这次进来的是什么（给人看的一句，数据源按当前语言写："2 位联系人：王小明、妈妈"；299 号票） */
+  /** 这次进来的是什么（给人看的一句，数据源按当前语言写："2 位联系人：王小明、妈妈"） */
   summary?: string;
 }
 
@@ -57,18 +57,18 @@ export interface DataSourceUsageView {
   on: boolean;
 }
 
-/** 数据源下面的一样（297 号票：Google 日历订阅的几个日历；344 号票：Gmail 的几个账号）：名字、一句说明（去掉私钥的地址、状态）、它自己出的错 */
+/** 数据源下面的一样（Google 日历订阅的几个日历；Gmail 的几个账号）：名字、一句说明（去掉私钥的地址、状态）、它自己出的错 */
 export interface DataSourceItemView {
   /** 插件自己认的 id（插件画的设置那一块按它删掉这一样） */
   id: string;
   title: string;
   detail?: string;
   problem?: string;
-  /** 这一样导入了几条（344 号票：断开一个账号的确认框里说）；不分开数的不写 */
+  /** 这一样导入了几条（断开一个账号的确认框里说）；不分开数的不写 */
   count?: number;
-  /** 这一样关着（344 号票：Gmail 账号的开关）；开着的不写 */
+  /** 这一样关着（Gmail 账号的开关）；开着的不写 */
   off?: true;
-  /** 能单独断开（344 号票：断开动作带 item，只删这一样的密钥，选了连已导入的一起删只删它的记录）；不能的不写 */
+  /** 能单独断开（断开动作带 item，只删这一样的密钥，选了连已导入的一起删只删它的记录）；不能的不写 */
   removable?: true;
 }
 
@@ -90,9 +90,9 @@ export interface DataSourceView {
   problem?: string;
   /** 连的是哪个账号（插件给的、只给人看：Google 是完整邮箱，Looki 是打了码的邮箱；没有就不写） */
   account?: string;
-  /** 一句提示、不算出错（297 号票："日历插件没启用：同步来的事件现在在日历里看不到"） */
+  /** 一句提示、不算出错（"日历插件没启用：同步来的事件现在在日历里看不到"） */
   note?: string;
-  /** 它下面的几样（297 号票：订阅的几个日历）；插件没在运行、没有的不写 */
+  /** 它下面的几样（订阅的几个日历）；插件没在运行、没有的不写 */
   items?: DataSourceItemView[];
   /** 它提供的用法和各开没开（没提供的不在里面） */
   usages: DataSourceUsageView[];
@@ -106,44 +106,44 @@ export interface DataSourceView {
   syncing: boolean;
   /** 现在能"立即同步"：插件在运行、导入开着、连着（或者不用连） */
   canSync: boolean;
-  /** 出错了、内核每小时自动替它再试一次（306 号票：页面上写明"每小时自动再试一次，也可以重新填"）；不是的不写 */
+  /** 出错了、内核每小时自动替它再试一次（页面上写明"每小时自动再试一次，也可以重新填"）；不是的不写 */
   autoRetry?: true;
   /** 定期导入的时间（给人看的，"每天 04:00"、"每 30 分钟"）；不定期的没有 */
   schedule?: string;
-  /** 导入的东西去哪（给人看的，297 号票："显示在日历里，不进素材"）；不写是整理成素材 */
+  /** 导入的东西去哪（给人看的："显示在日历里，不进素材"）；不写是整理成素材 */
   destination?: string;
   /** 它认导入文件夹里哪种文件（给人看的，"vCard 联系人（.vcf）"） */
   files: string[];
   /** 能在这一页填设置（API Key、地址……）、测试连接：网页插件在 dataSources 插槽里画那一块 */
   configurable: boolean;
-  /** 数据由设备交来（299 号票：手机上的二狗 App 读本机交过来，导入这种用法的说法跟着变）；不是的没有 */
+  /** 数据由设备交来（手机上的二狗 App 读本机交过来，导入这种用法的说法跟着变）；不是的没有 */
   fromDevice?: true;
   /**
-   * 插件画的设置那一块要的数据（307 号票：Looki 的"存一份到本地"——位置、存哪几类、已存多少、补存进度，样子见 looki.ts）。
+   * 插件画的设置那一块要的数据（Looki 的"存一份到本地"——位置、存哪几类、已存多少、补存进度，样子见 looki.ts）。
    * 核心不看、原样交给那一块；插件没在运行、没有的不写
    */
   panel?: unknown;
   /**
-   * 断开时要说一句的（307 号票："存到本地的照片、日记、vlog 不删……"），断开的确认框里写；没有不写。
-   * 306 号票起没有密钥、不进素材的数据源（手机日历、通讯录、Google 联系人）用它说实际会删什么（外部日程、没处理的档案候选）
+   * 断开时要说一句的（"存到本地的照片、日记、vlog 不删……"），断开的确认框里写；没有不写。
+   * 没有密钥、不进素材的数据源（手机日历、通讯录、Google 联系人）用它说实际会删什么（外部日程、没处理的档案候选）
    */
   disconnectNote?: string;
-  /** 这台电脑的密钥区里有它填过的（API Key、密码、私密地址），断开时删掉（306 号票：确认框才说"填过的密钥从这台电脑上删掉"）；没有不写 */
+  /** 这台电脑的密钥区里有它填过的（API Key、密码、私密地址），断开时删掉（确认框才说"填过的密钥从这台电脑上删掉"）；没有不写 */
   hasSecrets?: true;
-  /** 它导入的记录会整理成素材（它的记录登记了素材来源；306 号票：确认框才说"素材照样在""由它们整理出的素材"）；不进素材的不写 */
+  /** 它导入的记录会整理成素材（它的记录登记了素材来源；确认框才说"素材照样在""由它们整理出的素材"）；不进素材的不写 */
   toMaterials?: true;
-  /** 插件自己存储里的原始数据（300 号票）：按天列出、能按天清掉；没有这回事的、插件没在运行的没有 */
+  /** 插件自己存储里的原始数据：按天列出、能按天清掉；没有这回事的、插件没在运行的没有 */
   raw?: DataSourceRawView;
-  /** 要用户去授权、重新填（343 号票：手机上的授权被拒、被撤回，Gmail 登录没过，Looki 不认 Key）：卡片上的小签写"要授权"；不是的不写 */
+  /** 要用户去授权、重新填（手机上的授权被拒、被撤回，Gmail 登录没过，Looki 不认 Key）：卡片上的小签写"要授权"；不是的不写 */
   needsAuth?: true;
-  /** "数据"一块有"已获取的"这个标签（343 号票）：数据源自己会列（stored），或者它的记录进素材（内核按素材的出处列）；没有的不写 */
+  /** "数据"一块有"已获取的"这个标签：数据源自己会列（stored），或者它的记录进素材（内核按素材的出处列）；没有的不写 */
   hasStored?: true;
-  /** "数据"一块有"现在能查到的"这个标签（343 号票）：数据源能现查上游（live）；手机这种数据由设备交来的没有 */
+  /** "数据"一块有"现在能查到的"这个标签：数据源能现查上游（live）；手机这种数据由设备交来的没有 */
   hasLive?: true;
 }
 
 /**
- * 数据源详情"数据"一块里的一条（343 号票）：已获取的、现在能查到的共用一个外形。给人看的字都按守护进程当前的语言写好；
+ * 数据源详情"数据"一块里的一条：已获取的、现在能查到的共用一个外形。给人看的字都按守护进程当前的语言写好；
  * 标题、副标题、正文可能是外面写的（邮件的主题和正文），网页只当文字显示
  */
 export interface DataSourceDataItem {
@@ -166,11 +166,11 @@ export interface DataSourceDataItem {
   materialId?: string;
   /** 点开才现取正文（Gmail：列表只有发件人、主题、时间）：POST live 带 open 取 */
   openable?: true;
-  /** 现查时排在哪一组（344 号票：Gmail 的哪个账号，对上 DataSourceLiveResult.groups 的 id） */
+  /** 现查时排在哪一组（Gmail 的哪个账号，对上 DataSourceLiveResult.groups 的 id） */
   group?: string;
 }
 
-/** 现查结果里的一组（344 号票：Gmail 一个账号一组）：给人看的名字（完整邮箱）、上游一共几条、这一组查不到的原因、要说的一句 */
+/** 现查结果里的一组（Gmail 一个账号一组）：给人看的名字（完整邮箱）、上游一共几条、这一组查不到的原因、要说的一句 */
 export interface DataSourceLiveGroup {
   id: string;
   title: string;
@@ -210,7 +210,7 @@ export interface DataSourceLiveResult {
   /** 查到了、但有要说的（几个日历里有一个没拉到） */
   notes?: string[];
   problem?: string;
-  /** 按几组显示（344 号票：Gmail 一个账号一组，条目的 group 对上 id）；不分组的不写 */
+  /** 按几组显示（Gmail 一个账号一组，条目的 group 对上 id）；不分组的不写 */
   groups?: DataSourceLiveGroup[];
 }
 
@@ -224,7 +224,7 @@ export interface DataSourceRawDay {
   summarized: boolean;
 }
 
-/** 插件自己存储里的原始数据（300 号票：只在二狗的数据目录里、不进素材；整理成摘要的那一份在素材里） */
+/** 插件自己存储里的原始数据（只在二狗的数据目录里、不进素材；整理成摘要的那一份在素材里） */
 export interface DataSourceRawView {
   /** 给人看的：这是什么（"原始位置点"） */
   title: string;
@@ -278,8 +278,8 @@ export interface DataSourcesView {
 }
 
 /**
- * 对一个数据源做的事：立即同步、断开、开关一种用法、填设置（测试连接）、清掉几天的原始数据（300 号票）、在电脑上打开它的文件夹
- * （307 号票：Looki 存到本地的位置，和导入文件夹的"在电脑上打开"同一个做法）
+ * 对一个数据源做的事：立即同步、断开、开关一种用法、填设置（测试连接）、清掉几天的原始数据、在电脑上打开它的文件夹
+ * （Looki 存到本地的位置，和导入文件夹的"在电脑上打开"同一个做法）
  */
 export const DATA_SOURCE_ACTIONS = ["sync", "disconnect", "usage", "configure", "clear_raw", "open"] as const;
 export type DataSourceAction = (typeof DATA_SOURCE_ACTIONS)[number];
@@ -299,18 +299,18 @@ export interface DataSourceActionResult {
   view: DataSourcesView;
   /** 立即同步：新进来几条（还在同步的没有，view 里 syncing 是真） */
   added?: number;
-  /** 立即同步出错的原因；在电脑上打开没打开的原因（307 号票） */
+  /** 立即同步出错的原因；在电脑上打开没打开的原因 */
   error?: string;
   /** 断开并连已导入的一起删：删了几条 */
   purged?: DataSourcePurgeCounts;
-  /** 清掉原始数据（300 号票）：清掉了几条 */
+  /** 清掉原始数据：清掉了几条 */
   cleared?: number;
-  /** 在电脑上打开它的文件夹（307 号票）：打开了没有（没打开的原因在 error） */
+  /** 在电脑上打开它的文件夹：打开了没有（没打开的原因在 error） */
   opened?: boolean;
 }
 
 /**
- * POST /api/data-sources/<id>/push 的结果（299 号票：设备交来的，手机上的二狗 App 读本机的通讯录、日历）：做完之后的整页、
+ * POST /api/data-sources/<id>/push 的结果（设备交来的，手机上的二狗 App 读本机的通讯录、日历）：做完之后的整页、
  * 新进来几条、这次进来的是什么（给人看的一句）、数据源交回的（各数据源自己的样子，比如通讯录选人交回候选核对卡的编号）；
  * 出错的带原因（拒收的回 400，不在这里）
  */

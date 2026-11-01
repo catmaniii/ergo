@@ -1,4 +1,4 @@
-// 每个 agent 单独的提示词（114 号票，src/prompts/library.ts）：存在数据目录配置区的 agent-prompts/，按 agent 分（<agent id>.append.md、
+// 每个 agent 单独的提示词（src/prompts/library.ts）：存在数据目录配置区的 agent-prompts/，按 agent 分（<agent id>.append.md、
 // <agent id>.replace.md），不进仓库。追加的接在通用模板后面（通用模板改了跟着变），整份自己写的替换通用模板（通用模板改了不影响它）；
 // 两种都按这个角色的通用模板查占位符，写错的存不进去；文件被改坏、装配时缺值的退回通用模板，agent 照常拉起。
 import fs from "node:fs";
@@ -34,7 +34,7 @@ const rejection = (fn: () => unknown): string => {
 
 const DEFAULT_SECRETARY = (name: string) => secretarySystemPrompt(createPromptLibrary(), name);
 
-describe("用户说的负责人就是它（362 号票；365 号票起界面、手册、提示词都只有这一个叫法）", () => {
+describe("用户说的负责人就是它（界面、手册、提示词都只有这一个叫法）", () => {
   it("写了计划的那几种负责人的提示开头说明它是负责人，不再解释两个名字；计划的写法说明运行时工具不用写进授权项", () => {
     const { prompts } = library();
     const plan = taskMaintainerSystemPrompt(prompts, DEFAULT_TASK_THRESHOLDS);

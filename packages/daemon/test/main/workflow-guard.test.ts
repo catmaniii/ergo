@@ -1,4 +1,4 @@
-// 主切面：流程执行时逐步照计划核对（59 号票，ADR 0019；固定计划的执行时检查：两道判定、能修的按计划修回、
+// 主切面：流程执行时逐步照计划核对（ADR 0019；固定计划的执行时检查：两道判定、能修的按计划修回、
 // 监控器的外壳、收尾提醒、步骤推断）。真的守护进程，负责人接 faux 剧本，
 // 测试扮演前端。流程直接经任务服务建出、写好任务书，负责人交计划、用户授权，之后负责人按剧本执行：
 // - 每次调用先过现有的守卫判定，再和授权的计划比对（计划外、超范围、顺序错、重复、禁止），两道都要过；
@@ -7,7 +7,7 @@
 // - 一轮收工时还有既没做、也没说明跳过的步骤，提醒一次；做完了的步骤没报的、报了在做没报做完的推断成做完——只推断真执行过的
 //   （有对上它、执行成功的调用），被拒的、超出步骤写的调用不算；
 // - 执行中负责人想改步骤，告诉它不行。
-// - 101 号票：对话审批关着时任务的 agent 超出授权先不管——计划外会改东西的、超出步骤写的对象不问、直接做，记录上照常标出；
+// -对话审批关着时任务的 agent 超出授权先不管——计划外会改东西的、超出步骤写的对象不问、直接做，记录上照常标出；
 //   步骤先后的引回（自动纠偏）照旧。
 import fs from "node:fs";
 import path from "node:path";
@@ -169,7 +169,7 @@ describe("顺序错：引回前置步骤，不打扰用户；修回超过次数�
       ["error", undefined],
       ["done", undefined],
     ]);
-    // 60 号票：每次调用带着和计划比对的结果（算在哪一步、查出的问题、用上的纠偏），界面把偏离标在"接下来的计划"那一格
+    // 每次调用带着和计划比对的结果（算在哪一步、查出的问题、用上的纠偏），界面把偏离标在"接下来的计划"那一格
     expect(toolParts(frontend).filter((p) => p.tool === TOOL.read || p.tool === TOOL.write).map((p) => [p.tool, p.plan])).toEqual([
       [TOOL.read, { stepId: "s2", findings: ["out_of_order"], correction: "redirect" }],
       [TOOL.read, { stepId: "s2", findings: ["out_of_order"], correction: "redirect" }],
@@ -184,10 +184,10 @@ describe("顺序错：引回前置步骤，不打扰用户；修回超过次数�
     expect(seenByMaintainer(frontend)).toContain(
       '[toolResult] read: 【自动纠偏】这一步先不执行：步骤 s2 依赖的 s1 还没有执行。按用户已授权的计划，应先执行步骤 s1「写周报」：调用 write，参数 {"path":"notes.md","content":"# 周报\\n- 第一条\\n"}。做完再回来执行原来这一步。这是按计划纠偏，不需要询问用户。',
     );
-    // 每次修回在时间线上记一笔偏离（口径同 14 号票：负责人会话里的 timeline_record，带着任务）
+    // 每次修回在时间线上记一笔偏离（负责人会话里的 timeline_record，带着任务）
     expect(deviations(frontend)).toEqual(["自动纠偏：缺了前置步骤：先让负责人做「写周报」，再回来执行这一步", "自动纠偏：缺了前置步骤：先让负责人做「写周报」，再回来执行这一步"]);
     expect(recordsOf(frontend)[0]).toMatchObject({ taskId, record: { detail: "步骤 s2 依赖的 s1 还没有执行" } });
-    // 引回不算拉回（不计入 14 号票的拉回次数）
+    // 引回不算拉回（不计入拉回次数）
     expect(td.daemon.tasks.get(taskId)?.stages?.list?.[0]?.pullBacks).toBeUndefined();
   }, 120_000);
 });
@@ -208,7 +208,7 @@ describe("参数被改回", () => {
     await turnsOf(frontend, 2);
     expect(fs.readFileSync(path.join(work, "notes.md"), "utf8")).toBe("# 周报\n- 第一条\n");
     expect(toolParts(frontend).find((p) => p.tool === TOOL.write)).toMatchObject({ outcome: "done", argsSummary: expect.stringContaining("notes.md") });
-    // 60 号票：改回参数的调用记着用上了 rewrite（虚线框那一格写"参数已按计划改回"）
+    // 改回参数的调用记着用上了 rewrite（虚线框那一格写"参数已按计划改回"）
     expect(toolParts(frontend).find((p) => p.tool === TOOL.write)?.plan).toMatchObject({ stepId: "s1", correction: "rewrite" });
     expect(seenByMaintainer(frontend)).toContain("[toolResult] write: 【自动纠偏】参数和计划对不上，已按计划改回：content # 笔记\n → # 周报\n- 第一条\n。以下是按计划参数执行的结果：");
     expect(deviations(frontend)).toEqual(["自动纠偏：参数和计划对不上，已按计划改回：content # 笔记\n → # 周报\n- 第一条\n"]);
@@ -222,7 +222,7 @@ describe("计划外、超范围", () => {
       call(TOOL.ls, {}),
       call(TOOL.edit, { path: "notes.md", edits: [{ oldText: "a", newText: "b" }] }),
       call(TOOL.write, { path: "other.md", content: "别的\n" }),
-      // 点过一次头之后换一个文件照样问（用户定：按"工具 + 这次碰的对象"记，从严；同一个对象不再问见守卫切面）
+      // 点过一次头之后换一个文件照样问（按"工具 + 这次碰的对象"记，从严；同一个对象不再问见守卫切面）
       call(TOOL.write, { path: "third.md", content: "第三个\n" }),
       report("s1", "in_progress"),
       call(TOOL.write, { path: "notes.md", content: "# 周报\n- 第一条\n" }),
@@ -249,7 +249,7 @@ describe("计划外、超范围", () => {
       [TOOL.write, "done"],
       [TOOL.write, "done"],
     ]);
-    // 60 号票：计划外的标 offPlan（只读的放行了，没有要记的问题）；超出步骤写的对象的算在同一工具的那一步上
+    // 计划外的标 offPlan（只读的放行了，没有要记的问题）；超出步骤写的对象的算在同一工具的那一步上
     expect(stepToolParts(frontend).slice(0, 4).map((p) => p.plan)).toEqual([
       { offPlan: true },
       { offPlan: true, findings: ["off_plan"] },
@@ -388,7 +388,7 @@ describe("执行中不能改步骤", () => {
   }, 120_000);
 });
 
-describe("对话审批关着：任务的 agent 超出授权先不管（101 号票）", () => {
+describe("对话审批关着：任务的 agent 超出授权先不管", () => {
   it("超出步骤写的对象、计划外会改东西的不问、直接做，记录上照常标出；步骤先后的引回照旧；照计划做完，流程完成", async () => {
     const { frontend, work } = await runWorkflow(
       notesDraft(),

@@ -57,7 +57,7 @@ function mimeOf(contentType: string): string {
 }
 
 /**
- * 拦下载时先粗筛（160 号票）：可能是能渲染的文本才拦（服务端给的文件名、地址的扩展名、类型），最后由网页的 fileRenderOf 定——
+ * 拦下载时先粗筛：可能是能渲染的文本才拦（服务端给的文件名、地址的扩展名、类型），最后由网页的 fileRenderOf 定——
  * 筛进来但网页说不渲染的，网页让 App 照常保存
  */
 export function looksText(name: string, url: string, contentType: string): boolean {
@@ -179,7 +179,7 @@ function outcome(ok: boolean, reason: string): string {
 }
 
 /**
- * 原生浏览器里能渲染的文件（160 号票）：markdown 这类文本文件不显示原始文本、不下载，交给二狗的网页用二狗的渲染画（网页一侧
+ * 原生浏览器里能渲染的文件：markdown 这类文本文件不显示原始文本、不下载，交给二狗的网页用二狗的渲染画（网页一侧
  * packages/web/src/app/browse-files.ts，哪些渲染由网页的 state/file-view.ts 定）。网页说它能渲染文件了（browserDoc enable，
  * 旧版网页不说，这里什么都不做）之后：
  * - 浏览器里每加载完一页，问一下它的 document.contentType，报给网页（document，via page）——服务端回 text/markdown、text/plain、

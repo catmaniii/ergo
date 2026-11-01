@@ -1,4 +1,4 @@
-// 邮件解析（298 号票，google/mime.ts）：不加依赖，自己写的那部分——
+// 邮件解析（google/mime.ts）：不加依赖，自己写的那部分——
 // - 信头：编码字（B / Q、GBK 的一个字切在两段里）、没编码的 8 位字节（UTF-8、GBK）、地址列表（引号里的逗号、注释、组、几个 To）、日期；
 // - 参数：RFC 2231 的续段和字符集、引号里塞编码字的文件名；
 // - 正文：multipart 嵌套（alternative 挑纯文本、只有 HTML 的转文字）、base64、quoted-printable（软换行、GBK 字节）、format=flowed、

@@ -1,25 +1,25 @@
-// 网关的 HTTP 接口（规格第 5 节）：媒体的分片续传上传、按媒体 id 下载（支持 Range）、文本类附件的内容（113 号票，报告页用）、
-// HTML、SVG 附件在沙箱里预览用的两个接口（117 号票：带沙箱的 CSP 发出原文）、会话历史分页；
-// 设置里按会话、按时间段删除素材（21 号票），看范围里的素材和一条的完整内容（158 号票），"浏览"里存一页网页进素材（165 号票），记忆 · 素材按时间段、种类、会话、关键词取（167 号票，这几样 167 号票起在"记忆"页，不在设置里）；设置里的工作日历：按月看、改个人设置（29 号票）；主导航的日历：按月给出每一天的
-// 日历条目（35 号票）；消耗页的汇总（24 号票）；
-// 记忆的推理库只读看（233 号票，GET /api/memory/summary、/claims、/claims/<编号>、/questions）：概览、结论列表、一条结论的完整解释、问题箱，
+// 网关的 HTTP 接口（规格第 5 节）：媒体的分片续传上传、按媒体 id 下载（支持 Range）、文本类附件的内容（报告页用）、
+// HTML、SVG 附件在沙箱里预览用的两个接口（带沙箱的 CSP 发出原文）、会话历史分页；
+// 设置里按会话、按时间段删除素材，看范围里的素材和一条的完整内容，"浏览"里存一页网页进素材，记忆 · 素材按时间段、种类、会话、关键词取（这几样在"记忆"页，不在设置里）；设置里的工作日历：按月看、改个人设置；主导航的日历：按月给出每一天的
+// 日历条目；消耗页的汇总；
+// 记忆的推理库只读看（GET /api/memory/summary、/claims、/claims/<编号>、/questions）：概览、结论列表、一条结论的完整解释、问题箱，
 // 库没建、版本对不上、正被每晚整理占着都是 200 加 ready=false 和一句原因（不 500）。
-// 设置里的语音页：参考音色的列出、导入、选用、删除、试听（32 号票）；分段合成里合成好的一段（38 号票）；
-// 两个语音模型的状态（45 号票：模型预热）。
-// 工具包里能选的东西（skill 库、登记的 MCP）和设置里的 skill 库页导入 skill（27 号票；导入并改名、整套导入集合，72 号票）、
-// 看和改秘书用的 skill（72 号票）。设置里改个人助理的名字（43 号票）。设置 · 语言、网页的词典、换语言（168 号票）。
-// 一个会话能用的斜杠命令（输入框里打 / 弹出的候选，82 号票）。
-// 按调用 id 取一次工具调用的完整参数和返回（53 号票，详情页用）。设置里的工具调用完整内容：占了多大、"现在就清理"（65 号票）。
-// 设置里的"备份"：现在的状况、"立即备份"（335 号票）。
-// 设置里的系统提示：全部、一份、保存、恢复默认（71 号票）。
-// 设置里的"模型"：取、整份存、连通测试（73 号票；API key 只有状态，接口里没有 key 的内容，请求体也放不进 key）。
-// 首次设置向导：五步各自做完了没有、标"以后再说"/"看过了"（319 号票）。
-// 设置里 agent 的联网搜索、读网页走哪条路：取、整份存（154 号票）。
-// 长程任务一个阶段的授权已用几次、从这里重做的范围和已经做了的事（84 号票，阶段详情用）。
-// 每个 agent 的会话里的 ⚙：面板、单独的提示词（存、恢复用通用模板）、清空当前对话、现在压缩（114 号票）。
-// Debug 工具集的语音组：录一段送识别、用当前参考音色合成念一句（124 号票，不经会话）。
-// 网页上下指令、要交进上传框的文件、授权的文件夹（134 号票）和设置页选文件夹的框列子文件夹（138 号票）。
-// 项目的服务首页的缩略图（140 号票：守护进程自己截的，按项目编号和服务名取）。项目规范的只读视图（258 号票）。
+// 设置里的语音页：参考音色的列出、导入、选用、删除、试听；分段合成里合成好的一段；
+// 两个语音模型的状态（模型预热）。
+// 工具包里能选的东西（skill 库、登记的 MCP）和设置里的 skill 库页导入 skill（导入并改名、整套导入集合）、
+// 看和改秘书用的 skill。设置里改个人助理的名字。设置 · 语言、网页的词典、换语言。
+// 一个会话能用的斜杠命令（输入框里打 / 弹出的候选）。
+// 按调用 id 取一次工具调用的完整参数和返回（详情页用）。设置里的工具调用完整内容：占了多大、"现在就清理"。
+// 设置里的"备份"：现在的状况、"立即备份"。
+// 设置里的系统提示：全部、一份、保存、恢复默认。
+// 设置里的"模型"：取、整份存、连通测试（API key 只有状态，接口里没有 key 的内容，请求体也放不进 key）。
+// 首次设置向导：五步各自做完了没有、标"以后再说"/"看过了"。
+// 设置里 agent 的联网搜索、读网页走哪条路：取、整份存。
+// 长程任务一个阶段的授权已用几次、从这里重做的范围和已经做了的事（阶段详情用）。
+// 每个 agent 的会话里的 ⚙：面板、单独的提示词（存、恢复用通用模板）、清空当前对话、现在压缩。
+// Debug 工具集的语音组：录一段送识别、用当前参考音色合成念一句（不经会话）。
+// 网页上下指令、要交进上传框的文件、授权的文件夹和设置页选文件夹的框列子文件夹。
+// 项目的服务首页的缩略图（守护进程自己截的，按项目编号和服务名取）。项目规范的只读视图。
 // 路径怎么拆、查询参数叫什么都从共享协议包取（http.ts 的 parseHttpPath、HTTP_QUERY），请求体和响应体见 http-schema.ts。
 // 来源校验（Host、Origin）在网关入口已经做过。
 // 错误一律按协议的错误码回；错误码到 HTTP 状态码的对应只有下面 STATUS_OF 这一张表。
@@ -178,12 +178,12 @@ const STATUS_OF: Readonly<Record<HttpErrorCode, number>> = {
   too_many_requests: 429,
   unsupported_type: 415,
   undecodable: 422,
-  // 230 号票：导参考音色时本机的 ffmpeg 不在、识别进程不可用
+  // 导参考音色时本机的 ffmpeg 不在、识别进程不可用
   service_unavailable: 503,
   internal: 500,
 };
 
-/** 被占着、在做一轮（RequestRejected 的 conflict，290 号票的接管、交还、收回）回 409，别的照常 */
+/** 被占着、在做一轮（RequestRejected 的 conflict，接管、交还、收回）回 409，别的照常 */
 async function busyAs409<T>(run: () => Promise<T>): Promise<T> {
   try {
     return await run();
@@ -204,110 +204,110 @@ export class HttpError extends Error {
 
 export interface HttpApiOptions {
   media: MediaStore;
-  /** 事件存储：历史分页、工具调用的完整内容、报告页认附件的名字和类型（113 号票）从这里读 */
+  /** 事件存储：历史分页、工具调用的完整内容、报告页认附件的名字和类型从这里读 */
   store: EventStore;
   /** 设置里按会话、按时间段删除素材 */
   materialDeletion: BulkMaterialDeletion;
-  /** 设置里看素材（158）：范围里的素材列表、一条的完整内容和来源 */
+  /** 设置里看素材：范围里的素材列表、一条的完整内容和来源 */
   materialBrowser: MaterialBrowser;
   /**
-   * 记忆的推理库只读视图（233 号票）：概览、结论列表、一条结论的完整解释、问题箱。和素材一样是内核这一侧的：
+   * 记忆的推理库只读视图：概览、结论列表、一条结论的完整解释、问题箱。和素材一样是内核这一侧的：
    * 记忆插件停用了也能看已有的（这四个接口本身不报"没启用"）。不给就没有这四个接口
    */
   memoryGraph?: MemoryGraphReader;
-  /** 记忆的设置（264 号票）：秘书顺口问开不开，GET 取、PUT 整份存；不走事件。不给就没有这个接口 */
+  /** 记忆的设置：秘书顺口问开不开，GET 取、PUT 整份存；不走事件。不给就没有这个接口 */
   memorySettings?: MemorySettingsService;
   /**
-   * 了解你访谈（284 号票，记忆插件的服务，现取）：GET 取现在的样子、POST 开一次（记忆管理员对话里的"开始访谈"，285 号票）。
+   * 了解你访谈（记忆插件的服务，现取）：GET 取现在的样子、POST 开一次（记忆管理员对话里的"开始访谈"）。
    * 取到 undefined（记忆插件没启用）回"记忆插件没启用"；不给就没有这个接口
    */
   memoryInterviews?: () => MemoryInterviews | undefined;
   /** 设置里的工作日历：按月看、改个人设置 */
   workdayCalendar: WorkdayCalendarService;
-  /** 设置里的个人助理的名字：改名（43 号票） */
+  /** 设置里的个人助理的名字：改名 */
   assistantName: AssistantNameService;
-  /** 我的名字（249 号票）：用户自己的名字，GET 取、PUT 改（null 或者空串 = 清除）；不走事件 */
+  /** 我的名字：用户自己的名字，GET 取、PUT 改（null 或者空串 = 清除）；不走事件 */
   userName: UserNameService;
-  /** 个人档案（281 号票）：档案页的列表、一份、加人、改、删；不走前端频道。不给就没有这几个接口 */
+  /** 个人档案：档案页的列表、一份、加人、改、删；不走前端频道。不给就没有这几个接口 */
   personalFiles?: PersonalFilesService;
-  /** 多语言（168 号票）：设置 · 语言、网页的词典、换语言 */
+  /** 多语言：设置 · 语言、网页的词典、换语言 */
   language: Pick<LanguageService, "list" | "dictionary" | "change">;
   /**
-   * 主导航的日历：按月给出每一天的日历条目（35 号票）。213 号票起是日历插件的服务，组合根经插件宿主现取，
+   * 主导航的日历：按月给出每一天的日历条目。是日历插件的服务，组合根经插件宿主现取，
    * 日历插件没启用时抛 not_allowed"日历插件没启用"（回 400 带这句）
    */
   calendar: CalendarService;
   /** token 账本：消耗页的汇总和粗估成本 */
   ledger: TokenLedger;
   /**
-   * 语音插件的服务（214 号票，现取）：设置里的语音页（参考音色、两个语音模型的状态）、分段合成里合成好的一段（38 号票）、
-   * Debug 工具集的语音组（124 号票：录一段送识别、合成念一句）。插件没在运行（回 undefined）、不给时这几个接口回 404"语音插件没启用"
+   * 语音插件的服务（现取）：设置里的语音页（参考音色、两个语音模型的状态）、分段合成里合成好的一段、
+   * Debug 工具集的语音组（录一段送识别、合成念一句）。插件没在运行（回 undefined）、不给时这几个接口回 404"语音插件没启用"
    */
   voice?: () => VoiceApi | undefined;
-  /** 工具包：skill 库和登记的 MCP、导入 skill（27、72 号票）；不给就没有这两个接口 */
+  /** 工具包：skill 库和登记的 MCP、导入 skill；不给就没有这两个接口 */
   toolkits?: Pick<ToolkitService, "catalog" | "importSkill">;
-  /** 秘书用的 skill（72 号票）：设置里的 skill 库页看、改；不给就没有这个接口 */
+  /** 秘书用的 skill：设置里的 skill 库页看、改；不给就没有这个接口 */
   secretarySkills?: Pick<SecretarySkills, "view" | "set">;
-  /** 这个会话能用的斜杠命令（82 号票）；没有这个会话时 undefined；不给就没有这个接口 */
+  /** 这个会话能用的斜杠命令；没有这个会话时 undefined；不给就没有这个接口 */
   slashCommands?: (conversation: string) => SlashCommandList | undefined;
-  /** 工具调用完整内容的保留期和总量上限：设置里看占了多大、"现在就清理"（65 号票）；不给就没有这两个接口 */
+  /** 工具调用完整内容的保留期和总量上限：设置里看占了多大、"现在就清理"；不给就没有这两个接口 */
   toolCallStorage?: Pick<ToolCallDetailRetention, "view" | "cleanup">;
-  /** 设置 · 备份（335、356 号票）：现在的状况、"立即备份"（排一次，不等做完）、改配置、校验文件夹、列快照、手动校验、打开文件夹；不给就没有这几个接口 */
+  /** 设置 · 备份：现在的状况、"立即备份"（排一次，不等做完）、改配置、校验文件夹、列快照、手动校验、打开文件夹；不给就没有这几个接口 */
   backup?: Pick<BackupService, "status" | "startNow" | "changeConfig" | "checkFolder" | "snapshots" | "startVerify" | "openFolder">;
-  /** 设置里的系统提示：全部、一份、保存、恢复默认（71 号票）；不给就没有这几个接口 */
+  /** 设置里的系统提示：全部、一份、保存、恢复默认；不给就没有这几个接口 */
   systemPrompts?: Pick<PromptLibrary, "list" | "detail" | "save" | "reset">;
-  /** 设置里的"模型"（73 号票；319 号票起还能在网页上填 key）；不给就没有这几个接口 */
+  /** 设置里的"模型"（还能在网页上填 key）；不给就没有这几个接口 */
   modelSettings?: Pick<ModelSettingsService, "view" | "change" | "test" | "keyView" | "saveKey" | "customModels">;
-  /** 安全和预算的两个开关（315 号票）：GET / PUT /api/safety-settings；不给就没有这个接口 */
+  /** 安全和预算的两个开关：GET / PUT /api/safety-settings；不给就没有这个接口 */
   safetySettings?: Pick<SafetySettingsService, "view" | "change">;
-  /** 服务管家的开机自启（347 号票，向导里的开关）：GET / PUT /api/autostart；不给就没有这个接口 */
+  /** 服务管家的开机自启（向导里的开关）：GET / PUT /api/autostart；不给就没有这个接口 */
   autostart?: AutostartSwitch;
-  /** 首次设置向导（319 号票）：GET / POST /api/setup（五步各自做完了没有、标"以后再说"/"看过了"）；不给就没有这个接口 */
+  /** 首次设置向导：GET / POST /api/setup（五步各自做完了没有、标"以后再说"/"看过了"）；不给就没有这个接口 */
   setup?: Pick<SetupStateService, "view" | "mark">;
-  /** 体检（319 号票的 319b）：GET /api/doctor（八项检查现在的样子，每次现算）；不给就没有这个接口 */
+  /** 体检（319b）：GET /api/doctor（八项检查现在的样子，每次现算）；不给就没有这个接口 */
   doctor?: Pick<DoctorService, "view">;
-  /** 连接地址（364 号票）：GET / POST /api/connection-addresses（设备配对页的二维码界面用）；不给就没有这个接口 */
+  /** 连接地址：GET / POST /api/connection-addresses（设备配对页的二维码界面用）；不给就没有这个接口 */
   connectionAddresses?: Pick<ConnectionAddressesService, "view" | "setManual">;
-  /** 设置里 agent 的联网搜索、读网页走哪条路（154 号票）；不给就没有这个接口 */
+  /** 设置里 agent 的联网搜索、读网页走哪条路；不给就没有这个接口 */
   webSettings?: Pick<WebSettingsService, "view" | "problem" | "change">;
-  /** 设置 · 插件（211 号票）：列出、运行中停用、启用、移除；不给就没有这两个接口 */
+  /** 设置 · 插件：列出、运行中停用、启用、移除；不给就没有这两个接口 */
   plugins?: PluginSettings;
-  /** agent 运行时的登记表（286 号票）：GET /api/runtimes 列出登记了的运行时；不给就回一个空的清单 */
+  /** agent 运行时的登记表：GET /api/runtimes 列出登记了的运行时；不给就回一个空的清单 */
   runtimes?: Pick<RuntimeRegistry, "view">;
-  /** 从运行时已有的会话接管（290 号票）：列本机会话、接管成任务或项目；不给就没有这两个接口 */
+  /** 从运行时已有的会话接管：列本机会话、接管成任务或项目；不给就没有这两个接口 */
   takeover?: Pick<TakeoverService, "sessions" | "takeOver">;
-  /** 新建时的默认工作文件夹（305 号票）：PUT /api/runtimes/<运行时>/work-folder；不给就没有这个接口 */
+  /** 新建时的默认工作文件夹：PUT /api/runtimes/<运行时>/work-folder；不给就没有这个接口 */
   workFolders?: Pick<WorkFolders, "setDefault" | "check">;
-  /** 设置 · 数据源（295 号票）：GET /api/data-sources、POST /api/data-sources/<id>[/push | /stored | /live]、POST /api/import-folder；不给就没有这几个接口 */
+  /** 设置 · 数据源：GET /api/data-sources、POST /api/data-sources/<id>[/push | /stored | /live]、POST /api/import-folder；不给就没有这几个接口 */
   dataSources?: Pick<DataSources, "view" | "act" | "folder" | "push" | "stored" | "live">;
-  /** 设置 · 组件（323 号票）：GET / POST /api/components、POST /api/components/<id>、POST /api/component-import；不给就没有这几个接口 */
+  /** 设置 · 组件：GET / POST /api/components、POST /api/components/<id>、POST /api/component-import；不给就没有这几个接口 */
   components?: Pick<Components, "view" | "act" | "installDefaults" | "importFrom" | "refresh" | "checkUpdates">;
-  /** 长程任务一个阶段的授权已用几次、从这里重做的范围和已经做了的事（84 号票）；没有这个任务或阶段时 undefined；不给就没有这个接口 */
+  /** 长程任务一个阶段的授权已用几次、从这里重做的范围和已经做了的事；没有这个任务或阶段时 undefined；不给就没有这个接口 */
   taskStage?: (taskId: string, stageId: string) => TaskStageView | undefined;
-  /** 回退前的确认要的（150 号票）：回到这一条之前会放弃掉的那一段已经做了的事；不给就没有这个接口 */
+  /** 回退前的确认要的：回到这一条之前会放弃掉的那一段已经做了的事；不给就没有这个接口 */
   rollbackPreview?: (conversation: string, before: RollbackTarget) => RollbackPreview;
-  /** 一条分支的样子（151 号票）：它路径上不在 against（不给是当前分支）路径上的那一段；不给就没有这个接口 */
+  /** 一条分支的样子：它路径上不在 against（不给是当前分支）路径上的那一段；不给就没有这个接口 */
   branchView?: (conversation: string, branchId: string, against: string | undefined) => BranchView;
-  /** 每个 agent 的会话里的 ⚙（114 号票）；不给就没有这几个接口 */
+  /** 每个 agent 的会话里的 ⚙；不给就没有这几个接口 */
   agentSettings?: AgentSettings;
-  /** 负责人背后的 agent（368 号票）；不给就是一个都没有 */
+  /** 负责人背后的 agent；不给就是一个都没有 */
   backgroundAgents?: Pick<BackgroundAgents, "list" | "transcript">;
   /**
-   * 浏览插件（212 号票）给的，现取（插件没启用时回 undefined，这几个接口回"内置浏览器插件没启用"）：悬浮按钮上说的一段送识别（149 号票）、
-   * 要交进上传框的文件的取件码（134 号票）、候选的缩略图（149 号票）、"浏览"的 ⋮ 菜单里"存进二狗的素材"（165 号票）。不给就没有这几个接口
+   * 浏览插件给的，现取（插件没启用时回 undefined，这几个接口回"内置浏览器插件没启用"）：悬浮按钮上说的一段送识别、
+   * 要交进上传框的文件的取件码、候选的缩略图、"浏览"的 ⋮ 菜单里"存进二狗的素材"。不给就没有这几个接口
    */
   browsing?: () => BrowsingService | undefined;
-  /** 授权的文件夹（134 号票，138 号票起叫这个名字）和设置页选文件夹的框列子文件夹（138 号票）；不给就没有这两个接口 */
+  /** 授权的文件夹（叫这个名字）和设置页选文件夹的框列子文件夹；不给就没有这两个接口 */
   localFolders?: LocalFolders;
   folderBrowser?: FolderBrowser;
   /**
-   * 项目的服务首页的缩略图（140 号票）：按项目编号和服务名给文件和截图时间（顺带算"有人在看"，旧了的守护进程补截一张）；
+   * 项目的服务首页的缩略图：按项目编号和服务名给文件和截图时间（顺带算"有人在看"，旧了的守护进程补截一张）；
    * 没有是 undefined；不给就没有这个接口
    */
   serviceThumbnail?: (projectId: string, name: string) => { file: string; takenAt: string } | undefined;
-  /** 项目规范的只读视图（258 号票）：没有这个项目（删掉了的也是）是 undefined；不给就没有这个接口 */
+  /** 项目规范的只读视图：没有这个项目（删掉了的也是）是 undefined；不给就没有这个接口 */
   projectStandard?: (projectId: string) => ProjectStandardView | undefined;
-  /** 项目的服务报事件（357 号票）：POST /api/service-events，只在本机端口（网关挡外网端口）；不给就没有这个接口 */
+  /** 项目的服务报事件：POST /api/service-events，只在本机端口（网关挡外网端口）；不给就没有这个接口 */
   serviceEvents?: ServiceEventsApi;
   log: (line: string) => void;
 }
@@ -327,17 +327,17 @@ function isLocalDate(value: string): boolean {
 
 /** JSON 请求体的上限 */
 const MAX_JSON_BODY = 64 * 1024;
-/** 设备交来的（299 号票）：手机日历一次交几个月的日程（最多 PHONE_CALENDAR_EVENTS_MAX 条），放宽到 1 MB */
+/** 设备交来的：手机日历一次交几个月的日程（最多 PHONE_CALENDAR_EVENTS_MAX 条），放宽到 1 MB */
 const MAX_DATA_SOURCE_PUSH_BODY = 1024 * 1024;
-/** 存一页网页的请求体上限（165 号票：正文最多 BROWSER_PAGE_TEXT_MAX 字，中文一个字 3 字节，转义的另算） */
+/** 存一页网页的请求体上限（正文最多 BROWSER_PAGE_TEXT_MAX 字，中文一个字 3 字节，转义的另算） */
 const SAVE_WEB_PAGE_MAX_BODY = 256 * 1024;
-/** 保存系统提示的请求体上限（71 号票）：秘书的提示有一万多字节，留足余量 */
+/** 保存系统提示的请求体上限：秘书的提示有一万多字节，留足余量 */
 const MAX_PROMPT_BODY = 1024 * 1024;
 /** 导入参考音色的请求体上限：录音的 base64（比原文件大三分之一）加上名字和逐字稿 */
 const MAX_REFERENCE_VOICE_BODY = Math.ceil((REFERENCE_VOICE_MAX_BYTES * 4) / 3) + MAX_JSON_BODY;
-/** Debug 工具集送识别的请求体上限（124 号票）：录音的 base64 加上类型 */
+/** Debug 工具集送识别的请求体上限：录音的 base64 加上类型 */
 const MAX_DEBUG_AUDIO_BODY = Math.ceil((DEBUG_AUDIO_MAX_BYTES * 4) / 3) + MAX_JSON_BODY;
-/** 悬浮按钮上说的一段的请求体上限（149 号票）：录的一段的 base64 加上类型 */
+/** 悬浮按钮上说的一段的请求体上限：录的一段的 base64 加上类型 */
 const MAX_PAGE_VOICE_BODY = Math.ceil((PAGE_COMMAND_AUDIO_MAX_BYTES * 4) / 3) + MAX_JSON_BODY;
 
 /** 处理 /api/ 下的请求 */
@@ -348,7 +348,7 @@ type Handler = (req: http.IncomingMessage, res: http.ServerResponse, url: URL) =
 export function createHttpApi(options: HttpApiOptions): HttpApi {
   const { media, store, log } = options;
 
-  /** 个人档案（281 号票）：没给就没有这几个接口 */
+  /** 个人档案：没给就没有这几个接口 */
   const personalFiles = (): PersonalFilesService => {
     if (!options.personalFiles) throw new HttpError("not_found", t("gateway.http.noPersonalFiles"));
     return options.personalFiles;
@@ -388,16 +388,16 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         return { GET: (req, res, url) => serveMedia(req, res, route.mediaId, url) };
       case "media_text":
         return {
-          // 文本类附件的内容（113 号票，报告页用）：只回 JSON，不让浏览器直接渲染文件
+          // 文本类附件的内容（报告页用）：只回 JSON，不让浏览器直接渲染文件
           GET(_req, res) {
             sendJson(res, 200, mediaText(route.mediaId));
           },
         };
       case "media_html":
-        // HTML 附件本身（117 号票，报告页的沙箱框里看）：带沙箱的 CSP 发出原文
+        // HTML 附件本身（报告页的沙箱框里看）：带沙箱的 CSP 发出原文
         return { GET: (req, res) => serveFramed(req, res, route.mediaId, "html") };
       case "media_svg":
-        // SVG 附件本身（117 号票，报告页的 <img> 里看）
+        // SVG 附件本身（报告页的 <img> 里看）
         return { GET: (req, res) => serveFramed(req, res, route.mediaId, "svg") };
       case "history":
         return {
@@ -410,7 +410,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "slash_commands":
         return {
-          // 输入框里打 / 弹出的候选（82 号票）：工具包随时会变，每次现算
+          // 输入框里打 / 弹出的候选：工具包随时会变，每次现算
           GET(_req, res) {
             if (!options.slashCommands) throw new HttpError("not_found", t("gateway.http.noSlashCommands"));
             const list = isConversationChannel(route.conversation) ? options.slashCommands(route.conversation) : undefined;
@@ -458,7 +458,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
             sendJson(res, 200, view);
           },
         };
-      // 记忆的推理库（233 号票，只读）：概览、结论列表、一条结论的完整解释、问题箱。
+      // 记忆的推理库（只读）：概览、结论列表、一条结论的完整解释、问题箱。
       // 库没建、版本对不上、正被整理作业占着都是 200 加 ready=false 和一句原因，不 500
       case "memory_summary":
         return {
@@ -487,14 +487,14 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
             sendJson(res, 200, memoryGraph().questions({ limit: optionalInt(url, HTTP_QUERY.limit, 0) }));
           },
         };
-      // 330 号票：做法（交互策略）列表，标"建在猜测上""理由没了"
+      // 做法（交互策略）列表，标"建在猜测上""理由没了"
       case "memory_strategies":
         return {
           GET(_req, res) {
             sendJson(res, 200, memoryGraph().strategies());
           },
         };
-      // 记忆的设置（264 号票）：秘书顺口问开不开；现取现写，不缓存
+      // 记忆的设置：秘书顺口问开不开；现取现写，不缓存
       case "memory_settings":
         return {
           GET(_req, res) {
@@ -506,7 +506,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
             sendJson(res, 200, memorySettings().change(body.value));
           },
         };
-      // 了解你访谈（284 号票）：GET 现在的样子；POST 开一次（已经开着就是那一次），开场的系统消息交给记忆管理员
+      // 了解你访谈：GET 现在的样子；POST 开一次（已经开着就是那一次），开场的系统消息交给记忆管理员
       case "memory_interview":
         return {
           GET(_req, res) {
@@ -540,7 +540,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "user_name":
         return {
-          // 我的名字（249 号票）：现取现写，不缓存（设置里改了要马上读得到）
+          // 我的名字：现取现写，不缓存（设置里改了要马上读得到）
           GET(_req, res) {
             sendJson(res, 200, options.userName.view());
           },
@@ -552,7 +552,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "personal_files":
         return {
-          // 个人档案（281 号票）：现取；加一个重要的人（档案页里点的，改了就算确认）
+          // 个人档案：现取；加一个重要的人（档案页里点的，改了就算确认）
           GET(_req, res) {
             sendJson(res, 200, personalFiles().list());
           },
@@ -585,7 +585,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "personal_file_learned":
         return {
-          // 283 号票："二狗了解到的"，经记忆插件现取（插件没启用时 200、ready: false、写明原因）；没有这份是 404
+          // "二狗了解到的"，经记忆插件现取（插件没启用时 200、ready: false、写明原因）；没有这份是 404
           GET(_req, res) {
             sendJson(res, 200, personalFiles().learned(route.personId));
           },
@@ -643,7 +643,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
               });
               sendJson(res, created ? 201 : 200, imported);
             } catch (err) {
-              // 230 号票：本机没有 ffmpeg、识别用不了回 503；这段音频转不了回 400；别的（参数不对）照旧
+              // 本机没有 ffmpeg、识别用不了回 503；这段音频转不了回 400；别的（参数不对）照旧
               if (err instanceof AudioConvertError) throw new HttpError(err.kind === "missing" ? "service_unavailable" : "bad_request", err.message);
               if (err instanceof ReferenceVoiceTranscribeFailed) throw new HttpError("service_unavailable", err.message);
               throw err;
@@ -675,7 +675,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "agent_voice_segment":
         return {
-          // 分段合成的一段（38 号票）：临时的，合成完了过一阵就删；重做时同一段的内容会变，不缓存
+          // 分段合成的一段：临时的，合成完了过一阵就删；重做时同一段的内容会变，不缓存
           GET(req, res) {
             const file = voice().segmentFile(route.voiceId, route.index);
             const size = file === undefined ? undefined : fileSize(file);
@@ -709,7 +709,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "secretary_skills":
         return {
-          // 秘书用的 skill（72 号票）：现读设置文件
+          // 秘书用的 skill：现读设置文件
           GET(_req, res) {
             if (!options.secretarySkills) throw new HttpError("not_found", t("gateway.http.noSecretarySkills", { assistant: ASSISTANT_NAME_MARK }));
             sendJson(res, 200, options.secretarySkills.view());
@@ -724,7 +724,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "tool_call":
         return {
-          // 一次工具调用的完整参数和返回（53 号票）：调用结束时另存的那份（已经过隐私处理和截断）
+          // 一次工具调用的完整参数和返回：调用结束时另存的那份（已经过隐私处理和截断）
           GET(_req, res) {
             const detail = findToolCallDetail(store, route.callId);
             if (!detail) throw new HttpError("not_found", t("gateway.http.noToolCall", { callId: route.callId }));
@@ -733,7 +733,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "task_stage":
         return {
-          // 长程任务的阶段详情（84 号票）：每次打开现取
+          // 长程任务的阶段详情：每次打开现取
           GET(_req, res) {
             const view = options.taskStage?.(route.taskId, route.stageId);
             if (!view) throw new HttpError("not_found", t("gateway.http.noStage", { taskId: route.taskId, stageId: route.stageId }));
@@ -742,13 +742,13 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "rollback_preview":
         return {
-          // 回退前的确认（150 号票）：回到这条消息之前（message）或这条分支开始前（branch）会放弃掉的那一段已经做了的事
+          // 回退前的确认：回到这条消息之前（message）或这条分支开始前（branch）会放弃掉的那一段已经做了的事
           GET(req, res) {
             if (!options.rollbackPreview) throw new HttpError("not_found", t("gateway.http.noRollback"));
             const url = new URL(req.url ?? "/", "http://localhost");
             const messageId = url.searchParams.get(HTTP_QUERY.message);
             const branchId = url.searchParams.get(HTTP_QUERY.branch);
-            // 152 号票：长程任务一个阶段开始前（stage_start 记号的 id）
+            // 长程任务一个阶段开始前（stage_start 记号的 id）
             const stageStart = url.searchParams.get(HTTP_QUERY.stage);
             const given = [messageId, branchId, stageStart].filter((v) => v);
             if (given.length !== 1) throw new HttpError("bad_request", t("gateway.http.oneOf", { message: HTTP_QUERY.message, branch: HTTP_QUERY.branch, stage: HTTP_QUERY.stage }));
@@ -757,7 +757,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "branch_view":
         return {
-          // 一条分支的样子（151 号票）：废弃分支的 ⑂ 预览、详情；切换分支之后别的设备取新的当前分支上手里没有的那一段
+          // 一条分支的样子：废弃分支的 ⑂ 预览、详情；切换分支之后别的设备取新的当前分支上手里没有的那一段
           GET(req, res) {
             if (!options.branchView) throw new HttpError("not_found", t("gateway.http.noBranchView"));
             const url = new URL(req.url ?? "/", "http://localhost");
@@ -768,7 +768,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "tool_call_storage":
         return {
-          // 设置里的"工具调用的完整内容"：占了多大、规则、照现在的规则马上清会清掉多少（65 号票）
+          // 设置里的"工具调用的完整内容"：占了多大、规则、照现在的规则马上清会清掉多少
           GET(_req, res) {
             if (!options.toolCallStorage) throw new HttpError("not_found", t("gateway.http.noToolCallStorage"));
             sendJson(res, 200, options.toolCallStorage.view());
@@ -784,7 +784,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "backup":
         return {
-          // 设置里的"备份"（335 号票）：谁来定时、下一次、同步目录、最新的快照、最近一次、现在有没有一份在做（每次现取）
+          // 设置里的"备份"：谁来定时、下一次、同步目录、最新的快照、最近一次、现在有没有一份在做（每次现取）
           GET(_req, res) {
             sendJson(res, 200, backupService().status());
           },
@@ -798,7 +798,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "backup_config":
         return {
-          // 设置 · 备份改配置（356 号票）：另存的文件夹、每晚几点、谁来定时；校验不过、配置文件被改坏了回 400 带原因，什么都不变
+          // 设置 · 备份改配置：另存的文件夹、每晚几点、谁来定时；校验不过、配置文件被改坏了回 400 带原因，什么都不变
           async PATCH(req, res) {
             const service = backupService();
             const body = checkHttpBody(BackupConfigBody, await readJson(req));
@@ -808,7 +808,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "backup_check_folder":
         return {
-          // 选文件夹时校验一个路径（356 号票）：能用、不存在、不能用（原因在响应里，都是 200）
+          // 选文件夹时校验一个路径：能用、不存在、不能用（原因在响应里，都是 200）
           async POST(req, res) {
             const service = backupService();
             const body = checkHttpBody(BackupFolderCheckBody, await readJson(req));
@@ -818,21 +818,21 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "backup_snapshots":
         return {
-          // 本机和另存文件夹各有哪些快照（356 号票）：取不到的原因在响应里
+          // 本机和另存文件夹各有哪些快照：取不到的原因在响应里
           async GET(_req, res) {
             sendJson(res, 200, await backupService().snapshots());
           },
         };
       case "backup_verify":
         return {
-          // 手动校验最新的快照（356 号票）：排一次（和备份同一条队列、同一把锁），不等做完，马上回现在的状况
+          // 手动校验最新的快照：排一次（和备份同一条队列、同一把锁），不等做完，马上回现在的状况
           POST(_req, res) {
             sendJson(res, 200, backupService().startVerify());
           },
         };
       case "backup_open":
         return {
-          // 在电脑上打开本机备份区或另存的文件夹（356 号票）：只认这两处，不收路径；打不开的原因在响应里
+          // 在电脑上打开本机备份区或另存的文件夹：只认这两处，不收路径；打不开的原因在响应里
           async POST(req, res) {
             const service = backupService();
             const body = checkHttpBody(BackupOpenBody, await readJson(req));
@@ -842,7 +842,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "system_prompts":
         return {
-          // 设置里的系统提示（71 号票）：全部，各自用的是默认还是改过的（每次现读文件，不缓存）
+          // 设置里的系统提示：全部，各自用的是默认还是改过的（每次现读文件，不缓存）
           GET(_req, res) {
             sendJson(res, 200, systemPrompts().list());
           },
@@ -865,7 +865,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "model_settings":
         return {
-          // 设置里的"模型"（73 号票）：服务商登记表、API key 的状态（只说配没配、从哪来）、可选的模型和看图能力、设置
+          // 设置里的"模型"：服务商登记表、API key 的状态（只说配没配、从哪来）、可选的模型和看图能力、设置
           async GET(_req, res) {
             if (!options.modelSettings) throw new HttpError("not_found", t("gateway.http.noModelSettings"));
             sendJson(res, 200, await options.modelSettings.view());
@@ -880,7 +880,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "plugins":
         return {
-          // 设置 · 插件（211 号票）：清单里的全部插件，给人看的字按守护进程当前的语言
+          // 设置 · 插件：清单里的全部插件，给人看的字按守护进程当前的语言
           GET(_req, res) {
             if (!options.plugins) throw new HttpError("not_found", t("gateway.http.noPlugins"));
             sendJson(res, 200, options.plugins.view());
@@ -898,7 +898,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "data_sources":
         return {
-          // 设置 · 数据源（295 号票）：插件登记的全部数据源（停用的插件的也在，写明没启用）和导入文件夹，给人看的字按守护进程当前的语言
+          // 设置 · 数据源：插件登记的全部数据源（停用的插件的也在，写明没启用）和导入文件夹，给人看的字按守护进程当前的语言
           GET(_req, res) {
             if (!options.dataSources) throw new HttpError("not_found", t("gateway.http.noDataSources"));
             sendJson(res, 200, options.dataSources.view());
@@ -917,7 +917,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "data_source_push":
         return {
-          // 设备交来的（299 号票：手机上的二狗 App 读本机的通讯录、日历）：data 按那个数据源登记的 schema 查，不收的回 400 和原因、
+          // 设备交来的（手机上的二狗 App 读本机的通讯录、日历）：data 按那个数据源登记的 schema 查，不收的回 400 和原因、
           // 不认得的回 404；同一个幂等键重发只收一次。交来的内容不写日志
           async POST(req, res) {
             if (!options.dataSources) throw new HttpError("not_found", t("gateway.http.noDataSources"));
@@ -928,7 +928,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "data_source_stored":
         return {
-          // 数据源详情的"已获取的"（343 号票）：一页，新的在前；只读。不认得的回 404，没有这回事的回 400。外网端口上和别的接口一样要设备凭证
+          // 数据源详情的"已获取的"：一页，新的在前；只读。不认得的回 404，没有这回事的回 400。外网端口上和别的接口一样要设备凭证
           async POST(req, res) {
             if (!options.dataSources) throw new HttpError("not_found", t("gateway.http.noDataSources"));
             const body = checkHttpBody(DataSourceStoredBody, await readJson(req));
@@ -938,7 +938,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "data_source_live":
         return {
-          // 数据源详情的"现在能查到的"（343 号票）：现查上游，只读，不写事件、不进素材、不进记忆、不经过模型；查不到的 200 带原因。
+          // 数据源详情的"现在能查到的"：现查上游，只读，不写事件、不进素材、不进记忆、不经过模型；查不到的 200 带原因。
           // 不认得的回 404，不能现查的回 400。外网端口上和别的接口一样要设备凭证
           async POST(req, res) {
             if (!options.dataSources) throw new HttpError("not_found", t("gateway.http.noDataSources"));
@@ -949,7 +949,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "import_folder":
         return {
-          // 导入文件夹（295 号票）：现在看一遍（出错过的也再试一次）、在电脑上打开
+          // 导入文件夹：现在看一遍（出错过的也再试一次）、在电脑上打开
           async POST(req, res) {
             if (!options.dataSources) throw new HttpError("not_found", t("gateway.http.noDataSources"));
             const body = checkHttpBody(ImportFolderActionBody, await readJson(req));
@@ -959,13 +959,13 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "components":
         return {
-          // 设置 · 组件（323 号票）：清单里的全部组件现在的样子（装了没有、多大、哪个版本、下载进度），给人看的字按守护进程当前的语言
+          // 设置 · 组件：清单里的全部组件现在的样子（装了没有、多大、哪个版本、下载进度），给人看的字按守护进程当前的语言
           async GET(_req, res) {
             if (!options.components) throw new HttpError("not_found", t("gateway.http.noComponents"));
             await options.components.refresh();
             sendJson(res, 200, options.components.view());
           },
-          // 装上照默认该装、还没装的（排队下载，马上回）；查一次有没有新版本（347 号票：查完才回，没查成也是 200，原因在 updates.error）
+          // 装上照默认该装、还没装的（排队下载，马上回）；查一次有没有新版本（查完才回，没查成也是 200，原因在 updates.error）
           async POST(req, res) {
             if (!options.components) throw new HttpError("not_found", t("gateway.http.noComponents"));
             const body = checkHttpBody(ComponentsActionBody, await readJson(req));
@@ -995,14 +995,14 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "runtimes":
         return {
-          // 登记了的 agent 运行时（286 号票）：pi 在最前，插件的按清单的先后（停用了的也在，写明不能用的原因），连同能力清单、可选模型和设置项
+          // 登记了的 agent 运行时：pi 在最前，插件的按清单的先后（停用了的也在，写明不能用的原因），连同能力清单、可选模型和设置项
           GET(_req, res) {
             sendJson(res, 200, options.runtimes?.view() ?? { runtimes: [] });
           },
         };
       case "runtime_sessions":
         return {
-          // 这个运行时在本机能接管的会话（290 号票）：每次打开现取；正被别处占着、二狗自己在管的写明
+          // 这个运行时在本机能接管的会话：每次打开现取；正被别处占着、二狗自己在管的写明
           async GET(_req, res) {
             if (!options.takeover) throw new HttpError("not_found", t("gateway.http.noTakeover"));
             sendJson(res, 200, await options.takeover.sessions(route.runtimeId));
@@ -1010,7 +1010,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "runtime_take_over":
         return {
-          // 从选中的会话接管成任务或项目（290 号票）：被占着的不分叉回 409；同一个幂等键重发拿到第一次建出的
+          // 从选中的会话接管成任务或项目：被占着的不分叉回 409；同一个幂等键重发拿到第一次建出的
           async POST(req, res) {
             if (!options.takeover) throw new HttpError("not_found", t("gateway.http.noTakeover"));
             const body = checkHttpBody(TakeOverBody, await readJson(req));
@@ -1020,7 +1020,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "runtime_folder":
         return {
-          // 能选工作文件夹的运行时新建时的默认文件夹（305 号票）：路径不对回 400（写明原因），响应是改过的运行时清单
+          // 能选工作文件夹的运行时新建时的默认文件夹：路径不对回 400（写明原因），响应是改过的运行时清单
           async PUT(req, res) {
             if (!options.workFolders) throw new HttpError("not_found", t("gateway.http.noWorkFolders"));
             const body = checkHttpBody(RuntimeFolderBody, await readJson(req));
@@ -1038,7 +1038,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "web_settings":
         return {
-          // 设置里 agent 的联网搜索、读网页（154 号票；162 号票起是 DeepSeek、浏览器、agent-browser 三种方式的队列）：存着的队列、
+          // 设置里 agent 的联网搜索、读网页（是 DeepSeek、浏览器、agent-browser 三种方式的队列）：存着的队列、
           // 实际用的顺序、DeepSeek 的 key 配没配（只说配没配）、最近一次余额不足
           GET(_req, res) {
             if (!options.webSettings) throw new HttpError("not_found", t("gateway.http.noWebSettings"));
@@ -1056,7 +1056,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "safety_settings":
         return {
-          // 安全和预算的两个开关（315 号票）：现在的；改哪项给哪项，写进配置文件、马上生效
+          // 安全和预算的两个开关：现在的；改哪项给哪项，写进配置文件、马上生效
           GET(_req, res) {
             if (!options.safetySettings) throw new HttpError("not_found", t("gateway.http.noSafetySettings"));
             sendJson(res, 200, options.safetySettings.view());
@@ -1070,7 +1070,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "service_events":
         return {
-          // 项目的服务报事件（357 号票，ADR-0043）：先认凭证（不对的不读请求体），再读（超了上限的不留在内存里），再报；不等负责人做完就回
+          // 项目的服务报事件（ADR-0043）：先认凭证（不对的不读请求体），再读（超了上限的不留在内存里），再报；不等负责人做完就回
           async POST(req, res) {
             if (!options.serviceEvents) throw new HttpError("not_found", t("gateway.serviceEvents.none"));
             const who = options.serviceEvents.authenticate(bearerToken(req.headers.authorization));
@@ -1095,7 +1095,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "autostart":
         return {
-          // 服务管家的开机自启（347 号票）：现在开没开（现查计划任务）
+          // 服务管家的开机自启：现在开没开（现查计划任务）
           async GET(_req, res) {
             if (!options.autostart) throw new HttpError("not_found", t("gateway.http.noAutostart"));
             sendJson(res, 200, await options.autostart.view());
@@ -1110,7 +1110,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "setup":
         return {
-          // 首次设置向导（319 号票）：各步做完了没有。ready 是条件现在满不满足（现算），done 还含"以后再说"和"看过了"
+          // 首次设置向导：各步做完了没有。ready 是条件现在满不满足（现算），done 还含"以后再说"和"看过了"
           GET(_req, res) {
             if (!options.setup) throw new HttpError("not_found", t("gateway.http.noSetup"));
             sendJson(res, 200, options.setup.view());
@@ -1125,7 +1125,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "doctor":
         return {
-          // 体检（319 号票的 319b）：八项检查现在的样子，每次现算；只查本机（除探本机端口外不联网、不调用模型、不改状态）
+          // 体检（319b）：八项检查现在的样子，每次现算；只查本机（除探本机端口外不联网、不调用模型、不改状态）
           async GET(_req, res) {
             if (!options.doctor) throw new HttpError("not_found", t("gateway.http.noDoctor"));
             sendJson(res, 200, await options.doctor.view());
@@ -1133,7 +1133,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "connection_addresses":
         return {
-          // 连接地址（364 号票）：手机从外面连到二狗能用的地址，问服务管家的加手填的，每次现算、不碰网络
+          // 连接地址：手机从外面连到二狗能用的地址，问服务管家的加手填的，每次现算、不碰网络
           GET(_req, res) {
             if (!options.connectionAddresses) throw new HttpError("not_found", t("gateway.http.noConnectionAddresses"));
             sendJson(res, 200, options.connectionAddresses.view());
@@ -1153,12 +1153,12 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "model_settings_key":
         return {
-          // 模型的 key 配没配（315 号票）：不查模型目录、马上回；会话页上"还没配模型"的提示用
+          // 模型的 key 配没配：不查模型目录、马上回；会话页上"还没配模型"的提示用
           GET(_req, res) {
             if (!options.modelSettings) throw new HttpError("not_found", t("gateway.http.noModelSettings"));
             sendJson(res, 200, options.modelSettings.keyView());
           },
-          // 在网页上填一个 key（319 号票）：写进密钥区的文件、换成现在用的；太短、太长的回 400，回的响应和日志里都没有 key 的内容。
+          // 在网页上填一个 key：写进密钥区的文件、换成现在用的；太短、太长的回 400，回的响应和日志里都没有 key 的内容。
           // 请求体带了 provider 就写那个服务商的（设置页按服务商逐条列 key，给"另一个服务商"填不用先切过去），不是登记表里的回 400
           async POST(req, res) {
             if (!options.modelSettings) throw new HttpError("not_found", t("gateway.http.noModelSettings"));
@@ -1199,7 +1199,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "agent_settings":
         return {
-          // 一个 agent 的 ⚙ 面板（114 号票）：每次打开现取（用量、压缩的进度在变）
+          // 一个 agent 的 ⚙ 面板：每次打开现取（用量、压缩的进度在变）
           GET(_req, res) {
             sendJson(res, 200, agentSettings().view(route.agentId));
           },
@@ -1249,7 +1249,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "agent_model":
         return {
-          // 项目、任务的负责人单独配模型（120 号票）：模型目录里没有的拒收（400）；下一个新会话起生效
+          // 项目、任务的负责人单独配模型：模型目录里没有的拒收（400）；下一个新会话起生效
           async PUT(req, res) {
             const body = checkHttpBody(AgentModelBody, await readJson(req));
             if (!body.ok) throw new HttpError("bad_request", t("gateway.http.badAgentModel", { message: body.message }));
@@ -1262,7 +1262,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "agent_runtime":
         return {
-          // 项目、任务的负责人用哪个运行时、给它选的模型和设置项（289 号票）：不认得的、没启用的、不在列表里的拒收（400）；
+          // 项目、任务的负责人用哪个运行时、给它选的模型和设置项：不认得的、没启用的、不在列表里的拒收（400）；
           // 换运行时的等手头这一条做完、原来的写好交接摘要才换
           async PUT(req, res) {
             const body = checkHttpBody(AgentRuntimeBody, await readJson(req));
@@ -1272,7 +1272,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "agent_takeover":
         return {
-          // 接管来的会话交还给运行时 / 收回到二狗（290 号票）：在做一轮的不交还（409），交还等子进程退干净才回；收回先核对没在别处开着
+          // 接管来的会话交还给运行时 / 收回到二狗：在做一轮的不交还（409），交还等子进程退干净才回；收回先核对没在别处开着
           async POST(req, res) {
             const body = checkHttpBody(TakeoverActionBody, await readJson(req));
             if (!body.ok) throw new HttpError("bad_request", t("gateway.http.badTakeOver", { message: body.message }));
@@ -1281,7 +1281,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "agent_profiles":
         return {
-          // 每个 agent 的名字和音色（241 号票）：248 号票起只保留 GET 只读兼容，返回从角色算出来的结果；
+          // 每个 agent 的名字和音色：只保留 GET 只读兼容，返回从角色算出来的结果；
           // 前端的设置页已经全部换成"角色与声音"（/api/agent-roles）
           GET(_req, res) {
             sendJson(res, 200, agentSettings().profiles());
@@ -1289,7 +1289,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "agent_profile":
         return {
-          // 改一个 agent 的名字和音色：248 号票起不做了（改成给这个 agent 选一个角色），回 400 指路
+          // 改一个 agent 的名字和音色：不做了（改成给这个 agent 选一个角色），回 400 指路
           PUT: () => {
             throw new HttpError("bad_request", t("gateway.http.agentProfileGone"));
           },
@@ -1299,11 +1299,11 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "agent_roles":
         return {
-          // 设置 · 角色与声音（248 号票）：默认角色、角色表（连同谁在用）、每个 agent 用哪个角色、参考音色；每次现取，不缓存
+          // 设置 · 角色与声音：默认角色、角色表（连同谁在用）、每个 agent 用哪个角色、参考音色；每次现取，不缓存
           GET(_req, res) {
             sendJson(res, 200, agentSettings().rolesView());
           },
-          // 新建一个角色：名字按 43 号票的规矩查、音色要现在有的；不合规回 400 带原因
+          // 新建一个角色：名字按规矩查、音色要现在有的；不合规回 400 带原因
           async POST(req, res) {
             const body = checkHttpBody(AgentRoleBody, await readJson(req));
             if (!body.ok) throw new HttpError("bad_request", t("gateway.http.badAgentRole", { message: body.message }));
@@ -1343,7 +1343,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "debug_recognize":
         return {
-          // Debug 工具集（124 号票）：录的一段交给识别进程，回文字和耗时；识别不了也是 200（带原因）
+          // Debug 工具集：录的一段交给识别进程，回文字和耗时；识别不了也是 200（带原因）
           async POST(req, res) {
             const body = checkHttpBody(DebugRecognizeBody, await readJson(req, MAX_DEBUG_AUDIO_BODY));
             if (!body.ok) throw new HttpError("bad_request", t("gateway.http.badRecognize", { message: body.message }));
@@ -1354,7 +1354,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "debug_speak":
         return {
-          // Debug 工具集（124 号票）：用当前参考音色合成念一句，回 WAV 和耗时；合成不了也是 200（带原因）
+          // Debug 工具集：用当前参考音色合成念一句，回 WAV 和耗时；合成不了也是 200（带原因）
           async POST(req, res) {
             const body = checkHttpBody(DebugSpeakBody, await readJson(req));
             if (!body.ok) throw new HttpError("bad_request", t("gateway.http.badSpeech", { message: body.message }));
@@ -1363,7 +1363,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "page_voice":
         return {
-          // 悬浮按钮上按住说的一段（149 号票）：认出来的字回给二狗的网页，它再作为一条消息发进秘书的主会话；没认出也是 200（ok: false 和原因）
+          // 悬浮按钮上按住说的一段：认出来的字回给二狗的网页，它再作为一条消息发进秘书的主会话；没认出也是 200（ok: false 和原因）
           async POST(req, res) {
             const body = checkHttpBody(PageVoiceBody, await readJson(req, MAX_PAGE_VOICE_BODY));
             if (!body.ok) throw new HttpError("bad_request", t("gateway.http.badRecording", { message: body.message }));
@@ -1375,7 +1375,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "page_file":
         return {
-          // 要交进上传框的文件（134 号票）：凭这次指令发的取件码；图片（认得的类型）在页面里直接显示（面板上的缩略图），别的作为附件下载
+          // 要交进上传框的文件：凭这次指令发的取件码；图片（认得的类型）在页面里直接显示（面板上的缩略图），别的作为附件下载
           GET(req, res) {
             const entry = browsing(t("gateway.http.noPageFiles")).pageFiles.get(route.token);
             if (!entry) throw new HttpError("not_found", t("gateway.http.badPickup"));
@@ -1394,7 +1394,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "page_file_thumb":
         return {
-          // 候选的缩略图（149 号票）：凭取件码，守护进程缩的小图（缓存区里有就直接用）；不是图片、做不出来的 404（网页显示文件图标和名字）
+          // 候选的缩略图：凭取件码，守护进程缩的小图（缓存区里有就直接用）；不是图片、做不出来的 404（网页显示文件图标和名字）
           async GET(req, res) {
             const { pageFiles, pageThumbnails } = browsing(t("gateway.http.noThumbnails"));
             const entry = pageFiles.get(route.token);
@@ -1412,7 +1412,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "local_folders":
         return {
-          // 授权的文件夹（134 号票，138 号票起叫这个名字）：所有 agent 共用（355 号票），设置 · 授权的文件夹里看、改
+          // 授权的文件夹（叫这个名字）：所有 agent 共用，设置 · 授权的文件夹里看、改
           GET(_req, res) {
             sendJson(res, 200, localFolders().view());
           },
@@ -1421,7 +1421,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
             if (!body.ok) throw new HttpError("bad_request", t("gateway.http.badFolders", { message: body.message }));
             sendJson(res, 200, localFolders().set(body.value.folders));
           },
-          // 设置页的"添加文件夹"和每行的叉（138 号票）：加几个、拿掉几个，马上存
+          // 设置页的"添加文件夹"和每行的叉：加几个、拿掉几个，马上存
           async PATCH(req, res) {
             const body = checkHttpBody(LocalFoldersChangeBody, await readJson(req));
             if (!body.ok) throw new HttpError("bad_request", t("gateway.http.badFolders", { message: body.message }));
@@ -1432,7 +1432,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "service_thumbnail":
         return {
-          // 项目的服务首页的缩略图（140 号票）：JPEG；每次都问一声有没有换（no-cache + ETag 是截图时间），换了新图前端也会换地址
+          // 项目的服务首页的缩略图：JPEG；每次都问一声有没有换（no-cache + ETag 是截图时间），换了新图前端也会换地址
           GET(req, res) {
             const shot = options.serviceThumbnail?.(route.projectId, route.name);
             let size: number | undefined;
@@ -1454,7 +1454,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "project_standard":
         return {
-          // 项目规范（258 号票）：每次现算（档案里的文件随时会改），不缓存
+          // 项目规范：每次现算（档案里的文件随时会改），不缓存
           GET(_req, res) {
             const view = options.projectStandard?.(route.projectId);
             if (!view) throw new HttpError("not_found", t("gateway.http.noProject", { projectId: route.projectId }));
@@ -1463,7 +1463,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
         };
       case "local_folders_browse":
         return {
-          // 设置页选文件夹的框（138 号票）：不给路径是常用位置和各个盘，给了是它的子文件夹；读不了的也是 200（原因在响应里）
+          // 设置页选文件夹的框：不给路径是常用位置和各个盘，给了是它的子文件夹；读不了的也是 200（原因在响应里）
           async GET(_req, res, url) {
             if (!options.folderBrowser) throw new HttpError("not_found", t("gateway.http.noFolderBrowser"));
             sendJson(res, 200, await options.folderBrowser.browse(url.searchParams.get(HTTP_QUERY.path) ?? undefined));
@@ -1473,7 +1473,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
   };
 
   /**
-   * 浏览插件给的（212 号票）：不给这个选项是这个版本还没有（missing，原来的说法）；插件没启用（配置里停用、运行中停用、移除了）
+   * 浏览插件给的：不给这个选项是这个版本还没有（missing，原来的说法）；插件没启用（配置里停用、运行中停用、移除了）
    * 回"内置浏览器插件没启用"（和插件数据契约里的请求同一个说法、同一个错误码）
    */
   const browsing = (missing: string): BrowsingService => {
@@ -1492,19 +1492,19 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
     if (!options.localFolders) throw new HttpError("not_found", t("gateway.http.noLocalFolders"));
     return options.localFolders;
   };
-  /** 语音插件的服务（214 号票）：没在运行时 404"语音插件没启用" */
+  /** 语音插件的服务：没在运行时 404"语音插件没启用" */
   const voice = (): VoiceApi => {
     const api = options.voice?.();
     if (!api) throw new HttpError("not_found", voiceOffReason());
     return api;
   };
 
-  /** 记忆的推理库只读视图（233 号票）：这个版本没有这几个接口时 404 */
+  /** 记忆的推理库只读视图：这个版本没有这几个接口时 404 */
   const memorySettings = (): MemorySettingsService => {
     if (!options.memorySettings) throw new HttpError("not_found", t("gateway.http.noMemorySettings"));
     return options.memorySettings;
   };
-  /** 了解你访谈（284 号票）：这个版本没有这个接口时 404；记忆插件没启用时回"记忆插件没启用" */
+  /** 了解你访谈：这个版本没有这个接口时 404；记忆插件没启用时回"记忆插件没启用" */
   const memoryInterviews = (): MemoryInterviews => {
     if (!options.memoryInterviews) throw new HttpError("not_found", t("gateway.http.noMemoryInterview"));
     const service = options.memoryInterviews();
@@ -1555,7 +1555,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
     const info = isMediaId(mediaId) ? media.info(mediaId) : undefined;
     if (!info) throw new HttpError("not_found", t("gateway.http.noMedia", { mediaId }));
     const name = url.searchParams.get(HTTP_QUERY.name) ?? mediaId;
-    // 只有认得的图片在页面里直接显示、认得的音频直接播放（语音消息，31 号票），类型是按内容认出的；
+    // 只有认得的图片在页面里直接显示、认得的音频直接播放（语音消息），类型是按内容认出的；
     // 其他一律作为附件下载，不按前端声明的类型发出（免得 HTML、SVG 在本机源下跑脚本）
     const inlineType = info.image?.mime ?? info.audio?.mime;
     const inline = inlineType !== undefined && url.searchParams.get(HTTP_QUERY.download) !== "1";
@@ -1574,14 +1574,14 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
   };
 
   /**
-   * 文本类附件的内容（113 号票）：只按媒体 id 取（内容寻址，不接受路径）；名字、类型以消息里最近一次引用它的 part 为准，
+   * 文本类附件的内容：只按媒体 id 取（内容寻址，不接受路径）；名字、类型以消息里最近一次引用它的 part 为准，
    * 能预览的（协议包的 textPreviewOf：Markdown、纯文本）才给。超过上限的只读开头那么多（截在字符边上）；
    * 只按 UTF-8 解，解不出来如实报错，不猜编码、不吐乱码
    */
   const mediaText = (mediaId: string): MediaTextView => {
     const { attachment, info } = previewable(mediaId);
     const { name, mime } = attachment;
-    // HTML、SVG（117 号票）：内容不经这里给，告诉报告页在框里看哪一种（太大的不预览）
+    // HTML、SVG：内容不经这里给，告诉报告页在框里看哪一种（太大的不预览）
     const frame = attachment.kind === "file" ? framePreviewOf(attachment) : undefined;
     if (frame) {
       checkFrameSize(name, info.size);
@@ -1604,7 +1604,7 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
   };
 
   /**
-   * HTML、SVG 附件本身（117 号票）：只按媒体 id 取，part 上是这一种（协议包的 framePreviewOf）、不超过上限的才给，原样发出，
+   * HTML、SVG 附件本身：只按媒体 id 取，part 上是这一种（协议包的 framePreviewOf）、不超过上限的才给，原样发出，
    * 带着把它关进沙箱的响应头（FRAME_HEADERS）。HTML 末尾加一小段让页面里的链接在新窗口打开的脚本（LINKS_IN_NEW_WINDOW）；
    * 是 UTF-8 的写明 charset，不是的不写（按页面自己的 meta 认）。不缓存、不支持 Range（报告页每次打开现取）
    */
@@ -1658,7 +1658,7 @@ export const SECURITY_HEADERS = {
 } as const;
 
 /**
- * HTML 附件预览的 CSP（117 号票）。用户 2026-10-13 定"一阶段，不要加什么限制"：页面的功能一律放开，只留让二狗本身安全的——
+ * HTML 附件预览的 CSP。"一阶段，不要加什么限制"：页面的功能一律放开，只留让二狗本身安全的——
  * - sandbox（HTML_PREVIEW_SANDBOX）不给 allow-same-origin：页面是一个"陌生来源"，拿不到二狗的 cookie、本地存储，也冒充不了
  *   二狗的页面；不给 allow-top-navigation 那几种：不能把整页导航走；
  * - 网关照旧不接受 Origin: null 的请求（gateway.ts 的 checkLocalRequest、checkExternalOrigin）：框里的脚本就算连二狗的地址
@@ -1678,7 +1678,7 @@ const HTML_PREVIEW_CSP = [
   "frame-ancestors 'self'",
 ].join("; ");
 
-/** SVG 附件预览的 CSP（117 号票）：报告页用 <img> 显示（<img> 里的 SVG 本来就不跑脚本），直接打开这个地址也不跑脚本、不发请求 */
+/** SVG 附件预览的 CSP：报告页用 <img> 显示（<img> 里的 SVG 本来就不跑脚本），直接打开这个地址也不跑脚本、不发请求 */
 const SVG_PREVIEW_CSP = "default-src 'none'; style-src 'unsafe-inline'; sandbox";
 
 /** HTML、SVG 预览的响应头：nosniff、不缓存、不带 Referer；HTML 只许二狗自己的页面嵌（SAMEORIGIN，和 frame-ancestors 'self' 一致） */
@@ -1688,7 +1688,7 @@ const FRAME_HEADERS: Readonly<Record<FramePreview, Record<string, string>>> = {
 };
 
 /**
- * 加在 HTML 附件末尾的一小段脚本（117 号票：页面里的链接点了在新窗口打开——鸿蒙 App 里由主页面的导航拦截交给系统浏览器）：
+ * 加在 HTML 附件末尾的一小段脚本（页面里的链接点了在新窗口打开——鸿蒙 App 里由主页面的导航拦截交给系统浏览器）：
  * 点到没写 target 的链接时补上 target="_blank"；页内锚点（#…）、javascript: 照旧。放在末尾、只用 ASCII，不改原文的编码和
  * doctype；在沙箱里跑，和页面自己的脚本一样拿不到二狗的任何东西
  */
@@ -1697,7 +1697,7 @@ export const LINKS_IN_NEW_WINDOW =
   'if(!a||!a.getAttribute||a.hasAttribute("target"))return;var h=(a.getAttribute("href")||"").trim();' +
   'if(!h||h.charAt(0)==="#"||/^javascript:/i.test(h))return;a.setAttribute("target","_blank");a.setAttribute("rel","noopener noreferrer")},true);</script>\n';
 
-/** HTML、SVG 超过预览的上限（117 号票，照 113 的 1 MB）：没法截一半看，只给下载 */
+/** HTML、SVG 超过预览的上限（照 1 MB）：没法截一半看，只给下载 */
 function checkFrameSize(name: string, size: number): void {
   if (size > MEDIA_FRAME_MAX_BYTES) throw new HttpError("too_large", t("gateway.http.frameTooLarge", { name, size: sizeLabel(size), max: sizeLabel(MEDIA_FRAME_MAX_BYTES) }));
 }
@@ -1739,7 +1739,7 @@ function optionalInt(url: URL, name: string, min: number): number | undefined {
 }
 
 /**
- * 结论列表的查询串（233 号票）：tier、status 只能是协议包里的那几个值（不认识的回 400），limit 是 0 起；
+ * 结论列表的查询串：tier、status 只能是协议包里的那几个值（不认识的回 400），limit 是 0 起；
  * 不给就是全部层、全部状态、默认条数
  */
 function memoryClaimQuery(url: URL): MemoryClaimQuery {

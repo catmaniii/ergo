@@ -1,7 +1,7 @@
-// 107 号票：会话里的"等你处理"栏。项目整页、任务整页、秘书会话把还没处理、来源是这个会话的待办事项列在会话和输入框之间，
-// 哪些属于这个会话只用 105 号票的 inboxJump 认；已处理、已归档的不进，处理了就从栏里消失。
+// 会话里的"等你处理"栏。项目整页、任务整页、秘书会话把还没处理、来源是这个会话的待办事项列在会话和输入框之间，
+// 哪些属于这个会话只用 inboxJump 认；已处理、已归档的不进，处理了就从栏里消失。
 // 回放主切面录下的事件流（task-over-budget、grant-renewal、task-rejections、archive-list、project-lifecycle、secretary-approval），
-// 录不出来的（项目内部任务、多项目任务派到项目的工单）手写。112 号票起长程任务不再由你验收，archive-list 重新录过，里面没有等你验收了。
+// 录不出来的（项目内部任务、多项目任务派到项目的工单）手写。长程任务不再由你验收，archive-list 重新录过，里面没有等你验收了。
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
@@ -29,7 +29,7 @@ function load(name: string): UiInput[] {
 const payloadOf = <T>(input: UiInput, type: string): T | undefined => (input.kind === "frame" && input.frame.type === type ? (input.frame.payload as T) : undefined);
 
 /**
- * 这几份录制在 105 号票之前，待我处理事项上还没有来源（origin）。照守护进程现在的记法补上，其余照录下的原样回放：
+ * 这几份录制在以前，待我处理事项上还没有来源（origin）。照守护进程现在的记法补上，其余照录下的原样回放：
  * 任务的事项记任务（taskInboxOrigin），任务里的审批卡另记调用所在的会话（callInboxOrigin：任务负责人的会话）；
  * 项目的事项记项目；秘书对话里的审批卡记秘书会话；系统的（归档清单）不记
  */
@@ -189,7 +189,7 @@ describe("项目整页：负责人的会话", () => {
     expect(inboxBarEntries(stateAt(inputs, itemAt(inputs, isNotice("project_delete"), 1)), project("p-2"))).toEqual([]);
   });
 
-  // 项目内部任务的负责人就是项目的负责人，卡出在项目的负责人会话里；多项目任务派到项目的工单也由项目负责人做（17 号票）
+  // 项目内部任务的负责人就是项目的负责人，卡出在项目的负责人会话里；多项目任务派到项目的工单也由项目负责人做
   const world: UiState = {
     ...initialUiState,
     tasks: {
@@ -243,8 +243,8 @@ describe("不进栏的", () => {
     expect(inboxBarEntries(archived, task("t-1"))).toEqual([]);
   });
 
-  test("没记来源的旧事项（105 号票之前建的）、系统的事项不进任何会话的栏", () => {
-    // 105 号票之前的事项没记来源：把录下来的来源去掉（361 号票重录之后录制里有了）
+  test("没记来源的旧事项（以前建的）、系统的事项不进任何会话的栏", () => {
+    // 以前的事项没记来源：把录下来的来源去掉（重录之后录制里有了）
     const raw = load("task-over-budget").map((input): UiInput => {
       const item = payloadOf<{ item: InboxItem }>(input, "inbox_item")?.item;
       if (input.kind !== "frame" || !item) return input;
@@ -260,7 +260,7 @@ describe("不进栏的", () => {
   });
 });
 
-// 368 号票：项目的对话框上正显示的任务，它的待办也在这条栏里（转为项目的任务不是内部任务，项目的负责人做）
+// 项目的对话框上正显示的任务，它的待办也在这条栏里（转为项目的任务不是内部任务，项目的负责人做）
 test("项目的对话框：正显示的任务的事项也在，别的不是内部任务的不进", () => {
   const item = (id: string, taskId: string): InboxItem => inboxItem(id, { origin: { taskId } });
   const state = { ...initialUiState, inbox: { a: item("a", "t-own"), b: item("b", "t-other") } };

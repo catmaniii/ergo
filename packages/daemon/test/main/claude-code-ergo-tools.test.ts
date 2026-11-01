@@ -1,4 +1,4 @@
-// 主切面：二狗的工具、上下文、工具包里的 skill 交给 Claude Code（291 号票）。真的守护进程走组合根和插件清单，清单里的 Claude Code 插件经
+// 主切面：二狗的工具、上下文、工具包里的 skill 交给 Claude Code。真的守护进程走组合根和插件清单，清单里的 Claude Code 插件经
 // extraPlugins 换成子进程接假 SDK 的那个（helpers/fake-claude-code.ts：运行时、适配子进程、守卫的钩子、进程内 MCP 服务、上下文钩子、插件目录都是真的；
 // SDK 按 faux 剧本扮演 claude——调 mcp__<服务>__<工具> 时经进程内 MCP 服务调，每条输入之前叫 SessionStart / UserPromptSubmit 钩子），
 // 不启动真的 claude、不花额度、不碰用户真实的 ~/.claude（守护进程的主目录是临时的）。测试用的插件"探针"扮演给负责人工具和上下文的插件：

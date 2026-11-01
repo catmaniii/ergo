@@ -1,4 +1,4 @@
-// 像素小屋（49 号票，设计稿 docs/architecture/design/styles/h-*.dc.html）：卡片、气泡、按钮、标题栏、输入栏、导航都是"像素框"——四周 3px 的
+// 像素小屋（设计稿 docs/architecture/design/styles/h-*.dc.html）：卡片、气泡、按钮、标题栏、输入栏、导航都是"像素框"——四周 3px 的
 // 墨色线、四个角各缺一格（设计稿的 .px：上下左右四道不模糊的投影，角上空着，就是像素画里的阶梯边）；页面是草地绿底加 16px 的格子，
 // 强调色是草地绿（主按钮、选中的导航和分段、进度格），你发的消息是粉色，"要你"的事也是粉色（设计稿"等你验收"的签），
 // 出错和未读是暖红。数字（时间、时长、件数、token、进度）用 Press Start 2P（font-num），它没有中文字形，中文照常落到正文的 Noto Sans SC。
@@ -14,7 +14,7 @@ import type { VisualStyle } from "../tokens.ts";
 
 export const pixel: VisualStyle = {
   id: "pixel",
-  // 名字和一句话按当前语言（169 号票，取的时候现查）
+  // 名字和一句话按当前语言（取的时候现查）
   get name() {
     return t("styles.pixel.name");
   },
@@ -97,7 +97,7 @@ export const pixel: VisualStyle = {
     "shadow-float": "var(--pixel-edge)",
     "shadow-note": "var(--pixel-edge)",
     "shadow-slide": "-3px 0 0 0 var(--pixel-ink)",
-    // 宽屏阶段栏的 × 这类浮在栏边上的小圆钮（88 号票）：小东西用的 2px 像素框
+    // 宽屏阶段栏的 × 这类浮在栏边上的小圆钮：小东西用的 2px 像素框
     "shadow-btn": "var(--pixel-edge-s)",
 
     // ---- 间距：页面左右 18、消息之间 20（设计稿的 main），标题栏是 64 高的框（放得下 40 高的按钮和它的像素框） ----

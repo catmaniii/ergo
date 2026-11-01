@@ -1,4 +1,4 @@
-// 临时文件，任务、项目这一侧给守卫的东西（111 号票，tasks/own-work.ts）：
+// 临时文件，任务、项目这一侧给守卫的东西（tasks/own-work.ts）：
 // - 派生视图 work_times：任务第一次进执行中或运营中的时间（任务开始）、最近一次交出去的时间（宣布阶段完成、任务做完、
 //   定时 / 事件触发的一次运行结束）；项目开始的时间（建出项目，绑定外部工作目录的从绑定时算）；新建表时从事件日志补一遍；
 // - 交付件的文字里认路径（deliverablePaths）：绝对路径、带扩展名的文件名、带分隔符的路径，前后是空白或标点；认不出的当认不准；
@@ -110,7 +110,7 @@ describe("任务开始、交出去的时间", () => {
     }
   });
 
-  it("111 号票之前的库：新建表时从事件日志补一遍", () => {
+  it("以前的库：新建表时从事件日志补一遍", () => {
     const dir = makeTempDir("ergo-own-work-");
     const old = openEventStore({ file: path.join(dir, "ergo.db"), views: [], now: () => new Date(T0).toISOString() });
     taskEvent(old, task({ state: "running" }), "started", "queued");
@@ -159,7 +159,7 @@ describe("项目开始的时间", () => {
     }
   });
 
-  it("绑定外部工作目录、点的是确认并开工（building_started）：也从那一刻算；之后再开工不改（评审返修）", () => {
+  it("绑定外部工作目录、点的是确认并开工（building_started）：也从那一刻算；之后再开工不改", () => {
     const { store, at } = harness();
     const external = { charterConfirmed: true, workdir: { external: true, path: "E:\\repo" } };
     try {

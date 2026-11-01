@@ -1,8 +1,8 @@
-// 悬浮按钮背后就是秘书本人（149 号票，用户 2026-10-18："干脆悬浮按钮的二狗和秘书的二狗是一个实体好了"）在状态层这一侧：
-// - buttonTurnOf：悬浮按钮上发的那句（发消息请求的幂等键）走到哪了——还在发、排在队里（144 号票：秘书正忙着一轮）、秘书在办、
+// 悬浮按钮背后就是秘书本人（"干脆悬浮按钮的二狗和秘书的二狗是一个实体好了"）在状态层这一侧：
+// - buttonTurnOf：悬浮按钮上发的那句（发消息请求的幂等键）走到哪了——还在发、排在队里（秘书正忙着一轮）、秘书在办、
 //   秘书这一轮说完了（这一轮里它最后说的那句，就是按钮旁边气泡里的回话）、没发出去（被拒）。都从秘书会话的权威事件里认：
 //   这条消息在会话里（或排队的队里）、会话频道上这一轮的结束（ui-state 的 turnEnds：这一轮交给秘书的几条输入里有它）；
-// - browsePicksOf：秘书给这台设备上这个浏览器的网页候选卡（147 号票的 browse_pick），网页上的挑图片窗口照它弹、预备文件。
+// - browsePicksOf：秘书给这台设备上这个浏览器的网页候选卡（browse_pick），网页上的挑图片窗口照它弹、预备文件。
 // 不碰 DOM，测试在 Node 里跑；接到页面上的在 app/page-browse.ts（usePageButtonSync）。
 import { CHANNELS, t } from "./protocol.ts";
 import type { BrowsePickCardPayload, Card, MessageEnvelope } from "./protocol.ts";

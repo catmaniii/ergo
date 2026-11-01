@@ -1,4 +1,4 @@
-// 负责人背后的 agent（368 号票，纯函数）：并行派出去的子 agent、评审子 agent。数据从 HTTP 现取（协议包的 BackgroundAgentRow、BackgroundAgentTranscript），
+// 负责人背后的 agent（纯函数）：并行派出去的子 agent、评审子 agent。数据从 HTTP 现取（协议包的 BackgroundAgentRow、BackgroundAgentTranscript），
 // 有变化时背后的 agent 频道上来一条临时事件，ui-state 记下版本号（backgroundAgents），开着的列表、只读对话据此重新取。
 // 这里只管说成人话：标题栏入口上写什么、一行上写什么、现在在做哪一步、用了多久。
 import { callSentence } from "./call-sentence.ts";

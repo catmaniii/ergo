@@ -1,4 +1,4 @@
-// 推理库 rg.db 的只读视图（233 号票）：网页"记忆"页的概览、结论列表、一条结论的完整解释、问题箱从这里读。
+// 推理库 rg.db 的只读视图：网页"记忆"页的概览、结论列表、一条结论的完整解释、问题箱从这里读。
 //
 // - 只读、随用随开、用完就关：每次调用都打开一次推理库（manifest 和表版本对不上就不打开，交给 rg-db.ts 判），读完立刻关掉，
 //   不在守护进程里长期握着 SQLite 句柄。打开的那一下 @ergo/memory 会开一个写事务（建表语句、表版本），WAL 模式下和每晚整理
@@ -69,12 +69,12 @@ export interface MemoryGraphReader {
   claim(claimId: string): MemoryClaimDetailView | undefined;
   /** 问题箱（GET /api/memory/questions） */
   questions(query: { limit?: number | undefined }): MemoryQuestionsView;
-  /** 330 号票：做法（交互策略），不含撤回的（GET /api/memory/strategies） */
+  /** 做法（交互策略），不含撤回的（GET /api/memory/strategies） */
   strategies(): MemoryStrategiesView;
 }
 
 export interface MemoryGraphReaderOptions {
-  /** rg.db 的路径（338 号票起是 <数据目录>/memory/subtext/rg.db；以前在 db 区） */
+  /** rg.db 的路径（是 <数据目录>/memory/subtext/rg.db；以前在 db 区） */
   file: string;
   clock: Clock;
   /** manifest 里记的整理模型名（只读打开不写 manifest，这个名字只是打开引擎时要的参数） */
@@ -118,7 +118,7 @@ function lastNightOf(record: MemoryNightlyRecord): MemoryLastNight {
     changedClaims: record.changedClaims,
     needsReview: record.needsReview,
     ...(record.reason === undefined ? {} : { reason: record.reason }),
-    // 242 号票：管理员这一夜额外调了几次模型
+    // 管理员这一夜额外调了几次模型
     ...(record.curatorModelCalls === undefined ? {} : { curatorModelCalls: record.curatorModelCalls }),
   };
 }
@@ -193,12 +193,12 @@ function revisionOf(revision: ExplainedRevision): MemoryRevisionView {
     changes: Object.entries(revision.changes).map(([field, change]) => ({ field, from: valueText(change.from), to: valueText(change.to) })),
     reason: revision.reason,
     at: revision.at,
-    // 267 号票：这条修订是哪一次写留下的（谁写的、哪种写操作、经谁转达）
+    // 这条修订是哪一次写留下的（谁写的、哪种写操作、经谁转达）
     ...(revision.by === undefined ? {} : { by: { actor: revision.by.actor, op: revision.by.op, ...(revision.by.via === null ? {} : { via: revision.by.via }) } }),
   };
 }
 
-/** 问题要弄清的那一条现在什么样：断言的状态、事实的状态、做法的状态（330 号票）；不在了是 missing */
+/** 问题要弄清的那一条现在什么样：断言的状态、事实的状态、做法的状态；不在了是 missing */
 function targetOf(engine: MemoryEngine, target: Question["targets"][number]) {
   const claim = target.kind === "claim" ? engine.store.getClaim(target.id) : undefined;
   const fact = target.kind === "fact" ? engine.store.getFact(target.id) : undefined;
@@ -211,7 +211,7 @@ function targetOf(engine: MemoryEngine, target: Question["targets"][number]) {
   };
 }
 
-/** 330 号票：一条做法给网页看（建在猜测上、理由没了照推理库现算，不写库） */
+/** 一条做法给网页看（建在猜测上、理由没了照推理库现算，不写库） */
 function strategyOf(engine: MemoryEngine, s: Strategy): MemoryStrategyView {
   const at = engine.store.now();
   return {
@@ -251,7 +251,7 @@ function questionOf(engine: MemoryEngine, question: Question): MemoryQuestionIte
     skippedCount: question.skippedCount,
     outcome: question.outcome,
     answerEvidenceId: question.answerEvidenceId,
-    // 264 号票：问过、答过、跳过都看得到——回答的原话（证据还能当依据时）、读成什么、经过
+    // 问过、答过、跳过都看得到——回答的原话（证据还能当依据时）、读成什么、经过
     answerText: answerTextOf(engine, question.answerEvidenceId),
     verdict: question.verdict as MemoryAnswerVerdict | null,
     clear: question.clear,

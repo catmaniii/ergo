@@ -1,6 +1,6 @@
 // @i18n-ignore-file log：计数工具自己（认中文的正则、标注写错的说明给开发者看）
-// 还剩多少处写死的中文（168 号票：多语言迁移的棘轮）。按区域数源码里含中文的字面量，每个区域记一个基线，只许降不许升；
-// 每张迁移票把自己区域降下来，175 号票收紧（网页到 0，守护进程只剩登记过的给模型看的和日志）。
+// 还剩多少处写死的中文（多语言迁移的棘轮）。按区域数源码里含中文的字面量，每个区域记一个基线，只许降不许升；
+// 每次迁移把自己区域降下来，再收紧（网页到 0，守护进程只剩登记过的给模型看的和日志）。
 //
 // 怎么数（不引用 TypeScript 编译器，自己过一遍词法，够用就行）：
 // - 扫 .ts / .tsx（鸿蒙 App 是 .ets），注释不算；
@@ -296,22 +296,20 @@ export function scanSource(code: string): SourceScan {
   return { literals, markerErrors };
 }
 
-/** 一个区域：哪张票迁、管哪些源码 */
+/** 一个区域：管哪些源码 */
 export interface HardcodedRegion {
   readonly region: string;
-  readonly ticket: number;
   /** 相对仓库根目录的目录或文件；一个文件按表里第一个包含它的区域算 */
   readonly roots: readonly string[];
 }
 
 /**
- * 区域表（和 168–175 号票的分法一致）：顺序就是认领的先后，前面的先认（守护进程 tasks/ 和 173 号票的几个目录排在"其余目录"前面）。
- * 168 号票迁的外壳散在 web-ui、web-state、web-pages 几个区域的文件里，降的是那几个区域
+ * 区域表：顺序就是认领的先后，前面的先认（守护进程 tasks/ 和另外几个目录排在"其余目录"前面）。
+ * 迁的外壳散在 web-ui、web-state、web-pages 几个区域的文件里，降的是那几个区域
  */
 export const HARDCODED_REGIONS: readonly HardcodedRegion[] = [
   {
     region: "web-ui",
-    ticket: 169,
     roots: [
       "packages/web/src/ui",
       "packages/web/src/app",
@@ -319,23 +317,22 @@ export const HARDCODED_REGIONS: readonly HardcodedRegion[] = [
       "packages/web/src/visual-styles",
       "packages/web/src/page-bridge",
       "packages/web/src/util",
-      // 193 号票：网页插件（宿主和各插件的界面）
+      // 网页插件（宿主和各插件的界面）
       "packages/web/src/plugins",
       "packages/web/src/App.tsx",
       "packages/web/src/main.tsx",
     ],
   },
-  { region: "web-state", ticket: 170, roots: ["packages/web/src/state"] },
-  { region: "web-pages", ticket: 171, roots: ["packages/web/src/pages"] },
-  { region: "protocol", ticket: 172, roots: ["packages/protocol/src"] },
-  { region: "daemon-tasks", ticket: 172, roots: ["packages/daemon/src/tasks"] },
+  { region: "web-state", roots: ["packages/web/src/state"] },
+  { region: "web-pages", roots: ["packages/web/src/pages"] },
+  { region: "protocol", roots: ["packages/protocol/src"] },
+  { region: "daemon-tasks", roots: ["packages/daemon/src/tasks"] },
   {
     region: "daemon-a",
-    ticket: 173,
     roots: ["guard", "guard-runtime", "projects", "work-orders", "conversation", "voice", "web", "browsing", "secretary"].map((d) => `packages/daemon/src/${d}`),
   },
-  { region: "daemon-b", ticket: 174, roots: ["packages/daemon/src"] },
-  { region: "harmony", ticket: 175, roots: ["frontend/harmony/entry/src/main/ets"] },
+  { region: "daemon-b", roots: ["packages/daemon/src"] },
+  { region: "harmony", roots: ["frontend/harmony/entry/src/main/ets"] },
 ];
 
 /** 不扫的：原型的演示数据、多语言自己的代码 */
@@ -402,7 +399,7 @@ export function countByRegion(scans: readonly FileScan[]): Record<string, number
   return counts;
 }
 
-/** 基线所在的目录：每个区域一个文件 <区域>.json（{ "count": N }），各迁移票只改自己区域的那个，合并时不打架 */
+/** 基线所在的目录：每个区域一个文件 <区域>.json（{ "count": N }），各次迁移只改自己区域的那个，合并时不打架 */
 export const HARDCODED_BASELINE_DIR = path.join("packages", "daemon", "test", "i18n", "hardcoded-baseline");
 
 /** 读某个区域的基线 */
@@ -419,8 +416,7 @@ export function readBaseline(repoRoot: string, region: string): number | undefin
 export function lowerBaseline(repoRoot: string, region: string, count: number): boolean {
   const old = readBaseline(repoRoot, region);
   if (old !== undefined && count >= old) return false;
-  const ticket = HARDCODED_REGIONS.find((r) => r.region === region)?.ticket;
   fs.mkdirSync(path.join(repoRoot, HARDCODED_BASELINE_DIR), { recursive: true });
-  fs.writeFileSync(path.join(repoRoot, HARDCODED_BASELINE_DIR, `${region}.json`), `${JSON.stringify({ ticket, count }, null, 2)}\n`);
+  fs.writeFileSync(path.join(repoRoot, HARDCODED_BASELINE_DIR, `${region}.json`), `${JSON.stringify({ count }, null, 2)}\n`);
   return true;
 }

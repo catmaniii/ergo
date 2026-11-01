@@ -1,5 +1,5 @@
-// 会话回退（150 号票）的前端状态：回放会话频道上的事件（手写的，照主切面 daemon/test/main/session-rollback.test.ts 的形状），看
-// - 会话视图、时间线、未读只看当前分支上的；废弃分支上的消息留在手里（151 号票的预览用）；往上翻取回的一页照常并进来；
+// 会话回退的前端状态：回放会话频道上的事件（手写的，照主切面 daemon/test/main/session-rollback.test.ts 的形状），看
+// - 会话视图、时间线、未读只看当前分支上的；废弃分支上的消息留在手里（预览用）；往上翻取回的一页照常并进来；
 // - 分支摘要是一条系统说明：对话层 🧭 摘要，要点层写"分支摘要：…"；
 // - 回退点（条左边的 ↶）：这段会话里每条用户消息"撤回到这条请求之前"、每条分支摘要"撤回到这条分支开始前"；清空之前的、
 //   排队一起交出的一批里第一条之后的、网页上下的指令、系统说明都没有；只在能回退的会话（秘书）里有；
@@ -98,7 +98,7 @@ describe("会话树（前端）", () => {
     expect(forksOf(state)).toEqual(["分支摘要：摘要二 → b0、b1"]);
   });
 
-  test("只在这段会话里：清空之前的没有回退点；排队一起交出的一批只有第一条有；网页上下的指令没有；152 号票起负责人的会话也有", () => {
+  test("只在这段会话里：清空之前的没有回退点；排队一起交出的一批只有第一条有；网页上下的指令没有；负责人的会话也有", () => {
     const cleared = frame(S, 3, "message", { message: { id: "m-c", conversation: S, speaker: "system", time: "2026-10-18T09:00:00+08:00", parts: [{ type: "conversation_cleared" }] } });
     const page = frame(S, 6, "message", { message: { ...textMessage("m-p", "user", "把名字填上"), pageCommand: { url: "https://x", title: "x", field: "名字", spoken: false } } });
     const state = replay([
@@ -117,7 +117,7 @@ describe("会话树（前端）", () => {
     expect([...zoomDecor(other, maintainer, items).rollbacks.values()].flat().map((p) => p.label)).toEqual(["撤回到这条请求之前"]);
   });
 
-  test("接管时导进来的前情（290 号票，prelude）没有回退点：不是交给 agent 的输入（293 号票）", () => {
+  test("接管时导进来的前情（prelude）没有回退点：不是交给 agent 的输入", () => {
     const maintainer: ConversationId = "maintainer:tm-flaky";
     const state = replay([
       frame(maintainer, 1, "message", { message: { ...textMessage("m-pre", "user", "前情里的话", maintainer), prelude: true } }),
@@ -128,7 +128,7 @@ describe("会话树（前端）", () => {
     expect(items.flatMap((it) => (decor.rollbacks.get(it.id) ?? []).map((p) => `${it.keyLine} ← ${p.label}`))).toEqual(["你：接管之后说的 ← 撤回到这条请求之前"]);
   });
 
-  test("分支摘要上记着运行时恢复了哪些文件（293 号票）：条目带着", () => {
+  test("分支摘要上记着运行时恢复了哪些文件：条目带着", () => {
     const withFiles = frame(S, 8, "message", {
       message: { id: "m-s1", conversation: S, speaker: "system", time: "2026-10-18T10:00:00+08:00", parts: [{ type: "branch_summary", branchId: "b1", summary: "摘要一", files: { restored: ["a.md"] } }] } satisfies MessageEnvelope,
     });
@@ -136,7 +136,7 @@ describe("会话树（前端）", () => {
     expect(chatItems(state, S).find((it) => it.kind === "system")).toMatchObject({ branch: { id: "b1", summary: "摘要一", files: { restored: ["a.md"] } } });
   });
 
-  test("换模型新开会话的说明之后才有回退点（150 号票之前的说明按文字认）", () => {
+  test("换模型新开会话的说明之后才有回退点（以前的说明按文字认）", () => {
     const note = frame(S, 3, "message", { message: textMessage("m-n", "system", "已换成 DeepSeek V4 Pro 模型（思考：高），接着之前的对话。") });
     const state = replay([user(1, "m-1", "换之前"), agent(2, "m-2", "嗯"), note, user(4, "m-3", "换之后")]);
     expect(leftOf(state)).toEqual(["你：换之后 ← 撤回到这条请求之前"]);

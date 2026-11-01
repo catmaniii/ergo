@@ -1,4 +1,4 @@
-// 语言目录（168 号票）：自带的中文、英文齐不齐；~/.ergo/locales 里放一个目录就是新语言、放同名 key 就改译法、放坏了有说明不崩；
+// 语言目录：自带的中文、英文齐不齐；~/.ergo/locales 里放一个目录就是新语言、放同名 key 就改译法、放坏了有说明不崩；
 // 轮询看到变化。
 import fs from "node:fs";
 import path from "node:path";
@@ -29,7 +29,7 @@ describe("自带的语言", () => {
     expect(report).toEqual({ missing: [], extra: [], paramMismatch: [] });
   });
 
-  it("自带的语言文件按区域分：文件名就是 key 的第一段（每张迁移票只碰自己区域的文件），两种语言的文件一一对应", () => {
+  it("自带的语言文件按区域分：文件名就是 key 的第一段（每次迁移只碰自己区域的文件），两种语言的文件一一对应", () => {
     const root = readLocaleRoot(BUILTIN_LOCALES_DIR);
     const filesOf = (id: string) => root.dirs.find((d) => d.id === id)!.files.map((f) => f.name);
     expect(filesOf("en")).toEqual(filesOf("zh-CN"));

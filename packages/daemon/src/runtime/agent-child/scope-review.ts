@@ -1,5 +1,5 @@
 // @i18n-ignore-file log：审视没成的原因记日志（范围审视的说明本身给模型看）
-// 子进程里的范围审视（规格第 10 节，18 号票）。守护进程不跑模型，审视的模型调用在负责人自己的子进程里另开一次：
+// 子进程里的范围审视（规格第 10 节）。守护进程不跑模型，审视的模型调用在负责人自己的子进程里另开一次：
 // 用审视的模型（便宜模型）、在会话之外调用（modelRuntime.completeSimple），不写进负责人的会话；结果报给守护进程保存，
 // 同时 appendEntry 进会话（只是副本，不进模型的上下文）。审视的说明、对照物、近期范围记录都是守护进程写好的文字（装配参数
 // scopeReview），这里只管什么时候审、审哪段对话、怎么解析回复。两个时点：
@@ -7,14 +7,14 @@
 // - 守护进程要时（scope_review 命令，工单结束、子进程退出之前）：审视会话里还没审视过的部分——上次压缩留下的和之后的消息
 //   （压缩掉的那些压缩时已经审视过了）。
 // 另外 before_agent_start 把守护进程给的近期范围记录拼到系统提示末尾（每段新会话里都有，不靠旧会话里的 appendEntry）。
-// 128 号票起不再单独挂一个 pi 扩展：桥接扩展（bridge.ts）在 before_agent_start、session_before_compact 里叫这里。审视要在子进程里
+// 不再单独挂一个 pi 扩展：桥接扩展（bridge.ts）在 before_agent_start、session_before_compact 里叫这里。审视要在子进程里
 // 另开一次模型调用、按 pi 的写法把对话转成文本，是逻辑而不只是"把数据翻译给 pi"，所以没并成通用的钩子订阅，留在这里。
 // 审视的输入：对照物（立项书、任务计划、授权和用户在会话里直接说的话）加上这段对话的文本（pi 自己压缩时的写法）。
 // 输出：约定的 JSON {"records":[{"kind","summary","detail?","basis?"}]}，解析不了就报原因、不记。
 // 结果里带上这个会话里交给它的输入（输入标记里的 id）：工作记录里可能引着它们的原话，彻底删除时守护进程据此改写范围记录。
-// 309 号票：Claude Code 的子进程里没有 pi，它的范围审视由守护进程按自己记下的事件另起一次性子进程做（recorded-generation.ts），
+// Claude Code 的子进程里没有 pi，它的范围审视由守护进程按自己记下的事件另起一次性子进程做（recorded-generation.ts），
 // 审视的输入、解析和这里同一套（reviewPrompt、conversationText、parseFindings 导出给它）。
-// 审视用的模型（73 号票）：拉起时装配里的，之后守护进程在 scope_review、scope_context 里带上它此刻按设置取的（每次审视时现取），
+// 审视用的模型：拉起时装配里的，之后守护进程在 scope_review、scope_context 里带上它此刻按设置取的（每次审视时现取），
 // 和手里的不一样才换（faux 剧本一样时不重新注册，剧本接着往下走）；换上的模型目录里没有时，那次审视报原因。
 import { convertToLlm, type AgentSession, type ModelRuntime, type SessionBeforeCompactEvent, serializeConversation, type SessionManager } from "@earendil-works/pi-coding-agent";
 import type { Model } from "@earendil-works/pi-ai";
@@ -34,7 +34,7 @@ import { usageReport } from "./event-translator.ts";
 /** pi 会话里的一条消息（pi 没从包入口导出这个类型的名字） */
 type SessionMessage = AgentSession["messages"][number];
 
-/** 审视的输入：范围依据在前，工作记录在后（309 号票起 recorded-generation.ts 按二狗记录另起的审视也用它） */
+/** 审视的输入：范围依据在前，工作记录在后（recorded-generation.ts 按二狗记录另起的审视也用它） */
 export function reviewPrompt(reference: string, conversation: string): string {
   return `<scope-reference>\n${reference}\n</scope-reference>\n\n<work-log>\n${conversation}\n</work-log>`;
 }
@@ -47,7 +47,7 @@ function isWork(message: SessionMessage): boolean {
   return true;
 }
 
-/** 一段对话的文本（pi 压缩时的写法：先换成模型看的消息，再按行写成文本；309 号票起按二狗记录另起的审视也用它） */
+/** 一段对话的文本（pi 压缩时的写法：先换成模型看的消息，再按行写成文本；按二狗记录另起的审视也用它） */
 export function conversationText(messages: readonly SessionMessage[]): string {
   return serializeConversation(convertToLlm(messages.filter(isWork)));
 }

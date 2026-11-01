@@ -1,11 +1,11 @@
-// 拉一个私密 iCal 地址（297 号票）：检查地址、拉、限大小、解析，出错的换成给人看的原因（不带地址：地址就是密钥）。
+// 拉一个私密 iCal 地址：检查地址、拉、限大小、解析，出错的换成给人看的原因（不带地址：地址就是密钥）。
 // - 只认 https（webcal:// 当 https）；http 只给本机回环地址（测试里的假服务）；
 // - 404 / 410：地址失效了（多半在 Google 日历里重置过私密地址）；401 / 403：没有权限（不是私密地址，或者管理员关了）；
 // - 超时、连不上、太大（20 MB）、拿到的不是日历（登录页、网页）各有一句。
-// 306 号票：地址失效、没权限这两种算"一直不行"（lasting：重新填地址之前再拉也不行），日历这个数据源据此报出错、按需查的工具不给秘书；
+// 地址失效、没权限这两种算"一直不行"（lasting：重新填地址之前再拉也不行），日历这个数据源据此报出错、按需查的工具不给秘书；
 // 超时、连不上、那边出错是一时的。
 // 给人看的地址（maskAddress）：页面上只给"calendar.google.com · chenxiao@gmail.com"这种，私密的那一段一个字都不出。
-// 339 号票：完整邮箱（accountOf）只给页面；日志照旧用打了码的（maskId）。
+// 完整邮箱（accountOf）只给页面；日志照旧用打了码的（maskId）。
 import { t } from "@ergo/protocol";
 import { type IcalCalendar, NotIcalError, parseIcal } from "./ical.ts";
 
@@ -16,7 +16,7 @@ export const MAX_FEED_BYTES = 20 * 1024 * 1024;
 
 const LOOPBACK = new Set(["127.0.0.1", "localhost", "[::1]", "::1"]);
 
-/** 给人看的原因（不带地址）；lasting 是重新填地址之前再拉也不行的（地址失效、没权限，306 号票） */
+/** 给人看的原因（不带地址）；lasting 是重新填地址之前再拉也不行的（地址失效、没权限） */
 export class FeedProblem extends Error {
   readonly lasting: boolean;
   constructor(message: string, options: { lasting?: boolean } = {}) {
@@ -59,7 +59,7 @@ function calendarIdOf(address: string): string | undefined {
 const PLAIN_EMAIL = /^[\w.+'-]+@[\w-]+(?:\.[\w-]+)+$/;
 
 /**
- * 地址是哪个账号的（完整邮箱，339 号票：只给页面，不进日志和给模型的内容）：日历 id 是个人邮箱才算；
+ * 地址是哪个账号的（完整邮箱：只给页面，不进日志和给模型的内容）：日历 id 是个人邮箱才算；
  * 共享、订阅的日历（…@group.calendar.google.com）不算
  */
 export function accountOf(address: string): string | undefined {

@@ -1,10 +1,10 @@
-// 手机日历同步一次（299 号票）：在鸿蒙 App 里，网页经原生桥读手机日历、交给守护进程（"手机 · 日历"这个数据源）。纯逻辑，测试换假的
+// 手机日历同步一次：在鸿蒙 App 里，网页经原生桥读手机日历、交给守护进程（"手机 · 日历"这个数据源）。纯逻辑，测试换假的
 // 原生桥和 HTTP。两种：
 // - 连上（link）：用户在数据源页点了"连上手机日历"——先要授权（系统的授权框；拒过的拉起二次授权），给了就读同步范围、交过去
 //   （带 link，守护进程记下连着了）；没给就不交，告诉用户；
 // - 平常（App 开着时每 30 分钟、回到前台、点"现在同步"）：先问守护进程连没连着（没连着、插件没启用、导入关着都不做）；
 //   授权给着就读、交；被撤回了交一次状况和原因（守护进程那边已经写着出错的不再交），之后等用户在手机设置里重新打开；
-// - 306 号票：用户点"现在同步"（userAction）而授权没给着：先再要一次（系统的授权框；拒过、在设置里关掉的拉起二次授权），给了就照常读、交
+// -用户点"现在同步"（userAction）而授权没给着：先再要一次（系统的授权框；拒过、在设置里关掉的拉起二次授权），给了就照常读、交
 //   （守护进程那边回到连着）；还是没给照上面那样交状况和原因，已经写着出错的回"还是没给"。后台的同步不弹框。
 import type { NativePhone } from "../../app/native-phone.ts";
 import { type DataSourcePushResult, type DataSourcesView, nowIso, PHONE_CALENDAR_SOURCE, type PhoneCalendarPush, phoneCalendarWindow, t } from "../../state/index.ts";
@@ -24,7 +24,7 @@ export type PhoneCalendarSyncOutcome =
   | { kind: "pushed"; result: DataSourcePushResult; state: PhoneCalendarPush["state"] };
 
 /**
- * 同步一次；link 为真是用户点了"连上手机日历"，userAction 为真是用户点了"现在同步"（授权没给着时再要一次，306 号票）。
+ * 同步一次；link 为真是用户点了"连上手机日历"，userAction 为真是用户点了"现在同步"（授权没给着时再要一次）。
  * 守护进程拒收、网络出错时抛错（message 是原因）
  */
 export async function syncPhoneCalendar(deps: PhoneCalendarSyncDeps, options: { link?: boolean; userAction?: boolean } = {}): Promise<PhoneCalendarSyncOutcome> {

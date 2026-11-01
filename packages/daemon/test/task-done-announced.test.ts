@@ -1,6 +1,6 @@
-// 100 号票：任务做完的通知被打断后重新交时，上次那一轮念过没有——按这一轮（turn_start 的序号）认语音，语音记在这一轮收下的插话
+// 任务做完的通知被打断后重新交时，上次那一轮念过没有——按这一轮（turn_start 的序号）认语音，语音记在这一轮收下的插话
 // 那条上的也算、别的轮的不算；合成好（done、partial）的算念过，还在合成的等结局，没发出去的算没念。开着、关着的不并在一条里。
-// 214 号票：语音插件没在运行时通知里不问要不要念。
+// 语音插件没在运行时通知里不问要不要念。
 import path from "node:path";
 import { type AgentVoiceRecord, CHANNELS, EVENT_TYPES } from "@ergo/protocol";
 import { describe, expect, onTestFinished, test } from "vitest";
@@ -71,7 +71,7 @@ describe("开着、关着的不并在一条里", () => {
   });
 });
 
-describe("语音插件没在运行（214 号票）", () => {
+describe("语音插件没在运行", () => {
   test("任务做完、负责人来信的通知只用文字说一声，不问要不要念、不提发语音；开着时照旧问", () => {
     const off = { text: "普通任务 t-2「周报」在后台做完了。", announce: false };
     const quiet = taskDoneNoticeText([off], false);
@@ -86,7 +86,7 @@ describe("语音插件没在运行（214 号票）", () => {
   });
 });
 
-describe("负责人自己的声音（354 号票）", () => {
+describe("负责人自己的声音", () => {
   const notice = (text: string) => ({ id: "m-1", conversation: CHANNELS.secretary, speaker: "system" as const, time: TIME, parts: [{ type: "text" as const, text }] });
 
   test("开着自动播报的来信：开头紧跟标记、不问、这一轮放行语音；关着的照旧问、不放行", () => {

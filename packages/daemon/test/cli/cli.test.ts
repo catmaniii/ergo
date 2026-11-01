@@ -1,4 +1,4 @@
-// ergo 命令（318 号票）：参数、语言、服务管家的设置和二狗的登记（lsm validate 认）、update / rollback / uninstall / components / status。
+// ergo 命令：参数、语言、服务管家的设置和二狗的登记（lsm validate 认）、update / rollback / uninstall / components / status。
 // 服务管家一律指到临时数据目录、没人听的端口（不碰本机正在跑的 7420 和二狗 8810/8811）；发布对着本机的假下载服务；PATH 用假的存储。
 // 开机自启的计划任务用假的（ERGO_AUTOSTART_TASK_FILE，一个 JSON 文件）：名字是固定的，这台电脑上可能就有一个真的在用。
 // 要跑 ergo start 的，服务管家也是假的（fakeManager：本机一个回话的端口 + 版本目录里一个记账的 lsm.mjs），真的 lsm 根本不起。
@@ -205,7 +205,7 @@ describe("服务管家的设置和二狗的登记", () => {
     expect(entry.hooks.stop.cmd).toBe(`"${path.join(home, "node", "node.exe")}" packages/daemon/src/stop.js`);
     expect(entry.env).toEqual([
       { name: "ERGO_DATA_DIR", from: "literal", value: t.ctx.dataDir },
-      // 服务管家不把自己的 --data-dir、环境变量传给服务：体检要读它的注册表，得在登记里写明它在哪（340 号票）
+      // 服务管家不把自己的 --data-dir、环境变量传给服务：体检要读它的注册表，得在登记里写明它在哪
       { name: "LSM_DATA_DIR", from: "literal", value: t.ctx.svcDataDir },
       { name: "DEEPSEEK_API_KEY", from: "file", path: path.join(t.ctx.dataDir, "secrets", "deepseek-api-key.txt"), optional: true },
       // 自定义（OpenAI 兼容）服务商的 key：和 DeepSeek 一样从密钥区注入，没有这个文件也能起来
@@ -220,7 +220,7 @@ describe("服务管家的设置和二狗的登记", () => {
     expect(v.stdout + v.stderr).toMatch(/1 个服务，全部通过校验/);
   });
 
-  describe("用的人在登记的 env 里多加的项（371：手册让把 MCP 的 fromEnv 变量加在这里）", () => {
+  describe("用的人在登记的 env 里多加的项（手册让把 MCP 的 fromEnv 变量加在这里）", () => {
     const OURS = ["ERGO_DATA_DIR", "LSM_DATA_DIR", "DEEPSEEK_API_KEY", "CUSTOM_MODEL_API_KEY"];
     /** 我们写的 env 最后一项之后插进这几行（照用的人在记事本里加的样子） */
     const addToEnv = (text: string, lines: string) => text.replace(/^autoRestart:/m, `${lines}\nautoRestart:`);
@@ -329,7 +329,7 @@ describe("服务管家的设置和二狗的登记", () => {
     });
   });
 
-  describe("用的人在登记里写的公网入口（375：部署手册让在这里打开 exposure:）", () => {
+  describe("用的人在登记里写的公网入口（部署手册让在这里打开 exposure）", () => {
     const entryOf = (t: { ctx: Parameters<typeof svcPaths>[0] }) => fs.readFileSync(svcPaths(t.ctx).daemonEntry, "utf8");
     const parsed = (text: string) => YAML.parse(text) as { exposure?: Record<string, unknown>; env: unknown[]; root: string };
     /** 手册上的那一段：写在 profiles 前面 */
@@ -761,7 +761,7 @@ describe("uninstall", () => {
 });
 
 describe("components（二狗本机端口上的组件接口的终端前端）", () => {
-  it("要确认许可的组件（345 号票）：不加 --accept-license 打出许可、不下载；加了带上确认标记", async () => {
+  it("要确认许可的组件：不加 --accept-license 打出许可、不下载；加了带上确认标记", async () => {
     const component = (state: string, accepted: boolean) => ({
       id: "tts",
       title: "Speech model",

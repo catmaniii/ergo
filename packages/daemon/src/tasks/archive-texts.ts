@@ -1,5 +1,5 @@
-// 每周归档清单（archive-list.ts，19 号票）的说法：卡片和待我处理事项的标题、纯文本降级、拒绝用户选择的原因。编排里不写文字。
-// 172 号票：标题、来源、拒绝的原因按当时的语言写；175 号票起纯文本降级也是（和别的卡一样）
+// 每周归档清单（archive-list.ts）的说法：卡片和待我处理事项的标题、纯文本降级、拒绝用户选择的原因。编排里不写文字。
+// 标题、来源、拒绝的原因按当时的语言写；纯文本降级也是（和别的卡一样）
 import { ARCHIVE_CHOICE_LABEL, type ArchiveChoice, type ArchiveListCardPayload, type ArchiveListItem, t, type Task, TASK_END_KIND_LABEL, TASK_STATE_LABEL } from "@ergo/protocol";
 
 /** 清单的标题（卡片、待我处理事项）："归档清单：4 个任务结束超过 7 天" */

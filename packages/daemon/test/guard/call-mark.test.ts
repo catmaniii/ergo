@@ -1,4 +1,4 @@
-// 守卫切面：一次调用要动的是对外的事（外）还是本机的敏感权限（权）（93 号票，guard/nature.ts 的 toolCallMark：
+// 守卫切面：一次调用要动的是对外的事（外）还是本机的敏感权限（权）（guard/nature.ts 的 toolCallMark：
 // 策略标记里有敏感操作的才标，按工具的权限种类分外、权）。二狗的敏感操作是命中了关注类别的调用，
 // "对外"只有一个口径：判定里实际要判的调用有一条往外送（sendsOut）。没命中类别的不标；通用 bash 按拆出来的调用看。
 // 最后一段看会话里的工具调用 part 真的带上了这个标记。
@@ -57,7 +57,7 @@ describe("命中了关注类别的：往外送是外，别的是权", () => {
   });
 });
 
-describe("工具调用的记录真的带上 mark（93 号票评审：会话里的工具调用 part，guard-runtime/tool-call-record.ts）", () => {
+describe("工具调用的记录真的带上 mark（会话里的工具调用 part，guard-runtime/tool-call-record.ts）", () => {
   /** 一次判定过、放行执行完的调用写成的 part */
   function partOf(toolName: string, args: Record<string, unknown>, facts: EnvironmentFacts = {}) {
     const v1 = v1Satisfied(P.workDir);

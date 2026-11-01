@@ -1,7 +1,7 @@
-// 驱动浏览器的薄接口（70 号票）：联网搜索和读网页的浏览器兜底只经它碰浏览器，测试里换成假的（不起浏览器、不联网）。
+// 驱动浏览器的薄接口：联网搜索和读网页的浏览器兜底只经它碰浏览器，测试里换成假的（不起浏览器、不联网）。
 // 正式的实现是 playwright-core 驱动系统装的 Chrome / Edge（不下载浏览器，路径见 browser-path.ts），照用户的 web-search skill：
 // 每次用都起一个无头浏览器、开一页，用完关掉（首次起要 1–3 秒）。playwright-core 在第一次用到时才加载，不拖慢守护进程启动。
-// 140 号票：守护进程自己给项目的服务截首页的缩略图（project-services/thumbnails.ts）也经它：一页能截图，打开一页时能定缩放。
+// 守护进程自己给项目的服务截首页的缩略图（project-services/thumbnails.ts）也经它：一页能截图，打开一页时能定缩放。
 import type { Page } from "playwright-core";
 
 /** 打开一页时的设置：浏览器标识、语言、窗口大小 */
@@ -9,7 +9,7 @@ export interface PageOptions {
   userAgent: string;
   locale: string;
   viewport?: { width: number; height: number };
-  /** 设备像素比（140 号票：缩略图按 1280×800 排版、0.5 倍截下来就是 640×400）；不给是 1 */
+  /** 设备像素比（缩略图按 1280×800 排版、0.5 倍截下来就是 640×400）；不给是 1 */
   deviceScaleFactor?: number;
 }
 
@@ -40,7 +40,7 @@ export interface BrowserPage {
   html(): Promise<string>;
   /** 按选择器在页面里取搜索结果（pickResults）：每个容器里取标题（文字）、链接（标题自己的 href，没有就用包着它的 a 的）、摘要；没有标题、链接不是 http(s) 的不要 */
   results(selectors: ResultSelectors): Promise<RawResult[]>;
-  /** 截下窗口里看得到的这一屏（140 号票：服务首页的缩略图），JPEG，quality 是 1–100；按打开时的设备像素比出图 */
+  /** 截下窗口里看得到的这一屏（服务首页的缩略图），JPEG，quality 是 1–100；按打开时的设备像素比出图 */
   screenshot(options: { quality: number }): Promise<Buffer>;
 }
 
@@ -72,8 +72,8 @@ interface PageDocument {
 /**
  * 在页面里按选择器取搜索结果（照 skill 的 extractResults 里送进浏览器的那段）：每个容器里取标题、链接、摘要。
  * 送进浏览器里跑（page.evaluate 把函数原样序列化过去），所以不能引用外面的任何东西。
- * 录下的结果页的测试也是经 playwrightPage 在真浏览器里跑它（81 号票）。
- * 和 skill 不一样的一处（81 号票）：标题元素自己没有链接时用包着它的那个 a 的链接——Google 的标题选择器 `a h3` 选中的是 h3，
+ * 录下的结果页的测试也是经 playwrightPage 在真浏览器里跑它。
+ * 和 skill 不一样的一处：标题元素自己没有链接时用包着它的那个 a 的链接——Google 的标题选择器 `a h3` 选中的是 h3，
  * skill 直接取 h3 的 href（没有），每条都被当成"链接不是 http(s)"丢掉，Google 永远没有结果。
  */
 export function pickResults(selectors: ResultSelectors): RawResult[] {
@@ -93,7 +93,7 @@ export function pickResults(selectors: ResultSelectors): RawResult[] {
 }
 
 /**
- * playwright 的一页包成 BrowserPage。正式的驱动和录下结果页的测试共用这一份（81 号票）：
+ * playwright 的一页包成 BrowserPage。正式的驱动和录下结果页的测试共用这一份：
  * 测试给它一页拦下了所有网络请求、只回录下页面的，在真浏览器里跑和正式代码同一套取法
  */
 export function playwrightPage(page: Page): BrowserPage {

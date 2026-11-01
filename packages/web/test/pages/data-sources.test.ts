@@ -1,12 +1,12 @@
-// 设置 · 数据源（295 号票）：页面上的几块用 React 在 Node 里渲染出来查——
+// 设置 · 数据源：页面上的几块用 React 在 Node 里渲染出来查——
 // - 一个数据源一块：连接状态的小签（连着 / 没连 / 出错了 / 手动导入 / 插件没启用）、账号、上次同步和共几条、两种用法的开关、
 //   敏感内容（默认只记录、不用于推断）、认的文件；按钮：连着的有"立即同步""断开"，只靠导入文件夹的有"删除已导入的"；
 //   插件画的设置那一块（dataSources 插槽）在插件在用时画、停用时不画；
 // - 断开的确认框：留着已导入的 / 连已导入的一起删（选了删才写"不能恢复"、按钮变危险）；只靠导入文件夹的只有删除；
 // - 导入文件夹：路径、按钮、没导入的和原因、最近导入的；
 // - 做完说一句：同步好了几条、断开删了几条；
-// - 300 号票：原始数据那一节（折起来、一天一行、还没整理的写明、点两下才清），清掉了几条。
-// 343 号票：分成两层——一级是卡片（没有输入框、没有操作按钮，按插件分组，状态 已连接 / 未连接 / 要授权 / 出错 / 插件没启用），
+// -原始数据那一节（折起来、一天一行、还没整理的写明、点两下才清），清掉了几条。
+// 分成两层——一级是卡片（没有输入框、没有操作按钮，按插件分组，状态 已连接 / 未连接 / 要授权 / 出错 / 插件没启用），
 // 二级的状态、设置两块放原来的配置；数据一块的两个标签（已获取的、现在能查到的）。
 // 设置列表里的位置、地址见 settings-groups.test.ts；页面打得开、一级 → 点卡片 → 二级 → 返回见 page-opens.test.ts（原型里编的数据源）。
 import { createElement, Fragment } from "react";
@@ -67,7 +67,7 @@ const blocks = (s: DataSourceView, panelOf: (id: string) => DataSourceSlot | und
   );
 const list = (sources: DataSourceView[], panel: (id: string) => DataSourceSlot | undefined = () => undefined, busy?: string) => renderToStaticMarkup(createElement(Fragment, null, ...sources.map((s) => blocks(s, panel, busy))));
 
-describe("详情里的状态、设置（343 号票起原来一块里的全部配置）", () => {
+describe("详情里的状态、设置（原来一块里的全部配置）", () => {
   test("连着的：小签、账号、上次同步和共几条、两种用法的开关（各开没开）、敏感内容、认的文件、立即同步和断开", () => {
     const html = list([source()]);
     expect(html).toContain("相机");
@@ -86,7 +86,7 @@ describe("详情里的状态、设置（343 号票起原来一块里的全部配
     expect(html).not.toContain("删除已导入的");
   });
 
-  test("Google 的账号是完整邮箱：连着时原样显示，断开了（没有账号）那一行就没了（339 号票）", () => {
+  test("Google 的账号是完整邮箱：连着时原样显示，断开了（没有账号）那一行就没了", () => {
     const gmail = { id: "google-gmail", title: "Google · Gmail" };
     expect(list([source({ ...gmail, account: "test.user@example.com" })])).toContain("账号：test.user@example.com");
     const disconnected = list([source({ ...gmail, connection: "not_connected", canSync: false, account: undefined })]);
@@ -94,7 +94,7 @@ describe("详情里的状态、设置（343 号票起原来一块里的全部配
     expect(disconnected).not.toContain("test.user@example.com");
   });
 
-  test("原型里的 Google：连上 Gmail 和日历是完整邮箱，共享日历的 id 打码；断开后账号和日历说明都没了（339 号票）", async () => {
+  test("原型里的 Google：连上 Gmail 和日历是完整邮箱，共享日历的 id 打码；断开后账号和日历说明都没了", async () => {
     const fake = new FakeDataSources();
     const of = (view: DataSourcesView, id: string) => view.sources.find((s) => s.id === id)!;
     const connected = await fake.act("google-gmail", { action: "configure", values: { address: "yourname@gmail.com", password: "x" }, idempotencyKey: "gmail" });
@@ -131,7 +131,7 @@ describe("详情里的状态、设置（343 号票起原来一块里的全部配
     expect(sensitiveLine(source({ sensitive: [] }))).toBeUndefined();
   });
 
-  test("299：设备交来的（手机上的二狗 App）——上次那一行写手机交来和数据源写的那一句；导入的说法换成 App 交来时收下", () => {
+  test("设备交来的（手机上的二狗 App）——上次那一行写手机交来和数据源写的那一句；导入的说法换成 App 交来时收下", () => {
     const phone = source({ id: "phone-contacts", connection: "manual", account: undefined, usages: [{ usage: "import", on: true }], sensitive: [], files: [], count: 2, canSync: false, fromDevice: true, schedule: undefined });
     expect(syncLine({ ...phone, lastSync: { at: "2026-10-25T09:40:00.000+08:00", trigger: "device", added: 2, summary: "2 位联系人：王小明和妈妈" } })).toBe("上次 10-25 09:40 手机交来：2 位联系人：王小明和妈妈 · 共 2 条");
     expect(syncLine({ ...phone, lastSync: { at: "2026-10-25T09:40:00.000+08:00", trigger: "device", added: 2 } })).toBe("上次 10-25 09:40 手机交来 2 条 · 共 2 条");
@@ -149,7 +149,7 @@ describe("详情里的状态、设置（343 号票起原来一块里的全部配
     expect(busy).not.toContain(">立即同步<");
   });
 
-  test("300：原始数据那一节——折起来写几天、共几条、只在二狗这里；一天一行，还没整理的写明；没有原始数据、页面不给清的不画", () => {
+  test("原始数据那一节——折起来写几天、共几条、只在二狗这里；一天一行，还没整理的写明；没有原始数据、页面不给清的不画", () => {
     const raw = { title: "原始位置点", days: [{ date: "2026-10-26", count: 12, summarized: false }, { date: "2026-10-25", count: 68, summarized: true }] };
     const phone = source({ id: "phone-location", raw });
     const html = renderToStaticMarkup(blocks(phone, () => undefined, undefined, noop));
@@ -164,7 +164,7 @@ describe("详情里的状态、设置（343 号票起原来一块里的全部配
     expect(html).not.toMatch(/秘书|待我处理/);
   });
 
-  test("297 号票：导入的东西不进素材的写明去哪（每 30 分钟、显示在日历里）；数据源报的提示写在那一行、不标红", () => {
+  test("导入的东西不进素材的写明去哪（每 30 分钟、显示在日历里）；数据源报的提示写在那一行、不标红", () => {
     const calendar = source({ title: "Google · 日历", schedule: "每 30 分钟", destination: "显示在日历里（只读），不进素材", note: "日历插件没启用：同步来的事件现在在日历里看不到（照样同步、照样查得到）" });
     const html = list([calendar]);
     expect(html).toContain("每 30 分钟 自动同步，显示在日历里（只读），不进素材");
@@ -173,7 +173,7 @@ describe("详情里的状态、设置（343 号票起原来一块里的全部配
     expect(list([source({ schedule: undefined, destination: "显示在日历里（只读），不进素材" })])).toContain("点「立即同步」时导入，显示在日历里（只读），不进素材");
   });
 
-  test("301 号票：只靠导入文件夹、导入的去档案候选的（Google · 联系人）——写放文件时导入和去哪；上次那一行写导入的文件和数据源写的那一句", () => {
+  test("只靠导入文件夹、导入的去档案候选的（Google · 联系人）——写放文件时导入和去哪；上次那一行写导入的文件和数据源写的那一句", () => {
     const contacts = source({
       id: "google-contacts",
       title: "Google · 联系人",
@@ -258,13 +258,13 @@ describe("做完说一句", () => {
     expect(doneText(s, { action: "disconnect", purge: true, idempotencyKey: "k" }, { view, purged: { events: 130, materials: 128, files: 0 } })).toBe("断开了「相机」：删了 130 条记录、128 条素材、0 个文件");
     expect(doneText(s, { action: "usage", usage: "import", on: false, idempotencyKey: "k" }, { view })).toBe("「相机」的导入关了");
     expect(doneText(source({ raw: { title: "原始位置点", days: [] } }), { action: "clear_raw", dates: ["2026-10-25"], idempotencyKey: "k" }, { view, cleared: 68 })).toBe("清掉了 68 条原始位置点");
-    // 307 号票：在电脑上打开数据源的文件夹
+    // 在电脑上打开数据源的文件夹
     expect(doneText(s, { action: "open", idempotencyKey: "k" }, { view, opened: true })).toBe("在电脑上打开了「相机」的文件夹");
     expect(doneText(s, { action: "open", idempotencyKey: "k" }, { view, opened: false, error: "打不开：拒绝访问" })).toBe("打不开：拒绝访问");
   });
 });
 
-describe("断开的确认框里数据源报的那一句（307 号票）", () => {
+describe("断开的确认框里数据源报的那一句", () => {
   test("有就写（Looki：存到本地的文件不删），没有不写", () => {
     const note = "存到本地的照片、日记、vlog（D:\\Looki）不删：那是你自己的档案，要删自己去文件夹里删";
     expect(confirm(source({ disconnectNote: note }), true)).toContain(`<p class="source-keep-note">${note}</p>`);
@@ -275,7 +275,7 @@ describe("断开的确认框里数据源报的那一句（307 号票）", () => 
 /** 只靠导入文件夹的数据源（共 4 条）删除已导入的确认框 */
 const manual = (extra: Partial<DataSourceView>) => confirm(source({ connection: "manual", count: 4, ...extra }), true);
 
-describe("断开的确认框按数据源说话（306 号票）", () => {
+describe("断开的确认框按数据源说话", () => {
   const PHONE_NOTE = "断开后，同步来的手机日程不再显示在二狗的日历里，手机上的日历不动；选「连已导入的一起删」，这些日程在二狗这边的记录也删掉。";
   const phoneCalendar = () =>
     source({ id: "phone-calendar", title: "手机 · 日历", usages: [{ usage: "import", on: true }], files: [], count: 3, disconnectNote: PHONE_NOTE, fromDevice: true });
@@ -314,7 +314,7 @@ describe("断开的确认框按数据源说话（306 号票）", () => {
   });
 });
 
-describe("出错的每小时自动再试（306 号票）", () => {
+describe("出错的每小时自动再试", () => {
   test("出错、内核每小时替它再试的：出错那一行下面写明（能填设置的加一句也可以重新填）；没有 autoRetry 的不写", () => {
     expect(list([source({ connection: "error", problem: "Key 失效了", autoRetry: true })])).toContain("每小时自动再试一次，也可以重新填。");
     expect(list([source({ connection: "error", problem: "那边出错了", autoRetry: true, configurable: false })])).toContain("每小时自动再试一次。");
@@ -322,7 +322,7 @@ describe("出错的每小时自动再试（306 号票）", () => {
   });
 });
 
-describe("一级页：卡片（343 号票）", () => {
+describe("一级页：卡片", () => {
   const folder: ImportFolderView = { path: "D:\\ergo\\imports", importedPath: "D:\\ergo\\imports\\imported", pending: [], recent: [] };
   const cards = (sources: DataSourceView[], f: ImportFolderView = folder) => renderToStaticMarkup(createElement(DataSourceCards, { sources, folder: f, onOpen: noop }));
 
@@ -371,7 +371,7 @@ describe("一级页：卡片（343 号票）", () => {
   });
 });
 
-describe("详情里的数据（343 号票）", () => {
+describe("详情里的数据", () => {
   const item = (extra: Partial<DataSourceDataItem> = {}): DataSourceDataItem => ({ id: "x", title: "一条", subtitle: "副标题", time: "2026-10-25T14:00:00.000+08:00", ...extra });
   const stored = (page: DataSourceStoredPage | undefined, s: DataSourceView = source(), failed?: string) => renderToStaticMarkup(createElement(StoredView, { source: s, page, failed, loadingMore: false, onMore: noop, onMaterial: noop }));
   const live = (result: DataSourceLiveResult | undefined, extra: Partial<Parameters<typeof LiveView>[0]> = {}) => renderToStaticMarkup(createElement(LiveView, { result, loading: false, failed: undefined, opened: {}, onRefresh: noop, onFetch: noop, ...extra }));
@@ -446,7 +446,7 @@ describe("详情里的数据（343 号票）", () => {
     expect(html).not.toMatch(/秘书|待我处理/);
   });
 
-  test("现在能查到的按账号一组（344 号票）：名字是完整邮箱，一组一组的条目分开；一个账号查不到写在它那一组，别的照常；没查到的那组说一句", () => {
+  test("现在能查到的按账号一组：名字是完整邮箱，一组一组的条目分开；一个账号查不到写在它那一组，别的照常；没查到的那组说一句", () => {
     const at = "2026-10-25T10:00:00.000+08:00";
     const html = live({
       state: "ok",
@@ -473,7 +473,7 @@ describe("详情里的数据（343 号票）", () => {
   });
 });
 
-describe("断开一个账号（344 号票）", () => {
+describe("断开一个账号", () => {
   const one = { id: "a1", title: "me@example.com", detail: "连着 · 已导入 3 封", count: 3, removable: true as const };
   const two = { id: "a2", title: "work@example.org", detail: "连着 · 已导入 1 封", count: 1, removable: true as const };
   const gmail = source({ id: "google-gmail", title: "Google · Gmail", hasSecrets: true, toMaterials: true, count: 4, items: [one, two], usages: [{ usage: "query", on: true }, { usage: "import", on: true }], disconnectNote: "这里断开的是全部 2 个账号。只想断开一个，点那个账号旁边的「断开」。" });

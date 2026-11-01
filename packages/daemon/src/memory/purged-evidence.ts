@@ -1,8 +1,8 @@
-// 彻底删除的素材在推理库里是哪几条证据（265 号票）。问记忆（ask_memory）的结果按证据编号（ev-…）引原话、不带素材 id，
+// 彻底删除的素材在推理库里是哪几条证据。问记忆（ask_memory）的结果按证据编号（ev-…）引原话、不带素材 id，
 // 彻底删除素材时要按证据编号找到这些结果抹掉：事件日志里那次调用的记录和完整内容（purge.ts）、agent 会话文件里结果的那几行
 // （after-purge.ts 的 sessionRewriteFor）。
 // - 推理库这边还没删的（刚下命令、记忆插件停用着、推理库那次没删成）：按出处找——证据的 sourceRef 就是素材 id
-//   （303 号票：几条数据源素材合成的那条是 digest:<素材 id,…>，materialIdsOfRef 拆开）；忘掉的证据清了原文但还在（墓碑），一样找得到；
+//   （几条数据源素材合成的那条是 digest:<素材 id,…>，materialIdsOfRef 拆开）；忘掉的证据清了原文但还在（墓碑），一样找得到；
 // - 已经删掉的（记忆插件跟着记忆命令删了证据，purge-rg.ts）：按彻底删除的审计 rg_purges 找（记着素材 id 和删掉的证据 id；
 //   别推断撤掉证据也写这份审计——那之前问记忆引过的照样要抹）。
 // 两边合起来、去重、按编号排。会话文件的改写在 agent 闲下来时才做（启动时还会把以前的彻底删除对一遍），那时证据多半已经删了，
@@ -23,7 +23,7 @@ export function purgedEvidenceIds(file: string, materialIds: readonly string[], 
 }
 
 /**
- * 同 purgedEvidenceIds，但分得清"查了、没有"和"查不了"（272 号票的一次性补抹：查不了的时候不记"做完了"，下次启动再补）：
+ * 同 purgedEvidenceIds，但分得清"查了、没有"和"查不了"（一次性补抹：查不了的时候不记"做完了"，下次启动再补）：
  * 库没建（空文件）是查了、没有（那时问记忆也引不出原话）；打不开、版本对不上、读出错是 undefined
  */
 export function lookupPurgedEvidence(file: string, materialIds: readonly string[], log: (line: string) => void = () => {}): string[] | undefined {

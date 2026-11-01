@@ -1,9 +1,9 @@
-// 二狗内部事件（77 号票，来源编号 ergo）：从事件日志里认出这几种事，交给等它的订阅——
+// 二狗内部事件（来源编号 ergo）：从事件日志里认出这几种事，交给等它的订阅——
 // - 任务完成、失败、转"等我"（看板频道的 task 事件，状态真的变了的那一条；普通任务、流程、长程任务都算，反复运行的任务一次运行做完不算完成）；
 // - 项目状态变化（项目频道的 project 事件，筹备中 → 建设中 → 使用中 → 已停用之间变了；归档、取消归档也是状态变化）；
 // - 定时、事件触发的任务的一次运行失败（看板频道 scheduled_job 的 run_finished，运行记成失败）。
 // 可以按任务、项目过滤（过滤条件 taskId、projectId）。自己的事不触发自己（任务失败不会触发它自己）。
-// 项目内部的事只在项目里看得到（64 号票）：只交给同一个项目里的订阅，或者点名要这个任务、这个项目的订阅。
+// 项目内部的事只在项目里看得到：只交给同一个项目里的订阅，或者点名要这个任务、这个项目的订阅。
 // 去重键是事件日志的全局序号：同一条事件只交一次。守护进程里的事是同步推的，停机期间没有内部事件，不用开机补。
 import {
   CHANNELS,
@@ -41,7 +41,7 @@ function happeningsOf(e: StoredEvent): ErgoHappening[] {
   if (isDeletedEventPayload(e.payload)) return [];
   if (e.channel === CHANNELS.board && e.type === EVENT_TYPES.task) {
     const { task, from, change } = e.payload as TaskEventPayload;
-    // 项目取消归档时跟着回到原来状态的（141 号票：回到已完成、失败的）不是这时候做完、失败的
+    // 项目取消归档时跟着回到原来状态的（回到已完成、失败的）不是这时候做完、失败的
     if (from === task.state || change === "unarchived") return [];
     const project = task.internal ?? (task.projectIds?.length === 1 ? { projectId: task.projectIds[0]!, projectName: task.projects[0] ?? task.projectIds[0]! } : undefined);
     const base = {

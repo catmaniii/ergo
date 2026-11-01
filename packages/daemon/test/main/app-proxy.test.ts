@@ -1,4 +1,4 @@
-// 主切面：转发本机服务的页面（132 号票）。真的守护进程（临时数据目录，经组合根装配），起一个本机的假服务（helpers/fake-app.ts，
+// 主切面：转发本机服务的页面。真的守护进程（临时数据目录，经组合根装配），起一个本机的假服务（helpers/fake-app.ts，
 // 随机端口），在转发登记表里登记，再像浏览器一样经网关的 /apps/<应用名>/ 访问：
 // - 普通请求（路径去掉前缀、查询串和请求体原样，Host 换成服务的、Origin 换成服务的源，带 X-Forwarded-Prefix / -Proto / -Host / -For，
 //   二狗自己的 cookie 不转过去）、去掉挡嵌入的头、302 的 Location 改写回前缀下、Set-Cookie 的 Path 改到前缀下；
@@ -171,7 +171,7 @@ describe("本机端口：登记了才转发", () => {
     undo();
     await closed(ws);
     expect((await httpRequest(test.url, "/apps/intel/")).status).toBe(404);
-    // 撤了再登记（133 号票改方案：换地址）照常
+    // 撤了再登记（改方案：换地址）照常
     const again = test.daemon.apps.register({ name: "intel", target: app.url, title: "简报站" });
     expect((await httpRequest(test.url, "/apps/intel/")).status).toBe(200);
 

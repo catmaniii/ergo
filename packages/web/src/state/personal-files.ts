@@ -1,6 +1,6 @@
-// 个人档案（281 号票）在网页上怎么写（纯函数，档案页、核对卡用）：一份档案在列表上叫什么、"出处"那一行、
+// 个人档案在网页上怎么写（纯函数，档案页、核对卡用）：一份档案在列表上叫什么、"出处"那一行、
 // 号码分组、删一样东西时有几句出处的原话可以一起彻底删除。档案经 HTTP 现取（不走事件），形状在协议包的 personal-files-schema.ts。
-// 285 号票：列表分四组（我、家人、重要的人、其他人），personalFileGroups。
+// 列表分四组（我、家人、重要的人、其他人），personalFileGroups。
 import { MEMORY_CONFIDENCE_LABEL, MEMORY_EPISTEMIC_LABEL, MEMORY_TIER_LABEL } from "./memory-graph.ts";
 import {
   type MemoryClaimTier,
@@ -102,7 +102,7 @@ export function deletableSources(file: PersonalFileView, target: PersonalFileDel
   return ids.size;
 }
 
-// ---------- 283 号票：每年提醒、二狗了解到的、候选核对卡 ----------
+// ----------每年提醒、二狗了解到的、候选核对卡 ----------
 
 /** 每年提醒能选提前几天（0 是当天） */
 export const ANNUAL_REMINDER_DAY_CHOICES: readonly number[] = [0, 1, 2, 3, 5, 7, 14, 30];

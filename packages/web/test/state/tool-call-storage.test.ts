@@ -1,4 +1,4 @@
-// 设置里的"工具调用的完整内容"（65 号票）：占了多大、规则、"现在就清理"会清掉多少，清完怎么说。
+// 设置里的"工具调用的完整内容"：占了多大、规则、"现在就清理"会清掉多少，清完怎么说。
 // 守护进程的回答按协议的 schema 构造。
 import { schemaChecker, ToolCallCleanupResult as CleanupSchema, ToolCallStorageView as ViewSchema } from "@ergo/protocol";
 import { describe, expect, test } from "vitest";

@@ -1,8 +1,8 @@
-// @i18n-ignore-file model：看板的文字只给秘书（模型）看（174 号票）
-// 秘书眼里的任务看板（规格第 7、8 节，22 号票）：看板频道上的任务、简单提醒、定时触发的任务（19 号票的定时作业，76 号票起是
+// @i18n-ignore-file model：看板的文字只给秘书（模型）看
+// 秘书眼里的任务看板（规格第 7、8 节）：看板频道上的任务、简单提醒、定时触发的任务（定时作业，是
 // 定时触发的任务的触发登记，写成它的任务那一项）各写成一项，
 // 秘书的"查看板"工具按看板的五组列出全部，"看板变化"消息列出两次之间变了的项。纯函数；看板上有哪几种东西、
-// 各从哪里来在 kinds.ts 的种类表里（126 号票起简单提醒那一项由提醒插件写：reminders/board-kind.ts）。
+// 各从哪里来在 kinds.ts 的种类表里（简单提醒那一项由提醒插件写：reminders/board-kind.ts）。
 // 分组、状态的中文名只用共享协议包的那一份（BOARD_GROUP_OF_TASK_STATE、boardGroupOfReminder、TASK_STATE_LABEL、
 // REMINDER_STATUS_LABEL），和看板频道推给前端的、Web 的看板一致。
 import {
@@ -57,7 +57,7 @@ function taskStatus(task: Task): string {
 }
 
 /**
- * 看板上写的"第 1a/4 阶段"（93 号票）：正在做的那一阶段的编号（计划里存的，和界面一致）/ 一共几个阶段号；
+ * 看板上写的"第 1a/4 阶段"：正在做的那一阶段的编号（计划里存的，和界面一致）/ 一共几个阶段号；
  * 看板上还没有阶段列表的照旧写计划里的第几个 / 共几个
  */
 function stageAt(stages: NonNullable<Task["stages"]>): string {
@@ -79,8 +79,8 @@ export function taskEntry(task: Task): BoardEntry {
 }
 
 /**
- * 任务的补充：普通任务（75 号票：交给后台、做完自动完成的）标出来，某个时间做一次的那个时间（76 号票），涉及的项目；
- * 上看板的项目内部任务（141 号票，运营方案建的）写属于哪个项目
+ * 任务的补充：普通任务（交给后台、做完自动完成的）标出来，某个时间做一次的那个时间，涉及的项目；
+ * 上看板的项目内部任务（运营方案建的）写属于哪个项目
  */
 function taskDetail(task: Task): { detail?: string } {
   const at = onceAt(task);
@@ -93,14 +93,14 @@ function taskDetail(task: Task): { detail?: string } {
 }
 
 /**
- * 定时触发的任务（76 号票；19 号票的定时作业）：键和名字是它的任务的（task:<任务>），状态是触发的（运营中、已暂停及原因，带上"最近一次失败"
+ * 定时触发的任务（定时作业）：键和名字是它的任务的（task:<任务>），状态是触发的（运营中、已暂停及原因，带上"最近一次失败"
  * 或者"最近一次部分完成"）；
  * 补充写定时触发、时间表、下一次、属于哪个项目。还没迁移的定时作业照旧写成"定时作业 j-1"。
- * 事件触发的（77 号票）写在等什么事件、最近一次触发是什么事件
+ * 事件触发的写在等什么事件、最近一次触发是什么事件
  */
 export function scheduledJobEntry(job: ScheduledJob): BoardEntry {
   const last = lastTriggerEvent(job.lastRun);
-  // 最近一次部分完成的（176 号票）标"最近一次部分完成"，不然最近一次算数的失败了标"最近一次失败"
+  // 最近一次部分完成的标"最近一次部分完成"，不然最近一次算数的失败了标"最近一次失败"
   const mark = lastRunMark(job);
   const detail = [
     `${jobTriggerKind(job)}：${jobTriggerDetail(job)}`,

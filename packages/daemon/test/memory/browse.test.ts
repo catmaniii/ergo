@@ -1,7 +1,7 @@
-// 设置里看素材（158 号票，模块层）：范围里的素材一页一页列出来（新的在前），点开一条看完整内容和来源。
+// 设置里看素材（模块层）：范围里的素材一页一页列出来（新的在前），点开一条看完整内容和来源。
 // 素材只记了本人的话和别的内容的引用；出处的消息还在时，引用块的原文、附件和语音在消息里的样子从消息里补上，界面照会话里的样子画。
-// 标记：别推断过的、在废弃分支里的（150）、项目内部的记录（64）。
-// 167 号票：记忆 · 素材按时间范围浏览、按种类和会话筛、按关键词搜（filter），新的在前按素材的时间；搜的时候摘录换成命中的那一段。
+// 标记：别推断过的、在废弃分支里的、项目内部的记录。
+// 记忆 · 素材按时间范围浏览、按种类和会话筛、按关键词搜（filter），新的在前按素材的时间；搜的时候摘录换成命中的那一段。
 import { CHANNELS, EVENT_TYPES, maintainerChannel, type MemoryCommandEventPayload, type MessagePart, type VoiceRecord } from "@ergo/protocol";
 import { describe, expect, test } from "vitest";
 import { deletedMarker } from "../../src/events/purge.ts";
@@ -149,7 +149,7 @@ describe("一条的完整内容", () => {
   });
 });
 
-/** 2026 年 10 月某天某时（167 号票的筛选用） */
+/** 2026 年 10 月某天某时（筛选用） */
 const day = (d: string, hm: string) => `2026-10-${d}T${hm}:00.000+08:00`;
 
 /** 几天里的几条：秘书主线说的话、负责人会话里说的话、发的图片、存的网页 */
@@ -171,7 +171,7 @@ function seed() {
   return { t, b: browser(t), hike: byText("爬山"), photo: byText("发票-0927"), rule: byText("外卖"), page: byText("旅行攻略"), suzhou: byText("苏州") };
 }
 
-describe("记忆 · 素材的筛选（167 号票）", () => {
+describe("记忆 · 素材的筛选", () => {
   test("时间段：两头都算，可以只给一头；新的在前按素材的时间", () => {
     const { t, b, hike, photo, rule, page, suzhou } = seed();
     expect(b.list(undefined, {}, {}).items.map((i) => i.id)).toEqual([suzhou.id, page.id, rule.id, photo.id, hike.id]);

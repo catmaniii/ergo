@@ -136,7 +136,7 @@ describe("发给模型前的投影（第 1 版）", () => {
     expect(body(projectForModel(input([file(ZIP, "资料.zip", "application/zip", 3_565_158)])).text)).toBe(`[附件：资料.zip（application/zip，3.4 MB，附件引用 ${ZIP}）]`);
   });
 
-  it("语音换成「语音转写：」加识别出的文字（31 号票，文字由调用方从 VoiceRecord 取来）；识别失败的、找不到这条语音的写「[语音，识别失败]」", () => {
+  it("语音换成「语音转写：」加识别出的文字（文字由调用方从 VoiceRecord 取来）；识别失败的、找不到这条语音的写「[语音，识别失败]」", () => {
     const voice = (voiceId: string): MessagePart => ({ type: "voice", voiceId, mediaId: ZIP, mime: "audio/webm", durationMs: 3200, waveform: [10, 60, 30] });
     const voices = { v1: { kind: "transcript", text: "明天早上九点提醒我。" }, v2: { kind: "failed" } } as const;
     expect(body(projectForModel(input([voice("v1")], { voices })).text)).toBe("语音转写：明天早上九点提醒我。");
@@ -176,7 +176,7 @@ describe("发给模型前的投影（第 1 版）", () => {
   });
 });
 
-describe("发给模型前的投影（第 2 版，79 号票：图片带附件引用）", () => {
+describe("发给模型前的投影（第 2 版：图片带附件引用）", () => {
   const images: MessagePart[] = [
     { type: "image", mediaId: IMG, name: "IMG_0001.JPG", mime: "image/jpeg", width: 40, height: 30 },
     { type: "image", mediaId: MD, name: "截图.png", mime: "image/png" },

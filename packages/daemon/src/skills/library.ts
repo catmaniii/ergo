@@ -1,15 +1,15 @@
-// skill 库（规格第 20 节，27、72 号票）：二狗自己的一批 skill，会话只从这里按工具包挑。
+// skill 库（规格第 20 节）：二狗自己的一批 skill，会话只从这里按工具包挑。
 // - 框架自带的：程序目录 packages/daemon/skills/ 下（第一阶段只有示例）；
 // - 用户自己加的：数据目录的 skill 区（个人数据，随数据目录备份）。用户在设置里的 skill 库页显式导入一份（复制进 skill 区）；
 //   本机别处现成的 skill（比如 Claude Code 的 ~/.claude/skills 里的）要用就这样导入。不自动读取 ~/.claude/skills、~/.pi。
 // 每个 skill 是一个含 SKILL.md 的目录，名字和说明取 SKILL.md 开头的 frontmatter（name、description；没写 name 的取目录名）。
-// **名字照 SKILL.md 原样**（用户 2026-10-10 定）：带空格、大写的也认（pstack 的 "Poteto Mode"），和 pi 一样不合 Agent Skills
+// **名字照 SKILL.md 原样**：带空格、大写的也认（pstack 的 "Poteto Mode"），和 pi 一样不合 Agent Skills
 // 写法的只提示、照常用；二狗不改 skill 的名字。唯一的例外是用户点名的"导入并改名"（matt-pocock 的 tdd → mp-tdd）。
 // 名字在库里唯一：导入同名的被拒，并说清和谁重名（框架自带的、你导入的、哪个集合里的）。
 // 装配会话时按工具包里的名字解析出目录（pathsOf），经宿主协议的 skillPaths 交给子进程（pi 的 additionalSkillPaths，noSkills；
 // pi 从目录里的 SKILL.md 自己读名字，所以名字和目录名不一样也没关系）。
 //
-// 72 号票加的：
+// 加的：
 // - **集合**：一个目录整套导入（比如 matt-pocock 的 engineering、pstack 插件），skill 区里是 `<集合名>/`：来源的根目录整个复制进来
 //   （成员用 ../../ 引用的 README、docs、agents 一起带上，相对路径照样对），外加一份 ergo-collection.json（集合名、来源、版本、
 //   一句说明、成员目录、改了名的成员）。成员仍是库里独立的 skill 名；界面上集合显示成一项。
@@ -22,12 +22,12 @@
 // - **不带的东西**：.git 和别的隐藏目录、.env*、*.pem、*.key（任何一层；集合、单个 skill 都一样），报告里列出来。
 // - **导入报告**：每个 skill 导入成功与否（集合里不是合规 skill 的成员跳过并写明原因；重名的整套拒绝，说清和谁重名、可以改名）。
 //
-// 82 号票（用户 2026-10-10 定）：**斜杠命令就是 skill 的目录名**（/poteto-mode，不论 SKILL.md 里的名字带不带空格），
+// **斜杠命令就是 skill 的目录名**（/poteto-mode，不论 SKILL.md 里的名字带不带空格），
 // 所以目录名一律是小写、不带空格的写法：导入时把目录名规范化（normalizeSkillDirName：转小写，空格和别的不合适的字符换成 -，
 // 连续的 - 合成一个），单个 skill 和集合的成员都是；规范化之后重名的照旧拒绝，说清和谁重名。SKILL.md 一字不动，显示的名字照原样。
 // 已经在 skill 区里的不合规的目录名不自动改，启动时记日志、skill 库页上提示（skills/skill-command.ts 的 skillDirProblems）。
 //
-// 358 号票（用户 2026-11-01 定"和登记 MCP 走一样的路"）：负责人也能提交 skill（skills/change.ts 出卡，用户确认了才到这里）。
+// 和登记 MCP 走一样的路：负责人也能提交 skill（skills/change.ts 出卡，用户确认了才到这里）。
 // 校验和真导入是**同一段逻辑**（checkSingle、planSource、readSkill），不会有"卡批了才发现导不进去"的常见情况，差别只有三处：
 // - **来源**：只能是提交人自己的工作目录或项目档案里的一个目录（按真实路径认，经目录联接绕出去的拒绝）；这两处多半在数据目录里，
 //   所以不走"来源不能在数据目录里"那条，换成这条；
@@ -67,7 +67,7 @@ export const BUILTIN_SKILLS_DIR = fileURLToPath(new URL("../../skills/", import.
 const IMPORT_NAME = new RegExp(IMPORT_NAME_PATTERN);
 
 /**
- * skill 目录名（也就是斜杠命令名，82 号票）的规范写法：转小写，空格和别的不合适的字符换成 -，连续的 - 合成一个，去掉两头的 -。
+ * skill 目录名（也就是斜杠命令名）的规范写法：转小写，空格和别的不合适的字符换成 -，连续的 - 合成一个，去掉两头的 -。
  * 留下的只有小写字母（中文这类没有大小写的字也算）、数字和 -。规范不出东西（全是符号）时是空串
  */
 export function normalizeSkillDirName(name: string): string {
@@ -97,7 +97,7 @@ const SKILL_FILE_MAX = 512 * 1024;
 export const IMPORT_MAX_BYTES = 20 * 1024 * 1024;
 export const IMPORT_MAX_FILES = 2000;
 
-/** 依赖目录（72 号票）：不复制，在原来的位置建目录联接指向来源里的那个目录 */
+/** 依赖目录：不复制，在原来的位置建目录联接指向来源里的那个目录 */
 const DEPENDENCY_DIRS = new Set(["node_modules", ".venv", "venv"]);
 
 /** 不带进来的文件：密钥、凭据这类（.env、.env.local……、*.pem、*.key） */
@@ -106,7 +106,7 @@ function isSensitiveFile(name: string): boolean {
   return lower === ".env" || lower.startsWith(".env.") || lower.endsWith(".pem") || lower.endsWith(".key");
 }
 
-/** 负责人提交的 skill 记谁提的文件（skill 目录的根上，只由运行时写，来源里带的不复制，358 号票） */
+/** 负责人提交的 skill 记谁提的文件（skill 目录的根上，只由运行时写，来源里带的不复制） */
 export const SUBMISSION_FILE = ".ergo-submission.json";
 /** skill 区里放旧版的目录（改、删之前挪进来；隐藏目录不算 skill） */
 export const HISTORY_DIR = ".history";
@@ -153,12 +153,12 @@ export interface SkillLibraryOptions {
   dataDir: string;
   /** 现在的时间（集合的说明文件里记导入时间） */
   now?: () => string;
-  /** 目录改名（就位、挪旧版，358 号票）；不给用 renameRetrying（测试换掉它来试失败） */
+  /** 目录改名（就位、挪旧版）；不给用 renameRetrying（测试换掉它来试失败） */
   renameDir?: (from: string, to: string) => void;
   log: (line: string) => void;
 }
 
-/** 负责人提交的一个来源（358 号票）：source 是目录的绝对路径，roots 是提交人自己的工作目录和项目档案；改的时候 replacing 是要换掉的 skill 名 */
+/** 负责人提交的一个来源：source 是目录的绝对路径，roots 是提交人自己的工作目录和项目档案；改的时候 replacing 是要换掉的 skill 名 */
 export interface SkillSubmission {
   source: string;
   roots: readonly string[];
@@ -197,7 +197,7 @@ export interface SkillLibrary {
   find(names: readonly string[]): LibrarySkill[];
   /** 名字 → skill 目录；库里没有的不在结果里（记日志） */
   pathsOf(names: readonly string[]): string[];
-  /** 库里的全部 skill 和它们的目录（和 list 一样的顺序；斜杠命令按目录名算，82 号票） */
+  /** 库里的全部 skill 和它们的目录（和 list 一样的顺序；斜杠命令按目录名算） */
   skills(): LibrarySkill[];
   /**
    * 导入：单个 skill（可以改名），或者把一个目录作为集合整套导入。复制一份进 skill 区；
@@ -205,7 +205,7 @@ export interface SkillLibrary {
    */
   importFrom(request: ImportSkillBody): ImportSkillResult;
   /**
-   * 校验一个负责人提交的来源（358 号票）：和导入同一段逻辑，一个文件都不写。不合规矩的抛 RequestRejected
+   * 校验一个负责人提交的来源：和导入同一段逻辑，一个文件都不写。不合规矩的抛 RequestRejected
    * （来源不在 roots 里、经链接绕出去、没有 SKILL.md、带链接、太大、重名……）
    */
   checkSubmission(request: SkillSubmission): SkillSubmissionReport;
@@ -274,7 +274,7 @@ export function createSkillLibrary(options: SkillLibraryOptions): SkillLibrary {
     return { skills: [...builtin, ...[...singles, ...members].toSorted(byName)], collections: found };
   };
 
-  /** 单个 skill 进库之前的规矩（SKILL.md、重名、目录名、大小）：设置里导入、负责人提交走同一段（358 号票），这里过了就能复制 */
+  /** 单个 skill 进库之前的规矩（SKILL.md、重名、目录名、大小）：设置里导入、负责人提交走同一段，这里过了就能复制 */
   const checkSingle = (plan: SourcePlan, rename: string | undefined) => {
     const { root } = plan;
     const read = readSkill(root);
@@ -283,7 +283,7 @@ export function createSkillLibrary(options: SkillLibraryOptions): SkillLibrary {
     const s = scan();
     const owner = ownerOf(s, name);
     if (owner) throw new RequestRejected("conflict", conflictText([{ name, owner }]));
-    // skill 区里的目录名：来源的目录名规范化（改了名的取新名字），不拿 skill 名当目录名；它也是斜杠命令名（82 号票）
+    // skill 区里的目录名：来源的目录名规范化（改了名的取新名字），不拿 skill 名当目录名；它也是斜杠命令名
     const sourceDir = path.basename(root);
     const dirName = rename ?? normalizeSkillDirName(sourceDir);
     if (dirName === "") throw new RequestRejected("bad_params", t("skills.import.emptyDir", { dir: sourceDir }));
@@ -349,7 +349,7 @@ export function createSkillLibrary(options: SkillLibraryOptions): SkillLibrary {
         continue;
       }
       const name = rename[read.name] ?? read.name;
-      // 就位后的目录名（也是斜杠命令名，82 号票）：改了名的是新名字，否则是来源的目录名规范化
+      // 就位后的目录名（也是斜杠命令名）：改了名的是新名字，否则是来源的目录名规范化
       const finalDir = name === read.name ? normalizeSkillDirName(dirName) : name;
       if (finalDir === "") {
         report.push({ name: read.name, dir, ok: false, note: t("skills.import.emptyMemberDir", { dir: dirName }) });
@@ -386,7 +386,7 @@ export function createSkillLibrary(options: SkillLibraryOptions): SkillLibrary {
       spec.name,
       (staging) => {
         if (fs.existsSync(path.join(staging, COLLECTION_MANIFEST))) throw new RequestRejected("bad_params", t("skills.import.manifestClash", { file: COLLECTION_MANIFEST }));
-        // 点名改名的成员动目录名和 SKILL.md 的 name 一行；目录名不规范的只改目录名（82 号票）；别的一个字不动
+        // 点名改名的成员动目录名和 SKILL.md 的 name 一行；目录名不规范的只改目录名；别的一个字不动
         for (const m of members) {
           if (m.name === m.original && m.finalDir === m.dirName) continue;
           const from = path.join(staging, ...splitRel(joinRel(membersRel, m.dirName)));
@@ -416,7 +416,7 @@ export function createSkillLibrary(options: SkillLibraryOptions): SkillLibrary {
       const memberDir = joinRel(membersRel, m.finalDir);
       const notes = [
         ...(m.name !== m.original ? [t("skills.import.renamed", { original: m.original })] : []),
-        // 目录名不规范的照样改名（用户 2026-10-10 定，不拒绝这个成员），提醒一句相对引用的事
+        // 目录名不规范的照样改名（不拒绝这个成员），提醒一句相对引用的事
         ...(m.name === m.original && m.finalDir !== m.dirName ? [t("skills.import.dirRenamed", { from: m.dirName, to: m.finalDir })] : []),
         ...[freeNameText(m.name)].filter((note): note is string => note !== undefined),
         ...linked.filter((l) => l.dir === memberDir || l.dir.startsWith(`${memberDir}/`)).map(linkedText),
@@ -442,7 +442,7 @@ export function createSkillLibrary(options: SkillLibraryOptions): SkillLibrary {
   };
 
   /**
-   * 负责人提交的来源（358 号票）：要在它自己的工作目录或项目档案里面（是它们下面的一个目录，不是它们本身）。全按真实路径比：
+   * 负责人提交的来源：要在它自己的工作目录或项目档案里面（是它们下面的一个目录，不是它们本身）。全按真实路径比：
    * 路径上哪一层是目录联接、绕到外面去的，这里就挡住了。这两处多半在数据目录里，所以不查"来源不能在数据目录里"；
    * skill 区自己的东西不用再提交，整个包住数据目录的照旧不行
    */
@@ -610,7 +610,7 @@ export function createSkillLibrary(options: SkillLibraryOptions): SkillLibrary {
   /**
    * 复制来源到 skill 区的 target：先复制到旁边的临时目录，就位前做 prepare（改名、改 SKILL.md 的 name），
    * 再改名就位，中途出错不留半个。依赖目录、不带的东西不复制（链接本来就不该有，复制时再挡一道）；依赖目录建目录联接指回来源。
-   * 返回这些联接（相对 target，用 / 分隔，经 mapRel 换成就位后的位置）。place 是怎么就位（改 skill 的时候要先挪旧版，358 号票），不给是直接改名
+   * 返回这些联接（相对 target，用 / 分隔，经 mapRel 换成就位后的位置）。place 是怎么就位（改 skill 的时候要先挪旧版），不给是直接改名
    */
   function copyInto(plan: SourcePlan, target: string, label: string, prepare: (staging: string) => void, mapRel: (rel: string) => string = (rel) => rel, place?: (staging: string) => void): { dir: string; target: string }[] {
     const { root } = plan;
@@ -638,7 +638,7 @@ export function createSkillLibrary(options: SkillLibraryOptions): SkillLibrary {
         links.push({ dir: mapRel(dep), target: real });
       }
       prepare(staging);
-      // 刚复制进来的文件被杀毒扫着、目录被索引碰着时，整个目录改名等一会儿重试（265 号票）
+      // 刚复制进来的文件被杀毒扫着、目录被索引碰着时，整个目录改名等一会儿重试
       if (place) place(staging);
       else moveDir(staging, target);
     } catch (err) {
@@ -734,7 +734,7 @@ function planSource(root: string, membersRel: string): SourcePlan {
 }
 
 /**
- * 内容指纹（358 号票）：每个要复制的文件的相对路径和内容（按路径排好），加上依赖目录的名字（里面的内容按原路径引用、不复制，不算）。
+ * 内容指纹：每个要复制的文件的相对路径和内容（按路径排好），加上依赖目录的名字（里面的内容按原路径引用、不复制，不算）。
  * onFile 拿到读到的内容（卡上的 SKILL.md 全文、脚本标记和指纹是同一次读的，不会对不上）
  */
 function contentPrint(root: string, files: readonly string[], deps: readonly string[], onFile?: (rel: string, content: Buffer) => void): string {
@@ -808,7 +808,7 @@ function ownerOf(s: Scan, name: string): string | undefined {
 }
 
 /**
- * 目录名（斜杠命令名，82 号票）已经被谁占了：skill 区第一层的单个 skill、集合，和框架自带的 skill（单个的目录名和它们一样，
+ * 目录名（斜杠命令名）已经被谁占了：skill 区第一层的单个 skill、集合，和框架自带的 skill（单个的目录名和它们一样，
  * /目录名 就分不清是谁）。集合里的成员不算：目录名和它们相同时，集合里的写成"集合名:目录名"
  */
 function dirOwner(s: Scan, dirName: string): string | undefined {
@@ -947,7 +947,7 @@ function foundSkill(dir: string, origin: SkillEntry["origin"], collection: strin
   return { entry: { name: read.name, description: read.description, origin, ...(collection ? { collection } : {}), ...(submittedBy ? { submittedBy } : {}) }, dir };
 }
 
-/** skill 目录里记的谁提的（358 号票）；没有、读不懂的算用户自己导入的 */
+/** skill 目录里记的谁提的；没有、读不懂的算用户自己导入的 */
 function readSubmission(dir: string): SubmittedBy | undefined {
   const file = path.join(dir, SUBMISSION_FILE);
   if (!fs.existsSync(file)) return undefined;

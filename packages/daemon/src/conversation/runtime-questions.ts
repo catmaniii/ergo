@@ -1,4 +1,4 @@
-// 运行时的提问（288 号票，宿主协议 23 的 ask_user / ask_user_reply）：负责人的运行时自己要问用户的——Claude Code 的 AskUserQuestion
+// 运行时的提问（宿主协议 23 的 ask_user / ask_user_reply）：负责人的运行时自己要问用户的——Claude Code 的 AskUserQuestion
 // （选择题，可多选、可自己写）、退出计划模式时的批准——子进程报 ask_user，这里建一张提问卡（runtime_question）放进它的会话（一条只有卡片
 // 引用的消息）和待我处理，活动状态是"等你"（等你回答 / 等你批准）；你在卡上答了（卡片动作落盘之后），回答经 ask_user_reply 交回那次调用。
 // - 这一轮结束了（turn_end：做完、被打断）、子进程退出了，还没答的卡作废（expired，再点回"这一轮已经结束"）：子进程那边已经按没答收尾
@@ -36,7 +36,7 @@ export interface QuestionSession {
   conversation: ConversationId;
   /** 卡上、待我处理里的来源（和审批卡一样：守卫接入的 source） */
   source: string;
-  /** 项目内部的会话（64 号票）：待我处理的事项带上它 */
+  /** 项目内部的会话：待我处理的事项带上它 */
   internal?: ProjectInternal;
   /** 会话里的消息带上的归属（任务、项目、阶段）：问的那一刻取 */
   scope: () => MessageScope;
@@ -57,7 +57,7 @@ export interface RuntimeQuestionsOptions {
   store: EventStore;
   cards: CardService;
   inbox: InboxService;
-  /** 在等用户回答：这个 agent 的活动状态是"等你"（25 号票） */
+  /** 在等用户回答：这个 agent 的活动状态是"等你" */
   userWaits?: UserWaits;
   log: (line: string) => void;
 }
@@ -188,7 +188,7 @@ function wrongKind(): never {
   throw new RequestRejected("bad_params", t("conversation.runtimeQuestion.wrongAction"));
 }
 
-/** 提问卡（288 号票）：选择题提交回答、不答；计划批准、打回（附一句让它怎么改）。动作落盘之后把回答交回那次调用 */
+/** 提问卡：选择题提交回答、不答；计划批准、打回（附一句让它怎么改）。动作落盘之后把回答交回那次调用 */
 export function runtimeQuestionCardType(questions: RuntimeQuestions) {
   const replied = (cardId: string, reply: RuntimeQuestionReply) => () => questions.replied(cardId, reply);
   return defineCardType({

@@ -1,4 +1,4 @@
-// 160 号票：内置浏览器里点到 markdown 这类能渲染的文件，用二狗的渲染打开。哪些走内置渲染（看扩展名和响应的 Content-Type）、
+// 内置浏览器里点到 markdown 这类能渲染的文件，用二狗的渲染打开。哪些走内置渲染（看扩展名和响应的 Content-Type）、
 // 文件名、编码、JSON 格式化、CSV 拆成表格、渲染层显示什么（类型、大小、截断和表格太长的提示、能不能"看原文"）。
 import fs from "node:fs";
 import { describe, expect, test } from "vitest";

@@ -1,15 +1,15 @@
-// Google · Gmail 这个数据源（298 号票，ADR-0027 的"数据源"贡献点）：写在 Google 插件的数据契约里（插件停用也认得：设置 · 数据源照样列出、
+// Google · Gmail 这个数据源（ADR-0027 的"数据源"贡献点）：写在 Google 插件的数据契约里（插件停用也认得：设置 · 数据源照样列出、
 // 写"Google插件没启用"，断开并删照样删得掉导入的）。
-// - 按需查默认开（issue 25：Gmail 默认按需查）：给秘书"搜 Gmail 邮件""读 Gmail 邮件"（gmail-tools.ts），现连现查、不存；
+// - 按需查默认开（Gmail 默认按需查）：给秘书"搜 Gmail 邮件""读 Gmail 邮件"（gmail-tools.ts），现连现查、不存；
 // - 导入默认关，就是"导入我发出的邮件"：开了以后每小时看一次"已发邮件"，新发的邮件写成 google_gmail_sent、采成"本人写的"素材
-//   （303 号票的 dataSourceMaterial：text 是主题加去掉引用的正文，scene.people 是收件人）；收到的邮件不导入；
+//   （dataSourceMaterial：text 是主题加去掉引用的正文，scene.people 是收件人）；收到的邮件不导入；
 // - 导入的记录是 Google 插件自己的事件（events.ts）："共几条"由它数（导到哪的记号不算）；
 // - 要插件在运行才能做的都经 active() 现取插件的服务（gmail.ts）。
-// 敏感类别按每封写窄（gmail-sensitive.ts，主会话 2026-10-26 定）：正文里明显是财务、健康的标上对应类别，判不准的不标、其余 sensitive: []；
+// 敏感类别按每封写窄（gmail-sensitive.ts）：正文里明显是财务、健康的标上对应类别，判不准的不标、其余 sensitive: []；
 // 数据源登记这两类（页面上写明默认只记录、不用于推断）。
-// 343 号票：数据源详情里看数据——已获取的是导入的素材（内核按素材的出处列，这里不用写）；现在能查到的（live，gmail-data.ts）现连现查，
+// 数据源详情里看数据——已获取的是导入的素材（内核按素材的出处列，这里不用写）；现在能查到的（live，gmail-data.ts）现连现查，
 // 只给发件人、主题、时间，点开才取正文。Gmail 只有登录没过才报出错：要重新填应用专用密码，卡片上写"要授权"。
-// 344 号票：可以连几个账号。启动时把老的两个键转成一条账号（migrate，gmail-accounts.ts：插件没启用也转，只动密钥区）；能单独断开一个（disconnectItem）。
+// 可以连几个账号。启动时把老的两个键转成一条账号（migrate，gmail-accounts.ts：插件没启用也转，只动密钥区）；能单独断开一个（disconnectItem）。
 import { t } from "@ergo/protocol";
 import type { DataSource } from "../data-sources/api.ts";
 import { GOOGLE_CHANNEL, GOOGLE_GMAIL_CURSOR, GOOGLE_GMAIL_SENT } from "./events.ts";

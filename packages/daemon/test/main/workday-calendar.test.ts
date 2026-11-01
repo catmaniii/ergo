@@ -1,4 +1,4 @@
-// 主切面：设置里的工作日历（29 号票，规格第 21 节）。
+// 主切面：设置里的工作日历（规格第 21 节）。
 // - 设置接口按月返回每天上班或休息及原因；加删额外规则、把某天标成上班或休息、清掉标记之后，返回的结果随之变化，不用重启；
 // - 额外规则和手动标记存在数据目录的配置区（个人数据，不进仓库），每次改动是工作日历频道上的一条事件，多个前端同步；
 // - 节假日数据：框架自带的（新加坡 2026、2027，国内 2026）加上导入的；缺数据的年份按周一到周五算，结果标明缺了。
@@ -380,7 +380,7 @@ describe("节假日数据的续期：每月检查（12 月起查下一年）、�
     });
     const frontend = await TestFrontend.connect(test.url);
     await frontend.subscribe({ [INBOX]: 0, [BOARD]: 0, [CARDS]: 0 });
-    // 看板上负责人每次模型调用记账后的合计（24 号票）：等它们到齐再往下走，录下的事件流每次一样
+    // 看板上负责人每次模型调用记账后的合计：等它们到齐再往下走，录下的事件流每次一样
     const tokenCalls = (n: number) => waitUntil(() => frontend.events({ channel: BOARD, type: EVENT_TYPES.tokenTotals }).some((f) => (f.payload as { calls: number }).calls === n));
     clock.advanceTo(new Date(2026, 11, 1, 10));
     await test.daemon.internalJobs.whenIdle();
@@ -411,7 +411,7 @@ describe("节假日数据的续期：每月检查（12 月起查下一年）、�
     await frontend.cardAction({ cardId: card.id, action: "confirm", expectedVersion: card.version, input: { removeGrants: [], narrowGrants: [] } });
     await waitUntil(() => latestCards(frontend).find((c) => c.id === card.id)?.status === "handled");
     await waitUntil(() => frontend.events({ channel: BOARD, type: EVENT_TYPES.task }).some((f) => (f.payload as TaskEventPayload).task.state === "queued"));
-    // 有执行名额，马上开始执行（13 号票）
+    // 有执行名额，马上开始执行
     await waitUntil(() => frontend.events({ channel: BOARD, type: EVENT_TYPES.task }).some((f) => (f.payload as TaskEventPayload).change === "stage_started"));
     await tokenCalls(3);
     saveOrCheckRecording("holiday-update-task", frontend.recording, { perChannel: true });

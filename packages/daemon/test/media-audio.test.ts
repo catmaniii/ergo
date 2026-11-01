@@ -1,4 +1,4 @@
-// 按内容认音频（media/audio.ts，31 号票）：浏览器的 MediaRecorder 录出来的几种格式都认，别的不认（不看文件名和声明的类型）。
+// 按内容认音频（media/audio.ts）：浏览器的 MediaRecorder 录出来的几种格式都认，别的不认（不看文件名和声明的类型）。
 import { describe, expect, it } from "vitest";
 import { sniffAudio } from "../src/media/audio.ts";
 

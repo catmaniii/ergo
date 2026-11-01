@@ -1,8 +1,8 @@
-// 从运行时已有的会话接管（290 号票）在界面上：新建任务、项目的对话框里选了能接管已有会话的运行时（Claude Code）时，运行时那一排下面多一个
+// 从运行时已有的会话接管在界面上：新建任务、项目的对话框里选了能接管已有会话的运行时（Claude Code）时，运行时那一排下面多一个
 // "从 Claude Code 会话接管…"（TakeoverLink）；点了换成接管的对话框（TakeoverSheet）：列本机的会话（每次现取，能刷新），一行一个——标题、
 // 工作目录、分支 · 最近活动 · 大小，被占着的带一个签写明在哪；选中被占着的下面说清为什么不能直接接（终端里开着的没有锁，接了会分叉、丢话），
 // 能勾"分叉一份接管"；接成任务要写接着让它做什么，接成项目可以不写。说法在状态层（state/takeover.ts）。
-// ⚙ 里接管来的那一行（交还 / 收回）在 agent-settings.tsx 的运行时一块里（TakeoverPanel）；292 号票起它也是"会话在哪边"那一块：交给官方 App、
+// ⚙ 里接管来的那一行（交还 / 收回）在 agent-settings.tsx 的运行时一块里（TakeoverPanel）；它也是"会话在哪边"那一块：交给官方 App、
 // 在官方 App 里时的标记和链接、收回到<名字>（说法和按钮在状态层的 takeoverPanel）。
 import { useCallback, useEffect, useState } from "react";
 import { useStore } from "../app/store.tsx";

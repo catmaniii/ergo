@@ -1,4 +1,4 @@
-// 内核的向量函数 → @ergo/memory 的向量函数（224 号票，模块层）：内核的 Embedder 只有 embed(texts)，
+// 内核的向量函数 → @ergo/memory 的向量函数（模块层）：内核的 Embedder 只有 embed(texts)，
 // @ergo/memory 要分开 embedDocuments / embedQueries（bge-m3 两种角色同义，都走 embed）；
 // 模型文件不在时 available() 透传成 false，记忆引擎照常跑关键词检索、不算向量；不下载、不打包模型。
 import path from "node:path";

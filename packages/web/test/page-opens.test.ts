@@ -1,19 +1,19 @@
 // 打开页面不崩（2026-10-18 用户要求：改了代码起码自己用网页打开看一下）：照 vite.config.ts 按生产环境构建一遍，存成临时文件，
 // 用 file:// 在真 Chrome 里打开（不经守护进程，前端走原型的假数据），手机宽、电脑宽各一遍，挨个切到每一页（主导航各项、"更多"
-// 下面各页、任务和项目的详情），再开一遍侧边栏模式（?ergo=side，147 号票）。页面抛出没接住的错误（React 崩了整页白屏——
+// 下面各页、任务和项目的详情），再开一遍侧边栏模式（?ergo=side）。页面抛出没接住的错误（React 崩了整页白屏——
 // 比如 useSyncExternalStore 的 snapshot 每次给新对象、无限重渲）或某一页一个字都没有，就算失败。
 // 原型打开时取不到的媒体文件（ERR_FILE_NOT_FOUND）不算。本机没有 Chrome（或 Edge）时跳过。
-// 168 号票起英文再走一遍（原型地址带 ?lang=en）：同样每一页都打得开、有字、不报错，已经迁成多语言的地方（EN_DONE）一个中文字都不能有；
-// 再在中文下打开设置 · 语言点 English，导航不刷新就换成英文。169–175 号票迁完一块就往 EN_DONE 里加。
-// 193 号票起再走一遍停用记忆、提醒插件的（原型地址带 ?demo-plugins-off=memory,reminders）。
-// 213 号票起日历也是插件：停用日历插件（?demo-plugins-off=calendar）后导航、"更多"、工作日规则、待办里都没有去日历的入口，#/calendar 写没启用。
-// 214 号票起语音也是插件：停用语音插件（?demo-plugins-off=voice）后输入框没有话筒、设置里没有语音，#/more/voice 写没启用，每一页照样打得开。
-// 212 号票加了停用浏览插件的（"浏览"、侧边栏模式写没启用）。
-// 275 号票：每套风格量聊天里工具调用、来信、回忆记忆的横条（和"在想什么"同一列、右边留空、窄窗口下箭头露全点得到），
+// 英文再走一遍（原型地址带 ?lang=en）：同样每一页都打得开、有字、不报错，已经迁成多语言的地方（EN_DONE）一个中文字都不能有；
+// 再在中文下打开设置 · 语言点 English，导航不刷新就换成英文。迁完一块就往 EN_DONE 里加。
+// 再走一遍停用记忆、提醒插件的（原型地址带 ?demo-plugins-off=memory,reminders）。
+// 日历也是插件：停用日历插件（?demo-plugins-off=calendar）后导航、"更多"、工作日规则、待办里都没有去日历的入口，#/calendar 写没启用。
+// 语音也是插件：停用语音插件（?demo-plugins-off=voice）后输入框没有话筒、设置里没有语音，#/more/voice 写没启用，每一页照样打得开。
+// 加了停用浏览插件的（"浏览"、侧边栏模式写没启用）。
+// 每套风格量聊天里工具调用、来信、回忆记忆的横条（和"在想什么"同一列、右边留空、窄窗口下箭头露全点得到），
 // 侧边栏模式收到交来的外观马上换风格。
-// 360 号票：小屏和手机上，会话缩小后点开的分支整块留在视口里。
-// 369 号票：标题上的"等你……"手机、电脑都看得到、点得到，点了跳到要处理的那张卡、闪一下，再点一次再闪；卡在别的页的跳过去；答完就不再等你。
-// 368 号票：同一个 agent 不管从哪进去都是同一个对话框（标题栏、阶段条、输入框都在）；老的 #/tasks/<任务> 跳过去并定位；做完收成一行；背后的 agent 的列表和只读对话。
+// 小屏和手机上，会话缩小后点开的分支整块留在视口里。
+// 标题上的"等你……"手机、电脑都看得到、点得到，点了跳到要处理的那张卡、闪一下，再点一次再闪；卡在别的页的跳过去；答完就不再等你。
+// 同一个 agent 不管从哪进去都是同一个对话框（标题栏、阶段条、输入框都在）；老的 #/tasks/<任务> 跳过去并定位；做完收成一行；背后的 agent 的列表和只读对话。
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -30,7 +30,7 @@ import { findChrome } from "../build/chrome.ts";
 const CHROME = findChrome();
 const WEB_ROOT = fileURLToPath(new URL("..", import.meta.url));
 
-/** 挨个切到的页：主导航各项、"更多"下面各页、任务和项目的详情（原型假数据里有的）、内置浏览器里渲染的文件（160 号票） */
+/** 挨个切到的页：主导航各项、"更多"下面各页、任务和项目的详情（原型假数据里有的）、内置浏览器里渲染的文件 */
 const PAGES = [
   "#/secretary",
   "#/apps/demo/README.md",
@@ -40,9 +40,9 @@ const PAGES = [
   "#/projects",
   "#/projects/p-ledger",
   "#/projects/p-ledger/chat",
-  // 262 号票：规范上线之前建的旧作品集网站，"规范"一块下有一张等你选的"补齐规范文档"卡
+  // 规范上线之前建的旧作品集网站，"规范"一块下有一张等你选的"补齐规范文档"卡
   "#/projects/p-oldsite",
-  // 368 号票：项目内部任务的老地址换到项目的对话框；跨项目、不属于项目的任务有自己的页面
+  // 项目内部任务的老地址换到项目的对话框；跨项目、不属于项目的任务有自己的页面
   "#/tasks/t-ledger-v1",
   "#/tasks/t-newpc",
   "#/tasks/t-bills",
@@ -51,58 +51,58 @@ const PAGES = [
   "#/calendar",
   "#/more",
   ...MORE_PAGES.map((p) => `#/more/${p}`),
-  // 记忆（193 号票起是记忆插件的页面）、它的几栏（285 号票：档案、结论、问题箱、素材）、记忆管理员的整页对话（242/243 号票：会话、
-  // 回忆了 N 条记忆、每晚整理日记）、成批删除（167 号票）
+  // 记忆（是记忆插件的页面）、它的几栏（档案、结论、问题箱、素材）、记忆管理员的整页对话（会话、
+  // 回忆了 N 条记忆、每晚整理日记）、成批删除
   "#/more/memory",
   ...MEMORY_ITEMS.map((i) => `#/more/memory/${i}`),
-  // 档案里点开的一个人（285 号票，原型的假档案）：本人、家人
+  // 档案里点开的一个人（原型的假档案）：本人、家人
   "#/more/memory/files/me",
   "#/more/memory/files/p-fake-mom",
-  // 素材里点开的一条（158 号票，原型的假素材）、成批删除里点开的一条
+  // 素材里点开的一条（原型的假素材）、成批删除里点开的一条
   "#/more/memory/materials/mat-fake-stale",
   "#/more/memory/materials-delete/mat-fake-recent-7",
-  // 你存的网页（165 号票，原型的假素材）：标题、网址、存下的正文
+  // 你存的网页（原型的假素材）：标题、网址、存下的正文
   "#/more/memory/materials/mat-fake-webpage",
   "#/more/memory/materials/mat-fake-recent-17",
-  // 结论里点开的一条（233 号票的证据与推理，285 号票并进结论；原型的假结论）：证据链、支持/反证、竞争解释、修订
+  // 结论里点开的一条（证据与推理，并进结论；原型的假结论）：证据链、支持/反证、竞争解释、修订
   "#/more/memory/claims/cl-0001",
   "#/more/memory/claims/cl-0002",
-  // 证据与推理的旧地址（285 号票之前）：换到结论
+  // 证据与推理的旧地址：换到结论
   "#/more/memory/evidence",
   "#/more/memory/evidence/cl-0001",
-  // 个人档案（281 号票，原型的假档案）：记忆插件在用时换到记忆 · 档案，停用时就是"更多"里的这一页
+  // 个人档案（原型的假档案）：记忆插件在用时换到记忆 · 档案，停用时就是"更多"里的这一页
   "#/more/files/me",
   "#/more/files/p-fake-mom",
-  // 数据源详情（343 号票，原型编的数据源）：连着的、没连的、手机来的、没有这个的；共用的导入文件夹
+  // 数据源详情（原型编的数据源）：连着的、没连的、手机来的、没有这个的；共用的导入文件夹
   "#/more/data-sources/google-calendar",
   "#/more/data-sources/looki",
   "#/more/data-sources/phone-location",
   "#/more/data-sources/没有这个",
-  // 设备配对的二维码界面（364 号票）
+  // 设备配对的二维码界面
   "#/more/devices/qr",
   "#/more/data-sources/import_folder",
-  // 设置里删除素材的旧地址（167 号票之前）：跳到记忆 · 素材
+  // 设置里删除素材的旧地址：跳到记忆 · 素材
   "#/more/materials",
   "#/more/materials/mat-fake-recent-1",
 ];
 
 /**
  * 英文下已经迁好的地方：在这一页上，这个元素里（去掉 except 挑出来的还没迁的部分、用户的内容）不能有中文。
- * 迁移票迁完一块就往这里加一行
+ * 迁完一块就往这里加一行
  */
 const EN_DONE: { hash: string; selector: string; except?: string; wideOnly?: boolean }[] = [
-  // 168 号票：外壳——导航（竖栏、横栏连同量长度的样本）、设置列表的各项（外观与风格的副标题是状态层的 appearanceSummary 加风格名，170、169 号票的）、"更多"、设置 · 语言（本地名"中文"、用户起的名字除外）
+  // 外壳——导航（竖栏、横栏连同量长度的样本）、设置列表的各项（外观与风格的副标题是状态层的 appearanceSummary 加风格名）、"更多"、设置 · 语言（本地名"中文"、用户起的名字除外）
   { hash: "#/secretary", selector: "nav" },
   { hash: "#/more/settings", selector: ".topbar .title" },
   { hash: "#/more/settings", selector: "button[data-page]", except: '[data-page="appearance"] small' },
-  // 247 号票：四组的组标题（身份、能力、规则、数据与设备）
+  // 四组的组标题（身份、能力、规则、数据与设备）
   { hash: "#/more/settings", selector: ".settings-group-head" },
   { hash: "#/more", selector: ".menu" },
   { hash: "#/more/language", selector: ".topbar .title" },
   { hash: "#/more/language", selector: ".language-page", except: '[lang="zh-CN"], .assistant-name' },
-  // 169 号票：界面组件（ui/、model/）——卡片的种类签、日期分隔、附件按钮、"详情"这类小链接、输入框（秘书的名字标签除外）、
+  // 界面组件（ui/、model/）——卡片的种类签、日期分隔、附件按钮、"详情"这类小链接、输入框（秘书的名字标签除外）、
   // 任务详情的阶段栏和待你处理的条、卡片上处理过的结果、立项要求变更的前后对照、提醒的浏览器通知开关。
-  // 卡片的标题、正文、阶段名是二狗存下的内容（原型的假数据是中文），状态名、处置名是状态层和协议包的（170、172 号票），不在这里查
+  // 卡片的标题、正文、阶段名是二狗存下的内容（原型的假数据是中文），状态名、处置名是状态层和协议包的，不在这里查
   { hash: "#/secretary", selector: ".xcard-tag" },
   { hash: "#/secretary", selector: ".day-sep" },
   { hash: "#/secretary", selector: ".att-btns" },
@@ -111,44 +111,44 @@ const EN_DONE: { hash: string; selector: string; except?: string; wideOnly?: boo
   { hash: "#/tasks/t-photos", selector: ".composer" },
   { hash: "#/tasks/t-photos", selector: ".ibar-n" },
   { hash: "#/tasks/t-photos", selector: ".stage-prog" },
-  // 368 号票：标题栏上的入口、背后的 agent 的说法（手机上入口只有图标和个数，全称在说明里）
+  // 标题栏上的入口、背后的 agent 的说法（手机上入口只有图标和个数，全称在说明里）
   { hash: "#/tasks/t-newpc", selector: ".bg-entry-text", wideOnly: true },
   { hash: "#/projects/p-ledger/chat", selector: ".xcard-tag" },
   { hash: "#/projects/p-ledger/chat", selector: ".auth-result, .charter-diff-k" },
   { hash: "#/inbox", selector: ".notify-permission" },
-  // 待办通知的动作按钮：存的是中文原字（按字认），显示时换成当前语言（协议包的 inboxActionText，172 号票）
+  // 待办通知的动作按钮：存的是中文原字（按字认），显示时换成当前语言（协议包的 inboxActionText）
   { hash: "#/inbox/i-sjob", selector: ".auth-actions" },
   { hash: "#/inbox/i-backup", selector: ".auth-actions" },
-  // 171 号票：pages/ 里的字——各页的标题栏、分节标题、说明（名字标签是用户起的名字）。从状态层、ui/ 来的字（状态名、阶段名、标签、
-  // 外观与风格的副标题、时间日期……）归 169、170、172 号票，原型的演示数据（任务名、项目名、素材……）是内容，这几处选得避开它们
+  // pages/ 里的字——各页的标题栏、分节标题、说明（名字标签是用户起的名字）。从状态层、ui/ 来的字（状态名、阶段名、标签、
+  // 外观与风格的副标题、时间日期……）不算，原型的演示数据（任务名、项目名、素材……）是内容，这几处选得避开它们
   { hash: "#/browse", selector: ".chat-col" },
   { hash: "#/tasks", selector: ".topbar .title" },
   { hash: "#/tasks", selector: ".topbar .btn.primary" },
   { hash: "#/projects", selector: ".topbar" },
   { hash: "#/projects", selector: ".pwall-sum-row:last-child" },
   { hash: "#/projects", selector: ".pwall > .hint", except: ".assistant-name" },
-  // 368 号票：项目详情在档案里，手机上要点开才有（下面单独查）
+  // 项目详情在档案里，手机上要点开才有（下面单独查）
   { hash: "#/projects/p-ledger", selector: ".sec-head", wideOnly: true },
-  // 258 号票：项目页上的"规范"一块（文档名、写了 / 只有模板 / 缺都是协议包的说法）
+  // 项目页上的"规范"一块（文档名、写了 / 只有模板 / 缺都是协议包的说法）
   { hash: "#/projects/p-ledger", selector: ".proj-standard", wideOnly: true },
-  // 262 号票："补齐规范文档"卡上的说明、缺的几份、两个按钮（项目名是内容，不在这里查）
+  // "补齐规范文档"卡上的说明、缺的几份、两个按钮（项目名是内容，不在这里查）
   { hash: "#/projects/p-oldsite", selector: ".xcard-standard_backfill .xcard-body, .xcard-standard_backfill .auth-actions", wideOnly: true },
   { hash: "#/calendar", selector: ".cal-title" },
   { hash: "#/inbox", selector: ".topbar .title" },
-  // 设置：身份组里的"我的名字"那一行（43 号票的"个人助理的名字"2026-10-23 起不单独设了，改成默认角色的名字）
+  // 设置：身份组里的"我的名字"那一行（"个人助理的名字"2026-10-23 起不单独设了，改成默认角色的名字）
   { hash: "#/more/settings", selector: ".user-name-setting", except: ".assistant-name" },
   { hash: "#/more/settings", selector: ".tool-call-storage .btn" },
-  // 335 号票：设置里的"备份"；356 号票起单独一页，状态、位置、时间、快照、按钮都在里面
+  // 设置里的"备份"；单独一页，状态、位置、时间、快照、按钮都在里面
   { hash: "#/more/settings", selector: "[data-page=backup]" },
   { hash: "#/more/backup", selector: ".backup-page .btn.primary" },
   { hash: "#/more/backup", selector: ".backup-place .btn" },
   { hash: "#/more/backup", selector: ".backup-verify" },
   { hash: "#/more/usage", selector: ".sec-head" },
-  // 211 号票：设置 · 插件（原型的假守护进程按打开时的语言给插件的说法）
+  // 设置 · 插件（原型的假守护进程按打开时的语言给插件的说法）
   { hash: "#/more/plugins", selector: ".plugins-page" },
-  // 323 号票：设置 · 组件——分节标题、上面那一排按钮、每块的状况小签、几行的键、按钮、清单签没签名（组件名、说明、值是守护进程给的内容，原型编的是中文）
+  // 设置 · 组件——分节标题、上面那一排按钮、每块的状况小签、几行的键、按钮、清单签没签名（组件名、说明、值是守护进程给的内容，原型编的是中文）
   { hash: "#/more/components", selector: ".components-page .sec-head, .component-toolbar, .component-head .chip, .component-line dt, .component-actions, .component-manifest" },
-  // 343 号票：数据源一级页的组里"共用"、导入文件夹的小字；详情的分节标题、标签、现查那一行、设置里的开关名（名字、一句话是守护进程给的内容，原型编的是中文）
+  // 数据源一级页的组里"共用"、导入文件夹的小字；详情的分节标题、标签、现查那一行、设置里的开关名（名字、一句话是守护进程给的内容，原型编的是中文）
   { hash: "#/more/data-sources", selector: '.ds-card[data-source="import_folder"]' },
   { hash: "#/more/data-sources/google-calendar", selector: ".ds-detail .sec-head, .ds-detail .seg" },
   { hash: "#/more/data-sources/phone-contacts", selector: "[data-from-device]" },
@@ -156,11 +156,11 @@ const EN_DONE: { hash: string; selector: string; except?: string; wideOnly?: boo
   { hash: "#/more/doctor", selector: ".doctor-page" },
   { hash: "#/more/memory", selector: ".memory-layers", except: ".assistant-name" },
   { hash: "#/more/memory/materials", selector: ".mat-search, .mat-count, .mat-range-nav button" },
-  // 233 号票：结论、证据与推理、问题箱——状态筛、顶上那几行、详情里的分节标题（结论的陈述、原话是内容，不在这里查）
+  // 结论、证据与推理、问题箱——状态筛、顶上那几行、详情里的分节标题（结论的陈述、原话是内容，不在这里查）
   { hash: "#/more/memory/claims", selector: ".mem-filters" },
   { hash: "#/more/memory/claims", selector: ".mem-head" },
   { hash: "#/more/memory/claims/cl-0001", selector: ".dt-section h4" },
-  // 285 号票：记忆页顶上"和记忆管理员聊"那张卡、记忆管理员对话里输入框上面那一行、档案的四组
+  // 记忆页顶上"和记忆管理员聊"那张卡、记忆管理员对话里输入框上面那一行、档案的四组
   { hash: "#/more/memory", selector: ".mem-keeper-card" },
   { hash: "#/more/memory/curator", selector: ".mem-interview-bar" },
   { hash: "#/more/memory/files", selector: ".pf-page .sec-head, .topbar .btn", except: ".assistant-name" },
@@ -171,13 +171,13 @@ const EN_DONE: { hash: string; selector: string; except?: string; wideOnly?: boo
   { hash: "#/more/about", selector: ".about-facts dt" },
   { hash: "#/more/about", selector: ".about-log .sec-head" },
   ...["devices", "voice", "watch", "models", "workday-rules", "browsing", "appearance"].map((p) => ({ hash: `#/more/${p}`, selector: ".sec-head" })),
-  // 355 号票：授权的文件夹单独一页
+  // 授权的文件夹单独一页
   { hash: "#/more/authorized-folders", selector: ".sec-head" },
   { hash: "#/more/authorized-folders", selector: ".sys-note" },
   { hash: "#/more/browsing", selector: ".settings-link-row small" },
   { hash: "#/more/skills", selector: ".sec-head", except: ".assistant-name" },
   { hash: "#/more/debug", selector: ".page-placeholder" },
-  // 170 号票：状态层出的字——秘书页标题的前缀、工具调用组那一行（"调用了 N 个工具"）、外观的三个选项、搜索引擎、
+  // 状态层出的字——秘书页标题的前缀、工具调用组那一行（"调用了 N 个工具"）、外观的三个选项、搜索引擎、
   // 工具调用的完整内容占多大和保留规则（设置列表里那一项的两行小字）
   { hash: "#/secretary", selector: ".secretary-title-lead" },
   { hash: "#/secretary", selector: ".tool-sum-text" },
@@ -186,14 +186,14 @@ const EN_DONE: { hash: string; selector: string; except?: string; wideOnly?: boo
   { hash: "#/more/browsing", selector: ".seg" },
   { hash: "#/more/settings", selector: ".tool-call-storage small" },
   { hash: "#/more/backup", selector: ".backup-lines" },
-  // 172 号票：协议包的说法——模型设置里各 agent 的名字（秘书那一行是名字标签）、怎么开会话的说明、思考档位，关注类别的各种处置
+  // 协议包的说法——模型设置里各 agent 的名字（秘书那一行是名字标签）、怎么开会话的说明、思考档位，关注类别的各种处置
   { hash: "#/more/models", selector: ".model-agent-head > b", except: ".assistant-name" },
   { hash: "#/more/models", selector: ".model-agent-head small.muted:first-of-type" },
   { hash: "#/more/models", selector: ".model-agent-selects select" },
   // 2026-10-30：API key 按服务商逐条列出（每行的名字和"配没配"、从哪来）和连通测试那个按钮
   { hash: "#/more/models", selector: ".model-key-row, .model-test-actions" },
   { hash: "#/more/watch", selector: ".cat-row select" },
-  // 281 号票：个人档案——列表的说明和分节标题、一份档案里的字段名、分节标题、按钮（值、称呼、记下的事是内容，不在这里查）
+  // 个人档案——列表的说明和分节标题、一份档案里的字段名、分节标题、按钮（值、称呼、记下的事是内容，不在这里查）
   { hash: "#/more/files", selector: ".pf-intro, .pf-page .sec-head", except: ".assistant-name" },
   { hash: "#/more/files/p-fake-mom", selector: ".pf-label, .pf-page .sec-head, .pf-actions", except: ".assistant-name" },
   { hash: "#/secretary", selector: ".xcard-personal_file .auth-actions" },
@@ -240,7 +240,7 @@ async function open(viewport: { width: number; height: number }, search = ""): P
   page.on("pageerror", (e) => errors.push(`没接住的错误：${String(e)}`));
   page.on("console", (m) => {
     if (m.type() === "error" && !m.text().startsWith("Failed to load resource")) errors.push(`控制台报错：${m.text()}`);
-    // 170 号票：缺句子的提示（key 写错了，或者在模块顶层取了 t()——那时还没装上语言）也算报错
+    // 缺句子的提示（key 写错了，或者在模块顶层取了 t()——那时还没装上语言）也算报错
     if (m.type() === "warning" && m.text().startsWith("[i18n]")) errors.push(`缺句子：${m.text()}`);
   });
   await page.goto(pageUrl + search);
@@ -264,7 +264,7 @@ async function expectMode(page: Page, mode: "half" | "full") {
 }
 
 /**
- * 213 号票：网页上去日历的入口——导航和"更多"里的日历、#/calendar 那一页（日历还是"没启用"）、工作日规则里的"日历"链接、
+ * 网页上去日历的入口——导航和"更多"里的日历、#/calendar 那一页（日历还是"没启用"）、工作日规则里的"日历"链接、
  * 手动标记那句话、待办里到点的提醒（i-rent）的"去看看"
  */
 async function calendarEntries(viewport: { width: number; height: number }, search: string) {
@@ -308,7 +308,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     }, 60_000);
   }
 
-  // 193 号票：停用记忆、提醒插件（原型地址带 ?demo-plugins-off=…，假连接照守护进程报"在配置里停用了"）后每一页照样打得开；
+  // 停用记忆、提醒插件（原型地址带 ?demo-plugins-off=…，假连接照守护进程报"在配置里停用了"）后每一页照样打得开；
   // 导航里没有记忆、记忆的地址写没启用、设置里列出内核的"删除素材"、看板上的提醒成了占位、对话里的那几条成了占位
   test("停用记忆、提醒插件（?demo-plugins-off=memory,reminders）电脑宽：每一页都打得开、有字、不报错，它们的东西不出现、旧条目占位", async () => {
     const { page, errors } = await open({ width: 1280, height: 800 }, "?demo-plugins-off=memory,reminders");
@@ -330,7 +330,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     expect(await bodyText(page)).toContain("记忆插件没启用，这一页暂时看不到");
     await at("#/more/settings");
     expect(await page.locator('[data-page="materials-delete"]').count()).toBe(1);
-    // 285 号票：记忆页没了，"更多"里列出个人档案，#/more/files 就是那一页（能加人、点进去）
+    // 记忆页没了，"更多"里列出个人档案，#/more/files 就是那一页（能加人、点进去）
     await at("#/more");
     expect(await page.locator(".pf-menu-icon").count()).toBe(1);
     await at("#/more/files/p-fake-mom");
@@ -349,7 +349,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     expect(empty).toEqual([]);
   }, 60_000);
 
-  // 233 号票：记忆的结论、证据与推理、问题箱——空数据（?demo-memory-empty，库在、还没整理出东西）和
+  // 记忆的结论、证据与推理、问题箱——空数据（?demo-memory-empty，库在、还没整理出东西）和
   // 推理库读不到（?demo-memory-off）时每一页都打得开、有空数据的说明或原因，不是空白、不报错
   test("记忆的结论、证据与推理、问题箱：空数据和推理库读不到时都有说明，不崩", async () => {
     for (const [search, expected] of [
@@ -365,7 +365,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       expect(await page.locator(".memory-layers").count()).toBe(1);
       await at("#/more/memory/claims");
       expect(await bodyText(page)).toContain(expected);
-      // 证据与推理的旧地址换到结论（285 号票）
+      // 证据与推理的旧地址换到结论
       await at("#/more/memory/evidence");
       expect(await page.evaluate("window.location.hash")).toBe("#/more/memory/claims");
       expect(await bodyText(page)).toContain(search === "?demo-memory-empty" ? "还没有结论" : expected);
@@ -410,7 +410,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     expect(errors).toEqual([]);
   }, 60_000);
 
-  // 343 号票（用户 2026-10-31 要的）：数据源分两层——一级是卡片（没有输入框、操作按钮），点卡片进单独全屏的详情（宽屏也不留设置的左栏），有返回、刷新后还在
+  // 数据源分两层——一级是卡片（没有输入框、操作按钮），点卡片进单独全屏的详情（宽屏也不留设置的左栏），有返回、刷新后还在
   for (const [name, viewport, wide] of [
     ["手机宽", { width: 390, height: 844 }, false],
     ["电脑宽", { width: 1280, height: 800 }, true],
@@ -542,7 +542,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     expect(errors).toEqual([]);
   }, 60_000);
 
-  // 285 号票：记忆页的栏目重排（用户 2026-10-26 看过对照图定的）
+  // 记忆页的栏目重排（看过对照图定的）
   for (const [name, viewport] of [
     ["手机宽", { width: 390, height: 844 }],
     ["电脑宽", { width: 1280, height: 800 }],
@@ -600,7 +600,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     expect(errors).toEqual([]);
   }, 60_000);
 
-  // 213 号票：日历插件停用时网页上没有日历入口；默认全开时都在（和以前一样）
+  // 日历插件停用时网页上没有日历入口；默认全开时都在（和以前一样）
   for (const [name, viewport] of [
     ["手机宽", { width: 390, height: 844 }],
     ["电脑宽", { width: 1280, height: 800 }],
@@ -612,7 +612,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     }, 60_000);
   }
 
-  // 214 号票：语音插件停用时输入框没有话筒（一律打字）、设置里没有语音；默认全开时都在
+  // 语音插件停用时输入框没有话筒（一律打字）、设置里没有语音；默认全开时都在
   test("停用语音插件（?demo-plugins-off=voice）手机宽：每一页都打得开；输入框没有话筒，设置里没有语音，#/more/voice 写没启用；默认全开时都在", async () => {
     const on = await open({ width: 390, height: 844 });
     await on.page.evaluate(`window.location.hash = "#/secretary"`);
@@ -697,7 +697,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       expect(await approval.getAttribute("href")).toBe("#/tasks/t-photos/at/c-appr-1");
       await approval.click();
       await flashed.waitFor({ timeout: 5000 });
-      // 368 号票：项目内部任务没有单独的页面，换到项目的对话框、定位到这个任务和那张卡
+      // 项目内部任务没有单独的页面，换到项目的对话框、定位到这个任务和那张卡
       expect(await hash()).toBe("#/projects/p-photos/tasks/t-photos/at/c-appr-1");
 
       // 答完：标题不再说等你，不再是链接
@@ -712,7 +712,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     }
   }, 60_000);
 
-  // 368 号票（用户 2026-11-01）：不管点哪里进去，同一个 agent 的对话框看起来都一样
+  // 不管点哪里进去，同一个 agent 的对话框看起来都一样
   test.each([
     ["手机", { width: 390, height: 844 }],
     ["电脑", { width: 1280, height: 800 }],
@@ -810,7 +810,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     }
   }, 60_000);
 
-  // 用户 2026-11-01：宽屏的阶段进展和档案抢一个左边栏，不同时显示；两边用同一个宽度，× 了就都不占
+  // 宽屏的阶段进展和档案抢一个左边栏，不同时显示；两边用同一个宽度，× 了就都不占
   test("电脑宽：阶段进展和档案共用左边栏，点谁显示谁，× 了空出来，刷新后记得", async () => {
     const { page, errors } = await open({ width: 1280, height: 800 });
     const head = () => page.locator(".md-side .md-side-head span").first().innerText();
@@ -852,7 +852,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     }
   }, 60_000);
 
-  // 375 号票：把手没有 pointer capture 时，鼠标拖出把手（约 80px）松手，松手算不到它头上，整个计划打不开，抽屉还停在跟手的位置
+  // 把手没有 pointer capture 时，鼠标拖出把手（约 80px）松手，松手算不到它头上，整个计划打不开，抽屉还停在跟手的位置
   test("手机宽：阶段条的把手用鼠标拖出把手再松手，整个计划能打开、能推回；只有手指时也一样", async () => {
     const viewport = { width: 390, height: 844 };
 
@@ -907,7 +907,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     }
   }, 60_000);
 
-  // 375 号票：计划卡上没勾的操作那句话要按"有风险的事先问我"现在开没开写（新装时关着，超出授权的直接做）
+  // 计划卡上没勾的操作那句话要按"有风险的事先问我"现在开没开写（新装时关着，超出授权的直接做）
   test("计划卡：没勾的操作怎样，按开关现在的状态写；阶段一律自动验收，卡上不再有由你验收", async () => {
     const { page, errors } = await open({ width: 1280, height: 800 });
     const go = (to: string) => page.evaluate(`window.location.hash = ${JSON.stringify(to)}`);
@@ -918,7 +918,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       await expect.poll(() => card.innerText(), { timeout: 5000 }).toContain("现在关着：超出授权的也直接做");
       expect(await card.innerText()).not.toContain("执行到那一步再问你");
       expect(await card.innerText()).not.toContain("由你验收");
-      // 378 号票：关着时勾掉一项也不算停点，"还会在 N 处停下来"这句压根不出现
+      // 关着时勾掉一项也不算停点，"还会在 N 处停下来"这句压根不出现
       expect(await card.innerText()).not.toContain("处停下来");
       await card.locator(".grant-row input[type=checkbox]").first().uncheck();
       expect(await card.innerText()).not.toContain("处停下来");
@@ -929,7 +929,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       await go("#/inbox/i-plan");
       await expect.poll(() => page.locator(".xcard-plan").innerText(), { timeout: 5000 }).toContain("没勾的操作，执行到那一步再问你");
       expect(await page.locator(".xcard-plan").innerText()).not.toContain("现在关着");
-      // 378 号票：开着时一处停点都没有也不写"0 处"，勾掉一项才写 1 处
+      // 开着时一处停点都没有也不写"0 处"，勾掉一项才写 1 处
       expect(await page.locator(".xcard-plan").innerText()).not.toContain("处停下来");
       await page.locator(".xcard-plan .grant-row input[type=checkbox]").first().uncheck();
       expect(await page.locator(".xcard-plan").innerText()).toContain("授权后还会在 1 处停下来");
@@ -940,7 +940,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     }
   }, 60_000);
 
-  // 375 号票：对话框里选项目建的内部任务不上任务看板，只有运营方案建的才上；不选项目的才在运营中一组
+  // 对话框里选项目建的内部任务不上任务看板，只有运营方案建的才上；不选项目的才在运营中一组
   test("发起任务：选了一个项目的定时、事件触发的不说在看板上，普通任务说结果在项目里看", async () => {
     const { page, errors } = await open({ width: 1280, height: 800 });
     try {
@@ -979,7 +979,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     }
   }, 60_000);
 
-  // 375 号票：手机上项目页这一层没了，已归档的项目照它写的走得到取消归档
+  // 手机上项目页这一层没了，已归档的项目照它写的走得到取消归档
   test("手机宽：已归档的项目，点标题打开档案，里面有取消归档", async () => {
     const { page, errors } = await open({ width: 390, height: 844 });
     try {
@@ -996,7 +996,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     }
   }, 60_000);
 
-  // 375 号票：演示版演的是现在的行为
+  // 演示版演的是现在的行为
   test("演示数据：待办没有等你验收，提醒和越界通知和真实的一样，长程任务没有由你过目的阶段，界面上没有 LSM", async () => {
     const { page, errors } = await open({ width: 1280, height: 800 });
     const go = (to: string) => page.evaluate(`window.location.hash = ${JSON.stringify(to)}`);
@@ -1030,7 +1030,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     }
   }, 60_000);
 
-  // 375 号票：向导的"手机配对""安全默认值"两步，副标题和步骤内容各画了一次同一句说明
+  // 向导的"手机配对""安全默认值"两步，副标题和步骤内容各画了一次同一句说明
   test("设置向导：每一步的说明只显示一遍", async () => {
     const { page, errors } = await open({ width: 1280, height: 800 });
     try {
@@ -1125,7 +1125,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     expect(errors).toEqual([]);
   }, 60_000);
 
-  // 360 号票：面板原来和主线一样宽，从主线右边接着画，要点层哪个宽度都伸出视口右边（900 宽超出 145px，字被裁）
+  // 面板原来和主线一样宽，从主线右边接着画，要点层哪个宽度都伸出视口右边（900 宽超出 145px，字被裁）
   for (const [name, viewport, besideMain] of [
     ["小屏 900×562（收窄，放在主线旁边）", { width: 900, height: 562 }, true],
     ["795×562（收窄，放在主线旁边）", { width: 795, height: 562 }, true],
@@ -1236,9 +1236,9 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
       const { page, errors } = await open(viewport, "?lang=en");
       expect(await page.evaluate("document.documentElement.lang")).toBe("en");
       const empty: string[] = [];
-      // 365 号票：英文界面叫 owner，一个 maintainer 都不能露出来（impl.type 的写法只在出错时的提示里，这些页上没有）
+      // 英文界面叫 owner，一个 maintainer 都不能露出来（impl.type 的写法只在出错时的提示里，这些页上没有）
       const maintainerWords: string[] = [];
-      // 379 号票：原型没起过名，英文下名字标签一律是默认的 ergo，不是二狗（下面查中文时名字标签是除外的，得单独看）
+      // 原型没起过名，英文下名字标签一律是默认的 ergo，不是二狗（下面查中文时名字标签是除外的，得单独看）
       const names = new Set<string>();
       for (const hash of PAGES) {
         await page.evaluate(`window.location.hash = ${JSON.stringify(hash)}`);
@@ -1275,7 +1275,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     await page.evaluate(`window.location.hash = "#/more/language"`);
     await page.waitForSelector(".language-list");
     expect(await page.innerText("nav")).toContain("秘书");
-    // 379 号票：没起过名时默认名跟语言走，开着的页面不刷新也跟着换（取回的角色表里那份要重取，不然停在旧语言）
+    // 没起过名时默认名跟语言走，开着的页面不刷新也跟着换（取回的角色表里那份要重取，不然停在旧语言）
     const nameTag = () => page.innerText(".language-page .assistant-name");
     expect(await nameTag()).toBe("二狗");
     // 中文时竖栏和原来一样宽（经典：两个字 11px × 2 + 21px），英文时按最长的那项名字加宽
@@ -1309,7 +1309,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     expect(text).toContain("现在在看");
   }, 30_000);
 
-  // 212 号票：停用浏览插件（假连接照守护进程报"在配置里停用了"）："浏览"的地址、侧边栏模式写"内置浏览器插件没启用"，别的页照样打得开
+  // 停用浏览插件（假连接照守护进程报"在配置里停用了"）："浏览"的地址、侧边栏模式写"内置浏览器插件没启用"，别的页照样打得开
   test("停用浏览插件（?demo-plugins-off=browsing）：#/browse 和侧边栏模式写没启用、不报错，别的页照样打得开", async () => {
     const { page, errors } = await open({ width: 390, height: 844 }, "?demo-plugins-off=browsing");
     const empty: string[] = [];
@@ -1322,7 +1322,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     }
     await page.close();
     expect(texts.get("#/browse")).toContain("内置浏览器插件没启用，这一页暂时看不到");
-    // 355 号票：授权的文件夹是内核的页面，浏览插件停用时照样在；设置列表里也有它
+    // 授权的文件夹是内核的页面，浏览插件停用时照样在；设置列表里也有它
     expect(texts.get("#/more/authorized-folders")).toContain("添加文件夹");
     expect(texts.get("#/more/authorized-folders")).not.toContain("没启用");
     expect(texts.get("#/more/settings")).toContain("授权的文件夹");
@@ -1335,7 +1335,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     expect(sideText).toContain("内置浏览器插件没启用，这一页暂时看不到");
   }, 60_000);
 
-  // 275 号票（用户 2026-10-25）：工具调用、来信（负责人来信……）、回忆了 N 条记忆这几种横条照"在想什么"那条——和它在同一列
+  // 工具调用、来信（负责人来信……）、回忆了 N 条记忆这几种横条照"在想什么"那条——和它在同一列
   // （左边对齐，糖果、纸张的头像位也让出来），宽度跟着内容走、最宽到对话气泡那么宽（右边留空），窄窗口下右边不超出、
   // 行尾的箭头（›、详情 ›）整个露在横条里、紧跟着字、点得到。每套风格量：秘书页、负责人会话页（窄 340）、秘书页（电脑宽）、侧边栏模式（320）
   for (const style of VISUAL_STYLES.map((s) => s.id)) {
@@ -1368,7 +1368,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     }, 60_000);
   }
 
-  // 275 号票：侧边栏模式那一页收到"浏览"页交来的外观（App 转的 window.__ergoSide），马上换风格、深浅色、主色；不写这一页的存储
+  // 侧边栏模式那一页收到"浏览"页交来的外观（App 转的 window.__ergoSide），马上换风格、深浅色、主色；不写这一页的存储
   test("侧边栏模式：收到交来的外观马上换风格、深浅色、主色，不写存储", async () => {
     const { page, errors } = await open({ width: 390, height: 844 }, "?ergo=side");
     await page.waitForTimeout(300);
@@ -1387,7 +1387,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     expect(errors).toEqual([]);
   }, 60_000);
 
-  // 289 号票顺手发现（2026-10-25）：手机宽时 ⚙ 是底部弹层，套在它里面的确认框被它的滚动区裁掉、看不见（只剩一层灰）。
+  // 2026-10-25：手机宽时 ⚙ 是底部弹层，套在它里面的确认框被它的滚动区裁掉、看不见（只剩一层灰）。
   // ⚙ 里的确认框——恢复用通用模板、清空当前对话（重置负责人）、换运行时——都挂到 body 上：不在 ⚙ 的弹层里，两个按钮整个露在屏幕里、点得到
   test("手机宽：⚙ 里的确认框挂在最外层，不被底部弹层裁掉，按钮看得见、点得到", async () => {
     const { page, errors } = await open({ width: 390, height: 844 });
@@ -1504,11 +1504,11 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     expect(await page.locator('input[name="model-custom-base-url"]').inputValue()).toBe("https://api.example.com/v1");
     expect(await page.locator('select[aria-label="模型 id"]').inputValue()).toBe("fake-chat-mini");
 
-    // 首次设置向导：步骤数没变（五步 + 外网访问，347 号票第③步换成"能力"），"以后再说"还在；模型那一步是同一套（服务商 → key → 连通测试），
+    // 首次设置向导：步骤数没变（五步 + 外网访问，第③步换成"能力"），"以后再说"还在；模型那一步是同一套（服务商 → key → 连通测试），
     // key 只列当前那个服务商，切回 DeepSeek 就收起，填完能测连通
     await at("#/more/setup");
     expect(await page.locator(".setup-rail [data-step]").count()).toBe(6);
-    // 能力那一步（347 号票）：插件、组件都列出来，有开始按钮、现在装了什么、开机自启
+    // 能力那一步：插件、组件都列出来，有开始按钮、现在装了什么、开机自启
     await page.click('.setup-rail [data-step="capabilities"]');
     await page.waitForSelector('[data-capability="component:bge-m3"]', { timeout: 10_000 });
     expect(await page.locator('[data-capability^="plugin:"]').count()).toBe(5);
@@ -1618,7 +1618,7 @@ const BUBBLE_SHARE = 0.92;
 /** 两个位置差不到 1 像素（亚像素取整） */
 const near = (a: number, b: number) => Math.abs(a - b) <= 1;
 
-/** 一条横条哪里不对（275 号票） */
+/** 一条横条哪里不对 */
 function rowProblems(name: string, r: RowBox, thinkingLeft: number | undefined): string[] {
   const out: string[] = [];
   if (thinkingLeft !== undefined && !near(r.left, thinkingLeft)) out.push(`${name}：左边 ${r.left.toFixed(1)}，"在想什么"那条是 ${thinkingLeft.toFixed(1)}，不在同一列`);

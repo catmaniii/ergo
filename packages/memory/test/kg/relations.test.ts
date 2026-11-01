@@ -1,4 +1,4 @@
-// 199 号票：实体关系更丰富。例句都是自己写的（不看 fixtures/truth-kg），照常见的说法：别人来约用户、和谁一起、称呼和别名、几种简单句式。
+// 实体关系更丰富。例句都是自己写的（不看 fixtures/truth-kg），照常见的说法：别人来约用户、和谁一起、称呼和别名、几种简单句式。
 import { afterEach, describe, expect, it } from "vitest";
 import type { EvidenceDraft, Fact } from "../../src/domain/types.ts";
 import type { MemoryEngine } from "../../src/engine.ts";
@@ -85,7 +85,7 @@ describe("事件当实体：别人来约用户", () => {
         "said_about(累)",
       ]),
     );
-    // 188 的规则版把别人约的认成用户主动约的，这里换成了对事件的
+    //规则版把别人约的认成用户主动约的，这里换成了对事件的
     expect(facts.some((f) => f.startsWith("initiated("))).toBe(false);
   });
 

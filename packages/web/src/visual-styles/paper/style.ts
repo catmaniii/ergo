@@ -1,4 +1,4 @@
-// 暖纸手帐（40 号票，设计稿 docs/architecture/design/styles/a-*.dc.html）：Noto Serif SC 宋体、米纸底、墨绿印章色、1px 细边卡片、
+// 暖纸手帐（设计稿 docs/architecture/design/styles/a-*.dc.html）：Noto Serif SC 宋体、米纸底、墨绿印章色、1px 细边卡片、
 // 小圆角、个人助理的话前面一个圆形字头像（名字的第一个字）。主按钮、你发的消息、选中的东西是墨绿；"要你"的事也用墨绿，
 // 出错、命中关注类别的小签、未读是赭石色（设计稿的 --warn）。
 // token 在这里；只靠 token 做不到的（个人助理的话不套气泡、圆形字头像、线条图标、下划线页签……）在 style.css。
@@ -7,7 +7,7 @@ import type { VisualStyle } from "../tokens.ts";
 
 export const paper: VisualStyle = {
   id: "paper",
-  // 名字和一句话按当前语言（169 号票，取的时候现查）
+  // 名字和一句话按当前语言（取的时候现查）
   get name() {
     return t("styles.paper.name");
   },
@@ -90,7 +90,7 @@ export const paper: VisualStyle = {
     // ---- 边框：卡片、底板都是 1px 细边（卡片的 card-border 经典就是，没写） ----
     "panel-border": "1px solid var(--border)",
 
-    // ---- 语音气泡的播放条（42 号票照设计稿 a-chat：播放键 28 的圆、和波形隔 10，波形竖条 3 像素、隔 3，左右内边距 12） ----
+    // ---- 语音气泡的播放条（照设计稿 a-chat：播放键 28 的圆、和波形隔 10，波形竖条 3 像素、隔 3，左右内边距 12） ----
     "voice-pad": "12px",
     // 个人助理的框四周 1px 细边（style.css），左右合起来 2
     "voice-line": "2px",

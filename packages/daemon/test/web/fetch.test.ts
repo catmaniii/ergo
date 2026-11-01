@@ -1,6 +1,6 @@
-// 读网页的逻辑（70 号票，照搬用户 web-search skill 的 fetch.mjs）：假的直接请求和假的浏览器驱动，不联网。
+// 读网页的逻辑（照搬用户 web-search skill 的 fetch.mjs）：假的直接请求和假的浏览器驱动，不联网。
 // 先直接请求；403、429、5xx、别的不成功、网络出错、超时时改用浏览器；JSON、纯文本原样，网页抽正文；超过 max 截断并注明原长；
-// 直接请求的正文只读到上限（评审后定）。
+// 直接请求的正文只读到上限。
 import { describe, expect, it } from "vitest";
 import { DIRECT_MAX_BYTES, DIRECT_TIMEOUT_MS, decodeEntities, FetchFailed, type FetchFunction, type FetchResponse, htmlToText, readCapped, truncate, webFetch } from "../../src/web/index.ts";
 import { FakeBrowser } from "../helpers/web.ts";

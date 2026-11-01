@@ -1,9 +1,9 @@
-// 浏览侧边栏（147 号票，用户 2026-10-18："浏览"右边有个按钮，点了展开一个二狗面板，再点能缩回去；里面是秘书本人，陪着浏览器，
+// 浏览侧边栏（"浏览"右边有个按钮，点了展开一个二狗面板，再点能缩回去；里面是秘书本人，陪着浏览器，
 // 看得到浏览器里的内容，也能和用户选中的网页元素交互）在网页这一侧的状态和办事，不碰 DOM 和浏览器的全局变量（存储、App 的原生桥、
 // 连接都由参数给），测试在 Node 里跑；页面上那一份在 page-browse.ts，界面在 pages/BrowseSidebar.tsx。
 // - 展开、收起：记在这台设备上（localStorage），下次进"浏览"照上次的样子；存储用不了时默认收起，改了只在这次打开里生效；
-// - 怎么摆（browseFrames）：开合的按钮在"浏览"页顶上那一栏（地址栏那一行）的最右边（2026-10-18 用户定：不在网页右边缘放把手，
-//   免得挡网页内容）。展开时侧边栏从右边滑出来：窄屏（手机竖屏）整屏盖住，收起回到网页（147 号票，不变）；宽屏**挤压**网页（148 号票，
+// - 怎么摆（browseFrames）：开合的按钮在"浏览"页顶上那一栏（地址栏那一行）的最右边（不在网页右边缘放把手，
+//   免得挡网页内容）。展开时侧边栏从右边滑出来：窄屏（手机竖屏）整屏盖住，收起回到网页（不变）；宽屏**挤压**网页（
 //   2026-10-18 用户在平板横屏上提：侧边栏不能只是盖住网页，网页跟着变窄、侧边栏外面的网页完整可用）——侧边栏在内容区右边，
 //   浏览器让出右边（侧边栏的宽度加中间一条分隔条），两者不重叠；分隔条能拖、调侧边栏的宽度（照"详情"阶段栏，宽度这台设备记住，
 //   stage-side-width.ts 的 BROWSE_SIDE_WIDTH）。原生网页盖在二狗的网页上面，所以侧边栏由 App 画在原生网页上面（App 另开一个 Web 组件
@@ -16,15 +16,15 @@
 // - 守护进程推来的秘书的网页工具要办的事（handle）：读整页文字、给选中的框填字（核对还是这一页、还是选中的那个框）、
 //   给上传框交文件（核对还是这一页；凭取件码取字节、分段交给 App、交进页面桥认出的框，照网页上下指令的做法）、开网址（窄屏上收起侧边栏，
 //   让用户看到网页）；办完回结果，办不成回明确的原因（页面桥不在、换了网页、框没了……）。
-// 149 号票：悬浮按钮那一轮秘书的网页工具也转到这里办（作用于按钮所在的框；交给网页弹出、App 拦下的选文件对话框的 fieldId 是 "chooser"）；
+// 悬浮按钮那一轮秘书的网页工具也转到这里办（作用于按钮所在的框；交给网页弹出、App 拦下的选文件对话框的 fieldId 是 "chooser"）；
 // 交文件先用候选一出来就预备好的文件（page-stage.ts：没预备的现取），记一条耗时的日志；读网页时连同选中的框里现在的内容一起交回去；
 // 报给守护进程的浏览器样子里，选中的框不带框里的内容（发消息、读网页时才带）。
-// 164 号票：秘书看网页上能点的东西（snapshot）、按编号点（click）也转到这里办——都交给页面桥（核对还是那一页、元素还在、字没变都在
+// 秘书看网页上能点的东西（snapshot）、按编号点（click）也转到这里办——都交给页面桥（核对还是那一页、元素还在、字没变都在
 // 页面桥里做），这里只转请求；点完等最多 3 秒看 App 推来的地址变没变（只改了查询串、# 也算），变了再等最多 5 秒加载完，带上新的网页。
 // 旧版 App 不认这两样，回"App 太旧，装新版才能点"。
-// 182 号票：报给守护进程的浏览器样子带上这台设备"浏览"里在用的搜索引擎（联网搜索轮到"鸿蒙 App 的内置浏览器"时，守护进程照它拼
+// 报给守护进程的浏览器样子带上这台设备"浏览"里在用的搜索引擎（联网搜索轮到"鸿蒙 App 的内置浏览器"时，守护进程照它拼
 // 结果页的地址交给秘书）；设置里换了搜索引擎再报一次。
-// 184 号票：填字、交文件也能按编号（snapshot 列的 textbox、upload 的 ref，不用先选中）——填字先经页面桥按编号找到文本框（核对还是那一页、
+// 填字、交文件也能按编号（snapshot 列的 textbox、upload 的 ref，不用先选中）——填字先经页面桥按编号找到文本框（核对还是那一页、
 // 编号认得、元素还在、种类没变）再照它的框编号填；交文件先找一次上传框（找不到就不取字节），交的时候按编号交（页面桥再核对一次）。
 // 旧版 App 不认按编号找框，回"App 太旧，装新版才能按编号填和交"。
 import type { PageBridgeEvent } from "../../page-bridge/protocol.ts";
@@ -68,12 +68,12 @@ export interface FrameRect {
   readonly height: number;
 }
 
-// ───────────────────────── 宽屏挤压、拖动调宽（148 号票） ─────────────────────────
+// ───────────────────────── 宽屏挤压、拖动调宽 ─────────────────────────
 
-/** 宽屏上侧边栏的宽度初值（147 号票定的 400，380–420 之间）；拖过的照这台设备记住的 */
+/** 宽屏上侧边栏的宽度初值（定的 400，380–420 之间）；拖过的照这台设备记住的 */
 export const SIDE_WIDTH = 400;
 
-/** 侧边栏最窄（侧边栏里是一整个会话，再窄输入框那一行的按钮挤不下；147 号票内容区窄时的下限也是它） */
+/** 侧边栏最窄（侧边栏里是一整个会话，再窄输入框那一行的按钮挤不下；内容区窄时的下限也是它） */
 export const SIDE_WIDTH_MIN = 320;
 
 /** 侧边栏最宽占内容区的几成（照"详情"阶段栏的最宽外框宽的 60%，浏览器至少留 40%） */
@@ -113,7 +113,7 @@ export function browseSideWidthOf(raw: string | null): number {
   return Number.isFinite(w) && w >= SIDE_WIDTH_MIN ? w : SIDE_WIDTH;
 }
 
-/** 这台设备记住的宽屏浏览侧边栏宽度记在哪个键、初值多少（148 号票；212 号票从 app/stage-side-width.ts 挪过来，写法照它） */
+/** 这台设备记住的宽屏浏览侧边栏宽度记在哪个键、初值多少（从 app/stage-side-width.ts 挪过来，写法照它） */
 export const BROWSE_SIDE_WIDTH: SideWidthSpec = { key: "ergo-browse-side-width", initial: SIDE_WIDTH, parse: browseSideWidthOf };
 
 /** 浏览器、侧边栏、分隔条摆在哪（浏览器经 browserLayout、侧边栏经 browserSide 报给 App，分隔条二狗的网页自己画） */
@@ -152,7 +152,7 @@ export function browseFrames(
   return { browser: { ...box, width: Math.max(0, splitter.x - box.x) }, splitter, side: { ...side, visible }, cover: false };
 }
 
-/** 侧边栏上点了什么（App 转回来的）：原生桥的接口，定义在 app/native-browser.ts（212 号票） */
+/** 侧边栏上点了什么（App 转回来的）：原生桥的接口，定义在 app/native-browser.ts */
 export type { SideAction } from "../../app/native-browser.ts";
 
 /** 侧边栏要的（BrowseSidebar.tsx）：收起、取消选中、发消息带的网页上下文 */
@@ -164,7 +164,7 @@ export interface SidebarControl {
 
 /**
  * 交给侧边栏模式的网页（App 转过去）的：展开没展开、哪个浏览器、网页、选中的框，底部要让开多少（窄屏整屏盖住时），
- * 这一份现在的外观（275 号票：设置里换了风格、深浅色、主色，侧边栏照着马上换）
+ * 这一份现在的外观（设置里换了风格、深浅色、主色，侧边栏照着马上换）
  */
 export interface SideViewMessage {
   readonly open: boolean;
@@ -203,11 +203,11 @@ export interface BrowseSideDeps {
   load(url: string): void;
   /** 报给守护进程（连接的 browser_status） */
   report(status: BrowserStatusParams): void;
-  /** 这台设备"浏览"里在用的搜索引擎（182 号票，报给守护进程）；不给就不报 */
+  /** 这台设备"浏览"里在用的搜索引擎（报给守护进程）；不给就不报 */
   searchEngine?(): string;
   /** 回守护进程推来的事（连接的 browser_reply） */
   reply(id: string, outcome: BrowserOutcome): void;
-  /** 要交的文件交给 App 暂存（149 号票：先用预备好的，没预备的现取）、记耗时 */
+  /** 要交的文件交给 App 暂存（先用预备好的，没预备的现取）、记耗时 */
   stage: Pick<PageStage, "take" | "logDelivery">;
   /** 这台设备的存储（取不到时抛错） */
   storage(): DeviceStorage;
@@ -215,27 +215,27 @@ export interface BrowseSideDeps {
   narrow(): boolean;
   /** 现在的毫秒数（文件的编号用） */
   now(): number;
-  /** 过 ms 毫秒调 fn，回取消的函数（164 号票：点完等地址变；不给用 setTimeout） */
+  /** 过 ms 毫秒调 fn，回取消的函数（点完等地址变；不给用 setTimeout） */
   timer?(ms: number, fn: () => void): () => void;
-  /** 长按的元素：取内容、下载（359 号票） */
+  /** 长按的元素：取内容、下载 */
   elements?: Pick<ElementFiles, "file" | "download">;
 }
 
 /** 原因最多多少字（协议里的上限） */
 const REASON_MAX = 500;
 
-/** 点完等多久看地址变没变、变了再等多久加载完（毫秒，164 号票） */
+/** 点完等多久看地址变没变、变了再等多久加载完（毫秒） */
 const CLICK_NAVIGATION_WAIT_MS = 3000;
 const CLICK_LOAD_WAIT_MS = 5000;
 
 /** 页面桥不在 */
 const BRIDGE_GONE = "网页上的二狗页面桥不在（网页还没加载完，或者这一页没法装）"; // @i18n-ignore model：交回去的原因进秘书的网页工具结果（给模型看）
-/** 旧版 App 不认看、点（164 号票） */
+/** 旧版 App 不认看、点 */
 const APP_TOO_OLD = "这台设备上的二狗 App 太旧，装新版才能点（看网页上能点的东西、点击都要新版 App）"; // @i18n-ignore model：交回去的原因进秘书的网页工具结果（给模型看）
-/** 旧版 App 不认按编号找框（184 号票） */
+/** 旧版 App 不认按编号找框 */
 const APP_TOO_OLD_REF = "这台设备上的二狗 App 太旧，装新版才能按编号填字、交文件"; // @i18n-ignore model：交回去的原因进秘书的网页工具结果（给模型看）
 
-/** 取长按的元素的内容、下载（359 号票）要新版 App */
+/** 取长按的元素的内容、下载要新版 App */
 const APP_TOO_OLD_ELEMENT = "这台设备上的二狗 App 太旧，装新版才能取网页元素的内容、下载"; // @i18n-ignore model：交回去的原因进秘书的网页工具结果
 
 const defaultTimer = (ms: number, fn: () => void): (() => void) => {
@@ -250,9 +250,9 @@ export class BrowseSide implements SidebarControl {
   private view: BrowseSideView;
   private readonly listeners = new Set<() => void>();
   private lastReport = "";
-  /** App 推来的浏览器的样子原样（164 号票：点完看地址变没变、加载完没有） */
+  /** App 推来的浏览器的样子原样（点完看地址变没变、加载完没有） */
   private raw: BrowserState = BLANK_BROWSER;
-  /** 等浏览器样子变的（164 号票） */
+  /** 等浏览器样子变的 */
   private readonly rawWaiters = new Set<() => void>();
 
   constructor(deps: BrowseSideDeps) {
@@ -288,13 +288,13 @@ export class BrowseSide implements SidebarControl {
     this.deps.report(status);
   }
 
-  /** 没变也再报一次（212 号票：浏览插件在设置 · 插件里停用后又启用，守护进程那边记浏览器的是新的一份） */
+  /** 没变也再报一次（浏览插件在设置 · 插件里停用后又启用，守护进程那边记浏览器的是新的一份） */
   reannounce(): void {
     this.lastReport = "";
     this.announce();
   }
 
-  /** 现在的样子（报给守护进程的；选中的框不带框里的内容，149 号票：发消息、读网页时才带；182 号票带上在用的搜索引擎） */
+  /** 现在的样子（报给守护进程的；选中的框不带框里的内容：发消息、读网页时才带；带上在用的搜索引擎） */
   status(): BrowserStatusParams {
     const { page, selected } = this.view;
     const { value: _value, ...field } = selected ?? { value: undefined };
@@ -331,7 +331,7 @@ export class BrowseSide implements SidebarControl {
     this.set({ open, ...(page ? { page } : {}), ...(selected && !moved ? { selected } : {}) });
   }
 
-  /** 页面桥报的话：选中的框变了；气泡的回话上点了"去侧边栏看"（146 号票的气泡）就展开 */
+  /** 页面桥报的话：选中的框变了；气泡的回话上点了"去侧边栏看"（气泡）就展开 */
   pageEvent(event: PageBridgeEvent): void {
     if (event.type === "bubble" && event.action === "sidebar") return this.setOpen(true);
     if (event.type !== "selected") return;
@@ -349,7 +349,7 @@ export class BrowseSide implements SidebarControl {
     else if (this.deps.narrow()) this.setOpen(false);
   }
 
-  /** 交给侧边栏模式的网页的（appearance：这一份现在的外观，275 号票） */
+  /** 交给侧边栏模式的网页的（appearance：这一份现在的外观） */
   sideView(safeBottom?: string, appearance?: Appearance): SideViewMessage {
     const { open, page, selected } = this.view;
     return { open, browser: this.deps.browserId, ...(page ? { page } : {}), ...(selected ? { selected } : {}), ...(safeBottom ? { safeBottom } : {}), ...(appearance ? { appearance } : {}) };
@@ -403,7 +403,7 @@ export class BrowseSide implements SidebarControl {
     const { page } = this.deps;
     switch (request.op) {
       case "snapshot": {
-        // 164 号票：列能点的东西，编号由页面桥给、记在页面桥里
+        // 列能点的东西，编号由页面桥给、记在页面桥里
         const snap = await page.snapshot(request.max ?? PAGE_ELEMENTS_DEFAULT);
         if (snap === "old") return { ok: false, reason: APP_TOO_OLD };
         if (!snap) return { ok: false, reason: BRIDGE_GONE };
@@ -412,7 +412,7 @@ export class BrowseSide implements SidebarControl {
         return { ok: true, page: { title: snap.page.title.slice(0, 300), url: pageUrlForModel(snap.page.url).slice(0, 2048) }, elements, total: snap.total, truncated: snap.total > elements.length };
       }
       case "click": {
-        // 164 号票：页面桥核对还是那一页、元素还在、字没变才点；点完看地址变没变
+        // 页面桥核对还是那一页、元素还在、字没变才点；点完看地址变没变
         const before = this.raw.url;
         const clicked = await page.click(request.ref, request.url);
         if (clicked === "old") return { ok: false, reason: APP_TOO_OLD };
@@ -426,14 +426,14 @@ export class BrowseSide implements SidebarControl {
       case "read": {
         const text = await page.text();
         if (!text) return { ok: false, reason: BRIDGE_GONE };
-        // 选中的框里现在的内容（149 号票：正文文字里没有框里的值）
+        // 选中的框里现在的内容（正文文字里没有框里的值）
         const now = await page.selected();
         const selected = now?.field && samePage(now.page.url, text.page.url) ? now.field : undefined;
         return { ok: true, page: { title: text.page.title, url: pageUrlForModel(text.page.url) }, text: text.text, truncated: text.truncated, total: text.total, ...(selected ? { selected } : {}) };
       }
       case "fill": {
         if ("ref" in request) {
-          // 184 号票：按编号填——页面桥找到文本框再照它的框编号填，不看选中的框
+          // 按编号填——页面桥找到文本框再照它的框编号填，不看选中的框
           const found = await page.refField(request.ref, request.url, "textbox");
           if (found === "old") return { ok: false, reason: APP_TOO_OLD_REF };
           if (!found) return { ok: false, reason: BRIDGE_GONE };
@@ -453,14 +453,14 @@ export class BrowseSide implements SidebarControl {
       case "attach": {
         let target: DeliverTarget;
         if ("ref" in request) {
-          // 184 号票：按编号交——先找一次上传框（找不到就不取字节），交的时候按编号交、页面桥再核对一次
+          // 按编号交——先找一次上传框（找不到就不取字节），交的时候按编号交、页面桥再核对一次
           const found = await page.refField(request.ref, request.url, "upload");
           if (found === "old") return { ok: false, reason: APP_TOO_OLD_REF };
           if (!found) return { ok: false, reason: BRIDGE_GONE };
           if (!found.ok) return found;
           target = { ref: request.ref, url: request.url };
         } else {
-          // 交给网页弹出、App 拦下的选文件对话框（149 号票，悬浮按钮上"让二狗选"的那一轮）：对话框还等着才交得进（App 核对）
+          // 交给网页弹出、App 拦下的选文件对话框（悬浮按钮上"让二狗选"的那一轮）：对话框还等着才交得进（App 核对）
           const toChooser = request.fieldId === PAGE_CHOOSER_TARGET;
           const now = await page.selected();
           if (!now && !toChooser) return { ok: false, reason: BRIDGE_GONE };

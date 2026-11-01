@@ -1,4 +1,4 @@
-// 负责人背后的 agent（368 号票，用户 2026-11-01："应该可以有地方实时查看背后有哪几个 agent 在运行，在做什么，进展如何。已经完成的 subagent 的
+// 负责人背后的 agent（"应该可以有地方实时查看背后有哪几个 agent 在运行，在做什么，进展如何。已经完成的 subagent 的
 // 对话历史可以查看，但无法再唤起"）：并行派出去的子 agent（sa-<n>）、评审子 agent（review-…）。
 // 列表和只读对话都走 HTTP 现取（HTTP_PATHS.agentBackground、agentTranscript：守护进程从事件和账本现算，老数据有什么算什么）；
 // 有变化时背后的 agent 频道上推一条临时事件 background_agents，开着的页面重新取。只有类型和常量，不引用 TypeBox。
@@ -69,7 +69,7 @@ export interface BackgroundAgentTranscript {
    */
   instructions?: string;
   entries: BackgroundAgentEntry[];
-  /** 这次运行记下了它说的话没有：368 号票之前跑的没记（界面写明"这次运行没有记下它说的话"） */
+  /** 这次运行记下了它说的话没有：以前跑的没记（界面写明"这次运行没有记下它说的话"） */
   saidRecorded: boolean;
 }
 

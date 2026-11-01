@@ -1,4 +1,4 @@
-// 界面上的标签。用词以 CONTEXT.md 的术语表为准。169 号票起按当前语言（tTable 取值时现查，语言文件的 model.labels.*）。
+// 界面上的标签。用词以 CONTEXT.md 的术语表为准。按当前语言（tTable 取值时现查，语言文件的 model.labels.*）。
 import { activeLanguage, DEFAULT_LANGUAGE, formatNumber, t, TASK_WAIT_REASON_LABEL, tTable, type Urgency, URGENCY_LABEL as PROTOCOL_URGENCY_LABEL } from "../state/index.ts";
 import type { ActivityState, ScheduledJobSummary, TaskStatus, WaitReason, WorkOrder } from "./types.ts";
 
@@ -78,8 +78,8 @@ export function tokensLabel(n: number): string {
 }
 
 /**
- * 用了多少 token（任务卡、任务详情顶上、项目页的内部任务）："12.3 万 token"，英文"12K tokens"（175 号票：英文分单复数）。
- * 311 号票：给了其中缓存命中的（账本的 cacheHit，pi 和 Claude Code 都有）就单写出来——"124 万 token（其中缓存命中 104 万）"，说法照消耗页
+ * 用了多少 token（任务卡、任务详情顶上、项目页的内部任务）："12.3 万 token"，英文"12K tokens"（英文分单复数）。
+ * 给了其中缓存命中的（账本的 cacheHit，pi 和 Claude Code 都有）就单写出来——"124 万 token（其中缓存命中 104 万）"，说法照消耗页
  */
 export function tokensText(n: number, cacheHit = 0): string {
   if (cacheHit > 0) return t("model.labels.tokensWithCache", { n: tokensLabel(n), hit: tokensLabel(cacheHit), count: n });

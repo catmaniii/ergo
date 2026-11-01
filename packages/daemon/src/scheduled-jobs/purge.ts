@@ -1,13 +1,13 @@
-// 删除项目时它的内部任务一起删掉（64 号票，ADR-0010）：内部任务的计划里定的定时作业（76 号票起是定时触发的内部任务的
+// 删除项目时它的内部任务一起删掉（ADR-0010）：内部任务的计划里定的定时作业（是定时触发的内部任务的
 // 触发登记），看板频道上它的每条事件里的文字
 // 换成删除标记——作业名、每次做什么、建它的任务名、授权项和时序规则给人看的那句、运行失败的原因；编号、时间表、状态、归属、
-// 授权的结构原样（作业的行留着：新作业的编号按行数接着往下排）。186 号票起删任务时它的触发登记同样。
-// 279 号票起由这里在"删除参与方"登记表里登记（registerJobDeletion，登记表见 deletion/participants.ts）。
+// 授权的结构原样（作业的行留着：新作业的编号按行数接着往下排）。删任务时它的触发登记同样。
+// 由这里在"删除参与方"登记表里登记（registerJobDeletion，登记表见 deletion/participants.ts）。
 import { CHANNELS, EVENT_TYPES, isInternalTo, type JobRun, PURGED_TEXT, type ScheduledJob, type ScheduledJobEventPayload } from "@ergo/protocol";
 import { type DeletionParticipants, type DeletionPlan, liveEvents, PROJECT_DELETION, TASK_DELETION } from "../deletion/participants.ts";
 
 /**
- * 一次运行改写后的样子：原因；76 号票起还有最后说的那一两句、这一批触发里给人看的说明和事件里的值（77 号票的事件可能带着文件名之类）、
+ * 一次运行改写后的样子：原因；还有最后说的那一两句、这一批触发里给人看的说明和事件里的值（事件可能带着文件名之类）、
  * 定时触发的流程各步的标题和要点
  */
 const purgedRun = (run: JobRun): JobRun => ({
@@ -44,7 +44,7 @@ function claimJobs(plan: DeletionPlan, mine: (job: ScheduledJob) => boolean): vo
 }
 
 /**
- * 触发底座登记的参与方：删项目时带着这个项目的标记的、属于它的内部任务的（plan.tasks）；删任务时它的触发登记（76 号票起的 ownerTaskId；
+ * 触发底座登记的参与方：删项目时带着这个项目的标记的、属于它的内部任务的（plan.tasks）；删任务时它的触发登记（ownerTaskId；
  * 没迁移就取消了的以前的定时作业：建它的任务）
  */
 export function registerJobDeletion(participants: Pick<DeletionParticipants, "register">): () => void {

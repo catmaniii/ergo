@@ -1,7 +1,7 @@
-// 停稳手头这一轮（84 号票，AgentSession.stopTurn：重开前先 abort 再 waitForIdle）：会话接一个假的子进程（报什么由测试说了算，
+// 停稳手头这一轮（AgentSession.stopTurn：重开前先 abort 再 waitForIdle）：会话接一个假的子进程（报什么由测试说了算，
 // 包括不理会 abort 的"停不下的一轮"），看拦着的时候会话做什么、不做什么：
 // - 拦着时不开始下一条输入、不送插话，放开后按先后交给新的一轮；
-// - 已经按 yield 停下、等着按新的装配接着干的那一轮（27 号票），停稳时直接按中止结束，装配照样换，"工具包已变更"跟在下一条输入后面；
+// - 已经按 yield 停下、等着按新的装配接着干的那一轮，停稳时直接按中止结束，装配照样换，"工具包已变更"跟在下一条输入后面；
 //   abort 和 yield 碰上了（子进程报 yielded）也一样；
 // - 到点没停下的那一轮作废：守卫看到的会话报出作废的原因（之后它的调用不放行），那一轮结束后不再作废。
 import path from "node:path";
@@ -121,7 +121,7 @@ function setup() {
 const sentTo = (agent: FakeAgent, inputId: string) =>
   waitUntil(() => agent.sent("user_input").some((c) => (c as { inputId: string }).inputId === inputId), { timeoutMs: 5_000, describe: () => `等 ${inputId} 交给子进程` });
 
-describe("停稳手头这一轮（84 号票）", () => {
+describe("停稳手头这一轮", () => {
   it("拦着时不开始下一条、不送插话；这一轮结束了也等放开；放开后把排着的交给新的一轮", async () => {
     const t = setup();
     const first = await t.begin("先做这个");

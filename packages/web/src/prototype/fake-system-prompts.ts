@@ -1,4 +1,4 @@
-// 原型里设置 · 系统提示（71 号票）的假数据：几份编的提示（文字都是示例，真的由守护进程从 md 文件读），改动只在内存里。
+// 原型里设置 · 系统提示的假数据：几份编的提示（文字都是示例，真的由守护进程从 md 文件读），改动只在内存里。
 // 占位符的检查和守护进程用同一个函数（状态层的 checkSystemPromptDraft），写错了照样拒收。
 import { ASSISTANT_NAME_MARK, checkSystemPromptDraft, normalizePromptSource, type SystemPromptDetail, type SystemPromptList, type SystemPromptPlaceholder } from "../state/index.ts";
 

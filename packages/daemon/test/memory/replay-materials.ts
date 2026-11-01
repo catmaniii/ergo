@@ -1,4 +1,4 @@
-// 离线回放素材库（224 号票）：把用户数据目录里的 materials.db 复制一份到临时目录，在副本上打开素材库和证据适配器，
+// 离线回放素材库：把用户数据目录里的 materials.db 复制一份到临时目录，在副本上打开素材库和证据适配器，
 // 把素材数、证据数、各来源级别条数、场景分布打成一行摘要，和人眼看到的素材数对得上。
 // 不碰真实数据：源库只用只读连接做一次一致快照（VACUUM INTO），打开的、写的都是临时目录里的副本，跑完就删。
 // 拿不到真实数据（找不到库）时用这里的假素材跑一遍，照样打印摘要；测试里也这样跑通。
@@ -53,7 +53,7 @@ export function summarizeMaterials(materials: MaterialsReader, clock: Clock): Re
   const all = materials.list();
   const source = new MaterialsEvidenceSource({ materials, clock });
   const drafts = source.read();
-  // 303 号票：几条数据源素材合成的一条证据，背后的素材都算读到了
+  // 几条数据源素材合成的一条证据，背后的素材都算读到了
   const read = new Set(drafts.flatMap((d) => materialIdsOfRef(d.sourceRef)));
   const bySourceLevel: Record<SourceLevel, number> = { self: 0, agent: 0, untrusted: 0, system: 0 };
   const scenes: Record<string, number> = {};
@@ -217,7 +217,7 @@ function defaultMaterialsDb(): string {
 }
 
 const USAGE = [
-  "离线回放素材库（224 号票）：复制一份 materials.db 到临时目录，打印素材/证据/来源级别/场景分布的摘要。",
+  "离线回放素材库：复制一份 materials.db 到临时目录，打印素材/证据/来源级别/场景分布的摘要。",
   "",
   "用法：",
   "  node packages/daemon/test/memory/replay-materials.ts                 # 用户数据目录（$ERGO_DATA_DIR 或 ~/.ergo）",

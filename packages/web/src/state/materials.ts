@@ -1,13 +1,13 @@
-// 看素材（158 号票，用户 2026-10-18 要的"删除素材的地方能看每条素材的内容"；167 号票起在记忆 · 素材，浏览、搜、筛的推导在 material-browse.ts）：
-// - 列表的一行（materialRow）：种类和时间、会话（界面按 conversationName 写名字，159 号票）、摘录、标记的小签；
+// 看素材（"删除素材的地方能看每条素材的内容"；在记忆 · 素材，浏览、搜、筛的推导在 material-browse.ts）：
+// - 列表的一行（materialRow）：种类和时间、会话（界面按 conversationName 写名字）、摘录、标记的小签；
 // - 详情里的每一段（materialBlocks）：本人的话全文；引用块写原文（守护进程从出处的消息里补上的，去掉行首的 >）；附件、语音按消息里的
 //   part 照会话里的样子画（图片、文件卡片、语音条加识别出的文字）；只记了引用的（网页、卡片、出处不在了的附件和引用块）写引用的说明；
 // - 来源（materialFacts）：种类 · 说或做 · 来源等级一行，时间、会话、任务、项目、出处的消息现在怎样、卡片、记录、原文副本、原始事件、情境各一行；
 // - 跳到出处的那条消息（materialJump）：出处的消息还在当前分支上才跳得过去，去哪个页面和待办的"去看看 ›"同一个认法（inbox-jump.ts）；
 // - 详情里的三种删法（materialDeleteChoices）：口径同设置里按范围删（MEMORY_DELETE_MODE_INFO），已经标过不参与推断的"别推断"灰着。
-// - 你存的网页（165 号票，"浏览"的 ⋮ 菜单里存进素材的）：网页那一段画成标题、网址和存下的正文（守护进程从原始事件里补上的，外部数据），
+// - 你存的网页（"浏览"的 ⋮ 菜单里存进素材的）：网页那一段画成标题、网址和存下的正文（守护进程从原始事件里补上的，外部数据），
 //   截断了写明；情境标签 saved_web_page 写成"你存的网页"。
-// - 记下来的文件（366 号票，"这张图记下来"）：和附件一样按 part 画（守护进程拼好的），取不到原文件存的截图在小标题上写明。
+// - 记下来的文件（"这张图记下来"）：和附件一样按 part 画（守护进程拼好的），取不到原文件存的截图在小标题上写明。
 import { conversationAtJump, type InboxJump } from "./inbox-jump.ts";
 import {
   type MaterialDetailView,
@@ -64,7 +64,7 @@ export function materialMarkChips(marks: MaterialMarks): string[] {
     ...(marks.noInfer ? [t("state.materials.chip.noInfer")] : []),
     ...(marks.abandoned ? [t("state.materials.chip.abandoned")] : []),
     ...(marks.internal ? [t("state.materials.chip.internal", { project: marks.internal.projectName })] : []),
-    // 284 号票：了解你访谈里说的
+    // 了解你访谈里说的
     ...(marks.interview ? [t("state.materials.chip.interview")] : []),
   ];
 }
@@ -96,7 +96,7 @@ export type MaterialBlock =
   | { readonly kind: "voice"; readonly title: string; readonly part: Extract<MessagePart, { type: "voice" }>; readonly text: string }
   /** 只记了引用的：网页、卡片、出处不在了的附件和引用块 */
   | { readonly kind: "ref"; readonly title: string; readonly text: string; readonly url?: string }
-  /** 你存的网页（165 号票）：标题、网址（能点）、存下的正文（外部数据）；截断了 note 写明 */
+  /** 你存的网页：标题、网址（能点）、存下的正文（外部数据）；截断了 note 写明 */
   | { readonly kind: "page"; readonly title: string; readonly pageTitle: string; readonly url: string; readonly text: string; readonly note?: string };
 
 /** 一段的标题："本人 · 打的字"、"本人 · 你的选择（agent 先提出）"、"外部、不可信 · 引用块" */
@@ -119,7 +119,7 @@ function blockOf(s: MaterialSegmentView): MaterialBlock {
   const title = blockTitle(s);
   switch (s.form) {
     case "quote":
-      // 303 号票：数据源里别人写给你的，引用块只留插件整理的摘要（说明），没有出处的消息
+      // 数据源里别人写给你的，引用块只留插件整理的摘要（说明），没有出处的消息
       if (s.quoted !== undefined) return { kind: "quote", title, text: unquote(s.quoted) };
       return { kind: "ref", title, text: s.label ?? t("state.materials.quoteRefGone", { hash: (s.sha256 ?? "").slice(0, 8) }) };
     case "attachment":

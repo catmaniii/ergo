@@ -1,4 +1,4 @@
-// 斜杠命令原样转交给运行时（289 号票）：负责人用的运行时能转交的（Claude Code，能力清单 slash_passthrough）——
+// 斜杠命令原样转交给运行时：负责人用的运行时能转交的（Claude Code，能力清单 slash_passthrough）——
 // - 交给它的：用户自己在这里打的、只有文字、开头是 / 的原文（不加时间标记、不带消息 id 那一行）；二狗自己的命令（项目会话里的 /流程）、
 //   秘书转达的、带着附件的、不转交的运行时（pi）都照旧；
 // - 输入框的候选：二狗自己的命令在前，再是运行时报的命令（kind 是 runtime，集合名写运行时的名字），二狗的 skill 不列；和二狗的命令同名的不列；
@@ -12,7 +12,7 @@ import { fakeRuntime } from "../helpers/fake-runtime.ts";
 
 const passthrough = { slashPassthrough: true, ergoCommands: ergoCommandsIn("task") };
 const user = (text: string) => ({ speaker: "user" as const, parts: [{ type: "text" as const, text }] });
-/** 库里的 skill 的斜杠命令（309 号票那一条用）：pstack 集合里的 tdd 写成"集合名:目录名"，unloaded 这次没装配 */
+/** 库里的 skill 的斜杠命令（那一条用）：pstack 集合里的 tdd 写成"集合名:目录名"，unloaded 这次没装配 */
 const skillCommands = () => [
   { command: "weekly-report", name: "weekly-report", description: "写周报", dir: "/skills/weekly-report" },
   { command: "review", name: "review", description: "评审", dir: "/skills/review" },
@@ -34,7 +34,7 @@ describe("斜杠命令原样转交给运行时", () => {
     ).toBeUndefined();
   });
 
-  it("309 号票：转交时 /<目录名>、/skill:<目录名> 是这次装配的 skill 的换成运行时里的写法（后面的话照留）；和运行时自己的命令同名的、没装配的、二狗自己的命令照旧", () => {
+  it("转交时 /<目录名>、/skill:<目录名> 是这次装配的 skill 的换成运行时里的写法（后面的话照留）；和运行时自己的命令同名的、没装配的、二狗自己的命令照旧", () => {
     const ctx = {
       ...passthrough,
       skillDirs: ["/skills/weekly-report", "/skills/review", "/skills/pstack/tdd"],
@@ -72,7 +72,7 @@ describe("斜杠命令原样转交给运行时", () => {
     expect(conversationSlashCommands(sources, "maintainer:tm-1")?.commands).toEqual([
       { kind: "runtime", text: "/compact", name: "compact", description: "Compact", collection: "Claude Code" },
       { kind: "runtime", text: "/task", name: "task", description: "同名", collection: "Claude Code" },
-      // 310 号票：参数提示照带
+      // 参数提示照带
       { kind: "runtime", text: "/review", name: "review", description: "Review a PR", collection: "Claude Code", argumentHint: "<pr>" },
     ]);
     expect(conversationSlashCommands(sources, "maintainer:tm-2")?.commands.map((c) => c.text)).toEqual(["/tdd"]);

@@ -23,7 +23,7 @@ export const MIN_SECRET_VALUE_LENGTH = 8;
 const ENV_LINE = /^\s*(?:export\s+)?[A-Za-z_][\w.-]*\s*=\s*(.*?)\s*$/;
 
 /**
- * 密钥文件里要记下的值（30 号票：守护进程在 agent 读过它之后收进内存，见 guard-runtime/read-secrets.ts，判定时作为环境事实
+ * 密钥文件里要记下的值（守护进程在 agent 读过它之后收进内存，见 guard-runtime/read-secrets.ts，判定时作为环境事实
  * secretValues 交进来）。纯函数，不读文件：
  * - .env 和它的变体：每行的值（去掉 export、成对的引号，没加引号的去掉行尾的 ` # 注释`），8 个字符以上的才算；
  * - 别的密钥文件（私钥、证书、凭据文件……）：整段去掉空白算一个值，8 个字符以上才算。

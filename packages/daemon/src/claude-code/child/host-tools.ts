@@ -1,4 +1,4 @@
-// 二狗的工具交给 Claude（291 号票，issue 24 方案 2.4 的 host_tool_call）：守护进程代为执行的工具（装配参数 contributions.tools：提交计划、
+// 二狗的工具交给 Claude（host_tool_call）：守护进程代为执行的工具（装配参数 contributions.tools：提交计划、
 // 汇报进展、给秘书发消息、发附件、读附件、联网搜索、工具包里的 MCP……，插件给负责人的也在里面）经 SDK 的进程内 MCP 服务交给 Claude。
 // Claude 调用时（MCP 的 tools/call）这里发 host_tool_call、等守护进程的 host_tool_result，结果照 MCP 的写法交回（文字，看图的附图片）。
 // - 服务：二狗自己的工具在一个叫 ergo 的服务里（Claude 看到的名字是 mcp__ergo__<工具名>）；工具包里的 MCP 在二狗这边本来就叫
@@ -173,7 +173,7 @@ class InProcessServer {
 
 export interface HostToolBridgeDeps {
   emit: (report: AgentReport) => void;
-  /** 这一轮已经进了上下文的插话（输入 id，按先后；86 号票）：随 host_tool_call 报 */
+  /** 这一轮已经进了上下文的插话（输入 id，按先后）：随 host_tool_call 报 */
   interjected: () => readonly string[];
   /** _meta 里没带调用 id 时：按 Claude 的工具名取还没交过结果的那次调用（没有是 undefined） */
   resolveId: (claudeName: string) => string | undefined;

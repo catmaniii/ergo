@@ -1,4 +1,4 @@
-// 角色（248 号票）的状态层：纯函数，界面（ui/agent-roles.tsx、pages/more/RolesPage.tsx）只管画。
+// 角色的状态层：纯函数，界面（ui/agent-roles.tsx、pages/more/RolesPage.tsx）只管画。
 // - 从接口取回的那一份（UiState.agentRoles = GET /api/agent-roles）里认这个 agent 现在用哪个角色、名字和音色是什么；
 // - 写成话：⚙ 面板和角色页都写"现在：小明 · 音色：示例音色"；
 // - 改角色的名字时边打边查：和守护进程用同一个函数（协议包的 checkAssistantName），不合规的当场说、存不进去；

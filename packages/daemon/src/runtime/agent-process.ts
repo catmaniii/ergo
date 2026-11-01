@@ -1,6 +1,6 @@
 // 守护进程这一侧的 agent 子进程句柄：拉起子进程、放进 Job 对象、送"启动"、收发宿主协议消息。
 // 本文件不引用 pi；pi 只在子进程里（agent-child/）。
-// 286 号票：拉起哪个子进程入口由调用方按负责人的运行时给（entry，runtimes.ts 的登记表解析）；不给是 pi 的（PI_CHILD_ENTRY）。
+// 拉起哪个子进程入口由调用方按负责人的运行时给（entry，runtimes.ts 的登记表解析）；不给是 pi 的（PI_CHILD_ENTRY）。
 // 宿主协议不分运行时：哪个入口都收同一条"启动"、说同一套消息。
 import { spawn } from "node:child_process";
 import path from "node:path";
@@ -34,7 +34,7 @@ export interface AgentProcess {
 
 export interface SpawnAgentProcessOptions {
   session: SessionAssembly;
-  /** 子进程入口（实现宿主协议的脚本的绝对路径，用 process.execPath 跑它，286 号票：按负责人的运行时）；不给是 pi 的 */
+  /** 子进程入口（实现宿主协议的脚本的绝对路径，用 process.execPath 跑它：按负责人的运行时）；不给是 pi 的 */
   entry?: string;
   /** 子进程的完整环境变量（显式给出，不继承守护进程的环境） */
   env: Record<string, string>;
@@ -45,7 +45,7 @@ export interface SpawnAgentProcessOptions {
 }
 
 /**
- * 名字占位不进 agent（43 号票）：守护进程生成的话里提到秘书的写名字占位，给人看时前端换成用户起的名字；
+ * 名字占位不进 agent：守护进程生成的话里提到秘书的写名字占位，给人看时前端换成用户起的名字；
  * 这些话也会转给 agent（待我处理的列表、引用的卡片、素材……），往子进程送的每一行都经这里，占位一律换成领域术语"秘书"。
  * 占位里没有 JSON 要转义的字符，在编码好的一行里直接换
  */

@@ -1,4 +1,4 @@
-// 运行时核实过的用户原话（125 号票）：给人、给模型看的说法；立项要求变更的合并、逐条对照、说法；重做时改阶段的输入的 schema。
+// 运行时核实过的用户原话：给人、给模型看的说法；立项要求变更的合并、逐条对照、说法；重做时改阶段的输入的 schema。
 import { describe, expect, test } from "vitest";
 import {
   ASSISTANT_NAME_MARK,
@@ -26,7 +26,7 @@ const words: VerifiedUserWords = {
 describe("运行时核实过的用户原话", () => {
   test("一条写成一行：原文，后面是时间、哪个会话、哪台设备；语音转写、经秘书转达另外写明", () => {
     expect(userWordsLine(words)).toBe("「不用等满一周，覆盖到今天就行」（10-14 08:30 · 秘书会话 · 设备「我的手机」）");
-    // 提到秘书的写名字占位（43 号票：界面上换成用户起的名字，交给 agent 的换成"秘书"）
+    // 提到秘书的写名字占位（界面上换成用户起的名字，交给 agent 的换成"秘书"）
     expect(userWordsSource({ ...words, voice: true, relayedBy: "secretary" })).toBe(`10-14 08:30 · 秘书会话 · 设备「我的手机」 · 语音转写 · 经${ASSISTANT_NAME_MARK}转达`);
   });
 
@@ -70,7 +70,7 @@ describe("立项要求变更", () => {
   });
 });
 
-describe("从这里重做时直接改这一阶段（125 号票）", () => {
+describe("从这里重做时直接改这一阶段", () => {
   const check = schemaChecker(TaskActionParams);
   test("验收标准（改过的写原来第几条，新加的不写）、交付件，不写的那一栏不改", () => {
     expect(check.firstError({ taskId: "t-1", action: "rework", stageId: "s1", stageEdit: { acceptance: [{ criterion: "覆盖到今天就行", from: 0 }, { criterion: "附上来源" }] } })).toBeUndefined();

@@ -1,5 +1,5 @@
 @echo off
-rem ergo command (ticket 318): find the bundled node and run app\packages\daemon\src\cli\main.js with the same arguments.
+rem ergo command: find the bundled node and run app\packages\daemon\src\cli\main.js with the same arguments.
 rem Same job as ergo.exe (used when ergo.exe cannot be built or is blocked by antivirus software).
 rem In <install dir>\bin it reads ..\current: one line of text with the name of the version directory in use.
 rem Older installs have ..\current as a junction pointing at the version directory; both are accepted.

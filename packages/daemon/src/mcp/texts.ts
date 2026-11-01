@@ -1,4 +1,4 @@
-// MCP 登记变更（239 号票）给人和模型看的话，都在这里组织（编排在 change.ts，只给结构化的数据）：
+// MCP 登记变更给人和模型看的话，都在这里组织（编排在 change.ts，只给结构化的数据）：
 // 工具名、工具说明，卡上的说法（动作、是谁提的、命令、args、env、工具和标注、自检结果），待我处理里的标题和来源，
 // 时间线上的一句话和明细，审批决定的说法，交给负责人的通知。
 // 给用户看的（工具的名字、卡、待我处理、时间线、审批决定、自检结果）走 t()；给负责人的（工具说明、工具结果、通知）照旧中文。
@@ -12,7 +12,7 @@ const REGISTERED_TOOL_NOTE_MAX = 80;
 
 // @i18n-ignore-start model：写进负责人的系统提示
 /**
- * 已登记的 MCP 清单（362 号票：真模型试验里新任务的负责人问"看板叫什么名字"，要用户告诉它）：拼在负责人的系统提示里，起草计划、申请工具包变更时对得上。
+ * 已登记的 MCP 清单（真模型试验里新任务的负责人问"看板叫什么名字"，要用户告诉它）：拼在负责人的系统提示里，起草计划、申请工具包变更时对得上。
  * 一个都没登记的是 undefined
  */
 export function registeredMcpText(servers: ReadonlyArray<{ name: string; title: string; tools: ReadonlyArray<{ name: string; title: string; description?: string }> }>): string | undefined {

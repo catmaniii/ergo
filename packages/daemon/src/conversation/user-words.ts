@@ -1,9 +1,9 @@
-// 运行时核实用户原话（125 号票；方案"用户授权的效力"第 2 节第一层，不用签名）：负责人在宣布阶段完成、提计划变更、自行调整计划、
+// 运行时核实用户原话（方案"用户授权的效力"第 2 节第一层，不用签名）：负责人在宣布阶段完成、提计划变更、自行调整计划、
 // 提立项要求变更时附上用户消息的 id，守护进程逐条核对，核实过的写进单独一栏（协议包 user-words.ts 的 VerifiedUserWords）：
 // - 消息要在：不存在、被彻底删除了（会话消息的视图里没有了）的不认；
 // - 发言方要是用户：agent 自己的话、运行时的通知不认；
 // - 要是引用它的 agent 自己会话里的（它看得到的那些，交给它的用户消息末尾带着 id）：别的会话里的不认；
-// - 秘书转达进来的那一句（103 号票，发言方也是用户、标着 relayedBy）：换成用户在秘书那里说的原话（relayOf）——原话要在、是用户
+// - 秘书转达进来的那一句（发言方也是用户、标着 relayedBy）：换成用户在秘书那里说的原话（relayOf）——原话要在、是用户
 //   自己在秘书会话里说的；转达时没记下原话（之前转达的、秘书不是在回用户的话时转达的）的不认，转达的话是秘书写的，不算用户的原话。
 // 每条写原文（语音写识别出的文字）、哪个会话、时间、从哪台设备来的（本机、设备名；之前的消息没记，写设备不详）。
 // 核对不过的那条退回（写明哪一条、为什么），其余照常：调用方把 refused 交回 agent。
@@ -30,7 +30,7 @@ import { getVoice } from "../voice-records/views.ts";
 import { buildMessage } from "./messages.ts";
 import { getMessage, messageSentFrom } from "./views.ts";
 
-/** 交给 agent 的用户消息末尾那一行（125 号票）：它引用用户原话时照抄这个 id */
+/** 交给 agent 的用户消息末尾那一行：它引用用户原话时照抄这个 id */
 export const userMessageIdLine = (id: string): string => `[用户消息 id：${id}]`; // @i18n-ignore model：交给 agent 的那一行
 
 /**
@@ -45,7 +45,7 @@ export const USER_WORDS_PARAM = Type.Array(Type.String({ minLength: 1 }), {
 });
 
 /**
- * 卡片也出在用户说那句话的会话里（125 号票：计划变更卡、立项要求变更卡）：核实过的原话在哪些会话（秘书转达来的在秘书会话），
+ * 卡片也出在用户说那句话的会话里（计划变更卡、立项要求变更卡）：核实过的原话在哪些会话（秘书转达来的在秘书会话），
  * 除了 own（提出它的负责人自己的会话：工具产生的卡片本来就以卡片引用出现在那里），各放一条卡片引用（系统消息，不交给那里的 agent）
  */
 export function cardRefsElsewhere(cardId: string, words: readonly VerifiedUserWords[], own: ConversationId): NewEvent[] {
@@ -61,7 +61,7 @@ export interface UserWordsDeps {
 }
 
 /**
- * 会话给人看的说法（daemon.ts 接项目和任务）：秘书会话写"和<名字占位>的对话"（43 号票：界面上是用户起的名字，交给 agent 的是
+ * 会话给人看的说法（daemon.ts 接项目和任务）：秘书会话写"和<名字占位>的对话"（界面上是用户起的名字，交给 agent 的是
  * "和秘书的对话"）；负责人的会话按它属于哪个项目、哪个任务说；都认不出的写"负责人会话"
  */
 export function conversationWhere(lookup: {
@@ -159,7 +159,7 @@ function verifiedOf(deps: UserWordsDeps, message: MessageEnvelope): VerifiedUser
 }
 
 /**
- * 一个会话里用户最近说的话，核实成同一种格式（范围审视的对照物，125 号票）：秘书转达进来的换成原话，找不到原话的不算；
+ * 一个会话里用户最近说的话，核实成同一种格式（范围审视的对照物）：秘书转达进来的换成原话，找不到原话的不算；
  * 越早的在前。给的是这几条消息（recentMessagesOf 取的），没核实过的去掉
  */
 export function verifiedRecentWords(deps: UserWordsDeps, messages: readonly MessageEnvelope[], own: ConversationId): VerifiedUserWords[] {

@@ -1,8 +1,8 @@
-// 显式记忆命令（规格第 14、15 节，21 号票）：快速动作的第一种。登记进快速动作的执行器注册表：
+// 显式记忆命令（规格第 14、15 节）：快速动作的第一种。登记进快速动作的执行器注册表：
 // - 记住（remember）：用户说"记住……"，内容作为"显式记忆命令"素材入库。"点明了"的判定：用户这条消息里（打的字或语音转写）
 //   有"记住"一类的触发词，前面没有否定词，而且提议的内容和触发词后面到句末的那一段（去掉标点和空白）一致；那一段只是"这个""这段"之类的指代时，
 //   内容要和用户的引用块或引用的卡片一致。点明了直接执行，秘书推断出来的一律先问。来源按内容从哪里来标（REMEMBER_SOURCES）。
-//   英文认一句话开头的 "Remember: …" "Remember that …"（379 号票，见 REMEMBER_EN）。第一阶段不产出任何记忆；
+//   英文认一句话开头的 "Remember: …" "Remember that …"（见 REMEMBER_EN）。第一阶段不产出任何记忆；
 // - 忘掉（forget）、彻底删除（purge）、别推断（no_infer）：秘书先用素材检索工具找出匹配的素材，再提议；
 //   总要过一张记忆删除卡由用户核对（可以去掉几条、换一种删法），确认后执行（deletion.ts）。没有触发词，所以也没有中英文之分：
 //   - 忘掉：素材及其原文副本从 materials.db 删除，聊天记录里仍看得到原话；
@@ -10,7 +10,7 @@
 //   - 别推断：素材和索引保留，标上"不参与推断"。
 // 每条命令都是素材频道上的一条 memory_command 事件：素材模块据此产生"显式记忆命令"素材、删除或标记素材（ADR-0006），
 // 和操作记录、卡片更新在同一事务里。
-// 129 号票起这些是记忆插件的（memory/plugin.ts）：执行器在插件装配时登记，插件停用就没有；记忆删除卡属于插件的数据契约（停用也登记），
+// 这些是记忆插件的（memory/plugin.ts）：执行器在插件装配时登记，插件停用就没有；记忆删除卡属于插件的数据契约（停用也登记），
 // 卡上的动作现取插件的服务，没启用时回"记忆插件没启用"。
 import {
   MAX_MEMORY_DELETE_MATERIALS,
@@ -54,7 +54,7 @@ export const REMEMBER_TRIGGERS: readonly string[] = ["记住", "记下来", "记
 /** 英文的说法前面只许有这些：称呼、客气词 */
 const REMEMBER_LEAD_EN = "(?:(?:ergo|please|pls|kindly|(?:can|could|would|will) you)\\s*,?\\s*)*";
 /**
- * 英文的"记住"（379 号票）：一句话开头（去掉句末标点之后）的 "Remember: …" "Remember that …" "Remember this: …"，
+ * 英文的"记住"：一句话开头（去掉句末标点之后）的 "Remember: …" "Remember that …" "Remember this: …"，
  * 或者只有 "Remember" "Remember this" 这样的指代。不分大小写。不认正常句子里的："I remember that …"（不在句首）、
  * "Remember to …" "Remember when …" "Remember, …"（要做的事、回忆、提醒对方）：这些秘书提议时照旧出卡问一句
  */
@@ -105,7 +105,7 @@ export function rememberExplicit(content: string, turn: UserTurn): ExplicitFindi
   return undefined;
 }
 
-/** 对话里的命令从哪里来（快速动作 + 卡片）：337 号票起"记住"多了一种没有卡片的来源，这里只给老的这一支 */
+/** 对话里的命令从哪里来（快速动作 + 卡片）："记住"多了一种没有卡片的来源，这里只给老的这一支 */
 type ChatOrigin = Extract<RememberCommandPayload["from"], { kind: "chat" }>;
 
 function chatOrigin(context: QuickActionContext): ChatOrigin {
@@ -164,7 +164,7 @@ export function memoryCommandExecutors(options: MemoryCommandsOptions): QuickAct
       get title() {
         return MEMORY_COMMAND_LABEL[mode];
       },
-      // 给秘书的用法：按中文取（174 号票）
+      // 给秘书的用法：按中文取
       get usage() {
         return forModel(() => MEMORY_DELETE_MODE_INFO[mode].usage);
       },
@@ -229,7 +229,7 @@ function matchOf(material: Material): MemoryDeleteMatch {
 /**
  * 记忆删除卡：列出匹配到的素材和要执行的删除方式，用户核对后执行（delete，输入是删法和要删的那几条，只能是卡上列出的），
  * 或者不删了（cancel）。纯文本降级只写删法和条数，不带摘录。彻底删除之后，卡片上被删素材的摘录随之去掉（旧版本一起改写）。
- * 129 号票起是记忆插件的数据契约：memory 现取插件的服务（插件没启用时抛"记忆插件没启用"）
+ * 是记忆插件的数据契约：memory 现取插件的服务（插件没启用时抛"记忆插件没启用"）
  */
 export function memoryDeleteCardType(memory: () => MemoryService) {
   return defineCardType({

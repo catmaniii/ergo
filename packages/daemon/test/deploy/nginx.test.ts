@@ -114,7 +114,7 @@ describe("nginx 站点配置", () => {
     expect(h.connection).toBe(variable);
   });
 
-  it("转发本机服务的页面（/apps/，132 号票）：服务的 WebSocket 也能升级，流式响应不攒在 VPS 上", () => {
+  it("转发本机服务的页面（/apps/）：服务的 WebSocket 也能升级，流式响应不攒在 VPS 上", () => {
     const { top, locations } = generated();
     const variable = one(top, "map").args[1]!;
     const apps = locations.find((l) => l.args.join(" ") === "/apps/")!;

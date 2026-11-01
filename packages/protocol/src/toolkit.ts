@@ -1,10 +1,10 @@
-// 工具包（ADR-0003，规格第 3、11、20、21 节，27 号票）的名字和纯函数，守护进程和 Web 共用，不引用 TypeBox：
-// - 工具包有六样：skill 名单、MCP 名单、bash 开关、联网开关、给秘书发消息开关（102 号票，形状同计划的 PlanToolkit / projects.ts 的
-//   ToolkitShape；给秘书发消息默认开着，不写是开，关掉了写 false：canTellSecretary、tellSecretaryField）、发附件开关（117 号票：
+// 工具包（ADR-0003，规格第 3、11、20、21 节）的名字和纯函数，守护进程和 Web 共用，不引用 TypeBox：
+// - 工具包有六样：skill 名单、MCP 名单、bash 开关、联网开关、给秘书发消息开关（形状同计划的 PlanToolkit / projects.ts 的
+//   ToolkitShape；给秘书发消息默认开着，不写是开，关掉了写 false：canTellSecretary、tellSecretaryField）、发附件开关（
 //   负责人把工作目录里的文件作为附件发进它的会话，tell_secretary 带附件也看它；同样默认开着：canSendAttachment、sendAttachmentField）；
 // - 改动的说法（toolkitChangeText）：加上哪些、去掉哪些，卡片、时间线、交给负责人的"工具包已变更"都用它；
-// - 哪些改动要用户批准（toolkitExpansions）：开 bash、加 MCP、开联网、打开给秘书发消息（102 号票评审后定：用户关掉的
-//   负责人不能自己打开）、打开发附件（117 号票照同一条）。skill 只是说明书，不增加权限，负责人自己增减；减少能力随时可以；
+// - 哪些改动要用户批准（toolkitExpansions）：开 bash、加 MCP、开联网、打开给秘书发消息（用户关掉的
+//   负责人不能自己打开）、打开发附件（照同一条）。skill 只是说明书，不增加权限，负责人自己增减；减少能力随时可以；
 // - MCP 工具在会话里的名字（mcpToolName）：mcp__<登记的 MCP 名>__<工具名>。
 import { ASSISTANT_NAME_MARK } from "./assistant-name.ts";
 import { followLocale, forModel, t } from "./i18n/runtime.ts";
@@ -20,12 +20,12 @@ export type ToolkitCapability =
   | { kind: "send_attachment" };
 
 /**
- * 给秘书发消息这一样的说法（工具包设置里那个开关的名字也是它）：写名字占位（43 号票），界面上显示用户起的名字，
+ * 给秘书发消息这一样的说法（工具包设置里那个开关的名字也是它）：写名字占位，界面上显示用户起的名字，
  * 交给 agent 的话里守护进程换成"秘书"
  */
 export let TELL_SECRETARY_CAPABILITY = "";
 
-/** 工具包里给秘书发消息开着没有（102 号票）：不写是开着（默认开，之前存下的工具包都没有这一项） */
+/** 工具包里给秘书发消息开着没有：不写是开着（默认开，之前存下的工具包都没有这一项） */
 export function canTellSecretary(kit: { readonly tellSecretary?: boolean | undefined }): boolean {
   return kit.tellSecretary !== false;
 }
@@ -35,7 +35,7 @@ export function tellSecretaryField(on: boolean): { tellSecretary?: false } {
   return on ? {} : { tellSecretary: false };
 }
 
-/** 发附件这一样的说法（117 号票，工具包设置里那个开关的名字也是它） */
+/** 发附件这一样的说法（工具包设置里那个开关的名字也是它） */
 export let SEND_ATTACHMENT_CAPABILITY = "";
 
 // 上面两句跟着当前语言（followLocale）
@@ -44,7 +44,7 @@ followLocale(() => {
   SEND_ATTACHMENT_CAPABILITY = t("protocol.toolkit.sendAttachment");
 });
 
-/** 工具包里发附件开着没有（117 号票）：不写是开着（默认开，之前存下的工具包都没有这一项） */
+/** 工具包里发附件开着没有：不写是开着（默认开，之前存下的工具包都没有这一项） */
 export function canSendAttachment(kit: { readonly sendAttachment?: boolean | undefined }): boolean {
   return kit.sendAttachment !== false;
 }
@@ -90,8 +90,8 @@ export function toolkitRemoved(before: ToolkitShape, after: ToolkitShape): Toolk
 }
 
 /**
- * 要用户批准的那几样：开 bash、加 MCP、开联网、打开给秘书发消息（102 号票评审后定：和 bash、联网一样是能力开关，
- * 用户关掉的负责人不能自己打开，要走计划变更等用户确认）、打开发附件（117 号票照同一条）。skill 不算：只是说明书，不增加权限
+ * 要用户批准的那几样：开 bash、加 MCP、开联网、打开给秘书发消息（和 bash、联网一样是能力开关，
+ * 用户关掉的负责人不能自己打开，要走计划变更等用户确认）、打开发附件（照同一条）。skill 不算：只是说明书，不增加权限
  */
 export function toolkitExpansions(before: ToolkitShape, after: ToolkitShape): ToolkitCapability[] {
   return toolkitAdded(before, after).filter((c) => c.kind !== "skill");

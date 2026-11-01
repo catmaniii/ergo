@@ -1,13 +1,13 @@
-// Claude Code 运行时接管已有会话的那几样（290 号票，issue 24 方案 2.3），守护进程这一侧：
+// Claude Code 运行时接管已有会话的那几样，守护进程这一侧：
 // - 会话从哪来（ClaudeSessionSource，可注入）：正式运行是一次性子进程（child/sessions-main.ts，经内核的 KERNEL.oneShot 拉起；SDK 的
 //   listSessions / getSessionMessages / forkSession 和 `claude agents --json` 都在子进程里），主切面换成假的（不读用户真实的 ~/.claude、
 //   不起 claude）；
 // - 列会话（listResumable）：列出来的连同"正被占着"的说明——`claude agents --json` 里有这个会话的：交互式的（终端里开着，CLI 不拦第二个
-//   写入者，接了会分叉、丢轮，调研 35 E2）、后台会话在跑的、停着的后台会话记录（没有进程，保守当作占着，调研 35 第 4 节）。
+//   写入者，接了会分叉、丢轮）、后台会话在跑的、停着的后台会话记录（没有进程，保守当作占着）。
 //   查不到（claude 不在、出错）时一律写"查不到它现在有没有在别处开着"，当作占着（只能分叉接管）；
 //   二狗自己在管的（写入锁）不在这里认，接管服务（takeover/）盖上去；二狗自己的进程在 agents 里也显示成交互式，同样由那边盖掉；
 // - 核对一个会话（sessionBusy）：接管、收回前再查一次 agents；
-// - 分叉（fork）、前情（history）：照转子进程；292 号票的只读跟随（follow）也是。
+// - 分叉（fork）、前情（history）：照转子进程；只读跟随（follow）也是。
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { nowIso, type ResumableSessionView, t } from "@ergo/protocol";
@@ -29,7 +29,7 @@ export interface ClaudeSessionSource {
   history(sessionId: string, cwd: string): Promise<RuntimeHistory>;
   /** 分叉一份：新会话的 id */
   fork(sessionId: string, cwd: string): Promise<string>;
-  /** 只读跟随（292 号票，交给官方 App 期间）：主线上 after 那一条之后的新内容，翻成二狗的样子；tail 只要最后一条的 id */
+  /** 只读跟随（交给官方 App 期间）：主线上 after 那一条之后的新内容，翻成二狗的样子；tail 只要最后一条的 id */
   follow(sessionId: string, options: { after?: string; final: boolean; tail?: boolean }): Promise<RuntimeFollow>;
 }
 

@@ -1,4 +1,4 @@
-// 范围记录的视图（纯函数，18 号票）：简版项目页的"范围记录"一节、任务详情里的范围记录。范围变更和越界分开（各一组），
+// 范围记录的视图（纯函数）：简版项目页的"范围记录"一节、任务详情里的范围记录。范围变更和越界分开（各一组），
 // 每组最近的在前；每条写明哪次审视的（压缩会话时、工单结束时）、属于哪张工单和哪个任务。
 // 越界通知在待我处理里（通知类事项 out_of_scope），照常算未读，不在这里。
 import { SCOPE_RECORD_KIND_LABEL, SCOPE_REVIEW_TRIGGER_LABEL, type ScopeRecord, type ScopeRecordKind, t } from "./protocol.ts";
@@ -11,7 +11,7 @@ export interface ScopeRecordView {
   kind: string;
   /** "工单结束时" / "压缩会话时" */
   trigger: string;
-  /** 属于哪张工单、哪个任务："工单 wo-2「加周报」 · 任务 t-1「给记账本加周报」"（159 号票：编号加名字，现取；163 号票写成 t-3「标题」）；都没有时没有 */
+  /** 属于哪张工单、哪个任务："工单 wo-2「加周报」 · 任务 t-1「给记账本加周报」"（编号加名字，现取；写成 t-3「标题」）；都没有时没有 */
   where: string | undefined;
 }
 

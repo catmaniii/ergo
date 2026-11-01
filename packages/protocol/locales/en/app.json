@@ -44,7 +44,7 @@
   "app.debugPage.noAccent": "This style has no accent colors",
   "app.debugPage.resetPage": "Cleared this page's \"microphone was denied\" flag. The browser keeps its own notification permission, which the page can't clear (change it in the browser's site settings)",
   "app.debugPage.notInApp": "Not in the phone app",
-  "app.debugPage.appTooOld": "The app is too old to reset this (needs an app from ticket 124 or later)",
+  "app.debugPage.appTooOld": "The app is too old to reset this (needs a newer app)",
   "app.debugPage.appNoReply": "The app didn't reply",
   "app.debugPage.resetApp": "Cleared the app's \"already asked\" flag (now: {enabled}, {asked})",
   "app.debugPage.notifyOn": "notifications on",

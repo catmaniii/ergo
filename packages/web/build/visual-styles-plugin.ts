@@ -1,4 +1,4 @@
-// 视觉风格（39 号票）的构建插件：把风格清单（src/visual-styles/）变成页面要的三样东西。
+// 视觉风格的构建插件：把风格清单（src/visual-styles/）变成页面要的三样东西。
 // 1. 样式：main.tsx 里 import "virtual:visual-styles"，它先引入生成的 token 样式表（经典挂在 :root，每套风格写全挂在
 //    [data-style="<id>"]），再按清单顺序引入各套风格的 <id>/style.css；和别的样式一样经 Lightning CSS 降级
 //    （light-dark() 变成开关变量）、内联进单文件的 index.html；
@@ -116,7 +116,7 @@ export function planFonts(styles: readonly VisualStyle[]): FontPlan {
   for (const style of styles) {
     if (!style.fonts?.length) continue;
     if (fontsHref(style.id) === PREVIEW_FONTS_HREF) throw new Error(`风格 id 不能叫 ${style.id}：和预览的字体样式表重名`);
-    // 写风格的 id 不写名字：名字按当前语言现查（169 号票），构建时没装语言
+    // 写风格的 id 不写名字：名字按当前语言现查，构建时没装语言
     const parts = [`/* ${style.id} 的字体：由风格清单生成（build/visual-styles-plugin.ts），不要手改 */`];
     for (const font of style.fonts) {
       const pkg = fontPackage(font.package);

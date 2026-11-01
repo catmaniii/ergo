@@ -1,8 +1,8 @@
-// 孤儿进程回收的判定（agent-manager/orphans.ts，12 号票；178 号票补了两条）：
+// 孤儿进程回收的判定（agent-manager/orphans.ts，补了两条）：
 // - 从活着的 agent 子进程顺着 Windows 父进程号走不到的是孤儿候选（findOrphans）；
 // - 还在跑的工具调用期间起的进程这一轮不杀（reapable）：Git Bash 里管道各段、`bash 脚本` 的 Windows 父进程交接完就退了，
-//   bash 其实还在等它们，按父进程号判会误杀（178 号票的根因）；
-// - agent-browser 的守护进程（和它下面的 Chrome）跟着开它的 agent 走（用户 2026-10-19 定）：认得出的才留，认不准的照旧回收。
+//   bash 其实还在等它们，按父进程号判会误杀（根因）；
+// - agent-browser 的守护进程（和它下面的 Chrome）跟着开它的 agent 走：认得出的才留，认不准的照旧回收。
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -41,7 +41,7 @@ describe("findOrphans：从活着的 agent 子进程顺着父进程号走不到�
   });
 });
 
-describe("reapable：还在跑的工具调用期间起的进程这一轮不杀（178 号票）", () => {
+describe("reapable：还在跑的工具调用期间起的进程这一轮不杀", () => {
   const busySince = 1_000_000;
   const created = new Map([
     [1, busySince - ORPHAN_CREATION_MARGIN_MS - 1], // 早于最早那个调用开始（减去余量）：留下的孤儿，杀
@@ -59,7 +59,7 @@ describe("reapable：还在跑的工具调用期间起的进程这一轮不杀�
   });
 });
 
-describe("agent-browser 的守护进程：认得出的才留（用户 2026-10-19 定）", () => {
+describe("agent-browser 的守护进程：认得出的才留", () => {
   it("可执行文件名按 agent-browser 开头认（不分大小写）", () => {
     for (const name of ["agent-browser-win32-x64.exe", "Agent-Browser.exe", "agent-browser"]) expect(isAgentBrowserExe(name)).toBe(true);
     for (const name of ["node.exe", "chrome.exe", "my-agent-browser.exe", ""]) expect(isAgentBrowserExe(name)).toBe(false);

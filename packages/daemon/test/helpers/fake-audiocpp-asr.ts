@@ -1,5 +1,5 @@
-// 假的 audio.cpp 语音识别（346 号票）：代替真的 audiocpp_server，真 HTTP、端口由系统挑，不碰 8090、不加载真模型。
-// 接口和错误照 2026-10-31 拿真服务（dist/cuda，8 月版）试出来的写，见 .scratch 里 346 号票的 Comments：
+// 假的 audio.cpp 语音识别：代替真的 audiocpp_server，真 HTTP、端口由系统挑，不碰 8090、不加载真模型。
+// 接口和错误照 2026-10-31 拿真服务（dist/cuda，8 月版）试出来的写：
 // - GET /health 回 {"status":"ok","backend":…,"models":N}；GET /v1/models 回配置里的 id 和 family，加没加载都一样；
 // - POST /v1/audio/transcriptions（multipart）：文件名不是 .wav 回 400，内容不是 WAV 回 500（invalid WAV RIFF header），
 //   语言不是 auto、zh、en、ja 回 500，模型 id 不对回 500（unknown model id）；

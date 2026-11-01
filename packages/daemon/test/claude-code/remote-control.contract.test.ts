@@ -1,4 +1,4 @@
-// 契约：Claude Code 会话交给官方 App（Remote Control）、收回、只读跟随，运行时自己的那一半（292 号票；调研 35 第 3、4 节）。
+// 契约：Claude Code 会话交给官方 App（Remote Control）、收回、只读跟随，运行时自己的那一半。
 // 命令行换成扮演本机 claude 的假的（helpers/fake-claude-cli.ts），SDK 读出的会话记录是编的——不起真的 claude、不读用户真实的 ~/.claude：
 // - 交出去：先确认这个会话没有带进程号的条目（二狗的进程退干净了），第一次带名字开、停着的后台会话不带参数唤醒（带了会开出副本），
 //   确认后台会话在跑、拿链接（logs 里的地址，去掉控制序列）；已经有后台会话在跑的直接认它；还开着的、开出副本的、没开起来的不算交出去；
@@ -37,7 +37,7 @@ const text = (t: string) => ({ type: "text", text: t });
 const bash = (id: string, command: string) => ({ type: "tool_use", id, name: "Bash", input: { command } });
 const toolResult = (uuid: string, id: string, content: string, isError = false) => said(uuid, [{ type: "tool_result", tool_use_id: id, content, ...(isError ? { is_error: true } : {}) }]);
 
-describe("交给官方 App：开 / 唤醒后台会话、拿链接（292 号票）", () => {
+describe("交给官方 App：开 / 唤醒后台会话、拿链接", () => {
   it("第一次带名字开，确认后台会话在跑、拿到链接；停着的后台会话不带参数唤醒，同一个链接", async () => {
     const cli = new FakeClaudeCli();
     const remote = control(cli);
@@ -135,7 +135,7 @@ describe("交给官方 App：开 / 唤醒后台会话、拿链接（292 号票�
   });
 });
 
-describe("只读跟随：读那边新增的（292 号票）", () => {
+describe("只读跟随：读那边新增的", () => {
   const before = [said("u1", "CI 老是挂"), reply("a1", "m1", "end_turn", text("有两个用例不稳。"))];
 
   it("从某一条之后读：用户说的、它的回复（工具结果填回去），带着 id 和时间；元信息的用户消息不算；还没说完的最后一条先不交，final 时交", () => {
@@ -204,7 +204,7 @@ describe("只读跟随：读那边新增的（292 号票）", () => {
   });
 });
 
-describe("负责人现在接着的 Claude Code 会话（292 号票）", () => {
+describe("负责人现在接着的 Claude Code 会话", () => {
   it("会话目录里最近用的那份记录（和适配子进程写的同一个格式）；最近那份还没开始的、没有记录的是 undefined", async () => {
     expect(SESSION_RECORD_EXT).toBe(RECORD_EXT);
     const dir = makeTempDir("ergo-records-");

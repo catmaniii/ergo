@@ -1,11 +1,11 @@
-// 适用领域（196 号票）：断言、任务、策略都归到几个通用的领域，用来"为任务调出相关的用户模型"的第三条路（领域对上）。
+// 适用领域：断言、任务、策略都归到几个通用的领域，用来"为任务调出相关的用户模型"的第三条路（领域对上）。
 // 领域先定 8 个：时间安排、社交、工作发展、家庭、健康、消费、学习、出行。一张通用的"场景和活动 → 领域"词表：
 // - 情境标签（kg/context.ts 的维度）：周末、工作日、假期 → 时间安排；社交 → 社交；工作 → 工作发展；家里 → 家庭；
 //   旅行、出差、度假 → 出行；学习 → 学习；健康 → 健康（休闲不单列领域）；
 // - 说法（活动、话题的名字，任务里的词）：各领域的常见说法，含 rg/concepts.ts 的"被安排、休息、近期状态、各方面的活动"。
 // 断言的领域由它的证据和下层断言算：支持它的事实（场景、宾语的名字）、支持它的证据（场景）、它自己的场景、推出它的下层断言的领域（往下递归）。
 // 任务的领域：任务文字里的场景词（周六 → 周末 → 时间安排）和说法，加上调用的人给的场景。只认词表，认不出就没有，不猜。
-// 201 号票：模型版往上抽的断言，再加上模型给它写的适用领域。
+// 模型版往上抽的断言，再加上模型给它写的适用领域。
 import type { Claim } from "../domain/types.ts";
 import { CONTEXT_KEYWORDS, mentions } from "../kg/context.ts";
 import { HELD_STATUSES, type MemoryStore } from "../store/store.ts";
@@ -110,7 +110,7 @@ export function claimDomains(store: MemoryStore, claim: Claim, memo: Map<string,
     const evidence = store.getEvidence(link.target);
     if (evidence && evidence.status !== "forgotten") for (const d of domainsOfTags(evidence.context)) out.add(d);
   }
-  // 模型版往上抽时模型给的适用领域（201 号票）
+  // 模型版往上抽时模型给的适用领域
   for (const d of modelDomains(store, claim.id)) out.add(d);
   if (depth < MAX_DEPTH) {
     for (const inf of store.inferencesOf(claim.id)) {

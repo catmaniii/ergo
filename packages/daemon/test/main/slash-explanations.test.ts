@@ -1,9 +1,9 @@
-// 主切面：斜杠候选的说明看得懂（310 号票）。真的守护进程走组合根和插件清单；Claude Code 插件经 extraPlugins 换成子进程接假 SDK 的那个
+// 主切面：斜杠候选的说明看得懂。真的守护进程走组合根和插件清单；Claude Code 插件经 extraPlugins 换成子进程接假 SDK 的那个
 // （不启动真的 claude、不读 ~/.claude），翻译用 faux 剧本（不连真的模型）：
 // - Claude Code 报回英文说明的命令：内置的（/compact、/review）直接给中文、原文留着、参数提示换成中文的；不在表里的（/deploy-notes）
 //   第一次给原文、标 translating，二狗的模型翻好后缓存进数据目录，再取直接是译文；用量记成二狗的系统开销（purpose: translation）；
 // - 模型出错：显示原文、不再标 translating；
-// - 记忆管理员的会话（含了解你访谈）有 /interview、/consolidate（310 号票：命令一律英文）。
+// - 记忆管理员的会话（含了解你访谈）有 /interview、/consolidate（命令一律英文）。
 import fs from "node:fs";
 import { HTTP_PATHS, maintainerChannel, MEMORY_CURATOR_CONVERSATION, type SlashCommandEntry, type SlashCommandList, type Task } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
@@ -40,7 +40,7 @@ async function untilTranslated(url: string, conversation: string): Promise<Slash
   }
 }
 
-describe("斜杠候选的说明（310 号票）", () => {
+describe("斜杠候选的说明", () => {
   it("Claude Code 报回英文：内置的直接给中文，不在表里的翻好后缓存、再弹直接用缓存；记忆管理员的会话有 /interview、/consolidate", async () => {
     const td = await startTestDaemon({ extraPlugins: [fakeSdkClaudeCodePlugin], maintainer: [{ kind: "reply", text: "整理好了。" }], translator: [{ kind: "reply", text: "给当前分支写发布说明" }] });
     const channel = await claudeTask(td);

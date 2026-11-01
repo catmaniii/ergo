@@ -1,6 +1,6 @@
-// 语音插件：说话的是哪个 agent、它现在用哪个参考音色（248 号票；241 号票起是每个 agent 自己配的，现在从角色来）。
+// 语音插件：说话的是哪个 agent、它现在用哪个参考音色（是每个 agent 自己配的，现在从角色来）。
 // 从会话认 agent（秘书的主线、负责人的会话），再按它那个角色指定的音色取参考音色；没指定、那个被删了、语音插件刚停用，
-// 都回退到全局选中的那一个（31 号票）——一个参考音色都没有时 undefined（这次不用语音）。
+// 都回退到全局选中的那一个——一个参考音色都没有时 undefined（这次不用语音）。
 import { CHANNELS, maintainerChannel } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
 import { agentIdOfConversation, ownVoiceOfAgent, voiceOfAgent, type VoiceLookup } from "../../src/voice/agent-voice-ref.ts";
@@ -30,7 +30,7 @@ describe("这个 agent 用哪个参考音色", () => {
     expect(voiceOfAgent("pm-1", { roles: roles({ "pm-1": "v-2" }), voices: voices(["v-1", "v-2"], "v-1") })).toMatchObject({ id: "v-2" });
   });
 
-  it("角色没指定音色：跟全局默认（31 号票选中的那个）", () => {
+  it("角色没指定音色：跟全局默认（选中的那个）", () => {
     expect(voiceOfAgent("pm-1", { roles: roles({}), voices: voices(["v-1", "v-2"], "v-2") })).toMatchObject({ id: "v-2" });
     // 一个都没选过：最早导入的
     expect(voiceOfAgent("pm-1", { roles: roles({}), voices: voices(["v-1", "v-2"]) })).toMatchObject({ id: "v-1" });
@@ -50,7 +50,7 @@ describe("这个 agent 用哪个参考音色", () => {
 /** 同 roles，再带上角色名 */
 const named = (own: Record<string, string>) => ({ ...roles(own), roleOf: (agentId: string) => ({ id: `role-${agentId}`, name: `${agentId} 的角色`, voiceId: own[agentId], isDefault: false }) });
 
-describe("这个 agent 有没有自己的声音（354 号票）", () => {
+describe("这个 agent 有没有自己的声音", () => {
   const all = voices(["v-1", "v-2"], "v-1");
 
   it("角色配了音色、音色还在、和转述的人用的不一样：有，给音色和角色名", () => {

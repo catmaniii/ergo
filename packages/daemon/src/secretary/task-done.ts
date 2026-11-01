@@ -1,10 +1,10 @@
-// 任务做完告诉秘书（99 号票，规格第 7 节"任务做完告诉秘书"）：任务做完（普通任务、流程、长程任务变成已完成），定时 / 事件触发的任务
-// 每运行完一次（看板频道 scheduled_job 的 run_finished，运行成功的；176 号票起还有部分完成的），运行时给秘书一条系统通知（开头是
+// 任务做完告诉秘书（规格第 7 节"任务做完告诉秘书"）：任务做完（普通任务、流程、长程任务变成已完成），定时 / 事件触发的任务
+// 每运行完一次（看板频道 scheduled_job 的 run_finished，运行成功的；还有部分完成的），运行时给秘书一条系统通知（开头是
 // TASK_DONE_TAG），写明哪个任务（编号、标题、做法；运行的写第几次、怎么触发的）和做出来的结果（做它的 agent 最后说的那段话、交付的文件名，
 // 太长截短并写明截了）。部分完成的写明哪几步没做成（运行记录上的原因），要秘书说清楚、问用户要不要补批或补做。
-// 秘书收到后在主线里主动说一声、问用户要不要念出来，要就用发语音（send_voice，86 号票）念；规矩写在它的系统提示里（prompts/secretary.md）。
-// - 项目内部的任务、作业不告诉（64、66 号票：秘书看不到项目内部的细节）。项目内部的普通任务做完照旧只说在哪个项目里做完了
-//   （tasks/plain.ts 的 internalPlainDoneNotice，75 号票）。失败、等我的照旧走待我处理，不在这里。
+// 秘书收到后在主线里主动说一声、问用户要不要念出来，要就用发语音（send_voice）念；规矩写在它的系统提示里（prompts/secretary.md）。
+// - 项目内部的任务、作业不告诉（秘书看不到项目内部的细节）。项目内部的普通任务做完照旧只说在哪个项目里做完了
+//   （tasks/plain.ts 的 internalPlainDoneNotice）。失败、等我的照旧走待我处理，不在这里。
 // - 并成一条：做完一件先攒着，安静 settleMs（守护进程的 taskDoneSettleMs，默认 2 秒）没有新做完的才交；几件差不多同时做完的并成一条。
 // - 等 agent 说完：流程报完最后一步、长程任务最后一个阶段验收通过时，做它的 agent 这一轮多半还没说完（最后那段话还没出来）：
 //   等做完那一刻它在处理的那条输入结束再交（最多等 AGENT_WAIT_MS）。结果在交的时候才写，只算做完的那一轮（普通任务做完了
@@ -16,27 +16,27 @@
 // - 交成功才算交过：秘书处理这条通知到一半被打断（子进程崩溃、守护进程重启），AgentSession 照样把它标成中断出队，但不出
 //   "请重发"的说明（redeliveredOnInterrupt，用户没法重发系统通知）；这里等秘书起来闲着了把同一段话再交一次（幂等键后面加 #第几次）。
 //   只看每件通知最后交的那一次：那一次处理完了就不再交，不会说两遍。
-// - 跑完自动播报（100 号票）：任务开着 voiceAnnounce 的，那一件写明"这件开了跑完自动播报"、带上产出区的位置（秘书可以读文件），
+// - 跑完自动播报：任务开着 voiceAnnounce 的，那一件写明"这件开了跑完自动播报"、带上产出区的位置（秘书可以读文件），
 //   开着的单独交一条（不和关着的并在一起），开头在标记后面紧跟 AUTO_ANNOUNCE_TAG（秘书处理这一条的一轮能发语音，见
 //   voice/send-voice.ts），要它不问、直接把要点念成语音，念不成退回文字、说原因；开没开看交的时候任务的开关。
 //   一次运行只播报一次：交通知的去重照旧；被打断后重新交时看上次那一轮（noticeTurnVoices，按这一轮的序号认）的语音——
 //   还在合成的等它有了结局再交，合成好了（done、partial）的去掉这个标记、写明念过了（ALREADY_ANNOUNCED），没念成的原样再交。
-// - 负责人来信（102 号票，letters.ts）：负责人用 tell_secretary 发出的一条（secretary_letters 频道上的 maintainer_letter）照同一套交——
+// - 负责人来信（letters.ts）：负责人用 tell_secretary 发出的一条（secretary_letters 频道上的 maintainer_letter）照同一套交——
 //   先攒着、安静了再交，秘书闲着才交、忙时排在后面、没起来的起来后补、被打断了重交、重启不重复。交的时候自成一条
 //   （开头 MAINTAINER_LETTER_TAG，几条差不多同时到的并在一起），和同时攒着的任务做完的通知一起交、各是各的；幂等键是
 //   LETTER_NOTICE_KEY_PREFIX 加并进去的最后一封信的全局序号，和任务做完的共用"交到哪了"（全局序号）：启动时两种都从那之后补；
 //   一条都没交过的，信从头补（信是这时才有的，不会翻出一大堆）。
-// - 会话里折成一行（115 号票）：交的通知上存一句话总结（任务做完的由这里拼："t-5「AI 日报」第 2 次运行做完了，交了 1 个文件"；
+// - 会话里折成一行：交的通知上存一句话总结（任务做完的由这里拼："t-5「AI 日报」第 2 次运行做完了，交了 1 个文件"；
 //   负责人来信是它给的总结），秘书会话里显示它，点开看全文；交给秘书的照旧是全文。被打断后重新交的总结照旧。
-// - 交付的文件作为附件（115 号票，用户 2026-10-13 想在聊天里点开日报看）：任务做完的那几件交付的文件里能预览的（113 号票的
+// - 交付的文件作为附件（想在聊天里点开日报看）：任务做完的那几件交付的文件里能预览的（
 //   textPreviewOf：Markdown、纯文本）、不超过附件上限的，由运行时入库（媒体库按内容寻址，同样的内容只存一份），作为一条给人看的
 //   系统消息（只有文件 part，不排进秘书的输入队列）紧跟在通知后面、同一事务追加，用户点"预览"去报告页。只在第一次交的时候放：
 //   被打断后重新交、重启后补交的不再放一遍。不能预览的、太大的照旧只在通知的全文里写路径。
-// - 来信带的附件（117 号票，letters.ts）：负责人用 tell_secretary 带来的文件写信时已经入库，交的时候照上面一样作为一排附件卡片
+// - 来信带的附件（letters.ts）：负责人用 tell_secretary 带来的文件写信时已经入库，交的时候照上面一样作为一排附件卡片
 //   紧跟在那条来信通知后面（同一套：同一事务、同一个幂等键前缀、只在第一次交的时候放），不折进来信那一行；通知的全文里写附了
 //   哪几个、附件引用（秘书要看内容用 read_attachment）。同一次交的几条里同一个文件（媒体 id 一样）只放一张：几封信带了同一个的、
 //   负责人带着信发了交付件、紧接着任务做完又交了同一份的，放在先到的那条后面。
-// - 负责人自己的声音（354 号票，用户 2026-11-01 定：不增加打扰，只是换声音）：通知上记下这几件能转述谁（relaySources：编号和发信人），
+// - 负责人自己的声音（不增加打扰，只是换声音）：通知上记下这几件能转述谁（relaySources：编号和发信人），
 //   发信人有自己的声音的（ownVoiceOf，交的时候现查）那一件多写一句"负责人有自己的声音"，通知末尾多一段两段怎么写（RELAY_RULES）。
 //   开关开着的任务、项目的进展来信（信上的 owner，看交的时候的开关）单独交一条，开头紧跟 AUTO_ANNOUNCE_TAG（这一轮放行语音，不问，
 //   一次运行只播报一次的那套重新交的规矩照旧），关着的照旧是文字。语音插件没在运行时（speaks 为 false）当作关着、不写声音。
@@ -98,11 +98,11 @@ export const AGENT_WAIT_MS = 60_000;
 /** 通知的幂等键：后面是并进去的最后一条看板事件的全局序号（启动时从这里接着补）；被打断后重新交的再加 #第几次 */
 export const TASK_DONE_KEY_PREFIX = "task-done:";
 /**
- * 跟在任务做完的通知后面的附件（115 号票）、跟在来信通知后面的附件（117 号票）的幂等键：后面的序号和那条通知第一次交时的一样，
+ * 跟在任务做完的通知后面的附件、跟在来信通知后面的附件的幂等键：后面的序号和那条通知第一次交时的一样，
  * 同一件只放一次
  */
 export const TASK_DONE_FILES_KEY_PREFIX = "task-done-files:";
-/** 负责人来信的通知（102 号票）的幂等键：后面是并进去的最后一封信的全局序号，被打断后重新交的同样加 #第几次 */
+/** 负责人来信的通知的幂等键：后面是并进去的最后一封信的全局序号，被打断后重新交的同样加 #第几次 */
 export const LETTER_NOTICE_KEY_PREFIX = "maintainer-letter:";
 
 /** 两种通知：开头的标记、幂等键的前缀 */
@@ -149,8 +149,8 @@ interface Done {
 }
 
 /**
- * 看板频道上的一条事件是不是一件要告诉秘书的"做完了"：任务变成已完成、一次运行成功或部分完成（176 号票；项目内部的都不是）。
- * 定时任务改成某个时间做一次、那一次做成了，任务从运营中算完成（98 号票）：和那次运行的 run_finished 同一事务，
+ * 看板频道上的一条事件是不是一件要告诉秘书的"做完了"：任务变成已完成、一次运行成功或部分完成（项目内部的都不是）。
+ * 定时任务改成某个时间做一次、那一次做成了，任务从运营中算完成：和那次运行的 run_finished 同一事务，
  * 只按那次运行说一件（写明任务随之完成），任务这一条不再另算
  */
 export function isTaskDone(e: StoredEvent): boolean {
@@ -215,7 +215,7 @@ function roundOf(store: EventStore, taskId: string, done: number): { start?: Sto
 
 /**
  * 交付的文件：产出区（dir）里这一轮（since 之后，有下一轮的到 until 为止）改过的文件，相对路径、按名字排。不看隐藏的、链接，
- * 也不看运行时自己写的范围记录；311 号票起缓存、依赖、编译产物也不看（tasks/delivery-ignore.ts：__pycache__、*.pyc、node_modules……）；
+ * 也不看运行时自己写的范围记录；缓存、依赖、编译产物也不看（tasks/delivery-ignore.ts：__pycache__、*.pyc、node_modules……）；
  * 目录不在是空的
  */
 function deliveredFiles(dir: string, since: string | undefined, until?: string | undefined): string[] {
@@ -254,7 +254,7 @@ function deliveredFiles(dir: string, since: string | undefined, until?: string |
 
 /**
  * 通知里的一件：哪个任务做完了，它最后说的话（太长截短并写明），交付的文件。dir 是交付的文件所在的产出区（开了跑完自动播报的给，
- * 100 号票：秘书要直接念，写明在哪、可以读）
+ * 秘书要直接念，写明在哪、可以读）
  */
 export function taskDoneItemText(head: string, said: string | undefined, files: readonly string[], dir?: string, relay?: string): string {
   // @i18n-ignore-start model：交给秘书的通知
@@ -264,13 +264,13 @@ export function taskDoneItemText(head: string, said: string | undefined, files: 
   else lines.push("它最后说：", said);
   const where = dir === undefined ? "在任务的产出区里" : `在任务的产出区 ${dir} 里，要细节可以读`;
   if (files.length > 0) lines.push(`交付的文件（${where}）：${files.slice(0, FILES_MAX).join("、")}${files.length > FILES_MAX ? ` 等 ${files.length} 个` : ""}`);
-  // 负责人有自己的声音（354 号票）
+  // 负责人有自己的声音
   if (relay !== undefined) lines.push(relay);
   // @i18n-ignore-end
   return lines.join("\n");
 }
 
-/** 通知里的一件：写好的一段，这件开没开跑完自动播报（100 号票），是不是部分完成的一次运行（176 号票），负责人有没有自己的声音（354 号票） */
+/** 通知里的一件：写好的一段，这件开没开跑完自动播报，是不是部分完成的一次运行，负责人有没有自己的声音 */
 export interface TaskDoneItem {
   text: string;
   announce: boolean;
@@ -278,25 +278,25 @@ export interface TaskDoneItem {
   ownVoice?: boolean;
 }
 
-/** 交的时候写好的一件（115 号票起多了会话里那一行的总结、交付的文件） */
+/** 交的时候写好的一件（多了会话里那一行的总结、交付的文件） */
 interface DescribedDone extends TaskDoneItem {
-  /** 一句话总结里这一件的称呼："t-1「下歌」"、"t-5「AI 日报」第 2 次运行"（76 号票之前的定时作业写作业的编号） */
+  /** 一句话总结里这一件的称呼："t-1「下歌」"、"t-5「AI 日报」第 2 次运行"（以前的定时作业写作业的编号） */
   name: string;
   /** 这一件的一句话总结 */
   summary: string;
   /** 交付的文件（绝对路径，按通知里列的先后）：能预览的作为附件放进秘书会话 */
   files: readonly string[];
-  /** 这一件能转述谁（354 号票）：写在通知里的编号、发信人 */
+  /** 这一件能转述谁：写在通知里的编号、发信人 */
   relay: { source: string; agentId: string };
 }
 
-/** 一件的一句话总结（115 号票）："t-5「AI 日报」第 2 次运行做完了，交了 1 个文件"；部分完成的一次运行写"部分完成"（176 号票） */
+/** 一件的一句话总结："t-5「AI 日报」第 2 次运行做完了，交了 1 个文件"；部分完成的一次运行写"部分完成" */
 export function taskDoneItemSummary(name: string, files: number, partial = false): string {
   if (files === 0) return t(partial ? "secretary.taskDone.partial" : "secretary.taskDone.done", { name });
   return t(partial ? "secretary.taskDone.partialWithFiles" : "secretary.taskDone.doneWithFiles", { name, count: files, files });
 }
 
-/** 通知那一行的一句话总结（115 号票）：一件就是它的；几件并在一起的写几件、各是哪件（一行放不下的由界面省略） */
+/** 通知那一行的一句话总结：一件就是它的；几件并在一起的写几件、各是哪件（一行放不下的由界面省略） */
 export function taskDoneSummary(items: readonly { name: string; summary: string }[]): string {
   return items.length === 1 ? items[0]!.summary : t("secretary.taskDone.several", { count: items.length, names: items.map((i) => i.name).join(t("pages.common.listSep")) });
 }
@@ -305,29 +305,29 @@ export function taskDoneSummary(items: readonly { name: string; summary: string 
 /** 开了跑完自动播报的那一件在通知里的标注（写在这件的第一句后面） */
 const ANNOUNCE_MARK = "这件开了跑完自动播报。";
 
-/** 直接念的规矩（100 号票，用户定：要点 5 条以内，链接表格代码不念，细节看报告；念不成退回文字、说原因） */
+/** 直接念的规矩（要点 5 条以内，链接表格代码不念，细节看报告；念不成退回文字、说原因） */
 const ANNOUNCE_RULES =
   `把结果的要点念给用户听——5 条以内，像平常说话一样；链接、表格、代码不念，说一句“链接在任务里”；细节让他去看任务里的报告。` +
   `要点从它最后说的话里挑，不够就先读交付的文件。${SEND_VOICE_TOOL} 回失败（语音服务没开、忙、超时、没有参考音色、太长）就把要点用文字发在主线里，再用一句话说为什么没念成。`;
 
 /**
- * 部分完成的那几件（176 号票，用户 2026-10-19 定）：说清哪一步没做成、要不要用户补批或补做。审批挂起之后卡还在待办里，
+ * 部分完成的那几件：说清哪一步没做成、要不要用户补批或补做。审批挂起之后卡还在待办里，
  * 用户批了运行时会告诉做它的 agent 可以重做那一步；交给他亲手做的事项也在待办里
  */
 export const PARTIAL_RULES =
   "标着“部分完成”的（有一步没做成，别的做完了），说的时候讲清哪一步没做成：没等到批准的，审批卡还在待办里，问他要不要去补批（批了会通知它重做那一步）；要他亲手做的，问他要不要去待办里补做。";
 
-/** 语音插件不在时（214 号票）：只用文字说一声，不问要不要念（秘书没有发语音工具） */
+/** 语音插件不在时：只用文字说一声，不问要不要念（秘书没有发语音工具） */
 const tellText = (what: string) => `在主线里主动跟用户说一声：用一两句话说${what}做完了、结果大概是什么。`;
 
-/** 问要不要念（99 号票） */
+/** 问要不要念 */
 const askText = (what: string) =>
   `在主线里主动跟用户说一声：用一两句话说${what}做完了、结果大概是什么，然后问“要我念给你听吗？”。他说要，就用 ${SEND_VOICE_TOOL} 把结果的口语稿念给他听；说不用就算了。`;
 
 /**
- * 交给秘书的通知：几件差不多同时做完的并在一条里；最后一句照系统提示里的规矩说要它做什么。开了跑完自动播报的（100 号票）单独一条
+ * 交给秘书的通知：几件差不多同时做完的并在一条里；最后一句照系统提示里的规矩说要它做什么。开了跑完自动播报的单独一条
  * （交的时候分开，不和关着的并在一起）：开头在任务做完的标记后面紧跟 AUTO_ANNOUNCE_TAG（秘书处理这一轮能发语音），要它不问、直接念。
- * 混着交进来的（不该发生）按关着的写：不放行语音。speaks 为 false（214 号票：语音插件没在运行）时不问要不要念，只用文字说一声
+ * 混着交进来的（不该发生）按关着的写：不放行语音。speaks 为 false（语音插件没在运行）时不问要不要念，只用文字说一声
  * （这时不会有开了自动播报的：describeDone 按它记成关着）
  */
 export function taskDoneNoticeText(items: readonly TaskDoneItem[], speaks = true): string {
@@ -343,14 +343,14 @@ export function taskDoneNoticeText(items: readonly TaskDoneItem[], speaks = true
   return [head, ...body, ask, ...(items.some((i) => i.partial) ? [PARTIAL_RULES] : []), ...(items.some((i) => i.ownVoice) ? [RELAY_RULES] : [])].join("\n\n");
 }
 
-/** 被打断后重新交时，上次那一轮已经念过了（100 号票：一次运行只播报一次）：去掉自动播报的标记，末尾加这句 */
+/** 被打断后重新交时，上次那一轮已经念过了（一次运行只播报一次）：去掉自动播报的标记，末尾加这句 */
 export const ALREADY_ANNOUNCED = `上次处理这条通知时已经用 ${SEND_VOICE_TOOL} 念过了（语音气泡在主线里），这次不要再念、也不用再问；没说完的话用文字补一句就行。`;
 // @i18n-ignore-end
 
 /**
  * 一件做完的事写成通知里的一段（交的时候才写：agent 最后说的话那时才齐）；开没开跑完自动播报看任务现在的开关
- * （214 号票：语音插件没在运行——speaks 为 false——时当作关着，念不了）。连同会话里那一行的总结和交付的文件（115 号票）；
- * ownVoiceOf 是发信人有没有自己的声音（354 号票，这时写一句"负责人有自己的声音"）
+ * （语音插件没在运行——speaks 为 false——时当作关着，念不了）。连同会话里那一行的总结和交付的文件；
+ * ownVoiceOf 是发信人有没有自己的声音（这时写一句"负责人有自己的声音"）
  */
 function describeDone(store: EventStore, outputsDir: string, e: StoredEvent, speaks: boolean, ownVoiceOf: OwnVoiceOf): DescribedDone {
   /** 这一件能转述谁，发信人有自己的声音时写在通知里的那一句 */
@@ -362,12 +362,12 @@ function describeDone(store: EventStore, outputsDir: string, e: StoredEvent, spe
     const { task } = e.payload as TaskEventPayload;
     const { start, next } = roundOf(store, task.id, e.globalSeq);
     const said = lastSaid(store, maintainerChannel(task.maintainerId), { after: start?.globalSeq ?? 0, until: next?.globalSeq }, (p) => p.taskId === undefined || p.taskId === task.id);
-    // 交付的文件在它干活的地方（选了工作文件夹的、接管来的在外面那个文件夹，305、290 号票）
+    // 交付的文件在它干活的地方（选了工作文件夹的、接管来的在外面那个文件夹）
     const dir = taskWorkdir(task, outputsDir);
     const files = deliveredFiles(dir, start?.time, next?.time);
     const announce = speaks && getTask(store.reader, task.id)?.voiceAnnounce === true;
     const head = `${forModel(() => TASK_KIND_LABEL[taskKind(task)])} ${task.id}「${task.title}」在后台做完了。${announce ? ANNOUNCE_MARK : ""}`; // @i18n-ignore model
-    // 会话里那一行的称呼给用户看（173 号票）
+    // 会话里那一行的称呼给用户看
     const name = t("secretary.taskDone.name", { id: task.id, title: task.title });
     const { relay, hint } = relayOf(task.id, task.maintainerId);
     return {
@@ -391,10 +391,10 @@ function describeDone(store: EventStore, outputsDir: string, e: StoredEvent, spe
   // 交付的文件：这次运行开始到结束之间改过的（几次运行并在一条里时各算各的）；属于项目的（迁移来的定时作业）在项目的工作目录里做，不列
   const dir = path.join(outputsDir, job.taskId);
   const files = job.projectId === undefined ? deliveredFiles(dir, start?.time, e.time) : [];
-  // 改成某个时间做一次的（98 号票）：那一次做成了，任务随之完成
+  // 改成某个时间做一次的：那一次做成了，任务随之完成
   const closes = job.schedule?.kind === "once" && owner?.state === "done" ? "这是定在那个时间做的一次，做成了，任务随之完成。" : ""; // @i18n-ignore model
   const announce = speaks && owner?.voiceAnnounce === true;
-  // 部分完成（176 号票）：写明哪几步没做成（运行记录上的原因）
+  // 部分完成：写明哪几步没做成（运行记录上的原因）
   const partial = run!.state === "partial";
   // @i18n-ignore-next model
   const outcome = partial ? `部分完成了（触发：${when}）。${announce ? ANNOUNCE_MARK : ""}\n没做成的：${run!.reason ?? "没有写"}` : `做完了（触发：${when}）。${closes}${announce ? ANNOUNCE_MARK : ""}`;
@@ -434,9 +434,9 @@ interface NoticeAttempt {
   attempt: number;
   messageId: string;
   text: string;
-  /** 会话里那一行的总结（115 号票之前交的没有）：重新交的照旧带上 */
+  /** 会话里那一行的总结（以前交的没有）：重新交的照旧带上 */
   summary: string | undefined;
-  /** 这条通知能转述谁（354 号票之前交的没有）：重新交的照旧带上 */
+  /** 这条通知能转述谁（以前交的没有）：重新交的照旧带上 */
   relaySources: MessageEnvelope["relaySources"];
 }
 
@@ -456,11 +456,11 @@ export function noticeAttempts(store: EventStore): NoticeAttempt[] {
   return out;
 }
 
-/** 这段话是开了自动播报的通知吗（100 号票任务做完的、354 号票进展来信的） */
+/** 这段话是开了自动播报的通知吗（任务做完的、进展来信的） */
 const isAnnounceText = (text: string) => ANNOUNCE_HEADS.some(({ head }) => text.startsWith(head));
 
 /**
- * 秘书处理这条通知的那一轮里发语音工具建出的语音（100 号票）：按这一轮开始的序号认（turn_start 的 inputMessageId 是它，
+ * 秘书处理这条通知的那一轮里发语音工具建出的语音：按这一轮开始的序号认（turn_start 的 inputMessageId 是它，
  * 语音上记的 turnSeq 是那条 turn_start 的序号）——这一轮里收下了用户的插话、语音记在插话那条上的也算；别的轮的不算
  */
 export function noticeTurnVoices(store: EventStore, messageId: string): AgentVoiceRecord[] {
@@ -481,7 +481,7 @@ export function announcedState(voices: readonly Pick<AgentVoiceRecord, "status">
 }
 
 /**
- * 被打断后重新交的那段话（99 号票：原样再交一次）。100 号票：开了跑完自动播报的，上次那一轮的语音合成好了（announced）——
+ * 被打断后重新交的那段话（原样再交一次）。开了跑完自动播报的，上次那一轮的语音合成好了（announced）——
  * 去掉自动播报的标记（这一轮不再放行语音）、末尾写明念过了，一次运行只播报一次；没念成的原样再交（再念一次）
  */
 function redeliveredText(a: NoticeAttempt, announced: boolean): string {
@@ -522,15 +522,15 @@ export interface TaskDoneNoticesOptions {
   secretaryIdle: () => boolean;
   /** 做它的 agent 这一轮还没说完时最多等多久（毫秒）；不给是 AGENT_WAIT_MS */
   agentWaitMs?: number;
-  /** 媒体库（115 号票）：交付的文件里能预览的入库，作为附件跟在通知后面；不给就不放附件 */
+  /** 媒体库：交付的文件里能预览的入库，作为附件跟在通知后面；不给就不放附件 */
   media?: MediaStore | undefined;
   /**
-   * 秘书现在能发语音吗（214 号票：语音插件在运行）：不能时通知里不问要不要念、开了跑完自动播报的也当作关着，只用文字说一声。
+   * 秘书现在能发语音吗（语音插件在运行）：不能时通知里不问要不要念、开了跑完自动播报的也当作关着，只用文字说一声。
    * 交的时候现取；不给当作能
    */
   speaks?: () => boolean;
   /**
-   * 这个 agent 有没有自己的声音（354 号票：角色配了音色、音色还在、和秘书现在用的不一样）：有给角色名，写进通知，秘书才知道要写两段。
+   * 这个 agent 有没有自己的声音（角色配了音色、音色还在、和秘书现在用的不一样）：有给角色名，写进通知，秘书才知道要写两段。
    * 交的时候现取；不给就是都没有
    */
   ownVoiceOf?: OwnVoiceOf;
@@ -569,7 +569,7 @@ export function startTaskDoneNotices(options: TaskDoneNoticesOptions): TaskDoneN
   };
 
   /**
-   * 交付的文件里作为附件放进秘书会话的（115 号票）：能预览的（textPreviewOf：Markdown、纯文本，类型按扩展名认，和发消息时一样）、
+   * 交付的文件里作为附件放进秘书会话的：能预览的（textPreviewOf：Markdown、纯文本，类型按扩展名认，和发消息时一样）、
    * 不超过附件上限的，最多 FILES_MAX 个，入库（媒体库按内容寻址：同样的内容只存一份）成文件 part。读不到、入库失败的跳过（照旧只在全文里写路径）
    */
   const attachable = async (files: readonly string[]): Promise<FilePartValue[]> => {
@@ -593,7 +593,7 @@ export function startTaskDoneNotices(options: TaskDoneNoticesOptions): TaskDoneN
     return parts;
   };
 
-  /** 这封信所属的任务、项目开着自动播报吗（354 号票）：看交的时候的开关；之前记下的信（没有 owner）当作关着 */
+  /** 这封信所属的任务、项目开着自动播报吗：看交的时候的开关；之前记下的信（没有 owner）当作关着 */
   const letterAnnounces = (e: StoredEvent): boolean => {
     const owner = letterOwner(e);
     if (owner?.kind === "task") return getTask(store.reader, owner.id)?.voiceAnnounce === true;
@@ -610,10 +610,10 @@ export function startTaskDoneNotices(options: TaskDoneNoticesOptions): TaskDoneN
     flushing = true;
     try {
       const speaks = options.speaks?.() ?? true;
-      // 语音插件没在运行时（214 号票）谁也没有声音
+      // 语音插件没在运行时谁也没有声音
       const ownVoiceOf: OwnVoiceOf = (agentId) => (speaks ? options.ownVoiceOf?.(agentId) : undefined);
       const described = items.filter((d) => !isLetterToSecretary(d.event)).map((d) => ({ seq: d.event.globalSeq, item: describeDone(store, options.outputsDir, d.event, speaks, ownVoiceOf) }));
-      // 开了跑完自动播报的单独一条（100 号票：只有那一条的一轮放行语音），关着的并在另一条
+      // 开了跑完自动播报的单独一条（只有那一条的一轮放行语音），关着的并在另一条
       const taskGroups = [described.filter((x) => !x.item.announce), described.filter((x) => x.item.announce)]
         .filter((g) => g.length > 0)
         .map((g) => ({
@@ -625,7 +625,7 @@ export function startTaskDoneNotices(options: TaskDoneNoticesOptions): TaskDoneN
           attachments: [] as MessagePart[],
           relaySources: g.map((x) => x.item.relay),
         }));
-      // 负责人来信（102 号票）自成一条，几封并在一起；任务、项目开着自动播报的（354 号票）另成一条，这一轮放行语音
+      // 负责人来信自成一条，几封并在一起；任务、项目开着自动播报的另成一条，这一轮放行语音
       const letterEvents = items.filter((d) => isLetterToSecretary(d.event));
       const letterGroups = [letterEvents.filter((d) => !(speaks && letterAnnounces(d.event))), letterEvents.filter((d) => speaks && letterAnnounces(d.event))]
         .map((events, kind) => ({ events, announce: kind === 1 }))
@@ -637,7 +637,7 @@ export function startTaskDoneNotices(options: TaskDoneNoticesOptions): TaskDoneN
             const own = relay && ownVoiceOf(relay.agentId);
             return { text: own ? `${text}\n${relayHint(own.name, relay.source)}` : text, summary, relay, own };
           });
-          // 来信带的附件（117 号票）：写信时已入库
+          // 来信带的附件：写信时已入库
           const letterFiles = events.flatMap((d) => letterAttachments(d.event));
           return {
             prefix: LETTER_NOTICE_KEY_PREFIX as NoticePrefix,
@@ -736,7 +736,7 @@ export function startTaskDoneNotices(options: TaskDoneNoticesOptions): TaskDoneN
     arm();
   };
 
-  // 停机前攒着还没交的：上一条通知之后做完的补上（一条都没交过的不往回翻）；信也从那之后补（一条都没交过的从头补，102 号票）
+  // 停机前攒着还没交的：上一条通知之后做完的补上（一条都没交过的不往回翻）；信也从那之后补（一条都没交过的从头补）
   const attempts = noticeAttempts(store);
   const told = attempts.length > 0 ? Math.max(...attempts.map((a) => a.seq)) : undefined;
   const missed = [
@@ -750,7 +750,7 @@ export function startTaskDoneNotices(options: TaskDoneNoticesOptions): TaskDoneN
   const unsubscribe = store.onAppend((e) => {
     if (stopped) return;
     if (isTaskDone(e) || isLetterToSecretary(e)) add(e);
-    // 上次那一轮的语音有了结局（100 号票）：等着它的重新交看一眼
+    // 上次那一轮的语音有了结局：等着它的重新交看一眼
     else if (e.type === EVENT_TYPES.agentVoice) {
       if (e.channel === CHANNELS.secretary && redeliver.length > 0) checkLater();
     } else if (e.type !== EVENT_TYPES.turnEnd) return;

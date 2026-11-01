@@ -1,9 +1,9 @@
-// 项目的"运营概况"和项目页最上面的"现在"（140 号票，纯函数）。
+// 项目的"运营概况"和项目页最上面的"现在"（纯函数）。
 // - 运营概况（projectOperationsSummary）：项目卡、项目头里的"现在"（项目页和负责人会话页左栏）用同一个组件（ui/operations-summary.tsx），
 //   数据只有这一份。内容是服务入口（"打开「X」"、在线圆点，前面一张首页的缩略图）和定时任务（项目的内部任务里定时的、事件触发的：
 //   收起时一行"2 个定时任务：每天 08:00 日报、每周日 18:00 周报"，展开每条一行：名字、时间表、下次、上次和结果、运营中还是已暂停）。
 //   只有使用中的项目有；停用、归档了的照样列，整块标"已停用""已归档"（服务撤下了也列、缩略图灰着）。没有服务的不列入口，
-//   没有定时任务的不列那一行，两样都没有就没有（undefined）。257 号票：使用中、有在 LSM 上的服务的，服务那一块前面一行开关——
+//   没有定时任务的不列那一行，两样都没有就没有（undefined）。使用中、有在 LSM 上的服务的，服务那一块前面一行开关——
 //   现在怎么样（在线、已关闭、启动中、关闭中、失败……）和"启动""关闭"两个按钮能不能点（协议包的 projectPower）。
 // - 现在（projectNow）：按项目状态挑最要紧的事——筹备中是立项书到哪一步了、要你做什么；建设中是建设任务的进度、正在做的工单、
 //   卡住的工单（等你、失败、被拦、超时没动，写原因）、最近一句进展；使用中是运营概况和最近几次运行（失败的醒目）；
@@ -66,7 +66,7 @@ export interface SummaryTimedTask {
   brief: string;
   /** 下次（定时的、运营中的才有） */
   nextAt?: string;
-  /** 上次：什么时候、结果（成功、失败……）；失败标红，部分完成（176 号票）另一种颜色 */
+  /** 上次：什么时候、结果（成功、失败……）；失败标红，部分完成另一种颜色 */
   last?: { at: string; text: string; failed: boolean; partial?: boolean };
   /** 运营中、已暂停（写原因）、已停用 / 已归档（项目停了） */
   status: "active" | "paused" | "stopped";
@@ -256,7 +256,7 @@ export type ProjectNow =
       latest?: string;
       /** "首版做完了"卡还等你确认：卡的编号（"现在"里直接放这张卡） */
       buildDoneCardId?: string;
-      /** "转入使用"确认卡还等你确认（259 号票：你在项目页点的、负责人提的、秘书代办的）：卡的编号（"现在"里直接放这张卡） */
+      /** "转入使用"确认卡还等你确认（你在项目页点的、负责人提的、秘书代办的）：卡的编号（"现在"里直接放这张卡） */
       goLiveCardId?: string;
     }
   | { kind: "in_use"; summary?: OperationsSummary; runs: RecentRun[] }
@@ -338,7 +338,7 @@ function latestOf(task: Task | undefined): string | undefined {
 
 function buildingNow(state: UiState, project: Project, nowMs: number): ProjectNow {
   const task = project.buildTaskId === undefined ? undefined : state.tasks[project.buildTaskId];
-  // 311 号票：计划还没授权的只写状态（不再同时写"尚无计划"）
+  // 计划还没授权的只写状态（不再同时写"尚无计划"）
   const progress = task && projectRowProgress(state, task);
   const doing = Object.values(state.workOrders)
     .filter((w) => w.projectId === project.id && w.state === "in_progress")

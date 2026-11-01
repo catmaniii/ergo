@@ -1,4 +1,4 @@
-// 语音模型预热（规格第 22 节"模型预热"，45 号票）：守护进程启动后在后台提前把识别模型和合成模型加载好，重启后的第一条语音
+// 语音模型预热（规格第 22 节"模型预热"）：守护进程启动后在后台提前把识别模型和合成模型加载好，重启后的第一条语音
 // 不用等加载（用户实测：large-v3 冷启动的那一条识别用了 36 秒，之后的都不到 1 秒）。
 // - 两个预热依次做，先识别、后合成，不同时往显卡里加载（一次做一件的队列）；都在后台，不挡启动；失败只记日志、在状态里显示，
 //   不影响别的功能（真的识别、合成照常按需做）。
@@ -17,9 +17,9 @@
 //   识别：识别进程一次处理一条，"加载"那一行在前，真的识别排在它后面；合成：试合成在做时，语音回复的合成等它做完再发
 //   （同时发过去也只是在 audio.cpp 的模型锁上排队，而且等过它的 busy_timeout_ms 会被回"忙"、退回只发文字）。
 //   等试合成的这段时间不算进那次合成自己的超时：最坏多等一次试合成的超时（默认约 107 秒）。
-// - 状态（VoiceModelsView）：识别引擎的清单（现在只有在用的那一个：faster-whisper，或者 346 号票的 Fun-ASR Nano）、两个模型各自的状态；变了就交给 onChange（守护进程推一条
+// - 状态（VoiceModelsView）：识别引擎的清单（现在只有在用的那一个：faster-whisper，或者 Fun-ASR Nano）、两个模型各自的状态；变了就交给 onChange（守护进程推一条
 //   临时事件 voice_models），本机接口 GET /api/voice-models 取得到同样的。给人看的说明在 texts.ts。
-// - 346 号票：组件页装好、删掉语音识别模型时接入方式当场换（recognizer-switch.ts），recognizerChanged 清掉退避、预热新的那条。
+// -组件页装好、删掉语音识别模型时接入方式当场换（recognizer-switch.ts），recognizerChanged 清掉退避、预热新的那条。
 import { nowIso, t, type VoiceModelState, type VoiceModelsView } from "@ergo/protocol";
 import type { Recognizer } from "./recognizer.ts";
 import type { ReferenceVoices } from "./reference-voices.ts";
@@ -55,7 +55,7 @@ export interface VoiceWarmupOptions {
   stableMs?: number;
   /** 现在用的识别引擎（设置 · 语音里显示）；不给是 RECOGNIZER_ENGINE */
   engine?: () => string;
-  /** 现在这种接入只认 WAV（346 号票：网页录完先转好再传）；不给是都认 */
+  /** 现在这种接入只认 WAV（网页录完先转好再传）；不给是都认 */
   wantsWav?: () => boolean;
   /** 状态变了（推给前端） */
   onChange?: (view: VoiceModelsView) => void;
@@ -69,7 +69,7 @@ export interface VoiceWarmup {
   view(): VoiceModelsView;
   /** 开始预热（后台做，马上返回） */
   start(): void;
-  /** 识别的接入方式换了（346 号票）：前一条的退避不算了，预热新的这一条 */
+  /** 识别的接入方式换了：前一条的退避不算了，预热新的这一条 */
   recognizerChanged(): void;
   stop(): Promise<void>;
 }

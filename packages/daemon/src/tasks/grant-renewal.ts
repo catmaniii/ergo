@@ -1,11 +1,11 @@
-// 授权项的有效期和续期（规格第 9 节"授权项"、第 8 节"长时间不在"，14 号票）：
+// 授权项的有效期和续期（规格第 9 节"授权项"、第 8 节"长时间不在"）：
 // - 每项授权（守卫的 id，阶段组的写成"授权项 id@阶段 id"）的授予时间、到期时间记在那一版确认的计划上（StoredPlan.grantTimes）；
-//   13 号票确认的计划没记，按确认时刻和各自的有效期（默认 7 天）算（grantTimesOfPlan）；
+//   确认的计划没记，按确认时刻和各自的有效期（默认 7 天）算（grantTimesOfPlan）；
 // - 到期前 renewalLeadMs（默认一天）待我处理里放一条续期事项（不卡任务，动作：续期 / 不续）；同一项授权、同一个到期时间只放一次。
 //   挂在调度器上（键 grant-renewal:<任务 id>，按可注入时钟走），守护进程重启后错过的到点马上放；
 // - 用户续期：有效期从原来的到期时间（过了就从现在）再延一期（和计划变更后放宽的授权项同一个算法：plan-change.ts 的
 //   extendedExpiry），记成 tasks 频道的 grant_renewal_decided（带续期后这一版的全部有效期）；不续的到期后不再生效
-//   （守卫判定时看到期时间，判超出授权，执行到那一步再问用户；"有风险的事先问我"关着时直接做，事项上的话按开关写，378 号票）。
+//   （守卫判定时看到期时间，判超出授权，执行到那一步再问用户；"有风险的事先问我"关着时直接做，事项上的话按开关写）。
 // 任务结束了、计划换了一版之后由执行控制器叫 arm 重新看一眼。
 import { ENDED_TASK_STATES, GRANT_RENEWAL_ACTIONS, type InboxItem, intlLocale, nowIso, type Plan, planGrants, t, taskInboxOrigin } from "@ergo/protocol";
 import type { EventStore } from "../events/event-store.ts";
@@ -146,7 +146,7 @@ export function createGrantRenewals(options: GrantRenewalOptions): GrantRenewals
       return [{ grantId: g.grantId, title: g.title, before: nowIso(new Date(tm.expiresAt)), ...(renew ? { after: nowIso(new Date(extendedExpiry(stored.plan, g.grantId, Math.max(at, tm.expiresAt)))) } : {}) }];
     });
     if (grants.length === 0) return;
-    // 续期后这一版计划里全部授权项的有效期（13 号票确认的计划没单独记过，按确认时刻算出来一起记下）
+    // 续期后这一版计划里全部授权项的有效期（确认的计划没单独记过，按确认时刻算出来一起记下）
     const after = renew ? { ...times, ...Object.fromEntries(grants.map((g) => [g.grantId, { ...times[g.grantId]!, expiresAt: Date.parse(g.after!) }])) } : undefined;
     const payload: GrantRenewalDecidedPayload = {
       taskId: task.id,

@@ -9,7 +9,7 @@
 // | conflict       | 场景、有效期重叠，互相排斥，开始得晚的那条没明说变化         | 两条都 contested，生成一个判别性追问                |
 //
 // 先看场景再看纠正：场景不重叠的两条本来就都成立，谈不上纠正。纠正在有效期之前：用户说"记错了"时不管旧的那条说的是哪段时间。
-// 334 号票（用户 2026-10-27 选 A，ADR-0032）：以前"不在同一天说的就按先后、后说的赢"，现在不这样了——前后两句意思相反、
+// ADR-0032：以前"不在同一天说的就按先后、后说的赢"，现在不这样了——前后两句意思相反、
 // 后说的那句没自己说"变了"（signals.ts 的 explicitChangeSignals：不再、不…了、改成、以前…现在…、搬家、换工作……），
 // 是矛盾：两条都拿不准、问用户，哪边都不自动赢（原始推理图谱 LIFECYCLE §6b：不许"信先到的、信后到的"）。
 // 后说的那句自己说了变化，才是用户亲口说的变化，照旧新取代旧。
@@ -79,7 +79,7 @@ export function excludes(old: ComparableFact, neu: ComparableFact, options: Excl
 }
 
 /**
- * 判定要看的信号：change = 新来的这句自己明说了变化（334 号票，signals.ts 的 explicitChangeSignals）；
+ * 判定要看的信号：change = 新来的这句自己明说了变化（signals.ts 的 explicitChangeSignals）；
  * oldChange = 已有的那条背后的话明说了变化（新来的说的是更早的事时，后说的是旧的那条）；correction = 新来的这句是纠正
  */
 export interface ChangeSignals {
@@ -93,7 +93,7 @@ export function classifyChange(old: ComparableFact, neu: ComparableFact, signals
   if (!contextsCompatible(old.context, neu.context)) return { kind: "context_differs" };
   if (signals.correction) return { kind: "correction" };
   if (!intervalsOverlap(old, neu)) return { kind: "time_differs" };
-  // 有效期开始得晚的那条是后来的；它自己明说了变化才算观点变化（334 号票）。开始得一样早（说的是同一段时间）分不出先后，
+  // 有效期开始得晚的那条是后来的；它自己明说了变化才算观点变化。开始得一样早（说的是同一段时间）分不出先后，
   // 后来的那条没说变化，都是真冲突
   const c = compareFrom(neu.validFrom, old.validFrom);
   if (c > 0 && signals.change) return { kind: "change_of_mind", later: "new" };

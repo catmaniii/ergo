@@ -1,9 +1,9 @@
-// pi 契约测试：彻底删除改写会话文件（21 号票）。改写在一次性子进程里做（agent-child/rewrite-main.ts，经 agent 管家的
+// pi 契约测试：彻底删除改写会话文件。改写在一次性子进程里做（agent-child/rewrite-main.ts，经 agent 管家的
 // rewriteSessions 调用），用的是 pi 会话文件（JSONL）的这些形状：
 // - 子进程在每条用户输入前记的自定义条目（带 inputId）落进会话文件，紧跟着就是那条用户消息；自定义条目不进模型的上下文；
 // - 助手消息里的工具调用（带调用 id 和参数）、工具结果（带调用 id 和工具名）按条落在会话文件里；
 // - 压缩条目（摘要、保留的第一条）：保留的第一条之前的条目由摘要代替，摘要作为一条用户消息进模型的上下文；
-// - 别的自定义条目（范围审视结果的副本，18 号票）：按类型把数据里的文字换掉，结构不变；
+// - 别的自定义条目（范围审视结果的副本）：按类型把数据里的文字换掉，结构不变；
 // - 把这些改写掉之后，接着这个会话（continueSession）时模型看到的是删除标记，看不到原文；
 // - pi 按修改时间挑"最近的会话"：改写保留原来的修改时间，接着用的还是同一个会话文件。
 import fs from "node:fs";
@@ -65,7 +65,7 @@ describe("pi 契约：改写会话文件里的原文", () => {
     const kept = entries.find((e) => e.type === "message" && e.message?.role === "user" && JSON.stringify(e.message.content).includes("今天天气不错"))!;
     const compaction = { type: "compaction", id: "cmp00001", parentId: entries.at(-1)!.id, timestamp: new Date().toISOString(), summary: "用户说暗号是青蛙，车牌是沪A12345", firstKeptEntryId: kept.id, tokensBefore: 100 };
     fs.appendFileSync(file, `${JSON.stringify(compaction)}\n`);
-    // 范围审视结果的副本（18 号票，appendEntry 的自定义条目）：依据里引着用户的原话
+    // 范围审视结果的副本（appendEntry 的自定义条目）：依据里引着用户的原话
     const reviewCopy = { type: "custom", id: "cus00001", parentId: "cmp00001", timestamp: new Date().toISOString(), customType: SCOPE_REVIEW_ENTRY, data: { findings: [{ kind: "scope_change", summary: "按暗号青蛙改了", basis: "用户说暗号是青蛙" }] } };
     fs.appendFileSync(file, `${JSON.stringify(reviewCopy)}\n`);
     expect(fs.readFileSync(file, "utf8")).toContain("青蛙");

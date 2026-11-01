@@ -1,6 +1,6 @@
 // 主切面：聊天里的附件（规格第 5 节消息与 part、第 21 节附件）。
-// 用户给秘书发图片和文件；秘书看到的是发给模型前的投影；"读取附件"工具（含读图，79 号票）；秘书把草稿区里的文件作为附件发出来。
-// 看图能力（79 号票）：不写配置按模型目录（测试里的 faux 和 deepseek-flash 一样能收图片），配置写明的为准。
+// 用户给秘书发图片和文件；秘书看到的是发给模型前的投影；"读取附件"工具（含读图）；秘书把草稿区里的文件作为附件发出来。
+// 看图能力：不写配置按模型目录（测试里的 faux 和 deepseek-flash 一样能收图片），配置写明的为准。
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -108,7 +108,7 @@ describe("用户给秘书发附件", () => {
         ],
       },
       idempotencyKey: "k-attach",
-      // 从哪发来的（125 号票：核实用户原话时写设备）：测试连的是本机端口
+      // 从哪发来的（核实用户原话时写设备）：测试连的是本机端口
       sentFrom: { kind: "local" },
     });
     // 附件引用的是入库版本（剥过 EXIF）的哈希，不是原始上传字节的哈希
@@ -205,7 +205,7 @@ describe("用户给秘书发附件", () => {
     });
     await media.upload(url, log, { name: "日志.txt", mime: "text/plain" });
     await media.upload(url, secret, { name: "秘密.txt", mime: "text/plain" });
-    // 别的会话（负责人会话，13 号票才能从前端发消息）里有一个附件：直接往事件日志里追加一条消息来布置
+    // 别的会话（负责人会话，才能从前端发消息）里有一个附件：直接往事件日志里追加一条消息来布置
     appendMessage(daemon.store, { conversation: maintainerChannel("demo"), speaker: "user", parts: [{ type: "file", mediaId: otherRef, name: "秘密.txt", mime: "text/plain", size: secret.length }] });
 
     const frontend = await TestFrontend.connect(url);

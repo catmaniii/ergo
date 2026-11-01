@@ -1,4 +1,4 @@
-// pid 文件的启动时间（318 号票）：Windows 上记系统的进程创建时间，stop 钩子核对时对得上（以前按 process.uptime() 倒推，
+// pid 文件的启动时间：Windows 上记系统的进程创建时间，stop 钩子核对时对得上（以前按 process.uptime() 倒推，
 // 杀毒软件扫新进程时会晚好几秒、超出 2 秒的容差，stop 钩子不肯停）。
 import fs from "node:fs";
 import os from "node:os";

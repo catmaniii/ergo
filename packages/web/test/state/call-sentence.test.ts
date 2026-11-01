@@ -1,4 +1,4 @@
-// 工具调用说成人话的一句（67 号票，state/call-sentence.ts、shell-sentence.ts）：每种工具一个说法模板。
+// 工具调用说成人话的一句（state/call-sentence.ts、shell-sentence.ts）：每种工具一个说法模板。
 // 表格测试：每个模板至少一条，含参数缺失（退回"中文名 · 参数值"）、路径很长时只留末尾几级；通用 bash 按拆出来的命令说；
 // 要点层的前缀（⛔ ↩ ⏸ ✕）和 🔒；最后回放现有录像：有模板的工具调用都说成了人话，没有模板的退回原样。
 import fs from "node:fs";
@@ -53,11 +53,11 @@ describe("每个模板（动词加对象，不带“了”）", () => {
     ["find", "*.md", "在当前目录里找 *.md"],
     // 通用 bash（按拆出来的命令，下面另有一组）
     ["bash", "npm test", "跑测试"],
-    // 带类型的特殊 bash 工具（28 号票）：摘要是"参数名=值"
+    // 带类型的特殊 bash 工具：摘要是"参数名=值"
     ["git_status_diff", "", "看 git 状态和改动"],
     ["git_status_diff", 'paths=["src/a.ts"]', "看 src/a.ts 的 git 状态和改动"],
     ["git_commit", "message=修复登录超时", "把改动提交：修复登录超时"],
-    ["git_commit", 'repoPath=. message=只提交文档 paths=["README.md","docs/dev.md","CONTEXT.md"]', "把 README.md、docs/dev.md 等 3 个 提交：只提交文档"],
+    ["git_commit", 'repoPath=. message=只提交文档 paths=["README.md","docs/guide.md","CONTEXT.md"]', "把 README.md、docs/guide.md 等 3 个 提交：只提交文档"],
     ["git_merge", "branch=feature", "合并分支 feature"],
     ["git_push", "remote=origin", "推送当前分支到 origin"],
     ["git_push", "remote=origin branch=main", "推送 main 到 origin"],
@@ -71,7 +71,7 @@ describe("每个模板（动词加对象，不带“了”）", () => {
     ["install_deps", 'packages=["vitest"] dev=true', "装依赖 vitest（开发依赖）"],
     ["install_deps", "", "装依赖"],
     ["start_build", "", "构建"],
-    // 联网（70 号票）：摘要是查询词、网址
+    // 联网：摘要是查询词、网址
     ["web_search", "ergo 二狗 发布", "联网搜「ergo 二狗 发布」"],
     ["web_fetch", "https://example.com/blog/post-12", "读网页 example.com/blog/post-12"],
     ["web_fetch", "https://news.example.com/2026/10/10/a-long-article-about-agents?ref=rss", "读网页 news.example.com/…/a-long-article-about…"],
@@ -79,7 +79,7 @@ describe("每个模板（动词加对象，不带“了”）", () => {
     ["create_reminder", "text=交报告 inDays=1 time=09:00", "建提醒「交报告」：明天 09:00"],
     ["create_reminder", 'text=打卡 time=09:00 repeat={"kind":"workdays"}', "建提醒「打卡」：按我的工作日 09:00"],
     ["create_reminder", 'text=交周报 time=17:00 repeat={"kind":"weekly","weekdays":[5]}', "建提醒「交周报」：每周五 17:00"],
-    // 282 号票：每年某月某日
+    // 每年某月某日
     ["create_reminder", 'text=妈妈生日 time=09:00 repeat={"kind":"yearly","month":3,"day":2}', "建提醒「妈妈生日」：每年 3 月 2 日 09:00"],
     ["create_reminder", "text=开会 at=2026-10-12 15:00", "建提醒「开会」：2026-10-12 15:00"],
     ["create_reminder", "text=喝水 inMinutes=30", "建提醒「喝水」：30 分钟后"],
@@ -87,10 +87,10 @@ describe("每个模板（动词加对象，不带“了”）", () => {
     ["update_reminder", "reminderId=r-3 time=10:00", "改提醒 r-3：时间改到 10:00"],
     ["update_reminder", "reminderId=r-3 text=交周报", "改提醒 r-3：内容改成「交周报」"],
     ["cancel_reminder", "reminderId=r-3", "取消提醒 r-3"],
-    // 185 号票：归档；删除是快速动作
+    // 归档；删除是快速动作
     ["archive_reminder", "reminderId=r-3", "归档提醒 r-3"],
     ["propose_quick_action", 'type=delete_reminder params={"reminderId":"r-3"}', "删除提醒 r-3"],
-    // 看板、待办（界面上不说"待我处理"，43 号票）
+    // 看板、待办（界面上不说"待我处理"）
     ["view_board", "", "查看板"],
     ["list_inbox", "", "看待办"],
     ["show_card", 'cardIds=["c-1","c-2"]', "把卡片 c-1、c-2 放进聊天"],
@@ -103,18 +103,18 @@ describe("每个模板（动词加对象，不带“了”）", () => {
     ["send_attachment", "path=out/report.pdf", "把 out/report.pdf 作为附件发出"],
     ["send_attachment", "path=out/r.pdf name=九月报销单.pdf", "把 九月报销单.pdf 作为附件发出"],
     ["search_materials", "query=房东 卖房", "检索素材「房东 卖房」"],
-    // 187 号票：多了为什么查（why），在它那里断开
+    // 多了为什么查（why），在它那里断开
     ["search_materials", "query=房东 卖房 why=用户要删掉 房东的事 limit=5", "检索素材「房东 卖房」"],
-    // 166 号票：读一条素材的全文（素材 id 留到前 8 位十六进制认得出就行）
+    // 读一条素材的全文（素材 id 留到前 8 位十六进制认得出就行）
     ["read_material", "materialId=mat-3f9a1c2b4d5e6f708192a3b4", "读素材 mat-3f9a1c2b"],
-    // 86 号票：发语音写口语稿的前 20 个字
+    // 发语音写口语稿的前 20 个字
     ["send_voice", "text=明早九点开会。", "发语音：明早九点开会。"],
     ["send_voice", "text=好的，我把这周的周报整理好了，下面分几块说清楚。", "发语音：好的，我把这周的周报整理好了，下面分几…"],
-    // 102 号票：负责人给秘书发消息，写原话的前 30 个字（不带"了"：被拦下的前面加 ⛔，不能说成发了）
-    // 名字写占位（43 号票），界面上显示用户起的名字
+    // 负责人给秘书发消息，写原话的前 30 个字（不带"了"：被拦下的前面加 ⛔，不能说成发了）
+    // 名字写占位，界面上显示用户起的名字
     ["tell_secretary", "text=发票里有 3 张抬头写错了", "给⟦个人助理⟧发消息：发票里有 3 张抬头写错了"],
     ["tell_secretary", "text=10 月的账单里有一笔 3200 元的转账没有备注，我先归到“其他”，你回头看一眼。", "给⟦个人助理⟧发消息：10 月的账单里有一笔 3200 元的转账没有备注，我先归…"],
-    // 115 号票起带一句话总结（写在原话前面）：说成那一句
+    // 带一句话总结（写在原话前面）：说成那一句
     ["tell_secretary", "summary=有笔 3200 元的转账没备注 text=10 月的账单里有一笔 3200 元的转账没有备注，我先归到“其他”，你回头看一眼。", "给⟦个人助理⟧发消息：有笔 3200 元的转账没备注"],
     ["tell_secretary", "text=发票里有 3 张抬头写错了 summary=3 张发票抬头错了", "给⟦个人助理⟧发消息：3 张发票抬头错了"],
     // 快速动作（记忆命令、任务控制、日历：改工作日历）
@@ -125,12 +125,12 @@ describe("每个模板（动词加对象，不带“了”）", () => {
     ["propose_quick_action", 'type=tell_project params={"project":"记账本","message":"下个月起信用卡账单也要导入"}', "转达给项目「记账本」的负责人：下个月起信用卡账单也要导入"],
     ["propose_quick_action", 'type=workday_calendar params={"change":"mark_rest","date":"2026-10-12"}', "改工作日历：把 2026 年 10 月 12 日（周一）标为休息"],
     ["propose_quick_action", 'type=workday_calendar params={"change":"add_rule","rule":{"kind":"last_weekday","weekday":6}}', "改工作日历：加一条额外上班规则：每月最后一个周六"],
-    // 138 号票：授权文件夹，写方向和文件夹名
+    // 授权文件夹，写方向和文件夹名
     ["propose_quick_action", 'type=authorize_folders params={"change":"add","folders":["C:/Users/me/Pictures","D:/照片/"]}', "授权文件夹：Pictures、照片"],
     ["propose_quick_action", 'type=authorize_folders params={"change":"remove","folders":["C:/Users/me/Downloads"]}', "取消授权文件夹：Downloads"],
     ["propose_quick_action", 'type=authorize_folders params={"change":"add"}', "授权文件夹"],
     ["propose_quick_action", "type=something_new params={}", "提议快速动作：something_new"],
-    // 82 号票：/流程、/任务 调出来的发起
+    // /流程、/任务 调出来的发起
     ["start_workflow", "title=周报 summary=每周五把周报写好", "发起流程「周报」"],
     ["create_task", "title=X 的调研 summary=帮我整理一份 X 的调研", "发起长程任务「X 的调研」"],
     ["delegate_task", "title=整理九月发票 instructions=把草稿区里的发票按月汇总", "交给后台做「整理九月发票」"],
@@ -217,7 +217,7 @@ describe("通用 bash：按拆出来的命令说", () => {
   });
 });
 
-describe("没有模板的：中文名 · 参数值，截到 60 字（用户 2026-10-10 定，三处统一）", () => {
+describe("没有模板的：中文名 · 参数值，截到 60 字（三处统一）", () => {
   test("参数摘要里的“参数名=”去掉，几个值用 · 隔开；MCP 工具写原名", () => {
     expect(callSentence({ tool: "submit_receipt", argsSummary: "outcome=done summary=加好了 export.md" })).toEqual({ text: "交回执 · done · 加好了 export.md", said: false });
     expect(say("mcp__github__create_issue", "title=登录超时 repo=me/app")).toBe("mcp__github__create_issue · 登录超时 · me/app");
@@ -281,7 +281,7 @@ const part = (o: Partial<ToolCallPart> = {}): ToolCallPart => ({
   ...o,
 });
 
-describe("要点层那一行：前缀四种，读了密钥文件的加 🔒（用户 2026-10-10 定）", () => {
+describe("要点层那一行：前缀四种，读了密钥文件的加 🔒", () => {
   test.each([
     ["顺利执行", part(), "写 notes.md"],
     ["被拦下（硬拒绝）", part({ outcome: "blocked", blockedBy: "hard_refusal" }), "⛔ 写 notes.md"],
@@ -403,12 +403,12 @@ test("读了密钥文件的（守护进程带 readsSecretFile）在要点层加 
   expect(items.flatMap(zoomBlocks).map((b) => b.keyLine)).toEqual(["🔒 读 .env", "🔒 在 .env 里搜「API_KEY」", "读 README.md"]);
 });
 
-// ───────────────────────── 159 号票：说到任务编号的写编号加名字（现取；163 号票写成 t-3「标题」） ─────────────────────────
+// ─────────────────────────说到任务编号的写编号加名字（现取；写成 t-3「标题」） ─────────────────────────
 
 const named = (ref: string) => (ref === "t-3" ? "t-3「整理发票」" : ref === "t-1" ? "t-1「X 的调研」" : ref);
 const taskT3 = (seq: number, title: string) => frame("board", seq, "task", { task: { id: "t-3", title, maintainerId: "tm-3" }, change: seq === 1 ? "created" : "updated", from: null, by: "user" });
 
-describe("说到任务编号的写编号加名字（159 号票）", () => {
+describe("说到任务编号的写编号加名字", () => {
   test.each([
     ["propose_quick_action", 'type=pause_task params={"task":"t-3"}', "暂停任务 t-3「整理发票」"],
     ["propose_quick_action", 'type=resume_task params={"task":"t-3"}', "继续任务 t-3「整理发票」"],

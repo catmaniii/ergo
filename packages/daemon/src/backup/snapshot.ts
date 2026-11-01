@@ -139,7 +139,7 @@ export function listSnapshots(root: string): Snapshot[] {
 }
 
 /**
- * 设置 · 备份列快照（356 号票）：一处的日期目录，从新到旧，带快照里文件的总大小（相同的文件在几份之间共用，这是这一天的数据有多大，不是占了多少盘）；
+ * 设置 · 备份列快照：一处的日期目录，从新到旧，带快照里文件的总大小（相同的文件在几份之间共用，这是这一天的数据有多大，不是占了多少盘）；
  * 清单读不出来的写原因。备份区不存在是空的；读不了这个目录（没权限、盘不在）抛错，调用方写原因。不挡事件循环（文件夹可能在 NAS 上）
  */
 export async function listSnapshotSizes(root: string): Promise<Array<{ date: string; bytes?: number; problem?: string }>> {

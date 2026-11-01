@@ -1,7 +1,7 @@
-// "按住 说话"的手势（规格第 22 节，31 号票），照微信：按住开始录、录音面板显示当前音量和最近一小段滚动的波形；
+// "按住 说话"的手势（规格第 22 节），照微信：按住开始录、录音面板显示当前音量和最近一小段滚动的波形；
 // 抬手发送；按住时上划超过一段距离进"松开取消"、抬手不发送；不到 1 秒提示"说话时间太短"、不发送；
 // 单条最长 60 秒，最后 10 秒倒计时，到 60 秒自动发送；没有麦克风权限时提示怎么开。
-// 麦克风预热（37 号票，用户 2026-10-08 定）：进语音模式就打开麦克风流、备好音量分析，但不录（什么时候开、什么时候关见
+// 麦克风预热：进语音模式就打开麦克风流、备好音量分析，但不录（什么时候开、什么时候关见
 // voice-mic.ts）。按下时流已就绪（warm）就在按下那一刻开始录、计时从按下算起，不出"准备中"；
 // 没就绪（刚进语音模式就按、预热被关掉了）照旧"准备中"、时钟不走，麦克风就绪（ready）之后才开始计时，所以开头不会被吞掉。
 // 抬手、取消、太短、出错、切到后台都停下录音器（send / discard），麦克风留着给下一条。
@@ -74,7 +74,7 @@ export const initialVoiceGesture: VoiceGestureState = {
   notice: undefined,
 };
 
-/** 不到 1 秒的提示（170 号票起按当前语言现取） */
+/** 不到 1 秒的提示（按当前语言现取） */
 const tooShort = () => ({ kind: "too_short", text: t("state.voiceGesture.tooShort") }) as const;
 
 export function voiceGesture(state: VoiceGestureState, input: VoiceGestureInput): { state: VoiceGestureState; effect?: VoiceGestureEffect } {

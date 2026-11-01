@@ -1,10 +1,10 @@
 // @i18n-ignore-file model：这里的中文都是 schema 里给模型看的参数说明
-// 项目、立项和它们的卡片的 schema（规格第 11 节，15 号票），用 TypeBox 定义，守护进程和 Web 共用生成的类型。
+// 项目、立项和它们的卡片的 schema（规格第 11 节），用 TypeBox 定义，守护进程和 Web 共用生成的类型。
 // - 项目列表频道上的 project 事件：项目的最新状态（Project）；
 // - 立项书（Charter）：负责人在立项问答之后用"提交立项书"工具交出的结构化数据（工具的参数），立项书卡由代码从它生成；
-// - 五种卡的负载：建议立项卡（suggest_project）、立项书卡（charter）、"首版做完了"卡（build_done，112 号票；130 号票起带着
-//   负责人建设期间交的运营方案；259 号票起带着转运营检查清单）、"转入使用"确认卡（go_live，259 号票）、"立项要求变更"卡
-//   （charter_change，125 号票）；"运营方案变更"卡在 operations-schema.ts；
+// - 五种卡的负载：建议立项卡（suggest_project）、立项书卡（charter）、"首版做完了"卡（build_done，带着
+//   负责人建设期间交的运营方案；带着转运营检查清单）、"转入使用"确认卡（go_live）、"立项要求变更"卡
+//   （charter_change）；"运营方案变更"卡在 operations-schema.ts；
 // - 三个请求：点"新建项目"（new_project）、任务转为项目（convert_task_to_project）、项目页上的动作（project_action）。
 // 名字（状态、类型、动作、变化）在 projects.ts。
 import { type Static, Type } from "typebox";
@@ -21,7 +21,7 @@ const ProjectStateSchema = Type.Enum(PROJECT_STATES);
 /** 项目名、一句话目标的长度 */
 export const PROJECT_NAME_MAX = 40;
 export const PROJECT_GOAL_MAX = 300;
-/** 建议立项卡上用户的原话最多多少字（362 号票） */
+/** 建议立项卡上用户的原话最多多少字 */
 export const PROJECT_USER_WORDS_MAX = 2000;
 
 /**
@@ -43,15 +43,15 @@ export const Project = Type.Object({
   /** 项目的负责人（立项时产生；任务转为项目时就是原任务的负责人）；它的会话频道是 maintainer:<负责人 id> */
   maintainerId: Type.String(),
   /**
-   * 项目的负责人用的 agent 运行时（286 号票，runtimes.ts）：内核自带的 pi，或者插件登记的运行时的 id；没写时照转来的任务的（Task.runtime），
-   * 再没有是 pi。登记它的插件停用时负责人不启动（活动状态"等你"，写明哪个插件没启用），启用后接着。289 号票起新建时选（点"新建项目"时选的
+   * 项目的负责人用的 agent 运行时（runtimes.ts）：内核自带的 pi，或者插件登记的运行时的 id；没写时照转来的任务的（Task.runtime），
+   * 再没有是 pi。登记它的插件停用时负责人不启动（活动状态"等你"，写明哪个插件没启用），启用后接着。新建时选（点"新建项目"时选的
    * 写在建议立项卡上，点"立项"时定下），之后在负责人的 ⚙ 里换（手头这一条做完、原来的写好交接摘要才改成新的，记一条 runtime_set）
    */
   runtime: Type.Optional(Type.String({ minLength: 1 })),
-  /** 给运行时选的值（289 号票，⚙ 里：运行时自己的模型、权限模式、思考档位……）；没有是都跟运行时自己的默认 */
+  /** 给运行时选的值（⚙ 里：运行时自己的模型、权限模式、思考档位……）；没有是都跟运行时自己的默认 */
   runtimeOptions: Type.Optional(RuntimeOptions),
   /**
-   * 从运行时已有的会话接管来的（290 号票，RuntimeTakeover：哪个会话、交还了没有；也是二狗的写入锁）。接管来的项目工作目录是会话原来的
+   * 从运行时已有的会话接管来的（RuntimeTakeover：哪个会话、交还了没有；也是二狗的写入锁）。接管来的项目工作目录是会话原来的
    * （workdir 是外部路径，删项目时不删），立项书确认时不改它。不是接管来的没有
    */
   takeover: Type.Optional(RuntimeTakeover),
@@ -67,24 +67,24 @@ export const Project = Type.Object({
   /** 立项书已确认（"只确认，稍后开工"后项目留在筹备中，标"立项书已确认"） */
   charterConfirmed: Type.Boolean(),
   /**
-   * 首个建设任务（开工时建出）；112 号票起它做完时出"首版做完了"卡，用户选继续建设时换成建出的下一轮建设任务
+   * 首个建设任务（开工时建出）；它做完时出"首版做完了"卡，用户选继续建设时换成建出的下一轮建设任务
    * （它做完时再出一张）。项目的状态只在用户选了之后变
    */
   buildTaskId: Type.Optional(Type.String()),
   /** 归档前的状态（已归档时才有）：取消归档回到它 */
   archivedFrom: Type.Optional(ProjectStateSchema),
   /**
-   * 现在生效的运营方案（130 号票）：用户在"首版做完了"卡上确认并转入使用、在"运营方案变更"卡上确认之后记上——每一条连同它生效成的
+   * 现在生效的运营方案：用户在"首版做完了"卡上确认并转入使用、在"运营方案变更"卡上确认之后记上——每一条连同它生效成的
    * 项目内部任务、没生效的原因。还没确认过运营方案的没有
    */
   operations: Type.Optional(ProjectOperations),
   /**
-   * 建档时用的项目规范模板版本（258 号票，PROJECT_STANDARD_LATEST）：立项时记上，之后不变（模板升级不自动带旧项目，261 号票只提示）。
-   * 规范上线之前建的项目没有（262 号票出"补齐文档"的任务）
+   * 建档时用的项目规范模板版本（PROJECT_STANDARD_LATEST）：立项时记上，之后不变（模板升级不自动带旧项目，只提示）。
+   * 规范上线之前建的项目没有（出"补齐文档"的任务）
    */
   standardVersion: Type.Optional(Type.String()),
   /**
-   * 自动播报（354 号票，照任务的跑完自动播报，默认关）：开着时项目负责人的进展来信，秘书不问，直接把要点念给用户（用负责人自己的声音）。
+   * 自动播报（照任务的跑完自动播报，默认关）：开着时项目负责人的进展来信，秘书不问，直接把要点念给用户（用负责人自己的声音）。
    * 关着（不写）照旧是文字、问要不要念
    */
   voiceAnnounce: Type.Optional(Type.Boolean()),
@@ -145,7 +145,7 @@ export const CharterChangeItemSchema = Type.Union([
 ]);
 
 /**
- * "立项要求变更"卡（charter_change，125 号票）：立项书确认之后，用户在会话里说要改立项要求（目标、范围、首版），负责人用
+ * "立项要求变更"卡（charter_change）：立项书确认之后，用户在会话里说要改立项要求（目标、范围、首版），负责人用
  * propose_charter_change 提出——只交改动的几处，附上它引用、运行时核实过的用户原话。卡上逐条对照新旧，进待办，也出在用户说话的
  * 那个会话里；用户确认后改写立项书（末尾记一条变更记录：哪天、改了什么、依据的用户原话、用户确认），拒绝的立项书不变。
  * 项目类型、工作目录、工具包不走这条路（卡上写明）
@@ -170,7 +170,7 @@ export const CharterChangeCardPayload = Type.Object({
 export type CharterChangeCardPayload = Static<typeof CharterChangeCardPayload>;
 
 /**
- * 转运营检查清单里的一项（259 号票，形状同 project-standard.ts 的 StandardChecklistItem）：卡上列出来，没做到的写差什么。
+ * 转运营检查清单里的一项（形状同 project-standard.ts 的 StandardChecklistItem）：卡上列出来，没做到的写差什么。
  * 卡上的是出卡（或刷新）那一刻算的；用户确认时运行时按那时的再算一遍，缺的写进决定里
  */
 export const GoLiveChecklistItem = Type.Object({
@@ -178,13 +178,13 @@ export const GoLiveChecklistItem = Type.Object({
   label: Type.String(),
   done: Type.Boolean(),
   detail: Type.Optional(Type.String()),
-  /** 现在还验不了、上线后再验（362 号票：服务还没上线，转入使用才上线）：算做到了，卡上单独标出来 */
+  /** 现在还验不了、上线后再验（服务还没上线，转入使用才上线）：算做到了，卡上单独标出来 */
   later: Type.Optional(Type.Boolean()),
 });
 export type GoLiveChecklistItem = Static<typeof GoLiveChecklistItem>;
 
 /**
- * "首版做完了"卡（build_done，112 号票）：项目的建设任务做完了（首个建设任务，或者继续建设的下一轮），写明做成了什么——
+ * "首版做完了"卡（build_done）：项目的建设任务做完了（首个建设任务，或者继续建设的下一轮），写明做成了什么——
  * 建设任务最后的总结、每个阶段的验收结果一行一个、交付件在哪；用户选转入使用、继续建设（附一句这一轮要做什么）或放弃并归档。
  * 不选就一直挂在待我处理里，项目停在建设中
  */
@@ -202,12 +202,12 @@ export const BuildDoneCardPayload = Type.Object({
   /** 交付件在哪：项目的工作目录 */
   workdir: Type.String(),
   /**
-   * 负责人建设期间交的运营方案（130 号票，版本 2）：卡上多一节"转入使用后会开起来的"，主按钮换成"确认并转入使用"——项目进入使用中、
-   * 方案里每一条生效。卡出了以后负责人再交，卡跟着更新（版本加 1，照旧的按钮按新的这份）。没交的没有，卡照 112 号票
+   * 负责人建设期间交的运营方案（版本 2）：卡上多一节"转入使用后会开起来的"，主按钮换成"确认并转入使用"——项目进入使用中、
+   * 方案里每一条生效。卡出了以后负责人再交，卡跟着更新（版本加 1，照旧的按钮按新的这份）。没交的没有，卡
    */
   operations: Type.Optional(OperationsPlanView),
   /**
-   * 转运营检查清单（259 号票，版本 4）：出卡时算的建设中 → 使用中那一份（架构图、ops.json、服务、/apps/、进展），没做到的写差什么；
+   * 转运营检查清单（版本 4）：出卡时算的建设中 → 使用中那一份（架构图、ops.json、服务、/apps/、进展），没做到的写差什么；
    * "转入使用"照样能点（缺的写进决定里）。负责人、秘书又提转入使用、运营方案又交了一份时刷新。旧卡没有
    */
   checklist: Type.Optional(Type.Array(GoLiveChecklistItem)),
@@ -227,7 +227,7 @@ export const BuildDoneCardPayload = Type.Object({
 export type BuildDoneCardPayload = Static<typeof BuildDoneCardPayload>;
 
 /**
- * "转入使用"确认卡（go_live，259 号票；issue 19 第 8 条：转运营不管谁发起都必须用户确认）。用户在项目页点"转入使用"、负责人用
+ * "转入使用"确认卡（go_live，转运营不管谁发起都必须用户确认）。用户在项目页点"转入使用"、负责人用
  * propose_go_live 提、秘书照用户说的代办，都只出这张卡（"首版做完了"卡还在等的就用那一张），用户在卡上确认才转：
  * - by：谁发起的；why：负责人、秘书写的为什么现在能转（用户自己点的没有）；
  * - checklist：建设中 → 使用中的检查清单（出卡、刷新时算的），没做到的照样能确认，确认时按那时的再算一遍、缺的写进决定；
@@ -256,13 +256,13 @@ export type GoLiveCardPayload = Static<typeof GoLiveCardPayload>;
 export const SuggestProjectCardPayload = Type.Object({
   name: Type.String({ minLength: 1, maxLength: PROJECT_NAME_MAX }),
   goal: Type.String({ minLength: 1, maxLength: PROJECT_GOAL_MAX }),
-  /** 用户的原话（362 号票：路径、限制不能在立项时丢了）：卡上写着，点"立项"时原样交给负责人 */
+  /** 用户的原话（路径、限制不能在立项时丢了）：卡上写着，点"立项"时原样交给负责人 */
   userWords: Type.Optional(Type.String({ maxLength: PROJECT_USER_WORDS_MAX })),
   projectId: Type.Optional(Type.String()),
-  /** 项目的负责人用的运行时（289 号票：用户点"新建项目"时选的，秘书照写；没写是 pi）；点"立项"时定进项目 */
+  /** 项目的负责人用的运行时（用户点"新建项目"时选的，秘书照写；没写是 pi）；点"立项"时定进项目 */
   runtime: Type.Optional(Type.String({ minLength: 1, maxLength: 80 })),
   /**
-   * 在哪个文件夹做（305 号票：用户点"新建项目"时选的、秘书照写；能选工作文件夹的运行时才认）：点"立项"时定下项目的工作目录
+   * 在哪个文件夹做（用户点"新建项目"时选的、秘书照写；能选工作文件夹的运行时才认）：点"立项"时定下项目的工作目录
    * （在外面，删项目不删它，立项书确认时不改）；没写是在默认文件夹下按项目名新开一个（没设默认文件夹的照旧在项目档案里）
    */
   folder: Type.Optional(WorkFolderChoice),
@@ -274,9 +274,9 @@ export type SuggestProjectCardPayload = Static<typeof SuggestProjectCardPayload>
 /** 点"新建项目"：写想立个什么项目；不经"是不是项目"的判断，秘书直接收口出建议立项卡 */
 export const NewProjectParams = Type.Object({
   request: Type.String({ minLength: 1, maxLength: 4000 }),
-  /** 项目的负责人用的运行时（289 号票：pi 或者现在能用的运行时插件登记的）：不写是 pi；不认得、插件没启用的被拒。秘书照写在建议立项卡上 */
+  /** 项目的负责人用的运行时（pi 或者现在能用的运行时插件登记的）：不写是 pi；不认得、插件没启用的被拒。秘书照写在建议立项卡上 */
   runtime: Type.Optional(Type.String({ minLength: 1, maxLength: 80 })),
-  /** 在哪个文件夹做（305 号票，同 StartTaskParams.folder）：用已有文件夹的这时就核对路径；秘书照写在建议立项卡上 */
+  /** 在哪个文件夹做（同 StartTaskParams.folder）：用已有文件夹的这时就核对路径；秘书照写在建议立项卡上 */
   folder: Type.Optional(WorkFolderChoice),
 });
 export type NewProjectParams = Static<typeof NewProjectParams>;
@@ -302,7 +302,7 @@ export type ConvertTaskResult = Static<typeof ConvertTaskResult>;
 export const ProjectActionParams = Type.Object({ projectId: Type.String({ minLength: 1 }), action: Type.Enum(PROJECT_ACTIONS) });
 export type ProjectActionParams = Static<typeof ProjectActionParams>;
 
-/** 动作之后项目的状态；删除时是待我处理里那条二次确认的事项；转入使用（259 号票）时是要用户确认的那张卡（go_live 或"首版做完了"卡） */
+/** 动作之后项目的状态；删除时是待我处理里那条二次确认的事项；转入使用时是要用户确认的那张卡（go_live 或"首版做完了"卡） */
 export const ProjectActionResult = Type.Object({
   projectId: Type.String(),
   state: ProjectStateSchema,
@@ -311,7 +311,7 @@ export const ProjectActionResult = Type.Object({
 });
 export type ProjectActionResult = Static<typeof ProjectActionResult>;
 
-/** 开关项目的自动播报（354 号票，set_project_voice_announce）：项目页上的开关、秘书照用户说的；已归档的不能开关 */
+/** 开关项目的自动播报（set_project_voice_announce）：项目页上的开关、秘书照用户说的；已归档的不能开关 */
 export const SetProjectVoiceAnnounceParams = Type.Object({ projectId: Type.String({ minLength: 1 }), on: Type.Boolean() });
 export type SetProjectVoiceAnnounceParams = Static<typeof SetProjectVoiceAnnounceParams>;
 
@@ -319,7 +319,7 @@ export type SetProjectVoiceAnnounceParams = Static<typeof SetProjectVoiceAnnounc
 export const SetProjectVoiceAnnounceResult = Type.Object({ projectId: Type.String(), on: Type.Boolean() });
 export type SetProjectVoiceAnnounceResult = Static<typeof SetProjectVoiceAnnounceResult>;
 
-/** 重置负责人（16 号票，projects.ts 的 canResetMaintainer）：项目状态不变，负责人新开一段会话 */
+/** 重置负责人（projects.ts 的 canResetMaintainer）：项目状态不变，负责人新开一段会话 */
 export const ResetMaintainerParams = Type.Object({ projectId: Type.String({ minLength: 1 }) });
 export type ResetMaintainerParams = Static<typeof ResetMaintainerParams>;
 

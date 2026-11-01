@@ -1,4 +1,4 @@
-// agent 运行时的登记表（286 号票，runtime/runtimes.ts）：pi 照运行时的接口登记、一直能用；插件登记的带上插件，能不能用跟着插件
+// agent 运行时的登记表（runtime/runtimes.ts）：pi 照运行时的接口登记、一直能用；插件登记的带上插件，能不能用跟着插件
 // 在不在运行（不能用的写明"X插件没启用"）；不认得的运行时也算不能用；拉起时解析子进程入口；给网页的清单 pi 在最前；登记时查规矩。
 import { RUNTIME_OPERATIONS } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
@@ -80,7 +80,7 @@ describe("agent 运行时的登记表", () => {
     });
   });
 
-  it("列能接管的会话（290 号票）：能接管、能用才列；不能接管、停用了的回 not_allowed 和原因", async () => {
+  it("列能接管的会话：能接管、能用才列；不能接管、停用了的回 not_allowed 和原因", async () => {
     const { runtimes } = registry();
     const plugin = owner();
     runtimes.register(fakeRuntime, plugin);

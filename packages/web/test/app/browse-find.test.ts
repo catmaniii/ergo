@@ -1,4 +1,4 @@
-// 165 号票：⋮ 菜单里的"在页面里查找"——顶栏下面的查找栏在网页这一侧的状态（app/browse-find.ts）：打字停一下才交给 App 查
+// ⋮ 菜单里的"在页面里查找"——顶栏下面的查找栏在网页这一侧的状态（app/browse-find.ts）：打字停一下才交给 App 查
 // （ArkWeb 的页内查找，网页里高亮），App 推回第几个、一共几个；上一个、下一个；关掉清高亮；换了网页收起。App 的原生工具是假的。
 import { describe, expect, test } from "vitest";
 import { BrowseFind, FIND_DEBOUNCE_MS } from "../../src/plugins/browsing/browse-find.ts";

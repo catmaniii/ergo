@@ -1,4 +1,4 @@
-// 假的语音识别服务（250 号票）：代替 LSM 托管的 recognizer.py --serve（fixtures/fake-asr-service.mjs）。
+// 假的语音识别服务：代替 LSM 托管的 recognizer.py --serve（fixtures/fake-asr-service.mjs）。
 // 用的是真进程、真 HTTP，端口由系统挑（记录文件里那行 start 写着），所以两种用法都合适：
 // - 单元测试（test/voice/recognizer-client.test.ts）：只看 HTTP 客户端的行为，杀掉它就是"服务没了"；
 // - 主切面（test/main/voice-services.test.ts）：真守护进程按配置连上它，识别出的文字进语音、进素材。

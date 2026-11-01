@@ -1,4 +1,4 @@
-// 235 号票：上线验收脚本（test/memory/acceptance.ts）。在一个临时数据目录里放好推理库、整理记录和素材库，
+// 上线验收脚本（test/memory/acceptance.ts）。在一个临时数据目录里放好推理库、整理记录和素材库，
 // 跑一遍逐条检查（rg.db 和 manifest、最近一次整理记录、现算简报、素材检索、插件停用后作业撤销），应当全过；
 // 数据目录里什么都还没有时不抛错，逐条写清楚为什么不过。只读：跑完素材库一个字节没动、manifest 的 updated_at 没动。
 import { createHash } from "node:crypto";
@@ -89,7 +89,7 @@ describe("记忆上线验收（memory:acceptance）", () => {
 
     expect(report.checks.filter((check) => !check.ok)).toEqual([]);
     expect(report.ok).toBe(true);
-    // 逐条：名字是票里列的五样，外加一句只读口径
+    // 逐条：名字是列好的五样，外加一句只读口径
     expect(report.checks.map((check) => check.name)).toEqual([
       "rg.db 能打开、manifest 和表版本对得上",
       "最近一次整理记录",

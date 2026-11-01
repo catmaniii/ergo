@@ -1,8 +1,8 @@
-// 彻底删除登记进推理库（234 号票，ADR-0008、接入设计第 7 节）。
+// 彻底删除登记进推理库（ADR-0008、接入设计第 7 节）。
 //
 // 一条素材被彻底删除时，守护进程按素材 id 找到证据（sourceRef），交给这里：
 // 1. 删证据、删只靠它的事实；还有别的证据的事实去掉这条证据（照 kg/graph.ts 的 dropEvidence，恢复被它取代、冲突的旧事实）；
-// 2. 依赖这些证据、事实的结论加复核标记（329 号票起"待复核"是标记，不占真值状态），结论不删，下次整理重新推：
+// 2. 依赖这些证据、事实的结论加复核标记（"待复核"是标记，不占真值状态），结论不删，下次整理重新推：
 //    前提就是被删的证据、事实的推断停用（needs_review，前提不在库里了，墓碑没处指），这几条结论已验证的先降回猜测、往下按传播铁律降；
 //    支持、反证被拿掉的那几条，它们的组当场按剩下的关联重定；
 // 3. 指向被删证据、事实的关联（支持、反证、背景）拿掉（修订日志记 delete）；
@@ -28,7 +28,7 @@ export interface PurgeOptions {
   /** 审计里记的素材 id（记忆包不知道素材，调用方给） */
   materialIds?: readonly string[];
   /**
-   * 267 号票：经唯一写入口时记成哪种写操作——purge 彻底删除（默认）、no_infer 别推断（同样连证据、事实一起从推理库撤掉）。
+   * 经唯一写入口时记成哪种写操作——purge 彻底删除（默认）、no_infer 别推断（同样连证据、事实一起从推理库撤掉）。
    * 两种都只由用户发起
    */
   op?: "purge" | "no_infer";
@@ -45,7 +45,7 @@ export interface PurgeRecord {
   materialIds: string[];
   evidenceIds: string[];
   factIds: string[];
-  /** 这次加了复核标记的结论（已经标着的不重复记；329 号票前是转成 needs_review 的） */
+  /** 这次加了复核标记的结论（已经标着的不重复记；以前是转成 needs_review 的） */
   claimIds: string[];
   /** 这次标过期的问题 */
   questionIds: string[];
@@ -96,7 +96,7 @@ function purge(engine: MemoryEngine, targets: { evidence: Evidence[]; facts: Fac
   };
   if (report.evidenceIds.length === 0 && report.factIds.length === 0) return report;
 
-  // 267 号票：经唯一写入口（彻底删除 / 别推断，只由用户发起）
+  // 经唯一写入口（彻底删除 / 别推断，只由用户发起）
   const intent = { op: options.op ?? "purge", reason: options.reason, ...(options.actor === undefined ? {} : { actor: options.actor }), ...(options.via === undefined ? {} : { via: options.via }) } as const;
   const w = rgWriter(store);
   rgSession(store, intent, () => {
@@ -110,7 +110,7 @@ function purge(engine: MemoryEngine, targets: { evidence: Evidence[]; facts: Fac
       const claimId = engine.rg.registry.explicitClaimOf(factId);
       if (claimId !== undefined) affected.add(claimId);
     }
-    // 329 号票：依赖的结论加复核标记（之前就标着的不重复记），结论不删，下次整理重新判
+    // 依赖的结论加复核标记（之前就标着的不重复记），结论不删，下次整理重新判
     const reviewed = new Set<string>();
     const flagged = new Set(store.listClaims({ needsReview: true }).map((c) => c.id));
     const view = engine.rg.view(at);
@@ -147,7 +147,7 @@ function purge(engine: MemoryEngine, targets: { evidence: Evidence[]; facts: Fac
 
 /**
  * 受影响（要待复核）的结论：从被删的证据、事实出发，沿推断的前提→结论、关联的目标→结论走；
- * 明说的断言按事实找。和失效传播一样一路走到底（267 号票起不设深度上限），走过的不再走。
+ * 明说的断言按事实找。和失效传播一样一路走到底（不设深度上限），走过的不再走。
  */
 function collectAffectedClaims(engine: MemoryEngine, targets: ReadonlySet<string>): Set<string> {
   const store = engine.store;

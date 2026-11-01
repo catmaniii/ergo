@@ -1,4 +1,4 @@
-// 主切面：Claude Code 会话的撤回和分支（293 号票，issue 24 第三节丙类）。真的守护进程走组合根和插件清单，清单里的 Claude Code 插件经 extraPlugins
+// 主切面：Claude Code 会话的撤回和分支。真的守护进程走组合根和插件清单，清单里的 Claude Code 插件经 extraPlugins
 // 换成子进程接假 SDK 的那个（helpers/fake-claude-code.ts：运行时、适配子进程、撤回的分叉和文件恢复都是真的代码；SDK 按 faux 剧本扮演 claude，
 // 会话记录、forkSession、getSessionMessages、文件检查点是 helpers/fake-claude-sdk.ts 的 FakeClaudeStore），不启动真的 claude、不花额度、
 // 不碰用户真实的 ~/.claude（守护进程的主目录是临时的）。测试扮演前端，项目「家庭网盘」的负责人用 Claude Code：

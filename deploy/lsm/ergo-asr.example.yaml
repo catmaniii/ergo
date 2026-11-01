@@ -1,4 +1,4 @@
-# ergo-asr：二狗的语音识别服务（faster-whisper，250 号票）。由 Local Service Manager 登记、启动、探活、重启，
+# ergo-asr：二狗的语音识别服务（faster-whisper）。由 Local Service Manager 登记、启动、探活、重启，
 # 二狗自己不启动它。
 #
 # 这是服务管家（LSM）注册表条目的**示例**（格式见 packages/supervisor/docs/service-schema.md）。登记时复制一份，把下面的占位符换成本机的值，
@@ -15,7 +15,7 @@
 # - 守护进程自己拉的那条（voice.recognizer.mode: "spawn"，默认）只管得了一个子进程：它死了，守护进程要自己发现、自己重来
 #   （warmup.ts 的退避）；它占着显存、闲置了也没有谁统一去收。做成服务以后，LSM 负责探活（/health 说模型加载好没有）、
 #   挂了自动拉起（autoRestart）、开机自启（autostart.yaml），显存归谁、什么时候卸载都变成那条服务自己的事；
-# - 两条路并存是用户 2026-10-23 定的：默认仍走 spawn（行为一个字都不变），要用服务就把数据目录配置里的
+# - 两条路并存：默认仍走 spawn（行为一个字都不变），要用服务就把数据目录配置里的
 #   voice.recognizer.mode 写成 "lsm"（再改 url，默认 http://127.0.0.1:8091）。切换不用改代码、不用改别的配置；
 # - 服务自己不带 token、只听 127.0.0.1（和 audio.cpp 一样）：本机上能连到 8091 的进程本来就都能读到数据目录，
 #   再加一层 token 只是把密钥抄进注册表。

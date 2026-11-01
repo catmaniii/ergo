@@ -1,11 +1,11 @@
-// 进上下文、界面不显示的内容交给 Claude（291 号票，issue 24 方案 2.4、第三节丙表"进上下文不显示的消息"）：二狗现在给 pi 注入的那几样，
+// 进上下文、界面不显示的内容交给 Claude（丙表"进上下文不显示的消息"）：二狗现在给 pi 注入的那几样，
 // 在 Claude Code 里经 SDK 钩子的 additionalContext 交给模型（Claude Code 把它作为一段系统提醒放进上下文，不是用户说的话；网页显示的是
 // 二狗自己的会话事件，本来就不显示它）：
 // - 上下文块（装配参数 contributions.contextBlocks：重注入块——计划摘要、当前阶段、授权和边界——和插件经 agent 贡献缝给的"被唤起时注入"的那种，
 //   比如项目规范、记忆简报）：同 pi，每条输入之前（UserPromptSubmit）和每次压缩之后（SessionStart，source 是 compact）各注入一次最新的；
 //   contribution 命令按 id 换文字（没有这个 id 的当成新的一块）；
 // - 跟在这条输入后面的上下文（user_input.context：看板变化、语音回复的说明、插件"跟在输入后面"的那种，比如每条消息的记忆简报）：
-//   这条输入的 UserPromptSubmit 交给模型（287 号票时是用户消息里另一块文字，Claude 自己的会话记录里会当成用户说的）；
+//   这条输入的 UserPromptSubmit 交给模型（原来是用户消息里另一块文字，Claude 自己的会话记录里会当成用户说的）；
 // - 钩子订阅 system_prompt_suffix 和范围审视的近期范围记录（pi 那边每轮接在系统提示末尾、不进会话）：Claude 的系统提示在 query 起来时就定了，
 //   这里当成"一直在"的一段——起 query 后第一次、压缩之后、文字变了的时候注入一次（Claude 的会话记录会留下它，所以不每轮重复）；
 // - 二狗要告诉模型的话（工具包当场换了的"工具包已变更：……"，宿主协议 toolkit 的 notice）：下一次主线工具调用的结果（PostToolUse）或下一条输入，

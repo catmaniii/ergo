@@ -1,4 +1,4 @@
-// 主切面：文本类附件的内容（113 号票，报告页用）：GET /api/media/<媒体 id>/text 回 JSON，不让浏览器直接渲染文件。
+// 主切面：文本类附件的内容（报告页用）：GET /api/media/<媒体 id>/text 回 JSON，不让浏览器直接渲染文件。
 // 真的守护进程（临时数据目录）：附件经 HTTP 上传入库，再像 agent 发附件那样作为一条消息追加进秘书会话（名字、类型以消息里
 // 最近一次引用它的文件 part 为准）；测试扮演前端取内容。媒体接口原有的内联、下载规矩不变（回归）。
 import fs from "node:fs";
@@ -63,7 +63,7 @@ describe("文本类附件的内容接口", () => {
     expect((await media.text(test.url, id)).body).toMatchObject({ name: "日报-终版.md", mime: "text/markdown" });
   });
 
-  it("不能预览的类型回 415 并说明原因：xhtml、zip、图片，以及本版还没做的 CSV（HTML、SVG 117 号票起在沙箱里预览，见 media-frame.test.ts）", async () => {
+  it("不能预览的类型回 415 并说明原因：xhtml、zip、图片，以及本版还没做的 CSV（HTML、SVG 在沙箱里预览，见 media-frame.test.ts）", async () => {
     const test = await startTestDaemon();
     // 浏览器会当页面跑的 xhtml：就算 part 上写成纯文本也不预览
     const xhtml = await sendFile(test, '<html xmlns="http://www.w3.org/1999/xhtml"><script>alert(1)</script></html>', "活动页.xhtml", "text/plain");

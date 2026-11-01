@@ -1,21 +1,21 @@
-// MemoryEngine：记忆 PoC 对外的操作（第 7.2 节）。188 号票做写入和查询：
+// MemoryEngine：记忆 PoC 对外的操作（第 7.2 节）。做写入和查询：
 // - 写入：ingestEvidence / ingestFrom（证据入库、建关键词索引）、extractFacts（抽事实、变化判定，增量、幂等）、indexVectors（补算向量）；
 // - 查询：getEvidence / getFact / getEntity、factsAt（那时成立的事实，按场景过滤）、neighbors（一跳、两跳）；
-// - 失效：correct（纠正）、invalidateEvidence（忘掉）做到事实这一层，再调推理图谱的传播钩子（④ 号票接上）。
-// - 检索（190 号票，③）：search 的 vector / hybrid / hybrid_kg 交给 retrieval/search.ts；
-// - 推理图谱（④ 号票，rg/reasoning-graph.ts）：reflect、explainClaim、findCounterevidence、tracePremises、getUserModel、answer，
+// - 失效：correct（纠正）、invalidateEvidence（忘掉）做到事实这一层，再调推理图谱的传播钩子。
+// - 检索（③）：search 的 vector / hybrid / hybrid_kg 交给 retrieval/search.ts；
+// - 推理图谱（rg/reasoning-graph.ts）：reflect、explainClaim、findCounterevidence、tracePremises、getUserModel、answer，
 //   search 的 hybrid_kg_rg 模式（另接了 ReasoningRetrieval 时用接上的那个）；它也是默认的传播钩子。
-// - 为任务调出相关的用户模型、交互策略（196 号票）：indexClaims、relevantUserModel、compileStrategies、listStrategies、confirmStrategy、
+// - 为任务调出相关的用户模型、交互策略：indexClaims、relevantUserModel、compileStrategies、listStrategies、confirmStrategy、
 //   adviseTask（rg/claim-index.ts、value-retrieval.ts、strategies.ts、advice.ts）。
-// - 回答层（202 号票）：answer 先分流（rg/question.ts），关于自己的判断、为什么查用户模型和推理图谱、过相关门槛（rg/relevance.ts），
+// - 回答层：answer 先分流（rg/question.ts），关于自己的判断、为什么查用户模型和推理图谱、过相关门槛（rg/relevance.ts），
 //   任务走 adviseTask；门槛可以在打开引擎时配（relevanceGate）。
-// - 每日整理和了解你问题（198 号票）：runNightly（nightly.ts）、pickQuestion、recordQuestionAnswer、recordQuestionSkipped、declineQuestion、
-//   264 号票接进线上时加的 markQuestionAsked（秘书真的带上了才记问过）、readQuestionReply（用户的下一句是不是在答）、
+// - 每日整理和了解你问题：runNightly（nightly.ts）、pickQuestion、recordQuestionAnswer、recordQuestionSkipped、declineQuestion、
+//   接进线上时加的 markQuestionAsked（秘书真的带上了才记问过）、readQuestionReply（用户的下一句是不是在答）、
 //   listQuestions（rg/questions.ts、rg/question-sources.ts）。
-// - 给大模型回答器的记忆简报（216 号票）：memoryBrief（llm/brief.ts；回答器本身是 llm/answerer.ts 的 LlmAnswerer）；
-//   每条消息的记忆简报（266 号票，守护进程追加在秘书每一轮输入的尾部）：messageBrief。
-// - 用户对一条结论直接表态（263 号票）：recordClaimVerdict（对 / 不对 / 拿不准，rg/verdicts.ts）、rejectClaim、markClaimForReview。
-// - 推理图谱的唯一写入口（267 号票，ADR-0030，rg/write-gate.ts）：engine.gate。上面这些写操作一律经它——写之前按推理图谱的规矩检查（rg/graph-rules.ts 和写入口自己那几条）、
+// - 给大模型回答器的记忆简报：memoryBrief（llm/brief.ts；回答器本身是 llm/answerer.ts 的 LlmAnswerer）；
+//   每条消息的记忆简报（守护进程追加在秘书每一轮输入的尾部）：messageBrief。
+// - 用户对一条结论直接表态：recordClaimVerdict（对 / 不对 / 拿不准，rg/verdicts.ts）、rejectClaim、markClaimForReview。
+// - 推理图谱的唯一写入口（ADR-0030，rg/write-gate.ts）：engine.gate。上面这些写操作一律经它——写之前按推理图谱的规矩检查（rg/graph-rules.ts 和写入口自己那几条）、
 //   权限分档、写完留痕；证据入库、抽事实、纠正、忘掉也一样（忘掉、纠正默认算用户发起）。打开时可以开成只读（秘书、负责人那一份）。
 import { USER_ENTITY_ID } from "./domain/ids.ts";
 import type { Claim, Entity, Evidence, EvidenceDraft, Fact } from "./domain/types.ts";
@@ -51,7 +51,7 @@ import { isVerdictEvidence } from "./evidence/boundary.ts";
 import { ReasoningWriteGate, type WriteGateOptions } from "./rg/write-gate.ts";
 import type { WriteActor } from "./domain/types.ts";
 
-/** 还没做的操作（留给后面的票） */
+/** 还没做的操作（留给以后） */
 export class NotImplementedYet extends Error {
   constructor(operation: string, ticket: string) {
     super(`${operation} 还没做（${ticket}）`);
@@ -68,12 +68,12 @@ export interface InvalidationEvent extends FactInvalidation {
   /** 纠正它的证据（evidence_corrected 时） */
   byEvidenceId: string | null;
   reason: string;
-  /** 199 号票：写回知识图谱时，定根源的那组断言自己不跟着待复核（它的前提里就有被改掉的事实） */
+  /** 写回知识图谱时，定根源的那组断言自己不跟着待复核（它的前提里就有被改掉的事实） */
   sparedClaimIds?: string[];
 }
 
 /**
- * 推理图谱的传播钩子（第 7.3 节第 2–6 条，④ 号票实现；329 号票照原始推理图谱改，ADR-0032）：前提里的事实被用户纠正 → 往上按 R8 撤
+ * 推理图谱的传播钩子（第 7.3 节第 2–6 条，照原始推理图谱改，ADR-0032）：前提里的事实被用户纠正 → 往上按 R8 撤
  * （有直接证实的留下）；被忘掉、失效的 → 加复核标记、已验证的降回猜测、悬空的撤；
  * 支持、反证被拿掉后重算置信度，一路往下传。在引擎的同一个事务里调用：钩子出错，整个纠正或忘掉都不算。
  */
@@ -86,30 +86,30 @@ export interface MemoryEngineOptions {
   file: string;
   /** 修订、"现在"用的时钟；演示和测试注入合成数据的 now */
   clock?: () => string;
-  /** 默认规则版（199 号票起是 RelationalFactExtractor，rule:4：188 的规则版加实体关系；207 号票修问句和否定，rule:4.1） */
+  /** 默认规则版（是 RelationalFactExtractor，rule:4：规则版加实体关系；修问句和否定，rule:4.1） */
   extractor?: FactExtractor;
   /** 不给就不算向量 */
   embedder?: Embedder;
   /** 不给 = 推理图谱自己（ReasoningGraph）；测试可以换成别的 */
   propagation?: ReasoningPropagation;
   lexicon?: Lexicon;
-  /** D 组检索（hybrid_kg_rg）：④ 号票的推理图谱接上；不给时用自带的推理图谱 */
+  /** D 组检索（hybrid_kg_rg）：推理图谱接上；不给时用自带的推理图谱 */
   reasoningRetrieval?: ReasoningRetrieval;
   /** 推理实现，默认规则版（RuleReasoner）；模型版是 LlmReasoner */
   reasoner?: Reasoner;
-  /** 226 号票：判到期预测的模型；不给就只记账本、到期预测留 open（reflect 时也可以单独传） */
+  /** 判到期预测的模型；不给就只记账本、到期预测留 open（reflect 时也可以单独传） */
   predictionJudge?: PredictionJudge;
-  /** 227 号票：对抗复核用的模型（独立复核员）；不给就不复核（规则版不调模型） */
+  /** 对抗复核用的模型（独立复核员）；不给就不复核（规则版不调模型） */
   reviewer?: ChatModel;
-  /** 回答层和 D 组检索的相关门槛（202 号票）；不给用 DEFAULT_RELEVANCE_GATE（三条路、前 3 名、往上走看检索前 5 条） */
+  /** 回答层和 D 组检索的相关门槛；不给用 DEFAULT_RELEVANCE_GATE（三条路、前 3 名、往上走看检索前 5 条） */
   relevanceGate?: Partial<RelevanceGate>;
-  /** 199 号票：知识图谱和推理图谱联动（对比模式、矛盾根源、写回），默认开；false 关掉 */
+  /** 知识图谱和推理图谱联动（对比模式、矛盾根源、写回），默认开；false 关掉 */
   joint?: boolean;
-  /** 267 号票：唯一写入口的设置——只读（秘书、负责人那一份）、敏感类别里没打开推断的那几类的场景标签 */
+  /** 唯一写入口的设置——只读（秘书、负责人那一份）、敏感类别里没打开推断的那几类的场景标签 */
   writeGate?: WriteGateOptions;
 }
 
-/** 267 号票：纠正、忘掉是谁发起的（默认用户自己；经记忆管理员转达的写 via） */
+/** 纠正、忘掉是谁发起的（默认用户自己；经记忆管理员转达的写 via） */
 export interface UserActionOptions {
   actor?: WriteActor;
   via?: string;
@@ -142,11 +142,11 @@ export class MemoryEngine {
   readonly store: MemoryStore;
   readonly kg: KnowledgeGraph;
   readonly extractor: FactExtractor;
-  /** 推理图谱（④ 号票） */
+  /** 推理图谱 */
   readonly rg: ReasoningGraph;
-  /** 267 号票：推理图谱的唯一写入口（检查、权限分档、留痕） */
+  /** 推理图谱的唯一写入口（检查、权限分档、留痕） */
   readonly gate: ReasoningWriteGate;
-  /** 227 号票：对抗复核的模型（独立复核员）；没给时整理末尾不复核 */
+  /** 对抗复核的模型（独立复核员）；没给时整理末尾不复核 */
   readonly reviewer: ChatModel | undefined;
   private readonly embedder: Embedder | undefined;
   private readonly predictionJudge: PredictionJudge | undefined;
@@ -166,11 +166,11 @@ export class MemoryEngine {
     this.retriever = new Retriever(this.kg, options.embedder);
     this.reasoningRetrieval = options.reasoningRetrieval;
     this.rg = new ReasoningGraph(this, { reasoner: options.reasoner ?? new RuleReasoner(), lexicon: options.lexicon ?? DEFAULT_LEXICON, joint: options.joint });
-    // 201 号票：模型版往上抽要看已有的组（下次整理不重复问模型）
+    // 模型版往上抽要看已有的组（下次整理不重复问模型）
     (this.rg.reasoner as { attachGraph?: (rg: ReasoningGraph) => void }).attachGraph?.(this.rg);
     this.propagation = options.propagation ?? this.rg;
     if (options.relevanceGate) this.rg.relevanceGate = options.relevanceGate;
-    // 207 号票：联动分不出的问题默认交给 198 的问题箱
+    // 联动分不出的问题默认交给问题箱
     this.rg.joint?.setQuestionSink(this.questions);
   }
 
@@ -182,12 +182,12 @@ export class MemoryEngine {
     this.store.close();
   }
 
-  /** 接上（或换掉）D 组检索（hybrid_kg_rg，④ 号票） */
+  /** 接上（或换掉）D 组检索（hybrid_kg_rg） */
   setReasoningRetrieval(retrieval: ReasoningRetrieval | undefined): void {
     this.reasoningRetrieval = retrieval;
   }
 
-  /** 打开引擎时给的向量函数（205 号票：回答层按背景语料校准向量门槛要用）；没给时是 undefined */
+  /** 打开引擎时给的向量函数（回答层按背景语料校准向量门槛要用）；没给时是 undefined */
   getEmbedder(): Embedder | undefined {
     return this.embedder;
   }
@@ -217,12 +217,12 @@ export class MemoryEngine {
     return this.gate.write({ op: "extract", reason: `抽事实（${this.extractor.id}）` }, () => {
       const report: ExtractionReport = { processed: [], newFactIds: [], mergedFactIds: [], changes: [], probeIds: [], correctedFactIds: [] };
       const wanted = options.evidenceIds ? new Set(options.evidenceIds) : undefined;
-      // 263 号票：用户的表态证据（"用户说这条结论对"）不抽事实：不是用户原来的话，抽了会和那条结论自己的依据重复计数
+      // 用户的表态证据（"用户说这条结论对"）不抽事实：不是用户原来的话，抽了会和那条结论自己的依据重复计数
       const queue = this.store.listEvidence({ status: "active" }).filter((e) => (wanted ? wanted.has(e.id) : true) && !isVerdictEvidence(e) && !this.store.isExtracted(e.id, this.extractor.id));
       for (const evidence of queue) {
         const factIds: string[] = [];
         const corrected: string[] = [];
-        // 199 号票：先对齐这条证据说出的别名（"老王（组里都喊他王哥）"），这条证据里的两个叫法就落到同一个实体
+        // 先对齐这条证据说出的别名（"老王（组里都喊他王哥）"），这条证据里的两个叫法就落到同一个实体
         if (isAliasAware(this.extractor)) alignAliases(this.kg, this.extractor.aliasesOf(evidence, this.kg.view()), evidence);
         for (const draft of this.extractor.extract(evidence, this.kg.view())) {
           const r = this.kg.addFact(draft, evidence, this.extractor.id);
@@ -231,7 +231,7 @@ export class MemoryEngine {
           report.changes.push(...r.changes);
           report.probeIds.push(...r.probeIds);
           corrected.push(...r.correctedFactIds);
-          // 329 号票（R4 传播铁律）：旧事实因为真冲突变成拿不准，以它为前提的已验证在同一次写里降回猜测（前提照挂、保留）
+          // R4 传播铁律：旧事实因为真冲突变成拿不准，以它为前提的已验证在同一次写里降回猜测（前提照挂、保留）
           for (const change of r.changes) if (change.kind === "conflict") this.factUnverified(change.oldFactId, `真冲突：和 ${change.newFactId} 同时间同场景互相排斥（证据 ${evidence.id}）`, evidence.id);
         }
         this.store.markExtracted(evidence.id, this.extractor.id, factIds);
@@ -254,7 +254,7 @@ export class MemoryEngine {
   }
 
   /**
-   * 抽事实的异步版（192 号票）：模型版的抽取器先按预算 prepare（发请求、校验、缓存），再同步抽准备好的；规则版就是 extractFacts()。
+   * 抽事实的异步版：模型版的抽取器先按预算 prepare（发请求、校验、缓存），再同步抽准备好的；规则版就是 extractFacts()。
    * reflect 的第 1 步、评测建库都走它（模型版的抽取器不 prepare 不能抽）。预算不给时按 maxModelCalls（默认同 reflect）新开一份。
    */
   async extractPending(options: { budget?: ModelBudget; maxModelCalls?: number; dropped?: DroppedOutput[]; stats?: ReasoningStats } = {}): Promise<ExtractionReport> {
@@ -366,7 +366,7 @@ export class MemoryEngine {
     });
   }
 
-  /** 329 号票：一条事实变得没验证（拿不准）：以它为前提的已验证降回猜测（R4，rg/status-keeper.ts；要在调用方开的那一次写里调） */
+  /** 一条事实变得没验证（拿不准）：以它为前提的已验证降回猜测（R4，rg/status-keeper.ts；要在调用方开的那一次写里调） */
   private factUnverified(factId: string, reason: string, evidenceId: string | null): void {
     if (this.store.getFact(factId)?.status !== "contested") return;
     const at = this.store.now();
@@ -381,7 +381,7 @@ export class MemoryEngine {
     this.propagation?.onInvalidation(event, this);
   }
 
-  // ---------- 检索（③ 号票）和推理图谱（④ 号票） ----------
+  // ---------- 检索和推理图谱 ----------
 
   /**
    * 检索（第 6 节）：vector（A）、hybrid（B）、hybrid_kg（C）见 retrieval/search.ts；
@@ -404,7 +404,7 @@ export class MemoryEngine {
   }
 
   /**
-   * 201 号票：推理实现会写策略（模型版）时，整理末尾把还没有模型写的策略的成立的需求、价值交给它写，用这次 reflect 剩下的预算；
+   * 推理实现会写策略（模型版）时，整理末尾把还没有模型写的策略的成立的需求、价值交给它写，用这次 reflect 剩下的预算；
    * 预算不够没写成的留到下次（budgetExhausted）。规则版没有 writeStrategies，什么都不做（策略按需按模板编）
    */
   private async writeStrategiesAfterReflect(report: ReflectReport, options: ReflectOptions): Promise<ReflectReport> {
@@ -415,7 +415,7 @@ export class MemoryEngine {
     const budget = createBudget(Math.max(0, (options.maxModelCalls ?? DEFAULT_MAX_MODEL_CALLS) - report.modelCalls));
     const written = await this.strategies.writeWithModel({ id: reasoner.id, writeStrategies: reasoner.writeStrategies.bind(reasoner) }, { budget, dropped: report.dropped, stats: report.stats });
     report.modelCalls += budget.used;
-    // 270 号票：编策略那一道花了几次
+    // 编策略那一道花了几次
     if (report.spend) report.spend.strategies += budget.used;
     if (written.leftover) report.budgetExhausted = true;
     report.strategies = { created: written.created, updated: written.updated };
@@ -438,23 +438,23 @@ export class MemoryEngine {
     return this.rg.tracePremises(claimId);
   }
 
-  /** 用户确认了一条断言（by 是本人的证据）：标 user_confirmed，记决定性支持，重定它那组的状态（195 号票） */
+  /** 用户确认了一条断言（by 是本人的证据）：标 user_confirmed，记决定性支持，重定它那组的状态 */
   confirmClaim(claimId: string, byEvidenceId: string): Claim {
     return this.rg.confirmClaim(claimId, byEvidenceId);
   }
 
-  /** 263 号票：用户说这条断言不对（by 是本人的证据）：记决定性的反证，重定它那组（没有决定性的支持就撤回）；明说的不改 */
+  /** 用户说这条断言不对（by 是本人的证据）：记决定性的反证，重定它那组（没有决定性的支持就撤回）；明说的不改 */
   rejectClaim(claimId: string, byEvidenceId: string): Claim {
     return this.rg.rejectClaim(claimId, byEvidenceId);
   }
 
-  /** 263 号票：把一条断言标成待复核，下一次整理按现有的关联重判；它成立时往下的依赖也待复核 */
+  /** 把一条断言标成待复核，下一次整理按现有的关联重判；它成立时往下的依赖也待复核 */
   markClaimForReview(claimId: string, reason: string, byEvidenceId: string | null = null): Claim {
     return this.rg.markClaimForReview(claimId, { evidenceId: byEvidenceId, reason });
   }
 
   /**
-   * 263 号票：用户对一条结论直接表态（对 / 不对 / 拿不准）：记一条本人的表态证据（不抽事实），收回他先前相反的表态，
+   * 用户对一条结论直接表态（对 / 不对 / 拿不准）：记一条本人的表态证据（不抽事实），收回他先前相反的表态，
    * 再走 confirmClaim / rejectClaim / markClaimForReview——整理计分认这些，不会把它改回去。被拒时抛 ClaimVerdictRefused（rg/verdicts.ts）
    */
   recordClaimVerdict(claimId: string, verdict: ClaimVerdict, options: ClaimVerdictOptions = {}): ClaimVerdictResult {
@@ -471,7 +471,7 @@ export class MemoryEngine {
     return this.rg.answer(question, options);
   }
 
-  // ---------- 知识图谱和推理图谱联动（199 号票） ----------
+  // ---------- 知识图谱和推理图谱联动 ----------
 
   /** 联动的结果：找出的隐蔽联系（对比模式）、矛盾和它们的根源、写回了什么、问题队列（评测、演示看的；只读） */
   jointSummary(at?: string): JointSummary {
@@ -485,7 +485,7 @@ export class MemoryEngine {
     return this.rg.joint?.questions(options) ?? [];
   }
 
-  /** 换掉联动交问题的钩子（默认是问题箱 questions，207 号票）；新进的问题在整理时交给它，传 undefined 就只在 joint_questions 记账 */
+  /** 换掉联动交问题的钩子（默认是问题箱 questions）；新进的问题在整理时交给它，传 undefined 就只在 joint_questions 记账 */
   setQuestionSink(sink: QuestionSink | undefined): void {
     this.rg.joint?.setQuestionSink(sink);
   }
@@ -495,7 +495,7 @@ export class MemoryEngine {
     return this.rg.writeback.marks.of(factId);
   }
 
-  // ---------- 为任务调出相关的用户模型、交互策略（196 号票） ----------
+  // ---------- 为任务调出相关的用户模型、交互策略 ----------
 
   private claimIndexCache: ClaimIndex | undefined;
   private strategyBookCache: StrategyBook | undefined;
@@ -541,7 +541,7 @@ export class MemoryEngine {
     return adviseTask({ rg: this.rg, index: this.claimIndex, strategies: this.strategies, relevant: (t, o) => this.relevantUserModel(t, o) }, task, options);
   }
 
-  // ---------- 给大模型回答器的记忆简报（216 号票） ----------
+  // ---------- 给大模型回答器的记忆简报 ----------
 
   /** 记忆简报：A、B、C 是这组检索出的记录（原话、时间、谁说的、精炼陈述），D 是 C 的记录加和问题相关的用户画像；有长度上限 */
   memoryBrief(question: string, options: MemoryBriefOptions): Promise<MemoryBrief> {
@@ -549,14 +549,14 @@ export class MemoryEngine {
   }
 
   /**
-   * 每条消息的记忆简报（266 号票）：只用本机检索和相关门槛判有没有相关的，有才带过了门槛的结论连原话（D 组那几节、BRIEF_LIMITS）；
+   * 每条消息的记忆简报：只用本机检索和相关门槛判有没有相关的，有才带过了门槛的结论连原话（D 组那几节、BRIEF_LIMITS）；
    * known 里带过、没变的不再带。不调模型
    */
   messageBrief(text: string, options: MessageBriefOptions = {}): Promise<MessageBrief> {
     return buildMessageBrief(this, text, options);
   }
 
-  // ---------- 每日整理和了解你问题（198 号票） ----------
+  // ---------- 每日整理和了解你问题 ----------
 
   private questionBookCache: QuestionBook | undefined;
 
@@ -575,12 +575,12 @@ export class MemoryEngine {
     return this.questions.pick(conversationText, options);
   }
 
-  /** 秘书真的在回话里顺口问了这个问题（264 号票：线上先 pickQuestion 的 peek 挑、带上了才记）：记"问过" */
+  /** 秘书真的在回话里顺口问了这个问题（线上先 pickQuestion 的 peek 挑、带上了才记）：记"问过" */
   markQuestionAsked(questionId: string, options: { at?: string; how?: string } & QuestionWriteBy = {}): QuestionView {
     return this.questions.markAsked(questionId, options);
   }
 
-  /** 用户在顺口问以后的下一句：是在答这个问题、跳过、说"别问这个"，还是在说别的（264 号票，规则版，不调模型） */
+  /** 用户在顺口问以后的下一句：是在答这个问题、跳过、说"别问这个"，还是在说别的（规则版，不调模型） */
   readQuestionReply(questionId: string, reply: string): ReplyReading {
     return this.questions.readReply(questionId, reply);
   }

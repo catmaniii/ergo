@@ -1,19 +1,19 @@
 // @i18n-ignore-file model：工具的名字走 t()（别的文件），说明、参数说明和交回的文字都是给记忆管理员（模型）看的；
 // 写进推理库修订记录的"为什么改"是数据，随被改的数据走（和 purge-rg.ts 同一个规矩），不随界面语言变。
 //
-// 记忆管理员的工具（242 号票）：尽量复用已有的实现，别自己造一套。
-// - run_memory_consolidation：现在整理一次。走的是同一份作业（235 号票的 runNow / 03:00 那一夜作业给的 run）——同一个引擎、
+// 记忆管理员的工具：尽量复用已有的实现，别自己造一套。
+// - run_memory_consolidation：现在整理一次。走的是同一份作业（runNow / 03:00 那一夜作业给的 run）——同一个引擎、
 //   同一份 memory.maxModelCalls、同一条整理记录；管理员只是外面那层壳，不改整理出来的结论；
-// - inspect_memory：看一条结论的来龙去脉（233 号票的只读视图，memory/graph.ts 的 claim）；
-// - review_memory_claim：用户对一条结论表态——对（改回成立）、不对（撤回）、拿不准（标成待复核）。263 号票起走 @ergo/memory 引擎的
+// - inspect_memory：看一条结论的来龙去脉（只读视图，memory/graph.ts 的 claim）；
+// - review_memory_claim：用户对一条结论表态——对（改回成立）、不对（撤回）、拿不准（标成待复核）。走 @ergo/memory 引擎的
 //   recordClaimVerdict（记一条本人的表态证据，再走 confirmClaim / rejectClaim / markClaimForReview），不直接改库：
 //   整理计分认决定性的支持、反证，下一次整理不会把它改回去；修订记录写明是记忆管理员按用户的话记的；
-// - forget_material / no_infer_material：忘掉、别推断（234 号票的 purge-rg）：追加一条记忆命令，记忆插件那边照常处理
+// - forget_material / no_infer_material：忘掉、别推断（purge-rg）：追加一条记忆命令，记忆插件那边照常处理
 //   （证据清原文、事实撤回、依赖的结论待复核；别推断的以后读素材也跳过它）。不走 SQL 直接删；
-// - memory_questions：看问题箱、挑该问的（233 号票的只读视图）；
+// - memory_questions：看问题箱、挑该问的（只读视图）；
 // - 另外复用秘书那两个只读的素材工具：检索素材、读素材全文（找要忘掉的是哪一条、看原话）。
 // 不给的：改配置、删素材库、改别人的会话——管理员没有这些工具，用户要就只能说"这个我不做"。
-// 267 号票：推理图谱只有一个写入口（@ergo/memory 的 engine.gate，ADR-0030）。管理员的写（表态）也经它：写之前检查、权限分档、留痕；
+// 推理图谱只有一个写入口（@ergo/memory 的 engine.gate，ADR-0030）。管理员的写（表态）也经它：写之前检查、权限分档、留痕；
 // 不合格被拒时什么都没写，工具把写入口给的原因逐条交回，管理员照实告诉用户或者改了再写。
 import { type Claim, type ClaimVerdict, ClaimVerdictRefused, type Embedder, type MemoryEngine, ReasoningWriteRefused } from "@ergo/memory";
 import { type ConversationId, type DeleteCommandPayload, EVENT_TYPES, nowIso, t, Type } from "@ergo/protocol";
@@ -32,7 +32,7 @@ import { commandText, CURATOR_COMMAND_ALIASES, CURATOR_COMMANDS } from "../slash
 
 /**
  * 记忆管理员能记下的表态：active 对（确认）、retracted 不对（撤回）、needs_review 拿不准（加复核标记）。别的（猜测、被取代）是整理自己判的。
- * 329 号票起"待复核"不再是结论的状态，是单独的复核标记（真值状态不动）；工具参数沿用 needs_review 这个词
+ * "待复核"不再是结论的状态，是单独的复核标记（真值状态不动）；工具参数沿用 needs_review 这个词
  */
 export const CURATOR_CLAIM_STATUSES = ["active", "needs_review", "retracted"] as const;
 export type CuratorClaimStatus = (typeof CURATOR_CLAIM_STATUSES)[number];
@@ -55,19 +55,19 @@ export function consolidationText(record: MemoryNightlyRecord | undefined): stri
   if (record === undefined) return "这一夜没有留下整理记录（作业没跑）。素材一条没少，下一夜照常整理。";
   if (record.state === "ran") {
     const head = `整理完了（${record.night}）：新出 ${record.newClaims} 条结论、改了 ${record.changedClaims} 条、重判了 ${record.reviewed} 条待复核、跑完还待复核 ${record.needsReview} 条；问题箱里还开着 ${record.questions.open} 个；这次整理调了 ${record.modelCalls} 次模型${record.budgetExhausted ? "（预算用完，剩下的下一夜接着做）" : ""}。`;
-    // 270 号票：新证据整理完几条、还积压几条，预算花在哪几道（写进日记，积压着的时候管理员能照实说）
+    // 新证据整理完几条、还积压几条，预算花在哪几道（写进日记，积压着的时候管理员能照实说）
     const spend = record.spend;
     const lanes =
       spend === undefined
         ? ""
         : `新证据整理完 ${record.processedEvidence} 条、还积压 ${record.pendingEvidence} 条；调用按道分：新证据 ${spend.newEvidence}、判回答 ${spend.replies ?? 0}、重跑旧追问 ${spend.rejudge}、往上抽 ${spend.lift}、判预测 ${spend.predictions}、编策略 ${spend.strategies}（上限 ${spend.limit}），对抗复核另算 ${spend.review} 次。`;
-    // 271 号票：这一夜判了顺口问的回答（有动静时告诉管理员，写进日记）
+    // 这一夜判了顺口问的回答（有动静时告诉管理员，写进日记）
     const r = record.replies;
     const replies =
       r === undefined || r.answered + r.notAnswered + r.unsure + r.waiting === 0
         ? ""
         : `看了白天顺口问以后用户说的话：答了 ${r.answered} 个（回写成本人证据）、没在答 ${r.notAnswered} 个（算跳过一次）、拿不准 ${r.unsure} 个（留到下一夜）${r.waiting > 0 ? `、没轮到 ${r.waiting} 个（下一夜接着看）` : ""}。`;
-    // 263 号票：对抗复核、判到期预测线上接上了，有动静时告诉管理员（写进日记）
+    // 对抗复核、判到期预测线上接上了，有动静时告诉管理员（写进日记）
     const review = record.review !== undefined && record.review.reviewed > 0 ? `对抗复核了 ${record.review.reviewed} 条，${record.review.rejected} 条复核员不认、加了复核标记，${record.review.unclear} 条拿不准。` : "";
     const predictions =
       record.predictions !== undefined && record.predictions.judged > 0
@@ -77,7 +77,7 @@ export function consolidationText(record: MemoryNightlyRecord | undefined): stri
               : ""
           }`
         : "";
-    // 267 号票：每晚校验、写入口拒了的，有动静时也告诉管理员
+    // 每晚校验、写入口拒了的，有动静时也告诉管理员
     const validation =
       record.validation === undefined
         ? ""
@@ -86,7 +86,7 @@ export function consolidationText(record: MemoryNightlyRecord | undefined): stri
           : record.validation.state === "ok"
             ? "每晚校验通过了。"
             : `每晚校验报了 ${record.validation.problems} 个问题，${record.validation.claimIds.length} 条结论加了复核标记${record.validation.claimIds.length > 0 ? `（${record.validation.claimIds.join("、")}）` : ""}${(record.validation.downgraded ?? []).length > 0 ? `，${record.validation.downgraded!.length} 条已验证的压在没验证的前提上、降回猜测（${record.validation.downgraded!.join("、")}）` : ""}。`;
-    // 326 号票：结论 ↔ 假设换了的，有动静时告诉管理员（只在 326 号票的老记录里有；329 号票起身份锁死，不再写）
+    // 结论 ↔ 假设换了的，有动静时告诉管理员（只在老记录里有；身份锁死，不再写）
     const h = record.hypotheses;
     const down = h === undefined || h.downgraded.length === 0 ? "" : `${h.downgraded.length} 条结论的前提里有拿不准的事实，降成了假设（${h.downgraded.join("、")}）`;
     const up = h === undefined || h.upgraded.length === 0 ? "" : `${h.upgraded.length} 条冲突解决了，升回结论（${h.upgraded.join("、")}）`;
@@ -119,7 +119,7 @@ function claimText(graph: GraphView, claimId: string): string {
   ];
   if (view.group) lines.push(`观察：「${clip(view.group.description, 80)}」`);
   for (const link of [...view.supports, ...view.refutes].slice(0, QUOTES_MAX)) {
-    // 272 号票：每段原话前面写上是哪条证据（ev-…）——管理员回答时照提示词引证据编号，彻底删除那条素材时按编号抹掉回答里的那几行
+    // 每段原话前面写上是哪条证据（ev-…）——管理员回答时照提示词引证据编号，彻底删除那条素材时按编号抹掉回答里的那几行
     const quotes = link.evidence
       .filter((evidence) => evidence.text !== "")
       .slice(0, 2)
@@ -150,13 +150,13 @@ function questionsText(graph: GraphView, limit: number): string {
   return lines.join("\n");
 }
 
-/** 管理员改成的状态 → 用户的表态（263 号票：对、不对、拿不准） */
+/** 管理员改成的状态 → 用户的表态（对、不对、拿不准） */
 const VERDICT_OF: Readonly<Record<CuratorClaimStatus, ClaimVerdict>> = { active: "confirm", retracted: "reject", needs_review: "doubt" };
 
 /** 表态转达的说法（写进表态证据的原文：固定的一句，不放用户的原话） */
 const VIA_CURATOR = "经记忆管理员";
 
-/** 证据背后的素材编号（mat-…；303 号票几条数据源素材合成的那条拆开；表态证据、合成数据这类不是素材的不算） */
+/** 证据背后的素材编号（mat-…；几条数据源素材合成的那条拆开；表态证据、合成数据这类不是素材的不算） */
 function materialIdsOf(engine: MemoryEngine, evidenceIds: readonly string[]): string[] {
   return [...new Set(evidenceIds.flatMap((id) => materialIdsOfRef(engine.store.getEvidence(id)?.sourceRef)))];
 }
@@ -173,7 +173,7 @@ function refusalText(engine: MemoryEngine, err: ClaimVerdictRefused, claim: Clai
 }
 
 /**
- * 263 号票：记下用户对一条结论的表态，走引擎的 recordClaimVerdict（不直接改库）。已经是那个样子的不重复记：
+ * 记下用户对一条结论的表态，走引擎的 recordClaimVerdict（不直接改库）。已经是那个样子的不重复记：
  * 成立且用户确认过 / 用户自己明说的再说对，待复核的再说拿不准，撤回的再说不对
  */
 function reviewClaim(engine: MemoryEngine, claimId: string, status: CuratorClaimStatus, note: string): { text: string; isError?: boolean } {
@@ -192,7 +192,7 @@ function reviewClaim(engine: MemoryEngine, claimId: string, status: CuratorClaim
     outcome = engine.recordClaimVerdict(claimId, VERDICT_OF[status], { via: VIA_CURATOR, note });
   } catch (err) {
     if (err instanceof ClaimVerdictRefused) return { text: refusalText(engine, err, claim), isError: true };
-    // 267 号票：唯一写入口查出不合规矩，整次没写；原因逐条交回
+    // 唯一写入口查出不合规矩，整次没写；原因逐条交回
     if (err instanceof ReasoningWriteRefused) return { text: `${claimId} 没改：推理图谱的写入口没让写——${err.problems.map((p) => p.message).join("；")}。照实告诉用户，能改的改了再写。`, isError: true };
     throw err;
   }
@@ -239,7 +239,7 @@ export interface CuratorToolDeps {
 /** 记忆管理员的工具清单（永远不连真的模型：整理用记忆插件自己那份配置） */
 export function curatorTools(deps: CuratorToolDeps): HostTool[] {
   const log = deps.log ?? (() => {});
-  /** 打开推理库、做一件事、关掉（和 233、234 号票一样随用随开） */
+  /** 打开推理库、做一件事、关掉（随用随开） */
   const withEngine = <T>(fn: (engine: MemoryEngine) => T): { ok: true; value: T } | { ok: false; text: string } => {
     let opened: ReturnType<typeof openReasoningDb>;
     try {
@@ -257,9 +257,9 @@ export function curatorTools(deps: CuratorToolDeps): HostTool[] {
     }
   };
 
-  /** 追加一条记忆命令（忘掉、别推断）：234 号票的 purge-rg 订阅它，按老规矩处理推理库 */
+  /** 追加一条记忆命令（忘掉、别推断）：purge-rg 订阅它，按老规矩处理推理库 */
   const command = (mode: "forget" | "no_infer", materialIds: readonly string[], reason: string) => {
-    // 366 号票：忘掉时记下来的文件一起删（命令记着媒体编号，memory/after-purge.ts）
+    // 忘掉时记下来的文件一起删（命令记着媒体编号，memory/after-purge.ts）
     const mediaIds = mode === "forget" ? rememberedMediaOf(materialIds.flatMap((id) => deps.materials.get(id) ?? [])) : [];
     const payload: DeleteCommandPayload = {
       commandId: `curator-${nowIso()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -387,7 +387,7 @@ export function curatorTools(deps: CuratorToolDeps): HostTool[] {
   ];
 }
 
-/** 记忆管理员的工具名（守卫看到的工具包、测试比对）；284 号票起后四个是了解你访谈的（interview-tools.ts） */
+/** 记忆管理员的工具名（守卫看到的工具包、测试比对）；后四个是了解你访谈的（interview-tools.ts） */
 export const CURATOR_TOOL_NAMES = [
   "run_memory_consolidation",
   "inspect_memory",

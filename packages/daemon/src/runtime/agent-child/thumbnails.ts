@@ -1,5 +1,5 @@
 // @i18n-ignore-file model：缩不成的原因写进 view_files 的结果（给秘书看）
-// 子进程里的"缩小成小图"（145 号票的 view_files，149 号票起是秘书在用）：用 pi 自带的图片缩放（pi 的 read 工具读图时用的那个，
+// 子进程里的"缩小成小图"（view_files，是秘书在用）：用 pi 自带的图片缩放（pi 的 read 工具读图时用的那个，
 // Rust/WASM 的 Photon，解码、按 EXIF 摆正、缩小、编码），长边缩到上限以内、编码后不超过 MAX_BYTES：缩小后先试 PNG、再试 JPEG，
 // 哪个先够小用哪个——像照片的多半是 JPEG，大片纯色的（截图、全黑）PNG 就够小；本来就够小的原样给。
 // 守护进程只认得 JPEG、PNG、GIF、WebP 交给模型；别的格式（BMP 这类原样回来的）当看不了。

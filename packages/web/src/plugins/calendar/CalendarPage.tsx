@@ -1,4 +1,4 @@
-// 主导航的日历（35 号票，规格第 19 节"日历"）：按月看，每天标上班或休息（原因的短词、手动标记），用小标记标出当天几条提醒、
+// 主导航的日历（规格第 19 节"日历"）：按月看，每天标上班或休息（原因的短词、手动标记），用小标记标出当天几条提醒、
 // 几次定时作业，有作业失败的标红点。标题里的年份、月份都能点：点年份出年份列表（今年前后若干年，缺节假日数据的年份标出来），
 // 点月份出 12 个月，选了直接跳过去；"回到今天"一键回来。点某一天展开这一天的详情：手机上是单独一页（能返回），宽屏是日历旁边的面板。
 // 详情里有工作日判定和原因、当天的提醒（时间、内容、触发没有）、当天的定时作业（几点、属于哪个项目、这一次的结果或预计），
@@ -6,12 +6,12 @@
 //
 // 数据：守护进程按月给出每一天的日历条目（DaemonHttp.calendarMonth），并进前端状态层；提醒、作业、工作日历变了的事件推来后，
 // 手里这份算旧了（状态层的 calendarMonthOf），这里重新取（取的时候先接着显示旧的，不闪）。地址：#/calendar[/YYYY-MM | /YYYY-MM-DD]。
-// 193 号票：提醒那几样（图例里的"提醒"、格子里提醒的小标、详情里"提醒"那一节）由提醒插件画（网页插件的日历插槽，排在核心的定时作业前面）；
+// 提醒那几样（图例里的"提醒"、格子里提醒的小标、详情里"提醒"那一节）由提醒插件画（网页插件的日历插槽，排在核心的定时作业前面）；
 // 提醒插件停用时都没有（守护进程那边当天的提醒也是空的）。
-// 213 号票：整页挪进日历插件（pages/CalendarPage.tsx → plugins/calendar/，plugin.tsx 登记成网页插件的页面），一行没改；地址照旧是核心的
+// 整页挪进日历插件（pages/CalendarPage.tsx → plugins/calendar/，plugin.tsx 登记成网页插件的页面），一行没改；地址照旧是核心的
 // #/calendar，核心的路由经 CalendarSection 交过来（地址里那一段是月份或日期）。日历插槽、工作日判定、定时作业的推导还在核心。
-// 299 号票：外部日历（数据源交来的日程：手机日历……）——格子上的小标、图例（这个月有才出）、详情里"外部日历"一节（时间或全天、标题、
-// 来自哪里），只读。306 号票：数据源同步来新的外部日程（工作日历频道上的临时事件 external_calendar），开着的月视图、当天详情自己重新取。
+// 外部日历（数据源交来的日程：手机日历……）——格子上的小标、图例（这个月有才出）、详情里"外部日历"一节（时间或全天、标题、
+// 来自哪里），只读。数据源同步来新的外部日程（工作日历频道上的临时事件 external_calendar），开着的月视图、当天详情自己重新取。
 import { type ComponentType, type KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
 import type { Navigate } from "../../app/route.ts";
 import { useBackLayer } from "../../app/page-back.ts";
@@ -43,7 +43,7 @@ import { type PageSectionProps, usePlugins } from "../api.ts";
 
 const errorText = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
-/** 月份的名字（中文"10 月"，英文"October"；171 号票） */
+/** 月份的名字（中文"10 月"，英文"October"） */
 const MONTH_NAMES = tTable({
   "1": "pages.calendar.month.1",
   "2": "pages.calendar.month.2",
@@ -120,12 +120,12 @@ function MonthPane({
   // 宽屏回到今天顺手展开今天的详情；手机上只回到这个月（详情是单独一页，不自动打开）
   const backToToday = () => navigate(wide ? { tab: "calendar", date: today } : { tab: "calendar" });
   const cells = view ? calendarCells(view) : [];
-  // 网页插件的日历插槽（193 号票）：图例、格子里的小标排在核心的定时作业前面
+  // 网页插件的日历插槽：图例、格子里的小标排在核心的定时作业前面
   const slots = usePlugins().list("calendar");
   const marks = slots.flatMap((slot) => (slot.CellMarks ? [{ id: slot.id, Marks: slot.CellMarks }] : []));
   // 周一在前
   const lead = view ? (view.days[0]!.verdict.weekday + 6) % 7 : 0;
-  // 外部日历（299 号票）：这个月有才在图例里出
+  // 外部日历：这个月有才在图例里出
   const hasExternal = cells.some((c) => c.external > 0);
   return (
     <div className="chat-col">
@@ -213,7 +213,7 @@ function MonthPane({
   );
 }
 
-/** 一天的格子：几号、班 / 休、原因的短词，下面一行是提醒数（提醒插件画的，193 号票）、作业数和失败的红点（不挤掉班 / 休） */
+/** 一天的格子：几号、班 / 休、原因的短词，下面一行是提醒数（提醒插件画的）、作业数和失败的红点（不挤掉班 / 休） */
 function DayCell({
   cell: c,
   marks,
@@ -342,7 +342,7 @@ function DayPane({ date, view, onBack, navigate }: { date: string; view: Calenda
   const { http } = useStore();
   const toast = useToast();
   const detail = view && calendarDayDetail(view, date);
-  // 网页插件的日历插槽（193 号票）：这一天的几节排在核心的定时作业前面
+  // 网页插件的日历插槽：这一天的几节排在核心的定时作业前面
   const daySlots = usePlugins().list("calendar");
   const mark = (m: DayMarkKind | undefined) => {
     http.changeWorkday(m ? { kind: "mark", date, mark: m } : { kind: "clear_mark", date }).catch((err: unknown) => toast(t("pages.calendar.markFailed", { error: errorText(err) })));
@@ -450,7 +450,7 @@ function DayPane({ date, view, onBack, navigate }: { date: string; view: Calenda
 const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
- * 核心的路由交过来的日历页（213 号票，网页插件页面的 Section）：#/calendar[/YYYY-MM | /YYYY-MM-DD] 里那一段是 item（核心已经核对过写法），
+ * 核心的路由交过来的日历页（网页插件页面的 Section）：#/calendar[/YYYY-MM | /YYYY-MM-DD] 里那一段是 item（核心已经核对过写法），
  * 是日期的展开那一天，是月份的看那个月，不给是这个月
  */
 export function CalendarSection({ wide, item, navigate }: PageSectionProps) {

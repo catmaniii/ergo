@@ -1,4 +1,4 @@
-// 前端状态层：日历（35 号票）。主线流程回放主切面录下的 calendar-month、calendar-changes（recorded-calendar.test.ts）；
+// 前端状态层：日历。主线流程回放主切面录下的 calendar-month、calendar-changes（recorded-calendar.test.ts）；
 // 这里是手写的边角：取回的日历什么时候算旧（只认任务看板上的提醒和作业事件、工作日历频道上的事件，序号要比这份记着的大），
 // 晚到的旧响应、重新同步；格子上的数；详情里属于项目的作业、补跑、失败的原因、晚了的提醒；年月选择里缺数据的年份。
 import { describe, expect, test } from "vitest";
@@ -36,7 +36,7 @@ function day(date: string, items: Partial<Pick<CalendarDay, "reminders" | "jobs"
   return { date, verdict: calendar.day(date), reminders: [], jobs: [], ...items };
 }
 
-/** 十月：asOf 不写 external（外部日程的版本，306 号票）就是 0 */
+/** 十月：asOf 不写 external（外部日程的版本）就是 0 */
 function october(asOf: Omit<CalendarMonthView["asOf"], "external"> & { external?: number }, days: CalendarDay[] = [day("2026-10-01"), day("2026-10-08")]): CalendarMonthView {
   return { month: "2026-10", days, missing: [], asOf: { external: 0, ...asOf } };
 }
@@ -56,7 +56,7 @@ const BOARD_PAYLOADS: Record<string, unknown> = {
 };
 const boardEvent = (seq: number, type: string) => ({ kind: "frame" as const, frame: frame("board", seq, type, BOARD_PAYLOADS[type]) });
 const workdayEvent = (seq: number) => ({ kind: "frame" as const, frame: frame("workday_calendar", seq, "workday_settings", { settings: EMPTY_WORKDAY_SETTINGS, source: "settings" }) });
-/** 工作日历频道上的临时事件：外部日程变了（306 号票），序号沿用频道最后一条落盘的 */
+/** 工作日历频道上的临时事件：外部日程变了，序号沿用频道最后一条落盘的 */
 const externalEvent = (seq: number, version: number) => ({ kind: "frame" as const, frame: frame("workday_calendar", seq, "external_calendar", { version }) });
 
 describe("取回的日历什么时候算旧", () => {
@@ -87,7 +87,7 @@ describe("取回的日历什么时候算旧", () => {
     expect(calendarMonthOf(replay([fetched(newer), fetched(older)]), "2026-10").view).toBe(newer);
   });
 
-  test("外部日程变了（工作日历频道的临时事件带着更大的版本）：旧了，开着的日历页重新取；版本不比取回的那份大、更小的晚到事件都不算（306）", () => {
+  test("外部日程变了（工作日历频道的临时事件带着更大的版本）：旧了，开着的日历页重新取；版本不比取回的那份大、更小的晚到事件都不算", () => {
     const base = [workdayEvent(1), externalEvent(1, 1000), fetched(october({ board: 0, workdayCalendar: 1, external: 1000 }))];
     expect(calendarMonthOf(replay(base), "2026-10").stale).toBe(false);
     expect(calendarMonthOf(replay([...base, externalEvent(1, 1001)]), "2026-10").stale).toBe(true);
@@ -139,7 +139,7 @@ describe("格子和某一天的详情", () => {
         job("2026-10-08T21:00:00.000+08:00", { jobId: "j-4", title: "备份笔记" }),
       ],
     }),
-    // 176 号票：部分完成的一次（不算失败）
+    // 部分完成的一次（不算失败）
     day("2026-10-09", {
       jobs: [
         job("2026-10-09T09:00:00.000+08:00", {
@@ -165,7 +165,7 @@ describe("格子和某一天的详情", () => {
         failedJobs: 1,
         external: 0,
       },
-      // 部分完成的（176 号票）不算进失败数
+      // 部分完成的不算进失败数
       { date: "2026-10-09", day: 9, workday: true, manual: false, short: "工作日", label: "10 月 9 日 上班 · 新加坡工作日、国内工作日 · 1 次定时触发", reminders: 0, jobs: 1, failedJobs: 0, external: 0 },
     ]);
   });
@@ -191,11 +191,11 @@ describe("格子和某一天的详情", () => {
     ]);
     expect(jobPlace(jobs[0]!)).toEqual({ kind: "board", jobId: "j-1" });
     expect(jobPlace(jobs[1]!)).toEqual({ kind: "project", projectId: "p-1", jobId: "j-2" });
-    // 部分完成（176 号票）：写上哪一步没做成，不算失败
+    // 部分完成：写上哪一步没做成，不算失败
     expect(calendarDayDetail(view, "2026-10-09")!.jobs.map((j) => [j.status, j.statusText, j.failed])).toEqual([["partial", "部分完成：有一步没等到你的批准：「通用 bash」（bash daily.sh）", false]]);
   });
 
-  test("299：外部日历（手机日历）——格子上几条、详情里时间或全天、标题、来自哪里（数据源、哪个日历、地点）", () => {
+  test("外部日历（手机日历）——格子上几条、详情里时间或全天、标题、来自哪里（数据源、哪个日历、地点）", () => {
     const phone = { source: "phone-calendar", sourceTitle: "手机 · 日历" };
     const withPhone = october({ board: 0, workdayCalendar: 0 }, [
       {

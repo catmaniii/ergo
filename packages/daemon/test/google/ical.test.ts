@@ -1,4 +1,4 @@
-// iCal 解析和重复事件展开（297 号票，Google 插件的日历）：只用编的 .ics 内容，不连 Google。
+// iCal 解析和重复事件展开（Google 插件的日历）：只用编的 .ics 内容，不连 Google。
 // - 解析：续行、转义、带引号的参数、日历的名字和默认时区、嵌着的 VALARM 不算、没有 UID 的跳过、说明截短、不是日历的认出来；
 // - 展开：单次（UTC、全天、跨几天）、按 TZID 的本地时间重复（跨夏令时还是 09:00）、DAILY / WEEKLY / MONTHLY / YEARLY 加
 //   INTERVAL / COUNT / UNTIL / BYDAY（带序号）/ BYMONTHDAY / BYSETPOS、EXDATE、RECURRENCE-ID 改期和取消、整个取消、

@@ -1,15 +1,15 @@
-// 页面桥里不碰 DOM 的规矩（src/page-bridge/rules.ts）在 Node 里直接跑。146 号票的几样：
+// 页面桥里不碰 DOM 的规矩（src/page-bridge/rules.ts）在 Node 里直接跑。几样：
 // - 气泡的宽度：手机上屏宽减 32，最宽 360；
-// - 气泡摆在哪（主会话 2026-10-18 定：不盖住框）：放在按钮背离框的那一边（按钮在框下面放下方、在框上面放上方），放不下换另一边
+// - 气泡摆在哪（不盖住框）：放在按钮背离框的那一边（按钮在框下面放下方、在框上面放上方），放不下换另一边
 //   （越过框）；两边都放不下时先不盖框里文字那块（多行框的上面一截），再限高（至少 120、里面滚），实在不行才盖；左右不出屏幕、
 //   至少留 8；不知道框在哪时优先上方；没有按钮时放在屏幕下面居中；小尖角指着按钮；
 // - 波形：音量序列 → 竖条高度（照二狗 App 里"按住说话"的波形：最近的几格，音量 ×100，最矮 6）；
 // - 上滑或划开算取消；录了几秒的写法；
-// - 149 号票：按住说话时气泡在按钮上方（上边放不下放到离手指远、空间大的那一侧，不放下方）；挑图片窗口固定在屏幕上（手机贴底占满宽，
+// -按住说话时气泡在按钮上方（上边放不下放到离手指远、空间大的那一侧，不放下方）；挑图片窗口固定在屏幕上（手机贴底占满宽，
 //   宽屏底部居中、最宽 520），和按钮、框无关。
-// - 164 号票：能点的东西是什么种类（提交表单的按钮先认，再看 role、标签）、文字怎么收拾（空白并成一个、最长 200）、
+// -能点的东西是什么种类（提交表单的按钮先认，再看 role、标签）、文字怎么收拾（空白并成一个、最长 200）、
 //   超过上限时先列哪些（屏幕上看得见的、上半屏的优先，再按离屏幕远近；交出去的照页面上的先后）、哪些 target 会开新窗口。
-// - 184 号票：哪些种类是框（文本框、上传框、下拉框）、现在的值怎么截（空白并成一个、前 40 字、空的不写）、下拉框的选项怎么收拾。
+// -哪些种类是框（文本框、上传框、下拉框）、现在的值怎么截（空白并成一个、前 40 字、空的不写）、下拉框的选项怎么收拾。
 import { describe, expect, test } from "vitest";
 import { BUTTON_SIZE, cleanElementLabel, ELEMENT_LABEL_MAX, elementSourceOf, placeElementButton,
   BUBBLE_EDGE,
@@ -61,7 +61,7 @@ const bubbleRect = (at: { x: number; y: number; maxHeight: number }, size: { wid
   bottom: at.y + Math.min(size.height, at.maxHeight),
 });
 
-describe("气泡摆在哪：放在按钮背离框的那一边，不盖住框（主会话 2026-10-18 定）", () => {
+describe("气泡摆在哪：放在按钮背离框的那一边，不盖住框", () => {
   // 手机上占满整行的单行框：按钮放不到右边，在框下面靠右（rules.ts 的 placeButton）
   const field: Rect = { left: 16, top: 200, right: 374, bottom: 244 };
   const size = { width: 358, height: 160 };
@@ -185,7 +185,7 @@ describe("气泡摆在哪：不知道框在哪（只有按钮）、没有按钮"
   });
 });
 
-describe("按住说话时的气泡（149 号票：波形在按钮上方）", () => {
+describe("按住说话时的气泡（波形在按钮上方）", () => {
   const size = { width: 358, height: 110 };
 
   test("上方放得下：放在按钮上方，横着以按钮为中、不出屏幕，尖角指着按钮；框在按钮上面也一样（可以盖框）", () => {
@@ -212,7 +212,7 @@ describe("按住说话时的气泡（149 号票：波形在按钮上方）", () 
   });
 });
 
-describe("挑图片窗口摆在哪（149 号票：固定在屏幕上，不跟着按钮）", () => {
+describe("挑图片窗口摆在哪（固定在屏幕上，不跟着按钮）", () => {
   test("手机：贴底、占满宽；内容多了限高", () => {
     expect(placePickWindow(PHONE, 260)).toEqual({ x: 0, y: 844 - 260, width: 390, maxHeight: PICK_MAX_HEIGHT, docked: true });
     expect(placePickWindow(PHONE, 900)).toMatchObject({ y: 844 - PICK_MAX_HEIGHT, maxHeight: PICK_MAX_HEIGHT });
@@ -263,7 +263,7 @@ describe("按住说话", () => {
   });
 });
 
-describe("能点的东西（164 号票）", () => {
+describe("能点的东西", () => {
   test("种类：提交表单的按钮先认（button 默认 type 是 submit，在表单里才算；input submit、image）；再看 role（menuitem、tab、link、button）；a、area 是链接；input button、reset 是 input；summary 和别的是按钮", () => {
     const of = (tag: string, extra: Partial<{ type: string; role: string; hasForm: boolean }> = {}) => clickRoleOf({ tag, type: "", role: "", hasForm: false, ...extra });
     expect(of("button", { hasForm: true })).toBe("submit");
@@ -313,7 +313,7 @@ describe("能点的东西（164 号票）", () => {
   });
 });
 
-describe("能填、能交、能选的框（184 号票）", () => {
+describe("能填、能交、能选的框", () => {
   test("框的种类：textbox、upload、select 是框，能点的不是", () => {
     for (const r of ["textbox", "upload", "select"]) expect(isFieldRole(r)).toBe(true);
     for (const r of ["link", "button", "submit", "input", "tab", "menuitem", ""]) expect(isFieldRole(r)).toBe(false);
@@ -331,7 +331,7 @@ describe("能填、能交、能选的框（184 号票）", () => {
   });
 });
 
-describe("长按元素的圆钮摆在哪（359 号票）", () => {
+describe("长按元素的圆钮摆在哪", () => {
   const AREA = { left: 0, top: 0, right: 400, bottom: 800 };
   const SIZE = BUTTON_SIZE;
 

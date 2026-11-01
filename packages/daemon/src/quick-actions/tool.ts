@@ -1,7 +1,7 @@
 // 秘书的"提议快速动作"工具（规格第 7 节五种回复形态之一，第 14 节）：只产生卡片，由守护进程代为执行。
 // 秘书写清做什么（type）和这种动作的参数（params，形状由执行器自带的 schema 定，工具说明里逐个列出）。
 // 是直接执行还是先问用户，由运行时判定（quick-actions.ts），秘书在参数里自称"用户点明了"不作数。
-// @i18n-ignore-file model：工具的说明、参数说明给秘书（模型）看（174 号票）；工具的名字走 t()
+// @i18n-ignore-file model：工具的说明、参数说明给秘书（模型）看；工具的名字走 t()
 import { t, type TSchema, Type } from "@ergo/protocol";
 import { defineHostTool, type HostTool } from "../agent-manager/host-tools.ts";
 import type { QuickActionService } from "./quick-actions.ts";
@@ -30,7 +30,7 @@ function paramsHint(schema: TSchema): string {
 export function proposeQuickActionTool(service: QuickActionService, conversation: string): HostTool {
   const executors = service.registry.list();
   const types = executors.map((e) => `- ${e.type}（${e.title}）：${e.usage}。params：${paramsHint(e.params)}`).join("\n");
-  // 动作自带的提示（129 号票：记忆插件的"先用 search_materials 检索"），同一句只写一次
+  // 动作自带的提示（记忆插件的"先用 search_materials 检索"），同一句只写一次
   const hints = [...new Set(executors.flatMap((e) => (e.proposeHint === undefined ? [] : [e.proposeHint])))].join("");
   return defineHostTool({
     name: PROPOSE_QUICK_ACTION,

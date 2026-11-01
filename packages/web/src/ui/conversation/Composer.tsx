@@ -1,30 +1,30 @@
 /**
- * 会话的输入框。聊天里"引用"的卡片显示成输入框上方的引用条（可去掉），发送时作为卡片引用带上（21 号票）。
- * 左边的"＋"是附件菜单（图片、文件、作为材料投喂；143 号票起秘书、任务和项目的负责人会话都有，菜单一样）：
+ * 会话的输入框。聊天里"引用"的卡片显示成输入框上方的引用条（可去掉），发送时作为卡片引用带上。
+ * 左边的"＋"是附件菜单（图片、文件、作为材料投喂；秘书、任务和项目的负责人会话都有，菜单一样）：
  * 选了文件就开始上传（分片续传，断网恢复后接着传），每个附件在输入框上方显示进度（图片带缩略图），可以删掉；
  * 发出去的消息里是入库后的图片 part 和文件 part（引用入库版本的哈希）。
- * "作为材料投喂"（21 号票）选的附件带 asMaterial 标记，这条消息记成"用户主动投喂的材料"。
- * 输入栏右侧的按钮在"文字 / 语音"之间切换（31 号票，照微信；左边的加号不变）：语音模式下整个输入框变成"按住 说话"
- * （214 号票起是语音插件经 composerVoice 插槽给的，plugins/voice/VoiceInput.tsx），录音在本地，抬手后整段经分片续传上传。
+ * "作为材料投喂"选的附件带 asMaterial 标记，这条消息记成"用户主动投喂的材料"。
+ * 输入栏右侧的按钮在"文字 / 语音"之间切换（照微信；左边的加号不变）：语音模式下整个输入框变成"按住 说话"
+ * （是语音插件经 composerVoice 插槽给的，plugins/voice/VoiceInput.tsx），录音在本地，抬手后整段经分片续传上传。
  * 选的模式记在这个浏览器里。语音插件停用时没有这个切换、一律打字（记着的模式留着，启用回来照旧）。
- * 附件一律不自动发（用户 2026-10-10 改；之前语音模式下选的附件传好就单独发出去）：两种模式下选的附件都先等在输入框上方，
+ * 附件一律不自动发（之前语音模式下选的附件传好就单独发出去）：两种模式下选的附件都先等在输入框上方，
  * 下一条消息把它们一起带走（谁带走谁、什么时候能发在状态层的 state/composer-outbox.ts）：
  * - 文字模式：打字后点发送，引用的卡片、等着的附件和打的字是一条消息；附件没传完不能点；
  * - 语音模式：说完的那段语音连同引用的卡片、等着的附件是一条消息。说完时语音或附件还没传好，就排着、都传好了再发；
  *   附件传失败的等重试或删掉，语音一直留在输入框上方（显示在等什么），不会丢；
  * - 只发附件、不说话：语音模式下附件下面有"直接发送"；文字模式下不打字直接点发送。
  * 附件和语音走同一套上传（startUpload）和同一种进度条（UploadChip）。
- * 秘书的输入框占位是"和<名字>说…"（43 号票），名字带底色：原生的 placeholder 不能部分上色，所以叠一层假占位。
- * 285 号票：秘书样子的会话给了自己的占位（记忆管理员的"和记忆管理员说…"）时用给的，不叠"和<名字>说…"
+ * 秘书的输入框占位是"和<名字>说…"，名字带底色：原生的 placeholder 不能部分上色，所以叠一层假占位。
+ * 秘书样子的会话给了自己的占位（记忆管理员的"和记忆管理员说…"）时用给的，不叠"和<名字>说…"
  * （输入框空着时显示，不挡点击，读屏用 aria-label）。
- * 斜杠命令（82 号票，三处会话都有）：在输入框开头打 / 弹出候选（SlashMenu.tsx：二狗自己的命令和这个会话能用的 skill，
+ * 斜杠命令（三处会话都有）：在输入框开头打 / 弹出候选（SlashMenu.tsx：二狗自己的命令和这个会话能用的 skill，
  * 每次弹出时向守护进程现取），边打边过滤；方向键挪、Enter 或 Tab 选中（输入法正在组字时不算），点按也行，选中插入"写法 + 空格"
  * 接着打正文；Esc、点别处关掉（再打字又弹）。命令名里没有空白，打了空白就不弹了。语音模式下不弹（语音里说名字照旧算点名）。
- * 310 号票：候选分组（方向键按分好组的先后挪）；选中的那一行说明完整展开（手机上点"说明"小按钮只展开、不插入）；守护进程标了还在翻的
+ * 候选分组（方向键按分好组的先后挪）；选中的那一行说明完整展开（手机上点"说明"小按钮只展开、不插入）；守护进程标了还在翻的
  * 说明时，开着候选隔一会儿再取（最多 SLASH_RETRANSLATE_TRIES 次），翻好的换上。这个会话没有命令（接口 404、列表是空的）不弹空框；
  * 取到的候选记着是哪个会话的，换了会话不拿上一个会话的候选来弹。
- * 144 号票：二狗在回复时（replying），发送钮旁多一个"停止"（文字、语音模式都有），发送钮写"追加"（发的话先排队，二狗回完这一轮再给它）。
- * 用户 2026-10-18：窄屏（竖屏）上"停止""追加"只留图标——停止是红色圆钮里一个方块，追加是另一种颜色的圆钮里一个加号；宽屏带字。
+ * 二狗在回复时（replying），发送钮旁多一个"停止"（文字、语音模式都有），发送钮写"追加"（发的话先排队，二狗回完这一轮再给它）。
+ * 窄屏（竖屏）上"停止""追加"只留图标——停止是红色圆钮里一个方块，追加是另一种颜色的圆钮里一个加号；宽屏带字。
  * 输入框右上角有"放大"：窄屏上整屏输入，宽屏上输入框加高；再点"收起"、按 Esc、返回或发出去就回到原样。
  */
 import { type ComponentProps, useEffect, useRef, useState } from "react";
@@ -71,7 +71,7 @@ import { SlashMenu, slashItemId } from "./SlashMenu.tsx";
 
 export type ComposerMode = "secretary" | "maintainer";
 
-/** 候选里还有说明在翻时，隔多久再取一次（毫秒）、最多再取几次（310 号票） */
+/** 候选里还有说明在翻时，隔多久再取一次（毫秒）、最多再取几次 */
 const SLASH_RETRANSLATE_MS = 1500;
 const SLASH_RETRANSLATE_TRIES = 8;
 
@@ -106,7 +106,7 @@ function attachmentPart(media: UploadedMedia, what: Extract<UploadWhat, { kind: 
 
 /** 语音在消息里的样子 */
 function voicePart(media: UploadedMedia, voice: RecordedVoice): MessagePart {
-  // capture：按下 → 开录的毫秒数、是不是预热命中（37 号票）、开麦原因、冷启动耗时、麦克风诊断记录、UA（61 号票）；守护进程存进语音对象
+  // capture：按下 → 开录的毫秒数、是不是预热命中、开麦原因、冷启动耗时、麦克风诊断记录、UA；守护进程存进语音对象
   return { type: "voice", mediaId: media.mediaId, mime: voice.mime, durationMs: Math.round(voice.durationMs), waveform: voice.waveform, capture: voice.capture };
 }
 
@@ -152,15 +152,15 @@ export function Composer({
   conversation: ConversationId;
   mode: ComposerMode;
   /**
-   * 输入框的占位：不给时秘书写"和<名字>说…"、别的会话写"直接给负责人下指令…"（普通任务的 agent 不叫负责人，75 号票）；
-   * 秘书样子的会话也能给自己的（285 号票：记忆管理员）
+   * 输入框的占位：不给时秘书写"和<名字>说…"、别的会话写"直接给负责人下指令…"（普通任务的 agent 不叫负责人）；
+   * 秘书样子的会话也能给自己的（记忆管理员）
    */
   placeholder?: string | undefined;
   /** 引用到输入框的卡片（卡片 id） */
   quoted?: readonly string[];
   onUnquote?(cardId: string): void;
   onSend(parts: MessagePart[]): void;
-  /** 二狗正在回复（144 号票）：有"停止"，发送钮写"追加" */
+  /** 二狗正在回复：有"停止"，发送钮写"追加" */
   replying?: boolean;
   /** 点了"停止"：停下这一轮 */
   onStop?: (() => void) | undefined;
@@ -169,16 +169,16 @@ export function Composer({
   /** 秘书的输入框（没给自己的占位）：叠一层"和<名字>说…"的假占位 */
   const talkToAssistant = mode === "secretary" && placeholder === undefined;
   const assistantName = useAssistantName();
-  // 打的字：有新版本点"刷新"前存下、刷新后放回（116 号票）
+  // 打的字：有新版本点"刷新"前存下、刷新后放回
   const [text, setText] = useKeptText(conversation);
   const [menu, setMenu] = useState(false);
   useBackLayer("overlay", menu, () => setMenu(false));
   /** 放大输入：窄屏整屏、宽屏加高（返回手势、Esc 收起） */
   const [big, setBig] = useState(false);
   useBackLayer("overlay", big, () => setBig(false));
-  // 输入框的语音模式（214 号票）：语音插件在用时才有；记着的是语音模式但插件停用了，照打字的样子
+  // 输入框的语音模式：语音插件在用时才有；记着的是语音模式但插件停用了，照打字的样子
   const voiceInput = usePlugins().list("composerVoice")[0];
-  // 323 号票：语音识别的组件没装（别处也没有）时话筒灰掉，点一下去设置 · 组件装；记着的是语音模式也照打字的样子
+  // 语音识别的组件没装（别处也没有）时话筒灰掉，点一下去设置 · 组件装；记着的是语音模式也照打字的样子
   const voiceOff = useComponentGate(COMPONENT_FEATURES.voiceInput);
   const [wantVoice, setVoiceMode] = useState(savedVoiceMode);
   const voiceMode = wantVoice && voiceInput !== undefined && voiceOff === undefined;
@@ -186,7 +186,7 @@ export function Composer({
   /** 这次选文件是不是"作为材料投喂" */
   const feeding = useRef(false);
 
-  // 斜杠命令的候选（82 号票）：文字以 / 开头、还没打空白时弹；候选每次弹出时现取（工具包随时会变），取到之前先用上一次的
+  // 斜杠命令的候选：文字以 / 开头、还没打空白时弹；候选每次弹出时现取（工具包随时会变），取到之前先用上一次的
   const fieldRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   // 取到的候选连同是哪个会话的：换了会话，上一个会话的不算（取到之前不弹别的会话的命令）
@@ -198,13 +198,13 @@ export function Composer({
   const [slashDismissed, setSlashDismissed] = useState<string | undefined>(undefined);
   const query = voiceMode ? undefined : slashQuery(text);
   const typingSlash = query !== undefined;
-  // 310 号票：分好组（二狗的命令 / 工具包里的 skill / 运行时的命令），方向键、第几行都按分好组的先后
+  // 分好组（二狗的命令 / 工具包里的 skill / 运行时的命令），方向键、第几行都按分好组的先后
   const slashGroupList = query !== undefined && slashList ? slashGroups(filterSlashCommands(slashList, query)) : [];
   const candidates = slashOrder(slashGroupList);
   const slashOpen = candidates.length > 0 && slashDismissed !== text;
   const slashActive = slashPick.query === query ? Math.min(slashPick.index, Math.max(0, candidates.length - 1)) : 0;
   const setSlashActive = (index: number) => setSlashPick({ query, index });
-  // 310 号票：还有说明在翻（第一次弹出时先给原文），开着候选就隔一会儿再取，翻好的换上；每次弹出（取到候选时）重新数
+  // 还有说明在翻（第一次弹出时先给原文），开着候选就隔一会儿再取，翻好的换上；每次弹出（取到候选时）重新数
   const [retranslate, setRetranslate] = useState(0);
   useEffect(() => {
     if (!typingSlash) return;
@@ -351,7 +351,7 @@ export function Composer({
     if (u) startUpload(key, u.file, u.what);
   };
 
-  // 输入框上方有附件、排着的语音（在传、或传好了等着发）：刷新会丢，先不提示有新版本、不直接刷新（116 号票）
+  // 输入框上方有附件、排着的语音（在传、或传好了等着发）：刷新会丢，先不提示有新版本、不直接刷新
   useHoldPageUpdate(draft.uploads.length > 0 || draft.queue.length > 0);
 
   /** 等着下一条消息的附件（排着的语音带走的不算） */
@@ -369,7 +369,7 @@ export function Composer({
 
   /** 发出去：引用的卡片、等着的附件（都传好了才行），文字模式下再加打的字；语音模式下的"直接发送"只发附件 */
   const send = (withText: boolean) => {
-    // 点发送是用户手势：趁这时让播放器出一次声，之后 agent 的语音才能自动播放（36 号票）
+    // 点发送是用户手势：趁这时让播放器出一次声，之后 agent 的语音才能自动播放
     unlockVoicePlayback();
     const d = draftRef.current;
     const attachments = waitingAttachments(d.uploads, d.queue);
@@ -576,7 +576,7 @@ export function Composer({
         {voiceInput && !voiceOff && (
           <button
             type="button"
-            // data-to：点了切到哪种输入（视觉风格按它换图标，39 号票）
+            // data-to：点了切到哪种输入（视觉风格按它换图标）
             className="icon-btn voice-toggle"
             data-to={voiceMode ? "text" : "voice"}
             aria-label={voiceMode ? t("ui.composer.toText") : t("ui.composer.toVoice")}
@@ -590,7 +590,7 @@ export function Composer({
           </button>
         )}
         {replying && onStop && (
-          // 二狗在回复（144 号票）：停下这一轮，已经说出来的留着
+          // 二狗在回复：停下这一轮，已经说出来的留着
           // 窄屏只留红色圆钮里的方块，宽屏带字
           <button type="button" className="btn composer-stop" onClick={onStop} aria-label={t("ui.composer.stopReplying")} title={t("ui.composer.stopHint")}>
             <span className="stop-square" aria-hidden="true" />
@@ -625,7 +625,7 @@ export function Composer({
 }
 
 /**
- * 会话底部输入框那一格（143 号票）：三处会话同一个输入框、"＋"都有；只读的会话（任务已结束、归档的项目）没有输入框，
+ * 会话底部输入框那一格：三处会话同一个输入框、"＋"都有；只读的会话（任务已结束、归档的项目）没有输入框，
  * 换成一行说明，"＋"也就没有
  */
 export function ComposerSlot({ readOnly, readOnlyNote, ...composer }: { readOnly: boolean; readOnlyNote: string } & ComponentProps<typeof Composer>) {

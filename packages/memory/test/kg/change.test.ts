@@ -59,7 +59,7 @@ describe("信号词", () => {
   });
 });
 
-describe("334：这句话自己明说了变化没有（只认明说的，拿不准的不算）", () => {
+describe("这句话自己明说了变化没有（只认明说的，拿不准的不算）", () => {
   it("明说：不再、不…了、没…了、改成、越来越、开始、从…起、以前…现在…、搬家、换工作", () => {
     const explicit = [
       "我不再读博了",
@@ -153,7 +153,7 @@ describe("变化判定：四种", () => {
     expect(classifyChange(f({ context: ["workday", "work"] }), f({ predicate: "dislikes", context: ["weekend"] }), none)).toEqual({ kind: "context_differs" });
   });
 
-  it("观点变化：有效期开始得晚的那条是后来的，它自己明说了变化才算（334）", () => {
+  it("观点变化：有效期开始得晚的那条是后来的，它自己明说了变化才算", () => {
     const later = f({ predicate: "dislikes", eventTime: "2026-10-10T10:00:00+08:00", validFrom: "2026-10-10T10:00:00+08:00" });
     expect(classifyChange(f(), later, { change: true, correction: false })).toEqual({ kind: "change_of_mind", later: "new" });
     // 新来的说的是更早的事：旧的那条是后来的，看旧的那条自己说没说变了
@@ -163,7 +163,7 @@ describe("变化判定：四种", () => {
     expect(classifyChange(later, f(), { change: true, correction: false })).toEqual({ kind: "conflict" });
   });
 
-  it("334：不在同一天说的、后说的没明说变了 → 真冲突，不再按日子先后让后说的赢", () => {
+  it("不在同一天说的、后说的没明说变了 → 真冲突，不再按日子先后让后说的赢", () => {
     const later = f({ predicate: "dislikes", eventTime: "2026-10-10T10:00:00+08:00", validFrom: "2026-10-10T10:00:00+08:00" });
     expect(classifyChange(f(), later, none)).toEqual({ kind: "conflict" });
     expect(classifyChange(later, f(), none)).toEqual({ kind: "conflict" });

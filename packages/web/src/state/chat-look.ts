@@ -1,4 +1,4 @@
-// 聊天区精简（57 号票，规格第 19 节"会话区"）：对话层里每一条长什么样。纯函数，界面照它画，回放测试也测它。
+// 聊天区精简（规格第 19 节"会话区"）：对话层里每一条长什么样。纯函数，界面照它画，回放测试也测它。
 //
 // 每一条的样子：
 // - 用户气泡：整条可点（.user），不带记号；
@@ -7,24 +7,24 @@
 // - 回复：按 Markdown 画，按第一个空行切成第一段和后文（AssistantBubble 的 indexOf("\n\n")）；有后文时气泡里给
 //   "收起 ▴ / 展开细节 ▾"和"详情 ›"，只有一段的两个都没有。默认整段展开（REPLY_OPEN_BY_DEFAULT）；
 // - 卡片：卡片下面"详情 ›"；系统说明、时间线记录：整条可点（.context-note），不带记号；
-// - agent 之间的来信（115 号票）：一行"图标 种类 总结 时间 详情 ›"，整行点开看全文，样子跟工具调用那一行走；
-// - 语音：照旧，36 号票的同框，详情在长按菜单里。
+// - agent 之间的来信：一行"图标 种类 总结 时间 详情 ›"，整行点开看全文，样子跟工具调用那一行走；
+// - 语音：照旧，同框，详情在长按菜单里。
 // 另加的（用户要的汇总行，规格第 19 节）：工具调用组画成一行小字"调用了 N 个工具 ›"，不是气泡；
 // 后面跟小签——出了状况的（被拦下、你拒绝了、等你批准、出错、问过你）醒目，命中关注类别、顺利执行的（做完告诉你、授权内、
-// 直接做只记录）平和。点整行进组的详情（56 号票），组里连续的同类调用在详情里合成一条（detail-content.ts 的 runsOf）。
-// 187 号票：调用记忆单独一行"回忆了 N 条记忆 ›"（recall_line），样子照工具调用那一行，换成记忆的图标和说法，整行点开"这次用到的记忆"。
+// 直接做只记录）平和。点整行进组的详情，组里连续的同类调用在详情里合成一条（detail-content.ts 的 runsOf）。
+// 调用记忆单独一行"回忆了 N 条记忆 ›"（recall_line），样子照工具调用那一行，换成记忆的图标和说法，整行点开"这次用到的记忆"。
 import type { AgentLetter } from "./agent-letters.ts";
 import { type CallIssue, CALL_ISSUE_LABEL, type ChatItem, type ChatToolCall } from "./chat-items.ts";
 import { DISPOSITION_LABEL, t } from "./protocol.ts";
 import { opReasonOf } from "./timeline.ts";
 
 /**
- * 回复默认整段展开还是只显示第一段（57 号票原先写的是只显示第一段）。用户 2026-10-10 定：默认整段展开
+ * 回复默认整段展开还是只显示第一段（原先写的是只显示第一段）。默认整段展开
  * （"Agent 的汇报是你最关心的：默认整段展开，长了自己收起"）
  */
 export const REPLY_OPEN_BY_DEFAULT = true;
 
-/** 思考那一行：收着时"💭 Agent 的想法（点开看）"，正在想时"💭 Agent 正在想…"（170 号票起按当前语言现取） */
+/** 思考那一行：收着时"💭 Agent 的想法（点开看）"，正在想时"💭 Agent 正在想…"（按当前语言现取） */
 export function thinkingLabel(live = false): string {
   return live ? t("state.chatLook.thinkingLive") : t("state.chatLook.thinking");
 }
@@ -70,7 +70,7 @@ export type ChatLook =
       readonly open: ChatOpen | undefined;
     }
   | {
-      /** 调用记忆（187 号票）：一行"回忆了 N 条记忆"（记忆的图标），整行点开 */
+      /** 调用记忆：一行"回忆了 N 条记忆"（记忆的图标），整行点开 */
       readonly form: "recall_line";
       readonly text: string;
       /** 找到了记忆（没找到的、旧记录认不出条数的淡一点） */
@@ -78,12 +78,12 @@ export type ChatLook =
       readonly open: ChatOpen | undefined;
     }
   | { readonly form: "card"; readonly open: ChatOpen | undefined }
-  /** agent 之间的来信（115 号票）：一行——图标、种类、一句话总结、时间、"详情 ›"，整行点开看全文 */
+  /** agent 之间的来信：一行——图标、种类、一句话总结、时间、"详情 ›"，整行点开看全文 */
   | { readonly form: "letter"; readonly letter: AgentLetter; readonly open: ChatOpen | undefined }
   | { readonly form: "note"; readonly open: ChatOpen | undefined }
   | { readonly form: "divider"; readonly open: undefined }
   | { readonly form: "deleted"; readonly open: undefined }
-  /** 插件没启用、这条内容暂时看不到（193 号票）：一行占位，样子同"已删除"，点不开 */
+  /** 插件没启用、这条内容暂时看不到：一行占位，样子同"已删除"，点不开 */
   | { readonly form: "unavailable"; readonly text: string; readonly open: undefined };
 
 /** 回复按第一个空行切成第一段和后文 */
@@ -137,7 +137,7 @@ function toolLine(item: Extract<ChatItem, { kind: "tool_group" }>): Extract<Chat
 /** 对话层里这一条长什么样 */
 export function chatLook(item: ChatItem): ChatLook {
   const detail = item.detail !== undefined;
-  // agent 之间的来信（115 号票：秘书转达的用户消息、运行时的系统通知）：一行，整行点开（照工具调用那一行）
+  // agent 之间的来信（秘书转达的用户消息、运行时的系统通知）：一行，整行点开（照工具调用那一行）
   if ((item.kind === "user" || item.kind === "system") && item.letter) return { form: "letter", letter: item.letter, open: detail ? "row" : undefined };
   switch (item.kind) {
     case "user":

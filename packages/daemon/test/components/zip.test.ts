@@ -1,4 +1,4 @@
-// 读 zip 包（345 号票）：audio.cpp 的 Windows 发布包是 .zip。测试自己打小包，不下真的包。
+// 读 zip 包：audio.cpp 的 Windows 发布包是 .zip。测试自己打小包，不下真的包。
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, test } from "vitest";

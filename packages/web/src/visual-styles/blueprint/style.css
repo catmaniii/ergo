@@ -1,5 +1,5 @@
 /*
- * 工程蓝图（47 号票）：只靠 token（blueprint/style.ts）做不到的规则，全部限定在 :root[data-style="blueprint"] 下
+ * 工程蓝图：只靠 token（blueprint/style.ts）做不到的规则，全部限定在 :root[data-style="blueprint"] 下
  * （不会漏到别的风格；设置里的预览把开头换成 :host(...)，所以根元素上只再加属性，见 src/visual-styles/preview.ts）。
  * 设计稿：docs/architecture/design/styles/f-chat、f-tasks、f-inbox、f-wide（.dc.html）。要点：直角、1.5px 的钴蓝线框，框的左上、右下各一个
  * 加粗的角标；页面底是 24px 的网格；时间、计数、代码用 IBM Plex Mono（--font-num / --font-mono）；状态是直角的实色小签
@@ -122,7 +122,7 @@
 :root[data-style="blueprint"] .chip-collection.on {
   box-shadow: 0 0 0 1.5px var(--primary);
 }
-/* 个人助理的名字（43 号票，设计稿的 .name）：淡蓝底、钴蓝字、钴蓝细框，粗字，前后一对等宽的 [ ]（等宽字的括号自带两边的留白） */
+/* 个人助理的名字（设计稿的 .name）：淡蓝底、钴蓝字、钴蓝细框，粗字，前后一对等宽的 [ ]（等宽字的括号自带两边的留白） */
 :root[data-style="blueprint"] .assistant-name {
   padding: 0 5px;
   box-shadow: inset 0 0 0 1px var(--name-fg);
@@ -137,7 +137,7 @@
   font-family: var(--font-num);
 }
 /*
- * 秘书页标题里的名字（89 号票："个人秘书：<名字>"）：标签左右各 5 加前后一对等宽的括号（大约各 0.6 个字宽），
+ * 秘书页标题里的名字（"个人秘书：<名字>"）：标签左右各 5 加前后一对等宽的括号（大约各 0.6 个字宽），
  * 窄屏缩字号的算式（base.css 的 .secretary-title）照它扣（再留 2 的余量）
  */
 :root[data-style="blueprint"] .secretary-title {
@@ -201,7 +201,7 @@
  * - 在做（钴蓝实底）：规划中、执行中、运营中；运行中；工单在做；
  * - 做成了（绿色实底）：运行完成、工单完成（经典里就是绿）；看板上的"已完成"按设计稿是线框；
  * - 出错（红色实底）：失败；运行失败、被打断；工单退回、做不了；
- * - 运行部分完成（176 号票：有一步没做成、别的做完了）：橙色淡底、橙字（和"跟你有关"的橙色实底分开）；
+ * - 运行部分完成（有一步没做成、别的做完了）：橙色淡底、橙字（和"跟你有关"的橙色实底分开）；
  * - 其余（排队、等时间、结束、暂停、跳过……）：线框、灰蓝字
  */
 :root[data-style="blueprint"] .st {
@@ -253,7 +253,7 @@
   box-shadow: none;
   color: var(--on-color);
 }
-/* 进度条（60 号票产品已有的 sl-progress）：设计稿的 .track：里面 4px 高、外面 1px 的线框（合起来 6）、卡片色的轨道，钴蓝填充 */
+/* 进度条（产品已有的 sl-progress）：设计稿的 .track：里面 4px 高、外面 1px 的线框（合起来 6）、卡片色的轨道，钴蓝填充 */
 :root[data-style="blueprint"] .sl-progress {
   height: 6px;
   background: var(--surface);
@@ -495,7 +495,7 @@
  * 语音气泡（设计稿的语音条）：你的是钴蓝实底、页面底色的字，四周 1.5px 同色的线；个人助理的是框（白底、线、角标）。
  * 播放键是一块 28 的方块（1.5px 的线框；个人助理的淡蓝底），波形是直角的竖条，时长等宽；下半截和播放条之间一道虚线。
  * 播放键（28）、间隔（10）、竖条（3 隔 3）、左右内边距（12）是 token（style.ts 的 voice-*，照设计稿 f-chat），
- * styles/voice.css 按它画，框宽、波形格数也按它算（42 号票的共用办法）；四周的线左右合起来 3，和经典的 voice-line 一样。这里只画样子
+ * styles/voice.css 按它画，框宽、波形格数也按它算（共用办法）；四周的线左右合起来 3，和经典的 voice-line 一样。这里只画样子
  */
 :root[data-style="blueprint"] .user .voice-bubble {
   border: 1.5px solid var(--border);
@@ -746,9 +746,9 @@
   font-weight: 700;
 }
 /*
- * 分组编号（用户 2026-10-11 定，照设计稿 f-tasks 的"01 等我""02 进行中"）：只用样式，CSS 计数器按看板上分组的先后数
+ * 分组编号（照设计稿 f-tasks 的"01 等我""02 进行中"）：只用样式，CSS 计数器按看板上分组的先后数
  * （.board 归零、每个 .bgroup 加一，看板上的分组总是全部列出、空的写"没有"，编号不会跳）；钴蓝等宽小字排在分组名前面。
- * 只认 .bgroup 里的标题（104 号票起项目一览不用 .board / .bgroup，它的分组不编号）。读屏不念编号（替代文字是空的），
+ * 只认 .bgroup 里的标题（项目一览不用 .board / .bgroup，它的分组不编号）。读屏不念编号（替代文字是空的），
  * 不认替代文字写法的浏览器用前面那条普通写法
  */
 :root[data-style="blueprint"] .board {
@@ -787,7 +787,7 @@
 }
 /*
  * 卡片：第一行标题、右上角状态签（设计稿），下面一行是进度条和 token 这些，再往下照旧。
- * 只换排法、不改结构，只认类名（TasksPage 给状态所在的那一行补了 .bcard-status-row、给数字补了 .bcard-num，41 号票）：
+ * 只换排法、不改结构，只认类名（TasksPage 给状态所在的那一行补了 .bcard-status-row、给数字补了 .bcard-num）：
  * 卡片按行折排（flex-wrap）；.bcard-status-row 拆开（display: contents，不影响继承：字号、灰字照旧从它继承），
  * 标题那一行、状态、一个占满整行的空元素（::after）排在最前面（order -1），空元素把后面的东西折到下一行；
  * 其余的照原来的先后排在后面：拆开的那一行里的进度、token、时间表挨着排成一行（进度条拉长占满剩下的宽度），

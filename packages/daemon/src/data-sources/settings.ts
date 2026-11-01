@@ -1,4 +1,4 @@
-// 数据源的用法开关（295 号票）：配置区的 data-sources.json——{ format: 1, usages: { <数据源 id>: { query?: boolean, import?: boolean } } }。
+// 数据源的用法开关：配置区的 data-sources.json——{ format: 1, usages: { <数据源 id>: { query?: boolean, import?: boolean } } }。
 // 只记用户改过的（没写的按数据源登记的默认）；只由运行时写（设置 · 数据源）。读坏了的文件当作没改过（照默认），日志里写一句，
 // 下一次改的时候整份重写。
 import fs from "node:fs";

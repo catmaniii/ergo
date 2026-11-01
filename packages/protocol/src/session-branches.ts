@@ -1,4 +1,4 @@
-// 会话树（150 号票，会话回退与分支，规格 .scratch/ergo-v2/session-rollback.md）在事件日志这一侧的样子。
+// 会话树（会话回退与分支）在事件日志这一侧的样子。
 //
 // 模型的上下文是 pi 的会话文件（会话树，子进程那一层）；界面上的会话是二狗的事件日志（会话频道）。两份一起切：回退、切换分支时
 // 会话频道上记一条 session_branch，带着这次之后整棵树的样子（ConversationBranches，和 message_queue 带整队一样），
@@ -11,7 +11,7 @@
 // - 废弃分支：除当前分支之外的每一条（每条各有自己的末端）；分叉点在当前路径上"序号不小于 at 的第一条"之前（branchForks），
 //   和回退点落在同一条边界上（回退点、分叉点共用同一条边界，一左一右）。
 // 回退点一律是"回到这一条之前"：用户消息（撤回到这条请求之前）、分支摘要（撤回到这条分支开始前）；只在当前这段会话里有
-// （最近一次清空、换模型之后，用户定的第 5 条：agentSessionStart 认这段从哪开始）。
+// （最近一次清空、换模型之后：agentSessionStart 认这段从哪开始）。
 // 纯函数、只有类型和 TypeBox 的请求参数，守护进程和前端共用。
 import { type Static, Type } from "typebox";
 import { CHANNELS, MAINTAINER_CHANNEL_PREFIX } from "./constants.ts";
@@ -35,7 +35,7 @@ export interface ConversationBranch {
   readonly summary?: { readonly messageId: string; readonly text: string };
   /** 会话文件里这条分支从哪一条长出来（子进程报回的）：撤回到"这条分支开始前"就回到这里 */
   readonly entry?: string;
-  /** 上次离开这条分支时会话文件里的末端（子进程报回的；151 号票切回来时回到这里） */
+  /** 上次离开这条分支时会话文件里的末端（子进程报回的；切回来时回到这里） */
   readonly tip?: string;
   /** 长出这条分支时 agent 的会话（会话文件的名字）：清空、换模型之后是另一个会话 */
   readonly session?: string;
@@ -157,7 +157,7 @@ export function branchForks(tree: ConversationBranches): BranchFork[] {
 }
 
 /**
- * 回退点：回到哪一条之前——一条用户消息之前，或者一条分支开始之前（它开头的分支摘要那条）；152 号票起还有长程任务的一个阶段开始之前
+ * 回退点：回到哪一条之前——一条用户消息之前，或者一条分支开始之前（它开头的分支摘要那条）；还有长程任务的一个阶段开始之前
  * （stageStart：负责人会话频道上那条 stage_start 记号的 id，stage-starts.ts）
  */
 export const RollbackTarget = Type.Union([
@@ -194,12 +194,12 @@ export function nextBranchId(tree: ConversationBranches): string {
   return `b${n}`;
 }
 
-/** 换模型新开会话时聊天里那条说明的写法（83 号票：model-switch.ts 的 modelSwitchedNote；150 号票之前的没有 sessionStart 标记，按它认） */
+/** 换模型新开会话时聊天里那条说明的写法（model-switch.ts 的 modelSwitchedNote；以前的没有 sessionStart 标记，按它认） */
 const MODEL_SWITCHED_NOTE = /^已换成 .+，接着之前的对话。$/; // @i18n-ignore data：认以前存下的说明
 
 /**
- * 这条消息是不是 agent 新开一段会话的地方（之前的聊天不在它的上下文里，回退点只在这之后，用户定的第 5 条）：清空当前对话的分隔线
- * （114 号票）、换模型新开会话的说明（83 号票）、项目负责人的会话分段线（16 号票：每段一个会话）
+ * 这条消息是不是 agent 新开一段会话的地方（之前的聊天不在它的上下文里，回退点只在这之后）：清空当前对话的分隔线
+ * 换模型新开会话的说明、项目负责人的会话分段线（每段一个会话）
  */
 export function agentSessionStart(message: Pick<MessageEnvelope, "speaker" | "parts" | "sessionStart">): boolean {
   if (message.sessionStart === true) return true;
@@ -208,15 +208,15 @@ export function agentSessionStart(message: Pick<MessageEnvelope, "speaker" | "pa
 }
 
 /**
- * 回退点从哪条往后才有（用户定的第 5 条"只在当前这段里"）：agent 新开一段会话的地方（agentSessionStart），外加定时、事件触发的任务
- * 一次运行的分段线（153 号票：一次运行就是一段会话，只在这一次运行里回退；各次运行接着同一段 agent 会话，所以它不算 agentSessionStart——
+ * 回退点从哪条往后才有（只在当前这段里）：agent 新开一段会话的地方（agentSessionStart），外加定时、事件触发的任务
+ * 一次运行的分段线（一次运行就是一段会话，只在这一次运行里回退；各次运行接着同一段 agent 会话，所以它不算 agentSessionStart——
  * 切换分支时"那条上清空、换过模型"照旧只认 agentSessionStart）
  */
 export function rollbackSegmentStart(message: Pick<MessageEnvelope, "speaker" | "parts" | "sessionStart">): boolean {
   return agentSessionStart(message) || message.parts.some((p) => p.type === "run_divider");
 }
 
-/** 能回退的会话（150 号票先做秘书主会话；152 号票接上任务、项目负责人的会话：负责人会话频道） */
+/** 能回退的会话（先做秘书主会话；接上任务、项目负责人的会话：负责人会话频道） */
 export function rollbackEnabled(conversation: string): boolean {
   return conversation === CHANNELS.secretary || conversation.startsWith(MAINTAINER_CHANNEL_PREFIX);
 }
@@ -236,7 +236,7 @@ followLocale(() => {
 export const BRANCH_SUMMARY_INSTRUCTIONS =
   "用中文写 3~5 行：这条被放弃的分支做到了哪一步、已经对外产生了哪些效果（发出的消息、创建的会议等）、有哪些风险点。不要用 Markdown 标题。"; // @i18n-ignore model
 
-/** session_branch 事件（会话频道，落盘）：回退（150 号票）、切换分支（151 号票）之后这个会话的会话树 */
+/** session_branch 事件（会话频道，落盘）：回退、切换分支之后这个会话的会话树 */
 export interface SessionBranchEventPayload {
   change: "rollback" | "switch";
   /** 这次之后的会话树（整棵：前端、会话视图只看最新的一条） */
@@ -291,7 +291,7 @@ export interface RollbackPreview {
   effects: RollbackEffect[];
 }
 
-// ───────────────────────── 废弃分支：预览、详情、切换（151 号票） ─────────────────────────
+// ───────────────────────── 废弃分支：预览、详情、切换 ─────────────────────────
 // 废弃分支的预览（⑂ 展开）、切换的双向动画、分支详情（遗留效果、申请撤回），切换分支（停稳、只挪末端、不写摘要）。
 
 /** 从 a 的序号段里去掉落在 b 里的部分（两组都从早到晚、不交叠） */
@@ -364,7 +364,7 @@ export interface BranchEffect extends RollbackEffect {
 }
 
 /**
- * 一条分支的样子（GET /api/conversations/<会话>/branch?branch=&against=，151 号票）：它自己的那一段（branchOwnRanges）里的消息、
+ * 一条分支的样子（GET /api/conversations/<会话>/branch?branch=&against=）：它自己的那一段（branchOwnRanges）里的消息、
  * 时间线记录、语音对象（和往上翻的一页同一个形状，前端照样并进来）；那一段已经在真实世界里做了的事；分支摘要——这条分支被回退离开时
  * 写的那份（按离开时的叶子取：做到了哪一步、对外产生了哪些效果、风险点；只被切换离开过的没有）
  */

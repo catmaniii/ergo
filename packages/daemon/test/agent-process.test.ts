@@ -47,7 +47,7 @@ describe("agent 子进程", () => {
     expect(sessionText).toContain("我是二狗");
   });
 
-  it("名字占位不进 agent（43 号票）：送给子进程的话里的名字占位一律换成领域术语\"秘书\"", async () => {
+  it("名字占位不进 agent：送给子进程的话里的名字占位一律换成领域术语\"秘书\"", async () => {
     const { daemon } = await startTestDaemon();
     const { agent, log } = spawnTestAgent(daemon, {
       agentId: "demo-name",

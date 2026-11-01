@@ -18,7 +18,7 @@
 | 标记 | 意思 |
 |---|---|
 | ✅ | 在用的二狗里在跑：守护进程、网页的代码，以及守护进程会调到的 @ergo/memory 代码（每晚整理、问记忆、每轮简报、记忆页、删除登记）。@ergo/memory 文件里的接口标 ✅，是说线上有一条代码路径走到它；只在配置开关下才走的（比如 `memory.extractor` 写 `rule`）在"参数要点"里写明 |
-| 🧪 | 只在评测、演示、测试里跑：评测包 `packages/memory-eval`（只留私有仓库）的评测、演示和 `packages/memory` 的测试调它，在用的二狗不调 |
+| 🧪 | 只在评测、演示、测试里跑：不公开的评测包和 `packages/memory` 的测试调它，在用的二狗不调 |
 | 📋 | 计划中，还没做 |
 
 ## 目录
@@ -149,7 +149,7 @@ flowchart TB
 - 数据源导入的素材：数据源插件在采集规则里用 `dataSourceMaterial`（`packages/daemon/src/data-sources/material.ts`）写成三种之一——观察到的本人行为（`observed_behavior`，本人、做）、别人写给你的（`received_writing`，外部、说，只留摘要，正文只进检索）、本人写的（`own_writing`，本人、说）；信封多一样出处 `origin`：哪个数据源、场景（结束时间、地点、和谁、场景标签）、这条落在哪些敏感类别（不写是数据源登记的全部）；数据源有几个账号的（Gmail）还写哪个账号（`origin.account`：id 和打了码的邮箱，这之前导入的没有）。`materials.db` 的 `materials` 多一列 `origin`（库版本 3），地点、和谁也进检索的索引文字。
 - `materials.db` 是派生的，删了能重建：从事件日志采出的 ∪ 原文副本里事件日志已经没有的本人素材。
 - 不随记忆插件停。理由是对用户的数据承诺：本人说过的每句话留一份不可修改的原文副本，删项目也不受影响；"彻底删除照常能删"。
-- 删除（`memory/` 里的 `deletion.ts`、`purge.ts`、`rewriters.ts`、`bulk.ts`、`after-purge.ts`、 `purged-evidence.ts`：问记忆的结果按证据编号引原话，彻底删除时按被删素材的证据编号抹掉；秘书会话文件里跟在输入后面的那条上下文消息——记忆简报引的原话——也按同一规矩抹掉，覆盖了它的压缩摘要整段换掉；问记忆管理员（`ask_curator`）的回答也照这样抹，删项目、删任务时连带彻底删除的系统记录也按证据编号找； `packages/daemon/src/memory/purge-backfill.ts`：守护进程启动时补抹一次 265 以前删过、事件日志里问记忆结果和记忆简报还留着的原话）、看素材（`browse.ts`）、项目内部的记录（`internal-records.ts`）也是内核的，代码在 `packages/daemon/src/memory/` 下，别处从 `packages/daemon/src/memory/index.ts` 取。
+- 删除（`memory/` 里的 `deletion.ts`、`purge.ts`、`rewriters.ts`、`bulk.ts`、`after-purge.ts`、 `purged-evidence.ts`：问记忆的结果按证据编号引原话，彻底删除时按被删素材的证据编号抹掉；秘书会话文件里跟在输入后面的那条上下文消息——记忆简报引的原话——也按同一规矩抹掉，覆盖了它的压缩摘要整段换掉；问记忆管理员（`ask_curator`）的回答也照这样抹，删项目、删任务时连带彻底删除的系统记录也按证据编号找； `packages/daemon/src/memory/purge-backfill.ts`：守护进程启动时补抹一次以前删过、事件日志里问记忆结果和记忆简报还留着的原话）、看素材（`browse.ts`）、项目内部的记录（`internal-records.ts`）也是内核的，代码在 `packages/daemon/src/memory/` 下，别处从 `packages/daemon/src/memory/index.ts` 取。
 
 **守护进程的记忆插件，素材这一半**（`packages/daemon/src/memory/plugin.ts`）：
 
@@ -276,7 +276,7 @@ flowchart TB
 - 03:00 那一轮：会话里追加一条"【记忆整理】"消息（一夜一条）→ 它调 `run_memory_consolidation` → 照结果写一段**整理日记**。它自己每夜额外最多调 `memory.curator.maxModelCalls` 次模型（默认 8），次数记进同一条整理记录（`curatorModelCalls`）。
 - 和秘书的分工写在两边的系统提示里：轻问题秘书自己 `ask_memory`；深聊来龙去脉、要改、要忘的，秘书用 `ask_curator` 转给管理员，等它答完（最多 90 秒）再转述。
 
-**了解你访谈**（`packages/daemon/src/memory/interview.ts`、`interview-tools.ts`、`interview-guide.ts`，网页 `packages/web/src/plugins/memory/InterviewCard.tsx`、`InterviewFilesCard.tsx`；CONTEXT.md"了解你访谈"，内部计划第 4 节第二批）：
+**了解你访谈**（`packages/daemon/src/memory/interview.ts`、`interview-tools.ts`、`interview-guide.ts`，网页 `packages/web/src/plugins/memory/InterviewCard.tsx`、`InterviewFilesCard.tsx`；CONTEXT.md"了解你访谈"）：
 
 - **记录**：记忆插件的服务 `MEMORY_INTERVIEWS`（`createMemoryInterviews`），事件在 internal 频道、类型 `memory_interview`（约了 `invited`、开始 `started`（带开场消息的编号）、结束 `ended`（带档案核对卡的编号）），现在的样子（开着的那次、聊过哪几个主题、上次约 / 聊的时间）每次从记录现算（`interviewSnapshot`）。开了 3 小时还没收尾的当它放下了。
 - **五个主题，一次一个**：家里的人和基本情况、工作和一天怎么过、人生里几次重要的选择、在意什么和烦什么、想要什么样的帮忙（协议包 `memory-interview.ts` 的 `INTERVIEW_TOPICS`）；聊透了（`finish_interview` 的 covered）记成聊过，下次约下一个；五个都聊过改成每月一次"最近有什么变化"（`changes`）。
@@ -448,7 +448,7 @@ flowchart TB
 - **预测账本、对抗复核**：都在 `reflect()` 末尾。到期判要 `predictionJudge`、对抗复核要 `reviewer`，线上每晚整理都给了（2.2），评测的模型版建库也给。
 - **用户的表态**（`rg/verdicts.ts`）：`recordClaimVerdict` 把用户对一条结论的"对 / 不对 / 拿不准"变成计分认的东西（表态证据 + `confirmClaim` / `rejectClaim` / `markClaimForReview`），先前相反的表态按纠正收回；线上记忆管理员的 `review_memory_claim` 调它。见架构文档第 7.3 节。
 - **彻底删除**（`purge.ts`）：`purgeEvidence` 守护进程的删除登记调它；`purgeFacts`（事实不经素材直接删）只在测试里用（守护进程那层的包装删了：一直没有调用方）。
-- **评测、演示**：见 4.13；演示（`npm run memory:demo`）是周末社交案例。
+- **评测、演示**：见 4.13；演示是周末社交案例。
 
 ### 2.4 计划中 📋
 
@@ -468,7 +468,7 @@ flowchart LR
 | 判"是不是在答"用模型 | 线上用规则版（`classifyReply`），宁可漏认：用户换了说法、隐含地答（"最近在赶项目"）认不出，问题到第二天算跳过一次（回答照样是素材，下一夜读成证据）。要更准可以交给记忆管理员或模型判，要多调模型 | |
 | 问题去重、问题钩子接多个 | "矛盾、张力"问题和矛盾根源问题同一件事可能各问一个；`setQuestionSink` 只能接一个接收方 | |
 | 任务 agent 按记忆范围取用 | 落地时默认只秘书用；任务按授权取用照 `adviseTask` 的接口 | |
-| 个人档案、重要的人 | ✅已上线（`packages/daemon/src/personal-files/`、档案页 `#/more/files`）；✅接上记忆和提醒（2.2 的"个人档案和记忆、提醒联动"）。放内核，本人一份、重要的人每人一份；固定信息（一字不差、以新为准、旧值留历史）、记下的事、二狗了解到的（从统一记忆关联，只读）；写入经核对卡，推断只当候选；秘书按字段读、填表用。取代 10-20 提议的"重要信息"层 | 281（档案）、283（和记忆、提醒联动）；内部计划 |
+| 个人档案、重要的人 | ✅已上线（`packages/daemon/src/personal-files/`、档案页 `#/more/files`）；✅接上记忆和提醒（2.2 的"个人档案和记忆、提醒联动"）。放内核，本人一份、重要的人每人一份；固定信息（一字不差、以新为准、旧值留历史）、记下的事、二狗了解到的（从统一记忆关联，只读）；写入经核对卡，推断只当候选；秘书按字段读、填表用。取代 10-20 提议的"重要信息"层 |  |
 | 提醒加"每年" | ✅已上线（`reminder-schedule.ts` 的 yearly、`monthDayBefore`）；✅给档案里的生日、纪念日用上了；农历先不做 | |
 | 了解你访谈 | ✅做完（2.2"了解你访谈"）：记忆管理员每周约一次、用户也能随时开，五个主题一次一个，按住说话、回话念出来；回答作为本人的话进素材（标"来自访谈"，管理员问的那句当上下文），档案信息收尾时合成一张核对卡逐条确认（不并进"每天一张"） | |
 | 夜里整理的四项小改 | 低把握也预测和复核（只记账不改分）、记忆页对 / 不对 / 别记和每月"你眼中的我"、工具审批降权和补场景、顺口问问深一层；等积压消化以后再做 | |
@@ -481,7 +481,7 @@ flowchart LR
 | 结论列表、问题箱分页 | 现在只有 `limit`，最多 200 条 ||
 | 03:00 给管理员留名额 | 名额被负责人占满时唤醒消息排队，等到超时才走兜底补跑，那一夜会晚 ||
 | 推理图谱模板导回推理库 | 253 只做了单向导出 ||
-| 写入口"要用户确认"的确认卡 | 推翻用户说过或确认过的、敏感类别上的推断、忘掉和彻底删除现在只能由用户发起（用户的表态、记忆删除卡、设置页、经管理员转达），别的写入口直接拒；给管理员出确认卡、让它代问用户的那条路还没做。管理员的 `forget_material` 照之前的是"用户说了才调"、直接下命令，没有卡 | ；ADR-0030 |
+| 写入口"要用户确认"的确认卡 | 推翻用户说过或确认过的、敏感类别上的推断、忘掉和彻底删除现在只能由用户发起（用户的表态、记忆删除卡、设置页、经管理员转达），别的写入口直接拒；给管理员出确认卡、让它代问用户的那条路还没做。管理员的 `forget_material` 照之前的是"用户说了才调"、直接下命令，没有卡 | ADR-0030 |
 | 交互策略进写入口 | 策略（`strategies`）是从结论编出来的、另有用户确认，没收进写入口（不留痕、不查） ||
 | 用户模型和策略编进用户卡、动机随时间变化 | "为什么变了""新旧冲突时听哪个"不做 | |
 
@@ -1056,7 +1056,7 @@ flowchart LR
 | ✅ | `RELAYED_BASIS`、`isRelayedGuess`、`relayedGuessOf`、`isRelayedSource`、`relayedEligible`、`selfCounterparts` | `packages/memory/src/rg/relayed.ts` | 存储、结论或事实（R3）：别人转述起的猜测怎么认、哪些转述能起猜测、和用户自己说过的同一件事是一样还是相反 | 布尔；起过的猜测；本人那边一样的、相反的事实 |
 | ✅ | `unverifiedPremises`、`ironLawViolation`、`ironLawReason`、`isDangling`、`lacksPremises` | `packages/memory/src/rg/graph-rules.ts` | 一条结论、lookup：成立推断写的前提里没验证的；已验证的才算违反传播铁律；降回猜测的说法；悬空（还活着、前提一条都不在了）；推论没前提（还活着、没有写了前提的成立推断）——标着复核的后两样不算 | 前提 id；一句原因；布尔 |
 | ✅ | `StatusKeeper`、`DIRECT_BASIS`、`isDirectInference` | `packages/memory/src/rg/status-keeper.ts` | 结论的状态怎么跟着前提和证据走（`engine.rg.keeper`）：`downgradeDependents`（传播铁律，降回猜测、前提照挂）、`retractDependents`（推翻往上传，有直接证实的留下）、`sourceLost`（忘掉、删除、别推断 = 来源失效）、`reinstateDependents`（复活）、`directBasis` / `attachDirect` / `restoreChain`（证实不靠前提，依据改挂、原来的推理链记作历史）、`rejudge`（整理末尾重判标着复核、不在组里的）、`flag`（复核标记）；写都在调用方开的那一次写里 | 动过的结论 id |
-| ✅ | `migrateToRules`、`RulesMigrationReport` | `packages/memory/src/rg/migrate-rules.ts` | 引擎、`at`（R16 ①）：老库照新规矩迁移一次——待复核改成复核标记、恢复 326 改过的身份、用户确认过的改挂依据、照铁律降回猜测、悬空的加复核标记；写操作 `migrate`，一条一次写；跑两遍结果一样。没接进守护进程，先在副本上跑 | 每一步动了哪几条、被拒的、改没改 |
+| ✅ | `migrateToRules`、`RulesMigrationReport` | `packages/memory/src/rg/migrate-rules.ts` | 引擎、`at`（R16 ①）：老库照新规矩迁移一次——待复核改成复核标记、恢复改过的身份、用户确认过的改挂依据、照铁律降回猜测、悬空的加复核标记；写操作 `migrate`，一条一次写；跑两遍结果一样。没接进守护进程，先在副本上跑 | 每一步动了哪几条、被拒的、改没改 |
 | ✅ | `exportReasoningTemplate` | `packages/memory/src/rg/template-export.ts` | 只读的库连接、层、条数、全部事实、问题、证据层、`now`（267 从 `dump-template.ts` 挪来，映射不变；只给 `memory:dump-template` 用） | 节点和依赖的 YAML 和各类条数 |
 | ✅ | `manualRunKey` | `packages/memory/src/nightly.ts` | 哪一夜、时间；手动整理在 `nightly_runs` 里自己的键，不动那一夜的定时水位 | 键 |
 | ✅ | `nightlyDecision` | `packages/memory/src/nightly.ts` | 时间、这一夜跑过没有和推了几次、配置、用户在不在用；纯函数 | 跑、不跑（没到点、跑过了、推后）和下次几点 |
@@ -1120,30 +1120,8 @@ flowchart LR
 
 ### 3.9 记忆引擎的评测 🧪
 
-评测模块不从包的入口导出（只有它读 `fixtures/truth/`），检查时看它自己文件的导出。
+评测模块在不公开的评测包里，不从 `@ergo/memory` 的入口导出，这里不列接口。
 
-<!-- 接口表 -->
-| 状态 | 接口 | 文件 | 参数要点 | 返回 |
-|---|---|---|---|---|
-| 🧪 | `runEval` | `packages/memory-eval/src/eval/run.ts` | `EvalOptions` | `EvalReport` |
-| 🧪 | `EvalOptions.attach` | `packages/memory-eval/src/eval/run.ts` | 给每个新建的库接上推理图谱 | 无 |
-| 🧪 | `EvalOptions.reasoning` | `packages/memory-eval/src/eval/run.ts` | 推理类指标的打分器 | 无 |
-| 🧪 | `DEFAULT_GROUPS` | `packages/memory-eval/src/eval/run.ts` | A、B、C、D 四组 | 常量 |
-| 🧪 | `ReasoningJudge` | `packages/memory-eval/src/eval/reasoning.ts` | 判法（`judgeAnswer`、`judgeUserModel`、`beforePerturbation` / `afterOp` / `afterReflect`）；实现 | 推理类指标 |
-| 🧪 | `appendReport` | `packages/memory-eval/src/eval/report.ts` | 报告；追加到评测记录（不公开） | 无 |
-| 🧪 | `generateNoise` | `packages/memory-eval/src/eval/noise.ts` | 条数、种子 | 无关的闲聊证据 |
-| 🧪 | `recallAt` | `packages/memory-eval/src/eval/metrics.ts` | 排名、相关的、k | Recall@k |
-| 🧪 | `JointAnswerKey` | `packages/memory-eval/src/eval/kg-joint.ts` | 标准答案：隐蔽联系、矛盾 | 类型 |
-| 🧪 | `hiddenLinkRecall`、`conflictRootAccuracy` | `packages/memory-eval/src/eval/kg-joint.ts` | 标准答案、`JointSummary` | 隐蔽联系找出率；矛盾根源判对率 |
-| 🧪 | `runJointEval`、`formatJointReport` | `packages/memory-eval/src/eval/kg-joint.ts` | `key`、`eventsFile`、`engineOptions` | 结果、报告的一节 |
-| 🧪 | `runEval2` | `packages/memory-eval/src/eval/eval2/run.ts` | `Eval2Options`：人、组、扰动、模型版的抽取和推理；`answerer`、`saveDir`、`loadDir`、`expectBuild`；`progress` | `Eval2Result` |
-| 🧪 | `StoreWriter`、`openSavedStore` | `packages/memory-eval/src/eval/eval2/stores.ts` | 每人一个目录、每个库一个 SQLite 文件、一份 manifest；读回的是拷贝 | 存下的库；打开的引擎 |
-| 🧪 | `readManifest`、`storeSettingsMismatch` | `packages/memory-eval/src/eval/eval2/stores.ts` | 目录、人；存下的设置和这次要的 | `StoreManifest`；对不上的字段 |
-| 🧪 | `planEval2Answers` | `packages/memory-eval/src/eval/eval2/plan.ts` | 人、组、扰动、`loadDir`；照真会发的请求估，不调模型 | 大模型回答一轮的调用数、token、费用 |
-| 🧪 | `dumpClaims`、`dumpClaimsFromDir` | `packages/memory-eval/src/eval/eval2/claims.ts` | 引擎或存下的库的目录、`store`（默认 now）；不读答案 | `ClaimsDump`：全部结论、各层条数、竞争假设组和胜负 |
-| 🧪 | `parseGroups`、`parseAnswerer` | `packages/memory-eval/src/eval/eval2/main-args.ts` | `--groups A,B,C,D`、`--answerer`（template 或 llm） | 检索模式、回答器 |
-| 🧪 | `StallWatchdog`、`watchedChat` | `packages/memory-eval/src/eval/stall.ts` | 多少分钟没动静算卡住（`--stall-minutes`，默认 10）；每次模型调用前后都 touch | 卡住时报正在做哪一步、退出码非零 |
-| 🧪 | `stallProgress`、`stampLocal` | `packages/memory-eval/src/eval/stall.ts` | 建库 CLI 的进度行带本地时间戳，顺带喂看门狗 | 拼好的一行 |
 
 ### 3.10 计划中
 
@@ -1170,7 +1148,7 @@ flowchart LR
 | 4.10 | 插件启停、整理开关 | `plugins.disabled`、`memory.enabled` | 启动时、运行中 | ✅ |
 | 4.11 | 找记忆管理员：说话、记下对结论的表态、忘掉 | 记忆页发消息、秘书 `ask_curator` | 在线 | ✅ |
 | 4.12 | 运维：重建、验收、导出、全量重判 | `npm run memory:build`、`memory:rejudge` 等 | 离线 | ✅ |
-| 4.13 | 评测 | `npm run memory:eval`、`memory:eval2` | 离线 | 🧪 |
+| 4.13 | 评测 | 评测包的命令 | 离线 | 🧪 |
 
 ### 4.1 保存素材 ✅
 
@@ -1375,7 +1353,7 @@ flowchart TB
 - **首次建库**：现有素材按模型版要重抽一遍，一夜的预算装不下就连续几夜做完（按时间先后，整理完几条记几条）；整理记录的 `processedEvidence`、`pendingEvidence` 看进度。也可以用 `npm run memory:build` 离线一次做完（预算自定，默认 2000）。
 - **整理记录**：每一夜（跑了、推后、跳过、失败、要重建）往守护进程内部的事件日志追加一条 `memory_nightly`，派生视图一夜一条（后写的覆盖先写的），记忆页概览和管理员页顶上读它；完整的 `NightlyReport` 在 `rg.db` 的 `nightly_runs`。整理成功不出声，失败进待我处理（一夜一条）。
 - **没配 key**：跳过这一夜、记原因，不建库、不花钱。**`memory.enabled` 是 false**：不排作业、不建库。
-- PoC 里用模拟时钟（`SimClock`），演示 `npm run memory:demo` 的 ⑥"过了几夜"。细节见架构文档第 7.7 节、[系统架构](README.md)的"记忆系统"。
+- PoC 里用模拟时钟（`SimClock`），演示的 ⑥"过了几夜"。细节见架构文档第 7.7 节、[系统架构](README.md)的"记忆系统"。
 
 ### 4.5 新事实到来时更新图谱 ✅
 
@@ -1565,7 +1543,7 @@ sequenceDiagram
 - **措辞**：中性、问具体的事、不问动机；`leadingPhrases` 挡住"因为你……所以""你是不是因为""为什么"、带评判的说法，不过关的不出。
 - **优先级**= 回答能不能直接分出胜负（`answerSeparation`）× 分数接近的程度 × 常不常遇到（近 30 天这几个领域的记录占比）× 还没问过。过期默认 30 天，目标里有近期状态的跟着它的有效期提前。
 - **问题箱**：同一个问题只有一个开着的；要弄清的有结果了标"不用问了"；"别问这个"的那一类、跳过两次的不再生成；答过、过期的冷却 30 天。
-- **顺口问、回写、跳过**（规则，照它接进秘书）：话题怎么对上——场景按维度比要重叠、领域有交集或者提到了问题的说法；每天最多 1 个（按真的问出去的算：秘书标了才算）；急事（"赶紧、马上……"）、上一轮在等用户做决定（秘书的回话里出了卡）不问；不再要求原样带 198 那一句，秘书跟着当时的话题和语气用自己的话问（只问具体的事、不带诱导、不合适就别问，用户问起为什么照实说想更了解他、可以不答），@ergo/memory 的演示和评测里照旧是"顺便问一句：……（想更了解你一点，不想答可以跳过。）"。回答规则版读成是、不是、说不好：很明确的马上标"你确认过"或撤回；不明确的下一夜按判法定输赢；说不好的不判。问了没答算跳过一次（线上由夜里判过再记），跳过两次退下、记一条回避信号（系统观察到的，不当依据）。
+- **顺口问、回写、跳过**（规则，照它接进秘书）：话题怎么对上——场景按维度比要重叠、领域有交集或者提到了问题的说法；每天最多 1 个（按真的问出去的算：秘书标了才算）；急事（"赶紧、马上……"）、上一轮在等用户做决定（秘书的回话里出了卡）不问；不再要求原样带那一句，秘书跟着当时的话题和语气用自己的话问（只问具体的事、不带诱导、不合适就别问，用户问起为什么照实说想更了解他、可以不答），@ergo/memory 的演示和评测里照旧是"顺便问一句：……（想更了解你一点，不想答可以跳过。）"。回答规则版读成是、不是、说不好：很明确的马上标"你确认过"或撤回；不明确的下一夜按判法定输赢；说不好的不判。问了没答算跳过一次（线上由夜里判过再记），跳过两次退下、记一条回避信号（系统观察到的，不当依据）。
 - **是不是在答**（`classifyReply`）：只看秘书带上问题那一轮之后用户的下一句。有"别问这个、这个别问了、以后别再问"是别问这个，有"跳过、不想说、先不说这个"是跳过；分句说到了问题里的事才算回答——接着问题的话头短短答（会 / 不去 / 是的 / 对 / 没有），或者和问题有两个以上相同的两字词，或者说到了问题的说法；跟秘书提要求的分句（帮我……、提醒我……）不算；整句很短、只是"看情况、说不好"也算回答（说不好）。别的都当在说别的，不动问题。**宁可漏认**：漏认的回答照样是素材，留给夜里判；错认会把别的话记成对问题的表态。
 - **夜里判**（`rg/reply-judge.ts`）：交给模型的是问题、为什么问、回答"是""不是"各说明什么、秘书当时那一轮的回话（问在里面）、用户之后的几句话（s1、s2…）。模型回 `answered`（`verdict` 是 / 不是 / 说不好，`answer` 点名在答的那几句）、`not_answered`、`unsure`；解析不了、点名的不是给过的句子当拿不准。隐含的回答也算在答（问"是不是特别忙"答"最近在赶项目"读成"是"）。答了用点名的第一句的证据回写；说得明不明确再拿规则核一遍（同一边、有加重的才明确）。当天才问的不判（到第二天才算"问了没答"）；问过以后一句都没说的、拿不准以后没再说什么的不问模型。
 - **回写写了推理库的什么**（收写入口时看这里）：一条本人证据（`evidence`，出处是那句话的素材 id，和每晚整理读出来的同一条）；问题箱的那一行和经过（`questions`、`question_log`）；回答得很明确的另按问题里写的判法写（`confirmClaim` 或决定性反证的 `links` 加 `redecideGroup`，矛盾、张力、反常输入另改事实这一层）；"别问这个"另写 `question_blocks`，带上的那句话也入证据；跳过两次退下另记一条系统的回避信号证据。
@@ -1682,11 +1660,11 @@ flowchart LR
 
 ### 4.13 评测 🧪
 
-**触发**：`npm run memory:eval [-- --embedder fake|bge-m3]`、`npm run memory:eval2`。**离线**。只喂合成数据。
+**触发**：评测包的命令。**离线**。只喂合成数据。
 
 ```mermaid
 flowchart TB
-  CMD(["npm run memory:eval"]) --> LOAD["读 fixtures/events.json<br/>只有 src/eval/ 读 fixtures/truth/"]
+  CMD(["跑评测"]) --> LOAD["读 fixtures/events.json<br/>只有 src/eval/ 读 fixtures/truth/"]
   LOAD --> PERQ["每道题按它问的时间建库<br/>只喂那时知道的证据，抽事实、算向量"]
   PERQ --> ABL["消融：A、B、C、D 组 × 原话、精炼陈述、两层"]
   ABL --> MET["指标：Recall、Precision、nDCG、时间准确率、场景准确率<br/>只有本人能当依据、延迟"]
@@ -1702,7 +1680,7 @@ flowchart TB
 - 硬规矩：忘掉的证据之后一次都不出现；被纠正的出现时标 `corrected`；时间切分里未来的证据漏进来 0 次。规则版的结果只能说明机制，不能说明理解。
 - `test/no-truth.test.ts` 检查 `src/` 里别的代码不提 `truth`、不 import 评测模块。
 - 知识图谱联动的两个指标（隐蔽联系找出率、矛盾根源判对率）在 `src/eval/kg-joint.ts`。
-- 评测数据二（`npm run memory:eval2`）在 4 个虚构的人上跑：
+- 评测数据二在 4 个虚构的人上跑：
 
 ```mermaid
 flowchart LR
@@ -1714,7 +1692,7 @@ flowchart LR
   TPL --> JUDGE["判法和大模型裁判"]
   LLM --> JUDGE
   SAVED -->|"--coverage"| COVER["说中几条隐藏需求"]
-  SAVED -->|"npm run memory:dump-claims"| DUMP["每人一份结论 JSON"]
+  SAVED -->|"导出结论"| DUMP["每人一份结论 JSON"]
 ```
 
 - 存下的库带建库的设置和版本，读回时对不上就报错；`--answerer llm` 默认只估费用，`--run --max-spend-yuan` 才真跑。
@@ -1736,7 +1714,7 @@ flowchart LR
 | **真冲突** | 只存成素材 | 两条 `contested` 出追问；建矛盾根源的竞争假设，定了写回，分不出进问题箱 | — |
 | **说的和做的不一样**、别人来约 | 只存成素材 | 事件实体、人和人的关系、别名对齐；对比模式、矛盾根源的竞争假设；"说的和做的不一样"胜出时两条都保留、标 `gap` | — |
 | **忘掉** | 素材和原文副本删除、记墓碑；推理库：证据清原文、只靠它的事实撤回、依赖的结论照来源失效走（加复核标记、已验证的降回猜测、悬空的撤回）、退出用户模型 | 重判、摘掉标记 | — |
-| **彻底删除** | 另改写事件日志、卡片、工具调用记录（问记忆、问记忆管理员的按证据编号找，删项目、删任务连带的也是）、会话文件；265 以前删过的，补抹在守护进程启动时把问记忆结果里还留着的原话换成删除标记（一次）；清媒体；推理库：证据和只靠它的事实真删、结论加复核标记、问题过期、审计；两个库都做 WAL 检查点 | 重判 | — |
+| **彻底删除** | 另改写事件日志、卡片、工具调用记录（问记忆、问记忆管理员的按证据编号找，删项目、删任务连带的也是）、会话文件；以前删过的，补抹在守护进程启动时把问记忆结果里还留着的原话换成删除标记（一次）；清媒体；推理库：证据和只靠它的事实真删、结论加复核标记、问题过期、审计；两个库都做 WAL 检查点 | 重判 | — |
 | **别推断** | 素材标 `no_infer`；推理库撤掉已进库的证据、事实，结论同忘掉 | 以后不读成证据；重判 | 取消标记的入口 📋 |
 | **敏感类别**（配置改了要重启） | 启动时撤掉已进库的、没打开的类别的证据；数据源素材的证据照新设置重读、变样的撤掉 | 打开以后读那一类的素材；数据源的按出处里写的类别，位置管地点 | 对话里的情绪、财务、关系、位置 📋 |
 | **用户经管理员表态**（`review_memory_claim` → `recordClaimVerdict`） | 记一条表态证据；对：标 `user_confirmed`、记决定性支持、重定那组；不对：记决定性反证、重定那组（撤回、墓碑指向表态）；拿不准：加复核标记；先前相反的表态收回；修订写明是管理员 | 计分认决定性的关联：确认、撤回不被改回；拿不准的按证据重判；确认过的推理链塌了照样已验证（证实不靠前提） | — |
@@ -1798,7 +1776,7 @@ flowchart LR
    - 解析每张前面写着 `<!-- 接口表 -->` 的表，表头必须是"状态、接口、文件、参数要点、返回"；
    - 状态是 ✅ 或 🧪 的行，文件必须存在，接口格里每个反引号名字都要在文件里找得到：
      - `packages/memory/src/` 下、包入口转出的文件：名字要是这个文件的导出，也要是包入口 `@ergo/memory` 的导出；
-     - @ergo/memory 别的文件、评测包 `packages/memory-eval/src/` 的文件（评测这类）：名字要是这个文件的导出；
+     - @ergo/memory 别的文件：名字要是这个文件的导出；
      - 守护进程、网页、协议包的文件（含 `packages/daemon/test/memory/` 下的运维脚本）：名字要在文件里声明（`function`、`class`、`const`、`interface`、`type`……）；
      - `名字.成员`：成员要在这个名字的声明块里（方法、字段、属性）。
    - 状态是 📋 或"进行中"的行不查名字。

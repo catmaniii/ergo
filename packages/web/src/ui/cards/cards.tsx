@@ -1,4 +1,4 @@
-// 除计划确认卡、计划变更卡以外的 13 种卡片（112 号票加了"首版做完了"卡）。负载形状见 model/cards.ts。
+// 除计划确认卡、计划变更卡以外的 13 种卡片（加了"首版做完了"卡）。负载形状见 model/cards.ts。
 import { type ReactNode, useState } from "react";
 import { toHash } from "../../app/route.ts";
 import {
@@ -54,7 +54,7 @@ import {
   type McpChangeToolView,
   TASK_KIND_LABEL,
   stageLabelIn,
-  // 159 号票：给用户看的编号写"t-3「整理发票」"（163 号票）、负责人写它属于谁
+  // 给用户看的编号写"t-3「整理发票」"、负责人写它属于谁
   taskLabel,
   TELL_SECRETARY_LABEL,
   tellSecretaryOn,
@@ -84,13 +84,13 @@ export function toolkitLabel(kit: Toolkit): string {
     t("ui.cards.toolkit.mcp", { list: toolkitList(kit.mcps) }),
     t("ui.cards.toolkit.bash", { state: onOff(kit.bash) }),
     t("ui.cards.toolkit.network", { state: onOff(kit.network) }),
-    // 给秘书发消息（102 号票）、发附件（117 号票）默认开着，只在关掉时写
+    // 给秘书发消息、发附件默认开着，只在关掉时写
     ...(tellSecretaryOn(kit) ? [] : [t("ui.cards.toolkit.labelOff", { label: TELL_SECRETARY_LABEL })]),
     ...(sendAttachmentOn(kit) ? [] : [t("ui.cards.toolkit.labelOff", { label: SEND_ATTACHMENT_LABEL })]),
   ].join(t("ui.cards.itemSep"));
 }
 
-/** 卡片上的按钮（193 号票起网页插件的卡片也用它） */
+/** 卡片上的按钮（网页插件的卡片也用它） */
 export function Btn({ kind = "ghost", onClick, children, disabled }: { kind?: "primary" | "ghost" | "danger"; onClick(): void; children: ReactNode; disabled?: boolean }) {
   return (
     <button type="button" className={`btn ${kind}`} onClick={onClick} disabled={disabled}>
@@ -114,7 +114,7 @@ export function ApprovalCard({ state, payload: p, act }: CardProps<ApprovalPaylo
       }
     >
       <div className="tool-line">
-        {/* tool-title：经典不认，给视觉风格下样式（夜航仪表把工具名排成参数上面一行灰字，39 号票的规矩：补 class，不改结构） */}
+        {/* tool-title：经典不认，给视觉风格下样式（夜航仪表把工具名排成参数上面一行灰字，规矩：补 class，不改结构） */}
         <b className="tool-title">{p.toolTitle}</b> <code>{p.argsSummary}</code>
       </div>
       <div className="chips">
@@ -131,7 +131,7 @@ export function ApprovalCard({ state, payload: p, act }: CardProps<ApprovalPaylo
 }
 
 /**
- * 工具包变更卡（27 号票）：项目负责人不在任务里时要开 bash、加 MCP、开联网，提交它进待我处理。
+ * 工具包变更卡：项目负责人不在任务里时要开 bash、加 MCP、开联网，提交它进待我处理。
  * 卡上的"工具包变更"一栏列出要加的能力；批准后加进项目的工具包、负责人按新工具包重新装配，拒绝则不变（可以附一句原因）
  */
 export function ToolkitChangeCard({ state, payload: p, done, act }: CardProps<ToolkitChangeCardPayload>) {
@@ -163,7 +163,7 @@ export function ToolkitChangeCard({ state, payload: p, done, act }: CardProps<To
 }
 
 /**
- * 提问卡（12 号票）：成批提问，每题带推荐答案。点选项、或者自己写；"全按推荐"一次提交全部答案（每题都取推荐的）。
+ * 提问卡：成批提问，每题带推荐答案。点选项、或者自己写；"全按推荐"一次提交全部答案（每题都取推荐的）。
  * 回答过的卡上显示每题的答案。
  */
 export function QuestionsCard({ state, payload: p, done, act }: CardProps<QuestionsPayload>) {
@@ -206,7 +206,7 @@ export function QuestionsCard({ state, payload: p, done, act }: CardProps<Questi
             {done ? (
               answer !== undefined && !options.includes(answer) && <div className="muted">{t("ui.cards.questions.yourAnswer", { answer })}</div>
             ) : (
-              // 105 号票：自己写的答案随内容长高（长了也看得全）
+              // 自己写的答案随内容长高（长了也看得全）
               <AutoGrowText
                 className="input"
                 value={answer !== undefined && !options.includes(answer) ? answer : ""}
@@ -223,7 +223,7 @@ export function QuestionsCard({ state, payload: p, done, act }: CardProps<Questi
 }
 
 /**
- * MCP 登记变更卡（239 号票）：负责人提的加、改、删一条 MCP 登记。卡上列出启动命令、args、环境变量（凭据只写"来自环境变量 X"）、
+ * MCP 登记变更卡：负责人提的加、改、删一条 MCP 登记。卡上列出启动命令、args、环境变量（凭据只写"来自环境变量 X"）、
  * 暴露的工具和只读/联网/快速动作标注。批准后运行时按 name 合并写进数据目录配置区的 mcp.json、顺手拉起这个 MCP 自检，
  * 拒绝则一个字节都不动（可以附一句原因）
  */
@@ -288,12 +288,12 @@ export function McpChangeCard({ state, payload: p, done, act }: CardProps<McpCha
 }
 
 /**
- * 进度卡（13 号票）：所属任务、第 N/M 阶段；负责人报告的进展，或者一个阶段的验收结论——每条标准的方式和结果，
+ * 进度卡：所属任务、第 N/M 阶段；负责人报告的进展，或者一个阶段的验收结论——每条标准的方式和结果，
  * 谁判的（评审方式的标"评审判定"）。只是告诉你，唯一的动作是"知道了"
  */
 export function ProgressCard({ state, payload: p, act }: CardProps<ProgressPayload>) {
   const verdict = p.kind === "acceptance" ? p.acceptance : undefined;
-  // 91 号票：第几阶段按依赖图的编号（并行的写 4a、4b，和计划图一致）；认不出这个阶段时用卡上带的编号（93 号票起），
+  // 第几阶段按依赖图的编号（并行的写 4a、4b，和计划图一致）；认不出这个阶段时用卡上带的编号，
   // 再之前的卡只有计划里的第几个 / 共几个
   const stage = stageLabelIn(useStore().ui, p.taskId, p.stageId, t("ui.cards.progress.stage", { code: p.stageCode ?? `${p.stageIndex}/${p.stageTotal}` }));
   return (
@@ -318,11 +318,11 @@ export function ProgressCard({ state, payload: p, act }: CardProps<ProgressPaylo
 }
 
 /**
- * 快速动作卡（21 号票）：规范化后的动作（对谁做、做什么）。你这一句话里点明了对象和内容的，出来就是"已执行"；
+ * 快速动作卡：规范化后的动作（对谁做、做什么）。你这一句话里点明了对象和内容的，出来就是"已执行"；
  * 秘书推断出来、要先问的，带"执行"和"取消"。执行之后写上结果。
  */
 export function QuickActionCard({ state, payload: p, act }: CardProps<QuickActionCardPayload>) {
-  // 秘书转达（103 号票）写"发给""转达的话"，别的动作照旧"对象""内容"
+  // 秘书转达写"发给""转达的话"，别的动作照旧"对象""内容"
   const labels = quickActionFieldLabels(p.action.type);
   return (
     <CardShell
@@ -350,13 +350,13 @@ export function QuickActionCard({ state, payload: p, act }: CardProps<QuickActio
           {p.content}
         </div>
       )}
-      {/* 281 号票：直接写进个人档案的回执，撤销在档案页上（那个字段的"撤销"回到上一个值） */}
+      {/* 直接写进个人档案的回执，撤销在档案页上（那个字段的"撤销"回到上一个值） */}
       {p.action.type === "personal_file" && state.card.status === "handled" && p.result !== undefined && p.result !== PURGED_TEXT && (
         <a className="link" href={toHash({ tab: "more", page: "files", ...personalFileOf(p.action.params) })}>
           {t("ui.cards.personalFile.openToUndo")}
         </a>
       )}
-      {/* 284 号票：开了一次了解你访谈的回执：访谈在记忆管理员的整页对话里（记忆插件的页面；插件停用时那一页写没启用） */}
+      {/* 开了一次了解你访谈的回执：访谈在记忆管理员的整页对话里（记忆插件的页面；插件停用时那一页写没启用） */}
       {p.action.type === "start_interview" && state.card.status === "handled" && (
         <a className="link" href={toHash({ tab: "more", page: "memory", item: "curator" })}>
           {t("ui.cards.quickAction.goInterview")}
@@ -389,13 +389,13 @@ export function QuickActionCard({ state, payload: p, act }: CardProps<QuickActio
   );
 }
 
-/** 写个人档案的快速动作（281 号票）存的参数里写给的那份档案（新建的人没有编号，去列表） */
+/** 写个人档案的快速动作存的参数里写给的那份档案（新建的人没有编号，去列表） */
 function personalFileOf(params: unknown): { item?: string } {
   const id = typeof params === "object" && params !== null ? (params as { personId?: unknown }).personId : undefined;
   return typeof id === "string" ? { item: id } : {};
 }
 
-/** "建议发起任务"卡（58 号票）：秘书觉得该发起、用户没点明的事；两个按钮"作为流程""作为长程任务"，点了哪个建哪种 */
+/** "建议发起任务"卡：秘书觉得该发起、用户没点明的事；两个按钮"作为流程""作为长程任务"，点了哪个建哪种 */
 export function SuggestTaskCard({ state, payload: p, act }: CardProps<SuggestTaskPayload>) {
   const { ui } = useStore();
   return (
@@ -414,9 +414,9 @@ export function SuggestTaskCard({ state, payload: p, act }: CardProps<SuggestTas
     >
       <div className="agent-says">{p.why}</div>
       {p.projects && p.projects.length > 0 && <div className="muted">{t("ui.cards.suggestTask.projects", { list: p.projects.join(t("ui.common.listSep")) })}</div>}
-      {/* 只写了一个项目（64 号票）：点了建成这个项目的内部任务 */}
+      {/* 只写了一个项目：点了建成这个项目的内部任务 */}
       {p.projects?.length === 1 && !p.internal && <div className="muted">{t("ui.cards.suggestTask.willCreateIn", { scope: internalScopeLabel(p.projects[0]!) })}</div>}
-      {/* 项目的负责人给的建议卡（64 号票）：点了建出的是这个项目的内部任务 */}
+      {/* 项目的负责人给的建议卡：点了建出的是这个项目的内部任务 */}
       {p.internal && <div className="muted">{t("ui.cards.suggestTask.createdIn", { scope: internalScopeLabel(p.internal.projectName) })}</div>}
       {state.card.status === "pending" && (
         <div className="muted">
@@ -452,11 +452,11 @@ export function SuggestProjectCard({ state, payload: p, act }: CardProps<Suggest
       }
     >
       <div className="sp-goal">{p.goal}</div>
-      {/* 用户的原话（362 号票）：点"立项"时原样交给负责人 */}
+      {/* 用户的原话：点"立项"时原样交给负责人 */}
       {p.userWords !== undefined && <div className="muted sp-words">{t("ui.cards.suggestProject.userWords", { words: p.userWords })}</div>}
-      {/* 负责人用的运行时（289 号票：点"新建项目"时选的）：插件登记的才写 */}
+      {/* 负责人用的运行时（点"新建项目"时选的）：插件登记的才写 */}
       {p.runtime !== undefined && <SuggestedRuntime runtime={p.runtime} />}
-      {/* 在哪个文件夹做（305 号票：选了能选工作文件夹的运行时才写） */}
+      {/* 在哪个文件夹做（选了能选工作文件夹的运行时才写） */}
       {p.runtime !== undefined && <SuggestedFolder runtime={p.runtime} folder={p.folder} name={p.name} />}
       {p.projectId ? (
         <a className="link" href={toHash({ tab: "projects", projectId: p.projectId, chat: true })}>
@@ -469,13 +469,13 @@ export function SuggestProjectCard({ state, payload: p, act }: CardProps<Suggest
   );
 }
 
-/** 建议立项卡上写的运行时（289 号票） */
+/** 建议立项卡上写的运行时 */
 function SuggestedRuntime({ runtime }: { runtime: string }) {
   const text = runtimeChipText(useRuntimes(), runtime);
   return text === undefined ? null : <div className="muted sp-runtime">{t("ui.cards.suggestProject.runtime", { runtime: text })}</div>;
 }
 
-/** 建议立项卡上写的"在哪个文件夹做"（305 号票）：点"立项"时才定下 */
+/** 建议立项卡上写的"在哪个文件夹做"：点"立项"时才定下 */
 function SuggestedFolder({ runtime, folder, name }: { runtime: string; folder: WorkFolderChoice | undefined; name: string }) {
   const found = workFolderRuntime(useRuntimes(), runtime);
   return found === undefined ? null : <div className="muted sp-runtime sp-folder">{folderChoiceLine(folder, found.workFolder?.defaultFolder, name)}</div>;
@@ -495,9 +495,9 @@ function onceAt(time: string): ReminderSchedule {
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 
 /**
- * 改提醒的时间：一次性（哪天几点），或者几点加重复规则（种类和名字取自 REPEAT_KINDS；"按我的工作日"在 29 号票加进去，
- * "每年"在 282 号票：选几月、几日，几日跟着月份最多到月底，2 月能选 29 日）。
- * repeatOnly（76 号票）：发起对话框里"定时"的时间表只能是重复的（一次性的提醒用"只提醒我"），没有"一次性"这一项；
+ * 改提醒的时间：一次性（哪天几点），或者几点加重复规则（种类和名字取自 REPEAT_KINDS；
+ * "每年"：选几月、几日，几日跟着月份最多到月底，2 月能选 29 日）。
+ * repeatOnly：发起对话框里"定时"的时间表只能是重复的（一次性的提醒用"只提醒我"），没有"一次性"这一项；
  * label 换掉最后那行的前缀（默认"改成："）
  */
 export function ScheduleEditor({
@@ -510,7 +510,7 @@ export function ScheduleEditor({
   value: ReminderSchedule;
   onChange(s: ReminderSchedule): void;
   repeatOnly?: boolean;
-  /** 只选某个时间（日期和时间），不选重复（发起对话框里"定时 · 某个时间做一次"，76 号票） */
+  /** 只选某个时间（日期和时间），不选重复（发起对话框里"定时 · 某个时间做一次"） */
   onceOnly?: boolean;
   label?: string;
 }) {
@@ -620,7 +620,7 @@ function yearDayFrom(value: ReminderSchedule, rule: RepeatRule | undefined): { m
   return { month: day.getMonth() + 1, day: day.getDate() };
 }
 
-/** 每年的几月几日（282 号票）：两个下拉，换月份时几日超过那个月的月底就落到月底（2 月最多 29 日，平年在 28 日响） */
+/** 每年的几月几日：两个下拉，换月份时几日超过那个月的月底就落到月底（2 月最多 29 日，平年在 28 日响） */
 function YearDayPick({ month, day, onChange }: { month: number; day: number; onChange(next: { month: number; day: number }): void }) {
   return (
     <div className="repeat-row" role="group" aria-label={t("ui.cards.schedule.yearDay")}>
@@ -694,7 +694,7 @@ export function CharterCard({ state, payload: p, act }: CardProps<CharterPayload
 }
 
 /**
- * "首版做完了"卡（112 号票，用户 2026-10-13 定：项目状态变更时找你）：项目的建设任务做完了，写明做成了什么——最后的总结、
+ * "首版做完了"卡（项目状态变更时找你）：项目的建设任务做完了，写明做成了什么——最后的总结、
  * 每个阶段一行验收结果和交付件、交付件在哪。三个选择：转入使用（项目进入使用中）、继续建设（写一句这一轮要做什么，
  * 负责人照它起草下一轮建设任务的计划）、放弃并归档（先确认一下）。不选就一直停在建设中
  */
@@ -703,7 +703,7 @@ export function BuildDoneCard({ state, payload: p, done, act }: CardProps<BuildD
   const [request, setRequest] = useState("");
   const { ui } = useStore();
   const next = p.decided?.nextTaskId;
-  // 130 号票：带着运营方案的，"转入使用"就是"确认并转入使用"（流程审查要你逐项确认的事项勾完才行）
+  // 带着运营方案的，"转入使用"就是"确认并转入使用"（流程审查要你逐项确认的事项勾完才行）
   const ops = p.operations;
   const confirm = useOperationConfirmations(ops?.items ?? []);
   return (
@@ -781,7 +781,7 @@ export function BuildDoneCard({ state, payload: p, done, act }: CardProps<BuildD
           <code>{p.workdir}</code>
         </dd>
       </dl>
-      {/* 259 号票：转运营检查清单（旧卡没有） */}
+      {/* 转运营检查清单（旧卡没有） */}
       {p.checklist && <GoLiveChecklist items={p.checklist} pending={!done} missingAtConfirm={p.decided?.missing} />}
       {ops && <OperationsPlanSection plan={ops} results={p.decided?.operations} pending={!done} confirm={confirm} projectId={p.projectId} />}
       {next ? (
@@ -800,7 +800,7 @@ export function BuildDoneCard({ state, payload: p, done, act }: CardProps<BuildD
 }
 
 /**
- * 转运营检查清单（259 号票）："首版做完了"卡、"转入使用"卡上的一节：建设中 → 使用中的每一项，做到的 ✓、没做到的 ✗ 写差什么
+ * 转运营检查清单："首版做完了"卡、"转入使用"卡上的一节：建设中 → 使用中的每一项，做到的 ✓、没做到的 ✗ 写差什么
  * （做到的也可能带一句说明："确认后开 /apps/p-1-site/"）。还在等时提醒缺的不挡确认；确认过的写照样确认时缺了几项
  */
 export function GoLiveChecklist({ items, pending, missingAtConfirm }: { items: readonly GoLiveChecklistItem[]; pending: boolean; missingAtConfirm?: readonly GoLiveChecklistItem[] | undefined }) {
@@ -838,7 +838,7 @@ export function GoLiveChecklist({ items, pending, missingAtConfirm }: { items: r
 }
 
 /**
- * "转入使用"确认卡（259 号票）：建设中的项目要转入使用——你在项目页点的、负责人提的、秘书照你说的代办的，都在这里确认才转。
+ * "转入使用"确认卡：建设中的项目要转入使用——你在项目页点的、负责人提的、秘书照你说的代办的，都在这里确认才转。
  * 写谁发起的、为什么、转运营检查清单（缺的照样能确认）、带着的运营方案（确认时一起生效，流程要逐项确认的勾完才行）
  */
 export function GoLiveCard({ state, payload: p, done, act }: CardProps<GoLivePayload>) {
@@ -878,7 +878,7 @@ export function GoLiveCard({ state, payload: p, done, act }: CardProps<GoLivePay
 }
 
 /**
- * 工单卡（17 号票）：涉及多个项目的任务的负责人执行中派出计划外的工单，命中"计划外工单"类别，工单待你确认。
+ * 工单卡：涉及多个项目的任务的负责人执行中派出计划外的工单，命中"计划外工单"类别，工单待你确认。
  * "确认派出"之后才进项目负责人的队列，"拒绝"则不派（任务负责人会收到）
  */
 export function WorkOrderCard({ state, payload: p, act }: CardProps<WorkOrderPayload>) {
@@ -930,7 +930,7 @@ export function WorkOrderCard({ state, payload: p, act }: CardProps<WorkOrderPay
 const WORK_ORDER_CARD_ACTION_LABEL = tTable({ dispatch: "ui.cards.workOrder.dispatch", deny: "ui.cards.deny" });
 
 /**
- * 并行确认卡（20 号票）：负责人提议派子 agent 同时做几个阶段（或几步），写明各做什么、在哪个目录里做。
+ * 并行确认卡：负责人提议派子 agent 同时做几个阶段（或几步），写明各做什么、在哪个目录里做。
  * 同意了才真正拉起子 agent；不同意（或还没处理）负责人照常一件一件做。
  */
 export function ParallelCard({ state, payload: p, act }: CardProps<ParallelPayload>) {
@@ -978,7 +978,7 @@ export function fingerprintLabel(fp: string): string {
   return `${fp.slice(0, 4)} ${fp.slice(4)}`;
 }
 
-/** 像网络上的自动访问的配对请求（137 号票）：配对卡、批准页上那句醒目的提示（不拦批准） */
+/** 像网络上的自动访问的配对请求：配对卡、批准页上那句醒目的提示（不拦批准） */
 export function AutomatedHint({ reason }: { reason: string }) {
   return (
     <div className="pair-bot" role="note">

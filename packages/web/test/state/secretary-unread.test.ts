@@ -1,7 +1,7 @@
-// 109 号票：秘书来了新消息要让用户知道——"秘书"页签的红点（已读位置存在守护进程、几台设备同步）、怎么算看过、
+// 秘书来了新消息要让用户知道——"秘书"页签的红点（已读位置存在守护进程、几台设备同步）、怎么算看过、
 // 不在看秘书会话时秘书说完一轮在顶上提醒一条（一轮一条、语音合成好了再提醒、看着时不出）、打开时"秘书有 N 条新消息"、
 // 不在时念的语音小栏（出现、放过了拿掉）。
-// 先回放主切面录下的真实事件流：task-done-voice（定时任务跑完，秘书收到【任务做完】【跑完自动播报】——115 号票起后面跟着一条
+// 先回放主切面录下的真实事件流：task-done-voice（定时任务跑完，秘书收到【任务做完】【跑完自动播报】——后面跟着一条
 // 交付的日报附件——，用 send_voice 念了一段、
 // 附一行字；daemon/test/main/auto-voice-announce.test.ts）、send-voice（三轮：语音、语音加表、语音没发出去改用文字）、
 // voice-reply（用户说语音，秘书回合结束之后才合成语音），再用手写的事件测录不出来的边角。
@@ -150,7 +150,7 @@ describe("回放：定时任务跑完，秘书念了一段语音、附一行字�
     expect(missedVoicesOnOpen(state, [], new Set([voice.id]))).toEqual([]);
   });
 
-  test("会话回退之后（150 号票）：载着语音的那条消息落在废弃分支上，小栏里不再有它，也不算没看过", () => {
+  test("会话回退之后：载着语音的那条消息落在废弃分支上，小栏里不再有它，也不算没看过", () => {
     const last = Math.max(...secretaryFrames(inputs).map((i) => (i.kind === "frame" ? i.frame.seq : 0)));
     const branches: ConversationBranches = {
       current: "b1",
@@ -304,7 +304,7 @@ describe("手写的事件：卡片、补发推完了、重新同步", () => {
     expect(spokenDuration(600_000)).toBe("10 分 00 秒");
   });
 
-  test("118 号票：附件挪到了文字后面——没看过的照显示的先后（文字在前）；提醒写文字的开头、查看去那段文字，说到的最后一条按序号算（不是排在最后的附件）", () => {
+  test("附件挪到了文字后面——没看过的照显示的先后（文字在前）；提醒写文字的开头、查看去那段文字，说到的最后一条按序号算（不是排在最后的附件）", () => {
     const attachment = { id: "m-att", conversation: SECRETARY, speaker: "agent" as const, time: "2026-10-13T08:04:00+08:00", parts: [{ type: "file" as const, mediaId: "md-1", name: "周报.md", mime: "text/markdown", size: 10 }] };
     const state = replay([
       markFrame(1, 0),

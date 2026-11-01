@@ -1,11 +1,11 @@
-// 口语稿（32 号票）：agent 的回复送进 TTS 之前的样子，纯函数。
+// 口语稿：agent 的回复送进 TTS 之前的样子，纯函数。
 // - speakable：回复的文字变成念得出来的口语稿——去掉 Markdown 的标记；代码块、表格、链接地址念不出来，去掉并标出来
 //   （有它们的回复不整段合成，合成口语总结，详细内容照常是文字）；
 // - estimateSpeechSeconds：按字数估念出来要多少秒（汉字每秒 charsPerSecond 个，一个英文单词、数字串按两个汉字算）；
 // - leadingSentences：截出开头念得完的几句；一句都放不下时按字截、加省略号；
 // - runtimeSummary：追问了 agent 还是没写口语总结时运行时兜底的那段——回复开头念得完的几句，加一句"详细内容我发在聊天里了"。
 //   守护进程自己不调模型（ADR-0011 的后果之一），所以兜底是截，不是重新概括；
-// - speechSegments（38 号票）：分段合成时口语稿怎么切段（规则和数字见 SPEECH_SEGMENT_RULES）。
+// - speechSegments：分段合成时口语稿怎么切段（规则和数字见 SPEECH_SEGMENT_RULES）。
 // 语速和"多长算长"打包成 SpokenPace（配置里的 voice.reply）。
 import { t } from "@ergo/protocol";
 import { runtimeSummaryTail } from "./texts.ts";
@@ -117,11 +117,11 @@ export function runtimeSummary(plain: string, pace: SpokenPace): string {
   const budget = pace.maxSeconds - estimateSpeechSeconds(tail, pace);
   const lead = budget > 0 ? leadingSentences(plain, { ...pace, maxSeconds: budget }) : "";
   if (!lead) return tail;
-  // 173 号票：兜底的那句按当前语言；前面截的句子没有句末标点时补一个（中文"。"、英文"."），接的时候空不空格也按语言
+  // 兜底的那句按当前语言；前面截的句子没有句末标点时补一个（中文"。"、英文"."），接的时候空不空格也按语言
   return t("voice.spoken.leadThenTail", { lead: ENDING.test(lead) ? lead : t("voice.spoken.endSentence", { lead }), tail });
 }
 
-// ───────────── 分段合成（38 号票） ─────────────
+// ───────────── 分段合成 ─────────────
 
 /**
  * 分段合成怎么切段（字数按 speechUnits：汉字一个算一个，英文单词、数字串一个算两个；每秒约念 4.5 个字）：

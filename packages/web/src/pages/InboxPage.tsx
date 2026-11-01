@@ -1,13 +1,13 @@
 // 待我处理：汇集所有要我注意或确认的事。按紧急度三档排序，到点的简单提醒置顶；可标已读、归档、删除。
-// 卡片在这里处理和在聊天里处理是同一张，状态同步。06 号票起接真数据（前端状态层的 inbox，排序和计数见 state/inbox.ts）；
+// 卡片在这里处理和在聊天里处理是同一张，状态同步。接真数据（前端状态层的 inbox，排序和计数见 state/inbox.ts）；
 // 卡着任务的事项处理之前归档或删除会被守护进程拒绝，原因由页面底部的提示说明（App.tsx 的 FailureToasts）。
-// 90 号票：多选。标题栏"多选"、行的长按 / 右键菜单（和行尾"⋯"同一个菜单）里"多选"进入；点一行就是勾选，底部操作栏
+// 多选。标题栏"多选"、行的长按 / 右键菜单（和行尾"⋯"同一个菜单）里"多选"进入；点一行就是勾选，底部操作栏
 // "已选 N 条 · 全选（当前页签） · 标已读 · 标未读 · 归档 · 删除 · 一起处理 · 完成"。守护进程的 inbox_action 是全部生效或全部不生效，
 // 做不了的先剔掉（state/inbox-select.ts：卡着任务、还没处理的不能归档或删除；卡片要一张张处理），跳过了几条、为什么在页面底部说一声。
-// 105 号票：详情里"去任务 ›""去项目 ›"……跳到这一项从哪来的地方（state/inbox-jump.ts），能定位的定位到那张卡、那次调用。
-// 107 号票：通知的种类名和动作按钮抽到 ui/inbox-notice.tsx，会话里的"等你处理"栏用同一份；点"去任务 ›"这类跳过去时记下是哪一项，
+// 详情里"去任务 ›""去项目 ›"……跳到这一项从哪来的地方（state/inbox-jump.ts），能定位的定位到那张卡、那次调用。
+// 通知的种类名和动作按钮抽到 ui/inbox-notice.tsx，会话里的"等你处理"栏用同一份；点"去任务 ›"这类跳过去时记下是哪一项，
 // 那个会话的栏里这一项默认展开、闪一下（ui/conversation/inbox-bar-focus.ts）。
-// 157 号票：多选时标题栏的"多选"换成"退出多选"，操作栏右边原来的"完成"换成"✕ 退出多选"，Esc 和返回键一样先退出多选（ui/select-mode.tsx）。
+// 多选时标题栏的"多选"换成"退出多选"，操作栏右边是"✕ 退出多选"，Esc 和返回键一样先退出多选（ui/select-mode.tsx）。
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { inboxJumpRoute, type Navigate, toHash } from "../app/route.ts";
 import { useStore } from "../app/store.tsx";
@@ -69,14 +69,14 @@ function kindLabel(entry: InboxEntry): string {
 function InboxList({ selected, onOpen }: { selected?: string; onOpen(id: string): void }) {
   const { ui, inboxAction } = useStore();
   const [filter, setFilter] = useState<InboxFilter>("open");
-  // 多选（90 号票）：勾上了哪几条；换页签时清掉（全选只管当前页签）
+  // 多选：勾上了哪几条；换页签时清掉（全选只管当前页签）
   const [selecting, setSelecting] = useState(false);
   const [picked, setPicked] = useState<ReadonlySet<string>>(() => new Set());
   const stopSelecting = () => {
     setSelecting(false);
     setPicked(new Set());
   };
-  // 多选时返回键（鸿蒙）、Esc 先退出多选（157 号票）
+  // 多选时返回键（鸿蒙）、Esc 先退出多选
   useSelectingBack(selecting, stopSelecting);
   const shown = inboxEntries(ui, filter);
   const counts = inboxCounts(ui);
@@ -96,7 +96,7 @@ function InboxList({ selected, onOpen }: { selected?: string; onOpen(id: string)
   }
   return (
     <div className="chat-col">
-      {/* 副标题（249 号票）：设了"我的名字"是"<名字>的待办"，没设没有副标题（照旧） */}
+      {/* 副标题：设了"我的名字"是"<名字>的待办"，没设没有副标题（照旧） */}
       <TopBar title={t("pages.inbox.title")} sub={inboxPageSub(ui)} joined>
         <button type="button" className="link" disabled={unread.length === 0} onClick={() => inboxAction(unread, "read")}>
           {t("pages.inbox.markAllRead")}
@@ -204,7 +204,7 @@ function InboxRow({
           <span className="muted">
             <UrgencyMark u={item.urgency} /> {kindLabel(entry)} · <NamedText text={item.source} /> · {timeLabel(item.createdAt)}
           </span>
-          {/* 137 号票：像网络上的自动访问的配对请求，行上标一句（原因在详情的卡上） */}
+          {/* 像网络上的自动访问的配对请求，行上标一句（原因在详情的卡上） */}
           {botReason && (
             <span className="pair-bot-tag" title={automatedAccessHint(botReason)}>
               {t("pages.inbox.botTag")}
@@ -375,8 +375,8 @@ function InboxDetail({ itemId, onBack }: { itemId: string; onBack?: () => void }
   }, [item, inboxAction]);
   if (!item) return <div className="page-placeholder">{t("pages.inbox.gone")}</div>;
   const processed = inboxItemProcessed(ui, item);
-  // 105 号票：跳到这一项从哪来的地方（任务、项目、秘书会话、日历、设置……）；没有去处的不出按钮。
-  // 213 号票：去的那一页归停用的插件（日历插件停用时到点、错过的提醒去日历）也不出
+  // 跳到这一项从哪来的地方（任务、项目、秘书会话、日历、设置……）；没有去处的不出按钮。
+  // 去的那一页归停用的插件（日历插件停用时到点、错过的提醒去日历）也不出
   const found = inboxJump(ui, item);
   const jump = found && routeAvailable(inboxJumpRoute(found)) ? found : undefined;
   return (
@@ -396,7 +396,7 @@ function InboxDetail({ itemId, onBack }: { itemId: string; onBack?: () => void }
         </div>
         {jump && (
           <div className="inbox-jump">
-            {/* 107 号票：跳到的会话里"等你处理"栏把这一项展开、闪一下 */}
+            {/* 跳到的会话里"等你处理"栏把这一项展开、闪一下 */}
             <a className="btn small ghost" href={toHash(inboxJumpRoute(jump))} onClick={() => markInboxBarFocus(item.id)}>
               {inboxJumpLabel(jump)}
             </a>
@@ -415,7 +415,7 @@ type ArchiveChoice = keyof typeof ARCHIVE_CHOICES;
 /** 通知的详情：种类、标题、正文（归档清单逐项选），下面是它的动作（NoticeActions，和会话里"等你处理"栏同一份） */
 function NoticeView({ item }: { item: NoticeInboxItem }) {
   const archiveList = (item.data as Partial<ArchiveListData> | undefined)?.archiveList;
-  // 归档清单每一项的选择先留在页面上，点"完成"时一起交（归档清单的正式处理在产生它的票里）
+  // 归档清单每一项的选择先留在页面上，点"完成"时一起交（归档清单的正式处理在产生它的模块里）
   const [choices, setChoices] = useState<Record<number, ArchiveChoice>>({});
   return (
     <div className="card xcard">

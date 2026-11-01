@@ -1,16 +1,16 @@
-// 记忆简报（216 号票）：给大模型回答器（llm/answerer.ts）看的上下文——二狗上线时秘书读着记忆回答，评测里拿它模拟秘书。
+// 记忆简报：给大模型回答器（llm/answerer.ts）看的上下文——二狗上线时秘书读着记忆回答，评测里拿它模拟秘书。
 // memoryBrief(engine, question, { at, context, group, hits? })，按组不同：
 // - A、B、C：这一组检索出的记录（前 10 条，同评测的检索设置）：原话、时间、谁说的（本人说的、做的；别人转述的标"不当依据"）、
 //   场景、精炼陈述（本人有效的记录才带）；被本人纠正过的标出来、写明以哪条为准；
 // - D：C 的记录（一字不差），加上和问题相关的用户画像：
-//   - 对用户的理解：196 号票三条路找到的结论，先放过了相关门槛、直接说到这件事的（relevance.ts 的 gated，direct），
+//   - 对用户的理解：三条路找到的结论，先放过了相关门槛、直接说到这件事的（relevance.ts 的 gated，direct），
 //     任务题再放 adviseTask 调出的明确的偏好、推断的需求和价值观，再放三条路每层最相关的（每层 2 条，需求、价值观在前），
-//     最后是只有领域对上的（"同一方面"）；后两种标"不一定直接说到这件事"。候选按和问题的相关程度排（222 号票）：
+//     最后是只有领域对上的（"同一方面"）；后两种标"不一定直接说到这件事"。候选按和问题的相关程度排：
 //     先看它的支持证据在 C 组检索里的最好名次（同下面挑原话的名次），direct 的往前挪 BRIEF_DIRECT_BONUS 名，名次相同按
 //     三条路合并的分、再按层级（需求、价值观、偏好、状态）和把握；同一组、或者陈述几乎一样的两条只留一条（把握高、
-//     组里占上风的、支持证据多的）；只差否定词的两条（喜欢 / 不喜欢）算极性相反，任何情况下都不合并（228 号票）。每条写清层级、谁说的（用户说的、推断的、确认过的）、
+//     组里占上风的、支持证据多的）；只差否定词的两条（喜欢 / 不喜欢）算极性相反，任何情况下都不合并。每条写清层级、谁说的（用户说的、推断的、确认过的）、
 //     状态、把握、支持和反对的证据各几条；组里胜出的那条写明占上风，被排除的跟在后面；
-//     每条结论下面带上和问题最相关的几条支持证据（最多 3 条）、反对证据（最多 2 条）的原话：时间、谁说的、原话（219 号票）——
+//     每条结论下面带上和问题最相关的几条支持证据（最多 3 条）、反对证据（最多 2 条）的原话：时间、谁说的、原话——
 //     按 C 组检索（记录那节的设置，往深里搜 BRIEF_RANK_DEPTH 条）的名次挑，搜不到的排在后面；记录那节已经有的、上面的结论带过的只写编号；
 //   - 还没分出胜负的竞争解释：上面这些结论、三条路"还拿不准的"所在的组，组里没有成立且把握不低的那条（同模板回答的判法），
 //     列出几种解释（各自的状态、支持、反对）、已经排除的和一个能区分的问题；
@@ -48,9 +48,9 @@ export interface BriefLimits {
   membersPerGroup: number;
   /** D：用户画像那几节一共最多多少字 */
   profileChars: number;
-  /** D：每条结论下面带几条支持证据的原话（219） */
+  /** D：每条结论下面带几条支持证据的原话 */
   supportQuotes: number;
-  /** D：每条结论下面带几条反对证据的原话（219） */
+  /** D：每条结论下面带几条反对证据的原话 */
   refuteQuotes: number;
 }
 
@@ -63,11 +63,11 @@ export const BRIEF_LIMITS: Readonly<BriefLimits> = { records: 10, quoteChars: 80
 /** 简报的记录那节用几条检索结果（同评测，eval/run.ts 的 LIMIT） */
 export const BRIEF_SEARCH_LIMIT = 10;
 
-/** D：给结论的证据按和问题的相关程度排时，看 C 组检索（记录那节的设置）的前多少条；不在里面的排在后面（219） */
+/** D：给结论的证据按和问题的相关程度排时，看 C 组检索（记录那节的设置）的前多少条；不在里面的排在后面 */
 export const BRIEF_RANK_DEPTH = 200;
 
 /**
- * D：挑结论时 direct（直接说到这件事）的加成——相当于在 C 组检索里往前挪多少名（222 号票）。
+ * D：挑结论时 direct（直接说到这件事）的加成——相当于在 C 组检索里往前挪多少名。
  * 名次差得不多时 direct 的排前面；差得多时照样排后面，一长串 direct 占不住名额
  */
 export const BRIEF_DIRECT_BONUS = Math.round(BRIEF_RANK_DEPTH / 4);
@@ -89,7 +89,7 @@ export interface BriefRecord {
   statements: string[];
 }
 
-/** 结论下面带的一条证据的原话（219） */
+/** 结论下面带的一条证据的原话 */
 export interface BriefQuote {
   evidenceId: string;
   /** 支持还是反对这条结论 */
@@ -117,10 +117,10 @@ export interface BriefClaim {
   refuteIds: string[];
   reason: BriefClaimReason;
   groupKey: string | null;
-  /** 330 号票：标着复核（依据刚变了，等下一次整理重判）——照真值状态给，标出来 */
+  /** 标着复核（依据刚变了，等下一次整理重判）——照真值状态给，标出来 */
   needsReview?: boolean;
   /**
-   * 结论下面带的原话（219，只有"对用户的理解"那节的结论有）：和问题最相关的支持证据（最多 supportQuotes 条）在前、
+   * 结论下面带的原话（只有"对用户的理解"那节的结论有）：和问题最相关的支持证据（最多 supportQuotes 条）在前、
    * 反对证据（最多 refuteQuotes 条）在后，各按检索的相关程度排。放进简报的是实际写出来的那些（编号总写；原话在记录那节或上面的结论里有了就只写编号）
    */
   quotes?: BriefQuote[];
@@ -168,7 +168,7 @@ export interface MemoryBrief {
   /** 正文里出现的证据编号、结论编号：回答器只认这些 */
   evidenceIds: string[];
   claimIds: string[];
-  /** 因为条数、字数上限没放进来的；claims 里也算上同一组、近乎同文去掉的那几条（222 号票） */
+  /** 因为条数、字数上限没放进来的；claims 里也算上同一组、近乎同文去掉的那几条 */
   omitted: { records: number; claims: number; groups: number };
   /** 记录那节用的检索结果（D 组是 C 组的） */
   hits: Hit[];
@@ -194,7 +194,7 @@ export function briefSearchOptions(group: SearchMode, question: string, at: stri
 
 const TIER: Record<ClaimTier, string> = { state: "近期状态", preference: "偏好", need: "需求", value: "价值观" };
 const EPISTEMIC: Record<Claim["epistemic"], string> = { explicit: "用户说的", inferred: "推断的", user_confirmed: "用户确认过" };
-// 330 号票（R5）：真值状态照原始推理图谱说"已验证 / 猜测"（329 号票起 active 是已验证、contested 是猜测）
+// ADR-0032 R5：真值状态照原始推理图谱说"已验证 / 猜测"（active 是已验证、contested 是猜测）
 const STATUS: Record<Claim["status"], string> = { active: "已验证", contested: "猜测", retracted: "已撤回", superseded: "已被新的说法取代" };
 const CONFIDENCE: Record<Claim["confidence"], string> = { low: "低", medium: "中", high: "高" };
 
@@ -279,7 +279,7 @@ const TIER_ORDER: Readonly<Record<ClaimTier, number>> = { need: 0, value: 1, pre
 const CONFIDENCE_ORDER: Readonly<Record<Claim["confidence"], number>> = { low: 0, medium: 1, high: 2 };
 
 /**
- * 222 号票：结论之间按和问题的相关程度排，候选来源不变。先看它的支持证据在 C 组检索里的最好名次（rank，越小越相关；
+ * 结论之间按和问题的相关程度排，候选来源不变。先看它的支持证据在 C 组检索里的最好名次（rank，越小越相关；
  * 一条都不在前 BRIEF_RANK_DEPTH 条里的算最差）；direct 的往前挪 BRIEF_DIRECT_BONUS 名——名次差得不多时压得过去，
  * 差得多时压不过（一长串 direct 占不满名额）。名次相同按三条路合并的分（score，model.needs 等里的分），再按层级和把握；
  * 都一样时保持传进来的顺序（direct、任务调出来的、每层、同一方面）。
@@ -350,8 +350,8 @@ function polarityOf(statement: string): { base: string; negations: number } {
 }
 
 /**
- * 228 号票：两条陈述只差否定词（不、没、没有、别、未、无、非）时算极性相反——去掉标点、否定词以后逐字相同，
- * 否定词的个数一个奇数、一个偶数（双否定当肯定，当同一边）。不剥的话，222 的"去掉标点后互相包含、重合度到 0.8"
+ * 两条陈述只差否定词（不、没、没有、别、未、无、非）时算极性相反——去掉标点、否定词以后逐字相同，
+ * 否定词的个数一个奇数、一个偶数（双否定当肯定，当同一边）。不剥的话，"去掉标点后互相包含、重合度到 0.8"
  * 会把"喜欢 X / 不喜欢 X"这种只差一个字的并成一条，少列一种说法；同组里相反的两条正是竞争解释，也不能并。
  * 正常陈述只要不是逐字只差否定词（"非常"这类含否定字却不是否定的词先护住），就不会被碰。
  */
@@ -361,7 +361,7 @@ function oppositePolarity(a: string, b: string): boolean {
   return x.base.length > 0 && x.base === y.base && x.negations % 2 !== y.negations % 2;
 }
 
-/** 两条陈述几乎一样：去掉标点后一条包含另一条，或者字面上的重合度到 0.8（222 号票）；极性相反的不算（228 号票） */
+/** 两条陈述几乎一样：去掉标点后一条包含另一条，或者字面上的重合度到 0.8；极性相反的不算 */
 export function similarStatements(a: string, b: string): boolean {
   if (oppositePolarity(a, b)) return false;
   const x = plainStatement(a);
@@ -371,9 +371,9 @@ export function similarStatements(a: string, b: string): boolean {
 }
 
 /**
- * 222 号票：同一组里已经出现过的、或者陈述几乎一样的两条只留一条。留哪个：把握高的 > 组里占上风的 > 支持证据多的 >
+ * 同一组里已经出现过的、或者陈述几乎一样的两条只留一条。留哪个：把握高的 > 组里占上风的 > 支持证据多的 >
  * 传进来在前面的（传进来之前已按 orderClaims 排过，所以最后一条是更贴题的）。交回留下的和去掉的条数
- * （去掉的照旧记进 claims 的 omitted 总条数，不另立一种）。228 号票：极性相反的两条（只差否定词）同一组里也不合并，
+ * （去掉的照旧记进 claims 的 omitted 总条数，不另立一种）。极性相反的两条（只差否定词）同一组里也不合并，
  * 那是两种竞争的解释，并掉就少列一种。
  */
 export function dedupeClaims(claims: readonly BriefClaim[], winners: ReadonlySet<string> = new Set()): { claims: BriefClaim[]; dropped: number } {
@@ -410,7 +410,7 @@ function claimLine(engine: MemoryEngine, c: BriefClaim, quoteChars: number, note
 }
 
 /**
- * "对用户的理解"里的一条（219）：开头 + 支持 n 条、反对 m 条 + 说明，下面一行一条原话（· 支持 [编号] 时间 · 谁说的：「原话」）。
+ * "对用户的理解"里的一条：开头 + 支持 n 条、反对 m 条 + 说明，下面一行一条原话（· 支持 [编号] 时间 · 谁说的：「原话」）。
  * 记录那节已经有的写"原话见记录"、上面的结论带过的（shown 里有）写"原话见上"，只写编号；写了原话的记进 shown
  */
 function claimWithQuotes(c: BriefClaim, quotes: readonly BriefQuote[], note: string, quoteChars: number, inRecords: ReadonlySet<string>, shown: Set<string>): Item {
@@ -475,7 +475,7 @@ function probeOf(engine: MemoryEngine, key: string): string | null {
 }
 
 /**
- * 候选结论从哪来（266 号票）：all 是 D 组的全部（过了门槛的、任务调出来的、三条路每层最相关的、同一方面的）；
+ * 候选结论从哪来：all 是 D 组的全部（过了门槛的、任务调出来的、三条路每层最相关的、同一方面的）；
  * relevant 只要过了相关门槛的（直接说到这件事的、同一方面的）——每条消息的记忆简报用它，"有没有相关"只看本机检索和相关门槛
  */
 export type BriefScope = "all" | "relevant";
@@ -528,7 +528,7 @@ async function buildProfile(
   const undecided = new Set(groupKeys.filter((k) => winnerOf(membersOf(engine, k)) === undefined));
   const claims = candidates.filter(({ claim }) => {
     const key = rg.registry.memberOf(claim.id)?.groupKey;
-    // 330 号票（R5）：猜测照样给（标明是猜测、把握多少）；标着复核的照真值状态给、标"复核中"
+    // ADR-0032 R5：猜测照样给（标明是猜测、把握多少）；标着复核的照真值状态给、标"复核中"
     return !(key && undecided.has(key));
   });
   const groups: BriefGroup[] = [...undecided].map((key) => {
@@ -640,8 +640,8 @@ type ProfileItem = Item & { ref: { kind: "requirements" } | { kind: "hard"; clai
 
 /**
  * 用户画像那几节：按优先级放（明说的要求和禁忌 > 结论连原话 > 竞争解释），一共不超过 profileChars，再按节的顺序排。
- * 放不下时先砍竞争解释、再砍结论的条数（整条连原话），原话最后砍：一条结论连原话都放不下时，才按优先级找第一条减原话减到放得下的（219）。
- * inRecords 是记录那节的证据（结论下面只写编号）；duplicates 是同一组、近乎同文去掉的条数（222，也算没放进来的）。
+ * 放不下时先砍竞争解释、再砍结论的条数（整条连原话），原话最后砍：一条结论连原话都放不下时，才按优先级找第一条减原话减到放得下的。
+ * inRecords 是记录那节的证据（结论下面只写编号）；duplicates 是同一组、近乎同文去掉的条数（也算没放进来的）。
  * 交回放进去了的那几条（profile 只留它们，结论的 quotes 是实际写出来的）和没放进去的条数
  */
 function renderProfile(
@@ -777,13 +777,13 @@ export async function memoryBrief(engine: MemoryEngine, question: string, option
   };
 }
 
-// ───────────────────────── 每条消息的记忆简报（266 号票） ─────────────────────────
+// ───────────────────────── 每条消息的记忆简报 ─────────────────────────
 // 用户发来一句话时给秘书的那一份（守护进程追加在这一轮输入的尾部）：
-// - 有没有相关只看本机检索和相关门槛（202、206 号票，relevance.ts），不调模型：三条路找到的结论里有"直接说到这件事"的才带；
+// - 有没有相关只看本机检索和相关门槛（relevance.ts），不调模型：三条路找到的结论里有"直接说到这件事"的才带；
 //   只有"同一方面"的、什么都没过门槛的都不带；
 // - 带什么：D 组"对用户的理解"那几节（renderProfile：结论连支撑它的原话、还没分出胜负的解释、明说过的要求和禁忌、交互策略），
 //   候选只要过了门槛的（直接说到这件事的、同一方面的，BriefScope 的 relevant）——三条路每层最相关、没过门槛的不带，
-//   记录那节（检索到的原话，总有 10 条）也不带；上限照 BRIEF_LIMITS（D 组那档，用户 2026-10-25 定）；
+//   记录那节（检索到的原话，总有 10 条）也不带；上限照 BRIEF_LIMITS（D 组那档）；
 // - 同一段对话里带过、没变的不再带（known：键 → 指纹），只补新的；带过的在末尾写一句编号，秘书知道它们也相关。
 //   指纹只有编号和哈希（结论的状态、把握、谁说的、说法；组的几种解释和能区分的问题；策略的说法），不带原话，可以存进事件。
 

@@ -1,4 +1,4 @@
-// 经典的导航图标（119 号票）：原来是表情符号，换成一套实心图标（classic/style.css，照别的风格按 data-nav 换图标的写法）。
+// 经典的导航图标：原来是表情符号，换成一套实心图标（classic/style.css，照别的风格按 data-nav 换图标的写法）。
 // 这里查导航的每一项（包括"更多"）都有图标、表情符号藏起来了、图标是能用的 data: 地址的 SVG。
 // 规则只管到经典（:root[data-style="classic"] 开头）在 scope.test.ts 里查；设置里预览换成 :host(...) 在 preview.test.ts 里查。
 import fs from "node:fs";
@@ -8,7 +8,7 @@ import { MEMORY_PAGE } from "../../src/plugins/memory/route.ts";
 import { CORE_NAV_ITEMS } from "../../src/state/index.ts";
 
 const css = fs.readFileSync(path.resolve(import.meta.dirname, "../../src/visual-styles/classic/style.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
-// 193 号票起"记忆"是记忆插件的页面（导航里那一项的 data-nav 是页面的 id），风格里照样按 data-nav 画了它的图标
+// "记忆"是记忆插件的页面（导航里那一项的 data-nav 是页面的 id），风格里照样按 data-nav 画了它的图标
 const ENTRIES = [...CORE_NAV_ITEMS, MEMORY_PAGE, "more"];
 
 /** 某一项的图标：url("data:image/svg+xml,...") 里的 SVG（解码后） */

@@ -1,9 +1,9 @@
-// 项目规范（258 号票，issue 19 第 1、4、6、11 条）：模板放在框架里按版本分目录、开发类和其他类各一套，每份开头写清写什么、什么时候更新；
+// 项目规范（第 1、4、6、11 条）：模板放在框架里按版本分目录、开发类和其他类各一套，每份开头写清写什么、什么时候更新；
 // 新项目按类型从模板生成档案（立项时类型还没定，先按其他类那三份；立项书确认成开发类时补上开发类另有的），辅助的几份照旧；
 // 只读视图：模板版本、每份文档在不在和最近修改时间（必须有的标出来、还是模板原样的标出来）、当前状态的检查清单、规范改写。
-// 259 号票：建设中 → 使用中的检查清单（架构图写清服务和对外接口、ops.json、服务写进运营方案、要外网的有带网页的服务、进展写回），
+// 建设中 → 使用中的检查清单（架构图写清服务和对外接口、ops.json、服务写进运营方案、要外网的有带网页的服务、进展写回），
 // 没做到的写差什么；其他类只查进展，运营方案里有服务的照开发类查。
-// 261 号票：本项目的规范改写（不要的那份不补回来、视图里标出来、检查清单不列它对应的项，换写法、多出来的），模板出了新版只提示（跟了才补缺的）。
+// 本项目的规范改写（不要的那份不补回来、视图里标出来、检查清单不列它对应的项，换写法、多出来的），模板出了新版只提示（跟了才补缺的）。
 import fs from "node:fs";
 import path from "node:path";
 import { PROJECT_STANDARD_LATEST, type Project, standardDocState } from "@ergo/protocol";
@@ -204,7 +204,7 @@ describe("只读视图", () => {
     ]);
     expect(v.docs.find((d) => d.key === "tickets")?.path).toBe("tickets/");
     expect(v.checklist).toMatchObject({ from: "building", to: "in_use" });
-    // 259 号票：建设中 → 使用中五项，刚生成的档案只有"没有服务"这两项算做到
+    // 建设中 → 使用中五项，刚生成的档案只有"没有服务"这两项算做到
     expect(v.checklist.items.map((i) => [i.id, i.done, i.detail])).toEqual([
       ["architecture", false, "architecture.md 还是模板原样"],
       ["ops", false, "ops.json 还是模板原样"],
@@ -237,7 +237,7 @@ describe("只读视图", () => {
     expect(view({ ...p, state: "archived" }, paths).checklist).toEqual({ from: "archived", to: null, items: [] });
   });
 
-  test("规范上线之前建的项目：版本是 null；开发类缺架构图（262 号票据此出补齐任务）；旧的规格不算模板原样", () => {
+  test("规范上线之前建的项目：版本是 null；开发类缺架构图（据此出补齐任务）；旧的规格不算模板原样", () => {
     const p = project({ standardVersion: undefined, kind: "dev", charterConfirmed: true, state: "in_use" });
     const { paths } = setup(p);
     const v = view(p, paths);
@@ -252,7 +252,7 @@ describe("只读视图", () => {
   });
 });
 
-// ───────────────────────── 261 号票：本项目的规范改写、模板出了新版只提示 ─────────────────────────
+// ─────────────────────────本项目的规范改写、模板出了新版只提示 ─────────────────────────
 
 const T1 = "2026-10-24T10:00:00.000+08:00";
 const dropArchitecture = { kind: "drop", doc: "architecture", revision: 1, confirmedAt: T1, why: "家里自己用的小工具，不画架构图" } as const;
@@ -260,7 +260,7 @@ const weeklyProgress = { kind: "change", doc: "progress", note: "按周写，每
 const runbook = { kind: "add", path: "runbook.md", title: "运维手册", note: "怎么重启、怎么查日志", revision: 2, confirmedAt: T1, why: "要一份运维手册" } as const;
 const recipes = { kind: "add", path: "recipes/", title: "菜谱", note: "一道菜一个文件", revision: 2, confirmedAt: T1, why: "要一份运维手册" } as const;
 
-describe("本项目的规范改写（261 号票）", () => {
+describe("本项目的规范改写", () => {
   test("不要架构图：视图里标本项目不要（不算缺），守护进程再对一遍档案也不从模板补回来；进展换写法照样要；多出来的接在必须有的后面", () => {
     const p = project({ kind: "dev", charterConfirmed: true, state: "building" });
     const { paths } = setup(p);
@@ -324,7 +324,7 @@ function templatesWithV2(): string {
   return dir;
 }
 
-describe("模板出了新版只提示（261 号票）", () => {
+describe("模板出了新版只提示", () => {
   test("项目照旧用建档时的版本：新版多的不补、已有的不换，视图里 latest 是新版；跟了新版（版本换成 v2）才补缺的，已有的照旧不动、仍算模板原样", () => {
     const templates = standardTemplates(templatesWithV2());
     expect(templates.versions()).toEqual(["v1", "v2"]);
@@ -385,7 +385,7 @@ const building = (kind: "dev" | "other" = "dev") => project({ kind, charterConfi
 const checklist = (p: Project, paths: ReturnType<typeof projectRecordsPaths>, plan?: ChecklistPlan) => goLiveChecklist({ project: p, paths, stateSince: T0, plan });
 const item = (items: ReturnType<typeof checklist>, id: string) => items.find((i) => i.id === id)!;
 
-describe("转运营检查清单（259 号票）", () => {
+describe("转运营检查清单", () => {
 
   test("架构图的两张表按 ## 标题认（中英文模板都认），表头、分隔行不算，`反引号`、**加粗**去掉", () => {
     const zh = architectureTables(ARCHITECTURE(["| `site` | 网页 | 18080 | / | 开 |", "| **api** | 接口 | 18081 | /health | 开 |"], ["| 日报网页 | 手机 | /apps/p-1-site/ |"]));
@@ -481,7 +481,7 @@ describe("转运营检查清单（259 号票）", () => {
     for (const state of ["preparing", "in_use", "retired"] as const) expect(view({ ...p, state }, paths).checklist.items.map((i) => i.id)).toEqual(["progress_written"]);
   });
 
-  test("按本项目的规范改写（261 号票）：不要架构图的不列架构图那项，服务、/apps/ 两项只看运营方案；不要 ops.json 的不列运营接口清单那项；只读视图同样", () => {
+  test("按本项目的规范改写：不要架构图的不列架构图那项，服务、/apps/ 两项只看运营方案；不要 ops.json 的不列运营接口清单那项；只读视图同样", () => {
     const p = building();
     const { paths } = setup(p);
     fs.writeFileSync(paths.progress, "# 进展\n\n首版做完了。\n");

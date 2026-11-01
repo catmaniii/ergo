@@ -3,18 +3,18 @@
 //
 // 登记的工具有几种来源：
 // - builtin：pi 自带的文件工具和 bash（bash 本身不按标签判，而是拆成伪工具调用逐个判）；
-// - typed_shell：带类型的特殊 bash 工具（守护进程代为执行，实现在 typed-shell/），类别和"做完告诉我"照 28 号票的登记表；
-// - web：联网搜索、读网页（守护进程代为执行，实现在 web/，70 号票）：只看、只往下拉，不落入任何类别，联网开关关着时拒绝；
-// - mcp：MCP 工具（27 号票登记），用 registerTools 加进来；
+// - typed_shell：带类型的特殊 bash 工具（守护进程代为执行，实现在 typed-shell/），类别和"做完告诉我"照登记表；
+// - web：联网搜索、读网页（守护进程代为执行，实现在 web/）：只看、只往下拉，不落入任何类别，联网开关关着时拒绝；
+// - mcp：MCP 工具，用 registerTools 加进来；
 // - host：守护进程代为执行的工具（秘书只产生卡片的工具、读取附件……），由拉起 agent 的模块随工具一起登记；
-// - runtime：会话的运行时自带、二狗没装配的工具（288 号票：Claude Code 的 TodoWrite、Agent、Skill、AskUserQuestion……），由运行时登记
+// - runtime：会话的运行时自带、二狗没装配的工具（Claude Code 的 TodoWrite、Agent、Skill、AskUserQuestion……），由运行时登记
 //   （runtime/runtimes.ts 的 AgentRuntime.guardTools）；运行时能对上二狗工具的（Bash → bash、Read → read……）由子进程映射过来，不在这里；
 // - pseudo：从通用 bash 拆出来的伪工具调用。带类型的工具和 bash 里的同一操作同名、参数名相同
-//   （比如 `git push` 拆出来就是 git_push），这样授权项、自定义类别和 05 号票的时序规则对两者一视同仁。
+//   （比如 `git push` 拆出来就是 git_push），这样授权项、自定义类别和时序规则对两者一视同仁。
 //   伪工具只能由守卫拆 bash 得到，模型直接调用同名工具时按未登记的工具处理。
 //
 // 参数规则的写法和 planguard 场景文件里 `tools.<工具>.args.<参数>` 兼容（pattern、type、list），
-// 另加二狗自己的 kind、access 等字段，05 号票的参数名统一建在这上面。
+// 另加二狗自己的 kind、access 等字段，参数名统一建在这上面。
 import { t } from "@ergo/protocol";
 import type { BottomLineId, BuiltinCategoryId } from "./watch-categories.ts";
 
@@ -56,7 +56,7 @@ export interface ArgRule {
    */
   payload?: boolean;
   /**
-   * 大段内容（写入的全文、编辑的新旧片段）：效果日志里不存原文，只存长度和摘要哈希（68 号票，effect-log.ts 的 effectLogArgs）。
+   * 大段内容（写入的全文、编辑的新旧片段）：效果日志里不存原文，只存长度和摘要哈希（effect-log.ts 的 effectLogArgs）。
    * 时序规则读到它是"未知"，规则校验不许 $prior 读它；授权项计次按哈希比（grants.ts）
    */
   bulk?: boolean;
@@ -65,7 +65,7 @@ export interface ArgRule {
 
 /**
  * 一个路径参数会不会删除或整体重写它指向的东西。v1 模板"删除或覆盖前须已备份或已提交"、"删除或覆盖"类别、
- * 项目档案的自动留旧版本（15 号票）认的都是这一份：
+ * 项目档案的自动留旧版本认的都是这一份：
  * - delete：删除它；
  * - tagged：带"删除或覆盖"标签的工具（丢弃 git 改动）不是只读的路径；
  * - overwrite：整体重写——它已经存在时才算（写，并且整个替换目标的内容）；
@@ -98,24 +98,24 @@ export interface ToolDescriptor {
   /** "做完告诉我"：没有类别、但值得一提的操作 */
   notifyWhenDone?: boolean;
   /**
-   * "只读或幂等"：被打断后可以直接重跑（被杀后的恢复用，23 号票：被中断时由模型决定要不要重做；没标的转给用户确认）。
-   * 流程执行时的计划检查也看它（59 号票）：计划外的调用标了的只记下，没标的（会改东西的）问用户。别的守卫判定不看它。
+   * "只读或幂等"：被打断后可以直接重跑（被杀后的恢复用：被中断时由模型决定要不要重做；没标的转给用户确认）。
+   * 流程执行时的计划检查也看它：计划外的调用标了的只记下，没标的（会改东西的）问用户。别的守卫判定不看它。
    * 从严：会改工作目录、产物或依赖的（跑测试、构建、装依赖）都不标。
    */
   readOnlyOrIdempotent?: boolean;
   /**
-   * 这类工具做的事是什么性质（54 号票：一次工具调用做了什么性质的事，guard/nature.ts；会话缩小后工具色块按它分深浅）：
+   * 这类工具做的事是什么性质（一次工具调用做了什么性质的事，guard/nature.ts；会话缩小后工具色块按它分深浅）：
    * - look 只看：不改任何东西、不往外送；
    * - modify 删改：改了或去掉了原有的东西（改提醒、取消提醒、自行调整计划、整份换掉进展）。
    * 不写的按路径参数和 modifiesWith 看，多半是动手（只新增、不碰已有的）。不参与守卫判定。
    * 和"只读或幂等"不是一回事：写进展、宣布开始某个阶段是幂等的，但改了东西，不算只看
    */
   nature?: "look" | "modify";
-  /** 给了这些参数（true 或非空数组）时算删改（54 号票，guard/nature.ts）：强推的 force、增减 skill 的 remove */
+  /** 给了这些参数（true 或非空数组）时算删改（guard/nature.ts）：强推的 force、增减 skill 的 remove */
   modifiesWith?: readonly string[];
   /**
-   * 被打断后由执行控制器负责恢复（23 号票）：被杀、子进程意外退出时它正在执行，也不当成"说不清做没做完"、不转给用户确认，
-   * 控制器重启后自己处理（比如"宣布阶段完成"：验收做到一半的阶段交回负责人再宣布一次，13 号票）。和"只读或幂等"无关
+   * 被打断后由执行控制器负责恢复：被杀、子进程意外退出时它正在执行，也不当成"说不清做没做完"、不转给用户确认，
+   * 控制器重启后自己处理（比如"宣布阶段完成"：验收做到一半的阶段交回负责人再宣布一次）。和"只读或幂等"无关
    */
   recoveredByController?: boolean;
   /** 要联网：联网开关关着时直接拒绝 */
@@ -132,7 +132,7 @@ export interface ToolDescriptor {
    */
   outbound?: boolean;
   /**
-   * 参数要打码（280 号票）：工具自己声明参数里套着别的接口的参数、可能带着密钥（秘书带参调 MCP 的 mcp_call、调项目的操作的 project_ops）。
+   * 参数要打码：工具自己声明参数里套着别的接口的参数、可能带着密钥（秘书带参调 MCP 的 mcp_call、调项目的操作的 project_ops）。
    * 给人看的参数摘要（guard-runtime/describe.ts 的 summarizeArgs：聊天里的工具调用记录、审批卡、"交给我做"、中断的说明、清掉完整内容后
    * 剩的摘要）先擦掉名字看着是密钥的、像密钥的值（secrets.ts 的 maskSecretArgValues）。只影响给人看的写法，不参与守卫判定
    */
@@ -168,7 +168,7 @@ export const TOOL = Object.freeze({
   run_tests: "run_tests",
   install_deps: "install_deps",
   start_build: "start_build",
-  // 联网工具（70 号票）
+  // 联网工具
   web_search: "web_search",
   web_fetch: "web_fetch",
   // 伪工具
@@ -194,7 +194,7 @@ export const TOOL = Object.freeze({
   opaque_shell: "opaque_shell",
 } as const);
 
-/** 框架自带的工具：名字（给人看的，审批卡、工具调用记录、说明里用）按当前语言现取（173 号票，key 是 guard.tools.<工具名>） */
+/** 框架自带的工具：名字（给人看的，审批卡、工具调用记录、说明里用）按当前语言现取（key 是 guard.tools.<工具名>） */
 type UntitledTool = Omit<ToolDescriptor, "title">;
 const titled = (tool: UntitledTool): ToolDescriptor =>
   Object.defineProperty({ ...tool }, "title", { enumerable: true, get: () => t(`guard.tools.${tool.name}`) }) as ToolDescriptor;
@@ -323,7 +323,7 @@ const TYPED_SHELL_TOOLS: UntitledTool[] = [
 ];
 
 /**
- * 联网工具（70 号票，守护进程代为执行，实现在 web/）：联网搜索返回标题、链接、摘要，读网页取正文纯文本。
+ * 联网工具（守护进程代为执行，实现在 web/）：联网搜索返回标题、链接、摘要，读网页取正文纯文本。
  * 只看（只读或幂等、不落入任何类别）、只往下拉（读过密钥之后照常能用）；要联网，联网开关关着时拒绝。
  * 查询词、网址都是发出去的东西："对外内容不许含密钥"（底线）照样查它们（outboundTextOf：会联网的工具除路径以外的全部参数）
  */
@@ -383,7 +383,7 @@ const PSEUDO_TOOLS: UntitledTool[] = [
     args: { repoPath: path("write", { defaultsToCwd: true }), command: content },
   },
   {
-    // 54 号票评审：改写提交历史、删改分支和标签（变基、把分支挪到别的提交、删分支、改分支名、删标签、filter-branch）。
+    // 改写提交历史、删改分支和标签（变基、把分支挪到别的提交、删分支、改分支名、删标签、filter-branch）。
     // 不丢工作目录里没提交的改动，所以不带"删除或覆盖"标签（不触发 v1 模板"删除或覆盖之前必须已提交"）；守卫照常按路径判。
     // 做了什么性质的事是删改（guard/nature.ts）
     name: TOOL.git_rewrite,
@@ -419,7 +419,7 @@ const PSEUDO_TOOLS: UntitledTool[] = [
     outbound: true,
   },
   {
-    // 139 号票：agent-browser 这类浏览器工具的命令里写着网址的，另拆一条（命令本身照旧是一条"其他命令"）。不落入任何类别、不标联网
+    // agent-browser 这类浏览器工具的命令里写着网址的，另拆一条（命令本身照旧是一条"其他命令"）。不落入任何类别、不标联网
     // （和原来一样，浏览器工具不归联网开关管）；打开的是二狗自己的页面时判定函数另判"以我的名义对外发送或发布"（防的是打开二狗的
     // 页面去点卡片上的按钮）
     name: TOOL.browse,
@@ -565,7 +565,7 @@ export function usesNetwork(tool: ToolDescriptor): boolean {
 }
 
 /**
- * 这次调用是不是往外送（84 号票："对外"只有这一个口径——计划卡授权说法的 outward 拿授权项的对象范围当参数问它，
+ * 这次调用是不是往外送（"对外"只有这一个口径——计划卡授权说法的 outward 拿授权项的对象范围当参数问它，
  * 阶段详情、重做前列出的已经做了的事拿效果日志里的参数问它）：会联网，并且带了请求数据，或者不是只往下拉的
  * （推送、发消息、建远端仓库、非只读的请求……）
  */
@@ -611,7 +611,7 @@ function buildRegistry(tools: ToolDescriptor[]): ToolRegistry {
   const out: Record<string, ToolDescriptor> = {};
   for (const tool of tools) {
     if (Object.hasOwn(out, tool.name)) throw new Error(`工具注册表里 ${tool.name} 重复`); // @i18n-ignore log：编程错误
-    // 照原样复制属性（取值函数也照搬：名字按当前语言现取，173 号票）
+    // 照原样复制属性（取值函数也照搬：名字按当前语言现取）
     out[tool.name] = Object.freeze(Object.defineProperties({}, Object.getOwnPropertyDescriptors(tool)) as ToolDescriptor);
   }
   return Object.freeze(out);

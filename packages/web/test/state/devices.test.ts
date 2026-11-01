@@ -1,7 +1,7 @@
 // 前端状态层：已配对设备（设置里的"已配对设备"）和配对等待页的开场。主线流程回放主切面录下的 device-revoke 和
 // device-revoked-here、device-batch（recorded.test.ts）；这里是手写的边角：凭证过期的设备、领到之后一直没用过的设备、
-// 延期和删除（123 号票）、重新同步、连接被告知凭证失效、浏览器里"本设备已被吊销"的记号。
-// 137 号票：配对页是哪一页（说明页、等批准、领凭证、已配对）、说明页上说哪一句——点了"请求配对"才发请求。
+// 延期和删除、重新同步、连接被告知凭证失效、浏览器里"本设备已被吊销"的记号。
+// 配对页是哪一页（说明页、等批准、领凭证、已配对）、说明页上说哪一句——点了"请求配对"才发请求。
 import { describe, expect, test } from "vitest";
 import {
   type PairedDevice,
@@ -67,7 +67,7 @@ describe("已配对设备", () => {
     expect(pairedDevices(state, NOW).active).toEqual([device("d1", { lastUsedAt: "2026-10-08T08:00:00.000+08:00" })]);
   });
 
-  test("延期（123 号票）：过期、作废了的延期后回到有效的一组；同一台的新状态换掉旧的", () => {
+  test("延期：过期、作废了的延期后回到有效的一组；同一台的新状态换掉旧的", () => {
     const gone = device("d-gone", { expiresAt: "2026-10-08T08:59:59.000+08:00" });
     const lost = device("d-lost", { activated: false, expiresAt: "2026-10-08T08:00:00.000+08:00" });
     const state = replay([frame("devices", 1, "device", { device: gone, change: "used" }), frame("devices", 2, "device", { device: lost, change: "paired" })]);
@@ -89,7 +89,7 @@ describe("已配对设备", () => {
     });
   });
 
-  test("删除（123 号票）：删了的不出现，有效的、失效的都一样", () => {
+  test("删除：删了的不出现，有效的、失效的都一样", () => {
     const deletedAt = "2026-10-08T08:30:00.000+08:00";
     const state = replay([
       frame("devices", 1, "device", { device: device("d1"), change: "used" }),
@@ -148,7 +148,7 @@ const request = (overrides: Partial<PairingRequestView> = {}): PairingRequestVie
   ...overrides,
 });
 
-describe("配对页是哪一页（137 号票：点了\"请求配对\"才发请求）", () => {
+describe("配对页是哪一页（点了\"请求配对\"才发请求）", () => {
   test("还没有请求：说明页（不自动发）；有在等的请求（刷新了页面）：接着等；已批准：领凭证；已配对", () => {
     expect(pairingStage(undefined, NOW)).toBe("intro");
     expect(pairingStage(request(), NOW)).toBe("waiting");

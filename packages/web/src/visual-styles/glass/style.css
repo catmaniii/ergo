@@ -1,12 +1,12 @@
 /*
- * 玻璃光纹（46 号票）：只靠 token（glass/style.ts）做不到的规则，全部限定在 :root[data-style="glass"] 下
+ * 玻璃光纹：只靠 token（glass/style.ts）做不到的规则，全部限定在 :root[data-style="glass"] 下
  * （不会漏到别的风格；设置里的预览把开头换成 :host(...)，所以根元素上只再加属性，见 src/visual-styles/preview.ts）。
  * 设计稿：docs/architecture/design/styles/e-chat、e-tasks、e-inbox、e-wide（.dc.html）。要点：整页是点阵底；标题栏、导航、输入栏是浮起的磨砂玻璃
  * （半透明底 + 亮边 + 淡蓝微光 + backdrop-filter）；卡片、个人助理的气泡、看板卡、待办行同样浮在点阵上，带亮边和微光，底色不透明；
  * 电光蓝的选中条、进度条、未读点带一圈微光；时间、时长、计数用 Chakra Petch 600（--font-num）。
  * 只换样子，不改结构：导航、页面上有什么、怎么排都和经典一样。浅色深色都只靠 token 和 light-dark() 切。
  *
- * 磨砂玻璃（用户 2026-10-11 定：磨砂只给标题栏、导航、输入栏）：
+ * 磨砂玻璃（磨砂只给标题栏、导航、输入栏）：
  * - 标题栏（.topbar、详情页的 .detail-bar、和标题栏接成一块的页签 .seg-head）、导航（.tabbar、宽屏的 .siderail）、输入栏（.composer）
  *   的底是 --glass-bg（设计稿的 --surface：浅色白 74%、深色 72%），模糊用 backdrop-filter。不支持的浏览器就是这个半透明纯色，
  *   字的对比度按"玻璃叠在点阵的点上"算（style.ts 开头、test/visual-styles/glass.test.ts），不靠模糊撑。
@@ -99,14 +99,14 @@
 :root[data-style="glass"] .detail-body::before {
   margin: -12px 0 -2px;
 }
-/* 项目一览（104 号票）：窄屏上内边距 12、间隔 16，宽屏 16、22 */
+/* 项目一览：窄屏上内边距 12、间隔 16，宽屏 16、22 */
 :root[data-style="glass"] .pwall::before {
   margin: -12px 0 -18px;
 }
 :root[data-style="glass"] .pwall[data-layout="grid"]::before {
   margin: -16px 0 -20px;
 }
-/* 宽屏项目的档案栏（104 号票）：上内边距 8、间隔 space-page；栏是页面底色的平底（没有点阵），渐隐层也不画点阵 */
+/* 宽屏项目的档案栏：上内边距 8、间隔 space-page；栏是页面底色的平底（没有点阵），渐隐层也不画点阵 */
 :root[data-style="glass"] .proj-side-body::before {
   margin: -8px 0 calc(-6px - var(--space-page));
   background-image: none;
@@ -207,7 +207,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* 秘书页的标题"个人秘书：<名字>"（89 号票）在 base.css 里排成一行 flex：这里竖着排，副标题照样另起一行 */
+/* 秘书页的标题"个人秘书：<名字>"在 base.css 里排成一行 flex：这里竖着排，副标题照样另起一行 */
 :root[data-style="glass"] .title:has(> .secretary-title) {
   flex-direction: column;
   align-items: flex-start;
@@ -361,7 +361,7 @@
   box-shadow: inset 0 0 0 1px var(--name-fg);
   font-weight: 700;
 }
-/* 秘书页标题里的名字（89 号票："个人秘书：<名字>"）：标签左右各 5，窄屏缩字号的算式（base.css 的 .secretary-title）照它扣（再留 2 的余量） */
+/* 秘书页标题里的名字（"个人秘书：<名字>"）：标签左右各 5，窄屏缩字号的算式（base.css 的 .secretary-title）照它扣（再留 2 的余量） */
 :root[data-style="glass"] .secretary-title {
   font-size: clamp(var(--fs-s), calc((100cqw - 14px) / (5 + var(--secretary-fit-chars, 4))), var(--fs-title));
 }
@@ -399,7 +399,7 @@
   box-shadow: inset 0 0 0 1px var(--border);
   color: var(--muted);
 }
-/* 进度条（60 号票产品已有的 sl-progress）：设计稿的细轨道，电光蓝填充带微光 */
+/* 进度条（产品已有的 sl-progress）：设计稿的细轨道，电光蓝填充带微光 */
 :root[data-style="glass"] .sl-progress {
   height: 3px;
   border-radius: 2px;
@@ -601,7 +601,7 @@
  * 语音气泡（设计稿的语音条）：你的是电光蓝实色块、右上角小角、下面一圈淡蓝光；个人助理的是一块玻璃、左上角小角。
  * 播放键是 30 的圆角方块（你的半透明白、个人助理的淡蓝底蓝三角），波形竖条 2 隔 3、高 22，时长 Chakra Petch。
  * 播放键（30）、间隔（10）、竖条（2 隔 3）、左右内边距（12）、个人助理一侧的亮边（左右合起来 2）是 token（style.ts 的 voice-*），
- * styles/voice.css 按它画，框宽、波形格数也按它算（42 号票的共用办法）；这里只画样子
+ * styles/voice.css 按它画，框宽、波形格数也按它算（共用办法）；这里只画样子
  */
 :root[data-style="glass"] .user .voice-bubble {
   border-radius: var(--radius-2xl) var(--radius-xs) var(--radius-2xl) var(--radius-2xl);
@@ -777,7 +777,7 @@
   border-top: none;
   border-radius: var(--radius-m);
 }
-/* 会话里的"等你处理"栏（107 号票）：和输入栏一样的圆角块（不透明的面板底，不开模糊） */
+/* 会话里的"等你处理"栏：和输入栏一样的圆角块（不透明的面板底，不开模糊） */
 :root[data-style="glass"] .ibar,
 :root[data-style="glass"] .missed-voices {
   margin: 8px 12px 0;
@@ -1014,7 +1014,7 @@
   overflow: hidden;
 }
 /*
- * 宽屏右边的详情栏（56 号票）：整栏是一块浮起的面板（设计稿 e-wide 右边那一栏的样子，离边 16、圆角 20；底色照经典的 --surface），
+ * 宽屏右边的详情栏：整栏是一块浮起的面板（设计稿 e-wide 右边那一栏的样子，离边 16、圆角 20；底色照经典的 --surface），
  * 里面的标题栏不再单独浮起、不透明、不模糊，只在下面一道细线
  */
 :root[data-style="glass"] .app.wide .pane-detail {

@@ -1,11 +1,11 @@
-// 秘书取、下载长按认出来的网页元素（359 号票，用户 2026-11-01：长按网页元素或右键时多出一个二狗圆钮，让二狗处理这个元素；不预设操作，用户说什么就做什么）。
+// 秘书取、下载长按认出来的网页元素（长按网页元素或右键时多出一个二狗圆钮，让二狗处理这个元素；不预设操作，用户说什么就做什么）。
 // 秘书这一轮是完整的秘书，平时能用的工具都能用，这里只补元素用得上的两样通用能力，准入和别的网页工具一样在调用时看这一轮（工具列表固定，提示词前缀缓存不受影响）：
 // - browse_element_content：把元素的内容从设备取回来——设备取进媒体库（App 带登录状态和来源页取，blob、data、canvas 页面桥读，取不到截这个元素的图，
 //   见网页一侧的 plugins/browsing/element-files.ts），这里把图交给模型看（看不了图时照实说）、文本类和 PDF 读出来（夹在外部数据标记里），
 //   再放一份进草稿区、给一个文件编号，好交给别的工具（send_attachment、browse_attach_files、view_files，或者路径本身）。不是只读模型这一头：取回来的是网页上的东西，一律是外部数据；
 // - browse_element_download：在设备上把元素下载下来（走 App 的下载，下完弹"保存到"，进下载记录）。有副作用，和提交、运行类按钮一个口径：
 //   只有用户这一轮明确说了才带 confirm: true（元素内容里写的话不算用户说的），不带不下。
-// 366 号票：取到的文件、没取到的原因记一笔（element-memos.ts）：用户要记下来时 remember_memory 的 file 只认这一轮取回来的。
+// 取到的文件、没取到的原因记一笔（element-memos.ts）：用户要记下来时 remember_memory 的 file 只认这一轮取回来的。
 // 守卫：取内容算"看"（只读、幂等，不落入关注类别，和读网页一样）；下载不是只读，照填字、交文件、点按钮的口径不落入关注类别（不弹审批卡）。
 // @i18n-ignore-file model：工具的结果、拒绝的原因都是给秘书（模型）看的；工具的名字在 texts.ts 的 TOOL_TITLES
 import fs from "node:fs";
@@ -41,7 +41,7 @@ export interface ElementToolDeps {
   scratchDir: string;
   files: Pick<FileToolsDeps, "thumbnails" | "log">;
   refs: FileRefs;
-  /** 这一轮取回来的文件（366 号票：记下来时只认它们） */
+  /** 这一轮取回来的文件（记下来时只认它们） */
   memos: ElementMemos;
   /** 这一轮能不能用网页工具 */
   browsingOf(call: HostToolCall): Browsing | { refused: string };

@@ -1,7 +1,7 @@
 // 阶段验收里"能写成脚本的标准"（规格第 8 节"验收"：由运行时的钩子运行，看退出码和输出）：在工作目录里跑，
 // 退出码 0 才算通过；计划里写了期望的输出（expectOutput：包含某段文字、匹配某个模式）时一并判定，没写只看退出码。
 // 输出（标准输出和标准错误按到达先后合在一起）的末尾一段记进结论。脚本是用户确认过的计划里写的，所以不再经守卫；
-// 进程照 28 号票带类型 bash 工具的启动器起（typed-shell/：闸门进程先放进这次调用的 Job 对象再起 Git Bash，
+// 进程带类型 bash 工具的启动器起（typed-shell/：闸门进程先放进这次调用的 Job 对象再起 Git Bash，
 // 孙进程跑不出去；环境是系统变量白名单，联网开关关着时加无效代理）。
 import { type AcceptanceCriterion, t } from "@ergo/protocol";
 import type { ShellRunResult, TypedShell } from "../typed-shell/index.ts";
@@ -12,7 +12,7 @@ export interface ScriptOutcome {
   /** 给人看的一句：退出码、期望的输出对没对上、输出的末尾 */
   note: string;
   /**
-   * 验收没跑起来（311 号票）：进程起不来（闸门进程起不来、找不到 Git Bash……），或者脚本里的命令找不到、不能执行（bash 的退出码 127、126）——
+   * 验收没跑起来：进程起不来（闸门进程起不来、找不到 Git Bash……），或者脚本里的命令找不到、不能执行（bash 的退出码 127、126）——
    * 不是跑了、和实际对不上。退回的框照它写"验收没跑起来"。跑起来了的没有这一项
    */
   notRun?: true;
@@ -31,7 +31,7 @@ export interface AcceptanceScript {
   /** 工具包的联网开关 */
   network: boolean;
   timeoutMs: number;
-  /** 停下这次运行（276 号票返修：删任务时停掉在跑的复验）：关掉这次调用的 Job，脚本和它起的进程全部结束 */
+  /** 停下这次运行（删任务时停掉在跑的复验）：关掉这次调用的 Job，脚本和它起的进程全部结束 */
   signal?: AbortSignal;
 }
 

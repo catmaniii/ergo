@@ -1,6 +1,6 @@
-// 100 号票：秘书的快速动作 run_task_now、set_voice_announce 的"用户点明了没有"（照任务控制从严）。说法要和这个任务绑在同一个分句里、
+// 秘书的快速动作 run_task_now、set_voice_announce 的"用户点明了没有"（照任务控制从严）。说法要和这个任务绑在同一个分句里、
 // 方向对（打开 / 关掉、再跑一次）；"念"这种宽的说法、这次的结果念一下、问句都不算点明——出卡确认。表格驱动。
-// 103 号票评审起认任务从严（暂停、继续、取消也是）：编号或完整标题，子串不算，更长的标题从同一处起时算那个——子串标题出卡、完整标题直接执行。
+// 认任务从严（暂停、继续、取消也是）：编号或完整标题，子串不算，更长的标题从同一处起时算那个——子串标题出卡、完整标题直接执行。
 import type { Task } from "@ergo/protocol";
 import { describe, expect, test } from "vitest";
 import type { UserTurn } from "../../src/quick-actions/index.ts";
@@ -73,7 +73,7 @@ describe("立即运行一次：说法和这个任务在同一个分句里，前�
   });
 });
 
-describe("认任务：编号或完整标题，子串不算，更长的标题从同一处起时算那个（103 号票评审）", () => {
+describe("认任务：编号或完整标题，子串不算，更长的标题从同一处起时算那个", () => {
   test.each<[string, typeof runNow, string, string, boolean]>([
     // 取消（不可逆）：完整标题直接执行，子串标题出卡
     ["取消日报", cancel!, "cancel", "t-7", true],

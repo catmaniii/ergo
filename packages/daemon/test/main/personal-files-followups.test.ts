@@ -1,4 +1,4 @@
-// 主切面：个人档案小尾巴（302 号票，用户 2026-10-25 "其他都照你说的来"）。真的守护进程（秘书是 faux，时钟手动拨）：
+// 主切面：个人档案小尾巴（其他都照你说的来）。真的守护进程（秘书是 faux，时钟手动拨）：
 // - 原话里明说、直接写进档案的生日：直接按默认提前 3 天建每年提醒，回执写明"已建每年提醒（提前 3 天），档案页可改可关"，
 //   不再跟一张问提醒的小卡；档案页能关；
 // - 内置字段"纪念日"：本人和重要的人都有，能有几个、各带名字（"结婚纪念日"）；直接写的照样直接建每年提醒，档案页加的能开；
@@ -71,7 +71,7 @@ describe("原话里明说的生日直接建每年提醒", () => {
     const { url, daemon } = await startTestDaemon({ clock, secretary: [propose({ person: "妈妈", fields: [{ field: "生日", value: "3月2日" }] }), OK] });
     const frontend = await TestFrontend.connect(url);
     await frontend.subscribe(ALL);
-    // 妈妈的档案已经有了（新建一个人总出核对卡，那条路见 283 的主切面）
+    // 妈妈的档案已经有了（新建一个人总出核对卡，那条路见主切面）
     const mom = (await filesApi.add(url, { name: "妈妈", relation: "母亲" })).body;
 
     await tell(frontend, "我妈生日是3月2日");
@@ -174,7 +174,7 @@ describe("内置字段\"纪念日\"", () => {
     expect(fieldOf(on.body, "anniversary:结婚纪念日")).toMatchObject({ label: "结婚纪念日", custom: false, number: false, current: { value: "2018年10月1日" }, annual: { daysBefore: 3 } });
     expect(fieldOf(on.body, "anniversary:恋爱纪念日")).toMatchObject({ label: "恋爱纪念日", annual: { monthDay: { month: 5, day: 20 }, daysBefore: 7 } });
 
-    // 283 的规矩照旧：已有的自定义字段"相识纪念日"算每年的日子；秘书再写"相识纪念日"接着写进它（不另起一个内置的）
+    //规矩照旧：已有的自定义字段"相识纪念日"算每年的日子；秘书再写"相识纪念日"接着写进它（不另起一个内置的）
     const custom = await filesApi.change(url, SELF_PERSON_ID, { kind: "set_field", field: "custom:相识纪念日", value: "2015年9月1日" });
     expect(fieldOf(custom.body, "custom:相识纪念日")!.annual).toEqual({ monthDay: { month: 9, day: 1 } });
     await tell(frontend, "我记错了，相识纪念日是2015年9月2日");

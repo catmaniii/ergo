@@ -1,4 +1,4 @@
-// 这一轮取回来的元素文件（366 号票）：记下来时只认这一轮取回来的编号，文件要还在、大小在附件的上限之内；来源只留 http、https 的；
+// 这一轮取回来的元素文件：记下来时只认这一轮取回来的编号，文件要还在、大小在附件的上限之内；来源只留 http、https 的；
 // 没带编号时，这一轮长按的是文件类元素才说明为什么只记了文字。
 import type { BrowsingMark, ElementFile, PickedElement } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";

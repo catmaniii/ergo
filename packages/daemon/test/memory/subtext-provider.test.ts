@@ -1,4 +1,4 @@
-// 337 号票第一段：会意 / Subtext 记忆插件（memory/provider/subtext.ts）。用临时目录里的真 SQLite、真 MemoryEngine（规则版抽取和推理、
+// 会意 / Subtext 记忆插件（memory/provider/subtext.ts）。用临时目录里的真 SQLite、真 MemoryEngine（规则版抽取和推理、
 // 假向量，不下载）、真的彻底删除（purge-rg.ts），不调模型、不碰真的数据目录。
 // 这一版插件只包一层（检索、简报、体检、按来源删、跳过 observe），按原话记一条还没接——测试照实际做到的断言。
 import fs from "node:fs";
@@ -48,7 +48,7 @@ const STORY: readonly EvidenceDraft[] = [
   say("ev-d2", "拒绝了周四的临时会议", "2026-10-08T10:00:00+08:00", WORKDAY),
   say("ev-d3", "工作日我也不喜欢被提前排满", "2026-10-09T10:00:00+08:00", { context: ["workday"] }),
   say("ev-a1", "我不吃香菜，一吃就过敏", "2026-05-01T10:00:00+08:00"),
-  // 出处不是素材（合成数据、表态证据这类没有 sourceRef）：检索命中了也不交出去（用户 2026-10-28：没有出处的不进简报）
+  // 出处不是素材（合成数据、表态证据这类没有 sourceRef）：检索命中了也不交出去（没有出处的不进简报）
   say("ev-nosrc", "周末被排得满满的，团建我也不想去", "2026-04-05T10:00:00+08:00", { sourceRef: null }),
 ];
 
@@ -391,8 +391,8 @@ describe("经宿主起来、单活、停用之后拒调用", () => {
     const found = await host.search({ text: QUERY, limit: 5 });
     expect(found.items.length).toBeGreaterThan(0);
     for (const item of found.items) expect(item.sources.length).toBeGreaterThan(0);
-    // 插件声明了 brief：宿主用会意自己的那一份（现有的每条消息简报，266 号票的正文），不回落去 search 拼；
-    // 337 号票起还带回这次带上了哪几条（keys）和结构化那两样
+    // 插件声明了 brief：宿主用会意自己的那一份（现有的每条消息简报，正文），不回落去 search 拼；
+    // 还带回这次带上了哪几条（keys）和结构化那两样
     const brief = await host.brief({ text: TALK });
     expect(brief).toBeDefined();
     expect(brief!.text).toContain("【对用户的理解】");

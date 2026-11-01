@@ -1,4 +1,4 @@
-// 196 号票测试用的例子（自己写的，不看 fixtures/truth）：一个人从 3 月到 10 月，周末、工作日都在推掉别人排好的活动、说不喜欢被排满
+// 测试用的例子（自己写的，不看 fixtures/truth）：一个人从 3 月到 10 月，周末、工作日都在推掉别人排好的活动、说不喜欢被排满
 // （规则版往上抽出需求"重视自主安排"和价值"长期看重自主安排"），另有一条带"过敏"的忌口和一条早就过期的"最近太累"。
 import type { Claim, EvidenceDraft } from "../../src/domain/types.ts";
 import type { MemoryEngine, MemoryEngineOptions } from "../../src/engine.ts";

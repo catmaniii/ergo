@@ -1,6 +1,6 @@
-// 负责人执行任务时的"提议并行"工具（守护进程代为执行，20 号票）：绑定在一个任务上。
+// 负责人执行任务时的"提议并行"工具（守护进程代为执行）：绑定在一个任务上。
 // 只产生一张并行确认卡（不落入任何关注类别，照样先经守卫）；用户确认之前不拉起任何子 agent，负责人照常按顺序做。
-// @i18n-ignore-file model：工具的说明、参数说明和结果给负责人（模型）看（174 号票）；工具的名字走 t()
+// @i18n-ignore-file model：工具的说明、参数说明和结果给负责人（模型）看；工具的名字走 t()
 import { t, Type } from "@ergo/protocol";
 import { defineHostTool, type HostTool } from "../agent-manager/host-tools.ts";
 import { RequestRejected } from "../errors.ts";

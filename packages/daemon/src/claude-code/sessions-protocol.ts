@@ -1,4 +1,4 @@
-// 列本机会话、读前情、分叉的一次性子进程（290 号票，child/sessions-main.ts；292 号票加了只读跟随）和守护进程这一侧（sessions.ts）之间的请求和结果。
+// 列本机会话、读前情、分叉的一次性子进程（child/sessions-main.ts；加了只读跟随）和守护进程这一侧（sessions.ts）之间的请求和结果。
 // Agent SDK 只在子进程里（listSessions、getSessionMessages、forkSession 直接读写本机 ~/.claude 下的会话记录，不起 claude、不花额度；
 // 超大的会话记录在子进程里读，撑爆了也不拖垮守护进程），正被占着的会话按官方说的受支持的办法查：`claude agents --json`。
 // 子进程和守护进程两边都 import 这个文件（它不引 SDK）。
@@ -15,7 +15,7 @@ export type ClaudeSessionsRequest =
   /** 分叉一份（原会话不动） */
   | { op: "fork"; sessionId: string; cwd: string }
   /**
-   * 只读跟随（292 号票）：主线上 after 那一条之后的新内容，最多 max 条；final 是后台会话已经停了（最后那条回复也算说完了）；
+   * 只读跟随：主线上 after 那一条之后的新内容，最多 max 条；final 是后台会话已经停了（最后那条回复也算说完了）；
    * tail 只要主线最后一条的 id（交出去那一刻定下从哪接着跟）
    */
   | { op: "follow"; sessionId: string; after?: string; final: boolean; max: number; tail?: boolean };

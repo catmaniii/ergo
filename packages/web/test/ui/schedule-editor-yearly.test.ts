@@ -1,4 +1,4 @@
-// 提醒卡、改时间对话框里的时间表编辑（ui/cards/cards.tsx 的 ScheduleEditor）多了"每年"（282 号票）：重复规则能选每年，
+// 提醒卡、改时间对话框里的时间表编辑（ui/cards/cards.tsx 的 ScheduleEditor）多了"每年"：重复规则能选每年，
 // 选了出几月、几日两个下拉，几日跟着月份最多到月底（2 月能选到 29 日）；下面一行写成"每年 10 月 12 日 09:00"。用 React 在 Node 里渲染出来查。
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";

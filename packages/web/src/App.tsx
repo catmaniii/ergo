@@ -1,20 +1,20 @@
 /**
- * 主框架：竖屏底部横栏、宽屏左侧竖栏（内容区分栏）。主导航按空间自适应（33 号票，ui/main-nav.tsx）：秘书、任务、项目、
- * 待我处理、浏览（134 号票，只在鸿蒙 App 里）、日历（35 号票）、消耗、记忆、设置按顺序放得下的直接显示，放不下的从末尾起收进"更多"。
+ * 主框架：竖屏底部横栏、宽屏左侧竖栏（内容区分栏）。主导航按空间自适应（ui/main-nav.tsx）：秘书、任务、项目、
+ * 待我处理、浏览（只在鸿蒙 App 里）、日历、消耗、记忆、设置按顺序放得下的直接显示，放不下的从末尾起收进"更多"。
  * 宽窄按内容区的实际宽度判断（以 600 为界），所以原型的"手机宽度"预览也能直接用。
  *
- * 由守护进程提供页面时先问一次这个页面被信任吗（/api/access，10 号票）：外网端口上还没配对的设备只看到配对等待页；
+ * 由守护进程提供页面时先问一次这个页面被信任吗（/api/access）：外网端口上还没配对的设备只看到配对等待页；
  * 用着用着凭证失效了（被吊销、过期），连接报 unpaired，也回到配对等待页。被吊销的设备不自动重新申请：
  * 浏览器里留着"本设备已被吊销"的记号，刷新之后也一样（state/pairing-gate.ts、app/revoked-mark.ts）。
  *
- * 193 号票：网页插件（ADR-0027 的网页插槽）在这里装：插件清单（plugins/manifest.ts，只有这里引它）建成网页插件宿主，经 PluginHostProvider
+ * 网页插件（ADR-0027 的网页插槽）在这里装：插件清单（plugins/manifest.ts，只有这里引它）建成网页插件宿主，经 PluginHostProvider
  * 交给界面；守护进程在插件频道上报的状况变了就装、停（PluginStatusSync）。导航里网页插件的页面（记忆）按它登记的 order 插进来。
- * 214 号票：网页插件的后台部件（background 插槽：语音插件的"自动播放 agent 的语音"）挂在这里，整个页面一份（PluginBackground）。
+ * 网页插件的后台部件（background 插槽：语音插件的"自动播放 agent 的语音"）挂在这里，整个页面一份（PluginBackground）。
  *
- * 147 号票：地址带 ?ergo=side 的是浏览侧边栏模式——鸿蒙 App 另开一个 Web 组件加载它、摆在原生网页上面当侧边栏，整页只画侧边栏
+ * 地址带 ?ergo=side 的是浏览侧边栏模式——鸿蒙 App 另开一个 Web 组件加载它、摆在原生网页上面当侧边栏，整页只画侧边栏
  * （秘书的主会话，SideShell），没有导航；"浏览"页那一份的样子由 App 转过来。
  *
- * 212 号票：内置浏览器（"浏览"页签、浏览侧边栏、悬浮按钮、挑图片窗口、网页候选卡）是浏览插件的（plugins/browsing/）：导航里"浏览"的位置、
+ * 内置浏览器（"浏览"页签、浏览侧边栏、悬浮按钮、挑图片窗口、网页候选卡）是浏览插件的（plugins/browsing/）：导航里"浏览"的位置、
  * 地址 #/browse、只在 App 里有原生浏览器时才有还是核心定，整页、侧边栏模式那一页、主框架里挂一次的由插件经页签插槽（tabs）给；
  * 插件停用了导航里没有"浏览"，#/browse 和侧边栏模式写"内置浏览器插件没启用"。开场接上 App 推过来的（悬浮按钮、浏览侧边栏、原生浏览器，
  * 以前在这里和 main.tsx）由插件第一次装上时做：建插件宿主时把页面的连接和 HTTP 交给它。
@@ -79,15 +79,15 @@ import { PluginBackground, PluginHostProvider, PluginRoutePage, PluginStatusSync
 const WIDE_MIN = 600;
 
 /**
- * 页面由守护进程提供（http://127.0.0.1:8810）；直接打开构建产物（file://）、在线演示页（`npm run build:demo` 那份，316 号票）
+ * 页面由守护进程提供（http://127.0.0.1:8810）；直接打开构建产物（file://）、在线演示页（`npm run build:demo` 那份）
  * 没有守护进程，全部用原型的假数据（app/prototype-mode.ts）
  */
 const SERVED_BY_DAEMON = !isPrototypePage(window.location.protocol, import.meta.env.MODE);
 
 /**
- * 已经接上真数据的频道：04 号票起是秘书会话；06 号票起卡片、待我处理，以及看板频道（目前只有简单提醒，
- * 看板页面接真数据在 12 号票）；10 号票起已配对设备；29 号票起工作日历；15 号票起项目列表（项目的负责人会话打开时再订阅）。
- * 后面的票往这里加
+ * 已经接上真数据的频道：是秘书会话；卡片、待我处理，以及看板频道（目前只有简单提醒）；
+ * 已配对设备；工作日历；项目列表（项目的负责人会话打开时再订阅）。
+ * 往这里加
  */
 const REAL_CHANNELS = [
   CHANNELS.secretary,
@@ -99,15 +99,15 @@ const REAL_CHANNELS = [
   CHANNELS.workdayCalendar,
   CHANNELS.watchCategories,
   CHANNELS.projects,
-  // 43 号票：个人助理的名字（界面上处处用它，一打开就订阅）
+  // 个人助理的名字（界面上处处用它，一打开就订阅）
   CHANNELS.assistantName,
-  // 109 号票：已读位置（"秘书"页签的红点、秘书新消息的提醒，几台设备同步）
+  // 已读位置（"秘书"页签的红点、秘书新消息的提醒，几台设备同步）
   CHANNELS.readMarks,
-  // 168 号票：语言（全局一个；换了语言、语言文件变了，开着的页面重取词典）
+  // 语言（全局一个；换了语言、语言文件变了，开着的页面重取词典）
   CHANNELS.language,
-  // 193 号票：插件的状况（网页按它装、停自己的网页插件，一打开就订阅）
+  // 插件的状况（网页按它装、停自己的网页插件，一打开就订阅）
   CHANNELS.plugins,
-  // 368 号票：背后的 agent 有变化时的临时事件（开着的列表、只读对话据此重新取）
+  // 背后的 agent 有变化时的临时事件（开着的列表、只读对话据此重新取）
   CHANNELS.backgroundAgents,
 ];
 
@@ -134,20 +134,20 @@ const connection: Connection = SERVED_BY_DAEMON
 const http: DaemonHttp = SERVED_BY_DAEMON ? new HttpDaemonClient() : new FakeDaemonHttp(fakeConnection);
 
 /**
- * 网页插件宿主（193 号票）：一建好就按全开装上，收到守护进程报的状况再装、停。212 号票起建在连接和 HTTP 之后、交给插件：
+ * 网页插件宿主：一建好就按全开装上，收到守护进程报的状况再装、停。建在连接和 HTTP 之后、交给插件：
  * 浏览插件第一次装上时开场接上 App 推过来的（"浏览"里网页的框上的悬浮按钮——拦下的选文件对话框不能没人接；浏览侧边栏——报这台设备上
  * 浏览器的样子、办秘书的网页工具推来的事；原生浏览器）；不在 App 里什么都不做
  */
 const pluginHost = createWebPluginHost({ plugins: WEB_PLUGIN_MANIFEST, page: { connection, http, sideMode: SIDE_MODE } });
 
-// 原型的 ?demo-debug（124 号票）：一打开就在关于页，Debug 工具集已打开，各组有假数据（在页面读地址之前）
+// 原型的 ?demo-debug：一打开就在关于页，Debug 工具集已打开，各组有假数据（在页面读地址之前）
 if (!SERVED_BY_DAEMON && !SIDE_MODE) startDemoDebug();
 
 /** 这个页面被信任吗：问的路上、问到了（问不到也照常进，连不上时界面会提示）、还没配对（配对等待页怎么开场） */
 type AccessState = { kind: "checking" } | { kind: "ready"; info?: AccessInfo } | { kind: "unpaired"; opening: PairingOpening };
 
 function useAccessCheck(): AccessState {
-  // 原型（直接打开构建产物）假装是从已配对的一台手机上打开的：设置 · 已配对设备里标"就是这台"（123 号票）
+  // 原型（直接打开构建产物）假装是从已配对的一台手机上打开的：设置 · 已配对设备里标"就是这台"
   const [state, setState] = useState<AccessState>(SERVED_BY_DAEMON ? { kind: "checking" } : { kind: "ready", info: FAKE_ACCESS });
   useEffect(() => {
     if (!SERVED_BY_DAEMON) return;
@@ -164,7 +164,7 @@ const reload = () => window.location.reload();
 
 /**
  * 外网端口上还没配对（或者凭证失效了）：只有配对等待页（不连 WebSocket，连了也会被拒）。
- * 原型里吊销、删除了"就是这台"（123 号票）也到这里，用假的配对接口（重新申请、模拟批准之后刷新，假数据从头来）
+ * 原型里吊销、删除了"就是这台"也到这里，用假的配对接口（重新申请、模拟批准之后刷新，假数据从头来）
  */
 function Unpaired({ opening }: { opening: PairingOpening }) {
   const [api] = useState(() => (SERVED_BY_DAEMON ? httpPairingApi : previewPairingApi(navigator.userAgent)));
@@ -177,7 +177,7 @@ function UnpairedNow({ reason }: { reason: CredentialRejection | undefined }) {
   return <Unpaired opening={opening} />;
 }
 
-/** 跟着守护进程换词典（168 号票）：语言频道上推来的版本和手里的对不上就取一份；整个页面一份 */
+/** 跟着守护进程换词典：语言频道上推来的版本和手里的对不上就取一份；整个页面一份 */
 function LocaleSync() {
   const store = useStore();
   useDaemonLocale(store.http, store.ui.locale, deviceStorage);
@@ -185,9 +185,9 @@ function LocaleSync() {
 }
 
 /**
- * 角色（248 号票）：打开页面时取一次（每个 agent 现在用哪个角色、它的名字和音色要在界面各处现取；
+ * 角色：打开页面时取一次（每个 agent 现在用哪个角色、它的名字和音色要在界面各处现取；
  * 角色页、⚙ 面板打开时另取）。取不到按"跟默认"显示。
- * 换了语言再取一次（379 号票）：没起过名时默认名跟语言走，手里这份是守护进程按旧语言算的
+ * 换了语言再取一次：没起过名时默认名跟语言走，手里这份是守护进程按旧语言算的
  */
 function AgentRolesSync() {
   const { loadAgentRoles } = useStore();
@@ -200,7 +200,7 @@ function AgentRolesSync() {
 }
 
 /**
- * 我的名字（249 号票）：打开页面时取一次（秘书页、待办页的副标题和设置里那一项用它）。取不到就照旧（一个字都不多）；
+ * 我的名字：打开页面时取一次（秘书页、待办页的副标题和设置里那一项用它）。取不到就照旧（一个字都不多）；
  * 设置里改完用接口回的那个，不用再取
  */
 function UserNameSync() {
@@ -215,7 +215,7 @@ function UserNameSync() {
 const deviceStorage = () => window.localStorage;
 
 export default function App() {
-  // 换了语言整棵树重画（168 号票：组件里直接调 t()）
+  // 换了语言整棵树重画（组件里直接调 t()）
   useLocale();
   const access = useAccessCheck();
   if (access.kind === "checking") return null;
@@ -241,7 +241,7 @@ export default function App() {
 }
 
 /**
- * 应用外框：量出宽度给页面（宽窄两种布局按它切；54 号票评审去掉了原型的"手机竖屏 390"预览和顶上的原型栏，一律自适应宽度）。
+ * 应用外框：量出宽度给页面（宽窄两种布局按它切；去掉了原型的"手机竖屏 390"预览和顶上的原型栏，一律自适应宽度）。
  * 最后一层是弹出菜单的（.popup-layer，ui/popup.tsx）：长按菜单这类经 portal 画在这里，浮在输入栏、标题栏、详情栏之上
  */
 function PrototypeStage() {
@@ -264,7 +264,7 @@ function PrototypeStage() {
 }
 
 /**
- * 浏览侧边栏模式（147 号票）：整页只有侧边栏（秘书的主会话），状态由 App 从"浏览"页转过来。212 号票起侧边栏那一页是浏览插件给的
+ * 浏览侧边栏模式：整页只有侧边栏（秘书的主会话），状态由 App 从"浏览"页转过来。侧边栏那一页是浏览插件给的
  * （页签插槽 browse 的 Side），插件停用了写"内置浏览器插件没启用"
  */
 function SideShell() {
@@ -275,7 +275,7 @@ function SideShell() {
   const [popupHost, setPopupHost] = useState<HTMLElement | null>(null);
   // 会话里点开一条的详情（工具调用、想法、卡片……）：和窄屏一样整页滑入，盖住侧边栏（2026-10-19 用户：侧边栏里工具调用那一条点不开）
   const [detailHost, setDetailHost] = useState<HTMLElement | null>(null);
-  // 新到的 agent 语音在开着的会话里自动播放（侧边栏开着秘书的会话）：214 号票起是语音插件的后台部件，挂在 App 里（PluginBackground）
+  // 新到的 agent 语音在开着的会话里自动播放（侧边栏开着秘书的会话）：是语音插件的后台部件，挂在 App 里（PluginBackground）
   if (ui.connection === "unpaired") return <UnpairedNow reason={ui.unpairedReason} />;
   return (
     <div className="proto-stage">
@@ -301,18 +301,18 @@ function SideShell() {
 function Shell({ width }: { width: number }) {
   const wide = width >= WIDE_MIN;
   const [route, navigate] = useRoute();
-  // 内置浏览器（132 号票）是盖在页面上的一层：地址是 #/apps/…，底下照旧是打开它之前的那一页（直接打开、刷新时是秘书页），关掉回到那一页
+  // 内置浏览器是盖在页面上的一层：地址是 #/apps/…，底下照旧是打开它之前的那一页（直接打开、刷新时是秘书页），关掉回到那一页
   const [underlay, setUnderlay] = useState<Route>(() => (route.tab === "app" ? { tab: "secretary" } : route));
   if (route.tab !== "app" && route !== underlay) setUnderlay(route);
   const shown = route.tab === "app" ? underlay : route;
   const { ui } = useStore();
-  // 待办的提示；秘书会话里有没看过的消息时"秘书"也亮红点（109 号票）
+  // 待办的提示；秘书会话里有没看过的消息时"秘书"也亮红点
   const badge = { ...inboxBadge(ui), secretary: secretaryNavDot(ui) };
   const openInboxItem = useCallback((itemId: string) => navigate({ tab: "inbox", itemId }), [navigate]);
   const openInbox = useCallback(() => navigate({ tab: "inbox" }), [navigate]);
-  // 秘书新消息的提醒（109 号票）："查看"去秘书会话里那一条
+  // 秘书新消息的提醒："查看"去秘书会话里那一条
   const openSecretaryAt = useCallback((at: string) => navigate({ tab: "secretary", at }), [navigate]);
-  // 鸿蒙 App 里（新版 App 有原生的内置浏览器）导航多"浏览"（134 号票；212 号票起还要浏览插件在用）；在用的网页插件的页面（193 号票：记忆）按 order 插进来
+  // 鸿蒙 App 里（新版 App 有原生的内置浏览器）导航多"浏览"（还要浏览插件在用）；在用的网页插件的页面（记忆）按 order 插进来
   const plugins = usePlugins();
   const [nativeBrowser] = useState(() => pageNativeApp()?.browser !== undefined);
   const browse = nativeBrowser && plugins.get("tabs", "browse") !== undefined;
@@ -322,8 +322,8 @@ function Shell({ width }: { width: number }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps, react/memo-dependencies -- pagesKey 就是 pages 的样子（每次装、停换一个新数组）
   const navItems = useMemo(() => navItemsFor({ browse, plugins: pages }), [browse, pagesKey]);
   const { fit, onMeasure } = useNavFit(navItems);
-  // 新到的 agent 语音自动播放（36 号票）：整个页面一份——214 号票起是语音插件的后台部件，挂在 App 里（PluginBackground）
-  // 插件的页签在主框架里挂的（212 号票："浏览"里的悬浮按钮、挑图片窗口接到 store，149 号票）告诉这里：在那一页签上时秘书会话算不算在看
+  // 新到的 agent 语音自动播放：整个页面一份——是语音插件的后台部件，挂在 App 里（PluginBackground）
+  // 插件的页签在主框架里挂的（"浏览"里的悬浮按钮、挑图片窗口接到 store）告诉这里：在那一页签上时秘书会话算不算在看
   const [watching, setWatching] = useState<Readonly<Record<string, boolean>>>({});
   const watchers = useMemo(() => new Map<string, (on: boolean) => void>(), []);
   const watcherOf = (id: string) => {
@@ -334,7 +334,7 @@ function Shell({ width }: { width: number }) {
     }
     return fn;
   };
-  // 秘书说完一轮、打开时有没看过的：不在看秘书会话时在顶上提醒（109 号票）；"浏览"右边的侧边栏开着时也算在看（147 号票）
+  // 秘书说完一轮、打开时有没看过的：不在看秘书会话时在顶上提醒；"浏览"右边的侧边栏开着时也算在看
   useSecretaryAlerts(shown.tab === "secretary" || watching[shown.tab] === true);
   const [detailHost, setDetailHost] = useState<HTMLElement | null>(null);
 
@@ -345,8 +345,8 @@ function Shell({ width }: { width: number }) {
 
   const current = navItemOf(shown);
   const nav = <MainNav orientation={wide ? "rail" : "bar"} items={navItems} pages={pages} fit={fit} highlight={current && navHighlight(fit, current)} badge={badge} navigate={navigate} onMeasure={onMeasure} />;
-  // 服务端的页面更新了（116 号票）：内容区最上面一条"二狗有新版本 · 刷新"，挤在页面上面、不盖住标题栏
-  // 319 号票：首页（会话页）顶上一条"花两分钟把二狗配一下"，五步没走完时才有（点 × 关掉、记在这台设备上，见 app/page-setup.ts）；
+  // 服务端的页面更新了：内容区最上面一条"二狗有新版本 · 刷新"，挤在页面上面、不盖住标题栏
+  // 首页（会话页）顶上一条"花两分钟把二狗配一下"，五步没走完时才有（点 × 关掉、记在这台设备上，见 app/page-setup.ts）；
   // 演示页不显示。放在内容区里（narrow 是上下、wide 是左右，放进 .app 那一层会挤成左边一列）
   const page = (
     <>
@@ -356,7 +356,7 @@ function Shell({ width }: { width: number }) {
       {route.tab === "app" && <InAppBrowser key={route.app} route={route} leaveTo={toHash(underlay)} />}
     </>
   );
-  // 到点的提醒、秘书新消息：在任意页面顶上提示；被拒的请求在底部提示原因。插件的页签在主框架里挂的（212 号票）也放在这里（不画东西）
+  // 到点的提醒、秘书新消息：在任意页面顶上提示；被拒的请求在底部提示原因。插件的页签在主框架里挂的也放在这里（不画东西）
   const notices = (
     <>
       <AlertsView onOpen={openInboxItem} onInbox={openInbox} onSecretary={openSecretaryAt} />
@@ -364,7 +364,7 @@ function Shell({ width }: { width: number }) {
       {tabs.map(({ id, Mount }) => (Mount ? <Mount key={id} watching={watcherOf(id)} /> : null))}
     </>
   );
-  // 详情页（56 号票）：宽屏右栏封顶在外框宽度的 32%；窄屏整页滑入，挂在盖住底部导航的 .dp-host 上
+  // 详情页：宽屏右栏封顶在外框宽度的 32%；窄屏整页滑入，挂在盖住底部导航的 .dp-host 上
   return (
     <FrameWidth.Provider value={width}>
       <DetailHost.Provider value={detailHost}>
@@ -387,14 +387,14 @@ function Shell({ width }: { width: number }) {
   );
 }
 
-/** 插件给的页签（212 号票）：在用的插件登记了就画它的整页；停用的插件拥有它写"X插件没启用" */
+/** 插件给的页签：在用的插件登记了就画它的整页；停用的插件拥有它写"X插件没启用" */
 function PluginTab({ id, wide }: { id: string; wide: boolean }) {
   const plugins = usePlugins();
   const tab = plugins.get("tabs", id);
   return tab ? <tab.Page wide={wide} /> : <PluginOffPage plugin={plugins.unavailable("tabs", id)} />;
 }
 
-/** 插件没启用的一页（212 号票：页签、侧边栏模式）：标题写插件的名字，下面一句"X插件没启用，这一页暂时看不到" */
+/** 插件没启用的一页（页签、侧边栏模式）：标题写插件的名字，下面一句"X插件没启用，这一页暂时看不到" */
 function PluginOffPage({ plugin }: { plugin: string | undefined }) {
   const name = plugin ?? "";
   return (
@@ -422,10 +422,10 @@ function Page({ route, wide, folded, navigate }: { route: Route; wide: boolean; 
     case "inbox":
       return <InboxPage wide={wide} itemId={route.itemId} navigate={navigate} />;
     case "browse":
-      // 浏览（134 号票）：鸿蒙 App 里的原生内置浏览器，内容区是 App 叠上来的 ArkWeb；212 号票起是浏览插件的页签
+      // 浏览：鸿蒙 App 里的原生内置浏览器，内容区是 App 叠上来的 ArkWeb；是浏览插件的页签
       return <PluginTab id="browse" wide={wide} />;
     case "calendar":
-      // 日历（35 号票）：213 号票起是日历插件的页面（plugins/calendar/），地址照旧由核心拆拼；插件停用时写"日历插件没启用"
+      // 日历：是日历插件的页面（plugins/calendar/），地址照旧由核心拆拼；插件停用时写"日历插件没启用"
       return <PluginRoutePage id="calendar" wide={wide} item={route.date ?? route.month} navigate={navigate} />;
     case "more":
       return <MorePage wide={wide} page={route.page} item={route.item} sub={route.sub} folded={folded} navigate={navigate} />;
@@ -441,10 +441,10 @@ function Page({ route, wide, folded, navigate }: { route: Route; wide: boolean; 
         </div>
       );
     case "report":
-      // 报告页（113 号票）：文本类附件渲染着看；不属于主导航的哪一项
+      // 报告页：文本类附件渲染着看；不属于主导航的哪一项
       return <ReportPage mediaId={route.mediaId} />;
     case "pair-wait":
-    // 内置浏览器（132 号票）盖在底下那一页上，由 Shell 画，不在这里
+    // 内置浏览器盖在底下那一页上，由 Shell 画，不在这里
     case "app":
       return null;
   }

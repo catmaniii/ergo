@@ -1,4 +1,4 @@
-// ergo backup / ergo restore（356 号票）：一行命令装的程序目录里没有 npm run，备份、恢复的命令行工具（src/run-backup、src/restore）接到 ergo 命令上：
+// ergo backup / ergo restore：一行命令装的程序目录里没有 npm run，备份、恢复的命令行工具（src/run-backup、src/restore）接到 ergo 命令上：
 // 用这份程序的 Node 跑，参数原样转，输出直接打到终端，退出码原样带回。ergo 在 PATH 上、升级后还是它，定时任务调 ergo backup --scheduled 不会因为升级断掉。
 // 数据目录明着传过去（ergo 认的和工具认的是同一个）。
 import { spawnSync } from "node:child_process";

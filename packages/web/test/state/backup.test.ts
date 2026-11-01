@@ -1,4 +1,4 @@
-// 设置里的"备份"（335 号票）：同步目录、最近一次、最新的快照、下一次（或者交给外部定时器）、正在做的，"立即备份"做完怎么说。
+// 设置里的"备份"：同步目录、最近一次、最新的快照、下一次（或者交给外部定时器）、正在做的，"立即备份"做完怎么说。
 // 守护进程的回答按协议的 schema 构造；界面文字里不出现"秘书""待我处理"。
 import { BackupStatusView as StatusSchema, schemaChecker } from "@ergo/protocol";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
@@ -34,7 +34,7 @@ function record(overrides: Partial<BackupRunRecord> = {}): BackupRunRecord {
 
 const FORBIDDEN = /秘书|待我处理/;
 
-describe("校验最新快照怎么说（356 号票）", () => {
+describe("校验最新快照怎么说", () => {
   const at = "2026-10-28T15:02:09.000+08:00";
 
   test("在校验、这次运行还没校验过", () => {
@@ -62,7 +62,7 @@ describe("校验最新快照怎么说（356 号票）", () => {
   });
 });
 
-describe("一处快照的一行行（356 号票）", () => {
+describe("一处快照的一行行", () => {
   test("日期和大小；清单读不出来的写原因", () => {
     expect(
       backupSnapshotRows({

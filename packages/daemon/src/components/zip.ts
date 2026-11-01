@@ -1,4 +1,4 @@
-// 读 zip 包（345 号票）：audio.cpp 的 Windows 发布包是 .zip。Node 自带 inflate、没有 zip，这里按格式自己读：先从文件末尾找目录
+// 读 zip 包：audio.cpp 的 Windows 发布包是 .zip。Node 自带 inflate、没有 zip，这里按格式自己读：先从文件末尾找目录
 // （End of Central Directory，大于 4 GB 的是 ZIP64 那一种），目录里每一项写着名字、大小、方法、内容在哪；再按项解开。
 // 只认存储（0）和 deflate（8）；只解普通文件和目录，符号链接这类跳过（和 tar.ts 一样：组件里用不着，也免得指到别处去）。
 // 路径去掉前几段后必须是安全的相对路径（不带 ..、不是绝对路径）：有一项不安全，整个包不用，一个文件都不写。

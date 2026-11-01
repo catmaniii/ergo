@@ -1,4 +1,4 @@
-// 回复中发的消息排队（144 号票，规格第 4 节"同一个 agent 的输入串行排队"、第 11 节）：二狗（秘书、项目负责人、任务负责人）正在回复
+// 回复中发的消息排队（规格第 4 节"同一个 agent 的输入串行排队"、第 11 节）：二狗（秘书、项目负责人、任务负责人）正在回复
 // 这一轮时用户又发的话不进会话、不插进这一轮，先排进这个会话的队列；这一轮做完（或者用户点了停止）一起交给 agent 作为下一轮的输入。
 // - 队列存在事件日志里，属于会话：会话频道上的 message_queue 事件带着整队的最新样子和这次的变化（排进来、拿掉、改顺序、交出去），
 //   派生视图 message_queues 记每个会话最新的那一份。换设备、刷新页面、守护进程重启后都还在，几台设备看到的一样。
@@ -8,9 +8,9 @@
 // - 交出去：agent 的会话（agent-session.ts）在这一轮结束时调 deliver：整队按先后追加成普通的用户消息（消息 id、时间、正文照排队时的，
 //   带上同一个 queueDelivery），和"交出去"的那条 message_queue 事件同一事务（消息在前）。归属按交出去那一刻重新认（项目负责人的会话分段
 //   可能已经换了；认不出来就用排进来时的），要先开对话段的照发消息时一样先追加。同一批的几条 agent 作为一轮的输入一起处理。
-//   180 号票：排队时就识别完、只识别出模型自带串词的语音消息（消息里只有这段语音）照常交出去成为会话里的消息，但带 dropInput，
-//   不进 agent 的输入队列（等同于没发）。208 号票起识别失败的（自动重试完了还不行、静音之类）都这样；还在识别、等着重试的照常交，
-//   在输入队列里等它有结局（210 号票起等着自动重试的不挡同一批、之后的输入，见 agent-session.ts）。
+//   排队时就识别完、只识别出模型自带串词的语音消息（消息里只有这段语音）照常交出去成为会话里的消息，但带 dropInput，
+//   不进 agent 的输入队列（等同于没发）。识别失败的（自动重试完了还不行、静音之类）都这样；还在识别、等着重试的照常交，
+//   在输入队列里等它有结局（等着自动重试的不挡同一批、之后的输入，见 agent-session.ts）。
 import {
   CHANNELS,
   type ConversationId,
@@ -127,7 +127,7 @@ export function reorderQueued(store: EventStore, conversation: ConversationId, m
 export interface QueueDeliveryHooks {
   /** 负责人会话里的消息此刻属于哪个任务、项目（taskId 是在哪个任务的详情里说的）；认不出来、不让发了时用排进来时的 */
   scopeOf?(conversation: ConversationId, taskId?: string): MessageScope | undefined;
-  /** 用户的话之前同一事务先追加的事件（16 号票：项目负责人手上没有在进行的段时开一个对话段） */
+  /** 用户的话之前同一事务先追加的事件（项目负责人手上没有在进行的段时开一个对话段） */
   preludeOf?(conversation: ConversationId, idempotencyKey: string, taskId?: string): NewEvent[];
   log?(line: string): void;
 }
@@ -144,7 +144,7 @@ export function createQueueDelivery(store: EventStore, hooks: QueueDeliveryHooks
     try {
       const scope = hooks.scopeOf?.(conversation, item.inTask) ?? pickMessageScope(item);
       if (item.interviewId === undefined) return scope;
-      // 284 号票：排进来时访谈开着（用户是在访谈里说的）：照排进来时的算访谈里的话、答的是那时管理员问的那一句（交出去时访谈可能已经收尾、
+      // 排进来时访谈开着（用户是在访谈里说的）：照排进来时的算访谈里的话、答的是那时管理员问的那一句（交出去时访谈可能已经收尾、
       // 管理员可能又说了一段；语音对象排进来时就带上了）
       const { interviewId: _now, interviewQuestion: _asked, ...rest } = scope;
       return { ...rest, interviewId: item.interviewId, ...(item.interviewQuestion === undefined ? {} : { interviewQuestion: item.interviewQuestion }) };

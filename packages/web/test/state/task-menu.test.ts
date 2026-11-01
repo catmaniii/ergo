@@ -1,4 +1,4 @@
-// 90 号票：任务的操作菜单（看板卡的长按 / 右键、任务详情的"⋯"、状态签浮层用同一份）、标题栏的关键按钮、"⋯"的上半，
+// 任务的操作菜单（看板卡的长按 / 右键、任务详情的"⋯"、状态签浮层用同一份）、标题栏的关键按钮、"⋯"的上半，
 // 看板多选（每个操作只对能做的生效、按钮上写个数、取消先确认、结果逐条回报）。菜单项照协议包的"谁能改"表，随种类和状态变。
 // 表格驱动；超预算的回放 task-over-budget（主切面录下的事件流）。
 import fs from "node:fs";
@@ -33,7 +33,7 @@ const labels = (task: TaskMenuSubject, where: "board" | "detail" = "detail") => 
 
 describe("任务现在能做什么：菜单项随种类、状态变（照“谁能改”表）", () => {
   test.each<[string, TaskMenuSubject, string[]]>([
-    // 186 号票：没结束、能取消的也有"归档"（先取消再归档），最后都有"删除任务"
+    // 没结束、能取消的也有"归档"（先取消再归档），最后都有"删除任务"
     ["规划中：取消、归档（先取消）、删除", { state: "planning" }, ["取消任务", "归档", "删除任务"]],
     ["执行中的长程任务：暂停、取消、从某阶段重做（开始过的阶段）", { state: "running", stages: { list: [stage("s1", "accepted"), stage("s2", "running")] } }, ["暂停", "取消任务", "从某阶段重做…", "归档", "删除任务"]],
     ["执行中但阶段都还没开始：没有从某阶段重做", { state: "running", stages: { list: [stage("s1", "pending")] } }, ["暂停", "取消任务", "归档", "删除任务"]],
@@ -55,10 +55,10 @@ describe("任务现在能做什么：菜单项随种类、状态变（照“谁�
     ["已归档：只能删除", { state: "archived" }, ["删除任务"]],
     ["运营中的定时任务：落到触发上的暂停、取消任务", { state: "operating", kind: "plain", triggerActions: ["pause", "cancel"] }, ["暂停", "取消任务", "归档", "删除任务"]],
     ["运营中、触发暂停着：恢复、取消任务", { state: "operating", kind: "plain", triggerActions: ["resume", "cancel"] }, ["恢复", "取消任务", "归档", "删除任务"]],
-    ["运营中的定时任务（98 号票）：暂停、改时间、取消任务", { state: "operating", kind: "plain", triggerActions: ["pause", "cancel"], reschedule: { kind: "daily", time: "09:00" } }, ["暂停", "改时间", "取消任务", "归档", "删除任务"]],
+    ["运营中的定时任务：暂停、改时间、取消任务", { state: "operating", kind: "plain", triggerActions: ["pause", "cancel"], reschedule: { kind: "daily", time: "09:00" } }, ["暂停", "改时间", "取消任务", "归档", "删除任务"]],
     ["运营中、触发暂停着也能改时间", { state: "operating", kind: "workflow", triggerActions: ["resume", "cancel"], reschedule: { kind: "workdays", time: "08:00" } }, ["恢复", "改时间", "取消任务", "归档", "删除任务"]],
     [
-      "运营中的定时任务（100 号票）：暂停、立即运行一次、改时间、跑完自动播报：关、取消任务",
+      "运营中的定时任务：暂停、立即运行一次、改时间、跑完自动播报：关、取消任务",
       { state: "operating", kind: "plain", triggerActions: ["pause", "cancel"], reschedule: { kind: "daily", time: "08:00" }, runNow: true, announce: false },
       ["暂停", "立即运行一次", "改时间", "跑完自动播报：关", "取消任务", "归档", "删除任务"],
     ],
@@ -70,7 +70,7 @@ describe("任务现在能做什么：菜单项随种类、状态变（照“谁�
     ["事件触发的：立即运行一次，没有改时间", { state: "operating", kind: "plain", triggerActions: ["pause", "cancel"], runNow: true, announce: false }, ["暂停", "立即运行一次", "跑完自动播报：关", "取消任务", "归档", "删除任务"]],
     ["执行中的普通任务：跑完自动播报在取消任务之前", { state: "running", kind: "plain", announce: false }, ["暂停", "跑完自动播报：关", "取消任务", "归档", "删除任务"]],
     ["做完的普通任务（接着说还会再做完）：跑完自动播报在归档之前", { state: "done", kind: "plain", announce: true }, ["跑完自动播报：开", "归档", "删除任务"]],
-    ["不能删的（186 号票）：最后一行写明为什么", { state: "done", deleteRefusal: "这是项目「记账本」的内部任务，项目还在时由项目管：删项目时它一起删掉" }, ["归档", "不能删除：这是项目「记账本」的内部任务，项目还在时由项目管：删项目时它一起删掉"]],
+    ["不能删的：最后一行写明为什么", { state: "done", deleteRefusal: "这是项目「记账本」的内部任务，项目还在时由项目管：删项目时它一起删掉" }, ["归档", "不能删除：这是项目「记账本」的内部任务，项目还在时由项目管：删项目时它一起删掉"]],
   ])("%s", (_name, task, expected) => {
     expect(labels(task)).toEqual(expected);
   });
@@ -161,7 +161,7 @@ describe("看板多选", () => {
   ] as const;
   const titleOf = (id: string) => entries.find((e) => e.id === id)?.title ?? id;
 
-  test("每个按钮能做几个：只算能做的（运营中的定时任务看它的触发；186 号票起没结束的归档先取消、都能删）", () => {
+  test("每个按钮能做几个：只算能做的（运营中的定时任务看它的触发；没结束的归档先取消、都能删）", () => {
     expect(batchCounts(entries)).toEqual({ pause: 2, resume: 2, cancel: 4, archive: 5, delete: 6 });
     // 运营中的定时任务：触发能取消的，归档先取消（连同触发）
     expect(canBatch({ state: "operating", triggerActions: ["pause", "cancel"] }, "archive")).toBe(true);
@@ -218,7 +218,7 @@ describe("看板多选", () => {
   });
 });
 
-describe("立即运行一次、跑完自动播报（100 号票）", () => {
+describe("立即运行一次、跑完自动播报", () => {
   test("菜单项带着要做的事：立即运行一次；跑完自动播报带着现在开没开（点了换成另一个）", () => {
     const items = taskMenu({ state: "operating", kind: "plain", triggerActions: ["pause", "cancel"], runNow: true, announce: true }, "detail");
     expect(items.find((i) => i.kind === "run_now")).toEqual({ kind: "run_now", label: "立即运行一次" });
@@ -247,7 +247,7 @@ describe("立即运行一次、跑完自动播报（100 号票）", () => {
   });
 });
 
-describe("删除任务、没结束的先取消再归档（186 号票）", () => {
+describe("删除任务、没结束的先取消再归档", () => {
   test("菜单项：归档带着要不要先取消（运营中的连同触发），删除带着要不要先停下、归档了没有；删除标红", () => {
     const running = taskMenu({ state: "running" }, "detail");
     expect(running.find((i) => i.kind === "act" && i.action === "archive")).toEqual({ kind: "act", action: "archive", label: "归档", cancelsFirst: "task" });
@@ -263,7 +263,7 @@ describe("删除任务、没结束的先取消再归档（186 号票）", () => 
   test("删除的确认：写清删掉什么、本人的话作为素材保留、收不回；没结束的写先停下，没归档的提一句可以归档", () => {
     expect(taskDeleteConfirm({ title: "整理截图", cancelsFirst: false, archived: false })).toEqual({
       title: "删除任务「整理截图」？",
-      // 说到秘书写名字占位，界面上用 NamedText 显示成用户起的名字（43 号票）
+      // 说到秘书写名字占位，界面上用 NamedText 显示成用户起的名字
       body: `会删掉任务本身、负责人的会话、工作目录和里面的产出文件。你在里面说过的话作为素材保留，要彻底删在“记忆 · 素材”里删；${ASSISTANT_NAME_MARK}那边说过的话不改。删了收不回。只是不想在看板上看到它，可以“归档”。`,
     });
     expect(taskDeleteConfirm({ title: "整理截图", cancelsFirst: true, archived: false }).body.startsWith("它还没结束：会先停下（取消，负责人和子 agent 停下，定时、事件触发的不再触发）再删。会删掉任务本身")).toBe(true);

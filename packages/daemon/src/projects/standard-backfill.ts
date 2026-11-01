@@ -1,4 +1,4 @@
-// 现有项目补齐规范文档（262 号票；issue 19 Decisions 第 10 条，用户原话："可以给个任务，但是不一定要补，我确认后再补"）：
+// 现有项目补齐规范文档（用户原话："可以给个任务，但是不一定要补，我确认后再补"）：
 // - 规范上线：守护进程第一次带着这一版起来时，在 standards 频道上记一条 standard_backfill_launched，写明那时规范上线之前建的项目
 //   （没有版本的；之后建的项目立项时都记了版本）。只记一次（幂等键），补齐规范文档的卡只给这几个项目出；
 // - 出卡：其中立项书确认了（项目类型定了）、没归档、按类型和本项目的规范改写缺文档的（只读接口的 docs 里必须有的、这类另有的不在或者
@@ -7,7 +7,7 @@
 //   一个项目只出一次；不缺的不出；
 // - "补齐"：同一事务项目列表频道上一条 standard_adopted（项目记下现在的规范版本；项目模块据此按这一版的模板补上缺的几份，已有的不动）、
 //   建一个项目内部的普通任务（交给负责人照项目现状补：缺哪几份、每份写什么；确认时又都齐了就不建）、负责人会话时间线上记一笔；
-// - "不补"：什么都不动（项目还是没有版本，档案不补），时间线上记一笔；卡不会再出，272 号票起之后用户又要补，由负责人提"跟新版"
+// - "不补"：什么都不动（项目还是没有版本，档案不补），时间线上记一笔；卡不会再出，之后用户又要补，由负责人提"跟新版"
 //   （standard-change.ts：没有版本的项目写 upgrade 就是补齐，确认后照这里的补齐做）；
 // - 不硬卡：卡一直挂着也不碍事，项目照常用。删除项目时卡随项目整条删掉（deletion-participants.ts）。
 import {
@@ -68,7 +68,7 @@ const LAUNCH_KEY = "standard-backfill:launched";
 /** 一个项目的"补齐规范文档"卡的幂等键：出过就不再出 */
 const offerKey = (projectId: string) => `standard-backfill:${projectId}`;
 
-/** 这个项目的"补齐规范文档"卡出过、还在等用户选（272 号票：这时负责人不另提"跟新版"补齐） */
+/** 这个项目的"补齐规范文档"卡出过、还在等用户选（这时负责人不另提"跟新版"补齐） */
 export function backfillOfferPending(store: Pick<EventStore, "eventByIdempotencyKey">, cards: Pick<CardService, "get">, projectId: string): boolean {
   const offered = store.eventByIdempotencyKey(offerKey(projectId));
   if (!offered) return false;
@@ -85,7 +85,7 @@ const docHint = (doc: StandardBackfillDoc, view: ProjectStandardView | undefined
 
 /**
  * 交给负责人的任务书（项目内部的普通任务，任务详情里你也看得到）：缺哪几份、每份写什么、只补文档。
- * 272 号票：卡上选了不补、之后负责人照用户的话提"跟新版"补齐时（standard-change.ts）也用这一份
+ * 卡上选了不补、之后负责人照用户的话提"跟新版"补齐时（standard-change.ts）也用这一份
  */
 export function backfillTaskSummary(project: Project, kind: ProjectKind, version: string, missing: readonly StandardBackfillDoc[], view: ProjectStandardView | undefined, note: string | undefined): string {
   const docs = missing.map((doc) => t("projects.standardBackfill.docLine", { doc: standardBackfillDocText(doc), hint: docHint(doc, view) })).join("\n");
@@ -225,7 +225,7 @@ const choseText = (p: StandardBackfillCardPayload): string => {
 };
 
 /**
- * "补齐规范文档"卡（262 号票）：补齐（confirm）、不补（dismiss）。纯文本降级（秘书列待办看开头）先写哪个项目缺哪几份，再写等你选什么
+ * "补齐规范文档"卡：补齐（confirm）、不补（dismiss）。纯文本降级（秘书列待办看开头）先写哪个项目缺哪几份，再写等你选什么
  * （选过的写选了哪个）。负载里没有谁写的话（用户在卡上附的一句在处理结果里，彻底删除照通用的换掉）
  */
 export function standardBackfillCardType(backfill: Pick<StandardBackfill, "decide">) {

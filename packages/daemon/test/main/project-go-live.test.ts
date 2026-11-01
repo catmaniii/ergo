@@ -1,10 +1,10 @@
-// 主切面：项目状态流程和转运营检查清单（259 号票；issue 19 第 2、3、8 条）。真的守护进程，秘书、项目的负责人接 faux 剧本，测试扮演前端。
+// 主切面：项目状态流程和转运营检查清单。真的守护进程，秘书、项目的负责人接 faux 剧本，测试扮演前端。
 // - 转入使用不管谁发起都要用户确认：用户在项目页点"转入使用"（project_action go_live）、负责人用 propose_go_live 提、秘书照用户说的
 //   代办，都只出"转入使用"确认卡，项目一直是建设中；只有用户在卡上点确认才进入使用中（秘书、负责人都没有能对卡片做动作的工具）；
 // - 卡上列建设中 → 使用中的检查清单，缺的写明差什么；补齐再提，卡上的清单刷新；缺着照样能确认，缺的记进卡上的决定和负责人会话；
 //   只读接口 GET /api/projects/<id>/standard 的清单就是这一份；先不转的项目留在建设中，负责人提的收到通知；
 // - "首版做完了"卡还在等的，三种发起方都用那一张（不另出卡）；一张确认了，别的转入使用卡作废；
-// - 停用时反向收回（照 133：服务撤出 LSM、撤掉 /apps/ 转发）；用户 2026-10-24 定：关着服务的项目停用后重新启用，就把服务全部拉起来。
+// - 停用时反向收回（照 133：服务撤出 LSM、撤掉 /apps/ 转发）；关着服务的项目停用后重新启用，就把服务全部拉起来。
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -96,14 +96,14 @@ function fillRecords(records: string, opts: { services?: string[]; interfaces?: 
     path.join(records, "architecture.md"),
     ["# 架构图", "", "## 用到的服务", "", "| 服务名 | 做什么 | 端口 | 健康检查 | 开机自启 |", "|---|---|---|---|---|", ...services, "", "## 对外接口", "", "| 接口 | 给谁用 | 走哪条路 |", "|---|---|---|", ...interfaces, ""].join("\n"),
   );
-  // 268 号票起清单要验收：这里只写通用操作之外一个都没有的清单（格式对，没有测试要跑，当场就是全过）；验收本身的主切面在 project-ops.test.ts
+  // 清单要验收：这里只写通用操作之外一个都没有的清单（格式对，没有测试要跑，当场就是全过）；验收本身的主切面在 project-ops.test.ts
   if (opts.ops !== false) fs.writeFileSync(path.join(records, "ops.json"), JSON.stringify({ endpoint: { path: "/ops" }, tools: [] }));
   if (opts.progress !== false) fs.writeFileSync(path.join(records, "progress.md"), "# 进展\n\n首版做完了，能导入招行的 CSV。\n");
 }
 
 const missingIds = (items: GoLiveCardPayload["checklist"]) => items.filter((i) => !i.done).map((i) => i.id);
 
-describe("转入使用不管谁发起都要用户在确认卡上确认（259 号票）", () => {
+describe("转入使用不管谁发起都要用户在确认卡上确认", () => {
   it("用户在项目页点“转入使用”：只出确认卡（卡上列清单、缺的写明差什么），项目还是建设中；再点用同一张；照样确认才进入使用中，缺的记进决定和负责人会话", async () => {
     const td = await startTestDaemon({ secretary: [say("好的")], maintainer: maintainerSteps([]) });
     buildingProject(td);
@@ -363,7 +363,7 @@ const requestTypes = (lsm: LsmStandIn, from = 0) => lsm.serviceRequests().slice(
 const openApp = (td: TestDaemon) => fetch(new URL("/apps/p-1-site/", td.url));
 const powerEvents = (td: TestDaemon) => td.daemon.store.read(OPERATIONS_CHANNEL, 0, PROJECT_SERVICE_EVENTS.power).map((e) => e.payload as { on: boolean; by: string });
 
-describe("停用反向收回、重新启用全部拉起（259 号票；用户 2026-10-24 改 257 号票）", () => {
+describe("停用反向收回、重新启用全部拉起", () => {
   it("带服务的项目：清单查服务和 /apps/，经“转入使用”卡上线；关闭后停用——撤出 LSM、撤掉转发；重新启用——重新登记、全部拉起（不再保持关着）", async () => {
     const d = dirs();
     const lsm = await startLsmStandIn({ owned: true, heartbeatIntervalMs: 60_000 });
@@ -404,7 +404,7 @@ describe("停用反向收回、重新启用全部拉起（259 号票；用户 20
     expect((latest(frontend, card.id).payload as GoLiveCardPayload).decided?.operations?.map((r) => [r.key, r.outcome])).toEqual([["site", "created"]]);
     expect((await openApp(td)).status).toBe(200);
 
-    // 关闭（257）：全部停、取消开机自启
+    // 关闭：全部停、取消开机自启
     ok(await frontend.request(METHODS.projectServicesAction, { projectId: "p-1", action: "stop" }, "k-stop"));
     await untilService(td, (v) => v.paused === true && v.power === undefined && v.status === "offline", "关着");
 

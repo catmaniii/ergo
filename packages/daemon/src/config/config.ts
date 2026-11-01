@@ -26,22 +26,22 @@ export interface Ports {
   external: number;
 }
 
-/** 素材（08 号票） */
+/** 素材 */
 export interface MaterialsConfig {
   /** 建议卡、提问卡多少天没处理算回避信号 */
   staleCardDays: number;
 }
 
 /**
- * 记忆（225 号票）：每晚 03:00 的推理库整理。配置里写 memory: { maxModelCalls, extractor, sensitiveCategories, enabled, nightlyTimeoutMinutes,
+ * 记忆：每晚 03:00 的推理库整理。配置里写 memory: { maxModelCalls, extractor, sensitiveCategories, enabled, nightlyTimeoutMinutes,
  * curator: { maxModelCalls } }，缺省 200 次调用、模型版抽事实（照评测的设置：约 ¥0.3–0.8/天）；用完就停，下一次整理接着做没跑完的。
- * 236 号票起抽事实默认也是模型版（`LlmFactExtractor`，和推理用同一个模型、同一份预算），规则版只当兜底/省钱。
- * 235 号票加 enabled（默认 true）：这台机器上跑不跑整理。**和"插件停用"是两回事**：插件停用（plugins.disabled 里写 memory）
+ * 抽事实默认也是模型版（`LlmFactExtractor`，和推理用同一个模型、同一份预算），规则版只当兜底/省钱。
+ * 加 enabled（默认 true）：这台机器上跑不跑整理。**和"插件停用"是两回事**：插件停用（plugins.disabled 里写 memory）
  * 是整个记忆插件不在——不采不整理、素材检索和问记忆也没有；enabled: false 只是不整理（不登记 03:00 的内部作业、不建 rg.db、
  * 不花模型的调用），素材采集、素材检索、每轮简报和 ask_memory 照旧用已有的推理库。
- * 237 号票起每一夜有墙钟上限（nightlyTimeoutMinutes，默认 60）：到点中止、记一条失败（整理超时）、下一夜照常。
+ * 每一夜有墙钟上限（nightlyTimeoutMinutes，默认 60）：到点中止、记一条失败（整理超时）、下一夜照常。
  * 中止只能在能回到事件循环的点生效（等模型、等 IO、等推后）；卡在本地同步死循环里时它停不下来。
- * 242 号票加 curator：记忆管理员（03:00 被唤醒去整理、平时能找它说话的那个按需拉起的 agent）自己每夜额外最多调几次模型
+ * 加 curator：记忆管理员（03:00 被唤醒去整理、平时能找它说话的那个按需拉起的 agent）自己每夜额外最多调几次模型
  * （默认 8，只做叙述和判断；引擎那 200 次照旧是硬上限）。跑满就停、下一夜照常；次数记进那一夜的整理记录。
  */
 export interface MemoryConfig {
@@ -50,35 +50,35 @@ export interface MemoryConfig {
   /** 抽事实用哪个：model（默认，和评测一致）| rule（规则版，不调模型） */
   extractor: MemoryExtractor;
   /**
-   * 敏感类别（234 号票）：健康、情绪、财务、关系、位置（295 号票加的）。**默认是空 = 都允许记录、不用于推断**；列表里写的是
+   * 敏感类别：健康、情绪、财务、关系、位置。**默认是空 = 都允许记录、不用于推断**；列表里写的是
    * "允许用来推断的"类别（设置里逐类打开）。v1 只有健康按场景标签 domain=health 生效；
    * 情绪、财务、关系、位置是开关占位（现在没有对应的场景标签，写进来也不改变行为），见 docs/architecture/README.md 的"记忆系统"一节
    */
   sensitiveCategories: readonly SensitiveCategory[];
   /** 这台机器上跑不跑整理（默认 true）：false = 不排 03:00 的作业、不建库，手动整理也回"关着"；采集、检索、简报、ask_memory 照常 */
   enabled: boolean;
-  /** 237 号票：一次整理最多跑多少分钟（默认 60）；到点中止、记一条"整理超时"，下一夜照常。0 = 不限 */
+  /** 一次整理最多跑多少分钟（默认 60）；到点中止、记一条"整理超时"，下一夜照常。0 = 不限 */
   nightlyTimeoutMinutes: number;
-  /** 242 号票：记忆管理员自己每夜的预算（只做叙述和判断；引擎那 200 次照旧是硬上限） */
+  /** 记忆管理员自己每夜的预算（只做叙述和判断；引擎那 200 次照旧是硬上限） */
   curator: MemoryCuratorConfig;
   /**
-   * 337 号票：用哪一套记忆系统（记忆插件的 id）。**同一时间只用一套**：换的那套自己一个数据目录（memory/<id>/），
+   * 用哪一套记忆系统（记忆插件的 id）。**同一时间只用一套**：换的那套自己一个数据目录（memory/<id>/），
    * 旧的数据和设置留着、能切回来。这一版生产里只有会意（subtext）一个；不写、写坏了都当默认（会意），不拦启动
    */
   provider?: string;
 }
 
-/** 记忆管理员每夜的预算（242 号票）：每夜额外最多调几次模型，默认 8 */
+/** 记忆管理员每夜的预算：每夜额外最多调几次模型，默认 8 */
 export interface MemoryCuratorConfig {
   /** 每夜管理员自己最多调几次模型（正整数，默认 8）：跑满就停下这一夜，下一夜照常 */
   maxModelCalls: number;
 }
 
-/** 抽事实的实现（236 号票）：模型版和评测一致；规则版只当兜底、省钱 */
+/** 抽事实的实现：模型版和评测一致；规则版只当兜底、省钱 */
 export type MemoryExtractor = "model" | "rule";
 
 /**
- * 敏感类别（234 号票，接入设计第 7 节）：顺序就是文档和配置里的顺序。295 号票加了位置（数据源用到的敏感类别要对上这里：
+ * 敏感类别（接入设计第 7 节）：顺序就是文档和配置里的顺序。加了位置（数据源用到的敏感类别要对上这里：
  * 健康、财务、位置、关系；位置和情绪、财务、关系一样还是开关占位，现在没有对应的场景标签）
  */
 export const SENSITIVE_CATEGORIES = ["health", "emotion", "finance", "relationship", "location"] as const;
@@ -102,14 +102,14 @@ export interface BackupConfig {
    */
   syncDir?: string;
   /**
-   * 谁来定时（335 号票）：internal（默认）守护进程每天 time 到点自己备份；external 交给外部定时器调 npm run backup
+   * 谁来定时：internal（默认）守护进程每天 time 到点自己备份；external 交给外部定时器调 npm run backup
    * （守护进程不再自己到点备份，连着两天没人备份时提醒一条；每周校验、临时区清理照旧由守护进程做）
    */
   schedule: BackupSchedule;
 }
 
 /**
- * 节假日数据的检查（29 号票）：内部作业每月 dayOfMonth 那天 time 跑一次；到了 fromMonth 及以后查下一年，之前的月份查今年。
+ * 节假日数据的检查：内部作业每月 dayOfMonth 那天 time 跑一次；到了 fromMonth 及以后查下一年，之前的月份查今年。
  * 默认 12 月起、每月 1 日 09:00（也就是每年 12 月 1 日开始查下一年）
  */
 export interface HolidayCheckConfig {
@@ -128,14 +128,14 @@ export interface ErgoConfig {
   ports: Ports;
   media: MediaConfig;
   /**
-   * 模型能力，键是「provider/模型 id」（测试里的 faux provider 是 faux）：看图能力写了的以它为准，没写的按模型目录（79 号票）；
-   * 73 号票起设置页改的看图能力（数据目录的 config/model-settings.json）又盖过这里的。键也算"登记过的模型"（设置页列出来）
+   * 模型能力，键是「provider/模型 id」（测试里的 faux provider 是 faux）：看图能力写了的以它为准，没写的按模型目录；
+   * 设置页改的看图能力（数据目录的 config/model-settings.json）又盖过这里的。键也算"登记过的模型"（设置页列出来）
    */
   models: Record<string, ModelCapabilities>;
   /** 时区（IANA 名字）：发给模型的每条消息前面的本地时间标记按它换算；默认是本机时区 */
   timeZone: string;
   materials: MaterialsConfig;
-  /** 记忆（225 号票）：每晚整理推理库的预算、抽事实的实现、这台机器上跑不跑和墙钟上限。配置里写 memory: { maxModelCalls, extractor, enabled, nightlyTimeoutMinutes }，不写是 200 / 模型版 / 开着 / 60 分钟 */
+  /** 记忆：每晚整理推理库的预算、抽事实的实现、这台机器上跑不跑和墙钟上限。配置里写 memory: { maxModelCalls, extractor, enabled, nightlyTimeoutMinutes }，不写是 200 / 模型版 / 开着 / 60 分钟 */
   memory: MemoryConfig;
   backup: BackupConfig;
   /** 守卫判定"先问我"时，子进程里这次调用最多等多久（毫秒），超时以"已提交审批，等待用户"拦下。配置里写 approvals.waitMinutes */
@@ -143,69 +143,69 @@ export interface ErgoConfig {
   /**
    * agent 子进程的资源限制（规格第 3 节）。配置里写 agents：maxLive（同时存活的子进程上限，默认 8）、idleMinutes（负责人闲置多久退出，
    * 默认 10）、modelCallMinutes（单次模型调用超时，默认 5）、toolCallMinutes（单次工具调用的默认超时，默认 10）、
-   * orphanSweepSeconds（多久回收一次孤儿进程，默认 60）、browserIdleMinutes（agent 开的 agent-browser 闲置多久回收，默认 30，178 号票）
+   * orphanSweepSeconds（多久回收一次孤儿进程，默认 60）、browserIdleMinutes（agent 开的 agent-browser 闲置多久回收，默认 30）
    */
   agentLimits: AgentLimits;
   /** 节假日数据的检查。配置里写 holidayCheck: { fromMonth, dayOfMonth, time }，不写的取默认 */
   holidayCheck: HolidayCheckConfig;
-  /** 带类型的 bash 工具（28 号票）。配置里写 shellTools：longCallMinutes（跑测试、启动构建、装依赖的单次调用超时，默认 30） */
+  /** 带类型的 bash 工具。配置里写 shellTools：longCallMinutes（跑测试、启动构建、装依赖的单次调用超时，默认 30） */
   shellTools: ShellToolsConfig;
   /**
-   * 任务执行（13 号票）。配置里写 tasks: { maxRunning }：全局最多几个任务同时处于执行中（默认 3），多出的排队；
-   * 14 号票的阈值写 tasks.thresholds：pullBacks、nudges、stallMinutes、acceptanceReturns、budgetExplainTimes、budgetAskTimes、rejections、renewalLeadHours；
-   * 19 号票加了 archiveAfterDays（结束超过几天的任务进每周的归档清单）；93 号票加了 budgetControl（管不管预算，默认 false：
+   * 任务执行。配置里写 tasks: { maxRunning }：全局最多几个任务同时处于执行中（默认 3），多出的排队；
+   * 阈值写 tasks.thresholds：pullBacks、nudges、stallMinutes、acceptanceReturns、budgetExplainTimes、budgetAskTimes、rejections、renewalLeadHours；
+   * 加了 archiveAfterDays（结束超过几天的任务进每周的归档清单）；加了 budgetControl（管不管预算，默认 false：
    * 超了预算不说明进展、不停下，用量照旧记）
    */
   tasks: { maxRunning: number; thresholds: TaskThresholds };
   /** 简单提醒（reminders/thresholds.ts）。配置里写 reminders：lateLimitMinutes（晚了多少分钟以内的提醒照发，更晚的改放"错过的提醒"，默认 60） */
   reminders: ReminderThresholds;
-  /** 定时作业（scheduled-jobs/thresholds.ts，19 号票）。配置里写 scheduledJobs：jobFailures（连续失败几次自动暂停，默认 3） */
+  /** 定时作业（scheduled-jobs/thresholds.ts）。配置里写 scheduledJobs：jobFailures（连续失败几次自动暂停，默认 3） */
   scheduledJobs: ScheduledJobThresholds;
   /**
-   * 事件来源（event-sources/thresholds.ts，77 号票）。配置里写 eventSources：folderSettleMs（本机文件夹的同一个文件安静多久才算一次变化，
+   * 事件来源（event-sources/thresholds.ts）。配置里写 eventSources：folderSettleMs（本机文件夹的同一个文件安静多久才算一次变化，
    * 默认 2000 毫秒）、folderRetryMs（文件夹不在、监视出错时隔多久再看，默认 30000 毫秒）、maxRunSteps（事件触发的任务一次运行最多照多少步，
    * 一批事件数 × 步骤数，默认 100）、serviceReportsPerMinute（项目的服务报事件每个服务每分钟最多几次，默认 30）、
    * serviceDataMaxBytes（项目的服务报事件单条数据最多多少字节，默认 8 KB）
    */
   eventSources: EventSourceThresholds;
   /**
-   * token 单价（24 号票）：消耗页的粗估成本 = 用量 × 单价。这里是启动时读到的（启动时校验）；
+   * token 单价：消耗页的粗估成本 = 用量 × 单价。这里是启动时读到的（启动时校验）；
    * 账本算成本时每次现读配置文件（readTokenPrices），改了单价不用重启
    */
   tokenPrices: TokenPriceTable;
-  /** 语音消息的识别（31 号票）、语音合成和语音回复（32 号票）。配置里写 voice: { recognizer, speech, reply }，见 VoiceConfig */
+  /** 语音消息的识别、语音合成和语音回复。配置里写 voice: { recognizer, speech, reply }，见 VoiceConfig */
   voice: VoiceConfig;
-  /** 工具调用的完整内容的保留期和总量上限（65 号票）。配置里写 toolCallDetails: { retentionDays, maxSizeGB }，见 ToolCallDetailLimits */
+  /** 工具调用的完整内容的保留期和总量上限。配置里写 toolCallDetails: { retentionDays, maxSizeGB }，见 ToolCallDetailLimits */
   toolCallDetails: ToolCallDetailLimits;
-  /** 守卫（70 号票）。配置里写 guard: { conversationApprovals }，见 GuardConfig */
+  /** 守卫。配置里写 guard: { conversationApprovals }，见 GuardConfig */
   guard: GuardConfig;
   /**
-   * 首次设置向导（319 号票）：用户在哪几步点了"以后再说"、哪几步做完了。配置里写 setup: { format: 2, skipped, done }，
+   * 首次设置向导：用户在哪几步点了"以后再说"、哪几步做完了。配置里写 setup: { format: 2, skipped, done }，
    * 不写、写坏了都当"什么都没做"（见 parseSetup）
    */
   setup: SetupConfig;
-  /** 联网搜索、读网页和 agent-browser 用的浏览器（70 号票）。配置里写 web: { browserPath }，见 WebConfig */
+  /** 联网搜索、读网页和 agent-browser 用的浏览器。配置里写 web: { browserPath }，见 WebConfig */
   web: WebConfig;
   /**
-   * 连接地址（364 号票）：用户手填的固定地址（自己搭的反代、frp，服务管家不知道的）。配置里写 connection: { manualAddress }，
+   * 连接地址：用户手填的固定地址（自己搭的反代、frp，服务管家不知道的）。配置里写 connection: { manualAddress }，
    * 设备配对页的二维码界面改它（writeConnectionConfig）。写坏了当没写
    */
   connection: ConnectionConfig;
   /**
-   * 插件（126 号票，ADR-0027）。配置里写 plugins: { disabled: ["reminders"] } 停用某个插件，默认全开，见 PluginsConfig；
-   * 211 号票起设置 · 插件里停用、启用、移除也写这里（writePluginsConfig）
+   * 插件（ADR-0027）。配置里写 plugins: { disabled: ["reminders"] } 停用某个插件，默认全开，见 PluginsConfig；
+   * 设置 · 插件里停用、启用、移除也写这里（writePluginsConfig）
    */
   plugins: PluginsConfig;
 }
 
-/** 连接地址（364 号票）：见 ErgoConfig 的 connection */
+/** 连接地址：见 ErgoConfig 的 connection */
 export interface ConnectionConfig {
   manualAddress?: string;
 }
 
 /**
- * 插件（126 号票）：disabled 里写插件名（插件清单 plugins/manifest.ts 里的 name，比如 reminders），这些插件不装。
- * 211 号票：removed 是移除了的（设置里收进"已移除"那一组；也不装，两边都写了的算移除）。设置 · 插件里运行中停用、启用、移除马上生效，
+ * 插件：disabled 里写插件名（插件清单 plugins/manifest.ts 里的 name，比如 reminders），这些插件不装。
+ * removed 是移除了的（设置里收进"已移除"那一组；也不装，两边都写了的算移除）。设置 · 插件里运行中停用、启用、移除马上生效，
  * 同时写进这两项（writePluginsConfig），重启后保持；手改配置文件的照旧重启生效。
  * 不认得的名字不报错（插件清单在这里看不到），守护进程启动时记一条日志
  */
@@ -215,8 +215,8 @@ export interface PluginsConfig {
 }
 
 /**
- * 守卫的开关（70 号票）。conversationApprovals："先问我"出不出审批卡——off（默认，用户 2026-10-10 定"先把功能跑通，安全机制后接"，
- * 2026-10-12 101 号票改了范围）时秘书除了特别敏感的（写删草稿区外、对外发送、账户与安全、不可逆的提交）都按"直接做"，
+ * 守卫的开关。conversationApprovals："先问我"出不出审批卡——off（默认：先把功能跑通，安全机制后接，
+ * 只留特别敏感的）时秘书除了特别敏感的（写删草稿区外、对外发送、账户与安全、不可逆的提交）都按"直接做"，
  * 任务的 agent（秘书以外的 agent）超出授权的一律按"直接做"，都照常记录、照常标关注类别；on 恢复原样（全部先问、按计划授权核对）。
  * 时序规则、流程的逐步核对不受它影响。见守卫的 GuardInput.conversationApprovals
  */
@@ -227,9 +227,9 @@ export interface GuardConfig {
 export const DEFAULT_GUARD_CONFIG: Readonly<GuardConfig> = Object.freeze({ conversationApprovals: "off" });
 
 /**
- * 首次设置向导打过的标记（319 号票）：用户在哪几步点了"以后再说"（skipped）、哪几步看过了/做完了（done），
+ * 首次设置向导打过的标记：用户在哪几步点了"以后再说"（skipped）、哪几步看过了/做完了（done），
  * 一步只待在一处（标了这边就从那边去掉，见 config/setup-state.ts）。各步的条件满没满足不写在这里——那是现算的。
- * format：1 是 347 号票之前的版本写的（五步里第③步还是"组件"），2 是现在的。有这一节却不是 2 的都按 1 算
+ * format：1 是以前的版本写的（五步里第③步还是"组件"），2 是现在的。有这一节却不是 2 的都按 1 算
  */
 export interface SetupConfig {
   format: 1 | 2;
@@ -245,7 +245,7 @@ export interface SetupConfig {
 export const DEFAULT_SETUP_CONFIG: Readonly<SetupConfig> = Object.freeze({ format: 2, skipped: [], done: [] });
 
 /**
- * 浏览器（70 号票）：联网搜索、读网页用 playwright-core 驱动它（不下载浏览器），agent 的 bash 里的 AGENT_BROWSER_EXECUTABLE_PATH
+ * 浏览器：联网搜索、读网页用 playwright-core 驱动它（不下载浏览器），agent 的 bash 里的 AGENT_BROWSER_EXECUTABLE_PATH
  * 也是它。browserPath 是 Chrome / Edge 的可执行文件的绝对路径，写了就排最前；不写就按固定的候选顺序找（web/browser-path.ts：
  * 环境变量 AGENT_BROWSER_EXECUTABLE_PATH、agent-browser 自带的那份签名的 Chrome、系统 Chrome）。示例配置里是占位符（`<…>`），原样用时当没写
  */
@@ -254,7 +254,7 @@ export interface WebConfig {
 }
 
 /**
- * 工具调用的完整参数和返回（53 号票另存的那份）留多久、最多占多大（65 号票）。配置里的写法：
+ * 工具调用的完整参数和返回（另存的那份）留多久、最多占多大。配置里的写法：
  * toolCallDetails.retentionDays（保留多少天，默认 90，可以带小数）、toolCallDetails.maxSizeGB（总量上限多少 GB，默认 2，可以带小数；
  * 到了就从最旧的清）。清掉的只是完整内容，只剩摘要；还被用着的（没结束的任务里的、还在待办里的卡片引用到的）不清
  */
@@ -264,7 +264,7 @@ export interface ToolCallDetailLimits {
   maxBytes: number;
 }
 
-/** 用户 2026-10-09 定：保留 90 天、总量上限 2 GB */
+/** 保留 90 天、总量上限 2 GB */
 export const DEFAULT_TOOL_CALL_DETAIL_LIMITS: Readonly<ToolCallDetailLimits> = Object.freeze({ retentionDays: 90, maxBytes: 2 * 1024 ** 3 });
 
 /**
@@ -312,41 +312,41 @@ export interface SpeechTimeoutConfig {
 }
 
 /**
- * 识别怎么接入（250 号票）：守护进程自己拉起 Python 子进程（spawn），或者经 HTTP 调 LSM 托管的一条（lsm）；
- * 346 号票加了 audiocpp：调 audio.cpp 服务上的语音识别模型（和语音合成同一个服务，地址是 voice.speech.url，模型 id 固定 asr）。
+ * 识别怎么接入：守护进程自己拉起 Python 子进程（spawn），或者经 HTTP 调 LSM 托管的一条（lsm）；
+ * 加了 audiocpp：调 audio.cpp 服务上的语音识别模型（和语音合成同一个服务，地址是 voice.speech.url，模型 id 固定 asr）。
  * 组件页装好语音识别模型时写进配置，删掉时撤掉；手动配的 audio.cpp 也可以自己写
  */
 export type RecognizeMode = "spawn" | "lsm" | "audiocpp";
 
 export const RECOGNIZE_MODES: readonly RecognizeMode[] = Object.freeze(["spawn", "lsm", "audiocpp"]);
 
-/** 默认还是自己拉起 Python（250 号票：LSM 托管的那条要显式写 mode: "lsm"；346 号票：组件页装的那条装好时才写 mode: "audiocpp"，默认值不变） */
+/** 默认还是自己拉起 Python（LSM 托管的那条要显式写 mode: "lsm"；组件页装的那条装好时才写 mode: "audiocpp"，默认值不变） */
 export const DEFAULT_RECOGNIZE_MODE: RecognizeMode = "spawn";
 
 /**
- * 语音消息（31 号票，规格第 21、22 节）。配置里的写法：
- * voice.recognizer：mode（250 号票：spawn 是守护进程自己拉起 Python 子进程，默认，行为不变；lsm 是调 LSM 托管的
- * ergo-asr 服务，见 deploy/lsm/ergo-asr.example.yaml；346 号票：audiocpp 是调 audio.cpp 服务上 id 为 asr 的模型，只用 language 和后面的
+ * 语音消息（规格第 21、22 节）。配置里的写法：
+ * voice.recognizer：mode（spawn 是守护进程自己拉起 Python 子进程，默认，行为不变；lsm 是调 LSM 托管的
+ * ergo-asr 服务，见 deploy/lsm/ergo-asr.example.yaml；audiocpp 是调 audio.cpp 服务上 id 为 asr 的模型，只用 language 和后面的
  * timeout、stripPatterns、autoRetrySeconds，不用 python、device、model、computeType、fallback、idleMinutes、initialPrompt）、url（lsm 模式下那个服务的地址，
  * 默认 http://127.0.0.1:8091；spawn、audiocpp 模式不用它）、python（装了 faster-whisper 的 Python，默认 PATH 上的 python；示例配置里是占位符，原样用时识别不可用；只在 spawn 模式用）、
  * device / model / computeType（默认显卡上的 large-v3、int8_float16）、fallback（显卡不可用或显存不够时退回的，默认 CPU 上的 small、
- * int8；写 null 不退回）、idleMinutes（闲置多久退出、释放显存；默认 0：常驻，不因闲置退出，45 号票；只在 spawn 模式有意义，
+ * int8；写 null 不退回）、idleMinutes（闲置多久退出、释放显存；默认 0：常驻，不因闲置退出，只在 spawn 模式有意义，
  * lsm 模式下忽略——卸载交给那个服务自己和 LSM）、timeout（一次识别最多等多久，按语音时长和设备算，
  * 见 RecognizeTimeoutConfig）、language（默认 zh）、initialPrompt（给模型的提示，默认"以下是普通话的句子。"）、
- * stripPatterns（180 号票：识别结果里要剔掉的模型自带串词，一组正则，命中就整句删掉，不分大小写、不计空格和标点；
+ * stripPatterns（识别结果里要剔掉的模型自带串词，一组正则，命中就整句删掉，不分大小写、不计空格和标点；
  * 默认是 DEFAULT_STRIP_PATTERNS 那 5 条，写了就整组换成写的，写 [] 不剔；写错的正则启动时跳过、写日志，见 voice/transcript-filter.ts）、
- * autoRetrySeconds（208 号票：识别没做成——识别进程出错、超时、退出、不可用——时隔几秒自动重试，第几项是第几次重试前等多久，
+ * autoRetrySeconds（识别没做成——识别进程出错、超时、退出、不可用——时隔几秒自动重试，第几项是第几次重试前等多久，
  * 有几项就最多重试几次；默认 [15, 60, 180]，写 [] 不自动重试，见 voice/voice.ts）。
- * 第一阶段不用大模型修正识别结果（用户 2026-10-08 定）。
- * voice.speech（32 号票）：url（本机 LSM 托管的 audio.cpp 服务，可以和别的程序共用；设置 · 组件里装的就在默认的 http://127.0.0.1:8090，改成别的地址算用户自己配的，组件不再接管，345 号票）、
+ * 第一阶段不用大模型修正识别结果。
+ * voice.speech：url（本机 LSM 托管的 audio.cpp 服务，可以和别的程序共用；设置 · 组件里装的就在默认的 http://127.0.0.1:8090，改成别的地址算用户自己配的，组件不再接管）、
  * model（服务上的 TTS 模型 id，默认 tts）、timeout（一次合成最多等多久，见 SpeechTimeoutConfig）、
- * probeSeconds（多久看一次服务的 /health，默认 60：服务从连不上变成连得上时再预热一次合成模型，45 号票）。
- * voice.reply（32 号票）：maxSeconds（口语稿估出来念多久算长，默认 60 秒：长的不全文合成，合成口语总结）、
+ * probeSeconds（多久看一次服务的 /health，默认 60：服务从连不上变成连得上时再预热一次合成模型）。
+ * voice.reply：maxSeconds（口语稿估出来念多久算长，默认 60 秒：长的不全文合成，合成口语总结）、
  * charsPerSecond（估时长用的语速：每秒几个汉字，默认 4.5；一个英文单词按两个汉字算）
  */
 export interface VoiceConfig {
   recognizer: {
-    /** 怎么接入（250 号票）：默认 spawn，行为与 250 之前逐字节一样。组件页装好、删掉语音识别模型时改这一项（346 号票，components/recognizer-link.ts） */
+    /** 怎么接入：默认 spawn，行为与以前逐字节一样。组件页装好、删掉语音识别模型时改这一项（components/recognizer-link.ts） */
     mode: RecognizeMode;
     /** lsm 模式下识别服务的地址（不带末尾斜杠）；spawn 模式不用 */
     url: string;
@@ -358,9 +358,9 @@ export interface VoiceConfig {
     timeout: RecognizeTimeoutConfig;
     language: string;
     initialPrompt: string;
-    /** 识别结果里要剔掉的模型自带串词（正则的原文，180 号票） */
+    /** 识别结果里要剔掉的模型自带串词（正则的原文） */
     stripPatterns: string[];
-    /** 识别没做成时第几次自动重试前等多久（毫秒，208 号票）；几项就最多重试几次，空的不自动重试 */
+    /** 识别没做成时第几次自动重试前等多久（毫秒）；几项就最多重试几次，空的不自动重试 */
     autoRetryMs: number[];
   };
   speech: {
@@ -375,9 +375,9 @@ export interface VoiceConfig {
 }
 
 /**
- * 识别结果里默认剔掉的模型自带串词（180 号票，用户 2026-10-19 给的 5 条）：FasterWhisper 偶尔编进转写的
+ * 识别结果里默认剔掉的模型自带串词：FasterWhisper 偶尔编进转写的
  * "请不吝点赞 订阅 转发 打赏支持明镜与点点栏目"，和同类的"字幕由……提供"（预防）。
- * 这句的原版常是繁体（"請不吝點贊 訂閱 轉發 打賞支持明鏡與點點欄目"），所以 5 条里的字都写成简繁两种都认的（主会话 2026-10-19 定）
+ * 这句的原版常是繁体（"請不吝點贊 訂閱 轉發 打賞支持明鏡與點點欄目"），所以 5 条里的字都写成简繁两种都认的
  */
 export const DEFAULT_STRIP_PATTERNS: readonly string[] = Object.freeze([
   "[请請]不吝?[点點][赞贊讚]", // @i18n-ignore data：识别结果里要剔掉的串词（正则）
@@ -388,12 +388,12 @@ export const DEFAULT_STRIP_PATTERNS: readonly string[] = Object.freeze([
 ]);
 
 /**
- * 语音的默认值（2026-10-08 主会话实测后用户定：显卡上 large-v3 int8_float16 显存约 2.1 GB、15 秒中文约 1.2 秒）。
- * 2026-10-09 用户定（45 号票）：识别模型常驻、不因闲置卸掉（显卡 12 GB，合成约 7.3 GB 加识别约 2 GB 放得下）
+ * 语音的默认值（实测：显卡上 large-v3 int8_float16 显存约 2.1 GB、15 秒中文约 1.2 秒）。
+ * 识别模型常驻、不因闲置卸掉（显卡 12 GB，合成约 7.3 GB 加识别约 2 GB 放得下）
  */
 export const DEFAULT_VOICE_CONFIG: Readonly<VoiceConfig> = Object.freeze({
   recognizer: {
-    // 250 号票：默认仍是守护进程自己拉起 Python，LSM 托管的那条要显式写 mode: "lsm"
+    // 默认仍是守护进程自己拉起 Python，LSM 托管的那条要显式写 mode: "lsm"
     mode: DEFAULT_RECOGNIZE_MODE,
     url: "http://127.0.0.1:8091",
     python: "python",
@@ -404,10 +404,10 @@ export const DEFAULT_VOICE_CONFIG: Readonly<VoiceConfig> = Object.freeze({
     language: "zh",
     initialPrompt: "以下是普通话的句子。", // @i18n-ignore data：交给语音识别模型的提示（认中文）
     stripPatterns: [...DEFAULT_STRIP_PATTERNS],
-    // 208 号票（用户 2026-10-20：识别失败了过一段时间重试，看服务是不是正常了，试三次）
+    // （识别失败了过一段时间重试，看服务是不是正常了，试三次）
     autoRetryMs: [15_000, 60_000, 180_000],
   },
-  // 语音合成（32 号票）：用本机 LSM 托管的 audio.cpp（第三方开源的语音合成服务，可选；模型 id 常见的是 tts）
+  // 语音合成：用本机 LSM 托管的 audio.cpp（第三方开源的语音合成服务，可选；模型 id 常见的是 tts）
   speech: {
     url: "http://127.0.0.1:8090",
     model: "tts",
@@ -426,7 +426,7 @@ export const DEFAULT_SHELL_TOOLS_LONG_CALL_MINUTES = 30;
 
 export interface ModelCapabilities {
   /**
-   * 能不能看图（支不支持图片输入，79 号票）：写了以它为准（可以关掉）；没写按模型目录（pi 的模型目录里模型的输入有图片就算能看）。
+   * 能不能看图（支不支持图片输入）：写了以它为准（可以关掉）；没写按模型目录（pi 的模型目录里模型的输入有图片就算能看）。
    * 看不了图时，消息里的图片只投影成一行带附件引用的占位（见模型投影）
    */
   vision?: boolean;
@@ -439,12 +439,12 @@ export interface MediaConfig {
 
 export const DEFAULT_MATERIALS_CONFIG: Readonly<MaterialsConfig> = Object.freeze({ staleCardDays: 7 });
 
-/** 记忆插件默认用哪个（337 号票）：会意 / Subtext（生产里只有这一个；认不出的 id 由宿主报错，不在这里猜）。
+/** 记忆插件默认用哪个：会意 / Subtext（生产里只有这一个；认不出的 id 由宿主报错，不在这里猜）。
  * 名字和它也是数据目录名这一点写在 data-dir.ts 的 DEFAULT_MEMORY_PROVIDER_ID（那里算 rgDb 要用） */
 export const DEFAULT_MEMORY_PROVIDER = DEFAULT_MEMORY_PROVIDER_ID;
 
-/** 每晚整理默认最多调 200 次模型、最多跑 60 分钟（225 号票照评测的设置；235 号票默认开着；237 号票加墙钟上限）。
- * 242 号票起记忆管理员每夜额外最多 8 次（叙述、判断；引擎那 200 次照旧是硬上限） */
+/** 每晚整理默认最多调 200 次模型、最多跑 60 分钟（照评测的设置；默认开着；加墙钟上限）。
+ * 记忆管理员每夜额外最多 8 次（叙述、判断；引擎那 200 次照旧是硬上限） */
 export const DEFAULT_MEMORY_CONFIG: Readonly<MemoryConfig> = Object.freeze({
   maxModelCalls: 200,
   extractor: "model",
@@ -506,7 +506,7 @@ export function loadConfig({ env, homeDir }: LoadConfigOptions): ErgoConfig {
 }
 
 /**
- * 设置 · 插件（211 号票）把停用、移除了的插件写进配置文件的 plugins（别的内容原样留着，先写临时文件再改名）。
+ * 设置 · 插件把停用、移除了的插件写进配置文件的 plugins（别的内容原样留着，先写临时文件再改名）。
  * 两项都空时去掉 plugins；配置文件不在就新建一个只有 plugins 的
  */
 export function writePluginsConfig(configFile: string, plugins: PluginsConfig): void {
@@ -517,21 +517,21 @@ export function writePluginsConfig(configFile: string, plugins: PluginsConfig): 
   writeJsonAtomic(configFile, Object.keys(next).length > 0 ? { ...others, plugins: next } : others);
 }
 
-/** 设置里能自己开关的两项（315 号票）：对话里的"先问我"出不出审批卡（guard.conversationApprovals）、任务管不管预算（tasks.thresholds.budgetControl） */
+/** 设置里能自己开关的两项：对话里的"先问我"出不出审批卡（guard.conversationApprovals）、任务管不管预算（tasks.thresholds.budgetControl） */
 export interface SafetyConfig {
   conversationApprovals: ConversationApprovals;
   budgetControl: boolean;
 }
 
 /**
- * 新装时这两项默认不勾（用户 2026-11-01 改的："默认选项选成不勾，但是安装的时候告诉用户可以勾"；315 号票时定的是默认收紧），设置向导的安全默认值这一步告诉用户可以勾上：
+ * 新装时这两项默认不勾，设置向导的安全默认值这一步告诉用户可以勾上：
  * 对话审批开着、预算控制开着。代码里的默认值（DEFAULT_GUARD_CONFIG、DEFAULT_TASK_THRESHOLDS）不动——已有的数据目录里没写这两项的照旧是关着；
  * 只有新装（守护进程起来时数据目录里还没有事件库）时由 writeFreshInstallDefaults 明着写进配置文件，之后就是普通配置，设置里能关
  */
 export const FRESH_INSTALL_SAFETY: Readonly<SafetyConfig> = Object.freeze({ conversationApprovals: "off", budgetControl: false });
 
 /**
- * 新装（315 号票）：把收紧的两项写进配置文件——里面已经写了的键不碰（安装时、用户先写好的照旧），别的内容原样留着，文件不在就新建。
+ * 新装：把收紧的两项写进配置文件——里面已经写了的键不碰（安装时、用户先写好的照旧），别的内容原样留着，文件不在就新建。
  * 交回这次写了哪几项（配置里的写法，如 guard.conversationApprovals）；都写过了是空的、不动文件
  */
 export function writeFreshInstallDefaults(configFile: string): string[] {
@@ -553,7 +553,7 @@ export function writeFreshInstallDefaults(configFile: string): string[] {
   return written;
 }
 
-/** 设置里的两个开关改了（315 号票）：写进配置文件的 guard.conversationApprovals、tasks.thresholds.budgetControl（别的内容原样留着，先写临时文件再改名） */
+/** 设置里的两个开关改了：写进配置文件的 guard.conversationApprovals、tasks.thresholds.budgetControl（别的内容原样留着，先写临时文件再改名） */
 export function writeSafetyConfig(configFile: string, safety: SafetyConfig): void {
   const raw = readConfigFile(configFile);
   const guard = isRecord(raw.guard) ? raw.guard : {};
@@ -563,7 +563,7 @@ export function writeSafetyConfig(configFile: string, safety: SafetyConfig): voi
 }
 
 /**
- * 语音识别的接入方式改了（346 号票：组件页装好、删掉语音识别模型）：写进配置文件的 voice.recognizer.mode，给 undefined 是去掉这一项（回到默认）。
+ * 语音识别的接入方式改了（组件页装好、删掉语音识别模型）：写进配置文件的 voice.recognizer.mode，给 undefined 是去掉这一项（回到默认）。
  * 别的内容原样留着，先写临时文件再改名；这一项之外什么都不碰
  */
 export function writeRecognizerMode(configFile: string, mode: RecognizeMode | undefined): void {
@@ -578,7 +578,7 @@ export function writeRecognizerMode(configFile: string, mode: RecognizeMode | un
 }
 
 /**
- * 首次设置向导打了标记（319 号票）：写进配置文件的 setup 节（别的字段原样留着，这一节里不认识的键也留着，
+ * 首次设置向导打了标记：写进配置文件的 setup 节（别的字段原样留着，这一节里不认识的键也留着，
  * 照 writeSafetyConfig 的做法；先写临时文件再改名）。空的也明着写上（[ ]）：那表示"哪一步都没做"，
  * 和"没有这一节"是一个意思，但看得出来写到过
  */
@@ -589,7 +589,7 @@ export function writeSetupConfig(configFile: string, setup: SetupConfig): void {
 }
 
 /**
- * 设备配对页改手填的地址（364 号票）：只动配置文件的 connection 节（别的内容原样留着，先写临时文件再改名）。
+ * 设备配对页改手填的地址：只动配置文件的 connection 节（别的内容原样留着，先写临时文件再改名）。
  * 去掉时整节去掉：没填过和填过又去掉是一个意思
  */
 export function writeConnectionConfig(configFile: string, manualAddress: string | undefined): void {
@@ -597,7 +597,7 @@ export function writeConnectionConfig(configFile: string, manualAddress: string 
   writeJsonAtomic(configFile, manualAddress === undefined ? rest : { ...rest, connection: { manualAddress } });
 }
 
-/** 设置 · 备份改的这几项（356 号票）：syncDir 给 null 是去掉（只留本机那份）；不给的不动 */
+/** 设置 · 备份改的这几项：syncDir 给 null 是去掉（只留本机那份）；不给的不动 */
 export interface BackupConfigChange {
   syncDir?: string | null;
   time?: string;
@@ -605,7 +605,7 @@ export interface BackupConfigChange {
 }
 
 /**
- * 设置 · 备份改配置（356 号票）：只动配置文件里 backup 节的这几个键，别的内容和格式按字节不变（json-text-edit.ts），先写临时文件再改名；
+ * 设置 · 备份改配置：只动配置文件里 backup 节的这几个键，别的内容和格式按字节不变（json-text-edit.ts），先写临时文件再改名；
  * 文件不在就新建，值没变就不写。文件现在读不了、被改坏了（不是 UTF-8、不是 JSON、backup 节不对）抛错，message 给人看，文件不动。
  * 回写完之后文件里的 backup 节（手改过的别的键也读进来，运行中的和文件一致）
  */
@@ -685,7 +685,7 @@ function parseGuard(value: unknown, file: string): GuardConfig {
 }
 
 /**
- * 首次设置向导的标记（319 号票）：skipped、done 是五步里的哪几步，不写是空的。
+ * 首次设置向导的标记：skipped、done 是五步里的哪几步，不写是空的。
  * 手改配置文件坏了不报错（别的配置项写错时会拒绝启动，这一节不该拦着人用二狗）：不是对象、不是数组、
  * 不认识的名字、写重了都只当那一步没打标记，认得的照样算数
  */
@@ -796,7 +796,7 @@ function parseVoice(value: unknown, file: string): VoiceConfig {
   const rawSpeechTimeout = speech.timeout;
   if (rawSpeechTimeout !== undefined && !isRecord(rawSpeechTimeout)) fail("speech.timeout", "必须是一个对象（{ baseSeconds, coldStartSeconds, perSpeechSecond }）", rawSpeechTimeout);
   const speechTimeout = (rawSpeechTimeout ?? {}) as Record<string, unknown>;
-  // 250 号票：认得的就这几种；写别的直接报错，说清能写什么（免得拼错一个字母就悄悄退回 spawn）
+  // 认得的就这几种；写别的直接报错，说清能写什么（免得拼错一个字母就悄悄退回 spawn）
   const rawMode: unknown = recognizer.mode ?? d.recognizer.mode;
   if (typeof rawMode !== "string" || !(RECOGNIZE_MODES as readonly string[]).includes(rawMode)) {
     fail("recognizer.mode", '必须是 "spawn"（守护进程自己拉起 Python 子进程）、"lsm"（LSM 托管的识别服务）或 "audiocpp"（audio.cpp 服务上的语音识别模型）', rawMode);
@@ -913,12 +913,12 @@ function parseMaterials(value: unknown, file: string): MaterialsConfig {
 }
 
 /**
- * memory：maxModelCalls 是正整数（一次整理最多调几次模型，默认 200）；extractor 是 model（默认）或 rule（236）；
- * sensitiveCategories 是敏感类别里允许推断的那几类（默认空，234）；
- * enabled 是 true（默认，这台机器上跑整理）/ false（不排作业、不建库，见 MemoryConfig，235）；
- * nightlyTimeoutMinutes 是这次整理最多跑几分钟（默认 60，0 = 不限，237）；
- * curator.maxModelCalls 是记忆管理员每夜额外最多调几次模型（默认 8，242）；
- * provider 用哪一套记忆系统（337，默认会意 subtext；不写、写坏了都不出这个键，不拦启动）
+ * memory：maxModelCalls 是正整数（一次整理最多调几次模型，默认 200）；extractor 是 model（默认）或 rule；
+ * sensitiveCategories 是敏感类别里允许推断的那几类（默认空）；
+ * enabled 是 true（默认，这台机器上跑整理）/ false（不排作业、不建库，见 MemoryConfig）；
+ * nightlyTimeoutMinutes 是这次整理最多跑几分钟（默认 60，0 = 不限）；
+ * curator.maxModelCalls 是记忆管理员每夜额外最多调几次模型（默认 8）；
+ * provider 用哪一套记忆系统（默认会意 subtext；不写、写坏了都不出这个键，不拦启动）
  */
 function parseMemory(value: unknown, file: string): MemoryConfig {
   if (value !== undefined && !isRecord(value)) throw new Error(`配置文件 ${file}：memory 必须是一个对象（{ maxModelCalls, extractor, sensitiveCategories, enabled, nightlyTimeoutMinutes, curator }）`);
@@ -938,7 +938,7 @@ function parseMemory(value: unknown, file: string): MemoryConfig {
   if (timeout !== undefined && (typeof timeout !== "number" || !Number.isFinite(timeout) || timeout < 0)) {
     throw new Error(`配置文件 ${file}：memory.nightlyTimeoutMinutes 必须是不小于 0 的分钟数（0 = 不限），实际是 ${JSON.stringify(timeout)}`);
   }
-  // 337 号票：不写、写坏了都不出这个键（读的人用 DEFAULT_MEMORY_PROVIDER）
+  // 不写、写坏了都不出这个键（读的人用 DEFAULT_MEMORY_PROVIDER）
   const provider = parseMemoryProvider(value?.provider);
   return {
     maxModelCalls: calls ?? DEFAULT_MEMORY_CONFIG.maxModelCalls,
@@ -952,7 +952,7 @@ function parseMemory(value: unknown, file: string): MemoryConfig {
 }
 
 /**
- * memory.provider（337 号票）：记忆插件的 id（会意是 subtext）。**不写、写坏了（不是字符串、空的、不像 id 的）都当默认**，
+ * memory.provider：记忆插件的 id（会意是 subtext）。**不写、写坏了（不是字符串、空的、不像 id 的）都当默认**，
  * 不拦启动：配置写坏不该让守护进程起不来；真认不出的 id 由宿主 activate 时报 not_found。
  * 写坏了也不明着填默认值，这样"什么都没写"和"写了但不认得"在配置里都没出现，读的人一律用 DEFAULT_MEMORY_PROVIDER
  */
@@ -963,7 +963,7 @@ function parseMemoryProvider(value: unknown): string | undefined {
 }
 
 /**
- * memory.curator（242 号票）：maxModelCalls 是记忆管理员每夜额外最多调几次模型（正整数，默认 8）；
+ * memory.curator：maxModelCalls 是记忆管理员每夜额外最多调几次模型（正整数，默认 8）；
  * 不写整节就是默认；写了就必须是对象（写别的（比如旧版的数字）报错，不悄悄忽略）
  */
 function parseMemoryCurator(value: unknown, file: string): MemoryCuratorConfig {
@@ -1027,10 +1027,10 @@ function parseApprovalWait(value: unknown, file: string): number {
   return Math.round(minutes * 60_000);
 }
 
-/** 任务执行时全局最多几个任务同时处于执行中（13 号票，规格第 8 节"并发"） */
+/** 任务执行时全局最多几个任务同时处于执行中（规格第 8 节"并发"） */
 export const DEFAULT_MAX_RUNNING_TASKS = 3;
 
-/** tasks：执行名额是正整数；阈值（14 号票）里次数是正整数，停滞的分钟数、预算的倍数、续期的提前小时数是正数，找用户的倍数不小于说明进展的倍数，管不管预算是布尔 */
+/** tasks：执行名额是正整数；阈值里次数是正整数，停滞的分钟数、预算的倍数、续期的提前小时数是正数，找用户的倍数不小于说明进展的倍数，管不管预算是布尔 */
 function parseTasks(value: unknown, file: string): { maxRunning: number; thresholds: TaskThresholds } {
   if (value !== undefined && !isRecord(value)) throw new Error(`配置文件 ${file}：tasks 必须是一个对象（{ maxRunning, thresholds }）`);
   const maxRunning = value?.maxRunning ?? DEFAULT_MAX_RUNNING_TASKS;
@@ -1084,14 +1084,14 @@ function parseReminders(value: unknown, file: string): ReminderThresholds {
   return { lateLimitMinutes: positiveCount("reminders", value, "lateLimitMinutes", DEFAULT_REMINDER_THRESHOLDS.lateLimitMinutes, file) };
 }
 
-/** scheduledJobs（19 号票）：连续失败几次自动暂停，正整数 */
+/** scheduledJobs：连续失败几次自动暂停，正整数 */
 function parseScheduledJobs(value: unknown, file: string): ScheduledJobThresholds {
   if (value !== undefined && !isRecord(value)) throw new Error(`配置文件 ${file}：scheduledJobs 必须是一个对象（{ jobFailures }）`);
   return { jobFailures: positiveCount("scheduledJobs", value, "jobFailures", DEFAULT_SCHEDULED_JOB_THRESHOLDS.jobFailures, file) };
 }
 
 /**
- * eventSources（77 号票）：folderSettleMs、folderRetryMs、maxRunSteps、serviceReportsPerMinute、serviceDataMaxBytes（357 号票），都是正整数。77 号票开发时 folderSettleMs 一度写在 scheduledJobs 里：
+ * eventSources：folderSettleMs、folderRetryMs、maxRunSteps、serviceReportsPerMinute、serviceDataMaxBytes，都是正整数。开发时 folderSettleMs 一度写在 scheduledJobs 里：
  * eventSources 里没写、scheduledJobs 里写了的照旧认
  */
 function parseEventSources(value: unknown, legacy: unknown, file: string): EventSourceThresholds {
@@ -1177,7 +1177,7 @@ function amountOf(raw: unknown, unit: number, fallback: number, bad: (actual: un
   return unit === 1 ? raw : Math.round(raw * unit);
 }
 
-/** 配置里的一组正数（208 号票的自动重试间隔）：没写取默认（复制一份）；写了要是数组、每一项都是正数，乘上 unit 取整 */
+/** 配置里的一组正数（自动重试间隔）：没写取默认（复制一份）；写了要是数组、每一项都是正数，乘上 unit 取整 */
 function amountList(raw: unknown, unit: number, fallback: readonly number[], bad: (actual: unknown) => never): number[] {
   if (raw === undefined) return [...fallback];
   if (!Array.isArray(raw)) return bad(raw);

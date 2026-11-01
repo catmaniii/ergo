@@ -1,10 +1,10 @@
-// 主切面：任务发起与计划确认（规格第 7、8 节，12 号票）。真的守护进程，秘书和负责人都接 faux 剧本，测试扮演前端。
+// 主切面：任务发起与计划确认（规格第 7、8 节）。真的守护进程，秘书和负责人都接 faux 剧本，测试扮演前端。
 // - 三条发起路径：点"发起任务"按钮（原话记成"用户发言"素材，选的项目写进任务）、秘书按用户在消息里的要求建任务卡、
 //   秘书给"建议发起任务"卡（用户点了才建）；
 // - 意图澄清：提问卡成批提问、每题带推荐，"全按推荐"一次提交，答案作为通知交回秘书；
 // - 任务书交给任务自己的负责人（新拉起的子进程、新会话，起草时只能读），负责人用"提交计划"交出结构化的计划；
 // - 计划卡：勾掉、收窄授权项、改假设栏后确认（任务转排队中），附意见打回（任务回到规划中，意见交回负责人，重新提交出新卡）。
-// - 负责人会话里有消息被彻底删除（21 号票）：会话文件里的原话也改写成删除标记。
+// - 负责人会话里有消息被彻底删除：会话文件里的原话也改写成删除标记。
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -59,7 +59,7 @@ const messagesOf = (frontend: TestFrontend, channel: string) => frontend.events(
 const textOf = (p: MessageEventPayload) => p.message.parts.map((part) => ("text" in part ? part.text : `<${part.type}>`)).join("");
 const cardsOf = (frontend: TestFrontend): Card[] => frontend.events({ channel: CARDS, type: EVENT_TYPES.card }).map((f) => (f.payload as CardEventPayload).card);
 const tasksOf = (frontend: TestFrontend) => frontend.events({ channel: BOARD, type: EVENT_TYPES.task }).map((f) => f.payload as TaskEventPayload);
-/** 看板上任务名下的用量合计（24 号票：负责人每次模型调用记账后一条） */
+/** 看板上任务名下的用量合计（负责人每次模型调用记账后一条） */
 const tokenTotalsOf = (frontend: TestFrontend) => frontend.events({ channel: BOARD, type: EVENT_TYPES.tokenTotals }).map((f) => f.payload as TokenTotalsEventPayload);
 /** 等负责人处理完 n 条输入 */
 const maintainerTurns = (frontend: TestFrontend, n: number) =>
@@ -133,7 +133,7 @@ describe("发起任务的三条路", () => {
 
   it("“发起任务”时选了涉及的项目：写进任务，交给秘书的通知里写明（写任务书时以它为依据），也记在素材上", async () => {
     const { url, daemon } = await startTestDaemon({ secretary: [{ kind: "echo_context" }] });
-    // 选的项目要在项目列表里（15 号票起核对，见 projects.test.ts）
+    // 选的项目要在项目列表里（核对，见 projects.test.ts）
     seedProject(daemon, "记账本");
     seedProject(daemon, "家庭网盘");
     const frontend = await connect(url);
@@ -146,7 +146,7 @@ describe("发起任务的三条路", () => {
     expect(daemon.materials.list({ kind: "user_utterance" })[0]?.context).toEqual(["start_task_button", "project:记账本", "project:家庭网盘"]);
   });
 
-  it("用户在消息里点明了发起任务（58 号票起要点明）：秘书用建任务工具直接建任务卡（规划中），这一轮不产生“建议发起任务”卡；秘书没有建定时作业的工具", async () => {
+  it("用户在消息里点明了发起任务（要点明）：秘书用建任务工具直接建任务卡（规划中），这一轮不产生“建议发起任务”卡；秘书没有建定时作业的工具", async () => {
     const { url } = await startTestDaemon({ secretary: [createTask, { kind: "echo_context" }] });
     const frontend = await connect(url);
     await tell(frontend, "发起任务：帮我整理一份 X 的调研");
@@ -171,62 +171,62 @@ describe("发起任务的三条路", () => {
       "[tool] create_reminder",
       "[tool] update_reminder",
       "[tool] cancel_reminder",
-      // 185 号票：归档简单提醒
+      // 归档简单提醒
       "[tool] archive_reminder",
       "[tool] search_materials",
       "[tool] read_material",
-      // 232 号票：问记忆
+      // 问记忆
       "[tool] ask_memory",
-      // 242 号票：问记忆管理员
+      // 问记忆管理员
       "[tool] ask_curator",
-      // 271 号票：标顺口问
+      // 标顺口问
       "[tool] mark_woven_question",
-      // 337 号票：记一句（用户明确让记的时候，转给记忆插件槽的 remember）
+      // 记一句（用户明确让记的时候，转给记忆插件槽的 remember）
       "[tool] remember_memory",
-      // 240 号票：带参调一个登记过的 MCP 工具（只读直接跑、会改东西先出卡、底线只递入口）
+      // 带参调一个登记过的 MCP 工具（只读直接跑、会改东西先出卡、底线只递入口）
       "[tool] mcp_call",
       "[tool] propose_quick_action",
-      // 281 号票：按人、按字段读个人档案（写档案是快速动作 personal_file）
+      // 按人、按字段读个人档案（写档案是快速动作 personal_file）
       "[tool] read_personal_file",
-      // 58 号票：两种任务各一个发起工具（只有用户点明了才能用）
+      // 两种任务各一个发起工具（只有用户点明了才能用）
       "[tool] start_workflow",
       "[tool] create_task",
-      // 75 号票：把要花时间的事交给后台（普通任务）
+      // 把要花时间的事交给后台（普通任务）
       "[tool] delegate_task",
       "[tool] suggest_task",
       "[tool] ask_questions",
       "[tool] write_task_brief",
       "[tool] suggest_project",
-      // 22 号票的只读工具：查看板、读项目档案、列出待我处理、把卡片放进聊天（不对卡片做动作）
+      // 只读工具：查看板、读项目档案、列出待我处理、把卡片放进聊天（不对卡片做动作）
       "[tool] view_board",
       "[tool] read_project_records",
-      // 133 号票：给出项目的服务的入口（放一张服务入口卡）
+      // 给出项目的服务的入口（放一张服务入口卡）
       "[tool] open_service",
-      // 257 号票：启动、关闭项目的服务（和项目卡片上的按钮同一个入口）
+      // 启动、关闭项目的服务（和项目卡片上的按钮同一个入口）
       "[tool] switch_project_services",
-      // 260 号票：调运营中的项目的接口（list / describe / call，各项目的接口用到才读）
+      // 调运营中的项目的接口（list / describe / call，各项目的接口用到才读）
       "[tool] project_ops",
       "[tool] propose_go_live",
       "[tool] list_inbox",
       "[tool] show_card",
-      // 147 号票：浏览侧边栏里的网页工具（工具列表固定，只在侧边栏发的那一轮能用）
+      // 浏览侧边栏里的网页工具（工具列表固定，只在侧边栏发的那一轮能用）
       "[tool] browse_read_page",
       "[tool] browse_fill",
       "[tool] find_files",
       "[tool] view_files",
       "[tool] browse_attach_files",
       "[tool] browse_open",
-      // 164 号票：看网页上能点的东西、按编号点
+      // 看网页上能点的东西、按编号点
       "[tool] browse_snapshot",
       "[tool] browse_click",
       "[tool] browse_element_content",
       "[tool] browse_element_download",
-      // 70 号票：联网搜索、读网页
+      // 联网搜索、读网页
       "[tool] web_search",
       "[tool] web_fetch",
-      // 32 号票：每个会话都有的口语总结（用户发语音时用）
+      // 每个会话都有的口语总结（用户发语音时用）
       "[tool] spoken_summary",
-      // 86 号票：每个会话都有的发语音（用户打字时让他听见）
+      // 每个会话都有的发语音（用户打字时让他听见）
       "[tool] send_voice",
     ]);
   });
@@ -348,16 +348,16 @@ describe("任务书交给负责人，负责人提交计划", () => {
     const card = await cardWhere(frontend, ofType("plan"), "计划卡");
     const payload = card.payload as PlanCardPayload;
     expect(payload).toMatchObject({ taskId: "t-1", taskTitle: "X 的调研", revision: 1, planId: "t-1-p1", goal: "整理一份 X 的调研", globalCategories: [...BUILTIN_CATEGORY_IDS] });
-    // 每项授权在守卫眼里的样子：卡上的授权行和停点由它生成；是不是对外的（84 号票：只往下拉的联网命令不是，推送是）
+    // 每项授权在守卫眼里的样子：卡上的授权行和停点由它生成；是不是对外的（只往下拉的联网命令不是，推送是）
     expect(payload.grantInfo).toEqual({
       "fetch-docs": { toolTitle: "只读的联网命令（ping、查 GitHub 上的东西……）", categoryTitles: [], disposition: "do", outward: false },
       "push-report": { toolTitle: "git 推送", categoryTitles: ["以我的名义对外发送或发布"], disposition: "planned_only", outward: true },
     });
-    // 卡上的计划就是存储里的那份：字段齐全，全局关注类别的名字由运行时补上，各阶段的编号由运行时定（93 号票：一条直线的是 1、2）
+    // 卡上的计划就是存储里的那份：字段齐全，全局关注类别的名字由运行时补上，各阶段的编号由运行时定（一条直线的是 1、2）
     const sample = samplePlan();
     expect(payload.plan).toEqual({
       ...sample,
-      // 361 号票：负责人只估调用次数，token 预算由运行时算：阶段上存 0，总估计是运行时算的（具体怎么算有 budget 那边的测试）
+      // 负责人只估调用次数，token 预算由运行时算：阶段上存 0，总估计是运行时算的（具体怎么算有 budget 那边的测试）
       stages: sample.stages.map((s, i) => ({ ...s, code: `${i + 1}`, budget: { tokens: 0, toolCalls: s.budget.toolCalls } })),
       tokenEstimate: expect.any(Number),
       watchCategories: daemon.tasks.globalWatchCategories().map((c) => ({ id: c.id, title: c.title })),
@@ -367,7 +367,7 @@ describe("任务书交给负责人，负责人提交计划", () => {
 
     const item = await eventually(() => frontend.events({ channel: INBOX, type: EVENT_TYPES.inboxItem }).map((f) => (f.payload as InboxItemEventPayload).item), () => true, "待我处理");
     expect(item).toMatchObject({ kind: "card", cardId: card.id, title: "计划等你确认：X 的调研", source: "任务「X 的调研」", urgency: "blocking" });
-    // 105 号票：记下从哪来，待我处理里"去看看 ›"去这个任务的整页
+    // 记下从哪来，待我处理里"去看看 ›"去这个任务的整页
     expect(item.origin).toEqual({ taskId: "t-1" });
     const moved = await taskWhere(frontend, (e) => e.change === "plan_submitted");
     expect(moved).toMatchObject({ change: "plan_submitted", from: "planning", by: "maintainer", task: { state: "awaiting_confirm", planCardId: card.id, stages: { total: 2 } } });
@@ -384,9 +384,9 @@ describe("任务书交给负责人，负责人提交计划", () => {
     expect(seen.split("\n").filter((l) => l.startsWith("[user]"))).toHaveLength(1);
     expect(seen).toContain("[system] 你是「二狗」里一个任务的负责人");
     expect(seen).toContain("[toolResult] submit_plan: 计划已提交（第 1 版）");
-    // 起草计划时只能读、搜索和提交计划：确认之前不动手不只靠提示词（口语总结是每个会话都有的，没有副作用，32 号票；
-    // 70 号票起 grep、find 照给，联网搜索、读网页每个负责人都有；给秘书发消息除了秘书每个 agent 默认都有，102 号票；
-    // 发附件负责人每一段都有，117 号票：只发进自己的会话，没有对外效果；读附件也是，143 号票：只读本会话里用户发来的附件）
+    // 起草计划时只能读、搜索和提交计划：确认之前不动手不只靠提示词（口语总结是每个会话都有的，没有副作用，
+    // grep、find 照给，联网搜索、读网页每个负责人都有；给秘书发消息除了秘书每个 agent 默认都有，
+    // 发附件负责人每一段都有：只发进自己的会话，没有对外效果；读附件也是：只读本会话里用户发来的附件）
     expect(seen.split("\n").filter((l) => l.startsWith("[tool]"))).toEqual([
       "[tool] read",
       "[tool] ls",
@@ -493,7 +493,7 @@ describe("计划卡", () => {
     const stored = daemon.tasks.plan("t-1-p1")!;
     expect(stored.status).toBe("confirmed");
     expect(stored.plan).toEqual(p.plan);
-    // 卡上的关注类别和存储里的逐条一致；计划里没有定时作业（76 号票）
+    // 卡上的关注类别和存储里的逐条一致；计划里没有定时作业
     expect(p.plan.watchCategories).toEqual(stored.plan.watchCategories);
     expect(p.plan).not.toHaveProperty("scheduledJobs");
 
@@ -542,7 +542,7 @@ describe("计划卡", () => {
 });
 
 describe("演示流程（录给前端回放）", () => {
-  it("在秘书页说“帮我整理一份 X 的调研” → 秘书直接建出任务（规划中）→ 提问卡“全按推荐” → 待我处理出现计划卡 → 收窄一行授权后确认 → 看板上任务进入排队中，有执行名额马上开始第 1 阶段（13 号票）", async () => {
+  it("在秘书页说“帮我整理一份 X 的调研” → 秘书直接建出任务（规划中）→ 提问卡“全按推荐” → 待我处理出现计划卡 → 收窄一行授权后确认 → 看板上任务进入排队中，有执行名额马上开始第 1 阶段", async () => {
     const ask = call("ask_questions", { taskId: "t-1", questions: [{ question: "调研给谁看？", options: ["自己", "团队"], recommended: "自己" }] });
     const { url, daemon } = await startTestDaemon({
       secretary: [createTask, ask, say("我理解你要的是一份 X 的调研，对吗？先回答一个问题。"), writeBrief, say("任务书交给负责人了，计划会放进你的待我处理。")],
@@ -558,7 +558,7 @@ describe("演示流程（录给前端回放）", () => {
     const plan = await cardWhere(frontend, ofType("plan"), "计划卡");
     await eventually(() => frontend.events({ channel: INBOX, type: EVENT_TYPES.inboxItem }), () => true, "待我处理里的计划卡");
     await taskWhere(frontend, (e) => e.task.state === "awaiting_confirm");
-    // 负责人起草计划的两次模型调用都记了账再确认（看板上的事件流每次一样，24 号票）
+    // 负责人起草计划的两次模型调用都记了账再确认（看板上的事件流每次一样）
     await eventually(() => tokenTotalsOf(frontend), (t) => t.calls === 2, "负责人起草计划的两次调用记账");
     ok(await frontend.cardAction({ cardId: plan.id, action: "confirm", expectedVersion: 1, input: { narrowGrants: [{ grantId: "push-report", maxUses: 1 }] } }));
     await taskWhere(frontend, (e) => e.task.state === "queued");

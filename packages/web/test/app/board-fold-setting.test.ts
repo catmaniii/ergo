@@ -1,4 +1,4 @@
-// 90 号票：看板每组标题点一下收起 / 展开，每台设备记住（存在这台设备的浏览器里），默认"已归档"收起、其它展开；
+// 看板每组标题点一下收起 / 展开，每台设备记住（存在这台设备的浏览器里），默认"已归档"收起、其它展开；
 // 存储用不了（隐私模式、禁用了站点数据）时按默认，改了只在这次打开里生效、不报错。存储换成假的。
 import { describe, expect, test } from "vitest";
 import { boardFoldSettingIn, foldSettingIn, PROJECT_FOLD } from "../../src/app/board-fold-setting.ts";
@@ -89,7 +89,7 @@ describe("看板分组收起 / 展开：按设备记住", () => {
   });
 });
 
-describe("项目一览的分组收起（104 号票）：同一个做法，和任务看板分开记", () => {
+describe("项目一览的分组收起：同一个做法，和任务看板分开记", () => {
   test("没改过：已归档收起；收起已停用、展开已归档记在自己的键上，任务看板不跟着变", () => {
     const storage = memoryStorage();
     const projects = foldSettingIn(() => storage, PROJECT_FOLD);

@@ -1,4 +1,4 @@
-// 主切面：范围审视（规格第 10 节，18 号票）。真的守护进程，秘书、负责人接 faux 剧本，审视用的便宜模型也由 faux 扮演，测试扮演前端。
+// 主切面：范围审视（规格第 10 节）。真的守护进程，秘书、负责人接 faux 剧本，审视用的便宜模型也由 faux 扮演，测试扮演前端。
 // - 每张工单结束时（写回之后、负责人子进程退出之前），子进程里另开一次模型调用审视这段工作：输入有这段工作的对话、立项书、
 //   任务计划和授权（含用户在会话里直接说的话），输出范围记录交给守护进程保存；这次调用不出现在负责人的会话里，用量记在任务名下；
 // - 越界：待我处理里一条不推送的越界通知（不卡任务，照常算未读）；范围变更：写进项目档案的范围记录；两种都不暂停负责人；
@@ -352,8 +352,8 @@ describe("范围审视：子进程退出之前", () => {
   }, 120_000);
 });
 
-describe("范围审视：和工具包的重新装配（27 号票）", () => {
-  it("工单结束时的审视做到一半，用户改了项目的工具包（27 号票）：审视在做时不换装配，等审视的结果交上来之后才停掉子进程，记录照常记下", async () => {
+describe("范围审视：和工具包的重新装配", () => {
+  it("工单结束时的审视做到一半，用户改了项目的工具包：审视在做时不换装配，等审视的结果交上来之后才停掉子进程，记录照常记下", async () => {
     const d = dirs();
     const records = d.records();
     const td = await startTestDaemon({
@@ -434,7 +434,7 @@ describe("范围审视：不属于项目的任务", () => {
     expect(notice).toMatchObject({ notice: "out_of_scope", urgency: "non_blocking", read: false });
     expect(notice!.kind === "notice" && notice!.data).toMatchObject({ recordId: record.id, maintainerId: "tm-1", taskId: task.id });
     expect(pushedOutOfScope(frontend)).toEqual([]);
-    // 时间线上标出（114 号票起压好了另记一笔"这里压缩过一次"，机器忙时会晚一点到）；负责人照常回话
+    // 时间线上标出（压好了另记一笔"这里压缩过一次"，机器忙时会晚一点到）；负责人照常回话
     await waitUntil(() => timelineOf(frontend, TM1).some((r) => r.record.kind === "compaction"), { describe: () => "等压缩完的时间线记录" });
     expect(timelineOf(frontend, TM1).map((r) => r.record.kind)).toEqual(["out_of_scope", "compaction"]);
     await eventually(() => messagesOf(frontend, TM1), (m) => textOf(m) === "好", "负责人重试这一轮");
@@ -456,7 +456,7 @@ async function startWeekly(td: TestDaemon, frontend: TestFrontend) {
 const failureNotes = (frontend: TestFrontend) => messagesOf(frontend, PM1).filter((m) => m.message.speaker === "system" && textOf(m).startsWith("范围审视没做成"));
 const unreviewed = (frontend: TestFrontend) => timelineOf(frontend).filter((r) => r.record.kind === "scope_review_missing");
 
-describe("范围审视没做成（18 号票评审后）", () => {
+describe("范围审视没做成", () => {
   it("审视模型回了不合约定的结果：工单照常结束，负责人会话里一条说明（给用户看），不记范围记录", async () => {
     const d = dirs();
     const td = await startTestDaemon({
@@ -502,7 +502,7 @@ describe("范围审视没做成（18 号票评审后）", () => {
   }, 120_000);
 });
 
-describe("重置负责人时的范围审视（18 号票评审后）", () => {
+describe("重置负责人时的范围审视", () => {
   it("工单做到一半重置：这一段不强行审视，时间线上如实记“重置时这段没做范围审视”；工单留在新的一段接着做", async () => {
     const d = dirs();
     const td = await startTestDaemon({
@@ -536,7 +536,7 @@ describe("重置负责人时的范围审视（18 号票评审后）", () => {
       reuse: { dataDir: d.dataDir, homeDir: d.homeDir },
       secretary: [say("好的")],
       // 交了计划不写回；被催时慢慢回一段长话（约 4 秒，还在说的时候用户重置了负责人）。吐字速度是整个剧本共用的：
-      // 调快、那段话加长，交计划那一步（计划的 JSON 很长）就不用陪着慢慢吐（92 号票）
+      // 调快、那段话加长，交计划那一步（计划的 JSON 很长）就不用陪着慢慢吐
       maintainer: (id, spawn) => (id !== "pm-1" ? [] : spawn === 1 ? [submitPlanStep(onePlan("weekly.md")), say("计划交了"), say("这一段先不写回，".repeat(200))] : []),
       maintainerTokensPerSecond: 100,
     });
@@ -591,7 +591,7 @@ describe("重置负责人时的范围审视（18 号票评审后）", () => {
   }, 120_000);
 });
 
-describe("对照物里的审批（18 号票评审后）", () => {
+describe("对照物里的审批", () => {
   it("用户在审批卡上批准过的调用进审视的对照物（算授权过）：审视的输入里列着这次调用，范围记录记着这次批准", async () => {
     const d = dirs();
     const records = d.records();
@@ -629,7 +629,7 @@ describe("对照物里的审批（18 号票评审后）", () => {
     const section = input.slice(input.indexOf("【用户在审批卡上批准过的调用】"), input.indexOf("【运行时核实过的用户原话】"));
     expect(section).toContain("批准过的算授权过");
     expect(section).toContain(`${toolTitle}：${argsSummary}`);
-    // 用户在会话里说的话是运行时核实过的格式（125 号票）：原文、哪个会话、时间、从哪台设备来的
+    // 用户在会话里说的话是运行时核实过的格式：原文、哪个会话、时间、从哪台设备来的
     expect(input.slice(input.indexOf("【运行时核实过的用户原话】"))).toMatch(/「把术语表重写一下」（\d{2}-\d{2} \d{2}:\d{2} · 项目「记账本」的负责人会话 · 本机）/);
     // 范围记录记着这次审视看到的批准：彻底删除这次批准（审批决定）时，这条记录里的文字一起换成删除标记
     expect(scopeRecordEvents(frontend).find((p) => p.record.id === change.id)!.sources.approvalIds).toEqual([approvalId]);
@@ -641,7 +641,7 @@ describe("对照物里的审批（18 号票评审后）", () => {
   }, 180_000);
 });
 
-describe("彻底删除范围记录里的原话（18 号票评审后）", () => {
+describe("彻底删除范围记录里的原话", () => {
   it("彻底删除一条被范围记录引用的用户消息：范围记录（追加一条改写后的）、时间线、越界通知、项目档案的范围记录、负责人的会话文件（含审视结果的副本）里都不再有原话", async () => {
     const d = dirs();
     const records = d.records();

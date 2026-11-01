@@ -1,4 +1,4 @@
-// 主切面：工具调用完整内容的保留期和总量上限（65 号票）。真的守护进程，agent 接 faux 剧本，时钟手动拨，测试扮演前端：
+// 主切面：工具调用完整内容的保留期和总量上限。真的守护进程，agent 接 faux 剧本，时钟手动拨，测试扮演前端：
 // - 守护进程每天定时清一次：过了保留期（默认 90 天）的完整内容只剩摘要；总量超过上限（默认 2 GB）时从最旧的起清到上限以内；
 // - 还被用着的不清：没结束的任务里的调用、还在待办里的卡片引用到的调用；不用了以后下一次照样清；
 // - 清掉的只是完整参数和返回：详情接口照样回 200，args、result 是摘要，cleared 注明原因；效果记录、聊天里的工具调用记录照旧；
@@ -106,7 +106,7 @@ describe("保留期", () => {
     // 效果记录照旧
     expect(cleared.body.effects).toEqual(full.effects);
     expect(full.effects).toHaveLength(1);
-    // 完整内容的原文不留了（效果日志不在这份完整内容里，56 号票的效果记录照旧）；聊天里的工具调用记录还在
+    // 完整内容的原文不留了（效果日志不在这份完整内容里，效果记录照旧）；聊天里的工具调用记录还在
     expect(JSON.stringify(daemon.store.read("tool_calls"))).not.toContain("第 2 行");
     expect(daemon.store.read(SECRETARY, 0, EVENT_TYPES.message).flatMap((e) => (e.payload as MessageEventPayload).message.parts)).toContainEqual(write);
 
@@ -156,7 +156,7 @@ describe("还被用着的不清", () => {
     const td = await setup({
       secretary: [call("propose_quick_action", { type: "remember", params: { content: "对青霉素过敏" } }), call("write", { path: "a.md", content: "随手记" }), reply("好")],
       maintainer: maintainerScript(onePlan(), [reply("好的")]),
-      // 265 号票：给了 clock 时底座默认停掉记忆插件；"记住"的快速动作是它的（待办里的那张卡靠它），打开，
+      // 给了 clock 时底座默认停掉记忆插件；"记住"的快速动作是它的（待办里的那张卡靠它），打开，
       // 但只关掉整理（memory.enabled）：这条拨时钟跨过两个 03:00，不要后台唤醒记忆管理员
       config: { toolCallDetails: { retentionDays: 1 }, memory: { enabled: false } },
       memoryPlugin: true,
@@ -188,8 +188,8 @@ describe("还被用着的不清", () => {
   });
 });
 
-describe("本票之前的数据目录", () => {
-  it("视图里没有时间、大小这几列（53 号票建的表）：启动时从事件日志补上；停机期间错过的清理开机后补一次，照样清掉过期的", async () => {
+describe("以前的数据目录", () => {
+  it("视图里没有时间、大小这几列（以前建的表）：启动时从事件日志补上；停机期间错过的清理开机后补一次，照样清掉过期的", async () => {
     const first = await setup({ secretary: [call("write", { path: "notes.md", content: NOTES }), reply("记好了")] });
     await tell(first.frontend, "把装修的事记下来");
     const write = toolPartsOf(first.frontend).find((p) => p.tool === "write")!;
@@ -197,7 +197,7 @@ describe("本票之前的数据目录", () => {
     const dbFile = path.join(first.daemon.layout.db, "ergo.db");
     await first.daemon.stop();
 
-    // 换回 53 号票的表：只有调用 id、工具、agent、会话、项目
+    // 换回表：只有调用 id、工具、agent、会话、项目
     const db = openDatabase(dbFile);
     db.exec(`
       DROP TABLE tool_call_details;

@@ -1,4 +1,4 @@
-// 构建时写进页面的二狗版本和更新日志（124 号票，build/build-info-plugin.ts 提供这个虚拟模块）
+// 构建时写进页面的二狗版本和更新日志（build/build-info-plugin.ts 提供这个虚拟模块）
 declare module "virtual:ergo-build-info" {
   /** 二狗的版本（仓库根目录 package.json 的 version） */
   export const APP_VERSION: string;

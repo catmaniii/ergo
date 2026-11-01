@@ -1,6 +1,6 @@
 // 主切面：卡片和待我处理的通用机制（规格第 5 节）。
 // 卡片是独立实体，消息里只放引用；同一张卡在聊天、待我处理里只有一份状态。按钮闭环按版本条件更新、先到先得。
-// 本票只登记了简单提醒卡；这里用一张替身"建议发起任务"卡（test/helpers/card-fixtures.ts），由测试直接放进聊天和待我处理。
+// 这里只登记了简单提醒卡；这里用一张替身"建议发起任务"卡（test/helpers/card-fixtures.ts），由测试直接放进聊天和待我处理。
 import {
   type CardActionResult,
   type CardDismissedEventPayload,

@@ -1,4 +1,4 @@
-// ergo uninstall（318 号票）：停二狗、撤服务管家里的登记、撤开机自启、撤 PATH、删安装目录；问要不要删数据（默认不删）。
+// ergo uninstall：停二狗、撤服务管家里的登记、撤开机自启、撤 PATH、删安装目录；问要不要删数据（默认不删）。
 // 数据（~/.ergo、服务管家的 %LOCALAPPDATA%\ergo\supervisor）只在用的人说要删时才删。
 // 安装目录里正跑着这条命令自己（node.exe、ergo.exe），删不了：交给一个等它们退出再删的小脚本（cmd，跑完把自己也删掉）。
 import { spawnSync } from "node:child_process";

@@ -5,7 +5,7 @@
 //   Git Bash / MSYS / Cygwin / WSL 的盘符路径（`/d/x`、`/mnt/d/x`、`/cygdrive/d/x`）换成 `D:\x`、展开 `~`、`file://`，
 //   再相对 agent 的工作目录解析；
 // - 比较时不分大小写、不分 `/` 和 `\`；
-// - Git Bash 的 `/tmp`：知道它挂到哪（ShellEnv.tmpMount，177 号票）就按那个目录解析；
+// - Git Bash 的 `/tmp`：知道它挂到哪（ShellEnv.tmpMount）就按那个目录解析；
 // - 别的不认得的 POSIX 绝对路径（`/usr`、`/etc` 这类 Git Bash 挂载点，不知道挂到哪时的 `/tmp`）算"项目外的未知位置"；
 //   `/dev/null` 这类伪设备不算路径。
 //
@@ -39,12 +39,12 @@ export interface ShellEnv {
   /** 用户主目录：展开 `~`、`$HOME` 用 */
   homeDir: string;
   /**
-   * 这个 agent 的 bash 起的进程带着的、值已知的环境变量（77 号票：事件触发的流程把事件的值放进环境变量，命令里只引用变量）：
+   * 这个 agent 的 bash 起的进程带着的、值已知的环境变量（事件触发的流程把事件的值放进环境变量，命令里只引用变量）：
    * 拆 bash 命令时 `$X`、`${X}` 按这里的值静态展开，守卫看到的路径和真正跑的一样
    */
   vars?: Readonly<Record<string, string>> | undefined;
   /**
-   * Git Bash 里 `/tmp` 挂到的 Windows 目录（177 号票，见 GuardAgent 的 bashTmp）：`/tmp`、`/tmp/…` 按它解析。
+   * Git Bash 里 `/tmp` 挂到的 Windows 目录（见 GuardAgent 的 bashTmp）：`/tmp`、`/tmp/…` 按它解析。
    * 不给时 `/tmp` 和别的挂载点一样算没法确定
    */
   tmpMount?: string | undefined;
@@ -110,7 +110,7 @@ export function resolveAgentPath(raw: string, env: ShellEnv): ResolvedPath {
     }
   }
   const homeRelative = p === "~" || p.startsWith("~/") || p.startsWith("~\\");
-  // 主目录没法确定（事后从参数里认路径、不知道调用时的主目录，66 号票）：~ 开头的同样没法确定
+  // 主目录没法确定（事后从参数里认路径、不知道调用时的主目录）：~ 开头的同样没法确定
   if (homeRelative && isUnresolvedPath(homeDir)) return { kind: "unknown", raw, why: t("guard.paths.homeUnknown") };
   if (p === "~") p = homeDir;
   else if (homeRelative) p = win32.join(homeDir, p.slice(2));
@@ -149,7 +149,7 @@ export function isWithinAny(target: string, dirs: readonly string[]): boolean {
 /**
  * git 会照着执行命令的控制文件：仓库配置（`.git/config`、`config.worktree`，worktree 和子模块在 `.git/worktrees/<名字>/`、
  * `.git/modules/<名字>/` 下的同样算）和钩子目录 `.git/hooks/`。它们在工作目录里，但写它们等于让之后的 git 调用
- * （包括带类型的 bash 工具的提交、状态）执行任意命令，所以写入按"越出项目目录"判（28 号票）
+ * （包括带类型的 bash 工具的提交、状态）执行任意命令，所以写入按"越出项目目录"判
  */
 export function isGitControlPath(p: string): boolean {
   return /\\\.git(?:\\(?:worktrees|modules)\\[^\\]+)*\\(?:config(?:\.worktree)?|hooks(?:\\.*)?)$/i.test(win32.normalize(p));
@@ -162,7 +162,7 @@ const SHELL_PATH_IN_TEXT = new RegExp(String.raw`(?<![\w.:\\/~-])${SHELL_DRIVE_P
 
 /**
  * 一段文字（内联脚本、脚本文件的内容）里写着的绝对路径，解析成 Windows 路径（尽力而为：只认写死的盘符路径和 Git Bash 的盘符写法，
- * 字符串里转义过的反斜杠 `\\` 也认；拼出来的、用变量的认不出）。守卫据此判断脚本会不会碰受保护区域（26 号票）
+ * 字符串里转义过的反斜杠 `\\` 也认；拼出来的、用变量的认不出）。守卫据此判断脚本会不会碰受保护区域
  */
 export function absolutePathsIn(text: string): string[] {
   const unescaped = text.replaceAll("\\\\", "\\");
@@ -174,7 +174,7 @@ export function absolutePathsIn(text: string): string[] {
 }
 
 /**
- * 项目档案的历史区（15 号票）：项目区里每个项目一格（<项目区>\<项目>），被整体重写或删除前的旧版本由运行时留在
+ * 项目档案的历史区：项目区里每个项目一格（<项目区>\<项目>），被整体重写或删除前的旧版本由运行时留在
  * 格子里的这个目录。它只由运行时写：任何 agent 用任何方式写入或删除都是永不（受保护区域）
  */
 export const PROJECT_HISTORY_DIR = ".history";

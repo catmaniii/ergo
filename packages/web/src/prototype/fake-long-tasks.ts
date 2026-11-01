@@ -1,12 +1,12 @@
-// 原型的假长程任务（91 号票：计划栏画成依赖图）：照守护进程真实会发的事件编的（看板上的 task 事件、计划卡、计划变更卡、
+// 原型的假长程任务（计划栏画成依赖图）：照守护进程真实会发的事件编的（看板上的 task 事件、计划卡、计划变更卡、
 // 验收结论的进度卡、负责人会话），走真任务的界面（RealTaskDetail），看并行的阶段、等你确认的计划、计划调整中的样子。全部是虚构的。
 // - 「换新电脑：把旧电脑的资料搬过去」（执行中）：第 1 阶段两个并行（盘点资料、列出要重装的软件），第 3 阶段三个并行（拷文档和照片、
-//   导出书签和密码库、装常用软件），汇成第 4 阶段写搬迁说明。前两段做完了（列软件时一次被拉回），阶段一律自动验收（脚本和评审，112 号票），
+//   导出书签和密码库、装常用软件），汇成第 4 阶段写搬迁说明。前两段做完了（列软件时一次被拉回），阶段一律自动验收（脚本和评审），
 //   第 3 阶段正在拷文档（问过你一次能不能动外接硬盘）；并行的照旧一次做一个；
 // - 「给家里的打印机配扫描到网盘」（计划等你确认）：第 1 阶段两个并行（查打印机型号、在网盘建目录），之后配置、试扫一页（要你在打印机上按一下）；
 // - 「整理家里 NAS 的备份」（执行中，计划变更等你确认）：第 3 阶段原来是并行的"每晚备份到移动硬盘"和"异地备份到网盘"，负责人提议
 //   去掉异地备份、加一个"给备份加完整性校验"，并给移动硬盘那一支加一项格式化授权；
-// - 「记账本第一版」（368 号票，项目「记账本」的首个建设任务，做完了）：项目的对话框顶上收成一行"首版已完成"，点开看阶段条、交付件和验收标准。
+// - 「记账本第一版」（项目「记账本」的首个建设任务，做完了）：项目的对话框顶上收成一行"首版已完成"，点开看阶段条、交付件和验收标准。
 import {
   CARD_TYPE_VERSIONS,
   type Card,
@@ -45,7 +45,7 @@ const cardRef = (cardId: string): MessagePart => ({ type: "card_ref", cardId });
 type ToolCallPart = Extract<MessagePart, { type: "tool_call" }>;
 let callNo = 0;
 /**
- * 一次工具调用，照守护进程会记的写；93 号票的 mark（外 / 权）也照守护进程的口径：命中了关注类别的才有，往外送的（这里按"以我的名义
+ * 一次工具调用，照守护进程会记的写；mark（外 / 权）也照守护进程的口径：命中了关注类别的才有，往外送的（这里按"以我的名义
  * 对外发送或发布"这一类认）是外，别的是权
  */
 function tool(
@@ -60,7 +60,7 @@ function tool(
     disposition?: ToolCallPart["disposition"];
     withinGrant?: boolean;
     blockedBy?: ToolCallPart["blockedBy"];
-    /** 指定调用 id（152 号票：阶段开始的记号要引用它） */
+    /** 指定调用 id（阶段开始的记号要引用它） */
     id?: string;
   } = {},
 ): MessagePart {
@@ -82,7 +82,7 @@ function tool(
   };
 }
 
-/** 假调用上的 mark（93 号票）：照守护进程 guard/nature.ts 的 toolCallMark 的口径估 */
+/** 假调用上的 mark：照守护进程 guard/nature.ts 的 toolCallMark 的口径估 */
 export function markOf(categories: readonly string[] | undefined): { mark?: "out" | "perm" } {
   if (!categories?.length) return {};
   return { mark: categories.some((c) => c.startsWith("以我的名义对外发送")) ? "out" : "perm" };
@@ -97,10 +97,10 @@ function msg(conversation: ConversationId, speaker: Speaker, time: string, scope
   return m;
 }
 
-/** 负责人同一条回复里说的话和调用的工具（152 号票：撤回到"开始阶段"那次调用之前时这句话一起撤回） */
+/** 负责人同一条回复里说的话和调用的工具（撤回到"开始阶段"那次调用之前时这句话一起撤回） */
 const withCalls = (m: MessageEnvelope, ...calls: string[]): MessageEnvelope => ({ ...m, calls });
 
-/** 长程任务阶段开始的记号（152 号票）：负责人是怎么知道这个阶段开始的——一条通知，或者它正在调用的工具 */
+/** 长程任务阶段开始的记号：负责人是怎么知道这个阶段开始的——一条通知，或者它正在调用的工具 */
 function stageStart(conversation: ConversationId, taskId: string, stageId: string, title: string, code: string, via: StageStartVia, time: string) {
   const payload: StageStartEventPayload = { id: `ss-${taskId}-${stageId}`, conversation, taskId, stageId, title, code, via, time };
   return { channel: conversation, type: EVENT_TYPES.stageStart, payload };
@@ -275,7 +275,7 @@ const PC_TASK: Task = {
         acceptance: [acc("清单覆盖用户目录和 D 盘", "script", true, at("10-06", "10:05"))],
         attempts: 1,
         startedAt: at("10-06", "09:16"),
-        // 274 号票：宣布完成时负责人自报的、系统从效果日志里汇总的个数
+        // 宣布完成时负责人自报的、系统从效果日志里汇总的个数
         summary: "资料清单写在「资料清单.md」里：用户目录 182 GB、D 盘 640 GB，要搬的 96 GB",
         observed: { at: at("10-06", "10:04"), sent: [], created: 1, modified: 0, deleted: 0, mismatches: 0 },
       },
@@ -289,7 +289,7 @@ const PC_TASK: Task = {
         startedAt: at("10-06", "10:06"),
         summary: "软件清单写在「软件清单.md」里，23 个软件都写了安装来源",
         observed: { at: at("10-06", "10:49"), sent: [], created: 1, modified: 0, deleted: 0, mismatches: 0 },
-        // 125 号票：负责人宣布完成时引用、运行时核实过的你的原话（评审输入里单独一栏）
+        // 负责人宣布完成时引用、运行时核实过的你的原话（评审输入里单独一栏）
         userWords: [
           {
             messageId: "lt-msg-pc-software-ok",
@@ -309,7 +309,7 @@ const PC_TASK: Task = {
         acceptance: [acc("两份清单都合进来了，不搬的写了原因", "review", true, at("10-06", "14:20"))],
         attempts: 1,
         startedAt: at("10-06", "10:52"),
-        // 274 号票：自报里说另列了「不搬.txt」，系统没查到这一轮建过它（看板卡上标 ⚠）
+        // 自报里说另列了「不搬.txt」，系统没查到这一轮建过它（看板卡上标 ⚠）
         summary: "两份清单合成了「搬迁清单.md」，不搬的另列在「不搬.txt」里",
         observed: { at: at("10-06", "14:12"), sent: [], created: 1, modified: 1, deleted: 0, mismatches: 1 },
       },
@@ -324,7 +324,7 @@ const PC_TASK: Task = {
 };
 
 /**
- * 阶段详情现取的"系统查到的结果"（274 号票，原型的 fake-http 给）：照守护进程 tasks/stage-view.ts 的 stageObserved 会给的编——
+ * 阶段详情现取的"系统查到的结果"（原型的 fake-http 给）：照守护进程 tasks/stage-view.ts 的 stageObserved 会给的编——
  * 这一轮对外发的、改了的文件、本机做的别的事、自报里提到的文件对没对上；第 4 阶段还在做，是到现在为止的
  */
 const PC_OBSERVED: Readonly<Record<string, StageObserved>> = {
@@ -345,7 +345,7 @@ const PC_OBSERVED: Readonly<Record<string, StageObserved>> = {
   s4: { sent: [], files: [], other: [{ tool: "copy", toolTitle: "复制", n: 12 }], claims: [] },
 };
 
-/** 假长程任务的阶段详情现取的（84、274 号票）：重做的范围照协议包的 reopenScope（它和依赖它的、开始过的）；授权用量、做了的事这里不编 */
+/** 假长程任务的阶段详情现取的：重做的范围照协议包的 reopenScope（它和依赖它的、开始过的）；授权用量、做了的事这里不编 */
 export function longTaskStageView(taskId: string, stageId: string): TaskStageView | undefined {
   const list = [PC_TASK, SCAN_TASK, NAS_TASK].find((t) => t.id === taskId)?.stages?.list;
   if (!list?.some((s) => s.stageId === stageId)) return undefined;
@@ -360,7 +360,7 @@ export function longTaskStageView(taskId: string, stageId: string): TaskStageVie
 
 const PC_PLANNING: MessageScope = { taskId: PC_ID };
 const pcStage = (stageId: string): MessageScope => ({ taskId: PC_ID, stageId });
-// 阶段开始的记号（152 号票）：s1 是"开始执行"那条通知交代的，s2、s3、s4 是宣布上一阶段完成那次调用（验收通过接着开始下一个）里开始的
+// 阶段开始的记号：s1 是"开始执行"那条通知交代的，s2、s3、s4 是宣布上一阶段完成那次调用（验收通过接着开始下一个）里开始的
 const PC_START = msg(PC, "system", at("10-06", "09:16"), pcStage("s1"), text("计划已确认，开始执行任务 t-newpc「换新电脑：把旧电脑的资料搬过去」。"));
 const PC_MESSAGES: MessageEnvelope[] = [
   msg(PC, "system", at("10-06", "09:00"), PC_PLANNING, text("任务书：任务 t-newpc「换新电脑：把旧电脑的资料搬过去」\n目标：把旧电脑上还要用的资料、书签和常用软件搬到新电脑上，旧电脑先不动")),
@@ -584,7 +584,7 @@ const NAS_MESSAGES: MessageEnvelope[] = [
 
 // ───────────────────────── 交给假连接的 ─────────────────────────
 
-// ───────────────────────── 记账本第一版（368 号票：项目内部的首个建设任务，做完了） ─────────────────────────
+// ───────────────────────── 记账本第一版（项目内部的首个建设任务，做完了） ─────────────────────────
 
 export const LEDGER_BUILD_ID = "t-ledger-v1";
 const LEDGER_TITLE = "记账本第一版";
@@ -640,7 +640,7 @@ export const LONG_TASK_CARDS: Card[] = [...PC_CARDS, SCAN_PLAN_CARD, NAS_PLAN_CA
 const messageEvent = (m: MessageEnvelope) => ({ channel: m.conversation, type: EVENT_TYPES.message, payload: { message: m, ...SCOPES.get(m.id) } });
 
 /**
- * 换新电脑这个任务的会话事件（152 号票）：消息按先后，阶段开始的记号插在守护进程会记的地方——通知交代的跟在那条通知后面；在"宣布阶段完成"
+ * 换新电脑这个任务的会话事件：消息按先后，阶段开始的记号插在守护进程会记的地方——通知交代的跟在那条通知后面；在"宣布阶段完成"
  * 那次调用里开始的，在那次调用的记录前面（记录是调用结束时才追加的）
  */
 function pcEvents(): { channel: string; type: string; payload: unknown }[] {

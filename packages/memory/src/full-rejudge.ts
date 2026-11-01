@@ -1,12 +1,12 @@
-// 全量重判一次（333 号票，328 规矩 R16 ②，ADR-0032 的"全量重判一次"一节）：规矩改了以后，把现有的结论按新规矩全过一遍——
+// 全量重判一次（328 规矩 R16 ②，ADR-0032 的"全量重判一次"一节）：规矩改了以后，把现有的结论按新规矩全过一遍——
 // 不只判当晚动过的。规矩、提示词和每晚整理是同一套（同一个 reflect、同一个写入口、同一个模型），只是这一次的范围是"已有的全部结论"，
 // 不碰新证据（新证据留给下一次每晚整理）。一次做这几步（每步都经唯一写入口、进留痕）：
 //
 //   1. 快照（给了 backupFile 才做）：VACUUM INTO 一份，"撤回这一次"就是换回它（undoFullRejudge）；
-//   2. 规矩迁移（329 号票 rg/migrate-rules.ts）：待复核改成复核标记、恢复被 326 改过的身份、用户确认过的改挂、照铁律降到不动为止；
+//   2. 规矩迁移（rg/migrate-rules.ts）：待复核改成复核标记、恢复被 326 改过的身份、用户确认过的改挂、照铁律降到不动为止；
 //   3. 被错撤的复活（R8、R11、Q2）：墓碑没指着真正推翻它的东西的（老代码"组不成立了"就撤、前提只是拿不准就撤的）回到猜测，
 //      推理链恢复、连带撤回的跟着回来；它那组不在了的照 Q2 留成猜测、把握降一档（StatusKeeper.retractionHasRefuter / reviveWronglyRetracted）；
-//   4. 老账本里落空了、还没往回打的预测往回打来源（R10，330 号票留给这里）；
+//   4. 老账本里落空了、还没往回打的预测往回打来源（R10，留给这里）；
 //   5. 每个活着的组按新规矩当场重定（R2、R4、R7、R12、R13、R14，代码判）；变了的加复核标记（ReasoningGraph.settleForRejudge）；
 //   6. 整理一次（reflect 的 full 模式，模型是每晚那一个）：明说的跟着事实走、转述、标着复核的组按道重跑追问（模型重判）、联动、
 //      往上抽（猜测也能往上推，R4）、写回、标着复核又不在组里的重判、对抗复核、预测、编策略；
@@ -165,7 +165,7 @@ export async function runFullRejudge(engine: MemoryEngine, options: FullRejudgeO
   const snapshot = new Map(store.listClaims().map((c) => [c.id, stateOf(c)]));
   progress("backup", "end", { detail: backupFile === null ? "没存快照" : `快照：${backupFile}` });
 
-  // 2. 规矩迁移（329 号票）
+  // 2. 规矩迁移
   progress("migrate", "start");
   const migration = migrateToRules(engine, { at });
   progress("migrate", "end", { detail: `待复核改成标记 ${migration.reviewToFlag.length}、身份恢复 ${migration.kindsRestored.length}、改挂到用户确认 ${migration.directAttached.length}、照铁律降回猜测 ${migration.downgraded.length}、加复核标记 ${migration.flagged.length}` });

@@ -1,4 +1,4 @@
-// 守护进程这一侧调用"改写会话文件"（彻底删除，21 号票）：拉起一次性子进程 agent-child/rewrite-main.ts，
+// 守护进程这一侧调用"改写会话文件"（彻底删除）：拉起一次性子进程 agent-child/rewrite-main.ts，
 // stdin 送一行请求、stdout 读一行结果，等它退出。会话文件的形状只在子进程那一层认（ADR-0004、ADR-0008），这里只转手。
 // 子进程和 agent 子进程一样放进 Job 对象、只给显式的环境；超时就结束它（one-shot-child.ts）。
 import path from "node:path";

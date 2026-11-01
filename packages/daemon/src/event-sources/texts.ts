@@ -1,6 +1,6 @@
-// 事件来源的说法（77 号票）：推来的事件的一句话说明（看板卡、任务详情、交给 agent 的通知、提醒里都是这一句）、
+// 事件来源的说法：推来的事件的一句话说明（看板卡、任务详情、交给 agent 的通知、提醒里都是这一句）、
 // 文件夹不能监视的原因、分发和各来源的日志。编排里不写文字。
-// 174 号票：事件的一句话、不能监视的原因给用户看（生成时按当时的语言）；日志不翻；事件值里的写法（FOLDER_CHANGE_LABEL）是数据。
+// 事件的一句话、不能监视的原因给用户看（生成时按当时的语言）；日志不翻；事件值里的写法（FOLDER_CHANGE_LABEL）是数据。
 import { t } from "@ergo/protocol";
 
 /** 二狗内部事件的一句话 */
@@ -34,7 +34,7 @@ export const folderRefusal = {
   contains: (p: string, area: string) => t("eventSources.refusal.contains", { path: p, area }),
 };
 
-/** 项目的服务报的事件的一句话（357 号票）：不带事件里的数据 */
+/** 项目的服务报的事件的一句话：不带事件里的数据 */
 export const serviceSummary = (title: string, name: string) => t("eventSources.summary.serviceEvent", { title, name });
 
 /** 项目的服务的事件名写得不对 */

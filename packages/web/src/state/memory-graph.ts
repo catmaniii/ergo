@@ -1,11 +1,11 @@
-// 记忆 · 结论 / 证据与推理 / 问题箱（233 号票）的状态层推导：
+// 记忆 · 结论 / 证据与推理 / 问题箱的状态层推导：
 // - 层、状态、把握、认知来源、关联的多重、证据的来源和有效性、问题的种类和状态、修订的哪种操作、最近一次整理跑成什么样，
 //   都在这里按协议包的取值表现查当前语言（常量表取值时现查，换语言不用刷新）；
 // - 列表：一行上的编号、层级、状态、把握、来源和更新时间；按层分组（层的先后固定，空层不出现）；状态筛的选项带条数；
 // - 一条结论的完整解释：支持/反证/背景（为什么算、多重、引的原话）、推断（怎么推出来的）、证据链（一层层缩进）、修订记录；
 // - 问题箱：问什么、为什么问、能区分哪几条（带它们现在的状态）、优先级、状态；
 // - 概览：一共几条结论、各层各几条、问题箱开着几个、最近一次整理的时间和新增条数。
-// - 330 号票：每条结论一行上有醒目的"已验证 / 猜测"小签（标着复核的再加"复核中"）；猜测的详情写"为什么还是猜测"；
+// -每条结论一行上有醒目的"已验证 / 猜测"小签（标着复核的再加"复核中"）；猜测的详情写"为什么还是猜测"；
 //   做法（交互策略）一行：在用 / 待你确认、"建在猜测上"、"理由没了"的小签，下面是依据的结论和它们现在的状态。
 // 推导都在这里，界面只画（MemoryGraphPages.tsx）；接口的形状和取值在协议包的 memory.ts。
 import {
@@ -50,7 +50,7 @@ export const MEMORY_TIER_LABEL: Readonly<Record<MemoryClaimTier, string>> = tTab
   value: "state.memoryGraph.tier.value",
 });
 
-/** 结论的状态（329 号票：已验证、猜测、撤回、被取代；待复核不再是状态，是复核标记） */
+/** 结论的状态（已验证、猜测、撤回、被取代；待复核不再是状态，是复核标记） */
 export const MEMORY_CLAIM_STATUS_LABEL: Readonly<Record<MemoryClaimStatus, string>> = tTable({
   active: "state.memoryGraph.claimStatus.active",
   contested: "state.memoryGraph.claimStatus.contested",
@@ -101,7 +101,7 @@ export const MEMORY_QUESTION_KIND_LABEL: Readonly<Record<MemoryQuestionKind, str
   counterexample: "state.memoryGraph.questionKind.counterexample",
 });
 
-/** 330 号票：做法（交互策略）的状态 */
+/** 做法（交互策略）的状态 */
 export const MEMORY_STRATEGY_STATUS_LABEL: Readonly<Record<MemoryStrategyStatus, string>> = tTable({
   proposed: "state.memoryGraph.strategyStatus.proposed",
   active: "state.memoryGraph.strategyStatus.active",
@@ -109,13 +109,13 @@ export const MEMORY_STRATEGY_STATUS_LABEL: Readonly<Record<MemoryStrategyStatus,
   retracted: "state.memoryGraph.strategyStatus.retracted",
 });
 
-/** 330 号票：醒目的小签（已验证是绿的、猜测是橙的、别的是淡的） */
+/** 醒目的小签（已验证是绿的、猜测是橙的、别的是淡的） */
 export interface MemoryBadge {
   readonly label: string;
   readonly tone: "ok" | "guess" | "quiet";
 }
 
-/** 330 号票：一条结论的真值小签——已验证 / 猜测（撤回、被取代的淡写），标着复核的再加一个"复核中" */
+/** 一条结论的真值小签——已验证 / 猜测（撤回、被取代的淡写），标着复核的再加一个"复核中" */
 export function memoryClaimBadges(item: Pick<MemoryClaimBrief, "status" | "needsReview">): MemoryBadge[] {
   const tone: MemoryBadge["tone"] = item.status === "active" ? "ok" : item.status === "contested" ? "guess" : "quiet";
   return [{ label: MEMORY_CLAIM_STATUS_LABEL[item.status], tone }, ...(item.needsReview ? [{ label: t("state.memoryGraph.badge.review"), tone: "quiet" as const }] : [])];
@@ -133,7 +133,7 @@ export const MEMORY_QUESTION_STATUS_LABEL: Readonly<Record<MemoryQuestionStatus,
   obsolete: "state.memoryGraph.questionStatus.obsolete",
 });
 
-/** 问题经过里的一笔（264 号票：问过、跳过、答了……） */
+/** 问题经过里的一笔（问过、跳过、答了……） */
 export const MEMORY_QUESTION_EVENT_LABEL: Readonly<Record<MemoryQuestionEvent, string>> = tTable({
   created: "state.memoryGraph.questionEvent.created",
   asked: "state.memoryGraph.questionEvent.asked",
@@ -144,11 +144,11 @@ export const MEMORY_QUESTION_EVENT_LABEL: Readonly<Record<MemoryQuestionEvent, s
   declined: "state.memoryGraph.questionEvent.declined",
   expired: "state.memoryGraph.questionEvent.expired",
   obsolete: "state.memoryGraph.questionEvent.obsolete",
-  // 271 号票：每晚整理时记忆管理员拿不准你答没答，留到下一夜
+  // 每晚整理时记忆管理员拿不准你答没答，留到下一夜
   unsure: "state.memoryGraph.questionEvent.unsure",
 });
 
-/** 你的回答读成什么（264 号票） */
+/** 你的回答读成什么 */
 export const MEMORY_ANSWER_VERDICT_LABEL: Readonly<Record<MemoryAnswerVerdict, string>> = tTable({
   yes: "state.memoryGraph.verdict.yes",
   no: "state.memoryGraph.verdict.no",
@@ -171,7 +171,7 @@ const REVISION_OP_LABEL: Readonly<Record<MemoryRevisionOp, string>> = tTable({
   delete: "state.memoryGraph.revisionOp.delete",
 });
 
-/** 267 号票：推理图谱是谁写的（唯一写入口的留痕） */
+/** 推理图谱是谁写的（唯一写入口的留痕） */
 const WRITE_ACTOR_LABEL: Readonly<Record<MemoryWriteActor, string>> = tTable({
   nightly: "state.memoryGraph.writeActor.nightly",
   curator: "state.memoryGraph.writeActor.curator",
@@ -179,7 +179,7 @@ const WRITE_ACTOR_LABEL: Readonly<Record<MemoryWriteActor, string>> = tTable({
   user: "state.memoryGraph.writeActor.user",
 });
 
-/** 267 号票：唯一写入口的哪种写操作 */
+/** 唯一写入口的哪种写操作 */
 const WRITE_OP_LABEL: Readonly<Record<MemoryWriteOp, string>> = tTable({
   ingest: "state.memoryGraph.writeOp.ingest",
   extract: "state.memoryGraph.writeOp.extract",
@@ -206,7 +206,7 @@ const WRITE_OP_LABEL: Readonly<Record<MemoryWriteOp, string>> = tTable({
   rejudge: "state.memoryGraph.writeOp.rejudge",
 });
 
-/** 推断的状态：成立、停用（等重推）、撤回、历史（329 号票：被直接证实以后原来的推理链） */
+/** 推断的状态：成立、停用（等重推）、撤回、历史（被直接证实以后原来的推理链） */
 const INFERENCE_STATUS_LABEL: Readonly<Record<MemoryInferenceView["status"], string>> = tTable({
   active: "state.memoryGraph.inference.active",
   needs_review: "state.memoryGraph.inference.needsReview",
@@ -239,7 +239,7 @@ export interface MemoryClaimRow {
   readonly updated: string;
   /** 支持、反证、竞争解释的条数小签（0 的不出现） */
   readonly chips: readonly string[];
-  /** 330 号票：醒目的"已验证 / 猜测"小签 */
+  /** 醒目的"已验证 / 猜测"小签 */
   readonly badges: readonly MemoryBadge[];
 }
 
@@ -258,7 +258,7 @@ export function memoryClaimRow(item: MemoryClaimBrief): MemoryClaimRow {
   };
 }
 
-/** 330 号票：一条做法在列表里的样子 */
+/** 一条做法在列表里的样子 */
 export interface MemoryStrategyRow {
   readonly id: string;
   /** 触发场合：做法一；做法二 */
@@ -288,7 +288,7 @@ export function memoryStrategyRow(view: MemoryStrategyView): MemoryStrategyRow {
   };
 }
 
-/** 330 号票（R5）：猜测为什么还是猜测——一行一条（没证实的前提、证据哪里不够）；不是猜测是空的 */
+/** ADR-0032 R5：猜测为什么还是猜测——一行一条（没证实的前提、证据哪里不够）；不是猜测是空的 */
 export function memoryGuessLines(why: MemoryClaimDetailView["whyGuess"]): string[] {
   if (why === undefined) return [];
   return [
@@ -431,7 +431,7 @@ export interface MemoryRevisionRow {
   readonly title: string;
   readonly when: string;
   readonly reason: string;
-  /** 267 号票：谁写的、做什么（"记忆管理员（夜班）· 判成立或推翻"）；写入口以前的老修订是空串 */
+  /** 谁写的、做什么（"记忆管理员（夜班）· 判成立或推翻"）；写入口以前的老修订是空串 */
   readonly by: string;
   /** 改了的字段：一行一个"字段：之前 → 之后" */
   readonly changes: readonly string[];
@@ -466,11 +466,11 @@ export interface MemoryQuestionRow {
   /** 种类 · 优先级 · 状态 · 问过几次 · 跳过几次 */
   readonly meta: string;
   readonly status: string;
-  /** 你的回答：原话和读成什么（264 号票）；没答、原话不在了是 undefined */
+  /** 你的回答：原话和读成什么；没答、原话不在了是 undefined */
   readonly answer?: string;
   /** 判的结果（之前 → 之后，谁胜出）；没判是 undefined */
   readonly outcome?: string;
-  /** 经过：每一笔"10-10 20:01 顺口问了"，按先后（264 号票） */
+  /** 经过：每一笔"10-10 20:01 顺口问了"，按先后 */
   readonly history: readonly string[];
 }
 
@@ -536,7 +536,7 @@ export function memoryClaimDetailMeta(claim: MemoryClaimDetailView["claim"]): st
 }
 
 /**
- * 记忆管理员那一层顶上的一行（242 号票）：最近一次整理跑成什么样，外加管理员自己额外花了几次模型调用。
+ * 记忆管理员那一层顶上的一行：最近一次整理跑成什么样，外加管理员自己额外花了几次模型调用。
  * 一次都没跑过时写"还没整理过"（整理第一次要配好模型 key）。
  */
 export function memoryCuratorNightLine(lastNight: MemoryLastNight | undefined): string {

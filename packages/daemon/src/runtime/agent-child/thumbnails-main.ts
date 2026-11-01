@@ -1,4 +1,4 @@
-// 一次性子进程的入口：缩小成小图（145 号票的 view_files，149 号票起是秘书在用）。由守护进程用 `node thumbnails-main.ts` 拉起
+// 一次性子进程的入口：缩小成小图（view_files，是秘书在用）。由守护进程用 `node thumbnails-main.ts` 拉起
 // （runtime/thumbnails.ts）：stdin 读一行请求（ThumbnailRequest），做完在 stdout 写一行结果（{ ok: true, result } 或 { ok: false, error }），
 // 然后退出。只读请求里的那几个文件，不写任何文件。
 import { encodeLine, readJsonLines } from "../line-channel.ts";

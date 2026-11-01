@@ -1,19 +1,19 @@
-// 时序规则的校验：纯函数，存计划时直接调用（13 号票），
-// 对话里的限制编译成规则时也走它（26 号票）。规则写错了引擎往往不报错，只会悄悄判成"不知道"或者根本不触发，
+// 时序规则的校验：纯函数，存计划时直接调用，
+// 对话里的限制编译成规则时也走它。规则写错了引擎往往不报错，只会悄悄判成"不知道"或者根本不触发，
 // 所以在存的时候就拦下来，并指出是哪条规则、哪里不对。
 //
 // 规则里能用的东西：
 // - $current：这次要判定的调用；$prior：require.before / not_before 的 where 里，之前执行成功过的那次调用。
 //   字段见 rule-steps.ts 的 STEP_FIELDS：tool、args（规范化参数，参数名照工具注册表）、paths（路径参数和它们的
 //   area、replaced、committed、secretFile……）、recipients、content、secrets、sends、outward（会不会往外送）、origin、text，
-//   效果日志的 at、taskId、stageId、agentId、segmentId。效果日志里只记了长度和摘要哈希的内容（68 号票：写入的全文、
+//   效果日志的 at、taskId、stageId、agentId、segmentId。效果日志里只记了长度和摘要哈希的内容（写入的全文、
 //   编辑的新旧片段）$prior 读不到，读了算写错；
 // - $facts、$agent、$task、$now：字段见 rule-env.ts（$facts 是 files、git、scripts 三个列表，以及调用方声明的别的事实；
 //   对话里没有 $task）；
 // - for_each 的变量、select / find / any / all 的行变量（默认 $row，as 可以改名）；
 // - $step：planguard 规划时的计划步骤，二狗没有计划步骤，执行时一律"不存在"（为了和 planguard 的规则兼容才允许写）；
 // - 运算：planguard 的全部运算，加上二狗的扩展运算（rule-ops.ts 的 path_within）。
-// @i18n-ignore-file model：规则写错了的说明交回写规则的负责人（存计划时）；执行时判断不了的依据里只引一句（173 号票）
+// @i18n-ignore-file model：规则写错了的说明交回写规则的负责人（存计划时）；执行时判断不了的依据里只引一句
 import { OPS, PLACEHOLDER, isPlainObject } from "./planguard/expr.ts";
 import { REPAIR_KINDS, RULE_KEYS } from "./planguard/spec.ts";
 import { ON_VIOLATION, ruleForm, toolList, triggerTools } from "./rule-doc.ts";
@@ -143,7 +143,7 @@ export function ruleProblems(rule: unknown, options: RuleValidationOptions, name
   }
   if (rule.repairs !== undefined) {
     const ok = Array.isArray(rule.repairs) && rule.repairs.every((r) => isPlainObject(r) && REPAIR_KINDS.filter((k) => k in r).length === 1);
-    if (!ok) say(`repairs 每一项要写 ${REPAIR_KINDS.join("、")} 之一（流程的计划审查用它修补计划，58 号票；执行时不用）`);
+    if (!ok) say(`repairs 每一项要写 ${REPAIR_KINDS.join("、")} 之一（流程的计划审查用它修补计划；执行时不用）`);
     // 插入的那一步要是登记过的工具（审查插进计划、用户授权后负责人照着做）
     for (const r of Array.isArray(rule.repairs) ? rule.repairs : []) {
       const insert = isPlainObject(r) && isPlainObject(r.insert) ? r.insert : undefined;
@@ -257,7 +257,7 @@ class ExprWalker {
   }
 
   /**
-   * $prior 读不到效果日志里只记了长度和摘要哈希的内容（68 号票，注册表里标了 bulk 的参数：写入的全文、编辑的新旧片段），
+   * $prior 读不到效果日志里只记了长度和摘要哈希的内容（注册表里标了 bulk 的参数：写入的全文、编辑的新旧片段），
    * 之前的工具有这种参数时，这几种写法存的时候就拦下（执行时读到也一律判断不了，见 temporal-rules.ts）：
    * - 读这种参数（`$prior.args.content`，`get` 写死的键也一样）；
    * - 整份读（`$prior`、`$prior.args`：比对象、转文字都会碰到它）；

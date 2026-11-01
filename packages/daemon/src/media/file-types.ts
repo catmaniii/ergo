@@ -1,5 +1,5 @@
 // 文件类型的日常判断（不随模型投影的版本变）：按文件名认类型、是不是文本类或 PDF、把字节解成文本、大小怎么说。
-// 发消息时补类型、"读取附件"、报告页取文本（113 号票，严格按 UTF-8 解）、各处的提示文字用它。发给模型前的投影有自己的一份（conversation/projection-v1.ts），
+// 发消息时补类型、"读取附件"、报告页取文本（严格按 UTF-8 解）、各处的提示文字用它。发给模型前的投影有自己的一份（conversation/projection-v1.ts），
 // 那一份冻结在投影的版本里，改这里不会改变投影的输出。
 
 /** 按扩展名就能认定类型的文本类文件（浏览器常把它们报成空类型、octet-stream，甚至把 .ts 报成视频） */
@@ -75,7 +75,7 @@ function extensionOf(name: string): string {
 }
 
 /**
- * 按文件名认得的类型（只认文本类、PDF 和 SVG；SVG 是 117 号票加的：负责人发出的 .svg 照浏览器的写法标成 image/svg+xml，
+ * 按文件名认得的类型（只认文本类、PDF 和 SVG；SVG：负责人发出的 .svg 照浏览器的写法标成 image/svg+xml，
  * 按 XML 文本读）；认不出是 undefined
  */
 export function mimeFromName(name: string): string | undefined {
@@ -106,7 +106,7 @@ export function decodeText(bytes: Uint8Array): string | undefined {
 }
 
 /**
- * 只按 UTF-8 解（113 号票，报告页取文本：不猜别的编码，解不出来如实报错，不吐乱码）。cut 为真时这段字节是从文件开头截下来的：
+ * 只按 UTF-8 解（报告页取文本：不猜别的编码，解不出来如实报错，不吐乱码）。cut 为真时这段字节是从文件开头截下来的：
  * 末尾没截完的半个字符去掉再解。不是合法的 UTF-8、或含 NUL（像二进制）时为 undefined
  */
 export function decodeUtf8(bytes: Uint8Array, options: { cut?: boolean } = {}): string | undefined {

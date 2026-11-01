@@ -1,18 +1,18 @@
-// 主切面：任务执行与阶段验收（规格第 8 节，13 号票）。真的守护进程，负责人、评审子 agent 都接 faux 剧本，测试扮演前端。
+// 主切面：任务执行与阶段验收（规格第 8 节）。真的守护进程，负责人、评审子 agent 都接 faux 剧本，测试扮演前端。
 // 任务直接经任务服务建出、写好任务书（秘书那一段在 tasks.test.ts 测过），负责人交计划，用户在计划卡上确认；之后：
 // - 全局执行名额（tasks.maxRunning）：多出的排队，等我、已暂停的不占名额，恢复执行时满了回到排队中；
-// - 阶段：控制器开始第一个能开始的阶段，负责人"宣布阶段完成"后跑验收（脚本、评审子 agent；112 号票起长程任务不再由我验收，
+// - 阶段：控制器开始第一个能开始的阶段，负责人"宣布阶段完成"后跑验收（脚本、评审子 agent；长程任务不再由我验收，
 //   计划里写了被退回），全部验收后任务自动完成；返工只重开指定阶段和它的下游；
 // - 一支在等用户（审批挂起、交给我做、卡住求助）时别的阶段接着推进，都在等时任务转等我；
 // - 负责人每次唤起、每次压缩之后看到重注入块；用户在任务详情里说的话唤起它或作为插话；
-// - 任务完成后的回调接到项目模块：项目的首个建设任务（15 号票）做完时出"首版做完了"卡（112 号票；端到端在 work-orders.test.ts）；
-// - 关注类别和用户的限制（26 号票）走真实执行路径：用户的限制编译出的规则拦下执行中的调用，计划卡上给一个任务加的类别只影响它；
-// - 阶段开始过就能从它重做（84 号票）：先停稳负责人手头这一轮再重置，这一阶段和下游回到未开始，
+// - 任务完成后的回调接到项目模块：项目的首个建设任务做完时出"首版做完了"卡（端到端在 work-orders.test.ts）；
+// - 关注类别和用户的限制走真实执行路径：用户的限制编译出的规则拦下执行中的调用，计划卡上给一个任务加的类别只影响它；
+// - 阶段开始过就能从它重做：先停稳负责人手头这一轮再重置，这一阶段和下游回到未开始，
 //   会话里一条重做记录，负责人接着做；重做前列出这一段已经做了的事（本机、对外），不撤回；卡着的验收、审批、计划变更随之作废，
 //   旧按钮点了回"已经重做过"；暂停的仍暂停，名额满了回到排队中（看板上照样是一条重做）；验收途中重做的，旧的结论作废；
-// - 274 号票：阶段做完后看板上带着系统从效果日志里查到的个数，阶段详情现取逐条的（发了什么、改了哪些文件、和自报对不上的）；
+// -阶段做完后看板上带着系统从效果日志里查到的个数，阶段详情现取逐条的（发了什么、改了哪些文件、和自报对不上的）；
 //   重做之后范围外已验收的阶段按各自的验收标准再核一遍，没过的先告诉你（待办、会话里一条记录）、负责人也先知道，不自动重做；
-// - 276 号票：重做的交代和重置一起存进事件库等复验，复验途中守护进程退出了，同一个数据目录起来后重新复验再交（只交一次）；
+// -重做的交代和重置一起存进事件库等复验，复验途中守护进程退出了，同一个数据目录起来后重新复验再交（只交一次）；
 //   起来后复验期间删了任务的不报不交、事件库里不留原话，又重做的排在后面。
 import fs from "node:fs";
 import http from "node:http";
@@ -199,7 +199,7 @@ describe("演示流程（录给前端回放）", () => {
     ]);
     // 每个阶段的验收结论是一张进度卡，评审的那张标"评审判定"
     const verdicts = cardsOf(frontend).filter((c) => c.type === "progress" && (c.payload as ProgressCardPayload).kind === "acceptance");
-    // 卡上带着这次交上来时负责人写的那句（84 号票：尝试记录的备注）
+    // 卡上带着这次交上来时负责人写的那句（尝试记录的备注）
     expect(verdicts.map((c) => (c.payload as ProgressCardPayload).acceptance)).toEqual([
       { passed: true, judgedBy: "script", results: [expect.objectContaining({ criterion: "资料清单存在", method: "script", passed: true })], summary: "资料清单在 sources.md" },
       { passed: true, judgedBy: "review", results: [{ criterion: "报告结构完整、结论有来源", method: "review", passed: true, note: "看过了，满足" }], summary: "报告在 report.md" },
@@ -235,7 +235,7 @@ async function localHook(): Promise<{ url: string; posts: () => number; close():
   return { url: `http://127.0.0.1:${port}/hook`, posts: () => posts, close: () => new Promise((resolve) => server.close(() => resolve())) };
 }
 
-/** 阶段详情从守护进程现取的（84 号票） */
+/** 阶段详情从守护进程现取的 */
 async function stageView(td: TestDaemon, taskId: string, stageId: string): Promise<TaskStageView> {
   const res = await fetch(`${td.url}${HTTP_PATHS.taskStage(taskId, stageId)}`);
   expect(res.status).toBe(200);
@@ -244,7 +244,7 @@ async function stageView(td: TestDaemon, taskId: string, stageId: string): Promi
 
 const recordsOf = (frontend: TestFrontend, channel: string) => frontend.events({ channel, type: EVENT_TYPES.timelineRecord }).map((f) => f.payload as TimelineRecordEventPayload);
 
-describe("执行中从某个阶段重做（84 号票）", () => {
+describe("执行中从某个阶段重做", () => {
   it("负责人正在做 s2 时从 s1 重做：先停掉这一轮，s1、s2 回到未开始、验收结果清掉，会话里一条重做记录，负责人接着从 s1 做；重做前取得到这一段已经做了的事（本机、对外分开）和授权用了几次，都告诉负责人，不撤回", async () => {
     const hook = await localHook();
     const dataDir = makeTempDir("ergo-data-");
@@ -388,7 +388,7 @@ describe("执行中从某个阶段重做（84 号票）", () => {
     }
   }, 120_000);
 
-  it("卡住求助时从前面的阶段重做（112 号票起没有等你验收了，卡着的是评审连续不通过到上限的那一支）：在等的那一支一起回到未开始，待办里卡住求助的那条作废（再点回“已经重做过”），任务接着执行；暂停着的任务重做后仍暂停", async () => {
+  it("卡住求助时从前面的阶段重做（没有等你验收了，卡着的是评审连续不通过到上限的那一支）：在等的那一支一起回到未开始，待办里卡住求助的那条作废（再点回“已经重做过”），任务接着执行；暂停着的任务重做后仍暂停", async () => {
     const plan = twoStagePlan();
     // s2 的评审：前 6 次都不过（重做前 3 次卡住，重做后再 3 次又卡住），之后通过
     const td = await startTestDaemon({
@@ -429,7 +429,7 @@ describe("执行中从某个阶段重做（84 号票）", () => {
     expect(rework).toMatchObject({ from: "waiting_for_user", reopened: ["s1", "s2"], task: { state: "running", reworks: 1 } });
     expect(rework.task.stages?.list?.[1]).toMatchObject({ state: "pending" });
     expect(rework.task.stages?.list?.[1]!.waitReason).toBeUndefined();
-    // 待办里卡住求助的那条作废（用户 2026-10-11 定：不只是不卡着）：记成处理过，再点旧按钮回"已经重做过"
+    // 待办里卡住求助的那条作废（不只是不卡着）：记成处理过，再点旧按钮回"已经重做过"
     expect(await itemWhere(frontend, (i) => i.id === help.id && i.version > help.version)).toMatchObject({ urgency: "non_blocking", handled: "已作废", handledNote: "已经重做过，这一条作废了" });
     expect(await frontend.inboxAction({ itemIds: [help.id], action: "handle", choice: "继续执行" })).toMatchObject({ ok: false, error: { code: "conflict", message: "已经重做过，这一条作废了" } });
     const again = await itemWhere(frontend, (i) => i.kind === "notice" && i.notice === "stuck_help" && i.id !== help.id, "重做后又卡住求助");
@@ -438,7 +438,7 @@ describe("执行中从某个阶段重做（84 号票）", () => {
     expect(td.daemon.tasks.get(taskId)?.stages?.list?.[1]).toMatchObject({ state: "waiting", waitReason: "stuck", returns: 3, attempts: 6 });
     await turnsOf(frontend, M1, 5);
 
-    // 暂停着的任务也能重做（开始过就能，用户 2026-10-11 定）：重做后仍暂停，第二次卡住求助的那条一样作废
+    // 暂停着的任务也能重做（开始过就能）：重做后仍暂停，第二次卡住求助的那条一样作废
     ok(await frontend.taskAction({ taskId, action: "pause" }));
     await taskWhere(frontend, (e) => e.change === "paused");
     expect(ok(await frontend.taskAction({ taskId, action: "rework", stageId: "s2", note: "标题改一下" }))).toEqual({ taskId, state: "paused" });
@@ -672,7 +672,7 @@ describe("执行中从某个阶段重做（84 号票）", () => {
 });
 
 /**
- * 三个阶段（274 号票的复验用）：s1 收集资料（脚本：清单里有 source-one），s2 写报告（评审，在 s1 之后），s3 定稿（脚本：有 final.md，在 s2 之后）
+ * 三个阶段（复验用）：s1 收集资料（脚本：清单里有 source-one），s2 写报告（评审，在 s1 之后），s3 定稿（脚本：有 final.md，在 s2 之后）
  */
 function threeStagePlan(): Plan {
   const base = twoStagePlan();
@@ -695,7 +695,7 @@ function threeStagePlan(): Plan {
   };
 }
 
-describe("系统查到的结果和重做后复验（274 号票）", () => {
+describe("系统查到的结果和重做后复验", () => {
   it("阶段做完后，看板上这个阶段带着系统从效果日志里查到的个数（发了什么、改了几个文件、和自报对不上几处），阶段详情现取逐条的：对外发的、新建和修改的文件、本机做的别的事；自报里提到、系统没查到的文件标出来", async () => {
     const hook = await localHook();
     try {
@@ -863,7 +863,7 @@ describe("系统查到的结果和重做后复验（274 号票）", () => {
 });
 
 /**
- * 276 号票：s1 的验收脚本有 hold.flag 时一直等着——重做后的复验卡在 s1 上，测试拿掉它才往下走（守护进程停掉时脚本不跟着停，
+ * s1 的验收脚本有 hold.flag 时一直等着——重做后的复验卡在 s1 上，测试拿掉它才往下走（守护进程停掉时脚本不跟着停，
  * 停之前复验做不完）。s2 也是脚本验收：复验时不派评审子 agent（第一个守护进程停掉之后它那份复验接着跑也起不了子进程）
  */
 function holdablePlan(): Plan {
@@ -889,7 +889,7 @@ const copiesOf = (td: TestDaemon, messageId: string) =>
   td.daemon.store.read(M1, 0, EVENT_TYPES.message).filter((e) => !isDeletedEventPayload(e.payload) && (e.payload as MessageEventPayload).message.id === messageId);
 
 /**
- * 276 号票的前半段：做到 s3（把 s1 的清单改坏了）时从 s3 重做（写了这次要怎么改），复验卡在 s1 的验收脚本上时守护进程停掉，
+ * 前半段：做到 s3（把 s1 的清单改坏了）时从 s3 重做（写了这次要怎么改），复验卡在 s1 的验收脚本上时守护进程停掉，
  * 再在同一个数据目录上起来（hold.flag 还在：起来后的复验同样卡着）。said：负责人被拦着时你在任务里说的话（留在它的队里）。
  * 返回起来后的守护进程、它的前端、任务、等复验的那条交代、hold.flag
  */
@@ -945,7 +945,7 @@ async function reworkThenRestart(note: string, second: Omit<StartTestDaemonOptio
   return { td, frontend, taskId, held: held!, flag };
 }
 
-describe("重做的交代在复验途中重启也不丢（276 号票）", () => {
+describe("重做的交代在复验途中重启也不丢", () => {
   it("从 s3 重做、复验做到一半守护进程退出：交代已经存进事件库等复验；同一个数据目录起来后重新复验，负责人收到的交代里有你写的这次要怎么改，复验没过也接上“另外复验发现……”；只交一次，交了才放开负责人", async () => {
     const note = "定稿里要写上日期";
     const said = "标题也改成「X 调研定稿」";
@@ -953,7 +953,7 @@ describe("重做的交代在复验途中重启也不丢（276 号票）", () => 
       note,
       {
         maintainer: () => [
-          // 先回你那句（排在交代前面，照 274 号票：拦着时你说的话留在队里，放开后照先后交给它）
+          // 先回你那句（排在交代前面：拦着时你说的话留在队里，放开后照先后交给它）
           say("好的，标题等定稿时一起改"),
           // 再照交代做 s3
           write("final.md", "# 定稿（2026-10-25）\n"),
@@ -1169,7 +1169,7 @@ describe("验收不通过", () => {
     expect(sessionText(td, `review-${taskId}-s2-2`)).not.toContain("没有结论，也没有来源");
   }, 90_000);
 
-  // 311 号票（294 号票端到端小测第 7 条）：验收脚本根本没跑起来时，退回的框不该写"和实际对不上"——结论里逐条标出哪条没跑起来
+  // 端到端小测第 7 条：验收脚本根本没跑起来时，退回的框不该写"和实际对不上"——结论里逐条标出哪条没跑起来
   it("验收脚本没跑起来（命令找不到）：照样退回负责人，结论里那一条标着没跑起来（notRun），跑了没过的不标", async () => {
     const plan = twoStagePlan();
     const s1 = plan.stages[0]!;
@@ -1210,7 +1210,7 @@ const CN_2027 = {
   ],
 };
 
-describe("任务完成后的回调：节假日数据的更新任务（29 号票）", () => {
+describe("任务完成后的回调：节假日数据的更新任务", () => {
   it("更新任务完成（全部验收）后自动导入交付件；交付件不对时不导入，待我处理里放一条说明（不卡任务）；返工改对了再完成，这次导入，缺失事项随之结束", async () => {
     const clock = new ManualClock(new Date(2026, 10, 30, 12));
     const plan = twoStagePlan();
@@ -1255,7 +1255,7 @@ describe("任务完成后的回调：节假日数据的更新任务（29 号票�
   }, 90_000);
 });
 
-describe("阶段自动验收（112 号票：长程任务不再由我验收）", () => {
+describe("阶段自动验收（长程任务不再由我验收）", () => {
   it("不涉及项目的长程任务：计划里写由你验收被退回（说明改成脚本或评审），改好交上才出计划卡；脚本通过再派评审，评审没过交回负责人（原因写明，阶段不推进），改好再交评审通过，接着下一个阶段，最后自动完成；不出等你验收", async () => {
     const plan = twoStagePlan();
     const withS1 = (criterion: Plan["stages"][number]["acceptance"][number]): Plan => ({ ...plan, stages: [{ ...plan.stages[0]!, acceptance: [plan.stages[0]!.acceptance[0]!, criterion] }, plan.stages[1]!] });
@@ -1326,7 +1326,7 @@ describe("报告进展、失败、卡住、暂停和取消", () => {
 
     const progress = await cardWhere(frontend, (c) => c.type === "progress");
     expect(progress.payload).toEqual({ taskId, taskTitle: "X 的调研", stageId: "s1", stageTitle: "收集资料", stageIndex: 1, stageTotal: 2, stageCode: "1", kind: "progress", text: "资料找了一半" });
-    // 93 号票起写编号（和界面上进度卡的标题一样）
+    // 写编号（和界面上进度卡的标题一样）
     expect(progress.text).toBe("进展：任务「X 的调研」第 1 阶段「收集资料」。资料找了一半");
     expect(messagesOf(frontend, M1).some((m) => m.message.parts.some((p) => p.type === "card_ref" && p.cardId === progress.id))).toBe(true);
     expect(inboxOf(frontend).some((i) => i.kind === "card" && i.cardId === progress.id)).toBe(false);
@@ -1619,7 +1619,7 @@ describe("守卫拿到计划和当前阶段", () => {
   }, 90_000);
 });
 
-describe("计划里的关注类别和用户的限制（26 号票）在执行中生效", () => {
+describe("计划里的关注类别和用户的限制在执行中生效", () => {
   it("用户的限制编译出的时序规则：确认后执行中违反它的调用被拦下（判永不、不出审批卡），不违反的照常做", async () => {
     const quote = "草稿别写进 drafts 目录";
     const noDrafts = { id: "no-drafts", title: "不往 drafts 目录写", trigger: { tool: "write", where: { matches: ["$current.args.path", "\\\\drafts\\\\"] } }, on_violation: "block" };
@@ -1698,7 +1698,7 @@ function contextOf(text: string) {
 }
 
 describe("重注入块和任务详情里的输入框", () => {
-  it("每次唤起负责人，会话里先注入一块当前的计划摘要、当前阶段、授权和边界（系统提示不变）；用户在任务详情里说话：休眠时唤起它，正在干活时排队（144 号票）、这一轮做完作为下一轮交给它，记进任务时间线、不建新卡", async () => {
+  it("每次唤起负责人，会话里先注入一块当前的计划摘要、当前阶段、授权和边界（系统提示不变）；用户在任务详情里说话：休眠时唤起它，正在干活时排队、这一轮做完作为下一轮交给它，记进任务时间线、不建新卡", async () => {
     const td = await startTestDaemon({
       config: { agents: { idleMinutes: 0.02 } },
       maintainer: (_maintainerId, spawn) =>
@@ -1735,7 +1735,7 @@ describe("重注入块和任务详情里的输入框", () => {
       timeoutMs: 15_000,
       describe: () => "负责人被唤起处理这句话",
     });
-    // 它正在跑 sleep 4：这时再说一句，排进队（144 号票：不再插进这一轮），这一轮做完才交给它、作为下一轮
+    // 它正在跑 sleep 4：这时再说一句，排进队（不再插进这一轮），这一轮做完才交给它、作为下一轮
     await new Promise((r) => setTimeout(r, 1500));
     const extra = await frontend.sendText("顺便加个摘要", { conversation: M1 });
     expect(extra.queued).toBe(true);

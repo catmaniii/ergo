@@ -1,11 +1,11 @@
-// 原型的假流程（60 号票）：照守护进程真实会发的事件编的，界面上看流程会话的进度条、计划台账、"接下来的计划"虚线框、计划详情（含检测项全览）。
+// 原型的假流程：照守护进程真实会发的事件编的，界面上看流程会话的进度条、计划台账、"接下来的计划"虚线框、计划详情（含检测项全览）。
 // - 「整理九月的发票」（一次性的流程）：第 1 版计划被审查退回（移动发票之前没备份），第 2 版补上备份、审查按计划里写的条件调整了顺序，
 //   你授权后在执行：做完 3 步，第 4 步（移到归档目录）先被引回补写清单、现在在做；第 5 步写汇总时想写到桌面（超出计划，你没同意）；
 //   中间看了一眼归档目录（计划外、只看）。
-// - 「每周整理下载目录」（定时触发的流程，76 号票原型里已有，这里补上计划卡和会话）：第 1 次运行做完了，第 2 次运行在跑——
+// - 「每周整理下载目录」（定时触发的流程，原型里已有，这里补上计划卡和会话）：第 1 次运行做完了，第 2 次运行在跑——
 //   进度条、虚线框都按这一次运行算。
 // 规则原文（审查结果的 docs）里框架的六条 v1 模板照守护进程真实给出的抄（录像 workflow.json 里的那一份）。全部是虚构的。
-// 153 号票：负责人每报一步开始（report_step in_progress），守护进程在会话频道上记一条步骤开始的记号（stage_start 带 stepId），
+// 负责人每报一步开始（report_step in_progress），守护进程在会话频道上记一条步骤开始的记号（stage_start 带 stepId），
 // 缩小后那里有"撤回到步骤「…」开始前"；定时触发的那个只有这一次运行里的有（一次运行就是一段会话）。
 import {
   CARD_TYPE_VERSIONS,
@@ -43,7 +43,7 @@ const cardRef = (cardId: string): MessagePart => ({ type: "card_ref", cardId });
 
 type ToolCallPart = Extract<MessagePart, { type: "tool_call" }>;
 let callNo = 0;
-/** 一次工具调用，照守护进程会记的写：plan 是和授权的计划比对的结果（60 号票） */
+/** 一次工具调用，照守护进程会记的写：plan 是和授权的计划比对的结果 */
 function tool(
   name: string,
   argsSummary: string,
@@ -581,7 +581,7 @@ export const WORKFLOW_CARDS: Card[] = [...INVOICE_CARDS, DOWNLOADS_CARD];
 const messageEvent = (m: MessageEnvelope) => ({ channel: m.conversation, type: EVENT_TYPES.message, payload: { message: m, ...SCOPES.get(m.id) } });
 
 /**
- * 这条消息里每次报某一步开始（report_step status=in_progress）的那条步骤开始的记号（153 号票），排在消息前面（守护进程在汇报这次调用里记，
+ * 这条消息里每次报某一步开始（report_step status=in_progress）的那条步骤开始的记号，排在消息前面（守护进程在汇报这次调用里记，
  * 调用记录在它后面）；原型把一轮里的几次调用并成一条消息，回退点挂在这条消息上
  */
 function stepMarks(m: MessageEnvelope, taskId: string, plan: WorkflowPlan): { channel: string; type: string; payload: StageStartEventPayload }[] {

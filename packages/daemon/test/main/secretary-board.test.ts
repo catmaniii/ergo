@@ -1,4 +1,4 @@
-// 主切面：秘书主线的看板感知与压缩（规格第 7 节，22 号票）。秘书接 faux 剧本，echo_context 回显它收到的模型输入：
+// 主切面：秘书主线的看板感知与压缩（规格第 7 节）。秘书接 faux 剧本，echo_context 回显它收到的模型输入：
 // - 看板自上次以来有变化时（新出现的、状态变了的、换了阶段的），用户的下一条消息后面多一条"看板变化"上下文消息，
 //   列出变化；没变时不加；系统提示不动；守护进程重启、秘书子进程崩溃之后变化照样报（可能重报，不能丢）；
 // - "查看板"只读工具返回看板的当前内容（和看板频道推给前端的一致）；
@@ -21,7 +21,7 @@ import { withoutFoldersBlock } from "../helpers/folders-block.ts";
 
 const { secretary: SECRETARY, cards: CARDS, board: BOARD, inbox: INBOX } = CHANNELS;
 const ECHO: FauxStep = { kind: "echo_context" };
-/** 秘书专用的压缩指令：默认的那份（71 号票起在 prompts/secretary-compaction.md） */
+/** 秘书专用的压缩指令：默认的那份（在 prompts/secretary-compaction.md） */
 const SECRETARY_COMPACTION_INSTRUCTIONS = secretaryCompactionInstructions(defaultPromptLibrary());
 const call = (name: string, args: Record<string, unknown> = {}): FauxStep => ({ kind: "reply", toolCalls: [{ name, arguments: args as never }] });
 /** 回显里某个工具的结果（这一轮最后一条） */
@@ -171,7 +171,7 @@ describe("看板变化：秘书子进程崩溃之后", () => {
 });
 
 describe("查看板", () => {
-  it("只读工具返回看板的当前内容：任务、简单提醒按看板的分组列出（和看板频道推给前端的一致），已取消的提醒在最近结束（185 号票），删了的不上看板", async () => {
+  it("只读工具返回看板的当前内容：任务、简单提醒按看板的分组列出（和看板频道推给前端的一致），已取消的提醒在最近结束，删了的不上看板", async () => {
     // 2026-10-08（周四）10:00，本地时间
     const clock = new ManualClock(new Date(2026, 9, 8, 10, 0));
     const td = await startTestDaemon({ secretary: [call("view_board"), ECHO], maintainer: maintainerScript(), clock });

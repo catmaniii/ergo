@@ -1,4 +1,4 @@
-// 守卫切面：流程计划的审查修补（58 号票，guard/workflow-review.ts）：
+// 守卫切面：流程计划的审查修补（guard/workflow-review.ts）：
 // 计划交给用户授权之前，按规则（框架的 v1 模板 + 计划里写的）在规划时查一遍，能修的修（插一步、改写），
 // 修不了的退回负责人或判定不可执行；另给出每一步要满足的条件和规划时查出的结果。
 import { describe, expect, it } from "vitest";
@@ -70,7 +70,7 @@ describe("审查修补", () => {
     expect(steps[1]!.excluded).toBeUndefined();
   });
 
-  it("修补从步骤里剔除的对象记下来（59 号票：执行时再碰它直接拦下）", async () => {
+  it("修补从步骤里剔除的对象记下来（执行时再碰它直接拦下）", async () => {
     const rule = {
       id: "no-env-commit",
       title: "不提交 .env",
@@ -120,7 +120,7 @@ describe("逐条规则复测", () => {
     expect(r.phases).toEqual({ facts: 0, compile: expect.any(Number), solve: expect.any(Number), probe: expect.any(Number) });
   });
 
-  it("60 号票：审查真正用的那一份规则原文随结果交出（v1 模板加计划里写的；没写修补方案的按违反时怎么办补上），是纯 JSON", async () => {
+  it("审查真正用的那一份规则原文随结果交出（v1 模板加计划里写的；没写修补方案的按违反时怎么办补上），是纯 JSON", async () => {
     const pullBack = { id: "status-first", title: "提交前先看状态", trigger: { tool: TOOL.git_commit }, require: { before: { tool: TOOL.git_status_diff } }, message: "提交之前先看一眼 git 状态", on_violation: "pull_back" };
     const { review: r } = await review([step("s1", TOOL.git_status_diff), step("s2", TOOL.git_commit, { message: "x" })], [pullBack]);
     expect(r.docs?.map((d) => d.id)).toEqual([...Object.values(V1_TEMPLATE_IDS), "status-first"]);

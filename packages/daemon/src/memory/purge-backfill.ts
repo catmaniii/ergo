@@ -1,16 +1,16 @@
-// 彻底删除的一次性补抹（272 号票第 1 条）：265 号票起彻底删除才会按证据编号改写问记忆（ask_memory）那次调用的记录和完整内容，
-// 而 purgePlan 只在删的那一刻算一次——10-21（232 号票）有问记忆以来、265 号票上线以前做过的彻底删除，事件日志里问记忆的结果还留着
+// 彻底删除的一次性补抹：彻底删除才会按证据编号改写问记忆（ask_memory）那次调用的记录和完整内容，
+// 而 purgePlan 只在删的那一刻算一次——10-21有问记忆以来、上线以前做过的彻底删除，事件日志里问记忆的结果还留着
 // 被删素材的原话（会话文件那一半守护进程启动时会按以前的 messages_purged 补，但只补得到在秘书会话上留了 messages_purged 的那几次）。
 // 守护进程启动时（插件起来以后、秘书起来以前）跑一次：
 // - 按已登记的彻底删除找：素材频道上 command 为 purge 的记忆命令（对话里的记忆删除卡、设置里成批删、删项目和删任务时连带的都算），
 //   被删素材背后的证据编号由调用方给（purged-evidence.ts：还在推理库里的按出处、删掉的按审计）；
-// - 保守：只换被删素材的原话。问记忆、问记忆管理员（ask_curator，272 号票第 3 条）的调用记录（结果摘要）和完整内容（完整返回）里，
+// - 保守：只换被删素材的原话。问记忆、问记忆管理员（ask_curator）的调用记录（结果摘要）和完整内容（完整返回）里，
 //   提到这些证据编号（问记忆管理员另看素材 id）的行连同这一条的续行（原话、精炼、没合上的「」）换成"- 编号 · 删除标记"
 //   （util/mentions.ts 的 replaceMentionLines，和会话文件那一侧同一个认法）；参数、工具、结局、调用记忆的部分（只有编号、种类、时间）
-//   和别的行一个字不动；早就整条换成删除标记的（265 号票起删的）换不出东西，不动；
+//   和别的行一个字不动；早就整条换成删除标记的（删的）换不出东西，不动；
 // - 同一事务在秘书的会话上追加一条 messages_purged：改写过的调用记录给出改写后的样子（开着的页面换掉手里的），列上被删的素材——
 //   秘书据此把会话文件里问记忆、问记忆管理员、检索素材的结果按编号再换一遍（完整内容过了保留期清掉了的，会话文件里也照样补得到），
-//   每条消息的记忆简报（266 号票，跟在用户输入后面的上下文消息，只在会话文件里引原话）也按证据编号换（after-purge.ts 的 contextLines）；
+//   每条消息的记忆简报（跟在用户输入后面的上下文消息，只在会话文件里引原话）也按证据编号换（after-purge.ts 的 contextLines）；
 //   所以被删素材背后有证据就追加，事件日志里一条没改也追加；
 // - 做完在内部频道记一笔（PURGE_BACKFILL_KEY 幂等键：只记一次，以后启动看到它就不再跑）。推理库查不了（打不开、版本对不上、读出错）
 //   时不补、不记，下次启动再补；推理库没建、没登记过彻底删除的，没有要补的，照样记一笔。
@@ -85,7 +85,7 @@ export function backfillPurgedQuotes(options: PurgeBackfillOptions): PurgeBackfi
   const materialIds = purgedMaterialIds(store);
   const evidenceIds = materialIds.length === 0 ? [] : options.evidenceOf(materialIds);
   if (evidenceIds === undefined) {
-    log("彻底删除的补抹（272 号票）：推理库这会儿查不了被删素材的证据编号，这次不补，下次启动再补"); // @i18n-ignore log
+    log("彻底删除的补抹：推理库这会儿查不了被删素材的证据编号，这次不补，下次启动再补"); // @i18n-ignore log
     return { state: "deferred" };
   }
   const at = options.now();
@@ -132,6 +132,6 @@ export function backfillPurgedQuotes(options: PurgeBackfillOptions): PurgeBackfi
   }));
   const mark: PurgeBackfillPayload = { at, materials: materialIds.length, evidence: evidenceIds.length, records, details, calls: [...calls] };
   store.appendBatch([...purgedEvents, { channel: INTERNAL_CHANNEL, type: PURGE_BACKFILL_EVENT, payload: mark, idempotencyKey: PURGE_BACKFILL_KEY }], { purge });
-  if (records + details > 0) log(`彻底删除的补抹（272 号票）：问记忆、问记忆管理员的 ${calls.size} 次调用里引着被删素材原话的行换成了删除标记（调用记录 ${records} 条、完整内容 ${details} 份）`); // @i18n-ignore log
+  if (records + details > 0) log(`彻底删除的补抹：问记忆、问记忆管理员的 ${calls.size} 次调用里引着被删素材原话的行换成了删除标记（调用记录 ${records} 条、完整内容 ${details} 份）`); // @i18n-ignore log
   return { state: "done", records, details, calls: [...calls] };
 }

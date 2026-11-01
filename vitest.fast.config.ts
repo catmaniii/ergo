@@ -1,7 +1,6 @@
-import fs from "node:fs";
 import { defineConfig } from "vitest/config";
 
-// `npm run test:fast` 用的配置：做票时跑的那条车道（244 号票）。
+// `npm run test:fast` 用的配置：开发时跑的那条车道。
 // 只有纯单测、协议包、网页状态层和构建检查，目标是三分钟内跑完；主切面（daemon/test/main，占了全量 86% 的时间）
 // 和真浏览器打开页面的检查在 `vitest.integration.config.ts` 那条车道。全量 `npm test` 仍走根 `vitest.config.ts`。
 //
@@ -11,7 +10,7 @@ export default defineConfig({
   test: {
     // 和根配置一样：默认只开一半的核，几套测试同时跑时不把机器挤满。
     maxWorkers: Number(process.env.ERGO_TEST_WORKERS) || "50%",
-    // 244 号票：把转译结果落到 node_modules/.vitest-cache，同一文件没改就跳过转译（第一次跑会慢一点）。
+    // 把转译结果落到 node_modules/.vitest-cache，同一文件没改就跳过转译（第一次跑会慢一点）。
     // 缓存按文件内容算，改了文件自然失效；`npx vitest run --clearCache` 可以整个清掉。
     fsModuleCache: true,
     projects: [
@@ -20,7 +19,7 @@ export default defineConfig({
         test: {
           name: "protocol",
           include: ["test/**/*.test.ts"],
-          // 168 号票：每个测试文件开始前装上自带的中文（t() 查得到句子）
+          // 每个测试文件开始前装上自带的中文（t() 查得到句子）
           setupFiles: ["test/setup-locales.ts"],
           // 纯单测：超时从 30 秒降到 15 秒，挂住时更快看到（断言强度不变）。
           testTimeout: 15_000,
@@ -64,21 +63,6 @@ export default defineConfig({
           hookTimeout: 15_000,
         },
       },
-      // 公开仓库里没有 packages/memory-eval（记忆评测和评测数据只留私有仓库，326 号票），
-      // 目录不在就不挂这个 project——否则公开版跑测试会死在 "root path does not exist"。
-      ...(fs.existsSync(new URL("packages/memory-eval", import.meta.url))
-        ? [
-            {
-              root: "packages/memory-eval",
-              test: {
-                name: "memory-eval",
-                include: ["test/**/*.test.ts"],
-                testTimeout: 15_000,
-                hookTimeout: 15_000,
-              },
-            },
-          ]
-        : []),
       {
         root: "frontend",
         test: {

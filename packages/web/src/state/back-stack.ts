@@ -1,4 +1,4 @@
-// 前端状态层：返回栈（62 号票，系统返回键）。
+// 前端状态层：返回栈（系统返回键）。
 // 鸿蒙 App 里按系统返回键，网页按层级退一级：先关最后打开的弹窗、选择器、详情页（overlay），
 // 没有再回这一页的上一级（page：标题栏的"‹ 返回"，比如任务详情回看板），都没有就是到了顶层，交给系统退出 App。
 // 网页经原生桥 setCanGoBack 报"现在还能不能在网页里返回"（canGoBack），原生按返回键时调网页登记的返回函数（backTarget 那一层的关法）。
@@ -36,7 +36,7 @@ export function canGoBack(stack: BackStack): boolean {
   return backTarget(stack) !== undefined;
 }
 
-/** 开着弹窗、选择器、详情页、抽屉这些吗（116 号票：开着就不在回到前台时直接刷新，照旧提示） */
+/** 开着弹窗、选择器、详情页、抽屉这些吗（开着就不在回到前台时直接刷新，照旧提示） */
 export function overlayOpen(stack: BackStack): boolean {
   return stack.some((l) => l.kind === "overlay");
 }

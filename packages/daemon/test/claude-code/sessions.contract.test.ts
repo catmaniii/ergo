@@ -1,4 +1,4 @@
-// 契约：接管已有会话时读本机 Claude Code 会话的那一层（290 号票）。SDK 的 listSessions / getSessionMessages / forkSession 和
+// 契约：接管已有会话时读本机 Claude Code 会话的那一层。SDK 的 listSessions / getSessionMessages / forkSession 和
 // `claude agents --json` 都换成假的（编的会话、编的消息，照 sdk.d.ts 的 SDKSessionInfo、SessionMessage 的形状），不读用户真实的 ~/.claude：
 // - 列：只列终端 /resume 看得到的（includeProgrammatic: false），标题按自己起的 → 摘要 → 第一句，最近活动的在前；
 // - agents --json：数组或包了一层的都认，没有 sessionId 的不要；占着的说明按交互式 / 后台在跑 / 停着的后台记录；查不到一律占着；
@@ -59,7 +59,7 @@ const threeSessions = (open: () => Promise<ReturnType<typeof parseAgents>>): Cla
 
 const assemblyOf = (sessionDir: string, patch: Partial<SessionAssembly>): SessionAssembly => ({ sessionDir, cwd: "D:/repo", continueSession: false, ...patch }) as SessionAssembly;
 
-describe("读本机 Claude Code 会话（290 号票）", () => {
+describe("读本机 Claude Code 会话", () => {
   it("列：只列终端看得到的，标题按自己起的、摘要、第一句，最近活动的在前", async () => {
     const { sdk, seen } = fakeSdk([], [
       { sessionId: "a", summary: "自动摘要", firstPrompt: "第一句", lastModified: 1000, fileSize: 10, cwd: "D:/a", gitBranch: "main" },
@@ -214,7 +214,7 @@ describe("读本机 Claude Code 会话（290 号票）", () => {
   });
 });
 
-describe("适配子进程的会话记录：接管的会话（290 号票）", () => {
+describe("适配子进程的会话记录：接管的会话", () => {
   it("给了接管的会话 id：不新开 Claude 会话，按 id 恢复；接着已有的照旧；换段接着同一条线（/clear 换了 id 的接着新的）；freshSession 照旧新开", () => {
     const dir = makeTempDir("ergo-cc-records-");
     // 任务的负责人：接着最近的、还没有记录 → 接管的那个，按 id 恢复

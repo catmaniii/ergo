@@ -1,4 +1,4 @@
-// 主切面：浏览插件（212 号票，ADR-0027；用户 2026-10-20："把内置浏览器和网页工具，日历和语音这三个拆成插件"）。走真实的装配路径：
+// 主切面：浏览插件（ADR-0027；"把内置浏览器和网页工具，日历和语音这三个拆成插件"）。走真实的装配路径：
 // 经组合根和插件清单起守护进程，停用只经数据目录配置的 plugins.disabled（startTestDaemon 的 plugins 选项），运行中停用、启用、移除
 // 经设置 · 插件的 HTTP 接口；秘书接 faux 剧本，测试扮演前端和发消息的那台设备；联网是正式的 createWebAccess，DeepSeek 是本机临时端口上的假服务。
 // 开着时的行为由原来的主切面（browse-sidebar、page-button、browse-save-page、web-app-browser、authorized-folders……）一条不改地守着；
@@ -67,7 +67,7 @@ const textOf = (m: MessageEnvelope | undefined) => (m?.parts ?? []).flatMap((p) 
 const lastEcho = (frontend: TestFrontend) => stripTimeMarkers(textOf(messagesOf(frontend).filter((m) => m.speaker === "agent" && textOf(m).includes("[system]")).at(-1)));
 /** 上下文里第一条用户消息之前的那一段：系统提示和工具清单 */
 const assemblyOf = (echo: string) => echo.slice(0, echo.indexOf("\n[user]"));
-/** 秘书此刻能用的工具：开头那一份（按新的贡献重新装配后接着同一个会话也是开头一份、按这次交的先后，会话中途不列增减，273 号票） */
+/** 秘书此刻能用的工具：开头那一份（按新的贡献重新装配后接着同一个会话也是开头一份、按这次交的先后，会话中途不列增减） */
 const toolsIn = (echo: string) => assemblyOf(echo).split("\n").flatMap((line) => (line.startsWith("[tool] ") ? [line.slice(7)] : []));
 /** 最近一次的系统提示（重新装配后 pi 记的那一条系统消息） */
 const latestSystemOf = (echo: string): string => {
@@ -263,7 +263,7 @@ describe("浏览插件", () => {
     expect(td.daemon.plugins.report()).toMatchObject({ running: ["reminders", "memory", "calendar", "voice", "claude-code", "phone", "google", "looki"], removed: ["browsing"] });
   });
 
-  it("语音插件不在（214 号票，可选依赖 wants）：浏览插件照常装上、不跟着停；悬浮按钮上说话回\"没认出说了什么：语音插件没启用\"，不崩", async () => {
+  it("语音插件不在（可选依赖 wants）：浏览插件照常装上、不跟着停；悬浮按钮上说话回\"没认出说了什么：语音插件没启用\"，不崩", async () => {
     const VOICE_OFF = "没认出说了什么：语音插件没启用";
     const speak = (url: string) => requestJson<{ ok: boolean; reason?: string }>(url, HTTP_PATHS.pageVoice, { method: "POST", body: { audio: { base64: "AAAA", mime: "audio/wav" } } });
     // 配置里停用语音：浏览插件照样装上（不算缺依赖）

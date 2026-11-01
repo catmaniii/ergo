@@ -1,17 +1,17 @@
-// 任务页：任务看板 + 任务的对话框（368 号票起对话框本身在 AgentConversation.tsx，这里只管看板、把项目负责人做的任务换到项目的对话框、原型的假任务）。
-// 看板（12 号票）：任务、简单提醒和定时作业（19 号票）来自前端状态层（state/board.ts 按规格的五组排好），没有守护进程时
+// 任务页：任务看板 + 任务的对话框（对话框本身在 AgentConversation.tsx，这里只管看板、把项目负责人做的任务换到项目的对话框、原型的假任务）。
+// 看板：任务、简单提醒和定时作业来自前端状态层（state/board.ts 按规格的五组排好），没有守护进程时
 // 再补上原型的假条目。作业卡上可以暂停、恢复（取消在作业卡的"更多"里）。
-// 真任务的详情（13 号票）：负责人会话（和秘书聊天共用会话组件，输入框直接给负责人下指令，它干活时作为插话）、
+// 真任务的详情：负责人会话（和秘书聊天共用会话组件，输入框直接给负责人下指令，它干活时作为插话）、
 // 阶段条（各阶段状态、验收方式和结果，state/task-detail.ts）、计划卡和控制（暂停、继续、取消、重试、返工、由我验收）。
-// token 用量（24 号票）：任务卡、作业卡上的总量，任务详情"消耗"一栏里按 agent 的细分（state/usage.ts，来自看板频道上的合计）。
-// 工单（17 号票）：任务详情"工单"一栏列出这个任务的全部工单（发给哪个项目、现在怎样、所属阶段），含建出了还没派出的
+// token 用量：任务卡、作业卡上的总量，任务详情"消耗"一栏里按 agent 的细分（state/usage.ts，来自看板频道上的合计）。
+// 工单：任务详情"工单"一栏列出这个任务的全部工单（发给哪个项目、现在怎样、所属阶段），含建出了还没派出的
 // （state/work-orders.ts 的 taskWorkOrders）；回执和项目负责人的提问在任务负责人的会话里。
-// 普通任务（75 号票）：看板卡标"普通任务"；详情没有计划、阶段、工具包、工单那些栏，只有会话（54 号票的缩放会话）和工具调用详情；
+// 普通任务：看板卡标"普通任务"；详情没有计划、阶段、工具包、工单那些栏，只有会话（缩放会话）和工具调用详情；
 // 做完了输入框照样能用（接着说它就接着做），项目内部的发的话带上任务编号（项目的负责人的会话里同时有几件事）。
-// 定时触发的任务（76 号票）：看板"运营中"一组的任务卡上写时间表、下一次、最近一次运行的结果，能暂停、恢复、取消（落到它的触发上）；
+// 定时触发的任务：看板"运营中"一组的任务卡上写时间表、下一次、最近一次运行的结果，能暂停、恢复、取消（落到它的触发上）；
 // 详情按运行分段：会话里每次运行开始处一条分隔线（缩小后按运行分块），"运行"一栏列出每一次运行（怎么触发的、合并了几次、结果、原因、
 // 流程这次做完几步）。
-// 三种做法的界面（60 号票，固定计划、阶段计划的界面）：
+// 三种做法的界面（固定计划、阶段计划的界面）：
 // - 看板卡标出种类和进度（会话列表那种进度条）：普通任务没有进度；流程是做完的步数（定时触发的流程按这一次运行）；
 //   长程任务是已验收的阶段数；
 // - 流程的详情：标题栏上进度条（做完的步骤 / 总步数），点开是计划台账（PlanTimeline.tsx）；会话历史底部"接下来的计划"虚线框
@@ -19,15 +19,15 @@
 //   （步骤另在虚线框、计划详情里）；
 // - 长程任务的详情：阶段标签写"第 N 阶段 · 已验收几个"；点阶段抽屉、阶段栏里的一个阶段，在详情栏打开它的阶段详情
 //   （ui/detail/StageDetail.tsx：交付件、验收标准和结果、尝试记录、授权和用量、出过的状况、"从这里重做"）。
-// 宽屏布局（88 号票，用户 2026-10-11 提：左边任务列表、中间阶段、右边聊天太窄）：看板和任务详情二选一，宽窄屏一样（state/task-page.ts）——
+// 宽屏布局（左边任务列表、中间阶段、右边聊天太窄）：看板和任务详情二选一，宽窄屏一样（state/task-page.ts）——
 // 宽屏的看板占满内容区，每组里的卡排成多列网格（.board[data-layout="grid"]）；点卡片、从别处跳进来都整页换成任务详情，
 // 标题栏左上角的 ‹（鸿蒙返回键同一层）、浏览器后退回到看板，回来时滚动位置照旧（手机上也是）；‹ 不往历史里压新记录
 // （app/history-nav.ts）。
-// 任务和待办的管理（90 号票，用户 2026-10-11）：
+// 任务和待办的管理：
 // - 看板卡长按 / 右键出任务操作菜单（state/task-menu.ts 算"这个任务现在能做什么"，ui/task-menu.tsx 画和做），简单提醒、定时作业卡照
 //   它们能做的（改、取消提醒；暂停、恢复、取消）；
 // - 看板多选：标题栏"多选"、菜单里"多选"进入，点卡片就是勾选，每组标题右边"全选"，底部操作栏（pages/board-select.tsx）；
-//   156 号票起简单提醒卡的菜单是改时间、取消提醒、多选，也能勾上和任务混着选；157 号票多选时有醒目的"退出多选"（ui/select-mode.tsx）；
+//   简单提醒卡的菜单是改时间、取消提醒、多选，也能勾上和任务混着选；多选时有醒目的"退出多选"（ui/select-mode.tsx）；
 // - 每组标题点一下收起 / 展开，按设备记住（app/board-fold-setting.ts），默认"已归档"收起；
 // - 任务详情顶部并成一行（ui/task-head.tsx）：状态签浮层、关键按钮、"⋯"（计划、工单、工具包、消耗、运行在详情栏打开，下半是任务操作），
 //   页签那一排去掉了，会话占满；退回、返工写原因改成点了按钮弹出的对话框。
@@ -59,7 +59,7 @@ import {
   taskHomeProject,
   taskPageView,
   TASK_KIND_LABEL,
-  // 90 号票：任务操作菜单、看板多选、任务详情顶部一行
+  // 任务操作菜单、看板多选、任务详情顶部一行
   groupSelection,
   type TaskAction,
   type TaskActOptions,
@@ -73,7 +73,7 @@ import {
   toggleSelected,
   type UiState,
   taskMenuSubject,
-  // 156 号票：简单提醒卡的菜单、和任务混着多选
+  // 简单提醒卡的菜单、和任务混着多选
   type BoardBatchEntry,
   boardGroupOfReminder,
   t,
@@ -108,14 +108,14 @@ import { remoteInStatus, statusText, taskSummary } from "./task-summary.ts";
 import { ToolkitEditor } from "./ToolkitEditor.tsx";
 
 /**
- * 看板和任务详情二选一（88 号票，宽窄屏一样）：没点任务时整页是看板（宽屏多列网格），点了整页是任务详情，标题栏的 ‹ 回到看板
+ * 看板和任务详情二选一（宽窄屏一样）：没点任务时整页是看板（宽屏多列网格），点了整页是任务详情，标题栏的 ‹ 回到看板
  * （上一条历史就是看板就后退一步，否则换掉这一条，不压新记录）。
- * jobId：日历里点作业过来，看板上这张作业卡高亮并滚到看得见的地方（35 号票）
+ * jobId：日历里点作业过来，看板上这张作业卡高亮并滚到看得见的地方
  */
-/** at：任务的会话里要定位的那一条（105 号票，从待办跳过来） */
+/** at：任务的会话里要定位的那一条（从待办跳过来） */
 export function TasksPage({ wide, taskId, jobId, at, navigate }: { wide: boolean; taskId?: string; jobId?: string; at?: string | undefined; navigate: Navigate }) {
   // 离开看板（进了任务详情）时看板滚到哪。看板组件在详情页时拿掉了，回来时照它恢复；记在任务页上，切到别的页再回来从头开始。
-  // 分组收起没有（90 号票）按设备记住，不用这里记
+  // 分组收起没有按设备记住，不用这里记
   const boardScroll = useRef<number | undefined>(undefined);
   const savedScroll = useCallback(() => boardScroll.current, []);
   const rememberScroll = useCallback((top: number) => {
@@ -131,7 +131,7 @@ export function TasksPage({ wide, taskId, jobId, at, navigate }: { wide: boolean
 /** 原型假条目的分组：和真数据用同一张表（共享协议包） */
 function groupOf(e: BoardEntry): BoardGroup {
   if (e.kind === "task") return BOARD_GROUP_OF_TASK_STATE[e.status];
-  // 185 号票：已取消的也在最近结束，归档了的在已归档（分组只看协议包那一份）
+  // 已取消的也在最近结束，归档了的在已归档（分组只看协议包那一份）
   if (e.kind === "reminder") return boardGroupOfReminder(e) ?? "ended";
   return "ops";
 }
@@ -140,7 +140,7 @@ function entryOf(item: BoardItem, progress: (task: Task) => TaskSummary["progres
   if (item.kind === "task") {
     const { task, activity, tokens, cacheHitTokens, waitingForProject, trigger, project } = item;
     const summary = taskSummary({ task, activity, tokens, cacheHit: cacheHitTokens, waitingForProject, trigger, progress: progress(task) });
-    // 运营方案建的内部任务（141 号票）：卡上标属于哪个项目（点了进项目）
+    // 运营方案建的内部任务：卡上标属于哪个项目（点了进项目）
     return project ? { ...summary, internalProject: project } : summary;
   }
   if (item.kind === "scheduled_job") {
@@ -162,7 +162,7 @@ function entryOf(item: BoardItem, progress: (task: Task) => TaskSummary["progres
     };
   }
   if (item.kind === "memory_curator") {
-    // 242 号票：记忆管理员每天的整理。点进去落在记忆页的管理员那一层（卡上有 route，插件那张卡按它导航）
+    // 记忆管理员每天的整理。点进去落在记忆页的管理员那一层（卡上有 route，插件那张卡按它导航）
     return {
       kind: "memory_curator",
       id: "memory-curator",
@@ -178,19 +178,19 @@ function entryOf(item: BoardItem, progress: (task: Task) => TaskSummary["progres
     title: r.text,
     // 删了的不上看板（boardGroupOfReminder），走不到这里
     status: r.status === "deleted" ? "cancelled" : r.status,
-    // 185 号票：归档了的在"已归档"
+    // 归档了的在"已归档"
     ...(r.archived ? { archived: true } : {}),
     cardId: r.cardId,
     // 已取消的一次性提醒写原来定的那一刻
     nextAt: r.nextAt ?? r.lastFiredAt ?? (r.schedule?.kind === "once" ? r.schedule.at : r.updatedAt),
     ...(r.schedule ? { schedule: r.schedule } : {}),
-    // 事件发生时提醒的（77 号票）：在等什么事件、最近一次是什么事件
+    // 事件发生时提醒的：在等什么事件、最近一次是什么事件
     ...(r.event ? { waitingFor: describeEventTrigger(r.event) } : {}),
     ...(r.lastEvent ? { lastEvent: r.lastEvent } : {}),
   };
 }
 
-/** 原型的假条目：定时作业名下有了真的用量（19 号票带上作业身份之后）就用真的总量 */
+/** 原型的假条目：定时作业名下有了真的用量（带上作业身份之后）就用真的总量 */
 function withJobTokens(e: BoardEntry, tokens: (jobId: string) => number): BoardEntry {
   if (e.kind !== "scheduled_job") return e;
   const real = tokens(e.id);
@@ -201,7 +201,7 @@ function withJobTokens(e: BoardEntry, tokens: (jobId: string) => number): BoardE
 function useBoard() {
   const { ui } = useStore();
   const { proto } = useProto();
-  // 组名、卡上的说明按当前语言现取：换了语言重算（171 号票；locale 是词典的版本号，只用来让 useMemo 重算）
+  // 组名、卡上的说明按当前语言现取：换了语言重算（locale 是词典的版本号，只用来让 useMemo 重算）
   const locale = useLocale();
   return useMemo(
     () =>
@@ -218,7 +218,7 @@ function useBoard() {
 
 /**
  * 看板卡、任务详情上按菜单规则看的任务：真任务就是看板频道上的 Task（状态层的 taskMenuSubject：运营中的定时任务带上它的触发能做的、
- * 跑完自动播报开没开，141 号票起项目在用时运营方案里的一条只能暂停、恢复），原型的假条目按它的状态拼
+ * 跑完自动播报开没开，项目在用时运营方案里的一条只能暂停、恢复），原型的假条目按它的状态拼
  */
 function subjectOf(ui: UiState, ts: TaskSummary): TaskMenuSubject {
   const task = ui.tasks[ts.id];
@@ -236,16 +236,16 @@ function useTaskTarget(): (ts: TaskSummary) => TaskActsTarget {
   return (ts) => {
     const task = ui.tasks[ts.id];
     const trigger = ts.trigger ? (a: ScheduledJobAction) => scheduledJobAction(ts.trigger!.jobId, a) : undefined;
-    // 改时间（98 号票）：换它的触发登记的时间表
+    // 改时间：换它的触发登记的时间表
     const reschedule = ts.trigger ? (s: ReminderSchedule) => rescheduleJob(ts.trigger!.jobId, s) : undefined;
     if (task) {
       const act = (action: TaskAction, options?: TaskActOptions) => taskAction(ts.id, action, options);
-      // 立即运行一次、跑完自动播报（100 号票）
+      // 立即运行一次、跑完自动播报
       const runNow = ts.trigger ? () => runJobNow(ts.trigger!.jobId) : undefined;
       return { title: ts.title, act, trigger, reschedule, runNow, announce: (on: boolean) => setVoiceAnnounce(ts.id, on), stages: realStageSource(ui, task, act) };
     }
     const act = (action: TaskAction) => {
-      // 删除（186 号票）：假任务从看板上拿掉
+      // 删除：假任务从看板上拿掉
       if (action === "delete") {
         update((s) => ({ ...s, board: s.board.filter((e) => !(e.kind === "task" && e.id === ts.id)) }));
         return;
@@ -295,12 +295,12 @@ function protoStageSource(ts: TaskSummary, act: TaskActsTarget["act"]): StageDet
 
 /**
  * 看板。layout：宽屏 grid（每组里的卡排成多列网格，列数随宽度、卡片有最小宽度，样式在 pages.css 的 .board[data-layout="grid"]；
- * 看板一行一行的风格各自在 style.css 里排），窄屏 list（一列，和 88 号票之前一样）。滚动时报给任务页记下（onScrolled），
+ * 看板一行一行的风格各自在 style.css 里排），窄屏 list（一列，和以前一样）。滚动时报给任务页记下（onScrolled），
  * 从任务详情回来时照记下的（savedScroll）滚回去。
- * 90 号票：每组标题点一下收起 / 展开（按设备记住，默认已归档收起）；卡片长按 / 右键出菜单；多选（标题栏"多选"、菜单里"多选"进入，
+ * 每组标题点一下收起 / 展开（按设备记住，默认已归档收起）；卡片长按 / 右键出菜单；多选（标题栏"多选"、菜单里"多选"进入，
  * 点卡片就是勾选，每组标题右边"全选"，底部操作栏）。还没迁移的定时作业卡不参与多选（没有批量的接口），多选时淡掉。
- * 156 号票：简单提醒卡也有菜单（改时间、取消提醒、多选），也能勾上，和任务混着选时批量动作只给两者都能做的（state/board-batch.ts）。
- * 157 号票：多选时标题栏的"多选"换成"退出多选"，操作栏右边"✕ 退出多选"，Esc 和返回键一样先退出多选（ui/select-mode.tsx）
+ * 简单提醒卡也有菜单（改时间、取消提醒、多选），也能勾上，和任务混着选时批量动作只给两者都能做的（state/board-batch.ts）。
+ * 多选时标题栏的"多选"换成"退出多选"，操作栏右边"✕ 退出多选"，Esc 和返回键一样先退出多选（ui/select-mode.tsx）
  */
 function Board({
   layout,
@@ -335,15 +335,15 @@ function Board({
     setSelecting(false);
     setSelected(new Set());
   };
-  // 多选时返回键（鸿蒙）、Esc 先退出多选（157 号票）
+  // 多选时返回键（鸿蒙）、Esc 先退出多选
   useSelectingBack(selecting, stopSelecting);
   const acts = useTaskActs();
   const targetOf = useTaskTarget();
-  // 简单提醒卡（193 号票起由提醒插件画：看板条目的插槽）；提醒插件停用时没有，那几条显示占位、勾不上
+  // 简单提醒卡（由提醒插件画：看板条目的插槽）；提醒插件停用时没有，那几条显示占位、勾不上
   const plugins = usePlugins();
   const pluggedIn = (e: BoardEntry) => plugins.get("boardEntries", e.kind) !== undefined;
   const pickable = (e: BoardEntry) => e.kind === "task" || (e.kind === "reminder" && pluggedIn(e));
-  // 勾上的只算看得见的：收起的组里的不算（归档了的挪进收起着的"已归档"，就不再算在"已选"里）；156 号票起提醒也算
+  // 勾上的只算看得见的：收起的组里的不算（归档了的挪进收起着的"已归档"，就不再算在"已选"里）；提醒也算
   const shown = groups.filter((g) => !folded.has(g.id)).flatMap((g) => g.entries);
   const picked: BoardBatchEntry[] = shown.flatMap((e): BoardBatchEntry[] => {
     if (!selected.has(e.id) || !pickable(e)) return [];
@@ -366,7 +366,7 @@ function Board({
     onPick: (item) => pick(ts, item),
     ...choiceOf(ts.id),
   });
-  // 网页插件的看板条目（193 号票）：插件的 Scope 包在这一栏的内容外面一次（菜单点了以后的对话框画在最后），每张卡是插件的 Entry
+  // 网页插件的看板条目：插件的 Scope 包在这一栏的内容外面一次（菜单点了以后的对话框画在最后），每张卡是插件的 Entry
   const boardSlots = plugins.list("boardEntries");
   const plugged = (e: BoardEntry) => {
     const slot = plugins.get("boardEntries", e.kind);
@@ -429,7 +429,7 @@ function Board({
   return <div className="chat-col">{boardSlots.reduceRight<ReactNode>((children, slot) => (slot.Scope ? <slot.Scope>{children}</slot.Scope> : children), body)}</div>;
 }
 
-/** 一组里的一行：一张卡，或者连着几条属于没启用的插件的合成的一行占位（193 号票） */
+/** 一组里的一行：一张卡，或者连着几条属于没启用的插件的合成的一行占位 */
 type BoardRow = { kind: "entry"; entry: BoardEntry } | { kind: "unavailable"; plugin: string; count: number; first: string };
 
 /** 属于没启用的插件的条目（unavailable 交回插件的名字）：同一个插件连着的几条合成一行占位，别的照原样 */
@@ -471,7 +471,7 @@ function useCardChoice(choice: CardChoice, onOpen: () => void, anchor: RefObject
 }
 
 // 看板上的几种卡：标题下面状态所在的那一行挂 bcard-status-row，token、时间表、下一次这些数字挂 bcard-num——
-// 经典不认这两个类名，是给视觉风格下样式用的（39 号票的规矩：补 class，不改结构；夜航仪表按它们把状态排到右上角、数字用等宽字）
+// 经典不认这两个类名，是给视觉风格下样式用的（规矩：补 class，不改结构；夜航仪表按它们把状态排到右上角、数字用等宽字）
 function TaskCard({ task: ts, onOpen, choice }: { task: TaskSummary; onOpen(): void; choice: CardChoice }) {
   const ref = useRef<HTMLButtonElement>(null);
   const c = useCardChoice(choice, onOpen, ref);
@@ -493,7 +493,7 @@ function TaskCard({ task: ts, onOpen, choice }: { task: TaskSummary; onOpen(): v
       </div>
       <div className="bcard-meta bcard-status-row">
         <span className={`st st-${ts.status}`}>{statusText(ts)}</span>
-        {/* 292 号票：会话交给了官方 App（停着等收回的状态里已经写明） */}
+        {/* 会话交给了官方 App（停着等收回的状态里已经写明） */}
         {ts.remote && !remoteInStatus(ts) && <RemoteBadge badge={ts.remote} />}
         {ts.progress && <TaskProgress progress={ts.progress} />}
         {ts.tokens !== undefined && <span className="bcard-num">{tokensText(ts.tokens, ts.cacheHitTokens)}</span>}
@@ -503,7 +503,7 @@ function TaskCard({ task: ts, onOpen, choice }: { task: TaskSummary; onOpen(): v
           <span className="muted">{ts.waitNote}</span>
         </div>
       )}
-      {/* 274 号票：系统查到的结果（绿字一行；和自报对不上的另标） */}
+      {/* 系统查到的结果（绿字一行；和自报对不上的另标） */}
       {ts.observed && (
         <div className="bcard-meta bcard-observed" title={t("pages.tasks.observedTitle")}>
           <span className="bcard-outcome" title={ts.observed.text}>
@@ -512,7 +512,7 @@ function TaskCard({ task: ts, onOpen, choice }: { task: TaskSummary; onOpen(): v
           {ts.observed.mismatches > 0 && <span className="bcard-outcome-bad">{t("pages.tasks.observedMismatch", { n: ts.observed.mismatches, count: ts.observed.mismatches })}</span>}
         </div>
       )}
-      {/* 305 号票：在哪个文件夹做（新建时选的、接管来的） */}
+      {/* 在哪个文件夹做（新建时选的、接管来的） */}
       {ts.workdir && <WorkdirLine path={ts.workdir} />}
       <div className="bcard-meta">
         <ActivityDot state={ts.activity} note={ts.activityNote} />
@@ -522,7 +522,7 @@ function TaskCard({ task: ts, onOpen, choice }: { task: TaskSummary; onOpen(): v
   );
 }
 
-/** 卡上一行：负责人在哪个文件夹做（305 号票），路径长的从前面省略 */
+/** 卡上一行：负责人在哪个文件夹做，路径长的从前面省略 */
 function WorkdirLine({ path }: { path: string }) {
   return (
     <div className="bcard-meta bcard-workdir" title={path}>
@@ -532,9 +532,9 @@ function WorkdirLine({ path }: { path: string }) {
 }
 
 /**
- * 定时触发的任务的卡（76 号票）：种类签、"定时"签、状态（运营中、已暂停及原因；结束了的写任务的状态）、时间表、下一次、token，
+ * 定时触发的任务的卡：种类签、"定时"签、状态（运营中、已暂停及原因；结束了的写任务的状态）、时间表、下一次、token，
  * 最近一次运行的结果（失败的醒目），能暂停、恢复、取消（取消先确认）。点卡片打开任务详情，点按钮不打开。
- * 事件触发的（77 号票）："事件"签，写在等什么事件、最近一次触发是什么事件
+ * 事件触发的："事件"签，写在等什么事件、最近一次触发是什么事件
  */
 function TimedTaskCard({ task: ts, onOpen, choice }: { task: TaskSummary; onOpen(): void; choice: CardChoice }) {
   const trigger = ts.trigger!;
@@ -575,7 +575,7 @@ function TimedTaskCard({ task: ts, onOpen, choice }: { task: TaskSummary; onOpen
           <TaskProgress progress={ts.progress} />
         </div>
       )}
-      {/* 事件触发的（77 号票）：在等什么事件、最近一次触发 */}
+      {/* 事件触发的：在等什么事件、最近一次触发 */}
       {trigger.waitingFor && <div className="bcard-waiting">{t("pages.tasks.waitingFor", { what: trigger.waitingFor })}</div>}
       {ts.workdir && <WorkdirLine path={ts.workdir} />}
       {trigger.lastTrigger && (
@@ -601,7 +601,7 @@ function TimedTaskCard({ task: ts, onOpen, choice }: { task: TaskSummary; onOpen
 }
 
 /**
- * 卡上涉及的项目：运营方案建的内部任务（141 号票）是一个项目小标签，点了进项目（卡片本身点了打开任务，标签上的点击不往上传）；
+ * 卡上涉及的项目：运营方案建的内部任务是一个项目小标签，点了进项目（卡片本身点了打开任务，标签上的点击不往上传）；
  * 别的写涉及的项目名
  */
 function ProjectChips({ task: ts }: { task: TaskSummary }) {
@@ -680,14 +680,14 @@ function TriggerActions({ jobId, title, actions }: { jobId: string; title: strin
   );
 }
 
-/** 作业卡（19 号票）：状态（运营中、已暂停及原因）、时间表、下一次、属于哪个项目、"最近一次失败"；真作业可以暂停、恢复、取消 */
+/** 作业卡：状态（运营中、已暂停及原因）、时间表、下一次、属于哪个项目、"最近一次失败"；真作业可以暂停、恢复、取消 */
 function ScheduledJobCard({ j, on, selecting }: { j: ScheduledJobSummary; on: boolean; selecting: boolean }) {
   const { scheduledJobAction } = useStore();
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [menu, setMenu] = useState(false);
   const ref = useRevealed<HTMLDivElement>(on);
   const actions = j.actions ?? [];
-  // 长按 / 右键菜单（90 号票）：和卡上的按钮一样的暂停、恢复、取消（取消先确认）
+  // 长按 / 右键菜单：和卡上的按钮一样的暂停、恢复、取消（取消先确认）
   const press = useLongPress(() => setMenu(true), { disabled: selecting || actions.length === 0 });
   return (
     <div ref={ref} className={`bcard bcard-static${on ? " on" : ""}`} {...press}>
@@ -767,7 +767,7 @@ function ScheduledJobCard({ j, on, selecting }: { j: ScheduledJobSummary; on: bo
 // ---------- 任务详情 ----------
 
 /**
- * 点开一个任务（368 号票，用户 2026-11-01："不管点哪里进去，同一个 agent 的对话框看起来应该都一样"）：
+ * 点开一个任务（"不管点哪里进去，同一个 agent 的对话框看起来应该都一样"）：
  * 项目负责人做的任务没有单独的页面，地址换成项目的对话框、定位到这个任务（带 at 的照旧定位），老链接不失效；
  * 跨项目的、不属于项目的任务有自己的负责人，有自己的页面，和项目的对话框是同一个组件（AgentConversation.tsx）。
  * 看板上还没接真数据的假条目照旧（原型）
@@ -788,19 +788,19 @@ function TaskDetail({ taskId, wide, at, onBack }: { taskId: string; wide: boolea
 const PROTO_CHAT_TASKS = "「家庭照片整理与去重」「个税年度汇算材料」「每周汇总银行账单」「博客迁移到 Astro」"; // @i18n-ignore data：原型演示数据里的任务名
 
 /**
- * 原型的假任务详情（看板上还没接真数据的那些）：和真任务同一个对话框（368 号票），菜单项按假任务的状态算，做了在页面上演
+ * 原型的假任务详情（看板上还没接真数据的那些）：和真任务同一个对话框，菜单项按假任务的状态算，做了在页面上演
  * （prototype/proto-task-acts.ts）
  */
 function ProtoTaskDetail({ taskId, wide, at, onBack }: { taskId: string; wide: boolean; at?: string | undefined; onBack?: () => void }) {
   const { proto } = useProto();
   const task = proto.board.find((e): e is TaskSummary => e.kind === "task" && e.id === taskId);
   const detail = taskDetailOf(taskId);
-  // 会话里每一条的详情（56 号票）
+  // 会话里每一条的详情
   const [conversationRef, pane] = useConversationPane(wide, detail.maintainer);
   const hasStages = detail.stages.length > 0;
-  // 整个计划下面那一行出过的状况，阶段标签刚被拉回时闪一下（60 号票）
+  // 整个计划下面那一行出过的状况，阶段标签刚被拉回时闪一下
   const { counts, ping, items } = useStageIncidents(detail.maintainer, taskId, pane.show);
-  // 计划（91 号票）：照假阶段画依赖图，出过的状况从假会话里数
+  // 计划：照假阶段画依赖图，出过的状况从假会话里数
   const { ui } = useStore();
   const graph = useMemo(() => listedStageGraph(ui, items, taskId, detail.stages, detail.planCardId), [ui, items, taskId, detail.stages, detail.planCardId]);
   const stepAt = useMemo(() => stageAtItems(ui, items, taskId), [ui, items, taskId]);
@@ -822,7 +822,7 @@ function ProtoTaskDetail({ taskId, wide, at, onBack }: { taskId: string; wide: b
   const acts = useTaskActs();
   if (!task) return <div className="page-placeholder">{t("pages.tasks.missing")}</div>;
 
-  // 阶段详情（60 号票）：原型的假任务照真任务的规矩——建好了阶段、没取消没归档的，开始过的阶段能从这里重做（84 号票）
+  // 阶段详情：原型的假任务照真任务的规矩——建好了阶段、没取消没归档的，开始过的阶段能从这里重做
   const target = { ...targetOf(task), deleted: onBack };
   const stageSource = hasStages ? target.stages : undefined;
   const subject = protoSubject(task);

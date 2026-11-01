@@ -1,20 +1,20 @@
-// 原型里的设置 · 数据源（295 号票）：直接打开构建产物（file://）时没有守护进程，这里编几个数据源和导入文件夹看样子——
-// 297 号票起第一个是真插件的 Google · 日历（连着两个日历，每 30 分钟同步、显示在日历里），后面是示例的：
-// 一个连着、定期导入的（带敏感内容），298 号票的 Google · Gmail（没连：按需查开着、导入我发出的邮件关着，原来那个"示例邮箱"换成了它），
+// 原型里的设置 · 数据源：直接打开构建产物（file://）时没有守护进程，这里编几个数据源和导入文件夹看样子——
+// 第一个是真插件的 Google · 日历（连着两个日历，每 30 分钟同步、显示在日历里），后面是示例的：
+// 一个连着、定期导入的（带敏感内容），Google · Gmail（没连：按需查开着、导入我发出的邮件关着，原来那个"示例邮箱"换成了它），
 // 一个只靠导入文件夹的；文件夹里一个认不出的、一个最近导入的。
-// 动作只改内存里的样子（立即同步多 3 条、断开、开关用法），和守护进程一样要一会儿。真的数据源由各数据源插件登记（296 起）。
-// 299 号票：加了手机插件的两个（通讯录选人、手机日历：连着，这台是 HUAWEI Pura 90），设备交来的只记一句。
-// 301 号票：加了 Google · 联系人（只靠导入文件夹，上次导了一份编的 contacts.vcf）。
-// 300 号票：加了手机插件的照片的时间地点、位置（连着，带几天原始数据；清掉原始数据只改内存里的样子）。
-// 296 号票：Google 后面是真插件的 Looki（开头没连：下面是 Looki 插件画的填 Key 的那一块；填了 Key 测试连接就连上，
+// 动作只改内存里的样子（立即同步多 3 条、断开、开关用法），和守护进程一样要一会儿。真的数据源由各数据源插件登记。
+// 加了手机插件的两个（通讯录选人、手机日历：连着，这台是 HUAWEI Pura 90），设备交来的只记一句。
+// 加了 Google · 联系人（只靠导入文件夹，上次导了一份编的 contacts.vcf）。
+// 加了手机插件的照片的时间地点、位置（连着，带几天原始数据；清掉原始数据只改内存里的样子）。
+// Google 后面是真插件的 Looki（开头没连：下面是 Looki 插件画的填 Key 的那一块；填了 Key 测试连接就连上，
 // Key 写 bad 回"不认"，连着时新填 bad 是"还在用原来的"）。
-// 307 号票：Looki 带"存一份到本地"那一块（panel）：开头默认开着、还没存过；连上以后编一份已存的数（照片、日记、vlog）；改设置、补存、
+// Looki 带"存一份到本地"那一块（panel）：开头默认开着、还没存过；连上以后编一份已存的数（照片、日记、vlog）；改设置、补存、
 // 停下、接着补、现在接着存只改内存里的样子（位置要写成 D:\… 这样的完整路径，不然回"要写完整的路径"），打开文件夹回"原型里打不开"。
-// 306 号票：每个数据源带断开确认框要的 hasSecrets（填过密钥的）、toMaterials（导入的进素材的）；手机日历、通讯录、Google 日历、
+// 每个数据源带断开确认框要的 hasSecrets（填过密钥的）、toMaterials（导入的进素材的）；手机日历、通讯录、Google 日历、
 // Google 联系人带数据源报的那一句（disconnectNote），和守护进程的说法一样。
-// 308 号票："手机 · 位置"带"常去的地方"那一块（panel）：起了名的家、公司，常待还没起名的两处（一处有地名、一处只有坐标）；
+// "手机 · 位置"带"常去的地方"那一块（panel）：起了名的家、公司，常待还没起名的两处（一处有地名、一处只有坐标）；
 // 起名、改名、删、加一处只改内存里的样子（重名的、名字空着的回原因）。
-// 343 号票：数据源详情里看数据——已获取的（进素材的按 fake-materials 里编的数据源素材列，点开跳素材详情；不进素材的这里编）、现在能查到的
+// 数据源详情里看数据——已获取的（进素材的按 fake-materials 里编的数据源素材列，点开跳素材详情；不进素材的这里编）、现在能查到的
 // （日历、Gmail、Looki 编的上游：现查要一会儿；Gmail 点开才有正文；没连着的写明）。全是编的，没有真实信息。Gmail 开头就连着，好看现查的样子。
 import type {
   DataSourceActionBody,
@@ -55,7 +55,7 @@ function lookiArchive(): LookiArchiveView {
 
 const today = (time: string) => `${nowIso().slice(0, 10)}T${time}:00.000+08:00`;
 
-/** "手机 · 位置"下面"常去的地方"那一块（308 号票）：起了名的两处、常待还没起名的两处 */
+/** "手机 · 位置"下面"常去的地方"那一块：起了名的两处、常待还没起名的两处 */
 function phonePlaces(): PhonePlacesView {
   return {
     kind: "phone-places",
@@ -73,7 +73,7 @@ function phonePlaces(): PhonePlacesView {
 /** 往前第 n 天的日期（YYYY-MM-DD） */
 const daysAgo = (n: number) => nowIso(new Date(Date.now() - n * 86_400_000)).slice(0, 10);
 
-/** 编的 Gmail 账号（344 号票）：一行的样子和守护进程给的一样 */
+/** 编的 Gmail 账号：一行的样子和守护进程给的一样 */
 function gmailAccount(address: string, off = false): DataSourceItemView {
   const id = `a${[...address].reduce((n, c) => (n * 31 + c.charCodeAt(0)) >>> 0, 7).toString(16).padStart(10, "0").slice(0, 10)}`;
   return { id, title: address, detail: `${off ? "关着" : "连着"} · 已导入 0 封`, count: 0, removable: true, ...(off ? { off: true as const } : {}) };
@@ -355,7 +355,7 @@ const later = <T>(value: () => T): Promise<T> => new Promise((resolve) => setTim
 /** 这一刻往后 hours 小时（负的是往前） */
 const inHours = (hours: number) => nowIso(new Date(Date.now() + hours * 3_600_000));
 
-/** 不进素材的，已获取的（343 号票）：同步来的日程、挑过的人、手机日程，新的在前 */
+/** 不进素材的，已获取的：同步来的日程、挑过的人、手机日程，新的在前 */
 function storedItems(id: string): DataSourceDataItem[] {
   switch (id) {
     case "google-calendar":
@@ -397,7 +397,7 @@ const FAKE_MAIL: ReadonlyArray<DataSourceDataItem & { text: string }> = [
   { id: "all-1-101", title: "你订阅的周刊", subtitle: "周刊 <weekly@example.com>", time: inHours(-75), openable: true, text: "本周看点：……" },
 ];
 
-/** 编的 Gmail 现查：开着的账号一个一组（344 号票），都是同一份编的邮件 */
+/** 编的 Gmail 现查：开着的账号一个一组，都是同一份编的邮件 */
 function gmailLive(source: DataSourceView | undefined): Omit<DataSourceLiveResult, "state" | "at"> {
   const on = (source?.items ?? []).filter((item) => !item.off);
   return {
@@ -408,7 +408,7 @@ function gmailLive(source: DataSourceView | undefined): Omit<DataSourceLiveResul
   };
 }
 
-/** 编的上游，现查回来的（343 号票）；日历有一个没拉到 */
+/** 编的上游，现查回来的；日历有一个没拉到 */
 function liveAnswer(id: string, source?: DataSourceView): Omit<DataSourceLiveResult, "state" | "at"> | undefined {
   switch (id) {
     case "google-calendar":
@@ -490,7 +490,7 @@ export class FakeDataSources {
     });
   }
 
-  /** Gmail（344 号票）：加一个账号（密码写 bad 回"不认"，已有的不动）、换密码、开关一个；什么都不填是再测一次；已有的账号密码写 revoked 看"登录不再通过"那一行的样子 */
+  /** Gmail：加一个账号（密码写 bad 回"不认"，已有的不动）、换密码、开关一个；什么都不填是再测一次；已有的账号密码写 revoked 看"登录不再通过"那一行的样子 */
   private configureGmail(source: DataSourceView, values: Readonly<Record<string, string>>): DataSourceActionResult {
     const items = [...(source.items ?? [])];
     const settle = (next: DataSourceItemView[]) => {
@@ -518,7 +518,7 @@ export class FakeDataSources {
     return { view: structuredClone(this.state) };
   }
 
-  /** 断开一个 Gmail 账号（344 号票）：别的账号不动，最后一个断开就是没连 */
+  /** 断开一个 Gmail 账号：别的账号不动，最后一个断开就是没连 */
   private disconnectGmailAccount(source: DataSourceView, item: string, purge: boolean): DataSourceActionResult {
     const next = (source.items ?? []).filter((one) => one.id !== item);
     const on = next.filter((one) => !one.off);
@@ -532,7 +532,7 @@ export class FakeDataSources {
     return { view: structuredClone(this.state), ...(purge ? { purged: { events: 0, materials: 0, files: 0 } } : {}) };
   }
 
-  /** Looki 的测试连接（296 号票）：Key 写 bad 回"不认"（原来连着的还在用原来的）；区域不填沿用账号那一行写着的（编的数据） */
+  /** Looki 的测试连接：Key 写 bad 回"不认"（原来连着的还在用原来的）；区域不填沿用账号那一行写着的（编的数据） */
   private configureLooki(source: DataSourceView, values: Readonly<Record<string, string>>): DataSourceActionResult {
     const key = values.key ?? "";
     const refused = "Looki 不认这个 Key：看看有没有复制全、区域选得对不对（中国区和海外的 Key 不通用）";
@@ -556,7 +556,7 @@ export class FakeDataSources {
     return { view: structuredClone(this.state) };
   }
 
-  /** Looki 的"存一份到本地"（307 号票）：改设置、补存、停下、接着补、现在接着存（编的，只改内存里的样子） */
+  /** Looki 的"存一份到本地"：改设置、补存、停下、接着补、现在接着存（编的，只改内存里的样子） */
   private archiveLooki(source: DataSourceView, values: Readonly<Record<string, string>>): DataSourceActionResult {
     const a = source.panel as LookiArchiveView;
     delete a.refused;
@@ -600,7 +600,7 @@ export class FakeDataSources {
     return { view: structuredClone(this.state) };
   }
 
-  /** 常去的地方（308 号票）：起名、改名、删、加一处只改内存里的样子 */
+  /** 常去的地方：起名、改名、删、加一处只改内存里的样子 */
   private phonePlaces(source: DataSourceView, values: Readonly<Record<string, string>>): DataSourceActionResult {
     const view = source.panel as PhonePlacesView;
     delete view.refused;
@@ -634,7 +634,7 @@ export class FakeDataSources {
     return { view: structuredClone(this.state) };
   }
 
-  /** 设备交来的（299 号票）：原型里不在 App 里交不过来，只记一句 */
+  /** 设备交来的：原型里不在 App 里交不过来，只记一句 */
   push(id: string, body: DataSourcePushBody): Promise<DataSourcePushResult> {
     const source = this.state.sources.find((s) => s.id === id);
     if (!source) return Promise.reject(new Error(`没有数据源 ${id}`));
@@ -646,7 +646,7 @@ export class FakeDataSources {
     });
   }
 
-  /** 已获取的（343 号票）：进素材的按素材的出处列（和守护进程一样），不进素材的是编的；Gmail 没导入过 */
+  /** 已获取的：进素材的按素材的出处列（和守护进程一样），不进素材的是编的；Gmail 没导入过 */
   stored(id: string, body: DataSourceStoredBody, deleted: ReadonlySet<string>): Promise<DataSourceStoredPage> {
     const source = this.state.sources.find((s) => s.id === id);
     if (!source) return Promise.reject(new Error(`没有数据源 ${id}`));
@@ -662,7 +662,7 @@ export class FakeDataSources {
     });
   }
 
-  /** 现在能查到的（343 号票）：编的上游，只读、什么都不改；没连着的写明 */
+  /** 现在能查到的：编的上游，只读、什么都不改；没连着的写明 */
   live(id: string, body: DataSourceLiveBody): Promise<DataSourceLiveResult> {
     const source = this.state.sources.find((s) => s.id === id);
     if (!source) return Promise.reject(new Error(`没有数据源 ${id}`));

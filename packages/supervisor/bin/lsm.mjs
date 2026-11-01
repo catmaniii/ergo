@@ -237,7 +237,7 @@ async function main() {
     return 1;
   }
 
-  // VPS 一条命令搭建（321 号票）：setup / status / remove / approve。`lsm vps`、`lsm vps refresh` 还是订阅到期提醒，走下面。
+  // VPS 一条命令搭建：setup / status / remove / approve。`lsm vps`、`lsm vps refresh` 还是订阅到期提醒，走下面。
   // 要动服务管家（登记、起停隧道服务）时才接上它，见 lsmAdapter
   if (cmd === 'vps' && ['setup', 'status', 'remove', 'approve', 'site', 'certs', 'scan', 'help'].includes(args[0])) {
     const { runVps } = await import('../src/vps/cli.mjs');
@@ -273,7 +273,7 @@ async function main() {
     case undefined:
     case 'status':
     case 'adopt': {
-      // --json：整份快照原样给程序读（ergo status / start 用它，318 号票）
+      // --json：整份快照原样给程序读（ergo status / start 用它）
       if (args.includes('--json')) { console.log(JSON.stringify(await sup.snapshot())); return 0; }
       printStatus(await sup.snapshot(), mode);
       return 0;

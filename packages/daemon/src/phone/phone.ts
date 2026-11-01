@@ -1,10 +1,10 @@
-// "手机"插件的服务（299 号票）：收手机上的二狗 App 交来的（经内核的数据源 push，查过 schema），写插件自己的事件（events.ts）。
+// "手机"插件的服务：收手机上的二狗 App 交来的（经内核的数据源 push，查过 schema），写插件自己的事件（events.ts）。
 // - 通讯录选人：挑的几个人写成 phone_contact_picked，交给个人档案的候选（origin contacts：不用提到几次就上卡，电话、住址也收），
 //   当场合成候选核对卡（还没处理的那张接着往里加），交回卡的编号让网页领着去核对；
 // - 手机日历：连着（用户在 App 里点了"连上手机日历"）时收同步范围里的全部日程，和现在的样子比出增量（新、改、删）写成
 //   phone_calendar_event；没授权、撤回了、读不了的记下状况和原因（数据源页写明）；日历插件按月取时给 [from, to) 里的日程。
 // 数据源页的"共几条"：通讯录是挑过几个人（按记录数），日历是现在有几条日程（count）。
-// 300 号票：照片的时间地点、位置在 photos-location.ts（插件自己的存储、按天整理成摘要），这里合进同一个服务。
+// 照片的时间地点、位置在 photos-location.ts（插件自己的存储、按天整理成摘要），这里合进同一个服务。
 import { randomUUID } from "node:crypto";
 import {
   formatList,
@@ -41,9 +41,9 @@ export interface PhoneServiceOptions {
   personalFiles: Pick<PersonalFilesForMemory, "addCandidates" | "composeCandidates">;
   /** 日历插件在不在（不在时"手机 · 日历"写明同步来的日程暂时看不到） */
   calendarOn: () => boolean;
-  /** 现在（毫秒，守护进程的时钟；300 号票的照片、位置按它分"今天以前"） */
+  /** 现在（毫秒，守护进程的时钟；照片、位置按它分"今天以前"） */
   nowMs: () => number;
-  /** 数据目录（300 号票：插件自己的存储在它下面的 phone/） */
+  /** 数据目录（插件自己的存储在它下面的 phone/） */
   dataDir: string;
   log: (line: string) => void;
 }
@@ -61,9 +61,9 @@ export interface PhoneService extends PhoneMediaService {
   calendarCount(): number;
   /** 在数据源页断开了"手机 · 日历" */
   unlinkCalendar(): void;
-  /** 挑过的人（343 号票，数据源详情的"已获取的"）：后挑的在前 */
+  /** 挑过的人（数据源详情的"已获取的"）：后挑的在前 */
   contactsStored(query: DataSourceStoredQuery): DataSourceStoredResult;
-  /** 手机日历现在的日程（343 号票，数据源详情的"已获取的"）：开始时间晚的在前 */
+  /** 手机日历现在的日程（数据源详情的"已获取的"）：开始时间晚的在前 */
   calendarStored(query: DataSourceStoredQuery): DataSourceStoredResult;
 }
 

@@ -1,6 +1,6 @@
-// 彻底删除（规格第 14、15 节，21 号票）在事件这一层的约定：一条事件改写成什么，由拥有这类事件的模块写一个改写函数，
+// 彻底删除（规格第 14、15 节）在事件这一层的约定：一条事件改写成什么，由拥有这类事件的模块写一个改写函数，
 // 登记进记忆模块的改写函数表（memory/rewriters.ts）。规矩只有两条：
-// - 消息事件（用户的消息）整条换成"已删除"标记（共享协议包的 DeletedEventPayload，08 号票定的格式）；
+// - 消息事件（用户的消息）整条换成"已删除"标记（共享协议包的 DeletedEventPayload，定的格式）；
 // - 别的事件只把带原话的文本字段（说明、参数里的原话、结果摘录）换成删除标记文字 PURGED_TEXT，
 //   id、状态、决定这些结构字段原样保留：改写后派生视图整体重放，状态不能变（审批还是已批准、卡片还是已处理）。
 import { type DeletedEventPayload, EVENT_TYPES, type MessageEventPayload, PURGED_TEXT } from "@ergo/protocol";
@@ -11,8 +11,8 @@ export interface PurgeContext {
   deletedAt: string;
   materialIds: ReadonlySet<string>;
   /**
-   * 删除项目时照彻底删除的口径一起改写的（ADR-0010）为 project_deletion：工具调用的完整内容据此注明（详情页写"已随项目删除"，
-   * 66 号票）；彻底删除时不写
+   * 删除项目时照彻底删除的口径一起改写的（ADR-0010）为 project_deletion：工具调用的完整内容据此注明（详情页写"已随项目删除"）；
+   * 彻底删除时不写
    */
   purgedBy?: "project_deletion";
 }
@@ -22,19 +22,19 @@ export interface PurgeRewriter {
   eventType: string;
   rewrite(event: StoredEvent, context: PurgeContext): unknown;
   /**
-   * 改写这条事件时要连带改写的别的事件（可选）：原话不只在这一条里的。比如语音（31 号票）：素材来自识别完成的 voice 事件，
+   * 改写这条事件时要连带改写的别的事件（可选）：原话不只在这一条里的。比如语音：素材来自识别完成的 voice 事件，
    * 这条语音的消息、其余的 voice 事件、重新识别后交给 agent 的通知里也有它（连带的事件各按自己类型的改写函数改写）
    */
   related?(event: StoredEvent, store: EventStore): StoredEvent[];
   /**
-   * 改写后追加的新版本（可选）：改写不通知订阅者，开着的页面、由事件投影出来的文件靠它更新。比如范围记录（18 号票）：
+   * 改写后追加的新版本（可选）：改写不通知订阅者，开着的页面、由事件投影出来的文件靠它更新。比如范围记录：
    * 同一个 id 的记录再追加一条改写后的。只在这次真的改了（负载变了）时调用
    */
   newVersion?(event: StoredEvent, rewritten: unknown): NewEvent | undefined;
 }
 
 /**
- * 别的模块的事件里引着这类事件的原话（可选登记，由引用方写）：改写这类事件时连带改写那些事件。比如范围记录（18 号票）
+ * 别的模块的事件里引着这类事件的原话（可选登记，由引用方写）：改写这类事件时连带改写那些事件。比如范围记录
  * 引着用户在负责人会话里的话、审批卡上的批准：彻底删除那条消息、那个审批决定时，引用它的范围记录一起改写
  */
 export interface PurgeQuotes {

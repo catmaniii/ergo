@@ -1,10 +1,10 @@
-// 主切面：涉及多个项目的任务（规格第 8、11、12 节，17 号票）。真的守护进程，秘书、任务负责人、各项目的负责人都接 faux 剧本，
+// 主切面：涉及多个项目的任务（规格第 8、11、12 节）。真的守护进程，秘书、任务负责人、各项目的负责人都接 faux 剧本，
 // 测试扮演前端。
 // - 涉及多个项目的任务在建卡时产生自己的负责人，它的工具包固定为三样：读项目档案、派工单、汇总回执（另有运行时控制工具）；
-//   不能写文件、跑 bash（70 号票起能联网搜索、读网页），改不了任何项目；规划时只读各项目档案、不发工单；
+//   不能写文件、跑 bash（能联网搜索、读网页），改不了任何项目；规划时只读各项目档案、不发工单；
 // - 计划里逐行列出每个项目的改动（所属阶段、这张工单的验收标准）；用户确认计划时每一行建成一张工单，所属阶段开始时才派出；
 // - 项目负责人完成或退回时交回执，回执进任务负责人的会话；回执全部到齐且都完成才能跑本阶段的验收，有退回的本阶段不通过，
-//   任务负责人调整做法（重新派单，或者改计划去掉那一行）算一次验收退回；评审能读到回执和各项目的工作目录（112 号票起阶段一律
+//   任务负责人调整做法（重新派单，或者改计划去掉那一行）算一次验收退回；评审能读到回执和各项目的工作目录（阶段一律
 //   由评审自动验收，没有由我验收了）；
 // - 任务涉及几个项目建卡时就定了：计划里只剩一个项目也还是多项目任务；单项目任务、不涉及项目的任务的计划写不进别的项目；
 // - 工单的建出、派出和回执都记在任务时间线上。
@@ -57,7 +57,7 @@ const textOf = (p: MessageEventPayload) => p.message.parts.map((part) => ("text"
 const cardsOf = (frontend: TestFrontend): Card[] => frontend.events({ channel: CARDS, type: EVENT_TYPES.card }).map((f) => (f.payload as CardEventPayload).card);
 const tasksOf = (frontend: TestFrontend) => frontend.events({ channel: BOARD, type: EVENT_TYPES.task }).map((f) => f.payload as TaskEventPayload);
 const workOrdersOf = (frontend: TestFrontend) => frontend.events({ channel: PROJECTS, type: EVENT_TYPES.workOrder }).map((f) => f.payload as WorkOrderEventPayload);
-/** 时间线记录里的工单写编号加标题（159 号票；163 号票写成 wo-3「标题」） */
+/** 时间线记录里的工单写编号加标题（写成 wo-3「标题」） */
 const shown = (wo: { id: string; title: string }) => namedIdLabel(wo.id, wo.title);
 const recordsOf = (frontend: TestFrontend, channel: string) => frontend.events({ channel, type: EVENT_TYPES.timelineRecord }).map((f) => f.payload as TimelineRecordEventPayload);
 type ToolCallPart = Extract<MessageEventPayload["message"]["parts"][number], { type: "tool_call" }>;
@@ -187,8 +187,8 @@ describe("涉及多个项目的任务：任务自己的负责人和规划", () =
 
     const card = await planCardOf(frontend, taskId);
     const seen = textOf(await agentSaid(frontend, TM1, "[tool] "));
-    // 工具包只有三样，加上运行时控制的"提交计划"和每个负责人会话都有的口语总结（32 号票的语音回复）、发语音（86 号票）、联网搜索和读网页（70 号票）、
-    // 给秘书发消息（102 号票：除了秘书每个 agent 默认都有）、读附件（143 号票：用户在它的会话里发的附件读得了全文）；没有文件读写、bash
+    // 工具包只有三样，加上运行时控制的"提交计划"和每个负责人会话都有的口语总结（语音回复）、发语音、联网搜索和读网页、
+    // 给秘书发消息（除了秘书每个 agent 默认都有）、读附件（用户在它的会话里发的附件读得了全文）；没有文件读写、bash
     expect(seen.split("\n").filter((l) => l.startsWith("[tool] ")).toSorted()).toEqual([
       "[tool] dispatch_work_order",
       "[tool] read_attachment",
@@ -248,9 +248,9 @@ describe("涉及多个项目的任务：任务自己的负责人和规划", () =
     expect(records.map((r) => r.record.workOrderId)).toEqual([a.workOrder.id, b.workOrder.id, a.workOrder.id]);
     expect(records.every((r) => r.taskId === taskId)).toBe(true);
 
-    // 执行时：还是固定的三样，加上回答项目负责人、转问用户和推进任务的运行时控制；没有文件读写、bash，也没有增减 skill（27 号票的工具包四样都不开）
+    // 执行时：还是固定的三样，加上回答项目负责人、转问用户和推进任务的运行时控制；没有文件读写、bash，也没有增减 skill（工具包四样都不开）
     const executing = await eventually(() => messagesOf(frontend, TM1), (m) => m.message.speaker === "agent" && textOf(m).includes("[tool] answer_work_order"), "执行时的工具");
-    // 接着原会话换了一套工具：开头一份就是这次交的（273 号票）
+    // 接着原会话换了一套工具：开头一份就是这次交的
     const execTools = toolsNow(textOf(executing));
     expect(execTools).toEqual(expect.arrayContaining(["read_project_records", "dispatch_work_order", "summarize_receipts", "answer_work_order", "forward_to_user", "complete_stage", "revise_plan"]));
     for (const forbidden of ["write", "edit", "bash", "adjust_skills", "submit_plan", "ask_clarification"]) expect(execTools).not.toContain(forbidden);
@@ -464,7 +464,7 @@ describe("涉及多个项目的任务：派单、回执和阶段验收", () => {
   }, 240_000);
 });
 
-describe("涉及多个项目的任务：从某个阶段重做（84 号票）", () => {
+describe("涉及多个项目的任务：从某个阶段重做", () => {
   it("正在做本任务工单的项目负责人也先停稳（和任务自己的负责人一起），停下了才重置", async () => {
     const d = dirs();
     const padding = Array.from({ length: 6 }, () => say("好"));
@@ -574,7 +574,7 @@ describe("涉及多个项目的任务：工单的等澄清", () => {
     expect(waiting.task.stages?.list?.find((s) => s.stageId === "s1")).toMatchObject({ state: "waiting", waitReason: "clarification", waitingOn: forwarded.id });
     // 前面那个问题没有出给用户：只有这一张提问卡
     expect(cardsOf(frontend).filter((c) => c.type === "questions").map((c) => c.id).filter((id, i, all) => all.indexOf(id) === i)).toEqual([forwarded.id]);
-    // 369 号票：提问算到问的人头上：任务负责人是等你，说明带着这张卡；秘书不受影响
+    // 提问算到问的人头上：任务负责人是等你，说明带着这张卡；秘书不受影响
     const activityOf = (agentId: string) => td.daemon.store.read(CHANNELS.activity, 0, EVENT_TYPES.activity).map((e) => e.payload as ActivityEventPayload).filter((a) => a.agentId === agentId);
     await waitUntil(() => activityOf("tm-1").at(-1)?.state === "waiting_for_user", { timeoutMs: 30_000, describe: () => JSON.stringify(activityOf("tm-1")) });
     expect(activityOf("tm-1").at(-1)?.detail).toMatchObject({ kind: "clarification", cardId: forwarded.id });
@@ -704,7 +704,7 @@ describe("涉及多个项目的任务：计划外的工单", () => {
   }, 180_000);
 });
 
-describe("涉及多个项目的任务：对话审批关着时计划外的工单（101 号票）", () => {
+describe("涉及多个项目的任务：对话审批关着时计划外的工单", () => {
   it("任务的 agent 超出授权先不管：计划外的工单不出工单卡、直接派出，命中的类别照常写在回给负责人的话里，时间线上照常记一笔", async () => {
     const d = dirs();
     const recordsB = d.records("p-2");
@@ -932,7 +932,7 @@ describe("涉及多个项目的任务：改计划去掉退回的那一行", () =
   }, 180_000);
 });
 
-/** 一个阶段（评审验收：112 号票起单项目任务的计划不能写由你验收），计划里的项目行另给 */
+/** 一个阶段（评审验收：单项目任务的计划不能写由你验收），计划里的项目行另给 */
 function onePlan(projects: Plan["projects"]): Plan {
   return { ...twoProjectPlan(), stages: [stage("s1", "写周报", [], "review")], projects };
 }
@@ -970,7 +970,7 @@ describe("计划里涉及的项目要对得上任务", () => {
     inUseProject(td, "家电档案");
     const frontend = await connect(td.url, [BOARD, CARDS, INBOX, PROJECTS, PM1, TM2]);
 
-    // 单项目任务（记账本，64 号票起是它的内部任务）：提交时写进家电档案被拒，只写自己的项目就行
+    // 单项目任务（记账本，是它的内部任务）：提交时写进家电档案被拒，只写自己的项目就行
     internalTask(td.daemon, "记账本", "给记账本加周报");
     const single = (await taskWhere(frontend, (e) => e.change === "created" && e.task.title === "给记账本加周报", "单项目任务建出")).task.id;
     td.daemon.tasks.writeBrief(single, { goal: "每周出一份周报", acceptanceCriteria: ["有周报文件"], constraints: [], projects: ["记账本"], memoryScope: "" }, byMaintainer(td.daemon, single));

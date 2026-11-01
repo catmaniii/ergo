@@ -3,11 +3,11 @@
 // - 按钮闭环：前端发"对卡片做动作" {卡片 id, 动作, 期望版本, 幂等键} → 按版本条件更新（先到先得）→ 回 ack →
 //   卡片频道推送更新。后到的得到"已被处理"；同一幂等键重发拿到第一次的结果，不会做两次。
 //   卡片动作只接受来自前端的请求：秘书没有任何对卡片做动作的工具。
-// - 用户关掉一张卡（动作之后状态为已关闭）时，同一事务里追加"卡片被关闭"事件（回避信号的素材，08 号票采集）。
+// - 用户关掉一张卡（动作之后状态为已关闭）时，同一事务里追加"卡片被关闭"事件（回避信号的素材）。
 //
 // 存储是同步的（node:sqlite），一次动作从检查版本到追加事件在同一段同步代码里完成，两个前端同时点不会都生效。
 // 要和别的事件一起原子追加（比如提醒到点：提醒、卡片、待我处理一起变），用 buildCreate / buildUpdate 拿到事件自己放进 appendBatch。
-// 彻底删除（21 号票）时卡片事件的改写（cardPurge）：负载按卡片类型登记的 purge 改写，用户在卡上写的说明换成删除标记，
+// 彻底删除时卡片事件的改写（cardPurge）：负载按卡片类型登记的 purge 改写，用户在卡上写的说明换成删除标记，
 // 版本、状态、处理结果的动作不变。
 import { randomUUID } from "node:crypto";
 import {
@@ -45,7 +45,7 @@ export interface CardChange {
   payload?: unknown;
   status?: Card["status"];
   outcome?: Card["outcome"];
-  /** 系统让它作废时的说明（status 为 expired，84 号票）：再点旧按钮回这句 */
+  /** 系统让它作废时的说明（status 为 expired）：再点旧按钮回这句 */
   expiredNote?: string;
 }
 
@@ -193,7 +193,7 @@ export function createCardService(options: CardServiceOptions): CardService {
         idempotencyKey: request.idempotencyKey,
       });
       if (!(ran instanceof Promise)) return finish(card, request, ran, time);
-      // 晚一点才有结果的动作（84 号票）：等到了再核一遍卡片，期间被别处处理过、改过的不落盘
+      // 晚一点才有结果的动作：等到了再核一遍卡片，期间被别处处理过、改过的不落盘
       return ran.then((effect) => {
         const fresh = getCard(store.reader, card.id);
         if (fresh?.status !== "pending" || fresh.version !== card.version) {

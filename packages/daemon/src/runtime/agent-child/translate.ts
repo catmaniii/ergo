@@ -1,5 +1,5 @@
 // @i18n-ignore-file model：翻译的系统提示给模型看；没翻成的原因守护进程只记日志
-// 子进程里翻斜杠命令的说明（310 号票，translate-main.ts 拉起这里）：Claude Code 报回的命令、skill 带的说明是英文的，界面是中文时
+// 子进程里翻斜杠命令的说明（translate-main.ts 拉起这里）：Claude Code 报回的命令、skill 带的说明是英文的，界面是中文时
 // 用二狗的模型翻成一句中文（别的语言同理），守护进程缓存起来。
 // - 只交说明原文：每条单独一次模型调用（completeSimple，和范围审视一样在会话之外），系统提示只说怎么翻，用户消息就是那句原文；
 // - 不开思考、最多 MAX_TOKENS 个 token；模型照守护进程交来的（catalog 的按 provider 取凭据，faux 的按剧本回），凭据只放内存；

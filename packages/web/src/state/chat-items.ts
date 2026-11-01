@@ -1,6 +1,6 @@
-// 会话条目层（52 号票，规格第 19 节"会话区"）：把一个会话拆成一条条"条目"（ChatItem），每条带上缩小后的样子、
+// 会话条目层（规格第 19 节"会话区"）：把一个会话拆成一条条"条目"（ChatItem），每条带上缩小后的样子、
 // 要点层那一行（semanticsOf / keyLine）。
-// 缩放（54 号票，每条一个矩形，三层叠在里面）、两侧标注（55）、详情页（56，按条目 id 存）、聊天区精简（57）都从这里取。
+// 缩放（每条一个矩形，三层叠在里面）、两侧标注、详情页（按条目 id 存）、聊天区精简都从这里取。
 //
 // 输入是前端状态层的时间线（ui-state.ts 的 timelineItems：消息、时间线记录、正在生成的回复、乐观显示的尾巴），纯函数，不碰 DOM。
 // 切法：
@@ -8,33 +8,33 @@
 //   每张卡片、每条工单分隔线各一条；系统说明一条；
 // - 工具调用组（用户要的汇总行，规格第 19 节）：两段话之间的工具调用按先后合成一组。
 //   被拦下、问过你、你拒绝了、等你批准、出错的也在组里、按先后排，组上带着这几种情况的计数（issues）和最显眼的性质色
-//   （用户 2026-10-09 改：单独成条像两件事，先后顺序也乱）。卡片（包括审批卡）、系统说明、记录、已删除会把组隔开；
+//   （单独成条像两件事，先后顺序也乱）。卡片（包括审批卡）、系统说明、记录、已删除会把组隔开；
 //   换了 agent（子 agent）、换了任务或阶段也另起一组，免得一组跨两个阶段；
-// - 思考（用户 2026-10-09 定）：两段话之间、没有正文的思考不论长短都并进工具调用组，
+// - 思考：两段话之间、没有正文的思考不论长短都并进工具调用组，
 //   组里按时间顺序留着每一步的思考和调用（steps），详情里照这个顺序列；思考不隔开组。带着正文的思考照常单独一条，排在回复前面；
 //   前后都没有调用的思考单独一条；正在生成的思考还不知道后面有没有调用、有没有正文，也单独一条；
-// - 二狗的内部工具（INTERNAL_TOOLS，用户 2026-10-09 定）：会话里已经有对应的卡片、说明或记录代表它，顺利执行时不显示——
+// - 二狗的内部工具（INTERNAL_TOOLS）：会话里已经有对应的卡片、说明或记录代表它，顺利执行时不显示——
 //   不算进组的 N；在组里的留在组的 steps 里，不在组里的挂在代表它的那一条上（internalCalls），详情页、locateChatItem 都查得到。
 //   被拦下、出错的照旧算进组里，不藏；
-// - 调用记忆（187 号票，用户 2026-10-20 定）：检索素材、读素材执行了的调用（memory-recall.ts 的 isRecallCall）不算进组的 N，
-//   （263 号票起问记忆、266 号票起每条消息自动带上的记忆简报也算：简报不是工具调用，回话里的 MemoryBriefPart 当成一次调用记忆，
+// - 调用记忆：检索素材、读素材执行了的调用（memory-recall.ts 的 isRecallCall）不算进组的 N，
+//   （问记忆、每条消息自动带上的记忆简报也算：简报不是工具调用，回话里的 MemoryBriefPart 当成一次调用记忆，
 //   拼成工具调用的样子 briefCallPart，ChatToolCall.brief 留着为什么带它）
 //   在它发生的位置单独一条"回忆了 N 条记忆"（recall 条目）：两段话之间攒着的那一段按"锚"（算进 N 的调用、调用记忆）切开，
 //   同一种连着的是一段（中间隔着思考也算连着），调用记忆的一段成一条 recall、别的成一组；思考、顺利执行的内部工具跟着后面的那一段，
 //   最后剩下的跟着前一段（recall 里的内部工具挂在它的 internalCalls 上）。被拦下、出错的记忆调用照旧算进组里；
-// - 发出了语音气泡的"发语音"调用（87 号票，用户 2026-10-11 定）：气泡已经代表了它，不进组、不算进 N、缩小后不画，也不隔开组；
+// - 发出了语音气泡的"发语音"调用：气泡已经代表了它，不进组、不算进 N、缩小后不画，也不隔开组；
 //   挂在发出的那个气泡上（语音条目的 toolCall），气泡的详情里看得到。按语音对象上记的工具调用 id 对上（agent-voice.ts 的 toolVoiceCalls），
 //   不看先后（等太久先交回时调用记录比气泡先到）；气泡还不在手里（还在合成、在没取回的更早一页）时先不显示。没发出去的照常算进组；
 // - 时间线记录（偏离、范围变更、越界、操作记录）、"已删除"各自一条；
-// - agent 之间的来信（115 号票）：秘书会话里的任务做完、负责人来信（系统消息），负责人会话里的秘书转达（用户消息），运行时补给
+// - agent 之间的来信：秘书会话里的任务做完、负责人来信（系统消息），负责人会话里的秘书转达（用户消息），运行时补给
 //   负责人的计划检查，条目上带着 letter（agent-letters.ts：种类、图标、一句话总结），对话层画成一行、点开看全文；
-//   367 号票：交给 agent 的长通知没有标记也一样（只改对话层，要点层那一行照旧）；
+//   交给 agent 的长通知没有标记也一样（只改对话层，要点层那一行照旧）；
 //   要点那一行写"种类：总结"。种类照旧（system、user），底色、要点标注、详情的找法都不变。
-// - 附件一律显示在文字后面（118 号票）：agent 一轮里先发的附件（只有文件、图片的消息）、任务做完时运行时放的附件，
+// - 附件一律显示在文字后面：agent 一轮里先发的附件（只有文件、图片的消息）、任务做完时运行时放的附件，
 //   挪到这一轮最后一段说完了的话（定稿的文字回复、语音气泡）后面；只改先后，id、序号不变（attachmentsAfterText）。
 // 每条推出：种类、稳定的 id、要点层那一行字（keyLine）、性质色（授权内、做完告诉我、被拦下或问过）、两侧标注要的要点
 // （timeline.ts 的 TimelineMark）、内容类型（要点层、全局层的底色）、能不能打开详情和详情的种类。
-// keyLine 里守护进程写的话（卡片的纯文本、系统说明、记录）换成现在的说法、保留名字占位（43 号票），界面照名字标签画。
+// keyLine 里守护进程写的话（卡片的纯文本、系统说明、记录）换成现在的说法、保留名字占位，界面照名字标签画。
 //
 // id 的规矩（详情页、缩放的锚点按它存；查找一律用 locateChatItem，不直接按 id 比对）：
 // - 一条消息的"主体"（用户消息、语音、回复、系统说明）用消息的 key（timelineItemKey：自己发的是幂等键，从乐观显示换成权威消息时不变；
@@ -68,7 +68,7 @@ import { briefCallPart, isRecallCall, recallLine, type RecallSummary, recallSumm
 import { type ConversationRecord, type RequestStatus, type TimelineItem, timelineItems, type UiState } from "./ui-state.ts";
 
 type ToolCallPart = Extract<MessagePart, { type: "tool_call" }>;
-/** 会话里的分隔线：项目负责人会话的工单段（16 号票），定时触发的任务的一次运行（76 号票），清空当前对话（114 号票） */
+/** 会话里的分隔线：项目负责人会话的工单段，定时触发的任务的一次运行，清空当前对话 */
 type DividerPart = Extract<MessagePart, { type: "work_order_divider" | "run_divider" | "conversation_cleared" }>;
 type VoiceLikePart = Extract<MessagePart, { type: "voice" | "tts_audio" }>;
 
@@ -80,7 +80,7 @@ export type InternalShownAs =
   | { readonly kind: "reply" }
   | { readonly kind: "none" };
 
-/** 内部工具在会话里由什么代表的说法（详情里"内部调用：会话里由…代表"，170 号票起按当前语言现取） */
+/** 内部工具在会话里由什么代表的说法（详情里"内部调用：会话里由…代表"，按当前语言现取） */
 const WHAT = tTable({
   planCard: "state.chatItems.internal.planCard",
   acceptanceCard: "state.chatItems.internal.acceptanceCard",
@@ -103,7 +103,7 @@ const WHAT = tTable({
 });
 
 /**
- * 二狗的内部工具（用户 2026-10-09 定）：不显示 report_step、把 propose_plan 改写成计划卡，
+ * 二狗的内部工具：不显示 report_step、把 propose_plan 改写成计划卡，
  * 这些工具的调用在会话里已经有对应的卡片、系统说明或时间线记录（或者只是 agent 自己的记账），顺利执行时不再显示调用本身，
  * 挂在代表它的那一条上（shownAs）。名单只在这里；工具名以守护进程的定义为准（注释里是定义的位置）。
  * 评审子 agent 交结论的 submit_review 不在这里：评审的会话是 null，它的调用不进会话
@@ -135,15 +135,15 @@ export const INTERNAL_TOOLS: Readonly<Record<string, { readonly what: string; re
   propose_parallel: { get what() { return WHAT.parallelCard; }, shownAs: { kind: "card", cardType: "parallel" } },
   /** projects/tool-names.ts SUBMIT_CHARTER_TOOL */
   submit_charter: { get what() { return WHAT.charterCard; }, shownAs: { kind: "card", cardType: "charter" } },
-  /** projects/tool-names.ts PROPOSE_CHARTER_CHANGE_TOOL（125 号票） */
+  /** projects/tool-names.ts PROPOSE_CHARTER_CHANGE_TOOL */
   propose_charter_change: { get what() { return WHAT.charterChangeCard; }, shownAs: { kind: "card", cardType: "charter_change" } },
-  /** projects/tool-names.ts PROPOSE_STANDARD_CHANGE_TOOL（261 号票） */
+  /** projects/tool-names.ts PROPOSE_STANDARD_CHANGE_TOOL */
   propose_standard_change: { get what() { return WHAT.standardChangeCard; }, shownAs: { kind: "card", cardType: "standard_change" } },
   /** toolkit/tool-names.ts REQUEST_TOOLKIT_CHANGE_TOOL */
   request_toolkit_change: { get what() { return WHAT.toolkitChangeCard; }, shownAs: { kind: "card", cardType: "toolkit_change" } },
-  /** mcp/tool-names.ts REQUEST_MCP_CHANGE_TOOL（239 号票） */
+  /** mcp/tool-names.ts REQUEST_MCP_CHANGE_TOOL */
   request_mcp_change: { get what() { return WHAT.mcpChangeCard; }, shownAs: { kind: "card", cardType: "mcp_change" } },
-  /** skills/tool-names.ts REQUEST_SKILL_CHANGE_TOOL（358 号票） */
+  /** skills/tool-names.ts REQUEST_SKILL_CHANGE_TOOL */
   request_skill_change: { get what() { return WHAT.skillChangeCard; }, shownAs: { kind: "card", cardType: "skill_change" } },
   /** toolkit/tool-names.ts ADJUST_SKILLS_TOOL */
   adjust_skills: { get what() { return WHAT.toolkitRecord; }, shownAs: { kind: "record", recordKind: "toolkit" } },
@@ -158,9 +158,9 @@ export function isInternalTool(tool: string): boolean {
 
 export const CHAT_ITEM_KINDS = ["user", "voice", "thinking", "reply", "tool_group", "recall", "card", "system", "record", "divider", "deleted", "unavailable"] as const;
 /**
- * 条目的种类：用户消息、语音（用户的、agent 的）、思考、回复、工具调用组（含出了状况的调用）、调用记忆（187 号票）、
+ * 条目的种类：用户消息、语音（用户的、agent 的）、思考、回复、工具调用组（含出了状况的调用）、调用记忆、
  * 卡片、系统说明、时间线记录（偏离、范围变更、越界、操作记录）、工单分隔、已删除、
- * 插件没启用时看不到的（193 号票：停用的插件拥有的条目经 maskUnavailable 换成的占位）
+ * 插件没启用时看不到的（停用的插件拥有的条目经 maskUnavailable 换成的占位）
  */
 export type ChatItemKind = (typeof CHAT_ITEM_KINDS)[number];
 
@@ -176,7 +176,7 @@ export const CONTENT_KIND_LABEL: Readonly<Record<ContentKind, string>> = tTable(
 });
 
 /**
- * 条目详情的种类：文本（用户消息、回复、思考、语音转写、系统说明）、工具调用组、调用记忆（187 号票："这次用到的记忆"）、卡片、时间线记录。
+ * 条目详情的种类：文本（用户消息、回复、思考、语音转写、系统说明）、工具调用组、调用记忆（"这次用到的记忆"）、卡片、时间线记录。
  * 单次工具调用的详情从组的详情里点进去（locateChatItem 按调用的 id 找到组和那一次）
  */
 export type DetailKind = "text" | "tool_group" | "recall" | "card" | "record";
@@ -215,18 +215,18 @@ export interface ChatToolCall {
   readonly outcome: string | undefined;
   /** 算进"调用了 N 个工具"：除了顺利执行的内部工具、发出了气泡的发语音、调用记忆都算 */
   readonly counted: boolean;
-  /** 调用记忆（187 号票：检索素材、读素材执行了的）：不算进 N，单独画成"回忆了 N 条记忆"那一条 */
+  /** 调用记忆（检索素材、读素材执行了的）：不算进 N，单独画成"回忆了 N 条记忆"那一条 */
   readonly recall: boolean;
-  /** 发出了语音气泡的"发语音"调用（87 号票）：那条 agent 语音的 id。会话里不单独显示，挂在那个气泡上；别的调用没有 */
+  /** 发出了语音气泡的"发语音"调用：那条 agent 语音的 id。会话里不单独显示，挂在那个气泡上；别的调用没有 */
   readonly voiceId: string | undefined;
-  /** 266 号票：这一次其实是自动带上的记忆简报（part 是 briefCallPart 拼的样子）：为什么带它在这里；真的工具调用没有 */
+  /** 这一次其实是自动带上的记忆简报（part 是 briefCallPart 拼的样子）：为什么带它在这里；真的工具调用没有 */
   readonly brief?: Extract<MessagePart, { type: "memory_brief" }>;
   readonly seq?: number;
   readonly time: string | undefined;
   readonly scope: MessageScope;
   /** 这次调用的要点（关注类别命中、通用 bash、三种样式；没有就是空的） */
   readonly marks: readonly TimelineMark[];
-  /** 说人话的那一句（call-sentence.ts）：参数里的编号写成"t-3「整理发票」"，名字按状态层现取（159、163 号票） */
+  /** 说人话的那一句（call-sentence.ts）：参数里的编号写成"t-3「整理发票」"，名字按状态层现取 */
   readonly sentence: CallSentence;
 }
 
@@ -270,13 +270,13 @@ export type ChatItem = ChatItemBase &
         readonly message: MessageEnvelope;
         /** 文字部分 */
         readonly text: string;
-        /** 秘书转达的（103 号票：用户在秘书那里说、秘书插进这个会话的那一句，不是用户在这里打的字）；界面上标出来 */
+        /** 秘书转达的（用户在秘书那里说、秘书插进这个会话的那一句，不是用户在这里打的字）；界面上标出来 */
         readonly relayed: boolean;
-        /** 秘书转达的那一句在会话里折成一行（115 号票）：种类、一句话总结；用户自己打的没有 */
+        /** 秘书转达的那一句在会话里折成一行：种类、一句话总结；用户自己打的没有 */
         readonly letter: AgentLetter | undefined;
         /** 乐观显示、还没得到确认的：发送中或失败 */
         readonly pending: RequestStatus | undefined;
-        /** 排着队（144 号票：二狗回复时发的，这一轮做完再交给它）：虚线气泡，能叉掉、拖动改顺序 */
+        /** 排着队（二狗回复时发的，这一轮做完再交给它）：虚线气泡，能叉掉、拖动改顺序 */
         readonly queued?: boolean;
       }
     | {
@@ -285,9 +285,9 @@ export type ChatItem = ChatItemBase &
         readonly part: VoiceLikePart;
         readonly message: MessageEnvelope;
         readonly pending: RequestStatus | undefined;
-        /** 排着队的语音（144 号票） */
+        /** 排着队的语音 */
         readonly queued?: boolean;
-        /** 工具发的语音（87 号票）：发它的那次"发语音"调用（会话里不单独显示，气泡的详情里看）；语音回复、用户的语音没有 */
+        /** 工具发的语音：发它的那次"发语音"调用（会话里不单独显示，气泡的详情里看）；语音回复、用户的语音没有 */
         readonly toolCall: ChatToolCall | undefined;
       }
     | { readonly kind: "thinking"; readonly text: string; readonly streaming: boolean }
@@ -299,9 +299,9 @@ export type ChatItem = ChatItemBase &
         readonly streaming: boolean;
         /** 正在生成、漏了中间增量的：不拼残缺的文字，等定稿消息 */
         readonly broken: boolean;
-        /** 说到一半被停下了（144 号票：用户点了停止，或者任务暂停、取消时中止）：标"已停止" */
+        /** 说到一半被停下了（用户点了停止，或者任务暂停、取消时中止）：标"已停止" */
         readonly stopped?: boolean;
-        /** 在官方 App 里说的（292 号票：会话交给官方 App 期间只读跟随补记的）：标"在官方 App 里" */
+        /** 在官方 App 里说的（会话交给官方 App 期间只读跟随补记的）：标"在官方 App 里" */
         readonly remote?: boolean;
       }
     | {
@@ -310,11 +310,11 @@ export type ChatItem = ChatItemBase &
         readonly calls: readonly ChatToolCall[];
         /** 按时间顺序的每一步：思考、调用（含内部工具）。详情里照这个顺序列 */
         readonly steps: readonly ChatGroupStep[];
-        /** 出了状况的调用各有几次（按 CALL_ISSUES 的先后，只列有的）：57 号票画小签"· 1 次被拦下" */
+        /** 出了状况的调用各有几次（按 CALL_ISSUES 的先后，只列有的）：画小签"· 1 次被拦下" */
         readonly issues: readonly { readonly issue: CallIssue; readonly count: number }[];
       }
     | {
-        /** 调用记忆（187 号票）：一行"回忆了 N 条记忆 ›"，点开"这次用到的记忆" */
+        /** 调用记忆：一行"回忆了 N 条记忆 ›"，点开"这次用到的记忆" */
         readonly kind: "recall";
         /** 调用记忆的那几次（检索素材、读素材，执行了的），按先后 */
         readonly calls: readonly ChatToolCall[];
@@ -328,15 +328,15 @@ export type ChatItem = ChatItemBase &
         readonly kind: "system";
         readonly text: string;
         readonly parts: readonly MessagePart[];
-        /** 运行时写给 agent 的来信（115 号票：任务做完、负责人来信、计划检查）在会话里折成一行；给用户看的说明没有 */
+        /** 运行时写给 agent 的来信（任务做完、负责人来信、计划检查）在会话里折成一行；给用户看的说明没有 */
         readonly letter: AgentLetter | undefined;
         /**
-         * 分支摘要（150 号票，会话回退之后新分支开头那一条，branch_summary part）：对话层显示 🧭 加摘要，
-         * 缩放层标题"分支摘要"；它本身也是回退点（撤回到这条分支开始前）。text 就是摘要。files（293 号票）：运行时把它改过的文件恢复到撤回点没有
+         * 分支摘要（会话回退之后新分支开头那一条，branch_summary part）：对话层显示 🧭 加摘要，
+         * 缩放层标题"分支摘要"；它本身也是回退点（撤回到这条分支开始前）。text 就是摘要。files：运行时把它改过的文件恢复到撤回点没有
          * （Claude Code 的文件检查点；撤回不动文件的运行时没有）
          */
         readonly branch?: { readonly id: string; readonly summary: string; readonly files?: BranchFilesRewind };
-        /** 第一版任务书交给负责人的那条（172 号票，消息上的 taskBrief）：对话层照常显示 */
+        /** 第一版任务书交给负责人的那条（消息上的 taskBrief）：对话层照常显示 */
         readonly taskBrief?: true;
       }
     | { readonly kind: "record"; readonly record: ConversationRecord }
@@ -344,7 +344,7 @@ export type ChatItem = ChatItemBase &
     | { readonly kind: "deleted" }
     | {
         /**
-         * 插件没启用、这条内容暂时看不到（193 号票）：停用的插件拥有的条目（比如记忆插件的"回忆了 N 条记忆"、提醒插件的提醒卡）
+         * 插件没启用、这条内容暂时看不到：停用的插件拥有的条目（比如记忆插件的"回忆了 N 条记忆"、提醒插件的提醒卡）
          * 换成一行占位。id、序号、时间、归属照原来的，详情打不开
          */
         readonly kind: "unavailable";
@@ -355,7 +355,7 @@ export type ChatItem = ChatItemBase &
       }
   );
 
-/** 某个会话的条目（按时间线的先后；只有附件的几条挪到这一轮的文字后面，118 号票） */
+/** 某个会话的条目（按时间线的先后；只有附件的几条挪到这一轮的文字后面） */
 export function chatItems(state: UiState, conversation: ConversationId, branch?: string): ChatItem[] {
   const voiceCalls = toolVoiceCalls(state, conversation);
   return assemble(
@@ -365,7 +365,7 @@ export function chatItems(state: UiState, conversation: ConversationId, branch?:
 }
 
 /**
- * 停用的插件拥有的条目换成占位（193 号票，ADR-0027 的网页插槽）：unavailable 说这一条归哪个没启用的插件（给它的名字，没有就是不归），
+ * 停用的插件拥有的条目换成占位（ADR-0027 的网页插槽）：unavailable 说这一条归哪个没启用的插件（给它的名字，没有就是不归），
  * 界面按网页插件宿主现算（plugins/react.tsx 的 useUnavailable：调用记忆归记忆插件、提醒卡归提醒插件……）。换成的那一条 id、序号、
  * 时间、归属照原来的（缩放的锚点、"在对话中定位"照样找得到），要点那一行写"（X插件没启用，这条内容暂时看不到）"，没有详情。
  * 一条都不换时原样交回（同一个数组）
@@ -414,16 +414,16 @@ export function locateChatItem(items: readonly ChatItem[], id: string): { item: 
       if (step.kind === "call" && step.call.id === callId) return grouped ? { item } : { item, call: step.call };
     }
   }
-  // 发出了气泡的发语音调用（87 号票）：落在那个气泡上
+  // 发出了气泡的发语音调用：落在那个气泡上
   for (const item of items) if (item.kind === "voice" && item.toolCall?.id === callId) return grouped ? { item } : { item, call: item.toolCall };
   return undefined;
 }
 
 const GROUP_PREFIX = "group:";
-/** 调用记忆那一条的 id 开头（187 号票） */
+/** 调用记忆那一条的 id 开头 */
 const RECALL_PREFIX = "recall:";
 
-/** 有一串调用的条目：工具调用组、调用记忆（187 号票）——steps 里按时间顺序是思考和调用，缩小后逐次画 */
+/** 有一串调用的条目：工具调用组、调用记忆——steps 里按时间顺序是思考和调用，缩小后逐次画 */
 export type CallGroupItem = Extract<ChatItem, { kind: "tool_group" | "recall" }>;
 
 export function isCallGroup(item: ChatItem): item is CallGroupItem {
@@ -431,7 +431,7 @@ export function isCallGroup(item: ChatItem): item is CallGroupItem {
 }
 
 /**
- * 从别处跳过来要定位的那一条（105 号票：待办里"去看看 ›"带来的卡片 id 或工具调用 id；158 号票：设置里素材出处的用户消息 id）
+ * 从别处跳过来要定位的那一条（待办里"去看看 ›"带来的卡片 id 或工具调用 id；设置里素材出处的用户消息 id）
  * 在条目层的 id，给会话的 reveal；会话里还没有它（还没加载到、在更早的历史里）时是 undefined
  */
 export function revealTargetId(items: readonly ChatItem[], target: string): string | undefined {
@@ -445,7 +445,7 @@ export function revealTargetId(items: readonly ChatItem[], target: string): stri
 
 /**
  * 时间线上一条（timelineItemKey 给的 key）里各部分在条目层的 id：主体（用户消息、回复、系统说明、语音、记录）是 key 本身，
- * 思考加 ":think"，工具调用、卡片、工单分隔加 "#part 序号"。按消息画的界面给元素标上它，打开详情、定位都用它（56 号票）
+ * 思考加 ":think"，工具调用、卡片、工单分隔加 "#part 序号"。按消息画的界面给元素标上它，打开详情、定位都用它
  */
 export function chatItemIdOf(key: string, part?: number | "thinking"): string {
   return part === undefined ? key : part === "thinking" ? `${key}:think` : `${key}#${part}`;
@@ -454,7 +454,7 @@ export function chatItemIdOf(key: string, part?: number | "thinking"): string {
 // ───────────────────────── 拆 ─────────────────────────
 
 /**
- * 拆出来、还没归组的一块：一次调用；一段能并进组的思考（没有正文的消息里的、定稿了的）；发出了气泡的发语音调用（87 号票，挂到气泡上）；
+ * 拆出来、还没归组的一块：一次调用；一段能并进组的思考（没有正文的消息里的、定稿了的）；发出了气泡的发语音调用（挂到气泡上）；
  * 或者别的（已经是一条）
  */
 type Piece =
@@ -491,10 +491,10 @@ function piecesOf(state: UiState, it: TimelineItem, voiceCalls: ReadonlyMap<stri
       return [itemPiece({ kind: "voice", id: key, ...at, content: "user", keyLine: t("state.chatItems.you", { text: voiceLine(state, voice) }), marks: marksIn(all), detail: "text", speaker: "user", part: voice, message, pending, toolCall: undefined, ...queued })];
     const text = textOf(message.parts);
     const relayed = message.relayedBy !== undefined;
-    // 秘书转达的那一句（103 号票）折成一行（115 号票）：要点那一行写"<名字>转达：总结"
+    // 秘书转达的那一句折成一行：要点那一行写"<名字>转达：总结"
     const letter = agentLetterOf(message);
     const said = firstLine(text, 80) || attachmentsLine(message.parts);
-    // 在官方 App 里说的（292 号票，只读跟随补记的）：要点那一行写"在官方 App 里：…"
+    // 在官方 App 里说的（只读跟随补记的）：要点那一行写"在官方 App 里：…"
     const keyLine = letter
       ? t("state.chatItems.labeled", { label: letter.label, text: letter.summary })
       : relayed
@@ -551,7 +551,7 @@ function piecesOf(state: UiState, it: TimelineItem, voiceCalls: ReadonlyMap<stri
         const call = toolCall(state, id, part, at, marks, voiceId);
         out.push(voiceId === undefined ? { kind: "call", call } : { kind: "voice_call", call: { ...call, voiceId } });
       } else if (part.type === "memory_brief") {
-        // 266 号票：自动带上的记忆简报当成一次调用记忆，和检索素材、问记忆一起进"回忆了 N 条记忆"
+        // 自动带上的记忆简报当成一次调用记忆，和检索素材、问记忆一起进"回忆了 N 条记忆"
         out.push({ kind: "call", call: { ...toolCall(state, id, briefCallPart(part, id), at, marks, undefined), brief: part } });
       } else if (part.type === "card_ref")
         out.push(itemPiece({ kind: "card", id, ...at, content: "plan", keyLine: cardLine(state, part.cardId), marks, detail: state.cards[part.cardId] ? "card" : undefined, cardId: part.cardId }));
@@ -574,7 +574,7 @@ function toolCall(
   const internal = isInternalTool(part.tool);
   const issue = callIssueOf(part);
   const sentence = callSentence(part, (ref) => readableId(state, ref));
-  // 调用记忆（187 号票）：执行了的检索素材、读素材，不算进 N
+  // 调用记忆：执行了的检索素材、读素材，不算进 N
   const recall = voiceId === undefined && isRecallCall(part);
   return { id, part, internal, issue, outcome: toolOutcome(part), counted: voiceId === undefined && !recall && (!internal || issue !== undefined), recall, voiceId, ...at, marks, sentence };
 }
@@ -589,7 +589,7 @@ function mainItem(
 ): Draft {
   const { streaming, ...rest } = base;
   const text = textOf(parts);
-  // 分支摘要（150 号票）：标题"分支摘要"
+  // 分支摘要：标题"分支摘要"
   const branch = parts.find((p) => p.type === "branch_summary");
   if (message.speaker === "system" && branch) {
     return {
@@ -605,7 +605,7 @@ function mainItem(
     };
   }
   if (message.speaker === "system") {
-    // 写给 agent 的来信（115 号票）：要点那一行写"种类：总结"；367 号票折起来的长通知只改对话层，要点那一行照旧
+    // 写给 agent 的来信：要点那一行写"种类：总结"；折起来的长通知只改对话层，要点那一行照旧
     const letter = agentLetterOf(message, agentInput);
     const keyLine = letter && letter.kind !== "notice" ? t("state.chatItems.labeled", { label: letter.label, text: letter.summary }) : t("state.chatItems.system", { text: firstLine(currentWording(text)) || attachmentsLine(parts) });
     return { kind: "system", ...rest, content: "context", keyLine, detail: "text", text, parts, letter, ...(message.taskBrief ? { taskBrief: true as const } : {}) };
@@ -648,7 +648,7 @@ const ATTACHMENT_PARTS: ReadonlySet<MessagePart["type"]> = new Set(["file", "ima
 
 /**
  * 只有附件的一条：agent 发的附件（send_attachment 一次发一条消息，只有文件、图片），运行时跟在任务做完的通知后面放的附件
- * （115 号票，只有文件的系统消息）。用户发的附件在用户消息那一条里，不算
+ * （只有文件的系统消息）。用户发的附件在用户消息那一条里，不算
  */
 function attachmentOnly(piece: Piece): boolean {
   if (piece.kind !== "item") return false;
@@ -671,12 +671,12 @@ function agentOutput(piece: Piece): boolean {
 }
 
 /**
- * 附件一律显示在文字后面（118 号票，用户 2026-10-13 提：agent 先发附件再写一大段话，附件被顶到屏幕外）。
+ * 附件一律显示在文字后面（agent 先发附件再写一大段话，附件被顶到屏幕外）。
  * agent 一轮里接着出的那一段（agentOutput 连着的几块；用户的输入、系统说明和来信、卡片、记录、分隔线把它隔开）里，
  * 排在最后一段说完了的话前面的只有附件的几条，挪到那段话后面，几条照原来的先后。在归组之前挪：原来被附件隔开的调用连成一组。
  * 只改显示：事件、序号、id 都不变，旧消息也照这个顺序。
  * - 这一段里还没有说完了的话（还没回、正在出字、只发了附件）：附件照原位置，说完了再挪，正在出字时不跳；
- * - 任务做完的附件（115 号票）紧跟在那封来信后面，秘书回完（文字或语音）挪到回复后面；
+ * - 任务做完的附件紧跟在那封来信后面，秘书回完（文字或语音）挪到回复后面；
  * - 用户的消息、下一轮的话不在这一段里，不动、不越过
  */
 function attachmentsAfterText(pieces: readonly Piece[]): Piece[] {
@@ -717,7 +717,7 @@ const stepOf = (p: RunPiece): ChatGroupStep => (p.kind === "call" ? { kind: "cal
 /**
  * 把拆出来的块排成条目：两段话之间连续的思考和调用攒成一段，里面有算进 N 的调用就成一组；
  * 没有的话（只有思考、顺利执行的内部工具），思考各自单独一条，内部工具调用挂到代表它的那一条上。
- * 发出了气泡的发语音调用（87 号票）不进这一段、也不打断它，最后挂到发出的那个气泡上
+ * 发出了气泡的发语音调用不进这一段、也不打断它，最后挂到发出的那个气泡上
  */
 function assemble(pieces: readonly Piece[], cardTypeOf: (cardId: string) => string | undefined): ChatItem[] {
   const out: ChatItem[] = [];
@@ -764,11 +764,11 @@ function assemble(pieces: readonly Piece[], cardTypeOf: (cardId: string) => stri
   return voiceCalls.length === 0 ? out : withVoiceCalls(out, voiceCalls);
 }
 
-/** 切段的锚：算进 N 的调用、调用记忆（187 号票）。思考、顺利执行的内部工具不是 */
+/** 切段的锚：算进 N 的调用、调用记忆。思考、顺利执行的内部工具不是 */
 const anchorOf = (p: RunPiece) => p.kind === "call" && (p.call.counted || p.call.recall);
 
 /**
- * 两段话之间攒着的一段按锚切开（187 号票）：同一种（调用记忆 / 别的调用）连着的是一段，中间隔着思考也算连着；
+ * 两段话之间攒着的一段按锚切开：同一种（调用记忆 / 别的调用）连着的是一段，中间隔着思考也算连着；
  * 不是锚的（思考、顺利执行的内部工具）跟着后面的那一段，最后剩下的跟着前一段。至少有一个锚
  */
 function segmentsOf(pieces: readonly RunPiece[]): { recall: boolean; pieces: RunPiece[] }[] {
@@ -790,7 +790,7 @@ function segmentsOf(pieces: readonly RunPiece[]): { recall: boolean; pieces: Run
 }
 
 /**
- * 发出了气泡的发语音调用挂到它发出的气泡上（87 号票）：按语音 id 找，不看先后——平常气泡在前（合成完了才有调用记录），
+ * 发出了气泡的发语音调用挂到它发出的气泡上：按语音 id 找，不看先后——平常气泡在前（合成完了才有调用记录），
  * 等太久先交回的调用记录在前。气泡还不在手里的（还在合成、在没取回的更早一页）先不挂（也不单独显示），气泡来了再挂上
  */
 function withVoiceCalls(items: readonly ChatItem[], calls: readonly VoiceToolCall[]): ChatItem[] {
@@ -866,7 +866,7 @@ function groupItem(steps: ChatGroupStep[]): ChatItem {
 }
 
 /**
- * 调用记忆那一条（187 号票）：思考和调用记忆按时间顺序；跟进来的顺利执行的内部工具不在 steps 里，挂在 internalCalls 上
+ * 调用记忆那一条：思考和调用记忆按时间顺序；跟进来的顺利执行的内部工具不在 steps 里，挂在 internalCalls 上
  * （会话里本来就不显示，详情页、locateChatItem 查得到）。N 是去重后的素材条数
  */
 function recallItem(pieces: readonly RunPiece[]): ChatItem {
@@ -942,7 +942,7 @@ function voiceLine(state: UiState, part: VoiceLikePart): string {
 
 /**
  * 卡片：纯文本降级版本的第一行（守护进程写的，换成现在的说法），处理过的写明。
- * 流程计划卡（60 号票）："计划 v2 · 4 步 · 已授权"
+ * 流程计划卡："计划 v2 · 4 步 · 已授权"
  */
 function cardLine(state: UiState, cardId: string): string {
   const card = state.cards[cardId]?.card;
@@ -967,11 +967,11 @@ const CARD_STATUS_TEXT = tTable({
 function dividerLine(part: DividerPart, time: string | undefined): string {
   if (part.type === "run_divider") return part.title;
   if (part.type === "conversation_cleared") return clearedDividerText(time);
-  // 163 号票：工单写"工单 wo-3「标题」"，和别处的 t-3「标题」同一种写法
+  // 工单写"工单 wo-3「标题」"，和别处的 t-3「标题」同一种写法
   return part.workOrderId ? t("state.timeline.workOrder", { id: idLabel(part.workOrderId, part.title) }) : t("state.timeline.chatSegmentTitled", { title: part.title });
 }
 
-/** 清空当前对话的分隔线（114 号票）："以下是新对话 · 10-13 14:02 清空"，上面的是"更早的对话" */
+/** 清空当前对话的分隔线："以下是新对话 · 10-13 14:02 清空"，上面的是"更早的对话" */
 export function clearedDividerText(time: string | undefined): string {
   const m = time === undefined ? null : /^\d{4}-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(time);
   if (!m) return t("state.chatItems.cleared");
@@ -990,7 +990,7 @@ function recordLine(record: ConversationRecord): string {
 // ───────────────────────── 缩小后逐次画 ─────────────────────────
 
 /**
- * 缩小后（要点层、全局层）组里的一块（57 号票，用户 2026-10-10 定）：工具调用组只存在于对话层（"调用了 N 个工具 ›"那一行），
+ * 缩小后（要点层、全局层）组里的一块：工具调用组只存在于对话层（"调用了 N 个工具 ›"那一行），
  * 缩小后不按组画：组里每次算进 N 的调用、每段思考各画一块。
  * 性质、小圆点、右侧标注都按这一次算；顺利执行的内部工具在会话里本来就不显示，不画。id 就是调用、思考的 id（locateChatItem 找得到）
  */
@@ -1001,7 +1001,7 @@ export type ZoomBlock =
       /** 所在的组（条目 id） */
       readonly groupId: string;
       /**
-       * 要点层那一行（67 号票）：前缀（⛔ 被拦下、↩ 拉回、⏸ 等你批准、✕ 你拒绝了）、读了密钥文件的 🔒，
+       * 要点层那一行：前缀（⛔ 被拦下、↩ 拉回、⏸ 等你批准、✕ 你拒绝了）、读了密钥文件的 🔒，
        * 再是说人话的那一句（call-sentence.ts；没有模板的是"中文名 · 参数值"）
        */
       readonly keyLine: string;
@@ -1016,7 +1016,7 @@ export type ZoomBlock =
   | { readonly kind: "thinking"; readonly id: string; readonly groupId: string; readonly keyLine: string };
 
 /**
- * 一条缩小后画成几块：工具调用组是组里每次调用、每段思考各一块；调用记忆（187 号票）照同样的规则，每次调用记忆、每段思考各一块；
+ * 一条缩小后画成几块：工具调用组是组里每次调用、每段思考各一块；调用记忆照同样的规则，每次调用记忆、每段思考各一块；
  * 别的条目不拆（空数组，照原样一块）
  */
 export function zoomBlocks(item: ChatItem): ZoomBlock[] {
@@ -1029,7 +1029,7 @@ export function zoomBlocks(item: ChatItem): ZoomBlock[] {
   });
 }
 
-/** 工具调用组：调了几个工具、哪几种（写中文名，67 号票；同一种连着数），出了状况的写在后面；思考再长也不写 */
+/** 工具调用组：调了几个工具、哪几种（写中文名，同一种连着数），出了状况的写在后面；思考再长也不写 */
 function groupLine(calls: readonly ChatToolCall[], issues: readonly { issue: CallIssue; count: number }[]): string {
   const counts = new Map<string, number>();
   for (const c of calls) counts.set(c.part.tool, (counts.get(c.part.tool) ?? 0) + 1);

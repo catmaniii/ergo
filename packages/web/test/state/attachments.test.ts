@@ -1,6 +1,6 @@
-// 113 号票：聊天里的文件附件画成卡片——类型图标（方块里写类型，按类别上色）、标题、"预览""下载"；一条消息里连着的几个附件排成一横排。
+// 聊天里的文件附件画成卡片——类型图标（方块里写类型，按类别上色）、标题、"预览""下载"；一条消息里连着的几个附件排成一横排。
 // 能预览的（Markdown、纯文本）点图标去报告页，不能预览的点图标直接下载并标明"仅下载"；按 part 上的类型判断，历史消息里的附件也一样。
-// 117 号票：HTML、SVG（1 MB 以内）也能预览，在报告页的沙箱框（HTML）、<img>（SVG）里看。
+// HTML、SVG（1 MB 以内）也能预览，在报告页的沙箱框（HTML）、<img>（SVG）里看。
 // 报告页显示什么：取到的内容（按 Markdown 还是纯文本画，HTML、SVG 在框里看）、截断的提示、取不到时说什么。
 import fs from "node:fs";
 import path from "node:path";
@@ -89,7 +89,7 @@ describe("附件卡片", () => {
     }
   });
 
-  test("HTML、SVG 能预览（117 号票，在沙箱里看）：图标照旧写 HTML、SVG，点图标是预览；按扩展名认，类型写成纯文本也一样", () => {
+  test("HTML、SVG 能预览（在沙箱里看）：图标照旧写 HTML、SVG，点图标是预览；按扩展名认，类型写成纯文本也一样", () => {
     for (const [part, label, preview] of [
       [file("AI 日报.html", "text/html"), "HTML", "html"],
       [file("活动页.htm", "text/plain"), "HTML", "html"],
@@ -161,7 +161,7 @@ describe("一条消息里连着的附件排成一排", () => {
 });
 
 describe("历史消息里的附件也有预览入口", () => {
-  test("回放主切面录下的附件消息（113 号票之前的数据，part 上只有媒体 id、名字、类型、大小）：清单.md 照样能预览", () => {
+  test("回放主切面录下的附件消息（以前的数据，part 上只有媒体 id、名字、类型、大小）：清单.md 照样能预览", () => {
     const inputs = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, "recordings", "secretary-attachments.json"), "utf8")) as UiInput[];
     const files = conversationView(replay(inputs), "secretary")
       .flatMap((it) => messageOf(it).parts)

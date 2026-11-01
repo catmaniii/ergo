@@ -1,4 +1,4 @@
-// 管理器读写的每一个路径都从这里取，别的地方不自己拼（327 号票）。
+// 管理器读写的每一个路径都从这里取，别的地方不自己拼。
 //
 // 两个目录：
 //  - 代码目录（ROOT，就是 packages/supervisor）：bin/、webui/、deploy/、examples/——跟着版本走，装成安装包后会整个换掉。
@@ -10,7 +10,7 @@
 //  2. 环境变量 LSM_DATA_DIR（测试用它指向临时目录，绝不碰本机正在用的那份）；
 //  3. 默认 %LOCALAPPDATA%\ergo\supervisor。
 //
-// 「沿用旧位置」：327 之前数据就放在 LSM 自己的代码目录里，目录里的布局和这里一模一样
+// 「沿用旧位置」：以前数据就放在 LSM 自己的代码目录里，目录里的布局和这里一模一样
 // （registry/、state.json、logs/、.secrets/、tailnet-routes.json）。把 --data-dir 或 LSM_DATA_DIR 指向旧目录，
 // 新代码就原样接着用旧数据；确认没问题后把这五样原样搬到默认位置、去掉这个开关即可。
 import os from 'node:os';
@@ -76,10 +76,10 @@ export const TAILNET_ROUTES = path.join(DATA_DIR, 'tailnet-routes.json');
 // 密钥：WebUI 口令和盐、tailnet 证书、云账号的只读 AccessKey
 export const SECRETS_DIR = path.join(DATA_DIR, '.secrets');
 export const TAILNET_CERTS = path.join(SECRETS_DIR, 'tailnet');
-// `lsm vps setup` 搭的 VPS（321 号票）：装了什么记在这里；专用钥匙（管理用、隧道用）和这台 VPS 的主机指纹放密钥区
+// `lsm vps setup` 搭的 VPS：装了什么记在这里；专用钥匙（管理用、隧道用）和这台 VPS 的主机指纹放密钥区
 export const VPS_STATE = path.join(DATA_DIR, 'vps-setup.json');
 export const VPS_KEYS_DIR = path.join(SECRETS_DIR, 'vps-setup');
-// VPS 上证书的到期日（322 号票）：lsm vps certs 写（管理器、WebUI 读它是下一步）
+// VPS 上证书的到期日：lsm vps certs 写（管理器、WebUI 读它是下一步）
 export const VPS_CERTS = path.join(DATA_DIR, 'vps-certs.json');
 // 每次显示给你看的 VPS 脚本另存一份（setup / remove 各留最近一份），方便用编辑器细看
 export const VPS_SCRIPTS_DIR = path.join(DATA_DIR, 'vps-scripts');

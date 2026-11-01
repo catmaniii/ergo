@@ -1,4 +1,4 @@
-// 测试用的假 Google 日历（297 号票）：编的 .ics 内容，和两种"远端"——假内核里直接注入的假 fetch、主切面里本机起的假 HTTP 服务。
+// 测试用的假 Google 日历：编的 .ics 内容，和两种"远端"——假内核里直接注入的假 fetch、主切面里本机起的假 HTTP 服务。
 // 不连真的 Google：地址长得像私密 iCal 地址，主切面里换成本机回环地址。
 import http from "node:http";
 import type { AddressInfo } from "node:net";

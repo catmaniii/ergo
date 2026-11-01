@@ -1,17 +1,17 @@
 // 快速动作（规格第 9 节"快速动作的确认"、第 14 节）：秘书写清做什么、对谁做，运行时决定直接执行还是先问用户。
 // - 动作类型必须是执行器注册表里登记过的（registry.ts）；没登记的不出卡，工具向秘书返回错误；参数先按执行器自带的 schema 校验；
-// - "明确点了"由运行时判定：执行器自己声明（explicit.ts 的辅助函数），看用户这一轮的原话（语音看识别出的文字，31 号票）。
+// - "明确点了"由运行时判定：执行器自己声明（explicit.ts 的辅助函数），看用户这一轮的原话（语音看识别出的文字）。
 //   点明了的：卡片出来就是"已执行"，只展示规范化后的动作（底线照样管：交给我做、永不的不执行）；
 // - 推断出来的：把动作作为伪工具调用交给守卫的类别匹配（judge.ts：内置类别、用户的自定义类别、底线，取最严），
 //   推断出来一律先问的、总要核对的再往严里提。会直接执行的（直接做只记录、做完告诉我）照样直接执行；先问我的出一张待确认的卡，
 //   同时进待我处理，用户点"执行"才执行；交给我做、永不的不出卡，告诉秘书原因；
 // - 执行由执行器直接完成，不拉起 agent、不上任务看板、不占并发名额。每次执行是动作所在会话频道上的一条
 //   quick_action_executed 事件，也就是"操作记录"（动作类型、规范化后的动作、凭什么执行的、结果、对应的卡片），和卡片更新同一事务。
-//   凭什么执行的（25 号票，时间线按它取样式）：用户点明的、推断出来但在已有授权内直接执行的、用户在卡上确认后。
-//   卡片按钮的幂等、先到先得、"已被处理"沿用 06 号票的按钮闭环；操作记录的幂等键是动作 id，同一个动作只会有一条。
-// - 要等外面回话的动作（执行器写了 perform，27 号票：调用 MCP 工具）：直接执行的，等结果回来再出"已执行"卡、记操作记录；
+//   凭什么执行的（时间线按它取样式）：用户点明的、推断出来但在已有授权内直接执行的、用户在卡上确认后。
+//   卡片按钮的幂等、先到先得、"已被处理"沿用按钮闭环；操作记录的幂等键是动作 id，同一个动作只会有一条。
+// - 要等外面回话的动作（执行器写了 perform：调用 MCP 工具）：直接执行的，等结果回来再出"已执行"卡、记操作记录；
 //   在卡上确认的，卡先记成已处理（"正在执行"），结果回来后卡片补上结果、记操作记录（失败的照样记，结果写明没做成）。
-// - 彻底删除（21 号票）时快速动作卡和操作记录只把带原话的字段（标题里的内容、对象、内容、参数、结果）换成删除标记。
+// - 彻底删除时快速动作卡和操作记录只把带原话的字段（标题里的内容、对象、内容、参数、结果）换成删除标记。
 import { randomUUID } from "node:crypto";
 import {
   ASSISTANT_NAME_MARK,
@@ -75,7 +75,7 @@ export interface QuickActionRequest {
   /** 秘书自称用户点明了（只记日志，不作数） */
   claimedExplicit?: boolean;
   /**
-   * 总要用户核对（284 号票：记忆管理员在了解你访谈里提的档案信息——原话是访谈里零零碎碎说的，收尾时一起出核对卡）：
+   * 总要用户核对（记忆管理员在了解你访谈里提的档案信息——原话是访谈里零零碎碎说的，收尾时一起出核对卡）：
    * 不看用户这一轮点没点明，按推断的处理（照执行器的确认规则出卡）
    */
   alwaysAsk?: boolean;
@@ -90,7 +90,7 @@ export interface QuickActionService {
    * 结果放进 CardActionEffect 的 events 和 purge，和卡片更新同一事务
    */
   execute(executor: QuickActionExecutor, params: unknown, context: QuickActionContext, title: string): QuickActionOutcome;
-  /** 卡上确认的、要等外面回话的动作（执行器写了 perform，27 号票）：在卡片更新落盘之后叫，结果回来后补上卡片的结果和操作记录 */
+  /** 卡上确认的、要等外面回话的动作（执行器写了 perform）：在卡片更新落盘之后叫，结果回来后补上卡片的结果和操作记录 */
   performConfirmed(executor: QuickActionExecutor, params: unknown, context: QuickActionContext, title: string, payload: QuickActionCardPayload): void;
 }
 
@@ -141,7 +141,7 @@ function execute(executor: SyncQuickActionExecutor, params: unknown, context: Qu
 
 /**
  * agent 正在处理的那条用户消息：用户这一轮说了什么（不是用户的消息、没有消息时什么都没说）。
- * 快速动作的"明确点了"、任务的"点明了才发起"（58 号票，tasks/launch-intent.ts）共用
+ * 快速动作的"明确点了"、任务的"点明了才发起"（tasks/launch-intent.ts）共用
  */
 export function readUserTurn(store: Pick<EventStore, "reader">, cards: Pick<CardService, "get">, inputMessageId: string | undefined): UserTurn {
   const message = inputMessageId === undefined ? undefined : getMessage(store.reader, inputMessageId);
@@ -174,7 +174,7 @@ export function createQuickActionService(options: QuickActionServiceOptions): Qu
       action = executor.normalizeChecked(request.params);
     } catch (err) {
       // 执行器明说不让做的（比如任务现在的状态不能暂停）原样回给秘书；别的是参数不对。
-      // 执行器的说法按用户的语言写，交给秘书的按中文再取一遍（174 号票）
+      // 执行器的说法按用户的语言写，交给秘书的按中文再取一遍
       const said = forModel(() => thrownBy(() => executor.normalizeChecked(request.params))) ?? err;
       if (said instanceof RequestRejected) return { text: `不能这样做：${said.message}`, isError: true };
       return { text: `参数不对：${said instanceof Error ? said.message : String(said)}`, isError: true };
@@ -266,7 +266,7 @@ export function createQuickActionService(options: QuickActionServiceOptions): Qu
     // @i18n-ignore-end
   };
 
-  /** 卡上确认的要等外面回话的动作（27 号票）：结果回来后卡片补上结果、记操作记录 */
+  /** 卡上确认的要等外面回话的动作：结果回来后卡片补上结果、记操作记录 */
   const performConfirmed = (executor: AsyncQuickActionExecutor, params: unknown, context: QuickActionContext, title: string, payload: QuickActionCardPayload) => {
     void executor
       .perform(params, context)
@@ -294,10 +294,10 @@ function thrownBy(fn: () => unknown): unknown {
   }
 }
 
-/** 待我处理里事项的来源（秘书对话的写名字占位，前端按用户起的名字显示，43 号票） */
+/** 待我处理里事项的来源（秘书对话的写名字占位，前端按用户起的名字显示） */
 function sourceLabel(conversation: string): string {
   if (conversation === CHANNELS.secretary) return t("quickActions.source.secretary", { assistant: ASSISTANT_NAME_MARK });
-  // 284 号票：记忆管理员在了解你访谈里提的（档案的核对卡）
+  // 记忆管理员在了解你访谈里提的（档案的核对卡）
   if (conversation === MEMORY_CURATOR_CONVERSATION) return t("quickActions.source.curator");
   return t("quickActions.source.conversation", { conversation });
 }
@@ -321,7 +321,7 @@ export function quickActionCardType(service: QuickActionService) {
           const executor = service.registry.get(payload.action.type);
           if (!executor) throw new RequestRejected("not_allowed", t("quickActions.unknownType", { type: payload.action.type }));
           if (isAsyncQuickAction(executor)) {
-            // 要等外面回话的（27 号票）：卡先记成已处理，落盘之后再执行，结果回来补上
+            // 要等外面回话的：卡先记成已处理，落盘之后再执行，结果回来补上
             const running = { ...payload, result: t("quickActions.running") };
             return { status: "handled", payload: running, afterCommit: () => service.performConfirmed(executor, payload.action.params, actionContext(card, payload), payload.title, running) };
           }

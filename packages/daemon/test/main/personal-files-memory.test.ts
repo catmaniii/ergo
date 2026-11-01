@@ -1,6 +1,6 @@
-// 主切面：个人档案和记忆、提醒联动（283 号票）。真的守护进程（秘书是 faux，每晚整理的模型是假的 FakeChatModel，时钟手动拨）：
+// 主切面：个人档案和记忆、提醒联动。真的守护进程（秘书是 faux，每晚整理的模型是假的 FakeChatModel，时钟手动拨）：
 // - 生日变成每年提醒：核对卡上确认妈妈生日 3 月 2 日、提前 3 天 → 一条每年 2 月 27 日的提醒；生日改成 3 月 5 日提醒跟着改、
-//   改提前几天跟着改、删了生日提醒跟着删（原话里明说了、直接写的生日 302 号票起直接建，见 personal-files-followups.test.ts）；
+//   改提前几天跟着改、删了生日提醒跟着删（原话里明说了、直接写的生日直接建，见 personal-files-followups.test.ts）；
 // - 每晚整理（假模型）从白天的话里认出"表弟小张在某公司上班"、提到够三次 → 第二天一张候选核对卡，确认后小张有档案、单位有值；
 // - "二狗了解到的"：档案里的人（按别名）对到事实图谱的人物实体，列相关的结论、事实、原话；停用记忆插件时写明没启用、不报错；
 // - 改了住址：事实图谱里旧住址的事实到期，依赖它的结论加复核标记（经唯一写入口，用户发起 · 经个人档案）；
@@ -304,7 +304,7 @@ describe("新值作废旧事实", () => {
     await waitUntil(() => read().fact.valid_to !== null, { describe: () => "等旧住址的事实到期" });
     const after = read();
     expect(after.fact).toEqual({ valid_to: nowIso(at(10, 26, 11)), status: "active" });
-    // 329 号票：待复核不再是状态，是复核标记
+    // 待复核不再是状态，是复核标记
     expect(after.claim.needs_review).toBe(1);
     expect(after.writes).toEqual([{ actor: "user", via: "个人档案", op: "correct" }]);
   });

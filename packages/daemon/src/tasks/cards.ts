@@ -1,17 +1,17 @@
 // 任务发起和计划确认用到的三种卡（卡片类型注册表，规格第 5、7、8 节）：
 // - "建议发起任务"卡（suggest_task）：秘书觉得该发起、但用户没点明的事。"作为流程""作为长程任务"建出这种任务
-//   （规划中，用户发起，58 号票），同一事务给一条通知（建成项目内部任务的交给项目的负责人，别的交给秘书，64 号票）；
+//   （规划中，用户发起），同一事务给一条通知（建成项目内部任务的交给项目的负责人，别的交给秘书）；
 //   "不用了"关掉（回避信号）；
 // - 提问卡（questions）：成批提问、每题带推荐。"提交回答"（"全按推荐"就是每题都填推荐的那个）同一事务追加
-//   questions_answered（"澄清问题的回答"素材的来源），并把答案作为一条通知交回提问的一方（秘书；16 号票起项目负责人为工单
+//   questions_answered（"澄清问题的回答"素材的来源），并把答案作为一条通知交回提问的一方（秘书；项目负责人为工单
 //   提问时交回它，交回的通知由派单器的澄清给：work-orders/clarifications.ts）；"不用了"关掉（回避信号）。
-//   彻底删除这份回答时卡上记的答案换成删除标记（purge，80 号票）；
+//   彻底删除这份回答时卡上记的答案换成删除标记（purge）；
 // - 计划卡（plan）：代码从结构化计划生成。唯一的"确认"按钮（可带勾掉、收窄的授权项），或附意见"打回"；
-// - 流程计划卡（workflow_plan，58 号票）：审查结果、步骤和每一步的条件；需要你确认的事项逐条勾完，"授权执行"一次授权，
+// - 流程计划卡（workflow_plan）：审查结果、步骤和每一步的条件；需要你确认的事项逐条勾完，"授权执行"一次授权，
 //   或"拒绝"（可以附说明）。
-// 172 号票：卡上处理结果的一句（note）、点按钮被拒的原因按当时的语言写；交给秘书的回答照旧中文。
-// 175 号票：toText（卡片的纯文字说法：网页卡片详情的标题、引用卡片那一行、认不得的卡都显示它）和别的卡一样按当时的语言写
-// 369 号票：秘书出的提问卡也进待我处理（createSecretaryQuestions），标题说在等你的卡，待办里一定有一条
+// 卡上处理结果的一句（note）、点按钮被拒的原因按当时的语言写；交给秘书的回答照旧中文。
+// toText（卡片的纯文字说法：网页卡片详情的标题、引用卡片那一行、认不得的卡都显示它）和别的卡一样按当时的语言写
+// 秘书出的提问卡也进待我处理（createSecretaryQuestions），标题说在等你的卡，待办里一定有一条
 import {
   ASSISTANT_NAME_MARK,
   type Card,
@@ -48,13 +48,13 @@ import type { TaskExecution } from "./execution.ts";
 import type { TaskService } from "./tasks.ts";
 
 /**
- * "建议发起任务"卡（2：卡上可以写涉及的项目，16 号票；3：两个按钮"作为流程"（start_workflow）"作为长程任务"（start_task），
- * 建出后记着种类，58 号票）
+ * "建议发起任务"卡（2：卡上可以写涉及的项目，3：两个按钮"作为流程"（start_workflow）"作为长程任务"（start_task），
+ * 建出后记着种类）
  */
 export function suggestTaskCardType(tasks: TaskService) {
   /**
    * 用户点了哪个按钮，就建哪种任务（用户发起），同一事务的通知由 TaskService 定：建成项目内部任务的交给项目的负责人
-   * （64 号票：项目的负责人给的卡、秘书给的卡上恰好写了一个项目），别的交给秘书
+   * （项目的负责人给的卡、秘书给的卡上恰好写了一个项目），别的交给秘书
    */
   const start = (kind: PlannedTaskKind) => ({
     input: undefined,
@@ -68,7 +68,7 @@ export function suggestTaskCardType(tasks: TaskService) {
   });
   return defineCardType({
     type: "suggest_task",
-    // 4（64 号票）：项目的负责人给的建议卡带着项目（internal），点了建出的是这个项目的内部任务
+    // 4：项目的负责人给的建议卡带着项目（internal），点了建出的是这个项目的内部任务
     version: 4,
     payload: SuggestTaskCardPayload,
     actions: {
@@ -89,7 +89,7 @@ const QUESTIONS_TITLE_MAX = 60;
 /** 为任务问的卡住任务，对话里问的不卡（同审批卡） */
 const secretaryQuestionsUrgency = (payload: QuestionsCardPayload): Urgency => (payload.taskId === undefined ? "non_blocking" : "blocking");
 
-/** 秘书出的提问卡在待我处理里的事项（369 号票）：去秘书会话，定位到卡 */
+/** 秘书出的提问卡在待我处理里的事项：去秘书会话，定位到卡 */
 export function secretaryQuestionsInboxItem(cardId: string, payload: QuestionsCardPayload): NewInboxItem {
   return {
     kind: "card",
@@ -101,7 +101,7 @@ export function secretaryQuestionsInboxItem(cardId: string, payload: QuestionsCa
   };
 }
 
-/** 秘书出一张提问卡：卡和待我处理的事项同一事务（369 号票） */
+/** 秘书出一张提问卡：卡和待我处理的事项同一事务 */
 export function createSecretaryQuestions(deps: { store: Pick<EventStore, "appendBatch">; cards: Pick<CardService, "buildCreate">; inbox: Pick<InboxService, "buildAdd"> }, payload: QuestionsCardPayload): Card {
   const created = deps.cards.buildCreate({ type: "questions", urgency: secretaryQuestionsUrgency(payload), payload });
   const item = deps.inbox.buildAdd(secretaryQuestionsInboxItem(created.card.id, payload));
@@ -109,10 +109,10 @@ export function createSecretaryQuestions(deps: { store: Pick<EventStore, "append
   return created.card;
 }
 
-/** 提问卡上的回答交回项目负责人（16 号票，派单器的澄清给）：返回和卡片的处理同一事务追加的事件 */
+/** 提问卡上的回答交回项目负责人（派单器的澄清给）：返回和卡片的处理同一事务追加的事件 */
 export type WorkOrderReply = (payload: QuestionsCardPayload, answer: { lines: readonly string[]; allRecommended: boolean }, key: string) => NewEvent[];
 
-/** 提问卡（2：项目负责人为工单提问时卡上记着是谁问的，回答交回它，16 号票） */
+/** 提问卡（2：项目负责人为工单提问时卡上记着是谁问的，回答交回它） */
 export function questionsCardType(workOrderReply: WorkOrderReply) {
   return defineCardType({
     type: "questions",
@@ -143,7 +143,7 @@ export function questionsCardType(workOrderReply: WorkOrderReply) {
           // 交回提问的一方（秘书、项目负责人）的回答，照旧中文
           // @i18n-ignore-start model
           const lines = answers.map((a, i) => `${i + 1}. ${a.question} → ${a.answer}${a.followedRecommendation ? "（推荐的）" : ""}`);
-          // 项目负责人为工单问的（16 号票）：回答交回它（派单器的澄清给通知）；别的交回秘书
+          // 项目负责人为工单问的：回答交回它（派单器的澄清给通知）；别的交回秘书
           const replies = askedBy
             ? workOrderReply(payload, { lines, allRecommended }, idempotencyKey)
             : [buildAgentNotice(CHANNELS.secretary, `用户回答了提问卡${payload.taskId === undefined ? "" : `（任务 ${payload.taskId}）`}${allRecommended ? "，全按推荐" : ""}：\n${lines.join("\n")}`, `${idempotencyKey}#notice`).event];
@@ -159,7 +159,7 @@ export function questionsCardType(workOrderReply: WorkOrderReply) {
       dismiss: { input: undefined, run: () => ({ status: "dismissed" }) },
     },
     toText: (p) => t("tasks.cards.text.questions", { n: p.questions.length, questions: p.questions.map((q) => q.question).join(t("protocol.common.semiSep")) }),
-    // 彻底删除提问卡的回答（80 号票）：卡上记的答案换成删除标记，题目、选项、推荐（agent 问的）不变
+    // 彻底删除提问卡的回答：卡上记的答案换成删除标记，题目、选项、推荐（agent 问的）不变
     purge: (p) => (p.answers === undefined ? p : { ...p, answers: p.answers.map((a) => ({ ...a, answer: PURGED_TEXT })) }),
   });
 }
@@ -168,10 +168,10 @@ export function questionsCardType(workOrderReply: WorkOrderReply) {
 export function planCardType(tasks: TaskService) {
   return defineCardType({
     type: "plan",
-    // 2：计划里定时作业的时间表多了"按我的工作日"（29 号票）
-    // 3（26 号票）：计划里有用户的限制，确认时可以加本任务的关注类别
-    // 4（17 号票）：涉及的项目每一行可以写所属阶段和这张工单的验收标准
-    // 5（76 号票）：计划里不再有定时作业（要定时做的事建成定时触发的普通任务或流程）
+    // 2：计划里定时作业的时间表多了"按我的工作日"
+    // 3：计划里有用户的限制，确认时可以加本任务的关注类别
+    // 4：涉及的项目每一行可以写所属阶段和这张工单的验收标准
+    // 5：计划里不再有定时作业（要定时做的事建成定时触发的普通任务或流程）
     version: 5,
     payload: PlanCardPayload,
     actions: {
@@ -196,14 +196,14 @@ function refusedOnly(payload: WorkflowPlanCardPayload, only?: NonNullable<Workfl
 }
 
 /**
- * 流程计划卡（58 号票）：授权执行（confirm）、拒绝（reject，可以附说明）；审查退回、判定不可执行的那一版（refused）
+ * 流程计划卡：授权执行（confirm）、拒绝（reject，可以附说明）；审查退回、判定不可执行的那一版（refused）
  * 判定不可执行的只能让负责人改（return，可以附说明）或者取消任务（cancel：和任务详情里的"取消"同一个控制），
  * 退回负责人补充的只能知道了（ack）或者取消任务
  */
 export function workflowPlanCardType(tasks: TaskService, execution: () => Pick<TaskExecution, "prepareAct">) {
   return defineCardType({
     type: "workflow_plan",
-    // 2（76 号票）：定时触发的流程带着时间表；3（282 号票）：时间表多了每年某月某日
+    // 2：定时触发的流程带着时间表；3：时间表多了每年某月某日
     version: 3,
     payload: WorkflowPlanCardPayload,
     actions: {
@@ -236,13 +236,13 @@ export function workflowPlanCardType(tasks: TaskService, execution: () => Pick<T
   });
 }
 
-/** 流程计划卡的纯文字说法（175 号票起按当时的语言） */
+/** 流程计划卡的纯文字说法（按当时的语言） */
 function workflowPlanText(p: WorkflowPlanCardPayload): string {
   const status = p.plan.review.status ? WORKFLOW_REVIEW_STATUS_LABEL[p.plan.review.status].label : t("tasks.cards.text.workflow.notReviewed");
   if (p.refused) return t("tasks.cards.text.workflow.refused", { title: p.taskTitle, revision: p.revision, status });
   const inserted = p.plan.steps.filter((s) => s.inserted).length;
   const timed = p.schedule ? t("tasks.cards.text.workflow.timed", { schedule: describeSchedule(p.schedule), grant: TIMED_WORKFLOW_GRANT_TEXT }) : "";
-  // 事件触发的流程（77 号票）：在等什么事件、授权管多久、步骤里的占位怎么代入
+  // 事件触发的流程：在等什么事件、授权管多久、步骤里的占位怎么代入
   const evented = p.event ? t("tasks.cards.text.workflow.evented", { trigger: describeEventTrigger(p.event), grant: EVENT_WORKFLOW_GRANT_TEXT, placeholder: EVENT_PLACEHOLDER_NOTE }) : "";
   return t("tasks.cards.text.workflow.plan", {
     title: p.taskTitle,

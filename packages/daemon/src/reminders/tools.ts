@@ -1,12 +1,12 @@
-// 秘书建、改、取消、归档（185 号票）简单提醒的四个工具：只产生卡片（聊天里出现提醒卡），不拉起别的 agent。
+// 秘书建、改、取消、归档简单提醒的四个工具：只产生卡片（聊天里出现提醒卡），不拉起别的 agent。
 // 删除不是工具：走快速动作 delete_reminder（delete-action.ts），总要用户在卡上确认。
 // 秘书在同一轮里自己选用，不另加分类器（规格第 7 节）。
 // 时间的写法：具体的本地日期时间（at），哪天几点（date），最近的周几几点（weekday），几天后几点（inDays），几分钟后（inMinutes），
-// 或者几点加重复规则（repeat，取自共享协议包的 RepeatRule：每天、每周几、每月几号、每年某月某日（282 号票，公历）、按我的工作日）。
+// 或者几点加重复规则（repeat，取自共享协议包的 RepeatRule：每天、每周几、每月几号、每年某月某日（公历）、按我的工作日）。
 // 工具结果里写明落到了哪天、星期几、几点，让秘书复述给用户。
-// 128 号票起由提醒插件经 agent 贡献缝给秘书（reminders/plugin.ts），插件停用时秘书没有这三个工具。调用时现取提醒的服务：
+// 由提醒插件经 agent 贡献缝给秘书（reminders/plugin.ts），插件停用时秘书没有这三个工具。调用时现取提醒的服务：
 // 插件运行中停了、秘书还没按新的贡献重新装配的那一会儿取不到，回"提醒插件没启用"（isError），不崩、不产生提醒和卡片。
-// @i18n-ignore-file model：工具的说明、参数说明和结果给秘书（模型）看（174 号票）；工具的名字走 t()
+// @i18n-ignore-file model：工具的说明、参数说明和结果给秘书（模型）看；工具的名字走 t()
 import { describeSchedule, describeTime, forModel, isRepeating, jobTriggerText, type Reminder, RepeatRule, t, Type } from "@ergo/protocol";
 import { defineHostTool, type HostTool, type HostToolOutput } from "../agent-manager/host-tools.ts";
 import { RequestRejected } from "../errors.ts";
@@ -103,7 +103,7 @@ export function reminderTools(service: () => ReminderService | undefined, clock:
       run: (args) =>
         guarded(() => {
           const current = reminders().get(args.reminderId);
-          // 事件发生时提醒的（77 号票）没有时间表：给了时间就改成到点提醒
+          // 事件发生时提醒的没有时间表：给了时间就改成到点提醒
           const schedule = current?.schedule ? editedSchedule(current.schedule, args, now()) : current && timeGiven(args) ? resolveReminderTime(args, now()) : undefined;
           const { reminder, cardId } = reminders().update(args.reminderId, { ...(args.text === undefined ? {} : { text: args.text }), ...(schedule ? { schedule } : {}) }, "agent");
           return { text: forModel(() => `已改好提醒 ${reminder.id}「${reminder.text}」：${when(reminder)}（现在是 ${describeTime(now())}）。`), cardIds: [cardId] };

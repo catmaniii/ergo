@@ -1,4 +1,4 @@
-// 271 号票：顺口问的回答由记忆管理员每晚整理时批量判（假模型）。线上秘书按语气自己改写问法，用户也常常不正面答——
+// 顺口问的回答由记忆管理员每晚整理时批量判（假模型）。线上秘书按语气自己改写问法，用户也常常不正面答——
 // 问"这阵子是不是特别忙"，答"最近在赶项目"：白天的规则（classifyReply）认不出，以前到第二天就记成"问了没答、跳过一次"。
 // 现在每晚整理时把问题和用户之后的几句话交给记忆管理员判：答了回写成本人证据（同一夜按判法判）、没答算跳过一次、拿不准留到下一夜。
 // 预算：判回答那一道从整理预算的前段里划一小份保底，排在新证据之后、重跑旧追问之前。
@@ -62,7 +62,7 @@ const answered = (verdict: "yes" | "no" | "unclear", ids: string[], why = "依�
 
 const question = (engine: MemoryEngine, id: string) => engine.listQuestions().find((x) => x.id === id)!;
 
-describe("271：每晚整理时记忆管理员判顺口问的回答", () => {
+describe("每晚整理时记忆管理员判顺口问的回答", () => {
   it("隐含的回答（问'是不是特别忙'、答'最近在赶项目'）：白天的规则认不出，夜里判成在答——回答经写入口回写成本人证据，同一夜按判法判", async () => {
     const t = await askedBusy();
     const tired = claimOf(t.engine, "recent_state");
@@ -228,7 +228,7 @@ describe("271：每晚整理时记忆管理员判顺口问的回答", () => {
   });
 });
 
-// ---------- 预算：保底、排在新证据之后、重跑旧追问之前（模型版、假模型的小世界，同 270 的 nightly-lanes.test.ts） ----------
+// ---------- 预算：保底、排在新证据之后、重跑旧追问之前（模型版、假模型的小世界，同 nightly-lanes.test.ts） ----------
 
 const OLD = ["皮划艇", "羽毛球", "电子琴", "乒乓球", "冲浪板", "天文台"] as const;
 const topicOf = (text: string) => OLD.find((k) => text.includes(k));
@@ -333,7 +333,7 @@ async function builtWorld() {
 
 const front = (limit: number) => limit - Math.floor(limit * LIFT_BUDGET_SHARE);
 
-describe("271：判回答的预算——保底一小份，排在新证据之后、重跑旧追问之前", () => {
+describe("判回答的预算——保底一小份，排在新证据之后、重跑旧追问之前", () => {
   it("积压的新证据把前段用满时，判回答照样有保底的那一份（按这一夜要问模型的问题数，不多占）；总上限不变", async () => {
     const t = await builtWorld();
     t.setNow("2026-10-12T20:00:00+08:00");

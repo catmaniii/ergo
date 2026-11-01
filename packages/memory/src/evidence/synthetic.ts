@@ -1,4 +1,4 @@
-// 合成数据适配器：读合成数据的 JSON（格式见 188 号票；评测数据在私有的评测包里，测试用 test/fixtures/ 里自己写的例子）。
+// 合成数据适配器：读合成数据的 JSON（格式评测数据在私有的评测包里，测试用 test/fixtures/ 里自己写的例子）。
 //   { "version": 1, "now": "<ISO>", "events": [{ id, source_level, mode, kind, text, context, event_time, observed_at }] }
 // event_time 可以是 null 或不写（不知道什么时候发生）。读的时候逐条校验，错了写明是哪条、哪个字段。
 // 只读 events.json，不读 truth/（隐藏答案只给评测脚本）。

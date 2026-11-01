@@ -1,4 +1,4 @@
-// 把 iCal 事件展开成一段时间里的每一次（297 号票）：只展开要看的那一段（日历的一个月、问的那几天），不把重复事件铺满。不加 npm 依赖。
+// 把 iCal 事件展开成一段时间里的每一次：只展开要看的那一段（日历的一个月、问的那几天），不把重复事件铺满。不加 npm 依赖。
 // 认的重复规则（RRULE，RFC 5545 3.3.10）：FREQ 是 DAILY / WEEKLY / MONTHLY / YEARLY，INTERVAL、COUNT、UNTIL，BYDAY（每月、每年里可以带序号：
 // 1MO 第一个周一、-1FR 最后一个周五）、BYMONTHDAY（负数从月底数）、BYMONTH、BYSETPOS、WKST；再加 RDATE（额外的几次）、EXDATE（去掉的几次）、
 // RECURRENCE-ID（改期的那一次：原本那次不算，按改后的时间放；改成取消的就没了）、整个事件 STATUS:CANCELLED 的不出现。
@@ -91,7 +91,7 @@ function parseDuration(text: string): { ms: number; days: number } | undefined {
 }
 
 /**
- * 一个事件第一次（DTSTART）的时刻（343 号票：数据源详情里列同步来的事件）：全天的是本地那天的零点、没有结束；时间写法不对的是 undefined。
+ * 一个事件第一次（DTSTART）的时刻（数据源详情里列同步来的事件）：全天的是本地那天的零点、没有结束；时间写法不对的是 undefined。
  * fallbackZone 是日历的默认时区
  */
 export function eventSpan(event: IcalEvent, fallbackZone?: string): { allDay: boolean; start: number; end?: number } | undefined {

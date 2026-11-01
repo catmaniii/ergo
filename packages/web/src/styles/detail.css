@@ -1,6 +1,6 @@
 /*
- * 详情页（56 号票）：详情面板、事项详情的正文排版、窄屏三页滑动的 .stack、
- * .detail-bar 和 ValueView 的 .vv-*。颜色、字体、字号、圆角、阴影一律用 token（39 号票的风格清单，
+ * 详情页：详情面板、事项详情的正文排版、窄屏三页滑动的 .stack、
+ * .detail-bar 和 ValueView 的 .vv-*。颜色、字体、字号、圆角、阴影一律用 token（风格清单，
  * src/visual-styles/；新加的 shadow-slide 是滑入的详情页左边缘），各套风格能覆盖。
  * 宽屏的分栏（.panes / .pane-detail / .splitter）沿用 layout.css 里已有的。
  */
@@ -63,7 +63,7 @@
   height: calc(var(--bar-h) + env(safe-area-inset-top, 0px));
   padding: 0 12px;
   padding-top: env(safe-area-inset-top, 0px);
-  /* 和 .topbar 一样用标题栏的底色（42 号票） */
+  /* 和 .topbar 一样用标题栏的底色 */
   background: var(--bar-bg);
   border-bottom: 1px solid var(--border);
 }
@@ -299,7 +299,7 @@
   word-break: break-word;
 }
 
-/* ---------- 工具发的语音（87 号票）：语音的详情下面接着发它的那次调用，隔一道线 ---------- */
+/* ---------- 工具发的语音：语音的详情下面接着发它的那次调用，隔一道线 ---------- */
 .dt-embed {
   margin-top: 18px;
   padding-top: 14px;
@@ -330,7 +330,7 @@
   word-break: break-all;
 }
 
-/* ---------- 调用记忆（187 号票）："这次用到的记忆"：每次检索一块，找到的每条一张小卡 ---------- */
+/* ---------- 调用记忆："这次用到的记忆"：每次检索一块，找到的每条一张小卡 ---------- */
 .rc-tag {
   display: inline-flex;
   align-items: center;
@@ -443,7 +443,7 @@
 .rc-hit .chips {
   margin-top: 6px;
 }
-/* 266 号票：记忆简报——每条为什么带它、说到的结论 */
+/* 记忆简报——每条为什么带它、说到的结论 */
 .rc-reasons {
   list-style: none;
   margin: 8px 0 0;
@@ -543,7 +543,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* 没有模板、退回"中文名 · 参数值"的（67 号票）：和原来的参数摘要一样用淡色 */
+/* 没有模板、退回"中文名 · 参数值"的：和原来的参数摘要一样用淡色 */
 .dg-said-raw {
   color: var(--muted);
 }
@@ -756,7 +756,7 @@
 }
 
 /*
- * ---------- 计划详情、检测项全览、阶段详情（60 号票） ----------
+ * ---------- 计划详情、检测项全览、阶段详情 ----------
  * 颜色、字号用 token，白字用 --on-color
  */
 /* 计划详情：相对上一版的变化 */
@@ -1146,7 +1146,7 @@
   list-style: none;
 }
 /*
- * 系统查到的结果（274 号票）：系统查到的是 .sys-note（浅绿底、左边实线，look.css 的"两种声音"），负责人自报是 .agent-says（灰字）；
+ * 系统查到的结果：系统查到的是 .sys-note（浅绿底、左边实线，look.css 的"两种声音"），负责人自报是 .agent-says（灰字）；
  * 每一样一行（小标题 + 一条条），对外发的、文件前面一个小签；和自报对不上的用退回的颜色（"和实际对不上"）
  */
 .ms-observed {
@@ -1213,7 +1213,7 @@
   font-size: var(--fs-m);
   color: var(--reject-fg);
 }
-/* 情况图标：已处理的带 ✓、颜色平和；要注意的换成感叹号；并排的几个（依赖图的节点、聊天里的阶段框，91 号票） */
+/* 情况图标：已处理的带 ✓、颜色平和；要注意的换成感叹号；并排的几个（依赖图的节点、聊天里的阶段框） */
 .ic-row {
   display: inline-flex;
   flex: none;
@@ -1271,7 +1271,7 @@
   --ic-fg: var(--op-fg);
   --ic-bg: var(--op-bg);
 }
-/* 「权」「外」：动了本机的敏感权限 / 对外的事（93 号票，ic-perm、ic-out：和计划上的小标记同一个字、同一个颜色） */
+/* 「权」「外」：动了本机的敏感权限 / 对外的事（ic-perm、ic-out：和计划上的小标记同一个字、同一个颜色） */
 .ic-perm {
   --ic-fg: var(--data-fg);
   --ic-bg: var(--data-bg);
@@ -1292,7 +1292,7 @@
   font-weight: 600;
   color: var(--muted);
 }
-/* 这几步已经做了的事（84 号票，eff-list 和 look.css 的"收不回的钉住"；二狗不撤回，本机的、对外的都列） */
+/* 这几步已经做了的事（eff-list 和 look.css 的"收不回的钉住"；二狗不撤回，本机的、对外的都列） */
 .eff-list {
   margin: 8px 0 0;
   padding: 0;
@@ -1338,7 +1338,7 @@
   flex-basis: 100%;
   font-size: var(--fs-s);
 }
-/* 废弃分支的遗留效果（151 号票）：能申请撤回的、按钮、已提交、无法撤回 */
+/* 废弃分支的遗留效果：能申请撤回的、按钮、已提交、无法撤回 */
 .eff-list .eff-undoable {
   border-left-color: var(--c-plan);
 }
@@ -1383,7 +1383,7 @@
   content: "⚠ ";
 }
 /*
- * 重做对话框里直接改这一阶段的验收标准、交付件（125 号票）：一条一行，输入框占满，后面是验收方式的小签和去掉的 ×；
+ * 重做对话框里直接改这一阶段的验收标准、交付件：一条一行，输入框占满，后面是验收方式的小签和去掉的 ×；
  * 改过了那句提示用"你"的颜色
  */
 .rp-edit-list {
@@ -1436,7 +1436,7 @@
 }
 
 /*
- * 执行中出过的状况（60 号票，ic-counts / ic-tabs / ic-list：
+ * 执行中出过的状况（ic-counts / ic-tabs / ic-list：
  * 颜色、字号、圆角换成 token）：阶段抽屉、阶段栏下面那一行的个数，详情栏里按类筛的一页
  */
 .ic-counts {
@@ -1531,7 +1531,7 @@
 }
 
 /*
- * 要你留意的（84 号票，mg-bds / mg-bd、mp-node-row、mp-mark-k、ms-marks、ms-mark-hints：
+ * 要你留意的（mg-bds / mg-bd、mp-node-row、mp-mark-k、ms-marks、ms-mark-hints：
  * 类名、结构、数值不改，颜色、字号、圆角换成 token）：标题旁边的小标记，详情里一样一行，授权写"已用 N/M"
  */
 .mg-bds {
@@ -1580,7 +1580,7 @@
   font-size: var(--fs-xs);
 }
 /*
- * 聊天里计划卡的阶段提纲（93 号票，.mp-outline、.mo-*、.mp-node、.mg-legend、.mp-hint，look.css 的
+ * 聊天里计划卡的阶段提纲（.mp-outline、.mo-*、.mp-node、.mg-legend、.mp-hint，look.css 的
  * mo-wait / mo-draw）：按阶段缩进的文字提纲，点一项就地展开它的要点。颜色、字号、圆角用 token
  */
 .mp-outline {
@@ -1807,7 +1807,7 @@
   vertical-align: -1px;
 }
 
-/* 这一阶段的规则：一条一行，点开看详情（84 号票） */
+/* 这一阶段的规则：一条一行，点开看详情 */
 .mp-policy {
   list-style: none;
   margin: 6px 0 0;
@@ -1890,7 +1890,7 @@
   color: var(--pull-fg);
 }
 
-/* 会话里的重做记录（84 号票，mevent / me-reopen：⟲ 加说法，左边一道上下文色） */
+/* 会话里的重做记录（mevent / me-reopen：⟲ 加说法，左边一道上下文色） */
 .mevent {
   display: flex;
   gap: 8px;

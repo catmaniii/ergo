@@ -1,5 +1,5 @@
 // DeepSeek 的对话接口（模型版用）：POST {base}/chat/completions，要求 JSON 输出、温度 0。
-// 默认关掉思考（thinking: {type: "disabled"}，192 号票）：deepseek-flash 是 V4.1 Flash，会推理的模型（pi-ai 的模型表里 reasoning: true），
+// 默认关掉思考（thinking: {type: "disabled"}）：deepseek-flash 是 V4.1 Flash，会推理的模型（pi-ai 的模型表里 reasoning: true），
 // 不关时先想再答，想的 token 也算进 max_tokens——第一、二次真跑时 propose 大都写满上限被截断。关法照 pi-ai 发 DeepSeek 请求的做法
 // （pi-ai 包里 openai-completions 的实现：thinkingFormat = deepseek、不要推理时发 thinking disabled）。
 // key 只从环境变量 DEEPSEEK_API_KEY 读（每次调用时现取），不打印、不写进文件；出错信息里出现 key 也换成 ***。

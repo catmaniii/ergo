@@ -109,7 +109,7 @@ private fun schemeOf(url: String): String {
 }
 
 /**
- * 二狗的安卓 App（349 号票）：原生壳，对应鸿蒙的 pages/Index.ets 和 entryability/EntryAbility.ets。
+ * 二狗的安卓 App：原生壳，对应鸿蒙的 pages/Index.ets 和 entryability/EntryAbility.ets。
  * 第一次打开先填二狗的地址（存在应用本地）；之后 WebView 加载这个地址，网页照常由守护进程提供，App 和手机浏览器一样是一台要配对的设备。
  * 网页不打包进 APK：二狗的网页要带设备凭证（__Host- cookie），Origin 要和 Host 一致，见 docs/architecture/adr/0022。
  */
@@ -134,7 +134,7 @@ class MainActivity : Activity() {
     private var bridge: NativeBridge? = null
     /** 显示地址页：第一次打开，或者网页设置里点了"换地址"、出错页上点了"改地址" */
     private var editing = false
-    /** 扫码连接（364 号票）：取景页开着 */
+    /** 扫码连接：取景页开着 */
     private var scanning = false
     /** 扫到了、在测或者测完连不上：那一页开着 */
     private var connecting = false
@@ -152,7 +152,7 @@ class MainActivity : Activity() {
             renderPages()
         }
     }
-    /** 底部避让区（105 号票）：页面延伸到了手势条底下，这一截多高（物理像素）；还没量到是 -1 */
+    /** 底部避让区：页面延伸到了手势条底下，这一截多高（物理像素）；还没量到是 -1 */
     private var bottomInsetPx = -1
 
     private val bridgeHost = object : BridgeHost {
@@ -196,7 +196,7 @@ class MainActivity : Activity() {
             if (op.startsWith("element")) elementFiles.run(op, json, reply) else browserTools.run(op, json, reply)
     }
 
-    /** 系统通知（110 号票）：整个 App 一份，换地址不重建；记着 App 在不在前台（在前台不发，页面顶上已经有了） */
+    /** 系统通知：整个 App 一份，换地址不重建；记着 App 在不在前台（在前台不发，页面顶上已经有了） */
     private val nativeNotify: NativeNotify by lazy {
         NativeNotify(this, settings, object : NotifyPermission {
             override fun request(done: () -> Unit) {
@@ -292,14 +292,14 @@ class MainActivity : Activity() {
     }
 
     /**
-     * 原生的内置浏览器（134 号票，网页的"浏览"页签）：另一个 WebView，叠在二狗的网页上面盖住"浏览"页签的内容区；整个 App 一份，
+     * 原生的内置浏览器（网页的"浏览"页签）：另一个 WebView，叠在二狗的网页上面盖住"浏览"页签的内容区；整个 App 一份，
      * 换地址、主页面重新加载都不重建。绝不挂二狗的原生桥
      */
     private val browser = InAppBrowser({ pushBrowser(it) }, { channel?.setMirror("browser", it) }, { createBrowserWeb() })
     /** 浏览器摆在哪、显不显示（网页报的内容区） */
     private var browserFrame = BrowserFrame(false, 0, 0, 0, 0)
     /**
-     * 浏览侧边栏（147 号票）：另一个 WebView，加载二狗网页的侧边栏模式，盖在原生网页上面；第一次展开时才建，之后留着（收起只是藏起来），换地址时拆掉。
+     * 浏览侧边栏：另一个 WebView，加载二狗网页的侧边栏模式，盖在原生网页上面；第一次展开时才建，之后留着（收起只是藏起来），换地址时拆掉。
      * 自己一份通道和原生桥（只开 SIDE_METHODS）、自己一份原生录音器
      */
     private var sideWeb: WebView? = null
@@ -313,19 +313,19 @@ class MainActivity : Activity() {
     private var sideVisible = false
     /** 页面桥：注入浏览器里每个网页的脚本（认框、悬浮按钮、填字、塞文件）、它报的话转给二狗的网页、拦下网页弹出的选文件对话框 */
     private val pageControl: PageControl by lazy { PageControl(this, { pushBrowser(it) }, { browser.attached }, filePicker) }
-    /** "浏览"的 ⋮ 菜单用到的原生能力（165 号票） */
+    /** "浏览"的 ⋮ 菜单用到的原生能力 */
     private val browserTools: BrowserTools by lazy { BrowserTools(this, { browser.web }, { pushBrowser(it) }, { server }, { browser.currentUrl() }) }
-    /** 长按网页元素的圆钮要的：取元素的内容、下载（359 号票） */
+    /** 长按网页元素的圆钮要的：取元素的内容、下载 */
     private val elementFiles: ElementFiles by lazy {
         ElementFiles(this, { browser.web }, { server?.origin ?: "" }, { showToast(it) }, { file, name, mime -> browserDownloads.saveFile(file, name, false, mime) })
     }
-    /** 浏览器里能渲染的文件（160 号票） */
+    /** 浏览器里能渲染的文件 */
     private val fileDocs: FileDocs by lazy {
         FileDocs(this, { browser.web }, { pushBrowser(it) }, { file, name, keep -> browserDownloads.saveFile(file, name, keep) }, { url -> forceBrowserDownload(url) }, { openOutside(it) })
     }
-    /** 网页里的下载（96 号票）：下到缓存，下完弹"保存到" */
+    /** 网页里的下载：下到缓存，下完弹"保存到" */
     private val mainDownloads: WebDownloads by lazy { WebDownloads(this, { showToast(it) }, savePicker, { server?.origin ?: "" }) }
-    /** 浏览器里的下载：可能是能渲染的文本的先问 fileDocs 拦不拦（160 号票）；存好了的记进下载记录（165 号票） */
+    /** 浏览器里的下载：可能是能渲染的文本的先问 fileDocs 拦不拦；存好了的记进下载记录 */
     private val browserDownloads: WebDownloads by lazy {
         WebDownloads(this, { showToast(it) }, savePicker, { server?.origin ?: "" }, fileDocs, { name, uri, size, mime -> browserTools.record(name, uri, size, mime) }, { url, done -> pageControl.readBlob(url, done) })
     }
@@ -566,7 +566,7 @@ class MainActivity : Activity() {
         permissionNote.refresh(palette)
     }
 
-    /** App 原生的字换了（175 号票）：几页重画 */
+    /** App 原生的字换了：几页重画 */
     private fun renderTexts() {
         renderColors()
     }
@@ -1066,13 +1066,13 @@ class MainActivity : Activity() {
             pageControl.browserPageBegin()
             browser.pageBegin(url)
             fileDocs.pageBegin()
-            // 按网站记住的文字大小（165 号票）
+            // 按网站记住的文字大小
             browserTools.pageBegin(url)
         }
 
         override fun onPageFinished(view: WebView, url: String?) {
             browser.pageEnd(url)
-            // 能渲染的文件（160 号票）：问这一页的类型报给网页
+            // 能渲染的文件：问这一页的类型报给网页
             fileDocs.pageEnd(url)
         }
 
@@ -1117,7 +1117,7 @@ class MainActivity : Activity() {
         }
     }
 
-    // ---------------- 扫码连接（364 号票）：点按钮才要相机权限；扫到了先测，连得上才进配对页，连不上报错、不进配对页
+    // ---------------- 扫码连接：点按钮才要相机权限；扫到了先测，连得上才进配对页，连不上报错、不进配对页
 
     /** 点"扫码连接"：这时才要相机权限；拒绝了说明还能手填 */
     private fun startScan() {

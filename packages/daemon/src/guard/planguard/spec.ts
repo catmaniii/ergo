@@ -1,6 +1,6 @@
 // planguard 的规则文档格式、场景文档的检查和计划的参数规范化
 // （来源和哈希见同目录 VERSION），语义不改。
-// 05 号票只搬了规则能写的键、修补的种类和参数规范化（执行时检查用）；58 号票为流程的规划时审查（reviewer.ts）
+// 只搬了规则能写的键、修补的种类和参数规范化（执行时检查用）；为流程的规划时审查（reviewer.ts）
 // 补搬了 prepareScenario 和 normalizePlan。二狗对规则的细查仍在 ../rule-validation.ts（查得更细），
 // prepareScenario 留着是为了和 planguard 的用例、审查的写法一致。
 import { SpecError, Unknown, clone, fromJson, isNumber } from "./expr.ts";

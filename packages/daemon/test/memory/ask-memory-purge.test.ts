@@ -1,4 +1,4 @@
-// 265 号票：彻底删除素材时，ask_memory（问记忆）结果里带的原话也要从 agent 的会话文件里抹掉（263 号票交回的第 3 条）。
+// 彻底删除素材时，ask_memory（问记忆）结果里带的原话也要从 agent 的会话文件里抹掉（交回的第 3 条）。
 // 问记忆的结果按证据编号（ev-…）引原话、不带素材 id，所以检索素材那条"按素材 id 换行"的规矩抓不到它：
 // - 被删素材背后的证据编号从推理库里找（purgedEvidenceIds）：还在库里的按出处（sourceRef 是素材 id），已经删掉的按彻底删除的审计；
 // - 会话文件里 ask_memory 的结果，提到这些证据编号的行换成"- <证据编号> · 已删除"，这一条下面缩进的续行（原话、精炼）、
@@ -147,7 +147,7 @@ function toolResultText(file: string, toolName: string): string {
   throw new Error(`会话文件里没有 ${toolName} 的结果`);
 }
 
-describe("被删素材背后的证据编号（265 号票）", () => {
+describe("被删素材背后的证据编号", () => {
   it("还在推理库里的按出处找（sourceRef 是素材 id）；推理库这边已经删掉的按彻底删除的审计找；别的素材的不算；库没建是空的", async () => {
     const { file, clock } = await reasoningDb();
     const opened = openReasoningDb({ ...engineOptions(file, clock), readOnly: true });
@@ -172,13 +172,13 @@ describe("被删素材背后的证据编号（265 号票）", () => {
 /** 假的查法：花生那条素材背后是 ev-0001 */
 const peanutEvidence = (ids: readonly string[]) => (ids.includes("mat-peanut") ? ["ev-0001"] : []);
 
-describe("彻底删除改写会话文件时 ask_memory 结果里的原话（265 号票）", () => {
+describe("彻底删除改写会话文件时 ask_memory 结果里的原话", () => {
   it("sessionRewriteFor 按被删素材找到证据编号，交给子进程一条 ask_memory 的规矩（连续行一起换）；没有证据就不带", async () => {
     const evidenceOf = peanutEvidence;
     expect(sessionRewriteFor([purgedEvent(["mat-peanut"])], { evidenceOf }).toolResultLines).toEqual([
       { toolName: "search_materials", needles: ["mat-peanut"] },
       { toolName: "ask_memory", needles: ["ev-0001"], continuation: true },
-      // 272 号票：问记忆管理员的回答（它自己写的话）里证据编号、素材 id 都可能提
+      // 问记忆管理员的回答（它自己写的话）里证据编号、素材 id 都可能提
       { toolName: "ask_curator", needles: ["ev-0001", "mat-peanut"], continuation: true },
     ]);
     expect(sessionRewriteFor([purgedEvent(["mat-other"])], { evidenceOf }).toolResultLines).toEqual([
@@ -264,11 +264,11 @@ describe("彻底删除改写会话文件时 ask_memory 结果里的原话（265 
   });
 });
 
-describe("彻底删除改写事件日志里问记忆的那次调用（265 号票）", () => {
+describe("彻底删除改写事件日志里问记忆的那次调用", () => {
   /** 一条被删的素材（原始事件不在了也照样找问记忆的调用） */
   const material = { id: "mat-peanut", kind: "user_utterance", ref: { event: { globalSeq: 999, channel: "secretary", seq: 999, type: EVENT_TYPES.message } } } as unknown as Material;
 
-  it("263 号票以前的记录（没有调用记忆的部分）按证据编号找：结果摘要或完整返回里引着被删素材的证据编号的，记录和完整内容都改写、会话里列进 messages_purged；只引着前缀相同的别的编号的不动；不给查法时找不到", async () => {
+  it("以前的记录（没有调用记忆的部分）按证据编号找：结果摘要或完整返回里引着被删素材的证据编号的，记录和完整内容都改写、会话里列进 messages_purged；只引着前缀相同的别的编号的不动；不给查法时找不到", async () => {
     const root = makeTempDir("ergo-ask-purge-plan-");
     const store = openEventStore({ file: path.join(root, "ergo.db"), views: [...conversationViews, cardsView, toolCallDetailsView] });
     // 临时目录的删除钩子先登记、后跑：库在删目录之前关掉
@@ -276,7 +276,7 @@ describe("彻底删除改写事件日志里问记忆的那次调用（265 号票
     const cards = createCardService({ store, registry: new CardTypeRegistry(), now: () => at });
     const rewriters = new PurgeRewriters();
     rewriters.register(messagePurge, toolCallDetailPurge);
-    /** 秘书调了一次问记忆：聊天里的调用记录（263 号票以前的样子，没有 recall）和完整内容 */
+    /** 秘书调了一次问记忆：聊天里的调用记录（以前的样子，没有 recall）和完整内容 */
     const ask = (callId: string, brief: string) => {
       const message = appendMessage(store, {
         conversation: "secretary",
@@ -312,7 +312,7 @@ describe("彻底删除改写事件日志里问记忆的那次调用（265 号票
   });
 });
 
-describe("秘书会话里只在会话文件里的原话（272 号票合 266）", () => {
+describe("秘书会话里只在会话文件里的原话（合 266）", () => {
   const material = { id: "mat-peanut", kind: "user_utterance", ref: { event: { globalSeq: 999, channel: "maintainer:pm-1", seq: 999, type: EVENT_TYPES.message } } } as unknown as Material;
 
   it("被删素材在推理库里有证据时，事件日志里秘书会话一条没改也追加一条 messages_purged（每条消息的记忆简报只在会话文件里引原话，秘书据此改）；没有证据不追加", () => {
@@ -383,7 +383,7 @@ describe("秘书会话里只在会话文件里的原话（272 号票合 266）",
   });
 });
 
-describe("问记忆管理员（ask_curator）的回答也照问记忆那套抹（272 号票）", () => {
+describe("问记忆管理员（ask_curator）的回答也照问记忆那套抹", () => {
   const material = { id: "mat-peanut", kind: "user_utterance", ref: { event: { globalSeq: 999, channel: "secretary", seq: 999, type: EVENT_TYPES.message } } } as unknown as Material;
 
   it("彻底删除时：回答里引着被删素材证据编号、或者提到它素材 id 的那次调用，记录和完整内容照彻底删除的口径改写、会话里列进 messages_purged；只引着前缀相同的别的编号的不动", async () => {

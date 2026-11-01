@@ -1,6 +1,6 @@
-// 主切面：Claude Code 会话交给官方 App（Remote Control）和二狗接管互转（292 号票，Claude Code 接入一期之七；issue 24 用户答复第 4、6 条，调研 35）。
+// 主切面：Claude Code 会话交给官方 App（Remote Control）和二狗接管互转。
 // 真的守护进程走组合根和插件清单；清单里的 Claude Code 插件换成同名的：子进程接假 SDK、会话来源是假本机的（helpers/fake-claude-sessions.ts：编的会话、
-// 编的会话记录，只读跟随的翻法是真的）、命令行是扮演本机 claude 的假的（helpers/fake-claude-cli.ts：照调研 35 实测的样子开后台会话、唤醒、停掉、
+// 编的会话记录，只读跟随的翻法是真的）、命令行是扮演本机 claude 的假的（helpers/fake-claude-cli.ts：实测的样子开后台会话、唤醒、停掉、
 // 开出副本）——不起真的 claude、不花额度、不碰用户真实的 ~/.claude。
 // - 交出（接管来的会话）：状态变成在官方 App 里、二狗的子进程退了，命令按顺序（先确认二狗的进程退干净、看有没有停着的后台会话，第一次带名字开，
 //   再确认后台会话在跑、拿链接）；会话里写明、给链接；在官方 App 里时会话里说话被拒、列会话时写明交给了官方 App；
@@ -78,7 +78,7 @@ const live = (td: TestDaemon, agentId: string) => td.daemon.agents.live().some((
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 type ToolCallPart = Extract<MessagePart, { type: "tool_call" }>;
 
-describe("Claude Code 会话交给官方 App、收回到二狗（292 号票）", () => {
+describe("Claude Code 会话交给官方 App、收回到二狗", () => {
   it("接管来的会话：交出去命令按顺序、子进程退了；只读跟随补记不重复；收回停掉那边、补记最后一轮、恢复同一会话；再交出去是唤醒（不带参数）", async () => {
     const { td, sessions, cli, frontend, dir } = await setup();
     const taken = await takeoverApi.takeOver(td.url, CC, { sessionId: "s-idle", as: "task", request: "把剩下两个测试修好", idempotencyKey: "k-1" });

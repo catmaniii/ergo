@@ -1,4 +1,4 @@
-// 主切面：秘书和待我处理、承诺即任务（规格第 7 节，22 号票）。秘书接 faux 剧本：
+// 主切面：秘书和待我处理、承诺即任务（规格第 7 节）。秘书接 faux 剧本：
 // - 用户问到待我处理时，秘书用只读工具列出未处理的事项，用"放进聊天"把同一张卡放进聊天：聊天里显示的就是那张卡
 //   （同一 id、同一状态），在聊天里点按钮后，待我处理里这张卡同步变为已处理；
 // - 待我处理新增事项本身不进秘书的模型输入（不主动转述）；秘书的工具里没有任何对卡片做动作的工具；
@@ -41,18 +41,18 @@ const toolResultOf = (context: string, tool: string) => context.slice(context.la
 
 /** 秘书的全部工具（echo_context 回显的 [tool] 行）：没有任何对卡片做动作的，也没有建定时作业的 */
 const SECRETARY_TOOLS = [
-  // 232 号票：问记忆（推理图谱里和问题相关的结论）
+  // 问记忆（推理图谱里和问题相关的结论）
   "ask_memory",
-  // 242 号票：问记忆管理员（深聊、要改/要忘的转给它）
+  // 问记忆管理员（深聊、要改/要忘的转给它）
   "ask_curator",
-  // 271 号票：标一下这一轮顺口问了哪个问题（只在内存里记个标记，不对卡片做动作）
+  // 标一下这一轮顺口问了哪个问题（只在内存里记个标记，不对卡片做动作）
   "mark_woven_question",
-  // 337 号票：记一句（用户明确让记的时候，转给记忆插件槽的 remember；只在记忆里新增一条）
+  // 记一句（用户明确让记的时候，转给记忆插件槽的 remember；只在记忆里新增一条）
   "remember_memory",
-  // 185 号票：归档简单提醒
+  // 归档简单提醒
   "archive_reminder",
   "bash",
-  // 240 号票：带参调一个登记过的 MCP 工具
+  // 带参调一个登记过的 MCP 工具
   "mcp_call",
   "cancel_reminder",
   "create_reminder",
@@ -60,10 +60,10 @@ const SECRETARY_TOOLS = [
   "edit",
   "list_inbox",
   "ls",
-  // 133 号票：把项目的服务的入口作为一张卡放进聊天（建卡，不对已有的卡做动作）
+  // 把项目的服务的入口作为一张卡放进聊天（建卡，不对已有的卡做动作）
   "open_service",
   "propose_quick_action",
-  // 281 号票：读个人档案（只读，不对卡片做动作）
+  // 读个人档案（只读，不对卡片做动作）
   "read_personal_file",
   "read",
   "read_attachment",
@@ -76,34 +76,34 @@ const SECRETARY_TOOLS = [
   "suggest_project",
   "suggest_task",
   "update_reminder",
-  // 257 号票：启动、关闭项目的服务（不对卡片做动作）
+  // 启动、关闭项目的服务（不对卡片做动作）
   "switch_project_services",
-  // 260 号票：调运营中的项目的接口（list / describe / call）
+  // 调运营中的项目的接口（list / describe / call）
   "project_ops",
   "propose_go_live",
   "view_board",
   "write",
   "write_task_brief",
   "ask_questions",
-  // 32 号票：每个会话都有的口语总结（用户发语音时用）
+  // 每个会话都有的口语总结（用户发语音时用）
   "spoken_summary",
-  // 86 号票：每个会话都有的发语音（用户打字时让他听见）
+  // 每个会话都有的发语音（用户打字时让他听见）
   "send_voice",
-  // 70 号票：grep、find 照给，联网搜索、读网页
+  // grep、find 照给，联网搜索、读网页
   "grep",
   "find",
   "web_search",
   "web_fetch",
-  // 75 号票：把要花时间的事交给后台（普通任务）
+  // 把要花时间的事交给后台（普通任务）
   "delegate_task",
-  // 147 号票：浏览侧边栏里的网页工具（只在侧边栏发的那一轮能用）
+  // 浏览侧边栏里的网页工具（只在侧边栏发的那一轮能用）
   "browse_read_page",
   "browse_fill",
   "find_files",
   "view_files",
   "browse_attach_files",
   "browse_open",
-  // 164 号票：看网页上能点的东西、按编号点
+  // 看网页上能点的东西、按编号点
   "browse_snapshot",
   "browse_click",
   "browse_element_content",
@@ -161,7 +161,7 @@ describe("待我处理", () => {
 });
 
 describe("承诺即任务", () => {
-  it("用户点明了要发起任务：同一轮里直接建任务（规划中），看板频道推送，不出建议卡；系统提示写明承诺即任务的三条（58 号票起要用户点明了才建任务）", async () => {
+  it("用户点明了要发起任务：同一轮里直接建任务（规划中），看板频道推送，不出建议卡；系统提示写明承诺即任务的三条（要用户点明了才建任务）", async () => {
     const td = await startTestDaemon({
       secretary: [call("create_task", { title: "每日简报", summary: "以后每天早上给用户出一份简报" }), { kind: "reply", text: "建好了，先跟你对一下要点" }],
     });
@@ -171,7 +171,7 @@ describe("承诺即任务", () => {
     expect(created).toMatchObject({ by: "secretary", task: { title: "每日简报", state: "planning", origin: "request" } });
     expect(cardsOf(frontend).filter((c) => c.type === "suggest_task")).toEqual([]);
 
-    // 承诺即任务的三条（75 号票起要花时间的事交给后台，不用等用户点明）
+    // 承诺即任务的三条（要花时间的事交给后台，不用等用户点明）
     const prompt = secretarySystemPrompt(defaultPromptLibrary(), "个人助理");
     expect(prompt).toContain("只答应用户要你做的事");
     expect(prompt).toContain("答应了就当场做或当场建——要花时间的交给后台（普通任务），用户点明了要发起的建任务（流程或长程任务），要你到点提醒的建简单提醒");

@@ -1,4 +1,4 @@
-// 连接地址（364 号票）在网页上的那一半里"碰浏览器"的那部分：二维码界面用的钩子。纯的部分在 app/connection-addresses.ts。
+// 连接地址在网页上的那一半里"碰浏览器"的那部分：二维码界面用的钩子。纯的部分在 app/connection-addresses.ts。
 // 服务管家的入口随时会变（用户在它那边开通了、实测结果变了）：页面开着时隔一会儿问一次守护进程，开好了二维码自己就出现。
 import { useCallback, useEffect, useState } from "react";
 import type { ConnectionAddressesView } from "../state/index.ts";

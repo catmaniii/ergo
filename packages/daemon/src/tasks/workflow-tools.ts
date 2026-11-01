@@ -1,4 +1,4 @@
-// 流程的负责人的两个工具（58 号票，propose_plan、report_step；守护进程代为执行）：
+// 流程的负责人的两个工具（propose_plan、report_step；守护进程代为执行）：
 // - propose_plan（起草时）：交出完整计划（目标、步骤、条件）。先检查（workflow-plan.ts 的 checkWorkflowDraft），再审查修补：
 //   审查要求先补充的退回负责人，判定不可执行的让负责人把原因告诉用户；这两种也把这版计划显示出来——
 //   一张不能授权的流程计划卡（refused）放进待我处理，写明原因和下一步（退回的不卡任务，不可执行的卡着任务等用户决定）；
@@ -7,7 +7,7 @@
 //   （规格第 8 节），所以工具结果只说"已交给用户授权"，授权之后执行开始时的通知里再说"按这份执行"；
 // - report_step（执行时）：汇报某一步的状态，完成时附一句话要点。步骤都做完或说明跳过时流程完成。
 // 被拒时原因以出错的工具结果交回负责人。
-// @i18n-ignore-file model：工具说明、工具结果交给负责人，照旧中文；工具的中文名（title，界面上显示）跟着当前语言（172 号票）
+// @i18n-ignore-file model：工具说明、工具结果交给负责人，照旧中文；工具的中文名（title，界面上显示）跟着当前语言
 import { eventTriggerOf, forModel, REPORTED_STEP_STATES, t, triggerFields, Type, type WorkflowPlanDraft, WorkflowPlanDraft as WorkflowPlanDraftSchema, WORKFLOW_REVIEW_STATUS_LABEL } from "@ergo/protocol";
 import { defineHostTool, type HostTool, type HostToolOutput } from "../agent-manager/host-tools.ts";
 import { RequestRejected } from "../errors.ts";
@@ -22,7 +22,7 @@ import { checkWorkflowDraft, type ReviewedWorkflow, workflowPlanText } from "./w
 export type WorkflowReviewer = (draft: WorkflowPlanDraft, version: number) => Promise<ReviewedWorkflow>;
 
 /**
- * 执行这个流程的负责人在审查时守卫眼里的样子：工作目录（真实路径）；项目的负责人（64 号票）另有围栏里的项目档案和项目的工具包
+ * 执行这个流程的负责人在审查时守卫眼里的样子：工作目录（真实路径）；项目的负责人另有围栏里的项目档案和项目的工具包
  * （执行时的能力是计划推出的和项目工具包的交集）
  */
 export interface WorkflowExecutor {
@@ -52,7 +52,7 @@ export function proposePlanTool(deps: { tasks: TaskService; tools: ToolRegistry;
     readOnlyOrIdempotent: false,
     run: (draft) =>
       guarded(async () => {
-        // 事件触发的流程（77 号票）：步骤参数里能写它等的事件带的字段的占位
+        // 事件触发的流程：步骤参数里能写它等的事件带的字段的占位
         const trigger = eventTriggerOf(deps.tasks.get(scope.taskId) ?? {});
         const problems = checkWorkflowDraft(draft, deps.tools, trigger ? triggerFields(trigger) : undefined);
         if (problems.length > 0) throw new RequestRejected("bad_params", `计划没通过检查，改好再提交：\n- ${problems.join("\n- ")}`);
@@ -109,12 +109,12 @@ export function reportStepTool(execution: TaskExecution, scope: MaintainerScope)
   });
 }
 
-/** 执行中想改步骤时交回负责人的话（59 号票：执行中不能改步骤，要改就由用户重新发起） */
+/** 执行中想改步骤时交回负责人的话（执行中不能改步骤，要改就由用户重新发起） */
 export const NO_PLAN_CHANGE_TEXT = `执行中不能改步骤：用户授权的是这份计划，执行中不能改。执行中获得的信息使计划需要变化（新增操作、预期之外的情况），用 ${EXECUTION_TOOL.waitForUser} 说明，由用户决定（要改就由用户重新发起）；先接着做计划里还能做的步骤。`;
 
 /**
- * 执行时的 propose_plan（59 号票）：不允许执行中用 propose_plan 提交修订版、重新授权——流程执行中不能改步骤
- * （ADR 0019，用户定的），所以执行时照样有这个工具，一调用就告诉负责人不行、该怎么办，计划不动
+ * 执行时的 propose_plan：不允许执行中用 propose_plan 提交修订版、重新授权——流程执行中不能改步骤
+ * （ADR 0019），所以执行时照样有这个工具，一调用就告诉负责人不行、该怎么办，计划不动
  */
 export function refusePlanChangeTool(): HostTool {
   return defineHostTool({
@@ -128,7 +128,7 @@ export function refusePlanChangeTool(): HostTool {
   });
 }
 
-/** 流程执行时负责人的工具：汇报步骤、转为等我、任务失败；提交计划只会被拒（执行中不能改步骤，59 号票） */
+/** 流程执行时负责人的工具：汇报步骤、转为等我、任务失败；提交计划只会被拒（执行中不能改步骤） */
 export function workflowExecutionTools(execution: TaskExecution, scope: MaintainerScope): HostTool[] {
   const keep = new Set<string>([EXECUTION_TOOL.waitForUser, EXECUTION_TOOL.failTask]);
   return [reportStepTool(execution, scope), ...executionTools(execution, scope).filter((tool) => keep.has(tool.spec.name)), refusePlanChangeTool()];

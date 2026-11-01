@@ -1,15 +1,15 @@
-// 主切面：设置 · 组件（323 号票）。真的守护进程走组合根和网关的 HTTP 接口；清单是随程序发布的那份，只把向量模型的文件换成
+// 主切面：设置 · 组件。真的守护进程走组合根和网关的 HTTP 接口；清单是随程序发布的那份，只把向量模型的文件换成
 // 本机假下载服务上的小文件（同样装进数据目录的模型区 models/Xenova/bge-m3，照新流程走一遍：探速、下到临时目录、校验、换上），
-// 不连外网、不下真模型（真的 560 MB 只在主会话手动核一次）：
+// 不连外网、不下真模型（真的 560 MB 只手动核一次）：
 // - GET /api/components：清单里的四个组件、默认装不装、功能灰不灰；
 // - POST /api/components/bge-m3 install：马上回（排上了），下完是装好了，文件在模型区，功能不再灰；
 // - POST /api/components install_defaults：照默认该装的排上（这里没有了）；删、不认得的组件（404）、参数不对（400）、不能从这里装的（400）；
-// - 语音合成（345 号票）：真的守护进程、假下载站、LSM 替身、假语音服务：没确认许可 400 不下载；确认后装好、登记、启动、进名单，
+// - 语音合成：真的守护进程、假下载站、LSM 替身、假语音服务：没确认许可 400 不下载；确认后装好、登记、启动、进名单，
 //   守护进程的语音合成（预热的试合成）打得到它；已有手动配的不覆盖；
-// - 语音识别（346 号票）：真的守护进程、假下载站、LSM 替身、假 audio.cpp：没确认许可不下载；装好后配置指向 audiocpp、不用重启，语音消息走到新接入；
+// - 语音识别：真的守护进程、假下载站、LSM 替身、假 audio.cpp：没确认许可不下载；装好后配置指向 audiocpp、不用重启，语音消息走到新接入；
 //   删了指回去；已配 LSM 模式、配了 Python、手动配的 audio.cpp 都不改，配置文件按字节核对；
 // - POST /api/component-import：离线导入一个文件夹，凑齐了装上；路径不在回 400；
-// - 查更新（347 号票）：POST /api/components check_updates、每晚的作业、待办里的提醒（同一版本一次，换上后自动归档）；断网不报错、不进待办。
+// - 查更新：POST /api/components check_updates、每晚的作业、待办里的提醒（同一版本一次，换上后自动归档）；断网不报错、不进待办。
 import fs from "node:fs";
 import path from "node:path";
 import { CHANNELS, type ComponentImportResult, type ComponentsView, HTTP_PATHS, type HttpErrorBody, type VoiceModelsView } from "@ergo/protocol";
@@ -120,7 +120,7 @@ describe("设置 · 组件", () => {
     expect((await act(td.url, "nope", "install")).status).toBe(404);
     const bad = await act(td.url, "bge-m3", "explode");
     expect(bad.status).toBe(400);
-    // 要确认许可的没带确认标记：不开始（语音识别模型 346 号票起能从这里装了）
+    // 要确认许可的没带确认标记：不开始（语音识别模型能从这里装了）
     const needsLicense = await act(td.url, "asr", "install");
     expect(needsLicense.status).toBe(400);
     expect(needsLicense.body.message).toContain("要先确认");
@@ -142,7 +142,7 @@ describe("设置 · 组件", () => {
     expect(missing.body.message).toContain("这个路径不在");
   });
 
-  describe("语音合成（345 号票）", () => {
+  describe("语音合成", () => {
     const PROGRAM = makeZip([{ name: "audiocpp_server.exe", body: blob(5000, 41) }]);
     const MODEL = blob(90_000, 42);
 
@@ -212,7 +212,7 @@ describe("设置 · 组件", () => {
       expect(fs.existsSync(path.join(td.dataDir, "components", "audiocpp-service", "server.json"))).toBe(false);
     });
 
-    describe("语音识别模型（346 号票）", () => {
+    describe("语音识别模型", () => {
       const ASR_MODEL = blob(70_000, 43);
 
       /** 随程序发布的清单，语音程序和语音识别模型的文件换成假下载站上的小文件 */

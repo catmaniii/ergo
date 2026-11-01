@@ -1,11 +1,11 @@
-// agent 贡献模块（128 号票，ADR-0027）：插件给 agent 的工具、每轮的上下文块、钩子订阅，经插件宿主登记到这里（PluginContext.agent：
+// agent 贡献模块（ADR-0027）：插件给 agent 的工具、每轮的上下文块、钩子订阅，经插件宿主登记到这里（PluginContext.agent：
 // 每次登记返回撤销函数、记在插件名下，停用时撤掉）；装配时按"给谁"——哪种 agent（秘书、三种负责人）、哪种会话、此刻的工具包——
 // 筛好交给装配。秘书（secretary/secretary.ts）和三种负责人（assembly.ts 的 sessionTools 那一处、host.ts 的会话）都经它。
 // 组合根在插件装配之前建它（秘书比 agent 宿主起得早，两边都要它），交给插件宿主、秘书、agent 宿主。
 // - 工具：守护进程代为执行的工具（HostTool），守卫的登记随工具走（HostTool.descriptor，会话拉起时加进守卫的工具注册表）；
 // - 每轮的上下文块：
 //   - input：跟在交给 agent 的每条输入后面（开始处理这条输入的那一刻现算，和看板变化、语音的说明拼成一条上下文消息、排在最后）；
-//     266 号票起可以是异步的（记忆简报要检索）：有一块是异步的，会话等齐了再交这条输入（出错的当没有）；还可以给这一轮回话带上 part
+//     可以是异步的（记忆简报要检索）：有一块是异步的，会话等齐了再交这条输入（出错的当没有）；还可以给这一轮回话带上 part
 //     （replyParts，记忆简报的结构化部分：网页据此画"回忆了 N 条记忆"），会话把它放进这一轮的第一条回话；
 //   - wake：每条输入之前（被唤起）和每次压缩之后注入（同重注入块；拉起时放进装配参数，交每条输入之前现算一遍、变了先送过去）；
 // - 钩子订阅：system_prompt_suffix（每轮接在系统提示末尾）、compaction_instructions（压缩时写摘要另按它），只做现有内联扩展用得到的。
@@ -13,11 +13,11 @@
 // （PluginDefinition.prompts），插件宿主收齐交给系统提示的文件（prompts/library.ts）。
 // 一份贡献给的东西只按插件登记的先后排：工具接在每种 agent 装配里的"插件贡献的工具"那一处（秘书在两个附件工具之后，
 // 负责人在每个会话都配的工具之后），上下文块、钩子订阅排在内核的（重注入块、秘书的压缩指令）后面。
-// 212 号票（浏览插件）加了两样：
+// （浏览插件）加了两样：
 // - 工具的位置 at: "end"：排在这种 agent 装配里内核自己的工具之后（秘书：内核的工具之后、测试加的工具和联网工具之前；负责人：
 //   插件贡献的工具之后）——浏览插件的网页工具原来就排在那里，搬进插件后模型看到的工具先后不变；
 // - 输入附注（notes）：接在交给 agent 的那条输入自己的文字末尾（同一条消息里，在投影、晚到的语音那句之后、负责人的消息 id 那行之前；
-//   开始处理这条输入的那一刻现算），不是另起一条上下文消息——浏览侧边栏、悬浮按钮发的消息后面那段网页上下文（147 号票）原来就在那里。
+//   开始处理这条输入的那一刻现算），不是另起一条上下文消息——浏览侧边栏、悬浮按钮发的消息后面那段网页上下文原来就在那里。
 import type { MessageEnvelope, MessagePart, PlanToolkit } from "@ergo/protocol";
 import type { HostTool } from "../agent-manager/host-tools.ts";
 import type { ContextBlockSpec, HookKind, HookSubscription } from "../runtime/index.ts";
@@ -46,7 +46,7 @@ export interface ContributionScope {
   toolkit?: (toolkit: PlanToolkit) => boolean;
 }
 
-/** 工具排在哪（212 号票）：plugins 是"插件贡献的工具"那一处（默认），end 是内核自己的工具之后 */
+/** 工具排在哪：plugins 是"插件贡献的工具"那一处（默认），end 是内核自己的工具之后 */
 export type ToolPlacement = "plugins" | "end";
 
 /** 工具：守护进程代为执行的（守卫的登记在 HostTool.descriptor 里） */
@@ -58,7 +58,7 @@ export interface ToolContribution {
 }
 
 /**
- * 输入附注（212 号票）：接在交给 agent 的那条输入自己的文字末尾（同一条消息里），开始处理这条输入的那一刻现算；undefined 或空的就不接
+ * 输入附注：接在交给 agent 的那条输入自己的文字末尾（同一条消息里），开始处理这条输入的那一刻现算；undefined 或空的就不接
  */
 export interface NoteContribution {
   to?: ContributionScope;
@@ -68,7 +68,7 @@ export interface NoteContribution {
 /** 每轮的上下文块 */
 export type ContextContribution =
   /**
-   * 跟在每条输入后面：开始处理这条输入的那一刻现算，undefined 就不带。可以是异步的（266 号票：会话等它算好再交这条输入，出错当没有）。
+   * 跟在每条输入后面：开始处理这条输入的那一刻现算，undefined 就不带。可以是异步的（会话等它算好再交这条输入，出错当没有）。
    * replyParts：这一轮的回话要带上的 part（文字算好之后取一次；会话放进这一轮的第一条回话），不给、undefined 就没有
    */
   | {
@@ -104,7 +104,7 @@ export interface AgentContributions {
   readonly tools: { register(contribution: ToolContribution): Undo };
   readonly context: { register(contribution: ContextContribution): Undo };
   readonly hooks: { register(contribution: HookContribution): Undo };
-  /** 输入附注（212 号票） */
+  /** 输入附注 */
   readonly notes: { register(contribution: NoteContribution): Undo };
   /**
    * 给这个 agent 此刻的工具（按登记的先后；重名的只留第一个，记一行日志）：at 是排在哪一处的（不写是 plugins，"插件贡献的工具"那一处）。
@@ -112,11 +112,11 @@ export interface AgentContributions {
    */
   toolsFor(target: ContributionTarget, at?: ToolPlacement): HostTool[];
   /**
-   * 跟在这条输入后面的（几块按登记的先后空一行拼在一起）；没有是 undefined。有一块是异步的（266 号票）就交回 Promise，等齐了再拼
+   * 跟在这条输入后面的（几块按登记的先后空一行拼在一起）；没有是 undefined。有一块是异步的就交回 Promise，等齐了再拼
    * （异步的那块出错当没有，记一行日志）
    */
   inputContextFor(target: ContributionTarget, message: MessageEnvelope): string | undefined | Promise<string | undefined>;
-  /** 这条输入的回话要带上的 part（266 号票：记忆简报的结构化部分），按登记的先后；文字算好之后取 */
+  /** 这条输入的回话要带上的 part（记忆简报的结构化部分），按登记的先后；文字算好之后取 */
   replyPartsFor(target: ContributionTarget, message: MessageEnvelope): MessagePart[];
   /** 接在这条输入自己的文字末尾的输入附注（几条换行拼在一起）；没有是 undefined */
   inputNoteFor(target: ContributionTarget, message: MessageEnvelope): string | undefined;
@@ -126,7 +126,7 @@ export interface AgentContributions {
    */
   manifestFor(target: ContributionTarget): ContributedManifest;
   /**
-   * 登记的贡献给出的东西变了、不是登记或撤销（295 号票：数据源的按需查开关、插件停用时内核替数据源给的工具跟着变）：
+   * 登记的贡献给出的东西变了、不是登记或撤销（数据源的按需查开关、插件停用时内核替数据源给的工具跟着变）：
    * 通知订阅的（常驻的秘书据此重新装配）
    */
   refresh(): void;

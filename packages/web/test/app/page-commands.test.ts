@@ -1,14 +1,14 @@
-// 网页上下指令在二狗网页这一侧（134 号票第二部分，app/page-commands.ts）和原生桥上页面桥那一组的包装（app/native-browser.ts）：
-// App、录音、识别、store 都换成假的。149 号票起悬浮按钮背后就是秘书本人。查：
+// 网页上下指令在二狗网页这一侧（app/page-commands.ts）和原生桥上页面桥那一组的包装（app/native-browser.ts）：
+// App、录音、识别、store 都换成假的。悬浮按钮背后就是秘书本人。查：
 // - 点悬浮按钮开输入条，打字发送：作为一条消息发进秘书的主会话（网页上下文：哪个浏览器、网页、按钮所在的框连同框里这一刻的内容、
 //   从悬浮按钮发的）；秘书在办"二狗在想"，正忙"排在后面"，说完了回话显示、过一会儿收起；没发出去写原因；
 // - 长按：悬浮按钮出来就备好录音器，按够了开始、松手先送识别，认出来的字先显示、再发（标着是说的）；整段静音、没认出不发；划走取消；
-//   录着的时候每 80 毫秒取一次音量（146 号票的波形）；按下那一刻起算开始语音输入（209 号票：二狗正在播的语音暂停），
+//   录着的时候每 80 毫秒取一次音量（波形）；按下那一刻起算开始语音输入（二狗正在播的语音暂停），
 //   松手、取消、收起、录不了、短按打字都算说完；
 // - 收起：等二狗回话时也能收起（不再等，按钮回到平常）；返回手势、浏览器开始加载别的网页时收起；
 // - 拦下的选文件对话框：让二狗选（问页面桥要框的列表）、这一轮的目标是这个对话框；发出去之后收起不取消对话框（秘书还要交给它），
 //   发之前收起告诉 App 取消；自己选交给系统的选择器；
-// - 359 号票，长按元素的圆钮：打字、说话走同一套，用户的话原样发，带着元素（这一刻选中的字）；没有框要操作；按钮的样子标在元素的编号上；页面桥报的元素按形状核对；
+// -长按元素的圆钮：打字、说话走同一套，用户的话原样发，带着元素（这一刻选中的字）；没有框要操作；按钮的样子标在元素的编号上；页面桥报的元素按形状核对；
 // - 原生桥：页面桥报的话按形状核对（发送带着的框、框里的内容，挑图片窗口上点的），形状不对的不认；文件分段交、App 回的不对当失败；
 //   挑图片窗口画成什么样（pick）、放掉预备的文件（discard，新版 App 才有）、返回手势收起窗口（pick-close）。
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
@@ -125,7 +125,7 @@ let recognized: PageVoiceResult;
 /** 识别慢一点：给了就等它 */
 let recognizing: Promise<PageVoiceResult> | undefined;
 let browserId: string | undefined;
-/** 交给播放器的"开始 / 说完语音输入"（209 号票），按先后 */
+/** 交给播放器的"开始 / 说完语音输入"，按先后 */
 let captures: boolean[];
 /** 假的秘书会话：每句话（幂等键）走到哪了 */
 let turns: Map<string, ButtonTurn>;
@@ -179,7 +179,7 @@ const turn = (n: number, t: ButtonTurn) => {
 const openOn = (element: PickedElement) => pageEvent({ type: "element-open", element, page: PAGE });
 const voiceOn = (phase: "press" | "start" | "stop" | "cancel", element: PickedElement) => pageEvent({ type: "element-voice", phase, element, page: PAGE });
 
-describe("长按元素的圆钮（359 号票）", () => {
+describe("长按元素的圆钮", () => {
   const IMAGE: PickedElement = { id: "x1", kind: "image", source: "http", src: "https://cdn.example.cn/cat.png?sig=1", label: "一只猫" };
   const SELECTED: PickedElement = { id: "x2", kind: "text", selected: true, text: { text: "选中的字", total: 4 } };
   test("点一下打字：用户的话原样发进秘书的主会话，带着网页和元素，没有框；按钮的样子标在元素的编号上；回话进气泡", () => {
@@ -416,7 +416,7 @@ describe("长按说话", () => {
   });
 });
 
-describe("语音插件没启用（212、214 号票）：悬浮按钮只能打字", () => {
+describe("语音插件没启用：悬浮按钮只能打字", () => {
   test("不备录音器、按下不算开始语音输入；按够了不录，气泡里写\"语音插件没启用：点一下按钮打字\"，按钮回到平常；松手也回到平常、不送识别、不发", async () => {
     commands.setVoice(false);
     pageEvent({ type: "field", field: TITLE });
@@ -455,7 +455,7 @@ describe("语音插件没启用（212、214 号票）：悬浮按钮只能打字
   });
 });
 
-describe("长按说话时二狗正在播的语音暂停（209 号票）", () => {
+describe("长按说话时二狗正在播的语音暂停", () => {
   test("按下那一刻就算开始（不等录音器）；按够了开始录不再报；松手说完", async () => {
     voiceEvent("press");
     expect(captures).toEqual([true]);
@@ -568,7 +568,7 @@ describe("收起", () => {
     expect(commands.snapshot()).toMatchObject({ kind: "bar" });
   });
 
-  test("回话太长去侧边栏看（147 号票）：气泡收起（侧边栏由浏览侧边栏打开）", () => {
+  test("回话太长去侧边栏看：气泡收起（侧边栏由浏览侧边栏打开）", () => {
     open(TITLE);
     commands.sendText("讲讲这页");
     turn(1, { phase: "replied", text: "很长".repeat(100) });
@@ -629,7 +629,7 @@ describe("原生桥上页面桥那一组", () => {
     expect(discarded).toEqual([JSON.stringify(["pk1", "pk2"])]);
   });
 
-  test("气泡、挑图片窗口（149 号票）：交给页面桥（没回 ok 是 false）；点的按形状核对，发送带的框和框里的内容；返回手势 bubble-close、pick-close", async () => {
+  test("气泡、挑图片窗口：交给页面桥（没回 ok 是 false）；点的按形状核对，发送带的框和框里的内容；返回手势 bubble-close、pick-close", async () => {
     const { methods, calls } = bridge();
     const scope: { __ergoBrowser?: (json: string) => void } = {};
     const browser = wrapNativeBrowser(methods, scope)!;

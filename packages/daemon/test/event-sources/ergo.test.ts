@@ -1,4 +1,4 @@
-// 二狗内部事件（77 号票）：从事件日志认出任务完成、失败、转等我，项目状态变化，一次运行失败；按任务、项目过滤；
+// 二狗内部事件：从事件日志认出任务完成、失败、转等我，项目状态变化，一次运行失败；按任务、项目过滤；
 // 自己的事不触发自己；项目内部的事只交给同一个项目里的、或者点名要它的订阅；去重键是事件日志的全局序号。
 import path from "node:path";
 import { CHANNELS, EVENT_TYPES, type EventTrigger, type Project, type ScheduledJob, type Task } from "@ergo/protocol";

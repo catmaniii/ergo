@@ -1,4 +1,4 @@
-// 秘书写个人档案（281 号票）：快速动作 personal_file，秘书写清写给谁（"我"或者称呼）、哪些字段（字段名、照抄的值）、记下哪件事；
+// 秘书写个人档案：快速动作 personal_file，秘书写清写给谁（"我"或者称呼）、哪些字段（字段名、照抄的值）、记下哪件事；
 // 出处就是秘书当时在处理的那条用户消息（运行时知道，不由秘书报）。照现有快速动作的规矩判断能不能直接写：
 // - 号码类（证件号、电话，numberGroups 逐位列出）不论点没点明都出核对卡，用户核对一遍（语音转写的数字可能错一位）；
 // - 新建一个重要的人也出卡（"表弟小张"是秘书认的，不一定对）；
@@ -6,11 +6,11 @@
 //   （撤销在档案页上：那个字段的"撤销"回到上一个值）；拿不准的出卡。推断出来的东西不会自动写；
 // - 核对卡（卡片类型 personal_file）上"确认写入"由运行时写进档案，和操作记录同一事务；"取消"关掉。
 // 每次写都留痕：经秘书转达、凭什么（点明 / 卡上确认）、根据哪句话、快速动作和卡片（彻底删除时据此改写核对卡、操作记录、提议的调用）。
-// 283 号票：写生日、纪念日（值认得出公历日子、提醒插件在、还没开过每年提醒）时一起开每年提醒（默认提前 3 天）——
-// 核对卡上一个勾（默认勾着，确认时一起建）。302 号票（用户 2026-10-25 定）：原话里明说了、直接写的，直接按默认建，
+// 写生日、纪念日（值认得出公历日子、提醒插件在、还没开过每年提醒）时一起开每年提醒（默认提前 3 天）——
+// 核对卡上一个勾（默认勾着，确认时一起建）。原话里明说了、直接写的，直接按默认建，
 // 回执里写明"已建每年提醒（提前 3 天），档案页可改可关"，不再跟一张问提醒的小卡（283 那张候选核对卡）。
-// 302 号票：彻底删除时核对卡上每年提醒那一勾（带着生日、纪念日的月日）整个去掉。
-// 284 号票：记忆管理员在了解你访谈里记下的档案信息，收尾时合成一张档案核对卡（interview_files，memory/interview.ts）逐条确认，
+// 彻底删除时核对卡上每年提醒那一勾（带着生日、纪念日的月日）整个去掉。
+// 记忆管理员在了解你访谈里记下的档案信息，收尾时合成一张档案核对卡（interview_files，memory/interview.ts）逐条确认，
 // 确认的也经这个执行器写（卡在它的会话里，留痕写 curator）；不在访谈里时它的工具 propose_personal_file 照常提这个动作（总是出核对卡）。
 import {
   ANNUAL_REMINDER_DEFAULT_DAYS,
@@ -164,7 +164,7 @@ export function personalFileAction(files: PersonalFilesService): QuickActionExec
       }
       const byField = new Map<string, PersonalFileCardField>();
       for (const { field: rawField, value: rawValue } of fields) {
-        // 302：带上这份档案已有的字段认（283 时建的同名自定义纪念日接着写）
+        // 带上这份档案已有的字段认（283 时建的同名自定义纪念日接着写）
         const field = files.fieldOf(found?.id, kind, rawField);
         if (field === undefined) throw new Error(`认不出字段「${rawField}」`);
         if (!found && field === "name") throw new Error("新建的人的称呼写在 person 里，不用再写进 fields");
@@ -183,7 +183,7 @@ export function personalFileAction(files: PersonalFilesService): QuickActionExec
       }
       if (byField.size === 0 && checkedNote === undefined) throw new RequestRejected("bad_params", "档案里已经是这些值了，不用再写");
       // @i18n-ignore-end
-      // 283：生日、纪念日一起开每年提醒（值认得出公历日子、提醒插件在、还没开过）：核对卡上默认勾着，直接写的直接开（302）
+      // 生日、纪念日一起开每年提醒（值认得出公历日子、提醒插件在、还没开过）：核对卡上默认勾着，直接写的直接开
       const remind: PersonalFileCardRemind[] = [];
       if (files.remindersOn()) {
         for (const f of byField.values()) {
@@ -236,7 +236,7 @@ export function personalFileAction(files: PersonalFilesService): QuickActionExec
     execute(params, context) {
       const p = params as PersonalFileParams;
       const trail: PersonalFileTrail = {
-        // 284 号票：记忆管理员在了解你访谈里提的（卡在它的会话里），留痕写"记忆管理员提议、用户确认的"
+        // 记忆管理员在了解你访谈里提的（卡在它的会话里），留痕写"记忆管理员提议、用户确认的"
         via: context.conversation === MEMORY_CURATOR_CONVERSATION ? "curator" : "secretary",
         basis: context.basis,
         ...(context.inputMessageId === undefined ? {} : { messageId: context.inputMessageId }),
@@ -245,7 +245,7 @@ export function personalFileAction(files: PersonalFilesService): QuickActionExec
         conversation: context.conversation,
       };
       const person = p.isNew || p.personId === undefined ? { newName: p.person, ...(p.relation === undefined ? {} : { relation: p.relation }) } : { id: p.personId };
-      // 283：核对卡上确认的照勾着的建每年提醒（没带勾的照卡上默认的）；302：原话里明说了、直接写的照默认的直接建（回执写明）
+      // 核对卡上确认的照勾着的建每年提醒（没带勾的照卡上默认的）；原话里明说了、直接写的照默认的直接建（回执写明）
       const reminders = p.chosen ?? (p.remind ?? []).map((r) => ({ field: r.field, daysBefore: r.daysBefore }));
       const prepared = files.prepareWrite({ person, fields: p.fields.map((f) => ({ field: f.field, value: f.value })), ...(p.note === undefined ? {} : { note: p.note }), reminders, trail });
       const done = prepared.changed.length === 0 ? t("personalFiles.action.unchanged", { person: p.person }) : t("personalFiles.action.done", { person: p.person, what: whatOf(p) });
@@ -272,8 +272,8 @@ function cardText(p: PersonalFileCardPayload): string {
 /**
  * 个人档案的核对卡（卡片类型 personal_file）："确认写入"按卡上存的规范化动作由运行时写进档案（经快速动作服务：执行器的事件加操作记录，
  * 和卡片更新同一事务）；"取消"关掉。彻底删除时卡上的值、记下的事、称呼、结果都换成删除标记（字段名留着），
- * 每年提醒的勾带着生日、纪念日的月日，整个去掉（302 号票；284 的访谈核对卡同样）。
- * 版本 2（283 号票）：生日、纪念日带着每年提醒的勾，"确认写入"带上勾了哪几条、各提前几天（不带照卡上默认的建）
+ * 每年提醒的勾带着生日、纪念日的月日，整个去掉（访谈核对卡同样）。
+ * 版本 2：生日、纪念日带着每年提醒的勾，"确认写入"带上勾了哪几条、各提前几天（不带照卡上默认的建）
  */
 export function personalFileCardType(quickActions: QuickActionService) {
   return defineCardType({

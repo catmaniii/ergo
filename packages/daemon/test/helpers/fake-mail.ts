@@ -1,4 +1,4 @@
-// 测试用的邮件（298 号票）：拼原样的邮件字节（CRLF、编码字、base64、quoted-printable、GBK），给 MIME 单元测试和假 IMAP 服务用。
+// 测试用的邮件：拼原样的邮件字节（CRLF、编码字、base64、quoted-printable、GBK），给 MIME 单元测试和假 IMAP 服务用。
 // 人名、邮箱全是编的（test.user@example.com 是"用户自己"）。Node 没有 GBK 编码器：用 TextDecoder("gbk") 把所有双字节解一遍，
 // 反过来查出每个字的 GBK 字节。
 

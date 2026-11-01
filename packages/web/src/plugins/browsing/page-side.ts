@@ -1,13 +1,13 @@
-// 浏览侧边栏的侧边栏模式（147 号票，side-remote.ts）接到这个页面上：App 给的 window.ergoSide、App 推样子用的 window.__ergoSide。
+// 浏览侧边栏的侧边栏模式（side-remote.ts）接到这个页面上：App 给的 window.ergoSide、App 推样子用的 window.__ergoSide。
 // 单独一个文件，side-remote.ts 就不碰浏览器的全局变量，能在 Node 里测。
-// 275 号票：样子里带着"浏览"页那一份现在的外观，交给这一页的外观（pageTheme().adopt：马上换风格、深浅色、主色，不写存储）。
+// 样子里带着"浏览"页那一份现在的外观，交给这一页的外观（pageTheme().adopt：马上换风格、深浅色、主色，不写存储）。
 import { useSyncExternalStore } from "react";
 import { appObject, exposeToApp } from "../../app/app-names.ts";
 import { pageTheme } from "../../app/page-theme.ts";
 import type { BrowseSideView } from "./browse-side.ts";
 import { RemoteSide, type SideHostObject } from "./side-remote.ts";
 
-/** 这一页是侧边栏模式（212 号票起由外壳认：app/side-mode.ts），照旧转出 */
+/** 这一页是侧边栏模式（由外壳认：app/side-mode.ts），照旧转出 */
 export { SIDE_MODE } from "../../app/side-mode.ts";
 
 interface SideScope {

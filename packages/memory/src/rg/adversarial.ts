@@ -1,4 +1,4 @@
-// 227 号票：对抗复核（独立复核员不看结论、只从证据重推）。
+// 对抗复核（独立复核员不看结论、只从证据重推）。
 //
 // 为什么：整理时模型自己出假设、自己判证据，容易只找支持自己的东西。这一步另起一个复核员——不告诉它系统得出的结论，
 // 只给它支持这条结论的证据原话，先让它写下"从这些观察能推出关于这个人的什么"（1 条），再给出候选结论让它判：
@@ -8,7 +8,7 @@
 // - 抽样：tier 是 need/value、confidence 是 medium 或 high、status active、epistemic inferred 的结论；
 // - 最多 5 条（单独 5 次模型调用预算，不算进 reflect 的预算），用光就记 budgetExhausted，剩下的下次整理接着判；
 // - 每条一次调用；支持证据原话最多 8 条、带编号、打乱顺序（按结论 id 定种子，稳定可复现）；
-// - no → 结论加复核标记（记修订，原因"对抗复核不一致"；329 号票起"待复核"不占真值状态，标记不改已验证 / 猜测，下一次整理重判）；
+// - no → 结论加复核标记（记修订，原因"对抗复核不一致"；"待复核"不占真值状态，标记不改已验证 / 猜测，下一次整理重判）；
 //   unclear 只计数；yes 不动；
 // - 判过的记在 claim_reviews 表里，不重复判（yes 也记，但结论本身不动）。
 //
@@ -166,7 +166,7 @@ export async function adversarialReview(options: AdversarialReviewOptions): Prom
     report.reviewed.push(claim.id);
     store.recordClaimReview({ claimId: claim.id, verdict: verdict.support, why: verdict.why, inference: verdict.inference, at } satisfies ClaimReview);
     if (verdict.support === "no") {
-      // 267 号票：经唯一写入口（标复核，夜班）；329 号票起只加复核标记，不改真值状态，往下的不动
+      // 经唯一写入口（标复核，夜班）；只加复核标记，不改真值状态，往下的不动
       rgSession(store, { op: "mark_review", actor: "nightly", reason: `对抗复核不一致：${verdict.why}` }, () => {
         rgWriter(store).updateClaim(claim.id, { needsReview: true, reviewedAt: at }, { reason: "对抗复核不一致" });
         options.onRejected?.(claim);

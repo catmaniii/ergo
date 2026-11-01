@@ -1,4 +1,4 @@
-// 主切面：删除项目时补齐清理（66 号票）——项目之外读过这个项目的调用。真的守护进程，秘书、负责人、评审子 agent 接 faux 剧本，
+// 主切面：删除项目时补齐清理——项目之外读过这个项目的调用。真的守护进程，秘书、负责人、评审子 agent 接 faux 剧本，
 // 测试扮演前端。
 // - 秘书读过这个项目的（文件工具读写死的路径、经草稿区里的目录联接读、读项目档案的工具、列项目区这个上级目录）：删项目之后
 //   完整内容和返回都取不到，详情注明"已随项目删除"（purgedBy；过了保留期清掉过的也不再注明清掉），聊天里的工具调用记录只剩
@@ -168,7 +168,7 @@ describe("秘书读过的项目档案", () => {
     expect((await toolCallDetail(td.url, records.callId)).body.result).toContain("月度导出已经做完");
     expect((await toolCallDetail(td.url, listing.callId)).body.result).toContain("p-1/");
     expect(effectLog(td.daemon.store).filter((r) => r.agentId === "secretary").map((r) => r.callId)).toEqual(parts.map((p) => p.callId));
-    // 读项目档案的那次过了保留期，完整内容清掉了只剩摘要（65 号票）：返回开头照样写着是哪个项目
+    // 读项目档案的那次过了保留期，完整内容清掉了只剩摘要：返回开头照样写着是哪个项目
     const recordsDetail = td.daemon.store.read("tool_calls").find((e) => (e.payload as ToolCallDetail).callId === records.callId)!;
     clearDetails(td.daemon.store, [{ globalSeq: recordsDetail.globalSeq, reason: "expired" }], nowIso(), BUILTIN_TOOL_REGISTRY);
     expect((await toolCallDetail(td.url, records.callId)).body).toMatchObject({ cleared: { reason: "expired" }, result: expect.stringContaining("月度导出已经做完") });

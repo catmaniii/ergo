@@ -1,5 +1,5 @@
-// 建出、派出工单，和"任务变了，手上这张工单该以什么结局结束"（16 号票的派单队列 work-orders.ts、17 号票的多项目任务
-// multi-project.ts、19 号票的定时作业的一次运行共用一份）。工单按来源分支：用户发起的单项目任务的（起草计划、执行）、
+// 建出、派出工单，和"任务变了，手上这张工单该以什么结局结束"（派单队列 work-orders.ts、多项目任务
+// multi-project.ts、定时作业的一次运行共用一份）。工单按来源分支：用户发起的单项目任务的（起草计划、执行）、
 // 定时作业的一次运行（不属于任务）建出即进收件负责人的队列；涉及多个项目的任务的负责人派来的改动先"等阶段开始"或"待你确认"，
 // 派出时才进队列。每张工单都有的基础字段只在 orderBase 里拼。
 import {
@@ -24,9 +24,9 @@ import { oneLine } from "../util/text.ts";
 import { endedEvent, workOrderEvent } from "./events.ts";
 import { archivedReason, deletedProjectReason, taskCancelledReason, taskEndedReason } from "./texts.ts";
 
-/** 用户发起的单项目任务（16 号票）的一张新工单的内容：起草计划（内容是任务书、打回意见……）、执行 */
+/** 用户发起的单项目任务的一张新工单的内容：起草计划（内容是任务书、打回意见……）、执行 */
 export type UserTaskOrderBody = { source: "user_task"; kind: UserTaskWorkOrder["kind"]; instructions?: string | undefined };
-/** 涉及多个项目的任务的负责人派来的改动（17 号票）的内容：所属阶段、验收标准、计划内外；建出时等阶段开始 */
+/** 涉及多个项目的任务的负责人派来的改动的内容：所属阶段、验收标准、计划内外；建出时等阶段开始 */
 export type TaskMaintainerOrderBody = Pick<TaskMaintainerWorkOrder, "source" | "title" | "instructions" | "stageId" | "planned"> & { acceptance: readonly string[] };
 
 /** 每张工单都有的：工单号、收件项目和它的负责人、流水线上的说法、建出的时刻 */
@@ -62,7 +62,7 @@ export function newWorkOrder(id: string, time: string, task: Pick<Task, "id" | "
   };
 }
 
-/** 定时作业的一次运行的工单（19 号票）：不属于任务，记着作业和这次运行，待接（建出即进队列） */
+/** 定时作业的一次运行的工单：不属于任务，记着作业和这次运行，待接（建出即进队列） */
 export function newRunWorkOrder(id: string, time: string, job: Pick<ScheduledJob, "id" | "title">, run: Pick<JobRun, "runId">, project: Pick<Project, "id" | "maintainerId">, instructions: string): JobRunWorkOrder {
   return {
     ...orderBase(id, time, project, t("workOrders.orderTitle", { kind: JOB_RUN_WORK_ORDER_LABEL, title: job.title })),
@@ -89,7 +89,7 @@ export function dispatchedEvents(wo: WorkOrder, project: Project | undefined, by
 /**
  * 这张工单的活做完了没有（任务变了之后）：返回工单要以什么结局结束；还没做完是 undefined。
  * 任务取消（归档）了退回、失败了做不了；起草计划的在计划交了、执行的在任务完成时完成；
- * 任务负责人派来的改动（17 号票）由项目负责人交回执结束，任务结束时还在做的退回。定时作业的运行不属于任务，不看这个
+ * 任务负责人派来的改动由项目负责人交回执结束，任务结束时还在做的退回。定时作业的运行不属于任务，不看这个
  */
 export function outcomeOf(wo: TaskWorkOrder, task: Task): { outcome: WorkOrderOutcome; reason?: string } | undefined {
   if (task.state === "cancelled" || task.state === "archived") return { outcome: "returned", reason: taskCancelledReason() };

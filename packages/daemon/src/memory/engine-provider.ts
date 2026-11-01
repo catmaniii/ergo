@@ -1,5 +1,5 @@
 // @i18n-ignore-file log：这里只有日志（打开失败、降级的一行），没有界面文字
-// 会话里现用现开的记忆引擎（232 号票）：`ask_memory` 工具和每轮醒来的简报要用推理库 rg.db，但 225 号票的引擎是
+// 会话里现用现开的记忆引擎：`ask_memory` 工具和每轮醒来的简报要用推理库 rg.db，但引擎是
 // "整理时开、跑完关"，会话里没人常开它。这里懒打开、缓存一个（只读用途）、插件停用时关掉：
 // - 第一次用的时候才打开（打开会校验 manifest、版本对不上不打开，见 rg-db.ts）；之后一直用这同一个连接，
 //   守卫的只读查询（结论、用户模型、问题箱、竞争解释）都走它，不写库（打开时那一次 manifest 的 updated_at 除外）；
@@ -8,7 +8,7 @@
 // - 和每晚整理的并发：两边各自一个连接，靠 SQLite 的 WAL 和 busy_timeout（5 秒）各走各的；这里不握事务，更不长期握写锁；
 //   碰巧撞上写（busy / locked）的那一次不当成永久失败，下次再试；
 // - 插件停用（运行中或者守护进程停止）时 close()：关掉连接，之后 get() 回 undefined。
-// 267 号票：这一份的唯一写入口开成只读（reader），写一律被拒。要写的（264 号票的顺口问：记问过、跳过、别问这个、回答回写）
+// 这一份的唯一写入口开成只读（reader），写一律被拒。要写的（顺口问：记问过、跳过、别问这个、回答回写）
 // 用 createWritableEngineUse 随用随开一份可写的、用完关掉（和管理员的工具、删除登记一样）。
 import fs from "node:fs";
 import { DEEPSEEK_DEFAULT_MODEL, type Embedder, type MemoryEngine } from "@ergo/memory";
@@ -16,7 +16,7 @@ import { reasoningIssueText } from "./nightly-job.ts";
 import { openReasoningDb } from "./rg-db.ts";
 
 export interface MemoryEngineProviderOptions {
-  /** rg.db 的路径（338 号票起是 <数据目录>/memory/subtext/rg.db；以前在 db 区） */
+  /** rg.db 的路径（是 <数据目录>/memory/subtext/rg.db；以前在 db 区） */
   file: string;
   /** 引擎的时钟（"现在"，store.now() 用它） */
   clock: () => string;
@@ -25,7 +25,7 @@ export interface MemoryEngineProviderOptions {
   /** 向量函数（内核的 bge-m3 转接）；给了才和每晚整理用同一个向量模型名，检索里也算语义 */
   embedder?: Embedder;
   /**
-   * 日志里怎么称呼"这件事"（默认"顺口问"）：337 号票起"按原话记一条"也用这一份可写引擎，日志说清是哪件事打不开库
+   * 日志里怎么称呼"这件事"（默认"顺口问"）："按原话记一条"也用这一份可写引擎，日志说清是哪件事打不开库
    */
   what?: string;
   log?: (line: string) => void;
@@ -44,7 +44,7 @@ export interface MemoryEngineProvider {
 export type MemoryEngineUse = <T>(fn: (engine: MemoryEngine) => T) => T | undefined;
 
 /**
- * 267 号票：要写推理库的会话里的活（顺口问）用这个，不用上面那份缓存的读者引擎：每次打开、做完关掉，写都经引擎的唯一写入口。
+ * 要写推理库的会话里的活（顺口问）用这个，不用上面那份缓存的读者引擎：每次打开、做完关掉，写都经引擎的唯一写入口。
  * 库**不顺手建**（还没建库就是还没建库）；打不开的原因只在变了的时候记一行日志（省得每条消息记一遍）。fn 抛的错照抛给调用方
  */
 export function createWritableEngineUse(options: MemoryEngineProviderOptions): MemoryEngineUse {
@@ -106,7 +106,7 @@ export function createMemoryEngineProvider(options: MemoryEngineProviderOptions)
     get() {
       if (engine) return engine;
       if (closed || unusable !== undefined) return undefined;
-      // 还没建库：不顺手建（225 号票的装配、每晚整理会建）；空文件也当没有
+      // 还没建库：不顺手建（装配、每晚整理会建）；空文件也当没有
       try {
         if (!fs.existsSync(options.file) || fs.statSync(options.file).size === 0) {
           giveUp("还没建库");
@@ -122,7 +122,7 @@ export function createMemoryEngineProvider(options: MemoryEngineProviderOptions)
           file: options.file,
           clock: options.clock,
           model,
-          // 267 号票：秘书只读——这一份引擎的唯一写入口开成只读，写推理图谱一律被拒
+          // 秘书只读——这一份引擎的唯一写入口开成只读，写推理图谱一律被拒
           reader: true,
           ...(options.embedder === undefined ? {} : { embedder: options.embedder }),
         });

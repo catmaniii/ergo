@@ -1,4 +1,4 @@
-// 主切面：斜杠命令直接写 skill 的目录名（82 号票，用户 2026-10-10 定）。都用自己造的假 skill，不碰真的第三方 skill。
+// 主切面：斜杠命令直接写 skill 的目录名。都用自己造的假 skill，不碰真的第三方 skill。
 // - 秘书：/mp-tdd、/fancy-mode（名字是 "Fancy Mode"，命令是目录名）展开；/Fancy Mode 这种带空格的不认、原样交过去；
 //   目录名相同时集合里的写 /集合名:目录名；和二狗自己的命令同名的 skill：/流程 仍是发起流程（不展开），/skill:流程 才是那个 skill；
 //   不认识的 /nope 原样交过去；
@@ -82,7 +82,7 @@ async function nthReply(frontend: TestFrontend, channel: string, n: number): Pro
 }
 
 const COMMANDS = [
-  // 310 号票：带参数提示；命令一律写英文（中文的老写法 /流程、/任务 打了照样算，候选里不列）
+  // 带参数提示；命令一律写英文（中文的老写法 /流程、/任务 打了照样算，候选里不列）
   { kind: "command", text: "/workflow", name: "workflow", description: expect.stringContaining("发起一个流程"), argumentHint: "<要做的事>" },
   { kind: "command", text: "/task", name: "task", description: expect.stringContaining("发起一个长程任务"), argumentHint: "<要做的事>" },
 ];
@@ -204,7 +204,7 @@ describe("负责人的会话", () => {
     const users = userTurns(await nthReply(frontend, TM1, 4));
     const [mpTdd, flow] = users.slice(-2) as [string, string];
     expect(mpTdd).toMatch(/^\[user\] \[[^\]]*\]\n<skill name="mp-tdd" location="[^"]*mp-tdd[\\/]SKILL\.md">/);
-    // 负责人会话里用户的话末尾带一行消息 id（125 号票：引用用户原话时照抄）
+    // 负责人会话里用户的话末尾带一行消息 id（引用用户原话时照抄）
     expect(mpTdd).toMatch(/照着做。\n<\/skill>\n\n照着做\n\[用户消息 id：m-[^\]]+\]$/);
     // 和展开一致：同名的 skill 直接展开
     expect(flow).toMatch(/^\[user\] \[[^\]]*\]\n<skill name="流程" location="[^"]*流程[\\/]SKILL\.md">/);

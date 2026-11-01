@@ -1,4 +1,4 @@
-// pi 契约测试：find、grep 不靠 fd、rg 也能用（362 号票）。pi 自带的 find、grep 找不到 fd、rg 就报 "fd is not available and could not be downloaded"
+// pi 契约测试：find、grep 不靠 fd、rg 也能用。pi 自带的 find、grep 找不到 fd、rg 就报 "fd is not available and could not be downloaded"
 // （二狗固定设了 PI_OFFLINE，不会去下载）。这里让子进程的 PATH 上没有它们，模型调用这两个工具照样有结果。
 import fs from "node:fs";
 import path from "node:path";

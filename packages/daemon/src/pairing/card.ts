@@ -3,7 +3,7 @@
 // - 批准（approve）：请求变成已批准，新设备下一次来问就领到凭证；卡片已处理。批准不算审批决定，不产生素材；
 // - 拒绝（deny）：请求被拒，卡片已处理（不是"关掉不处理"，不产生回避信号）。
 // 待批的请求 5 分钟后过期，卡片变成已过期，不能再处理（由配对模块的计时器做）。
-// 137 号票：浏览器标识像网络上的自动访问的请求，负载里带着原因（automated），卡上、纯文本降级里多一句提示（不拦批准）。
+// 浏览器标识像网络上的自动访问的请求，负载里带着原因（automated），卡上、纯文本降级里多一句提示（不拦批准）。
 import { automatedAccessHint, PairingCardPayload, t } from "@ergo/protocol";
 import { defineCardType } from "../cards/registry.ts";
 import type { PairingService } from "./pairing.ts";

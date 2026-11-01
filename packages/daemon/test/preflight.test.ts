@@ -1,4 +1,4 @@
-// 起动前的两项检查（315 号票，preflight.ts）：只支持 Windows、Node 版本跟着 pi（ADR-0031，engines.node 写最低要求）。
+// 起动前的两项检查（preflight.ts）：只支持 Windows、Node 版本跟着 pi（ADR-0031，engines.node 写最低要求）。
 // 入口（main.ts）在加载组合根之前做；不对就一句话、不启动。
 import { describe, expect, it } from "vitest";
 import { checkNodeVersion, enginesNode, platformProblem, preflight } from "../src/preflight.ts";

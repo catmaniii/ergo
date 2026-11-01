@@ -52,7 +52,7 @@ const SYSTEM_VARIABLES = [
 ];
 
 /**
- * 组件区（数据目录的 components\，323 号票）在哪：守护进程给 agent 子进程、插件的一次性子进程都带上（318 号票），
+ * 组件区（数据目录的 components\）在哪：守护进程给 agent 子进程、插件的一次性子进程都带上，
  * 子进程要用装在组件区的东西（Claude Code 的 Agent SDK）时从这里找
  */
 export const COMPONENTS_DIR_ENV = "ERGO_COMPONENTS_DIR";
@@ -69,20 +69,20 @@ const allowed = new Set(SYSTEM_VARIABLES.map((name) => name.toUpperCase()));
 export const OFFLINE_PROXY = "http://127.0.0.1:9";
 
 /**
- * 联网关着时不走代理的地址（362 号票）：只有本机。写本机服务的项目要连自己的服务、连自己起的测试服务器，走死代理就连不上了。
+ * 联网关着时不走代理的地址：只有本机。写本机服务的项目要连自己的服务、连自己起的测试服务器，走死代理就连不上了。
  * [::1] 是 Node 的写法（undici 拿 URL.hostname 比，带方括号），::1 是 curl、Python 的写法
  */
 export const OFFLINE_NO_PROXY = "127.0.0.1,localhost,::1,[::1]";
 
 /**
- * agent 的 bash、阶段验收脚本、运营接口的脚本起的进程固定加的（362 号票）：中文 Windows 上 Python 的控制台默认 GBK，
+ * agent 的 bash、阶段验收脚本、运营接口的脚本起的进程固定加的：中文 Windows 上 Python 的控制台默认 GBK，
  * 打印中文报错、输出乱码（真模型试验里一次验收因此没过）。语音模块（voice/index.ts）也设了
  */
 export const SCRIPT_UTF8_ENV: Readonly<Record<string, string>> = Object.freeze({ PYTHONUTF8: "1" });
 
 /**
- * 联网开关关着的 agent（70 号票起秘书是开着的），它的 bash 起的进程环境里加上这些（规格第 7 节，尽力而为、不是硬隔离）：
- * 代理地址一律设成无效值，curl、wget、git、pip、Python 的 requests / urllib 走代理就连不上；只连本机的不走代理（362 号票，OFFLINE_NO_PROXY）；
+ * 联网开关关着的 agent（秘书是开着的），它的 bash 起的进程环境里加上这些（规格第 7 节，尽力而为、不是硬隔离）：
+ * 代理地址一律设成无效值，curl、wget、git、pip、Python 的 requests / urllib 走代理就连不上；只连本机的不走代理（OFFLINE_NO_PROXY）；
  * NODE_USE_ENV_PROXY 让 Node（≥22.21）的 fetch 和 http 也按环境变量走代理。
  * 只加在 bash 起的进程上（子进程里的 bash 工具在起进程前加），agent 子进程自己的环境不受影响（它要连模型）。
  * Windows 上环境变量名不分大小写，同名的只写大写一份（Node 起进程时同名不同大小写的只传字典序第一个）。

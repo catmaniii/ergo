@@ -1,4 +1,4 @@
-// 选另存的文件夹时校验（356 号票）：绝对路径、不在数据目录里、存在、真写一个临时文件试；不存在的说不存在（页面问要不要新建）。
+// 选另存的文件夹时校验：绝对路径、不在数据目录里、存在、真写一个临时文件试；不存在的说不存在（页面问要不要新建）。
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";

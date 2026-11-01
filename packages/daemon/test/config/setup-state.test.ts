@@ -1,8 +1,8 @@
-// 首次设置向导（319 号票，config/setup-state.ts、config.ts 的 parseSetup / writeSetupConfig）：
+// 首次设置向导（config/setup-state.ts、config.ts 的 parseSetup / writeSetupConfig）：
 // - 五步各自的 ready（条件现在满不满足）由注入的取值函数现算，done = ready || 点了"以后再说" || 点了"做完了"；
 // - "以后再说"和"做完了"一步只待在一处，标了一边就从另一边去掉；
 // - 真相是配置文件的 setup 节：写回去时别的字段原样留着；没有这一节的旧配置、手改坏了的都不炸，按"什么都没做"。
-// - 老数据目录（347 号票）：format 1 当时已经走完的算能力看过了，引导条不回来；新数据目录要看过能力才算完。
+// - 老数据目录：format 1 当时已经走完的算能力看过了，引导条不回来；新数据目录要看过能力才算完。
 // 守护进程上的行为（各步的 ready 从哪个服务取）在主切面 test/main/setup.test.ts。
 import fs from "node:fs";
 import path from "node:path";
@@ -123,7 +123,7 @@ describe("首次设置向导的标记", () => {
   });
 });
 
-// 347 号票：第③步从"组件"换成"能力"。以前走完向导的不再看到引导条，新用户要看过这一步才算完
+// 第③步从"组件"换成"能力"。以前走完向导的不再看到引导条，新用户要看过这一步才算完
 describe("老数据目录和新数据目录", () => {
   const capabilities = (setup: ReturnType<typeof open>) => setup.view().steps.find((step) => step.id === "capabilities");
   /** 这一版之前写的配置 */

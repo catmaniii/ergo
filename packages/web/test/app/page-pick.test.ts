@@ -1,4 +1,4 @@
-// 挑图片窗口在二狗网页这一侧（149 号票，app/page-pick.ts）：页面桥、取缩略图、取字节、交给 App、对卡做动作都换成假的，预备用真的
+// 挑图片窗口在二狗网页这一侧（app/page-pick.ts）：页面桥、取缩略图、取字节、交给 App、对卡做动作都换成假的，预备用真的
 // PageStage。查：
 // - 秘书给这台设备的网页候选卡（这一页的）：窗口弹出来，推荐的预先选上；先取缩略图（守护进程缩好的小图）马上显示，再在后台预备原图
 //   （推荐的先）；别的网页上的卡不弹、不预备；
@@ -6,8 +6,8 @@
 //   没用上的预备文件放掉；没交进去写原因（卡上也记）、还能再点；拦下的选文件对话框交给对话框；
 // - 卡在别处处理了（会话里交了、都不要了）：窗口写一句跟着收起，预备的放掉；
 // - 都不要：卡关掉；收起（×、返回手势）：窗口收起、预备的留着（会话里的卡照样能挑）；换了网页：收起、预备的放掉。
-// 181 号票：标题里说到助理用起的名字（纯文字换好名字，另给按名字切开的几段，页面桥画成名字标签），改名、换语言后开着的窗口跟着变。
-// 184 号票：卡上记着编号（ref，秘书按编号指的上传框）的按编号交。
+// 标题里说到助理用起的名字（纯文字换好名字，另给按名字切开的几段，页面桥画成名字标签），改名、换语言后开着的窗口跟着变。
+// 卡上记着编号（ref，秘书按编号指的上传框）的按编号交。
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { StagedFile } from "../../src/app/native-browser.ts";
 import { PagePickSync, PICK_DONE_HIDE_MS } from "../../src/plugins/browsing/page-pick.ts";
@@ -42,7 +42,7 @@ let order: string[];
 let discarded: string[];
 let logs: string[];
 let sync: PagePickSync;
-/** 助理现在的名字（181 号票） */
+/** 助理现在的名字 */
 let assistantName: string | undefined;
 
 const settle = async () => {
@@ -171,7 +171,7 @@ describe("窗口里点交", () => {
   });
 });
 
-describe("按编号指的上传框（184 号票）", () => {
+describe("按编号指的上传框", () => {
   test("卡上记着编号（ref）的：按编号交（交之前页面桥核对还是那一页、还是上传框）；对不上的原因写在窗口上、卡上也记一笔", async () => {
     sync.cardsChanged([view("c-1", { fieldId: "e2", ref: "e2", field: "「产品图」（上传框）" })]);
     await settle();
@@ -227,7 +227,7 @@ describe("别处处理了、都不要、收起、换了网页", () => {
   });
 });
 
-describe("181 号票：标题里用起的名字", () => {
+describe("标题里用起的名字", () => {
   afterEach(() => setActiveLocale(activeLocaleFrom(TEST_LOCALES, DEFAULT_LANGUAGE)));
 
   test("标题用起的名字（纯文字换好、另给几段）；改名字、换语言后开着的窗口跟着变", () => {

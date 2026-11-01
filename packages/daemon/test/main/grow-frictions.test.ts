@@ -1,4 +1,4 @@
-// 主切面：在二狗内部长服务这条路上的摩擦（362 号票，真模型试验 live-closed-loop-2026-11-01 查出来的）。真的守护进程，agent 接 faux 剧本，LSM 用替身：
+// 主切面：在二狗内部长服务这条路上的摩擦（真模型试验 live-closed-loop-2026-11-01 查出来的）。真的守护进程，agent 接 faux 剧本，LSM 用替身：
 // - 立项：秘书出卡时用户的话原样带上；点"立项"后负责人没等用户说话就开口，手里有用户的原话；
 // - 服务没上线、挂了的通知不打断正在跑的报警工单：报警做完才开对话段处理，通知里写着服务管家的依据和先自己连一下核实；
 // - 已登记的 MCP 进负责人的系统提示，任务书里的数据源真写进去；
@@ -56,7 +56,7 @@ async function connect(td: TestDaemon) {
 
 describe("立项：用户的话不丢，负责人先开口", () => {
   it("卡上带着用户那句话的原文和秘书抄的前面几句；点“立项”后负责人没等用户说话就开口，手里有用户的原话", async () => {
-    const PATH = "C:\\Users\\假的\\drama\\retention.json";
+    const PATH = "C:\\Users\\假的\\demo\\retention.json";
     const td = await startTestDaemon({
       kickoffOpening: true,
       secretary: [call("suggest_project", { name: "留存盯盘", goal: "盯短剧留存，掉一半就报警", userWords: "前面说的：每分钟看一次" }), say("给你一张建议立项卡"), say("建好了")],

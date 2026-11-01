@@ -1,11 +1,11 @@
-// 任务的发起：只有用户点明了才发起（规格第 7 节，ADR 0019，58 号票）。"点明"由运行时判定，不由秘书自报：
+// 任务的发起：只有用户点明了才发起（规格第 7 节，ADR 0019）。"点明"由运行时判定，不由秘书自报：
 // 秘书的 start_workflow（流程）、create_task（长程任务）执行前看用户这一轮说了什么，没点明的拒绝，并告诉秘书按普通对话处理、
 // 最多给一张"建议发起任务"卡（卡上"作为流程""作为长程任务"两个按钮由用户点）。
 //
 // 点明有三种（发起对话框里先选了种类的不经秘书，见 tasks.ts 的 startFromButton）：
-// - 输入 `/workflow`、`/task`（打的字开头就是这个命令；310 号票起是英文的，中文的老写法 `/流程`、`/任务` 和 175 号票的 `/ergo_workflow`、
+// - 输入 `/workflow`、`/task`（打的字开头就是这个命令；是英文的，中文的老写法 `/流程`、`/任务` 和 `/ergo_workflow`、
 //   `/ergo_task` 照样认）；
-// - 用祈使的说法要发起（白名单，58 号票最后一轮核对定的：黑名单补不完）。只看用户自己说的话（打的字、语音转写；
+// - 用祈使的说法要发起（白名单，最后一轮核对定的：黑名单补不完）。只看用户自己说的话（打的字、语音转写；
 //   引用块、引用的卡片不算），一句一句地看，一句话**开头**就是发起的说法才算：
 //   - 流程："按流程做 X""按照这个流程做：X""照那条流程办""用流程帮我 X""发起（一个）流程：X""作为流程来做"；
 //   - 长程任务："发起（一个）长程任务：X""建个长程任务 X""开个长程任务 X""作为长程任务"；只说"发起任务""建个任务"的按长程任务；
@@ -16,11 +16,11 @@
 //     后面几句里收回（"算了""不用了""没必要"）的也不算；
 //   - 问句不算（以问号结尾，或者以"吗""么""呢"收尾），客气的请求除外（"能帮我按流程做吗？"）。
 //   两种都说了的按流程（说得更具体）。宁可漏判（秘书最多给一张建议卡，用户点一下就建出），不要误判。
-// - 英文（379 号票，英文界面教用户这样说）：判定走同一条路，不分大小写。流程："Follow a workflow: X""Follow this workflow: X"
+// - 英文（英文界面教用户这样说）：判定走同一条路，不分大小写。流程："Follow a workflow: X""Follow this workflow: X"
 //   "Start a workflow: X"；长程任务："Start a task: X""Start a new task: X""Start a long-running task: X"。
 //   前面只许有 ergo、please、can / could / would / will you、just；后面除了冒号之后的事，只许跟逗号、to、for、on、about、with、and、
 //   then、now、please、first 或者什么都没有，别的（is、or、if、when、button……）一律不算，同一句里有否定、拿不定、问功能的词也不算。
-// @i18n-ignore-file data：这里的说法认用户的原话；交回秘书的拒绝原因（launchRefusal、delegateRefusal）给模型看，照旧中文（172 号票）
+// @i18n-ignore-file data：这里的说法认用户的原话；交回秘书的拒绝原因（launchRefusal、delegateRefusal）给模型看，照旧中文
 import { forModel, type PlannedTaskKind, TASK_KIND_LABEL } from "@ergo/protocol";
 import { ownWords, type OwnWordsSource, sentencesWithPeriodOf, type UserTurn } from "../quick-actions/index.ts";
 import { commandAt, LAUNCH_COMMAND_ALIASES, LAUNCH_COMMANDS, launchCommandText } from "../slash-commands/commands.ts";
@@ -43,7 +43,7 @@ const LEAD_IN = "(?:这件事|这事|这个|这次|这回|那就|就|直接|不�
 /** 句首：说法前面只许有这些 */
 const LEAD = new RegExp(`^\\s*(?:(?:${ADDRESS}|${POLITE}|${LEAD_IN})\\s*[，,、]?\\s*)*`, "i");
 
-/** 斜杠命令：打的字开头就是它（登记在二狗的斜杠命令表里，82 号票；这里照旧导出，别处不用改引用） */
+/** 斜杠命令：打的字开头就是它（登记在二狗的斜杠命令表里，这里照旧导出，别处不用改引用） */
 export { LAUNCH_COMMAND_ALIASES, LAUNCH_COMMANDS, launchCommandText };
 
 /** 点明流程的祈使说法（从句首起）：发起、建、作为、用（一个）流程；按（照）（这个）流程做、办、处理…… */
@@ -71,7 +71,7 @@ const LONG_RUNNING_SAYINGS_EN = [new RegExp(`^start\\s+(?:a\\s+)?(?:new\\s+)?(?:
 const ABOUT_IT = /^\s*(?:的|了|过|是|时|会|还是|或)/;
 /**
  * 英文说法后面只许接着这些，别的都是在说这件事本身（"Start a task is overkill""Start a task button""Start a task or …"）：
- * 中文的宾语紧贴动词、只能排除，英文能这样挑（58 号票说的"黑名单补不完"）
+ * 中文的宾语紧贴动词、只能排除，英文能这样挑（说的"黑名单补不完"）
  */
 const GOES_ON_EN = /^\s*(?:$|[,，、.。!！;；]|[–—]|-\s|(?:to|for|on|about|with|and|then|now|please|first)\b)/i;
 /** 英文说法后面（同一句里）有这些就不算：否定、拿不定、条件、问功能 */
@@ -148,7 +148,7 @@ export function launchIntent(turn: UserTurn): LaunchIntent | undefined {
   const words = ownWords(turn);
   for (const { text, source } of words) {
     // 命令后面是空白、标点或者什么都没有（"/流程图怎么画"不是命令；规则在 slash-commands/commands.ts，skill 的展开也照它让路）
-    // 310 号票：/workflow、/task，中文的老写法和 175 号票的 /ergo_workflow、/ergo_task 一样算
+    // /workflow、/task，中文的老写法和 /ergo_workflow、/ergo_task 一样算
     for (const kind of ["workflow", "long_running"] as const) if ([LAUNCH_COMMANDS[kind], ...LAUNCH_COMMAND_ALIASES[kind]].some((writing) => commandAt(text, writing))) return { kind, source };
   }
   const found = words.map((w) => ({ kind: launchInText(w.text), source: w.source }));
@@ -180,7 +180,7 @@ function launchRefusalText(turn: UserTurn, wanted: PlannedTaskKind, tools: Reado
 }
 
 /**
- * 秘书要把一件事交给后台（delegate_task，75 号票）：用户这一轮点明了要发起流程或长程任务时不行——用户要的是那种做法，
+ * 秘书要把一件事交给后台（delegate_task）：用户这一轮点明了要发起流程或长程任务时不行——用户要的是那种做法，
  * 交回秘书的原因里指向该用的工具；没点明是 undefined（交给后台不用点明）
  */
 export function delegateRefusal(turn: UserTurn, tools: Readonly<Record<PlannedTaskKind, string>> & { suggest: string }): string | undefined {

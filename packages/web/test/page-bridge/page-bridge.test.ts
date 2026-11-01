@@ -1,21 +1,21 @@
-// 页面桥（134 号票第二部分，src/page-bridge/）：打包成注入用的那一段脚本（build/page-bridge.ts），在真的 Chrome 里跑——
+// 页面桥（src/page-bridge/）：打包成注入用的那一段脚本（build/page-bridge.ts），在真的 Chrome 里跑——
 // 和 ArkWeb 的 javaScriptOnDocumentStart 一样在网页的脚本之前注入，宿主的 post 换成记下来的假的。查：
 // - 列框：文本框、多行文本、可编辑区域、藏在 label 和拖放区后面的选文件的框，带标签文字；密码、验证码、银行卡、禁用的、看不见的不列；
 // - 口令不对什么都不做；入口改不了、删不掉；网页的脚本拿不到按钮（封闭的 shadow root），派的假事件不算；
 // - 框获得焦点出悬浮按钮（报 field），点一下报 open、长按报 voice（press、start、stop），都带页面信息和框的列表，地址去掉查询串；
 // - 填字：普通的框、React 受控的框（React 的 state 跟着变）、可编辑区域，都触发 input；密码框不碰；不替用户提交；
 // - 交文件：分段交来的字节拼成文件设进选文件的框、触发 change；只要一个的只交第一个；网站的脚本调 input.click() 时报 chooser-field；
-// - 气泡（146 号票，窄屏 390）：点按钮气泡在按钮旁边出来、打字框聚焦，点发送报 bubble send，网页收不到气泡里的按键；宿主交来的
+// - 气泡（窄屏 390）：点按钮气泡在按钮旁边出来、打字框聚焦，点发送报 bubble send，网页收不到气泡里的按键；宿主交来的
 //   在想、回话画出来（字就是字）；点外面收起；长按出波形和秒数、竖条跟着宿主交来的音量变、上滑变红松手取消；放在按钮背离框的那一边、
 //   不盖框（放不下越过框）、左右不出屏幕、框被用户滚出屏幕收起；输入法弹起挡住框时把框滚回来；网页的样式影响不到；不知道哪个框时
 //   放在下面居中；
-// - 149 号票：发送、长按、选中都带着框里那一刻的内容（普通的框、React 受控的框、可编辑区域；太长截掉写明一共多少字；上传框没有；
+// -发送、长按、选中都带着框里那一刻的内容（普通的框、React 受控的框、可编辑区域；太长截掉写明一共多少字；上传框没有；
 //   密码框选不中、不读）；按住说话的波形在按钮上方（按钮贴着顶时放到旁边），不在下方；挑图片窗口固定在屏幕上（手机贴底占满宽、
 //   宽屏底部居中最宽 520，网页滚动它不动），缩略图画进 canvas、横排、单选多选、交、都不要、× 收起，报 pick。
 //   封闭的 shadow root 网页的脚本拿不到，测试在页面桥注入之前换掉 attachShadow 记下它（网页自己的脚本在页面桥之后才跑，做不到这一步）。
-// - 181 号票：气泡的标题、"二狗在想……"、"让二狗选"、挑图片窗口的标题里的名字是名字标签（span.name，底色、字色是交来的，浅色深色
+// -气泡的标题、"二狗在想……"、"让二狗选"、挑图片窗口的标题里的名字是名字标签（span.name，底色、字色是交来的，浅色深色
 //   各一对；没交来是「二狗」、经典的颜色）；名字里有 <b> 也只是字；读屏说明是纯名字；开着的气泡、窗口跟着改名字、换颜色。
-// - 348 号票：按钮上是二狗的图标（canvas 里真画上了、圆形占满、大小不变、不接事件），img-src、default-src 这样严格的 CSP（真的响应头）下
+// -按钮上是二狗的图标（canvas 里真画上了、圆形占满、大小不变、不接事件），img-src、default-src 这样严格的 CSP（真的响应头）下
 //   照样是图标、样式还在；解不出来退回 SVG；听、忙图标不换，外面有红色脉动的圈、转圈，截图和平时不一样。
 // 本机没有 Chrome（或 Edge）时跳过。页面桥用到的 DOM 全是浏览器自己的，所以不用 jsdom 这类模拟（仓库不加依赖）。
 import { fileURLToPath } from "node:url";
@@ -307,7 +307,7 @@ async function center(page: Page, selector: string): Promise<[number, number]> {
   return [box.x + box.width / 2, box.y + box.height / 2];
 }
 
-// ---------- 悬浮按钮旁边的气泡（146 号票） ----------
+// ---------- 悬浮按钮旁边的气泡 ----------
 
 type Box = { x: number; y: number; width: number; height: number; right: number; bottom: number };
 
@@ -365,7 +365,7 @@ async function fieldBox(page: Page, selector: string): Promise<Box> {
 const overlap = (a: Box, b: Box) => a.x < b.right && a.right > b.x && a.y < b.bottom && a.bottom > b.y;
 const focusedInShadow = (page: Page) => page.evaluate(() => (window as unknown as { peekRoot: ShadowRoot }).peekRoot.activeElement?.tagName);
 
-describe.skipIf(!CHROME)("悬浮按钮旁边的气泡（146 号票，窄屏 390）", () => {
+describe.skipIf(!CHROME)("悬浮按钮旁边的气泡（窄屏 390）", () => {
   test("点按钮：气泡在按钮旁边出来（屏宽减 32、左右留 8、框在顶上时放下方），打字框聚焦；打字点发送报 bubble send；网页收不到气泡里的按键", async () => {
     const page = await open({ width: 390, height: 844, peek: true });
     await page.evaluate(() => {
@@ -392,7 +392,7 @@ describe.skipIf(!CHROME)("悬浮按钮旁边的气泡（146 号票，窄屏 390�
     await page.keyboard.insertText("标题写成周末杭州游记");
     expect(await page.evaluate(() => (window as unknown as { pageKeys: number }).pageKeys)).toBe(0);
     await tapIn(page, ".send");
-    // 带着按钮所在的框连同框里这一刻的内容（149 号票）
+    // 带着按钮所在的框连同框里这一刻的内容
     expect(await bubbleMessages(page)).toEqual([
       { nonce: NONCE, type: "bubble", action: "send", text: "abc 标题写成周末杭州游记", field: expect.objectContaining({ label: "标题", value: { text: "", total: 0 } }) },
     ]);
@@ -439,7 +439,7 @@ describe.skipIf(!CHROME)("悬浮按钮旁边的气泡（146 号票，窄屏 390�
     await page.mouse.down();
     await page.waitForTimeout(450);
     expect(await peekAll(page, ".wave i", "height")).toHaveLength(28);
-    // 波形不在按钮下方（149 号票；标题框在页面顶上，按钮贴着顶，放在按钮旁边），不出屏幕
+    // 波形不在按钮下方（标题框在页面顶上，按钮贴着顶，放在按钮旁边），不出屏幕
     const listening = await rectIn(page, ".bubble");
     expect(listening.bottom <= fab.y || listening.right <= fab.x || listening.x >= fab.right).toBe(true);
     expect(listening.x).toBeGreaterThanOrEqual(8);
@@ -554,7 +554,7 @@ describe.skipIf(!CHROME)("悬浮按钮旁边的气泡（146 号票，窄屏 390�
     await page.close();
   });
 
-  test("回话太长（more，147 号票）：回话下面给去侧边栏看，点了气泡收起、报 bubble sidebar；不长的没有这个按钮", async () => {
+  test("回话太长（more）：回话下面给去侧边栏看，点了气泡收起、报 bubble sidebar；不长的没有这个按钮", async () => {
     const page = await open({ width: 390, height: 844, peek: true });
     const fieldId = await idOf(page, "标题");
     await page.click("#title");
@@ -618,7 +618,7 @@ describe.skipIf(!CHROME)("悬浮按钮旁边的气泡（146 号票，窄屏 390�
   });
 });
 
-// 147 号票（浏览侧边栏）：选中的框、整页文字
+// 浏览侧边栏：选中的框、整页文字
 /** 页面桥报过的选中的框 */
 const selectedPosts = async (page: Page) => (await postedOf(page)).filter((m) => m.type === "selected");
 
@@ -686,7 +686,7 @@ describe.skipIf(!CHROME)("页面桥给浏览侧边栏的", () => {
   });
 });
 
-// ---------- 149 号票：框里的内容、按钮贴着顶时的波形、挑图片窗口 ----------
+// ----------框里的内容、按钮贴着顶时的波形、挑图片窗口 ----------
 
 /** 一张 16×16 的红图（base64 的 JPEG），当缩略图 */
 const redThumb = (page: Page) =>
@@ -710,7 +710,7 @@ const pickFiles = (thumb: string, checked: string[]) => [
   { token: "t9", name: "简历.pdf", image: false, thumb: "", checked: checked.includes("t9") },
 ];
 
-describe.skipIf(!CHROME)("框里的内容（149 号票：二狗读得到选中的框里写了什么）", () => {
+describe.skipIf(!CHROME)("框里的内容（二狗读得到选中的框里写了什么）", () => {
   test("选中、点按钮、长按都带着框里这一刻的内容：普通的框、React 受控的框、多行、可编辑区域；打字过一会儿再报一次选中；上传框没有", async () => {
     const page = await open({ width: 390, height: 844, peek: true });
     await page.click("#title");
@@ -760,7 +760,7 @@ describe.skipIf(!CHROME)("框里的内容（149 号票：二狗读得到选中�
   });
 });
 
-describe.skipIf(!CHROME)("按住说话的波形（149 号票：在按钮上方，不在下方）", () => {
+describe.skipIf(!CHROME)("按住说话的波形（在按钮上方，不在下方）", () => {
   test("上方放得下：在按钮上方，横着不出屏幕（框在按钮上面也一样，说话时可以盖框）", async () => {
     const page = await open({ width: 390, height: 844, peek: true });
     await page.evaluate(() => (document.getElementById("f")!.style.marginTop = "420px"));
@@ -797,7 +797,7 @@ describe.skipIf(!CHROME)("按住说话的波形（149 号票：在按钮上方�
   });
 });
 
-describe.skipIf(!CHROME)("挑图片窗口（149 号票：固定在屏幕上，不跟着悬浮按钮）", () => {
+describe.skipIf(!CHROME)("挑图片窗口（固定在屏幕上，不跟着悬浮按钮）", () => {
   test("手机 390：贴底、占满宽，网页滚动它不动；缩略图画进 canvas，单张的框单选、推荐的选上；点一张报 choose、交报 deliver；多张的框交 N 个；都不要报 dismiss；× 收起报 hide", async () => {
     const page = await open({ width: 390, height: 844, peek: true });
     await page.evaluate(() => (document.body.style.minHeight = "3000px"));
@@ -858,7 +858,7 @@ describe.skipIf(!CHROME)("挑图片窗口（149 号票：固定在屏幕上，�
   });
 });
 
-// ───────────────────────── 164 号票：看能点的东西、按编号点 ─────────────────────────
+// ─────────────────────────看能点的东西、按编号点 ─────────────────────────
 
 /** 小店的首页：各种能点的、不该列的；一个网页自己的 web component（开放的 shadow root 里一个按钮）；最底下一个按钮 */
 const SHOP_HOME = `<!doctype html><html><head><meta charset="utf-8"><title>小店 · 首页</title></head><body style="margin:0;font:16px sans-serif">
@@ -925,7 +925,7 @@ const click = async (page: Page, ref: string, url = "https://shop.example.cn/hom
 /** 等新的一页上的页面桥装好 */
 const bridgeReady = (page: Page) => page.waitForFunction(() => typeof (window as unknown as { __ergoPage?: unknown }).__ergoPage === "object");
 
-describe.skipIf(!CHROME)("看能点的东西、按编号点（164 号票）", () => {
+describe.skipIf(!CHROME)("看能点的东西、按编号点", () => {
   test("列出能点的：链接（带地址，javascript: 的不带）、按钮、role 是按钮/标签页/菜单项的、提交和按钮样子的 input、summary、网页自己的开放 shadow root 里的、只有 aria-label 的；灰的标 disabled；禁用、藏起来、看不见、aria-hidden、点不到、密码框不列；不往网页的 DOM 里写任何东西", async () => {
     const page = await openShop();
     const before = await page.evaluate(() => document.body.innerHTML);
@@ -940,7 +940,7 @@ describe.skipIf(!CHROME)("看能点的东西、按编号点（164 号票）", ()
       { ref: "e6", role: "button", text: "展开 更多" },
       { ref: "e7", role: "tab", text: "评论" },
       { ref: "e8", role: "menuitem", text: "设置" },
-      // 184 号票起文本框也列（搜索框没有标签、没有提示，带着现在的值）
+      // 文本框也列（搜索框没有标签、没有提示，带着现在的值）
       { ref: "e9", role: "textbox", text: "", valuePreview: "猫" },
       { ref: "e10", role: "submit", text: "搜索" },
       { ref: "e11", role: "input", text: "清空" },
@@ -1085,7 +1085,7 @@ describe.skipIf(!CHROME)("看能点的东西、按编号点（164 号票）", ()
   });
 });
 
-// ───────────────────────── 184 号票：按编号填字、交文件 ─────────────────────────
+// ─────────────────────────按编号填字、交文件 ─────────────────────────
 
 /** 换背景的工作室页（照 RunningHub 的 AI 应用页）：两个上传框（一个藏在网站画的上传按钮后面、一个 1 像素透明）、提示词、备注、各种不该列的框、下拉框、运行按钮、没有上传处的上传框、React 受控的框 */
 const STUDIO = `<!doctype html><html><head><meta charset="utf-8"><title>换背景 · 工作室</title></head><body style="margin:0;font:16px sans-serif">
@@ -1140,7 +1140,7 @@ async function attachTo(page: Page, fieldId: string, names: string[]) {
   return callJson(page, "attachFiles", fieldId, JSON.stringify(names));
 }
 
-describe.skipIf(!CHROME)("按编号填字、交文件（184 号票）", () => {
+describe.skipIf(!CHROME)("按编号填字、交文件", () => {
   test("看：文本框（单行、多行、可编辑区域、搜索框，带现在的值的前 40 字）、上传框（藏起来的标 hidden，带 accept、multiple，文字取网站画的上传处）、下拉框（现在选的、前 20 个选项）也列；密码、验证码、只读、禁用、看不见的框不列；不往网页的 DOM 里写东西", async () => {
     const page = await openStudio();
     const before = await page.evaluate(() => document.body.innerHTML);
@@ -1228,7 +1228,7 @@ describe.skipIf(!CHROME)("按编号填字、交文件（184 号票）", () => {
     expect(await refField(page, refOf(snap, "种子"), "textbox")).toEqual({ ok: false, reason: "这个框变了，和看的时候不是一种了" });
     await page.evaluate(() => ((document.getElementById("product") as HTMLInputElement).disabled = true));
     expect(await refField(page, "e2", "upload")).toEqual({ ok: false, reason: "这个框变了，和看的时候不是一种了" });
-    // 交来英文（169 号票）：原因跟着是英文
+    // 交来英文：原因跟着是英文
     expect(await callJson(page, "texts", JSON.stringify(EN_BRIDGE))).toEqual({ ok: true });
     expect(await refField(page, "e1", "textbox")).toEqual({ ok: false, reason: "e1 isn't a text box, so it can't be filled" });
     await page.close();
@@ -1260,7 +1260,7 @@ describe.skipIf(!CHROME)("按编号填字、交文件（184 号票）", () => {
 /** 页面桥 shadow root 里某个元素的读屏说明 */
 const ariaOf = (page: Page, selector: string) => page.evaluate((sel) => (window as unknown as { peekRoot: ShadowRoot }).peekRoot.querySelector(sel)?.getAttribute("aria-label"), selector);
 
-describe.skipIf(!CHROME)("页面桥自己的字（169 号票：二狗的网页交来当前语言的那几句，没交来是中文）", () => {
+describe.skipIf(!CHROME)("页面桥自己的字（二狗的网页交来当前语言的那几句，没交来是中文）", () => {
   test("没交来：中文；交来英文：悬浮按钮的说明、先自己画的打字框、在想、气泡和挑图片窗口上的按钮都换成英文；交错了的不认；只交几句的其余回到中文", async () => {
     const page = await open({ width: 390, height: 844, peek: true });
     expect(await ariaOf(page, ".fab")).toBe("让二狗帮忙：点一下打字，按住说话");
@@ -1273,7 +1273,7 @@ describe.skipIf(!CHROME)("页面桥自己的字（169 号票：二狗的网页�
     expect(await ariaOf(page, ".fab")).toBe("让二狗帮忙：点一下打字，按住说话");
 
     expect(await callJson(page, "texts", JSON.stringify(EN_BRIDGE))).toEqual({ ok: true });
-    // 181 号票起说到助理的那几句写 {name}：只交了句子、没交名字时是默认的"二狗"
+    // 说到助理的那几句写 {name}：只交了句子、没交名字时是默认的"二狗"
     expect(await ariaOf(page, ".fab")).toBe("Ask 二狗: tap to type, hold to talk");
     expect(await ariaOf(page, ".bubble")).toBe("二狗");
     expect(await ariaOf(page, ".pick")).toBe("二狗's suggestions");
@@ -1305,7 +1305,7 @@ describe.skipIf(!CHROME)("页面桥自己的字（169 号票：二狗的网页�
     await page.close();
   });
 
-  test("交文件没成的原因（175 号票：挑图片窗口里也显示）：没交来是中文，交来英文就是英文", async () => {
+  test("交文件没成的原因（挑图片窗口里也显示）：没交来是中文，交来英文就是英文", async () => {
     const page = await open();
     const field = await idOf(page, "上传照片");
     expect(await callJson(page, "attachFiles", field, JSON.stringify(["nope"]))).toEqual({ ok: false, reason: "没有文件可交" });
@@ -1328,7 +1328,7 @@ const tagOf = (page: Page, selector: string) =>
 /** shadow root 里有几个某种元素 */
 const countIn = (page: Page, selector: string) => page.evaluate((sel) => (window as unknown as { peekRoot: ShadowRoot }).peekRoot.querySelectorAll(sel).length, selector);
 
-/** 二狗的网页交来的（181 号票的样子）：说到助理的那几句顶层换好了名字，原样、名字、颜色在 assistant 里 */
+/** 二狗的网页交来的（样子）：说到助理的那几句顶层换好了名字，原样、名字、颜色在 assistant 里 */
 function namedTexts(name: string, tag?: { light: { bg: string; fg: string }; dark: { bg: string; fg: string } }) {
   const own = ["bridge.fab.label", "bridge.talkTo.ergo", "bridge.bubble.title", "bridge.bubble.thinking", "bridge.bubble.letErgoPick", "bridge.pick.title"] as const;
   const top = Object.fromEntries(Object.entries(ZH_BRIDGE).map(([k, v]) => [k, (own as readonly string[]).includes(k) ? v.replaceAll("{name}", name) : v]));
@@ -1338,7 +1338,7 @@ function namedTexts(name: string, tag?: { light: { bg: string; fg: string }; dar
 const TAG = { light: { bg: "#112233", fg: "#ddeeff" }, dark: { bg: "#334455", fg: "#ffeedd" } };
 const TAG2 = { light: { bg: "#c2e3df", fg: "#0b4f49" }, dark: { bg: "#19403d", fg: "#8fe3db" } };
 
-describe.skipIf(!CHROME)("助理的名字和名字标签（181 号票）", () => {
+describe.skipIf(!CHROME)("助理的名字和名字标签", () => {
   test("没交来：名字是「二狗」，标题、在想、让二狗选里是名字标签（经典的颜色，深色下换深色那对，不换行）；读屏说明是纯名字", async () => {
     const page = await open({ width: 390, height: 844, peek: true });
     expect(await ariaOf(page, ".fab")).toBe("让二狗帮忙：点一下打字，按住说话");
@@ -1356,7 +1356,7 @@ describe.skipIf(!CHROME)("助理的名字和名字标签（181 号票）", () =>
     expect(await tagOf(page, ".thinking .name")).toMatchObject({ text: "二狗", bg: "rgb(251, 227, 161)" });
     await page.emulateMedia({ colorScheme: "dark" });
     expect(await tagOf(page, ".thinking .name")).toMatchObject({ bg: "rgb(74, 60, 20)", fg: "rgb(247, 213, 126)" });
-    // 宿主给了纯文字、没给几段（181 号票之前的二狗网页）：照旧是字，没有名字标签
+    // 宿主给了纯文字、没给几段（以前的二狗网页）：照旧是字，没有名字标签
     await showBubble(page, { kind: "busy", fieldId: "", said: "", text: "二狗正忙，排在后面" });
     expect(await peekAll(page, ".thinking", "text")).toEqual(["二狗正忙，排在后面"]);
     expect(await countIn(page, ".thinking .name")).toBe(0);
@@ -1422,7 +1422,7 @@ describe.skipIf(!CHROME)("助理的名字和名字标签（181 号票）", () =>
   });
 });
 
-// ---------- 悬浮按钮上是二狗的图标（348 号票） ----------
+// ---------- 悬浮按钮上是二狗的图标 ----------
 
 const FAB_SVG = () => (window as unknown as { peekRoot: ShadowRoot }).peekRoot.querySelector(".fab svg")?.innerHTML;
 
@@ -1475,7 +1475,7 @@ async function shotOfFab(page: Page): Promise<Buffer> {
   return page.screenshot({ clip: { x: r.x - 20, y: r.y - 20, width: r.width + 40, height: r.height + 40 } });
 }
 
-describe.skipIf(!CHROME)("悬浮按钮上是二狗的图标（348 号票）", () => {
+describe.skipIf(!CHROME)("悬浮按钮上是二狗的图标", () => {
   test("普通页面：图标画进 canvas 占满按钮（圆形，大小不变），没有 SVG 和蓝底；读屏说明不变；点在图标上就是点在按钮上；图标打包进页面桥、不超过 10 KB", async () => {
     const page = await open({ peek: true });
     await fabPainted(page);

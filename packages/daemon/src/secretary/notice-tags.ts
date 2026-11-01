@@ -1,12 +1,12 @@
 // 运行时给秘书的通知开头的标记（只有常量和一个看开头的纯函数：系统提示的占位符清单 prompts/registry.ts、发语音工具 voice/send-voice.ts
-// 也引用，免得为了一个常量把整个模块拉进来）。115 号票起标记取协议包 agent-letters.ts 的那一份：Web 按它认哪些在会话里折成一行。
+// 也引用，免得为了一个常量把整个模块拉进来）。标记取协议包 agent-letters.ts 的那一份：Web 按它认哪些在会话里折成一行。
 import { CHANNELS, LETTER_TAGS, type MessageEnvelope } from "@ergo/protocol";
 
-/** 任务做完的通知（99 号票，task-done.ts）开头的标记：秘书的系统提示里说明它，占位符 {{任务做完标记}} */
+/** 任务做完的通知（task-done.ts）开头的标记：秘书的系统提示里说明它，占位符 {{任务做完标记}} */
 export const TASK_DONE_TAG = LETTER_TAGS.task_done;
 
 /**
- * 负责人给秘书发的消息（102 号票，letters.ts 收、task-done.ts 交）经运行时转交给秘书的通知开头的标记：秘书的系统提示里说明它，
+ * 负责人给秘书发的消息（letters.ts 收、task-done.ts 交）经运行时转交给秘书的通知开头的标记：秘书的系统提示里说明它，
  * 占位符 {{负责人来信标记}}
  */
 export const MAINTAINER_LETTER_TAG = LETTER_TAGS.maintainer_letter;
@@ -18,12 +18,12 @@ export function isMaintainerLetterNotice(message: MessageEnvelope): boolean {
 }
 
 /**
- * 开了"跑完自动播报"的任务做完的通知（100 号票）：紧跟在 TASK_DONE_TAG 后面的标记，占位符 {{自动播报标记}}。354 号票起开关开着的任务、项目的
+ * 开了"跑完自动播报"的任务做完的通知：紧跟在 TASK_DONE_TAG 后面的标记，占位符 {{自动播报标记}}。开关开着的任务、项目的
  * 进展来信也紧跟在 MAINTAINER_LETTER_TAG 后面带它。用户事先给的授权：秘书处理这条通知的那一轮能发语音（send_voice 放行），别的运行时通知照旧不行
  */
 export const AUTO_ANNOUNCE_TAG = "【跑完自动播报】"; // @i18n-ignore model：通知开头的标记，运行时按它认
 
-/** 开了自动播报的通知的开头：任务做完的（100 号票）、进展来信的（354 号票） */
+/** 开了自动播报的通知的开头：任务做完的、进展来信的 */
 export const ANNOUNCE_HEADS = [TASK_DONE_TAG, MAINTAINER_LETTER_TAG].map((tag) => ({ tag, head: `${tag}${AUTO_ANNOUNCE_TAG}` }));
 
 /**

@@ -1,4 +1,4 @@
-// 运营方案（130 号票）在事件日志里的事件：守护进程内部的 operations 频道（前端不订阅；前端看到的是"首版做完了"卡上的那一节、
+// 运营方案在事件日志里的事件：守护进程内部的 operations 频道（前端不订阅；前端看到的是"首版做完了"卡上的那一节、
 // "运营方案变更"卡和项目上现在生效的运营方案 Project.operations）。
 // - operations_proposed：负责人交了一份运营方案（逐条校验过的每一条、流程那几条审查修补后推出的执行用的计划、引用的用户原话）。
 //   建设期间交的（mode: build）等建设任务做完出现在"首版做完了"卡上（卡已经出了就同一事务更新卡）；使用中、已停用的项目交的
@@ -37,7 +37,7 @@ export interface OperationsDecidedPayload {
   projectId: string;
   projectName: string;
   revision: number;
-  /** 在"首版做完了"卡（build_done）、"转入使用"确认卡（go_live，259 号票）上确认并转入使用的，还是"运营方案变更"卡上的（change） */
+  /** 在"首版做完了"卡（build_done）、"转入使用"确认卡（go_live）上确认并转入使用的，还是"运营方案变更"卡上的（change） */
   via: "build_done" | "go_live" | "change";
   cardId: string;
   confirmed: boolean;

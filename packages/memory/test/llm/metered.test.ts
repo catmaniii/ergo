@@ -1,4 +1,4 @@
-// 192 号票：真模型外面那一层——记实际 token 和费用、同样的请求只问一次、失败最多重试 2 次、总次数封顶。都用假模型，不联网。
+// 真模型外面那一层——记实际 token 和费用、同样的请求只问一次、失败最多重试 2 次、总次数封顶。都用假模型，不联网。
 import { describe, expect, it } from "vitest";
 import type { ChatModel, ChatRequest } from "../../src/llm/chat.ts";
 import { isDeepSeekPeak, MeteredChat } from "../../src/llm/metered.ts";

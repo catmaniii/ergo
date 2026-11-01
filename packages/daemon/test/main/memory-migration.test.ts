@@ -1,4 +1,4 @@
-// 主切面（338 号票）：会意的推理库在启动时从老位置 db/rg.db 搬进插件自己的数据目录 memory/subtext/rg.db。
+// 主切面：会意的推理库在启动时从老位置 db/rg.db 搬进插件自己的数据目录 memory/subtext/rg.db。
 // 走真实的启动路径（真守护进程、临时数据目录、假模型假向量），不碰真的 ~/.ergo：
 // - 老位置有库：起一次就搬过去（先备份一份、写 migrated.json），再起一次不重复搬；
 // - 两边都没有（新装）：插件目录建出来、引擎照常把库建在新位置；
@@ -11,7 +11,7 @@ import { MIGRATION_MARKER } from "../../src/memory/migrate-rg.ts";
 import { startTestDaemon } from "../helpers/daemon.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 
-/** 老位置：338 号票之前引擎一直开的是它（dataDirLayout().legacyRgDb） */
+/** 老位置：以前引擎一直开的是它（dataDirLayout().legacyRgDb） */
 const legacyOf = (dataDir: string) => path.join(dataDir, "db", "rg.db");
 /** 会意插件自己的数据目录（<数据目录>/memory/subtext/） */
 const providerDirOf = (dataDir: string) => path.join(dataDir, "memory", "subtext");

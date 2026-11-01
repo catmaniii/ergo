@@ -1,5 +1,5 @@
 /*
- * 复古杂志（51 号票）：只靠 token（magazine/style.ts）做不到的规则，全部限定在 :root[data-style="magazine"] 下
+ * 复古杂志：只靠 token（magazine/style.ts）做不到的规则，全部限定在 :root[data-style="magazine"] 下
  * （不会漏到别的风格；设置里的预览把开头换成 :host(...)，所以根元素上只再加属性，见 src/visual-styles/preview.ts）。
  * 设计稿：docs/architecture/design/styles/j-chat、j-tasks、j-inbox、j-wide（.dc.html）。要点：
  * - 粗宋大标题：页面标题、看板和待我处理的分组、卡片的类型都是 900 的 Noto Serif SC；
@@ -109,7 +109,7 @@
 :root[data-style="magazine"] .app.wide .pane-main .topbar .title {
   font-size: 24px;
 }
-/* 窄屏整页滑入、宽屏右边的详情页（56 号票的 .detail-bar）：标题栏下面也是 3px 墨线 */
+/* 窄屏整页滑入、宽屏右边的详情页（.detail-bar）：标题栏下面也是 3px 墨线 */
 :root[data-style="magazine"] .detail-bar {
   border-bottom: 3px solid var(--border);
 }
@@ -169,7 +169,7 @@
   box-shadow: 0 0 0 1.5px var(--primary);
 }
 /*
- * 个人助理的名字（43 号票，设计稿的 .name）：芥末黄底、墨色字、1px 的线（线色是设计稿的 --rule：浅色墨色、深色米白）、粗宋。
+ * 个人助理的名字（设计稿的 .name）：芥末黄底、墨色字、1px 的线（线色是设计稿的 --rule：浅色墨色、深色米白）、粗宋。
  * 正文里画成内描边，不撑高行
  */
 :root[data-style="magazine"] .assistant-name {
@@ -179,8 +179,8 @@
   font-weight: 900;
 }
 /*
- * 标题里、输入框占位里的名字：就是设计稿标题旁、占位里那颗 12px 的小标签（48 号票用户定的：标题里的名字照设计稿的小标签）。
- * 秘书页的标题"个人秘书：<名字>"（89 号票）就是设计稿 j-chat 标题"个人助理 [二狗]"的样子：粗宋的字后面一颗小标签
+ * 标题里、输入框占位里的名字：就是设计稿标题旁、占位里那颗 12px 的小标签（用户定的：标题里的名字照设计稿的小标签）。
+ * 秘书页的标题"个人秘书：<名字>"就是设计稿 j-chat 标题"个人助理 [二狗]"的样子：粗宋的字后面一颗小标签
  */
 :root[data-style="magazine"] .topbar .title .assistant-name,
 :root[data-style="magazine"] .composer-placeholder .assistant-name {
@@ -237,7 +237,7 @@
   font-weight: 500;
 }
 /*
- * 和标题栏算一个头的页签（.seg-head，待我处理；上面的标题栏挂 data-joined，46 号票的 TopBar 的 joined）：设计稿里页签在标题区里面，
+ * 和标题栏算一个头的页签（.seg-head，待我处理；上面的标题栏挂 data-joined，TopBar 的 joined）：设计稿里页签在标题区里面，
  * 标题栏下面不画线，整个头最下面一道 3px 墨线，选中的那一格下面的芥末黄压在这道线上。墨线画成里面的阴影（页签那一排会横向滚动、
  * 裁掉跑出边框的东西，画成边框的话按钮压不上去），每一格自己 3px 的下边框正好叠在它上面
  */
@@ -311,7 +311,7 @@
   color: var(--muted);
 }
 /*
- * 进度条（看板卡上 60 号票的 sl-progress、流程任务标题栏上的 progress-bar）：1px 墨线框的轨道、芥末黄填充；
+ * 进度条（看板卡上 sl-progress、流程任务标题栏上的 progress-bar）：1px 墨线框的轨道、芥末黄填充；
  * 填充自己也描一圈墨线（不然填充盖住轨道的框，框在填充那一截是断的）。progress-bar 的填充经典写的就是 .progress-bar > div，照抄
  */
 :root[data-style="magazine"] .sl-progress,
@@ -525,7 +525,7 @@
 }
 /*
  * 待办的提示：看过没处理的件数只写粗一点的黑体数字（跟着导航的字色），不铺底、不加框——线条图标细，叠一块实底的小格会把铃铛
- * 盖掉大半（47 号票踩过）；数字描一圈底色的光晕（--magazine-halo：横栏、竖栏是页面底色，竖栏选中的那一项是芥末黄），
+ * 盖掉大半（踩过）；数字描一圈底色的光晕（--magazine-halo：横栏、竖栏是页面底色，竖栏选中的那一项是芥末黄），
  * 压在铃铛的线上也读得清。未读是红色小方块（设计稿的角标色），也描同一圈底色。大小、位置照经典
  */
 :root[data-style="magazine"] .tab-count {
@@ -568,7 +568,7 @@
 :root[data-style="magazine"] .assistant .bubble {
   padding: 0;
   border-left: none;
-  /* 57 号票起回复是 .bubble.md，会带上阶段抽屉 .md 的下边线；这套风格不套气泡，下边线不要 */
+  /* 回复是 .bubble.md，会带上阶段抽屉 .md 的下边线；这套风格不套气泡，下边线不要 */
   border-bottom: none;
   background: none;
   font-size: 16px;
@@ -608,7 +608,7 @@
  * 语音气泡（设计稿的语音条）：四周 1px 墨线、直角；你的是芥末黄底墨色字，个人助理的是卡片底、波形用强调色。
  * 播放键是 16 的实心三角（暂停是两竖），波形竖条直角、20 高，时长是黑体；下半截和播放条之间一道 1px 墨线。
  * 播放键（16）、间隔（10）、竖条（2 隔 3）、左右内边距（12）是 token（style.ts 的 voice-*，照设计稿 j-chat），
- * styles/voice.css 按它画，框宽、波形格数也按它算（42 号票的共用办法）；四周的线左右合起来 2（voice-line）。这里只画样子
+ * styles/voice.css 按它画，框宽、波形格数也按它算（共用办法）；四周的线左右合起来 2（voice-line）。这里只画样子
  */
 :root[data-style="magazine"] .voice-bubble {
   border: 1px solid var(--border);
@@ -829,10 +829,10 @@
 
 /*
  * ---------- 任务看板 ----------
- * 一行一行（照设计稿 j-tasks 的 .row，用户定的）：每一项下面一道 1px 墨线，每组第一行上面是双线（画在分组标题底下，见下面），
+ * 一行一行（照设计稿 j-tasks 的 .row）：每一项下面一道 1px 墨线，每组第一行上面是双线（画在分组标题底下，见下面），
  * 不铺底、没有框，左右不留白（字和线左右对齐）。分组之间隔 10（设计稿）。.board 本身不留间隔，分组之间的 10 记在每个分组的底下
- * （原来项目页的项目也是 .bcard、直接排在 .board 里；104 号票起项目一览是自己的档案卡 .pfile，不用 .board / .bcard）。
- * 分组编号（照设计稿 j-tasks 的"01 等我""02 进行中"；47 号票用户定的办法）：只用样式，CSS 计数器按看板上分组的先后数
+ * （原来项目页的项目也是 .bcard、直接排在 .board 里；项目一览是自己的档案卡 .pfile，不用 .board / .bcard）。
+ * 分组编号（照设计稿 j-tasks 的"01 等我""02 进行中"；用户定的办法）：只用样式，CSS 计数器按看板上分组的先后数
  * （.board 归零、每个 .bgroup 加一，看板上的分组总是全部列出、空的写"没有"，编号不会跳）；26 号粗宋、强调色，排在分组名前面。
  * 只认 .bgroup 里的标题（项目一览的分组不在 .board 里，不编号）。读屏不念编号（替代文字是空的），
  * 不认替代文字写法的浏览器用前面那条普通写法。待我处理的分组会随内容出现、消失（设计稿的"A / B / C"），不编号
@@ -910,7 +910,7 @@
   background: none;
 }
 /*
- * 宽屏的看板排成多列网格时（88 号票，.board[data-layout="grid"]）：一行一行的样子不变，列和列之间留白 32，每一列像一段列表
+ * 宽屏的看板排成多列网格时（.board[data-layout="grid"]）：一行一行的样子不变，列和列之间留白 32，每一列像一段列表
  * （分组标题下的双线照旧横贯整行；同一行的几项一样高，下面的墨线在各列里对齐）
  */
 :root[data-style="magazine"] .board[data-layout="grid"] .bgroup {
@@ -945,7 +945,7 @@
 
 /* ---------- 待我处理 ---------- */
 /*
- * 一行一行（照设计稿 j-inbox 的 .row，用户定的）：和看板一样，每一项下面一道 1px 墨线、每组第一行上面是双线（画在分组标题底下），
+ * 一行一行（照设计稿 j-inbox 的 .row）：和看板一样，每一项下面一道 1px 墨线、每组第一行上面是双线（画在分组标题底下），
  * 不铺底、没有框。列表左右留白 16、小方块后面隔 10、"⋯"按钮窄一点（设计稿 20、12，没有"⋯"）：每一行的说明（种类 · 来源 · 时间）
  * 经典一行放得下的这里也一行（无头浏览器在 320 / 360 / 390 宽和宽屏量过；黑体小字比经典的字宽一点，照设计稿留白会多折几行）
  */

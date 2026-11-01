@@ -1,4 +1,4 @@
-// 设置里的关注类别和计划卡上本任务的关注类别（26 号票），纯函数：
+// 设置里的关注类别和计划卡上本任务的关注类别，纯函数：
 // - 关注类别频道上最后一条设置事件就是设置页的样子（watchCategorySettings）；内置类别的下拉只给不比默认更松的档（builtinChoices）；
 // - 自定义类别的编辑框（CategoryForm：几个文本框）变成名字和确定规则（categoryRuleOf，界面上只有这一处检查），
 //   设置页拿它做请求（categoryDraftOf），计划卡拿它给本任务加类别（planCategoryAdditionOf）；写得不对先在界面上说，服务端还会再查；

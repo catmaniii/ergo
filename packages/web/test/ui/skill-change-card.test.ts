@@ -1,4 +1,4 @@
-// skill 变更卡（358 号票，ui/cards/SkillChangeCard.tsx）：负责人提的把一个 skill 加进 skill 库、改、删。用 React 在 Node 里渲染出来查：
+// skill 变更卡（ui/cards/SkillChangeCard.tsx）：负责人提的把一个 skill 加进 skill 库、改、删。用 React 在 Node 里渲染出来查：
 // - 有脚本的醒目写明"里面有 N 个脚本，用它的 agent 可能会运行"，没脚本的写没有；文件清单和大小；SKILL.md 全文能展开（纯文本，不渲染）；
 // - 不带的东西、依赖目录列出来；清单放不下的写还有多少；
 // - 改、删的列出在用的工具包，个人助理写用户起的名字（界面上不出现字面的"秘书"）；

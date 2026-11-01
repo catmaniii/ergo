@@ -1,4 +1,4 @@
-// 编 ergo.exe 小启动器（318 号票）：用 Windows 自带的 C# 编译器（.NET Framework 4 的 csc.exe），不装 Visual Studio、不加依赖。
+// 编 ergo.exe 小启动器：用 Windows 自带的 C# 编译器（.NET Framework 4 的 csc.exe），不装 Visual Studio、不加依赖。
 // 编不了（没有 csc、编出来跑不起来——比如被杀毒软件拦了、删了）就不带 ergo.exe，只用 ergo.cmd（同样的事，批处理写的）。
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";

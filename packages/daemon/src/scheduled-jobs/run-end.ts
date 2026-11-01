@@ -1,15 +1,15 @@
-// 一次运行的结局（纯函数；19 号票定的结局，155 号票加"已撤回"，176 号票加"部分完成"）。编排（jobs.ts）收集这一轮的情况交进来，
+// 一次运行的结局（纯函数；定的结局，加"已撤回"，加"部分完成"）。编排（jobs.ts）收集这一轮的情况交进来，
 // 说法在 texts.ts：
 // - 被打断（守护进程停机、子进程意外退出）的是中断；你撤回会话、切换分支时被中止的是已撤回；
 // - 这一轮出错、被中止，负责人用 fail_job_run 报了失败，定时触发的流程还有步骤既没做完也没说明跳过：失败，
 //   这一轮里有一步没做成的，原因后面跟着那几步；
-// - 都没有、但这一轮里有一步等不到批准被拦下、或者交给用户亲手做（用户 2026-10-19 定）：部分完成，原因写清哪几步没做成；
+// - 都没有、但这一轮里有一步等不到批准被拦下、或者交给用户亲手做：部分完成，原因写清哪几步没做成；
 // - 都没有：成功。
 import type { TurnEndEventPayload } from "@ergo/protocol";
 import { failedWithBlocked, interruptedReason, partialReason, rolledBackReason, turnFailure } from "./texts.ts";
 
 /**
- * 一次运行怎么结束的：成功、失败；部分完成（176 号票）、中断（停机打断）、没运行（排着时暂停、取消了）、已撤回（155 号票）
+ * 一次运行怎么结束的：成功、失败；部分完成、中断（停机打断）、没运行（排着时暂停、取消了）、已撤回
  * 不算进连续失败
  */
 export type RunEnd = { state: "done" } | { state: "failed" | "interrupted" | "dropped" | "rolled_back" | "partial"; reason: string };

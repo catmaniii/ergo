@@ -1,4 +1,4 @@
-// 190 号票：三种已实现的检索模式（vector / hybrid / hybrid_kg）、两层开关、时间和场景过滤、图扩展、D 组的接口。
+// 三种已实现的检索模式（vector / hybrid / hybrid_kg）、两层开关、时间和场景过滤、图扩展、D 组的接口。
 // 用手写的几条证据、规则版抽取和假向量，结果确定。
 import { afterEach, describe, expect, it } from "vitest";
 import type { EvidenceDraft } from "../../src/domain/types.ts";
@@ -107,7 +107,7 @@ describe("B 组 hybrid：关键词（FTS5 bm25 + 短词子串扫描）加向量�
     expect(hits[0]!.channels.evidence_keyword!.score).toBeGreaterThan(0);
   });
 
-  it("192：问题里单字的状态词（忙、累）也能找到原话", async () => {
+  it("问题里单字的状态词（忙、累）也能找到原话", async () => {
     const extra = [draft("ev-b1", "这俩月要上新系统，估计得忙到四月底。", "2026-03-02T12:00:00+08:00"), draft("ev-b2", "连着熬了三个通宵，整个人累垮了。", "2026-03-20T12:00:00+08:00")];
     const engine = await open({ embedder: false, evidence: [...EVIDENCE, ...extra] });
     expect(ids(await search(engine, "那阵子忙吗？", { mode: "hybrid", layers: "evidence" }))).toContain("ev-b1");
@@ -171,7 +171,7 @@ describe("时间过滤", () => {
 });
 
 describe("场景过滤", () => {
-  it("strict（190 的做法，194 起要明说）：场景冲突的（周末 vs 工作日）不要；没写场景的、别的维度的照样要", async () => {
+  it("strict（做法，要明说）：场景冲突的（周末 vs 工作日）不要；没写场景的、别的维度的照样要", async () => {
     const engine = await open({ embedder: false });
     const q = "周末聚会 技术交流会 香菜 围棋";
     const all = ids(await search(engine, q, { mode: "hybrid", limit: 20 }));
@@ -218,7 +218,7 @@ describe("场景过滤", () => {
   });
 });
 
-describe("194：两层都搜时精炼陈述降权", () => {
+describe("两层都搜时精炼陈述降权", () => {
   it("默认原话两路 1.0、精炼陈述两路 0.5", async () => {
     const engine = await open();
     const [top] = await search(engine, "技术交流会", { mode: "hybrid" });
@@ -229,7 +229,7 @@ describe("194：两层都搜时精炼陈述降权", () => {
     expect(top!.fused).toBeCloseTo(expected, 10);
   });
 
-  it("权重是检索选项：statementWeight = 1 就是 190 的等权", async () => {
+  it("权重是检索选项：statementWeight = 1 就是等权", async () => {
     const engine = await open();
     const [top] = await search(engine, "技术交流会", { mode: "hybrid", statementWeight: 1 });
     const c = top!.channels;

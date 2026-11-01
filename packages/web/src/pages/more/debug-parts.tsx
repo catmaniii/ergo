@@ -1,8 +1,8 @@
-// Debug 工具集（124 号票）几张卡共用的小部件：一张卡、一行（左边是什么、右边是值；App 专属的不在 App 里时灰掉）、一组单选的小按钮。
+// Debug 工具集几张卡共用的小部件：一张卡、一行（左边是什么、右边是值；App 专属的不在 App 里时灰掉）、一组单选的小按钮。
 import type { ReactNode } from "react";
 import { t } from "../../state/index.ts";
 
-/** App 专属的项不在 App 里时写的话（按当前语言现取，171 号票） */
+/** App 专属的项不在 App 里时写的话（按当前语言现取） */
 export const appOnly = () => t("pages.debug.appOnly");
 
 /** 一张卡 */

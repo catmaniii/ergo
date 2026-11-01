@@ -1,7 +1,7 @@
-// Debug 工具集的语音组（124 号票）：测麦克风、识别、合成通不通、多快，都不经会话（不进<名字>的上下文）。
-// - 录 3 秒再回放：App 里用原生录音（63 号票），浏览器里用页面录音，录完马上放；
+// Debug 工具集的语音组：测麦克风、识别、合成通不通、多快，都不经会话（不进<名字>的上下文）。
+// - 录 3 秒再回放：App 里用原生录音，浏览器里用页面录音，录完马上放；
 // - 录 3 秒送识别：交给守护进程的识别进程（POST /api/debug/recognize），显示识别出的文字、守护进程那边的耗时和整个往返
-//   （180 号票：剔掉了模型自带的串词时补一句剔了几个字，整条只有串词的写"已丢弃"）；
+//   （剔掉了模型自带的串词时补一句剔了几个字，整条只有串词的写"已丢弃"）；
 // - 合成念一句：用当前参考音色合成（POST /api/debug/speak），显示合成耗时并播放。
 import { useState } from "react";
 import { blobOfBase64, type DebugTake, playBlob, recordSeconds } from "../../app/debug-page.ts";
@@ -25,7 +25,7 @@ function takeText(take: DebugTake): string {
 
 const errorText = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
-/** 180 号票：守护进程剔掉了模型自带的串词时补一句（整条只有串词的写"已丢弃"），不显示被剔的原文 */
+/** 守护进程剔掉了模型自带的串词时补一句（整条只有串词的写"已丢弃"），不显示被剔的原文 */
 function strippedNote(result: { text: string; strippedChars?: number }): string {
   if (!result.strippedChars) return "";
   return t(result.text ? "pages.debugVoice.recognize.strippedNote" : "pages.debugVoice.recognize.onlyFiller", { chars: result.strippedChars });

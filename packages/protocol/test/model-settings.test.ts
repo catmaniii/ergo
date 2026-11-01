@@ -1,5 +1,5 @@
-// 设置里的"模型"（73 号票）：agent 实际会用的（跟随默认的换成默认），设置接口的请求体（多出来的字段、写错的档位一律拒绝）；
-// 120 号票：设置文件里单独配了模型的负责人、⚙ 里配模型的请求体；
+// 设置里的"模型"：agent 实际会用的（跟随默认的换成默认），设置接口的请求体（多出来的字段、写错的档位一律拒绝）；
+// 设置文件里单独配了模型的负责人、⚙ 里配模型的请求体；
 // 自定义（OpenAI 兼容）服务商这一步：custom 那一块的校验（有 / 没有、地址不对、模型 id 空）、连通测试的请求体、列模型的请求体；
 // 2026-10-30：在网页上填 key 的请求体可以点名服务商（设置 · 模型的 API key 一块按服务商逐条列出）。
 import { describe, expect, it } from "vitest";
@@ -60,7 +60,7 @@ describe("设置里的模型", () => {
     expect(checkHttpBody(ModelTestBody, { modelId: "deepseek-v4-pro", apiKey: "sk-x" }).ok).toBe(false);
   });
 
-  it("单独配了模型的负责人（120 号票）：只有项目负责人、任务负责人那两行能被盖过；设置文件里按 agent id 记选定的模型和思考档位（两项都要写），没有这一项的旧文件照样合规", () => {
+  it("单独配了模型的负责人：只有项目负责人、任务负责人那两行能被盖过；设置文件里按 agent id 记选定的模型和思考档位（两项都要写），没有这一项的旧文件照样合规", () => {
     expect(MAINTAINER_MODEL_AGENTS).toEqual(["task_maintainer", "project_maintainer"]);
     const file = { format: 1, ...base };
     expect(checkHttpBody(ModelSettingsFile, file).ok).toBe(true);

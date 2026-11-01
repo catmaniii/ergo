@@ -1,5 +1,5 @@
-// 这个 agent 说话时用哪个参考音色（248 号票；241 号票起是每个 agent 自己配的，现在从它用的角色来）：
-// 角色的 voiceId（没指定、被删了、语音插件刚停用）都回退到全局选中的那个（31 号票），行为和以前一模一样。
+// 这个 agent 说话时用哪个参考音色（是每个 agent 自己配的，现在从它用的角色来）：
+// 角色的 voiceId（没指定、被删了、语音插件刚停用）都回退到全局选中的那个，行为和以前一模一样。
 // 说话的是哪个 agent 从会话认：秘书的主线是 secretary，负责人的会话是 maintainer:<agent id>（tm-<n>、pm-<n>，以后还有记忆管理员）。
 // 改完角色、改完某个 agent 指定的角色，下一次合成就生效：这里的解析在"定这一轮用不用语音 / 合成前"现做，不缓存。
 import { CHANNELS, MAINTAINER_CHANNEL_PREFIX } from "@ergo/protocol";
@@ -31,14 +31,14 @@ export function voiceOfAgent(agentId: string | undefined, { roles, voices }: { r
   return own ?? voices.current();
 }
 
-/** 一个 agent 自己的声音（354 号票）：转述时这一段用它，转文字时写这个名字 */
+/** 一个 agent 自己的声音：转述时这一段用它，转文字时写这个名字 */
 export interface OwnVoice {
   reference: ResolvedReferenceVoice;
   name: string;
 }
 
 /**
- * 这个 agent 有没有自己的声音（354 号票，负责人的进展用它自己的声音汇报）：它的角色指定了音色、音色还在、和转述的人（秘书）现在用的不一样。
+ * 这个 agent 有没有自己的声音（负责人的进展用它自己的声音汇报）：它的角色指定了音色、音色还在、和转述的人（秘书）现在用的不一样。
  * 没配（跟默认）、被删了、和转述的人一样都是 undefined：不分两段，就是一条转述的人的语音
  */
 export function ownVoiceOfAgent(

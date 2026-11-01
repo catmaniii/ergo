@@ -1,4 +1,4 @@
-// 发布包里带的 Node（318 号票，ADR-0031：大版本跟着 pi 走，版本是构建参数）：
+// 发布包里带的 Node（ADR-0031：大版本跟着 pi 走，版本是构建参数）：
 //   --node <目录>   已经有的官方 Node（目录里有 node.exe、LICENSE；比如解开的 node-v22.23.4-win-x64 目录）
 //   --node <zip>    官方的 node-v<版本>-win-x64.zip
 //   不给            从 nodejs.org（--node-dist 换地址，比如 npmmirror 的镜像）下官方 zip，按同一处的 SHASUMS256.txt 核对 sha256

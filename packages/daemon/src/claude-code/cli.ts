@@ -1,4 +1,4 @@
-// 守护进程这一侧跑 Claude Code 的命令行（292 号票：交给官方 App、再收回来，调研 35 第 3 节）——`claude --bg --resume …`、`claude stop`、
+// 守护进程这一侧跑 Claude Code 的命令行（交给官方 App、再收回来）——`claude --bg --resume …`、`claude stop`、
 // `claude logs`、`claude agents --json`。可注入（ClaudeCli）：主切面、契约测试换成扮演本机 claude 的假的（不起真的 claude、不花额度、
 // 不碰用户真实的 ~/.claude）。
 //

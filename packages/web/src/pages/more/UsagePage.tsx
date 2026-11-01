@@ -1,10 +1,10 @@
-// 消耗页（24 号票）：选一个时间范围，按天、按 agent 汇总 token，秘书单列为系统开销，拉起时没给归属的 agent 单列为未归属；
-// 成本 = 用量 × 单价，标明"粗估"：配置里写了单价的按配置（不分时段），没写的按框架自带的价格表、按每一笔的时段算（94 号票），
+// 消耗页：选一个时间范围，按天、按 agent 汇总 token，秘书单列为系统开销，拉起时没给归属的 agent 单列为未归属；
+// 成本 = 用量 × 单价，标明"粗估"：配置里写了单价的按配置（不分时段），没写的按框架自带的价格表、按每一笔的时段算，
 // 单价那块列出用到的单价（自带价格表的分高峰、空闲），写明高峰时段怎么算、价格取自官网哪天。
 // 数据经 HTTP 取（GET /api/usage，DaemonHttp.usage）：页面由守护进程提供时是真账本，直接打开构建产物时是原型的假账本。
-// 154 号票：按次计费的联网调用（DeepSeek 的联网搜索、读网页）另起一节"联网搜索、读网页"，按 agent 列次数和花费；
+// 按次计费的联网调用（DeepSeek 的联网搜索、读网页）另起一节"联网搜索、读网页"，按 agent 列次数和花费；
 // 上面的成本合计把它算进去（写明"含联网 ¥x"），按天、按 agent 的 token 表照旧只有模型调用。
-// 266 号票：按 agent 那张表的系统开销一组里单列"记忆简报"一行（带了几次、估的 token、粗估的钱）：这些 token 已经算在秘书的输入里，
+// 按 agent 那张表的系统开销一组里单列"记忆简报"一行（带了几次、估的 token、粗估的钱）：这些 token 已经算在秘书的输入里，
 // 不另加进合计。
 import { useEffect, useMemo, useState } from "react";
 import { useStore } from "../../app/store.tsx";
@@ -214,7 +214,7 @@ export function UsagePage() {
                   </td>
                 </tr>
                 {summary.agents.filter((a) => a.category === "system").map(agentRow)}
-                {/* 266 号票：记忆简报单列一项——估的 token 已经算在秘书的输入里（没命中缓存那一栏），这里另列出来 */}
+                {/* 记忆简报单列一项——估的 token 已经算在秘书的输入里（没命中缓存那一栏），这里另列出来 */}
                 <tr className="usage-brief">
                   <td>
                     <span className="usage-brief-name">{t("pages.usage.memoryBrief")}</span>

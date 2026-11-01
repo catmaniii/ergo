@@ -1,4 +1,4 @@
-// 水墨国风（50 号票，设计稿 docs/architecture/design/styles/i-*.dc.html）：宣纸底、墨色字，朱砂是唯一的颜色——主按钮、"要你"的事、未读、
+// 水墨国风（设计稿 docs/architecture/design/styles/i-*.dc.html）：宣纸底、墨色字，朱砂是唯一的颜色——主按钮、"要你"的事、未读、
 // 个人助理名字的印章；马善政书法只用在标题上（font-title），正文是 Noto Serif SC 宋体；线是淡墨的细线，列表一行一行之间是虚线，
 // 直角（2px）、无阴影。你发的消息是墨色块，个人助理的话是淡灰的"洗"（设计稿的 --wash）。
 // 颜色取设计稿样式里 .root（浅色）、.root.dark（深色）两套变量（--bg、--surface、--text、--muted、--accent、--accent-ink、
@@ -9,7 +9,7 @@ import type { VisualStyle } from "../tokens.ts";
 
 export const ink: VisualStyle = {
   id: "ink",
-  // 名字和一句话按当前语言（169 号票，取的时候现查）
+  // 名字和一句话按当前语言（取的时候现查）
   get name() {
     return t("styles.ink.name");
   },
@@ -90,7 +90,7 @@ export const ink: VisualStyle = {
     "shadow-float": "none",
     "shadow-note": "none",
     "shadow-slide": "none",
-    // 宽屏阶段栏的 × 这类浮在栏边上的小圆钮（88 号票）：不要阴影（和别的阴影一样）
+    // 宽屏阶段栏的 × 这类浮在栏边上的小圆钮：不要阴影（和别的阴影一样）
     "shadow-btn": "none",
 
     // ---- 间距：页面左右 22、消息之间 20（设计稿），标题栏放得下 30 的书法标题和 44 高的按钮 ----

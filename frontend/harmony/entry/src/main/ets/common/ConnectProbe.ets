@@ -4,7 +4,7 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 import { DOMAIN, TAG } from './AppSettings';
 import { classifyConnectError, ConnectFailure, isErgoAccess } from './ConnectCheck';
 
-/** 约 10 秒（票里定的，错误文案里也写着 10 秒） */
+/** 约 10 秒（错误文案里也写着 10 秒） */
 const TIMEOUT_MS = 10000;
 /** 协议包 http.ts 的 HTTP_PATHS.access */
 const ACCESS_PATH = '/api/access';
@@ -21,7 +21,7 @@ export class ConnectResult {
 }
 
 /**
- * 真的请求一次（364 号票，对应安卓 common/ConnectProbe.kt）：GET <来源>/api/access，约 10 秒没回就算超时，确认回话的是二狗。
+ * 真的请求一次（对应安卓 common/ConnectProbe.kt）：GET <来源>/api/access，约 10 秒没回就算超时，确认回话的是二狗。
  * 不带 cookie（@ohos.net.http 不碰 ArkWeb 的 cookie），不跟跳转（跳到别处的不算二狗）。取消后不再回。
  */
 export class ConnectProbe {

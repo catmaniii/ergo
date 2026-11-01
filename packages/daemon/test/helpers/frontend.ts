@@ -66,12 +66,12 @@ export interface CloseInfo {
 /** 收到的一帧，带收到时的时间（毫秒） */
 type Received = { kind: "event"; frame: EventFrame; at: number } | { kind: "response"; frame: ResponseFrame; at: number };
 
-/** 发消息的选项：往哪个会话（默认秘书）、幂等键、在哪个任务的详情里说的（75 号票：项目内部的普通任务做完了接着说） */
+/** 发消息的选项：往哪个会话（默认秘书）、幂等键、在哪个任务的详情里说的（项目内部的普通任务做完了接着说） */
 export interface SendOptions {
   conversation?: ConversationId;
   idempotencyKey?: string;
   taskId?: string;
-  /** 浏览侧边栏里发的（147 号票）：当时的网页、选中的框、哪个浏览器 */
+  /** 浏览侧边栏里发的：当时的网页、选中的框、哪个浏览器 */
   browsing?: BrowsingContext;
 }
 
@@ -165,7 +165,7 @@ export class TestFrontend {
   }
 
   /**
-   * 点"发起任务"按钮（写要做什么；58 号票起可以先选种类：流程或长程任务，不选是长程任务；76 号票起可以选什么时候做：定时的写时间表），等响应
+   * 点"发起任务"按钮（写要做什么；可以先选种类：流程或长程任务，不选是长程任务；可以选什么时候做：定时的写时间表），等响应
    */
   async startTask(request: string, idempotencyKey: string = randomUUID(), projects?: string[], kind?: TaskKind, trigger?: TaskTrigger, extra: { voiceAnnounce?: boolean; runtime?: string } = {}): Promise<ResponseFrame> {
     return this.request(
@@ -175,7 +175,7 @@ export class TestFrontend {
     );
   }
 
-  /** 发起对话框里选了"只提醒我"（76 号票）：建一条简单提醒，等响应。77 号票起也能事件发生时提醒（给 { event }） */
+  /** 发起对话框里选了"只提醒我"：建一条简单提醒，等响应。也能事件发生时提醒（给 { event }） */
   async createReminder(text: string, when: ReminderSchedule | { event: EventTrigger }, idempotencyKey: string = randomUUID()): Promise<ResponseFrame> {
     return this.request(METHODS.createReminder, { text, ...("event" in when ? { event: when.event } : { schedule: when }) }, idempotencyKey);
   }
@@ -185,47 +185,47 @@ export class TestFrontend {
     return this.request(METHODS.inboxAction, params, idempotencyKey);
   }
 
-  /** 设置页改关注类别（调严内置类别、新建 / 改 / 删自定义类别、修复、重新读文件），等响应（26 号票） */
+  /** 设置页改关注类别（调严内置类别、新建 / 改 / 删自定义类别、修复、重新读文件），等响应 */
   async updateWatchCategories(params: UpdateWatchCategoriesParams, idempotencyKey: string = randomUUID()): Promise<ResponseFrame> {
     return this.request(METHODS.updateWatchCategories, params, idempotencyKey);
   }
 
-  /** 控制任务（暂停、继续、取消、重试、返工、验收通过或退回，13 号票），等响应 */
+  /** 控制任务（暂停、继续、取消、重试、返工、验收通过或退回），等响应 */
   async taskAction(params: TaskActionParams, idempotencyKey: string = randomUUID()): Promise<ResponseFrame> {
     return this.request(METHODS.taskAction, params, idempotencyKey);
   }
 
-  /** 一次对多个任务做同一个控制（暂停、继续、取消、归档，90 号票），等响应 */
+  /** 一次对多个任务做同一个控制（暂停、继续、取消、归档），等响应 */
   async taskBatchAction(params: TaskBatchActionParams, idempotencyKey: string = randomUUID()): Promise<ResponseFrame> {
     return this.request(METHODS.taskBatchAction, params, idempotencyKey);
   }
 
-  /** 对一条或几条简单提醒做同一件事（取消、归档、删除，185 号票），等响应 */
+  /** 对一条或几条简单提醒做同一件事（取消、归档、删除），等响应 */
   async reminderAction(params: ReminderActionParams, idempotencyKey: string = randomUUID()): Promise<ResponseFrame> {
     return this.request(METHODS.reminderAction, params, idempotencyKey);
   }
 
-  /** 看板上对定时触发的任务的动作（暂停、恢复、取消，19 号票；76 号票），等响应 */
+  /** 看板上对定时触发的任务的动作（暂停、恢复、取消），等响应 */
   async scheduledJobAction(params: ScheduledJobActionParams, idempotencyKey: string = randomUUID()): Promise<ResponseFrame> {
     return this.request(METHODS.scheduledJobAction, params, idempotencyKey);
   }
 
-  /** 改定时触发的任务的时间表（98 号票），等响应 */
+  /** 改定时触发的任务的时间表，等响应 */
   async rescheduleJob(params: RescheduleJobParams, idempotencyKey: string = randomUUID()): Promise<ResponseFrame> {
     return this.request(METHODS.rescheduleJob, params, idempotencyKey);
   }
 
-  /** 定时 / 事件触发的任务立即运行一次（100 号票），等响应 */
+  /** 定时 / 事件触发的任务立即运行一次，等响应 */
   async runJobNow(params: RunJobNowParams, idempotencyKey: string = randomUUID()): Promise<ResponseFrame> {
     return this.request(METHODS.runJobNow, params, idempotencyKey);
   }
 
-  /** 开关任务的"跑完自动播报"（100 号票），等响应 */
+  /** 开关任务的"跑完自动播报"，等响应 */
   async setVoiceAnnounce(params: SetVoiceAnnounceParams, idempotencyKey: string = randomUUID()): Promise<ResponseFrame> {
     return this.request(METHODS.setVoiceAnnounce, params, idempotencyKey);
   }
 
-  /** 记下会话看到哪一条了（109 号票），等响应 */
+  /** 记下会话看到哪一条了，等响应 */
   async markRead(params: MarkReadParams, idempotencyKey: string = randomUUID()): Promise<ResponseFrame> {
     return this.request(METHODS.markRead, params, idempotencyKey);
   }
@@ -252,7 +252,7 @@ export class TestFrontend {
   }
 
   /**
-   * 日历（35 号票）：经 HTTP 取某个月每一天的日历条目，和 Web 一样把它录成状态层的输入。取失败时抛错
+   * 日历：经 HTTP 取某个月每一天的日历条目，和 Web 一样把它录成状态层的输入。取失败时抛错
    */
   async calendarMonth(month: string): Promise<CalendarMonthView> {
     const res = await fetch(new URL(HTTP_PATHS.calendarMonth(month), this.wsUrl.replace(/^ws/, "http")));

@@ -46,7 +46,7 @@ export function getInboxItem(db: ReadonlyDatabase, itemId: string): InboxItem | 
   return row && (JSON.parse(row.item) as InboxItem);
 }
 
-/** 某条事项是什么时候放进来的（放进来那条事件的全局序号，152 号票：会话回退时认它是不是在被放弃的那段里发起的）；没有是 undefined */
+/** 某条事项是什么时候放进来的（放进来那条事件的全局序号：会话回退时认它是不是在被放弃的那段里发起的）；没有是 undefined */
 export function inboxItemCreatedSeq(db: ReadonlyDatabase, itemId: string): number | undefined {
   const row = db.get<{ global_seq: number }>("SELECT global_seq FROM inbox_items WHERE item_id = ?", itemId);
   return row ? Number(row.global_seq) : undefined;

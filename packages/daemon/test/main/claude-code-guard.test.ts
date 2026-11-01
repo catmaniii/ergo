@@ -1,4 +1,4 @@
-// 主切面：Claude Code 的工具调用都过二狗守卫、全程留记录（288 号票）。真的守护进程走组合根和插件清单，清单里的 Claude Code 插件经
+// 主切面：Claude Code 的工具调用都过二狗守卫、全程留记录。真的守护进程走组合根和插件清单，清单里的 Claude Code 插件经
 // extraPlugins 换成子进程接假 SDK 的那个（helpers/fake-claude-code.ts：运行时、适配子进程、守卫的钩子都是真的，SDK 按 faux 剧本扮演 claude，
 // 每次工具调用之前走一遍权限流程——PreToolUse 钩子、要问人的 canUseTool——不启动真的 claude、不花额度）。测试扮演前端。
 // - 运行时是 Claude Code 的任务：Bash 写受保护区域被守卫拦下（模型收到守卫的说明）；Claude 自带的 TodoWrite 照登记放行（不按工具白名单硬拒绝）；
@@ -136,7 +136,7 @@ describe("Claude Code 的工具调用都过二狗守卫（假 SDK）", () => {
     td.daemon.tasks.writeBrief(task.id, { goal: "写周报", acceptanceCriteria: ["周报写好"], constraints: [], projects: [], memoryScope: "" });
     await waitUntil(() => td.daemon.store.read(maintainerChannel(task.maintainerId), 0, EVENT_TYPES.turnEnd).length >= 1, { timeoutMs: 60_000, describe: () => "等起草计划的那一轮" });
 
-    // Claude Code 的负责人还没有二狗的工具（291 号票）：计划由测试照"提交计划"那样审查、交给用户授权
+    // Claude Code 的负责人还没有二狗的工具：计划由测试照"提交计划"那样审查、交给用户授权
     const real = fs.realpathSync.native(td.dataDir);
     const layout = dataDirLayout(real);
     const places: GuardPlaces = {

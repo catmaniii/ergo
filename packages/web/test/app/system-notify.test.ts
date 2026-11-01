@@ -1,4 +1,4 @@
-// 系统通知的统一出口（110 号票）：到点的提醒这类"马上告诉用户"的事，浏览器里弹浏览器通知（用户允许了才弹），
+// 系统通知的统一出口：到点的提醒这类"马上告诉用户"的事，浏览器里弹浏览器通知（用户允许了才弹），
 // 鸿蒙 App 里（新版 App）经原生桥发到系统通知栏；同一件事只发一条；点了通知去那一项的地址。
 // 浏览器的 Notification、原生桥都换成假的。
 import { describe, expect, test } from "vitest";
@@ -183,13 +183,13 @@ describe("发出去的字", () => {
     expect(alertNotice({ id: "n-2", title: "备份失败" }, plain)).toEqual({ id: "n-2", title: "备份失败", body: "", route: "#/inbox" });
   });
 
-  test("秘书新消息（109 号票）：同一个出口，点了去秘书会话里那一条", () => {
+  test("秘书新消息：同一个出口，点了去秘书会话里那一条", () => {
     const alert = { id: "secretary:m-1", title: "{{assistant}}：今天的 AI 日报念好了", body: "语音 1 分 06 秒", secretary: { at: "m-1", through: 7 } };
     expect(alertNotice(alert, plain)).toEqual({ id: "secretary:m-1", title: "二狗：今天的 AI 日报念好了", body: "语音 1 分 06 秒", route: "#/secretary/at/m-1" });
   });
 });
 
-/** 通知记录（124 号票）：记下的每一条，走哪条路、结果（时间、标题照样记，只看第一条） */
+/** 通知记录：记下的每一条，走哪条路、结果（时间、标题照样记，只看第一条） */
 function recorded(env: Partial<SystemNotifyEnv>) {
   const records: NotifyRecord[] = [];
   const p = page({ ...env, record: (r) => void records.push(r), now: () => "2026-10-14T21:00:00.000+08:00" });
@@ -199,7 +199,7 @@ function recorded(env: Partial<SystemNotifyEnv>) {
 /** 等 App 回的结果 */
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-describe("通知记录（124 号票：Debug 工具集）", () => {
+describe("通知记录（Debug 工具集）", () => {
   test("浏览器：已发、没授权、重复跳过、出错、浏览器不支持各记一条", () => {
     const ok = recorded({ browser: fakeBrowser("granted").browser });
     ok.notifier.show(reminder);

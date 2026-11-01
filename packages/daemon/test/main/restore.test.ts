@@ -1,6 +1,6 @@
 // 主切面：从快照恢复（规格第 18 节）。用户经 LSM 停掉守护进程，用恢复命令从指定日期的快照恢复数据目录，再经 LSM 起来。
 // 这里直接调恢复命令背后的函数（命令行入口另有 restore-cli.test.ts），守护进程是临时数据目录里的测试实例。
-// 恢复成旧快照之后，前端记的序号比服务端大：订阅时这些频道重新同步（04 号票），补发的就是快照里的事件。
+// 恢复成旧快照之后，前端记的序号比服务端大：订阅时这些频道重新同步，补发的就是快照里的事件。
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -31,7 +31,7 @@ describe("恢复命令", () => {
   it("守护进程在运行时拒绝执行，什么也不动；停掉之后才恢复", async () => {
     const ports = await freePorts();
     const test = await startBackupDaemon({ start: at(10, 7, 21), config: { ports } });
-    // 本人素材的原文副本（08 号票）是只读的；模型区能重新下载，不进备份
+    // 本人素材的原文副本是只读的；模型区能重新下载，不进备份
     const original = put(test.dataDir, "materials/originals/2026-10/m-1.json", '{"format":1}');
     fs.chmodSync(original, 0o444);
     const model = put(test.dataDir, "models/Xenova/bge-m3/model.onnx", "很大的模型文件");
@@ -39,7 +39,7 @@ describe("恢复命令", () => {
     expect(listTree(path.join(test.layout.backups, "2026-10-08")).filter((f) => f.includes("models/"))).toEqual([]);
     const after = put(test.dataDir, "projects/p-demo/after.md", "快照之后写的");
 
-    // 守护进程起来后写了 pid 文件（23 号票起由 startDaemon 写），先按它判断
+    // 守护进程起来后写了 pid 文件（由 startDaemon 写），先按它判断
     await expect(restoreSnapshot({ config: test.daemon.config, layout: test.layout, date: "2026-10-08" })).rejects.toThrow(
       `守护进程还在运行（pid 文件里的守护进程（PID ${process.pid}）还在运行）：先停掉二狗（ergo stop；自己 git clone 的在服务管家里停 ergo-daemon），再恢复`,
     );

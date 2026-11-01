@@ -1,17 +1,17 @@
-// 彻底删除的改写函数表（规格第 14、15 节，21 号票）：按事件类型登记，一类事件一个改写函数，由拥有这类事件的模块写
+// 彻底删除的改写函数表（规格第 14、15 节）：按事件类型登记，一类事件一个改写函数，由拥有这类事件的模块写
 // （改写的规矩见 events/purge.ts：消息整条换成"已删除"标记，别的只换带原话的文本字段、状态不变）。
 // 现在登记的（daemon.ts）：消息、时间线记录（conversation/purge.ts）、卡片（cards/cards.ts 的 cardPurge，负载按卡片类型的 purge）、
 // 卡片被关闭和长期没处理（materials/sources.ts）、"记住"的记忆命令（materials/commands.ts）、审批决定
 // （approvals/material-source.ts）、效果日志（guard-runtime/effect-log.ts）、操作记录（quick-actions/quick-actions.ts）、
-// 语音对象（voice/material-source.ts，31 号票：连带改写这条语音的消息和别的 voice 事件）、范围记录（scope-review/purge.ts，
-// 18 号票：连带改写它的时间线记录和越界通知，改写后追加一条新版本）、计划的决定、提问卡的回答、授权续期的决定
-// （tasks/material-sources.ts，80 号票：连带改写交给 agent 的那条通知）、简单提醒（reminders/purge.ts，302 号票：个人档案建的每年提醒，
+// 语音对象（voice/material-source.ts：连带改写这条语音的消息和别的 voice 事件）、范围记录（scope-review/purge.ts，
+// 连带改写它的时间线记录和越界通知，改写后追加一条新版本）、计划的决定、提问卡的回答、授权续期的决定
+// （tasks/material-sources.ts：连带改写交给 agent 的那条通知）、简单提醒（reminders/purge.ts：个人档案建的每年提醒，
 // 连带改写同一条提醒的别的版本、提醒卡、待我处理里它的通知）。
-// **以后的票接入新的素材来源时，要给它的事件类型登记一个改写函数**：没登记的事件类型彻底删除时整个删除被拒，
-// 宁可删不成也不胡乱改坏状态。126 号票起插件拥有的事件类型的改写函数写进插件的数据契约（contracts）：插件停用也照样登记，
+// **以后接入新的素材来源时，要给它的事件类型登记一个改写函数**：没登记的事件类型彻底删除时整个删除被拒，
+// 宁可删不成也不胡乱改坏状态。插件拥有的事件类型的改写函数写进插件的数据契约（contracts）：插件停用也照样登记，
 // 彻底删除照常（见 plugins/host.ts）。登记返回撤销函数。
 // 别的模块的事件里引着某类事件的原话时，由引用方另外登记"引用"（registerQuotes）：改写被引用的事件时连带改写引用它的。
-// 现在登记的：范围记录引着用户在负责人会话里的消息、审批卡上的批准（scope-review/purge.ts，18 号票）。
+// 现在登记的：范围记录引着用户在负责人会话里的消息、审批卡上的批准（scope-review/purge.ts）。
 import type { EventStore, NewEvent, StoredEvent } from "../events/event-store.ts";
 import type { PurgeContext, PurgeQuotes, PurgeRewriter } from "../events/purge.ts";
 
@@ -19,7 +19,7 @@ export class PurgeRewriters {
   private readonly rewriters = new Map<string, PurgeRewriter>();
   private readonly quotes: PurgeQuotes[] = [];
 
-  /** 登记一类事件的改写函数；同一类型登记两次报错（一个都不登记）。返回撤销函数：撤掉这次登记的（126 号票） */
+  /** 登记一类事件的改写函数；同一类型登记两次报错（一个都不登记）。返回撤销函数：撤掉这次登记的 */
   register(...rewriters: readonly PurgeRewriter[]): () => void {
     for (const rewriter of rewriters) {
       if (this.rewriters.has(rewriter.eventType) || rewriters.filter((r) => r.eventType === rewriter.eventType).length > 1) {
@@ -43,7 +43,7 @@ export class PurgeRewriters {
     };
   }
 
-  /** 这类事件登记了改写函数没有（302 号票：插件拥有的事件，插件移除以后就没有了） */
+  /** 这类事件登记了改写函数没有（插件拥有的事件，插件移除以后就没有了） */
   has(eventType: string): boolean {
     return this.rewriters.has(eventType);
   }

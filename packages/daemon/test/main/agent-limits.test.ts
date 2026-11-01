@@ -1,4 +1,4 @@
-// 主切面：agent 管家的资源限制（规格第 3、21 节，12 号票），数值配小：
+// 主切面：agent 管家的资源限制（规格第 3、21 节），数值配小：
 // - 同时存活的子进程不超过上限；满了以后新的唤起排队（活动状态"排队"），名额空出时按先后拉起；
 // - 负责人闲置到设定时间后子进程退出，再来输入时重新拉起、接着原会话；秘书常驻、不闲置退出；
 // - 单次模型调用、单次工具调用超时被中止并上报错误（工具可以声明更长）；
@@ -151,7 +151,7 @@ describe.runIf(process.platform === "win32")("孤儿进程回收", () => {
     expect(daemon.agents.live()).toContainEqual({ agentId: "orphan-test", pid: agent.pid });
   }, 30_000);
 
-  it("还在跑的通用 bash：管道各段、bash 脚本（Git Bash 交接后 Windows 父进程已退）不当孤儿回收，跑完拿到完整输出（178 号票）", async () => {
+  it("还在跑的通用 bash：管道各段、bash 脚本（Git Bash 交接后 Windows 父进程已退）不当孤儿回收，跑完拿到完整输出", async () => {
     const { daemon } = await startTestDaemon({ config: { agents: { orphanSweepSeconds: 0.2 } } });
     const { agent, log } = spawnTestAgent(daemon, {
       agentId: "orphan-busy",
@@ -168,7 +168,7 @@ describe.runIf(process.platform === "win32")("孤儿进程回收", () => {
     await log.next("turn_end");
   }, 30_000);
 
-  it.skipIf(!renamedNodeRuns())("agent-browser 的守护进程和它开的 Chrome 跟着开它的 agent 走：agent 活着就留着；同一次起的别的后台进程、认不准的照旧回收；agent 退出后回收（用户 2026-10-19 定）", async () => {
+  it.skipIf(!renamedNodeRuns())("agent-browser 的守护进程和它开的 Chrome 跟着开它的 agent 走：agent 活着就留着；同一次起的别的后台进程、认不准的照旧回收；agent 退出后回收", async () => {
     const fakeExe = fakeAgentBrowserExe();
     const { daemon } = await startTestDaemon({ config: { agents: { orphanSweepSeconds: 0.2 } } });
     const rec = makeTempDir("ergo-ab-rec-");

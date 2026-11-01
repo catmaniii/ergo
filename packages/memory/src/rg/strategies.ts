@@ -1,4 +1,4 @@
-// 交互策略（196 号票，05 号调研 §6.2 的 P 层）：把成立的需求、价值断言编译成"什么场合 → 怎么做"的规则（规则版）。
+// 交互策略（P 层）：把成立的需求、价值断言编译成"什么场合 → 怎么做"的规则（规则版）。
 //
 // - 触发场合：领域（rg/domains.ts）、场景（往上抽那组的各场景）、活动（那组的活动）；做法来自通用模板，按主题选：
 //   回避被别人安排好的时间（autonomy）→ "安排这类日子的活动时：留出空白，不要排满；替用户约人、定时间之前先问他"；
@@ -6,8 +6,8 @@
 //   对某样活动有稳定兴趣（interest）→ "有空闲、要推荐活动时：可以优先提议它；只是提议，去不去由用户定"；
 //   别的（模型版出的、没有主题的需求、价值）→ "涉及这些领域的事时：考虑到这条；拿不准时先问"。
 // - 每条策略挂着依据的断言（basisClaimIds），新编出来是 proposed；只有用户确认（confirm，只认本人有效的证据）才 active，
-//   进用户模型快照的 strategies。用户确认的是"怎么为他服务"（权威），不是"他为什么这样"，所以不顺带确认依据的断言（05 号调研 §6.0）。
-// - 330 号票（R6，ADR-0032）：长期做法可以建在猜测上——编（提议）要依据还活着（已验证、猜测都行）、把握不是 low、在有效期里；
+//   进用户模型快照的 strategies。用户确认的是"怎么为他服务"（权威），不是"他为什么这样"，所以不顺带确认依据的断言。
+// -（R6，ADR-0032）：长期做法可以建在猜测上——编（提议）要依据还活着（已验证、猜测都行）、把握不是 low、在有效期里；
 //   编出来以后依据只要还活着（猜测不论把握高低）就算能用，
 //   页面标"建在猜测上"（依据里能用的都是猜测）；照旧要用户点头才生效。复核标记不看（照真值状态）。
 // - 跟着依据走（sync）：依据还能用 → 照旧（暂停的恢复：确认过的回到 active，没确认过的回到 proposed）；依据变成猜测、把握掉到 low、
@@ -16,9 +16,9 @@
 //   还没点头的（proposed）只是个提议，依据没了就收回（retracted）——原始推理图谱 LIFECYCLE §2：决策的前提被撤只触发复审、不自动作废，
 //   拍板之前的候选不算决策。确认它的那条证据被忘掉、纠正了 → 回到 proposed、要重新确认。每次改动都写修订日志，起因是依据那条断言
 //   最近一次改状态的起因证据。
-// - 什么时候同步：用的时候（列策略、编译、确认、给任务出建议之前）；不改引擎的 reflect 和传播钩子（和 192 号票并行，接线只加不改）。
+// - 什么时候同步：用的时候（列策略、编译、确认、给任务出建议之前）；不改引擎的 reflect 和传播钩子（接线只加不改）。
 //   快照（getUserModel）只读：按依据在 at 是否成立现算，不写库。
-// - 模型版（201 号票）：推理实现有 writeStrategies 时，引擎在 reflect() 末尾把还没有模型写的策略的依据交给它（writeWithModel），
+// - 模型版：推理实现有 writeStrategies 时，引擎在 reflect() 末尾把还没有模型写的策略的依据交给它（writeWithModel），
 //   写出来的模板记 model_written；以后按模板编译时不覆盖它写的做法，只更新依据。模型给的主题（model:<主题>）同一个主题的
 //   需求、价值编进同一条（和规则版的主题一样）。
 import { toMs, validAt } from "../domain/time.ts";
@@ -120,7 +120,7 @@ export const STRATEGY_TEMPLATES: readonly StrategyTemplate[] = [
   },
 ];
 
-/** 模型写的策略记的模板（201 号票）：按模板重新编译时不覆盖它的做法 */
+/** 模型写的策略记的模板：按模板重新编译时不覆盖它的做法 */
 export const MODEL_STRATEGY_TEMPLATE = "model_written";
 
 export function strategyTemplate(id: string): StrategyTemplate | undefined {
@@ -128,7 +128,7 @@ export function strategyTemplate(id: string): StrategyTemplate | undefined {
 }
 
 /**
- * 能当依据（330 号票 R6）：还活着（已验证 active、猜测 contested 都行，猜测不论把握高低）、在 at 的有效期里。复核标记不看（照真值状态）
+ * 能当依据（R6）：还活着（已验证 active、猜测 contested 都行，猜测不论把握高低）、在 at 的有效期里。复核标记不看（照真值状态）
  */
 export function establishedAt(claim: Claim | undefined, at: string): claim is Claim {
   return claim !== undefined && (claim.status === "active" || claim.status === "contested") && validAt(claim, at);
@@ -136,13 +136,13 @@ export function establishedAt(claim: Claim | undefined, at: string): claim is Cl
 
 const GONE = new Set(["retracted", "superseded"]);
 
-/** 330 号票（R6）：建在猜测上——依据里在 at 能用的都是猜测（没有已验证的） */
+/** ADR-0032 R6：建在猜测上——依据里在 at 能用的都是猜测（没有已验证的） */
 export function onGuessAt(store: MemoryStore, s: Pick<Strategy, "basisClaimIds">, at: string): boolean {
   const usable = s.basisClaimIds.map((id) => store.getClaim(id)).filter((c): c is Claim => establishedAt(c, at));
   return usable.length > 0 && usable.every((c) => c.status === "contested");
 }
 
-/** 330 号票（R6）：依据都不在了（每条都撤回、被取代或者没有了） */
+/** ADR-0032 R6：依据都不在了（每条都撤回、被取代或者没有了） */
 export function basisGone(store: MemoryStore, s: Pick<Strategy, "basisClaimIds">): boolean {
   return s.basisClaimIds.every((id) => {
     const c = store.getClaim(id);
@@ -164,7 +164,7 @@ export function basisGoneAt(store: MemoryStore, s: Pick<Strategy, "basisClaimIds
   return latest;
 }
 
-/** 330 号票（R6）：要问用户"这条做法的理由没了，还要不要"——用户点过头、依据都不在了、点头在依据没了之前（之后点的是知道理由没了还要） */
+/** ADR-0032 R6：要问用户"这条做法的理由没了，还要不要"——用户点过头、依据都不在了、点头在依据没了之前（之后点的是知道理由没了还要） */
 export function basisQuestionDue(store: MemoryStore, s: Strategy): boolean {
   if ((s.status !== "active" && s.status !== "paused") || s.confirmedAt === null) return false;
   const gone = basisGoneAt(store, s);
@@ -196,7 +196,7 @@ export function strategyApplies(s: Pick<Strategy, "trigger">, domains: readonly 
 
 /**
  * 快照用（只读）：在 at 用得上的策略——用户确认过（确认的证据还有效、确认在 at 之前）；给了场景的再看场景。
- * 330 号票（R6）：建在猜测上的照样用（标 onGuess）；依据都不在了也不自动停（标 basisGone，等用户回答"还要不要"）
+ * ADR-0032 R6：建在猜测上的照样用（标 onGuess）；依据都不在了也不自动停（标 basisGone，等用户回答"还要不要"）
  */
 export function activeStrategyEntries(store: MemoryStore, at: string, context: readonly string[] = []): StrategyEntry[] {
   const out: StrategyEntry[] = [];
@@ -279,7 +279,7 @@ export class StrategyBook {
             }
           }
         } else if (basis.every((b) => !b.claim || GONE.has(b.claim.status))) {
-          // 330 号票（R6）：依据都不在了。还没点头的提议收回；点过头的不自动暂停、不自动撤，问题箱问"还要不要"（question-sources.ts）
+          // ADR-0032 R6：依据都不在了。还没点头的提议收回；点过头的不自动暂停、不自动撤，问题箱问"还要不要"（question-sources.ts）
           if (s.status === "proposed") {
             const first = basis.find((b) => b.claim) ?? basis[0]!;
             const c = this.lastStatusCause(first.id);
@@ -287,7 +287,7 @@ export class StrategyBook {
             cause = { evidenceId: c.evidenceId, reason: `还没确认的提议，依据都不在了（${basis.map((b) => `${b.id} ${b.claim?.status ?? "没有了"}`).join("、")}${c.reason ? `；${c.reason}` : ""}），收回` };
           }
         }
-        // 330 号票（R6）：依据变成猜测、把握掉到 low、在有效期外、标着复核，都不再暂停（没点头的照旧要用户点头才生效）
+        // ADR-0032 R6：依据变成猜测、把握掉到 low、在有效期外、标着复核，都不再暂停（没点头的照旧要用户点头才生效）
         if (patch && cause) {
           this.store.updateStrategy(s.id, patch, cause);
           changed.push(s.id);
@@ -300,7 +300,7 @@ export class StrategyBook {
   /** 成立的需求、价值断言按主题归拢成策略的依据 */
   private bases(at: string): StrategyBasis[] {
     const byKey = new Map<string, StrategyBasis & { template: StrategyTemplate }>();
-    // 330 号票（R6）：猜测也能编；提议只从把握不是 low 的编（低把握的猜测不拿来烦用户点头，编出来以后掉到 low 也不停）
+    // ADR-0032 R6：猜测也能编；提议只从把握不是 low 的编（低把握的猜测不拿来烦用户点头，编出来以后掉到 low 也不停）
     for (const claim of this.store.listClaims({ status: ["active", "contested"] })) {
       if ((claim.tier !== "need" && claim.tier !== "value") || claim.confidence === "low" || !establishedAt(claim, at)) continue;
       const member = this.rg.registry.memberOf(claim.id);
@@ -309,7 +309,7 @@ export class StrategyBook {
       const theme = params.theme;
       const family: StrategyFamily = theme === "autonomy" ? "autonomy" : theme === "load" ? "load" : theme?.startsWith("interest:") ? "interest" : "generic";
       const template = STRATEGY_TEMPLATES.find((t) => t.family === family)!;
-      // 没有主题的按断言各自一条；模型版往上抽给了主题的（model:<主题>），同一个主题的需求、价值编进同一条（201 号票）
+      // 没有主题的按断言各自一条；模型版往上抽给了主题的（model:<主题>），同一个主题的需求、价值编进同一条
       const groupTheme = family === "generic" ? (theme?.startsWith("model:") ? theme : claim.id) : theme!;
       const key = `${template.id}|${groupTheme}`;
       const b = byKey.get(key) ?? { key, family, theme: groupTheme, claims: [], scenes: [], activities: [], domains: [], template };
@@ -344,7 +344,7 @@ export class StrategyBook {
           continue;
         }
         const basisClaimIds = [...new Set([...existing.basisClaimIds.filter((id) => !GONE.has(this.store.getClaim(id)?.status ?? "retracted")), ...b.claims.map((c) => c.id)])];
-        // 模型写的（201 号票）：不拿模板覆盖它的做法和触发场合，只更新依据
+        // 模型写的：不拿模板覆盖它的做法和触发场合，只更新依据
         if (existing.template === MODEL_STRATEGY_TEMPLATE) {
           if (JSON.stringify(existing.basisClaimIds) !== JSON.stringify(basisClaimIds)) {
             this.store.updateStrategy(existing.id, { basisClaimIds }, { evidenceId: this.lastStatusCause(b.claims[0]!.id).evidenceId, reason: `重新编译（模型写的做法不动）：${statement}` });
@@ -382,7 +382,7 @@ export class StrategyBook {
   }
 
   /**
-   * 模型版编策略（201 号票）：先同步，把还没有模型写的策略的依据交给推理实现写，写出来的落库——新的 proposed；
+   * 模型版编策略：先同步，把还没有模型写的策略的依据交给推理实现写，写出来的落库——新的 proposed；
    * 已有的（模板编的）换成模型写的做法，确认过的要重新确认。返回新建、改动的，和预算不够没写成的（leftover）
    */
   async writeWithModel(writer: Pick<Reasoner, "id"> & Required<Pick<Reasoner, "writeStrategies">>, ctx: Pick<ReasonerContext, "budget" | "dropped" | "stats">, at: string = this.store.now()): Promise<{ created: string[]; updated: string[]; leftover: boolean }> {
@@ -433,7 +433,7 @@ export class StrategyBook {
   }
 
   /**
-   * 330 号票（R6）：用户回答了"这条做法的理由没了，还要不要"（by 是他那句话，本人有效的证据）。还要 → 记成重新确认（确认的证据换成这句，
+   * ADR-0032 R6：用户回答了"这条做法的理由没了，还要不要"（by 是他那句话，本人有效的证据）。还要 → 记成重新确认（确认的证据换成这句，
    * 以后不再问）；不要了 → 撤回（墓碑是这句话）
    */
   answerBasisGone(strategyId: string, keep: boolean, byEvidenceId: string): Strategy {

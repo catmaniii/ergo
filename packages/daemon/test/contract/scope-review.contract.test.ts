@@ -1,4 +1,4 @@
-// pi 契约测试：范围审视（规格第 10 节、Testing Decisions 切面 3，18 号票）。二狗依赖的 pi 行为：
+// pi 契约测试：范围审视（规格第 10 节、Testing Decisions 切面 3）。二狗依赖的 pi 行为：
 // - 子进程里能在会话之外另开一次模型调用（审视用的模型，faux 扮演便宜模型）并拿到用量：守护进程要的审视（scope_review）
 //   审视会话里的对话，结果报回；那次调用不进负责人的会话（会话的剧本也没被它吃掉）；
 // - 压缩前钩子（session_before_compact）能拿到待压缩的消息：转成文本送审，结果 appendEntry 进会话（不进模型的上下文），
@@ -12,7 +12,7 @@ import { RECENT_SCOPE_RECORDS_TITLE, scopeReviewInstructions } from "../../src/s
 import { fauxModel, spawnTestAgent, startTestDaemon } from "../helpers/daemon.ts";
 
 const SYSTEM_PROMPT = "你是测试用的负责人。";
-/** 审视的说明：默认的那份（71 号票起在 prompts/scope-review.md） */
+/** 审视的说明：默认的那份（在 prompts/scope-review.md） */
 const SCOPE_REVIEW_INSTRUCTIONS = scopeReviewInstructions(defaultPromptLibrary());
 
 /** 审视模型的回复：一条记录，说明里放着它这次收到的全部输入（核对审视的输入） */

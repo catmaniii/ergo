@@ -1,4 +1,4 @@
-// 语音气泡播放条的尺寸（42 号票）：每套风格的 voice-* token 是像素，页面换算成数算框宽、波形格数（state/voice.ts），
+// 语音气泡播放条的尺寸：每套风格的 voice-* token 是像素，页面换算成数算框宽、波形格数（state/voice.ts），
 // styles/voice.css 按同样的 token 画。经典的取值就是原来写死的那一套（state/voice.ts 的 BASE_VOICE_BAR），表现不变。
 // 风格清单里以后加的风格自动算进来。
 import { describe, expect, test } from "vitest";
@@ -6,7 +6,7 @@ import { BASE_VOICE_BAR } from "../../src/state/index.ts";
 import { BASE_STYLE, pxOf, VISUAL_STYLES, voiceBarSizes, voiceBarSizesOf } from "../../src/visual-styles/index.ts";
 
 describe("播放条的尺寸", () => {
-  test("经典的 voice-* token 就是状态层的经典尺寸（69 号票写死的那一套：内边距 13、竖线 3、播放键 16、间隔 8、竖条 2 隔 2）", () => {
+  test("经典的 voice-* token 就是状态层的经典尺寸（写死的那一套：内边距 13、竖线 3、播放键 16、间隔 8、竖条 2 隔 2）", () => {
     expect(voiceBarSizes(BASE_STYLE, BASE_STYLE)).toEqual(BASE_VOICE_BAR);
   });
 

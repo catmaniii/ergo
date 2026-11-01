@@ -1,5 +1,5 @@
 // SQLite 薄接口：照守护进程的 storage/sqlite.ts（node:sqlite 的 DatabaseSync、WAL、复用预编译语句、只屏蔽那一条实验性警告），
-// 不跨包引用守护进程的代码，只留 PoC 用得到的部分。事务可以嵌套：里面的并进最外面那一个；要单独回滚的一段用 savepoint（267 号票）。
+// 不跨包引用守护进程的代码，只留 PoC 用得到的部分。事务可以嵌套：里面的并进最外面那一个；要单独回滚的一段用 savepoint。
 import { createRequire } from "node:module";
 import type { DatabaseSync, SQLInputValue, StatementSync } from "node:sqlite";
 
@@ -13,7 +13,7 @@ export interface Database {
   /** 在一个事务里执行 fn；fn 抛错则整体回滚。嵌套时里面的并进外面的 */
   transaction<T>(fn: () => T): T;
   /**
-   * 267 号票：能单独回滚的一段。不在事务里时就是 transaction；在事务里时是一个保存点（SAVEPOINT）：fn 抛错只回滚这一段，
+   * 能单独回滚的一段。不在事务里时就是 transaction；在事务里时是一个保存点（SAVEPOINT）：fn 抛错只回滚这一段，
    * 外面的事务接着走（写入口整次拒掉一次写、调用方接住接着做别的时用）
    */
   savepoint<T>(fn: () => T): T;

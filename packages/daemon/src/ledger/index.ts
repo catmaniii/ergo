@@ -1,5 +1,5 @@
-// token 账本（24 号票）：别处只从这里取东西。154 号票起还记按次计费的联网调用（web_call、webCallsView）；
-// 266 号票起还记插件追加在输入后面的上下文估的 token（context_usage、contextUsageView：记忆简报）。
+// token 账本：别处只从这里取东西。还记按次计费的联网调用（web_call、webCallsView）；
+// 还记插件追加在输入后面的上下文估的 token（context_usage、contextUsageView：记忆简报）。
 export {
   type AgentContextUsage,
   type AgentUsage,

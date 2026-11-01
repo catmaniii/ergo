@@ -3,8 +3,8 @@
 // 升级 pi 之前先跑：npm run test:contract
 //
 // 守卫转发和插话的用例在 guard-and-interject.contract.test.ts。
-// 后面的票往这里加用例：工具白名单与只注入指定 skill（27）、守卫接上之后按判定不执行的完整流程（07）、
-// 压缩后注入（13，在 context-block.contract.test.ts）、用量（24，在 usage.contract.test.ts）、压缩钩子与 appendEntry（18）……；被杀后从会话文件恢复（23）在 session-recovery.contract.test.ts。
+// 往这里加用例：工具白名单与只注入指定 skill、守卫接上之后按判定不执行的完整流程、
+// 压缩后注入（在 context-block.contract.test.ts）、用量（在 usage.contract.test.ts）、压缩钩子与 appendEntry……；被杀后从会话文件恢复在 session-recovery.contract.test.ts。
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -156,7 +156,7 @@ describe("pi 契约", () => {
     expect(seen).toContain("[toolResult] read: 新的工作目录");
   });
 
-  it("指定会话的名字（16 号票：负责人会话分段，接哪一段由守护进程明确指定）：还没有时新开、用这个名字存；再次拉起打开的是它，不是会话目录里修改时间最近的那个；ready 报回会话的名字", async () => {
+  it("指定会话的名字（负责人会话分段，接哪一段由守护进程明确指定）：还没有时新开、用这个名字存；再次拉起打开的是它，不是会话目录里修改时间最近的那个；ready 报回会话的名字", async () => {
     const { daemon, dataDir } = await startTestDaemon();
     const agentId = "contract-segments";
     const dir = path.join(dataDir, "sessions", agentId);
@@ -241,7 +241,7 @@ describe("pi 契约", () => {
     expect(fs.readdirSync(cwd)).toEqual([]);
   });
 
-  it("评审子 agent 的固定只读工具包（13；70 号票起加上 grep、find）：pi 工具只有 read、ls、grep、find，外加代为执行的“提交评审结论”；调用 write、edit、bash 都以“没有这个工具”出错，什么也没改", async () => {
+  it("评审子 agent 的固定只读工具包（加上 grep、find）：pi 工具只有 read、ls、grep、find，外加代为执行的“提交评审结论”；调用 write、edit、bash 都以“没有这个工具”出错，什么也没改", async () => {
     const { daemon } = await startTestDaemon();
     const cwd = makeTempDir("ergo-cwd-");
     fs.writeFileSync(path.join(cwd, "report.md"), "# 报告\n");

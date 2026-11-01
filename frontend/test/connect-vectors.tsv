@@ -1,4 +1,4 @@
-# 扫码连接（364 号票）：两个 App 和网页同一份例子。frontend/test/connect.test.ts 跑鸿蒙的 .ets 和协议包，安卓的 ConnectCheckTest 在 JVM 上跑。
+# 扫码连接：两个 App 和网页同一份例子。frontend/test/connect.test.ts 跑鸿蒙的 .ets 和协议包，安卓的 ConnectCheckTest 在 JVM 上跑。
 # 一行一个，用 Tab 分开。第一列是哪一种：
 # address <扫到的文字> <ok 或文案键>：走地址校验
 # tailnet <主机> <true/false>：看不看得出是 tailnet

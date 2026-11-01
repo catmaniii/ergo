@@ -1,5 +1,5 @@
 /**
- * 流程计划卡（58 号票，ADR 0019）——
+ * 流程计划卡（ADR 0019）——
  * - 顶上是计划审查面板（ReviewPanel）：显式走完"扫描 → 识别到的风险 → 自动修复 → 修复结果"四步，用户看得见这道检查确实跑过、
  *   查到了什么、动了什么；
  * - 步骤（PlanSteps）：执行中的状态图标、标题、审查插入的标记、审查改写的说法、做完时的要点、敏感标注；
@@ -106,7 +106,7 @@ function AuthorizablePlanCard({ state, payload: p, done, act, doneLabel }: CardP
         </span>
       </div>
       {p.schedule && <div className="auth-timed">{timedWorkflowLine(p.schedule)}</div>}
-      {/* 事件触发的流程（77 号票）：在等什么事件、授权管多久、步骤里的占位怎么代入 */}
+      {/* 事件触发的流程：在等什么事件、授权管多久、步骤里的占位怎么代入 */}
       {p.event && (
         <div className="auth-timed">
           {eventWorkflowLines(p.event).map((line) => (
@@ -211,7 +211,7 @@ function RefusedPlanCard({ state, payload: p, act, doneLabel }: CardProps<Workfl
 
 /**
  * 计划审查面板：扫描 → 识别到的风险 → 自动修复 → 修复结果。
- * full：计划详情里的完整版（60 号票）——每处风险后面写明被哪个修补动作盖掉了、还是修不掉交给你；
+ * full：计划详情里的完整版——每处风险后面写明被哪个修补动作盖掉了、还是修不掉交给你；
  * 判不了的逐条列出；每个修补动作写明盖掉了哪几条、要不要你点头
  */
 export function ReviewPanel({ plan, full = false }: { plan: WorkflowPlan; full?: boolean }) {
@@ -365,7 +365,7 @@ function argsText(args: Readonly<Record<string, unknown>>): string {
   return pairs.length === 0 ? t("ui.workflowPlanCard.noArgs") : pairs.join("  ");
 }
 
-/** 步骤，另写出每一步的工具和参数、要满足的条件（计划详情里也用它，60 号票） */
+/** 步骤，另写出每一步的工具和参数、要满足的条件（计划详情里也用它） */
 export function WorkflowSteps({ plan, progress }: { plan: WorkflowPlan; progress: Record<string, TaskStep> }) {
   const { ui } = useStore();
   return (

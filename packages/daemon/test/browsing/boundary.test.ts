@@ -1,9 +1,9 @@
-// 浏览插件的边界（212 号票，ADR-0027，照提醒插件、记忆插件的 boundary.test.ts）：
+// 浏览插件的边界（ADR-0027，照提醒插件、记忆插件的 boundary.test.ts）：
 // 1. 组合根（daemon.ts）里不出现浏览插件的内部：设备通路、网页候选卡、秘书的网页工具、存进素材、取件码、缩略图、悬浮按钮的语音、
 //    交给秘书的输入后面那段网页上下文都不在这里建（只从 browsing/api.ts 取服务名 BROWSING，按名字现取）；
 // 2. browsing/ 之外只 import browsing/api.ts（服务名、类型、数据契约里读得出的、网页工具的名字）。写明的例外：插件清单列它；
 // 3. 交给秘书的输入不再认浏览（conversation/agent-input.ts 不 import 浏览插件，那段是插件的输入附注）；
-// 4. 浏览插件不直接 import 语音模块（悬浮按钮上说话的识别经内核给的 KERNEL.speech；语音拆成插件后由它提供，214 号票）；
+// 4. 浏览插件不直接 import 语音模块（悬浮按钮上说话的识别经内核给的 KERNEL.speech；语音拆成插件后由它提供）；
 // 5. 授权的文件夹（folders/）是内核的：不 import 浏览插件；
 // 6. 原来的 page-commands/ 目录没有了（浏览插件的在 browsing/，授权的文件夹在 folders/）。
 import fs from "node:fs";
@@ -58,7 +58,7 @@ describe("浏览插件的边界", () => {
     expect(withoutComments(input.content)).not.toMatch(/browsing/);
   });
 
-  it("浏览插件只经语音插件的 voice/api.ts 取识别（214 号票）；授权的文件夹（内核的）不 import 浏览插件；page-commands/ 没有了", () => {
+  it("浏览插件只经语音插件的 voice/api.ts 取识别；授权的文件夹（内核的）不 import 浏览插件；page-commands/ 没有了", () => {
     const browsing = files.filter((f) => f.path.startsWith("browsing/"));
     expect(browsing.length).toBeGreaterThan(10);
     expect(browsing.flatMap((f) => importsOf(f).filter((i) => i.startsWith("voice/") && i !== "voice/api.ts").map((i) => `${f.path} → ${i}`))).toEqual([]);

@@ -1,5 +1,5 @@
 // 模型文件（规格第 15、21 节）：bge-m3 的文件放在数据目录的模型区；不在时提示在设置 · 组件里装、或者运行下载命令。
-// 下载本身（断点续传、几个地址、校验）323 号票起在组件的下载器里，测试在 test/components/。
+// 下载本身（断点续传、几个地址、校验）在组件的下载器里，测试在 test/components/。
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, test } from "vitest";

@@ -1,8 +1,8 @@
-// 手机插件在设置 · 数据源里画的两块（299 号票，dataSources 插槽）和 App 开着时同步手机日历的后台部件（background 插槽）：
+// 手机插件在设置 · 数据源里画的两块（dataSources 插槽）和 App 开着时同步手机日历的后台部件（background 插槽）：
 // - "手机 · 通讯录选人"下面：在鸿蒙 App 里是"从手机通讯录挑人"（系统的选人界面，不要通讯录权限），挑好交给守护进程，
 //   回一句交给了档案候选的是谁、"去核对"（那张候选核对卡）；不在 App 里（电脑、手机浏览器、旧版 App）写明要到 App 里挑；
 // - "手机 · 日历"下面：在 App 里没连着是"连上手机日历"（系统的授权框），连着是"现在同步"和手机上的授权怎么样；不在 App 里写明；
-//   306 号票起连着但授权没给着时点"现在同步"也再要一次授权（拒过、撤回了的拉起系统的二次授权），还是没给写明；
+//   连着但授权没给着时点"现在同步"也再要一次授权（拒过、撤回了的拉起系统的二次授权），还是没给写明；
 // - 后台部件：只在 App 里（有读本机这一组方法）跑——开场、回到前台（距上次超过 5 分钟）、每 30 分钟同步一次（calendar-sync.ts），
 //   没连着、插件没启用、导入关着都不做。
 // 纯渲染的几块（ContactsPanelView、CalendarPanelView）测试在 Node 里直接渲染。
@@ -175,7 +175,7 @@ export function CalendarPanel({ source, onView }: { source: DataSourceView; onVi
     setNote(undefined);
     void (async () => {
       try {
-        // 点"现在同步"：授权没给着时再要一次（306 号票）
+        // 点"现在同步"：授权没给着时再要一次
         const outcome = await syncPhoneCalendar({ phone, http, now: () => new Date(), newKey }, link ? { link } : { userAction: true });
         if (outcome.kind === "pushed") onView(outcome.result.view);
         setNote(calendarOutcomeText(outcome));

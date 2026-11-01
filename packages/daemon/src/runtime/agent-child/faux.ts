@@ -25,7 +25,7 @@ import type { FauxModelSpec, FauxStep, FauxUsage } from "../host-protocol.ts";
 export const FAUX_PROVIDER_ID = "faux";
 const FAUX_MODEL_ID = "faux-1";
 
-/** 范围审视用的模型是 faux 时（18 号票）注册成另一个 provider：和会话的 faux 各按各的剧本 */
+/** 范围审视用的模型是 faux 时注册成另一个 provider：和会话的 faux 各按各的剧本 */
 export const FAUX_REVIEW_PROVIDER_ID = "faux-review";
 
 /** 在这个 ModelRuntime 上注册一个按剧本回话的 faux provider（provider id 默认 faux），返回它的模型 */
@@ -152,8 +152,8 @@ function renderContext(context: TranscriptContext): string {
       case "system":
         lines.push(`[system] ${getSystemMessageText(message)}`);
         for (const tool of message.toolsAdded ?? []) lines.push(`[tool] ${tool.name}`);
-        // 换了一套工具包接着会话时（27 号票），pi 记一条系统消息写明加了、去掉了哪些工具（系统提示的分段补丁也是这样）；faux 认会话中途的
-        // 系统消息，照原样列出。273 号票起工具的增减在发请求前并回开头那一份（tool-order.ts），正常走不到 [tool-removed]，留着照实列
+        // 换了一套工具包接着会话时，pi 记一条系统消息写明加了、去掉了哪些工具（系统提示的分段补丁也是这样）；faux 认会话中途的
+        // 系统消息，照原样列出。工具的增减在发请求前并回开头那一份（tool-order.ts），正常走不到 [tool-removed]，留着照实列
         for (const tool of message.toolsRemoved ?? []) lines.push(`[tool-removed] ${tool.name}`);
         break;
       case "user":
@@ -163,7 +163,7 @@ function renderContext(context: TranscriptContext): string {
         lines.push(`[assistant] ${message.content.map((b) => (b.type === "text" ? b.text : `<${b.type}>`)).join(" ")}`);
         break;
       case "toolResult": {
-        // 结果里的图片（79 号票：读取附件读图）跟在文字后面，写成 [image 类型]
+        // 结果里的图片（读取附件读图）跟在文字后面，写成 [image 类型]
         const images = message.content.flatMap((block) => (block.type === "image" ? [`[image ${block.mimeType}]`] : []));
         lines.push(`[toolResult] ${message.toolName}: ${[contentText(message.content), ...images].join("\n")}`);
         break;

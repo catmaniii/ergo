@@ -174,7 +174,7 @@ function cookiesOf(url: string): string {
 }
 
 /**
- * "浏览"页签右上角 ⋮ 菜单（165 号票）用到的原生能力，二狗的网页经原生桥 browserTool(op, json) 调（网页一侧
+ * "浏览"页签右上角 ⋮ 菜单用到的原生能力，二狗的网页经原生桥 browserTool(op, json) 调（网页一侧
  * packages/web/src/app/native-browser.ts 的 NativeToolControl，都回 JSON）：
  * - find / findNext / findClear：ArkWeb 自带的页内查找（searchAllAsync、searchNext、clearMatches），网页里高亮；结果由 Index.ets 的
  *   onSearchResultReceive 交到 searchResult，推 {type: "find"}；findBar 是网页的查找栏开没开——开着时返回手势先收起它（closeFind，

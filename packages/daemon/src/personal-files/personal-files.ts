@@ -1,22 +1,22 @@
-// 个人档案（281 号票，用户 2026-10-25 定）：用户本人和重要的人各一份，放内核（像"我的名字"、素材库，停用记忆插件也不丢）。
+// 个人档案：用户本人和重要的人各一份，放内核（像"我的名字"、素材库，停用记忆插件也不丢）。
 // - 谁有档案：本人一份（一直在，编号 SELF_PERSON_ID；姓名就是"我的名字"，同一个来源，不另存一份）；重要的人每人一份（用户在
-//   档案页里建，或者秘书提议、用户确认后建；283 号票的每晚候选也走 prepareWrite）；
-// - 每份三块：固定信息（字段表，同一字段来了新值旧值记成历史）、记下的事、二狗了解到的（283 号票接上，这里只留位置）；
+//   档案页里建，或者秘书提议、用户确认后建；每晚候选也走 prepareWrite）；
+// - 每份三块：固定信息（字段表，同一字段来了新值旧值记成历史）、记下的事、二狗了解到的（这里只留位置）；
 // - 写入只有两条路：用户在档案页里直接改（改了就算确认，change / addPerson），秘书经快速动作提议（quick-action.ts：号码类出核对卡，
 //   原话里明说了的直接写、留回执）。每次写都留痕（events.ts 的 PersonalFileTrail）；
 // - 读：档案页（file / list，原话按消息编号现取）、秘书的 read_personal_file（read-tool.ts，按人、按字段拿确认过的原值）；
 // - 删：忘掉（档案里没有了，事件日志里原话还在）、彻底删除（字段值和历史连同核对卡、操作记录、读过它的调用一起改写，
 //   用户选了的话连出处那句原话一起，照删素材的口径）；删一个人连他的整份档案。本人那份删不掉。
 // 安全照 ADR-0026"功能先跑通、安全后接"：证件号等先明文存，打码、不外发、取全值留痕以后安全阶段再接（只记录不实现）。
-// 283 号票接上记忆和提醒：
-// - 生日、纪念日的每年提醒（annual.ts）：写的时候可以一起开（核对卡、候选卡上的勾；302 号票起原话里明说、直接写的按默认直接开），
+// 接上记忆和提醒：
+// - 生日、纪念日的每年提醒（annual.ts）：写的时候可以一起开（核对卡、候选卡上的勾；原话里明说、直接写的按默认直接开），
 //   档案页上开、关、改天数（set_reminder）；字段改了、删了、撤销了、改了称呼，落盘之后提醒插件里的那条跟着改、删；
 // - 候选（candidates.ts）：记忆管理员攒的、合成一张候选核对卡；
 // - 给记忆这一侧的（memory-link.ts）：档案里的人、档案摘要、不进整理提示的值、字段换了新值的通知；
 // - "二狗了解到的"：经记忆插件的服务现取（learned），插件没启用时写明。
-// 302 号票：内置字段"纪念日"能有几个（"anniversary:<名字>"），字段的先后按协议包的 personalFieldOrder；认字段名时带上这份档案已有的字段
+// 内置字段"纪念日"能有几个（"anniversary:<名字>"），字段的先后按协议包的 personalFieldOrder；认字段名时带上这份档案已有的字段
 // （283 时建的同名自定义字段接着写）。
-// 285 号票：档案里的人分组（家人、重要的人、其他人）——建人时选（addPerson 的 group）、档案页上改（set_group），记成 group_set；
+// 档案里的人分组（家人、重要的人、其他人）——建人时选（addPerson 的 group）、档案页上改（set_group），记成 group_set；
 // 没选过的按"和我的关系"现猜（协议包的 guessPersonGroup），列表和一份档案上写 groupGuessed。秘书、记忆管理员提议建的人都没选分组。
 import { randomUUID } from "node:crypto";
 import {
@@ -92,7 +92,7 @@ export interface PersonRef {
 
 /** 一次写入（值都已按规矩查过、规范化过） */
 export interface PersonalFileWrite {
-  /** 写给已有的一份，或者新建一个人（285：建人时选的分组；不选按关系猜） */
+  /** 写给已有的一份，或者新建一个人（建人时选的分组；不选按关系猜） */
   person: { id: string } | { newName: string; relation?: string; group?: PersonGroup };
   fields: ReadonlyArray<{ field: string; value: string }>;
   note?: { text: string; date: string };
@@ -101,7 +101,7 @@ export interface PersonalFileWrite {
   trail: PersonalFileTrail;
 }
 
-/** "二狗了解到的"由记忆插件给（283）：档案里的人按称呼、别名对到人物实体；本人对用户自己 */
+/** "二狗了解到的"由记忆插件给：档案里的人按称呼、别名对到人物实体；本人对用户自己 */
 export interface PersonalFileMemoryPort {
   learnedAbout(subject: { kind: PersonalFileKind; names: readonly string[] }): PersonalFileLearnedView;
 }
@@ -145,7 +145,7 @@ export interface PersonalFilesService {
   /**
    * 一次写入要追加的事件（快速动作执行时和卡片、操作记录同一事务；页面改的直接追加）。本人改姓名在落盘之后改我的名字（afterCommit）。
    * 值没变的字段不写。不让写（新建的人和已有的重名之外的规矩都在调用方查过）时抛 RequestRejected。
-   * reminded（302 号票）：这次开了（或改了天数）的每年提醒，回执里写明
+   * reminded：这次开了（或改了天数）的每年提醒，回执里写明
    */
   prepareWrite(write: PersonalFileWrite): { events: NewEvent[]; personId: string; afterCommit?: () => void; changed: string[]; reminded: Array<{ field: string; daysBefore: number }> };
   /** 302：秘书、页面写的字段名认成这份档案的字段编号（带上已有的字段：283 时建的同名自定义纪念日接着写）；认不出是 undefined */
@@ -154,7 +154,7 @@ export interface PersonalFilesService {
   today(): string;
   /** 283："二狗了解到的"（经记忆插件现取；插件没启用时 ready 是 false、写明原因） */
   learned(personId: string): PersonalFileLearnedView;
-  /** 283：候选（记忆管理员攒的、合成候选核对卡；284 号票的访谈也交到这里） */
+  /** 候选（记忆管理员攒的、合成候选核对卡；访谈也交到这里） */
   readonly candidates: PersonalFileCandidates;
   /** 283：给记忆插件的（KERNEL.personalFiles） */
   readonly forMemory: PersonalFilesForMemory;
@@ -179,7 +179,7 @@ export function checkFieldFor(kind: PersonalFileKind, field: string, raw: string
 /** 一个字段现在的值（这几个值里没有 until 的那个） */
 const currentOf = (values: readonly StoredValue[], field: string) => values.find((v) => v.field === field && v.until === undefined);
 
-/** 这份档案列哪些字段：默认的（没填的也列；302 的纪念日换成已有的那几个），然后是自定义的（按第一次写的先后） */
+/** 这份档案列哪些字段：默认的（没填的也列；纪念日换成已有的那几个），然后是自定义的（按第一次写的先后） */
 function fieldsOf(kind: PersonalFileKind, values: readonly StoredValue[]): string[] {
   return personalFieldOrder(kind, values.toReversed().map((v) => v.field));
 }
@@ -454,7 +454,7 @@ export function createPersonalFilesService(options: PersonalFilesServiceOptions)
     /** 283：候选核对卡（经记忆管理员提议的值）：每个版本连同改写 */
     const suggestCards = new Set<string>();
     for (const change of changes) {
-      // 经快速动作写的（秘书提议；284 号票起还有访谈的档案核对卡上确认的，via curator、带 actionId）：操作记录、卡片、提议它的调用
+      // 经快速动作写的（秘书提议；还有访谈的档案核对卡上确认的，via curator、带 actionId）：操作记录、卡片、提议它的调用
       if ("trail" in change && change.trail !== undefined && change.trail.via !== "page" && "actionId" in change.trail) {
         traces.set(change.trail.actionId, { actionId: change.trail.actionId, cardId: change.trail.cardId, conversation: change.trail.conversation });
         if (change.trail.messageId !== undefined) messageIds.add(change.trail.messageId);

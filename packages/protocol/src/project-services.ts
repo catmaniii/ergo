@@ -1,12 +1,12 @@
-// 项目的服务（133 号票）：运营手段"服务"生效之后，服务在 LSM 上的样子——二狗替它做到哪了（上线、失败、要手动、撤下），
+// 项目的服务：运营手段"服务"生效之后，服务在 LSM 上的样子——二狗替它做到哪了（上线、失败、要手动、撤下），
 // LSM 推来的在不在线，有网页的入口（/apps/<应用名>/…）。守护进程按项目、服务现算（project-services/），
 // 经项目列表频道的临时事件 project_services 推给前端（订阅时补推一次全量），项目卡、项目页、两张运营方案的卡、秘书给的入口卡都看它。
 // 名字、说法、能不能点开，守护进程（秘书的看板、工具结果）和 Web 用同一份。不引用 TypeBox。
-// 257 号票：使用中的项目在项目卡片、项目页上有"启动""关闭"两个按钮（秘书也走同一个入口），经 LSM 把这个项目的服务全部拉起或全部关掉；
+// 使用中的项目在项目卡片、项目页上有"启动""关闭"两个按钮（秘书也走同一个入口），经 LSM 把这个项目的服务全部拉起或全部关掉；
 // 关了就一直关着（取消开机自启），直到再点启动。一个服务关着、在启动 / 关闭的说法，一个项目的开关现在什么样（projectPower）也在这里。
 import { forModel, t, tTable } from "./i18n/runtime.ts";
 
-/** 项目的服务全部启动、全部关闭（257 号票：项目卡片、项目页上的两个按钮，秘书的工具也是它） */
+/** 项目的服务全部启动、全部关闭（项目卡片、项目页上的两个按钮，秘书的工具也是它） */
 export const PROJECT_SERVICES_ACTIONS = ["start", "stop"] as const;
 export type ProjectServicesAction = (typeof PROJECT_SERVICES_ACTIONS)[number];
 
@@ -49,7 +49,7 @@ export interface ProjectServiceView {
   /** LSM 给的说明（起不来的原因、健康检查的结果……） */
   detail?: string;
   /**
-   * 有网页的：首页缩略图的截图时间（140 号票，守护进程自己用无头浏览器截的，按项目和服务名经 HTTP_PATHS.serviceThumbnail 取）；
+   * 有网页的：首页缩略图的截图时间（守护进程自己用无头浏览器截的，按项目和服务名经 HTTP_PATHS.serviceThumbnail 取）；
    * 还没截过、截不成的没有。撤下了的照样留着最后一张（项目停用后项目页上灰着显示）
    */
   thumbnailAt?: string;
@@ -66,7 +66,7 @@ export interface ProjectServiceView {
   recentEvents?: ServiceEventRecord[];
 }
 
-// ───────────────────────── 服务报事件（357 号票，ADR-0043） ─────────────────────────
+// ───────────────────────── 服务报事件（ADR-0043） ─────────────────────────
 
 /** 上线时注入服务的环境变量：报事件的地址（只在本机端口开） */
 export const SERVICE_NOTIFY_URL_ENV = "ERGO_NOTIFY_URL";
@@ -115,11 +115,11 @@ export interface ServiceEventReply {
   runs: Array<{ taskId: string; runId: string; merged: boolean }>;
 }
 
-/** 服务首页的缩略图多久算旧（140 号票）：有人看的时候比这旧的补截一张，所以之后最多这么久截一次 */
+/** 服务首页的缩略图多久算旧：有人看的时候比这旧的补截一张，所以之后最多这么久截一次 */
 export const SERVICE_THUMBNAIL_REFRESH_MS = 6 * 60 * 60 * 1000;
 
 /**
- * 缩略图地址里的 seen（140 号票）：手里没有、或者那张旧了（超过 SERVICE_THUMBNAIL_REFRESH_MS）时，按现在落在第几个 6 小时里给一个号，
+ * 缩略图地址里的 seen：手里没有、或者那张旧了（超过 SERVICE_THUMBNAIL_REFRESH_MS）时，按现在落在第几个 6 小时里给一个号，
  * 地址每 6 小时换一次——浏览器手里有同一个地址的图就不再请求，换了号才会发出"有人在看"的请求；新的那张还够新时不带（undefined）
  */
 export function serviceThumbnailSeen(takenAt: string | undefined, nowMs: number): string | undefined {
@@ -149,12 +149,12 @@ const STATUS_TEXT: Readonly<Record<ServiceStatus, { kind: ServiceStateKind; text
   unknown: { kind: "offline", text: () => t("protocol.projectServices.status.unknown") },
 };
 
-/** 开关管得着的（257）：上线了、上线失败的（在 LSM 上登记过或该登记的）；上线中、要你手动、撤下的照原来的说 */
+/** 开关管得着的：上线了、上线失败的（在 LSM 上登记过或该登记的）；上线中、要你手动、撤下的照原来的说 */
 const powered = (rollout: ServiceRollout) => rollout === "live" || rollout === "failed";
 
 type StateInput = Pick<ProjectServiceView, "rollout" | "status" | "reason" | "detail" | "paused" | "power" | "powerReason">;
 
-/** 服务现在的样子：几个字和补充（原因、LSM 的说明）。257：在启动、关闭的写"启动中…""关闭中…"，你关着的写"已关闭" */
+/** 服务现在的样子：几个字和补充（原因、LSM 的说明）。在启动、关闭的写"启动中…""关闭中…"，你关着的写"已关闭" */
 export function serviceStateText(view: StateInput): { kind: ServiceStateKind; text: string; detail?: string } {
   if (powered(view.rollout)) {
     if (view.power === "stopping") return { kind: "busy", text: t("protocol.projectServices.power.stopping") };
@@ -204,7 +204,7 @@ export function serviceShown(view: Pick<ProjectServiceView, "rollout">): boolean
 }
 
 /**
- * 一个项目的服务开关现在什么样（257）：online 全部在线、off 你关着、starting 启动中、stopping 关闭中、failed 上线 / 启动失败或挂了、
+ * 一个项目的服务开关现在什么样：online 全部在线、off 你关着、starting 启动中、stopping 关闭中、failed 上线 / 启动失败或挂了、
  * stopFailed 关闭没做成、offline 有的停着、unknown 不知道（LSM 没连上）
  */
 export type ProjectPowerState = "online" | "off" | "starting" | "stopping" | "failed" | "stopFailed" | "offline" | "unknown";
@@ -237,7 +237,7 @@ const POWER_STATE_TEXT: Readonly<Record<ProjectPowerState, string>> = tTable({
 });
 
 /**
- * 一个项目的服务开关（257）：只有使用中的项目、有在 LSM 上的服务（撤下了的、撤下中的不算）才有，别的是 undefined。
+ * 一个项目的服务开关：只有使用中的项目、有在 LSM 上的服务（撤下了的、撤下中的不算）才有，别的是 undefined。
  * 一拉起就是全部拉起、一关就是全部关掉，所以按整个项目说；按钮按下去之后守护进程照最新的那一下做，启动中也能点"关闭"，反过来一样
  */
 export function projectPower(projectState: string, views: readonly ProjectServiceView[]): ProjectPowerView | undefined {

@@ -24,7 +24,7 @@ val NATIVE_BRIDGE_PROMISE_METHODS = listOf(
 val MAIN_METHODS = BridgeMethods(NATIVE_BRIDGE_MIRROR_METHODS, NATIVE_BRIDGE_FIRE_METHODS, NATIVE_BRIDGE_PROMISE_METHODS)
 
 /**
- * 浏览侧边栏那个 WebView 上的原生桥（对应鸿蒙的 NATIVE_SIDE_BRIDGE_METHODS，147 号票）：同一个 NativeBridge 类、自己一份原生录音器，
+ * 浏览侧边栏那个 WebView 上的原生桥（对应鸿蒙的 NATIVE_SIDE_BRIDGE_METHODS）：同一个 NativeBridge 类、自己一份原生录音器，
  * 只开版本号（网页据此认出在 App 里）、日志和录音那一组。地址页、外观、返回键、底部避让、通知、内置浏览器这些只归主界面那个 WebView
  */
 val NATIVE_SIDE_MIRROR_METHODS = listOf("appVersion")
@@ -41,13 +41,13 @@ interface BridgeHost {
     fun editServer()
     fun colorModeChanged(mode: String)
 
-    /** 系统通知（110 号票）：取走了用户点开的那一条（垫片带上是哪一条） */
+    /** 系统通知：取走了用户点开的那一条（垫片带上是哪一条） */
     fun notifyTaken(value: String)
     fun notifyResetAsked()
     fun notifyPrepare(userAction: Boolean, reply: (String) -> Unit)
     fun notifyShow(id: String, title: String, body: String, route: String, force: Boolean, reply: (String) -> Unit)
 
-    /** 原生的内置浏览器（134 号票）：网页有"浏览"页签了 */
+    /** 原生的内置浏览器：网页有"浏览"页签了 */
     fun browserAttach()
     /** 内容区的位置大小（JSON：CSS 像素、devicePixelRatio、要不要显示） */
     fun browserLayout(json: String)
@@ -55,7 +55,7 @@ interface BridgeHost {
     fun browserLoad(url: String)
     /** back / forward / reload / stop / outside */
     fun browserNav(action: String)
-    /** 浏览侧边栏（147 号票）：侧边栏摆在哪（JSON：CSS 像素、devicePixelRatio、要不要显示）、交给侧边栏网页的样子 */
+    /** 浏览侧边栏：侧边栏摆在哪（JSON：CSS 像素、devicePixelRatio、要不要显示）、交给侧边栏网页的样子 */
     fun browserSide(json: String)
     /** 侧边栏的网页调的 window.ergoSide：close、clearSelection、ready */
     fun sideAction(action: String)
@@ -97,7 +97,7 @@ class NativeBridge(private val host: BridgeHost, private val voice: NativeVoice)
             "setColorMode" -> setColorMode(call.string(0))
             "setCanGoBack" -> canGoBack = call.bool(0)
             "setTexts" -> AppTexts.setFromWeb(call.string(0))
-            // 原生录音（63 号票）：备好（userAction 为真是按下引起的）、按下、松手、丢掉这一段、放掉录音器
+            // 原生录音：备好（userAction 为真是按下引起的）、按下、松手、丢掉这一段、放掉录音器
             "voicePrepare" -> voice.prepare(call.bool(0)) { call.reply(it) }
             "voiceStart" -> voice.start { call.reply(it) }
             "voiceStop" -> voice.stop { call.reply(it) }

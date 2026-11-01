@@ -55,7 +55,7 @@ describe("授权项放行'计划里列了才做'", () => {
     expect(j.genericShell).toBe(true);
   });
 
-  it("用到不属于当前阶段的授权项（13 号票控制器的硬检查）：不按授权放行，也不问用户，拉回当前阶段", () => {
+  it("用到不属于当前阶段的授权项（控制器的硬检查）：不按授权放行，也不问用户，拉回当前阶段", () => {
     const j = judgeToolCall(inTask(maintainer(), push(), withGrants({ ...pushOrigin, stageId: "s2" })));
     expect(j.withinGrant).toBe(false);
     expect(judgementExecutes(j)).toBe(false);
@@ -138,7 +138,7 @@ describe("授权项放行'计划里列了才做'", () => {
 /** 定时作业的一次运行：带着作业的授权的会话段 */
 const jobRun = (grants: Grant[]) => task({ taskId: "j-1", currentStageId: "run", plan: { grants }, segmentScoped: true });
 
-describe("带着授权的会话段（定时作业的一次运行，19 号票）", () => {
+describe("带着授权的会话段（定时作业的一次运行）", () => {
   const SEGMENT = "jm-1:j-1-r1";
   const docs: Grant = { grantId: "docs", tool: "read", scope: { path: "E:/docs" }, stageId: "run", grantedAt: NOW - DAY, maxUses: 1 };
   const readDoc = call("read", { path: "E:/docs/brief.md" });
@@ -289,7 +289,7 @@ describe("校验授权项的修改：收窄通过，放宽被拒", () => {
     ["换了工具", [{ ...base, tool: "create_remote_repo" }]],
     ["换了阶段", [{ ...base, stageId: "s2" }]],
     ["新加一条授权项", [base, { ...base, grantId: "g2" }]],
-    // 58 号票：流程里通用 bash 的步骤推出的授权项只限那条命令
+    // 流程里通用 bash 的步骤推出的授权项只限那条命令
     ["去掉限定的命令", [{ ...base, command: undefined }]],
     ["换了限定的命令", [{ ...base, command: "git push backup main" }]],
     // 命令只去掉首尾空白比：中间的空白不一样就是另一条命令

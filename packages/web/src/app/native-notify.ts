@@ -1,4 +1,4 @@
-// 鸿蒙 App 的系统通知在网页这一侧的接口（110 号票，用户 2026-10-13 定：先做不用实名认证的 Notification Kit 本地通知，
+// 鸿蒙 App 的系统通知在网页这一侧的接口（先做不用实名认证的 Notification Kit 本地通知，
 // App 自己往通知栏发，不经华为服务器；App 的进程要活着，关掉、被系统冻结后发不出，那要靠以后的推送服务）。
 // App 里的实现在 frontend/harmony/entry/src/main/ets/notify/NativeNotify.ets，经原生桥 ergoNative 的这一组方法调：
 // - notifyState()：通知开没开、问没问过用户（{"enabled", "asked"}）；
@@ -9,9 +9,9 @@
 // 点通知把 App 拉起来时（App 在跑），App 调网页登记的 window.__ergoNotifyOpen()（不带参数），网页再来取；
 // App 没在跑、被点开的通知拉起来的，网页开场取一次。
 // App 回的东西形状不一定对：一律核对，不对就当没有，不抛错。走浏览器还是走 App 在 system-notify.ts。
-// 124 号票（Debug 工具集）起新版 App 多了几样，旧版 App 没有的照旧、不报错：
+// （Debug 工具集）起新版 App 多了几样，旧版 App 没有的照旧、不报错：
 // - notifyShow 回这一条的结果（Promise<string>：{"result": "published" | "foreground" | "disabled" | "failed", "number"?, "message"?}），
-//   旧版 App 什么都不回（通知记录里写"App 没回结果"）；第 5 个参数 force 为真时 App 在前台也发（110 号票的"前台不发"在这里绕过去，
+//   旧版 App 什么都不回（通知记录里写"App 没回结果"）；第 5 个参数 force 为真时 App 在前台也发（"前台不发"在这里绕过去，
 //   只有 Debug 工具集用），平常不传，旧版 App 一样认；
 // - notifyState 多一项 foreground：App 现在算前台还是后台；
 // - notifyResetAsked()：清掉 App 记的"问过用户了"（notify_asked），回清掉之后的状态。有它就是新版 App（canForce）。
@@ -47,15 +47,15 @@ export interface NativeNotify {
   /** 第一次向用户要授权；userAction 为真且用户拒过时拉起系统的通知设置。回要过之后的状态 */
   prepare(userAction: boolean): Promise<NativeNotifyState | undefined>;
   /**
-   * 发一条到系统通知栏；force 为真时 App 在前台也发（124 号票的 Debug 工具集，旧版 App 不认、照旧不发）。
+   * 发一条到系统通知栏；force 为真时 App 在前台也发（Debug 工具集，旧版 App 不认、照旧不发）。
    * 回 App 说的结果；旧版 App 不回结果、回的不对是 undefined
    */
   show(notice: SystemNotice, options?: { force?: boolean }): Promise<NativeNotifyShown | undefined>;
   /** 取用户点开的那一条（取了 App 那边就清掉）；没有是 undefined */
   takeOpened(): NativeNotifyOpened | undefined;
-  /** 新版 App（124 号票）：认"前台也强制发"、回发送结果、能重置问过了 */
+  /** 新版 App：认"前台也强制发"、回发送结果、能重置问过了 */
   readonly canForce: boolean;
-  /** 清掉 App 记的"问过用户了"（124 号票），回之后的状态；旧版 App 没有 */
+  /** 清掉 App 记的"问过用户了"，回之后的状态；旧版 App 没有 */
   readonly resetAsked?: () => NativeNotifyState | undefined;
 }
 
@@ -133,7 +133,7 @@ export function wrapNativeNotify(bridge: BridgeObject): NativeNotify | undefined
       }
     },
     async show(notice, options = {}) {
-      // 平常只给 4 个参数（和 110 号票一样）；强制发才多给一个
+      // 平常只给 4 个参数；强制发才多给一个
       const args = [notice.id, notice.title, notice.body, notice.route, ...(options.force ? [true] : [])];
       const reply = call(bridge, "notifyShow", ...args);
       if (!isThenable(reply)) return undefined;
@@ -155,7 +155,7 @@ export interface NotifyOpenScope {
 }
 
 /**
- * 通知接到 App 上（110 号票）：开场取一次点开的那一条（App 没在跑、被点开的通知拉起来的），登记 window.__ergoNotifyOpen
+ * 通知接到 App 上：开场取一次点开的那一条（App 没在跑、被点开的通知拉起来的），登记 window.__ergoNotifyOpen
  * 等 App 推（App 在跑时点了通知），每取到一条交给 open；还没问过用户、页面在前台时向用户要一次通知授权
  * （系统的授权框要 App 在前台；App 在后台时才发通知，所以不能等到第一条要发的时候再问）。返回停下
  */

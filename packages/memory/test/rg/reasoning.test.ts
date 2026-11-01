@@ -61,7 +61,7 @@ describe("时间：观点变化、纠正、近期状态到期", () => {
     await t.engine.reflect();
     expect(t.engine.store.getClaim(old.id)).toMatchObject({ status: "retracted", retractedBy: "ev-2" });
     const statuses = t.engine.store.revisions(old.id, "claim").flatMap((r) => (r.changes.status ? [r.changes.status.to] : []));
-    // 329 号票：用户纠正 = 亲口否掉，当场撤（以前先转待复核、整理时才撤）
+    // 用户纠正 = 亲口否掉，当场撤（以前先转待复核、整理时才撤）
     expect(statuses).toEqual(["retracted"]);
     const fresh = explicitClaimOf(t.engine, factOf(t.engine, "ev-2", "dislikes", "爬山"));
     expect(fresh.status).toBe("active");

@@ -1,4 +1,4 @@
-// 实体关系更丰富（199 号票）：规则版抽取在 188 的 RuleFactExtractor（以用户为中心的"用户 拒绝了 聚会"）上加一层：
+// 实体关系更丰富：规则版抽取在 RuleFactExtractor（以用户为中心的"用户 拒绝了 聚会"）上加一层：
 // - 事件当实体：别人来约用户（"老王组织的""阿珂问今晚要不要去……"）认成一个邀约，事件实体带组织者、参加的人、地点、时间段、活动类型、
 //   提前多久约的（organized_by、involves、held_at、in_slot、of_type、lead_time），用户对它是拒绝了还是去了（declined、participated_in）；
 //   这条证据里 188 抽出的"参加了、拒绝了、主动约了"换成对事件的（188 把别人约的认成用户主动约的，"当晚""第一个"也当成了活动）；
@@ -9,7 +9,7 @@
 // - 别名："老王（组里都喊他王哥）""X，也就是 Y"交出一对叫法，引擎抽事实之前先对齐（kg/align.ts）；
 // - 188 认不出的几种简单句式：最烦 X、要 / 打算 / 每天 X（打算做的事记成偏好）、一条 X 记录也没有（没做）、聊得挺开心（对上一样活动的好感）、
 //   坐 / 没赶上 / 已检票的车次、在投简历；"累就没了"这类不是在说累，不抽。
-// 都是通用的说法表，不对着哪条数据写；认不出就不认。id 是 rule:4（207 号票修问句和否定以后 rule:4.1）。
+// 都是通用的说法表，不对着哪条数据写；认不出就不认。id 是 rule:4（修问句和否定以后 rule:4.1）。
 import { EPISODIC_PREDICATES, type EntityType, type Evidence, type Predicate } from "../domain/types.ts";
 import { localDate, offsetMinutes } from "../domain/time.ts";
 import type { AliasAware, AliasDraft } from "./align.ts";
@@ -397,7 +397,7 @@ const EPISODE_PREDICATES: ReadonlySet<Predicate> = new Set<Predicate>(["particip
 const VEHICLES = "高铁|动车|火车|飞机|航班|大巴";
 const RUN = /跑(?:步|了?[\d一二两三四五六七八九十几半]+(?:公里|圈|回|次|趟)|这么跑|起来)/;
 
-/** 规则版抽取（rule:4）：188 的规则版加实体关系（见文件开头）；同时交出别名。207 号票修问句和否定，rule:4.1 */
+/** 规则版抽取（rule:4）：规则版加实体关系（见文件开头）；同时交出别名。修问句和否定，rule:4.1 */
 export class RelationalFactExtractor implements FactExtractor, AliasAware {
   readonly id = "rule:4.1";
   private readonly base: RuleFactExtractor;
@@ -479,7 +479,7 @@ export class RelationalFactExtractor implements FactExtractor, AliasAware {
         if (m.type !== "person" || aliasNames.has(m.name)) continue;
         const before = text.slice(Math.max(0, m.start - 3), m.start);
         const chained: boolean = i > 0 && companion && /^(?:和|、|跟)$/.test(text.slice(persons[i - 1]!.end, m.start));
-        // 问句里的"跟阿杰去"不是和阿杰一起去了（207 号票），只算提到了
+        // 问句里的"跟阿杰去"不是和阿杰一起去了，只算提到了
         const isCompanion: boolean = (COMPANION_BEFORE.test(before) || chained) && !inQuestionClause(text, m.start, moods);
         companion = isCompanion;
         const span = text.slice(sentenceStartOf(text, m.start), sentenceEndOf(text, m.start));
@@ -500,7 +500,7 @@ export class RelationalFactExtractor implements FactExtractor, AliasAware {
     const ref = evidence.eventTime ?? evidence.observedAt;
     for (const { text: raw, question } of clauseMoods(text)) {
       const found = this.activityOf(raw);
-      // 问句、商量的话不当成说过的事（207 号票）：只记下说到的活动
+      // 问句、商量的话不当成说过的事：只记下说到的活动
       if (question) {
         if (found) carry = found;
         continue;

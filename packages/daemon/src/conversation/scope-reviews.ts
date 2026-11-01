@@ -1,13 +1,13 @@
-// 一个 agent 会话里的范围审视（18 号票，负责人的会话才有；照 serveHostTools 的做法，AgentSession 只在几处接上它）：
+// 一个 agent 会话里的范围审视（负责人的会话才有；照 serveHostTools 的做法，AgentSession 只在几处接上它）：
 // - 拉起子进程时装配里带上审视用的模型、审视的说明、对照物和近期范围记录（setup），记下每个子进程手里的是哪一份；
 // - 交每条输入之前对照物、近期范围记录或审视用的模型变了，先送 scope_context（sync）；
 // - 守护进程要审视时（request，工单结束时）：子进程就绪了就送 scope_review，没有子进程让会话拉起一个（接着同一个会话）；
 //   结果回来、超时、子进程中途退出、会话停下都兑现（后几种是没做成，写原因）。送出去到结果回来之间让 agent 管家别闲置退出
 //   （holdAwake）；会话在这期间不换装配、不改写会话文件（inFlight）；
-// - 审视用的模型每次审视时现取（73 号票，和子 agent、评审一样）：scope_review 带上此刻按设置取的，scope_context 也带上
+// - 审视用的模型每次审视时现取（和子 agent、评审一样）：scope_review 带上此刻按设置取的，scope_context 也带上
 //   （之后压缩时子进程自己做的审视用它），设置里改了下一次审视就用新的；
 // - 压缩会话时子进程自己做的审视（没有 requestId）交给 onCompactionReview。
-// - 309 号票：运行时自己不审视的（Claude Code，子进程里调不了二狗的审视模型；会话给了 recorded、它说现在的运行时是这种）由二狗按自己记下的事件
+// -运行时自己不审视的（Claude Code，子进程里调不了二狗的审视模型；会话给了 recorded、它说现在的运行时是这种）由二狗按自己记下的事件
 //   另起一次——守护进程要的审视不送 scope_review、不拉起子进程，把这段会话里还没审视过的部分（上次压缩之后的）整理好，在一次性子进程里用审视的
 //   模型做（agent 管家的 recordedGeneration，pi 的同一套提示和结果格式），结果和子进程报的一样兑现；压缩之前子进程报 compacting，这一刻整理好
 //   要压缩掉的那段另起一次，结果交给 onCompactionReview（会话停下了就不交，同 pi 的子进程被停掉）。对照物、审视用的模型都在审视那一刻现取。
@@ -34,15 +34,15 @@ export interface ScopeReviewResult {
 /** 拉起会话的模块给的：审视用的模型（spawn 是子进程第几次唤起；每次审视时现取）、审视的说明、此刻的对照物、压缩时的结果交给谁 */
 export interface SessionScopeReviewOptions {
   model(spawn: number): ModelSpec;
-  /** 审视的说明（71 号票：在系统提示的文件里，拉起时现取） */
+  /** 审视的说明（在系统提示的文件里，拉起时现取） */
   instructions(): string;
   context(): ScopeReviewContext;
   onCompactionReview(result: ScopeReviewResult): void;
-  /** 二狗另起审视时交给一次性子进程的凭据（309 号票，审视的模型按 provider 取）；不给用子进程拉起时的 */
+  /** 二狗另起审视时交给一次性子进程的凭据（审视的模型按 provider 取）；不给用子进程拉起时的 */
   credentials?(): Record<string, string>;
 }
 
-/** 按二狗自己记下的事件另起一次审视（309 号票，运行时自己不审视的：Claude Code）要会话给的 */
+/** 按二狗自己记下的事件另起一次审视（运行时自己不审视的：Claude Code）要会话给的 */
 export interface RecordedReviewLink {
   /** 现在的子进程（没有子进程时是要拉起的那个）的运行时自己不审视、由二狗另起 */
   wanted(): boolean;
@@ -63,7 +63,7 @@ interface SessionLink {
   wake(): void;
   /** 一次审视兑现了：等着它的换装配、改写会话文件可以做了 */
   settled(): void;
-  /** 309 号票：运行时自己不审视的由二狗另起；不给就都送给子进程 */
+  /** 运行时自己不审视的由二狗另起；不给就都送给子进程 */
   recorded?: RecordedReviewLink;
 }
 
@@ -72,7 +72,7 @@ interface PendingReview {
   requestId: string;
   /** 送给了哪个子进程（还没送是 undefined）、送时对照的是哪一份、送时拿着的不闲置退出 */
   sentTo?: ManagedAgent;
-  /** 由二狗另起了（309 号票：不送子进程，不算 inFlight） */
+  /** 由二狗另起了（不送子进程，不算 inFlight） */
   recorded?: true;
   context?: ScopeReviewContext;
   release?: () => void;
@@ -143,7 +143,7 @@ export class SessionScopeReviews {
     proc.onReport((report) => {
       // 会话先处理同一条 ready（标成就绪），这里再送还没送的审视
       if (report.type === "ready") return this.drive();
-      // 压缩就要开始（309 号票：运行时自己不审视的报它）
+      // 压缩就要开始（运行时自己不审视的报它）
       if (report.type === "compacting") return this.reviewBeforeCompaction();
       if (report.type !== "scope_review_result") return;
       if (report.requestId !== undefined) return this.pending.get(report.requestId)?.resolve(report);
@@ -200,7 +200,7 @@ export class SessionScopeReviews {
     for (const p of this.pending.values()) p.resolve(failedScopeReview(p.requestId, t("conversation.scopeReview.stopped", { who: this.options.label })));
   }
 
-  /** 有还没送出去的审视：子进程就绪了就送（先送最新的对照物）；没有子进程就让会话拉起一个。运行时自己不审视的由二狗另起（309 号票） */
+  /** 有还没送出去的审视：子进程就绪了就送（先送最新的对照物）；没有子进程就让会话拉起一个。运行时自己不审视的由二狗另起 */
   private drive(): void {
     const unsent = [...this.pending.values()].filter((p) => p.sentTo === undefined && !p.recorded);
     if (this.stopped || unsent.length === 0) return;
@@ -233,7 +233,7 @@ export class SessionScopeReviews {
   }
 
   /**
-   * 压缩就要开始（309 号票，子进程报 compacting）：运行时自己不审视的，这一刻把还没审视过的那段（上次压缩之后的）整理好、另起一次审视，
+   * 压缩就要开始（子进程报 compacting）：运行时自己不审视的，这一刻把还没审视过的那段（上次压缩之后的）整理好、另起一次审视，
    * 结果当压缩时的审视交给 onCompactionReview；会话停下了就不交
    */
   private reviewBeforeCompaction(): void {
@@ -251,7 +251,7 @@ export class SessionScopeReviews {
   }
 
   /**
-   * 二狗另起一次审视这段（309 号票）：审视的说明、此刻的对照物、此刻按设置取的审视模型交给一次性子进程（pi 的同一套提示和结果格式），结果写成
+   * 二狗另起一次审视这段：审视的说明、此刻的对照物、此刻按设置取的审视模型交给一次性子进程（pi 的同一套提示和结果格式），结果写成
    * 子进程报的那个样子（inputIds 是这段里交给 agent 的输入）；这段没有要审视的不调用模型，没做成的 error 写原因。不抛
    */
   private async recordedReview(recorded: RecordedReviewLink, segment: RecordedSegment, context: ScopeReviewContext, requestId?: string): Promise<ScopeReviewReport> {

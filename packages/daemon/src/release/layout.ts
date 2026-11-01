@@ -1,4 +1,4 @@
-// 安装布局（318 号票）：装在哪、在用哪个版本、上一个版本是哪个。安装脚本（installer/install.ps1）、npm run ergo:install、ergo 命令都按这一份。
+// 安装布局：装在哪、在用哪个版本、上一个版本是哪个。安装脚本（installer/install.ps1）、npm run ergo:install、ergo 命令都按这一份。
 //
 //   <安装目录>（默认 %LOCALAPPDATA%\Programs\ergo，环境变量 ERGO_INSTALL_DIR 可以换）
 //     versions\<版本>\          一个版本一个目录：ergo.json（版本信息）、node\node.exe（自带的 Node）或 node.path（用系统 Node 时）、
@@ -218,7 +218,7 @@ export function currentHome(root: string): string | undefined {
 }
 
 /**
- * 建一个目录联接；杀毒软件扫着刚建的目录时会被拒（EPERM / EBUSY），等一会儿再试（318 号票在本机碰到：刚解开的新版本目录正被扫）
+ * 建一个目录联接；杀毒软件扫着刚建的目录时会被拒（EPERM / EBUSY），等一会儿再试（在本机碰到：刚解开的新版本目录正被扫）
  */
 export function createJunction(target: string, link: string, retries = 50): void {
   for (let attempt = 0; ; attempt++) {
@@ -226,7 +226,7 @@ export function createJunction(target: string, link: string, retries = 50): void
       fs.symlinkSync(target, link, "junction");
       return;
     } catch (err) {
-      // 318 号票在本机碰到：刚下载、解开新版本的那个进程自己建联接被拒（EPERM，等多久都一样，像是安全软件按行为拦的），
+      // 在本机碰到：刚下载、解开新版本的那个进程自己建联接被拒（EPERM，等多久都一样，像是安全软件按行为拦的），
       // 换系统自带的 cmd 的 mklink /J 建就行
       if (process.platform === "win32" && (err as NodeJS.ErrnoException).code === "EPERM" && attempt === 0) {
         const r = spawnSync(process.env.ComSpec ?? "cmd.exe", ["/d", "/c", "mklink", "/J", link, target], { windowsHide: true, encoding: "utf8", windowsVerbatimArguments: false });

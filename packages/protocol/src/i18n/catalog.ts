@@ -1,11 +1,11 @@
-// 语言文件的形状和检查（168 号票，不读文件、不引用 TypeBox）：守护进程读目录（packages/daemon/src/i18n/）、Web 打包自带的、
+// 语言文件的形状和检查（不读文件、不引用 TypeBox）：守护进程读目录（packages/daemon/src/i18n/）、Web 打包自带的、
 // npm run i18n:check 都用这一份。
 //
 // 一种语言一个目录（目录名就是语言代码：zh-CN、en、fr……）：
 // - _meta.json：{ "nativeName": "English", "modelName": "English", "intlLocale": "en" }——本地名（设置里列的），给模型的语言名
 //   （系统提示末尾那句"用 <它> 回答用户"），Intl 用的区域码（日期、数字、单复数）。后两项不填分别用本地名、语言代码；
 // - 其余每个 .json 是一块区域的句子，平铺的 { "key": "句子" }。自带的（packages/protocol/locales/）文件名就是 key 的第一段
-//   （shell.json 里只有 shell.* 的 key），每张迁移票只碰自己区域的文件；~/.ergo/locales/ 里用户放的文件名、分几个文件随意。
+//   （shell.json 里只有 shell.* 的 key），每次迁移只碰自己区域的文件；~/.ergo/locales/ 里用户放的文件名、分几个文件随意。
 //
 // 句子里的 {name} 是插值参数；单复数用 key 后缀 _zero / _one / _two / _few / _many / _other（按 Intl.PluralRules 挑，见 runtime.ts），
 // 这几种写法逻辑上是同一句（logicalKey），检查时按同一句比。
@@ -20,9 +20,9 @@ export const LOCALE_META_FILE = "_meta.json";
  * Web 用到的区域（key 的第一段）：网页打包自带的只打这几块，守护进程给网页的词典也只给这几块
  * （守护进程自己生成的话存进事件时已经写好了，网页用不着 tasks.*、guard.* 这些）。
  * 加一块网页用的区域：这里加一项，packages/web/src/app/locale-bundle.ts 的 import.meta.glob 也加上（test/i18n/web-bundle.test.ts 比对两边）。
- * harmony（175 号票）是鸿蒙 App 原生的字：网页不显示，经原生桥交给 App（app/native-app.ts 的 appTexts），所以也跟着网页走
- * setup（319 号票）是首次设置向导（pages/SetupWizard.tsx）的话，只有网页用
- * doctor（319 号票的 319b）是设置 · 体检（pages/DoctorPage.tsx）的话：八项检查的名字、查出来的事实怎么拼、"怎么修"，只有网页用
+ * harmony是鸿蒙 App 原生的字：网页不显示，经原生桥交给 App（app/native-app.ts 的 appTexts），所以也跟着网页走
+ * setup是首次设置向导（pages/SetupWizard.tsx）的话，只有网页用
+ * doctor（319b）是设置 · 体检（pages/DoctorPage.tsx）的话：八项检查的名字、查出来的事实怎么拼、"怎么修"，只有网页用
  */
 export const WEB_NAMESPACES = ["common", "shell", "ui", "app", "model", "styles", "bridge", "state", "pages", "protocol", "harmony", "setup", "doctor"] as const;
 

@@ -1,4 +1,4 @@
-// 设置 · 授权的文件夹那一页怎么画（138 号票；页面在 pages/more/AuthorizedFolders.tsx，状态和动作在 app/authorized-folders.ts）：
+// 设置 · 授权的文件夹那一页怎么画（页面在 pages/more/AuthorizedFolders.tsx，状态和动作在 app/authorized-folders.ts）：
 // - FolderRows：一行一个文件夹，完整路径（长了断行），找不到了的标出来，右边一个叉；
 // - FolderPickerBody：选文件夹的框里面——最上面一排常用位置和各个盘，下面当前文件夹里的子文件夹（点了进去）和"上一级"，
 //   底部当前路径和"授权这个文件夹"，再下面贴完整路径按"授权"；已经授权的标"已授权"。
@@ -32,7 +32,7 @@ export interface FolderPickerBodyProps {
   onAuthorize(path: string): void;
   onDraft(text: string): void;
   onAuthorizeDraft(): void;
-  /** 选文件夹不是为了授权时（356 号票：备份的另存文件夹）换按钮上的字；不给是授权的说法 */
+  /** 选文件夹不是为了授权时（备份的另存文件夹）换按钮上的字；不给是授权的说法 */
   labels?: { here: string; busy: string; paste: string } | undefined;
 }
 

@@ -1,4 +1,4 @@
-// 设置 · 语言（168 号票）：语言列表每一行写什么、读语言文件出的问题怎么说（纯函数，文字按当前语言现取）。
+// 设置 · 语言：语言列表每一行写什么、读语言文件出的问题怎么说（纯函数，文字按当前语言现取）。
 // 全局一个语言，存在守护进程（各设备一样）；换了以后守护进程在语言频道上推 language 和临时事件 locale，开着的页面重取词典
 // （app/locale.ts），不刷新就换过来。
 import { DEFAULT_LANGUAGE, type LocaleListView, type LocaleProblemView, type LocaleSummary, t } from "./protocol.ts";

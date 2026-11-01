@@ -1,5 +1,5 @@
-// 207 号票：规则版抽取修两个毛病——问句不当成说过的事、否定不能丢。接进二狗以后每句话都是素材，不修会造出假事实。
-// 例子都是自己写的。188 的规则版（rule:3）和引擎默认的 rule:4（199）都要对。
+// 规则版抽取修两个毛病——问句不当成说过的事、否定不能丢。接进二狗以后每句话都是素材，不修会造出假事实。
+// 例子都是自己写的。规则版（rule:3）和引擎默认的 rule:4都要对。
 import { afterEach, describe, expect, it } from "vitest";
 import type { Evidence, EvidenceDraft } from "../../src/domain/types.ts";
 import { clauseMoods, RuleFactExtractor, type FactDraft, type KgView } from "../../src/kg/extractor.ts";

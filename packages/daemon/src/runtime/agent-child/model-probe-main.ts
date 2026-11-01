@@ -1,4 +1,4 @@
-// 一次性子进程的入口：模型探查（设置里的"模型"，73 号票）——列出模型目录里某个服务商的模型，或者做一次连通测试。
+// 一次性子进程的入口：模型探查（设置里的"模型"）——列出模型目录里某个服务商的模型，或者做一次连通测试。
 // 由守护进程用 `node model-probe-main.ts` 拉起（runtime/model-probe.ts）：stdin 读一行请求（ModelProbeRequest），
 // 做完在 stdout 写一行结果（{ ok: true, result } 或 { ok: false, error }），然后退出。不开会话、不写任何文件。
 import { installBuiltinLocales } from "../../i18n/builtin.ts";
@@ -7,7 +7,7 @@ import { encodeLine, readJsonLines } from "../line-channel.ts";
 import { redactApiKeys } from "../redact.ts";
 import { probeModels } from "./probe.ts";
 
-// 连通测试没通的原因给用户看（设置页），按拉起时的语言写（174 号票，ADR-0029）
+// 连通测试没通的原因给用户看（设置页），按拉起时的语言写（ADR-0029）
 installBuiltinLocales(process.env[CHILD_LANGUAGE_ENV]);
 
 let handled = false;

@@ -1,8 +1,8 @@
-// 聊天区精简（57 号票）：对话层里思考、回复、工具调用组这三种怎么画。长什么样由状态层的 chatLook（state/chat-look.ts）给出。
+// 聊天区精简：对话层里思考、回复、工具调用组这三种怎么画。长什么样由状态层的 chatLook（state/chat-look.ts）给出。
 // 思考、回复是 ThinkingRow、AssistantBubble；
 // 工具调用那一行小字是用户要的汇总行，样子借工具行的圆点和行尾的 ›。
-// 115 号票：agent 之间的来信也是一行（LetterLine），借工具调用那一行的样子（.tool-sum），11 套风格里跟着各自的工具调用行走。
-// 187 号票：调用记忆也是一行"回忆了 N 条记忆 ›"，同样借 .tool-sum（193 号票起在记忆插件里：plugins/memory/RecallLine.tsx）。
+// agent 之间的来信也是一行（LetterLine），借工具调用那一行的样子（.tool-sum），11 套风格里跟着各自的工具调用行走。
+// 调用记忆也是一行"回忆了 N 条记忆 ›"，同样借 .tool-sum（在记忆插件里：plugins/memory/RecallLine.tsx）。
 import { useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -31,7 +31,7 @@ export function ThinkingRow({ text, label, live, onDetail }: { text: string; lab
 
 /**
  * 回复里的图片（![名字](地址)）：没有演示图，只写名字（MD_PARTS），
- * 聊天里不去加载外面的图片（详情页里照 56 号票按地址加载）
+ * 聊天里不去加载外面的图片（详情页里按地址加载）
  */
 const MD_PARTS = {
   img: ({ alt }: { alt?: string | undefined }) => <span>{alt}</span>,
@@ -86,7 +86,7 @@ export function ToolGroupLine({ look, onOpen }: { look: Extract<ChatLook, { form
 }
 
 /**
- * agent 之间的来信（115 号票）：一行——图标、种类、一句话总结（放不下的省略）、时间、"详情 ›"，整行点开看全文
+ * agent 之间的来信：一行——图标、种类、一句话总结（放不下的省略）、时间、"详情 ›"，整行点开看全文
  * （宽屏右边的详情栏、手机上的详情页，照工具调用那一行）。种类、总结里的名字占位按现在的名字显示
  */
 export function LetterLine({ letter, time, onOpen }: { letter: AgentLetter; time: string | undefined; onOpen?: (() => void) | undefined }) {
@@ -95,7 +95,7 @@ export function LetterLine({ letter, time, onOpen }: { letter: AgentLetter; time
       <span className="letter-icon" aria-hidden="true">
         {letter.icon}
       </span>
-      {/* 367 号票：折起来的长通知只写总结（"系统说明"几个字说明不了什么，手机上留给总结），种类在详情里写 */}
+      {/* 折起来的长通知只写总结（"系统说明"几个字说明不了什么，手机上留给总结），种类在详情里写 */}
       {letter.kind !== "notice" && (
         <span className="letter-kind">
           <NamedText text={letter.label} />

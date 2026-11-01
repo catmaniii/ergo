@@ -1,5 +1,5 @@
-// 329 号票（ADR-0032）：记忆的推理图谱照原始推理图谱的状态机——真值状态只有已验证（active）/ 猜测（contested）/ 撤回（retracted），
-// "待复核"是单独的复核标记，身份（kind）建号锁死。328 号票的实测（328-audit-table.md 的 A1 A2 A4 B B2 C D E probe3）每个一条，
+// ADR-0032：记忆的推理图谱照原始推理图谱的状态机——真值状态只有已验证（active）/ 猜测（contested）/ 撤回（retracted），
+// "待复核"是单独的复核标记，身份（kind）建号锁死。实测（328-audit-table.md 的 A1 A2 A4 B B2 C D E probe3）每个一条，
 // 照新规矩断言；另有猜测链往上推、推翻往上传（用户确认过的留下）、复活、削弱只降把握、结构检查（悬空、推论有前提、写入口查无环）。
 // 例子用 task-helpers 的自主安排故事（规则版、假模型，自己写的，不看评测数据）。
 import { afterEach, describe, expect, it } from "vitest";
@@ -307,7 +307,7 @@ describe("R7 证实不靠前提：用户确认过的，推理链塌了照样成�
     const second = await t.engine.reflect();
     expect([...gateDrops(first), ...gateDrops(second)]).toEqual([]);
     expect(get(t.engine, t.need.id)).toMatchObject({ status: "active", epistemic: "user_confirmed", needsReview: false });
-    // Q2（主会话 10-27 定）：没有推翻者的"组不成立了"是证据变少，按 R9 + 原始 undercut：不撤，留成猜测、降把握；撤回只留给真有推翻者的（R8）
+    // Q2：没有推翻者的"组不成立了"是证据变少，按 R9 + 原始 undercut：不撤，留成猜测、降把握；撤回只留给真有推翻者的（R8）
     expect(t.engine.rg.registry.getGroup(VALUE)!.live).toBe(false);
     const value = get(t.engine, t.value.id);
     expect(value).toMatchObject({ status: "contested", retractedBy: null, kind: "hypothesis" });

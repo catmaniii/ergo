@@ -1,4 +1,4 @@
-// 本机的假 DeepSeek 联网搜索、读网页接口（154 号票）：一个只听 127.0.0.1 临时端口的服务，测试里 Search（/v1/tools/search）、
+// 本机的假 DeepSeek 联网搜索、读网页接口：一个只听 127.0.0.1 临时端口的服务，测试里 Search（/v1/tools/search）、
 // Fetch（/v1/tools/fetch）的请求都发到这里（createDeepSeekTools 的 baseUrl），从不连真的 DeepSeek、不用真 key。
 // 每次请求记下路径、Authorization、解析好的请求体和收到的时间；回什么由测试给的剧本定（按路径、第几次），不给按"照常回"：
 // 搜索回两条结果，读网页回一段 Markdown。剧本里给 hang 的请求一直不回（测超时），给 drop 的直接断开连接（测网络出错）。

@@ -1,4 +1,4 @@
-// 主切面：顺口问（264 号票接进线上；271 号票：秘书按语气自己改写，用户有没有在答由记忆管理员在每晚整理时批量判）。
+// 主切面：顺口问（接进线上；秘书按语气自己改写，用户有没有在答由记忆管理员在每晚整理时批量判）。
 // 走真实的装配路径（组合根、插件清单、秘书的 faux 剧本、03:00 的内部作业、假的整理模型）：
 // - 话题对上、不急、今天还没问：秘书这一轮的输入后面跟一块【顺口问】，写着要问什么、为什么问、可以不问，让它用自己的话问；
 //   不再要求原样带那一句。秘书问了就调 mark_woven_question 标一下，标了才记"问过"（改写了照样记）；没标的不算（回话里原样带了也不算），
@@ -40,7 +40,7 @@ const HOUR = 60 * 60 * 1000;
 
 const OWN = "上次推掉的周末活动，要是时间由你自己定，你会去吗？";
 const ALONE = "周末有人约你的时候，你更愿意一个人待着吗？";
-/** 198 写死的那一句（271 起不再要求原样带） */
+/** 写死的那一句（不再要求原样带） */
 const FIXED = (question: string) => `顺便问一句：${question}（想更了解你一点，不想答可以跳过。）`;
 const WEEKEND_TALK = "这周六同学约我聚会，我还在想要不要去。";
 const TOPIC = "repeated_decline|weekend|social";
@@ -153,7 +153,7 @@ async function turn(frontend: TestFrontend, text: string): Promise<string> {
 
 async function start(secretary: FauxStep[], options: { config?: Record<string, unknown>; memoryModel?: () => FakeChatModel; seed?: "plain" | "weekend" } = {}) {
   const clock = new ManualClock(at(10, 10, 9, 0));
-  // 265 号票：给了 clock 时底座默认停掉记忆插件；顺口问是它的，打开
+  // 给了 clock 时底座默认停掉记忆插件；顺口问是它的，打开
   const td = await startTestDaemon({
     clock,
     memoryPlugin: true,
@@ -215,7 +215,7 @@ describe("顺口问：秘书按语气自己改写，标了才算问过", () => {
     });
     expect(question).toMatchObject({ status: "answered", verdict: "yes", clear: false });
     expect(evidence).toMatchObject({ sourceLevel: "self", text: "会啊，时间我自己定的话就去", sourceRef: material!.id });
-    // 267 号票：都经推理库的唯一写入口——记问过是记忆管理员，回答（连同回答证据入库）是用户的表态，都经秘书顺口问
+    // 都经推理库的唯一写入口——记问过是记忆管理员，回答（连同回答证据入库）是用户的表态，都经秘书顺口问
     const trail = peek(rgDb, clock, (e) => ({ question: e.gate.history(question.id), evidence: e.gate.history(evidence!.id) }));
     expect(trail.question).toEqual(
       expect.arrayContaining([
@@ -269,7 +269,7 @@ describe("顺口问：秘书按语气自己改写，标了才算问过", () => {
     const statuses = peek(rgDb, clock, (e) => e.listQuestions().map((q) => [q.text, q.status]));
     expect(statuses).toEqual(expect.arrayContaining([[OWN, "declined"], [ALONE, "declined"]]));
     expect(peek(rgDb, clock, (e) => e.questions.isBlocked(TOPIC))).toBe(true);
-    // 267 号票："别问这个"经唯一写入口，记成用户发起、经秘书顺口问（同一类的两个问题都记一行）
+    // "别问这个"经唯一写入口，记成用户发起、经秘书顺口问（同一类的两个问题都记一行）
     const declined = peek(rgDb, clock, (e) => e.gate.records({ op: "decline" }));
     expect(declined.length).toBe(2);
     expect(declined.every((r) => r.objectType === "question" && r.actor === "user" && r.via === VIA_DAY)).toBe(true);
@@ -302,12 +302,12 @@ describe("顺口问：秘书按语气自己改写，标了才算问过", () => {
     const own = peek(rgDb, clock, (e) => e.listQuestions().find((q) => q.text === OWN)!);
     expect(own).toMatchObject({ status: "open", askedCount: 1, skippedCount: 1 });
     expect(own.history.map((h) => h.event)).toEqual(["created", "asked", "skipped"]);
-    // 267 号票：跳过经唯一写入口，记成用户的表态、经秘书顺口问
+    // 跳过经唯一写入口，记成用户的表态、经秘书顺口问
     expect(peek(rgDb, clock, (e) => e.gate.history(own.id).at(-1))).toMatchObject({ objectType: "question", op: "skip", actor: "user_verdict", via: VIA_DAY });
   });
 });
 
-describe("330 号票（R15）：一次对话最多顺口问一个", () => {
+describe("ADR-0032 R15：一次对话最多顺口问一个", () => {
   it("同一次对话里过了零点（每天一个的限制已经过了）聊到也不再挑，另一个问题留在问题箱；清空当前对话（新的一段）以后才再挑", { timeout: 90_000 }, async () => {
     // 清空以后秘书是新的一段会话、剧本从头来：第一步照这一轮交来的编号标
     const { td, clock, rgDb, frontend } = await start([markOffered, echo, echo, echo]);

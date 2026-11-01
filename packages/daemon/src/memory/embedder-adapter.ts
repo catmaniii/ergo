@@ -1,4 +1,4 @@
-// 内核的向量函数 → @ergo/memory 的向量函数（224 号票）：素材库的 Embedder 只有 embed(texts)（bge-m3，工作线程里算），
+// 内核的向量函数 → @ergo/memory 的向量函数：素材库的 Embedder 只有 embed(texts)（bge-m3，工作线程里算），
 // @ergo/memory 的 Embedder 要分开 embedDocuments / embedQueries（调研 22：以后可能换查询要加指令前缀的模型）。
 // bge-m3 两种角色一样，两个方法都直接走 embed；模型名、可用状态、不在时的提示照搬。
 // 不下载模型、不打包模型：模型是内核的（kernel 的 createBgeM3Embedder），这里只是转接。

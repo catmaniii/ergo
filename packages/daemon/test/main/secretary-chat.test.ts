@@ -25,14 +25,14 @@ describe("秘书聊天", () => {
     const sent = await frontend.sendText("在吗", { idempotencyKey: "k-hello" });
     expect(sent).toMatchObject({ seq: 1, idempotencyKey: "k-hello" });
 
-    // 用户消息事件：负载里有会话、发言方、时间和原文，带着发送请求的幂等键（够 08 号票采集为"用户发言"素材）
+    // 用户消息事件：负载里有会话、发言方、时间和原文，带着发送请求的幂等键（够采集为"用户发言"素材）
     const userEvent = await frontend.next(SECRETARY, MESSAGE);
     expect(userEvent.seq).toBe(1);
     const userPayload = userEvent.payload as MessageEventPayload;
     expect(userPayload).toEqual({
       message: { id: sent.messageId, conversation: SECRETARY, speaker: "user", time: expect.any(String), parts: [{ type: "text", text: "在吗" }] },
       idempotencyKey: "k-hello",
-      // 125 号票起网关按连接记下是从哪发的：本机端口
+      // 网关按连接记下是从哪发的：本机端口
       sentFrom: { kind: "local" },
     });
     expect(userPayload.message.time).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}[+-]\d{2}:\d{2}$/);
@@ -121,7 +121,7 @@ describe("秘书聊天", () => {
     ]);
   });
 
-  it("秘书正忙时连发两条：第二条先排队（144 号票），第一条回完才交出去、作为下一轮处理，看得到第一条的回复", async () => {
+  it("秘书正忙时连发两条：第二条先排队，第一条回完才交出去、作为下一轮处理，看得到第一条的回复", async () => {
     // 第一条的回复要说一会儿（第二条在它说的时候到）；速度不能太慢：第二条的回复念出整个上下文（含越来越长的系统提示）
     const slowReply = "第一条的回复，慢慢说完。".repeat(80);
     const { url } = await startTestDaemon({
@@ -231,7 +231,7 @@ describe("处理到一半被打断的输入：标成中断出队，不重送", (
     expect(events.map((f) => describeEvent(f).replace(/:[\s\S]*/, ""))).toEqual(["1 user", "2 turn_start", "3 system", "4 turn_end", "5 user", "6 turn_start", "7 agent", "8 turn_end"]);
   });
 
-  it("守护进程重启：被杀时正在处理的那条以\"中断\"结束、不重送；它说着时发的那条（排着队，144 号票）起来后交出去照常处理", async () => {
+  it("守护进程重启：被杀时正在处理的那条以\"中断\"结束、不重送；它说着时发的那条（排着队）起来后交出去照常处理", async () => {
     const first = await startTestDaemon({ secretary: [{ kind: "reply", text: "这一段要说很久很久，".repeat(20) }], secretaryTokensPerSecond: 20 });
     const frontend = await TestFrontend.connect(first.url);
     await frontend.subscribe({ [SECRETARY]: 0 });

@@ -1,5 +1,5 @@
-// 记忆 · 证据与推理（233 号票）：一条结论是怎么来的。285 号票起它是"结论"里点开的一条（#/more/memory/claims/<编号>，标题写"证据与推理"）——
-// 233 号票时它自己是一栏，没点开时就是结论列表少了筛选，并进结论了（旧地址 #/more/memory/evidence[/<编号>] 换到结论）。
+// 记忆 · 证据与推理：一条结论是怎么来的。它是"结论"里点开的一条（#/more/memory/claims/<编号>，标题写"证据与推理"）——
+// 原来它自己是一栏，没点开时就是结论列表少了筛选，并进结论了（旧地址 #/more/memory/evidence[/<编号>] 换到结论）。
 // - 点开一条：结论本身（陈述、层级、状态、把握、来源、推法、有效期、撤回/取代它的），
 //   这一组的观察，证据链（结论 → 前提 → 事实 → 原话，一层缩进一层），支持、反证、只当背景的（为什么算、多重、引的原话），
 //   竞争解释（点一条换到它），推理（这条结论是怎么推出来的：推法、理由、前提），修订记录（第几条、哪种操作、为什么、改了什么）；
@@ -78,7 +78,7 @@ function ClaimEvidence({ claimId, onOpen, onClose }: { claimId: string; onOpen(i
   const validity = memoryClaimValidity(claim);
   const ended = memoryClaimEndedBy(claim);
   const chain = memoryPremiseRows(view.premises);
-  // 330 号票（R5）：猜测写明为什么还是猜测
+  // ADR-0032 R5：猜测写明为什么还是猜测
   const guess = memoryGuessLines(view.whyGuess);
 
   return (

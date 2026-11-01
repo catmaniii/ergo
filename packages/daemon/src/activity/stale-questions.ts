@@ -1,4 +1,4 @@
-// 老提问不再一直挂着（369 号票）：秘书在聊天里随口问的提问卡（正卡着工作的不算，见 card-waits.ts 的 cardWaitGoesStale）超过 materials.staleCardDays（默认 7 天）没答，标题不再说"等你回答提问"（card-waits.ts 按时间算，
+// 老提问不再一直挂着：秘书在聊天里随口问的提问卡（正卡着工作的不算，见 card-waits.ts 的 cardWaitGoesStale）超过 materials.staleCardDays（默认 7 天）没答，标题不再说"等你回答提问"（card-waits.ts 按时间算，
 // 这里到点叫它重新算），待办里的事项也不再算要紧：降到不卡任务、算看过，标上 stale（秘书会话的"等你处理"栏不再列）。
 // 卡本身不动：还在聊天历史里，照样能答。
 // 这里是内核的：回避信号的计时（materials/avoidance.ts 的 card_stale）归记忆插件，停用时不跑；两边各算各的，回避信号不变。

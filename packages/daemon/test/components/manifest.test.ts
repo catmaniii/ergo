@@ -1,4 +1,4 @@
-// 组件清单（323 号票）：随程序发布的那份读得进来、和代码里锁的版本一致；默认装不装写在数据里；清单写错了读的时候就报。
+// 组件清单：随程序发布的那份读得进来、和代码里锁的版本一致；默认装不装写在数据里；清单写错了读的时候就报。
 import fs from "node:fs";
 import { describe, expect, test } from "vitest";
 import { fileSources, loadManifest, parseManifest, pendingParts, pickVariant, variantFiles } from "../../src/components/manifest.ts";
@@ -9,7 +9,7 @@ const { manifest, signed } = loadManifest();
 const byId = (id: string) => manifest.components.find((c) => c.id === id)!;
 
 describe("随程序发布的清单", () => {
-  test("读得进来；没签名（发布钥匙的签名由 318 号票发版时加）", () => {
+  test("读得进来；没签名（发布钥匙的签名发版时加）", () => {
     expect(manifest.components.map((c) => c.id)).toEqual(["bge-m3", "asr", "audiocpp", "tts", "claude-code"]);
     expect(signed).toBe(false);
   });
@@ -33,7 +33,7 @@ describe("随程序发布的清单", () => {
     expect(files).toEqual(BGE_M3.files.map((f) => ({ path: f.path, size: f.size, ...(f.sha256 ? { sha256: f.sha256 } : {}) })));
   });
 
-  test("语音合成（345 号票）：程序和模型分开，模型依赖程序；按 N 卡挑包；CUDA 版带运行库包；固定版本、大小、校验值", () => {
+  test("语音合成：程序和模型分开，模型依赖程序；按 N 卡挑包；CUDA 版带运行库包；固定版本、大小、校验值", () => {
     const program = byId("audiocpp");
     const model = byId("tts");
     expect(model.dependsOn).toEqual(["audiocpp"]);
@@ -77,7 +77,7 @@ describe("随程序发布的清单", () => {
   });
 
   test("Claude Code 接入的 SDK 和守护进程依赖的是同一个版本", () => {
-    // 315 号票起 SDK 在 optionalDependencies 里
+    // SDK 在 optionalDependencies 里
     const pkg = JSON.parse(fs.readFileSync(new URL("../../package.json", import.meta.url), "utf8")) as { dependencies?: Record<string, string>; optionalDependencies?: Record<string, string> };
     const c = byId("claude-code");
     expect(c.version).toBe(pkg.optionalDependencies?.["@anthropic-ai/claude-agent-sdk"] ?? pkg.dependencies?.["@anthropic-ai/claude-agent-sdk"]);
@@ -86,7 +86,7 @@ describe("随程序发布的清单", () => {
     expect(fileSources(c, c.variants[0]!.parts[0]!, variantFiles(c.variants[0]!)[0]!.file)[0]?.url).toBe(`https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk/-/claude-agent-sdk-${c.version}.tgz`);
   });
 
-  test("语音识别模型（346 号票）：Fun-ASR Nano，用 audio.cpp 那个程序；不打包不镜像，地址钉死到提交，校验值是 Hugging Face 的；要确认 v1.1 许可、标来源；默认不装", () => {
+  test("语音识别模型：Fun-ASR Nano，用 audio.cpp 那个程序；不打包不镜像，地址钉死到提交，校验值是 Hugging Face 的；要确认 v1.1 许可、标来源；默认不装", () => {
     const asr = byId("asr");
     expect(asr.default).toBe("ask");
     expect(asr.dependsOn).toEqual(["audiocpp"]);

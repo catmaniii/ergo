@@ -1,18 +1,18 @@
-// token 账本与消耗（规格第 16 节，24 号票）：名字和纯函数，守护进程和 Web 共用。不引用 TypeBox（类型从 usage-schema.ts 取）。
+// token 账本与消耗（规格第 16 节）：名字和纯函数，守护进程和 Web 共用。不引用 TypeBox（类型从 usage-schema.ts 取）。
 // - 账本每次模型调用记一条：归属（任务、项目或定时作业）、agent 和它的角色、会话、模型、输入（缓存命中 / 未命中）、输出、时间；
 //   任务的还记调用时的阶段；范围审视、压缩那几次标出来；
 // - 秘书的用量是系统开销（不论它在处理什么）；拉起时没给归属的 agent 记成"未归属"，单列；
 // - 成本一律是粗估：用量乘每个模型的单价（每百万 token）。配置里写了单价的按配置（不分时段）；没写的用框架自带的价格表
-//   （token-prices.ts，94 号票：DeepSeek 分高峰、空闲，每一笔按记账时间的时段算）。
+//   （token-prices.ts：DeepSeek 分高峰、空闲，每一笔按记账时间的时段算）。
 import { ASSISTANT_NAME_MARK } from "./assistant-name.ts";
 import { followLocale, t, tTable } from "./i18n/runtime.ts";
 import type { LedgerOwner, TokenCounts, TokenPrice } from "./usage-schema.ts";
 
-/** agent 在账本里的角色：秘书、负责人（任务的、项目的、作业的）、评审子 agent、子 agent（20 号票）、记忆管理员（242 号票），以及拉起时没给归属的（未归属） */
+/** agent 在账本里的角色：秘书、负责人（任务的、项目的、作业的）、评审子 agent、子 agent、记忆管理员，以及拉起时没给归属的（未归属） */
 export const LEDGER_ROLES = ["secretary", "maintainer", "reviewer", "sub_agent", "curator", "unattributed"] as const;
 export type LedgerRole = (typeof LEDGER_ROLES)[number];
 
-/** 角色的叫法：秘书写名字占位，界面按用户起的名字显示（43 号票） */
+/** 角色的叫法：秘书写名字占位，界面按用户起的名字显示 */
 export const LEDGER_ROLE_LABEL: Readonly<Record<LedgerRole, string>> = Object.freeze(
   Object.defineProperties(
     { secretary: ASSISTANT_NAME_MARK },
@@ -39,8 +39,8 @@ export const LEDGER_OWNER_KIND_LABEL: Readonly<Record<LedgerOwnerKind, string>> 
 });
 
 /**
- * 一次模型调用是做什么的：干活（平常的调用）、范围审视（18 号票）、压缩会话、换模型时写交接摘要（83 号票）、会话回退时写分支摘要（150 号票）、
- * 把斜杠命令的说明翻成用户的语言（310 号票，算二狗的系统开销）
+ * 一次模型调用是做什么的：干活（平常的调用）、范围审视、压缩会话、换模型时写交接摘要、会话回退时写分支摘要、
+ * 把斜杠命令的说明翻成用户的语言（算二狗的系统开销）
  */
 export const LEDGER_PURPOSES = ["work", "scope_review", "compaction", "handoff", "branch_summary", "translation"] as const;
 export type LedgerPurpose = (typeof LEDGER_PURPOSES)[number];
@@ -56,7 +56,7 @@ export const LEDGER_PURPOSE_LABEL: Readonly<Record<LedgerPurpose, string>> = tTa
 });
 
 /**
- * 插件追加在 agent 输入后面、单独记用量的上下文（266 号票）：每条消息的记忆简报。不调模型，开销是那个 agent 这一轮多读的输入 token
+ * 插件追加在 agent 输入后面、单独记用量的上下文：每条消息的记忆简报。不调模型，开销是那个 agent 这一轮多读的输入 token
  * （已经算在它的用量里），用量页另列一项
  */
 export const CONTEXT_USAGE_KINDS = ["memory_brief"] as const;
@@ -67,7 +67,7 @@ export const USAGE_CATEGORIES = ["owned", "system", "unattributed"] as const;
 export type UsageCategory = (typeof USAGE_CATEGORIES)[number];
 
 /**
- * 按次计费的联网调用（154 号票）：DeepSeek 的联网搜索（Search）、读网页（Fetch）接口，每次成功、有结果的调用记一条，
+ * 按次计费的联网调用：DeepSeek 的联网搜索（Search）、读网页（Fetch）接口，每次成功、有结果的调用记一条，
  * 记在发起调用的 agent 名下（和 token 用量同一套归属）；单价在 token-prices.ts 的 BUILTIN_WEB_CALL_PRICES
  */
 export const WEB_CALL_KINDS = ["search", "fetch"] as const;
@@ -127,14 +127,14 @@ export function ledgerOwnerKey(owner: LedgerOwner): string {
 
 /**
  * 消耗页上这一行算哪一类：秘书和记忆管理员是系统开销（不论它在处理什么）；别的有归属的记在名下，没有的是未归属。
- * 记忆管理员（242 号票）是守护进程自己安排的那个按需拉起的 agent（每晚整理、解释结论；243 号票起不常驻），不是谁的活，和秘书同列。
+ * 记忆管理员是守护进程自己安排的那个按需拉起的 agent（每晚整理、解释结论；不常驻），不是谁的活，和秘书同列。
  */
 export function usageCategory(role: LedgerRole, owned: boolean): UsageCategory {
   if (role === "secretary" || role === "curator") return "system";
   return owned ? "owned" : "unattributed";
 }
 
-/** 大约多少钱（361 号票：阶段预算、计划卡上写的）：不到一分也写一分 */
+/** 大约多少钱（阶段预算、计划卡上写的）：不到一分也写一分 */
 export function approxMoney(cost: { amount: number; currency: string }): string {
   return `${currencySymbol(cost.currency)}${Math.max(cost.amount, 0.01).toFixed(2)}`;
 }

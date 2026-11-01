@@ -1,4 +1,4 @@
-// 主切面：插件宿主的"运行时"贡献点（286 号票，ADR-0027）。真的守护进程走组合根和插件清单；测试用的假运行时插件
+// 主切面：插件宿主的"运行时"贡献点（ADR-0027）。真的守护进程走组合根和插件清单；测试用的假运行时插件
 // （helpers/fake-runtime.ts，只在测试里）经 extraPlugins 接在清单后面，在数据契约里登记运行时 fake，子进程入口是
 // fixtures/fake-runtime-child.ts（不跑模型，只说宿主协议——和 pi 的子进程收同一条"启动"、说同一套消息）：
 // - GET /api/runtimes：pi 在最前（内核自带，照同一个接口登记），假运行时带插件名、能力清单、可选模型、设置项；停用了写明原因；
@@ -58,7 +58,7 @@ describe("运行时贡献点：插件登记的运行时", () => {
   it("GET /api/runtimes：pi 在最前（内核自带），假运行时带插件名、能力清单、可选模型和设置项；插件运行中停用后写明不能用的原因", async () => {
     const td = await startTestDaemon({ extraPlugins: [fakeRuntimePlugin] });
     const view = (await runtimesApi.view(td.url)).body;
-    // 287 起清单里自带 Claude Code 插件，排在 pi 后面
+    //清单里自带 Claude Code 插件，排在 pi 后面
     expect(view.runtimes.map((r) => r.id)).toEqual(["pi", "claude-code", FAKE_RUNTIME_ID]);
     expect(view.runtimes[0]).toMatchObject({ id: "pi", title: "pi", available: true, settings: [] });
     expect(view.runtimes[0]!.plugin).toBeUndefined();

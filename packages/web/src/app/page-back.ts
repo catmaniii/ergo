@@ -1,4 +1,4 @@
-// 这个页面的返回栈（62 号票，系统返回键）：一份 back-registry.ts，和挂层用的 React 钩子。
+// 这个页面的返回栈（系统返回键）：一份 back-registry.ts，和挂层用的 React 钩子。
 // 弹窗（ui/common.tsx 的 Sheet）、选择器、详情页、抽屉开着时挂 overlay；标题栏有"‹ 返回"时挂 page（回这一页的上一级）。
 // 开在鸿蒙 App 里时 page-native.ts 把它接到原生桥上；不在 App 里没人调它，浏览器的行为不变。
 import { useEffect, useRef } from "react";

@@ -60,7 +60,7 @@
   box-shadow: var(--shadow-float);
   animation: v2-rise var(--fx-2) var(--ease) both;
 }
-/* 到点的提醒：应用框顶上的页面内提示，只有一个框，几条在框里轮播，过一会儿自动收起（105、106 号票） */
+/* 到点的提醒：应用框顶上的页面内提示，只有一个框，几条在框里轮播，过一会儿自动收起 */
 .alert-stack {
   position: fixed;
   top: 10px;
@@ -69,7 +69,7 @@
   z-index: 45;
   width: min(94%, 460px);
 }
-/* 框的大小固定（106 号票）：高度不随字数变，标题、正文各一行，放不下在末尾省略；"查看""关闭"始终在右边 */
+/* 框的大小固定：高度不随字数变，标题、正文各一行，放不下在末尾省略；"查看""关闭"始终在右边 */
 .alert-banner {
   display: flex;
   align-items: center;
@@ -94,7 +94,7 @@
   gap: 2px;
   min-width: 24px;
 }
-/* 铃铛是共用的线条图标（ui/icons.tsx，122 号票；原来是 🔔） */
+/* 铃铛是共用的线条图标（ui/icons.tsx，原来是 🔔） */
 .alert-icon {
   display: flex;
   font-size: 20px;
@@ -140,7 +140,7 @@
   flex: none;
 }
 /*
- * 有新版本的提示（116 号票，ui/page-update.tsx）：内容区最上面一条"● 二狗有新版本 · 刷新 · 等会儿"，占一行（flex: none），
+ * 有新版本的提示（ui/page-update.tsx）：内容区最上面一条"● 二狗有新版本 · 刷新 · 等会儿"，占一行（flex: none），
  * 把页面往下挤、不盖住标题栏；不自动收起。放不下时按钮换到第二行
  */
 .update-bar {
@@ -238,7 +238,7 @@
   flex: none;
   accent-color: var(--primary);
 }
-/* 发起对话框里的"跑完自动播报"（100 号票）：单独一行，和上下两栏隔开 */
+/* 发起对话框里的"跑完自动播报"：单独一行，和上下两栏隔开 */
 .check-row.announce-row {
   margin: 2px 0 10px;
 }
@@ -340,7 +340,7 @@ fieldset {
 .act-sleeping i {
   background: color-mix(in srgb, var(--muted) 55%, transparent);
 }
-/* 标题上的"等你……"能点（369 号票）：下划线和 ›，看得出能点；字放不下省略，› 留着 */
+/* 标题上的"等你……"能点：下划线和 ›，看得出能点；字放不下省略，› 留着 */
 .act-jump {
   flex: 0 1 auto;
   align-self: stretch;
@@ -412,7 +412,7 @@ fieldset {
 .msg-pending .bubble {
   opacity: 0.65;
 }
-/* 排队的消息（144 号票）：用户气泡的样子，虚线边框、淡一点，标"排队中"；右上角一个叉；长按（电脑上按住）拖动改顺序 */
+/* 排队的消息：用户气泡的样子，虚线边框、淡一点，标"排队中"；右上角一个叉；长按（电脑上按住）拖动改顺序 */
 .msg-queued {
   position: relative;
   transition: transform var(--fx-1) var(--ease);
@@ -485,7 +485,7 @@ fieldset {
   pointer-events: none;
   z-index: -1;
 }
-/* 说到一半被停下的回复（144 号票） */
+/* 说到一半被停下的回复 */
 .msg-stopped {
   color: var(--high-fg);
 }
@@ -500,7 +500,7 @@ fieldset {
 .msg-system .sys-note {
   color: var(--text);
 }
-/* 分支摘要（150 号票）：会话回退之后新分支开头那一条，🧭 加摘要，点整条看详情 */
+/* 分支摘要：会话回退之后新分支开头那一条，🧭 加摘要，点整条看详情 */
 .context-note {
   font-size: var(--fs-s);
   color: var(--muted);
@@ -510,7 +510,7 @@ fieldset {
   border-radius: var(--radius-m);
   white-space: pre-wrap;
 }
-/* 293 号票：运行时撤回时恢复了哪些文件（Claude Code 的文件检查点），摘要下面一行、更淡 */
+/* 运行时撤回时恢复了哪些文件（Claude Code 的文件检查点），摘要下面一行、更淡 */
 .context-note .branch-files {
   margin-top: 4px;
   font-size: var(--fs-xs);
@@ -594,7 +594,7 @@ fieldset {
   flex: none;
   color: #fff;
 }
-/* 内置浏览器（132 号票，ui/in-app-browser.tsx）：盖住整页、和图片查看器同一层；顶栏用各风格的标题栏（.topbar），下面的框铺满。
+/* 内置浏览器（ui/in-app-browser.tsx）：盖住整页、和图片查看器同一层；顶栏用各风格的标题栏（.topbar），下面的框铺满。
    框的底色是白的：服务的页面多半默认白底，深色主题里也不透出二狗的底色 */
 .iab {
   position: fixed;
@@ -623,7 +623,7 @@ fieldset {
   background: #fff;
 }
 /*
- * 内置浏览器里的文件渲染层（160 号票，ui/file-view.tsx）：照报告页的样子（.report、.report-body、.report-table……），
+ * 内置浏览器里的文件渲染层（ui/file-view.tsx）：照报告页的样子（.report、.report-body、.report-table……），
  * 上面一行是文件名、类型、大小，右边几个按钮（窄屏装不下换到下一行）；代码、格式化过的 JSON 等宽、不换行、横向滚动
  */
 .file-bar {
@@ -668,7 +668,7 @@ fieldset {
   object-fit: contain;
 }
 /*
- * 附件卡片（113 号票）：一组附件排成一横排，装不下换行；每张竖排三层——类型图标（方块里写类型，按类别上色）、标题、"预览""下载"。
+ * 附件卡片：一组附件排成一横排，装不下换行；每张竖排三层——类型图标（方块里写类型，按类别上色）、标题、"预览""下载"。
  * 类别的颜色借现成的 token：文档 primary、表格 c-tool、图片 c-plan、音视频 c-thinking、其它 muted
  */
 .att-row {
@@ -750,7 +750,7 @@ a.att-icon:hover {
   font-family: var(--font-num);
   color: var(--primary);
 }
-/* 175 号票：英文的"Preview""Download"一行放不下，折成两行（中文一行放得下，和原来一样） */
+/* 英文的"Preview""Download"一行放不下，折成两行（中文一行放得下，和原来一样） */
 .att-btns {
   display: flex;
   flex-wrap: wrap;
@@ -779,7 +779,7 @@ a.att-icon:hover {
   padding: 4px 10px;
 }
 /*
- * 报告页（113 号票）：文本类附件渲染着看。正文限宽居中；表格放进能横向滚动的框里；图片不加载，只画占位；
+ * 报告页：文本类附件渲染着看。正文限宽居中；表格放进能横向滚动的框里；图片不加载，只画占位；
  * 截断了顶上一条提示
  */
 .report {
@@ -925,7 +925,7 @@ a.att-icon:hover {
   overflow-wrap: anywhere;
 }
 /*
- * 117 号票：HTML 在沙箱框里看——铺满报告页（不限宽），页面在框里滚动；SVG 用 <img> 显示，放在浅色底上
+ * HTML 在沙箱框里看——铺满报告页（不限宽），页面在框里滚动；SVG 用 <img> 显示，放在浅色底上
  * （透明底、黑线条的图在深色主题里也看得清）。框里的页面自己画自己的底色，没画的按浏览器默认的白底
  */
 .report-page-html .scroll {
@@ -992,10 +992,10 @@ a.att-icon:hover {
   background: color-mix(in srgb, var(--c-plan) 12%, var(--surface));
 }
 /*
- * 工具调用组（57 号票，用户要的汇总行）：一行小字"调用了 N 个工具 · 小签 ›"，不是气泡。
+ * 工具调用组（用户要的汇总行）：一行小字"调用了 N 个工具 · 小签 ›"，不是气泡。
  * 左边一道工具色、字号和思考那一行一样，圆点和行尾的 › 借它的工具行（.tool-dot、.tool-more）；
  * 出了状况的整行醒目：左边那道、圆点换成被拦下的颜色（只有等你批准、问过你的换成跟你有关的颜色），字也深一档。
- * 275 号票（用户 2026-10-25：这一横条一直顶到最右边，窄窗口时看不到、点不到行尾的箭头；照"在想什么"那条改）：横条放在个人助理
+ * 这一横条一直顶到最右边，窄窗口时看不到、点不到行尾的箭头；照"在想什么"那条改：横条放在个人助理
  * 那一列的一格里（.msg-part.part-line，和"在想什么"同一列，糖果、纸张让出的头像位也一样），宽度跟着内容走，最宽到对话气泡那么宽
  * （.msg.assistant .part-text 的 92%），右边留空；› 紧跟着字（不再被 margin-left: auto 推到最右边）。来信、回忆记忆那两行借它，一样
  */
@@ -1063,9 +1063,9 @@ a.att-icon:hover {
   padding-left: 6px;
 }
 /*
- * agent 之间的来信（115 号票）：一行"图标 种类 总结 时间 详情 ›"，借工具调用那一行（.tool-sum）的样子——左边一道、小字、
+ * agent 之间的来信：一行"图标 种类 总结 时间 详情 ›"，借工具调用那一行（.tool-sum）的样子——左边一道、小字、
  * 整行可点，11 套风格里跟着各自的 .tool-sum 走；左边那道换成说明和记录的颜色（要点层、全局层的底色也是它）。
- * 一行写不下的省略总结，不换行（275 号票：宽度跟着内容、最宽到对话气泡那么宽，再长就省略总结，"详情 ›"总露在横条里）
+ * 一行写不下的省略总结，不换行（宽度跟着内容、最宽到对话气泡那么宽，再长就省略总结，"详情 ›"总露在横条里）
  */
 .letter-line {
   flex-wrap: nowrap;
@@ -1097,7 +1097,7 @@ a.att-icon:hover {
   padding-left: 2px;
 }
 /*
- * 调用记忆（187 号票）：一行"回忆了 N 条记忆 ›"，借工具调用那一行（.tool-sum）的样子——左边一道、小字、整行可点，
+ * 调用记忆：一行"回忆了 N 条记忆 ›"，借工具调用那一行（.tool-sum）的样子——左边一道、小字、整行可点，
  * 11 套风格里跟着各自的 .tool-sum 走；圆点换成记忆的图标（和导航里"记忆"同一个，工具色）。没找到的、认不出条数的淡一点
  */
 .recall-line {
@@ -1203,7 +1203,7 @@ a.att-icon:hover {
 .attach-menu button:hover {
   background: var(--fill);
 }
-/* 一项是"图标 + 名字"（122 号票：图标是共用的线条图标，原来是 🖼 📄 📥） */
+/* 一项是"图标 + 名字"（图标是共用的线条图标，原来是 🖼 📄 📥） */
 .attach-menu-label {
   display: inline-flex;
   align-items: center;
@@ -1218,9 +1218,9 @@ a.att-icon:hover {
   font-size: var(--fs-xs);
 }
 /*
- * 输入框里打 / 弹出的候选（82 号票，ui/conversation/SlashMenu.tsx）：画在应用框最上面的弹出层里（ui/popup.tsx 的 .popup），
+ * 输入框里打 / 弹出的候选（ui/conversation/SlashMenu.tsx）：画在应用框最上面的弹出层里（ui/popup.tsx 的 .popup），
  * 位置由界面贴着输入框算（下面放不下翻到上面），这里只管样子。
- * 310 号票：一行两层——上面"写法  参数提示  显示的名字  集合名"，下面是说明；选中的那一行（data-active）说明完整展开、原文小字跟在下面，
+ * 一行两层——上面"写法  参数提示  显示的名字  集合名"，下面是说明；选中的那一行（data-active）说明完整展开、原文小字跟在下面，
  * 其余行说明最多两行；按"二狗的命令 / 工具包里的 skill / 运行时的命令"分组，两组以上才有组名；每行右边的"说明"小按钮只在触屏上有
  * （能悬停的精确指针上藏起来，悬停就展开）
  */
@@ -1360,7 +1360,7 @@ a.att-icon:hover {
 .attach-list + .composer {
   border-top: none;
 }
-/* 引用到输入框的卡片（21 号票） */
+/* 引用到输入框的卡片 */
 .quote-list {
   display: flex;
   flex-direction: column;
@@ -1466,7 +1466,7 @@ a.att-icon:hover {
   object-fit: cover;
   background: var(--bg);
 }
-/* 文件、图片（没有缩略图时）、语音前面的图标：共用的线条图标（122 号票；原来是 📄 🖼 🎤） */
+/* 文件、图片（没有缩略图时）、语音前面的图标：共用的线条图标（原来是 📄 🖼 🎤） */
 .attach-icon {
   flex: none;
   display: flex;
@@ -1529,7 +1529,7 @@ a.att-icon:hover {
   background: var(--fill);
   color: var(--muted);
 }
-/* "首版做完了"卡（112 号票）：做成了，用"通过"的绿 */
+/* "首版做完了"卡：做成了，用"通过"的绿 */
 .xt-build_done {
   background: var(--data-bg);
   color: var(--ok);
@@ -1540,12 +1540,12 @@ a.att-icon:hover {
 .build-done-stage {
   font-weight: 600;
 }
-/* "转入使用"确认卡（259 号票）：要你确认的事，用"运营"那一色 */
+/* "转入使用"确认卡：要你确认的事，用"运营"那一色 */
 .xt-go_live {
   background: var(--op-bg);
   color: var(--op-fg);
 }
-/* 转运营检查清单（259 号票）："首版做完了"卡、"转入使用"卡上：做到的 ✓ 绿，没做到的 ✗ 红、下面一行写差什么 */
+/* 转运营检查清单："首版做完了"卡、"转入使用"卡上：做到的 ✓ 绿，没做到的 ✗ 红、下面一行写差什么 */
 .golive-check {
   display: flex;
   flex-direction: column;
@@ -1619,7 +1619,7 @@ a.att-icon:hover {
 .xcard-body > .link {
   align-self: flex-start;
 }
-/* 通知的正文照原样分行（和会话里"等你处理"栏的 .ibar-body 一样；274 号票复验没过那条一行一个阶段） */
+/* 通知的正文照原样分行（和会话里"等你处理"栏的 .ibar-body 一样；复验没过那条一行一个阶段） */
 .xcard-text {
   white-space: pre-line;
 }
@@ -1660,7 +1660,7 @@ a.att-icon:hover {
   line-height: 1.5;
 }
 /*
- * 运行时核实过的用户原话（125 号票，ui/user-words.tsx）：计划变更卡、立项要求变更卡、阶段详情里单独一栏。和 agent 自己说的
+ * 运行时核实过的用户原话（ui/user-words.tsx）：计划变更卡、立项要求变更卡、阶段详情里单独一栏。和 agent 自己说的
  * （.agent-says 灰字灰线）分开：左边一道"你"的颜色，底色是"你"的浅底
  */
 .user-words {
@@ -1707,7 +1707,7 @@ a.att-icon:hover {
 .user-words-note {
   margin-top: 4px;
 }
-/* 立项要求变更卡（125 号票）：改前划掉、改后照常，前面一个小字说明是哪一边 */
+/* 立项要求变更卡：改前划掉、改后照常，前面一个小字说明是哪一边 */
 .charter-diff-k {
   display: inline-block;
   font-size: var(--fs-xs);
@@ -1724,7 +1724,7 @@ a.att-icon:hover {
   margin-top: 2px;
 }
 /*
- * 运营方案（130 号票，ui/cards/OperationsCards.tsx）："首版做完了"卡上"转入使用后会开起来的"一节、"运营方案变更"卡、项目页的运营方案。
+ * 运营方案（ui/cards/OperationsCards.tsx）："首版做完了"卡上"转入使用后会开起来的"一节、"运营方案变更"卡、项目页的运营方案。
  * 每一条一块：名字、手段的小签、结局；什么时候、怎么做、要的能力一行小字；每次做什么照常；二狗现在还做不了、要你手动的那一条
  * 左边一道提醒色，手动的步骤用提醒色的浅底写出来
  */
@@ -1797,7 +1797,7 @@ a.att-icon:hover {
 .ops-group-removed .ops-item-head b {
   text-decoration: line-through;
 }
-/* skill 变更卡（358 号票）：脚本提醒、文件清单、SKILL.md 全文 */
+/* skill 变更卡：脚本提醒、文件清单、SKILL.md 全文 */
 .xcard-skill_change .xcard-body {
   min-width: 0;
 }
@@ -1893,7 +1893,7 @@ a.att-icon:hover {
   color: var(--ok);
   font-weight: 600;
 }
-/* 运行时的提问卡（288 号票）：选项带说明，竖着排；单选是圆点、多选是方框 */
+/* 运行时的提问卡：选项带说明，竖着排；单选是圆点、多选是方框 */
 .rq-header {
   margin-right: 6px;
   vertical-align: 1px;
@@ -2049,7 +2049,7 @@ a.att-icon:hover {
 .pair-codes-big b {
   font-size: 26px;
 }
-/* 像网络上的自动访问的配对请求（137 号票）：配对卡、批准页上醒目的一句；待办那一行上的短标 */
+/* 像网络上的自动访问的配对请求：配对卡、批准页上醒目的一句；待办那一行上的短标 */
 .pair-bot {
   display: flex;
   gap: 8px;
@@ -2097,7 +2097,7 @@ a.att-icon:hover {
   color: var(--muted);
   padding: 0;
 }
-/* 确认过的假设：改的时候换过行的照原样分行（105 号票） */
+/* 确认过的假设：改的时候换过行的照原样分行 */
 .plan-assumptions li {
   white-space: pre-line;
 }
@@ -2142,7 +2142,7 @@ a.att-icon:hover {
   padding: 4px 0 4px 8px;
   border-left: 3px solid var(--border);
 }
-/* 计划卡上给本任务加关注类别的小表单（26 号票） */
+/* 计划卡上给本任务加关注类别的小表单 */
 .plan-add-category {
   display: flex;
   flex-direction: column;
@@ -2162,7 +2162,7 @@ a.att-icon:hover {
   border-radius: var(--radius-m);
   background: var(--fill);
 }
-/* 91 号票：各阶段包一层（定位那一阶段要找它），排版照旧跟着外面的细节一列 */
+/* 各阶段包一层（定位那一阶段要找它），排版照旧跟着外面的细节一列 */
 .plan-stages {
   display: contents;
 }
@@ -2276,13 +2276,13 @@ a.att-icon:hover {
   font-size: var(--fs-s);
   color: var(--muted);
 }
-/* 141 号票：运营方案建的内部任务卡上的项目小标签，点了进项目 */
+/* 运营方案建的内部任务卡上的项目小标签，点了进项目 */
 .bcard .project-chip {
   cursor: pointer;
   color: var(--primary);
 }
 /*
- * 宽屏的看板（88 号票）：占满内容区，每组里的卡排成多列网格——列数随宽度（auto-fill），卡片不窄于 280（这一栏比这还窄时一张占满一行），
+ * 宽屏的看板：占满内容区，每组里的卡排成多列网格——列数随宽度（auto-fill），卡片不窄于 280（这一栏比这还窄时一张占满一行），
  * 同一行的卡一样高；分组标题、"没有"占满一行。卡片之间的间隔：经典 10，改了 .bgroup 间隔的风格照它的（两个方向一样）；
  * 看板一行一行的风格（净白格栅、水墨国风、复古杂志）在各自的 style.css 里给列之间留白，每一列像一段列表。窄屏不挂 data-layout，照旧一列
  */
@@ -2351,7 +2351,7 @@ a.att-icon:hover {
 .wo-returned {
   color: var(--high-fg);
 }
-/* 17 号票：计划外的工单待你确认、工单在等澄清 */
+/* 计划外的工单待你确认、工单在等澄清 */
 .wo-awaiting_confirm,
 .wo-clarifying {
   color: var(--you);
@@ -2379,7 +2379,7 @@ a.att-icon:hover {
   text-align: right;
   white-space: nowrap;
 }
-/* 175 号票：表头的字可以折行（英文的"Rough estimate""Cache miss"在手机宽上不把表撑出屏幕），数字照旧不折 */
+/* 表头的字可以折行（英文的"Rough estimate""Cache miss"在手机宽上不把表撑出屏幕），数字照旧不折 */
 .tbl th.num {
   white-space: normal;
 }
@@ -2389,7 +2389,7 @@ a.att-icon:hover {
   color: var(--muted);
   background: var(--fill);
 }
-/* 266 号票：用量页系统开销里的"记忆简报"一行，下面一行小字说明已经算在秘书的用量里 */
+/* 用量页系统开销里的"记忆简报"一行，下面一行小字说明已经算在秘书的用量里 */
 .usage-brief-note {
   font-size: var(--fs-xs);
   line-height: 1.4;
@@ -2411,7 +2411,7 @@ a.att-icon:hover {
 .scope-change {
   border-left: 3px solid var(--sys-line);
 }
-/* 范围记录分两组（越界、范围变更），18 号票 */
+/* 范围记录分两组（越界、范围变更） */
 .scope-groups {
   display: flex;
   flex-direction: column;
@@ -2484,7 +2484,7 @@ a.att-icon:hover {
   line-height: 1.5;
 }
 /*
- * 项目一览（104 号票）："档案墙"。和任务看板（紧凑的多列小卡：进度条、状态签、token）看得出不一样，差异靠版式和卡片结构、只用现有 token：
+ * 项目一览："档案墙"。和任务看板（紧凑的多列小卡：进度条、状态签、token）看得出不一样，差异靠版式和卡片结构、只用现有 token：
  * - 卡片更大、列更少：宽屏每组排成多列网格，卡片最小宽 340（任务看板 280），经典 1280 宽 3 列、1600 宽 4 列；行距比列距大，给页签留地方；
  * - 每张卡像一份档案：上沿一个页签（.pfile-tab，写种类和状态，顶上一道项目状态色：使用中 ok、建设中 primary、筹备中 c-plan，和 .pst 一样），
  *   页签和正文连成一块（压住正文上沿那道线）；正文是大号的项目名、两行以内的一句话目标，底下虚线隔开一行动静；正文后面错开压着一页纸
@@ -2731,7 +2731,7 @@ a.att-icon:hover {
   color: var(--muted);
 }
 /*
- * 宽屏的整页项目（104 号票）：会话左边的档案栏（照长程任务的阶段栏 .md-side，栏顶一行"项目档案"和 ×），里面是项目头和各节，自己滚动；
+ * 宽屏的整页项目：会话左边的档案栏（照长程任务的阶段栏 .md-side，栏顶一行"项目档案"和 ×），里面是项目头和各节，自己滚动；
  * 标题栏左边的"项目档案"开合它，样子用阶段标签的 .stage-chip。栏的底色用页面底色（不画风格铺在页面上的格子、点阵）：项目头、
  * 流水线这些卡片在窄屏项目页上是落在页面底色上的，挪进栏里照样分得出来
  */
@@ -2759,7 +2759,7 @@ a.att-icon:hover {
   flex: 1;
   min-width: 160px;
 }
-/* 定时作业每次运行的授权（19 号票）：作业卡、项目页的作业列表上，默认折叠 */
+/* 定时作业每次运行的授权：作业卡、项目页的作业列表上，默认折叠 */
 .job-auth {
   margin-top: 4px;
   font-size: var(--fs-s);
@@ -2824,7 +2824,7 @@ a.att-icon:hover {
   flex: none;
   font-weight: 600;
 }
-/* 名字长的开关（给秘书发消息，102 号票）：名字不折行，说明照常折到下一行 */
+/* 名字长的开关（给秘书发消息）：名字不折行，说明照常折到下一行 */
 .tk-k.tk-k-wide {
   width: auto;
   white-space: nowrap;
@@ -2950,7 +2950,7 @@ a.att-icon:hover {
 .inbox-hint {
   padding: 0 14px;
 }
-/* 待办详情里"去任务 ›"一类的跳转（105 号票）：跳到这一项从哪来的地方 */
+/* 待办详情里"去任务 ›"一类的跳转：跳到这一项从哪来的地方 */
 .inbox-jump {
   display: flex;
   margin: 8px 0 2px;
@@ -2960,12 +2960,12 @@ a.att-icon:hover {
 }
 
 /*
- * ---------- 会话里的"等你处理"栏（107 号票，ui/conversation/InboxBar.tsx） ----------
+ * ---------- 会话里的"等你处理"栏（ui/conversation/InboxBar.tsx） ----------
  * 在会话组件的页脚、输入框上面（正常的文档流，不 fixed、不盖住会话）：收着一行，展开后最高约占会话区的三分之一、多了在栏里滚。
  * 颜色、字号、圆角全用 token，各套风格跟着变；输入框浮起来的风格（软糖、像素）在各自的 style.css 里让它也浮起来。
  */
 /*
- * 不在时念的语音（109 号票，ui/missed-voices.tsx）：秘书会话输入框上面一行——"你不在时秘书念了 1 段语音（1 分 06 秒）· ▶ 播放 · 定位"。
+ * 不在时念的语音（ui/missed-voices.tsx）：秘书会话输入框上面一行——"你不在时秘书念了 1 段语音（1 分 06 秒）· ▶ 播放 · 定位"。
  * 和"等你处理"栏一个底色、一样占一行（flex: none），两条都在时上下排着；放不下时按钮换到第二行
  */
 .missed-voices {
@@ -2995,7 +2995,7 @@ a.att-icon:hover {
   font-weight: 600;
 }
 /*
- * 还没配模型（315 号票，ui/model-key-notice.tsx）：秘书会话输入框上面一行——"还没配模型：二狗现在回不了话（没有 DeepSeek 的 API Key）。去配置"。
+ * 还没配模型（ui/model-key-notice.tsx）：秘书会话输入框上面一行——"还没配模型：二狗现在回不了话（没有 DeepSeek 的 API Key）。去配置"。
  * 和上面两条一个底色、一样占一行；字用提醒色，放不下时"去配置"换到第二行
  */
 .model-key-notice {
@@ -3222,7 +3222,7 @@ a.att-icon:hover {
   color: var(--muted);
 }
 /*
- * 设置的四组（247 号票）：组标题照页面里的一节（.sec-head 的排法、.sec-head h3 的字号），点一下收起 / 展开（▾ / ▸）；
+ * 设置的四组：组标题照页面里的一节（.sec-head 的排法、.sec-head h3 的字号），点一下收起 / 展开（▾ / ▸）；
  * 收起时组里的项不画，标题行还在。组和组之间一条细线（只用 token），手机上不挤、宽屏左栏里四组也分得开；组里的项照旧是 .menu-item
  */
 .settings-group {
@@ -3265,7 +3265,7 @@ a.att-icon:hover {
   flex-direction: column;
   gap: 2px;
 }
-/* 设置 · 语言 / Language（168 号票）：语言列表照设置列表的样子，正在用的打勾；读不进来的文件、怎么加新语言是小字 */
+/* 设置 · 语言 / Language：语言列表照设置列表的样子，正在用的打勾；读不进来的文件、怎么加新语言是小字 */
 .language-page {
   display: flex;
   flex-direction: column;
@@ -3294,7 +3294,7 @@ a.att-icon:hover {
 .language-howto p {
   margin: 0 0 6px;
 }
-/* 设置 · 外观与风格（74 号票）里的外观：三个选项平分一行；宽屏右边那一栏很宽，不拉满（和手机上差不多宽） */
+/* 设置 · 外观与风格里的外观：三个选项平分一行；宽屏右边那一栏很宽，不拉满（和手机上差不多宽） */
 .appearance-choice {
   max-width: 420px;
 }
@@ -3313,7 +3313,7 @@ a.att-icon:hover {
   font-size: var(--fs-s);
 }
 /*
- * 设置 · 浏览与填框里"agent 联网搜索、读网页"（154 号票；162 号票改成三种方式的队列）：一项一行——排第几的小圆、名字和一句话特点
+ * 设置 · 浏览与填框里"agent 联网搜索、读网页"（改成三种方式的队列）：一项一行——排第几的小圆、名字和一句话特点
  * （点不了的原因另起一行）、上移下移、最右边的启用开关；停用的整行变淡。电脑上（精确指针）左边多一个拖动的把手，拖着经过的那一项
  * 上沿或下沿出一条强调色的线标出放下的位置。窄屏上文字自动换行，按钮和开关不缩。现在的顺序一行、余额不足的提醒。只用 token
  */
@@ -3392,7 +3392,7 @@ a.att-icon:hover {
   font-size: var(--fs-s);
 }
 /*
- * 182 号票：名字下面一行用的英文工具名——工具名是等宽的小块（底色 --fill，不断在工具名中间），engine 的写法再小一号的等宽字；
+ * 名字下面一行用的英文工具名——工具名是等宽的小块（底色 --fill，不断在工具名中间），engine 的写法再小一号的等宽字；
  * 窄屏上一行放不下就在工具名之间折行
  */
 .web-queue-tools {
@@ -3417,7 +3417,7 @@ a.att-icon:hover {
   white-space: normal;
 }
 /*
- * 182 号票：窄的页面（手机）上名字和上移下移、开关一行，工具名、特点、原因各占一整行（从名字的左边起，伸到卡片右边），
+ * 窄的页面（手机）上名字和上移下移、开关一行，工具名、特点、原因各占一整行（从名字的左边起，伸到卡片右边），
  * 不挤在名字和按钮中间那一小条里。.web-queue-text 拆开（display: contents），它里面的几行排到后面换行
  */
 @container page (max-width: 560px) {
@@ -3489,7 +3489,7 @@ a.att-icon:hover {
   overflow-wrap: anywhere;
 }
 /*
- * 设置 · 授权的文件夹（138 号票，ui/authorized-folders.tsx）：一行一个文件夹（路径长了随处断行），右边一个叉；
+ * 设置 · 授权的文件夹（ui/authorized-folders.tsx）：一行一个文件夹（路径长了随处断行），右边一个叉；
  * 找不到了的路径变淡、后面一个醒目的小标签。选文件夹的框：常用位置和各个盘一排小按钮（能换行），子文件夹一列（框里自己滚，
  * 不把对话框撑高），底部当前路径和"授权这个文件夹"、贴完整路径的输入框；窄屏上都能换行，不横向滚动。只用 token
  */
@@ -3627,7 +3627,7 @@ a.att-icon:hover {
   min-width: 0;
 }
 /*
- * 设置 · 模型（73 号票，pages/more/ModelsPage.tsx）：最上面一句生效时机（设置文件读不出来时下面一条醒目的提示和原因）；
+ * 设置 · 模型（pages/more/ModelsPage.tsx）：最上面一句生效时机（设置文件读不出来时下面一条醒目的提示和原因）；
  * 默认模型是下拉加思考档位的分段；各个 agent 每行左边是叫法和说明、右边两个下拉（模型、思考档位），这一栏窄（手机）时
  * 下拉换到下面一行、各占一半；看图能力每个模型一行，右边一个下拉。只用 token
  */
@@ -3808,7 +3808,7 @@ a.att-icon:hover {
     grid-template-columns: minmax(0, 1fr);
   }
 }
-/* 项目负责人、任务负责人那一行下面：单独配了模型的有哪些（120 号票），名字点了去它的 ⚙ */
+/* 项目负责人、任务负责人那一行下面：单独配了模型的有哪些，名字点了去它的 ⚙ */
 .model-overrides {
   color: var(--text);
   overflow-wrap: anywhere;
@@ -3823,10 +3823,10 @@ a.att-icon:hover {
   color: var(--high-fg);
 }
 /*
- * 设置里一行搞定的输入项：249 号票的"我的名字"（43 号票的"个人助理的名字"那一块 2026-10-23 起没有了——
+ * 设置里一行搞定的输入项："我的名字"（"个人助理的名字"那一块 2026-10-23 起没有了——
  * 助理的名字就是默认角色的名字，在设置 · 角色与声音里改）。
  * 名字标签在前、输入框占中间的余量、按钮在右边，说明不铺在页面上（悬停在 title 里）；窄了按钮折到下一行。
- * 175 号票的取舍照旧：输入框窄过 4 个字宽时按钮折行（英文的"Restore default"很长）。
+ * 取舍照旧：输入框窄过 4 个字宽时按钮折行（英文的"Restore default"很长）。
  */
 .user-name-setting {
   display: flex;
@@ -3855,7 +3855,7 @@ a.att-icon:hover {
   font-size: var(--fs-s);
 }
 /*
- * 设置里的"工具调用的完整内容"（65 号票）：说明（占了多大、规则）在上，"可以清掉几次"和"现在就清理"一行。
+ * 设置里的"工具调用的完整内容"：说明（占了多大、规则）在上，"可以清掉几次"和"现在就清理"一行。
  */
 .tool-call-storage,
 .enter-key-setting {
@@ -3879,7 +3879,7 @@ a.att-icon:hover {
   flex: none;
 }
 /*
- * 设置 · 备份（356 号票）：状态、两处位置、什么时候、留几份、已有的快照、动手。路径和命令长的折行；宽屏两处快照并排，窄屏上下排。只用 token
+ * 设置 · 备份：状态、两处位置、什么时候、留几份、已有的快照、动手。路径和命令长的折行；宽屏两处快照并排，窄屏上下排。只用 token
  */
 .backup-page {
   display: flex;
@@ -3987,7 +3987,7 @@ a.att-icon:hover {
   overflow-wrap: anywhere;
 }
 /*
- * 设置 · 系统提示（71 号票）：列表按前缀、各角色、共用片段分节，每份一行（名字、用的是默认还是改过的、一句说明）；
+ * 设置 · 系统提示：列表按前缀、各角色、共用片段分节，每份一行（名字、用的是默认还是改过的、一句说明）；
  * 点进去是编辑页：等宽的大编辑框，写错了就地写出第几行错在哪，下面是按钮和能用的占位符。只用 token
  */
 .prompt-intro {
@@ -4133,7 +4133,7 @@ a.att-icon:hover {
   min-width: 12em;
 }
 /*
- * 每个 agent 的会话里的 ⚙（114 号票，ui/agent-settings.tsx）：面板是现有的弹层（手机底部、宽屏居中），里面三节——
+ * 每个 agent 的会话里的 ⚙（ui/agent-settings.tsx）：面板是现有的弹层（手机底部、宽屏居中），里面三节——
  * 单独的提示词（编辑框借设置 · 系统提示的样子，矮一些）、清空当前对话、上下文用量（一条用量条）。只用 token
  */
 .agent-panel {
@@ -4152,11 +4152,11 @@ a.att-icon:hover {
 .agent-prompt-editor {
   min-height: 140px;
 }
-/* ⚙ 里的"模型"（120 号票）：下拉和思考档位借设置 · 模型的 .model-choice */
+/* ⚙ 里的"模型"：下拉和思考档位借设置 · 模型的 .model-choice */
 .agent-model-next {
   font-weight: 600;
 }
-/* ⚙ 里的"运行时"（289 号票）：运行时下拉借 .model-choice；运行时自己的模型、设置项各一行"名字 + 下拉"，窄屏折成两行 */
+/* ⚙ 里的"运行时"：运行时下拉借 .model-choice；运行时自己的模型、设置项各一行"名字 + 下拉"，窄屏折成两行 */
 .agent-runtime-field {
   display: flex;
   flex-wrap: wrap;
@@ -4221,7 +4221,7 @@ a.att-icon:hover {
 .agent-actions {
   margin-top: 0;
 }
-/* 清空当前对话的分隔线（114 号票）：上面一行小字"更早的对话"，下面借工单分隔线的样子 */
+/* 清空当前对话的分隔线：上面一行小字"更早的对话"，下面借工单分隔线的样子 */
 .cleared-divider {
   display: flex;
   flex-direction: column;
@@ -4235,7 +4235,7 @@ a.att-icon:hover {
   align-self: stretch;
 }
 /*
- * 外观下面的"风格"（39 号票；74 号票起在设置 · 外观与风格这一页里）：每套一格，上面浅色、深色两张预览，下面名字和一句话。
+ * 外观下面的"风格"（在设置 · 外观与风格这一页里）：每套一格，上面浅色、深色两张预览，下面名字和一句话。
  * 格子按这一栏的宽度排：手机上两列（十来套风格也就五六行），更宽的地方更多列；
  * 只放得下一列又比一格宽不少时（宽屏窗口不宽、右边那一栏窄的时候），预览放左边、名字放右边，省一半高度。
  */
@@ -4243,7 +4243,7 @@ a.att-icon:hover {
   container-type: inline-size;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
-  /* 主色色块（119 号票）占满一整行插在经典后面：同一行里排在经典后面的风格往前补，不留空格子 */
+  /* 主色色块占满一整行插在经典后面：同一行里排在经典后面的风格往前补，不留空格子 */
   grid-auto-flow: row dense;
   gap: 8px;
 }
@@ -4290,7 +4290,7 @@ a.att-icon:hover {
   }
 }
 /*
- * 经典的主色（119 号票，StylePicker.tsx 的 AccentPicker）：选了经典时出现在它那一行下面，占满一整行。
+ * 经典的主色（StylePicker.tsx 的 AccentPicker）：选了经典时出现在它那一行下面，占满一整行。
  * 每个色块是挂着 data-style + data-accent 的小圆，底色 var(--primary-fill) 就是那种主色在现在深浅下的实色块
  * （生成的样式表在这两个属性上换 token）；当前那个打勾（白字 primary-text）、外面隔一圈底色再一圈主色
  */
@@ -4396,7 +4396,7 @@ a.att-icon:hover {
   font-size: var(--fs-body);
 }
 /*
- * 场景像真会话一样贴底（42 号票）：放不下时裁掉的是最上面那条，卡片和它的两个按钮总在导航上面看得到
+ * 场景像真会话一样贴底：放不下时裁掉的是最上面那条，卡片和它的两个按钮总在导航上面看得到
  * （留白大的风格，比如软糖圆角，原来卡片的按钮被导航挡住）
  */
 .preview-page .conv-scroll {
@@ -4412,7 +4412,7 @@ a.att-icon:hover {
 .preview-page .tab-label {
   display: none;
 }
-/* "自动播放 agent 的语音"开关（36 号票；45 号票起在设置 · 语音的"播放"里） */
+/* "自动播放 agent 的语音"开关（在设置 · 语音的"播放"里） */
 .autoplay-switch {
   cursor: pointer;
   background: var(--surface);
@@ -4561,7 +4561,7 @@ a.att-icon:hover {
     grid-column: auto;
   }
 }
-/* 工作日历（29 号票），35 号票起是主导航的日历 */
+/* 工作日历，是主导航的日历 */
 .cal-nav {
   display: flex;
   align-items: center;
@@ -4658,7 +4658,7 @@ a.att-icon:hover {
 .lg-manual {
   border: 1.5px dashed var(--you);
 }
-/* 日历（35 号票）：主导航的日历页。格子下面一行是提醒数、作业数（小圆角数字）和失败的红点，不挤掉"班 / 休" */
+/* 日历：主导航的日历页。格子下面一行是提醒数、作业数（小圆角数字）和失败的红点，不挤掉"班 / 休" */
 .cal-day {
   min-height: 74px;
 }
@@ -4695,7 +4695,7 @@ a.att-icon:hover {
   background: color-mix(in srgb, var(--ok) 16%, var(--surface));
   color: var(--ok);
 }
-/* 外部日历（299 号票：手机日历……）当天几条 */
+/* 外部日历（手机日历……）当天几条 */
 .cal-mk-x {
   background: color-mix(in srgb, var(--c-plan) 16%, var(--surface));
   color: var(--c-plan);
@@ -4815,7 +4815,7 @@ a.att-icon:hover {
 .cal-item-time {
   font-weight: 600;
 }
-/* 外部日历的一条（297 号票）：时间那一列放得下"09:30–09:45"不折行，几条之间对齐 */
+/* 外部日历的一条：时间那一列放得下"09:30–09:45"不折行，几条之间对齐 */
 .cal-item[data-external] {
   grid-template-columns: 96px minmax(0, 1fr);
 }
@@ -4828,7 +4828,7 @@ a.att-icon:hover {
   gap: 2px;
   min-width: 0;
 }
-/* 这一次的状况：发生了的才上色（成功绿、失败红、错过和中断橙、部分完成橙——176 号票），没发生的、还没到的中性 */
+/* 这一次的状况：发生了的才上色（成功绿、失败红、错过和中断橙、部分完成橙——），没发生的、还没到的中性 */
 .cal-st {
   max-width: 45cqi;
   font-size: var(--fs-s);
@@ -4874,7 +4874,7 @@ a.att-icon:hover {
   gap: 2px;
 }
 /*
- * 设置 · 插件（211 号票，pages/more/PluginsPage.tsx）：一个插件一块（名字和状况的小签、一句话、带来了什么、依赖、按钮），
+ * 设置 · 插件（pages/more/PluginsPage.tsx）：一个插件一块（名字和状况的小签、一句话、带来了什么、依赖、按钮），
  * 移除了的收在下面"已移除（N）"里，点开才列出
  */
 .plugin-list {
@@ -4942,7 +4942,7 @@ a.att-icon:hover {
 }
 
 /*
- * 设置 · 组件（323 号票，pages/more/ComponentsPage.tsx）：一个组件一块，版式照设置 · 插件（名字和状况的小签、一句话、几行键值、
+ * 设置 · 组件（pages/more/ComponentsPage.tsx）：一个组件一块，版式照设置 · 插件（名字和状况的小签、一句话、几行键值、
  * 进度条、按钮）；上面一排"装上默认的组件""从文件导入…"。别处点"去装"过来的那一块描一圈主色。只用 token
  */
 .component-toolbar {
@@ -5096,7 +5096,7 @@ a.att-icon:hover {
   font-size: var(--fs-s);
 }
 /*
- * 设置 · 更多 · 体检（319 号票的 319b，pages/more/DoctorPage.tsx）：一行一项——✅ / ⚠️、名字、事实（一句）、坏了的时候一句"怎么修"；
+ * 设置 · 更多 · 体检（319b，pages/more/DoctorPage.tsx）：一行一项——✅ / ⚠️、名字、事实（一句）、坏了的时候一句"怎么修"；
  * 上面一句查的时刻、一句说明。手机宽时事实和修法换行到名字下面，电脑宽时修法占一行。只用 token
  */
 .doctor-page {
@@ -5157,7 +5157,7 @@ a.att-icon:hover {
     grid-column: 2 / -1;
   }
 }
-/* 没装的组件对应的功能（323 号票，ui/component-gate.tsx）：灰掉的入口，和它旁边一行"要先装「X」· 去装 ›" */
+/* 没装的组件对应的功能（ui/component-gate.tsx）：灰掉的入口，和它旁边一行"要先装「X」· 去装 ›" */
 .component-off {
   opacity: 0.45;
 }
@@ -5181,7 +5181,7 @@ a.att-icon:hover {
 }
 
 /*
- * 设置 · 数据源（295 号票，pages/more/DataSourcesPage.tsx）：一个数据源一块（名字和连接状态的小签、账号、一句话、上次同步和条数、
+ * 设置 · 数据源（pages/more/DataSourcesPage.tsx）：一个数据源一块（名字和连接状态的小签、账号、一句话、上次同步和条数、
  * 两种用法的开关、敏感内容和认的文件、插件画的设置、按钮），版式照设置 · 插件；下面一节导入文件夹（路径、按钮、没导入的、最近导入的）。只用 token
  */
 .source-list {
@@ -5244,7 +5244,7 @@ a.att-icon:hover {
   padding-top: 6px;
   border-top: 1px solid var(--border);
 }
-/* 原始数据（300 号票：手机的原始位置点、照片的时间地点）：折起来的一节，一天一行、右边"清掉" */
+/* 原始数据（手机的原始位置点、照片的时间地点）：折起来的一节，一天一行、右边"清掉" */
 .source-raw {
   margin-top: 4px;
   padding-top: 6px;
@@ -5274,7 +5274,7 @@ a.att-icon:hover {
   margin-left: 6px;
 }
 /*
- * 数据源分两层（343 号票）。一级（DataSourcesPage）：按插件分组的卡片，整张卡是一个按钮，手机一列、阔折叠两列、电脑铺满；
+ * 数据源分两层。一级（DataSourcesPage）：按插件分组的卡片，整张卡是一个按钮，手机一列、阔折叠两列、电脑铺满；
  * 二级（DataSourceDetail）：窄屏状态、设置、数据纵向排，这一栏够宽时左边状态和设置、右边数据（.page-pad 是 page 容器）。只用 token
  */
 .data-sources-page {
@@ -5503,12 +5503,12 @@ button.ds-item {
 .phone-notes {
   margin-top: 6px;
 }
-/* 位置"App 在后台也记"的开关（300 号票）：和上下的字对齐 */
+/* 位置"App 在后台也记"的开关：和上下的字对齐 */
 .phone-panel .menu-item {
   padding-left: 0;
   padding-right: 0;
 }
-/* "手机 · 位置"下面的"常去的地方"（308 号票，plugins/phone/PhonePlaces.tsx）：起了名的几处、常待的几处（列表同 Google 日历那一块）、
+/* "手机 · 位置"下面的"常去的地方"（plugins/phone/PhonePlaces.tsx）：起了名的几处、常待的几处（列表同 Google 日历那一块）、
    起名 / 改名 / 加一处的表单 */
 .phone-places {
   display: flex;
@@ -5572,11 +5572,11 @@ button.ds-item {
   font-size: var(--fs-m);
   overflow-wrap: anywhere;
 }
-/* 数据源报的一句提示（297 号票："日历插件没启用：……"），不是出错 */
+/* 数据源报的一句提示（"日历插件没启用：……"），不是出错 */
 .source-note {
   margin: 0;
 }
-/* Google · 日历下面那一块（297 号票，Google 插件画的）：订阅的几个日历、加一个日历、怎么拿私密地址 */
+/* Google · 日历下面那一块（Google 插件画的）：订阅的几个日历、加一个日历、怎么拿私密地址 */
 .gcal-panel {
   display: flex;
   flex-direction: column;
@@ -5632,11 +5632,11 @@ button.ds-item {
 .gcal-howto p {
   margin: 0;
 }
-/* 298 号票 Google · Gmail 的说明有几段：段和段之间空一点 */
+/* Google · Gmail 的说明有几段：段和段之间空一点 */
 .gcal-howto p + p {
   margin-top: 4px;
 }
-/* 344 号票 Gmail 的几个账号：一行放不下时（窄屏、长邮箱）按钮和开关换到下一行 */
+/* Gmail 的几个账号：一行放不下时（窄屏、长邮箱）按钮和开关换到下一行 */
 .gmail-account {
   flex-wrap: wrap;
 }
@@ -5651,7 +5651,7 @@ button.ds-item {
   gap: 8px;
   margin-left: auto;
 }
-/* 344 号票 现在能查到的按账号一组 */
+/* 现在能查到的按账号一组 */
 .ds-live-group {
   display: flex;
   flex-direction: column;
@@ -5669,7 +5669,7 @@ button.ds-item {
 .ds-live-group-head .muted {
   font-size: var(--fs-s);
 }
-/* Looki 的设置那一块（296 号票，plugins/looki/LookiPanel.tsx）：区域两个选项、Key 的输入框、测试连接、几行说明 */
+/* Looki 的设置那一块（plugins/looki/LookiPanel.tsx）：区域两个选项、Key 的输入框、测试连接、几行说明 */
 .looki-panel {
   display: flex;
   flex-direction: column;
@@ -5702,7 +5702,7 @@ button.ds-item {
 .looki-panel .field input {
   min-width: 0;
 }
-/* Looki 的"存一份到本地"（307 号票，plugins/looki/LookiArchive.tsx）：开关、位置、存哪几类、已存多少、补存、几行说明 */
+/* Looki 的"存一份到本地"（plugins/looki/LookiArchive.tsx）：开关、位置、存哪几类、已存多少、补存、几行说明 */
 .looki-archive {
   display: flex;
   flex-direction: column;
@@ -5755,7 +5755,7 @@ button.ds-item {
 .looki-range .field {
   min-width: 0;
 }
-/* 断开的确认框里数据源报的那一句（307 号票：Looki 存到本地的文件不删） */
+/* 断开的确认框里数据源报的那一句（Looki 存到本地的文件不删） */
 .source-keep-note {
   font-size: var(--fs-s);
   color: var(--muted);
@@ -5790,7 +5790,7 @@ button.ds-item {
   font-size: var(--fs-s);
 }
 
-/* skill 库页上整套导入的集合（72 号票）：一项一行，点开列出成员 */
+/* skill 库页上整套导入的集合：一项一行，点开列出成员 */
 .skill-collection {
   border-radius: var(--radius-l);
   background: var(--surface);
@@ -5856,7 +5856,7 @@ button.ds-item {
 .skill-secretary {
   display: block;
 }
-/* skill 目录名的问题（82 号票：斜杠命令就是目录名，不合规的不自动改，这里一条一条列出） */
+/* skill 目录名的问题（斜杠命令就是目录名，不合规的不自动改，这里一条一条列出） */
 .skill-dir-problems ul {
   margin: 4px 0 0;
   padding-left: 18px;
@@ -5873,7 +5873,7 @@ button.ds-item {
   margin-top: 0;
   overflow-wrap: anywhere;
 }
-/* skill 的选择（72 号票，ui/skill-picker.tsx）：集合显示成一项（点开单选、× 整套去掉） */
+/* skill 的选择（ui/skill-picker.tsx）：集合显示成一项（点开单选、× 整套去掉） */
 .skill-picker {
   flex: 1;
   min-width: 0;
@@ -5971,7 +5971,7 @@ button.ds-item {
 }
 
 /*
- * ---------- 素材：成批删除里范围里的素材列表和点开的一条（158 号票；167 号票起在记忆 · 素材） ----------
+ * ---------- 素材：成批删除里范围里的素材列表和点开的一条（在记忆 · 素材） ----------
  * 列表一行借系统提示的行（.prompt-row）；详情借详情栏的排版（.dt-section、.dt-doc、.dt-kv、.dt-attachments，detail.css）。只用 token
  */
 .mat-page {
@@ -6057,7 +6057,7 @@ button.ds-item {
   color: var(--muted);
   word-break: break-all;
 }
-/* 你存的网页（165 号票）：标题（能点）、网址、存下的正文 */
+/* 你存的网页：标题（能点）、网址、存下的正文 */
 .mat-saved {
   display: flex;
   flex-direction: column;
@@ -6073,7 +6073,7 @@ button.ds-item {
 }
 
 /*
- * ---------- 记忆 · 素材（167 号票）：搜索框、时间范围（快捷选项、自定义、往前往后一段）、种类和会话的筛选、按日期分组的列表 ----------
+ * ---------- 记忆 · 素材：搜索框、时间范围（快捷选项、自定义、往前往后一段）、种类和会话的筛选、按日期分组的列表 ----------
  * 一行借系统提示的行（.prompt-row），快捷选项借分段切换（.seg），自定义的日期框借消耗页的（.usage-range）。只用 token
  */
 .mat-browse {
@@ -6202,12 +6202,12 @@ button.ds-item {
   background: color-mix(in srgb, var(--c-plan) 32%, transparent);
   color: inherit;
 }
-/* 记忆的三层（167 号票）：照设置的列表 */
+/* 记忆的三层：照设置的列表 */
 .memory-layers .later {
   vertical-align: 1px;
 }
 
-/* ---------- 记忆 · 结论、证据与推理、问题箱（233 号票） ---------- */
+/* ---------- 记忆 · 结论、证据与推理、问题箱 ---------- */
 /* 列表沿用素材页的 .mat-* 和 .prompt-row，分节沿用 .sec-head；这里只补几处 */
 .mem-page {
   display: flex;
@@ -6256,7 +6256,7 @@ button.ds-item {
 .mem-row-chips .chip {
   font-size: var(--fs-xs);
 }
-/* 330 号票：结论的"猜测"、做法的"建在猜测上"（橙）；"已验证"用 chip-ok（绿） */
+/* 结论的"猜测"、做法的"建在猜测上"（橙）；"已验证"用 chip-ok（绿） */
 .chip-guess {
   background: var(--op-bg);
   color: var(--op-fg);
@@ -6427,7 +6427,7 @@ button.ds-item {
   max-width: 520px;
 }
 
-/* ---------- 会话里消息之外的记录（25 号票，RecordRow）：偏离、范围变更、越界、快速动作的操作记录 ---------- */
+/* ---------- 会话里消息之外的记录（RecordRow）：偏离、范围变更、越界、快速动作的操作记录 ---------- */
 .tl-record b {
   font-weight: 600;
 }
@@ -6445,7 +6445,7 @@ button.ds-item {
   border-left-color: var(--high-fg);
 }
 
-/* ---------- 发起任务：先选种类（58 号票） ---------- */
+/* ---------- 发起任务：先选种类 ---------- */
 .sc-modes {
   display: flex;
   gap: 8px;
@@ -6477,7 +6477,7 @@ button.ds-item {
   border-color: var(--primary);
   background: color-mix(in srgb, var(--primary) 8%, var(--surface));
 }
-/* 发起对话框的按钮固定在底部（75 号票评审：1280 宽、800 高时按钮在第一屏外）：抵掉弹层底部的内边距，贴着弹层的下沿 */
+/* 发起对话框的按钮固定在底部（1280 宽、800 高时按钮在第一屏外）：抵掉弹层底部的内边距，贴着弹层的下沿 */
 .sc-actions {
   position: sticky;
   bottom: -18px;
@@ -6486,7 +6486,7 @@ button.ds-item {
   background: var(--surface);
   border-top: 1px solid var(--border);
 }
-/* "默认"的小标（75 号票：普通任务排在最前、默认选中） */
+/* "默认"的小标（普通任务排在最前、默认选中） */
 .sc-default {
   margin-left: 6px;
   padding: 0 5px;
@@ -6527,12 +6527,12 @@ button.ds-item {
     color: var(--muted);
   }
 }
-/* 看板卡片、任务详情上的种类签：流程用主色，长程任务用默认的灰，普通任务（75 号票）用完成的绿色、虚线框（交给后台、不规划） */
+/* 看板卡片、任务详情上的种类签：流程用主色，长程任务用默认的灰，普通任务用完成的绿色、虚线框（交给后台、不规划） */
 .kind-chip {
   flex: none;
   margin-right: 6px;
 }
-/* 新建项目、任务时选运行时（289 号票）：照"什么时候做"那一排（.when-picker） */
+/* 新建项目、任务时选运行时：照"什么时候做"那一排（.when-picker） */
 .runtime-picker .runtime-seg {
   padding: 3px;
   margin: 4px 0 6px;
@@ -6549,7 +6549,7 @@ button.ds-item {
   line-height: 1.5;
   color: var(--muted);
 }
-/* 从已有的会话接管（290 号票）：运行时那一排下面的入口是一行链接样的按钮；接管的对话框里会话一行一个（单选），选中的描主色边，
+/* 从已有的会话接管：运行时那一排下面的入口是一行链接样的按钮；接管的对话框里会话一行一个（单选），选中的描主色边，
    被占着的带一个签；选中被占着的下面一段说明和"分叉一份接管"；⚙ 里接管来的那一行是一块浅底 */
 .takeover-link {
   display: block;
@@ -6662,7 +6662,7 @@ button.ds-item {
 .takeover-panel .btn {
   margin-top: 4px;
 }
-/* 292 号票：会话在官方 App 里（运行时自己的后台会话连着 Remote Control）——那一块描主色边；标题后面一个"在官方 App 里"的签、
+/* 会话在官方 App 里（运行时自己的后台会话连着 Remote Control）——那一块描主色边；标题后面一个"在官方 App 里"的签、
    链接一行（等宽小字、长的折行）；按钮排成一排（交给官方 App、交还、收回到<名字>） */
 .takeover-panel.remote {
   background: color-mix(in srgb, var(--primary) 8%, var(--fill));
@@ -6699,11 +6699,11 @@ button.ds-item {
   flex-wrap: wrap;
   gap: 8px;
 }
-/* 会话里在官方 App 里说的、回的（292 号票，只读跟随补记的）：时间前面一个主色小字 */
+/* 会话里在官方 App 里说的、回的（只读跟随补记的）：时间前面一个主色小字 */
 .msg-remote {
   color: var(--primary);
 }
-/* 新建时选工作文件夹（305 号票）："在哪个文件夹做"照"运行时"那一排（.runtime-picker）；子文件夹名一行"名字 + 输入框"，
+/* 新建时选工作文件夹："在哪个文件夹做"照"运行时"那一排（.runtime-picker）；子文件夹名一行"名字 + 输入框"，
    路径输入框等宽字；最近用过的几个是一排可点的小签（选中的描主色边）；卡上、⚙ 里那一行路径用等宽小字，长的折行 */
 .work-folder .work-folder-seg {
   padding: 3px;
@@ -6792,7 +6792,7 @@ button.ds-item {
   gap: 8px;
   margin: 4px 0 6px;
 }
-/* 负责人用的运行时（289 号票）：插件登记的才标（默认的 pi 不标），不抢眼的描边小签 */
+/* 负责人用的运行时：插件登记的才标（默认的 pi 不标），不抢眼的描边小签 */
 .runtime-chip {
   flex: none;
   margin-right: 6px;
@@ -6810,7 +6810,7 @@ button.ds-item {
   border-color: color-mix(in srgb, var(--ok) 45%, transparent);
 }
 
-/* ---------- 流程计划卡（58 号票） ---------- */
+/* ---------- 流程计划卡 ---------- */
 /* 计划审查面板：扫描 → 识别 → 修复 → 结果 */
 .rp {
   margin: 12px 0 4px;
@@ -7090,7 +7090,7 @@ button.ds-item {
   margin: 0 12px 8px;
 }
 
-/* ---------- 发起任务：什么时候做（76 号票）：现在做一次、定时、只提醒我；只提醒我用不上做法，收起做法的页签 ---------- */
+/* ---------- 发起任务：什么时候做：现在做一次、定时、只提醒我；只提醒我用不上做法，收起做法的页签 ---------- */
 .sc-picker.sc-off {
   display: none;
 }
@@ -7107,7 +7107,7 @@ button.ds-item {
   opacity: 0.4;
   cursor: not-allowed;
 }
-/* 定时之下的两种：按时间表反复做、某个时间做一次（76 号票，用户 2026-10-10 定） */
+/* 定时之下的两种：按时间表反复做、某个时间做一次 */
 .when-picker .timed-seg {
   padding: 2px;
   margin: 0 0 6px;
@@ -7130,7 +7130,7 @@ button.ds-item {
   border: none;
   padding: 0;
 }
-/* 写的话里说了几点（97 号票）：按写的定好了是数据标注的蓝底，和定的不一样、长程任务不能定时是操作标注的橙底 */
+/* 写的话里说了几点：按写的定好了是数据标注的蓝底，和定的不一样、长程任务不能定时是操作标注的橙底 */
 .when-picker .when-text-hint {
   margin: 8px 0 2px;
   padding: 6px 10px;
@@ -7146,7 +7146,7 @@ button.ds-item {
   background: var(--op-bg);
   color: var(--op-fg);
 }
-/* 定时触发的任务（76 号票）：看板卡、任务详情上的"定时"签用运营中的绿色；运营中的状态也是 */
+/* 定时触发的任务：看板卡、任务详情上的"定时"签用运营中的绿色；运营中的状态也是 */
 .trigger-chip {
   flex: none;
   margin-right: 6px;
@@ -7194,11 +7194,11 @@ button.ds-item {
 .run-row.run-rolled_back {
   border-left-color: var(--border);
 }
-/* 运行中你撤回了会话（155 号票）：不算失败，原因不标红 */
+/* 运行中你撤回了会话：不算失败，原因不标红 */
 .run-row.run-rolled_back .run-reason {
   color: var(--muted);
 }
-/* 部分完成（176 号票）：有一步没等到批准、或者要你亲手做，别的做完了——不算成功也不算失败，单独一种颜色（橙），没做成的那几步也是橙字 */
+/* 部分完成：有一步没等到批准、或者要你亲手做，别的做完了——不算成功也不算失败，单独一种颜色（橙），没做成的那几步也是橙字 */
 .run-row.run-partial {
   border-left-color: var(--op-fg);
 }
@@ -7239,7 +7239,7 @@ button.ds-item {
   color: var(--muted);
 }
 
-/* 定时触发的流程的计划卡（76 号票）：时间表和授权管多久 */
+/* 定时触发的流程的计划卡：时间表和授权管多久 */
 .auth-timed {
   margin: 8px 0;
   padding: 8px 10px;
@@ -7259,7 +7259,7 @@ button.ds-item {
 }
 
 /*
- * ---------- 三种做法的界面（60 号票，颜色、字号用 token） ----------
+ * ---------- 三种做法的界面（颜色、字号用 token） ----------
  * 流程会话标题栏上的进度条：点开是这个任务的计划台账（ui/conversation/PlanTimeline.tsx）
  */
 .progress {
@@ -7382,7 +7382,7 @@ button.progress:active {
   height: 100%;
   background: var(--c-plan);
 }
-/* 看板卡上系统查到的结果（274 号票，sl-outcome：绿字一行、放不下省略）；和自报对不上的用退回的颜色另标 */
+/* 看板卡上系统查到的结果（sl-outcome：绿字一行、放不下省略）；和自报对不上的用退回的颜色另标 */
 .bcard-observed {
   flex-wrap: nowrap;
 }
@@ -7397,14 +7397,14 @@ button.progress:active {
   flex: none;
   color: var(--reject-fg);
 }
-/* 阶段卡上和自报对不上的那几处（274 号票）：跟在系统查到的那一行后面 */
+/* 阶段卡上和自报对不上的那几处：跟在系统查到的那一行后面 */
 .stage-card-bad {
   margin-left: 8px;
   color: var(--reject-fg);
   white-space: nowrap;
 }
 
-/* ---------- 事件触发（77 号票） ---------- */
+/* ---------- 事件触发 ---------- */
 /* 看板卡、任务详情上的"事件"签：和"定时"同一种签，换成主色 */
 .trigger-chip.trigger-event {
   color: var(--primary);
@@ -7514,7 +7514,7 @@ button.progress:active {
 }
 
 /*
- * 关于二狗、Debug 工具集（124 号票）：设置下面的两页。只用 token；Debug 的每组是一张 .card 底板（各套风格跟着 --surface、
+ * 关于二狗、Debug 工具集：设置下面的两页。只用 token；Debug 的每组是一张 .card 底板（各套风格跟着 --surface、
  * --panel-border 走，像素、蓝图这些对 .card 另有的规则照样生效）
  */
 .about,
@@ -7545,7 +7545,7 @@ button.progress:active {
   font-size: var(--fs-title);
   font-weight: 600;
 }
-/* 英文名 ergo（用户 2026-10-15 定）：跟在"二狗"后面，次要字色 */
+/* 英文名 ergo：跟在"二狗"后面，次要字色 */
 .about-name-en {
   margin-left: 4px;
   color: var(--muted);
@@ -7767,7 +7767,7 @@ button.progress:active {
   font-size: var(--fs-xs);
 }
 
-/* ---------- 浏览（134 号票，pages/BrowsePage.tsx）：鸿蒙 App 里的原生内置浏览器 ---------- */
+/* ---------- 浏览（pages/BrowsePage.tsx）：鸿蒙 App 里的原生内置浏览器 ---------- */
 .browse-page {
   container: browse / inline-size;
 }
@@ -7824,7 +7824,7 @@ button.progress:active {
   flex: 1;
 }
 /*
- * 浏览器和浏览侧边栏中间的分隔条（148 号票，宽屏挤压时）：这一页画在两个原生 Web 中间那条缝里（缝就是命中区，照"详情"阶段栏
+ * 浏览器和浏览侧边栏中间的分隔条（宽屏挤压时）：这一页画在两个原生 Web 中间那条缝里（缝就是命中区，照"详情"阶段栏
  * .splitter 的 14 宽；那边左右各压进栏里 5，这里两边是原生 Web、压进去摸不到，所以不压）。样子、光标、按下高亮都是 .splitter 的
  */
 .browse-split {
@@ -7853,7 +7853,7 @@ button.progress:active {
   min-width: 0;
 }
 /*
- * ⋮ 菜单（165 号票，pages/BrowseTools.tsx）：宽屏是贴着 ⋮ 的下拉菜单（.popup.row-menu.browse-menu），手机上是底部弹层里的
+ * ⋮ 菜单（pages/BrowseTools.tsx）：宽屏是贴着 ⋮ 的下拉菜单（.popup.row-menu.browse-menu），手机上是底部弹层里的
  * .browse-menu-sheet；分组之间是 .menu-sep。点不了的一项灰掉、下面一行小字写原因；文字大小一行带减号、加号；桌面版带勾。只用 token
  */
 .browse-bar {
@@ -8083,7 +8083,7 @@ button.progress:active {
   margin: 8px 0;
 }
 /*
- * 项目的服务的入口（133 号票，ui/service-entry.tsx）："打开「X」"的小按钮，前面一个圆点标在不在线（在线绿、上线中 / 启动中主色、
+ * 项目的服务的入口（ui/service-entry.tsx）："打开「X」"的小按钮，前面一个圆点标在不在线（在线绿、上线中 / 启动中主色、
  * 失败红、要你手动提醒色、离线和已撤下灰），不压缩时后面跟一句状态。只用 token，各风格的按钮、圆角照它们的 token 走
  */
 .svc-entries {
@@ -8175,7 +8175,7 @@ button.progress:active {
 .ops-row .svc-entries {
   margin-top: 4px;
 }
-/* 服务报的事件（357 号票）：一个事件一行，手机上窄了就折行 */
+/* 服务报的事件：一个事件一行，手机上窄了就折行 */
 .ops-events {
   margin-top: 6px;
   font-size: var(--fs-s);
@@ -8214,7 +8214,7 @@ button.progress:active {
   overflow-wrap: anywhere;
 }
 /*
- * 项目的"运营概况"（140 号票，ui/operations-summary.tsx）：项目卡、项目头下面的"现在"共用一个。服务一行（首页缩略图 + 入口），
+ * 项目的"运营概况"（ui/operations-summary.tsx）：项目卡、项目头下面的"现在"共用一个。服务一行（首页缩略图 + 入口），
  * 定时任务一行（收起时一句话 + 展开钮，展开后每条一行：名字、时间表、下次、上次和结果、状态）。缩略图 16:10，项目卡上小（112 宽）、
  * 负责人会话页左栏中（168）、项目页的"现在"大（最宽 360，窄屏铺满）；不在线、停用了的灰掉，角上标字。只用 token
  */
@@ -8235,7 +8235,7 @@ button.progress:active {
   font-weight: 600;
 }
 /*
- * 服务的"启动""关闭"（257 号票）：服务前面一行，左边圆点和现在怎样（在线绿、关着灰、启动中 / 关闭中主色、失败红），失败的原因跟在后面
+ * 服务的"启动""关闭"：服务前面一行，左边圆点和现在怎样（在线绿、关着灰、启动中 / 关闭中主色、失败红），失败的原因跟在后面
  * （项目卡上一行截断，悬停看全），右边两个小按钮（不能点的灰掉）；LSM 没连上的原因另起一行
  */
 .ops-power {
@@ -8441,7 +8441,7 @@ a.ops-sum-row-in:hover {
   color: var(--high-fg);
   font-weight: 600;
 }
-/* 上次部分完成（176 号票）：不标红，橙色 */
+/* 上次部分完成：不标红，橙色 */
 .ops-sum-partial {
   color: var(--op-fg);
   font-weight: 600;
@@ -8464,7 +8464,7 @@ a.ops-sum-row-in:hover {
   pointer-events: auto;
 }
 /*
- * 项目头下面的"现在"（140 号票，pages/ProjectNow.tsx）：按项目状态说最要紧的事。建设中卡住的工单醒目：左边一道色条，
+ * 项目头下面的"现在"（pages/ProjectNow.tsx）：按项目状态说最要紧的事。建设中卡住的工单醒目：左边一道色条，
  * 等你、超时没动用提醒色，失败、被拦用红；最近几次运行里失败的那次底色标红、写原因
  */
 .proj-now {
@@ -8581,7 +8581,7 @@ a.ops-sum-row-in:hover {
   overflow-wrap: anywhere;
 }
 
-/* ---------- 浏览侧边栏（147 号票，pages/BrowseSidebar.tsx）：秘书本人陪着浏览器 ----------
+/* ---------- 浏览侧边栏（pages/BrowseSidebar.tsx）：秘书本人陪着浏览器 ----------
    2026-10-18 用户纠正：浏览器是主体不缩，侧边栏盖在上面。把手和侧边栏由鸿蒙 App 画在原生网页上面：侧边栏是 App 另开的一个 Web 组件，
    加载二狗网页的侧边栏模式（?ergo=side，App.tsx 的 SideShell），整页只有侧边栏；"浏览"页本身不画它们 */
 .browse-side-app {
@@ -8641,7 +8641,7 @@ a.ops-sum-row-in:hover {
   padding: 2px;
 }
 
-/* 网页候选卡（147 号票，ui/cards/BrowsePickCard.tsx）：一格一格的缩略图，选中的描边、右上角打勾（照 145 号票的候选面板） */
+/* 网页候选卡（ui/cards/BrowsePickCard.tsx）：一格一格的缩略图，选中的描边、右上角打勾（照候选面板） */
 .xcard-pick {
   list-style: none;
   margin: 0;
@@ -8715,12 +8715,12 @@ a.ops-sum-row-in:hover {
   color: var(--muted);
   font-size: var(--fs-s);
 }
-/* 点了"交"没交进去（149 号票）：原因记在卡上，占一整行（按钮在下一行，不被一长句撑高） */
+/* 点了"交"没交进去：原因记在卡上，占一整行（按钮在下一行，不被一长句撑高） */
 .xcard-pick-note.failed {
   flex-basis: 100%;
   color: var(--high-fg);
 }
-/* 顶上那一栏最右边的开合按钮（147 号票，pages/BrowsePage.tsx）：二狗的图标，展开着时是按下的样子 */
+/* 顶上那一栏最右边的开合按钮（pages/BrowsePage.tsx）：二狗的图标，展开着时是按下的样子 */
 .browse-side-toggle {
   color: var(--primary);
 }
@@ -8730,7 +8730,7 @@ a.ops-sum-row-in:hover {
   border-radius: var(--radius-m);
 }
 
-/* 项目页"规范"一块（261 号票）：模板出了新版的提示（不自动跟）、和默认规范不同的几条（本项目的规范改写） */
+/* 项目页"规范"一块：模板出了新版的提示（不自动跟）、和默认规范不同的几条（本项目的规范改写） */
 .proj-standard-newer {
   margin-top: 6px;
 }
@@ -8744,7 +8744,7 @@ a.ops-sum-row-in:hover {
   color: var(--muted);
   font-size: var(--fs-s);
 }
-/* "补齐规范文档"卡（262 号票）：缺的每一份一行——名字、档案里的位置、缺（红）还是只有说明（淡）；窄屏时位置换行 */
+/* "补齐规范文档"卡：缺的每一份一行——名字、档案里的位置、缺（红）还是只有说明（淡）；窄屏时位置换行 */
 .backfill-docs {
   list-style: none;
   margin: 6px 0;
@@ -8770,7 +8770,7 @@ a.ops-sum-row-in:hover {
   overflow-wrap: anywhere;
 }
 
-/* ---------- 记忆页的设置（264 号票）：秘书在对话里顺口问开不开，一行一个开关 ---------- */
+/* ---------- 记忆页的设置：秘书在对话里顺口问开不开，一行一个开关 ---------- */
 .mem-setting {
   cursor: pointer;
 }
@@ -8784,13 +8784,13 @@ a.ops-sum-row-in:hover {
 .mem-setting-switch:disabled {
   cursor: not-allowed;
 }
-/* 安全和预算的两个开关（315 号票，pages/more/SafetySwitches.tsx）：样子同上；下面那句"开着……"、"关掉……"各起一行 */
+/* 安全和预算的两个开关（pages/more/SafetySwitches.tsx）：样子同上；下面那句"开着……"、"关掉……"各起一行 */
 .safety-setting small {
   white-space: pre-line;
 }
 
 /*
- * 个人档案（281 号票，pages/more/PersonalFilesPage.tsx）："更多"下面的一页。列表照设置里的行（.prompt-row），一份档案三节：
+ * 个人档案（pages/more/PersonalFilesPage.tsx）："更多"下面的一页。列表照设置里的行（.prompt-row），一份档案三节：
  * 固定信息一字段一行（名字 · 值和出处 · "改"），以前的值点开看；号码按组分开、等宽字；记下的事一件一段。只用 token。
  * 窄的页面（手机）上字段名单独一行，值和"改"一行
  */
@@ -8919,7 +8919,7 @@ a.ops-sum-row-in:hover {
   margin-top: 0;
 }
 
-/* 285 号票：档案列表的组名后面的人数、一份档案头上的"分组"下拉 */
+/* 档案列表的组名后面的人数、一份档案头上的"分组"下拉 */
 .pf-group-title {
   display: inline-flex;
   align-items: baseline;
@@ -8967,7 +8967,7 @@ a.ops-sum-row-in:hover {
 .pf-danger {
   padding: 12px 0 4px;
 }
-/* 302 号票：纪念日能有几个——最后一个纪念日下面"再加一个纪念日"，对着值那一栏 */
+/* 纪念日能有几个——最后一个纪念日下面"再加一个纪念日"，对着值那一栏 */
 .pf-field-more {
   display: grid;
   grid-template-columns: 8em minmax(0, 1fr);
@@ -8986,9 +8986,9 @@ a.ops-sum-row-in:hover {
   border-top: 1px solid var(--border);
 }
 /*
- * 336 号票：记忆页最上面一行、标题下面那行——这套记忆系统的名字（「会意」/ Subtext）和它做什么。
+ * 记忆页最上面一行、标题下面那行——这套记忆系统的名字（「会意」/ Subtext）和它做什么。
  * 导航那一项还是"记忆"（名字只在这里和下面设置块的小标题上露出来）；一行小字，和 .menu 一样的内边距。
- * 用户 2026-10-31 定：它是插件、是实验性的，所以这一行是一个「实验性」标签（--op-bg / --op-fg 那对提醒色）加一句
+ * 它是插件、是实验性的，所以这一行是一个「实验性」标签（--op-bg / --op-fg 那对提醒色）加一句
  * "从你说过的话里推断你真正想要的"，下面再一小段说明（还在打磨、数据在本机、能停用能删）。只用 token。
  */
 .memory-system {
@@ -9022,7 +9022,7 @@ a.ops-sum-row-in:hover {
   line-height: 1.6;
 }
 /*
- * 336 号票：记忆页最下面那块"记忆系统 · 会意 v1.0 · 设置"（三个开关从设置列表搬到了这里）；用户 2026-10-31 定标题带上"记忆系统"、
+ * 记忆页最下面那块"记忆系统 · 会意 v1.0 · 设置"（三个开关从设置列表搬到了这里）；标题带上"记忆系统"、
  * 下面那句写"实验性"：和上面"数据源"一样隔一道线，标题一行（点一下展开 / 收起），收着时不占地方，展开时三个开关照
  * .mem-setting 的样子排在它下面。
  */
@@ -9034,7 +9034,7 @@ a.ops-sum-row-in:hover {
   padding-left: 20px;
 }
 /*
- * 285 号票：记忆页最上面"和记忆管理员聊"那张卡（图标、两行小字：最近一次整理、了解你访谈），点了是整页对话；
+ * 记忆页最上面"和记忆管理员聊"那张卡（图标、两行小字：最近一次整理、了解你访谈），点了是整页对话；
  * 记忆管理员对话里输入框上面那一行了解你访谈（和"不在时念的语音"那条一个底色、一样占一行，放不下时按钮换到第二行）。只用 token
  */
 .mem-keeper-wrap {
@@ -9106,7 +9106,7 @@ a.ops-sum-row-in:hover {
   }
 }
 
-/* 访谈的档案核对卡（284 号票，plugins/memory/InterviewFilesCard.tsx）：按人分组，一条一行，右边"不记""确认"或者定了的结果 */
+/* 访谈的档案核对卡（plugins/memory/InterviewFilesCard.tsx）：按人分组，一条一行，右边"不记""确认"或者定了的结果 */
 .ivf-person + .ivf-person {
   margin-top: 10px;
   padding-top: 8px;
@@ -9142,7 +9142,7 @@ a.ops-sum-row-in:hover {
   text-decoration: line-through;
 }
 
-/* 个人档案的核对卡（281 号票，ui/cards/PersonalFileCard.tsx）：号码一位一个小格子，组和组之间隔开 */
+/* 个人档案的核对卡（ui/cards/PersonalFileCard.tsx）：号码一位一个小格子，组和组之间隔开 */
 .pf-card-new {
   font-weight: 600;
 }
@@ -9182,7 +9182,7 @@ a.ops-sum-row-in:hover {
 }
 
 /*
- * 283 号票：生日、纪念日"每年提前几天提醒"的勾（ui/cards/AnnualRemindPick.tsx：核对卡、候选核对卡、档案页共用）；
+ * 生日、纪念日"每年提前几天提醒"的勾（ui/cards/AnnualRemindPick.tsx：核对卡、候选核对卡、档案页共用）；
  * 候选核对卡（ui/cards/PersonalFileSuggestCard.tsx）一个人一块、每条一个勾；档案页"二狗了解到的"（结论、事实、原话三小节）。只用 token
  */
 .pf-remind {
@@ -9306,7 +9306,7 @@ label.pf-suggest-item input {
   font-size: var(--fs-xs);
 }
 /*
- * ---------- 首次设置向导（319 号票，pages/SetupWizard.tsx） ----------
+ * ---------- 首次设置向导（pages/SetupWizard.tsx） ----------
  * 地址 #/more/setup，设置列表最上面一行。上面是一排步骤（做完的打勾、当前的突出），中间是这一步，底下一排两个按钮。
  * 宽窄都靠换行：手机上步骤那一排横着也会折成几行，窄屏不会挤出横向滚动条。
  * 首页那条引导条（.setup-banner）照"还没配模型"那条：占一行、和它一个底色；整句就是去向导的链接，右边一个关掉的 ×。
@@ -9423,7 +9423,7 @@ label.pf-suggest-item input {
   align-items: center;
   gap: 8px;
 }
-/* 向导"能力"那一步（347 号票）：一项一块，样子照设置 · 组件；勾选在名字前面 */
+/* 向导"能力"那一步：一项一块，样子照设置 · 组件；勾选在名字前面 */
 .capability-list {
   display: flex;
   flex-direction: column;

@@ -1,10 +1,10 @@
-// ergo 命令里管服务的那一半（318 号票）：包一层服务管家（packages/supervisor，命令 lsm），用的人不用学 lsm。
+// ergo 命令里管服务的那一半：包一层服务管家（packages/supervisor，命令 lsm），用的人不用学 lsm。
 //   - 服务管家的设置（manager.yaml）不在时写一份默认的；二狗的登记（registry/services/ergo-daemon.yaml）每次 start 按这次的安装重写——
 //     路径都走安装目录的 current（切版本只要重启，不用改登记），端口按二狗的配置（config/ergo.json 的 ports.local）；
-//     env 里用的人多加的项留着（371 号票：手动登记的 MCP 把 fromEnv 的变量写在这里），我们自己的项照旧覆盖；
+//     env 里用的人多加的项留着（手动登记的 MCP 把 fromEnv 的变量写在这里），我们自己的项照旧覆盖；
 //   - 服务管家没在跑就把它起来（单独的小进程，不跟着这个命令退出）；
 //   - start / stop / restart / status / logs 交给服务管家；svc <命令…> 原样转给 lsm。
-// 开机自启（服务管家的计划任务）由安装脚本默认装（342 号票，经 ergo svc install-autostart）；这里在每次按 current 重写登记时核对一下它还指着在用的版本。
+// 开机自启（服务管家的计划任务）由安装脚本默认装（经 ergo svc install-autostart）；这里在每次按 current 重写登记时核对一下它还指着在用的版本。
 // 开机拉起哪些服务看服务管家的名单 registry/autostart.yaml：还没有时写一份只含二狗的，有了就再也不碰（用的人关掉后不会被下一次 start 打开）。
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -126,7 +126,7 @@ function ownEnvLines(ctx: Pick<CliContext, "dataDir" | "svcDataDir">): string[] 
     "  - name: ERGO_DATA_DIR",
     "    from: literal",
     `    value: ${yamlQuote(ctx.dataDir)}`,
-    // 服务管家拉服务时不传自己的 --data-dir、环境变量（hooks.mjs 的白名单）：二狗的体检要读它的注册表，得在这里写明它在哪（340 号票）
+    // 服务管家拉服务时不传自己的 --data-dir、环境变量（hooks.mjs 的白名单）：二狗的体检要读它的注册表，得在这里写明它在哪
     "  - name: LSM_DATA_DIR",
     "    from: literal",
     `    value: ${yamlQuote(ctx.svcDataDir)}`,
@@ -222,7 +222,7 @@ export function userEnvLines(oldEntry: string, ownNames: ReadonlySet<string>): s
 const ENTRY_HEAD = "# ergo daemon entry: rewritten by every `ergo start` and update (change ports in the ergo config file config/ergo.json). Items you add under env: and a top-level exposure: block are kept; everything else goes back to what ergo writes.";
 
 /**
- * 旧登记里用的人写的顶层 exposure:（375 号票：部署手册让在这里打开公网入口；服务管家的网页上开的也写在这里），原样的几行，紧贴在它上面的注释带着。
+ * 旧登记里用的人写的顶层 exposure:（部署手册让在这里打开公网入口；服务管家的网页上开的也写在这里），原样的几行，紧贴在它上面的注释带着。
  * 我们不写这一段，所以整段都是用的人的。和 userEnvLines 一样只看文本：缩进的一段（到下一个顶层的键为止，段尾不缩进的注释说的是下一个键，不要）、
  * 一行写完的 exposure: {…}。值是空的、不是一段的（exposure: null、只有注释）当没有。留下的是用的人写的原样，写错了由 lsm 报
  */
@@ -502,7 +502,7 @@ export async function ensureSvc(ctx: CliContext): Promise<{ startedManager: bool
   if (bootListCreated) tellBootListCreated(ctx);
   syncAutostart(ctx);
   if (await managerUp(ctx)) {
-    // 每次都让它重读，不看这次写没写：用的人手加的 env 项和我们写出来的一字不差时文件不算变了，管理器不重读就拿不到（371 号票）。重读不动在跑的服务
+    // 每次都让它重读，不看这次写没写：用的人手加的 env 项和我们写出来的一字不差时文件不算变了，管理器不重读就拿不到。重读不动在跑的服务
     runLsm(ctx, ["reload"], { capture: true });
     return { startedManager: false };
   }

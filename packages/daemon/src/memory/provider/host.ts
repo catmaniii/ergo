@@ -1,4 +1,4 @@
-// 记忆插件宿主（337 号票第一段）：只做"谁在跑"和把调用转给当前插件——还没接进秘书、工具、网页（下一段）。
+// 记忆插件宿主：只做"谁在跑"和把调用转给当前插件——还没接进秘书、工具、网页（下一段）。
 // - 单活：同时最多一个插件在跑。activate(id) 先把旧的 stop() 再起新的 start()；同一个 id 再 activate 直接返回（不重启）。
 //   没起成（start 抛错）时旧的已经停了：宿主不替调用方回滚，谁切谁负责告诉用户。
 // - 数据目录：插件的数据目录是 <根目录>/memory/<id>/（根目录由调用方给，通常是数据目录；activate 时建好）。
@@ -8,8 +8,8 @@
 //   info()/active()/dataDir() 是查询，不抛。brief/consolidate 没有在跑（或插件没声明这个能力）时回 undefined——那是可选能力，
 //   跳过就是"这一轮没有简报""这一夜不整理"，不该让会话崩掉。
 // - brief 回落：插件声明了 capabilities.brief 就用它的；没声明就宿主拿 search({ text, limit }) 拼一段纯文本，每条带出处；
-//   没有出处的条目不进简报（用户 2026-10-28 定："抽取出来的信息最好能找到原始的"）。
-// - brief 回来的东西统一成一份 { text, keys, items, hits }（337 号票）：插件只回字符串时 keys/items/hits 都是空的；
+//   没有出处的条目不进简报（"抽取出来的信息最好能找到原始的"）。
+// - brief 回来的东西统一成一份 { text, keys, items, hits }：插件只回字符串时 keys/items/hits 都是空的；
 //   回落拼出来的也一样（没有去重的键：调用方每一轮都带）。keys 原样交回调用方，宿主自己不解释那套键。
 // - llm/embed/identity 是调用方注入的回调（宿主自己不实现模型调用）：这一段不接真的模型，没注入时插件的 ctx.llm / ctx.embed 抛 not_implemented。
 import fs from "node:fs";
@@ -250,7 +250,7 @@ export function createMemoryHost(options: MemoryHostOptions): MemoryHost {
       used += line.length + 1;
     }
     if (lines.length === 0) return undefined;
-    return `【记忆简报】\n${lines.join("\n")}`; // @i18n-ignore model：给模型看的简报标题（266 号票的简报也是这个标题）
+    return `【记忆简报】\n${lines.join("\n")}`; // @i18n-ignore model：给模型看的简报标题（简报也是这个标题）
   }
 
   return {

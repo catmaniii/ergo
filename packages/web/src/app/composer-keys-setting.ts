@@ -1,4 +1,4 @@
-// 设置里的"发送和换行"（用户 2026-11-01 要的）在浏览器里的那一半：读写这台设备上记住的换行键。
+// 设置里的"发送和换行"在浏览器里的那一半：读写这台设备上记住的换行键。
 // 默认 Ctrl；只在选了 Shift 时留一个记号，选回 Ctrl 就擦掉。存储用不了时按默认，改了只在这次打开里生效。
 // 认不认记住的值在 state/composer-keys.ts（newlineKeyOf）。页面上用的那一个在 app/page-composer-keys.ts。
 import { type NewlineKey, newlineKeyOf } from "../state/index.ts";

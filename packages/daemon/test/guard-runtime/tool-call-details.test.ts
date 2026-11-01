@@ -1,4 +1,4 @@
-// 工具调用完整内容的派生视图（53 号票；65 号票加了时间、大小、任务、样子几列）：53 号票建的表在打开时删掉重建、从事件日志补回来。
+// 工具调用完整内容的派生视图（加了时间、大小、任务、样子几列）：以前建的表在打开时删掉重建、从事件日志补回来。
 // 彻底删除过的事件里只剩删除标记，补回来的也只有删除标记，原文补不回来。
 import path from "node:path";
 import { PURGED_TEXT, type ToolCallDetail } from "@ergo/protocol";
@@ -22,7 +22,7 @@ const detail = (callId: string, content: string): ToolCallDetail => ({
   isError: true,
 });
 
-/** 换回 53 号票建的表：只有调用 id、工具、agent、会话、项目，内容照事件日志填 */
+/** 换回以前建的表：只有调用 id、工具、agent、会话、项目，内容照事件日志填 */
 function toLegacyTable(file: string): void {
   const db = openDatabase(file);
   try {
@@ -37,7 +37,7 @@ function toLegacyTable(file: string): void {
   }
 }
 
-test("53 号票的表打开时重建：彻底删除过的只剩删除标记、不算存着完整内容，原文补不回来；还存着的照样算大小", () => {
+test("表打开时重建：彻底删除过的只剩删除标记、不算存着完整内容，原文补不回来；还存着的照样算大小", () => {
   const file = path.join(makeTempDir(), "ergo.db");
   let store = openEventStore({ file, views: [toolCallDetailsView] });
   recordToolCallDetail(store, detail("c-gone", "要彻底删除的那句原话"));
@@ -64,7 +64,7 @@ test("53 号票的表打开时重建：彻底删除过的只剩删除标记、�
 /** 一条完整内容的事件（只给改写函数看） */
 const detailEvent = (payload: ToolCallDetail): StoredEvent => ({ globalSeq: 1, channel: "tool_calls", seq: 1, type: "tool_call_detail", time: "2026-10-10T10:00:00.000+08:00", payload, idempotencyKey: null });
 
-test("过了保留期清掉的完整内容再被删掉：清掉的说明一起去掉（详情页按删除说）；删除项目时改写的另记 purgedBy，彻底删除的不记，彻底删除过的再随项目改写也不改说法（66 号票）", () => {
+test("过了保留期清掉的完整内容再被删掉：清掉的说明一起去掉（详情页按删除说）；删除项目时改写的另记 purgedBy，彻底删除的不记，彻底删除过的再随项目改写也不改说法", () => {
   const cleared = clearedDetail(detail("c-1", "清掉后剩下的摘要"), "expired", "2026-10-10T04:15:00.000+08:00", BUILTIN_TOOL_REGISTRY);
   const context = { deletedAt: "2026-10-10T11:00:00.000+08:00", materialIds: new Set<string>() };
   const byProject = toolCallDetailPurge.rewrite(detailEvent(cleared), { ...context, purgedBy: "project_deletion" }) as ToolCallDetail;

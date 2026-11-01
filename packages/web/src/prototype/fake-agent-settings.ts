@@ -1,9 +1,9 @@
-// 原型里每个 agent 的会话里的 ⚙（114 号票）：面板的数据是编的。通用模板取原型的系统提示（fake-system-prompts.ts，设置里改了这里跟着变），
+// 原型里每个 agent 的会话里的 ⚙：面板的数据是编的。通用模板取原型的系统提示（fake-system-prompts.ts，设置里改了这里跟着变），
 // 单独的提示词、清空、压缩只记在内存里；"现在压缩"假装压一会儿（1.5 秒）就压好，用量等下一次调用。
 // 占位符的检查和守护进程用同一个函数（状态层的 checkAgentPromptDraft），写错了照样拒收。
-// 120 号票：项目、任务的负责人的"模型"一块。编的：记账本的负责人单独配了 deepseek-v4-pro（思考高），最近一段会话已经换成它；
+// 项目、任务的负责人的"模型"一块。编的：记账本的负责人单独配了 deepseek-v4-pro（思考高），最近一段会话已经换成它；
 // 那一行（项目负责人 / 任务负责人）取原型的模型设置（fake-http.ts，设置 · 模型里改了这里跟着变）。
-// 289 号票：项目、任务的负责人的"运行时"一块。编的：个人博客的负责人用 Claude Code（选了 Opus、自动接受改文件、思考高）；
+// 项目、任务的负责人的"运行时"一块。编的：个人博客的负责人用 Claude Code（选了 Opus、自动接受改文件、思考高）；
 // 换运行时假装写一会儿交接摘要（1.5 秒）再换，只改选的值的马上记下。
 import {
   type AgentCompactResult,
@@ -81,9 +81,9 @@ const SEEDED_MODELS: ReadonlyArray<[string, ModelChoice]> = [["project-ledger", 
 /** 编的：用别的运行时的负责人（个人博客的负责人用 Claude Code），没写的是 pi */
 const SEEDED_RUNTIMES: ReadonlyArray<[string, { id: string; options?: RuntimeChoice }]> = [
   ["project-blog", { id: FAKE_CLAUDE_CODE, options: { model: "opus", settings: { permission_mode: "acceptEdits", effort: "high" } } }],
-  // 290 号票：从 Claude Code 会话接管来的普通任务
+  // 从 Claude Code 会话接管来的普通任务
   [FAKE_TAKEOVER_TASK.maintainerId, { id: FAKE_CLAUDE_CODE }],
-  // 292 号票：交给了官方 App 的普通任务
+  // 交给了官方 App 的普通任务
   [FAKE_REMOTE_TASK.maintainerId, { id: FAKE_CLAUDE_CODE }],
 ];
 
@@ -93,7 +93,7 @@ const FAKE_MODEL_IDS = ["deepseek-flash", "deepseek-v4-pro"];
 /** 项目负责人这一段的固定上下文（原型里编的一小段，真的由守护进程从项目档案拼） */
 const projectContext = (name: string, goal: string) => `【项目档案】（原型里的示例）\n立项书：${name}——${goal}\n进展：最近一次运行 10-06 21:00，甲银行接口 403，等用户重新授权。`;
 
-/** 原型里负责人的工作文件夹（305 号票）：项目在外面的工作目录、接管来的任务的；别的不写 */
+/** 原型里负责人的工作文件夹：项目在外面的工作目录、接管来的任务的；别的不写 */
 function fakeWorkdirOf(agentId: string): string | undefined {
   const project = FAKE_PROJECTS.find((p) => p.maintainerId === agentId);
   if (project) return project.workdir.external ? project.workdir.path : undefined;
@@ -107,13 +107,13 @@ export class FakeAgentSettings {
   private readonly modelSettings: () => ModelSettings;
   /** 原型设置的参考音色（fake-http.ts 的，设置 · 语音里导入了跟着变） */
   private readonly voices: () => ReferenceVoiceList;
-  /** 单独配了模型的负责人（120 号票），只在内存里 */
+  /** 单独配了模型的负责人，只在内存里 */
   private readonly ownModels = new Map<string, ModelChoice>(SEEDED_MODELS);
-  /** 负责人用的运行时和选的值（289 号票），只在内存里；没有的是 pi */
+  /** 负责人用的运行时和选的值，只在内存里；没有的是 pi */
   private readonly runtimes = new Map<string, { id: string; options?: RuntimeChoice }>(SEEDED_RUNTIMES);
-  /** 正在换运行时的（289 号票）：换成哪个 */
+  /** 正在换运行时的：换成哪个 */
   private readonly switching = new Map<string, string>();
-  /** 接管来的（290 号票）：接管自哪个会话、工作目录、交还了没有；292 号票：在哪边、二狗自己开的、官方 App 里的链接。只在内存里 */
+  /** 接管来的：接管自哪个会话、工作目录、交还了没有；在哪边、二狗自己开的、官方 App 里的链接。只在内存里 */
   private readonly takeovers = new Map<string, NonNullable<AgentRuntimeStateView["takeover"]>>([
     [FAKE_TAKEOVER_TASK.maintainerId, { sessionId: FAKE_TAKEOVER_TASK.takeover!.sessionId, title: FAKE_TAKEOVER_TASK.takeover!.title, cwd: FAKE_TAKEOVER_TASK.workdir!, returned: false, place: "ergo" }],
     [
@@ -121,7 +121,7 @@ export class FakeAgentSettings {
       { sessionId: FAKE_REMOTE_TASK.takeover!.sessionId, title: FAKE_REMOTE_TASK.takeover!.title, cwd: "D:\\code\\photo-tools", returned: true, place: "remote", own: true, url: FAKE_REMOTE_TASK.takeover!.remote!.url! },
     ],
   ]);
-  /** 角色（248 号票），只在内存里：名字 + 音色绑成一个，每个 agent 选一个；默认角色的名字是全局名字（原型里就是默认的"二狗"） */
+  /** 角色，只在内存里：名字 + 音色绑成一个，每个 agent 选一个；默认角色的名字是全局名字（原型里就是默认的"二狗"） */
   private roles: { id: string; name: string; voiceId?: string }[] = [
     { id: "role-default", name: defaultAssistantName() },
     { id: "role-xiaoming", name: "小明" },
@@ -156,7 +156,7 @@ export class FakeAgentSettings {
     return this.view(agentId);
   }
 
-  /** 用哪个运行时、选的值（289 号票）：换运行时的假装写 1.5 秒交接摘要再换；只改选的值的马上记下（值照运行时清单核对） */
+  /** 用哪个运行时、选的值：换运行时的假装写 1.5 秒交接摘要再换；只改选的值的马上记下（值照运行时清单核对） */
   setRuntime(agentId: string, body: AgentRuntimeBody): AgentSettingsView {
     const view = this.view(agentId);
     if (view.readOnly) throw new Error(view.readOnly);
@@ -178,7 +178,7 @@ export class FakeAgentSettings {
     return this.view(agentId);
   }
 
-  /** 交还 / 收回（290 号票）、交给官方 App（292 号票）：不是接管来的 Claude Code 负责人交给官方 App 时才记下（二狗自己开的会话） */
+  /** 交还 / 收回、交给官方 App：不是接管来的 Claude Code 负责人交给官方 App 时才记下（二狗自己开的会话） */
   takeover(agentId: string, action: TakeoverAction): AgentSettingsView {
     const found = this.takeovers.get(agentId);
     if (action === "remote") {
@@ -194,7 +194,7 @@ export class FakeAgentSettings {
     return this.view(agentId);
   }
 
-  /** "运行时"一块（289 号票）：秘书没有 */
+  /** "运行时"一块：秘书没有 */
   private runtimeView(agentId: string, kind: AgentSettingsKind): AgentRuntimeStateView | undefined {
     if (kind === "secretary") return undefined;
     const list = fakeRuntimes();
@@ -208,9 +208,9 @@ export class FakeAgentSettings {
       settings: { ...current.options?.settings },
       ...(to === undefined ? {} : { switching: { to, title: title(to), state: "handoff" as const } }),
       ...(this.takeovers.has(agentId) ? { takeover: { ...this.takeovers.get(agentId)! } } : {}),
-      // 292 号票：Claude Code 能交给官方 App
+      // Claude Code 能交给官方 App
       ...(current.id === FAKE_CLAUDE_CODE ? { remoteControl: true as const } : {}),
-      // 305 号票：能选工作文件夹的运行时写出工作文件夹（原型里：项目在外面的工作目录、接管来的任务的）
+      // 能选工作文件夹的运行时写出工作文件夹（原型里：项目在外面的工作目录、接管来的任务的）
       ...(current.id === FAKE_CLAUDE_CODE && fakeWorkdirOf(agentId) !== undefined ? { workdir: fakeWorkdirOf(agentId)! } : {}),
     };
   }
@@ -238,7 +238,7 @@ export class FakeAgentSettings {
     return this.roles.find((role) => role.id === this.defaultRoleId) ?? { id: this.defaultRoleId, name: defaultAssistantName() };
   }
 
-  /** 这个 agent 现在用哪个角色、名字和音色（248 号票），和守护进程同一套算法：指定的角色优先，没指定跟默认角色 */
+  /** 这个 agent 现在用哪个角色、名字和音色，和守护进程同一套算法：指定的角色优先，没指定跟默认角色 */
   private identityOf(agentId: string): AgentIdentityView {
     const assigned = this.assignments.get(agentId);
     const own = assigned === undefined ? undefined : this.roles.find((role) => role.id === assigned);
@@ -275,7 +275,7 @@ export class FakeAgentSettings {
     return this.roles.map((role) => ({ id: role.id, name: role.id === this.defaultRoleId ? defaultAssistantName() : role.name, isDefault: role.id === this.defaultRoleId }));
   }
 
-  /** 设置 · 角色与声音那一页（248 号票）：编的，和守护进程的 GET /api/agent-roles 一个样子 */
+  /** 设置 · 角色与声音那一页：编的，和守护进程的 GET /api/agent-roles 一个样子 */
   rolesView(): AgentRolesView {
     const agents = this.configurableAgentIds().map((agentId) => {
       const who = this.who(agentId);
@@ -300,7 +300,7 @@ export class FakeAgentSettings {
     return { defaultRoleId: this.defaultRoleId, roles, agents, voices: list.voices, ...(fallback ? { defaultVoiceId: fallback.id } : {}) };
   }
 
-  /** 新建一个角色（248 号票）：名字照起名的规矩查，音色要现在有的 */
+  /** 新建一个角色：名字照起名的规矩查，音色要现在有的 */
   createRole(body: AgentRoleBody): AgentRolesView {
     const checked = checkAssistantName(body.name);
     if (!checked.ok) throw new Error(checked.error);
@@ -333,7 +333,7 @@ export class FakeAgentSettings {
     const role = view.roles.find((item) => item.id === roleId);
     if (role === undefined) throw new Error(`没有这个角色：${roleId}`);
     if (role.isDefault) throw new Error("默认角色不能删：先把别的角色设成默认角色");
-    // 和守护进程一样写 agent 的叫法：秘书的叫法是名字占位，这句话直接显示，换成名字（371 号票）
+    // 和守护进程一样写 agent 的叫法：秘书的叫法是名字占位，这句话直接显示，换成名字
     if (role.usedBy.length > 0) throw new Error(`这个角色还有 agent 在用：${role.usedBy.map((agentId) => fillAssistantName(this.who(agentId).label, defaultAssistantName())).join("、")}`);
     this.roles = this.roles.filter((item) => item.id !== roleId);
     return this.rolesView();
@@ -473,7 +473,7 @@ export class FakeAgentSettings {
         context: projectContext(project.name, project.goal),
       };
     }
-    // 290 号票：接管来的普通任务（做完了也能接着说，不是只读）；292 号票：交给了官方 App 的普通任务
+    // 接管来的普通任务（做完了也能接着说，不是只读）；交给了官方 App 的普通任务
     for (const task of [FAKE_TAKEOVER_TASK, FAKE_REMOTE_TASK]) {
       if (agentId !== task.maintainerId) continue;
       const { id, title } = task;

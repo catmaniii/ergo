@@ -1,4 +1,4 @@
-// `lsm vps setup | status | remove | approve` 的命令行（321 号票）：解析参数、终端里问答、接上服务管家，交给 setup.mjs。
+// `lsm vps setup | status | remove | approve` 的命令行：解析参数、终端里问答、接上服务管家，交给 setup.mjs。
 // （`lsm vps` 不带子命令、`lsm vps refresh` 仍是 VPS 订阅到期提醒，在 bin/lsm.mjs 里。）
 import readline from 'node:readline';
 import { loadExec } from './exec.mjs';

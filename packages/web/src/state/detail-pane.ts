@@ -1,4 +1,4 @@
-// 详情页的开合和返回栈（56 号票，规格第 19 节"会话区"的详情页）：
+// 详情页的开合和返回栈（规格第 19 节"会话区"的详情页）：
 // detail / detailBack / page（App.tsx:313-435、736-760），写成纯函数，界面（ui/detail/）只管画。
 // - 宽屏：有详情时右栏才出现；
 // - 窄屏：会话、详情两页常驻，详情从右边整页滑入（列表在各页自己管）；
@@ -16,25 +16,25 @@ export interface DetailRef {
 }
 
 /**
- * 详情页显示什么（60 号票加了三种）：会话里的一条（item）；一份流程计划（plan：按卡片 id，计划台账里点开的，
+ * 详情页显示什么（加了三种）：会话里的一条（item）；一份流程计划（plan：按卡片 id，计划台账里点开的，
  * 会话没翻到那张卡时也看得了）；长程任务的一个阶段（stage：从阶段抽屉、阶段栏点开）；
  * 执行中出过的状况（incidents：从阶段抽屉、阶段栏下面那一行的个数点开，kind 是先筛的那一类）
  */
 export type DetailTarget =
   | DetailRef
-  // focus（91 号票）：长程任务的计划还没确认时点左边图上的一个阶段，打开那张卡（计划卡、计划变更卡）的详情、定位到这一阶段
+  // focus：长程任务的计划还没确认时点左边图上的一个阶段，打开那张卡（计划卡、计划变更卡）的详情、定位到这一阶段
   | { readonly type: "plan"; readonly cardId: string; readonly focus?: string | undefined }
   | { readonly type: "stage"; readonly taskId: string; readonly stageId: string }
   | { readonly type: "incidents"; readonly taskId: string; readonly kind?: string | undefined }
-  // 长程任务一个阶段的一条时序规则（84 号票：阶段详情里点一条规则钻进来看它的详情）
+  // 长程任务一个阶段的一条时序规则（阶段详情里点一条规则钻进来看它的详情）
   | { readonly type: "rule"; readonly taskId: string; readonly stageId: string; readonly ruleId: string }
-  // 任务详情原来的页签（90 号票：页签那一排去掉，收进标题栏的"⋯"）：计划、工单、工具包、消耗、运行，宽屏在右栏、手机整页
+  // 任务详情原来的页签（页签那一排去掉，收进标题栏的"⋯"）：计划、工单、工具包、消耗、运行，宽屏在右栏、手机整页
   | { readonly type: "panel"; readonly taskId: string; readonly panel: TaskPanel }
-  // 一条废弃分支（151 号票：点 ⑂ 展开的预览打开）：已废弃分支 · 只读、遗留效果、分支摘要、完整历史
+  // 一条废弃分支（点 ⑂ 展开的预览打开）：已废弃分支 · 只读、遗留效果、分支摘要、完整历史
   | { readonly type: "branch"; readonly branchId: string }
-  // 手机上的档案（368 号票：宽屏在会话左边，手机没地方，从右边滑进来，和"⋯"里那几样一样）
+  // 手机上的档案（宽屏在会话左边，手机没地方，从右边滑进来，和"⋯"里那几样一样）
   | { readonly type: "archive"; readonly title: string }
-  // 背后的 agent（368 号票）：这个负责人背后的列表、其中一个的只读对话（从列表里点进去，‹ 回列表）
+  // 背后的 agent：这个负责人背后的列表、其中一个的只读对话（从列表里点进去，‹ 回列表）
   | { readonly type: "agents"; readonly maintainerId: string }
   | { readonly type: "agent"; readonly maintainerId: string; readonly agentId: string };
 

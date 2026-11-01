@@ -1,5 +1,5 @@
 // 存储：建表、按 id 读写、追加修订日志（第 4 节）。上层（kg/、engine.ts，以后的 retrieval/、rg/）都经它读写，不直接写表；
-// ③ 号票的检索要直接查 FTS 和向量表时用 db（只读地用）。
+// 检索要直接查 FTS 和向量表时用 db（只读地用）。
 // - 写入前校验（domain/validate.ts），不合格的不写；
 // - 每次新建、改动都追加一条修订（哪个对象、改了什么、因为哪条证据、什么时候），没有改动的不写；
 // - 索引跟着内容走：证据的原文、事实的精炼陈述各有一张关键词表和一张向量表；被忘掉的证据、被撤回的事实从索引里删掉，
@@ -42,23 +42,23 @@ import type {
 import { assertValid } from "../domain/validate.ts";
 import { SCHEMA, SCHEMA_VERSION } from "./schema.ts";
 
-// 225 号票：推理库落盘时要把 schema 版本写进 manifest、版本对不上不自动迁移，守护进程要拿它和库里的 user_version 比
+// 推理库落盘时要把 schema 版本写进 manifest、版本对不上不自动迁移，守护进程要拿它和库里的 user_version 比
 export { SCHEMA_VERSION } from "./schema.ts";
 import { type Database, openDatabase, type SqlValue } from "./sqlite.ts";
 
 export type NewFact = Omit<Fact, "id"> & { id?: string };
-/** 新建的结论：复核标记不给按 false（329 号票） */
+/** 新建的结论：复核标记不给按 false */
 export type NewClaim = Omit<Claim, "id" | "needsReview"> & { id?: string; needsReview?: boolean };
 export type NewInference = Omit<Inference, "id" | "createdAt"> & { id?: string; createdAt?: string };
 export type NewProbe = Omit<Probe, "id" | "createdAt"> & { id?: string; createdAt?: string };
 export type NewEntity = Omit<Entity, "id"> & { id?: string };
 export type NewStrategy = Omit<Strategy, "id" | "createdAt"> & { id?: string; createdAt?: string };
-/** 330 号票：预测节点新加的几项可以不给——来源默认就是 claimId、推法按 defeasible、落空的墓碑默认是判它的那条证据、往回打的结果为空 */
+/** 预测节点新加的几项可以不给——来源默认就是 claimId、推法按 defeasible、落空的墓碑默认是判它的那条证据、往回打的结果为空 */
 export type NewPrediction = Omit<PredictionRecord, "id" | "premiseIds" | "derivation" | "retractedBy" | "blame"> &
   Partial<Pick<PredictionRecord, "premiseIds" | "derivation" | "retractedBy" | "blame">> & { id?: string };
 
 /**
- * 267 号票：写推理图谱（和它底下的证据、事实层）的那组操作——存储自己有一份（不检查），唯一写入口（rg/write-gate.ts）
+ * 写推理图谱（和它底下的证据、事实层）的那组操作——存储自己有一份（不检查），唯一写入口（rg/write-gate.ts）
  * 有一份同样签名的（写之前检查、写完留痕）。引擎打开时把写入口挂到存储上（MemoryStore.writer），
  * 拿着存储的模块（预测账本、对抗复核、知识图谱、彻底删除）用 rgWriter(store) / rgSession(store, …) 写，就自动经写入口；
  * 没挂写入口的裸存储（只测存储的测试）照旧直接写。
@@ -326,7 +326,7 @@ const PROBE: TableSpec<Probe> = {
   }),
 };
 
-/** 交互策略（196 号票） */
+/** 交互策略 */
 const STRATEGY: TableSpec<Strategy> = {
   type: "strategy",
   kind: "strategy",
@@ -348,7 +348,7 @@ const STRATEGY: TableSpec<Strategy> = {
   }),
 };
 
-/** 预测账本（226 号票）：结论当时预测了什么、后来应验没有 */
+/** 预测账本：结论当时预测了什么、后来应验没有 */
 const PREDICTION: TableSpec<PredictionRecord> = {
   type: "prediction",
   kind: "prediction",
@@ -402,7 +402,7 @@ export function contentHashOf(text: string): string {
 export class MemoryStore implements RgWriter {
   readonly db: Database;
   private readonly clock: () => string;
-  /** 267 号票：引擎挂上的唯一写入口（rg/write-gate.ts）；裸存储没有 */
+  /** 引擎挂上的唯一写入口（rg/write-gate.ts）；裸存储没有 */
   writer: RgGate | undefined;
 
   private constructor(db: Database, clock: () => string) {
@@ -418,13 +418,13 @@ export class MemoryStore implements RgWriter {
       db.exec(SCHEMA);
       const version = Number(db.get<{ user_version: number }>("PRAGMA user_version")?.user_version ?? 0);
       if (version > SCHEMA_VERSION) throw new Error(`记忆 PoC 库的版本 ${version} 比代码认识的 ${SCHEMA_VERSION} 新`);
-      // 1 版（188 号票）的库：关联表还没有多重这一列（rg_* 表上面的 CREATE IF NOT EXISTS 已经建好）
+      // 1 版的库：关联表还没有多重这一列（rg_* 表上面的 CREATE IF NOT EXISTS 已经建好）
       if (version === 1) db.exec("ALTER TABLE links ADD COLUMN weight TEXT NOT NULL DEFAULT 'weak'");
-      // 329 号票：结论的复核标记（"待复核"不再占真值状态）。不升表版本（守护进程版本对不上就不开库）；老库在这里补上这一列，
+      // 结论的复核标记（"待复核"不再占真值状态）。不升表版本（守护进程版本对不上就不开库）；老库在这里补上这一列，
       // 老库里状态还是 needs_review 的由规矩迁移（rg/migrate-rules.ts）照新规矩重算
       if (!db.all<{ name: string }>("PRAGMA table_info(claims)").some((c) => c.name === "needs_review")) db.exec("ALTER TABLE claims ADD COLUMN needs_review INTEGER NOT NULL DEFAULT 0");
-      // 330 号票（R10）：预测账本做成预测节点。老库补四列：来源就是原来那条结论，推法按 defeasible（原始推理图谱：缺省按弱的算），
-      // 落空的 retracted_by 记当时判它的那条证据；往回打来源的结果（blame）老账本没有，留空（不追溯着打，留给 333 号票的全量重判）
+      // ADR-0032 R10：预测账本做成预测节点。老库补四列：来源就是原来那条结论，推法按 defeasible（原始推理图谱：缺省按弱的算），
+      // 落空的 retracted_by 记当时判它的那条证据；往回打来源的结果（blame）老账本没有，留空（不追溯着打，留给全量重判）
       const predictionColumns = new Set(db.all<{ name: string }>("PRAGMA table_info(predictions)").map((c) => c.name));
       if (!predictionColumns.has("premise_ids")) {
         db.exec("ALTER TABLE predictions ADD COLUMN premise_ids TEXT NOT NULL DEFAULT '[]'");
@@ -447,7 +447,7 @@ export class MemoryStore implements RgWriter {
   }
 
   /**
-   * 把整个库另存成一个独立的 SQLite 文件（216 号票：建好的库存下来，后面的实验直接读回来用）。用 VACUUM INTO：
+   * 把整个库另存成一个独立的 SQLite 文件（建好的库存下来，后面的实验直接读回来用）。用 VACUUM INTO：
    * 内存库也能存，存出来的是一个完整的单文件（没有 -wal），表、索引（含 FTS5）、版本号都在。目标文件已经有了先删掉；不能在事务里调。
    */
   saveCopy(file: string): void {
@@ -479,7 +479,7 @@ export class MemoryStore implements RgWriter {
     return this.db.transaction(fn);
   }
 
-  /** 267 号票：能单独回滚的一段（在事务里是保存点，不在就是事务） */
+  /** 能单独回滚的一段（在事务里是保存点，不在就是事务） */
   savepoint<T>(fn: () => T): T {
     return this.db.savepoint(fn);
   }
@@ -530,7 +530,7 @@ export class MemoryStore implements RgWriter {
   }
 
   /**
-   * 199 号票：给不在对象表里的改动记一条修订（事实上的标记：说的和做的不一样标 gap、关联到需求断言、写回补的场景，kg/marks.ts）。
+   * 给不在对象表里的改动记一条修订（事实上的标记：说的和做的不一样标 gap、关联到需求断言、写回补的场景，kg/marks.ts）。
    * 只追加，和别的修订一样改不了、删不了
    */
   recordRevision(type: ObjectType, objectId: string, op: Revision["op"], changes: Revision["changes"], cause: RevisionCause): void {
@@ -657,7 +657,7 @@ export class MemoryStore implements RgWriter {
   }
 
   /**
-   * 彻底删除一条证据（234 号票，ADR-0008 的"连派生内容一起删"）：关键词索引、向量、事实关联、抽取记录一起删。
+   * 彻底删除一条证据（ADR-0008 的"连派生内容一起删"）：关键词索引、向量、事实关联、抽取记录一起删。
    * 修订日志记一条 delete，只记原文多长，不记原文。返回有没有删到
    */
   deleteEvidence(id: string, cause: RevisionCause): boolean {
@@ -770,7 +770,7 @@ export class MemoryStore implements RgWriter {
   }
 
   /**
-   * 彻底删除一条事实（234 号票）：关键词、向量、证据关联一起删。修订日志记一条 delete，只记陈述多长，不记陈述。
+   * 彻底删除一条事实：关键词、向量、证据关联一起删。修订日志记一条 delete，只记陈述多长，不记陈述。
    * 返回有没有删到
    */
   deleteFact(id: string, cause: RevisionCause): boolean {
@@ -876,7 +876,7 @@ export class MemoryStore implements RgWriter {
       .map(FACT.fromRow);
   }
 
-  // ---------- 断言、关联、推断、追问（④ 号票写逻辑） ----------
+  // ---------- 断言、关联、推断、追问（写逻辑） ----------
 
   insertClaim(claim: NewClaim, cause: RevisionCause = { reason: "新断言" }): Claim {
     return this.transaction(() => this.insertRow(CLAIM, { ...claim, needsReview: claim.needsReview ?? false, id: claim.id ?? this.nextId("claim", "claims") }, cause));
@@ -909,12 +909,12 @@ export class MemoryStore implements RgWriter {
     return this.db.all(`SELECT * FROM claims ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY rowid`, ...params).map(CLAIM.fromRow);
   }
 
-  /** 329 号票（R11 复活）：墓碑指向这一条（证据、事实或结论）的结论 */
+  /** R11 复活：墓碑指向这一条（证据、事实或结论）的结论 */
   claimsRetractedBy(id: string): Claim[] {
     return this.db.all("SELECT * FROM claims WHERE retracted_by = ? ORDER BY rowid", id).map(CLAIM.fromRow);
   }
 
-  // ---------- 对抗复核（227 号票） ----------
+  // ---------- 对抗复核 ----------
 
   /** 这条结论复核过没有（每条结论只复核一次） */
   claimReviewed(claimId: string): boolean {
@@ -1035,7 +1035,7 @@ export class MemoryStore implements RgWriter {
     ).map(PROBE.fromRow);
   }
 
-  // ---------- 交互策略（196 号票，逻辑在 rg/strategies.ts） ----------
+  // ---------- 交互策略（逻辑在 rg/strategies.ts） ----------
 
   insertStrategy(strategy: NewStrategy, cause: RevisionCause = { reason: "新策略" }): Strategy {
     return this.transaction(() =>
@@ -1074,7 +1074,7 @@ export class MemoryStore implements RgWriter {
     return this.db.all(`SELECT * FROM strategies ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY rowid`, ...params).map(STRATEGY.fromRow);
   }
 
-  // ---------- 预测账本（226 号票，逻辑在 rg/predictions.ts） ----------
+  // ---------- 预测账本（逻辑在 rg/predictions.ts） ----------
 
   /** 记一条预测（不给 id 就分配 pd-NNNN）；新建进修订日志（对象种类 prediction） */
   putPrediction(prediction: NewPrediction, cause: RevisionCause = { reason: "新预测" }): PredictionRecord {
@@ -1095,7 +1095,7 @@ export class MemoryStore implements RgWriter {
 
   /**
    * 预测账本，按写入先后；可按状态、结论过滤；dueBefore 是到期时间不晚于它（到期判从最早到期的开始）。
-   * due_at 可能为空（还没定到期时间），dueBefore 时不列。330 号票：premiseId 是来源里有它的（预测节点依赖它）、retractedBy 是被它撤的。
+   * due_at 可能为空（还没定到期时间），dueBefore 时不列。premiseId 是来源里有它的（预测节点依赖它）、retractedBy 是被它撤的。
    */
   listPredictions(
     filter: { status?: PredictionStatus | readonly PredictionStatus[]; claimId?: string; dueBefore?: string; premiseId?: string; retractedBy?: string } = {},

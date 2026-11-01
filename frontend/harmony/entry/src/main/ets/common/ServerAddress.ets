@@ -2,7 +2,7 @@ import { url } from '@kit.ArkTS';
 import { t } from './AppTexts';
 
 /**
- * 用户配好的二狗地址（62 号票）。App 只加载它；原生桥、麦克风只对它的来源开放。
+ * 用户配好的二狗地址。App 只加载它；原生桥、麦克风只对它的来源开放。
  * 地址存在应用本地（AppSettings），不写进仓库、不写死在代码里。
  */
 export class ServerAddress {

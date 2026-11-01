@@ -1,4 +1,4 @@
-// 夜航仪表（41 号票，设计稿 docs/architecture/design/styles/c-*.dc.html）：深色为主、青绿指示色、JetBrains Mono 等宽数字、带点的状态药丸。
+// 夜航仪表（设计稿 docs/architecture/design/styles/c-*.dc.html）：深色为主、青绿指示色、JetBrains Mono 等宽数字、带点的状态药丸。
 // 风格和明暗正交：设计稿以深色为主，renderVals() 里也有一套浅色取值（青绿换成深一档的 #0F766E），浅色照它做；
 // 用户选"跟随系统"时照常跟系统。颜色取自设计稿的 --bg、--surface、--raised、--border、--text、--muted、--accent、
 // --accent-ink、--accent-dim、--warn、--warn-dim；对比度不够的几处沿原来的色相调了（标着"设计稿是"）。
@@ -8,7 +8,7 @@ import type { VisualStyle } from "../tokens.ts";
 
 export const night: VisualStyle = {
   id: "night",
-  // 名字和一句话按当前语言（169 号票，取的时候现查）
+  // 名字和一句话按当前语言（取的时候现查）
   get name() {
     return t("styles.night.name");
   },
@@ -40,7 +40,7 @@ export const night: VisualStyle = {
     // 浅色设计稿是 #b45309：压在淡琥珀底上 3.82:1，沿色相加深到 #a14806（4.63:1）
     you: ["#a14806", "#f6ad55"],
     "you-bg": ["rgba(180, 83, 9, 0.12)", "rgba(246, 173, 85, 0.16)"],
-    // 个人助理的名字标签（43 号票要求名字带底色；设计稿里名字只是一行灰字）：按青绿推成淡青绿底、深青绿字
+    // 个人助理的名字标签（要求名字带底色；设计稿里名字只是一行灰字）：按青绿推成淡青绿底、深青绿字
     "name-bg": ["#c2e3df", "#19403d"],
     "name-fg": ["#0b4f49", "#8fe3db"],
     // 内容类型色：计划换成蓝（琥珀色只留给"要你"的事，免得"这是计划"和"等你"撞色；蓝是设计稿给的强调色备选之一 #7AA2F7）

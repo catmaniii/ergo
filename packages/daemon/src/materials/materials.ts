@@ -7,15 +7,15 @@
 //   所以删除素材也要先记进事件日志、并删掉原文副本，否则重建时会回来；
 // - materials.db 只有这里拿得到写入口（对外只有读、检索和登记来源）；
 // - 关键词索引随素材在同一事务里写好；向量在后台异步补算（vectors.ts），不卡写入和对话；
-//   166 号票：采集规则可以另给一段只进索引的外部正文（MaterialDraft.indexText，只有用户主动存的网页给），不进信封和原文副本；
+//   采集规则可以另给一段只进索引的外部正文（MaterialDraft.indexText，只有用户主动存的网页给），不进信封和原文副本；
 //   索引文字的规则变了（索引文字的版本比库里记的新）时，采成素材的那次启动按原始事件把已有素材的索引文字重算一遍（reindex）；
 // - 回避信号：卡片被关闭直接采；建议卡、提问卡若干天没处理，由调度器的内部作业追加 card_stale 事件再采（avoidance.ts）。
-// - 记忆命令（21 号票，commands.ts）：memory_command 事件既产生"显式记忆命令"素材，也删除（忘掉、彻底删除）、
+// - 记忆命令（commands.ts）：memory_command 事件既产生"显式记忆命令"素材，也删除（忘掉、彻底删除）、
 //   标记（别推断）素材；被忘掉的留下墓碑，重建、从原文副本补回时都跳过，原文副本随之删掉。
 //   彻底删除之后 materials.db 做一次 WAL 检查点（TRUNCATE；连接开着 secure_delete），删掉的内容不留在 WAL 和空闲页里。
-// 不在本票：materials.db 和素材区的备份（11）。
+// 不在这里：materials.db 和素材区的备份。
 //
-// 129 号票（ADR-0027，"素材与记忆"做成插件）起分两层：
+// （ADR-0027，"素材与记忆"做成插件）起分两层：
 // - 素材库（这里，内核）：materials.db 和原文副本的保管——跟着事件日志照做记忆命令的删除和标记、留下本人的话的原文副本、读；
 //   素材来源由拥有事件的模块声明进来（register：内核的在组合根里，插件的在它的数据契约里，停用也照样声明）。
 //   这些不随记忆插件停：用户的数据承诺（本人说过的话留一份不可修改的原文副本，删项目也不受影响）和"彻底删除照常能删"。
@@ -71,7 +71,7 @@ export interface MaterialsOptions {
   log: (line: string) => void;
 }
 
-/** 采成素材要的（记忆插件装配时交来，129 号票） */
+/** 采成素材要的（记忆插件装配时交来） */
 export interface CollectOptions {
   /** 向量函数（正式运行是 bge-m3；测试注入假的） */
   embedder: Embedder;
@@ -89,11 +89,11 @@ export interface Materials {
    * 返回撤销函数：之后这类事件不再采成素材、不再留原文副本（采集位置照样往后挪，已经采到的素材留着）
    */
   register(source: MaterialSource): () => void;
-  /** 这类事件登记了素材来源没有（306 号票：数据源的断开确认框按它说"由它们整理出的素材"） */
+  /** 这类事件登记了素材来源没有（数据源的断开确认框按它说"由它们整理出的素材"） */
   captures(eventType: string): boolean;
   /**
    * 开始采成素材（记忆插件装配时）：写进 materials.db 和关键词索引、从原文副本补回、向量补算、回避信号计时。
-   * 211 号票起素材库启动之后也能开始（记忆插件运行中启用、装回）：马上从停下的采集位置补采。
+   * 素材库启动之后也能开始（记忆插件运行中启用、装回）：马上从停下的采集位置补采。
    * 返回撤销函数（插件停用时）：停掉向量和回避信号计时，之后只保管（采集位置停在这里）
    */
   collect(options: CollectOptions): () => Promise<void>;
@@ -111,7 +111,7 @@ export interface Materials {
   readOriginal(material: Material): CapturedMaterial | undefined;
   /** 向量补算的状态（没在采集素材时 state 是 off） */
   vectorStatus(): VectorStatus;
-  /** 在不在采成素材（记忆插件开着）；只保管时是 false（167 号票：记忆 · 素材页顶上写明，搜的时候退回逐条比对） */
+  /** 在不在采成素材（记忆插件开着）；只保管时是 false（记忆 · 素材页顶上写明，搜的时候退回逐条比对） */
   collecting(): boolean;
   /** 还有没有素材引用这个媒体（彻底删除后决定能不能删媒体文件） */
   referencesMedia(mediaId: string): boolean;
@@ -124,7 +124,7 @@ function effectOf(event: StoredEvent) {
 
 /** 补采时一批读多少条事件 */
 const CATCH_UP_BATCH = 500;
-/** 索引文字的版本：1 = 166 号票起采集规则给的外部正文（indexText）也进索引 */
+/** 索引文字的版本：1 =采集规则给的外部正文（indexText）也进索引 */
 const SEARCH_TEXT_VERSION = 1;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -353,7 +353,7 @@ export function openMaterials(options: MaterialsOptions): Materials {
   };
 
   /**
-   * 索引文字的规则变了（166 号票：外部正文 indexText 也进索引）：已有素材按原始事件重新采一遍、重算索引文字，变了的换掉
+   * 索引文字的规则变了（外部正文 indexText 也进索引）：已有素材按原始事件重新采一遍、重算索引文字，变了的换掉
    * （关键词索引跟着换，向量删掉等补算）。原始事件不在了、对不上的（只在原文副本里的本人素材）不动。只在采成素材时做，做完记下版本
    */
   const reindex = () => {
@@ -411,7 +411,7 @@ export function openMaterials(options: MaterialsOptions): Materials {
         vectors: createVectorIndex({ db, store, embedder: collectOptions.embedder, scheduler: collectOptions.scheduler, clock: collectOptions.clock, inbox: collectOptions.inbox, log }),
       };
       collector = mine;
-      // 211 号票：素材库已经启动了（记忆插件运行中启用、装回）——马上从停下的采集位置补采，和重启时一样
+      // 素材库已经启动了（记忆插件运行中启用、装回）——马上从停下的采集位置补采，和重启时一样
       if (started) beginCollecting(mine);
       return async () => {
         if (collector !== mine) return;

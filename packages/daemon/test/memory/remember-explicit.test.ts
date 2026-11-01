@@ -1,4 +1,4 @@
-// "记住"点明了没有（21 号票）：运行时判定，点明了直接记、没点明出卡问。379 号票加英文的说法，只认不会误伤正常句子的：
+// "记住"点明了没有：运行时判定，点明了直接记、没点明出卡问。加英文的说法，只认不会误伤正常句子的：
 // 一句话开头的 "Remember: …" "Remember that …" "Remember this"（不分大小写，前面可以有称呼、客气词），不认 "I remember that …" 这类。
 import { describe, expect, it } from "vitest";
 import { memoryCommandExecutors, rememberExplicit } from "../../src/memory/memory-commands.ts";

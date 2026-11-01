@@ -1,7 +1,7 @@
 // @i18n-ignore-file log：清单写错、登记出错、装配和撤销出错都是给开发者看的（控制台、测试），不给用户看
-// 网页插件宿主（193 号票，ADR-0027 的网页插槽）：网页里装网页插件的那部分。照守护进程的插件宿主（packages/daemon/src/plugins/host.ts），
+// 网页插件宿主（ADR-0027 的网页插槽）：网页里装网页插件的那部分。照守护进程的插件宿主（packages/daemon/src/plugins/host.ts），
 // 借 Cordis 的规矩、不引入 Cordis（调研 19 §3.7、§8.4）：
-// 1. 插件经宿主给的 ctx 往类型化插槽里登记（plugins/slots.ts：页面和路由、主导航里的页签（212 号票）、设置分节、对话条目、详情、卡片、看板条目、日历），
+// 1. 插件经宿主给的 ctx 往类型化插槽里登记（plugins/slots.ts：页面和路由、主导航里的页签、设置分节、对话条目、详情、卡片、看板条目、日历），
 //    每次登记都返回撤销函数、记在这个插件名下；停用时倒着撤（单个撤销出错只记日志、不拦着别的），停了以后再经它登记直接报错。
 // 2. 插件之间不互相 import：插件只 import 网页核心的公开接口（plugins/api.ts 和核心的模块），核心不 import 插件，
 //    插件清单只在 plugins/manifest.ts 一处列（由组合根 App.tsx 引；test/plugins/boundary.test.ts 扫 import 检查）。
@@ -23,19 +23,19 @@ export type Undo = () => void;
 export type WebPluginOwns = { readonly [K in SlotName]?: readonly string[] };
 
 /**
- * 页面的连接和 HTTP（212 号票：浏览插件开场要接上 App 推过来的、报这台设备上的浏览器）：组合根（App.tsx）建宿主时交来；
+ * 页面的连接和 HTTP（浏览插件开场要接上 App 推过来的、报这台设备上的浏览器）：组合根（App.tsx）建宿主时交来；
  * 只在 Node 里跑的测试里没给
  */
 export interface WebPluginPage {
   readonly connection: Connection;
   readonly http: DaemonHttp;
-  /** 这一页是侧边栏模式（?ergo=side，147 号票）：整页只画侧边栏 */
+  /** 这一页是侧边栏模式（?ergo=side）：整页只画侧边栏 */
   readonly sideMode: boolean;
 }
 
 /** 插件装配时拿到的 */
 export interface WebPluginContext {
-  /** 页面的连接和 HTTP（212 号票）；没给（测试）是 undefined */
+  /** 页面的连接和 HTTP；没给（测试）是 undefined */
   readonly page: WebPluginPage | undefined;
   /** 往插槽里放一条（键见 slots.ts 的 SLOT_KEYS）：返回撤销函数，也记在插件名下，停用时倒着撤 */
   register<K extends SlotName>(slot: K, entry: SlotMap[K]): Undo;
@@ -52,7 +52,7 @@ export interface WebPluginDefinition {
   /** 数据契约：它拥有的位置（不管开没开都认得，停用时这些位置显示占位） */
   readonly owns: WebPluginOwns;
   /**
-   * 设置 · 插件里列的"网页上的页面、栏目"（211 号票，给人看的；守护进程那一半——工具、卡片、定时作业——由守护进程写）。
+   * 设置 · 插件里列的"网页上的页面、栏目"（给人看的；守护进程那一半——工具、卡片、定时作业——由守护进程写）。
    * 取值函数，跟着语言
    */
   readonly brings?: readonly string[];
@@ -63,7 +63,7 @@ export interface WebPluginDefinition {
 export interface WebPluginHostOptions {
   /** 插件清单 */
   plugins: readonly WebPluginDefinition[];
-  /** 页面的连接和 HTTP，交给插件（212 号票）；不给（测试）插件拿到 undefined */
+  /** 页面的连接和 HTTP，交给插件；不给（测试）插件拿到 undefined */
   page?: WebPluginPage;
   /** 装配出错、撤销出错写到哪（默认 console.warn） */
   log?: (line: string) => void;

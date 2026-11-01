@@ -1,4 +1,4 @@
-// 主切面：Claude Code 插件（287 号票）。真的守护进程走组合根和插件清单；清单里的 Claude Code 插件经 extraPlugins 换成同名的、
+// 主切面：Claude Code 插件。真的守护进程走组合根和插件清单；清单里的 Claude Code 插件经 extraPlugins 换成同名的、
 // 子进程接假 SDK 的那个（helpers/fake-claude-code.ts：运行时的 id、名字、能力清单、适配子进程都是真的，只有 SDK 是按 faux 剧本吐事件的假的，
 // 不启动真的 claude、不花额度）：
 // - GET /api/runtimes 里有 Claude Code：插件名、能力清单照实写（插话、压缩、思考档位、斜杠命令转交、接管、撤回和切分支、Remote Control 能做）；
@@ -52,7 +52,7 @@ describe("Claude Code 插件（假 SDK）", () => {
     const td = await startTestDaemon();
     const view = (await runtimesApi.view(td.url)).body;
     expect(view.runtimes.map((r) => r.id)).toEqual(["pi", CLAUDE_CODE_RUNTIME_ID]);
-    // 289 号票起带上可选的模型（还没有子进程报回时是三个别名）和设置项（权限模式、思考档位）
+    // 带上可选的模型（还没有子进程报回时是三个别名）和设置项（权限模式、思考档位）
     expect(view.runtimes[1]).toEqual({
       id: CLAUDE_CODE_RUNTIME_ID,
       title: "Claude Code",
@@ -61,10 +61,10 @@ describe("Claude Code 插件（假 SDK）", () => {
       capabilities: { ...CLAUDE_CODE_CAPABILITIES },
       models: CLAUDE_FALLBACK_MODELS,
       settings: claudeCodeSettings(),
-      // 305 号票：新建时能选工作文件夹（还没设默认文件夹）
+      // 新建时能选工作文件夹（还没设默认文件夹）
       workFolder: {},
     });
-    // 293 号票：撤回、切分支能做（分支摘要由二狗写、撤回时恢复文件）；292 号票：Remote Control 能做
+    // 撤回、切分支能做（分支摘要由二狗写、撤回时恢复文件）；Remote Control 能做
     expect(CLAUDE_CODE_CAPABILITIES).toMatchObject({
       interject: true,
       compact: true,

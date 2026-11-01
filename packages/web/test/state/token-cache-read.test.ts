@@ -1,4 +1,4 @@
-// token 总数里单写缓存命中的（311 号票，294 号票端到端小测第 4 条）：Claude Code 跑一个小任务"124 万 token"，其中 104 万是缓存命中，
+// token 总数里单写缓存命中的（端到端小测第 4 条）：Claude Code 跑一个小任务"124 万 token"，其中 104 万是缓存命中，
 // 看着吓人。任务卡、任务详情顶上、项目页的内部任务、⚙ 的上下文用量写总数时带一句"（其中缓存命中 …）"，说法照消耗页的
 // "缓存命中"；pi 和 Claude Code 一样（都来自账本的 cacheHit）。消耗页、任务详情的明细表不变。
 import { describe, expect, test } from "vitest";
@@ -25,7 +25,7 @@ const totals = (taskId: string, tokens: TokenTotalsEventPayload["tokens"]): Toke
 
 const project: Project = { id: "p-1", name: "单位换算小工具", goal: "换算", state: "building", origin: "suggestion", maintainerId: "pm-1", workdir: { external: false }, charterConfirmed: true, createdAt: T, updatedAt: T };
 
-describe("token 总数里单写缓存命中的（311 号票）", () => {
+describe("token 总数里单写缓存命中的", () => {
   test("写法：有缓存命中的带“（其中缓存命中 …）”，没有的照旧", () => {
     expect(tokensText(1_240_000, 1_040_000)).toBe("124 万 token（其中缓存命中 104 万）");
     expect(tokensText(23_815, 20_000)).toBe("2.4 万 token（其中缓存命中 2 万）");

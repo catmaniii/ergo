@@ -1,4 +1,4 @@
-// 接入 Local Service Manager（LSM）的 link 协议（LSM 仓库的 docs/link-protocol.md v1，规格第 1 节，23 号票）。
+// 接入 Local Service Manager（LSM）的 link 协议（LSM 仓库的 docs/link-protocol.md v1，规格第 1 节）。
 // LSM 拉起 ergo-daemon 时注入 LSM_URL / LSM_SERVICE_ID / LSM_TOKEN / LSM_PROTOCOL，这里出站连上它：
 // - 握手（hello）报上 pid、本机端口、版本和能力（busy、stop、restart、health）；
 // - 心跳（默认每 5 秒，按管理器 welcome 里给的间隔）报健康（秘书在不在）和忙不忙（忙不忙怎么算见 busy.ts）；
@@ -6,11 +6,11 @@
 // - 停机（stop / restart）：先应答，"立即"的马上优雅停机（停守护进程：关端口、停 agent、关库），"等空闲"的等不忙了再停，
 //   期间管理器可以撤销（cancel）；停完由守护进程断开连接、发 bye（daemon.ts 的停止流程最后一步，只在那里断）；
 // - 管理器说同一个服务已经有活跃的会话（conflict）：被重复启动了，交给调用方退出；
-// - 名下的服务（协议 §7，见 packages/supervisor/docs/link-protocol.md；133 号票）：hello 里声明 features: ["services"]，管理器的 welcome 里 features 含 "services"
+// - 名下的服务（协议 §7，见 packages/supervisor/docs/link-protocol.md）：hello 里声明 features: ["services"]，管理器的 welcome 里 features 含 "services"
 //   才算支持（老管理器没有这个字段：当成不支持，什么都不发）。支持时经 services 登记 / 更新（put）、启动、停止、重启、开关开机自启、
 //   撤销、列出名下的服务，每条请求带自己编的 id、等回复（启动要等服务就绪，给足 180 秒）；状态推送（services.status，接入时一次全量，
 //   之后只推变了的）交给 onStatus 的订阅者。断线时在途的请求一律回"断了"（管理器那边可能做完了也可能没做，以重连后的全量推送为准）。
-// - 指向自己的入口（协议 §8，364 号票）：hello 里声明 features: ["entries"] 和外网端口，管理器的 welcome 里有 "entries" 才算支持；
+// - 指向自己的入口（协议 §8）：hello 里声明 features: ["entries"] 和外网端口，管理器的 welcome 里有 "entries" 才算支持；
 //   入口清单（公网、tailnet，最近一次从外面打通了没有）接入时推一次、变了再推，交给 entries.onChange 的订阅者。二狗只读，从不让管理器开入口。
 // 铁律（协议第 0 节）：没有注入身份（四个变量缺一个、协议版本不是 1）时静默跳过，什么都不连；连不上、断线一律只是重连
 // （1 秒起翻倍、最多 30 秒，无限重试），从不抛错、从不挡守护进程启动。services 的方法也从不抛错，失败一律 { ok: false, error }。
@@ -42,7 +42,7 @@ export interface LsmBusy {
 }
 
 /**
- * 健康：秘书在运行、启用着的插件都装上了是 ok，否则 degraded（126 号票起插件没装上也算降级）。
+ * 健康：秘书在运行、启用着的插件都装上了是 ok，否则 degraded（插件没装上也算降级）。
  * 协议里还有 failing，守护进程起来了就不会报它
  */
 export type LsmHealth = "ok" | "degraded";
@@ -190,9 +190,9 @@ export interface LsmEntries {
 export interface LsmLink {
   /** 注入了身份、在接入（连没连上另说） */
   readonly enabled: boolean;
-  /** 名下的服务（133 号票） */
+  /** 名下的服务 */
   readonly services: LsmServices;
-  /** 指向自己的入口（364 号票） */
+  /** 指向自己的入口 */
   readonly entries: LsmEntries;
   /** 管理器的网页（从 LSM_URL 算的，只在这台电脑上打得开）；没接入是 undefined */
   readonly managerUrl: string | undefined;
@@ -463,7 +463,7 @@ export function linkToLsm(options: LsmLinkOptions): LsmLink {
     }
     ws = socket;
     socket.on("open", () => {
-      // features：会用名下的服务（133 号票），接入时请管理器推一次全量状态
+      // features：会用名下的服务，接入时请管理器推一次全量状态
       send({
         type: "hello",
         serviceId,

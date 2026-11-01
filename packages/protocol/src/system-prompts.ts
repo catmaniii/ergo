@@ -1,4 +1,4 @@
-// 各 agent 的系统提示（71 号票，一份提示一个 md 文件）：提示的文字放在 md 文件里，用户能在设置里直接改。
+// 各 agent 的系统提示（一份提示一个 md 文件）：提示的文字放在 md 文件里，用户能在设置里直接改。
 // 这里是守护进程和设置页共用的部分（不引用 TypeBox；接口的 schema 在 system-prompt-schema.ts）：
 // 提示文件里占位符的写法、检查（parsePromptTemplate）和填值（renderPromptTemplate）。哪些提示、各能用哪些占位符由守护进程定
 // （packages/daemon/src/prompts/registry.ts），经接口交给设置页，设置页边改边用同一个函数查。

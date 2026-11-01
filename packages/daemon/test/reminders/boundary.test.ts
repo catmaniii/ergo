@@ -1,8 +1,8 @@
-// 提醒插件的边界（126 号票，ADR-0027）：
+// 提醒插件的边界（ADR-0027）：
 // 1. 组合根（daemon.ts）里不出现提醒：只按插件清单装插件；
 // 2. 提醒目录之外只从 reminders/api.ts 拿提醒的东西（服务名和类型，经插件宿主按名字取），不 import 提醒的内部。
-//    写明的例外（Comments 里有为什么、留给哪张票）：插件清单列它；配置段 reminders 还在内核的配置里解析。
-//    128 号票起秘书的提醒工具、系统提示里的工具名和讲提醒的段落都由提醒插件经 agent 贡献缝给（secretary/tool-list.ts、
+//    写明的例外：插件清单列它；配置段 reminders 还在内核的配置里解析。
+//    秘书的提醒工具、系统提示里的工具名和讲提醒的段落都由提醒插件经 agent 贡献缝给（secretary/tool-list.ts、
 //    prompts/registry.ts 不再 import 提醒）。
 import fs from "node:fs";
 import path from "node:path";

@@ -19,7 +19,7 @@ export const RECORDING_ENV = "ERGO_RECORD_EVENTS";
 
 /**
  * 录下来或核对。perChannel：秘书、负责人、用户的动作各走各的，几个频道之间谁先到每次不一样（比如负责人交计划和秘书的回复），
- * 只核对每个频道里的先后和本地动作的先后（12 号票起的任务流程）
+ * 只核对每个频道里的先后和本地动作的先后（任务流程）
  */
 export function saveOrCheckRecording(name: string, inputs: readonly RecordedInput[], options: { perChannel?: boolean } = {}): void {
   const file = path.join(RECORDINGS_DIR, `${name}.json`);
@@ -44,7 +44,7 @@ function byChannel(inputs: readonly RecordedInput[]): string[] {
     .map((x) => `${x.key} | ${x.line}`);
 }
 
-/** 一个目录的几种写法：原样、真实路径（展开 8.3 短名），各自的正斜杠写法和 JSON 转义过的写法（反斜杠成双，28 号票的结构化结果）；长的在前 */
+/** 一个目录的几种写法：原样、真实路径（展开 8.3 短名），各自的正斜杠写法和 JSON 转义过的写法（反斜杠成双，结构化结果）；长的在前 */
 function pathForms(dir: string): string[] {
   const forms = [dir];
   try {
@@ -96,7 +96,7 @@ export function scrubLocalPaths(text: string): string {
   return groups.reduce((s, { pattern, placeholder }) => s.replace(pattern, placeholder), text);
 }
 
-/** 录制里所有的字符串，本机路径换成占位符；对象的键也换（流程步骤的 realPaths 按写的路径做键，60 号票重录时带进来的） */
+/** 录制里所有的字符串，本机路径换成占位符；对象的键也换（流程步骤的 realPaths 按写的路径做键，重录时带进来的） */
 function withoutLocalPaths<T>(value: T): T {
   if (typeof value === "string") return scrubLocalPaths(value) as T;
   if (Array.isArray(value)) return value.map(withoutLocalPaths) as T;
@@ -124,7 +124,7 @@ function skeleton(inputs: readonly RecordedInput[]): string[] {
         return [`resync ${input.channel}`];
       case "card_action":
         return [`card_action ${input.action}`];
-      // 叉掉、改顺序排队的消息（144 号票）：哪一种
+      // 叉掉、改顺序排队的消息：哪一种
       case "queue_edit":
         return [`queue_edit ${input.edit.kind}`];
       // 界面自己的输入（提示过一条通知、一个被拒的请求、引用一张卡、对新到的 agent 语音决定过了），模拟前端不产生
@@ -133,28 +133,28 @@ function skeleton(inputs: readonly RecordedInput[]): string[] {
       case "agent_voice_arrival_seen":
       case "quote_card":
       case "unquote_card":
-      // 109 号票：补发推完了、这台设备上看到哪了、界面自己出的提醒、对秘书的一轮决定过了（模拟前端同样不产生）
+      // 补发推完了、这台设备上看到哪了、界面自己出的提醒、对秘书的一轮决定过了（模拟前端同样不产生）
       case "synced":
       case "read_seen":
       case "alert":
       case "secretary_turn_seen":
         return [input.kind];
-      // 经 HTTP 取回的一个月的日历（35 号票）：哪个月、每天有几条提醒、几次作业（每次取都一样的部分；序号、时间每次不一样）
+      // 经 HTTP 取回的一个月的日历：哪个月、每天有几条提醒、几次作业（每次取都一样的部分；序号、时间每次不一样）
       case "calendar_month":
         return [`calendar_month ${input.view.month} ${input.view.days.map((d) => `${d.reminders.length}/${d.jobs.length}`).join(" ")}`];
-      // 经 HTTP 取回的两个语音模型的状态（45 号票）：跟着守护进程的预热变，每次不一样（和推来的临时事件 voice_models 一样不核对）
+      // 经 HTTP 取回的两个语音模型的状态：跟着守护进程的预热变，每次不一样（和推来的临时事件 voice_models 一样不核对）
       case "voice_models":
         return [];
-      // 经 HTTP 取回的角色表（248 号票；241 号票是每个 agent 自己的名字和音色）：跟着配置变，
+      // 经 HTTP 取回的角色表（是每个 agent 自己的名字和音色）：跟着配置变，
       // 哪几个角色、谁是默认、每个 agent 用哪个角色和它现在的名字
       case "agent_roles":
         return [
           `agent_roles ${input.view.roles.map((r) => `${r.name}${r.isDefault ? "*" : ""}`).join(",")} | ${input.view.agents.map((e) => `${e.agentId}:${e.identity.name}(${e.identity.nameSource})`).join(" ")}`,
         ];
-      // 经 HTTP 取回、改过的"我的名字"（249 号票）：界面自己的输入（模拟前端取回来的），不核对
+      // 经 HTTP 取回、改过的"我的名字"：界面自己的输入（模拟前端取回来的），不核对
       case "user_name":
         return [];
-      // 116 号票：网页是哪一版（跟着构建产物变，测试页没有版本号）、"等会儿"、切前后台（界面自己的），不核对
+      // 网页是哪一版（跟着构建产物变，测试页没有版本号）、"等会儿"、切前后台（界面自己的），不核对
       case "web_version":
       case "update_later":
       case "page_hidden":
@@ -163,11 +163,11 @@ function skeleton(inputs: readonly RecordedInput[]): string[] {
         return [];
       case "history_page": {
         const seqs = input.page.messages.map((m) => m.seq);
-        // 落在这一页里的时间线记录（25 号票起）：序号和类型
+        // 落在这一页里的时间线记录：序号和类型
         const records = (input.page.records ?? []).map((r) => ` ${r.type}#${r.seq}`).join("");
         return [`history_page ${input.conversation} ${seqs[0] ?? "-"}..${seqs.at(-1) ?? "-"} (${seqs.length})${input.page.hasMore ? " more" : ""}${records}`];
       }
-      // 经 HTTP 取回的一条分支的样子（151 号票）：哪条、和哪条比、几条消息、几件遗留效果
+      // 经 HTTP 取回的一条分支的样子：哪条、和哪条比、几条消息、几件遗留效果
       case "branch_view":
         return [`branch_view ${input.conversation} ${input.view.branchId}/${input.view.against} (${input.view.messages.length}) effects ${input.view.effects.length}`];
     }

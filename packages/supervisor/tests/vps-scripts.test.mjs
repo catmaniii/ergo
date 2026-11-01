@@ -1,4 +1,4 @@
-// VPS 上跑的脚本（321 号票）：在"假 Debian"里用 Git Bash 真的跑——从零装、重跑（幂等）、断了接着做、
+// VPS 上跑的脚本：在"假 Debian"里用 Git Bash 真的跑——从零装、重跑（幂等）、断了接着做、
 // nginx -t 不过撤回、原样撤；再加静态检查（bash -n、不该出现的写法）。不连任何真机器。
 import './_isolate.mjs';   // 必须是第一个 import：先把数据目录换成临时目录
 import { describe, test } from 'node:test';
@@ -49,7 +49,7 @@ test('脚本的静态检查：bash -n 都过；只有参数是生成的，参数
     const params = s.split('# ---------------------------------------------------------------- 参数（生成时填好）\n')[1].split('\n\n')[0].split('\n');
     for (const p of params) assert.match(p, /^[A-Z][A-Z0-9_]*='[^']*'$/, `${name} 的参数行 ${p}`);
   }
-  // 受限账号那一行和票里写的一字不差；nginx 站点把真实 IP 传过去、接的是 VPS 上的隧道端口
+  // 受限账号那一行一字不差；nginx 站点把真实 IP 传过去、接的是 VPS 上的隧道端口
   assert.ok(scripts.tunnel.includes('line="restrict,port-forwarding,permitlisten=\\"127.0.0.1:$TUNNEL_PORT\\",command=\\"/bin/false\\" $TUNNEL_PUBKEY"'));
   assert.ok(scripts.tunnel.includes('proxy_set_header X-Real-IP $remote_addr;'));
   assert.ok(scripts.tunnel.includes('proxy_pass http://127.0.0.1:18811;'));

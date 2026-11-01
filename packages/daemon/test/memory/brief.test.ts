@@ -1,6 +1,6 @@
-// 232 号票：秘书的 ask_memory 工具和每轮醒来的记忆简报（memory.brief 上下文块）。用临时目录里的真 SQLite、真 MemoryEngine
+// 秘书的 ask_memory 工具和每轮醒来的记忆简报（memory.brief 上下文块）。用临时目录里的真 SQLite、真 MemoryEngine
 // （规则版抽取和推理、假向量），不调真的模型；引擎经 createMemoryEngineProvider 懒打开，和插件装配时走同一条路。
-// 例子是 196 号票测试的那个人（自己写的，不看 @ergo/memory 的 fixtures/truth）：3 月到 10 月周末、工作日都在推掉排好的事，
+// 例子是测试的那个人（自己写的，不看 @ergo/memory 的 fixtures/truth）：3 月到 10 月周末、工作日都在推掉排好的事，
 // 规则版往上抽出需求、价值观；另有一条带"过敏"的忌口（明说的禁忌）和一条早就过期的"最近太累"。
 import fs from "node:fs";
 import path from "node:path";
@@ -88,11 +88,11 @@ async function reasoningDb(evidence: readonly EvidenceDraft[] = STORY): Promise<
   };
 }
 
-/** 醒来简报的抬头：唤醒的那个上下文块（266 号票起叫醒来简报，【记忆简报】是每条消息跟在输入后面的那块） */
+/** 醒来简报的抬头：唤醒的那个上下文块（叫醒来简报，【记忆简报】是每条消息跟在输入后面的那块） */
 const HEADER = "【醒来简报】";
 
 /**
- * 一条素材的假素材库（235 号票的降级测试用）：关键词查得到一条、语义查的时候抛"向量模型不在"（和记忆插件没在采集时一样）。
+ * 一条素材的假素材库（降级测试用）：关键词查得到一条、语义查的时候抛"向量模型不在"（和记忆插件没在采集时一样）。
  * search_materials 只用到这两个方法，别的没实现（真素材库 = materials/materials.ts 的那套，在别的测试里）。
  */
 function fakeLibrary() {
@@ -148,7 +148,7 @@ describe("ask_memory 工具", () => {
     expect(text).toMatch(/禁忌：\[cl-\d{4}\].*香菜/);
   });
 
-  // 263 号票：问记忆也进"回忆了 N 条记忆"那一行——命中是简报里引用的证据背后的素材
+  // 问记忆也进"回忆了 N 条记忆"那一行——命中是简报里引用的证据背后的素材
   it("交回结构化的调用记忆（source 是 ask）：查了什么是问题，命中是简报里引用的证据背后的素材（去重、素材库里没有的不列）", async () => {
     const built = await reasoningDb(STORY.map((draft) => ({ ...draft, sourceRef: `mat-${draft.id}` })));
     const gone = "mat-ev-w3";
@@ -193,7 +193,7 @@ describe("ask_memory 工具", () => {
     expect(fs.existsSync(file)).toBe(false);
   });
 
-  // 235 号票：四条降级之三——推理库打不开 / 版本对不上：素材检索照常，简报和 ask_memory 回"记忆还没准备好"
+  // 四条降级之三——推理库打不开 / 版本对不上：素材检索照常，简报和 ask_memory 回"记忆还没准备好"
   it("推理库版本对不上：简报是空串、ask_memory 回\"记忆还没准备好\"，素材检索照常（同一条需要素材库的路）", async () => {
     const clock = new ManualClock(NOW);
     const file = path.join(makeTempDir("ergo-brief-"), "db", "rg.db");
@@ -224,7 +224,7 @@ describe("ask_memory 工具", () => {
 });
 
 describe("每轮醒来的记忆简报", () => {
-  it("给你对用户的理解：需求、价值观各最多 3 条、带谁说的和把握，还拿不准的最多 2 组；问题箱里的问题不放（264 号票起顺口问另走每条输入的上下文块）；不超过 1200 字", async () => {
+  it("给你对用户的理解：需求、价值观各最多 3 条、带谁说的和把握，还拿不准的最多 2 组；问题箱里的问题不放（顺口问另走每条输入的上下文块）；不超过 1200 字", async () => {
     const built = await reasoningDb();
     const engine = built.engine();
     const need = engine.store.listClaims({ tier: "need", status: "active" })[0]!;
@@ -253,7 +253,7 @@ describe("每轮醒来的记忆简报", () => {
       closeness: 0.5,
       frequency: 0.5,
     };
-    // 267 号票：简报那份是读者引擎（写入口只读），问题要用一份可写的引擎放进去
+    // 简报那份是读者引擎（写入口只读），问题要用一份可写的引擎放进去
     const seeded = createWritableEngineUse({ file: built.file, clock: () => clockIso(built.clock), model: "deepseek-flash" })((writer) => writer.questions.offer(draft, clockIso(built.clock)).question);
     expect(seeded).toBeDefined();
 
@@ -270,12 +270,12 @@ describe("每轮醒来的记忆简报", () => {
     expect(needs[0]).toContain(`[${need.id}]`);
     expect(needs[0]).toMatch(/推断的 · 把握[低中高]/);
     expect(values[0]).toContain(`[${value.id}]`);
-    // 264 号票：问题箱里开着的问题不进简报（秘书不看话题自己问、问了也没人记）；顺口问由每条输入后面的上下文块交
+    // 问题箱里开着的问题不进简报（秘书不看话题自己问、问了也没人记）；顺口问由每条输入后面的上下文块交
     expect(text).not.toContain("顺口问");
     expect(text).not.toContain("上次推掉的周末活动");
   });
 
-  it("330 号票（R5）：需求、价值观里的猜测也给（最多 3 条，标'猜测'和把握，谁说的）；已经在'还拿不准'那几组里的不重复列；抬头写清猜测可以照着说、把握低的留余地", async () => {
+  it("ADR-0032 R5：需求、价值观里的猜测也给（最多 3 条，标'猜测'和把握，谁说的）；已经在'还拿不准'那几组里的不重复列；抬头写清猜测可以照着说、把握低的留余地", async () => {
     const built = await reasoningDb();
     const engine = built.engine();
     const text = wakeBriefText(engine);

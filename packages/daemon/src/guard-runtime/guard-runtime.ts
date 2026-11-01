@@ -8,25 +8,25 @@
 //   工具调用记录、效果日志、审批、"交给我做"写进事件日志之前，读过的密钥值换成"（密钥）"，读了密钥文件的不记结果；
 // - 硬拒绝、按规则退回、永不：拦下，模型收到说明；
 // - 交给我做：拦下，在待我处理里放一个"交给我做"事项（hand-over/）；
-// - 先问我：一次性授权、提交审批、等用户（approval-waits.ts）；任务里"没预料到的类别"（14 号票）提交审批后不等，
-//   这一支马上停下（记挂起，控制器让别的阶段接着做）。对话审批关着（70 号票，配置 guard.conversationApprovals 默认 off；
-//   101 号票改了范围）时，秘书除了特别敏感的、任务的 agent 超出授权的"先问我"由判定函数按"直接做"判（照常记录、照常标关注类别），
+// - 先问我：一次性授权、提交审批、等用户（approval-waits.ts）；任务里"没预料到的类别"提交审批后不等，
+//   这一支马上停下（记挂起，控制器让别的阶段接着做）。对话审批关着（配置 guard.conversationApprovals 默认 off；
+//   改了范围）时，秘书除了特别敏感的、任务的 agent 超出授权的"先问我"由判定函数按"直接做"判（照常记录、照常标关注类别），
 //   不出审批卡；
-// - 任务里按规则退回的（拉回）记一条 pulled_back，控制器据此计拉回次数（14 号票）；
+// - 任务里按规则退回的（拉回）记一条 pulled_back，控制器据此计拉回次数；
 // - 判定出错：拦下，作为单独的结果（未执行，原因"判定出错"），不当成"永不"。
 // 不论结果，每次调用在 tool_call_end 时往会话里追加一条工具调用记录（tool-call-record.ts），之前先另存一份完整的参数和返回
-// （tool-call-details.ts，53 号票：详情页按调用 id 取；经过同一份隐私处理，太长的截断）。
-// 流程（59 号票，plan-check.ts）：执行中的流程里，判定之后再和授权的计划比对（两道都要过）——前置步骤没做的引回（不执行，
+// （tool-call-details.ts：详情页按调用 id 取；经过同一份隐私处理，太长的截断）。
+// 流程（plan-check.ts）：执行中的流程里，判定之后再和授权的计划比对（两道都要过）——前置步骤没做的引回（不执行，
 // 告诉负责人先做哪一步）、参数和计划对不上的按计划改回再放行（子进程按改后的参数执行，结果前面写明）、重复和审查剔除的对象
 // 直接拦下、计划外会改东西的和超出范围的问用户（和第一道要问的合成一张审批卡）；执行成功的记下对上了哪一步，修回记进时间线。
-// 项目的负责人、项目外任务的 agent 的会话给了 ownWork（111 号票，tasks/own-work.ts）：判定时带上范围开始的时间、交出去了的交付件，
+// 项目的负责人、项目外任务的 agent 的会话给了 ownWork（tasks/own-work.ts）：判定时带上范围开始的时间、交出去了的交付件，
 // 环境事实另取文件的创建时间、要删除的目录里面有什么——临时文件删除、整体重写不落入"删除或覆盖"、不按 v1 模板退回（guard/own-temp.ts）。
-// 被杀后的恢复（23 号票，executions.ts）：放行、开始执行的有副作用的调用记 tool_call_started，结束时记 tool_call_finished
+// 被杀后的恢复（executions.ts）：放行、开始执行的有副作用的调用记 tool_call_started，结束时记 tool_call_finished
 // （成功与否、结果摘要），agent 又出了一条助手消息、或者这一轮结束时（结果都写进会话了）记 tool_calls_settled；
 // 子进程意外退出时还没结束的记 tool_call_interrupted（守护进程被杀时没机会记，重启时由 recovery/ 补记）。
 // 守护进程停止时（stop 之后）子进程被结束不算中断：没结束的留着，下次启动时按被杀恢复。
-// 授权的文件夹（355 号票）：每次判定现读名单（改了下一次调用就生效）、连同真实路径交给判定函数，读里面的不算越出项目目录（guard/judge.ts）。
-// 语言（173 号票）：判定和计划比对都在中文下做（guard/model-language.ts）——说明交回 agent，给模型的话不翻；判定的身份
+// 授权的文件夹：每次判定现读名单（改了下一次调用就生效）、连同真实路径交给判定函数，读里面的不算越出项目目录（guard/judge.ts）。
+// 语言：判定和计划比对都在中文下做（guard/model-language.ts）——说明交回 agent，给模型的话不翻；判定的身份
 // （计划检查的 findingKey、审批记下的类别 id）因此也不随语言变。用户的语言不是中文时，审批卡的原因、"交给我做"的说明、
 // 时间线上的纠偏、工具调用记录上被拦下的原因按用户的语言另算一份：照同样的输入在用户的语言下再判一遍（userView，都是纯的）。
 import { type ConversationId, internalMark, type MemoryRecall, nowIso, type ProjectInternal, t } from "@ergo/protocol";
@@ -99,41 +99,41 @@ export interface GuardedSession {
   /** 发起调用的 agent（工作目录、工具包、围栏）：子进程拉起时的那一份 */
   agent: GuardAgent;
   /**
-   * 此刻的 agent（27 号票评审后定）：工具包每次判定现取（和关注类别设置每次现读一样），工具包一改，子进程重新装配之前
+   * 此刻的 agent：工具包每次判定现取（和关注类别设置每次现读一样），工具包一改，子进程重新装配之前
    * 发起的下一次调用、等审批的调用被批准时都按新的判。不给就用 agent
    */
   currentAgent?: () => GuardAgent;
   /** 这个会话的工具注册表（内置的，加上它的守护进程代为执行的工具、MCP 工具） */
   tools: ToolRegistry;
-  /** 对话里调用所在的会话：工具调用记录、审批卡、给 agent 的通知都追加在这里；任务里由 13 号票定 */
+  /** 对话里调用所在的会话：工具调用记录、审批卡、给 agent 的通知都追加在这里；任务里由任务的执行模块定 */
   conversation: ConversationId | null;
   /** 审批卡、"交给我做"事项上的来源："秘书对话"，任务里写任务和阶段 */
   source: string;
-  /** 项目内部的会话（64 号票）：审批卡、"交给我做"、中断不确定这些事项带上它 */
+  /** 项目内部的会话：审批卡、"交给我做"、中断不确定这些事项带上它 */
   internal?: ProjectInternal;
   /** 会话段（不属于任务的调用）：效果日志和时序规则按它划范围 */
   segmentId?: string;
-  /** 调用所属的任务（13 号票接）；对话里为 null。判定时交给它发起调用的 agent（77 号票：事件触发的流程按它推出这次运行的授权） */
+  /** 调用所属的任务（接）；对话里为 null。判定时交给它发起调用的 agent（事件触发的流程按它推出这次运行的授权） */
   task?: (ctx?: GuardTaskContext) => GuardTask | null;
   /**
-   * 认临时文件要的（111 号票：范围开始的时间、交出去了的交付件，tasks/own-work.ts）：项目的负责人（做什么都算）按项目，项目外的任务的
+   * 认临时文件要的（范围开始的时间、交出去了的交付件，tasks/own-work.ts）：项目的负责人（做什么都算）按项目，项目外的任务的
    * agent（任务的负责人执行、定时 / 事件触发的运行、子 agent、普通任务的 agent）按任务，每次判定现取；秘书、项目外任务的起草计划不给。
    * 给了的，删除、整体重写临时文件不落入"删除或覆盖"、不受 v1 模板"删除或覆盖之前必须已备份或已提交"约束，
    * 环境事实另取创建时间、要删除的目录里面有什么
    */
   ownWork?: () => GuardOwnWork | null;
   /**
-   * 负责人会话：工具调用记录这些消息带上的归属（任务、项目，素材的"任务或项目"取自这里，12 号票起；任务里还有阶段，25 号票）。
+   * 负责人会话：工具调用记录这些消息带上的归属（任务、项目，素材的"任务或项目"取自这里，任务里还有阶段）。
    * 每次判定时取一次，这次调用的记录用那一刻的（宣布阶段完成的那次，记录时已经换到下一个阶段了）
    */
   messageScope?: () => MessageScope;
   /**
-   * 这一轮作废了（84 号票：从某个阶段重做时手头那一轮没在限定时间里停下，重开时的 generation）：给出原因时，
+   * 这一轮作废了（从某个阶段重做时手头那一轮没在限定时间里停下，重开时的 generation）：给出原因时，
    * 这一轮之后的调用一律不放行，结果交回原因
    */
   superseded?: () => string | undefined;
   /**
-   * 这次调用交回的调用记忆的结构化部分（187 号票：检索素材、读素材，serveHostTools 的 onRecall 记下的），取了就不再记着；
+   * 这次调用交回的调用记忆的结构化部分（检索素材、读素材，serveHostTools 的 onRecall 记下的），取了就不再记着；
    * 写工具调用记录时取，记在工具调用 part 的 recall 上。不给就没有
    */
   takeRecall?: (toolCallId: string) => MemoryRecall | undefined;
@@ -143,36 +143,36 @@ export interface GuardRuntimeOptions {
   store: EventStore;
   approvals: ApprovalService;
   handOvers: HandOverService;
-  /** 子进程意外退出时被中断的、不属于任务的调用在这里放一条"中断不确定"（23 号票） */
+  /** 子进程意外退出时被中断的、不属于任务的调用在这里放一条"中断不确定" */
   inbox: InboxService;
   clock: Clock;
   /** 守卫看到的数据目录各区、程序目录、用户主目录（都是真实路径） */
   places: GuardPlaces;
   /** 全局的关注类别设置：每次判定现取（数据目录配置区的文件，改了设置立即生效；文件坏了时抛错，这次判定出错） */
   settings: () => WatchCategorySettings;
-  /** 授权的文件夹（355 号票，folders/local-folders.ts）：每次判定现读；读里面的不算越出项目目录。不给就没有 */
+  /** 授权的文件夹（folders/local-folders.ts）：每次判定现读；读里面的不算越出项目目录。不给就没有 */
   authorizedFolders?: () => readonly string[];
   /** 子进程里等审批最多等多久（毫秒） */
   approvalWaitMs: number;
   /**
-   * 对话审批的开关（70 号票，配置 guard.conversationApprovals，默认 off；101 号票改了 off 的范围）：off 时秘书除了特别敏感的、
+   * 对话审批的开关（配置 guard.conversationApprovals，默认 off；改了 off 的范围）：off 时秘书除了特别敏感的、
    * 任务的 agent 超出授权的"先问我"都由判定函数按"直接做"判（见守卫的 GuardInput.conversationApprovals）；流程的逐步核对
    * （plan-check.ts）不受影响。不给按 on
    */
   conversationApprovals?: ConversationApprovals;
   /**
-   * 运行时自动留旧版本的地方（15 号票：项目档案，不含工作目录和历史区）：
+   * 运行时自动留旧版本的地方（项目档案，不含工作目录和历史区）：
    * - covers：守卫的环境事实里对这些路径传 backedUp（v1 模板"删除或覆盖前须已备份或已提交"因此满足）；
    * - preserve：放行一次调用之前（直接放行、一次性授权、用户批准都算），它要删除或整体重写的、covers 认的路径
    *   先交给它留旧版本。抛错就不放行，模型收到原因
    */
   autoVersioning?: { covers(path: string): boolean; preserve(paths: readonly string[]): void };
-  /** 子进程里某个 agent 的一次调用开始、不再等用户批准：活动状态的"等你"（25 号票） */
+  /** 子进程里某个 agent 的一次调用开始、不再等用户批准：活动状态的"等你" */
   userWaits?: UserWaits;
-  /** 不在等的审批被决定时给 agent 的通知换个说法（20 号票：子 agent 的调用，见 approval-waits.ts） */
+  /** 不在等的审批被决定时给 agent 的通知换个说法（子 agent 的调用，见 approval-waits.ts） */
   lateNotice?: (decision: LateDecision) => string | undefined;
   /**
-   * 这次调用所在的阶段是不是超预算停下了（361 号票，tasks/execution.ts 的 heldCall）：给出原因时不判定、不执行，结果交回原因。
+   * 这次调用所在的阶段是不是超预算停下了（tasks/execution.ts 的 heldCall）：给出原因时不判定、不执行，结果交回原因。
    * 宣布完成、提计划变更不拦。不给就不拦
    */
   heldCall?: (scope: MessageScope, tool: string) => string | undefined;
@@ -189,7 +189,7 @@ export interface GuardRuntime {
   stop(): void;
 }
 
-/** 流程的计划检查要问的里面，算"超出授权"的（101 号票）：计划外会改东西的、超出步骤写的对象 */
+/** 流程的计划检查要问的里面，算"超出授权"的：计划外会改东西的、超出步骤写的对象 */
 const PLAN_BEYOND_GRANT: ReadonlySet<string> = new Set(["off_plan", "out_of_scope"]);
 
 interface Judged {
@@ -199,7 +199,7 @@ interface Judged {
   settings: CategoryTitles[];
 }
 
-/** 守卫拦下时记下给用户看的原因（工具调用记录的结果摘要用，173 号票）：用户的语言是中文时不用另记 */
+/** 守卫拦下时记下给用户看的原因（工具调用记录的结果摘要用）：用户的语言是中文时不用另记 */
 function blockedForUser(state: CallState, reason: () => string): void {
   if (!userLanguageIsModelLanguage()) state.userReason = reason();
 }
@@ -219,7 +219,7 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
   const time = () => nowIso(new Date(clock.now()));
   /** 读过的密钥值：只在内存里（read-secrets.ts） */
   const readSecrets = createReadSecrets();
-  /** 流程执行时：用户点过头的判定、每个"工具|步骤"修过几次（59 号票，只在内存里） */
+  /** 流程执行时：用户点过头的判定、每个"工具|步骤"修过几次（只在内存里） */
   const planMemories = createPlanMemories();
 
   /** 放行之前：这次要删除或整体重写的、自动留旧版本的地方认的路径，先留旧版本（抛错就不放行） */
@@ -250,7 +250,7 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
     store.append({ channel: GUARD_CHANNEL, type: GUARD_EVENTS.neverRecorded, payload });
   };
 
-  /** 任务里一次调用被按规则退回（拉回）：记下来，控制器据此计拉回次数（14 号票） */
+  /** 任务里一次调用被按规则退回（拉回）：记下来，控制器据此计拉回次数 */
   const recordPullBack = (state: CallState, origin: CallOrigin, ruleIds: readonly string[]) => {
     if (origin.taskId === null) return;
     const payload: PulledBackPayload = { origin, toolCallId: state.toolCallId, tool: state.toolName, ruleIds: [...ruleIds], time: nowIso(new Date(clock.now())) };
@@ -268,7 +268,7 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
     }
   };
 
-  /** 这个 agent 在做的任务的"自己的东西"（111 号票）；取的时候出错就当没有（一切照旧，删除或覆盖照常要备份或提交） */
+  /** 这个 agent 在做的任务的"自己的东西"；取的时候出错就当没有（一切照旧，删除或覆盖照常要备份或提交） */
   const ownWorkOf = (session: GuardedSession): GuardOwnWork | undefined => {
     try {
       return session.ownWork?.() ?? undefined;
@@ -295,7 +295,7 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
     const settings = options.settings();
     const scope = scopeOf({ task, agent, segmentId: session.segmentId });
     const effectLog = listEffects(store.reader, scope);
-    // 同一任务里被判过"永不"的对外对象（13 号票）：之后针对它们的调用至少按"先问我"
+    // 同一任务里被判过"永不"的对外对象：之后针对它们的调用至少按"先问我"
     const attributed = attributedTask(task);
     const neverObjects = attributed ? neverObjectsIn(attributed.taskId) : [];
     const ownWork = ownWorkOf(session);
@@ -358,7 +358,7 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
       };
 
       /**
-       * 给用户看的那一份（173 号票）：用户的语言就是中文时就是判出来的那一份；不是时照同样的输入在用户的语言下再判、再比对一遍
+       * 给用户看的那一份：用户的语言就是中文时就是判出来的那一份；不是时照同样的输入在用户的语言下再判、再比对一遍
        * （结论一样，只换了说法）。要在用掉纠偏额度之前算（额度变了比对的结论可能不一样）
        */
       const userView = (state: CallState, judged: Judged, withPlan = true): { judgement: GuardJudgement; plan: PlanChecked | undefined } => {
@@ -376,22 +376,22 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
       };
 
       /**
-       * 先问我：一次性授权或提交审批、等用户；负责人在任务里碰到没预料到的类别不等，这一支马上停下（14 号票）。
-       * 子 agent（20 号票）只做它那一支：照常等用户（等的时候这一支就停着），不先挂起——挂起了它会接着往下做完、交回结果
+       * 先问我：一次性授权或提交审批、等用户；负责人在任务里碰到没预料到的类别不等，这一支马上停下。
+       * 子 agent只做它那一支：照常等用户（等的时候这一支就停着），不先挂起——挂起了它会接着往下做完、交回结果
        */
       const askUser = (state: CallState, judged: Judged, reply: (verdict: GuardVerdict) => void) => {
         const { input, judgement, settings } = judged;
         const origin = originOf(input.task, state);
         const privacy = privacyOf(state);
         const suspend = attributedTask(input.task) !== null && judgement.deviation === "unanticipated" && session.agent.kind !== "sub_agent";
-        // 计划检查也要问的（59 号票）：合成一次，审批卡上另列"与已授权的计划不一致"，原因里写明哪里不一致
+        // 计划检查也要问的：合成一次，审批卡上另列"与已授权的计划不一致"，原因里写明哪里不一致
         const plan = state.plan?.outcome.kind === "ask" ? { checked: state.plan, findings: state.plan.outcome.askAbout } : undefined;
         const asksItself = !judgementExecutes(judgement);
         // 审批卡上的原因给用户看：用户的语言（类别 id、判定的身份照旧取中文下判出来的那一份）
         const view = userView(state, judged);
         const planForUser = view.plan?.outcome.kind === "ask" ? view.plan.outcome.askAbout : plan?.findings;
         const reason = [...(asksItself ? [view.judgement.explanation] : []), ...(plan && planForUser ? [planAskReason(planForUser)] : [])].join("\n");
-        // 用户批准时再按此刻的工具包判一次（27 号票）：等审批的这段时间工具包被收窄了，没了的能力照样用不到
+        // 用户批准时再按此刻的工具包判一次：等审批的这段时间工具包被收窄了，没了的能力照样用不到
         const replyNow = (verdict: GuardVerdict) => {
           if (!verdict.allow) return reply(verdict);
           // 同意过一次就别再为同一件事打断：一个步骤删 12 个文件不该弹 12 次
@@ -450,7 +450,7 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
         );
       };
 
-      /** 放行、开始执行：有副作用的记一笔（23 号票），结束之前被杀就是说不清做没做完的 */
+      /** 放行、开始执行：有副作用的记一笔，结束之前被杀就是说不清做没做完的 */
       const startExecution = (state: CallState) => {
         if (!needsExecutionRecord(session.tools, state.toolName, state.judgement)) return;
         const execution: ExecutionRecord = {
@@ -478,7 +478,7 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
       };
 
       /**
-       * 流程里和计划比对的结论先处理（59 号票）：引回、改回参数、直接拦下；硬拒绝优先于它们（越出能力或边界，补哪一步都没用）。
+       * 流程里和计划比对的结论先处理：引回、改回参数、直接拦下；硬拒绝优先于它们（越出能力或边界，补哪一步都没用）。
        * 要问用户的和第一道合成一次（askUser）；照第一道走的返回 false
        */
       const disposePlan = (state: CallState, judged: Judged, reply: (verdict: GuardVerdict) => void): boolean => {
@@ -520,7 +520,7 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
           return true;
         }
         if (outcome.kind === "ask" && judgementExecutes(judged.judgement)) {
-          // 对话审批关着时任务的 agent 超出授权先不管（101 号票）：要问的只是计划外会改东西的、超出步骤写的对象，直接做，
+          // 对话审批关着时任务的 agent 超出授权先不管：要问的只是计划外会改东西的、超出步骤写的对象，直接做，
           // 记录上照常标出（plan.findings、beyondGrant）；步骤先后、检查器出错照旧问
           if (taskAgentLeeway(judged.input) && outcome.askAbout.every((f) => PLAN_BEYOND_GRANT.has(f.kind))) {
             state.outcome = "allowed";
@@ -623,13 +623,13 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
         if (!state) return;
         calls.delete(end.toolCallId);
         if (state.outcome === "waiting") waits.abandon(state);
-        // 调用记忆的结构化部分（187 号票）：工具交回结果时记下的，这次调用的记录带上
+        // 调用记忆的结构化部分：工具交回结果时记下的，这次调用的记录带上
         const recall = session.takeRecall?.(end.toolCallId);
         if (recall) state.recall = recall;
         // 放行执行过的先收下读到的密钥值（出错的也收：模型可能已经看到了内容），这次调用自己的记录也按它擦
         if (state.outcome === "allowed" && state.input && state.judgement) readSecrets.capture(state.input, state.judgement);
         const privacy = privacyOf(state);
-        // 完整的参数和返回另存一份（53 号票，按调用 id 取），排在工具调用记录之前：前端看到记录时就取得到；
+        // 完整的参数和返回另存一份（按调用 id 取），排在工具调用记录之前：前端看到记录时就取得到；
         // 也不插在记录和紧跟着的效果日志之间（彻底删除按"紧跟在后面"找效果日志）。存不下不耽误记录
         try {
           recordToolCallDetail(store, toolCallDetail(state, end, { agentId, conversation: session.conversation, toolTitle: toolTitle(session.tools, state.toolName), endedAt: time(), privacy }));
@@ -646,7 +646,7 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
           ok,
           result: toolCallPart(state, end, session.tools, privacy).resultSummary ?? "",
         };
-        // 流程里执行成功的：记下对上了哪一步（59 号票，下次判定时按序重放）
+        // 流程里执行成功的：记下对上了哪一步（下次判定时按序重放）
         const committed: PlanCallCommittedPayload | undefined =
           ok && state.plan
             ? { taskId: state.plan.taskId, planId: state.plan.planId, toolCallId: state.toolCallId, tool: state.toolName, stepId: state.plan.outcome.assessment.matchedStep ?? null, time: time() }
@@ -670,7 +670,7 @@ export function createGuardRuntime(options: GuardRuntimeOptions): GuardRuntime {
         }
       };
 
-      /** 又出了一条助手消息、这一轮结束了：做完了的调用结果都写进会话了，不用再记着（23 号票） */
+      /** 又出了一条助手消息、这一轮结束了：做完了的调用结果都写进会话了，不用再记着 */
       const settle = () => {
         const toolCallIds = unsettledExecutions(store.reader, agentId);
         if (toolCallIds.length === 0) return;

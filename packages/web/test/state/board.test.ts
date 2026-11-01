@@ -1,4 +1,4 @@
-// 前端状态层：任务看板（12 号票）。看板频道上的 task 事件是任务的最新状态，按规格的五组显示：
+// 前端状态层：任务看板。看板频道上的 task 事件是任务的最新状态，按规格的五组显示：
 // 等我（等我、待确认）、进行中（规划中、排队中、执行中、已暂停）、运营中（简单提醒、定时触发的任务）、
 // 最近结束（已完成、失败、已取消，以及已触发的一次性简单提醒）、已归档。全部任务状态到分组的对应用构造的事件流逐一验证。
 import { describe, expect, test } from "vitest";
@@ -89,7 +89,7 @@ describe("任务状态到看板分组", () => {
     expect(groupsOf(ui)[group]).toEqual(["t-1"]);
   });
 
-  test("十二种状态都有归属（76 号票多了运营中：定时触发的任务登记好了按时间表运行；等时间：某个时间做一次、还没到点的在进行中）；五组按规格的顺序", () => {
+  test("十二种状态都有归属（多了运营中：定时触发的任务登记好了按时间表运行；等时间：某个时间做一次、还没到点的在进行中）；五组按规格的顺序", () => {
     expect(TASK_STATES).toHaveLength(12);
     const ui = replay(TASK_STATES.map((s, i) => frame("board", i + 1, "task", { task: task(`t-${i + 1}`, s), change: "created", from: null, by: "user" })));
     expect(boardGroups(ui).map((g) => [g.group, g.title, g.items.length])).toEqual([
@@ -128,7 +128,7 @@ describe("任务状态到看板分组", () => {
   });
 });
 
-describe("普通任务（75 号票）", () => {
+describe("普通任务", () => {
   test("和别的任务一样按状态分组：排队中、执行中在进行中，做完了在最近结束；做完了的还收消息（接着说），控制里没有返工", () => {
     const plain = (state: TaskState) => task("t-p", state, { kind: "plain", origin: "delegated" });
     expect(groupsOf(replay([frame("board", 1, "task", { task: plain("queued"), change: "created", from: null, by: "secretary" })])).active).toEqual(["t-p"]);
@@ -148,7 +148,7 @@ describe("普通任务（75 号票）", () => {
 });
 
 describe("简单提醒和活动状态", () => {
-  test("待触发的提醒在运营中，已触发的一次性提醒、已取消的在最近结束（185 号票起已取消的也上看板），归档了的在已归档，删了的不上看板", () => {
+  test("待触发的提醒在运营中，已触发的一次性提醒、已取消的在最近结束（已取消的也上看板），归档了的在已归档，删了的不上看板", () => {
     const ui = replay([
       frame("board", 1, "reminder", { reminder: reminder("r-1", "pending", "2026-10-09T09:00:00.000+08:00"), change: "created", by: "agent" }),
       frame("board", 2, "reminder", { reminder: reminder("r-2", "fired"), change: "fired", by: "system" }),
@@ -193,7 +193,7 @@ function job(id: string, state: ScheduledJobState, createdAt: string): Scheduled
   };
 }
 
-describe("定时作业（19 号票）", () => {
+describe("定时作业", () => {
   test("作业卡上每次运行的授权：授权项的主文由代码生成（次数按每次运行算、作业在就一直有效），负责人写的标题在前；时序规则一行一条", () => {
     const lines = jobAuthorizationLines({
       grants: [{ id: "send", tool: "http_request", title: "把日报发到 hook", scope: { url: "http://127.0.0.1/daily" }, maxUses: 1 }],
@@ -220,7 +220,7 @@ describe("定时作业（19 号票）", () => {
   });
 });
 
-/** 定时触发的任务 t-1 的触发登记 j-1（76 号票：ownerTaskId 指向任务） */
+/** 定时触发的任务 t-1 的触发登记 j-1（ownerTaskId 指向任务） */
 const owned = (state: ScheduledJobState, extra: Partial<ScheduledJob> = {}): ScheduledJob => ({ ...job("j-1", state, "2026-10-08T08:00:00.000+08:00"), maintainerId: "tm-t-1", ownerTaskId: "t-1", ...extra });
 /** 每天 09:00 定时触发的普通任务 t-1 */
 const timed = (state: TaskState) => task("t-1", state, { kind: "plain", trigger: { kind: "schedule", schedule: { kind: "daily", time: "09:00" } } });
@@ -238,7 +238,7 @@ const run = (n: number, state: JobRun["state"], extra: Partial<JobRun> = {}): Jo
   ...extra,
 });
 
-describe("定时触发的任务（76 号票）", () => {
+describe("定时触发的任务", () => {
 
   test("运营中的任务在运营中一组，卡上带着它的触发登记（时间表、下一次、能做的动作）；触发登记不单独占卡；取消了任务到最近结束", () => {
     const ui = replay([
@@ -270,7 +270,7 @@ describe("定时触发的任务（76 号票）", () => {
       frame("board", 3, "scheduled_job", { job: owned("active"), change: "run_finished", by: "system", run: merged }),
     ]);
     expect(taskRunViews(ui, "t-1").map((r) => [r.no, r.trigger, r.stateText, r.reason ?? null, r.steps ?? null])).toEqual([
-      // 做完几步只算"做完"的，跳过的不算（60 号票）
+      // 做完几步只算"做完"的，跳过的不算
       [2, "合并了 2 次触发", "成功", null, { done: 1, total: 3 }],
       [1, "10 月 8 日 09:00 到点", "失败", "新闻源打不开", null],
     ]);
@@ -279,7 +279,7 @@ describe("定时触发的任务（76 号票）", () => {
     expect(lastRunText(undefined)).toBeUndefined();
   });
 
-  test("部分完成（176 号票）：运行一栏写\"部分完成\"和哪一步没做成；卡上最近一次单独标出来（不算失败）；作业行标\"最近一次部分完成\"、不再标上一次的\"最近一次失败\"", () => {
+  test("部分完成：运行一栏写\"部分完成\"和哪一步没做成；卡上最近一次单独标出来（不算失败）；作业行标\"最近一次部分完成\"、不再标上一次的\"最近一次失败\"", () => {
     const reason = "有一步没等到你的批准：「通用 bash」（bash daily.sh | tail -5）";
     const partial = run(2, "partial", { reason, summary: "日报做完、发给秘书了" });
     const ui = replay([
@@ -301,10 +301,10 @@ describe("定时触发的任务（76 号票）", () => {
   });
 });
 
-/** 收件箱里新增的一个文件（77 号票的文件夹事件） */
+/** 收件箱里新增的一个文件（文件夹事件） */
 const pdf = (name: string, at: string) => ({ source: "folder", event: "added", at, summary: `新增文件 ${name}（D:\\收件箱）`, data: { path: `D:\\收件箱\\${name}`, name, size: 1024 } });
 
-describe("事件触发的任务（77 号票）", () => {
+describe("事件触发的任务", () => {
   const inbox: EventTrigger = { kind: "event", source: "folder", events: ["added"], filter: { path: "D:\\收件箱", pattern: "*.pdf" } };
   const evented = (state: TaskState) => task("t-1", state, { kind: "plain", trigger: inbox });
 

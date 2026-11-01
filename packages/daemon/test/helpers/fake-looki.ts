@@ -1,4 +1,4 @@
-// 本机的假 Looki 开放接口（296 号票，只在测试里）：一个只听 127.0.0.1 临时端口的服务，Looki 插件的请求都发到这里
+// 本机的假 Looki 开放接口（只在测试里）：一个只听 127.0.0.1 临时端口的服务，Looki 插件的请求都发到这里
 // （createLookiPlugin 的 endpoints），从不连真的 open.looki.tech / open.looki.ai、不用真 Key。
 // 剧本照调研（docs/architecture/research/38-looki-and-life-data-sources.md 1.3 节）里官方文档的写法：
 // - 只读、全部 GET，请求头 X-API-Key；Key 不对回 401；每分钟 60 次，超了回 429（这里由测试拨 mode 模拟）；
@@ -7,13 +7,13 @@
 //   地点在文件上：封面文件的 location），封面文件带 1 小时过期的预签名链接 temporary_url；
 // - GET /api/v1/moments/search?query=…&start_date&end_date：按意思搜（这里按标题、描述里有没有这个词）；
 // - GET /api/v1/journals?cursor_date&max_days&sort_order：按天分组的日记（type、title、description 摘要、content 全文、recorded_at）；
-// - 307 号票（存一份到本地）：GET /api/v1/moments/{id}/files?limit&cursor_id——时刻里的照片、视频、录音（id、media_type、
+// -（存一份到本地）：GET /api/v1/moments/{id}/files?limit&cursor_id——时刻里的照片、视频、录音（id、media_type、
 //   temporary_url、created_at、size、duration、location），一页最多 limit 个，下一页的游标 next_cursor_id；
 //   GET /api/v1/for_you/items?group=vlog——AI 生成的每日 vlog（id、type DAILY_VLOG、title、recorded_date、files）；
 //   文件的下载链接指向同一个假服务的 /media/…（不带 Key 也能下，和 S3 的预签名链接一样），每列一次发一批新链接；
 //   测试拨 expireNext 让接下来几次列出的链接一发出就过期（下载回 403，像 S3 的"Request has expired"），brokenMedia 里的文件下载回 500。
 // 官方文档没写清的（成功时外面包不包一层 data、时间是不是带偏移的 ISO、地点在时刻上还是只在文件上、分页参数叫什么）这里各挑一种，
-// 插件按宽松的读法写（looki/records.ts、looki/client.ts），等用户拿到 Key 真机核对（296 号票 Comments）。
+// 插件按宽松的读法写（looki/records.ts、looki/client.ts），等用户拿到 Key 真机核对。
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { onTestFinished } from "vitest";
@@ -105,7 +105,7 @@ export interface FakeLooki {
   rateLimitNext: number;
   /** /journals 回 422（模拟参数和官方文档对不上） */
   journalsRejected: boolean;
-  /** 每个时刻的文件（307 号票；测试往里放） */
+  /** 每个时刻的文件（测试往里放） */
   files: Map<string, FakeLookiFile[]>;
   /** 列文件一页最多几个（测试拨小了测翻页） */
   filesPageSize: number;

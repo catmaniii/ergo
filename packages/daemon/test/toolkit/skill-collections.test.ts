@@ -1,4 +1,4 @@
-// skill 库的集合、导入并改名、依赖目录、秘书用的 skill（72 号票）的单元测试。都用自己造的假 skill、假集合，不碰真的第三方 skill。
+// skill 库的集合、导入并改名、依赖目录、秘书用的 skill的单元测试。都用自己造的假 skill、假集合，不碰真的第三方 skill。
 // - 带依赖目录（假 node_modules）的 skill：依赖目录不复制、建目录联接指回来源，大小上限不算它；.git 不复制；
 // - 不跟任何链接：node_modules 本身是联接、复制的部分里有联接、依赖目录里有指向来源之外的联接、来源目录本身是联接，
 //   指向密钥区、数据目录、来源之外的都拒绝；.git 和别的隐藏目录、.env*、*.pem、*.key 不带；
@@ -65,7 +65,7 @@ function fakeEngineering(root: string): string {
   return root;
 }
 
-describe("导入带依赖目录的 skill（72 号票）", () => {
+describe("导入带依赖目录的 skill", () => {
   it("node_modules 不复制，在原位置建目录联接指回来源（脚本照样找得到依赖），大小上限不算它；.git 不复制；报告写明按原路径引用", () => {
     const { lib, userDir } = library();
     const source = writeSkill(path.join(makeTempDir("ergo-src-"), "fake-browser"), "fake-browser", "带依赖的假 skill");
@@ -232,7 +232,7 @@ describe("导入并改名", () => {
   });
 });
 
-describe("目录名规范成小写、不带空格（82 号票：斜杠命令就是目录名）", () => {
+describe("目录名规范成小写、不带空格（斜杠命令就是目录名）", () => {
   it("单个 skill：目录名转小写、空格和符号换成 -，SKILL.md 一字不动、名字照原样；规范之后重名的被拒、说清和谁重名；和框架自带的目录同名也拒", () => {
     const { lib, userDir } = library();
     const original = "---\nname: Fancy Skill\ndescription: 带空格的名字\n---\n\n正文\n";

@@ -1,6 +1,6 @@
-// 模型版往上抽（201 号票）：LlmReasoner.lift 用的请求、解析、门槛和"已有的组照旧"。
+// 模型版往上抽：LlmReasoner.lift 用的请求、解析、门槛和"已有的组照旧"。
 //
-// - 门槛由代码判，不交给模型判（照 195 的规则版，rg/lift.ts 的常数）：两种以上不同的场合、需求层两个以上月份（价值层三个）、
+// - 门槛由代码判，不交给模型判（照规则版，rg/lift.ts 的常数）：两种以上不同的场合、需求层两个以上月份（价值层三个）、
 //   支持背后至少 3 条证据。判两次：
 //   1. 问模型之前：这一层全部能往上抽的断言合起来都不够，就不问（省预算）；
 //   2. 模型交回的每一组：按它自己挑的那几条下层断言再判一次，不够的丢掉（记进 dropped）。
@@ -11,16 +11,16 @@
 // - 状态、置信度、传播走同一套（scoring.ts、reasoning-graph.ts），这里只交草稿。
 // - 已有的组（上次模型建的）：下次整理不重复问模型——下层断言还够门槛就照存下来的样子原样交回（不然 reflect 会当它不成立而撤回），
 //   不够了就不交，由 reflect 撤回留墓碑。只有还没被已有的组用上的下层断言出现时才再问模型。
-// - 218 号票：输出上限按这一批的下层断言条数估（LIFT_OUTPUT_PER_PREMISE，2000 到 8000），不再写死 2000；还没被用上的下层断言
+// -输出上限按这一批的下层断言条数估（LIFT_OUTPUT_PER_PREMISE，2000 到 8000），不再写死 2000；还没被用上的下层断言
 //   超过 LIFT_BATCH_PREMISES 条时分批（liftBatches）：每批的断言写全，别的断言只写一行摘要（可以一起归进组），前面几批出的组列成
 //   "已经有的组"；截断、解析不了的照 llm/robust.ts 救回、对半切小重试。没过门槛的组写明是哪一条没过（场景、月份、证据条数），
 //   计数进 reflect 的统计（ReflectReport.stats.lift）。门槛的数不改。
-// - 221 号票：提示词明说每一组自己也要跨两种以上互相不重叠的场景（两边的标签谁也包含不了谁才算两种，标签互相包含的不算），
+// -提示词明说每一组自己也要跨两种以上互相不重叠的场景（两边的标签谁也包含不了谁才算两种，标签互相包含的不算），
 //   只落一种场景的几条不要归组、场景不够宁可少给组。
-// - 223 号票：门槛的"两种场合"改成按维度看不同（rg/lift.ts 的 scenesDiffer：有一个双方都写了标签的维度上标签不同就算不同，
+// -门槛的"两种场合"改成按维度看不同（rg/lift.ts 的 scenesDiffer：有一个双方都写了标签的维度上标签不同就算不同，
 //   「家里、休闲」和「家里、工作」算两种），不再要求所有维度都不重叠；老严格判定只用来统计（LiftGateStats.passedStrict /
 //   passedLoose），不卡门槛。门槛的数和提示词不改。
-// - 229 号票：再收窄成只看"方面（domain）"维度（方面标签集合不同才算两种；只差日型、出行不算），老严格判定照旧只做统计。
+// -再收窄成只看"方面（domain）"维度（方面标签集合不同才算两种；只差日型、出行不算），老严格判定照旧只做统计。
 import { addDays, localDate, toMs } from "../domain/time.ts";
 import { CLAIM_TIERS, LINK_WEIGHTS, type Claim, type ClaimTier, type Fact, type LinkWeight } from "../domain/types.ts";
 import type { ChatRequest } from "../llm/chat.ts";
@@ -60,7 +60,7 @@ const TIERS: Readonly<Record<LiftLevel, readonly ClaimTier[]>> = { need: ["need"
 const STATE_DAYS = 14;
 /** 主题名最多几个字（进组的 key） */
 const THEME_MAX = 24;
-/** 218 号票：一条下层断言估多少输出 token（一组 3、4 条断言，两三条解释带支持、反证、追问，约 900 token） */
+/** 一条下层断言估多少输出 token（一组 3、4 条断言，两三条解释带支持、反证、追问，约 900 token） */
 export const LIFT_OUTPUT_PER_PREMISE = 250;
 /** 一批最多几条要归纳的下层断言（估的输出约 4000 token，上限放到估的 1.8 倍，不超过 8000） */
 export const LIFT_BATCH_PREMISES = 16;
@@ -88,7 +88,7 @@ export interface LiftThreshold {
   /** 结构门槛过了（两种场合 + 至少两条证据）：可以出结论；软门槛不过的标 provisional */
   ok: boolean;
   /**
-   * 256 号票：结构门槛过了、只是月份不够或者证据不到 3 条——照样出结论，但标"临时"，
+   * 结构门槛过了、只是月份不够或者证据不到 3 条——照样出结论，但标"临时"，
    * 置信度由 scoring 的 confidenceCap 按"证据薄、不跨时期、不跨场景"压到 low，跨度够了重抽 + rescore 自己升上去
    */
   provisional: boolean;
@@ -100,7 +100,7 @@ export interface LiftThreshold {
   hardFailed: LiftGateReason[];
   /** 只影响"标不标临时"的（月份够不够、证据到不到 3 条） */
   softFailed: LiftGateReason[];
-  /** 有没有两种不同的场合（229 号票起按 scenesDiffer 只看方面维度判不同；老严格判定在 LiftGateStats 里另记） */
+  /** 有没有两种不同的场合（按 scenesDiffer 只看方面维度判不同；老严格判定在 LiftGateStats 里另记） */
   disjoint: boolean;
   scenes: string[][];
   months: number;
@@ -118,8 +118,8 @@ export function mergeScenes(inputs: readonly LiftInput[]): string[][] {
 }
 
 /**
- * 门槛（195 的规则版条件，由代码判）分两种（256 号票）：
- * - 结构性的（过不了就不出）：两种以上不同的场合（223 号票起按维度看不同）、至少 LIFT_MIN_EVIDENCE_HARD 条证据；
+ * 门槛（规则版条件，由代码判）分两种：
+ * - 结构性的（过不了就不出）：两种以上不同的场合（按维度看不同）、至少 LIFT_MIN_EVIDENCE_HARD 条证据；
  * - 时期性的（过不了就先出、标临时）：够数的月份、至少 LIFT_MIN_EVIDENCE 条证据。跨不够时间的结论照样有价值
  *   （"多次回避社交场合"三周就能看出苗头），只是不能说成"长期需求"——置信度那套（confidenceCap）本来就是干这个的
  */
@@ -177,7 +177,7 @@ const day = (t: string | null) => (t ? localDate(t) : "?");
 const PROVISIONAL_SUFFIX = /（临时结论：.*?）$/;
 
 /**
- * 临时结论的说法（256 号票）：描述后面挂一句"临时"，软门槛过了就摘掉（重复整理不会越挂越多）。
+ * 临时结论的说法：描述后面挂一句"临时"，软门槛过了就摘掉（重复整理不会越挂越多）。
  * 同一段话也是那条推断的 rationale（写进库里，详情里看得到为什么先标临时）
  */
 export function provisionalNote(description: string, t: LiftThreshold): string {
@@ -228,7 +228,7 @@ export function liftNotAskedReason(level: LiftLevel, inputs: readonly LiftInput[
 }
 
 /**
- * 218 号票：还没被已有的组用上的下层断言分批——不超过 LIFT_BATCH_PREMISES 条是一批，多了按陈述排（说同一件事的挨在一起）、
+ * 还没被已有的组用上的下层断言分批——不超过 LIFT_BATCH_PREMISES 条是一批，多了按陈述排（说同一件事的挨在一起）、
  * 切成一样大的几批
  */
 export function liftBatches(inputs: readonly LiftInput[], covered: ReadonlySet<string> = new Set()): LiftInput[][] {
@@ -249,7 +249,7 @@ function priorLine(raw: unknown): string | undefined {
 
 /**
  * 往上抽的请求：没有还没被已有的组用上的下层断言、或者这一层全部输入合起来都不够门槛，返回 undefined（不问模型）。
- * covered 是已有的、这次照旧交回的组用上的下层断言。218 号票：batch 给了是分批问的一批——focus 是这批要归纳的（写全），
+ * covered 是已有的、这次照旧交回的组用上的下层断言。batch 给了是分批问的一批——focus 是这批要归纳的（写全），
  * 别的输入只写一行摘要；prior 是前面几批交回的组。不给（或者这批就是全部还没用上的）时全部输入写全
  */
 export function liftRequest(
@@ -309,7 +309,7 @@ export function reemitLiftGroups(level: LiftLevel, inputs: readonly LiftInput[],
         validFrom: t.first,
         validTo: m.claim.tier === "state" && t.last ? addDays(t.last, STATE_DAYS) : null,
         method: "induction",
-        // 226 号票：上次写的预测照旧带着，不要因为重新整理一次就丢（330 号票：推法也带着）
+        // 上次写的预测照旧带着，不要因为重新整理一次就丢（推法也带着）
         predicts: m.claim.predicts[0]?.claim,
         predictsDerivation: m.claim.predicts[0]?.derivation,
         links,
@@ -328,7 +328,7 @@ export function reemitLiftGroups(level: LiftLevel, inputs: readonly LiftInput[],
         last: t.last,
         spanDays: t.spanDays,
         count: premises.length,
-        // 256 号票：这一夜还够不够时期门槛（够了的临时的标就摘掉，置信度由 rescore 自己升）
+        // 这一夜还够不够时期门槛（够了的临时的标就摘掉，置信度由 rescore 自己升）
         ...(t.provisional ? { provisional: true, provisionalWhy: t.softFailed.join("、") } : { provisional: false }),
       } as unknown as Record<string, unknown>,
       description: provisionalNote(g.description, t),
@@ -359,7 +359,7 @@ export interface ParseLiftOptions {
   /** 价值层：下层需求所在那组的主题（同一个主题的需求和价值编进同一条策略） */
   themeOfGroup?: (groupKey: string) => string | undefined;
   dropped: DroppedOutput[];
-  /** 218 号票：门槛判法的结果、写入前丢掉的组记在这里 */
+  /** 门槛判法的结果、写入前丢掉的组记在这里 */
   gate?: LiftGateStats;
 }
 
@@ -404,7 +404,7 @@ export function parseLiftOutput(level: LiftLevel, parsed: Record<string, unknown
     }
     if (options.gate) {
       if (t.provisional) {
-        // 256 号票：结构门槛过了、时期不够的照样出结论，只是标成临时的（不进 passed，免得和 229 的口径混在一起）
+        // 结构门槛过了、时期不够的照样出结论，只是标成临时的（不进 passed，免得和口径混在一起）
         options.gate.provisional++;
         for (const r of t.softFailed) options.gate.provisionalByReason[r] = (options.gate.provisionalByReason[r] ?? 0) + 1;
       } else {
@@ -475,7 +475,7 @@ export function parseLiftOutput(level: LiftLevel, parsed: Record<string, unknown
           validTo: tier === "state" && t.last ? addDays(t.last, STATE_DAYS) : null,
           method: "induction",
           predicts: modelPredictionText(h.predicts),
-          // 330 号票：模型说是演绎、结论又真有全称说法才认 deductive（ADR-0032）
+          // 模型说是演绎、结论又真有全称说法才认 deductive（ADR-0032）
           predictsDerivation: predictionDerivation(statement, h.derivation),
           links,
         },

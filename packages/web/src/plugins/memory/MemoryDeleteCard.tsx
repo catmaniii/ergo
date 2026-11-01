@@ -1,6 +1,6 @@
-// 记忆删除卡（21 号票）：秘书检索出的匹配素材和要执行的删法；你核对后（可以去掉几条、换一种删法）确认才执行。
-// 193 号票：挪进记忆插件，登记成卡片类型 memory_delete 的画法（plugins/memory/plugin.tsx）；记忆插件停用时这张卡显示占位
-// （守护进程那边卡上的动作回"记忆插件没启用"，129 号票）。
+// 记忆删除卡：秘书检索出的匹配素材和要执行的删法；你核对后（可以去掉几条、换一种删法）确认才执行。
+// 挪进记忆插件，登记成卡片类型 memory_delete 的画法（plugins/memory/plugin.tsx）；记忆插件停用时这张卡显示占位
+// （守护进程那边卡上的动作回"记忆插件没启用"）。
 import { useState } from "react";
 import { useStore } from "../../app/store.tsx";
 import { conversationName, MEMORY_COMMAND_LABEL, MEMORY_DELETE_MODE_INFO, MEMORY_DELETE_MODES, type MemoryDeleteCardPayload, type MemoryDeleteInput, type MemoryDeleteMode, PURGED_TEXT, t } from "../../state/index.ts";

@@ -1,4 +1,4 @@
-// 数据源详情（343 号票，用户 2026-10-31："点击每一个数据源卡片，跳转到一页单独全屏展示详细配置选项细节，也要支持显示已经获取的数据或者能在线查看当前能获取到的数据"）：
+// 数据源详情（"点击每一个数据源卡片，跳转到一页单独全屏展示详细配置选项细节，也要支持显示已经获取的数据或者能在线查看当前能获取到的数据"）：
 // #/more/data-sources/<id>。单独占满内容区（宽屏不留设置的左栏，MorePage 在最前面接走），标题栏有返回，地址里带着 id、刷新后还在这一页；
 // id 不存在时写一句、给个回去的按钮。分三块（窄屏纵向排，宽屏两栏：左边状态和设置，右边数据）：
 // - 状态：连接状态的小签、账号、一句话、问题（插件没启用、出错、每小时再试、提示）、上次同步和共几条、立即同步；
@@ -7,9 +7,9 @@
 // - 数据：两个标签，这个数据源没有的那个不显示——
 //   已获取的（POST …/stored）：已经进到二狗的，一页一页取、新的在前；进素材的点开跳素材详情，不进素材的有正文的就地展开；
 //   现在能查到的（POST …/live）：切过来才现查，顶上写明"这是现查的，不会存进二狗"、有刷新按钮，查不到写原因；Gmail 列表只有发件人、主题、时间，点开一封才现取正文，
-//   按账号一组一组显示（344 号票：一个账号查不到写在它那一组）。
+//   按账号一组一组显示（一个账号查不到写在它那一组）。
 //   手机来的数据源没有现查，写明数据由手机交来。
-// 344 号票：插件画的那一块里能断开下面的一样（Gmail 的一个账号）：确认框还是这一个，只动那一样。
+// 插件画的那一块里能断开下面的一样（Gmail 的一个账号）：确认框还是这一个，只动那一样。
 // 导入文件夹是共用的（#/more/data-sources/import_folder，一级页最后一张卡）：ImportFolderPage。
 // 几块纯渲染的（DataSourceStatusBlock、DataSourceSettingsBlock、StoredView、LiveView）测试在 Node 里直接渲染；
 // 走一级 → 点卡片 → 二级 → 返回见 page-opens.test.ts。
@@ -104,9 +104,9 @@ export interface DataSourceSettingsBlockProps {
   onView(view: DataSourcesView): void;
   onUsage(source: DataSourceView, usage: DataSourceUsage, on: boolean): void;
   onDisconnect(source: DataSourceView): void;
-  /** 断开它下面的一样（344 号票：Gmail 的一个账号）：插件画的那一块里点的，确认框在这个页面 */
+  /** 断开它下面的一样（Gmail 的一个账号）：插件画的那一块里点的，确认框在这个页面 */
   onDisconnectItem?(source: DataSourceView, item: DataSourceItemView): void;
-  /** 清掉几天的原始数据（300 号票）；不给的不画那一节 */
+  /** 清掉几天的原始数据；不给的不画那一节 */
   onClearRaw?(source: DataSourceView, dates: string[]): void;
 }
 
@@ -116,7 +116,7 @@ export function DataSourceSettingsBlock({ source: s, busy, panel, folder, onView
   const sensitive = sensitiveLine(s);
   const canDisconnect = s.connection === "connected" || s.connection === "error";
   const canClear = s.connection === "manual" && s.count > 0;
-  // 下面的几样能单独断开（344）：这个按钮是全部断开，写明
+  // 下面的几样能单独断开：这个按钮是全部断开，写明
   const disconnectsAll = (s.items ?? []).filter((item) => item.removable).length > 1;
   const Panel = s.available ? panel?.Panel : undefined;
   return (

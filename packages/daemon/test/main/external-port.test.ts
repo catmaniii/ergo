@@ -18,13 +18,13 @@ import { makeTempDir } from "../helpers/temp-dir.ts";
 const SECURITY_HEADER_NAMES = ["x-content-type-options", "x-frame-options", "referrer-policy", "content-security-policy", "cache-control", "content-type"] as const;
 const securityHeaders = (headers: http.IncomingHttpHeaders) => Object.fromEntries(SECURITY_HEADER_NAMES.map((name) => [name, headers[name]]));
 
-/** 外网端口上要凭证的各种接口：健康探针、历史分页、媒体上传下载（09）和文本类附件的内容（113）、HTML 和 SVG 附件的沙箱预览（117）、视觉风格的字体（39）、工具调用的完整内容（53）和它占了多大、现在就清理（65）、不存在的地址 */
+/** 外网端口上要凭证的各种接口：健康探针、历史分页、媒体上传下载和文本类附件的内容、HTML 和 SVG 附件的沙箱预览、视觉风格的字体、工具调用的完整内容和它占了多大、现在就清理、不存在的地址 */
 const GUARDED: Array<[method: string, pathname: string]> = [
   ["GET", "/healthz"],
   ["GET", "/fonts/grid.css"],
   ["GET", HTTP_PATHS.history("secretary", { before: 10 })],
   ["GET", HTTP_PATHS.media("a".repeat(64))],
-  // 文本类附件的内容（113）、HTML 和 SVG 附件的沙箱预览（117）
+  // 文本类附件的内容、HTML 和 SVG 附件的沙箱预览
   ["GET", HTTP_PATHS.mediaText("a".repeat(64))],
   ["GET", HTTP_PATHS.mediaHtml("a".repeat(64))],
   ["GET", HTTP_PATHS.mediaSvg("a".repeat(64))],
@@ -32,21 +32,21 @@ const GUARDED: Array<[method: string, pathname: string]> = [
   ["GET", HTTP_PATHS.upload("u-1")],
   ["PUT", HTTP_PATHS.uploadChunk("u-1", 0)],
   ["POST", HTTP_PATHS.uploadComplete("u-1")],
-  // 工具调用的完整参数和返回（53）
+  // 工具调用的完整参数和返回
   ["GET", HTTP_PATHS.toolCall("call-1")],
-  // 设置里的工具调用完整内容：占了多大、现在就清理（65）
+  // 设置里的工具调用完整内容：占了多大、现在就清理
   ["GET", HTTP_PATHS.toolCallStorage],
   ["POST", HTTP_PATHS.toolCallStorageCleanup],
-  // 设置里的备份：现在的状况、立即备份（335）
+  // 设置里的备份：现在的状况、立即备份
   ["GET", HTTP_PATHS.backup],
   ["POST", HTTP_PATHS.backupRun],
-  // 设置 · 备份单独一页（356）：改配置、校验文件夹、列快照、手动校验、打开文件夹
+  // 设置 · 备份单独一页：改配置、校验文件夹、列快照、手动校验、打开文件夹
   ["PATCH", HTTP_PATHS.backupConfig],
   ["POST", HTTP_PATHS.backupCheckFolder],
   ["GET", HTTP_PATHS.backupSnapshots],
   ["POST", HTTP_PATHS.backupVerify],
   ["POST", HTTP_PATHS.backupOpen],
-  // 长程任务一个阶段现取的：授权已用几次、这一段已经做了的事（84）
+  // 长程任务一个阶段现取的：授权已用几次、这一段已经做了的事
   ["GET", HTTP_PATHS.taskStage("t-1", "s1")],
   ["GET", "/api/nope"],
   ["GET", "/nope"],
@@ -105,7 +105,7 @@ describe("外网端口", () => {
     expect((await device.requestPairing()).status).toBe(201);
   });
 
-  it("只打开配对页、不点\"请求配对\"（137 号票：公网上的扫描程序用无界面的 Chrome 打开页面）：不产生配对请求，待我处理里什么都没有", async () => {
+  it("只打开配对页、不点\"请求配对\"（公网上的扫描程序用无界面的 Chrome 打开页面）：不产生配对请求，待我处理里什么都没有", async () => {
     const { daemon, externalUrl } = await startTestDaemon();
     const scanner = new TestDevice(externalUrl, { userAgent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/134.0.0.0 Safari/537.36", realIp: "198.51.100.66" });
     // 页面打开时做的事：拿页面本身、问有没有被信任、问这台设备有没有配对请求（没有：404）

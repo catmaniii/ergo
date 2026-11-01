@@ -1,11 +1,11 @@
-// @i18n-ignore-file model：看板的种类名、说明和"查看板"的工具说明只给秘书（模型）看（174 号票）；登记出错是编程错误
-// 看板上有哪几种东西（22 号票）：每种一行，写明看板频道上的哪类事件、事件负载里的那一个、现在的全部（派生视图）、
+// @i18n-ignore-file model：看板的种类名、说明和"查看板"的工具说明只给秘书（模型）看；登记出错是编程错误
+// 看板上有哪几种东西：每种一行，写明看板频道上的哪类事件、事件负载里的那一个、现在的全部（派生视图）、
 // 写成一项，以及给秘书看的说明。现在的看板（currentBoard）、看板事件写成的一项（entryOfEvent）、空看板的说法、
-// "查看板"工具的说明都从这张表推出。19 号票的定时作业就是加的一行；76 号票起它是定时触发的任务的触发登记：
+// "查看板"工具的说明都从这张表推出。定时作业就是加的一行；它是定时触发的任务的触发登记：
 // 运营中的定时触发的任务由这一行写成一项（键和任务的一样，task:<任务>），取消了之后由任务那一行写（在最近结束）。
-// 126 号票起这张表是一个登记表（BoardKindRegistry）：内核登记任务、定时触发的任务两行，插件经插件宿主登记自己的那一行
+// 这张表是一个登记表（BoardKindRegistry）：内核登记任务、定时触发的任务两行，插件经插件宿主登记自己的那一行
 // （提醒插件登记"简单提醒"），停用时撤掉；按 order 排（任务 10、简单提醒 20、定时触发的任务 30），说法里的先后跟着它。
-// 141 号票：项目运营方案建的内部任务也上看板（协议包的 internalTaskOnBoard，项目删掉了的不再列），写明属于哪个项目；
+// 项目运营方案建的内部任务也上看板（协议包的 internalTaskOnBoard，项目删掉了的不再列），写明属于哪个项目；
 // 上不上看板要看它的项目、定时触发的任务要看它的任务，onBoard 带着派生视图。
 import {
   BOARD_GROUP_LABEL,
@@ -43,8 +43,8 @@ export interface BoardKind<T> {
   /** 现在的全部（派生视图） */
   list(db: ReadonlyDatabase): T[];
   /**
-   * 上不上看板（不给是都上）：项目内部的任务、定时作业不上（64 号票，只在项目里看得到，秘书看不到它们的细节），
-   * 运营方案建的例外（141 号票）；db 是现在的派生视图（看它的项目、它的任务）
+   * 上不上看板（不给是都上）：项目内部的任务、定时作业不上（只在项目里看得到，秘书看不到它们的细节），
+   * 运营方案建的例外；db 是现在的派生视图（看它的项目、它的任务）
    */
   onBoard?(item: T, db: ReadonlyDatabase): boolean;
   toEntry(item: T): BoardEntry;
@@ -56,11 +56,11 @@ export function boardKind<T>(kind: BoardKind<T>): BoardKind<unknown> {
 }
 
 /**
- * 任务上不上看板（141 号票）：不是项目内部的都上；项目内部的只有运营方案建的（internalTaskOnBoard），而且项目还在——
- * 删掉了的随项目一起删掉（行留着、文字换成了删除标记，ADR-0023），不再列；用户删掉了的任务（186 号票）同样不再列
+ * 任务上不上看板：不是项目内部的都上；项目内部的只有运营方案建的（internalTaskOnBoard），而且项目还在——
+ * 删掉了的随项目一起删掉（行留着、文字换成了删除标记，ADR-0023），不再列；用户删掉了的任务同样不再列
  */
 function taskOnBoardNow(task: Task, db: ReadonlyDatabase): boolean {
-  // 用户删掉了的（186 号票）：不再列
+  // 用户删掉了的：不再列
   if (task.deleted) return false;
   if (!isProjectInternal(task)) return true;
   if (!internalTaskOnBoard(task)) return false;
@@ -69,7 +69,7 @@ function taskOnBoardNow(task: Task, db: ReadonlyDatabase): boolean {
 
 /**
  * 定时触发的任务的触发登记上不上看板：取消了的不上（由它的任务那一行写，最近结束）；还没迁移的定时作业照旧（项目内部的不上）；
- * 项目内部的定时触发的任务只在它的任务在运营、上看板时上（141 号票：跟着项目归档了的由任务那一行写，在已归档）
+ * 项目内部的定时触发的任务只在它的任务在运营、上看板时上（跟着项目归档了的由任务那一行写，在已归档）
  */
 function jobOnBoardNow(job: ScheduledJob, db: ReadonlyDatabase): boolean {
   if (job.state === "cancelled") return false;
@@ -88,7 +88,7 @@ export const KERNEL_BOARD_KINDS: readonly BoardKind<unknown>[] = [
     eventType: EVENT_TYPES.task,
     fromEvent: (payload) => (payload as TaskEventPayload).task,
     list: listTasks,
-    // 运营中的定时触发的任务（76 号票）由它的触发登记写成一项（时间表、暂停着没有、下一次）
+    // 运营中的定时触发的任务由它的触发登记写成一项（时间表、暂停着没有、下一次）
     onBoard: (task, db) => task.state !== "operating" && taskOnBoardNow(task, db),
     toEntry: taskEntry,
   }),
@@ -138,7 +138,7 @@ export class BoardKindRegistry implements BoardKinds {
 
 /** 现在的看板 */
 export function currentBoard(store: EventStore, kinds: BoardKinds): BoardSnapshot {
-  // 给秘书看的、前后比较的：按中文写（174 号票，换语言也不会多出一堆假的变化）
+  // 给秘书看的、前后比较的：按中文写（换语言也不会多出一堆假的变化）
   return forModel(() => snapshotOf(kinds.list().flatMap((kind) => kind.list(store.reader).flatMap((item) => (kind.onBoard?.(item, store.reader) === false ? [] : [kind.toEntry(item)])))));
 }
 
@@ -160,9 +160,9 @@ export function boardEmptyText(kinds: BoardKinds): string {
 }
 
 /**
- * 项目内部任务（64 号票）不上看板，秘书只知道每个项目里有几个还没结束的（用户定，2026-10-10：不给标题、进展、计划）——
+ * 项目内部任务不上看板，秘书只知道每个项目里有几个还没结束的（不给标题、进展、计划）——
  * 用户问起时说"在项目「X」里，有 N 个进行中的内部任务，到项目页看"。每个项目一行，没有的是空。
- * 运营方案建的（141 号票）列在看板上，不算在这里
+ * 运营方案建的列在看板上，不算在这里
  */
 export function internalTaskCounts(store: EventStore): string[] {
   const counts = new Map<string, number>();

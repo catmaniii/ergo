@@ -1,4 +1,4 @@
-// 长程任务的会话按阶段成框（91 号票第 6 块：显示几条、分组、框的标题、
+// 长程任务的会话按阶段成框（显示几条、分组、框的标题、
 // 状态、框上的要点），纯函数；框怎么画在 ui/conversation/StageBox.tsx，
 // 三档缩放里怎么摆在 ui/zoom/ZoomHistory.tsx。
 // - 照常显示的：二狗是你的消息和语音、回复（含 agent 的语音）、
@@ -8,11 +8,11 @@
 // - 其余（思考、工具调用组、进度卡、处理过的卡、系统说明、时间线记录、工单分隔）连着的按阶段分组：同一阶段连着的（含退回后重做）
 //   是一组，中间插了照常显示的就断开，从某个阶段重做的地方也断开（旧一轮作废、新一轮照常）；自己不带阶段的跟着后面最近的那个阶段，
 //   后面没有就跟前面的；都没有的是一条细的。你从某个阶段重做的那条记录（写了原因的连同"你说：「…」"）收进框里，
-//   是新一轮的第一条（93 号票改回：91 号票评审时放在框外）；
+//   是新一轮的第一条（改回：原来放在框外）；
 // - 一个框：第几阶段（依赖图的阶段号，并行的同号）、标题（现在生效的计划里的）、出过的情况（图标）、完成情况；一句小结（做完了说结果，
 //   正在做说在做什么）；要点（验收时查到的、退回过几次、已做几次操作）；收着时缩小后条外的标注一类一条，出过的情况之外还有
-//   "外"（对外动作）、"权"（敏感权限）两类（93 号票：守护进程给每次调用记的 mark，放行执行完的才标；之前的记录没有，不标）；
-// - 框里每一次交上来验收的结论（93 号票，一道横条）：一行"验收通过：「…」"或"已退回：「…」"，
+//   "外"（对外动作）、"权"（敏感权限）两类（守护进程给每次调用记的 mark，放行执行完的才标；之前的记录没有，不标）；
+// - 框里每一次交上来验收的结论（一道横条）：一行"验收通过：「…」"或"已退回：「…」"，
 //   点开是几条要点（逐条标准、系统查到的、你写的说明），箭头进那张卡的详情（verdictStrip）。
 // 没有数据所以不画的：选这条路的理由、删掉或共享出去的照片缩略图、撤回点（二狗不撤回）。
 import { describeCall, toolLabel } from "./call-sentence.ts";
@@ -26,7 +26,7 @@ import { chatItemNature, type ToolNature } from "./tool-nature.ts";
 import { agentActivity, type UiState } from "./ui-state.ts";
 import type { ZoomSpine } from "./zoom-decor.ts";
 
-/** 任务书那条系统说明的开头：172 号票之前的消息上没有 taskBrief，按这个认 */
+/** 任务书那条系统说明的开头：以前的消息上没有 taskBrief，按这个认 */
 const TASK_BRIEF_PREFIX = "任务书："; // @i18n-ignore data：认守护进程以前写进会话的那条系统说明
 
 /** 对话层里照常显示的一条；其余收进阶段框 */
@@ -36,7 +36,7 @@ export function stageChatShown(state: UiState, item: ChatItem): boolean {
     case "voice":
     case "reply":
     case "deleted":
-    // 插件没启用的占位（193 号票）：照"已删除"留在对话层
+    // 插件没启用的占位：照"已删除"留在对话层
     case "unavailable":
       return true;
     case "card": {
@@ -48,8 +48,8 @@ export function stageChatShown(state: UiState, item: ChatItem): boolean {
     case "system":
       return isTurnFailedNote(item.text) || item.taskBrief === true || item.text.startsWith(TASK_BRIEF_PREFIX);
     case "record":
-      // 自行调整计划的记录；重做记录收进框里（93 号票）；
-      // 重做之后复验没过（274 号票）要先告诉你，照常显示、不收进框里
+      // 自行调整计划的记录；重做记录收进框里；
+      // 重做之后复验没过要先告诉你，照常显示、不收进框里
       return item.record.type === "timeline" && (item.record.timeline.kind === "plan_revision" || item.record.timeline.kind === "reverify");
     default:
       return false;
@@ -73,7 +73,7 @@ export interface StageGroup {
  * 自己不带阶段的（思考、不带阶段的说明）跟着后面最近的那个阶段，后面没有就跟前面的。别的任务的条目不算阶段。
  * 二狗多的：你从某个阶段重做的地方也断开（重做记录另起一组、是新一轮的第一条）——对正在做的阶段点重做、中间没有一句回复时，
  * 旧一轮（已作废）和新一轮不并成一个框。
- * shared（368 号票，项目的对话框）：这段会话不是这个任务独占的——别的任务、项目自己的条目像"你说的"一样断开、照常显示，
+ * shared（项目的对话框）：这段会话不是这个任务独占的——别的任务、项目自己的条目像"你说的"一样断开、照常显示，
  * 这个任务不在阶段里的也不收成一句话，只有真在阶段里的成框
  */
 export function stageGroups(state: UiState, items: readonly ChatItem[], taskId: string, shared = false): StageGroup[] {
@@ -105,7 +105,7 @@ export function stageGroups(state: UiState, items: readonly ChatItem[], taskId: 
 /** 框的完成情况：框左边那道颜色、右上角的字（框里展开的每次操作接着用这道颜色） */
 export type StageBoxTone = "ok" | "live" | "bad" | "off";
 
-/** 条外标注上的字：出过的情况那几类，加上"外"（对外动作）、"权"（敏感权限）（93 号票） */
+/** 条外标注上的字：出过的情况那几类，加上"外"（对外动作）、"权"（敏感权限） */
 export type NoteGlyph = IncidentKind | ToolCallMark;
 
 /** "外""权"的名字、字（和计划上的小标记同一个字） */
@@ -140,7 +140,7 @@ export interface StageBoxView extends StageGroup {
   readonly summary: string | undefined;
   /** 点开后的要点 */
   readonly lines: readonly string[];
-  /** 框里每次交上来验收的结论画成的横条（93 号票）：条目 id → 横条 */
+  /** 框里每次交上来验收的结论画成的横条：条目 id → 横条 */
   readonly strips: ReadonlyMap<string, VerdictStrip>;
   readonly incidents: readonly Incident[];
   /** 这一段做了几次操作（算进"调用了 N 个工具"的调用） */
@@ -234,7 +234,7 @@ export function stageNotes(incidents: readonly Incident[], acts: readonly ActNot
   });
 }
 
-// ───────────────────────── 框里交上来验收的结论（93 号票） ─────────────────────────
+// ───────────────────────── 框里交上来验收的结论 ─────────────────────────
 
 /** 横条点开后的一条要点：k 是前面那个小标题（"要求""系统查到"……），没有就是一整行；sys 是系统直接查到的 */
 export interface StripPoint {
@@ -261,7 +261,7 @@ const firstLine = (note: string | undefined) => note?.trim().split("\n")[0]?.tri
  * 系统查到的、你写的说明；退回的"已退回：「…」"、右边"和实际对不上"，点开是要求、Agent 交的、系统查到的、结果；几次都没通过的
  * "几次都没通过：「…」"、右边"交给你决定"）。二狗的结论是进度卡：逐条标准带方式（由你验收的标 👤），系统查到的是脚本、评审的备注，
  * 你写的说明是你验收那几条的备注，负责人交上来时写的那一两句算"Agent 交的"（二狗写"负责人交的"）。
- * 311 号票：没过的几条都是验收没跑起来的（notRun：脚本起不来、命令找不到）时，右边写"验收没跑起来"、结果写明，不说"和实际对不上"
+ * 没过的几条都是验收没跑起来的（notRun：脚本起不来、命令找不到）时，右边写"验收没跑起来"、结果写明，不说"和实际对不上"
  * （系统查到的照旧是起不来的原因）；有一条是跑了没过的照旧。
  * final：这是最后一次、紧跟着停下找你（stageBoxes 认出来的）
  */
@@ -386,7 +386,7 @@ export function stageBoxes(
     const done = calls.filter((c) => c.part.outcome === "done").length;
     const act = actOf(calls.at(-1)) ?? t("state.stageBoxes.starting");
     const doing = steps ? t("state.stageBoxes.doingStep", { n: Math.min(done + (live ? 1 : 0), steps) || 1, total: steps, act }) : t("state.stageBoxes.doing", { act });
-    // 274 号票：做完的阶段框里先写系统查到的结果（宣布完成时效果日志汇总的个数，
+    // 做完的阶段框里先写系统查到的结果（宣布完成时效果日志汇总的个数，
     // 只在这个阶段最新的那一框里写——重开之前那几框是上一轮的）
     const observed = accepted && latest && !stale ? task?.stages?.list?.find((s) => s.stageId === stageId)?.observed : undefined;
     const results = accepted ? [...(observed ? [t("state.stageBoxes.line.observed", { line: observedLine(observed) })] : []), ...resultLines(accepted)] : [];
@@ -419,7 +419,7 @@ function lookText(state: "accepting" | "waiting", waitReason: string | undefined
 export const STAGE_BOX_EDGE = "sbox:";
 
 /**
- * 框里每一行（展开的阶段框里每次操作一行）：工具调用组拆成组里每次调用、每段思考（57 号票缩小后的那几块，
+ * 框里每一行（展开的阶段框里每次操作一行）：工具调用组拆成组里每次调用、每段思考（缩小后的那几块，
  * 在框里三档都这么画，组那一行不画）；组里没有算进 N 的调用（都是顺利执行的内部工具）的照旧是那一行；别的是自己
  */
 export function stageBoxRows(members: readonly ChatItem[]): string[] {

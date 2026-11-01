@@ -1,7 +1,7 @@
-// 266 号票：每条消息的记忆简报（memory/message-brief.ts）。用临时目录里的真 SQLite、真 MemoryEngine（规则版抽取和推理、假向量）、
+// 每条消息的记忆简报（memory/message-brief.ts）。用临时目录里的真 SQLite、真 MemoryEngine（规则版抽取和推理、假向量）、
 // 真事件存储，不调模型；整条路径（装配、秘书真收到、回话里那一行）由主切面 test/main/memory-message-brief.test.ts 走。
-// 彻底删除时会话文件里简报引的原话一起抹掉（照 265 号票问记忆的规矩：按证据编号换行，连同续行）。
-// 例子是 196 号票测试的那个人（自己写的，不看 @ergo/memory 的 fixtures/truth）。
+// 彻底删除时会话文件里简报引的原话一起抹掉（问记忆的规矩：按证据编号换行，连同续行）。
+// 例子是测试的那个人（自己写的，不看 @ergo/memory 的 fixtures/truth）。
 import fs from "node:fs";
 import path from "node:path";
 import { CHANNELS, EVENT_TYPES, type MemoryBriefInput, type MemoryBriefResult, type MessageEnvelope, type MessagePart, PURGED_SUMMARY_TEXT, PURGED_TEXT } from "@ergo/protocol";
@@ -274,11 +274,11 @@ describe("彻底删除：会话文件里记忆简报引的原话也抹掉", () =
 });
 
 /**
- * 337 号票：这段简报改成问记忆插件要（createMessageBriefs 注入的 brief，组合根传记忆插件宿主的 host.brief）。
+ * 这段简报改成问记忆插件要（createMessageBriefs 注入的 brief，组合根传记忆插件宿主的 host.brief）。
  * 这里摆一个假的 brief，看 message-brief 这一侧的行为没变：正文进这一轮输入、keys 记下去重、用量照旧、出错和超时回空。
  * （上面那些老测试走的是 engine 那条回落，两边算法都是 engineMessageBrief，算出来的东西一样。）
  */
-describe("337：简报问记忆插件要（注入的 brief）", () => {
+describe("简报问记忆插件要（注入的 brief）", () => {
   /** 注入假 brief 的一份 createMessageBriefs：记下问过什么，这一轮回什么由 reply 摆 */
   function injecting(
     store: EventStore,

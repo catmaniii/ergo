@@ -13,7 +13,7 @@ export function safeFileName(name: string): string {
 }
 
 /**
- * 拦下载（160 号票，原生浏览器里能渲染的文件）：want 说要不要拦——拦下的照样下进缓存，但不提示、不弹"保存到"，
+ * 拦下载（原生浏览器里能渲染的文件）：want 说要不要拦——拦下的照样下进缓存，但不提示、不弹"保存到"，
  * 下完 finished 交出缓存里的路径（由拦的人管，删不删、存不存）；失败 failed
  */
 export interface DownloadDivert {
@@ -22,11 +22,11 @@ export interface DownloadDivert {
   failed(item: webview.WebDownloadItem): void;
 }
 
-/** 存好了一个文件（165 号票，下载记录）：名字、存在哪（系统"保存到"给的地址）、大小（字节）、类型（不知道是空串） */
+/** 存好了一个文件（下载记录）：名字、存在哪（系统"保存到"给的地址）、大小（字节）、类型（不知道是空串） */
 export type DownloadSaved = (name: string, uri: string, size: number, mime: string) => void;
 
 /**
- * 网页里的下载（96 号票）：聊天里的文件附件点"⤓"是带 download 的链接，浏览器会下载，ArkWeb 不设下载代理就什么都不做。
+ * 网页里的下载：聊天里的文件附件点"⤓"是带 download 的链接，浏览器会下载，ArkWeb 不设下载代理就什么都不做。
  * 这里先下到 App 的缓存目录，下完弹系统的"保存到"让用户选位置（文件名默认用附件的名字），再拷过去、删掉缓存里的那份。
  * 下载照常带着网页的设备凭证 cookie（同一个 WebView 发的请求）。
  */
@@ -36,11 +36,11 @@ export class WebDownloads {
   private readonly delegate: webview.WebDownloadDelegate = new webview.WebDownloadDelegate();
   /** 下载的 guid → 文件名 */
   private readonly names: Map<string, string> = new Map<string, string>();
-  /** 拦下载的（160 号票，只有原生浏览器那一份有） */
+  /** 拦下载的（只有原生浏览器那一份有） */
   private readonly divert: DownloadDivert | undefined;
   /** 拦下的下载的 guid */
   private readonly diverted: Set<string> = new Set<string>();
-  /** 存好了一个文件时记下来（165 号票，只有原生浏览器那一份有：下载记录） */
+  /** 存好了一个文件时记下来（只有原生浏览器那一份有：下载记录） */
   private readonly saved: DownloadSaved | undefined;
   /** 缓存里的路径 → 服务端给的类型（存好时记进下载记录） */
   private readonly mimes: Map<string, string> = new Map<string, string>();
@@ -72,7 +72,7 @@ export class WebDownloads {
         fs.mkdirSync(dir);
       }
       this.names.set(item.getGuid(), name);
-      // 拦下的（160 号票）：照样下进缓存，不提示
+      // 拦下的：照样下进缓存，不提示
       const diverted = this.divert !== undefined && this.divert.want(item);
       if (diverted) {
         this.diverted.add(item.getGuid());
@@ -102,8 +102,8 @@ export class WebDownloads {
   }
 
   /**
-   * 把缓存里的一个文件弹"保存到"存出去（文件名默认 name）；keep 为真时缓存里那份留着（160 号票：拦下的下载点"下载"，
-   * 可能还要再看、再存），否则存完、取消都删掉。mimeType：别处取到的文件（359 号票，长按元素）记进下载记录的类型
+   * 把缓存里的一个文件弹"保存到"存出去（文件名默认 name）；keep 为真时缓存里那份留着（拦下的下载点"下载"，
+   * 可能还要再看、再存），否则存完、取消都删掉。mimeType：别处取到的文件（长按元素）记进下载记录的类型
    */
   saveFile(src: string, name: string, keep: boolean, mimeType?: string): void {
     if (mimeType !== undefined) {
@@ -154,7 +154,7 @@ export class WebDownloads {
     fs.copyFile(src, out.fd)
       .then(() => {
         this.notify(t('harmony.downloads.saved', { 'name': name }));
-        // 下载记录（165 号票）
+        // 下载记录
         this.saved?.(name, uri, size, mime);
       })
       .catch((err: BusinessError) => {

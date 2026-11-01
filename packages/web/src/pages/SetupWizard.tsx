@@ -1,6 +1,6 @@
-// 首次设置向导（319 号票，用户 2026-10-27 定："只做网页前端，不做终端 ergo onboard"）的页面：地址 #/more/setup，
+// 首次设置向导（"只做网页前端，不做终端 ergo onboard"）的页面：地址 #/more/setup，
 // 在设置列表最上面（pages/MorePage.tsx），第一次用二狗的时候从首页顶上那条引导条点过来。
-// - 五步（共享协议包的 SETUP_STEPS）：① 语言 / 称呼 / 助手名 ② 模型 Key ③ 能力（347 号票：more/CapabilitiesStep.tsx，向量模型也在这里装）④ 手机配对 ⑤ 安全默认值说明；
+// - 五步（共享协议包的 SETUP_STEPS）：① 语言 / 称呼 / 助手名 ② 模型 Key ③ 能力（more/CapabilitiesStep.tsx，向量模型也在这里装）④ 手机配对 ⑤ 安全默认值说明；
 //   左边（手机上是一排）一列步骤，做完的打勾、当前的突出，一屏只显示一步（setupScreenOf 算现在显示哪一屏）；
 // - 每步都有"以后再说"（POST skip: true）和"这一步就这样"（POST skip: false）；第⑤步是"看过了"；
 //   打完标记用守护进程回的那份整份（useSetup 换掉 view），接着显示下一步（setupStepAfter）；
@@ -346,7 +346,7 @@ export function SetupPage({ title, onBack, navigate }: { title: string; onBack: 
 }
 
 /**
- * 首页（会话页）顶上那条引导条（319 号票）：还没把五步走完时在顶上提示一句，
+ * 首页（会话页）顶上那条引导条：还没把五步走完时在顶上提示一句，
  * 点了去设置 · 设置向导，右上的 × 关掉、记在这台设备上（app/setup.ts 的 SETUP_BANNER_KEY），以后不再出现。
  * 由 App.tsx 画（演示页不画）。取不到状态（守护进程没连上）时什么都不显示
  */

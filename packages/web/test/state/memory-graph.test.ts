@@ -1,4 +1,4 @@
-// 233 号票：记忆的结论、证据与推理、问题箱在状态层的推导——按层分组、状态筛的选项、列表上一行、
+// 记忆的结论、证据与推理、问题箱在状态层的推导——按层分组、状态筛的选项、列表上一行、
 // 原话、支持/反证/背景、证据链、推断、修订、问题、概览和最近一次整理那两行。
 import { describe, expect, test } from "vitest";
 import {
@@ -92,7 +92,7 @@ describe("层的说法和分组", () => {
   });
 
   test("状态、把握、来源、多重、问题、整理那几套说法都在", () => {
-    // 329 号票：已验证、猜测、撤回、被取代（待复核不再是状态）
+    // 已验证、猜测、撤回、被取代（待复核不再是状态）
     expect(MEMORY_CLAIM_STATUS_LABEL.active).toBe("已验证");
     expect(MEMORY_CLAIM_STATUS_LABEL.contested).toBe("猜测");
     expect(MEMORY_CONFIDENCE_LABEL.high).toBe("把握高");
@@ -117,7 +117,7 @@ describe("列表上的一行", () => {
     expect(memoryClaimRow(brief({ supports: 0, refutes: 0, competitors: 0 })).chips).toEqual([]);
   });
 
-  test("330 号票：醒目的真值小签——已验证绿、猜测橙、撤回的淡写；标着复核的再加'复核中'", () => {
+  test("醒目的真值小签——已验证绿、猜测橙、撤回的淡写；标着复核的再加'复核中'", () => {
     expect(memoryClaimBadges(brief())).toEqual([{ label: "已验证", tone: "ok" }]);
     expect(memoryClaimBadges(brief({ status: "contested" }))).toEqual([{ label: "猜测", tone: "guess" }]);
     expect(memoryClaimBadges(brief({ status: "contested", needsReview: true }))).toEqual([
@@ -127,7 +127,7 @@ describe("列表上的一行", () => {
     expect(memoryClaimBadges(brief({ status: "retracted" }))).toEqual([{ label: "已撤回", tone: "quiet" }]);
   });
 
-  test("330 号票：做法一行——状态、'建在猜测上'、'理由没了'，依据带现在的状态", () => {
+  test("做法一行——状态、'建在猜测上'、'理由没了'，依据带现在的状态", () => {
     const view: MemoryStrategyView = {
       id: "st-0002",
       when: "安排日程时",
@@ -156,7 +156,7 @@ describe("列表上的一行", () => {
     expect(gone.note).toContain("会问你还要不要");
   });
 
-  test("330 号票（R5）：猜测为什么还是猜测——没证实的前提、证据哪里不够，一行一条；不是猜测是空的", () => {
+  test("ADR-0032 R5：猜测为什么还是猜测——没证实的前提、证据哪里不够，一行一条；不是猜测是空的", () => {
     expect(memoryGuessLines(undefined)).toEqual([]);
     expect(
       memoryGuessLines({ unverifiedPremises: [{ id: "cl-0003", statement: "周末想休息", status: "contested" }], evidence: "竞争的假设还没分出来" }),
@@ -255,7 +255,7 @@ describe("证据与推理", () => {
     });
   });
 
-  test("267 号票：修订带上是谁写的（唯一写入口的留痕）——谁、做什么，经谁转达的写在谁后面", () => {
+  test("修订带上是谁写的（唯一写入口的留痕）——谁、做什么，经谁转达的写在谁后面", () => {
     const base: MemoryRevisionView = { seq: 9, op: "update", changes: [], reason: "判成立", at: "2026-10-10T03:00:00.000+08:00" };
     expect(memoryRevisionRow({ ...base, by: { actor: "nightly", op: "decide" } }).by).toBe("记忆管理员（夜班） · 判成立或推翻");
     expect(memoryRevisionRow({ ...base, by: { actor: "user_verdict", op: "verdict", via: "经记忆管理员" } }).by).toBe("你的表态（经记忆管理员）· 记下你的表态");
@@ -327,7 +327,7 @@ describe("问题箱", () => {
     });
   });
 
-  test("264 号票：顺口问过、跳过、答了——跳过几次、你的回答（原话和读成什么）、判的结果、经过都写明", () => {
+  test("顺口问过、跳过、答了——跳过几次、你的回答（原话和读成什么）、判的结果、经过都写明", () => {
     const answered: MemoryQuestionItem = {
       ...question,
       status: "resolved",

@@ -15,15 +15,15 @@ describe("HTTP 接口的路径", () => {
     expect(parseHttpPath(pathOf(HTTP_PATHS.uploadChunk("u-1", 1024)))).toEqual({ route: "upload", uploadId: "u-1" });
     expect(parseHttpPath(pathOf(HTTP_PATHS.uploadComplete("u-1")))).toEqual({ route: "upload_complete", uploadId: "u-1" });
     expect(parseHttpPath(pathOf(HTTP_PATHS.media("a".repeat(64), { name: "报告 v2.pdf", download: true })))).toEqual({ route: "media", mediaId: "a".repeat(64) });
-    // 文本类附件的内容（113 号票，报告页用）
+    // 文本类附件的内容（报告页用）
     expect(parseHttpPath(pathOf(HTTP_PATHS.mediaText("a".repeat(64))))).toEqual({ route: "media_text", mediaId: "a".repeat(64) });
-    // HTML、SVG 附件本身（117 号票，报告页的沙箱框、<img> 用）
+    // HTML、SVG 附件本身（报告页的沙箱框、<img> 用）
     expect(parseHttpPath(pathOf(HTTP_PATHS.mediaHtml("a".repeat(64))))).toEqual({ route: "media_html", mediaId: "a".repeat(64) });
     expect(parseHttpPath(pathOf(HTTP_PATHS.mediaSvg("a".repeat(64))))).toEqual({ route: "media_svg", mediaId: "a".repeat(64) });
     expect(parseHttpPath(pathOf(HTTP_PATHS.history("maintainer:记忆系统", { before: 21 })))).toEqual({ route: "history", conversation: "maintainer:记忆系统" });
     expect(parseHttpPath(pathOf(HTTP_PATHS.slashCommands("maintainer:pm-1")))).toEqual({ route: "slash_commands", conversation: "maintainer:pm-1" });
     expect(parseHttpPath(pathOf(HTTP_PATHS.assistantName))).toEqual({ route: "assistant_name" });
-    // 158 号票：设置里看素材（列表一页、一条的完整内容）；scope、delete、list 是保留的名字
+    // 设置里看素材（列表一页、一条的完整内容）；scope、delete、list 是保留的名字
     expect(parseHttpPath(pathOf(HTTP_PATHS.materialsScope))).toEqual({ route: "materials_scope" });
     expect(parseHttpPath(pathOf(HTTP_PATHS.materialsDelete))).toEqual({ route: "materials_delete" });
     expect(parseHttpPath(pathOf(HTTP_PATHS.materialsList))).toEqual({ route: "materials_list" });
@@ -31,13 +31,13 @@ describe("HTTP 接口的路径", () => {
     expect(parseHttpPath(pathOf(HTTP_PATHS.material("mat-0123456789abcdef01234567")))).toEqual({ route: "material", materialId: "mat-0123456789abcdef01234567" });
     // 调用 id 什么字符都可能有（faux 的是 tool:<时间>:<随机串>）
     expect(parseHttpPath(pathOf(HTTP_PATHS.toolCall("tool:1730000000000:ab/c d?#")))).toEqual({ route: "tool_call", callId: "tool:1730000000000:ab/c d?#" });
-    // 设置里的工具调用完整内容：占了多大、现在就清理（65 号票）
+    // 设置里的工具调用完整内容：占了多大、现在就清理
     expect(parseHttpPath(pathOf(HTTP_PATHS.toolCallStorage))).toEqual({ route: "tool_call_storage" });
     expect(parseHttpPath(pathOf(HTTP_PATHS.toolCallStorageCleanup))).toEqual({ route: "tool_call_storage_cleanup" });
-    // 设置里的"备份"：现在的状况、立即备份（335 号票）
+    // 设置里的"备份"：现在的状况、立即备份
     expect(parseHttpPath(pathOf(HTTP_PATHS.backup))).toEqual({ route: "backup" });
     expect(parseHttpPath(pathOf(HTTP_PATHS.backupRun))).toEqual({ route: "backup_run" });
-    // 356 号票：备份单独一页的几个接口
+    // 备份单独一页的几个接口
     expect(parseHttpPath(pathOf(HTTP_PATHS.backupConfig))).toEqual({ route: "backup_config" });
     expect(parseHttpPath(pathOf(HTTP_PATHS.backupCheckFolder))).toEqual({ route: "backup_check_folder" });
     expect(parseHttpPath(pathOf(HTTP_PATHS.backupSnapshots))).toEqual({ route: "backup_snapshots" });
@@ -45,45 +45,45 @@ describe("HTTP 接口的路径", () => {
     expect(parseHttpPath(pathOf(HTTP_PATHS.backupOpen))).toEqual({ route: "backup_open" });
     expect(parseHttpPath("/api/backup/now")).toBeUndefined();
     expect(parseHttpPath("/api/backup/run/x")).toBeUndefined();
-    // 设置里的"模型"：取、存，连通测试（73 号票）
+    // 设置里的"模型"：取、存，连通测试
     expect(parseHttpPath(pathOf(HTTP_PATHS.modelSettings))).toEqual({ route: "model_settings" });
     expect(parseHttpPath(pathOf(HTTP_PATHS.modelSettingsTest))).toEqual({ route: "model_settings_test" });
-    // 每个 agent 的 ⚙（114 号票）：面板、单独的提示词、清空、现在压缩
+    // 每个 agent 的 ⚙：面板、单独的提示词、清空、现在压缩
     expect(parseHttpPath(pathOf(HTTP_PATHS.agentSettings("secretary")))).toEqual({ route: "agent_settings", agentId: "secretary" });
     expect(parseHttpPath(pathOf(HTTP_PATHS.agentPrompt("tm-3")))).toEqual({ route: "agent_prompt", agentId: "tm-3" });
     expect(parseHttpPath(pathOf(HTTP_PATHS.agentClear("pm-1")))).toEqual({ route: "agent_clear", agentId: "pm-1" });
     expect(parseHttpPath(pathOf(HTTP_PATHS.agentCompact("pm-1")))).toEqual({ route: "agent_compact", agentId: "pm-1" });
-    // 项目、任务的负责人单独配模型（120 号票）
+    // 项目、任务的负责人单独配模型
     expect(parseHttpPath(pathOf(HTTP_PATHS.agentModel("pm-1")))).toEqual({ route: "agent_model", agentId: "pm-1" });
-    // Debug 工具集的语音组（124 号票）：录一段送识别、合成念一句
+    // Debug 工具集的语音组：录一段送识别、合成念一句
     expect(HTTP_PATHS.debugRecognize).toBe("/api/debug/recognize");
     expect(parseHttpPath(pathOf(HTTP_PATHS.debugRecognize))).toEqual({ route: "debug_recognize" });
     expect(parseHttpPath(pathOf(HTTP_PATHS.debugSpeak))).toEqual({ route: "debug_speak" });
-    // 项目的服务首页的缩略图（140 号票）：按项目编号和服务名
+    // 项目的服务首页的缩略图：按项目编号和服务名
     expect(parseHttpPath(pathOf(HTTP_PATHS.serviceThumbnail("p-1", "site", { at: "2026-10-18T09:00:00.000+08:00", seen: "123" })))).toEqual({ route: "service_thumbnail", projectId: "p-1", name: "site" });
-    // 项目规范的只读接口（258 号票）
+    // 项目规范的只读接口
     expect(HTTP_PATHS.projectStandard("p-1")).toBe("/api/projects/p-1/standard");
     expect(parseHttpPath(HTTP_PATHS.projectStandard("p-1"))).toEqual({ route: "project_standard", projectId: "p-1" });
     expect(parseHttpPath("/api/projects/p-1")).toBeUndefined();
     expect(parseHttpPath("/api/projects/p-1/other")).toBeUndefined();
-    // 悬浮按钮上说的一段送识别（149 号票：一次性页面助手的 /api/page-command 和候选的 /pick 不再有）
+    // 悬浮按钮上说的一段送识别（一次性页面助手的 /api/page-command 和候选的 /pick 不再有）
     expect(HTTP_PATHS.pageVoice).toBe("/api/page-command/voice");
     expect(parseHttpPath(pathOf(HTTP_PATHS.pageVoice))).toEqual({ route: "page_voice" });
     expect(parseHttpPath("/api/page-command")).toBeUndefined();
-    // 候选的缩略图（149 号票）
+    // 候选的缩略图
     expect(HTTP_PATHS.pageFileThumb("abc")).toBe("/api/page-files/abc/thumb");
     expect(parseHttpPath(pathOf(HTTP_PATHS.pageFileThumb("abc")))).toEqual({ route: "page_file_thumb", token: "abc" });
-    // 记忆的推理库（233 号票，只读）：概览、结论列表、一条结论、问题箱
+    // 记忆的推理库（只读）：概览、结论列表、一条结论、问题箱
     expect(HTTP_PATHS.memorySummary).toBe("/api/memory/summary");
     expect(parseHttpPath(pathOf(HTTP_PATHS.memorySummary))).toEqual({ route: "memory_summary" });
     expect(parseHttpPath(pathOf(HTTP_PATHS.memoryClaims({ tier: "need", status: "active", limit: 50 })))).toEqual({ route: "memory_claims" });
     expect(parseHttpPath(pathOf(HTTP_PATHS.memoryClaims()))).toEqual({ route: "memory_claims" });
     expect(parseHttpPath(pathOf(HTTP_PATHS.memoryClaim("cl-0001")))).toEqual({ route: "memory_claim", claimId: "cl-0001" });
     expect(parseHttpPath(pathOf(HTTP_PATHS.memoryQuestions({ limit: 10 })))).toEqual({ route: "memory_questions" });
-    // 330 号票：做法（交互策略）列表
+    // 做法（交互策略）列表
     expect(HTTP_PATHS.memoryStrategies()).toBe("/api/memory/strategies");
     expect(parseHttpPath(HTTP_PATHS.memoryStrategies())).toEqual({ route: "memory_strategies" });
-    // 记忆的设置（264 号票）：顺口问开不开
+    // 记忆的设置：顺口问开不开
     expect(HTTP_PATHS.memorySettings).toBe("/api/memory/settings");
     expect(parseHttpPath(HTTP_PATHS.memorySettings)).toEqual({ route: "memory_settings" });
     expect(parseHttpPath("/api/memory/settings/more")).toBeUndefined();
@@ -100,7 +100,7 @@ describe("HTTP 接口的路径", () => {
     expect(queryOf(HTTP_PATHS.history("secretary", { before: 21, limit: 5 }))).toEqual({ [HTTP_QUERY.before]: "21", [HTTP_QUERY.limit]: "5" });
     expect(queryOf(HTTP_PATHS.serviceThumbnail("p-1", "site", { at: "t", seen: "9" }))).toEqual({ [HTTP_QUERY.at]: "t", [HTTP_QUERY.seen]: "9" });
     expect(queryOf(HTTP_PATHS.serviceThumbnail("p-1", "site"))).toEqual({});
-    // 记忆的推理库（233 号票）：结论列表的层、状态和条数，问题箱的条数
+    // 记忆的推理库：结论列表的层、状态和条数，问题箱的条数
     expect(queryOf(HTTP_PATHS.memoryClaims({ tier: "need", status: "active", limit: 50 }))).toEqual({ [HTTP_QUERY.tier]: "need", [HTTP_QUERY.status]: "active", [HTTP_QUERY.limit]: "50" });
     expect(queryOf(HTTP_PATHS.memoryClaims())).toEqual({});
     expect(queryOf(HTTP_PATHS.memoryQuestions({ limit: 10 }))).toEqual({ [HTTP_QUERY.limit]: "10" });
@@ -113,7 +113,7 @@ describe("HTTP 接口的路径", () => {
   });
 });
 
-describe("服务首页缩略图地址里的 seen（140 号票）", () => {
+describe("服务首页缩略图地址里的 seen", () => {
   it("手里那张还够新不带；旧了（6 小时）、还没有的按第几个 6 小时给号，6 小时换一次", () => {
     const taken = Date.parse("2026-10-18T09:00:00.000+08:00");
     expect(serviceThumbnailSeen("2026-10-18T09:00:00.000+08:00", taken + SERVICE_THUMBNAIL_REFRESH_MS - 1)).toBeUndefined();
@@ -136,7 +136,7 @@ describe("拼附件 part", () => {
   });
 });
 
-describe("能预览的文本类附件（113 号票）", () => {
+describe("能预览的文本类附件", () => {
   it("只看 part 上的类型：Markdown、纯文本能预览（按哪种渲染），别的类型只能下载", () => {
     expect(textPreviewOf({ name: "10 月 13 日日报.md", mime: "text/markdown" })).toBe("text/markdown");
     expect(textPreviewOf({ name: "运行日志.log", mime: "text/plain" })).toBe("text/plain");
@@ -155,7 +155,7 @@ describe("能预览的文本类附件（113 号票）", () => {
   });
 });
 
-describe("在沙箱里预览的附件（117 号票）", () => {
+describe("在沙箱里预览的附件", () => {
   it("有扩展名的只看扩展名：html、htm 是 HTML，svg 是 SVG，part 上写的什么类型都一样（大小写不论）", () => {
     expect(framePreviewOf({ name: "AI 日报.html", mime: "text/html" })).toBe("html");
     expect(framePreviewOf({ name: "活动页.HTM", mime: "text/plain" })).toBe("html");

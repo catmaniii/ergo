@@ -1,7 +1,7 @@
-// 项目的服务（133 号票）的派生视图：一个服务（按 LSM 里的名字、转发的应用名）一行——最近一条 service_desired（该在 LSM 上还是撤下、
+// 项目的服务的派生视图：一个服务（按 LSM 里的名字、转发的应用名）一行——最近一条 service_desired（该在 LSM 上还是撤下、
 // 定义）、对它做完的结果（service_rollout，没有就是还没做完：上线中 / 撤下中）、LSM 里有没有它的登记、上线后挂了报过还没好的那次
 // 故障（service_outage）和报过几次。删掉的项目的事件换成了"已删除"标记，整体重放之后行就没了。
-// 257 号票：另一张表一个项目一行，记最新的那条"全部启动 / 全部关闭"（service_power）；每个服务那一行多记它照哪一条开关做完了
+// 另一张表一个项目一行，记最新的那条"全部启动 / 全部关闭"（service_power）；每个服务那一行多记它照哪一条开关做完了
 // （power_seq：上线的结果带着的、关闭做完记的）和关闭没做成的原因（power_failed）。
 import type { DerivedView } from "../events/event-store.ts";
 import { OPERATIONS_CHANNEL } from "../projects/api.ts";
@@ -37,7 +37,7 @@ export const projectServicesView: DerivedView = {
         seq INTEGER NOT NULL
       );
     `);
-    // 257 号票之前建的表没有这两列：之前的事件日志里没有开关的事件，默认值就对，加列不用补
+    // 以前建的表没有这两列：之前的事件日志里没有开关的事件，默认值就对，加列不用补
     const columns = db.all<{ name: string }>("PRAGMA table_info(project_services)").map((c) => c.name);
     if (!columns.includes("power_seq")) db.exec("ALTER TABLE project_services ADD COLUMN power_seq INTEGER NOT NULL DEFAULT 0");
     if (!columns.includes("power_failed")) db.exec("ALTER TABLE project_services ADD COLUMN power_failed TEXT");

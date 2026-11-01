@@ -1,4 +1,4 @@
-// 没装的组件对应的功能灰掉、点一下去装（323 号票）：组件清单（GET /api/components，取一次缓存着；设置 · 组件每次取到新的换上，
+// 没装的组件对应的功能灰掉、点一下去装：组件清单（GET /api/components，取一次缓存着；设置 · 组件每次取到新的换上，
 // 挂着的跟着变）里每个功能能不能用（ComponentsView.features）。还没取到、取不到的一律当能用（不挡人）。
 // - useComponentGate(功能)：这个功能没法用时回要装的那个组件（能用是 undefined）；
 // - goInstallComponent(组件)：去设置 · 组件，那一块亮一下（ComponentsPage 认 takeComponentFocus）；

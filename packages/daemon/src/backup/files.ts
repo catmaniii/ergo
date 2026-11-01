@@ -8,7 +8,7 @@ import { pipeline } from "node:stream/promises";
 import { t } from "@ergo/protocol";
 import { renameRetryingAsync } from "../util/atomic-file.ts";
 
-/** 写入出错的原因，给人看（备份写不进去、选文件夹时试写不进去，356 号票起共用） */
+/** 写入出错的原因，给人看（备份写不进去、选文件夹时试写不进去，共用） */
 export function describeWriteError(err: unknown): string {
   const code = (err as NodeJS.ErrnoException).code;
   // SQLite 写满时（VACUUM INTO）没有 errno，只有这句话
@@ -79,7 +79,7 @@ export const nodeSnapshotFiles: SnapshotFiles = {
   },
   writeFile: (file, data) => fs.promises.writeFile(file, data),
   // Windows 上目录刚被别的程序（同步客户端、杀毒、索引、刚退出的进程）碰过时会短暂 EPERM / EBUSY，重试一会儿（最多约 5 秒，
-  // 265 号票起和产品里别处的改名同一份：util/atomic-file.ts）
+  // 和产品里别处的改名同一份：util/atomic-file.ts）
   rename: (from, to) => renameRetryingAsync(from, to),
   // 删只读的硬链接不影响同一份存储的其他链接（Windows 上按 POSIX 语义删，只读属性留着）
   remove: (target) => fs.promises.rm(target, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }),

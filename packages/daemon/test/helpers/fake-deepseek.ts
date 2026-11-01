@@ -1,9 +1,9 @@
-// 本机的假 DeepSeek（73 号票）：一个只听 127.0.0.1 的 chat completions 服务，测试里目录模型的请求都发到这里
+// 本机的假 DeepSeek：一个只听 127.0.0.1 的 chat completions 服务，测试里目录模型的请求都发到这里
 // （CatalogModelSpec.baseUrl；主切面经 startTestDaemon 的 catalogBaseUrl），从不连真的 DeepSeek。
 // 每次请求记下请求体（解析好的 JSON：model、thinking、max_tokens……），默认回一段录好的流式响应（DeepSeek 的格式，带用量）；
 // unauthorized() 之后一律回 401，报错里像 DeepSeek 那样带着 key 的末尾几位（测"出错原因里没有 key 的内容"）；
 // hold() 之后的请求记下但先不回（测连通测试同一时间只跑一个、超时），release() 再照常回；
-// failNext() 让接下来的一次请求回 400（测换模型时交接摘要没写成，83 号票）。
+// failNext() 让接下来的一次请求回 400（测换模型时交接摘要没写成）。
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { onTestFinished } from "vitest";

@@ -1,4 +1,4 @@
-// 计划变更和自行调整（14 号票）：相对当前计划新增或改动了什么、哪些扩大授权或改了目标和验收（要用户在计划变更卡上确认）、
+// 计划变更和自行调整：相对当前计划新增或改动了什么、哪些扩大授权或改了目标和验收（要用户在计划变更卡上确认）、
 // 停下哪些阶段、改了之后授权项的有效期和各阶段的执行状态。纯函数，表格驱动。
 import { type Plan, type PlanChangeItem, type PlanGrant, planChangeItemText, type PlanStage, sameToolkit, type TaskStage, withStageCodes } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
@@ -140,7 +140,7 @@ describe("不扩大授权的调整（负责人自行调整计划，记进时间�
     ]);
   });
 
-  it("给秘书发消息（102 号票评审后定）：打开算扩大，关掉不算", () => {
+  it("给秘书发消息：打开算扩大，关掉不算", () => {
     const off: Plan = { ...base(), toolkit: { ...base().toolkit, tellSecretary: false } };
     const [opened] = diffPlan({ before: off, after: base(), tools });
     expect([opened?.kind, opened?.expands]).toEqual(["toolkit", true]);
@@ -148,7 +148,7 @@ describe("不扩大授权的调整（负责人自行调整计划，记进时间�
     expect([closed?.kind, closed?.expands]).toEqual(["toolkit", false]);
   });
 
-  it("加 skill（27 号票）：skill 只是说明书、不增加权限，负责人自己增减，不算扩大；卡上写加了哪个", () => {
+  it("加 skill：skill 只是说明书、不增加权限，负责人自己增减，不算扩大；卡上写加了哪个", () => {
     const [item] = diff(edited((p) => p.toolkit.skills.push("notes-style")));
     expect([item?.kind, item?.expands]).toEqual(["toolkit", false]);
     expect(planChangeItemText(item!)).toBe("工具包变更：加上 skill notes-style（原来 bash 关、联网开；skill：无；MCP：无）");
@@ -159,7 +159,7 @@ describe("不扩大授权的调整（负责人自行调整计划，记进时间�
 const withLines = (projects: Plan["projects"]) => edited((p) => (p.projects = projects));
 const diffLines = (before: Plan["projects"], after: Plan["projects"]) => diffPlan({ before: withLines(before), after: withLines(after), tools });
 
-describe("涉及多个项目的计划逐行写所属阶段（17 号票）", () => {
+describe("涉及多个项目的计划逐行写所属阶段", () => {
   const A1 = { project: "记账本", changes: ["加导出"], stageId: "s1", acceptance: ["有 export.md"] };
   const B1 = { project: "家电档案", changes: ["加导入"], stageId: "s1", acceptance: ["有 import.md"] };
   const A2 = { project: "记账本", changes: ["写版本号"], stageId: "s2", acceptance: ["有版本号"] };
@@ -259,13 +259,13 @@ describe("停下哪些阶段", () => {
     expect(touchedAcceptedStages(base(), edited((p) => (p.stages[1]!.title = "改名")), list({ s1: "accepted" }))).toEqual([]);
   });
 
-  it("编号不算改动（93 号票）：现在生效的那份有编号、负责人交来的没有，已验收的阶段不算碰过", () => {
+  it("编号不算改动：现在生效的那份有编号、负责人交来的没有，已验收的阶段不算碰过", () => {
     const coded = withStageCodes(base());
     expect(coded.stages[0]!.code).toBe("1");
     expect(touchedAcceptedStages(coded, base(), list({ s1: "accepted" }))).toEqual([]);
   });
 
-  it("字段的先后不算改动（121 号票）：内容一样就没碰过", () => {
+  it("字段的先后不算改动：内容一样就没碰过", () => {
     const shuffled = edited((p) => (p.stages[0] = Object.fromEntries(Object.entries(p.stages[0]!).toReversed()) as PlanStage));
     expect(touchedAcceptedStages(base(), shuffled, list({ s1: "accepted" }))).toEqual([]);
   });
@@ -284,7 +284,7 @@ function stageOf(id: string, edit: (s: PlanStage) => void = () => {}): PlanStage
   return s;
 }
 
-describe("只交要改的（121 号票）", () => {
+describe("只交要改的", () => {
   it("只交一个阶段：没写到的阶段从当前计划原样带上（编号、前置关系不变），没写的栏沿用当前计划；前置检查在补全之后做", () => {
     const current = withStageCodes(base());
     const s2 = stageOf("s2", (s) => (s.acceptance[1]!.criterion = "附录有来源（不用等满一周）"));
@@ -374,7 +374,7 @@ describe("改了之后", () => {
     expect(mergeDraft(current, draft).plan).toEqual(current);
   });
 
-  it("工具包里给秘书发消息（102 号票）：负责人交的不写这一项是沿用现在的（用户关掉的不会被悄悄打开），写了照写的算", () => {
+  it("工具包里给秘书发消息：负责人交的不写这一项是沿用现在的（用户关掉的不会被悄悄打开），写了照写的算", () => {
     const { watchCategories: _w, userLimits: _u, memoryScope: _m, ...draft } = base();
     const off = { ...base(), toolkit: { ...base().toolkit, tellSecretary: false } };
     expect(mergeDraft(off, draft).plan.toolkit).toEqual(off.toolkit);
@@ -416,7 +416,7 @@ describe("改了之后", () => {
     ]);
   });
 
-  it("各阶段的编号照计划里存的（93 号票）：已有的阶段沿用，新加的是调整时给的号", () => {
+  it("各阶段的编号照计划里存的：已有的阶段沿用，新加的是调整时给的号", () => {
     const running: TaskStage[] = [
       { stageId: "s1", title: "收集", state: "accepted", dependsOn: [], acceptance: [], attempts: 1, code: "1" },
       { stageId: "s2", title: "写报告", state: "running", dependsOn: ["s1"], acceptance: [], attempts: 0, code: "2" },

@@ -1,4 +1,4 @@
-// 235 号票：记忆插件在假宿主里的装配（真的插件、真的插件宿主，内核是临时目录里的真实现；不碰真实守护进程和用户数据）。
+// 记忆插件在假宿主里的装配（真的插件、真的插件宿主，内核是临时目录里的真实现；不碰真实守护进程和用户数据）。
 // 覆盖：插件开着时每晚整理作业排上、到点跑、停用后撤销（下一夜不再跑、rg.db 留着）；memory.enabled = false 时不排作业、
 // 不建库但登记着手动整理的入口；手动整理一次走同一份作业、受同一夜一次的限制；整理关着时点了回原因、不跑。
 import fs from "node:fs";
@@ -19,7 +19,7 @@ function nightlyAction(t: Awaited<ReturnType<typeof createMemoryPluginHost>>) {
 
 const context = { actionId: "qa-1", cardId: "card-1", conversation: "secretary", basis: "confirmed" } as const;
 
-describe("记忆插件在假宿主里（235 号票）", () => {
+describe("记忆插件在假宿主里", () => {
   it("开着：每晚整理的作业排上、到点跑一次；运行中停用后作业撤销、下一夜不再跑，rg.db 留着", async () => {
     // 不给模型：到点照旧跑，记一条"没配 key"的 skipped（不联网、不花钱）
     const t = await createMemoryPluginHost({ at: at(10, 9) });

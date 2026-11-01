@@ -1,6 +1,6 @@
-// 事件触发的分发（77 号票，ADR 0025）：谁在等事件、事件来了交给谁。
+// 事件触发的分发（ADR 0025）：谁在等事件、事件来了交给谁。
 // - 订阅：每个事件触发的任务的触发登记（运营中、已暂停的；看板频道的 scheduled_job，event 不空），加上别的订阅方登记的
-//   （126 号票：订阅方登记表 EventSubscriberRegistry；提醒插件登记每条事件发生时提醒的简单提醒——待触发的、看板频道的 reminder、
+//   （订阅方登记表 EventSubscriberRegistry；提醒插件登记每条事件发生时提醒的简单提醒——待触发的、看板频道的 reminder、
 //   event 不空）。它们一变就重新算一遍，按来源分好交给各来源的实现（sync：开始盯新的，停掉不要的）；订阅方登记、撤掉时也重算；
 // - 交出：来源推来一次事件，暂停着的不交；事件触发的任务交给触发底座（ScheduledJobs.fire：没在跑的起一次运行，上一次还没跑完的排队合并），
 //   别的订阅交给登记它的订阅方（简单提醒发一条通知：ReminderService.fireOnEvent）。去重键是订阅加上来源给的键：同一次事件重推、开机比对补发都只收一次；
@@ -13,7 +13,7 @@ import { listJobs } from "../scheduled-jobs/index.ts";
 import { errorText, sourceMissingText, triggerText } from "./texts.ts";
 import type { DeliveringContext, EventDelivery, EventSourceImpl, EventSubscription, SourceEvent } from "./types.ts";
 
-/** 事件触发任务之外的一种订阅方（126 号票：插件经插件宿主登记，停用时撤掉） */
+/** 事件触发任务之外的一种订阅方（插件经插件宿主登记，停用时撤掉） */
 export interface EventSubscriberKind {
   /** 订阅的种类（EventSubscription.kind），比如 reminder；task 是内核的 */
   kind: string;

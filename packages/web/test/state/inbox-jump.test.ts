@@ -1,4 +1,4 @@
-// 105 号票：待办里每一项"去看看 ›"跳到它从哪来的地方。事项上记了来源（origin）的按来源去：任务的整页、项目的整页（负责人的会话）、
+// 待办里每一项"去看看 ›"跳到它从哪来的地方。事项上记了来源（origin）的按来源去：任务的整页、项目的整页（负责人的会话）、
 // 秘书会话，能定位的带上要定位的卡片或调用；系统的事项按种类去对应的页面；旧事项没记来源的不出按钮。
 import { describe, expect, test } from "vitest";
 import { type CardInboxItem, initialUiState, type InboxItem, type InboxJump, inboxJump, inboxJumpLabel, localDate, type NoticeInboxItem, type Project, type Task, type UiState } from "../../src/state/index.ts";
@@ -21,7 +21,7 @@ const withMaintainers: UiState = {
 
 /**
  * 记了会话的事项按"卡在哪个会话"去：t-1 是有自己负责人的任务，t-4 是项目 p-1 的内部任务（负责人就是项目的负责人 pm-1），
- * t-multi 是多项目任务（17 号票，自己的负责人 tm-multi），派到项目 p-1 的工单由项目负责人 pm-1 做
+ * t-multi 是多项目任务（自己的负责人 tm-multi），派到项目 p-1 的工单由项目负责人 pm-1 做
  */
 const world: UiState = {
   ...initialUiState,
@@ -52,7 +52,7 @@ describe("事项种类 → 去处", () => {
     ["定时触发的任务被自动暂停：任务的整页", notice("scheduled_job_auto_paused", { origin: { taskId: "t-3" }, data: { jobId: "j-3" } }), { kind: "task", taskId: "t-3" }],
     ["项目内部任务的事项：去这个内部任务的整页（有任务先去任务）", cardItem("c-int", { origin: { taskId: "t-4", projectId: "p-1" }, internal: { projectId: "p-1", projectName: "官网" } }), { kind: "task", taskId: "t-4", at: "c-int" }],
     ["项目内部任务里的审批卡：会话是项目负责人的、也是这个任务的，去任务", cardItem("c-int-a", { origin: internalCall("call-5") }), { kind: "task", taskId: "t-4", at: "c-int-a" }, world],
-    // ── 多项目任务派到项目的工单（17 号票）：调用记着多项目任务，卡出在项目负责人的会话里——去项目，不去任务整页（那里没有这张卡）
+    // ── 多项目任务派到项目的工单：调用记着多项目任务，卡出在项目负责人的会话里——去项目，不去任务整页（那里没有这张卡）
     ["工单里的审批卡", cardItem("c-wo-a", { origin: workOrderCall("call-6") }), { kind: "project", projectId: "p-1", chat: true, at: "c-wo-a" }, world],
     ["工单里的交给我做", notice("hand_over", { origin: workOrderCall("call-9") }), { kind: "project", projectId: "p-1", chat: true, at: "call-9" }, world],
     ["工单里的中断不确定", notice("interrupted", { origin: workOrderCall("call-10") }), { kind: "project", projectId: "p-1", chat: true, at: "call-10" }, world],
@@ -90,7 +90,7 @@ describe("事项种类 → 去处", () => {
     ["备份失败：没有备份的页面", notice("backup_failed"), undefined],
     ["快照校验失败", notice("snapshot_check_failed"), undefined],
     ["向量模型未下载：没有页面管它（正文写着要跑的命令）", notice("embedding_model_missing"), undefined],
-    ["组件有新版本：去设置 · 组件点更新（347 号票）", notice("component_update_available"), { kind: "settings", page: "components" }],
+    ["组件有新版本：去设置 · 组件点更新", notice("component_update_available"), { kind: "settings", page: "components" }],
     ["旧事项没记来源：不出按钮", notice("stuck_help", { data: { taskId: "t-1" } }), undefined],
     ["旧的卡片事项没记来源、卡片不是系统的", cardItem("c-old"), undefined, withCards(["c-old", "plan"])],
     ["卡片还没收到、没记来源", cardItem("c-none"), undefined],

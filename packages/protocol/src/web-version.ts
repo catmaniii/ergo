@@ -1,4 +1,4 @@
-// 网页是哪一版（116 号票）：服务端的页面更新了（npm run build:web 换了 index.html），开着的页面（鸿蒙 App、浏览器）要知道，
+// 网页是哪一版：服务端的页面更新了（npm run build:web 换了 index.html），开着的页面（鸿蒙 App、浏览器）要知道，
 // 提示"二狗有新版本 · 刷新"。
 // - 构建时算出构建产物内容的哈希，写进 index.html 的 <head> 开头：<meta name="ergo-web-version" content="<版本号>" />
 //   （packages/web/build/web-version-plugin.ts）。内容不变（同样的代码再构建一遍）版本号就不变；
@@ -22,7 +22,7 @@ export function webVersionMeta(version: string): string {
 
 /**
  * 从页面里取出版本号：只看 </head> 之前的第一个（构建时写在 <head> 开头，在内联的页面脚本前面）；没有、写得不对是 undefined
- * （这张票之前构建的页面、测试页）。读到一半的文件（正在重新构建）还没有 </head> 时整段都看
+ * （以前构建的页面、测试页）。读到一半的文件（正在重新构建）还没有 </head> 时整段都看
  */
 export function webVersionInHtml(html: string): string | undefined {
   const end = html.indexOf("</head>");

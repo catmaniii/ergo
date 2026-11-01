@@ -1,4 +1,4 @@
-// 外观（34 号票）和视觉风格（39 号票）在页面上的样子：
+// 外观和视觉风格在页面上的样子：
 // - 选了深色，根元素带上 data-theme="dark"；选跟随系统就去掉，交给样式里的 prefers-color-scheme。color-scheme 跟着外观走；
 // - 选了一套风格，根元素的 data-style 换成它，这套风格有自己的字体就挂上它的字体样式表（只在选了它时才挂）；
 // - 设置里画风格预览时挂上预览用的字体样式表（只收预览里那几个字），和风格的字体样式表互不相干；
@@ -21,7 +21,7 @@ function webFile(rel: string): string {
 const STYLES = stylePageInfo(VISUAL_STYLES, BASE_STYLE);
 
 /**
- * 地址栏颜色只认一个来处：风格清单里这套风格的标题栏底色 --bar-bg（42 号票加；经典是 var(--surface)）。app/theme.ts、
+ * 地址栏颜色只认一个来处：风格清单里这套风格的标题栏底色 --bar-bg（经典是 var(--surface)）。app/theme.ts、
  * index.html 的内联脚本都从风格清单取（内联脚本的那张表是构建时填进去的），下面的测试拿它比对
  */
 function barOf(styleId: string): { light: string; dark: string } {
@@ -218,7 +218,7 @@ describe("选了风格，页面马上跟着变", () => {
   });
 });
 
-describe("经典的主色（119 号票）：选了马上换，只在经典下挂", () => {
+describe("经典的主色：选了马上换，只在经典下挂", () => {
   test("没选过：经典挂默认的蓝（就是原来的颜色）", () => {
     const { document, controller } = setup();
     expect(controller.accent()).toBe("blue");
@@ -474,7 +474,7 @@ describe("打开页面不闪：页面脚本加载前就按记住的选择定下�
     expect(document.meta("theme-color")).toBe(BAR.dark);
   });
 
-  test("记住的主色是橙（119 号票）：内联脚本跑完，根元素已经挂着橙，样式表一上来就是橙色，不先闪一下蓝", () => {
+  test("记住的主色是橙：内联脚本跑完，根元素已经挂着橙，样式表一上来就是橙色，不先闪一下蓝", () => {
     const document = fakeDocument();
     const storage = memoryStorage();
     storage.setItem("ergo-accent", "orange");
@@ -523,7 +523,7 @@ describe("默认的风格只有一个", () => {
 });
 
 describe("地址栏颜色和标题栏底色一致", () => {
-  test("经典、净白格栅的标题栏底色就是卡片的底色 --surface：加 --bar-bg（42 号票）之前地址栏就是这个颜色，表现不变", () => {
+  test("经典、净白格栅的标题栏底色就是卡片的底色 --surface：加 --bar-bg之前地址栏就是这个颜色，表现不变", () => {
     for (const id of ["classic", "grid"]) {
       const tokens = effectiveTokens(VISUAL_STYLES.find((s) => s.id === id)!, BASE_STYLE);
       expect(barOf(id)).toEqual({ light: resolveColor(tokens, "surface", "light"), dark: resolveColor(tokens, "surface", "dark") });
@@ -593,10 +593,10 @@ describe("系统切换深浅色", () => {
   });
 });
 
-// 275 号票（用户 2026-10-25："设置里改了界面风格之后，浏览器右边那个对话框不会自动更新，要重启一次 App"）：浏览侧边栏是 App 另开的
+// "设置里改了界面风格之后，浏览器右边那个对话框不会自动更新，要重启一次 App"：浏览侧边栏是 App 另开的
 // Web 组件（?ergo=side），设置在"浏览"那一份网页里改。那一份经 App 转给侧边栏的样子里带上现在的外观（appearance），侧边栏照着套（adopt）：
 // 马上换，不写存储（选择记在设置那一份里；App 重推的旧样子不能把它改回去）
-describe("把外观交给另一份网页（浏览侧边栏，275 号票）", () => {
+describe("把外观交给另一份网页（浏览侧边栏）", () => {
   test("appearance：现在的外观、风格、主色；没变时是同一个对象（界面拿它当快照），变了换新的；不能换主色的风格不带主色", () => {
     const { controller, system } = setup();
     const first = controller.appearance();

@@ -1,6 +1,6 @@
 {
   "id": "typed-shell-tools",
-  "name": "28 号票的演示序列（任务里，计划授权了推送到 origin）：看状态和差异、提交（做完告诉我）→ 没跑测试就推送退回（说明写着先跑测试）→ 测试没通过（不进效果日志）推送仍退回 → 测试通过后推送按授权项放行 → force push（含 --force-with-lease）一律禁止；工作目录里有未提交改动的文件，删除前退回、提交之后放行。同样的序列换成通用 bash 的 git push、git push --force，判定一致，只是带通用 bash 标记",
+  "name": "演示序列（任务里，计划授权了推送到 origin）：看状态和差异、提交（做完告诉我）→ 没跑测试就推送退回（说明写着先跑测试）→ 测试没通过（不进效果日志）推送仍退回 → 测试通过后推送按授权项放行 → force push（含 --force-with-lease）一律禁止；工作目录里有未提交改动的文件，删除前退回、提交之后放行。同样的序列换成通用 bash 的 git push、git push --force，判定一致，只是带通用 bash 标记",
   "context": {
     "agent": { "kind": "maintainer" },
     "task": {

@@ -1,8 +1,8 @@
-// 语音气泡的播放（规格第 22 节；31 号票起，36 号票加了自动播放）：整个页面共用一个播放器（一个 <audio>），同一时间只播一条。
+// 语音气泡的播放（规格第 22 节；加了自动播放）：整个页面共用一个播放器（一个 <audio>），同一时间只播一条。
 // - 点气泡：播放或暂停；点另一条，正在播的停下。用户自己点了气泡，排着的自动播放就不播了（用户挑了要听的）；
 // - 自动播放新到的 agent 语音（播不播由 state/voice-autoplay.ts 定）：没在播就马上播；在播别的就排在后面，播完一条接一条，
 //   不打断正在播的。暂停在半路的不算在播；
-// - 开始语音输入（setCapturing；209 号票，用户 2026-10-20："只要我开始语音输入，背景里二狗正在播放的语音要暂停"）：
+// - 开始语音输入（setCapturing；"只要我开始语音输入，背景里二狗正在播放的语音要暂停"）：
 //   聊天窗口里按住说话（ui/conversation/VoiceInput.tsx）、网页悬浮按钮按下（app/page-commands.ts，App 原生录音）都算，
 //   从按下那一刻起（不等麦克风就绪）。正在播的完整音频暂停在那里（不然会录进去），记成"被暂停"（isPaused，气泡上标"已暂停"）；
 //   说完（松手发出、取消、太短）不自动接着放——用户刚说了新的话，二狗会针对新的话回答——用户点一下这个气泡从暂停的地方接着放
@@ -12,7 +12,7 @@
 //   所以在用户手势里（按住说话松手、点发送）调 unlock，静音出一次声；页面一直用这一个 <audio>。
 //   仍被拦下（NotAllowedError）就标成"被拦下"，气泡上提示"点一下播放"，不报错；排在后面的也一样标上。
 // 放不了的（格式不支持、文件坏了）跳过，接着播排着的。
-// - 38 号票：分段合成的 agent 语音边收边播。要播的除了一条完整音频的地址，还可以是"已经到了的段"（SegmentStream）：
+// -分段合成的 agent 语音边收边播。要播的除了一条完整音频的地址，还可以是"已经到了的段"（SegmentStream）：
 //   用 Web Audio 按时间排程，每段排在"整条开始的时刻 + 它在整条里的位置"，段与段首尾相接、不出空白（接缝的淡入淡出由
 //   SegmentScheduler 做）；段来晚了（前一段已经播完）就到了马上播，后面的跟着往后挪；取不到的段重试一次，还取不到就跳过，
 //   后面的段往前补（不留一整段静音）。段到齐、最后一段播完就算播完。
@@ -29,7 +29,7 @@ export type { SegmentStream } from "../state/index.ts";
 export interface AudioLike {
   src: string;
   readonly paused: boolean;
-  /** 播到哪了（秒）：被语音输入暂停的那条记着位置（209 号票）；换了地址后设它，浏览器加载好就从那里放 */
+  /** 播到哪了（秒）：被语音输入暂停的那条记着位置；换了地址后设它，浏览器加载好就从那里放 */
   currentTime: number;
   play(): Promise<void>;
   pause(): void;
@@ -42,7 +42,7 @@ export interface LoadedSegment {
   readonly duration: number;
 }
 
-/** Web Audio 里用到的那部分（38 号票）：按时间排程地放解码好的段 */
+/** Web Audio 里用到的那部分：按时间排程地放解码好的段 */
 export interface SegmentScheduler {
   /** 现在的时间（秒，Web Audio 的时钟） */
   now(): number;
@@ -80,7 +80,7 @@ export interface VoicePlayer {
   /** 在用户手势里调：静音出一次声、开 Web Audio，之后在手势之外的自动播放才不被手机浏览器拦下 */
   unlock(): void;
   /**
-   * 开始 / 说完语音输入（209 号票）：开始时在播的完整音频暂停在那里（记成被暂停，点一下接着放），边收边播的整条停下；
+   * 开始 / 说完语音输入：开始时在播的完整音频暂停在那里（记成被暂停，点一下接着放），边收边播的整条停下；
    * 排着的等说完。by 是哪一处在输入（聊天窗口的输入框、悬浮按钮各算各的，都说完了才算说完；不给是"composer"）
    */
   setCapturing(on: boolean, by?: string): void;
@@ -92,7 +92,7 @@ export interface VoicePlayer {
   anyPlaying(): boolean;
   /** 这一条的自动播放被浏览器拦下了（点一下才能播） */
   isBlocked(id: string): boolean;
-  /** 这一条被语音输入暂停在半路（209 号票）：点一下从那里接着放，气泡上标"已暂停" */
+  /** 这一条被语音输入暂停在半路：点一下从那里接着放，气泡上标"已暂停" */
   isPaused(id: string): boolean;
   /** 在播哪一条、被拦下的、按没按着变了时通知；返回退订 */
   subscribe(listener: () => void): () => void;
@@ -157,7 +157,7 @@ export function voicePlayerIn(env: VoicePlayerEnv): VoicePlayer {
   /** 排着等自动播放的 */
   let queue: { id: string; source: VoiceSource }[] = [];
   const blocked = new Set<string>();
-  /** 正在语音输入的几处（209 号票：聊天窗口的输入框、悬浮按钮） */
+  /** 正在语音输入的几处（聊天窗口的输入框、悬浮按钮） */
   const capturers = new Set<string>();
   /** 被语音输入暂停在半路的那一条和它停在哪（秒）：点它从这里接着放；点了别的就不记了 */
   let held: { id: string; time: number } | undefined;
@@ -240,7 +240,7 @@ export function voicePlayerIn(env: VoicePlayerEnv): VoicePlayer {
     audio?.pause();
   };
 
-  /** 播这一条；at：从第几秒起（被语音输入暂停过的，209 号票；换了地址后设，浏览器加载好就从那里放） */
+  /** 播这一条；at：从第几秒起（被语音输入暂停过的，换了地址后设，浏览器加载好就从那里放） */
   const start = (id: string, source: VoiceSource, at?: number) => {
     blocked.delete(id);
     if (typeof source !== "string") return startStream(id, source);
@@ -253,7 +253,7 @@ export function voicePlayerIn(env: VoicePlayerEnv): VoicePlayer {
     notify();
   };
 
-  // ───────────── 边收边播（38 号票） ─────────────
+  // ───────────── 边收边播 ─────────────
 
   const startStream = (id: string, stream: SegmentStream) => {
     const s = webAudio();
@@ -324,7 +324,7 @@ export function voicePlayerIn(env: VoicePlayerEnv): VoicePlayer {
   return {
     toggle(id, source) {
       queue = [];
-      // 被语音输入暂停的那条（209 号票）：点它接着放；点了别的就不再记着它
+      // 被语音输入暂停的那条：点它接着放；点了别的就不再记着它
       const resume = held?.id === id && typeof source === "string" ? held.time : undefined;
       held = undefined;
       if (current === id && streaming) {

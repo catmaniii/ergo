@@ -1,4 +1,4 @@
-// 登记表里各来源在守护进程里的实现（77 号票）：按来源编号一处列全，分发（triggers.ts）拿推事件的口子把它们建出来。
+// 登记表里各来源在守护进程里的实现：按来源编号一处列全，分发（triggers.ts）拿推事件的口子把它们建出来。
 // 以后接邮件：协议包登记表 EVENT_SOURCES 里加一项，这里加一行它的实现（新文件里写），daemon.ts 不用动。
 // 登记表里有、这里没有实现的来源，建任务、建提醒时被拒（"事件来源 X 还没接上"）。
 import { ERGO_EVENT_SOURCE, EVENT_SOURCES, FOLDER_EVENT_SOURCE, SERVICE_EVENT_SOURCE } from "@ergo/protocol";
@@ -19,7 +19,7 @@ export interface EventSourceDeps {
   /** 不能监视的地方（真实路径；先列具体的，最后是整个数据目录） */
   forbidden: () => readonly ForbiddenArea[];
   thresholds: EventSourceThresholds;
-  /** 项目的服务报事件的前台（357 号票）：运营层核过凭证后经它交事件；建在分发之前，分发建好时接上 */
+  /** 项目的服务报事件的前台：运营层核过凭证后经它交事件；建在分发之前，分发建好时接上 */
   serviceDesk: ServiceEventDesk;
 }
 

@@ -1,8 +1,8 @@
-// 每个 agent 的会话里一个 ⚙（114 号票，规格第 19 节"Web UI"、系统提示一节）：秘书会话、任务整页（负责它的负责人）、项目整页（项目负责人）
+// 每个 agent 的会话里一个 ⚙（规格第 19 节"Web UI"、系统提示一节）：秘书会话、任务整页（负责它的负责人）、项目整页（项目负责人）
 // 的标题栏上点开一个面板——这个 agent 单独的提示词、清空当前对话、上下文用量和"现在压缩"。
 // 这里是守护进程和 Web 共用的部分（不引用 TypeBox；接口的 schema 在 agent-settings-schema.ts）：名字、单独的提示词怎么查。
 //
-// 单独的提示词两种（用户 2026-10-13 定：默认追加，也能整份替换）：
+// 单独的提示词两种（默认追加，也能整份替换）：
 // - 追加（append）：在通用模板（设置 · 系统提示里这个角色的那份）后面接一段这个 agent 自己的话；通用模板以后改了它跟着变；
 // - 整份自己写（replace）：从通用模板复制一份来改，通用模板之后再改不影响它，可以"恢复用通用模板"。
 // 两种写的都是提示文件的写法（system-prompts.ts：{{名字}}、{{#条件}}……{{/条件}}、{{> 片段}}），能用的占位符和这个角色的通用模板一样，
@@ -10,7 +10,7 @@
 import { t, tTable } from "./i18n/runtime.ts";
 import { normalizePromptSource, parsePromptTemplate, promptIssuesText, type PromptTemplateSpec } from "./system-prompts.ts";
 
-/** 有 ⚙ 的会话是谁的：秘书、任务（负责它的负责人）、项目（项目负责人）、记忆管理员（242 号票：那个按需拉起的 agent，243 号票起不常驻） */
+/** 有 ⚙ 的会话是谁的：秘书、任务（负责它的负责人）、项目（项目负责人）、记忆管理员（那个按需拉起的 agent，不常驻） */
 export const AGENT_SETTINGS_KINDS = ["secretary", "task", "project", "curator"] as const;
 export type AgentSettingsKind = (typeof AGENT_SETTINGS_KINDS)[number];
 
@@ -28,7 +28,7 @@ export const AGENT_PROMPT_STATE_LABEL: Readonly<Record<AgentPromptState, string>
   replace: "protocol.agentSettings.prompt.replace",
 });
 
-/** "清空当前对话"怎么做：秘书、任务的负责人新开一段会话；项目负责人就是重置负责人（16 号票，只凭项目档案重建理解） */
+/** "清空当前对话"怎么做：秘书、任务的负责人新开一段会话；项目负责人就是重置负责人（只凭项目档案重建理解） */
 export const AGENT_CLEAR_KINDS = ["new_session", "reset_maintainer"] as const;
 export type AgentClearKind = (typeof AGENT_CLEAR_KINDS)[number];
 

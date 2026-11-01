@@ -10,7 +10,7 @@ export class RequestRejected extends Error {
   }
 }
 
-/** 请求里说的项目不在项目列表里（64 号票：秘书建卡写错了项目时，据此补一句"说不清是哪个项目时先问用户"） */
+/** 请求里说的项目不在项目列表里（秘书建卡写错了项目时，据此补一句"说不清是哪个项目时先问用户"） */
 export class UnknownProjects extends RequestRejected {
   constructor(message: string) {
     super("bad_params", message);

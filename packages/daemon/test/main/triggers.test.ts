@@ -1,4 +1,4 @@
-// 主切面：触发底座和定时触发（76 号票，ADR 0025）。真的守护进程，秘书、负责人接 faux 剧本，调度器的时钟换成手动拨的
+// 主切面：触发底座和定时触发（ADR 0025）。真的守护进程，秘书、负责人接 faux 剧本，调度器的时钟换成手动拨的
 // （ManualClock），测试扮演前端：
 // - 发起对话框里选"定时"建普通任务：建出就是运营中（不排队），触发底座登记它的触发；到点一次运行，交给任务自己的 agent；
 //   各次运行接着同一段会话——第二次运行时 agent 的上下文里有第一次的通知和它的结果；用量记在任务名下；
@@ -7,7 +7,7 @@
 // - 长程任务选不了定时、计划里不能再写定时作业；
 // - 以前的定时作业迁移成定时触发的普通任务：新事件建出任务，原来的事件一条不动，迁移后照常由原来的负责人运行、接着原来的会话；
 // - 任务详情里暂停、恢复、取消落到它的触发上；"只提醒我"建简单提醒；
-// - 改时间（98 号票）：运营中的定时任务换时间表，到新时间才运行、旧时间不运行，任务和运行记录不变；暂停着的改完照旧暂停；
+// - 改时间：运营中的定时任务换时间表，到新时间才运行、旧时间不运行，任务和运行记录不变；暂停着的改完照旧暂停；
 //   某个时间做一次的时间已过、事件触发的、已取消的被拒。
 import fs from "node:fs";
 import path from "node:path";
@@ -182,7 +182,7 @@ describe("排队合并", () => {
     clock.advanceTo(at(10, 10, 9, 0));
     const merged = await jobWhere(frontend, (e) => e.change === "merged", "并进排着的那一次");
     expect(merged.run).toMatchObject({ runId: "j-1-r2", state: "queued", events: [{ summary: "10 月 9 日（周五）09:00 到点" }, { summary: "10 月 10 日（周六）09:00 到点" }] });
-    // 触发底座的口子（77 号票的事件来源接这里）：再来一次同样并进去
+    // 触发底座的口子（事件来源接这里）：再来一次同样并进去
     expect(td.daemon.scheduledJobs.fire("t-1", { source: "time", at: nowIso(at(10, 10, 9, 30)), summary: "手动再触发一次" }, "k-fire-1")).toEqual({ outcome: "merged", runId: "j-1-r2" });
     expect(td.daemon.scheduledJobs.fire("t-1", { source: "time", at: nowIso(at(10, 10, 9, 30)), summary: "手动再触发一次" }, "k-fire-1")).toMatchObject({ outcome: "ignored" });
     // 没给幂等键的，每次都是一个新事件：同样的两次在排队合并期间不会撞成一次
@@ -314,7 +314,7 @@ describe("定时的流程没干完的活", () => {
 
     clock.advanceTo(at(10, 8, 9, 0));
     const r1 = await runEnded(frontend, "j-1-r1");
-    // 提醒过一次（照 59 号票，用 report_step 说明跳过），之后还有一步没做：记失败
+    // 提醒过一次（用 report_step 说明跳过），之后还有一步没做：记失败
     expect(noticesIn(frontend, TM1).filter((t) => t.startsWith("【计划检查】"))).toHaveLength(1);
     expect(noticesIn(frontend, TM1).find((t) => t.startsWith("【计划检查】"))).toContain("用 report_step 标记 skipped");
     expect(r1.run).toMatchObject({ state: "failed", reason: "还有 1 步没做：s2「读一遍周报」", summary: "今天就做到这里" });
@@ -391,7 +391,7 @@ const refusalOf = (r: ResponseFrame): string => {
   return `${r.error.code} ${r.error.message}`;
 };
 
-describe("改时间（98 号票）", () => {
+describe("改时间", () => {
   it("运营中的定时任务换时间表：下一次按新的现算，旧时间不运行、到新时间才运行；任务、会话、运行记录不变，记一条用户改的 rescheduled；同一幂等键重发拿到同一个结果", async () => {
     const { td, clock, frontend } = await setup({ maintainer: [say("做完了")] });
     ok(await frontend.startTask("每天早上出简报", "k-move", [], "plain", DAILY_9));
@@ -486,7 +486,7 @@ const legacyMaintainer = (id: string): FauxStep[] => (id !== "jm-1" ? [say("好"
 const echoingMaintainer = (id: string): FauxStep[] => (id !== "jm-1" ? [say("好")] : [ECHO]);
 
 describe("以前的定时作业迁移", () => {
-  it("76 号票之前登记的定时作业：重启时迁移成定时触发的普通任务（新事件，原来的事件一条不动）；之后照常由原来的负责人运行、接着原来的会话，授权照旧，用量记在任务名下", async () => {
+  it("以前登记的定时作业：重启时迁移成定时触发的普通任务（新事件，原来的事件一条不动）；之后照常由原来的负责人运行、接着原来的会话，授权照旧，用量记在任务名下", async () => {
     const dataDir = makeTempDir("ergo-data-");
     const homeDir = makeTempDir("ergo-home-");
     const clock = new ManualClock(START);
@@ -494,7 +494,7 @@ describe("以前的定时作业迁移", () => {
     const echoing = echoingMaintainer;
     const first = await startTestDaemon({ clock, reuse: { dataDir, homeDir }, maintainer });
     const frontend = await connect(first.url, [BOARD, CARDS, INBOX, JM1]);
-    // 76 号票之前的数据：一个长程任务（计划里定了作业）和它登记的定时作业（作业自己的负责人 jm-1，每次运行的授权随计划卡确认）
+    // 以前的数据：一个长程任务（计划里定了作业）和它登记的定时作业（作业自己的负责人 jm-1，每次运行的授权随计划卡确认）
     const time = nowIso(START);
     const creator: Task = { id: "t-1", title: "准备每天的简报", summary: "准备每天的简报", state: "done", origin: "request", kind: "long_running", maintainerId: "tm-1", projects: [], projectScope: "none", createdAt: time, updatedAt: time };
     const legacy: ScheduledJob = {
@@ -520,7 +520,7 @@ describe("以前的定时作业迁移", () => {
       { channel: BOARD, type: EVENT_TYPES.task, payload: { task: creator, change: "created", from: null, by: "secretary" } satisfies TaskEventPayload },
       { channel: BOARD, type: EVENT_TYPES.scheduledJob, payload: { job: legacy, change: "registered", by: "user" } satisfies ScheduledJobEventPayload, idempotencyKey: "job-register:t-1-p1:0" },
     ]);
-    // 迁移之前它照旧按 19 号票运行一次（作业自己的负责人）
+    // 迁移之前它照旧运行一次（作业自己的负责人）
     clock.advanceTo(at(10, 8, 9, 0));
     await runEnded(frontend, "j-1-r1");
     await settled(first, "jm-1");
@@ -562,7 +562,7 @@ describe("以前的定时作业迁移", () => {
 describe("升级前交、升级后才确认的计划里的定时作业", () => {
   it("确认这张计划卡时不悄悄丢掉：照迁移的办法建成定时触发的普通任务（作业自己的负责人、计划卡上的授权），卡上写明改成了哪个定时任务；确认的计划里不再有这一栏；之后照常到点运行", async () => {
     const { td, clock, frontend } = await setup({ maintainer: (id) => (id === "jm-1" ? [say("看过了，这周没有新资料")] : [say("好")]) }, [BOARD, CARDS, INBOX, SECRETARY, TM1, JM1]);
-    // 76 号票之前的数据：长程任务的负责人交了一版带着定时作业的计划，计划卡还没确认（负载里的计划带着 scheduledJobs）
+    // 以前的数据：长程任务的负责人交了一版带着定时作业的计划，计划卡还没确认（负载里的计划带着 scheduledJobs）
     const task = td.daemon.tasks.createByRequest({ title: "跟进资料更新", summary: "跟进资料更新" });
     td.daemon.tasks.writeBrief(task.id, { goal: "跟进资料更新", acceptanceCriteria: ["每周看一次"], constraints: [], projects: [], memoryScope: "" });
     await settled(td, "tm-1");
@@ -693,7 +693,7 @@ describe("某个时间做一次", () => {
 
     clock.advanceTo(at(10, 9, 9, 0));
     await stateIs(frontend, "t-1", "done");
-    // 任务做完的通知（99 号票）安静一会儿才交，按时钟算：拨过去
+    // 任务做完的通知安静一会儿才交，按时钟算：拨过去
     clock.advance(1000);
     await waitUntil(() => noticesIn(frontend, SECRETARY).some((t) => t.includes("查好了：两班直飞")), { timeoutMs: 60_000, describe: () => "等转告" });
   }, 120_000);

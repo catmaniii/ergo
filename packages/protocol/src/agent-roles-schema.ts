@@ -1,4 +1,4 @@
-// 角色（248 号票）：配置文件、接口请求体和响应体的 schema。形状和规矩在 agent-roles.ts（不引用 TypeBox）。
+// 角色：配置文件、接口请求体和响应体的 schema。形状和规矩在 agent-roles.ts（不引用 TypeBox）。
 //
 // config/agent-roles.json（数据目录配置区）：{ format: 1, defaultRoleId, roles: [{ id, name, voiceId? }], assignments: { "<agent id>": "<角色 id>" } }。
 // - GET  /api/agent-roles                 默认角色、角色表（连同谁在用）、每个 agent 现在用哪个角色、参考音色（AgentRolesView）
@@ -16,9 +16,9 @@ import { ReferenceVoice } from "./voice-schema.ts";
 /** 配置文件里的一个角色（roles 里的一项） */
 export const AgentRoleStored = Type.Object({
   id: Type.String({ minLength: 1 }),
-  /** 照 43 号票的规矩查过的名字（1–8 个字）；默认角色的名字以全局名字为准 */
+  /** 照规矩查过的名字（1–8 个字）；默认角色的名字以全局名字为准 */
   name: Type.String(),
-  /** 参考音色的 id；没有 = 不指定、跟当前默认音色（31 号票全局选中的那个） */
+  /** 参考音色的 id；没有 = 不指定、跟当前默认音色（全局选中的那个） */
   voiceId: Type.Optional(Type.String()),
 });
 export type AgentRoleStored = Static<typeof AgentRoleStored>;
@@ -58,7 +58,7 @@ export type AgentRoleAssignmentBody = Static<typeof AgentRoleAssignmentBody>;
 /** 角色表里的一行：名字、现在生效的音色、谁在用 */
 export const AgentRoleView = Type.Object({
   id: Type.String({ minLength: 1 }),
-  /** 默认角色的名字是全局的名字（43 号票） */
+  /** 默认角色的名字是全局的名字 */
   name: Type.String(),
   /** 是不是默认角色（跟默认的 agent 都用它） */
   isDefault: Type.Boolean(),

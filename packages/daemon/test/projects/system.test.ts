@@ -1,4 +1,4 @@
-// 项目系统只起它自己加假内核（278 号票，方案 C："接口就是测试面"）：不起守护进程、不拉 agent 子进程。
+// 项目系统只起它自己加假内核（方案 C："接口就是测试面"）：不起守护进程、不拉 agent 子进程。
 // 内核那一边是临时目录里的真事件存储、卡片、待我处理、任务模块（它们便宜），建在项目系统之后的（执行控制器、agent 宿主、执行名额、任务的负责人、
 // 子 agent、工具包、MCP 登记变更、触发底座）换成假的；只经 createProjectSystem 交出来的小接口和生命周期操作、观察。
 // 走组合根的整条路照旧在主切面（test/main/projects.test.ts 等）测。
@@ -159,18 +159,18 @@ function projectSystemWithFakeKernel() {
   return { system, kernel, stops, store, cards, cardTypes, rewriters, deletion, sources, directory, calls, logs, close };
 }
 
-describe("项目系统只起它自己加假内核（278）", () => {
+describe("项目系统只起它自己加假内核", () => {
   it("建出来就登记好卡片类型、改写函数、素材来源、删除参与方；接上、开始之后经小接口立项、找项目、开对话段、重置负责人，秘书的工具先后照旧", async () => {
     const { system, kernel, stops, cards, cardTypes, rewriters, deletion, sources, directory, calls, logs, close } = projectSystemWithFakeKernel();
     // 第一步建出来：项目系统自己的卡片类型、改写函数、素材来源都登记进了内核给的登记表（组合根不再一样样登记）
     const types = ["suggest_project", "charter", "charter_change", "standard_change", "standard_backfill", "build_done", "go_live", "service_entry", "operations_change", "work_order"];
     expect(types.filter((type) => cardTypes.get(type) === undefined)).toEqual([]);
-    // 运营手段（280）：内核的定时、事件触发，运营层经登记口自己登记的服务，公网入口——交运营方案的工具说明里列的先后照原来
+    // 运营手段：内核的定时、事件触发，运营层经登记口自己登记的服务，公网入口——交运营方案的工具说明里列的先后照原来
     expect(system.handles.operationMeans.list().map((m) => m.id)).toEqual(["schedule", "event", "service", "public_entry"]);
     expect(() => rewriters.register({ eventType: EVENT_TYPES.workOrder, rewrite: () => null })).toThrow("已经登记过了");
     expect(sources).toEqual(expect.arrayContaining([EVENT_TYPES.charterDecided, EVENT_TYPES.workOrderDecided]));
     expect(sources).toHaveLength(5);
-    // 删除参与方（279）：项目自己的、项目之外读过它的调用、工单、运营方案（内核的由组合根在这之后登记）
+    // 删除参与方：项目自己的、项目之外读过它的调用、工单、运营方案（内核的由组合根在这之后登记）
     expect(deletion.owners(PROJECT_DELETION)).toEqual(["projects", "projects:outside-reads", "work-orders", "operations"]);
 
     // 第二步、第三步：接上建在它之后的内核模块（派单器开始、任务完成回调登记上），开始（建出项目的负责人，登记进 agent 宿主）
@@ -189,7 +189,7 @@ describe("项目系统只起它自己加假内核（278）", () => {
     expect(project).toMatchObject({ name: "记账本", state: "preparing", maintainerId: "pm-1" });
     expect(directory.checkTaskProjects(["记账本"])).toEqual(["p-1"]);
     expect(directory.maintainedBy("pm-1")?.id).toBe("p-1");
-    // 负责人会话里的那条通知唤起了项目的负责人（假的 agent 宿主记下了拉起的是谁），开了一个对话段（362 号票：立项后它先开口）
+    // 负责人会话里的那条通知唤起了项目的负责人（假的 agent 宿主记下了拉起的是谁），开了一个对话段（立项后它先开口）
     expect(calls.sessions).toContain("pm-1");
 
     // 用户往负责人的会话里说话：消息属于这个项目；手上已经有对话段了，不用再开
@@ -202,7 +202,7 @@ describe("项目系统只起它自己加假内核（278）", () => {
     expect(reset).toMatchObject({ projectId: "p-1", segmentId: expect.any(String) });
     expect(calls.pokes).toBeGreaterThan(pokesBefore);
 
-    // 秘书的工具先后（277 号票定的，主切面逐个比对的也是它）
+    // 秘书的工具先后（主切面逐个比对的也是它）
     expect(system.secretary.tools().map((tool) => tool.spec.name)).toEqual([READ_PROJECT_RECORDS_TOOL, OPEN_SERVICE_TOOL, SWITCH_SERVICES_TOOL, PROJECT_OPS_TOOL, PROPOSE_GO_LIVE_TOOL]);
     // 订阅项目列表频道时补推的项目的服务：还没有服务
     expect(system.servicesFrame()).toMatchObject({ channel: CHANNELS.projects, type: EVENT_TYPES.projectServices, payload: { services: [] } });

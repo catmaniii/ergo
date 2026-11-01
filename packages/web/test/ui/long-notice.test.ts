@@ -1,4 +1,4 @@
-// 367 号票：运行时交给 agent 的长通知在对话层画成一行（ChatItemView 的来信那一行），详情里全文照 Markdown 画：换行、列表都对。
+// 运行时交给 agent 的长通知在对话层画成一行（ChatItemView 的来信那一行），详情里全文照 Markdown 画：换行、列表都对。
 // 用 React 在 Node 里渲染出来查；哪些折、总结从哪来在 test/state/agent-letters.test.ts。
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";

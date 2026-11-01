@@ -1,14 +1,14 @@
-// 设置 · 语音：分识别、合成、播放三块（45 号票定的排法）。
+// 设置 · 语音：分识别、合成、播放三块（定的排法）。
 // - 识别：识别引擎显示成一个选项（单选），清单由守护进程给，现在只有在用的那一项（faster-whisper 或 Fun-ASR Nano）、选中，选不了别的；旁边是识别模型的状态
 //   （用的模型、设备、加载中 / 已就绪 / 出错……）。以后加引擎时再加切换和存储；
-// - 合成：合成模型（本机 LSM 托管的 audio.cpp）的状态，和参考音色（32 号票）：你发语音时 agent 用语音回复，照这里选的参考音色克隆。
+// - 合成：合成模型（本机 LSM 托管的 audio.cpp）的状态，和参考音色：你发语音时 agent 用语音回复，照这里选的参考音色克隆。
 //   可以导入（一段干净的人声录音，取个名字）、试听（参考录音本身）、选当前用哪一个、删除。参考音色是个人数据，存在数据目录里；
-//   230 号票起导入收 WAV、MP3、M4A、AAC、OPUS、OGG、FLAC、WebM 等常见音频（守护进程用本机 ffmpeg 转成 WAV），逐字稿不用自己写：
+//   导入收 WAV、MP3、M4A、AAC、OPUS、OGG、FLAC、WebM 等常见音频（守护进程用本机 ffmpeg 转成 WAV），逐字稿不用自己写：
 //   导入时自动识别，识别中显示"正在转换并识别逐字稿…"，成了直接列出来、失败显示原因；
 //   不列出 audio.cpp 自带的音色库，要用其中某个就在这里导入；
-// - 323 号票：语音识别、语音合成的组件没装（别处也没有）时，那一块写一行"要先装「X」· 去装 ›"，点了去设置 · 组件；
-// - 播放："自动播放 agent 的语音"开关（36 号票做的，45 号票从外观下面挪到这里；行为不变）。
-// - 每个 agent 的名字和音色（241 号票；248 号票起并成"角色"）：这一页不管了，挪到设置 · 角色与声音（pages/more/RolesPage.tsx）——
+// -语音识别、语音合成的组件没装（别处也没有）时，那一块写一行"要先装「X」· 去装 ›"，点了去设置 · 组件；
+// - 播放："自动播放 agent 的语音"开关（从外观下面挪到这里；行为不变）。
+// - 每个 agent 的名字和音色（并成"角色"）：这一页不管了，挪到设置 · 角色与声音（pages/more/RolesPage.tsx）——
 //   角色就是名字 + 音色，每个 agent 选一个角色（⚙ 面板顶上那一块是同一件事，ui/agent-roles.tsx）；这里只剩参考音色本身。
 // 两个模型的状态：打开页面时经 HTTP 取一次（/api/voice-models，并进状态层），之后的变化经活动状态频道推来（UiState.voiceModels）。
 // 参考音色经 HTTP 取（/api/reference-voices，DaemonHttp）：页面由守护进程提供时是数据目录里的，直接打开构建产物时是原型的假数据。
@@ -70,7 +70,7 @@ export function VoicePage() {
       (err: unknown) => toast(t("pages.voice.failed", { reason: err instanceof Error ? err.message : String(err) })),
     );
 
-  // 323 号票：语音识别、语音合成的组件没装（别处也没有）时各写一行"要先装…· 去装 ›"
+  // 语音识别、语音合成的组件没装（别处也没有）时各写一行"要先装…· 去装 ›"
   const asrOff = useComponentGate(COMPONENT_FEATURES.voiceInput);
   const ttsOff = useComponentGate(COMPONENT_FEATURES.voiceReply);
   const modelsPending = !models && <div className="muted">{modelsError ? t("pages.voice.modelsFailed", { reason: modelsError }) : t("pages.voice.modelsLoading")}</div>;
@@ -121,7 +121,7 @@ export function VoicePage() {
       <Section title={t("pages.voice.playback")}>
         <AutoplaySwitch />
       </Section>
-      {/* 每个 agent 用哪个角色（名字和音色）挪到设置 · 角色与声音（248 号票）了，这一页只管参考音色本身 */}
+      {/* 每个 agent 用哪个角色（名字和音色）挪到设置 · 角色与声音了，这一页只管参考音色本身 */}
       {importing && (
         <ImportVoice
           onClose={() => setImporting(false)}
@@ -221,7 +221,7 @@ function ImportVoice({ onClose, onImported }: { onClose(): void; onImported(voic
   const [file, setFile] = useState<File>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
-  // 230 号票：逐字稿不用自己写（导入时自动识别），名字和录音有就能导
+  // 逐字稿不用自己写（导入时自动识别），名字和录音有就能导
   const ready = name.trim() !== "" && file !== undefined && !busy;
   const submit = () => {
     if (!file) return;

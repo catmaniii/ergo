@@ -1,5 +1,5 @@
-// 330 号票（R5）：猜测怎么用——快照、解释里猜测标明是猜测；标着复核的照真值状态给、标出来；猜测写明"为什么还是猜测"。
-// 例子是 196 号票测试的那个人（task-helpers 的 storyEngine，自己写的，不看 fixtures/truth）。
+// ADR-0032 R5：猜测怎么用——快照、解释里猜测标明是猜测；标着复核的照真值状态给、标出来；猜测写明"为什么还是猜测"。
+// 例子是测试的那个人（task-helpers 的 storyEngine，自己写的，不看 fixtures/truth）。
 import { afterEach, describe, expect, it } from "vitest";
 import { renderExplanation } from "../../src/rg/explain.ts";
 import { closeEngines } from "./helpers.ts";
@@ -20,7 +20,7 @@ describe("快照：猜测照样给，标明是猜测", () => {
     expect(entry!.needsReview).toBeUndefined();
   });
 
-  it("依据刚变（工作日那句话被忘掉）：需求成了猜测、标着复核——照样在快照里（329 起不再整条拿掉），标 needsReview", async () => {
+  it("依据刚变（工作日那句话被忘掉）：需求成了猜测、标着复核——照样在快照里（不再整条拿掉），标 needsReview", async () => {
     const { engine } = await storyEngine();
     engine.invalidateEvidence("ev-d3", "用户说忘掉");
     const need = engine.store.getClaim(member(engine, NEED, "need_autonomy").id)!;

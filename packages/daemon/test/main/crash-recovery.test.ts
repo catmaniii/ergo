@@ -1,4 +1,4 @@
-// 主切面：被杀后的恢复（规格第 17 节，23 号票）。守护进程在独立进程里跑（helpers/killable-daemon.ts），测试当前端连它，
+// 主切面：被杀后的恢复（规格第 17 节）。守护进程在独立进程里跑（helpers/killable-daemon.ts），测试当前端连它，
 // 在任务、秘书正做到一半时直接杀掉它（Job 对象把 agent 子进程和孙进程一起清掉，像 LSM 重启时那样），再用同一个数据目录
 // 起一个守护进程，看正在做的事按规则恢复：
 // - 被杀时所有 agent 子进程和孙进程随之结束，重启后没有旧进程；
@@ -150,7 +150,7 @@ describe("任务里被杀", () => {
     expect(waiting).toMatchObject({ change: "waiting", from: "running", by: "system", task: { state: "waiting_for_user", waitReason: "interrupted", waitNote: why } });
     const item = await eventually(() => inboxOf(frontend), (i) => i.kind === "notice" && i.notice === "interrupted", "中断不确定事项");
     expect(item).toMatchObject({ title: why, urgency: "blocking", actions: [INTERRUPTED_ACTIONS.executed, INTERRUPTED_ACTIONS.notExecuted], source: "任务「整理笔记」" });
-    // 105 号票：记下那次调用实际所在的会话（任务自己的负责人的），待我处理里"去看看 ›"按它去、定位到那次调用
+    // 记下那次调用实际所在的会话（任务自己的负责人的），待我处理里"去看看 ›"按它去、定位到那次调用
     expect(item.origin).toMatchObject({ taskId: "t-1", conversation: expect.stringMatching(/^maintainer:/), toolCallId: expect.any(String) });
     // 不自动重做：负责人没被唤起，那条命令没再跑过
     await new Promise((r) => setTimeout(r, 1500));
@@ -214,7 +214,7 @@ describe("任务里被杀", () => {
     expect(fs.readFileSync(sent, "utf8")).toBe("发出\n");
   }, 150_000);
 
-  it("子 agent（20 号票）的有副作用调用执行到一半：同样转为等我、待我处理里一条卡着任务的事项（写明哪个子 agent），不自动重做；交回负责人的\"被打断了\"写明这次调用等用户确认、别重做；用户确认后负责人照他说的做", async () => {
+  it("子 agent的有副作用调用执行到一半：同样转为等我、待我处理里一条卡着任务的事项（写明哪个子 agent），不自动重做；交回负责人的\"被打断了\"写明这次调用等用户确认、别重做；用户确认后负责人照他说的做", async () => {
     const command = "sleep 60 && echo 发出 >> sa-sent.txt";
     const killable = await startKillableDaemon({
       secretary: SECRETARY_BRIEFS,
@@ -463,7 +463,7 @@ describe("秘书会话里被杀", () => {
     expect(executionCalls(td)).toEqual([PURGED_TEXT, PURGED_TEXT]);
   }, 150_000);
 
-  it("说到一半的回复：历史和会话文件里都没有碎片，会话从最后一个完整回合续上；它说着时发的（排着队，144 号票）起来后按原顺序一起交出去，不丢也不重复", async () => {
+  it("说到一半的回复：历史和会话文件里都没有碎片，会话从最后一个完整回合续上；它说着时发的（排着队）起来后按原顺序一起交出去，不丢也不重复", async () => {
     const reply = "这是一段慢慢说的很长的回复，".repeat(30);
     const killable = await startKillableDaemon({ secretary: [say("第一轮说完了"), say(reply)], secretaryTokensPerSecond: 20 });
     const frontend = await connect(killable.url);

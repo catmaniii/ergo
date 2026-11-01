@@ -1,4 +1,4 @@
-// 原型假数据里模型那一块（73 号票的演示页；自定义 OpenAI 兼容服务商这一步）：演示页不联网——
+// 原型假数据里模型那一块（演示页；自定义 OpenAI 兼容服务商这一步）：演示页不联网——
 // 两个服务商都在（名字按登记表，和守护进程给的一样）、自定义那一块存得住（切回 DeepSeek 不清空）、
 // 连通测试照假延迟说通了、拉列表回几个编的模型 id，模型目录和"实际会用的"跟着自定义服务商换成它那个模型。
 import { describe, expect, test, vi } from "vitest";
@@ -53,8 +53,8 @@ describe("原型里的服务商和自定义那一块", () => {
     expect(view.apiKeys[CUSTOM_PROVIDER_ID]).toMatchObject({ configured: true, envVar: "CUSTOM_MODEL_API_KEY", secretFile: "secrets/custom-model-api-key.txt" });
     expect(view.apiKey).toEqual(view.apiKeys.deepseek);
     // 给"不是当前服务商"的那个填 key 也照样收下（演示页不联网、不真写文件）
-    expect((await http.saveModelKey("sk-demo-custom-abcdef", CUSTOM_PROVIDER_ID)).apiKey.envVar).toBe("CUSTOM_MODEL_API_KEY");
-    expect((await http.saveModelKey("sk-demo-deepseek-abcdef")).apiKey.envVar).toBe("DEEPSEEK_API_KEY");
+    expect((await http.saveModelKey("sk-demo-custom", CUSTOM_PROVIDER_ID)).apiKey.envVar).toBe("CUSTOM_MODEL_API_KEY");
+    expect((await http.saveModelKey("sk-demo-deepseek")).apiKey.envVar).toBe("DEEPSEEK_API_KEY");
   });
 });
 

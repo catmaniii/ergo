@@ -1,4 +1,4 @@
-// 给用户看的编号写成"编号「简短描述」"（159 号票加名字，163 号票统一成 t-3「标题」）：任务、项目、工单、定时作业、负责人、会话的名字从状态层现取，
+// 给用户看的编号写成"编号「简短描述」"（加名字，统一成 t-3「标题」）：任务、项目、工单、定时作业、负责人、会话的名字从状态层现取，
 // 名字变了跟着变；补发推完了还取不到的写"（已删除）"，还没推完的只写编号。
 import { describe, expect, test } from "vitest";
 import {
@@ -73,7 +73,7 @@ describe("编号「简短描述」", () => {
     expect(readableId(named, "t-9")).toBe("t-9（已删除）");
   });
 
-  test("记忆管理员不算删掉了的负责人：写它的名字，不写 memory-curator（已删除）（371）", () => {
+  test("记忆管理员不算删掉了的负责人：写它的名字，不写 memory-curator（已删除）", () => {
     const state = sample();
     expect(maintainerLabel(state, MEMORY_CURATOR_AGENT_ID)).toBe("记忆管理员");
     expect(readableId(state, MEMORY_CURATOR_AGENT_ID)).toBe("记忆管理员");

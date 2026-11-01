@@ -1,4 +1,4 @@
-// 数据源的登记表（295 号票，ADR-0027 的"数据源"贡献点）：插件在数据契约里登记的数据源（plugins/host.ts 的 ContractContext.dataSources）
+// 数据源的登记表（ADR-0027 的"数据源"贡献点）：插件在数据契约里登记的数据源（plugins/host.ts 的 ContractContext.dataSources）
 // 进这里，带上登记它的插件（插件名、给人看的名字、此刻在不在运行）。和运行时的登记表（runtime/runtimes.ts）一个路数：
 // 不管插件开没开都登记——停用的插件的数据源照样在设置 · 数据源里列出（写"X插件没启用"），断开并删照样删得掉它导入的记录；
 // 要插件在运行才能做的（连接状态、同步、导入文件、按需查的工具）由服务（service.ts）先看 owner.running() 再叫。

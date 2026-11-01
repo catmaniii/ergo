@@ -1,8 +1,8 @@
-// 项目页上的"规范"一块（258 号票）的状态层：用的哪一版规范；必须有的几份（开发类四份，其他类三份）写了、只有模板（还是模板原样）、
+// 项目页上的"规范"一块的状态层：用的哪一版规范；必须有的几份（开发类四份，其他类三份）写了、只有模板（还是模板原样）、
 // 缺（不在）；类型还没定时按其他类的三份；规范上线之前建的项目没有版本；辅助的几份、开发类另有的（tickets/、ops.json）不在这一块。
-// 261 号票：本项目的规范改写——不要的那份说"本项目不要"、换写法的标出来、多出来的接在后面（名字是改写里写的），列出和默认规范哪里不同；
+// 本项目的规范改写——不要的那份说"本项目不要"、换写法的标出来、多出来的接在后面（名字是改写里写的），列出和默认规范哪里不同；
 // 模板出了新版提示"有新版"（不自动跟）；"规范改写"卡逐处对照（改前、改后，跟新版规范写版本），项目页"规范"一块下列这个项目的几张卡。
-// 262 号票："补齐规范文档"卡上缺的每一份一行（名字、位置、缺还是只有说明），项目页"规范"一块下也列它。
+// "补齐规范文档"卡上缺的每一份一行（名字、位置、缺还是只有说明），项目页"规范"一块下也列它。
 import { describe, expect, test } from "vitest";
 import {
   type ProjectStandardView,
@@ -75,7 +75,7 @@ describe("项目页上的规范", () => {
     expect(projectStandardBlock(view({ version: null })).version).toBeNull();
   });
 
-  test("本项目的规范改写（261 号票）：不要的说本项目不要，换写法的标出来，多出来的用改写里的名字；列出和默认规范哪里不同", () => {
+  test("本项目的规范改写：不要的说本项目不要，换写法的标出来，多出来的用改写里的名字；列出和默认规范哪里不同", () => {
     const block = projectStandardBlock(
       view({
         docs: [
@@ -121,7 +121,7 @@ const change = (projectId: string, revision: number, extra: Partial<StandardChan
   ...extra,
 });
 
-describe("规范改写卡（261 号票）", () => {
+describe("规范改写卡", () => {
   test("逐处对照：规范里那份写名字、多出来的写名字和位置；没有改写的一边写照默认规范；跟新版规范写版本，在最前", () => {
     expect(
       standardChangeRows(
@@ -144,7 +144,7 @@ describe("规范改写卡（261 号票）", () => {
     ]);
   });
 
-  test("272 号票：规范上线之前建的项目补齐规范文档（没有从哪一版）：改前写没有记版本", () => {
+  test("规范上线之前建的项目补齐规范文档（没有从哪一版）：改前写没有记版本", () => {
     expect(standardChangeRows(change("p-1", 1, { upgrade: { to: "v1", missing: [{ key: "ops", path: "ops.json", state: "missing" }] }, items: [] }))).toEqual([
       { key: "upgrade", label: "规范版本", before: "没有记版本（规范上线之前建的）", after: "v1" },
     ]);
@@ -171,7 +171,7 @@ const backfill = (projectId: string, extra: Partial<StandardBackfillCardPayload>
   ...extra,
 });
 
-describe("补齐规范文档卡（262 号票）", () => {
+describe("补齐规范文档卡", () => {
   test("缺的每一份一行：名字、位置、缺还是只有说明；改写里多出来的写它的名字", () => {
     expect(
       standardBackfillRows(

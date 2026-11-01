@@ -1,4 +1,4 @@
-// 缩小后条右侧的标注（54 号票先把 25 号票要点层、全局层标出的东西都标上，不丢信息；55 号票补齐 ×N、左侧任务卡或工单卡、
+// 缩小后条右侧的标注（先把要点层、全局层标出的东西都标上，不丢信息；补齐 ×N、左侧任务卡或工单卡、
 // 底色带、书脊和图例，见 ZoomHistory.tsx、state/zoom-decor.ts）。
 // 一个要点（state/timeline.ts 的 TimelineMark）一条标注，写的字由状态层的 markChipText 给（×N 也按它判断连着的一不一样）：
 // - 操作（工具调用、操作记录）：样式的说法（授权内、做完告诉我、被拦下、问过、你点明的、你确认后）、命中的关注类别（⚠）、通用 bash、
@@ -37,7 +37,7 @@ export function MarkChip({ mark }: { mark: TimelineMark }) {
       <svg className="zd-risk-leader" aria-hidden="true">
         <path />
       </svg>
-      {/* 秘书转达的要点（103 号票）写名字占位：按名字标签画 */}
+      {/* 秘书转达的要点写名字占位：按名字标签画 */}
       <NamedText text={markChipText(mark)} />
       {mark.cardId && <ApprovalState cardId={mark.cardId} />}
     </span>

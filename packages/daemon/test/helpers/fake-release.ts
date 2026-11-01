@@ -1,4 +1,4 @@
-// 假的发布（318 号票）：一个小的发布包（zip 里有 ergo.json 和几个文件，像真的版本目录那样摆）、校验值清单、签名、latest.json，
+// 假的发布：一个小的发布包（zip 里有 ergo.json 和几个文件，像真的版本目录那样摆）、校验值清单、签名、latest.json，
 // 放进本机的假下载服务（fake-downloads.ts）。测试里的 ergo update、安装脚本都对着它，不连外网、不下真的发布包。
 import fs from "node:fs";
 import os from "node:os";

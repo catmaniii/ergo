@@ -1,4 +1,4 @@
-// 临时文件（111 号票，用户 2026-10-13 定："覆盖和删除的限制，只对系统已有的资源、数据、配置以及项目阶段交付件。
+// 临时文件（"覆盖和删除的限制，只对系统已有的资源、数据、配置以及项目阶段交付件。
 // 如果是任务中间的临时文件和脚本，以及为了生成每个项目阶段交付件临时生成的脚本和数据，默认可以修改或者删除，不要每次都问我或者拦住了"；
 // 又补充"任务和项目的临时文件都是一样的啊，不是光是任务，也包括项目"）。
 // 删除、整体重写临时文件不落入"删除或覆盖"（judge.ts 的 pathRule），也不受 v1 模板"删除或覆盖之前必须已备份或已提交"约束
@@ -15,14 +15,14 @@
 // 4. 是目录的（递归删除）：里面的东西也都得满足 1～3，列不全的（太多、有链接、没给）不算；带通配符的：展开成的每一个都得满足，
 //    展不开的不算。
 // 认不出的（路径没法确定、没有环境事实、创建时间读不到又没有效果日志的记录）按"已有的"算。
-// 另外，agent 的 bash 的临时目录（177 号票：工作目录里的 .ergo-tmp，TMPDIR 指到它）里的东西一律算临时文件——不看是谁、什么时候建的，
+// 另外，agent 的 bash 的临时目录（工作目录里的 .ergo-tmp，TMPDIR 指到它）里的东西一律算临时文件——不看是谁、什么时候建的，
 // 也不算交付件；真实路径（链接）指到外面的、要删的目录里有链接的不算。秘书没有。
 import { win32 } from "node:path";
 import { wildcardPrefix } from "./bottom-line-risk.ts";
 import { comparable, isWithin, isWithinAny, resolveAgentPath, type ShellEnv } from "./paths.ts";
 import type { EffectRecord, FileFact, GuardInput, GuardOwnWork } from "./types.ts";
 
-/** agent 的 bash 的临时目录名（177 号票）：在工作目录里，TMPDIR、TEMP、TMP 指到它（agent-manager/work-temp.ts） */
+/** agent 的 bash 的临时目录名：在工作目录里，TMPDIR、TEMP、TMP 指到它（agent-manager/work-temp.ts） */
 export const WORK_TEMP_DIR = ".ergo-tmp";
 
 /** 一处交付件：落在 path 里（就是它或在它里面）的；before 给了的只算那个时刻已经有了的 */

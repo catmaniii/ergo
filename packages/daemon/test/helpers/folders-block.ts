@@ -1,4 +1,4 @@
-// 138 号票起秘书每次被唤起都带一块"授权的文件夹"（内核经 agent 贡献登记的上下文块，注入在那一条输入之前；新会话里
+// 秘书每次被唤起都带一块"授权的文件夹"（内核经 agent 贡献登记的上下文块，注入在那一条输入之前；新会话里
 // faux 的回显把它排在系统提示前面）。只关心系统提示、对话先后的用例，比之前先把这块去掉（这块本身的内容见 authorized-folders.test.ts）。
 import { secretaryFoldersBlock } from "../../src/folders/authorize-folders.ts";
 

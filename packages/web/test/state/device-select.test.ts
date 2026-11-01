@@ -1,4 +1,4 @@
-// 前端状态层：已配对设备的多选管理（123 号票）——按钮上的个数、交上去哪几台、确认弹窗（延期弹窗）上的话、做完之后底部的一句。
+// 前端状态层：已配对设备的多选管理——按钮上的个数、交上去哪几台、确认弹窗（延期弹窗）上的话、做完之后底部的一句。
 import { describe, expect, test } from "vitest";
 import {
   type DeviceBatchItemResult,

@@ -2,7 +2,7 @@
 // - 用户自己打的字：本人；判断不了的纯文本：默认本人；
 // - 引用块、附件、抓取的网页：外部、不可信；
 // - 用户接受了 agent 的提议：算用户的选择（本人），注明"agent 先提出"；
-// - 语音转写：本人，注明"转写"（31 号票：由识别完成的语音产生，文字是识别出的文字）；
+// - 语音转写：本人，注明"转写"（由识别完成的语音产生，文字是识别出的文字）；
 // - agent 的产出：agent。
 // 只有本人的切段留下文字（随素材存进原文副本）；其余只留引用（位置、媒体、网址、卡片）加内容哈希，
 // 外加引用的说明（文件名、网址、卡片类型和标题），说明进关键词索引，正文不进。
@@ -19,16 +19,16 @@ export type MaterialPiece =
   | Piece<"typed", { text: string }>
   /** 来历判断不了的纯文本 */
   | Piece<"text", { text: string }>
-  /** 引用块（别人的话）；label 是给它的说明（303 号票：数据源里别人写给你的，说明是插件整理的摘要，比如"张三：周五的会改到下午"） */
+  /** 引用块（别人的话）；label 是给它的说明（数据源里别人写给你的，说明是插件整理的摘要，比如"张三：周五的会改到下午"） */
   | Piece<"quote", { text: string; label?: string }>
-  /** 附件（图片、文件、视频）；记下来的文件（366 号票）是截图时另给说明（label，不给就是文件名）和注明 */
+  /** 附件（图片、文件、视频）；记下来的文件是截图时另给说明（label，不给就是文件名）和注明 */
   | Piece<"attachment", { media: MediaRef; label?: string; notes?: MaterialSegment["notes"] }>
   /**
-   * 抓取的网页；title 是网页的标题（165 号票：你存的网页），有就写进引用的说明。
-   * unlabeled：只记地址、没有说明（366 号票：长按的元素自己的地址，带签名的长串不进关键词索引和证据）
+   * 抓取的网页；title 是网页的标题（你存的网页），有就写进引用的说明。
+   * unlabeled：只记地址、没有说明（长按的元素自己的地址，带签名的长串不进关键词索引和证据）
    */
   | Piece<"web_page", { url: string; text?: string; title?: string; unlabeled?: boolean }>
-  /** 语音转写：语音消息的文字带着录音的引用；"记住"一类命令里点明的那段语音转写没有（31 号票） */
+  /** 语音转写：语音消息的文字带着录音的引用；"记住"一类命令里点明的那段语音转写没有 */
   | Piece<"voice", { mediaId?: string; transcript: string }>
   /** 用户接受的 agent 提议（比如点了建议卡上的"发起任务"）：text 是被接受的内容 */
   | Piece<"choice", { text: string }>
@@ -68,7 +68,7 @@ function segmentOf(piece: MaterialPiece): MaterialSegment | undefined {
       if (isBlank(piece.text)) return undefined;
       return { form: "quote", source: "external_untrusted", notes: [], locator, sha256: sha256Hex(piece.text), ...(isBlank(piece.label) ? {} : { label: piece.label }) };
     case "attachment": {
-      // 媒体 id 就是入库版本的 sha256（09 号票）；不是哈希形状的就不写内容哈希
+      // 媒体 id 就是入库版本的 sha256；不是哈希形状的就不写内容哈希
       const hash = isMediaId(piece.media.mediaId) ? piece.media.mediaId : undefined;
       return {
         form: "attachment",
@@ -123,7 +123,7 @@ export function messagePieces(parts: readonly MessagePart[]): MaterialPiece[] {
         pieces.push({ form: "attachment", media: { mediaId: part.mediaId }, locator: { part: index } });
         break;
       case "voice":
-        // 语音的文字要等识别完成：素材由识别完成的那条 voice 事件产生（31 号票，voice/material-source.ts），消息本身不切段
+        // 语音的文字要等识别完成：素材由识别完成的那条 voice 事件产生（voice/material-source.ts），消息本身不切段
         break;
       case "card_ref":
         pieces.push({ form: "agent_output", cardId: part.cardId, locator: { part: index } });

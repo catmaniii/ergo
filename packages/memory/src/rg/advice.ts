@@ -1,8 +1,8 @@
-// 给任务出建议（196 号票）：adviseTask(task, { at, context })，规则版用模板拼。按权威从高到低排（05 号调研 §5.4、§6.0）：
+// 给任务出建议：adviseTask(task, { at, context })，规则版用模板拼。按权威从高到低排（§6.0）：
 //   ① 这次明说的要求：原样回显，提醒"下面几条都不能推翻它"；
 //   ② 硬约束：用户明说的禁忌（明说的"不喜欢、不吃"，原话里带过敏、忌口、绝对不……）；
 //   ③ 明确的偏好：用户说的、确认过的偏好和近期状态；
-//   ④ 相关的需求和价值观：推断的（带置信度）；猜测单列（330 号票 R5：可以参考、推荐，标明是猜测、把握多少，把握低的留余地）；
+//   ④ 相关的需求和价值观：推断的（带置信度）；猜测单列（R5：可以参考、推荐，标明是猜测、把握多少，把握低的留余地）；
 //   ⑤ 能用的策略：active 的直接用，proposed 的标"待你确认"。
 // 下面几层和①冲突时（明说的要求里有和某条偏好、某条做法相反的说法）照①做，那一条标"这次以你说的为准"——动机只调整"怎么做"，
 // 不推翻"做什么"。和②冲突时也照①做，但提醒一句、附一个确认的问题。拿不准时（相关的有还没分出来的竞争假设）附一个能区分的追问：
@@ -39,7 +39,7 @@ export interface AdviceItem {
   evidenceIds: string[];
   /** 这次明说的要求里和它相反的那一段：照明说的做 */
   overriddenBy: string | null;
-  /** 330 号票（R5）：是猜测（没验证）；④ 里"猜测"那一栏才有 */
+  /** ADR-0032 R5：是猜测（没验证）；④ 里"猜测"那一栏才有 */
   guess?: boolean;
 }
 
@@ -52,9 +52,9 @@ export interface StrategyAdvice {
   actions: { text: string; overriddenBy: string | null }[];
   basisClaimIds: string[];
   text: string;
-  /** 330 号票（R6）：建在猜测上 */
+  /** ADR-0032 R6：建在猜测上 */
   onGuess: boolean;
-  /** 330 号票（R6）：依据都不在了（照旧在用，等用户回答"还要不要"） */
+  /** ADR-0032 R6：依据都不在了（照旧在用，等用户回答"还要不要"） */
   basisGone: boolean;
 }
 
@@ -71,7 +71,7 @@ export interface TaskAdvice {
   preferences: AdviceItem[];
   /** ④ 推断的偏好、状态、需求、价值观 */
   motives: AdviceItem[];
-  /** ④ 猜测（和已验证但证据还不够的）：330 号票 R5——可以参考、推荐，标明是猜测，把握低的留余地 */
+  /** ④ 猜测（和已验证但证据还不够的）：R5——可以参考、推荐，标明是猜测，把握低的留余地 */
   uncertain: AdviceItem[];
   /** ⑤ 能用的策略 */
   strategies: StrategyAdvice[];
@@ -197,7 +197,7 @@ export async function adviseTask(deps: AdviseDeps, task: string, options: Advise
   const overriddenBasis = new Map<string, string>();
   const candidates = store
     .listStrategies({ status: ["active", "proposed"] })
-    // 330 号票（R6）：点过头的照旧用（依据都不在了也不自动停，等用户回答"还要不要"）；没点头的提议要依据还能用
+    // ADR-0032 R6：点过头的照旧用（依据都不在了也不自动停，等用户回答"还要不要"）；没点头的提议要依据还能用
     .filter((s) => (s.status === "active" || s.basisClaimIds.some((id) => establishedAt(store.getClaim(id), at))) && strategyApplies(s, model.domains, task));
   for (const s of candidates.toSorted((a, b) => Number(b.status === "active") - Number(a.status === "active") || (a.id < b.id ? -1 : 1))) {
     const active = s.status === "active" && s.confirmedAt !== null && toMs(s.confirmedAt) <= toMs(at);

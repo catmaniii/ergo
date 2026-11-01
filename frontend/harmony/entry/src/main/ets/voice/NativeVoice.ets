@@ -109,7 +109,7 @@ function failure(reason: string, message: string): string {
 }
 
 /**
- * 原生录音（63 号票，用户 2026-10-09 要求：用系统自带的录音能力解决麦克风的问题，"准备好但不使用"）。
+ * 原生录音（用系统自带的录音能力解决麦克风的问题，"准备好但不使用"）。
  * 照鸿蒙官方的 AudioCapturer 用法：
  * - prepare：进语音模式时网页要，createAudioCapturer 建好录音器，它就处在 PREPARED：不采集；录音的音频焦点在 start 时才申请
  *   （官方"音频焦点"：开始录制时系统才为音频流申请焦点），所以不占麦克风、不挡系统输入法的语音、隐私指示灯不亮。

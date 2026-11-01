@@ -1,7 +1,7 @@
-// 盯 VPS 上证书的到期日（322 号票）：`lsm vps certs` 和管理器共用。
+// 盯 VPS 上证书的到期日：`lsm vps certs` 和管理器共用。
 //
 // 只读：经 ssh 在 VPS 上跑一份只列证书的脚本（sh/certs-list.sh），结果存进数据目录的 vps-certs.json。
-// （还没接上管理器：每 12 小时自己去看、少于 20 天在 WebUI 上提醒、弹 Windows 通知——下一步，见 322 号票 Comments；
+// （还没接上管理器：每 12 小时自己去看、少于 20 天在 WebUI 上提醒、弹 Windows 通知——下一步；
 //  CERT_REFRESH_MS、certsDue、certAlerts 是给那一步预备的。）Let's Encrypt 的证书 certbot 会在剩 30 天时自动续，所以剩不到 20 天多半是续期坏了。
 import fs from 'node:fs';
 import path from 'node:path';

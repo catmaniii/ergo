@@ -4,13 +4,13 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 import { AppSettings, DOMAIN, TAG } from './AppSettings';
 
 /**
- * App 原生的字（175 号票）：地址页、出错页、"这不是二狗？"、下载和保存的提示、系统通知的默认标题、交回网页的原因（录音、"浏览"的 ⋮ 菜单、
+ * App 原生的字：地址页、出错页、"这不是二狗？"、下载和保存的提示、系统通知的默认标题、交回网页的原因（录音、"浏览"的 ⋮ 菜单、
  * 交文件、渲染文件）。句子不写在 .ets 里，都在共享协议包的 locales/<语言>/harmony.json（key 是 harmony.*）：
  * - npm run build:harmony 把自带的每种语言的 harmony.json 收进 rawfile/harmony-texts.json（{ 语言代码: { key: 句子 } }，不进仓库），
  *   App 起来时读一次（EntryAbility.onCreate）；
  * - 连上之后二狗的网页经原生桥 setTexts 交来当前语言的这几句（网页按二狗的全局语言 t() 取好，~/.ergo/locales 里加的语言、改的译法也在里面），
- *   换语言时再交；交来了就用交来的，并记在 App 的偏好里（用户 2026-10-19 定：记住上次的语言）。App 重开时先用记下的那份，
- *   地址页、出错页一开场就是二狗的语言；从没交来过（第一次装、还没连上过二狗）用英文（用户定：没选过默认英文），没打包英文才用中文；
+ *   换语言时再交；交来了就用交来的，并记在 App 的偏好里（记住上次的语言）。App 重开时先用记下的那份，
+ *   地址页、出错页一开场就是二狗的语言；从没交来过（第一次装、还没连上过二狗）用英文（没选过默认英文），没打包英文才用中文；
  * - 找不到的句子依次退到自带的同一种语言、自带的中文，都没有回 key 本身（没跑 npm run build:harmony 打包时）。
  * 插值 {name}；App 里的句子不分单复数（英文写成不用单复数的说法），句子里有数字的照原样插进去。
  */
@@ -19,7 +19,7 @@ import { AppSettings, DOMAIN, TAG } from './AppSettings';
 const BUNDLED_FILE = 'harmony-texts.json';
 /** 缺句子时退到的语言 */
 const DEFAULT_LANGUAGE = 'zh-CN';
-/** 从没连上过二狗时用的语言（用户 2026-10-19 定：没选过默认英文） */
+/** 从没连上过二狗时用的语言（没选过默认英文） */
 const FIRST_LANGUAGE = 'en';
 /** 网页交来的：只收 harmony.* 的 key，一句最长、一共最多几句（网页是可信的，这里只防写错） */
 const KEY_PREFIX = 'harmony.';

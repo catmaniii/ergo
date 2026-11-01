@@ -1,9 +1,9 @@
-// pi 契约测试：看图能力（79 号票）。
+// pi 契约测试：看图能力。
 // - 看图能力默认取 pi 的模型目录（模型的输入里有图片就算能看：deepseek-flash 能，deepseek-v4-pro 不能）；装配参数写明了 vision
 //   的以它为准（可以关掉，也可以打开）。子进程在 ready 里报回实际生效的。
 // - 子进程按实际生效的改写会话用的模型：能看图时用户输入里的图片、历史里的图片都作为图片发给 provider；关掉时 pi 把它们换成
 //   一句占位（本机回放 DeepSeek 的流式响应、记下请求体，不联网）。
-// - 73 号票起看图能力在会话开始时定下：接着同一个会话时配置改了也照开始时的（一个会话固定一个模型），新开的会话按新的。
+// -看图能力在会话开始时定下：接着同一个会话时配置改了也照开始时的（一个会话固定一个模型），新开的会话按新的。
 //   装配参数 vision 是按模型的表（键是「provider/模型 id」，faux 是 faux）。
 // - 宿主工具的结果可以带图片（读取附件读图）、插话可以带图片：模型调用的上下文里有这张图。
 import http from "node:http";
@@ -37,8 +37,8 @@ const pixel = () => ({ mime: "image/png", data: png({ width: 4, height: 4 }).toS
 /** 回显的上下文（faux 的 echo_context） */
 const echoed = (message: { parts: Array<{ type: string; text?: string }> }) => message.parts.map((p) => (p.type === "text" ? p.text : "")).join("");
 
-// 255 号票：这个文件的用例一条里依次拉起好几个 agent 子进程（第一条 7 个），空闲时 10 秒上下，全量并行时超过默认的 30 秒；
-// 查过不是竞态，只是慢（用户 2026-10-24 定：只给这个文件加长超时）
+// 这个文件的用例一条里依次拉起好几个 agent 子进程（第一条 7 个），空闲时 10 秒上下，全量并行时超过默认的 30 秒；
+// 查过不是竞态，只是慢（只给这个文件加长超时）
 vi.setConfig({ testTimeout: 120_000 });
 
 describe("pi 契约：看图能力取模型目录，配置写明的为准", () => {
@@ -86,7 +86,7 @@ describe("pi 契约：看图能力取模型目录，配置写明的为准", () =
     for (const body of provider.bodies) expect(body).toContain('"image_url"');
     expect(provider.bodies[0]).toContain("data:image/png;base64,");
 
-    // 接着同一个会话，配置关掉看图：照会话开始时的（73 号票），历史里的图照样发
+    // 接着同一个会话，配置关掉看图：照会话开始时的，历史里的图照样发
     const second = await spawn({ "deepseek/deepseek-flash": false });
     second.agent.send({ type: "user_input", inputId: "in-3", text: "还记得那张图吗" });
     expect((await second.log.next("turn_end")).outcome).toBe("completed");

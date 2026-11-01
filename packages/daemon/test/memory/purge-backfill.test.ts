@@ -1,7 +1,7 @@
-// 272 号票第 1 条：一次性补抹。265 号票以前（10-21 有问记忆以来）做过的彻底删除，事件日志里问记忆（ask_memory）那几次调用的
+// 一次性补抹。以前（10-21 有问记忆以来）做过的彻底删除，事件日志里问记忆（ask_memory）那几次调用的
 // 记录和完整内容还留着被删素材的原话（purgePlan 只在删的那一刻算一次）。守护进程启动时跑一次：
 // - 按已登记的彻底删除（素材频道上 command 为 purge 的记忆命令）找被删素材背后的证据编号（还在推理库里的按出处、删掉的按审计）；
-// - 问记忆、问记忆管理员（ask_curator，272 号票第 3 条）的调用记录（结果摘要）和完整内容（完整返回）里，只把提到这些编号
+// - 问记忆、问记忆管理员（ask_curator）的调用记录（结果摘要）和完整内容（完整返回）里，只把提到这些编号
 //   （问记忆管理员另看素材 id）的行连同续行换成"- 编号 · 删除标记"，别的一个字不动（保守：碰的是用户真实的事件日志）；
 // - 秘书的会话上追加一条 messages_purged（改写过的调用记录给出改写后的样子、列上被删的素材）：开着的页面换掉手里的，
 //   秘书据此把会话文件里问记忆的结果也按编号换一遍；
@@ -105,7 +105,7 @@ function toolCall(store: EventStore, callId: string, tool: string, result: strin
   return message.id;
 }
 
-/** 265 号票以前的彻底删除：只记了记忆命令（问记忆的记录没改写） */
+/** 以前的彻底删除：只记了记忆命令（问记忆的记录没改写） */
 const purgeCommand = (store: EventStore, materialIds: string[]) => store.append(memoryCommandEvent({ command: "purge", materialIds, from: { kind: "settings", scope: { kind: "conversation", conversation: CHANNELS.secretary } } }));
 
 const recordOf = (store: EventStore, callId: string): StoredEvent =>
@@ -116,7 +116,7 @@ const summaryOf = (store: EventStore, callId: string): string => {
 };
 const detailOf = (store: EventStore, callId: string): ToolCallDetail => store.read(TOOL_CALLS_CHANNEL).map((e) => e.payload as ToolCallDetail).find((d) => d.callId === callId)!;
 
-describe("一次性补抹 265 号票以前漏抹的问记忆原话（272 号票）", () => {
+describe("一次性补抹以前漏抹的问记忆原话", () => {
   it("只把引着被删素材证据编号的行（连同原话、精炼这些续行）换成删除标记；别的证据、简报结构、问题、没引它的调用、早就整条换掉的都不动；秘书的会话上追加 messages_purged；记一笔，再跑不重复", async () => {
     const { file, clock } = await reasoningDb();
     const brief = await askMemory(file, clock, "我对什么过敏？花生还是香菜？");
@@ -125,7 +125,7 @@ describe("一次性补抹 265 号票以前漏抹的问记忆原话（272 号票�
     expect(brief).toContain(CILANTRO);
     const store = eventStore();
     const askId = toolCall(store, "call-ask", "ask_memory", brief);
-    // 管理员的回答按它的提示词引证据编号（272 号票起 inspect_memory 把编号和原话写在一起）；它也可能提素材 id
+    // 管理员的回答按它的提示词引证据编号（inspect_memory 把编号和原话写在一起）；它也可能提素材 id
     const opened = openReasoningDb({ ...engineOptions(file, clock), readOnly: true });
     if (!opened.ok) throw new Error("应该能打开");
     const peanutEv = opened.engine.store.listEvidence().find((e) => e.sourceRef === "mat-peanut")!.id;
@@ -136,7 +136,7 @@ describe("一次性补抹 265 号票以前漏抹的问记忆原话（272 号票�
     // 没引被删素材的问记忆：不动
     const other = ["【记录】", `1. [${cilantroEv}] 2026-05-02 · 本人说的`, `   原话：「${CILANTRO}」`].join("\n");
     toolCall(store, "call-other", "ask_memory", other);
-    // 265 号票起的彻底删除已经整条换掉的：不动（再换也一样）
+    // 彻底删除已经整条换掉的：不动（再换也一样）
     toolCall(store, "call-done", "ask_memory", PURGED_TEXT);
 
     purgeCommand(store, ["mat-peanut"]);

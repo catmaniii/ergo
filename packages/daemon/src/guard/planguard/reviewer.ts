@@ -1,5 +1,5 @@
 // planguard 的规划时审查（同步记录和哈希见同目录 VERSION）。
-// 58 号票为流程的审查修补搬来。流程：建问题（buildProblem：按规则在 plan 模式下查出违规，每条违规的修补方案实例化成动作）
+// 为流程的审查修补搬来。流程：建问题（buildProblem：按规则在 plan 模式下查出违规，每条违规的修补方案实例化成动作）
 // → 求解（search.ts 的穷举，和 Z3 同一个字典序目标）→ 收尾（finalize：按选中的动作修补计划，再查一遍）。
 // 只按本仓库的 TypeScript 和 oxlint 设置改写法：不用构造函数参数属性、下标取值加非空断言、排序用 toSorted、注释改中文。
 import { type Finding, check } from "./checker.ts";

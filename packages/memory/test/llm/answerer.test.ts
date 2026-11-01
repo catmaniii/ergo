@@ -1,4 +1,4 @@
-// 216 号票：大模型回答器（模拟秘书）。用假模型：看发出去的请求（提示词只有问题、时间、场景和记忆简报）和交回的回答
+// 大模型回答器（模拟秘书）。用假模型：看发出去的请求（提示词只有问题、时间、场景和记忆简报）和交回的回答
 // （回答文字、表示没表示不确定、用到的证据和结论；简报以外的 id 剥掉）。不调真的 DeepSeek。
 import { afterEach, describe, expect, it } from "vitest";
 import { FakeEmbedder } from "../../src/embedding/fake.ts";
@@ -43,12 +43,12 @@ describe("大模型回答器：请求", () => {
     expect(ANSWER_SYSTEM).not.toMatch(/ev-\d|cl-\d|周末|饭局/);
   });
 
-  it("219：结论下面的原话是依据，用到结论时要说出具体的事例", () => {
+  it("结论下面的原话是依据，用到结论时要说出具体的事例", () => {
     expect(ANSWER_SYSTEM).toMatch(/结论下面[^。]*原话[^。]*依据/);
     expect(ANSWER_SYSTEM).toContain("具体的事例");
   });
 
-  it("219：依据只在结论下面的原话里（不在记录那节）时，引用也带上它的原话", async () => {
+  it("依据只在结论下面的原话里（不在记录那节）时，引用也带上它的原话", async () => {
     const { engine } = await brief(Q);
     const b = await memoryBrief(engine, Q, { at: NOW, group: "hybrid_kg_rg", limits: { records: 2 } });
     const quote = b.profile!.claims.flatMap((c) => c.quotes ?? []).find((q) => !b.records.some((r) => r.evidenceId === q.evidenceId));
@@ -65,7 +65,7 @@ describe("大模型回答器：回答", () => {
     const { engine, brief: b } = await brief(Q);
     const need = member(engine, NEED, "need_autonomy");
     expect(b.claimIds).toContain(need.id);
-    // 222 号票起同一组只留一条，简报里可能没有带反证的结论了：拿简报里一条不是依据的证据当模型说的反证（测的是引用按角色记）
+    // 同一组只留一条，简报里可能没有带反证的结论了：拿简报里一条不是依据的证据当模型说的反证（测的是引用按角色记）
     const grounds = ["ev-w3", "ev-w1", "ev-w2"];
     const counter = b.profile!.claims.flatMap((c) => c.refuteIds)[0] ?? b.profile!.groups.flatMap((g) => g.members.flatMap((m) => m.refuteIds))[0] ?? b.evidenceIds.find((id) => !grounds.includes(id))!;
     const model = new FakeChatModel(() => ({
@@ -85,7 +85,7 @@ describe("大模型回答器：回答", () => {
     expect(a.citations.filter((c) => c.role === "record").flatMap((c) => c.evidenceIds)).toEqual(["ev-w3", "ev-w1", "ev-w2"]);
     expect(a.citations.filter((c) => c.role === "counter").flatMap((c) => c.evidenceIds)).toEqual([counter]);
     expect(a.citations.find((c) => c.claimId === need.id)).toMatchObject({ role: "conclusion", evidenceIds: [] });
-    // 评测的判法看得到（转述没被当依据，反证被考虑了）：326 号票起在评测包的 test/eval/eval2-cited.test.ts
+    // 评测的判法看得到（转述没被当依据，反证被考虑了）：在评测包的 test/eval/eval2-cited.test.ts
     expect(a.hits).toEqual(b.hits);
   });
 

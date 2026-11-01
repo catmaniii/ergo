@@ -1,8 +1,8 @@
-// 运营层的装配（280 号票，方案 C 第 4 点；对外的入口是 api.ts）：照插件的 setup(ctx) 写，但不是插件、一直开着、不给开关。
+// 运营层的装配（方案 C 第 4 点；对外的入口是 api.ts）：照插件的 setup(ctx) 写，但不是插件、一直开着、不给开关。
 // 只有项目系统的组装函数（projects/system.ts）装它，像插件清单装 plugin.ts（test/projects/boundary.test.ts 守着）。
 // - 登记都走宿主现成的登记口（OpsLayerContext，就是插件宿主给插件的 ctx 里那几样，每次登记返回撤销函数）：服务入口卡（cardTypes）、
-//   运营手段"服务"（operationMeans，133 号票；原来是组装函数替它插进内核的运营手段）、上线了的服务的 /apps/<应用名>/ 转发
-//   （apps，132 号票；原来交给它的是整张转发登记表）；
+//   运营手段"服务"（operationMeans，原来是组装函数替它插进内核的运营手段）、上线了的服务的 /apps/<应用名>/ 转发
+//   （apps，原来交给它的是整张转发登记表）；
 // - 要的项目系统的东西、内核的服务都在 OpsLayerDeps 里由组装函数给（像插件 needs 里的服务），它自己不 import 项目系统的内部文件
 //   （只经项目系统的入口 projects/api.ts）；
 // - 交出去的是各调用方的小接口：转入使用那一套（项目服务、提转入使用的工具）、秘书的工具、负责人的 check_ops、网关的启停请求、
@@ -74,13 +74,13 @@ export interface OpsLayerDeps {
   notifyMaintainer: (project: Project, text: string, key: string) => void;
   /** 一次验收做完了：刷新还在等的转入使用确认卡 */
   onChecked: (project: Project) => void;
-  /** 临时事件的推送：项目的服务给前端看的样子变了推项目列表频道（133） */
+  /** 临时事件的推送：项目的服务给前端看的样子变了推项目列表频道 */
   notifications: Pick<EphemeralBus, "publish">;
   /** 数据目录的密钥区（真实路径）：服务定义里密钥的引用换成这里的文件 */
   secretsDir: string;
-  /** 服务首页的缩略图的缓存区（140） */
+  /** 服务首页的缩略图的缓存区 */
   thumbnailsDir: string;
-  /** 服务报事件（357）：交事件的前台（内核的事件来源）、最近收到的记录放哪（事件来源的状态目录）、限速和大小上限 */
+  /** 服务报事件：交事件的前台（内核的事件来源）、最近收到的记录放哪（事件来源的状态目录）、限速和大小上限 */
   serviceEvents: { desk: ServiceEventDesk; stateDir: string; thresholds: EventSourceThresholds };
   /** 服务首页的缩略图怎么截（测试注入假的）；不给就用 browser() 驱动无头浏览器截 */
   serviceThumbnail?: (url: string, signal: AbortSignal) => Promise<Buffer>;
@@ -99,17 +99,17 @@ export interface OpsLayer {
   readonly goLive: OpsGoLive;
   /** 秘书的工具里运营层给的、查看板时那一节 */
   readonly secretary: OpsSecretary;
-  /** 项目负责人的 check_ops（268）：绑在它维护的项目上 */
+  /** 项目负责人的 check_ops：绑在它维护的项目上 */
   checkTool(scope: { projectId: string; maintainerId: string }): HostTool;
-  /** 项目负责人查自己项目的服务最近报的事件（357）：绑在它维护的项目上 */
+  /** 项目负责人查自己项目的服务最近报的事件：绑在它维护的项目上 */
   serviceEventsTool(projectId: string): HostTool;
-  /** 网关的 POST /api/service-events（357）：项目的服务报事件 */
+  /** 网关的 POST /api/service-events：项目的服务报事件 */
   readonly serviceEvents: ServiceEventsApi;
-  /** 网关：项目卡片、项目页上的"启动""关闭"（257）：经 LSM 把项目的服务全部拉起、全部关掉（秘书的工具走同一个入口） */
+  /** 网关：项目卡片、项目页上的"启动""关闭"：经 LSM 把项目的服务全部拉起、全部关掉（秘书的工具走同一个入口） */
   readonly requests: Required<Pick<RequestHandlers, "projectServicesAction">>;
-  /** 订阅项目列表频道时补推的项目的服务现在的样子（133：临时事件不补发） */
+  /** 订阅项目列表频道时补推的项目的服务现在的样子（临时事件不补发） */
   servicesFrame(): EventFrame;
-  /** 项目的服务首页的缩略图（140） */
+  /** 项目的服务首页的缩略图 */
   thumbnail(projectId: string, name: string): { file: string; takenAt: string } | undefined;
   /** 接入 LSM 之后：开始做（上线了的先登记转发、没做完的接着做、接 LSM 推来的状态）；之后按网关实际监听的端口 */
   start(link: { lsm: LsmServices; ports: { local: number; external: number } }): void;
@@ -126,11 +126,11 @@ export function createOpsLayer(ctx: OpsLayerContext, deps: OpsLayerDeps): OpsLay
   /** 项目列表频道上"项目的服务"这一帧（变了推的、订阅时补推的同一个样子） */
   const servicesFrameOf = (services: ProjectServiceView[]): EventFrame => ({ channel: CHANNELS.projects, seq: store.lastSeq(CHANNELS.projects), type: EVENT_TYPES.projectServices, payload: { services } });
 
-  // 项目的服务（133）：运营手段"服务"生效之后替它到 LSM 上线、撤下，接 LSM 推来的状态，有网页的经转发登记口登记 /apps/<应用名>/；
+  // 项目的服务：运营手段"服务"生效之后替它到 LSM 上线、撤下，接 LSM 推来的状态，有网页的经转发登记口登记 /apps/<应用名>/；
   // 给前端看的样子变了推项目列表频道的临时事件。接入层建在最后（开好端口之后）：start 交来，那时才开始做
   let lsm: LsmServices | undefined;
   let ports: { local: number; external: number } | undefined;
-  // 服务报事件（357）：凭证按服务发，上线时注入；地址是网关开好之后实际的本机端口
+  // 服务报事件：凭证按服务发，上线时注入；地址是网关开好之后实际的本机端口
   const serviceEvents = createServiceEvents({ store, project: (projectId) => projects.get(projectId), secretsDir: deps.secretsDir, stateDir: deps.serviceEvents.stateDir, desk: deps.serviceEvents.desk, thresholds: deps.serviceEvents.thresholds, clock, log });
   const projectServices = createProjectServices({
     store,
@@ -145,7 +145,7 @@ export function createOpsLayer(ctx: OpsLayerContext, deps: OpsLayerDeps): OpsLay
     clock,
     now,
     log,
-    // 服务首页的缩略图（140）：守护进程自己截，经二狗本机端口的转发（网关开好之后才有地址），存在缓存区；浏览器和联网工具同一个
+    // 服务首页的缩略图：守护进程自己截，经二狗本机端口的转发（网关开好之后才有地址），存在缓存区；浏览器和联网工具同一个
     thumbnails: {
       dir: deps.thumbnailsDir,
       capture: deps.serviceThumbnail ?? ((url, signal) => captureServiceHome(deps.browser(), url, signal)),
@@ -153,10 +153,10 @@ export function createOpsLayer(ctx: OpsLayerContext, deps: OpsLayerDeps): OpsLay
     },
     events: { service: serviceEvents, url: () => (ports ? `http://${LOCAL_HOST}:${ports.local}${HTTP_PATHS.serviceEvents}` : undefined) },
   });
-  // 服务入口卡（133）：秘书给出服务的入口时放进聊天
+  // 服务入口卡：秘书给出服务的入口时放进聊天
   ctx.cardTypes.register(serviceEntryCardType());
 
-  // 运营手段"服务"（133）：项目自己的服务登记到 LSM 上线。经运营手段的登记口登记（插件也是这个口子）；组装函数在内核的定时、事件触发之后、
+  // 运营手段"服务"：项目自己的服务登记到 LSM 上线。经运营手段的登记口登记（插件也是这个口子）；组装函数在内核的定时、事件触发之后、
   // 公网入口之前装运营层，交运营方案的工具说明里列手段的先后照原来
   ctx.operationMeans.register(
     serviceMeans({
@@ -170,8 +170,8 @@ export function createOpsLayer(ctx: OpsLayerContext, deps: OpsLayerDeps): OpsLay
     }),
   );
 
-  // 秘书调使用中的项目的操作（260）；268：白送的通用操作、参数校验、能念的 say、四种实现方式（http / script / ergo / maintainer）、
-  // 清单照 112 号票的自动验收和版本号（转运营检查清单那一项、转入使用时登记、负责人的 check_ops）
+  // 秘书调使用中的项目的操作；白送的通用操作、参数校验、能念的 say、四种实现方式（http / script / ergo / maintainer）、
+  // 清单照自动验收和版本号（转运营检查清单那一项、转入使用时登记、负责人的 check_ops）
   const projectOps = createProjectOps({
     store,
     projects: { list: () => projects.list(), records: (projectId) => projects.records(projectId), workdir: (project) => projects.workdir(project) },
@@ -202,9 +202,9 @@ export function createOpsLayer(ctx: OpsLayerContext, deps: OpsLayerDeps): OpsLay
       boardSection: () => serviceBoardSection(projectServices),
       tools: () => [
         openServiceTool({ services: projectServices, cards, projectName }),
-        // 257 号票：启动、关闭项目的服务（用户说了就是确认）
+        // 启动、关闭项目的服务（用户说了就是确认）
         switchServicesTool({ services: projectServices, projectName }),
-        // 260 号票：调使用中的项目的操作（使用中的项目不用确认；268 号票补齐通用操作、参数校验、say、四种实现方式、验收和版本号）
+        // 调使用中的项目的操作（使用中的项目不用确认；补齐通用操作、参数校验、say、四种实现方式、验收和版本号）
         projectOps.tool(),
       ],
     },
@@ -220,7 +220,7 @@ export function createOpsLayer(ctx: OpsLayerContext, deps: OpsLayerDeps): OpsLay
       ports = link.ports;
       lsm = link.lsm;
       projectServices.start();
-      // 362 号票：服务上线了，等它上线才能测的那几个操作自动复验（不等秘书第一次用到）
+      // 服务上线了，等它上线才能测的那几个操作自动复验（不等秘书第一次用到）
       offRollout = store.onAppend((event) => {
         if (event.channel !== OPERATIONS_CHANNEL || event.type !== PROJECT_SERVICE_EVENTS.rollout) return;
         const payload = event.payload as ServiceRolloutPayload;

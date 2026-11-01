@@ -1,6 +1,6 @@
-// Claude Code 适配子进程的撤回和切分支（293 号票，宿主协议 navigate_session，child/navigation.ts）的契约测试。SDK 换成手动挡的假的
+// Claude Code 适配子进程的撤回和切分支（宿主协议 navigate_session，child/navigation.ts）的契约测试。SDK 换成手动挡的假的
 // （helpers/fake-claude-sdk.ts：测试扮演 claude 一条条吐消息；会话记录、forkSession、getSessionMessages、文件检查点在 FakeClaudeStore 里），
-// 不启动真的 claude、不花额度；适配子进程本身是真的（runClaudeChild，stdin / stdout 换成内存里的流）。真机在 294 号票。
+// 不启动真的 claude、不花额度；适配子进程本身是真的（runClaudeChild，stdin / stdout 换成内存里的流）。
 // - 撤回到某条输入之前：从它前一条分叉出新会话（截到那一条），活着的 query 按检查点把那条及之后改的文件恢复，关掉手头的 query，
 //   下一条按新会话 id 恢复；守护进程写好的分支摘要随新会话的下一条输入的 UserPromptSubmit 交给模型、只交一次；记录写进会话记录；
 // - 撤回到会话开头之前：新开一个空会话（新 id、新开不恢复）；撤回点在更早的会话里：一路往上恢复文件（现在的会话恢复到它自己的第一条，

@@ -1,5 +1,5 @@
 // 设备配对和外网端口（规格第 6 节、第 21 节）：守护进程和 Web 共用的常量、默认设备名；
-// 123 号票起还有已配对设备多选管理（延期、吊销、删除）的规则：延期后的到期日、哪台要跳过、跳过的原因怎么说。
+// 还有已配对设备多选管理（延期、吊销、删除）的规则：延期后的到期日、哪台要跳过、跳过的原因怎么说。
 // 只有常量和纯函数，不引用 TypeBox。HTTP 接口的路径在 http.ts（HTTP_PATHS.access、HTTP_PATHS.pairing），
 // 请求体和响应体在 http-schema.ts。
 //
@@ -27,8 +27,8 @@ export const PAIRING_RATE_LIMIT = 5;
 export const DEVICE_CREDENTIAL_TTL_MS = 365 * DAY;
 
 /**
- * 设备凭证 cookie 在浏览器里活多久（用户 2026-10-14 定）：400 天，是 Chrome 允许的最长期限，比服务端的有效期多留 35 天。
- * 服务端过期一个月以内的设备手里还有凭证，在设置里延期（123 号票）就能直接用，不用重新配对
+ * 设备凭证 cookie 在浏览器里活多久：400 天，是 Chrome 允许的最长期限，比服务端的有效期多留 35 天。
+ * 服务端过期一个月以内的设备手里还有凭证，在设置里延期就能直接用，不用重新配对
  */
 export const DEVICE_COOKIE_MAX_AGE_MS = 400 * DAY;
 
@@ -38,7 +38,7 @@ export const DEVICE_COOKIE_MAX_AGE_MS = 400 * DAY;
  */
 export const DEVICE_FIRST_USE_WINDOW_MS = DAY;
 
-/** 延期能选的时长（天）：30 天、90 天、1 年，默认 1 年（123 号票） */
+/** 延期能选的时长（天）：30 天、90 天、1 年，默认 1 年 */
 export const DEVICE_EXTEND_DAYS = [30, 90, 365] as const;
 export const DEFAULT_DEVICE_EXTEND_DAYS = 365;
 
@@ -132,7 +132,7 @@ export function defaultDeviceName(userAgent: string): string {
 }
 
 /**
- * 像网络上的自动访问的字眼（137 号票，按顺序，第一条对上的给原因）：浏览器标识里的字眼 → 它是什么。
+ * 像网络上的自动访问的字眼（按顺序，第一条对上的给原因）：浏览器标识里的字眼 → 它是什么。
  * 对上的是整个词（「HeadlessChrome」「Googlebot」「python-requests」），写进原因里。
  * 爬虫的 bot 只认词尾、后面紧跟 / ; ) - 或结尾的（Googlebot/2.1、TwitterBot)）：手机牌子 CUBOT（"CUBOT X30"、"CUBOT_X19"）不算
  */
@@ -156,7 +156,7 @@ const AUTOMATED_MARKS: ReadonlyArray<readonly [pattern: RegExp, what: keyof type
 const QUOTED_UA_MAX = 60;
 
 /**
- * 配对请求像不像网络上的自动访问（137 号票）：按浏览器标识（User-Agent）判断，像就给原因，不像是 undefined。
+ * 配对请求像不像网络上的自动访问：按浏览器标识（User-Agent）判断，像就给原因，不像是 undefined。
  * 规则只写在这里：
  * 1. 没有浏览器标识；
  * 2. 带无界面浏览器（HeadlessChrome、PhantomJS……）、自动化工具（puppeteer、playwright、selenium……）、
@@ -182,7 +182,7 @@ export function automatedAccess(userAgent: string): { reason: string } | undefin
   return undefined;
 }
 
-/** 配对卡、批准页、纯文本降级上那句醒目的提示（137 号票） */
+/** 配对卡、批准页、纯文本降级上那句醒目的提示 */
 export function automatedAccessHint(reason: string): string {
   return t("protocol.pairing.automated.hint", { reason });
 }

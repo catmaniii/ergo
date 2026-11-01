@@ -1,4 +1,4 @@
-// 从源码装（318 号票）：开发者 git clone → npm ci → npm run build → npm run ergo:install；install.ps1 -FromSource 也走这两步。
+// 从源码装：开发者 git clone → npm ci → npm run build → npm run ergo:install；install.ps1 -FromSource 也走这两步。
 //   npm run build            构建网页，把程序摆成 <仓库>/dist/ergo（转好的 JS；第三方包联接到仓库的 node_modules；Node 指向构建用的那个）
 //   npm run ergo:install     摆一个完整的版本目录进 <安装目录>\versions\<版本>-src-<时间>（复制运行时要的第三方包和 node.exe），
 //                            切过去、放好 bin\ergo.exe / ergo.cmd、加进用户 PATH

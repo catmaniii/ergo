@@ -1,4 +1,4 @@
-// 前端状态层：多语言（168 号票）。语言频道上的 language 事件归并成设置里选的、临时事件 locale 归并成实际在用的和词典的版本；
+// 前端状态层：多语言。语言频道上的 language 事件归并成设置里选的、临时事件 locale 归并成实际在用的和词典的版本；
 // 设置 · 语言每一行写什么、读语言文件出的问题怎么说（按当前语言）；外壳的字按当前语言现取（导航的 NAV_LABELS）。
 import { afterEach, describe, expect, test } from "vitest";
 import {

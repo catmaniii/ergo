@@ -1,7 +1,7 @@
-// 页面桥（134 号票）里不碰 DOM 的规矩：哪些 input 算文本框、哪些框是密码类（不列、不填、不出悬浮按钮）、标签文字怎么收拾、
-// 悬浮按钮摆在框的哪边；146 号票起还有按钮旁边的小气泡摆在哪、波形的竖条多高、按住说话怎么算取消；149 号票起按住说话时气泡在
-// 按钮上方（placeListening）、挑图片窗口摆在哪（placePickWindow）；164 号票起还有能点的东西是什么种类（clickRoleOf）、文字怎么收拾
-// （cleanElementText）、超过上限先列哪些（chooseClickables）、哪些 target 开新窗口（opensNewWindow）；184 号票起还有能填、能交、
+// 页面桥里不碰 DOM 的规矩：哪些 input 算文本框、哪些框是密码类（不列、不填、不出悬浮按钮）、标签文字怎么收拾、
+// 悬浮按钮摆在框的哪边；还有按钮旁边的小气泡摆在哪、波形的竖条多高、按住说话怎么算取消；按住说话时气泡在
+// 按钮上方（placeListening）、挑图片窗口摆在哪（placePickWindow）；还有能点的东西是什么种类（clickRoleOf）、文字怎么收拾
+// （cleanElementText）、超过上限先列哪些（chooseClickables）、哪些 target 开新窗口（opensNewWindow）；还有能填、能交、
 // 能选的控件是什么种类（FieldRole）、现在的值怎么截（previewText）、下拉框的选项怎么收拾（optionTexts）。
 // 单独一个文件，测试在 Node 里直接跑（test/page-bridge/rules.test.ts）。
 
@@ -37,11 +37,11 @@ export function cleanLabel(text: string | null | undefined): string {
 
 /** 整页文字最多交多少字（和协议的 BROWSER_PAGE_TEXT_MAX 一样；页面桥的脚本里不引用协议包的值） */
 export const PAGE_TEXT_MAX = 20_000;
-/** 框里现在的内容最多交多少字（149 号票，和协议的 PAGE_FIELD_VALUE_MAX 一样） */
+/** 框里现在的内容最多交多少字（和协议的 PAGE_FIELD_VALUE_MAX 一样） */
 export const FIELD_VALUE_MAX = 5000;
 
 /**
- * 整页文字收拾一下（147 号票，读网页）：每行去掉首尾空白、行内连着的空白并成一个空格，空行并成一个，最多 max 字（多的截掉，
+ * 整页文字收拾一下（读网页）：每行去掉首尾空白、行内连着的空白并成一个空格，空行并成一个，最多 max 字（多的截掉，
  * 写明截了、一共多少字——一共的按收拾过的算）
  */
 export function tidyPageText(raw: string, max = PAGE_TEXT_MAX): { text: string; truncated: boolean; total: number } {
@@ -63,9 +63,9 @@ export interface Rect {
   bottom: number;
 }
 
-// ---------- 长按元素的圆钮（359 号票） ----------
+// ---------- 长按元素的圆钮 ----------
 
-/** 圆钮没人用时留多久（毫秒）：按到第一下实测用不到 2 秒，再长就挡内容（359 号票 Comments，真机上再看够不够） */
+/** 圆钮没人用时留多久（毫秒）：按到第一下实测用不到 2 秒，再长就挡内容（真机上再看够不够） */
 export const ELEMENT_KEEP_MS = 5000;
 /** 元素的地址最长多少（和协议的 PICKED_ELEMENT_URL_MAX 一样）、说明文字最多多少字（PICKED_ELEMENT_LABEL_MAX） */
 export const ELEMENT_URL_MAX = 2048;
@@ -136,7 +136,7 @@ export function placeButton(anchor: Rect, viewport: { width: number; height: num
   return { x: clampX(anchor.right - s - EDGE), y: clampY(anchor.bottom - s - EDGE) };
 }
 
-// ---------- 悬浮按钮旁边的小气泡（146 号票） ----------
+// ---------- 悬浮按钮旁边的小气泡 ----------
 
 /** 气泡离看得见的部分的边至少留多少、离按钮多远、最宽多宽、最高多高（内容多了气泡里自己滚）（CSS 像素） */
 export const BUBBLE_EDGE = 8;
@@ -159,7 +159,7 @@ export const BUBBLE_MIN_HEIGHT = 120;
 const TEXT_BLOCK = 56;
 
 /**
- * 气泡摆在哪（视口坐标）：side 是在按钮上方、下方、左边、右边（149 号票：按住说话时按钮贴着顶，上方放不下），还是没有按钮
+ * 气泡摆在哪（视口坐标）：side 是在按钮上方、下方、左边、右边（按住说话时按钮贴着顶，上方放不下），还是没有按钮
  * （free：放在看得见的部分的下面居中）；maxHeight 是气泡最高能多高（内容比它高就在里面滚）；tailX 是小尖角离气泡左边多远（指着按钮的
  * 中线，没有按钮、在左右两边时是 -1）；tailY 是在左右两边时小尖角离气泡上边多远（指着按钮的中线）；width 是在左右两边时气泡收窄到多宽
  * （放得下就是原来的宽度）；covers 是盖住了框没有（none 没盖、field 盖了框但没盖文字那块、text 盖了文字那块——实在放不下才这样）
@@ -228,7 +228,7 @@ function tallest(list: readonly Slot[]): Slot | undefined {
 }
 
 /**
- * 气泡摆在哪（主会话 2026-10-18 定：气泡不要盖住框）：button 是悬浮按钮（undefined 是不知道跟哪个框）；size 是气泡按内容要多宽多高；
+ * 气泡摆在哪（气泡不要盖住框）：button 是悬浮按钮（undefined 是不知道跟哪个框）；size 是气泡按内容要多宽多高；
  * view 是看得见的部分（手机上输入法弹起时只剩上面那一截，缩放时是放大的那一块）；field 是按钮挂着的框（不知道是 undefined）。
  * 横着以按钮为中，左右不出看得见的部分、至少留 8。竖着依次试：
  * 1. 全高放得下、不盖框：先背离框的那一边（按钮在框下面放下方、在框上面放上方），放不下换另一边（越过框放到框的另一头）；
@@ -278,7 +278,7 @@ export function placeBubble(button: Rect | undefined, size: { width: number; hei
 const SIDE_MIN_WIDTH = 160;
 
 /**
- * 按住说话时气泡摆在哪（149 号票，用户 2026-10-18："按住悬浮按钮说话时，波形在按钮上方"——手指按在按钮上，下方和按钮本身会被挡住）：
+ * 按住说话时气泡摆在哪（"按住悬浮按钮说话时，波形在按钮上方"——手指按在按钮上，下方和按钮本身会被挡住）：
  * 不管按钮背离框是哪一边，都放在按钮上方，横着以按钮为中、不出看得见的部分；上方放不下（按钮贴着屏幕顶），放在按钮左边或右边
  * 空间大的那一侧（离按着按钮的手指远），竖着以按钮为中，宽度不够就收窄（最窄 160）；不放在下方。可以盖住框（说话时不用看框）
  */
@@ -302,7 +302,7 @@ export function placeListening(button: Rect, size: { width: number; height: numb
   return { x, y, maxHeight, side, tailX: -1, tailY: Math.max(TAIL_INSET, Math.min(centerY - y, height - TAIL_INSET)), width, covers: "none" };
 }
 
-// ---------- 挑图片窗口（149 号票） ----------
+// ---------- 挑图片窗口 ----------
 
 /** 宽屏上挑图片窗口最宽多宽、离边多远；窗口最高多高（内容多了在里面滚） */
 export const PICK_MAX_WIDTH = 520;
@@ -312,7 +312,7 @@ export const PICK_MAX_HEIGHT = 340;
 export const PICK_WIDE_MIN = 600;
 
 /**
- * 挑图片窗口摆在哪（149 号票，用户 2026-10-18："挑图片的窗口不跟着悬浮按钮，固定弹在屏幕上让用户挑"）：只看看得见的部分
+ * 挑图片窗口摆在哪（"挑图片的窗口不跟着悬浮按钮，固定弹在屏幕上让用户挑"）：只看看得见的部分
  * （输入法弹起时只剩上面那一截），和按钮、框、网页滚到哪都无关——手机上贴着底、占满宽（docked：只有上面两个角是圆的）；
  * 宽屏底部居中，离底 16，宽度最多 520。height 是窗口按内容要多高
  */
@@ -356,12 +356,12 @@ export function recordedText(ms: number): string {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
-// ───────────────────────── 能点的东西（164 号票，clickables.ts） ─────────────────────────
+// ───────────────────────── 能点的东西（clickables.ts） ─────────────────────────
 
 /** 能点的东西的种类（和协议的 PAGE_ELEMENT_ROLES 一样；页面桥的脚本里不引用协议包的值） */
 export type ClickRole = "link" | "button" | "menuitem" | "tab" | "input" | "submit";
 
-/** 能填、能交、能选的控件的种类（184 号票，和协议的 PAGE_FIELD_ROLES 一样）：文本框、上传框、下拉框 */
+/** 能填、能交、能选的控件的种类（和协议的 PAGE_FIELD_ROLES 一样）：文本框、上传框、下拉框 */
 export type FieldRole = "textbox" | "upload" | "select";
 /** snapshot 列的东西的种类：能点的和能填、能交、能选的 */
 export type ElementRole = ClickRole | FieldRole;
@@ -373,13 +373,13 @@ export const VALUE_PREVIEW_MAX = 40;
 export const OPTIONS_MAX = 20;
 export const OPTION_TEXT_MAX = 100;
 
-/** 现在的值（184 号票）：空白并成一个空格、去掉两头的，取前 40 字；空的是 undefined（不写） */
+/** 现在的值：空白并成一个空格、去掉两头的，取前 40 字；空的是 undefined（不写） */
 export function previewText(value: string | null | undefined): string | undefined {
   const text = (value ?? "").replace(/\s+/g, " ").trim().slice(0, VALUE_PREVIEW_MAX);
   return text === "" ? undefined : text;
 }
 
-/** 下拉框的选项（184 号票）：每个收拾空白、最长 100，空的去掉，最多 20 个 */
+/** 下拉框的选项：每个收拾空白、最长 100，空的去掉，最多 20 个 */
 export function optionTexts(list: ReadonlyArray<string | null | undefined>): string[] {
   const out: string[] = [];
   for (const raw of list) {

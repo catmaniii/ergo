@@ -1,8 +1,8 @@
-// 看板分组收起 / 展开（90 号票）在浏览器里的那一半：读写这台设备记住的值（localStorage），改了马上告诉界面。
+// 看板分组收起 / 展开在浏览器里的那一半：读写这台设备记住的值（localStorage），改了马上告诉界面。
 // 默认"已归档"收起、其它展开；和默认一样时不留记号。存储用不了时按默认，改了只在这次打开里生效。写法照阶段栏开合（stage-side-setting.ts）。
 // 认不认记住的值在 state/board-fold.ts（boardFoldedOf）。页面上用的那一个在 app/page-board-fold.ts。
-// 104 号票的项目一览分组同一个做法、另一个键（foldSettingIn + PROJECT_FOLD，页面上那一个在 app/page-project-wall.ts）。
-// 247 号票的设置列表四组也是同一个做法、第三个键（SETTINGS_FOLD：四组默认都展开，页面上那一个在 app/page-settings-fold.ts）。
+// 项目一览分组同一个做法、另一个键（foldSettingIn + PROJECT_FOLD，页面上那一个在 app/page-project-wall.ts）。
+// 设置列表四组也是同一个做法、第三个键（SETTINGS_FOLD：四组默认都展开，页面上那一个在 app/page-settings-fold.ts）。
 import {
   type BoardGroup,
   boardFoldedOf,
@@ -27,7 +27,7 @@ export interface FoldSetting<G extends string> {
 
 export type BoardFoldSetting = FoldSetting<BoardGroup>;
 
-/** 设置列表的四组（247 号票）：和任务看板、项目一览分开记 */
+/** 设置列表的四组：和任务看板、项目一览分开记 */
 export type SettingsFoldSetting = FoldSetting<SettingsGroupId>;
 
 /** 一种分组收起记在哪个键、怎么认、怎么写 */
@@ -38,13 +38,13 @@ export interface FoldSpec<G extends string> {
   text(folded: ReadonlySet<G>): string | undefined;
 }
 
-/** 任务看板（90 号票） */
+/** 任务看板 */
 export const BOARD_FOLD: FoldSpec<BoardGroup> = { key: "ergo-board-folded", parse: boardFoldedOf, text: boardFoldedText };
 
-/** 项目一览（104 号票）：和任务看板分开记 */
+/** 项目一览：和任务看板分开记 */
 export const PROJECT_FOLD: FoldSpec<ProjectGroup> = { key: "ergo-project-folded", parse: projectFoldedOf, text: projectFoldedText };
 
-/** 设置列表的四组（247 号票）：和看板、项目一览分开记 */
+/** 设置列表的四组：和看板、项目一览分开记 */
 export const SETTINGS_FOLD: FoldSpec<SettingsGroupId> = { key: "ergo-settings-folded", parse: settingsFoldedOf, text: settingsFoldedText };
 
 /** storage 取不到（隐私模式、禁用了站点数据）时抛错 */
@@ -81,7 +81,7 @@ export function boardFoldSettingIn(storage: () => DeviceStorage): BoardFoldSetti
   return foldSettingIn(storage, BOARD_FOLD);
 }
 
-/** 设置列表四组的那一份（247 号票，页面上用的见 app/page-settings-fold.ts） */
+/** 设置列表四组的那一份（页面上用的见 app/page-settings-fold.ts） */
 export function settingsFoldSettingIn(storage: () => DeviceStorage): SettingsFoldSetting {
   return foldSettingIn(storage, SETTINGS_FOLD);
 }

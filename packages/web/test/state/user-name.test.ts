@@ -1,4 +1,4 @@
-// 前端状态层：我的名字（249 号票）。用户自己的名字不走事件：打开页面时经 GET /api/user-name 取回、设置里改完用 PUT 回的那个，
+// 前端状态层：我的名字。用户自己的名字不走事件：打开页面时经 GET /api/user-name 取回、设置里改完用 PUT 回的那个，
 // 都进状态层的 userName。界面上用它的是秘书页、待办页的副标题——**没设就完全保持现状**（一个字都不多）。
 import { describe, expect, test } from "vitest";
 import { initialUiState, inboxPageSub, reduce, secretaryPageSub, type UiInput, type UiState, userNameOf } from "../../src/state/index.ts";

@@ -1,23 +1,23 @@
-// 在浏览器里录一段语音（规格第 22 节，31 号票）：录音只在本地，抬手后整段交给上传（录的过程中不往服务器发任何音频）。
-// 麦克风预热（37 号票，用户 2026-10-08 定：提前加载麦克风但不记录）：
+// 在浏览器里录一段语音（规格第 22 节）：录音只在本地，抬手后整段交给上传（录的过程中不往服务器发任何音频）。
+// 麦克风预热（提前加载麦克风但不记录）：
 // - open：打开麦克风流、接好音量分析，不建录音器、不录、不存（什么时候开、什么时候关由 voice-session.ts 按 state/voice-mic.ts 定）；
 // - begin：按下时流已就绪就在这一步同步建好 MediaRecorder 并 start，开头不丢；stop / cancel 只停下这一段的录音器，流留着给下一条；
 // - close：停掉所有音轨、关掉音量分析（浏览器的麦克风指示灯随之熄灭）；还在要麦克风的，要到了也马上停掉。
 // 每一段量出"按下 → 录音器真正开始（start 事件）"的毫秒数和是不是预热命中，随录音交出去（Recording.capture）。
-// 61 号票：音轨被系统静音（muted）也不算预热好（stale，按下时重开）；录着的时候顺带记下最大振幅，整段是静音的标出来（Recording.silent）；
+// 音轨被系统静音（muted）也不算预热好（stale，按下时重开）；录着的时候顺带记下最大振幅，整段是静音的标出来（Recording.silent）；
 // 开、关、要到、没要到、音轨事件记进麦克风诊断记录（voice-mic-log.ts），诊断里还有这个流为什么开、getUserMedia 花了多久。
-// 处理（回声消除、降噪、自动增益）照旧开着（回声消除可以由 36 号票的兜底 (b) 关掉，默认不关，见 voice-fallbacks.ts）：预热时它们有时间先收敛，按下时不再从头起步；音轨一直 enabled
+// 处理（回声消除、降噪、自动增益）照旧开着（回声消除可以由兜底 (b) 关掉，默认不关，见 voice-fallbacks.ts）：预热时它们有时间先收敛，按下时不再从头起步；音轨一直 enabled
 // （部分浏览器在音轨 disabled 时会关设备，重开又有延迟）。
 // 浏览器能录什么格式就用什么格式（Chrome、Edge 是 webm/opus，Firefox 是 ogg/opus，Safari 是 mp4/aac），服务端按内容认。
 // 这里不写 DOM 的类型（测试在 Node 里跑，浏览器的接口换成假的）：用到的那部分见下面的 Mic* 接口，真的浏览器接在 voice-browser.ts。
-// 63 号票：鸿蒙 App 里录音走原生（voice-native-recorder.ts 的 NativeVoiceRecorder）；两者都是 VoiceCaptureBackend，voice-session.ts 只用它。
+// 鸿蒙 App 里录音走原生（voice-native-recorder.ts 的 NativeVoiceRecorder）；两者都是 VoiceCaptureBackend，voice-session.ts 只用它。
 import { t, type VoiceCapture, type VoiceMicBackend, type VoiceMicCloseReason, type VoiceMicOpenReason, voiceTakeSilent } from "../state/index.ts";
 import { VoiceMicLog } from "./voice-mic-log.ts";
 
 /** 依次试的录音格式 */
 const MIME_CANDIDATES = ["audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/mp4", "audio/webm"];
 
-/** 要麦克风时的约束；回声消除默认开着（关掉是 36 号票的兜底 (b)，见 voice-fallbacks.ts） */
+/** 要麦克风时的约束；回声消除默认开着（关掉是兜底 (b)，见 voice-fallbacks.ts） */
 export function micConstraints(echoCancellation = true): { audio: { echoCancellation: boolean; noiseSuppression: true; autoGainControl: true } } {
   return { audio: { echoCancellation, noiseSuppression: true, autoGainControl: true } };
 }
@@ -30,7 +30,7 @@ export const MIC_CONSTRAINTS: MicConstraints = micConstraints();
 const TIMESLICE_MS = 250;
 
 /**
- * 录音的后端（63 号票）：浏览器的 VoiceRecorder（getUserMedia + MediaRecorder），或者鸿蒙 App 原生的 NativeVoiceRecorder。
+ * 录音的后端：浏览器的 VoiceRecorder（getUserMedia + MediaRecorder），或者鸿蒙 App 原生的 NativeVoiceRecorder。
  * voice-session.ts 只用这些：open 预热（浏览器打开麦克风流，原生备好录音器）、begin 按下开始、stop 交出这一段、cancel 丢掉、close 放掉
  */
 export interface VoiceCaptureBackend {
@@ -119,7 +119,7 @@ export interface VoiceMedia {
   getUserMedia(constraints: MicConstraints): Promise<MicStream>;
   createRecorder(stream: MicStream, mimeType: string | undefined): MicRecorder;
   /**
-   * 录好的一段交出去之前过一道（346 号票：语音识别走 audio.cpp 时服务只收 WAV，先转好）；不给是原样交。
+   * 录好的一段交出去之前过一道（语音识别走 audio.cpp 时服务只收 WAV，先转好）；不给是原样交。
    * 转不了要回原样（守护进程那边还能用 ffmpeg 转），不要抛错丢掉录音
    */
   finishTake?(take: { blob: Blob; mime: string }): Promise<{ blob: Blob; mime: string }>;

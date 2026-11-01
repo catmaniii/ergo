@@ -1,16 +1,16 @@
-// Google 插件自己的事件（297 号票）：守护进程内部的频道 google（前端不订阅；日历页经日历插件按月取，数据源页经 HTTP 取）。
+// Google 插件自己的事件：守护进程内部的频道 google（前端不订阅；日历页经日历插件按月取，数据源页经 HTTP 取）。
 // - google_calendar_feed：订阅的一个日历——它的 id（私密地址的哈希，不是地址本身）、用户起的名字、日历自己的名字（X-WR-CALNAME）
 //   和默认时区（X-WR-TIMEZONE）；removed 是用户在设置里删掉了这个日历；
 // - google_calendar_item：一个日历里的一个 VEVENT（ical.ts 解析后的样子，改期的那一次单独一条）——同步时和现在的比，只写新的、变了的、
 //   没了的（removed）；同一个事件按最后一版算。删掉一个日历时它的每一个事件各写一条 removed，再写日历的 removed。
-// 私密地址只在密钥区（data-sources/secrets.ts），这里一个都不写。这些事件不采成素材（日历的事件给日历插件显示，issue 25 第 3 节）。
+// 私密地址只在密钥区（data-sources/secrets.ts），这里一个都不写。这些事件不采成素材（日历的事件给日历插件显示）。
 // 数据源断开并删、移除插件连数据删时整条换成"已删除"标记（数据源的 records、插件的 removal.declare）。
-// 298 号票（Gmail）加了两类，只在开了"导入我发出的邮件"时写（按需查现查不存，什么都不写）：
+// （Gmail）加了两类，只在开了"导入我发出的邮件"时写（按需查现查不存，什么都不写）：
 // - google_gmail_sent：导入的一封你发出的邮件——它在"已发邮件"里的编号（UIDVALIDITY 和 UID）、Message-ID、发出的时间、主题、收件人的称呼、
 //   主题加去掉了引用原文的正文；采成"本人写的"素材（plugin.ts 的采集规则），彻底删除时主题、正文、收件人换掉；
 // - google_gmail_cursor：导到哪了（没正文的、早就导过的跳过时，"已发邮件"里的编号照样往前挪），只在最后几封都跳过时写一条。
 // Gmail 地址和应用专用密码只在密钥区，这里一个都不写。
-// 344 号票（多账号）：这两类多记哪个账号——account 是账号的 id（地址的哈希，推不回地址）；google_gmail_sent 另带打了码的邮箱（accountLabel，
+// 多账号：这两类多记哪个账号——account 是账号的 id（地址的哈希，推不回地址）；google_gmail_sent 另带打了码的邮箱（accountLabel，
 // 采集规则只看事件，素材的出处要它，彻底删除时去掉）。转过来之前写的没有这两项，归转过来的那个账号（gmail-accounts.ts）。
 import { isDeletedEventPayload } from "@ergo/protocol";
 import type { SensitiveCategory } from "../config/config.ts";
@@ -28,7 +28,7 @@ export const GOOGLE_GMAIL_CURSOR = "google_gmail_cursor";
 export interface GoogleGmailSentPayload {
   /** 这条记录的编号：<账号 id>-UIDVALIDITY-UID（转过来之前写的是 UIDVALIDITY-UID） */
   id: string;
-  /** 哪个账号（344 号票：账号的 id）；转过来之前写的没有 */
+  /** 哪个账号（账号的 id）；转过来之前写的没有 */
   account?: string;
   /** 打了码的邮箱（素材的出处用）；彻底删除时去掉 */
   accountLabel?: string;
@@ -50,7 +50,7 @@ export interface GoogleGmailSentPayload {
 
 /** 导到哪了 */
 export interface GoogleGmailCursorPayload {
-  /** 哪个账号（344 号票）；转过来之前写的没有 */
+  /** 哪个账号；转过来之前写的没有 */
   account?: string;
   uidValidity: number;
   uid: number;

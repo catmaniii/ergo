@@ -1,4 +1,4 @@
-// 照片的拍摄时间（134 号票：替网页的上传框找"周末在杭州拍的照片"）：读 JPEG 开头的 EXIF，取拍摄时间（Exif 子目录的
+// 照片的拍摄时间（替网页的上传框找"周末在杭州拍的照片"）：读 JPEG 开头的 EXIF，取拍摄时间（Exif 子目录的
 // DateTimeOriginal 0x9003，没有就用 IFD0 的 DateTime 0x0132）。EXIF 里的时间不带时区，按拍的时候的本地时间原样给（"YYYY-MM-DD HH:mm"）。
 // 只认 JPEG（手机照片、相机照片绝大多数是它）；HEIC、PNG 这些没有就退回文件的修改时间（find-files.ts）。读 GPS 反查城市以后再做。
 import fs from "node:fs";

@@ -1,4 +1,4 @@
-// 转发本机服务的页面（132 号票）：网关把 /apps/<应用名>/… 交到这里，按转发登记表（registry.ts）转给本机的服务。
+// 转发本机服务的页面：网关把 /apps/<应用名>/… 交到这里，按转发登记表（registry.ts）转给本机的服务。
 // 鉴权在网关里、和二狗自己的页面一样（本机端口照旧；外网端口要配对过的设备凭证），服务自己不用做登录。
 // - 只转发登记过的：没登记的、应用名写得不对的回 404 说明页；只写到应用名的（/apps/x）跳到带斜杠的首页（相对地址才解析得对）；
 // - 普通请求、流式响应（边收边转，响应头先发出去）、WebSocket 升级（转成原始的 socket 管道）都转；
@@ -9,7 +9,7 @@
 //   去掉挡嵌入的头（X-Frame-Options、CSP 的 frame-ancestors），内置浏览器的 iframe 才显示得出来；
 //   Set-Cookie 的 Path 改到前缀下、去掉 Domain（几个服务的 cookie 互不覆盖），二狗自己的 cookie 名不许服务写；
 // - 服务没在跑、连不上：回一页简短的说明（"服务「X」现在没在运行"），不是裸的 502。
-// - 正文一律原样转，不改；以后要改（136 号票给 HTML 注入二狗的页面桥）的位置在 serve 里收到响应那一段，见那里的注释。
+// - 正文一律原样转，不改；以后要改（给 HTML 注入二狗的页面桥）的位置在 serve 里收到响应那一段，见那里的注释。
 // 撤销登记、设备被吊销、网关关闭时，开着的 WebSocket 管道和还在流的响应一并断开。
 // 同源转发的安全取舍（服务页面的脚本跑在二狗的源上）见 docs/architecture/README.md"转发本机服务的页面"：现在先这样，以后改成独立的源。
 import http from "node:http";
@@ -298,7 +298,7 @@ export function createAppProxy(options: { registry: AppRegistry; log: (line: str
           res.removeHeader("set-cookie");
           for (const value of [own].flat()) headers.push("Set-Cookie", String(value));
         }
-        // 对响应正文做改写的位置（本票不改正文，原样转）：136 号票要在这里给服务的 HTML 注入二狗的页面桥 <script>，
+        // 对响应正文做改写的位置（不改正文，原样转）：要在这里给服务的 HTML 注入二狗的页面桥 <script>，
         // CSP 里只为它放行（响应头在上面 responseHeaders 里改，script-src 加它的 nonce 或哈希）。做法是按 Content-Type 选一个可选的改写步骤：
         // - 只改 text/html，而且不是流式的：text/event-stream、没有 Content-Length 又一直不结束的照旧边收边转，不攒；
         // - 压缩过的（Content-Encoding: gzip / br / deflate）：先解压再改，或者转给服务时对这类请求不带 Accept-Encoding；

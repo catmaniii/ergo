@@ -6,12 +6,12 @@
 // - 只给新的观察出假设（不是 exhaustive）：已经在某组里的观察不再问；
 // - 每次调用先从预算里扣，预算用完就不再调（这一步当没做，留给下次）。
 // 状态和置信度不归模型定，由 scoring.ts 按关联统一算。
-// 201 号票：往上抽（lift，rg/llm-lift.ts）和编交互策略（writeStrategies，rg/llm-strategies.ts）。往上抽的门槛由代码判；
+// 往上抽（lift，rg/llm-lift.ts）和编交互策略（writeStrategies，rg/llm-strategies.ts）。往上抽的门槛由代码判；
 // 往上抽的组的追问用模型在往上抽时一起写的，不再另问；已有的组要看推理图谱（engine 打开时 attachGraph 接上）。
-// 218 号票：出假设分批（新的观察 PROPOSE_BATCH_OBSERVATIONS 条一批，相近的排在一起；每批的观察写全，别的事实只写摘要；
+// 出假设分批（新的观察 PROPOSE_BATCH_OBSERVATIONS 条一批，相近的排在一起；每批的观察写全，别的事实只写摘要；
 // 一批最多 PROPOSE_MAX_GROUPS 组，估的输出 proposeOutputEstimate 离上限有余量），要求输出紧凑；出假设、往上抽、编策略都走 llm/robust.ts：每批独立，截断、解析不了的救回完整的条目、
 // 剩下的对半切小重试（最多两层），每一步记进 dropped 和统计（ctx.stats）。追问、判证据照旧，只记数。
-// 272 号票：给了问过的账（ctx.asked，reflect 建）时，出假设的新观察、往上抽没被用上的下层断言问过一次、没变化的不再当这一批问
+// 给了问过的账（ctx.asked，reflect 建）时，出假设的新观察、往上抽没被用上的下层断言问过一次、没变化的不再当这一批问
 // （照样作为别的事实、别的下层断言给摘要），问到了的交回账上；不给账（估费用、别的调用方）照旧全问。
 import { addDays, compareTime } from "../domain/time.ts";
 import { CLAIM_TIERS, LINK_WEIGHTS, type ClaimTier, type Fact, type LinkWeight, type Probe } from "../domain/types.ts";
@@ -25,7 +25,7 @@ import type { ReasoningGraph } from "./reasoning-graph.ts";
 import { observationSignature, premiseSignature } from "./nightly-lanes.ts";
 import type { LiftInput, LiftLevel, StrategyBasisInput, WrittenStrategy } from "./types.ts";
 
-/** 218 号票：出假设一组的输出约多少 token（第一次真跑量的：要求紧凑、一批最多 6 组时，一批最多写了 2746 token，约 460 / 组） */
+/** 出假设一组的输出约多少 token（第一次真跑量的：要求紧凑、一批最多 6 组时，一批最多写了 2746 token，约 460 / 组） */
 export const PROPOSE_OUTPUT_PER_GROUP = 460;
 /** 一批最多出几组：输出最多约 6 × 460 ≈ 2800 token，离 8000 的上限有余量 */
 export const PROPOSE_MAX_GROUPS = 6;
@@ -61,7 +61,7 @@ export const JUDGE_SYSTEM = `你是记忆系统的推理器，判断检索到的
 
 const STATE_DAYS = 14;
 /**
- * 输出上限（token）。192 号票第一次真跑：48 条证据、49 条事实时 propose 每次都写满 2000 被截断，一组假设都没出来；
+ * 输出上限（token）。第一次真跑：48 条证据、49 条事实时 propose 每次都写满 2000 被截断，一组假设都没出来；
  * 放到 8000（DeepSeek 对话接口的输出上限是 8K），追问、判定 800 → 2000
  */
 export const PROPOSE_MAX_TOKENS = 8000;
@@ -100,7 +100,7 @@ export class LlmReasoner implements Reasoner {
   }
 
   /**
-   * 218 号票：新的观察（还不在已有的组里）分批。没有新观察、能当依据的不到两条时没有批；不超过 proposeBatch 条是一批；
+   * 新的观察（还不在已有的组里）分批。没有新观察、能当依据的不到两条时没有批；不超过 proposeBatch 条是一批；
    * 多了按谓词、肯定还是否定、场景、宾语排（同一类现象挨在一起），切成一样大的几批，每批里照原来的顺序
    */
   proposeBatches(observations: readonly Fact[], ctx: Pick<ReasonerContext, "view" | "existingGroups" | "asked">): Fact[][] {
@@ -115,7 +115,7 @@ export class LlmReasoner implements Reasoner {
     return chunkEvenly(fresh.toSorted((a, b) => kindKey(a).localeCompare(kindKey(b)) || byOrder(a, b)), this.proposeBatch).map((b) => b.toSorted(byOrder));
   }
 
-  /** 272 号票：这一条问过、签名没变（不再当这一批问） */
+  /** 这一条问过、签名没变（不再当这一批问） */
   private unchanged(ctx: Pick<ReasonerContext, "asked">, step: AskStep, subject: string, signature: () => string): boolean {
     if (ctx.asked === undefined) return false;
     const before = ctx.asked.signature(step, subject);
@@ -213,7 +213,7 @@ export class LlmReasoner implements Reasoner {
         for (const id of observationIds) if (!links.some((l) => l.target === id)) links.push({ target: id, polarity: "supports", weight: "weak", rationale: `观察：${usableFacts.get(id)!.statement}` });
         const validFrom = usableFacts.get(observationIds[0]!)!.eventTime ?? null;
         let modelTo = typeof h.valid_to === "string" && /T/.test(h.valid_to) ? h.valid_to : null;
-        // 204 号票：模型给的截止早于开始时写断言会被校验挡下、整次整理崩掉——不用它，照默认算，记进丢掉的
+        // 模型给的截止早于开始时写断言会被校验挡下、整次整理崩掉——不用它，照默认算，记进丢掉的
         if (modelTo && validFrom && compareTime(modelTo, validFrom) < 0) {
           drop(`有效期截止早于开始（${modelTo} < ${validFrom}），照默认算`, rawH);
           modelTo = null;
@@ -274,7 +274,7 @@ export class LlmReasoner implements Reasoner {
   }
 
   async probesFor(group: GroupView, ctx: ReasonerContext): Promise<ProbeDraft[]> {
-    // 201 号票：往上抽的组用模型往上抽时一起写的追问（找到了算支持出这条追问的那一条），不再另问
+    // 往上抽的组用模型往上抽时一起写的追问（找到了算支持出这条追问的那一条），不再另问
     const written = this.liftProbes(group);
     if (written.length > 0) return written;
     if (!ctx.budget.take()) return [];
@@ -336,7 +336,7 @@ export class LlmReasoner implements Reasoner {
     return { outcome: found.length > 0 ? "found" : "not_found", foundEvidenceIds: found, ifFound, links };
   }
 
-  // ---------- 往上抽、编策略（201 号票） ----------
+  // ---------- 往上抽、编策略 ----------
 
   private graph: ReasoningGraph | undefined;
 
@@ -462,7 +462,7 @@ export class LlmReasoner implements Reasoner {
     return asked === 0 ? [] : parseStrategies({ strategies: items }, bases, ctx.dropped);
   }
 
-  /** 追问、判证据：一次请求整段解析，解析不了的丢掉（218 号票只记数：调用、截断、解析不了、空回答） */
+  /** 追问、判证据：一次请求整段解析，解析不了的丢掉（只记数：调用、截断、解析不了、空回答） */
   private async ask(request: ChatRequest, stage: DroppedOutput["stage"], ctx: Pick<ReasonerContext, "dropped" | "stats">): Promise<Record<string, unknown> | undefined> {
     const response = await this.model.complete(request);
     countOutcome(stageStats(ctx.stats?.steps, stage), response);

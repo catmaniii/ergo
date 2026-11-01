@@ -115,7 +115,7 @@ describe("时间和变化判定（四种）", () => {
     expect(fact(current!.fact.id).status).toBe("active");
   });
 
-  it("334：前后两句意思相反、后说的没明说变了 → 真冲突，不按日子先后（新来的说的是更早的事也一样）", () => {
+  it("前后两句意思相反、后说的没明说变了 → 真冲突，不按日子先后（新来的说的是更早的事也一样）", () => {
     const [a] = say("我喜欢混合办公", "2026-10-10T10:00:00+08:00");
     const [b] = say("我不喜欢混合办公", "2026-04-01T10:00:00+08:00");
     expect(b!.changes).toEqual([expect.objectContaining({ kind: "conflict", oldFactId: a!.fact.id })]);
@@ -190,7 +190,7 @@ describe("时间和变化判定（四种）", () => {
     expect(kg.factsAt({ at: "2026-10-15T00:00:00+08:00" }).map((f) => f.id)).toEqual([thisYear!.fact.id]);
   });
 
-  it("194：「上回说那周要加班，其实那周一点都不忙」纠掉的是周末那条「忙」，复述的那句不再抽成新的「忙」", () => {
+  it("「上回说那周要加班，其实那周一点都不忙」纠掉的是周末那条「忙」，复述的那句不再抽成新的「忙」", () => {
     const scene = { context: ["weekend", "work", "social"] };
     const first = say("下周末的聚餐我去不了，要加班赶方案。", "2026-01-05T20:00:00+08:00", scene);
     const busy = first.find((r) => r.fact.statement.includes("忙"))!;
@@ -211,7 +211,7 @@ describe("时间和变化判定（四种）", () => {
   });
 });
 
-describe("334：一句话抽出来的事实，开始不早于说这句话的那天", () => {
+describe("一句话抽出来的事实，开始不早于说这句话的那天", () => {
   const SAID = "2026-10-18T22:00:00+08:00";
   function addDraft(text: string, over: Partial<FactDraft>): Fact {
     n += 1;

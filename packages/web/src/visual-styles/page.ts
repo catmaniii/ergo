@@ -1,5 +1,5 @@
-// 页面上和风格有关、样式表管不到的几样（39 号票）：手机浏览器地址栏的颜色（<meta name="theme-color">）、这套风格的字体样式表，
-// 119 号票起还有这套风格可选的主色（根元素的 data-accent 挂哪个）。
+// 页面上和风格有关、样式表管不到的几样：手机浏览器地址栏的颜色（<meta name="theme-color">）、这套风格的字体样式表，
+// 还有这套风格可选的主色（根元素的 data-accent 挂哪个）。
 // app/theme.ts 和 index.html 的内联脚本（构建时由 build/visual-styles-plugin.ts 把这张表填进去）用同一份。
 import { effectiveTokens, resolveColor, type BaseVisualStyle, type VisualStyle } from "./tokens.ts";
 
@@ -8,7 +8,7 @@ export interface StylePageInfo {
   readonly bar: { readonly light: string; readonly dark: string };
   /** 这套风格的字体样式表（相对页面的地址）；没有自己的字体就不给 */
   readonly fonts?: string;
-  /** 这套风格可选的主色 id（119 号票），第一个是默认的；不能换主色就不给 */
+  /** 这套风格可选的主色 id，第一个是默认的；不能换主色就不给 */
   readonly accents?: readonly string[];
 }
 

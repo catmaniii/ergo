@@ -9,12 +9,12 @@
 // - 重复发可能是正常需求（比如每天发同样的通知）：先问我（confirm）：4。
 //
 // 1. 删除或覆盖项目档案和工作目录里的文件之前，必须已备份或已 git 提交。秘书草稿区不受约束（只看 area 为 project 的路径）；
-//    任务、项目自己的临时文件不受约束（111 号票：开始之后才有的、不是交付件的，项目里按项目认，判定函数认出来标在 $p.ownTemp 上，own-temp.ts）；
+//    任务、项目自己的临时文件不受约束（开始之后才有的、不是交付件的，项目里按项目认，判定函数认出来标在 $p.ownTemp 上，own-temp.ts）；
 //    "删除或覆盖"指删除文件、整体重写已有文件（局部编辑不算），以及带"删除或覆盖"标签的工具（丢弃 git 改动）；
 //    "已提交"看调用方传入的 git 状态（项目档案不在 git 里，一律不算），"已备份"看环境事实里的 backedUp
-//    （项目档案由运行时自动留旧版本，07、15 号票传 true），或效果日志里之前把它（或它所在的目录）复制出去过。
+//    （项目档案由运行时自动留旧版本，传 true），或效果日志里之前把它（或它所在的目录）复制出去过。
 // 2. push 之前必须在同一个仓库里跑过测试（测试没通过不进效果日志，不算）。
-// 3. 读过 .env 或密钥文件之后不许往外送——一律禁止，不是先问。只拦往外送（用户 2026-10-08 定，30 号票），看 $current.outward：
+// 3. 读过 .env 或密钥文件之后不许往外送——一律禁止，不是先问。只拦往外送，看 $current.outward：
 //    - 仍一律禁止：非 GET 的 HTTP 请求、带数据或上传的请求（curl 的 -d、--data*、-F、-T，wget 的 --post-*，gh api 的 -f / -F / --input，
 //      PowerShell 的 -Body / -InFile……，方法写成 GET 也算）、发消息发邮件、推送、发布、建远端仓库、连远端主机、下载并运行软件包，
 //      以及环境事实里报了用到联网库的脚本（看不出方向；没扫过的判断不了）；
@@ -23,7 +23,7 @@
 //      xargs 补上的参数）看不全它发了什么，照样算往外送（效果日志里也记着，$prior.outward 一样准）。
 //    "之前"照时序规则的口径：同一条管道、同一条命令里先后执行的组合都算（shell/split.ts 的 mayRunBefore）。
 //    往外送和往下拉的区分只在这条规则里用，不改变联网开关（关着时一律拒绝）和各关注类别的判定。
-//    （和 13 号票控制器里的硬检查"某个对象被判过永不之后，再对它做对外动作要先问"是两条不重叠的规则。）
+//    （和控制器里的硬检查"某个对象被判过永不之后，再对它做对外动作要先问"是两条不重叠的规则。）
 // 4. 同一收件人、同一内容不重复发：对外发送之前给其中任何一个收件人发过一模一样的内容就先问；只读的 GET 不算。
 //    没有收件人参数的发送（推送、gh 评论……）用目标对象当收件人（rule-steps.ts 的 recipients）。
 // 5. 对外内容不许含密钥：和底线"把凭据写进对外内容"用同一套认法、同一个取内容的口径（secrets.ts）：
@@ -45,7 +45,7 @@ export const V1_TEMPLATE_IDS = Object.freeze({
 } as const);
 
 /** 按注册表记下生成好的模板：注册表和生成出来的规则对象都不可变，可以一直复用 */
-// 名字、说明按当时的语言写（173 号票：回给 agent 的那一份在中文下判，审批卡上的在用户的语言下另判一遍）：按语言分开记
+// 名字、说明按当时的语言写（回给 agent 的那一份在中文下判，审批卡上的在用户的语言下另判一遍）：按语言分开记
 const cache = new WeakMap<ToolRegistry, Map<string, readonly TemporalRule[]>>();
 
 /** 按工具注册表生成 v1 模板（同一个注册表只生成一次） */
@@ -90,7 +90,7 @@ function buildTemplates(tools: ToolRegistry): TemporalRule[] {
       title: t("guard.templates.backupBeforeOverwrite.title"),
       trigger: { tool: replacing },
       for_each: { var: "p", key: "$p.path", in: { select: { from: "$current.paths", where: { ne: ["$row.access", "read"] } } } },
-      // 任务、项目自己的临时文件除外（111 号票）
+      // 任务、项目自己的临时文件除外
       when: { and: [{ eq: ["$p.replaced", true] }, { eq: ["$p.area", "project"] }, { ne: ["$p.ownTemp", true] }] },
       unless: { or: [{ eq: ["$p.committed", true] }, { eq: ["$p.backedUp", true] }] },
       require: { before: { tool: TOOL.copy, where: { path_within: ["$p.path", "$prior.args.from"] } } },
@@ -104,7 +104,7 @@ function buildTemplates(tools: ToolRegistry): TemporalRule[] {
       require: { before: { tool: TOOL.run_tests, where: { path_within: ["$current.args.repoPath", "$prior.args.repoPath"] } } },
       message: t("guard.templates.testBeforePush.message"),
       on_violation: "pull_back",
-      // 流程的计划审查（58 号票）：推送那一步前面没有跑测试的，插一步跑测试（执行时不用）
+      // 流程的计划审查：推送那一步前面没有跑测试的，插一步跑测试（执行时不用）
       repairs: [
         {
           insert: {

@@ -7,7 +7,7 @@ import type { MessagePart } from "@ergo/protocol";
 import { projectorV1 } from "./projection-v1.ts";
 import { projectorV2 } from "./projection-v2.ts";
 
-/** 当前的投影版本（2：79 号票，图片带上附件引用，看不了图时说明出路） */
+/** 当前的投影版本（2：图片带上附件引用，看不了图时说明出路） */
 export const MODEL_PROJECTION_VERSION = 2;
 
 type FilePart = Extract<MessagePart, { type: "file" }>;
@@ -35,7 +35,7 @@ export interface ProjectionInput {
   attachments: Readonly<Record<string, AttachmentContent>>;
   /** 卡片的一行摘要（卡片类型注册表的纯文本降级版本），键是卡片 id */
   cards: Readonly<Record<string, string>>;
-  /** 语音的文字（31 号票，调用方从语音对象取来），键是语音 id：识别出的文字，或者识别失败 */
+  /** 语音的文字（调用方从语音对象取来），键是语音 id：识别出的文字，或者识别失败 */
   voices: Readonly<Record<string, VoiceTranscript>>;
 }
 

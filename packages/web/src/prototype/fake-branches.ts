@@ -1,16 +1,16 @@
-// 原型里的会话回退（150 号票）：秘书主线最后演过一次回退，缩小后看得到 ↶（回退点）、⑂（废弃分支）、🧭 分支摘要；
+// 原型里的会话回退：秘书主线最后演过一次回退，缩小后看得到 ↶（回退点）、⑂（废弃分支）、🧭 分支摘要；
 // 点 ↶ 弹出的确认框列出这一段做了的事（按假会话里的工具调用编，见 fakeRollbackPreview），确认了照守护进程的算法长出新分支
 // （session_branch 加一条分支摘要；原型不停 agent、不写真的摘要）。
-// 151 号票：⑂ 展开的预览、分支详情要的一条分支的样子（fakeBranchView：它自己那一段的消息、遗留效果、分支摘要），切换分支（fakeSwitchBranch：
+// ⑂ 展开的预览、分支详情要的一条分支的样子（fakeBranchView：它自己那一段的消息、遗留效果、分支摘要），切换分支（fakeSwitchBranch：
 // 照守护进程只挪末端、记一条 session_branch），申请撤回（fakeEffectUndo：记一条 effect_undo_requested）。
-// 152 号票：长程任务负责人的会话也能撤回——阶段开始的回退点照守护进程截的那一处（stage_start 记号写明负责人是怎么知道的），撤回之后
+// 长程任务负责人的会话也能撤回——阶段开始的回退点照守护进程截的那一处（stage_start 记号写明负责人是怎么知道的），撤回之后
 // 任务的阶段照"那个阶段及之后回到未开始"推一遍（原型不翻看板上的历史：这个阶段重新开始、之后开始过的回到未开始），看板上推一条
 // rolled_back，再交给负责人一句接着做的通知（分支摘要上记着它，界面上不重复显示）和这一阶段新的开始记号。
-// 153 号票：流程的步骤开始也能撤回（同一条记号带 stepId，截在含那次 report_step 的那条消息）——那一步及之后（记号在它后面的）回到没做，
+// 流程的步骤开始也能撤回（同一条记号带 stepId，截在含那次 report_step 的那条消息）——那一步及之后（记号在它后面的）回到没做，
 // 看板上推一条 rolled_back；固定计划不交给负责人接着做的话、不记新的开始记号（等你说话）。
-// 155 号票：一分钟没说话的提醒在假连接里（fake-connection.ts 的 armRollbackWait）；定时、事件触发的流程任务状态不跟着走，
+// 一分钟没说话的提醒在假连接里（fake-connection.ts 的 armRollbackWait）；定时、事件触发的流程任务状态不跟着走，
 // 正在跑的那次运行记"已撤回"（不算失败），看板上推一条 run_finished。
-// 293 号票：用 Claude Code 的负责人（fake-runtimes.ts 的 FAKE_CLAUDE_MAINTAINERS）撤回时照守护进程：分支摘要是二狗写的（原型照做了的事编一句），
+// 用 Claude Code 的负责人（fake-runtimes.ts 的 FAKE_CLAUDE_MAINTAINERS）撤回时照守护进程：分支摘要是二狗写的（原型照做了的事编一句），
 // 摘要上记着按文件检查点恢复了哪些文件（被放弃那段里 write、edit 的路径；撤回到阶段、步骤开始前的不恢复）。
 import {
   type BranchEffect,
@@ -142,7 +142,7 @@ export function fakeBranchTree(log: FakeBranchLog, conversation: ConversationId)
 
 const seqOf = (f: EventFrame | undefined) => f?.seq;
 
-/** 会话里这条阶段开始的记号（152 号票）和它的序号 */
+/** 会话里这条阶段开始的记号和它的序号 */
 function stageMarkOf(log: FakeBranchLog, conversation: ConversationId, id: string): { seq: number; mark: StageStartEventPayload } | undefined {
   const frame = log.frames(conversation).find((f) => f.type === EVENT_TYPES.stageStart && (f.payload as StageStartEventPayload).id === id);
   return frame && { seq: frame.seq, mark: frame.payload as StageStartEventPayload };
@@ -267,7 +267,7 @@ export function fakeSwitchBranch(log: FakeBranchLog, conversation: ConversationI
   const branches = switchedTree(tree, branchId, seq, `fake-tip-${tree.current}-${seq}`);
   const payload: SessionBranchEventPayload = { change: "switch", branches, from: tree.current, to: branchId, by: "user", time };
   const frames = [log.append(conversation, EVENT_TYPES.sessionBranch, payload)];
-  // 任务会话（152 号票）：任务回到切过去那条分支上的样子（原型照离开那条时记下的恢复）
+  // 任务会话：任务回到切过去那条分支上的样子（原型照离开那条时记下的恢复）
   const now = conversationTask(log, conversation);
   const then = branchTasks.get(branchKey(conversation, branchId));
   if (now && then) {
@@ -299,7 +299,7 @@ export function fakeRollback(log: FakeBranchLog, conversation: ConversationId, b
   const branchId = nextBranchId(tree);
   const mark = "stageStart" in before ? stageMarkOf(log, conversation, before.stageStart)?.mark : undefined;
   const target = "messageId" in before ? "这条请求之前" : "branchId" in before ? `分支 ${before.branchId} 开始前` : startRollbackLabel(mark ?? { title: "" }).replace(/^撤回到/, "");
-  // 293 号票：用 Claude Code 的负责人——摘要由二狗写、文件按检查点恢复
+  // 用 Claude Code 的负责人——摘要由二狗写、文件按检查点恢复
   const claude = FAKE_CLAUDE_MAINTAINERS.some((id) => maintainerChannel(id) === conversation);
   const effects = effectsIn(log, conversation, rangesFrom(pathRanges(tree), cut));
   const summary = claude
@@ -312,7 +312,7 @@ export function fakeRollback(log: FakeBranchLog, conversation: ConversationId, b
       ? { restored: [], skipped: "call_point" }
       : { restored: effects.filter((e) => e.tool === "write" || e.tool === "edit").map((e) => e.argsSummary) }
     : undefined;
-  // 流程的步骤开始（153 号票）：步骤跟着退，不交代、不记新的开始记号
+  // 流程的步骤开始：步骤跟着退，不交代、不记新的开始记号
   if (mark?.stepId !== undefined) {
     const committed = commitRollback(log, conversation, tree, before, cut, branchId, summary, nowIso(), undefined, files);
     const markSeq = stageMarkOf(log, conversation, mark.id)!.seq;
@@ -322,11 +322,11 @@ export function fakeRollback(log: FakeBranchLog, conversation: ConversationId, b
 }
 
 /**
- * 撤回到长程任务一个阶段开始前之后（原型，152 号票）：这个阶段重新开始、之后开始过的（记号在它后面的）回到未开始，看板上推一条 rolled_back；
+ * 撤回到长程任务一个阶段开始前之后（原型）：这个阶段重新开始、之后开始过的（记号在它后面的）回到未开始，看板上推一条 rolled_back；
  * 交给负责人一句接着做的通知（noticeId，记在分支摘要上）、这一阶段新的开始记号。返回要推的帧
  */
 /**
- * 原型的任务跟着分支走（152 号票）：离开一条分支时它上面任务的样子（会话 + 分支 → 那时看板上的任务）。守护进程按看板事件在会话里的位置推导，
+ * 原型的任务跟着分支走：离开一条分支时它上面任务的样子（会话 + 分支 → 那时看板上的任务）。守护进程按看板事件在会话里的位置推导，
  * 原型没有全局的先后，撤回、切换离开时各记一份，切回来时照它恢复
  */
 const branchTasks = new Map<string, Task>();
@@ -339,13 +339,13 @@ function conversationTask(log: FakeBranchLog, conversation: ConversationId): Tas
   return (log.frames(CHANNELS.board).findLast((f) => f.type === EVENT_TYPES.task && (f.payload as TaskEventPayload).task.id === mark.taskId)?.payload as TaskEventPayload | undefined)?.task;
 }
 
-/** 撤回到流程一个步骤开始前之后（原型，153 号票）：这一步和之后开始过的（记号在它后面的）回到没做，任务在执行中；看板上推一条 rolled_back */
+/** 撤回到流程一个步骤开始前之后（原型）：这一步和之后开始过的（记号在它后面的）回到没做，任务在执行中；看板上推一条 rolled_back */
 function followStep(log: FakeBranchLog, conversation: ConversationId, mark: StageStartEventPayload, markSeq: number, time: string, leaving: string): EventFrame[] {
   const later = new Set(log.frames(conversation).flatMap((f) => (f.type === EVENT_TYPES.stageStart && f.seq >= markSeq ? [(f.payload as StageStartEventPayload).stepId ?? ""] : [])));
   const last = log.frames(CHANNELS.board).findLast((f) => f.type === EVENT_TYPES.task && (f.payload as TaskEventPayload).task.id === mark.taskId);
   if (!last) return [];
   const before = (last.payload as TaskEventPayload).task;
-  // 定时、事件触发的（155 号票）：任务状态不跟着会话推导（一次运行就是一段会话）；正在跑的这次运行到此为止，记"已撤回"
+  // 定时、事件触发的：任务状态不跟着会话推导（一次运行就是一段会话）；正在跑的这次运行到此为止，记"已撤回"
   if (isTriggered(before)) return rolledBackRun(log, before.id, time);
   branchTasks.set(branchKey(conversation, leaving), before);
   const list = (before.steps?.list ?? []).map((s) => (later.has(s.stepId) ? { stepId: s.stepId, title: s.title, state: "pending" as const } : s));
@@ -354,7 +354,7 @@ function followStep(log: FakeBranchLog, conversation: ConversationId, mark: Stag
   return [log.append(CHANNELS.board, EVENT_TYPES.task, { task, change: "rolled_back", from: before.state, by: "user" } satisfies TaskEventPayload)];
 }
 
-/** 定时、事件触发的任务正在跑的那次运行撤回了（原型，155 号票）：记"已撤回"——不算失败，连续失败次数、"最近一次失败"不动 */
+/** 定时、事件触发的任务正在跑的那次运行撤回了（原型）：记"已撤回"——不算失败，连续失败次数、"最近一次失败"不动 */
 function rolledBackRun(log: FakeBranchLog, taskId: string, time: string): EventFrame[] {
   const last = log.frames(CHANNELS.board).findLast((f) => f.type === EVENT_TYPES.scheduledJob && (f.payload as ScheduledJobEventPayload).job.ownerTaskId === taskId);
   const job = (last?.payload as ScheduledJobEventPayload | undefined)?.job;
@@ -410,7 +410,7 @@ function commitRollback(
   const summaryId = `msg-rb-summary-${branchId}`;
   const next = grownTree(tree, { id: branchId, ...fork!, summary: { messageId: summaryId, text: summary }, entry: `fake-entry-${branchId}`, time }, start, `fake-tip-${tree.current}`);
   const payload: SessionBranchEventPayload = { change: "rollback", branches: next, from: tree.current, to: branchId, before, by: "user", time };
-  // 撤回到阶段开始前（152 号票）：交给负责人接着做的那句记在分支摘要上（界面上不重复显示）
+  // 撤回到阶段开始前：交给负责人接着做的那句记在分支摘要上（界面上不重复显示）
   const noticeId = stage ? `msg-rb-notice-${conversation}-${branchId}` : undefined;
   const frames = [
     log.append(conversation, EVENT_TYPES.sessionBranch, payload),

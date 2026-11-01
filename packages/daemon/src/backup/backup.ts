@@ -7,7 +7,7 @@
 // 自动的（到点、补做、npm run backup -- --scheduled）只补齐当天缺的：当天的快照已经在了就不再做、不覆盖（比如刚从旧快照恢复过，
 // 当天那份留着）；手动的（"立即备份"、npm run backup）重做当天的快照，换掉已有的。
 //
-// 335 号票：同一份 runBackup 守护进程和命令行脚本（src/run-backup.ts，npm run backup）都用。两边拿同一把锁（lock.ts，本机备份区的
+// 同一份 runBackup 守护进程和命令行脚本（src/run-backup.ts，npm run backup）都用。两边拿同一把锁（lock.ts，本机备份区的
 // backup.lock）：同一时刻只有一份在做，后来的等它做完再做自己的。做完（拿着锁时）写下"最近一次"（record.ts），设置里看得到。
 // 谁来定时看配置 backup.schedule：internal（默认）守护进程每天到点自己做；external 交给外部定时器调 npm run backup，守护进程
 // 不再到点备份，每天 12:00 看一眼，连着两天没人备份过就提醒一条（定时任务被暂停、删掉了也不会悄悄没了备份）。
@@ -24,7 +24,7 @@
 // 用户在这条上点"重试"就马上手动备份一次。校验没通过放一条"快照校验失败"。命令行脚本只打出来、写进日志，退出码非 0。
 // 守护进程停止时中止正在做的（AbortSignal），半成品删掉。
 //
-// 356 号票：设置 · 备份单独一页。运行中能换配置（changeConfig）：写进配置文件（只动 backup 这几个键），运行中的 BackupConfig 就地换新值，时刻、
+// 设置 · 备份单独一页。运行中能换配置（changeConfig）：写进配置文件（只动 backup 这几个键），运行中的 BackupConfig 就地换新值，时刻、
 // 谁来定时变了内部作业跟着换（BACKUP_JOB、OVERDUE_JOB 撤一个加一个），不用重启。命令行脚本每次现读文件，两边一致。
 // **正在备份时改位置：这一份做完才生效。** runBackup 开始时（拿到锁之后）取一份配置，这一次一直写到原来的文件夹；排在后面的、下一次的用新的。不拒绝用户。
 // 手动校验（startVerify）和每周校验是同一件事，排同一条队列、拿同一把锁，结果记在 lastVerify（只记在这次运行里；没通过的同样放事项）。
@@ -84,7 +84,7 @@ export type { BackupMode, BackupResult } from "@ergo/protocol";
 export const BACKUP_JOB = "backup";
 export const VERIFY_JOB = "verify_snapshot";
 export const CLEAN_TMP_JOB = "clean_tmp";
-/** external 时看一眼外部定时器的备份有没有在跑（335 号票） */
+/** external 时看一眼外部定时器的备份有没有在跑 */
 export const OVERDUE_JOB = "backup_overdue_check";
 /** 每周校验：周日 04:30（当天 03:30 的快照做完之后） */
 export const VERIFY_WEEKDAY = 0;
@@ -143,7 +143,7 @@ const LOCAL_WORDS: Record<Exclude<BackupResult["local"], "failed">, string> = {
 /** 做一次备份（不拿锁、不写记录；守护进程和命令行都经 backupWithLock 调它） */
 export async function runBackup(options: RunBackupOptions): Promise<BackupResult> {
   const { layout, clock, files, mode, signal, log, report } = options;
-  // 开始时取一份（已经拿到锁了）：这一次中途在页面上改了位置（356 号票），这一份照样写到原来的文件夹，做完才生效
+  // 开始时取一份（已经拿到锁了）：这一次中途在页面上改了位置，这一份照样写到原来的文件夹，做完才生效
   const config = { ...options.config };
   const now = clock.now();
   const date = localDate(now);
@@ -295,7 +295,7 @@ export async function backupWithLock(options: BackupWithLockOptions): Promise<Ba
   }
 }
 
-/** 最近一次有人备份的时刻（毫秒）：记录里的开始时间，和本机备份区最新快照的生成时间（这张票之前做的没有记录），取晚的 */
+/** 最近一次有人备份的时刻（毫秒）：记录里的开始时间，和本机备份区最新快照的生成时间（以前做的没有记录），取晚的 */
 export function lastBackupAt(layout: DataDirLayout): number | undefined {
   const times: number[] = [];
   const record = readBackupRecord(layout);
@@ -316,10 +316,10 @@ export interface BackupService {
   status(): BackupStatusView;
   /** 校验本机备份区和同步目录里最新的快照；没通过的放进待处理事项 */
   verifyLatest(): Promise<SnapshotCheck[]>;
-  /** 页面上的"校验最新快照"（POST /api/backup/verify，356 号票）：排一次（已经排着就不再排），不等做完，回现在的状况，结果在 lastVerify */
+  /** 页面上的"校验最新快照"（POST /api/backup/verify）：排一次（已经排着就不再排），不等做完，回现在的状况，结果在 lastVerify */
   startVerify(): BackupStatusView;
   /**
-   * 页面上改配置（PATCH /api/backup/config，356 号票）：另存的文件夹、每晚几点、谁来定时。校验不过、配置文件被改坏了抛 RequestRejected（message 给人看），
+   * 页面上改配置（PATCH /api/backup/config）：另存的文件夹、每晚几点、谁来定时。校验不过、配置文件被改坏了抛 RequestRejected（message 给人看），
    * 什么都不变；成了写进配置文件、运行中的换新值、内部作业跟着换，回现在的状况
    */
   changeConfig(change: BackupConfigBody): Promise<BackupStatusView>;

@@ -1,4 +1,4 @@
-// 运营接口清单（ops.json）的问题和提醒（268 号票）：读清单（manifest.ts）、清单验收（acceptance.ts）查出来的，存成 key 加参数
+// 运营接口清单（ops.json）的问题和提醒：读清单（manifest.ts）、清单验收（acceptance.ts）查出来的，存成 key 加参数
 // （事件里、验收结果里都是这个样子，和语言无关），用到时再按语言说出来——转运营检查清单（卡上，给用户看）用当前的语言，
 // 交给秘书、负责人的（工具结果）用 forModel 说成模型的语言。key 都在 projectOps.problem.* 下（语言文件 projectOps.json）。
 import { forModel, t } from "@ergo/protocol";

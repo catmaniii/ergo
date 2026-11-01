@@ -1,6 +1,6 @@
 // 具体的本地日期时间的写法（秘书在工具里写的 "YYYY-MM-DD HH:mm"，也认 YYYY-MM-DDTHH:mm）→ Date。
 // 简单提醒（reminders/schedule.ts）和秘书交给后台、某个时间做一次（tasks/secretary-tools.ts）共用。
-// 126 号票从提醒模块挪到这里：提醒成了插件，内核的模块不 import 插件的内部。
+// 从提醒模块挪到这里：提醒成了插件，内核的模块不 import 插件的内部。
 import { parseClockTime, t } from "@ergo/protocol";
 import { RequestRejected } from "../errors.ts";
 

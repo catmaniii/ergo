@@ -43,14 +43,14 @@ describe("参数摘要", () => {
     expect(summarizeArgs(tools, "pay_bill", { payee: "电力公司", amount: 230 })).toBe("payee=电力公司 amount=230");
   });
 
-  it("参数要打码看工具自己的登记（280 号票，maskArgs）：标了的先擦掉名字看着是密钥的、像密钥的值，没标的照原样；不按工具名认", () => {
+  it("参数要打码看工具自己的登记（maskArgs）：标了的先擦掉名字看着是密钥的、像密钥的值，没标的照原样；不按工具名认", () => {
     const registry = registerTools(tools, host("wrap_call", true), host("plain_call"), host("mcp_call"));
     const args = { tool: "crm/contact.update", args: { id: "c-7", api_key: "abc-123-xyz", note: `token=${fakeSecret("sk-", "abcdefghijklmnopqrstuv")}` } };
     const masked = summarizeArgs(registry, "wrap_call", args);
     expect(masked).not.toContain("abc-123-xyz");
     expect(masked).not.toContain(fakeSecret("sk-", "abcdefghijklmnopqrstuv"));
     expect(masked).toContain('"id":"c-7"');
-    // 打码的结果就是"先擦掉再照常列"（240、260 号票原来按名字认时的写法）
+    // 打码的结果就是"先擦掉再照常列"（原来按名字认时的写法）
     expect(masked).toBe(summarizeArgs(registry, "plain_call", maskSecretArgValues(args)));
     // 没标的照原样（名字叫 mcp_call 也不算：认的是登记，不是名字）；登记里没有的也照原样
     expect(summarizeArgs(registry, "plain_call", args)).toContain("abc-123-xyz");

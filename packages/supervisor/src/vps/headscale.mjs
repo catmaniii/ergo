@@ -1,4 +1,4 @@
-// 自建 tailnet 的控制节点（headscale）：VPS 上的配置、电脑加入、手机加入的步骤（321 号票）。
+// 自建 tailnet 的控制节点（headscale）：VPS 上的配置、电脑加入、手机加入的步骤。
 //
 // 配置整份由这里生成，只认 HEADSCALE_VERSION 这一版的格式（headscale 的配置格式跨版本会变）；
 // 换版本（--headscale-version）时先对照那一版的 config-example.yaml，脚本里的 headscale configtest 不过会换回原来的配置。

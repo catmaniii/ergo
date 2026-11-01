@@ -1,4 +1,4 @@
-// 263 号票：记忆管理员的 review_memory_claim 走引擎的表态接口（recordClaimVerdict），不直接改库——
+// 记忆管理员的 review_memory_claim 走引擎的表态接口（recordClaimVerdict），不直接改库——
 // 管理员按用户的话确认、撤回以后，下一次整理计分不会把它改回去。临时目录里的真 rg.db、规则版整理，不调模型。
 // 例子是周末社交案例（任务书第 11 节那几句，自己写的）：前三条时那组四种解释都还拿不准；第 4 条进来以后
 // "重视周末自主安排"成立、"不喜欢社交"被"我不反感见朋友"撤回。
@@ -46,7 +46,7 @@ interface Db {
   consolidate(at: string): Promise<void>;
 }
 
-/** 330 号票（R14）：随口说的不再自动算决定性——用户再纠正一句"我不是不喜欢社交"，纠正算决定性，"不喜欢社交"才被它撤回 */
+/** ADR-0032 R14：随口说的不再自动算决定性——用户再纠正一句"我不是不喜欢社交"，纠正算决定性，"不喜欢社交"才被它撤回 */
 async function correctSocial(db: Db): Promise<void> {
   db.now.value = "2026-10-14T12:00:00+08:00";
   const opened = openReasoningDb({ file: db.file, clock: () => db.now.value, model: "deepseek-flash" });
@@ -117,7 +117,7 @@ function member(engine: MemoryEngine, template: string): Claim {
   return engine.store.getClaim(m.claimId)!;
 }
 
-/** 管理员的 review_memory_claim（别的依赖这一票用不到，给最小的假的） */
+/** 管理员的 review_memory_claim（别的依赖用不到，给最小的假的） */
 function reviewTool(db: Db): HostTool {
   const tools = curatorTools({
     file: db.file,
@@ -189,7 +189,7 @@ describe("review_memory_claim 走引擎的表态接口", () => {
     db.with((engine) => expect(engine.store.getClaim(autonomy.id)).toMatchObject({ status: "active", epistemic: "user_confirmed" }));
   });
 
-  it("用户说拿不准：加复核标记（真值状态不动，329 号票），下一次整理按证据重判、摘掉标记", async () => {
+  it("用户说拿不准：加复核标记（真值状态不动），下一次整理按证据重判、摘掉标记", async () => {
     const db = await weekendDb(true);
     const autonomy = db.with((engine) => member(engine, "scene_autonomy"));
     const output = await review(db, autonomy.id, "needs_review", "用户让我核对这条");
@@ -237,7 +237,7 @@ describe("review_memory_claim 走引擎的表态接口", () => {
   });
 });
 
-// 272 号票第 3 条：问记忆管理员（ask_curator）的回答引了被彻底删除的原话时按证据编号抹（同问记忆）。管理员照它的提示词在回答里引证据编号，
+// 问记忆管理员（ask_curator）的回答引了被彻底删除的原话时按证据编号抹（同问记忆）。管理员照它的提示词在回答里引证据编号，
 // 所以 inspect_memory 交给它的每段原话前面写上是哪条证据——不然它看到的只有原话，回答里引不出编号，删的时候认不出是哪几行
 describe("inspect_memory 的原话带证据编号", () => {
   it("支持、反驳它的每段原话前面写着证据编号（ev-…「原话」）", async () => {

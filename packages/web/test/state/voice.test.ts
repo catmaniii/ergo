@@ -1,4 +1,4 @@
-// 语音消息的前端状态（31 号票）：每条语音（VoiceRecord）跟着会话频道上的 voice 事件走，气泡要的东西（时长、宽度、识别状态、
+// 语音消息的前端状态：每条语音（VoiceRecord）跟着会话频道上的 voice 事件走，气泡要的东西（时长、宽度、识别状态、
 // 气泡下方默认显示的识别文字）从这里取。第一阶段不用大模型修正：文字就是 faster-whisper 识别出的。
 // 先回放主切面录下的真实事件流（daemon/test/main/voice.test.ts 的"演示流程"），再用手写的事件序列测录不出来的边角。
 import fs from "node:fs";
@@ -82,7 +82,7 @@ describe("回放：发语音、识别完成、秘书回复；识别不出来的�
       return v.id === failedVoice.id && v.status === "recognizing";
     });
     expect(voiceBubble(replay(inputs.slice(0, inputs.indexOf(voiceFrames[recognizingAt]!) + 1)), failedPart).caption).toEqual({ kind: "pending", text: "识别中…" });
-    // 自动重试（208 号票）：等着第 2 次重试、第 2 次重试在识别，气泡下方都是"识别中（第 2 次重试）…"，菜单里不能重新识别
+    // 自动重试：等着第 2 次重试、第 2 次重试在识别，气泡下方都是"识别中（第 2 次重试）…"，菜单里不能重新识别
     for (const status of ["queued", "recognizing"]) {
       const at = voiceFrames.findIndex((f) => {
         const v = (f.frame.payload as { voice: VoiceRecord }).voice;
@@ -145,7 +145,7 @@ describe("语音对象", () => {
     expect(voiceBubble(replay([frame("secretary", 1, "voice", { voice: recognized(3, "  ") })]), PART)).toMatchObject({ text: undefined, caption: { kind: "empty", text: "没有识别出文字" } });
   });
 
-  test("识别没做成、自动重试中（208 号票）：等着重试和正在重试都是「识别中（第 N 次重试）…」，不能重新识别；重试完了还不行是「识别失败」，菜单里能重新识别；手动重新识别的照常「识别中…」", () => {
+  test("识别没做成、自动重试中：等着重试和正在重试都是「识别中（第 N 次重试）…」，不能重新识别；重试完了还不行是「识别失败」，菜单里能重新识别；手动重新识别的照常「识别中…」", () => {
     for (const status of ["queued", "recognizing"] as const) {
       expect(voiceBubble(replay([frame("secretary", 1, "voice", { voice: voiceRecord(4, { status, autoRetry: 2, ...(status === "queued" ? { retryAt: "2026-10-08T09:01:15.000+08:00" } : {}) }) })]), PART)).toMatchObject({
         status,
@@ -169,7 +169,7 @@ describe("语音对象", () => {
     expect(voiceBubble(state, voicePartOf(msg(pending))!)).toMatchObject({ status: "sending", label: "发送中", duration: "3″", width: voiceBubbleWidth(3000), caption: { kind: "pending", text: "发送中…" } });
   });
 
-  test("文字由别处给的（158 号票：素材详情里的语音转写，语音对象不一定在手里）：识别完成的样子，不能重新识别", () => {
+  test("文字由别处给的（素材详情里的语音转写，语音对象不一定在手里）：识别完成的样子，不能重新识别", () => {
     expect(transcribedVoiceBubble(PART, "周五的牙医改到下周一")).toMatchObject({ status: "done", duration: "3″", width: voiceBubbleWidth(3000), text: "周五的牙医改到下周一", caption: { kind: "text", text: "周五的牙医改到下周一" }, canRetry: false });
     expect(transcribedVoiceBubble(PART, " ")).toMatchObject({ text: undefined, caption: { kind: "empty", text: "没有识别出文字" } });
   });
@@ -179,7 +179,7 @@ describe("语音对象", () => {
     expect(voiceBubble(state, PART)).toMatchObject({ status: "done", text: "早" });
   });
 
-  test("任务页第一次打开负责人会话（179 号票）：排队时就识别完的语音，交出去时已经过了一页多——补发先到它的最后一版（序号在这一页之前），再到这一页；按定时触发的范围看的那条语音显示识别出的文字", () => {
+  test("任务页第一次打开负责人会话：排队时就识别完的语音，交出去时已经过了一页多——补发先到它的最后一版（序号在这一页之前），再到这一页；按定时触发的范围看的那条语音显示识别出的文字", () => {
     const M = maintainerChannel("pm-1");
     const part: VoicePart = { ...PART, voiceId: "v-q" };
     const voice = recognized(3, "这个权限要审批啊，你为啥要用这个权限呢？");
@@ -212,8 +212,8 @@ describe("语音对象", () => {
   });
 });
 
-// 36 号票：语音和它的文字在同一个气泡框里——播放条和时长在上，文字在下。用户发的语音识别完成就显示文字，
-// 识别中、失败、没识别出文字的说法沿用 31 号票；框的宽度随时长变，有文字时它是最小宽度、按文字撑开。
+// 语音和它的文字在同一个气泡框里——播放条和时长在上，文字在下。用户发的语音识别完成就显示文字，
+// 识别中、失败、没识别出文字的说法不变；框的宽度随时长变，有文字时它是最小宽度、按文字撑开。
 /** 收到这一版语音对象（没有就是还没收到）时，这个语音 part 的框是什么样子 */
 const lookAt = (voice: VoiceRecord | undefined, part: VoicePart = PART) => voiceBubbleLook(voiceBubble(replay(voice ? [frame("secretary", 1, "voice", { voice })] : []), part));
 
@@ -237,7 +237,7 @@ describe("气泡框的样子：播放条和时长在上，文字在下", () => {
   });
 });
 
-// 69 号票：播放条里的波形只占它自己那几格，时长紧跟在后面；格数按时长定，框因为文字变宽时多出来的空白留在行尾。
+// 播放条里的波形只占它自己那几格，时长紧跟在后面；格数按时长定，框因为文字变宽时多出来的空白留在行尾。
 /** 波形摘要：32 格（前端录音、守护进程合成都是这么多格） */
 const SUMMARY_32 = Array.from({ length: 32 }, (_, i) => (i * 3) % 100);
 
@@ -270,7 +270,7 @@ describe("播放条里的波形：格数按时长定", () => {
   });
 });
 
-// 42 号票：播放条的尺寸每套风格可以不一样（风格的 voice-* token）。随时长的宽度按经典的尺寸定，波形那一段各风格一样长，
+// 播放条的尺寸每套风格可以不一样（风格的 voice-* token）。随时长的宽度按经典的尺寸定，波形那一段各风格一样长，
 // 框宽 = 这套风格的边 + 这一段 + 时长；波形在这一段里按这套风格的竖条、间隔放得下几格画几格。
 /** 播放条里除了波形和时长的部分（左右内边距、竖线、播放键、两处间隔） */
 const barEdges = (s: VoiceBarSizes) => 2 * s.pad + s.line + s.key + 2 * s.gap;

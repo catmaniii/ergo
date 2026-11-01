@@ -1,5 +1,5 @@
-// 原型的背后的 agent（368 号票）：照守护进程 sub-agents/background.ts 会给的编。全部是虚构的。
-// - 相册库的负责人：两个子 agent 正在跑（一个刚调完工具、一个在等你批准），一个做完了，一次评审做完了，一个老的（368 号票之前跑的，没记它说的话、被守护进程重启打断）；
+// 原型的背后的 agent：照守护进程 sub-agents/background.ts 会给的编。全部是虚构的。
+// - 相册库的负责人：两个子 agent 正在跑（一个刚调完工具、一个在等你批准），一个做完了，一次评审做完了，一个老的（以前跑的，没记它说的话、被守护进程重启打断）；
 // - 「换新电脑」的负责人：一个做完了、一个失败了；记账本的负责人：一次评审，都做完了（标题栏入口写"背后的 agent（1）"）；
 // 运行中的开始时间按打开页面的时候往前算（用时不会写成几十天）。
 import type { BackgroundAgentEntry, BackgroundAgentList, BackgroundAgentRow, BackgroundAgentTranscript } from "../state/index.ts";

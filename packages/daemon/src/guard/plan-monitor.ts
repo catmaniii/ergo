@@ -1,11 +1,11 @@
-// 流程执行时的计划检查（59 号票，ADR 0019）：固定计划的执行时检查——监控器的外壳（按已执行的调用重放）、
+// 流程执行时的计划检查（ADR 0019）：固定计划的执行时检查——监控器的外壳（按已执行的调用重放）、
 // 两道判定合到一起（evaluatePlanCall）、能修的不打扰用户、按计划修回（tryAutoFix）。纯函数。
 //
 // 两道都要过：第一道是现有的守卫判定（关注类别、处置、授权项、时序规则，judge.ts），第二道是这里——和用户已授权的那份计划比对
 // （引擎是照搬的 planguard/monitor.ts）：
 // - 计划外（off_plan）：计划里没有这个工具的步骤。只读的只记下；会改东西的（注册表没标"只读或幂等"的，通用 bash 按拆出来的
 //   每一条算）问用户；第一道判出落进了关注类别的，每次都问（不看点没点过头）；
-// - 超范围（out_of_scope）：和这个工具的每一步都对不上，问用户；用户点一次头只放过这次碰的那一个对象（callObject，见 findingKey）。比对口径和 58 号票的授权项一样从严：只认步骤里写了的参数
+// - 超范围（out_of_scope）：和这个工具的每一步都对不上，问用户；用户点一次头只放过这次碰的那一个对象（callObject，见 findingKey）。比对口径和授权项一样从严：只认步骤里写了的参数
 //   （调用多带、少带参数都算对不上）、每个参数的值都要一样（数组不论先后、个数也要一样），路径按真实路径比（调用里的路径取判定前
 //   现取的真实路径，步骤里的取规划时记下的，取不到的对不上）；通用 bash 的步骤只比到命令这一层（commandKey：首尾空白不算）；
 //   调用和步骤的工具要一样，从通用 bash 拆出来的同类操作对不上带类型工具的步骤（不被 bash 绕过）；
@@ -14,7 +14,7 @@
 //   "以我的名义对外发送"标签的带类型工具（推送、建远端仓库），以及这次命中了"以我的名义对外发送"的通用 bash 命令（发布、
 //   gh release、gh pr create……）；
 // - 禁止（forbidden）：审查修补时从这一步剔除的对象（ReviewedStep.excluded，按真实路径比），直接拦下；
-// - 读授权的文件夹（355 号票，第一道判出 authorizedRead）：不算计划外、超范围（不用写进计划）；先后、禁止照旧。
+// - 读授权的文件夹（第一道判出 authorizedRead）：不算计划外、超范围（不用写进计划）；先后、禁止照旧。
 // 时序规则在第一道判（框架的 v1 模板 + 计划里写的条件），这里把它的结果当成 planguard 的 rule:<id> / rule_unknown:<id>，
 // 只为了自动修回（规则引擎就是同一个 planguard，结果一样，不在监控器里重复判一遍）。
 //
@@ -25,8 +25,8 @@
 //    完全没问题才放行（认对象的参数不改——换对象不是小偏差，见 identityArgsOf）。
 // 同一个"工具 + 步骤"最多修 MAX_AUTO_FIX 次，修不了、超过次数的交回常规流程（拦下或问用户）。
 //
-// 几处取舍（用户 2026-10-09 接受）：没有场景文档，比对规则（conformance）按注册表现生成（workflowConformance），
-// 比对口径照 58 号票的授权项从严（见上）；超范围点过头按"工具 + 这次碰的对象"记（用户定，从严）；引回时"计划里正好有
+// 几处取舍：没有场景文档，比对规则（conformance）按注册表现生成（workflowConformance），
+// 比对口径照授权项从严（见上）；超范围点过头按"工具 + 这次碰的对象"记（从严）；引回时"计划里正好有
 // X 那一步"对通用 bash 的步骤按拆出来的命令认（bash 里的 npm test 算跑测试）。
 import { t } from "@ergo/protocol";
 import { scopeValueText } from "./content-digest.ts";
@@ -66,12 +66,11 @@ export const CONFORMANCE_KINDS: ReadonlySet<string> = new Set(["off_plan", "forb
  * 原话里带不带对象看是哪一种：时序规则的原话里带着对象（哪个文件、哪个收件人）；顺序错、重复说的是哪一步；计划外只说哪个工具。
  * 超范围的原话也只说哪个工具（"write 的参数超出了计划声明的范围"），只按原话记的话点过一次头之后同一个工具后面的越界调用都不再问；
  * 所以另带上这次碰的对象（callObject），点一次头只放过那一个对象，换了别的文件、别的命令、别的远端或分支照样问
- * ——用户 2026-10-09 定的
  */
 export const findingKey = (f: Pick<PlanFinding, "kind" | "message" | "object">): string => `${f.kind}|${f.message}${f.object === undefined ? "" : `|${f.object}`}`;
 
 /**
- * 超范围时这次调用碰的对象（用户定，口径和 58 号票授权项的对象范围一样）：通用 bash 是整条命令（commandKey）；带类型的工具是
+ * 超范围时这次调用碰的对象（口径和授权项的对象范围一样）：通用 bash 是整条命令（commandKey）；带类型的工具是
  * 认对象的那几个参数（identityArgsOf）的值——路径按真实路径（取不到的按写的路径解析成的绝对路径、注明没取到），数组不论先后
  */
 export function callObject(tool: string, args: Readonly<Record<string, unknown>>, ctx: { tools: ToolRegistry; env: ShellEnv; realPathOf: (path: string) => string | undefined }): string {
@@ -143,7 +142,7 @@ export interface PlanExecutedCall {
 const IDENTITY_KINDS = new Set(["path", "recipient", "url", "command"]);
 /**
  * 带类型的工具里另外认对象的参数（不在上面那几种里）：推送到哪个远端、哪个分支，合并哪个分支，建哪个仓库，装哪些包，
- * 搜什么（70 号票：查询词是内容类参数，但它就是这一步要搜的东西，自动纠偏不改它）
+ * 搜什么（查询词是内容类参数，但它就是这一步要搜的东西，自动纠偏不改它）
  */
 const IDENTITY_OTHER: Readonly<Record<string, readonly string[]>> = {
   [TOOL.git_push]: ["remote", "branch"],
@@ -166,7 +165,7 @@ export function identityArgsOf(tools: ToolRegistry, tool: string): string[] {
 /** 比对时参数的写法里，写了哪些参数（按名字排好）：它对不上就是多带或少带了参数 */
 const WRITTEN = "__written";
 
-/** 参数算不算给了值：undefined、null、空数组算没给（和 58 号票的授权项一样） */
+/** 参数算不算给了值：undefined、null、空数组算没给（和授权项一样） */
 const given = (v: unknown) => v !== undefined && v !== null && !(Array.isArray(v) && v.length === 0);
 
 /** 审查时从步骤里剔除的对象：调用里有一个就是 */
@@ -214,7 +213,7 @@ export function workflowConformance(workflow: GuardWorkflow, tools: ToolRegistry
 }
 
 /**
- * 比对时参数的写法（和 58 号票授权项的精确比较一个口径，见 grants.ts 的 scopeProblems、exactArgsProblems、realScopeProblems）：
+ * 比对时参数的写法（和授权项的精确比较一个口径，见 grants.ts 的 scopeProblems、exactArgsProblems、realScopeProblems）：
  * 只留给了值的参数；每个参数写成一组值（单个值算一个，数组不论先后、个数也要一样：排好序）；路径换成真实路径
  * （先按工作目录解析成绝对路径，realOf 取它的真实路径，不分大小写、正反斜杠），伪设备、解析不了、取不到真实路径的是"未知"；
  * 别的值按 scopeValueText；有一个值是"未知"的，这个参数就是未知（未知和什么都对不上）；通用 bash 的命令按 commandKey；
@@ -409,7 +408,7 @@ export function evaluatePlanCall(input: PlanCheckInput, autoFix = true): PlanChe
   const compared = monitor.check(toolName, call.args);
   // 超范围带上这次碰的对象：点过头只放过这一个对象（见 findingKey）
   const object = () => callObject(toolName, call.args, { tools, env, realPathOf: input.realPathOf });
-  // 读授权的文件夹（355 号票）不算越出计划：不用写进计划，也不算超范围
+  // 读授权的文件夹不算越出计划：不用写进计划，也不算超范围
   const conformance = judgement.authorizedRead ? compared.findings.filter((f) => f.kind !== "off_plan" && f.kind !== "out_of_scope") : compared.findings;
   const findings: PlanFinding[] = [...conformance.map((f) => (f.kind === "out_of_scope" ? { ...f, object: object() } : f)), ...ruleFindings(judgement)];
   // planguard 能按"工具 + 范围"精确匹配到步骤，比按工具名找第一个准

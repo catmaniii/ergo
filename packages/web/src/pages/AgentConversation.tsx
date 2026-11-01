@@ -1,7 +1,7 @@
-// 一个 agent 一个样子（368 号票，用户 2026-11-01："不管点哪里进去，同一个 agent 的对话框看起来应该都一样"）：负责人的对话框只有这一套——
+// 一个 agent 一个样子（"不管点哪里进去，同一个 agent 的对话框看起来应该都一样"）：负责人的对话框只有这一套——
 // 同样的标题栏（ui/task-head.tsx）、顶部的阶段条（ui/conversation/stage-panel.tsx）、消息、输入框，差异都在档案里（宽屏在会话左边，手机从右边滑进来）。
 // - AgentDialog：对话框本身；项目的对话框（ProjectsPage.tsx 的 ProjectConversation）、跨项目和不属于项目的任务（TaskConversation）、原型的假任务（TasksPage.tsx）都用它；
-// - useTaskScene：一个任务在对话框上要的全部（标题栏的状态和操作、阶段条、"⋯"的几样、任务操作的对话框）。任务详情原来的那一套（13、60、75、76、90、91 号票）挪过来，
+// - useTaskScene：一个任务在对话框上要的全部（标题栏的状态和操作、阶段条、"⋯"的几样、任务操作的对话框）。任务详情原来的那一套挪过来，
 //   没有任务（项目还没开始做事）时什么都不画、不占地方；
 // - TaskBrief：档案里这个任务的一块（状态、用量、计划 工单 工具包 消耗 运行的入口、任务操作）；
 // - 任务详情"⋯"里的几样（计划、工单、工具包、消耗、运行）画在这里（TaskPanelBody），在详情栏打开，手机整页滑入。
@@ -148,14 +148,14 @@ export function AgentDialog({
   archive?: AgentArchive | undefined;
   /** 阶段条（useStagePanel 的 bar、TaskBar） */
   bar?: ReactNode;
-  /** 宽屏的阶段进展：和项目档案共用左边栏（用户 2026-11-01），不同时显示 */
+  /** 宽屏的阶段进展：和项目档案共用左边栏，不同时显示 */
   stageSide?: StageSidePanel | undefined;
   onChatPointerDown?: (() => void) | undefined;
   stages?: StageDetailSource | undefined;
   panel?: ((panel: TaskPanel) => ReactNode) | undefined;
   /** 任务操作的对话框、计划台账 */
   dialogs?: ReactNode;
-  /** 标题栏的 ▤ 只在缩小后出现（任务的负责人会话，用户 2026-10-09 定；项目的、流程的一直显示） */
+  /** 标题栏的 ▤ 只在缩小后出现（任务的负责人会话，项目的、流程的一直显示） */
   zoomOnlyZoomedOut?: boolean;
   children: ReactNode;
 }) {
@@ -175,7 +175,7 @@ export function AgentDialog({
     pageProjectSide().set(next);
   };
   const showArchive = archive ? () => detail.show({ type: "archive", title: archive.label }) : undefined;
-  // 手机竖屏：缩放、这个 agent 的设置收进"⋯"（用户 2026-11-01）
+  // 手机竖屏：缩放、这个 agent 的设置收进"⋯"
   const zoomLevel = useZoomLevel();
   const phoneSettings = useAgentSettingsSheet(maintainerId ?? "", false, !wide && maintainerId !== undefined);
   const phoneRows = wide
@@ -277,7 +277,7 @@ export function AgentDialog({
 
 // ───────────────────────── 一个任务在对话框上要的 ─────────────────────────
 
-/** 阶段条下面出过的状况、阶段标签闪一下（60 号票）：按这个任务的整段会话算 */
+/** 阶段条下面出过的状况、阶段标签闪一下：按这个任务的整段会话算 */
 export function useStageIncidents(
   conversation: ConversationId | undefined,
   taskId: string,
@@ -351,11 +351,11 @@ export function useTaskScene({
   const taskId = task?.id ?? "";
   const plain = task !== undefined && isPlainTask(task);
   const ended = task !== undefined && ENDED_TASK_STATES.includes(task.state);
-  // 这个任务开始以来的会话历史都取回来（60 号票）：进度、偏差、阶段详情、出过的状况按整段会话算，数字不随往上翻变；定时触发的流程只要这一次运行那一段。
+  // 这个任务开始以来的会话历史都取回来：进度、偏差、阶段详情、出过的状况按整段会话算，数字不随往上翻变；定时触发的流程只要这一次运行那一段。
   // 普通任务没有这些，除非要定位到它；项目的对话框里没人点名的、早就做完的不取（打开项目不用把它的历史全取回来）
   const wanted = task !== undefined && (focused || (!plain && (!ended || caption === undefined)));
   useTaskHistory(conversation, wanted ? (plain ? task.createdAt : (workflowCurrentRun(ui, task.id)?.queuedAt ?? task.createdAt)) : undefined);
-  // 阶段、用量、运行里有按当前语言拼的字：换了语言重算（171 号票；locale 是词典的版本号，只用来让 useMemo 重算）
+  // 阶段、用量、运行里有按当前语言拼的字：换了语言重算（locale 是词典的版本号，只用来让 useMemo 重算）
   const locale = useLocale();
   // eslint-disable-next-line react-hooks/exhaustive-deps, react/memo-dependencies -- locale 只用来在换语言时重算（下同）
   const views = useMemo(() => taskStages(ui, taskId), [ui, taskId, locale]);
@@ -374,7 +374,7 @@ export function useTaskScene({
   // eslint-disable-next-line react-hooks/exhaustive-deps, react/memo-dependencies
   const runs = useMemo(() => taskRunViews(ui, taskId), [ui, taskId, locale]);
   const { counts, ping, items } = useStageIncidents(conversation, taskId, detail.show);
-  // 计划（91 号票）：依赖图（等你确认的计划也画），阶段标签跟着聊天滚动变，点一个阶段在详情栏看阶段详情
+  // 计划：依赖图（等你确认的计划也画），阶段标签跟着聊天滚动变，点一个阶段在详情栏看阶段详情
   const hasStages = task !== undefined && taskHasStages(task, stages);
   const graph = useMemo(() => (task ? taskStageGraph(ui, task.id, items) : undefined), [ui, task, items]);
   const stepAt = useMemo(() => stageAtItems(ui, items, taskId), [ui, items, taskId]);
@@ -399,16 +399,16 @@ export function useTaskScene({
   if (!task) return { scene: undefined, stagePanel, items };
 
   const activity: AgentActivity = agentActivity(ui, task.maintainerId);
-  // 定时触发的任务（76 号票）：它的触发登记和每一次运行
+  // 定时触发的任务：它的触发登记和每一次运行
   const trigger = taskTriggerView(ui, task.id);
   const timed = isTriggered(task);
-  // 流程（60 号票）：做完的步骤 / 总步数，点开是计划台账
+  // 流程：做完的步骤 / 总步数，点开是计划台账
   const progress = workflowProgress(ui, task.id);
   const summary = taskSummary({ task, activity, tokens: usage.total, cacheHit: usage.cacheHit, waitingForProject: taskWaitingForProject(ui, task.id), trigger, progress: taskBoardProgress(ui, task) });
-  // 流程（58 号票）只有一个内部的执行阶段，不显示阶段，显示步骤
+  // 流程只有一个内部的执行阶段，不显示阶段，显示步骤
   const workflow = taskKind(task) === "workflow";
   const act = (action: TaskAction, options?: TaskActOptions) => taskAction(task.id, action, options);
-  // 阶段详情（60 号票）：点阶段条里的一个阶段打开；"从这里重做"就是返工这个阶段（连同下游），84 号票起开始过的阶段就能（建好了阶段、没取消没归档的长程任务都行）
+  // 阶段详情：点阶段条里的一个阶段打开；"从这里重做"就是返工这个阶段（连同下游），开始过的阶段就能（建好了阶段、没取消没归档的长程任务都行）
   const stageSource: StageDetailSource | undefined = hasStages
     ? {
         taskId: task.id,
@@ -417,19 +417,19 @@ export function useTaskScene({
         rework: (stageId, text, edit) => act("rework", { stageId, ...(text ? { note: text } : {}), ...(edit ? { stageEdit: edit } : {}) }),
       }
     : undefined;
-  // 任务操作（90 号票）：状态签浮层、"⋯"的下半、宽屏标题栏的关键按钮是同一份；定时触发的任务运营中时落到它的触发上
+  // 任务操作：状态签浮层、"⋯"的下半、宽屏标题栏的关键按钮是同一份；定时触发的任务运营中时落到它的触发上
   const subject = taskMenuSubject(ui, task);
   const target: TaskActsTarget = {
     title: task.title,
     act,
     trigger: trigger ? (a) => scheduledJobAction(trigger.job.id, a) : undefined,
-    // 改时间（98 号票）
+    // 改时间
     reschedule: trigger ? (s) => rescheduleJob(trigger.job.id, s) : undefined,
-    // 立即运行一次、跑完自动播报（100 号票）
+    // 立即运行一次、跑完自动播报
     runNow: trigger ? () => runJobNow(trigger.job.id) : undefined,
     announce: (on) => setVoiceAnnounce(task.id, on),
     stages: stageSource,
-    // 删了（186 号票）：删掉的任务没有详情了
+    // 删了：删掉的任务没有详情了
     deleted: onDeleted,
   };
   const panelBody = (p: TaskPanel): ReactNode => <TaskPanelBody panel={p} task={task} orders={orders} usage={usage} runs={runs} stages={hasStages ? stages : undefined} workflow={workflow} evented={summary.trigger?.waitingFor !== undefined} />;
@@ -510,9 +510,9 @@ export function useTaskScene({
 function TaskMeta({ task, summary, timed }: { task: Task; summary: TaskSummary; timed: boolean }) {
   return (
     <>
-      {/* 任务的种类（58 号票）：建卡时定下，不能换 */}
+      {/* 任务的种类：建卡时定下，不能换 */}
       <span className={`chip kind-chip kind-${taskKind(task)}`}>{TASK_KIND_LABEL[taskKind(task)]}</span>
-      {/* 292 号票：会话交给了官方 App——拿到了链接的点开就是官方 App 里接着它的地方 */}
+      {/* 会话交给了官方 App——拿到了链接的点开就是官方 App 里接着它的地方 */}
       {summary.remote &&
         (summary.remote.url ? (
           <a className="chip remote-badge" href={summary.remote.url} target="_blank" rel="noreferrer" title={summary.remote.url}>
@@ -521,14 +521,14 @@ function TaskMeta({ task, summary, timed }: { task: Task; summary: TaskSummary; 
         ) : (
           <RemoteBadge badge={summary.remote} />
         ))}
-      {/* 项目内部任务（64 号票）：点了进项目 */}
+      {/* 项目内部任务：点了进项目 */}
       {task.internal && (
         <a className="chip" href={toHash({ tab: "projects", projectId: task.internal.projectId })}>
           {internalScopeLabel(task.internal.projectName)}
         </a>
       )}
       {summary.stage && <span className="muted">{t("pages.tasks.stageProgress", { current: summary.stage.current, total: summary.stage.total })}</span>}
-      {/* 定时触发（76 号票）：时间表、下一次；事件触发（77 号票）：在等什么事件 */}
+      {/* 定时触发：时间表、下一次；事件触发：在等什么事件 */}
       {timed && summary.trigger && (
         <>
           <span className={`chip trigger-chip${summary.trigger.waitingFor ? " trigger-event" : ""}`}>
@@ -541,7 +541,7 @@ function TaskMeta({ task, summary, timed }: { task: Task; summary: TaskSummary; 
   );
 }
 
-/** 档案里这个任务的一块：状态、用量、几个入口（计划、工单、工具包、消耗、运行）、任务操作。368 号票：不用跳页就都找得到 */
+/** 档案里这个任务的一块：状态、用量、几个入口（计划、工单、工具包、消耗、运行）、任务操作。不用跳页就都找得到 */
 export function TaskBrief({ scene, title }: { scene: TaskScene; title?: string | undefined }) {
   const { task, status, summary, panels, onBriefPanel, onPick, head } = scene;
   const items = head.items.filter((item) => item.kind !== "delete_note");
@@ -580,7 +580,7 @@ export function TaskBrief({ scene, title }: { scene: TaskScene; title?: string |
 // ───────────────────────── 任务自己的对话框（跨项目的、不属于项目的） ─────────────────────────
 
 /**
- * 跨项目的任务、不属于项目的任务有自己的负责人，有自己的页面（13 号票的任务详情），368 号票起和项目的对话框是同一个组件：
+ * 跨项目的任务、不属于项目的任务有自己的负责人，有自己的页面（任务详情），和项目的对话框是同一个组件：
  * 负责人会话（直接下指令；它在干活时你的话作为插话，在它下一步之前插入）、阶段条、档案。
  * 项目负责人做的任务不走这里（TasksPage 换成项目的对话框）
  */
@@ -622,9 +622,9 @@ export function TaskConversation({ task, wide, at, onBack }: { task: Task; wide:
         {...stagePanel.chat}
         ref={conversationRef}
         revealAt={at}
-        // 等你处理（107 号票）：这个任务的等你验收、卡住求助、超预算、审批卡……
+        // 等你处理：这个任务的等你验收、卡住求助、超预算、审批卡……
         inbox={{ kind: "task", taskId: task.id }}
-        // 流程（60 号票）：历史底部"接下来的计划"虚线框
+        // 流程：历史底部"接下来的计划"虚线框
         workflowTaskId={workflow ? task.id : undefined}
         readOnly={!taskAcceptsMessages(task)}
         readOnlyNote={task.state === "done" && !plain ? t("pages.tasks.readOnlyDone") : t("pages.tasks.readOnlyEnded")}
@@ -686,7 +686,7 @@ function TaskPanelBody({ panel, task, orders, usage, runs, stages, workflow, eve
 }
 
 /**
- * 任务详情的"工具包"一栏（27 号票）：任务的授权里的工具包，直接改（不出计划变更卡）；执行时用的是它和项目工具包的交集。
+ * 任务详情的"工具包"一栏：任务的授权里的工具包，直接改（不出计划变更卡）；执行时用的是它和项目工具包的交集。
  * 计划确认之前还没有；任务结束了只读
  */
 function TaskToolkit({ task }: { task: Task }) {
@@ -714,8 +714,8 @@ function TaskToolkit({ task }: { task: Task }) {
 }
 
 /**
- * 定时触发的任务详情的"运行"一栏（76 号票）：每一次运行，新的在前——第几次、怎么触发的（排队合并成一批的逐条列出）、结果、
- * 失败、中断、没运行的原因；流程这次运行各步的状态。事件触发的（77 号票）写明是哪一批事件触发的，每个事件连同事件里的值
+ * 定时触发的任务详情的"运行"一栏：每一次运行，新的在前——第几次、怎么触发的（排队合并成一批的逐条列出）、结果、
+ * 失败、中断、没运行的原因；流程这次运行各步的状态。事件触发的写明是哪一批事件触发的，每个事件连同事件里的值
  */
 function TaskRuns({ runs, workflow, evented }: { runs: RunView[]; workflow: boolean; evented: boolean }) {
   return (
@@ -734,7 +734,7 @@ function TaskRuns({ runs, workflow, evented }: { runs: RunView[]; workflow: bool
             {r.startedAt && <span className="muted">{timeLabel(r.startedAt)}</span>}
           </div>
           {r.events.length > 0 ? (
-            // 事件触发的（77 号票）：这一批事件，每个连同事件里的值（交给 agent 的就是这些）
+            // 事件触发的：这一批事件，每个连同事件里的值（交给 agent 的就是这些）
             <div className="run-events">
               <div className="muted">{r.events.length > 1 ? t("pages.tasks.runs.batch", { count: r.events.length }) : t("pages.tasks.runs.event")}</div>
               {r.events.map((e, i) => (
@@ -792,7 +792,7 @@ function TaskRuns({ runs, workflow, evented }: { runs: RunView[]; workflow: bool
   );
 }
 
-/** 任务详情的"工单"一栏（17 号票）：这个任务的全部工单，按所属阶段；回执和提问在会话里 */
+/** 任务详情的"工单"一栏：这个任务的全部工单，按所属阶段；回执和提问在会话里 */
 function TaskWorkOrders({ orders }: { orders: TaskWorkOrderView[] }) {
   return (
     <div className="td-panel">
@@ -855,7 +855,7 @@ function TaskUsage({ usage }: { usage: ReturnType<typeof taskUsage> }) {
 }
 
 /**
- * 转为项目（15 号票）：未结束、由自己的负责人执行的任务（不是某个项目的任务）可以转为项目。项目名由用户定
+ * 转为项目：未结束、由自己的负责人执行的任务（不是某个项目的任务）可以转为项目。项目名由用户定
  * （预填任务标题，可以改；和已有的项目重名时守护进程拒绝，原因在底部提示）。项目以筹备中诞生，
  * 不新建负责人，原任务的负责人接着做立项问答；原任务以"已完成 · 已转为项目"结束
  */

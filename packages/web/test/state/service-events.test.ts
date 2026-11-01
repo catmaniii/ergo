@@ -1,4 +1,4 @@
-// 项目的服务报事件（357 号票）的状态层：项目页"运营方案"那一节，服务那一条列这个服务最近报的事件（名字写错的也在），等事件的那一条列它等的这个名字的；
+// 项目的服务报事件的状态层：项目页"运营方案"那一节，服务那一条列这个服务最近报的事件（名字写错的也在），等事件的那一条列它等的这个名字的；
 // 发起任务对话框、简单提醒能选的来源里没有它，卡上的说法。
 import { describe, expect, test } from "vitest";
 import { describeEventTrigger, EVENT_SOURCES, PICKABLE_EVENT_SOURCES, type Project, type ProjectEventPayload, type ProjectOperationItem, projectOperationRows, type ProjectServiceView, replay } from "../../src/state/index.ts";

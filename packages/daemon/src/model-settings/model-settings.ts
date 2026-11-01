@@ -1,29 +1,29 @@
-// 设置里的"模型"（73 号票，规格第 1 节"模型"）：模型在服务端（守护进程这台电脑）调用；DeepSeek 是默认，另有一个
+// 设置里的"模型"（规格第 1 节"模型"）：模型在服务端（守护进程这台电脑）调用；DeepSeek 是默认，另有一个
 // 自定义的 OpenAI 兼容服务商（provider id 固定是 custom，用户填接口地址、模型 id、key）；
 // 默认模型和思考档位，按 agent（秘书、任务负责人、项目负责人、子 agent、评审、范围审视）覆盖；连通测试；看图能力。
 //
 // - 存：数据目录配置区的 model-settings.json 是真相，只由运行时写（设置接口），各设备看到的一样；配置区是受保护区域，agent 写不进。
-//   没有这个文件时全按默认（providers.ts 的 DEFAULT_MODEL_SETTINGS，和 73 号票之前写死的一样）；文件读不了、不合规时先不覆盖它，
+//   没有这个文件时全按默认（providers.ts 的 DEFAULT_MODEL_SETTINGS，和以前写死的一样）；文件读不了、不合规时先不覆盖它，
 //   记日志、按默认用，设置页上提示"设置文件读不出来，正在用默认；保存会覆盖它"（settingsFileError），在设置页存一次就覆盖、
 //   提示消失。启动时读一次，之后只经设置接口改（手改文件要重启守护进程）。
 // - 用：拉起 agent 的模块按 agent 现取（modelFor），只用于新开的会话——一个会话固定一个模型：接着已有的会话时子进程照会话开始时
 //   记下的模型、思考档位和看图能力（agent-child/session.ts），所以改了以后下一个新会话生效，正在进行的会话不换。
 //   记账照实际用的模型（子进程每次调用报的 provider、模型 id）。
-// - 看图能力（79 号票的判法加一层）：设置页改的为准，其次配置文件 models["provider/模型 id"].vision 写明的，都没写按模型目录。
+// - 看图能力（判法加一层）：设置页改的为准，其次配置文件 models["provider/模型 id"].vision 写明的，都没写按模型目录。
 // - 自定义（OpenAI 兼容）服务商（provider id 固定是 custom，选了它时设置里多一块 custom：baseUrl、modelId、api）：
 //   只有**一个**模型，模型 id 就是 custom.modelId——default、各 agent 覆盖里写的模型 id 是切回 DeepSeek 时接着用的，自定义时不起作用
 //   （思考档位照旧按那一行）。pi 的模型目录里没有它，子进程要先 registerProvider，所以拉起 agent 的装配（SessionAssembly.custom）
 //   和模型探查的请求里都带上它（customProvider()）；密钥照旧只走 credentials（键名 custom）。
 //   连通测试测它里面的 modelId；列它的模型是守护进程直接发的一次 GET {baseUrl}/models（不经过模型，也不花 token）。
-// - 单独配了模型的负责人（120 号票）：某个项目、某个任务的负责人在自己的 ⚙ 里选定模型和思考档位，盖过它那一行（项目负责人 /
+// - 单独配了模型的负责人：某个项目、某个任务的负责人在自己的 ⚙ 里选定模型和思考档位，盖过它那一行（项目负责人 /
 //   任务负责人）；存在同一个文件的 maintainers 里（按 agent id），设置页整份存时原样留着。拉起它时按 agent id 现取（modelFor 的第二个参数），
-//   所以和那一行一样只用于新开的会话、长会话照 83 号票换。它派出的子 agent、评审，范围审视照各自那一行。配的模型在模型目录里没有了：
+//   所以和那一行一样只用于新开的会话、长会话换。它派出的子 agent、评审，范围审视照各自那一行。配的模型在模型目录里没有了：
 //   退回跟随那一行（记一次日志），⚙ 和设置页上写明原因；项目归档、任务归档时由守护进程清掉（followRole）。
 // - 模型目录只有子进程查得到（pi 边界）：设置页要的模型列表（名字、能不能看图、支持哪几档思考）经一次性子进程查一次、记住
 //   （pi 不升级就不变）；连通测试同样在一次性子进程里发一条极短的请求（守护进程自己不跑模型），同一时间只跑一个：
 //   上一个还没测完时再要回 409"上一个还没测完"；子进程超时（60 秒）结束它，结果里写明"超时（60 秒）"。
 // - API key 只说配没配、从哪来：守护进程只看环境变量有没有值（LSM 从密钥区的文件注入），不读密钥区。
-//   319 号票（用户 2026-10-28 定"A：网页里能填 key"）起网页上能填一个：写进密钥区的同一个文件（先写临时文件再改名，文件 0o600、
+//   （A：网页里能填 key）起网页上能填一个：写进密钥区的同一个文件（先写临时文件再改名，文件 0o600、
 //   目录 0o700），同时换进内存里的 key（credentials + keyApplied 交给组合根别处取 key 的地方），下一次模型调用就用新的；
 //   接口回的、页面上的、日志里的都没有 key 的内容。连通测试的出错原因里 provider 可能带着 key 的一截，子进程去掉一遍，这里再去掉一遍
 //   （都用 runtime/redact.ts）。
@@ -73,7 +73,7 @@ import { DEFAULT_MODEL_SETTINGS, MODEL_PROVIDERS, type ModelProvider, providerOf
 
 const settingsFile = schemaChecker(ModelSettingsFile);
 
-/** 一个负责人用什么模型（120 号票，⚙ 上显示的） */
+/** 一个负责人用什么模型（⚙ 上显示的） */
 export interface MaintainerModel {
   /** 它那一行现在实际会用的 */
   role: ModelChoice;
@@ -99,10 +99,10 @@ export interface ModelSettingsService {
   customProvider(): ModelCustomProvider | undefined;
   /**
    * 这个 agent 下一个新会话用的模型和思考档位（目录里的模型）。给了 maintainerId（项目、任务的负责人）时，
-   * 它单独配了、配的模型还能用就是单独配的（120 号票），不然按 agent 那一行
+   * 它单独配了、配的模型还能用就是单独配的，不然按 agent 那一行
    */
   modelFor(agent: ModelAgent, maintainerId?: string): CatalogModelSpec;
-  /** 一个负责人用什么模型（⚙ 上显示的，120 号票） */
+  /** 一个负责人用什么模型（⚙ 上显示的） */
   maintainerModel(agentId: string, agent: MaintainerModelAgent): MaintainerModel;
   /** 单独配模型：查过能选（不能选抛 RequestRejected，HTTP 回 400）再写文件；下一个新会话起生效 */
   setMaintainerModel(agentId: string, choice: ModelChoice): Promise<void>;
@@ -111,16 +111,16 @@ export interface ModelSettingsService {
   /** 配置写明的看图能力（设置页改的优先于配置文件），键是「provider/模型 id」；拉起 agent 时交给子进程 */
   configuredVision(): Record<string, boolean>;
   /**
-   * 这个模型能不能看图（145 号票：页面助手拉起之前要定给不给它看图的工具；149 号票起页面助手不再有，留给要先定看图能力的地方）：和子进程定会话的看图能力同一个判法——
+   * 这个模型能不能看图（页面助手拉起之前要定给不给它看图的工具；页面助手不再有，留给要先定看图能力的地方）：和子进程定会话的看图能力同一个判法——
    * 配置写明的（设置页改的、配置文件的）为准，没写的按模型目录（测试的 faux 能看）；目录查不到、目录里没有按看不了
    */
   visionOf(model: ModelSpec): Promise<boolean>;
   /** 设置页要的全部（要查模型目录，所以是异步的） */
   view(): Promise<ModelSettingsView>;
-  /** 设置里选的服务商和它的 key 配没配（315 号票）：不查模型目录，会话页上"还没配模型"的提示用 */
+  /** 设置里选的服务商和它的 key 配没配：不查模型目录，会话页上"还没配模型"的提示用 */
   keyView(): ModelKeyView;
   /**
-   * 在网页上填模型的 key（319 号票）：写进密钥区的文件、换进内存里的 key，回配好了、什么时候生效
+   * 在网页上填模型的 key：写进密钥区的文件、换进内存里的 key，回配好了、什么时候生效
    * （现在起的模型调用就用新的）。providerId 给了就写那个服务商的（设置页按服务商逐条列 key，给"另一个服务商"填
    * 不用先切成当前服务商）；不给还是设置里选的那一个。providerId 不是登记表里的 id 抛 RequestRejected（HTTP 回 400）。
    * key 不合规（去掉首尾空白后太短、太长）也抛 RequestRejected（HTTP 回 400），
@@ -151,7 +151,7 @@ export interface ModelSettingsOptions {
   /** provider id → API key（守护进程从环境变量取的，config/secrets.ts）：判断配没配、交给连通测试和 agent 的子进程；网页上填了就地换成新的 */
   credentials: Record<string, string>;
   /**
-   * 网页上填的 key 写进文件、换进 credentials 之后叫一次（319 号票）：组合根把别处取 key 的地方也换成新的
+   * 网页上填的 key 写进文件、换进 credentials 之后叫一次：组合根把别处取 key 的地方也换成新的
    * （记忆整理从守护进程的环境里读 DEEPSEEK_API_KEY）。不给就不管
    */
   keyApplied?: (provider: ModelProvider, key: string) => void;
@@ -161,7 +161,7 @@ export interface ModelSettingsOptions {
   lsm: () => boolean;
   /** 秘书的主线会话现在用的（秘书在运行时才有）；现取 */
   secretarySession: () => SessionModelView | undefined;
-  /** 单独配了模型的负责人是谁（120 号票，设置页上列出来）；不给时不列 */
+  /** 单独配了模型的负责人是谁（设置页上列出来）；不给时不列 */
   maintainerOwner?: MaintainerOwnerOf;
   /** 测试用：目录里的模型的请求都发到这个地址（本机的假 DeepSeek），连通测试也是；正式的不给 */
   catalogBaseUrl?: string;
@@ -169,7 +169,7 @@ export interface ModelSettingsOptions {
 }
 
 /**
- * 把 key 写进密钥区的文件（319 号票）：目录不在就建（0o700），先写同目录的临时文件（0o600）再改名（atomic-file 的重试），
+ * 把 key 写进密钥区的文件：目录不在就建（0o700），先写同目录的临时文件（0o600）再改名（atomic-file 的重试），
  * 文件里只有 key 这一行。写不进去抛原来的错误，临时文件删掉、原来的文件不动
  */
 function writeModelKeyFile(target: string, key: string): void {
@@ -189,7 +189,7 @@ export function createModelSettings(options: ModelSettingsOptions): ModelSetting
   const file = layout.modelSettingsFile;
   const loaded = readSettings(file, log);
   let settings: ModelSettings = loaded.settings;
-  /** 单独配了模型的负责人（120 号票）：agent id → 选定的 */
+  /** 单独配了模型的负责人：agent id → 选定的 */
   let maintainers: Record<string, ModelChoice> = loaded.maintainers;
   /** 单独配的模型用不了、退回跟随那一行时记过日志的（agent id → 那个模型；不刷屏） */
   const fallbackLogged = new Map<string, string>();
@@ -199,7 +199,7 @@ export function createModelSettings(options: ModelSettingsOptions): ModelSetting
   let testing = false;
   /** 模型目录里各服务商的模型（查一次记住；查不到的不记，下次再查） */
   const catalogs = new Map<string, Promise<CatalogModel[]>>();
-  /** 已经查到的模型目录（拉起 agent 时同步地判断单独配的模型还在不在，120 号票）；没查到过的服务商没有 */
+  /** 已经查到的模型目录（拉起 agent 时同步地判断单独配的模型还在不在）；没查到过的服务商没有 */
   const known = new Map<string, readonly CatalogModel[]>();
 
   /**
@@ -246,7 +246,7 @@ export function createModelSettings(options: ModelSettingsOptions): ModelSetting
   };
 
   /**
-   * 单独配的模型用不了的原因（120 号票）：模型目录查到了、里面没有它（pi 升级后去掉了、改了名）。目录还没查到时不知道，按能用
+   * 单独配的模型用不了的原因：模型目录查到了、里面没有它（pi 升级后去掉了、改了名）。目录还没查到时不知道，按能用
    * （拉不起会话时会话里有说明，和设置页选的一样）
    */
   const unavailableReason = (modelId: string): string | undefined => {
@@ -492,7 +492,7 @@ export function createModelSettings(options: ModelSettingsOptions): ModelSetting
         vision[key] = value;
       }
       const next: ModelSettings = { provider: provider.id, default: { modelId: body.default.modelId, thinkingLevel: body.default.thinkingLevel }, agents, vision, ...(custom === undefined ? {} : { custom }) };
-      // 设置文件读不出来时，存一次就覆盖它（哪怕和正在用的默认一样）；单独配了模型的负责人原样留着（120 号票，只经 ⚙ 改）
+      // 设置文件读不出来时，存一次就覆盖它（哪怕和正在用的默认一样）；单独配了模型的负责人原样留着（只经 ⚙ 改）
       if (fileError !== undefined || JSON.stringify(next) !== JSON.stringify(settings)) {
         save(next, maintainers, "设置页"); // @i18n-ignore log：只进日志
         // 自定义服务商的地址、模型 id 变了：模型目录那份记的不作数了，下次要用时重查（在一次性子进程里登记后查）

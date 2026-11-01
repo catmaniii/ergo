@@ -1,4 +1,4 @@
-// 秘书的"问记忆"工具（232 号票，接入设计第 3、5 节）：用户问"我是不是……""为什么……""我最看重什么"这类关于他本人的
+// 秘书的"问记忆"工具（接入设计第 3、5 节）：用户问"我是不是……""为什么……""我最看重什么"这类关于他本人的
 // 问题时，秘书按授权深查推理图谱——内部走 @ergo/memory 的 memoryBrief（D 组合法：记录 + 用户画像：对用户的理解、还没分出
 // 胜负的竞争解释、明说过的要求和禁忌），只认简报正文里出现的证据编号（ev-…）、结论编号（cl-…）。
 // - 只给秘书；只读、不写库、不调模型（memoryBrief 只查询和检索）；
@@ -7,9 +7,9 @@
 //   万一还超就按字截断并写明；
 // - 引擎没开、库没建、版本对不上、插件停用（provider 回 undefined）→ 回"记忆还没准备好（还没建库或插件没启用）"，不抛错，
 //   这一轮照旧能用素材检索（search_materials）。
-// - 263 号票：结果也进网页"回忆了 N 条记忆"那一行（协议包 MemoryRecall，source 是 ask）：查了什么是问题，命中是简报正文里出现的
+// -结果也进网页"回忆了 N 条记忆"那一行（协议包 MemoryRecall，source 是 ask）：查了什么是问题，命中是简报正文里出现的
 //   证据背后的素材（证据的 sourceRef 是素材 id；表态证据这类不是素材的不算），和检索素材一样按素材 id 列、网页现取原文。
-// @i18n-ignore-file model：工具的说明、参数说明和结果给秘书（模型）看（174 号票）；工具的名字走 t()
+// @i18n-ignore-file model：工具的说明、参数说明和结果给秘书（模型）看；工具的名字走 t()
 import { type BriefLimits, type MemoryBrief, type MemoryEngine } from "@ergo/memory";
 import { MEMORY_RECALL_HITS_MAX, type MemoryRecall, type MemoryRecallHit, t, Type } from "@ergo/protocol";
 import { defineHostTool, type HostTool } from "../agent-manager/host-tools.ts";
@@ -55,14 +55,14 @@ export function clipBriefText(text: string, max: number = ASK_MEMORY_MAX_CHARS):
 }
 
 /**
- * 263 号票：简报用到的记忆（给网页画"回忆了 N 条记忆"）：正文里出现的证据（按出现的先后）背后的素材，去重，最多 MEMORY_RECALL_HITS_MAX 条。
+ * 简报用到的记忆（给网页画"回忆了 N 条记忆"）：正文里出现的证据（按出现的先后）背后的素材，去重，最多 MEMORY_RECALL_HITS_MAX 条。
  * 素材库里已经没有的（忘掉、彻底删除了）不列；没给素材库时只认得出编号，种类、时间留空不得——这时也不列
  */
 export function briefRecallHits(engine: Pick<MemoryEngine, "getEvidence">, brief: Pick<MemoryBrief, "evidenceIds">, materials: Pick<Materials, "get">): MemoryRecallHit[] {
   const hits: MemoryRecallHit[] = [];
   const seen = new Set<string>();
   for (const evidenceId of brief.evidenceIds) {
-    // 303 号票：几条数据源素材合成的一条证据，背后几条素材都列
+    // 几条数据源素材合成的一条证据，背后几条素材都列
     for (const ref of materialIdsOfRef(engine.getEvidence(evidenceId)?.sourceRef)) {
       if (seen.has(ref)) continue;
       const material = materials.get(ref);
@@ -75,7 +75,7 @@ export function briefRecallHits(engine: Pick<MemoryEngine, "getEvidence">, brief
   return hits;
 }
 
-/** materials：素材库（263 号票：把简报用到的证据对回素材，进"回忆了 N 条记忆"）；不给就不带结构化的那份 */
+/** materials：素材库（把简报用到的证据对回素材，进"回忆了 N 条记忆"）；不给就不带结构化的那份 */
 export function askMemoryTool(provider: Pick<MemoryEngineProvider, "get">, materials?: Pick<Materials, "get">): HostTool {
   return defineHostTool({
     name: ASK_MEMORY,

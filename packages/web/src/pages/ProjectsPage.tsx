@@ -1,22 +1,22 @@
 // 项目页：项目一览（状态、负责人在干什么、内部任务和定时触发的有几个、"新建项目"）+ 项目（项目头：状态、项目类型、工作目录、
-// 按当前状态给出的动作；立项书、内部任务、定时触发的、工单流水线、工具包、范围记录、负责人）+ 负责人会话。15 号票起项目来自前端状态层
-// （项目列表频道，state/projects.ts）；16 号票起工单流水线（state/work-orders.ts）和重置负责人接真数据；18 号票起范围记录
-// （state/scope-records.ts，越界和范围变更分开）；19 号票起定时作业列表接真数据（state/scheduled-jobs.ts）；64 号票起"内部任务"一栏
-// （state/projects.ts 的 projectInternalTasks）；工具包的修改（27）还只有原型的假项目有（原型的假项目整页用假数据）。
-// 104 号票（用户 2026-10-12，照 88 号票的任务页；布局的纯函数在 state/project-page.ts）：
+// 按当前状态给出的动作；立项书、内部任务、定时触发的、工单流水线、工具包、范围记录、负责人）+ 负责人会话。项目来自前端状态层
+// （项目列表频道，state/projects.ts）；工单流水线（state/work-orders.ts）和重置负责人接真数据；范围记录
+// （state/scope-records.ts，越界和范围变更分开）；定时作业列表接真数据（state/scheduled-jobs.ts）；"内部任务"一栏
+// （state/projects.ts 的 projectInternalTasks）；工具包的修改还只有原型的假项目有（原型的假项目整页用假数据）。
+// 照任务页；布局的纯函数在 state/project-page.ts：
 // - 项目一览和项目二选一，不再左边列表右边项目（ListDetail）：没点项目时整页是项目一览，宽屏排成多列的"档案墙"（.pwall[data-layout="grid"]），
 //   按项目状态分组、每组标题点一下收起（按设备记住，默认已归档收起），顶上一条概览；每张卡像一份档案（上沿页签写种类和状态，正文是名字和
 //   一句话目标，底下一行是负责人在干什么、内部任务、定时触发的、最近一次动静），和任务看板的紧凑小卡看得出不一样；
 // - 宽屏点卡片、从别处跳进来（#/projects/<项目>，…/chat、…/jobs/<作业> 也是）整页是这个项目：和负责人的会话占主区，项目的详情在会话左边的
 //   档案栏里（照长程任务的阶段栏：栏顶 × 整栏藏掉，标题栏左边的"项目档案"再打开，分界线能拖，开合和宽度按设备记住）；
 //   标题栏左上角的 ‹（鸿蒙返回键同一层）、浏览器后退回到一览，回来时滚回原来的位置（手机上也是）；‹ 不往历史里压新记录（app/history-nav.ts）；
-// - 368 号票（用户 2026-11-01）：手机上也是一览 → 对话框，不再多一层项目页；档案从右边滑进来；顶上是阶段条，项目内部任务没有单独的详情页（AgentConversation.tsx）。
-// 133 号票：项目做成了服务的（运营手段"服务"上线了），项目卡、项目页页头、运营方案那一节上有"打开「X」"入口和在不在线
+// -手机上也是一览 → 对话框，不再多一层项目页；档案从右边滑进来；顶上是阶段条，项目内部任务没有单独的详情页（AgentConversation.tsx）。
+// 项目做成了服务的（运营手段"服务"上线了），项目卡、项目页页头、运营方案那一节上有"打开「X」"入口和在不在线
 // （ui/service-entry.tsx，数据是 state/project-services.ts），点了在内置浏览器里打开。
-// 140 号票：项目卡和项目头用同一个"运营概况"（ui/operations-summary.tsx：服务入口带首页缩略图、定时任务几条几点、展开看每条）；
+// 项目卡和项目头用同一个"运营概况"（ui/operations-summary.tsx：服务入口带首页缩略图、定时任务几条几点、展开看每条）；
 // 项目头下面先是"现在"一节（pages/ProjectNow.tsx：按项目状态说最要紧的事，使用中的就是放大的运营概况），再往下是原来的各节；
 // 对话框档案里的项目头用窄版。
-// 258 号票：立项书下面一块"规范"（pages/ProjectStandard.tsx）：用的哪一版规范、必须有的几份文档写了、只有模板还是缺。
+// 立项书下面一块"规范"（pages/ProjectStandard.tsx）：用的哪一版规范、必须有的几份文档写了、只有模板还是缺。
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { pageProjectFold, useProjectFolded } from "../app/page-project-wall.ts";
 import { goBackFromProject, type Navigate, replaceRoute, toHash } from "../app/route.ts";
@@ -94,11 +94,11 @@ import { ToolkitEditor, ToolkitPanel } from "./ToolkitEditor.tsx";
 import { TaskProgress } from "../ui/TaskProgress.tsx";
 
 /**
- * 项目一览和项目二选一（104 号票，宽窄屏一样）：没点项目时整页是项目一览（宽屏多列档案墙），点了整页是这个项目的对话框（368 号票：手机上也是）。
+ * 项目一览和项目二选一（宽窄屏一样）：没点项目时整页是项目一览（宽屏多列档案墙），点了整页是这个项目的对话框（手机上也是）。
  * 标题栏的 ‹ 回到一览（上一条历史就是一览就后退一步，否则换掉这一条，不压新记录）。
- * jobId：日历里点作业过来，档案里这个定时作业那一行高亮并滚到看得见的地方（35 号票）；taskId：对话框定位到这个任务（368 号票）
+ * jobId：日历里点作业过来，档案里这个定时作业那一行高亮并滚到看得见的地方；taskId：对话框定位到这个任务
  */
-/** at：负责人的会话里要定位的那一条（105 号票，从待办跳过来） */
+/** at：负责人的会话里要定位的那一条（从待办跳过来） */
 export function ProjectsPage({ wide, projectId, taskId, jobId, at, navigate }: { wide: boolean; projectId?: string; taskId?: string; jobId?: string; at?: string | undefined; navigate: Navigate }) {
   // 离开一览（进了项目）时一览滚到哪：一览在项目页时拿掉了，回来时照它恢复；记在项目页上，切到别的页再回来从头开始。
   // 分组收起按设备记住，不用这里记
@@ -115,9 +115,9 @@ export function ProjectsPage({ wide, projectId, taskId, jobId, at, navigate }: {
 // ---------- 项目一览 ----------
 
 /**
- * 项目一览（104 号票）。layout：宽屏 grid（每组里的卡排成多列，卡片最小宽比任务看板的大，样式在 pages.css 的 .pwall[data-layout="grid"]），
+ * 项目一览。layout：宽屏 grid（每组里的卡排成多列，卡片最小宽比任务看板的大，样式在 pages.css 的 .pwall[data-layout="grid"]），
  * 窄屏 list（一列）。滚动时报给项目页记下（onScrolled），从项目回来时照记下的（savedScroll）滚回去。
- * 每组标题点一下收起 / 展开（按设备记住，默认已归档收起，照 90 号票的看板分组）
+ * 每组标题点一下收起 / 展开（按设备记住，默认已归档收起，照看板分组）
  */
 function ProjectWall({ layout, savedScroll, onScrolled, onOpen }: { layout: "grid" | "list"; savedScroll(): number | undefined; onScrolled(top: number): void; onOpen(id: string): void }) {
   const { ui } = useStore();
@@ -204,8 +204,8 @@ function WallStat({ n, label, className }: { n: number; label: string; className
 
 /**
  * 一张项目卡（一份档案）：上沿页签写种类和状态，正文是名字（大）和一句话目标，底下一行是现在的动静。
- * 133 号票：整张卡是一个铺满的按钮（打开项目），项目的服务的入口压在它上面（按钮里不能套按钮）。
- * 140 号票：入口换成运营概况（缩略图小、定时任务默认收起）：缩略图、入口、展开钮、展开后的一行行压在铺满的按钮上面自己能点，
+ * 整张卡是一个铺满的按钮（打开项目），项目的服务的入口压在它上面（按钮里不能套按钮）。
+ * 入口换成运营概况（缩略图小、定时任务默认收起）：缩略图、入口、展开钮、展开后的一行行压在铺满的按钮上面自己能点，
  * 别处（那一行字）点下去还是打开项目
  */
 function ProjectFileCard({ card, onOpen }: { card: ProjectCard; onOpen(): void }) {
@@ -222,11 +222,11 @@ function ProjectFileCard({ card, onOpen }: { card: ProjectCard; onOpen(): void }
         <span className="pfile-name">{p.name}</span>
         <span className="pfile-goal">{p.goal}</span>
         {p.state === "preparing" && p.charterConfirmed && <span className="chip chip-ok pfile-chip">{t("pages.projects.charterConfirmed")}</span>}
-        {/* 负责人用的运行时（289 号票）：插件登记的才标 */}
+        {/* 负责人用的运行时：插件登记的才标 */}
         <RuntimeChip runtime={projectRuntime(p, ui.tasks)} className="pfile-chip" />
-        {/* 292 号票：会话交给了官方 App */}
+        {/* 会话交给了官方 App */}
         {remoteBadgeOf(p.takeover) && <RemoteBadge badge={remoteBadgeOf(p.takeover)!} className="pfile-chip" />}
-        {/* 305 号票：用插件的运行时、工作目录在外面的写出在哪个文件夹做 */}
+        {/* 用插件的运行时、工作目录在外面的写出在哪个文件夹做 */}
         {p.workdir.external && p.workdir.path && runtimeShown(projectRuntime(p, ui.tasks)) && (
           <span className="pfile-workdir" title={p.workdir.path}>
             {t("pages.projects.card.workdir", { path: p.workdir.path })}
@@ -251,15 +251,15 @@ function ProjectFileCard({ card, onOpen }: { card: ProjectCard; onOpen(): void }
 }
 
 /**
- * 点"新建项目"：不经"是不是项目"的判断，秘书直接出一张建议立项卡（289 号票：能选负责人用的运行时，写在卡上）。
- * 290 号票：选了能接管的运行时可以"从已有的会话接管"——不经秘书，直接建出项目
+ * 点"新建项目"：不经"是不是项目"的判断，秘书直接出一张建议立项卡（能选负责人用的运行时，写在卡上）。
+ * 选了能接管的运行时可以"从已有的会话接管"——不经秘书，直接建出项目
  */
 function NewProjectDialog({ onClose }: { onClose(): void }) {
   const [what, setWhat] = useState("");
   const [runtime, setRuntime] = useState<string>(PI_RUNTIME_ID);
-  /** 从已有的会话接管（290 号票）：换成接管的对话框 */
+  /** 从已有的会话接管：换成接管的对话框 */
   const [taking, setTaking] = useState(false);
-  /** 在哪个文件夹做（305 号票）：选了能选工作文件夹的运行时（Claude Code）才有 */
+  /** 在哪个文件夹做：选了能选工作文件夹的运行时（Claude Code）才有 */
   const [folder, setFolder] = useState<FolderDraft>(EMPTY_FOLDER_DRAFT);
   const [folderError, setFolderError] = useState<string>();
   const [checking, setChecking] = useState(false);
@@ -272,7 +272,7 @@ function NewProjectDialog({ onClose }: { onClose(): void }) {
     onClose();
   };
   const submit = () => {
-    // 用已有文件夹的（305 号票）：先核对路径，不对的留在对话框里写明原因
+    // 用已有文件夹的：先核对路径，不对的留在对话框里写明原因
     if (folderShown && folder.mode === "existing") {
       setChecking(true);
       setFolderError(undefined);
@@ -287,7 +287,7 @@ function NewProjectDialog({ onClose }: { onClose(): void }) {
     }
     send(folderShown ? folderChoiceOf(folder) : undefined);
   };
-  // 从已有的会话接管（290 号票）：不经秘书直接建出，写的话带过去当一句话目标
+  // 从已有的会话接管：不经秘书直接建出，写的话带过去当一句话目标
   if (taking) return <TakeoverSheet runtime={runtime} as="project" initial={what} onBack={() => setTaking(false)} onClose={onClose} />;
   return (
     <Sheet title={t("pages.projects.new.title")} onClose={onClose} center>
@@ -296,9 +296,9 @@ function NewProjectDialog({ onClose }: { onClose(): void }) {
         <textarea value={what} onChange={(e) => setWhat(e.target.value)} placeholder={t("pages.projects.new.placeholder")} autoFocus />
       </label>
       <RuntimePicker value={runtime} onChange={setRuntime} />
-      {/* 从已有的会话接管（290 号票）：选的运行时能接管才有 */}
+      {/* 从已有的会话接管：选的运行时能接管才有 */}
       <TakeoverLink runtime={runtime} onOpen={() => setTaking(true)} />
-      {/* 在哪个文件夹做（305 号票）：选的运行时能选工作文件夹才有 */}
+      {/* 在哪个文件夹做：选的运行时能选工作文件夹才有 */}
       {folderShown && (
         <WorkFolderPicker
           runtime={runtime}
@@ -339,7 +339,7 @@ function workdirLabel(p: Project): string {
 }
 
 /**
- * 项目的对话框（368 号票，用户 2026-11-01："我点那个项目卡片进去之后出来一个聊天窗口……阶段条就是显示在我点击卡片之后进去的那个聊天窗口，而不要再展开一层"）：
+ * 项目的对话框（"我点那个项目卡片进去之后出来一个聊天窗口……阶段条就是显示在我点击卡片之后进去的那个聊天窗口，而不要再展开一层"）：
  * 和负责人的会话占主区，顶上是这个项目正在做的任务的阶段条，项目的详情在档案里（宽屏在会话左边，手机从右边滑进来；开合、宽度按设备记住，日历里点作业过来的这一次打开、那一行高亮）。
  * 任务看板、待办、链接进来的都是这一个：focus 是地址点名要定位到的任务，阶段条、标题栏上的状态和操作换成它，会话滚到它开始的那一条（带 at 的照旧定位到那一条）。
  * 已归档的项目会话只读
@@ -376,7 +376,7 @@ function ProjectDialog({ view, wide, job, focus, at }: { view: ProjectView; wide
     caption: task?.title,
     doneText: task && (task.id === p.buildTaskId && task.state === "done" ? t("pages.agent.buildDone") : t("pages.agent.taskEnded", { title: task.title, status: taskStatusText(task) })),
     focusHref: task && toHash({ tab: "projects", projectId: p.id, taskId: task.id }),
-    // 删了（186 号票）：回到项目的对话框，不再定位到它
+    // 删了：回到项目的对话框，不再定位到它
     onDeleted: () => replaceRoute({ tab: "projects", projectId: p.id }),
   });
   const archiveLabel = t("pages.projects.side.title");
@@ -443,7 +443,7 @@ function ProjectDialog({ view, wide, job, focus, at }: { view: ProjectView; wide
         revealAt={at}
         readOnly={p.state === "archived"}
         readOnlyNote={wide ? t("pages.projects.readOnlyInRecords") : t("pages.projects.readOnlyOnPage")}
-        // 等你处理（107 号票）：这个项目的、它内部任务的、对话框上正显示的任务的（368 号票）；归档了照样能点（删除项目的确认）
+        // 等你处理：这个项目的、它内部任务的、对话框上正显示的任务的；归档了照样能点（删除项目的确认）
         inbox={{ kind: "project", projectId: p.id, taskId: scene?.task.id }}
         taskId={sayTo}
         workflowTaskId={current?.workflow ? current.task.id : undefined}
@@ -455,13 +455,13 @@ function ProjectDialog({ view, wide, job, focus, at }: { view: ProjectView; wide
 
 /**
  * 项目头：状态、负责人、进行中的任务、一句话目标、类型和工作目录，按当前状态给出的动作。
- * 140 号票：下面紧跟"现在"一节（服务入口、定时任务在它的运营概况里）；narrow：档案里用窄版；onChat："现在"一节让你去说话时（手机上档案盖着会话，点了滑回去）
+ * 下面紧跟"现在"一节（服务入口、定时任务在它的运营概况里）；narrow：档案里用窄版；onChat："现在"一节让你去说话时（手机上档案盖着会话，点了滑回去）
  */
 function ProjectHead({ view, onChat, narrow = false }: { view: ProjectView; onChat?: (() => void) | undefined; narrow?: boolean }) {
   const { projectAction, setProjectVoiceAnnounce, ui } = useStore();
   const toast = useToast();
   const p = view.project;
-  // 自动播报（354 号票，默认关）：负责人的进展来信直接念，不先问
+  // 自动播报（默认关）：负责人的进展来信直接念，不先问
   const announce = (on: boolean) => {
     void setProjectVoiceAnnounce(p.id, on).then(
       (result) => toast(result.on ? t("pages.projects.announceOnToast") : t("pages.projects.announceOffToast")),
@@ -472,7 +472,7 @@ function ProjectHead({ view, onChat, narrow = false }: { view: ProjectView; onCh
     projectAction(p.id, action);
     // 删除不马上删：二次确认在待我处理里
     if (action === "delete") toast(t("pages.projects.deleteToast", { name: p.name }));
-    // 转入使用不马上转（259 号票）：确认卡出在"现在"里和待办里
+    // 转入使用不马上转：确认卡出在"现在"里和待办里
     if (action === "go_live") toast(t("pages.projects.goLiveToast"));
   };
   return (
@@ -528,7 +528,7 @@ function ProjectHead({ view, onChat, narrow = false }: { view: ProjectView; onCh
   );
 }
 
-/** 项目头下面的各节：立项书、规范（258 号票），以及内部任务、定时触发的、工单流水线、工具包、范围记录、负责人（原型的假项目用假数据） */
+/** 项目头下面的各节：立项书、规范，以及内部任务、定时触发的、工单流水线、工具包、范围记录、负责人（原型的假项目用假数据） */
 function ProjectSections({ view, job }: { view: ProjectView; job?: string | undefined }) {
   const { ui } = useStore();
   const p = view.project;
@@ -538,7 +538,7 @@ function ProjectSections({ view, job }: { view: ProjectView; job?: string | unde
       {p.charterCardId && (
         <Section title={t("pages.projects.charter")} id={charterAnchor(p.id)}>
           <CardPanel cardId={p.charterCardId} />
-          {/* 125 号票：立项书确认之后的立项要求变更（确认了的已经改进立项书，末尾有变更记录） */}
+          {/* 立项书确认之后的立项要求变更（确认了的已经改进立项书，末尾有变更记录） */}
           {projectCharterChangeCards(ui, p.id).map((id) => (
             <CardPanel key={id} cardId={id} />
           ))}
@@ -583,9 +583,9 @@ function ProjectSections({ view, job }: { view: ProjectView; job?: string | unde
 }
 
 /**
- * 项目内部任务（64 号票）：由项目的负责人执行的流程和长程任务（不上全局看板）。没结束的在前（排队的也在这里列着）；结束了的每个有"归档"
+ * 项目内部任务：由项目的负责人执行的流程和长程任务（不上全局看板）。没结束的在前（排队的也在这里列着）；结束了的每个有"归档"
  * （和全局任务一样只有你能归档）；归档了的收起来。每个写种类、状态（写明原因）、进度和用量，
- * 点了对话框定位到它（368 号票：不再跳页，执行过程就在这个会话里）
+ * 点了对话框定位到它（不再跳页，执行过程就在这个会话里）
  */
 function ProjectInternalTasks({ projectId }: { projectId: string }) {
   const { ui, taskAction } = useStore();
@@ -630,10 +630,10 @@ function InternalTaskRow({ projectId, v, onArchive }: { projectId: string; v: In
       </a>
       <div className="muted">
         {v.kindLabel} · {v.status}
-        {/* 311 号票：和任务卡一样写"124 万 token（其中缓存命中 104 万）" */}
+        {/* 和任务卡一样写"124 万 token（其中缓存命中 104 万）" */}
         {v.tokens > 0 && ` · ${tokensText(v.tokens, v.cacheHitTokens)}`}
       </div>
-      {/* 进度和看板卡同一份（60 号票：流程是做完的步数、长程任务是已验收的阶段数） */}
+      {/* 进度和看板卡同一份（流程是做完的步数、长程任务是已验收的阶段数） */}
       {v.progress && (
         <div className="muted">
           <TaskProgress progress={v.progress} />
@@ -648,7 +648,7 @@ function InternalTaskRow({ projectId, v, onArchive }: { projectId: string; v: In
   );
 }
 
-/** 工单流水线（16 号票）：排队中、进行中、已结束三栏，每张工单显示来源、所属任务和这个任务现在到哪了 */
+/** 工单流水线：排队中、进行中、已结束三栏，每张工单显示来源、所属任务和这个任务现在到哪了 */
 function WorkOrderPipeline({ projectId }: { projectId: string }) {
   const { ui } = useStore();
   const lanes = projectPipeline(ui, projectId);
@@ -687,7 +687,7 @@ function WorkOrderPipeline({ projectId }: { projectId: string }) {
 }
 
 /**
- * 项目里定时触发的任务（76 号票；19 号票的定时作业）：每个的时间表、状态（运营中、已暂停及原因）、最近一次失败、下一次，以及暂停、恢复、取消；
+ * 项目里定时触发的任务（定时作业）：每个的时间表、状态（运营中、已暂停及原因）、最近一次失败、下一次，以及暂停、恢复、取消；
  * 点名字去它的任务详情（按运行分段）。在"发起任务"里选这个项目、"什么时候做：定时"建；项目停用时跟着暂停（停用期间恢复会被拒）
  */
 function ProjectScheduledJobs({ projectId, job }: { projectId: string; job?: string }) {
@@ -742,7 +742,7 @@ function ProjectJobRow({ v, on }: { v: ScheduledJobView; on: boolean }) {
 const OPERATION_STATUS_CLASS: Record<OperationRow["status"], string> = { running: "st-ops", paused: "st-paused", failed: "st-failed", manual: "st-manual", ended: "st-paused" };
 
 /**
- * 运营方案（130 号票）：现在生效的运营方案里每一条——叫什么、什么时候、怎么做、要的能力、状态（在跑、暂停及原因、没生效及原因、
+ * 运营方案：现在生效的运营方案里每一条——叫什么、什么时候、怎么做、要的能力、状态（在跑、暂停及原因、没生效及原因、
  * 要你手动的写明步骤、已结束），点名字去它的任务详情；"运营方案变更"卡列在下面。没有运营方案、也没有变更卡的项目不显示这一节
  */
 function ProjectOperations({ project: p }: { project: Project }) {
@@ -768,13 +768,13 @@ function ProjectOperations({ project: p }: { project: Project }) {
             </div>
             {r.nextAt && <div className="muted">{t("pages.projects.operationNext", { time: timeLabel(r.nextAt) })}</div>}
             {r.detail && <div className={r.status === "failed" ? "ops-row-failed" : "ops-manual-note"}>{r.detail}</div>}
-            {/* 133 号票：服务那一条的入口（还算在项目上的才有：撤下了的不给） */}
+            {/* 服务那一条的入口（还算在项目上的才有：撤下了的不给） */}
             {r.service && r.service.rollout !== "withdrawn" && (
               <div className="svc-entries">
                 <ServiceEntry view={r.service} compact />
               </div>
             )}
-            {/* 357 号票：服务报的事件（调试时不用猜：报没报到、叫没叫醒）。服务那一条没报过的不占地方，等事件的那一条写"还没收到过" */}
+            {/* 服务报的事件（调试时不用猜：报没报到、叫没叫醒）。服务那一条没报过的不占地方，等事件的那一条写"还没收到过" */}
             {r.events && (r.events.length > 0 || !r.service) && (
               <div className="ops-events">
                 <div className="ops-events-title">{t("pages.projects.serviceEvents")}</div>
@@ -800,7 +800,7 @@ function ProjectOperations({ project: p }: { project: Project }) {
 }
 
 /**
- * 负责人那一节：重置负责人（16 号票）并到会话标题栏的 ⚙ 里了（114 号票，"清空当前对话"就是重置负责人，只留一处），这里只说一声去哪找
+ * 负责人那一节：重置负责人并到会话标题栏的 ⚙ 里了（"清空当前对话"就是重置负责人，只留一处），这里只说一声去哪找
  */
 function MaintainerNote() {
   return (
@@ -810,7 +810,7 @@ function MaintainerNote() {
   );
 }
 
-/** 原型假项目才有的几节：定时作业、工单流水线、工具包的修改、范围记录（各自的票接真数据）；负责人那一节指向 ⚙ */
+/** 原型假项目才有的几节：定时作业、工单流水线、工具包的修改、范围记录（还没接真数据）；负责人那一节指向 ⚙ */
 function ProtoSections({ project: p, detail }: { project: Project; detail: ProjectDetail }) {
   const [scheduledJobs, setScheduledJobs] = useState<ScheduledJobSummary[]>(detail.scheduledJobs);
   return (

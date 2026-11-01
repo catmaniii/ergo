@@ -1,4 +1,4 @@
-// 了解你访谈的记录和发起（284 号票，memory/interview.ts）：从记录算出现在的样子（开着的那次、放下了的、聊过哪几个主题），
+// 了解你访谈的记录和发起（memory/interview.ts）：从记录算出现在的样子（开着的那次、放下了的、聊过哪几个主题），
 // 每周约、五个主题都聊过以后改每月约"最近有什么变化"、约访关着不约、开着访谈不约、已经开着就进同一次。
 // 事件日志、卡片、待我处理换成内存里的假的（只看访谈这一层；真的装配在主切面 test/main/memory-interview.test.ts）。
 import {
@@ -237,7 +237,7 @@ describe("约访和开访谈", () => {
 describe("访谈里的档案信息", () => {
   it("聊的时候记下（不出卡）：一人一项，同一个人的同一项以后记的为准，新建的人关系跟着；收尾时合成一张核对卡", () => {
     const { kernel, interviews } = setup(fakeKernel(), T0, true);
-    // 没在聊：交给调用方照 281 号票出一人一张的卡
+    // 没在聊：交给调用方出一人一张的卡
     expect(interviews.collectFile({ person: "妈妈", fields: [{ field: "生日", value: "3月1日" }] }, {})).toBeUndefined();
     const opened = interviews.start({ by: "page" });
     const first = interviews.collectFile(

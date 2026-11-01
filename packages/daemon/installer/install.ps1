@@ -1,4 +1,4 @@
-# ergo installer -- ticket 318.
+# ergo installer.
 #
 # One line (PowerShell 5.1+, no admin):
 #   irm <release site>/install.ps1 | iex
@@ -604,7 +604,7 @@ function Invoke-Retrying([scriptblock]$action) {
 
 # switching versions: "current" is a one-line text file naming the version directory in use.
 # It used to be a directory junction, but creating one after starting through the launcher (PowerShell -> ergo.exe -> node)
-# is refused by antivirus software (EPERM, ticket 318, 2026-10-27); a text file cannot be blocked that way.
+# is refused by antivirus software (EPERM); a text file cannot be blocked that way.
 # Older installs have a junction there; it is removed first.
 function Set-Current([string]$root, [string]$name) {
   $current = Join-Path $root 'current'

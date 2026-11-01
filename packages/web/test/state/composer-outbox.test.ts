@@ -1,4 +1,4 @@
-// 输入框上方等着发的附件和排着的语音（用户 2026-10-10 改：附件一律不自动发，等下一条消息一起带走），
+// 输入框上方等着发的附件和排着的语音（附件一律不自动发，等下一条消息一起带走），
 // state/composer-outbox.ts 的纯函数：谁带走谁、什么时候能发、发出去是哪些 part、后说的不越过先说的。
 // 上传、引用的卡片、真的发出去在 ui/conversation/Composer.tsx，靠用户评审和截图。
 import { describe, expect, test } from "vitest";

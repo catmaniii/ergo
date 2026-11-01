@@ -20,7 +20,7 @@ export function quickActionToolName(type: string): string {
   return `quick_action:${type}`;
 }
 
-/** 伪工具的登记：形状同工具注册表（关注按这一个动作给的优先，27 号票） */
+/** 伪工具的登记：形状同工具注册表（关注按这一个动作给的优先） */
 function descriptorOf(executor: QuickActionExecutor, action: NormalizedQuickAction): ToolDescriptor {
   const watch = executor.watchFor?.(action) ?? executor.watch;
   return {

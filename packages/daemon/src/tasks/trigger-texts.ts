@@ -1,15 +1,15 @@
-// 任务的触发方式的说法（76、77 号票）：任务书、通知里"什么时候做"那几句，事件触发方式被拒的原因。编排（tasks.ts）里不写文字。
-// 172 号票：被拒的原因（发起对话框里看得到）按当时的语言写；任务书里的几句交给负责人，照旧中文（用到的协议包说法也取中文）
+// 任务的触发方式的说法：任务书、通知里"什么时候做"那几句，事件触发方式被拒的原因。编排（tasks.ts）里不写文字。
+// 被拒的原因（发起对话框里看得到）按当时的语言写；任务书里的几句交给负责人，照旧中文（用到的协议包说法也取中文）
 import { describeEventTrigger, describeSchedule, describeTime, type EventTrigger, forModel, type ReminderSchedule, t, triggerFields } from "@ergo/protocol";
 
-/** 事件触发的写得不对（77 号票）：来源、事件、过滤条件哪里不对 */
+/** 事件触发的写得不对：来源、事件、过滤条件哪里不对 */
 export const EVENT_TRIGGER_PROBLEMS = (problems: readonly string[]) => t("tasks.trigger.problems", { problems: problems.join(t("protocol.common.semiSep")) });
 
 /** 没接上事件来源（测试里不给 checkEventTrigger 时） */
 export const NO_EVENT_SOURCES = "事件来源还没接上"; // @i18n-ignore log：只在测试里出现
 
 /**
- * 事件触发的流程（77 号票）：任务书里"什么时候做"那几句——在等什么事件、步骤参数里怎么写占位、能用哪些字段、执行时怎么代入
+ * 事件触发的流程：任务书里"什么时候做"那几句——在等什么事件、步骤参数里怎么写占位、能用哪些字段、执行时怎么代入
  * （文件工具的参数直接代入；通用 bash 的命令里换成引用环境变量，值不拼进命令）
  */
 // @i18n-ignore-start model
@@ -28,11 +28,11 @@ function eventLines(event: EventTrigger): string {
   ].join("\n");
 }
 
-/** 某个时间做一次（76 号票） */
+/** 某个时间做一次 */
 export const onceTriggerLine = (at: string) => forModel(() => onceLine(at));
 const onceLine = (at: string) => `什么时候做：${describeTime(new Date(at))} 做一次（用户授权计划之后等到那个时间再开始，之后和现在做一次的一样，做完就算完成）`;
 
-/** 按时间表反复做（76 号票） */
+/** 按时间表反复做 */
 export const scheduleTriggerLine = (schedule: ReminderSchedule) => forModel(() => scheduleLine(schedule));
 const scheduleLine = (schedule: ReminderSchedule) =>
   `什么时候做：定时，${describeSchedule(schedule)}（用户授权计划之后按时间表反复运行，每次一次运行，各次运行接着同一段会话；每次运行都按授权的步骤核对，所以要排成每次都能照着重复做的步骤）`;

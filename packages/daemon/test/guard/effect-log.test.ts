@@ -1,6 +1,6 @@
 // 守卫切面：效果日志的记录（规格第 9 节）和参数名统一。
 // 只有执行成功的调用才追加；记录里是规范化之后的参数：带类型的工具和从通用 bash 拆出的伪工具调用规范化成同一种形式，
-// 同一条规则对两者都生效。内容类的参数（写入的全文、编辑的新旧片段）只记长度和摘要哈希（68 号票）。
+// 同一条规则对两者都生效。内容类的参数（写入的全文、编辑的新旧片段）只记长度和摘要哈希。
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
@@ -50,7 +50,7 @@ describe("效果日志的记录", () => {
     expect(record!.summary).toBe("提交了 3f2a1c0");
   });
 
-  it("记上这次新建的路径（111 号票）：要写的路径判定前还不存在的才算；已有的、读的、删的、没给事实的不算", () => {
+  it("记上这次新建的路径：要写的路径判定前还不存在的才算；已有的、读的、删的、没给事实的不算", () => {
     const at = inWorkDir;
     const facts = {
       files: {
@@ -131,7 +131,7 @@ const digest = (text: string) => ({ $digest: { length: text.length, sha256: sha(
 /** 效果日志里存的参数：规范化之后再缩 */
 const stored = (input: GuardInput) => recordsOf(input).map((r) => [r.tool, effectLogArgs(r.tool, r.args, BUILTIN_TOOL_REGISTRY)]);
 
-describe("内容类的参数只记长度和摘要哈希（68 号票）", () => {
+describe("内容类的参数只记长度和摘要哈希", () => {
   const NOTES = Array.from({ length: 40 }, (_, i) => `第 ${i + 1} 行：周三下午三点确认水电方案`).join("\n");
 
   it("写文件的全文换成字符数和 SHA-256，路径照原样", () => {

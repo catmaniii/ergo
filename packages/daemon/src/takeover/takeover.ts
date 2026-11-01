@@ -1,4 +1,4 @@
-// 从运行时已有的会话接管（290 号票，issue 24 方案 2.3、用户答复第 2 条；调研 31 第 1、3 节，32 第 6.2 节，35 第 4 节）。
+// 从运行时已有的会话接管（调研 31 第 1、3 节）。
 // 新建项目 / 任务时多一个入口"从 Claude Code 会话接管"：列本机的会话、标出正被占着的，选中一个建成任务（普通任务）或项目，
 // 负责人的运行时是那个运行时、接着选中的会话、工作目录用会话原来的（守卫的工作目录就是它）。运行时自己的那几样（列、核对、分叉、
 // 读前情）在运行时的登记表里（插件登记的，runtime/runtimes.ts 的 AgentRuntime）；这里是内核的那一半：
@@ -11,7 +11,7 @@
 //   前面一行说明从哪读的、后面一行写明接管了、工作目录在哪；读不出来照样接管，写明没读出来；
 // - 建出的：任务是普通任务（第一条输入是用户写的"接着让它做什么"，前情在它之前进会话）；项目不经秘书直接建出（筹备中，不自动开始，
 //   用户在项目的会话里说话时负责人才接着做）。
-// 292 号票（交给官方 App、再收回来，issue 24 用户答复第 4、6 条；调研 35）：同一套状态（任务、项目上的 RuntimeTakeover）记着会话现在在哪边——
+// 交给官方 App、再收回来：同一套状态（任务、项目上的 RuntimeTakeover）记着会话现在在哪边——
 // 二狗接管（没交还）/ 官方 App（交还了、remote.since）/ 空着（交还了）。运行时自己的那几样（开 / 唤醒后台会话、拿链接、停掉、读会话）在登记表的
 // remoteControl 里；这里是二狗这一侧：
 // - 交给官方 App（act remote）：负责人在做一轮的先打断，记成交还了（运行时闸门让它的子进程停掉、不再拉起），等子进程退干净（到点没退不交）；
@@ -21,7 +21,7 @@
 // - 在官方 App 里时：二狗不写这个会话（不拉起、会话里说话被拒、写明先收回），但只读跟随——定时（followMs）、收回时读运行时的会话记录，把那边新增的
 //   用户说的、它回的、调用的工具补记进负责人的会话（remote：标"在官方 App 里"，不交给 agent、不采成素材；按那边每条的 id 去重，补记过的不重复记）；
 //   读到哪了记在内存里（重启后从交出去那一刻接着，靠去重不重复）；链接一时没拿到的跟随时再拿；
-// - 收回到二狗（act reclaim）：先停掉那边的后台会话（停不掉不收回），最后补记一遍，记成空着，再照 290 号票核对没在别处开着、接着同一个会话。
+// - 收回到二狗（act reclaim）：先停掉那边的后台会话（停不掉不收回），最后补记一遍，记成空着，再核对没在别处开着、接着同一个会话。
 import fs from "node:fs";
 import {
   type ConversationId,
@@ -63,32 +63,32 @@ const REMOTE_RELEASE_WAIT_MS = 30_000;
 const FOLLOW_MS = 60_000;
 
 export interface TakeoverServiceOptions {
-  /** 同一个幂等键重发：拿到第一次建出的（不再分叉、不再读前情）；292 号票：交出去、收回的说明和只读跟随补记的消息追加进负责人的会话 */
+  /** 同一个幂等键重发：拿到第一次建出的（不再分叉、不再读前情）；交出去、收回的说明和只读跟随补记的消息追加进负责人的会话 */
   store: Pick<EventStore, "eventByIdempotencyKey" | "appendBatch">;
   runtimes: Pick<RuntimeRegistry, "sessions" | "sessionBusy" | "forkSession" | "sessionHistory" | "get" | "remoteControl" | "currentSession" | "unavailable">;
   tasks: Pick<TaskService, "list" | "ofMaintainer" | "startTakenOver" | "setTakeover">;
   /** 项目服务建在任务之后：现取 */
   projects: () => TakeoverProjects;
-  /** 运行时闸门：负责人在不在做一轮、交还收回后各自看一眼；292 号票：正在交给官方 App 时让它停下、不拉起 */
+  /** 运行时闸门：负责人在不在做一轮、交还收回后各自看一眼；正在交给官方 App 时让它停下、不拉起 */
   gate: Pick<RuntimeGate, "busy" | "recheck" | "runtimeOf" | "handing">;
   /** 这个负责人的子进程还在不在（交还后等它退出） */
   live(maintainerId: string): boolean;
   /** 参数摘要按它写（守卫的工具登记表） */
   tools: ToolRegistry;
   /**
-   * 会话原来的工作目录能不能用（305 号票，work-folders/ 的 check）：不在、不是文件夹、在数据目录或二狗程序目录里的抛 RequestRejected，
+   * 会话原来的工作目录能不能用（work-folders/ 的 check）：不在、不是文件夹、在数据目录或二狗程序目录里的抛 RequestRejected，
    * 能用的交回真实路径。不给只看在不在、是不是文件夹
    */
   checkFolder?: (folder: string) => string;
-  /** 停下负责人手头这一轮（292 号票：交给官方 App 前先打断）；没在做是 false */
+  /** 停下负责人手头这一轮（交给官方 App 前先打断）；没在做是 false */
   stopTurn?(maintainerId: string): boolean;
-  /** 负责人的会话目录（292 号票：运行时在里面记着现在接着的是哪个会话） */
+  /** 负责人的会话目录（运行时在里面记着现在接着的是哪个会话） */
   sessionDir?(maintainerId: string): string;
   now: () => string;
   log: (line: string) => void;
   /** 测试调短：交还后等子进程退出的轮询间隔 */
   pollMs?: number;
-  /** 测试调短：在官方 App 里时多久读一次那边的会话（292 号票） */
+  /** 测试调短：在官方 App 里时多久读一次那边的会话 */
   followMs?: number;
 }
 
@@ -98,14 +98,14 @@ export interface TakeoverService {
   /** 从选中的会话接管成任务或项目（见文件开头） */
   takeOver(runtimeId: string, body: TakeOverBody): Promise<TakeOverResult>;
   /**
-   * 交还（负责人在做一轮时拒绝；等子进程退出才交回）、收回（核对过没在别处开着；在官方 App 里的先停掉那边）、交给官方 App（292 号票，见文件开头）
+   * 交还（负责人在做一轮时拒绝；等子进程退出才交回）、收回（核对过没在别处开着；在官方 App 里的先停掉那边）、交给官方 App（见文件开头）
    */
   act(maintainerId: string, action: TakeoverAction): Promise<void>;
   /** 负责人的会话交还了 / 在官方 App 里：用户在它的会话里说话时拒收的说明；二狗管着的、不是接管来的是 undefined */
   sendRefusal(maintainerId: string): string | undefined;
-  /** 只读跟随（292 号票）：读一遍在官方 App 里的会话（给了负责人只读它的），把新的补记进负责人的会话 */
+  /** 只读跟随：读一遍在官方 App 里的会话（给了负责人只读它的），把新的补记进负责人的会话 */
   follow(maintainerId?: string): Promise<void>;
-  /** 开始定时只读跟随（292 号票）；返回停下的函数 */
+  /** 开始定时只读跟随；返回停下的函数 */
   startFollowing(): () => void;
 }
 
@@ -120,10 +120,10 @@ interface Holder {
 
 /** 二狗自己在管的写明是哪个任务 / 项目 */
 const heldText = (h: Holder) => t(h.kind === "task" ? "takeover.heldByTask" : "takeover.heldByProject", { id: h.id, title: h.title });
-/** 交给官方 App 了的写明是哪个任务 / 项目交的（292 号票） */
+/** 交给官方 App 了的写明是哪个任务 / 项目交的 */
 const remoteText = (h: Holder) => t(h.kind === "task" ? "takeover.remote.heldByTask" : "takeover.remote.heldByProject", { id: h.id, title: h.title });
 
-/** 一个任务或项目的负责人（292 号票：二狗自己开的会话交给官方 App 时，任务、项目上还没有接管记录） */
+/** 一个任务或项目的负责人（二狗自己开的会话交给官方 App 时，任务、项目上还没有接管记录） */
 interface Owner {
   kind: "task" | "project";
   id: string;
@@ -171,7 +171,7 @@ export function createTakeoverService(options: TakeoverServiceOptions): Takeover
       : undefined;
   };
 
-  /** 负责人是哪个任务、项目的（292 号票：没有接管记录的也认） */
+  /** 负责人是哪个任务、项目的（没有接管记录的也认） */
   const ownerOf = (maintainerId: string): Owner | undefined => {
     const project = options.projects().maintainedBy(maintainerId);
     if (project) return { kind: "project", id: project.id, title: project.name, maintainerId, runtime: runtimeIdOf(project.runtime), takeover: project.takeover, workdir: options.projects().workdir(project) };
@@ -183,7 +183,7 @@ export function createTakeoverService(options: TakeoverServiceOptions): Takeover
   const markHeld = (runtimeId: string, list: readonly ResumableSessionView[]): ResumableSessionView[] => {
     const mine = holders().filter((h) => h.takeover.runtime === runtimeId);
     const held = mine.filter((h) => h.takeover.returnedAt === undefined);
-    // 交给官方 App 了的（292 号票）：交出去的是哪个会话（中途换过 id 的按 remote.sessionId）
+    // 交给官方 App 了的：交出去的是哪个会话（中途换过 id 的按 remote.sessionId）
     const remote = mine.filter((h) => takeoverPlaceOf(h.takeover) === "remote");
     return list.map((s) => {
       const h = held.find((x) => x.takeover.sessionId === s.id);
@@ -214,7 +214,7 @@ export function createTakeoverService(options: TakeoverServiceOptions): Takeover
     gate.recheck();
   };
 
-  /** 往负责人的会话里写一句系统说明（292 号票：交给官方 App、收回到二狗） */
+  /** 往负责人的会话里写一句系统说明（交给官方 App、收回到二狗） */
   const note = (owner: { kind: "task" | "project"; id: string; maintainerId: string }, text: string) => {
     const scope: MessageScope = owner.kind === "task" ? { taskId: owner.id } : { projectId: owner.id };
     options.store.appendBatch([buildMessage({ conversation: maintainerChannel(owner.maintainerId), speaker: "system", parts: [{ type: "text", text }] }, scope).event]);
@@ -223,7 +223,7 @@ export function createTakeoverService(options: TakeoverServiceOptions): Takeover
   /** 负责人的工作目录（后台会话在那里开、读会话时给运行时）：接管来的任务、项目就是会话原来的工作目录 */
   const holderCwd = (holder: Holder): string => ownerOf(holder.maintainerId)?.workdir ?? "";
 
-  /** 只读跟随读到哪了（292 号票）：负责人 → 下次从哪一条之后接着读；没有的从交出去那一刻（remote.from）接着 */
+  /** 只读跟随读到哪了：负责人 → 下次从哪一条之后接着读；没有的从交出去那一刻（remote.from）接着 */
   const cursors = new Map<string, string>();
   let following: Promise<void> | undefined;
 
@@ -275,7 +275,7 @@ export function createTakeoverService(options: TakeoverServiceOptions): Takeover
   const handing = new Map<string, Promise<void>>();
 
   /**
-   * 交给官方 App（292 号票，见文件开头）：在官方 App 里的再交一次是重新打开（后台会话不在跑了的唤醒它、链接换成新拿到的）
+   * 交给官方 App（见文件开头）：在官方 App 里的再交一次是重新打开（后台会话不在跑了的唤醒它、链接换成新拿到的）
    */
   const handOver = (maintainerId: string): Promise<void> => {
     const running = handing.get(maintainerId);
@@ -372,7 +372,7 @@ export function createTakeoverService(options: TakeoverServiceOptions): Takeover
       const write = writeOf(holder);
       if (action === "return") {
         if (holder.takeover.returnedAt !== undefined) return;
-        // 二狗自己开的会话（292 号票）不是接管来的，没有"交还"
+        // 二狗自己开的会话不是接管来的，没有"交还"
         if (holder.takeover.own === true) throw new RequestRejected("not_allowed", t("takeover.notTakenOver"));
         // 在做一轮的不交还：交还了它还在写，用户回终端里一用就交错（会话记录没有锁）
         if (gate.busy(maintainerId)) throw new RequestRejected("conflict", t("takeover.busyTurn", { runtime: title }));
@@ -384,7 +384,7 @@ export function createTakeoverService(options: TakeoverServiceOptions): Takeover
       }
       if (holder.takeover.returnedAt === undefined) return;
       let current = holder.takeover;
-      // 在官方 App 里的（292 号票）：先停掉那边的后台会话（停不掉不收回），最后补记一遍，记成空着
+      // 在官方 App 里的：先停掉那边的后台会话（停不掉不收回），最后补记一遍，记成空着
       const remote = current.remote;
       if (remote?.since !== undefined) {
         await runtimes.remoteControl(current.runtime).stop({ sessionId: remote.sessionId, job: remote.job });
@@ -489,7 +489,7 @@ export function preludeEvents(input: {
   return events;
 }
 
-/** 前情里的一块：文字、思考照搬；工具调用画成二狗的工具调用（没过二狗的守卫：不写处置），读密钥文件的不留结果。只读跟随补记的（292 号票）同样画，调用 id 换个前缀 */
+/** 前情里的一块：文字、思考照搬；工具调用画成二狗的工具调用（没过二狗的守卫：不写处置），读密钥文件的不留结果。只读跟随补记的同样画，调用 id 换个前缀 */
 function preludePart(part: RuntimeHistoryPart, input: { conversation: ConversationId; tools: ToolRegistry; key: string; prefix?: string }): MessagePart {
   if (part.type !== "tool") return { type: part.type, text: part.text };
   const secret = part.tool === "read" && typeof part.args.path === "string" && isSecretFile(part.args.path);
@@ -509,7 +509,7 @@ function preludePart(part: RuntimeHistoryPart, input: { conversation: Conversati
 }
 
 /**
- * 只读跟随补记的消息（292 号票）：在官方 App 里发生的（remote），一条一条照前情的画法（工具调用没过二狗的守卫：不写处置，读密钥文件的不留结果），
+ * 只读跟随补记的消息：在官方 App 里发生的（remote），一条一条照前情的画法（工具调用没过二狗的守卫：不写处置，读密钥文件的不留结果），
  * 时间用那边记的；幂等键按会话和那边那一条的 id（补记过的不重复记）。那边压缩过、对不上的各写一句说明（同一处只写一次）
  */
 export function followEvents(input: { holder: { kind: "task" | "project"; id: string; maintainerId: string }; runtimeTitle: string; sessionId: string; follow: RuntimeFollow; after: string | undefined; tools: ToolRegistry }): NewEvent[] {

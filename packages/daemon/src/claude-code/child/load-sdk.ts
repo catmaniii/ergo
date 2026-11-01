@@ -1,4 +1,4 @@
-// 子进程里加载 Claude Code 的 Agent SDK（318 号票）：先按 Node 的解析规则找（开发时在仓库的 node_modules）；找不到再到组件区找
+// 子进程里加载 Claude Code 的 Agent SDK：先按 Node 的解析规则找（开发时在仓库的 node_modules）；找不到再到组件区找
 // （守护进程给子进程带的 ERGO_COMPONENTS_DIR，<数据目录>\components\claude-code\node_modules：安装包、源码装的 SDK 从 npm 官方下到这里）。
 // ESM 不认 NODE_PATH，所以组件区的按文件路径 import。SDK 的 sdk.mjs 只引 Node 自带的模块，它的原生程序包（-win32-x64）和它装在一起、它自己找。
 // 两个入口（main.ts、sessions-main.ts）都从这里拿真的 SDK 函数（test/claude-code/boundary.test.ts 检查）。

@@ -5,7 +5,7 @@
 // - 模型文件不在时什么也不算：素材入库和关键词索引照常；守护进程提示用户运行下载命令（日志和待我处理），
 //   之后每隔一段时间看一次，模型文件就位就把缺的向量补上（不用重启）；
 // - 相似度检索第一阶段用暴力扫描：查询向量和当前模型的全部向量逐个算余弦（存的都是归一化的向量，就是点积）；
-// - 166 号票（存的网页正文最多 2 万字也进索引）：要索引的文字只算开头 EMBED_MAX_CHARS 字（关键词索引照样是全文）；
+// -（存的网页正文最多 2 万字也进索引）：要索引的文字只算开头 EMBED_MAX_CHARS 字（关键词索引照样是全文）；
 //   一次交给模型的一批按最长的那条补齐，所以凑批时"条数 × 最长的字数"不超过 EMBED_MAX_CHARS：长的单独一批，免得一批短的跟着补齐到几千字。
 import { COMPONENTS_INSTALL_ACTION, t } from "@ergo/protocol";
 import type { EventStore } from "../events/event-store.ts";
@@ -31,7 +31,7 @@ export interface VectorStatus {
   indexed: number;
   /** 还缺向量的素材数 */
   pending: number;
-  /** 闲着（没有在算；启动后还没开始补算时也是）、在算、等模型文件、出错了等重试；off：素材库没在采集素材（记忆插件没开，129 号票），没有向量索引 */
+  /** 闲着（没有在算；启动后还没开始补算时也是）、在算、等模型文件、出错了等重试；off：素材库没在采集素材（记忆插件没开），没有向量索引 */
   state: "idle" | "running" | "waiting_for_model" | "error" | "off";
 }
 
@@ -58,7 +58,7 @@ export interface VectorIndexOptions {
 
 /** 一次算几条 */
 const BATCH_SIZE = 16;
-/** 要索引的文字只算开头多少字（166 号票）；一次交给模型的一批"条数 × 最长的字数"也不超过它 */
+/** 要索引的文字只算开头多少字；一次交给模型的一批"条数 × 最长的字数"也不超过它 */
 export const EMBED_MAX_CHARS = 2000;
 /** 守护进程启动后过多久开始补算缺的向量 */
 export const BACKFILL_DELAY_MS = 30_000;
@@ -104,7 +104,7 @@ export function createVectorIndex(options: VectorIndexOptions): VectorIndex {
       body: t("materials.modelMissing.body", { hint }),
       source: t("materials.modelMissing.source"),
       urgency: "non_blocking",
-      // 323 号票："去装组件"由前端带到设置 · 组件（不算处理），装好后这条自动归档
+      // "去装组件"由前端带到设置 · 组件（不算处理），装好后这条自动归档
       actions: [COMPONENTS_INSTALL_ACTION, "知道了"], // @i18n-ignore fixed：事项的动作按字认
     });
   };
@@ -131,7 +131,7 @@ export function createVectorIndex(options: VectorIndexOptions): VectorIndex {
     db.transaction(() => {
       rows.forEach((row, i) => {
         const vector = normalized(vectors[i]!);
-        // 素材在算的过程中被删了（21 号票的"忘掉"）就不写
+        // 素材在算的过程中被删了（"忘掉"）就不写
         db.run(
           `INSERT OR REPLACE INTO material_vectors (material_id, model, dims, vector)
            SELECT ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM materials WHERE id = ?)`,

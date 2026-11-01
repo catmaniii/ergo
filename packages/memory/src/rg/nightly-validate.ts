@@ -1,5 +1,5 @@
-// 每晚校验（267 号票第 4 条，ADR-0030 第 5 条；329 号票按 ADR-0032 改）：每晚整理完，把推理图谱整张查一遍。
-// - 326 号票起校验是记忆系统自己的图谱自检（graphSelfCheck → graph-check.ts，TypeScript，跑在守护进程里）；
+// 每晚校验（ADR-0030 第 5 条；按 ADR-0032 改）：每晚整理完，把推理图谱整张查一遍。
+// -校验是记忆系统自己的图谱自检（graphSelfCheck → graph-check.ts，TypeScript，跑在守护进程里）；
 //   不再起外面的程序，所以没有"本机缺什么就跳过"这回事。校验器照样从外面给（GraphValidator），测试给假的；
 // - 校验器自己出错：按跳过记，原因写进整理报告，什么都不改，整理照常算跑成了；
 // - 违反传播铁律（已验证的压在没验证的前提上，校验器交回 downgrade）：照规矩降回猜测（前提照挂、保留），往下的已验证跟着降
@@ -7,7 +7,7 @@
 // - 别的不合格：每一行问题的主语（行首的 id）是结论的，这条结论加复核标记（下一次整理重判）；是事实、证据的，以它为前提或支持的
 //   结论加复核标记（行首不是 id 的，按这一行里点名的全部 id 算）。复核标记不改真值状态。整理报告里列出标了哪几条、降了哪几条。
 // - 坏数据读不出来的：问题照样列进报告，标不了的跳过，不让整夜失败。
-// 326 号票那条"前提里有拿不准的事实就降成假设（改 kind）"329 号票去掉了（身份锁死，没验证是状态，ADR-0032）。
+// 那条"前提里有拿不准的事实就降成假设（改 kind）"去掉了（身份锁死，没验证是状态，ADR-0032）。
 import type { MemoryEngine } from "../engine.ts";
 import { checkReasoningGraph } from "./graph-check.ts";
 import { ironLawReason, storeLookup, unverifiedPremises } from "./graph-rules.ts";
@@ -41,7 +41,7 @@ export interface NightlyValidation {
   problems: string[];
   /** 因此加了复核标记的结论 */
   claimIds: string[];
-  /** 329 号票：违反传播铁律、这一夜降回猜测的结论（连带往下降的也在里面） */
+  /** 违反传播铁律、这一夜降回猜测的结论（连带往下降的也在里面） */
   downgraded: string[];
   /** 查了的节点数（证据、事实、结论） */
   nodes: number;

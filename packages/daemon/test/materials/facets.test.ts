@@ -1,4 +1,4 @@
-// 记忆 · 素材按种类筛（167 号票）：给用户看的几种（说过的话、做过的、附件、语音、存的网页、数据源（303 号票）、记忆命令）怎么从素材认出来。
+// 记忆 · 素材按种类筛：给用户看的几种（说过的话、做过的、附件、语音、存的网页、数据源、记忆命令）怎么从素材认出来。
 // 一条可以同时算几种；每条素材至少算一种（不然筛哪种都看不到它）。
 import { MATERIAL_FACETS, SAVED_WEB_PAGE_CONTEXT } from "@ergo/protocol";
 import { describe, expect, test } from "vitest";
@@ -29,7 +29,7 @@ describe("种类", () => {
     ["任务结局", material("task_outcome", [seg("choice")]), ["did"]],
     ["记住", material("memory_command", [seg("typed")]), ["memory_command"]],
     ["忘掉几条", material("memory_command", [seg("choice")]), ["memory_command"]],
-    // 303 号票：数据源导入的三种都算"数据源"；观察到的本人行为也算做过的、本人写的也算说过的话，别人写给你的不算你说的
+    // 数据源导入的三种都算"数据源"；观察到的本人行为也算做过的、本人写的也算说过的话，别人写给你的不算你说的
     ["数据源：观察到的本人行为", material("observed_behavior", [seg("text")]), ["did", "data_source"]],
     ["数据源：别人写给你的", material("received_writing", [seg("quote", "external_untrusted")]), ["data_source"]],
     ["数据源：本人写的", material("own_writing", [seg("typed")]), ["said", "data_source"]],

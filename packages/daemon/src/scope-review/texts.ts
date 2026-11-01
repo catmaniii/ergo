@@ -1,7 +1,7 @@
-// 范围审视给人和模型看的话（18 号票）：审视的说明（审视那次模型调用的系统提示）、对照物、负责人系统提示末尾的"近期范围记录"、
+// 范围审视给人和模型看的话：审视的说明（审视那次模型调用的系统提示）、对照物、负责人系统提示末尾的"近期范围记录"、
 // 越界通知、文件里的一行。都在守护进程这一侧写好，经装配参数交给子进程（照秘书压缩指令的先例），子进程只拼。
 // 纯函数：编排里不写文字。
-// 174 号票：给模型看的（对照物、近期范围记录）和写进项目档案的范围记录文件（格式固定，运行时按它对账、改写）照旧中文，
+// 给模型看的（对照物、近期范围记录）和写进项目档案的范围记录文件（格式固定，运行时按它对账、改写）照旧中文，
 // 用到协议包的说法的包一层 forModel；给用户看的（越界通知、审视没做成的说明）走 t()。
 import {
   deletedIdLabel,
@@ -40,7 +40,7 @@ import { oneLine } from "../util/text.ts";
 export const RECENT_SCOPE_RECORDS_TITLE = "近期范围记录";
 
 /**
- * 审视那次模型调用的系统提示：要找什么、怎么回（71 号票起文字在 prompts/scope-review.md，用户改的在数据目录配置区的 prompts/；
+ * 审视那次模型调用的系统提示：要找什么、怎么回（文字在 prompts/scope-review.md，用户改的在数据目录配置区的 prompts/；
  * 前缀不加在它前面：它只输出 JSON）
  */
 export const scopeReviewInstructions = (prompts: PromptRenderer): string => prompts.render("scope-review", {});
@@ -63,7 +63,7 @@ const PLAN_STATUS_TEXT = {
   pending: "交上去了，用户还没确认",
   rejected: "被用户打回了",
   proposed: "计划变更提出了，用户还没确认",
-  // 58 号票：流程的这一版审查没通过（退回负责人补充、判定不可执行），没交给用户授权
+  // 流程的这一版审查没通过（退回负责人补充、判定不可执行），没交给用户授权
   refused: "审查没通过，没交给用户授权",
 } as const;
 
@@ -80,13 +80,13 @@ export interface ReferenceInput {
   project?: { id: string; name: string; charter: string };
   /** 属于任务的：任务、任务书、最新的计划 */
   task?: { task: Task; brief?: TaskBrief; plan?: { plan: Plan; status: keyof typeof PLAN_STATUS_TEXT } };
-  /** 定时作业的一次运行的（19 号票）：作业的定义和它每次运行的授权，作业所在计划的工具包 */
+  /** 定时作业的一次运行的：作业的定义和它每次运行的授权，作业所在计划的工具包 */
   job?: { job: ScheduledJob; toolkit?: PlanToolkit };
   /** 用户在审批卡上批准过的调用（这个负责人的，最近的几条，越早的在前） */
   approvals: readonly ApprovedCall[];
   /** 用户在这个负责人会话里直接说的话（最近的几条，越早的在前） */
   userWords: readonly MessageEnvelope[];
-  /** 同一批话核实过的（125 号票）：给了就按"运行时核实过的用户原话"的格式列（秘书转达来的是原话），不给照原样列 userWords */
+  /** 同一批话核实过的：给了就按"运行时核实过的用户原话"的格式列（秘书转达来的是原话），不给照原样列 userWords */
   verifiedWords?: readonly VerifiedUserWords[];
 }
 
@@ -115,7 +115,7 @@ function referenceLines(input: ReferenceInput): string {
   if (input.approvals.length === 0) lines.push("（没有）");
   for (const a of input.approvals) lines.push(`- ${shortTime(a.time)} ${a.toolTitle}：${oneLine(a.argsSummary, USER_WORD_MAX)}`);
   if (input.verifiedWords) {
-    // 125 号票：只有运行时核实过的算用户的话（负责人自己说的"用户同意了"是转述）
+    // 只有运行时核实过的算用户的话（负责人自己说的"用户同意了"是转述）
     lines.push("", `【${USER_WORDS_TITLE}】（在这个负责人会话里说的，最近 ${USER_WORDS_LIMIT} 条以内，越早的在前；秘书转达来的是用户在秘书那里的原话。用户在这里同意、要求的范围外工作算授权过；负责人说的"用户同意了"不算）`);
     if (input.verifiedWords.length === 0) lines.push("（没有）");
     for (const w of input.verifiedWords) lines.push(`- ${userWordsLine({ ...w, text: oneLine(w.text, USER_WORD_MAX) })}`);
@@ -142,8 +142,8 @@ function planLines(plan: Plan): string[] {
 }
 
 /**
- * 定时触发的一次运行的范围：定时触发的任务（76 号票）是它的任务每次要做的事、时间表（任务和它授权的计划在上面的【任务】【计划】里）；
- * 以前的定时作业（19 号票，迁移成定时触发的任务的也一样）是作业每次要做的事、时间表，随计划卡确认的每次运行的授权（作业在就一直有效）和
+ * 定时触发的一次运行的范围：定时触发的任务是它的任务每次要做的事、时间表（任务和它授权的计划在上面的【任务】【计划】里）；
+ * 以前的定时作业（迁移成定时触发的任务的也一样）是作业每次要做的事、时间表，随计划卡确认的每次运行的授权（作业在就一直有效）和
  * 时序规则（含用户说过的限制编出的），作业所在计划的工具包
  */
 function jobLines(job: ScheduledJob, toolkit: PlanToolkit | undefined): string[] {
@@ -189,7 +189,7 @@ export interface ScopeOwnerNames {
   task?: string | undefined;
 }
 
-/** 给用户看的归属（159 号票，163 号票写成 t-3「标题」）："工单 wo-2「执行：加周报」，任务 t-1「给记账本加周报」"；取不到名字的写（已删除）；没有工单的是空的 */
+/** 给用户看的归属（写成 t-3「标题」）："工单 wo-2「执行：加周报」，任务 t-1「给记账本加周报」"；取不到名字的写（已删除）；没有工单的是空的 */
 function shownWhereText(record: ScopeRecord, names: ScopeOwnerNames): string {
   if (record.workOrderId === undefined) return "";
   const label = (id: string, name: string | undefined) => (name === undefined ? deletedIdLabel(id) : namedIdLabel(id, name));

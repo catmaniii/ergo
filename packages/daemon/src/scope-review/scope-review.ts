@@ -1,8 +1,8 @@
-// 范围审视（规格第 10 节，18 号票）在守护进程这一侧：守护进程不跑模型，审视的模型调用在负责人自己的子进程里（运行时封装层的
+// 范围审视（规格第 10 节）在守护进程这一侧：守护进程不跑模型，审视的模型调用在负责人自己的子进程里（运行时封装层的
 // agent-child/scope-review.ts）；这里给子进程备好对照物和"近期范围记录"，把子进程交回的结果存成范围记录。
-// - 对照物：立项书（125 号票起是现在的立项书：用户确认了的立项要求变更改过的，从事件算）、任务书和现在生效的计划（授权项、工具包、
+// - 对照物：立项书（是现在的立项书：用户确认了的立项要求变更改过的，从事件算）、任务书和现在生效的计划（授权项、工具包、
 //   用户说过的限制）、用户在审批卡上批准过的调用（这个负责人的最近 20 条），和用户在这个负责人会话里直接说的话（最近 20 条；
-//   125 号票起是运行时核实过的格式：原文、会话、时间、设备，秘书转达来的换成用户在秘书那里的原话）；
+//   是运行时核实过的格式：原文、会话、时间、设备，秘书转达来的换成用户在秘书那里的原话）；
 // - 近期范围记录：这个负责人最近 5 条（从守护进程保存的取，换了新的会话分段也拿得到），子进程拼到系统提示末尾；
 // - 存：每条发现一条 scope_record（落在哪个频道见协议包的 scopeRecordChannel）、负责人会话频道上一条 timeline_record
 //   （种类 scope_change / out_of_scope，时间线标出），越界另在待我处理放一条不推送、不卡任务的通知；
@@ -89,14 +89,14 @@ export const scopeTimelineKey = (recordId: string) => `scope-record:${recordId}#
 export interface ScopeReviewOptions {
   store: EventStore;
   /**
-   * 项目现在的立项书全文（125 号票：用户确认了的立项要求变更改过的，从事件算，不读负责人写得到的 charter.md）；
+   * 项目现在的立项书全文（用户确认了的立项要求变更改过的，从事件算，不读负责人写得到的 charter.md）；
    * 不给、或者立项书还没确认的读项目档案里的 charter.md
    */
   charterText?: (projectId: string) => string | undefined;
-  /** 核实用户的话（125 号票）：对照物里"用户在会话里说的话"改成运行时核实过的格式（秘书转达来的换成原话）；不给就照原样列 */
+  /** 核实用户的话：对照物里"用户在会话里说的话"改成运行时核实过的格式（秘书转达来的换成原话）；不给就照原样列 */
   userWords?: UserWordsDeps;
   inbox: InboxService;
-  /** 项目系统给范围审视的（277 号票的入口）：项目的名字、负责人的项目、项目档案里立项书和范围记录的位置 */
+  /** 项目系统给范围审视的（入口）：项目的名字、负责人的项目、项目档案里立项书和范围记录的位置 */
   projects: ScopeReviewProjects;
   tasks: Pick<TaskService, "get" | "brief" | "latestPlan" | "confirmedPlan">;
   /** 数据目录的输出区：不属于项目的任务的产出，每个任务一格（范围记录写在这里） */
@@ -140,7 +140,7 @@ function replaceEntry(existing: string, record: ScopeRecord): string | undefined
   return [...lines.slice(0, at), ...entry.slice(0, -1).split("\n"), ...lines.slice(end)].join("\n");
 }
 
-/** 越界通知从哪来（105 号票）：项目负责人的工作去项目（做任务的工单时也是，越界发生在项目负责人的会话里），任务自己的负责人的去任务 */
+/** 越界通知从哪来：项目负责人的工作去项目（做任务的工单时也是，越界发生在项目负责人的会话里），任务自己的负责人的去任务 */
 function scopeInboxOrigin(ownership: ScopeOwnership): { origin?: InboxOrigin } {
   if (ownership.projectId !== undefined) return { origin: { projectId: ownership.projectId } };
   return ownership.taskId !== undefined ? { origin: { taskId: ownership.taskId } } : {};
@@ -193,7 +193,7 @@ export function createScopeReview(options: ScopeReviewOptions): ScopeReview {
     return ownership.maintainerId;
   };
 
-  /** 归属里工单、任务现在的名字（越界通知写编号加名字，159 号票） */
+  /** 归属里工单、任务现在的名字（越界通知写编号加名字） */
   const ownerNames = (ownership: ScopeOwnership) => ({
     workOrder: ownership.workOrderId === undefined ? undefined : getWorkOrder(store.reader, ownership.workOrderId)?.title,
     task: ownership.taskId === undefined ? undefined : tasks.get(ownership.taskId)?.title,
@@ -235,7 +235,7 @@ export function createScopeReview(options: ScopeReviewOptions): ScopeReview {
       // 越界：待我处理里一条不推送、不卡任务的通知（照常算未读）
       if (finding.kind === "out_of_scope") {
         const data: OutOfScopeNoticeData = { recordId: record.id, ...ownership };
-        // 项目内部任务（或它计划里的作业）的工单段里审视出来的：秘书看不到细节（64 号票）
+        // 项目内部任务（或它计划里的作业）的工单段里审视出来的：秘书看不到细节
         const internal = ownership.workOrderId !== undefined ? workOrderInternal(store.reader, getWorkOrder(store.reader, ownership.workOrderId)) : ownership.taskId !== undefined ? tasks.get(ownership.taskId)?.internal : undefined;
         events.push(
           inbox.buildAdd({ kind: "notice", notice: "out_of_scope", ...outOfScopeNotice(record, ownerLabel(ownership), ownerNames(ownership)), ...internalMark(internal), ...scopeInboxOrigin(ownership), urgency: "non_blocking", actions: [OUT_OF_SCOPE_ACK], data: { ...data } }).event,
@@ -259,7 +259,7 @@ export function createScopeReview(options: ScopeReviewOptions): ScopeReview {
     },
     context(ownership) {
       const owned = ownership.projectId === undefined ? undefined : projects.get(ownership.projectId);
-      // 定时触发的一次运行的工单段（19 号票的定时作业；76 号票）：触发登记和它每次运行的授权；定时触发的任务的运行连同它的任务、计划
+      // 定时触发的一次运行的工单段（定时作业）：触发登记和它每次运行的授权；定时触发的任务的运行连同它的任务、计划
       const wo = ownership.workOrderId === undefined ? undefined : getWorkOrder(store.reader, ownership.workOrderId);
       const job = wo && isJobRunWorkOrder(wo) ? getJob(store.reader, wo.scheduledJobId) : undefined;
       const taskId = ownership.taskId ?? (job && !isLegacyJob(job) ? job.ownerTaskId : undefined);
@@ -267,7 +267,7 @@ export function createScopeReview(options: ScopeReviewOptions): ScopeReview {
       const jobToolkit = job && tasks.confirmedPlan(job.taskId)?.plan.toolkit;
       const conversation = maintainerChannel(ownership.maintainerId);
       const userWords = recentMessagesOf(store.reader, conversation, "user", USER_WORDS_LIMIT);
-      // 125 号票：核实过的格式（原文、哪个会话、时间、设备；秘书转达来的换成用户在秘书那里的原话，找不到原话的不算）
+      // 核实过的格式（原文、哪个会话、时间、设备；秘书转达来的换成用户在秘书那里的原话，找不到原话的不算）
       const verified = options.userWords ? verifiedRecentWords(options.userWords, userWords, conversation) : undefined;
       const approvals = listApprovals(store.reader, "approved")
         .filter((a) => a.origin.agentId === ownership.maintainerId)

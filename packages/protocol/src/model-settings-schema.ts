@@ -1,4 +1,4 @@
-// 设置里的"模型"（73 号票）：设置文件和设置接口的 schema。名字、纯函数和响应的样子在 model-settings.ts（不引用 TypeBox）。
+// 设置里的"模型"：设置文件和设置接口的 schema。名字、纯函数和响应的样子在 model-settings.ts（不引用 TypeBox）。
 //
 // 数据目录配置区的 model-settings.json 是真相，只由运行时写（设置接口）；没有这个文件时全按默认（deepseek-flash、思考档位高）。
 // 设置接口是整份替换（幂等：同样的再存一次没有变化），所以不带幂等键。请求体里没有、也放不进 API key（多出来的字段一律拒绝）。
@@ -68,12 +68,12 @@ export const ModelSettingsBody = Type.Object(
 export type ModelSettingsBody = Static<typeof ModelSettingsBody>;
 
 /**
- * 单独配了模型的负责人（120 号票）：键是负责人的 agent id（tm-<n>、pm-<n>），值是选定的模型和思考档位（都要写，没有"跟随"的一半）。
+ * 单独配了模型的负责人：键是负责人的 agent id（tm-<n>、pm-<n>），值是选定的模型和思考档位（都要写，没有"跟随"的一半）。
  * 只经这个负责人的 ⚙ 改（PUT / DELETE /api/agents/<agent id>/model），设置页整份存时原样留着
  */
 const MaintainerModels = Type.Record(Type.String({ pattern: "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$" }), ModelChoiceSchema, { additionalProperties: false });
 
-/** 设置在数据目录配置区里的文件（config/model-settings.json）：多一个格式版本；120 号票起多一项单独配了模型的负责人（没有就不写） */
+/** 设置在数据目录配置区里的文件（config/model-settings.json）：多一个格式版本；多一项单独配了模型的负责人（没有就不写） */
 export const ModelSettingsFile = Type.Object(
   {
     format: Type.Literal(1),
@@ -89,7 +89,7 @@ export const ModelSettingsFile = Type.Object(
 );
 export type ModelSettingsFile = Static<typeof ModelSettingsFile>;
 
-/** 某个负责人单独配模型（PUT /api/agents/<agent id>/model，120 号票）：选定的模型和思考档位；改回跟随那一行是 DELETE */
+/** 某个负责人单独配模型（PUT /api/agents/<agent id>/model）：选定的模型和思考档位；改回跟随那一行是 DELETE */
 export const AgentModelBody = ModelChoiceSchema;
 export type AgentModelBody = Static<typeof AgentModelBody>;
 
@@ -115,7 +115,7 @@ export const ModelCustomModelsBody = Type.Object(
 export type ModelCustomModelsBody = Static<typeof ModelCustomModelsBody>;
 
 /**
- * 在网页上填模型的 key（POST /api/model-settings/key，用户 2026-10-28 定；2026-10-30 起可以点名服务商）：
+ * 在网页上填模型的 key（POST /api/model-settings/key，2026-10-30 起可以点名服务商）：
  * - 不带 provider：按设置里选的那一个（deepseek 或者自定义服务商 custom），和以前一样；
  * - 带 provider：写那个服务商自己的 secretFile——设置 · 模型里 key 是**按服务商逐条列出**的，给"另一个服务商"填 key
  *   不用先把它切成当前服务商（这是用户说"找不到别的模型的 key 在哪填"的那一处）。不是登记表里的 id 时守护进程回 400。

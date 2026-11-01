@@ -1,4 +1,4 @@
-// 语音识别的另一条接入（250 号票）：经 HTTP 调 LSM 托管的识别服务（voice/recognizer-client.ts）。
+// 语音识别的另一条接入：经 HTTP 调 LSM 托管的识别服务（voice/recognizer-client.ts）。
 // 对上层是同一个接口（Recognizer），所以这里验的就是"预热 / 识别 / 超时 / check 在不在"这几件事和
 // 自己拉起识别进程那条（recognizer.test.ts）一样：状态机、超时语义、串词过滤、错误都映射成同一套。
 // 接的是假的识别服务进程（fixtures/fake-asr-service.mjs，真 HTTP、端口由系统挑），不加载真模型、不占显卡。
@@ -106,7 +106,7 @@ describe("调 LSM 托管的识别服务", () => {
     expect(sent).toMatchObject({ language: "zh", initialPrompt: "以下是普通话的句子。", bytes: fs.statSync(file).size });
   });
 
-  it("180 号票：串词照旧在交出结果之前剔掉，和守护进程自己拉起识别进程那条一样", async () => {
+  it("串词照旧在交出结果之前剔掉，和守护进程自己拉起识别进程那条一样", async () => {
     const { recognizer, recording } = await setup({
       directive: { text: "下午三点开会。请不吝点赞 订阅 转发 打赏支持明镜与点点栏目。别忘了。", seconds: 3 },
       stripRules: true,
@@ -183,7 +183,7 @@ describe("调 LSM 托管的识别服务", () => {
     expect(recognizer.running).toBe(false);
   });
 
-  it("208 号票 check()：加载好、空着的问一句 /health 就回（不重新预热、不另报加载好了）；正识别着的不另外问", async () => {
+  it("check()：加载好、空着的问一句 /health 就回（不重新预热、不另报加载好了）；正识别着的不另外问", async () => {
     const idle = await setup();
     await idle.recognizer.load();
     const warmups = eventsOf(idle.asr.log, "warmup").length;
@@ -202,7 +202,7 @@ describe("调 LSM 托管的识别服务", () => {
     await pending;
   });
 
-  it("208 号票 check()：服务卡住（/health 不应答）就判这一代不能用了，重新预热也不行才以 RecognizerUnavailable 结束", async () => {
+  it("check()：服务卡住（/health 不应答）就判这一代不能用了，重新预热也不行才以 RecognizerUnavailable 结束", async () => {
     const { asr, recognizer, lines } = await setup({
       directive: {},
       timeout: { baseMs: 600, coldStartMs: 0, gpuPerAudioSecond: 1, cpuPerAudioSecond: 1 },

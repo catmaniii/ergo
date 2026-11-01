@@ -1,14 +1,14 @@
-// 把规则原文（planguard 格式的 JSON 表达式）还原成可读的形式化写法（60 号票：计划详情的"检测项全览"）。
+// 把规则原文（planguard 格式的 JSON 表达式）还原成可读的形式化写法（计划详情的"检测项全览"）。
 //
 // 检测项全览（RuleBook）用到的部分：
 // expr、formulaOf、apiExpr、apiFormulaOf、repairsOf、costText、objectiveText。不含 conformanceItems、END_OBLIGATION
-// （执行时的计划一致性检查项，属于单次调用的"怎么判的"，不在本票）。
+// （执行时的计划一致性检查项，属于单次调用的"怎么判的"，不在这里）。
 // 表达式按 unknown 收进来再按形状取。二狗的规则里另有几种引用（$current.paths、$current.outward、$current.secrets、$prior.paths……），
 // 认不出的引用只换前缀（"本步.paths"）。
 //
 // 规则是只看过去的一阶时序逻辑：每条都是"一旦触发某个动作，过去必须发生过某事"或者"一旦触发，当下必须满足某条件"。
 // 前者写成 G(φ → O ψ)，O 是过去时态的"曾经发生过"；后者写成 G(φ → ψ)。这里只做渲染，判定仍然由守护进程的引擎负责。
-// 170 号票：中文的说法（引用前缀、量词、修法、代价）按当前语言现取（state.ltl.*），中文下和原来一字不差。
+// 中文的说法（引用前缀、量词、修法、代价）按当前语言现取（state.ltl.*），中文下和原来一字不差。
 
 import { t, tTable } from "./protocol.ts";
 

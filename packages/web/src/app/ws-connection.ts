@@ -6,18 +6,18 @@
 // - 订阅的响应里点名要重新同步的频道（前端的序号比服务端还大），交给状态层清掉，服务端接着从头补发；
 // - 外网端口上（经隧道的已配对设备）：断线后先问一下这台设备还被信任吗（checkAccess）。凭证失效了（被吊销、太久没用）
 //   就报 unpaired、不再重连，界面回到配对等待页；问不到（网断了）照常重连。
-// - 补发和实时推来的分开标（36 号票：补发的 agent 语音不自动播）：服务端处理订阅时先回响应、再补发；发订阅时紧跟着
+// - 补发和实时推来的分开标（补发的 agent 语音不自动播）：服务端处理订阅时先回响应、再补发；发订阅时紧跟着
 //   发一个空订阅（cursors 为空，服务端什么也不补、什么也不改）当回执。服务端按顺序处理同一条连接上的请求，补发在处理订阅时
 //   一口气推完，所以回执的响应一定排在补发的帧后面：它到之前，这次订阅的频道上来的帧都标成补发的（catchUp）。多订阅频道时同样。
-//   连上时那次订阅的回执到了，告诉状态层补发推完了（synced，109 号票：这时才报已读位置、看一眼有没有没看过的秘书消息）。
-// - 要等结果的请求（90 号票：一次处理多个任务）按请求帧的 id 记着，响应到了交回去（重连后重发的是同一帧，id 不变）；被拒的照常
+//   连上时那次订阅的回执到了，告诉状态层补发推完了（synced：这时才报已读位置、看一眼有没有没看过的秘书消息）。
+// - 要等结果的请求（一次处理多个任务）按请求帧的 id 记着，响应到了交回去（重连后重发的是同一帧，id 不变）；被拒的照常
 //   变成 request_failed，等着的也随之拒绝。
-// - 订阅的响应里带着守护进程现在提供的网页是哪一版（116 号票），连上、重连时报 web_version（页面和自己的对不上就提示刷新）；
+// - 订阅的响应里带着守护进程现在提供的网页是哪一版，连上、重连时报 web_version（页面和自己的对不上就提示刷新）；
 //   没带（旧版守护进程、index.html 里没有版本号）不报。之后换了一版是活动状态频道上的临时事件 web_version，照常当事件帧交给状态层。
-// - 124 号票（设置里的关于二狗、Debug 工具集）：守护进程的版本（daemon_info）是只读的查询——不带幂等键、不进 outbox：没连上直接拒绝，
+// -（设置里的关于二狗、Debug 工具集）：守护进程的版本（daemon_info）是只读的查询——不带幂等键、不进 outbox：没连上直接拒绝，
 //   问着的时候断了也拒绝（重连后不重发），10 秒没回拒绝，被拒的不变成 request_failed（Debug 页自己说）。这次打开以来断线、重连各几次，
 //   最近一次断线的时间和原因（WebSocket 的关闭码，stats）；"断开重连"（reconnect）关掉现在的连接马上重连，不等退避、不先问被不被信任。
-// - 147 号票（浏览侧边栏）：这台设备上浏览器的样子（browser_status）只记最后一次，连着就发，重新订阅上了再发一次（守护进程按连接认浏览器，
+// -（浏览侧边栏）：这台设备上浏览器的样子（browser_status）只记最后一次，连着就发，重新订阅上了再发一次（守护进程按连接认浏览器，
 //   连接断了它就当浏览器关了）；守护进程推来的 browser_request（秘书会话频道上的临时事件）不进状态层，交给登记的那一处办，
 //   办完的结果（browser_reply）连着才发、不重发。这两种请求都不带幂等键、不进 outbox。
 import type {
@@ -59,7 +59,7 @@ export interface SocketLike {
   send(data: string): void;
   close(): void;
   addEventListener(type: "open" | "error", listener: () => void): void;
-  /** 断开：浏览器的 CloseEvent 带关闭码和原因（124 号票的 Debug 工具集显示最近一次断线的原因） */
+  /** 断开：浏览器的 CloseEvent 带关闭码和原因（Debug 工具集显示最近一次断线的原因） */
   addEventListener(type: "close", listener: (ev?: { code?: number; reason?: string }) => void): void;
   addEventListener(type: "message", listener: (ev: { data: unknown }) => void): void;
 }
@@ -83,7 +83,7 @@ const DEFAULT_RETRY_DELAYS_MS = [500, 1000, 2000, 5000, 10_000];
 /** 只读的查询（daemon_info）最多等多久 */
 const QUERY_TIMEOUT_MS = 10_000;
 
-/** 在 Debug 工具集里点"断开重连"时，最近一次断线的原因（169 号票起按当时的语言） */
+/** 在 Debug 工具集里点"断开重连"时，最近一次断线的原因（按当时的语言） */
 const manualReconnect = (): string => t("app.ws.manualReconnect");
 
 /** 页面所在的守护进程的 WebSocket 地址 */
@@ -98,7 +98,7 @@ export class WebSocketConnection implements Connection {
   private cursors: Record<string, number> = {};
   /** 发出去、还没得到响应的请求（按发出的先后）；断线重连后重发 */
   private readonly outbox = new Map<string, RequestFrame>();
-  /** 等结果的请求（一次处理多个任务，90 号票）：按请求帧的 id */
+  /** 等结果的请求（一次处理多个任务）：按请求帧的 id */
   private readonly waiting = new Map<string, { resolve(result: unknown): void; reject(err: Error): void }>();
   private subscribeId: string | undefined;
   private online = false;
@@ -112,11 +112,11 @@ export class WebSocketConnection implements Connection {
   private readonly watchRequests = new Set<string>();
   /** 补发还没推完：这条连接上发出去、还没得到响应的回执（空订阅），各是哪次订阅的哪几个频道 */
   private readonly catchUps = new Map<string, readonly string[]>();
-  /** 这条连接上主订阅（连上时那一次）的回执：它到了就是打开、重连上之后的补发推完了（109 号票，报 synced） */
+  /** 这条连接上主订阅（连上时那一次）的回执：它到了就是打开、重连上之后的补发推完了（报 synced） */
   private mainReceipt: string | undefined;
-  /** 等结果的只读查询（daemon_info，124 号票）：按请求帧的 id；不重发，断了就拒绝 */
+  /** 等结果的只读查询（daemon_info）：按请求帧的 id；不重发，断了就拒绝 */
   private readonly queries = new Map<string, { resolve(result: unknown): void; reject(err: Error): void }>();
-  /** 这次打开以来断线、重连各几次，最近一次断线（124 号票） */
+  /** 这次打开以来断线、重连各几次，最近一次断线 */
   private drops = 0;
   private reconnects = 0;
   private lastDrop: { at: string; reason: string } | undefined;
@@ -124,9 +124,9 @@ export class WebSocketConnection implements Connection {
   private everOnline = false;
   /** 这次断开是 Debug 工具集里点的"断开重连" */
   private manualDrop = false;
-  /** 浏览器最后一次的样子（147 号票）：重新订阅上了再报 */
+  /** 浏览器最后一次的样子：重新订阅上了再报 */
   private browser: BrowserStatusParams | undefined;
-  /** 办 browser_request 的（147 号票） */
+  /** 办 browser_request 的 */
   private readonly browserListeners = new Set<(request: BrowserRequest) => void>();
 
   constructor(options: WebSocketConnectionOptions) {
@@ -364,7 +364,7 @@ export class WebSocketConnection implements Connection {
     this.fireAndForget(METHODS.browserReply, params);
   }
 
-  /** 只管发的请求（147 号票）：不带幂等键、不进 outbox、不重发，没连着就算了；响应不看 */
+  /** 只管发的请求：不带幂等键、不进 outbox、不重发，没连着就算了；响应不看 */
   private fireAndForget(method: Method, params: unknown): void {
     if (!this.online || !this.socket) return;
     this.socket.send(JSON.stringify({ id: this.nextId(), method, params } satisfies RequestFrame));
@@ -390,7 +390,7 @@ export class WebSocketConnection implements Connection {
     }, 0);
   }
 
-  /** 只读的查询（124 号票）：连着才发，不进 outbox、不重发；断了、被拒、10 秒没回都拒绝 */
+  /** 只读的查询：连着才发，不进 outbox、不重发；断了、被拒、10 秒没回都拒绝 */
   private query<T>(method: Method, params: unknown): Promise<T> {
     const socket = this.socket;
     if (!this.online || !socket) return Promise.reject(new Error(t("app.ws.offline")));
@@ -518,7 +518,7 @@ export class WebSocketConnection implements Connection {
       return;
     }
     if ("channel" in frame) {
-      // 秘书的网页工具要这台设备办的事（147 号票）：不进状态层
+      // 秘书的网页工具要这台设备办的事：不进状态层
       if (frame.type === EVENT_TYPES.browserRequest) {
         for (const listener of this.browserListeners) listener(frame.payload as BrowserRequest);
         return;
@@ -529,7 +529,7 @@ export class WebSocketConnection implements Connection {
       return;
     }
     if (frame.id !== null && frame.id === this.subscribeId) return this.onSubscribed(frame);
-    // 回执到了：这次订阅的补发推完了（回执本身不会失败；万一失败了也照样算推完了）。主订阅的告诉状态层（109 号票）
+    // 回执到了：这次订阅的补发推完了（回执本身不会失败；万一失败了也照样算推完了）。主订阅的告诉状态层
     if (frame.id !== null && this.catchUps.delete(frame.id)) {
       if (frame.id === this.mainReceipt) {
         this.mainReceipt = undefined;
@@ -541,7 +541,7 @@ export class WebSocketConnection implements Connection {
       if (frame.ok) this.resync(frame);
       return;
     }
-    // 只读的查询（124 号票）：结果交回去；被拒的只交给问的那一处，不进状态层
+    // 只读的查询：结果交回去；被拒的只交给问的那一处，不进状态层
     const query = frame.id === null ? undefined : this.queries.get(frame.id);
     if (query && frame.id !== null) {
       this.queries.delete(frame.id);
@@ -570,7 +570,7 @@ export class WebSocketConnection implements Connection {
     }
     this.online = true;
     this.attempt = 0;
-    // 连上过之后再订阅成功的算一次重连（124 号票：Debug 工具集的连接一组）
+    // 连上过之后再订阅成功的算一次重连（Debug 工具集的连接一组）
     if (this.everOnline) this.reconnects += 1;
     this.everOnline = true;
     this.deliver?.({ kind: "connection", status: "online" });
@@ -578,7 +578,7 @@ export class WebSocketConnection implements Connection {
     if (webVersion !== undefined) this.deliver?.({ kind: "web_version", version: webVersion });
     this.resync(frame);
     for (const request of this.outbox.values()) this.socket?.send(JSON.stringify(request));
-    // 浏览器的样子（147 号票）：守护进程按连接认，新连接上再报一次
+    // 浏览器的样子：守护进程按连接认，新连接上再报一次
     if (this.browser) this.fireAndForget(METHODS.browserStatus, this.browser);
   }
 

@@ -1,4 +1,4 @@
-// 网页是哪一版（116 号票）：构建时写进 index.html 的 <meta name="ergo-web-version">，守护进程从它提供的文件里取、页面读自己的，
+// 网页是哪一版：构建时写进 index.html 的 <meta name="ergo-web-version">，守护进程从它提供的文件里取、页面读自己的，
 // 写法和认法只在协议包里一处。
 import { describe, expect, it } from "vitest";
 import { EVENT_TYPES, isEphemeralEventType, WEB_VERSION_META, webVersionInHtml, webVersionMeta } from "../src/index.ts";
@@ -11,7 +11,7 @@ describe("网页的版本号", () => {
     expect(webVersionInHtml(page(webVersionMeta("3f9a0c12d4e5b678")))).toBe("3f9a0c12d4e5b678");
   });
 
-  it("没有版本号的页面（这张票之前构建的、测试页）是不知道", () => {
+  it("没有版本号的页面（以前构建的、测试页）是不知道", () => {
     expect(webVersionInHtml(page('<meta charset="UTF-8" />'))).toBeUndefined();
     expect(webVersionInHtml("")).toBeUndefined();
   });

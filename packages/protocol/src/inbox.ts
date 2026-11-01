@@ -29,7 +29,7 @@ export function compareInboxItems(a: InboxItem, b: InboxItem): number {
 }
 
 /**
- * 事项的动作、处理结果显示成当前语言（172 号票）：存进事件、点了按字找处理的是中文原字（STUCK_HELP_ACTIONS 这些，不跟着语言变），
+ * 事项的动作、处理结果显示成当前语言：存进事件、点了按字找处理的是中文原字（STUCK_HELP_ACTIONS 这些，不跟着语言变），
  * 界面上（按钮、"已处理：…"）和二狗写的说明里提到按钮时用它换；认不得的原样返回。中文下就是原字
  */
 export function inboxActionText(label: string): string {

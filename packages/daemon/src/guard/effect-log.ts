@@ -1,6 +1,6 @@
 // 效果日志的记录（规格第 9 节）：只有执行成功的调用才追加。时序规则和授权项计次都只看它。
 //
-// 内容类的参数不存原文（68 号票）：注册表里标了 bulk 的参数（写入的全文、编辑的新旧片段）换成"长度 + 摘要哈希"
+// 内容类的参数不存原文：注册表里标了 bulk 的参数（写入的全文、编辑的新旧片段）换成"长度 + 摘要哈希"
 // （`{"$digest": {length, sha256}}`，数组参数每一项各换一个）。别的参数照原样留：路径、命令、远端和分支、收件人、网址这类对象，
 // 能判断结果的字段，提交说明，以及对外发送的内容（"不重复发"比的就是它，会联网的工具都不标 bulk）。缩过之后：
 // - 时序规则：规则校验不许 $prior 读它（rule-validation.ts），规划时就会发现；执行时读到它的那几步一律算判断不了
@@ -8,7 +8,7 @@
 // - 授权项计次按哈希比（grants.ts）：哈希的原文和对象范围的写法一样（scopeValueText），比哈希和比原文结果相同；
 // - 详情页的效果只认路径、收件人、网址，另外注明写了多少（guard-runtime/effect-log.ts 的 contentNote）。
 // 缩过的值的样子见 content-digest.ts。
-// 111 号票起每条记上这次新建了哪些路径（created：要写的路径判定前还不存在），守卫据此认任务、项目自己的临时文件（own-temp.ts）。
+// 每条记上这次新建了哪些路径（created：要写的路径判定前还不存在），守卫据此认任务、项目自己的临时文件（own-temp.ts）。
 import { digestOfText, isDigested, scopeValueText } from "./content-digest.ts";
 import { toJson } from "./planguard/expr.ts";
 import { absolutePathArgs, normalizeArgs } from "./rule-steps.ts";
@@ -19,7 +19,7 @@ import { agentShellEnv, comparable, type ShellEnv } from "./paths.ts";
 /**
  * 一次判定放行、执行成功之后，要追加进效果日志的记录。
  * 真实工具调用记它自己；通用 bash 记拆出来的每条伪工具调用。参数是规范化之后、能直接存成 JSON 的形式
- * （推送补上当时的 headCommit）。被拦下或执行失败的调用不追加——由调用方（07 号票的运行时）保证只在执行成功后调用。
+ * （推送补上当时的 headCommit）。被拦下或执行失败的调用不追加——由调用方（运行时）保证只在执行成功后调用。
  * 内容类的参数还是原文：调用方脱敏（读过的密钥值）之后再用 effectLogArgs 缩，哈希不按密钥原值算
  */
 export function effectRecordsFor(
@@ -49,7 +49,7 @@ export function effectRecordsFor(
 }
 
 /**
- * 这次调用新建的路径（111 号票，EffectRecord.created）：要写的路径参数（access 为 write：写文件、重定向、cp / mv 的目标、建目录……）里，
+ * 这次调用新建的路径（EffectRecord.created）：要写的路径参数（access 为 write：写文件、重定向、cp / mv 的目标、建目录……）里，
  * 判定前现取的环境事实说它还不存在的。没给事实的不算（不知道在不在）；看不出读写的（access 为 unknown）不算
  */
 function createdPaths(call: JudgedCall, tools: ToolRegistry, env: ShellEnv, facts: EnvironmentFacts): string[] {
@@ -62,7 +62,7 @@ function createdPaths(call: JudgedCall, tools: ToolRegistry, env: ShellEnv, fact
     .map((a) => a.path);
 }
 
-// ───────────────────────── 内容类参数只记长度和摘要哈希（68 号票） ─────────────────────────
+// ───────────────────────── 内容类参数只记长度和摘要哈希 ─────────────────────────
 
 /**
  * 效果日志里存的参数：标了 bulk 的参数换成长度 + 摘要哈希（数组每一项各换一个，已经缩过的不再动），别的照原样。

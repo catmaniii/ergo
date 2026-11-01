@@ -1,9 +1,9 @@
-// 负责人背后的 agent（368 号票，用户 2026-11-01："应该可以有地方实时查看背后有哪几个 agent 在运行，在做什么，进展如何。已经完成的 subagent 的
+// 负责人背后的 agent（"应该可以有地方实时查看背后有哪几个 agent 在运行，在做什么，进展如何。已经完成的 subagent 的
 // 对话历史可以查看，但无法再唤起"）：并行派出去的子 agent、评审子 agent 的列表和只读对话，给网页现取（GET /api/agents/<id>/background、…/transcript）。
 // - 视图 background_agents：sub_agents 频道上的事件归并成每个 agent 一行（属于谁、派去做什么、什么时候拉起和结束）和它的一条条话；
-//   表是新建的（老库升上来）时从事件日志补一遍，368 号票之前跑的子 agent 一样有一行，只是没有"说的话"；
+//   表是新建的（老库升上来）时从事件日志补一遍，以前跑的子 agent 一样有一行，只是没有"说的话"；
 // - 一行上的工具调用次数、最近一步来自工具调用的完整内容（tool_call_details，每次经守卫的调用都有，评审的也在），用量来自账本（token_ledger），
-//   都按 agent id 现查；368 号票之前的评审没有事件，从账本认出来（有什么显示什么）；
+//   都按 agent id 现查；以前的评审没有事件，从账本认出来（有什么显示什么）；
 // - 任务删了（连带项目删了的内部任务）：一行不再给，只读对话回没有。收到的指令、说的话随删除换成删除标记（material-source.ts）；
 // - 有变化（这几样事件追加了）时在背后的 agent 频道上推一条临时事件，同一个负责人最多每 BACKGROUND_AGENTS_PUSH_MS 一条，网页收到后重新取。
 // 这里只读不写（评审那一半的写在 reviewRecorder）：不改派发和审批，也不碰负责人会话里的工具调用记录。
@@ -78,7 +78,7 @@ const TABLES = `
 
 export const backgroundAgentsView: DerivedView = {
   name: "background_agents",
-  // 老库升上来时表是新建的：从事件日志补回来（368 号票之前的子 agent 也要有一行）
+  // 老库升上来时表是新建的：从事件日志补回来（以前的子 agent 也要有一行）
   create: (db) => {
     const fresh = db.all<{ name: string }>("PRAGMA table_info(background_agents)").length === 0;
     db.exec(TABLES);
@@ -254,7 +254,7 @@ export function createBackgroundAgents(options: BackgroundAgentsOptions): Backgr
     };
   };
 
-  /** 368 号票之前的评审：没有事件，账本里有它的用量。有什么显示什么（算做完了：它早就不在了） */
+  /** 以前的评审：没有事件，账本里有它的用量。有什么显示什么（算做完了：它早就不在了） */
   const legacyReviews = (maintainerId: string, known: ReadonlySet<string>): BackgroundAgentRow[] =>
     tasks
       .list()

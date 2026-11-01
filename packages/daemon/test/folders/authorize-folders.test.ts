@@ -1,4 +1,4 @@
-// 快速动作"授权文件夹"（138 号票，212 号票起是内核的 folders/authorize-folders.ts；一律要用户在卡上点"执行"，见 test/main/authorized-folders.test.ts）：
+// 快速动作"授权文件夹"（是内核的 folders/authorize-folders.ts；一律要用户在卡上点"执行"，见 test/main/authorized-folders.test.ts）：
 // - 规范化：只认完整路径、存在的文件夹，最多 20 个；拿掉的要在授权的文件夹里；都已经是这样的不出卡、原因回给秘书；
 // - 执行：改那一份授权的文件夹（local-folders.json），结果写清加了、拿掉了哪几个。
 import fs from "node:fs";
@@ -110,7 +110,7 @@ describe("规范化和执行", () => {
   });
 });
 
-describe("给 agent 的那一块（355 号票）", () => {
+describe("给 agent 的那一块", () => {
   const view = { folders: [{ path: "F:\\photos", exists: true }, { path: "G:\\gone", exists: false }] };
 
   it("秘书：写着能直接读、在哪改，聊天里授权用快速动作；没有授权的文件夹也有这一块", () => {

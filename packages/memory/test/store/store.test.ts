@@ -13,9 +13,9 @@ const CLOCK = "2026-10-20T12:00:00+08:00";
 
 const dirs: string[] = [];
 function tempFile(): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "memory-lab-store-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "memory-store-"));
   dirs.push(dir);
-  return path.join(dir, "memory-lab.db");
+  return path.join(dir, "memory.db");
 }
 afterEach(() => {
   for (const dir of dirs.splice(0)) fs.rmSync(dir, { recursive: true, force: true });

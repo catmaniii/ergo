@@ -1,6 +1,6 @@
-// Claude Code 适配子进程的契约测试：选的值、命令和模型清单、写交接摘要（289 号票）。SDK 换成假的（helpers/fake-claude-sdk.ts），
-// 不启动真的 claude、不花额度；适配子进程本身是真的（runClaudeChild，stdin / stdout 换成内存里的流）。和 287 号票的 adapter.contract.test.ts
-// 同一种拉法，分开放（各票各改各的文件）。
+// Claude Code 适配子进程的契约测试：选的值、命令和模型清单、写交接摘要。SDK 换成假的（helpers/fake-claude-sdk.ts），
+// 不启动真的 claude、不花额度；适配子进程本身是真的（runClaudeChild，stdin / stdout 换成内存里的流）。和 adapter.contract.test.ts
+// 同一种拉法，分开放。
 // - ⚙ 里选的值（装配参数 runtimeOptions）→ query 的 model、effort、permissionMode；"跟 Claude Code 自己的设置"、不认得的不传；
 // - query 起来后报一次模型列表和斜杠命令（runtime_catalog，supportedModels / supportedCommands）；每轮开头的 system/init 按名字再报命令
 //   （只在终端里能用的不报，说明按之前报过的补），中途 commands_changed 整份换掉；
@@ -60,7 +60,7 @@ function startChild(options: { session?: Partial<SessionAssembly>; wrap?: (query
   return { fake, send, log };
 }
 
-describe("Claude Code 适配子进程：选的值、命令和模型清单、写交接摘要（289 号票）", () => {
+describe("Claude Code 适配子进程：选的值、命令和模型清单、写交接摘要", () => {
   it("⚙ 里选的模型、思考档位、权限模式交给 query；跟 Claude Code 自己的设置、不认得的不传", async () => {
     const chosen = startChild({ session: { runtimeOptions: { model: "opus", settings: { effort: "high", permission_mode: "plan" } } } });
     await chosen.log.next("ready");

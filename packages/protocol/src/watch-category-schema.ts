@@ -1,5 +1,5 @@
 // @i18n-ignore-file model：这里的中文都是 schema 里给模型看的参数说明
-// 关注类别设置的 schema（规格第 9 节，26 号票），用 TypeBox 定义，守护进程和 Web 共用生成的类型：
+// 关注类别设置的 schema（规格第 9 节），用 TypeBox 定义，守护进程和 Web 共用生成的类型：
 // - 确定规则（WatchCategoryMatch）：全局设置里的自定义类别、计划里本任务新加的类别同一种写法；
 // - 设置的样子（WatchCategoriesState）：关注类别频道上 watch_category_settings 事件里的，设置页照它画；
 // - 设置页的请求（update_watch_categories）：调严内置类别、新建 / 改 / 删自定义类别、修复、重新读文件。

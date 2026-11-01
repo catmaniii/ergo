@@ -1,15 +1,15 @@
-// 主切面：记忆插件（129 号票，ADR-0027 的第二个适配器）。走真实的装配路径：经组合根和插件清单起守护进程，停用只经数据目录配置的
+// 主切面：记忆插件（ADR-0027 的第二个适配器）。走真实的装配路径：经组合根和插件清单起守护进程，停用只经数据目录配置的
 // plugins.disabled（startTestDaemon 的 plugins 选项），不手挂插件。
 // - 配置里停用记忆插件：守护进程照常起（日志、健康信息里写明，不算降级）；不采成素材（库里没有、检索不到、没有向量），
 //   用户的话照样留原话副本（用户的数据承诺）；没有记忆命令（快速动作里没有、"提议快速动作"的说明里不提 search_materials），
 //   秘书没有 search_materials、系统提示里不讲记忆命令（句子照样通顺）；别的功能（提醒、工作日历）照常；
 // - 停用期间：以前的记忆删除卡回"记忆插件没启用"；设置里按会话彻底删除照常（库里已有的、只在原话副本里的都删，原文改写成标记）；
-// - 停用时的 HTTP（用户 2026-10-31 要求"没启用也不能崩"）：访谈接口 404 加一句"记忆插件没启用"，记忆的设置照常能读能改，
+// - 停用时的 HTTP（没启用也不能崩）：访谈接口 404 加一句"记忆插件没启用"，记忆的设置照常能读能改，
 //   推理库的只读接口 200 + ready=false + 原因——都不是 500；
 // - 再启用：素材库从停下的采集位置补采，停用期间没删的话成了素材、能检索，删过的不回来。
 // 默认全开时秘书看到的工具（先后、说明）、系统提示和以前逐字节一样，由已有的主切面测试守着（plugins.test.ts、secretary-chat.test.ts……）。
-// 232 号票起：开着时秘书多一个 ask_memory（在 read_material 后面、propose_quick_action 前面），每轮醒来还有一块记忆简报
-// （推理库还空着时是空串，不产生块）；停用后这两个都没有。242 号票起再多一个 ask_curator（问记忆管理员，排在 ask_memory 后面）。
+// 开着时秘书多一个 ask_memory（在 read_material 后面、propose_quick_action 前面），每轮醒来还有一块记忆简报
+// （推理库还空着时是空串，不产生块）；停用后这两个都没有。再多一个 ask_curator（问记忆管理员，排在 ask_memory 后面）。
 import fs from "node:fs";
 import path from "node:path";
 import { type Card, type CardEventPayload, CHANNELS, EVENT_TYPES, HTTP_PATHS, type HttpErrorBody, isDeletedEventPayload, type MessageEventPayload, type ResponseFrame } from "@ergo/protocol";
@@ -67,14 +67,14 @@ describe("记忆插件", () => {
     // 没有记忆命令：秘书提了"记住"，运行时回没有这种动作，不出卡
     expect(seen).toContain("[toolResult] propose_quick_action: 没有登记这种快速动作：remember");
     expect(cardsOf(frontend)).toEqual([]);
-    // 秘书没有 search_materials、read_material、ask_memory、ask_curator、mark_woven_question（提醒的四个工具后面是内核的；297 号票 Google 日历、298 号票 Gmail、296 号票 Looki 的按需查排在中间，306 号票起没连上的不给），系统提示里不讲记忆命令，快速动作那一段照样通顺
+    // 秘书没有 search_materials、read_material、ask_memory、ask_curator、mark_woven_question（提醒的四个工具后面是内核的；Google 日历、Gmail、Looki 的按需查排在中间，没连上的不给），系统提示里不讲记忆命令，快速动作那一段照样通顺
     const assembly = assemblyOf(seen);
     expect(assembly).not.toMatch(/search_materials|read_material|ask_memory|ask_curator|mark_woven_question|remember|forget|no_infer/);
     expect(assembly).toContain("[tool] cancel_reminder\n[tool] archive_reminder\n[tool] mcp_call\n[tool] propose_quick_action");
     expect(assembly).toContain("否则出卡请用户确认）。哪天不上班、要上班用 workday_calendar");
     expect(td.daemon.quickActions.registry.list().map((e) => e.type)).toEqual(expect.not.arrayContaining(["remember", "forget", "purge", "no_infer"]));
     const description = proposeQuickActionTool(td.daemon.quickActions, SECRETARY).spec.description;
-    // 185 号票起提醒插件登记了删除简单提醒（排在内核的前面）
+    // 提醒插件登记了删除简单提醒（排在内核的前面）
     expect(description).toContain("否则出一张卡请用户确认后才执行。\n能用的动作：\n- delete_reminder（删除简单提醒）：");
     expect(description).toContain("\n- workday_calendar（改工作日历）：");
     expect(description).not.toContain("search_materials");
@@ -85,7 +85,7 @@ describe("记忆插件", () => {
     const kept = td.daemon.materials.list();
     expect(kept.map((m) => [m.kind, m.segments[0]?.text])).toEqual([["user_utterance", "记住下周三上午体检"]]);
     expect(originals(td.dataDir)).toEqual([kept[0]!.id]);
-    // 记忆 · 素材（167）：范围的统计写明只保管（页面顶上提示），已有的照样列、照样搜得到（逐条比对）
+    // 记忆 · 素材：范围的统计写明只保管（页面顶上提示），已有的照样列、照样搜得到（逐条比对）
     expect((await materialsApi.scope(td.url)).body).toMatchObject({ count: 1, keepingOnly: true });
     expect((await materialsApi.list(td.url, { filter: { query: "体检" } })).body).toMatchObject({ total: 1, items: [{ id: kept[0]!.id, excerpt: "记住下周三上午体检" }] });
 
@@ -96,7 +96,7 @@ describe("记忆插件", () => {
 
   it("停用记忆插件时 HTTP 那几条：访谈接口回\"记忆插件没启用\"（404，不是 500）、记忆的设置照常能读能改、推理库的只读接口 200 加一句原因", async () => {
     const td = await startTestDaemon({ plugins: ["reminders", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki"], secretary: [echo] });
-    // 了解你访谈是记忆插件的服务，网关每次现取（284 号票）：插件没启用时 404 加一句"记忆插件没启用"，不是 500
+    // 了解你访谈是记忆插件的服务，网关每次现取：插件没启用时 404 加一句"记忆插件没启用"，不是 500
     const interview = await requestJson<HttpErrorBody>(td.url, HTTP_PATHS.memoryInterview);
     expect(interview.status).toBe(404);
     expect(interview.body).toMatchObject({ code: "not_found", message: "记忆插件没启用" });
@@ -104,7 +104,7 @@ describe("记忆插件", () => {
     expect((await memoryApi.settings(td.url)).status).toBe(200);
     expect((await memoryApi.settings(td.url)).body).toEqual({ memoryBrief: true, wovenQuestions: true, interviewInvites: true });
     expect((await memoryApi.saveSettings(td.url, { wovenQuestions: false })).body).toMatchObject({ wovenQuestions: false });
-    // 推理库的只读接口（233 号票）是内核的：库还没建，200 + ready=false + 一句原因（以后库在、插件停着也照样只读）
+    // 推理库的只读接口是内核的：库还没建，200 + ready=false + 一句原因（以后库在、插件停着也照样只读）
     const summary = await memoryApi.summary(td.url);
     expect(summary.status).toBe(200);
     expect(summary.body).toMatchObject({ ready: false, total: 0, openQuestions: 0 });
@@ -184,17 +184,17 @@ describe("记忆插件", () => {
     await frontend.subscribe(ALL);
     await tell(frontend, "在吗");
     const seen = lastSecretaryText(frontend);
-    // 232、242、271、337 号票的工具排在哪：记忆插件的六个工具按登记先后，之后是数据源的按需查（297 号票：查 Google 日历；298 号票：搜、读 Gmail 邮件；296 号票：查 Looki——306 号票起没连上的不给，这里都没连），再后面才是内核的 mcp_call（240）、propose_quick_action
+    // 工具排在哪：记忆插件的六个工具按登记先后，之后是数据源的按需查（查 Google 日历；搜、读 Gmail 邮件；查 Looki——没连上的不给，这里都没连），再后面才是内核的 mcp_call、propose_quick_action
     expect(assemblyOf(seen)).toContain(
       "[tool] read_material\n[tool] ask_memory\n[tool] ask_curator\n[tool] mark_woven_question\n[tool] remember_memory\n[tool] mcp_call\n[tool] propose_quick_action",
     );
     expect(assemblyOf(seen)).not.toMatch(/query_google_calendar|search_gmail|read_gmail|query_looki/);
-    // 推理库刚建好、还没整理出结论：简报是空串，不注入（模型看到的消息里没有那一块）；266 号票的每条消息的记忆简报也没有
+    // 推理库刚建好、还没整理出结论：简报是空串，不注入（模型看到的消息里没有那一块）；每条消息的记忆简报也没有
     expect(seen).not.toMatch(/【(醒来|记忆)简报】/);
     expect(fs.existsSync(td.daemon.layout.rgDb)).toBe(true);
   });
 
-  // 235 号票：memory.enabled = false 只是"这台机器上不跑整理"，和插件停用是两回事
+  // memory.enabled = false 只是"这台机器上不跑整理"，和插件停用是两回事
   it("memory.enabled = false：照常起、不排每晚整理、不建 rg.db；素材照常采、秘书照常有检索和问记忆", { timeout: 60_000 }, async () => {
     const td = await startTestDaemon({ config: { memory: { enabled: false } }, secretary: [echo] });
     // 不排作业、不建库（打开一次确认库的那一步也跳过）

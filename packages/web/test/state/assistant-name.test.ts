@@ -1,4 +1,4 @@
-// 前端状态层：个人助理的名字（43 号票）。名字频道上的 assistant_name 事件归并成现在的名字（没收到过是默认的"二狗"，89 号票起；原来是"个人助理"）；
+// 前端状态层：个人助理的名字。名字频道上的 assistant_name 事件归并成现在的名字（没收到过是默认的"二狗"，原来是"个人助理"）；
 // 守护进程生成的话里的名字占位按现在的名字显示，所以改名后旧的话也跟着变。
 import { afterEach, describe, expect, test, vi } from "vitest";
 import {
@@ -46,12 +46,12 @@ const lastText = (state: UiState) => daemonTextPlain(textOf(state, -1), assistan
 const english = () => setActiveLocale(activeLocaleFrom(TEST_LOCALES, "en"));
 
 describe("个人助理的名字", () => {
-  // 89 号票（用户 2026-10-11 定）：默认名字从"个人助理"改成"二狗"
+  // 默认名字从"个人助理"改成"二狗"
   test("没收到过名字事件：默认的\"二狗\"", () => {
     expect(assistantNameOf(replay([]))).toBe("二狗");
   });
 
-  // 379 号票：没起过名字时默认名跟当前语言走，起过的任何语言下原样（只看名字频道上有没有事件）
+  // 没起过名字时默认名跟当前语言走，起过的任何语言下原样（只看名字频道上有没有事件）
   describe("默认名跟着语言", () => {
     afterEach(() => setActiveLocale(activeLocaleFrom(TEST_LOCALES, DEFAULT_LANGUAGE)));
 
@@ -76,7 +76,7 @@ describe("个人助理的名字", () => {
   test("以最新的一条为准：设置页改的、启动时从配置文件读到的都一样", () => {
     expect(assistantNameOf(replay([named(1, "小美")]))).toBe("小美");
     expect(assistantNameOf(replay([named(1, "小美"), named(2, "阿福", "config_file")]))).toBe("阿福");
-    // 89 号票之前起过名或者恢复过默认、存下的"个人助理"：就是用户起的名字，照旧用
+    // 以前起过名或者恢复过默认、存下的"个人助理"：就是用户起的名字，照旧用
     expect(assistantNameOf(replay([named(1, "小美"), named(2, "个人助理")]))).toBe("个人助理");
   });
 
@@ -103,7 +103,7 @@ describe("个人助理的名字", () => {
     ]);
   });
 
-  test("43 号票之前存下的旧数据：守护进程写死的那几句\"秘书\"按对照表显示成名字标签，用户和 agent 的原话不动", () => {
+  test("以前存下的旧数据：守护进程写死的那几句\"秘书\"按对照表显示成名字标签，用户和 agent 的原话不动", () => {
     const state = replay([
       { kind: "frame", frame: named(1, "小美") },
       say(1, "user", "我的秘书对话记录在哪"),
@@ -128,7 +128,7 @@ describe("个人助理的名字", () => {
   });
 });
 
-// 89 号票：秘书页左上角的标题写"个人秘书：<名字>"（导航上那一项固定写"秘书"，见 nav.test.ts）。界面把名字画成名字标签；
+// 秘书页左上角的标题写"个人秘书：<名字>"（导航上那一项固定写"秘书"，见 nav.test.ts）。界面把名字画成名字标签；
 // 窄屏上标题字号按名字的字数缩到放得下，最多按 4 个字算，更长的不再缩、在末尾截成省略号（样式在 base.css 的 .secretary-title）
 describe("秘书页的标题", () => {
   test("没起过名：个人秘书：二狗", () => {
@@ -157,7 +157,7 @@ describe("秘书页的标题", () => {
   });
 });
 
-// 40 号票：名字的第一个字（暖纸手帐的圆形字头像画它；写成 CSS 字符串在界面层，见 test/ui/conversation-root.test.ts）
+// 名字的第一个字（暖纸手帐的圆形字头像画它；写成 CSS 字符串在界面层，见 test/ui/conversation-root.test.ts）
 describe("名字的第一个字（字头像）", () => {
   test.each([
     ["个人助理", "个"],

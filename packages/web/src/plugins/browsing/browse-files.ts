@@ -1,4 +1,4 @@
-// 鸿蒙 App "浏览"页签的原生浏览器里，能渲染的文件用二狗的渲染打开（160 号票）。原生浏览器是 App 叠在网页上面的另一个 ArkWeb，
+// 鸿蒙 App "浏览"页签的原生浏览器里，能渲染的文件用二狗的渲染打开。原生浏览器是 App 叠在网页上面的另一个 ArkWeb，
 // 二狗的网页画不到它上面，所以渲染层画在"浏览"页的内容区里、把原生浏览器藏起来（pages/BrowsePage.tsx）：
 // - App 报来的文件（native-browser.ts 的 document）：浏览器里加载完的一页（带 document.contentType——服务端回 text/markdown、text/plain、
 //   JSON……时浏览器显示原始文本），或者拦下的一个下载（服务端一律当下载发的 .md 这类，App 先存进自己的缓存，带着服务端给的文件名）；

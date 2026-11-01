@@ -1,7 +1,7 @@
-// 记一条记忆命令、做一次删除（规格第 15 节，21 号票）：对话里的记忆删除卡和设置里的批量删除共用这一个函数。
+// 记一条记忆命令、做一次删除（规格第 15 节）：对话里的记忆删除卡和设置里的批量删除共用这一个函数。
 // - 先在事件日志里记一条 memory_command（ADR-0006：否则重建时素材会回来），素材模块据此删除、标记素材、删原文副本；
 // - 彻底删除另外在同一事务里改写原始事件和带原话的记录（purge.ts），追加 messages_purged 和改写后的卡片新版本；
-// - 366 号票：忘掉、彻底删除的命令记着这些素材记下来的文件，之后没人引用就删媒体文件（after-purge.ts）。
+// -忘掉、彻底删除的命令记着这些素材记下来的文件，之后没人引用就删媒体文件（after-purge.ts）。
 import { randomUUID } from "node:crypto";
 import { type DeleteCommandPayload, EVENT_TYPES, type MemoryCommandEventPayload, type MemoryDeleteMode } from "@ergo/protocol";
 import type { NewEvent, PurgeRewrite, StoredEvent } from "../events/event-store.ts";
@@ -24,18 +24,18 @@ export interface DeletionRequest {
   idempotencyKey?: string;
   /** 彻底删除时不追加新版本的卡（记忆删除卡自己的动作会追加） */
   exceptCard?: string;
-  /** 彻底删除时另外要改写的原始事件（没有素材的语音，31 号票） */
+  /** 彻底删除时另外要改写的原始事件（没有素材的语音） */
   extraTargets?: readonly StoredEvent[];
-  /** 彻底删除时调用方在同一事务里已经改写了的事件（全局序号，删除项目时随项目删素材，66 号票）：不再改第二遍 */
+  /** 彻底删除时调用方在同一事务里已经改写了的事件（全局序号，删除项目时随项目删素材）：不再改第二遍 */
   skip?: ReadonlySet<number>;
-  /** 彻底删除时另外要连带改写的快速动作、引着原话的工具调用（281 号票：删个人档案里的值时连出处一起） */
+  /** 彻底删除时另外要连带改写的快速动作、引着原话的工具调用（删个人档案里的值时连出处一起） */
   quickActions?: readonly QuickActionTrace[];
   toolCallsMentioning?: readonly ToolCallMention[];
 }
 
 /** 一次删除要追加的事件（记忆命令在最前）和要改写的事件 */
 export function deletionEvents(deps: PurgeDeps, request: DeletionRequest): { events: NewEvent[]; purge: PurgeRewrite[] } {
-  // 366 号票：记下来的文件跟着忘掉、彻底删除一起删（命令记着媒体编号，之后没人引用就删，memory/after-purge.ts）
+  // 记下来的文件跟着忘掉、彻底删除一起删（命令记着媒体编号，之后没人引用就删，memory/after-purge.ts）
   const mediaIds = request.mode === "no_infer" ? [] : rememberedMediaOf(request.materials);
   const command = memoryCommandEvent({ command: request.mode, materialIds: request.materials.map((m) => m.id), from: request.from, ...(mediaIds.length === 0 ? {} : { mediaIds }) }, request.idempotencyKey);
   if (request.mode !== "purge") return { events: [command], purge: [] };

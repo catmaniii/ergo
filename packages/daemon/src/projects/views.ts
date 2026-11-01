@@ -1,5 +1,5 @@
 // 项目的派生视图（规格第 4 节）：项目列表频道上的 project 事件归并成每个项目的最新状态，charters 频道上的立项书
-// 归并成每个项目最新的一版，立项要求变更（125 号票）、规范改写（261 号票，standards 频道）每次一行。删掉的项目留一行（标 deleted），编号不会被新项目重用，负责人 id 也认得出"属于已删除的项目"。
+// 归并成每个项目最新的一版，立项要求变更、规范改写（standards 频道）每次一行。删掉的项目留一行（标 deleted），编号不会被新项目重用，负责人 id 也认得出"属于已删除的项目"。
 import { applyStandardChange, CHANNELS, EVENT_TYPES, type Project, type ProjectEventPayload, type StandardOverrideEntry } from "@ergo/protocol";
 import type { DerivedView } from "../events/event-store.ts";
 import type { ReadonlyDatabase } from "../storage/sqlite.ts";
@@ -77,7 +77,7 @@ export const projectsView: DerivedView = {
       );
       return;
     }
-    // 立项要求变更（125 号票）：提出的一行，用户确认或拒绝了记上决定
+    // 立项要求变更：提出的一行，用户确认或拒绝了记上决定
     if (event.channel === CHARTERS_CHANNEL && event.type === CHARTER_EVENTS.changeProposed) {
       const p = event.payload as CharterChangeProposedPayload;
       db.run("INSERT OR REPLACE INTO project_charter_changes (project_id, revision, proposed, decided) VALUES (?, ?, ?, NULL)", p.projectId, p.revision, JSON.stringify(p));
@@ -88,7 +88,7 @@ export const projectsView: DerivedView = {
       db.run("UPDATE project_charter_changes SET decided = ? WHERE project_id = ? AND revision = ?", JSON.stringify(p), p.projectId, p.revision);
       return;
     }
-    // 规范改写（261 号票）：同上，提出的一行，用户确认或拒绝了记上决定
+    // 规范改写：同上，提出的一行，用户确认或拒绝了记上决定
     if (event.channel === STANDARDS_CHANNEL && event.type === STANDARD_EVENTS.changeProposed) {
       const p = event.payload as StandardChangeProposedPayload;
       db.run("INSERT OR REPLACE INTO project_standard_changes (project_id, revision, proposed, decided) VALUES (?, ?, ?, NULL)", p.projectId, p.revision, JSON.stringify(p));
@@ -146,14 +146,14 @@ export function latestCharter(db: ReadonlyDatabase, projectId: string): CharterS
   return row && (JSON.parse(row.submitted) as CharterSubmittedPayload);
 }
 
-/** 一个项目的立项要求变更（125 号票）：按先后，每次提出的和用户的决定（还没决定的没有） */
+/** 一个项目的立项要求变更：按先后，每次提出的和用户的决定（还没决定的没有） */
 export function charterChanges(db: ReadonlyDatabase, projectId: string): Array<{ proposed: CharterChangeProposedPayload; decided?: CharterChangeDecidedPayload }> {
   return db
     .all<{ proposed: string; decided: string | null }>("SELECT proposed, decided FROM project_charter_changes WHERE project_id = ? ORDER BY revision", projectId)
     .map((row) => ({ proposed: JSON.parse(row.proposed) as CharterChangeProposedPayload, ...(row.decided ? { decided: JSON.parse(row.decided) as CharterChangeDecidedPayload } : {}) }));
 }
 
-/** 一个项目的规范改写（261 号票）：按先后，每次提出的和用户的决定（还没决定的没有） */
+/** 一个项目的规范改写：按先后，每次提出的和用户的决定（还没决定的没有） */
 export function standardChanges(db: ReadonlyDatabase, projectId: string): Array<{ proposed: StandardChangeProposedPayload; decided?: StandardChangeDecidedPayload }> {
   return db
     .all<{ proposed: string; decided: string | null }>("SELECT proposed, decided FROM project_standard_changes WHERE project_id = ? ORDER BY revision", projectId)
@@ -161,7 +161,7 @@ export function standardChanges(db: ReadonlyDatabase, projectId: string): Array<
 }
 
 /**
- * 一个项目现在生效的规范改写（261 号票）：用户确认了的每一次按先后合起来（applyStandardChange），每条带着提它那一次说的为什么。
+ * 一个项目现在生效的规范改写：用户确认了的每一次按先后合起来（applyStandardChange），每条带着提它那一次说的为什么。
  * 没有改写是空的
  */
 export function standardOverrides(db: ReadonlyDatabase, projectId: string): Array<StandardOverrideEntry & { why: string }> {

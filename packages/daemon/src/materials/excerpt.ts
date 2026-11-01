@@ -1,6 +1,6 @@
-// 素材的摘录：记忆删除卡、秘书的素材检索结果（21 号票），设置里的素材列表（158 号票）都用这一个。
-// 158 号票从记忆插件（memory/memory-commands.ts）挪进素材库：设置里看素材是内核的（记忆插件停用时照样能看、能删）。
-// 167 号票：挨着检索词的一段（snippetOf，166 号票秘书的检索结果里存的网页那一段）也挪进来：记忆 · 素材搜的时候列表里的摘录换成命中的那一段。
+// 素材的摘录：记忆删除卡、秘书的素材检索结果，设置里的素材列表都用这一个。
+// 从记忆插件（memory/memory-commands.ts）挪进素材库：设置里看素材是内核的（记忆插件停用时照样能看、能删）。
+// 挨着检索词的一段（snippetOf，秘书的检索结果里存的网页那一段）也挪进来：记忆 · 素材搜的时候列表里的摘录换成命中的那一段。
 import { INTERVIEW_QUESTION_FIELD } from "@ergo/protocol";
 import type { Material } from "./types.ts";
 
@@ -9,7 +9,7 @@ const EXCERPT_CHARS = 60;
 
 /**
  * 素材的摘录：本人的话，加上引用的说明（附件的文件名、卡片的标题）；太长截断。
- * 访谈里管理员问的那一句（284 号票，排在用户的话前面的上下文）不进摘录：列表、检索结果里先看到的是用户自己的话
+ * 访谈里管理员问的那一句（排在用户的话前面的上下文）不进摘录：列表、检索结果里先看到的是用户自己的话
  */
 export function excerptOf(material: Material, max = EXCERPT_CHARS): string {
   const text = material.segments

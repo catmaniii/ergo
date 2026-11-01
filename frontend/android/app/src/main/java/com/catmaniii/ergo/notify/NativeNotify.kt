@@ -51,7 +51,7 @@ fun noticeNumber(id: String): Int {
 }
 
 /**
- * 用户点开的那一条（对应鸿蒙的 NotifyTaps，110 号票）：Activity 在 onCreate（App 没在跑）、onNewIntent（App 在跑）里从 Intent 取出来记下，
+ * 用户点开的那一条（对应鸿蒙的 NotifyTaps）：Activity 在 onCreate（App 没在跑）、onNewIntent（App 在跑）里从 Intent 取出来记下，
  * 等网页来取（取一次就清掉）。只记最新的一条（连着点了两条，去后点的那一条）。App 的入口谁都能拉起，所以只认页面地址，网页那边再核对一次
  */
 class NotifyTaps(private val changed: (String) -> Unit) {
@@ -81,12 +81,12 @@ interface NotifyPermission {
 }
 
 /**
- * 系统通知（对应鸿蒙 notify/NativeNotify.ets，110 号票）：本地通知，App 自己往通知栏发，不经任何推送服务（票里定的：不接 FCM，不做常驻前台服务）。
+ * 系统通知（对应鸿蒙 notify/NativeNotify.ets）：本地通知，App 自己往通知栏发，不经任何推送服务（不接 FCM，不做常驻前台服务）。
  * App 的进程要活着才发得出；被系统杀掉后发不出，手册写明。
  * - 授权：第一次向用户要（安卓 13 起才有授权框），记下问过了，用户拒了不再问；设置里点"去打开"而拒过的，拉起系统的通知设置；
  * - 发：网页每条提醒都交过来，App 在前台时不发（页面顶上已经有了），在后台时发一条，编号由 id 算出来，同一件事只出一条、换掉时不再响；
  * - 点：通知带一个 PendingIntent 拉起 MainActivity（带着 id 和页面地址），地址交回网页，通知随即收掉；
- * - Debug 工具集（124 号票）：force 为真时前台也发；state 带 App 现在算不算前台；resetAsked 清掉"问过了"。
+ * - Debug 工具集：force 为真时前台也发；state 带 App 现在算不算前台；resetAsked 清掉"问过了"。
  */
 class NativeNotify(
     private val context: Context,

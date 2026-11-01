@@ -1,12 +1,12 @@
-// 个人档案（281 号票，用户 2026-10-25 定："每个人单独建立一个档案库……对我自己，我重要的一些人会专门记一些重要的事情"）：
+// 个人档案（"每个人单独建立一个档案库……对我自己，我重要的一些人会专门记一些重要的事情"）：
 // 用户本人和用户身边重要的人各一份，分三块——固定信息（字段：值，一字不差、以最新为准，旧值留作历史）、用户特意要记的事、
-// 二狗了解到的（283 号票：从统一记忆现取，只读）。写进去的都经用户确认过；推断出来的只能当候选。本人那份的姓名就是"我的名字"。
+// 二狗了解到的（从统一记忆现取，只读）。写进去的都经用户确认过；推断出来的只能当候选。本人那份的姓名就是"我的名字"。
 // 档案放内核（停用记忆插件也不丢），守护进程在 daemon/src/personal-files/。这里是两边共用的规矩（不引用 TypeBox；
 // 接口、卡片的 schema 在 personal-files-schema.ts）：有哪些字段、叫什么、哪些算号码（核对卡上一位一位列出）、值合不合规。
-// 283 号票加了：哪些字段每年要提醒（生日、纪念日）、值里认出公历的某月某日、哪些字段的值不进发给模型的整理提示（号码类、住址）。
-// 302 号票加了内置字段"纪念日"：能有几个、各带名字（字段编号 "anniversary:<名字>"），档案页上排在生日后面；一个都没有时列一个空的
+// 加了：哪些字段每年要提醒（生日、纪念日）、值里认出公历的某月某日、哪些字段的值不进发给模型的整理提示（号码类、住址）。
+// 加了内置字段"纪念日"：能有几个、各带名字（字段编号 "anniversary:<名字>"），档案页上排在生日后面；一个都没有时列一个空的
 // "纪念日"（编号 "anniversary"，只占位置、不存值）。283 认"名字带纪念日的自定义字段"的规矩照旧。
-// 285 号票加了分组：档案里的人（本人以外）分家人、重要的人、其他人三组；建人时选、能改，没选的按"和我的关系"猜（guessPersonGroup）。
+// 加了分组：档案里的人（本人以外）分家人、重要的人、其他人三组；建人时选、能改，没选的按"和我的关系"猜（guessPersonGroup）。
 import { t, tTable } from "./i18n/runtime.ts";
 import { isMonthDay, type MonthDay } from "./reminder-schedule.ts";
 
@@ -28,7 +28,7 @@ export const NUMBER_FIELDS: readonly string[] = ["id_card", "passport", "driver_
 export const CUSTOM_FIELD_PREFIX = "custom:";
 
 /**
- * 内置字段"纪念日"（302 号票）在字段表里占的位置：一个纪念日都没有时档案页列一个空的"纪念日"，有了就换成那几个。它自己不存值——
+ * 内置字段"纪念日"在字段表里占的位置：一个纪念日都没有时档案页列一个空的"纪念日"，有了就换成那几个。它自己不存值——
  * 写"纪念日"写进名字就叫"纪念日"的那一个（anniversaryFieldOf）
  */
 export const ANNIVERSARY_FIELD = "anniversary";
@@ -124,7 +124,7 @@ export function customLabelOf(field: string): string | undefined {
   return field.startsWith(CUSTOM_FIELD_PREFIX) ? field.slice(CUSTOM_FIELD_PREFIX.length) : undefined;
 }
 
-/** 一个纪念日的编号（302 号票） */
+/** 一个纪念日的编号 */
 export function anniversaryFieldOf(name: string): string {
   return `${ANNIVERSARY_FIELD_PREFIX}${name.trim()}`;
 }
@@ -166,7 +166,7 @@ const validLabel = (label: string) => label.trim() !== "" && [...label.trim()].l
 /**
  * 秘书、页面写的字段名认成字段编号：默认字段的编号或名字（当前语言的、别的说法）认成那个字段；"custom:" 开头的原样；
  * 别的当作自定义字段的名字。名字不合规（空的、太长）是 undefined。
- * 302 号票：内置的"纪念日"——写"纪念日"（编号、名字）认成名字就叫"纪念日"的那一个，"anniversary:" 开头的原样，名字里带"纪念日"的
+ * 内置的"纪念日"——写"纪念日"（编号、名字）认成名字就叫"纪念日"的那一个，"anniversary:" 开头的原样，名字里带"纪念日"的
  * （"结婚纪念日"）认成叫这个名字的纪念日；existing 是这份档案已有的字段：283 时已经建了同名的自定义字段（"custom:结婚纪念日"）
  * 而还没有这个纪念日的，接着写那个自定义字段，不另起一个
  */
@@ -196,7 +196,7 @@ const digitCount = (value: string) => (value.match(/\d/g) ?? []).length;
 
 /**
  * 算不算号码（核对卡上逐位列出、一定要用户核对）：号码类字段，或者自定义字段里有 6 位以上数字。
- * 283 号票：名字里带"生日""纪念日"的自定义字段是日子（"2018年10月1日"也有 7 位数字），不算号码
+ * 名字里带"生日""纪念日"的自定义字段是日子（"2018年10月1日"也有 7 位数字），不算号码
  */
 export function isNumberField(field: string, value: string): boolean {
   if (NUMBER_FIELDS.includes(field)) return true;
@@ -260,7 +260,7 @@ export function checkPersonName(raw: string): PersonalValueCheck {
   return { ok: true, value };
 }
 
-// ---------- 283 号票：生日、纪念日的每年提醒；不进整理提示的字段 ----------
+// ----------生日、纪念日的每年提醒；不进整理提示的字段 ----------
 
 /** 生日、纪念日的每年提醒默认提前几天（核对卡上的勾、档案页上的开关默认这个数） */
 export const ANNUAL_REMINDER_DEFAULT_DAYS = 3;
@@ -273,15 +273,15 @@ export const ANNUAL_REMINDER_TIME = "09:00";
 // @i18n-ignore-next data：认用户起的中文字段名
 const ANNUAL_LABEL = /生日|纪念日|birthday|anniversary/iu;
 
-/** 302 号票：秘书写的字段名里带这些字的认成内置"纪念日"里的一个（"结婚纪念日"） */
+/** 秘书写的字段名里带这些字的认成内置"纪念日"里的一个（"结婚纪念日"） */
 // @i18n-ignore-next data：认模型写的中文字段名
 const ANNIVERSARY_LABEL = /纪念日|anniversary/iu;
 
-/** 农历的写法：认出来就不当公历的日子（282 号票只做了公历每年） */
+/** 农历的写法：认出来就不当公历的日子（只做了公历每年） */
 // @i18n-ignore-next data：认用户写的中文"农历"
 const LUNAR = /农历|阴历|旧历|lunar/iu;
 
-/** 这个字段是不是每年要提醒的日子：生日，纪念日（302 号票的内置字段，每一个），名字里带"生日""纪念日"的自定义字段 */
+/** 这个字段是不是每年要提醒的日子：生日，纪念日（内置字段，每一个），名字里带"生日""纪念日"的自定义字段 */
 export function isAnnualField(field: string): boolean {
   if (field === "birthday" || anniversaryNameOf(field) !== undefined) return true;
   const label = customLabelOf(field);
@@ -307,17 +307,17 @@ export function monthDayOf(value: string): MonthDay | undefined {
 }
 
 /**
- * 这个字段的值发给模型的整理提示里不带（283 号票，第二阶段计划"号码类字段不进夜里的整理提示"）：号码类（证件号、电话、
+ * 这个字段的值发给模型的整理提示里不带（第二阶段计划"号码类字段不进夜里的整理提示"）：号码类（证件号、电话、
  * 自定义字段里带一串数字的）和住址（门牌）。档案摘要里不列它们；夜里整理发给模型的每个请求里，出现了它们的值就换成占位
  */
 export function withheldFromModel(field: string, value: string): boolean {
   return isNumberField(field, value) || field === "address";
 }
 
-// ---------- 285 号票：档案里的人分组 ----------
+// ----------档案里的人分组 ----------
 
 /**
- * 档案里的人（本人以外）分三组：家人、重要的人、其他人（用户 2026-10-25："既有我的档案，也有家人的档案，还有其他比较重要的档案，
+ * 档案里的人（本人以外）分三组：家人、重要的人、其他人（"既有我的档案，也有家人的档案，还有其他比较重要的档案，
  * 也可以有其他人的档案"）。本人那份不分组，列表上单独一组"我"
  */
 export const PERSON_GROUPS = ["family", "important", "others"] as const;
@@ -346,8 +346,8 @@ const RELATION_RANK = /^(亲|大|二|三|四|五|小|老)+/u;
 // @i18n-ignore-end
 
 /**
- * 没选分组的人按"和我的关系"猜（285 号票）：父母、配偶、子女、兄弟姐妹等归家人，猜不出的（同事、朋友、表亲、没写关系）归其他人。
- * 猜不会猜成"重要的人"——那一组只由用户选。283 的"提议建档"、秘书经快速动作建的人都没选分组，照这里猜
+ * 没选分组的人按"和我的关系"猜：父母、配偶、子女、兄弟姐妹等归家人，猜不出的（同事、朋友、表亲、没写关系）归其他人。
+ * 猜不会猜成"重要的人"——那一组只由用户选。"提议建档"、秘书经快速动作建的人都没选分组，照这里猜
  */
 export function guessPersonGroup(relation: string | undefined): Exclude<PersonGroup, "important"> {
   const text = (relation ?? "").trim().toLowerCase().replace(RELATION_OWNER, "");

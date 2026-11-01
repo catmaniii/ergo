@@ -1,5 +1,5 @@
-// 推理库 → 一份 YAML（通用的有向无环图格式：每个节点 id、kind、statement、deps、status），给人看图、拿别的工具查用。253 号票的导出器（守护进程的 npm run memory:dump-template），
-// 256 号票补了三处（结论 → 结论的边、--with-evidence 的证据层、domain 和 title）。267 号票起挪到这里；326 号票起每晚校验不再用它（改成直接查库的图谱自检 graph-check.ts）。
+// 推理库 → 一份 YAML（通用的有向无环图格式：每个节点 id、kind、statement、deps、status），给人看图、拿别的工具查用。导出器（守护进程的 npm run memory:dump-template），
+// 补了三处（结论 → 结论的边、--with-evidence 的证据层、domain 和 title）。挪到这里；每晚校验不再用它（改成直接查库的图谱自检 graph-check.ts）。
 //
 // 只读：只用 source.all(sql)（守护进程的只读连接、引擎的存储都行），不写任何东西。映射（和 docs/architecture/memory-vocabulary.md 那张对照表一致）：
 // - `evidence` → `kind: fact`，`deps: []`（只在 withEvidence 时导）：原话就是最底下那一层，状态一律 verified；
@@ -7,7 +7,7 @@
 //   状态：active → verified、contested → unverified、corrected/superseded/retracted → retracted；
 // - `claims` → `kind: inference`，`deps` = `inferences.premise_ids`（事实 id 和结论 id）+ `links` 里指向事实的支持边；
 //   没有前提的按 `kind: fact` 导；状态：active（已验证）→ verified、contested（猜测）→ unverified、retracted / superseded → retracted
-//   （329 号票前的老库里还有 needs_review，也按 unverified；复核标记不进状态），
+//   （以前的老库里还有 needs_review，也按 unverified；复核标记不进状态），
 //   依赖里有已撤销的事实时降成 unverified；`title` 写"偏好 · 你明说的 · 把握低 / 临时结论"；`domain` 按场景标签推出方面；
 // - `questions` → `kind: question`，`deps: []`；状态：open → open、answered → answered、其余 → dropped；
 // - 预测账本先不导。
@@ -27,7 +27,7 @@ export interface TemplateExportOptions {
   allFacts?: boolean;
   /** 导不导问题（默认导） */
   questions?: boolean;
-  /** 连证据层一起导（256 号票，图里多出 证据 → 事实 一层） */
+  /** 连证据层一起导（图里多出 证据 → 事实 一层） */
   withEvidence?: boolean;
   /** 生成时间（changelog 和 title 用）；不给用现在 */
   now?: string;
@@ -99,7 +99,7 @@ export function exportReasoningTemplate(source: TemplateSource, options: Templat
 
   // 每条断言的前提（事实 id 和结论 id：往上抽的结论以别的结论为前提）和指向事实的支持边
   const premises = new Map<string, string[]>();
-  /** 往上抽先出的临时结论（256 号票）：rationale 里带着那句"（临时结论：…）" */
+  /** 往上抽先出的临时结论：rationale 里带着那句"（临时结论：…）" */
   const provisional = new Set<string>();
   for (const row of all("SELECT conclusion_claim_id, premise_ids, rationale FROM inferences")) {
     const id = String(row.conclusion_claim_id);
@@ -127,7 +127,7 @@ export function exportReasoningTemplate(source: TemplateSource, options: Templat
   /** 事实导出成模板以后的状态（判断"结论压在已撤销的事实上"要用这个，不是库里的原状态） */
   const factStatus = new Map(facts.map((f) => [String(f.id), FACT_STATUS[String(f.status)] ?? "unverified"]));
 
-  // ---- 2b. 证据（256 号票，withEvidence 时导）：事实底下那一层 ----
+  // ---- 2b. 证据（withEvidence 时导）：事实底下那一层 ----
   const evidenceOfFact = new Map<string, string[]>();
   for (const row of all("SELECT fact_id, evidence_id FROM fact_evidence")) {
     const id = String(row.fact_id);
@@ -164,7 +164,7 @@ export function exportReasoningTemplate(source: TemplateSource, options: Templat
 
   for (const claim of claims) {
     const id = String(claim.id);
-    // 256 号票：结论的前提可以是事实、也可以是别的结论（往上抽）；只留导得出来的、别指向自己
+    // 结论的前提可以是事实、也可以是别的结论（往上抽）；只留导得出来的、别指向自己
     const deps = [...new Set([...(premises.get(id) ?? []), ...(supports.get(id) ?? [])])].filter((dep) => dep !== id && (factIds.has(dep) || claimIds.has(dep)));
     const epistemic = String(claim.epistemic);
     const from = epistemic === "explicit" ? "你明说的" : epistemic === "user_confirmed" ? "你确认过的" : "推断出来的";

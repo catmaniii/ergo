@@ -1,4 +1,4 @@
-// 设置列表里的"发送和换行"（用户 2026-11-01 要的）：电脑上回车发送，换行用 Ctrl + 回车还是 Shift + 回车在这里选，只记在这台设备上。
+// 设置列表里的"发送和换行"：电脑上回车发送，换行用 Ctrl + 回车还是 Shift + 回车在这里选，只记在这台设备上。
 // 触屏设备上不列：那里回车本来就是换行（state/composer-keys.ts）。
 import { useSyncExternalStore } from "react";
 import { isTouchDevice, pageNewlineKey } from "../../app/page-composer-keys.ts";

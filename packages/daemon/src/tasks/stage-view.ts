@@ -1,14 +1,14 @@
-// 长程任务的阶段详情要的、守护进程这边才有的几样（84 号票，阶段详情和"从这里重做"的预览）：
+// 长程任务的阶段详情要的、守护进程这边才有的几样（阶段详情和"从这里重做"的预览）：
 // - 授权已用几次：和守卫计次同一个口径（guard/grants.ts 的 grantUses：效果日志里本任务、这个阶段、
 //   授予之后、同一工具、对象范围之内的）；阶段组的授权项守卫按阶段各算一份（toGuardPlan 的 "<id>@<阶段>"），这里换回计划里的 id；
 // - 从这里重做会重开哪些阶段（stages.ts 的 reopenScope）；
 // - 这几个阶段这一轮已经做了的事：效果日志里执行成功的、不是只看的，同一件只列一次，
-//   分"本机""对外"。不按能撤回、能补救、收不回分（这里不撤回，真撤回在 85 号票），只按在哪儿生效分：
+//   分"本机""对外"。不按能撤回、能补救、收不回分（这里不撤回），只按在哪儿生效分：
 //   往外送（守卫的 sendsOut，和计划卡授权说法的 outward 同一个口径）是对外，别的动了东西的是本机。"这一轮"是这个阶段上次重开之后
 //   判定的调用（效果日志的 reworkNo 不小于阶段的 reopenNo：只算当前这一轮）：重做之前判定、结束得晚的不算。
 //   认不出的工具（守护进程代为执行的二狗自己的工具）不列。
-// 274 号票加的：一个阶段这一轮系统查到的结果（本该是每轮结束系统直接查世界写出的结果、验收时系统查到的证据；
-// 二狗查不了世界，票面定了用效果日志代替）——发了什么（消息、请求、对外动作）、改了哪些文件（新建 / 修改 / 删除）、本机做的别的事
+// 加的：一个阶段这一轮系统查到的结果（本该是每轮结束系统直接查世界写出的结果、验收时系统查到的证据；
+// 二狗查不了世界，用效果日志代替）——发了什么（消息、请求、对外动作）、改了哪些文件（新建 / 修改 / 删除）、本机做的别的事
 // （里面改的文件效果日志记不到），负责人宣布完成时写的那一两句里提到的文件对不对得上（stageObserved、claimedFiles、claimChecks），
 // 和存进任务的个数（observedCounts：看板卡、阶段框上那一行，只记个数和工具名）。
 // 纯函数，执行控制器（execution.ts 的 stageView、rework、宣布完成）调用。
@@ -77,7 +77,7 @@ export function stageEffects(task: Task, stageIds: readonly string[], effects: r
   return out;
 }
 
-// ───────────────────────── 系统查到的结果（274 号票） ─────────────────────────
+// ───────────────────────── 系统查到的结果 ─────────────────────────
 
 /** 一件对外发送的是什么：给了收件人的是消息，给了网址（或 HTTP 方法）的是请求，别的（推送、发布、建远端仓库……）是对外动作 */
 function sendKindOf(tool: ToolDescriptor, args: Readonly<Record<string, unknown>>): StageSendKind {
@@ -240,7 +240,7 @@ export function claimChecks(summary: string | undefined, files: StageObserved["f
 
 /**
  * 存进任务的个数（看板卡、阶段框上那一行）：对外的按工具数（同一件只算一次），文件按怎么了数，和自报对不上的几处；at 是宣布完成的时刻。
- * 311 号票：文件的个数不算缓存、依赖、编译产物（delivery-ignore.ts：__pycache__、*.pyc、node_modules……；阶段详情里逐条的照列）
+ * 文件的个数不算缓存、依赖、编译产物（delivery-ignore.ts：__pycache__、*.pyc、node_modules……；阶段详情里逐条的照列）
  */
 export function observedCounts(observed: StageObserved, at: string): StageObservedCounts {
   const sent = new Map<string, { tool: string; title?: string; n: number }>();

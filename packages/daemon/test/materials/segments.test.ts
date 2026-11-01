@@ -18,7 +18,7 @@ describe("切段：每种来源一条规则", () => {
     ["判断不了的纯文本 → 默认本人", { form: "text", text: "下周三有空", locator: {} }, { form: "text", source: "self", notes: [], text: "下周三有空" }],
     ["引用块 → 外部、不可信，只留哈希", { form: "quote", text: "> 专家说房价会涨", locator: { part: 0, start: 3, end: 12 } }, { form: "quote", source: "external_untrusted", notes: [], sha256: sha256("> 专家说房价会涨") }],
     [
-      "带说明的引用块（303 号票：数据源里别人写给你的）→ 外部、不可信，留说明和哈希，不留原文",
+      "带说明的引用块（数据源里别人写给你的）→ 外部、不可信，留说明和哈希，不留原文",
       { form: "quote", text: "邮件正文", label: "张三：周五的会改到下午", locator: { field: "subject" } },
       { form: "quote", source: "external_untrusted", notes: [], label: "张三：周五的会改到下午", sha256: sha256("邮件正文") },
     ],
@@ -121,7 +121,7 @@ describe("切段：用户消息", () => {
     expect(segments[1]).not.toHaveProperty("text");
   });
 
-  test("消息里的语音 part 不切段：语音的文字要等识别完成，素材由识别完成的那条 voice 事件产生（31 号票，voice/material-source.ts）", () => {
+  test("消息里的语音 part 不切段：语音的文字要等识别完成，素材由识别完成的那条 voice 事件产生（voice/material-source.ts）", () => {
     expect(segmentMessage([{ type: "voice", voiceId: "v-1", mediaId: MEDIA, mime: "audio/webm", durationMs: 2000, waveform: [] }])).toEqual([]);
   });
 

@@ -1,13 +1,13 @@
-// 原型的假素材（158 号票：设置里删除素材的地方能看每条素材的内容）：照假会话里用户发的消息（FAKE_HISTORY）按 08 号票的切段规则编出来，
+// 原型的假素材（设置里删除素材的地方能看每条素材的内容）：照假会话里用户发的消息（FAKE_HISTORY）按切段规则编出来，
 // 出处的消息就在假会话里，"跳到这条消息"跳得过去；另编两条不来自消息的（建议卡长期没处理、项目内部任务的审批决定）。
 // 删除只在这一页的内存里（FakeDaemonHttp 记着删了哪些）。
-// 165 号票：另编一条"你存的网页"（"浏览"的 ⋮ 菜单里存进素材的），"浏览"里存的（fakeSaveWebPage）也加进这一页的列表。
-// 187 号票：另编三份九月的月结单（秘书主线里回话时调用记忆检索到的）。
-// 167 号票（记忆 · 素材按时间范围浏览、搜、筛）：另编十几条"近几天的"（时间按打开页面的这一刻往前推，默认的近 7 天里有得看），
+// 另编一条"你存的网页"（"浏览"的 ⋮ 菜单里存进素材的），"浏览"里存的（fakeSaveWebPage）也加进这一页的列表。
+// 另编三份九月的月结单（秘书主线里回话时调用记忆检索到的）。
+// 记忆 · 素材按时间范围浏览、搜、筛：另编十几条"近几天的"（时间按打开页面的这一刻往前推，默认的近 7 天里有得看），
 // 各种都有（说的话、语音、附件、存的网页、记忆命令、审批、关掉的卡、任务结局，几个会话）；按时间段、种类、会话、关键词筛照守护进程的口径
 // （materials/facets.ts、memory/browse.ts）在这里再做一遍，搜的时候摘录换成命中的那一段。
-// 343 号票（数据源详情的"已获取的"）：另编几条数据源导入的（fake-data-source-materials：示例相机、手机的位置和照片、编的账单），按 filter.dataSource 筛。
-// 366 号票（"这张图记下来"）：另编两条记下来的图：一张原图、一张截图，连同描述、来源网页和地址。
+// 数据源详情的"已获取的"：另编几条数据源导入的（fake-data-source-materials：示例相机、手机的位置和照片、编的账单），按 filter.dataSource 筛。
+// "这张图记下来"：另编两条记下来的图：一张原图、一张截图，连同描述、来源网页和地址。
 import {
   type Card,
   CHANNELS,
@@ -28,7 +28,7 @@ import {
 } from "../state/index.ts";
 import { at, FAKE_CARDS, FAKE_HISTORY } from "./fake-conversations.ts";
 
-/** 记下来的图（366 号票）的假媒体编号和假图：真的画出来，素材详情里看得到 */
+/** 记下来的图的假媒体编号和假图：真的画出来，素材详情里看得到 */
 const FAKE_REMEMBERED_CAT = "sha256:fake-remembered-cat";
 const FAKE_REMEMBERED_CHART = "sha256:fake-remembered-route";
 const svgUrl = (body: string) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" width="640" height="400">${body}</svg>`)}`;
@@ -52,7 +52,7 @@ export const FAKE_MATERIAL_IMAGES: ReadonlyMap<string, string> = new Map([
 interface FakeMaterial {
   item: MaterialListItem;
   detail: MaterialDetailView;
-  /** 哪个数据源导入的（素材信封出处的 origin.dataSource，343 号票） */
+  /** 哪个数据源导入的（素材信封出处的 origin.dataSource） */
   dataSource?: string;
 }
 
@@ -122,7 +122,7 @@ function fakeMaterials(): FakeMaterial[] {
     if (e.type !== EVENT_TYPES.message) continue;
     const message = (e.payload as { message: MessageEnvelope }).message;
     if (message.speaker !== "user" || message.relayedBy !== undefined) continue;
-    // 284 号票：访谈里说了"这个别记"的那一句管理员忘掉了，不在素材里；访谈里说的话标着"来自访谈"
+    // 访谈里说了"这个别记"的那一句管理员忘掉了，不在素材里；访谈里说的话标着"来自访谈"
     const interview = (e.payload as { interviewId?: string }).interviewId !== undefined;
     if (interview && message.parts.some((p) => p.type === "text" && p.text.includes("这个别记"))) continue;
     const own = segmentsOf(message, voices);
@@ -257,7 +257,7 @@ const fileSeg = (name: string, mime: string, size: number): MaterialSegmentView 
   const mediaId = `${"c".repeat(58)}${String(size).padStart(6, "0").slice(-6)}`;
   return { form: "attachment", source: "external_untrusted", notes: [], label: name, media: { mediaId, name, mime }, part: { type: "file", mediaId, name, mime, size } };
 };
-/** 记下来的一张图（366 号票）：描述、图（照附件画）、来源网页、地址；存的是截图时注明 */
+/** 记下来的一张图：描述、图（照附件画）、来源网页、地址；存的是截图时注明 */
 function rememberedImage(n: number, time: string, description: string, image: { mediaId: string; name: string; width: number; height: number }, source: { title: string; url: string; address?: string }, notes: MaterialSegmentView["notes"] = []): FakeMaterial {
   const part: MessagePart = { type: "image", mediaId: image.mediaId, name: image.name, mime: "image/png", width: image.width, height: image.height };
   return recent(
@@ -279,7 +279,7 @@ const LEDGER = "maintainer:project-ledger";
 const PHOTOS = "maintainer:project-photos";
 const INVOICES = "maintainer:tm-invoices";
 
-/** 近几天的十几条（167 号票）：默认的近 7 天、往前一段、近 30 天都有得看 */
+/** 近几天的十几条：默认的近 7 天、往前一段、近 30 天都有得看 */
 function recentMaterials(): FakeMaterial[] {
   return [
     rememberedImage(17, ago(0, "10:30"), "窗台上趴着的一只橘猫，背后是傍晚的天", { mediaId: FAKE_REMEMBERED_CAT, name: "orange-cat.png", width: 640, height: 400 }, { title: "相册 · 秋天的猫", url: "https://photos.example.com/autumn", address: "https://cdn.example.com/photos/orange-cat.png" }),
@@ -319,7 +319,7 @@ function recentMaterials(): FakeMaterial[] {
     ),
     recent(12, ago(8, "09:00"), "用户发言", "say", [said("杭州那次算了，改去苏州，周六早上出发")], { conversation: CHANNELS.secretary }),
     recent(13, ago(9, "17:40"), "任务结局", "do", [chose("任务完成：整理九月的发票")], { context: ["outcome:completed", "by:maintainer"], recordId: "t-invoices" }),
-    // 187 号票：秘书主线里"九月三张卡在吃上一共花了多少"那一段检索到的三份月结单（回话时调用记忆的详情里按 id 取）
+    // 秘书主线里"九月三张卡在吃上一共花了多少"那一段检索到的三份月结单（回话时调用记忆的详情里按 id 取）
     recent(14, ago(20, "21:05"), "用户主动投喂的材料", "say", [fileSeg("甲银行-9月月结单.pdf", "application/pdf", 96_000), said("甲银行九月的月结单，收着")], { conversation: CHANNELS.secretary, context: [CHANNELS.secretary, "with_attachment"] }),
     recent(15, ago(20, "21:06"), "用户主动投喂的材料", "say", [fileSeg("乙银行-9月月结单.pdf", "application/pdf", 88_000), said("乙银行的")], { conversation: CHANNELS.secretary, context: [CHANNELS.secretary, "with_attachment"] }),
     recent(16, ago(20, "21:08"), "用户主动投喂的材料", "say", [fileSeg("丙银行-9月账单.csv", "text/csv", 12_288)], { conversation: CHANNELS.secretary, context: [CHANNELS.secretary, "with_attachment"] }),
@@ -359,7 +359,7 @@ function snippetOf(text: string, terms: readonly string[]): string {
   return `${start > 0 ? "…" : ""}${flat.slice(start, end)}${end < flat.length ? "…" : ""}`;
 }
 
-/** 一条你存的网页（165 号票）：用户主动投喂的材料，网页那一段只记网址、标题，详情里补上存下的正文 */
+/** 一条你存的网页：用户主动投喂的材料，网页那一段只记网址、标题，详情里补上存下的正文 */
 function savedPageMaterial(id: string, recordId: string, seq: number, time: string, page: Omit<SaveWebPageBody, "idempotencyKey">): FakeMaterial {
   const title = page.title.trim();
   const segment: MaterialSegmentView = {
@@ -398,7 +398,7 @@ let fromSources: FakeMaterial[] | undefined;
 /** 全部假素材，新的在前（照守护进程的口径；不排的话同一天分成几组，列表里 key 重复，换筛选时画不对） */
 const all = () => [...savedHere, ...(fromSources ??= dataSourceMaterials()), ...(cache ??= fakeMaterials())].toSorted((a, b) => Date.parse(b.item.time) - Date.parse(a.item.time));
 
-/** 编的数据源导入的素材（343 号票）：观察到的本人行为，时间按打开页面的这一刻往前推 */
+/** 编的数据源导入的素材：观察到的本人行为，时间按打开页面的这一刻往前推 */
 function dataSourceMaterials(): FakeMaterial[] {
   const rows: ReadonlyArray<readonly [dataSource: string, hoursAgo: number, text: string]> = [
     ["demo-camera", 16, "下午在咖啡馆和朋友聊天，两个小时，拍到桌上的笔记本"],
@@ -434,7 +434,7 @@ function dataSourceMaterials(): FakeMaterial[] {
   });
 }
 
-/** 原型："浏览"里存一页（165 号票）：加进这一页的假素材；同一个幂等键重发回第一次的结果 */
+/** 原型："浏览"里存一页：加进这一页的假素材；同一个幂等键重发回第一次的结果 */
 export function fakeSaveWebPage(body: SaveWebPageBody, time: string): SaveWebPageResult {
   const done = savedKeys.get(body.idempotencyKey);
   if (done) return done;
@@ -446,7 +446,7 @@ export function fakeSaveWebPage(body: SaveWebPageBody, time: string): SaveWebPag
   return result;
 }
 
-/** 范围里的假素材（新的在前），deleted 是这一页里删掉的；167 号票起再按 filter 筛（时间段、种类、会话、关键词，搜的时候摘录换成命中的那一段） */
+/** 范围里的假素材（新的在前），deleted 是这一页里删掉的；再按 filter 筛（时间段、种类、会话、关键词，搜的时候摘录换成命中的那一段） */
 export function fakeMaterialsIn(scope: MaterialScope | undefined, deleted: ReadonlySet<string>, filter: MaterialListFilter = {}): MaterialListItem[] {
   const inScope = (m: FakeMaterial): boolean => {
     if (scope === undefined) return true;

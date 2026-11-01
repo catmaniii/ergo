@@ -1,7 +1,7 @@
-// 用哪个浏览器（70 号票）：联网搜索、读网页（playwright-core 驱动，不下载浏览器）和 agent 的 bash 里的 agent-browser
+// 用哪个浏览器：联网搜索、读网页（playwright-core 驱动，不下载浏览器）和 agent 的 bash 里的 agent-browser
 // （环境变量 AGENT_BROWSER_EXECUTABLE_PATH）用同一个，选择和探测只在这里有一份。
 //
-// 选法（评审后定）：候选的顺序（用户在二狗的配置里显式写的 web.browserPath → 外部显式指定的 AGENT_BROWSER_EXECUTABLE_PATH
+// 选法：候选的顺序（用户在二狗的配置里显式写的 web.browserPath → 外部显式指定的 AGENT_BROWSER_EXECUTABLE_PATH
 // → agent-browser 自带 → 系统 Chrome）、读 PE 签名表的探测、"先跳过没签名的，一个不剩才按存在兜底"、
 // 结果一个进程只探一次（没找到也记住，不设环境变量）。
 //

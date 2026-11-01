@@ -1,4 +1,4 @@
-// 工具包里的 skill 交给 Claude Code（291 号票；用户 2026-10-26 问"二狗的 skill 能不能自动配给单独的一个 Claude 进程去用"）：
+// 工具包里的 skill 交给 Claude Code（问"二狗的 skill 能不能自动配给单独的一个 Claude 进程去用"）：
 // SDK 的 plugins 选项能加载本地插件目录（{ type: "local", path }，插件里可以带 skills）。适配子进程每次起 query 之前、工具包变了的时候，
 // 按这个负责人的工具包（装配参数 skillPaths：skill 库里的目录）在它的运行时目录（装配参数 runtimeDir，数据目录缓存区下每个 agent 一格）里
 // 拼一个本地插件：

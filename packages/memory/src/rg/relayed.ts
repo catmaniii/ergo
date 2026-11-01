@@ -1,4 +1,4 @@
-// 330 号票（R3，用户 10-27 放宽，ADR-0032）：别人转述的。
+// R3，ADR-0032：别人转述的。
 // - 别人转述的关于用户的事（知识图谱里出处是 third_party_reported 的事实：偏好、不喜欢、近期状态）可以让二狗起一个猜测：
 //   推断出来的（hypothesis、inferred、溯因）、把握 low，推断的理由以 RELAYED_BASIS 开头，依据（那条转述的事实）只当背景
 //   （context 关联，计分不算）；问题箱据此出一个问题问用户（question-sources.ts 的 relayed）。

@@ -1,7 +1,7 @@
 // 素材模块（模块层）测试的底座：真的事件存储（ergo.db）、真的素材模块（materials.db、素材区），
 // 手动拨的时钟和调度器，假的向量函数。reopen() 模拟守护进程重启（同一个数据目录再打开一次），
 // 也能在两次之间删掉 materials.db（重建）、删掉某个会话频道的事件（删项目时删掉负责人会话）。
-// 129 号票起素材库只保管，采成素材由记忆插件开：这里照记忆插件做的那样声明它的两种素材来源、开始采集（collect）；
+// 素材库只保管，采成素材由记忆插件开：这里照记忆插件做的那样声明它的两种素材来源、开始采集（collect）；
 // collect: false 是记忆插件没开（只保管），reopen 时也能换。
 import fs from "node:fs";
 import path from "node:path";
@@ -104,7 +104,7 @@ export function materialsSetup(options: MaterialsSetupOptions = {}) {
     /**
      * 停掉再打开（模拟守护进程重启）：可以换一个向量函数（测换模型）、删掉 materials.db（测重建）、
      * 从事件日志里删掉某个会话频道的全部事件（模拟删项目时删掉负责人会话），派生视图跟着重建；
-     * 把某条事件的负载改写掉（模拟 21 号票的彻底删除，改写成"已删除"标记）；在 materials.db 上跑几句 SQL（扮成旧版本的库）
+     * 把某条事件的负载改写掉（模拟彻底删除，改写成"已删除"标记）；在 materials.db 上跑几句 SQL（扮成旧版本的库）
      */
     async reopen(next?: {
       embedder?: Embedder;

@@ -1,17 +1,17 @@
-// Agent SDK 的消息 → 宿主协议的上报（287 号票，issue 24 方案 2.4）：只管回复、工具调用和用量；轮次的开始和结束、压缩由 session.ts 管。
+// Agent SDK 的消息 → 宿主协议的上报：只管回复、工具调用和用量；轮次的开始和结束、压缩由 session.ts 管。
 // SDK 的词汇在这里换成二狗自己的，宿主协议里不出现 SDK 的类型。
 // - 逐字输出：stream_event（includePartialMessages）里主线的 text_delta / thinking_delta → stream_delta；
 // - 一条回复：SDK 每完成一个内容块发一条 assistant（同一次模型调用的几条 message.id 相同），这里按 message.id 攒齐，
 //   到 message_stop（或者下一条回复、工具结果、这一轮结束先到了）发一条 message_final——再给其中的每次工具调用发 tool_call_start
 //   （和 pi 一样：定稿在前、工具调用开始在后），再报这次模型调用的用量；
 // - 工具结果：user 消息里的 tool_result 块 → tool_call_end（非文字的块换成 [image] 这样的占位，media 列出是什么、多大；守卫要在结果前面
-//   加的话加在 resultText 开头，288 号票）。守卫的钩子比回复先到时由钩子先报 tool_call_start（ensureStarted），定稿时不再重复报；
+//   加的话加在 resultText 开头）。守卫的钩子比回复先到时由钩子先报 tool_call_start（ensureStarted），定稿时不再重复报；
 // - 子代理（parent_tool_use_id 不是空的）：只转工具调用（tool_call_start / tool_call_end 带 parentToolCallId，挂在调用它的 Agent 工具下面），
 //   它的正文和逐字输出不转（SDK 默认也不转发子代理的正文，forwardSubagentText 没开）；
 // - 用量：每次模型调用一条（和 pi 一样，⚙ 的上下文用量按"最近一次调用"算）——message_start 带输入的三段，message_delta 带最终的输出；
 //   没有逐字输出（流里没有 message_start）时用 assistant 消息上的 usage。provider 记成 claude-code（订阅额度，不按价目表算钱）；
 // - 斜杠命令在本地执行的输出（system/local_command_output）→ 一条回复（slash_passthrough：/context、/usage 这类的结果给人看得到）。
-// - 291 号票：二狗交给 Claude 的工具（进程内 MCP 服务 ergo，host-tools.ts）在 Claude 那边叫 mcp__ergo__<工具名>，报给守护进程时换回二狗的名字
+// -二狗交给 Claude 的工具（进程内 MCP 服务 ergo，host-tools.ts）在 Claude 那边叫 mcp__ergo__<工具名>，报给守护进程时换回二狗的名字
 //   （定稿里的工具调用、tool_call_start / tool_call_end）：网页照 pi 的画、守护进程按名字找超时和中文名；工具包里的 MCP 两边同名，不用换。
 // 压缩那一轮（suppress）的输出不当成回复。别的消息不认得的一律不管（官方建议，SDK 的消息种类还在加）。
 import type { SDKAssistantMessage, SDKPartialAssistantMessage, SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
@@ -80,7 +80,7 @@ export class ClaudeTranslator {
    */
   private readonly toolNames = new Map<string, { name: string; native: string; claimed: boolean }>();
   /**
-   * 工具调用结束时结果前面要加的话（288 号票：守卫按计划改了参数时写明实际执行的是哪一版，child/guard.ts 的 takePrefix）；
+   * 工具调用结束时结果前面要加的话（守卫按计划改了参数时写明实际执行的是哪一版，child/guard.ts 的 takePrefix）；
    * 记录里的 resultText 和 pi 的一样以它开头
    */
   takePrefix: ((toolCallId: string) => string | undefined) | undefined;
@@ -203,7 +203,7 @@ export class ClaudeTranslator {
   }
 
   /**
-   * 守卫的钩子要发判定请求了（288 号票）：这次调用还没报过开始的现在报——Claude Code 一块工具调用写完就可能开始执行，钩子会比那条回复的
+   * 守卫的钩子要发判定请求了：这次调用还没报过开始的现在报——Claude Code 一块工具调用写完就可能开始执行，钩子会比那条回复的
    * message_stop 先到；之后那条回复定稿时不再重复报
    */
   ensureStarted(toolCallId: string, toolName: string, args: unknown): void {
@@ -211,7 +211,7 @@ export class ClaudeTranslator {
   }
 
   /**
-   * 进程内 MCP 服务的调用没带调用 id 时（291 号票，老版本的 Claude Code）：Claude 的工具名是这个、报过开始还没结束、没被认领过的最早那次的 id
+   * 进程内 MCP 服务的调用没带调用 id 时（老版本的 Claude Code）：Claude 的工具名是这个、报过开始还没结束、没被认领过的最早那次的 id
    */
   openCallId(claudeName: string): string | undefined {
     for (const [id, call] of this.toolNames) {
@@ -348,7 +348,7 @@ function resultText(content: unknown): string {
     .join("\n");
 }
 
-/** 结果里非文字的块是什么、多大（base64 按解出来的字节数算），同 pi 那边（53 号票） */
+/** 结果里非文字的块是什么、多大（base64 按解出来的字节数算），同 pi 那边 */
 function resultMedia(content: unknown): ToolResultMedia[] {
   return asBlocks(content)
     .filter((block) => block.type !== "text")

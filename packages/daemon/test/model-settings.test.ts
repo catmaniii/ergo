@@ -1,6 +1,6 @@
-// 设置里的"模型"（73 号票）的模块层测试：设置文件、按 agent 取模型、看图能力的层次、设置页的样子、连通测试的分支；
-// 120 号票：单独配了模型的负责人（盖过它那一行、别的 agent 不跟着变、配的模型没了退回跟随、设置页上列出来、改回跟随）。
-// 319 号票：网页上填模型的 key（写密钥区的文件、换成现在用的、太短太长不收）。
+// 设置里的"模型"的模块层测试：设置文件、按 agent 取模型、看图能力的层次、设置页的样子、连通测试的分支；
+// 单独配了模型的负责人（盖过它那一行、别的 agent 不跟着变、配的模型没了退回跟随、设置页上列出来、改回跟随）。
+// 网页上填模型的 key（写密钥区的文件、换成现在用的、太短太长不收）。
 // 模型探查换成假的（不起子进程）；主切面在 test/main/model-settings.test.ts，pi 那一侧的契约在 test/contract/session-model.contract.test.ts。
 import fs from "node:fs";
 import path from "node:path";
@@ -27,9 +27,9 @@ interface Setup {
   catalog?: CatalogModel[] | Error;
   ping?: (request: Extract<ModelProbeRequest, { type: "ping" }>) => ModelProbeResult | Promise<ModelProbeResult>;
   dataDir?: string;
-  /** 单独配了模型的负责人是谁（120 号票） */
+  /** 单独配了模型的负责人是谁 */
   maintainerOwner?: MaintainerOwnerOf;
-  /** 网页上填了 key 之后组合根要做的事（319 号票：记忆整理那份环境也换掉） */
+  /** 网页上填了 key 之后组合根要做的事（记忆整理那份环境也换掉） */
   keyApplied?: (provider: ModelProvider, key: string) => void;
 }
 
@@ -67,14 +67,14 @@ const settings = (overrides: Partial<ModelSettingsBody> = {}): ModelSettingsBody
   ...overrides,
 });
 
-/** 密钥区里 deepseek 的 key 文件（319 号票） */
+/** 密钥区里 deepseek 的 key 文件 */
 const keyFileOf = (layout: { secrets: string }) => path.join(layout.secrets, "deepseek-api-key.txt");
 
 /** 文件权限的 mode（Windows 上不生效，给 undefined） */
 const modeOf = (target: string) => (process.platform === "win32" ? undefined : fs.statSync(target).mode & 0o777);
 
 describe("设置里的模型：设置文件和按 agent 取模型", () => {
-  it("没有设置文件：全按默认，和 73 号票之前写死的一样（每个 agent 都是 deepseek-flash、思考档位高）", () => {
+  it("没有设置文件：全按默认，和以前写死的一样（每个 agent 都是 deepseek-flash、思考档位高）", () => {
     const { service } = setup();
     expect(service.current()).toEqual(DEFAULT_MODEL_SETTINGS);
     for (const agent of MODEL_AGENTS) expect(service.modelFor(agent)).toEqual({ kind: "catalog", provider: "deepseek", modelId: "deepseek-flash", thinkingLevel: "high" });
@@ -167,7 +167,7 @@ describe("设置里的模型：看图能力", () => {
     expect(service.configuredVision()).toEqual({ "deepseek/deepseek-v4-pro": false, "deepseek/deepseek-flash": false, faux: false });
   });
 
-  it("某个模型能不能看图（145 号票，页面助手拉起前要定）：同一个判法——写明的为准，没写按模型目录；目录里没有、查不到按看不了；faux 没写按能看", async () => {
+  it("某个模型能不能看图（页面助手拉起前要定）：同一个判法——写明的为准，没写按模型目录；目录里没有、查不到按看不了；faux 没写按能看", async () => {
     const { service } = setup({ config: { models: { "deepseek/deepseek-v4-pro": { vision: true } } } });
     expect(await service.visionOf(catalogModel("deepseek-flash"))).toBe(true);
     expect(await service.visionOf(catalogModel("deepseek-v4-pro"))).toBe(true);
@@ -282,7 +282,7 @@ describe("设置里的模型：连通测试", () => {
   });
 });
 
-/** 设置页上认得的负责人（120 号票）：pm-1 是项目「记账本」的，tm-3 是任务 t-3 的，别的不认得 */
+/** 设置页上认得的负责人：pm-1 是项目「记账本」的，tm-3 是任务 t-3 的，别的不认得 */
 const owners: MaintainerOwnerOf = (agentId) =>
   agentId === "pm-1"
     ? { agent: "project_maintainer", owner: { kind: "project", id: "p-1", title: "记账本" } }
@@ -290,7 +290,7 @@ const owners: MaintainerOwnerOf = (agentId) =>
       ? { agent: "task_maintainer", owner: { kind: "task", id: "t-3", title: "整理发票" } }
       : undefined;
 
-describe("单独配了模型的负责人（120 号票）", () => {
+describe("单独配了模型的负责人", () => {
   const PRO_HIGH = { modelId: "deepseek-v4-pro", thinkingLevel: "high" } as const;
   const FLASH_HIGH = { modelId: "deepseek-flash", thinkingLevel: "high" } as const;
 
@@ -374,13 +374,13 @@ describe("单独配了模型的负责人（120 号票）", () => {
     expect(service.maintainerModel("pm-1", "project_maintainer").unavailable).toBeUndefined();
   });
 
-  it("没有单独配了模型的负责人：起来时不查模型目录（和 73 号票一样，要用时才查）", () => {
+  it("没有单独配了模型的负责人：起来时不查模型目录（要用时才查）", () => {
     const { probes } = setup();
     expect(probes).toEqual([]);
   });
 });
 
-describe("在网页上填模型的 key（319 号票）", () => {
+describe("在网页上填模型的 key", () => {
   const SAVED = fakeSecret("sk-", "web-319-fake-key-P7m4");
   const SECOND = fakeSecret("sk-", "web-319-second-key-R2x9");
 

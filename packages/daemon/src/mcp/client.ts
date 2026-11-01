@@ -1,5 +1,5 @@
 // @i18n-ignore-file model：出错的说明和非文本内容块的写法进工具结果（给模型）和日志
-// 和一个 MCP 服务进程说话（27 号票）：拉起、放进 Job 对象、MCP 的 stdio 传输（每行一个 JSON-RPC 2.0 消息）。
+// 和一个 MCP 服务进程说话：拉起、放进 Job 对象、MCP 的 stdio 传输（每行一个 JSON-RPC 2.0 消息）。
 // 二狗只用到 MCP 的三件事：initialize（握手）、tools/list（工具的说明和参数）、tools/call（调用一个工具）。
 // pi 的 MCP 包只能在 agent 子进程里用（ADR-0004 的边界），而 MCP 服务进程归守护进程管（agent 碰不到凭据），
 // 所以这里自己写这一小段客户端，不引用任何 pi 的东西。

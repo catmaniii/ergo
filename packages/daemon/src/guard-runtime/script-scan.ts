@@ -1,11 +1,11 @@
 // 脚本执行前的扫描（规格第 7 节"不能联网"的尽力而为）：守卫只看得到命令这一层（`python fetch.py`），
 // 脚本里写了什么要在执行前读出来看。这里找出脚本用到的联网库或函数，作为环境事实（ScriptFact）交给守卫的判定函数；
-// 联网开关关着时，判定函数据此拒绝，说明里提示"联网请发起任务"。另外列出脚本里写着的绝对路径（26 号票）：
+// 联网开关关着时，判定函数据此拒绝，说明里提示"联网请发起任务"。另外列出脚本里写着的绝对路径：
 // 写着受保护区域（配置区、密钥区、数据库区、程序目录）里的路径的，判定函数判"永不"。
 //
 // 只认常见写法（import / require 联网的库、fetch、WebSocket、在字符串里调 curl / wget……），扫不出来的写法挡不住：
 // 第一阶段没有系统级沙箱（规格 Out of Scope），bash 起的进程另有无效代理兜一层（process/child-env.ts）。
-// 362 号票：写本机服务的项目要跑连本机的脚本（测试服务器、冒烟脚本）。只连本机的不算联网：能连本机的库（socket、urllib、http.server、
+// 写本机服务的项目要跑连本机的脚本（测试服务器、冒烟脚本）。只连本机的不算联网：能连本机的库（socket、urllib、http.server、
 // fetch……）在脚本里写着本机地址、又没写别的地址时，不报进 networkUsage，单独列在 localOnly（onlyLoopback）。这也是尽力而为：
 // 地址从参数、环境变量来的看不出来，这种情况本来就挡不住（见上）。发信、云服务这类本来就不是连本机的库不在此列。
 import fs from "node:fs";
@@ -40,14 +40,14 @@ export function scanScript(file: string, interpreter = ""): ScriptFact | undefin
   const languages = languagesOf(file, interpreter, text);
   const found = new Set<string>();
   for (const language of languages) for (const hit of SCANNERS[language](text)) found.add(hit);
-  // 写着的绝对路径：守卫据此判它会不会碰受保护区域（26 号票）
+  // 写着的绝对路径：守卫据此判它会不会碰受保护区域
   const mentionedPaths = absolutePathsIn(text);
   const hits = [...found];
   const local = hits.length > 0 && hits.every((hit) => LOOPBACK_CAPABLE.has(hit)) && onlyLoopback(text);
   return { networkUsage: local ? [] : hits, ...(local ? { localOnly: hits } : {}), ...(mentionedPaths.length > 0 ? { mentionedPaths } : {}) };
 }
 
-/** 能只连本机的库、函数、程序（362 号票）：这些写着本机地址、又没写别的地址的，算只连本机 */
+/** 能只连本机的库、函数、程序：这些写着本机地址、又没写别的地址的，算只连本机 */
 const LOOPBACK_CAPABLE: ReadonlySet<string> = new Set([
   // Python
   "socket",
@@ -93,7 +93,7 @@ const QUOTED_HOST =
 /** 绑在所有网卡上的：bind(("", 80))、HTTPServer(("", 80), …)（0.0.0.0 按写着的 IP 算） */
 const ALL_INTERFACES = /\(\s*\(\s*(?:""|'')\s*,/;
 
-/** 脚本写着本机地址，又没写别的地址（362 号票）：别的网址、IP、主机名，绑在所有网卡上的都不算 */
+/** 脚本写着本机地址，又没写别的地址：别的网址、IP、主机名，绑在所有网卡上的都不算 */
 function onlyLoopback(source: string): boolean {
   const text = source.replace(/(^|\s)#.*$/gm, "$1").replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`\\])\/\/.*$/gm, "$1");
   if (!LOOPBACK_MENTION.test(text) || ALL_INTERFACES.test(text)) return false;

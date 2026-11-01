@@ -1,4 +1,4 @@
-// MCP 登记变更（239 号票）的单元测试：
+// MCP 登记变更的单元测试：
 // - 工具 request_mcp_change：只校验、出卡，文件一个字节都不变；名字格式、command 空、tools 不合法、密钥写明文时不出卡；
 //   add / update / remove 先对上现在的登记（add 不能覆盖已有的、update 和 remove 要有这条）；
 // - 批准：按 name 合并写进 mcp.json，然后真把服务进程拉起来一次（tools/list）把结果写进卡和时间线；拉不起来时登记留着、

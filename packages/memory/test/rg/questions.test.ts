@@ -1,4 +1,4 @@
-// 198 号票：了解你问题——整理时生成（分不清的竞争假设 + 调研 11 的六个来源）、顺口问（pickQuestion）、回答回写（recordQuestionAnswer）、
+// 了解你问题——整理时生成（分不清的竞争假设 + 调研 11 的六个来源）、顺口问（pickQuestion）、回答回写（recordQuestionAnswer）、
 // 跳过和"别问这个"。规则版，例子都是自己写的（周末社交案例的前三条，加上几条手写的话）。
 import { afterEach, describe, expect, it } from "vitest";
 import type { EvidenceDraft } from "../../src/domain/types.ts";
@@ -69,7 +69,7 @@ describe("生成：整理时出了解你问题", () => {
     expect(new Set(after.map((q) => q.key)).size).toBe(after.length);
   });
 
-  it("优先级 = 回答能不能分出胜负 × 分数接近的程度 × 近 30 天这类事多不多 × 还没问过（207）：两种回答都能分出胜负的'时间由你自己定，你会去吗'排第一，只能动一边的'是不是特别忙、特别累'排在后面，规范性判断（'要'只算弱的、'不要'不判）排最后", async () => {
+  it("优先级 = 回答能不能分出胜负 × 分数接近的程度 × 近 30 天这类事多不多 × 还没问过：两种回答都能分出胜负的'时间由你自己定，你会去吗'排第一，只能动一边的'是不是特别忙、特别累'排在后面，规范性判断（'要'只算弱的、'不要'不判）排最后", async () => {
     const { engine } = await firstNight();
     const queue = engine.listQuestions({ status: "open" });
     for (let i = 1; i < queue.length; i++) expect(queue[i - 1]!.priority).toBeGreaterThanOrEqual(queue[i]!.priority);
@@ -130,7 +130,7 @@ describe("生成：整理时出了解你问题", () => {
 
 const eff = (supports: string[], refutes: string[], maxWeight: AnswerEffect["maxWeight"] = "decisive", facts?: AnswerEffect["facts"]): AnswerEffect => ({ supports, refutes, maxWeight, note: "", ...(facts ? { facts } : {}) });
 
-describe("回答能不能分出胜负（207）", () => {
+describe("回答能不能分出胜负", () => {
 
   it("两条假设对这个回答的预期差得多不多：一边支持、一边反驳是 1；只动一边是 0.5；两种回答取平均", () => {
     expect(answerSeparation({ yes: eff(["a"], ["b"]), no: eff(["b"], ["a"]) }, ["a", "b"])).toBe(1);
@@ -201,7 +201,7 @@ describe("另外五个来源（调研 11 的六个来源，规范性判断见上
     expect(q.answers.no.supports).toEqual([autonomy.id]);
   });
 
-  it("334：前几天说喜欢看电影，今天没头没尾地说不喜欢 → 当矛盾（两条都拿不准），问'现在更接近后一种吗'；答'不是'就是先说的那句", async () => {
+  it("前几天说喜欢看电影，今天没头没尾地说不喜欢 → 当矛盾（两条都拿不准），问'现在更接近后一种吗'；答'不是'就是先说的那句", async () => {
     const t = openEngine("2026-10-05T22:00:00+08:00");
     t.engine.ingestEvidence(say("ev-o1", "我喜欢看电影。", "2026-10-01T10:00:00+08:00"));
     t.engine.ingestEvidence(say("ev-o2", "我不喜欢看电影。", "2026-10-05T10:00:00+08:00"));
@@ -220,7 +220,7 @@ describe("另外五个来源（调研 11 的六个来源，规范性判断见上
     expect(t.engine.getFact(flip.id)!.status).toBe("superseded");
   });
 
-  it("反常输入（老库里 334 以前按日子先后接上的）：先问一句；明确说'不是'就当纠正，旧的那条恢复", async () => {
+  it("反常输入（老库里以前按日子先后接上的）：先问一句；明确说'不是'就当纠正，旧的那条恢复", async () => {
     const t = openEngine("2026-10-05T22:00:00+08:00");
     t.engine.ingestEvidence(say("ev-o1", "我喜欢看电影。", "2026-10-01T10:00:00+08:00"));
     t.engine.ingestEvidence(say("ev-o2", "我不喜欢看电影。", "2026-10-05T10:00:00+08:00"));
@@ -228,7 +228,7 @@ describe("另外五个来源（调研 11 的六个来源，规范性判断见上
     await t.engine.runNightly({ userActive: false });
     const old = factOf(t.engine, "ev-o1", "prefers", "看电影");
     const flip = factOf(t.engine, "ev-o2", "dislikes", "看电影");
-    // 摆成 334 以前的样子：后说的接上、先说的到期被取代
+    // 摆成以前的样子：后说的接上、先说的到期被取代
     const cause = { reason: "测试：摆成 334 以前按日子先后接上的样子" };
     t.engine.store.updateFact(flip.id, { status: "active", contestedWith: [] }, cause);
     t.engine.store.updateFact(old.id, { status: "active", contestedWith: [] }, cause);
@@ -361,7 +361,7 @@ describe("顺口问：pickQuestion", () => {
   });
 });
 
-/** 第一夜以后，第二天晚上"近期太累"那一个（207 起它不是优先级最高的，直接拿它来答） */
+/** 第一夜以后，第二天晚上"近期太累"那一个（它不是优先级最高的，直接拿它来答） */
 async function askedTired() {
   const t = await firstNight();
   t.setNow("2026-10-10T20:00:00+08:00");

@@ -1,4 +1,4 @@
-// 设置 · 语音里两个语音模型的状态（45 号票：模型预热）：打开页面时经本机接口取一次，之后活动状态频道上推来的临时事件 voice_models
+// 设置 · 语音里两个语音模型的状态（模型预热）：打开页面时经本机接口取一次，之后活动状态频道上推来的临时事件 voice_models
 // 并进来，留新的；说明里写用的模型、设备、加载耗时，没开、出错写原因。
 import { describe, expect, test } from "vitest";
 import { replay, type VoiceModelState, type VoiceModelsView, voiceModelSummary } from "../../src/state/index.ts";

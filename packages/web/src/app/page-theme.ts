@@ -1,4 +1,4 @@
-// 这个页面的外观和视觉风格（34、39 号票）：把 app/theme.ts 接到浏览器的 document、localStorage 和系统深浅色上。
+// 这个页面的外观和视觉风格：把 app/theme.ts 接到浏览器的 document、localStorage 和系统深浅色上。
 // 单独一个文件，app/theme.ts 就不碰浏览器的全局变量，能在 Node 里测。
 import { BASE_STYLE, PREVIEW_FONTS_HREF, stylePageInfo, VISUAL_STYLES } from "../visual-styles/index.ts";
 import { type PageElement, type ThemeController, themeControllerIn } from "./theme.ts";

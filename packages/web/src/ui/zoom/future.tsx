@@ -1,5 +1,5 @@
 /**
- * 历史底部"接下来的计划"（60 号票，zh-future）——计划里还没执行的步骤仍然留在主线底部，只是画成虚线表示"尚未发生"：没做的虚线，开始做这一步虚线就转成实线，
+ * 历史底部"接下来的计划"（zh-future）——计划里还没执行的步骤仍然留在主线底部，只是画成虚线表示"尚未发生"：没做的虚线，开始做这一步虚线就转成实线，
  * 跳过的划掉、失败的标红；这一格上出现过、没被自动修回的偏差直接标在格里（⚠），被自动修回的另写一行（↺）；
  * 这一步的敏感标注照条右侧的标注那样标在格外右边（zd-right，箭头由 ZoomHistory 的 layoutAnnotations 一起排）。
  * 它在会话内容里、跟着一起缩放：对话层按正常排版画（"还欠几件事"在对话流末尾也看得见），缩小后格子按 --ds 排版，
@@ -15,7 +15,7 @@ function riskLevel(mark: WorkflowStepMark): RiskLevel {
   return tone === "high" || tone === "no" ? "high" : tone === "ok" ? "fix" : "op";
 }
 
-/** asksOff："有风险的事先问我"关着（378 号票）：先问我的标"现在直接做" */
+/** asksOff："有风险的事先问我"关着：先问我的标"现在直接做" */
 export function WorkflowFutureBox({ future, run, asksOff }: { future: WorkflowFuture; run?: number | undefined; asksOff?: boolean | undefined }) {
   const { slots, done, total, offPlan } = future;
   return (

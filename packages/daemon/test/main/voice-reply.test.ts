@@ -1,9 +1,9 @@
-// 主切面：agent 用语音回复（规格第 21、22 节，32 号票）。用户发语音时，agent 这一轮的回复由运行时合成语音：
+// 主切面：agent 用语音回复（规格第 21、22 节）。用户发语音时，agent 这一轮的回复由运行时合成语音：
 // 回复短的整段合成（合成好只出语音），长的（或有念不出来的内容）合成口语总结，详细内容照常是文字和附件——总结 agent 用工具写；
 // 没写的先追问它一次（这一次不算新回复），还是没写才由运行时兜底。
 // 语音经本机 LSM 托管的 audio.cpp 合成，用设置里导入的参考音色克隆；服务没开、忙、合成失败或超时、存不进去时退回只发文字，
 // 会话里一条说明。
-// 合成服务一律是假的（helpers/tts.ts，空闲端口）：不碰本机 8090 上的真服务、不占显卡。识别进程也是假的（31 号票的底座）。
+// 合成服务一律是假的（helpers/tts.ts，空闲端口）：不碰本机 8090 上的真服务、不占显卡。识别进程也是假的（底座）。
 // 参考音色一律是编的示例（示例音色、v-sample），不是谁的真声音。
 import fs from "node:fs";
 import path from "node:path";
@@ -103,7 +103,7 @@ describe("设置里的参考音色", () => {
     const first = imported.body;
     expect(first).toMatchObject({ name: "示例音色", referenceText: "大家好，这是一段示例参考录音。", durationMs: 3000 });
     expect(first.id).toMatch(/^v-[0-9a-z-]+$/);
-    // 数据目录里：以英文 id 命名的目录，参考录音（230 号票起统一转成 16 kHz、单声道、PCM16 的 WAV 再存）、
+    // 数据目录里：以英文 id 命名的目录，参考录音（统一转成 16 kHz、单声道、PCM16 的 WAV 再存）、
     // 逐字稿（UTF-8）、voice.json（显示名另存）
     const dir = path.join(dataDir, "voices", first.id);
     const stored = fs.readFileSync(path.join(dir, "reference.wav"));
@@ -130,7 +130,7 @@ describe("设置里的参考音色", () => {
     expect((await referenceVoicesApi.select(url, second.id)).body).toEqual({ voices: [first, second], currentId: second.id });
     expect((await referenceVoicesApi.list(url)).body.currentId).toBe(second.id);
 
-    // 试听：参考录音本身（230 号票起是转换后的那份），按音频在页面里直接播放；和媒体同一套发文件，支持 Range（拖动进度条）
+    // 试听：参考录音本身（是转换后的那份），按音频在页面里直接播放；和媒体同一套发文件，支持 Range（拖动进度条）
     const audio = await request(url, HTTP_PATHS.referenceVoiceAudio(first.id));
     expect(audio.status).toBe(200);
     expect(audio.headers["content-type"]).toBe("audio/wav");
@@ -319,7 +319,7 @@ describe("用户发语音，agent 用语音回复", () => {
     expect(call).toMatchObject({ model: "tts", input: reply, referenceText: SAMPLE_VOICE.referenceText });
     expect(call.voiceRef).toBe(path.join(daemon.layout.voices, reference.id, "reference.wav"));
     expect(call.voiceRef).toMatch(/^[ -~]+$/);
-    // 送给合成的是数据目录里转换后的那份（230 号票：16 kHz、单声道、PCM16）
+    // 送给合成的是数据目录里转换后的那份（16 kHz、单声道、PCM16）
     expect(call.voiceRefBytes).toEqual(fs.readFileSync(call.voiceRef));
     expect(readWav(call.voiceRefBytes!)).toMatchObject({ sampleRate: 16000, channels: 1, bitsPerSample: 16, encoding: "pcm", durationMs: 3000 });
 
@@ -381,7 +381,7 @@ describe("回复长的：合成口语总结，详细内容照常是文字", () =
     const replies = messages(frontend).filter((m) => m.speaker === "agent" && textOf(m.parts) !== "");
     expect(replies.map((m) => textOf(m.parts))).toEqual([LONG_REPLY, "就这些。"]);
     expect(done).toMatchObject({ inputMessageId: sent.messageId, mode: "summary", summaryBy: "agent", text: summary, replyMessageIds: replies.map((m) => m.id) });
-    // 38 号票起分段合成：26 字的总结超过第一段的 16 字，按逗号切成两段，第一段推一次，第二段随完成一起推
+    // 分段合成：26 字的总结超过第一段的 16 字，按逗号切成两段，第一段推一次，第二段随完成一起推
     expect(voiceSteps(frontend)).toEqual(["-:replying", "summary:synthesizing", "summary:synthesizing", "summary:done"]);
     expect(tts.requests.map((r) => r.input)).toEqual(["周报我整理好了，一共三块，", "细节都发在聊天里了，你有空看一眼。"]);
     expect(done.segmentCount).toBe(2);
@@ -612,7 +612,7 @@ describe("各个会话和各种情况", () => {
     expect(event.payload).toMatchObject({ projectId: project.id, message: { speaker: "agent", parts: [{ type: "tts_audio", voiceId: done.id }] } });
   });
 
-  it("重新识别成功后交给 agent 的那条通知也算用户的语音：这一轮同样用语音回复（带着附件的语音识别失败时照旧交过，208 号票）", async () => {
+  it("重新识别成功后交给 agent 的那条通知也算用户的语音：这一轮同样用语音回复（带着附件的语音识别失败时照旧交过）", async () => {
     const tts = await startFakeSpeechService();
     const ok = path.join(makeTempDir("ergo-asr-ok-"), "ok");
     const { url } = await startTestDaemon({ secretary: [{ kind: "reply", text: "没听清，能再说一遍吗？" }, { kind: "reply", text: "好，下午去买菜。" }], speechUrl: tts.url });
@@ -638,7 +638,7 @@ describe("各个会话和各种情况", () => {
     expect(second).toMatchObject({ inputMessageId: notice.id, text: "好，下午去买菜。" });
   });
 
-  it("只有语音、识别失败没交给 agent 的（208 号票）：手动重新识别成功后那条语音第一次交过去，这一轮用语音回复", async () => {
+  it("只有语音、识别失败没交给 agent 的：手动重新识别成功后那条语音第一次交过去，这一轮用语音回复", async () => {
     const tts = await startFakeSpeechService();
     const ok = path.join(makeTempDir("ergo-asr-ok-"), "ok");
     const { url } = await startTestDaemon({ secretary: [{ kind: "reply", text: "好，下午去买菜。" }], speechUrl: tts.url });
@@ -656,7 +656,7 @@ describe("各个会话和各种情况", () => {
     expect(messages(frontend).some((m) => m.speaker === "system" && textOf(m.parts).includes("重新识别"))).toBe(false);
   });
 
-  it("语音在自动重试时后面打的字先交（210 号票）：那一轮最后一条是打的字，用文字回；重试成功后语音作为新的一轮交过去，用语音回复", async () => {
+  it("语音在自动重试时后面打的字先交：那一轮最后一条是打的字，用文字回；重试成功后语音作为新的一轮交过去，用语音回复", async () => {
     const tts = await startFakeSpeechService();
     const retry = path.join(makeTempDir("ergo-asr-hold-"), "go");
     const { url } = await startTestDaemon({
@@ -704,7 +704,7 @@ describe("各个会话和各种情况", () => {
   });
 });
 
-// ───────────────────────── 38 号票：分段合成 ─────────────────────────
+// ─────────────────────────分段合成 ─────────────────────────
 
 /** 整段合成、会切成 4 段的回复（念出来约 10 秒）：第一段按逗号切短，之后一句一段 */
 const SEGMENTED_REPLY = "好的，我把这周的周报整理好了，下面分几块说清楚。第一块是进度，基本按计划走。第二块是风险，主要在测试环境。";
@@ -728,7 +728,7 @@ function samplesOf(wav: Buffer): Int16Array {
   return new Int16Array(bytes.buffer);
 }
 
-describe("分段合成（38 号票）：送进 TTS 的稿子按句切段依次合成，合成好一段推一段，全部完成后拼成一条完整音频", () => {
+describe("分段合成：送进 TTS 的稿子按句切段依次合成，合成好一段推一段，全部完成后拼成一条完整音频", () => {
   it("每段合成好就推一次 agent 语音的更新（这一段的音频、时长、在整段里的位置），下一段才去合成；完成时拼成一条（同样的格式，段间留停顿），记总时长和耗时", async () => {
     const tts = await startFakeSpeechService();
     tts.behave("hold");
@@ -984,7 +984,7 @@ describe("演示流程（录给前端回放）", () => {
     saveOrCheckRecording("voice-reply", frontend.recording);
   }, 60_000);
 
-  it("分段合成（38 号票）：发语音 → 回复整段分段合成，合成好一段推一段；再发 → 合成到一半服务忙，只合成了一部分", async () => {
+  it("分段合成：发语音 → 回复整段分段合成，合成好一段推一段；再发 → 合成到一半服务忙，只合成了一部分", async () => {
     const tts = await startFakeSpeechService();
     const { url } = await startTestDaemon({
       secretary: [
@@ -1020,7 +1020,7 @@ describe("演示流程（录给前端回放）", () => {
     saveOrCheckRecording("voice-reply-segments", frontend.recording);
   }, 60_000);
 
-  it("分段合成到一半守护进程重启（38 号票）：推了两段 → 重启后推过的段收回 → 从第一段重做、合成完成", async () => {
+  it("分段合成到一半守护进程重启：推了两段 → 重启后推过的段收回 → 从第一段重做、合成完成", async () => {
     const tts = await startFakeSpeechService();
     tts.behave("hold");
     const first = await startTestDaemon({ secretary: [{ kind: "reply", text: SEGMENTED_REPLY }], speechUrl: tts.url });

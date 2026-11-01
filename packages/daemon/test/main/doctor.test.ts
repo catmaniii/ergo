@@ -1,4 +1,4 @@
-// 主切面：体检的接口（319 号票的 319b）——GET /api/doctor 回八项检查（顺序照共享协议包的 DOCTOR_CHECKS），
+// 主切面：体检的接口（319b）——GET /api/doctor 回八项检查（顺序照共享协议包的 DOCTOR_CHECKS），
 // 每项有 id、ok、结构化的事实，健康时没有"怎么修"、不健康时给的是文案键（doctor.fix.*，网页按当前语言取）。
 // 数据目录是临时目录、两个端口是系统挑的（不碰真的 8810 / 8811、不碰真的 ~/.ergo）：磁盘那项报得出数据目录所在卷的数；
 // 这个临时数据目录里没装组件、没配 key、临时程序目录里没有 lsm.mjs，所以对应的三项是坏的，报的仍是查出来的事实。
@@ -14,7 +14,7 @@ import { makeTempDir } from "../helpers/temp-dir.ts";
 
 const idOf = (checks: readonly DoctorCheckView[], id: string) => checks.find((check) => check.id === id)!;
 
-describe("体检的接口（319 号票的 319b）", () => {
+describe("体检的接口（319b）", () => {
   it("GET /api/doctor：八项都在、顺序照协议包，每项有 id、ok、事实；健康项没有修法，坏项给的是文案键", { timeout: 60_000 }, async () => {
     const td = await startTestDaemon({ env: { DEEPSEEK_API_KEY: undefined } });
     const res = await doctorApi.view(td.url);
@@ -78,7 +78,7 @@ describe("体检的接口（319 号票的 319b）", () => {
     expect(second.body.checks.map((check) => check.id)).toEqual(first.body.checks.map((check) => check.id));
   });
 
-  it("外网入口（340 号票）：配对过的设备算依据，吊销了的不算（用不上了）", { timeout: 60_000 }, async () => {
+  it("外网入口：配对过的设备算依据，吊销了的不算（用不上了）", { timeout: 60_000 }, async () => {
     const td = await startTestDaemon({ env: { DEEPSEEK_API_KEY: undefined } });
     const external = async () => idOf((await doctorApi.view(td.url)).body.checks, "external");
     expect(await external()).toEqual({ id: "external", ok: false, data: { configured: false }, fix: "doctor.fix.external" });
@@ -96,7 +96,7 @@ describe("体检的接口（319 号票的 319b）", () => {
     expect(await external()).toEqual({ id: "external", ok: false, data: { configured: false }, fix: "doctor.fix.external" });
   });
 
-  it("外网入口（340 号票）：读的是 LSM_DATA_DIR 指的服务管家目录（管理器带 --data-dir 跑在别处时，登记里要声明它）", { timeout: 60_000 }, async () => {
+  it("外网入口：读的是 LSM_DATA_DIR 指的服务管家目录（管理器带 --data-dir 跑在别处时，登记里要声明它）", { timeout: 60_000 }, async () => {
     const svc = makeTempDir("ergo-doctor-svc-");
     fs.mkdirSync(path.join(svc, "registry"), { recursive: true });
     fs.writeFileSync(path.join(svc, "registry", "tailnet.yaml"), "entries:\n  - id: ergo-daemon\n    name: ergo\n");

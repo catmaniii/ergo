@@ -1,4 +1,4 @@
-// 移除插件时连它的数据一起彻底删除（211 号票，用户 2026-10-20 定的；ADR-0027 的"运行中启用、移除"一段）。
+// 移除插件时连它的数据一起彻底删除（ADR-0027 的"运行中启用、移除"一段）。
 // - 删什么由插件在数据契约里写明（ContractContext.removal.declare，PluginDataRemoval）：它拥有的事件（整条换成"已删除"标记）、
 //   要按现有改写函数字段级改写的事件（比如"记住"的命令只换内容）、它拥有的卡片类型（每个版本连同关掉、长期没处理的记录整条换成标记，
 //   待我处理里这些卡的事项删掉）、待我处理里属于它的通知、它自己的文件；外加给人看的"删哪些""删不掉的"（设置里的确认框列出）。
@@ -9,9 +9,9 @@
 // - 素材库不动（素材属于内核；记忆插件选 A：只删它自己的，设置里写明"要删请去 记忆 · 素材 的成批删除"），
 //   删除类的记忆命令（删除记录）不碰（改写了重建时被删的素材会回来）——这些由插件在声明里自己不写进来。
 // - 同一个幂等键重发：删除记录已经在了，只回它记下的条数，什么都不再改。
-// - 214 号票（语音）：事件不写频道是所有频道里的这一类（语音事件在各个会话频道上）；只改字段的可以自带改法（agent 的语音对象没有
+// -（语音）：事件不写频道是所有频道里的这一类（语音事件在各个会话频道上）；只改字段的可以自带改法（agent 的语音对象没有
 //   彻底删除的改写函数，只在连数据删时去掉送进 TTS 的原文）；它的媒体（录音、合成出的音频）按媒体库的 id 写明，提交之后删掉。
-// - 279 号票起走"删除参与方"登记表（deletion/participants.ts，和删项目、删任务同一张）：插件宿主收着的各插件写明的这份，由
+// -走"删除参与方"登记表（deletion/participants.ts，和删项目、删任务同一张）：插件宿主收着的各插件写明的这份，由
 //   registerPluginDataRemoval 作为一个参与方登记（设置 · 插件建的时候登记，plugins/settings.ts）；purgePluginData 只管幂等、
 //   算改写单、写删除记录、提交、提交后删文件。删的结果和以前逐条一样。
 import fs from "node:fs";
@@ -34,7 +34,7 @@ export interface PluginDataRemoval {
   readonly events?: readonly { channel?: string; type: string }[];
   /**
    * 只改它认的字段的事件（不写频道是所有频道里的这一类）：用登记的改写函数（ADR-0008，彻底删除的那一张表）改写，
-   * 自带 rewrite 的用它（214 号票：没有彻底删除改写函数的类型）；when 挑出要改的那几条
+   * 自带 rewrite 的用它（没有彻底删除改写函数的类型）；when 挑出要改的那几条
    */
   readonly rewrite?: readonly { channel?: string; type: string; when(event: StoredEvent): boolean; rewrite?(event: StoredEvent, deletedAt: string): unknown }[];
   /** 它拥有的卡片类型：每个版本、关掉的和长期没处理的记录整条换成标记；待我处理里这些卡的事项删掉 */
@@ -43,7 +43,7 @@ export interface PluginDataRemoval {
   readonly notices?: readonly string[];
   /** 它自己的文件或目录（数据目录里的相对路径）：删掉 */
   readonly files?: readonly string[];
-  /** 它的媒体（媒体库里的 id，214 号票：语音的录音、合成出的音频），删的时候现算（改写之前）：提交之后删掉，算进文件的个数 */
+  /** 它的媒体（媒体库里的 id：语音的录音、合成出的音频），删的时候现算（改写之前）：提交之后删掉，算进文件的个数 */
   media?(store: EventStore): readonly string[];
 }
 
@@ -52,7 +52,7 @@ export interface PluginDataRemovalDeps {
   removalOf(plugin: string): PluginDataRemoval | undefined;
   /** 数据目录（插件自己的文件按它找） */
   dataDir: string;
-  /** 媒体库（插件写明的媒体按它删，214 号票）；不给就不删媒体 */
+  /** 媒体库（插件写明的媒体按它删）；不给就不删媒体 */
   media?: Pick<MediaStore, "info" | "remove">;
   log: (line: string) => void;
 }
@@ -63,7 +63,7 @@ export interface PluginDataPurgeDeps {
   participants: Pick<DeletionParticipants, "register" | "plan">;
   /** 数据目录（插件自己的文件按它找；登记插件写明的这份时用） */
   dataDir: string;
-  /** 媒体库（插件写明的媒体按它删，214 号票）；不给就不删媒体 */
+  /** 媒体库（插件写明的媒体按它删）；不给就不删媒体 */
   media?: Pick<MediaStore, "info" | "remove">;
   now: () => string;
   log: (line: string) => void;

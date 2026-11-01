@@ -1,4 +1,4 @@
-// 88 号票评审：标题栏的 ‹ 不再往浏览器历史里压新记录。看板 → 点卡进任务（压一条，记下从看板来）→ ‹：上一条就是看板，后退一步；
+// 标题栏的 ‹ 不再往浏览器历史里压新记录。看板 → 点卡进任务（压一条，记下从看板来）→ ‹：上一条就是看板，后退一步；
 // 不是从看板来的（从待我处理的链接跳进来、刷新后打开的）就把这一条换成看板。浏览器的历史换成假的：一串记录加当前位置。
 import { describe, expect, test } from "vitest";
 import { backStep, backToHash, cameFrom, type HistoryEnv, pushHash } from "../../src/app/history-nav.ts";
@@ -98,7 +98,7 @@ describe("‹ 回到上一级不压新记录", () => {
   });
 });
 
-describe("报告页的 ‹（113 号票）", () => {
+describe("报告页的 ‹", () => {
   test("从会话里点附件卡片进来的：记着来处，‹ 后退一步回到那个会话", () => {
     const h = fakeHistory("#/secretary");
     pushHash(h.env, "#/tasks/t-1");

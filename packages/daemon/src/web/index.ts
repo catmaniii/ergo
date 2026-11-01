@@ -1,4 +1,4 @@
-// 联网工具（70 号票）：联网搜索、读网页（守护进程代为执行），以及它们和 agent-browser 共用的浏览器探测。别处只从这里取东西。
+// 联网工具：联网搜索、读网页（守护进程代为执行），以及它们和 agent-browser 共用的浏览器探测。别处只从这里取东西。
 export {
   AllSearchesFailed,
   createWebAccess,

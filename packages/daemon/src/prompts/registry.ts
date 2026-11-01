@@ -1,4 +1,4 @@
-// 系统提示的清单（71 号票）：有哪些提示文件（默认的在本包的 prompts/<编号>.md，用户改的在数据目录配置区的 prompts/<编号>.md）、
+// 系统提示的清单：有哪些提示文件（默认的在本包的 prompts/<编号>.md，用户改的在数据目录配置区的 prompts/<编号>.md）、
 // 给人看的名字和说明、各能用哪些占位符和片段。占位符的写法和检查在共享协议包（system-prompts.ts），读文件、存文件在 library.ts。
 //
 // 占位符分两种来源：
@@ -8,9 +8,9 @@
 //   有的值只在某个条件成立时才有（onlyWhen，比如项目类型只在立项书确认之后才有）：写在那个条件外面的，保存和启动检查时就拦下。
 // 占位符的名字用中文（拉回次数、立项书已确认……）：这些文件是给用户看、给用户改的，是"标识符用英文"的例外（docs/architecture/development.md 的"写代码的约定"）。
 // 片段（partials）插进来时用插它的那份提示的值，所以片段能用的占位符必须是每个插它的提示都有的（checkPromptRegistry 查）。
-// 插件贡献的（128 号票，ADR-0027）：插件在定义里声明一个条件（插件运行时成立，比如"提醒"）、公用的占位符（它的工具名）和片段
+// 插件贡献的（ADR-0027）：插件在定义里声明一个条件（插件运行时成立，比如"提醒"）、公用的占位符（它的工具名）和片段
 // （默认的文件跟着插件走，插进它点名的几份提示），插件宿主收齐交给系统提示的文件；这里不再 import 插件的工具名
-// （提醒的三个工具名 128 号票、记忆插件的 search_materials 129 号票）。
+// （提醒的三个工具名、记忆插件的 search_materials）。
 // 内核的提示和插件的合成一份清单（promptRegistry）：插件的片段排在内核的后面，设置页上照样能看能改。
 import { ASSISTANT_NAME_MARK, AUTHORIZE_FOLDERS_ACTION, isPromptPlaceholderName, type SystemPromptGroup, t, tTable } from "@ergo/protocol";
 import { VIEW_BOARD_TOOL } from "../board/tool-names.ts";
@@ -20,7 +20,7 @@ import { BUILTIN_TOOL_REGISTRY, CORRECTION_PREFIX, PROJECT_HISTORY_DIR, TOOL, wo
 import { INBOX_TOOL } from "../inbox/tool-names.ts";
 import { SUBMIT_PLAN_TOOL } from "../maintainers/tools.ts";
 import { READ_ATTACHMENT_TOOL, SEND_ATTACHMENT_TOOL } from "../media/tool-names.ts";
-// 项目系统的工具名只从它的入口拿（277 号票）
+// 项目系统的工具名只从它的入口拿
 import {
   CHECK_OPS_TOOL,
   MULTI_PROJECT_TOOL,
@@ -78,7 +78,7 @@ export interface PromptDefinition {
   readonly allowEmpty: boolean;
 }
 
-// 174 号票：设置 · 系统提示里给人看的名字、说明跟着当前语言——写成取值函数（tTable、get），取的时候现查。
+// 设置 · 系统提示里给人看的名字、说明跟着当前语言——写成取值函数（tTable、get），取的时候现查。
 // 占位符和条件的名字（中文）是提示文件里的写法（数据），不翻；提示文件的内容是给模型看的，照旧中文。
 
 /** 合并几张说明表，不取值（表里是取值函数，展开会在加载时就取成那时的语言） */
@@ -86,7 +86,7 @@ function joinSpecs<A extends object, B extends object>(a: A, b: B): A & B {
   return Object.defineProperties({}, { ...Object.getOwnPropertyDescriptors(a), ...Object.getOwnPropertyDescriptors(b) }) as A & B;
 }
 
-/** 阈值那一段的占位符（14 号票：数字照配置 tasks.thresholds，不写死）：插了阈值片段的提示都要有 */
+/** 阈值那一段的占位符（数字照配置 tasks.thresholds，不写死）：插了阈值片段的提示都要有 */
 const THRESHOLD_VALUES = tTable({
   拉回次数: "prompts.value.pullBacks",
   停滞分钟: "prompts.value.stallMinutes",
@@ -99,7 +99,7 @@ const THRESHOLD_VALUES = tTable({
   累计拒绝次数: "prompts.value.rejections",
 });
 
-/** 阈值那一段的条件（93 号票：预算的两个动作只在打开预算控制时说） */
+/** 阈值那一段的条件（预算的两个动作只在打开预算控制时说） */
 const THRESHOLD_FLAGS = tTable({ 预算控制: "prompts.flag.budgetControl" });
 
 const NONE = {} as const;
@@ -107,7 +107,7 @@ const NONE = {} as const;
 /** 对话审批开着（秘书、普通任务的 agent、迁移来的定时作业的 agent） */
 const APPROVAL_FLAGS = tTable({ 对话审批开着: "prompts.flag.conversationApprovals" });
 
-/** 定时触发的任务（76 号票）那一段的条件和值：普通任务的 agent、流程的负责人都插 triggered-runs 片段 */
+/** 定时触发的任务那一段的条件和值：普通任务的 agent、流程的负责人都插 triggered-runs 片段 */
 const TRIGGERED_FLAGS = tTable({ 定时触发: "prompts.flag.triggered" });
 const TRIGGERED_VALUES = {
   连续失败几次暂停: {
@@ -571,35 +571,35 @@ export function commonPlaceholders(): readonly CommonPlaceholder[] {
     TASK_CONTROL_ACTION.cancel,
     TASK_RUN_ACTION.runNow,
     TASK_RUN_ACTION.announce,
-    // 354 号票：开关项目的自动播报
+    // 开关项目的自动播报
     PROJECT_ANNOUNCE_ACTION,
-    // 186 号票：删除任务的快速动作
+    // 删除任务的快速动作
     TASK_DELETE_ACTION,
     RELAY_ACTION.task,
     RELAY_ACTION.project,
     AUTHORIZE_FOLDERS_ACTION,
-    // 281 号票：写个人档案的快速动作、读个人档案的工具
+    // 写个人档案的快速动作、读个人档案的工具
     PERSONAL_FILE_ACTION,
     READ_PERSONAL_FILE,
     READ_PROJECT_RECORDS_TOOL,
     SUGGEST_PROJECT_TOOL,
     SUBMIT_CHARTER_TOOL,
     PROPOSE_CHARTER_CHANGE_TOOL,
-    // 261 号票：项目负责人提本项目的规范改写
+    // 项目负责人提本项目的规范改写
     PROPOSE_STANDARD_CHANGE_TOOL,
     PROPOSE_OPERATIONS_TOOL,
     OPEN_SERVICE_TOOL,
-    // 257 号票：秘书启动、关闭项目的服务
+    // 秘书启动、关闭项目的服务
     SWITCH_SERVICES_TOOL,
-    // 260 号票：秘书调运营中的项目的接口（list / describe / call）
+    // 秘书调运营中的项目的接口（list / describe / call）
     PROJECT_OPS_TOOL,
-    // 268 号票：负责人验收运营接口清单（使用中的全过了登记成新的一版）
+    // 负责人验收运营接口清单（使用中的全过了登记成新的一版）
     CHECK_OPS_TOOL,
-    // 357 号票：负责人查自己项目的服务最近报的事件
+    // 负责人查自己项目的服务最近报的事件
     RECENT_SERVICE_EVENTS_TOOL,
-    // 259 号票：负责人、秘书提转入使用（只出确认卡，用户确认才转）
+    // 负责人、秘书提转入使用（只出确认卡，用户确认才转）
     PROPOSE_GO_LIVE_TOOL,
-    // 147、164 号票的网页工具（browse_*）212 号票起是浏览插件的占位符（browsing/prompt.ts）
+    // 网页工具（browse_*）是浏览插件的占位符（browsing/prompt.ts）
     ...Object.values(TASK_TOOL),
     SUBMIT_PLAN_TOOL,
     ...Object.values(EXECUTION_TOOL),
@@ -608,16 +608,16 @@ export function commonPlaceholders(): readonly CommonPlaceholder[] {
     ...Object.values(WORKFLOW_TOOL),
     ADJUST_SKILLS_TOOL,
     REQUEST_TOOLKIT_CHANGE_TOOL,
-    // 239 号票：登记 MCP（加、改、删一条，用户确认之后运行时才写配置区）
+    // 登记 MCP（加、改、删一条，用户确认之后运行时才写配置区）
     REQUEST_MCP_CHANGE_TOOL,
-    // 358 号票：把 skill 提交进 skill 库（加、改、删，用户确认之后运行时才写 skill 区）
+    // 把 skill 提交进 skill 库（加、改、删，用户确认之后运行时才写 skill 区）
     REQUEST_SKILL_CHANGE_TOOL,
-    // 240 号票：秘书带参调一个登记过的 MCP 工具（参数自由传，登记过就调）
+    // 秘书带参调一个登记过的 MCP 工具（参数自由传，登记过就调）
     MCP_CALL_TOOL,
     ...Object.values(WORK_ORDER_TOOL),
     ...Object.values(MULTI_PROJECT_TOOL),
     JOB_TOOL.failRun,
-    // 214 号票起 send_voice 由语音插件在系统提示里贡献（voice/prompt.ts）
+    // send_voice 由语音插件在系统提示里贡献（voice/prompt.ts）
     TELL_SECRETARY_TOOL,
   ];
   common = [
@@ -630,7 +630,7 @@ export function commonPlaceholders(): readonly CommonPlaceholder[] {
     described("秘书转达标记", SECRETARY_RELAY_TAG, "prompts.common.relayTag"),
     described("负责人来信标记", MAINTAINER_LETTER_TAG, "prompts.common.letterTag"),
     described("自动纠偏标记", CORRECTION_PREFIX, "prompts.common.correctionTag"),
-    // 310 号票：英文的写法（/workflow、/task），也认的中文老写法、175 号票的别名跟一句
+    // 英文的写法（/workflow、/task），也认的中文老写法、别名跟一句
     described("发起流程命令", launchCommandText("workflow"), "prompts.common.launchWorkflow"),
     described("发起长程任务命令", launchCommandText("long_running"), "prompts.common.launchLongRunning"),
     described("项目历史区", PROJECT_HISTORY_DIR, "prompts.common.historyDir"),
@@ -640,7 +640,7 @@ export function commonPlaceholders(): readonly CommonPlaceholder[] {
   return common;
 }
 
-/** 插件在系统提示里贡献的（128 号票）：插件在定义里声明（PluginDefinition.prompts），插件宿主收齐交给系统提示的文件 */
+/** 插件在系统提示里贡献的：插件在定义里声明（PluginDefinition.prompts），插件宿主收齐交给系统提示的文件 */
 export interface PluginPrompts {
   /** 哪个插件（插件名） */
   readonly plugin: string;
@@ -671,7 +671,7 @@ export interface PluginFlag {
   readonly plugin: string;
 }
 
-/** 一份系统提示清单（128 号票）：内核的（PROMPTS）加上插件贡献的条件、占位符、片段 */
+/** 一份系统提示清单：内核的（PROMPTS）加上插件贡献的条件、占位符、片段 */
 export interface PromptRegistry {
   /** 全部提示的编号：内核的按设置页上的顺序，插件的片段排在后面 */
   readonly ids: readonly string[];
@@ -750,7 +750,7 @@ export function promptRegistry(plugins: readonly PluginPrompts[] = []): PromptRe
 
 /**
  * 清单本身对不对（编程错误，守护进程起不来）：插的片段要有、不能绕回自己，片段能用的占位符和条件每个插它的提示都要有，
- * 自己的占位符不能和公用的重名；插件的（128 号票）：片段、条件、占位符不能和内核的、别的插件的重名，片段插进的提示要有、要能用公用占位符
+ * 自己的占位符不能和公用的重名；插件的：片段、条件、占位符不能和内核的、别的插件的重名，片段插进的提示要有、要能用公用占位符
  */
 // @i18n-ignore-start log：编程错误（启动时报，给开发者看）
 export function checkPromptRegistry(registry: PromptRegistry = promptRegistry(), plugins: readonly PluginPrompts[] = []): void {

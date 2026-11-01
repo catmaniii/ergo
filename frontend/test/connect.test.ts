@@ -1,4 +1,4 @@
-// 扫码连接（364 号票）：鸿蒙和安卓的地址校验、连不上的判断、报错文案一致。
+// 扫码连接：鸿蒙和安卓的地址校验、连不上的判断、报错文案一致。
 // - connect-vectors.tsv 是同一份例子：这里跑鸿蒙的 .ets（去掉类型直接跑）和协议包，安卓的 ConnectCheckTest 在 JVM 上跑；
 // - qr-samples.tsv：网页生成的二维码方阵（qrcode-generator），这里核对它和现在生成的一样，安卓的 ConnectCheckTest 用真的 ZXing 解一遍比对内容；
 // - 两边用到的 harmony.connect.* 文案键一样，中英都有；
@@ -104,7 +104,7 @@ describe("两边的文案键一样", () => {
     expect(read(path.join(ETS, "common/ConnectProbe.ets"))).toContain("TIMEOUT_MS = 10000");
   });
 
-  test("提醒的三条覆盖票里写的：Tailscale 和 tailnet；二狗和服务管家；VPS、隧道、反代", () => {
+  test("提醒的三条：Tailscale 和 tailnet；二狗和服务管家；VPS、隧道、反代", () => {
     const zh = texts["zh-CN"]!;
     expect(zh["harmony.connect.check.tailnet"]).toMatch(/Tailscale.*tailnet/);
     expect(zh["harmony.connect.check.computer"]).toMatch(/二狗.*服务管家/);

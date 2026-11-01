@@ -1,4 +1,4 @@
-// 语音消息的测试底座（31 号票）：假的识别进程（fixtures/fake-recognizer.mjs）、"录音"文件、上传后发一条语音消息、读识别进程的记录。
+// 语音消息的测试底座：假的识别进程（fixtures/fake-recognizer.mjs）、"录音"文件、上传后发一条语音消息、读识别进程的记录。
 // 测试一律用假的识别进程，不加载真模型、不联网、不占显卡。
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -27,11 +27,11 @@ export interface FakeAsr {
   crash?: string;
   holdFile?: string;
   noise?: string;
-  /** 这个文件的前几次识别出错（208 号票测自动重试） */
+  /** 这个文件的前几次识别出错（测自动重试） */
   failTimes?: number;
   /** 这个文件的前几次识别时识别进程退出 */
   crashTimes?: number;
-  /** 这个文件的第 n 次识别等第 n 项这个文件出现了再回（null 的不等；210 号票测"第一次识别中""重试中"） */
+  /** 这个文件的第 n 次识别等第 n 项这个文件出现了再回（null 的不等；测"第一次识别中""重试中"） */
   holdEach?: Array<string | null>;
 }
 
@@ -44,7 +44,7 @@ export function fakeRecording(asr: FakeAsr, salt = Math.random().toString(36).sl
 }
 
 /**
- * 一段 WAV"录音"（63 号票：鸿蒙 App 的原生录音交出来的样子）：16 kHz 单声道 16 位 PCM 的标准头和 0.1 秒的样本，
+ * 一段 WAV"录音"（鸿蒙 App 的原生录音交出来的样子）：16 kHz 单声道 16 位 PCM 的标准头和 0.1 秒的样本，
  * 后面跟一个自定义的块装着给假识别进程的指令（WAV 读取方跳过不认得的块）
  */
 export function fakeWavRecording(asr: FakeAsr, salt = Math.random().toString(36).slice(2)): Uint8Array {
@@ -103,7 +103,7 @@ export async function voiceSettled(frontend: TestFrontend, status: VoiceRecord["
   return voiceVersions(frontend).findLast(match)!;
 }
 
-/** 假的识别进程加载模型时怎么回（45 号票，见 fake-recognizer.mjs 开头） */
+/** 假的识别进程加载模型时怎么回（见 fake-recognizer.mjs 开头） */
 export interface FakeLoad {
   fallback?: string;
   fatal?: string;
@@ -111,7 +111,7 @@ export interface FakeLoad {
   holdFile?: string;
   loadMs?: number;
   exitAfterMs?: number;
-  /** 加载好之后再来的加载请求（208 号票：重试前问一句）不回 */
+  /** 加载好之后再来的加载请求（重试前问一句）不回 */
   stallPing?: boolean;
 }
 

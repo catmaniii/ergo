@@ -1,4 +1,4 @@
-// 运营接口清单的验收（268 号票，草稿："清单按 112 号票的自动验收（格式对、每个操作一条能跑通的测试、只读的真不写）"）：
+// 运营接口清单的验收（草稿："清单按自动验收（格式对、每个操作一条能跑通的测试、只读的真不写）"）：
 // - 格式对：读得通（manifest.ts），每个操作写全了——中文标题、什么时候用（description）、用户可能怎么说（userSays）、种类（kind，
 //   旧清单的 readOnlyHint 也算写了）、一条测试（test）；参数说明写得对（args.ts 的 schemaProblems：枚举有中文名、默认值合乎 schema……），
 //   测试的参数合乎参数说明；实现方式落得下来——http 的调用口对得上服务（使用中看 LSM 上的、建设中看运营方案里的），script 的脚本
@@ -8,7 +8,7 @@
 //   ergo、maintainer 的有副作用的只看做不做得了），要做成、要有实现自己给的能念的那句 say（sayIncludes 写了的要包含它）；
 // - 只读的真不写：只读查询的测试前后比一比项目档案和工作目录（snapshot.ts），新建、改过、删掉了文件的不过。
 // http 的测试要服务在跑：服务还没起来（建设中服务还没交给 LSM、关着、还在上线、连不上）的记成 waiting——别的都过了就是"等服务上线后再跑"，
-// 不算没过（照 259 号票清单里"确认后交给服务管家上线"的写法，卡上写"上线后再验"，362 号票）；服务起来以后再验一次才算全过。
+// 不算没过（清单里"确认后交给服务管家上线"的写法，卡上写"上线后再验"）；服务起来以后再验一次才算全过。
 import { type Project, t } from "@ergo/protocol";
 import { placeholdersIn, prepareArgs, propertiesOf, schemaProblems, schemaWarnings } from "./args.ts";
 import type { OpsManifestRead, ProjectOp } from "./manifest.ts";

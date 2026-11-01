@@ -1,10 +1,10 @@
 /**
- * 项目的"运营概况"（140 号票）：项目卡、项目头里的"现在"（项目页和负责人会话页左栏）只用这一个组件，数据是状态层的 projectOperationsSummary。
+ * 项目的"运营概况"：项目卡、项目头里的"现在"（项目页和负责人会话页左栏）只用这一个组件，数据是状态层的 projectOperationsSummary。
  * - 服务：首页的缩略图（守护进程截的；点了和入口一样在内置浏览器里打开；不在线的灰掉标"不在线"，停用了的标"已停用"；
  *   截不了的不显示图）后面跟"打开「X」"和在线圆点（ui/service-entry.tsx）；
  * - 定时任务：收起时一行"2 个定时任务：每天 08:00 日报、每周日 18:00 周报"，右边一个展开钮；展开后每条一行：名字、时间表、下次、
  *   上次和结果、状态，点一行进那个任务的整页。
- * - 257 号票：使用中、有在 LSM 上的服务的，服务前面一行开关——现在怎样（在线、已关闭、启动中、失败……）和"启动""关闭"两个按钮，
+ * -使用中、有在 LSM 上的服务的，服务前面一行开关——现在怎样（在线、已关闭、启动中、失败……）和"启动""关闭"两个按钮，
  *   经 LSM 把这个项目的服务全部拉起、全部关掉；关闭先弹确认框（一直关着、取消开机自启、不是停用），启动不弹。
  * size：card 项目卡（缩略图小、默认收起；项目卡整张能点开项目，展开钮、一行行的链接都不往外冒）、narrow 负责人会话页左栏（窄，默认收起）、
  * large 项目页的"现在"（缩略图大、默认展开）。
@@ -22,7 +22,7 @@ import { useToast } from "./toast.tsx";
 
 export type SummarySize = "card" | "narrow" | "large";
 
-/** 有状态的那一层：取数据、记着展开没有、缩略图的地址、点了缩略图做什么、"关闭"的确认框（257） */
+/** 有状态的那一层：取数据、记着展开没有、缩略图的地址、点了缩略图做什么、"关闭"的确认框 */
 export function OperationsSummary({ projectId, size }: { projectId: string; size: SummarySize }) {
   const { ui, http, projectServicesAction } = useStore();
   const toast = useToast();
@@ -62,7 +62,7 @@ export function OperationsSummary({ projectId, size }: { projectId: string; size
   );
 }
 
-/** "关闭"的确认框（257）：关几个服务、一直关着（取消开机自启，重启后也不起来）、不是停用 */
+/** "关闭"的确认框：关几个服务、一直关着（取消开机自启，重启后也不起来）、不是停用 */
 export function StopServicesConfirm({ projectName, services, onCancel, onConfirm }: { projectName: string; services: readonly string[]; onCancel(): void; onConfirm(): void }) {
   return (
     <Sheet title={t("ui.operationsSummary.power.confirmTitle", { name: projectName })} onClose={onCancel} center>
@@ -87,7 +87,7 @@ const contained = (event: MouseEvent) => event.stopPropagation();
 
 /**
  * 画出来的那一层（不用 hook，测试里直接渲染、直接点）：open 是定时任务展开没有，onToggle 点展开钮（不往外冒），
- * thumbnailSrc 给缩略图的地址（没有就不画图），onOpenService 点缩略图，onPower 点"启动""关闭"（257，不往外冒）
+ * thumbnailSrc 给缩略图的地址（没有就不画图），onOpenService 点缩略图，onPower 点"启动""关闭"（不往外冒）
  */
 export function OperationsSummaryBody({
   summary,

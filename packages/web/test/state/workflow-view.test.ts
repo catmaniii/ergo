@@ -1,6 +1,6 @@
-// 三种做法的界面（60 号票）要的数据：流程的进度条、计划台账、"接下来的计划"、计划详情和检测项全览（state/workflow-view.ts、ltl.ts），
+// 三种做法的界面要的数据：流程的进度条、计划台账、"接下来的计划"、计划详情和检测项全览（state/workflow-view.ts、ltl.ts），
 // 看板卡上的进度，长程任务的阶段详情（state/stage-detail.ts）。
-// 流程用 58 号票主切面录下的事件流（workflow.json：两步的计划，执行时每次调用带着和计划比对的结果），
+// 流程用主切面录下的事件流（workflow.json：两步的计划，执行时每次调用带着和计划比对的结果），
 // 定时触发的流程（自己的和项目的）、往上翻之前和之后、阶段详情用手写的事件（录像里没有）。
 import fs from "node:fs";
 import path from "node:path";
@@ -100,7 +100,7 @@ const stage = (stageId: string, state: TaskStage["state"]): TaskStage => ({ stag
 
 const safety = (conversationApprovals: boolean) => ({ channel: CHANNELS.watchCategories, seq: 0, type: EVENT_TYPES.safetySettings, payload: { conversationApprovals, budgetControl: false } });
 
-describe("两个开关（378 号票）", () => {
+describe("两个开关", () => {
   test("关注类别频道上的临时事件：整份换掉；还没收到时按开着", () => {
     expect(asksOffIn(initialUiState)).toBe(false);
     expect(asksOffIn(replay([safety(false)]))).toBe(true);
@@ -206,7 +206,7 @@ describe("流程（录像 workflow.json）", () => {
       ["write-before-read", "plan", "ok"],
     ]);
     const push = book.rules[1]!;
-    // 违反了怎么办和计划卡、阶段详情同一个说法（协议包的 ON_VIOLATION_TEXT，84 号票合成一份；不说"拦截"，CONTEXT）
+    // 违反了怎么办和计划卡、阶段详情同一个说法（协议包的 ON_VIOLATION_TEXT，合成一份；不说"拦截"，CONTEXT）
     expect([push.onViolation, push.modes]).toEqual(["违反时退回，先补上再做", "规划时 + 执行时"]);
     expect(book.rules[2]!.onViolation).toBe("违反就不做");
     expect(push.repairs.map((r) => r.kind)).toEqual(["insert"]);
@@ -214,7 +214,7 @@ describe("流程（录像 workflow.json）", () => {
     expect(push.formula.antecedent).toContain("git_push");
     expect(push.api).toContain("git_push");
     expect(book.rules[0]!.deferred).toHaveLength(1);
-    // 60 号票之前的计划没有规则原文：不显示检测项全览
+    // 以前的计划没有规则原文：不显示检测项全览
     expect(ruleBook({ ...p.plan.review, docs: undefined })).toBeUndefined();
   });
 });
@@ -342,7 +342,7 @@ describe("定时触发的流程：进度条、虚线框按这一次运行算", (
     expect(workflowFuture(after, "t-w", chatItems(after, conversation))).toBeUndefined();
   });
 
-  test("事件触发的流程（77 号票）：一批两个事件各走一遍，进度、看板卡、虚线框按这次运行展开的步骤算（s1.e1……，标题是代入了值的）", () => {
+  test("事件触发的流程：一批两个事件各走一遍，进度、看板卡、虚线框按这次运行展开的步骤算（s1.e1……，标题是代入了值的）", () => {
     const evented: Task = { ...task, trigger: { kind: "event", source: "folder", events: ["added"], filter: { path: "D:\\收件箱" } } };
     const r3: JobRun = {
       ...run(3, "running", []),
@@ -665,7 +665,7 @@ describe("阶段详情：出过的状况、尝试记录、第几轮、从这里�
 });
 
 
-describe("阶段详情补上的几块（84 号票）：重做记录、两种备注、执行中重做的范围、要你留意的、规则详情", () => {
+describe("阶段详情补上的几块：重做记录、两种备注、执行中重做的范围、要你留意的、规则详情", () => {
   const conversation = maintainerChannel(ownMaintainerId("t-r"));
   const task = (state: Task["state"], stages: [string, TaskStage["state"], string?][], updatedAt: string, extra: Partial<Task> = {}): Task => ({
     id: "t-r",
@@ -752,7 +752,7 @@ describe("阶段详情补上的几块（84 号票）：重做记录、两种备�
     expect(ui.taskReopens["t-r"]).toEqual([{ time: at("10:00"), stageIds: ["s1", "s2"] }]);
   });
 
-  test("从这里重做的范围只算开始过的下游（和守护进程一个口径）；阶段开始过就能重做（用户 2026-10-11 定）", () => {
+  test("从这里重做的范围只算开始过的下游（和守护进程一个口径）；阶段开始过就能重做", () => {
     const refs = [
       { stageId: "a", dependsOn: [], started: true },
       { stageId: "b", dependsOn: ["a"], started: true },
@@ -806,7 +806,7 @@ describe("阶段详情补上的几块（84 号票）：重做记录、两种备�
       expect.stringMatching(/^第 2 阶段「写稿」：删除（delete）.*（落在「先问我」类别里/),
       expect.stringMatching(/^第 2 阶段「写稿」：付款（pay）.*（落在「交给我做」类别里/),
     ]);
-    // 378 号票："有风险的事先问我"关着：收窄的、先问我的都不停，只剩由你验收的和交给我做的
+    // "有风险的事先问我"关着：收窄的、先问我的都不停，只剩由你验收的和交给我做的
     expect(stageMarks({ plan, grantInfo: info, narrowedGrants: ["g-write"] }, "s1", grants, true).ask.map((m) => m.text)).toEqual([
       "第 2 阶段「写稿」由你验收",
       expect.stringMatching(/^第 2 阶段「写稿」：付款（pay）.*（落在「交给我做」类别里/),

@@ -1,19 +1,19 @@
-// 设置 · 数据源（295 号票，issue 25 生活数据源）：外面的数据经数据源插件接进来，这一页一处列出全部（内核的页面，记忆页有链接过来）：
+// 设置 · 数据源（生活数据源）：外面的数据经数据源插件接进来，这一页一处列出全部（内核的页面，记忆页有链接过来）：
 // - 每个数据源一块：名字和连接状态的小签（连着 / 没连 / 出错了 / 手动导入 / 插件没启用）、连的账号、一句话、上次同步（时间、新进来几条、
 //   出错的原因）和共几条、两种用法的开关（按需查：二狗被问到时现查、不存；导入：定期或手动同步、整理成素材）、用到的敏感内容（对上记忆的
 //   敏感类别：默认只记录、不用于推断）、认导入文件夹里哪种文件；插件画的设置那一块（dataSources 插槽：填 Key、地址、测试连接）；
 //   按钮：立即同步、断开（确认框里选"留着已导入的"或"连已导入的一起删"，后者走彻底删除、不能恢复）；只靠导入文件夹的数据源是"删除已导入的"；
 // - 导入文件夹：路径（复制、在电脑上打开）、现在检查、留在里面没导入的文件和原因、最近导入的。
-// 297 号票：导入的东西不进素材的数据源（Google 日历：显示在日历里）在导入那一项下面写明去哪；数据源报的一句提示（"日历插件没启用：……"）
+// 导入的东西不进素材的数据源（Google 日历：显示在日历里）在导入那一项下面写明去哪；数据源报的一句提示（"日历插件没启用：……"）
 // 写在出错那一行的位置、不标红；它下面的几样（订阅的几个日历）由插件画的那一块列出。
-// 299 号票：设备交来的（手机上的二狗 App）上次那一行写"手机交来"和数据源写的那一句（这次进来的是什么），导入的说法换成"App 交来时收下"。
-// 300 号票：插件自己存储里的原始数据（手机的原始位置点、照片的时间地点）折起来的一节"原始数据"：有哪几天、各几条、整理过没有，
+// 设备交来的（手机上的二狗 App）上次那一行写"手机交来"和数据源写的那一句（这次进来的是什么），导入的说法换成"App 交来时收下"。
+// 插件自己存储里的原始数据（手机的原始位置点、照片的时间地点）折起来的一节"原始数据"：有哪几天、各几条、整理过没有，
 // 一天一个"清掉"（点两下才清：第一下变成"确定清掉？"）；清掉的再交来不再收、还没整理的那天清掉了摘要里就没有这些，写明。
-// 307 号票：断开的确认框里写数据源报的那一句（Looki："存到本地的照片、日记、vlog 不删……"）；插件那一块要的数据（panel）原样交给插件。
-// 306 号票：确认框按数据源说话（disconnectTexts）——"填过的密钥从这台电脑上删掉"只在真有密钥、"素材照样在"只在真进素材时说，
+// 断开的确认框里写数据源报的那一句（Looki："存到本地的照片、日记、vlog 不删……"）；插件那一块要的数据（panel）原样交给插件。
+// 确认框按数据源说话（disconnectTexts）——"填过的密钥从这台电脑上删掉"只在真有密钥、"素材照样在"只在真进素材时说，
 // 手机日历、通讯录、Google 联系人这种没密钥、不进素材的由数据源报的那一句说实际会删什么。出错了、内核每小时替它再试的（autoRetry）在出错那一行下面写"每小时自动再试一次，也可以重新填"。
 // 每次打开、插件的状况或者词典的版本变了现取一次；有在同步的每 3 秒再取一次（useDataSourcesView）。
-// 343 号票（用户 2026-10-31："从目录进入数据源页面，显示整体有哪些数据源。点击每一个数据源卡片，跳转到一页单独全屏展示详细配置选项细节"）：分成两层——
+// "从目录进入数据源页面，显示整体有哪些数据源。点击每一个数据源卡片，跳转到一页单独全屏展示详细配置选项细节"：分成两层——
 // - 这一页是一级（#/more/data-sources）：卡片总览，按插件分组。每张卡只有名字、一句话、状态（已连接 / 未连接 / 要授权 / 出错 / 插件没启用）、账号、已获取几条、
 //   上次同步，**没有任何输入框和操作按钮**，整张卡是一个按钮；最后一张卡是共用的导入文件夹（没导入的文件数写在小签上）；
 // - 点卡片去二级（#/more/data-sources/<id>，DataSourceDetail.tsx）：单独占满内容区，状态、设置（上面说的那些全挪过去）、数据（已获取的、现在能查到的）。
@@ -48,7 +48,7 @@ const POLL_MS = 3000;
 /** 连接状态的小签 */
 const CONNECTION_CHIP: Readonly<Record<DataSourceConnection, string>> = { connected: "chip chip-ok", not_connected: "chip", error: "chip chip-no", manual: "chip chip-quiet" };
 
-/** 小签上写什么：插件没启用的先说这个，要去授权、重新填的说"要授权"（343 号票） */
+/** 小签上写什么：插件没启用的先说这个，要去授权、重新填的说"要授权" */
 export function connectionText(source: DataSourceView): string {
   if (!source.available) return t("pages.dataSources.state.off");
   if (source.needsAuth) return t("pages.dataSources.state.needsAuth");
@@ -62,7 +62,7 @@ export function connectionChip(source: DataSourceView): string {
   return CONNECTION_CHIP[source.connection];
 }
 
-/** 卡片上"上次同步"那一小段（343 号票）：只写时间、出没出错，原因在详情里 */
+/** 卡片上"上次同步"那一小段：只写时间、出没出错，原因在详情里 */
 export function cardSyncText(source: DataSourceView): string {
   if (source.syncing) return t("pages.dataSources.syncing");
   const last = source.lastSync;
@@ -117,7 +117,7 @@ export function sensitiveLine(source: DataSourceView): string | undefined {
   return t("pages.dataSources.sensitive", { parts: parts.join(t("pages.dataSources.sensitiveSep")) });
 }
 
-/** 正在确认断开（或者删除只靠导入文件夹的数据源已导入的）；item 是只断开它下面的这一样（344 号票：Gmail 的一个账号） */
+/** 正在确认断开（或者删除只靠导入文件夹的数据源已导入的）；item 是只断开它下面的这一样（Gmail 的一个账号） */
 export interface DisconnectConfirming {
   source: DataSourceView;
   purge: boolean;
@@ -131,7 +131,7 @@ export function doneText(source: DataSourceView, body: DataSourceActionBody, res
       if (result.error !== undefined) return t("pages.dataSources.done.syncFailed", { error: result.error });
       return result.added === undefined ? t("pages.dataSources.done.syncing") : t("pages.dataSources.done.synced", { added: result.added });
     case "disconnect": {
-      // 只断开一样（344）：说断开的是那一样
+      // 只断开一样：说断开的是那一样
       const item = body.item === undefined ? undefined : source.items?.find((one) => one.id === body.item);
       const base = t(source.connection === "manual" ? "pages.dataSources.done.cleared" : "pages.dataSources.done.disconnected", { title: item?.title ?? source.title });
       if (!result.purged) return base;
@@ -155,7 +155,7 @@ export interface RawDaysProps {
   onClear(dates: string[]): void;
 }
 
-/** 原始数据那一节（300 号票，纯渲染）：折起来，打开是一天一行（日期、几条、还没整理的写明）和"清掉"，点两下才清 */
+/** 原始数据那一节（纯渲染）：折起来，打开是一天一行（日期、几条、还没整理的写明）和"清掉"，点两下才清 */
 export function RawDays({ source, busy, onClear }: RawDaysProps) {
   const [armed, setArmed] = useState<string>();
   const raw = source.raw;
@@ -200,10 +200,10 @@ export interface DisconnectConfirmProps {
 }
 
 /**
- * 断开确认框里按数据源说的几句（306 号票）：通用的"填过的密钥从这台电脑上删掉"只在真有密钥（hasSecrets）时说，"素材照样在""由它们整理出的
+ * 断开确认框里按数据源说的几句：通用的"填过的密钥从这台电脑上删掉"只在真有密钥（hasSecrets）时说，"素材照样在""由它们整理出的
  * 素材和原文副本"只在导入的真进素材（toMaterials）时说，"「已导入」里它的文件"只在认导入文件夹里的文件时说；"不再同步、按需查"按它提供的用法说。
  * 手机日历、通讯录、Google 联系人这种没密钥、不进素材的，实际会删什么由数据源报的那一句（disconnectNote）说。
- * 只断开它下面的一样（344 号票：Gmail 的一个账号）：条数是那一样的，写明别的账号不受影响
+ * 只断开它下面的一样（Gmail 的一个账号）：条数是那一样的，写明别的账号不受影响
  */
 export function disconnectTexts(source: DataSourceView, item?: DataSourceItemView): { body: string; keep: string; purge: string } {
   const n = item === undefined ? source.count : (item.count ?? 0);
@@ -328,7 +328,7 @@ function groupTitle(pluginTitle: string): string {
   return pluginTitle.startsWith(prefix) ? pluginTitle.slice(prefix.length) : pluginTitle;
 }
 
-/** 按插件分组（343 号票）：组的先后、组里的先后都照守护进程给的 */
+/** 按插件分组：组的先后、组里的先后都照守护进程给的 */
 export function groupByPlugin(sources: readonly DataSourceView[]): DataSourceGroup[] {
   const groups = new Map<string, DataSourceGroup>();
   for (const source of sources) {
@@ -339,7 +339,7 @@ export function groupByPlugin(sources: readonly DataSourceView[]): DataSourceGro
   return [...groups.values()];
 }
 
-/** 一张卡（343 号票）：整张是一个按钮，点了去详情；只有名字、一句话、状态、账号、已获取几条、上次同步 */
+/** 一张卡：整张是一个按钮，点了去详情；只有名字、一句话、状态、账号、已获取几条、上次同步 */
 function DataSourceCard({ source: s, onOpen }: { source: DataSourceView; onOpen(id: string): void }) {
   return (
     <button type="button" className="ds-card" data-source={s.id} onClick={() => onOpen(s.id)}>
@@ -363,7 +363,7 @@ export interface DataSourceCardsProps {
   onOpen(id: string): void;
 }
 
-/** 一级页的卡片（343 号票，纯渲染）：按插件分组，最后是共用的导入文件夹；没有输入框、没有操作按钮 */
+/** 一级页的卡片（纯渲染）：按插件分组，最后是共用的导入文件夹；没有输入框、没有操作按钮 */
 export function DataSourceCards({ sources, folder, onOpen }: DataSourceCardsProps) {
   const pending = folder.pending.length;
   return (
@@ -434,7 +434,7 @@ export function useDataSourcesView() {
   return { view, setView, loadFailed };
 }
 
-/** 一级页（343 号票）：卡片总览 */
+/** 一级页：卡片总览 */
 export function DataSourcesPage({ navigate }: { navigate: Navigate }) {
   const { view, loadFailed } = useDataSourcesView();
   return (

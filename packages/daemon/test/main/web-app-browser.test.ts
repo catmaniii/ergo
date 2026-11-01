@@ -1,7 +1,7 @@
-// 主切面（182 号票）：联网搜索队列的第四种"鸿蒙 App 的内置浏览器"。真的守护进程，秘书接 faux 剧本，测试扮演前端和发消息的那台设备
+// 主切面：联网搜索队列的第四种"鸿蒙 App 的内置浏览器"。真的守护进程，秘书接 faux 剧本，测试扮演前端和发消息的那台设备
 // （报浏览器的样子，连同"浏览"里在用的搜索引擎；收秘书的网页工具转来的事）；联网是正式的 createWebAccess，浏览器是假的、
 // DeepSeek 是本机临时端口上的假服务（不连真网络、key 是假的）。
-// - 设置接口：初始是四种、内置浏览器排最后、启用；162 号票存的三项的设置文件读成四项（内置浏览器加在最后）；
+// - 设置接口：初始是四种、内置浏览器排最后、启用；存的三项的设置文件读成四项（内置浏览器加在最后）；
 // - 内置浏览器排第一：从侧边栏来的那一轮，交给秘书的输入后面写着"这一轮联网搜索算上内置浏览器"，web_search 一种都不试、停下，
 //   给出那台设备的搜索引擎（百度）搜这个查询的结果页地址，让秘书先用 browse_*；秘书页签里发的普通一轮没有那句，web_search 跳过它
 //   走 DeepSeek；
@@ -106,7 +106,7 @@ async function withWeb(secretary: FauxStep[], reuse?: { dataDir: string; homeDir
 }
 
 describe("设置里的四种方式", () => {
-  it("初始：鸿蒙 App 的内置浏览器排最后、启用；162 号票存的三项的文件读成四项，它加在最后", async () => {
+  it("初始：鸿蒙 App 的内置浏览器排最后、启用；存的三项的文件读成四项，它加在最后", async () => {
     const { url } = await startTestDaemon({ env: { DEEPSEEK_API_KEY: FAKE_KEY } });
     expect((await webSettingsApi.view(url)).body).toMatchObject({
       settings: queue(["deepseek", true], ["browser", true], ["agent-browser", true], ["app-browser", true]),

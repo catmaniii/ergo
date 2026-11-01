@@ -1,6 +1,6 @@
-// 从已有的会话接管（290 号票）在网页这一侧的状态层：哪个运行时能接管、会话那一行的第二行（分支 · 最近活动 · 大小）、
+// 从已有的会话接管在网页这一侧的状态层：哪个运行时能接管、会话那一行的第二行（分支 · 最近活动 · 大小）、
 // 选中被占着的那个时的说明（终端里开着的、二狗自己在管的）、什么时候能点"接管"、接管好了的提示、⚙ 里接管来的那一行。
-// 292 号票：⚙ 里"会话在哪边"那一块按二狗接管 / 官方 App / 空着给说法、链接和按钮（二狗自己开的会话没有"交还"），卡上的"在官方 App 里"。
+// ⚙ 里"会话在哪边"那一块按二狗接管 / 官方 App / 空着给说法、链接和按钮（二狗自己开的会话没有"交还"），卡上的"在官方 App 里"。
 import { describe, expect, it } from "vitest";
 import {
   activityAgo,
@@ -28,7 +28,7 @@ const idle: ResumableSessionView = { id: "s-1", title: "修 CI 的 flaky 测试"
 const terminal: ResumableSessionView = { id: "s-2", title: "记账本导出", cwd: "D:\\code\\ledger", updatedAt: "2026-10-25T11:59:40+08:00", busy: "在终端里开着（进程 21844）" };
 const held: ResumableSessionView = { ...idle, id: "s-3", busy: "任务 t-9「修 CI 的 flaky 测试」在管（交还之前别的不能接管）", heldBy: { kind: "task", id: "t-9", title: "修 CI 的 flaky 测试", maintainerId: "tm-9" } };
 
-describe("从已有的会话接管（网页状态层，290 号票）", () => {
+describe("从已有的会话接管（网页状态层）", () => {
   it("能接管已有会话的运行时：现在能用、能力清单里 take_over 的才算", () => {
     expect(takeoverRuntime([PI, CLAUDE], "claude-code")).toBe(CLAUDE);
     expect(takeoverRuntime([PI, CLAUDE], "pi")).toBeUndefined();
@@ -78,7 +78,7 @@ describe("从已有的会话接管（网页状态层，290 号票）", () => {
     expect(takeoverStateLines({ id: "pi", title: "pi", settings: {} })).toBeUndefined();
   });
 
-  it("⚙ 里会话在哪边（292 号票）：二狗接管着的能交给官方 App、接管来的还能交还；在官方 App 里的给链接和收回；空着的收回或交给官方 App", () => {
+  it("⚙ 里会话在哪边：二狗接管着的能交给官方 App、接管来的还能交还；在官方 App 里的给链接和收回；空着的收回或交给官方 App", () => {
     const base: AgentRuntimeStateView = { id: "claude-code", title: "Claude Code", settings: {}, remoteControl: true, takeover: { sessionId: "s-1", title: "修 CI 的 flaky 测试", cwd: "D:/code/flaky-ci", returned: false, place: "ergo" } };
     const ergo = takeoverPanel(base, "二狗")!;
     expect(ergo.place).toBe("ergo");
@@ -107,7 +107,7 @@ describe("从已有的会话接管（网页状态层，290 号票）", () => {
     expect(takeoverPanel({ id: "pi", title: "pi", settings: {} }, "二狗")).toBeUndefined();
   });
 
-  it("卡上的「在官方 App 里」（292 号票）：在官方 App 里才有，拿到的链接带上", () => {
+  it("卡上的「在官方 App 里」：在官方 App 里才有，拿到的链接带上", () => {
     const at = "2026-10-25T10:00:00.000+08:00";
     expect(remoteBadgeOf(undefined)).toBeUndefined();
     expect(remoteBadgeOf({ runtime: "claude-code", sessionId: "s-1", title: "t", at })).toBeUndefined();

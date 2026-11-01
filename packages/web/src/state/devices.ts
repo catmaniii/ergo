@@ -3,7 +3,7 @@
 // - 失效的单列一组：被吊销的；启用之后连续 365 天没用、凭证过期的；领到凭证后 24 小时里一次也没用过、自动作废的
 //   （领取的响应丢了，凭证没到设备手里）。过期由服务端判断，这里按 expiresAt 和传进来的"现在"算，只用于显示。
 //   PC 本机直接用，不在这里。
-// 123 号票：过期、作废的延期后 expiresAt 往后推，回到有效的一组；删了的状态层里就没有（ui-state.ts 收到 deleted 时去掉）。
+// 过期、作废的延期后 expiresAt 往后推，回到有效的一组；删了的状态层里就没有（ui-state.ts 收到 deleted 时去掉）。
 // 多选管理的个数、确认的话在 device-select.ts。
 import type { PairedDevice } from "./protocol.ts";
 import type { UiState } from "./ui-state.ts";

@@ -1,4 +1,4 @@
-// Claude Code 会话的撤回和切分支（293 号票，issue 24 第三节丙类；调研 31 第 8 节：/rewind 不能当命令发），宿主协议 navigate_session 在
+// Claude Code 会话的撤回和切分支（调研 31 第 8 节：/rewind 不能当命令发），宿主协议 navigate_session 在
 // Claude Code 适配子进程这一侧。Claude 的会话不是 pi 那样的一棵树，二狗这样补：
 // - ↶ 撤回到某条之前：对话用 SDK 的 forkSession（复制成一个新的 Claude 会话、全部换新 uuid，截到撤回点之前的那一条为止）分叉出来接着用；
 //   撤回前的会话 id 报回守护进程（from：废弃分支的末端），新会话 id 是 at（这条新分支自己的会话）。撤回点之前的那一条按 SDK 的
@@ -12,8 +12,7 @@
 // - 分支摘要 Claude 自己不写（能力清单 branch_summary 是 false），守护进程按自己记下的事件写好交来（summary.written），记在新会话名下，
 //   它的下一条输入的 UserPromptSubmit 钩子交给模型（切走了没交的留着，切回来再交）。
 // 这些都要二狗自己记着（会话记录里的 lineage，records.ts）：每条输入推进了哪个 Claude 会话、二狗给它定的 uuid；每个会话从哪分叉来的、
-// 它自己的第一条输入；还没交给模型的分支摘要。293 号票之前交的输入没有记录，撤回不到它之前。
-// 真机（真的 forkSession、rewindFiles、跨会话恢复、钩子里的摘要进上下文）在 294 号票核对。
+// 它自己的第一条输入；还没交给模型的分支摘要。以前交的输入没有记录，撤回不到它之前。
 // @i18n-ignore-file log
 import { randomUUID } from "node:crypto";
 import { t, type BranchFilesRewind } from "@ergo/protocol";
@@ -157,7 +156,7 @@ const replyIdOf = (m: ClaudeChainMessage): string | undefined => (m.type === "as
 const onlyToolResults = (m: ClaudeChainMessage) => m.type === "user" && blocksOf(m).length > 0 && blocksOf(m).every((b) => b.type === "tool_result");
 
 /**
- * 现在的会话里某次工具调用前后（152、153 号票的阶段、步骤开始）：before 回到含这次调用的那次回复之前（同一次回复的几条一起撤回，它说的话也撤回，
+ * 现在的会话里某次工具调用前后（阶段、步骤开始）：before 回到含这次调用的那次回复之前（同一次回复的几条一起撤回，它说的话也撤回，
  * 同 pi）；after 回到这次回复后面连着的那几条工具结果的最后一条之后
  */
 async function aroundCall(host: NavigationHost, call: { before: string } | { after: string }): Promise<ClaudeForkPoint> {

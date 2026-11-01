@@ -1,4 +1,4 @@
-# 在线演示页（316 号票）：网页原型（自带编的示例数据，不连守护进程）构建成静态页面，发到 GitHub Pages。
+# 在线演示页：网页原型（自带编的示例数据，不连守护进程）构建成静态页面，发到 GitHub Pages。
 # npm run build:demo = vite build --mode demo --outDir dist-demo（packages/web），页面按构建的 mode 认出是演示页（src/app/prototype-mode.ts）。
 # 只在公开仓库上自动跑（GitHub Pages 在私有仓库上要付费的套餐）；私有仓库上只能手动触发。
 # 用之前在仓库的 Settings · Pages 里把 Source 选成 GitHub Actions。

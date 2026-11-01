@@ -1,7 +1,7 @@
-// 流程（58 号票）交给负责人的话：开始执行的说明（授权之后的那段：审查改过计划的，
+// 流程交给负责人的话：开始执行的说明（授权之后的那段：审查改过计划的，
 // 要照改过之后的版本做，插进来的步骤也要做）、完成时的说明、重注入块（每次唤起和每次压缩之后注入：计划的步骤、
 // 每一步的状态和条件、边界）。纯函数。
-// @i18n-ignore-file model：都交给负责人，照旧中文（导出的包一层 forModel，用到的协议包说法也取中文；172 号票）
+// @i18n-ignore-file model：都交给负责人，照旧中文（导出的包一层 forModel，用到的协议包说法也取中文）
 import { forModel, type PlanToolkit, type Task, TASK_STATE_LABEL, TASK_WAIT_REASON_LABEL, WORKFLOW_STEP_ICON, WORKFLOW_STEP_STATE_LABEL, type WorkflowPlan } from "@ergo/protocol";
 import { toolkitText } from "./context-block.ts";
 import { EXECUTION_TOOL, WORKFLOW_TOOL } from "./tool-names.ts";

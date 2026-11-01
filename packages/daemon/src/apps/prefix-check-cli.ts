@@ -1,4 +1,4 @@
-// 前缀下自检的命令行（132 号票）：npm run check:app-prefix -- <服务地址> --name <应用名> [--keep-prefix]
+// 前缀下自检的命令行：npm run check:app-prefix -- <服务地址> --name <应用名> [--keep-prefix]
 // 例：npm run check:app-prefix -- http://127.0.0.1:5173 --name p-3-intel
 // 抓服务的首页，列出以 / 开头、不在 /apps/<应用名>/ 下的地址和写死的本机地址；有问题退出码 1，连不上 2。见 prefix-check.ts。
 // @i18n-ignore-file log：命令行工具的输出

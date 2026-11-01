@@ -1,4 +1,4 @@
-// 输入框里的回车（用户 2026-11-01 定）：电脑上回车发送，选好的键 + 回车换行；触屏上不变；候选开着时回车选中。
+// 输入框里的回车：电脑上回车发送，选好的键 + 回车换行；触屏上不变；候选开着时回车选中。
 import { describe, expect, test } from "vitest";
 import { composerEnterAction, type EnterEnv, newlineKeyOf } from "../../src/state/index.ts";
 

@@ -1,10 +1,10 @@
-// 项目列表和项目页的视图（纯函数，15 号票）：项目列表频道上的项目，带上进行中的任务数（看板频道上未结束、涉及它的任务，
+// 项目列表和项目页的视图（纯函数）：项目列表频道上的项目，带上进行中的任务数（看板频道上未结束、涉及它的任务，
 // 按项目编号认：同名的项目删掉之后再立，旧任务不算到新项目头上）、
 // 负责人的活动状态，以及项目页上现在能做的动作（按协议包的 projectActions：守护进程按同一份校验）。
-// 16 号票：项目还有正在做或排队的工单时不能归档（放弃、归档的按钮不能点，写明先完成或取消哪几个任务）；
+// 项目还有正在做或排队的工单时不能归档（放弃、归档的按钮不能点，写明先完成或取消哪几个任务）；
 // 重置负责人是单独的入口（不在项目状态动作里），已归档的不能。
-// 64 号票：项目页的"内部任务"一栏（projectInternalTasks：项目内部任务不上全局看板，在这里列出状态和进度）。
-// 259 号票：转入使用（go_live）只出确认卡；已经有一张在等（"首版做完了"卡、"转入使用"卡）时项目页上不再给这个按钮（卡就在"现在"里）。
+// 项目页的"内部任务"一栏（projectInternalTasks：项目内部任务不上全局看板，在这里列出状态和进度）。
+// 转入使用（go_live）只出确认卡；已经有一张在等（"首版做完了"卡、"转入使用"卡）时项目页上不再给这个按钮（卡就在"现在"里）。
 import {
   archiveBlockedText,
   canResetMaintainer,
@@ -31,21 +31,21 @@ export interface ProjectView {
   project: Project;
   /** 进行中的任务数：涉及这个项目、还没结束的任务 */
   activeTasks: number;
-  /** 负责人的活动状态和说明（干活中在做什么、等你批准什么，25 号票；没收到过是休眠） */
+  /** 负责人的活动状态和说明（干活中在做什么、等你批准什么，没收到过是休眠） */
   activity: AgentActivity;
   /** 首个建设任务现在的状态 */
   buildTaskState: TaskState | undefined;
   /** 项目页上现在能做的项目状态动作（开工、停用、归档……；重置负责人不在这里） */
   actions: ProjectAction[];
-  /** 自动播报开没开（354 号票，默认关）；已归档的不能开关，没有这一项 */
+  /** 自动播报开没开（默认关）；已归档的不能开关，没有这一项 */
   announce: boolean | undefined;
-  /** 现在能不能重置负责人（16 号票：项目页上单独的入口；已归档的不能） */
+  /** 现在能不能重置负责人（项目页上单独的入口；已归档的不能） */
   canResetMaintainer: boolean;
-  /** 不能归档的原因（16 号票）：还有正在做或排队的工单时，写明先完成或取消哪几个任务；能归档时没有 */
+  /** 不能归档的原因：还有正在做或排队的工单时，写明先完成或取消哪几个任务；能归档时没有 */
   archiveBlocked: string | undefined;
 }
 
-/** 列表里的先后：使用中、建设中、筹备中、已停用、已归档（104 号票起也是项目一览的分组） */
+/** 列表里的先后：使用中、建设中、筹备中、已停用、已归档（也是项目一览的分组） */
 export const PROJECT_GROUPS = ["in_use", "building", "preparing", "retired", "archived"] as const satisfies readonly ProjectState[];
 
 /** 涉及这个项目（按编号）、还没结束的任务数 */
@@ -53,7 +53,7 @@ export function projectActiveTasks(state: UiState, projectId: string): number {
   return Object.values(state.tasks).filter((t) => UNFINISHED_TASK_STATES.includes(t.state) && (t.projectIds ?? []).includes(projectId)).length;
 }
 
-/** 还在等你确认的转入使用确认卡（259 号票）："首版做完了"卡、"转入使用"卡；没有是 undefined */
+/** 还在等你确认的转入使用确认卡："首版做完了"卡、"转入使用"卡；没有是 undefined */
 export function pendingGoLiveCard(state: UiState, projectId: string): string | undefined {
   return Object.values(state.cards).find((c) => (c.card.type === "build_done" || c.card.type === "go_live") && c.card.status === "pending" && (c.card.payload as { projectId?: string }).projectId === projectId)?.card.id;
 }
@@ -68,7 +68,7 @@ function viewOf(state: UiState, project: Project): ProjectView {
     activity: agentActivity(state, project.maintainerId),
     buildTaskState,
     actions: projectActions(project, buildTaskState).filter((a) => a !== "go_live" || !waiting),
-    // 自动播报（354 号票）：能开关的给现在开没开，已归档的没有这一项
+    // 自动播报：能开关的给现在开没开，已归档的没有这一项
     announce: canSetProjectVoiceAnnounce(project) ? project.voiceAnnounce === true : undefined,
     canResetMaintainer: canResetMaintainer(project),
     archiveBlocked: open.length > 0 ? archiveBlockedText(open) : undefined,
@@ -88,7 +88,7 @@ export function selectProject(state: UiState, projectId: string): ProjectView | 
   return project && viewOf(state, project);
 }
 
-/** 项目页"内部任务"一栏里的一个（64 号票） */
+/** 项目页"内部任务"一栏里的一个 */
 export interface InternalTaskView {
   task: Task;
   /** 流程、长程任务 */
@@ -96,15 +96,15 @@ export interface InternalTaskView {
   /** 状态写明原因（和看板、任务详情同一份 taskStatusText） */
   status: string;
   /**
-   * 进度：和看板卡同一份（taskBoardProgress：流程是做完的步数、长程任务是已验收的阶段数）。311 号票：计划授权之前（看板卡上写"尚无计划"）
+   * 进度：和看板卡同一份（taskBoardProgress：流程是做完的步数、长程任务是已验收的阶段数）。计划授权之前（看板卡上写"尚无计划"）
    * 这里没有——状态已经写了"规划中""待确认 · 计划等你确认"，不再同时写"尚无计划"（projectRowProgress）
    */
   progress: BoardProgress | undefined;
   /** 这个任务名下的 token 总量 */
   tokens: number;
-  /** 其中缓存命中的（311 号票：写成"（其中缓存命中 …）"） */
+  /** 其中缓存命中的（写成"（其中缓存命中 …）"） */
   cacheHitTokens: number;
-  /** 能不能在项目页上归档（结束了的，用户手动归档：64 号票，和全局任务一样只有用户能归档；项目在用时运营方案里的一条不能，141 号票） */
+  /** 能不能在项目页上归档（结束了的，用户手动归档：和全局任务一样只有用户能归档；项目在用时运营方案里的一条不能） */
   archivable: boolean;
 }
 
@@ -116,7 +116,7 @@ function internalTaskView(state: UiState, task: Task): InternalTaskView {
     progress: projectRowProgress(state, task),
     tokens: taskTokenTotal(state, task.id),
     cacheHitTokens: taskTokenCacheHit(state, task.id),
-    // 141 号票：项目在用时运营方案里的一条不能归档（要去掉请项目负责人改运营方案）
+    // 项目在用时运营方案里的一条不能归档（要去掉请项目负责人改运营方案）
     archivable: availableTaskActions(task, "user").includes("archive") && taskOperationsLock(state, task) === undefined,
   };
 }
@@ -132,7 +132,7 @@ export interface ProjectInternalTasks {
 }
 
 /**
- * 项目页的"内部任务"一栏（64 号票）：这个项目的内部任务（由项目的负责人执行的，不上全局看板），没结束的、结束了的、
+ * 项目页的"内部任务"一栏：这个项目的内部任务（由项目的负责人执行的，不上全局看板），没结束的、结束了的、
  * 归档了的三组，各自新近有变化的在前。项目删掉了（不在项目列表里）就没有
  */
 export function projectInternalTasks(state: UiState, projectId: string): ProjectInternalTasks {
@@ -156,7 +156,7 @@ export function selectableProjectNames(state: UiState): string[] {
 }
 
 /**
- * 这个项目还在立项（立项书没确认，64 号票）：只涉及它的任务是它的内部任务，确认立项书之前不能发起（守护进程同样核对）。
+ * 这个项目还在立项（立项书没确认）：只涉及它的任务是它的内部任务，确认立项书之前不能发起（守护进程同样核对）。
  * "发起任务"时只选了它，对话框说明原因、不让发起
  */
 export function stillChartering(state: UiState, name: string): boolean {

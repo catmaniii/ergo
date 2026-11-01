@@ -1,8 +1,8 @@
-// 简单提醒卡菜单的界面那一半（156 号票）：菜单项由状态层的 reminderMenu 算（state/reminder-menu.ts），这里只管画和做，
+// 简单提醒卡菜单的界面那一半：菜单项由状态层的 reminderMenu 算（state/reminder-menu.ts），这里只管画和做，
 // 写法照任务菜单（ui/task-menu.tsx）：
 // - ReminderMenuPopup：贴着卡片弹出（ui/popup.tsx 的 PopupMenu），样子和任务卡的菜单同一个（.row-menu.task-menu）；
 // - useReminderActs：点了一项之后做什么——改时间弹出改时间的对话框（ui/reschedule-dialog.tsx 的 ReminderRescheduleDialog），
-//   存了交给要动手的提醒；取消提醒直接做（和提醒卡上的按钮一样不再问）；185 号票起归档直接做，删除先确认一次（ReminderDeleteConfirm，
+//   存了交给要动手的提醒；取消提醒直接做（和提醒卡上的按钮一样不再问）；归档直接做，删除先确认一次（ReminderDeleteConfirm，
 //   聊天里的提醒卡上的"删除"也用它）。"多选"由用的地方自己接。
 // 要动手的提醒（ReminderActsTarget）：真提醒的改时间、取消落在它的提醒卡上（save / cancel_reminder），归档、删除交 reminder_action；
 // 原型的假提醒在页面上演——由看板给。
@@ -47,7 +47,7 @@ export function ReminderMenuPopup({ anchor, align, items, onPick, onClose }: { a
   );
 }
 
-/** 删一条提醒之前的确认（185 号票）：写明删了以后什么样、收不回；"留着"关掉，"删除"才删 */
+/** 删一条提醒之前的确认：写明删了以后什么样、收不回；"留着"关掉，"删除"才删 */
 export function ReminderDeleteConfirm({ title, subject, onCancel, onConfirm }: { title: string; subject: ReminderMenuSubject; onCancel(): void; onConfirm(): void }) {
   const confirm = reminderDeleteConfirm(title, subject);
   return (

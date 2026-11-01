@@ -1,8 +1,8 @@
-// 秘书给出项目的服务的入口（133 号票）：用户对秘书说"打开简报站""简报站的页面在哪"时，秘书用 open_service 按名字（服务的名字、
+// 秘书给出项目的服务的入口：用户对秘书说"打开简报站""简报站的页面在哪"时，秘书用 open_service 按名字（服务的名字、
 // 项目的名字或编号）找到这个服务，把入口作为一张"服务入口卡"（service_entry）放进聊天——卡出来就是已处理（没有要用户选的），
 // 卡上写"打开「X」"和在不在线（前端按手里的服务状态现画），点了在内置浏览器里打开。只产生卡片，不落入任何关注类别。
 // 秘书查看板时也多一节"项目的服务"（serviceBoardSection，board/tool.ts 接上）。
-// 257 号票：用户说"把简报站关了""把简报站开起来"时，秘书用 switch_project_services 按名字找到项目，交给和项目卡片、项目页上的
+// 用户说"把简报站关了""把简报站开起来"时，秘书用 switch_project_services 按名字找到项目，交给和项目卡片、项目页上的
 // "关闭""启动"同一个入口（ProjectServices.power）——用户说了就是确认，不另出卡；等一小会儿把做完的样子写进工具结果。
 import { type ProjectServiceView, PURGED_TEXT, ServiceEntryCardPayload, serviceLine, serviceShown, t, Type } from "@ergo/protocol";
 import { defineHostTool, type HostTool } from "../agent-manager/host-tools.ts";
@@ -83,7 +83,7 @@ export function openServiceTool(deps: { services: Pick<ProjectServices, "view">;
   });
 }
 
-/** 秘书的"启动、关闭项目的服务"（257）：和项目卡片、项目页上的按钮同一个入口，用户说了就是确认 */
+/** 秘书的"启动、关闭项目的服务"：和项目卡片、项目页上的按钮同一个入口，用户说了就是确认 */
 export function switchServicesTool(deps: {
   services: Pick<ProjectServices, "view" | "power" | "settled">;
   projectName: (projectId: string) => string | undefined;

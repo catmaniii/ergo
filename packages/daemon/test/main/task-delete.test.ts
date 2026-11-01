@@ -1,4 +1,4 @@
-// 主切面：删除任务、没结束的任务先取消再归档（186 号票）。真的守护进程，秘书、负责人、子 agent 都接 faux 剧本，测试扮演前端。
+// 主切面：删除任务、没结束的任务先取消再归档。真的守护进程，秘书、负责人、子 agent 都接 faux 剧本，测试扮演前端。
 // - 删除（task_action / task_batch_action 的 delete）：任务、负责人会话（事件整条换成"已删除"标记、pi 的会话文件整个删掉）、
 //   子 agent 的会话、工作目录（outputs/<任务>）都删掉；执行中的先停（取消、负责人和子 agent 停下），定时的不再触发；
 //   用户本人在里面说过的话作为素材留着（原文副本），系统记下的结局这类记录随任务删；别的任务一点不动；
@@ -104,7 +104,7 @@ describe("删除任务", () => {
     const outcomes = () => daemon.materials.list({ kind: "task_outcome" });
     await waitUntil(() => outcomes().some((m) => m.task === "t-1") && outcomes().some((m) => m.task === "t-2"), { describe: () => "等两个任务的结局记成素材" });
     expect(fs.existsSync(sessionOf(td, "tm-1"))).toBe(true);
-    // 272 号票：整理一次（t-1 的结局读进推理库成了证据），秘书问记忆时引过它（简报按证据编号引原话、不带素材 id）——
+    // 整理一次（t-1 的结局读进推理库成了证据），秘书问记忆时引过它（简报按证据编号引原话、不带素材 id）——
     // 删任务时连带彻底删除这条结局，问记忆那次调用的记录和完整内容也要按证据编号找到、改写
     expect(await daemon.plugins.service(MEMORY_NIGHTLY)!.runNow()).toMatchObject({ state: "ran" });
     const outcomeEv = evidenceOfMaterial(td.dataDir, outcomes().find((m) => m.task === "t-1")!.id);
@@ -132,7 +132,7 @@ describe("删除任务", () => {
     expect(said).toMatchObject({ kind: "user_utterance", conversation: TM1 });
     expect(fs.existsSync(path.join(td.dataDir, "materials", said!.original!.path))).toBe(true);
     expect(outcomes().filter((m) => m.task === "t-1")).toEqual([]);
-    // 272 号票：问记忆那次调用的记录和完整内容按证据编号找到、照彻底删除的口径改写了
+    // 问记忆那次调用的记录和完整内容按证据编号找到、照彻底删除的口径改写了
     expect(askMemoryNow(daemon.store, "call-ask-272")).toEqual({ summary: PURGED_TEXT, result: PURGED_TEXT });
     expect(JSON.stringify(daemon.store.readGlobal(0, 1_000_000))).not.toContain(ASKED);
     // 别的任务一点不动：任务、会话、会话文件、工作目录、素材都在

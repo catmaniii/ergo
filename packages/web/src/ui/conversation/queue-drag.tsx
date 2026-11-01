@@ -1,4 +1,4 @@
-// 聊天区里排队的消息（144 号票）：叉掉一条、长按（电脑上按住）拖动改顺序。会话组件挂一个 QueueDragProvider（这个会话现在排着的消息 id、
+// 聊天区里排队的消息：叉掉一条、长按（电脑上按住）拖动改顺序。会话组件挂一个 QueueDragProvider（这个会话现在排着的消息 id、
 // 叉掉和交出新顺序的函数、量气泡位置用的根元素），排队的气泡（ChatItemView）从 useQueuedBubble 取 pointer 事件、要挪多少、落点占位。
 // 拖动的规则是 state/queue-drag.ts 的纯函数，这里只把 DOM 事件、长按计时、量出来的位置交进去。不用拖拽库。
 // - 指针挪动、松手听在 window 上（拖出气泡也跟着走）；拖着的时候手机上不让页面跟着滚（不被动的 touchmove 里 preventDefault）；

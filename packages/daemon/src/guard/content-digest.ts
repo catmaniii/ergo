@@ -1,4 +1,4 @@
-// 效果日志里内容类参数的"长度 + 摘要哈希"（68 号票）：缩是 effect-log.ts 的 effectLogArgs，按哈希计次是 grants.ts。
+// 效果日志里内容类参数的"长度 + 摘要哈希"：缩是 effect-log.ts 的 effectLogArgs，按哈希计次是 grants.ts。
 // 缩过的值是 `{"$digest": {length, sha256}}`，和规则引擎的 `{"$unknown": …}` 一样是只有一个键的对象。
 // 哈希的原文是授权项对象范围里的写法（scopeValueText，也放在这里：缩和计次用同一份，比哈希和比原文结果才一样）。
 import { createHash } from "node:crypto";

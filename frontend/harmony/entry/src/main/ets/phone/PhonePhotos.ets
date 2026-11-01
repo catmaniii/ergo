@@ -11,7 +11,7 @@ import { closeQuietly, deviceName, errorText, permissionGranted, requestPermissi
 import { GeoSpot, PhoneAddress, PhoneGeocoder } from './PhoneGeocode';
 
 /**
- * 读本机：照片的时间地点（300 号票）。二狗的网页经原生桥调（NativeBridge.ets 的 phonePhotos* 三个方法），读到的交回网页，网页再交给
+ * 读本机：照片的时间地点。二狗的网页经原生桥调（NativeBridge.ets 的 phonePhotos* 三个方法），读到的交回网页，网页再交给
  * 用户自己的守护进程（POST /api/data-sources/phone-photos/push）；App 自己不存、不另外发到别处。网页一侧的包装在 packages/web/src/app/native-phone.ts。
  * - 授权：READ_IMAGEVIDEO（读相册；受限权限，调试包走自动签名，上架要审核，docs/architecture/research/36）和 MEDIA_LOCATION（照片里的位置，
  *   没有它系统把照片的 GPS 信息去掉）一起要，用到时弹系统的授权框；拒过的只有用户自己点（userAction）才拉起二次授权；
@@ -19,7 +19,7 @@ import { GeoSpot, PhoneAddress, PhoneGeocoder } from './PhoneGeocode';
  *   （GPSLatitude / GPSLongitude 和南北东西）；不读、不交照片本身，交给网页的编号是相册里这张照片的地址（守护进程只存它的哈希）。
  *   读过的地点记在内存里（同一张照片下次不再打开文件）；
  * - 相册只在本机的照片读得到（API 26 起只存在云端的读不到）。
- * - 308 号票：有地点的照片交之前用系统的坐标转地址转成地名（PhoneGeocode.ets，200 米内转过的不再转，转不了的只交坐标），一起交。
+ * -有地点的照片交之前用系统的坐标转地址转成地名（PhoneGeocode.ets，200 米内转过的不再转，转不了的只交坐标），一起交。
  */
 
 const READ_PHOTOS: Permissions = 'ohos.permission.READ_IMAGEVIDEO';
@@ -32,7 +32,7 @@ class PhotoItem {
   takenAt: number = 0;
   lat?: number;
   lon?: number;
-  /** 拍摄地点的系统地名（308 号票，转得了才有） */
+  /** 拍摄地点的系统地名（转得了才有） */
   address?: PhoneAddress;
 }
 
@@ -167,7 +167,7 @@ export class PhonePhotos {
         }
         photos.push(item);
       }
-      // 有地点的转成地名（308 号票）：转不了的只交坐标
+      // 有地点的转成地名：转不了的只交坐标
       const withPlace = photos.filter((p: PhotoItem) => p.lat !== undefined && p.lon !== undefined);
       const spots = withPlace.map((p: PhotoItem) => {
         const spot = new GeoSpot();

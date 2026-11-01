@@ -1,18 +1,18 @@
-// 个人档案的候选（283 号票，用户 2026-10-25 定）：记忆管理员把白天听到的、关于某个人的固定信息（"小张换工作了""表弟叫小张"）攒成候选；
+// 个人档案的候选：记忆管理员把白天听到的、关于某个人的固定信息（"小张换工作了""表弟叫小张"）攒成候选；
 // 还没有档案、提到够几次的人提议建档；候选第二天早上合成一张核对卡（卡片类型 personal_file_suggest）给用户逐条确认，不每句话打断。
 // 推断出来的东西永远只当候选：用户在卡上勾了才写进档案（留痕：经记忆管理员提议、你在卡上确认），没勾的记成"没写"，同样的不再提。
-// - 谁交候选：每晚整理（记忆插件，memory/personal-files-link.ts）、284 号票的访谈（记忆管理员）——都交 CandidateInput，带出处的素材和日子；
+// - 谁交候选：每晚整理（记忆插件，memory/personal-files-link.ts）、访谈（记忆管理员）——都交 CandidateInput，带出处的素材和日子；
 // - 认人：说的是用户自己的对到本人那份；按称呼、别名对到已有的档案；都对不上的按称呼（和别名）当一个还没档案的人（personKey "n:<称呼>"）；
 // - 只收能写成"字段：值"的那几样（和我的关系、别名、生日、单位或学校、过敏和用药）；号码类、住址不收（那些只经秘书的核对卡、逐位核对）；
 //   值和档案里现在的一样的不收；同一个人同一字段来了新的，旧的作废；
 // - 一天一张卡：还没处理的那张接着往里加（新版本），处理了的下一次另起一张；卡进待我处理（不卡事）；
-// - 283 时秘书直接写进档案的生日、纪念日问一句要不要每年提醒也用这张卡（一条 reminder，origin secretary）；302 号票起直接写的按默认
+// - 283 时秘书直接写进档案的生日、纪念日问一句要不要每年提醒也用这张卡（一条 reminder，origin secretary）；直接写的按默认
 //   直接建每年提醒、不再出这张，以前出的照样能点；
 // - 出处的话被忘掉、彻底删除了：只靠那几条素材的候选作废，彻底删除的连候选里的值、卡上的值一起改写（memory_command 订阅）。
-// 299 号票：用户在手机上的二狗 App 里从通讯录挑的人（origin contacts，"手机"插件经 KERNEL.personalFiles 交来）——是用户自己挑的，
+// 用户在手机上的二狗 App 里从通讯录挑的人（origin contacts，"手机"插件经 KERNEL.personalFiles 交来）——是用户自己挑的，
 // 不用提到几次就上卡（拒过建档的也再提一次），电话、住址也收（号码在卡上逐位核对），值按档案的规矩规范化；候选记着从哪个数据源来
 // （dataSource），断开那个数据源并删已导入的时，还没写进档案的候选连卡上的值一起彻底删除（registerCandidateDeletion）。
-// 301 号票：用户放进导入文件夹的通讯录 vCard（origin vcard，Google 插件解析后经 KERNEL.personalFiles 交来）走同一条路——也是用户自己交来的：
+// 用户放进导入文件夹的通讯录 vCard（origin vcard，Google 插件解析后经 KERNEL.personalFiles 交来）走同一条路——也是用户自己交来的：
 // 不用提到几次就上卡、电话住址也收、值按档案的规矩规范化、记着数据源；另外收关系、别名、纪念日（vCard 里有）；和 contacts 不同的是
 // 拒过的（建档、同一个值）不再提（同一份通讯录再导一次不该再问一遍）。一个人有几个电话、住址时交来的字段带 also（别的几个）：
 // 档案里现在的值是其中之一就不提这个字段（不拿通讯录里的第二个号码去换档案里的那个）。
@@ -49,16 +49,16 @@ import { personalFileEvent, PERSONAL_FILE_EVENT, PERSONAL_FILES_CHANNEL, type Pe
 import type { PersonalFileWrite, PersonRef } from "./personal-files.ts";
 import { candidatesOf, type StoredCandidate } from "./view.ts";
 
-/** 还没有档案的人，提到几次才提议建档（用户 2026-10-25 的"提到够几次"；拿不准，先定 3 次，见票的 Comments） */
+/** 还没有档案的人，提到几次才提议建档（"提到够几次"；拿不准，先定 3 次） */
 export const NEW_PERSON_MIN_MENTIONS = 3;
 
 /** 候选能写的字段（个人档案的字段编号）：和我的关系、别名、生日、单位或学校和职位、过敏和用药 */
 export const CANDIDATE_FIELDS: readonly string[] = ["relation", "aliases", "birthday", "work", "health"];
 
-/** 从通讯录挑的人（299 号票）能写的字段：电话、生日、住址（通讯录里只取这几样） */
+/** 从通讯录挑的人能写的字段：电话、生日、住址（通讯录里只取这几样） */
 export const CONTACT_FIELDS: readonly string[] = ["phone", "birthday", "address"];
 
-/** 导入的通讯录 vCard（301 号票）能写的字段：电话、生日、住址、和我的关系、别名，另外每一个纪念日（"anniversary:<名字>"） */
+/** 导入的通讯录 vCard能写的字段：电话、生日、住址、和我的关系、别名，另外每一个纪念日（"anniversary:<名字>"） */
 export const VCARD_FIELDS: readonly string[] = ["phone", "birthday", "address", "relation", "aliases"];
 
 /** 这个来源能写这个字段吗 */
@@ -90,11 +90,11 @@ export interface CandidateInput {
   /** 哪几天说的（本地日期） */
   heard: readonly string[];
   /**
-   * 固定信息：字段（编号或名字）、照抄的值。also 是同一个人这个字段的别的几个值（301：通讯录里的第二个电话、住址）——
+   * 固定信息：字段（编号或名字）、照抄的值。also 是同一个人这个字段的别的几个值（通讯录里的第二个电话、住址）——
    * 档案里现在的值是其中之一就不提这个字段
    */
   fields: ReadonlyArray<{ field: string; value: string; also?: readonly string[] }>;
-  /** 从哪个数据源来的（299 号票：通讯录选人是 phone-contacts）：断开它并删已导入的时，还没写进档案的跟着删 */
+  /** 从哪个数据源来的（通讯录选人是 phone-contacts）：断开它并删已导入的时，还没写进档案的跟着删 */
   dataSource?: string;
 }
 
@@ -189,7 +189,7 @@ export function createCandidates(options: CandidatesOptions): PersonalFileCandid
   const add: PersonalFileCandidates["add"] = (origin, inputs) => {
     const events: NewEvent[] = [];
     let added = 0;
-    // 用户自己从通讯录挑的（299）、导入的 vCard（301）：电话、住址也收，值按档案的规矩规范化；挑的人拒过的值再挑一次照样上卡，
+    // 用户自己从通讯录挑的、导入的 vCard：电话、住址也收，值按档案的规矩规范化；挑的人拒过的值再挑一次照样上卡，
     // 导入的拒过的不再提
     const picked = origin === "contacts";
     const provided = userProvided(origin);
@@ -306,7 +306,7 @@ export function createCandidates(options: CandidatesOptions): PersonalFileCandid
         }
         continue;
       }
-      // 用户从通讯录挑的人（299）：不用提到几次，拒过建档的也再提；导入的 vCard（301）：不用提到几次，拒过建档的不再提
+      // 用户从通讯录挑的人：不用提到几次，拒过建档的也再提；导入的 vCard：不用提到几次，拒过建档的不再提
       const picked = rows.some((c) => c.origin === "contacts");
       const imported = rows.some((c) => c.origin === "vcard");
       if (!picked && createRejected(key)) {
@@ -352,7 +352,7 @@ export function createCandidates(options: CandidatesOptions): PersonalFileCandid
     } else {
       const created = cards.buildCreate({ type: "personal_file_suggest", payload });
       cardId = created.card.id;
-      // 299：只有从手机通讯录挑的人时，来源写"手机通讯录"；301：只有导入的通讯录时写"导入的通讯录"，两样都有写"通讯录"
+      // 只有从手机通讯录挑的人时，来源写"手机通讯录"；只有导入的通讯录时写"导入的通讯录"，两样都有写"通讯录"
       const source = items.every((i) => i.origin === "contacts")
         ? t("personalFiles.suggest.sourceContacts")
         : items.every((i) => i.origin === "vcard")
@@ -498,8 +498,8 @@ export function defineSuggestCardType(deps: { store: EventStore; files: Candidat
       },
     },
     toText: cardText,
-    // 每年提醒的勾带着生日、纪念日的月日：整个去掉（302 号票，和 personal_file、interview_files 两种核对卡一样）；
-    // 建档那一条的编号里有称呼（"new:n:王小明"），换成按先后编的（301 号票）
+    // 每年提醒的勾带着生日、纪念日的月日：整个去掉（和 personal_file、interview_files 两种核对卡一样）；
+    // 建档那一条的编号里有称呼（"new:n:王小明"），换成按先后编的
     purge: (p) => ({
       ...p,
       title: t("personalFiles.suggest.purgedTitle", { purged: PURGED_TEXT }),
@@ -522,7 +522,7 @@ export function deletedMaterials(payload: MemoryCommandEventPayload): { material
 }
 
 /**
- * 断开数据源并删已导入的（299 号票，"删除参与方"登记表的 DATA_SOURCE_DELETION）：从这个数据源来的候选（通讯录选人的）——
+ * 断开数据源并删已导入的（"删除参与方"登记表的 DATA_SOURCE_DELETION）：从这个数据源来的候选（通讯录选人的）——
  * 事件里的称呼、值彻底删除（改写），还没处理的作废，合进过的候选核对卡每个版本字段级改写（同一个事务）；提交之后还开着的那张卡
  * 按剩下的候选重排，没剩下的卡作废（待办里不再挂着）。已经写进档案的（用户在卡上确认过的）不动：那是用户自己的档案了
  */

@@ -1,4 +1,4 @@
-// 设置 · 备份里选定一个文件夹之后（356 号票）：先校验（绝对路径、不在数据目录里、写得进去），不存在的问一下要不要新建，都过了才写配置。
+// 设置 · 备份里选定一个文件夹之后：先校验（绝对路径、不在数据目录里、写得进去），不存在的问一下要不要新建，都过了才写配置。
 // 不能用的抛错（message 是原因，选文件夹的框写在框里、框不关）。不碰 DOM（测试把守护进程换成假的）。
 import { type BackupConfigBody, type BackupFolderCheck, type BackupStatusView, t } from "../state/index.ts";
 

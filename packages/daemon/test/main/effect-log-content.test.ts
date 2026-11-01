@@ -1,7 +1,7 @@
-// 主切面：效果记录不存写进去的全文（68 号票）。真的守护进程，agent 接 faux 剧本，测试扮演前端：
+// 主切面：效果记录不存写进去的全文。真的守护进程，agent 接 faux 剧本，测试扮演前端：
 // - 新写的效果记录里，写文件的全文、改文件的新旧片段只有字符数和 SHA-256：事件日志里没有原文，效果日志（派生视图）里也没有；
-//   路径照原样，详情页的效果记录照常显示（摘要、涉及的文件）；调用的完整内容（53 号票，受 65 号票的保留期管）里照旧有原文；
-// - 本票之前的数据目录：效果日志里还有原文。启动时从事件日志补一遍效果日志，归并时缩——效果日志变小、条数和序号不变，
+//   路径照原样，详情页的效果记录照常显示（摘要、涉及的文件）；调用的完整内容（受保留期管）里照旧有原文；
+// - 以前的数据目录：效果日志里还有原文。启动时从事件日志补一遍效果日志，归并时缩——效果日志变小、条数和序号不变，
 //   事件日志原样不动（规格第 15 节：事件日志不可修改）；时序规则照样看得到之前做过什么（阶段上的规则"读报告之前要先写过笔记"
 //   迁移后照样满足），详情页的效果记录和迁移前一样。
 import { createHash } from "node:crypto";
@@ -78,7 +78,7 @@ describe("新写的效果记录", () => {
     const everything = JSON.stringify([daemon.store.ofType(GUARD_EVENTS.effectRecorded), effectRows(daemon.store)]);
     for (const text of ["装修师傅", "周四上午十点"]) expect(everything).not.toContain(text);
 
-    // 详情页：效果记录照常（摘要、改动的文件），注明写了多少；完整内容里照旧有原文（53 号票，受保留期管）
+    // 详情页：效果记录照常（摘要、改动的文件），注明写了多少；完整内容里照旧有原文（受保留期管）
     const writeDetail = (await toolCallDetail(url, write!.callId)).body;
     expect(writeDetail.args).toEqual({ path: "notes.md", content: NOTES });
     expect(writeDetail.effects).toEqual([
@@ -100,7 +100,7 @@ describe("新写的效果记录", () => {
   });
 });
 
-describe("本票之前的数据目录", () => {
+describe("以前的数据目录", () => {
   /** 阶段上的一条规则：读报告之前要先写过笔记（看效果日志里写文件的路径） */
   const notesFirst = {
     id: "notes-before-report",
@@ -157,7 +157,7 @@ describe("本票之前的数据目录", () => {
       const dbFile = path.join(first.daemon.layout.db, "ergo.db");
       await first.daemon.stop();
 
-      // 换回本票之前的样子：事件日志和效果日志里写文件、改文件的参数是原文，表上没有记口径的版本
+      // 换回以前的样子：事件日志和效果日志里写文件、改文件的参数是原文，表上没有记口径的版本
       const db = openDatabase(dbFile);
       db.exec("DROP TABLE effect_log_format");
       // bash 拆出来的写文件只带路径，本来就没有内容

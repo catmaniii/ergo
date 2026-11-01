@@ -1,13 +1,13 @@
 // 执行中各阶段的状态（规格第 8 节"阶段执行""状态补充""返工"）：控制器（execution.ts）用的纯函数。
 // 阶段的状态存在任务里（Task.stages.list，看板频道上的 task 事件），不在 pi 会话里。
 // - 前置阶段都验收了才能开始（missingPrerequisites）；
-// - 同一时刻负责人只做一个阶段（running 或 accepting）；可并行的阶段由负责人依次执行，用户同意派子 agent 时（20 号票）
+// - 同一时刻负责人只做一个阶段（running 或 accepting）；可并行的阶段由负责人依次执行，用户同意派子 agent 时
 //   几个阶段才同时在做。有子 agent 在做的阶段（busy，控制器另外知道）不算负责人手头的；
 // - 负责人的当前阶段（currentStage）：它最后一次开始的那个（focus，记在任务里），不按计划里的顺序取；
 // - 下一步（nextStep）：负责人手头有在做的就接着做；没有就开始一个能开始的（之前做到一半停下的优先，其余按计划里的顺序）；
 //   在做的只剩子 agent 的就接着等它们；没有能开始的、有一支在等用户就转等我；阶段都建好了、全部验收了才完成（还没建阶段的不算完成）；
 // 开始执行时各阶段的样子（initialStages）在共享协议包里（Web 在还没开始执行时也按它列出）。
-// - 返工、从这里重做（reopen）：按依赖重开指定阶段和它的全部下游，其余不动（84 号票起阶段开始过就能做）；
+// - 返工、从这里重做（reopen）：按依赖重开指定阶段和它的全部下游，其余不动（阶段开始过就能做）；
 //   重开的范围（reopenScope，在共享协议包里）是它和下游里开始过的：没开始过的下游本来就是未开始。
 import { downstreamOf, type MessageScope, reopenScope, type StageState, stageStarted, type Task, type TaskStage, type TaskWaitReason } from "@ergo/protocol";
 
@@ -24,7 +24,7 @@ export function stageNow(stage: TaskStage, state: StageState, patch: Partial<Tas
   return { ...rest, ...patch, state };
 }
 
-/** 这一支停下等用户：在等什么（审批 id、待我处理事项 id、计划变更卡 id）、为什么（14 号票） */
+/** 这一支停下等用户：在等什么（审批 id、待我处理事项 id、计划变更卡 id）、为什么 */
 export function stageWaiting(stage: TaskStage, reason: TaskWaitReason, waitingOn: string, note?: string): TaskStage {
   return { ...stageNow(stage, "waiting"), waitReason: reason, waitingOn, ...(note === undefined ? {} : { waitNote: note }) };
 }
@@ -67,7 +67,7 @@ export function allAccepted(list: readonly TaskStage[]): boolean {
   return list.length > 0 && list.every((s) => s.state === "accepted");
 }
 
-/** busy：有子 agent 在做的阶段（20 号票），不算负责人手头的 */
+/** busy：有子 agent 在做的阶段，不算负责人手头的 */
 export function nextStep(list: readonly TaskStage[], busy: ReadonlySet<string> = new Set()): NextStep {
   if (allAccepted(list)) return { kind: "complete" };
   // 还没建阶段（不该在执行中出现）：什么也不做
@@ -84,16 +84,16 @@ export function nextStep(list: readonly TaskStage[], busy: ReadonlySet<string> =
 
 /**
  * 返工、从这里重做：重开指定阶段和它的全部下游——回到未开始，清掉验收结果、在等什么、这一轮的计数（拉回、验收退回、催促，
- * 重开时清零）、宣布完成时写的那句和引用的用户原话（125 号票）、系统查到的个数（274 号票）；开始过的记下是任务第几次重做时重开的 reopenNo（84 号票：效果日志里判定时
+ * 重开时清零）、宣布完成时写的那句和引用的用户原话、系统查到的个数；开始过的记下是任务第几次重做时重开的 reopenNo（效果日志里判定时
  * 重做次数比它小的是上一轮的）。其余不动
  */
 export function reopen(list: readonly TaskStage[], stageId: string, reopenNo?: number): TaskStage[] {
   const reopened = new Set(downstreamOf(list, stageId));
   return list.map((s) => {
     if (!reopened.has(s.stageId)) return s;
-    // 125 号票：上一轮引用、核实过的用户原话（userWords）也清掉——新的一轮交上来时再引用
-    // 274 号票：上一轮宣布完成时系统查到的个数（observed）也清掉——新的一轮宣布完成时重新汇总
-    // 361 号票：这一份预算、估的和实际的次数也清掉——重新开始时按那时的实测重算
+    // 上一轮引用、核实过的用户原话（userWords）也清掉——新的一轮交上来时再引用
+    // 上一轮宣布完成时系统查到的个数（observed）也清掉——新的一轮宣布完成时重新汇总
+    // 这一份预算、估的和实际的次数也清掉——重新开始时按那时的实测重算
     const { startedAt: _started, summary: _summary, pullBacks: _p, returns: _r, nudges: _n, lastFailed: _l, userWords: _w, observed: _o, budget: _b, calls: _c, ...rest } = stageNow(s, "pending");
     // 交上来过的记下最近一次没通过的标准（结论清掉了；开始这个阶段时交代里带上）
     const lastFailed = s.acceptance.some((a) => a.result) ? s.acceptance.filter((a) => a.result && !a.result.passed).map((a) => a.criterion) : s.lastFailed;
@@ -136,8 +136,8 @@ export function guardStageId(list: readonly TaskStage[], focus?: string, busy?: 
 }
 
 /**
- * 任务的负责人会话里一条消息、一条时间线记录的归属（25 号票：时间线的全局层按阶段聚色块）。"当前阶段"只在这里算：
- * 说的是哪个阶段就写哪个；不写就是负责人的当前阶段（guardStageId，按任务里记的 focus：它最后一次开始的那个，20 号票）；
+ * 任务的负责人会话里一条消息、一条时间线记录的归属（时间线的全局层按阶段聚色块）。"当前阶段"只在这里算：
+ * 说的是哪个阶段就写哪个；不写就是负责人的当前阶段（guardStageId，按任务里记的 focus：它最后一次开始的那个）；
  * 还没开始执行的只有任务。执行控制器的系统说明、负责人的回复、用户发给负责人的消息都用它；工具调用记录取守卫判定那一刻的。
  * 这里不知道哪些阶段有子 agent 在做（只在 focus 已经验收、放下了时才用得上），子 agent 的消息自己写明阶段
  */

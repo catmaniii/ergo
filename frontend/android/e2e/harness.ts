@@ -1,4 +1,4 @@
-// 模拟器联调的底座（349 号票）：起临时守护进程、起两个"外部网站"（不同来源）、记每一步的结果和截图。
+// 模拟器联调的底座：起临时守护进程、起两个"外部网站"（不同来源）、记每一步的结果和截图。
 import { type ChildProcess, spawn } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import http from "node:http";

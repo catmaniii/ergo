@@ -1,11 +1,11 @@
-// 项目系统的边界（277 号票，方案 C；照 test/calendar/boundary.test.ts 扫 import）：
+// 项目系统的边界（方案 C；照 test/calendar/boundary.test.ts 扫 import）：
 // 项目系统是 projects/、work-orders/、operations/、project-ops/、project-services/ 五个目录，对外只有入口 projects/api.ts
-// （280 号票起运营层另有自己的入口 project-ops/api.ts，见第 4 条）。
+// （运营层另有自己的入口 project-ops/api.ts，见第 4 条）。
 // 1. 这五个目录之外只 import 入口（静态 import、export … from、import() 都算）；组合根 daemon.ts 另外只准 import 组装函数
-//    projects/system.ts（278 号票：项目系统的接线收成 createProjectSystem 一处，组合根不再直连内部文件）；
+//    projects/system.ts（项目系统的接线收成 createProjectSystem 一处，组合根不再直连内部文件）；
 // 2. 入口露的是窄接口：不把项目系统的内部服务（项目服务、派单器、项目的服务、project_ops……）原样转出去，也不 export *；
 // 3. 检查本身有效：扫的办法认得出直连（假的直连会红），内核的调用方确实经入口。
-// 4. 运营层（280 号票，方案 C 第 4 点：project-ops/、project-services/ 照插件的纪律写）：自己的入口 project-ops/api.ts 也在 ENTRIES 里；
+// 4. 运营层（方案 C 第 4 点：project-ops/、project-services/ 照插件的纪律写）：自己的入口 project-ops/api.ts 也在 ENTRIES 里；
 //    项目系统的其余部分只经它用运营层，组装函数 projects/system.ts 另外只经 project-ops/layer.ts 装它（像插件清单装 plugin.ts）；
 //    运营层用项目系统的其余部分也只经 projects/api.ts（拆成插件那天不用再改 import）；守卫运行时不再按名字认它的工具（工具自己声明参数要打码）。
 import fs from "node:fs";
@@ -33,7 +33,7 @@ function sourceFiles(dir: string): SourceFile[] {
 const PROJECT_SYSTEM = ["projects", "work-orders", "operations", "project-ops", "project-services"];
 /** 项目系统的入口 */
 const PROJECT_ENTRY = "projects/api.ts";
-/** 运营层（280 号票）：项目系统里照插件的纪律写的两个目录、它的入口、它的装配（只给组装函数用） */
+/** 运营层：项目系统里照插件的纪律写的两个目录、它的入口、它的装配（只给组装函数用） */
 const OPS_LAYER = ["project-ops", "project-services"];
 const OPS_ENTRY = "project-ops/api.ts";
 const OPS_ASSEMBLY = "project-ops/layer.ts";
@@ -41,7 +41,7 @@ const OPS_ASSEMBLY = "project-ops/layer.ts";
 const ENTRIES = [PROJECT_ENTRY, OPS_ENTRY];
 /** 组合根：装配项目系统 */
 const COMPOSITION_ROOT = "daemon.ts";
-/** 组装函数（278 号票）：组合根只经它装项目系统，不直连别的内部文件 */
+/** 组装函数：组合根只经它装项目系统，不直连别的内部文件 */
 const ASSEMBLY = "projects/system.ts";
 /** 项目系统的内部服务：入口不转出它们（调用方要的那几样另写成小接口） */
 const INTERNAL_SERVICES = [
@@ -81,7 +81,7 @@ const allowedFor = (file: string) => (file === COMPOSITION_ROOT ? [...ENTRIES, A
 const inOpsLayer = (file: string) => OPS_LAYER.some((dir) => file.startsWith(`${dir}/`));
 
 /**
- * 项目系统里运营层的边界（280 号票）："谁 → 哪个文件"：
+ * 项目系统里运营层的边界："谁 → 哪个文件"：
  * - 运营层之外（projects/、work-orders/、operations/）只经运营层的入口；组装函数另外只准经运营层的装配；
  * - 运营层用项目系统的其余部分只经项目系统的入口（运营层里互相 import、import 内核的都不管）
  */
@@ -128,7 +128,7 @@ describe("项目系统的边界", () => {
     for (const entry of ENTRIES) expect(files.some((f) => f.path === entry)).toBe(true);
     const viaEntry = files.filter((f) => !inProjectSystem(f.path)).flatMap((f) => (importsOf(f).some((target) => ENTRIES.includes(target)) ? [f.path] : []));
     expect(viaEntry).toEqual(expect.arrayContaining(["prompts/registry.ts", "secretary/tool-list.ts", "tasks/slots.ts"]));
-    // 组合根确实经组装函数装项目系统（278 号票），项目系统里只碰它这一个文件
+    // 组合根确实经组装函数装项目系统，项目系统里只碰它这一个文件
     const root = files.find((f) => f.path === COMPOSITION_ROOT)!;
     expect(importsOf(root).filter(inProjectSystem)).toEqual([ASSEMBLY]);
   });
@@ -154,7 +154,7 @@ describe("项目系统的边界", () => {
     const board = files.find((f) => f.path === "board/kinds.ts")!;
     const tampered = files.map((f) => (f === board ? { ...f, content: `${f.content}\nimport { getProjectRow } from "../projects/views.ts";\n` } : f));
     expect(directImports(tampered)).toEqual(["board/kinds.ts → projects/views.ts"]);
-    // 往真的组合根里加一处绕过组装函数的直连：也红（278 号票）
+    // 往真的组合根里加一处绕过组装函数的直连：也红
     const root = files.find((f) => f.path === COMPOSITION_ROOT)!;
     const bypassed = files.map((f) => (f === root ? { ...f, content: `${f.content}\nimport { createWorkOrders } from "./work-orders/work-orders.ts";\n` } : f));
     expect(directImports(bypassed)).toEqual(["daemon.ts → work-orders/work-orders.ts"]);
@@ -173,7 +173,7 @@ describe("项目系统的边界", () => {
     expect(exportedNames("export interface ProjectOps {}\nexport const a = 1;\n")).toEqual(["ProjectOps", "a"]);
   });
 
-  it("运营层（280）：项目系统的其余部分只经它的入口 project-ops/api.ts，组装函数另外只经 project-ops/layer.ts 装它；它用项目系统的其余部分只经 projects/api.ts", () => {
+  it("运营层：项目系统的其余部分只经它的入口 project-ops/api.ts，组装函数另外只经 project-ops/layer.ts 装它；它用项目系统的其余部分只经 projects/api.ts", () => {
     expect(opsLayerCrossings(files)).toEqual([]);
     // 检查本身有效：入口、装配都在，项目系统的其余部分确实经入口（项目系统的入口转出工具名、秘书的工具、项目服务），组装函数确实经装配，
     // 运营层确实经项目系统的入口
@@ -213,7 +213,7 @@ describe("项目系统的边界", () => {
     expect(opsLayerCrossings(tampered)).toEqual(["projects/secretary-tools.ts → project-services/secretary-tool.ts"]);
   });
 
-  it("守卫运行时不再按名字认运营层的工具（280）：给人看的参数摘要不 import 项目系统、MCP 的东西，打码看工具自己的登记", () => {
+  it("守卫运行时不再按名字认运营层的工具：给人看的参数摘要不 import 项目系统、MCP 的东西，打码看工具自己的登记", () => {
     const describeFile = files.find((f) => f.path === "guard-runtime/describe.ts")!;
     expect(importsOf(describeFile).filter((target) => inProjectSystem(target) || target.startsWith("mcp/"))).toEqual([]);
     expect(describeFile.content).toMatch(/\.maskArgs === true/);

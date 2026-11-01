@@ -3,7 +3,7 @@ package com.catmaniii.ergo.browser
 import org.json.JSONObject
 
 /**
- * 浏览侧边栏（对应鸿蒙 browser/SidePanel.ets，147 号票）在 App 这一侧：原生的内置浏览器盖在二狗的网页上面，二狗的网页画的东西到不了它上面，
+ * 浏览侧边栏（对应鸿蒙 browser/SidePanel.ets）在 App 这一侧：原生的内置浏览器盖在二狗的网页上面，二狗的网页画的东西到不了它上面，
  * 所以侧边栏由 App 另开一个 WebView 承载：加载二狗的网页的侧边栏模式（地址加 ?ergo=side，网页一侧 packages/web/src/app/side-mode.ts），摆在最上面——
  * - 摆在哪由二狗的网页（"浏览"页）经原生桥 browserSide(json) 报来：宽屏右边一块，窄屏整屏盖住；第一次展开时才建，之后留着（收起只是藏起来），
  *   从右边滑进滑出；

@@ -1,4 +1,4 @@
-// 运营层对外的入口（280 号票，方案 C 第 4 点）。运营层是 project-ops/（秘书的
+// 运营层对外的入口（方案 C 第 4 点）。运营层是 project-ops/（秘书的
 // project_ops、负责人的 check_ops、运营接口清单的验收和登记）和 project-services/（替项目到 LSM 上线、撤下、一键启停、/apps 转发、
 // 缩略图）两个目录，照插件的纪律写，但一直开着、不给开关（不是插件，ADR-0027 的"五个插件，其余留内核"照旧）：
 // - 项目系统的其余部分（projects/、work-orders/、operations/）和内核只从这里拿运营层的东西，不 import 这两个目录里的别的文件；
@@ -17,9 +17,9 @@ export { OPEN_SERVICE_TOOL, RECENT_SERVICE_EVENTS_TOOL, SWITCH_SERVICES_TOOL } f
 
 // —— 项目系统的其余部分要的小接口（组装函数装好运营层，照这些交过去）——
 
-/** 转入使用那一套（268 号票）：项目服务（projects/projects.ts）、秘书和负责人提转入使用的工具（projects/go-live-tools.ts）要的 */
+/** 转入使用那一套：项目服务（projects/projects.ts）、秘书和负责人提转入使用的工具（projects/go-live-tools.ts）要的 */
 export interface OpsGoLive {
-  /** 转运营检查清单里运营接口清单那一项：照 112 号票的自动验收（没验过的在后台开验，验完了刷新还在等的卡） */
+  /** 转运营检查清单里运营接口清单那一项：照自动验收（没验过的在后台开验，验完了刷新还在等的卡） */
   checklistItem(project: Project): StandardChecklistItem;
   /** 转入使用时登记（和转入使用同一事务）：档案里那份运营接口清单验收全过了才有 */
   goLiveEvents(project: Project): NewEvent[];
@@ -27,7 +27,7 @@ export interface OpsGoLive {
   prepareGoLive(projectId: string): Promise<void>;
 }
 
-/** 谁在报事件（357 号票）：凭证认出来的服务 */
+/** 谁在报事件：凭证认出来的服务 */
 export interface ServiceEventCaller {
   /** LSM 里的名字（<项目编号>-<服务名>） */
   app: string;
@@ -45,7 +45,7 @@ export interface ServiceEventRefusal {
   message: string;
 }
 
-/** 网关的 POST /api/service-events 要的（357 号票，只在本机端口开）：先认凭证，再读请求体，再报 */
+/** 网关的 POST /api/service-events 要的（只在本机端口开）：先认凭证，再读请求体，再报 */
 export interface ServiceEventsApi {
   /** 请求体最多读多少字节（数据上限加上事件名、JSON 的壳）；超了的不留在内存里，算 oversized 报 */
   readonly maxBodyBytes: number;
@@ -57,8 +57,8 @@ export interface ServiceEventsApi {
 
 /** 秘书的工具里运营层给的（projects/secretary-tools.ts 接进项目系统给秘书的那几样）。先后是秘书看到的工具顺序（测试比对它） */
 export interface OpsSecretary {
-  /** 查看板时多的一节"项目的服务"（133 号票）；没有要列的是 undefined */
+  /** 查看板时多的一节"项目的服务"；没有要列的是 undefined */
   boardSection(): string | undefined;
-  /** 给出服务入口（133：open_service）、启停项目的服务（257：switch_project_services）、调使用中的项目的操作（260、268：project_ops）：按这个先后 */
+  /** 给出服务入口（open_service）、启停项目的服务（switch_project_services）、调使用中的项目的操作（project_ops）：按这个先后 */
   tools(): HostTool[];
 }

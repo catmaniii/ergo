@@ -1,5 +1,5 @@
-// 推理库 rg.db 的落盘和 manifest（225 号票，ADR-0027 的记忆插件、接入设计第 4 节）：
-// - 插件自己的数据目录里一个 SQLite（`fd.dataDirLayout().rgDb` = <数据目录>/memory/subtext/rg.db，338 号票搬过去的；
+// 推理库 rg.db 的落盘和 manifest（ADR-0027 的记忆插件、接入设计第 4 节）：
+// - 插件自己的数据目录里一个 SQLite（`fd.dataDirLayout().rgDb` = <数据目录>/memory/subtext/rg.db，搬过去的；
 //   之前是 db/rg.db），随备份快照带走；
 // - 库里的 manifest 表记下 schema 版本、@ergo/memory 的表版本、整理用的模型名、向量模型名、抽取器，建库时间；
 // - **版本对不上不自动迁移**：manifest 的 schema 或 @ergo/memory 的表版本（PRAGMA user_version）和代码认的不一样时，
@@ -14,7 +14,7 @@ import { openReadonlyDatabase } from "../storage/sqlite.ts";
 
 /** 推理库的 manifest 版本（守护进程这一侧的约定；表结构、整理记录的约定变了就加 1） */
 export const RG_DB_SCHEMA_VERSION = 1;
-/** 写进 manifest 的引擎名（326 号票包改名成 @ergo/memory 以后照旧写这个：库里已有的值，只是标识，不拿来比对） */
+/** 写进 manifest 的引擎名（包改名成 @ergo/memory 以后照旧写这个：库里已有的值，只是标识，不拿来比对） */
 export const RG_DB_ENGINE = "memory-lab";
 
 /** 库里的 manifest（manifest 表里一行一项，这里拼成对象） */
@@ -45,7 +45,7 @@ export type ReasoningDbIssue =
   | { code: "open_failed"; detail: string };
 
 export interface ReasoningDbOptions {
-  /** rg.db 的路径（338 号票起是 <数据目录>/memory/subtext/rg.db；以前在 db 区） */
+  /** rg.db 的路径（是 <数据目录>/memory/subtext/rg.db；以前在 db 区） */
   file: string;
   /** 引擎的时钟（整理时的"现在"） */
   clock: () => string;
@@ -57,22 +57,22 @@ export interface ReasoningDbOptions {
   extractor?: FactExtractor;
   /** 推理实现；不给用 @ergo/memory 默认的规则版（每晚整理会自己给 LlmReasoner） */
   reasoner?: Reasoner;
-  /** 263 号票：对抗复核的模型（227 的独立复核员）；不给就不复核。每晚整理给的是和推理同一个模型 */
+  /** 对抗复核的模型（独立复核员）；不给就不复核。每晚整理给的是和推理同一个模型 */
   reviewer?: ChatModel;
-  /** 263 号票：判到期预测的模型（226）；不给就只记账本、到期的留 open。每晚整理给的是 LlmPredictionJudge（同一个模型） */
+  /** 判到期预测的模型；不给就只记账本、到期的留 open。每晚整理给的是 LlmPredictionJudge（同一个模型） */
   predictionJudge?: PredictionJudge;
   /**
-   * 只读地打开（233 号票，网页看结论、证据、问题箱）：不写 manifest（updated_at 不动），库文件不在时也不顺手建出来。
+   * 只读地打开（网页看结论、证据、问题箱）：不写 manifest（updated_at 不动），库文件不在时也不顺手建出来。
    * 打开引擎的时候 @ergo/memory 自己会开一个写事务（建表语句、表版本），WAL 下和每晚整理按 busy_timeout 排队；
    * 除此之外这个接口不写任何东西。
    */
   readOnly?: boolean;
   /**
-   * 267 号票：推理图谱的唯一写入口开成只读——秘书（ask_memory、每轮简报）、记忆页这几份引擎什么都写不进去（写一律被写入口拒）。
+   * 推理图谱的唯一写入口开成只读——秘书（ask_memory、每轮简报）、记忆页这几份引擎什么都写不进去（写一律被写入口拒）。
    * readOnly 的一定也是只读的写入口；不是 readOnly 的也可以单独要（秘书那一份要写 manifest，但不写推理图谱）
    */
   reader?: boolean;
-  /** 267 号票：敏感类别里没打开推断的那几类的场景标签（按 memory.sensitiveCategories 算；写入口不让在这些上面推断） */
+  /** 敏感类别里没打开推断的那几类的场景标签（按 memory.sensitiveCategories 算；写入口不让在这些上面推断） */
   sensitiveTags?: readonly string[];
 }
 
@@ -129,7 +129,7 @@ export function openReasoningDb(options: ReasoningDbOptions): ReasoningDbResult 
     engine: RG_DB_ENGINE,
     model: options.model,
     embedder: options.embedder?.model ?? null,
-    // 236 号票：启动时只确认库、手上还没有抽取器实例，沿用上一次整理记下的那个（每晚整理会写成这一次实际用的）
+    // 启动时只确认库、手上还没有抽取器实例，沿用上一次整理记下的那个（每晚整理会写成这一次实际用的）
     extractor: options.extractor?.id || previous?.extractor || engine.extractor.id,
     createdAt: previous?.createdAt ?? now,
     updatedAt: now,

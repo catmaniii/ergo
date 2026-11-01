@@ -1,5 +1,5 @@
 // 验收：周末社交案例（任务书第 11 节那 4 条，加 1 条别人转述的"讨厌社交"）。规则版。
-// 330 号票（R14）起随口说的不再自动算决定性：第 4 条"我不反感见朋友"只算一条强反证，"不喜欢社交"降成猜测（还没排除），
+// ADR-0032 R14起随口说的不再自动算决定性：第 4 条"我不反感见朋友"只算一条强反证，"不喜欢社交"降成猜测（还没排除），
 // 不再被撤回；用户再纠正一句（afterCorrection）才撤回、才是"已经排除"。
 import { afterEach, describe, expect, it } from "vitest";
 import { answerFromHits } from "../../src/rg/answer.ts";
@@ -159,7 +159,7 @@ describe("周末社交案例：第 4 条进来以后", () => {
     expect(cited).not.toContain("ev-u01");
   });
 
-  it("192：回答里每条引用带角色——结论、你说过的、已经排除的（证据是撤回它的那句话）、反证、还没排除的", async () => {
+  it("回答里每条引用带角色——结论、你说过的、已经排除的（证据是撤回它的那句话）、反证、还没排除的", async () => {
     const { engine } = await afterCorrection();
     const answer = await engine.answer("为什么我最近不想参加周末的聚会？", { context: ["weekend"] });
     const role = (r: string) => answer.citations.filter((c) => c.role === r);
@@ -170,7 +170,7 @@ describe("周末社交案例：第 4 条进来以后", () => {
     expect(answer.citations.every((c) => c.role !== undefined)).toBe(true);
   });
 
-  it("192：answerFromHits 只按给的检索结果拼回答（不进推理图谱），引用都是记录、最多 5 条", async () => {
+  it("answerFromHits 只按给的检索结果拼回答（不进推理图谱），引用都是记录、最多 5 条", async () => {
     const { engine } = await afterFour();
     const hits = await engine.search("周末的聚会", { mode: "hybrid", limit: 10 });
     const answer = answerFromHits(engine.rg, "周末的聚会", hits, engine.rg.view());
@@ -189,7 +189,7 @@ describe("周末社交案例：第 4 条进来以后", () => {
     expect(x.group?.key).toBe(GROUP);
     expect(x.premises.kind).toBe("claim");
     const leaves = (t: typeof x.premises): string[] => (t.premises.length === 0 ? [t.id] : t.premises.flatMap(leaves));
-    // 329 号票（R7）：第 4 条进来以后它有不靠前提的独立证据（第 1 条里"想好好休息"、第 4 条"不喜欢周末被提前排满"）达标，
+    // ADR-0032 R7：第 4 条进来以后它有不靠前提的独立证据（第 1 条里"想好好休息"、第 4 条"不喜欢周末被提前排满"）达标，
     // 依据改挂到这两条上，原来那条推理链（两次推掉活动）记作历史
     expect(leaves(x.premises).toSorted()).toEqual(["ev-w01", "ev-w04"]);
     expect(engine.store.inferencesOf(autonomy.id).map((i) => i.status)).toEqual(["history", "active"]);
@@ -222,7 +222,7 @@ describe("周末社交案例：删掉、纠正关键证据", () => {
     const social = claimOf(engine, "dislike_domain");
     const okFriends = explicitClaimOf(engine, factOf(engine, "ev-w04", "dislikes", "见朋友", true));
     engine.invalidateEvidence("ev-w04", "用户说忘掉");
-    // 329 号票：autonomy 原来靠第 4 条的独立证据直接证实（R7），那份证实没了 → 退回原来的推理链，组当场按剩下的证据重判
+    // autonomy 原来靠第 4 条的独立证据直接证实（R7），那份证实没了 → 退回原来的推理链，组当场按剩下的证据重判
     expect(engine.store.getClaim(autonomy.id)!.status).toBe("contested");
     expect(engine.store.inferencesOf(autonomy.id).find((i) => i.status === "active")!.premiseIds).not.toContain(factOf(engine, "ev-w04", "dislikes", undefined, false).id);
     // social 原来被第 4 条"不反感见朋友"推翻，推翻者不在了 → 复活（R11）

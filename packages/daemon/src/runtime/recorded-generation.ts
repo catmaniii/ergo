@@ -1,4 +1,4 @@
-// 守护进程这一侧调用"按二狗自己的事件记录另起一次生成"（293 号票；309 号票加了范围审视）：拉起一次性子进程 agent-child/recorded-generation-main.ts，
+// 守护进程这一侧调用"按二狗自己的事件记录另起一次生成"（加了范围审视）：拉起一次性子进程 agent-child/recorded-generation-main.ts，
 // stdin 送一行请求（要做什么、模型和凭据、整理好的那段会话）、stdout 读一行结果，等它退出。模型只在子进程里调（ADR-0001、ADR-0004），
 // 守护进程自己不跑模型（ADR-0002），这里只转手；用量由调用方（agent 管家）记账。
 import path from "node:path";
@@ -20,7 +20,7 @@ export function runRecordedGeneration(request: RecordedGenerationRequest, option
   return runOneShotChild<RecordedGenerationResult>(RECORDED_GENERATION_ENTRY, request, labelOf(request), RECORDED_GENERATION_TIMEOUT_MS, options);
 }
 
-/** 出错说明里写的是哪件事（"写分支摘要超时（300 秒），结束了子进程"、309 号票的"做范围审视……"） */
+/** 出错说明里写的是哪件事（"写分支摘要超时（300 秒），结束了子进程"、"做范围审视……"） */
 function labelOf(request: RecordedGenerationRequest): string {
   switch (request.task.kind) {
     case "branch_summary":

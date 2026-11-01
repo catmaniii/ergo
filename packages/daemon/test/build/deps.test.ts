@@ -1,4 +1,4 @@
-// 发布包里带哪些第三方包（318 号票）：照 lock 按 Node 的解析规则找闭包；不带 Claude Code 的 SDK、开发用的包；别的平台的原生库去掉。
+// 发布包里带哪些第三方包：照 lock 按 Node 的解析规则找闭包；不带 Claude Code 的 SDK、开发用的包；别的平台的原生库去掉。
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";

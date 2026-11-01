@@ -1,9 +1,9 @@
-// 看板多选里任务和简单提醒混着选（纯函数，156 号票）。90 号票的多选只有任务（task-menu.ts 的 batchCounts / batchTargets：
-// 每个操作只对能做的生效，按钮上写个数）；156 号票起提醒卡也能勾上；185 号票起提醒能一起做的是取消、归档、删除
-// （reminder-menu.ts 的 canBatchReminder）；186 号票起任务也能删（连会话、工作目录一起删），没结束的任务归档先取消。
+// 看板多选里任务和简单提醒混着选（纯函数）。多选只有任务（task-menu.ts 的 batchCounts / batchTargets：
+// 每个操作只对能做的生效，按钮上写个数）；提醒卡也能勾上；提醒能一起做的是取消、归档、删除
+// （reminder-menu.ts 的 canBatchReminder）；任务也能删（连会话、工作目录一起删），没结束的任务归档先取消。
 // - 只选了任务：暂停、继续、取消、归档、删除（各自能做的算个数；归档里没结束的会先取消，删除里没结束的会先停下）；
 // - 只选了提醒：取消、归档、删除；暂停、继续灰掉，操作栏上写明提醒能一起做的（boardBatchWhy）；
-// - 混选：批量动作只给两者都能做的（156 号票的规则）——取消、归档、删除（任务、提醒各自能做的都算）；暂停、继续提醒做不了，
+// - 混选：批量动作只给两者都能做的（规则）——取消、归档、删除（任务、提醒各自能做的都算）；暂停、继续提醒做不了，
 //   整个灰掉（任务能做的也不做），操作栏上写明为什么；
 // - 取消先确认一次（boardBatchCancelConfirm）：只有任务照原来的说法，有提醒的写清几个任务、几条提醒会取消、几个跳过；
 //   删除先确认一次（boardBatchDeleteConfirm：几个任务、几条提醒，没结束的会先停下，不能删的写明为什么）；
@@ -13,7 +13,7 @@ import { t, TASK_BATCH_ACTIONS } from "./protocol.ts";
 import { canBatchReminder, type ReminderMenuSubject } from "./reminder-menu.ts";
 import { type BatchEntry, batchCancelConfirm, canBatch, notEnded } from "./task-menu.ts";
 
-/** 看板多选操作栏上的按钮：暂停、继续、取消、归档、删除（185 号票加删除，186 号票起任务也能删） */
+/** 看板多选操作栏上的按钮：暂停、继续、取消、归档、删除（加删除，任务也能删） */
 export const BOARD_BATCH_ACTIONS = TASK_BATCH_ACTIONS;
 export type BoardBatchAction = (typeof BOARD_BATCH_ACTIONS)[number];
 
@@ -74,7 +74,7 @@ export function boardBatchCancelConfirm({ tasks, reminders, skipped }: { tasks: 
   };
 }
 
-/** 勾上的任务里这件事做不了的，各自为什么（186 号票：删除、归档的确认里写明）；只写有说法的（不能删的说明、运营方案里的那一条） */
+/** 勾上的任务里这件事做不了的，各自为什么（删除、归档的确认里写明）；只写有说法的（不能删的说明、运营方案里的那一条） */
 export function boardBatchBlocked(entries: readonly BoardBatchEntry[], action: "delete" | "archive"): Array<{ title: string; why: string }> {
   return entries.flatMap((e) => {
     if (e.kind !== "task" || canBatch(e.subject, action)) return [];
@@ -88,7 +88,7 @@ const blockedText = (key: string, blocked: ReadonlyArray<{ title: string; why: s
   blocked.length === 0 ? "" : t(key, { count: blocked.length, list: blocked.map((b) => t("state.boardBatch.blockedItem", { title: b.title, why: b.why })).join(t("state.boardBatch.blockedSep")) });
 
 /**
- * 删除先确认一次（185 号票只对提醒，186 号票起任务也能删）：写清几个任务、几条提醒，删了以后什么样、收不回；
+ * 删除先确认一次（只对提醒，任务也能删）：写清几个任务、几条提醒，删了以后什么样、收不回；
  * 任务里还没结束的会先停下（running），本人的话作为素材保留；不能删的写明为什么（blocked）
  */
 export function boardBatchDeleteConfirm({
@@ -102,7 +102,7 @@ export function boardBatchDeleteConfirm({
   reminders: number;
   blocked?: ReadonlyArray<{ title: string; why: string }>;
 }): { title: string; body: string } {
-  // 只有提醒：照 185 号票的说法
+  // 只有提醒：照说法
   if (tasks === 0 && blocked.length === 0) return { title: t("state.boardBatch.delete.title", { count: reminders }), body: t("state.boardBatch.delete.body", { count: reminders }) };
   const nTasks = t("state.boardBatch.nTasks", { count: tasks });
   const nReminders = t("state.boardBatch.nReminders", { count: reminders });
@@ -119,7 +119,7 @@ export function boardBatchDeleteConfirm({
 }
 
 /**
- * 归档有还没结束的任务时先确认一次（186 号票）：其中几个会先取消（运营中的定时、事件触发的连同触发一起取消），取消不了的不归档；
+ * 归档有还没结束的任务时先确认一次：其中几个会先取消（运营中的定时、事件触发的连同触发一起取消），取消不了的不归档；
  * 跳过的（不能归档的提醒、项目在用的运营任务）写明。都结束了的不用确认：undefined
  */
 export function boardBatchArchiveConfirm(entries: readonly BoardBatchEntry[]): { title: string; body: string } | undefined {

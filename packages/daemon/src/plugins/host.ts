@@ -1,7 +1,7 @@
-// @i18n-ignore-file log：没装上的原因、登记出错都是给开发者看的（日志、健康检查）；插件没启用时给用户的那句、设置里没装上的原因走 t()（174、211 号票）
-// 插件宿主（ADR-0027，126 号票）：守护进程里装插件的那部分。借 Cordis 的规矩、不引入 Cordis（调研 19 §3.3、§8.2）：
+// @i18n-ignore-file log：没装上的原因、登记出错都是给开发者看的（日志、健康检查）；插件没启用时给用户的那句、设置里没装上的原因走 t()
+// 插件宿主（ADR-0027）：守护进程里装插件的那部分。借 Cordis 的规矩、不引入 Cordis（调研 19 §3.3、§8.2）：
 // 1. 每次注册都能撤销，并记在插件名下：插件经宿主给的上下文（PluginContext）登记卡片类型、彻底删除的改写函数、
-//    快速动作、内部作业、看板种类、事件触发的订阅方、转发的应用（132 号票）、运营手段（130 号票）、定时器 / 订阅 / 事件监听（effect）、自己的 start/stop，每一次都返回撤销函数、
+//    快速动作、内部作业、看板种类、事件触发的订阅方、转发的应用、运营手段、定时器 / 订阅 / 事件监听（effect）、自己的 start/stop，每一次都返回撤销函数、
 //    记在这个插件名下；停用时按登记的逆序撤（单个撤销出错只记日志、不拦着别的）。停了以后再经它登记直接报错，迟到的登记不会悄悄漏掉。
 // 2. 依赖靠声明：插件声明要的服务（needs：内核提供的或别的插件提供的，缺一个就不装，原因写进日志和 report()）、
 //    可选的服务（wants：在的话先装提供它的插件、取得到；不在照装，取到 undefined；用的时候现取、不要存起来，提供它的插件随时可能停）、
@@ -12,25 +12,25 @@
 // 另外两样：
 // - 派生视图：插件在定义里声明（views），宿主在打开事件存储之前收齐（views()）；不装的插件的视图名交给事件存储记成停着的
 //   （dormantViews()：表留着、不再更新，以后装上时整表补一遍）；运行中停用的插件，它的视图从事件存储上摘下（同样记成停着的），
-//   运行中启用时登记回去、马上整表补齐（211 号票，EventStore.attachView）。
-// - 数据契约（contracts）：插件拥有的卡片类型、事件类型怎么改写（彻底删除）、怎么变成素材（129 号票）、前端请求怎么回、
-//   移除时"连数据删"删什么（211 号票，removal.ts）——不管插件开没开、装没装上都登记，停用也不撤。彻底删除（ADR-0008：没登记改写函数的
+//   运行中启用时登记回去、马上整表补齐（EventStore.attachView）。
+// - 数据契约（contracts）：插件拥有的卡片类型、事件类型怎么改写（彻底删除）、怎么变成素材、前端请求怎么回、
+//   移除时"连数据删"删什么（removal.ts）——不管插件开没开、装没装上都登记，停用也不撤。彻底删除（ADR-0008：没登记改写函数的
 //   事件类型整个拒删）、卡片改写后的新版本靠它照常；素材来源也是确定性地只看事件本身（ADR-0006），停用的插件以前写下的事件照样留原话副本、
 //   重建 materials.db 时照样采得出来；要用插件服务的部分（卡片动作、前端请求）经 active() 现取，插件没在运行时回"X插件没启用"（not_allowed）。
-//   286 号票起数据契约里还登记 agent 运行时（"运行时"贡献点，ctx.runtimes）：id、名字、子进程入口、能力清单、可选模型和设置项、
+//   数据契约里还登记 agent 运行时（"运行时"贡献点，ctx.runtimes）：id、名字、子进程入口、能力清单、可选模型和设置项、
 //   列可接管会话的函数——负责人记着用哪个运行时，插件停用时也要认得、写得出是哪个插件没启用；能不能用跟着插件在不在运行
 //   （登记表 runtime/runtimes.ts，停用时用它的负责人不启动，见 agent-host/runtime-gate.ts）。
-//   295 号票起数据契约里还登记数据源（"数据源"贡献点，ctx.dataSources）：名字、敏感类别、两种用法（按需查 / 导入）、它导入的记录、
+//   数据契约里还登记数据源（"数据源"贡献点，ctx.dataSources）：名字、敏感类别、两种用法（按需查 / 导入）、它导入的记录、
 //   认导入文件夹里哪种文件，连同要插件在运行才叫的函数（连接状态、填设置、同步、导入文件、按需查的工具）——停用的插件的数据源照样在
 //   设置 · 数据源里列出、写"X插件没启用"，断开并删照样删得掉它导入的（登记表 data-sources/registry.ts，见 data-sources/service.ts）。
-// - agent 贡献（128 号票）：插件给 agent 的工具（守卫的登记随工具走）、每轮的上下文块、钩子订阅经 ctx.agent 登记进 agent 贡献模块
+// - agent 贡献：插件给 agent 的工具（守卫的登记随工具走）、每轮的上下文块、钩子订阅经 ctx.agent 登记进 agent 贡献模块
 //   （agent-host/contributions.ts），和别的登记一样返回撤销函数、停用时撤掉；上下文块、钩子订阅的 id 前面加上插件名（"reminders:…"）。
-//   工具由宿主包一层（211 号票）：停用后还没按新的贡献重新装配的 agent 在正在跑的一轮里再调它，回"X插件没启用"（isError），不崩、不做。
+//   工具由宿主包一层：停用后还没按新的贡献重新装配的 agent 在正在跑的一轮里再调它，回"X插件没启用"（isError），不崩、不做。
 //   系统提示的片段和占位符在定义里声明（prompts），宿主建的时候收齐（prompts()），交给系统提示的文件——和数据契约一样不管插件开没开都在
 //   （用户改过的提示里写了插件的占位符不至于出错），插件的条件（比如"提醒"）只在插件运行时成立，默认的提示里讲它的段落包在条件里。
 // 生命周期：createPluginHost（排顺序、定谁不装、写日志）→ views() / dormantViews()（打开事件存储之前）→ setup（全部插件的契约，
 // 再按顺序装配）→ start（按顺序叫各插件的 start）→ stop（守护进程停：依赖方先停、倒着撤）。
-// 运行中（211 号票，设置 · 插件的热插拔；只有自带的插件、代码一直在，不是热重载代码——ADR-0027"构建时打包，不运行时加载"）：
+// 运行中（设置 · 插件的热插拔；只有自带的插件、代码一直在，不是热重载代码——ADR-0027"构建时打包，不运行时加载"）：
 // - disable(name)：停用它连同依赖它的（依赖方先停，都记成停用了），视图摘下；
 // - enable(name)：启用它连同它要的、没开的（按依赖排顺序装配、启动），视图登记回去、整表补齐；因为它没开而没装上的（启用着的）跟着装上；
 // - remove(name)：停用它（依赖它的一起停用），它自己记成移除了；"装回"就是 enable。连数据删在宿主之外（removal.ts），删什么由插件在
@@ -95,19 +95,19 @@ export interface PluginSurfaces {
   internalJobs: { register(job: InternalJob): Undo };
   boardKinds: { register(kind: BoardKind<unknown>): Undo };
   eventSubscribers: { register(kind: EventSubscriberKind): Undo };
-  /** 运营手段（130 号票，operations/means.ts）：运营方案里每一条用的手段 */
+  /** 运营手段（operations/means.ts）：运营方案里每一条用的手段 */
   operationMeans: { register(means: OperationMeans): Undo };
-  /** agent 贡献（128 号票）：工具、每轮的上下文块、钩子订阅；212 号票加了输入附注 */
+  /** agent 贡献：工具、每轮的上下文块、钩子订阅；加了输入附注 */
   agent: Pick<AgentContributions, "tools" | "context" | "hooks" | "notes">;
-  /** 转发登记表（132 号票）：/apps/<应用名>/ 转发到本机的哪个地址 */
+  /** 转发登记表：/apps/<应用名>/ 转发到本机的哪个地址 */
   apps: Pick<AppRegistry, "register">;
   /**
-   * 运行中停用插件时，它的视图从事件存储上摘下（EventStore.detachView）；运行中启用时登记回去、整表补齐（EventStore.attachView，211 号票）
+   * 运行中停用插件时，它的视图从事件存储上摘下（EventStore.detachView）；运行中启用时登记回去、整表补齐（EventStore.attachView）
    */
   views: { detach(name: string): void; attach(view: DerivedView): void };
-  /** agent 运行时的登记表（286 号票，runtime/runtimes.ts）：插件在数据契约里登记的运行时进这里，带上插件名和"在不在运行" */
+  /** agent 运行时的登记表（runtime/runtimes.ts）：插件在数据契约里登记的运行时进这里，带上插件名和"在不在运行" */
   runtimes: Pick<RuntimeRegistry, "register">;
-  /** 数据源的登记表（295 号票，data-sources/registry.ts）：插件在数据契约里登记的数据源进这里，带上插件名和"在不在运行" */
+  /** 数据源的登记表（data-sources/registry.ts）：插件在数据契约里登记的数据源进这里，带上插件名和"在不在运行" */
   dataSources: Pick<DataSourceRegistry, "register">;
 }
 
@@ -123,26 +123,26 @@ export interface ContractContext {
   readonly cardTypes: { register(definition: CardTypeDefinition): void };
   readonly purge: { register(...rewriters: PurgeRewriter[]): void; registerQuotes(...quotes: PurgeQuotes[]): void };
   /**
-   * 插件拥有的事件怎么变成素材（129 号票）：声明进内核的素材库（materials/）。素材库按它给本人的话留原话副本（停用也照样，用户的数据承诺），
+   * 插件拥有的事件怎么变成素材：声明进内核的素材库（materials/）。素材库按它给本人的话留原话副本（停用也照样，用户的数据承诺），
    * 记忆插件开着时按它采成素材
    */
   readonly materialSources: { register(source: MaterialSource): void };
   /** 前端请求（网关的 RequestHandlers 里可选的那些）：一个请求只能有一个插件登记 */
   readonly requests: { register<K extends PluginRequestName>(name: K, handler: NonNullable<RequestHandlers[K]>): void };
   /**
-   * 移除时"连它的数据一起彻底删除"删什么（211 号票，removal.ts）：它拥有的事件、卡片类型、待我处理里的通知、自己的文件，
+   * 移除时"连它的数据一起彻底删除"删什么（removal.ts）：它拥有的事件、卡片类型、待我处理里的通知、自己的文件，
    * 和给人看的"删哪些""删不掉的"。一个插件写一次；不写的插件在设置里没有这个勾选
    */
   readonly removal: { declare(spec: PluginDataRemoval): void };
   /**
-   * agent 运行时（286 号票，"运行时"贡献点，runtime/runtimes.ts 的 AgentRuntime）：id、给人看的名字、子进程入口（实现宿主协议）、
+   * agent 运行时（"运行时"贡献点，runtime/runtimes.ts 的 AgentRuntime）：id、给人看的名字、子进程入口（实现宿主协议）、
    * 能力清单、可选模型和设置项、列本机能接管的会话。和别的契约一样不管插件开没开都登记（负责人记着的运行时在插件停用时也认得，
    * 写得出"X插件没启用"）；能不能用跟着插件在不在运行——停用时用它的负责人不启动、执行中的任务转等我，启用后接着。
    * 要用插件服务的（列会话）在函数里经 active() 现取
    */
   readonly runtimes: { register(runtime: AgentRuntime): void };
   /**
-   * 数据源（295 号票，"数据源"贡献点，data-sources/api.ts 的 DataSource）：id、名字、敏感类别、两种用法（按需查 / 导入）和默认、
+   * 数据源（"数据源"贡献点，data-sources/api.ts 的 DataSource）：id、名字、敏感类别、两种用法（按需查 / 导入）和默认、
    * 定期导入的时间、它导入的记录（事件）、认导入文件夹里哪种文件，连同连接状态、填设置、同步、导入一个文件、断开时的清理、按需查的工具。
    * 和别的契约一样不管插件开没开都登记（设置 · 数据源照样列出、写"X插件没启用"，断开并删照样删得掉、条数照样数得出）；
    * 要插件在运行的函数里经 active() 现取，内核只在插件在运行时叫它们
@@ -171,21 +171,21 @@ export interface PluginContext {
   readonly internalJobs: { register(job: InternalJob): Undo };
   readonly boardKinds: { register(kind: BoardKind<unknown>): Undo };
   readonly eventSubscribers: { register(kind: EventSubscriberKind): Undo };
-  /** 运营手段（130 号票）：运营方案里每一条用的手段（校验、给人看的说法、生效、撤销、暂停和恢复）；停用后交新方案时不认它 */
+  /** 运营手段：运营方案里每一条用的手段（校验、给人看的说法、生效、撤销、暂停和恢复）；停用后交新方案时不认它 */
   readonly operationMeans: { register(means: OperationMeans): Undo };
   /**
-   * agent 贡献（128 号票，见 agent-host/contributions.ts）：给 agent 的工具（HostTool 自带守卫的登记）、每轮的上下文块、钩子订阅，
+   * agent 贡献（见 agent-host/contributions.ts）：给 agent 的工具（HostTool 自带守卫的登记）、每轮的上下文块、钩子订阅，
    * 按"给谁"（哪种 agent、哪种会话、工具包）写明；上下文块（wake）、钩子订阅的 id 在插件里不重复，宿主在前面加上"插件名:"
    */
   readonly agent: {
     readonly tools: { register(contribution: ToolContribution): Undo };
     readonly context: { register(contribution: ContextContribution): Undo };
     readonly hooks: { register(contribution: HookContribution): Undo };
-    /** 输入附注（212 号票）：接在交给 agent 的那条输入自己的文字末尾（浏览侧边栏、悬浮按钮发的消息后面那段网页上下文） */
+    /** 输入附注：接在交给 agent 的那条输入自己的文字末尾（浏览侧边栏、悬浮按钮发的消息后面那段网页上下文） */
     readonly notes: { register(contribution: NoteContribution): Undo };
   };
   /**
-   * 转发登记表（132 号票，apps/registry.ts）：登记一个应用名对应本机的一个地址，网关把 /apps/<应用名>/… 转发过去；
+   * 转发登记表（apps/registry.ts）：登记一个应用名对应本机的一个地址，网关把 /apps/<应用名>/… 转发过去；
    * 撤销（停用）以后 404、开着的 WebSocket 断开
    */
   readonly apps: { register(app: AppRegistration): Undo };
@@ -201,10 +201,10 @@ export interface PluginDefinition {
   name: string;
   /** 中文名："提醒"（日志、"提醒插件没启用"里用） */
   title: string;
-  /** 设置 · 插件里一句话说它是做什么的（211 号票）：取值函数，跟着当前语言 */
+  /** 设置 · 插件里一句话说它是做什么的：取值函数，跟着当前语言 */
   readonly summary?: string;
   /**
-   * 设置 · 插件里列的"它带来了什么"（211 号票，守护进程这一半）：给 agent 的工具、卡片、定时作业给人看的名字。取值函数，跟着当前语言。
+   * 设置 · 插件里列的"它带来了什么"（守护进程这一半）：给 agent 的工具、卡片、定时作业给人看的名字。取值函数，跟着当前语言。
    * 工具的个数要和它实际登记的对上（主切面测试比对秘书拿到的）；网页上的页面、栏目由网页插件自己写
    */
   readonly brings?: { readonly tools?: readonly string[]; readonly cards?: readonly string[]; readonly jobs?: readonly string[] };
@@ -217,7 +217,7 @@ export interface PluginDefinition {
   /** 派生视图：宿主在打开事件存储之前收齐 */
   views?: readonly DerivedView[];
   /**
-   * 它要的外部组件（不随二狗分发、用的人自己装的，315 号票：Claude Code 的 Agent SDK）没装时给人看的一句：没装什么、怎么装；装着是 undefined。
+   * 它要的外部组件（不随二狗分发、用的人自己装的：Claude Code 的 Agent SDK）没装时给人看的一句：没装什么、怎么装；装着是 undefined。
    * 每次装配之前问一次：没装的不装配（记成没装上，设置 · 插件里写"没装"和这一句、启用不了），运行时写这一句而不是"没启用"；
    * 装好以后启用（或重启守护进程）就装上。数据契约照常登记
    */
@@ -225,7 +225,7 @@ export interface PluginDefinition {
   /** 数据契约：不管插件开没开都登记，停用不撤 */
   contracts?(ctx: ContractContext): void;
   /**
-   * 系统提示里的（128 号票）：一个条件（插件运行时成立）、公用的占位符（工具名）、片段。和数据契约一样不管插件开没开都在，
+   * 系统提示里的：一个条件（插件运行时成立）、公用的占位符（工具名）、片段。和数据契约一样不管插件开没开都在，
    * 宿主建的时候收齐交给系统提示的文件；plugin 要写成这个插件的名字
    */
   prompts?: PluginPrompts;
@@ -241,11 +241,11 @@ export interface PluginReport {
   disabled: string[];
   /** 没装上的和原因：缺依赖、循环依赖、装配或启动出错、依赖的插件停了 */
   skipped: Array<{ plugin: string; reason: string }>;
-  /** 移除了的（211 号票；没有就不写） */
+  /** 移除了的（没有就不写） */
   removed?: string[];
 }
 
-/** 问"外部组件装没装"时宿主给的（318 号票）：组件区在哪（用的人在设置 · 组件里装的东西放那里） */
+/** 问"外部组件装没装"时宿主给的：组件区在哪（用的人在设置 · 组件里装的东西放那里） */
 export interface MissingContext {
   componentsDir?: string;
 }
@@ -255,11 +255,11 @@ export interface PluginHostOptions {
   plugins: readonly PluginDefinition[];
   /** 配置里停用的插件名（plugins.disabled） */
   disabled?: readonly string[];
-  /** 配置里移除了的插件名（plugins.removed，211 号票；两边都写了的算移除） */
+  /** 配置里移除了的插件名（plugins.removed，两边都写了的算移除） */
   removed?: readonly string[];
   /** 内核提供的服务（setup 时要一个不少地交来） */
   kernel: readonly ServiceKey<unknown>[];
-  /** 组件区（数据目录的 components\，318 号票）：问插件要的外部组件装没装时交给它（PluginDefinition.missing） */
+  /** 组件区（数据目录的 components\）：问插件要的外部组件装没装时交给它（PluginDefinition.missing） */
   componentsDir?: string;
   log: (line: string) => void;
 }
@@ -284,12 +284,12 @@ export interface PluginHost {
    */
   disable(name: string): Promise<string[]>;
   /**
-   * 运行中启用一个插件（211 号票；移除了的就是装回），连同它要的、没开的：按依赖排顺序装配、启动，视图登记回去、整表补齐；
+   * 运行中启用一个插件（移除了的就是装回），连同它要的、没开的：按依赖排顺序装配、启动，视图登记回去、整表补齐；
    * 因为它没开而没装上的（启用着的）跟着装上。返回装上了的（按装的先后）；装配、启动出错的记成没装上（原因在 info/status 里）。
    * 启用不了（要的服务没有谁提供、循环依赖）抛 RequestRejected（not_allowed，给人看的原因）
    */
   enable(name: string): Promise<string[]>;
-  /** 移除一个插件（211 号票）：停用它（依赖它的一起停用），它自己记成移除了。返回状况变了的（按装的先后，它自己最后） */
+  /** 移除一个插件：停用它（依赖它的一起停用），它自己记成移除了。返回状况变了的（按装的先后，它自己最后） */
   remove(name: string): Promise<string[]>;
   /** 守护进程停：在运行的倒着停（依赖方先停），最后撤契约 */
   stop(): Promise<void>;
@@ -297,7 +297,7 @@ export interface PluginHost {
   service<T>(key: ServiceKey<T>): T | undefined;
   /**
    * 同 service，但提供它的插件没在运行（配置里停用了、没装上、运行中停用、移除了）时抛 RequestRejected（not_allowed，"X插件没启用"，
-   * X 是提供它的插件给人看的名字）：内核替插件接前端请求时用（213 号票：网关的 GET /api/calendar 回"日历插件没启用"）。
+   * X 是提供它的插件给人看的名字）：内核替插件接前端请求时用（网关的 GET /api/calendar 回"日历插件没启用"）。
    * 谁都不提供的服务是写错了代码（抛 Error）。现取，不要存起来
    */
   active<T>(key: ServiceKey<T>): T;
@@ -311,15 +311,15 @@ export interface PluginHost {
   has(name: string): boolean;
   report(): PluginReport;
   /**
-   * 清单里每个插件现在的状况，按清单的先后（193 号票：插件频道上推给网页，网页按它装、停自己的网页插件）。
+   * 清单里每个插件现在的状况，按清单的先后（插件频道上推给网页，网页按它装、停自己的网页插件）。
    * 给人看的名字按当前语言现取；没装上的带原因
    */
   status(): PluginStatusView[];
-  /** 设置 · 插件的清单（211 号票）：清单里每个插件给人看的样子，按清单的先后 */
+  /** 设置 · 插件的清单：清单里每个插件给人看的样子，按清单的先后 */
   info(): PluginInfo[];
-  /** 插件在数据契约里写明的"连数据删"（211 号票）；没写的、不认得的是 undefined */
+  /** 插件在数据契约里写明的"连数据删"；没写的、不认得的是 undefined */
   removalOf(name: string): PluginDataRemoval | undefined;
-  /** 插件在定义里声明的派生视图（215 号票：移除并连数据删之后，设置那一层把它停着的视图按改写后的日志补一遍）；不认得的是空的 */
+  /** 插件在定义里声明的派生视图（移除并连数据删之后，设置那一层把它停着的视图按改写后的日志补一遍）；不认得的是空的 */
   viewsOf(name: string): readonly DerivedView[];
   /** 插件的状况变了（运行中停用、启用、移除）时叫 fn；返回取消登记的函数 */
   onChange(fn: () => void): () => void;
@@ -332,9 +332,9 @@ interface Slot {
   state: SlotState;
   /** 给开发者看的原因（日志、健康检查） */
   reason?: string;
-  /** 没装上时给人看的说法（211 号票，设置 · 插件）：取值函数，跟着当前语言 */
+  /** 没装上时给人看的说法（设置 · 插件）：取值函数，跟着当前语言 */
   problem?: () => string;
-  /** 没装上是因为它要的外部组件没装（315 号票，PluginDefinition.missing）：那时的那一句 */
+  /** 没装上是因为它要的外部组件没装（PluginDefinition.missing）：那时的那一句 */
   missing?: string;
   /** 这一次装配：活着的时候才能经它登记；停了以后它给 agent 的工具回"没启用"。每次装配换一个 */
   life: { alive: boolean };
@@ -348,7 +348,7 @@ const KERNEL_OWNER = "";
 const ids = (keys: readonly ServiceKey<unknown>[] | undefined) => (keys ?? []).map((k) => k.id);
 const describe = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
-/** 没装上、启用不了时给人看的说法（211 号票）：取值函数，跟着当前语言 */
+/** 没装上、启用不了时给人看的说法：取值函数，跟着当前语言 */
 const problems = {
   missingService: (service: string) => () => t("plugins.problem.missingService", { service }),
   providerOff: (provider: Slot) => () => t("plugins.problem.providerOff", { title: provider.def.title }),
@@ -489,7 +489,7 @@ export function createPluginHost(options: PluginHostOptions): PluginHost {
   const services = new Map<string, { owner: string; value: unknown }>();
   const contractUndos: Undo[] = [];
   const requests: PluginRequests = {};
-  /** 插件在数据契约里写明的"连数据删"（211 号票） */
+  /** 插件在数据契约里写明的"连数据删" */
   const removals = new Map<string, PluginDataRemoval>();
   let surfaces: PluginSurfaces | undefined;
   let setupDone = false;
@@ -531,7 +531,7 @@ export function createPluginHost(options: PluginHostOptions): PluginHost {
   };
 
   /**
-   * 启用一个插件要一起装的（211 号票）：它和它要的、没在运行的（顺着必需的依赖走），按依赖排好（同等的按清单的先后）；
+   * 启用一个插件要一起装的：它和它要的、没在运行的（顺着必需的依赖走），按依赖排好（同等的按清单的先后）；
    * 要的服务没有谁提供、循环依赖的启用不了，交回给人看的原因
    */
   const enablePlan = (root: Slot): { targets: Slot[] } | { problem: () => string } => {
@@ -568,7 +568,7 @@ export function createPluginHost(options: PluginHostOptions): PluginHost {
       placed.add(next);
       targets.push(next);
     }
-    // 它（或它要的）用的外部组件没装（315 号票）：装好之前启用不了
+    // 它（或它要的）用的外部组件没装：装好之前启用不了
     for (const slot of targets) {
       const what = slot.def.missing?.(missingCtx);
       if (what !== undefined) return { problem: () => slot.def.missing?.(missingCtx) ?? what };
@@ -629,10 +629,10 @@ export function createPluginHost(options: PluginHostOptions): PluginHost {
     return true;
   };
 
-  /** 它要的外部组件没装（315 号票）：给人看的那一句（跟着当前语言现取，装好了还没重装时用记下的）；不是因为这个没装上的是 undefined */
+  /** 它要的外部组件没装：给人看的那一句（跟着当前语言现取，装好了还没重装时用记下的）；不是因为这个没装上的是 undefined */
   const missingNote = (slot: Slot): string | undefined => (slot.missing === undefined ? undefined : (slot.def.missing?.(missingCtx) ?? slot.missing));
 
-  /** 它要的外部组件没装（315 号票）：不装配，记成没装上（原因是那一句），视图摘下；交回 true。装着的交回 false */
+  /** 它要的外部组件没装：不装配，记成没装上（原因是那一句），视图摘下；交回 true。装着的交回 false */
   const notInstalled = (slot: Slot): boolean => {
     const what = slot.def.missing?.(missingCtx);
     if (what === undefined) return false;
@@ -710,7 +710,7 @@ export function createPluginHost(options: PluginHostOptions): PluginHost {
                 return slot.def.title;
               },
               running: () => active(slot),
-              // 没装上是因为外部组件没装（315 号票）：运行时写这一句（没装什么、怎么装），不写"没启用"
+              // 没装上是因为外部组件没装：运行时写这一句（没装什么、怎么装），不写"没启用"
               missing: () => (active(slot) ? undefined : missingNote(slot)),
             }),
           ),
@@ -745,7 +745,7 @@ export function createPluginHost(options: PluginHostOptions): PluginHost {
     /** 这一次装配（停了就不再活着；再启用是新的一次） */
     const life = slot.life;
     /**
-     * 给 agent 的工具包一层（211 号票）：这一次装配停了以后（运行中停用），还没按新的贡献重新装配的 agent 在正在跑的一轮里再调它，
+     * 给 agent 的工具包一层：这一次装配停了以后（运行中停用），还没按新的贡献重新装配的 agent 在正在跑的一轮里再调它，
      * 回"X插件没启用"（isError），不做。同一个工具包出来的是同一个
      */
     const wrapped = new WeakMap<HostTool, HostTool>();

@@ -1,6 +1,6 @@
-// 设置 · 外观 · 风格里每套风格的浅色、深色两张预览（39 号票）：用这套风格自己的 token 和规则现场画一小段固定的场景
+// 设置 · 外观 · 风格里每套风格的浅色、深色两张预览：用这套风格自己的 token 和规则现场画一小段固定的场景
 // （自己发的一条、个人助理回的一条、一张带按钮的小卡片、一排导航图标），不是手画的示意图，风格改了预览跟着变。
-// 加风格的票不用为预览做任何事：风格清单里有，设置里就有它的两张预览。
+// 加风格不用为预览做任何事：风格清单里有，设置里就有它的两张预览。
 //
 // 怎么画（pages/more/StylePreview.tsx）：每张预览是一个挂着 data-style、data-theme 的容器，场景放在它的 shadow root 里。
 // - token：风格清单生成的样式表把每套风格的 token 也挂在 [data-style="<id>"] 上，容器上的 color-scheme 按 data-theme
@@ -13,7 +13,7 @@
 // - 浏览器那一半（挂 shadow root、复制样式表、不让 Tab 到预览里、挂预览的字体）在 app/style-preview.ts、app/theme.ts；
 // - 字体：场景里的字都挑在常用字那一片里，构建时只把覆盖这些字的 @font-face 收进 fonts/preview.css（见
 //   build/visual-styles-plugin.ts 的 planFonts）。打开设置时挂上它，浏览器按 unicode-range 只下这几个字所在的切片。
-// 169 号票：场景里的字按当前语言（语言文件的 styles.preview.*）；构建时按自带的几种语言（中文、英文）的这几句挑字体切片。
+// 场景里的字按当前语言（语言文件的 styles.preview.*）；构建时按自带的几种语言（中文、英文）的这几句挑字体切片。
 // 这个文件是纯数据和纯函数：页面、构建插件、测试都引用它。
 import { tTable } from "@ergo/protocol";
 import EN from "../../../protocol/locales/en/styles.json" with { type: "json" };

@@ -1,4 +1,4 @@
-// Gmail 多账号（344 号票）在假内核里，IMAP 连本机的假服务（两个账号的 UIDVALIDITY、UID 故意撞号：谁没分账号，这里马上看得出），不连 Gmail：
+// Gmail 多账号在假内核里，IMAP 连本机的假服务（两个账号的 UIDVALIDITY、UID 故意撞号：谁没分账号，这里马上看得出），不连 Gmail：
 // - 新装直接加两个：各自同步、互不串；页面上每个账号一项（完整邮箱、状态、问题），account 列出全部；
 // - 老配置迁移成一条、再加一条，再启动不重复迁移；密钥文件写不了时（真的只读文件）照老样子接着用、老键还在、不留临时文件，日志里没密码；下次再转；
 // - 断开一个：另一个照常，只删它的密钥；连已导入的一起删只删它的记录（老配置导入的、没写账号的也归它）；整个断开全删；
@@ -82,7 +82,7 @@ function leaked(k: PluginKernel, secrets: readonly string[] = [PASSWORD_ME, PASS
   for (const address of [ME, OTHER]) if (k.logs.some((l) => l.includes(address))) where.push(`日志有完整邮箱 ${address}`);
   return where;
 }
-/** 老配置（298 号票的样子）放进密钥区 */
+/** 老配置（样子）放进密钥区 */
 const oldConfig = (address: string, password: string) => (layout: { dataSourceSecrets: string }) => {
   fs.mkdirSync(layout.dataSourceSecrets, { recursive: true });
   fs.writeFileSync(path.join(layout.dataSourceSecrets, `${SOURCE}.json`), JSON.stringify({ format: 1, values: { address, password } }));

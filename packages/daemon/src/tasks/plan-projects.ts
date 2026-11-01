@@ -1,4 +1,4 @@
-// 计划里涉及的项目要对得上任务（规格第 8 节"执行者"，17 号票评审后定）。任务涉及几个项目在建卡时定下（Task.projectScope），
+// 计划里涉及的项目要对得上任务（规格第 8 节"执行者"）。任务涉及几个项目在建卡时定下（Task.projectScope），
 // 之后不随计划改动重新判断，提交计划、计划变更、自行调整都过这一遍：
 // - 不涉及项目的任务：计划里不能写项目行；
 // - 单项目任务：只能写它自己那个项目；
@@ -6,15 +6,15 @@
 //   阶段的验收不用脚本——交付件在各项目那边，脚本在任务的产出区里跑不到（评审能看到回执和各项目）。
 // 要涉及别的项目就重新发起任务。planProjectProblems 是纯函数（项目名怎么认成编号由调用方给）；planProjectsCheck 接上项目列表，
 // 交给任务服务（提交计划）和执行控制器（计划变更、自行调整），daemon.ts 接。
-// 112 号票：长程任务的阶段自动验收（不管涉及几个项目），没验收的阶段不能写由你验收（auto-acceptance.ts）。
-// @i18n-ignore-file model：计划检查的问题、写任务书被拒的原因都交回负责人（工具结果），照旧中文（172 号票）
+// 长程任务的阶段自动验收（不管涉及几个项目），没验收的阶段不能写由你验收（auto-acceptance.ts）。
+// @i18n-ignore-file model：计划检查的问题、写任务书被拒的原因都交回负责人（工具结果），照旧中文
 import { isProjectInternal, type Plan, stagesAutoAccepted, type Task, type TaskProjectScope, taskProjectScope } from "@ergo/protocol";
 import type { ProjectLookup } from "../projects/api.ts";
 import { userCriteriaProblems } from "./auto-acceptance.ts";
 import type { TaskProjects } from "./tasks.ts";
 
 /**
- * 项目内部任务只动本项目（64 号票）：要动别的项目，告诉用户改成普通任务（写任务书、提交计划、计划变更都是这个说法）
+ * 项目内部任务只动本项目：要动别的项目，告诉用户改成普通任务（写任务书、提交计划、计划变更都是这个说法）
  */
 export const internalOtherProjects = (names: readonly string[]) =>
   `项目内部任务只动本项目，不能涉及别的项目（${names.map((n) => `「${n}」`).join("、")}）：要动别的项目，告诉用户改成普通任务（涉及这几个项目的跨项目任务，让秘书发起）`;
@@ -36,14 +36,14 @@ export function planProjectProblems(input: {
   scope: TaskProjectScope;
   /** 单项目任务自己的那个项目 */
   ownProjectId?: string | undefined;
-  /** 项目内部任务（64 号票）：写进别的项目时说法是"改成普通任务" */
+  /** 项目内部任务：写进别的项目时说法是"改成普通任务" */
   internal?: boolean;
   plan: Plan;
   /** 项目名（或编号）认成项目列表里的编号；不在列表里是 undefined */
   projectIdOf: (name: string) => string | undefined;
-  /** 阶段自动验收（112 号票：长程任务）：没验收的阶段不能写由你验收 */
+  /** 阶段自动验收（长程任务）：没验收的阶段不能写由你验收 */
   autoAccepted?: boolean;
-  /** 已经验收了的阶段（计划变更、自行调整时）：它们写着的由你验收不管（112 号票） */
+  /** 已经验收了的阶段（计划变更、自行调整时）：它们写着的由你验收不管 */
   accepted?: ReadonlySet<string>;
 }): string[] {
   const { plan, scope } = input;

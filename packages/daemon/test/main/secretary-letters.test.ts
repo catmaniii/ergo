@@ -1,4 +1,4 @@
-// 主切面：给秘书发消息（102 号票，规格第 12 节"星形通信"、第 7 节；用户 2026-10-12 定：除了秘书，所有 agent 默认都有）。
+// 主切面：给秘书发消息（规格第 12 节"星形通信"、第 7 节；除了秘书，所有 agent 默认都有）。
 // 真的守护进程，秘书、负责人、子 agent、评审接 faux 剧本，测试扮演前端：
 // - 长程任务的负责人执行时、普通任务的 agent 做到一半、定时触发的任务每次运行里、项目的负责人在项目内部任务的工单里、
 //   负责人派的子 agent、阶段验收的评审子 agent 调 tell_secretary：秘书收到一条"负责人来信"的通知（剧本里 echo_context 回显它收到的），
@@ -9,7 +9,7 @@
 //   停机前还没交的起来后补，交过的不重交；和差不多同时到的任务做完的通知一起交，各是各的；
 // - 防刷屏：每个发信人各算（评审按这个任务这个阶段的评审），10 分钟里最多 3 条，超了回"发得太频繁，攒一攒一起说"；
 //   和上一条一字不差的不再发；同一次调用只记一次。
-// - 一句话总结（115 号票）：工具的必填参数 summary（30 字以内），存在交给秘书的通知上（会话里折成一行时显示），交给秘书的照旧是全文。
+// - 一句话总结：工具的必填参数 summary（30 字以内），存在交给秘书的通知上（会话里折成一行时显示），交给秘书的照旧是全文。
 // "普通任务的 agent 做到一半发一条"那个用例的事件流录下来给前端回放（secretary-letter；重新录：
 // ERGO_RECORD_EVENTS=1 npx vitest run packages/daemon/test/main/secretary-letters.test.ts -t 做到一半发一条）。
 import fs from "node:fs";
@@ -57,7 +57,7 @@ type ToolCallPart = Extract<MessagePart, { type: "tool_call" }>;
 
 const say = (text: string): FauxStep => ({ kind: "reply", text });
 const call = (name: string, args: Record<string, unknown>): FauxStep => ({ kind: "reply", toolCalls: [{ name, arguments: args as never }] });
-/** 给秘书发一条：一句话总结（115 号票，必填、30 字以内；不写就用原话的第一句）和原话，总结在前（工具的参数也是这个顺序） */
+/** 给秘书发一条：一句话总结（必填、30 字以内；不写就用原话的第一句）和原话，总结在前（工具的参数也是这个顺序） */
 const tell = (text: string, summary = firstSentence(text)) => call(TELL_SECRETARY_TOOL, { summary, text });
 const ECHO: FauxStep = { kind: "echo_context" };
 
@@ -67,7 +67,7 @@ const textOf = (p: MessageEventPayload) => p.message.parts.map((part) => ("text"
 const noticesOf = (frontend: TestFrontend) => messagesOf(frontend, SECRETARY).filter((m) => m.agentInput === true).map(textOf);
 /** 其中负责人来信的 */
 const letterTexts = (frontend: TestFrontend) => noticesOf(frontend).filter((t) => t.startsWith(MAINTAINER_LETTER_TAG));
-/** 负责人来信的通知上存的一句话总结（115 号票：会话里折成一行时显示的那句） */
+/** 负责人来信的通知上存的一句话总结（会话里折成一行时显示的那句） */
 const letterSummaries = (frontend: TestFrontend) =>
   messagesOf(frontend, SECRETARY)
     .filter((m) => m.agentInput === true && textOf(m).startsWith(MAINTAINER_LETTER_TAG))
@@ -83,7 +83,7 @@ const lastEcho = (frontend: TestFrontend, channel: string) => {
   const said = messagesOf(frontend, channel).filter((m) => m.message.speaker === "agent").map(textOf).filter((t) => t.includes("[user]") || t.includes("[tool]"));
   return stripTimeMarkers(said.at(-1) ?? "");
 };
-/** 回显里此刻有的工具：开头那一份（换了工具包接着会话也是开头一份、按这次交的先后，273 号票） */
+/** 回显里此刻有的工具：开头那一份（换了工具包接着会话也是开头一份、按这次交的先后） */
 const toolsIn = toolsNow;
 const toolPartsOf = (frontend: TestFrontend, channel: string): ToolCallPart[] =>
   messagesOf(frontend, channel).flatMap((m) => m.message.parts.filter((p): p is ToolCallPart => p.type === "tool_call"));
@@ -144,7 +144,7 @@ describe("负责人给秘书发消息，秘书在主线里转告", () => {
     await lettersArrived(frontend, 1);
     const [notice] = letterTexts(frontend);
     expect(notice).toBe(letterNotice(`长程任务 ${taskId}「整理发票」的负责人说：\n${INVOICES}`));
-    // 115 号票：会话里这一条折成一行，显示它给的一句话总结（存在消息上；交给秘书的照旧是全文，下面核对模型看到的）
+    // 会话里这一条折成一行，显示它给的一句话总结（存在消息上；交给秘书的照旧是全文，下面核对模型看到的）
     expect(letterSummaries(frontend)).toEqual(["发票里有 3 张抬头写错了"]);
     // 交给秘书的就是它（开头标着系统通知），不是用户说的；秘书没等用户开口就在主线里回了一条；秘书没有这个工具
     await secretaryTurns(frontend, 1);
@@ -157,7 +157,7 @@ describe("负责人给秘书发消息，秘书在主线里转告", () => {
     await turnsOf(frontend, TM1, 2);
     const own = lastEcho(frontend, TM1);
     expect(toolsIn(own)).toContain(TELL_SECRETARY_TOOL);
-    // 交给 agent 的话里名字占位换成"秘书"（43 号票）；调用记录里照存占位，界面上显示用户起的名字
+    // 交给 agent 的话里名字占位换成"秘书"；调用记录里照存占位，界面上显示用户起的名字
     expect(own).toContain(`[toolResult] ${TELL_SECRETARY_TOOL}: ${LETTER_SENT.replaceAll(ASSISTANT_NAME_MARK, "秘书")}`);
     const part = toolPartsOf(frontend, TM1).find((p) => p.tool === TELL_SECRETARY_TOOL)!;
     // 调用记录的结果摘要是交给 agent 的那份（名字占位已经换成"秘书"）
@@ -170,7 +170,7 @@ describe("负责人给秘书发消息，秘书在主线里转告", () => {
   }, 60_000);
 
   it("普通任务的 agent 做到一半发一条、接着做完：信和任务做完的通知都交，信在前、各是各的", async () => {
-    // 事件流录下来给前端回放（secretary-letter：115 号票，两条来信在会话里各折成一行）；只订阅看板和秘书会话，按频道核对
+    // 事件流录下来给前端回放（secretary-letter：两条来信在会话里各折成一行）；只订阅看板和秘书会话，按频道核对
     const { frontend } = await setup(
       {
         secretary: [say("它说先下了 mp3，问你要不要 flac。要我念给你听吗？"), say("《晴天》下好了，要我念给你听吗？")],
@@ -184,7 +184,7 @@ describe("负责人给秘书发消息，秘书在主线里转告", () => {
     expect(letter).toBe(letterNotice("普通任务 t-1「去把《晴天》的音频下下来」的负责人说：\n先下了 mp3；要 flac 的话在任务里跟我说一声。"));
     expect(done!.startsWith(TASK_DONE_TAG)).toBe(true);
     expect(done).toContain("普通任务 t-1「去把《晴天》的音频下下来」在后台做完了。");
-    // 115 号票：两条各有各的一句话总结（信是它给的，任务做完的由运行时拼）
+    // 两条各有各的一句话总结（信是它给的，任务做完的由运行时拼）
     expect(messagesOf(frontend, SECRETARY).filter((m) => m.agentInput === true).map((m) => m.message.summary)).toEqual(["先下了 mp3", "t-1「去把《晴天》的音频下下来」做完了"]);
     await secretaryTurns(frontend, 2);
     expect(secretarySaid(frontend)).toEqual(["它说先下了 mp3，问你要不要 flac。要我念给你听吗？", "《晴天》下好了，要我念给你听吗？"]);
@@ -403,7 +403,7 @@ function draftOf(plan: Plan): Record<string, unknown> {
 const maintainerWith = (hostTools: string[]) => ({ cwd: "C:\\w", toolkit: { bash: true, network: true }, skillPaths: [], piTools: ["read"], hostTools, projectRecords: [], workingDirs: ["C:\\w"], development: false });
 
 /**
- * 一个阶段、评审验收的计划；off 是工具包里关掉了给秘书发消息。不开 bash（开了的话评审还有跑命令的工具，112 号票返修，
+ * 一个阶段、评审验收的计划；off 是工具包里关掉了给秘书发消息。不开 bash（开了的话评审还有跑命令的工具，
  * 这里只看给秘书发消息）
  */
 const reviewPlan = (off?: false): Plan => ({
@@ -559,7 +559,7 @@ describe("防刷屏", () => {
       expect(await review("review-t-1-s2-1", "s2").run(said, { toolCallId: "r3" })).toEqual({ text: LETTER_SENT });
       // 太长的照 schema 拒掉（pi 也先按它校验）
       expect(await send("tm-1", "c7", "长".repeat(2001))).toMatchObject({ isError: true });
-      // 一句话总结（115 号票）必填、30 字以内（照 schema 拒掉），只有空白的也不发
+      // 一句话总结必填、30 字以内（照 schema 拒掉），只有空白的也不发
       expect(await tool("tm-3").run({ text: "没写总结" }, { toolCallId: "e1" })).toMatchObject({ isError: true });
       expect(await tool("tm-3").run({ summary: "长".repeat(31), text: "总结太长" }, { toolCallId: "e2" })).toMatchObject({ isError: true });
       expect(await tool("tm-3").run({ summary: "  \n", text: "总结只有空白" }, { toolCallId: "e3" })).toEqual({ text: LETTER_SUMMARY_EMPTY, isError: true });

@@ -14,14 +14,14 @@ import {
   scheduledJobStatusText,
 } from "../src/index.ts";
 
-describe("定时作业的状态和动作（19 号票，守护进程和 Web 共用）", () => {
+describe("定时作业的状态和动作（守护进程和 Web 共用）", () => {
   it("运营中的能暂停、取消；已暂停的能恢复、取消；已取消的什么都不能做", () => {
     expect(scheduledJobActions({ state: "active" })).toEqual(["pause", "cancel"]);
     expect(scheduledJobActions({ state: "paused" })).toEqual(["resume", "cancel"]);
     expect(scheduledJobActions({ state: "cancelled" })).toEqual([]);
   });
 
-  it("能不能改时间（98 号票）：定时的运营中、已暂停的能改；已取消的、事件触发的（没有时间表）不能", () => {
+  it("能不能改时间：定时的运营中、已暂停的能改；已取消的、事件触发的（没有时间表）不能", () => {
     const daily = { kind: "daily" as const, time: "09:00" };
     expect(canRescheduleJob({ state: "active", schedule: daily })).toBe(true);
     expect(canRescheduleJob({ state: "paused", schedule: daily })).toBe(true);
@@ -29,7 +29,7 @@ describe("定时作业的状态和动作（19 号票，守护进程和 Web 共�
     expect(canRescheduleJob({ state: "active" })).toBe(false);
   });
 
-  it("能不能立即运行一次（100 号票）：运营中、已暂停的能（暂停着的跑一次照旧暂停），定时、事件触发的都能；已取消的不能", () => {
+  it("能不能立即运行一次：运营中、已暂停的能（暂停着的跑一次照旧暂停），定时、事件触发的都能；已取消的不能", () => {
     expect(canRunJobNow({ state: "active" })).toBe(true);
     expect(canRunJobNow({ state: "paused" })).toBe(true);
     expect(canRunJobNow({ state: "cancelled" })).toBe(false);
@@ -62,7 +62,7 @@ describe("定时作业的状态和动作（19 号票，守护进程和 Web 共�
   });
 });
 
-describe("最近一次的结局（176 号票：部分完成）", () => {
+describe("最近一次的结局（部分完成）", () => {
   it("部分完成的标签；卡上标的：最近一次部分完成的标\"最近一次部分完成\"（比上一次算数的失败新），不然最近一次算数的失败了标\"最近一次失败\"", () => {
     expect(JOB_RUN_STATE_LABEL.partial).toBe("部分完成");
     expect(lastRunMark({ lastFailed: true, lastRun: { state: "partial" } })).toEqual({ text: "最近一次部分完成", partial: true });

@@ -1,12 +1,12 @@
-// 主切面：项目内部任务（64 号票，规格第 8 节"项目内部任务"）。真的守护进程，秘书、项目负责人都接 faux 剧本，测试扮演前端。
+// 主切面：项目内部任务（规格第 8 节"项目内部任务"）。真的守护进程，秘书、项目负责人都接 faux 剧本，测试扮演前端。
 // - 发起的规矩和秘书一样：用户在项目的负责人会话里点明了（"按流程做：……""发起任务：……"、/流程、/任务）才建，点明的判断和秘书
 //   共用一份；没点明的负责人最多给一张建议卡（卡上"作为流程""作为长程任务"），用户点了才建出，通知交给负责人；
 //   用户在秘书那里点明了要做某个项目的事，秘书替用户建成这个项目的内部任务（通知交给负责人，秘书看不到细节）；
 // - 种类和执行：流程或长程任务，由这个项目的负责人自己执行——任务书由它写，之后和单项目任务一样派起草计划的工单、
 //   计划卡一次授权、执行（流程执行时照计划逐步核对），照常占全局执行名额，用量记在任务名下；
-// - 可见范围：看板频道上的任务、定时触发的内部任务的触发登记（76 号票）带着 internal（前端不放上全局看板、放在项目页上），要用户处理的照常进待我处理、
+// - 可见范围：看板频道上的任务、定时触发的内部任务的触发登记带着 internal（前端不放上全局看板、放在项目页上），要用户处理的照常进待我处理、
 //   来源写明"项目「X」内部"、事项带着标记，秘书的只读工具（查看板、列出待我处理、把卡片放进聊天、检索素材）看不到细节；
-// - 归档：结束了的在项目页上由用户归档（task_action 的 archive；90 号票起结束了的全局任务也能这样直接归档）；
+// - 归档：结束了的在项目页上由用户归档（task_action 的 archive；结束了的全局任务也能这样直接归档）；
 // - 只动本项目：计划里写了别的项目被拒，告诉用户改成普通任务；
 // - 删除项目时它的内部任务一起删掉。
 import fs from "node:fs";
@@ -630,7 +630,7 @@ describe("检索素材", () => {
 });
 
 describe("归档和定时触发", () => {
-  it("项目内部任务结束了由用户在项目页上归档（task_action 的 archive）；结束了的全局任务也能这样直接归档（90 号票）；定时触发的内部任务（76 号票）由项目的负责人运行，它的触发登记带着标记，不上秘书的看板", async () => {
+  it("项目内部任务结束了由用户在项目页上归档（task_action 的 archive）；结束了的全局任务也能这样直接归档；定时触发的内部任务由项目的负责人运行，它的触发登记带着标记，不上秘书的看板", async () => {
     const td = await startTestDaemon({
       secretary: [call("view_board", {}), { kind: "echo_context" }],
       maintainer: () => [],
@@ -653,10 +653,10 @@ describe("归档和定时触发", () => {
     expect(td.daemon.scheduledJobs.get(job.id)!.state).toBe("cancelled");
     ok(await frontend.taskAction({ taskId: timed.taskId, action: "archive" }));
 
-    // 没结束的点归档：186 号票起先取消再归档（内部任务、全局任务都一样，见 task-delete.test.ts）
+    // 没结束的点归档：先取消再归档（内部任务、全局任务都一样，见 task-delete.test.ts）
     ok(await frontend.taskAction({ taskId: internal.id, action: "archive" }));
     expect(td.daemon.tasks.get(internal.id)).toMatchObject({ state: "archived", internal: P1 });
-    // 全局任务（90 号票）：取消之后能直接归档
+    // 全局任务：取消之后能直接归档
     const other = td.daemon.tasks.createByRequest({ title: "整理发票", summary: "整理发票" });
     ok(await frontend.taskAction({ taskId: other.id, action: "cancel" }));
     ok(await frontend.taskAction({ taskId: other.id, action: "archive" }));
@@ -687,7 +687,7 @@ describe("删除项目", () => {
     td.daemon.tasks.submitPlan(waiting.id, "pm-1", samplePlan({ toolkit: { skills: [], mcp: [], bash: false, network: false }, assumptions: ["记账逻辑在 ledger.ts"] }));
     const planning = newInternal(td, "升级依赖", "依赖升到最新", "workflow");
     const other = td.daemon.tasks.createByRequest({ title: "整理发票", summary: "整理发票" });
-    // 一个定时触发的内部普通任务（76 号票，还在运营）
+    // 一个定时触发的内部普通任务（还在运营）
     const timed = ok(await frontend.startTask("每周检查依赖\n看看依赖有没有新版本", "k-timed", ["记账本"], "plain", { kind: "schedule", schedule: { kind: "weekly", time: "09:00", weekdays: [1] } })) as { taskId: string };
     const suggestion = td.daemon.cards.create({ type: "suggest_task", payload: { title: "顺手清理日志", why: "日志目录越来越大", internal: P1 } });
     const card = await cardWhere(frontend, (c) => c.type === "plan" && (c.payload as PlanCardPayload).taskId === waiting.id, "内部任务的计划卡");
@@ -719,7 +719,7 @@ describe("删除项目", () => {
   }, 90_000);
 });
 
-describe("删除项目时的素材（66 号票）", () => {
+describe("删除项目时的素材", () => {
   it("素材库里这个项目的内部任务由系统记下的记录（结局、计划的决定、建议卡被关掉）随项目彻底删掉：检索不到、素材库里也没有了，记成一条出处是删除项目的彻底删除（不产生显式记忆命令素材）；用户本人在负责人会话里说的话、普通任务的记录照旧在", async () => {
     const td = await startTestDaemon({
       secretary: [say("好的")],
@@ -747,7 +747,7 @@ describe("删除项目时的素材（66 号票）", () => {
     const outside = materials.searchKeyword("外部重构调研");
     expect(outside).toHaveLength(1);
     const commandsBefore = materials.list({ kind: "memory_command" }).length;
-    // 272 号票：整理一次（内部任务的结局读进推理库成了证据），秘书问记忆时按证据编号引过它；随项目彻底删除这条记录时，
+    // 整理一次（内部任务的结局读进推理库成了证据），秘书问记忆时按证据编号引过它；随项目彻底删除这条记录时，
     // 问记忆那次调用的记录和完整内容也要按证据编号找到、改写
     expect(await td.daemon.plugins.service(MEMORY_NIGHTLY)!.runNow()).toMatchObject({ state: "ran" });
     const outcomeEv = evidenceOfMaterial(td.dataDir, records.find((m) => m.kind === "task_outcome")!.id);

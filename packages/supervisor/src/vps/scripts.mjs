@@ -1,4 +1,4 @@
-// 拼 VPS 上跑的脚本（321 号票）：参数 + 内容（nginx 站点、headscale 配置）+ 公共函数（sh/lib.sh、sh/certs.sh）+ 这一步的正文（sh/*.sh）。
+// 拼 VPS 上跑的脚本：参数 + 内容（nginx 站点、headscale 配置）+ 公共函数（sh/lib.sh、sh/certs.sh）+ 这一步的正文（sh/*.sh）。
 //
 // 拼出来的是一份完整、自带参数的 bash 脚本：本机先整份显示给你看、你同意了才经 ssh 送上去跑；
 // 也可以 `--print-script` 存下来，自己登进 VPS 用 `sudo bash` 跑（电脑那半再回来 `--local-only`）。
@@ -75,7 +75,7 @@ export function checkupScript(plan, { now = new Date(), nginxDump = false } = {}
 }
 
 /**
- * 加一个 https 站点（lsm vps site add，322 号票）。plan.layout 是体检看出来的布局（sites.mjs 的 decideLayout）。
+ * 加一个 https 站点（lsm vps site add）。plan.layout 是体检看出来的布局（sites.mjs 的 decideLayout）。
  */
 export function siteAddScript(plan, { now = new Date() } = {}) {
   const L = plan.layout;

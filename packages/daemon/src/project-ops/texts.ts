@@ -1,4 +1,4 @@
-// 秘书调使用中的项目的操作（260 号票；268 号票补齐）的说法：编排在 tool.ts、check-tool.ts，只给结构化的数据，文字都在这里。
+// 秘书调使用中的项目的操作（补齐）的说法：编排在 tool.ts、check-tool.ts，只给结构化的数据，文字都在这里。
 // 给秘书、负责人的（工具说明、参数说明、工具结果）照旧中文；给用户看的（工具名、时间线、转运营检查清单那一项）走 t()。
 import { forModel, PROJECT_STATE_LABEL, type Project, type ProjectServiceView, serviceLine, t } from "@ergo/protocol";
 import { SWITCH_SERVICES_TOOL } from "../project-services/tool-names.ts";
@@ -246,7 +246,7 @@ export function checklistDetail(view: OpsChecklistView): { done: boolean; detail
     case "checking":
       return { done: false, detail: t("projectOps.check.checking", { count: view.count }) };
     case "waiting":
-      // 362 号票：服务还没上线、这几个测不了的不算没过：卡上写"上线后再验"，服务上线时运行时自己复验
+      // 服务还没上线、这几个测不了的不算没过：卡上写"上线后再验"，服务上线时运行时自己复验
       return { done: true, later: true, detail: t("projectOps.check.waiting", { count: view.count, waiting: view.waiting }) };
     case "passed":
       return { done: true, detail: t("projectOps.check.passed", { count: view.count }) };

@@ -1,6 +1,6 @@
-// 共享协议包：已配对设备多选管理的纯函数（123 号票）——延期后的到期日、哪台要跳过、跳过的原因怎么说。
+// 共享协议包：已配对设备多选管理的纯函数——延期后的到期日、哪台要跳过、跳过的原因怎么说。
 // 守护进程判断、Web 上算按钮个数用的是同一份。
-// 137 号票：配对请求像不像网络上的自动访问（按浏览器标识判断，给出原因）。
+// 配对请求像不像网络上的自动访问（按浏览器标识判断，给出原因）。
 import { describe, expect, test } from "vitest";
 import { automatedAccess, automatedAccessHint, DEVICE_BATCH_ACTIONS, deviceBatchSkip, deviceSkipPhrase, extendedExpiry } from "../src/index.ts";
 
@@ -50,7 +50,7 @@ describe("哪台要跳过", () => {
 
 const reasonOf = (ua: string) => automatedAccess(ua)?.reason;
 
-describe("像不像网络上的自动访问（137 号票）", () => {
+describe("像不像网络上的自动访问", () => {
   test("无界面浏览器、自动化工具：算，原因里写出是哪个字眼", () => {
     const headless = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/134.0.0.0 Safari/537.36";
     expect(reasonOf(headless)).toBe("浏览器标识带「HeadlessChrome」，是无界面浏览器");

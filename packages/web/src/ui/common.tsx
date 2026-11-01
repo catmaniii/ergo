@@ -41,7 +41,7 @@ export function useNow(intervalMs = 1000): number {
 
 /**
  * 可拖动的分栏线，中间有可视的抓手：onDrag 给的是这一下往右挪了多少像素；
- * 91 号票加了 label（读屏念的"拖动调整……宽度"）和 onDragEnd（松手时，阶段栏拖到的宽度这时才记到这台设备上）
+ * 加了 label（读屏念的"拖动调整……宽度"）和 onDragEnd（松手时，阶段栏拖到的宽度这时才记到这台设备上）
  */
 export function Splitter({ onDrag, onDragEnd, label }: { onDrag(dx: number): void; onDragEnd?: (() => void) | undefined; label?: string | undefined }) {
   const last = useRef<number | undefined>(undefined);
@@ -75,7 +75,7 @@ export function Splitter({ onDrag, onDragEnd, label }: { onDrag(dx: number): voi
 
 /**
  * 宽屏：列表栏 + 主栏；窄屏：有选中项时只显示主栏，否则只显示列表。
- * 任务页 88 号票起不用它（看板和任务详情二选一，看板宽屏占满）；原来任务详情挤不下时让列表让开的 useListYield 随之去掉
+ * 任务页不用它（看板和任务详情二选一，看板宽屏占满）；原来任务详情挤不下时让列表让开的 useListYield 随之去掉
  */
 export function ListDetail({ wide, list, detail, listWidth = 320 }: { wide: boolean; list: ReactNode; detail?: ReactNode; listWidth?: number }) {
   const [w, setW] = useState(listWidth);
@@ -92,12 +92,12 @@ export function ListDetail({ wide, list, detail, listWidth = 320 }: { wide: bool
 }
 
 /**
- * 一栏的标题栏：窄屏时带返回（鸿蒙 App 的系统返回键也走它：挂一层 page，62 号票）。
- * 带返回的（二级页）标题栏挂 data-back：视觉风格可以按它给二级页换样子（42 号票，软糖圆角的二级页标题小一号），经典不用它。
- * joined：下面紧跟着和它算一个头的页签，挂 data-joined：视觉风格可以把两者画成一块（46 号票，玻璃光纹的标题栏是一块浮起的玻璃，
+ * 一栏的标题栏：窄屏时带返回（鸿蒙 App 的系统返回键也走它：挂一层 page）。
+ * 带返回的（二级页）标题栏挂 data-back：视觉风格可以按它给二级页换样子（软糖圆角的二级页标题小一号），经典不用它。
+ * joined：下面紧跟着和它算一个头的页签，挂 data-joined：视觉风格可以把两者画成一块（玻璃光纹的标题栏是一块浮起的玻璃，
  * 页签接在同一块里），经典不用它。**和 Segmented 的 head 成对传**（现在只有待我处理）：只传一边，玻璃光纹的标题栏下半是平的、
  * 下面却没有接着的页签（或者页签接不上标题栏）。
- * lead：排在返回之后、标题之前的东西（88 号票：宽屏长程任务的阶段标签挪到这里，正在阶段栏上方）；children 排在标题后面
+ * lead：排在返回之后、标题之前的东西（宽屏长程任务的阶段标签挪到这里，正在阶段栏上方）；children 排在标题后面
  */
 export function TopBar({
   title,
@@ -135,7 +135,7 @@ export function TopBar({
   );
 }
 
-/** 底部弹层（竖屏）或居中对话框（开着时鸿蒙 App 的系统返回键先关它：挂一层 overlay，62 号票） */
+/** 底部弹层（竖屏）或居中对话框（开着时鸿蒙 App 的系统返回键先关它：挂一层 overlay） */
 export function Sheet({ title, onClose, children, center }: { title: ReactNode; onClose(): void; children: ReactNode; center?: boolean }) {
   useBackLayer("overlay", true, onClose);
   return (
@@ -155,7 +155,7 @@ export function Sheet({ title, onClose, children, center }: { title: ReactNode; 
 
 /**
  * 活动状态小圆点：休眠、干活中、等你、排队。
- * 369 号票：标题上的给 jump（状态层 activityJump）：等你的是一个链接，写"等你……"和 ›，点了跳到要处理的那张卡；已经在这个地址了再点一次，
+ * 标题上的给 jump（状态层 activityJump）：等你的是一个链接，写"等你……"和 ›，点了跳到要处理的那张卡；已经在这个地址了再点一次，
  * 地址不变，会话再滚过去、闪一下。onJump：点了之后（状态签浮层里的要收起来）
  */
 export function ActivityDot({ state, note, jump, onJump }: { state: ActivityState; note?: string | undefined; jump?: ActivityJump | undefined; onJump?: (() => void) | undefined }) {
@@ -194,8 +194,8 @@ export function ActivityDot({ state, note, jump, onJump }: { state: ActivityStat
 
 /**
  * 分段切换。role：切换下面显示的内容是 tab（默认）；选一个设置项（比如外观）是 radio，label 是这一组的名字。
- * head：紧跟在标题栏下面、和标题栏算一个头的页签（待我处理），挂 .seg-head 给风格用（40 号票：暖纸手帐把两者合成一块），经典不改样子；
- * 和上面那个 TopBar 的 joined 成对传（46 号票）
+ * head：紧跟在标题栏下面、和标题栏算一个头的页签（待我处理），挂 .seg-head 给风格用（暖纸手帐把两者合成一块），经典不改样子；
+ * 和上面那个 TopBar 的 joined 成对传
  */
 export function Segmented<T extends string>({
   value,

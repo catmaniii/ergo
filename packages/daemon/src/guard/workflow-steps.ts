@@ -1,4 +1,4 @@
-// 流程的步骤在守卫眼里（58 号票，ADR 0019）：步骤里能写哪些工具、一步拆成守卫判定的哪几次调用（通用 bash 按命令拆成伪工具）、
+// 流程的步骤在守卫眼里（ADR 0019）：步骤里能写哪些工具、一步拆成守卫判定的哪几次调用（通用 bash 按命令拆成伪工具）、
 // 按步骤推出的工具包和授权项。纯函数。
 //
 // 授权项（计划里列了这一步就算授权，"一次性授权"）从严推：
@@ -44,7 +44,7 @@ export function plainArgs(args: Readonly<Record<string, unknown>> | undefined): 
 }
 
 /**
- * 步骤里能写的工具：pi 的读写、搜索和通用 bash，带类型的 bash 工具，以及联网搜索、读网页（70 号票）。
+ * 步骤里能写的工具：pi 的读写、搜索和通用 bash，带类型的 bash 工具，以及联网搜索、读网页。
  * 伪工具只在拆 bash 时出现，不能写进步骤
  */
 export function stepToolAllowed(tools: ToolRegistry, name: string): boolean {

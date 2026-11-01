@@ -1,4 +1,4 @@
-// stop 钩子结束进程前的核对（353 号票，process/stop-check.ts）：netstat 靠不住时认人的办法多了，这条保护不放松——
+// stop 钩子结束进程前的核对（process/stop-check.ts）：netstat 靠不住时认人的办法多了，这条保护不放松——
 // 只有"在听这个端口的就是 pid 文件里那个进程、启动时间对得上"才结束它。这里全是假数据，不碰真进程。
 import { describe, expect, it } from "vitest";
 import { stopVerdict } from "../src/process/stop-check.ts";

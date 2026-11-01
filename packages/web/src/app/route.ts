@@ -1,13 +1,13 @@
 // 页面路由：用 URL 的 # 部分，直接从文件打开（file://）也能用，刷新后停在原来的页面。
 // 地址怎么拆、怎么拼在 route-hash.ts（纯函数），这里只盯着地址的变化。跳转压一条记录并记下来处，标题栏的 ‹ 回上一级不压新记录
-// （88 号票评审，history-nav.ts）。
+// （history-nav.ts）。
 import { useCallback, useEffect, useState } from "react";
 import { backToHash, cameFrom, pushHash } from "./history-nav.ts";
 import { legacyHashRedirect, type Navigate, parseHash, type Route, toHash } from "./route-hash.ts";
 
 export * from "./route-hash.ts";
 
-/** 旧地址（比如 167 号票之前设置里删除素材的 #/more/materials）在地址栏里换成新地址，不压新记录；页面照拆出来的新地址显示 */
+/** 旧地址（比如以前设置里删除素材的 #/more/materials）在地址栏里换成新地址，不压新记录；页面照拆出来的新地址显示 */
 function currentRoute(): Route {
   const to = legacyHashRedirect(window.location.hash);
   if (to !== undefined) window.location.replace(to);
@@ -31,7 +31,7 @@ export function goBackTo(r: Route): void {
 }
 
 /**
- * 项目对话框的 ‹（368 号票）：回项目一览；从看板点进来的（运营方案那几条任务的卡，换成了项目的对话框）回看板，和点进任务详情时一样
+ * 项目对话框的 ‹：回项目一览；从看板点进来的（运营方案那几条任务的卡，换成了项目的对话框）回看板，和点进任务详情时一样
  */
 export function goBackFromProject(): void {
   const from = cameFrom(window);
@@ -40,7 +40,7 @@ export function goBackFromProject(): void {
 }
 
 /**
- * 地址换成 r、不压新记录（368 号票：#/tasks/<任务> 换成项目的对话框）；这一条记下的来处留着，‹ 照样回得去
+ * 地址换成 r、不压新记录（#/tasks/<任务> 换成项目的对话框）；这一条记下的来处留着，‹ 照样回得去
  */
 export function replaceRoute(r: Route): void {
   const state: unknown = window.history.state;
@@ -48,7 +48,7 @@ export function replaceRoute(r: Route): void {
   window.history.replaceState(state, "");
 }
 
-/** 素材详情的 ‹（343 号票）：从数据源详情的"已获取的"点过来的回那里，别的回列表 r */
+/** 素材详情的 ‹：从数据源详情的"已获取的"点过来的回那里，别的回列表 r */
 export function goBackFromMaterial(r: Route): void {
   const from = cameFrom(window);
   const route = from === undefined ? undefined : parseHash(from);

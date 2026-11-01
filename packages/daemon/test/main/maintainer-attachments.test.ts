@@ -1,11 +1,11 @@
-// 主切面：任务和项目的负责人也能发附件（117 号票）。真的守护进程，秘书、负责人接 faux 剧本，测试扮演前端：
+// 主切面：任务和项目的负责人也能发附件。真的守护进程，秘书、负责人接 faux 剧本，测试扮演前端：
 // - 普通任务的 agent、长程任务的负责人、项目的负责人（对话段）调 send_attachment：工作目录里的文件复制进媒体库，作为它的一条消息
 //   出现在它自己的会话里（带上任务、阶段、项目的归属），前端看到的是附件卡片；工作目录外的发不了，原因交回模型；
 // - 工具包里"发附件"关掉了（计划里的、项目的）负责人没有这个工具，在任务详情里打开、重新装配后有了；子 agent、评审没有；
-// - tell_secretary 带附件：工作目录里的文件照任务做完交付的文件那样（115 号票），作为一条只有文件的系统消息紧跟在那条负责人来信的
+// - tell_secretary 带附件：工作目录里的文件照任务做完交付的文件那样，作为一条只有文件的系统消息紧跟在那条负责人来信的
 //   通知后面（不进秘书的输入），通知的全文写着附件引用，秘书按引用读得到，不用再复制；同一次交的任务做完又交了同一份的不再放一张；
 //   有一个发不了整封信不发；秘书处理到一半崩溃，重新交的只有文字，附件卡片不再放一遍。
-// - 143 号票：用户在任务、项目的会话里发的附件，负责人看到的和秘书一样（长文本、PDF 只内联开头），用 read_attachment 读全文；
+// -用户在任务、项目的会话里发的附件，负责人看到的和秘书一样（长文本、PDF 只内联开头），用 read_attachment 读全文；
 //   只能读自己会话里的附件，读别的会话（比如只发给了秘书）的被拒并说明原因；提示词里讲附件的那一句和秘书的对齐。
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -76,7 +76,7 @@ const lastEcho = (frontend: TestFrontend, channel: string) => {
     .filter((t) => t.includes("[user]") || t.includes("[tool]"));
   return stripTimeMarkers(said.at(-1) ?? "");
 };
-/** 回显里此刻有的工具：开头那一份（换了工具包接着会话也是开头一份、按这次交的先后，273 号票） */
+/** 回显里此刻有的工具：开头那一份（换了工具包接着会话也是开头一份、按这次交的先后） */
 const toolsIn = toolsNow;
 const toolPartsOf = (frontend: TestFrontend, channel: string): ToolCallPart[] =>
   messagesOf(frontend, channel).flatMap((m) => m.message.parts.filter((p): p is ToolCallPart => p.type === "tool_call"));
@@ -244,7 +244,7 @@ describe("tell_secretary 带附件", () => {
     const { frontend } = td;
     ok(await frontend.startTask("出今天的 AI 日报", "k-plain", [], "plain"));
     await waitUntil(() => letterNotices(frontend).length > 0, { timeoutMs: 30_000, describe: () => "等负责人来信" });
-    // 通知只有文字（折成一行时显示总结）；附件是紧跟在后面的一条只有文件的系统消息（照 115 号票任务做完交付的文件）
+    // 通知只有文字（折成一行时显示总结）；附件是紧跟在后面的一条只有文件的系统消息（任务做完交付的文件）
     const [notice] = letterNotices(frontend);
     expect(notice!.message.parts.map((p) => p.type)).toEqual(["text"]);
     expect(notice!.message.summary).toBe("AI 日报和走势图做好了");
@@ -308,7 +308,7 @@ describe("tell_secretary 带附件", () => {
   }, 60_000);
 });
 
-describe("负责人读附件全文（143 号票）", () => {
+describe("负责人读附件全文", () => {
   /** 超过 32 KB 的文本文件：消息里只内联开头 32 KB，结尾的 MARKER-END 要用 read_attachment 才读得到 */
   const LONG_LOG = Buffer.from(`开头第一行\n${"x".repeat(40_000)}\n结尾 MARKER-END`);
   const LOG_REF = createHash("sha256").update(LONG_LOG).digest("hex");

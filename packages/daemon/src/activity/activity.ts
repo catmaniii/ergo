@@ -4,16 +4,16 @@
 // - agent 管家报来的（agent-manager.ts 的 onActivity：排队、干活中、子进程里有调用在等审批的"等你"、休眠）；
 // - 待处理的卡片（card-waits.ts：挂起的审批卡、没回答的提问卡）：管家报的是休眠时，还有属于它的这种卡就是"等你"，说明写原因；
 //   卡片处理掉了回到休眠（空闲、闲置退出）。卡片由事件推出，守护进程重启后照样对。
-//   369 号票：说明带上要处理的那张卡（标题上点了跳到它）和一共几张；放久了的提问卡不算（到点 stale-questions.ts 叫 cardWaitsChanged）。
-// - 运行时（286 号票，agent 宿主报的 runtimeWait）：负责人有活、用的运行时插件却没启用、拉不起来——管家报的是休眠时就是"等你"，
+//   说明带上要处理的那张卡（标题上点了跳到它）和一共几张；放久了的提问卡不算（到点 stale-questions.ts 叫 cardWaitsChanged）。
+// - 运行时（agent 宿主报的 runtimeWait）：负责人有活、用的运行时插件却没启用、拉不起来——管家报的是休眠时就是"等你"，
 //   说明写明哪个插件没启用（排在卡片前面：插件不启用，卡片处理了也干不了）；插件启用了交 undefined，回到原来的。
-//   290 号票：接管来的会话交还给运行时了、负责人有活也不拉起，同样是"等你"（说明写交还给了谁、收回后接着）。
+//   接管来的会话交还给运行时了、负责人有活也不拉起，同样是"等你"（说明写交还给了谁、收回后接着）。
 // 去重只在这里做一次：合起来的状态和说明都没变就不记。
 // 守护进程重启时（settle），上次记的一律按"子进程都已不在"重新合一遍：没有待处理卡片的是休眠，有的是等你。
 // 干活中此刻在做什么（思考、写回复、调用某个工具，管家的 onProgress）变得很频繁，只作为临时事件 activity_progress
 // 推给连着的前端（不落盘、不补发），每个 agent 每 ACTIVITY_PROGRESS_INTERVAL_MS 最多一条（规格第 5 节"进度事件节流"，
 // 节流用 util/throttle.ts，和流式增量同一套），攒着的只推最新的那条，和上一条一样的不推；状态变了就丢掉还没推出去的。
-// 12 号票有休眠、干活中、排队，25 号票加了等你和说明。
+// 有休眠、干活中、排队，加了等你和说明。
 import {
   ACTIVITY_PROGRESS_INTERVAL_MS,
   type ActivityDetail,
@@ -33,7 +33,7 @@ export const activityView: DerivedView = {
   name: "agent_activity",
   create: (db) => {
     db.exec("CREATE TABLE IF NOT EXISTS agent_activity (agent_id TEXT PRIMARY KEY, state TEXT NOT NULL, since TEXT NOT NULL)");
-    // 说明（JSON，25 号票）：12 号票建的老库补上这一列
+    // 说明（JSON）：以前建的老库补上这一列
     if (!db.all<{ name: string }>("PRAGMA table_info(agent_activity)").some((c) => c.name === "detail")) db.exec("ALTER TABLE agent_activity ADD COLUMN detail TEXT");
   },
   clear: (db) => db.exec("DELETE FROM agent_activity"),
@@ -82,13 +82,13 @@ export interface ActivityLog {
   /** 干活中此刻在做什么：节流后作为临时事件推送（不在干活中的不推） */
   progress(agentId: string, detail: ActivityDetail): void;
   /**
-   * 负责人有活却拉不起来（286 号票：运行时插件没启用，说明是 runtime_off；290 号票：接管来的会话交还了，说明是 handed_back）；
+   * 负责人有活却拉不起来（运行时插件没启用，说明是 runtime_off；接管来的会话交还了，说明是 handed_back）；
    * 能拉起了交 undefined
    */
   runtimeWait(agentId: string, wait: ActivityDetail | undefined): void;
   /** 守护进程启动时：子进程都已不在，上次记的按休眠和待处理的卡片重新合一遍 */
   settle(): void;
-  /** 卡片没变、在等的却变了（369 号票：提问卡放久了）：重新算一遍 */
+  /** 卡片没变、在等的却变了（提问卡放久了）：重新算一遍 */
   cardWaitsChanged(): void;
   /** 停掉节流的计时器，不再听卡片的变化 */
   stop(): void;
@@ -98,7 +98,7 @@ export interface ActivityLogOptions {
   store: EventStore;
   /** 活动状态事件的时间（协议时间） */
   now: () => string;
-  /** 提问卡放多久就不算在等（369 号票：配置 materials.staleCardDays，毫秒） */
+  /** 提问卡放多久就不算在等（配置 materials.staleCardDays，毫秒） */
   staleAfterMs: number;
   /** 推一条临时事件给连着的前端 */
   publish?: (frame: EventFrame) => void;
@@ -117,7 +117,7 @@ export function createActivityLog(options: ActivityLogOptions): ActivityLog {
   const reported = new Map<string, Activity>();
   /** 每个 agent 在等你的待处理卡片 */
   let cardWaits = readCardWaits();
-  /** 有活却拉不起来的 agent（286 号票）：等你的说明（运行时插件没启用、290 号票的交还了） */
+  /** 有活却拉不起来的 agent：等你的说明（运行时插件没启用、交还了） */
   const runtimeWaits = new Map<string, ActivityDetail>();
   /** 每个 agent 最后记下的（这次启动没记过的从视图读） */
   const latest = new Map<string, Activity>();
@@ -135,8 +135,8 @@ export function createActivityLog(options: ActivityLogOptions): ActivityLog {
   };
 
   /**
-   * 合起来的活动状态：管家报的是休眠、运行时插件没启用时是"等你"（说明写明哪个插件，286 号票）；还有在等你的卡片时是"等你"
-   * （说明取最近一张的）。管家报的"等你"（子进程里有调用在等）说明是那次调用的，写上一共几张（369 号票）
+   * 合起来的活动状态：管家报的是休眠、运行时插件没启用时是"等你"（说明写明哪个插件）；还有在等你的卡片时是"等你"
+   * （说明取最近一张的）。管家报的"等你"（子进程里有调用在等）说明是那次调用的，写上一共几张
    */
   const effective = (agentId: string): Activity => {
     const base = reported.get(agentId) ?? { state: "sleeping" };

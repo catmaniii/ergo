@@ -1,4 +1,4 @@
-// 把 TypeScript 源码转成 JS（318 号票：装好的程序不在用户机器上直接跑 .ts——npm 装的包在 node_modules 里，Node 不给那里的 .ts 剥类型）。
+// 把 TypeScript 源码转成 JS（装好的程序不在用户机器上直接跑 .ts——npm 装的包在 node_modules 里，Node 不给那里的 .ts 剥类型）。
 // 用 Node 自带的类型剥离（module.stripTypeScriptTypes，和开发时直接跑 .ts 是同一个剥离器），一个文件对一个文件、目录结构不变：
 // 源码里按 import.meta.url 找的相对路径（prompts/、locales/、子进程入口 `./agent-child/main${ownExt}`）都照样对。
 // 剥完再改引用：

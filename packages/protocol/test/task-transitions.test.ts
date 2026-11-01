@@ -1,4 +1,4 @@
-// 现在能对任务做什么（13 号票）：按"谁能改"表推出，守护进程的控制器、负责人模块和 Web 的任务详情都用这一份。表格驱动。
+// 现在能对任务做什么：按"谁能改"表推出，守护进程的控制器、负责人模块和 Web 的任务详情都用这一份。表格驱动。
 import { describe, expect, it } from "vitest";
 import { archiveCancelsFirst, availableTaskActions, boardGroupOfReminder, type TaskAct, type TaskActSubject, taskActRefusal, taskDeleteRefusal, TASK_TRANSITIONS } from "../src/index.ts";
 
@@ -9,29 +9,29 @@ describe("用户能做的", () => {
     ["规划中：取消、说话", { state: "planning" }, ["cancel", "message"]],
     ["待确认：取消、说话", { state: "awaiting_confirm" }, ["cancel", "message"]],
     ["排队中（没开始过）：暂停、取消、说话", { state: "queued" }, ["pause", "cancel", "message"]],
-    // 84 号票：建好了阶段的长程任务都能从某个阶段重做（rework），阶段开始过就能重开（用户 2026-10-11 定；哪个阶段开始过由
+    // 建好了阶段的长程任务都能从某个阶段重做（rework），阶段开始过就能重开（哪个阶段开始过由
     // 控制器和任务详情再看）
     ["执行中：暂停、取消、说话、从某个阶段重做", { state: "running", stages: { list: [stage("running")] } }, ["pause", "cancel", "message", "rework"]],
     ["执行中、有一支等用户验收：多了验收通过、退回", { state: "running", stages: { list: [stage("waiting", "acceptance"), stage("running")] } }, ["pause", "cancel", "message", "accept_stage", "return_stage", "rework"]],
     ["执行中的流程：不能重做（流程没有返工）", { state: "running", kind: "workflow", stages: { list: [stage("running")] } }, ["pause", "cancel", "message"]],
     ["等我（审批）：先在待我处理里处理，不能点继续；能从某个阶段重做", { state: "waiting_for_user", waitReason: "approval", stages: { list: [stage("waiting", "approval")] } }, ["pause", "cancel", "message", "rework"]],
     ["等我（卡住求助）：能继续执行", { state: "waiting_for_user", waitReason: "stuck", stages: { list: [stage("running")] } }, ["resume", "pause", "cancel", "message", "rework"]],
-    // 重做时那条"中断：不确定"随之作废（84 号票）
-    ["等我（中断不确定，23 号票）：用户查过之后能继续执行；也能从某个阶段重做", { state: "waiting_for_user", waitReason: "interrupted", stages: { list: [stage("running")] } }, ["resume", "pause", "cancel", "message", "rework"]],
-    ["等我（超预算，14 号票）：能继续执行", { state: "waiting_for_user", waitReason: "over_budget", stages: { list: [stage("waiting")] } }, ["resume", "pause", "cancel", "message", "rework"]],
-    ["等我（计划变更，14 号票）：先在待我处理里确认或拒绝计划变更卡", { state: "waiting_for_user", waitReason: "plan_change", stages: { list: [stage("waiting")] } }, ["pause", "cancel", "message", "rework"]],
+    // 重做时那条"中断：不确定"随之作废
+    ["等我（中断不确定）：用户查过之后能继续执行；也能从某个阶段重做", { state: "waiting_for_user", waitReason: "interrupted", stages: { list: [stage("running")] } }, ["resume", "pause", "cancel", "message", "rework"]],
+    ["等我（超预算）：能继续执行", { state: "waiting_for_user", waitReason: "over_budget", stages: { list: [stage("waiting")] } }, ["resume", "pause", "cancel", "message", "rework"]],
+    ["等我（计划变更）：先在待我处理里确认或拒绝计划变更卡", { state: "waiting_for_user", waitReason: "plan_change", stages: { list: [stage("waiting")] } }, ["pause", "cancel", "message", "rework"]],
     ["等我（由我验收）：验收通过、退回", { state: "waiting_for_user", waitReason: "acceptance", stages: { list: [stage("waiting", "acceptance")] } }, ["pause", "cancel", "message", "accept_stage", "return_stage", "rework"]],
     ["已暂停（没开始过）：继续、取消、说话", { state: "paused" }, ["resume", "cancel", "message"]],
     ["已暂停（建好了阶段）：还能从某个阶段重做，重做后仍暂停", { state: "paused", stages: { list: [stage("running")] } }, ["resume", "cancel", "message", "rework"]],
     ["排队中（开始过）：还能从某个阶段重做，重做后仍排队", { state: "queued", stages: { list: [stage("running")] } }, ["pause", "cancel", "message", "rework"]],
-    // 90 号票：结束了的（失败、已完成、已取消）随时能直接归档，全局任务、项目内部任务都行
+    // 结束了的（失败、已完成、已取消）随时能直接归档，全局任务、项目内部任务都行
     ["失败：重试、取消、说话（重试时负责人看得到）、归档", { state: "failed" }, ["retry", "cancel", "message", "archive"]],
     ["失败（建好了阶段）：还能从某个阶段重做，重做后重新排队", { state: "failed", stages: { list: [stage("running")] } }, ["retry", "cancel", "message", "rework", "archive"]],
     ["已完成：返工、归档，不再收消息", { state: "done", stages: { list: [stage("accepted")] } }, ["rework", "archive"]],
     ["已完成 · 已转为项目：只能归档", { state: "done", endKind: "converted_to_project" }, ["archive"]],
     ["已取消：只能归档", { state: "cancelled" }, ["archive"]],
     ["已归档：什么都不能做", { state: "archived" }, []],
-    // 75 号票：普通任务没有阶段、没有返工；做完了还收消息——用户接着说，它接着做
+    // 普通任务没有阶段、没有返工；做完了还收消息——用户接着说，它接着做
     ["普通任务排队中：暂停、取消、说话", { state: "queued", kind: "plain" }, ["pause", "cancel", "message"]],
     ["普通任务执行中（没有阶段）：暂停、取消、说话", { state: "running", kind: "plain" }, ["pause", "cancel", "message"]],
     ["普通任务卡住求助：继续执行、回一句", { state: "waiting_for_user", waitReason: "stuck", kind: "plain" }, ["resume", "pause", "cancel", "message"]],
@@ -50,7 +50,7 @@ describe("别人能做的", () => {
     expect(works).toEqual(["planning", "awaiting_confirm", "running", "waiting_for_user"]);
   });
 
-  it("秘书只能取消（用户要求时）；系统能暂停执行中的（14 号票：累计被拒太多次时）", () => {
+  it("秘书只能取消（用户要求时）；系统能暂停执行中的（累计被拒太多次时）", () => {
     expect(availableTaskActions({ state: "running" }, "secretary")).toEqual(["cancel"]);
     expect(availableTaskActions({ state: "running" }, "system")).toEqual(["pause"]);
   });
@@ -60,7 +60,7 @@ describe("别人能做的", () => {
     expect([...viaTransitions].toSorted()).toEqual(["archive", "cancel", "pause", "resume", "retry", "rework"]);
   });
 
-  it("归档（90 号票）：结束了的任务用户随时能直接归档——全局任务、项目内部任务都行（每周的归档清单照旧）；没结束的要先取消；只有用户能归档", () => {
+  it("归档：结束了的任务用户随时能直接归档——全局任务、项目内部任务都行（每周的归档清单照旧）；没结束的要先取消；只有用户能归档", () => {
     for (const state of ["done", "failed", "cancelled"] as const) {
       expect(availableTaskActions({ state }, "user")).toContain("archive");
       expect(availableTaskActions({ state, internal: { projectId: "p-1", projectName: "记账本" } }, "user")).toContain("archive");
@@ -90,7 +90,7 @@ describe("做不了时说明为什么", () => {
   });
 });
 
-describe("简单提醒在看板上的分组（185 号票）", () => {
+describe("简单提醒在看板上的分组", () => {
   it.each<[string, Parameters<typeof boardGroupOfReminder>[0], ReturnType<typeof boardGroupOfReminder>]>([
     ["待触发的在运营中", { status: "pending" }, "ops"],
     ["已触发的一次性提醒在最近结束", { status: "fired" }, "ended"],
@@ -104,7 +104,7 @@ describe("简单提醒在看板上的分组（185 号票）", () => {
   });
 });
 
-describe("没结束的任务归档：先取消再归档（186 号票）", () => {
+describe("没结束的任务归档：先取消再归档", () => {
   it.each<[TaskActSubject, boolean]>([
     [{ state: "planning" }, true],
     [{ state: "running", stages: { list: [stage("running")] } }, true],
@@ -121,14 +121,14 @@ describe("没结束的任务归档：先取消再归档（186 号票）", () => 
   });
 });
 
-describe("任务能不能删（186 号票）", () => {
+describe("任务能不能删", () => {
   const live = { "pm-1": { name: "记账本" } } as Record<string, { name: string }>;
   const projectOf = (maintainerId: string) => live[maintainerId];
   it.each<[string, Parameters<typeof taskDeleteRefusal>[0], string | undefined]>([
     ["任务自己的负责人做的：能删", { maintainerId: "tm-3" }, undefined],
     ["项目内部任务：随项目删", { maintainerId: "pm-1", internal: { projectId: "p-1", projectName: "记账本" } }, "这是项目「记账本」的内部任务，项目还在时由项目管：删项目时它一起删掉"],
     ["转为项目了的（项目还在）：跟着项目", { maintainerId: "pm-1", endKind: "converted_to_project" }, "任务已转为项目「记账本」，会话和工作目录跟着项目走：项目还在时由项目管，删项目时一起删"],
-    ["项目的负责人做的单项目任务（64 号票之前的）：会话在项目里", { maintainerId: "pm-1" }, "这个任务由项目「记账本」的负责人做，会话在项目的负责人会话里：项目还在时由项目管，不能单独删"],
+    ["项目的负责人做的单项目任务（以前的）：会话在项目里", { maintainerId: "pm-1" }, "这个任务由项目「记账本」的负责人做，会话在项目的负责人会话里：项目还在时由项目管，不能单独删"],
     ["转为项目、项目已经删了：能删（会话随项目删过了）", { maintainerId: "tm-2", endKind: "converted_to_project" }, undefined],
     ["项目的负责人做的、项目已经删了：能删", { maintainerId: "pm-9" }, undefined],
   ])("%s", (_name, task, refusal) => {

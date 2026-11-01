@@ -1,12 +1,12 @@
-// 任务操作菜单的界面那一半（90 号票）：菜单项由状态层的 taskMenu / taskActionItems 算（state/task-menu.ts），这里只管画和做。
+// 任务操作菜单的界面那一半：菜单项由状态层的 taskMenu / taskActionItems 算（state/task-menu.ts），这里只管画和做。
 // - TaskMenuItems：一串菜单项（看板卡的长按 / 右键菜单、任务详情的"⋯"、状态签浮层的按钮共用）；
 // - TaskMenuPopup：贴着卡片、按钮弹出的菜单（ui/popup.tsx 的 PopupMenu，画在应用框最上面一层），样子用待办行菜单的 .row-menu；
 // - useTaskActs：点了一项之后做什么。要多问一句的先弹对话框——取消先确认（收不回；定时触发的连同触发一起取消）、
-//   退回写原因（原来状态行下面那个输入框改成点了按钮弹出的对话框）、返工 / 从某阶段重做先选阶段，再照 84 号票的
-//   ReopenDialog 写这次要怎么改；改时间（98 号票）弹出改时间的对话框（ui/reschedule-dialog.tsx），保存后提示改成了什么、下次什么时候；
-//   别的直接做（100 号票的立即运行一次、跑完自动播报：做完按守护进程回的提示一句）。"打开""多选"由用的地方自己接。
-// - 141 号票：项目在用时运营方案里的一条，取消、归档换成一行说明（menu-note，字小、能折行），点了进项目负责人的会话。
-// - 186 号票：删除先确认（写清删掉什么、本人的话作为素材保留、没结束的先停下），删了以后详情页回到看板（TaskActsTarget.deleted）；
+//   退回写原因（点了按钮弹出的对话框）、返工 / 从某阶段重做先选阶段，再照
+//   ReopenDialog 写这次要怎么改；改时间弹出改时间的对话框（ui/reschedule-dialog.tsx），保存后提示改成了什么、下次什么时候；
+//   别的直接做（立即运行一次、跑完自动播报：做完按守护进程回的提示一句）。"打开""多选"由用的地方自己接。
+// -项目在用时运营方案里的一条，取消、归档换成一行说明（menu-note，字小、能折行），点了进项目负责人的会话。
+// -删除先确认（写清删掉什么、本人的话作为素材保留、没结束的先停下），删了以后详情页回到看板（TaskActsTarget.deleted）；
 //   不能删的是一行说明（同样的 menu-note，点不了）；没结束的任务归档也先确认（会先取消再归档）。
 import { type ReactNode, type RefObject, useState } from "react";
 import { toHash } from "../app/route.ts";
@@ -42,22 +42,22 @@ export interface TaskActsTarget {
   readonly title: string;
   act(action: TaskAction, options?: TaskActOptions): void;
   trigger?: ((action: ScheduledJobAction) => void) | undefined;
-  /** 改时间（98 号票，运营中的定时任务）：换它的触发登记的时间表，等到守护进程回的结果 */
+  /** 改时间（运营中的定时任务）：换它的触发登记的时间表，等到守护进程回的结果 */
   reschedule?: ((schedule: ReminderSchedule) => Promise<RescheduleJobResult>) | undefined;
-  /** 立即运行一次（100 号票，定时、事件触发的任务）：等到起了哪一次运行 */
+  /** 立即运行一次（定时、事件触发的任务）：等到起了哪一次运行 */
   runNow?: (() => Promise<RunJobNowResult>) | undefined;
-  /** 开关跑完自动播报（100 号票）：on 是要换成的样子 */
+  /** 开关跑完自动播报：on 是要换成的样子 */
   announce?: ((on: boolean) => Promise<SetVoiceAnnounceResult>) | undefined;
   /** 长程任务的阶段（返工、从某阶段重做选阶段；退回写第几阶段），和阶段详情同一份 */
   stages?: StageDetailSource | undefined;
-  /** 删除交出去之后（186 号票）：任务详情回到看板（删掉的任务没有详情了）；看板上不用 */
+  /** 删除交出去之后：任务详情回到看板（删掉的任务没有详情了）；看板上不用 */
   deleted?: (() => void) | undefined;
 }
 
 /** 一串菜单项：取消这类收不回的标红，最要紧的（验收通过）加重 */
 export function TaskMenuItems({ items, onPick }: { items: readonly TaskMenuItem[]; onPick(item: TaskMenuItem): void }) {
   return items.map((item) =>
-    // 不能删的说明（186 号票）：点不了，只是说明为什么
+    // 不能删的说明：点不了，只是说明为什么
     item.kind === "delete_note" ? (
       <button key="delete_note" type="button" role="menuitem" className="menu-note" disabled aria-disabled="true">
         {item.label}
@@ -137,7 +137,7 @@ export function useTaskActs(): { run(target: TaskActsTarget, item: TaskMenuItem)
     switch (item.kind) {
       case "act":
         if (item.action === "cancel") return setAsking({ kind: "cancel", target, viaTrigger: false });
-        // 186 号票：没结束的归档先确认（会先取消再归档）
+        // 没结束的归档先确认（会先取消再归档）
         if (item.action === "archive" && item.cancelsFirst) return setAsking({ kind: "archive", target, cancelsFirst: item.cancelsFirst });
         return target.act(item.action);
       case "delete":
@@ -161,7 +161,7 @@ export function useTaskActs(): { run(target: TaskActsTarget, item: TaskMenuItem)
         return target.trigger?.(item.action);
       case "reschedule":
         return setAsking({ kind: "reschedule", target, schedule: item.schedule, paused: item.paused });
-      // 立即运行一次、跑完自动播报（100 号票）：直接做，按守护进程回的提示一句；被拒的原因由页面底部的提示说（ui.failures）
+      // 立即运行一次、跑完自动播报：直接做，按守护进程回的提示一句；被拒的原因由页面底部的提示说（ui.failures）
       case "run_now":
         return void target.runNow?.().then(
           (result) => toast(runNowToast(result)),
@@ -172,7 +172,7 @@ export function useTaskActs(): { run(target: TaskActsTarget, item: TaskMenuItem)
           (result) => toast(announceToast(result.on)),
           () => undefined,
         );
-      // 运营方案里的一条（141 号票）：进项目负责人的会话，请它改运营方案
+      // 运营方案里的一条：进项目负责人的会话，请它改运营方案
       case "operations_note":
         window.location.hash = toHash({ tab: "projects", projectId: item.projectId, chat: true });
         return;
@@ -302,7 +302,7 @@ function TaskActDialog({ asking, onClose, onPick }: { asking: Asking; onClose():
           <div className="stage-pick">
             {stages.stages.map((s) => (
               <button key={s.id} type="button" className="stage-pick-row" disabled={!stages.canRework(s.id)} onClick={() => onPick(s.id)}>
-                {/* 91 号票：第几阶段按依赖图的编号（并行的 4a、4b） */}
+                {/* 第几阶段按依赖图的编号（并行的 4a、4b） */}
                 <b>{stageCodeLabel(codes, s.id)}</b>
                 <span className="stage-pick-title">{s.title}</span>
                 <span className="muted">›</span>

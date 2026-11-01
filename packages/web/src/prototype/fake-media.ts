@@ -1,5 +1,5 @@
-// 原型里的假附件（113 号票）：聊天里的附件卡片、报告页用。文本类的带内容（报告页照真接口的规矩回：能预览的给文字，超过 1 MB 的截断；
-// 117 号票起 HTML、SVG 也带内容，报告页在沙箱框、<img> 里看），
+// 原型里的假附件：聊天里的附件卡片、报告页用。文本类的带内容（报告页照真接口的规矩回：能预览的给文字，超过 1 MB 的截断；
+// HTML、SVG 也带内容，报告页在沙箱框、<img> 里看），
 // 别的只有名字、类型、大小。原型没有守护进程：下载给的是一段说明文字（data: 地址）。名字和内容都是明显虚构的。
 import type { FilePartValue } from "../state/index.ts";
 
@@ -60,7 +60,7 @@ const NOTES = `# 读书笔记：置身事内
 > 读后感：理解了"招商引资"背后的逻辑，下次看城市新闻会更有感觉。
 `;
 
-/** 定时任务 t-brief 第 3 次运行交付的早报（115 号票：任务做完时运行时作为附件放进秘书会话） */
+/** 定时任务 t-brief 第 3 次运行交付的早报（任务做完时运行时作为附件放进秘书会话） */
 const BRIEF = `# 早报 · 10 月 7 日（周三）
 
 ## 科技新闻
@@ -102,7 +102,7 @@ function yearLedger(): string {
 }
 
 /**
- * 117 号票：活动页的预览页（HTML，原来只能下载）：报名按钮点了改字（框里的脚本能跑）
+ * 活动页的预览页（HTML，原来只能下载）：报名按钮点了改字（框里的脚本能跑）
  */
 const EVENT_PAGE = `<!doctype html>
 <html lang="zh-CN">
@@ -133,7 +133,7 @@ const EVENT_PAGE = `<!doctype html>
 `;
 
 /**
- * 117 号票：定时任务"每天早上出早报"的负责人发的网页版早报（HTML）：目录跳到各节（页内锚点）、内嵌的柱状图、
+ * 定时任务"每天早上出早报"的负责人发的网页版早报（HTML）：目录跳到各节（页内锚点）、内嵌的柱状图、
  * "标成已读"按钮（框里的脚本能跑：点了改字、数一下读了几条）。只用内联的样式和图，不从外面拉东西
  */
 const BRIEF_PAGE = `<!doctype html>
@@ -202,7 +202,7 @@ const BRIEF_PAGE = `<!doctype html>
 </html>
 `;
 
-/** 117 号票：本周三个项目新增 star 的走势（SVG，报告页用 <img> 显示） */
+/** 本周三个项目新增 star 的走势（SVG，报告页用 <img> 显示） */
 const TREND_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 200" width="360" height="200">
 <style>
   .axis { stroke: #8c959f; stroke-width: 1; }
@@ -238,7 +238,7 @@ export const FAKE_BRIEF: FakeMedia = { ...textFile("sha256:fake-brief-1007", "br
 export const FAKE_VIDEOS = [1, 2, 3].map((n) => ({ part: file(`sha256:fake-video-${n}`, `周会录像-第${n}段.mp4`, "video/mp4", 180_000_000 + n * 3_100_000) }));
 export const FAKE_ZIP: FakeMedia = { part: file("sha256:fake-zip", "活动页源码.zip", "application/zip", 2_516_582) };
 export const FAKE_HTML: FakeMedia = textFile("sha256:fake-html", "活动页预览.html", "text/html", EVENT_PAGE);
-/** 117 号票：负责人发的网页版早报、走势图（在沙箱里预览） */
+/** 负责人发的网页版早报、走势图（在沙箱里预览） */
 export const FAKE_BRIEF_HTML = textFile("sha256:fake-brief-html-1007", "10 月 7 日早报.html", "text/html", BRIEF_PAGE);
 export const FAKE_TREND_SVG = textFile("sha256:fake-trend-41", "本周 star 走势.svg", "image/svg+xml", TREND_SVG);
 /** 消息里的全年账单流水（大小就是生成出来的字节数，不在打开页面时就生成一遍） */

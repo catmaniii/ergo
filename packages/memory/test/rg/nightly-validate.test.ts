@@ -1,5 +1,5 @@
-// 267 号票第 4 条：每晚整理完把推理图谱整张查一遍，不合格的结论转待复核，写进整理报告。
-// 326 号票起校验是记忆系统自己的图谱自检（graphSelfCheck → rg/graph-check.ts），不起别的程序、不看本机装了什么；
+// 每晚整理完把推理图谱整张查一遍，不合格的结论转待复核，写进整理报告。
+// 校验是记忆系统自己的图谱自检（graphSelfCheck → rg/graph-check.ts），不起别的程序、不看本机装了什么；
 // 这里有用它跑的，也有用假校验器跑的（看结果怎么落：转待复核、跳过、校验器出错）。
 // 导出成 YAML（memory:dump-template 用的那一份）还在，单独测一条。
 import { afterEach, describe, expect, it } from "vitest";
@@ -75,7 +75,7 @@ describe("每晚校验：记忆系统自己的图谱自检", () => {
     const v = result.report.validation!;
     expect(v.state).toBe("failed");
     expect(v.problems.find((line) => line.startsWith(`${autonomy.id}：`))).toContain(`${premise}（被纠正了）`);
-    // 329 号票：违反传播铁律的不再转待复核，降回猜测（前提照挂、保留）；报告里记"降回猜测"
+    // 违反传播铁律的不再转待复核，降回猜测（前提照挂、保留）；报告里记"降回猜测"
     expect(v.downgraded).toContain(autonomy.id);
     expect(t.engine.store.getClaim(autonomy.id)!.status).toBe("contested");
     expect(t.engine.store.revisions(autonomy.id, "claim").at(-1)!.reason).toContain("每晚校验");

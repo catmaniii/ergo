@@ -1,4 +1,4 @@
-// 口语稿（32 号票）：回复的文字送进 TTS 之前的样子。纯函数，表格驱动；主切面（main/voice-reply.test.ts）测它在语音回复里的用法。
+// 口语稿：回复的文字送进 TTS 之前的样子。纯函数，表格驱动；主切面（main/voice-reply.test.ts）测它在语音回复里的用法。
 import { describe, expect, it } from "vitest";
 import { estimateSpeechSeconds, leadingSentences, runtimeSummary, SPEECH_SEGMENT_RULES, speakable, speechSegments } from "../../src/voice/spoken-text.ts";
 
@@ -61,7 +61,7 @@ describe("运行时兜底的口语总结", () => {
   });
 });
 
-// 38 号票：分段合成。送进 TTS 的稿子按句切段，依次合成、合成好一段推一段；第一段尽量短（第一声只等它），
+// 分段合成。送进 TTS 的稿子按句切段，依次合成、合成好一段推一段；第一段尽量短（第一声只等它），
 // 之后每段的上限慢慢放大（合成只比实时快一点，后面的段要赶在前一段播完之前合成好），太短的句子并到相邻句，太长的按逗号再切。
 describe("分段合成怎么切段", () => {
   it("切段的数字：第一段最多 16 字，之后每段的上限是前一段的 1.25 倍、最多 40 字；不到 8 字的句子并到相邻句", () => {

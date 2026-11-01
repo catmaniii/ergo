@@ -1,12 +1,12 @@
-// 主切面：带类型的特殊 bash 工具（规格第 9、21 节，28 号票）。真的守护进程，负责人接 faux 剧本，测试扮演前端。
+// 主切面：带类型的特殊 bash 工具（规格第 9、21 节）。真的守护进程，负责人接 faux 剧本，测试扮演前端。
 // 任务 t-1 的工作目录（数据目录输出区里的 outputs/t-1）事先建成一个临时 git 仓库；远端是临时目录里的本地裸仓库，
-// GitHub 命令行换成假的（fixtures/fake-gh.mjs），不碰网络。13 号票按计划装配工具包之前，负责人的工具包由测试接缝
+// GitHub 命令行换成假的（fixtures/fake-gh.mjs），不碰网络。按计划装配工具包之前，负责人的工具包由测试接缝
 // maintainerToolkit 给（开 bash），调用不属于任务（起草计划那一段），按对话里的处置判：推送、建远端仓库先问我。
 // - 演示：看状态和差异 → 提交（做完告诉我）→ 建远端仓库（问过）→ 没跑测试就推送（退回）→ 测试没通过 → 推送仍退回 →
 //   测试通过 → 推送（问过、执行）→ force push（带类型的、通用 bash 的 --force-with-lease）一律禁止 → 合并有冲突（中止，
 //   回到合并前）→ 合并 → 构建 → 装依赖；效果日志、聊天里的工具调用 part、给模型的结果；录下事件流给前端状态层回放；
 // - 删除或覆盖前须已提交（通用 bash 的 rm）；超时中止、进程在 Job 里、环境里没有密钥；联网开关关着；工具随 bash 开关出现。
-// 238 号票：这台机器上真找不到 Git Bash 时，这些用例明确跳过（skipIf(!hasGitBash)），不要表现成 30 秒超时。
+// 这台机器上真找不到 Git Bash 时，这些用例明确跳过（skipIf(!hasGitBash)），不要表现成 30 秒超时。
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -325,7 +325,7 @@ describe.skipIf(!hasGitBash)("执行失败、超时、进程和环境", () => {
   );
 
   it(
-    "联网开关关着：会话里没有推送、建远端仓库、装依赖（27 号票评审后定：调用它们是找不到工具），跑测试照常",
+    "联网开关关着：会话里没有推送、建远端仓库、装依赖（调用它们是找不到工具），跑测试照常",
     async () => {
       const { frontend, work } = await setup({
         toolkit: () => ({ bash: true, network: false }),
@@ -378,8 +378,8 @@ describe.skipIf(!hasGitBash)("执行失败、超时、进程和环境", () => {
         .filter((m) => m.speaker === "agent")
         .flatMap((m) => m.parts.flatMap((p) => (p.type === "text" ? [p.text] : [])))
         .at(-1)!;
-      // 口语总结（32 号票）、发语音（86 号票）、联网搜索和读网页（70 号票）是每个会话都有的，和 bash 开关无关；70 号票起 grep、find 照给
-      // 给秘书发消息（102 号票）除了秘书每个 agent 默认都有
+      // 口语总结、发语音、联网搜索和读网页是每个会话都有的，和 bash 开关无关；grep、find 照给
+      // 给秘书发消息除了秘书每个 agent 默认都有
       expect(toolsIn(planning).toSorted()).toEqual(["find", "grep", "ls", "read", "read_attachment", "send_attachment", "send_voice", "spoken_summary", "submit_plan", "tell_secretary", "web_fetch", "web_search"]);
 
       // 秘书：有 bash（草稿区里干活），没有带类型的 bash 工具

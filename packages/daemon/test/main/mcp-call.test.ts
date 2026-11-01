@@ -1,7 +1,7 @@
-// 主切面（240 号票）：秘书带参调 MCP。真的守护进程、真的端口、真的 mcp.json；MCP 服务进程是测试里的假 MCP 服务
+// 主切面：秘书带参调 MCP。真的守护进程、真的端口、真的 mcp.json；MCP 服务进程是测试里的假 MCP 服务
 // （test/fixtures/fake-mcp-server.mjs，stdio，不连任何真的 MCP），旅行相册那几个带参的工具是相册应用里让秘书做的典型的事
 // （person.rename{id,name}、filter.set{personId}）。
-// 用户 2026-10-21 定：不要给 MCP 调用加读写分级、不要审批卡——登记过就调，参数原样发过去；平台自己的守卫照旧。
+// 不要给 MCP 调用加读写分级、不要审批卡——登记过就调，参数原样发过去；平台自己的守卫照旧。
 // 覆盖的验收（原来的 8 条按用户的要求压成 5 条）：
 // 1. 任何登记过的工具都能带参调到：假的写工具（person.rename）直接执行，没有额外的卡，参数到了服务进程，结果回到秘书手边；
 // 2. 没登记（MCP / 工具）和参数错能说清：不崩，服务端报的错原样带回来；
@@ -22,7 +22,7 @@ const SECRETARY = CHANNELS.secretary;
 /** echo_context：回的是秘书看到的上下文（系统提示、工具清单、工具结果都在里面） */
 const ECHO = { kind: "echo_context" } as const;
 
-/** 旅行相册的登记：两个带参的（person.rename 写、filter.set 读）——240 号票要的就是这个都能带参调 */
+/** 旅行相册的登记：两个带参的（person.rename 写、filter.set 读）——要的就是这个都能带参调 */
 const albumRegistration = (logFile: string) => ({
   title: "旅行相册",
   command: process.execPath,
@@ -66,10 +66,10 @@ const secretaryReply = (frontend: TestFrontend) => {
   return replies.at(-1) ?? "";
 };
 
-/** mcp 频道上的 mcp_called（这个频道上还有 239 的 mcp_decided，只认有 outcome 的） */
+/** mcp 频道上的 mcp_called（这个频道上还有 mcp_decided，只认有 outcome 的） */
 const calledEvents = (td: TestDaemon) => td.daemon.store.read("mcp", 0).map((e) => e.payload as Partial<McpCalledPayload>).filter((p) => p.outcome !== undefined);
 
-describe("秘书带参调 MCP（240）", () => {
+describe("秘书带参调 MCP", () => {
   it("登记过的写工具直接调（没有额外的卡）：参数到了服务进程，结果回到秘书手边；时间线和审计都记着", { timeout: 120_000 }, async () => {
     const logFile = path.join(makeTempDir("ergo-mcp-call-log-"), "mcp.jsonl");
     const td = await startTestDaemon({

@@ -1,10 +1,10 @@
-// 一次性的 agent 子进程（13 号票的评审子 agent、20 号票并行派出的子 agent 共用）：
+// 一次性的 agent 子进程（评审子 agent、并行派出的子 agent 共用）：
 // 经 agent 管家拉起（占子进程名额、满了排队）→ 接上守卫（每次工具调用照常判定）→ 接上代为执行的工具 →
 // 就绪后送一条输入 → 这一轮结束（turn_end）就结束子进程。调用方拿结局：这一轮怎么结束的、最后一段回复的文字；
 // 没等到这一轮结束子进程就退出了（被结束、意外退出、排队时被取消）的另算。
 // 调用方还能知道输入送出去没有、"手头这一步"什么时候做完（当前的工具调用都结束了、下一次模型调用之前：工具包变了重新装配时
 // 在这里停掉它，规格第 11 节"工具包变了立即生效"）。
-// 368 号票：给了 transcript 的，送出去的那条输入、它说的每一段话（模型输出的文字，不含思考）都报给调用方记下（背后的 agent 的只读对话）。
+// 给了 transcript 的，送出去的那条输入、它说的每一段话（模型输出的文字，不含思考）都报给调用方记下（背后的 agent 的只读对话）。
 import type { GuardedSession, GuardRuntime } from "../guard-runtime/guard-runtime.ts";
 import type { TurnOutcome } from "../runtime/index.ts";
 import type { AgentManager, ManagedAgent, ManagedExit, SpawnAgentRequest } from "./agent-manager.ts";
@@ -20,7 +20,7 @@ export interface OneShotRequest {
   guard: GuardedSession;
   /** 就绪后交给它的那一条输入（到时候现生成） */
   input: () => string;
-  /** 记下它收到的输入、说的每一段话（368 号票）；记不下不影响它干活，调用方自己兜住 */
+  /** 记下它收到的输入、说的每一段话；记不下不影响它干活，调用方自己兜住 */
   transcript?: (line: { kind: "input" | "said"; text: string }) => void;
   log: (line: string) => void;
 }
@@ -47,7 +47,7 @@ export function runOneShotAgent(request: OneShotRequest): OneShot {
     ...request.spawn,
     hostTools: request.hostTools.map((t) => t.spec),
     toolTimeouts: hostToolTimeouts(request.hostTools),
-    // 活动状态里"调用：提交评审结论"这类说法（25 号票）
+    // 活动状态里"调用：提交评审结论"这类说法
     toolTitles: Object.fromEntries(request.hostTools.map((t) => [t.spec.name, t.descriptor.title])),
     forwardToolCalls: true,
   });

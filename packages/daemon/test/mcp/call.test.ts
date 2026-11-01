@@ -1,11 +1,11 @@
-// 秘书带参调 MCP（240 号票）的单元测试：
+// 秘书带参调 MCP的单元测试：
 // - 登记过的工具（写、读都一样）直接调，参数原样发过去，结果交回秘书；时间线和 mcp_called 各记一笔；
 // - 不替服务端校验参数：缺必填也照样发，服务进程报的错原样带回来（记成 failed）；
 // - 没登记的 MCP / 工具：说清，并列出登记了哪些（能操作）；
 // - 登记文件写坏了：说清，不崩；
 // - 服务进程没起来 / 端口对不上：回错误 + 能操作的提示，不留执行成功的记录；
 // - 密钥类参数：时间线、事件日志里只有"来自环境变量 X"和星号，原值一个字都没有，但服务进程收到的是原参数。
-// 用户 2026-10-21 定：不搞读写分级、不出审批卡——这里没有卡片依赖，只有工具和时间线/事件。
+// 不搞读写分级、不出审批卡——这里没有卡片依赖，只有工具和时间线/事件。
 // 端到端（真守护进程、真端口、真的 mcp.json）在主切面 test/main/mcp-call.test.ts。
 import fs from "node:fs";
 import path from "node:path";
@@ -53,7 +53,7 @@ function setup(servers: (logFile: string) => Record<string, unknown> = (logFile)
   onTestFinished(() => mcp.stop());
   const service = createMcpCallService({ store, mcp, now: nowIso, log: (l) => logs.push(l) });
   const run = (args: Record<string, unknown>) => service.tool().run(args as never, { toolCallId: "call-1" });
-  /** mcp 频道上的 mcp_called（这个频道上也可能有别的票的事件，只认有 outcome 的） */
+  /** mcp 频道上的 mcp_called（这个频道上也可能有别的事件，只认有 outcome 的） */
   const called = () => store.read("mcp", 0).map((e) => e.payload as Partial<McpCalledPayload>).filter((p) => p.outcome !== undefined) as McpCalledPayload[];
   /** 秘书会话上的时间线 */
   const timeline = () => store.read("secretary", 0).filter((e) => e.type === "timeline_record").map((e) => (e.payload as { record: { kind: string; summary: string; detail?: string } }).record);
@@ -170,7 +170,7 @@ describe("mcp_call：密钥类参数", () => {
     expect(dumped).not.toContain("hunter2");
   });
 
-  it("聊天里的工具调用摘要：工具自己声明参数要打码（280 号票，登记里的 maskArgs），守卫运行时按登记擦，结果和原来按名字认时一样", () => {
+  it("聊天里的工具调用摘要：工具自己声明参数要打码（登记里的 maskArgs），守卫运行时按登记擦，结果和原来按名字认时一样", () => {
     const s = setup();
     const tool = s.service.tool();
     expect(tool.descriptor.maskArgs).toBe(true);

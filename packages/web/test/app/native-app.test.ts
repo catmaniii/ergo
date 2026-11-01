@@ -1,4 +1,4 @@
-// 鸿蒙 App（62 号票）：App 用 ArkWeb 的 javaScriptProxy 往页面里注入 window.ergoNative。网页检测到它时，
+// 鸿蒙 App：App 用 ArkWeb 的 javaScriptProxy 往页面里注入 window.ergoNative。网页检测到它时，
 // 设置里显示"在鸿蒙 App 里运行"和 App 版本，外观告诉 App（状态栏、窗口底色跟着变），设置里能回到 App 的地址页；
 // 没有时什么都不变。原生桥换成假的。
 import { describe, expect, test } from "vitest";
@@ -194,7 +194,7 @@ describe("外观跟着网页走", () => {
   });
 });
 
-// 63 号票：App 的原生录音（AudioCapturer）也挂在 ergoNative 上。要等结果的方法（备好、开始、停止）回 Promise<string>（JSON），
+// App 的原生录音（AudioCapturer）也挂在 ergoNative 上。要等结果的方法（备好、开始、停止）回 Promise<string>（JSON），
 // 丢弃、释放立即返回；App 往网页推的（实时音量、出错、App 自己放掉了录音器）调网页登记的 window.__ergoVoice(json)。
 // 这里只测包装：认出来、解析、出错时不抛；录音的状态机在 test/app/voice-session.test.ts 的"原生录音"。
 
@@ -220,8 +220,8 @@ function fakeVoiceBridge(replies: Partial<Record<"voicePrepare" | "voiceStart" |
   };
 }
 
-describe("原生录音的接口（63 号票）", () => {
-  test("浏览侧边栏那份原生桥（147 号票，只有版本号、日志和录音那一组）：认出在 App 里、有原生录音；没有通知、浏览器、避让区，外观、返回键、换地址调了也不出错", () => {
+describe("原生录音的接口", () => {
+  test("浏览侧边栏那份原生桥（只有版本号、日志和录音那一组）：认出在 App 里、有原生录音；没有通知、浏览器、避让区，外观、返回键、换地址调了也不出错", () => {
     const { calls, appVersion, log, voicePrepare, voiceStart, voiceStop, voiceDiscard, voiceRelease } = fakeVoiceBridge();
     const app = detectNativeApp({ ergoNative: { appVersion, log, voicePrepare, voiceStart, voiceStop, voiceDiscard, voiceRelease } });
     expect(app?.version).toBe("0.1.0");
@@ -322,7 +322,7 @@ describe("原生录音的接口（63 号票）", () => {
   });
 });
 
-// 105 号票：App 把网页延伸到了底部手势条底下，告诉页面那一截多高（物理像素）；页面底部只让开四分之一（CSS 像素，用户 10-13 要再往下），不留整条白边
+// App 把网页延伸到了底部手势条底下，告诉页面那一截多高（物理像素）；页面底部只让开四分之一（CSS 像素，要再往下），不留整条白边
 describe("底部避让", () => {
   test.each<[string, number, number, number]>([
     ["手势条 84 像素、3 倍屏：那一截 28，让开 7", 84, 3, 7],
@@ -382,7 +382,7 @@ describe("底部避让", () => {
   });
 });
 
-// 110 号票：App 的系统通知（Notification Kit 本地通知）也挂在 ergoNative 上：notifyState 开没开、问没问过；
+// App 的系统通知（Notification Kit 本地通知）也挂在 ergoNative 上：notifyState 开没开、问没问过；
 // notifyPrepare(userAction) 第一次向用户要授权（拒过的、用户点"去打开"时拉起系统的通知设置），回要过之后的状态；
 // notifyShow(id, title, body, route) 发一条；notifyTakeOpen() 取用户点开的那一条（取一次就清掉）。
 // App 被点开的通知拉起来时调网页登记的 window.__ergoNotifyOpen()，网页再来取。这里测包装和开场；走哪条路在 system-notify.test.ts。
@@ -417,7 +417,7 @@ function fakeNotifyBridge(init: { state?: unknown; opened?: string; prepare?: ()
   };
 }
 
-describe("系统通知的接口（110 号票）", () => {
+describe("系统通知的接口", () => {
   test("App 有通知这一组方法：认出来；旧版 App 没有、缺一个：没有（照旧走浏览器通知）", () => {
     expect(detectNativeApp({ ergoNative: fakeNotifyBridge() })?.notify).toBeDefined();
     expect(detectNativeApp({ ergoNative: fakeBridge() })?.notify).toBeUndefined();
@@ -511,7 +511,7 @@ describe("系统通知的接口（110 号票）", () => {
 });
 
 /**
- * 新版 App（124 号票）：notifyShow 回结果（Promise<string>）、认第 5 个参数"前台也强制发"，notifyState 带前后台，
+ * 新版 App：notifyShow 回结果（Promise<string>）、认第 5 个参数"前台也强制发"，notifyState 带前后台，
  * 多一个 notifyResetAsked（清掉"问过了"）
  */
 function fakeDebugNotifyBridge(init: { state?: unknown; reply?: unknown } = {}) {
@@ -529,7 +529,7 @@ function fakeDebugNotifyBridge(init: { state?: unknown; reply?: unknown } = {}) 
   };
 }
 
-describe("Debug 工具集要的通知接口（124 号票）", () => {
+describe("Debug 工具集要的通知接口", () => {
   test("新版 App：能强制发、能重置问过了；旧版 App 两样都没有", () => {
     const fresh = detectNativeApp({ ergoNative: fakeDebugNotifyBridge() })!.notify!;
     expect(fresh.canForce).toBe(true);
@@ -577,13 +577,13 @@ describe("Debug 工具集要的通知接口（124 号票）", () => {
   });
 });
 
-/** 有 setTexts 的新版 App（175 号票）：记下交来的 JSON */
+/** 有 setTexts 的新版 App：记下交来的 JSON */
 function textsBridge() {
   const told: string[] = [];
   return { told, bridge: { ...fakeBridge(), setTexts: (json: string) => void told.push(json) } };
 }
 
-describe("App 原生的字跟着二狗的语言（175 号票）", () => {
+describe("App 原生的字跟着二狗的语言", () => {
 
   test("交过去的是当前语言的每一句 harmony.*（中文下和语言文件一字不差，{name} 原样留给 App 换）", () => {
     const zh = appTexts();

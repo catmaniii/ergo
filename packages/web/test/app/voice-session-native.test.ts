@@ -1,4 +1,4 @@
-// 鸿蒙 App 的原生录音（63 号票，app/voice-session.ts 的原生后端，app/voice-native-recorder.ts）：
+// 鸿蒙 App 的原生录音（app/voice-session.ts 的原生后端，app/voice-native-recorder.ts）：
 // 进语音模式时 App 备好录音器（AudioCapturer 的 PREPARED：不采集、不占麦克风），按下才开始，松手停下交出这一段（PCM），
 // 网页做成 WAV 照常上传；离开语音模式、切到后台放掉录音器。备好的录音器不挡系统输入法，所以打字、分屏时不用让路。
 // 手势（上划取消、太短、60 秒、准备中、计时）、不发空白语音、诊断记录都沿用浏览器的那一套，只换掉底下的采集。

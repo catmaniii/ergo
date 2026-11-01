@@ -6,7 +6,7 @@ import path from "node:path";
 
 /**
  * Windows 上环境变量名不分大小写，但传进来的环境可能是个普通对象：键是别的程序拷过来时的写法
- * （测试里 `withEnv(process.env, …)` 摊平以后只剩 `PROGRAMFILES`，238 号票）。按规范名取不到时再按名字扫一遍。
+ * （测试里 `withEnv(process.env, …)` 摊平以后只剩 `PROGRAMFILES`）。按规范名取不到时再按名字扫一遍。
  */
 function envValue(env: Readonly<Record<string, string | undefined>>, name: string): string | undefined {
   const direct = env[name];

@@ -1,4 +1,4 @@
-// ergo backup / ergo restore（356 号票）：一行命令装的没有 npm run，备份、恢复的命令行工具接到 ergo 命令上。
+// ergo backup / ergo restore：一行命令装的没有 npm run，备份、恢复的命令行工具接到 ergo 命令上。
 // 都是临时的数据目录、临时的主目录；不碰服务管家。
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";

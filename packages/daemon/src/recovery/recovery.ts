@@ -1,11 +1,11 @@
-// 被杀后的恢复（23 号票，规格第 17 节）：LSM 每次重启都连带杀掉守护进程，Job 对象把所有子进程一起清掉；
+// 被杀后的恢复（规格第 17 节）：LSM 每次重启都连带杀掉守护进程，Job 对象把所有子进程一起清掉；
 // 守护进程重新起来后，正在做的事按规则恢复，不乱、也不悄悄重做有副作用的操作。分两步：
 //
 // 1. scanBeforeStart（任何 agent 会话开始之前）：记下谁被杀时正处理到一半——任务自己的负责人里有输入开始了、
 //    还没结束的（agent 会话 start() 时会把它标成"中断"出队，所以要先看）。
 // 2. recoverAfterRestart（各模块都接上之后：执行控制器订阅好事件、agent 会话标好中断的输入）：
 //    - 待审批的事项从审批表恢复：还待处理、没挂起过的记成挂起（approval_suspended）——审批卡还是原来那张、仍待处理，
-//      不新建卡、不再提示用户；任务里的由执行控制器让这一支停下（都在等时任务转等我）。用户事后批准照 07 号票
+//      不新建卡、不再提示用户；任务里的由执行控制器让这一支停下（都在等时任务转等我）。用户事后批准
 //      记成一次性授权、唤起 agent 重试（按调用指纹，放行一次）。这次调用不算"说不清做没做完"；
 //    - 被杀时正在执行的有副作用的调用（guard-runtime/executions.ts 记着还没结束的）记成中断：任务里的由执行控制器让任务
 //      转为等我（原因"中断：不确定 X 是否已执行"），不属于任务的（秘书会话）在待我处理里放一条同样写法的事项；不自动重做；
@@ -13,7 +13,7 @@
 //      只读或幂等的调用被打断的，会话文件里补着"这次调用被中断了"，由模型决定要不要重做。
 // 会话文件的修补（去掉写到一半的一行、给被中断的工具调用补上结果）在 agent 子进程那一层，重新拉起时做
 // （runtime/agent-child/session-recovery.ts；补上的说法由 guard-runtime/executions.ts 的 interruptedToolResults 给）。
-// 秘书被打断的那条消息照 04 号票不重送（会话里一条系统说明），排着的输入按原顺序接着处理。
+// 秘书被打断的那条消息不重送（会话里一条系统说明），排着的输入按原顺序接着处理。
 import { hasOwnMaintainer, maintainerChannel, type TaskState } from "@ergo/protocol";
 import type { ApprovalService } from "../approvals/approvals.ts";
 import { appendAgentNotice } from "../conversation/messages.ts";

@@ -1,4 +1,4 @@
-// 哪些调用还被用着（65 号票）：待办里还在（没删、没归档）的事项按登记表（CALL_REFERENCES）引用到的调用、还没决定的审批。
+// 哪些调用还被用着：待办里还在（没删、没归档）的事项按登记表（CALL_REFERENCES）引用到的调用、还没决定的审批。
 // 主切面覆盖了快速动作卡和没结束的任务；这里按协议的事件直接构造另外几种：审批卡、"交给我做"、"中断不确定"。
 import path from "node:path";
 import { CHANNELS, EVENT_TYPES } from "@ergo/protocol";

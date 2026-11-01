@@ -1,4 +1,4 @@
-// 主切面：运营手段"服务"（133 号票）。真的守护进程，项目的负责人和秘书接 faux 剧本，LSM 用替身（helpers/lsm-stand-in.ts：owned 打开时
+// 主切面：运营手段"服务"。真的守护进程，项目的负责人和秘书接 faux 剧本，LSM 用替身（helpers/lsm-stand-in.ts：owned 打开时
 // 扮演支持名下服务的新管理器，不起真进程），"上线的服务"是起在随机端口上的假服务（helpers/fake-app.ts），测试扮演前端。
 // - 建设期间交带服务的运营方案（负责人经 agent 宿主真的调 propose_operations）：卡上写"上线服务「X」（端口 …，开机自启）"；
 //   确认并转入使用后经 LSM 登记（命令、工作目录、端口、开机自启、密钥的引用换成密钥区里的文件、注入 ERGO_BASE_PATH）、启动，
@@ -9,12 +9,12 @@
 // - LSM 版本不支持名下的服务：标"要你手动"，一条 services.* 都不发；
 // - 使用中改方案（更新登记、重启）、停用（撤下、撤掉转发）、重新启用（重新登记、启动）、归档、取消归档、方案里去掉；
 // - 交方案时的校验：工作目录出界、密钥、二狗自己的端口、同名同端口、不守前缀约定（服务正好在跑时自检）整份退回；
-// - 257 号票：使用中的项目在项目卡片、项目页上"启动""关闭"——关闭全部停、取消开机自启，重启守护进程后仍关着；启动重新登记、
+// -使用中的项目在项目卡片、项目页上"启动""关闭"——关闭全部停、取消开机自启，重启守护进程后仍关着；启动重新登记、
 //   恢复开机自启；做到一半又点照最新的来；秘书照用户说的启停（同一个入口）；LSM 没连上、项目停用了的被拒。
-// - 269 号票：二狗接上 LSM 时兜底——电脑重启后 LSM 没拉（替身的 owned.reboot）、LSM 重启后重新接上（替身的 drop），上线了、用户没关的
+// -二狗接上 LSM 时兜底——电脑重启后 LSM 没拉（替身的 owned.reboot）、LSM 重启后重新接上（替身的 drop），上线了、用户没关的
 //   服务停着就整份登记、启动，记上线的结果（带 revive）；在跑的不动；接上之后又挂了不自动拉（照 133 通知负责人）；关着的不拉；
 //   拉不起来记上线失败和原因、通知负责人。
-// - 363 号票：回放 10-29 的事件（上线、already-running 记了失败、接上时全量里在跑）：回到上线了、不通知、缺凭证的重启一次拿到；启动报 already-running 真去看健康检查；
+// -回放 10-29 的事件（上线、already-running 记了失败、接上时全量里在跑）：回到上线了、不通知、缺凭证的重启一次拿到；启动报 already-running 真去看健康检查；
 //   真没在跑的、用户关着的不动。
 import fs from "node:fs";
 import http from "node:http";
@@ -237,7 +237,7 @@ describe("运营手段“服务”：确认后经 LSM 上线，项目卡片上�
         { name: "INTEL_API_KEY", from: "file", path: path.join(d.realData, "secrets", "intel-key.txt") },
         { name: "HF_HOME", from: "userEnv", optional: true },
         { name: "ERGO_BASE_PATH", from: "literal", value: "/apps/p-1-site" },
-        // 357 号票：报事件的地址和这个服务的专属凭证（密钥区的文件，定义里只有路径）
+        // 报事件的地址和这个服务的专属凭证（密钥区的文件，定义里只有路径）
         { name: "ERGO_NOTIFY_URL", from: "literal", value: `${td.url}/api/service-events` },
         { name: "ERGO_SERVICE_TOKEN", from: "file", path: path.join(d.realData, "secrets", "service-tokens", "p-1-site.token") },
       ],
@@ -512,7 +512,7 @@ const power = (frontend: TestFrontend, action: "start" | "stop", key: string) =>
 /** 257：记下的开关 */
 const powerEvents = (td: TestDaemon) => td.daemon.store.read(OPERATIONS_CHANNEL, 0, PROJECT_SERVICE_EVENTS.power).map((e) => e.payload as { on: boolean; by: string });
 
-describe("使用中的项目：项目卡片、项目页上的“启动”“关闭”，秘书也能启停（257 号票）", () => {
+describe("使用中的项目：项目卡片、项目页上的“启动”“关闭”，秘书也能启停", () => {
 
   it("关闭：全部停、取消开机自启（转发留着）；重启守护进程后仍关着、不去拉起；启动：重新登记（恢复开机自启）、启动；做到一半又点照最新的来", async () => {
     const d = dirs();
@@ -642,7 +642,7 @@ const revivesOf = (td: TestDaemon) =>
     .map((e) => e.payload as { app: string; state: string; reason?: string; revive?: boolean })
     .filter((p) => p.revive === true);
 
-describe("二狗接上 LSM 时兜底：该在线、用户没关的服务停着就拉起来（269 号票）", () => {
+describe("二狗接上 LSM 时兜底：该在线、用户没关的服务停着就拉起来", () => {
 
   it("电脑重启后 LSM 没拉：守护进程起来接上时停着的拉起来（整份登记、启动，记上线的结果）；接上之后又挂了不自动拉（照旧过一阵通知负责人）；LSM 重启、重新接上时还停着的再拉一次，在跑的不动", async () => {
     const d = dirs();
@@ -701,7 +701,7 @@ describe("二狗接上 LSM 时兜底：该在线、用户没关的服务停着�
     await waitUntil(() => notices().length === 2, { describe: () => `负责人收到又在线了的通知：${JSON.stringify(notices())}` });
     expect(notices()[1]).toContain("服务「简报站」（p-1-site）又在线了");
 
-    // 接上时在跑的不拉、不重启：再断一次又接上，只整份再登记一次（324：同一份定义 LSM 不改、不回 restartNeeded）
+    // 接上时在跑的不拉、不重启：再断一次又接上，只整份再登记一次（同一份定义 LSM 不改、不回 restartNeeded）
     from = lsm.serviceRequests().length;
     hellos = lsm.messages.length;
     lsm.drop();
@@ -724,7 +724,7 @@ describe("二狗接上 LSM 时兜底：该在线、用户没关的服务停着�
     await putInUse(td, frontend, [site(app.port)]);
     await untilService(td, (v) => v.rollout === "live" && v.status === "online", "上线、在线");
 
-    // 用户关了（257）：电脑重启后守护进程接上 LSM，关着的不拉
+    // 用户关了：电脑重启后守护进程接上 LSM，关着的不拉
     ok(await power(frontend, "stop", "k-stop"));
     await untilService(td, (v) => v.paused === true && v.power === undefined && v.status === "offline", "关着");
     await td.daemon.stop();
@@ -793,8 +793,8 @@ async function reconnectLsm(lsm: LsmStandIn, td: TestDaemon) {
   await td.daemon.projectServices.idle();
 }
 
-describe("上线记录卡在失败、服务其实在跑（363 号票）", () => {
-  it("回放 10-29：上线、already-running 记了失败、部署后接上 LSM 全量里它在跑：页面回到上线了（历史只追加）、不通知、转发补上；357 之前登记的没有凭证：更新登记、重启一次且只一次，凭证真能用", async () => {
+describe("上线记录卡在失败、服务其实在跑", () => {
+  it("回放 10-29：上线、already-running 记了失败、部署后接上 LSM 全量里它在跑：页面回到上线了（历史只追加）、不通知、转发补上；以前登记的没有凭证：更新登记、重启一次且只一次，凭证真能用", async () => {
     const d = dirs();
     const lsm = await startLsmStandIn({ owned: true, heartbeatIntervalMs: 60_000 });
     const app = await startFakeApp();

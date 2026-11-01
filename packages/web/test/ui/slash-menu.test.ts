@@ -1,4 +1,4 @@
-// 输入框里打 / 弹出的候选列表（310 号票，ui/conversation/SlashMenu.tsx 的 SlashList）：用 React 在 Node 里渲染出来查（挂一个不连线的
+// 输入框里打 / 弹出的候选列表（ui/conversation/SlashMenu.tsx 的 SlashList）：用 React 在 Node 里渲染出来查（挂一个不连线的
 // StoreProvider：名字标签要取名字）。
 // - 选中的那一行说明完整展开（不截短，原文小字跟在下面），其余行的说明交给样式截成两行、没有原文那一行；
 // - 参数提示写在写法后面（单独一段，选中插入时不插：插的是 entry.text）；

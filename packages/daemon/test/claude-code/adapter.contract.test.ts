@@ -1,8 +1,7 @@
-// Claude Code 适配子进程的契约测试（287 号票，照 pi 的契约测试 test/contract/）：宿主协议 ⇄ Agent SDK 的对照。
+// Claude Code 适配子进程的契约测试（照 pi 的契约测试 test/contract/）：宿主协议 ⇄ Agent SDK 的对照。
 // SDK 换成假的（helpers/fake-claude-sdk.ts），不启动真的 claude、不花额度——测试扮演 claude，按 SDK 的消息格式一条条吐；
 // 适配子进程本身是真的（runClaudeChild，stdin / stdout 换成内存里的流）。最后一组真的拉起一个子进程（fixtures/fake-claude-child.ts），
 // 核对交给 claude 的环境里没有 ANTHROPIC_API_KEY。
-// 真机验证（真的 claude、订阅额度）在 294 号票。
 import fs from "node:fs";
 import path from "node:path";
 import { PassThrough } from "node:stream";
@@ -98,7 +97,7 @@ async function noneFor(log: ReportLog, type: AgentReport["type"], ms = 150): Pro
 }
 
 describe("Claude Code 适配子进程（假 SDK）", () => {
-  it("授权的文件夹（355 号票）：翻成只读放行规则交给 query，不用连写也放开的 additionalDirectories；没有就不传", async () => {
+  it("授权的文件夹：翻成只读放行规则交给 query，不用连写也放开的 additionalDirectories；没有就不传", async () => {
     const child = startChild({ session: { readOnlyDirs: ["D:\\照片", "E:\\", "C:\\Users\\me\\My Docs\\", "F:\\a(b)", "\\\\nas\\share", "D:\\照片"] } });
     await child.log.next("ready");
     const { query } = await prompt(child, "in-1", "看看");
@@ -127,7 +126,7 @@ describe("Claude Code 适配子进程（假 SDK）", () => {
     expect(query.options).toMatchObject({
       cwd: child.assembly.cwd,
       settingSources: ["user", "project", "local"],
-      // 291 号票：后面补一句二狗的工具在 Claude Code 里叫什么
+      // 后面补一句二狗的工具在 Claude Code 里叫什么
       systemPrompt: { type: "preset", preset: "claude_code", append: expect.stringMatching(/^你是二狗的负责人。MARKER_ERGO_APPEND\n\n（二狗补充：/), snapshot: false },
       includePartialMessages: true,
       permissionPrompts: "none",
@@ -282,7 +281,7 @@ describe("Claude Code 适配子进程（假 SDK）", () => {
     expect(await child.log.next("turn_end")).toEqual({ type: "turn_end", outcome: "completed" });
   });
 
-  it("图片：image 块（base64、media_type）跟在文字后面；跟在这条输入后面的上下文不在用户消息里，经 UserPromptSubmit 钩子交（291 号票）", async () => {
+  it("图片：image 块（base64、media_type）跟在文字后面；跟在这条输入后面的上下文不在用户消息里，经 UserPromptSubmit 钩子交", async () => {
     const child = startChild();
     await child.log.next("ready");
     const data = Buffer.from("png").toString("base64");
@@ -324,7 +323,7 @@ describe("Claude Code 适配子进程（假 SDK）", () => {
     await child.log.next("turn_end");
   });
 
-  it("压缩之前（309 号票）：装配了范围审视的交给 SDK 一个 PreCompact 钩子，压缩之前报 compacting（手动的 manual、自动的 threshold），不拦压缩；没装配的不交这个钩子", async () => {
+  it("压缩之前：装配了范围审视的交给 SDK 一个 PreCompact 钩子，压缩之前报 compacting（手动的 manual、自动的 threshold），不拦压缩；没装配的不交这个钩子", async () => {
     const child = startChild({ session: { scopeReview: { model: fauxModel([]), instructions: "审视", reference: "立项书" } } });
     await child.log.next("ready");
     child.send({ type: "compact" });
@@ -508,7 +507,7 @@ describe("Claude Code 适配子进程（假 SDK）", () => {
     expect(query.options.env).toEqual({ PATH: "C:\\Windows", ERGO_LANGUAGE: "zh-CN", CLAUDE_AGENT_SDK_CLIENT_APP: "ergo" });
   });
 
-  it("这一张没做的命令：范围审视回没做成、会话回退（没接撤回用的会话函数，293 号票）回没挪成、守卫判定和工具结果回没有在等的、贡献清单和 yield 收下不管、工单回 unsupported；exit 时手头有一轮先打断再关掉", async () => {
+  it("这一张没做的命令：范围审视回没做成、会话回退（没接撤回用的会话函数）回没挪成、守卫判定和工具结果回没有在等的、贡献清单和 yield 收下不管、工单回 unsupported；exit 时手头有一轮先打断再关掉", async () => {
     const child = startChild();
     await child.log.next("ready");
     child.send({ type: "scope_review", requestId: "r-1", reference: "立项书" });

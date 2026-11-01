@@ -1,5 +1,5 @@
-// 挑图片窗口（149 号票，用户 2026-10-18："挑图片的窗口不跟着悬浮按钮，固定弹在屏幕上让用户挑。二狗的聊天窗里也能看到、能挑"）
-// 在二狗网页这一侧：秘书给这台设备上这个浏览器的网页候选卡（147 号票的 browse_pick，不管是悬浮按钮那一轮还是侧边栏那一轮给的），
+// 挑图片窗口（"挑图片的窗口不跟着悬浮按钮，固定弹在屏幕上让用户挑。二狗的聊天窗里也能看到、能挑"）
+// 在二狗网页这一侧：秘书给这台设备上这个浏览器的网页候选卡（browse_pick，不管是悬浮按钮那一轮还是侧边栏那一轮给的），
 // 这一页的网页上弹一个固定位置的挑图片窗口（页面桥画，page-bridge/pick.ts），会话里（秘书页、侧边栏）照旧有那张卡——
 // - 两边只认第一次的选择：都是对同一张卡做动作（守护进程按版本先到先得）；卡在别处处理了（会话里交了、都不要了、过期了），
 //   窗口写一句（"在会话里交好了"）跟着收起；窗口里点"交"没交进去，原因记在卡上（failed），会话里的卡也看得到；
@@ -9,9 +9,9 @@
 //   任何一次模型调用；交完再带着结果去卡上记一笔（confirm 的 done），会话里的卡跟着变成处理过；
 // - 窗口能收起（×、返回手势）：收起后会话里的卡照样能挑（预备的文件留着，会话里点了"交"守护进程转回来的 attach 也先用它们）；
 //   卡处理完、过期、换了网页，预备的文件放掉。
-// 181 号票：标题里说到助理用用户起的名字（纯文字换好名字，另给按名字切开的几段，页面桥画成名字标签）；改名、换语言后
+// 标题里说到助理用用户起的名字（纯文字换好名字，另给按名字切开的几段，页面桥画成名字标签）；改名、换语言后
 // 页面上的 React 层照样交来卡（cardsChanged），标题跟着重算、变了就重交。
-// 184 号票：卡上记着编号（ref：秘书按编号指的上传框，不是选中的框）的，交的时候按编号交（页面桥再核对还是那一页、还是上传框）。
+// 卡上记着编号（ref：秘书按编号指的上传框，不是选中的框）的，交的时候按编号交（页面桥再核对还是那一页、还是上传框）。
 // 不碰 DOM 和浏览器的全局变量（页面桥、取缩略图、对卡做动作都由参数给），测试在 Node 里跑。
 import type { PageBubbleFile, PagePickAction, PagePickView } from "../../page-bridge/protocol.ts";
 import { PAGE_PICK_NONE } from "../../page-bridge/protocol.ts";
@@ -37,7 +37,7 @@ export interface PagePickDeps {
   /** 浏览器现在开着的网页地址（开场时问一次，之后跟着 App 推的浏览器样子；只认这一页的候选，还没打开网页是 undefined） */
   currentUrl(): string | undefined;
   now(): number;
-  /** 助理现在的名字（181 号票；没给、undefined 是默认的） */
+  /** 助理现在的名字（没给、undefined 是默认的） */
   assistantName?(): string | undefined;
 }
 
@@ -261,7 +261,7 @@ export class PagePickSync {
     try {
       const taken = await this.deps.stage.take(chosen);
       const putDone = this.deps.now();
-      // 184 号票：秘书按编号指的上传框按编号交（页面桥核对还是那一页、编号认得、还是上传框）
+      // 秘书按编号指的上传框按编号交（页面桥核对还是那一页、编号认得、还是上传框）
       const target = p.ref ? { ref: p.ref, url: p.page.url } : p.fieldId === PAGE_CHOOSER_TARGET ? ("chooser" as const) : { fieldId: p.fieldId };
       const outcome = await this.deps.page.deliver(target, taken.files);
       this.deps.stage.logDelivery("挑图片窗口", taken, this.deps.now() - putDone, this.deps.now() - began); // @i18n-ignore log：日志里写的来路

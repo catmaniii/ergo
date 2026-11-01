@@ -1,4 +1,4 @@
-// 地址栏历史（88 号票评审）：页面里跳转压一条新记录，并在新记录上记下从哪来；标题栏的 ‹ 回到上一级时不再压新记录——
+// 地址栏历史：页面里跳转压一条新记录，并在新记录上记下从哪来；标题栏的 ‹ 回到上一级时不再压新记录——
 // 上一条就是要回的那一页（经这里跳过来的）就后退一步，否则把这一条换成那一页。这样看板 → 点卡进任务 → ‹ 之后按浏览器后退，
 // 不会重新打开刚才的任务。鸿蒙的返回键走返回栈的 page 层（page-back.ts），调的是同一个 ‹。
 // 不碰浏览器的全局变量：location、history 换成接口，测试在 Node 里跑（test/app/history-nav.test.ts）；页面上那一份在 route.ts。
@@ -40,7 +40,7 @@ export function pushHash(env: HistoryEnv, to: string): void {
   env.history.replaceState({ ergoFrom: from } satisfies CameFrom, "");
 }
 
-/** 这一条记下的来处（经 pushHash 跳过来的）；直接打开的（刷新、收藏、点了别处给的链接）没有。报告页的 ‹ 回到它（113 号票） */
+/** 这一条记下的来处（经 pushHash 跳过来的）；直接打开的（刷新、收藏、点了别处给的链接）没有。报告页的 ‹ 回到它 */
 export function cameFrom(env: HistoryEnv): string | undefined {
   return fromOf(env.history.state);
 }

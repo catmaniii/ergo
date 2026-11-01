@@ -1,9 +1,9 @@
-// 自定义的压缩指令（22 号票：秘书专用的那一份，规格第 7 节；128 号票起是通用贡献清单里的 compaction_instructions 钩子订阅，
+// 自定义的压缩指令（秘书专用的那一份，规格第 7 节；是通用贡献清单里的 compaction_instructions 钩子订阅，
 // 由桥接扩展 bridge.ts 在 pi 的 session_before_compact 里叫这里）。pi 的自动压缩（到了阈值、上下文溢出）不带自定义指令，
 // 手动压缩也只在调用时带：所以自己按这份指令写摘要（pi 导出的 compact，和 pi 默认的写法同一个函数、同一个模型调用函数和凭据，
 // 只是多了这份指令），把结果交回 pi，由 pi 照常记进会话文件、之后照常注入上下文块。
 // 指令接在 pi 的摘要提示后面（"Additional focus: …"）。被当成"切在一轮中间"、其实没切开的，整段按这份指令写（wholeTurns）。
-// 从 session.ts 搬来（128 号票），写法没变。
+// 从 session.ts 搬来，写法没变。
 import { compact, type AgentSession, type ExtensionContext, type ModelRuntime, type SessionBeforeCompactEvent, type SessionBeforeCompactResult, type SessionEntry, type SettingsManager } from "@earendil-works/pi-coding-agent";
 
 /** 按自定义指令写摘要要的：模型目录和凭据、pi 的设置（重试）、建好的会话（它的思考档位和模型调用函数；会话建好之后才会压缩） */

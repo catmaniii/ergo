@@ -1,7 +1,7 @@
-// 个人档案的核对卡（281 号票，卡片类型 personal_file）：秘书提议写进档案、要你核对的——写给谁（新建一份的写明）、哪些字段
+// 个人档案的核对卡（卡片类型 personal_file）：秘书提议写进档案、要你核对的——写给谁（新建一份的写明）、哪些字段
 // （号码一位一位列在小格子里，按组隔开：身份证号 6 · 8 · 4、手机号 3 · 4 · 4；原来有值的写"原来"）、记下哪件事。
 // "确认写入"由运行时写进档案，"取消"关掉；处理完以后有"去档案里看"。原话里明说了的非号码类不出这张卡（直接写，留快速动作的"已执行"卡）。
-// 283 号票：生日、纪念日下面一个"每年提前几天提醒"的勾（默认勾着、提前 3 天），确认时一起建。
+// 生日、纪念日下面一个"每年提前几天提醒"的勾（默认勾着、提前 3 天），确认时一起建。
 import { useState } from "react";
 import { toHash } from "../../app/route.ts";
 import { numberGroups, type PersonalFileCardPayload, type PersonalFileExecuteInput, PURGED_TEXT, t } from "../../state/index.ts";

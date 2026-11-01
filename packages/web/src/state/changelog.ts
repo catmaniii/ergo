@@ -1,8 +1,8 @@
-// 关于页的更新日志（124 号票，用户 2026-10-14 选：关于页显示这一版的更新日志）：构建时把仓库根目录的 CHANGELOG.md 原样打进页面
+// 关于页的更新日志（选：关于页显示这一版的更新日志）：构建时把仓库根目录的 CHANGELOG.md 原样打进页面
 // （build/build-info-plugin.ts），这里按二级标题切成一节一节（"## [0.1.0] - 2026-11-01"，Keep a Changelog 的写法；
 // 方括号、日期都可以没有），取当前版本那一节显示，比它早的放在"以前的版本"里能展开。代码块里的 ## 不算标题。
 // 开头不属于哪一版的说明不要；比当前版本新的（"未发布"）不算以前的版本。
-// 日志里照领域术语写的"秘书"，构建时换成名字占位，显示时填用户起的名字（changelogWithName，主会话 2026-10-14 定）。
+// 日志里照领域术语写的"秘书"，构建时换成名字占位，显示时填用户起的名字（changelogWithName）。
 import { ASSISTANT_NAME_MARK } from "./protocol.ts";
 
 export interface ChangelogSection {
@@ -38,7 +38,7 @@ export function changelogSections(markdown: string): ChangelogSection[] {
 }
 
 /**
- * 更新日志里的名字占位填上现在的名字（主会话 2026-10-14 定：和界面上别处一样说用户起的名字，改名后跟着变）。占位是构建时从
+ * 更新日志里的名字占位填上现在的名字（和界面上别处一样说用户起的名字，改名后跟着变）。占位是构建时从
  * "秘书"换来的（build/build-info-plugin.ts 的 markAssistantName）。名字原样放进去：不认 $& 这类替换记号，名字里不能有占位的
  * 括号，所以不会再被当成占位
  */

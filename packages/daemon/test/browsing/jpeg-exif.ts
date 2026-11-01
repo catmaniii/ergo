@@ -1,4 +1,4 @@
-// 134 号票的测试用：手工拼一个带拍摄时间的 JPEG（SOI、APP1 的 EXIF：IFD0 里一个指向 Exif 子目录的指针、子目录里 DateTimeOriginal，
+// 测试用：手工拼一个带拍摄时间的 JPEG（SOI、APP1 的 EXIF：IFD0 里一个指向 Exif 子目录的指针、子目录里 DateTimeOriginal，
 // 再加 IFD0 的 DateTime 作对照，最后 EOI）。只保证结构，不是能解码的图片。
 /** EXIF 的 ASCII 值：字节加结尾的 0 */
 const ascii = (text: string) => Buffer.concat([Buffer.from(text, "latin1"), Buffer.from([0])]);

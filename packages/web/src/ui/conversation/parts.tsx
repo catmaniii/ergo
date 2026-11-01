@@ -1,9 +1,9 @@
-// 消息按 part 渲染：文本、推理（一行，点开看）、图片、文件、语音（31 号票，VoiceBubble.tsx）、agent 的语音（32 号票，同一个气泡）、
+// 消息按 part 渲染：文本、推理（一行，点开看）、图片、文件、语音（VoiceBubble.tsx）、agent 的语音（同一个气泡）、
 // 卡片引用、工单分隔；视频只预留。
-// 56 号票起有详情的都能点开（onDetail：这一部分所属的那一条的详情，由会话组件按条目 id 绑好）：思考旁边"详情 ›"，
-// 卡片旁边"详情 ›"，语音在长按菜单里。57 号票起会话里的思考、回复、工具调用组按聊天区精简画（rows.tsx：
+// 有详情的都能点开（onDetail：这一部分所属的那一条的详情，由会话组件按条目 id 绑好）：思考旁边"详情 ›"，
+// 卡片旁边"详情 ›"，语音在长按菜单里。会话里的思考、回复、工具调用组按聊天区精简画（rows.tsx：
 // 回复是 Markdown 的 AssistantBubble，工具调用组是一行"调用了 N 个工具 ›"），每次工具调用不再单独画一行，在详情页里看。
-// 113 号票：文件附件画成卡片（FileCards：类型图标、标题、"预览""下载"，一组排成一横排），能预览的点图标去报告页。
+// 文件附件画成卡片（FileCards：类型图标、标题、"预览""下载"，一组排成一横排），能预览的点图标去报告页。
 import { type MouseEvent, useState } from "react";
 import { pushHash } from "../../app/history-nav.ts";
 import { toHash } from "../../app/route-hash.ts";
@@ -41,7 +41,7 @@ export function PartView({ part, onDetail, onQuote }: { part: MessagePart; onDet
       return (
         <div className="wo-divider" role="separator">
           <span>
-            {/* 163 号票：工单写"工单 wo-3「标题」"，和别处的 t-3「标题」同一种写法 */}
+            {/* 工单写"工单 wo-3「标题」"，和别处的 t-3「标题」同一种写法 */}
             {part.workOrderId ? (
               <T k="ui.parts.workOrderDivider" params={{ label: <b>{t("ui.parts.workOrder", { id: part.workOrderId })}</b>, title: part.title }} />
             ) : (
@@ -54,13 +54,13 @@ export function PartView({ part, onDetail, onQuote }: { part: MessagePart; onDet
         </div>
       );
     case "conversation_cleared":
-      // 清空当前对话（114 号票）：会话里由 ChatItemView 带着时间画（ClearedDivider），这里只在别处单独画这个 part 时用
+      // 清空当前对话：会话里由 ChatItemView 带着时间画（ClearedDivider），这里只在别处单独画这个 part 时用
       return <ClearedDivider time={undefined} />;
     case "branch_summary":
-      // 分支摘要（150 号票）：会话里由 ChatItemView 画，这里只在别处单独画这个 part 时用
+      // 分支摘要：会话里由 ChatItemView 画，这里只在别处单独画这个 part 时用
       return <div className="context-note">🧭 {part.summary}</div>;
     case "run_divider":
-      // 定时触发的任务的一次运行（76 号票）：各次运行接着同一段会话，每次开始时一条分隔线
+      // 定时触发的任务的一次运行：各次运行接着同一段会话，每次开始时一条分隔线
       return (
         <div className="wo-divider run-divider" role="separator">
           <span>
@@ -73,7 +73,7 @@ export function PartView({ part, onDetail, onQuote }: { part: MessagePart; onDet
 }
 
 /**
- * 清空当前对话的分隔线（114 号票）：上面一行小字"更早的对话"（清空前的，它已经不记得，往上翻照样能看），
+ * 清空当前对话的分隔线：上面一行小字"更早的对话"（清空前的，它已经不记得，往上翻照样能看），
  * 下面"以下是新对话 · 10-13 14:02 清空"
  */
 export function ClearedDivider({ time }: { time: string | undefined }) {
@@ -160,7 +160,7 @@ function ImageView({ part }: { part: Extract<MessagePart, { type: "image" }> }) 
 }
 
 /**
- * 一组文件附件（113 号票，一条消息里连着的几个由 state 的 partRuns 合成一组）：每个一张卡片，排成一横排，装不下换行。
+ * 一组文件附件（一条消息里连着的几个由 state 的 partRuns 合成一组）：每个一张卡片，排成一横排，装不下换行。
  * 卡片竖排三层：类型图标（方块里写类型，按类别上色）、标题（同类多个时带序号）、"预览""下载"
  */
 export function FileCards({ files }: { files: readonly FilePartValue[] }) {
@@ -174,7 +174,7 @@ export function FileCards({ files }: { files: readonly FilePartValue[] }) {
 }
 
 /**
- * 一张附件卡片。能预览的（Markdown、纯文本，117 号票起还有 1 MB 以内的 HTML、SVG）点图标或"预览"去报告页（经 pushHash 记下来处，报告页的 ‹ 回到这里）；
+ * 一张附件卡片。能预览的（Markdown、纯文本，还有 1 MB 以内的 HTML、SVG）点图标或"预览"去报告页（经 pushHash 记下来处，报告页的 ‹ 回到这里）；
  * 不能预览的只有"下载"，点图标也是下载，图标上写明"仅下载"。原型里没有真文件时"下载"灰着
  */
 function AttachmentCard({ card }: { card: FileCard }) {

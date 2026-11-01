@@ -1,4 +1,4 @@
-// 前端状态层回放 35 号票的主切面录下的事件流（packages/daemon/test/main/calendar.test.ts）：日历页取回的每个月（calendar_month）、
+// 前端状态层回放主切面录下的事件流（packages/daemon/test/main/calendar.test.ts）：日历页取回的每个月（calendar_month）、
 // 任务看板和工作日历频道上的事件。看：取回的这份什么时候旧了要重新取、格子上的提醒数和作业数（已暂停的不算）和失败标记、
 // 某一天的详情（工作日判定、提醒触发没有、作业的结果或预计）。
 // 重新录：ERGO_RECORD_EVENTS=1 npx vitest run packages/daemon/test/main/calendar.test.ts

@@ -1,4 +1,4 @@
-// 联网搜索、读网页走哪条路（154 号票起；162 号票改成按设置里的队列）：假的浏览器驱动、本机临时端口上的假 DeepSeek（base URL 可配），
+// 联网搜索、读网页走哪条路（改成按设置里的队列）：假的浏览器驱动、本机临时端口上的假 DeepSeek（base URL 可配），
 // 不联网、不用真 key。
 // - 搜索：不指定 engine 按队列里启用的方式依次试（排前面的先用；DeepSeek 没 key 时跳过），失效了按顺序换下一个并写明；
 //   agent-browser 排中间时试到它前面为止、停下让模型用它，只启用了它时回"只用 agent-browser"；
@@ -196,7 +196,7 @@ describe("联网搜索按队列走", () => {
     expect([browser.visited, server.requests]).toEqual([[], []]);
   });
 
-  it("鸿蒙 App 的内置浏览器排第一（182 号票）：这一轮能用时一种都不试、直接停下（写明后面的）；这一轮用不了时跳过它", async () => {
+  it("鸿蒙 App 的内置浏览器排第一：这一轮能用时一种都不试、直接停下（写明后面的）；这一轮用不了时跳过它", async () => {
     const { access, browser, server } = await setup({ queue: queueOf("app-browser", "deepseek", "browser") });
     const err = (await access.search({ query: "二狗 天气", n: 5, agentBrowser: true, appBrowser: true }).catch((e: unknown) => e)) as AllSearchesFailed;
     expect(err).toBeInstanceOf(AllSearchesFailed);
@@ -363,7 +363,7 @@ describe("读网页按队列走", () => {
     expect([browser.visited, server.requests]).toEqual([[], []]);
   });
 
-  it("内置浏览器（182 号票）不打断读网页；都没读到、这一轮能用它时标出来（提示用 browse_open 打开读）", async () => {
+  it("内置浏览器不打断读网页；都没读到、这一轮能用它时标出来（提示用 browse_open 打开读）", async () => {
     const { access } = await setup({ queue: queueOf("app-browser", "deepseek"), fetch: direct(403), reply: () => ({ status: 404, json: deepseekError("none") }) });
     const err = (await access.fetch({ url: "https://a.example/article", max: 100, appBrowser: true }).catch((e: unknown) => e)) as FetchFailed;
     expect([err.agentBrowser, err.appBrowser]).toEqual([false, true]);

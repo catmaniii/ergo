@@ -1,9 +1,9 @@
-// 交付统计的忽略规则（311 号票，294 号票端到端小测第 5 条）：秘书转告"交了几个文件"、任务卡"新建 N 个文件"、项目"最新交付件"
+// 交付统计的忽略规则（端到端小测第 5 条）：秘书转告"交了几个文件"、任务卡"新建 N 个文件"、项目"最新交付件"
 // 不算缓存和编译产物（__pycache__、*.pyc、node_modules、.pytest_cache 这类）。
 import { describe, expect, it } from "vitest";
 import { ignoredDeliveryDir, ignoredDeliveryFile, ignoredDeliveryPath } from "../../src/tasks/delivery-ignore.ts";
 
-describe("交付统计不算的目录和文件（311 号票）", () => {
+describe("交付统计不算的目录和文件", () => {
   it.each(["node_modules", "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".venv", "venv", ".tox", ".git", "todo.egg-info", "Node_Modules"])("目录 %s 整个不算", (name) => {
     expect(ignoredDeliveryDir(name)).toBe(true);
   });

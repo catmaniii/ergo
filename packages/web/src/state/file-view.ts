@@ -1,6 +1,6 @@
-// 内置浏览器里点到能渲染的文件（160 号票）：markdown 这类文本文件不显示原始文本、不下载，用二狗的渲染打开（照 113 号票报告页的画法）。
+// 内置浏览器里点到能渲染的文件：markdown 这类文本文件不显示原始文本、不下载，用二狗的渲染打开（页的画法）。
 // 这里是纯函数：哪些走内置渲染（看扩展名和响应的 Content-Type）、文件名、字符集、JSON 格式化、CSV 拆成表格、渲染层显示什么。
-// 网页的内置浏览器（132 号票，app/in-app-browser.ts）、鸿蒙 App "浏览"页签的原生浏览器（134 号票，app/browse-files.ts）都按这一份判断；
+// 网页的内置浏览器（app/in-app-browser.ts）、鸿蒙 App "浏览"页签的原生浏览器（app/browse-files.ts）都按这一份判断；
 // 鸿蒙 App 拦下载时先粗筛一遍（frontend/harmony/.../browser/FileDocs.ets 的 looksText，扩展名清单和这里的 EXTENSION_KIND 一致），最后还是这里定。
 // 能渲染的：Markdown（按 Markdown 画）、纯文本、JSON（格式化）、CSV / TSV（表格）、代码和配置（等宽，不高亮）；HTML、SVG、XML 照旧当网页开。
 // 状态层不用 URL、TextDecoder（tsconfig.state.json 不给 DOM 的类型），地址按字符串拆；解码在 app/file-source.ts。

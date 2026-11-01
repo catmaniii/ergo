@@ -1,9 +1,9 @@
-// 按二狗自己的事件记录另起一次生成（293 号票），一次性子进程这一侧（recorded-generation-main.ts 拉起这里）：运行时自己做不了、要二狗的模型做的
+// 按二狗自己的事件记录另起一次生成，一次性子进程这一侧（recorded-generation-main.ts 拉起这里）：运行时自己做不了、要二狗的模型做的
 // 那几样。会话内容是守护进程按自己的事件日志整理好交来的（RecordedTurn），这里把它摆成 pi 的会话条目，再用 pi 导出的同一个函数做：
 // - branch_summary：Claude Code 撤回时给被放弃的那段写分支摘要——pi 撤回时用的 generateBranchSummary（同一份 pi 的提示，摘要要求
 //   接在后面，session-navigation.ts 的 writeSummary 同一套），交回给人看的那段（去掉 pi 加的开头和文件清单，summaryText）和进新分支上下文的
 //   那段（pi 放进新分支上下文的样子：convertToLlm 把分支摘要换成的那条用户消息，开头说明这是撤回回来的那段的摘要）。
-// - scope_review（309 号票）：Claude Code 的范围审视（压缩之前、工单结束时）——摆好的条目里的消息按 pi 子进程里审视的同一套（scope-review.ts 的
+// - scope_review：Claude Code 的范围审视（压缩之前、工单结束时）——摆好的条目里的消息按 pi 子进程里审视的同一套（scope-review.ts 的
 //   conversationText：pi 压缩时的写法；reviewPrompt：对照物在前、工作记录在后）在会话之外另开一次审视的模型调用，回复按同一个 parseFindings 解析；
 //   调用出错、回复不合约定时不抛，结果里写原因（用量照样交回，同 pi 子进程里那次）；这段没有要审视的不调用模型。
 // 模型是守护进程交来的（分支摘要用这个 agent 在二狗这边的模型，范围审视用审视的模型；catalog 的按 provider 取凭据，faux 的按剧本回），凭据只放内存；
@@ -123,7 +123,7 @@ async function branchSummary(request: RecordedGenerationRequest, instructions: s
 }
 
 /**
- * 审视这段工作（309 号票）：同 pi 子进程里的 ScopeReviewer（scope-review.ts）——摆好的条目里的消息（之前的分支摘要不算这段工作）按 pi 压缩时的写法
+ * 审视这段工作：同 pi 子进程里的 ScopeReviewer（scope-review.ts）——摆好的条目里的消息（之前的分支摘要不算这段工作）按 pi 压缩时的写法
  * 转成文字，审视的说明作系统提示、对照物和工作记录作一条用户消息，在会话之外调一次审视的模型（不缓存，思考档位照模型设置），回复按约定的 JSON 解析
  */
 async function scopeReview(

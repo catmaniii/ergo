@@ -1,4 +1,4 @@
-// 内部作业"错过了没有"的判断（纯函数，19 号票的定时作业也用它）：上一次之后的下一次过没过点。
+// 内部作业"错过了没有"的判断（纯函数，定时作业也用它）：上一次之后的下一次过没过点。
 // 守护进程里怎么补跑、补完不再补，在主切面测（test/main/backup.test.ts 的"错过的内部作业开机后补一次"）。
 import { type ReminderSchedule, workdayCalendar } from "@ergo/protocol";
 import { describe, expect, test } from "vitest";
@@ -35,7 +35,7 @@ describe("错过了没有", () => {
     expect(nextDue({ kind: "once", at: at(10, 8, 9).toISOString() }, at(10, 8, 9), at(10, 9, 0), CTX)).toBeUndefined();
   });
 
-  test("每隔几分钟（297 号票）：从上一次往后数；停机错过了好几次也只补一次", () => {
+  test("每隔几分钟：从上一次往后数；停机错过了好几次也只补一次", () => {
     const every30 = { kind: "every", minutes: 30 } as const;
     expect(nextDue(every30, at(10, 8, 9), at(10, 8, 9, 10), CTX)).toEqual({ at: at(10, 8, 9, 30), missed: false });
     expect(nextDue(every30, at(10, 8, 9), at(10, 8, 9, 30), CTX)).toEqual({ at: at(10, 8, 9, 30), missed: true });

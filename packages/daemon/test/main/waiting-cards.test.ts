@@ -1,4 +1,4 @@
-// 主切面：标题上的"等你……"（369 号票）。说明带上要处理的那张卡和一共几张（网页点了跳过去）；标题说在等你的卡，待办里一定有一条；
+// 主切面：标题上的"等你……"。说明带上要处理的那张卡和一共几张（网页点了跳过去）；标题说在等你的卡，待办里一定有一条；
 // 提问卡放久了（materials.staleCardDays）标题不再说、待办不再算要紧，卡照样能答；负责人出的提问卡算到负责人头上。
 import { type ActivityEventPayload, CHANNELS, EVENT_TYPES, type InboxItem, type QuestionsCardPayload } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";

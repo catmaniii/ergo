@@ -186,7 +186,7 @@ class Entry {
 }
 
 /**
- * 长按网页元素的圆钮（359 号票，对应安卓 browser/ElementFiles.kt，那边写着每一项是干什么的）：都经 browserTool（op 以 element 开头）。
+ * 长按网页元素的圆钮（对应安卓 browser/ElementFiles.kt，那边写着每一项是干什么的）：都经 browserTool（op 以 element 开头）。
  * 自己发请求（http 组件，流式写进缓存）：带这个地址该带的 cookie（WebCookieManager）和来源页，不自动跟重定向（maxRedirects 0），每一跳重新算；
  * 截图用窗口截图再裁（window.snapshot）。存走 WebDownloads.saveFile，和网页里的下载一样弹"保存到"、进下载记录。
  */

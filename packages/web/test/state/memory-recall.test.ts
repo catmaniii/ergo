@@ -1,7 +1,7 @@
-// 回话时"调用记忆"单独显示（187 号票）：检索素材、读素材执行了的调用不算进"调用了 N 个工具"，在它发生的位置单独出一行
+// 回话时"调用记忆"单独显示：检索素材、读素材执行了的调用不算进"调用了 N 个工具"，在它发生的位置单独出一行
 // "回忆了 N 条记忆 ›"；同一段里连着的几次合成一行，N 是去重后的素材条数，查了没找到的写"查了记忆，没找到相关的"。
 // 点开是"这次用到的记忆"：按先后列出每次为什么查、查了什么、找到的每条（怎么找出来的、读没读全文），原文和时间由界面按素材 id 现取。
-// 187 号票之前的记录（没有结构化的部分）从参数摘要、结果摘要和完整返回里认。按共享协议的 schema 构造事件。
+// 以前的记录（没有结构化的部分）从参数摘要、结果摘要和完整返回里认。按共享协议的 schema 构造事件。
 import { MessageEventPayload as MessageEventPayloadSchema, PURGED_TEXT, schemaChecker } from "@ergo/protocol";
 import { describe, expect, test } from "vitest";
 import {
@@ -55,7 +55,7 @@ const search = (callId: string, recall: Omit<MemoryRecall, "source"> | undefined
 const read = (callId: string, materialId: string, overrides: Partial<ToolCallPart> = {}) =>
   call(callId, "read_material", { argsSummary: `materialId=${materialId}`, recall: { source: "read", hits: [{ materialId, kind: "user_utterance", time: "2026-10-17T09:12:00.000+08:00", conversation: S }] }, ...overrides });
 const callFrame = (seq: number, part: ToolCallPart) => messageFrame(seq, `m-${part.callId}`, "agent", [part]);
-/** 问记忆（263 号票）：hits 不给就是 263 之前的记录（没有结构化部分） */
+/** 问记忆：hits 不给就是以前的记录（没有结构化部分） */
 const ask = (callId: string, question: string, hits: MemoryRecall["hits"] | undefined, overrides: Partial<ToolCallPart> = {}) =>
   call(callId, "ask_memory", { argsSummary: `question=${question}`, ...(hits ? { recall: { source: "ask", query: question, hits } } : {}), ...overrides });
 
@@ -138,7 +138,7 @@ describe("对话层：调用记忆单独一行", () => {
   });
 });
 
-/** 187 号票之前的检索记录：没有结构化的部分 */
+/** 以前的检索记录：没有结构化的部分 */
 const legacy = (resultSummary: string) => search("old", undefined, { argsSummary: "query=过敏 limit=10", resultSummary });
 
 describe("计数：去重、没找到、旧记录", () => {
@@ -151,7 +151,7 @@ describe("计数：去重、没找到、旧记录", () => {
     expect(recallSummary([search("a", { why: "x", query: "q", hits: [] })])).toEqual({ count: 0, known: true, calls: 1 });
   });
 
-  test("187 号票之前的检索记录（没有结构化的部分）：条数按结果摘要里的找到 N 条，没找到的是 0，认不出（彻底删除过）的不准", () => {
+  test("以前的检索记录（没有结构化的部分）：条数按结果摘要里的找到 N 条，没找到的是 0，认不出（彻底删除过）的不准", () => {
     expect(recallSummary([legacy("找到 3 条素材： - mat-aaa · 2026-10-08 09:30 · 用户发言 · secretary（关键词）：我对芒果过敏")])).toEqual({ count: 3, known: true, calls: 1 });
     expect(recallSummary([legacy("没有找到和「过敏」匹配的素材。")])).toEqual({ count: 0, known: true, calls: 1 });
     expect(recallSummary([legacy(PURGED_TEXT)])).toEqual({ count: 0, known: false, calls: 1 });
@@ -226,7 +226,7 @@ describe("详情：这次用到的记忆", () => {
   });
 });
 
-// 263 号票：问记忆（ask_memory，查推理图谱）也进"回忆了 N 条记忆"那一行
+// 问记忆（ask_memory，查推理图谱）也进"回忆了 N 条记忆"那一行
 describe("问记忆也算调用记忆", () => {
   test("不算进调用了 N 个工具，单独一行；和检索素材连着的合成一行，条数按素材去重", () => {
     const items = chatItems(
@@ -242,7 +242,7 @@ describe("问记忆也算调用记忆", () => {
     expect(items[1]!.keyLine).toBe("回忆了 3 条记忆");
   });
 
-  test("详情里写\"问记忆：<问题>\"，列出简报引用的证据背后的素材；263 号票之前的问记忆记录认不出条数（写查了 N 次记忆）", () => {
+  test("详情里写\"问记忆：<问题>\"，列出简报引用的证据背后的素材；以前的问记忆记录认不出条数（写查了 N 次记忆）", () => {
     const items = chatItems(replay([callFrame(1, ask("q1", "我最看重什么", [hit(4, { keyword: undefined })]))]), S);
     const detail = detailContent(replay([]), items, { type: "item", id: items[0]!.id });
     if (detail.kind !== "recall") throw new Error("应当是调用记忆的详情");
@@ -269,7 +269,7 @@ const brief = (hits: MemoryRecall["hits"]): BriefPart => ({
   chars: 900,
 });
 
-// 266 号票：每条消息自动带上的记忆简报也进"回忆了 N 条记忆"那一行——结构化的部分挂在秘书这一轮的第一条回话上（MemoryBriefPart）
+// 每条消息自动带上的记忆简报也进"回忆了 N 条记忆"那一行——结构化的部分挂在秘书这一轮的第一条回话上（MemoryBriefPart）
 describe("记忆简报也算调用记忆", () => {
   test("回话前面单独一行（不算进调用了 N 个工具），回话的正文照常一条；和紧接着的问记忆合成一行，条数按素材去重", () => {
     const alone = chatItems(replay([messageFrame(1, "u1", "user", [text("这周六又被约了")]), messageFrame(2, "a1", "agent", [brief([hit(1, { keyword: undefined }), hit(2, { keyword: undefined })]), text("要不推掉？")])]), S);

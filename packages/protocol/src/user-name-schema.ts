@@ -1,4 +1,4 @@
-// 我的名字（249 号票）：用户自己的名字，配置文件、设置接口的 schema。起名的规矩在 user-name.ts（不引用 TypeBox）。
+// 我的名字：用户自己的名字，配置文件、设置接口的 schema。起名的规矩在 user-name.ts（不引用 TypeBox）。
 //
 // 照个人助理的名字（assistant-name-schema.ts）存，但**不走事件**：GET /api/user-name 现取，PUT 现写。
 // 数据目录配置区的 user-name.json 是真相，只由运行时写（设置接口）；没有这个文件就是没设（行为同现在）。

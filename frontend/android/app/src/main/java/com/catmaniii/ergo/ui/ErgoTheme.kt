@@ -5,7 +5,7 @@ import android.content.res.Configuration
 import android.graphics.Color
 
 /**
- * 原生画的部分和鸿蒙 App 对照的值都在这里（用户 2026-10-31 要求两边看起来是同一个产品）。改一边时照注释里的文件改另一边。
+ * 原生画的部分和鸿蒙 App 对照的值都在这里（两边看起来是同一个产品）。改一边时照注释里的文件改另一边。
  * 单位：字号 sp（鸿蒙 fp），长度 dp（鸿蒙 vp），两边换算一样。
  *
  * 颜色的来历：
@@ -78,9 +78,9 @@ object ErgoTheme {
     const val ADDRESS_HEADING_SP = 17f
     const val ADDRESS_HINT_SP = 14f
     const val ADDRESS_ERROR_SP = 14f
-    /** 地址页最上面的"扫码连接"（364 号票）：比普通按钮高，铺满一行 */
+    /** 地址页最上面的"扫码连接"：比普通按钮高，铺满一行 */
     const val SCAN_BUTTON_HEIGHT_DP = 48
-    /** 连不上的那一页（364 号票）：提醒检查的那几条 */
+    /** 连不上的那一页：提醒检查的那几条 */
     const val CONNECT_CHECK_SP = 14f
     const val CONNECT_CHECK_SPACE_DP = 6
 

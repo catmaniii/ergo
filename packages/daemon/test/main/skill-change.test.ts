@@ -1,4 +1,4 @@
-// 主切面（358 号票）：负责人用 request_skill_change 把写好的 skill 提交进 skill 库，用户在"skill 变更"卡上确认之后，
+// 主切面：负责人用 request_skill_change 把写好的 skill 提交进 skill 库，用户在"skill 变更"卡上确认之后，
 // 运行时才复制进 skill 区、配进它的工具包，它的会话按新的装配重新拉起，这个 skill 就能用了。真的守护进程、真的 skill 区；模型是假的。
 // 覆盖的验收：
 // - 假模型走通闭环：负责人写好 skill、提交、卡进待办；用户确认；skill 进库并配进工具包；重新拉起后系统提示里有这个 skill；
@@ -52,7 +52,7 @@ async function connect(td: TestDaemon, extra: string[] = []): Promise<TestFronte
 const skillArea = (td: TestDaemon) => dataDirLayout(td.dataDir).skills;
 const listing = (dir: string) => (fs.existsSync(dir) ? fs.readdirSync(dir).toSorted() : []);
 
-describe("skill 变更（358）", () => {
+describe("skill 变更", () => {
   it("假模型走通闭环：负责人写好 skill、提交，卡进待办；用户确认后进库、配进工具包，重新拉起之后 skill 能用；时间线、审计、素材都记着", { timeout: 120_000 }, async () => {
     const td = await startTestDaemon({
       // 第 1 次：写 SKILL.md、提交（接着回它看到的上下文）；批准之后按新工具包重新拉起

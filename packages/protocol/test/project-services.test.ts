@@ -1,4 +1,4 @@
-// 项目的服务（133 号票）在协议包里的说法；257 号票：项目卡片、项目页上的"启动""关闭"——一个服务关着、在启动 / 关闭的说法，
+// 项目的服务在协议包里的说法；项目卡片、项目页上的"启动""关闭"——一个服务关着、在启动 / 关闭的说法，
 // 一个项目的服务开关现在什么样、两个按钮能不能点（projectPower：只有使用中、有在 LSM 上的服务的项目才有）。
 import { describe, expect, test } from "vitest";
 import { projectPower, type ProjectServiceView, serviceLine, serviceStateText } from "../src/index.ts";
@@ -17,7 +17,7 @@ const view = (key: string, extra: Partial<ProjectServiceView> = {}): ProjectServ
   ...extra,
 });
 
-describe("一个服务关着、在启动 / 关闭时的说法（257）", () => {
+describe("一个服务关着、在启动 / 关闭时的说法", () => {
   test("关着的写“已关闭”（灰）；还在启动、关闭的写“启动中…”“关闭中…”；关闭没做成写原因；没关过的照旧", () => {
     expect(serviceStateText(view("web", { paused: true, status: "offline" }))).toEqual({ kind: "offline", text: "已关闭" });
     expect(serviceStateText(view("web", { paused: true, power: "stopping" }))).toEqual({ kind: "busy", text: "关闭中…" });
@@ -33,7 +33,7 @@ describe("一个服务关着、在启动 / 关闭时的说法（257）", () => {
   });
 });
 
-describe("一个项目的服务开关（projectPower，257）", () => {
+describe("一个项目的服务开关（projectPower）", () => {
   test("只有使用中、有在 LSM 上的服务的项目才有：别的状态、没有服务、只剩撤下了的都没有", () => {
     expect(projectPower("in_use", [view("web")])).toBeDefined();
     expect(projectPower("retired", [view("web")])).toBeUndefined();

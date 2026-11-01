@@ -1,4 +1,4 @@
-// 记忆上线验收（235 号票，接入设计第 9 节）：逐条打印"这台机器上的记忆能不能用"，只读，不改数据。
+// 记忆上线验收（接入设计第 9 节）：逐条打印"这台机器上的记忆能不能用"，只读，不改数据。
 //
 //   npm run memory:acceptance                       # 用户数据目录（$ERGO_DATA_DIR，没有就是 ~/.ergo）
 //   npm run memory:acceptance -- --data-dir <目录>   # 换一个数据目录
@@ -257,7 +257,7 @@ function defaultDataDir(): string {
 }
 
 const USAGE = [
-  "记忆上线验收（235 号票）：逐条检查这台机器上的记忆能不能用，只读、不改数据。",
+  "记忆上线验收：逐条检查这台机器上的记忆能不能用，只读、不改数据。",
   "",
   "用法：",
   "  node packages/daemon/test/memory/acceptance.ts                 # 用户数据目录（$ERGO_DATA_DIR 或 ~/.ergo）",

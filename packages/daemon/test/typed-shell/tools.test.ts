@@ -1,6 +1,6 @@
-// 带类型的 bash 工具本身（28 号票）：守护进程代为执行的八个工具，按 HostTool 的接口直接调用（不经守卫、不起 agent），
+// 带类型的 bash 工具本身：守护进程代为执行的八个工具，按 HostTool 的接口直接调用（不经守卫、不起 agent），
 // 在临时目录里的真实 git 仓库上跑。守卫判定、效果日志、聊天里的记录在主切面（test/main/typed-shell.test.ts）。
-// 238 号票：这台机器上真找不到 Git Bash 时，靠 bash 跑的用例用 skipIf(!hasGitBash) 明确跳过，不要表现成 30 秒超时。
+// 这台机器上真找不到 Git Bash 时，靠 bash 跑的用例用 skipIf(!hasGitBash) 明确跳过，不要表现成 30 秒超时。
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -46,7 +46,7 @@ describe("八个工具", () => {
     const shell = createTypedShell({ parentEnv: process.env, homeDir: "C:\\Users\\tester", timeouts: { defaultMs: 600_000, longMs: 1_800_000 }, log: () => {} });
     const tools = shell.toolsFor({ cwd: "E:\\work\\notes", toolkit: { bash: true, network: true } });
     expect(tools.map((t) => t.spec.name)).toEqual(["git_status_diff", "git_commit", "git_merge", "git_push", "create_remote_repo", "run_tests", "start_build", "install_deps"]);
-    // 联网开关关着：要联网的三个不在会话里（27 号票）
+    // 联网开关关着：要联网的三个不在会话里
     expect(shell.toolsFor({ cwd: "E:\\work\\notes", toolkit: { bash: true, network: false } }).map((t) => t.spec.name)).toEqual(["git_status_diff", "git_commit", "git_merge", "run_tests", "start_build"]);
     for (const tool of tools) {
       expect(tool.descriptor).toBe(BUILTIN_TOOL_REGISTRY[tool.spec.name]);

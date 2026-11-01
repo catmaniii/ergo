@@ -1,4 +1,4 @@
-// 主切面：HTML、SVG 附件在隔离的沙箱里预览（117 号票）。真的守护进程（临时数据目录）：附件经 HTTP 上传入库，再像负责人发附件那样
+// 主切面：HTML、SVG 附件在隔离的沙箱里预览。真的守护进程（临时数据目录）：附件经 HTTP 上传入库，再像负责人发附件那样
 // 作为一条消息追加进会话（名字、类型以消息里最近一次引用它的文件 part 为准）；测试扮演浏览器取内容：
 // - GET /api/media/<媒体 id>/html：HTML 原样发出（末尾加一小段让链接在新窗口打开的脚本），带沙箱的 CSP 等响应头（逐项核对）；
 // - GET /api/media/<媒体 id>/svg：SVG 以 image/svg+xml 发出，带 default-src 'none'; style-src 'unsafe-inline'; sandbox；
@@ -6,7 +6,7 @@
 // - 只按媒体 id 取；外网端口没配对的被拒；Origin: null（沙箱里的页面发出的请求就是这个来源）的接口请求和 WebSocket 握手
 //   在两个端口上都被拒，带着有效凭证也一样；
 // - 媒体接口 /api/media/<id> 原来的规矩不变（HTML、SVG 照旧作为附件下载）。
-// 沙箱在真浏览器里的效果（脚本拿不到 cookie、本地存储，连二狗被拒，能从外网取数据……）在无头 Chrome 里核对，见 117 号票的 Comments。
+// 沙箱在真浏览器里的效果（脚本拿不到 cookie、本地存储，连二狗被拒，能从外网取数据……）在无头 Chrome 里核对，见 Comments。
 import fs from "node:fs";
 import path from "node:path";
 import { attachmentPartFrom, HTTP_PATHS, type HttpErrorBody, MEDIA_FRAME_MAX_BYTES, type MediaTextView } from "@ergo/protocol";
@@ -36,7 +36,7 @@ const REPORT_HTML = [
 const CHART_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="60"><style>.l{stroke:#36c}</style><polyline class="l" fill="none" points="0,50 40,30 80,35 120,10"/><script>alert(1)</script></svg>';
 
 /**
- * HTML 预览的 CSP（逐项写出来核对）：用户 2026-10-13 定页面功能不加限制——sandbox 只不给 allow-same-origin、allow-top-navigation
+ * HTML 预览的 CSP（逐项写出来核对）：页面功能不加限制——sandbox 只不给 allow-same-origin、allow-top-navigation
  * 那几种；脚本能 eval，能从 https:、wss: 取数据，表单能提交到 https:；不许 http:（连不上二狗自己）
  */
 const HTML_CSP =

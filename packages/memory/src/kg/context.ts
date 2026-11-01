@@ -64,7 +64,7 @@ export function contextsCompatible(a: readonly string[], b: readonly string[]): 
 const WEEKDAY_WORD = /^(?:周|星期|礼拜)[一二三四五六日天]$/;
 /** "周"前面是数目时说的是几周（两周一次、一周五天、几个星期） */
 const COUNT_BEFORE = /[一二两三四五六七八九十几半百0-9０-９]$/;
-/** 星期几的那个字和后面的字连成了别的词（194 号票："那周一点都不忙""这周一般""这周天天加班""这周天气"） */
+/** 星期几的那个字和后面的字连成了别的词（"那周一点都不忙""这周一般""这周天天加班""这周天气"） */
 const JOINED_AFTER: Readonly<Record<string, RegExp>> = {
   一: /^[点般直起样次下些切定致共旦向边同半会阵遍口整律道块番再]/,
   天: /^[天气]/,
@@ -72,7 +72,7 @@ const JOINED_AFTER: Readonly<Record<string, RegExp>> = {
 /** 星期几的那个字后面跟着量词：说的是几次、几天（每周三次、一周五天班；"周五天气好"不算） */
 const MEASURE_AFTER = /^(?:[次个趟回遍]|天(?!气))/;
 
-/** 一句话里有没有说到这个场景词。星期几要看前后的字（194 号票）：前面是数目、后面和那个字连成别的词或跟着量词的都不算 */
+/** 一句话里有没有说到这个场景词。星期几要看前后的字：前面是数目、后面和那个字连成别的词或跟着量词的都不算 */
 export function mentions(text: string, word: string): boolean {
   if (!WEEKDAY_WORD.test(word)) return text.includes(word);
   const day = word.at(-1)!;

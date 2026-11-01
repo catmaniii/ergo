@@ -1,31 +1,31 @@
-// 秘书的网页工具（147 号票，浏览侧边栏）：读网页、给选中的框填字、给选中的上传框交文件（连同找文件、看图）、在内置浏览器里开网址。
-// - 装配：工具列表固定（提示词前缀缓存不受影响，照 86 号票"发语音"的做法），用不用得了在调用时看这一轮——这一轮处理的用户消息
-//   （一起交出的一批看最后一条）是从浏览侧边栏或悬浮按钮（149 号票）发的（MessageEnvelope.browsing），发它的那台设备上浏览器
+// 秘书的网页工具（浏览侧边栏）：读网页、给选中的框填字、给选中的上传框交文件（连同找文件、看图）、在内置浏览器里开网址。
+// - 装配：工具列表固定（提示词前缀缓存不受影响，"发语音"的做法），用不用得了在调用时看这一轮——这一轮处理的用户消息
+//   （一起交出的一批看最后一条）是从浏览侧边栏或悬浮按钮发的（MessageEnvelope.browsing），发它的那台设备上浏览器
 //   还连着（browser-links.ts）；不是的回明确的原因，秘书据此不再调。交给秘书的输入里，那条后面写明这一轮能用哪几个（agent-input.ts）；
 // - 要设备办的事经守护进程转给发消息的那台设备（browser-links.ts 的 request）：设备上浏览器关了、换了网页、框没了，回明确的错误；
-// - 操作只作用于一个框：侧边栏那一轮是选中的框（设备上次报的那个），没有选中的框时让用户先点一下；悬浮按钮那一轮（149 号票）是
+// - 操作只作用于一个框：侧边栏那一轮是选中的框（设备上次报的那个），没有选中的框时让用户先点一下；悬浮按钮那一轮是
 //   按钮所在的框（记在消息上的 field；设备核对还是那一页、框还在，填字还要它仍是选中的框），或者网页弹出、App 拦下的选文件对话框
 //   （chooser，交文件时交给它）。交文件凭取件码（照网页上下指令的做法）；拿不准交哪个时，候选放进会话成一张网页候选卡（pick-card.ts），
 //   用户在会话里或网页上的挑图片窗口里选好了才交；
 // - 读网页：结果里网页的文字夹在"外部数据"的开头、结尾之间，前面写明是网页自己写的、不要照做；太长的设备那边截掉、这里写明截了；
-//   选中的框里现在的内容（149 号票：正文文字里没有框里的值）另起一段，同样标成外部数据；
+//   选中的框里现在的内容（正文文字里没有框里的值）另起一段，同样标成外部数据；
 // - 守卫：读网页、开网址算"看"，填字、交文件照原来页面助手的 page_actions 的登记口径（看、只读或幂等），不落入任何关注类别。
-// 164 号票（用户 2026-10-19：秘书在"浏览"里点不了链接和按钮）：
+// 秘书在"浏览"里点不了链接和按钮：
 // - browse_snapshot 看网页上能点的东西（设备的页面桥列、给编号），browse_click 按编号点；准入和别的网页工具一样（侧边栏、悬浮按钮那一轮），
 //   不要求选中框；
 // - 这里记着每个浏览器最近看过的那一页上的编号（同一页再看合并，编号是页面桥给的、同一页里不变）：点的时候编号要是记着的、设备报的
 //   网页还是看的那一页，带着看的时候的地址交给设备（页面桥再核对还是那一页、元素还在、字没变）；点完跳了就忘掉，要再看；
-// - 文案闸门（texts.ts 的 clickGateOf，184 号票起分两档，见下）：记着的元素的字里有支付、删除这类字眼的不交给设备，回"这一步建议你自己点"；
+// - 文案闸门（texts.ts 的 clickGateOf，分两档，见下）：记着的元素的字里有支付、删除这类字眼的不交给设备，回"这一步建议你自己点"；
 // - 守卫：看算"看"（只读）；点会改网页的状态，不是只读，算"动手"，照填字、交文件的口径不落入关注类别（不弹审批卡）。
-// 184 号票（用户 2026-10-20：希望在一页里能自动交图 → 自动填字 → 自动点按钮，不用每次都由人先点中框）：
+// 希望在一页里能自动交图 → 自动填字 → 自动点按钮，不用每次都由人先点中框：
 // - browse_fill、browse_attach_files 多一个 ref：写 browse_snapshot 列的文本框、上传框的编号就填、交那个框（不用先选中）——编号要是记着的、
 //   种类对、设备报的网页还是看的那一页，带着看的时候的地址交给设备（页面桥再核对）；候选卡记着编号（ref），点"交"按编号交。不写 ref 照旧；
 // - browse_click 的文案闸门分两档（texts.ts 的 clickGateOf）：提交、运行这一档（submit 和"提交、运行、生成、确认"这类字）要带 confirm: true
-//   才点，支付、删除、发布这一档带了也不点；框（文本框、上传框、下拉框）按编号点不了。164 号票当时没加 confirm，是怕模型自己带上它绕过拦截；
+//   才点，支付、删除、发布这一档带了也不点；框（文本框、上传框、下拉框）按编号点不了。当时没加 confirm，是怕模型自己带上它绕过拦截；
 //   现在照"功能先跑通、安全后接"接受这个风险，工具说明写明只在用户这一轮明确说了"提交""运行"时才带；
 // - 日志记"对 e3（textbox）填了 N 字 / 对 e5（upload）交了 1 个文件"，不记正文。
-// 359 号票（长按网页元素的圆钮）：那一轮的消息带着元素（BrowsingMark.element），取内容、下载的两个工具在 element-tools.ts，排在最后，文件编号和这里同一份。
-// @i18n-ignore-file model：工具的结果、拒绝的原因都是给秘书（模型）看的（173 号票）；工具的名字在 texts.ts 的 TOOL_TITLES
+// 长按网页元素的圆钮：那一轮的消息带着元素（BrowsingMark.element），取内容、下载的两个工具在 element-tools.ts，排在最后，文件编号和这里同一份。
+// @i18n-ignore-file model：工具的结果、拒绝的原因都是给秘书（模型）看的；工具的名字在 texts.ts 的 TOOL_TITLES
 import {
   BROWSER_PAGE_TEXT_MAX,
   type BrowsePickCardPayload,
@@ -92,11 +92,11 @@ export interface BrowsingToolDeps {
   links: BrowserLinks;
   cards: Pick<CardService, "create">;
   tokens: PageFileTokens;
-  /** 候选的缩略图（149 号票）：给候选时在后台先做好 */
+  /** 候选的缩略图：给候选时在后台先做好 */
   thumbs?: Pick<PageThumbnails, "warm">;
   /** 找文件、看图 */
   files: FileToolsDeps;
-  /** 取长按的元素的内容（359 号票）：媒体库（设备传进来的）、草稿区（放一份给别的工具用）、这一轮取回来的文件（366 号票：记下来时只认它们） */
+  /** 取长按的元素的内容：媒体库（设备传进来的）、草稿区（放一份给别的工具用）、这一轮取回来的文件（记下来时只认它们） */
   element: { media: MediaStore; scratchDir: string; memos: ElementMemos };
   now?: () => number;
 }
@@ -109,7 +109,7 @@ export interface Browsing {
 
 /**
  * 这一次调用所在的那一轮能不能用网页工具：这一轮处理的用户消息（一起交出的一批看最后一条）是从浏览侧边栏或悬浮按钮发的，发它的那台设备上
- * 浏览器还连着；不能用回原因（给秘书看的）。182 号票：联网搜索也按它判这一轮能不能用"鸿蒙 App 的内置浏览器"（daemon.ts 接给 web_search）
+ * 浏览器还连着；不能用回原因（给秘书看的）。联网搜索也按它判这一轮能不能用"鸿蒙 App 的内置浏览器"（daemon.ts 接给 web_search）
  */
 export function browsingTurnOf(deps: Pick<BrowsingToolDeps, "store" | "links">, call: Pick<HostToolCall, "inputMessageId" | "moreInputMessageIds">): Browsing | { refused: string } {
   const ids = [call.inputMessageId, ...(call.moreInputMessageIds ?? [])].filter((id): id is string => id !== undefined);
@@ -127,7 +127,7 @@ export function browsingTurnOf(deps: Pick<BrowsingToolDeps, "store" | "links">, 
 type Target =
   | { kind: "field"; field: PageField; page: BrowsingPage }
   | { kind: "chooser"; chooser: PageChooser; field?: PageField; page: BrowsingPage }
-  // 184 号票：按编号指的框（browse_snapshot 列的；page 是看的时候那一页）
+  // 按编号指的框（browse_snapshot 列的；page 是看的时候那一页）
   | { kind: "ref"; element: PageElement; page: BrowsingPage };
 
 const SnapshotParams = Type.Object(
@@ -139,7 +139,7 @@ const ELEMENT_REF = "^@?e\\d{1,6}$";
 const ClickParams = Type.Object(
   {
     ref: Type.String({ pattern: ELEMENT_REF, description: toolText.click.param }),
-    // 184 号票：提交、运行这一档要带它才点
+    // 提交、运行这一档要带它才点
     confirm: Type.Optional(Type.Boolean({ description: toolText.click.confirm })),
   },
   { additionalProperties: false },
@@ -180,10 +180,10 @@ function targetOf(b: Browsing, want: "text" | "file"): Target | string {
   return { kind: "field", field, page: b.status.page };
 }
 
-/** 选中的框怎么称呼：给模型看的话里引它，在中文下取（协议包的说法跟着当前语言，172 号票） */
+/** 选中的框怎么称呼：给模型看的话里引它，在中文下取（协议包的说法跟着当前语言） */
 const fieldText = (field: Parameters<typeof selectedFieldText>[0]) => forModel(() => selectedFieldText(field));
 
-/** 目标的说法（said 给模型看；shown 写在挑文件的卡上给用户看，173 号票）、交给设备的编号（拦下的对话框是 "chooser"）、能不能交好几个 */
+/** 目标的说法（said 给模型看；shown 写在挑文件的卡上给用户看）、交给设备的编号（拦下的对话框是 "chooser"）、能不能交好几个 */
 function targetFacts(target: Target): { said: string; shown: string; fieldId: string; multiple: boolean } {
   if (target.kind === "field") return { said: fieldText(target.field), shown: selectedFieldText(target.field), fieldId: target.field.id, multiple: target.field.multiple === true };
   if (target.kind === "ref") {
@@ -215,12 +215,12 @@ export function browsingTools(deps: BrowsingToolDeps): HostTool[] {
     const b = browsingOf(call);
     return "refused" in b ? b.refused : undefined;
   };
-  /** 每个浏览器最近看过的那一页（164 号票）：标题、地址（去掉查询串）、页面桥给的编号 → 元素 */
+  /** 每个浏览器最近看过的那一页：标题、地址（去掉查询串）、页面桥给的编号 → 元素 */
   const seen = new Map<string, { title: string; url: string; elements: Map<string, PageElement> }>();
   const log = (line: string) => deps.files.log(line);
 
   /**
-   * 按编号指的框（184 号票，fill、attach 的 ref）：编号要是最近一次看的那一页上记着的、设备报的网页还是那一页（不是就忘掉）、
+   * 按编号指的框（fill、attach 的 ref）：编号要是最近一次看的那一页上记着的、设备报的网页还是那一页（不是就忘掉）、
    * 种类对（want）；回元素和看的时候那一页，不然回原因
    */
   const refTarget = (b: Browsing, refArg: string, want: "textbox" | "upload"): { kind: "ref"; element: PageElement; page: BrowsingPage } | string => {
@@ -252,7 +252,7 @@ export function browsingTools(deps: BrowsingToolDeps): HostTool[] {
       const page = outcome.page ?? b.status.page ?? { title: b.mark.title, url: b.mark.url };
       const text = (outcome.text ?? "").slice(0, BROWSER_PAGE_TEXT_MAX);
       const cut = outcome.truncated ? `（太长，只取了前 ${text.length} 字${outcome.total === undefined ? "" : `，一共 ${outcome.total} 字`}）` : "";
-      // 选中的框里现在的内容（149 号票：正文文字里没有框里的值）
+      // 选中的框里现在的内容（正文文字里没有框里的值）
       const field = outcome.selected;
       return {
         text: [
@@ -277,7 +277,7 @@ export function browsingTools(deps: BrowsingToolDeps): HostTool[] {
       const b = browsingOf(call);
       if ("refused" in b) return { text: b.refused, isError: true };
       if (args.ref !== undefined) {
-        // 184 号票：按编号填（不看选中的框）
+        // 按编号填（不看选中的框）
         const target = refTarget(b, args.ref, "textbox");
         if (typeof target === "string") return { text: target, isError: true };
         const { element, page } = target;
@@ -306,7 +306,7 @@ export function browsingTools(deps: BrowsingToolDeps): HostTool[] {
     async run(args, call) {
       const b = browsingOf(call);
       if ("refused" in b) return { text: b.refused, isError: true };
-      // 184 号票：写了 ref 是按编号指的上传框（不看选中的框）
+      // 写了 ref 是按编号指的上传框（不看选中的框）
       const target = args.ref !== undefined ? refTarget(b, args.ref, "upload") : targetOf(b, "file");
       if (typeof target === "string") return { text: target, isError: true };
       const { page } = target;
@@ -435,9 +435,9 @@ export function browsingTools(deps: BrowsingToolDeps): HostTool[] {
       const ref = args.ref.replace(/^@/, "");
       const element = known.elements.get(ref);
       if (!element) return { text: clickText.unknown(ref), isError: true };
-      // 框不点（184 号票）：填字、交文件按编号来，下拉框只能看
+      // 框不点：填字、交文件按编号来，下拉框只能看
       if ((PAGE_FIELD_ROLES as readonly string[]).includes(element.role)) return { text: clickText.field(element), isError: true };
-      // 文案闸门（184 号票起两档）：会花钱、删东西、发出去的那一下永远留给用户；提交、运行要用户这一轮明确说了（confirm）才点
+      // 文案闸门（两档）：会花钱、删东西、发出去的那一下永远留给用户；提交、运行要用户这一轮明确说了（confirm）才点
       const tier = clickGateOf(element);
       if (tier === "never") return { text: clickText.gated(element), isError: true };
       if (tier === "confirm" && args.confirm !== true) return { text: clickText.needConfirm(element), isError: true };

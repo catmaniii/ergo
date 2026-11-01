@@ -111,7 +111,7 @@ private class ScanFrame(context: Context) : View(context) {
 }
 
 /**
- * 扫码页（364 号票）：Camera2 取景，每帧的亮度交给 ZXing。鸿蒙用系统的扫码界面（@kit.ScanKit），安卓系统没有这样的界面，所以自己画一个最简单的：
+ * 扫码页：Camera2 取景，每帧的亮度交给 ZXing。鸿蒙用系统的扫码界面（@kit.ScanKit），安卓系统没有这样的界面，所以自己画一个最简单的：
  * 取景、框、一句提示、取消。相机权限由调用方要好（MainActivity 只在点"扫码连接"时才要）。
  */
 class ScanPage(

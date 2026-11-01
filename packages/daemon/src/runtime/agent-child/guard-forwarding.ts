@@ -1,10 +1,10 @@
 // 守卫转发：子进程里每次工具调用先停在 pi 的 tool_call 钩子里，发 guard_request 给守护进程，
 // 等到同一 requestId 的 guard_reply 才决定执行与否（规格第 3 节）。
 // 判定"不放行"时用钩子的 block 结果让 pi 不执行这次调用。
-// 放行时带了 args 的（59 号票：流程执行时按计划改回参数），原地把这次调用的参数整份换成它（pi 的 tool_call 钩子允许原地改
+// 放行时带了 args 的（流程执行时按计划改回参数），原地把这次调用的参数整份换成它（pi 的 tool_call 钩子允许原地改
 // event.input，改后不再校验），工具结果出来时在前面加上 resultPrefix（pi 的 tool_result 钩子），模型知道实际执行的是哪一版。
-// 本票只立通路；超时（最长等 5 分钟，之后挂起）和守卫本身在 07 号票。
-// 128 号票起不再单独挂一个 pi 扩展：桥接扩展（bridge.ts）在 tool_call、tool_result 里叫这里的两个方法（守卫是内核，不算插件的钩子）。
+// 这里只立通路；超时（最长等 5 分钟，之后挂起）和守卫本身不在这里。
+// 不再单独挂一个 pi 扩展：桥接扩展（bridge.ts）在 tool_call、tool_result 里叫这里的两个方法（守卫是内核，不算插件的钩子）。
 import type { ToolCallEvent, ToolCallEventResult, ToolResultEvent, ToolResultEventResult } from "@earendil-works/pi-coding-agent";
 import type { AgentReport, GuardVerdict } from "../host-protocol.ts";
 

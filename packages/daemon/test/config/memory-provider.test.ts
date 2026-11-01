@@ -1,4 +1,4 @@
-// 337 号票：配置里的 memory.provider——用哪一套记忆系统。
+// 配置里的 memory.provider——用哪一套记忆系统。
 // 这一段只加配置项（不接线）：不写、写坏了都当默认（会意 / subtext），绝不因为这一项拦启动；写了认的就是选的 id。
 import fs from "node:fs";
 import path from "node:path";
@@ -15,7 +15,7 @@ function load(dataDir: string) {
   return loadConfig({ env: { ERGO_DATA_DIR: dataDir }, homeDir: makeTempDir() });
 }
 
-describe("配置：记忆系统用哪一套（337 号票）", () => {
+describe("配置：记忆系统用哪一套", () => {
   it("不写这一项也照常跑，默认是会意（subtext）", () => {
     const dataDir = makeTempDir();
     expect(DEFAULT_MEMORY_PROVIDER).toBe("subtext");

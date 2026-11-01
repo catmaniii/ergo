@@ -1,4 +1,4 @@
-// 替网页的上传框找文件（134 号票，212 号票起在浏览插件里：browsing/find-files.ts、exif.ts）：照片的拍摄时间（JPEG 的 EXIF），
+// 替网页的上传框找文件（在浏览插件里：browsing/find-files.ts、exif.ts）：照片的拍摄时间（JPEG 的 EXIF），
 // 授权的文件夹里按文件夹名和文件名里的词、时间、种类找，素材里按附件找。
 import fs from "node:fs";
 import path from "node:path";
@@ -37,7 +37,7 @@ describe("在授权的文件夹里找", () => {
     fs.writeFileSync(path.join(trip, "行程.pdf"), "%PDF-1.4");
     fs.mkdirSync(path.join(root, ".thumbnails"));
     fs.writeFileSync(path.join(root, ".thumbnails", "杭州.jpg"), jpegWithCaptureTime("2026:10:11 09:00:00"));
-    // 138 号票起和设置里选文件夹的框同一条规则：$ 开头的、Windows 本来藏着的 AppData 这类也不进
+    // 和设置里选文件夹的框同一条规则：$ 开头的、Windows 本来藏着的 AppData 这类也不进
     for (const hidden of ["$RECYCLE.BIN", "AppData"]) {
       fs.mkdirSync(path.join(root, hidden));
       fs.writeFileSync(path.join(root, hidden, "杭州.jpg"), jpegWithCaptureTime("2026:10:11 09:00:00"));
@@ -56,7 +56,7 @@ describe("在授权的文件夹里找", () => {
     expect(cache.size).toBe(2);
   });
 
-  it("子文件夹概况（145 号票）：每个授权的文件夹下按第一层子文件夹数这次种类的文件（含更深的，不看关键词和时间），直接放着的算（顶层）", async () => {
+  it("子文件夹概况：每个授权的文件夹下按第一层子文件夹数这次种类的文件（含更深的，不看关键词和时间），直接放着的算（顶层）", async () => {
     const root = makeTempDir("ergo-overview-");
     const put = (rel: string, body: Buffer | string = "x") => {
       fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });

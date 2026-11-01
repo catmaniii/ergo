@@ -1,15 +1,15 @@
-// 页面桥（134 号票第二部分）：注入到"浏览"里的网页的一小段脚本，和宿主无关（宿主怎么注入、怎么收发见 protocol.ts）。它做五件事：
+// 页面桥：注入到"浏览"里的网页的一小段脚本，和宿主无关（宿主怎么注入、怎么收发见 protocol.ts）。它做五件事：
 // - 认框：文本框、多行文本、可编辑区域、选文件的框（含藏在网站自己画的"上传"按钮、拖放区后面的：label[for]、包着它的 label、
 //   包着它的、里面没有别的要填的框的可点元素）。每个给一个编号（f1、f2……，同一个元素一直是同一个号），带上标签文字、placeholder、accept、能不能多选。
 //   密码、银行卡、验证码类的框不列、不填、不出悬浮按钮（rules.ts）。交出去的只有这些，不交页面正文和框里已有的值；
 // - 悬浮按钮：文本框获得焦点、上传处被点到时，在它旁边出一个二狗的小按钮（rules.ts 的 placeButton：右边放不下放下面、上面），
 //   跟着框走（显示着的时候每一帧对一次位置：滚动、缩放、输入法弹出都跟得上），焦点离开就收起。按钮画在网页里的一个封闭的
-//   shadow root 里（样式不受网站的 CSS 影响，网站的脚本也摸不到里面），被网站删了下次再挂上。按钮上是二狗的图标（348 号票，fab-icon.ts）；
+//   shadow root 里（样式不受网站的 CSS 影响，网站的脚本也摸不到里面），被网站删了下次再挂上。按钮上是二狗的图标（fab-icon.ts）；
 //   样式和图标都走网站的 CSP 管不着的路（构造的样式表、解成位图画进 canvas），严格 CSP 的网页上也是同一个按钮。
 //   点一下报 open（按钮旁边的气泡里打字），长按报 voice（press 按下就备好录音器、按够 0.35 秒 start、松手 stop；
 //   上滑 60 或划开 80 像素进"松开取消"，这时松手 cancel，挪回来又能发）。按下时 preventDefault：框不丢焦点、输入法不收；
 //   只认真的用户操作（isTrusted），网页的脚本派的假事件不算；
-// - 气泡（146 号票，bubble.ts）：打字、在听（实时波形、秒数）、二狗的回话、要交的文件和候选都画在按钮旁边的小气泡里，和按钮在同一个
+// - 气泡（bubble.ts）：打字、在听（实时波形、秒数）、二狗的回话、要交的文件和候选都画在按钮旁边的小气泡里，和按钮在同一个
 //   封闭的 shadow root 里；样子由宿主交来（bubble 方法），用户在气泡上点了什么报 bubble。点了按钮先自己出打字框、在点的那一下里聚焦
 //   （手机上输入法才弹得出来），按够了先自己出在听，不等宿主来回。气泡开着时按钮不收；点气泡外面的网页、框被用户滚出屏幕、
 //   按钮挪到别的框上时收起（报 bubble close）。气泡放在按钮背离框的那一边、不盖住框（rules.ts 的 placeBubble）；输入法弹起挡住了框时
@@ -18,26 +18,26 @@
 //   再派 input、change；可编辑区域用 execCommand("insertText")（编辑器认它的 beforeinput / input），不行再直接换文字；
 // - 塞文件：宿主分段交来文件的字节，拼成 File、放进 DataTransfer，设进 input.files 再派 input、change；没有 input 的拖放区派
 //   dragenter / dragover / drop。
-// 149 号票（悬浮按钮背后就是秘书本人）：
+// 悬浮按钮背后就是秘书本人：
 // - 气泡只放打字、说话、回话；按住说话时气泡在按钮上方（bubble.ts、rules.ts 的 placeListening）；
 // - 挑图片窗口（pick.ts）：秘书给的候选画在固定位置的窗口里，不跟着按钮、不随网页滚动，宿主经 pick 方法交来样子，点了什么报 pick；
 //   开着时气泡不盖住它（气泡摆在窗口上面那一截里）；
-// - 框里现在的内容（用户 2026-10-18："我在网页选中文本框的时候，二狗读不到文本框的内容"）：选中的框（报 selected、selected()）、
+// - 框里现在的内容（"我在网页选中文本框的时候，二狗读不到文本框的内容"）：选中的框（报 selected、selected()）、
 //   悬浮按钮所在的框（open、voice、气泡上的 send）带上框里那一刻的内容（PageField.value，最多 FIELD_VALUE_MAX 字）；框里的字变了
 //   （用户打字、网页自己改）过一会儿再报一次 selected。密码类的框本来就不认，照旧不读；框的列表（fields()）照旧不带内容。
-// 147 号票（浏览侧边栏）再加三样：
+// （浏览侧边栏）再加三样：
 // - 选中的框：点进一个能填的框、点了上传处就选中它，焦点离开也不丢（用户转去侧边栏里打字时还记着），换了另一个框、框从页面上没了
 //   （每秒看一眼）、宿主让取消才变，变了就报 selected；装上时报一次"没选中"（新的一页）。宿主调 selected() 现问；
 // - 整页文字：text() 交看得见的正文文字（innerText，脚本、样式本来就不在里面；拿不到时自己走一遍 DOM、跳过脚本样式），
 //   收拾空白、截到 PAGE_TEXT_MAX 字（rules.ts 的 tidyPageText）；
 // - 秘书的填字、交文件照旧用 fill、attachFiles，宿主核对过是选中的框才调。
-// 164 号票（用户 2026-10-19：秘书点不了链接和按钮）再加两样（clickables.ts）：snapshot 列能点的东西（编号只记在页面桥的内存里，
+// （秘书点不了链接和按钮）再加两样（clickables.ts）：snapshot 列能点的东西（编号只记在页面桥的内存里，
 // 不写进网页的 DOM；页面桥自己这一层不列）、click 按编号点（先核对还是那一页、元素还在、文字没变）。点什么由秘书经守护进程定，
 // 守护进程那边拦着支付、提交、删除这类字眼的（"这一步建议你自己点"）；页面桥自己不会主动点、不会提交表单。
-// 184 号票（用户 2026-10-20：希望在一页里自动交图 → 自动填字 → 自动点按钮，不用每次都由人先点中框）：snapshot 也列文本框、上传框
+// 希望在一页里自动交图 → 自动填字 → 自动点按钮，不用每次都由人先点中框：snapshot 也列文本框、上传框
 // （藏起来的也列）、下拉框（只能看），和能点的同一套编号；refField 按编号找要填的文本框、要交的上传框（照点的核对：还是那一页、
 // 编号认得、元素还在、种类没变），回框的说法（页面桥的框编号 f…），宿主再照原来的 fill、attachFiles 填、交。
-// 359 号票（长按元素的圆钮，element.ts）：长按、右键认出图片、链接、文字时多出一个圆钮，和悬浮按钮同一个样子、同一个气泡，互不干扰（气泡的 fieldId 是元素的编号）。
+// 长按元素的圆钮，element.ts：长按、右键认出图片、链接、文字时多出一个圆钮，和悬浮按钮同一个样子、同一个气泡，互不干扰（气泡的 fieldId 是元素的编号）。
 // 用到的内置函数（JSON、原型上的 setter、DataTransfer、File、atob……）都在注入的那一刻记下来，网页的脚本之后再改它们也碍不着。
 import type { PageField, PageFieldKind } from "@ergo/protocol";
 import { BUBBLE_STYLE, bubbleViewOf, createBubble, nameTagStyle } from "./bubble.ts";
@@ -76,7 +76,7 @@ const ICON_IDLE =
 const ICON_MIC =
   '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>';
 
-// 白圈 + 外面一道深色细线 + 阴影：白底、深底、图片上都看得清（348 号票）
+// 白圈 + 外面一道深色细线 + 阴影：白底、深底、图片上都看得清
 // 在听：图标不换，白圈外面一道红圈，再往外是红色的脉动（圈一直在，定格也看得出）
 // 在忙：图标不换，外面一圈白底上转蓝色的弧（深色细线描边，白底上也看得出那圈）
 const STYLE = `
@@ -157,7 +157,7 @@ export function installPageBridge(win: BridgeWindow, nonce: string, post: (json:
   const innerText = Object.getOwnPropertyDescriptor(win.HTMLElement.prototype, "innerText")?.get;
   const inputValueGet = Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype, "value")?.get;
   const textareaValueGet = Object.getOwnPropertyDescriptor(win.HTMLTextAreaElement.prototype, "value")?.get;
-  // 页面桥自己的字（169 号票）：二狗的网页经宿主交来当前语言的（texts 方法），没交来是中文
+  // 页面桥自己的字：二狗的网页经宿主交来当前语言的（texts 方法），没交来是中文
   const texts = createBridgeTexts();
   /** 上次交来的几句（JSON） */
   let textsJson = "";
@@ -293,7 +293,7 @@ export function installPageBridge(win: BridgeWindow, nonce: string, post: (json:
     return field;
   };
 
-  /** 框里现在的字（149 号票）：文本框取 value（照原型上的 getter，React 受控的框也是现在显示的字），可编辑区域取看得见的文字 */
+  /** 框里现在的字：文本框取 value（照原型上的 getter，React 受控的框也是现在显示的字），可编辑区域取看得见的文字 */
   const valueOf = (el: Element, kind: PageFieldKind): string | undefined => {
     if (kind === "file") return undefined;
     try {
@@ -329,10 +329,10 @@ export function installPageBridge(win: BridgeWindow, nonce: string, post: (json:
     return out;
   };
 
-  // ---------- 选中的框、整页文字（147 号票，浏览侧边栏） ----------
+  // ---------- 选中的框、整页文字（浏览侧边栏） ----------
   let chosen: { el: Element; kind: PageFieldKind } | undefined;
   let chosenWatch: number | undefined;
-  /** 上次报的选中的框里的字（变了再报，149 号票）；打字之后等一会儿再报的计时 */
+  /** 上次报的选中的框里的字（变了再报）；打字之后等一会儿再报的计时 */
   let reportedValue: string | undefined;
   let valueTimer: number | undefined;
   const reportSelected = () => {
@@ -395,20 +395,20 @@ export function installPageBridge(win: BridgeWindow, nonce: string, post: (json:
 
   // ---------- 悬浮按钮 ----------
   const hostEl = doc.createElement("div");
-  // 样式都走 CSSOM（348 号票）：网站的 CSP 写了 style-src 或 default-src 时，<style> 和 style 属性都被拦，按钮成了没样式的一长条；
+  // 样式都走 CSSOM：网站的 CSP 写了 style-src 或 default-src 时，<style> 和 style 属性都被拦，按钮成了没样式的一长条；
   // cssText 和构造出来的样式表（adoptedStyleSheets）CSP 不管
   hostEl.style.cssText = "all: initial !important; position: fixed !important; left: 0 !important; top: 0 !important; width: 0 !important; height: 0 !important; z-index: 2147483647 !important; display: block !important;";
   const shadow = hostEl.attachShadow({ mode: "closed" });
   const sheet = new win.CSSStyleSheet();
   sheet.replaceSync(STYLE);
-  // 名字标签的颜色（181 号票）：二狗的网页交来的，盖过样式表里经典的；没交来是空的
+  // 名字标签的颜色：二狗的网页交来的，盖过样式表里经典的；没交来是空的
   const tagSheet = new win.CSSStyleSheet();
   shadow.adoptedStyleSheets = [sheet, tagSheet];
   const fab = doc.createElement("div");
   fab.className = "fab";
   fab.setAttribute("role", "button");
   fab.setAttribute("aria-label", texts.get("bridge.fab.label"));
-  // 先是 SVG，图标解好了换上（348 号票，fab-icon.ts）：解不出来就一直是 SVG，不会是空白的按钮
+  // 先是 SVG，图标解好了换上（fab-icon.ts）：解不出来就一直是 SVG，不会是空白的按钮
   fab.innerHTML = ICON_IDLE;
   let hasIcon = false;
   void paintFabIcon(doc, { decode, makeBitmap, BlobCtor }).then((canvas) => {
@@ -417,7 +417,7 @@ export function installPageBridge(win: BridgeWindow, nonce: string, post: (json:
     fab.classList.add("has-icon");
     fab.replaceChildren(canvas);
   });
-  // 长按元素的圆钮（359 号票）：和悬浮按钮一个样子，另一个元素
+  // 长按元素的圆钮：和悬浮按钮一个样子，另一个元素
   const elementFab = doc.createElement("div");
   elementFab.className = "fab";
   elementFab.setAttribute("role", "button");
@@ -429,10 +429,10 @@ export function installPageBridge(win: BridgeWindow, nonce: string, post: (json:
     elementFab.replaceChildren(canvas);
   });
   const bubble = createBubble(doc, { now, texts }, (action) => bubbleAction(action));
-  // 挑图片窗口（149 号票）：排在最上面
+  // 挑图片窗口：排在最上面
   const pickWindow = createPickWindow(doc, { decode, makeBitmap, BlobCtor, texts }, (action) => send({ type: "pick", ...action }));
   shadow.append(bubble.el, fab, elementFab, pickWindow.el);
-  // 能点的东西（164 号票）：页面桥自己这一层（hostEl）不列；184 号票起连同能填、能交、能选的框（认框用上面这一套）
+  // 能点的东西：页面桥自己这一层（hostEl）不列；连同能填、能交、能选的框（认框用上面这一套）
   const clickables = createClickables({
     win,
     own: hostEl,
@@ -524,7 +524,7 @@ export function installPageBridge(win: BridgeWindow, nonce: string, post: (json:
   const placeBubble = (area: Rect, at: { x: number; y: number } | undefined) => {
     const view = bubble.view;
     const fieldId = view.kind === "none" ? "" : view.fieldId;
-    // 气泡跟着长按元素的圆钮（359 号票）：贴着圆钮摆，没有框要避开
+    // 气泡跟着长按元素的圆钮：贴着圆钮摆，没有框要避开
     if (fieldId !== "" && elementButton.owns(fieldId)) {
       bubble.frame(elementButton.rect(), area);
       return;
@@ -619,7 +619,7 @@ export function installPageBridge(win: BridgeWindow, nonce: string, post: (json:
     if (current && current.kind !== "file" && !press && !focusStays()) hide();
   };
 
-  /** 按钮挂着的框在气泡上怎么称呼："对「标题」说"；没有框是"对二狗说"（名字画成名字标签，181 号票） */
+  /** 按钮挂着的框在气泡上怎么称呼："对「标题」说"；没有框是"对二狗说"（名字画成名字标签） */
   const labelOfCurrent = (): PageNamedText => {
     if (!current) return texts.parts("bridge.talkTo.ergo");
     const field = describe(current.el, current.kind);
@@ -633,7 +633,7 @@ export function installPageBridge(win: BridgeWindow, nonce: string, post: (json:
     const view = bubble.view;
     if (action.action === "ergo" && view.kind === "chooser") bubble.openInput(view.fieldId, texts.parts("bridge.talkTo.ergo"));
     if (action.action === "send" && current && view.kind !== "none" && view.fieldId === idOf(current.el)) action = { ...action, field: describeNow(current.el, current.kind) };
-    // 圆钮上打的字（359 号票）：带上元素（选中的文字是这一刻的）
+    // 圆钮上打的字：带上元素（选中的文字是这一刻的）
     if (action.action === "send" && view.kind !== "none" && elementButton.owns(view.fieldId)) {
       const element = elementButton.fresh();
       if (element) action = { ...action, element };
@@ -772,7 +772,7 @@ export function installPageBridge(win: BridgeWindow, nonce: string, post: (json:
     { capture: true, passive: true },
   );
 
-  // 选中的框里打了字、粘贴了（149 号票）：过一会儿把框里的字再报一次
+  // 选中的框里打了字、粘贴了：过一会儿把框里的字再报一次
   doc.addEventListener(
     "input",
     (e) => {
@@ -932,7 +932,7 @@ export function installPageBridge(win: BridgeWindow, nonce: string, post: (json:
     fileChunk(key, id, base64) {
       if (key !== nonce) return "";
       const file = files.get(String(id));
-      // 175 号票：交文件没成的原因挑图片窗口里也显示（"没交进去：<原因>"），按二狗网页交来的语言写；秘书的网页工具结果里也是这句
+      // 交文件没成的原因挑图片窗口里也显示（"没交进去：<原因>"），按二狗网页交来的语言写；秘书的网页工具结果里也是这句
       if (!file) return reply({ ok: false, reason: texts.get("bridge.reason.noFile") });
       const binary = decode(String(base64));
       const bytes = new Uint8Array(binary.length);
@@ -1020,7 +1020,7 @@ export function installPageBridge(win: BridgeWindow, nonce: string, post: (json:
     },
     mark(key, fieldId, next) {
       if (key !== nonce) return "";
-      // 长按元素的圆钮（359 号票）：已经不在圆钮上的元素不管，也不碰悬浮按钮
+      // 长按元素的圆钮：已经不在圆钮上的元素不管，也不碰悬浮按钮
       if (typeof fieldId === "string" && fieldId.startsWith("x")) {
         if ((next === "idle" || next === "listening" || next === "busy") && elementButton.owns(fieldId)) elementButton.mark(next);
         return reply({ ok: true });

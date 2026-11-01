@@ -1,5 +1,5 @@
-// 326 号票：图谱自检（rg/graph-check.ts）——每晚校验把整张推理图谱查一遍，记忆系统自己的 TypeScript，不起别的程序。
-// 覆盖：整理出来的图通过；几类不合格（传播铁律、引用不在、绕圈、字段不合格；329 号票补悬空、推论没前提）；坏数据（JSON 坏了、
+// 图谱自检（rg/graph-check.ts）——每晚校验把整张推理图谱查一遍，记忆系统自己的 TypeScript，不起别的程序。
+// 覆盖：整理出来的图通过；几类不合格（传播铁律、引用不在、绕圈、字段不合格；补悬空、推论没前提）；坏数据（JSON 坏了、
 // 词表外的状态）不抛错、照样报；和唯一写入口共用的那几条判断（rg/graph-rules.ts）。不合格的数据都是绕过写入口直接改库造出来的。
 import { afterEach, describe, expect, it } from "vitest";
 import type { Claim } from "../../src/domain/types.ts";
@@ -71,7 +71,7 @@ describe("几类不合格", () => {
     expect(result.state === "failed" && result.problems.some((line) => line.startsWith(`${t.need.id}：已验证，但推出它的前提`))).toBe(true);
   });
 
-  it("前提事实拿不准、被纠正了：已验证的结论点名（329 号票：拿不准的事实也算没验证）；被新值取代还算已验证；猜测不查铁律", async () => {
+  it("前提事实拿不准、被纠正了：已验证的结论点名（拿不准的事实也算没验证）；被新值取代还算已验证；猜测不查铁律", async () => {
     const t = await weekend();
     const autonomy = claimOf(t.engine, "scene_autonomy");
     expect(autonomy.status).toBe("active");
@@ -206,7 +206,7 @@ describe("和唯一写入口共用的判断（graph-rules）", () => {
     expect(["cl-a", "cl-b", "cl-d", "cl-e", "cl-x"].map((id) => premiseVerified(l, id))).toEqual([true, false, false, false, false]);
   });
 
-  it("事实成立、拿不准、被新值取代都还在，被纠正、撤回的不在；拿不准的事实没验证（329 号票），被新值取代的在有效期内还算已验证；证据有效才算；不认识的 id 不在", () => {
+  it("事实成立、拿不准、被新值取代都还在，被纠正、撤回的不在；拿不准的事实没验证，被新值取代的在有效期内还算已验证；证据有效才算；不认识的 id 不在", () => {
     const l = lookup({ "fa-1": "active", "fa-2": "contested", "fa-3": "superseded", "fa-4": "corrected", "fa-5": "retracted", "ev-1": "active", "ev-2": "forgotten", "en-1": "x" });
     const ids = ["fa-1", "fa-2", "fa-3", "fa-4", "fa-5", "ev-1", "ev-2", "en-1"];
     expect(ids.map((id) => premiseHolds(l, id))).toEqual([true, true, true, false, false, true, false, false]);

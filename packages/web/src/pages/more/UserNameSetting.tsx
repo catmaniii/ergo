@@ -1,5 +1,5 @@
-// 设置里的"我的名字"（249 号票，用户 2026-10-22："另外可以加一个我的名字的设置，让 agent 可以叫我的名字"）：
-// 填的是**用户自己**的名字，和上面"个人助理的名字"（43 号票，那是用户给秘书起的）不是一回事；放在它旁边，两处说清。
+// 设置里的"我的名字"（"另外可以加一个我的名字的设置，让 agent 可以叫我的名字"）：
+// 填的是**用户自己**的名字，和上面"个人助理的名字"（那是用户给秘书起的）不是一回事；放在它旁边，两处说清。
 // 存和取都走守护进程（GET/PUT /api/user-name，各设备一样），不进事件频道：打开页面时取一次（App.tsx 的 UserNameSync），
 // 改完用接口回的那个。规则照 checkAssistantName（去掉首尾空白后 1–8 个字、不能有换行 / 控制字符 / ⟦⟧）：
 // 不合规就地提示、不保存（守护进程同样会拒）。"清除"就是改回没设（删掉配置文件），界面和提示都回到现在的样子。
@@ -16,7 +16,7 @@ export function UserNameSetting() {
   /** 守护进程拒了（或者没连上）的原因 */
   const [failed, setFailed] = useState<string>();
   const [busy, setBusy] = useState(false);
-  // 鸿蒙 App 的系统返回键（62 号票）：改了一半没保存时先撤销这次修改，再按才离开设置
+  // 鸿蒙 App 的系统返回键：改了一半没保存时先撤销这次修改，再按才离开设置
   useBackLayer("overlay", draft !== undefined && !busy, () => {
     setDraft(undefined);
     setFailed(undefined);

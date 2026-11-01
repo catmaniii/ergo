@@ -1,4 +1,4 @@
-// 主切面：计划卡上的关注类别和用户说过的限制（规格第 8、9 节，26 号票）。真的守护进程，秘书和负责人接 faux 剧本，测试扮演前端。
+// 主切面：计划卡上的关注类别和用户说过的限制（规格第 8、9 节）。真的守护进程，秘书和负责人接 faux 剧本，测试扮演前端。
 // - 计划卡上"本任务要提醒的关注类别"默认等于全局设置（内置的加用户自定义的）；负责人提交的计划少了全局的类别，提交失败并返回原因；
 // - 用户确认时在卡上给这个任务加类别（和设置页同一套名字和确定规则的检查）：写进计划，只影响这个任务；
 //   卡上没有删除；加的类别随"审批决定"素材记下；
@@ -7,7 +7,7 @@
 // - 负责人把用户说过的限制编译成时序规则或授权收窄、附上原话：规则过规则校验（不过的提交失败），卡上列出，
 //   原话核对得上（任务书的约束、用户的消息）的才算原话。编译本身靠负责人的模型（DeepSeek 计划起草的手动冒烟），这里只测运行时一侧。
 // 执行中的判定这里只用确认的计划交给守卫的样子（toGuardPlan）加守卫的判定函数验证；
-// 走真实执行路径的验证在 task-execution.test.ts（13 号票）的"计划里的关注类别和用户的限制（26 号票）在执行中生效"。
+// 走真实执行路径的验证在 task-execution.test.ts的"计划里的关注类别和用户的限制在执行中生效"。
 import {
   type Card,
   type CardEventPayload,
@@ -67,7 +67,7 @@ async function maintainerSaw(frontend: TestFrontend, maintainerId: string): Prom
 /** 计划卡上的决定（守护进程内部的 tasks 频道） */
 const decisionsOf = (daemon: Daemon) => daemon.store.read(TASKS_CHANNEL, 0, EVENT_TYPES.planDecided).map((e) => e.payload as PlanDecidedPayload);
 
-/** 确认的计划交给守卫的样子（13 号票执行时就这么交）：任务在 s1 阶段，负责人在工作目录 E:\work\notes 里干活 */
+/** 确认的计划交给守卫的样子（执行时就这么交）：任务在 s1 阶段，负责人在工作目录 E:\work\notes 里干活 */
 function judgeInTask(daemon: Daemon, taskId: string, toolCall: ReturnType<typeof guardCall>, extra: Parameters<typeof inTask>[2] = {}) {
   const stored = daemon.tasks.latestPlan(taskId)!;
   expect(stored.status).toBe("confirmed");

@@ -1,8 +1,8 @@
-// 推理库（rg.db）→ 节点和依赖的 YAML（253 号票；256 号票补了三处；267 号票把导出规则挪进 @ergo/memory 的
+// 推理库（rg.db）→ 节点和依赖的 YAML（补了三处；把导出规则挪进 @ergo/memory 的
 // exportReasoningTemplate——这里只剩读参数、只读打开库、写文件）。
 //
 // 用途：把二狗现在记的东西导出成一份通用的有向无环图（每个节点 id、kind、statement、deps、status），给人看图、
-// 拿别的工具查。每晚校验不用它（326 号票起是直接查库的图谱自检，@ergo/memory 的 graph-check.ts）。
+// 拿别的工具查。每晚校验不用它（是直接查库的图谱自检，@ergo/memory 的 graph-check.ts）。
 // 只读：`openReadonlyDatabase`（WAL 下不写、不建库、不动 manifest）。
 //
 //   npm run memory:dump-template                          # 全部结论 + 它们依赖的事实 + 开着的问题
@@ -40,7 +40,7 @@ function args(): { dataDir?: string; out: string; tiers?: string[]; allFacts: bo
 
 const options = args();
 const layout = dataDirLayout(options.dataDir ?? (process.env.ERGO_DATA_DIR ?? path.join(os.homedir(), ".ergo")));
-// 338 号票：推理库的位置按数据目录布局算（会意插件自己的目录），不在这里拼 db/rg.db
+// 推理库的位置按数据目录布局算（会意插件自己的目录），不在这里拼 db/rg.db
 const file = layout.rgDb;
 if (!fs.existsSync(file) || fs.statSync(file).size === 0) {
   console.log(`还没有推理库：${file}（跑过每晚整理才有）`);

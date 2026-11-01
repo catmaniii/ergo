@@ -1,4 +1,4 @@
-// 主切面：流程（58 号票，ADR 0019；固定计划）。真的守护进程，负责人接 faux 剧本，测试扮演前端。
+// 主切面：流程（ADR 0019；固定计划）。真的守护进程，负责人接 faux 剧本，测试扮演前端。
 // 流程直接经任务服务建出、写好任务书（发起那一段在 task-launch.test.ts 测过），之后：
 // - 负责人用 propose_plan 交出步骤（每步一次工具调用：工具、参数、前置步骤）和条件（时序规则）；
 // - 运行时审查修补（插入步骤、改写参数），给每一步加敏感标注和要满足的条件（写成人话，连同审查时查出的结果），
@@ -111,7 +111,7 @@ describe("起草 → 审查 → 计划卡 → 授权 → 执行到完成（录�
     const p = card.payload as WorkflowPlanCardPayload;
     expect(card).toMatchObject({ typeVersion: 3, status: "pending" });
     expect(p).toMatchObject({ taskId, taskTitle: "整理笔记", revision: 1, planId: `${taskId}-p1`, goal: "整理一份笔记" });
-    // 现在做一次的流程不带时间表（76 号票：定时触发的才带，卡上写明授权一直有效）
+    // 现在做一次的流程不带时间表（定时触发的才带，卡上写明授权一直有效）
     expect(p.schedule).toBeUndefined();
     expect(p.plan).toMatchObject({ version: 1, goal: "写好笔记并读一遍", toolkit: { bash: false, network: false, skills: [], mcp: [] } });
     // 审查：没有违规；写文件要不要先备份得看文件在不在，推迟到执行时再查

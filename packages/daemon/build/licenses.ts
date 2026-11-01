@@ -1,4 +1,4 @@
-// 第三方许可证清单（318 号票）：发布包里带的、打进网页的、自带的 Node，一个不落地写进 THIRD_PARTY_NOTICES.txt（人看的，全文）
+// 第三方许可证清单：发布包里带的、打进网页的、自带的 Node，一个不落地写进 THIRD_PARTY_NOTICES.txt（人看的，全文）
 // 和 third-party-licenses.json（机器看的：名字、版本、许可证、从哪来）。
 //   - Node.js：它自己的 LICENSE（里面已经列了 Node 带的 OpenSSL、ICU、libuv……）；
 //   - node_modules 里带的每个包（deps.ts 的闭包）：sharp 的 libvips（LGPL-3.0，在 @img/sharp-win32-x64 里）、onnxruntime……；

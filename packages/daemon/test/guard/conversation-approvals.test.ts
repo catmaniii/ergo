@@ -1,4 +1,4 @@
-// 守卫切面：对话审批的开关（70 号票，GuardInput.conversationApprovals；101 号票用户 2026-10-12 改了 off 的范围：
+// 守卫切面：对话审批的开关（GuardInput.conversationApprovals；改了 off 的范围：
 // "现阶段安全不要搞得太敏感，超出了授权范围内的，如果是任务的 agent 的话先不管，因为他能访问到的数据有限，但是那个二狗秘书，
 // 稍微管一下特别敏感的操作，要我授权"）。
 // off：
@@ -9,9 +9,9 @@
 //   （含时序规则判断不了的）、对被判过永不的对象再做对外动作；用到别的阶段的授权项不拉回；判断出来确实违反的时序规则照旧（要问的问、
 //   退回的退回）。
 // 两边都照旧：三条硬底线（写受保护区域、读密钥区、确定要把密钥内容往外送）、硬拒绝、永不、交给我做、做完告诉我；可能碰到硬底线、
-// 守卫看不准的写法（带通配符的路径、看不透的命令里写着数据目录、确实读过 .env 之后看不透可能往外送的）照旧问或拒（评审后定）。
+// 守卫看不准的写法（带通配符的路径、看不透的命令里写着数据目录、确实读过 .env 之后看不透可能往外送的）照旧问或拒。
 // on 和不传：一切照原样。
-// 139 号票："发往本机的请求不算对外"不包括二狗自己的端口（守护进程实际监听的本机端口、外网端口，经 places.ownPorts 传进来），
+// "发往本机的请求不算对外"不包括二狗自己的端口（守护进程实际监听的本机端口、外网端口，经 places.ownPorts 传进来），
 // 用浏览器工具打开二狗自己的页面也算对外发送：秘书开着、关着都出卡。
 import { describe, expect, it } from "vitest";
 import {
@@ -224,7 +224,7 @@ function askedNearBottomLine(j: GuardJudgement): void {
   expect(j.explanation).toContain(nearBottomLineNote());
 }
 
-describe("对话审批关着：可能碰到硬底线的写法，两边都照旧问或拒（101 号票评审后定）", () => {
+describe("对话审批关着：可能碰到硬底线的写法，两边都照旧问或拒", () => {
   const READ_ENV = effect(10, "read", { path: `${P.workDir}\\.env` });
   const SEG_ENV = effect(1, "read", { path: `${P.scratch}\\.env` }, SEGMENT);
   /** 同一次调用，任务的负责人（读过 .env 时把它记进效果日志）和秘书（同一段会话） */
@@ -362,7 +362,7 @@ describe("对话审批关着：可能碰到硬底线的写法，两边都照旧�
   });
 });
 
-describe("对话审批关着：秘书特别敏感的漏网写法（101 号票评审后定）", () => {
+describe("对话审批关着：秘书特别敏感的漏网写法", () => {
   it("看不透的命令里删、写草稿区外的文件，往外 POST：出审批卡", () => {
     const outsideRm = judgeToolCall(off(inChat(online, bash(`powershell -Command "Remove-Item '${P.outside}\\a.txt'"`))));
     secretaryAsks(outsideRm, "unknown_write");
@@ -398,10 +398,10 @@ describe("对话审批关着：秘书特别敏感的漏网写法（101 号票评
   });
 });
 
-/** 发往二狗自己的端口时审批卡、时间线上的那一句（139 号票） */
+/** 发往二狗自己的端口时审批卡、时间线上的那一句 */
 const ownApiSays = (port: number) => `发往二狗自己的接口（本机端口 ${port}），不算本机例外`;
 
-describe("发往二狗自己的端口不算本机例外（139 号票）", () => {
+describe("发往二狗自己的端口不算本机例外", () => {
   // 二狗自己的端口由守护进程传进来（实际监听的，测试里是随机的）：这里也随机挑，证明没有写死 8810、8811
   const LOCAL = 20000 + Math.floor(Math.random() * 20000);
   const EXTERNAL = LOCAL + 1;
@@ -481,7 +481,7 @@ describe("发往二狗自己的端口不算本机例外（139 号票）", () => 
     expect(dispositionFinding(inTaskOff, "external_send")).toMatchObject({ disposition: "log_only", beyondGrant: true });
   });
 
-  it("GET 二狗自己的接口不因本票出卡", () => {
+  it("GET 二狗自己的接口不因此出卡", () => {
     for (const command of [`curl http://127.0.0.1:${LOCAL}/healthz`, `curl -s http://localhost:${EXTERNAL}/api/version`]) {
       const j = judgeToolCall(ownPorts(off(inChat(online, bash(command)))));
       expect({ command, disposition: j.disposition, categories: j.categories }).toEqual({ command, disposition: "log_only", categories: [] });

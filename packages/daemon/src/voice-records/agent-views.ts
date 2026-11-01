@@ -1,6 +1,6 @@
-// agent 语音对象的派生视图（32 号票）：会话频道上 agent_voice 事件里每条 agent 语音的最新状态，随事件在同一事务里更新，
+// agent 语音对象的派生视图：会话频道上 agent_voice 事件里每条 agent 语音的最新状态，随事件在同一事务里更新，
 // 可从事件日志重建（被删掉的项目的负责人会话里的，事件换成"已删除"标记，重建后就没有了）。读取函数只拿只读连接。
-// 214 号票起语音是插件（voice/），这里是内核的数据契约（voice-records/index.ts）：语音插件停用了也照样登记、照样更新，
+// 语音是插件（voice/），这里是内核的数据契约（voice-records/index.ts）：语音插件停用了也照样登记、照样更新，
 // 历史里 agent 的语音气泡照样带上它的语音对象（送进 TTS 的原文、合成好的音频）。
 import { agentVoiceIdsOf, type AgentVoiceEventPayload, type AgentVoiceRecord, EVENT_TYPES, type MessageEnvelope } from "@ergo/protocol";
 import type { DerivedView } from "../events/event-store.ts";
@@ -40,7 +40,7 @@ export function getAgentVoice(db: ReadonlyDatabase, voiceId: string): AgentVoice
   return row && (JSON.parse(row.record) as AgentVoiceRecord);
 }
 
-/** 全部 agent 语音，先建的在前（214 号票：移除语音插件并连数据删时，删它们合成出的音频） */
+/** 全部 agent 语音，先建的在前（移除语音插件并连数据删时，删它们合成出的音频） */
 export function agentVoicesIn(db: ReadonlyDatabase): AgentVoiceRecord[] {
   return db.all<{ record: string }>("SELECT record FROM agent_voices ORDER BY rowid").map((row) => JSON.parse(row.record) as AgentVoiceRecord);
 }
@@ -53,7 +53,7 @@ export function unsettledAgentVoices(db: ReadonlyDatabase): AgentVoiceRecord[] {
 }
 
 /**
- * 工具发的、这一轮另写的文字收不收进气泡还没定的 agent 语音（86 号票），先建的在前：守护进程重启时那一轮已经被打断了，
+ * 工具发的、这一轮另写的文字收不收进气泡还没定的 agent 语音，先建的在前：守护进程重启时那一轮已经被打断了，
  * 定成照常显示
  */
 export function toolVoicesAwaitingTurnEnd(db: ReadonlyDatabase): AgentVoiceRecord[] {
@@ -62,7 +62,7 @@ export function toolVoicesAwaitingTurnEnd(db: ReadonlyDatabase): AgentVoiceRecor
     .map((row) => JSON.parse(row.record) as AgentVoiceRecord);
 }
 
-/** 一个会话里最近的几条工具发的 agent 语音（86 号票），后建的在前 */
+/** 一个会话里最近的几条工具发的 agent 语音，后建的在前 */
 export function recentToolVoices(db: ReadonlyDatabase, conversation: string, limit: number): AgentVoiceRecord[] {
   return db
     .all<{ record: string }>("SELECT record FROM agent_voices WHERE conversation = ? AND json_extract(record, '$.mode') = 'tool' ORDER BY rowid DESC LIMIT ?", conversation, limit)
@@ -70,7 +70,7 @@ export function recentToolVoices(db: ReadonlyDatabase, conversation: string, lim
 }
 
 /**
- * 某一轮（turnSeq 是这一轮开始的 turn_start 在会话频道上的序号）里发语音工具建出的 agent 语音，先建的在前（100 号票：任务做完的通知
+ * 某一轮（turnSeq 是这一轮开始的 turn_start 在会话频道上的序号）里发语音工具建出的 agent 语音，先建的在前（任务做完的通知
  * 被打断后重新交时，看上次那一轮念过没有；语音记在这一轮收下的插话那条上的也在里面）
  */
 export function toolVoicesOfTurn(db: ReadonlyDatabase, conversation: string, turnSeq: number): AgentVoiceRecord[] {
@@ -83,7 +83,7 @@ export function toolVoicesOfTurn(db: ReadonlyDatabase, conversation: string, tur
     .map((row) => JSON.parse(row.record) as AgentVoiceRecord);
 }
 
-/** 发语音工具的某次调用建出的 agent 语音（86 号票，按语音对象上记的工具调用 id；没建出的是 undefined） */
+/** 发语音工具的某次调用建出的 agent 语音（按语音对象上记的工具调用 id；没建出的是 undefined） */
 function toolVoiceOfCall(db: ReadonlyDatabase, conversation: string, toolCallId: string): AgentVoiceRecord | undefined {
   const row = db.get<{ record: string }>(
     "SELECT record FROM agent_voices WHERE conversation = ? AND json_extract(record, '$.mode') = 'tool' AND json_extract(record, '$.toolCallId') = ?",
@@ -95,7 +95,7 @@ function toolVoiceOfCall(db: ReadonlyDatabase, conversation: string, toolCallId:
 
 /**
  * 一组消息里 agent 的语音 part 引用的 agent 语音对象（历史分页带上它们：送进 TTS 的原文在这里），
- * 和发语音调用（工具调用记录）建出的语音（87 号票：前端按它认出这次调用发出了气泡、不单独显示——分页正好切在气泡和调用记录之间时，
+ * 和发语音调用（工具调用记录）建出的语音（前端按它认出这次调用发出了气泡、不单独显示——分页正好切在气泡和调用记录之间时，
  * 只有调用记录的那一页也要带上），同一条只带一次
  */
 export function agentVoicesOfMessages(db: ReadonlyDatabase, messages: readonly MessageEnvelope[]): AgentVoiceRecord[] {

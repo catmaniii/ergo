@@ -1,7 +1,7 @@
 // @i18n-ignore-file data：认用户中文原话的词表和正则（否定词、句末、问句……），不是界面文字
 // "明确点了"的运行时判定（规格第 9 节"快速动作的确认"）：不由秘书自报，每个执行器自己声明判定（registry.ts 的 explicit），
 // 用这里的共用辅助函数。纯函数。
-// - 用户这一轮说了什么（UserTurn）：用户自己打的字、语音识别出的文字（31 号票）、消息里的引用块（素材切段的同一套规则，
+// - 用户这一轮说了什么（UserTurn）：用户自己打的字、语音识别出的文字、消息里的引用块（素材切段的同一套规则，
 //   materials/segments.ts）、用户引用的卡片（纯文本降级和负载里的文字）；
 // - 语音转写和打的字一样算用户自己说的话（ownWords，规格第 22 节"快速动作的点明"：用户发的语音，识别出的文字直接显示在
 //   气泡下方，就算用户对识别结果的确认），只是点明的来源记成 voice（素材标"语音转写"）；
@@ -14,7 +14,7 @@ import { messagePieces } from "../materials/index.ts";
 export interface UserTurn {
   /** 用户自己打的字（消息里引用块之外的文字），一段一项 */
   typed: string[];
-  /** 用户这条消息里的语音识别出的文字（31 号票），一条语音一项；没识别出来的没有 */
+  /** 用户这条消息里的语音识别出的文字，一条语音一项；没识别出来的没有 */
   spoken: string[];
   /** 消息里的引用块（外部、不可信），一块一项 */
   quotes: string[];
@@ -78,7 +78,7 @@ export function bareText(text: string): string {
   return text.normalize("NFKC").replace(/[\s\p{P}\p{S}]/gu, "");
 }
 
-// ───────────── 按句、按分句看（任务控制从严的那一套，22、100 号票；103 号票的秘书转达共用） ─────────────
+// ───────────── 按句、按分句看（任务控制从严的那一套，秘书转达共用） ─────────────
 
 /** 一句话（连同它结尾的标点）：句号、叹号、问号、分号、换行 */
 const SENTENCES = /[^。！？!?；;\n]+[。！？!?；;\n]?/g;
@@ -95,7 +95,7 @@ export function sentencesOf(text: string): string[] {
 /** 同上，英文句点也分句：后面是空白或结尾才算句末（v1.2、example.com 里的点不算） */
 const SENTENCES_WITH_PERIOD = /(?:[^。！？!?；;\n.]|\.(?!\s|$))+(?:[。！？!?；;\n]|\.(?=\s|$))?/g;
 
-/** 一段话拆成一句一句，认英文句点（看英文说法的用，379 号票；sentencesOf 是任务控制从严的那一套，不动它） */
+/** 一段话拆成一句一句，认英文句点（看英文说法的用，sentencesOf 是任务控制从严的那一套，不动它） */
 export function sentencesWithPeriodOf(text: string): string[] {
   return text.match(SENTENCES_WITH_PERIOD) ?? [];
 }

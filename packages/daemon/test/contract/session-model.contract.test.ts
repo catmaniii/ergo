@@ -1,8 +1,8 @@
-// pi 契约测试：一个会话固定一个模型（73 号票，规格第 1 节"模型"），和设置页用的模型探查。
+// pi 契约测试：一个会话固定一个模型（规格第 1 节"模型"），和设置页用的模型探查。
 // - 新开的会话用装配参数里的模型和思考档位；接着已有的会话（目录里的模型）照会话开始时 pi 记下的模型和思考档位、子进程记下的
 //   看图能力，设置里改了只对新会话生效。ready 报回实际用的（ready.model）；用量照实际用的模型报（账本据此记）。
 // - faux（测试）一律照装配参数：剧本按每次拉起给。
-// - 73 号票之前开的会话没有记看图能力：第一次接着时按配置和目录定下、记上，之后照记下的。
+// -以前开的会话没有记看图能力：第一次接着时按配置和目录定下、记上，之后照记下的。
 // - 模型探查（一次性子进程）：列出模型目录里 DeepSeek 的模型（能不能看图、支持哪几档思考，不连网）；连通测试发一条极短的请求
 //   （不开思考），回首 token 延迟；出错原因里没有 key 的内容；超时结束子进程、写明超时多久（正式的是 60 秒）。
 //   请求都发到本机的假 DeepSeek（helpers/fake-deepseek.ts），不联网。
@@ -46,7 +46,7 @@ describe("pi 契约：一个会话固定一个模型", () => {
     expect(first.ready.model).toEqual({ provider: "deepseek", modelId: "deepseek-flash", thinkingLevel: "off", pinned: false });
     expect(provider.requests.at(-1)!.body).toMatchObject({ model: "deepseek-flash", thinking: { type: "disabled" } });
 
-    // 设置改成 v4-pro、思考高：接着同一个会话照旧是 flash、不开思考（没给 handoff 就不换，报 differs：和装配参数不一样，83 号票）
+    // 设置改成 v4-pro、思考高：接着同一个会话照旧是 flash、不开思考（没给 handoff 就不换，报 differs：和装配参数不一样）
     const second = await talk(daemon, "contract-model-pin", deepseek("deepseek-v4-pro", "high", provider.baseUrl));
     expect(second.ready.model).toEqual({ provider: "deepseek", modelId: "deepseek-flash", thinkingLevel: "off", pinned: true, differs: true });
     expect(provider.requests.at(-1)!.body).toMatchObject({ model: "deepseek-flash", thinking: { type: "disabled" } });
@@ -65,7 +65,7 @@ describe("pi 契约：一个会话固定一个模型", () => {
     expect(fresh.ready.model).toMatchObject({ modelId: "deepseek-v4-pro", pinned: false });
   });
 
-  it("看图能力在会话开始时定下：接着会话时配置改了也照开始时的；73 号票之前开的会话（没记）第一次接着时按配置定下、记上", async () => {
+  it("看图能力在会话开始时定下：接着会话时配置改了也照开始时的；以前开的会话（没记）第一次接着时按配置定下、记上", async () => {
     const provider = await startFakeDeepSeek();
     const { daemon } = await startTestDaemon();
     const flash = deepseek("deepseek-flash", "off", provider.baseUrl);
@@ -75,7 +75,7 @@ describe("pi 契约：一个会话固定一个模型", () => {
     const second = await talk(daemon, "contract-vision-pin", flash, { vision: { "deepseek/deepseek-flash": false } });
     expect(second.ready.vision).toBe(true);
 
-    // 模拟 73 号票之前开的会话：把记下的那条换成别的类型（条目链不断）
+    // 模拟以前开的会话：把记下的那条换成别的类型（条目链不断）
     const file = first.ready.sessionFile;
     fs.writeFileSync(file, fs.readFileSync(file, "utf8").replaceAll('"customType":"ergo-session-model"', '"customType":"ergo-test-legacy"'));
     const legacy = await talk(daemon, "contract-vision-pin", flash, { vision: { "deepseek/deepseek-flash": false } });

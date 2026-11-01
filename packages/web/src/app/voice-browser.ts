@@ -1,10 +1,10 @@
-// "按住 说话"接到真的浏览器上（31、37 号票）：getUserMedia、MediaRecorder、AudioContext 加 AnalyserNode、页面的前后台和时钟；
-// 61 号票起还有焦点（可输入的元素、窗口）、计时器、麦克风诊断记录和 UA。
+// "按住 说话"接到真的浏览器上：getUserMedia、MediaRecorder、AudioContext 加 AnalyserNode、页面的前后台和时钟；
+// 还有焦点（可输入的元素、窗口）、计时器、麦克风诊断记录和 UA。
 // 录音和预热的逻辑在 voice-recorder.ts、voice-session.ts（测试里换成假的浏览器），这里只做转接。
 // 外网（经 HTTPS）和本机 http://127.0.0.1 都是安全上下文，浏览器才给麦克风。
-// 63 号票：开在鸿蒙 App 里、App 有原生录音时（page-native.ts），录音走 App 的 AudioCapturer，不用 getUserMedia；
+// 开在鸿蒙 App 里、App 有原生录音时（page-native.ts），录音走 App 的 AudioCapturer，不用 getUserMedia；
 // 旧版 App、不在 App 里照旧用浏览器录。
-// 346 号票：语音识别走 audio.cpp 时服务只收 WAV（守护进程经 VoiceModelsView.recognizerInput 说），浏览器录完先解码、转成 16 kHz 单声道的 WAV 再交出去；
+// 语音识别走 audio.cpp 时服务只收 WAV（守护进程经 VoiceModelsView.recognizerInput 说），浏览器录完先解码、转成 16 kHz 单声道的 WAV 再交出去；
 // 转不了（浏览器不支持这个格式）照原样交，守护进程那边还能用 ffmpeg 转。别的接入照旧传浏览器录的格式。
 import { isTextEntry, t } from "../state/index.ts";
 import { pageNativeApp } from "./page-native.ts";
@@ -66,12 +66,12 @@ const media: VoiceMedia = {
 /** 这个页面上要麦克风被拒过：页面刷新之前一直记着（离开、重新进语音模式不再自动要） */
 const permission = { denied: false };
 
-/** Debug 工具集的"重置首次提示"（124 号票）：忘掉被拒过，下次进语音模式再要一次麦克风 */
+/** Debug 工具集的"重置首次提示"：忘掉被拒过，下次进语音模式再要一次麦克风 */
 export function resetMicDenied(): void {
   permission.denied = false;
 }
 
-/** 麦克风诊断记录（61 号票）：一个页面一份，刷新之前一直记着；每条带上那一刻的页面信号 */
+/** 麦克风诊断记录：一个页面一份，刷新之前一直记着；每条带上那一刻的页面信号 */
 const micLog = new VoiceMicLog(() => ({ hasFocus: document.hasFocus(), visibility: document.visibilityState }));
 
 /**

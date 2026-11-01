@@ -1,4 +1,4 @@
-// 设置里风格预览（39 号票）在浏览器里的那一半：给容器挂 shadow root、用上页面样式表复制改写出来的那份（只复制一次，
+// 设置里风格预览在浏览器里的那一半：给容器挂 shadow root、用上页面样式表复制改写出来的那份（只复制一次，
 // 所有预览共用）、让预览里能拿到焦点的元素都 Tab 不到（不认 inert 的老浏览器上，预览在 aria-hidden 里，键盘却能停上去）。
 // 容器、shadow root、页面样式都换成假的。
 import { describe, expect, test } from "vitest";

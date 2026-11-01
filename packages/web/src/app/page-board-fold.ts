@@ -1,4 +1,4 @@
-// 这个页面上的看板分组收起 / 展开（90 号票）：把 board-fold-setting.ts 接到 localStorage 上，给界面一个 hook。
+// 这个页面上的看板分组收起 / 展开：把 board-fold-setting.ts 接到 localStorage 上，给界面一个 hook。
 // 单独一个文件，那个模块就不碰浏览器的全局变量，能在 Node 里测（写法照 page-stage-side.ts）。
 import { useSyncExternalStore } from "react";
 import type { BoardGroup } from "../state/index.ts";

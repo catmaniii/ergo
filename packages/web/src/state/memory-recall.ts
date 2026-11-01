@@ -1,18 +1,18 @@
-// 回话时"调用记忆"（187 号票，用户 2026-10-20 要的）：调用记忆也是一种工具，但不并进"调用了 N 个工具"——在它发生的位置单独出一行
+// 回话时"调用记忆"：调用记忆也是一种工具，但不并进"调用了 N 个工具"——在它发生的位置单独出一行
 // "回忆了 N 条记忆 ›"（chat-items.ts 的 recall 条目），点开是"这次用到的记忆"（detail-content.ts 的 RecallDetail）。这里是两处共用的：
 // - 哪些调用算调用记忆（isRecallCall）：检索素材、读素材执行了的。被拦下、你拒绝了、出错的照旧留在"调用了 N 个工具"里，状况看得见
 //   （和顺利执行的内部工具不显示、出了状况的照旧算进组里同一个口径）；
 // - 一次调用记忆（recallEntryOf）：工具调用 part 上的结构化部分（ToolCallPart.recall：为什么查、查了什么、找到读到的素材）；
-//   187 号票之前的记录没有它，从参数摘要认查了什么、读的哪条，从结果摘要认找到几条（parseLegacyCount），命中从完整返回里按行认
+//   以前的记录没有它，从参数摘要认查了什么、读的哪条，从结果摘要认找到几条（parseLegacyCount），命中从完整返回里按行认
 //   （parseLegacyHits，界面打开详情时现取完整返回）；
 // - 那一行写什么（recallSummary、recallLine）：N 是去重后的素材条数（同一条在几次检索里出现、又被读了全文只算一条），查了没找到的写
 //   "查了记忆，没找到相关的"；旧记录认不出条数的（彻底删除过）写"查了 N 次记忆"；
 // - 找到的一条怎么说（recallMaterial）：原文和时间由界面按素材 id 现取（GET /api/materials/<素材 id>，记忆页同一个接口），本人的话给原文
 //   （长的截断、可展开），不是本人的话给说明（存的网页的标题、卡片的说明……）；什么时候是具体时间加"3 天前"；在哪是来源会话、任务、项目，
 //   出处的消息还在当前分支上的能跳回去（materials.ts 的 materialJump）。取不到（忘掉、彻底删除了）的界面写"这条记忆已删除"。
-// 263 号票：问记忆（ask_memory，查推理图谱）也算调用记忆，source 是 ask：查了什么是问题，命中是简报里引用的证据背后的素材；
-// 263 号票之前的问记忆记录没有结构化部分，认不出条数（写"查了 N 次记忆"）。
-// 266 号票：每条消息自动带上的记忆简报也算调用记忆，source 是 brief：它不是工具调用，结构化的部分挂在秘书这一轮第一条回话的
+// 问记忆（ask_memory，查推理图谱）也算调用记忆，source 是 ask：查了什么是问题，命中是简报里引用的证据背后的素材；
+// 以前的问记忆记录没有结构化部分，认不出条数（写"查了 N 次记忆"）。
+// 每条消息自动带上的记忆简报也算调用记忆，source 是 brief：它不是工具调用，结构化的部分挂在秘书这一轮第一条回话的
 // MemoryBriefPart 上；会话条目层把它当成一次"调用记忆"（briefCallPart 拼一个工具调用的样子，工具名 MEMORY_BRIEF_CALL），
 // 和检索、问记忆一样算进那一行、去重计数；详情里列为什么带它（briefItemLines）。
 import { type InboxJump } from "./inbox-jump.ts";
@@ -23,7 +23,7 @@ import type { UiState } from "./ui-state.ts";
 
 type ToolCallPart = Extract<MessagePart, { type: "tool_call" }>;
 
-/** 记忆简报（266 号票）在会话条目层里当成一次调用记忆时的"工具名"：不是真的工具，模型调不到 */
+/** 记忆简报在会话条目层里当成一次调用记忆时的"工具名"：不是真的工具，模型调不到 */
 export const MEMORY_BRIEF_CALL = "memory_brief";
 
 /** 调用记忆的工具和它从哪来（工具名以守护进程 memory/tool-names.ts 为准；记忆简报不是工具，见 MEMORY_BRIEF_CALL） */
@@ -98,7 +98,7 @@ export interface RecallEntry {
   readonly legacyCount: number | undefined;
 }
 
-/** 一次调用记忆：结构化的部分（187 号票起），没有的从参数摘要、结果摘要认 */
+/** 一次调用记忆：结构化的部分，没有的从参数摘要、结果摘要认 */
 export function recallEntryOf(part: ToolCallPart): RecallEntry {
   const source = RECALL_TOOLS[part.tool] ?? "search";
   if (part.recall) return { source: part.recall.source, why: part.recall.why, query: part.recall.query, hits: part.recall.hits, legacyCount: undefined };
@@ -106,7 +106,7 @@ export function recallEntryOf(part: ToolCallPart): RecallEntry {
     const id = summaryArgs(part.argsSummary, ["materialId"]).materialId;
     return { source, why: undefined, query: undefined, hits: id ? [{ materialId: id }] : [], legacyCount: undefined };
   }
-  // 263 号票之前的问记忆：只认得出问了什么，找到几条认不出（简报不是一行一条）
+  // 以前的问记忆：只认得出问了什么，找到几条认不出（简报不是一行一条）
   if (source === "ask") return { source, why: undefined, query: summaryArgs(part.argsSummary, ["question"]).question || undefined, hits: undefined, legacyCount: undefined };
   const args = summaryArgs(part.argsSummary, ["query", "why", "limit"]);
   return { source, why: args.why || undefined, query: args.query || undefined, hits: undefined, legacyCount: parseLegacyCount(part.resultSummary) };

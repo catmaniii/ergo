@@ -1,4 +1,4 @@
-// 鸿蒙 App 的原生录音在网页这一侧的接口（63 号票，用户 2026-10-09 要求：用系统自带的录音能力，录音器备好但不占麦克风）。
+// 鸿蒙 App 的原生录音在网页这一侧的接口（用系统自带的录音能力，录音器备好但不占麦克风）。
 // App 里的实现在 frontend/harmony/entry/src/main/ets/voice/NativeVoice.ets（AudioCapturer），经原生桥 ergoNative 的这一组方法调：
 // - voicePrepare(userAction)：备好录音器（createAudioCapturer，PREPARED，不采集、不申请音频焦点、麦克风指示灯不亮）；
 //   App 还没有麦克风权限就先向用户要（userAction 为真时，用户拒过的也弹系统的"去设置里打开"框）；

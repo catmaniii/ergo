@@ -33,9 +33,9 @@ const say = (text: string): FauxStep => ({ kind: "reply", text });
 /** 起一个守护进程（时钟停在 START），连上一个订阅全部相关频道的前端 */
 async function setup(secretary: FauxStep[]) {
   const clock = new ManualClock(START);
-  // 242、243 号票起 03:00 会唤醒记忆管理员（一个真的 agent 子进程）：这个文件里有些用例把时钟拨过 03:00，
+  // 03:00 会唤醒记忆管理员（一个真的 agent 子进程）：这个文件里有些用例把时钟拨过 03:00，
   // 那是"该起来干活"，不是提醒拉起的。这里把记忆整理关掉，验的才是"提醒到点不拉起任何 agent"。
-  // 265 号票起底座给了 clock 时默认整个停掉记忆插件；这里要看秘书的全部工具（素材检索那几个是记忆插件的），所以插件开着、只关整理
+  // 底座给了 clock 时默认整个停掉记忆插件；这里要看秘书的全部工具（素材检索那几个是记忆插件的），所以插件开着、只关整理
   const test = await startTestDaemon({ secretary, clock, memoryPlugin: true, config: { memory: { enabled: false } } });
   const frontend = await TestFrontend.connect(test.url);
   await frontend.subscribe(ALL);
@@ -57,7 +57,7 @@ describe("秘书建提醒", () => {
     const { frontend } = await setup([createCall({ text: "交报告", inDays: 1, time: "09:00" }), { kind: "echo_context" }]);
     await tell(frontend, "明早 9 点提醒我交报告");
 
-    // 聊天：用户消息、只有卡片引用的一条、这次工具调用的记录（07 号票起每次工具调用都有）、秘书的回复
+    // 聊天：用户消息、只有卡片引用的一条、这次工具调用的记录（每次工具调用都有）、秘书的回复
     const messages = frontend.events({ channel: SECRETARY, type: EVENT_TYPES.message }).map((f) => (f.payload as MessageEventPayload).message);
     expect(messages.map((m) => `${m.speaker}:${m.parts.map((p) => p.type).join(",")}`)).toEqual(["user:text", "agent:card_ref", "agent:tool_call", "agent:text"]);
     // 建提醒不落入任何关注类别，直接做
@@ -81,8 +81,8 @@ describe("秘书建提醒", () => {
       },
     ]);
 
-    // 秘书的工具：草稿区的文件工具和 bash（07），读取附件、发附件（09），建、改、取消提醒（06），素材检索和提议快速动作（21），
-    // 任务发起的四个（12），没有任何对卡片做动作的工具；
+    // 秘书的工具：草稿区的文件工具和 bash，读取附件、发附件，建、改、取消提醒，素材检索和提议快速动作，
+    // 任务发起的四个，没有任何对卡片做动作的工具；
     // 工具结果写明落到了哪天几点
     const seen = messages[3]!.parts.map((p) => (p.type === "text" ? p.text : "")).join("");
     expect(seen.split("\n").filter((l) => l.startsWith("[tool]"))).toEqual([
@@ -98,61 +98,61 @@ describe("秘书建提醒", () => {
       "[tool] create_reminder",
       "[tool] update_reminder",
       "[tool] cancel_reminder",
-      // 185 号票：归档简单提醒（删除是快速动作 delete_reminder）
+      // 归档简单提醒（删除是快速动作 delete_reminder）
       "[tool] archive_reminder",
       "[tool] search_materials",
       "[tool] read_material",
-      // 232 号票：问记忆（推理图谱里和问题相关的结论）
+      // 问记忆（推理图谱里和问题相关的结论）
       "[tool] ask_memory",
-      // 242 号票：问记忆管理员（深聊、要改/要忘的转给它）
+      // 问记忆管理员（深聊、要改/要忘的转给它）
       "[tool] ask_curator",
-      // 271 号票：标一下这一轮顺口问了哪个问题
+      // 标一下这一轮顺口问了哪个问题
       "[tool] mark_woven_question",
-      // 337 号票：记一句（用户明确让"帮我记一句"时，把原话交给记忆插件槽）
+      // 记一句（用户明确让"帮我记一句"时，把原话交给记忆插件槽）
       "[tool] remember_memory",
-      // 240 号票：带参调一个登记过的 MCP 工具（只读直接跑、会改东西先出卡、底线只递入口）
+      // 带参调一个登记过的 MCP 工具（只读直接跑、会改东西先出卡、底线只递入口）
       "[tool] mcp_call",
       "[tool] propose_quick_action",
-      // 281 号票：按人、按字段读个人档案（写档案是快速动作 personal_file）
+      // 按人、按字段读个人档案（写档案是快速动作 personal_file）
       "[tool] read_personal_file",
       "[tool] start_workflow",
       "[tool] create_task",
-      // 75 号票：把要花时间的事交给后台（普通任务）
+      // 把要花时间的事交给后台（普通任务）
       "[tool] delegate_task",
       "[tool] suggest_task",
       "[tool] ask_questions",
       "[tool] write_task_brief",
       "[tool] suggest_project",
-      // 22 号票的只读工具
+      // 只读工具
       "[tool] view_board",
       "[tool] read_project_records",
-      // 133 号票：给出项目的服务的入口
+      // 给出项目的服务的入口
       "[tool] open_service",
-      // 257 号票：启动、关闭项目的服务
+      // 启动、关闭项目的服务
       "[tool] switch_project_services",
-      // 260 号票：调运营中的项目的接口（list / describe / call，各项目的接口用到才读）
+      // 调运营中的项目的接口（list / describe / call，各项目的接口用到才读）
       "[tool] project_ops",
       "[tool] propose_go_live",
       "[tool] list_inbox",
       "[tool] show_card",
-      // 147 号票：浏览侧边栏里的网页工具（工具列表固定，只在侧边栏发的那一轮能用）
+      // 浏览侧边栏里的网页工具（工具列表固定，只在侧边栏发的那一轮能用）
       "[tool] browse_read_page",
       "[tool] browse_fill",
       "[tool] find_files",
       "[tool] view_files",
       "[tool] browse_attach_files",
       "[tool] browse_open",
-      // 164 号票：看网页上能点的东西、按编号点
+      // 看网页上能点的东西、按编号点
       "[tool] browse_snapshot",
       "[tool] browse_click",
       "[tool] browse_element_content",
       "[tool] browse_element_download",
-      // 70 号票：联网搜索、读网页
+      // 联网搜索、读网页
       "[tool] web_search",
       "[tool] web_fetch",
-      // 32 号票：每个会话都有的口语总结（用户发语音时用）
+      // 每个会话都有的口语总结（用户发语音时用）
       "[tool] spoken_summary",
-      // 86 号票：每个会话都有的发语音（用户打字时让他听见）
+      // 每个会话都有的发语音（用户打字时让他听见）
       "[tool] send_voice",
     ]);
     expect(seen).toContain("[toolResult] create_reminder: 已建好提醒 r-1「交报告」：10 月 8 日（周四）09:00");
@@ -243,7 +243,7 @@ describe("到点", () => {
     expect(reminderService(daemon).get("r-1")).toMatchObject({ status: "pending", nextAt: nowIso(at(12, 8, 9)) });
   });
 
-  it("每年某月某日（282 号票）：每年 10 月 8 日 09:00 → 今年 10 月 8 日响，下一次是明年同一天；到了明年那天照响", async () => {
+  it("每年某月某日：每年 10 月 8 日 09:00 → 今年 10 月 8 日响，下一次是明年同一天；到了明年那天照响", async () => {
     const { frontend, clock, daemon } = await setup([createCall({ text: "给妈妈打电话祝寿", time: "09:00", repeat: { kind: "yearly", month: 10, day: 8 } }), { kind: "echo_context" }]);
     await tell(frontend, "每年 10 月 8 号早上 9 点提醒我给妈妈打电话祝寿");
     // 秘书看到的结果写明规则和下一次（不在今年的带年份）；提醒卡上是每年的时间表
@@ -349,7 +349,7 @@ describe("到点", () => {
     await first.daemon.stop();
 
     // 停了三天多：10-08、10-09、10-10 的 08:00 都错过了，现在是 10-10 12:00
-    // 10-10 是周六、过了 10:00：记忆插件开着会补放一张约访卡（284 号票），这条只看提醒，停掉记忆插件
+    // 10-10 是周六、过了 10:00：记忆插件开着会补放一张约访卡，这条只看提醒，停掉记忆插件
     const second = await startTestDaemon({ secretary: [], clock: new ManualClock(at(10, 10, 12)), memoryPlugin: false, reuse: { dataDir: first.dataDir, homeDir: first.homeDir } });
     const frontend = await TestFrontend.connect(second.url);
     await frontend.subscribe(ALL);
@@ -486,7 +486,7 @@ async function expectFiresAt(frontend: TestFrontend, clock: ManualClock, times: 
       .findLast((i) => i.id === notify.itemId);
     expect(item).toMatchObject({ notice: "reminder_due", pinned: true, createdAt: nowIso(time) });
   }
-  // 只数提醒的（284 号票起拨过周六 10:00 时待办里还会多一张不卡事的约访卡）
+  // 只数提醒的（拨过周六 10:00 时待办里还会多一张不卡事的约访卡）
   const ids = new Set(
     frontend
       .events({ channel: INBOX, type: EVENT_TYPES.inboxItem })

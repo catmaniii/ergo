@@ -1,4 +1,4 @@
-// 设置 · 设备配对 · 配对二维码（364 号票，pages/more/PairingQrPage.tsx、ui/qr-code.tsx、app/connection-addresses.ts）：
+// 设置 · 设备配对 · 配对二维码（pages/more/PairingQrPage.tsx、ui/qr-code.tsx、app/connection-addresses.ts）：
 // - 二维码真的扫得出：生成的方阵按 QR 规范解一遍（qr-decode.ts，不经库的代码）比对内容；ZXing 那边在 frontend/android 的 JVM 单测和联调里；
 // - 有地址：大二维码、地址、等手机扫码；多个地址能切换；打不通的标明，tailnet 写明手机要先连上；
 // - 没地址：不显示二维码，写清楚连不上，两条路（服务管家的链接只在本机给）；老服务管家说一声；
@@ -238,7 +238,7 @@ describe("手填的校验、演示数据、文案", () => {
     expect(manualAddressProblem("")).toBe(t("protocol.connectionAddress.invalid.empty"));
   });
 
-  test("校验不过的话在网页打包的语言里：页面上是句子，不是键名（371）", () => {
+  test("校验不过的话在网页打包的语言里：页面上是句子，不是键名", () => {
     // 这个文件平时用的词典是直接读全部语言文件的（setup-locales.ts），守护进程才有的句子也查得到；页面上只有打包进去的这份
     const reasons = ["", `https://${"a".repeat(600)}.example.com/`, "not an address", "https://", "https://me:pw@frp.example.com/", "http://frp.example.com/", "https://192.168.1.5/"];
     for (const language of ["zh-CN", "en"]) {

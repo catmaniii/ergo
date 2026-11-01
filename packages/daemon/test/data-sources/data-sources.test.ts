@@ -1,4 +1,4 @@
-// 数据源的统一外形和共用导入文件夹（295 号票）：在假内核里（startPluginKernel：真的插件宿主、登记表、设置 · 插件那一层）装上
+// 数据源的统一外形和共用导入文件夹：在假内核里（startPluginKernel：真的插件宿主、登记表、设置 · 插件那一层）装上
 // 测试用的假数据源插件（helpers/fake-data-source.ts），查：
 // - 登记后在设置 · 数据源里出现：名字、插件、连接状态、两种用法和默认、敏感类别、认哪种文件、定期导入的时间；手动导入的数据源没有连接；
 // - 填设置（Key 进密钥区，不进事件、日志）、立即同步（条数、上次同步）、同步出错（原因里的 Key 换成 ***）；
@@ -7,7 +7,7 @@
 // - 插件停用：写明"X插件没启用"、不能同步，断开并删照样能做；
 // - 定期导入：连着、导入开着时每天 04:00 同步一次；
 // - 导入文件夹：认得的导入、挪进"已导入"；认不出的、几个数据源都认的、导入关着的、出错的留在原地并提示，出错的手动再看一遍时重试；
-// - 306 号票：按需查的工具只在连上时给（给出去的变了才通知秘书，Key 失效后不给、正在跑的一轮里再调回出错了）；外部日历的版本
+// -按需查的工具只在连上时给（给出去的变了才通知秘书，Key 失效后不给、正在跑的一轮里再调回出错了）；外部日历的版本
 //   （交给日历的数据源写进了新记录、断开、插件起停时往上加）；断开确认框要的 hasSecrets / toMaterials / 数据源登记的那一句。
 import fs from "node:fs";
 import path from "node:path";
@@ -57,7 +57,7 @@ const bad = (source: Partial<DataSource>): PluginDefinition => ({
   setup() {},
 });
 const imported = (k: PluginKernel) => (fs.existsSync(k.layout.importedDir) ? fs.readdirSync(k.layout.importedDir) : []);
-/** 什么都不给秘书的插件（306：它起停不该惊动秘书） */
+/** 什么都不给秘书的插件（它起停不该惊动秘书） */
 const other: PluginDefinition = { name: "other", title: "别的", setup() {} };
 
 /** 306：交给日历的假数据源（没有密钥区以外的东西、不进素材）：填了 key 算连着，同步把 calRemote.next 写成记录，登记了断开时说的一句 */
@@ -263,7 +263,7 @@ describe("两种用法的开关", () => {
   });
 });
 
-describe("按需查的工具只在连上时给（306 号票）", () => {
+describe("按需查的工具只在连上时给", () => {
   it("没连不给；填好 Key 才给（通知一次）；同步了、别的插件起停、和它无关的开关都不通知；Key 失效（同步时碰到）又不给（通知一次），正在跑的一轮里再调回出错了", async () => {
     const k = await startPluginKernel({ plugins: [fakeDataSourcePlugin, other] });
     expect(secretaryTools(k)).not.toContain(FAKE_QUERY_TOOL);
@@ -317,7 +317,7 @@ describe("按需查的工具只在连上时给（306 号票）", () => {
   });
 });
 
-describe("出错的自己回来：每小时替它再试一次（306 号票）", () => {
+describe("出错的自己回来：每小时替它再试一次", () => {
   it("有 recheck 的：到点才叫；远端还不认照旧出错、再挂一小时；好了回到连着、秘书重新拿到工具（通知一次）；页面写明每小时再试", async () => {
     const k = await startPluginKernel({ plugins: [fakeDataSourcePlugin] });
     await connect(k);
@@ -392,7 +392,7 @@ describe("出错的自己回来：每小时替它再试一次（306 号票）", 
   });
 });
 
-describe("外部日历的版本（306 号票）", () => {
+describe("外部日历的版本", () => {
   it("交给日历的数据源写进了新记录（同一批只加一次）、断开、插件起停时版本往上加并通知；别的记录、什么都没变的同步不加", async () => {
     const k = await startPluginKernel({ plugins: [calendarSourcePlugin, fakeDataSourcePlugin] });
     const seen: number[] = [];
@@ -427,7 +427,7 @@ describe("外部日历的版本（306 号票）", () => {
   });
 });
 
-describe("断开的确认框按数据源说话（306 号票）", () => {
+describe("断开的确认框按数据源说话", () => {
   it("没有密钥、不进素材的不写 hasSecrets / toMaterials；数据源登记的那一句插件停用时照样给，插件报的优先", async () => {
     const k = await startPluginKernel({ plugins: [calendarSourcePlugin] });
     expect(sourceOf(k, CAL_ID)).toMatchObject({ disconnectNote: "同步来的日程从日历里拿掉" });

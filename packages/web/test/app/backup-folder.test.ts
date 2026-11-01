@@ -1,4 +1,4 @@
-// 设置 · 备份里选定文件夹之后的流程（356 号票）：校验、问要不要新建、写配置；不能用的不写配置，原因交给框写出来。
+// 设置 · 备份里选定文件夹之后的流程：校验、问要不要新建、写配置；不能用的不写配置，原因交给框写出来。
 import { describe, expect, test, vi } from "vitest";
 import { type BackupFolderHttp, chooseBackupFolder } from "../../src/app/backup-folder.ts";
 import type { BackupFolderCheck, BackupStatusView } from "../../src/state/index.ts";

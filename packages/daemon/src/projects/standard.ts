@@ -1,4 +1,4 @@
-// 项目规范（issue 19，258 号票）：模板和只读视图。
+// 项目规范：模板和只读视图。
 // - 模板放在框架里（本包的 templates/project-standard/<版本>/<开发类 dev | 其他类 other>/<语言>/），按版本分目录，两类各一套；
 //   每份开头写清这份写什么、什么时候更新。模板只加新版本、不改旧版本：项目记着建档时用的版本（Project.standardVersion），
 //   "还是模板原样"按它所在位置的任何版本、任何一类、任何语言的模板比。
@@ -6,13 +6,13 @@
 //   测试查）；立项书确认成开发类时再对一遍，补上架构图、tickets/、ops.json。按建档时的语言（没有这种语言的模板用中文的）。
 //   辅助的几份（立项书、术语表、项目清单、范围记录）照旧由 records.ts 生成。
 // - 只读视图（GET /api/projects/<id>/standard）：每份文档在不在、最近修改时间、是不是还是模板原样；当前状态的检查清单
-//   （258 号票只有"进展已写回"，259 号票接着填）；本项目的规范改写。
-// - 259 号票：建设中 → 使用中的检查清单（goLiveChecklist，issue 19 第 3 条）——架构图写清服务和对外接口、ops.json 交了（268 号票起是
-//   清单验收通过：照 112 号票的自动验收，project-ops/ 给这一项）、
-//   架构图里的服务都写进了运营方案（确认时照 133 号票的模板交给 LSM 登记）、对外接口里要外网的有带网页的服务（确认后开
+//   （只有"进展已写回"，接着填）；本项目的规范改写。
+// -建设中 → 使用中的检查清单（goLiveChecklist）——架构图写清服务和对外接口、ops.json 交了（是
+//   清单验收通过：照自动验收，project-ops/ 给这一项）、
+//   架构图里的服务都写进了运营方案（确认时照模板交给 LSM 登记）、对外接口里要外网的有带网页的服务（确认后开
 //   /apps/<应用名>/）、进展写回。开发类五项都查；其他类只查进展，运营方案里真有服务的照开发类查。只读视图、"首版做完了"卡、
 //   "转入使用"确认卡用的都是它；没做到的不挡确认，写明差什么。
-// - 261 号票（本项目的规范改写，用户确认了的，standard-change.ts）：不要的那份不从模板补（ensureStandardDocs 的 dropped），视图里标
+// -（本项目的规范改写，用户确认了的，standard-change.ts）：不要的那份不从模板补（ensureStandardDocs 的 dropped），视图里标
 //   "本项目不要"、不再检查，看它的检查项不列（架构图那项看架构图、运营接口清单那项看 ops.json：不要架构图时服务、/apps/ 两项只看运营方案）；
 //   换写法的标出来；多出来的接在必须有的后面（文件在就算写了，目录里要有一份）。
 //   框架里最新的版本按模板目录算（latestStandardVersion）：项目记着的旧了只在视图里看得出（latest），不自动跟。
@@ -145,7 +145,7 @@ function docOfTemplateFile(rel: string): StandardDocKey | undefined {
 
 /**
  * 项目档案里缺的规范文档从模板复制（已有的不动）：kind 还没定（立项时）按其他类。没有这个版本的模板时什么都不做、返回 false
- * （调用方退回照旧的最小文档集）。dropped：本项目的规范改写里不要的那几份（261 号票），不补
+ * （调用方退回照旧的最小文档集）。dropped：本项目的规范改写里不要的那几份，不补
  */
 export function ensureStandardDocs(
   paths: ProjectRecordsPaths,
@@ -219,7 +219,7 @@ function docFacts(paths: ProjectRecordsPaths, key: StandardDocKey, role: Standar
   return fileFacts({ key, path: rel, role }, abs, dir === true, fromTemplate ? templates : undefined);
 }
 
-/** 改写里多出来的那份（261 号票）：没有模板，文件在就算写了；目录里除了说明文件要有一份 */
+/** 改写里多出来的那份：没有模板，文件在就算写了；目录里除了说明文件要有一份 */
 function customDocFacts(paths: ProjectRecordsPaths, doc: EffectiveStandardDoc & { path: string }): DocFacts {
   const dir = doc.path.endsWith("/");
   const abs = path.join(paths.root, ...doc.path.split("/").filter(Boolean));
@@ -265,7 +265,7 @@ function fileFacts(base: Pick<StandardDocView, "key" | "path" | "role">, abs: st
   return { view, mtimeMs: stat.mtimeMs };
 }
 
-// ───────────────────────── 转运营检查清单（259 号票） ─────────────────────────
+// ───────────────────────── 转运营检查清单 ─────────────────────────
 
 /** 运营方案里和检查清单有关的部分：每一条的名字、是服务的话服务名、应用名、有没有网页（"首版做完了"卡上带的那份就合用） */
 export interface ChecklistPlan {
@@ -384,7 +384,7 @@ function architectureItem(paths: ProjectRecordsPaths, templates: StandardTemplat
   return { item, services, interfaces };
 }
 
-/** 运营接口清单（ops.json）交了：不是模板原样、合法的 JSON、tools 是列表、每个接口写了 name（268 号票起接上验收的用 project-ops/ 的那一项） */
+/** 运营接口清单（ops.json）交了：不是模板原样、合法的 JSON、tools 是列表、每个接口写了 name（接上验收的用 project-ops/ 的那一项） */
 function opsItem(paths: ProjectRecordsPaths, templates: StandardTemplates): StandardChecklistItem {
   const text = readText(paths.ops);
   if (text === undefined) return checkItem("ops", false, t("projects.standard.check.opsMissing"));
@@ -436,17 +436,17 @@ function progressItem(paths: ProjectRecordsPaths, templates: StandardTemplates, 
   return checkItem("progress_written", false, t(detail));
 }
 
-/** 建设中 → 使用中要查全五项：开发类；其他类运营方案里真有服务的也是（issue 19 第 4 条"真有服务就按开发类来"） */
+/** 建设中 → 使用中要查全五项：开发类；其他类运营方案里真有服务的也是（真有服务就按开发类来） */
 const fullGoLiveCheck = (project: Pick<Project, "kind">, plan: ChecklistPlan | undefined) => project.kind === "dev" || (plan?.items ?? []).some((i) => i.service);
 
-/** 看某一份文档的检查项（STANDARD_CHECKLIST_ITEM_DOC）在这个项目里列不列：这个项目不要那一份（261 号票的规范改写）就不列 */
+/** 看某一份文档的检查项（STANDARD_CHECKLIST_ITEM_DOC）在这个项目里列不列：这个项目不要那一份（规范改写）就不列 */
 const checklistApplies = (overrides: readonly StandardOverride[]) => (id: StandardChecklistItemId) => standardChecklistApplies(STANDARD_CHECKLIST_ITEM_DOC[id], overrides);
 
 /**
- * 建设中 → 使用中的检查清单（259 号票）：开发类（或运营方案里有服务的）查架构图、ops.json、服务、/apps/、进展五项，别的只查进展。
+ * 建设中 → 使用中的检查清单：开发类（或运营方案里有服务的）查架构图、ops.json、服务、/apps/、进展五项，别的只查进展。
  * plan：要随转入使用生效的那份运营方案（负责人建设期间交的；没交是 undefined）。
- * overrides：本项目的规范改写（261 号票）：不要架构图的不列架构图那项（服务、/apps/ 两项只看运营方案），不要 ops.json 的不列运营接口清单那项
- * ops：运营接口清单那一项（268 号票：照 112 号票的自动验收——格式对、每个操作一条能跑通的测试、只读的真不写，project-ops/ 的
+ * overrides：本项目的规范改写：不要架构图的不列架构图那项（服务、/apps/ 两项只看运营方案），不要 ops.json 的不列运营接口清单那项
+ * ops：运营接口清单那一项（照自动验收——格式对、每个操作一条能跑通的测试、只读的真不写，project-ops/ 的
  * checklistItem）；不给（没接上验收的单元测试）用 opsItem 只查最基本的几样
  */
 export function goLiveChecklist(input: {
@@ -478,8 +478,8 @@ export type StandardOverrideRow = StandardOverrideEntry & { why: string };
 
 /**
  * 一个项目的规范现在的样子（只读接口）。stateSince：进入现在这个状态的时间（"进展已写回"要在它之后改过、不是模板原样）；
- * plan：建设中时要随转入使用生效的那份运营方案（259 号票：检查清单的服务、/apps/ 两项看它）；
- * overrides：本项目现在生效的规范改写（261 号票，按确认的先后）
+ * plan：建设中时要随转入使用生效的那份运营方案（检查清单的服务、/apps/ 两项看它）；
+ * overrides：本项目现在生效的规范改写（按确认的先后）
  */
 export function projectStandardView(input: {
   project: Project;
@@ -499,13 +499,13 @@ export function projectStandardView(input: {
     return doc.override ? { ...f, view: { ...f.view, override: doc.override } } : f;
   });
   const to = STANDARD_CHECKLIST_TO[project.state];
-  // 建设中 → 使用中查全（259 号票）；别的转换只要进展写回（停用时的反向收回由运行时做）
+  // 建设中 → 使用中查全；别的转换只要进展写回（停用时的反向收回由运行时做）
   const items: StandardChecklistItem[] =
     to === null
       ? []
       : project.state === "building"
         ? goLiveChecklist({ project, paths, stateSince, plan: input.plan, overrides, templates, ops: input.ops })
-        : // 261 号票：看某一份文档的项，这个项目不要那一份（规范改写）就不列
+        : // 看某一份文档的项，这个项目不要那一份（规范改写）就不列
           [progressItem(paths, templates, stateSince)].filter((item) => checklistApplies(overrides)(item.id));
   return {
     projectId: project.id,

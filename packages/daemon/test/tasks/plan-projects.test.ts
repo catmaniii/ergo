@@ -1,5 +1,5 @@
-// 计划里涉及的项目要对得上任务（17 号票评审后定）：纯函数 planProjectProblems。任务涉及几个项目建卡时定下，不随计划改动重新判断。
-// 112 号票：长程任务的阶段自动验收，计划里写由你验收的一并退回（autoAccepted）。
+// 计划里涉及的项目要对得上任务：纯函数 planProjectProblems。任务涉及几个项目建卡时定下，不随计划改动重新判断。
+// 长程任务的阶段自动验收，计划里写由你验收的一并退回（autoAccepted）。
 import type { Plan } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
 import { planProjectProblems } from "../../src/tasks/plan-projects.ts";
@@ -41,7 +41,7 @@ describe("计划里涉及的项目要对得上任务", () => {
     ]);
   });
 
-  it("项目内部任务（64 号票）：只动本项目，写进别的项目被拒，告诉用户改成普通任务", () => {
+  it("项目内部任务：只动本项目，写进别的项目被拒，告诉用户改成普通任务", () => {
     const own = { project: "记账本", changes: ["加周报"] };
     expect(planProjectProblems({ scope: "single", ownProjectId: "p-1", internal: true, plan: planWith([own]), projectIdOf })).toEqual([]);
     expect(
@@ -84,7 +84,7 @@ describe("计划里涉及的项目要对得上任务", () => {
     expect(planProjectProblems({ scope: "single", ownProjectId: "p-1", plan: planWith([{ project: "记账本", changes: ["加导出"] }], "script"), projectIdOf })).toEqual([]);
   });
 
-  it("阶段自动验收（112 号票，用户同日同意扩到所有长程任务）：不涉及项目、单项目、多项目的写由用户验收都被退回，说明改成什么（多项目的只能改成评审）；已验收的阶段不管；不是长程任务的不查", () => {
+  it("阶段自动验收（用户同日同意扩到所有长程任务）：不涉及项目、单项目、多项目的写由用户验收都被退回，说明改成什么（多项目的只能改成评审）；已验收的阶段不管；不是长程任务的不查", () => {
     const refusal = (stageId: string, criteria: string) =>
       `阶段 ${stageId} 的验收标准${criteria}写的是由用户验收（user）：阶段自动验收，改成 script 或 review（能脚本查的先脚本查，再加一条评审综合看）`;
     const plan = planWith([], "user");

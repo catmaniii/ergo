@@ -1,8 +1,8 @@
-// 了解你访谈（284 号票）的卡片和接口的 schema。主题、频率这些取值表在 memory-interview.ts（不引用 TypeBox）。
+// 了解你访谈的卡片和接口的 schema。主题、频率这些取值表在 memory-interview.ts（不引用 TypeBox）。
 // - 约访卡（卡片类型 interview）：记忆管理员每周在待办里放一张不卡事的卡，"开始""下次再说""不想做了"；
 // - GET /api/memory/interview：现在有没有开着的访谈、哪几个主题聊过、下次聊什么、约访开没开（记忆页、设置用）；
 // - POST /api/memory/interview：记忆页的"找管理员聊聊"开一次访谈（已经开着就是那一次）；
-// - 访谈的档案核对卡（卡片类型 interview_files）：一次访谈收尾时，这次听到的档案信息合成一张，逐条确认（写进 281 号票的个人档案）。
+// - 访谈的档案核对卡（卡片类型 interview_files）：一次访谈收尾时，这次听到的档案信息合成一张，逐条确认（写进个人档案）。
 import { type Static, Type } from "typebox";
 import { INTERVIEW_ALL_TOPICS, INTERVIEW_CADENCES, INTERVIEW_FILE_STATES, INTERVIEW_INVITE_RESULTS, INTERVIEW_STARTERS, INTERVIEW_TOPICS } from "./memory-interview.ts";
 import { PersonalFileCardField, PersonalFileCardRemind, PersonalFileExecuteInput } from "./personal-files-schema.ts";
@@ -58,7 +58,7 @@ export const INTERVIEW_FILES_MAX = 40;
 
 /**
  * 访谈的档案核对卡上的一条：一个人的一个字段（或者记下的一件事）。确认时运行时按 raw 再规范化一遍、经快速动作 personal_file 的执行器写进档案
- * （和秘书提议、用户在 281 号票的核对卡上确认的同一个写入口；前面一条刚新建的人，后面的就写进他那份），留痕写"记忆管理员提议、用户确认的"
+ * （和秘书提议、用户在核对卡上确认的同一个写入口；前面一条刚新建的人，后面的就写进他那份），留痕写"记忆管理员提议、用户确认的"
  */
 export const InterviewFileItem = Type.Object({
   /** 这一条的动作编号（qa-…）：确认时的操作记录、档案的留痕按它；也是卡片动作的输入 */
@@ -69,7 +69,7 @@ export const InterviewFileItem = Type.Object({
   field: Type.Optional(PersonalFileCardField),
   /** 记下的一件事 */
   note: Type.Optional(Type.Object({ text: Type.String(), date: Type.String() })),
-  /** 生日、纪念日：每年提前几天提醒（283 号票，和个人档案的核对卡一样默认勾着、提前 3 天；确认时一起建） */
+  /** 生日、纪念日：每年提前几天提醒（和个人档案的核对卡一样默认勾着、提前 3 天；确认时一起建） */
   remind: Type.Optional(PersonalFileCardRemind),
   /** 管理员提它时在处理的那条用户消息（档案上的"根据哪句话"） */
   inputMessageId: Type.Optional(Type.String()),

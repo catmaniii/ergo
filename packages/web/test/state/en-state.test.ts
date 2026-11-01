@@ -1,4 +1,4 @@
-// 170 号票：状态层其余几块在英文下的说法——时序规则的公式（ltl）、"什么时候做"（triggers）、日历的格子和详情、改时间、提醒卡菜单、
+// 状态层其余几块在英文下的说法——时序规则的公式（ltl）、"什么时候做"（triggers）、日历的格子和详情、改时间、提醒卡菜单、
 // 看板多选取消、外观、语音模型、关注类别的检查、授权的文件夹、会话的要点那一行、时间线按天分块、调试工具、语音手势。
 // 都是英文、没有中文；换回中文又和原来一样（常量表取值时现查）。
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
@@ -74,7 +74,7 @@ describe("英文下的状态层", () => {
     expect(rescheduleHint("at", true)).toMatch(/runs once at this time.*It's paused now/);
     expect(rescheduledToast({ state: "paused", schedule: { kind: "daily", time: "08:00" }, nextAt: undefined } as never)).toMatch(/^Changed to .*It's paused and follows the new time once resumed$/);
     expect(reminderMenu({ status: "pending", schedule: { kind: "daily", time: "08:00" } }).map((i) => i.label)).toEqual(["Change time", "Cancel reminder", "Delete reminder", "Select"]);
-    // 185 号票：结束了的能归档；删除先确认
+    // 结束了的能归档；删除先确认
     expect(reminderMenu({ status: "fired" }).map((i) => i.label)).toEqual(["Archive", "Delete reminder", "Select"]);
     expect(reminderDeleteConfirm("Call Mom", { status: "fired" }).title).toBe("Delete reminder “Call Mom”?");
     expect(reminderRescheduleHint()).toBe("Only the time changes: the reminder stays the same, and the next one follows the new time.");
@@ -87,7 +87,7 @@ describe("英文下的状态层", () => {
     );
     expect(boardBatchDeleteConfirm({ reminders: 1 }).title).toBe("Delete 1 reminder?");
     expect(boardBatchDeleteConfirm({ reminders: 2 }).body).toMatch(/^2 reminders will be deleted: /);
-    // 186 号票：任务也能删，混选写清几个任务、几条提醒；不能删的写明为什么
+    // 任务也能删，混选写清几个任务、几条提醒；不能删的写明为什么
     const both = boardBatchDeleteConfirm({ tasks: 2, running: 1, reminders: 1, blocked: [{ title: "Bookkeeping", why: "managed by the project" }] });
     expect(both.title).toBe("Delete 2 tasks and 1 reminder?");
     expect(both.body).toBe(

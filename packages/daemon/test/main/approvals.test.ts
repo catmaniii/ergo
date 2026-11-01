@@ -5,7 +5,7 @@
 //   记成一条按调用指纹匹配的一次性授权，运行时给秘书递"……已获批准，可以重试"；重试放行一次，再来一次重新走审批；
 //   重试时多命中了当初没批准过的关注类别，也重新走审批。之后用户拒绝，同样给秘书递"……已被用户拒绝"；
 // - "交给我做"（测试里登记的、带"花钱"类别的工具）：不执行，建一个"交给我做"事项，用户点"已完成"后秘书收到通知；
-// - 审批决定（批准、拒绝）是素材（08 号票的素材库）；"交给我做"的"已完成"不算审批决定。
+// - 审批决定（批准、拒绝）是素材（素材库）；"交给我做"的"已完成"不算审批决定。
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -117,7 +117,7 @@ describe("先问我：审批卡", { timeout: LONG_TEST_MS }, () => {
     await waitUntil(() => inboxOf(frontend).length > 0 && messagesOf(frontend).some((m) => m.parts.some((p) => p.type === "card_ref")), { describe: () => "等审批卡出现在待我处理和聊天里" });
     expect(messagesOf(frontend).find((m) => m.parts.some((p) => p.type === "card_ref"))!.parts).toEqual([{ type: "card_ref", cardId: card.id }]);
     expect(inboxOf(frontend)).toMatchObject([{ kind: "card", cardId: card.id, source: `${ASSISTANT_NAME_MARK}对话`, urgency: "non_blocking" }]);
-    // 105 号票：秘书会话里的那次调用（待我处理里"去看看 ›"去秘书会话、定位到这张卡）
+    // 秘书会话里的那次调用（待我处理里"去看看 ›"去秘书会话、定位到这张卡）
     expect(inboxOf(frontend)[0]!.origin).toEqual({ conversation: SECRETARY, toolCallId: daemon.approvals.get(payload.approvalId)!.toolCallId });
 
     expect((await approve(frontend, card)).ok).toBe(true);

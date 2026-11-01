@@ -1,11 +1,11 @@
-// 336 号票：记忆的三个开关从"设置"搬进"记忆"页，这套记忆系统也有了名字（「会意」/ Subtext）。用户 2026-10-31 定：它是插件，
+// 记忆的三个开关从"设置"搬进"记忆"页，这套记忆系统也有了名字（「会意」/ Subtext）。它是插件，
 // 标题写「记忆系统 · 会意 v1.0」/「Memory System · Subtext v1.0」，并且要在界面上标出是实验性的。这里查五件事：
 // - 设置列表最下面不再有记忆那一节（记忆插件不再登记 settingsSections，owns 里也没有）；
 // - 记忆页标题栏写「记忆系统 · 会意 v1.0」，标题下面挂「实验性」标签、一句"从你说过的话里推断你真正想要的"和一段说明
 //   （还在打磨、数据在本机、能在 设置 · 插件 停用或删掉）；导航那一项还是"记忆"；
 // - 记忆页最下面一块"记忆系统 · 会意 v1.0 · 设置"（在四栏和数据源之后），默认收起；展开里三个开关都在，勾着跟着守护进程给的、还没取到时点不了、
 //   取不到时写原因；那块下面那句写明"实验性"；
-// - 拨一下发的是 PUT /api/memory/settings（只带拨的那一项，266 号票的规矩），话里说改了会怎样；英文也有。
+// - 拨一下发的是 PUT /api/memory/settings（只带拨的那一项，规矩），话里说改了会怎样；英文也有。
 // 记忆插件停用时整页（连同这块）都不出现，见下面最后一条；记忆页本身的地址、旧地址换新见 plugins/memory-page.test.ts。
 import fs from "node:fs";
 import path from "node:path";
@@ -143,7 +143,7 @@ describe("记忆页最下面那块\"记忆系统 · 会意 v1.0 · 设置\"", ()
 });
 
 describe("拨一下：PUT /api/memory/settings，只带拨的那一项", () => {
-  test("交给 http.saveMemorySettings 的只有拨的那一项；回什么就当什么（266 号票的规矩）", async () => {
+  test("交给 http.saveMemorySettings 的只有拨的那一项；回什么就当什么", async () => {
     const sent: MemorySettingsBody[] = [];
     const http = {
       saveMemorySettings(body: MemorySettingsBody): Promise<MemorySettingsView> {

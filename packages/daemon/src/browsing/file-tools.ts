@@ -1,11 +1,11 @@
-// 找文件、看图两个工具（134、145 号票的 find_files、view_files，147 号票从页面助手里挪出来，149 号票起页面助手不再有）：秘书（浏览侧边栏、悬浮按钮那一轮替
+// 找文件、看图两个工具（find_files、view_files，从页面助手里挪出来，页面助手不再有）：秘书（浏览侧边栏、悬浮按钮那一轮替
 // 上传框找文件）共用同一份做法——
 // - find_files：在素材（发过的附件、交付的产出）和授权的文件夹里按关键词、时间、种类找，列出的每个文件给一个编号（ref-…），
-//   结果后面附子文件夹概况（145 号票）；
+//   结果后面附子文件夹概况；
 // - view_files：把 find_files 找到的图缩成长边 VIEW_FILES_EDGE 左右的小图交给模型看（一次最多 VIEW_FILES_MAX 张）。
 // 编号记在调用方给的一份 refs 里（秘书一份，留最近的 SECRETARY_REFS_MAX 个），交文件的工具只认这里面的编号。
 // gate：秘书那边每次调用先看"这一轮是不是从浏览侧边栏、悬浮按钮发的，浏览器还开着"，不让用就回原因。
-// @i18n-ignore-file model：工具的说明、参数说明和结果给秘书（模型）看（174 号票）；工具的名字走 t()
+// @i18n-ignore-file model：工具的说明、参数说明和结果给秘书（模型）看；工具的名字走 t()
 import { type LocalFoldersView, t, Type } from "@ergo/protocol";
 import { defineHostTool, type HostTool, type HostToolCall, type HostToolOutput } from "../agent-manager/host-tools.ts";
 import type { Materials } from "../materials/index.ts";
@@ -14,7 +14,7 @@ import type { ThumbnailRequest, ThumbnailResult } from "../runtime/index.ts";
 import { type CaptureTimeCache, FILE_KINDS, folderOverviewText, type FoundFile, searchFolders, searchMaterialFiles } from "./find-files.ts";
 
 export const FIND_FILES_TOOL = "find_files";
-/** 看图（145 号票）：秘书一直有，看不了图时回原因 */
+/** 看图：秘书一直有，看不了图时回原因 */
 export const VIEW_FILES_TOOL = "view_files";
 
 /** view_files 一次最多看几张 */
@@ -24,7 +24,7 @@ export const VIEW_FILES_EDGE = 384;
 /** 多大的图不看（解码太费时、多半不是照片） */
 export const VIEW_FILE_MAX_BYTES = 40 * 1024 * 1024;
 
-/** 没找到、又没授权文件夹时告诉用户的那句（138 号票） */
+/** 没找到、又没授权文件夹时告诉用户的那句 */
 export const AUTHORIZE_FOLDERS_HINT = "在聊天里跟二狗说一声授权哪个文件夹，或者在设置 · 授权的文件夹里加";
 
 /** find_files 一次最多列几个 */
@@ -141,7 +141,7 @@ export function findFilesTool(deps: FileToolsDeps, refs: FileRefs, options: { ha
         inFolders.truncated ? "（文件夹太大，只看了前面一部分）" : "",
         all.length > shown.length ? `（一共 ${all.length} 个，只列了最近的 ${shown.length} 个）` : "",
       ].filter(Boolean);
-      // 子文件夹概况（145 号票）：结果只列最近的几十个，按它知道还有哪些文件夹，按文件夹名再找
+      // 子文件夹概况：结果只列最近的几十个，按它知道还有哪些文件夹，按文件夹名再找
       const overview = folderOverviewText(inFolders.overview, query.kind);
       if (lines.length === 0) return { text: ["没找到符合的文件。", ...note, ...overview].join("\n") };
       return { text: [`找到 ${shown.length} 个：`, ...lines, ...note, ...overview].join("\n") };

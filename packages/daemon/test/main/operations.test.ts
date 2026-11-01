@@ -1,4 +1,4 @@
-// 主切面：运营方案（130 号票，ADR-0028）。真的守护进程，项目的负责人和秘书接 faux 剧本（负责人经 agent 宿主装配、真的调用
+// 主切面：运营方案（ADR-0028）。真的守护进程，项目的负责人和秘书接 faux 剧本（负责人经 agent 宿主装配、真的调用
 // propose_operations），调度器的时钟手动拨，测试扮演前端。
 // - 建设期间交：能力超出项目工具包的整份退回；交了的留着，建设任务做完时出现在"首版做完了"卡上（要用户手动的标出来，秘书列待办时
 //   看得到）；卡出了以后再交，卡跟着更新（旧版本上点按钮被拒）；
@@ -68,7 +68,7 @@ const PROGRESS_INTRO = "做到哪了、下一步做什么：每段工作结束�
 const DAILY = { key: "daily-report", name: "日报", means: "schedule", schedule: { kind: "daily", time: "08:00" }, instructions: "汇总昨天的 AI 新闻，写一期日报 daily.md", capabilities: { network: true } };
 /** 每周日 18:00 出周报 */
 const WEEKLY = { key: "weekly-report", name: "周报", means: "schedule", schedule: { kind: "weekly", time: "18:00", weekdays: [0] }, instructions: "汇总本周的日报，写一期周报 weekly.md", capabilities: { network: true } };
-/** 公网入口：二狗现在做不了，要用户手动（133 号票起项目自己的服务二狗能上线了，见 operation-services.test.ts） */
+/** 公网入口：二狗现在做不了，要用户手动（项目自己的服务二狗能上线了，见 operation-services.test.ts） */
 const SITE = { key: "site", name: "简报站网页", means: "public_entry", instructions: "日报网页从外网也能看", manual: "在 nginx 站点里给工作目录的 site/ 开一个公网入口", capabilities: {} };
 
 const cardsOf = (frontend: TestFrontend): Card[] => frontend.events({ channel: CARDS, type: EVENT_TYPES.card }).map((f) => (f.payload as CardEventPayload).card);

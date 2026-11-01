@@ -1,4 +1,4 @@
-// 断开数据源时"连已导入的一起删"（295 号票，issue 25 第 4 节：走现有的彻底删除）。和删项目、删任务、移除插件时连数据删走同一张
+// 断开数据源时"连已导入的一起删"（走现有的彻底删除）。和删项目、删任务、移除插件时连数据删走同一张
 // "删除参与方"登记表（deletion/participants.ts）：
 // - 数据源这一份（registerDataSourceDeletion，owner data-sources）：它导入的记录（数据源登记时写的 records 那几类事件）整条换成
 //   "已删除"标记（数据源断开了，这些记录的状态不用留——同移除插件，ADR-0008 的"不改坏状态"说的是还在用的状态）；它的同步记录
@@ -7,7 +7,7 @@
 //   口径删（同一事务记一条彻底删除的记忆命令，出处 data_source；素材、索引、原文副本、推理库里的证据跟着删，重建时不回来）。
 // 同一个事务里改写、追加断开记录（data_source_disconnected，只写数据源、什么时候、删了几条），派生视图整体重放（appendBatch 的 purge）；
 // 同一个幂等键重发只回第一次记下的条数。
-// 344 号票：只断开它下面的一样（Gmail 的一个账号）时 subject 带 only：只删归这一样的记录（素材跟着记录走），同步记录不分账号、"已导入"的文件不归哪一样，都不动。
+// 只断开它下面的一样（Gmail 的一个账号）时 subject 带 only：只删归这一样的记录（素材跟着记录走），同步记录不分账号、"已导入"的文件不归哪一样，都不动。
 import fs from "node:fs";
 import path from "node:path";
 import type { DataSourcePurgeCounts } from "@ergo/protocol";

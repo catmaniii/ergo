@@ -1,4 +1,4 @@
-// 主切面：设置 · 插件（211 号票，用户 2026-10-20："设置界面里面要能查看当前加载了哪些插件，还有可以把它暂时禁用或者是移除。相当于是可以热插拔"）。
+// 主切面：设置 · 插件（"设置界面里面要能查看当前加载了哪些插件，还有可以把它暂时禁用或者是移除。相当于是可以热插拔"）。
 // 走真实的装配路径：经组合根和插件清单起守护进程（提醒、记忆两个真插件），经 HTTP 接口（GET /api/plugins、POST /api/plugins/<插件名>）操作，
 // 不手挂插件。
 // - 列插件：清单里的两个，一句话、它带来了什么（给秘书的工具个数和秘书实际拿到的一样）、连数据删写明的；
@@ -107,12 +107,12 @@ describe("设置 · 插件", () => {
     ]);
     expect(memory).toMatchObject({ brings: { tools: ["检索素材", "读素材", "问记忆", "问记忆管理员", "记下顺口问了", "记一句"], cards: ["记忆删除卡", "约访卡（了解你访谈）", "访谈的档案核对卡（了解你访谈收尾时，逐条确认）"], jobs: [] } });
     expect(memory!.removal!.keeps[0]).toContain("素材属于内核，要删请去 记忆 · 素材 的成批删除");
-    // 语音插件（214 号票）：带来口语总结、发语音；连数据删删录音、合成的音频、语音事件里的文字，会话里交给过二狗的不删
+    // 语音插件：带来口语总结、发语音；连数据删删录音、合成的音频、语音事件里的文字，会话里交给过二狗的不删
     expect(voice).toMatchObject({ summary: expect.stringContaining("按住说话"), brings: { tools: ["口语总结", "发语音"], cards: [], jobs: [] }, needs: [], neededBy: [] });
     expect(voice!.removal!.deletes.join("\n")).toContain("录音");
     expect(voice!.removal!.keeps[0]).toContain("会话里转写成文字交给过二狗的那部分");
-    // Google 插件（297 号票）：带来查 Google 日历、298 号票的搜 / 读 Gmail 邮件（数据源的按需查，内核替它给秘书）；连数据删删同步来的日历事件、
-    // 私密地址、导入的你发出的邮件、Gmail 地址和密码；日历是可选依赖。301 号票：还删从 Google 联系人导入的记录，已经写进档案的、
+    // Google 插件：带来查 Google 日历、搜 / 读 Gmail 邮件（数据源的按需查，内核替它给秘书）；连数据删删同步来的日历事件、
+    // 私密地址、导入的你发出的邮件、Gmail 地址和密码；日历是可选依赖。还删从 Google 联系人导入的记录，已经写进档案的、
     // 还没处理的候选不删
     const google = body.plugins.find((p) => p.name === "google");
     expect(google).toMatchObject({ title: "数据源-Google", brings: { tools: ["查 Google 日历", "搜 Gmail 邮件", "读 Gmail 邮件"], cards: [], jobs: [] }, needs: [], neededBy: [] });
@@ -133,7 +133,7 @@ describe("设置 · 插件", () => {
     expect(tools.filter((name) => name.endsWith("_reminder"))).toHaveLength(reminders!.brings.tools.length);
     expect(tools.filter((name) => ["search_materials", "read_material", "ask_memory", "ask_curator", "mark_woven_question", "remember_memory"].includes(name))).toHaveLength(memory!.brings.tools.length);
     expect(tools.filter((name) => name === "spoken_summary" || name === "send_voice")).toHaveLength(voice!.brings.tools.length);
-    // Google 带来的三个是数据源的按需查：306 号票起没连上的不给秘书（这里都没填地址、密码）
+    // Google 带来的三个是数据源的按需查：没连上的不给秘书（这里都没填地址、密码）
     expect(google!.brings.tools).toHaveLength(3);
     expect(tools.filter((name) => ["query_google_calendar", "search_gmail", "read_gmail"].includes(name))).toEqual([]);
     // 不认得的插件、请求体不对
@@ -158,7 +158,7 @@ describe("设置 · 插件", () => {
     });
     const td = await startTestDaemon({
       clock,
-      // 265 号票：给了 clock 时底座默认停掉记忆插件；这里看的是全部插件照常装时的状况和配置，打开
+      // 给了 clock 时底座默认停掉记忆插件；这里看的是全部插件照常装时的状况和配置，打开
       memoryPlugin: true,
       secretaryTools: [disableNow],
       secretary: [
@@ -212,7 +212,7 @@ describe("设置 · 插件", () => {
   });
 
   it("移除（不删数据）：记成移除了、写进 plugins.removed，重启后保持；装回就是启用，以前的提醒都在；停用的状况重启后也保持", { timeout: 60_000 }, async () => {
-    // 265 号票：给了 clock 时底座默认停掉记忆插件；这里看的是全部插件照常装时的状况和配置，打开（重启沿用数据目录，照上次的）
+    // 给了 clock 时底座默认停掉记忆插件；这里看的是全部插件照常装时的状况和配置，打开（重启沿用数据目录，照上次的）
     const first = await startTestDaemon({ clock: new ManualClock(START), memoryPlugin: true });
     const f1 = await TestFrontend.connect(first.url);
     await f1.subscribe(ALL);
@@ -244,7 +244,7 @@ describe("设置 · 插件", () => {
 
   it("移除提醒并连数据一起彻底删除：全部提醒事件、提醒卡的每个版本、待我处理里的提醒通知；留一条删除记录（只写插件名和条数），重发不再删；装回后看板上没有以前的提醒", { timeout: 60_000 }, async () => {
     const clock = new ManualClock(START);
-    // 265 号票：给了 clock 时底座默认停掉记忆插件；这里看的是全部插件照常装时的配置，打开
+    // 给了 clock 时底座默认停掉记忆插件；这里看的是全部插件照常装时的配置，打开
     const td = await startTestDaemon({ clock, memoryPlugin: true });
     const frontend = await TestFrontend.connect(td.url);
     await frontend.subscribe(ALL);
@@ -276,7 +276,7 @@ describe("设置 · 插件", () => {
     expect(listInboxItems(store.reader).filter((item) => item.kind === "notice" && item.notice?.includes("reminder"))).toEqual([]);
     // 原话一个字不留（看板、卡片、待我处理三个频道）
     for (const channel of [BOARD, CARDS, INBOX]) expect(JSON.stringify(store.read(channel))).not.toMatch(/交报告|周五复查/);
-    // 停着的提醒视图也跟着重放（215 号票）：reminders 表里也不留（以前要到装回时才清掉）
+    // 停着的提醒视图也跟着重放：reminders 表里也不留（以前要到装回时才清掉）
     expect(JSON.stringify(store.reader.all("SELECT * FROM reminders"))).not.toMatch(/交报告|周五复查/);
     // 删除记录：插件频道上一条，只有插件名、时间、条数和类型
     const records = store.read(PLUGINS, 0, EVENT_TYPES.pluginDataPurged);

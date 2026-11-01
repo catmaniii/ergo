@@ -1,4 +1,4 @@
-// 长按网页元素的圆钮（359 号票，src/page-bridge/element.ts）：页面桥打包成注入用的脚本，在真的 Chrome 里跑，鼠标右键触发 contextmenu（手指长按在两个模拟器上验，见票的 Comments）。查：
+// 长按网页元素的圆钮（src/page-bridge/element.ts）：页面桥打包成注入用的脚本，在真的 Chrome 里跑，鼠标右键触发 contextmenu（手指长按在两个模拟器上验）。查：
 // - 只听不拦：网页收到的 contextmenu 没被 preventDefault，系统菜单照常；
 // - 认元素：图片（地址、外面的链接、说明文字）、canvas、SVG、CSS 背景图、视频、链接、文字、选中的文字；选区要和元素相交才算；文本框、密码框、空白不出；
 // - 圆钮：就在按的地方旁边，看得见的范围里；点一下打字（先自己出打字框）、发送带着元素和这一刻选中的字；按住说话（press、start、stop）；上滑取消；

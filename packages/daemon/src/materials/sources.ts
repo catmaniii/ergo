@@ -1,8 +1,8 @@
-// 本票接上的素材来源：用户发言（04 号票的消息事件）、卡片被关闭（06 号票）、建议卡和提问卡长期没处理（本票计时）。
-// 其余来源由产生它们的票按 capture.ts 的接口登记。
-// 129 号票起：用户发言、卡片被关闭是素材库自带的（BUILTIN_SOURCES，素材库打开时就登记）；长期没处理（card_stale 是记忆插件的回避信号计时
+// 这里接上的素材来源：用户发言（消息事件）、卡片被关闭、建议卡和提问卡长期没处理（计时）。
+// 其余来源由产生它们的模块按 capture.ts 的接口登记。
+// 用户发言、卡片被关闭是素材库自带的（BUILTIN_SOURCES，素材库打开时就登记）；长期没处理（card_stale 是记忆插件的回避信号计时
 // 追加的）由记忆插件在它的数据契约里声明（memory/plugin.ts）。
-// 彻底删除（21 号票）时这些事件怎么改写：用户的消息整条换成"已删除"标记（conversation/purge.ts）；
+// 彻底删除时这些事件怎么改写：用户的消息整条换成"已删除"标记（conversation/purge.ts）；
 // 卡片被关闭、长期没处理的事件只把说明和卡片的纯文本降级换成删除标记，别的不变（cardDismissedPurge 内核登记，cardStalePurge 记忆插件的契约登记）。
 import {
   type CardDismissedEventPayload,
@@ -41,7 +41,7 @@ function cardPiece(p: { cardId: string; cardType: string; cardText?: string | un
 }
 
 /**
- * 访谈里的一句话（284 号票）：管理员问的那一句作为上下文排在用户的话前面——一段 agent 的产出，只记说明"记忆管理员问：……"
+ * 访谈里的一句话：管理员问的那一句作为上下文排在用户的话前面——一段 agent 的产出，只记说明"记忆管理员问：……"
  * （进关键词索引、当晚整理时连着用户的话读），不算本人的话、不存进原文。没有问的那句（访谈以外、管理员还没开口）是空的
  */
 export function interviewQuestionSegments(question: string | undefined): MaterialSegment[] {
@@ -56,13 +56,13 @@ export const WITH_VOICE_CONTEXT = "with_voice";
  * 用户发言：任何会话里（秘书、负责人）用户发的消息，包括附件引用。
  * agent 的回复、系统说明（以及以后的工单、召回的记忆）都不是用户的话，不算。
  * 带"作为材料投喂"标记的消息记成用户主动投喂的材料。消息事件带了任务、项目 id（负责人会话）就记上。
- * 语音消息（31 号票）的文字要等识别完成，由识别完成的语音对象另产生一条（voice/material-source.ts）；
+ * 语音消息的文字要等识别完成，由识别完成的语音对象另产生一条（voice/material-source.ts）；
  * 语音连同附件一起发的（2026-10-10 起），附件照常由消息产生一条（只有附件和引用的卡片的切段，情境标签带 with_voice），
  * 识别失败的语音不耽误附件记成素材、"作为材料投喂"照样算数。
- * 秘书转达进任务、项目负责人会话的话（103 号票，标着 relayedBy）不算：那是秘书写的，用户的原话已经在秘书会话里采过。
- * 接管时导进来的前情（290 号票，标着 prelude）不算：那是用户跟运行时（Claude Code）说的，原文留在运行时自己的记录里；
- * 交给官方 App 期间只读跟随补记的（292 号票，标着 remote）同样不算。
- * 了解你访谈（284 号票）开着时在记忆管理员的会话里说的：消息的归属里带着访谈编号（interviewId），情境标签多一个 interview（"来自访谈"）；
+ * 秘书转达进任务、项目负责人会话的话（标着 relayedBy）不算：那是秘书写的，用户的原话已经在秘书会话里采过。
+ * 接管时导进来的前情（标着 prelude）不算：那是用户跟运行时（Claude Code）说的，原文留在运行时自己的记录里；
+ * 交给官方 App 期间只读跟随补记的（标着 remote）同样不算。
+ * 了解你访谈开着时在记忆管理员的会话里说的：消息的归属里带着访谈编号（interviewId），情境标签多一个 interview（"来自访谈"）；
  * 归属里带着管理员问的那一句（interviewQuestion）的，那一句作为上下文切段排在用户的话前面（interviewQuestionSegments）。
  */
 const userMessageSource: MaterialSource = {
@@ -71,7 +71,7 @@ const userMessageSource: MaterialSource = {
   capture(event) {
     const payload = event.payload as Partial<MessageEventPayload>;
     const message = payload.message;
-    // 前情（290 号票）：接管时从运行时自己的记录导进来的，是用户跟运行时说的（原文在运行时那边），不采
+    // 前情：接管时从运行时自己的记录导进来的，是用户跟运行时说的（原文在运行时那边），不采
     if (message?.speaker !== "user" || message.relayedBy !== undefined || message.prelude === true || message.remote === true) return [];
     const spoken = message.parts.some((p) => p.type === "voice");
     // 只有语音（可能带引用的卡片）的消息：素材全由识别完成的语音对象产生
@@ -122,7 +122,7 @@ const cardDismissedSource: MaterialSource = {
   },
 };
 
-/** 回避信号：建议卡、提问卡长期没处理。这是系统观察到的（来源：系统）。记忆插件的数据契约声明它（129 号票） */
+/** 回避信号：建议卡、提问卡长期没处理。这是系统观察到的（来源：系统）。记忆插件的数据契约声明它 */
 export const cardStaleSource: MaterialSource = {
   name: "card-stale",
   eventType: EVENT_TYPES.cardStale,

@@ -1,4 +1,4 @@
-// 涉及多个项目的任务的工单（规格第 8、11、12、21 节，17 号票）。派单队列、会话分段、等澄清照 16 号票（work-orders.ts、
+// 涉及多个项目的任务的工单（规格第 8、11、12、21 节）。派单队列、会话分段、等澄清（work-orders.ts、
 // segments.ts、clarifications.ts），建出、派出和"工单该以什么结局结束"和派单队列共用 orders.ts，这里只管多项目任务自己的那一部分：
 // - 哪些任务算：建卡时定下的多项目任务（Task.projectScope，不随计划改动重新判断；计划里只剩一个项目也还是）；
 // - 计划的检查在 tasks/plan-projects.ts（提交计划、计划变更、自行调整都过一遍）：每个项目的一行写明所属阶段和这张工单自己的验收标准；
@@ -10,7 +10,7 @@
 // - 回执：项目负责人完成或退回（做不了）时交回执（submit_receipt），这一段写回之后工单结束，回执作为一条消息进任务负责人的会话；
 //   某个阶段的回执全部到齐且全部完成，任务负责人才能宣布阶段完成、跑本阶段的验收（stageGate）；任何一张被退回或做不了，本阶段不通过。
 //   只看现行计划里这一阶段的行（和计划外确认派出的）：计划变更、自行调整计划之后去掉了的行，它的工单不再挡这一阶段；
-// - 计划换了一版（14 号票的计划变更确认"加项目"、自行调整计划）：新计划里还没有工单的行照样建出工单，所属阶段已经在做的马上派出；
+// - 计划换了一版（计划变更确认"加项目"、自行调整计划）：新计划里还没有工单的行照样建出工单，所属阶段已经在做的马上派出；
 //   新计划里没有了的行，还没派出的工单退回，派出了的在时间线上记一笔、不再挡阶段；去掉的是退回、做不了的那几行时算一次验收退回；
 // - 任务结束：还没派出、还在排队的工单退回，进行中的那一段收尾后以退回（任务取消了）或做不了（任务失败）结束；
 // - 工单的建出、派出、待你确认、确认或拒绝、回执都记在任务时间线上（任务负责人的会话里的 work_order 记录）。
@@ -137,7 +137,7 @@ export interface DispatchResult {
   order: OrderRef;
   /** 这次是调整做法（本阶段这个项目上次退回、做不了），算了一次验收退回 */
   countedReturn: boolean;
-  /** 计划外的：命中的关注类别、工单卡；对话审批关着时超出授权先不管、直接派出的（101 号票）没有工单卡 */
+  /** 计划外的：命中的关注类别、工单卡；对话审批关着时超出授权先不管、直接派出的没有工单卡 */
   unplanned?: { categories: string[]; cardId: string } | { categories: string[]; direct: true };
 }
 
@@ -325,7 +325,7 @@ export function createMultiProject(options: MultiProjectOptions): MultiProject {
   };
 
   /**
-   * 计划换了一版（计划变更确认、自行调整计划，14 号票）：新计划里还没有工单的行建出工单（等阶段开始），所属阶段已经在做的马上派出；
+   * 计划换了一版（计划变更确认、自行调整计划）：新计划里还没有工单的行建出工单（等阶段开始），所属阶段已经在做的马上派出；
    * 新计划里没有了的行：还没派出的工单退回，派出了的在时间线上记一笔、不再挡阶段；去掉的是退回、做不了的那几行时，
    * 这是调整做法，每个阶段算一次验收退回
    */
@@ -372,7 +372,7 @@ export function createMultiProject(options: MultiProjectOptions): MultiProject {
     const judgement = options.judgeUnplanned({ task: { ...guardTask, currentStageId: wo.stageId }, maintainerId: task.maintainerId, project });
     if (judgement.refused !== undefined) throw new RequestRejected("not_allowed", judgement.refused);
     if (judgement.direct) {
-      // 对话审批关着，任务的 agent 超出授权先不管（101 号票）：和计划内的一样直接派出，时间线上照常记一笔
+      // 对话审批关着，任务的 agent 超出授权先不管：和计划内的一样直接派出，时间线上照常记一笔
       const r: OrderRef = { wo, projectName: project.name };
       store.appendBatch([workOrderEvent(wo, "created", null, "maintainer"), record(task, r, timelineText.unplannedDirect(r)), ...dispatchOrder(task, wo, "system")]);
       const latestWo = getWorkOrder(store.reader, wo.id);
@@ -412,7 +412,7 @@ export function createMultiProject(options: MultiProjectOptions): MultiProject {
             else if (event.channel === TASKS_CHANNEL && event.type === TASK_EVENTS.outputReaction) onReaction(event.payload as OutputReactionPayload);
             else if (event.channel === TASKS_CHANNEL && event.type === TASK_EVENTS.planDecided) {
               const p = event.payload as PlanDecidedPayload;
-              // 计划变更确认了才换（拒绝的、重做时作废的不换，84 号票）
+              // 计划变更确认了才换（拒绝的、重做时作废的不换）
               if (p.change && p.decision === "confirmed") onPlanChanged(p.taskId);
             } else if (event.channel === TASKS_CHANNEL && event.type === TASK_EVENTS.planRevised) onPlanChanged((event.payload as PlanRevisedPayload).taskId);
           } catch (err) {

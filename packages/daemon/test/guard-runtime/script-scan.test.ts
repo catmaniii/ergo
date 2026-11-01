@@ -38,7 +38,7 @@ describe("Python 脚本", () => {
   });
 });
 
-describe("只连本机（362 号票）", () => {
+describe("只连本机", () => {
   const LOCAL: [string, string, string][] = [
     ["smoke.py", "import urllib.request\nprint(urllib.request.urlopen('http://127.0.0.1:8765/health').read())\n", "urllib.request"],
     ["server.py", "from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler\nHOST = '127.0.0.1'\nThreadingHTTPServer((HOST, 8765), BaseHTTPRequestHandler).serve_forever()\n", "http.server"],
@@ -126,7 +126,7 @@ describe("别的", () => {
   });
 });
 
-describe("脚本里写着的绝对路径（26 号票：写着受保护区域路径的脚本，守卫判永不）", () => {
+describe("脚本里写着的绝对路径（写着受保护区域路径的脚本，守卫判永不）", () => {
   it("认出写死的盘符路径、转义过的反斜杠、Git Bash 的写法；没有就不带这一项", () => {
     const text = [
       "const fs = require('fs');",

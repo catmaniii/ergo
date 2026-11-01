@@ -1,5 +1,5 @@
 /*
- * 经典（39 号票起的默认风格）自己的规则。119 号票起只有主导航的图标（用户 2026-10-13：原来的表情符号
+ * 经典（默认风格）自己的规则。只有主导航的图标（原来的表情符号
  * 💬📋📦🔔📅📊🧠⚙️⋯ 和别的风格不是一套设计语言，选了实心图标）。
  * 照别的风格的写法：按 data-nav 认是哪一项，表情符号藏起来（.tab-icon 的字号 0），一套统一画法的实心剪影图标
  * （自己画的 24×24 SVG，不加依赖）用 mask 按当前字色画——没选中是 .tab 的次要字色 --muted，选中是 --nav-on
@@ -40,7 +40,7 @@
 :root[data-style="classic"] [data-nav="calendar"] {
   --classic-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cdefs%3E%3Cmask id='m'%3E%3Crect width='24' height='24' fill='white'/%3E%3Crect x='2' y='9.1' width='20' height='1.5' fill='black'/%3E%3Cg fill='black'%3E%3Crect x='6.2' y='12.6' width='2.6' height='2.6' rx='.7'/%3E%3Crect x='10.7' y='12.6' width='2.6' height='2.6' rx='.7'/%3E%3Crect x='15.2' y='12.6' width='2.6' height='2.6' rx='.7'/%3E%3Crect x='6.2' y='16.6' width='2.6' height='2.6' rx='.7'/%3E%3Crect x='10.7' y='16.6' width='2.6' height='2.6' rx='.7'/%3E%3C/g%3E%3C/mask%3E%3C/defs%3E%3Cg mask='url(%23m)'%3E%3Crect x='3' y='4.5' width='18' height='17' rx='3'/%3E%3Crect x='6.75' y='2.25' width='2.5' height='4.5' rx='1.25'/%3E%3Crect x='14.75' y='2.25' width='2.5' height='4.5' rx='1.25'/%3E%3C/g%3E%3C/svg%3E");
 }
-/* 浏览（134 号票，鸿蒙 App 里才有）：地球，经线和赤道镂空 */
+/* 浏览（鸿蒙 App 里才有）：地球，经线和赤道镂空 */
 :root[data-style="classic"] [data-nav="browse"] {
   --classic-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cdefs%3E%3Cmask id='m'%3E%3Crect width='24' height='24' fill='white'/%3E%3Cpath d='M2 12h20M12 3.4c2.45 2.45 3.7 5.3 3.7 8.6s-1.25 6.15-3.7 8.6c-2.45-2.45-3.7-5.3-3.7-8.6s1.25-6.15 3.7-8.6z' fill='none' stroke='black' stroke-width='1.6'/%3E%3C/mask%3E%3C/defs%3E%3Ccircle cx='12' cy='12' r='9.5' mask='url(%23m)'/%3E%3C/svg%3E");
 }

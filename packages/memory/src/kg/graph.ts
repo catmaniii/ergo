@@ -98,7 +98,7 @@ export class KnowledgeGraph {
     for (const e of lexicon.entries) if (e.group) this.groups.set(e.name, e.group);
   }
 
-  /** 267 号票：写事实、追问经唯一写入口（引擎挂了写入口时；在调用方开的那一次写里——抽事实、纠正、忘掉、彻底删除） */
+  /** 写事实、追问经唯一写入口（引擎挂了写入口时；在调用方开的那一次写里——抽事实、纠正、忘掉、彻底删除） */
   private get w(): RgWriter {
     return rgWriter(this.store);
   }
@@ -161,7 +161,7 @@ export class KnowledgeGraph {
    * 3. 写入新事实（精炼陈述按最后的有效期拼），真冲突各生成一个追问。
    * 在一个事务里做完。
    *
-   * 334 号票：状态类的事实开始不能早于说这句话的那天（抽取器给了 null 或者更早的、这句话自己又没说从什么时候起——
+   * 状态类的事实开始不能早于说这句话的那天（抽取器给了 null 或者更早的、这句话自己又没说从什么时候起——
    * 没有时间说法、没说"以前""一直"——就按说话那天算开始）；变化判定看后说的那句**自己明说了变化**没有（explicitChangeSignals），
    * 没说的当真冲突，不再按日子先后让后说的赢。
    */
@@ -364,7 +364,7 @@ export class KnowledgeGraph {
    * 证据失效后事实这一层（第 7.3 节第 1 条）：只靠它的事实变成 retracted（被纠正时是 corrected），retractedBy 指向起因；
    * 还有别的有效证据的去掉这条证据、保持原状。顺带恢复因此失去依据的派生状态（照真值维护的做法）：
    * 被撤回的事实取代过、冲突过的旧事实，被这条证据纠正过的旧事实，按修订日志里改之前的样子恢复。
-   * 推理图谱那一层由引擎的传播钩子做（④ 号票）。
+   * 推理图谱那一层由引擎的传播钩子做。
    */
   dropEvidence(evidenceId: string, mode: "forgotten" | "corrected" | "purged", causeEvidenceId: string): FactInvalidation {
     return this.store.transaction(() => {

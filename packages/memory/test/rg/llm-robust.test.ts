@@ -1,4 +1,4 @@
-// 218 号票：出假设、往上抽、编策略这几步不能整个失败——分批、截断和解析失败自己恢复、没过门槛写明原因、建库统计。
+// 出假设、往上抽、编策略这几步不能整个失败——分批、截断和解析失败自己恢复、没过门槛写明原因、建库统计。
 // 假模型按剧本回（能标 finish_reason = length），不调 DeepSeek。例子都是自己写的。
 import { afterEach, describe, expect, it } from "vitest";
 import type { EvidenceDraft } from "../../src/domain/types.ts";
@@ -50,7 +50,7 @@ describe("宽松解析：判截断，从完整的条目里取出能用的，丢�
     expect(inspectOutput(res('```json\n{"groups": [{"id": "a"}]}\n```'), "groups")).toMatchObject({ outcome: "ok", items: [{ id: "a" }] });
   });
 
-  it("237 号票：模型把列表的 ] 写成 }（该是条目的地方是个 }）——救回完整的条目、记一条坏的，不原地打转", () => {
+  it("模型把列表的 ] 写成 }（该是条目的地方是个 }）——救回完整的条目、记一条坏的，不原地打转", () => {
     // 不修之前这里 i = end 原地转，整段建库卡死（CPU 打满、再也不调模型）
     expect(salvageList('{"groups": [{"id": "a"}, {"id": "b"}}', "groups")).toEqual({ items: [{ id: "a" }, { id: "b" }], partial: false, bad: 1 });
     expect(inspectOutput(res('{"groups": [{"id": "a"}, {"id": "b"}}'), "groups")).toMatchObject({ outcome: "truncated", items: [{ id: "a" }, { id: "b" }], bad: 1 });
@@ -191,8 +191,8 @@ describe("出假设分批：一次调用里塞的观察少到不会超长", () =
     expect(report.stats!.steps.propose).toMatchObject({ calls: 2, batches: 2, truncated: 0, unparsed: 0 });
   });
 
-  it("237 号票：出假设的回复把列表的 ] 写成 } 时不会卡死（救回完整的组，整理照常结束）", async () => {
-    // 229 号票 p2 那次卡死就是这个形状：propose 的响应回来了，本地解析原地打转、CPU 打满、再不调模型
+  it("出假设的回复把列表的 ] 写成 } 时不会卡死（救回完整的组，整理照常结束）", async () => {
+    // p2 那次卡死就是这个形状：propose 的响应回来了，本地解析原地打转、CPU 打满、再不调模型
     const model = new ScriptedModel((r) => {
       if (r.purpose !== "propose") return r.purpose === "judge" ? '{"found_evidence_ids": [], "links": []}' : '{"probes": []}';
       const { batch } = sections(r);
@@ -230,7 +230,7 @@ describe("出假设分批：一次调用里塞的观察少到不会超长", () =
 
 // ---------- 往上抽 ----------
 
-/** 三种场景（周末社交、假期家里、工作日工作，229 号票起要方面不同才算两种）、三个月都说不喜欢被排满 */
+/** 三种场景（周末社交、假期家里、工作日工作，要方面不同才算两种）、三个月都说不喜欢被排满 */
 const STORY: EvidenceDraft[] = [
   say("ev-1", "我不喜欢周末被排得满满的", "2026-04-04T10:00:00+08:00", { context: ["weekend", "social"] }),
   say("ev-2", "假期我也不喜欢被提前排满", "2026-08-02T10:00:00+08:00", { context: ["holiday", "family"] }),
@@ -377,7 +377,7 @@ describe("编策略的输出被截断也能救；建库的统计", () => {
 const ids = (re: RegExp, text: string) => [...text.matchAll(re)].map((m) => m[1]!);
 
 describe("预算留一份给往上抽、编策略", () => {
-  it("出假设、追问、判证据最多用到预算的 3/4；前面没做完的算预算用完，证据下次接着整理。334 号票起后 1/4 先给编策略留（不到 4 次全留），往上抽用剩下的", async () => {
+  it("出假设、追问、判证据最多用到预算的 3/4；前面没做完的算预算用完，证据下次接着整理。后 1/4 先给编策略留（不到 4 次全留），往上抽用剩下的", async () => {
     const model = new ScriptedModel((r) => {
       if (r.purpose === "propose") return JSON.stringify({ groups: [groupFor(sections(r).batch.slice(0, 2).map((f) => f.fact_id), "周末")] });
       if (r.purpose === "probes") {
@@ -392,7 +392,7 @@ describe("预算留一份给往上抽、编策略", () => {
     for (const e of STORY) t.engine.ingestEvidence(e);
     const report = await t.engine.reflect({ maxModelCalls: 8 });
     const purposes = model.calls.map((c) => c.purpose);
-    // 前一段最多 6 次（8 − 2）：出假设 1、追问 1、判证据 4；后一段的 2 次都留给编策略（334），往上抽一次也轮不到
+    // 前一段最多 6 次（8 − 2）：出假设 1、追问 1、判证据 4；后一段的 2 次都留给编策略，往上抽一次也轮不到
     expect(purposes).toEqual(["propose", "probes", "judge", "judge", "judge", "judge"]);
     expect(report).toMatchObject({ modelCalls: 6, budgetExhausted: true, processedEvidenceIds: [] });
   });
@@ -423,7 +423,7 @@ const declineModel = (withContext: boolean) =>
     return '{"probes": []}';
   });
 
-describe("220：推断出来的下层断言带上模型写的场景", () => {
+describe("推断出来的下层断言带上模型写的场景", () => {
   /** 周末两次、工作日两次推掉活动，跨四个月 */
   const DECLINES: EvidenceDraft[] = [
     say("ev-a", "周末我不想去聚餐", "2026-03-07T10:00:00+08:00", { context: ["weekend"] }),
@@ -435,7 +435,7 @@ describe("220：推断出来的下层断言带上模型写的场景", () => {
     const model = declineModel(true);
     const { engine, report } = await reflectWith(model, DECLINES);
     const inputs = engine.rg.liftInputs("need", engine.rg.view());
-    // 329 号票（R4）：还拿不准的"那阵子太忙"也是往上抽的输入（模型没给它写场景）
+    // ADR-0032 R4：还拿不准的"那阵子太忙"也是往上抽的输入（模型没给它写场景）
     expect(inputs.map((i) => JSON.stringify(i.scenes)).toSorted()).toEqual(['[["weekend","social"]]', '[["workday","work"]]', "[[]]", "[[]]"].toSorted());
     expect(inputs.every((i) => i.groupKey?.startsWith("model|"))).toBe(true);
     const lift = model.calls.filter((c) => c.purpose === "lift");

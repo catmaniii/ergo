@@ -1,9 +1,9 @@
-// token 用量（纯函数，24 号票）：
+// token 用量（纯函数）：
 // - 任务卡、作业卡上的总量和任务详情里按 agent 的细分，来自看板频道上的 token_totals（每次记账后一条最新的合计）；
 // - 阶段的预算用了多少（任务详情的阶段抽屉）也来自它（按调用时的阶段）；
 // - 消耗页的数据经 HTTP 取（GET /api/usage），这里给范围的几个快捷选项和 agent 的叫法；
-// - 消耗页单价那块（94 号票）：用到的单价一行一份（自带价格表的分高峰、空闲两行），下面写明高峰时段怎么算、价格取自哪天等。
-// - 消耗页"联网搜索、读网页"一节（154 号票）：DeepSeek 按次计费的调用的合计和说明。
+// - 消耗页单价那块：用到的单价一行一份（自带价格表的分高峰、空闲两行），下面写明高峰时段怎么算、价格取自哪天等。
+// - 消耗页"联网搜索、读网页"一节：DeepSeek 按次计费的调用的合计和说明。
 import {
   LEDGER_PURPOSE_LABEL,
   LEDGER_ROLE_LABEL,
@@ -41,12 +41,12 @@ export function taskTokenTotal(state: UiState, taskId: string): number {
   return totals ? tokenTotal(totals.tokens) : 0;
 }
 
-/** 任务名下的 token 里缓存命中的（311 号票：任务卡等处写"（其中缓存命中 …）"；还没有用量是 0） */
+/** 任务名下的 token 里缓存命中的（任务卡等处写"（其中缓存命中 …）"；还没有用量是 0） */
 export function taskTokenCacheHit(state: UiState, taskId: string): number {
   return ownerTokens(state, { kind: "task", id: taskId })?.tokens.cacheHit ?? 0;
 }
 
-/** 作业卡上的 token 总量（还没有用量是 0；作业身份由 19 号票带上） */
+/** 作业卡上的 token 总量（还没有用量是 0；作业身份随输入带上） */
 export function jobTokenTotal(state: UiState, jobId: string): number {
   const totals = ownerTokens(state, { kind: "scheduled_job", id: jobId });
   return totals ? tokenTotal(totals.tokens) : 0;
@@ -55,7 +55,7 @@ export function jobTokenTotal(state: UiState, jobId: string): number {
 /** 任务详情里按 agent 的一行 */
 export interface TaskUsageRow {
   key: string;
-  /** "tm-1「X 的调研的任务负责人」"、"… · 范围审视"、"… · 压缩"（159 号票：负责人写编号加它属于谁）、"评审子 agent review-t-1-s2-1" */
+  /** "tm-1「X 的调研的任务负责人」"、"… · 范围审视"、"… · 压缩"（负责人写编号加它属于谁）、"评审子 agent review-t-1-s2-1" */
   label: string;
   agentId: string;
   role: LedgerRole;
@@ -66,19 +66,19 @@ export interface TaskUsageRow {
   calls: number;
 }
 
-/** agent 的叫法：秘书写名字占位（界面按用户起的名字显示，43 号票），别的是角色加 id */
+/** agent 的叫法：秘书写名字占位（界面按用户起的名字显示），别的是角色加 id */
 export function agentLabel(agentId: string, role: LedgerRole): string {
   return role === "secretary" ? LEDGER_ROLE_LABEL.secretary : `${LEDGER_ROLE_LABEL[role]} ${agentId}`;
 }
 
-/** 任务详情里一行 agent 的叫法：负责人写"tm-1「X 的调研的任务负责人」"（159、163 号票），别的是角色加 id */
+/** 任务详情里一行 agent 的叫法：负责人写"tm-1「X 的调研的任务负责人」"，别的是角色加 id */
 function taskAgentLabel(state: UiState, agentId: string, role: LedgerRole): string {
   return role === "maintainer" ? maintainerLabel(state, agentId) : agentLabel(agentId, role);
 }
 
 /**
  * 任务详情里按 agent 细分的用量（负责人、评审子 agent、并行子 agent 各一行，范围审视、压缩各单独一行）和合计；各行之和就是任务卡上的总量。
- * cacheHit 是合计里缓存命中的（311 号票：详情顶上写"（其中缓存命中 …）"）
+ * cacheHit 是合计里缓存命中的（详情顶上写"（其中缓存命中 …）"）
  */
 export function taskUsage(state: UiState, taskId: string): { rows: TaskUsageRow[]; total: number; cacheHit: number; calls: number } {
   const totals = ownerTokens(state, { kind: "task", id: taskId });
@@ -147,7 +147,7 @@ export function rangeDays(from: string, to: string): string[] {
 
 /**
  * 消耗页上 agent 的叫法：负责人写编号加它属于哪个项目或任务（"pm-1「记账本的项目负责人」"，项目在前：任务转为项目后负责人归项目；
- * 删掉了的"tm-9（已删除）"，159、163 号票），未归属的就写 id，别的是角色加 id
+ * 删掉了的"tm-9（已删除）"），未归属的就写 id，别的是角色加 id
  */
 export function usageAgentName(state: UiState, agentId: string, role: LedgerRole): string {
   if (role === "unattributed") return agentId;
@@ -189,7 +189,7 @@ export function usagePricingNotes(pricing: UsagePricing): string[] {
   return notes;
 }
 
-/** 按次计费的联网调用的合计（联网搜索 + 读网页，154 号票） */
+/** 按次计费的联网调用的合计（联网搜索 + 读网页） */
 export function usageWebTotal(web: UsageWeb): UsageWebTally {
   return { calls: web.search.calls + web.fetch.calls, cost: web.search.cost + web.fetch.cost };
 }

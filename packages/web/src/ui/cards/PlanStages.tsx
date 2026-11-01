@@ -1,7 +1,7 @@
 /**
  * 计划里的阶段一块一块列出来（计划卡的"细节"、计划变更卡详情里"变更后的阶段"共用）：第几阶段 · 名字、做法、前置、阶段组、预算、
  * 交付、步骤、初步思路、验收。
- * 91 号票：第几阶段按依赖图的编号（并行的写 4a、4b，"在第 2 阶段之后"同样按编号）；和计划栏联动（StageFocus）——
+ * 第几阶段按依赖图的编号（并行的写 4a、4b，"在第 2 阶段之后"同样按编号）；和计划栏联动（StageFocus）——
  * - 计划还没确认时点左边图上的一个阶段，打开这张卡的详情、定位到这一阶段（focus：细节展开，这一块高亮并滚到看得见的地方）；
  * - 聊天里点一个阶段的名字，左边图上那一阶段高亮（onStep → 图上的 mg-focus）。
  */
@@ -10,7 +10,7 @@ import { ACCEPTANCE_METHOD_LABEL, tokensLabel } from "../../model/labels.ts";
 import { type Plan, planStageCodes, stageCodeLabel, t } from "../../state/index.ts";
 
 /**
- * 计划卡和计划栏的联动：定位到哪一阶段（详情里）、点阶段名字时告诉计划栏（会话里）；93 号票的提纲还要：打开一个阶段的阶段详情
+ * 计划卡和计划栏的联动：定位到哪一阶段（详情里）、点阶段名字时告诉计划栏（会话里）；提纲还要：打开一个阶段的阶段详情
  * （onStage，计划确认了、在执行的）、打开这张卡的计划详情并定位到某一阶段（openPlan，还没确认的；不给阶段就是整张卡的详情）
  */
 export interface StageFocusValue {
@@ -30,7 +30,7 @@ export function useStageFocus(): StageFocusValue {
 /** 一份计划里的各阶段 */
 export function PlanStageList({ plan }: { plan: Pick<Plan, "stages" | "stageGroups"> }) {
   const { focus, onStep } = useStageFocus();
-  // 93 号票：编号照计划里存的（之前的计划没存，按依赖图现算）
+  // 编号照计划里存的（之前的计划没存，按依赖图现算）
   const codes = planStageCodes(plan);
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -54,7 +54,7 @@ export function PlanStageList({ plan }: { plan: Pick<Plan, "stages" | "stageGrou
               <span className="muted">
                 {" "}
                 · {s.mode === "steps" ? t("ui.planStages.modeSteps") : t("ui.planStages.modeOpen")}
-                {/* 84 号票：为什么选这种模式（"做法"后面括号里那句） */}
+                {/* 为什么选这种模式（"做法"后面括号里那句） */}
                 {s.modeReason ? t("ui.planStages.modeReason", { reason: s.modeReason }) : ""}
                 {s.dependsOn.length ? t("ui.planStages.after", { stages: s.dependsOn.map((d) => stageCodeLabel(codes, d)).join(t("ui.common.listSep")) }) : ""}
                 {group ? t("ui.planStages.group", { title: group.title }) : ""}

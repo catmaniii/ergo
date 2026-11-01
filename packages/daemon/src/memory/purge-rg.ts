@@ -1,27 +1,27 @@
 // @i18n-ignore-file data：这里的中文是写进推理库修订日志和审计的原因（"为什么撤掉这条"）和日志里的名字，
 // 不是界面模板，也不随界面语言变——留着原文，查的时候能对上是哪一条命令。
-// 彻底删除登记进推理库（234 号票，接入设计第 3、7 节，ADR-0008）。
+// 彻底删除登记进推理库（接入设计第 3、7 节，ADR-0008）。
 //
 // 素材库删掉一条素材时，推理库 rg.db 里还留着从它读出来的证据、抽出来的事实、靠它们推的结论和问过的问题。
 // 这里跟着记忆命令（materials 频道上的 memory_command）做四件事：
-// - 彻底删除（purge）：按素材 id（证据的 sourceRef）找到证据，删证据和只靠它的事实，依赖的结论加复核标记（329 号票：只靠它的推断停用、等整理重推），
+// - 彻底删除（purge）：按素材 id（证据的 sourceRef）找到证据，删证据和只靠它的事实，依赖的结论加复核标记（只靠它的推断停用、等整理重推），
 //   相关问题标过期，写审计（@ergo/memory 的 purge.ts）；删完做 WAL 检查点，原文不留在库里；
 // - 忘掉（forget）：证据清原文、事实撤回，依赖的结论照"来源失效"走（加复核标记、已验证的降回猜测、前提都不在了的撤回）；素材本身留墓碑；
 // - 别推断（no_infer）：那条素材不再参与推断。以后读素材时适配器会跳过它；已经进过库的证据、事实从推理库撤掉
 //   （不然还拿它当依据），依赖的结论同忘掉。取消标记不会把结论恢复成已验证，下一次整理才重新推；
-// - 敏感类别（234 号票）：健康这类默认允许记录、不用于推断；已经进过库的证据在启动时撤掉（健康按 domain=health）。
+// - 敏感类别：健康这类默认允许记录、不用于推断；已经进过库的证据在启动时撤掉（健康按 domain=health）。
 //   以后读素材时适配器跳过没打开的类别；打开某一类之后，下一夜整理重新读那边的素材。v1 只有健康生效。
 //
-// 引擎随用随开（照 225 号票的 nightly-job）：每条命令打开一次 rg.db、做完关掉，不在守护进程里长期握着句柄；
+// 引擎随用随开（照 nightly-job）：每条命令打开一次 rg.db、做完关掉，不在守护进程里长期握着句柄；
 // 版本对不上、库打不开时只在日志里说一句，素材删除照常（推理库之后重建）。
 //
 // 启动时 reconcil 把历史命令补做一遍：记忆插件停用期间下的命令（素材库照样删了）在再启用时补上；
 // 敏感类别也在启动时对一遍（以前进过库的健康证据）。
-// 303 号票：数据源素材读成的证据（出处是素材 id 或 digest:<素材 id,…>，materialIdsOfRef 拆开）也在启动时对一遍——照现在的设置重读一遍
+// 数据源素材读成的证据（出处是素材 id 或 digest:<素材 id,…>，materialIdsOfRef 拆开）也在启动时对一遍——照现在的设置重读一遍
 // （evidence-source.ts 的 dataSourceDraftOf），读不出来了（出处里写的敏感类别没打开）或者原文会变样（位置关了、地点要去掉；
 // 位置开了、要带上地点）的撤掉，下一夜照新的设置重新读进来。
 //
-// 267 号票：推理库这边一律经唯一写入口写（@ergo/memory 的 engine.gate），记成"用户发起"（忘掉、彻底删除、别推断只由用户发起），
+// 推理库这边一律经唯一写入口写（@ergo/memory 的 engine.gate），记成"用户发起"（忘掉、彻底删除、别推断只由用户发起），
 // 经谁转达写进留痕（记忆删除卡、设置页、记忆管理员、删项目 / 删任务时连带、敏感类别设置）。
 import { existsSync } from "node:fs";
 import { DEEPSEEK_DEFAULT_MODEL, type Embedder, type MemoryEngine, type PurgeReport, purgeEvidence, type UserActionOptions } from "@ergo/memory";
@@ -40,13 +40,13 @@ import { openReasoningDb, type ReasoningDbIssue } from "./rg-db.ts";
 export type ReasoningPurgeStore = Pick<EventStore, "read" | "onAppend">;
 
 export interface ReasoningPurgeOptions {
-  /** rg.db 的路径（338 号票起是 <数据目录>/memory/subtext/rg.db；以前在 db 区） */
+  /** rg.db 的路径（是 <数据目录>/memory/subtext/rg.db；以前在 db 区） */
   file: string;
   store: ReasoningPurgeStore;
   clock: Clock;
   /** 配置的 memory 一节（敏感类别） */
   config: MemoryConfig;
-  /** 303 号票：素材库（启动时对数据源素材的证据要按出处取回素材）；不给就不对这一样 */
+  /** 素材库（启动时对数据源素材的证据要按出处取回素材）；不给就不对这一样 */
   materials?: Pick<Materials, "get">;
   /** 向量函数：只在 manifest 里记名字，删除用不到（不给也照常删） */
   embedder?: Embedder;
@@ -66,7 +66,7 @@ export interface ReasoningPurge {
   forgetMaterials(materialIds: readonly string[], by?: UserActionOptions): void;
   /** 别推断：把素材的证据、事实从推理库撤掉，依赖的结论照来源失效走 */
   disableMaterials(materialIds: readonly string[], reason?: string, by?: UserActionOptions): PurgeReport | undefined;
-  // 263 号票删了 purgeFacts（事实不经素材直接彻底删）：234 号票留的接口，一直没有调用方（素材库没有删事实的流程，事实只从素材来）。
+  // 删了 purgeFacts（事实不经素材直接彻底删）：留的接口，一直没有调用方（素材库没有删事实的流程，事实只从素材来）。
   // 要的时候 @ergo/memory 的 purgeFacts 还在。
 }
 
@@ -85,7 +85,7 @@ const issueText = (issue: ReasoningDbIssue): string => {
   }
 };
 
-/** 267 号票：一条记忆命令是经谁下的（写进推理库的留痕；数据，不随界面语言变）——都算用户发起 */
+/** 一条记忆命令是经谁下的（写进推理库的留痕；数据，不随界面语言变）——都算用户发起 */
 export function commandOrigin(payload: MemoryCommandEventPayload): UserActionOptions {
   if (payload.command === "remember") return { actor: "user" };
   switch (payload.from.kind) {
@@ -111,7 +111,7 @@ const SENSITIVE_ORIGIN: UserActionOptions = { actor: "user", via: "敏感类别�
 
 /**
  * 按素材 id 找到证据（sourceRef 是素材 id；忘了的、彻底删掉的也要处理，所以不按状态筛）。
- * 303 号票：几条数据源素材合成的一条（digest:<素材 id,…>）其中一条在里面就算——删一条就撤整条，剩下的下一夜重新合
+ * 几条数据源素材合成的一条（digest:<素材 id,…>）其中一条在里面就算——删一条就撤整条，剩下的下一夜重新合
  */
 function evidenceOf(engine: MemoryEngine, materialIds: readonly string[]) {
   const wanted = new Set(materialIds);
@@ -212,7 +212,7 @@ export function createReasoningPurge(options: ReasoningPurgeOptions): ReasoningP
     },
 
     reconcile() {
-      // 库还没建过就没有要补的（235 号票：memory.enabled = false 时不顺手把 rg.db 建出来；
+      // 库还没建过就没有要补的（memory.enabled = false 时不顺手把 rg.db 建出来；
       // 以前建过的照常补做历史删除和敏感类别）
       if (!existsSync(options.file)) return;
       const commands = options.store.read(MATERIALS_CHANNEL, 0, EVENT_TYPES.memoryCommand);

@@ -1,4 +1,4 @@
-// 个人档案交给记忆这一侧的东西（283 号票，联动的规矩："档案是推理图谱的背景"）。记忆插件经内核服务 KERNEL.personalFiles 取
+// 个人档案交给记忆这一侧的东西（联动的规矩："档案是推理图谱的背景"）。记忆插件经内核服务 KERNEL.personalFiles 取
 // （PersonalFilesForMemory，组合根现转），停用记忆插件不影响档案：
 // - 档案里的人：称呼、别名、关系（事实图谱的人物实体按它对齐；每晚认人物信息时给模型看"已知的人"）；
 // - 档案摘要（background）：每晚整理推理的几步、记忆管理员的系统提示当情境（"有个 6 岁的女儿""刚搬家"），写明不当证据。
@@ -52,7 +52,7 @@ export interface PersonalFilesForMemory {
   onFieldReplaced(listener: (change: FieldReplaced) => void): () => void;
   /** 以前换过的值（每晚对一遍：插件停用期间换的也补上） */
   replacedValues(): FieldReplaced[];
-  /** 收下候选（每晚整理认出来的、访谈里听到的；299 号票起还有"手机"插件交来的用户从通讯录挑的人，301 号票起 Google 插件交来的导入的通讯录 vCard） */
+  /** 收下候选（每晚整理认出来的、访谈里听到的；还有"手机"插件交来的用户从通讯录挑的人，Google 插件交来的导入的通讯录 vCard） */
   addCandidates(origin: "nightly" | "interview" | "contacts" | "vcard", inputs: readonly CandidateInput[]): number;
   /** 把攒着的候选合成核对卡（一天一张） */
   composeCandidates(options?: { date?: string }): string | undefined;

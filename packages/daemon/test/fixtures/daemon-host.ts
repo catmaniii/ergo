@@ -49,15 +49,15 @@ const daemon = await startDaemon({
   localPort: 0,
   externalPort: 0,
   secretaryModel: { kind: "faux", thinkingLevel: "off", script: [] },
-  // 和 startTestDaemon 一样：识别进程是假的、合成服务连不上（45 号票起守护进程一起来就预热，不能拉真的 Python、碰本机 8090）
+  // 和 startTestDaemon 一样：识别进程是假的、合成服务连不上（守护进程一起来就预热，不能拉真的 Python、碰本机 8090）
   recognizerCommand: [process.execPath, FAKE_RECOGNIZER],
-  // 230 号票：参考音色导入的转码也是假的（不跑本机的 ffmpeg）
+  // 参考音色导入的转码也是假的（不跑本机的 ffmpeg）
   ffmpegCommand: [process.execPath, FAKE_FFMPEG, `${args.dataDir}/ffmpeg-test.jsonl`],
   speechUrl: "http://127.0.0.1:1",
-  // 和 startTestDaemon 一样：联网搜索、读网页是假的（不起浏览器、不连真网络），不探测本机的浏览器（70 号票）
+  // 和 startTestDaemon 一样：联网搜索、读网页是假的（不起浏览器、不连真网络），不探测本机的浏览器
   webAccess: fakeWebAccess(),
   browserPath: () => undefined,
-  // 和 startTestDaemon 一样：按设置里的"模型"拉起的目录模型的请求发到连不上的地址，永远不连真的 DeepSeek（73 号票）
+  // 和 startTestDaemon 一样：按设置里的"模型"拉起的目录模型的请求发到连不上的地址，永远不连真的 DeepSeek
   catalogBaseUrl: "http://127.0.0.1:1",
   log:(line) => process.stderr.write(`${line}\n`),
 });

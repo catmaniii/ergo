@@ -3,7 +3,7 @@
 //   哈希不会推给任何前端；
 // - 已配对设备本身（名字、配对和最近使用的时间、有没有吊销）在前端频道 `devices` 上，设置页订阅它。
 // 视图：配对请求（按配对 cookie 的哈希找、按来源数最近的请求）、已配对设备（按凭证的哈希找）、吊销请求的幂等键。
-// 123 号票：删了的设备记录还在（设备 JSON 里有 deletedAt，凭证的哈希也留着，好认出"这个凭证属于一台被删掉的设备"），
+// 删了的设备记录还在（设备 JSON 里有 deletedAt，凭证的哈希也留着，好认出"这个凭证属于一台被删掉的设备"），
 // 只是列表里不出现。
 import { CHANNELS, type DeviceEventPayload, EVENT_TYPES, type PairedDevice } from "@ergo/protocol";
 import type { DerivedView, NewEvent } from "../events/event-store.ts";
@@ -43,7 +43,7 @@ export interface PairingRequestRecord {
   claimBefore?: string;
   /** 领走凭证的那台设备 */
   deviceId?: string;
-  /** 浏览器标识看起来像网络上的自动访问（137 号票）：原因；像普通浏览器的没有 */
+  /** 浏览器标识看起来像网络上的自动访问：原因；像普通浏览器的没有 */
   automated?: { reason: string };
 }
 

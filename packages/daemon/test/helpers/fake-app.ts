@@ -1,4 +1,4 @@
-// 主切面里的"本机服务"（132 号票）：起在随机端口上的一个小 HTTP 服务，扮演项目跑在这台电脑上的服务，测守护进程按 /apps/<应用名>/ 转发。
+// 主切面里的"本机服务"：起在随机端口上的一个小 HTTP 服务，扮演项目跑在这台电脑上的服务，测守护进程按 /apps/<应用名>/ 转发。
 // 每个请求（连同 WebSocket 握手）都记下方法、地址、请求头、请求体，测试据此核对转发过去的样子。地址：
 // - GET /：首页（<title>简报站首页</title>），带挡嵌入的头（X-Frame-Options: DENY、CSP 的 frame-ancestors 'none'）；
 // - /echo…（和 /apps/…：扮演保留前缀的服务）：把收到的方法、地址、请求头、请求体按 JSON 回过去；
@@ -6,7 +6,7 @@
 // - GET /go/<…>：302 跳转，Location 是各种写法（服务自己的绝对地址、localhost、/ 开头的、已经在前缀下的、相对的、别的网站）；
 // - GET /cookie：几条 Set-Cookie（Path=/、带 Domain 的、冒充二狗设备凭证的）；
 // - /socket：WebSocket，收到什么回什么（前面加"回声："）。
-// 133 号票测服务上线时也能用它当"上线的服务"。
+// 测服务上线时也能用它当"上线的服务"。
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { onTestFinished } from "vitest";

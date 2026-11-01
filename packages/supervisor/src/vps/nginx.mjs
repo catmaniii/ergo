@@ -1,4 +1,4 @@
-// VPS 上的 nginx 站点模板（321 号票写，322 的 `lsm vps site add` 接着用）。
+// VPS 上的 nginx 站点模板（写，`lsm vps site add` 接着用）。
 //
 // 每个站点两段：
 //  - 80 端口：/.well-known/acme-challenge/ 指到 ACME_WEBROOT（certbot --webroot 签证书、续期都不用停 nginx），别的一律跳 https；
@@ -170,7 +170,7 @@ ${tlsHead({ domain, listen })}
 `;
 }
 
-// ---------------------------------------------------------------- 通用站点（lsm vps site add，322 号票）
+// ---------------------------------------------------------------- 通用站点（lsm vps site add）
 // https://<域名> → 这台 VPS 本机的 127.0.0.1:<端口>。照二狗自己的模板（packages/daemon/src/deploy/nginx.ts）的要点：
 // WebSocket 升级、Host 原样转发、大上传、请求体不缓冲（边收边转）、长超时、HSTS；真实 IP 覆盖写进 X-Real-IP / X-Forwarded-For。
 // 布局（体检看出来的）：

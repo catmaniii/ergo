@@ -1,5 +1,5 @@
 // 关注类别注册表里用户的部分（内置类别的调整、自定义类别）放在数据目录的配置区：config/watch-categories.json。
-// 配置区是受保护区域，agent 用任何方式都写不进去；改它的是设置页（26 号票的 watch-categories/），守卫只读。
+// 配置区是受保护区域，agent 用任何方式都写不进去；改它的是设置页（watch-categories/），守卫只读。
 // 默认值（内置九类和默认处置）随框架提供，在 watch-categories.ts 里，不写进这个文件。
 import { t } from "@ergo/protocol";
 import fs from "node:fs";

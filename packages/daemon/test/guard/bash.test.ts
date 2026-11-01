@@ -21,7 +21,7 @@ describe("bash 拆成伪工具调用", () => {
     ["git status && git diff HEAD~1", ["git_status_diff", "git_status_diff"]],
     ["git pull", ["git_fetch", "git_merge"]],
     ["git reset --hard HEAD", ["git_discard"]],
-    // 54 号票评审：把分支挪到别的提交、变基、删改分支和标签是改写历史；只给 HEAD 或 -- 之后是文件的是取消暂存
+    // 把分支挪到别的提交、变基、删改分支和标签是改写历史；只给 HEAD 或 -- 之后是文件的是取消暂存
     ["git reset HEAD~1", ["git_rewrite"]],
     ["git reset", ["shell_command"]],
     ["git reset HEAD -- notes.md", ["shell_command"]],

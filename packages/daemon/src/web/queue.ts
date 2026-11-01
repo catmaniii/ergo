@@ -1,7 +1,7 @@
-// 按设置里的队列选方式（162 号票，用户 2026-10-18 定："需要用的时候，排最上面的最优先……enable 的搜索方式，如果第一个失效，
+// 按设置里的队列选方式（"需要用的时候，排最上面的最优先……enable 的搜索方式，如果第一个失效，
 // 就转而使用下一个，按顺序切换"）。纯函数：输入是实际用的顺序（protocol 的 effectiveWebQueue：启用了、用得上的）和这一次调用能不能用
 // 模型自己操作的方式，输出是 web_search / web_fetch 依次试哪几种。
-// - web_search、web_fetch 自己能做的只有 DeepSeek 和浏览器；agent-browser、鸿蒙 App 的内置浏览器（182 号票）是模型自己操作的
+// - web_search、web_fetch 自己能做的只有 DeepSeek 和浏览器；agent-browser、鸿蒙 App 的内置浏览器是模型自己操作的
 //   （bash 里的命令、browse_* 工具），工具做不了，只能告诉模型：
 //   - agent-browser 排第一：模型先用它（工具说明里写）；调了 web_search 就按后面的顺序试；
 //   - 排中间：web_search 试到它前面为止，都没成就停下，回"接下来用它"并写明它后面的（再调时指定 engine）；
@@ -9,11 +9,11 @@
 //   - 只启用了 agent-browser：web_search 不试别的，回"联网搜索现在只用 agent-browser"；
 //   - 这一次用不了（agent-browser 要这个 agent 有 bash；内置浏览器要这一轮是秘书从浏览侧边栏、悬浮按钮来的）：当它不在队列里，
 //     启用的都用不了时说明用不了。
-// - 内置浏览器排第一时（182 号票验收："内置浏览器排第一时，web_search 停下让模型先用 browse_*"）web_search 一种都不试、直接停下——
+// - 内置浏览器排第一时（验收："内置浏览器排第一时，web_search 停下让模型先用 browse_*"）web_search 一种都不试、直接停下——
 //   和 agent-browser 排第一不一样：工具说明是装配时写的、不分哪一轮，模型不一定知道这一轮该先用它，靠 web_search 停下来告诉它
 //   （连同搜索结果页的地址）。
 // - web_fetch 没有指定方式的参数，模型自己操作的方式不打断它：直接请求之后按队列试 DeepSeek、浏览器，都没读到再提示它们。
-// - 显式指定 engine（161 号票报告 §6.3，主会话 2026-10-19 定）：只能用启用着、用得上的；停用了的回"这种方式已停用"，没 key 的
+// - 显式指定 engine：只能用启用着、用得上的；停用了的回"这种方式已停用"，没 key 的
 //   DeepSeek 回没配 key。工具说明、参数里也只写这些（searchEngines），模型不会绕过队列去调。Tavily 不在队列里，配了 key 才写。
 import type { WebMethod } from "@ergo/protocol";
 import { SEARCH_ENGINES, type SearchEngine } from "./search.ts";
@@ -43,7 +43,7 @@ export const isToolMethod = (m: WebMethod): m is ToolMethod => m === "deepseek" 
 
 /**
  * web_search 不指定 engine 时依次试哪几种。queue 是实际用的顺序；agentBrowser 是这个 agent 有没有 bash；appBrowser 是这一轮能不能用
- * 鸿蒙 App 的内置浏览器（秘书、从浏览侧边栏或悬浮按钮来的那一轮，182 号票）
+ * 鸿蒙 App 的内置浏览器（秘书、从浏览侧边栏或悬浮按钮来的那一轮）
  */
 export function searchPlan(queue: readonly WebMethod[], agentBrowser: boolean, appBrowser = false): SearchPlan {
   const usable = queue.filter((m) => isToolMethod(m) || (m === "agent-browser" ? agentBrowser : appBrowser));
@@ -51,7 +51,7 @@ export function searchPlan(queue: readonly WebMethod[], agentBrowser: boolean, a
     const methods = queue.filter((m): m is ModelMethod => !isToolMethod(m));
     return methods.length === 1 && methods[0] === "agent-browser" ? { kind: "only_agent_browser", usable: false } : { kind: "unusable", methods };
   }
-  // 排在最前面的 agent-browser：模型已经先用过它了（说明里写着先用它），调了 web_search 就接着往后试（162 号票）
+  // 排在最前面的 agent-browser：模型已经先用过它了（说明里写着先用它），调了 web_search 就接着往后试
   const start = usable[0] === "agent-browser" ? 1 : 0;
   const methods: ToolMethod[] = [];
   for (let i = start; i < usable.length; i++) {

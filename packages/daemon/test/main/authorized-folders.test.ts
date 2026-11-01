@@ -1,6 +1,6 @@
-// 主切面：授权的文件夹（138 号票）。秘书在聊天里和"浏览"里共用一份（设置 · 授权的文件夹里那一份，local-folders.json；149 号票起
+// 主切面：授权的文件夹。秘书在聊天里和"浏览"里共用一份（设置 · 授权的文件夹里那一份，local-folders.json；
 // "浏览"里悬浮按钮背后也是秘书本人）：
-// - 秘书的聊天里授权走快速动作"授权文件夹"：任何 agent 自己都不能改（2026-10-18 用户定），用户点名了是哪几个文件夹的、没点名的
+// - 秘书的聊天里授权走快速动作"授权文件夹"：任何 agent 自己都不能改，用户点名了是哪几个文件夹的、没点名的
 //   都出待确认的卡（卡上写清哪几个完整路径、进待我处理），用户点"执行"才加；取消授权同样；路径不对的不出卡、原因回给秘书。改完的列表 GET /api/local-folders 照样取得到，"浏览"里的 find_files 在里面找；
 // - 秘书被唤起时带着现在授权了哪几个文件夹（没有写"还没有"），那块写着用快速动作授权；
 // - 设置页：PATCH 加几个、拿掉几个（找不到了的照样留着），选文件夹的框列常用位置、各个盘、子文件夹。
@@ -92,7 +92,7 @@ describe("秘书的聊天里授权", () => {
     await secretaryTurns(frontend, 3);
     expect(lastEcho(frontend)).toContain(`设置 · 授权的文件夹里能看、能改）：\n- ${pictures}\n- ${downloads}`);
 
-    // "浏览"里悬浮按钮上说的（秘书本人，149 号票）：find_files 在这两个文件夹里找到了
+    // "浏览"里悬浮按钮上说的（秘书本人）：find_files 在这两个文件夹里找到了
     const browser = "b-00000000000000aa";
     ok(await frontend.request(METHODS.browserStatus, { browser, page: { title: "上传头像", url: "https://example.cn/upload" } }));
     const avatar = { id: "f1", kind: "file" as const, label: "头像", accept: "image/*" };

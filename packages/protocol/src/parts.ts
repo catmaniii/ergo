@@ -1,4 +1,4 @@
-// 拼附件 part 的小工具（守护进程和 Web 共用；不引用 TypeBox）；文件附件能不能预览（113 号票）。
+// 拼附件 part 的小工具（守护进程和 Web 共用；不引用 TypeBox）；文件附件能不能预览。
 import { t } from "./i18n/runtime.ts";
 import type { MessagePart } from "./schema.ts";
 
@@ -51,13 +51,13 @@ export function partLabel(part: MessagePart): string {
 }
 
 /**
- * 能预览的文本类附件（113 号票）：在报告页渲染着看，不用下载。本版只做 Markdown 和纯文本（csv、json、代码、PDF 列入规划）。
+ * 能预览的文本类附件：在报告页渲染着看，不用下载。本版只做 Markdown 和纯文本（csv、json、代码、PDF 列入规划）。
  */
 export const TEXT_PREVIEW_MIMES = ["text/markdown", "text/plain"] as const;
 export type TextPreviewMime = (typeof TEXT_PREVIEW_MIMES)[number];
 
 /**
- * 浏览器会当页面跑的扩展名：part 上不论写的什么类型都不按文本预览（媒体接口的安全边界不变）。其中 html、htm、svg 117 号票起
+ * 浏览器会当页面跑的扩展名：part 上不论写的什么类型都不按文本预览（媒体接口的安全边界不变）。其中 html、htm、svg
  * 在隔离的沙箱里预览（framePreviewOf），别的只能下载
  */
 const ACTIVE_CONTENT_EXTENSIONS = new Set(["html", "htm", "xhtml", "svg", "svgz", "xml"]);
@@ -74,14 +74,14 @@ export function textPreviewOf(file: { name: string; mime: string }): TextPreview
   return TEXT_PREVIEW_MIMES.find((m) => m === mime);
 }
 
-/** 在隔离的沙箱里预览的附件（117 号票）：HTML 在报告页的 <iframe sandbox> 里打开，SVG 用 <img> 显示 */
+/** 在隔离的沙箱里预览的附件：HTML 在报告页的 <iframe sandbox> 里打开，SVG 用 <img> 显示 */
 export type FramePreview = "html" | "svg";
 
 const FRAME_OF_EXTENSION: Readonly<Record<string, FramePreview>> = { html: "html", htm: "html", svg: "svg" };
 const FRAME_OF_MIME: Readonly<Record<string, FramePreview>> = { "text/html": "html", "image/svg+xml": "svg" };
 
 /**
- * 文件附件能不能在沙箱里预览（117 号票）：有扩展名的只看扩展名（html、htm 是 HTML，svg 是 SVG；xhtml、svgz、xml 这些照旧只能下载），
+ * 文件附件能不能在沙箱里预览：有扩展名的只看扩展名（html、htm 是 HTML，svg 是 SVG；xhtml、svgz、xml 这些照旧只能下载），
  * 没有扩展名的看 part 上的类型（text/html、image/svg+xml）。超过 MEDIA_FRAME_MAX_BYTES 的不预览由调用方看大小。
  * 守护进程的 HTML、SVG 接口和 Web 的附件卡片、报告页都按这一份判断
  */

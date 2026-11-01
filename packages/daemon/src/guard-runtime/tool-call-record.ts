@@ -1,7 +1,7 @@
 // 聊天里的工具调用记录（规格第 5、9 节）：不论结果，每次工具调用在 tool_call_end 时往会话里追加一条工具调用 part——
-// 工具名、参数摘要、命中的关注类别、判定、是否授权内、是否通用 bash、结果，以及做了什么性质的事（只看、动手、删改，54 号票，
-// guard/nature.ts；守卫判定出错的没有）、要动的是对外的事还是本机的敏感权限（外 / 权，93 号票，同一个文件的 toolCallMark）、
-// 任务的 agent 超出授权先不管直接做的（beyondGrant，101 号票）；子代理里的调用带上调用它的那次调用（parentCallId，288 号票）。
+// 工具名、参数摘要、命中的关注类别、判定、是否授权内、是否通用 bash、结果，以及做了什么性质的事（只看、动手、删改，
+// guard/nature.ts；守卫判定出错的没有）、要动的是对外的事还是本机的敏感权限（外 / 权，同一个文件的 toolCallMark）、
+// 任务的 agent 超出授权先不管直接做的（beyondGrant）；子代理里的调用带上调用它的那次调用（parentCallId）。
 // 写进事件日志之前过一遍 CallPrivacy（read-secrets.ts）：读了密钥文件的不记结果，读过的密钥值换成"（密钥）"。
 import { t } from "@ergo/protocol";
 import type { ConversationId, MemoryRecall, MessagePart } from "@ergo/protocol";
@@ -29,32 +29,32 @@ export interface CallState {
   settings: CategoryTitles[];
   /** allowed：放行了；waiting：在等审批；denied：用户拒绝；suspended：等审批超时；blocked：别的原因拦下；aborted：等的时候回合中止 */
   outcome: "allowed" | "waiting" | "denied" | "suspended" | "blocked" | "aborted";
-  /** 被拦下的原因不是处置时：硬拒绝、按规则退回、判定出错；流程里按计划引回、计划检查拦下（59 号票） */
+  /** 被拦下的原因不是处置时：硬拒绝、按规则退回、判定出错；流程里按计划引回、计划检查拦下 */
   blockedBy?: ToolCallPart["blockedBy"];
-  /** 流程执行时和计划比对的结论（59 号票，plan-check.ts） */
+  /** 流程执行时和计划比对的结论（plan-check.ts） */
   plan?: PlanChecked;
-  /** 真的用上了的自动纠偏（60 号票）：按计划改回参数后执行了（rewrite）、引回前置步骤没执行（redirect）；硬拒绝优先时没有 */
+  /** 真的用上了的自动纠偏：按计划改回参数后执行了（rewrite）、引回前置步骤没执行（redirect）；硬拒绝优先时没有 */
   corrected?: "rewrite" | "redirect";
   approvalId?: string;
   /** 用户拒绝时附带的说明 */
   note?: string;
-  /** 这次调用的记录带上的归属：判定那一刻取的（任务里含当时的阶段，25 号票） */
+  /** 这次调用的记录带上的归属：判定那一刻取的（任务里含当时的阶段） */
   scope: MessageScope;
-  /** 放行、开始执行的有副作用的调用：记下的执行记录（23 号票，executions.ts） */
+  /** 放行、开始执行的有副作用的调用：记下的执行记录（executions.ts） */
   execution?: ExecutionRecord;
-  /** 收到判定请求的时间（协议时间）：完整内容里的 startedAt（53 号票） */
+  /** 收到判定请求的时间（协议时间）：完整内容里的 startedAt */
   startedAt?: string;
-  /** 流程里计划检查要问的（计划外会改东西的、超出步骤写的对象），任务的 agent 超出授权先不管放行了（101 号票） */
+  /** 流程里计划检查要问的（计划外会改东西的、超出步骤写的对象），任务的 agent 超出授权先不管放行了 */
   beyondGrant?: true;
   /**
-   * 守卫拦下时给用户看的原因（173 号票）：交回 agent 的原因在中文下写，用户的语言不是中文时这里另存一份用户的语言的，
+   * 守卫拦下时给用户看的原因：交回 agent 的原因在中文下写，用户的语言不是中文时这里另存一份用户的语言的，
    * 工具调用记录的结果摘要用它。用户的语言是中文时不给（摘要照旧取 agent 收到的结果）
    */
   userReason?: string;
-  /** 调用记忆的结构化部分（187 号票：检索素材、读素材执行完交回的）：记在工具调用 part 的 recall 上 */
+  /** 调用记忆的结构化部分（检索素材、读素材执行完交回的）：记在工具调用 part 的 recall 上 */
   recall?: MemoryRecall;
   /**
-   * 运行时自己的工具名和模型给的原样参数（288 号票，宿主协议 23 的 guard_request.native：Claude Code 的 Bash、Read……）：toolName、args 是
+   * 运行时自己的工具名和模型给的原样参数（宿主协议 23 的 guard_request.native：Claude Code 的 Bash、Read……）：toolName、args 是
    * 映射到守卫工具登记表之后的（判定、聊天里的记录按它），完整内容里存原样的。pi 的调用没有
    */
   native?: { toolName: string; args: unknown };
@@ -92,7 +92,7 @@ export function toolCallPart(state: CallState, end: ToolCallEnd, tools: ToolRegi
   const outcome = callOutcome(state, end);
   const shown = (s: string) => (privacy ? privacy.text(s) : s);
   const summary = summaryOf(state, end, privacy?.readsSecretFile === true);
-  // 读了密钥文件、放行执行了的（结果摘要不记内容的那种）：带上标记，界面加 🔒（67 号票）
+  // 读了密钥文件、放行执行了的（结果摘要不记内容的那种）：带上标记，界面加 🔒
   const readsSecretFile = state.outcome === "allowed" && privacy?.readsSecretFile === true;
   return {
     type: "tool_call",
@@ -100,7 +100,7 @@ export function toolCallPart(state: CallState, end: ToolCallEnd, tools: ToolRegi
     tool: state.toolName,
     argsSummary: shown(summarizeArgs(tools, state.toolName, state.args)),
     categoryTitles: (j?.categories ?? []).map((id) => categoryTitle(id, state.settings)),
-    // 类别的 id（173 号票：名字按记下时的语言写，界面、撤回认类别看 id）：命中了才带
+    // 类别的 id（名字按记下时的语言写，界面、撤回认类别看 id）：命中了才带
     ...(j && j.categories.length > 0 ? { categories: [...j.categories] } : {}),
     // 判定出错时没有处置
     ...(j ? { disposition: WIRE_DISPOSITION[j.disposition] } : {}),
@@ -110,14 +110,14 @@ export function toolCallPart(state: CallState, end: ToolCallEnd, tools: ToolRegi
     outcome,
     ...(summary === "" ? {} : { resultSummary: shown(summary) }),
     ...(state.input && j ? { nature: toolNature(state.input, j) } : {}),
-    // 要动的是对外的事还是本机的敏感权限（93 号票）：命中了关注类别的才有
+    // 要动的是对外的事还是本机的敏感权限：命中了关注类别的才有
     ...markOf(state.input, j),
     ...(readsSecretFile ? { readsSecretFile: true } : {}),
     ...(state.plan ? { plan: planOfCall(state) } : {}),
     ...(beyondGrant(state) ? { beyondGrant: true } : {}),
     // 为什么查、查了什么也过一遍隐私处理（和参数摘要一样）
     ...(state.recall ? { recall: recallShown(state.recall, shown) } : {}),
-    // 子代理里的调用（288 号票：Claude Code 的 Agent 工具派出去的）：挂在调用它的那次调用下面
+    // 子代理里的调用（Claude Code 的 Agent 工具派出去的）：挂在调用它的那次调用下面
     ...(end.parentToolCallId === undefined ? {} : { parentCallId: end.parentToolCallId }),
   };
 }
@@ -131,20 +131,20 @@ function recallShown(recall: MemoryRecall, shown: (s: string) => string): Memory
   };
 }
 
-/** 任务的 agent 超出授权、先不管直接做了（101 号票）：放行执行了，守卫的依据里有记 beyondGrant 的，或者流程的计划检查要问的被放过了 */
+/** 任务的 agent 超出授权、先不管直接做了：放行执行了，守卫的依据里有记 beyondGrant 的，或者流程的计划检查要问的被放过了 */
 function beyondGrant(state: CallState): boolean {
   if (state.outcome !== "allowed") return false;
   return state.beyondGrant === true || (state.judgement?.findings.some((f) => f.kind !== "hard_refusal" && f.kind !== "pull_back" && f.beyondGrant === true) ?? false);
 }
 
-/** 工具调用 part 的 mark（93 号票：外 / 权）；判定出错、没命中关注类别的没有 */
+/** 工具调用 part 的 mark（外 / 权）；判定出错、没命中关注类别的没有 */
 function markOf(input: GuardInput | undefined, j: GuardJudgement | undefined): { mark?: ToolCallPart["mark"] } {
   const mark = input && j ? toolCallMark(input, j) : undefined;
   return mark === undefined ? {} : { mark };
 }
 
 /**
- * 流程里这次调用和计划比对的结果（60 号票：每次调用记下对上的步骤、是否计划外、判定、修回）：
+ * 流程里这次调用和计划比对的结果（每次调用记下对上的步骤、是否计划外、判定、修回）：
  * 算在哪一步、计划里没有这个工具的步骤、查出的问题里没被放行的那几种的类别、真的用上了的自动纠偏
  */
 function planOfCall(state: CallState): NonNullable<ToolCallPart["plan"]> {

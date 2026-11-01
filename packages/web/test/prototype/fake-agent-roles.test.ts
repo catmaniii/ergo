@@ -1,4 +1,4 @@
-// 原型里删在用的角色（371）：报错和真的守护进程一样写 agent 的叫法（项目「记账本」的负责人），不写编号（project-ledger），秘书写名字不写占位。
+// 原型里删在用的角色：报错和真的守护进程一样写 agent 的叫法（项目「记账本」的负责人），不写编号（project-ledger），秘书写名字不写占位。
 import { describe, expect, test, vi } from "vitest";
 import { FakeDaemonHttp } from "../../src/prototype/fake-http.ts";
 import { ASSISTANT_NAME_MARK } from "../../src/state/index.ts";

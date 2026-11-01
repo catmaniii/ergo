@@ -1,4 +1,4 @@
-// token 账本（规格第 2 节的模块"token 账本"、第 16 节，24 号票）：逐次记用量、汇总。
+// token 账本（规格第 2 节的模块"token 账本"、第 16 节）：逐次记用量、汇总。
 // - 记一条：agent 管家收到子进程的 usage（每次模型调用一条，压缩会话那次也报）交给 record，连同拉起 agent 的模块给的归属。
 //   输入分成命中缓存的（cacheRead）和没命中的（input + cacheWrite，ledgerTokens）；任务名下的记上这次调用算哪个阶段；
 //   用途（干活、范围审视、压缩）照子进程报的记。记在 ledger 频道（守护进程内部），派生视图 token_ledger。
@@ -7,11 +7,11 @@
 //   任务卡、作业卡上的总量和任务详情里的细分都来自它。项目名下的（项目负责人不在任务里时）只进账本。
 //   合计只从派生视图的 SQL 聚合出（views.ts 的 ownerTotals）。
 // - 消耗页：选一个时间范围（含两头的日期）按天、按 agent 汇总，系统开销、未归属单列；成本是粗估（pricing.ts）：
-//   配置里写了单价的 = 用量 × 配置的单价（每次现读配置，不分时段）；没写的用框架自带的价格表（94 号票：DeepSeek，
+//   配置里写了单价的 = 用量 × 配置的单价（每次现读配置，不分时段）；没写的用框架自带的价格表（DeepSeek，
 //   每一笔按记账时间落在高峰还是空闲时段算，法定节假日看节假日数据）。
-// - 按次计费的联网调用（154 号票）：DeepSeek 的联网搜索、读网页每次成功的一条（web_call 事件，派生视图 web_call_ledger），
+// - 按次计费的联网调用：DeepSeek 的联网搜索、读网页每次成功的一条（web_call 事件，派生视图 web_call_ledger），
 //   记在发起调用的 agent 名下（归属同上）；消耗页的 web 一节按种类、按 agent 给次数和粗估成本，不进 token 的合计。
-// - 给 14 号票（预算的阈值）：stageTokens(taskId, stageId, { budget: true }) 是某个阶段干活用掉的 token（不算评审、范围审视）；
+// - 给预算的阈值：stageTokens(taskId, stageId, { budget: true }) 是某个阶段干活用掉的 token（不算评审、范围审视）；
 //   onRecorded(fn) 每记一条叫一次。两边同源：都来自子进程上报的这一条用量。
 import {
   addTokens,
@@ -66,7 +66,7 @@ export interface TokenLedgerOptions {
   /** 节假日数据（框架自带的加导入的，工作日历用的那一份）：自带价格表的高峰时段要扣掉国内法定节假日 */
   holidays: () => readonly HolidayYear[];
   /**
-   * 触发登记属于哪个定时触发的任务（76 号票：每次运行的输入带着登记的身份，用量记在任务名下，"消耗页按任务记账"）；
+   * 触发登记属于哪个定时触发的任务（每次运行的输入带着登记的身份，用量记在任务名下，"消耗页按任务记账"）；
    * 还没迁移的定时作业是 undefined，照旧记在作业名下。不给就都记在作业名下
    */
   taskOfJob?: (jobId: string) => string | undefined;
@@ -77,19 +77,19 @@ export interface TokenLedger {
   /** 记一次模型调用的用量（agent 管家的 onUsage 接到这里） */
   record(usage: AgentUsage): void;
   /**
-   * 记一次按次计费的联网调用（154 号票：联网工具在 DeepSeek 的搜索、读网页成了时叫）：归属和 token 用量同一套算法；
+   * 记一次按次计费的联网调用（联网工具在 DeepSeek 的搜索、读网页成了时叫）：归属和 token 用量同一套算法；
    * 不进 token 的合计、看板，不叫 onRecorded
    */
   recordWebCall(call: AgentWebCall): void;
   /**
-   * 记一次插件追加在 agent 输入后面的上下文（266 号票：每条消息的记忆简报）估了多少 token：已经算在那个 agent 这一轮的输入里，
+   * 记一次插件追加在 agent 输入后面的上下文（每条消息的记忆简报）估了多少 token：已经算在那个 agent 这一轮的输入里，
    * 另记一笔给用量页单列；model 取它最近一次干活用的模型（算钱用）。不进 token 的合计、看板，不叫 onRecorded
    */
   recordContextUsage(usage: AgentContextUsage): void;
   /** 账本里的条目，按记账的先后；给了 owner 只要它名下的（null 是不在任何名下的：系统开销和未归属） */
   entries(owner?: LedgerOwner | null): LedgerEntry[];
   /**
-   * 某个 agent 最近一次这几种用途的调用（114 号票：⚙ 里的上下文用量是最近一次干活的调用，上次压缩是最近一次压缩的那次）；
+   * 某个 agent 最近一次这几种用途的调用（⚙ 里的上下文用量是最近一次干活的调用，上次压缩是最近一次压缩的那次）；
    * 只看全局序号大于 afterSeq 的（这段会话里的：清空、重置负责人之后）；没有是 undefined
    */
   lastOf(agentId: string, purposes: readonly LedgerPurpose[], afterSeq?: number): LedgerEntry | undefined;
@@ -97,10 +97,10 @@ export interface TokenLedger {
   totals(owner: LedgerOwner): TokenTotalsEventPayload | undefined;
   /**
    * 某个任务的某个阶段用掉了多少 token（命中 + 未命中 + 输出）；budget 为真是预算用的那个数（没命中缓存的输入 + 输出 + 命中缓存的
-   * 十分之一，361 号票）、只算干活的部分（不算评审、范围审视），预算比较用它
+   * 十分之一）、只算干活的部分（不算评审、范围审视），预算比较用它
    */
   stageTokens(taskId: string, stageId: string, options?: { budget?: boolean }): number;
-  /** 单次计量（361 号票）：这个 agent 现在一次调用大约记多少 token、大约多少钱 */
+  /** 单次计量：这个 agent 现在一次调用大约记多少 token、大约多少钱 */
   callMeter(agentId: string): CallMeter;
   /** 消耗页：from 到 to（YYYY-MM-DD，含两头）按天、按 agent 的汇总，系统开销、未归属单列，粗估成本 */
   summary(range: { from: string; to: string }): UsageSummary;
@@ -108,7 +108,7 @@ export interface TokenLedger {
   onRecorded(listener: (entry: LedgerEntry) => void): () => void;
 }
 
-/** 一次调用大约记多少（361 号票）：perCall 是预算用的那个数；costPerCall 按账本单价算，模型没有单价（自定义模型）、还没调用过时没有 */
+/** 一次调用大约记多少：perCall 是预算用的那个数；costPerCall 按账本单价算，模型没有单价（自定义模型）、还没调用过时没有 */
 export interface CallMeter {
   perCall: number;
   costPerCall?: { amount: number; currency: string };
@@ -232,7 +232,7 @@ const webCostOf = (a: UsageWebAgentRow) => a.search.cost + a.fetch.cost;
 const webCallsOf = (a: UsageWebAgentRow) => a.search.calls + a.fetch.calls;
 
 /**
- * 消耗页的 web 一节（154 号票）：范围里按种类、按 agent 的联网调用次数和粗估成本（次数 × 每次的单价）；
+ * 消耗页的 web 一节：范围里按种类、按 agent 的联网调用次数和粗估成本（次数 × 每次的单价）；
  * 单价用不了（配置里的货币不是人民币）时不算钱、标出来
  */
 function webSummary(rows: ReturnType<typeof webCallRows>, pricing: SummaryPricing): UsageWeb {
@@ -264,7 +264,7 @@ function webSummary(rows: ReturnType<typeof webCallRows>, pricing: SummaryPricin
 }
 
 /**
- * 用量页的"记忆简报"一项（266 号票）：带了几次、估的 token、粗估的钱——按带进去那一次没命中缓存算（之后留在会话里每次照样读、命中缓存，
+ * 用量页的"记忆简报"一项：带了几次、估的 token、粗估的钱——按带进去那一次没命中缓存算（之后留在会话里每次照样读、命中缓存，
  * 不另算）；模型是秘书记账时最近一次干活用的，还不知道（空串）的不算钱
  */
 function memoryBriefSummary(rows: ReturnType<typeof contextUsageRows>, pricing: SummaryPricing): UsageMemoryBrief {

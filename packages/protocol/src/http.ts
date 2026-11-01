@@ -13,99 +13,99 @@
 //
 // 下载：GET /api/media/<媒体 id>，支持 Range（206）。
 //
-// 文本类附件的内容（113 号票，报告页用）：GET /api/media/<媒体 id>/text 回 JSON（MediaTextView，http-schema.ts），
+// 文本类附件的内容（报告页用）：GET /api/media/<媒体 id>/text 回 JSON（MediaTextView，http-schema.ts），
 // 不让浏览器直接渲染文件。只按媒体 id 取（内容寻址，不接受路径）；名字和类型以消息里最近一次引用它的文件 part 为准，
 // 能预览的（parts.ts 的 textPreviewOf：Markdown、纯文本）才给，别的回 415（unsupported_type）。超过 MEDIA_TEXT_MAX_BYTES
 // 的只给开头（truncated）；按严格的 UTF-8 解，解不出来回 422（undecodable），不吐乱码。媒体接口本身的内联规矩不变。
-// 117 号票：HTML、SVG 附件也能预览，在隔离的沙箱里看——内容接口对它们只回名字、大小这些和 frame（不给 text），报告页按 frame
+// HTML、SVG 附件也能预览，在隔离的沙箱里看——内容接口对它们只回名字、大小这些和 frame（不给 text），报告页按 frame
 // 用下面两个接口在框里显示；超过 MEDIA_FRAME_MAX_BYTES 的不预览（413 too_large），只能下载：
 // - GET /api/media/<媒体 id>/html：HTML 原样发出（末尾加一小段让链接在新窗口打开的脚本），带沙箱的 CSP（HTML_PREVIEW_SANDBOX，
 //   不给 allow-same-origin：页面是一个"陌生来源"，拿不到二狗的 cookie、本地存储；也不能把整页导航走）、frame-ancestors 'self'；
-//   用户 2026-10-13 定页面功能不加限制：脚本可以 eval、能从外网（https:、wss:）取数据、表单能提交到 https:。网关照旧不接受
+//   页面功能不加限制：脚本可以 eval、能从外网（https:、wss）取数据、表单能提交到 https:。网关照旧不接受
 //   Origin: null 的请求，框里就算连二狗的地址也被拒。报告页用 <iframe sandbox> 指向它；
 // - GET /api/media/<媒体 id>/svg：SVG 原样以 image/svg+xml 发出，带 default-src 'none'; style-src 'unsafe-inline'; sandbox，
 //   报告页用 <img> 显示（<img> 里的 SVG 不跑脚本）。
 // 两个都只按媒体 id 取，名字、类型同样以最近一次引用它的文件 part 为准，part 上不是这种的回 415；媒体接口 /api/media/<id>
 // 原来的规矩（只内联认得的图片和音频，别的一律作为附件下载）不变。
 //
-// 设置里按会话、按时间段删除素材（21 号票）：POST /api/materials/scope 看范围里有几条（和有素材的会话），
+// 设置里按会话、按时间段删除素材：POST /api/materials/scope 看范围里有几条（和有素材的会话），
 // POST /api/materials/delete 对范围内的全部素材执行一种删法（请求体带幂等键，重发只执行一次）。
-// 158 号票：POST /api/materials/list 列出范围里的素材（一页，新的在前），GET /api/materials/<素材 id> 看一条的完整内容和来源；
+// POST /api/materials/list 列出范围里的素材（一页，新的在前），GET /api/materials/<素材 id> 看一条的完整内容和来源；
 // 在详情里删这一条还是 /api/materials/delete，范围是 { kind: "material", materialId }。
-// 165 号票：POST /api/materials/web-page 把"浏览"里开着的一页存进素材（标题、地址、正文；请求体带幂等键，重发只存一次），
+// POST /api/materials/web-page 把"浏览"里开着的一页存进素材（标题、地址、正文；请求体带幂等键，重发只存一次），
 // 回这一页的编号和它采成的素材 id。
 //
-// 记忆的推理库（233 号票，只读，形状见 memory.ts）：GET /api/memory/summary 是概览（各层、各状态各几条、问题箱开着几个、
+// 记忆的推理库（只读，形状见 memory.ts）：GET /api/memory/summary 是概览（各层、各状态各几条、问题箱开着几个、
 // 最近一次整理的时间和新增条数）；GET /api/memory/claims?tier=&status=&limit= 是结论列表（一页，最多 MEMORY_CLAIMS_MAX 条）；
 // GET /api/memory/claims/<编号> 是一条结论的完整解释（证据链、支持/反对、只当背景的、竞争解释、推理、修订）；
 // GET /api/memory/questions?limit= 是问题箱（问什么、为什么问、能区分哪几条、优先级、状态）。
 // 四个都只读：推理库还没建、版本对不上、正被每晚整理占着的时候照旧 200，数据是空的、ready 是 false、reason 是一句原因；
 // 一条结论没有时（ready 着）回 404。每一页取一次（不缓存：每晚整理完结论会变）。
 //
-// 设置里的工作日历（29 号票）：GET /api/workday-calendar?month=2026-10 按月看每天上班或休息及原因；
+// 设置里的工作日历：GET /api/workday-calendar?month=2026-10 按月看每天上班或休息及原因；
 // POST /api/workday-calendar 改个人设置（加删额外规则、把某天标成上班或休息、清掉标记）。改动本身是幂等的
 // （同一条规则只有一份、同样的标记再标没有变化），所以不带幂等键；改了之后工作日历频道上推一条 workday_settings 事件。
 //
-// 主导航的日历（35 号票）：GET /api/calendar?month=2026-10 按月给出每一天的日历条目——上班或休息及原因、当天的简单提醒、
+// 主导航的日历：GET /api/calendar?month=2026-10 按月给出每一天的日历条目——上班或休息及原因、当天的简单提醒、
 // 当天的定时作业（时间表展开到当天，跑过的带着这一次的结果），连同算的时候任务看板、工作日历两个频道的序号（前端据此知道旧没旧）。
 //
-// 消耗页（24 号票）：GET /api/usage?from=2026-10-01&to=2026-10-08 选定范围（含两头）按天、按 agent 的 token 汇总，
+// 消耗页：GET /api/usage?from=2026-10-01&to=2026-10-08 选定范围（含两头）按天、按 agent 的 token 汇总，
 // 秘书单列为系统开销，成本是用量乘配置里的单价（每次现读配置，粗估）。
 //
-// 设置里的语音页（32 号票）：参考音色（个人数据，数据目录的 voices 区）。GET /api/reference-voices 列出来（和现在用哪一个）；
+// 设置里的语音页：参考音色（个人数据，数据目录的 voices 区）。GET /api/reference-voices 列出来（和现在用哪一个）；
 // POST /api/reference-voices 导入一个（名字、逐字稿、WAV 的 base64，同样的录音和名字再导一次拿到同一个）；
 // POST /api/reference-voices/<id>/select 选它；DELETE /api/reference-voices/<id> 删掉；GET /api/reference-voices/<id>/audio 试听参考录音。
 //
-// 设置里的个人助理的名字（43 号票）：POST /api/assistant-name 改名（请求体 { name }，按 checkAssistantName 的规则查，
+// 设置里的个人助理的名字：POST /api/assistant-name 改名（请求体 { name }，按 checkAssistantName 的规则查，
 // 不合规回 400）。改动本身是幂等的（同样的名字再改没有变化），所以不带幂等键；改了之后名字频道上推一条 assistant_name 事件。
 // 现在的名字从频道上来（前端一打开就订阅），不另设 GET。
 //
-// 我的名字（249 号票）：用户**自己**的名字（和上面那个"助理的名字"是两回事）。GET /api/user-name 取（{ name? }，没设就没有 name），
+// 我的名字：用户**自己**的名字（和上面那个"助理的名字"是两回事）。GET /api/user-name 取（{ name? }，没设就没有 name），
 // PUT /api/user-name 改（请求体 { name }，null 或者空串 = 清除，按 checkUserName 的规则查，不合规回 400）。不走事件：改动本身幂等，
 // 界面打开页面时取一次、改了的那台设备用返回里的那个（别的设备要等它自己再取）。
 //
-// 个人档案（281 号票，schema 见 personal-files-schema.ts）：GET /api/personal-files 列出（本人那份在最前）、POST 加一个重要的人；
+// 个人档案（schema 见 personal-files-schema.ts）：GET /api/personal-files 列出（本人那份在最前）、POST 加一个重要的人；
 // GET /api/personal-files/<编号> 取一份、POST 改（写字段、记下一件事、撤销一个字段最近一次写入；改了就算用户确认）；
 // POST /api/personal-files/<编号>/delete 删（整个人、一个字段、一件事；忘掉或彻底删除，彻底删除可以连出处的原话一起）。
-// 不走前端频道，和"我的名字"一样打开页面时取、改完用接口回的那份。283 号票：POST 改的多了 set_reminder（生日、纪念日的每年提醒）；
+// 不走前端频道，和"我的名字"一样打开页面时取、改完用接口回的那份。POST 改的多了 set_reminder（生日、纪念日的每年提醒）；
 // GET /api/personal-files/<编号>/learned 取"二狗了解到的"（经记忆插件现取，插件没启用时 ready 是 false、写明原因）。
 //
-// 多语言（168 号票，请求体和响应体见 i18n-schema.ts）：GET /api/locales 是设置 · 语言要的（选的、实际在用的、有哪些语言、
+// 多语言（请求体和响应体见 i18n-schema.ts）：GET /api/locales 是设置 · 语言要的（选的、实际在用的、有哪些语言、
 // ~/.ergo/locales 的真实路径、读语言文件出的问题）；GET /api/locale 是网页的词典（实际在用的语言，合好的，只有网页用到的区域）；
 // POST /api/language 换语言（请求体 { language }，只能选列表里有的，不然 400）。改动本身是幂等的，不带幂等键；
 // 改了之后语言频道上推一条 language 事件和一条临时事件 locale。
 //
-// 分段合成（38 号票）：GET /api/agent-voices/<agent 语音 id>/segments/<第几段> 取一段合成好的音频（audio/wav，不缓存）。
+// 分段合成：GET /api/agent-voices/<agent 语音 id>/segments/<第几段> 取一段合成好的音频（audio/wav，不缓存）。
 // 段的音频是临时的：这条语音合成完了，等下一条语音合成完（或者守护进程重启）就删掉，重播、下载用拼好的完整音频（媒体）。
 //
-// 设置里的 skill 库页（27、72 号票）：GET /api/toolkit-catalog 列出 skill 库（集合显示成一项）和登记的 MCP；
+// 设置里的 skill 库页：GET /api/toolkit-catalog 列出 skill 库（集合显示成一项）和登记的 MCP；
 // POST /api/skills/import 导入一个 skill（可以改名）或把一个目录作为集合整套导入；GET、POST /api/skills/secretary 看、改秘书用的 skill
 // （整份名单，改动本身幂等，不带幂等键；改了之后秘书做完手头这一条就按新名单重新装配）。
 //
-// 输入框里打 / 弹出的候选（82 号票）：GET /api/conversations/<会话>/slash-commands 给出这个会话能用的斜杠命令
+// 输入框里打 / 弹出的候选：GET /api/conversations/<会话>/slash-commands 给出这个会话能用的斜杠命令
 // （二狗自己的命令和这个会话能用的 skill，SlashCommandList），每次弹出时现取（工具包随时会变）。
 //
-// 工具调用的完整参数和返回（53 号票，详情页用）：GET /api/tool-calls/<调用 id> 取 ToolCallDetail（http-schema.ts）。
+// 工具调用的完整参数和返回（详情页用）：GET /api/tool-calls/<调用 id> 取 ToolCallDetail（http-schema.ts）。
 // 调用 id 就是聊天里工具调用 part 的 callId（按 encodeURIComponent 写进路径，什么字符都行）；没有这次调用的完整内容
-// （本票之前的调用、不是经守卫的调用）回 404。消息里的工具调用 part 照旧只带摘要。
+// （以前的调用、不是经守卫的调用）回 404。消息里的工具调用 part 照旧只带摘要。
 // 向后兼容：以后只加可选字段，前端认不得的字段不管、没有的可选字段当作没有。
-// 完整内容有保留期和总量上限（65 号票）：过了保留期的、超出总量上限时从最旧的起，只剩摘要（ToolCallDetail.cleared 注明原因），
+// 完整内容有保留期和总量上限：过了保留期的、超出总量上限时从最旧的起，只剩摘要（ToolCallDetail.cleared 注明原因），
 // 接口照样回 200。设置里：GET /api/tool-call-storage 看占了多大、保留多久、照现在的规则清会清掉多少（ToolCallStorageView）；
 // POST /api/tool-call-storage/cleanup 是"现在就清理"：按现在的规则马上清一次（不带请求体，再点一次没有可清的就什么都不做，
 // 所以不带幂等键），回清了多少（ToolCallCleanupResult）。
 //
-// 设置里的"备份"（335 号票，响应体见 backup-schema.ts）：GET /api/backup 看现在的状况（BackupStatusView）；POST /api/backup/run 是
+// 设置里的"备份"（响应体见 backup-schema.ts）：GET /api/backup 看现在的状况（BackupStatusView）；POST /api/backup/run 是
 // "立即备份"：守护进程排一次（和它自己到点的那次同一条队列、同一把锁，不叠着跑；已经排着一次就不再排），不等做完，马上回现在的状况
 // （queued），页面接着取到做完为止。不带请求体，不带幂等键（重复点只多排不了）。
-// 356 号票起备份是单独一页（请求体、响应体同样见 backup-schema.ts）：PATCH /api/backup/config 改另存的文件夹、时刻、谁来定时；
+// 备份是单独一页（请求体、响应体同样见 backup-schema.ts）：PATCH /api/backup/config 改另存的文件夹、时刻、谁来定时；
 // POST /api/backup/check-folder 选文件夹时校验；GET /api/backup/snapshots 列快照；POST /api/backup/verify 手动校验（和备份同一条队列、
 // 同一把锁，不等做完）；POST /api/backup/open 在电脑上打开本机备份区或另存的文件夹。
 //
-// 设置里的系统提示（71 号票，请求体和响应体见 system-prompt-schema.ts）：GET /api/system-prompts 列出全部；
+// 设置里的系统提示（请求体和响应体见 system-prompt-schema.ts）：GET /api/system-prompts 列出全部；
 // GET /api/system-prompts/<编号> 取一份；PUT 保存（{ content }，占位符写错回 400）；DELETE 恢复默认。改动本身是幂等的
 // （同样的内容再存一遍、已经是默认的再恢复默认都没有变化），所以不带幂等键。
 //
-// 设置里的"模型"（73 号票）：GET /api/model-settings 取设置页要的全部（ModelSettingsView：服务商登记表、API key 的状态——
+// 设置里的"模型"：GET /api/model-settings 取设置页要的全部（ModelSettingsView：服务商登记表、API key 的状态——
 // 只说配没配、从哪来，没有 key 的内容——、可选的模型和各自能不能看图、设置、各个 agent 实际会用的）；POST /api/model-settings
 // 整份存（请求体 ModelSettingsBody，回 ModelSettingsView；同样的再存没有变化，所以不带幂等键），改了以后下一个新会话生效；
 // POST /api/model-settings/test 是连通测试（请求体 ModelTestBody：测哪个模型，不给是默认模型），回 ModelTestResult
@@ -114,50 +114,50 @@
 // provider 是 custom 时必须有；连通测试的请求体也能带一块 custom（设置页还没存就想试一下，不带就按设置里存的），
 // 测的是它里面的 modelId。另外多一个列出这个服务商有哪些模型的接口（给设置页的下拉用，见下面的 modelSettingsCustomModels）：它是守护进程
 // 直接发的一次 GET {baseUrl}/models，不经过模型（也不花 token）。
-// 模型的 key（315、319 号票）：GET /api/model-settings/key 只说配没配（ModelKeyView）；POST /api/model-settings/key 是在网页上填一个
+// 模型的 key：GET /api/model-settings/key 只说配没配（ModelKeyView）；POST /api/model-settings/key 是在网页上填一个
 // （请求体 ModelKeyBody：{ key }，去掉首尾空白后 8 到 400 个字符，不然 400；响应 ModelKeyWriteResult：effective 是 now / restart）。
 // 不带 provider 时按设置里选的服务商写它的密钥文件（deepseek 或自定义服务商 custom），带了就写点名那个（不是登记表里的回 400）；
 // 权限收紧、先写临时文件再改名；key 原样不回显、不进日志、不进错误信息。
 //
-// 设置里 agent 的联网搜索、读网页（154 号票；162 号票起是 DeepSeek、浏览器、agent-browser 三种方式的队列）：GET /api/web-settings 取
+// 设置里 agent 的联网搜索、读网页（是 DeepSeek、浏览器、agent-browser 三种方式的队列）：GET /api/web-settings 取
 // （WebSettingsView：存着的队列、实际用的顺序、DeepSeek 的 key 配没配、最近一次余额不足）；POST /api/web-settings 整份存（请求体
 // WebSettingsBody，回 WebSettingsView；同样的再存没有变化，不带幂等键；三种不是各一项、一个启用的都没留回 400），下一次搜索、读网页就按新的。
 //
-// 长程任务的阶段详情（84 号票）：GET /api/tasks/<任务 id>/stages/<阶段 id> 取守护进程那边才有的几样（TaskStageView，http-schema.ts）——
+// 长程任务的阶段详情：GET /api/tasks/<任务 id>/stages/<阶段 id> 取守护进程那边才有的几样（TaskStageView，http-schema.ts）——
 // 这一阶段的授权项各用了几次（守卫计次的口径）、从这里重做会重开哪些阶段、这几个阶段这一轮已经做了的事（效果日志里的，分本机、对外）。
 // 每次打开阶段详情、点"从这里重做"时现取，不缓存。
 //
-// 每个 agent 的会话里的 ⚙（114 号票，请求体和响应体见 agent-settings-schema.ts）：GET /api/agents/<agent id> 取面板要的全部；
+// 每个 agent 的会话里的 ⚙（请求体和响应体见 agent-settings-schema.ts）：GET /api/agents/<agent id> 取面板要的全部；
 // PUT /api/agents/<agent id>/prompt 存这个 agent 单独的提示词（{ mode, content }，占位符写错回 400），DELETE 恢复用通用模板
 // （改动本身幂等，不带幂等键）；POST /api/agents/<agent id>/clear 清空当前对话（请求体带幂等键，重发只清一次）；
 // POST /api/agents/<agent id>/compact 现在压缩（不带请求体；已经在等、在压时再点没有变化，所以不带幂等键）；
-// PUT /api/agents/<agent id>/model 项目、任务的负责人单独配模型（{ modelId, thinkingLevel }，120 号票），DELETE 改回跟随它那一行
+// PUT /api/agents/<agent id>/model 项目、任务的负责人单独配模型（{ modelId, thinkingLevel }），DELETE 改回跟随它那一行
 // （改动本身幂等，不带幂等键）。都回 AgentSettingsView。
 //
-// 每个 agent 自己的名字和音色（241 号票，请求体和响应体见 agent-profiles-schema.ts）：GET /api/agent-profiles 列出全部能配的 agent
+// 每个 agent 自己的名字和音色（请求体和响应体见 agent-profiles-schema.ts）：GET /api/agent-profiles 列出全部能配的 agent
 // （秘书、每个在的项目负责人、每个在的任务负责人……按 agent id 来，不写死名单），带着每个人的名字和音色以及来源（自己配的 / 跟默认）；
 // PUT /api/agent-profiles/<agent id> 改一个（{ name?, voiceId? }，null 或是不写这一项 = 恢复跟默认），回同样的 AgentProfilesView。
-// 名字不合规、音色不存在回 400 带原因。全局的名字（43）和全局选中的音色（31）还是默认，没配的 agent 跟着它走。
+// 名字不合规、音色不存在回 400 带原因。全局的名字和全局选中的音色还是默认，没配的 agent 跟着它走。
 //
-// 网页现在是哪一版（116 号票）：GET /api/web-version 回 WebVersionView（http-schema.ts）——守护进程提供的 index.html 里的版本号
+// 网页现在是哪一版：GET /api/web-version 回 WebVersionView（http-schema.ts）——守护进程提供的 index.html 里的版本号
 // （web-version.ts），没有就不带。页面切回前台时问一次（不等 WebSocket 推），和自己的对不上就提示刷新。由网关自己回（和 /api/access 一样），
 // 外网端口上要设备凭证。
 //
-// Debug 工具集的语音组（124 号票，请求体和响应体见 debug-schema.ts）：POST /api/debug/recognize 把录的一段（base64）交给识别进程，
+// Debug 工具集的语音组（请求体和响应体见 debug-schema.ts）：POST /api/debug/recognize 把录的一段（base64）交给识别进程，
 // 回识别出的文字和耗时；POST /api/debug/speak 用当前参考音色合成念一句，回 WAV（base64）和耗时。都不经会话（不进秘书的上下文），
 // 识别不了、合成不了也回 200（ok: false 和原因）。外网端口上和别的接口一样要设备凭证。
 //
-// 网页上下指令（134 号票，请求体和响应体见 page-commands.ts）：POST /api/page-command 交一次指令（打的字或录的一段语音、页面和框），
+// 网页上下指令（请求体和响应体见 page-commands.ts）：POST /api/page-command 交一次指令（打的字或录的一段语音、页面和框），
 // 回要填的字、要交的文件和一句话（页面助手出错、没认出说了什么也是 200，ok: false 和原因）；GET /api/page-files/<取件码> 下载要交的
-// 一个文件（取件码几分钟内有效，只认这次指令选中的文件）；GET / PUT /api/local-folders 看、改授权的文件夹（138 号票起叫这个名字），
+// 一个文件（取件码几分钟内有效，只认这次指令选中的文件）；GET / PUT /api/local-folders 看、改授权的文件夹（叫这个名字），
 // PATCH 加几个、拿掉几个，GET /api/local-folders/browse?path=… 列守护进程那台电脑上的子文件夹（设置页选文件夹的框用）。
 // 外网端口上和别的接口一样要设备凭证。
 //
-// 项目规范（258 号票，形状见 project-standard.ts）：GET /api/projects/<项目编号>/standard 只读，回 ProjectStandardView——建档时用的模板版本、
+// 项目规范（形状见 project-standard.ts）：GET /api/projects/<项目编号>/standard 只读，回 ProjectStandardView——建档时用的模板版本、
 // 规范里每份文档在不在和最近修改时间（必须有的几份标出来，还是模板原样的标出来）、当前状态的检查清单进度、本项目的规范改写。
 // 每次现算（档案里的文件随时会改，不缓存）；没有这个项目（删掉了的也是）回 404。
 //
-// 设置 · 组件（323 号票，形状见 components.ts）：GET /api/components 是清单里的全部组件现在的样子（装了没有、多大、哪个版本、
+// 设置 · 组件（形状见 components.ts）：GET /api/components 是清单里的全部组件现在的样子（装了没有、多大、哪个版本、
 // 下载进度）；POST /api/components 装上照默认该装的；POST /api/components/<id> 装、更新、删、暂停、继续、取消；
 // POST /api/component-import 离线导入这台电脑上的一个文件、文件夹或 .tar / .tgz 包（按清单里的大小和校验值认）。
 // 下载在守护进程里做，正在下的时候网页每秒取一次。
@@ -166,27 +166,27 @@
 export const DEFAULT_MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
 
 /**
- * 工具调用的完整参数和返回里单个值的上限（UTF-8 字节，53 号票）：返回的文字、参数里的每个字符串各算一个值，
+ * 工具调用的完整参数和返回里单个值的上限（UTF-8 字节）：返回的文字、参数里的每个字符串各算一个值，
  * 超过的只留开头这么多，末尾注明"已截断"和原长（ToolCallDetail.truncated 里也列出）
  */
 export const TOOL_CALL_VALUE_MAX_BYTES = 200 * 1024;
 
 /**
- * 完整内容为什么清掉了（65 号票，ToolCallDetail.cleared.reason）：过了保留期（expired）、超出总量上限时从最旧的清（over_limit）。
+ * 完整内容为什么清掉了（ToolCallDetail.cleared.reason）：过了保留期（expired）、超出总量上限时从最旧的清（over_limit）。
  * 清掉的只是完整参数和返回，只剩摘要；工具调用记录、效果记录、时间线照旧
  */
 export const TOOL_CALL_CLEAR_REASONS = ["expired", "over_limit"] as const;
 export type ToolCallClearReason = (typeof TOOL_CALL_CLEAR_REASONS)[number];
 
-/** 文本类附件的内容最多给多少字节（113 号票）：超过的只给开头这么多（截在字符边上），报告页提示"完整版点下载" */
+/** 文本类附件的内容最多给多少字节：超过的只给开头这么多（截在字符边上），报告页提示"完整版点下载" */
 export const MEDIA_TEXT_MAX_BYTES = 1024 * 1024;
 
-/** HTML、SVG 附件最大多少字节还在沙箱里预览（117 号票，照 113 的上限）：HTML 没法截一半看，超过的只给下载 */
+/** HTML、SVG 附件最大多少字节还在沙箱里预览（照上限）：HTML 没法截一半看，超过的只给下载 */
 export const MEDIA_FRAME_MAX_BYTES = MEDIA_TEXT_MAX_BYTES;
 
 /**
- * HTML 附件预览的沙箱（117 号票）：报告页 <iframe sandbox> 的值，也是 HTML 接口的 CSP 里 sandbox 指令的值（两边同一份）。
- * 用户 2026-10-13 定"一阶段，不要加什么限制"：页面的功能一律放开——脚本、表单、弹框（alert、confirm）、下载、新窗口（不带沙箱，
+ * HTML 附件预览的沙箱：报告页 <iframe sandbox> 的值，也是 HTML 接口的 CSP 里 sandbox 指令的值（两边同一份）。
+ * "一阶段，不要加什么限制"：页面的功能一律放开——脚本、表单、弹框（alert、confirm）、下载、新窗口（不带沙箱，
  * 打开外链才正常）、全屏指针锁定这些都给；不给的只有让二狗本身安全的：allow-same-origin（页面是陌生来源，拿不到二狗的 cookie、
  * 本地存储）和 allow-top-navigation 那几种（不能把整页导航走，二狗的页面不会被换掉）
  */
@@ -224,23 +224,23 @@ export const HTTP_QUERY = {
   from: "from",
   /** 消耗页：范围到哪天（YYYY-MM-DD，含） */
   to: "to",
-  /** 列子文件夹：哪个文件夹（完整路径；不给是常用位置和各个盘，138 号票） */
+  /** 列子文件夹：哪个文件夹（完整路径；不给是常用位置和各个盘） */
   path: "path",
-  /** 服务首页的缩略图（140 号票）：前端手里这张的截图时间（只为换了新图时换地址，守护进程不看它） */
+  /** 服务首页的缩略图：前端手里这张的截图时间（只为换了新图时换地址，守护进程不看它） */
   at: "at",
-  /** 服务首页的缩略图（140 号票）：前端手里那张旧了（超过 6 小时）时带上，每 6 小时换一次，让"有人在看"的请求一定发得出去 */
+  /** 服务首页的缩略图：前端手里那张旧了（超过 6 小时）时带上，每 6 小时换一次，让"有人在看"的请求一定发得出去 */
   seen: "seen",
-  /** 回退前的确认（150 号票）：回到这条消息之前 */
+  /** 回退前的确认：回到这条消息之前 */
   message: "message",
-  /** 回退前的确认（150 号票）：回到这条分支开始前；一条分支的样子（151 号票）：哪条分支 */
+  /** 回退前的确认：回到这条分支开始前；一条分支的样子：哪条分支 */
   branch: "branch",
-  /** 回退前的确认（152 号票）：回到长程任务这个阶段开始前（负责人会话里那条 stage_start 记号的 id） */
+  /** 回退前的确认：回到长程任务这个阶段开始前（负责人会话里那条 stage_start 记号的 id） */
   stage: "stage",
-  /** 一条分支的样子（151 号票）：和哪条分支比（不给是当前分支），给的是它路径上不在那条路径上的一段 */
+  /** 一条分支的样子：和哪条分支比（不给是当前分支），给的是它路径上不在那条路径上的一段 */
   against: "against",
-  /** 记忆的结论列表（233 号票）：只看哪一层（state、preference、need、value，不给是全部） */
+  /** 记忆的结论列表：只看哪一层（state、preference、need、value，不给是全部） */
   tier: "tier",
-  /** 记忆的结论列表（233 号票）：只看哪种状态（active、contested、retracted、superseded，不给是全部；329 号票起没有 needs_review） */
+  /** 记忆的结论列表：只看哪种状态（active、contested、retracted、superseded，不给是全部；没有 needs_review） */
   status: "status",
 } as const;
 
@@ -361,10 +361,10 @@ const api = (...segments: string[]) => `${HTTP_API_PREFIX}${segments.map(encodeU
 
 /** HTTP 接口的路径 */
 export const HTTP_PATHS = {
-  /** GET：这个请求被信任吗（本机端口、带着有效凭证的已配对设备、都不是）。两个端口都有，不需要凭证（10） */
+  /** GET：这个请求被信任吗（本机端口、带着有效凭证的已配对设备、都不是）。两个端口都有，不需要凭证 */
   access: `${HTTP_API_PREFIX}access`,
   /**
-   * 设备配对，只在外网端口上、不需要凭证（10）：POST 发起（`{ deviceName? }`，不给就按 User-Agent 生成，
+   * 设备配对，只在外网端口上、不需要凭证：POST 发起（`{ deviceName? }`，不给就按 User-Agent 生成，
    * 同一来源 10 分钟内最多 5 个）；GET 查自己这个请求，已批准就在这次响应里领到设备凭证（Set-Cookie）；
    * PATCH 改设备名（`{ deviceName }`，只在待批时能改）。认哪个请求靠发起时下发的配对 cookie（HttpOnly）
    */
@@ -377,15 +377,15 @@ export const HTTP_PATHS = {
   /** 下载媒体；name 用作下载时的文件名，download 为真时一律作为附件下载（不在页面里打开） */
   media: (mediaId: string, options: { name?: string | undefined; download?: boolean | undefined } = {}) =>
     `${api(MEDIA, mediaId)}${query({ [HTTP_QUERY.name]: options.name, [HTTP_QUERY.download]: options.download ? "1" : undefined })}`,
-  /** 文本类附件的内容（GET，响应 MediaTextView，113 号票）：报告页按媒体 id 取，只回 JSON */
+  /** 文本类附件的内容（GET，响应 MediaTextView）：报告页按媒体 id 取，只回 JSON */
   mediaText: (mediaId: string) => api(MEDIA, mediaId, TEXT),
-  /** HTML 附件本身（GET，text/html，带沙箱的 CSP，117 号票）：报告页的 <iframe sandbox> 指向它 */
+  /** HTML 附件本身（GET，text/html，带沙箱的 CSP）：报告页的 <iframe sandbox> 指向它 */
   mediaHtml: (mediaId: string) => api(MEDIA, mediaId, HTML),
-  /** SVG 附件本身（GET，image/svg+xml，带 CSP，117 号票）：报告页的 <img> 指向它 */
+  /** SVG 附件本身（GET，image/svg+xml，带 CSP）：报告页的 <img> 指向它 */
   mediaSvg: (mediaId: string) => api(MEDIA, mediaId, SVG),
   /** 某个会话更早的消息：before 是前端手里最早那条消息的序号（不填取最近的一页） */
   /**
-   * 回退前的确认要的（GET，响应 RollbackPreview，150 号票）：回到这条消息之前（message）或这条分支开始前（branch）会放弃掉的那一段
+   * 回退前的确认要的（GET，响应 RollbackPreview）：回到这条消息之前（message）或这条分支开始前（branch）会放弃掉的那一段
    * 已经在真实世界里做了的事
    */
   rollbackPreview: (conversation: string, before: { messageId: string } | { branchId: string } | { stageStart: string }) =>
@@ -393,40 +393,40 @@ export const HTTP_PATHS = {
       "messageId" in before ? { [HTTP_QUERY.message]: before.messageId } : "branchId" in before ? { [HTTP_QUERY.branch]: before.branchId } : { [HTTP_QUERY.stage]: before.stageStart },
     )}`,
   /**
-   * 一条分支的样子（GET，响应 BranchView，151 号票）：它路径上不在 against（不给是当前分支）路径上的那一段——废弃分支的 ⑂ 预览、
+   * 一条分支的样子（GET，响应 BranchView）：它路径上不在 against（不给是当前分支）路径上的那一段——废弃分支的 ⑂ 预览、
    * 详情（遗留效果连同申请撤回了没有、分支摘要、完整历史）；切换分支之后别的设备取新的当前分支上手里没有的那一段
    */
   branchView: (conversation: string, branchId: string, against?: string) =>
     `${api(CONVERSATIONS, conversation, BRANCH)}${query({ [HTTP_QUERY.branch]: branchId, [HTTP_QUERY.against]: against })}`,
   history: (conversation: string, options: { before?: number | undefined; limit?: number | undefined } = {}) =>
     `${api(CONVERSATIONS, conversation, MESSAGES)}${query({ [HTTP_QUERY.before]: options.before?.toString(), [HTTP_QUERY.limit]: options.limit?.toString() })}`,
-  /** 这个会话能用的斜杠命令：二狗自己的命令和 skill（GET，响应 SlashCommandList，82 号票） */
+  /** 这个会话能用的斜杠命令：二狗自己的命令和 skill（GET，响应 SlashCommandList） */
   slashCommands: (conversation: string) => api(CONVERSATIONS, conversation, SLASH_COMMANDS),
   /** 素材范围里有几条（POST，请求体 MaterialScopeBody） */
   materialsScope: api(MATERIALS, SCOPE),
   /** 对范围内的全部素材执行一种删法（POST，请求体 DeleteMaterialsBody） */
   materialsDelete: api(MATERIALS, DELETE),
-  /** 范围里的素材，一页（POST，请求体 MaterialListBody，响应 MaterialListPage，158 号票） */
+  /** 范围里的素材，一页（POST，请求体 MaterialListBody，响应 MaterialListPage） */
   materialsList: api(MATERIALS, LIST),
-  /** 存一页网页进素材（POST，请求体 SaveWebPageBody，响应 SaveWebPageResult，165 号票："浏览"的 ⋮ 菜单里"存进二狗的素材"） */
+  /** 存一页网页进素材（POST，请求体 SaveWebPageBody，响应 SaveWebPageResult："浏览"的 ⋮ 菜单里"存进二狗的素材"） */
   materialsWebPage: api(MATERIALS, WEB_PAGE),
-  /** 一条素材的完整内容和来源（GET，响应 MaterialDetailView，158 号票）；没有这条（删了）是 404 */
+  /** 一条素材的完整内容和来源（GET，响应 MaterialDetailView）；没有这条（删了）是 404 */
   material: (materialId: string) => api(MATERIALS, materialId),
-  /** 记忆的推理库概览（GET，响应 MemorySummaryView，233 号票）：各层、各状态、问题箱、最近一次整理；只读 */
+  /** 记忆的推理库概览（GET，响应 MemorySummaryView）：各层、各状态、问题箱、最近一次整理；只读 */
   memorySummary: api(MEMORY, SUMMARY),
-  /** 结论列表（GET，响应 MemoryClaimListPage，233 号票）：tier、status、limit（默认 MEMORY_CLAIMS_DEFAULT，最多 MEMORY_CLAIMS_MAX） */
+  /** 结论列表（GET，响应 MemoryClaimListPage）：tier、status、limit（默认 MEMORY_CLAIMS_DEFAULT，最多 MEMORY_CLAIMS_MAX） */
   memoryClaims: (q: { tier?: string | undefined; status?: string | undefined; limit?: number | undefined } = {}) =>
     `${api(MEMORY, CLAIMS)}${query({ [HTTP_QUERY.tier]: q.tier, [HTTP_QUERY.status]: q.status, [HTTP_QUERY.limit]: q.limit?.toString() })}`,
-  /** 一条结论的完整解释（GET，响应 MemoryClaimDetailView，233 号票）：证据链、支持/反对、竞争解释、修订；没有这条是 404 */
+  /** 一条结论的完整解释（GET，响应 MemoryClaimDetailView）：证据链、支持/反对、竞争解释、修订；没有这条是 404 */
   memoryClaim: (claimId: string) => api(MEMORY, CLAIMS, claimId),
-  /** 问题箱（GET，响应 MemoryQuestionsView，233 号票）：limit 默认 MEMORY_QUESTIONS_DEFAULT，最多 MEMORY_QUESTIONS_MAX */
+  /** 问题箱（GET，响应 MemoryQuestionsView）：limit 默认 MEMORY_QUESTIONS_DEFAULT，最多 MEMORY_QUESTIONS_MAX */
   memoryQuestions: (q: { limit?: number | undefined } = {}) => `${api(MEMORY, QUESTIONS)}${query({ [HTTP_QUERY.limit]: q.limit?.toString() })}`,
-  /** 330 号票：做法（交互策略）列表 */
+  /** 做法（交互策略）列表 */
   memoryStrategies: () => api(MEMORY, STRATEGIES),
-  /** 记忆的设置（264 号票）：GET 取（MemorySettingsView），PUT 整份存（MemorySettingsBody → MemorySettingsView）；现在只有"顺口问开不开" */
+  /** 记忆的设置：GET 取（MemorySettingsView），PUT 整份存（MemorySettingsBody → MemorySettingsView）；现在只有"顺口问开不开" */
   memorySettings: api(MEMORY, SETTINGS),
   /**
-   * 了解你访谈（284 号票）：GET 取现在的样子（InterviewStatusView：开着的那次、聊过哪几个主题、下次聊什么、约访开没开）；
+   * 了解你访谈：GET 取现在的样子（InterviewStatusView：开着的那次、聊过哪几个主题、下次聊什么、约访开没开）；
    * POST 开一次（请求体 InterviewStartBody，响应 InterviewStartResult：记忆页的"找管理员聊聊"；已经开着就是那一次）。记忆插件没启用时 404
    */
   memoryInterview: api(MEMORY, INTERVIEW),
@@ -434,11 +434,11 @@ export const HTTP_PATHS = {
   workdayCalendar: api(WORKDAY_CALENDAR),
   /** 工作日历：某个月（YYYY-MM）每天上班或休息及原因（GET，响应 WorkdayMonthView） */
   workdayMonth: (month: string) => `${api(WORKDAY_CALENDAR)}${query({ [HTTP_QUERY.month]: month })}`,
-  /** 日历：某个月（YYYY-MM）每一天的日历条目（GET，响应 CalendarMonthView，35 号票） */
+  /** 日历：某个月（YYYY-MM）每一天的日历条目（GET，响应 CalendarMonthView） */
   calendarMonth: (month: string) => `${api(CALENDAR)}${query({ [HTTP_QUERY.month]: month })}`,
-  /** 消耗页：from 到 to（YYYY-MM-DD，含两头）的用量汇总和粗估成本（GET，响应 UsageSummary，24 号票） */
+  /** 消耗页：from 到 to（YYYY-MM-DD，含两头）的用量汇总和粗估成本（GET，响应 UsageSummary） */
   usage: (range: { from: string; to: string }) => `${api(USAGE)}${query({ [HTTP_QUERY.from]: range.from, [HTTP_QUERY.to]: range.to })}`,
-  /** 参考音色：GET 列出（ReferenceVoiceList），POST 导入一个（ImportReferenceVoiceBody → ReferenceVoice）（32 号票） */
+  /** 参考音色：GET 列出（ReferenceVoiceList），POST 导入一个（ImportReferenceVoiceBody → ReferenceVoice） */
   referenceVoices: api(REFERENCE_VOICES),
   /** 一个参考音色：DELETE 删掉（响应 ReferenceVoiceList） */
   referenceVoice: (voiceId: string) => api(REFERENCE_VOICES, voiceId),
@@ -446,64 +446,64 @@ export const HTTP_PATHS = {
   referenceVoiceSelect: (voiceId: string) => api(REFERENCE_VOICES, voiceId, SELECT),
   /** 试听：参考录音本身（GET，audio/wav） */
   referenceVoiceAudio: (voiceId: string) => api(REFERENCE_VOICES, voiceId, AUDIO),
-  /** 分段合成里合成好的一段音频（GET，audio/wav，38 号票）：index 是第几段（0 起） */
+  /** 分段合成里合成好的一段音频（GET，audio/wav）：index 是第几段（0 起） */
   agentVoiceSegment: (voiceId: string, index: number) => api(AGENT_VOICES, voiceId, SEGMENTS, String(index)),
-  /** 工具包里能选的东西：skill 库和登记的 MCP（GET，响应 ToolkitCatalog，27 号票） */
+  /** 工具包里能选的东西：skill 库和登记的 MCP（GET，响应 ToolkitCatalog） */
   toolkitCatalog: api(TOOLKIT_CATALOG),
-  /** 设置里的 skill 库页导入一个 skill 或一个集合（POST，请求体 ImportSkillBody，响应 ImportSkillResult，27、72 号票） */
+  /** 设置里的 skill 库页导入一个 skill 或一个集合（POST，请求体 ImportSkillBody，响应 ImportSkillResult） */
   skillImport: api(SKILLS, IMPORT),
-  /** 秘书用的 skill：GET 看（SecretarySkillsView），POST 改（请求体 SecretarySkillsBody，响应 SecretarySkillsView），72 号票 */
+  /** 秘书用的 skill：GET 看（SecretarySkillsView），POST 改（请求体 SecretarySkillsBody，响应 SecretarySkillsView） */
   secretarySkills: api(SKILLS, SECRETARY),
-  /** 改个人助理的名字（POST，请求体 AssistantNameBody，响应 AssistantNameResult，43 号票） */
+  /** 改个人助理的名字（POST，请求体 AssistantNameBody，响应 AssistantNameResult） */
   assistantName: api(ASSISTANT_NAME),
   /**
-   * 我的名字（用户自己的名字，249 号票）：GET 取（响应 UserNameView，没设就没有 name）、PUT 改（请求体 UserNameBody，
+   * 我的名字（用户自己的名字）：GET 取（响应 UserNameView，没设就没有 name）、PUT 改（请求体 UserNameBody，
    * null 或者空串 = 清除；响应 UserNameResult）
    */
   userName: api(USER_NAME),
-  /** 个人档案（281 号票）：GET 列出（PersonalFilesView）、POST 加一个重要的人（请求体 AddPersonBody，响应 PersonalFileView） */
+  /** 个人档案：GET 列出（PersonalFilesView）、POST 加一个重要的人（请求体 AddPersonBody，响应 PersonalFileView） */
   personalFiles: api(PERSONAL_FILES),
   /** 一份档案：GET 取（PersonalFileView）、POST 改（请求体 PersonalFileChangeBody，响应 PersonalFileView）；没有这份是 404 */
   personalFile: (personId: string) => api(PERSONAL_FILES, personId),
   /** 删档案里的东西（POST，请求体 PersonalFileDeleteBody，响应 PersonalFileDeleteResult） */
   personalFileDelete: (personId: string) => api(PERSONAL_FILES, personId, DELETE),
-  /** "二狗了解到的"（GET，响应 PersonalFileLearnedView，283 号票）：经记忆插件现取 */
+  /** "二狗了解到的"（GET，响应 PersonalFileLearnedView）：经记忆插件现取 */
   personalFileLearned: (personId: string) => api(PERSONAL_FILES, personId, LEARNED),
-  /** 设置 · 语言：选的、实际在用的、有哪些语言、读语言文件出的问题（GET，响应 LocaleListView，168 号票） */
+  /** 设置 · 语言：选的、实际在用的、有哪些语言、读语言文件出的问题（GET，响应 LocaleListView） */
   locales: api(LOCALES),
-  /** 网页的词典：实际在用的语言（自带 + ~/.ergo/locales 里的，合好的），不是中文时连同中文的（GET，响应 LocaleDictionaryView，168 号票） */
+  /** 网页的词典：实际在用的语言（自带 + ~/.ergo/locales 里的，合好的），不是中文时连同中文的（GET，响应 LocaleDictionaryView） */
   locale: api(LOCALE),
-  /** 换语言（POST，请求体 LanguageBody，响应 LanguageResult，168 号票） */
+  /** 换语言（POST，请求体 LanguageBody，响应 LanguageResult） */
   language: api(LANGUAGE),
-  /** 一次工具调用的完整参数和返回（GET，响应 ToolCallDetail，53 号票）：callId 是工具调用 part 的 callId */
+  /** 一次工具调用的完整参数和返回（GET，响应 ToolCallDetail）：callId 是工具调用 part 的 callId */
   toolCall: (callId: string) => api(TOOL_CALLS, callId),
-  /** 设置里：工具调用的完整内容占了多大、保留多久、照现在的规则清会清掉多少（GET，响应 ToolCallStorageView，65 号票） */
+  /** 设置里：工具调用的完整内容占了多大、保留多久、照现在的规则清会清掉多少（GET，响应 ToolCallStorageView） */
   toolCallStorage: api(TOOL_CALL_STORAGE),
-  /** 设置里的"现在就清理"：按现在的规则马上清一次（POST，不带请求体，响应 ToolCallCleanupResult，65 号票） */
+  /** 设置里的"现在就清理"：按现在的规则马上清一次（POST，不带请求体，响应 ToolCallCleanupResult） */
   toolCallStorageCleanup: api(TOOL_CALL_STORAGE, CLEANUP),
-  /** 设置里的"备份"：现在的状况（GET，响应 BackupStatusView，335 号票） */
+  /** 设置里的"备份"：现在的状况（GET，响应 BackupStatusView） */
   backup: api(BACKUP),
-  /** "立即备份"：守护进程排一次，马上回现在的状况（POST，不带请求体，响应 BackupStatusView，335 号票） */
+  /** "立即备份"：守护进程排一次，马上回现在的状况（POST，不带请求体，响应 BackupStatusView） */
   backupRun: api(BACKUP, RUN),
-  /** 改备份的配置：另存的文件夹、每晚几点、谁来定时（PATCH，请求体 BackupConfigBody，响应 BackupStatusView，356 号票） */
+  /** 改备份的配置：另存的文件夹、每晚几点、谁来定时（PATCH，请求体 BackupConfigBody，响应 BackupStatusView） */
   backupConfig: api(BACKUP, BACKUP_CONFIG),
-  /** 选文件夹时校验一个路径（POST，请求体 BackupFolderCheckBody，响应 BackupFolderCheck，356 号票） */
+  /** 选文件夹时校验一个路径（POST，请求体 BackupFolderCheckBody，响应 BackupFolderCheck） */
   backupCheckFolder: api(BACKUP, BACKUP_CHECK_FOLDER),
-  /** 本机和另存文件夹各有哪些快照（GET，响应 BackupSnapshotsView，356 号票） */
+  /** 本机和另存文件夹各有哪些快照（GET，响应 BackupSnapshotsView） */
   backupSnapshots: api(BACKUP, BACKUP_SNAPSHOTS),
-  /** 手动校验最新的快照：排一次，马上回现在的状况（POST，不带请求体，响应 BackupStatusView，356 号票） */
+  /** 手动校验最新的快照：排一次，马上回现在的状况（POST，不带请求体，响应 BackupStatusView） */
   backupVerify: api(BACKUP, BACKUP_VERIFY),
-  /** 在电脑上打开本机备份区或另存的文件夹（POST，请求体 BackupOpenBody，响应 BackupOpenResult，356 号票） */
+  /** 在电脑上打开本机备份区或另存的文件夹（POST，请求体 BackupOpenBody，响应 BackupOpenResult） */
   backupOpen: api(BACKUP, BACKUP_OPEN),
-  /** 语音识别模型、合成模型现在的状态和识别引擎的清单（GET，响应 VoiceModelsView，45 号票）；变了另经活动状态频道推 voice_models */
+  /** 语音识别模型、合成模型现在的状态和识别引擎的清单（GET，响应 VoiceModelsView）；变了另经活动状态频道推 voice_models */
   voiceModels: api(VOICE_MODELS),
-  /** 设置里的系统提示：全部（GET，响应 SystemPromptList，71 号票） */
+  /** 设置里的系统提示：全部（GET，响应 SystemPromptList） */
   systemPrompts: api(SYSTEM_PROMPTS),
   /** 一份系统提示：GET 取（SystemPromptDetail）、PUT 保存（请求体 SystemPromptBody）、DELETE 恢复默认，响应都是 SystemPromptDetail */
   systemPrompt: (id: string) => api(SYSTEM_PROMPTS, id),
-  /** 设置里的"模型"：GET 取（ModelSettingsView），POST 整份存（ModelSettingsBody → ModelSettingsView，73 号票） */
+  /** 设置里的"模型"：GET 取（ModelSettingsView），POST 整份存（ModelSettingsBody → ModelSettingsView） */
   modelSettings: api(MODEL_SETTINGS),
-  /** 设置里的"模型"的连通测试（POST，请求体 ModelTestBody，响应 ModelTestResult，73 号票） */
+  /** 设置里的"模型"的连通测试（POST，请求体 ModelTestBody，响应 ModelTestResult） */
   modelSettingsTest: api(MODEL_SETTINGS, TEST),
   /**
    * 列出某个自定义（OpenAI 兼容）服务商有哪些模型（POST，请求体 ModelCustomModelsBody，响应 ModelCustomModelsResult）：
@@ -512,80 +512,80 @@ export const HTTP_PATHS = {
    */
   modelSettingsCustomModels: api(MODEL_SETTINGS, CUSTOM_MODELS),
   /**
-   * 模型的 key（315、319 号票）：GET 只说配没配（ModelKeyView，不查模型目录、马上回，会话页上"还没配模型"的提示用）；
+   * 模型的 key：GET 只说配没配（ModelKeyView，不查模型目录、马上回，会话页上"还没配模型"的提示用）；
    * POST 是在网页上填一个（请求体 ModelKeyBody：{ key, provider? }，响应 ModelKeyWriteResult 写明什么时候生效；回的、日志里都没有 key 的内容）
    * 不带 provider 按设置里选的那一个服务商，带了写点名那个（设置页按服务商逐条列 key 用）
    */
   modelSettingsKey: api(MODEL_SETTINGS, KEY),
   /**
-   * 安全和预算的两个开关（315 号票）：GET 取（SafetySettingsView），PUT 改哪项给哪项（SafetySettingsBody → SafetySettingsView）；
-   * 写进配置文件，改了马上生效。设置 · 关注类别那一页、319 号票的设置向导用
+   * 安全和预算的两个开关：GET 取（SafetySettingsView），PUT 改哪项给哪项（SafetySettingsBody → SafetySettingsView）；
+   * 写进配置文件，改了马上生效。设置 · 关注类别那一页、设置向导用
    */
   safetySettings: api(SAFETY_SETTINGS),
   /**
-   * 服务管家的开机自启（347 号票，形状在 autostart.ts）：GET 现在开没开（AutostartView），PUT 开或关（AutostartBody → AutostartView）。
+   * 服务管家的开机自启（形状在 autostart.ts）：GET 现在开没开（AutostartView），PUT 开或关（AutostartBody → AutostartView）。
    * 走的是 ergo svc install-autostart / uninstall-autostart 那一套；不归这份安装管的任务不动，回 400 和原因
    */
   autostart: api(AUTOSTART),
   /**
-   * 项目的服务报事件（357 号票，ADR-0043，形状在 project-services.ts、service-events-schema.ts）：POST（ServiceEventBody → ServiceEventReply），
+   * 项目的服务报事件（ADR-0043，形状在 project-services.ts、service-events-schema.ts）：POST（ServiceEventBody → ServiceEventReply），
    * 带 Authorization: Bearer <服务的专属凭证>。只在本机端口开，外网端口一律拒绝；不等负责人做完就回
    */
   serviceEvents: api(SERVICE_EVENTS),
   /**
-   * 首次设置向导（319 号票）：GET 取五步各自做完了没有（SetupView），POST 标一步"以后再说"（skip: true）
+   * 首次设置向导：GET 取五步各自做完了没有（SetupView），POST 标一步"以后再说"（skip: true）
    * 或者"看过了/做完了"（SetupMarkBody → SetupView）。真相是配置文件的 setup 节，改了马上生效
    */
   setup: api(SETUP),
   /**
-   * 体检（319 号票的 319b）：GET /api/doctor 取八项检查现在的样子（DoctorView：端口、Node、pi、服务管家、模型的 key、组件、磁盘、外网入口）。
+   * 体检（319b）：GET /api/doctor 取八项检查现在的样子（DoctorView：端口、Node、pi、服务管家、模型的 key、组件、磁盘、外网入口）。
    * 每次现算，只查本机（除探本机端口外不联网、不调用模型、不改状态）
    */
   doctor: api(DOCTOR),
   /**
-   * 连接地址（364 号票，形状在 connection-addresses.ts）：GET 手机从外面连到二狗能用的地址（ConnectionAddressesView，问服务管家的加手填的，排好序）；
+   * 连接地址（形状在 connection-addresses.ts）：GET 手机从外面连到二狗能用的地址（ConnectionAddressesView，问服务管家的加手填的，排好序）；
    * POST 改手填的那个（ConnectionAddressesBody → ConnectionAddressesView）。设备配对页的二维码界面用
    */
   connectionAddresses: api(CONNECTION_ADDRESSES),
-  /** 设置里 agent 的联网搜索、读网页走哪条路：GET 取（WebSettingsView），POST 整份存（WebSettingsBody → WebSettingsView，154 号票；162 号票起是队列） */
+  /** 设置里 agent 的联网搜索、读网页走哪条路：GET 取（WebSettingsView），POST 整份存（WebSettingsBody → WebSettingsView，是队列） */
   webSettings: api(WEB_SETTINGS),
-  /** GET：设置 · 插件，清单里的全部插件（PluginsView，211 号票） */
+  /** GET：设置 · 插件，清单里的全部插件（PluginsView） */
   plugins: api(PLUGINS),
-  /** POST：对一个插件停用、启用（装回）、移除（PluginActionBody → PluginActionResult，211 号票） */
+  /** POST：对一个插件停用、启用（装回）、移除（PluginActionBody → PluginActionResult） */
   plugin: (name: string) => api(PLUGINS, name),
-  /** GET：登记了的 agent 运行时（pi 和插件登记的）连同能力清单、可选模型和设置项、能不能用（RuntimesView，286 号票） */
+  /** GET：登记了的 agent 运行时（pi 和插件登记的）连同能力清单、可选模型和设置项、能不能用（RuntimesView） */
   runtimes: api(RUNTIMES),
-  /** GET：这个运行时在本机能接管的会话（RuntimeSessionsView，290 号票）：标题、工作目录、分支、最近活动、大小，被占着的写明在哪 */
+  /** GET：这个运行时在本机能接管的会话（RuntimeSessionsView）：标题、工作目录、分支、最近活动、大小，被占着的写明在哪 */
   runtimeSessions: (runtimeId: string) => api(RUNTIMES, runtimeId, SESSIONS),
-  /** POST：从选中的会话接管成任务或项目（TakeOverBody → TakeOverResult，290 号票）：被占着的不分叉就回 409 */
+  /** POST：从选中的会话接管成任务或项目（TakeOverBody → TakeOverResult）：被占着的不分叉就回 409 */
   runtimeTakeOver: (runtimeId: string) => api(RUNTIMES, runtimeId, TAKE_OVER),
   /**
-   * PUT：能选工作文件夹的运行时新建时的默认文件夹（RuntimeFolderBody → RuntimesView，305 号票）：null 是不设（照旧用二狗给任务开的工作目录）；
+   * PUT：能选工作文件夹的运行时新建时的默认文件夹（RuntimeFolderBody → RuntimesView）：null 是不设（照旧用二狗给任务开的工作目录）；
    * 不存在、是文件、在数据目录或二狗程序目录里的回 400。POST：只核对一个已有的文件夹（RuntimeFolderBody → WorkFolderCheckResult，
    * 新建对话框交之前看一眼），不对的回 400
    */
   runtimeFolder: (runtimeId: string) => api(RUNTIMES, runtimeId, WORK_FOLDER),
-  /** GET：设置 · 数据源，全部数据源和导入文件夹（DataSourcesView，295 号票） */
+  /** GET：设置 · 数据源，全部数据源和导入文件夹（DataSourcesView） */
   dataSources: api(DATA_SOURCES),
-  /** POST：对一个数据源立即同步、断开、开关一种用法、填设置（DataSourceActionBody → DataSourceActionResult，295 号票） */
+  /** POST：对一个数据源立即同步、断开、开关一种用法、填设置（DataSourceActionBody → DataSourceActionResult） */
   dataSource: (id: string) => api(DATA_SOURCES, id),
-  /** POST：设备交来的（手机上的二狗 App 读本机的通讯录、日历；DataSourcePushBody → DataSourcePushResult，299 号票） */
+  /** POST：设备交来的（手机上的二狗 App 读本机的通讯录、日历；DataSourcePushBody → DataSourcePushResult） */
   dataSourcePush: (id: string) => api(DATA_SOURCES, id, PUSH),
-  /** POST：数据源详情的"已获取的"一页（DataSourceStoredBody → DataSourceStoredPage，343 号票） */
+  /** POST：数据源详情的"已获取的"一页（DataSourceStoredBody → DataSourceStoredPage） */
   dataSourceStored: (id: string) => api(DATA_SOURCES, id, STORED),
-  /** POST：数据源详情的"现在能查到的"：现查上游，只读、什么都不存（DataSourceLiveBody → DataSourceLiveResult，343 号票） */
+  /** POST：数据源详情的"现在能查到的"：现查上游，只读、什么都不存（DataSourceLiveBody → DataSourceLiveResult） */
   dataSourceLive: (id: string) => api(DATA_SOURCES, id, LIVE),
-  /** POST：导入文件夹现在看一遍、在电脑上打开（ImportFolderActionBody → ImportFolderActionResult，295 号票） */
+  /** POST：导入文件夹现在看一遍、在电脑上打开（ImportFolderActionBody → ImportFolderActionResult） */
   importFolder: api(IMPORT_FOLDER),
-  /** GET：设置 · 组件，清单里的全部组件现在的样子（ComponentsView，323 号票）；POST：装上照默认该装的（ComponentsActionBody → ComponentsView） */
+  /** GET：设置 · 组件，清单里的全部组件现在的样子（ComponentsView）；POST：装上照默认该装的（ComponentsActionBody → ComponentsView） */
   components: api(COMPONENTS),
-  /** POST：对一个组件装、更新、删、暂停、继续、取消（ComponentActionBody → ComponentsView，323 号票） */
+  /** POST：对一个组件装、更新、删、暂停、继续、取消（ComponentActionBody → ComponentsView） */
   component: (id: string) => api(COMPONENTS, id),
-  /** POST：离线导入自己下好的文件（ComponentImportBody → ComponentImportResult，323 号票） */
+  /** POST：离线导入自己下好的文件（ComponentImportBody → ComponentImportResult） */
   componentImport: api(COMPONENT_IMPORT),
-  /** 长程任务一个阶段的授权已用次数、从这里重做的范围和已经做了的事（GET，响应 TaskStageView，84 号票） */
+  /** 长程任务一个阶段的授权已用次数、从这里重做的范围和已经做了的事（GET，响应 TaskStageView） */
   taskStage: (taskId: string, stageId: string) => api(TASKS, taskId, STAGES, stageId),
-  /** 一个 agent 的 ⚙ 面板（GET，响应 AgentSettingsView，114 号票）：agent id 是秘书的 secretary、负责人的 tm-<n> / pm-<n> */
+  /** 一个 agent 的 ⚙ 面板（GET，响应 AgentSettingsView）：agent id 是秘书的 secretary、负责人的 tm-<n> / pm-<n> */
   agentSettings: (agentId: string) => api(AGENTS, agentId),
   /** 这个 agent 单独的提示词：PUT 存（请求体 AgentPromptBody）、DELETE 恢复用通用模板，响应都是 AgentSettingsView */
   agentPrompt: (agentId: string) => api(AGENTS, agentId, PROMPT),
@@ -593,25 +593,25 @@ export const HTTP_PATHS = {
   agentClear: (agentId: string) => api(AGENTS, agentId, CLEAR),
   /** 现在压缩（POST，不带请求体，响应 AgentSettingsView） */
   agentCompact: (agentId: string) => api(AGENTS, agentId, COMPACT),
-  /** 这个负责人背后的 agent（GET，响应 BackgroundAgentList，368 号票）：派出去的子 agent、评审，运行中的在前 */
+  /** 这个负责人背后的 agent（GET，响应 BackgroundAgentList）：派出去的子 agent、评审，运行中的在前 */
   agentBackground: (agentId: string) => api(AGENTS, agentId, BACKGROUND),
-  /** 背后的一个 agent 的对话（GET，响应 BackgroundAgentTranscript，368 号票）：只读，agent id 是 sa-<n>、review-…；没有这个的回 404 */
+  /** 背后的一个 agent 的对话（GET，响应 BackgroundAgentTranscript）：只读，agent id 是 sa-<n>、review-…；没有这个的回 404 */
   agentTranscript: (agentId: string) => api(AGENTS, agentId, TRANSCRIPT),
-  /** 项目、任务的负责人单独配模型（120 号票）：PUT 选定（请求体 AgentModelBody）、DELETE 改回跟随它那一行，响应都是 AgentSettingsView */
+  /** 项目、任务的负责人单独配模型：PUT 选定（请求体 AgentModelBody）、DELETE 改回跟随它那一行，响应都是 AgentSettingsView */
   agentModel: (agentId: string) => api(AGENTS, agentId, MODEL),
   /**
-   * 项目、任务的负责人用哪个运行时、给它选的模型和设置项（289 号票）：PUT（请求体 AgentRuntimeBody，响应 AgentSettingsView）。
+   * 项目、任务的负责人用哪个运行时、给它选的模型和设置项：PUT（请求体 AgentRuntimeBody，响应 AgentSettingsView）。
    * 换了运行时的：手头这一条做完，原来的写交接摘要、新的新开会话；只改模型、设置项的从下一轮起
    */
   agentRuntime: (agentId: string) => api(AGENTS, agentId, RUNTIME),
   /**
-   * 接管来的会话交还给运行时 / 收回到二狗（290 号票）、交给官方 App（292 号票，Remote Control）：POST（请求体 TakeoverActionBody，
+   * 接管来的会话交还给运行时 / 收回到二狗、交给官方 App（Remote Control）：POST（请求体 TakeoverActionBody，
    * 响应 AgentSettingsView）。交给官方 App 等二狗的进程退干净、后台会话开起来、拿到链接才回
    */
   agentTakeover: (agentId: string) => api(AGENTS, agentId, TAKEOVER),
   /**
-   * 角色（248 号票）：GET 默认角色、角色表（连同谁在用）、每个 agent 现在用哪个角色、参考音色（响应 AgentRolesView），
-   * POST 新建一个角色（请求体 AgentRoleBody）。替代 241 号票"每个 agent 各管各的名字和音色"。
+   * 角色：GET 默认角色、角色表（连同谁在用）、每个 agent 现在用哪个角色、参考音色（响应 AgentRolesView），
+   * POST 新建一个角色（请求体 AgentRoleBody）。替代"每个 agent 各管各的名字和音色"。
    */
   agentRoles: api(AGENT_ROLES),
   /** 改（PUT，请求体 AgentRoleUpdateBody）/ 删（DELETE）一个角色；删的是默认角色、还有 agent 在用的回 400 写明是谁；响应 AgentRolesView */
@@ -621,46 +621,46 @@ export const HTTP_PATHS = {
   /** 给一个 agent 选角色（PUT，请求体 AgentRoleAssignmentBody，null = 跟默认角色，响应 AgentRolesView） */
   agentRoleAssignment: (agentId: string) => api(AGENT_ROLES, ASSIGNMENTS, agentId),
   /**
-   * 每个 agent 自己的名字和音色（241 号票）：**248 号票起只保留 GET 兼容**，返回从角色算出来的结果（AgentProfilesView）；
+   * 每个 agent 自己的名字和音色：**只保留 GET 兼容**，返回从角色算出来的结果（AgentProfilesView）；
    * PUT 已经没有了（回 400，指向 /api/agent-roles/assignments/<agent id>）
    */
   agentProfiles: api(AGENT_PROFILES),
   /**
-   * （248 号票起不再有）改一个 agent 的名字和音色：留着路径只为把旧的调用引到新接口，PUT/DELETE 都回 400
+   * （不再有）改一个 agent 的名字和音色：留着路径只为把旧的调用引到新接口，PUT/DELETE 都回 400
    */
   agentProfile: (agentId: string) => api(AGENT_PROFILES, agentId),
-  /** 守护进程现在提供的网页是哪一版（GET，响应 WebVersionView，116 号票）：页面切回前台时问一次 */
+  /** 守护进程现在提供的网页是哪一版（GET，响应 WebVersionView）：页面切回前台时问一次 */
   webVersion: `${HTTP_API_PREFIX}web-version`,
-  /** Debug 工具集：录的一段送识别（POST，请求体 DebugRecognizeBody，响应 DebugRecognizeResult，124 号票）；不经会话 */
+  /** Debug 工具集：录的一段送识别（POST，请求体 DebugRecognizeBody，响应 DebugRecognizeResult）；不经会话 */
   debugRecognize: api(DEBUG, RECOGNIZE),
-  /** Debug 工具集：用当前参考音色合成念一句（POST，请求体 DebugSpeakBody，响应 DebugSpeakResult，124 号票）；不经会话 */
+  /** Debug 工具集：用当前参考音色合成念一句（POST，请求体 DebugSpeakBody，响应 DebugSpeakResult）；不经会话 */
   debugSpeak: api(DEBUG, SPEAK),
   /**
-   * 悬浮按钮上按住说的一段送识别（POST，请求体 PageVoiceBody，响应 PageVoiceResult，149 号票）：认出来的字再作为一条消息发进秘书的主会话
-   * （134 号票原来的 POST /api/page-command 一次性页面助手、145 号票的 POST /api/page-command/pick 不再有）
+   * 悬浮按钮上按住说的一段送识别（POST，请求体 PageVoiceBody，响应 PageVoiceResult）：认出来的字再作为一条消息发进秘书的主会话
+   * （原来的 POST /api/page-command 一次性页面助手、POST /api/page-command/pick 不再有）
    */
   pageVoice: api(PAGE_COMMAND, VOICE),
-  /** 要交进上传框的一个文件（GET，凭取件码，134 号票） */
+  /** 要交进上传框的一个文件（GET，凭取件码） */
   pageFile: (token: string) => api(PAGE_FILES, token),
   /**
-   * 要交进上传框的一个文件的缩略图（GET，凭取件码，149 号票）：守护进程做的小图（长边 PAGE_THUMB_EDGE 左右），网页上的挑图片窗口、
+   * 要交进上传框的一个文件的缩略图（GET，凭取件码）：守护进程做的小图（长边 PAGE_THUMB_EDGE 左右），网页上的挑图片窗口、
    * 会话里的候选卡显示它，不下原图；不是图片、做不出来的 404
    */
   pageFileThumb: (token: string) => api(PAGE_FILES, token, PAGE_THUMB),
   /**
-   * 授权的文件夹（134 号票，138 号票起叫这个名字）：GET 看（LocalFoldersView），PUT 整份换（LocalFoldersBody → LocalFoldersView），
-   * PATCH 加几个、拿掉几个（LocalFoldersChangeBody → LocalFoldersView，138 号票）
+   * 授权的文件夹（叫这个名字）：GET 看（LocalFoldersView），PUT 整份换（LocalFoldersBody → LocalFoldersView），
+   * PATCH 加几个、拿掉几个（LocalFoldersChangeBody → LocalFoldersView）
    */
   localFolders: api(LOCAL_FOLDERS),
-  /** 列守护进程那台电脑上的子文件夹（GET，响应 FolderBrowseView，138 号票）：不给路径是常用位置和各个盘 */
+  /** 列守护进程那台电脑上的子文件夹（GET，响应 FolderBrowseView）：不给路径是常用位置和各个盘 */
   localFoldersBrowse: (folder?: string) => `${api(LOCAL_FOLDERS, BROWSE)}${query({ [HTTP_QUERY.path]: folder })}`,
   /**
-   * 项目的一个服务首页的缩略图（GET，image/jpeg，140 号票）：按项目编号和服务名取；还没截过是 404。at 是前端手里这张的截图时间
+   * 项目的一个服务首页的缩略图（GET，image/jpeg）：按项目编号和服务名取；还没截过是 404。at 是前端手里这张的截图时间
    * （换了新图换地址），seen 见 HTTP_QUERY.seen。守护进程收到这个请求就当"有人在看"：那张旧了（6 小时）、还没有的补截一张
    */
   serviceThumbnail: (projectId: string, name: string, q: { at?: string | undefined; seen?: string | undefined } = {}) =>
     `${api(SERVICE_THUMBNAILS, projectId, name)}${query({ [HTTP_QUERY.at]: q.at, [HTTP_QUERY.seen]: q.seen })}`,
-  /** 一个项目的规范（GET，响应 ProjectStandardView，258 号票）：模板版本、每份文档在不在、检查清单进度、规范改写；只读，每次现算 */
+  /** 一个项目的规范（GET，响应 ProjectStandardView）：模板版本、每份文档在不在、检查清单进度、规范改写；只读，每次现算 */
   projectStandard: (projectId: string) => api(PROJECTS, projectId, STANDARD),
 } as const;
 
@@ -785,7 +785,7 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
   }
   const [head, id, tail, item, ...rest] = segments;
   if (rest.length > 0 || segments.some((s) => s === "")) return undefined;
-  // 四截的：分段合成的一段、长程任务的一个阶段（84 号票）
+  // 四截的：分段合成的一段、长程任务的一个阶段
   if (item !== undefined) {
     if (head === AGENT_VOICES && id !== undefined && tail === SEGMENTS && /^\d{1,4}$/.test(item)) return { route: "agent_voice_segment", voiceId: id, index: Number(item) };
     if (head === TASKS && id !== undefined && tail === STAGES) return { route: "task_stage", taskId: id, stageId: item };
@@ -809,7 +809,7 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
   if (head === MATERIALS && tail === undefined && id === LIST) return { route: "materials_list" };
   if (head === MATERIALS && tail === undefined && id === WEB_PAGE) return { route: "materials_web_page" };
   if (head === MATERIALS && tail === undefined && id !== undefined) return { route: "material", materialId: id };
-  // 记忆的推理库（233 号票）：概览、结论列表、一条结论、问题箱；结论的编号放在下面一段。记忆的设置（264 号票）
+  // 记忆的推理库：概览、结论列表、一条结论、问题箱；结论的编号放在下面一段。记忆的设置
   if (head === MEMORY) {
     if (id === SUMMARY && tail === undefined) return { route: "memory_summary" };
     if (id === CLAIMS) return tail === undefined ? { route: "memory_claims" } : { route: "memory_claim", claimId: tail };
@@ -832,7 +832,7 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
   if (head === SKILLS && id === SECRETARY && tail === undefined) return { route: "secretary_skills" };
   if (head === ASSISTANT_NAME && id === undefined) return { route: "assistant_name" };
   if (head === USER_NAME && id === undefined) return { route: "user_name" };
-  // 个人档案（281 号票）：列表、一份、删
+  // 个人档案：列表、一份、删
   if (head === PERSONAL_FILES) {
     if (id === undefined) return { route: "personal_files" };
     if (tail === undefined) return { route: "personal_file", personId: id };
@@ -869,7 +869,7 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
   if (head === DATA_SOURCES && id !== undefined && tail === STORED) return { route: "data_source_stored", id };
   if (head === DATA_SOURCES && id !== undefined && tail === LIVE) return { route: "data_source_live", id };
   if (head === IMPORT_FOLDER && id === undefined) return { route: "import_folder" };
-  // 设置 · 组件（323 号票）：清单、一个组件、离线导入
+  // 设置 · 组件：清单、一个组件、离线导入
   if (head === COMPONENTS && tail === undefined) return id === undefined ? { route: "components" } : { route: "component", id };
   if (head === COMPONENT_IMPORT && id === undefined) return { route: "component_import" };
   if (head === SAFETY_SETTINGS && id === undefined) return { route: "safety_settings" };
@@ -895,9 +895,9 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
     if (tail === RUNTIME) return { route: "agent_runtime", agentId: id };
     if (tail === TAKEOVER) return { route: "agent_takeover", agentId: id };
   }
-  // 每个 agent 自己的名字和音色（241 号票）：GET 列表（248 号票起只读兼容）；PUT 已经不做了，留着路径把旧调用引到角色接口
+  // 每个 agent 自己的名字和音色：GET 列表（只读兼容）；PUT 已经不做了，留着路径把旧调用引到角色接口
   if (head === AGENT_PROFILES && tail === undefined) return id === undefined ? { route: "agent_profiles" } : { route: "agent_profile", agentId: id };
-  // 角色（248 号票）：列表 / 新建、改 / 删一个、设默认、给一个 agent 分配角色
+  // 角色：列表 / 新建、改 / 删一个、设默认、给一个 agent 分配角色
   if (head === AGENT_ROLES) {
     if (id === undefined) return { route: "agent_roles" };
     if (item !== undefined) return undefined;
@@ -935,17 +935,17 @@ export const HTTP_ERROR_CODES = [
   "sha256_mismatch",
   /** 收尾时还没收全 */
   "incomplete",
-  /** 外网端口上没有有效的设备凭证（还没配对、被吊销、太久没用）：只能看页面本身和配对接口（10） */
+  /** 外网端口上没有有效的设备凭证（还没配对、被吊销、太久没用）：只能看页面本身和配对接口 */
   "unauthorized",
   /** 不允许这样做（比如配对请求已经不在等批准了，不能再改设备名） */
   "forbidden",
   /** 太频繁了（同一来源 10 分钟内的配对请求超过上限），稍后再试 */
   "too_many_requests",
-  /** 这种文件不能这样用（113 号票：不是能预览的文本类附件，只能下载） */
+  /** 这种文件不能这样用（不是能预览的文本类附件，只能下载） */
   "unsupported_type",
-  /** 内容解不出来（113 号票：不是合法的 UTF-8 文本） */
+  /** 内容解不出来（不是合法的 UTF-8 文本） */
   "undecodable",
-  /** 要用的本机服务这会儿用不了（230 号票：导入参考音色时 ffmpeg 不在、识别进程不可用），稍后或装好再试 */
+  /** 要用的本机服务这会儿用不了（导入参考音色时 ffmpeg 不在、识别进程不可用），稍后或装好再试 */
   "service_unavailable",
   "internal",
 ] as const;

@@ -1,4 +1,4 @@
-// 206 号票：相关门槛加第二道——在这个人自己库里的记录里也排得靠前（问题和库里全部证据的余弦取第 90 百分位，库小时进前 3 也算）；
+// 相关门槛加第二道——在这个人自己库里的记录里也排得靠前（问题和库里全部证据的余弦取第 90 百分位，库小时进前 3 也算）；
 // 明说优先要求那句明说的话和挑到的那组说的是同一件事。例子都是自己写的，不看评测数据。
 import { afterEach, describe, expect, it } from "vitest";
 import { cosine } from "../../src/embedding/embedder.ts";
@@ -57,7 +57,7 @@ describe("第二道门槛：这个人自己库里的记录", () => {
     // 没有向量函数、库里没有向量：向量那一路不算
     expect(vectorPasses({ background: null, own: null }, 0.99)).toBe(false);
     expect(vectorPasses({ background: 0.5, own: null }, 0.99)).toBe(false);
-    // 只给一个数（205 的写法）：超过它就算
+    // 只给一个数（写法）：超过它就算
     expect(vectorPasses(0.5, 0.51)).toBe(true);
     expect(vectorPasses(null, 0.99)).toBe(false);
   });

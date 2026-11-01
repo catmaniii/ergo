@@ -1,4 +1,4 @@
-// 服务端的页面更新了（116 号票）在页面上的那一半：页面自己是哪一版、什么时候问服务端、忙不忙、有没有会丢的东西、点"刷新"前留住
+// 服务端的页面更新了在页面上的那一半：页面自己是哪一版、什么时候问服务端、忙不忙、有没有会丢的东西、点"刷新"前留住
 // 输入框里的字。该提示、该直接刷新还是什么都不做由状态层算（state/page-update.ts 的 pageUpdateAction）。
 // - 页面自己是哪一版：构建时写进 index.html <head> 的 <meta name="ergo-web-version">（build/web-version-plugin.ts）；开发服务器的页面没有；
 // - 切到后台（visibilitychange → hidden）报 page_hidden；切回前台报 page_foreground，经 HTTP 问一次服务端现在是哪一版（不等 WebSocket 推：
@@ -15,7 +15,7 @@
 //   sessionStorage，刷新后同一个会话的输入框挂上时放回去（reload-drafts.ts）。
 import { type Dispatch, type SetStateAction, useCallback, useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { type ConversationId, fieldsHaveText, pageUpdateAction, type TextField, type UiState, unsentWork } from "../state/index.ts";
-// 页面自己是哪一版（构建时写进 index.html 的）；开发服务器的页面、读不到是 undefined（124 号票起和关于页共用 build-info.ts 那一份）
+// 页面自己是哪一版（构建时写进 index.html 的）；开发服务器的页面、读不到是 undefined（和关于页共用 build-info.ts 那一份）
 import { PAGE_WEB_VERSION } from "./build-info.ts";
 import { pageBack } from "./page-back.ts";
 import { createComposerDrafts, reloadDraftsIn } from "./reload-drafts.ts";

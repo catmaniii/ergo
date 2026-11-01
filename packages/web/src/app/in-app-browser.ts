@@ -1,15 +1,15 @@
-// 内置浏览器（132 号票）在页面这一侧的那一半：打开、关掉、顶栏的几个按钮、地址和标题跟着框里的页面走。
+// 内置浏览器在页面这一侧的那一半：打开、关掉、顶栏的几个按钮、地址和标题跟着框里的页面走。
 // 打开的是守护进程转发的本机服务的页面（/apps/<应用名>/…，和二狗同源，框里的地址、标题读得到）；外部网站的链接不归它，照旧新窗口打开。
-// - openInAppBrowser(url, title)：哪里都能调（卡片、项目页、秘书的消息……133 号票的服务入口），地址写进 hash 路由
+// - openInAppBrowser(url, title)：哪里都能调（卡片、项目页、秘书的消息……服务入口），地址写进 hash 路由
 //   （#/apps/<应用名>/<path>，app/route-hash.ts），App.tsx 认到这一页就在原来的页面上盖一层内置浏览器（ui/in-app-browser.tsx）；
 // - 关掉：右上角 ×、电脑上 Esc（框里的页面有焦点时也认）直接关，回到盖住之前的那一页。
 //   框里点过链接时浏览器的历史里多了框的记录，history.back() 只退框里的一步，所以有 Navigation API 时直接回到打开之前那一条记录，
 //   没有时框里没走过就后退一步（照 ‹ 的规矩），走过了就把这一条换成原来那一页；
-// - 鸿蒙的返回手势（挂一层返回栈 overlay）和顶栏的 ‹ 一致：框里能后退（判法同 ‹ 的亮灭）就退一页，退不了了才关掉（主会话 2026-10-18 定）。
+// - 鸿蒙的返回手势（挂一层返回栈 overlay）和顶栏的 ‹ 一致：框里能后退（判法同 ‹ 的亮灭）就退一页，退不了了才关掉。
 //   电脑上浏览器的后退键、Alt+←、鼠标的后退键不用接：浏览器自己先退框里的记录，退到头再退掉内置浏览器那一条，hashchange 把它关掉；
 // - 顶栏：后退（框里的上一页；框里还没走过时灰着）、刷新、在新窗口打开（鸿蒙 App 里不给：新窗口会落到 App 的主页面上）、关闭；
 // - 框里每加载一页，标题取它的 <title>（取不到用打开时给的名字，再没有用应用名），地址换进 hash（不压新记录），刷新、发给别的设备还是这一页。
-// - 160 号票：能渲染的文件（markdown、纯文本、JSON、CSV、代码……，哪些由 state/file-view.ts 的 fileRenderOf 定）不让框显示原始文本、
+// -能渲染的文件（markdown、纯文本、JSON、CSV、代码……，哪些由 state/file-view.ts 的 fileRenderOf 定）不让框显示原始文本、
 //   不下载，盖一层二狗的渲染（ui/file-view.tsx，内容按同源地址直接取）：
 //   · 框里点同一个转发服务里的文件链接（按扩展名认）：拦下来，框留在原来那一页，渲染层盖在上面；‹、返回手势收起它回到框里那一页；
 //   · 框加载完的那一页响应类型是能渲染的（服务端回 text/markdown、text/plain……，没有扩展名的地址也算）：框里就是这个文件，
@@ -49,7 +49,7 @@ export interface BrowserPage extends HistoryEnv, KeyTarget {
   open(url: string, target: string, features: string): unknown;
 }
 
-/** 框里那一页的 document 用到的：标题；160 号票起还有响应类型、点击监听（认能渲染的文件链接） */
+/** 框里那一页的 document 用到的：标题；还有响应类型、点击监听（认能渲染的文件链接） */
 export interface FrameDocumentLike {
   readonly title: string;
   readonly contentType?: string;
@@ -71,7 +71,7 @@ export interface FrameHandle {
   readonly contentWindow: FrameWindowLike | null;
 }
 
-/** 用二狗的渲染看着的文件（160 号票） */
+/** 用二狗的渲染看着的文件 */
 export interface InAppFile {
   /** 文件的完整地址（同源，/apps/<应用名>/…） */
   readonly url: string;
@@ -88,7 +88,7 @@ export interface InAppBrowserView {
   readonly title: string;
   /** 框里能不能后退；渲染层盖在框上面时是 true（‹ 收起它） */
   readonly canGoBack: boolean;
-  /** 用二狗的渲染看着的文件（160 号票，框藏起来）；没有就没这一项 */
+  /** 用二狗的渲染看着的文件（框藏起来）；没有就没这一项 */
   readonly file?: InAppFile;
 }
 
@@ -129,7 +129,7 @@ export function appRouteOf(url: string, origin: string): Extract<Route, { tab: "
 /**
  * 在内置浏览器里打开二狗转发的地址（url 可以是 /apps/<应用名>/… 或同源的完整地址）；title 是标题栏先显示的名字。
  * 不是转发的地址（外部网站）照旧在新窗口打开，返回 false。
- * 134 号票：在鸿蒙 App 里（有原生的内置浏览器，nativeOpen）一律交给它——切到"浏览"页签打开，转发的地址、外部网站都是；
+ * 在鸿蒙 App 里（有原生的内置浏览器，nativeOpen）一律交给它——切到"浏览"页签打开，转发的地址、外部网站都是；
  * 它打不开（不是 http(s)）才照旧
  */
 export function openInAppBrowserIn(page: BrowserPage, url: string, title?: string, nativeOpen?: (url: string) => boolean): boolean {
@@ -214,9 +214,9 @@ export class InAppBrowserSession {
   private closed = false;
   /** 框里那一页的 Esc 监听（每加载一页换一次） */
   private frameKeys: (() => void) | undefined;
-  /** 框里那一页的点击监听（160 号票：认能渲染的文件链接，每加载一页换一次） */
+  /** 框里那一页的点击监听（认能渲染的文件链接，每加载一页换一次） */
   private frameClicks: (() => void) | undefined;
-  /** 用二狗的渲染看着的文件（160 号票） */
+  /** 用二狗的渲染看着的文件 */
   private file: InAppFile | undefined;
   /** 打开过几次文件（InAppFile.seq） */
   private fileSeq = 0;
@@ -270,8 +270,8 @@ export class InAppBrowserSession {
   }
 
   /**
-   * 框里加载完一页：标题、能不能后退、地址换进 hash；框里那一页也认 Esc，点能渲染的文件链接拦下来（160 号票）。
-   * 160 号票：盖在框上面的渲染层这时收起（框走到别处了）；这一页的响应类型是能渲染的（text/markdown……），渲染层盖着它（框里就是这个文件）。
+   * 框里加载完一页：标题、能不能后退、地址换进 hash；框里那一页也认 Esc，点能渲染的文件链接拦下来。
+   * 盖在框上面的渲染层这时收起（框走到别处了）；这一页的响应类型是能渲染的（text/markdown……），渲染层盖着它（框里就是这个文件）。
    * 直接打开文件时一开始的空框加载完不算
    */
   frameLoaded(): void {
@@ -311,7 +311,7 @@ export class InAppBrowserSession {
    */
   show(route: Extract<Route, { tab: "app" }>): void {
     const target = frameSrc(route);
-    // 160 号票：换成的是能渲染的文件，渲染它（框不动）；换成网页的收起盖着的渲染层
+    // 换成的是能渲染的文件，渲染它（框不动）；换成网页的收起盖着的渲染层
     const url = this.absolute(target);
     if (url && fileRenderOf({ url })) {
       if (this.file?.url !== url) this.openFile(url);
@@ -331,7 +331,7 @@ export class InAppBrowserSession {
     this.refreshView();
   }
 
-  /** 顶栏的后退：框里退一页；渲染层盖在框上面时收起它（160 号票） */
+  /** 顶栏的后退：框里退一页；渲染层盖在框上面时收起它 */
   goBack(): void {
     if (this.file && !this.file.inFrame) return this.closeFile();
     if (!this.current.canGoBack) return;
@@ -341,7 +341,7 @@ export class InAppBrowserSession {
     if (this.frame) this.frame.src = this.lastUrl;
   }
 
-  /** 顶栏的刷新；渲染层盖在框上面时重新取这个文件（160 号票） */
+  /** 顶栏的刷新；渲染层盖在框上面时重新取这个文件 */
   reload(): void {
     if (this.file && !this.file.inFrame) {
       this.file = { ...this.file, seq: ++this.fileSeq };
@@ -353,7 +353,7 @@ export class InAppBrowserSession {
     if (this.frame) this.frame.src = this.lastUrl;
   }
 
-  /** 顶栏的"在新窗口打开"：框里现在这一页；看着文件时是这个文件（160 号票） */
+  /** 顶栏的"在新窗口打开"：框里现在这一页；看着文件时是这个文件 */
   openOutside(): void {
     if (this.file) {
       this.page.open(this.file.url, "_blank", "noopener");
@@ -377,7 +377,7 @@ export class InAppBrowserSession {
   }
 
   /**
-   * 渲染层里点了链接（160 号票，href 已经按文件的地址解析成完整的）：同一个转发服务里能渲染的换一个文件看；
+   * 渲染层里点了链接（href 已经按文件的地址解析成完整的）：同一个转发服务里能渲染的换一个文件看；
    * 同一服务别的地址框跳过去、收起渲染层；外部网站、二狗自己的页面新窗口打开
    */
   followLink(href: string): void {
@@ -394,7 +394,7 @@ export class InAppBrowserSession {
   }
 
   /**
-   * 渲染层取到的其实不是能渲染的文本（.md 地址回的网页这类，160 号票）：框照旧打开它，收起渲染层。
+   * 渲染层取到的其实不是能渲染的文本（.md 地址回的网页这类）：框照旧打开它，收起渲染层。
    * seq 是取的那一次（InAppFile.seq），已经换了文件、刷新过的不管
    */
   fileIsPage(seq: number): void {
@@ -435,7 +435,7 @@ export class InAppBrowserSession {
     this.close();
   };
 
-  /** 框里那一页上点了链接（160 号票）：同一个转发服务里能渲染的文件（按扩展名认）拦下来，盖一层渲染；普通的左键单击、没带 download、页面自己没处理过才拦 */
+  /** 框里那一页上点了链接：同一个转发服务里能渲染的文件（按扩展名认）拦下来，盖一层渲染；普通的左键单击、没带 download、页面自己没处理过才拦 */
   private readonly onFrameClick = (e: LinkClick) => {
     if (this.closed || e.defaultPrevented || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
     const link = linkIn(e.target);

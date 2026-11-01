@@ -1,5 +1,5 @@
-// 设置 · 浏览与填框里"agent 联网搜索、读网页"（154 号票；162 号票改成队列，182 号票起四种方式）的状态层：每一项的名字、特点、
-// 用的英文工具名（182 号票）、开关（没 key 的、最后一个启用的点不了，写明原因）、上移下移和拖动、改一处存整份、现在的顺序、
+// 设置 · 浏览与填框里"agent 联网搜索、读网页"（改成队列，四种方式）的状态层：每一项的名字、特点、
+// 用的英文工具名、开关（没 key 的、最后一个启用的点不了，写明原因）、上移下移和拖动、改一处存整份、现在的顺序、
 // 余额不足的提醒；消耗页"联网搜索、读网页"一节的合计和说明。
 import { describe, expect, test } from "vitest";
 import {
@@ -46,7 +46,7 @@ describe("设置里的联网搜索队列", () => {
     ]);
   });
 
-  test("工具名（182 号票）：DeepSeek 和浏览器用同一对工具，靠 engine 区分；agent-browser 是 bash 里的命令；内置浏览器是 browse_* 工具", () => {
+  test("工具名：DeepSeek 和浏览器用同一对工具，靠 engine 区分；agent-browser 是 bash 里的命令；内置浏览器是 browse_* 工具", () => {
     expect(toolLine("deepseek")).toBe("`web_search`（[engine: deepseek]）、`web_fetch`（被拦时由它代读）");
     expect(toolLine("browser")).toBe("`web_search`（[engine: browser / ddg / bing / google]）、`web_fetch`（被拦时由它代读）");
     expect(toolLine("agent-browser")).toBe("bash 里的 `agent-browser` 命令");

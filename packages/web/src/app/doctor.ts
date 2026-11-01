@@ -1,4 +1,4 @@
-// 体检（319 号票的 319b）在网页上的这一半里"不碰浏览器"的那部分：取八项检查（GET /api/doctor）、演示页的假数据、
+// 体检（319b）在网页上的这一半里"不碰浏览器"的那部分：取八项检查（GET /api/doctor）、演示页的假数据、
 // 把每项查出来的结构化事实按当前语言拼成一句话、"怎么修"的文案；页面要的"再查一遍"也走这里的 loadDoctor。
 // 八项是哪八项、形状是什么在共享协议包的 doctor.ts；真相在守护进程，这边一个字节也不存。
 // 这些函数都不碰 window、不引 React（Node 里直接查，test/pages/doctor.test.ts）：钩子和演示页判断在 app/page-doctor.ts。
@@ -87,7 +87,7 @@ const FACT: { readonly [Id in DoctorCheckId]: (data: DoctorCheckDataById[Id]) =>
       free: formatNumber(data.freeGb, { maximumFractionDigits: 1 }),
       total: formatNumber(data.totalGb, { maximumFractionDigits: 1 }),
     }),
-  // 没查到依据时只说查到的（服务管家里没登记），不断言"没配"：手动跑的 tailscale serve 服务管家不知道（340 号票）
+  // 没查到依据时只说查到的（服务管家里没登记），不断言"没配"：手动跑的 tailscale serve 服务管家不知道
   external: (data) => {
     const rejected = data.rejected ?? [];
     const base = !data.configured
@@ -96,7 +96,7 @@ const FACT: { readonly [Id in DoctorCheckId]: (data: DoctorCheckDataById[Id]) =>
         ? t("doctor.fact.externalPaired", { count: data.devices ?? 0 })
         : t("doctor.fact.external", { kind: t(`doctor.kind.${data.kind ?? "tailscale"}`) });
     if (rejected.length === 0) return base;
-    // 服务管家给了、手机用不了的入口（364 号票）：写清是哪个、为什么（接错端口是要修的事故）
+    // 服务管家给了、手机用不了的入口：写清是哪个、为什么（接错端口是要修的事故）
     const entries = rejected.map((r) => (r.reason === "wrong_port" ? t("doctor.fact.externalRejected.wrongPort", { url: r.url, port: r.port ?? "?" }) : t("doctor.fact.externalRejected.notHttps", { url: r.url })));
     return t("doctor.fact.externalRejected", { base, count: rejected.length, entries: formatList(entries) });
   },

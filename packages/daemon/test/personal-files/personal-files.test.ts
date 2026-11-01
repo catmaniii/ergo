@@ -1,4 +1,4 @@
-// 个人档案的服务（281 号票）：派生视图、历史、撤销、自定义字段、按称呼和别名找、本人的姓名就是"我的名字"、忘掉和彻底删除、
+// 个人档案的服务：派生视图、历史、撤销、自定义字段、按称呼和别名找、本人的姓名就是"我的名字"、忘掉和彻底删除、
 // 重放后一样。跑真的事件存储（临时目录），只经档案页那条路写（秘书那条路在主切面 test/main/personal-files.test.ts）。
 // 示例数据全是编的。
 import path from "node:path";
@@ -63,7 +63,7 @@ describe("档案页那条路：建人、写字段、历史、撤销", () => {
     const { files } = setup();
     const mom = files.addPerson({ name: " 妈妈 ", relation: "母亲" });
     expect(mom).toMatchObject({ kind: "person", name: "妈妈" });
-    // 283 号票起"二狗了解到的"另外取（GET /api/personal-files/<编号>/learned），档案本身不带；302 号票起默认字段多一个"纪念日"
+    // "二狗了解到的"另外取（GET /api/personal-files/<编号>/learned），档案本身不带；默认字段多一个"纪念日"
     expect(mom).not.toHaveProperty("learned");
     expect(mom.fields.map((f) => f.field)).toEqual(["name", "aliases", "relation", "birthday", "anniversary", "phone", "address", "work", "health"]);
     expect(files.list().files).toEqual([
@@ -217,7 +217,7 @@ describe("派生视图", () => {
   });
 });
 
-describe("分组（285 号票）：建人时选、能改，没选的按关系猜", () => {
+describe("分组：建人时选、能改，没选的按关系猜", () => {
   it("建人时选了分组就是它；没选的按关系猜（家人 / 其他人），猜不成重要的人；本人那份没有分组", () => {
     const { files } = setup();
     const zhang = files.addPerson({ name: "小张", relation: "同事", group: "important" });
@@ -252,7 +252,7 @@ describe("分组（285 号票）：建人时选、能改，没选的按关系猜
     expect(() => files.change(mom.id, { kind: "set_group", group: "nope" as never })).toThrow(/不认得这个分组/);
   });
 
-  it("秘书、记忆管理员提议建的人（283 的提议建档、284 的访谈）没选分组：按关系猜，猜不出归其他人", () => {
+  it("秘书、记忆管理员提议建的人（提议建档、访谈）没选分组：按关系猜，猜不出归其他人", () => {
     const { files, store } = setup();
     const trail = { via: "curator", basis: "confirmed", cardId: "c-1", origin: "nightly" } as const;
     const a = files.prepareWrite({ person: { newName: "老周", relation: "同事" }, fields: [], trail });
@@ -275,7 +275,7 @@ describe("分组（285 号票）：建人时选、能改，没选的按关系猜
     store.rebuildViews();
     expect(files.list()).toEqual(before);
     store.close();
-    // 升级：旧库里没有分组的表（281–302 号票时建的库）
+    // 升级：旧库里没有分组的表（原来建的库）
     const raw = openDatabase(file);
     raw.exec("DROP TABLE IF EXISTS personal_groups");
     raw.close();

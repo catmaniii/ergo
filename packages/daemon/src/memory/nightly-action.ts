@@ -1,4 +1,4 @@
-// "立即整理一次"（235 号票）：记忆插件的一个快速动作，给用户（和演示、验收）一个不用等到 03:00 的入口。
+// "立即整理一次"：记忆插件的一个快速动作，给用户（和演示、验收）一个不用等到 03:00 的入口。
 //
 // 走同一份作业：调的是记忆插件的每晚整理作业（`nightly-job.ts` 的 `runNow`）——同一个引擎、同一份 `memory.maxModelCalls` 预算、
 // 同一条整理记录（`memory_nightly` 事件和视图，trigger 记 manual，报告里 late 是 false）；不是另写一套整理。
@@ -11,7 +11,7 @@
 // "提议快速动作"里提一句；`confirm: "always"` 让它总要用户核对后执行——推断出来的、用户点明了的都出一张卡，用户点了"执行"才跑。
 //
 // 为什么是异步执行器（`perform`）：一次整理要调模型、要几十秒甚至几十分钟，不能卡住卡片动作那一拍；卡片先记成"正在执行"，
-// 跑完补上结果和操作记录（和 27 号票调 MCP 工具同一个机制）。插件停用、守护进程停止时作业那边会把这次整理中止（AbortError），
+// 跑完补上结果和操作记录（和调 MCP 工具同一个机制）。插件停用、守护进程停止时作业那边会把这次整理中止（AbortError），
 // 卡片结果写"没跑成"。
 import { Type, t } from "@ergo/protocol";
 import { defineQuickAction, type QuickActionExecutor, type QuickActionPerformed } from "../quick-actions/index.ts";

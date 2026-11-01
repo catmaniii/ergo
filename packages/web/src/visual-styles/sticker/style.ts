@@ -1,4 +1,4 @@
-// 贴纸便当（48 号票，设计稿 docs/architecture/design/styles/g-*.dc.html）：卡片、气泡、按钮都是"贴纸"——2px 墨色描边加不模糊的硬投影；
+// 贴纸便当（设计稿 docs/architecture/design/styles/g-*.dc.html）：卡片、气泡、按钮都是"贴纸"——2px 墨色描边加不模糊的硬投影；
 // 柠檬黄（主按钮、你发的消息、选中的东西、名字标签）、薄荷（个人助理的语音、在做的事、按住说话）、蜜桃（附件钮、命中关注类别的小签）；
 // "要你"的事和未读是暖红。站酷庆科黄油体只用在标题上（font-title），正文是 Noto Sans SC。
 // 墨色就是正文色（设计稿的 --ink 和 --text 浅深都一样）：描边、硬投影都用 var(--text)，深色下是浅色的线和投影。
@@ -10,7 +10,7 @@ import type { VisualStyle } from "../tokens.ts";
 
 export const sticker: VisualStyle = {
   id: "sticker",
-  // 名字和一句话按当前语言（169 号票，取的时候现查）
+  // 名字和一句话按当前语言（取的时候现查）
   get name() {
     return t("styles.sticker.name");
   },
@@ -28,7 +28,7 @@ export const sticker: VisualStyle = {
     muted: ["#6e6478", "#b9b0cc"],
     // 细分隔线（表格、分栏线这类）：贴纸本身的描边是墨色（card-border / panel-border、style.css），这里只是淡的暖色线
     border: ["#e7dac2", "#4a4163"],
-    // 强调色（链接、可以点的小字、细条）：照设计稿（a { color: 墨色 }、"全部标已读"）就是墨色，下划线在 style.css（用户定）；
+    // 强调色（链接、可以点的小字、细条）：照设计稿（a { color: 墨色 }、"全部标已读"）就是墨色，下划线在 style.css；
     // 选中的东西不靠它，靠柠檬黄的底（primary-fill）。设计稿的柠檬黄压在白底上只有 1.7:1，当不了字
     primary: "var(--text)",
     // 主按钮、你发的消息、选中的导航这类实色块：柠檬黄，上面是墨色字（设计稿的 --accent、--accent-ink，浅色 8.89:1、深色 9.65:1）
@@ -89,7 +89,7 @@ export const sticker: VisualStyle = {
     // 贴纸的投影：卡片、气泡、看板卡、按钮……都用它（style.css）
     "shadow-note": "3px 3px 0 var(--text)",
     "shadow-slide": "-2px 0 0 var(--text)",
-    // 宽屏阶段栏的 × 这类浮在栏边上的小圆钮（88 号票）：小一号的硬投影
+    // 宽屏阶段栏的 × 这类浮在栏边上的小圆钮：小一号的硬投影
     "shadow-btn": "2px 2px 0 var(--text)",
 
     // ---- 间距：页面左右 16，消息之间 18（设计稿），标题栏放得下 28 的标题和 44 高的按钮 ----

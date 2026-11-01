@@ -1,4 +1,4 @@
-// 给用户看的编号写成"编号「简短描述」"（159 号票加名字，163 号票统一成仓库里原来的 t-3「标题」写法）：写法、描述截短、负责人的描述、删掉了的说明。
+// 给用户看的编号写成"编号「简短描述」"（加名字，统一成仓库里原来的 t-3「标题」写法）：写法、描述截短、负责人的描述、删掉了的说明。
 import { describe, expect, test } from "vitest";
 import { deletedIdLabel, ID_DESCRIPTION_MAX, idLabel, maintainerDescription, maintainerIdLabel, namedIdLabel, shortDescription } from "../src/index.ts";
 

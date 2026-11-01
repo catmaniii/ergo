@@ -1,14 +1,14 @@
-// 悬浮按钮旁边的小气泡在二狗网页这一侧（146 号票，app/page-bubble.ts）：面板 → 气泡的样子（纯函数），和把它交给页面桥的那一层
+// 悬浮按钮旁边的小气泡在二狗网页这一侧（app/page-bubble.ts）：面板 → 气泡的样子（纯函数），和把它交给页面桥的那一层
 // （App、录音、识别、store 都换成假的）。查：
-// - 打字：对哪个框说、输入框里的提示（上传框和文本框不一样）；在听带着音量；在办带着打的字、认出来的字和那一句状态（149 号票：
+// - 打字：对哪个框说、输入框里的提示（上传框和文本框不一样）；在听带着音量；在办带着打的字、认出来的字和那一句状态（
 //   在认说了什么、二狗在想、秘书正忙时"排在后面"）；回话（拦下的对话框上的指令给"自己选"）；跟着哪个框（不知道哪个框是空串）；
 // - 面板变了就交，一样的不重复交；开场先交一个收起（App 里二狗的网页重新加载过，浏览器的网页上可能还留着上次的气泡）；
 //   页面桥点了、长按了、气泡上点了什么之后再交一遍（"让二狗选"除外：等框的列表回来面板变了再交）；
 // - 拦下的选文件对话框画不出来（页面桥不在）：交给系统的选择器；
-// - 147 号票：有浏览侧边栏时太长的回话（字多、行多）下面给"去侧边栏看"（more），没有侧边栏、不长的不给。
-// 149 号票起候选不在气泡里（挑图片窗口见 page-pick.test.ts）。
-// 169 号票：气泡上的字跟着当前语言；悬浮按钮出来、选中的框变了时把页面桥自己的那几句（当前语言的）交给它。
-// 181 号票：说到助理的那几句用用户起的名字（纯文字换好名字，另给按名字切开的几段，页面桥画成名字标签）；名字标签的颜色按现在的
+// -有浏览侧边栏时太长的回话（字多、行多）下面给"去侧边栏看"（more），没有侧边栏、不长的不给。
+// 候选不在气泡里（挑图片窗口见 page-pick.test.ts）。
+// 气泡上的字跟着当前语言；悬浮按钮出来、选中的框变了时把页面桥自己的那几句（当前语言的）交给它。
+// 说到助理的那几句用用户起的名字（纯文字换好名字，另给按名字切开的几段，页面桥画成名字标签）；名字标签的颜色按现在的
 // 风格算好随那几句交过去；名字、语言、风格变了重交，开着的气泡跟着变。
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { NativeBrowserEvent, NativePageControl, PageOutcome } from "../../src/app/native-browser.ts";
@@ -36,7 +36,7 @@ describe("面板 → 气泡的样子", () => {
     expect(bubbleView({ kind: "listening", target: textTarget, levels: [0.1, 0.5] })).toEqual({ kind: "listening", fieldId: "f1", label: "对「标题」说", levels: [0.1, 0.5] });
     expect(bubbleView({ kind: "busy", target: textTarget, said: "标题写成周末", note: "thinking" })).toEqual({ kind: "busy", fieldId: "f1", said: "标题写成周末", text: "二狗在想……", textParts: [{ name: "二狗" }, "在想……"] });
     expect(bubbleView({ kind: "busy", target: textTarget, note: "hearing" })).toEqual({ kind: "busy", fieldId: "f1", said: "", text: "在认你说了什么……" });
-    // 秘书正忙（149 号票）：说明排在后面，不让用户以为没反应
+    // 秘书正忙：说明排在后面，不让用户以为没反应
     expect(bubbleView({ kind: "busy", target: fileTarget, said: "找几张", note: "queued" })).toEqual({
       kind: "busy",
       fieldId: "f2",
@@ -63,7 +63,7 @@ describe("面板 → 气泡的样子", () => {
     expect(bubbleView({ kind: "chooser", chooser: { accept: [".pdf"], multiple: false, capture: false, fieldId: "" } })).toMatchObject({ text: "网页要你选文件" });
   });
 
-  test("回话太长、有浏览侧边栏（147 号票）：给去侧边栏看；不长的、没有侧边栏的不给", () => {
+  test("回话太长、有浏览侧边栏：给去侧边栏看；不长的、没有侧边栏的不给", () => {
     const long = "这一页讲的是报名须知，".repeat(13);
     expect(long.length).toBeGreaterThan(120);
     expect(bubbleView(replyPanel(long), true)).toMatchObject({ kind: "reply", more: true });
@@ -77,7 +77,7 @@ describe("面板 → 气泡的样子", () => {
 
 class FakePage implements NativePageControl {
   views: PageBubbleView[] = [];
-  /** 交给页面桥的它自己的那几句（169 号票） */
+  /** 交给页面桥的它自己的那几句 */
   sentTexts: PageBridgeTexts[] = [];
   draws = true;
   marks: string[] = [];
@@ -240,7 +240,7 @@ describe("交给页面桥", () => {
   });
 });
 
-describe("169 号票：跟着当前语言", () => {
+describe("跟着当前语言", () => {
   afterEach(() => setActiveLocale(activeLocaleFrom(TEST_LOCALES, DEFAULT_LANGUAGE)));
 
   test("气泡上的字是英文；悬浮按钮出来、选中的框变了时把页面桥自己的那几句交过去（按钮收起时不交）", () => {
@@ -260,7 +260,7 @@ describe("169 号票：跟着当前语言", () => {
   });
 });
 
-describe("181 号票：助理的名字和名字标签", () => {
+describe("助理的名字和名字标签", () => {
   afterEach(() => setActiveLocale(activeLocaleFrom(TEST_LOCALES, DEFAULT_LANGUAGE)));
 
   const COLORS = nameTagColors("night");
@@ -305,11 +305,11 @@ describe("181 号票：助理的名字和名字标签", () => {
     for (const key of BRIDGE_ASSISTANT_KEYS) expect(t(key)).toContain("{name}");
     expect(bridgeTexts({ name: "Jo" })).toMatchObject({ "bridge.bubble.letErgoPick": "Let Jo pick", assistant: { name: "Jo", templates: { "bridge.bubble.letErgoPick": "Let {name} pick" } } });
     // 没给：默认的名字，不带颜色（页面桥用经典的）
-    expect(bridgeTexts().assistant).toMatchObject({ name: "ergo" }); // 英文的默认名字（379 号票）
+    expect(bridgeTexts().assistant).toMatchObject({ name: "ergo" }); // 英文的默认名字
     expect(bridgeTexts().assistant?.tag).toBeUndefined();
   });
 
-  test("名字标签的颜色：照风格清单算出浅色、深色两对（#rrggbb）；经典的就是 43 号票定的；不认识的风格按经典；主色不认识的按默认", () => {
+  test("名字标签的颜色：照风格清单算出浅色、深色两对（#rrggbb）；经典的就是原来定的；不认识的风格按经典；主色不认识的按默认", () => {
     expect(nameTagColors("classic")).toEqual({ light: { bg: "#fbe3a1", fg: "#5c3d00" }, dark: { bg: "#4a3c14", fg: "#f7d57e" } });
     expect(nameTagColors("nope")).toEqual(nameTagColors("classic"));
     for (const style of VISUAL_STYLES) {
@@ -366,7 +366,7 @@ describe("181 号票：助理的名字和名字标签", () => {
   });
 });
 
-describe("212、214 号票：语音插件没启用", () => {
+describe("语音插件没启用", () => {
   test("交给页面桥的悬浮按钮说明只说点一下打字（原样、换好名字的都换），别的几句不动", () => {
     const texts = bridgeTexts({ name: "小美", typeOnly: true });
     expect(texts["bridge.fab.label"]).toBe("让小美帮忙：点一下打字");
@@ -376,7 +376,7 @@ describe("212、214 号票：语音插件没启用", () => {
   });
 });
 
-describe("359 号票：长按元素的圆钮", () => {
+describe("长按元素的圆钮", () => {
   const IMAGE = { id: "x3", kind: "image" as const, source: "http" as const, src: "https://cdn.example.cn/cat.png" };
 
   test("气泡跟着元素的编号，说这张图；提示不说要操作框", () => {

@@ -1,4 +1,4 @@
-// Looki 插件对外的（296 号票，ADR-0027）：内核、别的插件、测试只从这里拿 Looki 插件的东西——插件名、数据源 id、按需查的工具名、
+// Looki 插件对外的（ADR-0027）：内核、别的插件、测试只从这里拿 Looki 插件的东西——插件名、数据源 id、按需查的工具名、
 // 导入的记录（事件）的频道、类型和负载；不 import 插件的别的文件（test/looki/boundary.test.ts 检查，例外写在那里）。
 
 /** 插件名：配置 plugins.disabled / plugins.removed、设置 · 插件里写的就是它，定了别改 */

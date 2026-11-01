@@ -1,9 +1,9 @@
-// "浏览"页签右上角 ⋮ 菜单（165 号票，用户 2026-10-19：替掉"用系统浏览器打开"的按钮，以后还能扩展别的选项；菜单项用户勾选）的纯函数：
+// "浏览"页签右上角 ⋮ 菜单（替掉"用系统浏览器打开"的按钮，以后还能扩展别的选项；菜单项用户勾选）的纯函数：
 // - 菜单（browseMenu）：三组十项——二狗（让二狗总结这一页、存进二狗的素材）、这一页（在页面里查找、文字大小、桌面版网站、分享、
 //   用系统浏览器打开）、记录和数据（浏览记录、下载记录、清除浏览数据）。还没打开网页时和这一页有关的灰掉；旧版 App 上原生做不了的
 //   灰掉、写"装新版 App 才能用"；
 // - 按网站记住的文字大小、桌面版（SiteSettings，按主机名；记在这台设备上，app/browse-settings.ts），交给 App 的那一份（siteTuning）；
-// - 浏览记录（state/browse.ts 的最近访问，165 号票起最多 500 条）：删几条、清一个网站的、搜、按日期分组（今天、昨天、更早）；
+// - 浏览记录（state/browse.ts 的最近访问，最多 500 条）：删几条、清一个网站的、搜、按日期分组（今天、昨天、更早）；
 // - 查找栏的计数（findCountLabel）、下载记录存在哪（downloadWhere）、清除浏览数据怎么分给 App 和网页（clearPlan）。
 import { type RecentVisit } from "./browse.ts";
 import { t, tTable } from "./protocol.ts";
@@ -201,23 +201,23 @@ export interface BrowseMenuInput {
   /** 现在这一页（还没打开网页是空串） */
   readonly url: string;
   readonly title: string;
-  /** 有浏览侧边栏（147 号票的 App 才有）：让二狗总结这一页在那里发 */
+  /** 有浏览侧边栏（App 才有）：让二狗总结这一页在那里发 */
   readonly side: boolean;
-  /** 页面桥能取整页文字（147 号票的 App 才有）：存进素材要它 */
+  /** 页面桥能取整页文字（App 才有）：存进素材要它 */
   readonly text: boolean;
-  /** App 有 165 号票的原生工具（查找、文字大小、桌面版、分享、清数据、下载记录） */
+  /** App 有原生工具（查找、文字大小、桌面版、分享、清数据、下载记录） */
   readonly tools: boolean;
   readonly sites: SiteSettings;
   /** 二狗自己的来源（转发的服务页面不分桌面版） */
   readonly ownOrigin: string;
 }
 
-/** 点不了的原因：旧版 App 上原生做不了、还没打开网页（170 号票起按当前语言现取，原来是常量 NEEDS_NEW_APP、NO_PAGE） */
+/** 点不了的原因：旧版 App 上原生做不了、还没打开网页（按当前语言现取，原来是常量 NEEDS_NEW_APP、NO_PAGE） */
 export const BROWSE_DISABLED = tTable({ needsNewApp: "state.browseTools.needsNewApp", noPage: "state.browseTools.noPage" });
 
 /**
- * 让二狗总结这一页：替用户发的那一句（147 号票侧边栏发消息的那条路，带网页上下文）。在聊天里是用户说的话，按当前语言写
- * （170 号票起是函数，原来是常量 SUMMARIZE_PAGE_TEXT）
+ * 让二狗总结这一页：替用户发的那一句（侧边栏发消息的那条路，带网页上下文）。在聊天里是用户说的话，按当前语言写
+ * （是函数，原来是常量 SUMMARIZE_PAGE_TEXT）
  */
 export function summarizePageText(): string {
   return t("state.browseTools.summarizePage");

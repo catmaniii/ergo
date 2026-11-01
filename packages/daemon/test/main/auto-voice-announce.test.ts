@@ -1,12 +1,12 @@
-// 主切面：定时任务跑完自动语音播报（任务级开关）、"立即运行一次"（100 号票）。真的守护进程，秘书、负责人接 faux 剧本，测试扮演前端：
+// 主切面：定时任务跑完自动语音播报（任务级开关）、"立即运行一次"。真的守护进程，秘书、负责人接 faux 剧本，测试扮演前端：
 // - 开着"跑完自动播报"：手动跑一次定时任务，跑完秘书收到的任务做完的通知标着自动播报（不问要不要念），秘书用 send_voice 念成
-//   语音气泡（tool 模式，转文字是口语稿）；关着照 99 号票问要不要念，那一轮发不了语音；
+//   语音气泡（tool 模式，转文字是口语稿）；关着问要不要念，那一轮发不了语音；
 // - 别的运行时通知引起的一轮照旧发不了语音；语音服务没开时语音没发出去、会话里有原因，秘书照规矩改用文字；
 // - 一次运行只播报一次：秘书念到一半守护进程重启，那条语音起来后合成好了才重新交、写明念过了、不再放行语音，语音只有那一条；
 //   没合成出来的不算念过，原样重新交、秘书再念一次；开着、关着的两件同时做完时开着的单独一条，只有那一条的一轮能发语音；
 // - 立即运行一次：触发记成手动、不改时间表；上一次还在跑时被拒、原因清楚；暂停着的能跑一次、照旧暂停；之后到点照常运行；
 // - 秘书的入口：用户说"把 t-1 再跑一次""以后 t-1 跑完直接念给我"，秘书用快速动作提出，点明了直接执行，没点明的出卡确认。
-// 第一个用例的事件流录下来给前端回放（task-done-voice：任务做完、秘书念，109 号票的顶上提醒、红点、不在时念的语音小栏用；
+// 第一个用例的事件流录下来给前端回放（task-done-voice：任务做完、秘书念，顶上提醒、红点、不在时念的语音小栏用；
 // 重新录：ERGO_RECORD_EVENTS=1 npx vitest run packages/daemon/test/main/auto-voice-announce.test.ts -t 开着）。
 import {
   type Card,
@@ -103,7 +103,7 @@ const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 describe("跑完自动播报", () => {
   it("开着：立即运行一次，跑完秘书收到标着自动播报的通知（不问），用 send_voice 念成语音气泡，转文字是口语稿；运行记成手动、不改时间表", async () => {
     const tts = await startFakeSpeechService();
-    // 前端回放还要已读位置（109 号票）：一起订阅
+    // 前端回放还要已读位置：一起订阅
     const { url, frontend } = await setup(
       {
         config: APPROVALS_OFF,
@@ -158,7 +158,7 @@ describe("跑完自动播报", () => {
     saveOrCheckRecording("task-done-voice", frontend.recording, { perChannel: true });
   }, 60_000);
 
-  it("关着（菜单里关掉）：照 99 号票问要不要念，秘书这一轮调 send_voice 发不了", async () => {
+  it("关着（菜单里关掉）：问要不要念，秘书这一轮调 send_voice 发不了", async () => {
     const tts = await startFakeSpeechService();
     const { url, frontend } = await setup({
       speechUrl: tts.url,

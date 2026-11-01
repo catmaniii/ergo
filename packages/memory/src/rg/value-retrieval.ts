@@ -1,6 +1,6 @@
-// 为任务调出相关的用户模型（196 号票）：relevantUserModel(task, { at, context, k })。
+// 为任务调出相关的用户模型：relevantUserModel(task, { at, context, k })。
 //
-// 需求、价值层的断言（195 号票）挂在偏好断言上、字面又抽象，D 组检索原来的两条路（191 的 relevantClaims，202 号票换成了这里的
+// 需求、价值层的断言挂在偏好断言上、字面又抽象，D 组检索原来的两条路（relevantClaims，换成了这里的
 // 三条路加相关门槛）——命中的原话、事实直接挂着的断言，问题里的词出现在断言原文里——很难找到它们。这里三条路，用 RRF（k = 60，三条路等权）合并：
 // - 往上走（upward）：任务检索（hybrid_kg）→ 命中的原话、事实挂着的断言 → 顺着推断往上（偏好 → 需求 → 价值，inferencesByPremise）。
 //   这条路的分数是"有几条命中、排得多靠前"（每条命中 1/名次，同一条命中对一条断言只算一次）；
@@ -9,10 +9,10 @@
 // - 领域（domain）：任务归到领域（rg/domains.ts 的词表），和断言的领域对上；对上的领域多的在前，同样多的断言自己领域少（更专一）的在前。
 // 只要在 at 成立的断言（有效期覆盖 at；状态 active，或 superseded 而 at 还在它的有效期里——同用户模型快照）、场景对得上的
 // （调用的人没给场景时，任务里明说了周末、工作日、假期的按它算："帮我安排下周六"不调出工作日的偏好）；
-// contested 的（猜测）、active 但证据不够（置信度 low 的偏好、需求、价值）的单列在"还拿不准的"里，带真值状态、把握（330 号票 R5：
-// 猜测也能用，标明是猜测）；retracted 的不要。330 号票：标着复核的照它的真值状态给，标上 needsReview。
-// 每条带来路：哪条路、排第几、经过哪些下层断言（偏好、需求）、哪些命中的原话和事实。默认每层取最相关的 2 条（05 号调研）。
-// 202 号票：回答层和 D 组检索拿它判"相关门槛"（rg/relevance.ts）——可以把已经做过的检索结果交进来（hits，往上走不再自己检索），
+// contested 的（猜测）、active 但证据不够（置信度 low 的偏好、需求、价值）的单列在"还拿不准的"里，带真值状态、把握（R5：
+// 猜测也能用，标明是猜测）；retracted 的不要。标着复核的照它的真值状态给，标上 needsReview。
+// 每条带来路：哪条路、排第几、经过哪些下层断言（偏好、需求）、哪些命中的原话和事实。默认每层取最相关的 2 条。
+// 回答层和 D 组检索拿它判"相关门槛"（rg/relevance.ts）——可以把已经做过的检索结果交进来（hits，往上走不再自己检索），
 // 结果里另有三条路合并后的全部断言（fused）和每条的来路（traces），不只每层前 k 条。
 import { toMs, validAt } from "../domain/time.ts";
 import type { Claim, ClaimStatus, ClaimTier, Confidence } from "../domain/types.ts";
@@ -28,7 +28,7 @@ import type { RgView, UncertainEntry, UserModelEntry } from "./types.ts";
 export type RouteName = "upward" | "index" | "domain";
 export const ROUTES: readonly RouteName[] = ["upward", "index", "domain"];
 
-/** 每层默认取几条（05 号调研：每条指令只注入最相关的两条） */
+/** 每层默认取几条（每条指令只注入最相关的两条） */
 export const DEFAULT_PER_TIER = 2;
 /** 往上走那条路取任务检索的前几条命中 */
 export const UPWARD_HITS = 20;
@@ -46,7 +46,7 @@ export interface RelevantUserModelOptions {
   k?: number;
   /** 走哪几条路，默认三条都走（评测、消融看各条路的得失） */
   routes?: readonly RouteName[];
-  /** 已经做过的任务检索（hybrid_kg，按名次）：给了就拿它当往上走的起点，不再自己检索（202 号票：回答、D 组检索和相关门槛用同一份） */
+  /** 已经做过的任务检索（hybrid_kg，按名次）：给了就拿它当往上走的起点，不再自己检索（回答、D 组检索和相关门槛用同一份） */
   hits?: readonly Hit[];
 }
 
@@ -97,11 +97,11 @@ export interface RelevantUserModel {
   preferences: RelevantEntry[];
   needs: RelevantEntry[];
   values: RelevantEntry[];
-  /** 还拿不准的（contested 猜测、已验证但证据不够），每层最多 k 条；330 号票（R5）：可以照着说、推荐，把握低的留余地 */
+  /** 还拿不准的（contested 猜测、已验证但证据不够），每层最多 k 条；ADR-0032 R5：可以照着说、推荐，把握低的留余地 */
   uncertain: RelevantUncertain[];
   /** 每条路自己找到的断言（能用的那些，按这条路的名次）：评测、演示看各条路的得失 */
   routes: Record<RouteName, string[]>;
-  /** 三条路合并后的全部断言（能用的那些，按 RRF 分），不按层截（202 号票：相关门槛要看全部） */
+  /** 三条路合并后的全部断言（能用的那些，按 RRF 分），不按层截（相关门槛要看全部） */
   fused: string[];
   /** 上面每条断言的来路（同 entries 里的 routes） */
   traces: Record<string, RouteTrace[]>;
@@ -111,7 +111,7 @@ const LABEL: Record<Claim["epistemic"], UserModelEntry["label"]> = { explicit: "
 const CONFIDENCE_RANK: Record<Confidence, number> = { low: 0, medium: 1, high: 2 };
 const TIER_RANK: Record<ClaimTier, number> = { state: 0, preference: 1, need: 2, value: 3 };
 
-/** 在 at 成立：有效期覆盖 at；active、contested，或者 superseded 而有到期时间（那时成立）。330 号票：标着复核的照真值状态算 */
+/** 在 at 成立：有效期覆盖 at；active、contested，或者 superseded 而有到期时间（那时成立）。标着复核的照真值状态算 */
 export function heldAt(claim: Claim, at: string): boolean {
   if (!validAt(claim, at)) return false;
   if (claim.status === "active" || claim.status === "contested") return true;

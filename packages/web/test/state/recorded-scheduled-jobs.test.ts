@@ -1,4 +1,4 @@
-// 前端状态层回放 19 号票（76 号票起是定时触发的任务）的主切面录下的事件流（packages/daemon/test/main/scheduled-jobs.test.ts）：
+// 前端状态层回放（是定时触发的任务）的主切面录下的事件流（packages/daemon/test/main/scheduled-jobs.test.ts）：
 // 看板运营中一组里定时触发的任务卡（带着它的触发登记）、项目页的定时触发列表和工单流水线、待我处理里的"已自动暂停""错过的提醒""归档清单"。
 // 重新录：ERGO_RECORD_EVENTS=1 npx vitest run packages/daemon/test/main/scheduled-jobs.test.ts
 import fs from "node:fs";
@@ -46,7 +46,7 @@ const jobEvent = (change: string, runId?: string) => (input: UiInput) => {
 /** 回放到第一个满足条件的输入（含） */
 const upTo = (inputs: readonly UiInput[], match: (input: UiInput) => boolean) => replay(inputs.slice(0, indexOf(inputs, match) + 1));
 
-/** 看板运营中一组里定时触发的任务卡带着的触发登记（76 号票：触发登记不单独占卡） */
+/** 看板运营中一组里定时触发的任务卡带着的触发登记（触发登记不单独占卡） */
 function opsJobs(state: UiState): ScheduledJobView[] {
   const ops = boardGroups(state).find((g) => g.group === "ops")!;
   expect(ops.items.filter((i) => i.kind === "scheduled_job")).toEqual([]);

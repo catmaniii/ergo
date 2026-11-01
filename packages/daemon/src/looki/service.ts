@@ -1,4 +1,4 @@
-// Looki 插件的服务（296 号票）：数据源的几个函数（plugin.ts）经 ctx.active 现取它。
+// Looki 插件的服务：数据源的几个函数（plugin.ts）经 ctx.active 现取它。
 // - 连接状态：密钥区里有没有 Key；Key 不认了是"出错"（要重新填），限速了、新填的 Key 没通过（还在用原来的）是"连着"加一句原因；
 //   账号写打码的邮箱和区域。状态只在内存里（重启后先当连着，下一次同步、按需查碰到了再标）；
 // - 填设置、测试连接：选区域（中国区 / 海外，不填沿用存着的）、填 Key（不填沿用存着的）→ 拿 Key 调所选区域的 /me 读账号，
@@ -8,7 +8,7 @@
 //   断开并删以后重连会重新导入）；限速了等（Retry-After，没有就 60 秒）再试，最多两次；
 // - 按需查（给秘书的工具，tools.ts 写成给模型看的文字）：按日期（最多 7 天，可加时间段）列出时刻，按关键词搜；只读、现查不存；
 //   限速了不等，直接回"过一分钟再查"。
-// - 存一份到本地（307 号票，archive.ts）：同步拉到的这几天的时刻、日记交给它排队存照片、日记、vlog（不等它），设置、补存经填设置
+// - 存一份到本地（archive.ts）：同步拉到的这几天的时刻、日记交给它排队存照片、日记、vlog（不等它），设置、补存经填设置
 //   （values.archive）交给它，连接状态里带它那一块（panel）和断开时要说的一句；断开时它停下（存下的文件不删）。
 // Key 只经密钥区读写，不进日志、事件、出错原因（出错原因由 client.ts 写，里面不带 Key；内核记下之前还会再换一遍 ***）。
 import { t } from "@ergo/protocol";
@@ -43,7 +43,7 @@ export interface LookiServiceOptions {
   rateLimitWaitMs?: number;
   /** 一次请求最多等多久（毫秒） */
   timeoutMs?: number;
-  /** 存一份到本地（307 号票，archive.ts）：设置文件、索引目录、数据目录、默认位置（测试另给磁盘剩余空间、下载） */
+  /** 存一份到本地（archive.ts）：设置文件、索引目录、数据目录、默认位置（测试另给磁盘剩余空间、下载） */
   archive: Pick<LookiArchiveOptions, "settingsFile" | "stateDir" | "dataDir" | "defaultFolder" | "freeSpace" | "download">;
   log(line: string): void;
 }
@@ -70,14 +70,14 @@ export interface LookiService {
   status(secrets: DataSourceSecrets): DataSourceStatus;
   configure(values: Readonly<Record<string, string>>, secrets: DataSourceSecrets): Promise<DataSourceStatus>;
   sync(ctx: DataSourceSyncContext): Promise<DataSourceSyncResult>;
-  /** 出错后再试（306 号票，内核每小时叫）：Key 不认的，拿存着的 Key 调一次 /me，认了就清掉出错 */
+  /** 出错后再试（内核每小时叫）：Key 不认的，拿存着的 Key 调一次 /me，认了就清掉出错 */
   recheck(secrets: DataSourceSecrets, signal: AbortSignal): Promise<void>;
   query(query: LookiQuery, secrets: DataSourceSecrets, signal?: AbortSignal): Promise<LookiQueryResult>;
   /** 断开：忘掉内存里的状态，正在存到本地的、补存的停下（存下的文件不删） */
   reset(): Promise<void>;
   /** 今天（本机的日期，YYYY-MM-DD） */
   today(): string;
-  /** 存到本地的位置（建好的；307 号票，数据源页"在电脑上打开"）：建不了抛错，原因给人看 */
+  /** 存到本地的位置（建好的；数据源页"在电脑上打开"）：建不了抛错，原因给人看 */
   localFolder(): string;
   /** 停用插件时：正在存的停下、等它停 */
   stop(): Promise<void>;
@@ -150,7 +150,7 @@ export function createLookiService(options: LookiServiceOptions): LookiService {
     if (err.failure === "rate_limit") problem = { kind: "rate_limit", text: t("looki.problem.rateLimit"), until: Date.now() + (err.retryAfterMs ?? LOOKI_RATE_LIMIT_WAIT_MS) };
   };
 
-  // 存一份到本地（307 号票）：同步完把这几天交给它排队存；用同一套 Key、同一个地址
+  // 存一份到本地：同步完把这几天交给它排队存；用同一套 Key、同一个地址
   const archive = createLookiArchive({
     ...options.archive,
     now: () => clockIso(clock),
@@ -235,7 +235,7 @@ export function createLookiService(options: LookiServiceOptions): LookiService {
     },
 
     async configure(values, secrets) {
-      // 存一份到本地那一块的设置、补存（307 号票）：不碰 Key、不测连接；做不成的原因在那一块里写
+      // 存一份到本地那一块的设置、补存：不碰 Key、不测连接；做不成的原因在那一块里写
       if (values.archive !== undefined) {
         archive.configure(values, secrets);
         return status(secrets);

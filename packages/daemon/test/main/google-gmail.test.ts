@@ -1,13 +1,13 @@
-// 主切面：Google 插件的 Gmail（298 号票，生活数据源第一波之四）。真的守护进程走组合根和插件清单，清单里的 Google 插件经 extraPlugins
+// 主切面：Google 插件的 Gmail。真的守护进程走组合根和插件清单，清单里的 Google 插件经 extraPlugins
 // 换成连本机假 IMAP 服务的那一份（helpers/fake-imap.ts：TLS 测试证书、照 Gmail 的样子回应），不连 Gmail、不联网；邮箱、人名全是编的：
-// - 设置 · 数据源里填 Gmail 地址和应用专用密码（POST configure，测试连接）→ 连上、页面上是完整邮箱（339 号票）；
+// - 设置 · 数据源里填 Gmail 地址和应用专用密码（POST configure，测试连接）→ 连上、页面上是完整邮箱；
 // - 秘书被问"找一下那封机票行程单"：调"搜 Gmail 邮件"搜到、"读 Gmail 邮件"读到正文和附件；再读那封夹着写给 AI 的指令的邮件——
 //   结果夹在外部数据标记里、邮件自己写的结束标记跳不出去；秘书手里没有发信、删信的工具；
 // - 假服务端从头到尾没收到 SELECT / STORE / EXPUNGE / APPEND / COPY / MOVE 这类写操作、没有不带 PEEK 的取信，邮件没被标成已读；
 // - 导入我发出的邮件：默认关、关着时什么都不进；开了立即同步 → 发出的邮件（去掉引用的原文）采成"本人写的"素材，收件人进场景；
 //   断开并连已导入的一起删 → 记录、素材跟着删；
 // - 密码不出现在事件日志、守护进程日志、数据源页、秘书的会话里；
-// - 344 号票：老配置启动时转成一条账号（再启动不重复），再加一个账号；两个各导各的，秘书按账号查、结果写明账号；断开并删一个：只删它的密钥、记录、素材，另一个照常。
+// -老配置启动时转成一条账号（再启动不重复），再加一个账号；两个各导各的，秘书按账号查、结果写明账号；断开并删一个：只删它的密钥、记录、素材，另一个照常。
 import fs from "node:fs";
 import path from "node:path";
 import { CHANNELS, EVENT_TYPES, type MessageEventPayload } from "@ergo/protocol";
@@ -213,7 +213,7 @@ describe("Google · Gmail（本机假 IMAP 服务走真实装配路径）", () =
     expect(values()).toMatchObject({ accounts: accountIdOf(ME), "backup.pre-344.password": PASSWORD });
     expect(fs.readFileSync(secretFile, "utf8")).not.toContain(OTHER_PASSWORD);
     expect(gmailMaterials(again).map((m) => m.origin?.account?.label)).toEqual(["t***@example.com"]);
-    // Google 插件自己的记录里没了（聊天里秘书读过的那封是聊天记录，断开数据源不动，同 298 号票的做法）
+    // Google 插件自己的记录里没了（聊天里秘书读过的那封是聊天记录，断开数据源不动）
     const records = () => JSON.stringify(again.daemon.store.read(GOOGLE_CHANNEL).map((e) => e.payload));
     expect(records()).not.toContain("周报在附件");
     expect(records()).toContain("火锅店见");

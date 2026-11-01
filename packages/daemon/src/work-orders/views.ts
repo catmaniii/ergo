@@ -20,7 +20,7 @@ import type { ReadonlyDatabase } from "../storage/sqlite.ts";
 import { getTask } from "../tasks/views.ts";
 
 /**
- * 不属于任务的工单（定时作业的一次运行，19 号票）在 task_id 一栏记的值：表是 16 号票建的，这一栏不能为空。
+ * 不属于任务的工单（定时作业的一次运行）在 task_id 一栏记的值：表是以前建的，这一栏不能为空。
  * 按任务查工单（workOrdersOfTask）不能拿它来查
  */
 export const NO_TASK_ID = "";
@@ -95,7 +95,7 @@ export function getWorkOrder(db: ReadonlyDatabase, id: string): WorkOrder | unde
 }
 
 /**
- * 工单属于的东西是不是项目内部的（64 号票）：任务的工单看任务，定时作业的一次运行看作业。是的话给出标记——
+ * 工单属于的东西是不是项目内部的：任务的工单看任务，定时作业的一次运行看作业。是的话给出标记——
  * 这张工单段里产生的待我处理事项（催写回到了次数的卡住求助、越界通知……）带上它
  */
 export function workOrderInternal(db: ReadonlyDatabase, wo: WorkOrder | undefined): ProjectInternal | undefined {
@@ -122,7 +122,7 @@ export function workOrdersOfTask(db: ReadonlyDatabase, taskId: string): WorkOrde
   return db.all<{ work_order: string }>("SELECT work_order FROM work_orders WHERE task_id = ? ORDER BY created_seq", taskId).map(parseWorkOrder);
 }
 
-/** 进行中（含等澄清）的定时作业运行工单有几张：它们占着全局执行名额（19 号票，tasks/slots.ts 数名额用） */
+/** 进行中（含等澄清）的定时作业运行工单有几张：它们占着全局执行名额（tasks/slots.ts 数名额用） */
 export function countActiveRunWorkOrders(db: ReadonlyDatabase): number {
   return Number(
     db.get<{ n: number }>("SELECT COUNT(*) AS n FROM work_orders WHERE state IN ('in_progress', 'clarifying') AND json_extract(work_order, '$.source') = 'scheduled_job'")?.n ?? 0,

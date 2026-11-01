@@ -3,12 +3,12 @@
 // - 第一页的起点是第 HISTORY_PAGE_SIZE 新的那条消息的序号 S，WebSocket 补发序号 ≥ S 的事件；
 // - HTTP 的 before 是前端手里最早那条消息的序号，返回序号 < before 的最近若干条消息。
 // 两边按同一个序号切开，所以交界处不重不漏。带着游标重连的照旧补发缺的全部事件。
-// 25 号票起一页里还带着落在这一页里的时间线记录（timeline_record、快速动作的操作记录 quick_action_executed）：
+// 一页里还带着落在这一页里的时间线记录（timeline_record、快速动作的操作记录 quick_action_executed）：
 // 序号从这一页第一条消息起、小于 before（更早没有了的从头起），往上翻时要点层、全局层也看得到旧页里的偏离和操作记录。
-// 144 号票：第一次订阅的补发还要盖住排队的消息（最新那条 message_queue）和正在回复的这一轮的开头（turn_start）。
-// 150 号票：会话回退过的，一页只取当前分支上的消息和记录（废弃分支上的跳过，session-branches.ts 的 pathEventsBefore），
+// 第一次订阅的补发还要盖住排队的消息（最新那条 message_queue）和正在回复的这一轮的开头（turn_start）。
+// 会话回退过的，一页只取当前分支上的消息和记录（废弃分支上的跳过，session-branches.ts 的 pathEventsBefore），
 // 第一次订阅的那一页也按当前分支数；最新那条 session_branch 落在那一页之前时网关另外先补发它（pinnedReplay）。
-// 179 号票：第一次订阅的那一页里的消息引用的语音对象，最新那一版的事件落在这一页之前的，网关同样先补发（replayPins）——
+// 第一次订阅的那一页里的消息引用的语音对象，最新那一版的事件落在这一页之前的，网关同样先补发（replayPins）——
 // 回复中发的语音排队时就建出、识别完了，这一轮做完才交出去成为消息，中间 agent 又说了一页多时就是这样。
 import {
   CHANNELS,
@@ -53,7 +53,7 @@ export function firstReplayAfter(store: EventStore, channel: string): number {
   if (!isConversationChannel(channel)) return 0;
   const recent = pathEventsBefore(store, channel, Number.MAX_SAFE_INTEGER, HISTORY_PAGE_SIZE, EVENT_TYPES.message);
   if (recent.length < HISTORY_PAGE_SIZE) return 0;
-  // 144 号票：排队的消息（最新那条 message_queue 事件）、正在回复的这一轮的开头（turn_start）落在这一页之前时从它们起补发，
+  // 排队的消息（最新那条 message_queue 事件）、正在回复的这一轮的开头（turn_start）落在这一页之前时从它们起补发，
   // 前端才知道现在排着什么、有没有在回复
   const queued = queueEventSeq(store.reader, channel);
   const open = openTurnSeq(store, channel);
@@ -62,10 +62,10 @@ export function firstReplayAfter(store: EventStore, channel: string): number {
 
 /**
  * 第一次订阅时，补发这一页（序号大于 from 的事件 replay）之前要先补发的几条事件，按序号从早到晚（序号都不大于 from）：
- * - 最新那条 session_branch 落在这一页之前时就是它（150 号票，session-branches.ts 的 pinnedReplay）；
- * - 这一页里的消息、现在排着的消息引用的语音对象（用户的语音、agent 的语音），最新那一版的事件落在这一页之前的（179 号票）。
+ * - 最新那条 session_branch 落在这一页之前时就是它（session-branches.ts 的 pinnedReplay）；
+ * - 这一页里的消息、现在排着的消息引用的语音对象（用户的语音、agent 的语音），最新那一版的事件落在这一页之前的。
  *   语音对象的事件一般紧跟在它那条消息后面，可回复中发的语音排队时就建出、识别（voice 事件在前），这一轮做完才交出去成为消息
- *   （message 事件在后，144 号票）；中间 agent 又说了一页多，消息在这一页里、语音对象的事件却在前面，前端拿不到它，气泡一直是
+ *   （message 事件在后）；中间 agent 又说了一页多，消息在这一页里、语音对象的事件却在前面，前端拿不到它，气泡一直是
  *   "识别中…"。agent 语音最后那一版也在它那条语音消息前面，这一页正好从那条起时一样。往上翻的一页由 pageExtras 带上语音对象
  */
 export function replayPins(store: EventStore, conversation: string, from: number, replay: readonly StoredEvent[]): StoredEvent[] {
@@ -138,7 +138,7 @@ export function historyPage(store: EventStore, conversation: ConversationId, opt
   // 这一页覆盖的序号：更早还有的，从这一页第一条消息起；没有了的从头起
   const from = hasMore ? page[0]!.seq : 1;
   const messages = page.map(historyMessageOf);
-  // 长程任务阶段开始的记号（152 号票）：和记录同一个范围
+  // 长程任务阶段开始的记号：和记录同一个范围
   const stageStarts = store
     .readBefore(conversation, before, Number.MAX_SAFE_INTEGER, EVENT_TYPES.stageStart)
     .filter((event) => event.seq >= from && onPath(event.seq))
@@ -147,7 +147,7 @@ export function historyPage(store: EventStore, conversation: ConversationId, opt
     conversation,
     ...pageExtras(store, messages),
     messages,
-    // 记录很稀：按类型取 before 之前的，留下落在这一页里的（回退过的只留当前分支上的，150 号票）
+    // 记录很稀：按类型取 before 之前的，留下落在这一页里的（回退过的只留当前分支上的）
     records: RECORD_TYPES.flatMap((type) => store.readBefore(conversation, before, Number.MAX_SAFE_INTEGER, type))
       .filter((event) => event.seq >= from && onPath(event.seq))
       .toSorted((a, b) => a.seq - b.seq)
@@ -166,14 +166,14 @@ function historyMessageOf(event: StoredEvent): HistoryMessage {
     message: payload.message,
     ...(payload.idempotencyKey === undefined ? {} : { idempotencyKey: payload.idempotencyKey }),
     ...pickMessageScope(payload),
-    // 排队交出的那一批（150 号票：第一条之后的不是回退点）
+    // 排队交出的那一批（第一条之后的不是回退点）
     ...(payload.queueDelivery === undefined ? {} : { queueDelivery: payload.queueDelivery }),
-    // 交给 agent 的通知（367 号票：长的在会话里折成一行）
+    // 交给 agent 的通知（长的在会话里折成一行）
     ...(payload.agentInput === true ? { agentInput: true } : {}),
   };
 }
 
-/** 一条阶段开始的记号在历史页里的样子（152 号票） */
+/** 一条阶段开始的记号在历史页里的样子 */
 function historyStageStartOf(event: StoredEvent): HistoryStageStart {
   return { seq: event.seq, payload: event.payload as StageStartEventPayload };
 }
@@ -186,8 +186,8 @@ function historyRecordOf(event: StoredEvent): HistoryRecord {
 }
 
 /**
- * 一页里的消息引用的语音对象：语音消息的（31 号票，它们的 voice 事件可能早于 WebSocket 第一次补发的那一页）、agent 的语音消息的
- * （32 号票：送进 TTS 的原文在它们那里；发语音调用记录建出的语音也带上，87 号票：前端据此认出发出了气泡的调用，不单独显示）
+ * 一页里的消息引用的语音对象：语音消息的（它们的 voice 事件可能早于 WebSocket 第一次补发的那一页）、agent 的语音消息的
+ * （送进 TTS 的原文在它们那里；发语音调用记录建出的语音也带上：前端据此认出发出了气泡的调用，不单独显示）
  */
 function pageExtras(store: EventStore, messages: readonly HistoryMessage[]): Pick<HistoryPage, "voices" | "agentVoices"> {
   const envelopes = messages.flatMap((m) => ("message" in m ? [m.message] : []));
@@ -197,7 +197,7 @@ function pageExtras(store: EventStore, messages: readonly HistoryMessage[]): Pic
 }
 
 /**
- * 几段序号里的消息和时间线记录（151 号票：一条废弃分支自己的那一段，session-branches.ts 的 branchOwnRanges），按序号从早到晚，
+ * 几段序号里的消息和时间线记录（一条废弃分支自己的那一段，session-branches.ts 的 branchOwnRanges），按序号从早到晚，
  * 和一页历史同一个形状（前端照样按序号并进来）
  */
 export function rangePage(store: EventStore, conversation: ConversationId, ranges: readonly SeqRange[]): Omit<HistoryPage, "hasMore"> {
@@ -214,7 +214,7 @@ export function rangePage(store: EventStore, conversation: ConversationId, range
   const records = RECORD_TYPES.flatMap(within)
     .toSorted((a, b) => a.seq - b.seq)
     .map(historyRecordOf);
-  // 阶段开始的记号（152 号票）：切换分支之后补进来的那一段上也要有阶段开始的回退点
+  // 阶段开始的记号：切换分支之后补进来的那一段上也要有阶段开始的回退点
   const stageStarts = within(EVENT_TYPES.stageStart).map(historyStageStartOf);
   return { conversation, ...pageExtras(store, messages), messages, records, ...(stageStarts.length > 0 ? { stageStarts } : {}) };
 }

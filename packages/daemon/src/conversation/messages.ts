@@ -1,5 +1,5 @@
 // 往会话里追加消息：用户发来的消息、agent 定稿的回复、系统说明。消息 id 由守护进程生成。
-// 用户消息事件的负载里有会话、发言方、时间和原文（08 号票据此采集"用户发言"素材），带着发送请求的幂等键。
+// 用户消息事件的负载里有会话、发言方、时间和原文（据此采集"用户发言"素材），带着发送请求的幂等键。
 import { randomUUID } from "node:crypto";
 import {
   type BrowsingContext,
@@ -43,7 +43,7 @@ export interface AttachmentLookup {
 type VoicePartValue = Extract<MessagePart, { type: "voice" }>;
 
 /**
- * 发消息时收下语音 part（31 号票，语音模块实现）：核对录音（在媒体库里、是认得的音频、时长合理），
+ * 发消息时收下语音 part（语音模块实现）：核对录音（在媒体库里、是认得的音频、时长合理），
  * 给出存进消息的 part（带上语音对象的 id）和同一事务里建出语音对象的事件。不收就抛 RequestRejected
  */
 export interface VoiceIntake {
@@ -56,16 +56,16 @@ export interface VoiceIntake {
 /**
  * 用户往会话里发一条消息。同一个幂等键重发拿到第一次的结果，不多出消息（也就不会多一次回复：
  * agent 的输入队列就是这些消息事件）。
- * 秘书会话之外的会话由 scopeOf 认（15 号票起是项目负责人的会话：消息带上所属的项目，已归档的只读；13 号票起是任务负责人的会话：
- * 消息带上所属的任务，已结束的任务不再收）。part 可以是文本、图片、文件（09），以及引用的卡片（21：
+ * 秘书会话之外的会话由 scopeOf 认（是项目负责人的会话：消息带上所属的项目，已归档的只读；是任务负责人的会话：
+ * 消息带上所属的任务，已结束的任务不再收）。part 可以是文本、图片、文件，以及引用的卡片（
  * 用户引用一张卡说话，快速动作据此判定"用户明确点了"；卡片要存在）：
  * 附件先经 HTTP 上传入库，消息里引用入库版本的哈希（媒体 id）。图片的类型和尺寸、文件的大小以服务端入库的为准，
  * 前端带来的不作数；文件的类型按扩展名认得的优先（浏览器常把 .md 报成空、把 .ts 报成视频）。
- * 经附件菜单"作为材料投喂"发的附件带 asMaterial（21），原样记下：素材模块据此把这条消息记成"用户主动投喂的材料"。
- * 语音（31）由语音模块收下（voices）：核对录音、建出语音对象（和消息同一事务），识别在后台做；语音消息里只有这一段语音，
+ * 经附件菜单"作为材料投喂"发的附件带 asMaterial，原样记下：素材模块据此把这条消息记成"用户主动投喂的材料"。
+ * 语音由语音模块收下（voices）：核对录音、建出语音对象（和消息同一事务），识别在后台做；语音消息里只有这一段语音，
  * 可以带引用的卡片和附件（2026-10-10 用户改：附件不再单独自动发，等下一条消息带走，所以说完的语音连同等着的附件是一条消息），
  * 不能和打的字、别的语音一起发。
- * 144 号票：这个会话的 agent 正在回复（有交给它、还没有结局的输入）时，这句话不进会话，排进这个会话的队列（message-queue.ts），
+ * 这个会话的 agent 正在回复（有交给它、还没有结局的输入）时，这句话不进会话，排进这个会话的队列（message-queue.ts），
  * 这一轮做完再一起交给它；核对附件、收下语音照旧在这里做（识别马上开始），归属、要先开的对话段到交出去时再认。
  */
 export function postUserMessage(
@@ -84,7 +84,7 @@ export function postUserMessage(
     if (!result) throw new RequestRejected("bad_params", t("conversation.messages.keyReused"));
     return result;
   }
-  // 秘书会话之外：认得的会话（15 号票起是项目负责人的会话）给出消息所属的任务、项目（不让发的在这里就抛出原因）
+  // 秘书会话之外：认得的会话（是项目负责人的会话）给出消息所属的任务、项目（不让发的在这里就抛出原因）
   const scope = request.conversation === CHANNELS.secretary ? {} : scopeOf?.(request.conversation);
   if (!scope) throw new RequestRejected("not_implemented", t("conversation.messages.cannotSendTo", { conversation: request.conversation }));
   const id = newMessageId();
@@ -118,7 +118,7 @@ export function postUserMessage(
         parts.push({ type: "card_ref", cardId: part.cardId });
         break;
       case "voice": {
-        // 语音消息（31 号票）：整段录音先上传入库，消息里只有这一段语音（可以带用户引用的卡片："引用这张卡，说'把这个取消'"；
+        // 语音消息：整段录音先上传入库，消息里只有这一段语音（可以带用户引用的卡片："引用这张卡，说'把这个取消'"；
         // 2026-10-10 起也可以带附件："发一张图，说'帮我看看这个'"）；服务端建出语音对象，识别在后台做。
         // 交给 agent 时语音换成识别出的文字，和附件的投影在同一条输入里（conversation/agent-input.ts）
         if (!voices) throw new RequestRejected("not_implemented", t("conversation.messages.noVoice"));
@@ -137,10 +137,10 @@ export function postUserMessage(
   const hasText = parts.some((p) => p.type === "text" && p.text.trim().length > 0);
   if (!hasText && !parts.some((p) => p.type === "image" || p.type === "file" || p.type === "voice")) throw new RequestRejected("bad_params", t("conversation.messages.empty"));
 
-  // 浏览侧边栏里发的（147 号票）：只认秘书会话，记下当时的网页、选中的框、哪个浏览器
+  // 浏览侧边栏里发的：只认秘书会话，记下当时的网页、选中的框、哪个浏览器
   if (request.browsing && request.conversation !== CHANNELS.secretary) throw new RequestRejected("bad_params", t("conversation.messages.browsingSecretaryOnly"));
   const message: MessageEnvelope = { id, conversation: request.conversation, speaker: "user", time, parts, ...(request.browsing ? { browsing: browsingMarkOf(request.browsing) } : {}) };
-  // 正在回复（144 号票）：排队，这一轮做完一起交出去（语音对象和排进来的那条同一事务）
+  // 正在回复：排队，这一轮做完一起交出去（语音对象和排进来的那条同一事务）
   if (replying(store.reader, request.conversation)) {
     return enqueueMessage(
       store,
@@ -158,10 +158,10 @@ export function postUserMessage(
     message,
     idempotencyKey: request.idempotencyKey,
     ...pickMessageScope(scope),
-    // 从哪台设备发来的（125 号票：运行时核实用户原话时写"从哪台设备来的"）：网关按连接给（本机端口、外网端口上的已配对设备）
+    // 从哪台设备发来的（运行时核实用户原话时写"从哪台设备来的"）：网关按连接给（本机端口、外网端口上的已配对设备）
     ...(request.sentFrom ? { sentFrom: request.sentFrom } : {}),
   };
-  // 同一事务：先追加的事件（16 号票：开一个对话段，分隔线排在这句话之前）、消息、语音对象（31 号票）；
+  // 同一事务：先追加的事件（开一个对话段，分隔线排在这句话之前）、消息、语音对象；
   // 它们各带自己的幂等键（语音的由发送请求的幂等键推出），重发时一起去重
   const prelude = preludeOf?.(request.conversation) ?? [];
   const results = store.appendBatch([...prelude, { channel: request.conversation, type: EVENT_TYPES.message, payload, idempotencyKey: request.idempotencyKey }, ...extra]);
@@ -183,9 +183,9 @@ function existing(attachments: AttachmentLookup, mediaId: string, name: string) 
 }
 
 /**
- * 消息的归属（共享协议包里唯一的一份）：负责人会话里的消息所属的任务、项目（素材的"任务或项目"取自这里，12 号票起），
- * 属于任务的那时任务在哪个阶段（25 号票：时间线的全局层按阶段聚色块；任务里的取 tasks/stages.ts 的 taskMessageScope），
- * 定时作业的一次运行（24 号票：负责人处理它时的用量记在作业名下，19 号票交给负责人执行作业时带上）
+ * 消息的归属（共享协议包里唯一的一份）：负责人会话里的消息所属的任务、项目（素材的"任务或项目"取自这里），
+ * 属于任务的那时任务在哪个阶段（时间线的全局层按阶段聚色块；任务里的取 tasks/stages.ts 的 taskMessageScope），
+ * 定时作业的一次运行（负责人处理它时的用量记在作业名下，交给负责人执行作业时带上）
  */
 export type { MessageScope };
 
@@ -197,11 +197,11 @@ export interface AppendMessageOptions extends MessageScope {
   agentInput?: boolean;
   /** 同一件事只追加一次（比如同一个审批的"可以重试"） */
   idempotencyKey?: string;
-  /** agent 正在干活时以插话送达，不等这一轮结束（14 号票：现在只有无进展的催促这样送）；只用于 agentInput 的通知 */
+  /** agent 正在干活时以插话送达，不等这一轮结束（现在只有无进展的催促这样送）；只用于 agentInput 的通知 */
   interject?: boolean;
-  /** 只在项目负责人的对话段里处理（362 号票，MessageEventPayload.chatOnly）；只用于 agentInput 的通知 */
+  /** 只在项目负责人的对话段里处理（MessageEventPayload.chatOnly）；只用于 agentInput 的通知 */
   chatOnly?: boolean;
-  /** 任务执行交给负责人的是哪一种通知、说的是哪几个阶段（361 号票，MessageEventPayload.taskNotice）；只用于 agentInput 的通知 */
+  /** 任务执行交给负责人的是哪一种通知、说的是哪几个阶段（MessageEventPayload.taskNotice）；只用于 agentInput 的通知 */
   taskNotice?: MessageEventPayload["taskNotice"];
 }
 
@@ -224,8 +224,8 @@ export function buildMessage(
 }
 
 /**
- * 时间线上的一条记录和它的事件（不追加：调用方和别的事件一起放进 appendBatch；25 号票定形状）。
- * 偏离（14 号票）、范围变更和越界（18 号票）照这个追加；和消息一样带上归属（任务里的用 taskMessageScope 取当时的阶段）。
+ * 时间线上的一条记录和它的事件（不追加：调用方和别的事件一起放进 appendBatch；定形状）。
+ * 偏离、范围变更和越界照这个追加；和消息一样带上归属（任务里的用 taskMessageScope 取当时的阶段）。
  * 记录的 id、时间由这里给；同一件事只记一次的给幂等键
  */
 export function buildTimelineRecord(
@@ -254,7 +254,7 @@ export function appendMessage(store: EventStore, message: Omit<MessageEnvelope, 
 export const SYSTEM_NOTICE_TAG = "[系统通知]"; // @i18n-ignore model：交给 agent 的标记
 
 /**
- * 秘书转达的话（103 号票）交给 agent 时开头的标记：对方看得出这句是用户在和秘书说话时让秘书转告的，不是用户在这里打的字
+ * 秘书转达的话交给 agent 时开头的标记：对方看得出这句是用户在和秘书说话时让秘书转告的，不是用户在这里打的字
  */
 export const SECRETARY_RELAY_TAG = "【秘书转达】"; // @i18n-ignore model：交给 agent 的标记
 
@@ -262,11 +262,11 @@ export const SECRETARY_RELAY_TAG = "【秘书转达】"; // @i18n-ignore model�
 export const SECRETARY_RELAY_HEAD = `${SECRETARY_RELAY_TAG}用户在和秘书的对话里让秘书把下面这句话转告你（不是用户在这里直接打的字），照用户在这里说的话一样处理：`; // @i18n-ignore model
 
 /**
- * 秘书按用户的话往任务、项目负责人的会话里转达的一句（103 号票）和它的事件（不追加：和快速动作卡、操作记录同一事务）。
+ * 秘书按用户的话往任务、项目负责人的会话里转达的一句和它的事件（不追加：和快速动作卡、操作记录同一事务）。
  * 走用户在任务详情、项目负责人会话里直接说话的那条路：发言方是用户，归属（scope）和要先追加的事件（开对话段）由调用方
  * 照网关发消息时的算法给；只多一个 relayedBy 标记。幂等键由快速动作的动作 id 推出，同一个动作只转一次。
- * 115 号票：对方会话里这一句折成一行，一句话总结是转达的话本身的第一句（截到 30 字）。
- * 125 号票：relayOf 是用户在秘书那里说的那句（秘书处理它时提出的转达）：负责人引用这一句，运行时按它换成用户的原话核实
+ * 对方会话里这一句折成一行，一句话总结是转达的话本身的第一句（截到 30 字）。
+ * relayOf 是用户在秘书那里说的那句（秘书处理它时提出的转达）：负责人引用这一句，运行时按它换成用户的原话核实
  */
 export function buildRelayedMessage(
   conversation: ConversationId,
@@ -301,11 +301,11 @@ export function appendAgentNotice(store: EventStore, conversation: ConversationI
 
 /**
  * 交给 agent 的通知和它的事件（不追加）：和别的事件一起放进 appendBatch。负责人会话里的带上所属的任务。
- * interject：agent 正在干活时以插话送达，不等这一轮结束（14 号票：现在只有无进展的催促这样送）。
- * summary：会话里折成一行时显示的一句话总结（115 号票，来信才有：任务做完、负责人来信），只给界面看，交给 agent 的照旧是全文。
- * relaySources：这条通知能转述谁（354 号票，MessageEnvelope.relaySources），只给运行时看。
- * chatOnly：只在项目负责人的对话段里处理，不打断正在做的工单（362 号票）
- * taskNotice：任务执行的通知是哪一种（361 号票），状态变了排着的旧通知按它作废，只给运行时看
+ * interject：agent 正在干活时以插话送达，不等这一轮结束（现在只有无进展的催促这样送）。
+ * summary：会话里折成一行时显示的一句话总结（来信才有：任务做完、负责人来信），只给界面看，交给 agent 的照旧是全文。
+ * relaySources：这条通知能转述谁（MessageEnvelope.relaySources），只给运行时看。
+ * chatOnly：只在项目负责人的对话段里处理，不打断正在做的工单
+ * taskNotice：任务执行的通知是哪一种，状态变了排着的旧通知按它作废，只给运行时看
  */
 export function buildAgentNotice(
   conversation: ConversationId,

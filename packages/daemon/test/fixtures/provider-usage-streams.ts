@@ -1,4 +1,4 @@
-// 真实 provider（OpenAI 兼容的 chat completions，流式）的响应样本，给 pi 契约测试锁住用量字段的换算（24 号票）。
+// 真实 provider（OpenAI 兼容的 chat completions，流式）的响应样本，给 pi 契约测试锁住用量字段的换算。
 // 不联网：契约测试在本机起一个只回放这些样本的服务，子进程里的 pi 把请求发到那里（CatalogModelSpec.baseUrl）。
 // - DEEPSEEK_STREAM：按 DeepSeek 官方文档的流式响应格式写的（最后一个分片带 usage：prompt_cache_hit_tokens /
 //   prompt_cache_miss_tokens，同时有 OpenAI 写法的 prompt_tokens_details.cached_tokens）；

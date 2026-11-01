@@ -529,7 +529,7 @@
 - `pi-durable`（Experimental）提供 Conversation、Task（每一步存 checkpoint 的状态机）、Document，工具可以用 `control:{handoff}` 发起交接（[durable README](https://raw.githubusercontent.com/badlogic/pi-mono/main/packages/durable/README.md)）。
 
 **交叉参考**
-- 前作（调研 01，未公开）用的是 `@earendil-works/pi-agent-core` 的 `AgentHarness`，靠 `before_tool`/`after_tool`/`before_run_end` 三个 hook 实现拦截和催办。ergo 的角色权限门可以复用同一套 hook。
+- 前作用的是 `@earendil-works/pi-agent-core` 的 `AgentHarness`，靠 `before_tool`/`after_tool`/`before_run_end` 三个 hook 实现拦截和催办。ergo 的角色权限门可以复用同一套 hook。
 
 ---
 

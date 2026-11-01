@@ -1,14 +1,14 @@
-// Google 日历订阅（297 号票）：Google 插件的服务里日历这一块。用户在设置 · 数据源填一个或几个"iCal 格式的私密地址"，
+// Google 日历订阅：Google 插件的服务里日历这一块。用户在设置 · 数据源填一个或几个"iCal 格式的私密地址"，
 // 这里负责：
 // - 地址存密钥区（DataSourceSecrets：feeds 是几个日历的 id，feed.<id> 是那个日历的地址；id 是地址的哈希前 10 位，同一个地址删了再加还是它）；
 //   事件、日志里只有 id、名字，页面上多一句去掉私钥的地址（feed-fetch.ts 的 maskAddress）；
 // - 填设置时测试连接（拉一遍、认得出是日历才存），删掉一个日历（它的事件各写一条 removed）；
 // - 同步：每个日历拉一遍、和现在的比（events.ts 的 foldCalendars），只写新的、变了的、没了的，交回"新进来几条"（新的加上变了的）；
 //   哪个日历拉不到记下原因（页面上那个日历下面写着），有拉不到的整次算出错（数据源页"上次同步出错：「工作」地址失效了……"），拉到的照样写；
-// - 外部日历（数据源的 calendar()，299 号票定的路：日历插件按月取时经内核现取）：把还配着的几个日历在那一段时间里展开（recurrence.ts），
+// - 外部日历（数据源的 calendar()，定的路：日历插件按月取时经内核现取）：把还配着的几个日历在那一段时间里展开（recurrence.ts），
 //   标上哪个日历（用户起的名字，没有用日历自己的）；断开以后没有地址了就不给（和手机日历一样）；
 // - 按需查（calendar-tool.ts）现拉一遍再展开，拉不到的用同步来的那份；
-// - 306 号票：每个日历都**连着 3 次**"一直不行"（地址失效、没权限：FeedProblem.lasting；偶尔一次 404 不算）时连接状态是出错
+// -每个日历都**连着 3 次**"一直不行"（地址失效、没权限：FeedProblem.lasting；偶尔一次 404 不算）时连接状态是出错
 //   （原因写哪几个日历怎么了），内核就不把"查 Google 日历"给秘书、定期导入到点也不拉，每小时替它再试一次（recheck：每个地址拉一遍、
 //   不写事件），拉到了就回到连着；重新填一遍地址（或者删掉坏的、加新的）也好。一时拉不到（超时、连不上）的照样连着、也把"连着几次"
 //   清零。同步、按需查现拉、再试时都记下（拉到了就清掉）；
@@ -74,7 +74,7 @@ export interface GoogleCalendarOptions {
   log: (line: string) => void;
 }
 
-/** 一个日历连着几次"一直不行"（地址失效、没权限）才算它坏了（306 号票：偶尔一次 404 不该让日历停下） */
+/** 一个日历连着几次"一直不行"（地址失效、没权限）才算它坏了（偶尔一次 404 不该让日历停下） */
 export const FEED_LASTING_AFTER = 3;
 
 export interface GoogleCalendarService {
@@ -90,7 +90,7 @@ export interface GoogleCalendarService {
   configure(values: Readonly<Record<string, string>>, ctx: DataSourceContext): Promise<DataSourceStatus>;
   /** 同步一次 */
   sync(ctx: DataSourceSyncContext): Promise<DataSourceSyncResult>;
-  /** 出错后再试（306 号票，内核每小时叫）：每个地址拉一遍，拉到的清掉原因、拉不到的记下，不写事件 */
+  /** 出错后再试（内核每小时叫）：每个地址拉一遍，拉到的清掉原因、拉不到的记下，不写事件 */
   recheck(ctx: DataSourceRecheckContext): Promise<void>;
   /** 断开时的清理：记着的拉不到的原因清掉（密钥区那一格、事件由内核删） */
   disconnect(): void;
@@ -117,7 +117,7 @@ const failed = (problem: string): DataSourceStatus => ({ connection: "error", pr
 export function createGoogleCalendar(options: GoogleCalendarOptions): GoogleCalendarService {
   const { store, log } = options;
   const now = () => nowIso(new Date(options.clock.now()));
-  /** 哪个日历上次拉不到、原因、连着几次"一直不行"（地址失效、没权限：306 号票；一时拉不到的是 0）（重启就没了；页面上那个日历下面写着） */
+  /** 哪个日历上次拉不到、原因、连着几次"一直不行"（地址失效、没权限；一时拉不到的是 0）（重启就没了；页面上那个日历下面写着） */
   const problems = new Map<string, { text: string; streak: number }>();
   const noteProblem = (id: string, err: unknown) => {
     const lasting = err instanceof FeedProblem && err.lasting;
@@ -213,9 +213,9 @@ export function createGoogleCalendar(options: GoogleCalendarOptions): GoogleCale
         ...(problem === undefined ? {} : { problem }),
       };
     });
-    // 每个日历都连着几次一直不行（地址失效、没权限）：出错（306 号票：按需查的工具不给、定期导入不拉、每小时再试），原因写哪个日历怎么了
+    // 每个日历都连着几次一直不行（地址失效、没权限）：出错（按需查的工具不给、定期导入不拉、每小时再试），原因写哪个日历怎么了
     const lasting = configured.every(({ id }) => (problems.get(id)?.streak ?? 0) >= FEED_LASTING_AFTER);
-    // 账号：私密地址里的个人日历 id（完整邮箱，339 号票）；共享的、订阅的日历（…@group.calendar.google.com）不算
+    // 账号：私密地址里的个人日历 id（完整邮箱）；共享的、订阅的日历（…@group.calendar.google.com）不算
     const accounts = [...new Set(configured.flatMap(({ address }) => accountOf(address) ?? []))];
     const account = accounts.length > 0 ? { account: accounts.join(t("google.calendar.listSep")) } : {};
     const disconnectNote = { disconnectNote: t("google.calendar.disconnectNote") };
@@ -311,7 +311,7 @@ export function createGoogleCalendar(options: GoogleCalendarOptions): GoogleCale
           return { occurrences: expandFeed(feed, calendar.events, index, from, to) };
         } catch (err) {
           if (signal?.aborted) throw err;
-          // 按需查现拉时发现地址失效也记下（306 号票：查完内核比一比，都不行了就不再给秘书这个工具）
+          // 按需查现拉时发现地址失效也记下（查完内核比一比，都不行了就不再给秘书这个工具）
           noteProblem(id, err);
           const reason = err instanceof FeedProblem ? err.message : describe(err);
           return { failed: { id, name: nameOf(synced, index), reason, fallback: synced !== undefined }, occurrences: synced ? expandFeed(synced, [...synced.items.values()], index, from, to) : [] };

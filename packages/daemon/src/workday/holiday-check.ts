@@ -1,11 +1,11 @@
-// 节假日数据每年要续（29 号票，规格第 21 节）：
+// 节假日数据每年要续（规格第 21 节）：
 // - 检查：调度器上的内部作业 holiday_data_check，每月 holidayCheck.dayOfMonth 那天跑一次。到了 holidayCheck.fromMonth
 //   （默认 12 月）及以后查下一年，之前的月份查今年——整个 12 月都没开机的话，1 月补跑时照样查得出那一年缺数据。
 //   缺了就在待我处理里放一条"节假日数据缺失"事项（不卡任务），写明是哪一年、哪一边；同一年同样的缺失已经有事项就不再放。
-// - 发起更新任务：用户在事项上点"发起更新任务"，用 12 号票的任务发起建一个任务（用户发起，规划中，出现在看板上），
+// - 发起更新任务：用户在事项上点"发起更新任务"，用任务发起建一个任务（用户发起，规划中，出现在看板上），
 //   同一事务记下"这个任务是哪一年哪一边的更新"（内部频道的 holiday_update_task），再写好任务书交给任务的负责人：
 //   年份、哪一边、调研文件里列的官方来源、交付件的格式；计划的工具包要开联网，照常在计划卡上确认。
-// - 导入交付件：任务完成后（13 号票的任务完成回调，daemon.ts 接到 taskCompleted）：任务的工作目录（产出区 outputs/<任务 id>/）
+// - 导入交付件：任务完成后（任务完成回调，daemon.ts 接到 taskCompleted）：任务的工作目录（产出区 outputs/<任务 id>/）
 //   里的 <地区>-<年>.json 逐个交给 workdayCalendar.importHolidayFile（运行时校验格式后导入，工作日历用上它）；数据补上了，
 //   对应的缺失事项自动结束（归档）；没交的、不对的在待我处理里放一条"节假日数据导入有问题"说明（不卡任务）。
 //   任何 agent 都不直接写节假日数据（配置区是受保护区域）。
@@ -116,7 +116,7 @@ export interface HolidayUpdatesOptions {
   workdayCalendar: WorkdayCalendarService;
   inbox: InboxService;
   store: EventStore;
-  /** 12 号票的任务：用户点"发起更新任务"时建任务、写任务书 */
+  /** 任务：用户点"发起更新任务"时建任务、写任务书 */
   tasks: Pick<TaskService, "buildCreate" | "writeBrief">;
   internalJobs: InternalJobs;
   clock: Clock;
@@ -134,7 +134,7 @@ export interface HolidayUpdates {
    * 交了的 <地区>-<年>.json 逐个校验后导入，没交的、不对的写进 problems
    */
   importForTask(taskId: string, workDir?: string): HolidayImportResult | undefined;
-  /** 任务完成后（13 号票的任务完成回调）：导入它的交付件，有问题的在待我处理里放一条说明（不卡任务） */
+  /** 任务完成后（任务完成回调）：导入它的交付件，有问题的在待我处理里放一条说明（不卡任务） */
   taskCompleted(completed: { task: { id: string; title: string }; workDir: string }): void;
 }
 

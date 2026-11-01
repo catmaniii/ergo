@@ -1,4 +1,4 @@
-// 把自带的语言和 ~/.ergo/locales 里的合成一份（168 号票，纯函数，读目录在 files.ts）：
+// 把自带的语言和 ~/.ergo/locales 里的合成一份（纯函数，读目录在 files.ts）：
 // - 自带的语言（packages/protocol/locales/）每种一个目录；
 // - ~/.ergo/locales/ 里的目录：和自带的同名就是覆盖——同名 key 换成用户的译法（_meta.json 可以不放，放了就换掉说明）；
 //   不同名就是新语言，要有对的 _meta.json，否则整个不认；

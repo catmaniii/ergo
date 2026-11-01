@@ -1,4 +1,4 @@
-// 页面桥里"看能点的东西、按编号点"（164 号票，用户 2026-10-19：秘书在"浏览"里点不了链接和按钮，希望像 CDP 那样自己点；
+// 页面桥里"看能点的东西、按编号点"（秘书在"浏览"里点不了链接和按钮，希望像 CDP 那样自己点；
 // 照 agent-browser 的 snapshot 给可交互元素编号 @e1、click @e1 按编号点的形状）。宿主经页面桥的 snapshot、click 调（带口令）。
 // - 看（snapshot）：走一遍文档（连同网页自己开放的 shadow root；页面桥自己那一层是封闭的 shadow root，悬浮按钮、气泡、挑图片窗口
 //   都在里面，不列），收链接、按钮、role 是按钮/链接/菜单项/标签页的、提交和按钮样子的 input、summary；不列看不见的（没有大小、
@@ -16,7 +16,7 @@
 //   派事件前临时改成 _self、派完还原——网站自己的 onClick 照样先跑，拦下了就不跳；派事件的那一下里网页调 window.open 开新窗口的，
 //   记下地址、回 null，派完了如果这一下没有别的跳转（不是链接、链接被拦下、链接只是 # 或 javascript:）就在这个标签里打开它。
 // 用到的内置函数（派事件、量位置、滚动、算样式、查元素）在注入的那一刻记下来，网页的脚本之后改了也碍不着。
-// 184 号票（用户 2026-10-20：希望在一页里能自动交图 → 自动填字 → 自动点按钮，不用每次都由人先点中框）：
+// 希望在一页里能自动交图 → 自动填字 → 自动点按钮，不用每次都由人先点中框：
 // - 看的时候也列能填、能交、能选的框（和能点的同一套编号，一起排先后、一起算上限）：文本框（bridge.ts 认得能填的单行、多行、
 //   可编辑区域，连 role=combobox 的输入框也算文本框）带现在的值的前 40 字；上传框（选文件的 input）带 accept、multiple，网站把它
 //   藏起来（display:none、1 像素、透明）、画了自己的上传按钮的照样列、标 hidden——只能交、不能点；下拉框（select、别的 role=combobox）
@@ -31,11 +31,11 @@ import type { BridgeTextKey } from "./texts.ts";
 
 /** 算能点的：链接、按钮、role 是按钮/链接/菜单项/标签页的、提交和按钮样子的 input、summary（展开 details 的那一行） */
 const SELECTOR = 'a[href], button, [role="button" i], [role="link" i], [role="menuitem" i], [role="tab" i], input[type="submit" i], input[type="button" i], summary';
-/** 框的种类对应列出来的种类（184 号票） */
+/** 框的种类对应列出来的种类 */
 const fieldRoleOf = (kind: PageFieldKind): "textbox" | "upload" => (kind === "file" ? "upload" : "textbox");
 /** 上传框没有标签时拿上传处上的字，最多多少（和框的标签一样） */
 const AREA_TEXT_MAX = 80;
-/** 算能填、能交、能选的（184 号票）：再按 FieldHooks 认种类 */
+/** 算能填、能交、能选的：再按 FieldHooks 认种类 */
 const FIELD_SELECTOR = 'input, textarea, select, [contenteditable], [role="textbox" i], [role="combobox" i]';
 /** 看一次最多列多少个（和协议的 PAGE_ELEMENTS_MAX、PAGE_ELEMENTS_DEFAULT 一样） */
 const ELEMENTS_MAX = 100;
@@ -53,29 +53,29 @@ export const CLICK_GONE = "页面变了（这个元素已经不在页面上）�
 export const CLICK_CHANGED = "页面变了（这个元素上的字变了），请重新 snapshot";
 export const CLICK_DISABLED = "这个元素现在是灰的（禁用了），点不了";
 export const clickUnknown = (ref: string) => `这一页上没有 ${ref} 这个编号（编号只在看过的那一页有效），请重新 snapshot`;
-/** 框按编号点不了（184 号票） */
+/** 框按编号点不了 */
 export const clickField = (ref: string, role: FieldRole) =>
   role === "upload" ? `${ref} 是上传框，只能交文件，不能点` : role === "textbox" ? `${ref} 是文本框，不能点：填字按编号填` : `${ref} 是下拉框：下拉框现在只能看，选要用户自己点`;
 // @i18n-ignore-end
 
 export type SnapshotReply = { ok: true; page: PageInfo; elements: PageElement[]; total: number };
 export type ClickReply = { ok: true; role: ElementRole; text: string; page: PageInfo } | { ok: false; reason: string };
-/** 按编号找到的框（184 号票）：元素和框的种类（bridge.ts 照它填、交） */
+/** 按编号找到的框：元素和框的种类（bridge.ts 照它填、交） */
 export type FieldReply = { ok: true; el: Element; kind: PageFieldKind } | { ok: false; reason: string };
 
 export interface Clickables {
-  /** 列能点的（184 号票起连同能填、能交、能选的框；max 是字符串，宿主经 App 交来的；认不出按 40，夹在 1–100） */
+  /** 列能点的（连同能填、能交、能选的框；max 是字符串，宿主经 App 交来的；认不出按 40，夹在 1–100） */
   snapshot(max: string): SnapshotReply;
   /** 按编号点；url 是看的时候那一页的地址（去掉查询串） */
   click(ref: string, url: string): ClickReply;
-  /** 按编号找要填的文本框、要交的上传框（184 号票）；url 同上 */
+  /** 按编号找要填的文本框、要交的上传框；url 同上 */
   field(ref: string, url: string, want: "textbox" | "upload"): FieldReply;
 }
 
-/** 按编号找框没找到的原因（184 号票，按二狗的网页交来的语言写） */
+/** 按编号找框没找到的原因（按二狗的网页交来的语言写） */
 export type RefReasonKey = Extract<BridgeTextKey, `bridge.reason.ref${string}` | "bridge.reason.notTextbox" | "bridge.reason.notUpload">;
 
-/** 认框的那一套（bridge.ts 给，184 号票）：认框、说法、框里的字、上传处、标签、密码类 */
+/** 认框的那一套（bridge.ts 给）：认框、说法、框里的字、上传处、标签、密码类 */
 export interface FieldHooks {
   /** 能填、能交的框是什么种类（密码类、禁用、只读的是 undefined） */
   kindOf(el: Element): PageFieldKind | undefined;
@@ -104,7 +104,7 @@ export interface ClickablesDeps {
   pageInfo(): PageInfo;
   /** 注入时记下的 innerText 的 getter（看得见的文字） */
   innerText?: (this: HTMLElement) => string;
-  /** 认框的那一套（184 号票）；不给只列能点的 */
+  /** 认框的那一套；不给只列能点的 */
   fields?: FieldHooks;
 }
 
@@ -135,7 +135,7 @@ export function createClickables(deps: ClickablesDeps): Clickables {
   const byRef = new Map<string, { el: WeakRef<Element>; text: string; role: ElementRole }>();
   let next = 1;
 
-  /** 文档里（连同网页自己开放的 shadow root 里）的能点的（184 号票起连同能填、能交、能选的），照页面上的先后；页面桥自己那一层不进去 */
+  /** 文档里（连同网页自己开放的 shadow root 里）的能点的（连同能填、能交、能选的），照页面上的先后；页面桥自己那一层不进去 */
   const collect = (root: Document | ShadowRoot, out: Element[]) => {
     for (const el of Array.from(root.querySelectorAll("*"))) {
       if (el === own) continue;
@@ -191,7 +191,7 @@ export function createClickables(deps: ClickablesDeps): Clickables {
     return clickRoleOf({ tag: el.tagName, type: attr(el, "type") ?? "", role: attr(el, "role") ?? "", hasForm: form !== null });
   };
 
-  // ---------- 能填、能交、能选的框（184 号票） ----------
+  // ---------- 能填、能交、能选的框 ----------
 
   /** 下拉框：select，或者别的 role=combobox（能填的输入框算文本框，在前面已经认了）；密码类的不算 */
   const isSelect = (el: Element, hooks: FieldHooks) =>
@@ -405,7 +405,7 @@ export function createClickables(deps: ClickablesDeps): Clickables {
     if (pageInfo().url !== String(url)) return { ok: false, reason: CLICK_MOVED };
     const entry = byRef.get(ref);
     if (!entry) return { ok: false, reason: clickUnknown(ref) };
-    // 框不点（184 号票）：填字、交文件按编号来，下拉框只能看
+    // 框不点：填字、交文件按编号来，下拉框只能看
     if (isFieldRole(entry.role)) return { ok: false, reason: clickField(ref, entry.role) };
     const el = entry.el.deref();
     if (!el || !el.isConnected) return { ok: false, reason: CLICK_GONE };
@@ -441,7 +441,7 @@ export function createClickables(deps: ClickablesDeps): Clickables {
     return { ok: true, role: entry.role, text: entry.text, page: pageInfo() };
   };
 
-  // ---------- 按编号找框（184 号票） ----------
+  // ---------- 按编号找框 ----------
 
   const field = (refText: string, url: string, want: "textbox" | "upload"): FieldReply => {
     const ref = String(refText);

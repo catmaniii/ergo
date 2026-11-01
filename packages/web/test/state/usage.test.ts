@@ -1,4 +1,4 @@
-// 消耗页和任务详情的用量（24 号票）：范围的快捷选项、范围里的每一天、agent 的叫法；消耗页单价那块（94 号票：自带价格表分时段）。录下的真实事件流回放在 recorded.test.ts 的 token-ledger。
+// 消耗页和任务详情的用量：范围的快捷选项、范围里的每一天、agent 的叫法；消耗页单价那块（自带价格表分时段）。录下的真实事件流回放在 recorded.test.ts 的 token-ledger。
 import { describe, expect, test } from "vitest";
 import {
   agentLabel,
@@ -32,7 +32,7 @@ describe("消耗页的范围", () => {
 });
 
 describe("agent 的叫法", () => {
-  test("秘书写名字占位（界面按用户起的名字显示，43 号票），别的是角色加 id；消耗页上负责人写编号加它所在的项目或任务（159 号票）", () => {
+  test("秘书写名字占位（界面按用户起的名字显示），别的是角色加 id；消耗页上负责人写编号加它所在的项目或任务", () => {
     expect(agentLabel("secretary", "secretary")).toBe(ASSISTANT_NAME_MARK);
     expect(agentLabel("review-t-1-s2-1", "reviewer")).toBe("评审子 agent review-t-1-s2-1");
     const state = replay([
@@ -74,14 +74,14 @@ describe("agent 的叫法", () => {
         expect.objectContaining({ label: "tm-1「X 的调研的任务负责人」 · 压缩", total: 16, purpose: "compaction" }),
       ],
       total: 48,
-      // 311 号票：合计里缓存命中的（详情顶上写"（其中缓存命中 …）"）
+      // 合计里缓存命中的（详情顶上写"（其中缓存命中 …）"）
       cacheHit: 30,
       calls: 3,
     });
   });
 });
 
-describe("消耗页的单价（94 号票）", () => {
+describe("消耗页的单价", () => {
   const flash = { cacheHit: 0.02, cacheMiss: 1, output: 4 };
   const flashPeak = { cacheHit: 0.04, cacheMiss: 2, output: 8 };
   const pricing: UsagePricing = {

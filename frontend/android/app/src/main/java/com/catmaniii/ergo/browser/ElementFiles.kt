@@ -51,7 +51,7 @@ fun refererFor(page: String, target: String): String? {
 private class FetchFailure(val code: String, val status: Int = 0) : Exception(code)
 
 /**
- * 长按网页元素的圆钮（359 号票，对应鸿蒙 browser/ElementFiles.ets）：秘书要元素的内容、要下载时，App 这一侧的本事，都经 browserTool（op 以 element 开头）：
+ * 长按网页元素的圆钮（对应鸿蒙 browser/ElementFiles.ets）：秘书要元素的内容、要下载时，App 这一侧的本事，都经 browserTool（op 以 element 开头）：
  * - elementFetch：把一个地址取进缓存。页面里 fetch 跨站会被挡，这里自己发请求，带这个地址该带的 cookie 和来源页（防盗链、要登录的图都取得到）；
  *   不自动跟重定向，每一跳重新算，二狗的设备凭证只给二狗自己的页面发起的请求（cookieAllowed，外部网页的元素指向二狗地址的不带）；
  * - elementShot：截网页的一块（图取不到时用，PixelCopy：连视频都截得到，系统选文字的工具条在别的窗口上，截不进来）；

@@ -138,7 +138,7 @@ function resolveDate(value: string, hh: number, mm: number, now: Date): Date {
 
 /**
  * 规则下一次响的时间（"按我的工作日"按 context 里的工作日历算）；没有下一次（一次性的时刻已经过了，或者写法不对）就说明错在哪。
- * 从网页来的时间表（提醒卡上改的、发起对话框里建的）只过了 schema：重复规则拼不出来的（每年 2 月 30 日，282 号票）在这里拦下
+ * 从网页来的时间表（提醒卡上改的、发起对话框里建的）只过了 schema：重复规则拼不出来的（每年 2 月 30 日）在这里拦下
  */
 export function nextAtOf(schedule: ReminderSchedule, now: Date, context: ScheduleContext): string {
   const rule = repeatRuleOf(schedule);

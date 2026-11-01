@@ -1,7 +1,7 @@
 // 顺口问的几个小零件（整条路径由主切面 test/main/memory-woven-questions.test.ts 走）：
-// - 271 号票：秘书标了哪个问题（markedQuestionOf）：认秘书这一轮标问题的工具调用（做成了的；标错了编号、工具回错的不算）；
-// - 271 号票：每晚整理判回答要的"问过以后用户说的话"（reply-follow-ups.ts）：从秘书标了问题的那一轮之后取，同一个会话、用户本人说的、
-//   问过以后 24 小时内，按先后，每句对到它的素材；带上秘书那一轮的回话（问在里面）；找不到那一轮（271 以前问的）按问过的时间取；
+// -秘书标了哪个问题（markedQuestionOf）：认秘书这一轮标问题的工具调用（做成了的；标错了编号、工具回错的不算）；
+// -每晚整理判回答要的"问过以后用户说的话"（reply-follow-ups.ts）：从秘书标了问题的那一轮之后取，同一个会话、用户本人说的、
+//   问过以后 24 小时内，按先后，每句对到它的素材；带上秘书那一轮的回话（问在里面）；找不到那一轮（以前问的）按问过的时间取；
 // - 记忆的设置（memory/settings.ts）：没有文件是默认（开着）；改了写进配置区、重启照样读得到；文件坏了按默认、不覆盖它。
 import fs from "node:fs";
 import path from "node:path";
@@ -59,7 +59,7 @@ describe("夜里判回答要的'问过以后用户说的话'", () => {
     expect(again.followUps.map((f) => messageOf(f.sourceRef))).toEqual([soso]);
   });
 
-  it("找不到秘书标的那一轮（271 以前按原样带那一句问的）：按问过的时间取之后用户说的话", () => {
+  it("找不到秘书标的那一轮（以前按原样带那一句问的）：按问过的时间取之后用户说的话", () => {
     const t = materialsSetup();
     postMessage(t.store, [text("周日要不要约朋友去爬山？")], { time: time(10, 20, 0) });
     postMessage(t.store, [text("顺便问一句：……你会去吗？")], { speaker: "agent", time: time(10, 20, 1) });
@@ -89,16 +89,16 @@ describe("记忆的设置", () => {
     again.start();
     expect(again.current()).toEqual({ wovenQuestions: false, memoryBrief: true, interviewInvites: true });
 
-    // 266 号票：改哪项给哪项，没给的照旧
+    // 改哪项给哪项，没给的照旧
     expect(again.change({ memoryBrief: false })).toEqual({ wovenQuestions: false, memoryBrief: false, interviewInvites: true });
     expect(JSON.parse(fs.readFileSync(file, "utf8"))).toEqual({ format: 1, wovenQuestions: false, memoryBrief: false, interviewInvites: true });
 
-    // 284 号票：约访开不开（约访卡上点"不想做了"会关掉）
+    // 约访开不开（约访卡上点"不想做了"会关掉）
     expect(again.change({ interviewInvites: false })).toEqual({ wovenQuestions: false, memoryBrief: false, interviewInvites: false });
     expect(JSON.parse(fs.readFileSync(file, "utf8"))).toEqual({ format: 1, wovenQuestions: false, memoryBrief: false, interviewInvites: false });
   });
 
-  it("266 号票以前写的文件没有记忆简报那一项、284 号票以前的没有约访那一项：按默认（开着）", () => {
+  it("以前写的文件没有记忆简报那一项、以前的没有约访那一项：按默认（开着）", () => {
     const file = path.join(makeTempDir("ergo-memory-settings-"), "config", "memory-settings.json");
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, '{"format":1,"wovenQuestions":false}');

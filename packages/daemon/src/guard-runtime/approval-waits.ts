@@ -3,13 +3,13 @@
 //   并且这次判定命中的关注类别都在当初批准过的类别里——有就用掉、放行一次；
 // - 没有就提交审批（审批服务先写审批表、再建审批卡、通知前端），子进程里的这次调用最多等 approvalWaitMs（默认 5 分钟）。
 //   期间批准 → 接着执行；拒绝 → 拦下，模型收到"用户拒绝"；超时 → 以"已提交审批，等待用户"拦下，记挂起事件；
-//   任务里"没预料到的类别"（14 号票，suspendNow）提交审批后不等，马上以"已提交审批，等待用户"拦下、记挂起：这一支停下；
+//   任务里"没预料到的类别"（suspendNow）提交审批后不等，马上以"已提交审批，等待用户"拦下、记挂起：这一支停下；
 // - 不在等的审批（已挂起，或等的时候回合中止了）之后被决定：批准记成一次性授权，往会话里给 agent 递"……已获批准，可以重试"；
-//   拒绝同样递一条"……已被用户拒绝"，免得它以为还在等。调用不是会话的主人发起的（20 号票：子 agent 的调用记在负责人的会话里，
+//   拒绝同样递一条"……已被用户拒绝"，免得它以为还在等。调用不是会话的主人发起的（子 agent 的调用记在负责人的会话里，
 //   一次性授权只认子 agent 自己），这条通知的说法由 lateNotice 给（不给就照上面的）。
-// 时钟可注入（等审批的 5 分钟跟着它走）。被杀重启后从审批表恢复（还待处理的记成挂起，不新建卡、不再提示）在 recovery/（23 号票）。
-// 子进程里的调用停着等用户的这段时间，开始、结束都报给 userWaits（agent 管家）：这个 agent 的活动状态是"等你"（25 号票）。
-// @i18n-ignore-file model：等审批的调用交回 agent 的话、给 agent 的通知（173 号票）
+// 时钟可注入（等审批的 5 分钟跟着它走）。被杀重启后从审批表恢复（还待处理的记成挂起，不新建卡、不再提示）在 recovery/。
+// 子进程里的调用停着等用户的这段时间，开始、结束都报给 userWaits（agent 管家）：这个 agent 的活动状态是"等你"。
+// @i18n-ignore-file model：等审批的调用交回 agent 的话、给 agent 的通知
 import type { UserWaits } from "../agent-manager/agent-manager.ts";
 import type { ApprovalService } from "../approvals/approvals.ts";
 import { appendAgentNotice } from "../conversation/messages.ts";
@@ -28,7 +28,7 @@ export function approvalDeniedNoticeKey(approvalId: string): string {
 }
 
 /**
- * 等审批的调用不再等了（等审批超时；23 号票：被杀重启时还在等）时模型收到的话：已提交审批，审批卡还在，
+ * 等审批的调用不再等了（等审批超时；被杀重启时还在等）时模型收到的话：已提交审批，审批卡还在，
  * 用户批准后会收到"可以重试"的通知。why 是为什么不再等（"用户 5 分钟内没有处理这次调用"）
  */
 export function approvalSuspendedResult(approval: { toolTitle: string; argsSummary: string }, why: string): string {
@@ -55,7 +55,7 @@ export interface AskRequest {
   reply: (verdict: GuardVerdict) => void;
   /** 属于哪个接上的会话（回合结束、子进程退出时撤掉它的等待） */
   owner: object;
-  /** 提交审批后不等、马上挂起（14 号票：任务里没预料到的类别，先问用户并暂停这一支），写明为什么 */
+  /** 提交审批后不等、马上挂起（任务里没预料到的类别，先问用户并暂停这一支），写明为什么 */
   suspendNow?: string;
 }
 
@@ -86,9 +86,9 @@ export interface ApprovalWaitsOptions {
   clock: Clock;
   /** 子进程里等审批最多等多久（毫秒） */
   approvalWaitMs: number;
-  /** 子进程里一次调用开始、不再等用户批准（活动状态的"等你"，25 号票） */
+  /** 子进程里一次调用开始、不再等用户批准（活动状态的"等你"） */
   userWaits?: UserWaits;
-  /** 换掉不在等的审批被决定时那条通知的说法（20 号票：子 agent 的调用）；返回 undefined 照常 */
+  /** 换掉不在等的审批被决定时那条通知的说法（子 agent 的调用）；返回 undefined 照常 */
   lateNotice?: (decision: LateDecision) => string | undefined;
 }
 

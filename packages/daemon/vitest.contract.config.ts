@@ -16,14 +16,14 @@ export default defineConfig({
   test: {
     name: "pi-contract",
     include: ["test/contract/**/*.test.ts"],
-    // 168 号票：每个测试文件开始前装上自带的中文（t() 查得到句子）
+    // 每个测试文件开始前装上自带的中文（t() 查得到句子）
     setupFiles: ["test/setup-locales.ts", "../../vitest.setup-no-network.mjs"],
     testTimeout: 30_000,
     hookTimeout: 30_000,
     maxWorkers: Math.min(Number(process.env.ERGO_TEST_WORKERS) || CONTRACT_MAX_WORKERS, CONTRACT_MAX_WORKERS),
     // 根目录全量（`npm test`）里各 project 的 maxWorkers 不一样时，vitest 要求它们分在不同的组：契约测试在别的 project 跑完之后单独一组
     sequence: { groupOrder: 1 },
-    // 244 号票：转译缓存
+    // 转译缓存
     fsModuleCache: true,
   },
 });

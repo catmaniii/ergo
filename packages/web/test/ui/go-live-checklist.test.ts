@@ -1,4 +1,4 @@
-// 转运营检查清单（259 号票，ui/cards/cards.tsx 的 GoLiveChecklist）："首版做完了"卡、"转入使用"卡上的一节——每项做到的 ✓、没做到的 ✗
+// 转运营检查清单（ui/cards/cards.tsx 的 GoLiveChecklist）："首版做完了"卡、"转入使用"卡上的一节——每项做到的 ✓、没做到的 ✗
 // 写差什么，标题旁的小签写缺几项；还在等时提醒缺的不挡确认，确认过的写照样确认时缺了哪几项。用 React 在 Node 里渲染出来查。
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -27,7 +27,7 @@ describe("转运营检查清单", () => {
     expect(html).toContain("缺的不挡确认：照样确认会写明缺什么，也可以先让负责人补齐。");
   });
 
-  test("上线后再验（362 号票）：标出来、不算缺", () => {
+  test("上线后再验：标出来、不算缺", () => {
     const html = renderToStaticMarkup(createElement(GoLiveChecklist, { items: [{ id: "ops", label: "运营接口清单验收通过（ops.json）", done: true, later: true, detail: "上线后自动复验" }], pending: true }));
     expect(html).toContain("golive-later");
     expect(html).toContain("上线后再验");

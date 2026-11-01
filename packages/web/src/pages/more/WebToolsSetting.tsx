@@ -1,11 +1,11 @@
-// 设置 · 浏览与填框里"agent 联网搜索、读网页"一节（154 号票；162 号票改成三种方式的队列，用户 2026-10-18 定）：
-// - 三个标签排成一列：DeepSeek 付费搜索、二狗自带的浏览器搜索、agent-browser，每个写名字、一句话特点（161 号票报告）、排第几，最右边是启用开关
+// 设置 · 浏览与填框里"agent 联网搜索、读网页"一节（改成三种方式的队列）：
+// - 三个标签排成一列：DeepSeek 付费搜索、二狗自带的浏览器搜索、agent-browser，每个写名字、一句话特点、排第几，最右边是启用开关
 //   （单独的开关，点文字不会误切）；
 // - 调顺序：每一项开关左边有上移、下移按钮（手机上拖不顺手）；电脑上（鼠标这类精确的指针）还能按住左边的把手拖到别的位置；
 // - 不能全停：剩最后一个启用的，它的开关点不了，下面写明原因；没配 DeepSeek 的 key 时那一项写明、关着、点不了；
 // - DeepSeek 回过余额不足时写明哪会儿、这期间按顺序换了后面的；下面一行现在实际的顺序、key 配没配、agent-browser 和 Tavily 的说明。
 // 存在守护进程（所有设备一样）：打开时取一次（GET /api/web-settings），每改一处就整份存回去。说法和纯函数在状态层（state/web-settings.ts）。
-// 182 号票：四张标签（多"鸿蒙 App 的内置浏览器"），每张名字下面一行写用的英文工具名（等宽；DeepSeek 和浏览器用同一对 web_search、
+// 四张标签（多"鸿蒙 App 的内置浏览器"），每张名字下面一行写用的英文工具名（等宽；DeepSeek 和浏览器用同一对 web_search、
 // web_fetch，engine 写成小一号的等宽字区分开），手机上一行放不下就折行。
 import { type DragEvent, useEffect, useState } from "react";
 import { useStore } from "../../app/store.tsx";
@@ -181,7 +181,7 @@ export function WebToolsSetting() {
   );
 }
 
-/** 标签上用的英文工具名那一行（182 号票）：工具名等宽，engine 小一号的等宽，别的是字 */
+/** 标签上用的英文工具名那一行：工具名等宽，engine 小一号的等宽，别的是字 */
 function WebToolsLine({ parts }: { parts: readonly WebToolPart[] }) {
   return (
     <span className="web-queue-tools">

@@ -1,14 +1,14 @@
-// 每个 agent 的会话里的 ⚙（114 号票）：秘书会话、任务整页（负责它的负责人）、项目整页（项目负责人）的标题栏上一个 ⚙（照标题栏现有的 icon-btn），
+// 每个 agent 的会话里的 ⚙：秘书会话、任务整页（负责它的负责人）、项目整页（项目负责人）的标题栏上一个 ⚙（照标题栏现有的 icon-btn），
 // 点开一个面板：手机是底部弹层，宽屏是屏幕正中的对话框（照仓库现有的 Sheet）。面板四块：
-// - 这个 agent 自己的名字和音色（241 号票）：名字（输入框，占位写"跟默认：<默认名>"，影响界面上的称呼、它自己的系统提示、语音播报的开头）、
+// - 这个 agent 自己的名字和音色：名字（输入框，占位写"跟默认：<默认名>"，影响界面上的称呼、它自己的系统提示、语音播报的开头）、
 //   音色（下拉：跟默认 / 各个参考音色，带试听；语音插件停用时写"语音插件没启用"），都能"恢复跟默认"；
 // - 这个 agent 单独的提示词：在通用模板后面追加（默认）、整份自己写两种，边改边查（和守护进程同一个检查），存了从它的下一轮起生效；
 //   "恢复用通用模板"；下面是现在实际用的系统提示全文（只读，收着）；
-// - 清空当前对话：先确认；项目负责人是重置负责人（16 号票的入口并到这里，项目档案栏里不再另放一个）；
+// - 清空当前对话：先确认；项目负责人是重置负责人（入口并到这里，项目档案栏里不再另放一个）；
 // - 上下文用量：用了多少 / 窗口多大和进度条、上次压缩、离自动压缩还有多少，"现在压缩"；
-// - 模型（120 号票，只有项目、任务的负责人有）：跟随设置 · 模型里它那一行，或者单独选定模型和思考档位；可选的模型、看图能力的说法
-//   和设置 · 模型页同一套（取同一个接口），写明下一个新会话用的、最近在跑的会话实际用的、什么时候换（83 号票）。
-// - 运行时（289 号票，只有项目、任务的负责人有；只有 pi 能用、用的也是 pi 时不显示）：用哪个运行时（下拉：现在能用的；换了先确认——手头这一条做完，原来的写交接摘要，
+// - 模型（只有项目、任务的负责人有）：跟随设置 · 模型里它那一行，或者单独选定模型和思考档位；可选的模型、看图能力的说法
+//   和设置 · 模型页同一套（取同一个接口），写明下一个新会话用的、最近在跑的会话实际用的、什么时候换。
+// - 运行时（只有项目、任务的负责人有；只有 pi 能用、用的也是 pi 时不显示）：用哪个运行时（下拉：现在能用的；换了先确认——手头这一条做完，原来的写交接摘要，
 //   新的新开一段会话），按它的能力清单多出它的设置项（Claude Code：权限模式、思考档位，各一个下拉）；有自己模型列表的运行时多一个"模型"下拉
 //   （列表是它的），这时上面"模型"一块（二狗的模型目录，pi 用的）不显示；在换时写明"等手头这一条做完""原来的在写交接摘要"。
 //   运行时不支持"现在压缩"的，上下文一块不放那个按钮（界面按能力清单收起运行时不支持的按钮）。
@@ -67,7 +67,7 @@ const clearKey = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now().toStri
 /** 在等清空、在压缩时多久再取一次 */
 const POLL_MS = 1500;
 
-/** 别的页要打开的 ⚙（120 号票：设置 · 模型页上点某个单独配了模型的负责人）：跳过去之后，它的 ⚙ 挂上时自己打开一次 */
+/** 别的页要打开的 ⚙（设置 · 模型页上点某个单独配了模型的负责人）：跳过去之后，它的 ⚙ 挂上时自己打开一次 */
 let arrival: string | undefined;
 
 export function openAgentSettingsOnArrival(agentId: string): void {
@@ -114,7 +114,7 @@ function AgentSettingsSheet({ agentId, wide, onClose }: { agentId: string; wide:
     );
   }, [http, agentId]);
   useEffect(load, [load]);
-  // 运行时清单（289 号票）：打开时现取（运行时一块的选项、模型、设置项，按能力清单收起按钮）
+  // 运行时清单：打开时现取（运行时一块的选项、模型、设置项，按能力清单收起按钮）
   const runtimes = useRuntimes(true);
   // 在等它说完再清、在压缩、在换运行时：过一会儿再取（面板关了就不取了）
   useEffect(() => {
@@ -277,7 +277,7 @@ function PromptBlock({ view, onView }: { view: AgentSettingsView; onView(v: Agen
 /** 思考档位的选项（现取：档位的名字跟着当前语言） */
 const thinkingOptions = () => MODEL_THINKING_LEVELS.map((l) => ({ value: l, label: MODEL_THINKING_LABEL[l] }));
 
-/** 模型（120 号票）：跟随它那一行，或者单独选定模型和思考档位；可选的模型和看图能力取设置 · 模型的同一份（GET /api/model-settings） */
+/** 模型：跟随它那一行，或者单独选定模型和思考档位；可选的模型和看图能力取设置 · 模型的同一份（GET /api/model-settings） */
 function ModelBlock({ view, onView }: { view: AgentSettingsView; onView(v: AgentSettingsView): void }) {
   const { http } = useStore();
   const toast = useToast();
@@ -353,7 +353,7 @@ const runtimeOwnModels = (runtimes: readonly AgentRuntimeView[] | undefined, id:
   id !== undefined && id !== PI_RUNTIME_ID && runtimes?.find((r) => r.id === id)?.models !== undefined;
 
 /**
- * 运行时（289 号票）：用哪个运行时（换了先确认）、它自己的模型（有列表的）、按能力清单多出的设置项。改了从下一轮起（手头这一条处理完按新的
+ * 运行时：用哪个运行时（换了先确认）、它自己的模型（有列表的）、按能力清单多出的设置项。改了从下一轮起（手头这一条处理完按新的
  * 重新拉起）；换运行时的等手头这一条做完、原来的写好交接摘要才换
  */
 function RuntimeBlock({ view, runtimes, onView }: { view: AgentSettingsView; runtimes: readonly AgentRuntimeView[] | undefined; onView(v: AgentSettingsView): void }) {
@@ -390,9 +390,9 @@ function RuntimeBlock({ view, runtimes, onView }: { view: AgentSettingsView; run
   return (
     <Section title={t("ui.agentSettings.runtime.title")}>
       <div className="muted agent-note">{t("ui.agentSettings.runtime.note")}</div>
-      {/* 接管自已有的会话（290 号票）：哪个会话、工作目录、交还 / 收回 */}
+      {/* 接管自已有的会话：哪个会话、工作目录、交还 / 收回 */}
       <TakeoverPanel view={view} onView={onView} />
-      {/* 负责人在哪个文件夹做（305 号票）：能选工作文件夹的运行时写出来；接管来的上面那一块写了 */}
+      {/* 负责人在哪个文件夹做：能选工作文件夹的运行时写出来；接管来的上面那一块写了 */}
       {state.workdir !== undefined && state.takeover === undefined && <div className="muted agent-note agent-workdir">{t("ui.agentSettings.runtime.workdir", { path: state.workdir })}</div>}
       {line && (
         <div className={state.switching ? "agent-note agent-runtime-state" : "prompt-broken"} role={state.switching ? undefined : "alert"}>
@@ -550,7 +550,7 @@ function ClearBlock({ view, onView }: { view: AgentSettingsView; onView(v: Agent
   );
 }
 
-/** 上下文用量和"现在压缩"（289 号票：运行时不支持压缩的不放按钮） */
+/** 上下文用量和"现在压缩"（运行时不支持压缩的不放按钮） */
 function ContextBlock({ view, onView, canCompact = true }: { view: AgentSettingsView; onView(v: AgentSettingsView): void; canCompact?: boolean }) {
   const { http } = useStore();
   const toast = useToast();

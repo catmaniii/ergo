@@ -1,7 +1,7 @@
-// 二狗的网页在鸿蒙 App 里时，网页一侧怎么用 App 的原生内置浏览器（134 号票）——"浏览"页签之外的那几处：
+// 二狗的网页在鸿蒙 App 里时，网页一侧怎么用 App 的原生内置浏览器——"浏览"页签之外的那几处：
 // - watchNativeBrowser：开场 attach 一次（告诉 App 网页有"浏览"页签了，App 之后把主页面上点的外链交到浏览器里打开），
 //   之后跟着 App 推的变；加载完的页记进最近访问；App 说它打开了一个链接时切到"浏览"；
-// - openInNativeBrowser：132 号票的 openInAppBrowser 在壳里走这里——切到"浏览"页签、让浏览器打开这个地址（二狗转发的服务页面
+// - openInNativeBrowser：openInAppBrowser 在壳里走这里——切到"浏览"页签、让浏览器打开这个地址（二狗转发的服务页面
 //   /apps/… 拼成完整地址，带着 App 里的设备凭证 cookie）；
 // - followExternalLinks：页面里点外部网站的链接（聊天里 agent 给的、附件预览里的、target=_blank 的）在壳里改到"浏览"里打开，
 //   不再跳系统浏览器（App 的 interceptLoad 也会兜住主页面的外链跳转，这里先在网页里拦下，不用绕一圈）。

@@ -1,4 +1,4 @@
-// 202 号票：回答层——问题分流、相关门槛、D 组只在真命中假设时才加证据、检索和推理两条路都能说不确定、接上 196 号票的用户模型检索。
+// 回答层——问题分流、相关门槛、D 组只在真命中假设时才加证据、检索和推理两条路都能说不确定、接上用户模型检索。
 // 例子都是自己写的（test/rg/task-helpers.ts 的"推掉别人排好的活动"、周末社交案例，和这里现写的几条），不看 fixtures/truth。
 import { afterEach, describe, expect, it } from "vitest";
 import { FakeEmbedder } from "../../src/embedding/fake.ts";
@@ -69,7 +69,7 @@ describe("问题分流（规则版：句式和关键词）", () => {
   });
 });
 
-describe("接上 196 号票的用户模型检索：关于自己的判断、为什么也说需求和价值观", () => {
+describe("接上用户模型检索：关于自己的判断、为什么也说需求和价值观", () => {
   it("'我是不是特别看重自主安排'：结论索引找到价值观和两个场合的偏好，当结论说（推断的、带置信度和证据）；只是同一方面的只当背景", async () => {
     const { engine } = await storyEngine();
     const value = member(engine, VALUE, "value_enduring");
@@ -135,7 +135,7 @@ describe("相关门槛：三条路里至少一条命中、名次在前几名；�
     expect(shallow.map((g) => g.claimId)).toEqual(["a", "b"]);
   });
 
-  it("hitSupported：检索结果要有话题词、或者事实图谱那一路带来的、或者余弦超过门槛（205 号票起按背景语料校准，这里直接给）才算挨着问题", async () => {
+  it("hitSupported：检索结果要有话题词、或者事实图谱那一路带来的、或者余弦超过门槛（按背景语料校准，这里直接给）才算挨着问题", async () => {
     const { engine } = await storyEngine();
     const view = engine.rg.view();
     expect(hitSupported(hit("ev-w1", { evidence_vector: { rank: 1, score: 0.2 } }), ["饭局"], view, 0.5)).toBe(true);
@@ -239,7 +239,7 @@ describe("检索那条路能说不确定", () => {
 
 describe("推理那条路能说不确定", () => {
   it("只有还拿不准的竞争假设、用户也没明说过相关的话：明说不确定，列几种可能，附能区分的追问，说缺什么", async () => {
-    // 周末社交案例前三条去掉"最近周末想好好休息"那半句（205 号票起，明说过相关的话就以明说的为准）
+    // 周末社交案例前三条去掉"最近周末想好好休息"那半句（明说过相关的话就以明说的为准）
     const t = openEngine("2026-10-09T12:00:00+08:00");
     const ws = { context: ["weekend", "social"] };
     t.engine.ingestEvidence(say("ev-1", "这周六的聚会我就不去了", "2026-10-01T20:10:00+08:00", ws));
@@ -284,7 +284,7 @@ describe("明说的要求不被推翻", () => {
     expect(need.overriddenBy).toBe("下周六帮我排满");
   });
 
-  // 330 号票（R14）：随口说的不再自动算决定性——"不反感见朋友"只算一条强反证，"不喜欢社交"降成猜测、列在还没排除的，不再是已经排除的
+  // ADR-0032 R14：随口说的不再自动算决定性——"不反感见朋友"只算一条强反证，"不喜欢社交"降成猜测、列在还没排除的，不再是已经排除的
   it("关于自己的判断：用户明说的'不反感见朋友'照说，'不喜欢社交'碰上它只是猜测（还没排除），不当结论", async () => {
     const t = openEngine("2026-10-09T12:00:00+08:00");
     ingestWeekend(t.engine, ["ev-w01", "ev-w02", "ev-w03", "ev-u01"]);

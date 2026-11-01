@@ -3,8 +3,8 @@
 // 手机 → https://ergo.<VPS>.sslip.io（VPS 上的 nginx 终止 TLS）→ VPS 的 127.0.0.1:<隧道端口>（ergo-tunnel 的 ssh -R，
 // 只绑 VPS 的本机地址）→ 隧道 → 本机守护进程的外网端口。
 // - 支持 WebSocket（/ws 升级连接）；
-// - 转发本机服务的页面（/apps/，132 号票）：服务自己的 WebSocket 也要升级，流式响应不缓冲（边收边转）；
-// - 放大 client_max_body_size：单个文件上限 200 MB（09），整个文件一次传上来也放得下；
+// - 转发本机服务的页面（/apps/）：服务自己的 WebSocket 也要升级，流式响应不缓冲（边收边转）；
+// - 放大 client_max_body_size：单个文件上限 200 MB，整个文件一次传上来也放得下；
 // - 加长 proxy_read_timeout / proxy_send_timeout：WebSocket 长连接不会被 nginx 的默认 60 秒掐掉；
 // - 每个 location 都覆盖写 X-Forwarded-For 和 X-Real-IP（不用 $proxy_add_x_forwarded_for：那是追加，客户端带来的
 //   前缀会留下）。nginx 的 proxy_set_header 在 location 里写了一条，server 里的就全部不继承，所以每个 location 都写全；
@@ -13,7 +13,7 @@
 // 证书沿用 VPS 上现有的 Let's Encrypt 做法，这里只引用证书路径，不签证书。
 import type { PublicAccess } from "./public-access.ts";
 
-/** 单个文件的上传上限是 200 MB（09 号票），留出余量 */
+/** 单个文件的上传上限是 200 MB，留出余量 */
 export const CLIENT_MAX_BODY_SIZE = "256m";
 /** WebSocket 长连接：服务端每 30 秒 ping 一次，这里给足一小时 */
 export const PROXY_TIMEOUT = "3600s";
@@ -76,7 +76,7 @@ ${forwardedHeaders(loc, access.nginx.clientAddress)}
         proxy_read_timeout ${PROXY_TIMEOUT};
     }
 
-    # 转发本机服务的页面（132 号票）：服务的 WebSocket 要升级、流式响应（SSE 这类）不能攒在 VPS 上
+    # 转发本机服务的页面：服务的 WebSocket 要升级、流式响应（SSE 这类）不能攒在 VPS 上
     location /apps/ {
         proxy_pass ${upstream};
         proxy_http_version 1.1;

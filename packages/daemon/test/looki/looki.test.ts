@@ -1,4 +1,4 @@
-// Looki 插件（296 号票）在假内核里（startPluginKernel：真的插件宿主、数据源那一层、设置 · 插件那一层），接口地址指向本机的假 Looki
+// Looki 插件在假内核里（startPluginKernel：真的插件宿主、数据源那一层、设置 · 插件那一层），接口地址指向本机的假 Looki
 // （helpers/fake-looki.ts，照官方文档的返回格式；不连真的 Looki、不联网）。查：
 // - 设置 · 数据源里的样子：名字、两种用法默认开着、每天 02:30 定期导入、敏感类别（位置、情绪、健康）、能填设置；
 // - 填设置、测试连接：区域不对、没填 Key、Key 只发给所选区域的地址（直接调 /me 一步判断）、Key 不认、填对了（账号打码带区域）；
@@ -32,7 +32,7 @@ const key = () => `lk-${++seq}`;
 async function setup() {
   const fake = await startFakeLooki();
   const abroad = await startFakeLooki();
-  // 存一份到本地（307 号票）的默认位置换成临时目录：测试不往真的用户目录里写
+  // 存一份到本地的默认位置换成临时目录：测试不往真的用户目录里写
   const home = path.join(makeTempDir("ergo-looki-home-"), "Looki");
   const plugin = createLookiPlugin({ endpoints: { cn: fake.base, global: abroad.base }, rateLimitWaitMs: 10, archive: { defaultFolder: home } });
   const k = await startPluginKernel({ plugins: [plugin], at: AT, services: [extraService(KERNEL.layout, ({ dir }) => dataDirLayout(dir))] });
@@ -221,7 +221,7 @@ describe("同步", () => {
     expect(fake.requests.length).toBe(before);
   });
 
-  it("Key 失效：同步出错写明原因、状态是出错、不能同步；每小时自动再试，Key 又能用了自己回来（306）；重新填好也恢复", async () => {
+  it("Key 失效：同步出错写明原因、状态是出错、不能同步；每小时自动再试，Key 又能用了自己回来；重新填好也恢复", async () => {
     const { fake, k } = await setup();
     script(fake);
     await configure(k, { key: LOOKI_TEST_KEY, region: "cn" });
@@ -324,7 +324,7 @@ describe("按需查（秘书的\"查 Looki\"）", () => {
 
   it("参数不对、没连：回一句给模型的，不调接口", async () => {
     const { fake, k } = await setup();
-    // 没连：306 起秘书没有这个工具
+    // 没连：秘书没有这个工具
     expect(tool(k)).toBeUndefined();
     await configure(k, { key: LOOKI_TEST_KEY, region: "cn" });
     const before = fake.requests.length;

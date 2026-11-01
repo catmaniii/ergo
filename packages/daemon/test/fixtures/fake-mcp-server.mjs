@@ -1,9 +1,9 @@
-// 测试用的假 MCP 服务（27 号票）：MCP 的 stdio 传输，每行一个 JSON-RPC 2.0 消息，只实现 initialize、tools/list、tools/call。
+// 测试用的假 MCP 服务：MCP 的 stdio 传输，每行一个 JSON-RPC 2.0 消息，只实现 initialize、tools/list、tools/call。
 // 不连任何真的服务。环境变量：
 // - FAKE_MCP_LOG：记录文件（JSONL），起来时记一行 { started: { pid, ppid, token } }，每次调用记一行 { call, args }；
 // - FAKE_MCP_TOKEN：守护进程按登记注入的"凭据"（测试看它到没到服务进程、有没有漏给 agent）。
 // 工具：echo（原样回一句话）、env_token（把凭据原样写进 stderr 和结果：测试看守护进程擦没擦掉）、send_note（"发一条笔记"：只记下来）、
-// wait（等 ms 毫秒再回）、status（只读的状态）；240 号票加上"旅行相册"那三个带参的（person.rename、filter.set、slideshow.start：
+// wait（等 ms 毫秒再回）、status（只读的状态）；加上"旅行相册"那三个带参的（person.rename、filter.set、slideshow.start：
 // 秘书带参调 MCP 那个真实场景，参数到了服务进程、结果回到秘书手边）。
 import fs from "node:fs";
 
@@ -42,7 +42,7 @@ async function call(name, args) {
     case "status":
       return text("一切正常（假 MCP 的状态）");
     case "person.rename":
-      // 真实的 MCP 服务会自己校验必填参数、报错：240 号票把这句原样带回秘书（二狗不替服务端校验）
+      // 真实的 MCP 服务会自己校验必填参数、报错：把这句原样带回秘书（二狗不替服务端校验）
       return args?.name === undefined ? text("改名字要写 name", true) : text(`已把 ${args.id} 改名成 ${args.name}`);
     case "filter.set":
       return text(`筛选到 ${args.personId}`);

@@ -1,4 +1,4 @@
-// 主切面：任务控制快速动作（规格第 14 节、第 9 节"快速动作的确认"、第 8 节"谁能改"，22 号票）。
+// 主切面：任务控制快速动作（规格第 14 节、第 9 节"快速动作的确认"、第 8 节"谁能改"）。
 // 用户在对话里说暂停、继续、取消某个任务，秘书（faux）用"提议快速动作"提出 pause_task / resume_task / cancel_task：
 // - 用户这条消息里原样出现了那个任务（编号或名称）和动作：直接执行，聊天里留"已执行"卡；
 // - 秘书推断出来的（用户没原样说出是哪个任务）一律先问：卡片带确认按钮、同时进待我处理，点确认才执行，不论关注类别设置如何；
@@ -95,7 +95,7 @@ describe("用户点明了是哪个任务", () => {
       ["cancel_task", true, true],
     ]);
     expect(inboxItems(frontend).filter((i) => i.kind === "card" && quickCards(frontend).some((c) => c.id === i.cardId))).toEqual([]);
-    // 任务结局素材（13 号票的采集规则）
+    // 任务结局素材（采集规则）
     await eventually(() => td.daemon.materials.list({ kind: "task_outcome" }), (m) => m.task === taskId, "任务结局素材");
     expect(td.daemon.materials.list({ kind: "task_outcome" })).toMatchObject([{ task: taskId, context: ["outcome:cancelled", "by:user"] }]);
   }, 90_000);

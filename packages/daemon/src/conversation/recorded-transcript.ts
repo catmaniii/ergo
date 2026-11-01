@@ -1,12 +1,12 @@
-// 按二狗自己记下的事件整理一段会话（293 号票）：给"另起一次生成"用（runtime/recorded-generation.ts：Claude Code 撤回时给被放弃的那段写分支摘要；
-// 309 号票起还有 Claude Code 的范围审视——审视哪段由 unreviewedRanges 定，整理时另记下里面交给 agent 的输入，recordedSegment）。运行时自己的会话记录（Claude Code 的是内部格式）不读——二狗这一侧全程有记录（288 号票起每条消息、
+// 按二狗自己记下的事件整理一段会话：给"另起一次生成"用（runtime/recorded-generation.ts：Claude Code 撤回时给被放弃的那段写分支摘要；
+// 还有 Claude Code 的范围审视——审视哪段由 unreviewedRanges 定，整理时另记下里面交给 agent 的输入，recordedSegment）。运行时自己的会话记录（Claude Code 的是内部格式）不读——二狗这一侧全程有记录（每条消息、
 // 每次工具调用都记），够写摘要、做审视。
 // 怎么整理（会话频道上给定的序号段里的消息，按先后）：
 // - 用户说的（文字、语音识别出的字）、运行时交给 agent 的通知（系统消息里的文字）→ user；
 // - agent 的回复：文字、思考、这条回复里的工具调用 → assistant，每次调用后面跟一条 tool_result（结果按完整内容记的，取不到用结果摘要；
 //   参数按完整内容记的原样参数，长字符串截短）；Claude Code 的文件路径参数（file_path）另抄一份成 path，pi 写摘要时据此列出读过、改过的文件；
 // - 之前的分支摘要 → branch_summary；分隔线、卡片、清空这些不算会话内容，不带。
-// 交给 agent 的输入（309 号票，recordedSegment 的 inputIds）：整理进来的用户消息（不交给 agent 的、接管时导进来的前情不算）和运行时给 agent 的通知
+// 交给 agent 的输入（recordedSegment 的 inputIds）：整理进来的用户消息（不交给 agent 的、接管时导进来的前情不算）和运行时给 agent 的通知
 // （agentInput）的消息 id——范围审视的工作记录里有它们的原话，范围记录记着，彻底删除其中一条时连带改写（同 pi 子进程报的 inputIds）。
 import {
   agentSessionStart,
@@ -98,7 +98,7 @@ export function recordedTranscript(store: EventStore, conversation: string, rang
   return recordedSegment(store, conversation, ranges).turns;
 }
 
-/** 会话频道上这几段序号里的会话内容，连同交给 agent 的输入（309 号票：范围审视的结果记着它们） */
+/** 会话频道上这几段序号里的会话内容，连同交给 agent 的输入（范围审视的结果记着它们） */
 export function recordedSegment(store: EventStore, conversation: string, ranges: readonly SeqRange[]): RecordedSegment {
   const turns: RecordedTurn[] = [];
   const inputIds: string[] = [];
@@ -141,7 +141,7 @@ function lastOnPath(store: EventStore, conversation: string, type: string, match
 }
 
 /**
- * 这段会话里还没审视过的部分（309 号票：Claude Code 的范围审视，压缩之前、工单结束时）：当前路径上，这段会话开始（agent 新开一段会话的地方：
+ * 这段会话里还没审视过的部分（Claude Code 的范围审视，压缩之前、工单结束时）：当前路径上，这段会话开始（agent 新开一段会话的地方：
  * 清空、换模型换运行时、项目负责人的会话分段线，agentSessionStart）和最近一次压缩（时间线上"这里压缩过一次"，压缩时审视过了）之后的序号段。
  * Claude Code 压缩时整段写进摘要（不像 pi 留着最近的一截），所以压缩过的都审视过了
  */

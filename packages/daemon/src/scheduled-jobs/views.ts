@@ -1,4 +1,4 @@
-// 触发登记的派生视图（ergo.db，19 号票的定时作业；76 号票起每份属于一个定时触发的任务）：
+// 触发登记的派生视图（ergo.db，定时作业；每份属于一个定时触发的任务）：
 // - scheduled_jobs：每份触发登记的最新状态（任务看板频道上的 scheduled_job 事件，按编号留最后一条）；
 // - job_runs：每一次运行的最新状态（scheduled_job 事件里带着的运行，按运行号留最后一条；排队的先后按第一次出现的序号）。
 import { CHANNELS, EVENT_TYPES, type JobRun, type JobRunState, type ScheduledJob, type ScheduledJobEventPayload, type ScheduledJobState } from "@ergo/protocol";
@@ -72,7 +72,7 @@ export function listJobs(db: ReadonlyDatabase, states?: readonly ScheduledJobSta
   return db.all<{ job: string }>(`SELECT job FROM scheduled_jobs WHERE state IN (${marks}) ORDER BY created_seq`, ...states).map(parseJob);
 }
 
-/** 一个定时触发的任务的触发登记（76 号票：ownerTaskId 是它的那一份；任务只有一份） */
+/** 一个定时触发的任务的触发登记（ownerTaskId 是它的那一份；任务只有一份） */
 export function jobOfTask(db: ReadonlyDatabase, taskId: string): ScheduledJob | undefined {
   const row = db.get<{ job: string }>("SELECT job FROM scheduled_jobs WHERE json_extract(job, '$.ownerTaskId') = ? ORDER BY created_seq LIMIT 1", taskId);
   return row && parseJob(row);

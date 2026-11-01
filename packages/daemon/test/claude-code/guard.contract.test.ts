@@ -1,4 +1,4 @@
-// Claude Code 适配子进程的守卫和提问（288 号票）：交给 SDK 的 PreToolUse 钩子是全量闸口，每次工具调用（子代理里的也算）发 guard_request、
+// Claude Code 适配子进程的守卫和提问：交给 SDK 的 PreToolUse 钩子是全量闸口，每次工具调用（子代理里的也算）发 guard_request、
 // 等 guard_reply——拦下、按计划改参数后放行、结果前面加话；Claude 自己要问用户的（AskUserQuestion、ExitPlanMode）到 canUseTool 变成 ask_user，
 // 等 ask_user_reply。SDK 是假的（helpers/fake-claude-sdk.ts 的 runTool 扮演 claude 执行工具之前的权限流程），测试扮演守护进程回判定、回答；
 // 适配子进程是真的（runClaudeChild，stdin / stdout 换成内存里的流）。不启动真的 claude、不花额度。

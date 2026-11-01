@@ -6,7 +6,7 @@ import { CHILD_LANGUAGE_ENV, errorReport, failedScopeReview, HOST_PROTOCOL_VERSI
 import { encodeLine, readJsonLines } from "../line-channel.ts";
 import { openAgentSession, type AgentSessionRunner } from "./session.ts";
 
-// 给用户看的几句（在会话树上挪不成的原因、压缩没成的原因）按拉起时的语言写（174 号票，ADR-0029）
+// 给用户看的几句（在会话树上挪不成的原因、压缩没成的原因）按拉起时的语言写（ADR-0029）
 installBuiltinLocales(process.env[CHILD_LANGUAGE_ENV]);
 
 let runner: AgentSessionRunner | undefined;
@@ -46,7 +46,7 @@ async function handle(command: HostCommand): Promise<void> {
         context: runner.contextInfo,
         ...(runner.handoff ? { handoff: runner.handoff } : {}),
       });
-      // 写交接摘要那次调用的用量（83 号票）：agent 管家在 ready 时才知道会话 id，所以放在 ready 之后
+      // 写交接摘要那次调用的用量：agent 管家在 ready 时才知道会话 id，所以放在 ready 之后
       for (const report of runner.takeAfterReady()) emit(report);
       return;
     }
@@ -59,7 +59,7 @@ async function handle(command: HostCommand): Promise<void> {
     case "yield":
       return runner?.yieldTurn();
     case "toolkit":
-      // 当场换工具包（291 号票）只给能力清单 live_toolkit 的运行时：pi 的工具包变了按 yield 停下、重新装配
+      // 当场换工具包只给能力清单 live_toolkit 的运行时：pi 的工具包变了按 yield 停下、重新装配
       return emit(errorReport("unsupported", "pi 的工具包变了要重新装配（yield），不当场换"));
     case "contribution":
       if (!runner) return emit(errorReport("bad_command", "还没启动就送了贡献清单的更新"));
@@ -76,7 +76,7 @@ async function handle(command: HostCommand): Promise<void> {
       try {
         await runner.compact();
       } catch (err) {
-        // 结局（没什么可压、没压成）已经在压缩结束时以 compacted 报了（114 号票），这里只记一行日志
+        // 结局（没什么可压、没压成）已经在压缩结束时以 compacted 报了，这里只记一行日志
         process.stderr.write(`手动压缩没做成：${err instanceof Error ? err.message : String(err)}\n`);
       }
       return;

@@ -1,4 +1,4 @@
-// 推理图谱（第 4.3、7 节，④ 号票）：引擎的 reflect、explainClaim、findCounterevidence、tracePremises、getUserModel、answer、
+// 推理图谱（第 4.3、7 节）：引擎的 reflect、explainClaim、findCounterevidence、tracePremises、getUserModel、answer、
 // search(hybrid_kg_rg) 都落在这里；它也是引擎默认的传播钩子（第 7.3 节第 2–6 条）。
 //
 // reflect()（做梦阶段的一次整理，幂等、增量，有预算）：
@@ -11,17 +11,17 @@
 //      事实这一层真冲突的追问也在这里判；
 //   6. 按关联定状态和置信度（scoring.ts）；
 //   7. 记下整理过的证据。
-//   270 号票：模型版（exhaustive: false）的预算按道花（rg/nightly-lanes.ts）：新证据那几步排第一、用前段；第 5 步的追问先问没问过的、
+//   模型版（exhaustive: false）的预算按道花（rg/nightly-lanes.ts）：新证据那几步排第一、用前段；第 5 步的追问先问没问过的、
 //   检索结果里有新证据的，剩下的预算才重跑待复核、到期复评那几组的旧追问，别的旧追问不重判；预算用完没问到的追问不写结果。
 //   第 7 步整理完一条记一条（抽事实、出假设、出追问没被挡住，欠它的追问都问过了），不再是"这一次被挡过就一条都不记"。
 //   规则版（exhaustive: true）每次全部重来，照旧。
-//   271 号票：判顺口问的回答那一道（ReflectOptions.replies）排在新证据之后、重跑旧追问之前：保底的那份从前段里划出来（新证据那几步、
+//   判顺口问的回答那一道（ReflectOptions.replies）排在新证据之后、重跑旧追问之前：保底的那份从前段里划出来（新证据那几步、
 //   抽事实都让出它），新证据那一道问完追问就跑，给它的至少还有保底那么多、新证据没用完的前段也给它，剩下的才轮到重跑旧追问。
-//   227 号票：末尾再走一步对抗复核（rg/adversarial.ts）：新出的 need/value 结论交给不告诉结论的复核员，
+//   末尾再走一步对抗复核（rg/adversarial.ts）：新出的 need/value 结论交给不告诉结论的复核员，
 //   只从支持证据原话重推、再判支不支持；判 no 的加复核标记。有单独的 5 次调用预算，没给复核模型（规则版）就不做。
-// 329 号票（ADR-0032）：结论的状态照原始推理图谱——已验证 / 猜测 / 撤回（被取代照旧），"待复核"是单独的复核标记；
+// ADR-0032：结论的状态照原始推理图谱——已验证 / 猜测 / 撤回（被取代照旧），"待复核"是单独的复核标记；
 //   猜测都能往上推（往上抽、联动），推出来的也是猜测；传播铁律、直接证实、推翻往上传、复活在 rg/status-keeper.ts（StatusKeeper）。
-// 写入一律经唯一写入口（267 号票，rg/write-gate.ts：写之前检查、写完留痕，存储照旧记修订日志）；整理中途的检索是异步的，
+// 写入一律经唯一写入口（rg/write-gate.ts：写之前检查、写完留痕，存储照旧记修订日志）；整理中途的检索是异步的，
 // 所以每一步各自开一次写（记成夜班），组、结论这一层再各开一次：被写入口拒了的那一组记进 dropped（stage gate）交回调用方，别的照常写。
 import { USER_ENTITY_ID } from "../domain/ids.ts";
 import { addDays, toMs, validAt } from "../domain/time.ts";
@@ -101,12 +101,12 @@ import type {
 /** 一次 reflect 默认最多调几次模型 */
 export const DEFAULT_MAX_MODEL_CALLS = 40;
 /**
- * 218 号票：一次 reflect 的预算留多少给往上抽和编策略（第 7、9 步）：出假设、追问、判证据（第 3–6b 步）最多用到 1 − 这一份。
+ * 一次 reflect 的预算留多少给往上抽和编策略（第 7、9 步）：出假设、追问、判证据（第 3–6b 步）最多用到 1 − 这一份。
  * 第一次真跑 218 时出假设分批、组多了，追问和判证据把 200 次用光，往上抽、编策略一次都没问成
  */
 export const LIFT_BUDGET_SHARE = 0.25;
 /**
- * 334 号票（用户 2026-10-27 选 B，ADR-0032"每晚的预算"）：后 1/4 里先给编交互策略留几次（推理实现会写策略时；不超过后 1/4）。
+ * ADR-0032"每晚的预算"：后 1/4 里先给编交互策略留几次（推理实现会写策略时；不超过后 1/4）。
  * 抽事实、判回答、往上抽、判预测都用不到这几次，编策略（引擎在 reflect 末尾）至少有这么多。R4 让猜测也能往上推以后，
  * 往上抽的组多了、判它们的证据把 200 次用光，p2、p4 的评测库和线上的库交互策略一条都没编出来过。
  * 一次最多写 12 个依据（STRATEGY_BATCH_BASES），4 次是 48 个；没用上的不挪给别的步骤（宁可少抽一点也要每晚编得到）
@@ -116,10 +116,10 @@ export const STRATEGY_RESERVE_CALLS = 4;
 export const PROBE_HITS_PER_QUERY = 8;
 /** 近期状态不写到期时默认几天（同 domain/validate.ts） */
 const STATE_DAYS = 14;
-// 用户确认、用户否认的说法开头（USER_CONFIRMATION、USER_DENIAL）329 号票挪到 rg/status-keeper.ts（包入口照旧导出）
+// 用户确认、用户否认的说法开头（USER_CONFIRMATION、USER_DENIAL）挪到 rg/status-keeper.ts（包入口照旧导出）
 
 /**
- * 218 号票：同一份预算的前一段——最多用到 cap（共用计数）；被 cap 挡过一次 capped 就是 true（这一段没做完）
+ * 同一份预算的前一段——最多用到 cap（共用计数）；被 cap 挡过一次 capped 就是 true（这一段没做完）
  */
 export function capBudget(inner: ModelBudget, cap: number): ModelBudget & { readonly capped: boolean } {
   let capped = false;
@@ -173,17 +173,17 @@ const SELF_ASSERTIONS = new Set(["user_stated", "observed"]);
 export interface ReasoningGraphOptions {
   reasoner: Reasoner;
   lexicon?: Lexicon;
-  /** 199 号票：知识图谱和推理图谱联动（对比模式、矛盾根源、写回），默认开；false 关掉（消融用） */
+  /** 知识图谱和推理图谱联动（对比模式、矛盾根源、写回），默认开；false 关掉（消融用） */
   joint?: boolean;
 }
 
-/** 333 号票：按新规矩重定前后比的那几样（状态、把握、墓碑、取代者） */
+/** 按新规矩重定前后比的那几样（状态、把握、墓碑、取代者） */
 const settleSignature = (c: Claim): string => `${c.status}|${c.confidence}|${c.retractedBy ?? ""}|${c.supersededBy ?? ""}`;
 
 /** 原有的观察模式那几步管的组（不含往上抽的、联动的） */
 const generic = (g: Pick<GroupRecord, "pattern">): boolean => !isLift(g) && !isJointGroup(g);
 
-/** 270 号票：一次整理里按道跑追问要记的账（模型版才有） */
+/** 一次整理里按道跑追问要记的账（模型版才有） */
 interface LaneNight {
   /** 这次要整理的新证据 */
   pendingSet: ReadonlySet<string>;
@@ -201,7 +201,7 @@ interface LaneNight {
   cut: boolean;
 }
 
-/** 270 号票：一次按道跑追问的结果 */
+/** 一次按道跑追问的结果 */
 interface LaneRun {
   rounds: number;
   /** 追问这次全问过一遍的组（到期复评的结论记下复核时间） */
@@ -210,7 +210,7 @@ interface LaneRun {
 
 type Meter = <T>(lane: ReflectLane, fn: () => Promise<T>) => Promise<T>;
 
-/** 272 号票：一次整理里的问过的账（推理实现看 signature、交回 settle；这一步做完由 reflect commit） */
+/** 一次整理里的问过的账（推理实现看 signature、交回 settle；这一步做完由 reflect commit） */
 interface NightAskLedger extends AskLedger {
   /** 这一步这次问到了的记下（grouped 的是进了组的，不记） */
   commit(step: AskStep, grouped: (subject: string) => boolean): void;
@@ -219,17 +219,17 @@ interface NightAskLedger extends AskLedger {
 export class ReasoningGraph implements ReasoningPropagation {
   readonly registry: RgRegistry;
   readonly reasoner: Reasoner;
-  /** 199 号票：知识图谱和推理图谱联动（rg/joint.ts）；关掉时是 undefined */
+  /** 知识图谱和推理图谱联动（rg/joint.ts）；关掉时是 undefined */
   readonly joint: JointReasoner | undefined;
-  /** 199 号票：结论写回知识图谱（rg/writeback.ts） */
+  /** 结论写回知识图谱（rg/writeback.ts） */
   readonly writeback: KgWriteback;
-  /** 329 号票：真值维护（传播铁律、直接证实、推翻往上传、复活；rg/status-keeper.ts） */
+  /** 真值维护（传播铁律、直接证实、推翻往上传、复活；rg/status-keeper.ts） */
   readonly keeper: StatusKeeper;
-  /** 330 号票（R10）：预测落空往回打来源（rg/falsify.ts） */
+  /** ADR-0032 R10：预测落空往回打来源（rg/falsify.ts） */
   readonly backprop: PredictionBackprop;
   private readonly engine: MemoryEngine;
   private readonly lexicon: Lexicon;
-  /** 回答层和 D 组检索的相关门槛（202 号票，rg/relevance.ts）；不给用 DEFAULT_RELEVANCE_GATE */
+  /** 回答层和 D 组检索的相关门槛（rg/relevance.ts）；不给用 DEFAULT_RELEVANCE_GATE */
   relevanceGate: Partial<RelevanceGate> | undefined;
 
   constructor(engine: MemoryEngine, options: ReasoningGraphOptions) {
@@ -247,18 +247,18 @@ export class ReasoningGraph implements ReasoningPropagation {
     return this.engine.store;
   }
 
-  /** 267 号票：唯一写入口（查留痕用；写在 write / attempt 里） */
+  /** 唯一写入口（查留痕用；写在 write / attempt 里） */
   get gate(): ReasoningWriteGate {
     return this.engine.gate;
   }
 
-  /** 267 号票：写推理图谱经唯一写入口（要在 write / attempt 开的那一次写里） */
+  /** 写推理图谱经唯一写入口（要在 write / attempt 开的那一次写里） */
   private get w(): RgWriter {
     return this.engine.gate;
   }
 
   /**
-   * 267 号票：开一次写；被写入口拒了时，给了 dropped 就把原因记进去（stage gate，交回给调用方）、返回 undefined，
+   * 开一次写；被写入口拒了时，给了 dropped 就把原因记进去（stage gate，交回给调用方）、返回 undefined，
    * 没给就照抛（用户的表态这类，原因交回给管理员）
    */
   private attempt<T>(intent: WriteIntent, dropped: DroppedOutput[] | undefined, fn: () => T): T | undefined {
@@ -300,7 +300,7 @@ export class ReasoningGraph implements ReasoningPropagation {
 
   // ---------- 检索 ----------
 
-  /** 追问和回答用的底层检索：③ 号票的 search(hybrid_kg)；还没做时用 188 的关键词和邻接顶上 */
+  /** 追问和回答用的底层检索：search(hybrid_kg)；还没做时用关键词和邻接顶上 */
   async baseSearch(query: string, options: Omit<SearchOptions, "mode">): Promise<Hit[]> {
     try {
       return await this.engine.search(query, { ...options, mode: "hybrid_kg" });
@@ -322,7 +322,7 @@ export class ReasoningGraph implements ReasoningPropagation {
     const budget = createBudget(options.maxModelCalls ?? DEFAULT_MAX_MODEL_CALLS);
     const maxRounds = Math.max(1, Math.min(2, options.maxRounds ?? 2));
     const dropped: DroppedOutput[] = [];
-    // 237 号票：每一步的进度（建库 CLI 打出来，卡住时看最后一行停在哪一步）
+    // 每一步的进度（建库 CLI 打出来，卡住时看最后一行停在哪一步）
     const onStep = options.onStep ?? (() => {});
     // 218：每一步的模型调用、往上抽门槛的结果
     const stats = emptyReasoningStats();
@@ -354,7 +354,7 @@ export class ReasoningGraph implements ReasoningPropagation {
       if (cap.capped) repliesCut = true;
       onStep({ step: "replies", phase: "end", detail: `判回答用了 ${spend.replies} 次模型调用` });
     };
-    // 333 号票：全量重判一次（full-rejudge.ts）只按新规矩重判已有的结论——不碰新证据（不抽事实、不出假设、不记整理过），没有新证据也照跑
+    // 全量重判一次（full-rejudge.ts）只按新规矩重判已有的结论——不碰新证据（不抽事实、不出假设、不记整理过），没有新证据也照跑
     const full = options.full === true;
     const pending = full ? [] : this.pendingEvidence(options.since);
     // 270：模型版（明确写了 exhaustive: false）按道花预算、整理完一条记一条；规则版每次全部重来，照旧
@@ -375,11 +375,11 @@ export class ReasoningGraph implements ReasoningPropagation {
     const exhausted = () => budget.exhausted || usable.capped || early.capped || front.capped || night?.cut === true;
     // 272：模型版问过、没变化就不再问的账（出假设的观察、往上抽的下层断言）；规则版每次全部重来，不用
     const ledger = night ? this.askLedger() : undefined;
-    // 226 号票：预测账本的两步（记下来、到期判）在整理末尾跑，所以评测建库也跑得到；
+    // 预测账本的两步（记下来、到期判）在整理末尾跑，所以评测建库也跑得到；
     // 跳过（没有新证据）的时候也要判到期的预测，所以收尾统一走 finish
     const finish = async (): Promise<ReflectReport> => {
       onStep({ step: "prediction", phase: "start" });
-      // 330 号票（R10）：还没找到错处的演绎落空先再看一遍（用户答了问题、嫌疑只剩一条的，这一夜定下来）
+      // ADR-0032 R10：还没找到错处的演绎落空先再看一遍（用户答了问题、嫌疑只剩一条的，这一夜定下来）
       this.backprop.reassess(at);
       report.predictions = await meter("predictions", () =>
         runPredictions(this.store, {
@@ -434,7 +434,7 @@ export class ReasoningGraph implements ReasoningPropagation {
     const ctx: ReasonerContext = { view: this.view(at), budget: early, dropped, existingGroups, stats, ...(ledger ? { asked: ledger } : {}) };
 
     onStep({ step: "propose", phase: "start", detail: full ? "全量重判一次：不出新假设，已有的组照旧" : `${existingGroups.length} 个已有的组` });
-    // 333 号票：全量重判一次不出新假设（出假设管的是新观察；也不能拿"这次没再出来"去撤已有的组）
+    // 全量重判一次不出新假设（出假设管的是新观察；也不能拿"这次没再出来"去撤已有的组）
     const proposedGroups = full ? 0 : await this.proposeNew(at, ctx, report, meter, night, ledger);
     onStep({ step: "propose", phase: "end", detail: full ? "跳过（全量重判一次）" : `${proposedGroups} 组` });
 
@@ -469,7 +469,7 @@ export class ReasoningGraph implements ReasoningPropagation {
       onStep({ step: "joint", phase: "end" });
     }
 
-    // 往上抽：偏好、状态 → 需求 → 长期价值取向（195 号票）
+    // 往上抽：偏好、状态 → 需求 → 长期价值取向
     await this.liftLevels(at, maxRounds, { ...ctx, budget: usable }, report, onStep, meter, night, ledger);
 
     // 199：往上抽出了新的需求、价值以后，矛盾根源再对一遍"更深的需求"（用价值观来验证；追问不再跑）
@@ -499,7 +499,7 @@ export class ReasoningGraph implements ReasoningPropagation {
       };
     }
 
-    // 329 号票：标着复核、不在活着的组里的（组撤了还留着的、没有组的推断）重判，摘掉标记——不让它一直卡在复核上
+    // 标着复核、不在活着的组里的（组撤了还留着的、没有组的推断）重判，摘掉标记——不让它一直卡在复核上
     this.night("decide", "标着复核、不在组里的重判", dropped, () => this.rejudgeLoose(at));
 
     // 227：对抗复核这次整理出来的 need/value 结论（独立复核员不看结论、只从证据重推；单独的调用预算）
@@ -543,7 +543,7 @@ export class ReasoningGraph implements ReasoningPropagation {
   }
 
   /**
-   * 272 号票：问过、没变化就不再问的账。签名从 rg_asked 读；这次问到了的先攒着，这一步做完、看过进没进组再记（commit）——
+   * 问过、没变化就不再问的账。签名从 rg_asked 读；这次问到了的先攒着，这一步做完、看过进没进组再记（commit）——
    * 进了组的不记，以后组撤了还会再问；没进组的记下签名，下一夜签名没变就不再当这一批问
    */
   private askLedger(): NightAskLedger {
@@ -567,13 +567,13 @@ export class ReasoningGraph implements ReasoningPropagation {
     };
   }
 
-  /** 270 号票：这条证据抽过事实了（规则版的抽取器同步抽，算抽过；表态证据不抽事实，也算） */
+  /** 这条证据抽过事实了（规则版的抽取器同步抽，算抽过；表态证据不抽事实，也算） */
   private extracted(e: Evidence): boolean {
     const extractor = this.engine.extractor;
     return !isPreparableExtractor(extractor) || isVerdictEvidence(e) || this.store.isExtracted(e.id, extractor.id);
   }
 
-  /** 270 号票：出假设没做完——能当依据、还不在任何活着的组里的观察，背后的新证据这一夜不算整理过 */
+  /** 出假设没做完——能当依据、还不在任何活着的组里的观察，背后的新证据这一夜不算整理过 */
   private blockUngrouped(night: LaneNight, at: string): void {
     const grouped = new Set(this.registry.listGroups({ live: true }).flatMap((g) => g.observationIds));
     for (const f of this.observations(at)) {
@@ -583,7 +583,7 @@ export class ReasoningGraph implements ReasoningPropagation {
     night.cut = true;
   }
 
-  /** 270 号票：这组没做完（追问没出成）——观察背后的新证据这一夜不算整理过 */
+  /** 这组没做完（追问没出成）——观察背后的新证据这一夜不算整理过 */
   private blockGroup(night: LaneNight, key: string): void {
     for (const id of this.groupEvidence(key)) if (night.pendingSet.has(id)) night.blocked.add(id);
     night.cut = true;
@@ -597,8 +597,8 @@ export class ReasoningGraph implements ReasoningPropagation {
   }
 
   /**
-   * 227 号票：对抗复核（独立复核员不看结论、只从支持证据重推）新出的 need/value 结论。
-   * 末尾单独一步：有自己的 5 次调用预算，判 no 的加复核标记（329 号票：不改真值状态，往下的不动）；没给复核模型（规则版）就不做
+   * 对抗复核（独立复核员不看结论、只从支持证据重推）新出的 need/value 结论。
+   * 末尾单独一步：有自己的 5 次调用预算，判 no 的加复核标记（不改真值状态，往下的不动）；没给复核模型（规则版）就不做
    */
   private async reviewNewConclusions(at: string, dropped: DroppedOutput[]): Promise<AdversarialReviewReport | undefined> {
     const model = this.engine.reviewer;
@@ -625,7 +625,7 @@ export class ReasoningGraph implements ReasoningPropagation {
 
   /**
    * 这次没再出来的联动组：对比不明显了、矛盾不在了（证据被忘掉）——组撤下。
-   * Q2（主会话 2026-10-27）：没有推翻者，组里的结论不撤，留成猜测、把握降一档、前提照挂（StatusKeeper.keepAsGuess）；
+   * Q2：没有推翻者，组里的结论不撤，留成猜测、把握降一档、前提照挂（StatusKeeper.keepAsGuess）；
    * 有直接证实的（R7）不动；前提一条都不在了的按"不留悬空"撤回
    */
   private retireJointGroups(proposed: ReadonlySet<string>, at: string, dropped: DroppedOutput[]): void {
@@ -703,7 +703,7 @@ export class ReasoningGraph implements ReasoningPropagation {
 
   /**
    * 明说的事实 → 明说的断言：没建的建上（结论 ← 这条事实），建了的状态、有效期、竞争关系跟着事实走。
-   * 267 号票：每条各开一次写（被写入口拒了的那条记进 dropped，别的照常）
+   * 每条各开一次写（被写入口拒了的那条记进 dropped，别的照常）
    */
   private syncExplicit(at: string, report: ReflectReport): void {
     const view = this.view(at);
@@ -724,7 +724,7 @@ export class ReasoningGraph implements ReasoningPropagation {
   }
 
   /**
-   * 330 号票（R3，relayed.ts）：别人转述的起猜测、跟着走。每条各开一次写（被写入口拒了的记进 dropped）：
+   * R3，relayed.ts：别人转述的起猜测、跟着走。每条各开一次写（被写入口拒了的记进 dropped）：
    * - 没起过、能起、用户自己没说过同样的也没说过相反的 → 起一条猜测（推断的、溯因、把握 low，理由以"别人转述："开头，依据只当背景）；
    *   用户自己说过相反的（转述和本人对着干）不起、不记反证，问题箱出一个问题（question-sources.ts 的 relayed）；
    * - 起了的、还活着：用户自己说了同样的话 → 被明说的那条取代；说了相反的 → 撤回（他亲口说的推翻了它，墓碑指那条事实）。
@@ -763,7 +763,7 @@ export class ReasoningGraph implements ReasoningPropagation {
     }
   }
 
-  /** 330 号票（R3）：一条转述的事实起一条猜测（结论 ← 这条事实，只当背景）；返回结论 id */
+  /** ADR-0032 R3：一条转述的事实起一条猜测（结论 ← 这条事实，只当背景）；返回结论 id */
   private createRelayed(f: Fact, at: string): string {
     const state = this.isRecent(f);
     const start = f.validFrom ?? f.eventTime ?? f.observedAt;
@@ -811,7 +811,7 @@ export class ReasoningGraph implements ReasoningPropagation {
     const validFrom = f.validFrom ?? null;
     const start = f.validFrom ?? f.eventTime ?? f.observedAt;
     const cause: RevisionCause = { evidenceId: f.evidenceIds[0] ?? null, reason: `用户明说：${f.statement}` };
-    // 329 号票（R4）：事实拿不准（真冲突里的一边）时，这条一建出来就是猜测（身份照旧是 conclusion，不改）
+    // ADR-0032 R4：事实拿不准（真冲突里的一边）时，这条一建出来就是猜测（身份照旧是 conclusion，不改）
     const unsure = f.status === "contested";
     const claim = this.w.insertClaim(
       {
@@ -842,7 +842,7 @@ export class ReasoningGraph implements ReasoningPropagation {
 
   /**
    * 明说的结论跟着它那条事实走：状态、有效期、竞争关系、场景和陈述。
-   * 329 号票（ADR-0032）：身份不改（326 号票"拿不准降成假设 / 拿稳了升回结论"去掉）；事实拿不准 → 这条是猜测（contested），
+   * ADR-0032：身份不改（"拿不准降成假设 / 拿稳了升回结论"去掉）；事实拿不准 → 这条是猜测（contested），
    * 往下的已验证跟着降回猜测（R4）；事实被用户纠正 → 撤回，往上的按 R8 撤（有直接证实的留下）；事实因为证据被忘掉而撤回 →
    * 撤回（不留悬空），往上的按"来源失效"（加复核标记、已验证的降回猜测）；撤了的事实回来了 → 复活，连带撤回的跟着回来（R11）。
    * 跟着事实走了一遍就算复核过，摘掉复核标记
@@ -865,7 +865,7 @@ export class ReasoningGraph implements ReasoningPropagation {
     if (f.status === "active") {
       patch.status = "active";
       patch.confidence = "high";
-      // 330 号票（R14）：说的和做的对不上（记了 gap）、还没弄清——哪边都不自动赢：明说的这条先当猜测、标复核
+      // ADR-0032 R14：说的和做的对不上（记了 gap）、还没弄清——哪边都不自动赢：明说的这条先当猜测、标复核
       const gap = this.openSayDoGap(f, claim);
       if (gap !== undefined) {
         patch.status = "contested";
@@ -909,7 +909,7 @@ export class ReasoningGraph implements ReasoningPropagation {
   }
 
   /**
-   * 330 号票（R14）：这条明说的事实有没有还没弄清的"说的和做的对不上"——记了 gap（ref 是那个矛盾）、用户没当面确认过这条结论、
+   * ADR-0032 R14：这条明说的事实有没有还没弄清的"说的和做的对不上"——记了 gap（ref 是那个矛盾）、用户没当面确认过这条结论、
    * 那个矛盾的根源组也没有用户确认过的根源。有就交回一句说明（和哪几条做的对不上），没有是 undefined
    */
   private openSayDoGap(f: Fact, claim: Claim): string | undefined {
@@ -947,7 +947,7 @@ export class ReasoningGraph implements ReasoningPropagation {
   }
 
   /**
-   * 267 号票：一组各开一次写（提假设、往上抽）：被写入口拒了的整组不写，原因记进 dropped；新结论等写成了才记进报告
+   * 一组各开一次写（提假设、往上抽）：被写入口拒了的整组不写，原因记进 dropped；新结论等写成了才记进报告
    */
   private proposeGroup(op: "propose" | "lift", d: HypothesisGroupDraft, at: string, report: ReflectReport, dropped: DroppedOutput[]): boolean {
     const fresh: string[] = [];
@@ -968,7 +968,7 @@ export class ReasoningGraph implements ReasoningPropagation {
     this.registry.putGroup({ key: d.key, pattern: d.pattern, params: d.params, description: d.description, observationIds, live: true, by: this.reasoner.id });
     const existing = new Map(this.registry.members(d.key).map((m) => [m.template, m.claimId]));
     const ids: string[] = [];
-    /** 329 号票：撤了的重新推出来（新建）时，旧 id → 新 id（这一组的追问跟着换） */
+    /** 撤了的重新推出来（新建）时，旧 id → 新 id（这一组的追问跟着换） */
     const replaced = new Map<string, string>();
     for (const h of hypotheses) {
       const cause: RevisionCause = { evidenceId: this.store.getFact(observationIds.at(-1)!)?.evidenceIds[0] ?? null, reason: `竞争假设（${d.description}）` };
@@ -976,7 +976,7 @@ export class ReasoningGraph implements ReasoningPropagation {
       const old = claimId === undefined ? undefined : this.store.getClaim(claimId);
       if (old && old.status === "retracted" && !this.keeper.retractedByScoring(old)) {
         if (this.keeper.retractionStands(old)) {
-          // 329 号票（R8、R11）：被推翻撤掉的不复活（复活只认推翻它的自己被推翻）；证据够了重新推 = 新建一条（原始推理图谱的撤旧建新），
+          // ADR-0032 R8、R11：被推翻撤掉的不复活（复活只认推翻它的自己被推翻）；证据够了重新推 = 新建一条（原始推理图谱的撤旧建新），
           // 旧的留墓碑、移出这一组
           this.registry.removeMember(old.id);
           claimId = undefined;
@@ -986,7 +986,7 @@ export class ReasoningGraph implements ReasoningPropagation {
         }
       }
       if (!claimId) {
-        // 226 号票：这条解释当时写下的预测（模型版、规则版的往上抽都会写），结论照它记下来
+        // 这条解释当时写下的预测（模型版、规则版的往上抽都会写），结论照它记下来
         const predicts: Claim["predicts"] = h.predicts ? [{ claim: h.predicts, outcome: "pending", evidenceIds: [], derivation: h.predictsDerivation ?? "defeasible" }] : [];
         const claim = this.w.insertClaim(
           {
@@ -1019,7 +1019,7 @@ export class ReasoningGraph implements ReasoningPropagation {
         // 同一条解释又写了一条预测：更新上去（没写就保留原来的）
         if (h.predicts) patch.predicts = [{ claim: h.predicts, outcome: "pending", evidenceIds: [], derivation: h.predictsDerivation ?? "defeasible" }];
         this.w.updateClaim(claimId, patch, { ...cause, reason: `新的观察：${d.description}` });
-        // 329 号票：只更新推理链（前提照这次的观察）；改挂到直接证实上的（R7）链照旧记作历史；计分撤回的由定状态那一步判
+        // 只更新推理链（前提照这次的观察）；改挂到直接证实上的（R7）链照旧记作历史；计分撤回的由定状态那一步判
         const current = this.store.getClaim(claimId)!;
         const direct = this.hasDirectBasis(claimId);
         for (const inf of this.store.inferencesOf(claimId)) {
@@ -1041,7 +1041,7 @@ export class ReasoningGraph implements ReasoningPropagation {
       const competesWith = ids.filter((x) => x !== id);
       this.w.updateClaim(id, { competesWith }, { reason: `竞争假设互相登记（${d.key}）` });
     }
-    // 329 号票：重新推出来的新结论接上旧的那条在这一组追问里的位置
+    // 重新推出来的新结论接上旧的那条在这一组追问里的位置
     if (replaced.size > 0) {
       for (const { probeId } of this.registry.probesOf(d.key)) {
         const probe = this.store.getProbe(probeId);
@@ -1074,7 +1074,7 @@ export class ReasoningGraph implements ReasoningPropagation {
 
   /**
    * 撤下一组（retireGroups 判定要撤的）：被新组同一个模板接上的标取代（往下按传播铁律降回猜测），别的留成猜测。
-   * Q2（主会话 2026-10-27）：观察不够两条、这次没再认出来，都没有推翻者——不撤，留成猜测、把握降一档、前提照挂
+   * Q2：观察不够两条、这次没再认出来，都没有推翻者——不撤，留成猜测、把握降一档、前提照挂
    * （StatusKeeper.keepAsGuess；前提一条都不在了的按"不留悬空"撤回）。有直接证实的（R7）不动
    */
   private retireGroup(g: GroupRecord, proposed: ReadonlySet<string>, dead: readonly string[], at: string): void {
@@ -1145,7 +1145,7 @@ export class ReasoningGraph implements ReasoningPropagation {
     });
   }
 
-  /** 跑一条追问：检索、判定、写关联和结果。返回这次新找到的证据（270 号票：已经搜过的把结果传进来，不再搜一遍） */
+  /** 跑一条追问：检索、判定、写关联和结果。返回这次新找到的证据（已经搜过的把结果传进来，不再搜一遍） */
   async runProbe(
     probe: Probe,
     group: GroupView,
@@ -1172,7 +1172,7 @@ export class ReasoningGraph implements ReasoningPropagation {
       this.w.updateProbe(probe.id, { outcome: union.length > 0 ? "found" : "not_found", foundEvidenceIds: union, ifFound }, { evidenceId: found[0] ?? null, reason: `追问检索：${queries.join("、")}` });
       return true;
     });
-    // 267 号票：被写入口拒了的这次什么都没写，也就没有"新找到的"
+    // 被写入口拒了的这次什么都没写，也就没有"新找到的"
     return { found: written === true ? found.filter((id) => !probe.foundEvidenceIds.includes(id)) : [], hits };
   }
 
@@ -1254,7 +1254,7 @@ export class ReasoningGraph implements ReasoningPropagation {
     }
   }
 
-  /** 第一次见到的组出判别性追问；返回因为预算用完没出成追问的组（270 号票：这几组观察背后的新证据这一夜不算整理过） */
+  /** 第一次见到的组出判别性追问；返回因为预算用完没出成追问的组（这几组观察背后的新证据这一夜不算整理过） */
   private async ensureProbes(only: (g: GroupRecord) => boolean, ctx: ReasonerContext, from: Pick<Reasoner, "probesFor"> = this.reasoner): Promise<string[]> {
     const unprobed: string[] = [];
     for (const g of this.registry.listGroups({ live: true }).filter(only)) {
@@ -1268,7 +1268,7 @@ export class ReasoningGraph implements ReasoningPropagation {
   }
 
   /**
-   * 270 号票：按道跑一批组的追问（模型版）。先把这批组的每条追问搜一遍（和以前一样每夜都搜，判证据才花钱），
+   * 按道跑一批组的追问（模型版）。先把这批组的每条追问搜一遍（和以前一样每夜都搜，判证据才花钱），
    * 再按 rg/nightly-lanes.ts 排：
    * - 第一道（lanes.first）：没问过的追问、检索结果里有新证据的追问，按最早那条新证据的先后；owes 时记下每条新证据欠哪几条追问；
    * - 第二道（lanes.rest）：第一道剩下的预算，重跑待复核的组、有到期复评结论的组的追问；别的组检索结果里没新东西，不重判。
@@ -1328,7 +1328,7 @@ export class ReasoningGraph implements ReasoningPropagation {
   }
 
   /**
-   * 270 号票：按排好的先后问一串追问（第一轮用追问自己的查询和搜好的结果；第一轮有新找到的证据时，第二轮用找到的事实里的名字扩展查询）。
+   * 按排好的先后问一串追问（第一轮用追问自己的查询和搜好的结果；第一轮有新找到的证据时，第二轮用找到的事实里的名字扩展查询）。
    * 这一夜问过的跳过；要问模型（检索结果不空）而预算已经用完就停，记 night.cut。返回跑了几轮、这一串有没有被预算挡住
    */
   private async runLane(
@@ -1380,7 +1380,7 @@ export class ReasoningGraph implements ReasoningPropagation {
     return { rounds: 2, cut };
   }
 
-  // ---------- 往上抽（195 号票） ----------
+  // ---------- 往上抽 ----------
 
   /**
    * 两层各走一遍：成立的偏好、状态 → 需求层的组；成立的需求 → 价值层的组。每层：推理实现出草稿（同一主题在两种以上场景、
@@ -1431,7 +1431,7 @@ export class ReasoningGraph implements ReasoningPropagation {
   }
 
   /**
-   * 能往上抽的断言：还活着的（已验证、猜测都算，329 号票 R4：把握 low 的、竞争中分不出胜负的也能当前提往上推，推出来的是猜测）；
+   * 能往上抽的断言：还活着的（已验证、猜测都算，R4：把握 low 的、竞争中分不出胜负的也能当前提往上推，推出来的是猜测）；
    * 需求层要偏好、状态，价值层要往上抽出来的需求
    */
   liftInputs(level: LiftLevel, view: RgView): LiftInput[] {
@@ -1484,7 +1484,7 @@ export class ReasoningGraph implements ReasoningPropagation {
 
   /**
    * 撤下一组往上抽的（条件不成立了：场景只剩一种、证据条数或时期不够……）。
-   * Q2（主会话 2026-10-27）：没有推翻者（下层被推翻的，R8 当场就连带撤了），这是证据变少——组里的结论不撤，留成猜测、
+   * Q2：没有推翻者（下层被推翻的，R8 当场就连带撤了），这是证据变少——组里的结论不撤，留成猜测、
    * 把握降一档、前提照挂（StatusKeeper.keepAsGuess）；有直接证实的（R7，比如用户确认过的需求）不动
    */
   private retireLiftGroup(g: GroupRecord, at: string): void {
@@ -1503,7 +1503,7 @@ export class ReasoningGraph implements ReasoningPropagation {
   /**
    * 用户确认了一条断言（by 是本人的证据，比如他对追问的回答）：标 user_confirmed（显示"你确认过"），记一条决定性的支持，
    * 重新定它那组的状态。need、value 的置信度照样最多 medium：用户的话在"他为什么这样"上只是一条证据（第 4.3 节）。
-   * 329 号票（R7）：用户亲口确认是直接证实——依据改挂到这份确认上（原来的推理链记作历史），已验证；以后前提被推翻它照样成立。
+   * ADR-0032 R7：用户亲口确认是直接证实——依据改挂到这份确认上（原来的推理链记作历史），已验证；以后前提被推翻它照样成立。
    * 明说的断言跟着用户那句话走，只记支持、不改挂
    */
   confirmClaim(claimId: string, byEvidenceId: string): Claim {
@@ -1537,10 +1537,10 @@ export class ReasoningGraph implements ReasoningPropagation {
   }
 
   /**
-   * 263 号票：用户说这条断言不对（by 是本人的证据，比如他经记忆管理员的表态）：记一条决定性的反证，重定它那组的状态——
+   * 用户说这条断言不对（by 是本人的证据，比如他经记忆管理员的表态）：记一条决定性的反证，重定它那组的状态——
    * 没有决定性的支持就撤回（retractedBy 指向这句话，留墓碑），以后每次整理计分都还是这个结果。不在活着的组里的直接撤回。
    * 明说的断言跟着事实走，不在这里改（要改得纠正、忘掉那句话）。
-   * 329 号票（R8）：撤回往上传——建在它上面的（传递），有直接证实的留下，没有的一律撤回
+   * ADR-0032 R8：撤回往上传——建在它上面的（传递），有直接证实的留下，没有的一律撤回
    */
   rejectClaim(claimId: string, byEvidenceId: string): Claim {
     return this.engine.gate.write({ op: "verdict", reason: `用户否认结论 ${claimId}（证据 ${byEvidenceId}）` }, () => {
@@ -1568,8 +1568,8 @@ export class ReasoningGraph implements ReasoningPropagation {
   }
 
   /**
-   * 263 号票：给一条断言加复核标记（用户说拿不准、每晚校验不合格）：下一次整理按现有的关联重判。
-   * 329 号票："待复核"不占真值状态——只加标记，已验证 / 猜测不变，往下的也不动（真值跟着证据走）。撤回、取代了的不改
+   * 给一条断言加复核标记（用户说拿不准、每晚校验不合格）：下一次整理按现有的关联重判。
+   * "待复核"不占真值状态——只加标记，已验证 / 猜测不变，往下的也不动（真值跟着证据走）。撤回、取代了的不改
    */
   markClaimForReview(claimId: string, cause: RevisionCause, by: { op?: "mark_review" | "validate"; actor?: WriteActor } = {}): Claim {
     return this.engine.gate.write({ op: by.op ?? "mark_review", ...(by.actor === undefined ? {} : { actor: by.actor }), reason: cause.reason }, () => {
@@ -1583,7 +1583,7 @@ export class ReasoningGraph implements ReasoningPropagation {
   }
 
   /**
-   * 198 号票：按现有的关联重新定一组的状态和置信度（同 reflect 第 6 步，只这一组）。了解你问题的回答写了支持、反证以后用：
+   * 按现有的关联重新定一组的状态和置信度（同 reflect 第 6 步，只这一组）。了解你问题的回答写了支持、反证以后用：
    * 回答得很明确的马上定，不明确的在每日整理里定。
    */
   redecideGroup(groupKey: string): void {
@@ -1610,7 +1610,7 @@ export class ReasoningGraph implements ReasoningPropagation {
 
   /**
    * 按关联给每组定状态和置信度（第 5 节、第 7.3 节第 5 条：标着复核的在这里重判，摘掉标记）。
-   * 267 号票：一组各开一次写（判成立或推翻）；给了 dropped 时被写入口拒了的那一组记进去、别的组照常，没给就照抛
+   * 一组各开一次写（判成立或推翻）；给了 dropped 时被写入口拒了的那一组记进去、别的组照常，没给就照抛
    */
   private decideAll(at: string, view: RgView, only: (g: GroupRecord) => boolean = () => true, dropped?: DroppedOutput[]): void {
     for (const g of this.registry.listGroups({ live: true }).filter(only)) {
@@ -1619,7 +1619,7 @@ export class ReasoningGraph implements ReasoningPropagation {
   }
 
   /**
-   * 270 号票：这一夜追问全问过一遍的组，组里到期复评的结论记下复核时间（REVIEW_DUE_DAYS 天里不再当到期的重跑）。
+   * 这一夜追问全问过一遍的组，组里到期复评的结论记下复核时间（REVIEW_DUE_DAYS 天里不再当到期的重跑）。
    * 一组单开一次写：被写入口拒了只记进 dropped，不连累前面定好的状态
    */
   private markReviewed(keys: ReadonlySet<string>, at: string, dropped: DroppedOutput[]): void {
@@ -1636,7 +1636,7 @@ export class ReasoningGraph implements ReasoningPropagation {
   }
 
   /**
-   * 一组按关联定状态和置信度（329 号票，ADR-0032）：
+   * 一组按关联定状态和置信度（ADR-0032）：
    * - 决定性反证（证伪）→ 撤回，往上按 R8 传（有直接证实的留下，没有的撤）；
    * - 证据达标（scoring.ts 的分贝计分：领先 6 分贝、有别的假设没有的强支持）→ 推出来的还要前提都已验证（R4 铁律），
    *   或者有直接证实（R7：用户亲口确认，或者只算不靠前提的独立证据也达标；依据改挂上去）才是已验证，不然是猜测；
@@ -1650,7 +1650,7 @@ export class ReasoningGraph implements ReasoningPropagation {
     const { members, tallies, decisions } = this.decisionsFor(g.key, view);
     const judged = { full: decisions, independent: this.keeper.groupDecisions(members, view).independent };
     const lookup = storeLookup(this.store);
-    // 330 号票（R12、R13）：要收窄的（事实自己的场景标签能把两边分开），这一组定完再收窄、再定一遍
+    // ADR-0032 R12、R13：要收窄的（事实自己的场景标签能把两边分开），这一组定完再收窄、再定一遍
     const narrowings: { claim: Claim; tags: string[]; outside: Set<string>; reason: string; rivalGroup?: string }[] = [];
     const competitors = this.crossGroupCompetitors(g.key);
     members.forEach((claim, i) => {
@@ -1674,13 +1674,13 @@ export class ReasoningGraph implements ReasoningPropagation {
           .findLast((inf) => inf.status === "retracted");
         if (chain) this.w.updateInference(chain.id, { status: "active" }, cause);
       }
-      // 330 号票（矛盾根源，用户 10-27 选 A）：根源判断是琢磨出来的，只有用户亲口确认（直接证实）才算已验证，不靠计分、不靠独立证据
+      // 矛盾根源：根源判断是琢磨出来的，只有用户亲口确认（直接证实）才算已验证，不靠计分、不靠独立证据
       const root = isRootGroup(g);
       const found = this.keeper.directBasis(claim, view, judged);
       const direct = root && found?.kind !== "user" ? undefined : found;
       let status: "active" | "contested" = d.status === "active" ? "active" : "contested";
       let reason = d.reason;
-      // 330 号票（R12）：碰上还没弄清的有分量的反例——降回猜测、标复核；支持和反例按事实自己的场景标签能分开的收窄
+      // ADR-0032 R12：碰上还没弄清的有分量的反例——降回猜测、标复核；支持和反例按事实自己的场景标签能分开的收窄
       let flag = d.counterexample !== undefined && !direct;
       if (flag && d.counterexample && !options.narrowed) {
         const supports = this.store.linksOf(claim.id).filter((l) => l.polarity === "supports" && !(d.counterexample!.target === l.target)).map((l) => l.target);
@@ -1693,7 +1693,7 @@ export class ReasoningGraph implements ReasoningPropagation {
         reason = direct.kind === "user" ? `用户亲口确认过（直接证实），已验证` : `不靠前提的独立证据达标（直接证实），已验证`;
       } else if (root && status === "active") {
         status = "contested";
-        reason = `${reason}；矛盾根源是琢磨出来的判断，没经用户亲口确认只当猜测（用户 10-27 选 A：不豁免铁律）`;
+        reason = `${reason}；矛盾根源是琢磨出来的判断，没经用户亲口确认只当猜测（不豁免铁律）`;
         this.keeper.restoreChain(claim.id, cause);
       } else {
         this.keeper.restoreChain(claim.id, cause);
@@ -1709,7 +1709,7 @@ export class ReasoningGraph implements ReasoningPropagation {
         status = "contested";
         reason = "依据在重推（前提被删了、推断停用着），先当猜测";
       }
-      // 330 号票（R13）：别的组里和它互相竞争、场合对得上、也够已验证的——两条都降回猜测、标复核（各自的支持按场景标签能分开就各自收窄）
+      // ADR-0032 R13：别的组里和它互相竞争、场合对得上、也够已验证的——两条都降回猜测、标复核（各自的支持按场景标签能分开就各自收窄）
       if (status === "active" && !direct) {
         const rival = (competitors.get(claim.id) ?? []).find((other) => this.standaloneVerified(other, claim, view));
         if (rival) {
@@ -1747,7 +1747,7 @@ export class ReasoningGraph implements ReasoningPropagation {
     }
   }
 
-  /** 330 号票（R12）：这条结论现在有没有还没弄清的有分量的反例（按它那组的证据算；不在活着的组里的、矛盾根源的没有） */
+  /** ADR-0032 R12：这条结论现在有没有还没弄清的有分量的反例（按它那组的证据算；不在活着的组里的、矛盾根源的没有） */
   openCounterexample(claimId: string, view: RgView = this.view()): Counterexample | undefined {
     const member = this.registry.memberOf(claimId);
     const g = member ? this.registry.getGroup(member.groupKey) : undefined;
@@ -1755,7 +1755,7 @@ export class ReasoningGraph implements ReasoningPropagation {
     return this.decisionsFor(g.key, view).decisions.get(claimId)?.counterexample;
   }
 
-  /** 330 号票（R13）：跨组互相矛盾、单看自己那组都够已验证、场合对得上的几对（用户亲口确认了一边的不算） */
+  /** ADR-0032 R13：跨组互相矛盾、单看自己那组都够已验证、场合对得上的几对（用户亲口确认了一边的不算） */
   verifiedConflicts(view: RgView = this.view()): [Claim, Claim][] {
     const out: [Claim, Claim][] = [];
     const seen = new Set<string>();
@@ -1776,7 +1776,7 @@ export class ReasoningGraph implements ReasoningPropagation {
   }
 
   /**
-   * 330 号票（R13）：一组里每条结论在别的组里的竞争者（它的 competesWith，加上把它写进 competesWith 的；还活着的；场合对得上的）。
+   * ADR-0032 R13：一组里每条结论在别的组里的竞争者（它的 competesWith，加上把它写进 competesWith 的；还活着的；场合对得上的）。
    * 明说的结论不在组里，也算
    */
   private crossGroupCompetitors(groupKey: string): Map<string, Claim[]> {
@@ -1804,7 +1804,7 @@ export class ReasoningGraph implements ReasoningPropagation {
   }
 
   /**
-   * 330 号票（R13）：别的组里那条结论单看自己那组的证据够不够已验证（不看它和别的组打不打架，免得两组谁先定谁赢）；
+   * ADR-0032 R13：别的组里那条结论单看自己那组的证据够不够已验证（不看它和别的组打不打架，免得两组谁先定谁赢）；
    * 明说的、不在活着的组里的看它现在的状态
    */
   private standaloneVerified(other: Claim, against: Claim, view: RgView): boolean {
@@ -1818,7 +1818,7 @@ export class ReasoningGraph implements ReasoningPropagation {
     return !(this.keeper.directBasis(against, view, { full: new Map(), independent: new Map() })?.kind === "user");
   }
 
-  /** 329 号票：标着复核、不在活着的组里的结论重判（status-keeper.ts 的 rejudge；明说的由 syncExplicit 跟着事实走） */
+  /** 标着复核、不在活着的组里的结论重判（status-keeper.ts 的 rejudge；明说的由 syncExplicit 跟着事实走） */
   private rejudgeLoose(at: string): void {
     const view = this.view(at);
     for (const flagged of this.store.listClaims({ needsReview: true })) {
@@ -1831,7 +1831,7 @@ export class ReasoningGraph implements ReasoningPropagation {
   }
 
   /**
-   * 333 号票（全量重判一次，full-rejudge.ts）：每个活着的组（观察模式、往上抽、联动）按新规矩当场重定——R2 证据达标、R4 铁律、
+   * 全量重判一次，full-rejudge.ts：每个活着的组（观察模式、往上抽、联动）按新规矩当场重定——R2 证据达标、R4 铁律、
    * R7 直接证实、R12 反例、R13 两条都已验证、R14 当面的才算决定性都在 settleGroup 里；跑之前的复核标记留着。
    * 跑之前到跑之后状态、把握、墓碑、取代者变了的（还活着的）加复核标记：接下来的整理按道重跑它那一组的追问（模型重判），
    * 再按证据定、摘掉标记。一组各开一次写（被写入口拒了只记进 dropped）。交回变了的
@@ -1855,13 +1855,13 @@ export class ReasoningGraph implements ReasoningPropagation {
     return changed;
   }
 
-  /** 329 号票：当场按现有的关联重定一组（彻底删除拿掉关联以后用；要在调用方开的那一次写里调）。组不在了就什么都不做 */
+  /** 当场按现有的关联重定一组（彻底删除拿掉关联以后用；要在调用方开的那一次写里调）。组不在了就什么都不做 */
   settleGroupNow(groupKey: string, at: string): void {
     const g = this.registry.getGroup(groupKey);
     if (g?.live) this.settleGroup(g, at, this.view(at), { keepFlags: true });
   }
 
-  // ---------- 失效传播（第 7.3 节第 2–6 条；329 号票照原始推理图谱改，ADR-0032） ----------
+  // ---------- 失效传播（第 7.3 节第 2–6 条；照原始推理图谱改，ADR-0032） ----------
 
   /**
    * 证据被忘掉、被纠正，事实被纠正（engine.correct / invalidateEvidence / 抽事实时一条纠正的话）：
@@ -1998,17 +1998,17 @@ export class ReasoningGraph implements ReasoningPropagation {
     return answerQuestion(this, question, options);
   }
 
-  /** 为问题、任务调出相关的断言（196 号票的三条路，引擎的 relevantUserModel）；202 号票的回答层和 D 组检索用它判相关门槛 */
+  /** 为问题、任务调出相关的断言（三条路，引擎的 relevantUserModel）；回答层和 D 组检索用它判相关门槛 */
   relevantUserModel(task: string, options: RelevantUserModelOptions = {}): Promise<RelevantUserModel> {
     return this.engine.relevantUserModel(task, options);
   }
 
-  /** 引擎的向量函数（205 号票：回答层按背景语料校准向量门槛要用）；没给时是 undefined */
+  /** 引擎的向量函数（回答层按背景语料校准向量门槛要用）；没给时是 undefined */
   embedder(): Embedder | undefined {
     return this.engine.getEmbedder();
   }
 
-  /** 给任务出建议（196 号票，引擎的 adviseTask）；202 号票的回答层把"帮我……"交给它 */
+  /** 给任务出建议（引擎的 adviseTask）；回答层把"帮我……"交给它 */
   adviseTask(task: string, options: AdviseOptions = {}): Promise<TaskAdvice> {
     return this.engine.adviseTask(task, options);
   }

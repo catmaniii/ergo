@@ -1,4 +1,4 @@
-// 主切面：流程撤回之后停住等你、一分钟没说话提醒一次；定时触发的任务运行中撤回记"已撤回"不算失败（155 号票，用户 2026-10-18 定）。
+// 主切面：流程撤回之后停住等你、一分钟没说话提醒一次；定时触发的任务运行中撤回记"已撤回"不算失败。
 // 真的守护进程，流程的负责人接 faux 剧本，手动拨的时钟，测试扮演前端：
 // - 一次性的流程撤回到步骤开始前：停在那里（不交代、不自己接着做）；一分钟内你没在这个任务里说话，待办里一条"流程在等你"加推送
 //   （只提醒一次，再过二十分钟也不再提醒，也不再催负责人）；你在任务里说一句，负责人从撤回到的那一步接着做，这条处理掉；
@@ -111,7 +111,7 @@ async function connect(url: string) {
 
 const authorize = async (frontend: TestFrontend, card: Card) => ok(await frontend.cardAction({ cardId: card.id, action: "confirm", expectedVersion: card.version, input: { confirmations: [] } }));
 
-describe("流程撤回之后等你（155 号票）", { timeout: LONG_TEST_MS }, () => {
+describe("流程撤回之后等你", { timeout: LONG_TEST_MS }, () => {
   it("撤回到步骤开始前之后停住：一分钟没说话，待办里一条加推送提醒一次（只一次），不再催负责人；你说一句就从那一步接着做，这条处理掉", async () => {
     const clock = new ManualClock(at(10, 8, 9, 0));
     const td: TestDaemon = await startTestDaemon({

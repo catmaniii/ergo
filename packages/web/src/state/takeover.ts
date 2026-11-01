@@ -1,11 +1,11 @@
-// 从运行时已有的会话接管（290 号票）在网页这一侧（纯函数）：新建任务、项目时选了能接管已有会话的运行时（Claude Code），对话框里多一个
+// 从运行时已有的会话接管在网页这一侧（纯函数）：新建任务、项目时选了能接管已有会话的运行时（Claude Code），对话框里多一个
 // "从 Claude Code 会话接管"的入口；点进去列本机的会话（GET /api/runtimes/<运行时>/sessions，每次现取），选一个：
 // - 空闲的直接接；被占着的（终端里开着、后台会话在跑、二狗自己的任务 / 项目在管、查不到占没占）不直接接——终端里开着的会话没有锁，
 //   直接接会分叉、丢掉一边的话——先在那边关掉再刷新，或者勾上"分叉一份接管"（原会话不动）；
 // - 接成任务要写"接着让它做什么"（第一条输入）；接成项目可以不写（一句话目标，空着用会话标题）；
 // - 工作目录用会话原来的（守卫的项目目录就是它）。
 // 行里的说法：标题、工作目录、分支 · 最近活动 · 大小，被占着的写明在哪。⚙ 里接管来的那一行（交还 / 收回）的说法也在这里。
-// 292 号票（交给官方 App、再收回来）：⚙ 里那一块按会话现在在哪边（二狗接管 / 官方 App / 空着）给说法和按钮——二狗接管着的"交给官方 App"
+// 交给官方 App、再收回来：⚙ 里那一块按会话现在在哪边（二狗接管 / 官方 App / 空着）给说法和按钮——二狗接管着的"交给官方 App"
 // （接管来的另有"交还给 X"）；在官方 App 里的写明、给链接、"收回到<名字>"；空着的"收回到<名字>"和"交给官方 App"。二狗自己开的会话（还没交过的
 // 没有接管记录）也有"交给官方 App"。任务卡、项目卡上的"在官方 App 里"和链接（remoteBadgeOf）也在这里。
 import { sizeLabel } from "./detail-content.ts";
@@ -98,7 +98,7 @@ export interface TakeoverButton {
 }
 
 /**
- * ⚙ 里运行时一块的"会话在哪边"（290、292 号票）：说法、官方 App 里的链接、按钮（按现在在哪边，见文件开头）。
+ * ⚙ 里运行时一块的"会话在哪边"：说法、官方 App 里的链接、按钮（按现在在哪边，见文件开头）。
  * 不是接管来的、也不能交给官方 App 的是 undefined。name 是助理的名字（"收回到<名字>"）
  */
 export function takeoverPanel(
@@ -134,7 +134,7 @@ export function takeoverPanel(
   };
 }
 
-/** 任务卡、项目卡上的"在官方 App 里"（292 号票）：任务、项目上记着的接管现在在官方 App 里才有；拿到链接的带上 */
+/** 任务卡、项目卡上的"在官方 App 里"：任务、项目上记着的接管现在在官方 App 里才有；拿到链接的带上 */
 export function remoteBadgeOf(takeover: RuntimeTakeover | undefined): { label: string; url?: string } | undefined {
   if (!takeover || takeoverPlaceOf(takeover) !== "remote") return undefined;
   return { label: t("state.takeover.remoteBadge"), ...(takeover.remote?.url ? { url: takeover.remote.url } : {}) };

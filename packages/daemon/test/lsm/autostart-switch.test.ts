@@ -1,4 +1,4 @@
-// 向导里的开机自启开关（347 号票）：显示现在开没开、能开能关，走 install-autostart / uninstall-autostart 同一条路（先过 cli/autostart.ts 那一关）。
+// 向导里的开机自启开关：显示现在开没开、能开能关，走 install-autostart / uninstall-autostart 同一条路（先过 cli/autostart.ts 那一关）。
 // 这里永远用假任务（ERGO_AUTOSTART_TASK_FILE），绝不碰真的计划任务：开着和关着的动作都是写那个 JSON 文件。
 // - 装好的：能开能关；任务指着这个安装的算开着，指着别处的（用的人自己装的服务管家）只显示、不让动；
 // - 源码跑的：只显示（开发机上的任务不归它管）；

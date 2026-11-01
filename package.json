@@ -22,7 +22,6 @@
     "packages/daemon",
     "packages/web",
     "packages/memory",
-    "packages/memory-eval",
     "packages/supervisor"
   ],
   "scripts": {
@@ -43,12 +42,6 @@
     "build:harmony": "node frontend/scripts/build-harmony.ts",
     "build:android": "node frontend/scripts/build-android.ts",
     "download-model": "node packages/daemon/src/download-model.ts",
-    "memory:demo": "node packages/memory-eval/src/demo/main.ts",
-    "memory:eval": "node packages/memory-eval/src/eval/main.ts",
-    "memory:llm": "node packages/memory-eval/src/llm/main.ts",
-    "memory:eval-kg": "node packages/memory-eval/src/eval/kg-joint-main.ts",
-    "memory:eval2": "node packages/memory-eval/src/eval/eval2/main.ts",
-    "memory:dump-claims": "node packages/memory-eval/src/eval/eval2/dump-claims.ts",
     "memory:replay": "node packages/daemon/test/memory/replay-materials.ts",
     "memory:build": "node packages/daemon/test/memory/build.ts",
     "memory:rejudge": "node packages/daemon/test/memory/rejudge.ts",

@@ -1,21 +1,21 @@
-// 语音识别进程（规格第 21、22 节，31 号票）：faster-whisper 跑在守护进程拉起的 Python 进程里（recognizer.py）。
-// - 要用时才拉起（45 号票起守护进程一启动就由预热拉起，见 warmup.ts），放进它自己的 Job 对象（KILL_ON_JOB_CLOSE、不允许脱离；
+// 语音识别进程（规格第 21、22 节）：faster-whisper 跑在守护进程拉起的 Python 进程里（recognizer.py）。
+// - 要用时才拉起（守护进程一启动就由预热拉起，见 warmup.ts），放进它自己的 Job 对象（KILL_ON_JOB_CLOSE、不允许脱离；
 //   守护进程怎么死它都跟着结束）。不放进 agent 管家的 Job：那里按"从活着的 agent 子进程走不到"回收孤儿，守护进程直接起的进程会被当成孤儿；
 // - 环境照 agent 子进程的系统变量白名单（buildChildEnv：没有守护进程的密钥），另加固定的几项（不联网下载模型、输出 UTF-8）；
-// - 两边走 stdin / stdout 的 JSON 行，形状照 08 号票算向量的工作线程：请求 { id, type, ... }，应答 { id, result } 或
+// - 两边走 stdin / stdout 的 JSON 行，形状算向量的工作线程：请求 { id, type, ... }，应答 { id, result } 或
 //   { id, error, fatal? }（fatal：模型没加载起来，这个进程不能再用）。识别进程一次处理一条，按到达顺序；
-// - 45 号票：拉起后先交给它设置，紧接着让它加载模型（"加载"消息，回报用的模型、设备、计算精度、加载耗时、退回的原因）。
+// -拉起后先交给它设置，紧接着让它加载模型（"加载"消息，回报用的模型、设备、计算精度、加载耗时、退回的原因）。
 //   真的识别排在加载后面（同一个进程按到达顺序处理），所以预热时来的识别请求等加载好就识别，不另起进程；
-// - 闲置多久退出可配（idleMs）：0 是常驻（45 号票起的默认），不因闲置退出；正数的闲置这么久就让它退出、把模型占的显存还回去，
+// - 闲置多久退出可配（idleMs）：0 是常驻（默认），不因闲置退出；正数的闲置这么久就让它退出、把模型占的显存还回去，
 //   下次要识别时再拉起；
 // - 一次识别最多等多久按语音时长和设备算（recognizeTimeoutMs）：超时就结束这个进程，这条记成失败，后面的输入不再等它；
 //   加载最多等余量加冷启动的时间；
 // - 起不来（Python 路径不对、没装 faster-whisper）、模型加载失败，交给它的请求以 RecognizerUnavailable 结束
 //   （语音的识别状态记成失败，待我处理里放一条说明），守护进程照常运行；
-// - 180 号票：识别结果交出去之前剔掉模型自带的串词（"请不吝点赞 订阅 转发……"，规则见 transcript-filter.ts、配置 voice.recognizer.stripPatterns）：
+// -识别结果交出去之前剔掉模型自带的串词（"请不吝点赞 订阅 转发……"，规则见 transcript-filter.ts、配置 voice.recognizer.stripPatterns）：
 //   语音消息、悬浮按钮和侧边栏的语音、Debug 页都经 transcribe() 拿结果，拿到的都是剔过的；剔了几个字记在 strippedChars，
 //   日志只记字数和命中的规则，不写正文；
-// - 208 号票：语音识别没做成、要重试之前先看识别服务正不正常（check）：识别进程不在就拉起、等加载好（和预热一样的 load）；
+// -语音识别没做成、要重试之前先看识别服务正不正常（check）：识别进程不在就拉起、等加载好（和预热一样的 load）；
 //   在、空着的问它一句（再发一条"加载"：recognizer.py 已经加载好时马上回报），限时（checkTimeoutMs）不应答就当它卡住了，
 //   结束它、重新拉起并等加载好；正在给别处识别的不另外问（那次识别自己的超时守着）。拉起、加载不了的以 RecognizerUnavailable 结束；
 // - 识别模型的状态（VoiceModelState：等待加载、加载中、已就绪、出错、已卸载）经 state / onState 给出（设置 · 语音里显示）。
@@ -50,9 +50,9 @@ export function recognizeTimeoutMs(timeout: RecognizeTimeoutConfig, init: Recogn
 }
 
 /**
- * 剔掉识别结果里模型自带的串词（180 号票）：日志只记字数和命中的规则，不写正文；剔的时候出了岔子就原样交出。
+ * 剔掉识别结果里模型自带的串词：日志只记字数和命中的规则，不写正文；剔的时候出了岔子就原样交出。
  * 两种接入（自己拉起识别进程的 recognizer.ts、调 LSM 托管的服务 recognizer-client.ts）都过这一道，
- * 所以拿到的结果一样干净（250 号票把这一段从这里提出来给两边共用）
+ * 所以拿到的结果一样干净（把这一段从这里提出来给两边共用）
  */
 export function stripFiller(result: RecognizeResult, rules: readonly StripRule[] | undefined, log: (line: string) => void): RecognizeResult {
   const effective = rules ?? [];
@@ -89,12 +89,12 @@ export interface RecognizeResult {
   /** 退回 CPU 的原因（没退回没有） */
   fallbackReason?: string;
   /**
-   * 剔掉了多少字模型自带的串词（180 号票；没剔没有）。text、segments 已经是剔过的；剔完是空的（text 为空）就是整条只有串词
+   * 剔掉了多少字模型自带的串词（没剔没有）。text、segments 已经是剔过的；剔完是空的（text 为空）就是整条只有串词
    */
   strippedChars?: number;
 }
 
-/** 识别进程加载好模型的回报（45 号票） */
+/** 识别进程加载好模型的回报 */
 export interface RecognizerLoaded {
   model: string;
   device: string;
@@ -106,7 +106,7 @@ export interface RecognizerLoaded {
 }
 
 /**
- * 识别进程的一生里，预热（warmup.ts）据此决定要不要重拉的两件事（45 号票）：
+ * 识别进程的一生里，预热（warmup.ts）据此决定要不要重拉的两件事：
  * - loaded：模型加载好了；
  * - ended：这个进程没了，cause 说为什么——load_failed（没加载起来：起不来、放不进 Job、加载失败、加载超时、加载完之前就退出了）、
  *   exited（加载好之后意外没了：崩溃、被杀、识别时报致命错误、识别超时被结束）、idle（闲置退出）。
@@ -124,10 +124,10 @@ export class RecognizerUnavailable extends Error {
 export interface Recognizer {
   /** 识别一段音频；audioMs 是它的时长（算超时用，不给按最长的 60 秒算） */
   transcribe(request: RecognizeRequest, audioMs?: number): Promise<RecognizeResult>;
-  /** 拉起识别进程、加载好模型（预热，45 号票）；已经加载好了直接回报。起不来、加载失败以 RecognizerUnavailable 结束 */
+  /** 拉起识别进程、加载好模型（预热）；已经加载好了直接回报。起不来、加载失败以 RecognizerUnavailable 结束 */
   load(): Promise<RecognizerLoaded>;
   /**
-   * 识别服务正不正常（208 号票：重试之前看一眼）：不在就拉起、等加载好；加载好、空着的问它一句，限时不应答就结束它、重新拉起并等加载好；
+   * 识别服务正不正常（重试之前看一眼）：不在就拉起、等加载好；加载好、空着的问它一句，限时不应答就结束它、重新拉起并等加载好；
    * 正给别处识别着的不另外问。正常就回报加载好的模型；拉起、加载不了的以 RecognizerUnavailable 结束
    */
   check(): Promise<RecognizerLoaded>;
@@ -157,9 +157,9 @@ export interface ProcessRecognizerOptions {
   timeout: RecognizeTimeoutConfig;
   /** 给识别进程建一个 Job 对象；返回 undefined（不是 Windows）时不放 */
   newJob?: () => JobObject | undefined;
-  /** 识别结果里要剔掉的模型自带串词（180 号票，编译好的规则）；不给不剔 */
+  /** 识别结果里要剔掉的模型自带串词（编译好的规则）；不给不剔 */
   stripRules?: readonly StripRule[];
-  /** check()（208 号票）问识别进程一句最多等多久（毫秒）；不给是 CHECK_TIMEOUT_MS */
+  /** check()问识别进程一句最多等多久（毫秒）；不给是 CHECK_TIMEOUT_MS */
   checkTimeoutMs?: number;
   log: (line: string) => void;
 }
@@ -176,11 +176,11 @@ type RecognizerResponseLine = { id: number; result: RecognizeResult | Recognizer
 const EXIT_GRACE_MS = 5_000;
 /** 日志里留识别进程 stderr 的最后多少字符（起不来时写进原因） */
 const STDERR_TAIL = 2_000;
-/** check()（208 号票）问识别进程一句最多等多久：加载好、空着的进程马上就回，这么久不回就是卡住了 */
+/** check()问识别进程一句最多等多久：加载好、空着的进程马上就回，这么久不回就是卡住了 */
 export const CHECK_TIMEOUT_MS = 10_000;
 
 interface Pending {
-  /** 加载、识别，还是问一句还正不正常（208 号票：已经加载好时再发一条加载） */
+  /** 加载、识别，还是问一句还正不正常（已经加载好时再发一条加载） */
   kind: "load" | "transcribe" | "ping";
   resolve(result: RecognizeResult | RecognizerLoaded): void;
   reject(err: Error): void;
@@ -286,7 +286,7 @@ export function createProcessRecognizer(options: ProcessRecognizerOptions): Reco
     }
   };
 
-  /** 剔掉识别结果里模型自带的串词（180 号票）：日志只记字数和命中的规则，不写正文；剔的时候出了岔子就原样交出 */
+  /** 剔掉识别结果里模型自带的串词：日志只记字数和命中的规则，不写正文；剔的时候出了岔子就原样交出 */
   const withoutFiller = (result: RecognizeResult): RecognizeResult => stripFiller(result, options.stripRules, options.log);
 
   const unavailable = (running: Running, what: string) =>

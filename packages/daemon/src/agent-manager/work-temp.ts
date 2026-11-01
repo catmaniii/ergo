@@ -1,4 +1,4 @@
-// 负责人、子 agent 的 bash 的临时目录（177 号票）：工作目录里的 `.ergo-tmp`，守卫按项目里的判，不用为临时文件写到项目外。
+// 负责人、子 agent 的 bash 的临时目录：工作目录里的 `.ergo-tmp`，守卫按项目里的判，不用为临时文件写到项目外。
 // - bash 起的进程里 TMPDIR、TEMP、TMP 都指到它（mktemp、Node 的 os.tmpdir()、Python 的 tempfile 都按它）。不放进 bash 进程本身的
 //   环境变量，而是在每条命令前面 export（agent 子进程里换掉的 bash 工具的 commandPrefix）：Git Bash（MSYS）的挂载表在同一个用户的
 //   所有 Git Bash 进程之间共用，`/tmp` 跟着第一个起来的那个进程的 TMP / TEMP——bash 进程本身带着项目的临时目录起来，用户自己开的

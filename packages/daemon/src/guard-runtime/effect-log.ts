@@ -2,10 +2,10 @@
 // 只有执行成功的调用才追加：`{序号, 任务, 阶段, agent, 工具或伪工具, 规范化参数, 效果摘要, 时间}`，再加上会话段。
 // 时序规则和授权项计次只看它（判定时按范围取：任务里只看同一个任务的，不属于任务的只看同一个 agent、同一段会话的）。
 // 效果摘要写执行后的效果：成功（bash 带退出码）、改动的文件、简短结果。
-// 56 号票起每条记上哪次调用产生的（callId），详情页取一次调用的完整内容时顺带它的效果（effectsOfCall、effectView）。
-// 68 号票起内容类的参数（写入的全文、编辑的新旧片段）只记长度和摘要哈希（guard/effect-log.ts 的 effectLogArgs）：
+// 每条记上哪次调用产生的（callId），详情页取一次调用的完整内容时顺带它的效果（effectsOfCall、effectView）。
+// 内容类的参数（写入的全文、编辑的新旧片段）只记长度和摘要哈希（guard/effect-log.ts 的 effectLogArgs）：
 // - 新写的：脱敏之后、写进事件日志之前就缩了，事件日志里也没有原文；
-// - 之前写的：事件日志不动（规格第 15 节：事件日志不可修改；主会话 2026-10-10 定不为它开第四个例外，旧记录的原文留在事件日志里），
+// - 之前写的：事件日志不动（规格第 15 节：事件日志不可修改；不为它开第四个例外，旧记录的原文留在事件日志里），
 //   派生视图归并时缩——表上记着按哪一版口径存的（effect_log_format），比现在旧就清空视图、从事件日志补一遍（"refill"，只读守卫频道），
 //   之后整体重放（彻底删除后）也一样缩。只缩不补：条数、序号、别的参数都不变。
 // - 详情页的效果记录注明写了多少（"写入 N 字""改了 K 处"，contentNote）。
@@ -32,8 +32,8 @@ import { type EffectRecordedPayload, GUARD_CHANNEL, GUARD_EVENTS } from "./event
 import { type CallPrivacy, secretFileResult } from "./read-secrets.ts";
 
 /**
- * 效果日志表按哪一版口径存的（effect_log_format 表里一行）：2 = 68 号票起内容类的参数只记长度和摘要哈希。
- * 没有这一行（68 号票之前的库、刚建的库）或者比现在旧：清空表，由事件存储打开时从事件日志补一遍，归并时按现在的口径存。
+ * 效果日志表按哪一版口径存的（effect_log_format 表里一行）：2 =内容类的参数只记长度和摘要哈希。
+ * 没有这一行（以前的库、刚建的库）或者比现在旧：清空表，由事件存储打开时从事件日志补一遍，归并时按现在的口径存。
  * 不靠抽样看表里的记录（比如最近的一条可能是 bash 拆出来、只带路径的写文件）
  */
 const EFFECT_LOG_FORMAT = 2;
@@ -56,10 +56,10 @@ export const effectLogView: DerivedView = {
       CREATE INDEX IF NOT EXISTS effect_log_by_task ON effect_log (task_id, seq);
       CREATE INDEX IF NOT EXISTS effect_log_by_segment ON effect_log (agent_id, segment_id, seq);
     `);
-    // 56 号票加的：哪次调用产生的（之前的记录没有，是 NULL）
+    // 加的：哪次调用产生的（之前的记录没有，是 NULL）
     if (!db.all<{ name: string }>("PRAGMA table_info(effect_log)").some((c) => c.name === "call_id")) db.exec("ALTER TABLE effect_log ADD COLUMN call_id TEXT");
     db.exec("CREATE INDEX IF NOT EXISTS effect_log_by_call ON effect_log (call_id)");
-    // 68 号票之前的表：内容类的参数还是原文。清空，由事件存储打开时从事件日志补回来，归并时缩（只补这一个视图）
+    // 以前的表：内容类的参数还是原文。清空，由事件存储打开时从事件日志补回来，归并时缩（只补这一个视图）
     db.exec("CREATE TABLE IF NOT EXISTS effect_log_format (version INTEGER NOT NULL)");
     const format = db.get<{ version: number | null }>("SELECT MAX(version) AS version FROM effect_log_format")?.version ?? null;
     if (format !== null && Number(format) >= EFFECT_LOG_FORMAT) return undefined;
@@ -72,7 +72,7 @@ export const effectLogView: DerivedView = {
   apply(db, event) {
     if (event.channel !== GUARD_CHANNEL || event.type !== GUARD_EVENTS.effectRecorded) return;
     for (const raw of (event.payload as EffectRecordedPayload).records) {
-      // 68 号票之前写进事件日志的还有原文，在这里缩（之后写的已经缩过，再缩不变）
+      // 以前写进事件日志的还有原文，在这里缩（之后写的已经缩过，再缩不变）
       const record: EffectRecord = { ...raw, args: effectLogArgs(raw.tool, raw.args, BUILTIN_TOOL_REGISTRY) };
       db.run(
         "INSERT INTO effect_log (seq, task_id, stage_id, agent_id, segment_id, tool, call_id, record) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
@@ -113,10 +113,10 @@ export function nextEffectSeq(db: ReadonlyDatabase): number {
 /**
  * 一次放行、执行成功的调用追加进效果日志（调用方保证只在执行成功后调用）。
  * resultText 是工具交回模型的结果文字（效果摘要里截一小段），at 是执行完的时间（毫秒）。
- * callId 是这次调用的 id（56 号票：详情页按它找这次调用的效果），拆出来的每一条都记上。
+ * callId 是这次调用的 id（详情页按它找这次调用的效果），拆出来的每一条都记上。
  * privacy（read-secrets.ts）：读了密钥文件的，摘要里不记结果；参数和摘要里读过的密钥值换成"（密钥）"。
- * 脱敏之后，内容类的参数换成长度 + 摘要哈希（68 号票，effectLogArgs：按这个会话的注册表），事件日志里不存原文。
- * also 是同一事务追加在后面的事件（这次调用结束的记录，23 号票）
+ * 脱敏之后，内容类的参数换成长度 + 摘要哈希（effectLogArgs：按这个会话的注册表），事件日志里不存原文。
+ * also 是同一事务追加在后面的事件（这次调用结束的记录）
  */
 export function recordEffects(
   store: EventStore,
@@ -130,12 +130,12 @@ export function recordEffects(
   const withSummaries = records.map((r, i): EffectRecord => {
     const summary = effectSummary(judgement.calls[i]!, r.args, input.tools, resultText);
     const args = effectLogArgs(r.tool, privacy ? privacy.deep(r.args) : r.args, input.tools);
-    // 新建的路径（111 号票）和参数里的路径一样过一遍脱敏
+    // 新建的路径和参数里的路径一样过一遍脱敏
     const created = r.created && privacy ? { created: privacy.deep(r.created) as string[] } : {};
     return { ...r, args, ...created, callId: done.callId, summary: privacy ? privacy.text(summary) : summary };
   });
   const payload: EffectRecordedPayload = { records: withSummaries };
-  // also：同一事务追加的（这次调用结束的记录，23 号票），排在效果日志之后（彻底删除按"紧跟在工具调用记录后面"找效果日志）
+  // also：同一事务追加的（这次调用结束的记录），排在效果日志之后（彻底删除按"紧跟在工具调用记录后面"找效果日志）
   store.appendBatch([{ channel: GUARD_CHANNEL, type: GUARD_EVENTS.effectRecorded, payload }, ...(done.also ?? [])]);
   return withSummaries;
 }
@@ -161,7 +161,7 @@ export function effectSummary(call: JudgedCall, args: Record<string, unknown>, t
     for (const v of Array.isArray(value) ? value : [value]) if (typeof v === "string") into.push(v);
   }
   const result = oneLine(resultText, RESULT_MAX);
-  // 详情页上给用户看：按记下时的语言（173 号票）
+  // 详情页上给用户看：按记下时的语言
   const list = t("pages.common.listSep");
   return [
     shell ? t("guardRuntime.effect.shellTitle", { title, command: oneLine(call.text ?? "", COMMAND_MAX) }) : title,
@@ -175,7 +175,7 @@ export function effectSummary(call: JudgedCall, args: Record<string, unknown>, t
 }
 
 /**
- * 彻底删除（21 号票）：效果记录里的参数（原话可能在里面）的文字和效果摘要换成删除标记，调用 id（56 号票）、新建的路径（111 号票，
+ * 彻底删除：效果记录里的参数（原话可能在里面）的文字和效果摘要换成删除标记，调用 id、新建的路径（
  * 路径里也可能有原话；去掉之后守卫只靠创建时间认它是不是临时文件）一起去掉——详情页不再按它找到这几条；
  * 序号、工具、任务、agent、会话段、时间不变，所以效果日志的条数和先后不变（时序规则据此判断的"之前做过什么"还在）
  */
@@ -193,7 +193,7 @@ export const effectRecordPurge: PurgeRewriter = {
   },
 };
 
-// ───────────────────────── 一次调用的效果（56 号票：详情页、彻底删除、删除项目共用） ─────────────────────────
+// ───────────────────────── 一次调用的效果（详情页、彻底删除、删除项目共用） ─────────────────────────
 
 /**
  * 找效果日志用的一次调用：调用 id、发起的 agent（旧的工具调用记录上看不出、又没有完整内容时不知道，就不按 agent 限定）、
@@ -208,12 +208,12 @@ export interface EffectCall {
 
 export const effectCallOf = (d: ToolCallDetail): EffectCall => ({ callId: d.callId, agentId: d.agentId, tool: d.tool, conversation: d.conversation });
 
-/** 记了调用 id 的效果记录（56 号票起）是不是这次调用的：调用 id 相同，agent 也相同（不同 agent 的调用 id 可能撞上） */
+/** 记了调用 id 的效果记录是不是这次调用的：调用 id 相同，agent 也相同（不同 agent 的调用 id 可能撞上） */
 const ownedBy = (r: EffectRecord, call: EffectCall) => r.callId === call.callId && (call.agentId === undefined || r.agentId === call.agentId);
 
 /**
  * 加上调用 id 之前的旧效果日志：紧跟在这次调用的记录后面的那条 effect_recorded——守护进程在调用结束时依次追加完整内容
- * （53 号票）、会话里的工具调用记录（评审子 agent 没有）、效果日志，中间不插别的。anchor 是这次调用的完整内容或工具调用记录，
+ * 会话里的工具调用记录（评审子 agent 没有）、效果日志，中间不插别的。anchor 是这次调用的完整内容或工具调用记录，
  * 从完整内容往后找时跨过紧跟着的工具调用记录。紧跟着的效果日志还得每一条都没有调用 id、是同一个 agent 的（知道 agent 时）、
  * 记的是同一个工具（通用 bash 记的是拆出来的伪工具，不比工具）才算。中间插了别的就找不到（宁可漏，不认错）。
  * 详情页、彻底删除、删除项目都只用这一份
@@ -229,7 +229,7 @@ export function legacyEffectEventAfter(store: EventStore, anchor: StoredEvent, c
   return ours ? next : undefined;
 }
 
-/** 会话里这次调用的工具调用记录（删除项目改写项目之外读过这个项目的调用时连带，66 号票）；不在会话里的调用没有 */
+/** 会话里这次调用的工具调用记录（删除项目改写项目之外读过这个项目的调用时连带）；不在会话里的调用没有 */
 export function toolCallRecordsOf(store: EventStore, call: EffectCall): StoredEvent[] {
   if (call.conversation === null) return [];
   return store.mentioning(EVENT_TYPES.message, JSON.stringify(call.callId).slice(1, -1)).filter((e) => isToolCallRecordOf(e, call));
@@ -263,7 +263,7 @@ export function effectsOfCall(store: EventStore, detail: StoredEvent): EffectRec
 }
 
 /**
- * 记了调用 id 的效果记录（56 号票起），按序号：只查视图，不读完整内容（删除项目时先按它筛读过项目的调用，66 号票）。
+ * 记了调用 id 的效果记录，按序号：只查视图，不读完整内容（删除项目时先按它筛读过项目的调用）。
  * 调用 id 和 agent 都对上才算；没有（没执行成功、之前的旧记录、彻底删除时调用 id 去掉了）是空数组
  */
 export function effectsByCallId(reader: ReadonlyDatabase, callId: string, agentId: string): EffectRecord[] {
@@ -295,7 +295,7 @@ export function effectView(record: EffectRecord, call: Pick<ToolCallDetail, "too
 }
 
 /**
- * 内容类的参数写了多少（68 号票：效果日志里只记了长度和摘要哈希）：写文件"写入 N 字"、改文件"改了 K 处"。
+ * 内容类的参数写了多少（效果日志里只记了长度和摘要哈希）：写文件"写入 N 字"、改文件"改了 K 处"。
  * 标了 bulk 的只有这两个——单个值是写入的全文，一组是改文件的几段。旧记录还是原文的，按同样的口径算
  */
 function contentNote(record: EffectRecord): string | undefined {

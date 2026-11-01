@@ -1,4 +1,4 @@
-// 连接地址（364 号票）在网页上的这一半里"不碰浏览器"的那部分：取（GET /api/connection-addresses）、改手填的那个（POST）、演示页的假数据、
+// 连接地址在网页上的这一半里"不碰浏览器"的那部分：取（GET /api/connection-addresses）、改手填的那个（POST）、演示页的假数据、
 // 地址旁边写什么。种类、校验、排序在共享协议包的 connection-addresses.ts；真相在守护进程（入口问服务管家，手填的在配置文件）。
 // 这些函数都不碰 window、不引 React（Node 里直接查，test/pages/pairing-qr.test.ts）：钩子在 app/page-connection-addresses.ts。
 import { checkManualConnectionAddress, type ConnectionAddress, type ConnectionAddressesView, HTTP_PATHS, type HttpErrorBody, orderConnectionAddresses, t } from "../state/index.ts";

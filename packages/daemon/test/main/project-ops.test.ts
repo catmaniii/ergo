@@ -1,14 +1,14 @@
-// 主切面（260 号票；268 号票照用户 2026-10-13 的设计草稿补齐）：秘书的 project_ops——列出、查看说明、调用使用中的项目的操作。
+// 主切面（照设计草稿补齐）：秘书的 project_ops——列出、查看说明、调用使用中的项目的操作。
 // 真的守护进程，秘书接 faux 剧本，LSM 用替身（helpers/lsm-stand-in.ts 的 owned），"项目的服务"是起在随机端口上的假记账本服务
 // （helpers/fake-ops-app.ts，首页 + 本机调用口 POST /ops，回能念的 say），项目走真的流程转入使用（建设期间交带服务的运营方案、
 // "首版做完了"卡上确认），运营接口清单 ops.json 写在项目档案里、建设期间就交。
-// - 清单验收（照 112 号票的自动验收）：转运营检查清单那一项先"正在验收"，后台验完刷新卡（建设期间服务正好在跑：项目服务上的操作也测了，
+// - 清单验收（照自动验收）：转运营检查清单那一项先"正在验收"，后台验完刷新卡（建设期间服务正好在跑：项目服务上的操作也测了，
 //   测试调用带测试标记、没真记账）；验收不过时清单上标缺、写明哪里不对；转入使用时登记成第 1 版；
 // - list、describe、call：通用操作开头列一次、项目自己的操作写着第几版；参数不对不发、退回说明；能念的 say；四种实现方式各一条
 //   （http 假服务、工作目录里的假脚本、二狗自带动作绑参数、转给负责人当工单）；通用操作（状态、跟负责人说一句）；不出卡、不进待我处理；
 //   记录里带版本号；工具清单里只有 project_ops、系统提示里写着；
 // - 使用中改了清单：秘书用到时重新验收，没过的照旧用上一版、告诉负责人；负责人用 check_ops 验收全过登记成第 2 版，秘书马上用；
-// - 操作不存在、服务关着（257 的"关闭"）、项目不是使用中的：回原因，一个请求都不发到服务。
+// - 操作不存在、服务关着（"关闭"）、项目不是使用中的：回原因，一个请求都不发到服务。
 import fs from "node:fs";
 import path from "node:path";
 import { type Card, CHANNELS, EVENT_TYPES, type GoLiveChecklistItem, maintainerChannel, METHODS, nowIso, type Project, type TaskEventPayload } from "@ergo/protocol";
@@ -160,7 +160,7 @@ const registeredEvents = (td: TestDaemon) => td.daemon.store.read(OPERATIONS_CHA
 /** 真的调用（不是验收的测试调用） */
 const realCalls = (app: FakeOpsApp) => app.calls().filter((c) => c["_meta"] === undefined);
 
-describe("上线后再验（362 号票）", () => {
+describe("上线后再验", () => {
   it("建设期间服务没跑：卡上写“上线后再验”、不算缺；转入使用、服务上线后不等秘书用到，自动复验、登记第 1 版", async () => {
     const d = dirs();
     const lsm = await startLsmStandIn({ owned: true, heartbeatIntervalMs: 60_000 });
@@ -195,7 +195,7 @@ describe("上线后再验（362 号票）", () => {
   }, 60_000);
 });
 
-describe("秘书的 project_ops：照草稿补齐（268 号票）", () => {
+describe("秘书的 project_ops：照草稿补齐", () => {
   it("清单建设期间验收（测试调用带测试标记、不真记）、转入使用时登记第 1 版；list、describe、call：参数不对退回、say 必有、四种实现方式各一条、通用操作，不出卡；记录带版本号", async () => {
     const d = dirs();
     const lsm = await startLsmStandIn({ owned: true, heartbeatIntervalMs: 60_000 });
@@ -362,7 +362,7 @@ describe("秘书的 project_ops：照草稿补齐（268 号票）", () => {
     await frontend.close();
   }, 240_000);
 
-  it("操作不存在、服务关着（257 的“关闭”）、项目不是使用中的：回原因，一个请求都不发到服务；档案里的清单改坏了照旧用登记着的版本", async () => {
+  it("操作不存在、服务关着（“关闭”）、项目不是使用中的：回原因，一个请求都不发到服务；档案里的清单改坏了照旧用登记着的版本", async () => {
     const d = dirs();
     const lsm = await startLsmStandIn({ owned: true, heartbeatIntervalMs: 60_000 });
     const app = await startFakeOpsApp();

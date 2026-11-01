@@ -1,10 +1,10 @@
-// 主切面：第一次装二狗的人能跑起来（315 号票）。站在陌生人的角度：数据目录还不存在、没有模型 key、没装 Claude Code 的 Agent SDK——
+// 主切面：第一次装二狗的人能跑起来。站在陌生人的角度：数据目录还不存在、没有模型 key、没装 Claude Code 的 Agent SDK——
 // - 守护进程照常起来，自己把数据目录建好；网页能打开；
 // - 模型的 key 没配：GET /api/model-settings/key 说没配（会话页据此出"还没配模型……去配置"），跟二狗说话时回"还没配模型、去设置 · 模型看怎么配"，
 //   不是 pi 的英文报错；
 // - Claude Code 插件：SDK 没装时不装配，设置 · 插件里写"没装"和怎么装（启用不了），运行时写同一句；别的插件照常运行；装好后点启用就装上；
 // - 8810 / 8811 被占：像 LSM 那样拉起真入口（main.ts），一句话说清是谁占着、怎么改端口，以退出码 1 退出、不碰数据目录；
-// - 新装时两样收紧（315 号票第 3 步，用户 2026-10-27 定）：对话审批开着、任务的预算控制开着，明着写进配置文件（已写的键不碰）；
+// - 新装时两样收紧：对话审批开着、任务的预算控制开着，明着写进配置文件（已写的键不碰）；
 //   已有的数据目录（有事件库）里没写的照旧关着、不写配置；设置里的两个开关（GET / PUT /api/safety-settings）改了写回配置、马上生效。
 // 都在临时目录、系统挑的空闲端口上（不碰 8810 / 8811 和真的 ~/.ergo），模型请求发往本机的假 DeepSeek（没 key 时一次都不该发），
 // Claude Code 的"装没装"是注入的（不用真去卸 SDK）。
@@ -147,7 +147,7 @@ const secretaryToolParts = (frontend: TestFrontend): ToolCallPart[] =>
     .flatMap((m) => m.parts.filter((p): p is ToolCallPart => p.type === "tool_call"));
 const configOf = (dataDir: string) => JSON.parse(fs.readFileSync(dataDirLayout(dataDir).configFile, "utf8")) as Record<string, unknown>;
 
-describe("新装时对话审批、任务的预算控制默认不勾（用户 2026-11-01 改的）；设置里能勾上", () => {
+describe("新装时对话审批、任务的预算控制默认不勾；设置里能勾上", () => {
   it("新装（还没有事件库）：两样写进配置文件（都不勾），已写的键不碰；读工作区外的文件直接做；设置里勾上马上生效、写回配置，同样的调用出审批卡", { timeout: 90_000 }, async () => {
     const dataDir = makeTempDir("ergo-data-");
     const homeDir = makeTempDir("ergo-home-");
@@ -186,7 +186,7 @@ describe("新装时对话审批、任务的预算控制默认不勾（用户 202
     expect((await safetyApi.change(td.url, { budgetControl: "on" })).status).toBe(400);
   });
 
-  it("两个开关推给网页：订阅关注类别频道时补推一条，改了再推（378 号票）", async () => {
+  it("两个开关推给网页：订阅关注类别频道时补推一条，改了再推", async () => {
     const td = await startTestDaemon({ config: { guard: { conversationApprovals: "off" } } });
     const frontend = await TestFrontend.connect(td.url);
     await frontend.subscribe({ [CHANNELS.watchCategories]: 0 });
@@ -217,7 +217,7 @@ describe("新装时对话审批、任务的预算控制默认不勾（用户 202
     const plan: Plan = { ...base, stages: [{ ...base.stages[0]!, budget: { tokens: 0, toolCalls: 1 } }, base.stages[1]!] };
     const td = await startTestDaemon({
       fresh: true,
-      // 第一个任务第 3 次调用之后超过 2 倍，到这儿就不接着做了（361 号票：停下后宣布完成是放行的，那就不是这条要测的了）
+      // 第一个任务第 3 次调用之后超过 2 倍，到这儿就不接着做了（停下后宣布完成是放行的，那就不是这条要测的了）
       maintainer: (id, spawn) => maintainerScript(plan, id === "tm-1" ? [write("a.md", "a"), write("b.md", "b"), write("c.md", "c"), say("超了")] : [write("a.md", "a"), write("b.md", "b"), write("c.md", "c"), write("sources.md", "- 来源\n"), completeStage("s1"), say("交了"), say("知道了"), say("等你"), say("好")])(id, spawn),
     });
     expect((await safetyApi.change(td.url, { budgetControl: true })).body).toEqual({ conversationApprovals: false, budgetControl: true });

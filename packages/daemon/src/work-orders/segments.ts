@@ -1,4 +1,4 @@
-// 项目负责人的会话分段（规格第 11、21 节，16 号票，ADR-0012）。分段本身是事件日志里的状态（负责人会话频道上的 segment 事件），
+// 项目负责人的会话分段（规格第 11、21 节，ADR-0012）。分段本身是事件日志里的状态（负责人会话频道上的 segment 事件），
 // 子进程按哪一段拉起由项目负责人模块（projects/maintainers.ts）看这里的当前段决定。
 // - 每段一个会话（会话区里这个负责人目录下的一个会话，名字由段指定）：工单段在工单开始时开，对话段在负责人手上没有段时
 //   用户直接说话（或者运行时给了它一条不属于任务的通知）时开；第一段对话段接着这个负责人以前的会话（子进程报回接的是哪个）；
@@ -8,11 +8,11 @@
 // - 重置负责人：当前这段直接结束（不催写回；写回中途重置的，工单照常算完成），新开一段（没有上一段的摘要）；
 //   没写回就结束的段，时间线上记一笔（项目页上工单那一行也写）；
 // - 负责人干活时用户发来的话作为插话进当前段；交给它的、属于别的任务的输入留在队里，等那个任务的工单段；
-//   例外是用户在项目内部的普通任务的详情里说的话（75 号票，带着它的编号）：只在它的工单段里处理（做完了接着说时，等它的执行工单开始），
+//   例外是用户在项目内部的普通任务的详情里说的话（带着它的编号）：只在它的工单段里处理（做完了接着说时，等它的执行工单开始），
 //   也不为它开对话段；
-//   刚建好的项目内部任务的通知（64 号票，带着任务编号，还没有工单）只在对话段里处理：正在做工单时排着，空下来开一个对话段交给它；
-//   标了 chatOnly 的通知（362 号票：服务没上线、挂了这类和手头工单无关的事）也一样，不打断正在做的工单；
-// - 工单段结束之前（写回之后，或者催到了次数转用户拍板时）先做范围审视（18 号票，scope-review/）：负责人的子进程还活着时
+//   刚建好的项目内部任务的通知（带着任务编号，还没有工单）只在对话段里处理：正在做工单时排着，空下来开一个对话段交给它；
+//   标了 chatOnly 的通知（服务没上线、挂了这类和手头工单无关的事）也一样，不打断正在做的工单；
+// - 工单段结束之前（写回之后，或者催到了次数转用户拍板时）先做范围审视（scope-review/）：负责人的子进程还活着时
 //   在子进程里另开一次模型调用，结果（范围记录、时间线记录、越界通知）和这一段、工单的结束同一事务追加。对话段不在这时审视。
 //   重置负责人时直接结束的工单段（写回中途、审视做到一半、工单做到一半）不强行审视，时间线上如实记"重置时这段没做范围审视"。
 // 每段开头追加一条带工单分隔 part 的消息，前端把各段拼成一条连续的聊天。
@@ -75,7 +75,7 @@ export interface SegmentsOptions {
   /** 一段结束了（工单随之结束）：派单器看下一张 */
   onClosed: (maintainerId: string) => void;
   /**
-   * 工单结束时的范围审视（18 号票）：审视这一段的工作，返回要和这一段、工单的结束同一事务追加的事件（审视没做成也照常兑现）。
+   * 工单结束时的范围审视：审视这一段的工作，返回要和这一段、工单的结束同一事务追加的事件（审视没做成也照常兑现）。
    * 不给就不审视
    */
   reviewScope?: (segment: MaintainerSegment) => Promise<NewEvent[]>;
@@ -91,7 +91,7 @@ export interface Segments {
   previous(maintainerId: string): MaintainerSegment | undefined;
   /** 负责人手上这一段的工单（工单段的；对话段、没有段时没有） */
   currentWorkOrder(maintainerId: string): WorkOrder | undefined;
-  /** 负责人会话里一条消息的归属：项目；属于任务的还有任务和当时的阶段，定时作业的一次运行还有作业（19 号票） */
+  /** 负责人会话里一条消息的归属：项目；属于任务的还有任务和当时的阶段，定时作业的一次运行还有作业 */
   scopeIn(where: { projectId: string; taskId?: string | undefined; scheduledJobId?: string | undefined }): MessageScope;
   /** 负责人会话里的消息现在属于哪个项目、哪个任务（当前这一段的） */
   scopeOf(maintainerId: string): MessageScope | undefined;
@@ -106,13 +106,13 @@ export interface Segments {
   /** 会话里来了交给负责人的、在对话段里处理的输入（不属于任务的，刚建好的项目内部任务的通知），又没有在进行的段：开一个对话段 */
   inputArrived(maintainerId: string, payload: MessageEventPayload): void;
   /**
-   * 负责人空下来了（手上没有段、没有能开始的工单）：还有排着的、在对话段里处理的输入（64 号票：做工单时来的项目内部任务的通知）
+   * 负责人空下来了（手上没有段、没有能开始的工单）：还有排着的、在对话段里处理的输入（做工单时来的项目内部任务的通知）
    * 就开一个对话段交给它
    */
   idleWithWaiting(maintainerId: string): void;
   /**
    * 用户往负责人会话里发话之前：手上没有在进行的段就开一个对话段（分隔线排在用户这句话之前，同一事务）。
-   * 在项目内部的普通任务的详情里说的（taskId，75 号票）不开：它等这个任务的执行工单
+   * 在项目内部的普通任务的详情里说的（taskId）不开：它等这个任务的执行工单
    */
   messagePrelude(maintainerId: string, key: string, taskId?: string): NewEvent[];
   /** 负责人闲置退出了：对话段该结束了 */
@@ -135,11 +135,11 @@ export function createSegments(options: SegmentsOptions): Segments {
     segment?.workOrderId === undefined ? undefined : getWorkOrder(store.reader, segment.workOrderId);
 
   const scopeIn = (where: { projectId: string; taskId?: string | undefined; scheduledJobId?: string | undefined }): MessageScope => {
-    // 定时作业的一次运行（19 号票）：带上作业，账本据此把用量记在作业名下
+    // 定时作业的一次运行：带上作业，账本据此把用量记在作业名下
     if (where.scheduledJobId !== undefined) return { projectId: where.projectId, scheduledJobId: where.scheduledJobId };
     if (where.taskId === undefined) return { projectId: where.projectId };
     const task = tasks.get(where.taskId);
-    // "当前阶段"只在 taskMessageScope 一处算（25 号票）
+    // "当前阶段"只在 taskMessageScope 一处算
     return { ...(task ? taskMessageScope(task) : { taskId: where.taskId }), projectId: where.projectId };
   };
 
@@ -162,7 +162,7 @@ export function createSegments(options: SegmentsOptions): Segments {
       kind: wo ? "work_order" : "chat",
       ...(wo ? { workOrderId: wo.id, ...(isJobRunWorkOrder(wo) ? { scheduledJobId: wo.scheduledJobId } : { taskId: wo.taskId }) } : {}),
       session: segmentId,
-      // 第一段对话段：还没有这个会话时接着以前的会话（任务转为项目、16 号票之前的立项问答），之后每段一个新的；
+      // 第一段对话段：还没有这个会话时接着以前的会话（任务转为项目、以前的立项问答），之后每段一个新的；
       // 重置开的段只凭项目档案，不接
       ...(!wo && first && !input.reset ? { continueEarlier: true } : {}),
       reset: input.reset === true,
@@ -191,7 +191,7 @@ export function createSegments(options: SegmentsOptions): Segments {
     ).event;
   };
 
-  /** 重置时没做范围审视就结束的工单段：时间线上记一笔（18 号票） */
+  /** 重置时没做范围审视就结束的工单段：时间线上记一笔 */
   const unreviewedEvent = (segment: MaintainerSegment): NewEvent => {
     const record = unreviewedRecord(segment, workOrderOf(segment));
     return buildTimelineRecord(maintainerChannel(segment.maintainerId), { kind: "scope_review_missing", ...record, ...(segment.workOrderId === undefined ? {} : { workOrderId: segment.workOrderId }) }, scopeIn(segment))
@@ -230,7 +230,7 @@ export function createSegments(options: SegmentsOptions): Segments {
   };
 
   /**
-   * 催一次写回。这一段的工单是起草计划的，说法照只读的那一套（进展经 write_progress 写回）；执行流程的（64 号票：项目内部的流程）
+   * 催一次写回。这一段的工单是起草计划的，说法照只读的那一套（进展经 write_progress 写回）；执行流程的（项目内部的流程）
    * 也一样——写项目档案不在流程的步骤里，进展经 write_progress 写回
    */
   const nudge = (segment: MaintainerSegment, missing: readonly string[], n: number) => {
@@ -256,7 +256,7 @@ export function createSegments(options: SegmentsOptions): Segments {
       body: help.body,
       source: t("projects.source.project", { name: project.name }),
       origin: { projectId: project.id },
-      // 项目内部任务（或它计划里的作业）的工单段：秘书看不到细节（64 号票）
+      // 项目内部任务（或它计划里的作业）的工单段：秘书看不到细节
       ...internalMark(workOrderInternal(store.reader, wo)),
       urgency: "non_blocking",
       actions: [WRITE_BACK_HELP_ACK],
@@ -274,7 +274,7 @@ export function createSegments(options: SegmentsOptions): Segments {
   const reviewing = new Set<string>();
 
   /**
-   * 工单段结束之前先做范围审视（18 号票）：返回审视的结果事件；还没审视完是 undefined（审视完了再接着收尾）。
+   * 工单段结束之前先做范围审视：返回审视的结果事件；还没审视完是 undefined（审视完了再接着收尾）。
    * 审视期间负责人又处理起这一段的输入（用户插话），这次的结果不用：这一轮结束后收尾时重新审视。对话段不审视
    */
   const reviewFirst = (segment: MaintainerSegment): NewEvent[] | undefined => {
@@ -312,7 +312,7 @@ export function createSegments(options: SegmentsOptions): Segments {
     // 一条输入都没处理过的段（刚重置、刚开就该结束了）：没有要写回的
     if (!worked(latest)) return close(latest);
     const { progressChanged, hasSummary } = writtenBack(latest);
-    // 写回了：先做范围审视（18 号票，负责人的子进程还活着），结果和这一段、工单的结束同一事务
+    // 写回了：先做范围审视（负责人的子进程还活着），结果和这一段、工单的结束同一事务
     if (progressChanged && hasSummary) {
       const extra = reviewFirst(latest);
       if (extra) close(latest, { extra });
@@ -337,7 +337,7 @@ export function createSegments(options: SegmentsOptions): Segments {
   };
 
   /**
-   * 项目内部任务刚建好、还没有工单（64 号票）：负责人在对话段里和用户对齐、写任务书（工单段里没有写任务书的工具），
+   * 项目内部任务刚建好、还没有工单：负责人在对话段里和用户对齐、写任务书（工单段里没有写任务书的工具），
    * 交给它的通知（带着任务编号）只在对话段里处理；写了任务书就派起草计划的工单，之后照常在工单段里
    */
   const beforeWorkOrders = (taskId: string): boolean => {
@@ -345,7 +345,7 @@ export function createSegments(options: SegmentsOptions): Segments {
     return task !== undefined && isProjectInternal(task) && task.state === "planning" && workOrdersOfTask(store.reader, taskId).length === 0;
   };
 
-  /** 这个负责人在做的项目内部的普通任务（75 号票）：用户在它的详情里说的话带着它的编号，只在它的工单段里处理 */
+  /** 这个负责人在做的项目内部的普通任务：用户在它的详情里说的话带着它的编号，只在它的工单段里处理 */
   const internalPlain = (maintainerId: string, taskId: string | undefined): boolean => {
     const task = taskId === undefined ? undefined : tasks.get(taskId);
     return task !== undefined && isPlainTask(task) && isProjectInternal(task) && task.maintainerId === maintainerId;
@@ -366,16 +366,16 @@ export function createSegments(options: SegmentsOptions): Segments {
   const accepts = (maintainerId: string, input: QueuedAgentInput): boolean => {
     const segment = current(maintainerId);
     if (!segment) return false;
-    // 用户直接说的话总是作为插话进当前这一段；在项目内部的普通任务的详情里说的（75 号票）只进它的工单段
+    // 用户直接说的话总是作为插话进当前这一段；在项目内部的普通任务的详情里说的只进它的工单段
     if (input.payload.message.speaker === "user") return !internalPlain(maintainerId, input.payload.taskId) || segment.taskId === input.payload.taskId;
-    // 362 号票：服务没上线这类通知不进工单段（真模型试验里它插进报警运行，排着的报警等了 11 分钟）
+    // 服务没上线这类通知不进工单段（真模型试验里它插进报警运行，排着的报警等了 11 分钟）
     if (input.payload.chatOnly === true) return segment.kind === "chat";
     const taskId = input.payload.taskId;
-    // 定时作业的一次运行（19 号票）：只在这个作业的工单段里处理
+    // 定时作业的一次运行：只在这个作业的工单段里处理
     const jobId = input.payload.scheduledJobId;
     if (taskId === undefined && jobId !== undefined) return segment.kind === "work_order" && segment.scheduledJobId === jobId;
     if (taskId === undefined) return true;
-    // 刚建好的项目内部任务的通知（64 号票）：只在对话段里处理，正在做工单时排着等它空下来
+    // 刚建好的项目内部任务的通知：只在对话段里处理，正在做工单时排着等它空下来
     if (beforeWorkOrders(taskId)) return segment.kind === "chat";
     // 运行时交给它的、属于某个任务的：只在做这个任务的工单段里处理（别的任务的留在队里，等它的工单）
     if (segment.kind !== "work_order" || segment.taskId !== taskId) return false;
@@ -464,7 +464,7 @@ export function createSegments(options: SegmentsOptions): Segments {
         }
         if (unwritten) events.push(unwrittenEvent(segment, unwritten));
         // 工单段里干过活、还没审视就结束了（工单做到一半、写回中途、审视做到一半——那次的结果回来时这一段已经不在了，不用）：
-        // 不强行审视，如实记下（18 号票）
+        // 不强行审视，如实记下
         reviewed.delete(segment.segmentId);
         if (options.reviewScope && segment.kind === "work_order" && handled) events.push(unreviewedEvent(segment));
       }

@@ -1,4 +1,4 @@
-// 视觉风格的字体（39 号票）：Web UI 构建时把风格要用的字体拷进构建产物的 fonts/（packages/web/build/visual-styles-plugin.ts）：
+// 视觉风格的字体：Web UI 构建时把风格要用的字体拷进构建产物的 fonts/（packages/web/build/visual-styles-plugin.ts）：
 // 每套有字体的风格一份样式表 <风格 id>.css，woff2 放在带包版本号的目录（<包>@<版本>/）里，旁边是许可证。
 // 网关按 /fonts/ 原样提供这些文件（字体不内联进单文件的页面；运行时不请求外部 CDN）。两个端口都给，
 // 外网端口和别的地址一样要设备凭证（gateway.ts 的门在前面）。

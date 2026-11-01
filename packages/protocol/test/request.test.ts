@@ -29,19 +29,19 @@ describe("解析请求帧", () => {
     });
   });
 
-  test("一次处理多个任务（90 号票）：暂停、继续、取消、归档，带幂等键", () => {
+  test("一次处理多个任务：暂停、继续、取消、归档，带幂等键", () => {
     const raw = JSON.stringify({ id: "r1", method: "task_batch_action", params: { taskIds: ["t-1", "t-2"], action: "archive" }, idempotencyKey: "k1" });
     expect(parseRequest(raw)).toEqual({ ok: true, request: { id: "r1", method: "task_batch_action", params: { taskIds: ["t-1", "t-2"], action: "archive" }, idempotencyKey: "k1" } });
   });
 
-  test("对简单提醒的动作（185 号票）：取消、归档、删除，一条或几条，带幂等键", () => {
+  test("对简单提醒的动作：取消、归档、删除，一条或几条，带幂等键", () => {
     for (const action of ["cancel", "archive", "delete"]) {
       const raw = JSON.stringify({ id: "r1", method: "reminder_action", params: { reminderIds: ["r-1", "r-2"], action }, idempotencyKey: "k1" });
       expect(parseRequest(raw)).toEqual({ ok: true, request: { id: "r1", method: "reminder_action", params: { reminderIds: ["r-1", "r-2"], action }, idempotencyKey: "k1" } });
     }
   });
 
-  test("设备多选（123 号票）：延期带天数，吊销、删除不用；都要幂等键", () => {
+  test("设备多选：延期带天数，吊销、删除不用；都要幂等键", () => {
     const extend = { action: "extend", deviceIds: ["d-1", "d-2"], days: 90 };
     expect(parseRequest(JSON.stringify({ id: "r1", method: "device_batch_action", params: extend, idempotencyKey: "k1" }))).toEqual({
       ok: true,
@@ -50,7 +50,7 @@ describe("解析请求帧", () => {
     expect(parseRequest(JSON.stringify({ id: "r2", method: "device_batch_action", params: { action: "delete", deviceIds: ["d-1"] }, idempotencyKey: "k2" }))).toMatchObject({ ok: true });
   });
 
-  test("改时间（98 号票）：reschedule_job 带触发登记和新的时间表（和简单提醒同一个 ReminderSchedule），要幂等键；时间表不合格的回 bad_params", () => {
+  test("改时间：reschedule_job 带触发登记和新的时间表（和简单提醒同一个 ReminderSchedule），要幂等键；时间表不合格的回 bad_params", () => {
     const params = { jobId: "j-1", schedule: { kind: "daily", time: "08:00" } };
     expect(parseRequest(JSON.stringify({ id: "r1", method: "reschedule_job", params, idempotencyKey: "k1" }))).toEqual({ ok: true, request: { id: "r1", method: "reschedule_job", params, idempotencyKey: "k1" } });
     const once = { jobId: "j-1", schedule: { kind: "once", at: "2026-10-13T08:00:00.000+08:00" } };
@@ -60,7 +60,7 @@ describe("解析请求帧", () => {
     expect(parseRequest(JSON.stringify({ id: "r5", method: "reschedule_job", params: { jobId: "j-1" }, idempotencyKey: "k5" }))).toMatchObject({ ok: false, error: { code: "bad_params" } });
   });
 
-  test("立即运行一次、跑完自动播报（100 号票）：run_job_now 带触发登记，set_voice_announce 带任务和开关，都要幂等键；发起时也能先勾上", () => {
+  test("立即运行一次、跑完自动播报：run_job_now 带触发登记，set_voice_announce 带任务和开关，都要幂等键；发起时也能先勾上", () => {
     expect(parseRequest(JSON.stringify({ id: "r1", method: "run_job_now", params: { jobId: "j-1" }, idempotencyKey: "k1" }))).toEqual({ ok: true, request: { id: "r1", method: "run_job_now", params: { jobId: "j-1" }, idempotencyKey: "k1" } });
     expect(parseRequest(JSON.stringify({ id: "r2", method: "run_job_now", params: { jobId: "j-1" } }))).toMatchObject({ ok: false, error: { code: "idempotency_key_required" } });
     expect(parseRequest(JSON.stringify({ id: "r3", method: "run_job_now", params: {}, idempotencyKey: "k3" }))).toMatchObject({ ok: false, error: { code: "bad_params" } });
@@ -71,7 +71,7 @@ describe("解析请求帧", () => {
     expect(parseRequest(JSON.stringify({ id: "r7", method: "start_task", params: { request: "每天出 AI 新闻日报", kind: "plain", voiceAnnounce: true }, idempotencyKey: "k7" }))).toMatchObject({ ok: true });
   });
 
-  test("项目的自动播报（354 号票）：set_project_voice_announce 带项目和开关，要幂等键", () => {
+  test("项目的自动播报：set_project_voice_announce 带项目和开关，要幂等键", () => {
     const on = { projectId: "p-1", on: true };
     expect(parseRequest(JSON.stringify({ id: "r1", method: "set_project_voice_announce", params: on, idempotencyKey: "k1" }))).toEqual({ ok: true, request: { id: "r1", method: "set_project_voice_announce", params: on, idempotencyKey: "k1" } });
     expect(parseRequest(JSON.stringify({ id: "r2", method: "set_project_voice_announce", params: on }))).toMatchObject({ ok: false, error: { code: "idempotency_key_required" } });
@@ -96,17 +96,17 @@ describe("解析请求帧", () => {
     ["待我处理的动作没带幂等键", JSON.stringify({ id: "r8", method: "inbox_action", params: { itemIds: ["i1"], action: "read" } }), "r8", "idempotency_key_required"],
     ["待我处理的动作不认识", JSON.stringify({ id: "r9", method: "inbox_action", params: { itemIds: ["i1"], action: "burn" }, idempotencyKey: "k" }), "r9", "bad_params"],
     ["待我处理的动作没给事项", JSON.stringify({ id: "r10", method: "inbox_action", params: { itemIds: [], action: "read" }, idempotencyKey: "k" }), "r10", "bad_params"],
-    // 90 号票：一次处理多个任务（看板多选）——没带幂等键、没给任务、动作不在批量能做的四种里、同一个任务写了两遍都不行
+    // 一次处理多个任务（看板多选）——没带幂等键、没给任务、动作不在批量能做的四种里、同一个任务写了两遍都不行
     ["多个任务的动作没带幂等键", JSON.stringify({ id: "r11", method: "task_batch_action", params: { taskIds: ["t-1"], action: "pause" } }), "r11", "idempotency_key_required"],
     ["多个任务的动作没给任务", JSON.stringify({ id: "r12", method: "task_batch_action", params: { taskIds: [], action: "pause" }, idempotencyKey: "k" }), "r12", "bad_params"],
     ["多个任务不能一起重做", JSON.stringify({ id: "r13", method: "task_batch_action", params: { taskIds: ["t-1"], action: "rework" }, idempotencyKey: "k" }), "r13", "bad_params"],
     ["同一个任务写了两遍", JSON.stringify({ id: "r14", method: "task_batch_action", params: { taskIds: ["t-1", "t-1"], action: "cancel" }, idempotencyKey: "k" }), "r14", "bad_params"],
-    // 185 号票：对简单提醒的动作——没带幂等键、没给提醒、动作不认识（没有取消归档）、同一条写了两遍都不行
+    // 对简单提醒的动作——没带幂等键、没给提醒、动作不认识（没有取消归档）、同一条写了两遍都不行
     ["提醒的动作没带幂等键", JSON.stringify({ id: "r21", method: "reminder_action", params: { reminderIds: ["r-1"], action: "delete" } }), "r21", "idempotency_key_required"],
     ["提醒的动作没给提醒", JSON.stringify({ id: "r22", method: "reminder_action", params: { reminderIds: [], action: "archive" }, idempotencyKey: "k" }), "r22", "bad_params"],
     ["提醒不能取消归档", JSON.stringify({ id: "r23", method: "reminder_action", params: { reminderIds: ["r-1"], action: "unarchive" }, idempotencyKey: "k" }), "r23", "bad_params"],
     ["同一条提醒写了两遍", JSON.stringify({ id: "r24", method: "reminder_action", params: { reminderIds: ["r-1", "r-1"], action: "delete" }, idempotencyKey: "k" }), "r24", "bad_params"],
-    // 123 号票：设备多选——没带幂等键、没给设备、动作不认识、同一台写了两遍、延期天数超出上限都不行
+    // 设备多选——没带幂等键、没给设备、动作不认识、同一台写了两遍、延期天数超出上限都不行
     ["设备多选没带幂等键", JSON.stringify({ id: "r15", method: "device_batch_action", params: { action: "revoke", deviceIds: ["d-1"] } }), "r15", "idempotency_key_required"],
     ["设备多选没给设备", JSON.stringify({ id: "r16", method: "device_batch_action", params: { action: "revoke", deviceIds: [] }, idempotencyKey: "k" }), "r16", "bad_params"],
     ["设备多选的动作不认识", JSON.stringify({ id: "r17", method: "device_batch_action", params: { action: "rename", deviceIds: ["d-1"] }, idempotencyKey: "k" }), "r17", "bad_params"],
@@ -118,7 +118,7 @@ describe("解析请求帧", () => {
   });
 });
 
-describe("守护进程的版本（124 号票：设置里的关于二狗、Debug 工具集）", () => {
+describe("守护进程的版本（设置里的关于二狗、Debug 工具集）", () => {
   test("daemon_info 只读、不带参数也不用幂等键；带了幂等键也照收", () => {
     expect(parseRequest(JSON.stringify({ id: "r1", method: "daemon_info", params: {} }))).toEqual({ ok: true, request: { id: "r1", method: "daemon_info", params: {} } });
     expect(parseRequest(JSON.stringify({ id: "r2", method: "daemon_info", params: {}, idempotencyKey: "k2" }))).toMatchObject({ ok: true });

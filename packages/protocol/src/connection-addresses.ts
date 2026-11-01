@@ -1,4 +1,4 @@
-// 连接地址（364 号票）：手机从外面连到这台二狗用的地址。二狗自己只听 127.0.0.1，不知道外面怎么连到它：
+// 连接地址：手机从外面连到这台二狗用的地址。二狗自己只听 127.0.0.1，不知道外面怎么连到它：
 // 公网和 tailnet 的入口问服务管家（link 协议 §8），服务管家不知道的（自己搭的反代、frp）用户手填一个。不做局域网。
 // - GET /api/connection-addresses 回 ConnectionAddressesView（排好序，第一个就是二维码默认用的）；POST 改手填的那个。
 // - 这里的校验、排序不碰网络，守护进程、网页、测试用同一份。
@@ -48,7 +48,7 @@ export interface ConnectionAddressesBodyShape {
 /** 手填地址的上限（够长的网址；不让人塞一大段字进配置文件） */
 export const CONNECTION_ADDRESS_MAX_LENGTH = 512;
 
-/** 校验不过的原因，locales/<语言>/protocol.json 的 protocol.connectionAddress.invalid.<原因>（网页和守护进程都用：pairing.* 网页拿不到，371 号票） */
+/** 校验不过的原因，locales/<语言>/protocol.json 的 protocol.connectionAddress.invalid.<原因>（网页和守护进程都用：pairing.* 网页拿不到） */
 export type ConnectionAddressProblem = "empty" | "tooLong" | "malformed" | "noHost" | "credentials" | "httpsOnly" | "lan";
 
 export type ConnectionAddressCheck = { ok: true; url: string } | { ok: false; problem: ConnectionAddressProblem };

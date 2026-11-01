@@ -1,4 +1,4 @@
-// 网页插件的边界（193 号票，ADR-0027："网页用类型化插槽，插件之间不互相 import"）：扫 src/ 下每个文件的 import——
+// 网页插件的边界（ADR-0027："网页用类型化插槽，插件之间不互相 import"）：扫 src/ 下每个文件的 import——
 // - 核心（src/plugins/<插件>/ 以外的）不 import 插件：插件清单 src/plugins/manifest.ts 是唯一列插件的地方，也只有组合根 App.tsx 引它；
 // - 插件之间不互相 import，也不引插件清单；
 // - 插件经宿主接口只引 src/plugins/api.ts（不直接引宿主的 host.ts、react.tsx、slots.ts），状态层只经 src/state/index.ts；
@@ -37,7 +37,7 @@ const rel = (file: string) => path.relative(SRC, file).replaceAll("\\", "/");
 const ALL = sources();
 
 describe("网页插件的边界", () => {
-  test("找得到插件（扫的路子没走偏）：记忆、提醒、日历（213 号票）、语音（214 号票）、浏览（212 号票）、手机（299 号票）、Google（297 号票）、Looki（296 号票）、Claude Code（305 号票）九个插件，清单引了它们", () => {
+  test("找得到插件（扫的路子没走偏）：记忆、提醒、日历、语音、浏览、手机、Google、Looki、Claude Code九个插件，清单引了它们", () => {
     const dirs = fs.readdirSync(PLUGINS, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name);
     expect(dirs.toSorted()).toEqual(["browsing", "calendar", "claude-code", "google", "looki", "memory", "phone", "reminders", "voice"]);
     const manifest = ALL.find((s) => s.file === MANIFEST)!;

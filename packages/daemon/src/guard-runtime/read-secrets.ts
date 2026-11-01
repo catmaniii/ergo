@@ -1,4 +1,4 @@
-// 读过的密钥值（规格第 9 节，30 号票）：agent 读过 .env 或密钥文件之后，模型就知道里面的明文了。没有前缀的随机串写进网址、
+// 读过的密钥值（规格第 9 节）：agent 读过 .env 或密钥文件之后，模型就知道里面的明文了。没有前缀的随机串写进网址、
 // 参数、请求头里，密钥形态的正则认不出，所以守护进程在这次调用执行之后（出错的也算），把那个文件里的值（guard/secret-files.ts 的
 // secretValuesIn）收进这个任务（不属于任务的是这一段会话）的"读过的密钥值"，之后判定时作为环境事实 secretValues 交给守卫，
 // 出现在联网调用的对外内容里就是"把凭据写进对外内容"（永不）。
@@ -32,7 +32,7 @@ export const secretFileResult = () => t("guardRuntime.secretFileResult");
 
 /**
  * 一次调用的文字写进事件日志（工具调用记录、完整参数和返回、效果日志、审批、"交给我做"）之前怎么处理：
- * 读了密钥文件的，结果整个不记；别的文字里出现这个范围读过的密钥值、认得出的密钥形态（守卫的 SECRET_PATTERNS，53 号票评审后加），
+ * 读了密钥文件的，结果整个不记；别的文字里出现这个范围读过的密钥值、认得出的密钥形态（守卫的 SECRET_PATTERNS），
  * 换成"（密钥）"。pi 的会话文件里模型看到的原始结果不动（模型要用它）
  */
 export interface CallPrivacy {
@@ -73,7 +73,7 @@ export function createReadSecrets(): ReadSecrets {
     },
     privacy(scope, executed) {
       const values = byScope.get(scopeKey(scope)) ?? [];
-      // 先擦读过的值，再擦认得出的密钥形态（53 号票评审：bash 输出里的 token 这类，读没读过都擦）
+      // 先擦读过的值，再擦认得出的密钥形态（bash 输出里的 token 这类，读没读过都擦）
       const text = (s: string) => redactSecretShapes(redactSecretValues(s, values));
       const deep = <T>(v: T): T => redactDeep(v, text) as T;
       return { readsSecretFile: executed ? secretFilesRead(executed.input, executed.judgement).length > 0 : false, text, deep };

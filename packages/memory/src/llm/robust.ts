@@ -1,5 +1,5 @@
-// 218 号票：模型输出被截断、解析不了时不让整步失败（出假设、往上抽、编策略共用；追问、判证据、抽事实只记数，不走这一套）。
-// 217 号票第三轮建库时，每次都有一个人的库几乎是空的：出假设那一步一次调用塞进全部观察，输出被 8000 token 截断或者解析不了，
+// 模型输出被截断、解析不了时不让整步失败（出假设、往上抽、编策略共用；追问、判证据、抽事实只记数，不走这一套）。
+// 第三轮建库时，每次都有一个人的库几乎是空的：出假设那一步一次调用塞进全部观察，输出被 8000 token 截断或者解析不了，
 // 整步什么都没留下。这里的做法：
 // - 分批：调用方按估算的输出长度把输入切成几批（askInBatches 的 batches），每批独立，一批坏了不连累别的批；
 // - 判截断：回应的 finish_reason = length（ChatResponse.truncated），或者 JSON 的括号、引号没收口；
@@ -37,7 +37,7 @@ export interface StageCallStats {
   lost: number;
   /** 预算用完没问的批 */
   unasked: number;
-  /** 272 号票：问过、没变化就没再问的输入（出假设的观察、往上抽的下层断言），按条数 */
+  /** 问过、没变化就没再问的输入（出假设的观察、往上抽的下层断言），按条数 */
   unchanged: number;
 }
 
@@ -56,7 +56,7 @@ export function stageStats(map: StageStatsMap | undefined, stage: StageName): St
 export function addStageStats(into: StageStatsMap, from: StageStatsMap | undefined): StageStatsMap {
   for (const [stage, s] of Object.entries(from ?? {}) as [StageName, StageCallStats][]) {
     const t = stageStats(into, stage);
-    // 以前存下的统计没有后来加的字段（272 号票的 unchanged）：当 0
+    // 以前存下的统计没有后来加的字段（unchanged）：当 0
     for (const k of Object.keys(t) as (keyof StageCallStats)[]) t[k] += s[k] ?? 0;
   }
   return into;
@@ -127,9 +127,9 @@ export function salvageList(content: string, key: string): Salvaged {
     if (ch === "]") return { items, partial: false, bad };
     const end = scanValue(content, i);
     if (end < 0) return { items, partial: true, bad };
-    // 237 号票：这里的 i 必须往前走。模型偶尔把列表的 ] 写成 }（"groups": [{…}} 这种），
+    // 这里的 i 必须往前走。模型偶尔把列表的 ] 写成 }（"groups": [{…}} 这种），
     // scanValue 碰到"该是条目的地方是个 }"会原地返回 i；以前直接 i = end，while 就原地转，
-    // 整段建库卡死（CPU 打满、不再调模型，229 号票 p2 卡了 22 分钟）。这种残破的列表后面
+    // 整段建库卡死（CPU 打满、不再调模型，p2 卡了 22 分钟）。这种残破的列表后面
     // 没有完整的条目可救：记一条解析不了的，停下，剩下的交给 askInBatches 切小重试。
     if (end <= i) return { items, partial: false, bad: bad + 1 };
     try {
@@ -214,7 +214,7 @@ export interface BatchResult {
   /** 真发出去几次 */
   asked: number;
   /**
-   * 272 号票：有着落的输入（unitId）：所在那批模型回了话（解析得了，或者截断时救回的条目盖住了它、切小重试问成了）。
+   * 有着落的输入（unitId）：所在那批模型回了话（解析得了，或者截断时救回的条目盖住了它、切小重试问成了）。
    * 预算用完没问的、空回答、放弃的不算
    */
   settled: string[];

@@ -1,4 +1,4 @@
-// 运行时核实过的用户原话（125 号票；方案"用户授权的效力，与用户签名"第 2 节第一层：运行时作证，不用签名）。
+// 运行时核实过的用户原话（方案"用户授权的效力，与用户签名"第 2 节第一层：运行时作证，不用签名）。
 // 能证明"这是用户说的"的只有守护进程：agent 正文里写的"用户说了……""用户已同意"一律只是转述，只作参考；
 // 负责人引用用户消息的 id，守护进程逐条核对（消息还在、发言方是用户、没被彻底删除；秘书转达的那句换成用户在秘书那里的原话），
 // 核实过的由守护进程写进单独的一栏——评审的输入、范围审视的对照物、计划变更卡、立项要求变更卡——agent 写不出来。
@@ -18,8 +18,8 @@ export let USER_WORDS_TITLE = "";
 export let USER_WORDS_BADGE = "";
 
 /**
- * 用户的一条消息从哪发来的（125 号票，记在用户消息事件上）：PC 本机端口（local），或者外网端口上的已配对设备（device，记设备 id）。
- * 125 号票之前的消息没有这一项（设备不详）
+ * 用户的一条消息从哪发来的（记在用户消息事件上）：PC 本机端口（local），或者外网端口上的已配对设备（device，记设备 id）。
+ * 以前的消息没有这一项（设备不详）
  */
 export const SentFrom = Type.Union([Type.Object({ kind: Type.Literal("local") }), Type.Object({ kind: Type.Literal("device"), deviceId: Type.String() })]);
 export type SentFrom = Static<typeof SentFrom>;
@@ -50,7 +50,7 @@ export const VerifiedUserWords = Type.Object({
   time: Type.String(),
   /** 从哪台设备来的：本机、已配对设备的名字（"设备「我的手机」"）、设备不详 */
   device: Type.String(),
-  /** 经秘书转达的（103 号票）：负责人引用的是转达进它会话的那一句（relayMessageId），原话在秘书会话里。转达者只供审计 */
+  /** 经秘书转达的：负责人引用的是转达进它会话的那一句（relayMessageId），原话在秘书会话里。转达者只供审计 */
   relayedBy: Type.Optional(Type.Literal("secretary")),
   relayMessageId: Type.Optional(Type.String()),
 });
@@ -66,7 +66,7 @@ export interface RefusedUserWords {
 export const userWordsTime = (iso: string): string => iso.slice(5, 16).replace("T", " ");
 
 /**
- * 一条原话从哪来："10-14 08:30 · 项目「记账本」的负责人会话 · 本机 · 经<名字占位>转达"。提到秘书的写名字占位（43 号票）：
+ * 一条原话从哪来："10-14 08:30 · 项目「记账本」的负责人会话 · 本机 · 经<名字占位>转达"。提到秘书的写名字占位：
  * 界面上换成用户起的名字，交给 agent 的在宿主协议的出口换成"秘书"
  */
 export function userWordsSource(w: Pick<VerifiedUserWords, "time" | "where" | "device" | "relayedBy" | "voice">): string {

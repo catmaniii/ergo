@@ -1,7 +1,7 @@
-// @i18n-ignore-file model：上下文块、工具的说明和结果整个是给秘书（模型）看的（174 号票：给模型看的话照旧中文）；其余是日志
-// 顺口问（264 号票接进线上，照 198 号票的规矩；271 号票：秘书按语气自己改写，有没有在答由记忆管理员夜里批量判）：
+// @i18n-ignore-file model：上下文块、工具的说明和结果整个是给秘书（模型）看的（给模型看的话照旧中文）；其余是日志
+// 顺口问（接进线上，照规矩；秘书按语气自己改写，有没有在答由记忆管理员夜里批量判）：
 // 秘书每轮回话前，用这一轮用户的话从问题箱里挑一个"了解你问题"，选中了就作为这条输入后面的上下文块交给秘书——写明要问什么、
-// 为什么问、可以不问，让它跟着当时的话题和语气用自己的话自然地带出来（用户 10-20："潜移默化的集成进去"），不再要求原样带 198 那一句。
+// 为什么问、可以不问，让它跟着当时的话题和语气用自己的话自然地带出来（"潜移默化的集成进去"），不再要求原样带那一句。
 // 秘书问了就调 mark_woven_question 标一下是哪个问题，标了才记"问过"，没标的不算（不再靠比对句子）。
 // 问过、答过、跳过、"别问这个"都记在问题箱里（@ergo/memory 的 question_log），记忆页看得到。
 //
@@ -14,7 +14,7 @@
 //       记忆管理员把问题和用户之后的几句话一起看（@ergo/memory 的 rg/reply-judge.ts，守护进程按会话取那几句：reply-follow-ups.ts）；
 //    b. 再挑这一轮要不要顺口问（pickQuestion 的 peek：只看不记；settle: false：问了还没判的不在白天记跳过，留给夜里判）：
 //       急事（文字里有"赶紧、马上……"）、秘书上一轮在等用户做决定（上一轮的回话里出了卡）、今天问过了、话题对不上的都不问；
-//       330 号票（R15）：一次对话最多一个问题——这一次对话里秘书已经标过一个就不再挑，问题照旧留在问题箱里。"一次对话"（实现定，
+//       ADR-0032 R15：一次对话最多一个问题——这一次对话里秘书已经标过一个就不再挑，问题照旧留在问题箱里。"一次对话"（实现定，
 //       ADR-0032）：从上一个分界算起，分界是新的一段会话（压缩、清空、换模型新开会话、回退切换分支：message-brief.ts 的 isSegmentStart），
 //       或者前后两句隔了 CONVERSATION_IDLE_MS 以上（聊完一阵、过一会儿再来算新的一次）。在守护进程里数、不靠提示词自觉：每次从会话末尾
 //       往回读到分界，看这中间有没有秘书标过的 mark_woven_question（不存状态，重启照样认）；每天最多一个照旧；
@@ -23,7 +23,7 @@
 // 3. 这一轮回话做完（turn_end）：标了、也真的回了话，才记"问过"（markQuestionAsked）；没标的不记（同一天还能再挑）。
 //    所以"每天最多一个"按真的问出去的算，没问出去的不会被当成"问了没答"记跳过、更不会因此记回避信号。
 //
-// 267 号票：问题箱和回答证据都经推理库的唯一写入口写，所以用随用随开的可写引擎（engine-provider.ts 的 createWritableEngineUse），
+// 问题箱和回答证据都经推理库的唯一写入口写，所以用随用随开的可写引擎（engine-provider.ts 的 createWritableEngineUse），
 // 不用秘书那份缓存的读者引擎（它的写入口只读）；每次写写明是谁、经谁转达（WOVEN_VIA）：回答、跳过是用户的表态，"别问这个"是用户发起，
 // 记"问过"是记忆管理员（ADR-0030：白天提顺口问归它），都"经秘书顺口问"。秘书的工具本身不写推理库，只在内存里记下这一轮标了哪个，
 // 写在这一轮做完时由记忆插件（代记忆管理员）写——秘书照旧没有写推理库的路。
@@ -45,7 +45,7 @@ import { MARK_WOVEN_QUESTION } from "./tool-names.ts";
 
 export { MARK_WOVEN_QUESTION } from "./tool-names.ts";
 
-/** 267 号票：顺口问这条路的写在留痕里记的"经谁转达" */
+/** 顺口问这条路的写在留痕里记的"经谁转达" */
 export const WOVEN_VIA = "经秘书顺口问";
 
 /** 上下文块的抬头（秘书认它；测试也认它） */
@@ -53,16 +53,16 @@ export const WOVEN_QUESTION_HEAD = "【顺口问】";
 
 /** 记住算过的输入最多几条（同一条输入再算一次时原样给，不重复记） */
 const MEMO_LIMIT = 50;
-/** 330 号票（R15）：前后两句隔了这么久算新的一次对话 */
+/** ADR-0032 R15：前后两句隔了这么久算新的一次对话 */
 export const CONVERSATION_IDLE_MS = 60 * 60 * 1000;
-/** 330 号票：往回认这一次对话里问过没有：一批读几条事件、最多读几条（到上一个分界为止） */
+/** 往回认这一次对话里问过没有：一批读几条事件、最多读几条（到上一个分界为止） */
 const SCAN_BATCH = 200;
 const SCAN_MAX = 5_000;
 
 export interface WovenQuestionsOptions {
-  /** 随用随开一份可写的引擎做一件事（engine-provider.ts 的 createWritableEngineUse，267 号票）；库用不了是 undefined */
+  /** 随用随开一份可写的引擎做一件事（engine-provider.ts 的 createWritableEngineUse）；库用不了是 undefined */
   withEngine: MemoryEngineUse;
-  /** 事件日志：读会话里的消息、语音的识别结果；330 号票：往回认这一段对话里顺口问过没有（readBefore） */
+  /** 事件日志：读会话里的消息、语音的识别结果；往回认这一段对话里顺口问过没有（readBefore） */
   store: Pick<EventStore, "reader" | "readBefore">;
   /** 素材库：找用户这句话的素材（回答回写成证据） */
   materials: Pick<Materials, "list">;
@@ -76,7 +76,7 @@ export interface WovenQuestionsOptions {
 export interface WovenQuestions {
   /** 秘书开始处理这条输入时跟在后面的上下文块（when: "input"）；没有是 undefined */
   inputText(message: MessageEnvelope): string | undefined;
-  /** 秘书标"这一轮顺口问了哪个"的工具（271 号票，只给秘书） */
+  /** 秘书标"这一轮顺口问了哪个"的工具（只给秘书） */
   markTool(): HostTool;
   /** 事件日志的订阅（store.onAppend）：秘书这一轮做完时看标了没有 */
   onEvent(event: StoredEvent): void;
@@ -91,7 +91,7 @@ interface Offer {
 }
 
 /**
- * 271 号票：秘书在这几条回话里标了哪个问题（mark_woven_question 做成了的那次调用的编号）；没标是 undefined。
+ * 秘书在这几条回话里标了哪个问题（mark_woven_question 做成了的那次调用的编号）；没标是 undefined。
  * 标错了编号、工具回错的（outcome 不是 done）不算
  */
 export function markedQuestionOf(replies: readonly MessageEnvelope[]): string | undefined {
@@ -142,7 +142,7 @@ export function createWovenQuestions(options: WovenQuestionsOptions): WovenQuest
   const { store, log } = options;
 
   /**
-   * 330 号票（R15）：这一次对话里秘书已经标过（顺口问过）的问题；没有是 undefined。从会话末尾往回读：碰到新的一段会话停；
+   * ADR-0032 R15：这一次对话里秘书已经标过（顺口问过）的问题；没有是 undefined。从会话末尾往回读：碰到新的一段会话停；
    * 碰到一句用户的话和它后面那句隔了 CONVERSATION_IDLE_MS 以上也停（它那一轮的回话算上一次对话的）。回话里的标记要等认出它属于
    * 哪一句用户的话（往回读时回话在那句话前面出现）才算数
    */
@@ -187,7 +187,7 @@ export function createWovenQuestions(options: WovenQuestionsOptions): WovenQuest
   const evidenceOf = (message: MessageEnvelope) => {
     const drafts = options.materials
       .list({ messageId: message.id })
-      // 337 号票：显式记忆命令的素材不算"用户在答这个"（用户让记的那一句不是回答；它由"记一句"那条路自己进推理库）
+      // 显式记忆命令的素材不算"用户在答这个"（用户让记的那一句不是回答；它由"记一句"那条路自己进推理库）
       .filter((material) => material.source === "self" && material.kind !== "memory_command")
       .map((material) => evidenceDraftOf(material, options.inferableSensitiveCategories()))
       .filter((draft) => draft !== undefined);
@@ -237,7 +237,7 @@ export function createWovenQuestions(options: WovenQuestionsOptions): WovenQuest
 
   /** 1b：这一轮要不要顺口问；返回给秘书的那几行（不问是 undefined） */
   function offerQuestion(engine: MemoryEngine, message: MessageEnvelope, text: string, before: readonly MessageEnvelope[]): string | undefined {
-    // 330 号票（R15）：一次对话最多一个问题——这一次对话里已经问过了就不挑（问题照旧留在问题箱里，下一次对话、访谈里再说）
+    // ADR-0032 R15：一次对话最多一个问题——这一次对话里已经问过了就不挑（问题照旧留在问题箱里，下一次对话、访谈里再说）
     const asked = askedInConversation(message);
     if (asked !== undefined) {
       log(`顺口问：这一次对话里已经顺口问过 ${asked} 了，一次对话最多一个，这一轮不挑`);

@@ -1,4 +1,4 @@
-// 详情页的开合和返回栈（56 号票）：纯函数，宽屏、窄屏各走一遍。
+// 详情页的开合和返回栈：纯函数，宽屏、窄屏各走一遍。
 import { describe, expect, test } from "vitest";
 import {
   closeDetail,
@@ -30,7 +30,7 @@ describe("从会话里点开一条", () => {
   });
 });
 
-describe("任务详情“⋯”里的计划、工单、工具包、消耗、运行（90 号票：页签收进菜单）", () => {
+describe("任务详情“⋯”里的计划、工单、工具包、消耗、运行（页签收进菜单）", () => {
   test("宽屏在右边的详情栏打开、‹ 关掉；手机整页打开、‹ 回到会话；标题写是哪一样，换一样从头看", () => {
     const plan = { type: "panel", taskId: "t-1", panel: "plan" } as const;
     const wide = openDetail(openDetail(NO_DETAIL, item("m-1"), true), plan, true);

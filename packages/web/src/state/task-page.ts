@@ -1,9 +1,9 @@
-// 任务页的布局（纯函数，88 号票，用户 2026-10-11 提：宽屏下左边任务列表、中间阶段、右边聊天太窄，阶段也收不起来）：
+// 任务页的布局（纯函数：宽屏下左边任务列表、中间阶段、右边聊天太窄，阶段也收不起来）：
 // - 看板和任务详情二选一（宽窄屏一样）：看板占满内容区，宽屏每组里的卡排成多列网格（列数随宽度，卡片有最小宽度，样式里 auto-fill），
 //   窄屏照旧一列；点卡片、从别处跳进来（#/tasks/<任务>：待我处理、聊天里卡片的"去看任务 ▸"、通知、日历）都整页换成任务详情，
 //   标题栏左上角的 ‹、浏览器后退、鸿蒙返回键回到看板；
-// - 从任务详情回到看板时滚回离开时的位置（看板在详情页时拿掉了，位置记在任务页上；用户 2026-10-11 定手机上也是）；
-// - 368 号票（用户 2026-11-01）：阶段不再有单独的栏，宽窄屏都是对话框顶部的阶段条（ui/conversation/stage-panel.tsx）；
+// - 从任务详情回到看板时滚回离开时的位置（看板在详情页时拿掉了，位置记在任务页上；手机上也是）；
+// -阶段不再有单独的栏，宽窄屏都是对话框顶部的阶段条（ui/conversation/stage-panel.tsx）；
 //   阶段条展开还是收成一行按设备记住，默认展开（读写浏览器存储在 app/stage-side-setting.ts，还是原来那个键）。
 import { taskKind, type Task } from "./protocol.ts";
 
@@ -34,7 +34,7 @@ export function stageSidePrefOf(raw: string | null): StageSidePref {
 
 /**
  * 这个任务有没有阶段可画：长程任务、建好了阶段（stages 是 taskStages 算出的那一份，任务详情已经算过，不再算一遍）。
- * 流程只有一个内部的执行阶段，显示步骤（58 号票）；普通任务没有阶段（75 号票）
+ * 流程只有一个内部的执行阶段，显示步骤；普通任务没有阶段
  */
 export function taskHasStages(task: Pick<Task, "kind">, stages: readonly unknown[]): boolean {
   return taskKind(task) === "long_running" && stages.length > 0;

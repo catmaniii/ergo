@@ -1,4 +1,4 @@
-// 守卫切面：planguard 的规划时审查（58 号票搬来的 reviewer.ts、search.ts、spec.ts 的 prepareScenario / normalizePlan）。
+// 守卫切面：planguard 的规划时审查（搬来的 reviewer.ts、search.ts、spec.ts 的 prepareScenario / normalizePlan）。
 // 用例是引擎原版的审查用例（storage、office 两个场景的审查用例，travel 场景的"调整顺序"用例 reorder），
 // 场景文档是原版的 *.planguard.json，事实是原版 facts.json 里这三个场景的那份。
 // 每条用例按 planguard 的 cases.ts（runReviewCase）核对：审查结果的摘要（状态、违规、推迟、修补动作、目标冲突）和用例写的一样，

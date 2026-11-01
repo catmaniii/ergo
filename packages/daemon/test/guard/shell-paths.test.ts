@@ -1,4 +1,4 @@
-// 守卫切面（177 号票）：通用 bash 的路径看得准一点——
+// 守卫切面：通用 bash 的路径看得准一点——
 // - 同一条命令里定义的变量代进去：只认前面定义、后面使用；条件里、子 shell 里、管道里、后台的、函数里赋的值，循环回头再用的，
 //   读进来的（read、mapfile、printf -v……）、命令替换的、source 过的，照旧看不准；
 // - 哪些参数是路径：echo、printf 的参数和格式串、grep 的模式、sed 的脚本、tr 的字符集、basename / dirname 的字不是路径；
@@ -308,7 +308,7 @@ describe("wo-10 的 5 条命令（原样）：改之后不再问；反例照旧�
     ...extra,
   });
   const WORK_TMP = `${WORKDIR}\\.ergo-tmp`;
-  /** 177 号票之后的负责人：bash 里 TMPDIR 这些指到工作目录里的临时目录，守卫知道 /tmp 挂到系统临时目录 */
+  /** 后来的负责人：bash 里 TMPDIR 这些指到工作目录里的临时目录，守卫知道 /tmp 挂到系统临时目录 */
   const after = () => pm1({ bashTmp: TEMP, shellVars: { TMPDIR: WORK_TMP, TEMP: WORK_TMP, TMP: WORK_TMP } });
   const run = (command: string, agent: ExecutingAgent, approvals: "on" | "off" = "off") =>
     judgeToolCall(inChat(agent, bash(command), { places, conversationApprovals: approvals }));

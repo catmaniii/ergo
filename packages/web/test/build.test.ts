@@ -1,17 +1,17 @@
-// 构建产物（34 号票）：照 vite.config.ts 构建一遍（不写盘，不动 dist/），查两件靠构建配置才成立的事：
+// 构建产物：照 vite.config.ts 构建一遍（不写盘，不动 dist/），查两件靠构建配置才成立的事：
 // - 颜色 token 的 light-dark() 被 Lightning CSS 按 cssTarget 降成了开关变量，产物的 CSS 里一个都不剩
 //   （不然老一点的 WebView、ArkWeb 上颜色全丢）；
 // - 外观的内联脚本原样留在 <head> 里、在页面脚本和样式之前（打开页面不闪）；
-// - 43 号票：页面里不再有"秘书""待我处理"——界面上说到秘书的地方都用用户起的名字，待我处理叫"待办"
+// -页面里不再有"秘书""待我处理"——界面上说到秘书的地方都用用户起的名字，待我处理叫"待办"
 //   （代码、领域术语、给 agent 的话照旧，它们不进页面；构建产物里没有注释）。守护进程写的话里的秘书是名字占位，前端换成名字。
-//   例外是协议包的旧说法对照表 LEGACY_WORDING：它认 43 号票之前存下的旧话，自己就得写着旧话（不显示出来）；
-//   89 号票（用户 2026-10-11 定）起再加两处界面上就该写"秘书"的：导航上秘书那一项写"秘书"，秘书页的标题写"个人秘书：<名字>"。
-// - 39 号票起：风格清单生成的 token 和每套风格的规则进了页面，内联脚本里填好了风格表，页面不请求外部地址；
+//   例外是协议包的旧说法对照表 LEGACY_WORDING：它认以前存下的旧话，自己就得写着旧话（不显示出来）；
+//   再加两处界面上就该写"秘书"的：导航上秘书那一项写"秘书"，秘书页的标题写"个人秘书：<名字>"。
+// -风格清单生成的 token 和每套风格的规则进了页面，内联脚本里填好了风格表，页面不请求外部地址；
 //   设置里的风格预览：页面样式复制给预览后每套风格的规则都换到了预览上，预览容器按 data-theme 切深浅。
-// - 116 号票起：页面带着版本号（<head> 开头的 <meta name="ergo-web-version">，构建产物内容的哈希），守护进程取得出来，
+// -页面带着版本号（<head> 开头的 <meta name="ergo-web-version">，构建产物内容的哈希），守护进程取得出来，
 //   开着的页面据此知道服务端的页面更新了。
-// - 124 号票起：关于页的二狗版本和更新日志进了页面。更新日志原文照领域术语写着"秘书"，构建时换成名字占位、页面上填名字
-//   （主会话 2026-10-14 定）；界面上照字面写着"秘书"的两处不换，所以按 base64 写进去，不在上面"页面里没有秘书"的检查之列。
+// -关于页的二狗版本和更新日志进了页面。更新日志原文照领域术语写着"秘书"，构建时换成名字占位、页面上填名字
+//   界面上照字面写着"秘书"的两处不换，所以按 base64 写进去，不在上面"页面里没有秘书"的检查之列。
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import { ASSISTANT_NAME_MARK, LEGACY_WORDING, webVersionInHtml, webVersionMeta } from "@ergo/protocol";
@@ -55,11 +55,11 @@ describe("构建产物", () => {
     expect(css).toContain("--lightningcss-dark");
   });
 
-  test("页面里没有“秘书”“待我处理”（43 号票：界面上用用户起的名字、“待办”），只有导航上的“秘书”和秘书页标题的“个人秘书：”（89 号票）", () => {
+  test("页面里没有“秘书”“待我处理”（界面上用用户起的名字、“待办”），只有导航上的“秘书”和秘书页标题的“个人秘书：”", () => {
     // 旧说法对照表里的旧话原样在页面里（每句都在），去掉它们再查
     for (const { old } of LEGACY_WORDING) expect(html).toContain(old);
     let rest = LEGACY_WORDING.reduce((page, { old }) => page.replaceAll(old, ""), html);
-    // 89 号票的两处：秘书页标题的前缀（整个字符串在页面里）、导航上那一项（一个只有这两个字的字符串，前后是引号），也去掉再查
+    // 两处：秘书页标题的前缀（整个字符串在页面里）、导航上那一项（一个只有这两个字的字符串，前后是引号），也去掉再查
     expect(rest).toContain("个人秘书：");
     rest = rest.replaceAll("个人秘书：", "");
     const navLabel = /(["'`])秘书\1/g;
@@ -75,7 +75,7 @@ describe("构建产物", () => {
     }
   });
 
-  test("风格清单里的每套风格都有 token：经典挂在 :root，别的挂在 [data-style=<id>] 上（39 号票）", () => {
+  test("风格清单里的每套风格都有 token：经典挂在 :root，别的挂在 [data-style=<id>] 上", () => {
     const css = inlinedCss();
     for (const style of VISUAL_STYLES) expect(css).toMatch(new RegExp(`\\[data-style=["']?${style.id}["']?\\]\\s*\\{[^}]*--surface:`));
     // 净白格栅深色的底色，经 Lightning CSS 降级后还在
@@ -84,7 +84,7 @@ describe("构建产物", () => {
     expect(css).toMatch(/\[data-style=["']?grid["']?\][^{]*\.[a-z]/);
   });
 
-  test("经典的主色（119 号票）：不是默认的每种一块，只在 [data-style=classic] 上；经典的导航图标进了页面", () => {
+  test("经典的主色：不是默认的每种一块，只在 [data-style=classic] 上；经典的导航图标进了页面", () => {
     const css = inlinedCss();
     for (const accent of (BASE_STYLE.accents ?? []).slice(1)) {
       expect(css).toMatch(new RegExp(`\\[data-style=["']?classic["']?\\]\\[data-accent=["']?${accent.id}["']?\\]\\{[^}]*--primary:`));
@@ -96,7 +96,7 @@ describe("构建产物", () => {
     expect(css).toMatch(/:root\[data-style=["']?classic["']?\] \[data-nav=["']?secretary["']?\]\{--classic-icon:url\(["']?data:image\/svg\+xml,/);
   });
 
-  test("设置里的风格预览：页面样式复制给预览后，每套风格规则开头的 :root[...] 都换成了 :host(...)，一条不落（39 号票）", () => {
+  test("设置里的风格预览：页面样式复制给预览后，每套风格规则开头的 :root[...] 都换成了 :host(...)，一条不落", () => {
     const css = inlinedCss();
     const out = previewCss(css);
     expect(out).not.toMatch(/:root\[data-style/);
@@ -109,7 +109,7 @@ describe("构建产物", () => {
     expect(css.match(/:root\[data-style=["']?grid["']?\]/g)?.length).toBeGreaterThan(50);
   });
 
-  test("预览容器按 data-theme 切深浅：color-scheme 降级后也带着开关变量，token 的浅深两样跟着它取（39 号票）", () => {
+  test("预览容器按 data-theme 切深浅：color-scheme 降级后也带着开关变量，token 的浅深两样跟着它取", () => {
     const css = inlinedCss();
     expect(css).toMatch(/\.style-preview\{[^}]*--lightningcss-light:initial;[^}]*color-scheme:light/);
     expect(css).toMatch(/\.style-preview\[data-theme=["']?dark["']?\]\{[^}]*--lightningcss-dark:initial;[^}]*color-scheme:dark/);
@@ -117,7 +117,7 @@ describe("构建产物", () => {
     expect(css).toMatch(/\.preview-page\{all:initial;color-scheme:inherit;/);
   });
 
-  test("内联脚本里填好了风格表：每套风格的地址栏颜色，有字体的给出字体样式表（39 号票）", () => {
+  test("内联脚本里填好了风格表：每套风格的地址栏颜色，有字体的给出字体样式表", () => {
     expect(html).not.toContain("/*VISUAL_STYLES*/");
     const table = /var STYLES = (\{.*?\});/.exec(html)?.[1];
     expect(table).toBeDefined();
@@ -125,7 +125,7 @@ describe("构建产物", () => {
     expect(JSON.parse(table!).grid.fonts).toBe("fonts/grid.css");
   });
 
-  test("页面里不请求外部地址：没有 http(s):// 开头的样式表、字体、脚本（39 号票：字体由二狗自己提供）", () => {
+  test("页面里不请求外部地址：没有 http(s):// 开头的样式表、字体、脚本（字体由二狗自己提供）", () => {
     expect(html).not.toMatch(/(?:src|href)=["']https?:/);
     expect(inlinedCss()).not.toMatch(/url\(\s*["']?https?:/);
     expect(inlinedCss()).not.toMatch(/@import/);
@@ -139,7 +139,7 @@ describe("构建产物", () => {
     expect(boot).toBeLessThan(html.indexOf("</head>"));
   });
 
-  test("页面带着版本号（116 号票）：<head> 开头的 meta，内容的哈希（十六进制 16 位），守护进程用的 webVersionInHtml 取得出来", () => {
+  test("页面带着版本号：<head> 开头的 meta，内容的哈希（十六进制 16 位），守护进程用的 webVersionInHtml 取得出来", () => {
     const version = webVersionInHtml(html);
     expect(version).toMatch(/^[0-9a-f]{16}$/);
     const at = html.indexOf(webVersionMeta(version!));
@@ -151,7 +151,7 @@ describe("构建产物", () => {
     expect(html.split('<meta name="ergo-web-version"')).toHaveLength(2);
   });
 
-  test("关于页（124 号票）：二狗的版本（根 package.json）和更新日志（根 CHANGELOG.md 的 base64，解出来是“秘书”换成名字占位的原文）进了页面", () => {
+  test("关于页：二狗的版本（根 package.json）和更新日志（根 CHANGELOG.md 的 base64，解出来是“秘书”换成名字占位的原文）进了页面", () => {
     const { version, changelogBase64 } = buildInfo();
     expect(version).toBe((JSON.parse(fs.readFileSync(new URL("../../../package.json", import.meta.url), "utf8")) as { version: string }).version);
     // 压缩后的字符串可能写成 `…`：引号不论；用 includes 不用 toContain（失败时不把整个页面打出来）
@@ -162,7 +162,7 @@ describe("构建产物", () => {
   });
 });
 
-describe("更新日志里的“秘书”构建时换成名字占位（124 号票，主会话 2026-10-14 定：关于页显示用户起的名字）", () => {
+describe("更新日志里的“秘书”构建时换成名字占位（关于页显示用户起的名字）", () => {
   const M = ASSISTANT_NAME_MARK;
 
   test("说到秘书的地方都换成占位，别的不动", () => {
@@ -170,7 +170,7 @@ describe("更新日志里的“秘书”构建时换成名字占位（124 号票
     expect(markAssistantName("没有要换的")).toBe("没有要换的");
   });
 
-  test("界面上照字面写着的不换（89 号票）：导航上那一项（加了引号的“秘书”）、秘书页标题的“个人秘书：”", () => {
+  test("界面上照字面写着的不换：导航上那一项（加了引号的“秘书”）、秘书页标题的“个人秘书：”", () => {
     expect(markAssistantName('"秘书"页签出红点，“秘书”、「秘书」也是；秘书来了新消息')).toBe(`"秘书"页签出红点，“秘书”、「秘书」也是；${M}来了新消息`);
     expect(markAssistantName('标题写"个人秘书：二狗"，秘书页')).toBe(`标题写"个人秘书：二狗"，${M}页`);
   });

@@ -1,8 +1,8 @@
-// 一天的照片、位置整理成摘要（300 号票，phone/summaries.ts）：纯函数，时间按本地时间。
+// 一天的照片、位置整理成摘要（phone/summaries.ts）：纯函数，时间按本地时间。
 // - 地点只用坐标：两位小数、南纬西经；距离；时长取整；
 // - 照片分段：隔一小时以上、都有地点而离开一公里以上另起一段，没地点的跟着前一段；
 // - 停留点：一串点都在半径以内、前后超过 15 分钟才算待过；中间隔了一个半小时以上的不算一直待着；同一处的几段合起来；
-// - 地名（308 号票）：起了名的 > 系统地名 > 坐标。
+// - 地名：起了名的 > 系统地名 > 坐标。
 import { nowIso } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
 import type { RawPhoto, RawPoint } from "../../src/phone/raw-store.ts";
@@ -53,7 +53,7 @@ describe("停留点", () => {
   });
 });
 
-// 308 号票：地点按"起了名的 > 系统地名 > 坐标"写
+// 地点按"起了名的 > 系统地名 > 坐标"写
 const addr = (spot: string) => ({ city: "杭州市", district: "西湖区", spot });
 const at = (hh: number, mm: number, where: { lat: number; lon: number }, spot?: string): RawPoint => ({ id: `${hh}:${mm}`, at: t(hh, mm), ...where, acc: 50, ...(spot === undefined ? {} : { addr: addr(spot) }) });
 describe("地名：起了名的 > 系统地名 > 坐标", () => {

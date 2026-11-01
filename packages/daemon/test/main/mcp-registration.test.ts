@@ -1,4 +1,4 @@
-// 主切面（239 号票）：负责人用 request_mcp_change 提一条 MCP 登记的加、改、删，用户在"MCP 登记变更"卡上确认之后，
+// 主切面：负责人用 request_mcp_change 提一条 MCP 登记的加、改、删，用户在"MCP 登记变更"卡上确认之后，
 // 运行时才按 name 合并写进数据目录配置区的 config/mcp.json，顺手把这个 MCP 真拉起来一次做自检。真的守护进程、真的端口、
 // 真的 mcp.json；MCP 服务进程是测试里的假 MCP 服务（test/fixtures/fake-mcp-server.mjs，stdio，不连任何真的 MCP）。
 // 覆盖的验收：
@@ -39,7 +39,7 @@ const albumRegistration = (logFile: string) => ({
   },
 });
 
-/** 负责人此刻能用的工具那几行：开头那一份（按新装配接着会话也是开头一份、按这次交的先后，273 号票）；以前回显的旧上下文不算 */
+/** 负责人此刻能用的工具那几行：开头那一份（按新装配接着会话也是开头一份、按这次交的先后）；以前回显的旧上下文不算 */
 const toolLines = (seen: string) => toolsNow(seen).map((name) => `[tool] ${name}`);
 
 /** 负责人会话里 agent 的回复（echo_context 回的是它看到的上下文） */
@@ -68,7 +68,7 @@ const cardOf = (frontend: TestFrontend, cardId: string) =>
   frontend.events({ channel: CHANNELS.cards, type: EVENT_TYPES.card }).map((f) => (f.payload as { card: McpChangeCardShape }).card).filter((c) => c.id === cardId).at(-1)!;
 type McpChangeCardShape = { id: string; type: string; status: string; payload: Partial<McpChangeCardPayload>; outcome?: { note?: string } };
 
-describe("MCP 登记变更（239）", () => {
+describe("MCP 登记变更", () => {
   it("负责人提一条登记，用户在卡上确认后才写进 mcp.json：原有条目不动，自检真把服务拉起来，会话里看得到它的工具；时间线、审计、素材都记着", { timeout: 120_000 }, async () => {
     const logFile = path.join(makeTempDir("ergo-mcp-log-"), "mcp.jsonl");
     const albumLog = path.join(makeTempDir("ergo-mcp-album-"), "mcp.jsonl");
@@ -213,7 +213,7 @@ describe("MCP 登记变更（239）", () => {
     await frontend.close();
   });
 
-  it("一行命令装的电脑 PATH 上没有 node（377 号票）：command 写 node 的 MCP 用二狗自己那份，照样起得来", { timeout: 60_000 }, async () => {
+  it("一行命令装的电脑 PATH 上没有 node：command 写 node 的 MCP 用二狗自己那份，照样起得来", { timeout: 60_000 }, async () => {
     const td = await startTestDaemon({ env: { PATH: makeTempDir("ergo-empty-path-") } });
     const logFile = path.join(makeTempDir("ergo-mcp-log-"), "mcp.jsonl");
     writeMcpRegistration(td.dataDir, logFile, { album: { ...albumRegistration(logFile), command: "node" } });

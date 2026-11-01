@@ -1,4 +1,4 @@
-// 主切面：工单与派单、单项目任务（规格第 11、12 节，16 号票）。真的守护进程，秘书、项目负责人、评审子 agent 都接 faux 剧本，
+// 主切面：工单与派单、单项目任务（规格第 11、12 节）。真的守护进程，秘书、项目负责人、评审子 agent 都接 faux 剧本，
 // 测试扮演前端。
 // - 只涉及一个项目的任务（点"发起任务"时选的、秘书建卡或写任务书时写的）由这个项目的负责人起草计划并执行（不新建任务自己的
 //   负责人）；执行时的工具包是计划的和项目的交集（计划里的授权项放不开项目工具包没有的能力）；起草计划的工单段只读；
@@ -8,7 +8,7 @@
 //   一段结束时没写回项目档案（进展的内容哈希没变）或没写摘要，运行时催它，这段不算完成；催到了次数转为用户拍板（卡住求助）；
 // - 重置负责人（写回中途重置的工单照常算完成，如实标出）；等澄清由派单方（用户）回答，关掉提问卡就按负责人自己的理解接着做；
 // - 发给已归档项目的工单直接退回；还有工单没结束的项目不能归档；
-// - 项目的首个建设任务由项目负责人自己走完，做完出"首版做完了"卡，转入使用后项目进入使用中（112 号票）。
+// - 项目的首个建设任务由项目负责人自己走完，做完出"首版做完了"卡，转入使用后项目进入使用中。
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -53,7 +53,7 @@ const say = (text: string): FauxStep => ({ kind: "reply", text });
 const call = (name: string, args: Record<string, unknown>): FauxStep => ({ kind: "reply", toolCalls: [{ name, arguments: args as never }] });
 const completeStage = (stageId: string, summary = `阶段 ${stageId} 做完了`) => call("complete_stage", { stageId, summary });
 const summary = (text: string) => call("write_segment_summary", { summary: text });
-/** 起草计划的工单段里写回进展（这一段只读，16 号票评审后） */
+/** 起草计划的工单段里写回进展（这一段只读） */
 const writeProgress = (content: string) => call("write_progress", { content });
 
 const messagesOf = (frontend: TestFrontend, channel: string) => frontend.events({ channel, type: EVENT_TYPES.message }).map((f) => f.payload as MessageEventPayload);
@@ -130,7 +130,7 @@ async function connect(url: string, channels: string[] = [BOARD, CARDS, INBOX, P
 
 /** 用户点"发起任务"、选一个项目；秘书写好任务书（秘书那一段在 tasks.test.ts 测过，这里直接写） */
 async function startProjectTask(td: TestDaemon, frontend: TestFrontend, title: string, project: string): Promise<string> {
-  // 64 号票起只涉及一个项目的任务都是这个项目的内部任务：项目的负责人建、写任务书（派起草计划的工单）
+  // 只涉及一个项目的任务都是这个项目的内部任务：项目的负责人建、写任务书（派起草计划的工单）
   const task = projectTask(td.daemon, project, title, brief(project));
   await taskWhere(frontend, (e) => e.change === "created" && e.task.id === task.id, `任务「${title}」`);
   return task.id;
@@ -285,7 +285,7 @@ describe("负责人会话分段", () => {
     await waitUntil(() => messagesOf(frontend, PM1).some((m) => m.message.speaker === "agent" && textOf(m).includes("【固定上下文】")));
     const context = textOf(messagesOf(frontend, PM1).find((m) => m.message.speaker === "agent" && textOf(m).includes("【固定上下文】"))!);
     expect(context).toContain("【固定上下文】这是会话分段 pm-1-s2 开始时运行时给你的");
-    // 起草计划的工单段同任务自己的负责人起草时：70 号票起联网开着
+    // 起草计划的工单段同任务自己的负责人起草时：联网开着
     expect(context).toContain("工具包：bash 关，联网开");
     expect(context).toContain("项目规范（v1）");
     expect(context).toContain("### 进展（progress.md）");
@@ -294,7 +294,7 @@ describe("负责人会话分段", () => {
     expect(context).toContain(`这次的工单：${opened.workOrder.id}「起草计划：给记账本加周报」，来自你，所属任务 ${taskId}「给记账本加周报」`);
     expect(context).toContain("目标：每周出一份周报");
     expect(context).toContain("这一段只起草计划：工作目录和项目档案只读");
-    // 给秘书发消息（102 号票）除了秘书每个 agent 默认都有
+    // 给秘书发消息除了秘书每个 agent 默认都有
     expect(context).toContain("这一段能用的工具：read、ls、grep、find、submit_plan、write_progress、ask_clarification、write_segment_summary、web_search、web_fetch、spoken_summary、send_voice、tell_secretary、read_attachment、send_attachment。");
     // 更早分段的对话不在这段的上下文里
     expect(context).not.toContain("你好，周报的格式用表格吧");
@@ -453,7 +453,7 @@ describe("等澄清", () => {
     // 没有别的能推进的阶段：任务转等我，原因"澄清"
     const waiting = await taskWhere(frontend, (e) => e.task.id === taskId && e.task.state === "waiting_for_user", "任务转等我");
     expect(waiting.task.stages?.list?.[0]).toMatchObject({ state: "waiting", waitReason: "clarification", waitingOn: card.id });
-    // 369 号票：提问算到问的人头上：项目负责人是等你，说明带着这张卡；秘书不受影响
+    // 提问算到问的人头上：项目负责人是等你，说明带着这张卡；秘书不受影响
     const activityOf = (agentId: string) => td.daemon.store.read(CHANNELS.activity, 0, EVENT_TYPES.activity).map((e) => e.payload as ActivityEventPayload).filter((a) => a.agentId === agentId);
     await waitUntil(() => activityOf("pm-1").at(-1)?.state === "waiting_for_user", { timeoutMs: 30_000, describe: () => JSON.stringify(activityOf("pm-1")) });
     expect(activityOf("pm-1").at(-1)?.detail).toMatchObject({ kind: "clarification", cardId: card.id });
@@ -526,7 +526,7 @@ describe("已归档、已停用的项目", () => {
     const planned = await startProjectTask(td, frontend, "给记账本加周报", "记账本");
     const plan = await planCardOf(frontend, planned);
     await workOrderWhere(frontend, (e) => e.change === "ended" && workOrderTaskId(e.workOrder) === planned, "起草计划的工单结束");
-    // 64 号票起只涉及一个项目的任务都是这个项目的内部任务：项目的负责人建好，还没写任务书
+    // 只涉及一个项目的任务都是这个项目的内部任务：项目的负责人建好，还没写任务书
     const late = td.daemon.tasks.createInternal({ projectId: "p-1", title: "给记账本加年报", summary: "给记账本加年报", kind: "long_running" }, "pm-1");
     // 没有没结束的工单：能归档
     ok(await frontend.request(METHODS.projectAction, { projectId: "p-1", action: "archive" }, "k-archive"));
@@ -602,7 +602,7 @@ describe("项目的首个建设任务（端到端）", () => {
     await turnsOf(frontend, PM1, 1);
     ok(await frontend.cardAction({ cardId: charterCard.id, action: "confirm_start", expectedVersion: 1 }));
     const build = (await taskWhere(frontend, (e) => e.change === "created" && e.task.origin === "project_build", "首个建设任务")).task;
-    // 只涉及这个项目：首个建设任务也是它的内部任务（64 号票）
+    // 只涉及这个项目：首个建设任务也是它的内部任务
     expect(build).toMatchObject({ maintainerId: "pm-1", projectIds: ["p-1"], state: "planning", internal: { projectId: "p-1", projectName: "记账本" } });
     // 开发类、用二狗给的默认工作目录：立项书确认时初始化成 git 仓库（子 agent 并行时各用一个 worktree）
     await waitUntil(() => fs.existsSync(path.join(records, "workdir", ".git")), { describe: () => "等工作目录初始化成 git 仓库" });
@@ -613,7 +613,7 @@ describe("项目的首个建设任务（端到端）", () => {
     const plan = await planCardOf(frontend, build.id);
     ok(await frontend.cardAction({ cardId: plan.id, action: "confirm", expectedVersion: 1, input: {} }));
 
-    // 执行：守卫下、项目的工作目录里；全部阶段验收后任务完成，出"首版做完了"卡（112 号票：不再自动进入使用中），
+    // 执行：守卫下、项目的工作目录里；全部阶段验收后任务完成，出"首版做完了"卡（不再自动进入使用中），
     // 写明做成了什么；点"转入使用"项目才进入使用中
     await taskWhere(frontend, (e) => e.task.id === build.id && e.change === "completed", "首个建设任务完成", 60_000);
     const done = await cardWhere(frontend, (c) => c.type === "build_done", "“首版做完了”卡");
@@ -757,7 +757,7 @@ const twoAgents = [
   { stageId: "s2", instructions: "写 b.txt，内容是 B" },
 ];
 
-describe("子 agent 并行（20 号票）：项目的负责人执行单项目任务时", () => {
+describe("子 agent 并行：项目的负责人执行单项目任务时", () => {
   it("提议并行、用户同意后拉起子 agent：子 agent 的装配从项目负责人执行时的装配收窄，写项目档案被守卫拒绝（不问用户），写工作目录照常；它的工具调用记录和交回的结果进项目负责人的会话，带着项目、任务、阶段和子 agent", async () => {
     const d = dirs();
     const records = d.records();
@@ -839,9 +839,9 @@ describe("子 agent 并行（20 号票）：项目的负责人执行单项目任
   }, 180_000);
 });
 
-describe("秘书发起的单项目任务（16 号票评审后）", () => {
-  // 64 号票起只涉及一个项目的任务一律是这个项目的内部任务：建卡时就写上一个项目的见 project-internal-tasks.test.ts
-  it("建卡时没写项目、第一版任务书只涉及一个项目的：任务书交出时改由这个项目的负责人起草，成了这个项目的内部任务（64 号票）；不新建任务自己的负责人", async () => {
+describe("秘书发起的单项目任务", () => {
+  // 只涉及一个项目的任务一律是这个项目的内部任务：建卡时就写上一个项目的见 project-internal-tasks.test.ts
+  it("建卡时没写项目、第一版任务书只涉及一个项目的：任务书交出时改由这个项目的负责人起草，成了这个项目的内部任务；不新建任务自己的负责人", async () => {
     const td = await startTestDaemon({
       secretary: [
         call("create_task", { title: "整理记账本的分类", summary: "用户要把记账本的分类整理清楚" }),
@@ -867,14 +867,14 @@ describe("秘书发起的单项目任务（16 号票评审后）", () => {
   }, 120_000);
 });
 
-describe("写回中途重置、催写回到了次数（16 号票评审后）", () => {
+describe("写回中途重置、催写回到了次数", () => {
   it("写回中途重置负责人：这张工单照常算完成，如实标“重置时这段没写回档案”（工单上、负责人会话的时间线上）；旧会话原样保留，新的一段只凭项目档案", async () => {
     const d = dirs();
     const td = await startTestDaemon({
       reuse: { dataDir: d.dataDir, homeDir: d.homeDir },
       secretary: [say("好的")],
       // 交了计划不写回；被催时慢慢回一段长话（约 4 秒，还在说的时候用户重置了负责人）。吐字速度是整个剧本共用的：
-      // 调快、那段话加长，交计划那一步（计划的 JSON 很长）就不用陪着慢慢吐（92 号票）
+      // 调快、那段话加长，交计划那一步（计划的 JSON 很长）就不用陪着慢慢吐
       maintainer: (id, spawn) => (id !== "pm-1" ? [] : spawn === 1 ? [submitPlanStep(onePlan("weekly.md")), say("计划交了"), say("这一段先不写回，".repeat(200))] : [{ kind: "echo_context" }]),
       maintainerTokensPerSecond: 100,
     });
@@ -956,7 +956,7 @@ describe("写回中途重置、催写回到了次数（16 号票评审后）", (
   }, 120_000);
 });
 
-describe("关掉工单的提问卡（16 号票评审后保留）", () => {
+describe("关掉工单的提问卡（保留）", () => {
   it("用户关掉项目负责人为工单问的提问卡：算“按你自己的理解接着做”——工单回到进行中，通知负责人，时间线上记一笔；负责人接着把计划交了", async () => {
     const td = await startTestDaemon({
       secretary: [say("好的")],

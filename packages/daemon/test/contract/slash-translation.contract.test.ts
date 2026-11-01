@@ -1,4 +1,4 @@
-// pi 契约：翻斜杠命令的说明（310 号票，一次性子进程 agent-child/translate-main.ts，用 pi 的 completeSimple 在会话之外调模型）：
+// pi 契约：翻斜杠命令的说明（一次性子进程 agent-child/translate-main.ts，用 pi 的 completeSimple 在会话之外调模型）：
 // - 每条说明单独一次调用，交给模型的只有系统提示（怎么翻）和那句原文——不带命令名、会话、别的上下文；
 // - 每次调用报一条用量（purpose: translation）；一条没翻成（剧本用完、模型出错）那一条是 null，别的照旧；
 // - 目录模型（本机的假 DeepSeek）：不开思考、最多几百个 token，key 交给 provider，出错原因里没有 key。

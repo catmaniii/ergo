@@ -1,7 +1,7 @@
-// 鸿蒙 App 的原生内置浏览器（134 号票）在网页这一侧：包装原生桥上的浏览器这一组方法（app/native-browser.ts）、
+// 鸿蒙 App 的原生内置浏览器在网页这一侧：包装原生桥上的浏览器这一组方法（app/native-browser.ts）、
 // 开场接上它和外链改到"浏览"里打开（app/browser-shell.ts）。原生桥、页面的 document 都是假的。
-// 164 号票：看能点的东西、按编号点经 browserPage 的 snapshot、click；旧版 App 不认（回空串、页面桥照样在）的认成"App 太旧"。
-// 184 号票：看的结果里多文本框、上传框、下拉框（现在的值、多行、accept、multiple、选项、藏起来的）；按编号找框经 browserPage 的 refField；
+// 看能点的东西、按编号点经 browserPage 的 snapshot、click；旧版 App 不认（回空串、页面桥照样在）的认成"App 太旧"。
+// 看的结果里多文本框、上传框、下拉框（现在的值、多行、accept、multiple、选项、藏起来的）；按编号找框经 browserPage 的 refField；
 // 交文件能按编号交（先找框、再交进它的框编号）。
 import { describe, expect, test } from "vitest";
 import { followExternalLinks, type LinkClick, type LinkLike, openInNativeBrowser, watchNativeBrowser } from "../../src/app/browser-shell.ts";
@@ -191,7 +191,7 @@ describe("页面里点外链改到'浏览'里打开", () => {
   });
 });
 
-describe("浏览侧边栏用到的页面桥（147 号票）", () => {
+describe("浏览侧边栏用到的页面桥", () => {
   const PAGE = { title: "报名", url: "https://form.example.cn/apply" };
   const NAME = { id: "f2", kind: "text", label: "姓名" };
 
@@ -248,7 +248,7 @@ describe("浏览侧边栏用到的页面桥（147 号票）", () => {
   });
 });
 
-describe("看能点的东西、按编号点（164 号票）", () => {
+describe("看能点的东西、按编号点", () => {
   const PAGE = { title: "小店", url: "https://shop.example.cn/home" };
   /** 假的原生桥：browserPage 照 replies 回（按操作名），记下调用 */
   function pageBridge(replies: Record<string, string>) {
@@ -305,7 +305,7 @@ describe("看能点的东西、按编号点（164 号票）", () => {
   });
 });
 
-describe("按编号填字、交文件（184 号票）", () => {
+describe("按编号填字、交文件", () => {
   const PAGE = { title: "换背景", url: "https://studio.example.cn/app/bg" };
   const PROMPT = { id: "f3", kind: "textarea", label: "提示词" };
   const PRODUCT = { id: "f7", kind: "file", label: "产品图", accept: "image/*" };
@@ -372,7 +372,7 @@ describe("按编号填字、交文件（184 号票）", () => {
   });
 });
 
-describe("能渲染的文件（160 号票）：App 报来的文件、经 browserDoc 取内容、下载、系统浏览器打开", () => {
+describe("能渲染的文件：App 报来的文件、经 browserDoc 取内容、下载、系统浏览器打开", () => {
   test("有 browserDoc 才有 docs（新版 App）；enable、source、save、outside、drop 都经 browserDoc(操作, 编号)，source 回 App 回的字符串", async () => {
     expect(wrapNativeBrowser(fakeBridge(), {})!.docs).toBeUndefined();
     const calls: string[] = [];
@@ -424,7 +424,7 @@ function toolBridge(replies: Record<string, unknown> = {}) {
   };
 }
 
-describe("⋮ 菜单用到的原生工具（165 号票）：经 browserTool(操作, JSON)", () => {
+describe("⋮ 菜单用到的原生工具：经 browserTool(操作, JSON)", () => {
   test("有 browserTool 才有 tools（新版 App）；查找、下一个、清掉高亮、按网站的设置照原样交过去", () => {
     expect(wrapNativeBrowser(fakeBridge(), {})!.tools).toBeUndefined();
     const { calls, bridge } = toolBridge();

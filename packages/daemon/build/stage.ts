@@ -1,4 +1,4 @@
-// 摆一个版本目录（318 号票）：发布包（npm run release）、源码装（npm run ergo:install）、开发模式（npm run build 的 dist/ergo）都用它，
+// 摆一个版本目录：发布包（npm run release）、源码装（npm run ergo:install）、开发模式（npm run build 的 dist/ergo）都用它，
 // 装出来的东西一样。版本目录里有什么（在 out 下）：
 //   ergo.json                   版本信息（release / source / link、版本、Node 版本、提交号）
 //   node\node.exe、LICENSE      自带的 Node（版本是构建参数，默认跟着 pi 的那条线，ADR-0031）；用系统 Node 的写 node.path
@@ -11,7 +11,7 @@
 //   app\packages\web\dist\      构建好的网页
 //   app\node_modules\           运行时要的第三方包（deps.ts），开发模式下是联接到仓库的 node_modules
 //   LICENSE、THIRD_PARTY_NOTICES.txt、third-party-licenses.json
-// 只按白名单拿：不会带上 .scratch、测试、评测数据（memory-eval）、服务管家的私有数据和设计记录这些。
+// 只按白名单拿：不会带上内部笔记、测试、评测数据、服务管家的私有数据和设计记录这些。
 import fs from "node:fs";
 import path from "node:path";
 import { type VersionInfo, type VersionKind, writeVersionInfo } from "../src/release/layout.ts";
@@ -150,7 +150,7 @@ export function stageVersion(options: StageOptions): StageResult {
   copyDir(path.join(pkgDir("protocol"), "locales"), path.join(app, "packages", "protocol", "locales"));
   for (const dir of DAEMON_ASSET_DIRS) copyDir(path.join(pkgDir("daemon"), dir), path.join(app, "packages", "daemon", dir));
   if (options.releaseKey) fs.writeFileSync(path.join(app, "packages", "daemon", "src", "release", "release-key.pub"), options.releaseKey);
-  // 组件清单写上这一版的版本号（查更新按它比新旧，347 号票）
+  // 组件清单写上这一版的版本号（查更新按它比新旧）
   stampManifestRelease(path.join(app, "packages", "daemon", "src", "components", "manifest.json"), version);
 
   // 服务管家（本来就是 .js）：白名单

@@ -1,24 +1,24 @@
-// 联网搜索、读网页两个工具（70 号票）：守护进程代为执行（host-tools.ts），在守卫的工具注册表里的登记是框架自带的那份
+// 联网搜索、读网页两个工具：守护进程代为执行（host-tools.ts），在守卫的工具注册表里的登记是框架自带的那份
 // （来源 web：只看、只往下拉，不落入任何类别，要联网——联网开关关着时守卫拒绝，见 guard/tool-registry.ts）。
 // 秘书、任务负责人（起草和执行）、项目负责人、定时作业的负责人、子 agent 都配上；评审子 agent 不配。
 // 给模型看的说法照用户 web-search skill 的 SKILL.md（何时用、标准流程、搜不到怎么办）和两个脚本的输出写；
-// web_search 的选项和 search.mjs 逐个对齐（n、time、engine、region、tavily、json，用户 2026-10-10 要求）。
-// 154 号票：engine 多了 deepseek（DeepSeek 的搜索接口）、browser（浏览器的整条回退链）、tavily。
+// web_search 的选项和 search.mjs 逐个对齐（n、time、engine、region、tavily、json）。
+// engine 多了 deepseek（DeepSeek 的搜索接口）、browser（浏览器的整条回退链）、tavily。
 // DeepSeek 的结果多写站点、日期、长摘要和"优质""权威"的提示，json 给原样的字段；换了路的写一句说明。
 // DeepSeek 只对成功、有结果的调用计费，"结果来自 DeepSeek"就是计费了：交给 onBilled 记账（记在发起调用的 agent 名下，daemon.ts 接账本）。
-// 162 号票（设置里的联网搜索改成 DeepSeek、浏览器、agent-browser 三种方式的队列）：
+// 设置里的联网搜索改成 DeepSeek、浏览器、agent-browser 三种方式的队列：
 // - 工具说明、能写的 engine 每次装配时按队列现写（setup）：写明用户排的顺序；停用了的、没配 key 的方式不写、engine 里也没有
-//   （161 号票报告 §6.3：模型看到说明里有 deepseek 就自己去指定），Tavily 配了 key 才写；
+//   （模型看到说明里有 deepseek 就自己去指定），Tavily 配了 key 才写；
 // - agent-browser 是模型自己在 bash 里操作的，它在队列里的位置写进说明（这个 agent 有 bash 时）：排第一先用它、排中间 / 最后什么时候用、
-//   停用了别拿它搜（skill 照旧能操作网页、下载文件）、只启用了它时别调 web_search；都附上"别用管道接它的输出"（161 号票报告 §5.1）；
+//   停用了别拿它搜（skill 照旧能操作网页、下载文件）、只启用了它时别调 web_search；都附上"别用管道接它的输出"；
 // - 结果的标题行写明用了哪种；只用 agent-browser、指定的方式停用了、试到 agent-browser 为止、读网页都没读到时说清楚接下来怎么办。
-// 182 号票（队列多第四种"鸿蒙 App 的内置浏览器"：秘书在浏览侧边栏、悬浮按钮那一轮用 browse_* 工具在用户手机上的浏览器里搜）：
-// - 只给有 browse_* 工具的 agent（秘书）写它：工具说明是装配时写的、不分哪一轮（换说明要重新装配，前缀缓存失效，147 号票就为此
+// 队列多第四种"鸿蒙 App 的内置浏览器"：秘书在浏览侧边栏、悬浮按钮那一轮用 browse_* 工具在用户手机上的浏览器里搜：
+// - 只给有 browse_* 工具的 agent（秘书）写它：工具说明是装配时写的、不分哪一轮（换说明要重新装配，前缀缓存失效，就为此
 //   没按轮换工具），所以说明写清"只在侧边栏、悬浮按钮那一轮算数、那一轮的顺序"，那一轮交给秘书的输入后面再加一句（appBrowserTurnNote）；
 // - 那一轮（appBrowser(call) 给出发消息那台设备的搜索引擎）web_search 试到它为止、停下，给出那台设备"浏览"里的搜索引擎的结果页地址，
 //   让秘书 browse_open 打开再读、看、点；排第一时一种都不试（验收："内置浏览器排第一时，web_search 停下让模型先用 browse_*"）；
 // - 停用了：说明里写别拿它搜索，用户明确要操作网页时 browse_* 照旧能用（和 agent-browser 一样）。
-// @i18n-ignore-file model：工具说明、参数说明、结果和出错的说明都是给模型看的（173 号票）；工具的名字在守卫的工具注册表里
+// @i18n-ignore-file model：工具说明、参数说明、结果和出错的说明都是给模型看的；工具的名字在守卫的工具注册表里
 import { type BrowseSearchEngineId, browseSearchUrl, type Static, type TSchema, Type, WEB_METHODS, type WebCallKind, type WebCallService, type WebMethod } from "@ergo/protocol";
 import { defineHostTool, type HostTool, type HostToolCall, type HostToolOutput } from "../agent-manager/host-tools.ts";
 import { BROWSE_CLICK_TOOL, BROWSE_OPEN_TOOL, BROWSE_READ_PAGE_TOOL, BROWSE_SNAPSHOT_TOOL } from "../browsing/api.ts";
@@ -35,14 +35,14 @@ export const WEB_SEARCH_DEFAULT_N = 8;
 /** 正文默认最多交回多少字（照 skill） */
 export const WEB_FETCH_DEFAULT_MAX = 8000;
 
-/** 一次按次计费的联网调用（154 号票）：哪家的接口、搜索还是读网页、哪个 agent 发起的（不知道是 undefined） */
+/** 一次按次计费的联网调用：哪家的接口、搜索还是读网页、哪个 agent 发起的（不知道是 undefined） */
 export interface WebBilledCall {
   service: WebCallService;
   kind: WebCallKind;
   agentId: string | undefined;
 }
 
-/** 设置里的队列此刻的样子（162 号票）：工具说明、能写的 engine 按它 */
+/** 设置里的队列此刻的样子：工具说明、能写的 engine 按它 */
 export interface WebToolsSetup {
   /** 实际用的顺序（protocol 的 effectiveWebQueue：启用了、用得上的） */
   queue: readonly WebMethod[];
@@ -54,7 +54,7 @@ export interface WebToolsSetup {
 const ALL_AVAILABLE: WebToolsSetup = { queue: WEB_METHODS, tavily: true };
 
 /**
- * 这一轮能用鸿蒙 App 的内置浏览器（182 号票：秘书、从浏览侧边栏或悬浮按钮来的那一轮、发消息的那台设备还连着）：那台设备"浏览"里
+ * 这一轮能用鸿蒙 App 的内置浏览器（秘书、从浏览侧边栏或悬浮按钮来的那一轮、发消息的那台设备还连着）：那台设备"浏览"里
  * 在用的搜索引擎（拼结果页的地址）
  */
 export interface AppBrowserTurn {
@@ -95,12 +95,12 @@ function deepseekBlock(r: SearchResult, i: number): string {
   return [`${i + 1}. ${r.title}`, `   ${r.url}`, ...(meta ? [`   ${meta}`] : []), `   ${r.summary || r.snippet}`].join("\n");
 }
 
-/** 标题行里写的"用了哪种"（162 号票）：DeepSeek、浏览器 ddg、Tavily */
+/** 标题行里写的"用了哪种"：DeepSeek、浏览器 ddg、Tavily */
 const usedName = (found: SearchFound) => (found.engine === "deepseek" ? "DeepSeek" : found.engine === "tavily" ? "Tavily" : `浏览器 ${found.engine}`);
 
 /**
  * 搜索结果写给模型看（照 skill 的输出）：一行"搜索: 查询词（用了哪种，N 条）"，然后每条标题、链接、摘要；json 为真时是结果的 JSON（照 --json）。
- * DeepSeek 的（154 号票）：实际查询加了 after:、lang: 时写出来，每条多一行站点 · 日期 · 优质 · 权威、摘要用长摘要；
+ * DeepSeek 的：实际查询加了 after:、lang: 时写出来，每条多一行站点 · 日期 · 优质 · 权威、摘要用长摘要；
  * json 是 DeepSeek 原样的字段。换了路的在标题行下面写一句说明
  */
 export function searchResultText(query: string, found: SearchFound, json = false): string {
@@ -138,7 +138,7 @@ function agentBrowserHint(queue: readonly WebMethod[]): string {
 const sideOrder = (queue: readonly WebMethod[], agentBrowser: boolean) => queue.filter((m) => m !== "agent-browser" || agentBrowser);
 
 /**
- * 鸿蒙 App 的内置浏览器在队列里的位置（182 号票；只给有 browse_* 工具的 agent，就是秘书）：说明是装配时写的、不分哪一轮，所以写清
+ * 鸿蒙 App 的内置浏览器在队列里的位置（只给有 browse_* 工具的 agent，就是秘书）：说明是装配时写的、不分哪一轮，所以写清
  * 只在侧边栏、悬浮按钮那一轮算数、那一轮的顺序和 web_search 什么时候停下；停用了写别拿它搜索、操作网页照旧能用
  */
 function appBrowserHint(queue: readonly WebMethod[], agentBrowser: boolean): string {
@@ -177,7 +177,7 @@ function onlyModelText(queue: readonly WebMethod[], agentBrowser: boolean, appBr
 }
 
 /**
- * 侧边栏、悬浮按钮那一轮交给秘书的输入后面加的一句（182 号票，agent-input.ts 接在网页上下文那段里）：这一轮联网搜索算上鸿蒙 App 的
+ * 侧边栏、悬浮按钮那一轮交给秘书的输入后面加的一句（agent-input.ts 接在网页上下文那段里）：这一轮联网搜索算上鸿蒙 App 的
  * 内置浏览器、设置里的顺序；停用了不写（undefined）。queue 是实际用的顺序，秘书有 bash，agent-browser 照算
  */
 export function appBrowserTurnNote(queue: readonly WebMethod[]): string | undefined {
@@ -186,8 +186,8 @@ export function appBrowserTurnNote(queue: readonly WebMethod[]): string | undefi
 }
 
 /**
- * web_search 的说明（162 号票起按队列现写）：setup 是设置里的队列，agentBrowser 是这个 agent 能不能用 agent-browser（有 bash；
- * 不给是不知道，不提 agent-browser），appBrowser 是这个 agent 有没有 browse_* 工具（秘书，182 号票：不给就不提鸿蒙 App 的内置浏览器）
+ * web_search 的说明（按队列现写）：setup 是设置里的队列，agentBrowser 是这个 agent 能不能用 agent-browser（有 bash；
+ * 不给是不知道，不提 agent-browser），appBrowser 是这个 agent 有没有 browse_* 工具（秘书：不给就不提鸿蒙 App 的内置浏览器）
  */
 export function webSearchDescription(setup: WebToolsSetup, agentBrowser?: boolean, appBrowser?: boolean): string {
   const intro =
@@ -221,7 +221,7 @@ export function webSearchDescription(setup: WebToolsSetup, agentBrowser?: boolea
   return parts.join("");
 }
 
-/** web_fetch 的说明（162 号票起按队列现写直接请求之后换哪几条；appBrowser 同 webSearchDescription） */
+/** web_fetch 的说明（按队列现写直接请求之后换哪几条；appBrowser 同 webSearchDescription） */
 export function webFetchDescription(setup: WebToolsSetup, agentBrowser?: boolean, appBrowser?: boolean): string {
   const tools = setup.queue.filter(isToolMethod);
   const way: Record<ToolMethod, string> = { deepseek: "让 DeepSeek 读（回 Markdown，按次计费）", browser: "用浏览器真实渲染" };
@@ -240,7 +240,7 @@ export function webFetchDescription(setup: WebToolsSetup, agentBrowser?: boolean
   );
 }
 
-/** web_search 的参数（全的；162 号票起 engine 只给此刻能写的，一种都没有时不给，tavily 配了 key 才给） */
+/** web_search 的参数（全的；engine 只给此刻能写的，一种都没有时不给，tavily 配了 key 才给） */
 function searchParams(setup: WebToolsSetup) {
   const engines = searchEngines(setup.queue, setup.tavily);
   const engineNote: Record<(typeof WEB_SEARCH_ENGINES)[number], string> = {
@@ -294,8 +294,8 @@ const FetchParams = Type.Object({
 /**
  * 联网搜索、读网页两个工具：都经 access 联网（正式的是浏览器、直接请求、DeepSeek 和 Tavily，测试里是假的）。
  * onBilled：DeepSeek 成了的调用（按次计费）每次叫一次。setup：设置里的队列此刻的样子（说明、能写的 engine 按它；不给按初始的、都用得上）。
- * agentBrowser：这个 agent 能不能用 agent-browser（有 bash，162 号票）；说明里写不写 agent-browser、交给 access 的都按它，不给就不提。
- * appBrowser（182 号票，只给有 browse_* 工具的秘书）：这一次调用所在的那一轮能不能用鸿蒙 App 的内置浏览器（能用回发消息那台设备的
+ * agentBrowser：这个 agent 能不能用 agent-browser（有 bash）；说明里写不写 agent-browser、交给 access 的都按它，不给就不提。
+ * appBrowser（只给有 browse_* 工具的秘书）：这一次调用所在的那一轮能不能用鸿蒙 App 的内置浏览器（能用回发消息那台设备的
  * 搜索引擎，不能用回 undefined）；给了，说明里就写内置浏览器的位置，交给 access 的按这一轮；不给就不提
  */
 export function webTools(
@@ -366,7 +366,7 @@ export function webTools(
 }
 
 /**
- * 试到模型自己操作的方式为止（AllSearchesFailed.next）：写明接下来用它、它也不成时按顺序用哪些。内置浏览器（182 号票）给出发消息那台
+ * 试到模型自己操作的方式为止（AllSearchesFailed.next）：写明接下来用它、它也不成时按顺序用哪些。内置浏览器给出发消息那台
  * 设备"浏览"里的搜索引擎搜这个查询的结果页地址；一种都没试（它排在最前面）时不说"没搜到"
  */
 function thenModelText(query: string, err: AllSearchesFailed, app: AppBrowserTurn | undefined): string {
@@ -398,7 +398,7 @@ function thenModelText(query: string, err: AllSearchesFailed, app: AppBrowserTur
   return `${head}用 ${BROWSE_OPEN_TOOL} 打开 ${url}（${ENGINE_NAME[engine]}搜「${query}」的结果页）或者直接打开目标网站，${APP_LOOK}${more}。`;
 }
 
-/** 启用的都是这一次用不了的模型自己操作的方式（182 号票） */
+/** 启用的都是这一次用不了的模型自己操作的方式 */
 function unusableText(methods: readonly ModelMethod[]): string {
   const why: Record<ModelMethod, string> = { "agent-browser": "agent-browser 要 bash", "app-browser": "内置浏览器只在用户从浏览侧边栏、悬浮按钮跟秘书说话的那一轮能用" };
   if (methods.length === 1 && methods[0] === "app-browser") {

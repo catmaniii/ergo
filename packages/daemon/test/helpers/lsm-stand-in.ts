@@ -1,13 +1,13 @@
-// LSM 接入层的替身（23 号票）：按 LSM 的 link 协议 v1（LSM 仓库的 docs/link-protocol.md）当管理器那一端，
+// LSM 接入层的替身：按 LSM 的 link 协议 v1（LSM 仓库的 docs/link-protocol.md）当管理器那一端，
 // 只认带 Authorization: Bearer <令牌> 的连接；收到 hello 回 welcome（心跳间隔由测试定）或 conflict；记下服务发来的每条消息，
 // 测试可以往服务发停机、撤销、ping。守护进程的环境里放 env 就会连上它。测试结束时关掉。
-// 133 号票：owned 打开时扮演支持名下服务的新管理器（协议 §7）——welcome 里带 features: ["services"]、接入时推一次全量状态，
+// owned 打开时扮演支持名下服务的新管理器（协议 §7）——welcome 里带 features: ["services"]、接入时推一次全量状态，
 // services.put / start / stop / restart / autostart / remove / list 照协议回（在内存里记着名下的服务，不起真进程：启动就算起来了，
 // 测试可以让某个服务下次启动失败、把端口登记给别人、改它的状态并推送）。不开时 welcome 里没有 features（老管理器）。
-// 257 号票：holdNextStart 让某个服务下次启动停在"启动中"、等测试放行才回（做到一半又点）。
-// 269 号票：owned.reboot 扮演"电脑重启了、LSM 没按开机自启拉"（名下的服务全停、不推送）；drop 断开现在的连接（服务端照开着），
+// holdNextStart 让某个服务下次启动停在"启动中"、等测试放行才回（做到一半又点）。
+// owned.reboot 扮演"电脑重启了、LSM 没按开机自启拉"（名下的服务全停、不推送）；drop 断开现在的连接（服务端照开着），
 // 守护进程按退避重连，重连后照常 welcome、推全量（扮演 LSM 重启了、二狗重新接上）。
-// 364 号票：entries 给了时扮演支持"指向自己的入口"的管理器（协议 §8）——welcome 里带 "entries"、接入时推一次，setEntries 改了再推。不给时 welcome 里没有（老管理器）。
+// entries 给了时扮演支持"指向自己的入口"的管理器（协议 §8）——welcome 里带 "entries"、接入时推一次，setEntries 改了再推。不给时 welcome 里没有（老管理器）。
 import { randomUUID } from "node:crypto";
 import type { AddressInfo } from "node:net";
 import { onTestFinished } from "vitest";
@@ -40,9 +40,9 @@ export interface OwnedServices {
   releasePort(port: number): void;
   /** 改一个服务的状态并推给守护进程（模拟它挂了、被手动停了） */
   setState(name: string, state: OwnedService["state"], lastError?: string): void;
-  /** 这个服务下次启动（start、restart）停在"启动中"，等返回的放行函数叫了才起来、才回（257 号票） */
+  /** 这个服务下次启动（start、restart）停在"启动中"，等返回的放行函数叫了才起来、才回 */
   holdNextStart(name: string): () => void;
-  /** 电脑重启了、LSM 没按开机自启拉（269 号票）：名下的服务全变成停着，不推送（守护进程下次接上时的全量里是停着的） */
+  /** 电脑重启了、LSM 没按开机自启拉：名下的服务全变成停着，不推送（守护进程下次接上时的全量里是停着的） */
   reboot(): void;
 }
 
@@ -68,9 +68,9 @@ export interface LsmStandIn {
   serviceRequests(): LinkMessage[];
   /** 往服务发一条（最近的那条连接） */
   send(message: Record<string, unknown>): void;
-  /** 断开现在的连接（服务端照开着）：守护进程按退避（1 秒起）重连（269 号票） */
+  /** 断开现在的连接（服务端照开着）：守护进程按退避（1 秒起）重连 */
   drop(): void;
-  /** 改入口清单并推给守护进程（364 号票；entries 打开时才有意义） */
+  /** 改入口清单并推给守护进程（entries 打开时才有意义） */
   setEntries(view: StandInEntries): void;
   close(): Promise<void>;
 }

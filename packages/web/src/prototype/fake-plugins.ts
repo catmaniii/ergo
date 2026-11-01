@@ -1,7 +1,7 @@
-// 原型里的设置 · 插件（211 号票）：守护进程清单里的插件（提醒、记忆，213 号票起还有日历，214 号票加了语音，212 号票加了内置浏览器），
-// 停用、启用、移除只在内存里，变了在插件频道上推新的状况（和守护进程一样，网页插件跟着装、停）。299 号票加了手机插件，296 号票加了 Looki，297 号票加了 Google，
-// 305 号票加了 Claude Code（有了网页的那一半：设置 · Claude Code）。
-// 地址带 ?demo-plugins-off=memory,reminders,calendar,voice,browsing,phone,google,looki 时那几个开头就是停用的（193 号票），
+// 原型里的设置 · 插件：守护进程清单里的插件（提醒、记忆，还有日历，加了语音，加了内置浏览器），
+// 停用、启用、移除只在内存里，变了在插件频道上推新的状况（和守护进程一样，网页插件跟着装、停）。加了手机插件，加了 Looki，加了 Google，
+// 加了 Claude Code（有了网页的那一半：设置 · Claude Code）。
+// 地址带 ?demo-plugins-off=memory,reminders,calendar,voice,browsing,phone,google,looki 时那几个开头就是停用的，
 // ?demo-plugins-removed=reminders 时开头就是移除了的。给人看的字是守护进程按当前语言写的，原型里按打开时的语言挑中文或英文。
 import { activeLocale, type PluginAction, type PluginActionResult, type PluginInfo, type PluginState, type PluginStatusEventPayload, type PluginsView } from "../state/index.ts";
 
@@ -146,7 +146,7 @@ function about(name: string): Omit<PluginInfo, "state" | "needs" | "neededBy" | 
       },
     };
   }
-  // 305 号票：Claude Code 插件（运行时；网页的那一半是设置 · Claude Code）。不拥有数据，没有连数据删
+  // Claude Code 插件（运行时；网页的那一半是设置 · Claude Code）。不拥有数据，没有连数据删
   if (name === "claude-code") {
     return {
       name,

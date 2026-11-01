@@ -1,4 +1,4 @@
-// 主切面：新建 Claude Code 任务 / 项目时选工作文件夹、设置里定默认文件夹（305 号票）。真的守护进程走组合根和插件清单，清单里的
+// 主切面：新建 Claude Code 任务 / 项目时选工作文件夹、设置里定默认文件夹。真的守护进程走组合根和插件清单，清单里的
 // Claude Code 插件经 extraPlugins 换成子进程接假 SDK 的那个（helpers/fake-claude-code.ts：运行时、适配子进程、守卫的钩子都是真的，
 // SDK 按 faux 剧本扮演 claude，不启动真的 claude、不花额度）。测试扮演前端。
 // - 设置里的默认文件夹（PUT /api/runtimes/claude-code/work-folder）：运行时清单里带上；不存在、是文件、在数据目录或二狗程序目录里的 400；
@@ -7,7 +7,7 @@
 //   起了名字的照名字；
 // - 选已有文件夹：cwd 是它；路径不对（不存在、是文件、在数据目录、在二狗程序目录里）被拒，原因写明；pi 的任务不看文件夹；
 // - 守卫：在选的文件夹里写不弹卡，在外面写弹审批卡；
-// - 长程任务：重注入块写的工作目录、阶段验收的脚本都在选的文件夹里（294 号票端到端小测发现原来按产出区）；
+// - 长程任务：重注入块写的工作目录、阶段验收的脚本都在选的文件夹里（端到端小测发现原来按产出区）；
 // - 新建项目：选了已有文件夹的先核对（不对的当场拒），通知里写明、秘书照写在建议立项卡上，点"立项"后项目的工作目录就是它（在外面）。
 import fs from "node:fs";
 import path from "node:path";
@@ -61,7 +61,7 @@ const toolParts = (td: TestDaemon, task: Task): ToolCallPart[] =>
     .read(maintainerChannel(task.maintainerId), 0, EVENT_TYPES.message)
     .flatMap((e) => (e.payload as MessageEventPayload).message.parts.filter((p): p is ToolCallPart => p.type === "tool_call"));
 
-describe("新建 Claude Code 任务时选工作文件夹（305 号票）", () => {
+describe("新建 Claude Code 任务时选工作文件夹", () => {
   it("设置里的默认文件夹：新建的在它下面按标题新开子文件夹、cwd 是它，重名加序号；选已有的 cwd 是它；路径不对被拒；pi 不看", async () => {
     const workRoot = makeTempDir("ergo-cc-work-");
     const existing = makeTempDir("ergo-cc-existing-");
@@ -176,7 +176,7 @@ describe("新建 Claude Code 任务时选工作文件夹（305 号票）", () =>
     expect(cardsOf(td).filter((c) => c.type === "approval")).toHaveLength(1);
   }, 120_000);
 
-  // 2026-10-26 端到端小测（294 号票）发现：执行时重注入块写的工作目录、阶段验收的脚本都还按产出区 outputs/<任务 id>，
+  // 2026-10-26 端到端小测发现：执行时重注入块写的工作目录、阶段验收的脚本都还按产出区 outputs/<任务 id>，
   // 真的 Claude 照着往数据目录里写被拒，验收脚本因为那个目录不存在"闸门进程起不来"
   it("长程任务：重注入块写的工作目录是选的文件夹，阶段验收的脚本在那里跑", async () => {
     const folder = makeTempDir("ergo-cc-long-");
@@ -214,7 +214,7 @@ describe("新建 Claude Code 任务时选工作文件夹（305 号票）", () =>
   }, 120_000);
 });
 
-describe("新建 Claude Code 项目时选工作文件夹（305 号票）", () => {
+describe("新建 Claude Code 项目时选工作文件夹", () => {
   it("选已有文件夹：先核对，通知里写明、秘书照写在建议立项卡上，点立项后项目的工作目录就是它；路径不对当场拒", async () => {
     const existing = makeTempDir("ergo-cc-project-");
     const td = await startTestDaemon({

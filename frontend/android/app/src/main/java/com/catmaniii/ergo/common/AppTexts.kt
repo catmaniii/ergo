@@ -7,7 +7,7 @@ import org.json.JSONObject
 const val TAG = "ErgoApp"
 
 /**
- * App 原生的字（对应鸿蒙 common/AppTexts.ets，175 号票）：句子不写在代码里，都在共享协议包的 locales/<语言>/harmony.json（key 是 harmony.*，
+ * App 原生的字（对应鸿蒙 common/AppTexts.ets）：句子不写在代码里，都在共享协议包的 locales/<语言>/harmony.json（key 是 harmony.*，
  * 安卓独有的在 harmony.android.*）。npm run build:android 收进 assets/harmony-texts.json；连上之后二狗的网页经 setTexts 交来当前语言的这几句，
  * 记在偏好里，App 重开时先用记下的；从没连上过用英文。找不到依次退到自带的同一种语言、自带的中文，都没有回 key 本身。
  */

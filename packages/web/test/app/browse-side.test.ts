@@ -1,12 +1,12 @@
-// 浏览侧边栏（147 号票）在网页这一侧（app/browse-side.ts）：展开收起按设备记住（存储用不了默认收起）、浏览器和侧边栏摆在哪（148 号票：
+// 浏览侧边栏在网页这一侧（app/browse-side.ts）：展开收起按设备记住（存储用不了默认收起）、浏览器和侧边栏摆在哪（
 // 宽屏挤压——侧边栏滑到位后浏览器让出右边，中间一条分隔条能拖、有上下限、内容区变了夹回；窄屏照旧整屏盖住）、"现在在看"跟着网页和选中的框变
 // （× 取消选中）、变了报给守护进程、侧边栏发的消息带的网页上下文、侧边栏上点的（App 转回来的），以及办守护进程推来的秘书的网页工具
 // （读、填、交文件、开网址）——页面桥、存储、连接都换成假的。侧边栏模式那一页（app/side-remote.ts）在后面。
-// 149 号票：读网页连同选中的框里现在的内容；交文件先用预备好的（page-stage.ts）、交给拦下的选文件对话框；报给守护进程的
+// 读网页连同选中的框里现在的内容；交文件先用预备好的（page-stage.ts）、交给拦下的选文件对话框；报给守护进程的
 // 浏览器样子里选中的框不带框里的内容；侧边栏模式那一页收到的选中的框带着内容（发消息时带上）。
-// 164 号票：看能点的东西（snapshot，地址去掉查询串、写明一共几个）、按编号点（click：点完等最多 3 秒看地址变没变，变了再等加载完、
+// 看能点的东西（snapshot，地址去掉查询串、写明一共几个）、按编号点（click：点完等最多 3 秒看地址变没变，变了再等加载完、
 // 带上新的网页）；旧版 App 回"App 太旧"，页面桥不在、页面桥说不成的回原因。
-// 184 号票：按编号填字（先 refField 找到文本框、再照它的框编号填，不看选中的框）、按编号交文件（先找上传框，找不到不取字节；交的时候
+// 按编号填字（先 refField 找到文本框、再照它的框编号填，不看选中的框）、按编号交文件（先找上传框，找不到不取字节；交的时候
 // 按编号交，交之前页面桥再核对一次）；旧版 App 回"App 太旧，装新版才能按编号填和交"。
 import { describe, expect, test } from "vitest";
 import { BrowseSide, type BrowseSideDeps, browseFrames, browseSideWidthOf, browseSideWidthRange, dragBrowseSideWidth, newBrowserId, watchingText } from "../../src/plugins/browsing/browse-side.ts";
@@ -27,7 +27,7 @@ function memoryStorage() {
   return { items, getItem: (k: string) => items.get(k) ?? null, setItem: (k: string, v: string) => void items.set(k, v), removeItem: (k: string) => void items.delete(k) };
 }
 
-/** 一份网页的外观环境（275 号票的两份网页那条）：根元素的属性、存储都是假的，记下来看 */
+/** 一份网页的外观环境（两份网页那条）：根元素的属性、存储都是假的，记下来看 */
 function themeEnv(): ThemeEnv & { root: Record<string, string>; stored: Map<string, string> } {
   const root: Record<string, string> = {};
   const storage = memoryStorage();
@@ -54,11 +54,11 @@ function fakePage() {
     url: `${PAGE.url}?x=1`,
     text: "正文",
     present: true,
-    // 164 号票：页面桥看能点的、点的回什么（"old" 是旧版 App）；点的时候顺便做的事（扮 App 推浏览器的样子）
+    // 页面桥看能点的、点的回什么（"old" 是旧版 App）；点的时候顺便做的事（扮 App 推浏览器的样子）
     snapshot: undefined as PageSnapshot | "old" | undefined,
     click: undefined as PageClick | "old" | undefined,
     onClick: undefined as (() => void) | undefined,
-    // 184 号票：按编号找框回什么
+    // 按编号找框回什么
     refField: undefined as PageRefField | "old" | undefined,
   };
   const ok: PageOutcome = { ok: true };
@@ -101,7 +101,7 @@ function setup(options: { storage?: () => ReturnType<typeof memoryStorage>; narr
   const fetched: string[] = [];
   const logs: string[] = [];
   let narrow = options.narrow ?? false;
-  // 手动的计时器（164 号票：点完等地址变的那几秒）
+  // 手动的计时器（点完等地址变的那几秒）
   const timers: Array<{ ms: number; fn: () => void; cancelled: boolean }> = [];
   const stage = new PageStage({
     fetch: async (token) => (fetched.push(token), new Uint8Array(token.length)),
@@ -162,7 +162,7 @@ describe("展开、收起", () => {
     expect(side.snapshot().open).toBe(true);
   });
 
-  test("摆在哪（148 号票）：宽屏展开、侧边栏滑到位后浏览器让出右边——侧边栏在内容区右边，中间一条 14 宽的分隔条，三者不重叠；收起后浏览器恢复原宽", () => {
+  test("摆在哪：宽屏展开、侧边栏滑到位后浏览器让出右边——侧边栏在内容区右边，中间一条 14 宽的分隔条，三者不重叠；收起后浏览器恢复原宽", () => {
     const host = { x: 80, y: 50, width: 1000, height: 700 };
     const viewport = { width: 1080, height: 800 };
     expect(browseFrames(host, viewport, { wide: true, open: true, shown: true, settled: true, width: 400 })).toEqual({
@@ -254,7 +254,7 @@ describe("展开、收起", () => {
     expect(fake.calls).toEqual(["clear"]);
   });
 
-  test("气泡的回话上点了去侧边栏看（146 号票的气泡）：展开；气泡上别的动作不管", () => {
+  test("气泡的回话上点了去侧边栏看（气泡）：展开；气泡上别的动作不管", () => {
     const { side } = setup();
     side.pageEvent({ type: "bubble", action: "close" });
     expect(side.snapshot().open).toBe(false);
@@ -286,7 +286,7 @@ describe("现在在看", () => {
     expect(reports).toHaveLength(4);
   });
 
-  test("报的样子带上这台设备“浏览”里在用的搜索引擎（182 号票）；换了再报一次，没变不报", () => {
+  test("报的样子带上这台设备“浏览”里在用的搜索引擎；换了再报一次，没变不报", () => {
     let engine = "bing";
     const { side, reports } = setup({ searchEngine: () => engine });
     side.announce();
@@ -298,7 +298,7 @@ describe("现在在看", () => {
     expect(reports.at(-1)).toEqual({ browser: BROWSER, searchEngine: "baidu" });
   });
 
-  test("212 号票：浏览插件停用后又启用，没变也再报一次（守护进程那边记浏览器的是新的一份）", () => {
+  test("浏览插件停用后又启用，没变也再报一次（守护进程那边记浏览器的是新的一份）", () => {
     const { side, reports } = setup();
     side.browserChanged({ ...BLANK_BROWSER, url: PAGE.url, title: PAGE.title });
     side.announce();
@@ -337,7 +337,7 @@ describe("现在在看", () => {
 });
 
 describe("办秘书的网页工具", () => {
-  test("读网页：交整页文字（地址去掉查询串），连同选中的框里现在的内容（149 号票）；页面桥不在回原因", async () => {
+  test("读网页：交整页文字（地址去掉查询串），连同选中的框里现在的内容；页面桥不在回原因", async () => {
     const { side, fake, replies } = setup();
     await side.handle({ id: "r1", op: "read" });
     const filled: PageField = { ...NAME, value: { text: "王五", total: 2 } };
@@ -352,7 +352,7 @@ describe("办秘书的网页工具", () => {
     ]);
   });
 
-  test("报给守护进程的浏览器样子里选中的框不带框里的内容（149 号票：发消息、读网页时才带）；侧边栏发的消息带着", () => {
+  test("报给守护进程的浏览器样子里选中的框不带框里的内容（发消息、读网页时才带）；侧边栏发的消息带着", () => {
     const { side, reports } = setup();
     side.browserChanged({ ...BLANK_BROWSER, url: PAGE.url, title: PAGE.title });
     side.pageEvent({ type: "selected", field: { ...NAME, value: { text: "张", total: 1 } }, page: PAGE });
@@ -383,7 +383,7 @@ describe("办秘书的网页工具", () => {
     ]);
   });
 
-  test("交文件：凭取件码取字节、分段交给 App、交进那个框（候选卡交的不用是现在选中的框），预备好了的直接用（149 号票）、记耗时；换了网页回原因", async () => {
+  test("交文件：凭取件码取字节、分段交给 App、交进那个框（候选卡交的不用是现在选中的框），预备好了的直接用、记耗时；换了网页回原因", async () => {
     const { side, fake, replies, fetched, stage, logs } = setup();
     const files = [
       { token: "t-1", name: "a.png", mime: "image/png", size: 3, image: true },
@@ -406,7 +406,7 @@ describe("办秘书的网页工具", () => {
     ]);
   });
 
-  test("交给网页弹出、App 拦下的选文件对话框（149 号票，fieldId 是 chooser）：页面桥不在也交（App 核对对话框还等着）", async () => {
+  test("交给网页弹出、App 拦下的选文件对话框（fieldId 是 chooser）：页面桥不在也交（App 核对对话框还等着）", async () => {
     const { side, fake, replies } = setup();
     fake.state.present = false;
     await side.handle({ id: "c", op: "attach", fieldId: "chooser", url: PAGE.url, files: [{ token: "t-3", name: "c.png", mime: "image/png", size: 3, image: true }] });
@@ -428,7 +428,7 @@ describe("办秘书的网页工具", () => {
   });
 });
 
-describe("看能点的东西、按编号点（164 号票）", () => {
+describe("看能点的东西、按编号点", () => {
   const ELEMENTS = [
     { ref: "e1", role: "link" as const, text: "商品列表", href: "https://shop.example.cn/list" },
     { ref: "e2", role: "button" as const, text: "立即运行" },
@@ -559,7 +559,7 @@ describe("侧边栏模式那一页（App 另开的 Web 组件，?ergo=side）", 
     expect(parseSideView(JSON.stringify({ open: false, browser: BROWSER, selected: { id: "x", kind: "text", label: "" } }))).toEqual({ open: false, browser: BROWSER });
   });
 
-  // 275 号票：设置里换了界面风格（深浅色、主色），侧边栏不用重启 App 就跟着换——"浏览"页交给它的样子里带着现在的外观
+  // 设置里换了界面风格（深浅色、主色），侧边栏不用重启 App 就跟着换——"浏览"页交给它的样子里带着现在的外观
   test("样子里带着\"浏览\"页那一份现在的外观，侧边栏收到就照着套（交给 onAppearance）；外观形状不对的只丢外观，别的照收", () => {
     const { side } = setup();
     side.setOpen(true);
@@ -605,7 +605,7 @@ describe("侧边栏模式那一页（App 另开的 Web 组件，?ergo=side）", 
   });
 });
 
-describe("按编号填字、交文件（184 号票）", () => {
+describe("按编号填字、交文件", () => {
   const STUDIO = { title: "换背景", url: "https://studio.example.cn/app/bg" };
   const PROMPT: PageField = { id: "f3", kind: "textarea", label: "提示词" };
   const PRODUCT: PageField = { id: "f7", kind: "file", label: "产品图" };
@@ -661,7 +661,7 @@ describe("按编号填字、交文件（184 号票）", () => {
   });
 });
 
-describe("长按的元素（359 号票）", () => {
+describe("长按的元素", () => {
   test("取内容、下载交给 ElementFiles，回它的结果；抛错回原因；旧版 App 说太旧", async () => {
     const asked: string[] = [];
     const file = { mediaId: "m".repeat(64), name: "cat.png", mime: "image/png", size: 3, via: "original" as const };

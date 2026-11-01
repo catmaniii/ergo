@@ -9,7 +9,7 @@ import java.net.UnknownHostException
 import javax.net.ssl.SSLException
 
 /**
- * 扫码之后测连不连得上（364 号票，对应鸿蒙 common/ConnectCheck.ets）：这个文件只有判断，不碰网络、不碰界面的字，好在 JVM 上测；
+ * 扫码之后测连不连得上（对应鸿蒙 common/ConnectCheck.ets）：这个文件只有判断，不碰网络、不碰界面的字，好在 JVM 上测；
  * 两边的判断结果和文案键一模一样，frontend/test/connect.test.ts 和 ConnectCheckTest 拿同一份例子（frontend/test/connect-vectors.tsv）核对。
  */
 

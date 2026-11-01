@@ -1,11 +1,11 @@
-// "手机"插件的事件（299 号票）：守护进程内部的频道 phone（不是前端协议的频道，前端订阅不了；数据源页、日历经 HTTP 取）。
+// "手机"插件的事件：守护进程内部的频道 phone（不是前端协议的频道，前端订阅不了；数据源页、日历经 HTTP 取）。
 // - phone_contact_picked：用户在手机上的二狗 App 里从通讯录挑的一个人（规范化过的称呼、电话、生日、地址），交给了档案候选；
 //   数据源"手机 · 通讯录选人"拥有它（断开并删已导入的时整条换成标记）；
 // - phone_calendar_event：手机日历的一条日程变了——put（新的、改了的，带整条）、remove（范围里没了）。增量记，现在的样子按先后归并；
 //   数据源"手机 · 日历"拥有它；
 // - phone_calendar_status：手机日历连没连着、授权怎么样（给了、拒了、撤回了、读不了和原因）、哪台设备交的。数据源页的连接状态按最后一条。
-// 都不进记忆素材（issue 25：日历只给日历插件显示；通讯录挑的人只进档案候选，号码、住址本来就不进整理）。
-// 300 号票（照片的时间地点、位置）：
+// 都不进记忆素材（日历只给日历插件显示；通讯录挑的人只进档案候选，号码、住址本来就不进整理）。
+// 照片的时间地点、位置：
 // - phone_photos_day / phone_location_day：一天的照片、位置整理成的一条摘要（插件按天整理好再写，原始的时间地点、坐标点在插件自己的
 //   存储里，见 raw-store.ts）；数据源"手机 · 照片的时间地点""手机 · 位置"各自拥有，采成素材（观察到的本人行为）。一天正常一条，
 //   整理之后又交来那天的（比如后来存进相册的照片）再补一条（part 2、3……）；
@@ -45,7 +45,7 @@ export interface PhoneCalendarStatusPayload {
 }
 
 /**
- * 一天的照片或位置整理成的一条摘要（300 号票）：插件写好的摘要（给模型、给检索的中文）、地点（场景里的，经纬度一带）、
+ * 一天的照片或位置整理成的一条摘要：插件写好的摘要（给模型、给检索的中文）、地点（场景里的，经纬度一带）、
  * 从几点到几点、整理了几条原始数据。彻底删除时 text 换成标记、地点去掉
  */
 export interface PhoneDaySummaryPayload {
@@ -66,7 +66,7 @@ export interface PhoneDaySummaryPayload {
   device?: string;
 }
 
-/** 照片、位置连没连着（300 号票，同 phone_calendar_status）：location 是有没有读照片位置的授权，background 是 App 在后台也记没有 */
+/** 照片、位置连没连着（同 phone_calendar_status）：location 是有没有读照片位置的授权，background 是 App 在后台也记没有 */
 export interface PhoneMediaStatusPayload {
   at: string;
   linked: boolean;
@@ -100,7 +100,7 @@ export function calendarStatus(store: Pick<EventStore, "read">): PhoneCalendarSt
   return livePayloads<PhoneCalendarStatusPayload>(store, PHONE_CALENDAR_STATUS).at(-1);
 }
 
-/** 照片、位置最后的状况（300 号票；没有过是没连着） */
+/** 照片、位置最后的状况（没有过是没连着） */
 export function mediaStatus(store: Pick<EventStore, "read">, type: typeof PHONE_PHOTOS_STATUS | typeof PHONE_LOCATION_STATUS): PhoneMediaStatusPayload | undefined {
   return livePayloads<PhoneMediaStatusPayload>(store, type).at(-1);
 }

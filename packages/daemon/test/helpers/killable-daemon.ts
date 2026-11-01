@@ -1,4 +1,4 @@
-// 能被直接杀掉的守护进程（被杀后的恢复，23 号票）：在独立进程里起一个守护进程实例（fixtures/killable-daemon.ts），
+// 能被直接杀掉的守护进程（被杀后的恢复）：在独立进程里起一个守护进程实例（fixtures/killable-daemon.ts），
 // 测试经 WebSocket 当前端连它，然后像 LSM 重启时那样直接杀掉它（Windows 上是 TerminateProcess，Job 对象随之关闭，
 // agent 子进程和孙进程一起结束），再用同一个数据目录在测试进程里起一个（startTestDaemon 的 reuse）看恢复。
 //
@@ -55,11 +55,11 @@ export interface KillableDaemonOptions {
   secretaryTokensPerSecond?: number;
   /** 负责人 id → 第几次唤起（从 1 起）的剧本 */
   maintainer?: Record<string, FauxStep[][]>;
-  /** 并行派出的子 agent（20 号票）：子 agent id（sa-<n>）→ 剧本 */
+  /** 并行派出的子 agent：子 agent id（sa-<n>）→ 剧本 */
   subAgent?: Record<string, FauxStep[]>;
   /** 起来之前写进数据目录 config/ergo.json 的配置 */
   config?: Record<string, unknown>;
-  /** 语音合成服务的地址（helpers/tts.ts 的假服务，86 号票）；不给是连不上的地址 */
+  /** 语音合成服务的地址（helpers/tts.ts 的假服务）；不给是连不上的地址 */
   speechUrl?: string;
 }
 

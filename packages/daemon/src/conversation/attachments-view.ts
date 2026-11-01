@@ -1,6 +1,6 @@
 // 派生视图：每个会话里出现过的附件（消息里的图片 part 和文件 part，不论谁发的）。随消息事件在同一事务里更新，
-// 可以从事件日志重建。"读取附件"工具据此保证 agent 只能读自己会话里的附件；报告页按媒体 id 取文本时据此认名字和类型（113 号票）。
-// 09 号票之前的消息只有文本，所以这张表在已有的数据目录里从空开始也不缺东西。
+// 可以从事件日志重建。"读取附件"工具据此保证 agent 只能读自己会话里的附件；报告页按媒体 id 取文本时据此认名字和类型。
+// 以前的消息只有文本，所以这张表在已有的数据目录里从空开始也不缺东西。
 import { type ConversationId, EVENT_TYPES, type MessageEventPayload } from "@ergo/protocol";
 import type { DerivedView } from "../events/event-store.ts";
 import type { ReadonlyDatabase } from "../storage/sqlite.ts";
@@ -80,7 +80,7 @@ export function findConversationAttachment(db: ReadonlyDatabase, conversation: C
 }
 
 /**
- * 最近一次引用这份媒体的附件 part（任何会话）和那条消息的时间：报告页按媒体 id 取文本时，名字、类型以它为准（113 号票）。
+ * 最近一次引用这份媒体的附件 part（任何会话）和那条消息的时间：报告页按媒体 id 取文本时，名字、类型以它为准。
  * 没有消息引用它时为 undefined
  */
 export function latestAttachment(db: ReadonlyDatabase, mediaId: string): (ConversationAttachment & { time: string }) | undefined {

@@ -56,7 +56,7 @@ export function findCoveringGrant(
   ctx: GrantContext,
 ): GrantCheck {
   const sameTool = ctx.task.plan.grants.filter((g) => g.tool === tool);
-  // 原因写进守卫的说明（按判定时的语言，173 号票）
+  // 原因写进守卫的说明（按判定时的语言）
   if (sameTool.length === 0) return { grant: undefined, reasons: [t("guard.grants.noGrant")] };
   const reasons: string[] = [];
   for (const grant of sameTool) {
@@ -83,7 +83,7 @@ export function findCoveringGrant(
 }
 
 /**
- * 计划对这个关注类别有没有授权项（14 号票，"超出授权"和"没预料到的类别"的分界）：计划里（不论哪个阶段）有一条授权项，
+ * 计划对这个关注类别有没有授权项（"超出授权"和"没预料到的类别"的分界）：计划里（不论哪个阶段）有一条授权项，
  * 它的操作种类就是这次调用的工具（这次是超出了它的对象范围、次数或有效期），或者它的工具登记的类别标签里有这个类别，
  * 或者这个类别是按工具名匹配到它的自定义类别（customTools 给出这个自定义类别规则里的工具）。都没有就是计划完全没涉及
  */
@@ -93,9 +93,9 @@ export function planConcernsCategory(plan: GuardPlan, categoryId: string, callTo
 
 /**
  * 已经用掉的次数：本任务、授权项所属阶段、授予之后、同一工具、对象范围之内的实际生效的效果。
- * 带着授权的会话段（定时作业的一次运行，19 号票）：效果日志已经只有这一段的，次数按这一段（每次运行）算。
- * 效果日志里内容类的参数只记了长度和摘要哈希（68 号票）：对象范围里的值按同一写法算哈希来比，和比原文结果一样。
- * 阶段详情的"已用 N/M"（84 号票，tasks/stage-view.ts）也用它：和判定同一个口径
+ * 带着授权的会话段（定时作业的一次运行）：效果日志已经只有这一段的，次数按这一段（每次运行）算。
+ * 效果日志里内容类的参数只记了长度和摘要哈希：对象范围里的值按同一写法算哈希来比，和比原文结果一样。
+ * 阶段详情的"已用 N/M"（tasks/stage-view.ts）也用它：和判定同一个口径
  */
 export function grantUses(grant: Grant, ctx: Pick<GrantContext, "task" | "effectLog" | "tools" | "env">): number {
   const mine = (e: EffectRecord) => (ctx.task.segmentScoped ? e.taskId === null : e.taskId === ctx.task.taskId && e.stageId === grant.stageId);
@@ -193,8 +193,8 @@ const shown = (v: unknown) => (typeof v === "string" ? v : JSON.stringify(v));
 
 /**
  * 一个值落不落在允许的值里：路径类参数按"在这个目录之内（或就是它）"，其余全等。
- * 对象范围里的值都是字符串（计划里只能这么写）：调用里的值按 scopeValueText 的写法比（58 号票：流程的步骤里写死的参数全部进授权项的范围）。
- * 效果日志里缩过的值（68 号票）只有原文的摘要哈希：允许的值按同一写法算哈希来比，和比原文结果一样
+ * 对象范围里的值都是字符串（计划里只能这么写）：调用里的值按 scopeValueText 的写法比（流程的步骤里写死的参数全部进授权项的范围）。
+ * 效果日志里缩过的值只有原文的摘要哈希：允许的值按同一写法算哈希来比，和比原文结果一样
  */
 function valueCovered(value: unknown, allowed: readonly unknown[], isPath: boolean): boolean {
   if (isPath) return typeof value === "string" && allowed.some((a) => typeof a === "string" && isWithin(value, a));
@@ -233,7 +233,7 @@ export function validateGrantChange(before: readonly Grant[], after: readonly Gr
   for (const a of after) {
     const b = before.find((g) => g.grantId === a.grantId);
     if (!b) {
-      // 用户在计划卡上收窄授权项时看到（173 号票：按当前语言）
+      // 用户在计划卡上收窄授权项时看到（按当前语言）
       problems.push(t("guard.grants.change.added", { grant: a.grantId }));
       continue;
     }

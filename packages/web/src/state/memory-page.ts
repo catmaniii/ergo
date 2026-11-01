@@ -1,4 +1,4 @@
-// 记忆页的几句说法（285 号票，纯函数）：顶上"和记忆管理员聊"那张卡的两行——最近一次整理、了解你访谈；记忆管理员整页对话里
+// 记忆页的几句说法（纯函数）：顶上"和记忆管理员聊"那张卡的两行——最近一次整理、了解你访谈；记忆管理员整页对话里
 // 输入框上面那一行（了解你访谈的进度和"开始访谈"，正在聊时写主题和怎么停）。数据是 GET /api/memory/summary、GET /api/memory/interview。
 import { MEMORY_NIGHTLY_STATE_LABEL } from "./memory-graph.ts";
 import { INTERVIEW_TOPIC_LABEL, INTERVIEW_TOPICS, type InterviewStatusView, type MemorySummaryView, t } from "./protocol.ts";

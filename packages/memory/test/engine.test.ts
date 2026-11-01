@@ -95,7 +95,7 @@ describe("MemoryEngine：周末社交案例的写入和查询", () => {
   });
 
   it("库是一个文件：关了再开，证据、事实、抽取记录都在", () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "memory-lab-engine-"));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "memory-engine-"));
     dirs.push(dir);
     const file = path.join(dir, "lab.db");
     const first = MemoryEngine.open({ file, clock: () => CLOCK });

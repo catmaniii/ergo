@@ -12,7 +12,7 @@
 >   - 【建议】是作者的看法；
 >   - 【未核实】是没查到定论的。
 > - **数据**：
->   - 原始数据在 `data/161-search-bench/`（未公开）：
+>   - 原始数据（未公开）：
 >     - `runs.jsonl`：每次运行一行；
 >     - `truth.json`：开跑前现取的标准答案；
 >     - `config.json`：模型、档位、各方式的工具和系统提示；
@@ -441,7 +441,7 @@ pi 在这段后面还会接两样：
 - 工作目录；
 - agent-browser 一栏另有 skill 清单（SKILL.md 的路径和说明，让模型用 bash 去读）。
 
-`web_search`、`web_fetch` 的说明和参数原样用二狗的（`packages/daemon/src/web/tools.ts`）。工具清单和网络设置见 `data/161-search-bench/config.json`（未公开）。
+`web_search`、`web_fetch` 的说明和参数原样用二狗的（`packages/daemon/src/web/tools.ts`）。
 
 ## 附录 C：每次运行
 

@@ -1,8 +1,8 @@
-// 原型看板上的假任务（proto.board 里的 TaskSummary，还没接真数据的那些）怎么菜单、怎么做（90 号票）：
+// 原型看板上的假任务（proto.board 里的 TaskSummary，还没接真数据的那些）怎么菜单、怎么做：
 // - 菜单项和真任务同一份规则（state/task-menu.ts 照"谁能改"表算），假条目按它的状态拼一个 TaskMenuSubject——阶段取假详情里的
 //   （taskDetailOf），没有的按"第 N/M 阶段"排出 M 个：前面的验收了、第 N 个是它现在的样子、后面的没开始；
 // - 做了之后状态怎么变：没有执行，照原来假任务详情里演的那套（暂停、继续——执行名额没满直接回到执行中、满了先排队、取消、归档、
-//   重试、验收通过算做完、退回 / 返工回到执行中），写一句提示；删除（186 号票）由调用方从看板上拿掉。
+//   重试、验收通过算做完、退回 / 返工回到执行中），写一句提示；删除由调用方从看板上拿掉。
 import type { ActivityState, TaskStatus, TaskSummary } from "../model/types.ts";
 import { type MenuStage, type TaskAction, taskDeleteRefusal, type TaskMenuSubject } from "../state/index.ts";
 import { FAKE_RUN_SLOTS, taskDetailOf } from "./fake-data.ts";
@@ -10,11 +10,11 @@ import { FAKE_RUN_SLOTS, taskDetailOf } from "./fake-data.ts";
 /** 假任务的阶段：假详情里有就用，没有按"第 N/M 阶段"排出来 */
 function protoStages(t: TaskSummary): MenuStage[] {
   const detail = taskDetailOf(t.id).stages;
-  // 带上前置（91 号票：按钮上的第几阶段按依赖图的编号）
+  // 带上前置（按钮上的第几阶段按依赖图的编号）
   if (detail.length > 0) return detail.map((s) => ({ stageId: s.id, state: s.status, dependsOn: s.after, ...(s.waitReason ? { waitReason: s.waitReason } : {}) }));
   if (!t.stage) return [];
   const { total } = t.stage;
-  // 原型的假任务写的是第几个（数字；真任务 93 号票起是编号"1a"）
+  // 原型的假任务写的是第几个（数字；真任务是编号"1a"）
   const current = Number.parseInt(String(t.stage.current), 10);
   const now = (): MenuStage["state"] => (t.status === "waiting_for_user" ? "waiting" : t.status === "done" || t.status === "archived" ? "accepted" : t.status === "failed" ? "failed" : "running");
   return Array.from({ length: total }, (_, i) => ({
@@ -30,7 +30,7 @@ export function protoSubject(t: TaskSummary): TaskMenuSubject {
     state: t.status,
     ...(t.waitReason ? { waitReason: t.waitReason } : {}),
     kind: t.taskKind ?? "long_running",
-    // 转为项目了的：项目还在（原型里一直在），不能单独删（186 号票，和真任务同一份说法）
+    // 转为项目了的：项目还在（原型里一直在），不能单独删（和真任务同一份说法）
     ...(t.endNote
       ? { endKind: "converted_to_project" as const, deleteRefusal: taskDeleteRefusal({ maintainerId: "", endKind: "converted_to_project" }, () => ({ name: t.projects[0] ?? t.title })) }
       : {}),
@@ -54,7 +54,7 @@ export function protoAfter(action: TaskAction, running: number): { status: TaskS
       return { status: "cancelled", activity: "sleeping", toast: "已取消" };
     case "archive":
       return { status: "archived", toast: "已归档" };
-    // 186 号票：假任务从看板上拿掉（调用方拿掉），这里只给提示
+    // 假任务从看板上拿掉（调用方拿掉），这里只给提示
     case "delete":
       return { status: "cancelled", toast: "已删除" };
     case "retry":

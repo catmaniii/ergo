@@ -1,4 +1,4 @@
-// "浏览"页签（134 号票）的地址栏和设备设置：打的字变成要打开的网址（app/browse-address.ts）、搜索引擎和最近访问（state/browse.ts、
+// "浏览"页签的地址栏和设备设置：打的字变成要打开的网址（app/browse-address.ts）、搜索引擎和最近访问（state/browse.ts、
 // app/browse-settings.ts，存储换成假的）。
 import { describe, expect, test } from "vitest";
 import { addressToUrl } from "../../src/plugins/browsing/browse-address.ts";
@@ -46,7 +46,7 @@ describe("搜索引擎和最近访问", () => {
     expect(searchEngineOf("google")).toBe("google");
   });
 
-  test("最近访问：新的放最前、同一个地址只留一条、没标题留旧的、只记 http(s)、最多 500 条（165 号票起是完整的浏览记录）", () => {
+  test("最近访问：新的放最前、同一个地址只留一条、没标题留旧的、只记 http(s)、最多 500 条（是完整的浏览记录）", () => {
     let list = addRecentVisit([], { url: "https://a.com/", title: "甲", time: 1 });
     list = addRecentVisit(list, { url: "https://b.com/", title: "乙", time: 2 });
     list = addRecentVisit(list, { url: "https://a.com/", title: "", time: 3 });

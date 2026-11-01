@@ -1,4 +1,4 @@
-// 这个页面的风格预览（39 号票）：把 app/style-preview.ts 接到浏览器的 document 上。
+// 这个页面的风格预览：把 app/style-preview.ts 接到浏览器的 document 上。
 // 单独一个文件，app/style-preview.ts 就不碰浏览器的全局变量，能在 Node 里测。
 import { type StylePreviews, stylePreviewsIn } from "./style-preview.ts";
 

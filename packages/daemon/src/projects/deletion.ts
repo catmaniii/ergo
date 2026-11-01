@@ -3,11 +3,11 @@
 // 2. 复查：停下来的这段时间里用户取消了归档（或者项目已经不在了）就整个中止，什么都不删，负责人恢复成能唤起；
 //    没变就在同一个事务里追加项目的 deleted，并改写属于这个项目的事件（和彻底删除同一个口子 appendBatch 的 purge，ADR-0008）；
 // 3. 最后删项目档案和会话区里负责人的会话文件（项目已经删了，不再回头）。
-// 改写哪些、换成什么由"删除参与方"登记表定（279 号票，deletion/participants.ts）：拥有属于项目的事件的模块各自登记——项目自己的
+// 改写哪些、换成什么由"删除参与方"登记表定（deletion/participants.ts）：拥有属于项目的事件的模块各自登记——项目自己的
 // （负责人会话整条换成标记、立项书和规范改写、说的是这个项目的卡、项目之外读过它的调用：projects/deletion-participants.ts）、工单
 // （work-orders/purge.ts）、运营方案（operations/deletion.ts），内核里的任务（内部任务和它们的记录、卡片）、子 agent（并行）、触发底座
 // （定时作业）、守卫接入（这个负责人的审批、效果日志、执行记录、完整内容）、范围审视（范围记录）、待我处理（属于项目的事项）、
-// 素材库（内部任务由系统记下的记录，66 号票）。新加一种属于项目的事件，在拥有它的模块里登记就随项目删，不用改这里。
+// 素材库（内部任务由系统记下的记录）。新加一种属于项目的事件，在拥有它的模块里登记就随项目删，不用改这里。
 // 用户本人说过的话（负责人会话里的发言、投喂的材料、记忆命令）作为素材保留（原文副本，ADR-0006），负责人会话也不追加
 // messages_purged（整条换成了标记，会话文件整个删掉）。
 import type { Project } from "@ergo/protocol";
@@ -59,7 +59,7 @@ export async function deleteProject(deps: ProjectDeletionDeps, projectId: string
     log(`删除项目 ${projectId}「${project.name}」中止了：停负责人的时候项目已经不在已归档，什么都没删`);
     return;
   }
-  // 照彻底删除的口径改写，完整内容注明"已随项目删除"（66 号票）；没登记改写函数的事件类型在这里抛错，整个删除被拒
+  // 照彻底删除的口径改写，完整内容注明"已随项目删除"；没登记改写函数的事件类型在这里抛错，整个删除被拒
   const plan = deps.participants.plan(PROJECT_DELETION, { project: current }, { deletedAt: deps.now(), materialIds: new Set(), purgedBy: "project_deletion" });
   store.appendBatch([deps.deletedEvent(current), ...plan.events], { purge: plan.purge });
   // 3. 项目已经删了：再删参与方要提交之后删的、项目档案和会话文件

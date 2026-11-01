@@ -1,10 +1,10 @@
-// 工单的视图（纯函数，16 号票）：
+// 工单的视图（纯函数）：
 // - 项目页上的工单流水线：排队中（待接）、进行中（含等澄清）、已结束三栏，每张工单显示来源、所属任务和这个任务现在到哪了；
 // - 看板上任务卡的"等项目 X"：只在真被项目挡住时标——任务有一张还排着（待接）的工单、任务正等着它（起草计划的还在规划中，
 //   执行的在排队中），而项目的负责人手上有别的工单（一次只做一件）。全局执行名额满了、任务暂停了都不算。
 // 工单不在看板上单独占卡：看板上只有任务，工单挂在任务和项目上。
-// 17 号票：任务详情里的工单列表（taskWorkOrders）：涉及多个项目的任务的全部工单，含建出了还没派出的。
-// 19 号票：定时作业的一次运行也是一张工单（来源"定时作业"，不属于任务）：流水线上写它是哪个作业的运行、这次运行到哪了。
+// 任务详情里的工单列表（taskWorkOrders）：涉及多个项目的任务的全部工单，含建出了还没派出的。
+// 定时作业的一次运行也是一张工单（来源"定时作业"，不属于任务）：流水线上写它是哪个作业的运行、这次运行到哪了。
 import {
   isActiveWorkOrder,
   isJobRunWorkOrder,
@@ -38,7 +38,7 @@ export interface WorkOrderView {
   task: Task | undefined;
   /** 所属任务现在到哪了："执行中 · 第 1/2 阶段「写出来」"；看板上没有这个任务时没有 */
   stage: string | undefined;
-  /** 定时作业的一次运行（19 号票）：是哪个作业的（看板上收到过的） */
+  /** 定时作业的一次运行：是哪个作业的（看板上收到过的） */
   job: ScheduledJob | undefined;
   /** 这次运行现在怎样："运行中"、"失败"；不是运行的工单、没收到过这次运行时没有 */
   run: string | undefined;
@@ -48,7 +48,7 @@ export interface WorkOrderView {
 export const ENDED_WORK_ORDERS_SHOWN = 10;
 
 /**
- * 任务现在到哪了：状态，执行起来之后加上第几阶段（91 号票：按依赖图的阶段号写"第 N/M 阶段"——负责人正在做的那一阶段的阶段号 /
+ * 任务现在到哪了：状态，执行起来之后加上第几阶段（按依赖图的阶段号写"第 N/M 阶段"——负责人正在做的那一阶段的阶段号 /
  * 一共几个阶段号，并行的算一个，和任务详情的状态行一样）
  */
 function stageOf(task: Task | undefined): string | undefined {
@@ -80,7 +80,7 @@ function viewOf(state: UiState, workOrder: WorkOrder): WorkOrderView {
   };
 }
 
-/** 一张工单给人看的样子（55 号票：缩小后左侧的工单卡点开看）；没收到过这张工单是 undefined */
+/** 一张工单给人看的样子（缩小后左侧的工单卡点开看）；没收到过这张工单是 undefined */
 export function workOrderView(state: UiState, workOrderId: string): WorkOrderView | undefined {
   const workOrder = state.workOrders[workOrderId];
   return workOrder && viewOf(state, workOrder);
@@ -121,7 +121,7 @@ export function taskWaitingForProject(state: UiState, taskId: string): string | 
   return busy ? (state.projects[pending.projectId]?.name ?? pending.projectId) : undefined;
 }
 
-/** 任务详情里的一张工单（17 号票）：发给哪个项目、现在怎样、所属阶段和那个阶段现在怎样 */
+/** 任务详情里的一张工单：发给哪个项目、现在怎样、所属阶段和那个阶段现在怎样 */
 export interface TaskWorkOrderView {
   workOrder: WorkOrder;
   /** 收件项目的名字 */
@@ -138,12 +138,12 @@ export interface TaskWorkOrderView {
 const stageIdOf = (w: WorkOrder) => (w.source === "task_maintainer" ? w.stageId : undefined);
 
 /**
- * 任务详情里的工单列表（17 号票）：这个任务的全部工单，包括建出了还没派出的（等阶段开始、待你确认）和没派出的（你拒绝了）；
+ * 任务详情里的工单列表：这个任务的全部工单，包括建出了还没派出的（等阶段开始、待你确认）和没派出的（你拒绝了）；
  * 按所属阶段的先后，同一阶段按建出的先后
  */
 export function taskWorkOrders(state: UiState, taskId: string): TaskWorkOrderView[] {
   const list = state.tasks[taskId]?.stages?.list ?? [];
-  // 91 号票：第几阶段按依赖图的编号
+  // 第几阶段按依赖图的编号
   const codes = taskStageCodes(state, taskId);
   const stageIndex = (w: WorkOrder) => {
     const i = list.findIndex((s) => s.stageId === stageIdOf(w));

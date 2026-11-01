@@ -1,9 +1,9 @@
-// 主切面（154 号票起；162 号票改成按设置里的队列）：联网搜索、读网页接 DeepSeek 的 Search / Fetch 接口和浏览器。真的守护进程，
+// 主切面（改成按设置里的队列）：联网搜索、读网页接 DeepSeek 的 Search / Fetch 接口和浏览器。真的守护进程，
 // 秘书接 faux 剧本，测试扮演前端；联网是正式的 createWebAccess，但浏览器是假的、直接请求是假的、DeepSeek 是本机临时端口上的假服务
 // （不连真网络、key 是假的）。
-// 182 号票起队列是四种（多鸿蒙 App 的内置浏览器，秘书页签里发的普通一轮跳过它；侧边栏那一轮见 web-app-browser.test.ts）。
+// 队列是四种（多鸿蒙 App 的内置浏览器，秘书页签里发的普通一轮跳过它；侧边栏那一轮见 web-app-browser.test.ts）。
 // - 设置接口：GET 看存着的队列、实际用的顺序、key 配没配（响应里没有 key 的内容）；POST 整份存，不合规（形状不对、一个启用的都没留、
-//   多出来的字段、154 号票的旧写法）回 400；没配 key 时实际的顺序里没有 DeepSeek；154 号票的旧设置文件读成队列；
+//   多出来的字段、旧写法）回 400；没配 key 时实际的顺序里没有 DeepSeek；旧设置文件读成队列；
 // - 初始顺序：秘书的 web_search 走 DeepSeek，web_fetch 直接请求被拦后走 DeepSeek 读网页；成了的调用记进账本（秘书的是系统开销），
 //   消耗页的 web 一节看得到次数和花费；改成浏览器排第一以后下一次搜索走浏览器、不调 DeepSeek、不记账（秘书按新的装配重新拉起）；
 // - 回退顺序：浏览器排第一而浏览器没搜到时换 DeepSeek 并写明；停用了的方式重新装配后参数里没有、硬写过不了参数校验，不发请求；
@@ -107,7 +107,7 @@ describe("设置里的联网搜索队列（接口）", () => {
     expect(res.body.message).toBe("联网设置的参数不对：至少要留一种启用的方式（没配 DeepSeek 的 key，只启用它不算）");
   });
 
-  it("154 号票的旧设置文件（默认浏览器、不用 DeepSeek 读网页）读成队列：浏览器排第一、DeepSeek 第二", async () => {
+  it("旧设置文件（默认浏览器、不用 DeepSeek 读网页）读成队列：浏览器排第一、DeepSeek 第二", async () => {
     const dataDir = makeTempDir("ergo-data-");
     const file = dataDirLayout(dataDir).webSettingsFile;
     fs.mkdirSync(path.dirname(file), { recursive: true });

@@ -1,4 +1,4 @@
-// 主切面：彻底删除计划的决定、提问卡的回答、授权续期的决定（规格第 15 节，80 号票）。秘书和负责人接 faux 剧本，测试扮演前端。
+// 主切面：彻底删除计划的决定、提问卡的回答、授权续期的决定（规格第 15 节）。秘书和负责人接 faux 剧本，测试扮演前端。
 // 三类事件产生的素材都能在记忆删除卡上彻底删除（设置里的批量删除同一套），只换用户写的话，决定和状态不变：
 // - 提问卡的回答：事件里每题的答案、卡上记的答案换成删除标记，交回秘书的那条通知整条换成"已删除"，秘书的会话文件里也没有；
 // - 计划卡打回的意见：事件和卡上处理结果里的话换成删除标记，交回负责人的那条通知整条换成"已删除"，负责人的会话文件里也没有；
@@ -277,7 +277,7 @@ describe("彻底删除授权续期的决定", () => {
     };
     const td = await startTestDaemon({
       clock,
-      // 265 号票：给了 clock 时底座默认停掉记忆插件；记忆删除卡、素材检索是它的，打开
+      // 给了 clock 时底座默认停掉记忆插件；记忆删除卡、素材检索是它的，打开
       memoryPlugin: true,
       // 不让无进展的催促掺进来
       config: { tasks: { thresholds: { stallMinutes: 365 * 24 * 60 } } },
@@ -311,8 +311,8 @@ describe("彻底删除授权续期的决定", () => {
   }, 90_000);
 });
 
-describe("彻底删除重做时写的原因（84 号票）", () => {
-  it("设置里按时间段彻底删除：用户对产出的反应里的原因换成删除标记，连带会话里重做记录引着的话；阶段和验收的结论不变（112 号票起长程任务没有由你验收，也就没有退回时写的原因）", async () => {
+describe("彻底删除重做时写的原因", () => {
+  it("设置里按时间段彻底删除：用户对产出的反应里的原因换成删除标记，连带会话里重做记录引着的话；阶段和验收的结论不变（长程任务没有由你验收，也就没有退回时写的原因）", async () => {
     const redo = "从头换成学术来源";
     const td = await startTestDaemon({
       maintainer: maintainerScript(twoStagePlan(), [
@@ -343,7 +343,7 @@ describe("彻底删除重做时写的原因（84 号票）", () => {
 
     const all = JSON.stringify(td.daemon.store.readGlobal(0, 100_000));
     expect(all).not.toContain("学术来源");
-    // 276 号票：重做时存下、等复验的那份交代（交给负责人之后也留着）连带整条换成"已删除"
+    // 重做时存下、等复验的那份交代（交给负责人之后也留着）连带整条换成"已删除"
     const held = td.daemon.store.read(TASKS_CHANNEL, 0, TASK_EVENTS.reworkNoticeHeld);
     expect(held).toHaveLength(1);
     expect(isDeletedEventPayload(held[0]!.payload)).toBe(true);

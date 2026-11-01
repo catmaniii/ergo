@@ -1,4 +1,4 @@
-// 主切面：每个 agent 的会话里一个 ⚙（114 号票，规格第 19 节"Web UI"、系统提示一节）。
+// 主切面：每个 agent 的会话里一个 ⚙（规格第 19 节"Web UI"、系统提示一节）。
 // - 单独的提示词：存在数据目录配置区（agent-prompts/，按 agent 分）、读回、面板上拼出实际用的系统提示，从这个 agent 的下一轮起按新的；
 //   占位符照它的通用模板查，写错的存不进去；整份自己写的替换通用模板，能恢复用通用模板；
 // - 清空当前对话：新开一段会话，模型看到的上下文里没有之前的聊天（旧消息还在事件日志里，会话里一条分隔线）；任务的计划、阶段
@@ -106,7 +106,7 @@ describe("单独的提示词：存、读回、拼出实际的提示，下一轮�
     expect((await agentSettingsApi.view(url, "nobody")).status).toBe(404);
   });
 
-  // 242 号票：记忆管理员也有 ⚙（提示词、清空、上下文用量；模型那行先跟随秘书的）
+  // 记忆管理员也有 ⚙（提示词、清空、上下文用量；模型那行先跟随秘书的）
   it("记忆管理员：面板上认它（kind curator、通用模板是它的那份），能存单独的提示词、能清空", async () => {
     const { url, dataDir } = await startTestDaemon({ secretary: [{ kind: "reply", text: "好。" }], curator: [{ kind: "reply", text: "在。" }] });
     const before = await agentSettingsApi.view(url, "memory-curator");
@@ -221,7 +221,7 @@ describe("清空当前对话：新开一段会话，旧的不删", () => {
     expect((await agentSettingsApi.compact(td.url, "tm-1")).status).toBe(400);
   });
 
-  // 375 号票：只读的 agent 改不了角色，报错不能再让人"改成别的角色"，要说真正能做的
+  // 只读的 agent 改不了角色，报错不能再让人"改成别的角色"，要说真正能做的
   it("删角色：结束了的任务、归档了的项目用着时，报错说真正能做的；删了任务，角色就能删", async () => {
     const td = await startTestDaemon({ maintainer: (id, n) => (id === "tm-1" && n === 1 ? [submitPlanStep(onePlan()), say("计划交上去了")] : [say("好"), say("好"), say("好")]) });
     seedProject(td.daemon, "旧账本", { state: "archived" });
@@ -341,7 +341,7 @@ describe("上下文用量和现在压缩", () => {
     expect(again.usedTokens).toBe(tokenTotal(lastWork().tokens));
   });
 
-  // 311 号票（294 号票端到端小测第 4 条）：Claude Code 的用量大半是缓存命中，总数看着吓人——单写其中缓存命中的
+  // 端到端小测第 4 条：Claude Code 的用量大半是缓存命中，总数看着吓人——单写其中缓存命中的
   it("用量里其中缓存命中的单写一个数（最近一次调用的）；那次没命中缓存的没有这一项", async () => {
     const td = await startTestDaemon({
       secretary: [

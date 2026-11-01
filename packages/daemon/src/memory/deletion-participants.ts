@@ -1,9 +1,9 @@
-// 素材库在"删除参与方"登记表里的那一份（279 号票；登记表见 deletion/participants.ts）：随删除彻底删掉由系统记下的素材（66 号票，
-// 用户 2026-10-10 定分界）。原来在 projects/deletion.ts（ADR-0010）、tasks/deletion.ts（186 号票）里各写一遍。
+// 素材库在"删除参与方"登记表里的那一份（登记表见 deletion/participants.ts）：随删除彻底删掉由系统记下的素材（
+// 分界）。原来在 projects/deletion.ts（ADR-0010）、tasks/deletion.ts里各写一遍。
 // - 删项目：这个项目的内部任务由系统记下的记录（internal-records.ts：结局、计划和审批的决定、验收、提问卡的回答、建议卡被关掉……）；
 // - 删任务：从这次改写了的事件采到的系统记录（任务的结局、计划和审批的决定、对产出的反应、回避信号……）。
 // 用户本人说过的话（发言、投喂的材料、记忆命令）不删：原文副本里有（ADR-0006），重建时补回。
-// - 断开数据源时连已导入的一起删（295 号票）：由它导入的记录（这次换成标记的那些事件）采成的素材，不分种类全删——用户选的就是
+// - 断开数据源时连已导入的一起删：由它导入的记录（这次换成标记的那些事件）采成的素材，不分种类全删——用户选的就是
 //   "连已导入的一起删"，本人的也删（原文副本跟着删，重建时不回来）。
 // 照彻底删除的口径：同一事务记一条彻底删除的记忆命令（出处 project_deletion / task_deletion，不产生"显式记忆命令"素材——不是用户下的命令），
 // 素材模块据此删掉素材和索引、记下墓碑，重建时不回来；改写它们的原始事件和带原话的记录。要看整张改写单，在 settle 一步里做：
@@ -26,7 +26,7 @@ export interface MaterialsDeletionDeps {
   materials: () => readonly Material[];
   /** 这个项目的内部任务由系统记下的记录（素材库只保管时也找得到只在原文副本里的） */
   internalRecords: (projectId: string) => readonly Material[];
-  /** 这些素材在推理库里的证据编号（272 号票）：问记忆的结果按证据编号引原话，一起找（同 PurgeDeps.evidenceOf） */
+  /** 这些素材在推理库里的证据编号：问记忆的结果按证据编号引原话，一起找（同 PurgeDeps.evidenceOf） */
   evidenceOf?: (materialIds: readonly string[]) => readonly string[];
 }
 

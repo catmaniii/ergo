@@ -1,4 +1,4 @@
-// minisign 格式的签名（318 号票）：BLAKE2b 对上 Python hashlib 算的值和 Node 自带的 blake2b512；Ed25519 对上 RFC 8032 的例子；
+// minisign 格式的签名：BLAKE2b 对上 Python hashlib 算的值和 Node 自带的 blake2b512；Ed25519 对上 RFC 8032 的例子；
 // 签名、验签、改了内容 / 可信说明 / 换了钥匙都验不过；私钥文件（不加口令、加口令）读写一圈。
 import crypto from "node:crypto";
 import fs from "node:fs";

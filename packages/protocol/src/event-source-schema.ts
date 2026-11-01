@@ -1,4 +1,4 @@
-// 事件触发方式的 schema（77 号票，ADR 0025），用 TypeBox 定义：任务的触发方式、简单提醒、触发登记里都是这一个。
+// 事件触发方式的 schema（ADR 0025），用 TypeBox 定义：任务的触发方式、简单提醒、触发登记里都是这一个。
 // 来源、事件、过滤条件有哪些看登记表（event-sources.ts 的 EVENT_SOURCES）；这里只管形状，写得对不对由 eventTriggerProblems 和守护进程查。
 import { type Static, Type } from "typebox";
 

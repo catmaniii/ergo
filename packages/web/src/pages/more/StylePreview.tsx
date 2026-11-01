@@ -1,4 +1,4 @@
-// 设置 · 外观 · 风格里的一张预览（39 号票）：一套风格在浅色或深色下，现场画一小段固定的场景。
+// 设置 · 外观 · 风格里的一张预览：一套风格在浅色或深色下，现场画一小段固定的场景。
 // 怎么做到"用这套风格自己的 token 和规则"见 src/visual-styles/preview.ts 开头：容器挂 data-style、data-theme，
 // 场景放在容器的 shadow root 里，用页面样式表复制出来的那份（挂 shadow root、复制样式表在 app/style-preview.ts）。
 // 场景用真界面的类名和组件（消息、卡片、按钮、导航的 NavTab），界面的样子改了预览跟着变。
@@ -14,9 +14,9 @@ import { PartView } from "../../ui/conversation/parts.tsx";
 import type { IconName } from "../../ui/icons.tsx";
 import { type NavBadge, type NavEntry, NavTab } from "../../ui/main-nav.tsx";
 
-/** 那排导航图标：秘书那一项选中，待办亮着未读的小红点（只画图标，字藏着；89 号票起秘书那一项也是普通的"秘书"两个字） */
+/** 那排导航图标：秘书那一项选中，待办亮着未读的小红点（只画图标，字藏着；秘书那一项也是普通的"秘书"两个字） */
 const NAV: readonly NavEntry[] = ["secretary", "tasks", "inbox", "calendar"];
-/** 日历（213 号票起是日历插件的页面，不在核心的导航表里）：预览只是一张固定的图，写的字和退路的图标在这里给（和导航里的一样） */
+/** 日历（是日历插件的页面，不在核心的导航表里）：预览只是一张固定的图，写的字和退路的图标在这里给（和导航里的一样） */
 const PLUGIN_TABS: Partial<Record<NavEntry, { label: () => string; icon: IconName }>> = { calendar: { label: () => translate("shell.nav.calendar"), icon: "calendar" } };
 const NAV_BADGE: NavBadge = { unread: 1, seenPending: 0 };
 const NO_BADGE: NavBadge = { unread: 0, seenPending: 0 };
@@ -73,7 +73,7 @@ export function usePreviewFonts(): void {
   useLayoutEffect(() => pageTheme().showPreviewFonts(), []);
 }
 
-/** accent：这套风格的主色（119 号票，只有经典有），容器挂上 data-accent，换掉的 token 照样从容器继承进场景 */
+/** accent：这套风格的主色（只有经典有），容器挂上 data-accent，换掉的 token 照样从容器继承进场景 */
 export function StylePreview({ styleId, theme, accent }: { styleId: string; theme: Theme; accent?: string | undefined }) {
   const hostRef = useRef<HTMLSpanElement>(null);
   const [root, setRoot] = useState<ShadowRoot>();

@@ -1,4 +1,4 @@
-// zip 读写（318 号票）：写一圈读一圈；中文名、空文件、压不小的（存储）；zip64（条目多于 65535）；不安全的路径、坏了的包不解；
+// zip 读写：写一圈读一圈；中文名、空文件、压不小的（存储）；zip64（条目多于 65535）；不安全的路径、坏了的包不解；
 // 写出来的包 PowerShell（.NET 的 ZipFile，安装脚本用它解）也解得开。
 import { spawnSync } from "node:child_process";
 import crypto from "node:crypto";

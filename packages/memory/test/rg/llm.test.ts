@@ -14,7 +14,7 @@ afterEach(closeEngines);
 const ids = (re: RegExp, text: string) => [...text.matchAll(re)].map((m) => m[1]!);
 
 describe("模型版事实抽取（LlmFactExtractor）", () => {
-  it("204：有效期截止早于开始的事实写入前丢掉，不让整次抽取崩掉", async () => {
+  it("有效期截止早于开始的事实写入前丢掉，不让整次抽取崩掉", async () => {
     const model = new FakeChatModel((req: ChatRequest) => {
       const [first] = ids(/"evidence_id":"(ev-[^"]+)"/g, req.user);
       return {
@@ -51,7 +51,7 @@ describe("模型版事实抽取（LlmFactExtractor）", () => {
     expect(report.modelCalls).toBe(1);
     expect(report.dropped.map((d) => d.reason)).toEqual(expect.arrayContaining(["伪造的证据 id：ev-999", "谓词不认得：loves"]));
     const [fact] = engine.store.listFacts();
-    // 334 号票：模型给 null（= 一直）、原话"我喜欢爬山"没说从什么时候起——开始按说话那天算
+    // 模型给 null（= 一直）、原话"我喜欢爬山"没说从什么时候起——开始按说话那天算
     expect(fact).toMatchObject({ predicate: "prefers", statement: "用户一直在周末喜欢爬山", extractedBy: "model:fake-llm", assertion: "user_stated", validFrom: "2026-10-01T10:00:00+08:00", evidenceIds: ["ev-1"] });
     expect(engine.store.listFacts()).toHaveLength(1);
   });
@@ -135,7 +135,7 @@ describe("模型版推理（LlmReasoner）", () => {
     expect(members[2]).toMatchObject({ tier: "state", validTo: "2026-10-22T21:00:00+08:00" });
   });
 
-  it("204：模型给的有效期截止早于观察开始时不崩——不用它，照默认（近期状态到最后一次观察后 14 天），记进丢掉的", async () => {
+  it("模型给的有效期截止早于观察开始时不崩——不用它，照默认（近期状态到最后一次观察后 14 天），记进丢掉的", async () => {
     const model = new FakeChatModel((req) => {
       if (req.purpose !== "propose") return {};
       const facts = ids(/"fact_id":"(fa-\d+)"/g, req.user);
@@ -166,7 +166,7 @@ describe("模型版推理（LlmReasoner）", () => {
     const { engine } = openEngine("2026-10-13T12:00:00+08:00", { reasoner: new LlmReasoner(model) });
     ingestWeekend(engine, ["ev-w01", "ev-w02", "ev-w03"]);
     const report = await engine.reflect({ maxModelCalls: 1 });
-    // 270 号票：整理完一条记一条——出假设问成了、给新组出追问被预算挡住：那组观察背后的证据不算整理过，留给下一次；
+    // 整理完一条记一条——出假设问成了、给新组出追问被预算挡住：那组观察背后的证据不算整理过，留给下一次；
     // 没进组、也没有追问欠着的那条照样记下（它的事实下一次出假设还会再看）
     expect(report).toMatchObject({ modelCalls: 1, budgetExhausted: true, processedEvidenceIds: ["ev-w02"], backlog: 2 });
     expect(model.calls).toHaveLength(1);
@@ -201,7 +201,7 @@ describe("DeepSeek 客户端", () => {
     expect(JSON.parse(sent[1]!.body).thinking).toEqual({ type: "enabled" });
   });
 
-  it("192：finish_reason 是 length（输出到了 max_tokens）时标 truncated；推理实现丢掉时写明是被截断", async () => {
+  it("finish_reason 是 length（输出到了 max_tokens）时标 truncated；推理实现丢掉时写明是被截断", async () => {
     const chat = new DeepSeekChat({ env: { [DEEPSEEK_KEY_ENV]: "sk-test-123" }, post: truncatedPost });
     expect((await chat.complete({ purpose: "propose", system: "", user: "", maxTokens: 8000 })).truncated).toBe(true);
     const { engine } = openEngine("2026-10-09T12:00:00+08:00", { reasoner: new LlmReasoner(chat) });

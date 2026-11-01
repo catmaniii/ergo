@@ -8,9 +8,9 @@
 //   也不在内）：工作目录靠 git 提交或备份，照 v1 模板；也免得 rm -rf node_modules 这类调用整树同步复制。
 //   历史区只由运行时写：任何 agent 用任何方式写入或删除都是永不（守卫的受保护区域），守卫也不对它传 backedUp；
 // - 删除项目时整格删掉（外部工作目录不动：那是用户自己的东西）。
-// - 258 号票（项目规范）：记了模板版本的项目（规范上线之后立项的），规格、进展、决策记录照规范模板生成，开发类另有架构图 architecture.md、
+// -（项目规范）：记了模板版本的项目（规范上线之后立项的），规格、进展、决策记录照规范模板生成，开发类另有架构图 architecture.md、
 //   票 tickets/、运营接口清单 ops.json（standard.ts）；立项书、术语表、项目清单、范围记录照旧，算辅助。规范上线之前建的项目照旧的最小文档集。
-// - 261 号票（本项目的规范改写）：补文档时跳过用户确认了不要的那几份；确认了的改写由运行时写成 standard-overrides.md（现在生效的每一条、
+// -（本项目的规范改写）：补文档时跳过用户确认了不要的那几份；确认了的改写由运行时写成 standard-overrides.md（现在生效的每一条、
 //   变更记录），负责人手改不算数。
 import fs from "node:fs";
 import path from "node:path";
@@ -51,13 +51,13 @@ export interface ProjectRecordsPaths {
   progress: string;
   manifest: string;
   scopeRecords: string;
-  /** 架构图（258 号票：开发类的规范文档） */
+  /** 架构图（开发类的规范文档） */
   architecture: string;
-  /** 票（258 号票：开发类，一票一文件） */
+  /** 票（开发类，一票一文件） */
   tickets: string;
-  /** 运营接口清单（258 号票：开发类，MCP 格式，转运营之前要交） */
+  /** 运营接口清单（开发类，MCP 格式，转运营之前要交） */
   ops: string;
-  /** 本项目的规范改写（261 号票）：运行时照用户确认了的规范改写写，负责人改了不算数 */
+  /** 本项目的规范改写：运行时照用户确认了的规范改写写，负责人改了不算数 */
   standardOverrides: string;
   /** 绑定关系（外部工作目录） */
   binding: string;
@@ -94,7 +94,7 @@ export function projectWorkdir(paths: ProjectRecordsPaths, project: Pick<Project
 }
 
 /**
- * 立项书照项目的工作目录写（311 号票）：工作目录已经在外面的（305 号票新建时选的文件夹、290 号票接管来的会话原来的；立项书确认时不改它），
+ * 立项书照项目的工作目录写：工作目录已经在外面的（新建时选的文件夹、接管来的会话原来的；立项书确认时不改它），
  * 立项书就是绑定了那个外部路径——走绑定外部路径同一条路（立项书卡、charter.md、binding.json 都写成已绑定），负责人交的绑不绑、哪条路径不算。
  * 不限开发类：文件夹是用户新建时定的，不是负责人提议绑定。工作目录在档案里的原样
  */
@@ -105,7 +105,7 @@ export function charterForWorkdir(charter: Charter, workdir: Project["workdir"] 
 }
 
 /** 最小文档集：文件、标题、一开始写什么（负责人在立项问答里往里写） */
-// 173 号票：建档时按当时的语言写（标题、开头的说明在语言文件里：projects.records.<文档>.title / .intro）
+// 建档时按当时的语言写（标题、开头的说明在语言文件里：projects.records.<文档>.title / .intro）
 const MINIMAL_DOCS: ReadonlyArray<keyof ProjectRecordsPaths & ("charter" | "spec" | "glossary" | "progress" | "manifest" | "scopeRecords")> = [
   "charter",
   "spec",
@@ -115,14 +115,14 @@ const MINIMAL_DOCS: ReadonlyArray<keyof ProjectRecordsPaths & ("charter" | "spec
   "scopeRecords",
 ];
 
-/** 规格、进展（连同决策记录的说明）：记了模板版本的项目照规范模板生成（258 号票），规范上线之前建的照旧 */
+/** 规格、进展（连同决策记录的说明）：记了模板版本的项目照规范模板生成，规范上线之前建的照旧 */
 const STANDARD_COVERED: ReadonlyArray<(typeof MINIMAL_DOCS)[number]> = ["spec", "progress"];
 
 /**
- * 建好项目档案的最小文档集和默认工作目录（已有的不动：守护进程重启时再对一遍也安全）。258 号票：记了模板版本的（standardVersion），
+ * 建好项目档案的最小文档集和默认工作目录（已有的不动：守护进程重启时再对一遍也安全）。记了模板版本的（standardVersion），
  * 规格、进展、决策记录照规范模板；项目类型定了（立项书确认）再补上这一类另有的（开发类的架构图、tickets/、ops.json）。
- * 261 号票：dropped 是本项目的规范改写里不要的那几份（用户确认过的），不补。
- * 311 号票：工作目录已经在外面的（305 号票新建时选的文件夹、290 号票接管来的会话原来的、立项书绑定了外部路径的）不建档案里那个用不上的 workdir/
+ * dropped 是本项目的规范改写里不要的那几份（用户确认过的），不补。
+ * 工作目录已经在外面的（新建时选的文件夹、接管来的会话原来的、立项书绑定了外部路径的）不建档案里那个用不上的 workdir/
  */
 export function ensureProjectRecords(
   paths: ProjectRecordsPaths,
@@ -151,7 +151,7 @@ function writeIfMissing(file: string, content: string): void {
 }
 
 /**
- * 立项书末尾的一条变更记录（125 号票）：哪天、改了什么、依据的用户原话（运行时核实过的）、负责人为什么提、用户确认
+ * 立项书末尾的一条变更记录：哪天、改了什么、依据的用户原话（运行时核实过的）、负责人为什么提、用户确认
  */
 export interface CharterChangeRecord {
   /** 这个项目的第几次立项要求变更 */
@@ -169,7 +169,7 @@ export interface CharterChangeRecord {
 const dayTime = (iso: string) => iso.slice(0, 16).replace("T", " ");
 
 /**
- * 立项书的全文（项目档案里的 charter.md；125 号票起范围审视的对照物也用它，从事件算，不读文件）：现在的立项要求，
+ * 立项书的全文（项目档案里的 charter.md；范围审视的对照物也用它，从事件算，不读文件）：现在的立项要求，
  * 末尾是每一次用户确认了的立项要求变更
  */
 export function charterMarkdown(
@@ -212,7 +212,7 @@ export function charterMarkdown(
     t("projects.records.toolkitBash", { on: t(toolkit.bash ? "projects.records.on" : "projects.records.off") }),
     t("projects.records.toolkitNetwork", { on: t(toolkit.network ? "projects.records.on" : "projects.records.off") }),
     "",
-    // 运营方式（130 号票，选填）：只是个大概，不算授权
+    // 运营方式（选填）：只是个大概，不算授权
     ...(charter.operations ? [`## ${t("projects.records.charterOperations")}`, "", charter.operations, "", t("projects.records.operationsNote"), ""] : []),
   ];
   if (changes.length > 0) {
@@ -235,8 +235,8 @@ export function charterMarkdown(
 }
 
 /**
- * 立项书确认时写进档案：立项书（旧的先留一份）和工作目录的绑定关系；125 号票起立项要求变更确认后也重写一遍（末尾带变更记录）。
- * 311 号票：工作目录在立项之前就定在外面的，照它写成已绑定（charterForWorkdir；修好之前交的立项书也一样）
+ * 立项书确认时写进档案：立项书（旧的先留一份）和工作目录的绑定关系；立项要求变更确认后也重写一遍（末尾带变更记录）。
+ * 工作目录在立项之前就定在外面的，照它写成已绑定（charterForWorkdir；修好之前交的立项书也一样）
  */
 export function writeConfirmedCharter(
   paths: ProjectRecordsPaths,
@@ -254,7 +254,7 @@ export function writeConfirmedCharter(
   fs.writeFileSync(paths.binding, `${JSON.stringify(binding, null, 2)}\n`);
 }
 
-/** 本项目的规范改写里用户确认了的一次（261 号票，standard-overrides.md 末尾的变更记录） */
+/** 本项目的规范改写里用户确认了的一次（standard-overrides.md 末尾的变更记录） */
 export interface StandardChangeRecord {
   /** 这个项目的第几次规范改写 */
   revision: number;
@@ -268,7 +268,7 @@ export interface StandardChangeRecord {
 }
 
 /**
- * 本项目的规范改写（261 号票，项目档案里的 standard-overrides.md）：用的哪一版规范、现在生效的每一条改写，末尾是用户确认了的每一次。
+ * 本项目的规范改写（项目档案里的 standard-overrides.md）：用的哪一版规范、现在生效的每一条改写，末尾是用户确认了的每一次。
  * 由运行时照事件写（负责人改了不算数，下次确认时整份重写）
  */
 export function standardOverridesMarkdown(
@@ -307,7 +307,7 @@ export function standardOverridesMarkdown(
   return lines.join("\n");
 }
 
-/** 本项目的规范改写写进档案（261 号票）：和现在的不一样才写，旧的先留进历史区；写了返回 true */
+/** 本项目的规范改写写进档案：和现在的不一样才写，旧的先留进历史区；写了返回 true */
 export function writeStandardOverrides(paths: ProjectRecordsPaths, text: string, at: string): boolean {
   let current: string | undefined;
   try {

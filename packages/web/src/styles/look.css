@@ -15,11 +15,11 @@
 /* ---------- 1. 颜色与字 ---------- */
 /*
  * 从 token 算出来的颜色在挂 token 的地方重算一遍：自定义属性里的 var() 在声明它的元素上就算定了，只挂在 :root 上的话，
- * 设置里风格预览的容器（[data-style]，39 号票）继承到的是页面现在那套风格算出来的值
+ * 设置里风格预览的容器（[data-style]）继承到的是页面现在那套风格算出来的值
  */
 :root,
 [data-style] {
-  /* 说明文字（--muted）、跟你有关的蓝（--you、--you-bg）39 号票起在风格清单里（src/visual-styles/classic/style.ts） */
+  /* 说明文字（--muted）、跟你有关的蓝（--you、--you-bg）在风格清单里（src/visual-styles/classic/style.ts） */
   /* 系统直接查到的 */
   --sys-bg: color-mix(in srgb, var(--ok) 7%, var(--surface));
   --sys-line: color-mix(in srgb, var(--ok) 60%, transparent);
@@ -44,7 +44,7 @@
   background: var(--you-bg);
 }
 
-/* ---------- 2. 线型：计划图、阶段条（91 号票起） ---------- */
+/* ---------- 2. 线型：计划图、阶段条 ---------- */
 :root .mg-node {
   transition:
     border-color var(--fx-3) var(--ease),
@@ -277,7 +277,7 @@
   }
 }
 
-/* 刚被拉回、拦下、你拒绝：一行闪一下（60 号票） */
+/* 刚被拉回、拦下、你拒绝：一行闪一下 */
 @keyframes v2-line-ping {
   0% {
     background: color-mix(in srgb, var(--ping) 24%, transparent);
@@ -299,7 +299,7 @@
   animation: v2-rise var(--fx-1) var(--ease) both;
 }
 
-/* 阶段标签：刚被拉回 / 拦下 / 你拒绝时闪一下，"回到这一阶段"（60 号票） */
+/* 阶段标签：刚被拉回 / 拦下 / 你拒绝时闪一下，"回到这一阶段" */
 :root .stage-chip.fx-ping {
   --ping: var(--pull-fg);
   animation: v2-line-ping 1100ms var(--ease);

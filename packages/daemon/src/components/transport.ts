@@ -1,4 +1,4 @@
-// 下载器发请求的那一层（323 号票）：GET 一个地址，可以带 Range（断点续传），跟着重定向走（Hugging Face 会转到 CDN），
+// 下载器发请求的那一层：GET 一个地址，可以带 Range（断点续传），跟着重定向走（Hugging Face 会转到 CDN），
 // 按 proxyFor 走代理——https 的经 CONNECT 打一条隧道再握 TLS，http 的把完整地址交给代理。用 Node 自带的 http / https / tls，
 // 不加依赖（全局 fetch 不认系统代理）。超时只管"连上、拿到响应头"这一段；下载中途卡住由下载器按多久没收到字节判断。
 import http from "node:http";

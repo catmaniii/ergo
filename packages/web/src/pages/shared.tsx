@@ -1,4 +1,4 @@
-// 几个页面共用的部件："发起任务"（289 号票起能选运行时；290 号票起能从已有的 Claude Code 会话接管）。（会话的详情页在 ui/detail/，56 号票起取代了这里原来的 WithToolDetail）
+// 几个页面共用的部件："发起任务"（能选运行时；能从已有的 Claude Code 会话接管）。（会话的详情页在 ui/detail/，取代了这里原来的 WithToolDetail）
 import { useState } from "react";
 import { useStore } from "../app/store.tsx";
 import {
@@ -71,21 +71,21 @@ export function StartTaskButton({ compact }: { compact?: boolean }) {
 }
 
 /**
- * 发起任务（12 号票）：不经秘书判断，守护进程直接建出任务（规划中），出现在看板上；秘书收到通知接着和用户澄清。
- * 58 号票：先选种类（两个页签，副标题说清两种的区别），建卡时定下、之后不能换；
- * 默认是长程任务。第一行当标题。涉及的项目可以多选，选项来自项目列表（15 号票起是真的：没归档的项目；守护进程同样核对，
+ * 发起任务：不经秘书判断，守护进程直接建出任务（规划中），出现在看板上；秘书收到通知接着和用户澄清。
+ * 先选种类（两个页签，副标题说清两种的区别），建卡时定下、之后不能换；
+ * 默认是长程任务。第一行当标题。涉及的项目可以多选，选项来自项目列表（是真的：没归档的项目；守护进程同样核对，
  * 不在项目列表里的被拒）；选的项目写进任务，秘书写任务书时以它为依据。
- * 64 号票（用户定）：只选了一个项目的建成这个项目的内部任务（由项目的负责人在项目会话里和你对齐、执行，只在项目页看得到，
+ * 只选了一个项目的建成这个项目的内部任务（由项目的负责人在项目会话里和你对齐、执行，只在项目页看得到，
  * 不上任务看板）；选了几个项目的是跨项目的任务。流程只能选一个项目（或者不涉及项目）。只选了一个还在立项的项目时说明原因、不让发起。
- * 75 号票（ADR 0025）：做法多一个"普通任务"，排在最前面、默认选中——不经助理澄清，写的这段话就是交给 agent 的任务书，
+ * ADR 0025：做法多一个"普通任务"，排在最前面、默认选中——不经助理澄清，写的这段话就是交给 agent 的任务书，
  * 建出就排队、有名额就开始做，不规划、不授权、不检查，做完自动算完成。
- * 76 号票（ADR 0025）："什么时候做"三选一——现在做一次；定时：按时间表反复做（含"按我的工作日"：建出的任务按时间表反复运行，
- * 流程在计划卡上授权一次，之后每次运行按步骤核对），或者某个时间做一次（用户 2026-10-10 定：选日期和时间，到点做一次、做完即完成）；
+ * ADR 0025："什么时候做"三选一——现在做一次；定时：按时间表反复做（含"按我的工作日"：建出的任务按时间表反复运行，
+ * 流程在计划卡上授权一次，之后每次运行按步骤核对），或者某个时间做一次（选日期和时间，到点做一次、做完即完成）；
  * 只提醒我（不用 agent，到点只发通知：建一条简单提醒，做法、项目都用不上）。
  * 长程任务只能现在做一次（"定时"选不了，写明原因）。
- * 77 号票："什么时候做"多一个"事件发生时"：选来源、选事件、填过滤条件（EventTriggerEditor，按事件来源登记表画）；建出的普通任务就是运营中，
+ * "什么时候做"多一个"事件发生时"：选来源、选事件、填过滤条件（EventTriggerEditor，按事件来源登记表画）；建出的普通任务就是运营中，
  * 流程在计划卡上授权一次（步骤的参数里可以写这次事件的值）；长程任务选不了。"只提醒我"也能选"事件发生时提醒"。
- * 97 号票：写的话里说了几点（"明天早上8点……""每天早上8点……"），定时就按几点——写的话变了就重认（state/text-time.ts），
+ * 写的话里说了几点（"明天早上8点……""每天早上8点……"），定时就按几点——写的话变了就重认（state/text-time.ts），
  * 用户还没自己动过的几栏按它填（切到定时、选好一次还是反复、填好时间；提醒时间也是），下面一行写按你写的定在哪；
  * 动过的不再改，和写的不一样时标出来（照样能发起）。状态层的 fillWhenFromText、whenTextHint。
  */
@@ -93,7 +93,7 @@ export function StartTaskDialog({ onClose }: { onClose(): void }) {
   const [kind, setKind] = useState<TaskKind>("plain");
   const [what, setWhat] = useState("");
   const [chosen, setChosen] = useState<string[]>([]);
-  /** 什么时候做、定时（反复还是一次、时间表、时间）、提醒时间（97 号票起放在一起：写的话里说了几点，没动过的几栏按它填） */
+  /** 什么时候做、定时（反复还是一次、时间表、时间）、提醒时间（放在一起：写的话里说了几点，没动过的几栏按它填） */
   const [fields, setFields] = useState<WhenFields>(() => initialWhenFields(new Date()));
   const { when, timedMode, schedule, doAt, remindAt } = fields;
   /** 用户自己动过哪几栏：动过的不再按写的话自动改 */
@@ -102,17 +102,17 @@ export function StartTaskDialog({ onClose }: { onClose(): void }) {
   const [found, setFound] = useState<TextTime | undefined>(undefined);
   /** 选了"某个时间做一次"时的此刻（选时间、换时间、改写的话时现取；渲染时不取时钟） */
   const [checkedAt, setCheckedAt] = useState(() => Date.now());
-  /** 事件发生时（77 号票）：一开始是本机文件夹变化 */
+  /** 事件发生时：一开始是本机文件夹变化 */
   const [eventTrigger, setEventTrigger] = useState<EventTrigger>(() => defaultEventTrigger("folder"));
   const [remindMode, setRemindMode] = useState<RemindMode>("time");
   const [remindEvent, setRemindEvent] = useState<EventTrigger>(() => defaultEventTrigger("folder"));
-  /** 跑完自动播报（100 号票）：先勾上，做完秘书直接把要点念成语音，不先问 */
+  /** 跑完自动播报：先勾上，做完秘书直接把要点念成语音，不先问 */
   const [announce, setAnnounce] = useState(false);
-  /** 执行它的负责人用的运行时（289 号票）：默认 pi；只选了一个项目的照项目的（不显示这一项） */
+  /** 执行它的负责人用的运行时：默认 pi；只选了一个项目的照项目的（不显示这一项） */
   const [runtime, setRuntime] = useState<string>(PI_RUNTIME_ID);
-  /** 从已有的会话接管（290 号票）：换成接管的对话框 */
+  /** 从已有的会话接管：换成接管的对话框 */
   const [taking, setTaking] = useState(false);
-  /** 在哪个文件夹做（305 号票）：选了能选工作文件夹的运行时（Claude Code）才有 */
+  /** 在哪个文件夹做：选了能选工作文件夹的运行时（Claude Code）才有 */
   const [folder, setFolder] = useState<FolderDraft>(EMPTY_FOLDER_DRAFT);
   /** 用已有文件夹的：交之前核对路径，不对的原因留在对话框里 */
   const [folderError, setFolderError] = useState<string>();
@@ -121,7 +121,7 @@ export function StartTaskDialog({ onClose }: { onClose(): void }) {
   const { ui, startTask, createReminder, http } = useStore();
   const runtimes = useRuntimes();
   const remind = when === "remind";
-  /** 事件发生时（77 号票） */
+  /** 事件发生时 */
   const evented = when === "event";
   /** 事件发生时还缺什么（文件夹能不能监视建的时候守护进程现查） */
   const eventMissing = evented ? eventTriggerMissing(eventTrigger) : remind && remindMode === "event" ? eventTriggerMissing(remindEvent) : [];
@@ -163,10 +163,10 @@ export function StartTaskDialog({ onClose }: { onClose(): void }) {
   const inProject = chosen.length === 1 ? chosen[0] : undefined;
   /** 只选了一个还在立项的项目：确认立项书之前不能在里面发起 */
   const chartering = inProject !== undefined && stillChartering(ui, inProject);
-  /** 选的运行时能选工作文件夹（305 号票）：不是提醒、不是项目内部任务才有这一项 */
+  /** 选的运行时能选工作文件夹：不是提醒、不是项目内部任务才有这一项 */
   const folderShown = !remind && inProject === undefined && workFolderRuntime(runtimes, runtime) !== undefined;
   const submit = () => {
-    // 用已有文件夹的（305 号票）：先核对路径，不对的留在对话框里写明原因
+    // 用已有文件夹的：先核对路径，不对的留在对话框里写明原因
     if (folderShown && folder.mode === "existing") {
       setChecking(true);
       setFolderError(undefined);
@@ -216,11 +216,11 @@ export function StartTaskDialog({ onClose }: { onClose(): void }) {
     );
     onClose();
   };
-  // 从已有的会话接管（290 号票）：普通任务，写的话带过去当"接着让它做什么"
+  // 从已有的会话接管：普通任务，写的话带过去当"接着让它做什么"
   if (taking) return <TakeoverSheet runtime={runtime} as="task" initial={what} onBack={() => setTaking(false)} onClose={onClose} />;
   return (
     <Sheet title={t("pages.startTask.title")} onClose={onClose} center>
-      {/* 三种做法（75 号票起）：窄的时候页签上只写名字，选中那种的说明写在下面一行；只提醒我用不上做法 */}
+      {/* 三种做法：窄的时候页签上只写名字，选中那种的说明写在下面一行；只提醒我用不上做法 */}
       <div className={`sc-picker${remind ? " sc-off" : ""}`} aria-hidden={remind || undefined}>
         <div className="sc-modes" role="tablist">
           {TASK_KINDS.map((k) => (
@@ -244,7 +244,7 @@ export function StartTaskDialog({ onClose }: { onClose(): void }) {
           autoFocus
         />
       </label>
-      {/* 什么时候做（76 号票）：现在做一次、定时、只提醒我 */}
+      {/* 什么时候做：现在做一次、定时、只提醒我 */}
       <fieldset className="field when-picker">
         <legend>{t("pages.startTask.when")}</legend>
         <div className="seg when-seg" role="radiogroup" aria-label={t("pages.startTask.when")}>
@@ -267,9 +267,9 @@ export function StartTaskDialog({ onClose }: { onClose(): void }) {
           })}
         </div>
         <div className="sc-mode-hint">{START_WHEN_HINT[when]}</div>
-        {/* 写的话里有时间时，下面那一行说得更具体（97 号票） */}
+        {/* 写的话里有时间时，下面那一行说得更具体 */}
         {!startWhenAllowed(kind, "schedule") && !textHint && <div className="hint">{LONG_RUNNING_TRIGGER_REFUSAL}</div>}
-        {/* 定时的两种和各自的时间表（98 号票抽成 TimedScheduleEditor，和任务操作菜单里的"改时间"共用） */}
+        {/* 定时的两种和各自的时间表（抽成 TimedScheduleEditor，和任务操作菜单里的"改时间"共用） */}
         {when === "schedule" && (
           <TimedScheduleEditor
             mode={timedMode}
@@ -309,10 +309,10 @@ export function StartTaskDialog({ onClose }: { onClose(): void }) {
         )}
         {remind && remindMode === "time" && <ScheduleEditor value={remindAt} onChange={(s) => edit("remind", { remindAt: s })} label={t("pages.startTask.remindAt")} />}
         {remind && remindMode === "event" && <EventTriggerEditor value={remindEvent} onChange={setRemindEvent} tasks={eventTasks} projects={eventProjects} />}
-        {/* 写的话里说了几点（97 号票）：按它定好了、和定的不一样（照样能发起）、长程任务不能定时 */}
+        {/* 写的话里说了几点：按它定好了、和定的不一样（照样能发起）、长程任务不能定时 */}
         {textHint && <div className={`when-text-hint ${textHint.tone}`}>{textHint.text}</div>}
       </fieldset>
-      {/* 跑完自动播报（100 号票）：项目内部任务做完不告诉秘书，没有这一项 */}
+      {/* 跑完自动播报：项目内部任务做完不告诉秘书，没有这一项 */}
       {!remind && inProject === undefined && (
         <label className="check-row announce-row">
           <input type="checkbox" checked={announce} onChange={(e) => setAnnounce(e.target.checked)} />
@@ -324,11 +324,11 @@ export function StartTaskDialog({ onClose }: { onClose(): void }) {
           </span>
         </label>
       )}
-      {/* 运行时（289 号票）：只有 pi 能选时不显示；只选了一个项目的照项目的 */}
+      {/* 运行时：只有 pi 能选时不显示；只选了一个项目的照项目的 */}
       {!remind && inProject === undefined && <RuntimePicker value={runtime} onChange={setRuntime} />}
-      {/* 从已有的会话接管（290 号票）：选的运行时能接管才有 */}
+      {/* 从已有的会话接管：选的运行时能接管才有 */}
       {!remind && inProject === undefined && <TakeoverLink runtime={runtime} onOpen={() => setTaking(true)} />}
-      {/* 在哪个文件夹做（305 号票）：选的运行时能选工作文件夹才有 */}
+      {/* 在哪个文件夹做：选的运行时能选工作文件夹才有 */}
       {folderShown && (
         <WorkFolderPicker
           runtime={runtime}
@@ -370,7 +370,7 @@ export function StartTaskDialog({ onClose }: { onClose(): void }) {
         </div>
       ) : evented ? (
         <div className="hint">
-          {/* 选了项目的是内部任务，不上任务看板（只有运营方案建的才上，375 号票） */}
+          {/* 选了项目的是内部任务，不上任务看板（只有运营方案建的才上） */}
           {kind === "workflow"
             ? t(inProject === undefined ? "pages.startTask.hint.eventWorkflow" : "pages.startTask.hint.eventWorkflowInProject")
             : t(inProject === undefined ? "pages.startTask.hint.eventPlain" : "pages.startTask.hint.eventPlainInProject")}
@@ -437,7 +437,7 @@ const TIMED_PLACEHOLDER: Readonly<Record<TaskKind, string>> = tTable({
   long_running: "pages.startTask.placeholder.long",
 });
 
-/** 选了"事件发生时"时"要做什么"框里的示例（77 号票） */
+/** 选了"事件发生时"时"要做什么"框里的示例 */
 const EVENT_PLACEHOLDER: Readonly<Record<TaskKind, string>> = tTable({
   plain: "pages.startTask.placeholder.eventPlain",
   workflow: "pages.startTask.placeholder.eventWorkflow",
@@ -445,7 +445,7 @@ const EVENT_PLACEHOLDER: Readonly<Record<TaskKind, string>> = tTable({
 });
 
 /**
- * 发起按钮上的字，各做法一句（171 号票：中文和原来拼出来的一样——"发起"加做法的名字；英文各写各的，做法的名字在句中小写）。
+ * 发起按钮上的字，各做法一句（中文和原来拼出来的一样——"发起"加做法的名字；英文各写各的，做法的名字在句中小写）。
  * 长程任务只能现在做一次，定时、事件触发、某个时间做一次的用不上，照样写着
  */
 const SUBMIT_NOW: Readonly<Record<TaskKind, string>> = tTable({
@@ -469,21 +469,21 @@ const SUBMIT_EVENT: Readonly<Record<TaskKind, string>> = tTable({
   long_running: "pages.startTask.submit.event.longRunning",
 });
 
-/** 定时的任务建出之后的提示（76 号票） */
+/** 定时的任务建出之后的提示 */
 function timedToast(kind: TaskKind, title: string, schedule: ReminderSchedule, inProject: string | undefined): string {
   const params = { title, schedule: describeSchedule(schedule), project: inProject ?? "" };
   if (kind === "workflow") return t(inProject === undefined ? "pages.startTask.toast.timedWorkflow" : "pages.startTask.toast.timedWorkflowInProject", params);
   return t(inProject === undefined ? "pages.startTask.toast.timedPlain" : "pages.startTask.toast.timedPlainInProject", params);
 }
 
-/** 事件触发的任务建出之后的提示（77 号票） */
+/** 事件触发的任务建出之后的提示 */
 function eventToast(kind: TaskKind, title: string, trigger: EventTrigger, inProject: string | undefined): string {
   const params = { title, trigger: describeEventTrigger(trigger), project: inProject ?? "" };
   if (kind === "workflow") return t(inProject === undefined ? "pages.startTask.toast.eventWorkflow" : "pages.startTask.toast.eventWorkflowInProject", params);
   return t(inProject === undefined ? "pages.startTask.toast.eventPlain" : "pages.startTask.toast.eventPlainInProject", params);
 }
 
-/** 某个时间做一次的任务建出之后的提示（76 号票） */
+/** 某个时间做一次的任务建出之后的提示 */
 function atToast(kind: TaskKind, title: string, schedule: ReminderSchedule, inProject: string | undefined): string {
   const time = schedule.kind === "once" ? describeTime(new Date(schedule.at)) : describeSchedule(schedule);
   const params = { title, time, project: inProject ?? "", name: ASSISTANT_NAME_MARK };
@@ -491,7 +491,7 @@ function atToast(kind: TaskKind, title: string, schedule: ReminderSchedule, inPr
   return t(inProject === undefined ? "pages.startTask.toast.atPlain" : "pages.startTask.toast.atPlainInProject", params);
 }
 
-/** 发起之后的提示：普通任务（75 号票）直接排队开始做；有计划的两种先对齐意图 */
+/** 发起之后的提示：普通任务直接排队开始做；有计划的两种先对齐意图 */
 function startedToast(kind: TaskKind, title: string, inProject: string | undefined): string {
   const params = { title, project: inProject ?? "", kind: TASK_KIND_LABEL[kind], name: ASSISTANT_NAME_MARK };
   if (isPlainTask({ kind })) return t(inProject === undefined ? "pages.startTask.toast.startedPlain" : "pages.startTask.toast.startedPlainInProject", params);

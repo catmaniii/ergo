@@ -31,7 +31,7 @@ export interface BuiltinWatchCategory {
   defaults: Readonly<Record<Scene, Disposition | null>>;
 }
 
-/** 一个内置类别：名字按当前语言现取（173 号票，key 是 guard.categories.<id>） */
+/** 一个内置类别：名字按当前语言现取（key 是 guard.categories.<id>） */
 const builtinOf = (id: BuiltinCategoryId, defaults: Readonly<Record<Scene, Disposition | null>>): BuiltinWatchCategory =>
   Object.freeze({
     id,
@@ -92,7 +92,7 @@ export interface WatchCategorySettings {
 
 /**
  * 本任务的关注类别设置（计划里，GuardPlan.watchCategories）：确认计划时的快照，只在全局之上增加，只管任务里。
- * 判定时和当前的全局设置一起取最严：全局后来调严照样生效，调松或删除放松不了已确认的任务（26 号票）
+ * 判定时和当前的全局设置一起取最严：全局后来调严照样生效，调松或删除放松不了已确认的任务
  */
 export interface TaskWatchSettings {
   /** 内置类别在本任务里的处置：判定取它和全局的更严的那个 */
@@ -112,7 +112,7 @@ export interface TaskWatchCategory {
   disposition: Disposition;
 }
 
-/** 用户用确定规则自定义的类别（规则的写法见 CategoryMatch；26 号票做设置界面） */
+/** 用户用确定规则自定义的类别（规则的写法见 CategoryMatch；做设置界面） */
 export interface CustomWatchCategory {
   id: string;
   title: string;
@@ -135,7 +135,7 @@ export interface CategoryMatch {
   amountOver?: number;
 }
 
-/** 内置类别在某个场景下的处置：默认和各份设置里取最严；任务里再加上本任务的设置（26 号票） */
+/** 内置类别在某个场景下的处置：默认和各份设置里取最严；任务里再加上本任务的设置 */
 export function builtinDisposition(
   id: BuiltinCategoryId,
   scene: Scene,
@@ -148,7 +148,7 @@ export function builtinDisposition(
   return strictest(fallback, ...overrides, ...own);
 }
 
-/** 对全局设置的一次修改（设置页上的操作，26 号票）。自定义类别的 id 由调用方给（新建时分配一个没用过的） */
+/** 对全局设置的一次修改（设置页上的操作）。自定义类别的 id 由调用方给（新建时分配一个没用过的） */
 export type WatchCategoryEdit =
   | { op: "set_builtin"; categoryId: string; scene: Scene; disposition: Disposition }
   | { op: "create_custom"; category: CustomWatchCategory }
@@ -217,7 +217,7 @@ function fail(problem: string): WatchCategoryEditResult {
 /** 校验一份关注类别设置的形状；返回问题列表（空表示没问题） */
 export function validateWatchCategorySettings(value: unknown): string[] {
   const problems: string[] = [];
-  // 设置文件的形状问题：设置页、待我处理里"关注类别设置有问题"给用户看（173 号票：按当前语言）
+  // 设置文件的形状问题：设置页、待我处理里"关注类别设置有问题"给用户看（按当前语言）
   if (!isRecord(value)) return [t("guard.watch.file.notObject")];
   for (const key of Object.keys(value)) {
     if (key !== "builtin" && key !== "custom") problems.push(t("guard.watch.file.unknownField", { key }));

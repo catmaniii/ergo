@@ -1,4 +1,4 @@
-// 看图（145 号票的 view_files，149 号票起是秘书在用）那一步的缩小：一次性子进程（runtime/thumbnails.ts 拉起 agent-child/thumbnails-main.ts，
+// 看图（view_files，是秘书在用）那一步的缩小：一次性子进程（runtime/thumbnails.ts 拉起 agent-child/thumbnails-main.ts，
 // 用 pi 自带的图片缩放）把几张图缩成长边不超过 384 的小图。真的拉起子进程、真的解码缩小（不加图片库）。
 import fs from "node:fs";
 import path from "node:path";

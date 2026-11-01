@@ -1,4 +1,4 @@
-// 体检（319 号票的 319b，src/doctor/doctor.ts）：八项检查各一个"好的"和一个"坏的"（注入假的探测器），
+// 体检（319b，src/doctor/doctor.ts）：八项检查各一个"好的"和一个"坏的"（注入假的探测器），
 // 一项抛错只算这一项查不了、别的项照常，查的时刻来自注入的钟；正式用的那几个探测器（端口、pi 版本、服务管家的端口、
 // 外网入口的依据、组件缺不缺、磁盘）也单独查一遍——端口用系统挑的临时端口（不碰真的 8810 / 8811），
 // 文件都是临时目录里的（不碰真的 ~/.ergo、不碰真的服务管家）。
@@ -88,7 +88,7 @@ describe("八项：坏的", () => {
   });
 });
 
-describe("pi 缺了怎么修：按安装方式（371）", () => {
+describe("pi 缺了怎么修：按安装方式", () => {
   const fixFor = async (install?: Parameters<typeof createDoctor>[0]["install"]) => checkOf(await createDoctor({ probes: onlyBad("pi"), ...(install ? { install } : {}) }).view(), "pi").fix;
   const info = (kind: "release" | "source" | "link") => ({ format: 1 as const, version: "0.1.0", kind });
 
@@ -226,7 +226,7 @@ const writeTailnet = (registry: string, id = "ergo-daemon") => fs.writeFileSync(
 const writeTunnel = (registry: string) => fs.writeFileSync(path.join(registry, "services", "ergo-daemon.yaml"), "id: ergo-daemon\nexposure:\n  via: ergo-tunnel\n  remotePort: 18811\n");
 const probe = (dir: string, devices = 0) => externalProbe({ svcDataDir: dir, pairedDevices: () => devices })();
 
-describe("外网入口的依据（340 号票）：只看本机记着的，不真连出去", () => {
+describe("外网入口的依据：只看本机记着的，不真连出去", () => {
   it("只有 tailnet 登记：配了（自建 headscale 的报 headscale，否则是 Tailscale）", () => {
     const { dir, registry } = emptySvcDir();
     writeTailnet(registry);

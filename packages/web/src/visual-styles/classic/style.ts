@@ -1,6 +1,6 @@
-// 经典（39 号票）：39 号票之前的样子原样 token 化，浅色、深色都和原来一样——除了 7 处对比度不够的颜色，沿原来的色相
-// 稍微加深到 4.5:1（用户 2026-10-09 定；下面标着"原来是"的那几个）。别的风格没写的 token 都沿用这里的。
-// 颜色原来写在 styles/base.css 和 look.css 开头（34 号票起是 light-dark(浅色, 深色)），别的取值原来散在各份样式里。
+// 经典：以前的样子原样 token 化，浅色、深色都和原来一样——除了 7 处对比度不够的颜色，沿原来的色相
+// 稍微加深到 4.5:1（下面标着"原来是"的那几个）。别的风格没写的 token 都沿用这里的。
+// 颜色原来写在 styles/base.css 和 look.css 开头（是 light-dark(浅色, 深色)），别的取值原来散在各份样式里。
 import { t } from "@ergo/protocol";
 import { DEFAULT_VISUAL_STYLE } from "../../state/visual-style.ts";
 import type { BaseVisualStyle } from "../tokens.ts";
@@ -8,14 +8,14 @@ import type { BaseVisualStyle } from "../tokens.ts";
 export const classic: BaseVisualStyle = {
   // "classic"：默认的风格只在状态层写一次（index.html 内联脚本里退回的那个，test/app/theme.test.ts 和它比对）
   id: DEFAULT_VISUAL_STYLE,
-  // 名字和一句话按当前语言（169 号票，取的时候现查）
+  // 名字和一句话按当前语言（取的时候现查）
   get name() {
     return t("styles.classic.name");
   },
   get blurb() {
     return t("styles.classic.blurb");
   },
-  // 主色（119 号票，用户 2026-10-13 定 8 种）：设置 · 外观与风格里选了经典，下面一排色块。第一种蓝就是上面 tokens 里的值
+  // 主色（8 种）：设置 · 外观与风格里选了经典，下面一排色块。第一种蓝就是上面 tokens 里的值
   // （没选过的用户看到的不变）；别的每种换掉三个颜色——当字用的 primary（链接、选中的字、细条，导航高亮 nav-on 是
   // var(--primary)，跟着变）、实色块 primary-fill（主按钮、开关……，上面白字）、你发的消息 user-bubble（白字）。
   // 浅色三个是同一个色（白字 ≥ 4.5:1，当字压在白卡片上也一样），深色 primary 调亮（压在深色卡片上）、实色块和气泡压暗（白字）。
@@ -36,7 +36,7 @@ export const classic: BaseVisualStyle = {
     bg: ["#f5f6f8", "#121316"],
     // 卡片的底色；经典的标题栏也是它（见 bar-bg）
     surface: ["#ffffff", "#1d1f24"],
-    // 标题栏（.topbar、详情页的 .detail-bar）的底色，也是手机浏览器地址栏的颜色（42 号票加；app/theme.ts、index.html 的内联脚本
+    // 标题栏（.topbar、详情页的 .detail-bar）的底色，也是手机浏览器地址栏的颜色（app/theme.ts、index.html 的内联脚本
     // 都按它取，visual-styles/page.ts 的 stylePageInfo）。经典就是卡片的底色，和加这个 token 之前一样
     "bar-bg": "var(--surface)",
     text: ["#1d2129", "#e8eaed"],
@@ -87,7 +87,7 @@ export const classic: BaseVisualStyle = {
     // 浅色原来是 #3b6cf6（和你的消息同一个蓝）：浅蓝底上 3.98:1 → 4.58:1，稍深一点
     you: ["#2a5ff5", "#6d92ff"],
     "you-bg": ["#ebf1ff", "#1c2744"],
-    // 个人助理的名字（43 号票）：名字随便起，容易和普通文字混在一起，显示成带底色的小标签。字和底浅色 7.8:1、深色 7.6:1
+    // 个人助理的名字：名字随便起，容易和普通文字混在一起，显示成带底色的小标签。字和底浅色 7.8:1、深色 7.6:1
     "name-bg": ["#fbe3a1", "#4a3c14"],
     "name-fg": ["#5c3d00", "#f7d57e"],
 
@@ -125,9 +125,9 @@ export const classic: BaseVisualStyle = {
     "shadow-float": "0 6px 20px rgba(0, 0, 0, 0.2)",
     // 录音时输入框上方的提示条
     "shadow-note": "0 4px 14px rgba(0, 0, 0, 0.12)",
-    // 窄屏整页滑入的详情页左边缘（56 号票）
+    // 窄屏整页滑入的详情页左边缘
     "shadow-slide": "-8px 0 24px rgba(0, 0, 0, 0.12)",
-    // 浮在栏边上的小圆钮：宽屏阶段栏的收起按钮（88 号票）
+    // 浮在栏边上的小圆钮：宽屏阶段栏的收起按钮
     "shadow-btn": "0 1px 4px rgba(0, 0, 0, 0.12)",
 
     // ---- 间距密度 ----
@@ -141,7 +141,7 @@ export const classic: BaseVisualStyle = {
     // 底板（.card：设置项、项目页的头部这类）：经典靠底色和页面区分，没有边框
     "panel-border": "none",
 
-    // ---- 会话缩放（54 号票） ----
+    // ---- 会话缩放 ----
     // 要点层色块上的字
     "zoom-key-fg": "var(--on-color)",
     // 只看的工具：工具色调浅（动手是工具色本身，删改再加一圈 zoom-modify-ring）
@@ -154,13 +154,13 @@ export const classic: BaseVisualStyle = {
     "zoom-cap-shadow": "rgba(0, 0, 0, 0.18)",
     // 条右上角关注小圆点的白圈（#fff）
     "zoom-dot-ring": "#fff",
-    // 缩小后的底色带（55 号票）：和计划色块同一个黄，调得很浅；相邻的另一块深一档
+    // 缩小后的底色带：和计划色块同一个黄，调得很浅；相邻的另一块深一档
     "zoom-band": "color-mix(in srgb, var(--c-plan) 7%, transparent)",
     "zoom-band-alt": "color-mix(in srgb, var(--c-plan) 21%, transparent)",
     // 底色带左缘竖排的"任务 N · 是什么事"
     "zoom-band-label": "color-mix(in srgb, var(--c-plan) 55%, var(--text))",
 
-    // ---- 语音气泡的播放条（42 号票从 styles/voice.css、state/voice.ts 里写死的数挪过来，取值不变；只能写像素） ----
+    // ---- 语音气泡的播放条（从 styles/voice.css、state/voice.ts 里写死的数挪过来，取值不变；只能写像素） ----
     // 框的左右内边距（各一份）
     "voice-pad": "13px",
     // agent 一侧框左边的竖线（回复色）

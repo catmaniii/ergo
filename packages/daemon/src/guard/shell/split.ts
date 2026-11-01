@@ -1,11 +1,11 @@
-// 通用 bash 的拆解（规格第 9 节）：用现成的 POSIX shell 语法解析库（unbash，选型理由见 03 号票的 Comments）
+// 通用 bash 的拆解（规格第 9 节）：用现成的 POSIX shell 语法解析库（unbash）
 // 把命令拆成一条条简单命令（含管道、&& / ||、子 shell、命令替换、进程替换、循环和条件里的），
 // 再按 programs.ts 的表映射成伪工具调用。纯函数，不跑命令。
 //
 // 拆不开的一律变成一条 opaque_shell（"未知的写操作"）：语法解析失败、命令名是变量或命令替换、
 // eval、内联脚本（bash -c、python -c、node -e……）、从标准输入喂给解释器的脚本（`… | bash`、here-doc）。
 //
-// 变量和当前目录按执行的先后推（177 号票："只认前面定义、后面使用"）：每走到一处，记着此刻每个变量可能的值（没法确定是 null）
+// 变量和当前目录按执行的先后推（"只认前面定义、后面使用"）：每走到一处，记着此刻每个变量可能的值（没法确定是 null）
 // 和可能的当前目录（FlowState）。
 // - 前面确定赋过值的变量代进去（`A=x && … $A`、`A=x; …`、`export A=x`，值由已知的变量拼成的也算）；
 // - 可能没赋上的（条件里、`||` 后面、&& 链停下的地方之后、循环体里），和之前的值合起来算：之前没赋过的（也不是环境里已知的）就是没法确定；
@@ -53,14 +53,14 @@ export interface ShellCall {
    */
   unseenInput?: true;
   /**
-   * 这次拆成"读"的调用不只是读（355 号票），读授权的文件夹不算它，照旧按越出项目目录判：
+   * 这次拆成"读"的调用不只是读，读授权的文件夹不算它，照旧按越出项目目录判：
    * - cd、pushd：之后不带路径的命令（make、npm run）都在那里跑，守卫看不全；Claude Code 的 Bash 还会把目录留到下一次调用；
    * - 只读程序之外的程序的路径参数（按"读"补上的，pytest x.py、go run x.go、npm run foo x）：程序拿它做什么守卫不知道，多半是跑它；
    * - awk -f、sed -f：读进来当程序跑
    */
   notJustRead?: true;
   /**
-   * 它的路径是写着 `..` 解析出来的（355 号票）：守卫按字面解析，Git Bash 却先走符号链接再走 `..`，真正碰到的可能不是解析出来的那个路径。
+   * 它的路径是写着 `..` 解析出来的：守卫按字面解析，Git Bash 却先走符号链接再走 `..`，真正碰到的可能不是解析出来的那个路径。
    * 读授权的文件夹不算它（别的判定照旧按字面的路径）
    */
   parentDir?: true;
@@ -137,7 +137,7 @@ interface LoopFrame {
 }
 
 class Splitter {
-  /** 写着 `..` 解析出来的路径（355 号票，ShellCall.parentDir） */
+  /** 写着 `..` 解析出来的路径（ShellCall.parentDir） */
   private readonly viaParent = new Set<string>();
   readonly calls: ShellCall[] = [];
   readonly errors: string[] = [];
@@ -632,7 +632,7 @@ class Splitter {
   private prior(name: string, havoc: boolean): string[] | null {
     if (havoc) return null;
     if (HOME_VARS.has(name)) return [this.env.homeDir];
-    // 这个 agent 的 bash 带着的、值已知的环境变量（77 号票：事件的值；177 号票：TMPDIR 这些）
+    // 这个 agent 的 bash 带着的、值已知的环境变量（事件的值；TMPDIR 这些）
     const known = this.env.vars?.[name];
     return known === undefined ? null : [known];
   }
@@ -702,7 +702,7 @@ class Splitter {
     if (path === undefined) return;
     const tool =
       r.operator === "<" ? TOOL.read : r.operator === ">>" || r.operator === "&>>" || r.operator === "<>" ? TOOL.edit : TOOL.write;
-    // 只往末尾追加的（>>、&>>）带上 append：不碰原有的内容（54 号票，guard/nature.ts 据此算动手而不是删改）
+    // 只往末尾追加的（>>、&>>）带上 append：不碰原有的内容（guard/nature.ts 据此算动手而不是删改）
     const append = r.operator === ">>" || r.operator === "&>>";
     this.push({ tool, args: append ? { path, append: true } : { path }, text });
   }

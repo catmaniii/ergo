@@ -1,9 +1,9 @@
-// `npm run build:harmony`（62 号票）：用 DevEco Studio 自带的 hvigor 构建鸿蒙 App，产出 HAP。
+// `npm run build:harmony`：用 DevEco Studio 自带的 hvigor 构建鸿蒙 App，产出 HAP。
 // 依赖本机装的 DevEco（DEVECO_HOME，或默认安装位置），所以不进 `npm run check`。
 // 本机没配签名时产出 unsigned 的 HAP，并提示怎么签；签名材料只在本机（docs/architecture/development.md"鸿蒙 App"）。
 // WebView 调试默认关，`npm run build:harmony -- --webview-debug` 才开（开着的 App 接上 USB 就能被取走设备凭证）。
-// 134 号票：先把页面桥（packages/web/src/page-bridge，注入"浏览"里的网页的脚本）打包进 App 的 rawfile/page-bridge.js。
-// 175 号票：App 原生的字（共享协议包 locales/<语言>/harmony.json）收进 rawfile/harmony-texts.json。
+// 先把页面桥（packages/web/src/page-bridge，注入"浏览"里的网页的脚本）打包进 App 的 rawfile/page-bridge.js。
+// App 原生的字（共享协议包 locales/<语言>/harmony.json）收进 rawfile/harmony-texts.json。
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -45,7 +45,7 @@ const pageBridge = await buildPageBridge();
 writeFileSync(path.join(rawfileDir, "page-bridge.js"), pageBridge);
 console.log(`页面桥：entry/src/main/resources/rawfile/page-bridge.js（${(pageBridge.length / 1024).toFixed(1)} KB）`);
 
-// App 原生的字（175 号票）：自带语言的 harmony.json 收成一份（不进仓库）；二狗的网页交来当前语言之前 App 按系统语言挑一种
+// App 原生的字：自带语言的 harmony.json 收成一份（不进仓库）；二狗的网页交来当前语言之前 App 按系统语言挑一种
 const texts = harmonyTexts(LOCALES_DIR);
 writeFileSync(path.join(rawfileDir, HARMONY_TEXTS_FILE), JSON.stringify(texts));
 console.log(`App 原生的字：entry/src/main/resources/rawfile/${HARMONY_TEXTS_FILE}（${Object.keys(texts).join("、")}）`);

@@ -1,4 +1,4 @@
-// 假的执行层（321 号票的测试用）：`lsm vps …` 要跑的外部命令（ssh、ssh-keygen、tailscale）、连端口、打 https、查 DNS，
+// 假的执行层（测试用）：`lsm vps …` 要跑的外部命令（ssh、ssh-keygen、tailscale）、连端口、打 https、查 DNS，
 // 都落到这里——记下"要跑什么"（送上 VPS 的脚本全文也记），按预设的场景回话。绝不真的 ssh、真的连谁。
 //
 // 两种用法：测试里直接 fakeExec(场景)；CLI 端到端测试设 LSM_VPS_EXEC 指向本文件，createExec() 从

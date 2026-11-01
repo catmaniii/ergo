@@ -1,4 +1,4 @@
-// VPS 搭建的执行层（321 号票）：本机要跑的外部命令（ssh、ssh-keygen、tailscale）、从本机看端口、打 https，全经这一层。
+// VPS 搭建的执行层：本机要跑的外部命令（ssh、ssh-keygen、tailscale）、从本机看端口、打 https，全经这一层。
 //
 // 为什么单独一层：`lsm vps …` 要碰的是别人的机器。测试绝不能真的 ssh 出去、真的连谁的端口，所以测试换一个假的执行层——
 // 它记下"要跑什么"、按预设的输出回话。CLI 端到端的测试用环境变量 LSM_VPS_EXEC 指向一个模块，模块导出 createExec()，

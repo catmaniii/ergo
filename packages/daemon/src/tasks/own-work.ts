@@ -1,4 +1,4 @@
-// 临时文件，任务、项目这一侧要给守卫的东西（111 号票，用户 2026-10-13 定：任务中间的临时文件和脚本、为了生成阶段交付件临时生成的
+// 临时文件，任务、项目这一侧要给守卫的东西（任务中间的临时文件和脚本、为了生成阶段交付件临时生成的
 // 脚本和数据默认可以改、删；限制只对系统已有的东西和交出去了的交付件；又补充"任务和项目的临时文件都是一样的"）：范围开始的时间、
 // 交出去了的交付件（GuardOwnWork，守卫怎么用见 guard/own-temp.ts）。守卫接入每次判定时现取（TaskExecution.ownWork / projectOwnWork）。
 // - 按范围认：项目的 agent（项目的负责人做什么都算，和它派的子 agent）按项目——项目开始之后生成的都算，交付件是项目里各任务交出去的；
@@ -40,7 +40,7 @@ export const workTimesView: DerivedView = {
       CREATE TABLE IF NOT EXISTS task_work_times (task_id TEXT PRIMARY KEY, started_ms INTEGER, handed_over_ms INTEGER);
       CREATE TABLE IF NOT EXISTS project_work_times (project_id TEXT PRIMARY KEY, started_ms INTEGER NOT NULL, bound INTEGER NOT NULL DEFAULT 0);
     `);
-    // 111 号票之前的库：从事件日志补一遍（之前的任务、项目也认得出开始、交出去的时间）
+    // 以前的库：从事件日志补一遍（之前的任务、项目也认得出开始、交出去的时间）
     return existed ? undefined : "refill";
   },
   clear: (db) => db.exec("DELETE FROM task_work_times; DELETE FROM project_work_times;"),

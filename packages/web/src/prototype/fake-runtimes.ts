@@ -1,4 +1,4 @@
-// 原型里的 agent 运行时（286、289 号票）：内核自带的 pi，加上 Claude Code 插件登记的（能力清单、设置项、模型照守护进程的
+// 原型里的 agent 运行时：内核自带的 pi，加上 Claude Code 插件登记的（能力清单、设置项、模型照守护进程的
 // claude-code/runtime.ts、settings.ts；模型列表是编的，真的是 Claude Code 起来时报回的）。"个人博客"项目的负责人用 Claude Code
 // （卡上标出、⚙ 里多权限模式和思考档位、输入框的候选是 Claude Code 的命令）。
 import { type AgentRuntimeView, PI_RUNTIME_ID, RUNTIME_OPERATIONS, type RuntimeCapabilities, type SlashCommandEntry } from "../state/index.ts";
@@ -6,12 +6,12 @@ import { type AgentRuntimeView, PI_RUNTIME_ID, RUNTIME_OPERATIONS, type RuntimeC
 /** Claude Code 运行时的 id（守护进程 claude-code/api.ts 的 CLAUDE_CODE_RUNTIME_ID） */
 export const FAKE_CLAUDE_CODE = "claude-code";
 
-/** 用 Claude Code 的负责人（原型里编的）：个人博客项目的负责人、从 Claude Code 会话接管来的"修 CI 的 flaky 测试"（290 号票） */
+/** 用 Claude Code 的负责人（原型里编的）：个人博客项目的负责人、从 Claude Code 会话接管来的"修 CI 的 flaky 测试" */
 export const FAKE_CLAUDE_MAINTAINERS: readonly string[] = ["project-blog", "tm-flaky"];
 
 const caps = (yes: readonly string[]): RuntimeCapabilities => Object.fromEntries(RUNTIME_OPERATIONS.map((op) => [op, yes.includes(op)])) as RuntimeCapabilities;
 
-/** 设置 · Claude Code 里定的新建时的默认文件夹（305 号票，原型里只在内存里；编的一个） */
+/** 设置 · Claude Code 里定的新建时的默认文件夹（原型里只在内存里；编的一个） */
 let fakeDefaultFolder: string | undefined = "D:\\work\\claude";
 
 /** 改默认文件夹（原型里只核对是不是从盘符写起的绝对路径；真的还看在不在、是不是文件夹、在不在数据目录和程序目录里） */
@@ -30,7 +30,7 @@ export function fakeRuntimes(): AgentRuntimeView[] {
       title: "Claude Code",
       plugin: "claude-code",
       available: true,
-      // 293 号票：撤回、切分支能做，撤回时恢复文件；分支摘要它自己不写（二狗写）
+      // 撤回、切分支能做，撤回时恢复文件；分支摘要它自己不写（二狗写）
       capabilities: caps(["interject", "compact", "rollback", "branch_switch", "rewind_files", "thinking_levels", "slash_passthrough", "take_over", "live_toolkit"]),
       models: [
         { id: "opus", title: "Opus" },
@@ -58,14 +58,14 @@ export function fakeRuntimes(): AgentRuntimeView[] {
           default: "inherit",
         },
       ],
-      // 305 号票：新建时选工作文件夹
+      // 新建时选工作文件夹
       workFolder: fakeDefaultFolder === undefined ? {} : { defaultFolder: fakeDefaultFolder },
     },
   ];
 }
 
 /**
- * Claude Code 报的斜杠命令（原型里编的几条，原文照 Claude Code 自己的）。310 号票：守护进程给的样子——内置命令按中文说明表换成中文、
+ * Claude Code 报的斜杠命令（原型里编的几条，原文照 Claude Code 自己的）。守护进程给的样子——内置命令按中文说明表换成中文、
  * 原文留在 originalDescription，参数提示也换；用户自己的命令（/deploy-notes）是二狗的模型翻的，参数提示照它报的
  */
 export const FAKE_CLAUDE_COMMANDS: SlashCommandEntry[] = [
@@ -100,7 +100,7 @@ export const FAKE_CLAUDE_COMMANDS: SlashCommandEntry[] = [
   },
 ];
 
-/** 用 Claude Code 的负责人工具包里的 skill（291 号票：写法 /ergo:<目录名>；310 号票：英文说明是二狗的模型翻的） */
+/** 用 Claude Code 的负责人工具包里的 skill（写法 /ergo:<目录名>；英文说明是二狗的模型翻的） */
 export const FAKE_CLAUDE_SKILLS: SlashCommandEntry[] = [
   { kind: "skill", text: "/ergo:demo-tdd", name: "demo-tdd", description: "先写测试再写实现：红、绿、重构（假数据）", originalDescription: "Test-driven development: red, green, refactor" },
   { kind: "skill", text: "/ergo:yt-dlp", name: "yt-dlp", description: "下载视频和图片（假数据）" },

@@ -1,11 +1,11 @@
-// 业务层：我的名字（249 号票）—— 用户**自己**的名字怎么存、怎么查、怎么清除，以及它怎么进系统提示。
+// 业务层：我的名字—— 用户**自己**的名字怎么存、怎么查、怎么清除，以及它怎么进系统提示。
 // 光看这一层，不起守护进程：
 // - 存在数据目录配置区的 config/user-name.json（{ format: 1, name }），没有这个文件就是没设；
 // - 启动时读入；读坏了、内容不对、名字不合规只当没设（记一行日志，不覆盖文件），不让守护进程起不来；
 // - 改名字照 checkAssistantName 的规矩查（不合规抛 RequestRejected，网关回 400 带原因），null / 空串 / 只有空白 = 清除；
 // - 有变化才写、才叫 onChange（秘书、记忆管理员、负责人据此从下一轮起按新的系统提示重新装配）；
 // - 系统提示：设了就在前缀后面加一句"用户叫「…」"；没设时和以前**逐字节一样**（前缀、角色提示一个字都不变）。
-// 它和个人助理的名字（43 号票）各存各的文件，改一个不动另一个。
+// 它和个人助理的名字各存各的文件，改一个不动另一个。
 import fs from "node:fs";
 import path from "node:path";
 import { ASSISTANT_NAME_MARK, type AssistantNameEventPayload, CHANNELS, EVENT_TYPES } from "@ergo/protocol";
@@ -148,7 +148,7 @@ describe("我的名字和助理的名字：各存各的、互不影响", () => {
   });
 });
 
-/** 系统提示里那句（249 号票，设了名字才有） */
+/** 系统提示里那句（设了名字才有） */
 const LINE = (name: string) => `用户叫「${name}」，需要称呼用户时用这个名字（对话、念给用户听的话都可以这样叫）。`;
 
 describe("系统提示：设了名字加一句，没设一个字都不变", () => {
@@ -182,7 +182,7 @@ describe("系统提示：设了名字加一句，没设一个字都不变", () =
     expect(library.withPrefix("你是负责人。")).toBe("你是负责人。");
   });
 
-  it("和 241 号票那句（agent 自己的名字）不是一回事：一个在前缀后面，一个在角色提示末尾", () => {
+  it("和那句（agent 自己的名字）不是一回事：一个在前缀后面，一个在角色提示末尾", () => {
     const library = createPromptLibrary({ userName: () => "小明", agentName: () => "阿福", log: () => {} });
     const withPrefix = library.withPrefix("你是负责人。");
     expect(withPrefix).toContain(LINE("小明"));

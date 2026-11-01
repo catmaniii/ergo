@@ -1,11 +1,11 @@
-// 主切面：换模型就新开会话、附一份交接摘要（83 号票，规格第 1 节"模型"）。真的守护进程，目录模型（DeepSeek）的请求一律发到
+// 主切面：换模型就新开会话、附一份交接摘要（规格第 1 节"模型"）。真的守护进程，目录模型（DeepSeek）的请求一律发到
 // 本机的假 DeepSeek（helpers/fake-deepseek.ts），从不连真的；key 是假的。
 // - 秘书：改了秘书的模型，用户的下一条消息时先用原来的模型写交接摘要、新开主线会话（第一条是摘要），这条消息和之后的都用新模型；
 //   聊天里（同一个会话频道）一条"已换成 X 模型，接着之前的对话"；账本记一笔交接摘要的用量；重启后接着的是新会话；
 //   运行时给秘书的通知不触发换；守护进程停着时改的设置，重启后照样是下一条消息时换；
 // - 交接摘要没写成（模型出错）：不换，照旧用原来的模型、记一条说明，下一条消息再试；
 // - 项目负责人：对话段里同样换，新会话的名字记进这一段；起草计划的工单段做到一半不换；
-// - 定时触发的任务（76 号票）的 agent、迁移来的定时作业自己的负责人：下一次运行开头换；
+// - 定时触发的任务的 agent、迁移来的定时作业自己的负责人：下一次运行开头换；
 // - 任务的负责人：一个任务一个会话，执行中途不换。
 import {
   CHANNELS,
@@ -224,7 +224,7 @@ describe("负责人换模型", () => {
     expect(fake.requests.some(isSummary)).toBe(false);
   }, 120_000);
 
-  it("定时触发的任务（76 号票）的 agent：改了以后下一次运行开头写交接摘要、新开会话，这次运行用新模型", async () => {
+  it("定时触发的任务的 agent：改了以后下一次运行开头写交接摘要、新开会话，这次运行用新模型", async () => {
     const fake = await startFakeDeepSeek();
     const clock = new ManualClock(at(8, 8));
     const td = await startTestDaemon({ clock, catalogBaseUrl: fake.baseUrl, env: { DEEPSEEK_API_KEY: KEY }, maintainersFromSettings: (id) => id === "tm-1" });
@@ -254,14 +254,14 @@ describe("负责人换模型", () => {
     expect(notesIn(td, TM1)).toContain("已换成 DeepSeek V4 Pro 模型（思考：高），接着之前的对话。");
   }, 180_000);
 
-  it("迁移来的定时作业（76 号票之前登记的）自己的负责人：改了以后下一次运行开头写交接摘要、新开会话，这次运行用新模型", async () => {
+  it("迁移来的定时作业（以前登记的）自己的负责人：改了以后下一次运行开头写交接摘要、新开会话，这次运行用新模型", async () => {
     const fake = await startFakeDeepSeek();
     const clock = new ManualClock(at(8, 8));
     const td = await startTestDaemon({ clock, catalogBaseUrl: fake.baseUrl, env: { DEEPSEEK_API_KEY: KEY }, maintainersFromSettings: (id) => id === "jm-1" });
     const JM1 = maintainerChannel("jm-1");
     const frontend = await TestFrontend.connect(td.url);
     await frontend.subscribe({ [CHANNELS.board]: 0 });
-    // 76 号票之前的数据：建作业的任务和它登记的定时作业（作业自己的负责人 jm-1）
+    // 以前的数据：建作业的任务和它登记的定时作业（作业自己的负责人 jm-1）
     td.daemon.store.appendBatch(legacyJobEvents(at(8, 8)));
     const jobs = () => frontend.events({ channel: CHANNELS.board, type: EVENT_TYPES.scheduledJob }).map((f) => f.payload as ScheduledJobEventPayload);
 
@@ -290,7 +290,7 @@ const at = (d: number, hh: number) => new Date(2026, 9, d, hh, 0);
 /** 每天早上 09:00 出一份简报 */
 const BRIEFING = { title: "每天早上出简报", schedule: { kind: "daily" as const, time: "09:00" }, each: "汇总昨天的新闻，写一份简报 brief.md" };
 
-/** 76 号票之前的数据（同 triggers.test.ts 的迁移）：一个长程任务和它的计划确认后登记的定时作业 j-1（作业自己的负责人 jm-1） */
+/** 以前的数据（同 triggers.test.ts 的迁移）：一个长程任务和它的计划确认后登记的定时作业 j-1（作业自己的负责人 jm-1） */
 function legacyJobEvents(now: Date) {
   const time = nowIso(now);
   const creator: Task = { id: "t-1", title: "准备每天的简报", summary: "准备每天的简报", state: "done", origin: "request", kind: "long_running", maintainerId: "tm-1", projects: [], projectScope: "none", createdAt: time, updatedAt: time };

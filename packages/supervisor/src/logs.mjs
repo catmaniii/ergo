@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-// 展示日志 = 一个正则漏了就送 key。控制面现在只在本机（用户 2026-10 定的），
+// 展示日志 = 一个正则漏了就送 key。控制面现在只在本机，
 // 但这道脱敏不因此撤掉：有的项目配置文件里就明文躺着第三方的 apiKey。
 const MASKS = [
   [/\b(sk-[A-Za-z0-9_-]{6,})/g, 'sk-***'],

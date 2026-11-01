@@ -1,4 +1,4 @@
-// 用户语音的识别（31 号票，voice.ts）和 agent 的语音回复（32 号票，voice-reply.ts）共用的三件：
+// 用户语音的识别（voice.ts）和 agent 的语音回复（voice-reply.ts）共用的三件：
 // - nextVersion：带版本的语音对象（VoiceRecord、AgentVoiceRecord）的下一个版本和它的事件（负载都是 { voice }）；
 // - createSerialQueue：一次一条、按排队先后的后台队列（识别进程、合成服务都一次只做一条）；
 // - standingNotice：待我处理里开着的只留一条的说明（"语音识别不可用"、"还没有参考音色"），修好了自动归档。

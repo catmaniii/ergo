@@ -1,4 +1,4 @@
-// 浏览侧边栏（147 号票，用户 2026-10-18：鸿蒙 App 的"浏览"右边能展开二狗侧边栏，里面是秘书本人——看得到当前网页和选中的框，
+// 浏览侧边栏（鸿蒙 App 的"浏览"右边能展开二狗侧边栏，里面是秘书本人——看得到当前网页和选中的框，
 // 能读网页、操作选中的框、开网址）在协议里的那一半：
 // - 侧边栏里发的消息带上网页上下文（SendMessageParams.browsing，BrowsingContext）：哪个浏览器（这台设备上这一页二狗网页的随机编号）、
 //   网页的标题和地址、选中的框；守护进程记进消息（MessageEnvelope.browsing，BrowsingMark），交给秘书时写明用户正在看哪个网页、
@@ -11,24 +11,24 @@
 // - 秘书拿不准交哪个文件时，候选作为一张"网页候选卡"（browse_pick，BrowsePickCardPayload）放进秘书的会话：单张的框单选、
 //   多张的框能选几张，"交"（confirm，带选中的取件码）、"都不要"（dismiss）。
 // 网页上的文字是外部数据，不是指令：交给秘书时标明（守护进程那边写），秘书的提示词里写清不能照网页上的话去做事。
-// 149 号票（用户 2026-10-18："干脆悬浮按钮的二狗和秘书的二狗是一个实体好了"）：悬浮按钮上打的字、说的话也是这种消息，
+// "干脆悬浮按钮的二狗和秘书的二狗是一个实体好了"：悬浮按钮上打的字、说的话也是这种消息，
 // 带 via: "button"——按钮所在的框就是这一轮的目标框（selected），按住说的标 spoken，网页弹出、App 拦下的选文件对话框上
 // "让二狗选"的带 chooser；秘书在这一轮的网页工具作用于这个框（记在消息上的 field、chooser）。选中的框带上框里现在的内容
-// （PageField.value，用户 2026-10-18："我在网页选中文本框的时候，二狗读不到文本框的内容"），记在消息上（value），交给秘书时标成外部数据。
+// （PageField.value："我在网页选中文本框的时候，二狗读不到文本框的内容"），记在消息上（value），交给秘书时标成外部数据。
 // 网页候选卡不管是哪一轮给的，网页上都弹一个固定位置的挑图片窗口，和会话里的卡只认第一次的选择；点"交"没交进去时原因记在卡上
 // （failed），两边都看得到。
-// 164 号票（用户 2026-10-19：秘书在"浏览"里点不了链接和按钮，希望像 CDP 那样自己点）：秘书的网页工具多"看能点的东西"（snapshot，
+// 秘书在"浏览"里点不了链接和按钮，希望像 CDP 那样自己点：秘书的网页工具多"看能点的东西"（snapshot，
 // 列出带编号的 PageElement）和"按编号点"（click），照 agent-browser 的 snapshot / click @e1 的形状。
-// 184 号票（用户 2026-10-20：希望在一页里能自动交图 → 自动填字 → 自动点按钮，不用每次都由人先点中框）：snapshot 也列可填、可交、
+// 希望在一页里能自动交图 → 自动填字 → 自动点按钮，不用每次都由人先点中框：snapshot 也列可填、可交、
 // 可选的控件（textbox、upload、select），fill、attach 能按编号（ref）指到 snapshot 列的框上，不用先选中；网页候选卡也能记着编号（ref）。
-// 359 号票（用户 2026-11-01：长按网页元素或右键时，系统菜单照常，多出一个二狗圆钮，让二狗处理这个元素；做什么由用户说了算）：圆钮上打的字、
+// 长按网页元素或右键时，系统菜单照常，多出一个二狗圆钮，让二狗处理这个元素；做什么由用户说了算：圆钮上打的字、
 // 说的话也是这种消息（via: "button"），带上这个元素（PickedElement）；秘书这一轮的工具不收窄，多两样通用能力——取元素的内容（element_file）、
 // 在设备上下载它（element_download）。元素的地址、文字是网页上的，交给秘书时标成外部数据。
 import { type Static, Type } from "typebox";
 import { forModel, t, tTable } from "./i18n/runtime.ts";
 import { PAGE_CANDIDATES_MAX, PAGE_FILE_MAX_BYTES, PageChooser, PageCommandFile, PageField, PageFieldValue, pageUrlForModel } from "./page-commands.ts";
 
-/** 长按、右键认出来的元素的种类（359 号票）：图片（含 canvas、CSS 背景图、SVG）、视频、链接、文字（含选中的文字） */
+/** 长按、右键认出来的元素的种类：图片（含 canvas、CSS 背景图、SVG）、视频、链接、文字（含选中的文字） */
 export const PICKED_ELEMENT_KINDS = ["image", "video", "link", "text"] as const;
 export type PickedElementKind = (typeof PICKED_ELEMENT_KINDS)[number];
 
@@ -44,7 +44,7 @@ export const PICKED_ELEMENT_URL_MAX = 2048;
 export const PICKED_ELEMENT_LABEL_MAX = 300;
 
 /**
- * 长按、右键认出来的网页元素（359 号票）：编号（秘书要取内容、下载时凭它，页面桥核对还是那一页、元素还在）、种类、内容从哪取、图片和视频的地址（http、https 才有，
+ * 长按、右键认出来的网页元素：编号（秘书要取内容、下载时凭它，页面桥核对还是那一页、元素还在）、种类、内容从哪取、图片和视频的地址（http、https 才有，
  * 全地址：用户指着它问的就是它）、链接的地址（链接本身，或者图片外面包着的链接）、说明文字（alt、title）、文字（元素上的字或选中的字，selected 是选中的字）、
  * 选中的字所在的那段（around：手指长按时系统只选中一个词，秘书要知道他指的是哪一段）。
  * 这些都是网页上的东西，交给秘书时标成外部数据
@@ -89,28 +89,28 @@ export const BrowsingPage = Type.Object({
 });
 export type BrowsingPage = Static<typeof BrowsingPage>;
 
-/** 侧边栏里、悬浮按钮上（149 号票）发的消息带的网页上下文（SendMessageParams.browsing） */
+/** 侧边栏里、悬浮按钮上发的消息带的网页上下文（SendMessageParams.browsing） */
 export const BrowsingContext = Type.Object({
   browser: Type.String({ pattern: BROWSER_ID }),
   page: BrowsingPage,
   /** 用户选中的框（页面桥报的，带着框里现在的内容；没选中就没有）；悬浮按钮发的是按钮所在的框（拦下的对话框认出来的框） */
   selected: Type.Optional(PageField),
-  /** 从悬浮按钮发的（149 号票）；不写是浏览侧边栏 */
+  /** 从悬浮按钮发的；不写是浏览侧边栏 */
   via: Type.Optional(Type.Literal("button")),
   /** 悬浮按钮上按住说的（认出来的字） */
   spoken: Type.Optional(Type.Literal(true)),
   /** 悬浮按钮这一轮的目标是网页弹出、App 拦下的选文件对话框（"让二狗选"）：要什么类型、能不能选好几个 */
   chooser: Type.Optional(PageChooser),
-  /** 圆钮上发的（359 号票）：长按、右键认出来的元素 */
+  /** 圆钮上发的：长按、右键认出来的元素 */
   element: Type.Optional(PickedElement),
 });
 export type BrowsingContext = Static<typeof BrowsingContext>;
 
 /**
  * 记在消息上的网页上下文（MessageEnvelope.browsing）：哪个浏览器（秘书的网页工具据此找到发消息的那台设备）、网页的标题和地址、
- * 选中的框的说法（"「标题」（单行文本）"，没选中就没有）。149 号票：悬浮按钮发的另记 via、目标框（field，不带内容）、
+ * 选中的框的说法（"「标题」（单行文本）"，没选中就没有）。悬浮按钮发的另记 via、目标框（field，不带内容）、
  * 拦下的对话框（chooser）、是不是说的（spoken）；选中的框那时的内容（value，侧边栏、悬浮按钮都记）。
- * 359 号票：圆钮上发的另记元素（element）
+ * 圆钮上发的另记元素（element）
  */
 export const BrowsingMark = Type.Object({
   browser: Type.String(),
@@ -127,8 +127,8 @@ export const BrowsingMark = Type.Object({
 export type BrowsingMark = Static<typeof BrowsingMark>;
 
 /**
- * "浏览"页签能选的搜索引擎（134 号票：设置 · 浏览与填框里选，记在这台设备上，默认必应）的结果页地址，关键词按 encodeURIComponent
- * 接在后面。182 号票从网页挪到协议包：联网搜索轮到"鸿蒙 App 的内置浏览器"时，守护进程照发消息那台设备在用的搜索引擎拼好结果页的地址
+ * "浏览"页签能选的搜索引擎（设置 · 浏览与填框里选，记在这台设备上，默认必应）的结果页地址，关键词按 encodeURIComponent
+ * 接在后面。从网页挪到协议包：联网搜索轮到"鸿蒙 App 的内置浏览器"时，守护进程照发消息那台设备在用的搜索引擎拼好结果页的地址
  * 交给秘书（browse_open 打开它）；名字在网页（state/browse.ts）
  */
 export const BROWSE_SEARCH_ENGINES = {
@@ -155,7 +155,7 @@ export function browseSearchUrl(query: string, engine: BrowseSearchEngineId): st
 
 /**
  * browser_status：设备报它的浏览器现在的样子。page 是开着的网页（还没打开过网页就没有）；selected 是选中的框（没选中就没有）。
- * 变了就报、连上（重连）后再报一次；不带幂等键（只是覆盖"现在的样子"）。182 号票：searchEngine 是这台设备"浏览"里在用的搜索引擎
+ * 变了就报、连上（重连）后再报一次；不带幂等键（只是覆盖"现在的样子"）。searchEngine 是这台设备"浏览"里在用的搜索引擎
  * （BrowseSearchEngineId；旧页面不报，认不得的按默认）
  */
 export const BrowserStatusParams = Type.Object({
@@ -170,16 +170,16 @@ export type BrowserStatusParams = Static<typeof BrowserStatusParams>;
 export const BROWSER_PAGE_TEXT_MAX = 20_000;
 
 /**
- * 网页上能点的东西的种类（164 号票）：链接、按钮、菜单项、标签页、按钮样子的 input（type=button）、提交表单的按钮；
- * 184 号票起还有能填、能交、能选的控件：文本框（单行、多行、可编辑区域）、上传框（选文件的 input，藏起来的也算）、下拉框（只能看）
+ * 网页上能点的东西的种类：链接、按钮、菜单项、标签页、按钮样子的 input（type=button）、提交表单的按钮；
+ * 还有能填、能交、能选的控件：文本框（单行、多行、可编辑区域）、上传框（选文件的 input，藏起来的也算）、下拉框（只能看）
  */
 export const PAGE_ELEMENT_ROLES = ["link", "button", "menuitem", "tab", "input", "submit", "textbox", "upload", "select"] as const;
 export type PageElementRole = (typeof PAGE_ELEMENT_ROLES)[number];
 
-/** 能填、能交、能选的控件的种类（184 号票）：不能点，填字用 fill、交文件用 attach，下拉框只能看 */
+/** 能填、能交、能选的控件的种类：不能点，填字用 fill、交文件用 attach，下拉框只能看 */
 export const PAGE_FIELD_ROLES = ["textbox", "upload", "select"] as const satisfies readonly PageElementRole[];
 
-/** 文本框、下拉框现在的值最多交多少字（184 号票；密码类的框根本不列）；下拉框最多交几个选项、一个选项最长多少字 */
+/** 文本框、下拉框现在的值最多交多少字（密码类的框根本不列）；下拉框最多交几个选项、一个选项最长多少字 */
 export const PAGE_ELEMENT_VALUE_MAX = 40;
 export const PAGE_ELEMENT_OPTIONS_MAX = 20;
 export const PAGE_ELEMENT_OPTION_MAX = 100;
@@ -189,10 +189,10 @@ export const PAGE_ELEMENTS_DEFAULT = 40;
 export const PAGE_ELEMENTS_MAX = 100;
 
 /**
- * 网页上一个能点的东西（164 号票，browse_snapshot 列的，照 agent-browser snapshot 的 @e1）：编号（"e1"，页面桥给的，只在这一页有效、
+ * 网页上一个能点的东西（browse_snapshot 列的，照 agent-browser snapshot 的 @e1）：编号（"e1"，页面桥给的，只在这一页有效、
  * 换页即失效；同一页再看一次，同一个元素还是这个号）、种类、看得见的文字（截断；没有文字时用 aria-label / title / alt）、
  * 链接的地址（只有 link 有）、是不是灰的（aria-disabled，点了也没用；真正 disabled 的不列）。
- * 184 号票起的控件（文本框、上传框、下拉框）：文字是标签（没有标签用 placeholder；上传框没有时用网站画的上传按钮上的字）；
+ * 控件（文本框、上传框、下拉框）：文字是标签（没有标签用 placeholder；上传框没有时用网站画的上传按钮上的字）；
  * valuePreview 是现在的值的前 40 字（文本框；下拉框是现在选的那一项；空的不写；密码类的框根本不列）；multiline 多行的文本框；
  * accept、multiple 上传框要什么类型、能不能交好几个；options 下拉框的前 20 个选项；hidden 是藏起来的上传框（网站画了自己的上传按钮、
  * 把 input 藏在后面，业界常见）——只能交文件、不能点
@@ -219,15 +219,15 @@ export type PageElement = Static<typeof PageElement>;
  * - attach：给上传框交文件（凭取件码取字节，照网页上下指令的做法）——秘书直接交的是选中的框，网页候选卡上点"交"的是建卡时选中的那个框；
  * - open：在这个内置浏览器里打开一个网址（http、https）。
  * fill、attach 带着网页的地址（去掉查询串）：设备核对浏览器还开着这一页、页面上还有这个框（fill 还要是现在选中的框），不是就回错——
- * 框的编号只在同一页里有效，换了网页同一个编号可能是别的框。attach 的 fieldId 是 "chooser"（PAGE_CHOOSER_TARGET，149 号票）时
+ * 框的编号只在同一页里有效，换了网页同一个编号可能是别的框。attach 的 fieldId 是 "chooser"（PAGE_CHOOSER_TARGET）时
  * 交给网页弹出、App 拦下的选文件对话框（还等着才交得进）。
- * 164 号票（用户 2026-10-19：秘书在"浏览"里点不了链接和按钮）多两种：
+ * （秘书在"浏览"里点不了链接和按钮）多两种：
  * - snapshot：列当前网页上能点的东西（PageElement，最多 max 个，不写 40 个），编号由页面桥给、记在页面桥的内存里（不写进网页的 DOM）；
  * - click：按编号点一个元素。url 是看的时候那一页的地址（去掉查询串）：设备核对还是这一页、编号还在、元素还在页面上、文字和看的时候一样，
  *   不是就回"页面变了，请重新 snapshot"，不会点错。
- * 184 号票：fill、attach 另有按编号的那一种（ref 是 snapshot 列的 textbox、upload 的编号，不用先选中）：url 同样是看的时候那一页的地址，
+ * fill、attach 另有按编号的那一种（ref 是 snapshot 列的 textbox、upload 的编号，不用先选中）：url 同样是看的时候那一页的地址，
  * 设备（页面桥）核对还是这一页、编号认得、元素还在、种类没变才填、才交。
- * 359 号票多两种（element 是长按认出来的元素的编号，url 是那一页的地址）：
+ * 多两种（element 是长按认出来的元素的编号，url 是那一页的地址）：
  * - element_file：取元素的内容传进媒体库（图、文件：App 带登录状态和来源页取，blob、data、canvas 页面桥读，取不到截这个元素的图）；
  * - element_download：在设备上把元素下载下来（走 App 的下载，进下载记录）
  */
@@ -247,10 +247,10 @@ export type BrowserRequest = Static<typeof BrowserRequest>;
 
 /**
  * 设备办完的结果：不成是原因（浏览器换了网页、框没了、取不到文件……）；成了的——read 带网页、文字、截没截、一共多少字，
- * 还有选中的框和框里现在的内容（selected，149 号票：正文文字里没有框里的值）；attach 带交进去几个。
- * 164 号票：snapshot 带网页、能点的东西（elements，最多 PAGE_ELEMENTS_MAX 个，超出时屏幕上看得见的、上半屏的优先）、页面上一共几个
+ * 还有选中的框和框里现在的内容（selected：正文文字里没有框里的值）；attach 带交进去几个。
+ * snapshot 带网页、能点的东西（elements，最多 PAGE_ELEMENTS_MAX 个，超出时屏幕上看得见的、上半屏的优先）、页面上一共几个
  * （total）、截没截（truncated）；click 带点了什么（clicked，"种类:文字"）、地址变没变（navigated）、点完之后的网页（page）。
- * 359 号票：element_file 带传进媒体库的内容（file）
+ * element_file 带传进媒体库的内容（file）
  */
 export const BrowserOutcome = Type.Union([
   Type.Object({ ok: Type.Literal(false), reason: Type.String({ maxLength: 500 }) }),
@@ -280,8 +280,8 @@ export type BrowserReplyParams = Static<typeof BrowserReplyParams>;
 /**
  * 网页候选卡（browse_pick）：秘书在侧边栏里替选中的上传框找文件、拿不准交哪个时给用户挑的候选。在哪个网页、哪个框（说法和
  * 页面桥给的编号，网页弹出的选文件对话框是 "chooser"）、哪个浏览器、能不能选好几个、候选的文件（凭取件码，过期时间 expiresAt 之后
- * 取不到了）、秘书最推荐的（取件码）；选好了交进去以后记着选了哪几个、交进去几个；点了"交"没交进去时记着原因（failed，149 号票：
- * 网页上的挑图片窗口和会话里的卡都显示，卡还能再点）。184 号票：秘书按编号指的上传框（browse_attach_files 的 ref）记在 ref 上
+ * 取不到了）、秘书最推荐的（取件码）；选好了交进去以后记着选了哪几个、交进去几个；点了"交"没交进去时记着原因（failed：
+ * 网页上的挑图片窗口和会话里的卡都显示，卡还能再点）。秘书按编号指的上传框（browse_attach_files 的 ref）记在 ref 上
  * （fieldId 也写这个编号），交的时候按编号交（页面桥核对还是那一页、编号认得、还是上传框）
  */
 export const BrowsePickCardPayload = Type.Object({
@@ -301,7 +301,7 @@ export const BrowsePickCardPayload = Type.Object({
 export type BrowsePickCardPayload = Static<typeof BrowsePickCardPayload>;
 
 /**
- * 网页候选卡上点"交"的输入：选中的（取件码，至少一个）。done（149 号票）：网页上的挑图片窗口里点的，设备已经在本机交过了
+ * 网页候选卡上点"交"的输入：选中的（取件码，至少一个）。done：网页上的挑图片窗口里点的，设备已经在本机交过了
  * （用的是候选一出来就预备好的文件，不等守护进程）——交进去几个，或没交进去的原因；守护进程只核对、记下（卡片同步），不再转给设备
  */
 export const BrowsePickConfirmInput = Type.Object({
@@ -310,7 +310,7 @@ export const BrowsePickConfirmInput = Type.Object({
 });
 export type BrowsePickConfirmInput = Static<typeof BrowsePickConfirmInput>;
 
-/** 圆钮发的那条下面的小字里元素怎么称呼（359 号票） */
+/** 圆钮发的那条下面的小字里元素怎么称呼 */
 const ELEMENT_WHERE: Readonly<Record<PickedElementKind, string>> = tTable({
   image: "protocol.browsing.label.whereImage",
   video: "protocol.browsing.label.whereVideo",
@@ -327,7 +327,7 @@ const FIELD_KIND_TEXT: Readonly<Record<PageField["kind"], string>> = tTable({
 
 /**
  * 选中的框的说法："「标题」（单行文本）"；没有标签、提示的只写种类。侧边栏顶上"选中："、交给秘书的输入、记在消息上的都用它。
- * 按当前语言写；给模型的（交给秘书的输入、记在消息上的）包一层 forModel 照旧中文（172 号票）
+ * 按当前语言写；给模型的（交给秘书的输入、记在消息上的）包一层 forModel 照旧中文
  */
 export function selectedFieldText(field: Pick<PageField, "kind" | "label" | "placeholder" | "multiple">): string {
   const name = field.label || field.placeholder || "";
@@ -335,7 +335,7 @@ export function selectedFieldText(field: Pick<PageField, "kind" | "label" | "pla
   return name ? t("protocol.browsing.field.named", { name, kind }) : kind;
 }
 
-/** 拦下的选文件对话框的说法（149 号票）：只给模型看（交给秘书的输入、工具的结果） */
+/** 拦下的选文件对话框的说法：只给模型看（交给秘书的输入、工具的结果） */
 export const CHOOSER_TEXT = "网页弹出的选文件对话框"; // @i18n-ignore model
 
 /** 侧边栏、悬浮按钮发的消息带的网页上下文记成什么（地址去掉查询串和 # 后面的；框里的内容另记在 value，目标框不带内容） */
@@ -360,8 +360,8 @@ export function browsingMarkOf(context: BrowsingContext): BrowsingMark {
 
 /**
  * 会话里侧边栏发的那条消息下面的小字："在网页「X」上说"（网页没标题写地址，去掉 http(s)://；还没打开网页时"在浏览侧边栏里说"）。
- * 悬浮按钮发的照 134 号票网页指令的写法（149 号票）："在网页「X」的「标题」上打字"、"……的上传框上说"；
- * 圆钮发的（359 号票）："在网页「X」的图片上说"
+ * 悬浮按钮发的网页指令的写法："在网页「X」的「标题」上打字"、"……的上传框上说"；
+ * 圆钮发的："在网页「X」的图片上说"
  */
 export function browsingLabel(mark: Pick<BrowsingMark, "title" | "url" | "via" | "field" | "chooser" | "spoken" | "element">): string {
   const page = mark.title.trim() || mark.url.replace(/^https?:\/\//i, "").replace(/\/$/, "");
@@ -382,7 +382,7 @@ export function browsingLabel(mark: Pick<BrowsingMark, "title" | "url" | "via" |
   return page ? t("protocol.browsing.label.sidebarPage", { page: page.slice(0, 40) }) : t("protocol.browsing.label.sidebar");
 }
 
-// ───────────────────────── 存进二狗的素材（165 号票） ─────────────────────────
+// ───────────────────────── 存进二狗的素材 ─────────────────────────
 
 /**
  * "浏览"的 ⋮ 菜单里点"存进二狗的素材"（POST /api/materials/web-page）：这一页的标题、地址（http、https）、正文（页面桥取整页文字的那条路，

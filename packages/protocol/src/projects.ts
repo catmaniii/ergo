@@ -1,4 +1,4 @@
-// 项目（规格第 11 节，15 号票）的名字：项目状态、项目类型、立项的入口、项目页上的动作、项目列表频道上的变化。
+// 项目（规格第 11 节）的名字：项目状态、项目类型、立项的入口、项目页上的动作、项目列表频道上的变化。
 // 只有常量和纯函数，不引用 TypeBox（Web 只用这些常量和类型）。schema 在 project-schema.ts。
 // "哪个状态能做哪个动作"只在这里定一次（PROJECT_ACTION_RULES）：守护进程据此校验迁移，Web 据此给出入口。
 import { followLocale, t, tTable } from "./i18n/runtime.ts";
@@ -8,7 +8,7 @@ import type { TaskState } from "./tasks.ts";
  * 项目状态：筹备中 →（确认并开工）建设中 →（建设任务做完，用户在"首版做完了"卡上选转入使用）使用中 ⇄ 已停用；
  * 筹备中、建设中可以放弃 → 已归档；使用中、已停用 →（用户手动）已归档；取消归档回到归档前的状态。
  * 删除只能从已归档发起，要二次确认；删掉的项目不在这里（项目列表频道上一条 deleted 的变化）。
- * 112 号票（用户 2026-10-13 定）：项目状态变更时找用户——建设任务做完不再自动进入使用中，给用户一张"首版做完了"卡
+ * 项目状态变更时找用户——建设任务做完不再自动进入使用中，给用户一张"首版做完了"卡
  * （BUILD_DONE_CHOICES），不选就一直停在建设中。
  */
 export const PROJECT_STATES = ["preparing", "building", "in_use", "retired", "archived"] as const;
@@ -30,7 +30,7 @@ export const PROJECT_KIND_LABEL: Readonly<Record<ProjectKind, string>> = tTable(
 
 /**
  * 项目从哪个入口诞生：秘书收口的"建议立项"卡上点了"立项"（用户明说、点"新建项目"，或者秘书自己建议的，都经这张卡），
- * 或者任务转为项目（不新建负责人，原任务的负责人接着做立项问答）；290 号票起还有从运行时已有的会话接管（takeover：新建项目时选了
+ * 或者任务转为项目（不新建负责人，原任务的负责人接着做立项问答）；还有从运行时已有的会话接管（takeover：新建项目时选了
  * "从 Claude Code 会话接管"，不经秘书、直接建出，负责人接着那个会话）
  */
 export const PROJECT_ORIGINS = ["suggestion", "task", "takeover"] as const;
@@ -39,11 +39,11 @@ export type ProjectOrigin = (typeof PROJECT_ORIGINS)[number];
 /**
  * 项目页上用户能做的动作（project_action 请求）：
  * - start_build 开工：立项书已确认、还在筹备中的（"只确认，稍后开工"之后）；或者建设中、首个建设任务失败或取消了，
- *   再发起一个建设任务（它接替成为首个建设任务，做完时出"首版做完了"卡，112 号票）；
+ *   再发起一个建设任务（它接替成为首个建设任务，做完时出"首版做完了"卡）；
  * - abandon 放弃（筹备中、建设中 → 已归档）、retire 停用、reactivate 重新启用、archive 归档（使用中、已停用 → 已归档）、
  *   unarchive 取消归档（回到归档前的状态）；
  * - delete 删除：只能从已归档发起，不马上删，在待我处理里放一条二次确认（PROJECT_DELETE_CONFIRM）；
- * - go_live 转入使用（259 号票）：建设中的，不马上转，出一张"转入使用"确认卡（go_live，卡上列转运营检查清单），用户在卡上确认才转——
+ * - go_live 转入使用：建设中的，不马上转，出一张"转入使用"确认卡（go_live，卡上列转运营检查清单），用户在卡上确认才转——
  *   转运营不管谁发起（用户自己在项目页点、负责人提、秘书代办）都要用户确认，没有绕过的路（GO_LIVE_BY）。
  *   "首版做完了"卡已经在等的就用那一张（它的"转入使用"同样是这道确认）。
  * 重置负责人不改项目状态，不在这里：单独的 reset_maintainer 请求（canResetMaintainer）
@@ -64,7 +64,7 @@ export const PROJECT_ACTION_LABEL: Readonly<Record<ProjectAction, string>> = tTa
 
 /**
  * 项目列表频道上 project 事件的"这次是什么变化"：建出（立项、任务转为项目）、负责人交出立项书、立项书确认（只确认）、
- * 开工（确认并开工，或者稍后开工）、进入使用中（112 号票起是用户在"首版做完了"卡上选转入使用；之前是首个建设任务完成时系统改的）、
+ * 开工（确认并开工，或者稍后开工）、进入使用中（是用户在"首版做完了"卡上选转入使用；之前是首个建设任务完成时系统改的）、
  * 停用、重新启用、放弃、归档、取消归档、删除
  */
 export const PROJECT_CHANGES = [
@@ -79,23 +79,23 @@ export const PROJECT_CHANGES = [
   "archived",
   "unarchived",
   "deleted",
-  // 27 号票：工具包变了（用户在项目页改、批准了"工具包变更"卡、负责人增减 skill 或减少能力）
+  // 工具包变了（用户在项目页改、批准了"工具包变更"卡、负责人增减 skill 或减少能力）
   "toolkit_changed",
-  // 112 号票：用户在"首版做完了"卡上选继续建设，又建出一轮建设任务（项目留在建设中，buildTaskId 换成新的那个）
+  // 用户在"首版做完了"卡上选继续建设，又建出一轮建设任务（项目留在建设中，buildTaskId 换成新的那个）
   "build_continued",
-  // 125 号票：用户在"立项要求变更"卡上确认了，立项书改写了（目标、范围、首版；项目类型、工作目录不变）
+  // 用户在"立项要求变更"卡上确认了，立项书改写了（目标、范围、首版；项目类型、工作目录不变）
   "charter_changed",
-  // 130 号票：用户在"运营方案变更"卡上确认了，现在生效的运营方案换了（项目状态不变；"首版做完了"卡上确认并转入使用的记在 in_use 那一条上）
+  // 用户在"运营方案变更"卡上确认了，现在生效的运营方案换了（项目状态不变；"首版做完了"卡上确认并转入使用的记在 in_use 那一条上）
   "operations_changed",
-  // 261 号票：用户在"规范改写"卡上确认了，本项目的规范改写变了（跟新版规范的，项目上记着的规范版本换成新的）
+  // 用户在"规范改写"卡上确认了，本项目的规范改写变了（跟新版规范的，项目上记着的规范版本换成新的）
   "standard_changed",
-  // 262 号票：规范上线之前建的项目，用户在"补齐规范文档"卡上选了补齐：改用现在的规范（项目上记下规范版本，有模板的几份从模板放进档案）
+  // 规范上线之前建的项目，用户在"补齐规范文档"卡上选了补齐：改用现在的规范（项目上记下规范版本，有模板的几份从模板放进档案）
   "standard_adopted",
-  // 289 号票：负责人用的运行时（Project.runtime）或给它选的值（Project.runtimeOptions）改了（项目状态不变）
+  // 负责人用的运行时（Project.runtime）或给它选的值（Project.runtimeOptions）改了（项目状态不变）
   "runtime_set",
-  // 290 号票：从运行时已有的会话接管来的（Project.takeover）交还了、收回了（项目状态不变）
+  // 从运行时已有的会话接管来的（Project.takeover）交还了、收回了（项目状态不变）
   "takeover_set",
-  // 354 号票：开关了自动播报（Project.voiceAnnounce；项目状态不变）
+  // 开关了自动播报（Project.voiceAnnounce；项目状态不变）
   "voice_announce_set",
 ] as const;
 export type ProjectChange = (typeof PROJECT_CHANGES)[number];
@@ -118,11 +118,11 @@ export const PROJECT_ACTION_RULES: Readonly<
   go_live: { from: ["building"], to: "unchanged" },
 };
 
-/** 这两个动作让项目进入已归档：项目还有正在做或排队的工单时不能做（16 号票评审后用户定） */
+/** 这两个动作让项目进入已归档：项目还有正在做或排队的工单时不能做 */
 export const ARCHIVING_ACTIONS: readonly ProjectAction[] = ["abandon", "archive"];
 
 /**
- * 重置负责人（reset_maintainer 请求，16 号票）：不改项目状态，负责人新开一段会话、只凭项目档案重建理解（没有上一段的摘要），
+ * 重置负责人（reset_maintainer 请求）：不改项目状态，负责人新开一段会话、只凭项目档案重建理解（没有上一段的摘要），
  * 旧会话保留可查；已归档的项目负责人会话只读，不能重置
  */
 export let RESET_MAINTAINER_LABEL = "";
@@ -131,13 +131,13 @@ export function canResetMaintainer(project: { state: ProjectState }): boolean {
   return project.state !== "archived";
 }
 
-/** 能不能开关项目的自动播报（354 号票）：已归档的不会再有进展；守护进程和 Web 的项目页共用 */
+/** 能不能开关项目的自动播报：已归档的不会再有进展；守护进程和 Web 的项目页共用 */
 export function canSetProjectVoiceAnnounce(project: { state: ProjectState }): boolean {
   return project.state !== "archived";
 }
 
 /**
- * 项目还有没结束的工单（正在做、排队）时归档被拒的说法：先完成或取消哪几个任务；定时作业的运行（19 号票，工单不属于任务）
+ * 项目还有没结束的工单（正在做、排队）时归档被拒的说法：先完成或取消哪几个任务；定时作业的运行（工单不属于任务）
  * 写明等它这次做完
  */
 export function archiveBlockedText(orders: ReadonlyArray<{ taskId?: string | undefined; taskTitle?: string | undefined; title?: string | undefined }>): string {
@@ -158,7 +158,7 @@ const UNARCHIVE_FALLBACK: ProjectState = "preparing";
 
 /**
  * 做这个动作之后项目到哪个状态、项目列表频道上记成什么变化，以及之后的"归档前的状态"（归档时记下，别的时候清掉）。
- * 删除（等二次确认）、转入使用（等确认卡，259 号票）不改状态，返回 undefined。能不能做另看 projectActions
+ * 删除（等二次确认）、转入使用（等确认卡）不改状态，返回 undefined。能不能做另看 projectActions
  */
 export function projectActionTarget(
   project: { state: ProjectState; archivedFrom?: ProjectState },
@@ -171,7 +171,7 @@ export function projectActionTarget(
 }
 
 /**
- * "首版做完了"卡（build_done，112 号票）上的三个选择：转入使用（项目进入使用中，以后运营态的东西从这里接上）、
+ * "首版做完了"卡（build_done）上的三个选择：转入使用（项目进入使用中，以后运营态的东西从这里接上）、
  * 继续建设（项目留在建设中，负责人按你写的一句话起草下一轮建设任务的计划，照常找你确认）、放弃并归档（照项目页上的放弃）。
  * 卡片动作名就是它们
  */
@@ -184,10 +184,10 @@ export const BUILD_DONE_CHOICE_LABEL: Readonly<Record<BuildDoneChoice, string>> 
   abandon: "protocol.projects.buildDone.abandon",
 });
 
-// ───────────────────────── 转入使用的确认（259 号票） ─────────────────────────
+// ───────────────────────── 转入使用的确认 ─────────────────────────
 
 /**
- * 谁发起的转入使用（issue 19 第 8 条：不管谁发起都必须用户确认）：用户自己在项目页点的、项目的负责人提的（propose_go_live）、
+ * 谁发起的转入使用（不管谁发起都必须用户确认）：用户自己在项目页点的、项目的负责人提的（propose_go_live）、
  * 秘书照用户说的代办的（秘书的 propose_go_live）。都只出"转入使用"确认卡，用户在卡上确认才转
  */
 export const GO_LIVE_BY = ["user", "maintainer", "secretary"] as const;
@@ -227,7 +227,7 @@ export type CharterDecision = (typeof CHARTER_DECISIONS)[number];
 
 export const CHARTER_DECISION_LABEL: Readonly<Record<CharterDecision, string>> = tTable({ start: "protocol.projects.charterDecision.start", later: "protocol.projects.charterDecision.later" });
 
-// ───────────────────────── 立项要求变更（125 号票） ─────────────────────────
+// ───────────────────────── 立项要求变更 ─────────────────────────
 
 /**
  * 立项书确认之后能经"立项要求变更"改的几项：目标、范围、首版。决定运行时行为的那几项不走这条路——项目类型、工作目录不能改，
@@ -257,7 +257,7 @@ export interface CharterRequirements {
   firstVersion: string;
 }
 
-/** 负责人提的立项要求变更：只写要改的几项，没写的照旧（照 121 号票：写了的整项按写的算，范围要写全） */
+/** 负责人提的立项要求变更：只写要改的几项，没写的照旧（写了的整项按写的算，范围要写全） */
 export type CharterDraft = Partial<CharterRequirements>;
 
 /** 立项要求变更里的一处（卡上逐条对照新旧）：目标、首版写前后两句；范围写去掉的和加上的条目 */
@@ -307,9 +307,9 @@ export interface ToolkitShape {
   mcp: string[];
   bash: boolean;
   network: boolean;
-  /** 能不能给秘书发消息（102 号票）：不写是能，关掉了是 false（canTellSecretary） */
+  /** 能不能给秘书发消息：不写是能，关掉了是 false（canTellSecretary） */
   tellSecretary?: boolean;
-  /** 能不能发附件（117 号票）：不写是能，关掉了是 false（canSendAttachment） */
+  /** 能不能发附件：不写是能，关掉了是 false（canSendAttachment） */
   sendAttachment?: boolean;
 }
 

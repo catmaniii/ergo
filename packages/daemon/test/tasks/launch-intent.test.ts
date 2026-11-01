@@ -1,4 +1,4 @@
-// 只有用户点明了才发起任务（规格第 7 节，ADR 0019，58 号票）：运行时判定用户这一轮点明了哪种任务（表格测试）。
+// 只有用户点明了才发起任务（规格第 7 节，ADR 0019）：运行时判定用户这一轮点明了哪种任务（表格测试）。
 import { describe, expect, it } from "vitest";
 import type { UserTurn } from "../../src/quick-actions/index.ts";
 import { launchIntent, launchRefusal } from "../../src/tasks/launch-intent.ts";
@@ -11,11 +11,11 @@ describe("用户点明了哪种任务", () => {
   it.each([
     ["/流程 把下载目录按类型整理好", "workflow"],
     ["  /任务 调研家用 NAS", "long_running"],
-    // 310 号票：命令一律英文（中文的老写法照样认）
+    // 命令一律英文（中文的老写法照样认）
     ["/workflow 把下载目录按类型整理好", "workflow"],
     ["/task 调研家用 NAS", "long_running"],
     ["/task", "long_running"],
-    // 175 号票：英文别名
+    // 英文别名
     ["/ergo_workflow sort the downloads folder", "workflow"],
     ["/ergo_task research home NAS", "long_running"],
     ["/ergo_task", "long_running"],
@@ -51,7 +51,7 @@ describe("用户点明了哪种任务", () => {
 
   it.each([
     "帮我整理一份 X 的调研",
-    // 310 号票：英文写法后面紧跟 - _ : 的是 skill 的名字
+    // 英文写法后面紧跟 - _ : 的是 skill 的名字
     "/task-runner 跑一下",
     "/tasks",
     "/workflow:x",
@@ -138,7 +138,7 @@ describe("用户点明了哪种任务", () => {
   });
 });
 
-// 379 号票：英文界面教用户说 "Follow a workflow: …" "Start a task: …"（pages.projects.internalEmpty），走和中文一样的判定：
+// 英文界面教用户说 "Follow a workflow: …" "Start a task: …"（pages.projects.internalEmpty），走和中文一样的判定：
 // 一句话开头、祈使、不分大小写，宁可漏判
 describe("英文的说法", () => {
   it.each([

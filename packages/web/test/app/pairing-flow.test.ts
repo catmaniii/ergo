@@ -1,4 +1,4 @@
-// 配对页的流程（137 号票，app/pairing-flow.ts）：打开页面只问"这台设备有没有配对请求"，点了"请求配对"才发请求；
+// 配对页的流程（app/pairing-flow.ts）：打开页面只问"这台设备有没有配对请求"，点了"请求配对"才发请求；
 // 过期、被拒之后回到说明页，不自动重发，要再点一次。配对接口换成记下调用的假的。
 import { describe, expect, test } from "vitest";
 import { type PairingApi, PairingError, PairingFlow } from "../../src/app/pairing-flow.ts";

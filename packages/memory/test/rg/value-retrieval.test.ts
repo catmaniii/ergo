@@ -1,4 +1,4 @@
-// 196 号票：为任务调出相关的用户模型（往上走、结论索引、领域三条路）。例子都是自己写的（test/rg/task-helpers.ts）。
+// 为任务调出相关的用户模型（往上走、结论索引、领域三条路）。例子都是自己写的（test/rg/task-helpers.ts）。
 import { afterEach, describe, expect, it } from "vitest";
 import { FakeEmbedder } from "../../src/embedding/fake.ts";
 import { domainsOfTags, domainsOfText, taskDomains } from "../../src/rg/domains.ts";
@@ -161,7 +161,7 @@ describe("只要成立的：不成立、过期的不返回，还拿不准的单�
     expect(ids([...m.preferences, ...m.needs])).not.toContain(noInterest.id);
   });
 
-  it("依据被忘掉 → 需求、价值降成猜测、标着复核：不当已验证的用；330 号票（R5）起照样返回、在猜测那一栏、标着复核；reflect 后还是猜测：只在猜测那一栏", async () => {
+  it("依据被忘掉 → 需求、价值降成猜测、标着复核：不当已验证的用；ADR-0032 R5起照样返回、在猜测那一栏、标着复核；reflect 后还是猜测：只在猜测那一栏", async () => {
     const { engine } = await storyEngine();
     const need = member(engine, NEED, "need_autonomy");
     const value = member(engine, VALUE, "value_enduring");
@@ -172,7 +172,7 @@ describe("只要成立的：不成立、过期的不返回，还拿不准的单�
     expect(ids([...m.state, ...m.preferences, ...m.needs, ...m.values])).not.toContain(value.id);
     expect(m.uncertain.find((u) => u.claimId === need.id)).toMatchObject({ status: "contested", needsReview: true });
     await engine.reflect();
-    // 329 号票（R4）：工作日那条退回推理链、是猜测，猜测也能往上抽——需求还在、是猜测，不当成立的用
+    // ADR-0032 R4：工作日那条退回推理链、是猜测，猜测也能往上抽——需求还在、是猜测，不当成立的用
     expect(engine.store.getClaim(need.id)).toMatchObject({ status: "contested", needsReview: false });
     const after = await engine.relevantUserModel("帮我安排下周六");
     expect(ids([...after.state, ...after.preferences, ...after.needs, ...after.values])).not.toContain(need.id);

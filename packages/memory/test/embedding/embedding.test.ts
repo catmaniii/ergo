@@ -11,7 +11,7 @@ afterEach(() => {
   for (const dir of dirs.splice(0)) fs.rmSync(dir, { recursive: true, force: true });
 });
 function tempDir(): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "memory-lab-models-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "memory-models-"));
   dirs.push(dir);
   return dir;
 }

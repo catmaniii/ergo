@@ -1,5 +1,5 @@
-// 详情页的内容（56 号票，文字详情、工具调用详情，按二狗的条目）：
-// 回放主切面录下的真实事件流，拿会话条目层（52 号票）的条目 id 打开详情，断言详情里显示什么。
+// 详情页的内容（文字详情、工具调用详情，按二狗的条目）：
+// 回放主切面录下的真实事件流，拿会话条目层的条目 id 打开详情，断言详情里显示什么。
 // 录像覆盖不到的（各种状况、思考并进组……）按共享协议的 schema 构造事件。
 import fs from "node:fs";
 import path from "node:path";
@@ -56,7 +56,7 @@ describe("文本详情的其余几种", () => {
     const state = replay(load("timeline-zoom"));
     const items = chatItems(state, "maintainer:tm-1");
     const reply = open(state, items, items.at(-1)!.id);
-    // 短的说明照原话；任务书是交给负责人的长通知，折成一行，详情里全文照 Markdown 画（367 号票）
+    // 短的说明照原话；任务书是交给负责人的长通知，折成一行，详情里全文照 Markdown 画
     const system = open(state, items, items.find((it) => it.kind === "system" && it.letter === undefined)!.id);
     const brief = open(state, items, items[0]!.id);
     expect([reply.kind === "text" && [reply.label, reply.task], system.kind === "text" && [system.label, system.markdown, system.task], brief.kind === "text" && [brief.label, brief.markdown, brief.letter]]).toEqual([
@@ -176,7 +176,7 @@ describe("录像覆盖不到的", () => {
     expect(runOf([call("a", bash), call("b", bash), call("c", bash)])).toEqual(["a", "b", "c"]);
   });
 
-  test("任务的 agent 超出授权、先不管（101 号票）：处置后面写明，看得出本来要问；没有标记的照旧", () => {
+  test("任务的 agent 超出授权、先不管：处置后面写明，看得出本来要问；没有标记的照旧", () => {
     const state = replay([
       messageFrame(1, "u1", "user", [{ type: "text", text: "把那个脚本跑一下" }]),
       messageFrame(2, "a1", "agent", [call("c1", { tool: "bash", genericBash: true, categoryTitles: ["越出项目目录"], beyondGrant: true })]),
@@ -232,7 +232,7 @@ describe("录像覆盖不到的", () => {
 });
 
 const checkDetail = schemaChecker(ToolCallDetailSchema);
-/** 一次调用的完整参数和返回（53 号票的接口回的），按协议的 schema 构造 */
+/** 一次调用的完整参数和返回（接口回的），按协议的 schema 构造 */
 function full(overrides: Partial<ToolCallDetail> = {}): ToolCallDetail {
   const detail: ToolCallDetail = {
     callId: "tool:1",
@@ -254,7 +254,7 @@ function full(overrides: Partial<ToolCallDetail> = {}): ToolCallDetail {
   return detail;
 }
 
-describe("单次调用的完整参数和返回（53 号票的接口取来的）", () => {
+describe("单次调用的完整参数和返回（接口取来的）", () => {
   test("工具的中文名、参数原样（按字段画）和原始 JSON、返回的文字、耗时", () => {
     expect(callFullContent(full())).toEqual({
       toolTitle: "改文件",
@@ -317,7 +317,7 @@ describe("单次调用的完整参数和返回（53 号票的接口取来的）"
     expect(callFullContent(full({ effects: [] })).effects).toEqual([]);
   });
 
-  test("效果记录写了多少（68 号票：效果日志里写入的全文只记长度和摘要哈希）：带着守护进程给的说明", () => {
+  test("效果记录写了多少（效果日志里写入的全文只记长度和摘要哈希）：带着守护进程给的说明", () => {
     const d = callFullContent(
       full({ effects: [{ seq: 3, tool: "write", toolTitle: "写文件", summary: "写文件；改动 D:\\w\\a.md；成功", objects: [{ kind: "path", access: "write", value: "D:\\w\\a.md" }], content: "写入 1280 字" }] }),
     );
@@ -345,18 +345,18 @@ describe("单次调用的完整参数和返回（53 号票的接口取来的）"
     ]);
   });
 
-  test("读了密钥文件的不记返回；彻底删除过的注明，删除项目时一起删掉的注明已随项目删除（66 号票）；图片不内联，说明是什么、多大", () => {
+  test("读了密钥文件的不记返回；彻底删除过的注明，删除项目时一起删掉的注明已随项目删除；图片不内联，说明是什么、多大", () => {
     expect(callFullContent(full({ resultWithheld: "secret_file", result: "（密钥文件的内容不记录）" })).withheld).toBe(true);
     expect(callFullContent(full({ purged: true })).purgedLabel).toBe("已彻底删除");
     expect(callFullContent(full({ purged: true, purgedBy: "project_deletion" })).purgedLabel).toBe("已随项目删除");
     expect(callFullContent(full({})).purgedLabel).toBeUndefined();
-    // 清掉过之后又删掉的（66 号票之前的负载里还留着清掉的说明）：按删除说，不退回摘要
+    // 清掉过之后又删掉的（以前的负载里还留着清掉的说明）：按删除说，不退回摘要
     const both = callFullContent(full({ purged: true, purgedBy: "project_deletion", cleared: { reason: "expired", at: "2027-01-08T04:15:00.000+08:00" } }));
     expect(both).toMatchObject({ purgedLabel: "已随项目删除", cleared: undefined, clearedNote: undefined });
     expect(callFullContent(full({ result: "[image]", media: [{ type: "image", mimeType: "image/png", bytes: 12_800 }] })).media).toEqual(["图片（image/png，12.5 KB）"]);
   });
 
-  test("过了保留期、超出总量上限清掉了的（65 号票）：注明为什么（详情页退回摘要时用这句）；效果记录照旧", () => {
+  test("过了保留期、超出总量上限清掉了的：注明为什么（详情页退回摘要时用这句）；效果记录照旧", () => {
     const effects = [{ seq: 3, tool: "edit", toolTitle: "改文件", summary: "改文件；成功", objects: [] }];
     const expired = callFullContent(full({ args: "notes.md", result: "Successfully replaced text in notes.md", cleared: { reason: "expired", at: "2027-01-08T04:15:00.000+08:00" }, effects }));
     expect(expired).toMatchObject({ cleared: "expired", clearedNote: "完整内容已过保留期，清掉了；上面是摘要。", effects: [{ seq: 3, title: "改文件", summary: "改文件；成功", objects: [] }] });

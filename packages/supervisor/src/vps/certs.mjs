@@ -1,4 +1,4 @@
-// VPS 上的证书（321 号票写，322 的 `lsm vps site add / certs / scan` 接着用）：本机这一半。
+// VPS 上的证书（写，`lsm vps site add / certs / scan` 接着用）：本机这一半。
 // VPS 上那一半是 sh/certs.sh（签、删、续期钩子、列到期日），脚本拼装时带上它。
 //
 // 域名默认 `<名字>.<IP>.sslip.io`：sslip.io 把编在名字里的 IP 原样解析回来，不用买域名、不用配 DNS，
@@ -10,7 +10,7 @@ const LABEL = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
 const DOMAIN = /^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$/;
 const EMAIL = /^[^\s@'"`$\\]+@[^\s@'"`$\\]+\.[a-z]{2,}$/i;
 
-/** 少于这么多天就提醒（322 的 certs 也用这个数） */
+/** 少于这么多天就提醒（certs 也用这个数） */
 export const CERT_WARN_DAYS = 20;
 
 export const validLabel = (s) => LABEL.test(String(s));

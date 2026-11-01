@@ -1,11 +1,11 @@
-// 运营接口清单的验收和登记（268 号票，草稿："清单是建设任务的必交交付件，按 112 号票的自动验收，用户点'转入使用'时登记；
+// 运营接口清单的验收和登记（草稿："清单是建设任务的必交交付件，按自动验收，用户点'转入使用'时登记；
 // 清单改了重新验收登记，带版本号"）：
 // - 验收（check）：档案里 ops.json 现在的内容（按内容的指纹 hash 认）跑一遍 acceptance.ts。同一份内容验过（全过、没过）就不再自动验
 //   （ops_manifest_checked 记着）；"等服务上线后再跑"的只记在内存里，下次用到再验。同一份同时只验一遍（后来的等前面那一遍）。
 //   force（负责人的 check_ops、转入使用的请求）不管验没验过都重验。
 // - 登记（ops_manifest_registered）：使用中的项目，清单全过了才登记，版本号从 1 起每登记一次加一，登记的是读出来的那一份——秘书用的
 //   是登记着的版本，档案里改了不影响，直到改过的那份验收全过、登记成下一版。转入使用时（goLiveEvents，和转入使用同一事务）登记
-//   验收全过的那份；验收还在等服务上线的，服务上线时运行时自己复验（362 号票，tool.ts 的 recheckAfterLive），过了登记；没赶上的秘书第一次用到时验。
+//   验收全过的那份；验收还在等服务上线的，服务上线时运行时自己复验（tool.ts 的 recheckAfterLive），过了登记；没赶上的秘书第一次用到时验。
 // - 使用中的项目秘书用到时（usable）：档案里的和登记着的一样就用登记着的；不一样（或者还没登记过）先验，全过登记新的一版再用；
 //   没过的照旧用登记着的那一版（没有就只有通用操作），没过的原因告诉负责人一次（notifyMaintainer）。
 // - 建设中的项目转运营检查清单里那一项（checklistView，同步）：没交、模板原样、读不通、格式不对的马上说；格式对的看这份内容验过没有，
@@ -83,7 +83,7 @@ export interface OpsRegistry {
   checklistView(project: Project): OpsChecklistView;
 }
 
-/** 调用口对不上服务的几种问题：运营方案、服务变了就可能过时（362 号票） */
+/** 调用口对不上服务的几种问题：运营方案、服务变了就可能过时 */
 const ENDPOINT_PROBLEMS: ReadonlySet<string> = new Set(["endpointNoService", "endpointUnknownService", "endpointAmbiguous"]);
 
 /** 内存里按项目和内容认一次验收 */
@@ -160,7 +160,7 @@ export function createOpsRegistry(deps: OpsRegistryDeps): OpsRegistry {
   };
 
   /**
-   * 记下的"没过"已经过时了（362 号票）：当时调用口对不上服务（先验的清单、后交的运营方案；真模型试验里卡上因此一直写着"验收没过"），
+   * 记下的"没过"已经过时了：当时调用口对不上服务（先验的清单、后交的运营方案；真模型试验里卡上因此一直写着"验收没过"），
    * 现在对得上了。同一份内容不再自动验的规矩不管这种：重验
    */
   const outdated = (project: Project, state: Extract<OpsFileState, { kind: "present" }>, done: OpsCheck): boolean => {
@@ -251,7 +251,7 @@ export function createOpsRegistry(deps: OpsRegistryDeps): OpsRegistry {
       const format = formatProblems({ project, read: state.read, run: deps.context(project).run });
       if (format.problems.length > 0) return { state: "failed", problems: format.problems };
       let done = lastCheck(project.id, state.hash);
-      // 362 号票：当时调用口对不上、现在对得上了的不算数，重验
+      // 当时调用口对不上、现在对得上了的不算数，重验
       if (done && outdated(project, state, done)) done = undefined;
       // 一个操作都没有（项目只用通用操作）：没有测试要跑，格式对就是全过，当场记下
       if (!done && count === 0) done = recordCheck(project, state.hash, { outcome: "passed", problems: [], warnings: format.warnings, ops: [] }, "go_live");

@@ -1,4 +1,4 @@
-// skill 库和 MCP 登记的单元测试（27 号票）：
+// skill 库和 MCP 登记的单元测试：
 // - skill 库：框架自带的在前、skill 区里的在后；导入的规矩（绝对路径、含 SKILL.md、frontmatter 的名字和说明、不重名、不能从数据目录里导入），
 //   复制一份进 skill 区（来源里有链接的整个拒绝，见 skill-collections.test.ts）；
 // - MCP 登记：配置区的 mcp.json 现读，写错了一个都不用并说明哪里错；凭据按登记从守护进程的环境里取；
@@ -79,7 +79,7 @@ describe("skill 库", () => {
     fs.mkdirSync(path.join(root, "no-front"));
     fs.writeFileSync(path.join(root, "no-front", "SKILL.md"), "# 没有 frontmatter\n");
     expect(reject(path.join(root, "no-front"))).toMatchObject({ message: expect.stringContaining("frontmatter") });
-    // 名字照原样认（大写、空格都行，72 号票），只挡太长的
+    // 名字照原样认（大写、空格都行），只挡太长的
     expect(reject(writeSkill(path.join(root, "long"), "x".repeat(201), "x"))).toMatchObject({ message: expect.stringContaining("太长") });
     fs.mkdirSync(path.join(root, "no-desc"));
     fs.writeFileSync(path.join(root, "no-desc", "SKILL.md"), "---\nname: no-desc\n---\n");
@@ -124,7 +124,7 @@ describe("MCP 登记", () => {
       env: { PLAIN: "1", TOKEN: "secret" },
       missing: ["NOT_SET"],
       secrets: ["secret"],
-      // 240 号票：按登记注入的凭据（脱敏用：这些值在时间线、事件、聊天摘要里换成"来自环境变量 X"）
+      // 按登记注入的凭据（脱敏用：这些值在时间线、事件、聊天摘要里换成"来自环境变量 X"）
       injected: [{ name: "TOKEN", variable: "MY_TOKEN", value: "secret" }],
     });
   });

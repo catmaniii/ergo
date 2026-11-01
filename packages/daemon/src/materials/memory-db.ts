@@ -2,14 +2,14 @@
 // （老名字和记忆插件的数据目录撞了）；老库由启动时的迁移搬过来（materials/migrate-materials.ts）。
 // 只有素材模块拿得到它的连接（这个文件不出 materials/ 目录，素材模块对外不暴露连接）。
 // - materials：素材信封；search_text 是本人切段的文字加上引用的说明（文件名、网址、卡片类型和标题），关键词和向量都只索引它；
-//   166 号票起还加上采集规则给的外部正文（MaterialDraft.indexText：只有用户主动存的网页给），它不在信封里；
+//   还加上采集规则给的外部正文（MaterialDraft.indexText：只有用户主动存的网页给），它不在信封里；
 // - material_fts：关键词索引，FTS5 trigram 分词器（中文可用；3 个字以下的查询退回子串扫描）；
 // - material_vectors：向量，每条旁边记着模型名；
-// - capture_state：采集到事件日志的哪一条（全局序号）；记忆插件没开时只保管原话副本、照做删除，那时处理到哪一条另记一个键（129 号票）；
-//   索引文字的版本另记一个键（166 号票：旧库里的素材按原始事件重算一遍索引文字）；
-// - material_marks：记忆命令留下的标记（21 号票）：被忘掉（含彻底删除）的素材 id（墓碑：重建、从原文副本补回时都跳过），
+// - capture_state：采集到事件日志的哪一条（全局序号）；记忆插件没开时只保管原话副本、照做删除，那时处理到哪一条另记一个键；
+//   索引文字的版本另记一个键（旧库里的素材按原始事件重算一遍索引文字）；
+// - material_marks：记忆命令留下的标记：被忘掉（含彻底删除）的素材 id（墓碑：重建、从原文副本补回时都跳过），
 //   不参与推断的素材 id。按素材 id 记，和素材本身在不在无关（只在原文副本里的素材补回来时照样带上标记）。
-// 303 号票：materials 多一列 origin（数据源素材的出处：哪个数据源、场景、敏感类别，JSON；别的素材是 NULL），
+// materials 多一列 origin（数据源素材的出处：哪个数据源、场景、敏感类别，JSON；别的素材是 NULL），
 //   场景里的地点、和谁也进索引文字（检索"望京的公司"找得到那天在那儿的素材）。
 import path from "node:path";
 import { type Database, openDatabase } from "../storage/sqlite.ts";
@@ -18,9 +18,9 @@ import type { Material, MaterialKind, OriginalCopy } from "./types.ts";
 export const MATERIALS_DB_FILE = "materials.db";
 
 /**
- * 库的版本（PRAGMA user_version）：以后的票改表时据此迁移。
- * 2：加 material_marks（21 号票）。表都是 IF NOT EXISTS 建的，版本 1 的库打开时自动补上
- * 3：materials 加 origin 列（303 号票）。旧库打开时补上这一列（ALTER TABLE，已有的素材是 NULL）
+ * 库的版本（PRAGMA user_version）：以后改表时据此迁移。
+ * 2：加 material_marks。表都是 IF NOT EXISTS 建的，版本 1 的库打开时自动补上
+ * 3：materials 加 origin 列。旧库打开时补上这一列（ALTER TABLE，已有的素材是 NULL）
  */
 const SCHEMA_VERSION = 3;
 
@@ -118,8 +118,8 @@ function toMaterial(row: MaterialRow): Material {
 
 /**
  * 进索引的文字：本人切段的原文，加上引用的说明（附件文件名、网址、卡片类型和标题）。
- * 外部内容和 agent 产出的正文不进——例外是采集规则给的外部正文 indexText（166 号票：用户主动存的网页的正文），接在最后。
- * 303 号票：数据源素材场景里的地点、和谁也进（各一行，接在切段后面、外部正文前面）。
+ * 外部内容和 agent 产出的正文不进——例外是采集规则给的外部正文 indexText（用户主动存的网页的正文），接在最后。
+ * 数据源素材场景里的地点、和谁也进（各一行，接在切段后面、外部正文前面）。
  * 关键词索引和向量都只看它（向量只算开头，vectors.ts）
  */
 export function searchTextOf(material: Pick<Material, "segments" | "origin">, indexText?: string): string {
@@ -162,7 +162,7 @@ export function insertMaterial(db: Database, material: Omit<Material, "noInfer">
   return true;
 }
 
-/** 换掉一条素材的索引文字（166 号票：旧库按原始事件重算）：关键词索引跟着换，向量删掉等补算；在调用方的事务里。返回换没换 */
+/** 换掉一条素材的索引文字（旧库按原始事件重算）：关键词索引跟着换，向量删掉等补算；在调用方的事务里。返回换没换 */
 export function replaceSearchText(db: Database, id: string, searchText: string): boolean {
   const row = db.get<{ search_text: string }>("SELECT search_text FROM materials WHERE id = ?", id);
   if (!row || row.search_text === searchText) return false;
@@ -181,7 +181,7 @@ export function getMaterial(db: Database, id: string): Material | undefined {
 export interface MaterialFilter {
   kind?: MaterialKind;
   conversation?: string;
-  /** 从这条消息采来的（素材信封的 ref.messageId；264 号票：顺口问的回答回写成证据时找那句话的素材） */
+  /** 从这条消息采来的（素材信封的 ref.messageId；顺口问的回答回写成证据时找那句话的素材） */
   messageId?: string;
   /** 最多多少条（默认全部） */
   limit?: number;
@@ -236,7 +236,7 @@ export function keywordSearch(db: Database, query: string, limit: number): Mater
 }
 
 const CURSOR_KEY = "captured_global_seq";
-/** 只保管（记忆插件没开）时处理到事件日志的哪一条（129 号票）：采集位置停在停用那一刻，再启用时从那里补采 */
+/** 只保管（记忆插件没开）时处理到事件日志的哪一条：采集位置停在停用那一刻，再启用时从那里补采 */
 const KEPT_KEY = "kept_global_seq";
 
 const readState = (db: Database, key: string) => Number(db.get<{ value: number }>("SELECT value FROM capture_state WHERE key = ?", key)?.value ?? 0);
@@ -261,7 +261,7 @@ export function writeKeptCursor(db: Database, globalSeq: number): void {
   writeState(db, KEPT_KEY, globalSeq);
 }
 
-/** 索引文字的版本（166 号票）：库里记的比这个旧时，按原始事件重算一遍已有素材的索引文字。没记过是 0 */
+/** 索引文字的版本：库里记的比这个旧时，按原始事件重算一遍已有素材的索引文字。没记过是 0 */
 const SEARCH_TEXT_VERSION_KEY = "search_text_version";
 
 export function readSearchTextVersion(db: Database): number {

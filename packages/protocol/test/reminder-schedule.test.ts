@@ -1,4 +1,4 @@
-// 简单提醒的时间规则（共享协议包，守护进程和 Web 共用）：下一次响的时间（含 282 号票的每年某月某日）、只改钟点、按重复规则拼时间表、中文写法；
+// 简单提醒的时间规则（共享协议包，守护进程和 Web 共用）：下一次响的时间（含每年某月某日）、只改钟点、按重复规则拼时间表、中文写法；
 // 以及待我处理事项算不算处理过。时间都是本地时间（构造期望值用本地的 new Date(年, 月, 日, 时, 分)）。
 import { describe, expect, test } from "vitest";
 import {
@@ -83,7 +83,7 @@ describe("按我的工作日：只在工作日历上的上班日响，日历由�
     expect(nextOccurrence(schedule, at(10, 10, 9), { calendar })).toEqual(at(10, 13, 9));
   });
 
-  test("在日历上展开一段时间（35 号票用）：[from, to) 之间的每一次，跳过周末和休息日，补班的周六照算；正好在 from 的也算", () => {
+  test("在日历上展开一段时间（用）：[from, to) 之间的每一次，跳过周末和休息日，补班的周六照算；正好在 from 的也算", () => {
     expect(occurrencesBetween(schedule, at(10, 8, 9), at(10, 14, 0), { calendar })).toEqual([at(10, 8, 9), at(10, 9, 9), at(10, 10, 9), at(10, 13, 9)]);
     expect(occurrencesBetween({ kind: "daily", time: "09:00" }, at(10, 8, 0), at(10, 10, 9), { calendar })).toEqual([at(10, 8, 9), at(10, 9, 9)]);
     expect(occurrencesBetween({ kind: "daily", time: "09:00" }, at(10, 8, 0), at(10, 30, 0), { calendar }, 3)).toHaveLength(3);
@@ -114,7 +114,7 @@ describe("按我的工作日：只在工作日历上的上班日响，日历由�
   });
 });
 
-describe("每年某月某日（公历，282 号票）", () => {
+describe("每年某月某日（公历）", () => {
   const birthday = { kind: "yearly" as const, time: "09:00", month: 3, day: 2 };
   const leapDay = { kind: "yearly" as const, time: "09:00", month: 2, day: 29 };
 
@@ -183,7 +183,7 @@ describe("每年某月某日（公历，282 号票）", () => {
     }
   });
 
-  test("提前几天（283 号票的生日提醒用）：按平年往前数，跨月、跨年；提前 0 天是原来那天", () => {
+  test("提前几天（生日提醒用）：按平年往前数，跨月、跨年；提前 0 天是原来那天", () => {
     expect(monthDayBefore({ month: 3, day: 2 }, 3)).toEqual({ month: 2, day: 27 });
     expect(monthDayBefore({ month: 1, day: 1 }, 3)).toEqual({ month: 12, day: 29 });
     expect(monthDayBefore({ month: 10, day: 25 }, 7)).toEqual({ month: 10, day: 18 });

@@ -1,12 +1,12 @@
-// 主切面：记忆管理员（242 号票）。走真实的装配路径（真的守护进程、真的事件日志、真的 rg.db，模型全是假的）：
+// 主切面：记忆管理员。走真实的装配路径（真的守护进程、真的事件日志、真的 rg.db，模型全是假的）：
 // - 03:00 的内部作业改成唤醒记忆管理员：它调 run_memory_consolidation（还是同一份 runNightly、同一条整理记录），
 //   跑完把这一夜写成一段整理日记；整理记录里看得到管理员自己额外花了几次模型调用；
 // - 用户在记忆页那一层跟它说话（会话就是普通的输入输出）；
-// - 让它把一条结论标成待复核：调 review_memory_claim，库里加了复核标记（329 号票起不改真值状态）、修订记录写明是记忆管理员做的；
-// - 让它把一条素材忘掉：走 234 号票的 purge-rg（证据清原文、事实撤回、依赖的结论加复核标记），并留下一条"记忆管理员下的命令"；
+// - 让它把一条结论标成待复核：调 review_memory_claim，库里加了复核标记（不改真值状态）、修订记录写明是记忆管理员做的；
+// - 让它把一条素材忘掉：走 purge-rg（证据清原文、事实撤回、依赖的结论加复核标记），并留下一条"记忆管理员下的命令"；
 // - 管理员起不来（模型坏了）：整理照旧按失败记、待我处理一条，守护进程不崩；
-// - 243 号票：它按需拉起、不常驻——起来时只建壳（没有子进程、不占 agents.maxLive 的名额），用户发消息才拉起，闲置后退出。
-// 265 号票起底座在给了 clock 时默认停掉记忆插件，这里测的就是它，拨时钟的用例都写 memoryPlugin: true。
+// -它按需拉起、不常驻——起来时只建壳（没有子进程、不占 agents.maxLive 的名额），用户发消息才拉起，闲置后退出。
+// 底座在给了 clock 时默认停掉记忆插件，这里测的就是它，拨时钟的用例都写 memoryPlugin: true。
 import { type ChatRequest, FakeChatModel, type MemoryEngine } from "@ergo/memory";
 import { CHANNELS, EVENT_TYPES, type MessageEventPayload } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
@@ -174,7 +174,7 @@ describe("记忆管理员", () => {
   );
 
   it(
-    "用户让它把一条结论标成待复核：加了复核标记（329 号票起不改真值状态）、修订记录写明是记忆管理员做的；让它忘掉一条素材：证据失效、依赖的结论加复核标记",
+    "用户让它把一条结论标成待复核：加了复核标记（不改真值状态）、修订记录写明是记忆管理员做的；让它忘掉一条素材：证据失效、依赖的结论加复核标记",
     { timeout: 90_000 },
     async () => {
       const clock = new ManualClock(at(10, 7, 2, 0));
@@ -218,7 +218,7 @@ describe("记忆管理员", () => {
       await frontend.next(CURATOR, EVENT_TYPES.turnEnd);
       expect(withDb(td, (engine) => engine.store.getEvidence(evidenceId)!.status)).toBe("forgotten");
       expect(withDb(td, (engine) => engine.store.getClaim("cl-0001")!.needsReview)).toBe(true);
-      // 事件日志里留下一条命令：记忆管理员下的忘掉（234 号票的 purge-rg 认它）
+      // 事件日志里留下一条命令：记忆管理员下的忘掉（purge-rg 认它）
       const commands = td.daemon.store.reader.all<{ payload: string }>("SELECT payload FROM events WHERE type = 'memory_command'");
       expect(commands.some((row) => row.payload.includes('"kind":"curator"') && row.payload.includes(materialId))).toBe(true);
       expect(texts(td, CURATOR).at(-1)).toContain("忘了。");
@@ -265,7 +265,7 @@ describe("记忆管理员", () => {
   });
 
   it(
-    "不常驻（243 号票）：起来时只建壳——没有 memory-curator 子进程、不占 maxLive 名额（秘书 + 一个负责人照旧能起）；用户发消息才拉起它；闲置后退出",
+    "不常驻：起来时只建壳——没有 memory-curator 子进程、不占 maxLive 名额（秘书 + 一个负责人照旧能起）；用户发消息才拉起它；闲置后退出",
     { timeout: 90_000 },
     async () => {
       const td = await startTestDaemon({

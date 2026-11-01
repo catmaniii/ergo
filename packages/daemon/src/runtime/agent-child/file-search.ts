@@ -1,5 +1,5 @@
 // pi 的 find、grep 靠系统里的 fd、rg（ripgrep），找不到就去 GitHub 下载。二狗固定设了 PI_OFFLINE（child-env.ts），不会下载，
-// 只回一句 "fd is not available and could not be downloaded"，这个工具就废了（362 号票：真模型试验里新任务的负责人第一下就撞上）。
+// 只回一句 "fd is not available and could not be downloaded"，这个工具就废了（真模型试验里新任务的负责人第一下就撞上）。
 // 这里接一层：PATH 上有 fd、rg 的照旧用 pi 自带的，没有的退回 Node 自己找（不认 .gitignore，跳过 node_modules、.git），结果的写法和 pi 的一样。
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";

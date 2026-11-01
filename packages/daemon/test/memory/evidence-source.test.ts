@@ -1,4 +1,4 @@
-// 素材库 → 证据（224 号票，模块层）：MaterialsEvidenceSource 只读 ctx.materials，把一条素材映射成 @ergo/memory 的 EvidenceDraft。
+// 素材库 → 证据（模块层）：MaterialsEvidenceSource 只读 ctx.materials，把一条素材映射成 @ergo/memory 的 EvidenceDraft。
 // 四条规矩：只读（不写素材库、不改状态）；忘了的、彻底删掉的、标了"别推断"的不读；场景只留场景维度的标签，
 // 一个都没有时才从原文推（管线标签 secretary、tool:bash、decision:approved 这类不是场景）；时间是素材记的原始记录时间。
 import { CHANNELS, type DeleteCommandPayload, EVENT_TYPES, type MemoryCommandEventPayload, type MemoryDeleteMode } from "@ergo/protocol";
@@ -25,7 +25,7 @@ const draftSource: MaterialSource = {
 
 function setup() {
   const t = materialsSetup({ sources: [draftSource] });
-  // 234 号票：基础映射的用例把敏感类别都当成"允许推断"，敏感类别各自的行为另有用例
+  // 基础映射的用例把敏感类别都当成"允许推断"，敏感类别各自的行为另有用例
   const source = (options: { inferableSensitiveCategories?: readonly SensitiveCategory[] } = {}) =>
     new MaterialsEvidenceSource({ materials: t.materials, clock: t.clock, inferableSensitiveCategories: options.inferableSensitiveCategories ?? SENSITIVE_CATEGORIES });
   return { t, source };
@@ -172,7 +172,7 @@ describe("只读，忘了的不读", () => {
   });
 });
 
-describe("敏感类别（234 号票）：默认记录、不用于推断", () => {
+describe("敏感类别：默认记录、不用于推断", () => {
   test("健康（场景标签 domain=health）默认不进证据；允许推断时才进", () => {
     const { t, source } = setup();
     postMessage(t.store, [text("周三体检")]); // 从原文认出 workday、health

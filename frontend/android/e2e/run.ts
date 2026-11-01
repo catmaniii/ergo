@@ -1,4 +1,4 @@
-// 安卓 App 在模拟器上的联调（349 号票）。只用模拟器（串口 emulator-*，lib.ts 里卡着），连临时守护进程，绝不碰真机和真的二狗。
+// 安卓 App 在模拟器上的联调。只用模拟器（串口 emulator-*，lib.ts 里卡着），连临时守护进程，绝不碰真机和真的二狗。
 // 先有一个开着的模拟器，再：
 //   npm run build:android -- --webview-debug
 //   node frontend/android/e2e/run.ts emulator-5570 [截图目录]

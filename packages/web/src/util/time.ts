@@ -7,7 +7,7 @@ export function timeLabel(iso: string): string {
 }
 
 /**
- * "下一次"的时间（282 号票，提醒卡、看板、任务详情上的"下一次 / 下次"）：在今年的照 timeLabel 写 "10-07 09:12"；
+ * "下一次"的时间（提醒卡、看板、任务详情上的"下一次 / 下次"）：在今年的照 timeLabel 写 "10-07 09:12"；
  * 不在今年的（每年的提醒、12 月建的每月提醒落到明年 1 月……所有种类一样）带上年份 "2027-01-08 09:00"
  */
 export function nextTimeLabel(iso: string, now: number = Date.now()): string {

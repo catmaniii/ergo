@@ -1,25 +1,25 @@
 /**
- * 详情面板（56 号票）：外壳（标题栏的 ‹、"详情"、"在对话中定位"，换一页正文滚回顶部，
+ * 详情面板：外壳（标题栏的 ‹、"详情"、"在对话中定位"，换一页正文滚回顶部，
  * 没有详情时的空状态）、TextDetail、ToolDetail 的分段（Section）和 ValueView。内容由状态层的 detailContent 推好（按条目 id 现查），
  * 这里只管画。详情里能一层层点进去（onOpen：组里的一次调用、挂着的内部调用），返回由外面的返回栈管。
  * 种类：
- * - 文本：用户消息、回复（Markdown）、思考、语音（识别出的文字 / 送进 TTS 的原文）、系统说明；agent 之间的来信（115 号票：
- *   任务做完、负责人来信、秘书转达、计划检查）标题行是会话里那一句总结，全文照 Markdown 画；工具发的语音（87 号票）下面接着
+ * - 文本：用户消息、回复（Markdown）、思考、语音（识别出的文字 / 送进 TTS 的原文）、系统说明；agent 之间的来信（
+ *   任务做完、负责人来信、秘书转达、计划检查）标题行是会话里那一句总结，全文照 Markdown 画；工具发的语音下面接着
  *   发它的那次"发语音"调用（聊天里不单独显示它），画法和单次工具调用的详情一样；
  * - 工具调用组：按先后列出每一步的思考和调用，出了状况的标清楚是第几次；每次调用能展开看返回（展开时现取完整内容）、点 › 进单次调用；
- * - 调用记忆（187 号票）："这次用到的记忆"，193 号票起由记忆插件画（网页插件的详情插槽，plugins/memory/RecallDetail.tsx）；
+ * - 调用记忆："这次用到的记忆"，由记忆插件画（网页插件的详情插槽，plugins/memory/RecallDetail.tsx）；
  *   插件停用了，它拥有的条目换成占位（打不开详情；开着的时候停的写"X插件没启用"）；
  * - 单次工具调用：被拦下的写 Agent 想做什么、为什么没有执行、系统回给 Agent 的原话，
  *   执行了的写 Agent 想做什么、守卫怎么判的；参数按字段画（ValueView），原始参数折进"给开发者看"，
- *   返回能展开，被截断的注明。完整参数和返回每次打开现取（53 号票：不缓存），取不到的退回摘要；
+ *   返回能展开，被截断的注明。完整参数和返回每次打开现取（不缓存），取不到的退回摘要；
  * - 卡片：整张卡照会话里的画法；时间线记录：种类、一句话、详细说明，操作记录还有凭什么执行的和结果。
  * 规则核对、修补经过、敏感片段高亮这几样没有对应的数据，不画。
- * 60 号票：流程计划卡的详情换成计划详情（涉及的敏感信息、步骤、版本差异、计划审查、检测项全览，
+ * 流程计划卡的详情换成计划详情（涉及的敏感信息、步骤、版本差异、计划审查、检测项全览，
  * WorkflowPlanDetail.tsx）；计划台账里点开的计划按卡片打开（会话没翻到那张卡也看得了）；长程任务的阶段详情
  * （StageDetail.tsx）从阶段抽屉、阶段栏点开；执行中出过的状况从阶段抽屉、
  * 阶段栏下面那一行的个数点开。这几种不给"在对话中定位"（阶段详情里有"回到会话里这一段"）。
- * 151 号票：一条废弃分支从 ⑂ 展开的预览点开，同样不给"在对话中定位"。
- * 368 号票：手机上的档案；背后的 agent 的列表和只读对话（BackgroundAgents.tsx）。
+ * 一条废弃分支从 ⑂ 展开的预览点开，同样不给"在对话中定位"。
+ * 手机上的档案；背后的 agent 的列表和只读对话（BackgroundAgents.tsx）。
  */
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import Markdown from "react-markdown";
@@ -85,17 +85,17 @@ export function DetailPane({
   onClose?: (() => void) | undefined;
   /** 从一条详情钻进另一条（组里的一次调用、挂着的内部调用） */
   onOpen?: ((id: string) => void) | undefined;
-  /** 从一页详情钻进另一页（84 号票：阶段详情里点一条规则） */
+  /** 从一页详情钻进另一页（阶段详情里点一条规则） */
   onGo?: ((target: DetailTarget) => void) | undefined;
   /** 长程任务的阶段（阶段详情要的，任务详情页给） */
   stages?: StageDetailSource | undefined;
-  /** 任务详情"⋯"里的计划、工单、工具包、消耗、运行画成什么（90 号票），任务详情页给 */
+  /** 任务详情"⋯"里的计划、工单、工具包、消耗、运行画成什么，任务详情页给 */
   panel?: ((panel: TaskPanel) => ReactNode) | undefined;
-  /** 档案（368 号票：手机上滑进来的那一页），对话框给 */
+  /** 档案（手机上滑进来的那一页），对话框给 */
   archive?: ReactNode;
 }) {
   const { ui } = useStore();
-  // 停用的网页插件拥有的条目换成占位（193 号票），和会话里一样
+  // 停用的网页插件拥有的条目换成占位，和会话里一样
   const unavailable = useUnavailable();
   const items = useMemo(() => (conversation ? maskUnavailable(chatItems(ui, conversation), unavailable) : []), [ui, conversation, unavailable]);
   const content = detail?.type === "item" ? detailContent(ui, items, detail) : undefined;
@@ -169,7 +169,7 @@ export function DetailPane({
 }
 
 function DetailBody({ content, onOpen, runs }: { content: DetailContent; onOpen?: ((id: string) => void) | undefined; runs: OpenRuns }) {
-  // 网页插件登记了这种详情的画法（193 号票：调用记忆）：交给它，挂着的内部工具调用照常接在后面
+  // 网页插件登记了这种详情的画法（调用记忆）：交给它，挂着的内部工具调用照常接在后面
   const plugins = usePlugins();
   const Plugged = content.kind === "missing" || content.kind === "tool_call" ? undefined : plugins.get("details", content.kind)?.Body;
   if (Plugged && content.kind !== "missing" && content.kind !== "tool_call") {
@@ -195,7 +195,7 @@ function DetailBody({ content, onOpen, runs }: { content: DetailContent; onOpen?
       return (
         <>
           <TextDetail content={content} />
-          {/* 工具发的语音（87 号票）：发它的那次"发语音"调用会话里不单独显示，在这里接着看（和单次工具调用的详情一样） */}
+          {/* 工具发的语音：发它的那次"发语音"调用会话里不单独显示，在这里接着看（和单次工具调用的详情一样） */}
           {content.toolCall && (
             <div className="dt-embed">
               <ToolDetail content={content.toolCall} onOpen={onOpen} embedded />
@@ -212,14 +212,14 @@ function DetailBody({ content, onOpen, runs }: { content: DetailContent; onOpen?
         </>
       );
     case "recall": {
-      // 调用记忆（187 号票）由网页插件画（上面）；拥有它的插件没在用时占位
+      // 调用记忆由网页插件画（上面）；拥有它的插件没在用时占位
       const plugin = plugins.unavailable("details", content.kind);
       return plugin === undefined ? null : <div className="page-placeholder">{t("ui.plugins.unavailable", { plugin })}</div>;
     }
     case "tool_call":
       return <ToolDetail content={content} onOpen={onOpen} />;
     case "card":
-      // 流程计划卡：计划详情（60 号票）
+      // 流程计划卡：计划详情
       if (content.cardType === "workflow_plan")
         return (
           <>
@@ -263,15 +263,15 @@ function TextDetail({ content }: { content: Extract<DetailContent, { kind: "text
   return (
     <>
       <div className="dt-head">
-        {/* 种类在小标签里，名字占位（秘书转达的"<名字>转达"，103 号票）换成名字本身 */}
+        {/* 种类在小标签里，名字占位（秘书转达的"<名字>转达"）换成名字本身 */}
         <span className={`tag ${content.voice?.speaker === "agent" ? "tag-reply" : TEXT_TAG_CLASS[content.tag]}`}>{plain(content.label)}</span>
         <span className="dt-status">{facts}</span>
       </div>
-      {/* agent 之间的来信（115 号票）：会话里那一行写的一句话总结 */}
+      {/* agent 之间的来信：会话里那一行写的一句话总结 */}
       {content.summary && <div className="dt-title">{plain(content.summary)}</div>}
       {content.task && <div className="dt-title">{t("ui.detailPane.task", { task: content.task.slice(0, 40) })}</div>}
       <Section title={t("ui.detailPane.fullContent")}>
-        {/* 模型回复本来就是 Markdown，按渲染后的样子看；来信也照 Markdown 画（115 号票）；其余按原文看 */}
+        {/* 模型回复本来就是 Markdown，按渲染后的样子看；来信也照 Markdown 画；其余按原文看 */}
         {!content.text ? (
           <div className="muted">{t("ui.detailPane.noText")}</div>
         ) : content.markdown ? (
@@ -286,7 +286,7 @@ function TextDetail({ content }: { content: Extract<DetailContent, { kind: "text
       {content.attachments.length > 0 && (
         <Section title={t("ui.detailPane.attachments")}>
           <div className="dt-attachments">
-            {/* 连着的文件附件画成一横排卡片（113 号票） */}
+            {/* 连着的文件附件画成一横排卡片 */}
             {partRuns(content.attachments).map((run) => (run.kind === "files" ? <FileCards key={run.index} files={run.files} /> : <PartView key={run.index} part={run.part} />))}
           </div>
         </Section>
@@ -313,7 +313,7 @@ const RUN_GRANT_TEXT: Readonly<Record<Extract<CallRun, { kind: "head" }>["grant"
   mixed: "ui.detailPane.runGrant.mixed",
 });
 
-/** 工具调用组：按先后列出每一步的思考和调用，出了状况的标清楚是第几次（用户 2026-10-09 定） */
+/** 工具调用组：按先后列出每一步的思考和调用，出了状况的标清楚是第几次 */
 function GroupDetail({ content, onOpen, runs }: { content: Extract<DetailContent, { kind: "tool_group" }>; onOpen?: ((id: string) => void) | undefined; runs: OpenRuns }) {
   // 连续的同类调用合成一条：点第一条下面的"还有 N 次 ▾"才逐条显示
   const { open: openRuns, toggle: toggleRun } = runs;
@@ -373,7 +373,7 @@ function issueText(call: CallLine): string | undefined {
   return call.issueLabel;
 }
 
-/** 组里的一次调用：第几次、说人话的那一句（67 号票）、›；出的状况；判定的小签；能展开看返回 */
+/** 组里的一次调用：第几次、说人话的那一句、›；出的状况；判定的小签；能展开看返回 */
 function CallRow({ call, onOpen }: { call: CallLine; onOpen?: ((id: string) => void) | undefined }) {
   const cls = call.internal && !call.issue ? "dg-internal" : call.issue === "asked" || call.issue === "waiting" ? "dg-asked" : call.issue ? "dg-stopped" : "";
   const issue = issueText(call);
@@ -426,7 +426,7 @@ function FullResult({ call }: { call: CallLine }) {
   const full = useCallFull(call);
   if (full.state === "loading") return <div className="muted dt-note">{t("ui.detailPane.loadingResult")}</div>;
   if (full.state !== "ready") return <SummaryFallback call={call} what="result" note={full.state === "failed" ? t("ui.detailPane.fullFailed", { error: full.error }) : undefined} />;
-  // 过了保留期、超出总量上限清掉了的（65 号票）：只剩摘要，和没存完整内容一样退回聊天里的摘要，注明为什么
+  // 过了保留期、超出总量上限清掉了的：只剩摘要，和没存完整内容一样退回聊天里的摘要，注明为什么
   if (full.content.cleared) return <SummaryFallback call={call} what="result" note={full.content.clearedNote} />;
   return <ResultBody full={full.content} tool={call.tool} />;
 }
@@ -436,7 +436,7 @@ function FullResult({ call }: { call: CallLine }) {
 type CallFull = { state: "loading" } | { state: "absent" } | { state: "failed"; error: string } | { state: "ready"; content: CallFullContent };
 
 /**
- * 一次调用的完整参数和返回：每次打开现取，不缓存（53 号票：只靠完整内容找到的彻底删除，会话里不会有通知）。
+ * 一次调用的完整参数和返回：每次打开现取，不缓存（只靠完整内容找到的彻底删除，会话里不会有通知）。
  * 还在执行的调用结束时（结局变了）再取一次
  */
 function useCallFull(call: CallLine): CallFull {
@@ -495,12 +495,12 @@ function ResultBody({ full, tool }: { full: CallFullContent; tool: string }) {
   );
 }
 
-/** 单次工具调用的详情（embedded：接在工具发的语音的详情下面，87 号票） */
+/** 单次工具调用的详情（embedded：接在工具发的语音的详情下面） */
 function ToolDetail({ content, onOpen, embedded = false }: { content: Extract<DetailContent, { kind: "tool_call" }>; onOpen?: ((id: string) => void) | undefined; embedded?: boolean }) {
   const { call, position } = content;
   const full = useCallFull(call);
   const fetched = full.state === "ready" ? full.content : undefined;
-  // 过了保留期、超出总量上限清掉了的（65 号票）：参数和返回只剩摘要，和没存完整内容一样退回聊天里的摘要，注明为什么；
+  // 过了保留期、超出总量上限清掉了的：参数和返回只剩摘要，和没存完整内容一样退回聊天里的摘要，注明为什么；
   // 工具的中文名、耗时、效果记录照旧用取来的
   const ready = fetched && !fetched.cleared ? fetched : undefined;
   const fallbackNote = full.state === "failed" ? t("ui.detailPane.fullFailed", { error: full.error }) : fetched?.clearedNote;
@@ -548,7 +548,7 @@ function ToolDetail({ content, onOpen, embedded = false }: { content: Extract<De
       {call.internal && <div className="dt-title">{t("ui.detailPane.internalCall", { what: call.internal })}</div>}
       {call.sentVoice && <div className="dt-title">{embedded ? t("ui.detailPane.voiceCallEmbedded") : t("ui.detailPane.voiceCall")}</div>}
       <Section title={t("ui.detailPane.intent")}>
-        {/* 说人话的那一句（67 号票；没有模板的是"中文名 · 参数值"） */}
+        {/* 说人话的那一句（没有模板的是"中文名 · 参数值"） */}
         <div className="dt-text">
           <NamedText text={call.sentence} />
         </div>
@@ -609,7 +609,7 @@ function ToolDetail({ content, onOpen, embedded = false }: { content: Extract<De
 }
 
 /**
- * 效果记录（守护进程的效果日志，56 号票）：执行成功之后实际做成了什么——每条一行摘要，下面列涉及的对象。
+ * 效果记录（守护进程的效果日志）：执行成功之后实际做成了什么——每条一行摘要，下面列涉及的对象。
  * 和参数一起从完整内容里取来；通用 bash 拆出来的每条操作各一条
  */
 function EffectList({ full, genericBash }: { full: CallFull; genericBash: boolean }) {
@@ -694,7 +694,7 @@ function RecordDetail({ content }: { content: Extract<DetailContent, { kind: "re
 
 // ───────────────────────── 挂着的内部调用 ─────────────────────────
 
-/** 挂在这一条上的内部工具调用（52 号票：条目里不显示，详情页查得到），点 › 进单次调用 */
+/** 挂在这一条上的内部工具调用（条目里不显示，详情页查得到），点 › 进单次调用 */
 function InternalCalls({ calls, onOpen }: { calls: readonly CallLine[]; onOpen?: ((id: string) => void) | undefined }) {
   if (calls.length === 0) return null;
   return (

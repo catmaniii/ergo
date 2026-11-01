@@ -1,5 +1,5 @@
 /*
- * 夜航仪表（41 号票）：只靠 token（night/style.ts）做不到的规则，全部限定在 :root[data-style="night"] 下
+ * 夜航仪表：只靠 token（night/style.ts）做不到的规则，全部限定在 :root[data-style="night"] 下
  * （不会漏到别的风格；设置里的预览把开头换成 :host(...)，所以根元素上只再加属性，见 src/visual-styles/preview.ts）。
  * 设计稿：docs/architecture/design/styles/c-chat、c-tasks、c-inbox、c-wide（.dc.html）。要点：深色仪表盘、青绿指示色（--primary）、
  * 时间和数字用 JetBrains Mono（--font-num）、状态写成带点的药丸、卡片和行都是 12px 圆角的细线框；
@@ -37,7 +37,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* 秘书页的标题"个人秘书：<名字>"（89 号票）在 base.css 里排成一行 flex：这里竖着排，副标题照样另起一行 */
+/* 秘书页的标题"个人秘书：<名字>"在 base.css 里排成一行 flex：这里竖着排，副标题照样另起一行 */
 :root[data-style="night"] .title:has(> .secretary-title) {
   flex-direction: column;
   align-items: flex-start;
@@ -119,7 +119,7 @@
 /*
  * 直接排在页面一栏里的（待我处理、任务详情的页签）：设计稿里它在标题栏里面，所以外面一圈是标题栏的卡片色，
  * 凸起的底缩进到页面留白里（::before 垫在格子下面）；往上盖住标题栏的下边线，两块连成一个标题区。
- * 待我处理的页签挂着 .seg-head（40 号票加的"和标题栏算一个头"的记号）；任务详情的页签（排在状态条下面）没挂——给它加 head
+ * 待我处理的页签挂着 .seg-head（加的"和标题栏算一个头"的记号）；任务详情的页签（排在状态条下面）没挂——给它加 head
  * 会连带改暖纸手帐的样子（它把 .seg-head 合进标题栏），所以这两处还按位置认（.chat-col 的直接子元素：同一个 Segmented
  * 也用在页面内容里，消耗的时间段、外观……类名一样，只有"直接排在一栏里"这一点分得开）
  */
@@ -162,7 +162,7 @@
  * - 在做（青绿）：规划中、执行中、运营中；运行中；工单在做；
  * - 做成了（绿）：运行完成、工单完成（经典里就是绿）；看板上的"已完成"按设计稿是中性的；
  * - 出错（红）：失败；运行失败、被打断；工单退回、做不了；
- * - 运行部分完成（176 号票：有一步没做成、别的做完了）：橙色淡底、橙字；
+ * - 运行部分完成（有一步没做成、别的做完了）：橙色淡底、橙字；
  * - 其余（排队、等时间、结束、暂停、跳过……）：中性的细线药丸
  */
 :root[data-style="night"] .st {
@@ -226,7 +226,7 @@
   box-shadow: none;
   color: var(--high-fg);
 }
-/* 进度条（60 号票产品已有的 sl-progress）：设计稿的细轨道，青绿填充 */
+/* 进度条（产品已有的 sl-progress）：设计稿的细轨道，青绿填充 */
 :root[data-style="night"] .sl-progress {
   height: 3px;
   border-radius: 2px;
@@ -404,7 +404,7 @@
  * 语音气泡（设计稿的语音条）：你的是青绿淡底、青绿细线框，个人助理的是卡片色、细线框、左上角尖角；
  * 播放键是一块圆角方块（你的青绿实色，个人助理的青绿淡底），波形、时长青绿。
  * 播放键（28）、间隔（10）、竖条（3 隔 3）、左右内边距（12）、两侧细线（合起来 2）是 token（style.ts 的 voice-*，照设计稿 c-chat），
- * styles/voice.css 按它画，框宽、波形格数也按它算（42 号票的共用办法）；这里只画样子
+ * styles/voice.css 按它画，框宽、波形格数也按它算（共用办法）；这里只画样子
  */
 :root[data-style="night"] .user .voice-bubble {
   border: 1px solid var(--primary);

@@ -1,4 +1,4 @@
-// 悬浮按钮上的二狗图标（348 号票，用户 2026-10-31 定）：图标的字节打进页面桥（assets/ergo-icon.webp，Vite 的 ?inline），注入时解成位图、
+// 悬浮按钮上的二狗图标：图标的字节打进页面桥（assets/ergo-icon.webp，Vite 的 ?inline），注入时解成位图、
 // 画进按钮里的 canvas（封闭的 shadow root 里）。不用 <img src="data:…"> 也不用 background-image：网站的 CSP（img-src、default-src）会拦
 // data: 图片，字节解成位图再画到 canvas 这条路 CSP 不管（和挑图片窗口的缩略图一样，pick.ts）。canvas 不接事件（样式里 pointer-events: none），
 // 按下、长按还是按钮自己的，手机上长按也不会弹"保存图片"。

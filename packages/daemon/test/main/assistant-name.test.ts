@@ -1,4 +1,4 @@
-// 主切面：个人助理的名字（43 号票，规格第 19 节"名称"）。
+// 主切面：个人助理的名字（规格第 19 节"名称"）。
 // - 名字存在守护进程（数据目录配置区的文件是真相），设置接口改，改了以后名字频道上推一条事件，开着的前端都跟着变；
 // - 不合规的名字被拒，什么都不改；重启后还在；停着时手改了配置文件，启动后以文件为准补一条事件；
 // - 秘书知道自己叫什么：名字写进秘书的系统提示，改名后从下一轮起生效（一轮进行中改名，这一轮照常做完，消息不丢）；
@@ -38,7 +38,7 @@ describe("设置里改名：存在守护进程，开着的前端实时跟着变"
 
     expect(await assistantNameApi.change(url, "  阿福 ")).toMatchObject({ status: 200, body: { name: "阿福", changed: true } });
     expect(await assistantNameApi.change(url, "阿福")).toMatchObject({ status: 200, body: { name: "阿福", changed: false } });
-    // 恢复默认：就是改回"二狗"（89 号票，用户 2026-10-11 定；原来是"个人助理"）
+    // 恢复默认：就是改回"二狗"（原来是"个人助理"）
     expect(await assistantNameApi.change(url, "二狗")).toMatchObject({ status: 200, body: { name: "二狗", changed: true } });
 
     for (const frontend of [a, b]) {
@@ -165,7 +165,7 @@ describe("秘书知道自己叫什么", () => {
   });
 });
 
-// 379 号票：名字存在配置区（文件）或名字频道（事件）里的是用户的，任何语言下原样；两边都没有才算没起过名，默认名跟当前语言走
+// 名字存在配置区（文件）或名字频道（事件）里的是用户的，任何语言下原样；两边都没有才算没起过名，默认名跟当前语言走
 const nameFileOf = (dataDir: string) => path.join(dataDirLayout(dataDir).config, "assistant-name.json");
 const defaultRoleName = async (url: string) => (await agentRolesApi.list(url)).body.roles.find((role) => role.isDefault)?.name;
 const secretaryName = async (url: string) => (await agentRolesApi.list(url)).body.agents.find((agent) => agent.agentId === SECRETARY)?.identity.name;

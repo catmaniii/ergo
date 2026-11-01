@@ -1,4 +1,4 @@
-// 插件开发手册（docs/architecture/plugin-development.md，215 号票）里的例子"笔记"：网页这一半。守护进程那一半是
+// 插件开发手册（docs/architecture/plugin-development.md）里的例子"笔记"：网页这一半。守护进程那一半是
 // packages/daemon/test/plugins/notes-example/plugin.ts（同名 notes，一起启停）。登记的：
 // - 页面"笔记"（#/more/notes）：导航里排在消耗（70）后面，放不下时收进"更多"；
 // - 卡片类型 note 的画法（聊天、待办、任务详情里同一张）。

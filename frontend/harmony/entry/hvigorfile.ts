@@ -2,7 +2,7 @@
 import { hapTasks, OhosPluginId } from '@ohos/hvigor-ohos-plugin';
 import { getNode, hvigor } from '@ohos/hvigor';
 
-// WebView 调试默认关（62 号票评审）：开着的话，接上 USB 的人能用 hdc 经 DevTools 取到设备凭证 cookie。
+// WebView 调试默认关：开着的话，接上 USB 的人能用 hdc 经 DevTools 取到设备凭证 cookie。
 // 只有构建时显式要（`npm run build:harmony -- --webview-debug`，即 hvigor 的 `-p webviewDebug=true`）才打开。
 // 结果写进生成的 BuildProfile（BuildProfile.WEBVIEW_DEBUG），pages/Index.ets 据此决定开不开。
 const entryNode = getNode(__filename);

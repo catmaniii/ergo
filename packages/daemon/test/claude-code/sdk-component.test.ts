@@ -1,4 +1,4 @@
-// Claude Code 的 Agent SDK 装在组件区（318 号票）：安装包、源码装的程序目录里没有 SDK（不随二狗分发），用的人在设置 · 组件里从 npm 官方下到
+// Claude Code 的 Agent SDK 装在组件区：安装包、源码装的程序目录里没有 SDK（不随二狗分发），用的人在设置 · 组件里从 npm 官方下到
 // <数据目录>\components\claude-code\node_modules。这里查：
 //   - 插件的"没装"认组件区里的（宿主把组件区交给 missing）；装好的程序（转好的 .js）没装时说去组件里装，开发时说在程序目录 npm 装；
 //   - 子进程的加载：包名找得到用包名的；找不到用组件区的（按文件路径 import，ESM 不认 NODE_PATH）；都没有抛原来的错；

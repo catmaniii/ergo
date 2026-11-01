@@ -1,6 +1,6 @@
-// 项目内部的记录（64 号票，ADR-0023）：素材属于的任务、引着的审批或卡片是项目内部的——内部任务的结局、计划和审批的决定、验收、
-// 提问卡的回答、建议卡被关掉……这些由系统记下的记录秘书检索不到（search-tool.ts），删除项目时随项目彻底删掉（66 号票，
-// memory/deletion-participants.ts；用户 2026-10-10 定）。用户本人说过的话（发言、投喂的材料、记忆命令）不算：它们是用户的记忆（ADR-0006），
+// 项目内部的记录（ADR-0023）：素材属于的任务、引着的审批或卡片是项目内部的——内部任务的结局、计划和审批的决定、验收、
+// 提问卡的回答、建议卡被关掉……这些由系统记下的记录秘书检索不到（search-tool.ts），删除项目时随项目彻底删掉（
+// memory/deletion-participants.ts）。用户本人说过的话（发言、投喂的材料、记忆命令）不算：它们是用户的记忆（ADR-0006），
 // 秘书照常检索得到，删项目也不删。
 import type { ProjectInternal } from "@ergo/protocol";
 import type { Material, MaterialKind } from "../materials/index.ts";

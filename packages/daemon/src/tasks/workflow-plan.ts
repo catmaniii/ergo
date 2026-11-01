@@ -1,4 +1,4 @@
-// 流程的计划（58 号票，ADR 0019；固定计划，负责人用 propose_plan 交）：
+// 流程的计划（ADR 0019；固定计划，负责人用 propose_plan 交）：
 // 负责人用 propose_plan 交出步骤（每步一次工具调用：工具、参数、前置步骤）和这份计划要满足的条件（时序规则）→
 // 检查（checkWorkflowDraft：步骤 id、工具、前置步骤、规则校验）→ 审查修补（guard/workflow-review.ts，planguard 的规划时审查）→
 // 每一步加敏感标注（marks：按守卫的判定，落进了哪些关注类别、授权后还会不会问）和要满足的条件（conditions：触发它的规则写成人话，
@@ -8,8 +8,7 @@
 // 计划交给它（workflowExecutionPlan）——授权项由步骤推出（守卫的 workflowGrants：步骤里写死的参数全部进对象范围，
 // 通用 bash 的步骤限定到命令本身，对象不确定的不发授权，次数按步骤数算），时序规则是计划里写的条件（框架的 v1 模板照常
 // 自动加上），工具包按步骤推出（用到 bash 或带类型的 bash 工具才开 bash，用到要联网的才开联网），没有预算、不逐步验收。
-// 执行时每次调用和计划逐步比对（计划外、超范围、顺序错、重复）是 59 号票。
-// 事件触发的流程（77 号票）：步骤参数里可以写 {{事件.字段名}} 的占位（workflow-events.ts）——规划时不知道值，审查时当作"未知"、
+// 事件触发的流程：步骤参数里可以写 {{事件.字段名}} 的占位（workflow-events.ts）——规划时不知道值，审查时当作"未知"、
 // 不标敏感不发授权；每次运行代入这次事件的值之后，按执行它的负责人现取真实路径、推出授权项（boundRunWorkflow，和规划时同一套办法）。
 import {
   type EventFieldDescriptor,
@@ -63,7 +62,7 @@ import { draftEventProblems, maskEventPlaceholders, stepEventValues, unmaskEvent
 
 /**
  * 交来的流程计划对不对（不对的原因，交回负责人）：步骤 id 不重复、工具能写进步骤、前置步骤是计划里的、不成环；
- * 条件（时序规则）过规则校验（和长程任务的计划同一套）；事件的占位（77 号票）只有事件触发的流程能写，名字要是它等的事件带的字段
+ * 条件（时序规则）过规则校验（和长程任务的计划同一套）；事件的占位只有事件触发的流程能写，名字要是它等的事件带的字段
  * （eventFields：不是事件触发的流程不给）
  */
 // @i18n-ignore-start model：交回负责人
@@ -177,14 +176,14 @@ export interface WorkflowReviewDeps {
   tools: ToolRegistry;
   settings: WatchCategorySettings;
   places: GuardPlaces;
-  /** 授权的文件夹（355 号票）：标注和执行时一样，读它们里面的不标越出项目目录 */
+  /** 授权的文件夹：标注和执行时一样，读它们里面的不标越出项目目录 */
   authorizedFolders?: () => readonly string[];
   /** 执行这个流程的负责人：id 和工作目录（真实路径） */
   maintainerId: string;
   cwd: string;
-  /** 项目的负责人（64 号票）：围栏里的项目档案（真实路径），和执行时一样；任务自己的负责人没有 */
+  /** 项目的负责人：围栏里的项目档案（真实路径），和执行时一样；任务自己的负责人没有 */
   projectRecords?: readonly string[];
-  /** 项目的负责人（64 号票）：项目的工具包，执行时的能力是它和计划推出的工具包的交集（审查时守卫眼里也取交集）；任务自己的负责人没有 */
+  /** 项目的负责人：项目的工具包，执行时的能力是它和计划推出的工具包的交集（审查时守卫眼里也取交集）；任务自己的负责人没有 */
   projectToolkit?: { bash: boolean; network: boolean };
   /** 现在（毫秒）：标注时授权项按这一刻授予 */
   now: number;
@@ -204,7 +203,7 @@ export interface ReviewedWorkflow {
  */
 export async function reviewWorkflowDraft(original: WorkflowPlanDraft, version: number, deps: WorkflowReviewDeps): Promise<ReviewedWorkflow> {
   const env: ShellEnv = { cwd: deps.cwd, homeDir: deps.places.homeDir };
-  // 事件的占位（77 号票）：规划时不知道值，非 bash 的参数里带占位的当作"未知"交给审查（审查完换回原来写的）
+  // 事件的占位：规划时不知道值，非 bash 的参数里带占位的当作"未知"交给审查（审查完换回原来写的）
   const draft: WorkflowPlanDraft = { ...original, steps: maskEventPlaceholders(original.steps) };
   // 守卫眼里执行它的负责人：工具包按交来的步骤推出（审查时路径围栏、联网开关和执行时一样）
   const draftToolkit = workflowToolkit(
@@ -212,7 +211,7 @@ export async function reviewWorkflowDraft(original: WorkflowPlanDraft, version: 
     deps.tools,
     env,
   );
-  // 项目的负责人（64 号票）：执行时的能力是计划推出的和项目工具包的交集，围栏里还有项目档案
+  // 项目的负责人：执行时的能力是计划推出的和项目工具包的交集，围栏里还有项目档案
   const cap = deps.projectToolkit ?? { bash: true, network: true };
   const agent = (toolkit: { bash: boolean; network: boolean }): GuardAgent => ({
     kind: "maintainer",
@@ -236,14 +235,14 @@ export async function reviewWorkflowDraft(original: WorkflowPlanDraft, version: 
   const toolkit = workflowToolkit(reviewed.steps, deps.tools, env);
   const executor = agent(toolkit);
   // 步骤里的路径现取文件事实（真实路径）：授权项按真实路径比，标注和"真实路径在项目之外"按它判；
-  // 审查剔除的对象也取（执行时按真实路径认出它们，59 号票）
+  // 审查剔除的对象也取（执行时按真实路径认出它们）
   const facts = gatherFileFacts(
     reviewed.steps.flatMap((s) => [...stepCalls(s, env), ...(s.excluded ? [{ tool: s.tool, args: s.excluded }] : [])]),
     { tools: deps.tools, agent: executor, homeDir: deps.places.homeDir },
   );
   const grants = planGrantsOf(reviewed.steps, workflowGrants(reviewed.steps, { tools: deps.tools, agent: executor, homeDir: deps.places.homeDir, facts }));
   // 标注只用真实路径和写的不一样的那些（符号链接、目录联接）：别的路径照旧不给事实——文件在不在要到执行到那一步才算数
-  // （前面的步骤可能会建出它），规划时不据此去掉"可能覆盖"这类标注。授权的文件夹里的也给（355 号票：读它们按真实路径算）
+  // （前面的步骤可能会建出它），规划时不据此去掉"可能覆盖"这类标注。授权的文件夹里的也给（读它们按真实路径算）
   const authorizedFolders = authorizedFolderRoots(deps.authorizedFolders?.() ?? []);
   const linked: EnvironmentFacts = {
     files: Object.fromEntries(Object.entries(facts.files ?? {}).filter(([p, f]) => f.realPath !== undefined && (comparable(f.realPath) !== comparable(p) || isWithinAny(p, authorizedFolders)))),
@@ -383,7 +382,7 @@ function stepMarks(
 }
 
 /**
- * 事件触发的流程的一次运行（77 号票）：代入了这次事件的值的步骤（workflow-events.ts 的 runWorkflowSteps），按执行它的负责人现取路径的
+ * 事件触发的流程的一次运行：代入了这次事件的值的步骤（workflow-events.ts 的 runWorkflowSteps），按执行它的负责人现取路径的
  * 真实路径（执行时每次调用和这一步比对，路径按真实路径比），推出这次运行的授权项——和规划时同一套办法（守卫的 workflowGrants：
  * 步骤里写死的参数全部进对象范围、按真实路径比、次数按步骤数），所以一批里几个事件各走一遍的，每个事件的对象各有一项
  */
@@ -402,7 +401,7 @@ export function boundRunWorkflow(steps: readonly WorkflowStepView[], deps: { too
 }
 
 /**
- * 授权的流程计划在守卫眼里（59 号票，执行时每次调用和它比对）：哪一版、目标、审查修补后的步骤（连同审查剔除的对象），
+ * 授权的流程计划在守卫眼里（执行时每次调用和它比对）：哪一版、目标、审查修补后的步骤（连同审查剔除的对象），
  * 以及负责人用 report_step 说明跳过的步骤
  */
 export function guardWorkflow(planId: string, plan: WorkflowPlan, task: Pick<Task, "steps">): GuardWorkflow {

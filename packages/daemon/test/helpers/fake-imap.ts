@@ -1,4 +1,4 @@
-// 测试用的假 IMAP 服务（298 号票，只在测试里）：本机 127.0.0.1 随机端口起一个 TLS 服务（下面的测试自签证书，CN=localhost、
+// 测试用的假 IMAP 服务（只在测试里）：本机 127.0.0.1 随机端口起一个 TLS 服务（下面的测试自签证书，CN=localhost、
 // SAN 有 127.0.0.1，2020–2120 年有效，只给测试用，客户端经 ca 信任它），照 Gmail 的样子回应——不连真的 Gmail、不联网。
 // - 三个邮箱：INBOX、[Gmail]/All Mail（\All）、[Gmail]/已发邮件（\Sent，名字是修改过的 UTF-7，和中文界面的 Gmail 一样）；
 //   每个邮箱有自己的 UIDVALIDITY 和 UID，一封邮件可以同时在几个邮箱里；
@@ -10,7 +10,7 @@
 //   不带 PEEK 的 BODY[] / RFC822 也记（还会把那封标成已读：测试能看出标没标）；commands 记下收到的每条命令的动词（LOGIN 只记动词，不记密码）；
 // - 搜索按解码后的信头和正文比（借 google/mime.ts 的 parseMail；它自己有单元测试），不分大小写、按子串；
 // - hang 置位时连上以后什么都不回（测超时）；connections / active 数连了几次、还开着几个（客户端用完要断开）；
-// - 344 号票：可以有几个账号（others）：每个账号一套自己的邮箱，登录谁看谁的。几个账号的 UIDVALIDITY、UID 故意从同样的数起（撞号），
+// -可以有几个账号（others）：每个账号一套自己的邮箱，登录谁看谁的。几个账号的 UIDVALIDITY、UID 故意从同样的数起（撞号），
 //   谁的邮件编号、同步进度没分账号，测试马上看得出；setPassword 让一个账号的密码失效，另一个不受影响。
 import tls from "node:tls";
 import { type ImapEndpoint, encodeMailboxName, tokenize, textOf, type ImapValue } from "../../src/google/imap.ts";
@@ -92,7 +92,7 @@ export interface FakeImapServer extends FakeMailbox {
   hang: boolean;
   /** 收到的 LOGIN 用的地址（不记密码） */
   readonly logins: string[];
-  /** 某个账号的邮箱（344 号票） */
+  /** 某个账号的邮箱 */
   mailbox(user: string): FakeMailbox;
   /** 换掉某个账号认的密码（等同于这个账号改了 Google 密码，别的账号不受影响） */
   setPassword(user: string, password: string): void;

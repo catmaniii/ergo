@@ -1,5 +1,5 @@
-﻿// MCP 登记变更（239 号票）和秘书带参调用（240 号票）的卡、事件和审批决定的 schema（240 号票的在文件后半）。
-// 239 号票：负责人用 request_mcp_change 提"加、改、删一条 MCP 登记"，运行时出一张"MCP 登记变更"卡进待我处理，
+﻿// MCP 登记变更和秘书带参调用的卡、事件和审批决定的 schema（在文件后半）。
+// 负责人用 request_mcp_change 提"加、改、删一条 MCP 登记"，运行时出一张"MCP 登记变更"卡进待我处理，
 // 用户确认之后由运行时按 name 合并写进数据目录配置区的 mcp.json（mcp/writer.ts），拒绝则一个字节都不动。
 // 卡上要显示：启动命令、args、env（密钥只写引用 { fromEnv }，卡上写"来自环境变量 X"）、暴露的工具和只读/联网标注、快速动作。
 // 这里的登记 schema 是给界面和卡片负载用的（比守护进程 registration.ts 的宽：那边多一层校验、写之前还会按它再校一遍，
@@ -49,7 +49,7 @@ export const McpChangeRegistration = Type.Object(
 export type McpChangeRegistration = Static<typeof McpChangeRegistration>;
 
 /**
- * 是谁提的：项目的负责人（对话段）还是任务的负责人。项目内部的（64 号票）带上所属的项目。
+ * 是谁提的：项目的负责人（对话段）还是任务的负责人。项目内部的带上所属的项目。
  * 卡上的标题、待我处理里的来源、时间线记录、审批决定素材都由它写
  */
 export const McpChangeSubmitter = Type.Union([
@@ -127,11 +127,11 @@ export const McpDecidedPayload = Type.Object({
 });
 export type McpDecidedPayload = Static<typeof McpDecidedPayload>;
 
-// ───────────────────────── 秘书带参调用 MCP（240 号票） ─────────────────────────
+// ───────────────────────── 秘书带参调用 MCP ─────────────────────────
 
 /**
- * 一次带参调用的结局（240 号票）：done 调到了（服务进程的结果在这条里）、failed 没调成（服务进程报的错原样带回来）。
- * 不分"读 / 写 / 底线"：用户 2026-10-21 定"MCP call 不要加那么多限制，让秘书能调用 MCP 的所有功能"；
+ * 一次带参调用的结局：done 调到了（服务进程的结果在这条里）、failed 没调成（服务进程报的错原样带回来）。
+ * 不分"读 / 写 / 底线"："MCP call 不要加那么多限制，让秘书能调用 MCP 的所有功能"；
  * 平台自己的守卫照旧判这次工具调用（那是所有工具一视同仁的规则，不是给 MCP 加的）
  */
 export const MCP_CALL_OUTCOMES = ["done", "failed"] as const;
@@ -147,7 +147,7 @@ export const McpCallResultView = Type.Object({
 export type McpCallResultView = Static<typeof McpCallResultView>;
 
 /**
- * `mcp_called` 事件（守护进程内部的 mcp 频道，前端不订阅）：秘书用 mcp_call 带参调了一次登记过的 MCP 工具（240 号票）。
+ * `mcp_called` 事件（守护进程内部的 mcp 频道，前端不订阅）：秘书用 mcp_call 带参调了一次登记过的 MCP 工具。
  * 哪个 MCP、哪个工具、参数、为什么、服务端结果都在这里；参数是**脱敏之后**的（按登记注入的凭据值换成"来自环境变量 X"，
  * 名字看着是密钥的换成星号），密钥类的原值不写进事件日志
  */

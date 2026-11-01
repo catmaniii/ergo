@@ -1,11 +1,11 @@
-// 原型里的设置 · 组件（323 号票）：直接打开构建产物（file://）时没有守护进程，这里编清单里的五个组件看样子——
+// 原型里的设置 · 组件：直接打开构建产物（file://）时没有守护进程，这里编清单里的五个组件看样子——
 // 向量模型正在从 hf-mirror 下（每秒走一截，下完是装好了）；语音识别用的是自己配的（别处有，不能从这里装）；
-// 语音合成的程序和模型（345 号票）默认是"已有自己配的、在用它"；Claude Code 接入检测到了、装好了。
+// 语音合成的程序和模型默认是"已有自己配的、在用它"；Claude Code 接入检测到了、装好了。
 // 动作只改内存里的样子（装、暂停、继续、取消、删、启动、停止），从文件导入回"原型里不导入"那样的结果。
 // 地址里带 ?demo-components-missing 时语音识别、语音合成都没有（别处也没有）：看功能灰掉的样子（输入框的话筒、设置 · 语音）。
-// 345 号票：地址里带 ?demo-tts=missing|installing|running|stopped|failed|manual|download-failed|runtime-missing 看语音合成的几种状态；带 ?demo-gpu=none 看没有 N 卡的样子。
-// 346 号票：地址里带 ?demo-asr=missing|installing|running|configured|external 看语音识别的几种状态（configured 是配了自己的语音识别，external 是 8090 上已有自己配的 audio.cpp）。
-// 347 号票（向导的"能力"那一步、检查更新）：?demo-bge=missing|failed 看向量模型没装、下载失败的样子；?demo-fail=tts 点了装就失败（看失败能跳过）；
+// 地址里带 ?demo-tts=missing|installing|running|stopped|failed|manual|download-failed|runtime-missing 看语音合成的几种状态；带 ?demo-gpu=none 看没有 N 卡的样子。
+// 地址里带 ?demo-asr=missing|installing|running|configured|external 看语音识别的几种状态（configured 是配了自己的语音识别，external 是 8090 上已有自己配的 audio.cpp）。
+// 向导的"能力"那一步、检查更新：?demo-bge=missing|failed 看向量模型没装、下载失败的样子；?demo-fail=tts 点了装就失败（看失败能跳过）；
 // ?demo-updates=available|failed|not-published 看查更新的几种结果（available 时点"检查更新"向量模型有新版本，failed 时写没查成，not-published 是发布页上还没有清单）；?demo-autostart=off|elsewhere|dev 看开机自启的样子。
 import { type AutostartView, type ComponentAction, type ComponentImportResult, type ComponentServiceState, type ComponentsView, type ComponentView, nowIso } from "../state/index.ts";
 import { demoParam } from "./fake-connection.ts";

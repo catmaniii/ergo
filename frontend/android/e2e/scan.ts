@@ -1,4 +1,4 @@
-// 扫码连接在模拟器上的联调（364 号票）。只用模拟器（串口 emulator-*，lib.ts 里卡着），连临时守护进程和假的服务管家，绝不碰真机和真的二狗、服务管家。
+// 扫码连接在模拟器上的联调。只用模拟器（串口 emulator-*，lib.ts 里卡着），连临时守护进程和假的服务管家，绝不碰真机和真的二狗、服务管家。
 // 先有一个开着的模拟器，再：
 //   npm run build:android -- --webview-debug
 //   node frontend/android/e2e/scan.ts emulator-5570 [截图目录]

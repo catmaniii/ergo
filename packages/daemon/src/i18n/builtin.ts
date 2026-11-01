@@ -1,4 +1,4 @@
-// 自带的语言（168 号票）：仓库里 packages/protocol/locales/ 下的中文、英文。
+// 自带的语言：仓库里 packages/protocol/locales/ 下的中文、英文。
 // 守护进程启动时和 ~/.ergo/locales 里的合起来用（locales.ts）；进程入口、单元测试（vitest 的 setupFiles）在还没有守护进程时
 // 用 installBuiltinLocales() 先装上自带的中文，t() 才查得到句子。
 import { fileURLToPath } from "node:url";

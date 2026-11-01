@@ -1,4 +1,4 @@
-// 关注类别设置的纯函数（26 号票）：内置类别的下拉只给不比默认更松的档、确定规则写成一句话。守护进程和 Web 共用。
+// 关注类别设置的纯函数：内置类别的下拉只给不比默认更松的档、确定规则写成一句话。守护进程和 Web 共用。
 import { describe, expect, test } from "vitest";
 import { categoryMatchText, dispositionsNotLooserThan, grantNarrowingText, isLooserDisposition, type PlanGrant } from "../src/index.ts";
 

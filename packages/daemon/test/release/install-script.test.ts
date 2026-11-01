@@ -1,9 +1,9 @@
-// 一行命令安装（318 号票，installer/install.ps1）：
+// 一行命令安装（installer/install.ps1）：
 //   - 文件只有 ASCII（irm | iex 不认 BOM、-File 按 ANSI 读），中文句子写成 \uXXXX；中英两份句子一一对应、参数一样，没有"秘书""待我处理"；
 //   - 里面那段 C#（Ed25519 + BLAKE2b 验 minisign 签名、解 npm 的 tgz）和 Node 那一份互相认；
 //   - 对着本机的假发布站整个装一遍（-File 和 irm | iex 两种）：验签、解开、current 联接、bin、install.json；签名不对、Node 版本没测过的不装；
-//   - 下载有进度（341 号票）：百分比、已下载/总量、速度；真窗口里刷新同一行，输出被重定向时每 10% 一行；不给长度也下得完；失败不留半截文件。
-//   - 装好以后那几步（342 号票）：默认先注册开机自启、再 ergo onboard；-NoAutostart、-NoStart（旧名 -NoOnboard）各自生效；某一步失败其余照常、退出码 0、写清怎么重做；
+//   - 下载有进度：百分比、已下载/总量、速度；真窗口里刷新同一行，输出被重定向时每 10% 一行；不给长度也下得完；失败不留半截文件。
+//   - 装好以后那几步：默认先注册开机自启、再 ergo onboard；-NoAutostart、-NoStart（旧名 -NoOnboard）各自生效；某一步失败其余照常、退出码 0、写清怎么重做；
 //     已有的任务指着别处不动；最后报版本、安装目录、current、自启状态、下一步。
 // 不改真的 PATH（-NoPath / ERGO_INSTALL_NO_PATH）。
 // 碰不到真的计划任务和服务管家：假发布包里的 ergo.cmd 是假的（只把收到的命令记下来），脚本读的任务也换成文件（ERGO_AUTOSTART_TASK_FILE）；
@@ -174,7 +174,7 @@ describe.runIf(process.platform === "win32")("install.ps1 整个装一遍（本�
   it("-File：验签、解开到 versions\\<版本>、current 联接、bin、install.json；签名不对的、Node 版本没测过的不装", async () => {
     const fake = await startFakeDownloads();
     const key = releaseKey();
-    // 真的发布里清单还列着两个手机安装包（376 号票）：安装脚本不下它们，下面 downloads 那条核对只有三个文件
+    // 真的发布里清单还列着两个手机安装包：安装脚本不下它们，下面 downloads 那条核对只有三个文件
     for (const [name, body] of fakeRelease("0.3.0", key.secret, undefined, ["ergo-android-debug.apk", "ergo-harmony-unsigned.hap"]).files) fake.put(name, body);
     const dir = tmp();
     const root = path.join(dir, "inst");

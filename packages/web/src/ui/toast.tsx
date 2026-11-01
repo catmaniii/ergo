@@ -1,5 +1,5 @@
 // 页面底部的一条短提示（比如"已归档"）。正式界面和原型都用它。
-// 提示里的名字占位（ASSISTANT_NAME_MARK，43 号票）显示成个人助理的名字标签。
+// 提示里的名字占位（ASSISTANT_NAME_MARK）显示成个人助理的名字标签。
 import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from "react";
 import { NamedText } from "./assistant-name.tsx";
 

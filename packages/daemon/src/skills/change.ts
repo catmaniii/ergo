@@ -1,5 +1,5 @@
-// skill 变更（358 号票，用户 2026-11-01 定"补齐负责人提交 skill，和登记 MCP 走一样的路"）：给负责人一个工具 request_skill_change——
-// 把一个 skill 加进 skill 库、改、删。整条链照 239 号票的 MCP 登记变更（mcp/change.ts）：
+// skill 变更（补齐负责人提交 skill，和登记 MCP 走一样的路）：给负责人一个工具 request_skill_change——
+// 把一个 skill 加进 skill 库、改、删。整条链照 MCP 登记变更（mcp/change.ts）：
 // - 工具只校验 + 出一张"skill 变更"卡（skill_change）进待办，**不写任何文件**；校验不过当场回原因、不出卡。校验和真导入是同一段逻辑
 //   （skills/library.ts 的 checkSubmission），读卡时算一份内容指纹；
 // - 用户在卡上确认之后，运行时重新校验、核对内容指纹（提交之后来源变了就不进库，卡上写明，要重新提交），复制进 skill 区、自检（库里读得到、

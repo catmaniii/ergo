@@ -1,7 +1,7 @@
-// 脚本验收（规格第 8 节"验收"：运行时的钩子运行，看退出码和输出，13 号票）：
+// 脚本验收（规格第 8 节"验收"：运行时的钩子运行，看退出码和输出）：
 // - 退出码 0 才算通过；计划里写了期望的输出（包含某段文字、匹配某个模式）时一并判定，没写只看退出码；
-// - 进程照带类型 bash 工具的启动器起（28 号票的 runner：闸门进程先进这次调用的 Job 对象），超时时整棵进程树一起结束。
-// 238 号票：这台机器上真找不到 Git Bash 时，靠 bash 跑的用例明确跳过（skipIf(!hasGitBash)），不要表现成 30 秒超时。
+// - 进程照带类型 bash 工具的启动器起（runner：闸门进程先进这次调用的 Job 对象），超时时整棵进程树一起结束。
+// 这台机器上真找不到 Git Bash 时，靠 bash 跑的用例明确跳过（skipIf(!hasGitBash)），不要表现成 30 秒超时。
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -35,7 +35,7 @@ describe("判定（纯函数）", () => {
     expect(scriptOutcome(ran(null, "", { error: "找不到 Git Bash（要装 Git for Windows）" }), { timeoutMs: 5_000 })).toEqual({ passed: false, notRun: true, note: "脚本没跑起来：找不到 Git Bash（要装 Git for Windows）" });
   });
 
-  it("验收没跑起来（311 号票）：起不来、命令找不到或不能执行（退出码 127、126）标 notRun——和跑了、对不上的分开；超时、被中止、退出码 1 不算", () => {
+  it("验收没跑起来：起不来、命令找不到或不能执行（退出码 127、126）标 notRun——和跑了、对不上的分开；超时、被中止、退出码 1 不算", () => {
     expect(scriptOutcome(ran(null, "", { error: "闸门进程起不来" }), { timeoutMs: 5_000 })).toEqual({ passed: false, notRun: true, note: "脚本没跑起来：闸门进程起不来" });
     expect(scriptOutcome(ran(127, "bash: pytest: command not found"), { timeoutMs: 5_000 })).toEqual({ passed: false, notRun: true, note: "退出码 127；输出：bash: pytest: command not found" });
     expect(scriptOutcome(ran(126, "bash: ./check.sh: Permission denied"), { timeoutMs: 5_000 })).toMatchObject({ passed: false, notRun: true });
@@ -56,7 +56,7 @@ function shell() {
 }
 
 describe.skipIf(!hasGitBash)("在工作目录里真的跑（Git Bash）", () => {
-  it("验收脚本里 Python 用 UTF-8（362 号票：中文 Windows 上默认 GBK，打印中文报错）", async () => {
+  it("验收脚本里 Python 用 UTF-8（中文 Windows 上默认 GBK，打印中文报错）", async () => {
     const work = realPathOf(makeTempDir("ergo-work-"))!;
     const home = makeTempDir("ergo-home-");
     const shell = createTypedShell({ parentEnv: withEnv(process.env, tempUserProfileEnv(home)), homeDir: home, timeouts: { defaultMs: 60_000, longMs: 60_000 }, log: () => {} });

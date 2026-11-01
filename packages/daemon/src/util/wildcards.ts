@@ -1,5 +1,5 @@
-// 带通配符的路径展开成现在存在的路径（和 bash 一样）：删除项目时找读过它的调用（projects/outside-reads.ts，66 号票），
-// 守卫判定前现取环境事实（guard-runtime/facts.ts，101 号票评审后定：通配符写的路径展开后逐个比受保护区域、密钥区）共用。
+// 带通配符的路径展开成现在存在的路径（和 bash 一样）：删除项目时找读过它的调用（projects/outside-reads.ts），
+// 守卫判定前现取环境事实（guard-runtime/facts.ts：通配符写的路径展开后逐个比受保护区域、密钥区）共用。
 import fs from "node:fs";
 import path from "node:path";
 

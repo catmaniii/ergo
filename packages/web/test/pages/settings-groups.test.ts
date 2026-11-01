@@ -1,7 +1,7 @@
-// 247 号票：设置列表从 12 项平铺改成四组可折叠（身份、能力、规则、数据与设备，用户 2026-10-22 定的方案 A）。
+// 设置列表从 12 项平铺改成四组可折叠（身份、能力、规则、数据与设备，方案 A）。
 // 这里查四件事：
 // - 四组各放哪些页、什么顺序；每页的地址照旧 #/more/<页>（收藏、别处链接来的都不坏）；
-// - 插件停用 / 记忆页里已经有"删除素材"的过滤照旧（193、214 号票）——过滤只是决定组里列不列，组和顺序不变；
+// - 插件停用 / 记忆页里已经有"删除素材"的过滤照旧——过滤只是决定组里列不列，组和顺序不变；
 // - 组标题点一下收起 / 展开：收起时组里的项不画，▸ / ▾，aria-expanded；默认四组都展开；
 // - 记住收起了哪几组（state/settings-groups.ts，纯函数）和这台设备上那一半（app/settings-fold.ts，存储换成假的）。
 import { createElement } from "react";
@@ -53,16 +53,16 @@ afterEach(() => setActiveLocale(before));
 describe("四组：每组的页和顺序", () => {
   test("身份（我的名字、角色与声音、语言、外观与风格、语音）、能力（模型、skill 和 MCP、插件、浏览与填框）、规则（关注类别、系统提示、工作日规则）、数据与设备（删除素材、工具调用完整内容、已配对设备、体检、关于二狗）", () => {
     const host = assembled();
-    // 记忆页里有成批删除，"删除素材"只在它不在时列（193 号票的规矩，247 号票不动）
+    // 记忆页里有成批删除，"删除素材"只在它不在时列
     host.disable("memory");
     expect(settingsGroups(host, false)).toEqual([
-      // 248 号票："角色与声音"就排在名字后面（名字=默认角色名，音色=默认角色音色）；281 号票：名字下面一行去个人档案的链接
+      // "角色与声音"就排在名字后面（名字=默认角色名，音色=默认角色音色）；名字下面一行去个人档案的链接
       { id: "identity", rows: ["user-name", "personal-files-link", "roles", "language", "appearance", "voice", "enter-key"] },
-      // 305 号票：设置 · Claude Code（Claude Code 插件画的页）排在插件后面；323 号票：设置 · 组件紧挨着插件
+      // 设置 · Claude Code（Claude Code 插件画的页）排在插件后面；设置 · 组件紧挨着插件
       { id: "ability", rows: ["models", "skills", "plugins", "components", "claude-code", "browsing"] },
       { id: "rules", rows: ["watch", "prompts", "workday-rules"] },
-      // 295 号票：数据源排在数据与设备组的第一项；355 号票：授权的文件夹排在它后面
-      // 335 号票："备份"紧挨着工具调用的完整内容（356 号票起是一页）
+      // 数据源排在数据与设备组的第一项；授权的文件夹排在它后面
+      // "备份"紧挨着工具调用的完整内容（是一页）
       { id: "data", rows: ["data-sources", "authorized-folders", "materials-delete", "tool-call-storage", "backup", "devices", "doctor", "about"] },
     ]);
   });
@@ -76,7 +76,7 @@ describe("四组：每组的页和顺序", () => {
     for (const page of pages) expect([page, navItemOf({ tab: "more", page } as Route)]).toEqual([page, "settings"]);
   });
 
-  test("平铺那一项不少（248 号票起还有\"角色与声音\"），外加\"关于二狗\"：没有哪一页因为分组被漏掉", () => {
+  test("平铺那一项不少（还有\"角色与声音\"），外加\"关于二狗\"：没有哪一页因为分组被漏掉", () => {
     const host = assembled();
     host.disable("memory");
     const pages = settingsGroups(host, false)
@@ -87,7 +87,7 @@ describe("四组：每组的页和顺序", () => {
     );
   });
 
-  test("Debug 工具集打开着：挂在最后一组的\"关于二狗\"下面（124 号票照旧），别的组不变", () => {
+  test("Debug 工具集打开着：挂在最后一组的\"关于二狗\"下面（照旧），别的组不变", () => {
     const host = assembled();
     const groups = settingsGroups(host, true);
     expect(groups.at(-1)!.rows.slice(-2)).toEqual(["about", "debug"]);
@@ -107,7 +107,7 @@ describe("四组：每组的页和顺序", () => {
   });
 });
 
-describe("插件停用 / 记忆页覆盖的过滤照旧（193、214 号票），只是组里列不列", () => {
+describe("插件停用 / 记忆页覆盖的过滤照旧，只是组里列不列", () => {
   test("记忆插件在用时\"删除素材\"不列；停用后回到\"数据与设备\"里数据源的后面，组和顺序不变", () => {
     const host = assembled();
     expect(dataRows(host)).toEqual(["data-sources", "authorized-folders", "tool-call-storage", "backup", "devices", "doctor", "about"]);

@@ -1,6 +1,6 @@
-// 涉及多个项目的任务（17 号票）里工单往来的说法：交给项目负责人、任务负责人的通知，任务时间线上的记录，待我处理里的标题，
+// 涉及多个项目的任务里工单往来的说法：交给项目负责人、任务负责人的通知，任务时间线上的记录，待我处理里的标题，
 // 工单卡的纯文本，被拒的原因。编排（multi-project.ts、clarifications.ts、card.ts）里不写文字，都在这里。工具名一律插值。
-// 173 号票：给用户看的（时间线上的记录、待我处理的标题和来源、工单卡、素材、退回的原因、这一支在等什么）走 t()，生成时按当时的语言；
+// 给用户看的（时间线上的记录、待我处理的标题和来源、工单卡、素材、退回的原因、这一支在等什么）走 t()，生成时按当时的语言；
 // 交给负责人的通知、工具结果、被拒的原因（给模型看的）标 @i18n-ignore model
 import {
   namedIdLabel,
@@ -26,7 +26,7 @@ export interface OrderRef {
 const refText = (r: OrderRef) => `${r.wo.id}（项目「${r.projectName}」）`; // @i18n-ignore model：交给 agent 的通知里的写法
 
 const outcomeText = (wo: TaskMaintainerWorkOrder) => WORK_ORDER_OUTCOME_LABEL[wo.outcome ?? "done"];
-/** 给负责人看的话里引的状态、结果：在中文下取（协议包的标签跟着当前语言，172 号票） */
+/** 给负责人看的话里引的状态、结果：在中文下取（协议包的标签跟着当前语言） */
 const modelOutcome = (wo: TaskMaintainerWorkOrder) => forModel(() => outcomeText(wo));
 const modelState = (state: TaskMaintainerWorkOrder["state"]) => forModel(() => WORK_ORDER_STATE_LABEL[state]);
 
@@ -48,7 +48,7 @@ export const declinedReason = (note: string | undefined) => (note ? t("workOrder
 
 // ───────────────────────── 任务时间线上的记录 ─────────────────────────
 
-/** 给用户看的工单（159 号票，163 号票写成 t-3「标题」）："wo-2「加一个导出说明」"；交给 agent 的通知照旧只写编号（refText） */
+/** 给用户看的工单（写成 t-3「标题」）："wo-2「加一个导出说明」"；交给 agent 的通知照旧只写编号（refText） */
 const shown = (wo: TaskMaintainerWorkOrder) => namedIdLabel(wo.id, wo.title);
 
 const said = (key: string, r: OrderRef, more: Record<string, unknown> = {}) => t(key, { order: shown(r.wo), project: r.projectName, ...more });
@@ -57,7 +57,7 @@ export const timelineText = {
   created: (r: OrderRef) => said("workOrders.timeline.created", r, { stage: r.wo.stageId }),
   dispatched: (r: OrderRef) => said("workOrders.timeline.dispatched", r),
   awaiting: (r: OrderRef) => said("workOrders.timeline.awaiting", r),
-  /** 对话审批关着，任务的 agent 超出授权先不管（101 号票）：计划外的工单直接派出 */
+  /** 对话审批关着，任务的 agent 超出授权先不管：计划外的工单直接派出 */
   unplannedDirect: (r: OrderRef) => said("workOrders.timeline.unplannedDirect", r),
   confirmed: (r: OrderRef) => said("workOrders.timeline.confirmed", r),
   declined: (r: OrderRef) => said("workOrders.timeline.declined", r),
@@ -256,7 +256,7 @@ export const refusal = {
   notYours: (woId: string) => `工单 ${woId} 不是这个任务派的`,
   alreadyForwarded: (wo: TaskMaintainerWorkOrder) => `工单 ${wo.id} 的问题已经转问用户了，等用户回答`,
   emptyAnswer: "回答是空的",
-  /** 用户在工单卡上点的：给用户看（173 号票） */
+  /** 用户在工单卡上点的：给用户看 */
   get notAwaiting() {
     return t("workOrders.unplanned.notAwaiting");
   },

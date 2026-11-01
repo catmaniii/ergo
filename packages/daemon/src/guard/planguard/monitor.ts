@@ -1,5 +1,5 @@
 // planguard 的执行时监控（同步记录和哈希见同目录 VERSION）。
-// 59 号票：流程执行时每次调用和已授权的计划比对（接入在 ../plan-monitor.ts）。
+// 流程执行时每次调用和已授权的计划比对（接入在 ../plan-monitor.ts）。
 // 一次调用和计划比对出的问题：
 // - off_plan：计划里没有这个工具的步骤（敏感的工具当场确认，别的只记下）；
 // - forbidden：对象在审查时被明确排除在计划之外（拦下）；
@@ -7,7 +7,7 @@
 // - repeat：只许做一次的步骤又做了一次（拦下）；
 // - out_of_order：对上的步骤依赖的前置步骤还没执行（当场确认）；
 // - rule:<规则 id> / rule_unknown:<规则 id>：执行时的规则检查违反了、判断不了（这次加上已经成功执行过的调用一起判）。
-// 173 号票：查出的问题的话走 t()（语义不改）；守护进程比对给 agent 的那一次在中文下做，判定的身份（findingKey）因此不随语言变
+// 查出的问题的话走 t()（语义不改）；守护进程比对给 agent 的那一次在中文下做，判定的身份（findingKey）因此不随语言变
 import { t } from "@ergo/protocol";
 import { check } from "./checker.ts";
 import { type Env, MISSING, fromJson, test } from "./expr.ts";

@@ -1,4 +1,4 @@
-// 337 号票第一段：记忆插件宿主。只验宿主规矩（单活、切换、数据目录、版本、转发、简报回落），
+// 记忆插件宿主。只验宿主规矩（单活、切换、数据目录、版本、转发、简报回落），
 // 不碰真的守护进程、会意插件和模型：临时目录 + 两个假插件（test/memory/provider/），llm/embed/identity 是宿主注入的回调。
 import fs from "node:fs";
 import path from "node:path";
@@ -38,7 +38,7 @@ function itemOf(id: string, text: string, sources: MemoryItem["sources"] = []): 
   return { id, kind: "note", text, createdAt: "2026-10-28T09:00:00.000Z", sources };
 }
 
-describe("记忆插件宿主（337 号票）", () => {
+describe("记忆插件宿主", () => {
   it("同时只有一个在跑：激活乙时先把甲停掉，之后的调用都走乙", async () => {
     const root = makeTempDir();
     const a = fakeA();
@@ -167,7 +167,7 @@ describe("记忆插件宿主（337 号票）", () => {
     const result = await host.brief({ text: "晚上吃什么" });
     // 宿主按这一轮的话去搜，取前 3 条
     expect(provider.searches).toEqual([{ text: "晚上吃什么", limit: 3 }]);
-    // 回落拼出来的没有去重的键、也没有结构化那两样（337 号票：统一成一份）
+    // 回落拼出来的没有去重的键、也没有结构化那两样（统一成一份）
     expect(result).toMatchObject({ keys: {}, items: [], hits: [] });
     expect(result!.text).toContain("【记忆简报】");
     expect(result!.text).toContain("用户不吃香菜");

@@ -1,4 +1,4 @@
-// Claude Code 适配子进程里的一个会话（287 号票，issue 24 方案 2.4）：一个 Agent SDK 的 query()（流式输入），宿主协议的命令翻成往里推的
+// Claude Code 适配子进程里的一个会话：一个 Agent SDK 的 query()（流式输入），宿主协议的命令翻成往里推的
 // 用户消息和控制调用，SDK 的消息经 translator.ts 翻回宿主协议，这里管轮次、压缩、打断和会话记录。
 //
 // 对照（宿主协议 → SDK）：
@@ -8,23 +8,23 @@
 // - interject：推一条 priority: "next" 的用户消息——Claude Code 在手头的工具调用做完后并进同一轮；
 // - abort：interrupt()；compact：推一条 "/compact"，等 compact_boundary 和这一轮的 result；
 // - turn_end：result（每轮恰好一条）。插话来晚了没赶上这一轮的，Claude Code 会接着另起一轮（result 的 queued_turn_count 大于 0），
-//   二狗这边并进同一轮、等后面那条 result 才算结束（中途注入的输入并进同一轮，调研 32 第 6.1 节）；收下了哪些插话按 result 的
+//   二狗这边并进同一轮、等后面那条 result 才算结束（中途注入的输入并进同一轮）；收下了哪些插话按 result 的
 //   user_message_uuids 认（每条用户消息带二狗定的 uuid）。
-// 用 Claude Code 自己的配置（用户 2026-10-25 第 3 条）：settingSources 加载用户、项目、本地三层设置（CLAUDE.md、技能、MCP、钩子照常），
+// 用 Claude Code 自己的配置：settingSources 加载用户、项目、本地三层设置（CLAUDE.md、技能、MCP、钩子照常），
 // 系统提示用 Claude Code 自己的（preset: claude_code），二狗的系统提示追加在末尾（append）；snapshot: false——不录下系统提示、每次请求现渲染，
-// 恢复的会话里追加的这段当场生效（等同命令行的 --system-prompt-snapshot off，调研 35 第 7 步；代价是追加的内容变了那一次缓存不命中）。
-// 交给 claude 的环境去掉 ANTHROPIC_API_KEY（env.ts）。守卫（288 号票，guard.ts）：装配打开了 forwardToolCalls（正式的会话都开）时交给 SDK
+// 恢复的会话里追加的这段当场生效（等同命令行的 --system-prompt-snapshot off，代价是追加的内容变了那一次缓存不命中）。
+// 交给 claude 的环境去掉 ANTHROPIC_API_KEY（env.ts）。守卫（guard.ts）：装配打开了 forwardToolCalls（正式的会话都开）时交给 SDK
 // 二狗的 PreToolUse 钩子（全量闸口：每次工具调用发 guard_request、等判定，子代理里的也过）和 canUseTool（Claude 自己要问的：AskUserQuestion、
-// 退出计划模式变成二狗的提问卡，别的守卫放行过的直接放行）；没打开（只有测试里直接拉起的）照 287 号票用 permissionPrompts: "none"——
+// 退出计划模式变成二狗的提问卡，别的守卫放行过的直接放行）；没打开（只有测试里直接拉起的）用 permissionPrompts: "none"——
 // Claude Code 自己的权限模式、规则、钩子照常判，要问人的一律拒绝。
-// SDK 的坑（调研 32 第 6.1 节）：消费循环绝不在 result 处 break（break 会结束整个会话）；出错的 result 之后迭代器可能 throw，
+// SDK 的坑：消费循环绝不在 result 处 break（break 会结束整个会话）；出错的 result 之后迭代器可能 throw，
 // 循环 try/catch——query 结束了就记着，下一条输入按会话 id 恢复一个新的；不认得的消息一律不管。
-// 不读 Claude Code 的会话记录（超大会话不整个读：这一张根本不读；290 号票接管时只读尾部）。
-// 289 号票：负责人在 ⚙ 里给 Claude Code 选的模型、权限模式、思考档位（装配参数 runtimeOptions）翻成 query 的 model、permissionMode、effort
+// 不读 Claude Code 的会话记录（超大会话不整个读：这一张根本不读；接管时只读尾部）。
+// 负责人在 ⚙ 里给 Claude Code 选的模型、权限模式、思考档位（装配参数 runtimeOptions）翻成 query 的 model、permissionMode、effort
 // （../settings.ts，没选的用 Claude Code 自己的设置）；query 起来后报一次 Claude Code 自己的模型列表和斜杠命令清单（runtime_catalog：
 // supportedModels / supportedCommands），每轮开头的 system/init、中途的 commands_changed 再按它报命令；换运行时之前的 write_handoff：
 // 推一条请 Claude 写交接摘要的消息，这一轮的回复不当成回复，最后的 result 文字就是摘要。
-// 291 号票（二狗的工具和上下文交给 Claude Code）：
+// 二狗的工具和上下文交给 Claude Code：
 // - 二狗的工具（装配参数 contributions.tools）经进程内 MCP 服务交给 Claude（host-tools.ts，query 的 mcpServers），调用转成 host_tool_call；
 // - 进上下文不显示的（上下文块、跟在输入后面的上下文、系统提示后缀和近期范围记录）经 UserPromptSubmit / SessionStart 钩子的 additionalContext
 //   交给模型（context.ts）；跟在输入后面的上下文不再是用户消息里的一块文字；
@@ -32,11 +32,11 @@
 // - 工具包当场换（宿主协议 toolkit）：MCP 服务的工具清单当场换（服务有增减时 setMcpServers），skill 有变重拼插件目录、叫 SDK 的
 //   reloadPlugins 当场生效（报回刷新后的斜杠命令；重新加载不成的下一个 query 起来时照新目录加载），"工具包已变更"在下一次工具结果或下一条输入时
 //   交给模型；回合不停下、不重新拉起；
-// - 追加的系统提示后面补一句二狗的工具在这里叫什么（负责人的系统提示是按 pi 写的，287 号票留的④）。
-// 293 号票（撤回和分支，navigation.ts）：query 一律开文件检查点（enableFileCheckpointing）；每条输入记下推进了哪个 Claude 会话、二狗给它定的
+// - 追加的系统提示后面补一句二狗的工具在这里叫什么（负责人的系统提示是按 pi 写的，留的④）。
+// 撤回和分支，navigation.ts：query 一律开文件检查点（enableFileCheckpointing）；每条输入记下推进了哪个 Claude 会话、二狗给它定的
 // uuid、那个会话里上一条（records.ts 的 lineage）；navigate_session 按 navigation.ts 分叉出新会话、按检查点恢复文件、切到废弃分支的会话，
 // 换会话时关掉手头的 query（下一条输入按新的会话 id 起）；守护进程写好的分支摘要在新会话的下一条输入的 UserPromptSubmit 钩子交给模型。
-// 309 号票（范围审视由二狗另起）：装配了范围审视的会话交给 SDK 一个 PreCompact 钩子，压缩之前报 compacting（手动 / 自动），守护进程按自己记下的
+// 范围审视由二狗另起：装配了范围审视的会话交给 SDK 一个 PreCompact 钩子，压缩之前报 compacting（手动 / 自动），守护进程按自己记下的
 // 事件另起一次审视要压缩掉的那段；钩子不等它、不拦压缩。
 // @i18n-ignore-file log：子进程的日志（守护进程记进日志）
 import { randomUUID, type UUID } from "node:crypto";
@@ -72,15 +72,15 @@ import { ClaudeTranslator, usageOf, usageReport } from "./translator.ts";
 export interface ClaudeQuery extends AsyncIterable<SDKMessage> {
   interrupt(): Promise<unknown>;
   close(): void;
-  /** Claude Code 现在能用的斜杠命令（289 号票：输入框的候选）；假 SDK 可以不给 */
+  /** Claude Code 现在能用的斜杠命令（输入框的候选）；假 SDK 可以不给 */
   supportedCommands?(): Promise<ReadonlyArray<{ name: string; description: string; argumentHint?: string }>>;
-  /** Claude Code 能选的模型（289 号票：⚙ 的模型列表）；假 SDK 可以不给 */
+  /** Claude Code 能选的模型（⚙ 的模型列表）；假 SDK 可以不给 */
   supportedModels?(): Promise<ReadonlyArray<{ value: string; displayName: string }>>;
-  /** 会话中途换动态的 MCP 服务（291 号票：工具包加减了 MCP，进程内服务有增减）；假 SDK 可以不给 */
+  /** 会话中途换动态的 MCP 服务（工具包加减了 MCP，进程内服务有增减）；假 SDK 可以不给 */
   setMcpServers?(servers: Record<string, McpServerConfig>): Promise<unknown>;
-  /** 从盘上重新加载插件（291 号票：工具包里的 skill 变了、插件目录重拼过），交回刷新后的斜杠命令；假 SDK 可以不给 */
+  /** 从盘上重新加载插件（工具包里的 skill 变了、插件目录重拼过），交回刷新后的斜杠命令；假 SDK 可以不给 */
   reloadPlugins?(): Promise<{ commands?: ReadonlyArray<{ name: string; description: string; argumentHint?: string }> }>;
-  /** 按文件检查点把 Write、Edit 改过的文件恢复到某条用户消息时（293 号票，要开 enableFileCheckpointing）；假 SDK 可以不给 */
+  /** 按文件检查点把 Write、Edit 改过的文件恢复到某条用户消息时（要开 enableFileCheckpointing）；假 SDK 可以不给 */
   rewindFiles?(userMessageId: string, options?: { dryRun?: boolean }): Promise<ClaudeRewindResult>;
 }
 
@@ -92,7 +92,7 @@ export interface ClaudeSessionDeps {
   env: Readonly<Record<string, string | undefined>>;
   /** 本机的 claude.exe（env.ts 的 findClaudeExecutable）；没有是用 SDK 自带的 */
   executable?: string;
-  /** 撤回要用的 SDK 会话函数（293 号票：forkSession、getSessionMessages）；不给的撤回不了（回原因） */
+  /** 撤回要用的 SDK 会话函数（forkSession、getSessionMessages）；不给的撤回不了（回原因） */
   sessions?: ClaudeSessionOps;
   log: (line: string) => void;
   now?: () => Date;
@@ -122,7 +122,7 @@ type Phase =
       slashCompact: boolean;
     }
   | { kind: "compacting"; preTokens?: number; failure?: string; output: string[]; aborting: boolean; done: () => void }
-  /** 换运行时之前写交接摘要（289 号票）：这一轮的回复不当成回复，result 的文字就是摘要 */
+  /** 换运行时之前写交接摘要：这一轮的回复不当成回复，result 的文字就是摘要 */
   | { kind: "handoff"; requestId: string; timer: NodeJS.Timeout; timeoutMs: number; timedOut: boolean; aborting: boolean; done: () => void };
 
 /** 写交接摘要那一轮交给 Claude 的话：守护进程给的写法（prompts/handoff-summary.md 填好值）前面说清这是要干什么 */
@@ -167,13 +167,13 @@ class InputQueue implements AsyncIterable<SDKUserMessage> {
 
 export class ClaudeSessionRunner {
   private readonly translator: ClaudeTranslator;
-  /** 守卫（288 号票）：装配打开了 forwardToolCalls 才有 */
+  /** 守卫：装配打开了 forwardToolCalls 才有 */
   private readonly guard: ClaudeGuard | undefined;
-  /** 二狗的工具（291 号票）：进程内 MCP 服务 */
+  /** 二狗的工具：进程内 MCP 服务 */
   private readonly tools: HostToolBridge;
-  /** 进上下文不显示的内容（291 号票）：钩子的 additionalContext */
+  /** 进上下文不显示的内容：钩子的 additionalContext */
   private readonly context: ClaudeContext;
-  /** 工具包里的 skill 的目录（291 号票：拼本地插件用；宿主协议 toolkit 整份换） */
+  /** 工具包里的 skill 的目录（拼本地插件用；宿主协议 toolkit 整份换） */
   private skillPaths: readonly string[];
   /** 拼好的本地插件根目录（没有运行时目录、拼不成是 undefined） */
   private pluginRoot: string | undefined;
@@ -187,7 +187,7 @@ export class ClaudeSessionRunner {
   private compactionSeq = 0;
   /** Claude Code 报过的斜杠命令的说明（system/init 只给名字：按名字补上 supportedCommands 给过的说明） */
   private readonly commandInfo = new Map<string, { description: string; argumentHint?: string }>();
-  /** 这个 query 里主线上最近的一条（assistant、工具结果、二狗推的用户消息）的 uuid（293 号票：交下一条输入时记成它的"上一条"） */
+  /** 这个 query 里主线上最近的一条（assistant、工具结果、二狗推的用户消息）的 uuid（交下一条输入时记成它的"上一条"） */
   private lastChainUuid: string | undefined;
 
   private readonly assembly: SessionAssembly;
@@ -251,7 +251,7 @@ export class ClaudeSessionRunner {
     return { tools: [], skills: [], contextFiles: [], extensions: [], credentialProviders: [] };
   }
 
-  /** 模型用 Claude Code 自己的设置（这一张不传 model，289 号票接 ⚙）；跑过一轮之后会话记录里记着 system/init 报的 */
+  /** 模型用 Claude Code 自己的设置（这一张不传 model，接 ⚙）；跑过一轮之后会话记录里记着 system/init 报的 */
   get model(): SessionModel {
     return { provider: "claude-code", modelId: this.opened.record.model ?? "default", thinkingLevel: this.assembly.model.thinkingLevel, pinned: this.opened.existing };
   }
@@ -275,9 +275,9 @@ export class ClaudeSessionRunner {
     this.phase = { kind: "turn", inputId, interjections: [], consumed: new Set([uuid]), aborting: false, slashCompact: /^\/compact\b/.test(text.trim()) };
     this.turnSeq += 1;
     this.translator.beginTurn();
-    // 293 号票：记下这条输入推进了哪个会话（撤回到它之前要），撤回后还没交给模型的分支摘要跟着它交
+    // 记下这条输入推进了哪个会话（撤回到它之前要），撤回后还没交给模型的分支摘要跟着它交
     const note = this.noteInput(inputId, uuid, true);
-    // 跟在这条输入后面的上下文、上下文块经它的 UserPromptSubmit 钩子交给模型（291 号票），不放进用户消息
+    // 跟在这条输入后面的上下文、上下文块经它的 UserPromptSubmit 钩子交给模型，不放进用户消息
     this.context.beginPrompt(note === undefined ? context : context ? `${note}\n\n${context}` : note);
     this.lastChainUuid = uuid;
     input.queue.push(userMessage(uuid, text, images));
@@ -291,13 +291,13 @@ export class ClaudeSessionRunner {
     }
     const uuid = randomUUID();
     phase.interjections.push({ inputId, uuid });
-    // 293 号票：插话也记下（撤回到它之前时按主线找它的上一条）
+    // 插话也记下（撤回到它之前时按主线找它的上一条）
     this.noteInput(inputId, uuid, false);
     this.input.push(userMessage(uuid, text, images, "next"));
   }
 
   /**
-   * 在 Claude 的会话之间挪（293 号票，宿主协议 navigate_session，navigation.ts）：手头有一轮先打断、等它收尾（守护进程已经停稳，这里再看一眼），
+   * 在 Claude 的会话之间挪（宿主协议 navigate_session，navigation.ts）：手头有一轮先打断、等它收尾（守护进程已经停稳，这里再看一眼），
    * 结果以 session_navigated 报回。做完才处理排在后面的命令
    */
   async navigate(command: Extract<HostCommand, { type: "navigate_session" }>): Promise<void> {
@@ -326,7 +326,7 @@ export class ClaudeSessionRunner {
   }
 
   /**
-   * 记下一条交给 Claude 的输入（293 号票）：推进了哪个会话、二狗定的 uuid；轮次开头的（prompt）另记那个会话里的上一条（这个 query 里见过的）、
+   * 记下一条交给 Claude 的输入：推进了哪个会话、二狗定的 uuid；轮次开头的（prompt）另记那个会话里的上一条（这个 query 里见过的）、
    * 是不是这个会话的第一条输入，取走这个会话还没交给模型的分支摘要（交回它）
    */
   private noteInput(inputId: string, uuid: string, prompt: boolean): string | undefined {
@@ -342,7 +342,7 @@ export class ClaudeSessionRunner {
     return note;
   }
 
-  /** 把 session 的文件按检查点恢复到 uuid 那条用户消息时（293 号票）：现在的会话用活着的 query（没有就起），别的会话临时起一个 query 只做这一件 */
+  /** 把 session 的文件按检查点恢复到 uuid 那条用户消息时：现在的会话用活着的 query（没有就起），别的会话临时起一个 query 只做这一件 */
   private async rewindIn(session: string, uuid: string): Promise<ClaudeRewindResult> {
     if (session === this.opened.record.claudeSessionId) {
       const started = this.tryEnsureQuery();
@@ -389,7 +389,7 @@ export class ClaudeSessionRunner {
     }
   }
 
-  /** 换成接着另一个 Claude 会话（293 号票：撤回分叉出的、切过去的）：关掉手头的 query（下一条输入按新的会话 id 起），记进会话记录 */
+  /** 换成接着另一个 Claude 会话（撤回分叉出的、切过去的）：关掉手头的 query（下一条输入按新的会话 id 起），记进会话记录 */
   private switchTo(session: string, started: boolean): void {
     const query = this.query;
     this.query = undefined;
@@ -444,14 +444,14 @@ export class ClaudeSessionRunner {
       this.phase = { kind: "compacting", output: [], aborting: false, done: resolve };
       this.translator.discard();
       this.translator.suppress = true;
-      // 压缩指令（钩子订阅 compaction_instructions，291 号票）：写在 /compact 后面
+      // 压缩指令（钩子订阅 compaction_instructions）：写在 /compact 后面
       const instructions = this.context.compactionInstructions();
       input.queue.push(userMessage(randomUUID(), instructions ? `/compact ${instructions}` : "/compact", []));
     });
   }
 
   /**
-   * 换运行时之前写交接摘要（289 号票，宿主协议 write_handoff）：推一条请 Claude 照写法写摘要的用户消息，这一轮的回复不当成回复
+   * 换运行时之前写交接摘要（宿主协议 write_handoff）：推一条请 Claude 照写法写摘要的用户消息，这一轮的回复不当成回复
    * （不报 message_final），result 的文字就是摘要；到点没写完打断、按没写成报。结果以 handoff_written 报回，写完才兑现
    */
   async writeHandoff(requestId: string, instructions: string, timeoutMs: number): Promise<void> {
@@ -481,23 +481,23 @@ export class ClaudeSessionRunner {
     });
   }
 
-  /** 守护进程执行完二狗的工具了（宿主协议 host_tool_result，291 号票）；没有在等的是 false（被取消的照样收下、扔掉） */
+  /** 守护进程执行完二狗的工具了（宿主协议 host_tool_result）；没有在等的是 false（被取消的照样收下、扔掉） */
   replyHostTool(requestId: string, result: HostToolResult): boolean {
     return this.tools.reply(requestId, result);
   }
 
-  /** 换掉通用贡献清单里一项的文字（宿主协议 contribution，291 号票）：下一次注入就是新的 */
+  /** 换掉通用贡献清单里一项的文字（宿主协议 contribution）：下一次注入就是新的 */
   updateContribution(id: string, text: string): void {
     this.context.update(id, text);
   }
 
-  /** 换成最新的近期范围记录（宿主协议 scope_context，291 号票）：当成"一直在"的那段，变了下一次注入 */
+  /** 换成最新的近期范围记录（宿主协议 scope_context）：当成"一直在"的那段，变了下一次注入 */
   setScopeContext(recentRecords: string | undefined): void {
     this.context.setRecentRecords(recentRecords);
   }
 
   /**
-   * 工具包当场换（宿主协议 toolkit，291 号票）：MCP 服务的工具清单当场换（服务有增减、query 活着时 setMcpServers）；skill 变了重拼插件目录，
+   * 工具包当场换（宿主协议 toolkit）：MCP 服务的工具清单当场换（服务有增减、query 活着时 setMcpServers）；skill 变了重拼插件目录，
    * query 活着时叫 reloadPlugins 当场生效（报回刷新后的斜杠命令）；notice 在下一次工具结果或下一条输入时交给模型。做完才处理排在后面的命令
    */
   async changeToolkit(tools: readonly HostToolSpec[], skillPaths: readonly string[], notice: string | undefined): Promise<void> {
@@ -588,31 +588,31 @@ export class ClaudeSessionRunner {
     const input = new InputQueue();
     const { record } = this.opened;
     const append = withToolNote(this.assembly.systemPrompt?.trim());
-    // 291 号票：工具包里的 skill 拼成本地插件（有运行时目录才拼）；"一直在"的那段在这个 query 里重新注入一次
+    // 工具包里的 skill 拼成本地插件（有运行时目录才拼）；"一直在"的那段在这个 query 里重新注入一次
     if (this.assembly.runtimeDir) this.buildPlugin();
     this.context.queryStarted();
     this.lastChainUuid = undefined;
     const readRules = claudeReadRules(this.assembly.readOnlyDirs ?? []);
     const options: Options = {
       cwd: this.claudeCwd(),
-      // 负责人在 ⚙ 里选的模型、思考档位、权限模式（289 号票）；没选的用 Claude Code 自己的设置
+      // 负责人在 ⚙ 里选的模型、思考档位、权限模式；没选的用 Claude Code 自己的设置
       ...claudeQueryChoices(this.assembly.runtimeOptions),
-      // 授权的文件夹（355 号票）：只读放开（Read 规则，见 settings.ts）；这次起进程时的那一份，改了下一次起进程才生效
+      // 授权的文件夹：只读放开（Read 规则，见 settings.ts）；这次起进程时的那一份，改了下一次起进程才生效
       ...(readRules.length > 0 ? { allowedTools: readRules } : {}),
       env: claudeProcessEnv(this.deps.env),
       ...(this.deps.executable ? { pathToClaudeCodeExecutable: this.deps.executable } : {}),
       settingSources: ["user", "project", "local"],
       systemPrompt: { type: "preset", preset: "claude_code", snapshot: false, ...(append ? { append } : {}) },
       includePartialMessages: true,
-      // 撤回时把 Write、Edit 改过的文件恢复到撤回点（293 号票，Query.rewindFiles）：一律开文件检查点
+      // 撤回时把 Write、Edit 改过的文件恢复到撤回点（Query.rewindFiles）：一律开文件检查点
       enableFileCheckpointing: true,
-      // 守卫（288 号票）：PreToolUse 钩子做全量闸口，canUseTool 接 Claude 自己要问的；没接守卫的（测试）要问人的一律拒绝。
-      // 291 号票：上下文经 UserPromptSubmit / SessionStart 钩子注入，PostToolUse 交守卫要加的话和二狗要告诉模型的话
+      // 守卫：PreToolUse 钩子做全量闸口，canUseTool 接 Claude 自己要问的；没接守卫的（测试）要问人的一律拒绝。
+      // 上下文经 UserPromptSubmit / SessionStart 钩子注入，PostToolUse 交守卫要加的话和二狗要告诉模型的话
       hooks: this.sdkHooks(),
       ...(this.guard ? { canUseTool: this.guard.canUseTool } : { permissionPrompts: "none" as const }),
-      // 二狗的工具（291 号票）：进程内 MCP 服务（二狗自己的 ergo，工具包里的 MCP 各一个）
+      // 二狗的工具：进程内 MCP 服务（二狗自己的 ergo，工具包里的 MCP 各一个）
       mcpServers: this.tools.mcpServers(),
-      // 工具包里的 skill（291 号票）：二狗拼的本地插件；插件里没有 MCP（二狗的工具已经在上面），不让它去找
+      // 工具包里的 skill：二狗拼的本地插件；插件里没有 MCP（二狗的工具已经在上面），不让它去找
       ...(this.pluginRoot ? { plugins: [{ type: "local" as const, path: this.pluginRoot, skipMcpDiscovery: true }] } : {}),
       ...(record.started ? { resume: record.claudeSessionId } : { sessionId: record.claudeSessionId }),
       stderr: (data) => {
@@ -628,8 +628,8 @@ export class ClaudeSessionRunner {
   }
 
   /**
-   * 交给 SDK 的钩子（291 号票）：守卫的 PreToolUse，上下文的 UserPromptSubmit、SessionStart，合在一起的 PostToolUse、PostToolUseFailure；
-   * 309 号票起装配了范围审视的还有 PreCompact
+   * 交给 SDK 的钩子：守卫的 PreToolUse，上下文的 UserPromptSubmit、SessionStart，合在一起的 PostToolUse、PostToolUseFailure；
+   * 装配了范围审视的还有 PreCompact
    */
   private sdkHooks(): Partial<Record<HookEvent, HookCallbackMatcher[]>> {
     const post = (input: HookInput): Promise<HookJSONOutput> => {
@@ -641,7 +641,7 @@ export class ClaudeSessionRunner {
           : { hookSpecificOutput: { hookEventName: "PostToolUse", additionalContext: context } },
       );
     };
-    // 309 号票：压缩之前报一条，范围审视由守护进程按自己记下的事件另起（Claude 子进程里调不了二狗的审视模型）；不拦压缩
+    // 压缩之前报一条，范围审视由守护进程按自己记下的事件另起（Claude 子进程里调不了二狗的审视模型）；不拦压缩
     const preCompact = (input: HookInput): Promise<HookJSONOutput> => {
       if (input.hook_event_name === "PreCompact") this.emit({ type: "compacting", reason: input.trigger === "manual" ? "manual" : "threshold" });
       return Promise.resolve({});
@@ -676,14 +676,14 @@ export class ClaudeSessionRunner {
     return claudeName.startsWith("mcp__") && this.tools.toolNames.includes(claudeName);
   }
 
-  /** 这一轮已经进了上下文的插话（输入 id，按先后）：随 host_tool_call 报（86 号票） */
+  /** 这一轮已经进了上下文的插话（输入 id，按先后）：随 host_tool_call 报 */
   private interjectedSoFar(): string[] {
     const phase = this.phase;
     return phase.kind === "turn" ? phase.interjections.filter((i) => phase.consumed.has(i.uuid)).map((i) => i.inputId) : [];
   }
 
   /**
-   * Claude Code 自己的模型列表和斜杠命令清单报给守护进程（289 号票，runtime_catalog）：query 起来后问一次（只握手，不调用模型、不花额度）；
+   * Claude Code 自己的模型列表和斜杠命令清单报给守护进程（runtime_catalog）：query 起来后问一次（只握手，不调用模型、不花额度）；
    * 问不到（老版本、出错）只记日志，命令等每轮开头的 system/init 再报
    */
   private async reportCatalog(query: ClaudeQuery): Promise<void> {
@@ -796,7 +796,7 @@ export class ClaudeSessionRunner {
     switch (subtype) {
       case "init": {
         const init = message as { session_id?: string; model?: string; slash_commands?: string[]; terminal_slash_commands?: string[] };
-        // 这一轮能用的斜杠命令（289 号票：输入框的候选），只在终端里能用的不报
+        // 这一轮能用的斜杠命令（输入框的候选），只在终端里能用的不报
         if (Array.isArray(init.slash_commands)) this.reportCommands(init.slash_commands, init.terminal_slash_commands);
         const { record } = this.opened;
         let changed = false;
@@ -815,7 +815,7 @@ export class ClaudeSessionRunner {
       }
       case "compact_boundary": {
         this.translator.flushAll();
-        // "一直在"的那段（系统提示后缀、近期范围记录）压缩之后再注入一次（291 号票）
+        // "一直在"的那段（系统提示后缀、近期范围记录）压缩之后再注入一次
         this.context.compacted();
         const meta = (message as { compact_metadata?: { trigger?: string; pre_tokens?: number } }).compact_metadata;
         const phase = this.phase;
@@ -850,7 +850,7 @@ export class ClaudeSessionRunner {
         this.deps.log("Claude Code 清空了对话（新的会话 id 在下一轮的 system/init 里）");
         return;
       case "commands_changed": {
-        // 中途命令变了（289 号票：比如在子目录里发现了技能）：整份换掉
+        // 中途命令变了（比如在子目录里发现了技能）：整份换掉
         const commands = (message as { commands?: Array<{ name: string; description: string; argumentHint?: string }> }).commands ?? [];
         for (const c of commands) this.commandInfo.set(c.name, { description: c.description, ...(c.argumentHint ? { argumentHint: c.argumentHint } : {}) });
         this.reportCommands(commands.map((c) => c.name));
@@ -865,7 +865,7 @@ export class ClaudeSessionRunner {
     const phase = this.phase;
     this.noteContextWindow(result);
     if (phase.kind === "handoff") {
-      // 写交接摘要那一轮（289 号票）：回复不当成回复，result 的文字就是摘要；那次调用的用量记成 handoff
+      // 写交接摘要那一轮：回复不当成回复，result 的文字就是摘要；那次调用的用量记成 handoff
       this.translator.discard();
       const usage = result.usage ? usageOf(result.usage) : undefined;
       if (usage && usage.input + usage.output + usage.cacheRead + usage.cacheWrite > 0) {
@@ -958,7 +958,7 @@ export class ClaudeSessionRunner {
     for (const wake of this.idleWaiters.splice(0)) wake();
   }
 
-  /** 主线上的一条（不是子代理里的）：记下它的 uuid（293 号票：交下一条输入时记成"上一条"） */
+  /** 主线上的一条（不是子代理里的）：记下它的 uuid（交下一条输入时记成"上一条"） */
   private noteChain(message: SDKMessage): void {
     const { uuid, parent_tool_use_id: parent } = message as { uuid?: string; parent_tool_use_id?: string | null };
     if (uuid && !parent) this.lastChainUuid = uuid;
@@ -994,7 +994,7 @@ export class ClaudeSessionRunner {
 }
 
 /**
- * 一条用户消息：文字、图片（image 块）；只有文字时 content 是字符串（斜杠命令照常展开）。跟在后面的上下文不在这里（291 号票起经
+ * 一条用户消息：文字、图片（image 块）；只有文字时 content 是字符串（斜杠命令照常展开）。跟在后面的上下文不在这里（经
  * UserPromptSubmit 钩子交，context.ts）
  */
 function userMessage(uuid: UUID, text: string, images: InputImage[], priority?: "next"): SDKUserMessage {
@@ -1012,7 +1012,7 @@ function userMessage(uuid: UUID, text: string, images: InputImage[], priority?: 
 }
 
 /**
- * 追加的系统提示后面补的一句（291 号票）：负责人的系统提示是按 pi 写的（287 号票留的④），这里说清二狗的工具在 Claude Code 里叫什么、
+ * 追加的系统提示后面补的一句：负责人的系统提示是按 pi 写的（留的④），这里说清二狗的工具在 Claude Code 里叫什么、
  * 提示里说的 pi 的工具对应它自带的哪个。没有系统提示时不补
  */
 function withToolNote(systemPrompt: string | undefined): string | undefined {

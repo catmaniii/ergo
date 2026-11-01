@@ -1,4 +1,4 @@
-// 会话外层 .conv 上给风格用的两样（40 号票，不改样子）：data-mode 分得出秘书和负责人的会话；秘书的会话挂内联自定义属性
+// 会话外层 .conv 上给风格用的两样（不改样子）：data-mode 分得出秘书和负责人的会话；秘书的会话挂内联自定义属性
 // --assistant-initial（个人助理名字的第一个字，已经写成 CSS 字符串），风格用 content: var(--assistant-initial) 画字头像
 // （暖纸手帐）。负责人的会话不挂：那里说话的不是个人助理。取第一个字在状态层（state/assistant-name.ts 的 assistantInitial）。
 // 单独一个 .ts（不带 JSX），组件测试在 Node 里直接渲染它给的属性（test/ui/conversation-root.test.ts）。

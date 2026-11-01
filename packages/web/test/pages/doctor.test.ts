@@ -1,4 +1,4 @@
-// 设置 · 更多 · 体检（319 号票的 319b，pages/more/DoctorPage.tsx + app/doctor.ts）：用 React 在 Node 里渲染出来查——
+// 设置 · 更多 · 体检（319b，pages/more/DoctorPage.tsx + app/doctor.ts）：用 React 在 Node 里渲染出来查——
 // - 八项一行一项：✅ / ⚠️、名字、事实（端口号、版本号、剩多少 GB 都按当前语言拼）、坏了的时候一句"怎么修"；
 // - 查不了的那一项（fix 是 doctor.fix.retry）写"这次没查出来"，不拿空值（0 GB）去拼句子；
 // - 演示页的假数据：六项好的、组件和外网入口两项坏的；
@@ -87,7 +87,7 @@ describe("八项一行一项", () => {
     expect(missing).toContain("还缺：按意思检索素材和按住说话");
   });
 
-  test("外网入口没有依据：只说服务管家里没登记、手机能连就忽略，不断言没配（340 号票）；修法说的是连不上时怎么配", () => {
+  test("外网入口没有依据：只说服务管家里没登记、手机能连就忽略，不断言没配；修法说的是连不上时怎么配", () => {
     const html = render(viewWith("external", { configured: false }));
     expect(html).toContain("服务管家里没登记外网入口；手机已经能连的话可以忽略这条");
     expect(html).not.toContain("没配");
@@ -95,7 +95,7 @@ describe("八项一行一项", () => {
     expect(html).toContain("⚠️");
   });
 
-  test("外网入口靠配对设备算配了：写几台，✅、没有修法（340 号票）", () => {
+  test("外网入口靠配对设备算配了：写几台，✅、没有修法", () => {
     const html = render(viewWith("external", { configured: true, kind: "paired", devices: 2 }, true));
     expect(html).toContain("有 2 台已配对的设备");
     expect(html).not.toContain("配了：");
@@ -189,7 +189,7 @@ describe("英文也有，界面文字不出现秘书 / 待我处理", () => {
     expect(broken).not.toContain("doctor.");
   });
 
-  test("英文的外网入口（340 号票）：配对设备分单复数；没有依据时只说没登记，不断言没配", () => {
+  test("英文的外网入口：配对设备分单复数；没有依据时只说没登记，不断言没配", () => {
     setActiveLocale(activeLocaleFrom(TEST_LOCALES, "en"));
     expect(render(viewWith("external", { configured: true, kind: "paired", devices: 1 }, true))).toContain("1 paired device");
     expect(render(viewWith("external", { configured: true, kind: "paired", devices: 3 }, true))).toContain("3 paired devices");

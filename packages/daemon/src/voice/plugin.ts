@@ -1,10 +1,10 @@
-// 语音插件（214 号票，ADR-0027；用户 2026-10-20："把内置浏览器和网页工具，日历和语音这三个拆成插件"）：语音消息的识别（31、180、208、
-// 210 号票）、agent 用语音回复和发语音（32、38、86 号票）、模型预热（45 号票）、参考音色、Debug 工具集的语音组（124 号票）在守护进程这一侧的
-// 全部登记都在这里，组合根只在插件清单里列它。开着时行为和搬过来之前一模一样（31 到 210 号票的规矩全照旧）。
+// 语音插件（ADR-0027；"把内置浏览器和网页工具，日历和语音这三个拆成插件"）：语音消息的识别、
+// agent 用语音回复和发语音、模型预热、参考音色、Debug 工具集的语音组在守护进程这一侧的
+// 全部登记都在这里，组合根只在插件清单里列它。开着时行为和搬过来之前一模一样（规矩全照旧）。
 // - 数据契约（停用也登记，不撤）：
 //   - 用户的语音怎么变成素材、彻底删除时怎么改写语音事件（代码在内核的 voice-records/contract.ts：设置里成批删除时没有素材的语音由内核直接用）；
 //   - 前端请求：发消息时收下语音 part（voiceIntake）、气泡菜单里的"重新识别"（retryVoice）——插件没启用时回"语音插件没启用"；
-//   - 移除时"连数据删"（211 号票的口子，removal.ts）：录音、合成出的音频、语音事件里的文字（识别出的、送进 TTS 的）、参考音色、
+//   - 移除时"连数据删"（口子，removal.ts）：录音、合成出的音频、语音事件里的文字（识别出的、送进 TTS 的）、参考音色、
 //     待我处理里语音的两种说明；会话里转写成文字交给过二狗的那部分归会话，不删（确认框写明）。
 //   语音对象的两个派生视图（voices、agent_voices）不在插件里声明：它们是内核的数据契约（voice-records/），停用时照样更新、彻底删除时照样重放，
 //   历史里的语音气泡照样投影成文字、合成好的音频照样点得开（只是读文件）。
@@ -14,10 +14,10 @@
 //   分段合成的段、Debug 的识别和合成，悬浮按钮上说话经它送识别。
 // - start：识别接着上次没识别完的（排队、识别中的接着识别，等着自动重试的到点接着试）、语音回复接着没合成完的、开始预热；
 //   stop：语音回复、预热、识别依次停下（识别进程结束）。
-// - 运行中停用（211 号票，设置 · 插件）：识别进程停掉、合成不再调用；还没识别完的语音不再挡输入队列（内核的挡板 conversation/input-gate.ts：
+// - 运行中停用（设置 · 插件）：识别进程停掉、合成不再调用；还没识别完的语音不再挡输入队列（内核的挡板 conversation/input-gate.ts：
 //   只有语音的先不交，带附件、卡片的照交、语音那段是"识别失败"）；秘书手头这一条处理完按新的重新装配，没有口语总结、发语音工具；
 //   正在跑的一轮里再调它们回"语音插件没启用"。启用回来是新的一次装配：排队、识别中的接着识别（同守护进程重启）。
-// - 354 号票：转述负责人的进展时第二段用它自己的声音（agent-voice-ref.ts 的 ownVoiceOfAgent，按角色查、和秘书现在用的比），经 replies.ownVoiceOf
+// -转述负责人的进展时第二段用它自己的声音（agent-voice-ref.ts 的 ownVoiceOfAgent，按角色查、和秘书现在用的比），经 replies.ownVoiceOf
 //   告诉内核（交给秘书的通知里写明）。移除时连数据删也改写各段的文字（parts）。
 // - agent 那一侧的工具（口语总结、发语音）不经 agent 贡献缝：它们是"每个会话都配的工具"（session-tools.ts），排在联网工具后面，
 //   秘书、负责人的工具顺序和搬过来之前一样。系统提示里讲念语音的几句包在条件"语音"里（prompt.ts）。
@@ -53,7 +53,7 @@ import { createVoiceWarmup, RECOGNIZER_ENGINE } from "./warmup.ts";
 /** 待我处理里属于语音的说明：识别进程不可用、还没有参考音色 */
 const VOICE_NOTICES = ["voice_recognizer_unavailable", "voice_reference_missing"] as const;
 
-/** 移除时"连数据删"（211 号票的口子；214 号票主会话定的第 4 条：录音、合成的音频文件、语音事件里的文字） */
+/** 移除时"连数据删"（口子；录音、合成的音频文件、语音事件里的文字） */
 const voiceRemoval: PluginDataRemoval = {
   get deletes() {
     return [t("voice.plugin.purge.recordings"), t("voice.plugin.purge.synthesized"), t("voice.plugin.purge.texts"), t("voice.plugin.purge.references"), t("voice.plugin.purge.notices")];
@@ -109,14 +109,14 @@ export const voicePlugin: PluginDefinition = {
   provides: [VOICE],
   prompts: voicePrompts,
   contracts(ctx) {
-    // 用户的语音（31）：识别完成时算用户发言，文字是识别出的文字（声明进内核的素材库：停用时照样留原话副本）
+    // 用户的语音：识别完成时算用户发言，文字是识别出的文字（声明进内核的素材库：停用时照样留原话副本）
     ctx.materialSources.register(voiceMaterialSource);
     // 彻底删除：语音事件只去掉文字，连带改写消息、别的版本、重新识别成功后交给 agent 的通知
     ctx.purge.register(voicePurge);
-    // 发消息时收下语音 part（31）、气泡菜单里的"重新识别"：插件没启用时回"语音插件没启用"
+    // 发消息时收下语音 part、气泡菜单里的"重新识别"：插件没启用时回"语音插件没启用"
     ctx.requests.register("voiceIntake", { accept: (part, message) => ctx.active(VOICE).intake.accept(part, message) });
     ctx.requests.register("retryVoice", (params, idempotencyKey) => ctx.active(VOICE).retry(params, idempotencyKey));
-    // 移除时连数据一起彻底删除（211 号票的口子）
+    // 移除时连数据一起彻底删除（口子）
     ctx.removal.declare(voiceRemoval);
   },
   setup(ctx) {
@@ -132,16 +132,16 @@ export const voicePlugin: PluginDefinition = {
     const voiceConfig = config.voice;
     const recognition = { language: voiceConfig.recognizer.language, initialPrompt: voiceConfig.recognizer.initialPrompt };
 
-    // 语音消息（31）：识别按配置接一条（250 号票，几种接入并存）：默认 mode 是 spawn，守护进程自己拉起 Python 子进程
-    // （放进它自己的 Job，环境照 agent 子进程的白名单；和 250 号票之前一模一样）；mode 是 lsm 时改调 LSM 托管的那条
-    // 识别服务（deploy/lsm/ergo-asr.example.yaml），二狗不拉起、不结束它；mode 是 audiocpp 时（346）调 audio.cpp 服务上的语音识别模型。
-    // 都是同一个接口（Recognizer），下面识别、预热、208 号票的健康检查、Debug 页、设置页都只认接口，一行都不用改。
-    // 组件页装好、删掉语音识别模型时（346）接入方式当场换，不用重启：外面拿的是 createSwitchableRecognizer 这一个。
-    // 识别结果交出去之前剔掉模型自带的串词（180）：规则写错的这里跳过、写日志，不挡启动
+    // 语音消息：识别按配置接一条（几种接入并存）：默认 mode 是 spawn，守护进程自己拉起 Python 子进程
+    // （放进它自己的 Job，环境照 agent 子进程的白名单；和以前一模一样）；mode 是 lsm 时改调 LSM 托管的那条
+    // 识别服务（deploy/lsm/ergo-asr.example.yaml），二狗不拉起、不结束它；mode 是 audiocpp 时调 audio.cpp 服务上的语音识别模型。
+    // 都是同一个接口（Recognizer），下面识别、预热、健康检查、Debug 页、设置页都只认接口，一行都不用改。
+    // 组件页装好、删掉语音识别模型时接入方式当场换，不用重启：外面拿的是 createSwitchableRecognizer 这一个。
+    // 识别结果交出去之前剔掉模型自带的串词：规则写错的这里跳过、写日志，不挡启动
     const recognizerConfig = voiceConfig.recognizer;
     const recognizerInit = { primary: recognizerConfig.primary, fallback: recognizerConfig.fallback };
     const stripRules = compileStripRules(recognizerConfig.stripPatterns, log);
-    // 把常见音频转成 16 kHz 单声道 WAV：参考音色导入（230）、audio.cpp 那条接入收到不是 WAV 的录音时（346）
+    // 把常见音频转成 16 kHz 单声道 WAV：参考音色导入、audio.cpp 那条接入收到不是 WAV 的录音时
     const audioConverter = createFfmpegConverter({ tmpDir: layout.tmp, ...(engines.ffmpegCommand === undefined ? {} : { command: engines.ffmpegCommand }), log });
     const speechUrl = engines.speechUrl ?? voiceConfig.speech.url;
     const buildRecognizer = (mode: RecognizeMode): Recognizer => {
@@ -169,12 +169,12 @@ export const voicePlugin: PluginDefinition = {
       recognizer,
       recognition,
       unavailableHint: () => recognizerHint(recognizerMode),
-      // 识别没做成时隔一会儿自动重试（208）
+      // 识别没做成时隔一会儿自动重试
       autoRetryMs: voiceConfig.recognizer.autoRetryMs,
       log,
     });
-    // 参考音色（32）：数据目录 voices 区里的文件就是真相，设置里的语音页经 HTTP 导入、选用、删除。
-    // 230 号票：导入的常见音频经本机 ffmpeg 转成 16 kHz 单声道 WAV（测试换成假的），逐字稿不给就用识别进程自动识别
+    // 参考音色：数据目录 voices 区里的文件就是真相，设置里的语音页经 HTTP 导入、选用、删除。
+    // 导入的常见音频经本机 ffmpeg 转成 16 kHz 单声道 WAV（测试换成假的），逐字稿不给就用识别进程自动识别
     const referenceVoices = openReferenceVoices({
       dir: layout.voices,
       log,
@@ -187,7 +187,7 @@ export const voicePlugin: PluginDefinition = {
     // 首次启动：voices 区一条参考音色都没有时，把内置的那条装进去、选中——装完就有声音，不用先导入。
     // 已经有任何一条（哪怕是用户自己的）、或者装过之后用户删了（留着标记）时什么都不做（ADR-0036）
     referenceVoices.ensureDefault();
-    // 模型预热（45）：在后台先加载识别模型、再用参考音色试合成一句让 audio.cpp 加载合成模型；不挡启动。
+    // 模型预热：在后台先加载识别模型、再用参考音色试合成一句让 audio.cpp 加载合成模型；不挡启动。
     // 两个模型的状态变了推一条临时事件（活动状态频道），本机接口 GET /api/voice-models 取得到同样的
     const warmup = createVoiceWarmup({
       recognizer,
@@ -196,15 +196,15 @@ export const voicePlugin: PluginDefinition = {
       probeMs: voiceConfig.speech.probeMs,
       ...(engines.recognizerRetryMs === undefined ? {} : { retryMs: engines.recognizerRetryMs }),
       ...(engines.recognizerStableMs === undefined ? {} : { stableMs: engines.recognizerStableMs }),
-      // Fun-ASR Nano 那条只认 WAV：网页录完先转好再传（346）
+      // Fun-ASR Nano 那条只认 WAV：网页录完先转好再传
       engine: () => (recognizerMode === "audiocpp" ? AUDIOCPP_RECOGNIZER_ENGINE : RECOGNIZER_ENGINE),
       wantsWav: () => recognizerMode === "audiocpp",
       onChange: (payload) => notifications.publish({ channel: CHANNELS.activity, seq: store.lastSeq(CHANNELS.activity), type: EVENT_TYPES.voiceModels, payload }),
       log,
     });
-    // 语音回复（32）：用户发语音时，agent 这一轮的回复经本机 LSM 托管的 audio.cpp 合成语音（二狗不启动它）；
-    // 秘书和负责人各段的装配都多一个口语总结工具、发语音工具（86）（在它们拉起之前开始跟回合：插件比秘书、负责人先启动）。
-    // 248 号票：说话的是哪个 agent 就用它那个角色指定的参考音色（没指定、被删了、插件没启用跟全局默认）
+    // 语音回复：用户发语音时，agent 这一轮的回复经本机 LSM 托管的 audio.cpp 合成语音（二狗不启动它）；
+    // 秘书和负责人各段的装配都多一个口语总结工具、发语音工具（在它们拉起之前开始跟回合：插件比秘书、负责人先启动）。
+    // 说话的是哪个 agent 就用它那个角色指定的参考音色（没指定、被删了、插件没启用跟全局默认）
     const roles = ctx.use(KERNEL.agentRoles);
     const voiceOf = (conversation: ConversationId) => voiceOfAgent(agentIdOfConversation(conversation), { roles, voices: referenceVoices });
     const replies = createVoiceReplies({
@@ -213,7 +213,7 @@ export const voicePlugin: PluginDefinition = {
       inbox,
       references: referenceVoices,
       voiceOf,
-      // 转述负责人的进展（354）：谁在说（秘书）的名字、发信人自己的声音（没有的退回一条秘书的语音）
+      // 转述负责人的进展：谁在说（秘书）的名字、发信人自己的声音（没有的退回一条秘书的语音）
       speakerName: (agentId) => roles.roleOf(agentId).name,
       ownVoiceOf: (agentId) => ownVoiceOfAgent(agentId, voiceOf(CHANNELS.secretary), { roles, voices: referenceVoices }),
       // 试合成在做时，语音回复的合成等它做完再发
@@ -224,7 +224,7 @@ export const voicePlugin: PluginDefinition = {
       ...(engines.sendVoiceWaitMs === undefined ? {} : { sendVoiceWaitMs: engines.sendVoiceWaitMs }),
       log,
     });
-    // Debug 工具集的语音组（124）：录一段送识别、用当前参考音色合成念一句，都不经会话
+    // Debug 工具集的语音组：录一段送识别、用当前参考音色合成念一句，都不经会话
     const debug = createDebugVoice({ recognizer, recognition, speech: warmup.speech, references: referenceVoices, pace: voiceConfig.reply, tmpDir: layout.tmp, log });
 
     // 这一次装配停了以后（运行中停用），还没按新的装配重新拉起的 agent 在正在跑的一轮里再调口语总结、发语音：回"语音插件没启用"，不做

@@ -1,9 +1,9 @@
-// 测试用的假数据源插件（295 号票，只在测试里）：照"数据源"贡献点在数据契约里登记两个数据源，不连任何真的服务——
+// 测试用的假数据源插件（只在测试里）：照"数据源"贡献点在数据契约里登记两个数据源，不连任何真的服务——
 // - fake（"假数据源"）：要填 Key 才算连着（Key 存进密钥区），"远端"是这里的 fakeRemote（测试往 next 里放几条，同步时拉回来），
 //   两种用法都有（按需查给秘书一个工具"查假数据源"、导入每天 04:00 定期），用到健康、位置两类敏感内容，认导入文件夹里开头是 FAKE 的 .fake 文件；
 // - fake-bills（"假账单"）：没有连接（只靠导入文件夹），认开头是"假账单"的 .csv，一行一条。
 // 导入的记录写成插件自己的事件（频道 fake-source，类型 fake_record / fake_bill），经 ctx.materialSources.register 采成素材。
-// 303 号票起用数据源的素材写法（dataSourceMaterial）：一条记录默认是"观察到的本人行为"，测试也能给"别人写给你的""本人写的"，
+// 用数据源的素材写法（dataSourceMaterial）：一条记录默认是"观察到的本人行为"，测试也能给"别人写给你的""本人写的"，
 // 带场景（结束时间、地点、和谁、场景标签）和这条落在哪些敏感类别（不给是数据源登记的全部）。
 // 主切面经 startTestDaemon 的 extraPlugins 接在插件清单后面，和真插件走同一条装配路径；假内核里经 startPluginKernel 装上。
 import { defineHostTool } from "../../src/agent-manager/host-tools.ts";
@@ -205,7 +205,7 @@ export const fakeDataSourcePlugin: PluginDefinition = {
     };
     ctx.dataSources.register(fake);
     ctx.dataSources.register(bills);
-    // 导入的记录采成素材（ADR-0006，303 号票的写法）；彻底删除时只换原话
+    // 导入的记录采成素材（ADR-0006，写法）；彻底删除时只换原话
     for (const [type, source] of [
       [FAKE_RECORD, fake],
       [FAKE_BILL, bills],

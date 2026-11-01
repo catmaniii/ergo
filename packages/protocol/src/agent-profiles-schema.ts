@@ -1,6 +1,6 @@
-// 每个 agent 自己的名字和音色（241 号票）：配置文件、接口请求体和响应体的 schema。形状和规矩在 agent-profiles.ts（不引用 TypeBox）。
+// 每个 agent 自己的名字和音色：配置文件、接口请求体和响应体的 schema。形状和规矩在 agent-profiles.ts（不引用 TypeBox）。
 //
-// 248 号票起"每个 agent 各管各的名字和音色"改成角色（agent-roles-schema.ts）：名字和音色都从 agent 用的角色来。
+// "每个 agent 各管各的名字和音色"改成角色（agent-roles-schema.ts）：名字和音色都从 agent 用的角色来。
 // 这里留下的 AgentProfilesView / AgentProfileEntryView 是**旧的 GET /api/agent-profiles 的只读兼容**（从角色算出来的结果，形状不变）；
 // config/agent-profiles.json 只在迁移时读一次（agent-profiles.ts 的注释里写着）。
 //
@@ -34,7 +34,7 @@ export type AgentProfileBody = Static<typeof AgentProfileBody>;
 
 /**
  * 一个 agent 现在的名字和音色，连同来源。
- * 248 号票起名字和音色都从它用的角色来：现在生效的角色是 `roleId`（默认角色也算），自己指定的那个在 `ownRoleId`（跟默认时没有）；
+ * 名字和音色都从它用的角色来：现在生效的角色是 `roleId`（默认角色也算），自己指定的那个在 `ownRoleId`（跟默认时没有）；
  * 名字和音色的来源照旧（own = 指定的角色给的，default = 跟默认角色 / 当前默认音色，none = 还没有参考音色）
  */
 export const AgentIdentityView = Type.Object({

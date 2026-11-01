@@ -1,4 +1,4 @@
-// 设置里的"自动播放 agent 的语音"开关（36 号票）：默认开，按设备记住（存在这台设备的浏览器里，和外观一样），改了立即生效；
+// 设置里的"自动播放 agent 的语音"开关：默认开，按设备记住（存在这台设备的浏览器里，和外观一样），改了立即生效；
 // 存储用不了（隐私模式、禁用了站点数据）时按默认，改了只在这次打开里生效、不报错。存储换成假的。
 import { describe, expect, test } from "vitest";
 import { autoplaySettingIn } from "../../src/app/voice-autoplay-setting.ts";

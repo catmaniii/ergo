@@ -1,6 +1,6 @@
-// 个人助理的名字（43 号票）：名字事件、配置文件、设置接口的 schema。起名的规则和名字占位在 assistant-name.ts（不引用 TypeBox）。
+// 个人助理的名字：名字事件、配置文件、设置接口的 schema。起名的规则和名字占位在 assistant-name.ts（不引用 TypeBox）。
 //
-// 照工作日历的个人设置（29 号票）存和推：数据目录配置区的 assistant-name.json 是真相，只由运行时写（设置接口）；
+// 照工作日历的个人设置存和推：数据目录配置区的 assistant-name.json 是真相，只由运行时写（设置接口）；
 // 每次改动是名字频道上的一条 assistant_name 事件，开着的前端据此跟着变；启动时文件和上一条事件不一样就以文件为准补一条。
 import { type Static, Type } from "typebox";
 

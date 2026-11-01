@@ -1,4 +1,4 @@
-// 子 agent 并行（规格第 8 节"阶段执行"、第 11 节"子 agent"、第 21 节"并行"，20 号票）：编排。给人和模型看的话在 texts.ts。
+// 子 agent 并行（规格第 8 节"阶段执行"、第 11 节"子 agent"、第 21 节"并行"）：编排。给人和模型看的话在 texts.ts。
 //
 // 负责人执行任务时遇到可以同时做的阶段（或一个定步阶段里的几步），用"提议并行"工具（tools.ts）提议派子 agent：
 // - 提议（propose）：先过任务执行控制器的 checkParallel（任务在执行、阶段正在做或能开始、没有子 agent 已经在做），
@@ -10,8 +10,8 @@
 //   用户不同意：负责人收到通知，照常串行。两个决定都是"审批决定"素材（material-source.ts）；
 // - 子 agent 的装配从负责人此刻的装配收窄（assembly.ts 的纯函数）。守卫按任务的计划、它被派去做的阶段判定（每次调用现取，
 //   授权收窄立即生效），写项目档案一律拒绝。它的工具调用记录进负责人的会话，带上所属的任务、阶段和它自己的 id；
-//   用量记在 24 号票的账本里：任务名下、它被派去做的那个阶段（角色子 agent，不看负责人此刻在哪个阶段）；
-// - 负责人的工具包变了（14 号票改计划、27 号票的 MCP）：调用方调 reassemble(taskId)，装配跟着变了的活着的子 agent
+//   用量记在账本里：任务名下、它被派去做的那个阶段（角色子 agent，不看负责人此刻在哪个阶段）；
+// - 负责人的工具包变了（改计划、MCP）：调用方调 reassemble(taskId)，装配跟着变了的活着的子 agent
 //   等它做完手头这一步（当前的工具调用结束、下一次模型调用之前）就停掉、按新的交集重新拉起，接着原来的会话做
 //   （交给它一条"工具包已变更"的说明）；还没开始的直接按新的装配重拉；这一步之后这一轮就做完了的照常交回结果；
 // - 子 agent 做完这一轮就结束（进程退出），交回的话作为一条消息进负责人的会话（交给负责人的输入，带任务、阶段、子 agent），
@@ -94,7 +94,7 @@ export interface ProposeResult {
 }
 
 export interface SubAgentsOptions {
-  /** 授权的文件夹那一块（355 号票，folders/folders-block.ts）：拉起时带上，没有就不带 */
+  /** 授权的文件夹那一块（folders/folders-block.ts）：拉起时带上，没有就不带 */
   foldersBlock?: () => string | undefined;
   store: EventStore;
   cards: CardService;
@@ -103,15 +103,15 @@ export interface SubAgentsOptions {
   execution: TaskExecution;
   agents: AgentManager;
   guards: GuardRuntime;
-  /** 带类型的 bash 工具（28）：负责人开了 bash 时子 agent 也有，工作目录是它自己的 */
+  /** 带类型的 bash 工具：负责人开了 bash 时子 agent 也有，工作目录是它自己的 */
   typedShell: TypedShell;
-  /** 每个会话都配的工具（conversation/session-tools.ts）：子 agent 只要其中的联网搜索、读网页（70 号票，联网开关照负责人的）；不给就没有 */
+  /** 每个会话都配的工具（conversation/session-tools.ts）：子 agent 只要其中的联网搜索、读网页（联网开关照负责人的）；不给就没有 */
   sessionTools?: SessionTools;
-  /** 给秘书发消息（102 号票）：负责人的装配里有（工具包里开着）它才有，信上写"……的子 agent sa-1（在做阶段 s2「…」时）"；不给就没有 */
+  /** 给秘书发消息：负责人的装配里有（工具包里开着）它才有，信上写"……的子 agent sa-1（在做阶段 s2「…」时）"；不给就没有 */
   letters?: SecretaryLetters;
   /** 负责人此刻（执行任务时）的装配；任务不在执行时没有 */
   maintainerAssembly: (taskId: string) => MaintainerAssembly | undefined;
-  /** 项目的任务（16 号票：由项目的负责人执行）属于哪个项目：交回负责人会话的消息、工具调用记录还带上项目；不给就都不带 */
+  /** 项目的任务（由项目的负责人执行）属于哪个项目：交回负责人会话的消息、工具调用记录还带上项目；不给就都不带 */
   projectOf?: (taskId: string) => string | undefined;
   /** 交给子 agent 的阶段授权说法要它们（和计划卡、负责人看到的一样） */
   watchSettings: () => WatchCategorySettings;
@@ -120,7 +120,7 @@ export interface SubAgentsOptions {
   model: (agentId: string) => ModelSpec;
   credentials: Record<string, string>;
   now: () => string;
-  /** 系统提示的文件（71 号票） */
+  /** 系统提示的文件 */
   prompts: PromptRenderer;
   log: (line: string) => void;
 }
@@ -141,7 +141,7 @@ export interface SubAgents {
   /** 这个 agent 是不是子 agent、属于哪个任务的哪个阶段（不是子 agent 的没有） */
   ownerOf(agentId: string): SubAgentOwner | undefined;
   /**
-   * 负责人的工具包变了之后调（14 号票改计划、27 号票接 MCP 时）：这个任务活着的子 agent 按负责人新的装配重新算交集，
+   * 负责人的工具包变了之后调（改计划、接 MCP 时）：这个任务活着的子 agent 按负责人新的装配重新算交集，
    * 变了的等它做完手头这一步（当前的工具调用结束、下一次模型调用之前）就结束子进程、按新的装配重新拉起，接着原来的会话做；
    * 还没开始（排队、还没就绪）的直接按新的装配重拉；没变的不动（授权项守卫每次现取，不用重拉）。返回要重新拉起的子 agent
    */
@@ -149,7 +149,7 @@ export interface SubAgents {
   /** 子 agent 的调用挂起后才被决定：给负责人的那条通知（不是子 agent 的调用返回 undefined，照常） */
   lateNotice(decision: LateDecision): string | undefined;
   /**
-   * 删除任务（186 号票）：这个任务还活着的子 agent 停下（照任务结束时停下），等它们的子进程退出、交回的说明落了盘再兑现——
+   * 删除任务：这个任务还活着的子 agent 停下（照任务结束时停下），等它们的子进程退出、交回的说明落了盘再兑现——
    * 之后它们不会再往负责人的会话里写东西
    */
   stopTask(taskId: string): Promise<void>;
@@ -170,7 +170,7 @@ interface LiveSubAgent {
   stopping?: keyof typeof STOPPED_BY;
   /** 工具包变了：做完手头这一步就停掉，按新的装配重新拉起 */
   reassembling?: boolean;
-  /** 子进程结束、交回的结果落了盘（或者按新的装配重新拉起了）之后兑现（186 号票：删除任务时等它） */
+  /** 子进程结束、交回的结果落了盘（或者按新的装配重新拉起了）之后兑现（删除任务时等它） */
   done?: Promise<void>;
 }
 
@@ -205,7 +205,7 @@ function isWorktreeOf(dir: string, repo: string): boolean {
  * 自己的目录彼此不重叠；开发类每个子 agent 必须有自己的目录，而且是工作目录这个仓库的 git worktree
  */
 function resolveWorkDirs(maintainer: MaintainerAssembly, wanted: ReadonlyArray<{ agentId: string; raw: string | undefined }>): Array<{ dir: string; own: boolean }> {
-  // 开发类：项目的负责人按立项书的项目类型，任务自己的负责人看工作目录是不是 git 仓库（16 号票）
+  // 开发类：项目的负责人按立项书的项目类型，任务自己的负责人看工作目录是不是 git 仓库
   // @i18n-ignore-start model：propose_parallel 的出错说明（交回负责人）
   const dev = "开发类";
   // 开发类的工作目录不是 git 仓库（用户绑定的外部目录；二狗给的默认工作目录立项书确认时已初始化）：建不了 worktree，说明怎么办
@@ -266,7 +266,7 @@ export function createSubAgents(options: SubAgentsOptions): SubAgents {
       ownWorkDir: false,
     };
 
-  /** 负责人会话里的消息在任务之外还带上的：项目的任务带上项目（16 号票） */
+  /** 负责人会话里的消息在任务之外还带上的：项目的任务带上项目 */
   const inProject = (taskId: string): { projectId?: string } => {
     const projectId = options.projectOf?.(taskId);
     return projectId === undefined ? {} : { projectId };
@@ -361,7 +361,7 @@ export function createSubAgents(options: SubAgentsOptions): SubAgents {
   };
 
   /**
-   * 被打断、随任务停下时还在执行的有副作用的调用（23 号票：说不清做没做完，守卫接入、重启恢复记成中断、放进待我处理）：
+   * 被打断、随任务停下时还在执行的有副作用的调用（说不清做没做完，守卫接入、重启恢复记成中断、放进待我处理）：
    * 交回负责人的说明里写明它们等用户确认，不要重做
    */
   const uncertainCalls = (agentId: string, outcome: SubAgentOutcome): string[] =>
@@ -378,7 +378,7 @@ export function createSubAgents(options: SubAgentsOptions): SubAgents {
     return { outcome: "interrupted", detail: end.exit.reason === "cancelled" ? "排队时被取消了" : "子进程意外退出了" }; // @i18n-ignore model：写进交回负责人的结果
   };
 
-  /** 子 agent 的给秘书发消息（102 号票）：信上写哪个任务的子 agent、在做哪个阶段（项目内部的不写）；不给 letters 就没有 */
+  /** 子 agent 的给秘书发消息：信上写哪个任务的子 agent、在做哪个阶段（项目内部的不写）；不给 letters 就没有 */
   const letterFor = (record: Pick<SubAgentRecord, "taskId" | "maintainerId">, agent: Pick<ParallelAgent, "agentId" | "stageId">): HostTool[] => {
     const task = tasks.get(record.taskId);
     if (!options.letters || !task) return [];
@@ -388,7 +388,7 @@ export function createSubAgents(options: SubAgentsOptions): SubAgents {
 
   /**
    * 子 agent 此刻的装配和代为执行的工具（拉起、负责人的工具包变了重新装配时都按它）：候选是带类型的 bash 工具（工作目录是
-   * 子 agent 自己的）、联网搜索和读网页（70 号票）、给秘书发消息（102 号票，letters），收窄到负责人也有的
+   * 子 agent 自己的）、联网搜索和读网页、给秘书发消息（letters），收窄到负责人也有的
    */
   const assemble = (maintainer: MaintainerAssembly, agentId: string, workDir: string, letters: readonly HostTool[] = []): { assembly: SubAgentAssembly; hostTools: HostTool[] } => {
     const candidates = [...options.typedShell.toolsFor({ cwd: workDir, toolkit: maintainer.toolkit }), ...(options.sessionTools?.web({ bash: maintainer.toolkit.bash }) ?? []), ...letters];
@@ -425,35 +425,35 @@ export function createSubAgents(options: SubAgentsOptions): SubAgents {
           model: options.model(agent.agentId),
           tools: assembly.piTools,
           cwd: agent.workDir,
-          // 系统提示（71 号票）：prompts/sub-agent.md，用户改的在数据目录配置区的 prompts/，每次拉起时现读
+          // 系统提示：prompts/sub-agent.md，用户改的在数据目录配置区的 prompts/，每次拉起时现读
           systemPrompt: options.prompts.render("sub-agent", {}),
           ...foldersContribution(options.foldersBlock),
           continueSession: resume !== undefined,
           credentials: options.credentials,
           network: assembly.toolkit.network,
-          // bash 的临时目录（177 号票）：它工作目录里的 .ergo-tmp
+          // bash 的临时目录：它工作目录里的 .ergo-tmp
           ...(assembly.tempDir !== undefined && assembly.piTools.includes("bash") ? { tempDir: assembly.tempDir } : {}),
-          // 用量记在任务名下、它被派去做的那个阶段（不看负责人此刻在哪个阶段，24 号票的账本）
+          // 用量记在任务名下、它被派去做的那个阶段（不看负责人此刻在哪个阶段，账本）
           ledger: () => ({ owner: { kind: "task", id: record.taskId }, role: "sub_agent", stageId: agent.stageId }),
         },
         hostTools,
         guard: {
           agent: assembly.guardAgent,
-          // 守卫每次判定按任务此刻的工具包收窄（27 号票）：工具包收窄了，做完手头这一步重新拉起之前的调用也按新的判
+          // 守卫每次判定按任务此刻的工具包收窄：工具包收窄了，做完手头这一步重新拉起之前的调用也按新的判
           currentAgent: () => {
             const toolkit = execution.toolkitNow(record.taskId);
             return toolkit ? narrowedGuardAgent(assembly.guardAgent, toolkit) : assembly.guardAgent;
           },
-          // 带类型的 bash 工具、联网工具登记的就是框架自带的那份（来源 typed_shell、web），不用再加；给秘书发消息（102 号票）另加它的登记
+          // 带类型的 bash 工具、联网工具登记的就是框架自带的那份（来源 typed_shell、web），不用再加；给秘书发消息另加它的登记
           tools: registerTools(BUILTIN_TOOL_REGISTRY, ...hostTools.filter((tool) => !Object.hasOwn(BUILTIN_TOOL_REGISTRY, tool.spec.name)).map((tool) => tool.descriptor)),
           // 工具调用记录、审批卡引用进负责人的会话，带上所属的任务、阶段和子 agent
           conversation: maintainerChannel(record.maintainerId),
           source: subAgentSource(task, agent.stageId, agent.agentId),
-          // 项目内部任务的子 agent（64 号票）：审批卡这些事项带上标记
+          // 项目内部任务的子 agent：审批卡这些事项带上标记
           ...internalMark(task.internal),
           segmentId: `${record.maintainerId}:${record.taskId}`,
           task: () => subAgentGuardTask(execution.guardTask(record.taskId), agent.stageId),
-          // 任务、项目自己的临时文件（111 号票）：和负责人同一个任务
+          // 任务、项目自己的临时文件：和负责人同一个任务
           ownWork: () => execution.ownWork(record.taskId),
           messageScope: () => ({ taskId: record.taskId, ...inProject(record.taskId), stageId: agent.stageId, agentId: agent.agentId }),
         },
@@ -461,7 +461,7 @@ export function createSubAgents(options: SubAgentsOptions): SubAgents {
           resume
             ? reassembledText(resume.before, assembly)
             : workText({ task, agent, plan, grantInfo: plan ? grantInfoOf(plan, { tools: options.planTools, settings: options.watchSettings() }) : {}, toolkit: assembly.toolkit }),
-        // 收到的指令、说的话（368 号票）：背后的 agent 的只读对话；记不下不影响它干活
+        // 收到的指令、说的话：背后的 agent 的只读对话；记不下不影响它干活
         transcript: ({ kind, text }) => {
           try {
             const said: AgentSaidPayload = { agentId: agent.agentId, taskId: record.taskId, kind, text, time: now() };

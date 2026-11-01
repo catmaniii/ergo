@@ -1,4 +1,4 @@
-// 设置里风格预览（39 号票）在浏览器里的那一半：给预览的容器挂 shadow root、用上页面样式表复制出来的那份、
+// 设置里风格预览在浏览器里的那一半：给预览的容器挂 shadow root、用上页面样式表复制出来的那份、
 // 让预览里的按钮 Tab 不到。为什么这样画、复制时改了什么，见 src/visual-styles/preview.ts 开头；预览用的字体样式表由
 // app/theme.ts 的 showPreviewFonts 挂（和风格的字体样式表同一段代码）。
 // 这里不碰浏览器的全局变量（浏览器里由 page-style-preview.ts 接上），能在 Node 里测。

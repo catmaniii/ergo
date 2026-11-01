@@ -1,4 +1,4 @@
-// 多语言的运行时（168 号票）：t() 的插值、单复数、回退中文、合并覆盖；语言文件的检查（缺的、多的、插值参数对不上）。
+// 多语言的运行时：t() 的插值、单复数、回退中文、合并覆盖；语言文件的检查（缺的、多的、插值参数对不上）。
 // 纯函数，不读文件：词典直接在这里写。
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -129,7 +129,7 @@ describe("t()", () => {
     expect(fn).toHaveBeenCalledTimes(1);
   });
 
-  it("forModel：给模型看的那份按中文（回退的那种）取，跑完换回来；不算换语言（版本号不变、不通知）（172 号票）", () => {
+  it("forModel：给模型看的那份按中文（回退的那种）取，跑完换回来；不算换语言（版本号不变、不通知）", () => {
     setActiveLocale(enLocale);
     const fn = vi.fn<() => void>();
     const off = onLocaleChange(fn);
@@ -143,7 +143,7 @@ describe("t()", () => {
     off();
   });
 
-  it("followLocale：装上过语言就先跑一次，之后每换一次再跑（导出的单个字符串常量跟着当前语言用它）（172 号票）", () => {
+  it("followLocale：装上过语言就先跑一次，之后每换一次再跑（导出的单个字符串常量跟着当前语言用它）", () => {
     setActiveLocale(zhLocale);
     let label = "";
     followLocale(() => {

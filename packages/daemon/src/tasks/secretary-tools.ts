@@ -1,21 +1,21 @@
 // 秘书在任务发起上的工具（守护进程代为执行，规格第 7 节）：
-// - start_workflow / create_task：用户点明了要发起流程 / 长程任务（58 号票，ADR 0019：只有点明了才发起），直接建任务卡（规划中）。
+// - start_workflow / create_task：用户点明了要发起流程 / 长程任务（ADR 0019：只有点明了才发起），直接建任务卡（规划中）。
 //   "点明"由运行时判定（launch-intent.ts，和项目的负责人共用 launch-tools.ts）：用户这一轮没点明、或者点明的是另一种的，拒绝并把原因交回秘书；
-//   用户点明了要做的是某一个项目的事（projects 只写它，64 号票，2026-10-09 用户定）：替用户建成这个项目的内部任务——由项目的负责人
+//   用户点明了要做的是某一个项目的事（projects 只写它）：替用户建成这个项目的内部任务——由项目的负责人
 //   和用户对齐、执行，只在项目里看得到，通知交给负责人；秘书只说"已在项目「X」里建了内部任务"，看不到细节；
 // - suggest_task：秘书觉得该发起、但用户没点明的事，只给一张"建议发起任务"卡，不建任务（卡上"作为流程""作为长程任务"由用户点；
 //   卡上写了一个项目的点了建成这个项目的内部任务，通知交给项目的负责人，秘书收不到）；
-// - ask_questions：意图澄清，提问卡成批提问，每题带推荐答案（用户的回答作为一条通知交回秘书）；卡同时进待我处理（369 号票）；
+// - ask_questions：意图澄清，提问卡成批提问，每题带推荐答案（用户的回答作为一条通知交回秘书）；卡同时进待我处理；
 // - write_task_brief：澄清完写任务书，运行时交给执行的负责人起草计划；
-// - delegate_task（75 号票，ADR 0025）：用户交代的事要花时间、要跑很多步、要联网下载……秘书自己决定交给后台，建一个普通任务
+// - delegate_task（ADR 0025）：用户交代的事要花时间、要跑很多步、要联网下载……秘书自己决定交给后台，建一个普通任务
 //   （有任务卡、有自己的 agent，不规划、不授权、不检查；只写了一个项目的建成这个项目的内部任务，由项目的负责人做），不必等用户点明。
 //   工具说明写清楚什么时候该交、什么时候在对话里自己做；做完了运行时交给秘书一句结果，它在对话里转告。
-// 289 号票：start_workflow / create_task / delegate_task 能带 runtime（负责人用哪个 agent 运行时，不写是 pi）：用户点名要用别的运行时
+// start_workflow / create_task / delegate_task 能带 runtime（负责人用哪个 agent 运行时，不写是 pi）：用户点名要用别的运行时
 // （比如"用 Claude Code 做"）时写它的 id；写了不认得、没启用的，工具回错（原因里列出现在能用的），不建任务。建成项目内部任务的不看它（照项目的）。
-// 秘书没有建定时触发的任务的工具：不属于项目的由用户在发起对话框里建；某个项目的（给项目开定时、改运营，130 号票）由秘书转达给
+// 秘书没有建定时触发的任务的工具：不属于项目的由用户在发起对话框里建；某个项目的（给项目开定时、改运营）由秘书转达给
 // 项目的负责人，它交运营方案出卡给用户确认。这些工具都只产生卡片或改任务看板，
-// 不落入任何关注类别。秘书答应的事当场建（承诺即任务）的提示词和"查看板"工具在 22 号票。
-// @i18n-ignore-file model：工具说明、参数说明、工具结果都给秘书看，照旧中文；工具的中文名（title，界面上显示）跟着当前语言（172 号票）
+// 不落入任何关注类别。
+// @i18n-ignore-file model：工具说明、参数说明、工具结果都给秘书看，照旧中文；工具的中文名（title，界面上显示）跟着当前语言
 import { forModel, isProjectInternal, nowIso, PI_RUNTIME_ID, QuestionDraft, t, type Task, TaskBrief, type TaskKind, TASK_KIND_LABEL, Type, type WorkFolderChoice } from "@ergo/protocol";
 import { defineHostTool, type HostTool } from "../agent-manager/host-tools.ts";
 import type { CardService } from "../cards/cards.ts";
@@ -34,7 +34,7 @@ import { TASK_TOOL } from "./tool-names.ts";
 
 export { TASK_TOOL } from "./tool-names.ts";
 
-/** 负责人用哪个运行时（289 号票） */
+/** 负责人用哪个运行时 */
 const RUNTIME_PARAM = Type.Optional(
   Type.String({
     minLength: 1,
@@ -43,7 +43,7 @@ const RUNTIME_PARAM = Type.Optional(
   }),
 );
 
-/** 在哪个文件夹做（305 号票）：只对能选工作文件夹的运行时（Claude Code） */
+/** 在哪个文件夹做：只对能选工作文件夹的运行时（Claude Code） */
 const FOLDER_PARAM = Type.Optional(
   Type.String({
     minLength: 2,
@@ -54,7 +54,7 @@ const FOLDER_PARAM = Type.Optional(
   }),
 );
 
-/** 秘书写的文件夹（305 号票）：已有的那个 */
+/** 秘书写的文件夹：已有的那个 */
 const folderChoice = (folder: string | undefined): { folder?: WorkFolderChoice } => (folder === undefined ? {} : { folder: { kind: "existing", path: folder } });
 
 const CreateTaskParams = Type.Object(
@@ -130,7 +130,7 @@ const DelegateTaskParams = Type.Object(
 );
 
 /**
- * 交给后台（75 号票）的工具说明：什么时候该交、什么时候在对话里自己做、和别的发起工具的界线、任务书怎么写，只写在这里
+ * 交给后台的工具说明：什么时候该交、什么时候在对话里自己做、和别的发起工具的界线、任务书怎么写，只写在这里
  * （秘书的系统提示里只说"照这个工具的说明"，交出去之后的工具结果只说怎么告诉用户）
  */
 const DELEGATE_DESCRIPTION =
@@ -152,7 +152,7 @@ export const internalLaunchedText = (task: Pick<Task, "internal">) => {
 };
 
 /**
- * 秘书的发起：只写了一个项目的建成这个项目的内部任务（64 号票，用户定：只涉及一个项目的一律是内部任务，由 TaskService 按这一条定），
+ * 秘书的发起：只写了一个项目的建成这个项目的内部任务（只涉及一个项目的一律是内部任务，由 TaskService 按这一条定），
  * 秘书只知道建在哪个项目里；别的建全局任务（涉及几个项目的流程被拒）
  */
 function secretaryLaunch(tasks: TaskService, kind: TaskKind, runtimeRefusal: RuntimeRefusal | undefined) {
@@ -171,10 +171,10 @@ function secretaryLaunch(tasks: TaskService, kind: TaskKind, runtimeRefusal: Run
   };
 }
 
-/** 运行时现在能不能用（289 号票）：不能用的原因（写明现在能用的有哪些），能用是 undefined */
+/** 运行时现在能不能用：不能用的原因（写明现在能用的有哪些），能用是 undefined */
 export type RuntimeRefusal = (runtime: string) => string | undefined;
 
-/** 秘书写的运行时（289 号票）：pi 不写；别的现在不能用就抛 RequestRejected（原因交回秘书，guarded 接住） */
+/** 秘书写的运行时：pi 不写；别的现在不能用就抛 RequestRejected（原因交回秘书，guarded 接住） */
 function checkedRuntime(runtime: string | undefined, runtimeRefusal: RuntimeRefusal | undefined): string | undefined {
   if (runtime === undefined || runtime === PI_RUNTIME_ID) return undefined;
   const refused = runtimeRefusal?.(runtime);
@@ -184,7 +184,7 @@ function checkedRuntime(runtime: string | undefined, runtimeRefusal: RuntimeRefu
 
 /**
  * userTurn：秘书正在处理的那条用户消息里用户说了什么（quick-actions 的 readUserTurn）；runtimeRefusal：秘书写的运行时现在能不能用
- * （289 号票，不给就不查）
+ * （不给就不查）
  */
 export function taskTools(tasks: TaskService, deps: { store: EventStore; cards: CardService; inbox: InboxService }, userTurn: UserTurnOf, runtimeRefusal?: RuntimeRefusal): HostTool[] {
   const { cards } = deps;
@@ -263,7 +263,7 @@ export function taskTools(tasks: TaskService, deps: { store: EventStore; cards: 
       readOnlyOrIdempotent: false,
       run: (args) =>
         guarded(() => {
-          // 项目内部任务对秘书来说没有（64 号票：它的负责人在项目会话里直接问用户）
+          // 项目内部任务对秘书来说没有（它的负责人在项目会话里直接问用户）
           const asked = args.taskId === undefined ? undefined : tasks.get(args.taskId);
           if (args.taskId !== undefined && (!asked || isProjectInternal(asked))) throw new RequestRejected("not_found", `没有编号为 ${args.taskId} 的任务`);
           const questions = args.questions.map((q, i) => ({ id: `q${i + 1}`, ...q }));
@@ -283,7 +283,7 @@ export function taskTools(tasks: TaskService, deps: { store: EventStore; cards: 
         guarded(() => {
           const { taskId, ...brief } = args;
           const { task, revision } = tasks.writeBrief(taskId, brief);
-          // 第一版任务书只涉及一个项目：成了这个项目的内部任务（64 号票），从此你看不到它的细节
+          // 第一版任务书只涉及一个项目：成了这个项目的内部任务，从此你看不到它的细节
           if (task.internal) {
             return {
               text:

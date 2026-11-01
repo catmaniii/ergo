@@ -1,4 +1,4 @@
-// 主切面：现有项目补齐规范文档（262 号票，issue 19 Decisions 第 10 条；用户原话："可以给个任务，但是不一定要补，我确认后再补"）。
+// 主切面：现有项目补齐规范文档（用户原话："可以给个任务，但是不一定要补，我确认后再补"）。
 // 真的守护进程，测试扮演前端；项目的负责人、秘书接 faux 剧本。
 // - 规范上线（守护进程第一次带着这一版起来）时记下规范上线之前建的项目（没有版本的）；
 // - 其中立项书确认了、没归档、按类型和本项目的规范改写缺文档的，各出一张"补齐规范文档"卡（进待我处理）；不缺的、新项目（有版本的）、
@@ -39,7 +39,7 @@ const { cards: CARDS, projects: PROJECTS, inbox: INBOX, board: BOARD } = CHANNEL
 const PM1 = maintainerChannel("pm-1");
 const PM3 = maintainerChannel("pm-3");
 
-/** 规范上线之前（258 号票之前）建的时间 */
+/** 规范上线之前建的时间 */
 const BEFORE = "2026-10-12T13:44:00.000+08:00";
 
 /** 规范上线之前建的项目：没有版本；默认是开发类、使用中、立项书确认了 */
@@ -107,7 +107,7 @@ const workOrdersOf = (frontend: TestFrontend) => frontend.events({ channel: PROJ
 const ARCHITECTURE = "# 架构图\n\n```mermaid\nflowchart LR\n  抓取 --> 日报站\n```\n\n## 用到的服务\n\n| 服务 | 做什么 |\n|---|---|\n| daily-site | 日报站 |\n\n## 前端\n\n| 前端 | 在哪 |\n|---|---|\n| 日报页 | /apps/daily-site/ |\n\n## 对外接口\n\n| 接口 | 走哪 |\n|---|---|\n| 无 | |\n";
 const OPS = `${JSON.stringify({ tools: [{ name: "latest_report", description: "最新一期日报" }] }, null, 2)}\n`;
 
-describe("现有项目补齐规范文档（262 号票）", () => {
+describe("现有项目补齐规范文档", () => {
   it("规范上线时给缺文档的现有项目各出一张卡（不缺的、新项目、立项书没确认的、已归档的不出，取消归档后再出）；补齐才改用规范、建任务交给负责人补；不补什么都不动；选过的重启后也不再出", async () => {
     const dataDir = makeTempDir("ergo-data-");
     const homeDir = makeTempDir("ergo-home-");
@@ -241,8 +241,8 @@ describe("现有项目补齐规范文档（262 号票）", () => {
     expect(latestCards(fresh).filter((c) => c.type === "standard_backfill" && c.status === "pending")).toEqual([]);
   }, 180_000);
 
-  // 272 号票第 4 条：卡只出一次，"不补"之后想补也有路——放开 261 的"跟新版"：负责人对没有版本的项目也能提（upgrade），
-  // 卡上写明是补齐规范文档、缺哪几份；用户确认后照 262 的补齐做（改用规范、从模板放进缺的几份、建任务交给负责人补）
+  // 卡只出一次，"不补"之后想补也有路——放开"跟新版"：负责人对没有版本的项目也能提（upgrade），
+  // 卡上写明是补齐规范文档、缺哪几份；用户确认后照补齐做（改用规范、从模板放进缺的几份、建任务交给负责人补）
   it("选了不补以后还能补：负责人照用户的话提跟新版（补齐卡还在等你选时不让提）；规范改写卡写明是补齐、缺哪几份；确认后改用规范、从模板放进缺的、建一个补齐规范文档的任务交给负责人，补齐卡不再出", async () => {
     const dataDir = makeTempDir("ergo-data-");
     const homeDir = makeTempDir("ergo-home-");
@@ -282,7 +282,7 @@ describe("现有项目补齐规范文档（262 号票）", () => {
     expect(card.text).toContain(`补齐规范文档：改用规范 ${PROJECT_STANDARD_LATEST}`);
     expect(fs.existsSync(path.join(records("p-1"), "architecture.md"))).toBe(false);
 
-    // 确认：照 262 的补齐做——改用规范（standard_adopted）、从模板放进缺的几份（写了的不动）、建项目内部的普通任务交给负责人补
+    // 确认：照补齐做——改用规范（standard_adopted）、从模板放进缺的几份（写了的不动）、建项目内部的普通任务交给负责人补
     const specBefore = fs.readFileSync(path.join(records("p-1"), "spec.md"), "utf8");
     ok(await frontend.cardAction({ cardId: card.id, action: "confirm", expectedVersion: card.version }));
     const adopted = await eventually(() => projectEventsOf(frontend), (e) => e.change === "standard_adopted" && e.project.id === "p-1", "简报站改用规范");
@@ -302,7 +302,7 @@ describe("现有项目补齐规范文档（262 号票）", () => {
   }, 120_000);
 });
 
-/** 负责人收到通知、被派到补齐的任务时照常应一句（272 那条用例不看它补得怎样，262 那条看过了） */
+/** 负责人收到通知、被派到补齐的任务时照常应一句（那条用例不看它补得怎样，那条看过了） */
 const answeringMaintainer = (id: string): FauxStep[] => (id === "pm-1" ? Array.from({ length: 6 }, () => say("好，我来补")) : []);
 
 const messagesOfChannel = (frontend: TestFrontend, channel: string) =>

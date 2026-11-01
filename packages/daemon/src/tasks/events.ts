@@ -2,9 +2,9 @@
 // - 任务看板频道（board，前端订阅）：task 事件 = 任务的最新状态 + 这次的变化 + 谁改的（负载 TaskEventPayload 在共享协议包）；
 // - 守护进程内部的 tasks 频道（前端不订阅）：任务书、负责人提交的计划、用户对计划的决定。计划是业务状态，存在这里，
 //   不在 pi 会话里；前端看到的是计划卡（由代码从结构化计划生成）。
-//   14 号票加了：负责人提交的计划变更（用户在计划变更卡上的决定也是 plan_decided）、负责人自行调整的计划、
+//   加了：负责人提交的计划变更（用户在计划变更卡上的决定也是 plan_decided）、负责人自行调整的计划、
 //   授权项续期的决定、每个阶段的用量（预算计数）。
-//   276 号票加了：从某个阶段重做时交给负责人的那条交代，复验完之前存在这里（等复验），交出去时记一笔。
+//   加了：从某个阶段重做时交给负责人的那条交代，复验完之前存在这里（等复验），交出去时记一笔。
 import { EVENT_TYPES, type GrantInfo, type MessageEventPayload, type Plan, type PlanChangeItem, type PlanGrant, type PlanWatchCategory, type TaskBrief, type WorkflowPlan } from "@ergo/protocol";
 import type { GrantTime } from "./plan.ts";
 
@@ -20,40 +20,40 @@ export const TASK_EVENTS = {
   /** 用户在计划卡上确认或打回（和卡片更新同一事务）；"审批决定"素材的来源，事件类型登记在共享协议包 */
   planDecided: EVENT_TYPES.planDecided,
   /**
-   * 用户对产出的反应（13 号票）："由我验收"的阶段验收通过或退回、对已完成的任务要求返工（和任务的变化同一事务）；
+   * 用户对产出的反应："由我验收"的阶段验收通过或退回、对已完成的任务要求返工（和任务的变化同一事务）；
    * "用户对产出的反应"素材的来源，事件类型登记在共享协议包
    */
   outputReaction: EVENT_TYPES.outputReaction,
-  /** 负责人在执行中提交了计划变更（14 号票；同一事务建计划变更卡、放进待我处理、受影响的阶段停下等确认） */
+  /** 负责人在执行中提交了计划变更（同一事务建计划变更卡、放进待我处理、受影响的阶段停下等确认） */
   planChangeProposed: "plan_change_proposed",
-  /** 负责人自行调整了计划（拆阶段、调顺序这类不扩大授权的，14 号票）：新的一版直接生效 */
+  /** 负责人自行调整了计划（拆阶段、调顺序这类不扩大授权的）：新的一版直接生效 */
   planRevised: "plan_revised",
-  /** 用户在"授权到期续期"事项上续期或不续（14 号票）；"审批决定"素材的来源，事件类型登记在共享协议包 */
+  /** 用户在"授权到期续期"事项上续期或不续；"审批决定"素材的来源，事件类型登记在共享协议包 */
   grantRenewalDecided: EVENT_TYPES.grantRenewalDecided,
-  /** 一个阶段又调用了几次工具（14 号票的预算计数；token 不在这里记，取自 token 账本） */
+  /** 一个阶段又调用了几次工具（预算计数；token 不在这里记，取自 token 账本） */
   budgetUsed: "budget_used",
   /** 用户让超预算的阶段接着做：这个阶段从现在的用量起再给一整份预算（记下账本里这时的 token 数作起算点） */
   budgetReset: "budget_reset",
   /** 这个阶段的用量超出了预算，运行时已经让负责人说明进展（只说一次） */
   budgetWarned: "budget_warned",
   /**
-   * 从某个阶段重做时交给负责人的那条交代（276 号票）：和重置同一事务存下、标"等复验"——范围外已验收的阶段复验完才带上结果交给负责人
-   * （274 号票），这期间负责人被拦着、看不到它；守护进程在复验途中退出的，起来时照它重新复验、再交。整条有用户的原话：彻底删除任务时
+   * 从某个阶段重做时交给负责人的那条交代：和重置同一事务存下、标"等复验"——范围外已验收的阶段复验完才带上结果交给负责人
+   * 这期间负责人被拦着、看不到它；守护进程在复验途中退出的，起来时照它重新复验、再交。整条有用户的原话：彻底删除任务时
    * 随任务的别的事件一起换成删除标记，彻底删除那条重做的反应时连带换掉（material-sources.ts 的 outputReactionPurge）
    */
   reworkNoticeHeld: "rework_notice_held",
-  /** 等复验的那条交代交给负责人了（276 号票，和那条通知同一事务）：不再等复验 */
+  /** 等复验的那条交代交给负责人了（和那条通知同一事务）：不再等复验 */
   reworkNoticeHanded: "rework_notice_handed",
 } as const;
 
-/** 等复验的那条交代存下时的幂等键（276 号票：按它找回这条，一条通知只存一次） */
+/** 等复验的那条交代存下时的幂等键（按它找回这条，一条通知只存一次） */
 export const reworkNoticeHeldKey = (noticeId: string) => `rework-notice-held:${noticeId}`;
 /** 交出去的记号的幂等键（一条通知只交一次） */
 export const reworkNoticeHandedKey = (noticeId: string) => `rework-notice-handed:${noticeId}`;
 
 export interface ReworkNoticeHeldPayload {
   taskId: string;
-  /** 任务第几次重做（重置之后的 Task.reworks）：复验做完时任务又重做过了的，这份复验结果作废（274 号票的规矩） */
+  /** 任务第几次重做（重置之后的 Task.reworks）：复验做完时任务又重做过了的，这份复验结果作废 */
   reworkNo: number;
   /** 从哪个阶段重做（复验没过的通知里写"从第 N 阶段重做之后"） */
   stageId: string;
@@ -106,8 +106,8 @@ export interface PlanRevisedPayload {
   grantTimes: GrantTimes;
   maintainerId: string;
   /**
-   * 谁调整的：不写是负责人（自行调整计划）；system 是运行时按新规矩改的（112 号票：项目里的阶段自动验收，原定由你验收的标准
-   * 改由评审验收，见 execution.ts 的 autoAcceptStages）；user 是你在"从这里重做"时直接改了这一阶段的验收标准、交付件（125 号票，
+   * 谁调整的：不写是负责人（自行调整计划）；system 是运行时按新规矩改的（项目里的阶段自动验收，原定由你验收的标准
+   * 改由评审验收，见 execution.ts 的 autoAcceptStages）；user 是你在"从这里重做"时直接改了这一阶段的验收标准、交付件（
    * 你改的就是你的确认，不出计划变更卡）
    */
   by?: "system" | "user";
@@ -161,9 +161,9 @@ export interface OutputReactionPayload {
   note?: string;
   /** 重开了哪些阶段（返工时：指定的阶段和它的全部下游里开始过的） */
   reopened?: string[];
-  /** 退回写了原因时，这次的结论卡（84 号票：原因也记在卡上由你验收的那几条的备注里，彻底删除这条反应时连带改写） */
+  /** 退回写了原因时，这次的结论卡（原因也记在卡上由你验收的那几条的备注里，彻底删除这条反应时连带改写） */
   cardId?: string;
-  /** 返工时会话里那条重做记录（84 号票：记录里引着你说的话，彻底删除这条反应时连带改写） */
+  /** 返工时会话里那条重做记录（记录里引着你说的话，彻底删除这条反应时连带改写） */
   recordId?: string;
   by: "user";
   time: string;
@@ -182,11 +182,11 @@ export interface PlanSubmittedPayload {
   planId: string;
   /** 第几版计划（打回后重新提交加 1） */
   revision: number;
-  /** 检查过、补全了的计划（全局关注类别的名字由运行时补上）；流程是由流程计划推出的、交给执行控制器的那份（58 号票） */
+  /** 检查过、补全了的计划（全局关注类别的名字由运行时补上）；流程是由流程计划推出的、交给执行控制器的那份 */
   plan: Plan;
-  /** 流程的计划（58 号票）：审查修补之后、交给用户授权的步骤和条件；长程任务没有 */
+  /** 流程的计划：审查修补之后、交给用户授权的步骤和条件；长程任务没有 */
   workflow?: WorkflowPlan;
-  /** 流程的这一版审查没让它交给用户授权（58 号票）：退回负责人补充、判定不可执行；任务还在规划中 */
+  /** 流程的这一版审查没让它交给用户授权：退回负责人补充、判定不可执行；任务还在规划中 */
   refused?: "needs_replan" | "blocked";
   /** 由它生成的计划卡（流程是流程计划卡） */
   cardId: string;
@@ -196,8 +196,8 @@ export interface PlanSubmittedPayload {
 }
 
 /**
- * 确认、打回（拒绝）；returned 是审查判定不可执行的流程计划卡上的"让负责人改"（58 号票）；voided 是从某个阶段重做时
- * 还没确认的计划变更随之作废（84 号票，系统记的，不算你拒绝、不是素材）
+ * 确认、打回（拒绝）；returned 是审查判定不可执行的流程计划卡上的"让负责人改"；voided 是从某个阶段重做时
+ * 还没确认的计划变更随之作废（系统记的，不算你拒绝、不是素材）
  */
 export type PlanDecision = "confirmed" | "rejected" | "returned" | "voided";
 
@@ -210,9 +210,9 @@ export interface PlanDecidedPayload {
   decision: PlanDecision;
   /** 确认的那份计划（勾掉、收窄之后）；打回时没有 */
   plan?: Plan;
-  /** 流程的计划（58 号票）：确认的那份，或被拒绝的那份 */
+  /** 流程的计划：确认的那份，或被拒绝的那份 */
   workflow?: WorkflowPlan;
-  /** 流程计划卡上授权时逐项勾了的确认事项（58 号票） */
+  /** 流程计划卡上授权时逐项勾了的确认事项 */
   confirmations?: string[];
   /** 确认时勾掉的授权项（原样，和计划卡负载里的同名同形） */
   removedGrants: PlanGrant[];
@@ -222,17 +222,17 @@ export interface PlanDecidedPayload {
   grantInfo: Record<string, GrantInfo>;
   /** 确认时改了假设栏：改之前和改之后 */
   assumptions?: { before: string[]; after: string[] };
-  /** 确认时在卡上给这个任务加的关注类别（确定的规则和处置，用户自己写的；26 号票） */
+  /** 确认时在卡上给这个任务加的关注类别（确定的规则和处置，用户自己写的） */
   addedCategories?: PlanWatchCategory[];
   /** 打回的意见（用户自己的话）；计划变更卡上拒绝时写的话 */
   note?: string;
   /**
-   * 计划变更卡上的决定（14 号票）：负责人为什么要改、改了什么（相对哪一版确认的计划）。没有就是计划卡上的决定
+   * 计划变更卡上的决定：负责人为什么要改、改了什么（相对哪一版确认的计划）。没有就是计划卡上的决定
    */
   change?: { why: string; changes: PlanChangeItem[]; basePlanId: string };
   /**
    * 确认之后每项授权的授予时间、到期时间（计划变更：原样留着的照旧、新加的从这次确认起算；没有就按确认时刻算）。
-   * 撤回会话作废的确认过的计划（voided，152 号票）记的是作废时这一版里的：重新确认计划时原样留着的授权项接着用这个授予时间，
+   * 撤回会话作废的确认过的计划（voided）记的是作废时这一版里的：重新确认计划时原样留着的授权项接着用这个授予时间，
    * 被放弃那段里用掉的次数照样算（ADR 0003）
    */
   grantTimes?: GrantTimes;

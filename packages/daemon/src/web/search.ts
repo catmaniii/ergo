@@ -1,9 +1,9 @@
-// 联网搜索（70 号票）：照搬用户 web-search skill 的 search.mjs——浏览器真实渲染搜索结果页，不要 API key；
+// 联网搜索：照搬用户 web-search skill 的 search.mjs——浏览器真实渲染搜索结果页，不要 API key；
 // 默认 DuckDuckGo，失败（被反爬拦截、没结果、结果和查询不相关、浏览器出错）依次回退 Bing、Google。每个引擎各起一次浏览器。
-// skill 的选项都对齐（用户 2026-10-10 要求）：--n、--time、--engine（指定了就只用它，不回退）、--region（各引擎的地区、语言参数）、
+// skill 的选项都对齐：--n、--time、--engine（指定了就只用它，不回退）、--region（各引擎的地区、语言参数）、
 // --tavily（Tavily 的搜索接口，要 API key，见 tavily 那几行）、--json（工具里写成 JSON，见 tools.ts）。
-// 和 skill 不一样的地方：浏览器用不了（找不到、起不来）时不再一个个引擎试下去，直接报；81 号票修摘要改的两处取法见 RESULT_SELECTORS 和 browser.ts 的 pickResults。
-// @i18n-ignore-file model：搜索结果、出错的原因交回模型；认反爬页面的正则是数据（173 号票）
+// 和 skill 不一样的地方：浏览器用不了（找不到、起不来）时不再一个个引擎试下去，直接报；修摘要改的两处取法见 RESULT_SELECTORS 和 browser.ts 的 pickResults。
+// @i18n-ignore-file model：搜索结果、出错的原因交回模型；认反爬页面的正则是数据
 import type { BrowserDriver, BrowserPage, RawResult, ResultSelectors } from "./browser.ts";
 import { BrowserUnavailable } from "./browser.ts";
 
@@ -33,7 +33,7 @@ export interface SearchResult {
   title: string;
   url: string;
   snippet: string;
-  /** 下面几样只有 DeepSeek 的搜索接口给（154 号票）：长摘要（给模型读的）、发布日期（YYYY-MM-DD）、站点名 */
+  /** 下面几样只有 DeepSeek 的搜索接口给：长摘要（给模型读的）、发布日期（YYYY-MM-DD）、站点名 */
   summary?: string;
   date?: string;
   site?: string;
@@ -113,7 +113,7 @@ export function unwrapUrl(href: string, engine: SearchEngine): string {
 }
 
 /**
- * 各引擎的结果怎么取（照 skill）。和 skill 不一样的一处（81 号票）：DDG 的摘要容器现在是 `[data-result="snippet"]`，
+ * 各引擎的结果怎么取（照 skill）。和 skill 不一样的一处：DDG 的摘要容器现在是 `[data-result="snippet"]`，
  * 不再带 skill 认的 `data-testid="result-snippet"`（2026-10-10 录的页面，skill 自己搜 DDG 摘要也是空的），两种都认。
  * 录下的三个引擎的结果页在 test/fixtures/web/，页面改版了先重录、对着它改这里。
  */

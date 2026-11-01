@@ -1,4 +1,4 @@
-// 115 号票：来信在会话里折成一行。守护进程写的几种通知开头的标记和协议包的那一份一样（Web 按它认哪些折）；
+// 来信在会话里折成一行。守护进程写的几种通知开头的标记和协议包的那一份一样（Web 按它认哪些折）；
 // 交给秘书的通知上存一句话总结（任务做完的由运行时拼，几件、几封并在一起的写几件），旧的信没有总结的取原话的第一句。
 import { LETTER_TAGS, letterKindOf } from "@ergo/protocol";
 import { describe, expect, test } from "vitest";
@@ -41,7 +41,7 @@ describe("一句话总结", () => {
     expect(taskDoneSummary([one, { name: "t-1「下歌」", summary: "t-1「下歌」做完了" }])).toBe("2 件事做完了：t-5「AI 日报」第 2 次运行、t-1「下歌」");
   });
 
-  test("负责人来信：一封是它给的总结，几封用分号连起来；102 号票时记下的信没有总结，取原话的第一句", () => {
+  test("负责人来信：一封是它给的总结，几封用分号连起来；原来记下的信没有总结，取原话的第一句", () => {
     expect(describeLetter(letter({ text: "官方有录音室版和现场版。我先下了录音室版", summary: "先下了录音室版" })).summary).toBe("先下了录音室版");
     expect(describeLetter(letter({ text: "官方有录音室版和现场版。我先下了录音室版" })).summary).toBe("官方有录音室版和现场版");
     expect(letterNoticeSummary(["先下了录音室版"])).toBe("先下了录音室版");

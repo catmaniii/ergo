@@ -1,4 +1,4 @@
-// 推理图谱的几条规矩（326 号票从写入口里拆出来；329 号票照原始推理图谱改，ADR-0032）：唯一写入口（write-gate.ts，每次写只查
+// 推理图谱的几条规矩（从写入口里拆出来；照原始推理图谱改，ADR-0032）：唯一写入口（write-gate.ts，每次写只查
 // 这一次改到的）和图谱自检（graph-check.ts，每晚整理完把整张图查一遍）用的是同一份，不各写各的。
 // - refExists：引用的证据、事实、结论真实存在（写入口的 exists、图谱自检的 exists）；
 // - premiseHolds：前提还在——不留悬空结论（写入口的 dangling、图谱自检的 dangling）；
@@ -23,7 +23,7 @@ export interface GraphLookup {
   premisesOf(claimId: string): readonly string[];
   /** 这条结论有没有复核标记（依据在重推）；没给就当没有 */
   flagged?(claimId: string): boolean;
-  /** 330 号票（R3）：这条是不是别人转述的（转述的事实、别人转述的证据）——转述的永远不算已验证的前提；没给就当不是 */
+  /** ADR-0032 R3：这条是不是别人转述的（转述的事实、别人转述的证据）——转述的永远不算已验证的前提；没给就当不是 */
   relayed?(id: string): boolean;
 }
 
@@ -79,7 +79,7 @@ export function premiseHolds(lookup: GraphLookup, id: string): boolean {
 export function premiseVerified(lookup: GraphLookup, id: string): boolean {
   const status = lookup.statusOf(id);
   if (status === undefined) return false;
-  // 330 号票（R3）：只有转述的永远是猜测——转述的事实、别人转述的证据不算已验证的前提
+  // ADR-0032 R3：只有转述的永远是猜测——转述的事实、别人转述的证据不算已验证的前提
   if (lookup.relayed?.(id) === true) return false;
   switch (idKind(id)) {
     case "fact":

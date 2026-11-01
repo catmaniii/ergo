@@ -1,4 +1,4 @@
-// 安全和预算的两个开关（315 号票，config/safety-settings.ts、config.ts 的 writeFreshInstallDefaults / writeSafetyConfig）：
+// 安全和预算的两个开关（config/safety-settings.ts、config.ts 的 writeFreshInstallDefaults / writeSafetyConfig）：
 // 新装时写进配置文件（已写的键不碰）、设置里改了写回去（别的内容原样留着）、内存里的跟着换（任务的阈值里预算控制那一项现取）。
 // 守护进程上的行为（守卫、预算核对按开关判）在主切面 test/main/fresh-install.test.ts。
 import fs from "node:fs";

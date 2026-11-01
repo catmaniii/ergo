@@ -62,7 +62,7 @@ describe("重注入块", () => {
     expect(text).not.toContain("读公开网页");
   });
 
-  it("任务书里有验收标准的：目标后面接着写（计划变更改了目标、验收标准的，重注入的是新的一版，14 号票）", () => {
+  it("任务书里有验收标准的：目标后面接着写（计划变更改了目标、验收标准的，重注入的是新的一版）", () => {
     const text = contextBlockText({
       task: taskWith(initialStages(plan).map((s, i) => (i === 0 ? { ...s, state: "running" } : s))),
       plan,

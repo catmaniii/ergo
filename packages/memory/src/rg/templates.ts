@@ -14,7 +14,7 @@ import { upgrade } from "./scoring.ts";
 import type { RgView, TargetLink } from "./types.ts";
 
 export const OBSERVATION_PATTERNS = ["repeated_decline", "repeated_engage"] as const;
-/** 观察模式，加上往上抽的两层（195 号票，rg/lift.ts） */
+/** 观察模式，加上往上抽的两层（rg/lift.ts） */
 export type PatternId = (typeof OBSERVATION_PATTERNS)[number] | "lift:need" | "lift:value";
 
 /** 模板看的一条事实：事实、宾语实体和名字、什么时候、是不是用户明说的、是不是来自纠正 */

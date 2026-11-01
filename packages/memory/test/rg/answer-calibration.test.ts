@@ -1,4 +1,4 @@
-// 205 号票：回答层的三处修正——向量相关门槛按自带的背景闲聊校准（比随便一句闲聊更像才算挨着）、任务的建议附了追问算有结论、
+// 回答层的三处修正——向量相关门槛按自带的背景闲聊校准（比随便一句闲聊更像才算挨着）、任务的建议附了追问算有结论、
 // 挑到的组还没分出胜负但用户明说过相关的话时以明说的为准。例子都是自己写的，不看评测数据。
 import { afterEach, describe, expect, it } from "vitest";
 import type { Embedder } from "../../src/embedding/embedder.ts";
@@ -95,7 +95,7 @@ describe("向量门槛：每个问题和背景语料的余弦分布的第 95 百
     expect(await backgroundThreshold(undefined, "随便问问")).toBeNull();
     expect(await backgroundThreshold(new FakeEmbedder({ available: false }), "随便问问")).toBeNull();
     const { engine } = await storyEngine();
-    // 263 号票删了只算背景那道的 questionVectorThreshold（没人调了）：两道门槛一起算的 questionVectorGate 里背景那道照样是 null
+    // 删了只算背景那道的 questionVectorThreshold（没人调了）：两道门槛一起算的 questionVectorGate 里背景那道照样是 null
     expect(await questionVectorGate(engine.rg, "随便问问")).toEqual({ background: null, own: null });
   });
 
@@ -108,7 +108,7 @@ describe("向量门槛：每个问题和背景语料的余弦分布的第 95 百
     expect(hitSupported(v(0.1), ["饭局"], view, 0.6)).toBe(true);
   });
 
-  it("'我到底爱不爱看书'（带假向量）：和背景闲聊差不多像的原话不算挨着——202 的固定 0.5 会拿'不吃香菜'来答，现在不拿，D 组和 C 组一样", async () => {
+  it("'我到底爱不爱看书'（带假向量）：和背景闲聊差不多像的原话不算挨着——固定 0.5 会拿'不吃香菜'来答，现在不拿，D 组和 C 组一样", async () => {
     const { engine } = await storyWithVectors();
     const q = "我到底爱不爱看书？";
     const base = await engine.rg.baseSearch(q, { limit: 20 });
@@ -138,7 +138,7 @@ describe("向量门槛：每个问题和背景语料的余弦分布的第 95 百
     expect(rel.gated.map((g) => g.claimId)).toContain(member(engine, WEEKEND_GROUP, "scene_autonomy").id);
   });
 
-  // "A、B、C 组的回答（answerFromHits）也用同一个门槛"（评测的 answerFor）：326 号票起在评测包的 test/eval/answer-calibration.test.ts
+  // "A、B、C 组的回答（answerFromHits）也用同一个门槛"（评测的 answerFor）：在评测包的 test/eval/answer-calibration.test.ts
 });
 
 describe("任务的建议附了追问：算有结论", () => {

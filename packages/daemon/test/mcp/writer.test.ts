@@ -1,4 +1,4 @@
-// MCP 登记文件的写入（239 号票，单元）：按 name 合并、别的一条不动、原子写（同目录临时文件 + rename）、
+// MCP 登记文件的写入（单元）：按 name 合并、别的一条不动、原子写（同目录临时文件 + rename）、
 // 写前把旧的留一份进 config/.history/、只留最近几份；现在的登记文件写坏了（JSON 坏、条目不合 schema）不动它、直接说明原因。
 // 工具和卡的切面在 registration-change.test.ts，端到端的在主切面 test/main/mcp-registration.test.ts。
 import fs from "node:fs";

@@ -1,5 +1,5 @@
-// agent 发的语音的前端状态（32 号票）：用户发语音时 agent 的回复合成语音，在 agent 一侧显示成和用户语音一样的气泡，
-// 长按「转文字」才展开送进 TTS 的原文。用户 2026-10-08 定的显示：这一轮不流式显示回复，只有"正在回复…"；
+// agent 发的语音的前端状态：用户发语音时 agent 的回复合成语音，在 agent 一侧显示成和用户语音一样的气泡，
+// 长按「转文字」才展开送进 TTS 的原文。显示：这一轮不流式显示回复，只有"正在回复…"；
 // 短回复（整段合成）合成中显示"正在合成语音…"，合成好只出语音气泡；长回复（口语总结）文字和附件照常显示，合成好再加气泡；
 // 没合成出来的照常是文字和一条说明。往上翻取回的历史、重连补发的同一套规则。
 // 先回放主切面录下的真实事件流（daemon/test/main/voice-reply.test.ts 的"演示流程"），再用手写的事件序列测录不出来的边角。
@@ -215,7 +215,7 @@ describe("agent 语音对象", () => {
   });
 });
 
-// 36 号票：语音和它的文字在同一个气泡框里（播放条和时长在上、文字在下）。agent 的语音默认只有播放条和时长，
+// 语音和它的文字在同一个气泡框里（播放条和时长在上、文字在下）。agent 的语音默认只有播放条和时长，
 // 长按「转文字」展开送进 TTS 的原文，再点「收起文字」收起；框的宽度随时长变，展开时它是最小宽度、按文字撑开。
 describe("agent 语音气泡框的样子：默认收起，转文字展开、再点收起", () => {
   const bubble = agentVoiceBubble(replay([frame("secretary", 1, "agent_voice", { voice: done() })]), PART);
@@ -237,7 +237,7 @@ describe("agent 语音气泡框的样子：默认收起，转文字展开、再�
     expect(agentVoiceBubbleLook(agentVoiceBubble(replay([]), PART), true)).toEqual({ body: undefined, width: { exact: voiceBubbleWidth(2800) }, textToggle: { label: "转文字", enabled: false } });
   });
 
-  // 354 号票：秘书开场 + 负责人自己的声音，合成一条
+  // 秘书开场 + 负责人自己的声音，合成一条
   const relayed = (overrides: Partial<AgentVoiceRecord> = {}) =>
     agentVoice(3, {
       status: "done",

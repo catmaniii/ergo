@@ -1,4 +1,4 @@
-// 事件触发的流程（77 号票，ADR 0025）：步骤的参数可以写成事件里的值的占位（{{事件.文件路径}}）——
+// 事件触发的流程（ADR 0025）：步骤的参数可以写成事件里的值的占位（{{事件.文件路径}}）——
 // - 交计划时（draftEventProblems）：只有事件触发的流程能写占位，名字要是它等的事件带的字段（中文名或键）；
 // - 规划时（reviewWorkflowDraft 用 maskEventPlaceholders / unmaskEventPlaceholders）：不知道值。非 bash 的参数里带占位的整个当作
 //   "未知"交给审查（审查不会改写它、规划时不发授权、不标敏感）；通用 bash 的命令照原文（占位只是命令里的一段字）。审查完换回原来写的占位，
@@ -8,7 +8,7 @@
 //   通用 bash 的命令里不拼值：占位换成引用环境变量（shellCommandWithVars，ERGO_EVENT_<第几个事件>_<字段>，按占位所在的引号换成
 //   "${X}"、${X} 或 '"${X}"'），值放进这次运行 bash 的环境变量（eventShellEnv，经 JobRunAssembly.shellEnv 交给拉起的 agent）——
 //   文件名里有引号、$、反引号、换行、{{ 都改变不了命令的意思，路径也不会多出字符。守卫拆命令时按同一份值展开这些变量（guard/paths.ts 的
-//   agentShellEnv），看到的路径和真正跑的一样。交给负责人的步骤、守卫逐步比对的步骤都是代入之后的，59 号票的核对按代入后的值比；
+//   agentShellEnv），看到的路径和真正跑的一样。交给负责人的步骤、守卫逐步比对的步骤都是代入之后的，核对按代入后的值比；
 // - 执行时按执行它的负责人现取代入后的路径的真实路径、推出授权项：workflow-plan.ts 的 boundRunWorkflow（和规划时同一套办法）。
 import { EVENT_PLACEHOLDER_PATTERN, type EventFieldDescriptor, eventFieldNamed, eventPassStepId, eventPlaceholdersIn, eventSourceOf, eventValueOf, eventValueText, substituteEventValues, t, type TriggerEvent, type WorkflowPlanDraft, type WorkflowStepView } from "@ergo/protocol";
 import { isUnknownArg, TOOL } from "../guard/index.ts";

@@ -1,10 +1,10 @@
-// 运营方案（130 号票，ADR-0028）的名字和纯函数，守护进程和 Web 共用，不引用 TypeBox（schema 在 operations-schema.ts）：
+// 运营方案（ADR-0028）的名字和纯函数，守护进程和 Web 共用，不引用 TypeBox（schema 在 operations-schema.ts）：
 // - 运营方案：项目转入使用后怎么运转。由项目的负责人起草（propose_operations），用户在卡上确认一次就全部生效——确认就是授权，
 //   之后照方案跑，不再逐项问。建设期间交的出现在"首版做完了"卡上（主按钮"确认并转入使用"）；使用中的项目交新的一份，
 //   运行时比出差异出"运营方案变更"卡，确认后照差异生效；
 // - 一份方案由若干条组成，每一条用一种运营手段。手段做成登记表（守护进程的 operations/means.ts：校验、给人看的说法、生效、撤销、
 //   暂停和恢复），"运营模式不限"靠它落实：二狗现在能做的全部登记上（定时触发的任务、事件触发的任务），以后有新的往表里加；
-//   还做不了的（公网入口，第二阶段）也登记着、标成要用户手动，卡上写明，不假装生效；项目自己的服务 133 号票起能上线到 LSM 了
+//   还做不了的（公网入口，第二阶段）也登记着、标成要用户手动，卡上写明，不假装生效；项目自己的服务能上线到 LSM 了
 //   （运营手段"服务"，这一条带 service，下面 OPERATION_SERVICE_MEANS 起的几个名字）；
 // - 每一条写明名字、手段、触发、每次做什么（交给负责人的工单内容）、要的能力、失败时怎样。要的能力（联网、bash、skill、MCP、
 //   给秘书发消息）不能超出项目的工具包（capabilitiesBeyond）。
@@ -130,7 +130,7 @@ export function operationLine(item: { name: string; triggerText: string; approac
   return t("protocol.operations.line", { name: item.name, trigger: item.triggerText, approach: OPERATION_APPROACH_LABEL[item.approach] });
 }
 
-// ---- 运营手段"服务"（133 号票）：项目做成一个服务，确认后到 LSM 上线，有网页的经二狗转发、项目卡片上有入口 ----
+// ---- 运营手段"服务"：项目做成一个服务，确认后到 LSM 上线，有网页的经二狗转发、项目卡片上有入口 ----
 
 /** 运营手段"服务"的编号（登记表里的 id，方案里每一条的 means 写的） */
 export const OPERATION_SERVICE_MEANS = "service";

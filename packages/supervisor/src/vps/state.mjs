@@ -1,4 +1,4 @@
-// `lsm vps setup` 的本机状态文件（321 号票）：数据目录里的 vps-setup.json。
+// `lsm vps setup` 的本机状态文件：数据目录里的 vps-setup.json。
 //
 // 记的是"在哪台 VPS 上、按哪种方式、装到了哪一步、装了什么、最后一次验收怎样"——status、remove、重跑接着做都靠它。
 // VPS 上另有一份清单（/etc/ergo-vps/*.env，脚本自己写），记"装之前原来有什么"，remove 照它原样撤；两份互相印证，
@@ -13,7 +13,7 @@ export const STATE_VERSION = 1;
 export const MODES = ['headscale', 'tunnel'];
 
 /**
- * modes：lsm vps setup 搭的（tunnel / headscale）；sites：lsm vps site add 加的站点（322），按站点名；
+ * modes：lsm vps setup 搭的（tunnel / headscale）；sites：lsm vps site add 加的站点，按站点名；
  * claimed：lsm vps scan 认领的、VPS 上原来就有的站点和证书（只记下来盯到期日，不归这里管、不撤）。
  */
 export function emptyState() {

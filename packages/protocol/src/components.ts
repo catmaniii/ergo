@@ -1,7 +1,7 @@
-// 组件（323 号票，议题 26"安装包、组件和源码安装"）：模型、语音这些大件不放进安装包，装完按需下载。
+// 组件（议题 26"安装包、组件和源码安装"）：模型、语音这些大件不放进安装包，装完按需下载。
 // 组件清单是随版本发布的一份数据（守护进程的 src/components/manifest.json）：每个组件的版本、大小、几个下载地址、校验值、装到哪、
 // 打开哪些功能、依赖哪些别的组件、默认装不装（默认装 / 问了再装 / 检测到才装）。下载器在守护进程里一份，网页（设置 · 组件）和
-// 以后的 `ergo components` 命令（318 号票）都经同一套 HTTP 接口：
+// 以后的 `ergo components` 命令都经同一套 HTTP 接口：
 // - GET /api/components：清单里的全部组件现在的样子（ComponentsView）；
 // - POST /api/components：装上照默认该装的、查一次有没有新版本（ComponentsActionBody，components-schema.ts）；
 // - POST /api/components/<id>：装、更新、删、暂停、继续、取消，常驻服务的启动、停止（ComponentActionBody；要确认许可的组件第一次下载要带 licenseAccepted）；
@@ -59,7 +59,7 @@ export interface ComponentProgress {
 }
 
 /**
- * 组件的许可（345 号票）：名字、一句话、原文链接。confirm 的组件第一次下载前要用户看到并确认（接口要带 licenseAccepted，
+ * 组件的许可：名字、一句话、原文链接。confirm 的组件第一次下载前要用户看到并确认（接口要带 licenseAccepted，
  * 没带不开始下载；确认过的记在组件区，以后不再问）；attribution 是许可要求显著标注的那句（"Built with Fish Audio"），不翻译。
  */
 export interface ComponentLicenseView {
@@ -73,7 +73,7 @@ export interface ComponentLicenseView {
 }
 
 /**
- * 常驻服务现在怎样（345 号票；清单里写了 service 的程序组件才有）：
+ * 常驻服务现在怎样（清单里写了 service 的程序组件才有）：
  * idle 还接不上（还没有模型，或者已有用户自己配的服务）；starting 正在生成配置、登记、启动、等健康检查；
  * running 在跑；stopped 没在运行；failed 没接上或者起不来（原因在 error，已经回滚）
  */
@@ -151,7 +151,7 @@ export interface ComponentView {
   note?: string;
   /** 常驻服务现在怎样（程序组件装好了才有） */
   service?: ComponentServiceView;
-  /** 下载失败、暂停着时：还差的文件和它们的下载地址，可以自己下好再从文件导入（345 号票：国内访问 GitHub 可能慢或不通） */
+  /** 下载失败、暂停着时：还差的文件和它们的下载地址，可以自己下好再从文件导入（国内访问 GitHub 可能慢或不通） */
   manualDownload?: ComponentManualFile[];
 }
 
@@ -175,7 +175,7 @@ export interface ComponentFeatureGate {
 }
 
 /**
- * 查更新（347 号票，ADR-0042）：组件页的"检查更新"和每晚的内部作业查的是同一份东西。有新版本只提醒，点了"更新"才换；
+ * 查更新（ADR-0042）：组件页的"检查更新"和每晚的内部作业查的是同一份东西。有新版本只提醒，点了"更新"才换；
  * 没查成只写在这里（组件页上一行字），不进待办、不算出错
  */
 export interface ComponentUpdatesView {
@@ -200,7 +200,7 @@ export interface ComponentUpdateNoticeData {
 export interface ComponentsView {
   components: ComponentView[];
   features: ComponentFeatureGate[];
-  /** 组件清单本身：随哪一版发布、签没签名（发布钥匙的签名由 318 号票发版时加；没签名的照用，界面上写明） */
+  /** 组件清单本身：随哪一版发布、签没签名（发布钥匙的签名发版时加；没签名的照用，界面上写明） */
   manifest: { release: string; signed: boolean };
   /** 照默认该装、还没装的（"装上默认的组件"那个按钮装它们） */
   defaultsMissing: string[];

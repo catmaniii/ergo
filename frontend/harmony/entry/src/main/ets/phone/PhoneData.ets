@@ -11,14 +11,14 @@ import { PhoneLocation } from './PhoneLocation';
 import { PhonePhotos } from './PhonePhotos';
 
 /**
- * 读本机（299 号票）：二狗的网页经原生桥调（NativeBridge.ets 的 phone* 几个方法），读到的交回网页，网页再交给用户自己的守护进程
+ * 读本机：二狗的网页经原生桥调（NativeBridge.ets 的 phone* 几个方法），读到的交回网页，网页再交给用户自己的守护进程
  * （POST /api/data-sources/<id>/push）；App 自己不存、不另外发到别处。网页一侧的包装在 packages/web/src/app/native-phone.ts。
  * - 通讯录选人：系统的选人界面（contact.selectContacts，不用通讯录权限、不批量读整个通讯录），只取用户挑的人的称呼、电话、生日、地址；
  * - 手机日历：READ_WHOLE_CALENDAR（读全部日历账户的日程；只有 READ_CALENDAR 读不到别的应用、系统日历里建的），用到时弹系统的授权框，
  *   拒过的只有用户自己点（userAction）才拉起二次授权（requestPermissionOnSetting）；只读 [from, to) 里的，重复的展开成每一次
  *   （queryEventInstances），只取标题、开始结束、全天、地点、哪个日历。
- * 300 号票：照片的时间地点（PhonePhotos.ets）、位置（PhoneLocation.ets）也挂在这里（photos、location），共用的在 PhoneCommon.ets。
- * 308 号票：两者共用一个坐标转地名（PhoneGeocode.ets，geocoder：缓存、暂停一处管），"常去的地方"按地名找也经它。
+ * 照片的时间地点（PhonePhotos.ets）、位置（PhoneLocation.ets）也挂在这里（photos、location），共用的在 PhoneCommon.ets。
+ * 两者共用一个坐标转地名（PhoneGeocode.ets，geocoder：缓存、暂停一处管），"常去的地方"按地名找也经它。
  */
 
 /** 读全部日历的权限（受限权限：调试包走自动签名，上架要审核） */
@@ -72,7 +72,7 @@ function clean(value: string | undefined): string {
 }
 
 /**
- * 选人界面交回的联系人里的生日（304 号票在 HarmonyOS 6.1.1 模拟器上核对过）：系统通讯录存的 labelId 和 SDK 的 contact.Event 常量对不上——
+ * 选人界面交回的联系人里的生日（在 HarmonyOS 6.1.1 模拟器上核对过）：系统通讯录存的 labelId 和 SDK 的 contact.Event 常量对不上——
  * 通讯录里的"生日"是 1、"农历生日"是 2、"周年纪念"是 3（SDK 里 1 是 EVENT_ANNIVERSARY、3 是 EVENT_BIRTHDAY），vCard 导入的生日也是 1，
  * 照 SDK 常量取会把周年纪念当成生日、真的生日漏掉。所以先认系统写的 labelName（"生日"、"Birthday"），没写 labelName 的按通讯录的 1 认；
  * 农历生日不要：eventDate 是那一年农历那天对应的公历，年年不一样，档案里的生日是按公历每年提醒的。
@@ -97,7 +97,7 @@ function birthdayOf(events: contact.Event[] | undefined): string | undefined {
 }
 
 /**
- * 全天日程的开始、结束换成本机时区那一天的零点（304 号票在模拟器上核对过）：系统日历把全天日程按 UTC 零点存，日历界面建的、导入的都一样
+ * 全天日程的开始、结束换成本机时区那一天的零点（在模拟器上核对过）：系统日历把全天日程按 UTC 零点存，日历界面建的、导入的都一样
  * （10-28 全天 = 10-28T00:00Z ~ 10-29T00:00Z）；东八区的 UTC 零点是早上 8 点，结束落在第二天里，二狗按本地日子算就多出一天。
  * 不是 UTC 零点的原样不动。不引用模块里别的东西（frontend/test/harmony.test.ts 把这个函数单拿出来跑）
  */
@@ -112,11 +112,11 @@ function localDayStart(ms: number): number {
 export class PhoneData {
   private context: common.UIAbilityContext;
   private settings: AppSettings;
-  /** 照片的时间地点（300 号票） */
+  /** 照片的时间地点 */
   readonly photos: PhonePhotos;
-  /** 位置（300 号票） */
+  /** 位置 */
   readonly location: PhoneLocation;
-  /** 坐标转地名（308 号票，照片、位置共用；"常去的地方"按地名找） */
+  /** 坐标转地名（照片、位置共用；"常去的地方"按地名找） */
   readonly geocoder: PhoneGeocoder;
 
   constructor(context: common.UIAbilityContext, settings: AppSettings) {

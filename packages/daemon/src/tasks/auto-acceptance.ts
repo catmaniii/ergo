@@ -1,4 +1,4 @@
-// 阶段自动验收（112 号票，用户 2026-10-13 定：先是项目里的任务，同日扩到所有长程任务；哪些任务算见协议包的 stagesAutoAccepted）：
+// 阶段自动验收（先是项目里的任务，同日扩到所有长程任务；哪些任务算见协议包的 stagesAutoAccepted）：
 // 纯函数和说法。
 // - userCriteriaProblems：计划检查（plan-projects.ts）拒收长程任务里没验收的阶段写的由你验收（user），提交计划、计划变更、
 //   自行调整都过它（已验收的阶段不管：升级前由你验收过的不能再改，也不用改；重做重开了的，执行控制器重开时就改成评审了）；
@@ -6,7 +6,7 @@
 //   （execution.ts 的 autoAcceptStages）据此记一版运行时调整的计划；
 // - convertedCriteria：现在生效的计划里哪几条是原定由你验收、按新规矩改由评审的（看确认过的各版计划），验收结论卡上写明；
 // - 说法：退回的原因、事项记成处理过的说明、结论卡上的说明、时间线上的一笔。
-// 172 号票：退回负责人的照旧中文；事项的处理结果（handed）按字认，不跟着语言变（显示时 inboxActionText 换）；别的按当时的语言写
+// 退回负责人的照旧中文；事项的处理结果（handed）按字认，不跟着语言变（显示时 inboxActionText 换）；别的按当时的语言写
 import { type Plan, t } from "@ergo/protocol";
 
 export const AUTO_ACCEPTANCE_TEXT = {

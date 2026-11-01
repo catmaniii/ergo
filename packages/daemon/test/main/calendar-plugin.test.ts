@@ -1,11 +1,11 @@
-// 主切面：日历插件（213 号票，ADR-0027；用户 2026-10-20："把内置浏览器和网页工具，日历和语音这三个拆成插件，其他都不拆"）。
+// 主切面：日历插件（ADR-0027；"把内置浏览器和网页工具，日历和语音这三个拆成插件，其他都不拆"）。
 // 走真实的装配路径：经组合根和插件清单起守护进程，停用只经数据目录配置的 plugins.disabled 或设置 · 插件的接口，不手挂插件。
-// 日历只是按天合起来看的视图（35 号票），不拥有数据；工作日历、工作日判定、定时作业是内核的，不跟着它停。
-// - 默认全开：日历插件在运行，按月取照常（35 号票的 calendar.test.ts 原样过）；设置里看得到：一句话，不带给二狗的工具、卡片，没有"连数据删"；
+// 日历只是按天合起来看的视图，不拥有数据；工作日历、工作日判定、定时作业是内核的，不跟着它停。
+// - 默认全开：日历插件在运行，按月取照常（calendar.test.ts 原样过）；设置里看得到：一句话，不带给二狗的工具、卡片，没有"连数据删"；
 // - 配置里停用：守护进程照常起（不算降级），按月取回"日历插件没启用"（插件没启用的现有说法）；工作日历照常改；
 // - 运行中停用、启用（设置 · 插件）：马上回"日历插件没启用"、启用后马上照常，写进配置；不连带提醒；
 // - 提醒插件是可选依赖（wants）：提醒停用时（运行中、配置里）日历照常给工作日判定和定时作业，只是没有提醒；提醒启用后又有；
-// - 移除：不能连数据删（日历不拥有数据，211 号票的勾选对它是空的），勾了回"日历插件没有可以一起删的数据"；不勾照常移除、装回。
+// - 移除：不能连数据删（日历不拥有数据，勾选对它是空的），勾了回"日历插件没有可以一起删的数据"；不勾照常移除、装回。
 import fs from "node:fs";
 import { type CalendarMonthView, CHANNELS, EVENT_TYPES, nowIso, type PluginStatusEventPayload, type ScheduledJobEventPayload } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
@@ -99,7 +99,7 @@ describe("日历插件", () => {
   });
 
   it("运行中停用、启用（设置 · 插件）：马上回\"日历插件没启用\"、写进配置，提醒照常；启用后马上照常、从配置里拿掉", async () => {
-    // 265 号票：给了 clock 时底座默认停掉记忆插件；这里看的是全部插件照常装时的状况和配置，打开
+    // 给了 clock 时底座默认停掉记忆插件；这里看的是全部插件照常装时的状况和配置，打开
     const td = await startTestDaemon({ clock: new ManualClock(START), memoryPlugin: true });
     const frontend = await connect(td);
     await jobAndReminder(td, frontend);
@@ -153,7 +153,7 @@ describe("日历插件", () => {
   });
 
   it("移除：勾了连数据删回\"日历插件没有可以一起删的数据\"、什么都不动；不勾照常移除（按月取回没启用），装回后照常", async () => {
-    // 265 号票：给了 clock 时底座默认停掉记忆插件；这里看的是全部插件照常装时的状况和配置，打开
+    // 给了 clock 时底座默认停掉记忆插件；这里看的是全部插件照常装时的状况和配置，打开
     const td = await startTestDaemon({ clock: new ManualClock(START), memoryPlugin: true });
     const refused = await act(td.url, "calendar", "remove", true);
     expect(refused.status).toBe(400);

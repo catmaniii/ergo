@@ -1,4 +1,4 @@
-// 网页这一侧的多语言（168 号票）：打包进去的自带语言、垫在守护进程给的词典下面、记在这台设备上、一打开就用上次的。
+// 网页这一侧的多语言：打包进去的自带语言、垫在守护进程给的词典下面、记在这台设备上、一打开就用上次的。
 import { afterEach, describe, expect, test } from "vitest";
 import { applyDictionary, appliedLocale, bootLocale, bundledLocale, layeredLocale } from "../../src/app/locale.ts";
 import { BUNDLED_LOCALES } from "../../src/app/locale-bundle.ts";

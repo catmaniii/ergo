@@ -1,4 +1,4 @@
-// 转发本机服务的页面（132 号票）：/apps/<应用名>/… 怎么拼、怎么拆，应用名的规矩。守护进程的转发和 Web 的内置浏览器都用这一份。
+// 转发本机服务的页面：/apps/<应用名>/… 怎么拼、怎么拆，应用名的规矩。守护进程的转发和 Web 的内置浏览器都用这一份。
 import { describe, expect, it } from "vitest";
 import { APP_BASE_PATH_ENV, APP_PREFIX_HEADER, appBasePath, appUrl, isAppName, parseAppPath } from "../src/index.ts";
 

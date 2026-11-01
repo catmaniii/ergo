@@ -5,7 +5,7 @@ import { DOMAIN, TAG } from '../common/AppSettings';
 import { originOf } from '../common/ServerAddress';
 
 /**
- * 浏览器的样子（134 号票）：网页的"浏览"页签据此画顶栏（地址、标题、进度、后退前进亮不亮）。
+ * 浏览器的样子：网页的"浏览"页签据此画顶栏（地址、标题、进度、后退前进亮不亮）。
  * browserAttach() 回它，变了 Index.ets 经 window.__ergoBrowser(json) 推 {type: "state", state}（网页一侧 packages/web/src/app/native-browser.ts）
  */
 export interface BrowserStateMessage {
@@ -68,7 +68,7 @@ export function isWebUrl(url: string): boolean {
 }
 
 /**
- * 原生的内置浏览器（134 号票，"浏览"页签）：另一个 ArkWeb 的 Web 组件，叠在二狗的网页上面、盖住"浏览"页签的内容区
+ * 原生的内置浏览器（"浏览"页签）：另一个 ArkWeb 的 Web 组件，叠在二狗的网页上面、盖住"浏览"页签的内容区
  * （位置大小由网页经原生桥 browserLayout 报来，Index.ets 摆）。这里是它的状态和动作，Web 组件本身在 Index.ets 的 BrowserPage。
  * - 不挂二狗的原生桥（NativeBridge）：外部网页拿不到二狗的任何原生能力；
  * - 只开 http、https；别的协议（tel:、mailto:、App 跳转）交给系统；

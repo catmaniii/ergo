@@ -1,5 +1,5 @@
 /**
- * 会话历史：同一份内容在三档缩放层级间一镜到底（54 号票，规格第 19 节"会话区"）。
+ * 会话历史：同一份内容在三档缩放层级间一镜到底（规格第 19 节"会话区"）。
  *
  * 通用骨架：
  * - viewport（滚动）> sizer（撑出缩放后的高度）> content（整体 scale），缩放由 zoom.ts 的 ZoomController 逐帧写 CSS 变量，不触发 React 渲染；
@@ -11,34 +11,34 @@
  * - zoomTo（标题栏的 ▤ / 💬，以视口中心为焦点）、reveal（在对话中定位）、报告正在看哪一条（视口 40% 高处）；
  * - 右侧标注逐条定位、画箭头（layoutAnnotations 里风险标注那一段：按锚点高度对齐，上一条挤住就往下让，箭头指回去）；
  * - 缩小后输入框淡出，换成一条图例。
- * 条目换成二狗的（52 号票会话条目层的 ChatItem，对话层怎么画由外面传进来）。
- * 分支和回退（150 号票起有回退点和 ⑂，见下）；同类操作折叠用的是二狗的工具调用组（52 号票）；
+ * 条目换成二狗的（会话条目层的 ChatItem，对话层怎么画由外面传进来）。
+ * 分支和回退（有回退点和 ⑂，见下）；同类操作折叠用的是二狗的工具调用组；
  * 阶段框折叠、固定计划的"接下来的计划"虚线框属于两种任务的界面。
  * 写法上照 lint（React 的 refs、immutability 规则）：外面传进来的回调渲染完再写进 ref；
  * "条目变了、换了档、缩放停稳之后重新排标注"是每次渲染后排一次加上停稳时排一次；flash、layoutAnnotations 在组件外面。
  *
- * 57 号票：工具调用组只存在于对话层——对话层是一行"调用了 N 个工具 ›"（.zi-grouprow），缩小后不按组（每次调用各是一条）：
+ * 工具调用组只存在于对话层——对话层是一行"调用了 N 个工具 ›"（.zi-grouprow），缩小后不按组（每次调用各是一条）：
  * 组里每次调用、每段思考各画一块（.zi-step），性质、小圆点、右侧标注都按这一次算；哪样显示由 data-level 决定，同同类折叠
  * 的做法（.zh[data-level="0"] .zi-folded 隐藏）。跨过对话层那一档时内容高度会变，焦点按组里的比例换算到新布局（zoom.ts 的
  * onLevelLayout），手指下面的内容不跳走。缩小着点一块：放大回去落在组那一行、闪那一行，打开这一次调用的详情。
  *
- * 55 号票：缩小后条外的装饰（数据由状态层的 zoomDecor 给，state/zoom-decor.ts）——
+ * 缩小后条外的装饰（数据由状态层的 zoomDecor 给，state/zoom-decor.ts）——
  * - 右侧标注连着一样的只在第一块标、写 ×N（.zd-repeat）；验收通过的不标（书脊变绿就是通过了，sideMarks）；
  * - 左侧任务卡、工单卡（.zd-left > .zd-task），点开看完整情况（decor.tsx）；
  * - 底色带（.zh-band，placeBands 摆到起止两条之间，横向铺满视口）和左缘竖排的标签（.zh-band-labels，每帧摆到露出那一段的中间）；
  * - 书脊（.zh-spine：贴着条左边的窄色条，一轮一段，颜色是这一轮的结果；阶段名每帧摆到这一段露出部分的中间，挤住了往下让）；
  * - 重开之前的那几轮淡一点、标"已废弃"（.zi-stale）；图例补上书脊的颜色。
  * 起止落在工具调用组上时：对话层是组那一行，缩小后是组里第一块、最后一块（edgeEl）；跨档时重新摆。
- * 阶段会话条外的图标标注跟着阶段框（StageNoteChips，见 91 号票）。书脊名避让撤回箭头见 150 号票。
+ * 阶段会话条外的图标标注跟着阶段框（StageNoteChips）。书脊名避让撤回箭头
  *
- * 60 号票：流程的会话画固定计划的"接下来的计划"虚线框（future：放在内容最后、跟着一起缩放，样子在 ui/zoom/future.tsx 和 zoom.css）；
+ * 流程的会话画固定计划的"接下来的计划"虚线框（future：放在内容最后、跟着一起缩放，样子在 ui/zoom/future.tsx 和 zoom.css）；
  * 它的敏感标注和条右侧的标注一起排版（layoutAnnotations 认 .zd-right，不管它挂在条上还是挂在虚线框的一格上）。
  *
- * 91 号票：长程任务的会话按阶段成框——
+ * 长程任务的会话按阶段成框——
  * - 照常显示的之外，每段后台事项收成一个阶段框（状态层 stageBoxes 给，框的样子在 ui/conversation/StageBox.tsx）；框在三档里是同一块
  *   （.zi-stage：对话层是框，要点层写"第 N 阶段 标题"，全局层是色块），收着的阶段里的每一条三档都不画，条外的标注一类一条、
  *   指向框上那个图标（StageNoteChips）；展开了，这一块只剩框头，下面逐条画每次操作（.zi-grp-open，接着框左边那道颜色）；
- * - 框里的工具调用组每次操作一行：三档都画组里每次调用、每段思考那几块（57 号票缩小后的样子），组那一行不画；
+ * - 框里的工具调用组每次操作一行：三档都画组里每次调用、每段思考那几块（缩小后的样子），组那一行不画；
  *   对话层里点一块打开那一次调用的详情；
  * - 书脊、底色带的上下沿：收着的框里的事落在框上，一个框里的事上沿从框顶开始（stageBoxEdge、stageBoxSpines）；
  * - 屏幕停在框上时，报给外面的是框里最后一件事（.sbox 的 data-focus-id），标题栏的阶段标签跟着它；
@@ -48,21 +48,21 @@
  * 缩小状态下停稳时已经在顶上也取；取回来之后视口里那一条的下沿留在原处（锚点按条目 id 存，用 locateChatItem 找：
  * 一组调用跨两页时，翻回来之后组的 id 会变，下沿不变）。
  *
- * 150 号票：会话回退（数据由状态层的 zoomRollbacks、zoomForks 给，能回退的会话才有）——
+ * 会话回退（数据由状态层的 zoomRollbacks、zoomForks 给，能回退的会话才有）——
  * - 回退点：条左边的 ↶（.zd-left > .zd-rollback），缩小后才看得见；一条直线指到它撤回的那条分界线（layoutAnnotations
  *   里回退点那一段：挨太近时只向左让位，线随之变长；有书脊时线停在书脊外沿）；点了弹出确认（rollback.tsx 的 RollbackDialog）；
  * - 分叉点：条右边的 ⑂ 小方块（.zd-fork > .zd-ab-dot，分支收着的样子），同一处几条分支横着排；
  * - 书脊名避让撤回箭头（placeLabels）。
  *
- * 151 号票：废弃分支（AbandonedStub、SwapOverlay、measureCol 在 ui/zoom/branches.tsx，数据在状态层 abandoned-branch.ts）——
+ * 废弃分支（AbandonedStub、SwapOverlay、measureCol 在 ui/zoom/branches.tsx，数据在状态层 abandoned-branch.ts）——
  * - 点 ⑂ 展开：这条分支按主线同一套 DOM（ZItem 去掉条外的装饰，bare）、同一宽度原尺寸画出来，上方"⑂ 另一条分支 · N 段 ▾"、
- *   "切换到这条分支"；layoutAnnotations 把展开的面板挪到右侧标注右边，放不下先收窄、再往左挪（360 号票，layoutPanels），还被压住的标注收窄或藏起来；
- *   缩小后伸到最后一条下面的面板也算进滚动范围（108 号票的 sizer 裁掉了伸出去的）；点分支打开它的详情（branches.open）；
+ *   "切换到这条分支"；layoutAnnotations 把展开的面板挪到右侧标注右边，放不下先收窄、再往左挪（layoutPanels），还被压住的标注收窄或藏起来；
+ *   缩小后伸到最后一条下面的面板也算进滚动范围（sizer 裁掉了伸出去的）；点分支打开它的详情（branches.open）；
  * - 切换（switchBranch）：先量好从分叉处起的当前这一段和预览条，交给守护进程；当前分支变成切过去的那条、条目到了之后再量新布局，
  *   倒着放 SwapOverlay（等 items 变，还要等当前分支变了——切换要几秒，期间流式的回复、停下的那一轮也会让 items 变）。
  *   只数主干上的块（:scope > .zi，预览复用了同一套 .zi），切不成就把动画收掉。
  *
- * 108 号票：滚到最后一条就停，右下角"回到最新"的 ↓（规矩在状态层 state/scroll-end.ts）——
+ * 滚到最后一条就停，右下角"回到最新"的 ↓（规矩在状态层 state/scroll-end.ts）——
  * - 原来内容里伸到内容外面的东西也撑滚动范围：对话层看不见的右侧标注在它那一条旁边往下叠（一组调用的标注能叠好几百像素）、
  *   缩小后被挤下去的标注和箭头，滚到底还能往下滚出一大片空白。sizer 把伸出去的裁掉（zoom.css），缩小后伸到最后一条下面、看得见的
  *   标注和左侧的卡算进"只在缩小时出现的尾部区域"（setContentHeight 的 extra，原本给"接下来的计划"留的，原来一直是 0）：
@@ -144,7 +144,7 @@ interface Props {
   /** 对话层里一条的完整内容 */
   renderItem(item: ChatItem): ReactNode;
   /**
-   * 缩小后组里一块（一次调用、一段思考）的对话层内容（57 号票）：只在跨档淡入淡出的那一下看得见，撑出这一块的高度
+   * 缩小后组里一块（一次调用、一段思考）的对话层内容：只在跨档淡入淡出的那一下看得见，撑出这一块的高度
    * （每次调用的矩形高度就是它工具行的高度）
    */
   renderBlock(block: ZoomBlock): ReactNode;
@@ -158,7 +158,7 @@ interface Props {
   head?: ReactNode;
   /** 内容最后面（正在合成的语音、"正在回复…"） */
   tail?: ReactNode;
-  /** 流程的"接下来的计划"虚线框（60 号票）：在内容最后，跟着一起缩放 */
+  /** 流程的"接下来的计划"虚线框：在内容最后，跟着一起缩放 */
   future?: ReactNode;
   footer?: ReactNode;
   older?: OlderHistory;
@@ -172,23 +172,23 @@ interface Props {
   initialLevel?: ZoomLevel;
   /** 对话层滚动时，屏幕上正在看的那一条（视口 40% 高处）；atBottom = 停在最新一条 */
   onFocusChat?(chatId: string | undefined, atBottom: boolean): void;
-  /** 缩小后条外的装饰（55 号票：×N、左侧的卡、底色带、书脊、已废弃），状态层的 zoomDecor 给 */
+  /** 缩小后条外的装饰（×N、左侧的卡、底色带、书脊、已废弃），状态层的 zoomDecor 给 */
   decor?: ZoomDecor | undefined;
   /** 打开某一条的详情（左侧任务卡点开后"看计划详情"；阶段框里点一次操作、点收着的框的标注） */
   onDetail?: ((id: string) => void) | undefined;
-  /** 长程任务的会话按阶段成框（91 号票）：状态层 stageBoxes 给的每个框；不给就照旧逐条画 */
+  /** 长程任务的会话按阶段成框：状态层 stageBoxes 给的每个框；不给就照旧逐条画 */
   boxes?: readonly StageBoxView[] | undefined;
   /** 框上的"验收和规则 ›"、收着的框上合起来好几件的标注：打开这个阶段的详情 */
   onStage?: ((stageId: string) => void) | undefined;
-  /** 能在这里回退的会话（150 号票）：给了才画回退点（decor.rollbacks），点了弹确认、交给守护进程；只读的会话不给 */
+  /** 能在这里回退的会话：给了才画回退点（decor.rollbacks），点了弹确认、交给守护进程；只读的会话不给 */
   rollbackIn?: ConversationId | undefined;
-  /** 废弃分支（151 号票）：给了 ⑂ 才点得开（预览、点分支打开详情）；switchTo 切过去（只读的会话不给） */
+  /** 废弃分支：给了 ⑂ 才点得开（预览、点分支打开详情）；switchTo 切过去（只读的会话不给） */
   branches?: BranchActions | undefined;
-  /** 现在的当前分支（151 号票）：切换的双向动画等它变成切过去的那条才量新布局 */
+  /** 现在的当前分支：切换的双向动画等它变成切过去的那条才量新布局 */
   currentBranch?: string | undefined;
 }
 
-/** 废弃分支上能做的（151 号票）：在哪个会话、打开一条分支的详情、切过去（等守护进程做完；切不成拒绝） */
+/** 废弃分支上能做的：在哪个会话、打开一条分支的详情、切过去（等守护进程做完；切不成拒绝） */
 export interface BranchActions {
   conversation: ConversationId;
   open?: ((branchId: string) => void) | undefined;
@@ -206,7 +206,7 @@ interface OlderAnchor {
   firstId: string | undefined;
 }
 
-/** 一个矩形要的东西：条目，或者缩小后组里的一块（57 号票） */
+/** 一个矩形要的东西：条目，或者缩小后组里的一块 */
 interface ZView {
   id: string;
   content: ContentKind;
@@ -221,7 +221,7 @@ interface ZView {
   group?: { id: string; role: "row" | "step" } | undefined;
 }
 
-/** 一块矩形条外的东西（55 号票）：右侧标注的 ×N（0 是并进了前面那一块）、左边的卡、重开之前的（已废弃）、回退点和分叉点（150 号票） */
+/** 一块矩形条外的东西：右侧标注的 ×N（0 是并进了前面那一块）、左边的卡、重开之前的（已废弃）、回退点和分叉点 */
 interface ZSide {
   repeat: number | undefined;
   left: ZoomLeftCard | undefined;
@@ -232,12 +232,12 @@ interface ZSide {
   /** 条右边的 ⑂：从这里分出去的废弃分支 */
   forks: readonly ZoomFork[] | undefined;
   onRollback(point: ZoomRollbackPoint): void;
-  /** ⑂ 点开要的（151 号票）；不给（没接废弃分支的地方）只标出来 */
+  /** ⑂ 点开要的；不给（没接废弃分支的地方）只标出来 */
   stub: StubHost | undefined;
 }
 
 /**
- * 一条在哪个阶段框里（91 号票）：open = 框展开着；start / end = 框里第一行、最后一行的 id
+ * 一条在哪个阶段框里：open = 框展开着；start / end = 框里第一行、最后一行的 id
  * （工具调用组拆成每次调用之后的）；first = 框里第一条（它的左侧卡挂在框上）；cls = 框的完成情况（接着框左边那道颜色）
  */
 interface ZGrp {
@@ -266,12 +266,12 @@ function ZItemView({
   fresh: boolean;
   above: ReactNode;
   side: ZSide;
-  /** 阶段框里的那几个类（91 号票） */
+  /** 阶段框里的那几个类 */
   extra?: string;
-  /** 对话层里点这一块：阶段框里的一次调用、一段思考打开它的详情（91 号票） */
+  /** 对话层里点这一块：阶段框里的一次调用、一段思考打开它的详情 */
   onOpen?: (() => void) | undefined;
   /**
-   * 废弃分支预览里的一条（151 号票）：只有三层，不带条外的装饰、小圆点；也不带 data-chat-id 这些
+   * 废弃分支预览里的一条：只有三层，不带条外的装饰、小圆点；也不带 data-chat-id 这些
    * （主干上按它们找条、定位、点中放大、报看到哪了，预览里的不算）
    */
   bare?: boolean;
@@ -285,7 +285,7 @@ function ZItemView({
   return (
     <>
       {above}
-      {/* data-item：条目层的 id（56 号票的详情页按它打开、定位）；data-group：工具调用组（57 号票，对话层一行、缩小后逐次画） */}
+      {/* data-item：条目层的 id（详情页按它打开、定位）；data-group：工具调用组（对话层一行、缩小后逐次画） */}
       <div
         className={`zi k-${view.content} ck-${view.kind}${view.tone ? ` t-${view.tone}` : ""}${group ? ` zi-${group.role === "row" ? "grouprow" : "step"}` : ""}${stale ? " zi-stale" : ""}${extra}`}
         data-chat-id={bare ? undefined : view.id}
@@ -318,7 +318,7 @@ function ZItemView({
         {(left || (rollbacks?.length ?? 0) > 0) && (
           <div className="zd-left">
             {left && <LeftCardHead card={left} onOpen={side.onOpenCard} />}
-            {/* 回退点（150 号票）：条边上的一个小图标，点一下弹出确认；引线由 layoutAnnotations 画 */}
+            {/* 回退点：条边上的一个小图标，点一下弹出确认；引线由 layoutAnnotations 画 */}
             {rollbacks?.map((p) => (
               <button
                 key={rollbackKey(p)}
@@ -339,7 +339,7 @@ function ZItemView({
             ))}
           </div>
         )}
-        {/* 分叉点（150 号票）：从这里分出去的废弃分支，一条一个小方块，同一处几条横着排；点开是整条分支（151 号票） */}
+        {/* 分叉点：从这里分出去的废弃分支，一条一个小方块，同一处几条横着排；点开是整条分支 */}
         {forks && forks.length > 0 && (
           <div className="zd-fork">
             {forks.map((f) =>
@@ -358,7 +358,7 @@ function ZItemView({
   );
 }
 
-/** 一个回退点的 key：回到哪一条之前（消息、分支开始、阶段开始，152 号票） */
+/** 一个回退点的 key：回到哪一条之前（消息、分支开始、阶段开始） */
 const rollbackKey = (p: ZoomRollbackPoint) => `${p.label}:${"messageId" in p.before ? p.before.messageId : "branchId" in p.before ? p.before.branchId : p.before.stageStart}`;
 
 /** 一块缩小后的样子：调用按这一次算性质、小圆点、标注（不是组里取最重的）；思考是思考的底色 */
@@ -370,7 +370,7 @@ function blockView(block: ZoomBlock): ZView {
 
 /**
  * 条目没变就不重画（缩放跨档、别的频道来了事件时，几百条不必每条都重画）。
- * 工具调用组画成两样（57 号票）：对话层那一行（性质、小圆点按组里最重的），和缩小后组里每次调用、每段思考各一块；
+ * 工具调用组画成两样：对话层那一行（性质、小圆点按组里最重的），和缩小后组里每次调用、每段思考各一块；
  * 哪样显示由 .zh 的 data-level 决定（zoom.css），同同类折叠的做法（对话层隐藏、缩小后逐条出现）
  */
 const ZItem = memo(function ZItem({
@@ -395,23 +395,23 @@ const ZItem = memo(function ZItem({
   renderBlock(block: ZoomBlock): ReactNode;
   decor: ZoomDecor | undefined;
   onOpenCard(card: ZoomLeftCard): void;
-  /** 点了条左边的 ↶（150 号票）；不给（只读、不能回退的会话）就不画回退点 */
+  /** 点了条左边的 ↶；不给（只读、不能回退的会话）就不画回退点 */
   onRollback: ((point: ZoomRollbackPoint) => void) | undefined;
-  /** 在哪个阶段框里（91 号票） */
+  /** 在哪个阶段框里 */
   grp?: ZGrp | undefined;
   /** 阶段框里点一次调用、一段思考：打开它的详情 */
   onOpenBlock?: ((id: string) => void) | undefined;
-  /** 阶段框里的验收结论：画成一行横条，不画整张进度卡（93 号票） */
+  /** 阶段框里的验收结论：画成一行横条，不画整张进度卡 */
   strip?: VerdictStrip | undefined;
-  /** ⑂ 点开要的（151 号票） */
+  /** ⑂ 点开要的 */
   stub?: StubHost | undefined;
-  /** 废弃分支预览里的一条（151 号票）：只有三层 */
+  /** 废弃分支预览里的一条：只有三层 */
   bare?: boolean;
 }) {
-  // memo 了：换了语言自己也要重画（168 号票）
+  // memo 了：换了语言自己也要重画
   useLocale();
   const blocks = zoomBlocks(item);
-  // 阶段框里的工具调用组（91 号票）：三档都画组里每一块，组那一行不画（.zi-boxrow / .zi-boxstep）
+  // 阶段框里的工具调用组：三档都画组里每一块，组那一行不画（.zi-boxrow / .zi-boxstep）
   const boxed = grp !== undefined && blocks.length > 0;
   // 左边的卡挂在这一条上；工具调用组缩小后那一行藏着，挂到组里第一块（卡只在缩小后看得见）。
   // 阶段框里的：框收着时、框里第一条的，挂在框上（阶段的第一条的、收着的阶段里每一条的都挂在框上）
@@ -422,7 +422,7 @@ const ZItem = memo(function ZItem({
     left: withLeft ? left : undefined,
     stale: decor?.stale.has(id) ?? false,
     onOpenCard,
-    // 阶段框里的（152 号票）：框收着时每一条的、展开时框里第一条的回退点和 ⑂ 挂在框上
+    // 阶段框里的：框收着时每一条的、展开时框里第一条的回退点和 ⑂ 挂在框上
     //（框里第一条是工具调用组时，它和组里第一块的都算第一条的）
     rollbacks: onRollback && !onBox(id) ? decor?.rollbacks.get(id) : undefined,
     forks: onBox(id) ? undefined : decor?.forks.get(id),
@@ -465,7 +465,7 @@ const ZItem = memo(function ZItem({
 });
 
 /**
- * 阶段框在三档里是同一块（91 号票）：收着的阶段在三档里都只画这一块，条外的标注一类一条、指向框上那个图标；
+ * 阶段框在三档里是同一块：收着的阶段在三档里都只画这一块，条外的标注一类一条、指向框上那个图标；
  * 展开了，这一块只剩框头（对话层），要点层、全局层是写着"第 N 阶段 标题"的色块，下面逐条画每次操作
  */
 function StageZ({
@@ -487,7 +487,7 @@ function StageZ({
   open: boolean;
   above: ReactNode;
   left: ZoomLeftCard | undefined;
-  /** 挂在框上的回退点（152 号票）：收着时框里每一条的，展开时框里第一条的 */
+  /** 挂在框上的回退点：收着时框里每一条的，展开时框里第一条的 */
   rollbacks: readonly ZoomRollbackPoint[];
   /** 框底部的"⟲ 撤回到这一阶段开始前"（框里哪一条上的都算）：这个阶段开始的那个回退点 */
   undo: ZoomRollbackPoint | undefined;
@@ -603,7 +603,7 @@ function flash(el: Element) {
   setTimeout(() => el.classList.remove("flash"), 1600);
 }
 
-/** "在对话中定位"闪一下：56 号票的样子（detail.css 的 .dp-flash，底色加一圈同色外框） */
+/** "在对话中定位"闪一下：样子（detail.css 的 .dp-flash，底色加一圈同色外框） */
 function flashFrame(el: HTMLElement) {
   el.classList.remove("dp-flash");
   // 重新挂上才会再播一次
@@ -623,7 +623,7 @@ function markLong(content: HTMLElement) {
  * 右侧标注逐条定位、画箭头。缩放过程中每一帧都要重算（ctl.onScale），
  * 否则标注停在上一档算好的位置、色块却在缩放，箭头会偏得很离谱，停下来才跳回去。
  * （风险标注那一段；分支面板、回退点另算）。
- * 108 号票二狗加了返回值：最后（最低）那条标注的下沿（内容坐标，未缩放）；对话层、没有标注是 -Infinity
+ * 二狗加了返回值：最后（最低）那条标注的下沿（内容坐标，未缩放）；对话层、没有标注是 -Infinity
  */
 function layoutAnnotations(content: HTMLElement, ctl: ZoomController | null, viewport: HTMLElement | null): number {
   const level = ctl?.level ?? 0;
@@ -631,7 +631,7 @@ function layoutAnnotations(content: HTMLElement, ctl: ZoomController | null, vie
   // 标注按这一档排版、再整体缩放，所以它们内部的长度单位是 DS 像素
   const DS = 0.45;
   const k = DS / s;
-  // 展开的分支面板（151 号票）先摆：标注被它压住的要收窄、藏起来，要在排标注之前。
+  // 展开的分支面板先摆：标注被它压住的要收窄、藏起来，要在排标注之前。
   // 面板的宽度按这一档算（对话层看不见，按要点层算，往外捏时不用再折一次行）
   if (viewport) layoutPanels(content, viewport, DS, PRESETS[Math.max(1, Math.min(level, 2))]!);
   const contentTop = content.getBoundingClientRect().top;
@@ -643,7 +643,7 @@ function layoutAnnotations(content: HTMLElement, ctl: ZoomController | null, vie
   let bottom = -Infinity;
   for (const el of content.querySelectorAll<HTMLElement>(".zd-right")) {
     const item = el.parentElement!;
-    // 这一档藏起来的（工具调用组那一行在缩小后、组里的块在对话层，57 号票）：不占位置，也不挤别人
+    // 这一档藏起来的（工具调用组那一行在缩小后、组里的块在对话层）：不占位置，也不挤别人
     if (item.getClientRects().length === 0) continue;
     const it = item.getBoundingClientRect();
     const l0 = item.querySelector<HTMLElement>(".zi-l0");
@@ -705,7 +705,7 @@ const PANEL_EDGE = 10;
 const PANEL_MIN = 180;
 
 /**
- * 分支面板放不下时先收窄（360 号票：面板和主线一样宽、从主线右边接着画，要点层哪个宽度都伸出视口）：
+ * 分支面板放不下时先收窄（面板和主线一样宽、从主线右边接着画，要点层哪个宽度都伸出视口）：
  * 主线右边的留白够 PANEL_MIN 就收到刚好放下，主线不被盖住，还能对照；不够就保持这个宽度（本来就比它窄的不动），下一步往左挪。
  * 同一分叉点的几条平分；几条连整个视口都挤不下时才比下限窄。
  * 按这一档（sl）算、不按捏合中的实时比例，捏合过程中不重新折行（同 .zd-right 的 --sl）。收窄的面板里字多的条会多折一行，比主线的高一点
@@ -727,7 +727,7 @@ function fitPanelWidths(content: HTMLElement, fork: HTMLElement, own: readonly H
 }
 
 /**
- * 展开的分支面板（151 号票）：挪到风险标注右侧；放不下先收窄（fitPanelWidths），还放不下就往左挪，盖住一点主线（360 号票）。
+ * 展开的分支面板：挪到风险标注右侧；放不下先收窄（fitPanelWidths），还放不下就往左挪，盖住一点主线。
  * 挪完还被面板压住的标注收窄换行，连收窄都放不下的整条藏起来（只露半截残字比盖住更难看）。面板连同它上面那块头部
  * （分支名 + 切换按钮，绝对定位、不在面板的盒子里）一起算；压住面板的标注不一定在同一条上，纵向有交叠的都要躲开。
  * 标注的位置先全量完再一起写（逐个面板边量边写量到的位置也一样，只是慢）；没有展开的面板时只把上次留下的收窄、隐藏清掉
@@ -795,7 +795,7 @@ function spanOf(panel: HTMLElement) {
   return { left: Math.min(r.left, head.left), right: Math.max(r.right, head.right), top: Math.min(r.top, head.top), bottom: r.bottom };
 }
 
-/** 缩小后展开的分支面板最低的下沿（内容坐标，未缩放）：伸到最后一条下面的也要滚得到（108 号票的 sizer 裁掉了伸出去的）；对话层不算 */
+/** 缩小后展开的分支面板最低的下沿（内容坐标，未缩放）：伸到最后一条下面的也要滚得到（sizer 裁掉了伸出去的）；对话层不算 */
 function panelsBottom(content: HTMLElement, ctl: ZoomController | null): number {
   if (!ctl || ctl.level === 0) return -Infinity;
   let bottom = -Infinity;
@@ -808,7 +808,7 @@ const SPINE_W = 3;
 const SPINE_GAP = 3;
 
 /**
- * 撤回图标贴着条，用一条直线指到它撤回的那条分界线；挨太近时只向左让位，线随之变长（150 号票）。
+ * 撤回图标贴着条，用一条直线指到它撤回的那条分界线；挨太近时只向左让位，线随之变长。
  * 先全部清掉、一起量、再一起写（不逐个按钮清掉让位再量），结果不变（让位只把按钮往左挪，挪多少算得出来）
  */
 function layoutRollbacks(content: HTMLElement, level: number, s: number, k: number, DS: number) {
@@ -848,7 +848,7 @@ function layoutRollbacks(content: HTMLElement, level: number, s: number, k: numb
 const shown = (el: HTMLElement) => el.getClientRects().length > 0;
 
 /**
- * 缩小后左侧的卡最低的下沿（内容坐标，未缩放；108 号票）：卡挂在它那一条的上沿，互相不避让，前面一张高的可能比最后一张伸得还低
+ * 缩小后左侧的卡最低的下沿（内容坐标，未缩放）：卡挂在它那一条的上沿，互相不避让，前面一张高的可能比最后一张伸得还低
  * （评审 2026-10-13），所以看得见的每一张都量。对话层看不见，不算（-Infinity）
  */
 function leftCardsBottom(content: HTMLElement, ctl: ZoomController | null): number {
@@ -876,7 +876,7 @@ function groupSpan(content: HTMLElement, group: string): { top: number; bottom: 
 type LayoutAnchor = { group: string; frac: number } | { el: HTMLElement; offset: number } | { end: true };
 
 /**
- * 焦点那一点（内容坐标）在现在的布局里落在哪（57 号票：工具调用组在对话层是一行、缩小后逐次画，跨过对话层那一档时布局会变）。
+ * 焦点那一点（内容坐标）在现在的布局里落在哪（工具调用组在对话层是一行、缩小后逐次画，跨过对话层那一档时布局会变）。
  * 落在组上的记成组里的比例，换档后放到组新的范围里同样的比例处；落在别的条上的记成离它上沿多远
  */
 function captureAnchor(content: HTMLElement, contentY: number): LayoutAnchor | undefined {
@@ -905,10 +905,10 @@ function restoreAnchor(content: HTMLElement, anchor: LayoutAnchor): number | und
 
 /**
  * 书脊、底色块的上下沿落在哪一块上：条目 id 对到它的矩形；工具调用组在缩小后那一行藏着，
- * 上沿对到组里第一块、下沿对到最后一块（57 号票：组只存在于对话层）
+ * 上沿对到组里第一块、下沿对到最后一块（组只存在于对话层）
  */
 function edgeEl(content: HTMLElement, id: string, at: "top" | "bottom"): HTMLElement | null {
-  // 阶段框那一块（91 号票：sbox:<组的 id>）
+  // 阶段框那一块（sbox:<组的 id>）
   if (id.startsWith(STAGE_BOX_EDGE)) return content.querySelector<HTMLElement>(`:scope > .zi-stage[data-stage="${CSS.escape(id.slice(STAGE_BOX_EDGE.length))}"]`);
   const row = content.querySelector<HTMLElement>(`:scope > .zi[data-chat-id="${CSS.escape(id)}"]`);
   if (row && shown(row)) return row;
@@ -972,7 +972,7 @@ function placeLabels(root: HTMLElement, content: HTMLElement, vp: HTMLElement, l
     label.style.transform = `translate(${Math.max(r.left, v.left) - rr.left}px, ${top - rr.top + (h - label.offsetHeight) / 2}px)`;
   }
   // 书脊的阶段名：写在色条左边、这一段露出部分的中间（分界线上挂着撤回箭头，放中间基本碰不到）。
-  // 从上往下摆：和上一个名字、撤回箭头那一行挤住了就往下让；让到离这一段太远还放不下，就不写（150 号票起避让撤回箭头）
+  // 从上往下摆：和上一个名字、撤回箭头那一行挤住了就往下让；让到离这一段太远还放不下，就不写（避让撤回箭头）
   const arrows = [...content.querySelectorAll<HTMLElement>(".zd-rollback")].map((b) => {
     const r = b.getBoundingClientRect();
     return { top: r.top - 2, bottom: r.bottom + 2 };
@@ -1004,16 +1004,16 @@ function placeLabels(root: HTMLElement, content: HTMLElement, vp: HTMLElement, l
 /** 视口里的高度：屏幕坐标换成离视口顶多远 */
 const viewportY = (viewport: HTMLElement, clientY: number) => clientY - viewport.getBoundingClientRect().top;
 
-/** 离底部不到 24px 算停在最新一条（108 号票起和 ↓ 共用状态层的 atLatest，数不变） */
+/** 离底部不到 24px 算停在最新一条（和 ↓ 共用状态层的 atLatest，数不变） */
 const atBottom = (el: HTMLElement) => atLatest(el);
 
-/** 会话历史告诉 ↓ 现在怎样：离开了底部没有、现在最后一条是哪条、手里最大的序号（停在底部时才给，118 号票） */
+/** 会话历史告诉 ↓ 现在怎样：离开了底部没有、现在最后一条是哪条、手里最大的序号（停在底部时才给） */
 interface JumpHandle {
   check(away: boolean, lastId: string | undefined, seq: number | undefined): void;
 }
 
 /**
- * "回到最新"的 ↓（108 号票，规矩在 state/scroll-end.ts）：离开底部才出，淡入淡出；离开底部期间新到了消息写条数，
+ * "回到最新"的 ↓（规矩在 state/scroll-end.ts）：离开底部才出，淡入淡出；离开底部期间新到了消息写条数，
  * 只多了思考、工具调用标一个圆点。出没出、停在底部时的最后一条记在它自己这里：滚动时只重画这一个按钮，不重画整个会话
  */
 const JumpToLatest = forwardRef<JumpHandle, { items: readonly ChatItem[]; onJump(): void }>(function JumpToLatest({ items, onJump }, ref) {
@@ -1072,7 +1072,7 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
   const itemsRef = useRef(items);
   const olderRef = useRef(older);
   const detailCb = useRef(onDetail);
-  // 阶段框（91 号票）：每条在哪个框里、哪几个框展开着
+  // 阶段框：每条在哪个框里、哪几个框展开着
   const groupOf = useMemo(() => new Map((boxes ?? []).flatMap((g) => g.ids.map((id) => [id, g] as const))), [boxes]);
   const [openGroups, setOpenGroups] = useState<ReadonlySet<string>>(() => new Set());
   const groupOfRef = useRef<ReadonlyMap<string, StageGroup>>(groupOf);
@@ -1110,7 +1110,7 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
       const r = vp.getBoundingClientRect();
       const y = r.top + r.height * 0.4;
       let pick: string | undefined;
-      // 对话层里的阶段框：算它最后一件事（91 号票）
+      // 对话层里的阶段框：算它最后一件事
       for (const el of content.querySelectorAll<HTMLElement>(".zi[data-chat-id], .sbox[data-focus-id]")) {
         if (el.getBoundingClientRect().bottom >= y) {
           pick = el.dataset.chatId ?? el.dataset.focusId;
@@ -1121,7 +1121,7 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
     });
   }, []);
 
-  // ── 滚到底（108 号票）：缩小后伸到最后一条下面的标注、卡算进滚动范围；"回到最新"的 ↓ 什么时候出、上面标什么 ──
+  // ── 滚到底：缩小后伸到最后一条下面的标注、卡算进滚动范围；"回到最新"的 ↓ 什么时候出、上面标什么 ──
   /** 缩小后条外的东西最低的下沿（内容坐标）：对话层、一条都没有是 -Infinity */
   const sideBottomRef = useRef(-Infinity);
   /** 按现在的内容高度、条外伸出去的那一截撑滚动范围（原来是 setContentHeight(内容高, 0)） */
@@ -1164,7 +1164,7 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
     vp.scrollTo({ top: vp.scrollHeight, behavior: "smooth" });
   }, []);
 
-  // ── 废弃分支（151 号票）：⑂ 展开的预览、切换的双向动画 ──
+  // ── 废弃分支：⑂ 展开的预览、切换的双向动画 ──
   const [swap, setSwap] = useState<SwapState | undefined>(undefined);
   const [swapOn, setSwapOn] = useState(false);
   /** 切换已经发出、等新布局：从哪一块之后是要换掉的那一段（anchorId）、量好的当前这一段、切到哪条 */
@@ -1226,13 +1226,13 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
 
   const pinchRef = useRef({ s0: 1, focalY: 0, contentY: 0 });
   const [level, setLevel] = useState<ZoomLevel>(0);
-  /** 点了左边的任务卡、工单卡：弹出这件事的完整情况（55 号票） */
+  /** 点了左边的任务卡、工单卡：弹出这件事的完整情况 */
   const [openCard, setOpenCard] = useState<ZoomLeftCard | undefined>(undefined);
-  /** 点了哪个 ↶（150 号票）：弹出回退确认 */
+  /** 点了哪个 ↶：弹出回退确认 */
   const [rollbackAt, setRollbackAt] = useState<ZoomRollbackPoint | undefined>(undefined);
   const onRollback = props.rollbackIn === undefined ? undefined : setRollbackAt;
   const spines = decor?.spines;
-  // 书脊、底色带的上下沿落在哪一块上：收着的框里的事落在框上（91 号票）
+  // 书脊、底色带的上下沿落在哪一块上：收着的框里的事落在框上
   const edge = (id: string, at: "top" | "bottom") => (boxes ? stageBoxEdge(groupOf, openGroups, id, at) : id);
   const shownSpines = useMemo(() => (boxes && spines ? stageBoxSpines(spines, groupOf, openGroups) : (spines ?? [])), [boxes, spines, groupOf, openGroups]);
   // 每个框：展开没有、框里第一行和最后一行（工具调用组拆成每次调用之后的）、第一条、完成情况
@@ -1310,15 +1310,15 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
       checkJump();
       if (ctl.level > 0 && viewport.scrollTop < LOAD_OLDER_WITHIN_PX) loadOlder();
     };
-    // 每一帧排标注，滚动范围跟着改（108 号票：缩小后被挤到最后一条下面的标注算进去）
+    // 每一帧排标注，滚动范围跟着改（缩小后被挤到最后一条下面的标注算进去）
     ctl.onScale = () => layoutSides();
-    // 跨过对话层那一档时布局会变（57 号票：工具调用组对话层一行、缩小后逐次画）：焦点那一点换算到新布局里，内容不在手指下面跳走。
+    // 跨过对话层那一档时布局会变（工具调用组对话层一行、缩小后逐次画）：焦点那一点换算到新布局里，内容不在手指下面跳走。
     // 滚动范围先按新的内容高度撑出来，再放焦点
     ctl.onLevelLayout = (contentY) => {
       const anchor = captureAnchor(content, contentY);
       return () => {
         fitHeight();
-        // 底色带、书脊的起止落在组上的，跟着换到这一档看得见的那几块（55 号票）
+        // 底色带、书脊的起止落在组上的，跟着换到这一档看得见的那几块
         placeBands(content);
         return (anchor && restoreAnchor(content, anchor)) ?? contentY;
       };
@@ -1343,7 +1343,7 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
         viewport.scrollTop = viewport.scrollHeight;
       }
       reportFocus();
-      // 没跟着到底的（缩小着、手指按着、往上翻着）：新到的在下面，↓ 出来（108 号票）
+      // 没跟着到底的（缩小着、手指按着、往上翻着）：新到的在下面，↓ 出来
       checkJump();
     });
     ro.observe(content);
@@ -1351,7 +1351,7 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
     const ro2 = new ResizeObserver(() => {
       const following = followRef.current && !touchingRef.current;
       ctl.relayout();
-      // 窗口变了（阔折叠展开、合上）：展开的分支面板按新的宽度重新放（360 号票）；对话层没有条外的东西要摆
+      // 窗口变了（阔折叠展开、合上）：展开的分支面板按新的宽度重新放；对话层没有条外的东西要摆
       if (ctl.level !== 0) layoutSides();
       if (following && ctl.level === 0) {
         programmaticRef.current = true;
@@ -1368,7 +1368,7 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
     };
   }, [reportFocus, loadOlder, fitHeight, layoutSides, checkJump]);
 
-  // 每次渲染之后（条目变了、换了档、装饰变了）：内容多的条重新量，底色带和书脊重新摆，两侧标注重新避让排版（滚动范围跟着改，108 号票）
+  // 每次渲染之后（条目变了、换了档、装饰变了）：内容多的条重新量，底色带和书脊重新摆，两侧标注重新避让排版（滚动范围跟着改）
   useLayoutEffect(() => {
     const content = contentRef.current;
     if (!content) return;
@@ -1377,7 +1377,7 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
     layoutSides();
   });
 
-  // 切换后的新分支渲染出来了：量到真实几何，再把两条条互换（还要等当前分支变成切过去的那条，151 号票）
+  // 切换后的新分支渲染出来了：量到真实几何，再把两条条互换（还要等当前分支变成切过去的那条）
   useLayoutEffect(() => {
     const p = swapPending.current;
     const content = contentRef.current;
@@ -1397,14 +1397,14 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
     window.setTimeout(endSwap, 1050);
   }, [items, currentBranch, endSwap]);
 
-  // ⑂ 点开要的（151 号票）：预览按主线同一套 ZItem 画（去掉条外的装饰）；展开收起之后底色带、两侧标注重新摆
+  // ⑂ 点开要的：预览按主线同一套 ZItem 画（去掉条外的装饰）；展开收起之后底色带、两侧标注重新摆
   const relayout = useCallback(() => {
     const content = contentRef.current;
     if (content) placeBands(content);
     layoutSides();
   }, [layoutSides]);
   const noCard = useCallback(() => undefined, []);
-  /** 阶段框里一条在缩小后的几块（152 号票：挂到框上的回退点、⑂ 从这几块上取）：它自己，工具调用组连同组里每一块（all）或第一块 */
+  /** 阶段框里一条在缩小后的几块（挂到框上的回退点、⑂ 从这几块上取）：它自己，工具调用组连同组里每一块（all）或第一块 */
   const memberIds = (id: string, all: boolean) => {
     const member = items.find((x) => x.id === id);
     const blocks = member ? zoomBlocks(member).map((b) => b.id) : [];
@@ -1452,7 +1452,7 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
     onChange(ratio, c) {
       const p = pinchRef.current;
       p.focalY = viewportY(viewportRef.current!, c.y);
-      // 跨档改了布局时焦点换算过（57 号票），接着用换算后的
+      // 跨档改了布局时焦点换算过，接着用换算后的
       p.contentY = ctlRef.current!.set(p.s0 / ratio, p.focalY, p.contentY);
     },
     onEnd() {
@@ -1465,7 +1465,7 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
     zoomTo(l) {
       const ctl = ctlRef.current!;
       zoomingRef.current = true;
-      // 换档不算还在往底部滑（108 号票）
+      // 换档不算还在往底部滑
       jumpingRef.current = false;
       const focalY = viewportRef.current!.clientHeight / 2;
       ctl.animateTo(PRESETS[l], ctl.contentYAt(focalY), focalY);
@@ -1473,18 +1473,18 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
     reveal(chatId) {
       // 存的 id 可能是组原来的 id、组里某一步的 id：一律经 locateChatItem 找到现在的那一条
       const found = locateChatItem(itemsRef.current, chatId);
-      // 在收着的阶段框里：先同步展开（91 号票）
+      // 在收着的阶段框里：先同步展开
       if (found) openGroupOf(found.item.id);
       const content = contentRef.current;
       const row = found && content ? content.querySelector<HTMLElement>(`.zi[data-chat-id="${CSS.escape(found.item.id)}"]`) : null;
       if (!found || !content || !row) return;
-      // 二狗：组里的某一步（56 号票的详情里点的是一次调用、一段思考）定位到那一步、闪那一步；别的定位到整条、闪整条
+      // 二狗：组里的某一步（详情里点的是一次调用、一段思考）定位到那一步、闪那一步；别的定位到整条、闪整条
       const stepId = found.call?.id ?? (chatId !== found.item.id ? chatId : undefined);
-      // 57 号票：缩小着的时候组那一行藏着，组里每一步各是一块——从那一块（找不到就是组里第一块）放大回去，跨档时焦点换算到组那一行
+      // 缩小着的时候组那一行藏着，组里每一步各是一块——从那一块（找不到就是组里第一块）放大回去，跨档时焦点换算到组那一行
       const block = shown(row)
         ? null
         : (content.querySelector<HTMLElement>(`.zi-step[data-chat-id="${CSS.escape(stepId ?? "")}"]`) ?? content.querySelector<HTMLElement>(`.zi-step[data-group="${CSS.escape(found.item.id)}"]`));
-      // 阶段框里的工具调用组（91 号票）：组那一行三档都不画，定位到那一块（没给哪一步的是第一块）
+      // 阶段框里的工具调用组：组那一行三档都不画，定位到那一块（没给哪一步的是第一块）
       const boxedBlock = row.classList.contains("zi-boxrow")
         ? (content.querySelector<HTMLElement>(`.zi-step[data-chat-id="${CSS.escape(stepId ?? "")}"]`) ?? content.querySelector<HTMLElement>(`.zi-step[data-group="${CSS.escape(found.item.id)}"]`))
         : null;
@@ -1493,17 +1493,17 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
       const ctl = ctlRef.current!;
       const vp = viewportRef.current!;
       followRef.current = false;
-      // 定位到别处：点过 ↓ 也不算还在往底部滑了（108 号票）
+      // 定位到别处：点过 ↓ 也不算还在往底部滑了
       jumpingRef.current = false;
-      // 放到三成高的地方；369 号票：整条在那儿放不下就再往上提，卡片的按钮在底下，要在眼前（比视口还高的顶到上边）
+      // 放到三成高的地方；整条在那儿放不下就再往上提，卡片的按钮在底下，要在眼前（比视口还高的顶到上边）
       const toY = step ? vp.clientHeight * 0.3 : Math.max(REVEAL_TOP_MARGIN, Math.min(vp.clientHeight * 0.3, vp.clientHeight - el.offsetHeight - REVEAL_TOP_MARGIN));
       // 要放到 toY 的那一点在内容里的高度（未缩放）：整条是它的 offsetTop，某一步按屏幕位置换算
       const top = step ? (step.getBoundingClientRect().top - content.getBoundingClientRect().top) / ctl.s : el.offsetTop;
-      // 闪一下：底色之外加一圈同色外框（56 号票第 10 条，用户认可：二狗的气泡、工具行自己有底色，光闪底色看不见）。
+      // 闪一下：底色之外加一圈同色外框（用户认可：二狗的气泡、工具行自己有底色，光闪底色看不见）。
       // 从缩小后的一块放大回去的，闪的是对话层里组那一行
       const flashed = boxedBlock ?? row;
       const flashIt = () => flashFrame(step ?? flashed.querySelector<HTMLElement>(".zi-l0") ?? flashed);
-      // 缩小着的：以它为焦点放大回对话层，同时滑到 toY；已在对话层：滚过去。369 号票：远的要滚一秒多，滚到了才闪，不然到了已经闪完
+      // 缩小着的：以它为焦点放大回对话层，同时滑到 toY；已在对话层：滚过去。远的要滚一秒多，滚到了才闪，不然到了已经闪完
       if (ctl.level === 0) {
         const target = Math.max(0, Math.min(vp.scrollHeight - vp.clientHeight, top * ctl.s - toY));
         vp.scrollTo({ top: target, behavior: "smooth" });
@@ -1522,7 +1522,7 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
 
   /**
    * 缩小状态下点中某条历史：以它为焦点一镜到底放大回对话层。
-   * 点的是组里的一块（一次调用，57 号票）：放大回去落在对话层里组那一行（跨档时焦点换算过去）、闪那一行；打开的是这一次调用的详情
+   * 点的是组里的一块（一次调用）：放大回去落在对话层里组那一行（跨档时焦点换算过去）、闪那一行；打开的是这一次调用的详情
    */
   const onContentClick = useCallback(
     (e: MouseEvent) => {
@@ -1530,13 +1530,13 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
       const vp = viewportRef.current;
       const content = contentRef.current;
       if (!ctl || !vp || !content || ctl.level === 0) return;
-      // 两侧标注里的按钮自己处理点击；展开的分支预览（151 号票）点了打开分支详情，不放大挂着它的那一条
+      // 两侧标注里的按钮自己处理点击；展开的分支预览点了打开分支详情，不放大挂着它的那一条
       if ((e.target as HTMLElement).closest("button, .zd-fork")) return;
       const el = (e.target as HTMLElement).closest<HTMLElement>("[data-chat-id], [data-stage]");
       if (!el) return;
-      // 放大回去看点的那一块：点过 ↓ 也不算还在往底部滑了（108 号票）
+      // 放大回去看点的那一块：点过 ↓ 也不算还在往底部滑了
       jumpingRef.current = false;
-      // 点的是阶段框那一块（91 号票）：放大回对话层，闪一下
+      // 点的是阶段框那一块：放大回对话层，闪一下
       if (el.dataset.stage) {
         followRef.current = false;
         zoomingRef.current = true;
@@ -1555,7 +1555,7 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
       const focalY = viewportY(vp, e.clientY);
       const contentY = ctl.contentYAt(focalY);
       ctl.animateTo(1, contentY, focalY, Math.min(focalY, vp.clientHeight * 0.4));
-      // 阶段框里的组那一行三档都不画（91 号票）：闪点中的那一块
+      // 阶段框里的组那一行三档都不画：闪点中的那一块
       flash((group && content.querySelector<HTMLElement>(`.zi-grouprow:not(.zi-boxrow)[data-group="${CSS.escape(group)}"]`)) || el);
       onZoomTap?.(id, item.detail !== undefined);
     },
@@ -1564,7 +1564,7 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
 
   return (
     <div className="zh" ref={rootRef} data-level={level}>
-      {/* 可视区那一块（108 号票）：只为把 ↓ 贴在可视区右下角；输入框和它上面的东西都在下面的 .zh-footer 里，↓ 自然在它们上面 */}
+      {/* 可视区那一块：只为把 ↓ 贴在可视区右下角；输入框和它上面的东西都在下面的 .zh-footer 里，↓ 自然在它们上面 */}
       <div className="zh-main">
         <div
           className="zh-viewport"
@@ -1577,7 +1577,7 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
             const programmatic = programmaticRef.current;
             if (!programmatic && el.scrollTop < LOAD_OLDER_WITHIN_PX && el.scrollHeight > el.clientHeight) loadOlder();
             // 点了 ↓ 正滑过去：一路都算跟着最新的走（中途来了新的，接着跟到底）；到了底部、往上滚了就不算了。
-            // 程序滚的也要看（滑的途中内容变高，跟随最新一条一下滚到底），所以放在下面提前返回之前（108 号票，评审）
+            // 程序滚的也要看（滑的途中内容变高，跟随最新一条一下滚到底），所以放在下面提前返回之前（评审）
             const glide = afterScroll(jumpingRef.current, lastTopRef.current, el);
             jumpingRef.current = glide.jumping;
             lastTopRef.current = el.scrollTop;
@@ -1607,7 +1607,7 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
             <div className="zh-content" ref={contentRef} data-spine={shownSpines.length > 0 ? "1" : undefined} onClickCapture={level > 0 ? onContentClick : undefined}>
               {props.head}
               {items.length === 0 && props.empty}
-              {/* 底色带、书脊：放在内容里跟着一起缩放，起止由 placeBands 摆（55 号票） */}
+              {/* 底色带、书脊：放在内容里跟着一起缩放，起止由 placeBands 摆 */}
               {decor?.bands.map((b) => (
                 <div key={b.key} className="zh-band" data-band={b.key} data-first={edge(b.firstId, "top")} data-last={edge(b.lastId, "bottom")} data-n={b.index % 2} />
               ))}
@@ -1641,7 +1641,7 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
                 if (!g || g.ids[0] !== it.id) return zi;
                 // 框上挂的左侧卡：展开着的是第一条的，收着的是框里各条的第一张
                 const left = (gOpen ? [g.ids[0]!] : g.ids).map((id) => decor?.left.get(id)).find((c) => c !== undefined);
-                // 挂在框上的回退点、⑂（152 号票）：收着时框里每一条（连同组里每一块）的，展开时框里第一条（是工具调用组的
+                // 挂在框上的回退点、⑂：收着时框里每一条（连同组里每一块）的，展开时框里第一条（是工具调用组的
                 // 连同组里第一块）的；框底部的"撤回到这一阶段开始前"框里哪一条上的都算
                 const liftedIds = (gOpen ? [g.ids[0]!] : g.ids).flatMap((id) => memberIds(id, !gOpen));
                 const lifted = liftedIds.flatMap((x) => decor?.rollbacks.get(x) ?? []);

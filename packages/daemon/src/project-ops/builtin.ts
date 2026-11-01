@@ -1,14 +1,14 @@
-// 白送的通用操作（268 号票，草稿："每个转运营的项目白送一组通用操作（状态、最近运行、最新交付件、立即跑一次、暂停恢复、改时间、
+// 白送的通用操作（草稿："每个转运营的项目白送一组通用操作（状态、最近运行、最新交付件、立即跑一次、暂停恢复、改时间、
 // 跟负责人说一句），项目只补特有的"）。每个使用中的项目不用写清单就有，list / describe / call 和项目自己的操作一样用；
 // 它们也是 ergo 实现方式能绑的"二狗自带动作"（项目清单里写 { "type": "ergo", "action": "run_now", "params": { "job": "daily-report" } }
 // 就是把"立即跑一次"绑上参数做成项目自己的一个操作）。
 // - status 状态（只读查询）：使用中没有、服务在不在线、各条定时 / 事件触发的任务在跑还是暂停、下一次、最近一次、运营接口清单第几版；
 // - recent_runs 最近运行（只读查询）：这个项目的定时 / 事件触发的任务最近几次运行（什么时候、怎么触发的、结局、最后说的话）；
 // - latest_deliverables 最新交付件（只读查询）：最近跑完的几次运行在项目工作目录里交出 / 改过的文件（运行开始到结束之间改的）；
-// - run_now 立即跑一次（触发一次运行）：走触发底座的立即运行一次（100 号票：同一个排队和名额，不改时间表）；
+// - run_now 立即跑一次（触发一次运行）：走触发底座的立即运行一次（同一个排队和名额，不改时间表）；
 // - pause_resume 暂停恢复（有副作用的动作）：暂停、恢复这个项目的定时 / 事件触发的任务（不写 job 是全部）；服务的启停是另一回事
 //   （switch_project_services）；
-// - reschedule 改时间（有副作用的动作）：只改钟点（每天 / 每周几 / 每月几号照旧），走触发底座的改时间表（98 号票）；
+// - reschedule 改时间（有副作用的动作）：只改钟点（每天 / 每周几 / 每月几号照旧），走触发底座的改时间表；
 // - tell_maintainer 跟负责人说一句（有副作用的动作）：插进项目负责人的会话（和秘书转达 tell_project 同一条路）。
 // job 参数：运营方案那一条的 key、任务编号、触发登记编号、任务的名字都认；describe 时按项目现在有的几条列成枚举（值和中文名）。
 // 验收的测试调用（test）：只读的照常查，别的只看做不做得了、说"会怎样"，不真做。
@@ -62,7 +62,7 @@ export interface BuiltinJobs {
 /** 跑一个通用操作要的 */
 export interface BuiltinContext {
   project: Project;
-  /** 这个项目还在的服务（133） */
+  /** 这个项目还在的服务 */
   services: readonly ProjectServiceView[];
   jobs: BuiltinJobs;
   /** 触发底座（立即运行一次、暂停恢复、改时间表）；结果拿不到的抛 RequestRejected，原因原样交回 */
@@ -252,7 +252,7 @@ function servicesSay(services: readonly ProjectServiceView[]): string {
   return "服务有的不在线";
 }
 
-/** 运行开始到结束之间在工作目录里改过的文件（相对路径；不看隐藏的，311 号票起缓存、依赖、编译产物照 tasks/delivery-ignore.ts 也不看） */
+/** 运行开始到结束之间在工作目录里改过的文件（相对路径；不看隐藏的，缓存、依赖、编译产物照 tasks/delivery-ignore.ts 也不看） */
 function filesChanged(root: string, from: number, to: number): string[] {
   const found: string[] = [];
   let seen = 0;

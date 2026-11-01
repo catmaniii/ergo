@@ -1,8 +1,8 @@
-// 守卫切面：流程执行时的计划检查（59 号票，guard/plan-monitor.ts 的 evaluatePlanCall / tryAutoFix
+// 守卫切面：流程执行时的计划检查（guard/plan-monitor.ts 的 evaluatePlanCall / tryAutoFix
 // 和监控器的外壳）。第一道是现有的守卫判定（关注类别、处置、时序规则），第二道是和已授权的计划比对：
 // - 计划外：只读的照常做（记下），会改东西的问用户（点过头的同一件事不再问）；落进了关注类别的每次都问；
-// - 超范围：和这个工具的每一步都对不上，问用户；点过头只放过那一个对象（用户定，从严）。
-//   口径和 58 号票的授权项一样从严：只认步骤里写了的参数（多带、少带都算）、
+// - 超范围：和这个工具的每一步都对不上，问用户；点过头只放过那一个对象（从严）。
+//   口径和授权项一样从严：只认步骤里写了的参数（多带、少带都算）、
 //   每个值都要一样（数组不论先后、个数也要一样）、路径按真实路径比（取不到的对不上）；通用 bash 的步骤只比到命令这一层；
 //   从通用 bash 拆出来的同类操作对不上带类型工具的步骤；
 // - 顺序错：前置步骤没做——这次先不执行，引回前置步骤（不打扰用户）；
@@ -135,7 +135,7 @@ const elsewhere = (p: string) => (p.toLowerCase().endsWith("notes.md") ? `${P.ho
 /** 真实路径：link.md 是指向 notes.md 的链接 */
 const linked = (p: string) => (p.toLowerCase().endsWith("link.md") ? `${P.workDir}\\notes.md` : p);
 
-describe("超范围：和步骤对不上（口径同 58 号票的授权项）", () => {
+describe("超范围：和步骤对不上（口径同授权项）", () => {
   it("写了别的文件：问用户；没对上任何一步（matchedStep 没有），执行了也不算做过哪一步", () => {
     const o = check(TOOL.write, { path: "other.md", content: "x" });
     expect(o).toMatchObject({ kind: "ask", assessment: { stepId: "s1" } });
@@ -183,7 +183,7 @@ describe("超范围：和步骤对不上（口径同 58 号票的授权项）", 
     expect(kinds(check(TOOL.git_commit, { message: "x" }, { workflow: wf }))).toEqual(["out_of_scope"]);
   });
 
-  it("点过头只放过那一个对象（用户定，从严）：同意改 b.ts 之后改 c.ts 仍然要问；bash 换了一条命令、推送换了分支仍然要问", () => {
+  it("点过头只放过那一个对象（从严）：同意改 b.ts 之后改 c.ts 仍然要问；bash 换了一条命令、推送换了分支仍然要问", () => {
     const b = check(TOOL.write, { path: "b.ts", content: "x" });
     expect(b.kind).toBe("ask");
     const okB = b.kind === "ask" ? b.askAbout.map(findingKey) : [];

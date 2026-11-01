@@ -1,12 +1,12 @@
-// 流程的一轮收尾和步骤推断（59 号票，纯函数）：
+// 流程的一轮收尾和步骤推断（纯函数）：
 // - 收尾前看一眼计划，还有步骤既没做也没说跳过，就提醒负责人一次（补上，或用 report_step 说明跳过），
 //   不去打扰用户；每轮只提醒一次，避免来回拉扯；这一轮没做任何事（纯问答）不提醒；
 // - 推断步骤的状态：开始一个新步骤时，别的还报着"在做"的算做完；一轮做完时，还报着"在做"的、
-//   执行过却没报的算做完（都标上 inferred）。推断从严（评审意见，用户 2026-10-09 定）：推断成做完的只有真执行过的步骤
+//   执行过却没报的算做完（都标上 inferred）。推断从严（评审意见）：推断成做完的只有真执行过的步骤
 //   ——有对上这一步、执行成功的调用（plan_call_committed）；报着"在做"却没执行过的照旧是"在做"（被拒、出错、被引回的调用
 //   都不算执行过），要么接着做，要么负责人自己用 report_step 报做完或跳过。
 // 执行控制器（execution.ts）在负责人一轮结束时用它们：二狗的流程以步骤都做完或说明跳过为完成，推断出来的也算。
-// 153 号票：负责人报某一步开始了（report_step in_progress）时在它的会话频道上记一条步骤开始的记号（stepStartEvent），
+// 负责人报某一步开始了（report_step in_progress）时在它的会话频道上记一条步骤开始的记号（stepStartEvent），
 // 含这次调用的那条回复之前是"撤回到步骤「…」开始前"。
 import { randomUUID } from "node:crypto";
 import { type ConversationId, EVENT_TYPES, type StageStartEventPayload, t, type TaskStep, WORKFLOW_STAGE_ID, type WorkflowPlan } from "@ergo/protocol";

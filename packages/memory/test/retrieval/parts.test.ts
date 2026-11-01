@@ -1,4 +1,4 @@
-// 190 号票：检索的零件——问题拆词、RRF、问题里的时间说法。纯函数，不开库。
+// 检索的零件——问题拆词、RRF、问题里的时间说法。纯函数，不开库。
 import { describe, expect, it } from "vitest";
 import { planQuery } from "../../src/retrieval/plan.ts";
 import { fuseRrf, RRF_K } from "../../src/retrieval/rrf.ts";
@@ -45,7 +45,7 @@ describe("问题拆词（queryTerms）", () => {
     expect(queryTerms("我是不是？")).toEqual({ fts: [], short: [], single: [] });
   });
 
-  it("192：单字的状态词（忙、累、烦、困……）不丢，单独走子串扫描；别的单字照样不要", () => {
+  it("单字的状态词（忙、累、烦、困……）不丢，单独走子串扫描；别的单字照样不要", () => {
     expect(queryTerms("最近累吗？")).toEqual({ fts: [], short: [], single: ["累"] });
     expect(queryTerms("我最近是不是还忙得脚不沾地？").single).toEqual(["忙"]);
     expect(queryTerms("这阵子忙不忙、烦不烦？").single).toEqual(["忙", "烦"]);
@@ -91,7 +91,7 @@ describe("RRF 融合（k = 60）", () => {
     expect(fused[0]!.channels.graph).toEqual({ rank: 1, score: 1 });
   });
 
-  it("194：场景对不上的命中，这一路给它的票乘一个系数（默认不打折），命中里记下 offContext", () => {
+  it("场景对不上的命中，这一路给它的票乘一个系数（默认不打折），命中里记下 offContext", () => {
     const lists = [
       { channel: "evidence_keyword" as const, items: [{ id: "a", score: 3, offContext: true }, { id: "b", score: 2 }] },
       { channel: "fact_vector" as const, items: [{ id: "a", score: 0.9 }, { id: "b", score: 0.8, offContext: true }] },

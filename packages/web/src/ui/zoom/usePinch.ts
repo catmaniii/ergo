@@ -1,4 +1,4 @@
-// 捏合手势（54 号票）：双指、Ctrl/⌘ + 滚轮、触控板捏合。开着 noUncheckedIndexedAccess，
+// 捏合手势：双指、Ctrl/⌘ + 滚轮、触控板捏合。开着 noUncheckedIndexedAccess，
 // dist / mid 里按下标取两根手指加了非空断言（!，调用前都查过 touches.length === 2）；
 // lint 不许渲染时写 ref，最新的回调在渲染完（useLayoutEffect）写进去。
 import { type RefObject, useEffect, useLayoutEffect, useRef } from "react";

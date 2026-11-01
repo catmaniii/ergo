@@ -90,7 +90,7 @@ export function createApprovalService(options: ApprovalServiceOptions): Approval
         categoryTitles: input.categories.map((c) => c.title),
         reason: input.reason,
       };
-      // 对话里的审批不卡任务；任务里的按卡住任务算（13 号票接任务一侧）
+      // 对话里的审批不卡任务；任务里的按卡住任务算（接任务一侧）
       const urgency: Urgency = origin.taskId === null ? "non_blocking" : "blocking";
       const card = cards.buildCreate({ type: "approval", payload, urgency });
       const record: ApprovalRecord = {

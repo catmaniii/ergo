@@ -1,4 +1,4 @@
-// 主切面：Looki 插件（296 号票，生活数据源第一波之二；issue 25、调研 38）。真的守护进程走组合根和插件清单，清单里的 Looki 插件经
+// 主切面：Looki 插件（调研 38）。真的守护进程走组合根和插件清单，清单里的 Looki 插件经
 // extraPlugins 换成同名的、接口地址指向本机假 Looki（helpers/fake-looki.ts，照官方文档的返回格式写的剧本；不连真的 Looki、不联网）：
 // - 设置 · 数据源里列出 Looki：没连、两种用法默认开着、每天 02:30 定期导入、用到的敏感内容；
 // - 填错 Key → 出错、密钥区里没有；填对 Key、选中国区 → 拿 Key 调中国区的 /me 读账号（一步判断），连着、账号打码带区域，Key 进密钥区；
@@ -174,7 +174,7 @@ describe("Looki 插件（假 Looki 接口走真实装配路径）", () => {
     expect(JSON.stringify(configured.body)).not.toContain(LOOKI_TEST_KEY);
   });
 
-  it("没连时秘书没有\"查 Looki\"、连上才有（306）；插件运行中停用：数据源页写\"数据源-Looki穿戴式相机插件没启用\"、不能同步，秘书没有\"查 Looki\"", async () => {
+  it("没连时秘书没有\"查 Looki\"、连上才有；插件运行中停用：数据源页写\"数据源-Looki穿戴式相机插件没启用\"、不能同步，秘书没有\"查 Looki\"", async () => {
     const fake = await startFakeLooki();
     const td = await startTestDaemon({ extraPlugins: [createLookiPlugin({ endpoints: { cn: fake.base, global: fake.base } })], secretary: [ECHO, ECHO, ECHO] });
     const frontend = await TestFrontend.connect(td.url);

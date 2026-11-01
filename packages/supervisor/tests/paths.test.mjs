@@ -1,4 +1,4 @@
-// 数据目录（327 号票）：数据挪出代码目录、只在 paths.mjs 定一次；--data-dir / LSM_DATA_DIR 能指回旧的 LSM 目录接着用。
+// 数据目录：数据挪出代码目录、只在 paths.mjs 定一次；--data-dir / LSM_DATA_DIR 能指回旧的 LSM 目录接着用。
 import { TEST_DATA_DIR } from './_isolate.mjs';   // 必须是第一个 import：先把数据目录换成临时目录
 import test from 'node:test';
 import assert from 'node:assert';
@@ -33,7 +33,7 @@ test('命令自己的参数里去掉 --data-dir，别的原样留着', () => {
   assert.deepEqual(paths.withoutDataDirArg(['status']), ['status']);
 });
 
-test('服务清单、账本、日志、密钥、网关路由表都在数据目录里，不在代码目录里；布局和 327 之前的 LSM 目录一样', () => {
+test('服务清单、账本、日志、密钥、网关路由表都在数据目录里，不在代码目录里；布局和以前的 LSM 目录一样', () => {
   assert.equal(paths.DATA_DIR, TEST_DATA_DIR);
   assert.equal(paths.DATA_DIR_FROM, 'env');
   const data = [

@@ -1,5 +1,5 @@
-// 项目的服务（133 号票）的说法：校验不过的原因、上线不了的原因、交给负责人的通知、秘书工具的说明和结果。编排里不写文字，都从这里取。
-// 174 号票：上线不了的原因、挂了的原因、确认时生效不了的原因给用户看（项目页、运营方案的结局），走 t()；
+// 项目的服务的说法：校验不过的原因、上线不了的原因、交给负责人的通知、秘书工具的说明和结果。编排里不写文字，都从这里取。
+// 上线不了的原因、挂了的原因、确认时生效不了的原因给用户看（项目页、运营方案的结局），走 t()；
 // 交方案时校验的问题、通知、秘书工具的说明和结果给模型看，照旧中文。
 import { APP_BASE_PATH_ENV, forModel, type ProjectServiceView, serviceLine, serviceOpenLabel, t, tTable } from "@ergo/protocol";
 import { PROPOSE_OPERATIONS_TOOL } from "../projects/api.ts";
@@ -66,13 +66,13 @@ export const rolloutText = {
 
 // @i18n-ignore-start model：交给负责人的通知
 /**
- * 服务管家的判断也可能错（362 号票：真模型试验里它把活着的服务判成失败，负责人照着改了代码、写进了决策记录和 skill）：
+ * 服务管家的判断也可能错（真模型试验里它把活着的服务判成失败，负责人照着改了代码、写进了决策记录和 skill）：
  * 先自己连一下健康检查的地址核实，活着就别为这个改东西
  */
 const verifyFirst = (probe: string) =>
   `这是服务管家（LSM）的判断，它也可能判错：先自己连一下 ${probe}（比如 curl，联网关着也连得上本机）核实服务到底活没活。活着就别为这个改代码、也别写进决策记录或 skill，把你看到的告诉用户；`;
 
-/** 交给负责人的通知（唤起它；362 号票起都在对话段里处理，不打断正在做的工单，这里说的工具对话段都有） */
+/** 交给负责人的通知（唤起它；都在对话段里处理，不打断正在做的工单，这里说的工具对话段都有） */
 export const noticeText = {
   failed: (view: Pick<ProjectServiceView, "title" | "app" | "port">, reason: string, probe: string) =>
     `运营方案里的服务「${view.title}」（${view.app}，端口 ${view.port}）没上线。服务管家（LSM）判断的依据：${reason}。${verifyFirst(probe)}真没起来再看是什么原因（端口被占、命令写错、依赖没装、健康检查不过……），改好了用 ${PROPOSE_OPERATIONS_TOOL} 再交一份完整的运营方案（照旧的那几条也写上，这一条运行时会重新开起来），告诉用户。`,
@@ -133,7 +133,7 @@ export const openServiceText = {
     ].join("\n")),
 };
 
-/** 秘书的"启动、关闭项目的服务"（257） */
+/** 秘书的"启动、关闭项目的服务" */
 export const switchServicesText = {
   description:
     "用户要把某个项目的服务关掉或者开起来（“把简报站关了”“简报站先停一下”“把简报站开起来”）时用：和项目卡片、项目档案里的“关闭”“启动”是同一个入口，经 LSM 把这个项目的服务全部关掉或者全部拉起。用户说了就是确认，不用再问。" +
@@ -166,7 +166,7 @@ export const boardText = {
 };
 // @i18n-ignore-end
 
-/** 项目的服务报事件（357 号票）：回给服务的错（进服务的日志，给人和负责人看）；工具的说明和结果给模型看 */
+/** 项目的服务报事件：回给服务的错（进服务的日志，给人和负责人看）；工具的说明和结果给模型看 */
 export const eventsText = {
   noCredential: (env: string) => t("projectServices.events.noCredential", { env }),
   badCredential: (env: string) => t("projectServices.events.badCredential", { env }),

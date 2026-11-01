@@ -1,7 +1,7 @@
-// Gmail（298 号票）：Google 插件的服务里 Gmail 这一块。用户在设置 · 数据源填 Gmail 地址和应用专用密码（要先开两步验证，调研 37、39），
+// Gmail：Google 插件的服务里 Gmail 这一块。用户在设置 · 数据源填 Gmail 地址和应用专用密码（要先开两步验证，调研 37），
 // 这里经只读的 IMAP（imap.ts，imap.gmail.com:993，TLS）：
-// - 存设置（DataSourceSecrets，344 号票起是一组账号，见 gmail-accounts.ts；密码去掉空格，Google 给的 16 位中间带空格）：先连一遍（登录、列邮箱）测试连接，过了才存；
-//   日志里只有打了码的地址（"t***@example.com"），页面上是完整邮箱（339 号票），密码哪儿都不出；
+// - 存设置（DataSourceSecrets，是一组账号，见 gmail-accounts.ts；密码去掉空格，Google 给的 16 位中间带空格）：先连一遍（登录、列邮箱）测试连接，过了才存；
+//   日志里只有打了码的地址（"t***@example.com"），页面上是完整邮箱，密码哪儿都不出；
 // - 按需查（gmail-tools.ts）：搜邮件（发件人、收件人、主题、关键词、日期，在全部邮件 / 收件箱 / 已发邮件里）、读一封（正文和附件列表）。
 //   每次现连、现登录、用完退出（不常开着连接）；邮箱只用 EXAMINE 只读打开、只取 BODY.PEEK——不发信、不删信、不改已读；
 // - 导入我发出的邮件（数据源的 sync，导入默认关）："已发邮件"里新的几封（第一次只看最近 30 天，每次最多 50 封，从旧到新）取下来、
@@ -10,13 +10,13 @@
 //   导到哪按"已发邮件"的 UIDVALIDITY 和 UID 记（同一封 Message-ID 导过的不再导）；
 // - 登录没通过（密码失效：改过 Google 账号密码会让应用专用密码全失效）记下来，数据源页上写成出错，下一次登录过了清掉。
 // 出错的原因给人看（GmailProblem，走 t()）；IMAP 那边的消息不带密码，内核记下之前还会把密钥换成 ***。
-// 344 号票：可以连几个账号（gmail-accounts.ts 存、转老配置）。每个账号各连各的、各记各的：
+// 可以连几个账号（gmail-accounts.ts 存、转老配置）。每个账号各连各的、各记各的：
 // - 状态：每个账号是 items 的一项（完整邮箱、状态、问题），account 列出全部；开着的账号都登录不上才算出错（有一个能用就连着，秘书照常有工具），
 //   有一个登录不上就带 needsAuth（要重新填）；账号都关了算没连；
 // - 搜：不指定账号查全部开着的（一个查不到不挡别的，写明），指定了只查那一个；邮件编号带账号（<账号 id>.<邮箱>-<UIDVALIDITY>-<UID>），读的时候认得出是谁的；
 // - 导入：每个账号自己的进度（事件带 account；转过来之前导的没写，归转过来的那一条，legacyOwnerOf）；一个账号出错不挡别的，这次同步算出错；
 // - 断开一个（disconnectAccount）：只删它的密钥，交回哪些记录归它。
-// 给模型、日志的是打了码的邮箱（maskId，339 号票），页面上是完整邮箱；邮箱也算这一格里的值，内核会把出错原因里的完整邮箱换成 ***，所以出错原因里写打码的。
+// 给模型、日志的是打了码的邮箱（maskId），页面上是完整邮箱；邮箱也算这一格里的值，内核会把出错原因里的完整邮箱换成 ***，所以出错原因里写打码的。
 import { isDeletedEventPayload, nowIso, t } from "@ergo/protocol";
 import type { DataSourceContext, DataSourceItem, DataSourceRecheckContext, DataSourceStatus, DataSourceSyncContext, DataSourceSyncResult } from "../data-sources/api.ts";
 import type { EventStore, NewEvent, StoredEvent } from "../events/event-store.ts";
@@ -175,13 +175,13 @@ export interface GmailService {
   read(ctx: DataSourceContext, id: string, signal?: AbortSignal, account?: string): Promise<GmailMessage>;
   /** 导入我发出的邮件：每个开着的账号新的几封，一个出错不挡别的 */
   syncSent(ctx: DataSourceSyncContext): Promise<DataSourceSyncResult>;
-  /** 出错后再试（306 号票，内核每小时叫）：登录没通过的账号用存着的地址、密码再登录一次（不碰邮件），过了就清掉 */
+  /** 出错后再试（内核每小时叫）：登录没通过的账号用存着的地址、密码再登录一次（不碰邮件），过了就清掉 */
   recheck(ctx: DataSourceRecheckContext): Promise<void>;
   /** 导入的有几封（有正文的那些，全部账号） */
   sentCount(): number;
   /** 断开时的清理：记着的登录没通过清掉（密钥区那一格、导入的由内核删） */
   disconnect(): void;
-  /** 断开一个账号（344 号票）：只删它的密钥、清掉它记着的状态，交回哪些记录归它；没有这个账号抛 GmailProblem */
+  /** 断开一个账号：只删它的密钥、清掉它记着的状态，交回哪些记录归它；没有这个账号抛 GmailProblem */
   disconnectAccount(id: string, ctx: DataSourceContext): { owns(event: StoredEvent): boolean };
 }
 

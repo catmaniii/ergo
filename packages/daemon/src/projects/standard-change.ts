@@ -1,4 +1,4 @@
-// 本项目的规范改写（261 号票；issue 19 Decisions 第 5 条，照立项要求变更那套：charter-change.ts）：用户在会话里说这个项目不要规范里的
+// 本项目的规范改写（照立项要求变更那套：charter-change.ts）：用户在会话里说这个项目不要规范里的
 // 某一份（"不用画架构图"）、某一份换一种写法（"进展按周写"）、多一份文档、恢复照默认规范，或者要跟新版规范，项目的负责人用
 // propose_standard_change 提出——只交要改的几处，附上它引用的用户消息 id（运行时核实，conversation/user-words.ts）。运行时出一张
 // "规范改写"卡（standard_change）：
@@ -10,8 +10,8 @@
 //   哪天、改了什么、依据的用户原话、用户确认）；负责人收到通知，时间线上记一笔；
 // - 用户拒绝（可附说明）：规范不变，负责人收到通知，时间线上记一笔。
 // 模板出了新版不自动带旧项目（只读接口里 latest 比项目记着的新，项目页提示"有新版规范"），要跟也走这条路。规范上线之前建的项目没有版本：
-// 先由补齐文档的卡（262 号票）问一次；272 号票起这里也放开——卡上选了不补、之后用户又要补，负责人照样提"跟新版"（upgrade），卡上写明是
-// 补齐规范文档、缺哪几份；确认后照 262 的补齐做：项目列表频道上一条 standard_adopted（记下版本，项目模块从模板放进缺的几份，已有的不动），
+// 先由补齐文档的卡问一次；这里也放开——卡上选了不补、之后用户又要补，负责人照样提"跟新版"（upgrade），卡上写明是
+// 补齐规范文档、缺哪几份；确认后照补齐做：项目列表频道上一条 standard_adopted（记下版本，项目模块从模板放进缺的几份，已有的不动），
 // 再建一个项目内部的普通任务交给负责人照项目现状写好（确认时又都齐了就不建）。补齐卡还在等用户选时不让提（两张卡都能补齐，免得重了）。
 // 立项书确认之前没有这个工具（项目类型没定，规范里有哪几份还没定）。
 // 运行时不删档案里已有的文件（"不要架构图"只是不再要求、不再从模板补回来），多出来的那份由负责人建。
@@ -83,7 +83,7 @@ export interface StandardChangesOptions {
   /** 规范模板（不给是框架里的）：跟新版规范跟到里面最新的那一版 */
   templates?: StandardTemplates;
   /**
-   * 272 号票：规范上线之前建的项目补齐规范文档——项目规范现在的样子（只读接口那一份，算缺哪几份）、建补齐任务、
+   * 规范上线之前建的项目补齐规范文档——项目规范现在的样子（只读接口那一份，算缺哪几份）、建补齐任务、
    * 这个项目的"补齐规范文档"卡是不是还在等用户选（还在等就不让另提）。不给就不算缺的、不建任务、不查卡
    */
   standard?: (projectId: string) => ProjectStandardView | undefined;
@@ -114,7 +114,7 @@ interface StandardDraft {
 
 /**
  * 项目列表频道上一条"规范改了"（standard_changed）：项目本身更新时间变，跟新版规范的版本换成新的。
- * 没有版本的项目补齐规范文档（272 号票）是 standard_adopted（同 262 号票的补齐：项目模块据此从模板放进缺的几份）
+ * 没有版本的项目补齐规范文档是 standard_adopted（同补齐：项目模块据此从模板放进缺的几份）
  */
 const projectChanged = (project: Project, time: string, upgrade: StandardUpgrade | undefined): NewEvent => {
   const payload: ProjectEventPayload = {
@@ -160,7 +160,7 @@ function reservedPlace(paths: ProjectRecordsPaths, rel: string): boolean {
 }
 
 /**
- * 负责人的工具说明。里面引了协议包的标签（文档的名字），那些跟着当前语言：给模型看的这份在中文下现取（173 号票）
+ * 负责人的工具说明。里面引了协议包的标签（文档的名字），那些跟着当前语言：给模型看的这份在中文下现取
  */
 // @i18n-ignore-start model：工具说明、参数说明给负责人看
 const toolDescription = () =>
@@ -305,7 +305,7 @@ export function createStandardChanges(options: StandardChangesOptions): Standard
     if (draft.upgrade === true) {
       const latest = latestStandardVersion(templates());
       if (project.standardVersion === undefined) {
-        // 272 号票：规范上线之前建的（没有版本）——补齐规范文档。补齐卡还在等用户选时不另提
+        // 规范上线之前建的（没有版本）——补齐规范文档。补齐卡还在等用户选时不另提
         if (options.backfillPending?.(project.id) === true) {
           throw new RequestRejected("not_allowed", `项目「${project.name}」补齐规范文档的卡还在等用户选（补齐还是不补），让用户在那张卡上选；选了不补以后用户又要补，再这样提`);
         }
@@ -387,7 +387,7 @@ export function createStandardChanges(options: StandardChangesOptions): Standard
     }
     const comment = note?.trim() || undefined;
     const time = now();
-    // 272 号票：规范上线之前建的项目补齐规范文档，确认后照 262 号票的补齐做——按现在的样子再算一遍缺哪几份（卡出来之后负责人可能已经补了），
+    // 规范上线之前建的项目补齐规范文档，确认后照补齐做——按现在的样子再算一遍缺哪几份（卡出来之后负责人可能已经补了），
     // 缺的建一个项目内部的普通任务交给负责人照项目现状写好
     const adopting = confirmed && row.proposed.upgrade !== undefined && row.proposed.upgrade.from === undefined;
     if (adopting && project.state === "archived") throw new RequestRejected("not_allowed", t("projects.standardBackfill.archived", { name: project.name }));
@@ -449,7 +449,7 @@ export function createStandardChanges(options: StandardChangesOptions): Standard
       { channel: STANDARDS_CHANNEL, type: STANDARD_EVENTS.changeDecided, payload: decided, idempotencyKey: `${idempotencyKey}#decided` },
       // 确认的：项目列表上记一笔"规范改了"（跟新版规范的版本换成新的；项目模块据此按新版模板补缺的文档）
       ...(confirmed ? [projectChanged(project, time, row.proposed.upgrade)] : []),
-      // 补齐的任务建在项目改用规范之后：负责人开工时模板已经在档案里了（同 262 号票）
+      // 补齐的任务建在项目改用规范之后：负责人开工时模板已经在档案里了
       ...(task?.events ?? []),
       buildTimelineRecord(conversation, { kind: "standard_change", summary, detail: [...changeText, ...wordsLines(row.proposed.userWords)].join("\n") }, scope).event,
       buildAgentNotice(conversation, notice, `${idempotencyKey}#notice`, scope).event,
@@ -517,7 +517,7 @@ export function createStandardChanges(options: StandardChangesOptions): Standard
   };
 }
 
-/** "规范改写"卡（261 号票）：确认（confirm）、拒绝（reject，可附说明） */
+/** "规范改写"卡：确认（confirm）、拒绝（reject，可附说明） */
 export function standardChangeCardType(changes: Pick<StandardChanges, "decide">) {
   return defineCardType({
     type: "standard_change",

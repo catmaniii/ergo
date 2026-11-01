@@ -1,4 +1,4 @@
-// 预测账本（226 号票）：结论当时预测了什么、后来应验没有。
+// 预测账本：结论当时预测了什么、后来应验没有。
 //
 // - 记下来（recordPredictions）：这次整理新出的、变了的结论里，predicts 非空、tier 是 need 或 value、把握不是 low、还成立的，
 //   没有开着的预测就建一条。made_at 是这一夜，due_at 需求层 +14 天、价值层 +30 天；同一结论只留一条开着的——
@@ -7,7 +7,7 @@
 //   结论陈述、它写的 predicts、made_at 之后的新证据原话（最多 10 条，MAX_JUDGE_EVIDENCE）；模型回
 //   {"outcome":"hit|miss|unclear","why":"..."}，写 status、judged_at、note，evidence_id 记喂进去的最新那条。
 //   没有模型、预算用完、没有新证据、模型判不了（解析不了、说不清、出错）的一律留 open，下一夜再判。
-// - 330 号票（R10，ADR-0032）：账本做成预测节点——从结论推出来（premiseIds，第一条是 claimId）、带推法（derivation：演绎 / 可废止）。
+// -（R10，ADR-0032）：账本做成预测节点——从结论推出来（premiseIds，第一条是 claimId）、带推法（derivation：演绎 / 可废止）。
 //   应验了只刷新这一条（hit：依据就是那条观察；"证实的不对称"，来源不因此变已验证，只算更可信）；
 //   落空了先撤预测（miss，retractedBy 是证伪它的那条观察），再由调用方（onMiss，reasoning-graph.ts 的 predictionMissed）回头打来源：
 //   演绎的撤错的那条前提（再按 R8 往上传）、判不出就出问题；可废止的来源只挨一条反证。来源被撤回，开着的预测跟着作废（void，R8），
@@ -23,7 +23,7 @@ import type { ChatModel, ChatRequest } from "../llm/chat.ts";
 import { parseModelJson } from "../llm/json.ts";
 import { type MemoryStore, rgSession, rgWriter, type RgWriter } from "../store/store.ts";
 
-/** 到期时间：需求层 +14 天、价值观层 +30 天（票面定的） */
+/** 到期时间：需求层 +14 天、价值观层 +30 天 */
 export const PREDICTION_DUE_DAYS: Readonly<Record<"need" | "value", number>> = { need: 14, value: 30 };
 /** 到期判每夜最多几条 */
 export const MAX_DUE_PREDICTIONS = 10;
@@ -43,11 +43,11 @@ export interface PredictionStats {
   unclear: number;
   /** 判完还开着几条（全库，不只是这一夜到期的） */
   open: number;
-  /** 330 号票：这一夜落空的往回打来源，各几条（没有落空的不写） */
+  /** 这一夜落空的往回打来源，各几条（没有落空的不写） */
   backprop?: BackpropStats;
 }
 
-/** 330 号票（R10）：落空以后往回打来源——撤了几条错的前提、可废止的挨了几条反证、判不出的几条预测、来源都已验证（挨反例）的几条 */
+/** ADR-0032 R10：落空以后往回打来源——撤了几条错的前提、可废止的挨了几条反证、判不出的几条预测、来源都已验证（挨反例）的几条 */
 export interface BackpropStats {
   retracted: number;
   countered: number;
@@ -69,7 +69,7 @@ export interface PredictionJudgeInput {
   evidence: { id: string; text: string; observedAt: string }[];
 }
 
-/** 判的结果：只认这三种（open 是没判成）；evidenceId 是模型说的"凭哪条证据"（330 号票，落空时就是证伪它的那条；不给按喂进去的最新那条） */
+/** 判的结果：只认这三种（open 是没判成）；evidenceId 是模型说的"凭哪条证据"（落空时就是证伪它的那条；不给按喂进去的最新那条） */
 export interface PredictionVerdict {
   outcome: Extract<PredictionStatus, "hit" | "miss" | "unclear">;
   why: string;
@@ -93,13 +93,13 @@ export function predictsTextOf(claim: Claim): string {
 }
 
 /**
- * 330 号票（ADR-0032）：结论的陈述里有没有全称的说法（每次、从不、一定……）。只有这种结论推出"其中具体的一次"才可能是演绎；
+ * ADR-0032：结论的陈述里有没有全称的说法（每次、从不、一定……）。只有这种结论推出"其中具体的一次"才可能是演绎；
  * 倾向（还会、大概、一般）一律是可废止的
  */
 export const UNIVERSAL_MARKERS = /每次|每回|总是|总会|从不|从来不|从来没|一律|一定会|一向|永远|无论.{0,8}都/;
 
 /**
- * 330 号票（ADR-0032 的"谁能标演绎"）：模型说是演绎、结论陈述里又真有全称说法，才记 deductive；别的一律 defeasible
+ * ADR-0032 的"谁能标演绎"：模型说是演绎、结论陈述里又真有全称说法，才记 deductive；别的一律 defeasible
  * （原始推理图谱：缺省按弱的算——把判断误当演绎，落空时会错撤来源）
  */
 export function predictionDerivation(statement: string, claimed: unknown): Derivation {
@@ -112,7 +112,7 @@ export function derivationOf(claim: Claim): Derivation {
   return written.length > 0 && written.every((p) => p.derivation === "deductive") ? "deductive" : "defeasible";
 }
 
-/** 这一条结论该不该记账本（票面的四个条件 + predicts 非空） */
+/** 这一条结论该不该记账本（四个条件 + predicts 非空） */
 export function predictionEligible(claim: Claim): boolean {
   return (
     claim.status === "active" &&
@@ -146,7 +146,7 @@ export function recordPredictions(store: MemoryStore, claimIds: readonly string[
     const predicts = predictsTextOf(claim);
     const days = PREDICTION_DUE_DAYS[claim.tier as "need" | "value"];
     const cause: RevisionCause = { evidenceId: claim.predicts[0]?.evidenceIds[0] ?? null, reason: `整理时记下这条结论的预测：${claim.statement}` };
-    // 267 号票：经唯一写入口（记预测，夜班）
+    // 经唯一写入口（记预测，夜班）
     const prediction = rgSession(store, { op: "predict", actor: "nightly", reason: `记下结论 ${claimId} 的预测` }, () => rgWriter(store).putPrediction(
       {
         claimId,
@@ -170,8 +170,8 @@ export function recordPredictions(store: MemoryStore, claimIds: readonly string[
 }
 
 /**
- * made_at 之后、现在之前的新证据原话（最多 MAX_JUDGE_EVIDENCE 条，取最新的）；用户对结论的表态（263 号票）不是观察到的事，不算；
- * 330 号票（R3）：只有本人有效的证据能证实、证伪关于用户的预测，别人转述的不喂
+ * made_at 之后、现在之前的新证据原话（最多 MAX_JUDGE_EVIDENCE 条，取最新的）；用户对结论的表态不是观察到的事，不算；
+ * ADR-0032 R3：只有本人有效的证据能证实、证伪关于用户的预测，别人转述的不喂
  */
 function newEvidenceAfter(store: MemoryStore, madeAt: string, at: string): PredictionJudgeInput["evidence"] {
   return store
@@ -224,7 +224,7 @@ export async function judgeDuePredictions(
     if (!verdict) continue;
     const cited = verdict.evidenceId !== undefined && evidence.some((e) => e.id === verdict.evidenceId) ? verdict.evidenceId : undefined;
     const evidenceId = cited ?? evidence.at(-1)!.id;
-    // 330 号票：落空 = 撤回这条预测（墓碑指证伪它的那条观察），再回头打来源（调用方给的 onMiss，在同一次写里）
+    // 落空 = 撤回这条预测（墓碑指证伪它的那条观察），再回头打来源（调用方给的 onMiss，在同一次写里）
     const missed = verdict.outcome === "miss";
     const blame = rgSession(store, { op: "predict", actor: "nightly", reason: `到期判预测 ${prediction.id}：${verdict.outcome}` }, () => {
       const updated = rgWriter(store).updatePrediction(
@@ -250,7 +250,7 @@ export async function judgeDuePredictions(
   return stats;
 }
 
-/** 330 号票：落空的预测回头打来源（在判它的那一次写里调），交回打了谁 */
+/** 落空的预测回头打来源（在判它的那一次写里调），交回打了谁 */
 export type OnMiss = (prediction: PredictionRecord) => PredictionBlame | undefined;
 
 /** reflect 末尾调：先记下来，再到期判（没给模型就只记下来，到期预测留 open）；落空的经 onMiss 往回打来源 */
@@ -276,7 +276,7 @@ export async function runPredictions(
 const LIVE_SOURCE: ReadonlySet<string> = new Set(["active", "contested"]);
 
 /**
- * 330 号票（R8、R11 落到预测节点上）：这几条结论的状态这次变了——撤回了的，以它为来源、还开着的预测跟着作废（void，墓碑指它）；
+ * R8、R11 落到预测节点上：这几条结论的状态这次变了——撤回了的，以它为来源、还开着的预测跟着作废（void，墓碑指它）；
  * 又活过来的（撤回 → 已验证 / 猜测），因它作废的预测、来源都还活着的回到开着。写入口在每次写的末尾调（同一次写里）
  */
 export function predictionsFollowSources(store: MemoryStore, writer: RgWriter, claimIds: Iterable<string>): void {
@@ -336,7 +336,7 @@ export class LlmPredictionJudge implements PredictionJudge {
       const why = typeof parsed.why === "string" ? parsed.why.trim() : "";
       if (outcome !== "hit" && outcome !== "miss" && outcome !== "unclear") return null;
       if (why.length === 0) return null;
-      // 330 号票：凭的哪条证据（只认喂进去的）；不给、给错了按喂进去的最新那条
+      // 凭的哪条证据（只认喂进去的）；不给、给错了按喂进去的最新那条
       const cited = typeof parsed.evidence_id === "string" && input.evidence.some((e) => e.id === parsed.evidence_id) ? parsed.evidence_id : undefined;
       return cited === undefined ? { outcome, why } : { outcome, why, evidenceId: cited };
     } catch {

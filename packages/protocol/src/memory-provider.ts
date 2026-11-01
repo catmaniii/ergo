@@ -1,4 +1,4 @@
-// 记忆插件（337 号票 v1 草案）：一家记忆系统实现一个 MemoryProvider，宿主（守护进程）同时只用其中一个。
+// 记忆插件（v1 草案）：一家记忆系统实现一个 MemoryProvider，宿主（守护进程）同时只用其中一个。
 // - 只有类型和常量：不引用 TypeBox、不引用任何实现（守护进程、网页插件都引它）；
 // - 宿主规矩（实现见 packages/daemon/src/memory/provider/host.ts）：
 //   - 同时只有一个在跑：换插件 = 宿主先停旧的（stop）再起新的（start）；旧的数据目录和设置原样留着，能切回来；
@@ -18,7 +18,7 @@ export const MEMORY_PROVIDER_ID = /^[a-z0-9][a-z0-9_-]*$/;
 
 /** 宿主给插件的"现取"的值：插件自己的提示要用（语言、用户称呼、助手名字）；宿主不在这层写死 */
 export interface MemoryIdentity {
-  /** 语言代码（168 号票，比如 zh、en） */
+  /** 语言代码（比如 zh、en） */
   language: string;
   /** 用户自己的名字（没设就没有） */
   userName?: string;
@@ -121,7 +121,7 @@ export interface MemoryItem {
   /** 0..1，插件自己怎么算都行；没有就是没给 */
   confidence?: number;
   tags?: string[];
-  /** 出处：至少一条，页面和工具都靠它追溯（用户 2026-10-28 定：没有出处的条目不进简报） */
+  /** 出处：至少一条，页面和工具都靠它追溯（没有出处的条目不进简报） */
   sources: MemorySource[];
   /** 插件自己的附加字段（界面按 capability 决定显不显示，核心不解释） */
   extra?: Record<string, unknown>;
@@ -151,7 +151,7 @@ export interface MemoryObserveResult {
 }
 
 /**
- * 用户明说"帮我记一句"时走这条（337 号票用户 2026-10-28 定"他就可以帮我记一句"）：
+ * 用户明说"帮我记一句"时走这条（他就可以帮我记一句）：
  * 按原话存下来（**不从对话里猜**），回存好的那条（带 id，秘书据此回一句"记下了"）
  */
 export interface MemoryRememberInput {
@@ -163,11 +163,11 @@ export interface MemoryRememberInput {
   /** 出处：宿主按这条会话记（会话 id + 消息 id），至少一条 */
   sources?: MemorySource[];
   /**
-   * 366 号票：要连同这句一起存下的文件（宿主核对过：只认这一轮长按的网页元素取回来的，文件在媒体库里）。给了 file 或 origin 时 text 是秘书写的描述，不是用户的原话。
+   * 要连同这句一起存下的文件（宿主核对过：只认这一轮长按的网页元素取回来的，文件在媒体库里）。给了 file 或 origin 时 text 是秘书写的描述，不是用户的原话。
    * 插件存下了就在回的条目上写 extra.fileStored = true；不写时宿主如实告诉用户只记了文字
    */
   file?: RememberedFile;
-  /** 366 号票：记下来的东西的来源网页和地址（外部数据） */
+  /** 记下来的东西的来源网页和地址（外部数据） */
   origin?: RememberedOrigin;
 }
 
@@ -243,7 +243,7 @@ export interface MemoryBriefInput {
 }
 
 /**
- * 简报回来的一份（337 号票：宿主把它原样记进会话，下一轮把 keys 当 known 交回来）：
+ * 简报回来的一份（宿主把它原样记进会话，下一轮把 keys 当 known 交回来）：
  * - text：交给秘书的正文，抬头、格式都由插件定（空串就是这一轮不带）；
  * - keys：这次带上了哪几条记忆——键 → 指纹（键怎么写由插件定）；不给（或者空）就是插件不做去重，宿主每一轮都带；
  * - items / hits：为什么带、命中的素材，和 MemoryBriefPart.items / MemoryRecall.hits 同一形状，宿主写进这一轮的回话

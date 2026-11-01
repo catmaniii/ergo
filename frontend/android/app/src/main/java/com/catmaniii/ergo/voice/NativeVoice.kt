@@ -42,7 +42,7 @@ interface MicrophoneAccess {
 private fun failure(reason: String, message: String): String = JSONObject().put("ok", false).put("reason", reason).put("message", message).toString()
 
 /**
- * 原生录音（对应鸿蒙 voice/NativeVoice.ets，63 号票）：AudioRecord 备好但不占麦克风，按下才开始。
+ * 原生录音（对应鸿蒙 voice/NativeVoice.ets）：AudioRecord 备好但不占麦克风，按下才开始。
  * - prepare：建 AudioRecord，它还没 startRecording，不采集、麦克风指示灯不亮；没权限先向用户要；
  * - start：按下时 startRecording，读线程收 PCM，每 50 毫秒往网页推一次音量；
  * - stop：松手 stop（录音器留着，下次还能直接开始），把这一段 PCM 用 base64 交给网页，网页加 WAV 头上传；

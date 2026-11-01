@@ -1,4 +1,4 @@
-// 事件来源登记表（77 号票）：登记表的形状、事件触发方式的检查、文件名模式、在等什么事件的说法、流程步骤里的占位（认、代入）、
+// 事件来源登记表：登记表的形状、事件触发方式的检查、文件名模式、在等什么事件的说法、流程步骤里的占位（认、代入）、
 // 交给 agent 的结构化事件。
 import { describe, expect, it } from "vitest";
 import {
@@ -19,7 +19,7 @@ import {
   triggerFields,
 } from "../src/index.ts";
 
-describe("项目的服务（357 号票）", () => {
+describe("项目的服务", () => {
   const trigger = (filter?: Record<string, string>) => ({ kind: "event" as const, source: "service", events: ["reported"], ...(filter ? { filter } : {}) });
 
   it("只有一种事件，事件名写在过滤条件里、必填；字段是事件名、服务名、数据", () => {

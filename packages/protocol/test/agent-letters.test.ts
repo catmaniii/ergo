@@ -1,5 +1,5 @@
-// agent 之间的来信（115 号票）：哪些消息算来信、一句话总结从哪来（存着的 summary，旧消息退回第一句）。
-// 367 号票：交给 agent 的长通知没有标记也折，阶段说明那一行认得出是哪一步。
+// agent 之间的来信：哪些消息算来信、一句话总结从哪来（存着的 summary，旧消息退回第一句）。
+// 交给 agent 的长通知没有标记也折，阶段说明那一行认得出是哪一步。
 import { describe, expect, test } from "vitest";
 import { firstSentence, LETTER_SUMMARY_MAX, LETTER_TAGS, letterKindOf, letterSummaryOf, type MessageEnvelope, NOTICE_FOLD, stageBriefLine, stageBriefOf } from "../src/index.ts";
 
@@ -91,7 +91,7 @@ describe("一句话总结", () => {
 
 const chars = (n: number) => "字".repeat(n);
 
-describe("没有标记的长通知（367 号票）", () => {
+describe("没有标记的长通知", () => {
   test("交给 agent 的，超过字数或行数才折；只看文字长度", () => {
     expect(letterKindOf(message("system", chars(NOTICE_FOLD.chars)), true)).toBeUndefined();
     expect(letterKindOf(message("system", chars(NOTICE_FOLD.chars + 1)), true)).toBe("notice");
@@ -120,7 +120,7 @@ describe("没有标记的长通知（367 号票）", () => {
   });
 });
 
-describe("阶段说明那一行（367 号票）", () => {
+describe("阶段说明那一行", () => {
   test("守护进程照 stageBriefLine 写，从整段通知里认得出第几阶段和标题", () => {
     const line = stageBriefLine({ code: "3", layers: 5, stageId: "s3", title: "第一波实现" });
     expect(line).toBe("现在是第 3/5 阶段 s3「第一波实现」：");

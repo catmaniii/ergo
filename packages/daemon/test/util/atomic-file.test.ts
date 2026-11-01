@@ -1,5 +1,5 @@
-// 写临时文件再改名（265 号票）：改名碰上文件被占着（EPERM / EBUSY / EACCES）时等一会儿重试，约 5 秒。
-// "被占着"用真的占用来模拟：另一个进程（或同一个进程）只读开着目标文件——Windows 上这时改名覆盖会 EPERM（255 号票实测，
+// 写临时文件再改名：改名碰上文件被占着（EPERM / EBUSY / EACCES）时等一会儿重试，约 5 秒。
+// "被占着"用真的占用来模拟：另一个进程（或同一个进程）只读开着目标文件——Windows 上这时改名覆盖会 EPERM（实测，
 // 备份在复制、杀毒在扫、测试在轮询读都是这种）；或者临时目录里刚写的文件被开着（杀毒扫刚写的文件），整个目录改名会失败。
 // POSIX 上改名不受开着的文件影响：改名覆盖开着的文件、一直占着就放弃这几条只在 Windows 上跑，整个目录改名的照样过。
 import { type ChildProcess, spawn } from "node:child_process";
@@ -31,7 +31,7 @@ afterEach(() => {
 /** 目录里除了这些名字还有什么（留没留临时文件） */
 const leftovers = (dir: string, expected: readonly string[]) => fs.readdirSync(dir).filter((name) => !expected.includes(name));
 
-describe("写临时文件再改名（265 号票）", () => {
+describe("写临时文件再改名", () => {
   it("写文件：先写同目录的临时文件再改名成目标，覆盖原来的；父目录没有就建；不留临时文件", () => {
     const dir = makeTempDir("ergo-atomic-");
     const file = path.join(dir, "sub", "settings.json");
@@ -48,7 +48,7 @@ describe("写临时文件再改名（265 号票）", () => {
     const file = path.join(dir, "settings.json");
     fs.writeFileSync(file, "旧的\n");
     await holdOpen(file, 600);
-    // 对照：不重试的改名这时会失败（255 号票查出的就是这个）
+    // 对照：不重试的改名这时会失败（查出的就是这个）
     const probe = path.join(dir, "probe.tmp");
     fs.writeFileSync(probe, "x");
     expect(() => fs.renameSync(probe, file)).toThrow(expect.objectContaining({ code: "EPERM" }));

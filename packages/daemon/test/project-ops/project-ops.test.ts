@@ -1,4 +1,4 @@
-// 秘书的 project_ops（260 号票；268 号票照用户 2026-10-13 的设计草稿补齐）的单元切面：
+// 秘书的 project_ops（照设计草稿补齐）的单元切面：
 // - 运营接口清单（manifest.ts）：MCP tools/list 的格式加中文标题、用户可能怎么说、三种操作（旧清单的 readOnlyHint 照读）、风险标记、
 //   四种实现方式、测试；规范模板里那份读得通；坏了的说清哪里坏；和通用操作重名的不行；
 // - 参数（args.ts）：中文名换成值、补默认值、按 JSON Schema 校验；参数说明本身的毛病（枚举没中文名、默认值不合、required 写了没有的）；
@@ -7,7 +7,7 @@
 //   版本号加一，没过的照旧用上一版、告诉负责人一次；转运营检查清单那一项的几种样子；
 // - list / describe / call：通用操作和项目自己的操作；参数不对不发、退回说明；say 必有（没给的二狗补、记下）；四种实现方式各一条
 //   （假的项目服务、工作目录里的假脚本、二狗自带动作绑参数、转给负责人当工单）；通用操作（状态、最近运行、最新交付件、立即跑一次、
-//   暂停恢复、改时间、跟负责人说一句）；记录里带版本号；260 号票的那些（服务关着、连不上、等不到、调用口对不上服务）照旧。
+//   暂停恢复、改时间、跟负责人说一句）；记录里带版本号；那些（服务关着、连不上、等不到、调用口对不上服务）照旧。
 // 真守护进程、真端口的主切面在 test/main/project-ops.test.ts。
 import fs from "node:fs";
 import path from "node:path";
@@ -236,7 +236,7 @@ describe("运营接口清单（ops.json）", () => {
     });
   });
 
-  it("旧清单（260 号票的写法）照读：readOnlyHint true 是只读查询、false 是有副作用的动作，都没写的照 MCP 的默认算动作（验收时要写明）；kind 和 readOnlyHint 对不上的不行", () => {
+  it("旧清单（写法）照读：readOnlyHint true 是只读查询、false 是有副作用的动作，都没写的照 MCP 的默认算动作（验收时要写明）；kind 和 readOnlyHint 对不上的不行", () => {
     const read = parseOpsManifest(JSON.stringify({ tools: [{ name: "a", annotations: { readOnlyHint: true } }, { name: "b", annotations: { readOnlyHint: false } }, { name: "c" }] }));
     expect(read).toMatchObject({ kind: "ok", ops: [{ name: "a", kind: "query", kindFrom: "readOnlyHint" }, { name: "b", kind: "action", kindFrom: "readOnlyHint" }, { name: "c", kind: "action", kindFrom: "default" }] });
     expect(problem(JSON.stringify({ tools: [{ name: "a", kind: "query", annotations: { readOnlyHint: false } }] }))).toContain("kind 和 annotations.readOnlyHint 对不上");
@@ -353,7 +353,7 @@ describe("回的东西：能念的 say 和附件", () => {
   });
 });
 
-describe("清单验收和版本号（照 112 号票的自动验收）", () => {
+describe("清单验收和版本号（照自动验收）", () => {
   it("建设中：格式对、每个操作的测试（带测试标记，有副作用的不真做）跑通并回 say、只读的不写——全过；转运营清单那一项打勾；转入使用时登记成第 1 版", async () => {
     const app = await startFakeOpsApp();
     const s = setup({
@@ -454,7 +454,7 @@ describe("清单验收和版本号（照 112 号票的自动验收）", () => {
     expect(s.registered().map((r) => r.version)).toEqual([1]);
   });
 
-  it("先验清单、后交方案（362 号票）：当时调用口对不上记的“没过”过时了，卡上不再写没过，重验", async () => {
+  it("先验清单、后交方案：当时调用口对不上记的“没过”过时了，卡上不再写没过，重验", async () => {
     const idle = await freePort();
     const building = project("p-1", "记账本", "building", { kind: "dev" });
     const plans: Record<string, OperationsPlanView> = {};
@@ -469,7 +469,7 @@ describe("清单验收和版本号（照 112 号票的自动验收）", () => {
     expect(s.ops.checklistItem(building).detail).toContain("上线后自动复验");
   });
 
-  it("服务上线了（362 号票）：不等秘书用到，自动复验、全过了登记；登记着的就是这一份不再验；没过的告诉负责人", async () => {
+  it("服务上线了：不等秘书用到，自动复验、全过了登记；登记着的就是这一份不再验；没过的告诉负责人", async () => {
     const idle = await freePort();
     const building = project("p-1", "记账本", "building", { kind: "dev" });
     const s = setup({
@@ -796,7 +796,7 @@ describe("call", () => {
     expect(s.timeline().at(-1)!.detail).toContain("通用操作");
   });
 
-  it("服务关着（257）、关闭中、还在上线、上线失败、要你手动：回原因，不去调、不记录（通用操作照样能用）", async () => {
+  it("服务关着、关闭中、还在上线、上线失败、要你手动：回原因，不去调、不记录（通用操作照样能用）", async () => {
     const app = await startFakeOpsApp();
     const s = setup({ projects: [project("p-1", "记账本", "in_use")], services: [service("p-1", "ledger", app.port)], ops: { "p-1": LEDGER_OPS } });
     await s.run({ action: "list" }); // 先验收、登记

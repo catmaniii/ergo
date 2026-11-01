@@ -1,4 +1,4 @@
-// 实现方式 script（268 号票，草稿："script 工作目录里的脚本 JSON 进出"）：项目工作目录里的一个脚本，二狗在本机跑它——
+// 实现方式 script（草稿："script 工作目录里的脚本 JSON 进出"）：项目工作目录里的一个脚本，二狗在本机跑它——
 // - 哪个脚本：impl.file，相对项目工作目录的路径（要在工作目录里面、要已经存在；链接出去的不算），impl.args 是固定的附加参数；
 //   按扩展名选解释器：.mjs .js .cjs .ts .mts 用二狗自己的 node，.py 用 python，.ps1 用 PowerShell，.cmd .bat 经 cmd，.exe 直接跑；
 // - JSON 进：标准输入是和 http 一样的请求体 { "name", "arguments", "_meta"? }（验收的测试调用带 "_meta": { "ergo/test": true }），

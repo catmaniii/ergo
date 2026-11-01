@@ -1,11 +1,11 @@
-// 共用的线条图标（122 号票，ui/icons.tsx）：导航、选项、按钮上原来拿表情符号或 Unicode 符号当的图标换成自己画的 SVG。
+// 共用的线条图标（ui/icons.tsx）：导航、选项、按钮上原来拿表情符号或 Unicode 符号当的图标换成自己画的 SVG。
 // 这里查三件事：
 // - 每个图标都按同一套画法：24×24 视框、线宽 1.75、圆头圆角、颜色只用 currentColor、1em 大、不给读屏读；
 // - 导航以外指同一项的地方（"更多"页菜单、记忆页的占位）用 NavIcon：和导航一样是 .tab-icon 挂 data-nav，跟着风格走；
 // - 防回退：这次换掉的那几处组件的源码里（注释除外）不再出现当图标用的表情符号和符号。
-//   用户 2026-10-14 收窄了范围：只换导航和选项、按钮上的；文本框里的标记、阶段进展的 ✓ ✕ ○ ◐、聊天和时间线文字里的
+//   收窄了范围：只换导航和选项、按钮上的；文本框里的标记、阶段进展的 ✓ ✕ ○ ◐、聊天和时间线文字里的
 //   ⛔ 📨 💭、展开收起的 ▾ ▸、语音气泡的 ▶ ❚ 这些不换，所以这里只查换了的那几个文件。
-//   关闭的 ×、列表行尾的 › 这次没动（拿不准算不算图标，留给用户定），这两个字不在查的范围里。
+//   关闭的 ×、列表行尾的 › 这次没动（拿不准算不算图标），这两个字不在查的范围里。
 import fs from "node:fs";
 import path from "node:path";
 import { createElement } from "react";
@@ -60,7 +60,7 @@ describe("导航的图标", () => {
     expect(iconOf(own)).toBe(iconOf(renderTab(entry)));
   });
 
-  test("网页插件的页面（193 号票，比如记忆）：图标、写的字由它给，data-nav 是页面的 id；导航以外的 NavIcon 同一个图标", () => {
+  test("网页插件的页面（比如记忆）：图标、写的字由它给，data-nav 是页面的 id；导航以外的 NavIcon 同一个图标", () => {
     const tab = renderToStaticMarkup(createElement(NavTab, { entry: "memory", label: "记忆", icon: "layers", on: false, badge: { unread: 0, seenPending: 0 } }));
     expect(tab).toContain('data-nav="memory"');
     expect(iconOf(tab)).toBe("layers");

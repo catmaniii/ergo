@@ -1,4 +1,4 @@
-// 记忆"全量重判一次"（333 号票，ADR-0032 的"全量重判一次"一节）：规矩改了以后，把推理库里现有的结论按新规矩全过一遍——
+// 记忆"全量重判一次"（ADR-0032 的"全量重判一次"一节）：规矩改了以后，把推理库里现有的结论按新规矩全过一遍——
 // 规矩迁移、被错撤的复活成猜测、老账本里落空的预测往回打、每组按新规矩重定、标着复核的组由模型重跑追问、往上抽、图谱自检……
 // 走的是守护进程同一份作业逻辑（`memory/nightly-job.ts` 的 `runFullRejudge`）：同一个模型、同一套规矩和提示词、同一个写入口，
 // 每一笔改动都进留痕；不读新素材（新证据留给下一次每晚整理）。
@@ -6,7 +6,7 @@
 //   npm run memory:rejudge -- [--data-dir <目录>] [--max-model-calls <n>] [--max-yuan <元>]
 //   npm run memory:rejudge -- --undo <报告.json> [--data-dir <目录>]      撤回这一次（换回跑之前存的快照）
 //
-// - 只写 `memory/subtext/rg.db`（338 号票起推理库在会意插件自己的数据目录里，按 `dataDirLayout().rgDb` 算）；跑之前先存一份快照 `tmp/memory-rejudge-<时间>.before.db`，报告写在 `tmp/memory-rejudge-<时间>.json`；
+// - 只写 `memory/subtext/rg.db`（推理库在会意插件自己的数据目录里，按 `dataDirLayout().rgDb` 算）；跑之前先存一份快照 `tmp/memory-rejudge-<时间>.before.db`，报告写在 `tmp/memory-rejudge-<时间>.json`；
 // - 要独占推理库：守护进程要停着（数据目录里有 daemon.pid 就不跑）——经 LSM 停，跑完再经 LSM 起来；
 // - 跑的时候一步一行：走到哪一步、用了多久、调了几次模型、花了多少钱；
 // - 撤回：`--undo <报告.json>` 把 rg.db 换回快照；跑完以后库里又写过别的就不换（会丢掉后来的），交回原因。
@@ -184,7 +184,7 @@ async function main(argv: readonly string[]): Promise<void> {
   const personalFiles = personalFilesOf(layout.eventsDb, () => clockIso(clock));
   const job = createMemoryNightlyJob({
     file: layout.rgDb,
-    // 和守护进程一样：档案摘要当情境、号码类和住址的值在每个发给模型的请求里换成占位（283 号票）
+    // 和守护进程一样：档案摘要当情境、号码类和住址的值在每个发给模型的请求里换成占位
     ...(personalFiles === undefined ? {} : { personalFiles: () => personalFiles }),
     // 不读新素材：全量重判只重判已有的结论
     materials: { list: () => [] },

@@ -1,4 +1,4 @@
-// 模拟器联调的小工具（349 号票）：adb（每条都带 -s 模拟器，绝不碰真机）、经 DevTools 协议（CDP）在 WebView 里跑脚本、读界面（uiautomator）。
+// 模拟器联调的小工具：adb（每条都带 -s 模拟器，绝不碰真机）、经 DevTools 协议（CDP）在 WebView 里跑脚本、读界面（uiautomator）。
 // Node 22 自带 WebSocket，不加依赖。要 WebView 调试开着的包：npm run build:android -- --webview-debug（只给模拟器用）。
 import { execFileSync } from "node:child_process";
 import path from "node:path";

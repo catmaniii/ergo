@@ -1,19 +1,19 @@
-// 计划的纯函数（规格第 8 节，12 号票），守护进程和 Web 共用，不引用 TypeBox：
-// - 策略和授权项的列表：阶段的在前（按阶段顺序），阶段组的其次（planPolicies、planGrants；76 号票起计划里没有定时作业了）；
+// 计划的纯函数（规格第 8 节），守护进程和 Web 共用，不引用 TypeBox：
+// - 策略和授权项的列表：阶段的在前（按阶段顺序），阶段组的其次（planPolicies、planGrants；计划里没有定时作业了）；
 //   一个阶段的策略（它自己的加所属阶段组的，stagePolicies）；
-// - 开始执行时各阶段的样子（initialStages，13 号票：守护进程建阶段、Web 在还没开始执行时按计划列出都用它）；
+// - 开始执行时各阶段的样子（initialStages：守护进程建阶段、Web 在还没开始执行时按计划列出都用它）；
 // - 计划卡上由代码从结构化数据生成的文字：授权行（grantText，负责人写的 title 只作备注）、时序规则（temporalRuleText）；
 // - 停点（planStops）：授权后执行时还会在哪几处停下来——由你验收的阶段、落在"先问我""交给我做"类别里的授权
 //   （这类授权行不算授权、不能勾选）、被勾掉的、被收窄的。随卡上的勾选实时算；负责人填的 stops 只作参考说明。
-//   "有风险的事先问我"关着时（asksOff，新装默认，378 号票）只剩交给我做的和旧计划里由你验收的：别的都不问，直接做；
-//   一个阶段的那几处（stageStops，84 号票：阶段详情的"问"）；
-// - 从某个阶段重做的范围（stageStarted、downstreamOf、reopenScope，84 号票：守护进程重开、Web 的重做对话框都用它）；
-// - 时序规则违反了怎么办的说法（ON_VIOLATION_TEXT，84 号票合成一份）。
-// - 第几阶段、编号（stageNumbers、stageCodes、planStageCodes，91 号票：第几阶段是最长那条前置链的长度，并行的同号，
-//   同一阶段有几个时编 4a、4b）。93 号票起编号存进计划（withStageCodes：守护进程定计划、每次调整时定下，已有的阶段不改号，
+//   "有风险的事先问我"关着时（asksOff，新装默认）只剩交给我做的和旧计划里由你验收的：别的都不问，直接做；
+//   一个阶段的那几处（stageStops：阶段详情的"问"）；
+// - 从某个阶段重做的范围（stageStarted、downstreamOf、reopenScope：守护进程重开、Web 的重做对话框都用它）；
+// - 时序规则违反了怎么办的说法（ON_VIOLATION_TEXT，合成一份）。
+// - 第几阶段、编号（stageNumbers、stageCodes、planStageCodes：第几阶段是最长那条前置链的长度，并行的同号，
+//   同一阶段有几个时编 4a、4b）。编号存进计划（withStageCodes：守护进程定计划、每次调整时定下，已有的阶段不改号，
 //   编号形如 M4a）；读的地方（stageCodes、planStageCodes、listStageCodes）照存的，之前存下的计划没有编号，按依赖图现算。
 //   计划卡上的停点、授权挂在哪个阶段的说法给了编号就写编号（Web 给）；不给照旧按计划里的顺序。
-// - 计划变更卡（14 号票）上每一处改动的说法（planChangeItemText）：和计划卡一样由结构化数据生成，守护进程（交给负责人的话、素材）
+// - 计划变更卡上每一处改动的说法（planChangeItemText）：和计划卡一样由结构化数据生成，守护进程（交给负责人的话、素材）
 //   和 Web（卡片）共用。
 import { DISPOSITION_LABEL } from "./constants.ts";
 import { followLocale, t, tTable } from "./i18n/runtime.ts";
@@ -21,13 +21,13 @@ import { ACCEPTANCE_METHOD_LABEL } from "./tasks.ts";
 import type { GrantInfo, GrantNarrowing, Plan, PlanCardPayload, PlanChangeItem, PlanChangeOwner, PlanGrant, PlanPolicy, PlanTemporalRule, PlanToolkit, TaskStage } from "./task-schema.ts";
 import { canSendAttachment, canTellSecretary, toolkitChangeText, toolkitText } from "./toolkit.ts";
 
-// ───────────────────────── 第几阶段、编号（91 号票） ─────────────────────────
+// ───────────────────────── 第几阶段、编号 ─────────────────────────
 
 /** 算阶段号要的：阶段 id 和它的前置阶段（算编号时再带上存在计划里的编号） */
 export interface StageDeps {
   readonly id: string;
   readonly after: readonly string[];
-  /** 存在计划里的编号（93 号票起守护进程定计划时存进来）；之前的计划没有，按依赖图现算 */
+  /** 存在计划里的编号（守护进程定计划时存进来）；之前的计划没有，按依赖图现算 */
   readonly code?: string | undefined;
 }
 
@@ -55,7 +55,7 @@ const LETTERS = "abcdefghijklmnopqrstuvwxyz";
 const lettered = (n: number, i: number) => `${n}${LETTERS[i] ?? `-${i + 1}`}`;
 
 /**
- * 编号（形如 M4a）：存在计划里的照存的（93 号票）；没存的（之前的计划）按依赖图现算——这一阶段只有一个
+ * 编号（形如 M4a）：存在计划里的照存的；没存的（之前的计划）按依赖图现算——这一阶段只有一个
  * 就是阶段号（"4"），有几个就按计划里的先后加 a、b、c（"4a""4b"）
  */
 export function stageCodes(stages: readonly StageDeps[]): Map<string, string> {
@@ -79,7 +79,7 @@ export function planStageCodes(plan: Pick<Plan, "stages">): Map<string, string> 
   return stageCodes(plan.stages.map((s) => ({ id: s.stageId, after: s.dependsOn, code: s.code })));
 }
 
-/** 看板上的阶段列表（执行中各阶段的样子）的编号：存着的照存的（93 号票起开始执行时从计划带过来），没存的现算 */
+/** 看板上的阶段列表（执行中各阶段的样子）的编号：存着的照存的（开始执行时从计划带过来），没存的现算 */
 export function listStageCodes(list: readonly Pick<TaskStage, "stageId" | "dependsOn" | "code">[]): Map<string, string> {
   return stageCodes(list.map((s) => ({ id: s.stageId, after: s.dependsOn, code: s.code })));
 }
@@ -88,7 +88,7 @@ export function listStageCodes(list: readonly Pick<TaskStage, "stageId" | "depen
 export const stageCodeNumber = (code: string): number => Number.parseInt(code, 10) || 0;
 
 /**
- * 一共几个阶段号：守护进程写"第 1a/4 阶段"的 4，界面状态行"第 N/M 阶段"的 M（93 号票评审：两边共用这一处）。取存下的编号里最大的
+ * 一共几个阶段号：守护进程写"第 1a/4 阶段"的 4，界面状态行"第 N/M 阶段"的 M（两边共用这一处）。取存下的编号里最大的
  * 阶段号——编号存在计划里、调整后不变，去掉中间的阶段后按依赖图数层数会写出"第 3/2 阶段"；之前没存编号的按依赖图现算的编号
  */
 export function stageLayerCount(list: readonly Pick<TaskStage, "stageId" | "dependsOn" | "code">[]): number {
@@ -102,7 +102,7 @@ export function stageCodeAt(list: readonly Pick<TaskStage, "stageId" | "dependsO
 }
 
 /**
- * 定下各阶段的编号存进计划（93 号票。不让模型照规则起名、检查不对再退回：二狗的阶段 id 是 s1、s2，
+ * 定下各阶段的编号存进计划（不让模型照规则起名、检查不对再退回：二狗的阶段 id 是 s1、s2，
  * 编号由守护进程定，负责人不用写）：
  * - 第一版（prev 不给）：这一阶段只有一个就是阶段号，有几个按计划里的先后加 a、b（stageCodes）；
  * - 计划调整（prev 是现在生效的那一份）：已有的阶段（prev 里有同一个阶段 id）沿用原来的号——哪怕前置改了、阶段号变了也不改名；
@@ -175,12 +175,12 @@ export function initialStages(plan: Plan): TaskStage[] {
     dependsOn: [...s.dependsOn],
     acceptance: s.acceptance.map((a) => ({ criterion: a.criterion, method: a.method })),
     attempts: 0,
-    // 存在计划里的编号带过来（93 号票）：看板上的阶段列表、守护进程写的"第 1a 阶段"都照它
+    // 存在计划里的编号带过来：看板上的阶段列表、守护进程写的"第 1a 阶段"都照它
     ...(s.code === undefined ? {} : { code: s.code }),
   }));
 }
 
-// ───────────────────────── 从某个阶段重做（84 号票，守护进程和 Web 共用） ─────────────────────────
+// ───────────────────────── 从某个阶段重做（守护进程和 Web 共用） ─────────────────────────
 
 /** 看板上的这个阶段开始过：不是未开始，或者开始过又放下了（startedAt 还在）。从这里重做只对开始过的阶段 */
 export function stageStarted(stage: Pick<TaskStage, "state" | "startedAt">): boolean {
@@ -211,7 +211,7 @@ export function reopenScope<S extends Pick<TaskStage, "stageId" | "dependsOn">>(
   return downstreamOf(list, stageId).filter((id) => id === stageId || started(list.find((s) => s.stageId === id)!));
 }
 
-/** "第 2 阶段「写报告」" / "阶段组「成文」的各阶段"；给了编号（91 号票：Web 按依赖图）写"第 1b 阶段「写报告」" */
+/** "第 2 阶段「写报告」" / "阶段组「成文」的各阶段"；给了编号（Web 按依赖图）写"第 1b 阶段「写报告」" */
 export function policyOwnerLabel(owner: PolicyOwner, codes?: ReadonlyMap<string, string>): string {
   if (owner.kind === "stage") return t("protocol.plan.owner.stage", { no: stageNoOf(owner.stageId, owner.index, codes), title: owner.title });
   return t("protocol.plan.owner.group", { title: owner.title });
@@ -250,14 +250,14 @@ export function grantScopeText(scope: PlanGrant["scope"]): string {
 export function grantText(grant: PlanGrant, info: GrantInfo | undefined, owner?: PolicyOwner | "job"): string {
   const tool = info && info.toolTitle !== grant.tool ? t("protocol.plan.grant.toolNamed", { title: info.toolTitle, tool: grant.tool }) : grant.tool;
   const categories = info && info.categoryTitles.length > 0 ? ` · ${info.categoryTitles.join(t("protocol.common.listSep"))}` : "";
-  // 定时触发的任务每次运行的授权（19 号票的定时作业，76 号票迁移成定时触发的普通任务）：次数按每次运行算，没有天数（任务在运营就一直有效）
+  // 定时触发的任务每次运行的授权（定时作业，迁移成定时触发的普通任务）：次数按每次运行算，没有天数（任务在运营就一直有效）
   const job = owner === "job";
   const uses =
     grant.maxUses === undefined
       ? t("protocol.plan.grant.unlimited")
       : t(job ? "protocol.plan.grant.maxUsesPerRun" : "protocol.plan.grant.maxUses", { n: grant.maxUses, count: grant.maxUses });
   const command = grant.command === undefined ? "" : t("protocol.plan.grant.command", { command: grant.command });
-  // 58 号票：流程的步骤推出的授权项只认写了的参数、路径按真实路径比
+  // 流程的步骤推出的授权项只认写了的参数、路径按真实路径比
   const exact = grant.exactArgs ? t("protocol.plan.grant.exactArgs") : "";
   const real = grant.realScope === undefined ? "" : t("protocol.plan.grant.realScope", { scope: grantScopeText(grant.realScope) });
   const days = grant.validDays ?? DEFAULT_GRANT_VALID_DAYS;
@@ -273,14 +273,14 @@ export function grantText(grant: PlanGrant, info: GrantInfo | undefined, owner?:
   });
 }
 
-/** 定时触发的任务每次运行的授权的有效期怎么写：任务在运营就一直有效（19 号票；76 号票起作业并进定时触发的任务）；跟着当前语言 */
+/** 定时触发的任务每次运行的授权的有效期怎么写：任务在运营就一直有效（作业并进定时触发的任务）；跟着当前语言 */
 export let JOB_GRANT_VALIDITY_TEXT = "";
 followLocale(() => {
   JOB_GRANT_VALIDITY_TEXT = t("protocol.plan.grant.jobValidity");
 });
 
 /**
- * 用户的限制里的一条授权收窄（26 号票），写成一句话："「推送报告」（push-report）：最多 1 次，branch 只留 report"。
+ * 用户的限制里的一条授权收窄，写成一句话："「推送报告」（push-report）：最多 1 次，branch 只留 report"。
  * grant 是计划里的那个授权项（收窄已经落在它上面了）；找不到时只写 id
  */
 export function grantNarrowingText(narrowing: GrantNarrowing, grant: PlanGrant | undefined): string {
@@ -336,7 +336,7 @@ export function temporalRuleText(rule: PlanTemporalRule): string {
           : form === "forbid"
             ? t("protocol.plan.rule.forbid", { trigger })
             : t("protocol.plan.rule.bad", { trigger });
-  // 触发条件（trigger.where）和 when 一样只在满足条件时检查（26 号票：用户的限制常写成"往 main 推"这种带条件的触发）
+  // 触发条件（trigger.where）和 when 一样只在满足条件时检查（用户的限制常写成"往 main 推"这种带条件的触发）
   const conditional = rule.when !== undefined || (isObject(rule.trigger) && rule.trigger.where !== undefined);
   const scope = [conditional ? t("protocol.plan.rule.conditional") : "", rule.unless !== undefined ? t("protocol.plan.rule.exceptions") : ""]
     .filter(Boolean)
@@ -351,7 +351,7 @@ export type OnViolation = "block" | "pull_back" | "confirm";
 export const onViolationOf = (rule: Readonly<Record<string, unknown>>): OnViolation => (rule.on_violation === "block" ? "block" : rule.on_violation === "pull_back" ? "pull_back" : "confirm");
 
 /**
- * 违反了怎么办的说法：计划卡（交给负责人的授权和边界也是它）、检测项全览、阶段详情共用这一份（84 号票评审后合成一份，
+ * 违反了怎么办的说法：计划卡（交给负责人的授权和边界也是它）、检测项全览、阶段详情共用这一份（合成一份，
  * 用计划卡一直以来的说法；比"违反后直接拦截"多一级退回）
  */
 export const ON_VIOLATION_TEXT: Readonly<Record<OnViolation, string>> = tTable({
@@ -381,8 +381,8 @@ export interface PlanGrantChoice {
  * - 落在"先问我""交给我做"类别里的授权项（列进计划也照样问、交给你）；
  * - 被勾掉的（执行到那一步再问你）、被收窄的（超出收窄范围的部分执行时问你）。
  * 不给 choice 时按卡上记下的确认结果（已处理的卡：勾掉的授权项已经不在计划里，从 removedGrants 取）。
- * codes：给了就按编号写第几阶段（91 号票，Web 给 planStageCodes）。
- * asksOff："有风险的事先问我"关着（新装默认，378 号票；守卫的 letTaskAgentThrough）：先问我的、勾掉的、收窄的都不停，超出授权的
+ * codes：给了就按编号写第几阶段（Web 给 planStageCodes）。
+ * asksOff："有风险的事先问我"关着（新装默认，守卫的 letTaskAgentThrough）：先问我的、勾掉的、收窄的都不停，超出授权的
  * 也直接做，只剩由你验收的阶段和交给我做的
  */
 export function planStops(card: Pick<PlanCardPayload, "plan" | "grantInfo" | "removedGrants" | "narrowedGrants">, choice?: PlanGrantChoice, codes?: ReadonlyMap<string, string>, asksOff = false): PlanStop[] {
@@ -425,9 +425,9 @@ function grantStop(
 }
 
 /**
- * 一个阶段执行时会在哪几处停下来（84 号票：阶段详情"要你留意的"里的"问"，取计划的停点）：
+ * 一个阶段执行时会在哪几处停下来（阶段详情"要你留意的"里的"问"，取计划的停点）：
  * planStops 里落在这个阶段上的——它由你验收、它和所属阶段组的授权项里还会问的、收窄了的（勾掉的已经不在确认的计划里，
- * 说不清是哪个阶段的，不列）。codes：给了就按编号写第几阶段（91 号票）；asksOff 同 planStops
+ * 说不清是哪个阶段的，不列）。codes：给了就按编号写第几阶段；asksOff 同 planStops
  */
 export function stageStops(
   card: Pick<PlanCardPayload, "plan" | "grantInfo"> & { narrowedGrants?: readonly string[] | undefined },
@@ -446,10 +446,10 @@ export function stageStops(
   ];
 }
 
-// ───────────────────────── 计划变更（14 号票） ─────────────────────────
+// ───────────────────────── 计划变更 ─────────────────────────
 
 const ownerText = (o: PlanChangeOwner) => (o.kind === "stage" ? t("protocol.plan.change.ownerStage", { id: o.id, title: o.title }) : t("protocol.plan.change.ownerGroup", { title: o.title }));
-/** 361 号票起新计划里没有 token 数（运行时算）：只写次数；之前存下的计划照旧两样都写 */
+/** 新计划里没有 token 数（运行时算）：只写次数；之前存下的计划照旧两样都写 */
 const budgetText = (b: { tokens: number; toolCalls: number }) =>
   b.tokens > 0 ? t("protocol.plan.change.budgetAmount", { tokens: b.tokens, calls: b.toolCalls }) : t("protocol.plan.change.budgetCalls", { count: b.toolCalls });
 
@@ -459,7 +459,7 @@ export const budgetRaised = (before: { tokens: number; toolCalls: number }, afte
 
 /**
  * 比较工具包时看的几样：bash、联网，计划里的还有 skill、MCP（守护进程装配会话时的工具包只有前两样，没有的当空），
- * 给秘书发消息（102 号票）、发附件（117 号票），这两样不写是开着
+ * 给秘书发消息、发附件，这两样不写是开着
  */
 export type ComparableToolkit = Pick<PlanToolkit, "bash" | "network"> & Partial<Pick<PlanToolkit, "skills" | "mcp" | "tellSecretary" | "sendAttachment">>;
 
@@ -503,7 +503,7 @@ function addedRemovedText<T extends { stageId: string }>(head: string, item: { a
 }
 
 /**
- * 计划变更里的每种改动（14 号票）：说法（卡上、交给负责人的话、素材都用它，planChangeItemText）、对应计划里的哪一项授权、
+ * 计划变更里的每种改动：说法（卡上、交给负责人的话、素材都用它，planChangeItemText）、对应计划里的哪一项授权、
  * 扩大时停下哪些阶段（守护进程的 affectedStages）。新加一种改动只改这张表
  */
 export const PLAN_CHANGE_KINDS: { readonly [K in PlanChangeItem["kind"]]: PlanChangeKindInfo<K> } = {
@@ -531,7 +531,7 @@ export const PLAN_CHANGE_KINDS: { readonly [K in PlanChangeItem["kind"]]: PlanCh
     text: (item, info) => t("protocol.plan.change.grantRemoved", { owner: ownerText(item.owner), grant: grantText(item.grant, info[item.grant.id]) }),
     grant: (item) => item.grant,
   },
-  // 卡上"工具包变更"一栏：加上、去掉哪些能力（27 号票），括号里是原来的样子
+  // 卡上"工具包变更"一栏：加上、去掉哪些能力，括号里是原来的样子
   toolkit: { text: (item) => t("protocol.plan.change.toolkit", { change: toolkitChangeText(item.before, item.after), before: toolkitText(item.before) }) },
   projects: {
     text: (item) =>

@@ -1,5 +1,5 @@
 /**
- * 项目头下面的"现在"（140 号票）：按项目状态先说现在怎么样，下面才是完整的历史（立项书、运营方案、内部任务……原样）。
+ * 项目头下面的"现在"：按项目状态先说现在怎么样，下面才是完整的历史（立项书、运营方案、内部任务……原样）。
  * 项目页和负责人会话页左栏都在项目头（ProjectHead）里画它，左栏窄、用窄版（narrow）。数据是状态层的 projectNow。
  * - 筹备中：立项书到哪一步了；要你做的给按钮（和负责人交流、去看立项书、开工）；
  * - 建设中：建设任务的进度条和状态，卡住的醒目地列出来（等你、失败、被拦、超时没动，写原因），正在做的工单，最近一句进展；
@@ -111,7 +111,7 @@ function NowBody({ now, view, narrow, onChat }: { now: ProjectNow; view: Project
               <CardPanel cardId={now.buildDoneCardId} />
             </div>
           )}
-          {/* 259 号票：转入使用的确认卡（你在项目页点的、负责人提的、秘书代办的） */}
+          {/* 转入使用的确认卡（你在项目页点的、负责人提的、秘书代办的） */}
           {now.goLiveCardId && (
             <div className="now-card">
               <div className="now-line">{t("pages.projectNow.goLive")}</div>

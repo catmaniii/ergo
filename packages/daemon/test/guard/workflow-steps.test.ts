@@ -1,4 +1,4 @@
-// 守卫切面：流程的步骤推出的授权项（58 号票评审、复审后定，guard/workflow-steps.ts 的 workflowGrants）：
+// 守卫切面：流程的步骤推出的授权项（复审后定，guard/workflow-steps.ts 的 workflowGrants）：
 // - 步骤里写死的参数全部进对象范围（路径解析成绝对路径，数字、真假按字面）；
 // - 非 bash 的步骤只认步骤里写了的参数（exactArgs）：多带了别的参数、参数值不同都算超出；
 // - 通用 bash 的步骤按拆出来的伪工具各一项，再限定到这条命令本身（Grant.command）；
@@ -89,7 +89,7 @@ const judge = (toolCall: ReturnType<typeof call>, grants: Grant[], extra: Parame
 /** v1 模板的前提照常满足，再加上路径的事实 */
 const withFiles = (facts: EnvironmentFacts) => ({ facts: { ...v1Satisfied().facts, ...facts } });
 
-/** 效果日志里对 notes.md 的一次写、改（68 号票起内容只记长度和摘要哈希） */
+/** 效果日志里对 notes.md 的一次写、改（内容只记长度和摘要哈希） */
 const storedEffect = (tool: string, args: Record<string, unknown>) =>
   effect(50, tool, effectLogArgs(tool, { path: NOTES, ...args }, BUILTIN_TOOL_REGISTRY), { at: NOW - 1000 });
 
@@ -168,7 +168,7 @@ describe("推出的授权项交给判定函数", () => {
     expect(judged.disposition).toBe("ask_first");
   });
 
-  it("写文件、改文件的次数照样按效果日志算：效果日志里内容只记了长度和摘要哈希（68 号票），按哈希比，和比原文一样", () => {
+  it("写文件、改文件的次数照样按效果日志算：效果日志里内容只记了长度和摘要哈希，按哈希比，和比原文一样", () => {
     // 写文件、改文件本身不落进内置类别：加一个"计划里列了才做"的自定义类别，看授权项管不管得到
     const settings = { custom: [{ id: "files", title: "写文件", match: { tools: [TOOL.write, TOOL.edit] }, chat: "ask_first" as const, task: "plan_listed" as const }] };
     const BODY = Array.from({ length: 20 }, (_, i) => `第 ${i + 1} 行`).join("\n");

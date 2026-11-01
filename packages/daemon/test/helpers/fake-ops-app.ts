@@ -1,4 +1,4 @@
-// 测试里的"使用中的项目的服务"（260 号票；268 号票改成回能念的 say）：起在随机端口上的一个小 HTTP 服务，扮演一个记账本项目跑在这台电脑上的
+// 测试里的"使用中的项目的服务"（改成回能念的 say）：起在随机端口上的一个小 HTTP 服务，扮演一个记账本项目跑在这台电脑上的
 // 服务——首页给 LSM 的健康检查、前缀下自检看，本机调用口（默认 POST /ops）收二狗代秘书调的操作。调用口的约定照 ops.json 模板里写的：
 // 请求体是 MCP tools/call 的 params（{ name, arguments }，验收的测试调用另带 _meta: { "ergo/test": true }），
 // 回 { say, detail }（能念的那句和附件）或 MCP 的 CallToolResult（say 在 structuredContent.say），也可以回别的 JSON、纯文本。
@@ -122,7 +122,7 @@ export async function startFakeOpsApp(options: { path?: string; writeDir?: strin
   };
 }
 
-/** 记账本的运营接口清单（ops.json，268 号票的写法）：一个有副作用的动作、一个只读查询；调用口在服务 ledger 的 /ops */
+/** 记账本的运营接口清单（ops.json，写法）：一个有副作用的动作、一个只读查询；调用口在服务 ledger 的 /ops */
 export const LEDGER_OPS = {
   endpoint: { service: "ledger", path: "/ops" },
   tools: [

@@ -1,11 +1,11 @@
-// 数据源素材读成证据（303 号票，模块层）：素材库是真的（materials.db、素材区），数据源的素材用 dataSourceMaterial 写，
+// 数据源素材读成证据（模块层）：素材库是真的（materials.db、素材区），数据源的素材用 dataSourceMaterial 写，
 // MaterialsEvidenceSource 读成 @ergo/memory 的 EvidenceDraft。覆盖：
 // - 三种素材的证据性质（来源等级、说或做、证据种类）；场景一行（时间段、地点、和谁）和场景标签（插件给的、按日子补的、从原文推的）；
 // - 敏感类别：出处里写的有一类没打开整条不读；位置没打开时不带地点（也不拿地点推场景）；健康按原文认出来的照旧挡；
 // - 每晚整理的预算：同一个数据源、同一种、同一天超过 3 条合成一条（出处 digest:…），当天的先不读，最多 N 条（按时间先后），
 //   已经读进来的按背后的素材跳过（合成的那条被忘掉时别的素材放回来）；
 // - 顺口问那条路（evidenceDraftOf）一条一条读、不看是不是当天；
-// - 344 号票：素材写明账号的（Gmail 有几个账号），场景那一行带打了码的邮箱，不同账号不合成一条；没写账号的原文和以前一样。
+// -素材写明账号的（Gmail 有几个账号），场景那一行带打了码的邮箱，不同账号不合成一条；没写账号的原文和以前一样。
 import { EVENT_TYPES, type MemoryCommandEventPayload } from "@ergo/protocol";
 import { describe, expect, test } from "vitest";
 import { SENSITIVE_CATEGORIES, type SensitiveCategory } from "../../src/config/config.ts";
@@ -56,7 +56,7 @@ function record(t: Setup, rec: DataSourceRecordMaterial, source = CAMERA) {
 const day = (t: Setup, date: string, n: number, kind: DataSourceRecordMaterial["kind"] = "observed_behavior", from = CAMERA) =>
   Array.from({ length: n }, (_, i) => record(t, { kind, text: `第 ${i + 1} 件事`, time: `${date}T${String(9 + i).padStart(2, "0")}:00:00.000+08:00` }, from));
 
-describe("哪个账号（344 号票）", () => {
+describe("哪个账号", () => {
   const ONE = { id: "a1", label: "t***@example.com" };
   const TWO = { id: "a2", label: "w***@example.org" };
   /** 某个账号在那天发的 n 封 */

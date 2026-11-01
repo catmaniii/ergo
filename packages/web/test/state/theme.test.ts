@@ -1,6 +1,6 @@
-// 前端状态层：外观（34 号票）。用户在设置里选浅色、深色或跟随系统（默认），按"选的外观"和"系统现在是不是深色"
+// 前端状态层：外观。用户在设置里选浅色、深色或跟随系统（默认），按"选的外观"和"系统现在是不是深色"
 // 算出实际用哪种；记住的选择读出来不认识（旧版本留下的、被改过的）就按跟随系统处理。
-// 74 号票：设置列表上"外观与风格"一项的副标题写着现在选的（"跟随系统 · 净白格栅"）。
+// 设置列表上"外观与风格"一项的副标题写着现在选的（"跟随系统 · 净白格栅"）。
 import { describe, expect, test } from "vitest";
 import { appearanceSummary, THEME_CHOICE_LABEL, THEME_CHOICES, type Theme, type ThemeChoice, themeChoiceOf, resolveTheme } from "../../src/state/index.ts";
 

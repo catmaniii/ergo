@@ -1,15 +1,15 @@
-// 设置里的"模型"（73 号票，规格第 1 节"模型"）：名字、纯函数和接口的样子，守护进程和 Web 共用。不引用 TypeBox
+// 设置里的"模型"（规格第 1 节"模型"）：名字、纯函数和接口的样子，守护进程和 Web 共用。不引用 TypeBox
 // （设置文件和请求体的 schema 在 model-settings-schema.ts）。
 //
 // - 模型在服务端（二狗守护进程这台电脑）调用，服务商做成一张登记表：DeepSeek（默认），加上一个**自定义 OpenAI 兼容服务商**
 //   （provider id 固定是 custom：用户填接口地址、模型 id、API key，账号不是 DeepSeek 的人也能用二狗）；
 // - 默认模型和思考档位，加上按 agent 的覆盖（秘书、任务负责人、项目负责人、子 agent、评审、范围审视），各自"跟随默认"或者选定；
-//   某个项目、某个任务的负责人还能在自己的 ⚙ 里单独选定，盖过它那一行（120 号票）；
+//   某个项目、某个任务的负责人还能在自己的 ⚙ 里单独选定，盖过它那一行；
 // - 一个会话固定一个模型：改了以后下一个新会话生效，正在进行的会话（接着的会话）照旧用它开始时的模型、思考档位和看图能力；
-//   长会话（秘书的长期主线、项目负责人的对话段、定时触发的任务（76 号票）的 agent）换模型就新开会话、附一份交接摘要（83 号票），任务执行中途不换；
+//   长会话（秘书的长期主线、项目负责人的对话段、定时触发的任务的 agent）换模型就新开会话、附一份交接摘要，任务执行中途不换；
 // - API key 只说配没配、从哪来：key 放在数据目录的密钥区（LSM 启动守护进程时注入环境变量），网页上能填一个（POST /api/model-settings/key，
 //   写进同一个文件）；接口回的、页面上显示的、日志里的都没有 key 的内容（请求体里那一次除外）；
-// - 看图能力：设置页改的为准，其次是配置文件 models["provider/模型 id"].vision 写明的，都没写按模型目录（79 号票）。
+// - 看图能力：设置页改的为准，其次是配置文件 models["provider/模型 id"].vision 写明的，都没写按模型目录。
 import { ASSISTANT_NAME_MARK } from "./assistant-name.ts";
 import { t, tTable } from "./i18n/runtime.ts";
 
@@ -17,7 +17,7 @@ import { t, tTable } from "./i18n/runtime.ts";
 export const MODEL_AGENTS = ["secretary", "task_maintainer", "project_maintainer", "sub_agent", "reviewer", "scope_review"] as const;
 export type ModelAgent = (typeof MODEL_AGENTS)[number];
 
-/** agent 的叫法：秘书写名字占位，界面按用户起的名字显示（43 号票） */
+/** agent 的叫法：秘书写名字占位，界面按用户起的名字显示 */
 export const MODEL_AGENT_LABEL: Readonly<Record<ModelAgent, string>> = Object.freeze(
   Object.defineProperties(
     { secretary: ASSISTANT_NAME_MARK },
@@ -137,14 +137,14 @@ export function effectiveModelChoice(settings: Pick<ModelSettings, "default" | "
 }
 
 /**
- * 能在自己的 ⚙ 里单独配模型的负责人（120 号票）：某个项目的负责人、某个任务的负责人，选定模型和思考档位，盖过它所属的那一行
+ * 能在自己的 ⚙ 里单独配模型的负责人：某个项目的负责人、某个任务的负责人，选定模型和思考档位，盖过它所属的那一行
  * （项目负责人 / 任务负责人）。秘书本来就单独一行；它们派出的子 agent、评审，范围审视，照旧按各自那一行，不跟着负责人走
  */
 export const MAINTAINER_MODEL_AGENTS = ["task_maintainer", "project_maintainer"] as const satisfies readonly ModelAgent[];
 export type MaintainerModelAgent = (typeof MAINTAINER_MODEL_AGENTS)[number];
 
 /**
- * 单独配了模型的负责人，改了以后它什么时候换（照 83 号票：一个会话固定一个模型）：
+ * 单独配了模型的负责人，改了以后它什么时候换（一个会话固定一个模型）：
  * - next_segment：项目的负责人——下一张工单、下一个对话段；正在进行的对话段在下一条消息时换、附交接摘要；工单做到一半不换；
  * - next_run：定时、事件触发的任务——下一次运行开头换、附交接摘要；
  * - new_session：一次性的任务——一个任务一个会话、执行中途不换：已经开始的会话照旧，清空当前对话后新开的一段用新的
@@ -152,7 +152,7 @@ export type MaintainerModelAgent = (typeof MAINTAINER_MODEL_AGENTS)[number];
 export const MODEL_SWITCH_AT = ["next_segment", "next_run", "new_session"] as const;
 export type ModelSwitchAt = (typeof MODEL_SWITCH_AT)[number];
 
-/** 设置 · 模型页上一个单独配了模型的负责人（120 号票）：在它那一行下面列出来，点了去它的 ⚙ */
+/** 设置 · 模型页上一个单独配了模型的负责人：在它那一行下面列出来，点了去它的 ⚙ */
 export interface MaintainerModelView {
   agentId: string;
   /** 它盖过的是哪一行 */
@@ -194,7 +194,7 @@ export interface ModelProviderView {
 /**
  * API key 的状态：只说配没配、从哪来，没有 key 的任何内容（连开头结尾几个字也没有）。
  * key 由 LSM 从数据目录密钥区的 secretFile 读出、注入守护进程的环境变量 envVar；守护进程只看这个变量有没有值。
- * 319 号票起网页上也能填一个换掉（写进同一个 secretFile，同时换成现在用的），状态照旧只说配没配
+ * 网页上也能填一个换掉（写进同一个 secretFile，同时换成现在用的），状态照旧只说配没配
  */
 export interface ModelApiKeyStatus {
   configured: boolean;
@@ -255,12 +255,12 @@ export interface ModelSettingsView {
   effective: Record<ModelAgent, ModelChoice>;
   /** 秘书的主线会话现在用的（秘书在运行时才有） */
   secretarySession?: SessionModelView;
-  /** 单独配了模型的项目、任务的负责人（120 号票，在各自的 ⚙ 里配；项目归档、任务归档时清掉） */
+  /** 单独配了模型的项目、任务的负责人（在各自的 ⚙ 里配；项目归档、任务归档时清掉） */
   maintainers: MaintainerModelView[];
 }
 
 /**
- * 模型的 key 配没配（GET /api/model-settings/key，315 号票）：设置里选的服务商和它的 key 的状态（同设置页的 apiKey），不查模型目录、马上回。
+ * 模型的 key 配没配（GET /api/model-settings/key）：设置里选的服务商和它的 key 的状态（同设置页的 apiKey），不查模型目录、马上回。
  * 会话页上"还没配模型"的提示用它（第一次装、还没配 key 的人：守护进程照常起来，回话之前先告诉他去哪配）
  */
 export interface ModelKeyView {
@@ -269,7 +269,7 @@ export interface ModelKeyView {
 }
 
 /**
- * 模型的 key 在网页上填（319 号票之后：设置 · 模型、首次设置向导那一步；用户 2026-10-28 定"A：网页里能填 key"）：
+ * 模型的 key 在网页上填（设置 · 模型、首次设置向导那一步）：
  * 去掉 BOM、换行和首尾空白以后最少这么多个字符（挡明显不是 key 的东西，不按服务商的格式校验死），最多
  * MODEL_KEY_MAX_LENGTH 个字符。
  */

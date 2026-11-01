@@ -1,15 +1,15 @@
-// 列本机的 Claude Code 会话、查哪些正开着、读主线最近一段（前情）、分叉一份（290 号票，issue 24 方案 2.3；调研 31 第 1 节、32 第 6.2 节、35 第 4 节）。
+// 列本机的 Claude Code 会话、查哪些正开着、读主线最近一段（前情）、分叉一份（调研 31 第 1 节）。
 // 一次性子进程（sessions-main.ts）里跑：守护进程送一条请求（../sessions-protocol.ts）、等一条结果。SDK 和跑 claude 的办法由入口给（deps），
 // 契约测试给假的（不读用户真实的 ~/.claude、不起 claude）。
 // - 列：SDK 的 listSessions（直接读本机的会话记录，不起 claude、不花额度）。不列 SDK、-p 起的会话（includeProgrammatic: false，和终端里
 //   /resume 一样）：二狗自己的负责人用 SDK 起的会话不出现在这里，免得被别的任务再接管一次；
-// - 正开着的：`claude agents --json`（官方说的从外面读会话状态的受支持办法；它不起守护进程，调研 35 第 2 步）。会话记录没有锁，
+// - 正开着的：`claude agents --json`（官方说的从外面读会话状态的受支持办法；它不起守护进程）。会话记录没有锁，
 //   终端里开着的会话再被恢复会分叉、丢轮，所以占没占由守护进程那一侧按它判；
 // - 前情：SDK 的 getSessionMessages（按 parentUuid 链重建主线，废弃的分支不算；超过 5MB 的记录 SDK 只读最后一次压缩之后的），
 //   只看最后 entries 条，翻成二狗的样子（用户说的一句、它的一条回复：文字、思考、工具调用——工具名照守卫登记表映射，结果截短），
 //   最多 messages 条，尽量从一句用户的话开始。会话记录的格式是 Claude Code 内部的，不自己解析文件（调研 31）；
 // - 分叉：SDK 的 forkSession（复制成新会话、全部换新 uuid，原会话不动）。
-// - 只读跟随（292 号票）：会话交给官方 App 期间，同样用 getSessionMessages 读主线，只翻某一条之后的新内容（followOf：带着每条的 id 去重、
+// - 只读跟随：会话交给官方 App 期间，同样用 getSessionMessages 读主线，只翻某一条之后的新内容（followOf：带着每条的 id 去重、
 //   还没说完的最后一条回复先不交）。
 // 读、分叉都不传 dir：会话 id 是全局唯一的 UUID，SDK 会在所有项目目录里找（按工作目录推目录名会撞名，调研 31 第 1.2 节）。
 // @i18n-ignore-file data：前情里的占位（图片）、认 Claude Code 记录里的元信息；给人看的说明在守护进程那一侧按语言写
@@ -19,7 +19,7 @@ import { parseAgents } from "../agents-json.ts";
 import type { ClaudeSessionInfo, ClaudeSessionsRequest, ClaudeSessionsResult } from "../sessions-protocol.ts";
 import { toGuardCall } from "./guard.ts";
 
-// `claude agents --json` 的解析 292 号票起挪到插件目录（守护进程这一侧交给官方 App 时也要用），这里照旧转出
+// `claude agents --json` 的解析挪到插件目录（守护进程这一侧交给官方 App 时也要用），这里照旧转出
 export { parseAgents } from "../agents-json.ts";
 
 /** 用到的 SDK 函数（真的入口给 @anthropic-ai/claude-agent-sdk 的，测试给假的） */
@@ -111,7 +111,7 @@ function resultText(content: unknown): string {
     .join("\n");
 }
 
-/** 翻出来的一条，连同它从哪条消息开始（下标、id、时间）：只读跟随（292 号票）按它去重、定下次从哪接着读 */
+/** 翻出来的一条，连同它从哪条消息开始（下标、id、时间）：只读跟随按它去重、定下次从哪接着读 */
 interface BuiltItem {
   item: RuntimeHistoryItem;
   /** 在读的这一段里从第几条消息开始 */
@@ -145,7 +145,7 @@ const isCompactBoundary = (m: SessionMessage): boolean => {
 
 /**
  * 一段消息（按先后）翻成二狗的样子：用户说的一句、它的一条回复（同一个 message.id 的几条 assistant 并成一条；文字、思考、工具调用，
- * 工具结果填回那次调用）、压缩过的标记。skipMeta：元信息的用户消息不算人说的话（只读跟随用；前情照 290 号票的不跳）
+ * 工具结果填回那次调用）、压缩过的标记。skipMeta：元信息的用户消息不算人说的话（只读跟随用；前情照不跳）
  */
 function buildItems(window: readonly SessionMessage[], skipMeta: boolean): BuiltItem[] {
   const items: BuiltItem[] = [];
@@ -246,7 +246,7 @@ export function historyOf(messages: readonly SessionMessage[], entries: number, 
 const FINISHED_STOPS = new Set(["end_turn", "stop_sequence", "max_tokens", "refusal"]);
 
 /**
- * 只读跟随（292 号票）：会话交给官方 App 期间，读主线上 after 那一条之后的新内容，翻成二狗的样子（同前情；元信息的用户消息不算）。
+ * 只读跟随：会话交给官方 App 期间，读主线上 after 那一条之后的新内容，翻成二狗的样子（同前情；元信息的用户消息不算）。
  * - after 找到了：从它后面读；找不到（那边压缩过、撤回过……）：有压缩标记的从最后一个压缩标记读起（reset: compacted），
  *   没有的这次不补记、下次从最后一条之后接着（reset: lost）；after 不给是从头读；
  * - 最后那条回复可能还没说完（还要调用工具、结果还没回来、没写说完）：final（后台会话已经停了）之外先不交，下次再读；

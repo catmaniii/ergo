@@ -1,4 +1,4 @@
-// 复古杂志（51 号票，设计稿 docs/architecture/design/styles/j-*.dc.html）：粗宋大标题、粗细双线、编号分节、芥末黄高亮。
+// 复古杂志（设计稿 docs/architecture/design/styles/j-*.dc.html）：粗宋大标题、粗细双线、编号分节、芥末黄高亮。
 // 正文是 Noto Serif SC 宋体，按钮、导航、时间、说明小字这些是 Noto Sans SC 黑体（设计稿的 .sans / .lbl）；全部直角、不用阴影，
 // 靠墨色的线分块：标题栏下面一道 3px 粗线，导航、卡片、看板分组的头上是"细线 + 粗线"的双线，输入栏、分隔是 1px 细线。
 // 颜色取自设计稿样式里 .root（浅色）、.root.dark（深色）两套变量 --bg、--surface、--text、--muted、--accent、--accent-ink、
@@ -11,7 +11,7 @@ import type { VisualStyle } from "../tokens.ts";
 
 export const magazine: VisualStyle = {
   id: "magazine",
-  // 名字和一句话按当前语言（169 号票，取的时候现查）
+  // 名字和一句话按当前语言（取的时候现查）
   get name() {
     return t("styles.magazine.name");
   },
@@ -73,7 +73,7 @@ export const magazine: VisualStyle = {
     // 跟你有关的（等你、问你）：芥末黄。字是 --accent-text，底是淡芥末（设计稿"等你验收"这类是芥末黄实底的高亮，看板上在 style.css）
     you: ["#7a5f0e", "#e2b33a"],
     "you-bg": ["#f1e4bd", "#3a3019"],
-    // 个人助理的名字标签（43 号票；设计稿的 .name：芥末黄底、墨色字、1px 墨线、粗宋）：浅色 8.13:1、深色 9.33:1；
+    // 个人助理的名字标签（设计稿的 .name：芥末黄底、墨色字、1px 墨线、粗宋）：浅色 8.13:1、深色 9.33:1；
     // 和页面底色、卡片底色的亮度差浅色 1.95 / 2.11、深色 9.40 / 8.68
     "name-bg": ["#d4a72c", "#e2b33a"],
     "name-fg": "#171511",
@@ -104,7 +104,7 @@ export const magazine: VisualStyle = {
     "shadow-float": "4px 4px 0 light-dark(rgba(23, 21, 17, 0.18), rgba(0, 0, 0, 0.5))",
     "shadow-note": "0 0 0 1px var(--border)",
     "shadow-slide": "-1px 0 0 var(--border)",
-    // 宽屏阶段栏的 × 这类浮在栏边上的小圆钮（88 号票）：小一号的硬投影
+    // 宽屏阶段栏的 × 这类浮在栏边上的小圆钮：小一号的硬投影
     "shadow-btn": "2px 2px 0 light-dark(rgba(23, 21, 17, 0.18), rgba(0, 0, 0, 0.5))",
 
     // ---- 间距密度：页面左右 20、消息之间 18（设计稿），标题栏放得下 30 的粗宋标题和 44 高的按钮 ----

@@ -1,7 +1,7 @@
-// 聊天里的文件附件画成卡片（113 号票）：类型图标（方块里写类型，按类别上色）、标题、"预览""下载"两个按钮；一条消息里连着的几个附件
+// 聊天里的文件附件画成卡片：类型图标（方块里写类型，按类别上色）、标题、"预览""下载"两个按钮；一条消息里连着的几个附件
 // 排成一横排，装不下换行（partRuns 把它们合成一组）。能不能预览只看 part 上的类型（协议包的 textPreviewOf：Markdown、纯文本），
 // 所以以前发过的附件也自动有预览入口。点图标：能预览的去报告页（#/report/<媒体 id>），不能预览的直接下载，图标上标明"仅下载"。
-// 117 号票：HTML、SVG（协议包的 framePreviewOf，1 MB 以内）也能预览——报告页里 HTML 在沙箱框里打开，SVG 用 <img> 显示。
+// HTML、SVG（协议包的 framePreviewOf，1 MB 以内）也能预览——报告页里 HTML 在沙箱框里打开，SVG 用 <img> 显示。
 // 报告页（pages/ReportPage.tsx）显示什么也在这里推：取到的内容按 Markdown 还是纯文本画（HTML、SVG 在框里看）、截断的提示、取不到时说什么。
 import { sizeLabel } from "./detail-content.ts";
 import {
@@ -61,7 +61,7 @@ export function attachmentCategory(name: string, mime: string): AttachmentCatego
   return "other";
 }
 
-/** 能怎么预览：按 Markdown、纯文本画（113 号票），或者在框里看 HTML、SVG（117 号票） */
+/** 能怎么预览：按 Markdown、纯文本画，或者在框里看 HTML、SVG */
 export type AttachmentPreview = TextPreviewMime | FramePreview;
 
 /** 一个文件附件能怎么预览：文本类看类型；HTML、SVG 看扩展名，超过 MEDIA_FRAME_MAX_BYTES 的不预览（没法截一半看）；不能预览是 undefined */
@@ -190,7 +190,7 @@ export type ReportPageView =
   | { kind: "loading" }
   /** facts：类型、大小、什么时候发的；notice：顶上的提示条（截断了） */
   | { kind: "ready"; name: string; facts: string; render: "markdown" | "plain"; text: string; notice: string | undefined }
-  /** HTML、SVG（117 号票）：内容不经 JSON 给，在框里看——HTML 用 <iframe sandbox>，SVG 用 <img>；notice 说明沙箱拦着什么 */
+  /** HTML、SVG：内容不经 JSON 给，在框里看——HTML 用 <iframe sandbox>，SVG 用 <img>；notice 说明沙箱拦着什么 */
   | { kind: "frame"; name: string; facts: string; frame: FramePreview; notice: string | undefined }
   /** title、detail 说清楚怎么了、怎么办；note 是守护进程说的原因 */
   | { kind: "error"; title: string; detail: string; note: string };
@@ -202,7 +202,7 @@ const RENDER_LABEL: Readonly<Record<AttachmentPreview, string>> = tTable({
   svg: "state.attachments.render.svg",
 });
 
-/** HTML 预览顶上的说明（117 号票）：页面在沙箱里，拦着什么、放着什么（170 号票起按当前语言现取） */
+/** HTML 预览顶上的说明：页面在沙箱里，拦着什么、放着什么（按当前语言现取） */
 export function htmlFrameNotice(): string {
   return t("state.attachments.htmlFrameNotice");
 }

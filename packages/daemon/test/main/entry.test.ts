@@ -34,14 +34,14 @@ describe("ergo-daemon 入口", () => {
       health = await healthz(daemon.port);
     }
     expect(health.secretary).toBe("idle");
-    // 插件（126 号票）：入口经组合根和插件清单装好了插件（走的是正式的装配路径）
+    // 插件：入口经组合根和插件清单装好了插件（走的是正式的装配路径）
     expect(health.plugins).toEqual({ running: ["reminders", "memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki"], disabled: [], skipped: [] });
     // 插件都装上了：不降级（Web UI 没构建时整体不健康，和插件无关）
     expect(health.status).toBe(health.webUi === true ? "ok" : "unhealthy");
   });
 });
 
-describe("单实例（23 号票）", () => {
+describe("单实例", () => {
   it("同一个数据目录已经有一个在跑：再起一个立即退出（退出码 1）、说明原因，不碰任何状态；先起的那个照常，pid 文件还是它的", { timeout: 50_000 }, async () => {
     const daemon = await startEntry();
     const second = spawn(process.execPath, [path.join(SRC, "main.ts")], { env: daemon.env, stdio: ["ignore", "ignore", "pipe"], windowsHide: true });
@@ -58,7 +58,7 @@ describe("单实例（23 号票）", () => {
   });
 });
 
-describe("接入 LSM 的 link 协议（23 号票）", () => {
+describe("接入 LSM 的 link 协议", () => {
   it("LSM 注入了身份：入口连上它；经协议要求停机时优雅停止、删掉 pid 文件、发 bye、以退出码 0 退出", { timeout: 50_000 }, async () => {
     const lsm = await startLsmStandIn({ heartbeatIntervalMs: 200 });
     const daemon = await startEntry(lsm.env);

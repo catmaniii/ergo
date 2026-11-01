@@ -1,7 +1,7 @@
 // pi 契约测试：bash 起的进程的环境和装配给 pi 的工具（规格第 7 节、第 3 节"孙进程环境里剥掉所有密钥"）。
 // 联网开关关着时，二狗把 pi 的 bash 工具换成同名的一份，在起进程前往环境里加一组无效的代理地址，
 // 让常见的联网方式（curl、Python 的 requests、Node 的 fetch）连不上；子进程自己的环境不受影响。
-// 70 号票：找到了浏览器就把它的路径（AGENT_BROWSER_EXECUTABLE_PATH）放进 bash 的环境，agent-browser 靠它找浏览器（测试里是假的路径）；
+// 找到了浏览器就把它的路径（AGENT_BROWSER_EXECUTABLE_PATH）放进 bash 的环境，agent-browser 靠它找浏览器（测试里是假的路径）；
 // grep、find 不再跟着联网开关去掉——pi 第一次用它们时找 rg、fd，找不到也不下载（子进程固定带 PI_OFFLINE=1）。
 // 模型 key 经 stdin 交给子进程，不进环境变量，所以 bash 里也看不到。
 import fs from "node:fs";
@@ -43,7 +43,7 @@ describe("pi 契约：bash 起的进程的环境", () => {
     expect(out).not.toContain(KEY);
   });
 
-  it("联网开关关着也连得上本机（362 号票）：NO_PROXY 写着本机；开着关着 Python 都用 UTF-8", async () => {
+  it("联网开关关着也连得上本机：NO_PROXY 写着本机；开着关着 Python 都用 UTF-8", async () => {
     const closed = await runEnv(undefined);
     expect(closed).toContain("NO_PROXY=127.0.0.1,localhost,::1");
     expect(closed).toContain("PYTHONUTF8=1");
@@ -56,13 +56,13 @@ describe("pi 契约：bash 起的进程的环境", () => {
     expect(out).not.toContain(KEY);
   });
 
-  it("找到了浏览器（70 号票）：路径放进 AGENT_BROWSER_EXECUTABLE_PATH，联网开关开着、关着都放", async () => {
+  it("找到了浏览器：路径放进 AGENT_BROWSER_EXECUTABLE_PATH，联网开关开着、关着都放", async () => {
     expect(await runEnv(true, FAKE_BROWSER)).toContain(`proxy=|| node= browser=${FAKE_BROWSER}`);
     expect(await runEnv(false, FAKE_BROWSER)).toContain(`node=1 browser=${FAKE_BROWSER}`);
   });
 });
 
-describe("pi 契约：bash 的临时目录（177 号票）", () => {
+describe("pi 契约：bash 的临时目录", () => {
   it("每条命令前面 export TMPDIR、TEMP、TMP 指到工作目录里的 .ergo-tmp：mktemp、Node 都用它；bash 进程本身的 TEMP 不动，/tmp 不跟着改", async () => {
     const { daemon } = await startTestDaemon();
     const cwd = makeTempDir("ergo-cwd-");
@@ -113,7 +113,7 @@ async function loadedTools(network: boolean | undefined): Promise<string[]> {
   return ready.loaded.tools;
 }
 
-describe("pi 契约：grep、find 照给（70 号票）", () => {
+describe("pi 契约：grep、find 照给", () => {
   it("联网开关关着、开着都照白名单给", async () => {
     expect(await loadedTools(undefined)).toEqual(["read", "ls", "grep", "find", "bash"]);
     expect(await loadedTools(true)).toEqual(["read", "ls", "grep", "find", "bash"]);

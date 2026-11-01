@@ -1,4 +1,4 @@
-// 联网搜索、读网页的替身（70 号票）：测试里一律不起浏览器、不连真网络。
+// 联网搜索、读网页的替身：测试里一律不起浏览器、不连真网络。
 // - fakeWebAccess：按给的函数回搜索结果和网页（记下每次的请求）；不给的那一样回"测试里不联网"；
 // - FakeBrowser：假的浏览器驱动，按网址给页面（标题、正文、HTML、搜索结果），记下打开过的网址，测 search.ts、fetch.ts 的逻辑。
 import type { BrowserDriver, BrowserPage, FetchedPage, FetchRequest, PageOptions, RawResult, ResultSelectors, SearchFound, SearchRequest, WebAccess } from "../../src/web/index.ts";
@@ -77,7 +77,7 @@ export class FakeBrowser implements BrowserDriver {
         this.selectors.push(selectors);
         return current?.results ?? [];
       },
-      // 假的截图（140 号票）：一段写着网址和画质的字节
+      // 假的截图：一段写着网址和画质的字节
       screenshot: async ({ quality }) => Buffer.from(`fake-jpeg ${current ? "page" : "none"} q${quality}`),
     };
     return work(page);

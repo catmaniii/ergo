@@ -4,10 +4,10 @@
  */
 
 /*
- * 外观（34 号票）：浅色、深色、跟随系统（默认），在设置里选，按设备记住。
+ * 外观：浅色、深色、跟随系统（默认），在设置里选，按设备记住。
  * 开关只有一个：根元素的 color-scheme。浅色写在 :root；深色挂在两处——选了深色（data-theme="dark"），
  * 或者跟随系统（没有 data-theme）而系统是深色——选了浅色时即使系统是深色也不挂。
- * token（颜色、字体、字号阶、圆角、阴影、间距密度、边框）39 号票起写在风格清单里（src/visual-styles/，经典是
+ * token（颜色、字体、字号阶、圆角、阴影、间距密度、边框）写在风格清单里（src/visual-styles/，经典是
  * classic/style.ts），构建时生成样式表：浅深不一样的颜色写成 light-dark(浅色, 深色)，跟着这里的 color-scheme 取值。
  * 不认 light-dark() 的旧浏览器：构建时 Lightning CSS 按 vite.config.ts 的 cssTarget 把它降成两个开关变量，照样能切
  * （test/build.test.ts 查产物里没有 light-dark( 留下）。data-theme 由 index.html 的内联脚本和 app/theme.ts 挂。
@@ -16,7 +16,7 @@
 :root {
   color-scheme: light;
   /*
-   * 页面底部要让开的高度（105 号票）：浏览器里是系统给的安全区（iPhone 的横条）；鸿蒙 App 把网页延伸到了手势条底下，
+   * 页面底部要让开的高度：浏览器里是系统给的安全区（iPhone 的横条）；鸿蒙 App 把网页延伸到了手势条底下，
    * 由 app/page-native.ts 按 App 报的避让高度改成一小截（页面底部导航、输入框贴着手势条，不留整条白边）。
    * 底部的东西一律用它，不直接写 env(safe-area-inset-bottom)
    */
@@ -65,7 +65,7 @@ button:disabled {
   height: calc(var(--bar-h) + env(safe-area-inset-top, 0px));
   padding: 0 var(--space-page);
   padding-top: env(safe-area-inset-top, 0px);
-  /* 标题栏的底色也是手机浏览器地址栏的颜色（--bar-bg，经典是 --surface；42 号票） */
+  /* 标题栏的底色也是手机浏览器地址栏的颜色（--bar-bg，经典是 --surface） */
   background: var(--bar-bg);
   border-bottom: 1px solid var(--border);
 }
@@ -86,7 +86,7 @@ button:disabled {
   color: var(--muted);
 }
 /*
- * 秘书页左上角的标题（89 号票，ui/secretary-title.tsx）："个人秘书："后面跟名字标签，一行。
+ * 秘书页左上角的标题（ui/secretary-title.tsx）："个人秘书："后面跟名字标签，一行。
  * - 前缀不截，名字标签放不下时在末尾截成省略号：排成一行 flex，名字标签能缩到 0（min-width: 0），整行最宽是标题那一格。
  * - 窄屏上标题那一格不宽（右边还有活动状态、发起任务、▤）：字号缩到"前缀五个字加名字"放得下。标题那一格是尺寸容器
  *   （100cqw 就是它的宽），字号 =（格宽 - 名字标签左右的内外边距 8 - 余量 2）÷（5 + 名字的字数），名字的字数是界面挂上的
@@ -110,7 +110,7 @@ button:disabled {
 .secretary-title-lead {
   flex: none;
 }
-/* 手机竖屏（用户 2026-11-01）：标题栏分两行，第二行是副标题、状态，再长也只在这一行里截 */
+/* 手机竖屏：标题栏分两行，第二行是副标题、状态，再长也只在这一行里截 */
 .app.narrow .topbar[data-two-line] {
   height: auto;
   min-height: calc(var(--bar-h) + env(safe-area-inset-top, 0px));
@@ -161,7 +161,7 @@ button:disabled {
   padding: 4px 8px;
 }
 /*
- * 共用的线条图标（122 号票，ui/icons.tsx）：1em 大、颜色是当前字色，跟着所在元素的字号、字色走。和字排在一行时往下沉一点，
+ * 共用的线条图标（ui/icons.tsx）：1em 大、颜色是当前字色，跟着所在元素的字号、字色走。和字排在一行时往下沉一点，
  * 和汉字的中线对齐；在 flex 里（按钮、菜单项）不受这条影响。所在元素字号是 0 时图标跟着缩没（风格换图标靠这个藏掉它）
  */
 .icon {
@@ -280,7 +280,7 @@ button:disabled {
   color: var(--high-fg);
 }
 /*
- * 个人助理的名字（43 号票，ui/assistant-name.tsx）：秘书页的标题、正文里都是这个带底色的小标签（导航上那一项 89 号票起
+ * 个人助理的名字（ui/assistant-name.tsx）：秘书页的标题、正文里都是这个带底色的小标签（导航上那一项
  * 固定写"秘书"，不带它）。名字最多 8 个字，正文里不折行；秘书页的标题里放不下时在末尾截成省略号（上面的 .secretary-title）
  */
 .assistant-name {
@@ -333,7 +333,7 @@ button:disabled {
   overflow-y: auto;
 }
 /*
- * 57 号票：思考一行字、点开在原地显示全文，旁边"详情 ›"；回复按 Markdown 画（ui/conversation/rows.tsx）。
+ * 思考一行字、点开在原地显示全文，旁边"详情 ›"；回复按 Markdown 画（ui/conversation/rows.tsx）。
  * .thinking 的横排、.thinking-toggle、.bubble.md 和 Markdown 的排版
  * （限定在 .bubble.md 里，免得碰到阶段抽屉 .md 和详情页的 .dt-doc.md）
  */
@@ -434,7 +434,7 @@ button:disabled {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* 说人话的那一句（67 号票）：有模板的调用代替"工具名 + 参数摘要" */
+/* 说人话的那一句：有模板的调用代替"工具名 + 参数摘要" */
 .tool-said-text {
   flex: 1;
   min-width: 0;
@@ -516,7 +516,7 @@ button:disabled {
   max-height: 120px;
 }
 /*
- * 二狗在回复时输入框旁的"停止"（144 号票）和"追加"：宽屏图标加字；窄屏（竖屏，用户 2026-10-18）只留图标，
+ * 二狗在回复时输入框旁的"停止"和"追加"：宽屏图标加字；窄屏（竖屏）只留图标，
  * 停止是红色圆钮里一个方块，追加是另一种颜色（--ok）的圆钮里一个加号，和左边灰色的附件"＋"分得开
  */
 .composer-stop,
@@ -557,7 +557,7 @@ button:disabled {
 .app.narrow .composer-btn-label {
   display: none;
 }
-/* 输入框外面一层：给秘书的假占位定位（43 号票：占位里的名字带底色，原生 placeholder 做不到） */
+/* 输入框外面一层：给秘书的假占位定位（占位里的名字带底色，原生 placeholder 做不到） */
 .composer-field {
   flex: 1;
   min-width: 0;
@@ -570,7 +570,7 @@ button:disabled {
   field-sizing: content;
   padding-right: 32px;
 }
-/* 输入框右上角的"放大 / 收起"（用户 2026-10-18：多行看不清） */
+/* 输入框右上角的"放大 / 收起"（多行看不清） */
 .composer-grow {
   position: absolute;
   top: 4px;
@@ -708,7 +708,7 @@ button:disabled {
   resize: vertical;
   min-height: 72px;
 }
-/* 随内容长高的多行框（105 号票，ui/auto-grow-text.tsx）：高度由脚本按内容量，不出滚动条、不给拖 */
+/* 随内容长高的多行框（ui/auto-grow-text.tsx）：高度由脚本按内容量，不出滚动条、不给拖 */
 textarea.auto-grow {
   display: block;
   width: 100%;

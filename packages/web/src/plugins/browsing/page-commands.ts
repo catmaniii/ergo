@@ -1,22 +1,22 @@
-// 网页上下指令（134 号票第二部分）在二狗网页这一侧：接 App 转过来的页面桥的话（悬浮按钮点了、长按说话、气泡上点了什么）和
-// App 拦下的选文件对话框，管"面板"的样子（PagePanel，146 号票起画在悬浮按钮旁边的小气泡里：app/page-bubble.ts 换成气泡的样子交给页面桥）。
-// 149 号票（用户 2026-10-18："干脆悬浮按钮的二狗和秘书的二狗是一个实体好了"）起悬浮按钮背后就是秘书本人，不再有一次性的页面助手：
+// 网页上下指令在二狗网页这一侧：接 App 转过来的页面桥的话（悬浮按钮点了、长按说话、气泡上点了什么）和
+// App 拦下的选文件对话框，管"面板"的样子（PagePanel，画在悬浮按钮旁边的小气泡里：app/page-bubble.ts 换成气泡的样子交给页面桥）。
+// （"干脆悬浮按钮的二狗和秘书的二狗是一个实体好了"）起悬浮按钮背后就是秘书本人，不再有一次性的页面助手：
 // - 点一下悬浮按钮：气泡里打字，点发送（页面桥报 bubble send，带着按钮所在的框和框里这一刻的内容）——这句话作为一条消息发进秘书的
 //   主会话（和浏览侧边栏发的同一种：BrowsingContext，via: "button"，按钮所在的框就是这一轮的目标框），秘书页、侧边栏里都看得到；
 // - 长按悬浮按钮：按下就让 App 备好录音器，按够了开始录，录着的时候每 80 毫秒取一次音量（气泡里画实时的波形），松手先送识别
 //   （POST /api/page-command/voice），认出来的字先在气泡里显示，再发进秘书的主会话（标着是说的）；上滑或划开后松手取消；
-//   209 号票：按下那一刻起算开始语音输入（deps.capture，页面上接到播放器的 setCapturing：二狗正在播的语音暂停、排着的等说完），
+//   按下那一刻起算开始语音输入（deps.capture，页面上接到播放器的 setCapturing：二狗正在播的语音暂停、排着的等说完），
 //   松手、取消、收起、录不了、短按开打字框都算说完；按下了却没开始录也没开打字框的（手势被系统收走，页面桥什么都不报）
 //   过 PRESS_CAPTURE_MS 自己算说完；
 // - 网页弹出选文件对话框（App 拦下了）：气泡问"让二狗选 / 自己选"，让二狗选的接着打字（这一轮的目标是这个对话框），自己选的交给系统的选择器；
-// - 发出去以后气泡里"二狗在想……"；秘书正忙着一轮时这句排在队里（144 号票），气泡里写"二狗正忙，排在后面，这一轮说完就看"；
+// - 发出去以后气泡里"二狗在想……"；秘书正忙着一轮时这句排在队里，气泡里写"二狗正忙，排在后面，这一轮说完就看"；
 //   秘书这一轮说完了，它最后说的那句显示在气泡里（同时是秘书会话里一条普通的秘书消息）。走到哪了从秘书会话的权威事件里认
 //   （state/page-button.ts 的 buttonTurnOf，页面上的 React 层每次状态变了交过来：secretaryChanged）；
 // - 填字、找文件、交文件、给候选都是秘书在这一轮用网页工具做的（守护进程转给这台设备的浏览侧边栏那一份办，browse-side.ts）；
 //   候选画在固定位置的挑图片窗口里（page-pick.ts），不在气泡里；
 // - 收起（点 ×、点气泡外面的网页、按返回、框被滚出屏幕、浏览器开始加载别的网页）：正在等二狗回话时也能收起——不再等这一轮的回话，
 //   这句话照样在秘书的会话里办完、回话照样在会话里。
-// 359 号票（长按网页元素的圆钮，page-bridge/element.ts）：圆钮上的打字、说话走同一套（气泡、识别、排队、回话都一样），目标是这个元素（CommandTarget.element），
+// 长按网页元素的圆钮，page-bridge/element.ts：圆钮上的打字、说话走同一套（气泡、识别、排队、回话都一样），目标是这个元素（CommandTarget.element），
 // 用户的话原样发进秘书的主会话，带着元素；这里不看用户说了什么，也没有按意图分的操作。
 // 这里不碰 DOM 和浏览器的全局变量（录音、计时、发消息都由参数给），测试在 Node 里跑。
 import type { PageBridgeEvent, PageBubbleAction, PageInfo } from "../../page-bridge/protocol.ts";
@@ -31,11 +31,11 @@ export interface CommandTarget {
   /** 悬浮按钮所在的框；拦下的对话框认出了是哪个框时也有 */
   readonly field?: PageField;
   readonly chooser?: ChooserRequest;
-  /** 长按元素的圆钮（359 号票）：这句话说的是这个元素 */
+  /** 长按元素的圆钮：这句话说的是这个元素 */
   readonly element?: PickedElement;
 }
 
-/** 在办的那一句走到哪了：hearing 在认说了什么、thinking 秘书在办、queued 秘书正忙，排在后面（149 号票） */
+/** 在办的那一句走到哪了：hearing 在认说了什么、thinking 秘书在办、queued 秘书正忙，排在后面 */
 export type BusyNote = "hearing" | "thinking" | "queued";
 
 /** 面板的样子 */
@@ -81,7 +81,7 @@ export interface PageCommandsDeps {
   browserPage(): PageInfo;
   /** 这台设备上这一页二狗网页的浏览器编号（浏览侧边栏那一份，browse-side.ts）；旧版 App 没有浏览侧边栏是 undefined */
   browserId(): string | undefined;
-  /** 开始 / 说完语音输入（209 号票；页面上接到播放器的 setCapturing：二狗正在播的语音暂停、排着的等说完）。不给不管 */
+  /** 开始 / 说完语音输入（页面上接到播放器的 setCapturing：二狗正在播的语音暂停、排着的等说完）。不给不管 */
   capture?(on: boolean): void;
 }
 
@@ -95,7 +95,7 @@ const RELEASE_AFTER_MS = 20_000;
 /** 最长录多久（毫秒）：到了自己发，和语音消息一样 60 秒 */
 export const LISTEN_MAX_MS = 60_000;
 /**
- * 按下了多久还没开始录、也没开打字框，就算说完（毫秒，209 号票）：页面桥按够 350 毫秒报开始录、短按松手报开打字框，
+ * 按下了多久还没开始录、也没开打字框，就算说完（毫秒）：页面桥按够 350 毫秒报开始录、短按松手报开打字框，
  * 手势被系统收走时什么都不报；留足余量
  */
 export const PRESS_CAPTURE_MS = 2_000;
@@ -123,7 +123,7 @@ export function fileSizeText(size: number): string {
   return `${(size / 1024 / 1024).toFixed(1)} MB`;
 }
 
-/** 悬浮按钮上发的这一句的网页上下文（149 号票）：按钮所在的框就是这一轮的目标框（带着框里的内容），拦下的对话框另写 */
+/** 悬浮按钮上发的这一句的网页上下文：按钮所在的框就是这一轮的目标框（带着框里的内容），拦下的对话框另写 */
 export function buttonContext(browser: string, target: CommandTarget, spoken: boolean): BrowsingContext {
   return {
     browser,
@@ -163,11 +163,11 @@ export class PageCommands {
   private turnOf: ((key: string) => ButtonTurn) | undefined;
   /** 正在等秘书回的那一句：发消息的幂等键、在哪、说了什么、哪一次指令 */
   private waiting: { key: string; target: CommandTarget; said: string; run: number } | undefined;
-  /** 正在语音输入（按下了、在录）：告诉过播放器了（209 号票） */
+  /** 正在语音输入（按下了、在录）：告诉过播放器了 */
   private capturing = false;
   /** 按下了还没开始录：过一会儿自己算说完 */
   private pressTimer: ReturnType<typeof setTimeout> | undefined;
-  /** 能不能说话（214 号票：语音插件在不在，setVoice）；不能时长按不录，写一句"语音插件没启用"，点一下照常打字 */
+  /** 能不能说话（语音插件在不在，setVoice）；不能时长按不录，写一句"语音插件没启用"，点一下照常打字 */
   private voiceOn = true;
 
   constructor(deps: PageCommandsDeps) {
@@ -187,7 +187,7 @@ export class PageCommands {
   }
 
   /**
-   * 语音插件在不在（212、214 号票：浏览插件挂在主框架里的那一个看输入框的语音插槽有没有东西，变了告诉这里）。停用时正录着的马上取消、
+   * 语音插件在不在（浏览插件挂在主框架里的那一个看输入框的语音插槽有没有东西，变了告诉这里）。停用时正录着的马上取消、
    * 放掉录音器；之后长按不录（页面桥自己先换成"在听"，这里改回平常、写一句没启用）
    */
   setVoice(on: boolean): void {
@@ -213,7 +213,7 @@ export class PageCommands {
       clearInterval(this.levelTimer);
       this.levelTimer = undefined;
     }
-    // 不录了（松手、取消、收起、录不了……）：语音输入说完了（209 号票）
+    // 不录了（松手、取消、收起、录不了……）：语音输入说完了
     if (this.panel.kind === "listening" && next.kind !== "listening") this.capture(false);
     this.panel = next;
     for (const listener of this.listeners) listener();
@@ -259,7 +259,7 @@ export class PageCommands {
       else if (!this.busy()) this.releaseTimer = setTimeout(() => this.deps.voice.release(), RELEASE_AFTER_MS);
       return;
     }
-    // 选中的框（147 号票）由浏览侧边栏管（browse-side.ts）；挑图片窗口（149 号票）由 page-pick.ts 管
+    // 选中的框由浏览侧边栏管（browse-side.ts）；挑图片窗口由 page-pick.ts 管
     if (event.type === "chooser-field" || event.type === "selected" || event.type === "pick") return;
     if (event.type === "bubble") {
       this.bubbleAction(event);
@@ -274,7 +274,7 @@ export class PageCommands {
       return;
     }
     if (!this.voiceOn) {
-      // 语音插件没启用（214 号票）：不录。页面桥按够了自己换成"在听"、松手自己换成"在办"，每次都改回平常；按够了时写一句
+      // 语音插件没启用：不录。页面桥按够了自己换成"在听"、松手自己换成"在办"，每次都改回平常；按够了时写一句
       if (this.busy()) return;
       if (event.phase === "start") this.fail(target, t("app.pageCommands.voiceOff"));
       else if (event.phase !== "press") this.markIdle(target);
@@ -283,7 +283,7 @@ export class PageCommands {
     if (event.phase === "press") {
       if (this.busy()) return;
       this.deps.voice.prepare(true);
-      // 按下那一刻就算开始语音输入（209 号票）：二狗正在播的语音暂停，不等录音器；没接着开始录的过一会儿自己算说完
+      // 按下那一刻就算开始语音输入：二狗正在播的语音暂停，不等录音器；没接着开始录的过一会儿自己算说完
       this.capture(true);
       this.pressTimer = setTimeout(() => {
         this.pressTimer = undefined;
@@ -299,14 +299,14 @@ export class PageCommands {
     }
   }
 
-  /** 气泡上点的（146 号票） */
+  /** 气泡上点的 */
   private bubbleAction(action: PageBubbleAction): void {
     switch (action.action) {
       case "send":
         this.sendText(action.text, action.field, action.element);
         return;
       case "close":
-      // 回话太长、去侧边栏看（147 号票）：气泡收起，侧边栏由浏览侧边栏打开（browse-side.ts）
+      // 回话太长、去侧边栏看：气泡收起，侧边栏由浏览侧边栏打开（browse-side.ts）
       case "sidebar":
         this.dismiss();
         return;

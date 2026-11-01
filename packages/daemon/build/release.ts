@@ -1,15 +1,15 @@
-// 打发布包（318 号票，npm run release）：安装包和源码安装共用这一套（stage.ts）。
+// 打发布包（npm run release）：安装包和源码安装共用这一套（stage.ts）。
 //   1. 构建网页（vite）；
 //   2. 拿到要带的 Node（node-dist.ts：本机的目录 / 官方 zip / 下载并核对 SHASUMS256.txt）；
 //   3. 编 ergo.exe（编不了、跑不起来就只带 ergo.cmd）；
 //   4. 摆版本目录（stage.ts：转好的 JS、运行时要的第三方包、网页、服务管家、Node、许可证清单）；
 //   5. 给了发布钥匙（--sign-key）就给组件清单签名（manifest.json.minisig），把公钥写进程序（release-key.pub）；
-//      同一份清单和签名也放到发布目录（components-manifest.json，347 号票：已经装了的二狗查更新取的就是它）；
+//      同一份清单和签名也放到发布目录（components-manifest.json：已经装了的二狗查更新取的就是它）；
 //   6. 打成 ergo-<版本>-win-x64.zip，写 SHA256SUMS（给了钥匙再签 SHA256SUMS.minisig）、latest.json；
 //   7. 带上填好公钥的 install.ps1、npm 的两个包（ergo-ai：给有 Node 的人 npm i -g；ergo-ai-win32-x64：装着发布包，npmmirror 会同步，国内快）、
 //      winget / Scoop 清单草稿（不提交）；
 //   8. 手机安装包（mobile.ts）：最先收，收到的写进第 6 步的 SHA256SUMS。没工具链的机器跳过，只打 Windows 包。
-// 真发到 npm、GitHub 之前要问用户（318 号票）；这里只打包，不发。
+// 真发到 npm、GitHub 之前要问用户；这里只打包，不发。
 import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -25,7 +25,7 @@ import { stageVersion } from "./stage.ts";
 
 export const INSTALL_SCRIPT = path.resolve(import.meta.dirname, "..", "installer", "install.ps1");
 export const PACKAGING_DIR = path.resolve(import.meta.dirname, "..", "installer", "packaging");
-/** npm 上的包名（用户 2026-10-26 暂定 ergo-ai，命令照样叫 ergo） */
+/** npm 上的包名（暂定 ergo-ai，命令照样叫 ergo） */
 export const NPM_PACKAGE = "ergo-ai";
 export const NPM_PLATFORM_PACKAGE = "ergo-ai-win32-x64";
 
@@ -198,7 +198,7 @@ function npmPlatformPackage(out: string, index: ReleaseIndex, files: string[]): 
   );
 }
 
-/** winget / Scoop 清单草稿：模板里的 {{version}}、{{sha256}}、{{url}} 换成这一版的（不提交，318 号票） */
+/** winget / Scoop 清单草稿：模板里的 {{version}}、{{sha256}}、{{url}} 换成这一版的（不提交） */
 function renderPackaging(out: string, values: Record<string, string>): void {
   if (!fs.existsSync(PACKAGING_DIR)) return;
   for (const name of fs.readdirSync(PACKAGING_DIR)) {

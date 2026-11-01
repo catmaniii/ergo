@@ -1,7 +1,7 @@
-// 设置 · Claude Code（305 号票，Claude Code 插件的网页这一半画的设置页）：新建时的默认文件夹——新的 Claude Code 任务、项目默认在它下面
+// 设置 · Claude Code（Claude Code 插件的网页这一半画的设置页）：新建时的默认文件夹——新的 Claude Code 任务、项目默认在它下面
 // 新开一个子文件夹（按标题起名、重名加序号）；没设时照旧用二狗给任务开的工作目录（项目的在项目档案里）。
 // 填路径、保存（守护进程核对：不存在、是文件、在数据目录或二狗程序目录里的拒绝，原因照它说的显示）、不设了；下面列最近用过的几个文件夹
-// （本机 Claude Code 会话的工作目录，290 号票的会话列表）点一下填进去。存好后运行时清单跟着换（发起对话框里马上用新的）。
+// （本机 Claude Code 会话的工作目录，会话列表）点一下填进去。存好后运行时清单跟着换（发起对话框里马上用新的）。
 import { useEffect, useState } from "react";
 import { useStore } from "../../app/store.tsx";
 import { recentFolders, t } from "../../state/index.ts";

@@ -1,4 +1,4 @@
-// 服务端的页面更新了（116 号票）：页面自己是哪一版（构建时写进 index.html），服务端现在是哪一版（连上时订阅的响应、index.html 换了时
+// 服务端的页面更新了：页面自己是哪一版（构建时写进 index.html），服务端现在是哪一版（连上时订阅的响应、index.html 换了时
 // 活动状态频道上推来的临时事件 web_version、切回前台时经 HTTP 问到的），对不上才做事：
 // - 在前台时来的新版本只出"二狗有新版本 · 刷新"；正在录音、输入框上方有附件时先不出，完了再出；"等会儿"之后同一版不再出，
 //   切回前台、或者又来了新的一版时再出；
@@ -37,7 +37,7 @@ describe("在前台时：只提示", () => {
   test("不知道就什么都不做：页面自己没有版本号（开发服务器）、守护进程没说（旧版、index.html 里没有版本号）", () => {
     expect(pageUpdateAction(replay([told(NEWER)]).webVersion, undefined, HERE)).toBe("none");
     expect(action(replay([told(undefined)]))).toBe("none");
-    // 问到"不知道"（换成了这张票之前构建的页面）：之前的提示也收起
+    // 问到"不知道"（换成了以前构建的页面）：之前的提示也收起
     expect(action(replay([told(NEWER), told(undefined)]))).toBe("none");
   });
 

@@ -1,16 +1,16 @@
-// 流程执行时的计划检查接进运行时（59 号票，固定计划的调用前 / 调用后两个钩子）：
+// 流程执行时的计划检查接进运行时（固定计划的调用前 / 调用后两个钩子）：
 // - 每次调用在现有的守卫判定之后和授权的那份计划比对（guard/plan-monitor.ts 的 evaluatePlanCall），两道都要过；
 //   推进流程的工具（report_step、wait_for_user……，守护进程代为执行的）不是步骤，不比；
 // - 执行成功的调用对上了哪一步记成 plan_call_committed（after_tool 里的 monitor.commit），下次判定时按序重放；
 // - 用户点过头的判定、每个"工具|步骤"已经自动修过几次只在内存里，按任务和计划的版本记（守护进程重启
 //   就清零）；
-// - 每次修回在负责人的会话里记一笔偏离（timeline_record，口径同 14 号票）。
-// 153 号票（回退、切换分支之后，授权的计划和已执行的调用都按保留的分支重新算）：
+// - 每次修回在负责人的会话里记一笔偏离（timeline_record）。
+// 回退、切换分支之后，授权的计划和已执行的调用都按保留的分支重新算：
 // - 比对的历史只算执行它的会话当前分支上的（planHistory 带上会话：plan_call_committed 前面最后一条会话事件在当前路径上的；那次调用的
 //   工具调用记录就在它前面）——会话回退、切换分支之后按保留的分支重建、重放，被放弃那段里做过的不算做过；
 // - 撤回、切换时换回了同样内容的那一版（session-follow 的 plan_revised，新的编号）：那一版之前对上的照样算（按实际执行的那版重放）；
 // - 用户点过头的、修过几次也跟着分支重来（每次回退、切换都清空）：
-//   按会话最新那条 session_branch 的序号分开记。授权项的次数不在这里，照旧从效果日志现算、不随回退清零（用户 2026-10-18 定）。
+//   按会话最新那条 session_branch 的序号分开记。授权项的次数不在这里，照旧从效果日志现算、不随回退清零。
 import { t } from "@ergo/protocol";
 import type { ConversationId } from "@ergo/protocol";
 import { buildTimelineRecord, type MessageScope } from "../conversation/messages.ts";
@@ -43,15 +43,15 @@ export const PLAN_CATEGORY_PREFIX = "plan:";
 
 /** 被计划检查直接拦下时模型收到的话（说清楚这是硬性拦截：实测模型看到"被拦截"会原样再调一次） */
 export const planBlockedText = (reason: string) => `计划检查拦截：${reason}。这一条不会因为重试而通过；改为向用户说明（执行中不能改步骤，要改由用户重新发起）。`; // @i18n-ignore model
-/** 被计划检查直接拦下时工具调用记录上给用户看的（173 号票） */
+/** 被计划检查直接拦下时工具调用记录上给用户看的 */
 export const planBlockedSummary = (reason: string) => t("guardRuntime.plan.blocked", { reason });
 
 /** 按计划改回参数时，工具结果前面加的话（让模型知道实际执行的是哪一版） */
 export const rewriteResultPrefix = (c: PlanCorrection) => `${CORRECTION_PREFIX}${c.text}。以下是按计划参数执行的结果：`; // @i18n-ignore model
 
 /**
- * 这一版计划和撤回、切换时换回它的各版（plan_revised 的 basePlanId 一路往前）：内容一样，之前对上的照样算（153 号票）。
- * 流程执行中不能改步骤（59 号票），流程的 plan_revised 只有撤回、切换换回的那种
+ * 这一版计划和撤回、切换时换回它的各版（plan_revised 的 basePlanId 一路往前）：内容一样，之前对上的照样算。
+ * 流程执行中不能改步骤，流程的 plan_revised 只有撤回、切换换回的那种
  */
 function planLineage(store: EventStore, planId: string): Set<string> {
   const base = new Map(store.read(TASKS_CHANNEL, 0, TASK_EVENTS.planRevised).map((e) => [(e.payload as PlanRevisedPayload).planId, (e.payload as PlanRevisedPayload).basePlanId]));
@@ -62,7 +62,7 @@ function planLineage(store: EventStore, planId: string): Set<string> {
 
 /**
  * 这个流程里已经执行成功的调用（按执行先后）：对上了哪一步。给了会话（执行它的负责人的会话频道）就只算这个会话当前分支上的
- * （153 号票：会话回退、切换分支之后按保留的分支重建）
+ * （会话回退、切换分支之后按保留的分支重建）
  */
 export function planHistory(store: EventStore, taskId: string, planId: string, conversation?: string): PlanExecutedCall[] {
   const plans = planLineage(store, planId);
@@ -85,7 +85,7 @@ export interface PlanMemory {
   corrections: Map<string, number>;
 }
 
-/** epoch：执行它的会话最新那条 session_branch 的序号（没回退过是 0；153 号票：回退、切换时重新算） */
+/** epoch：执行它的会话最新那条 session_branch 的序号（没回退过是 0；回退、切换时重新算） */
 export function createPlanMemories(): (taskId: string, planId: string, epoch: number) => PlanMemory {
   const byTask = new Map<string, PlanMemory & { planId: string; epoch: number }>();
   return (taskId, planId, epoch) => {
@@ -107,7 +107,7 @@ const argsOf = (args: unknown): Record<string, unknown> => (typeof args === "obj
 
 /**
  * 第一道判完之后：这次调用在执行中的流程里、又是步骤能用的工具（不是代为执行的推进工具），就和计划比对；不用比的是 undefined。
- * 定时触发的流程的每次运行（76 号票）是带着授权的会话段（不算任务的调用），照样比：计划编号按这次运行分开（scheduled-jobs 的 runPlanId），
+ * 定时触发的流程的每次运行是带着授权的会话段（不算任务的调用），照样比：计划编号按这次运行分开（scheduled-jobs 的 runPlanId），
  * 比对的历史、修过几次都只看这一次
  */
 export function checkAgainstPlan(
@@ -121,7 +121,7 @@ export function checkAgainstPlan(
   const workflow = task?.plan.workflow;
   if (!task || !workflow) return undefined;
   const toolName = input.call.toolName;
-  // 推进流程的工具（代为执行的）、运行时自带的会话里的工具（288 号票：Claude Code 的待办清单、子代理、提问……）不是计划里的步骤，不比
+  // 推进流程的工具（代为执行的）、运行时自带的会话里的工具（Claude Code 的待办清单、子代理、提问……）不是计划里的步骤，不比
   const source = findTool(input.tools, toolName)?.source;
   if (source === "host" || source === "runtime") return undefined;
   const epoch = conversation === null ? 0 : (latestBranchSeq(store.reader, conversation) ?? 0);

@@ -1,8 +1,8 @@
 // 对外内容里的密钥：底线"把凭据写进对外内容固定为永不"用它检查对外内容。
-// 05 号票的 v1 模板"对外内容不许含密钥"也用这一套、同一个取内容的口径（outboundTextOf），两处说法保持一致。
+// v1 模板"对外内容不许含密钥"也用这一套、同一个取内容的口径（outboundTextOf），两处说法保持一致。
 // 两种认法：
 // - 密钥形态（SECRET_PATTERNS）：只认形态，不认真假：宁可把像密钥的东西拦下，也不放过真的；
-// - 读过的密钥值（30 号票）：agent 读过的 .env 和密钥文件里的值由守护进程收在内存里，作为环境事实 secretValues 交进来
+// - 读过的密钥值：agent 读过的 .env 和密钥文件里的值由守护进程收在内存里，作为环境事实 secretValues 交进来
 //   （guard-runtime/read-secrets.ts），出现在对外内容里（原样、URL 编码、base64）就算——没有前缀的随机串正则认不出，靠它。
 // 对外内容是会联网的工具除路径以外的全部参数（GET 的网址、查询串、网址里的用户信息、请求头和请求体、联网命令的其他参数），
 // 不管之前读没读过密钥。
@@ -103,7 +103,7 @@ export const SECRET_NAME = /(KEY|TOKEN|SECRET|PASSW|PASSWORD|CREDENTIAL|AUTH)/i;
 
 /**
  * 名字看着是密钥（SECRET_NAME）的参数值换成 REDACTED_SECRET，字符串里认得出的密钥形态也擦掉；对象、数组递归。
- * 240 号票：秘书带参调用 MCP 时，聊天里的工具调用摘要和卡片、事件日志里不出现它们的原值（按登记注入的凭据值由调用方先换成来路）。
+ * 秘书带参调用 MCP 时，聊天里的工具调用摘要和卡片、事件日志里不出现它们的原值（按登记注入的凭据值由调用方先换成来路）。
  * 别的就不动：不是密钥的参数照原样留着（摘要要看得懂发生了什么）
  */
 export function maskSecretArgValues(value: unknown): unknown {
@@ -125,7 +125,7 @@ const SHAPE_REPLACERS: Readonly<Record<string, (match: string) => string>> = {
 };
 
 /**
- * 把文本里认得出的密钥形态（SECRET_PATTERNS）擦掉，换成 REDACTED_SECRET。工具调用记录的摘要、完整参数和返回（53 号票）、
+ * 把文本里认得出的密钥形态（SECRET_PATTERNS）擦掉，换成 REDACTED_SECRET。工具调用记录的摘要、完整参数和返回、
  * 效果日志、审批这些写进事件日志之前和读过的值一起擦（read-secrets.ts 的 CallPrivacy），比如 bash 输出里的 token。
  * 和底线检查同一套形态：宁可多擦（像密钥的都擦），擦不到的是正则认不出的（没有前缀的随机串靠读过的值）
  */

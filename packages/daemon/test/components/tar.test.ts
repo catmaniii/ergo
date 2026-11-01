@@ -1,4 +1,4 @@
-// 读 tar 包（323 号票）：npm 的 .tgz 解开（去掉 package/）、pax 长名字、不安全的路径整个不用、链接跳过、坏包报错。
+// 读 tar 包：npm 的 .tgz 解开（去掉 package/）、pax 长名字、不安全的路径整个不用、链接跳过、坏包报错。
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, test } from "vitest";

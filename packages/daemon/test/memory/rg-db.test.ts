@@ -1,4 +1,4 @@
-// 225 号票：推理库 rg.db 的落盘、manifest 和"版本对不上不自动迁移"。用临时目录里的真 SQLite 和真 MemoryEngine，
+// 推理库 rg.db 的落盘、manifest 和"版本对不上不自动迁移"。用临时目录里的真 SQLite 和真 MemoryEngine，
 // 没有模型调用（manifest 只是记下模型名）。
 import fs from "node:fs";
 import path from "node:path";
@@ -84,7 +84,7 @@ describe("推理库 rg.db", () => {
     second.engine.close();
   });
 
-  // 236 号票：插件启动时只确认库、不打开整理（没有模型实例），manifest 里上次整理记下的抽取器要留着
+  // 插件启动时只确认库、不打开整理（没有模型实例），manifest 里上次整理记下的抽取器要留着
   it("启动时没给抽取器：manifest 里的抽取器沿用上一次整理记下的那个", () => {
     const clock = new ManualClock(at(10, 10, 3, 0));
     const file = rgDbFile();
@@ -166,7 +166,7 @@ describe("推理库 rg.db", () => {
     expect(opened.issue.code).toBe("open_failed");
   });
 
-  // 233 号票：网页的只读接口随用随开引擎，不写 manifest、库不在也不建
+  // 网页的只读接口随用随开引擎，不写 manifest、库不在也不建
   it("只读地打开：updated_at 不动；库不在时不建，回 manifest_missing", () => {
     const clock = new ManualClock(at(10, 10, 3, 0));
     const file = rgDbFile();

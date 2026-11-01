@@ -1,4 +1,4 @@
-// 工具包的审批决定（27 号票）产生的素材（规格第 15 节）：用户批准或拒绝"工具包变更"卡、在项目页或任务详情里直接扩大或减少
+// 工具包的审批决定产生的素材（规格第 15 节）：用户批准或拒绝"工具包变更"卡、在项目页或任务详情里直接扩大或减少
 // 工具包（toolkit_decided），都记成"审批决定"（本人的选择）；用户在卡上写的话是本人打的字。
 // 在 daemon.ts 里、materials.start() 之前登记；彻底删除时只换掉用户写的话（改写函数登记进记忆模块的改写函数表）。
 import { EVENT_TYPES, t, type ToolkitDecidedPayload, toolkitChangeText } from "@ergo/protocol";

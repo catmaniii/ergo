@@ -1,6 +1,6 @@
-// 设置向导里的开机自启开关（347 号票）：显示服务管家的计划任务现在开没开，能开能关。真的动任务还是 lsm 的 install-autostart / uninstall-autostart
+// 设置向导里的开机自启开关：显示服务管家的计划任务现在开没开，能开能关。真的动任务还是 lsm 的 install-autostart / uninstall-autostart
 // （ergo svc 同一套），先过 cli/autostart.ts 那一关：测试里永远碰不到真的任务。
-// 不归这份安装管的不动，和 ergo uninstall、ergo start 核对任务是同一条规矩（342 号票）：
+// 不归这份安装管的不动，和 ergo uninstall、ergo start 核对任务是同一条规矩：
 //   - 任务指着别处（用的人自己装的服务管家）：显示"开着，指着别处"，开关都不动它；
 //   - 源码跑的（开发机上那个任务也许带着别的 --data-dir）：只显示，要改自己跑 ergo svc；
 //   - 安装目录里的：能关；没有任务：能开。

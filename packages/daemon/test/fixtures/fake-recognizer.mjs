@@ -12,11 +12,11 @@
 //   crash       不回就退出（退出码 3），stderr 里留一句
 //   holdFile    等这个文件出现了再回（测试控制"识别中"停多久）
 //   noise       回之前先往 stdout 打这一行（不是协议的行，守护进程该忽略它）
-//   failTimes   这个文件的前 N 次识别出错（不是致命的；按记录文件里这个文件识别过几次数，识别进程重启了也接着数。测 208 号票的自动重试）
+//   failTimes   这个文件的前 N 次识别出错（不是致命的；按记录文件里这个文件识别过几次数，识别进程重启了也接着数。测自动重试）
 //   crashTimes  这个文件的前 N 次识别时不回就退出（退出码 3，同 crash）
 //   holdEach    这个文件的第 n 次识别等 holdEach[n-1] 这个文件出现了再回（null、没写的不等；次数同 failTimes 的数法。
-//               测 210 号票：第一次识别停在识别中、自动重试停在识别中，各由测试放行）
-// 加载（45 号票：守护进程拉起识别进程后马上让它加载模型）怎么回由记录文件旁边的 <记录文件>.load.json 决定（每次加载时现读，
+//               测：第一次识别停在识别中、自动重试停在识别中，各由测试放行）
+// 加载（守护进程拉起识别进程后马上让它加载模型）怎么回由记录文件旁边的 <记录文件>.load.json 决定（每次加载时现读，
 // 没有这个文件就照常加载；helpers/voice.ts 的 setFakeLoad 写它）：
 //   fallback    当作显卡上加载不了、退回了 init 里的 fallback，这是原因（之后的识别都报 fallback 的模型）
 //   fatal       加载失败（致命）：回完就退出
@@ -24,7 +24,7 @@
 //   holdFile    等这个文件出现了再回（测试控制"加载中"停多久）
 //   loadMs      报的加载耗时（毫秒），不给报实际等了多久
 //   exitAfterMs 加载好（回报之后）过这么多毫秒就退出（退出码 3），stderr 里留一句：模拟加载好就崩
-//   stallPing   已经加载好时再来的加载请求（208 号票：重试前问一句识别进程还正不正常）不回：模拟进程活着却卡住了
+//   stallPing   已经加载好时再来的加载请求（重试前问一句识别进程还正不正常）不回：模拟进程活着却卡住了
 // 已经加载好时再来的加载请求照 recognizer.py 马上回报加载好的模型（不再照上面的指令加载），记成 ping。
 // 每件事往记录文件追加一行 JSON：start（pid、环境变量名、当前目录）、init、load、ping、transcribe（音频路径、语言、提示）、exit。
 import fs from "node:fs";
@@ -112,7 +112,7 @@ function loadDirective() {
 
 async function load(request) {
   const d = loadDirective();
-  // 已经加载好了：照 recognizer.py 马上回报（208 号票拿它问识别进程还正不正常）；stallPing 时不回（卡住了）
+  // 已经加载好了：照 recognizer.py 马上回报（拿它问识别进程还正不正常）；stallPing 时不回（卡住了）
   if (loaded) {
     record({ event: "ping" });
     if (d.stallPing) return new Promise(() => {});

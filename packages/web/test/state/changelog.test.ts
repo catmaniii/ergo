@@ -1,4 +1,4 @@
-// 关于页的更新日志（124 号票）：构建时把仓库根目录的 CHANGELOG.md 打进页面，取当前版本那一节显示，以前的版本能展开。
+// 关于页的更新日志：构建时把仓库根目录的 CHANGELOG.md 打进页面，取当前版本那一节显示，以前的版本能展开。
 // 拿仓库里真的 CHANGELOG.md 和手写的几种写法核对。
 import fs from "node:fs";
 import { describe, expect, test } from "vitest";
@@ -64,7 +64,7 @@ describe("更新日志按版本分节", () => {
   });
 });
 
-describe("更新日志里的名字占位填上用户起的名字（124 号票，主会话 2026-10-14 定；占位是构建时从“秘书”换来的，见 build.test.ts）", () => {
+describe("更新日志里的名字占位填上用户起的名字（占位是构建时从“秘书”换来的，见 build.test.ts）", () => {
   const M = ASSISTANT_NAME_MARK;
 
   test("每个占位都换成现在的名字，别的不动", () => {

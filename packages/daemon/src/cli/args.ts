@@ -1,4 +1,4 @@
-// ergo 命令的参数（318 号票）：<命令> [位置参数…] [--开关] [--名字 值] [--名字=值] [-n 值]
+// ergo 命令的参数：<命令> [位置参数…] [--开关] [--名字 值] [--名字=值] [-n 值]
 export interface ParsedArgs {
   command: string | undefined;
   positional: string[];

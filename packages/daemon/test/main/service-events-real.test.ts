@@ -1,8 +1,8 @@
-// 真进程（357 号票）：真的服务管家（临时数据目录、临时端口）+ 真的小服务（子进程）+ 真的 ergo notify（命令行子进程）→ 事件触发的任务真跑一次，假模型的负责人收到事件名和数据。
+// 真进程：真的服务管家（临时数据目录、临时端口）+ 真的小服务（子进程）+ 真的 ergo notify（命令行子进程）→ 事件触发的任务真跑一次，假模型的负责人收到事件名和数据。
 // 守护进程在测试进程里（faux 模型），接入身份来自服务管家：登记一个"接入方"服务（link 打开），它的启动命令只把管家注入的 LSM_* 写进文件、挂着，守护进程拿这份身份连上去，
 // 就和管家拉起 ergo-daemon 时一样。之后的上线（services.put、start）、环境变量注入（from: file 读密钥区）都是管家真做的。
 // 安全：管家的数据都在临时目录（LSM_DATA_DIR），端口是临时挑的（ERGO_SVC_PORT），不开开机自启、不开端口自动腾挪、不开哨兵；测试结束时停掉管家和它拉起的进程。
-// 363 号票同一套真管家：上线记录卡在失败、服务其实在跑，部署后接上时回到上线了，没有凭证的真重启一次，新进程拿到凭证，再部署不再重启。
+// 同一套真管家：上线记录卡在失败、服务其实在跑，部署后接上时回到上线了，没有凭证的真重启一次，新进程拿到凭证，再部署不再重启。
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -215,7 +215,7 @@ setTimeout(() => process.exit(0), 170000);
 const viewOf = (td: TestDaemon) => td.daemon.projectServices.view().find((v) => v.app === "p-1-web");
 const rollouts = (td: TestDaemon) => td.daemon.store.read(OPERATIONS_CHANNEL, 0, PROJECT_SERVICE_EVENTS.rollout).map((e) => e.payload as ServiceRolloutPayload);
 
-describe("真进程：上线记录卡在失败、服务其实在跑（363 号票）", () => {
+describe("真进程：上线记录卡在失败、服务其实在跑", () => {
   it("部署后接上真的管家：回到上线了、转发补上；没有凭证的真重启一次，新进程拿到的凭证真能用；再部署一次不再重启", async () => {
     const [local, external, port] = (await pickPorts(3)) as [number, number, number];
     const { identity } = await startRealManager("p-1-web");
@@ -236,7 +236,7 @@ describe("真进程：上线记录卡在失败、服务其实在跑（363 号票
     await waitUntil(() => viewOf(td)?.rollout === "live" && viewOf(td)?.status === "online", { timeoutMs: 90_000, describe: () => `等上线：${JSON.stringify(viewOf(td))}` });
     expect(starts()).toHaveLength(1);
 
-    // 10-29 记下的失败，服务一直在跑；密钥区没有它的凭证（357 之前上线的就是这样）
+    // 10-29 记下的失败，服务一直在跑；密钥区没有它的凭证（以前上线的就是这样）
     const reason = "start 失败（already-running）：日志文件正被另一份 ergo-test--p-1-web 占着写——它好像已经有一个实例在跑了，没有再起第二份";
     td.daemon.store.append({ channel: OPERATIONS_CHANNEL, type: PROJECT_SERVICE_EVENTS.rollout, payload: { ...rollouts(td).at(-1)!, state: "failed", reason, revive: true, time: nowIso() } satisfies ServiceRolloutPayload });
     expect(viewOf(td)).toMatchObject({ rollout: "failed", reason });

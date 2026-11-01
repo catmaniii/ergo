@@ -1,19 +1,19 @@
 // 原型用的假 HTTP（直接打开构建产物、没有守护进程时）：上传只在浏览器里假装走一遍进度，
 // 选的图片用本地的 object URL 显示；没有更早的历史。假历史里的图片、文件没有真媒体，界面画占位图。
 // 改工作日历交给假连接（它在工作日历频道上推事件，和守护进程一样）。消耗页的汇总由假账本算（fake-data.ts 的 fakeUsageSummary）。
-// 改个人助理的名字（43 号票）也交给假连接（它在名字频道上推事件）。
-// 参考音色（32 号票）只记在内存里，导入的录音用本地的 object URL 试听。日历（35 号票）也交给假连接（它按自己的工作日历算）。
-// 两个语音模型的状态（45 号票）是固定的一份：都已就绪。工具调用的完整内容（56 号票的详情页）按假会话里的摘要编一份。
-// 设置里工具调用的完整内容占了多大（65 号票）是编的一份，"现在就清理"把可清的清掉（只在内存里）。
-// 设置里的系统提示（71 号票）是编的几份（fake-system-prompts.ts），改的只记在内存里。
-// 输入框里打 / 弹出的候选（82 号票）：二狗自己的命令加一份编的 skill（FAKE_SLASH_SKILLS），任务详情里的会话不列命令；
-// 310 号票：记忆管理员的会话列 /interview、/consolidate；用 Claude Code 的负责人另列工具包里的 skill（/ergo:…）；说明、参数提示是守护进程换好的样子；
-// 289 号票起用 Claude Code 的负责人列 Claude Code 报的命令（fake-runtimes.ts）。
-// 设置里的"模型"（73 号票）是编的一份（DeepSeek 两个模型、key 已配置），改了只记在内存里，连通测试回一个编的延迟。
-// 每个 agent 的 ⚙（114 号票）是编的（fake-agent-settings.ts）：通用模板取上面那几份系统提示，单独的提示词、清空、压缩只记在内存里。
-// 附件卡片和报告页（113 号票）：假会话里的附件见 fake-media.ts，下载给一段说明文字；报告页照真接口的规矩回内容（超过 1 MB 的截断）
+// 改个人助理的名字也交给假连接（它在名字频道上推事件）。
+// 参考音色只记在内存里，导入的录音用本地的 object URL 试听。日历也交给假连接（它按自己的工作日历算）。
+// 两个语音模型的状态是固定的一份：都已就绪。工具调用的完整内容（详情页）按假会话里的摘要编一份。
+// 设置里工具调用的完整内容占了多大是编的一份，"现在就清理"把可清的清掉（只在内存里）。
+// 设置里的系统提示是编的几份（fake-system-prompts.ts），改的只记在内存里。
+// 输入框里打 / 弹出的候选：二狗自己的命令加一份编的 skill（FAKE_SLASH_SKILLS），任务详情里的会话不列命令；
+// 记忆管理员的会话列 /interview、/consolidate；用 Claude Code 的负责人另列工具包里的 skill（/ergo:…）；说明、参数提示是守护进程换好的样子；
+// 用 Claude Code 的负责人列 Claude Code 报的命令（fake-runtimes.ts）。
+// 设置里的"模型"是编的一份（DeepSeek 两个模型、key 已配置），改了只记在内存里，连通测试回一个编的延迟。
+// 每个 agent 的 ⚙是编的（fake-agent-settings.ts）：通用模板取上面那几份系统提示，单独的提示词、清空、压缩只记在内存里。
+// 附件卡片和报告页：假会话里的附件见 fake-media.ts，下载给一段说明文字；报告页照真接口的规矩回内容（超过 1 MB 的截断）
 // 或错误；原型里刚上传的文本文件也能预览（读选的那个文件）。
-// 设置里的删除素材（158 号票起能看每条的内容；167 号票起在记忆 · 素材，能按时间段、种类、会话、关键词筛）：假素材照假会话编
+// 设置里的删除素材（能看每条的内容；在记忆 · 素材，能按时间段、种类、会话、关键词筛）：假素材照假会话编
 // （fake-materials.ts），删了只在这一页的内存里。
 import type { DaemonHttp } from "../app/daemon-http.ts";
 import type { BackgroundAgentList, BackgroundAgentTranscript } from "../state/index.ts";
@@ -204,33 +204,33 @@ export interface FakeWorkdayCalendar {
   calendarMonth(month: string): CalendarMonthView;
 }
 
-/** 原型的会话回退（150 号票）：回退前的确认由假连接按假会话编（fake-branches.ts） */
+/** 原型的会话回退：回退前的确认由假连接按假会话编（fake-branches.ts） */
 export interface FakeRollbacks {
   rollbackPreview(conversation: ConversationId, before: RollbackTarget): RollbackPreview;
-  /** 一条分支的样子（151 号票） */
+  /** 一条分支的样子 */
   branchView(conversation: ConversationId, branchId: string, against?: string): BranchView;
 }
 
-/** 假连接里改个人助理的名字的那一半（43 号票） */
+/** 假连接里改个人助理的名字的那一半 */
 export interface FakeAssistantName {
   setAssistantName(name: string): AssistantNameResult;
 }
 
-/** 假连接里"我的名字"那一半（249 号票）：用户自己的名字，null / 空串是清除 */
+/** 假连接里"我的名字"那一半：用户自己的名字，null / 空串是清除 */
 export interface FakeUserName {
   userNameView(): UserNameView;
   setUserName(name: string | null): UserNameResult;
 }
 
-/** 假连接里语言的那一半（168 号票）：原型里只有打包进去的几种语言，换了在语言频道上推事件 */
+/** 假连接里语言的那一半：原型里只有打包进去的几种语言，换了在语言频道上推事件 */
 export interface FakeLanguage {
   localeList(): LocaleListView;
   localeView(): LocaleDictionaryView;
   setLanguage(language: string): LanguageResult;
 }
 
-/** 假连接里插件的那一半（211 号票）：清单、停用 / 启用 / 移除，变了在插件频道上推新的状况 */
-/** 改了两个开关交给假连接，它和守护进程一样推给网页（378 号票） */
+/** 假连接里插件的那一半：清单、停用 / 启用 / 移除，变了在插件频道上推新的状况 */
+/** 改了两个开关交给假连接，它和守护进程一样推给网页 */
 export interface FakeSafetyPush {
   pushSafety(view: SafetySettingsView): void;
 }
@@ -243,7 +243,7 @@ export interface FakePluginSettings {
 /** 原型里授权的文件夹：同一个文件夹（不分大小写） */
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
-/** 原型里选文件夹的框（138 号票）：常用位置、各个盘和一棵假的文件夹树 */
+/** 原型里选文件夹的框：常用位置、各个盘和一棵假的文件夹树 */
 const FAKE_FOLDER_PLACES: FolderEntry[] = [
   { name: "图片", path: "C:\\Users\\me\\Pictures" },
   { name: "下载", path: "C:\\Users\\me\\Downloads" },
@@ -270,7 +270,7 @@ const FAKE_FOLDER_TREE: ReadonlyArray<{ path: string; parent?: string; children:
 export class FakeDaemonHttp implements DaemonHttp {
   private seq = 0;
   private readonly urls = new Map<string, string>();
-  /** 原型里刚上传的文件（113 号票：文本类的报告页读它） */
+  /** 原型里刚上传的文件（文本类的报告页读它） */
   private readonly uploads = new Map<string, File>();
   private readonly workdayCalendar: FakeWorkdayCalendar | undefined;
   private readonly rollbacks: FakeRollbacks | undefined;
@@ -281,14 +281,14 @@ export class FakeDaemonHttp implements DaemonHttp {
   private readonly safetyPush: FakeSafetyPush | undefined;
   /** 原型"启动"的时间（语音模型的状态用） */
   private readonly startedAt = new Date().toISOString();
-  /** 记忆的设置（264 号票） */
+  /** 记忆的设置 */
   private memorySettingsValue: MemorySettingsView = { ...DEFAULT_MEMORY_SETTINGS };
-  /** 原型里开着的访谈（284 号票：点了记忆管理员对话里的"开始访谈"才有） */
+  /** 原型里开着的访谈（点了记忆管理员对话里的"开始访谈"才有） */
   private fakeInterview: string | undefined;
   /** 原型的参考音色（只在内存里） */
   private voices: ReferenceVoice[] = [];
   private currentVoice: string | undefined;
-  /** 原型的工具调用完整内容（65 号票）：编的一份，"现在就清理"后可清的清掉 */
+  /** 原型的工具调用完整内容：编的一份，"现在就清理"后可清的清掉 */
   private storage: ToolCallStorageView = {
     bytes: 327_155_712,
     calls: 1234,
@@ -297,18 +297,18 @@ export class FakeDaemonHttp implements DaemonHttp {
     maxBytes: 2 * 1024 ** 3,
     due: { calls: 3, bytes: 4_404_019, inUse: 1 },
   };
-  /** 原型的备份（335 号票）：编的一份，点了"立即备份"一秒半之后做完、记成最近一次 */
+  /** 原型的备份：编的一份，点了"立即备份"一秒半之后做完、记成最近一次 */
   private backup: BackupStatusView = fakeBackupStatus();
   private backupDoneAt: number | undefined;
   private backupVerifyDoneAt: number | undefined;
-  /** 原型的系统提示（71 号票） */
+  /** 原型的系统提示 */
   private readonly prompts = new FakeSystemPrompts();
-  /** 原型的个人档案（281 号票）：编的一份，本人的姓名就是原型里的"我的名字" */
+  /** 原型的个人档案：编的一份，本人的姓名就是原型里的"我的名字" */
   private readonly personalFilesFake = new FakePersonalFiles(
     () => this.userNames?.userNameView().name,
     (name) => void this.userNames?.setUserName(name),
   );
-  /** 原型里每个 agent 的 ⚙（114 号票） */
+  /** 原型里每个 agent 的 ⚙ */
   private readonly agentPanels = new FakeAgentSettings(
     this.prompts,
     () => this.models,
@@ -342,7 +342,7 @@ export class FakeDaemonHttp implements DaemonHttp {
         }
         options.onProgress({ state: "done", sent: total, total });
         const image = DISPLAYABLE.has(file.type);
-        // 图片在本地显示，录的语音在本地播放（31 号票）
+        // 图片在本地显示，录的语音在本地播放
         if (image || file.type.startsWith("audio/")) this.urls.set(mediaId, URL.createObjectURL(file));
         else this.uploads.set(mediaId, file);
         resolve({ mediaId, kind: image ? "image" : "file", name: file.name, mime: file.type || "application/octet-stream", size: total });
@@ -365,7 +365,7 @@ export class FakeDaemonHttp implements DaemonHttp {
   }
 
   /**
-   * 照守护进程的内容接口：能预览的给文字（超过上限的截在字符边上）；HTML、SVG（117 号票）只给名字、大小和 frame，
+   * 照守护进程的内容接口：能预览的给文字（超过上限的截在字符边上）；HTML、SVG只给名字、大小和 frame，
    * 超过上限的回太大；别的回不能预览，没有的回不在了
    */
   async mediaText(mediaId: string): Promise<MediaTextResult> {
@@ -387,10 +387,10 @@ export class FakeDaemonHttp implements DaemonHttp {
   }
 
   /**
-   * 原型：HTML、SVG 在框里看的地址（117 号票）——假附件的内容做成 data: 地址，刚上传的用本地的 blob: 地址；报告页照样放进带
+   * 原型：HTML、SVG 在框里看的地址——假附件的内容做成 data: 地址，刚上传的用本地的 blob: 地址；报告页照样放进带
    * sandbox 的 iframe（data:、blob: 的页面在沙箱里同样是陌生来源）。没有内容的假附件为 undefined
    */
-  /** 原型：内置浏览器里渲染文件（160 号票）用几份编的样例（fake-app-files.ts） */
+  /** 原型：内置浏览器里渲染文件用几份编的样例（fake-app-files.ts） */
   appFileText(url: string): Promise<FileTextResult> {
     return Promise.resolve(fakeAppFileText(url));
   }
@@ -402,11 +402,11 @@ export class FakeDaemonHttp implements DaemonHttp {
     return uploaded ? URL.createObjectURL(uploaded) : undefined;
   }
 
-  /** 原型：这一页里删掉的、标过不参与推断的假素材（158 号票，只在内存里） */
+  /** 原型：这一页里删掉的、标过不参与推断的假素材（只在内存里） */
   private readonly deletedMaterials = new Set<string>();
   private readonly noInferMaterials = new Set<string>();
 
-  /** 原型：按假素材（照假会话编的，158 号票）数；假会话里没有素材的会话也列出来（0 条） */
+  /** 原型：按假素材（照假会话编的）数；假会话里没有素材的会话也列出来（0 条） */
   materialScope(scope?: MaterialScope): Promise<MaterialScopeSummary> {
     const counted = fakeMaterialConversations(this.deletedMaterials);
     const conversations = [...counted, ...FAKE_SESSIONS.filter((s) => !counted.some((c) => c.conversation === s.id)).map((s) => ({ conversation: s.id, count: 0 }))];
@@ -420,7 +420,7 @@ export class FakeDaemonHttp implements DaemonHttp {
     return Promise.resolve({ count: found.length });
   }
 
-  /** 原型：假素材的一页（167 号票起按时间段、种类、会话、关键词筛） */
+  /** 原型：假素材的一页（按时间段、种类、会话、关键词筛） */
   materialList(scope: MaterialScope | undefined, page: { offset: number; limit: number }, filter?: MaterialListFilter): Promise<MaterialListPage> {
     const found = fakeMaterialsIn(scope, this.deletedMaterials, filter).map((m) => (this.noInferMaterials.has(m.id) ? { ...m, marks: { ...m.marks, noInfer: true as const } } : m));
     return Promise.resolve({ total: found.length, items: found.slice(page.offset, page.offset + page.limit) });
@@ -431,12 +431,12 @@ export class FakeDaemonHttp implements DaemonHttp {
     return Promise.resolve(fakeMaterialDetail(materialId, this.deletedMaterials, this.noInferMaterials));
   }
 
-  /** 原型："浏览"里存一页进素材（165 号票）：加进这一页的假素材，记忆 · 素材里看得到 */
+  /** 原型："浏览"里存一页进素材：加进这一页的假素材，记忆 · 素材里看得到 */
   saveWebPage(body: SaveWebPageBody): Promise<SaveWebPageResult> {
     return Promise.resolve(fakeSaveWebPage(body, new Date().toISOString()));
   }
 
-  // 原文型：记忆的推理库只读看（233 号票）——照 weekend 那组编的假结论、证据、问题箱；
+  // 原文型：记忆的推理库只读看——照 weekend 那组编的假结论、证据、问题箱；
   // ?demo-memory-empty 看空数据、?demo-memory-off 看库还没建的样子
   memorySummary(): Promise<MemorySummaryView> {
     return Promise.resolve(fakeMemorySummary());
@@ -458,7 +458,7 @@ export class FakeDaemonHttp implements DaemonHttp {
     return Promise.resolve(fakeMemoryStrategies());
   }
 
-  /** 安全和预算的两个开关（315 号票）：原型里只记在内存里，开头都关着（新装的样子，用户 2026-11-01 改的） */
+  /** 安全和预算的两个开关：原型里只记在内存里，开头都关着（新装的样子） */
   private safetyValue: SafetySettingsView = FAKE_SAFETY_START;
 
   safetySettings(): Promise<SafetySettingsView> {
@@ -471,13 +471,13 @@ export class FakeDaemonHttp implements DaemonHttp {
     return this.safetySettings();
   }
 
-  /** 记忆的设置（264 号票）：原型里只记在这一页里，刷新回到默认（开着） */
+  /** 记忆的设置：原型里只记在这一页里，刷新回到默认（开着） */
   memorySettings(): Promise<MemorySettingsView> {
     return Promise.resolve({ ...this.memorySettingsValue });
   }
 
   saveMemorySettings(body: MemorySettingsBody): Promise<MemorySettingsView> {
-    // 266 号票起改哪项给哪项，没给的照旧
+    // 改哪项给哪项，没给的照旧
     this.memorySettingsValue = {
       wovenQuestions: body.wovenQuestions ?? this.memorySettingsValue.wovenQuestions,
       memoryBrief: body.memoryBrief ?? this.memorySettingsValue.memoryBrief,
@@ -486,7 +486,7 @@ export class FakeDaemonHttp implements DaemonHttp {
     return Promise.resolve({ ...this.memorySettingsValue });
   }
 
-  /** 了解你访谈（284 号票）：原型里聊过家里的人，下次聊工作和一天；开一次只记在这一页里 */
+  /** 了解你访谈：原型里聊过家里的人，下次聊工作和一天；开一次只记在这一页里 */
   memoryInterview(): Promise<InterviewStatusView> {
     return Promise.resolve({
       ...(this.fakeInterview === undefined ? {} : { active: { id: this.fakeInterview, topic: "work_day", startedAt: new Date().toISOString(), by: "page" } }),
@@ -548,10 +548,10 @@ export class FakeDaemonHttp implements DaemonHttp {
 
   /**
    * 原型：秘书和项目的会话先列二狗自己的命令，任务详情里的不列；skill 都是同一份编的。
-   * 289 号票：用 Claude Code 的负责人（个人博客项目的）列 Claude Code 报的命令，不列 skill
+   * 用 Claude Code 的负责人（个人博客项目的）列 Claude Code 报的命令，不列 skill
    */
   slashCommands(conversation: string): Promise<SlashCommandList> {
-    // 310 号票：记忆管理员的会话（含了解你访谈）有 /interview、/consolidate
+    // 记忆管理员的会话（含了解你访谈）有 /interview、/consolidate
     if (conversation === MEMORY_CURATOR_CONVERSATION) return Promise.resolve({ commands: FAKE_CURATOR_COMMANDS });
     // 任务自己的负责人 id 是 tm- 开头（ownMaintainerId）
     const commands = conversation.startsWith("maintainer:tm-") ? [] : FAKE_SLASH_COMMANDS;
@@ -616,7 +616,7 @@ export class FakeDaemonHttp implements DaemonHttp {
     }
   }
 
-  // 个人档案（281 号票）：只在内存里
+  // 个人档案：只在内存里
   personalFiles(): Promise<PersonalFilesView> {
     return Promise.resolve(this.personalFilesFake.list());
   }
@@ -656,7 +656,7 @@ export class FakeDaemonHttp implements DaemonHttp {
 
   importReferenceVoice(input: { name: string; referenceText?: string; audio: Blob }): Promise<ReferenceVoice> {
     const id = `v-proto${++this.seq}`;
-    // 原型里没有真的识别进程：没给逐字稿时填一段编的（真跑时由守护进程自动识别，230 号票）
+    // 原型里没有真的识别进程：没给逐字稿时填一段编的（真跑时由守护进程自动识别）
     const voice: ReferenceVoice = { id, name: input.name.trim(), referenceText: input.referenceText?.trim() || "这是原型里自动识别出来的逐字稿。", durationMs: 0, sha256: "", importedAt: new Date().toISOString() };
     this.urls.set(`voice:${id}`, URL.createObjectURL(input.audio));
     this.voices = [...this.voices, voice];
@@ -683,17 +683,17 @@ export class FakeDaemonHttp implements DaemonHttp {
     return undefined;
   }
 
-  /** 原型的服务首页缩略图（140 号票）：画好的假网页（fake-operations.ts）；没画的没有 */
+  /** 原型的服务首页缩略图：画好的假网页（fake-operations.ts）；没画的没有 */
   serviceThumbnailUrl(projectId: string, name: string): string | undefined {
     return fakeServiceThumbnail(`${projectId}-${name}`);
   }
 
-  /** 原型的项目规范（258 号票）：照假项目的类型和状态编的（fake-standard.ts） */
+  /** 原型的项目规范：照假项目的类型和状态编的（fake-standard.ts） */
   projectStandard(projectId: string): Promise<ProjectStandardView | undefined> {
     return Promise.resolve(fakeProjectStandard(projectId));
   }
 
-  /** 原型：两个模型都已就绪；?demo-asr=running 时语音识别走组件页装的 Fun-ASR Nano（346 号票） */
+  /** 原型：两个模型都已就绪；?demo-asr=running 时语音识别走组件页装的 Fun-ASR Nano */
   voiceModels(): Promise<VoiceModelsView> {
     const since = this.startedAt;
     const funAsr = demoParam("demo-asr") === "running";
@@ -707,7 +707,7 @@ export class FakeDaemonHttp implements DaemonHttp {
     });
   }
 
-  /** 回退前的确认（150 号票）：假连接按假会话里的工具调用编；回不到那里时拒绝 */
+  /** 回退前的确认：假连接按假会话里的工具调用编；回不到那里时拒绝 */
   rollbackPreview(conversation: ConversationId, before: RollbackTarget): Promise<RollbackPreview> {
     try {
       return Promise.resolve(this.rollbacks?.rollbackPreview(conversation, before) ?? { conversation, before, effects: [] });
@@ -716,7 +716,7 @@ export class FakeDaemonHttp implements DaemonHttp {
     }
   }
 
-  /** 一条分支的样子（151 号票）：假连接按假事件日志算；没有这条分支时拒绝 */
+  /** 一条分支的样子：假连接按假事件日志算；没有这条分支时拒绝 */
   branchView(conversation: ConversationId, branchId: string, against?: string): Promise<BranchView> {
     try {
       if (!this.rollbacks) return Promise.reject(new Error("原型没有这条分支"));
@@ -726,9 +726,9 @@ export class FakeDaemonHttp implements DaemonHttp {
     }
   }
 
-  /** 阶段详情现取的（84 号票）：授权已用几次、重做的范围（协议包的 reopenScope：它和依赖它的、开始过的）、这几个阶段这一轮已经做了的事 */
+  /** 阶段详情现取的：授权已用几次、重做的范围（协议包的 reopenScope：它和依赖它的、开始过的）、这几个阶段这一轮已经做了的事 */
   taskStage(taskId: string, stageId: string): Promise<TaskStageView | undefined> {
-    // 假长程任务（真任务的界面）：照它们的阶段算（274 号票起带"系统查到的结果"）
+    // 假长程任务（真任务的界面）：照它们的阶段算（带"系统查到的结果"）
     const long = longTaskStageView(taskId, stageId);
     if (long) return Promise.resolve(long);
     const stages = taskDetailOf(taskId).stages;
@@ -769,7 +769,7 @@ export class FakeDaemonHttp implements DaemonHttp {
         args,
         result: `${part.resultSummary ?? "（没有返回）"}\n\n（原型：这是按摘要编的假内容）`,
         isError: part.outcome !== "done",
-        // 执行成功的顺带一条效果记录（56 号票），涉及的对象按参数里像路径的编
+        // 执行成功的顺带一条效果记录，涉及的对象按参数里像路径的编
         ...(part.outcome === "done"
           ? {
               effects: [
@@ -807,7 +807,7 @@ export class FakeDaemonHttp implements DaemonHttp {
     });
   }
 
-  /** 原型的备份（335 号票）：点过"立即备份"、还没到"做完"的时刻时是排着的，到了记成一次成功的手动备份 */
+  /** 原型的备份：点过"立即备份"、还没到"做完"的时刻时是排着的，到了记成一次成功的手动备份 */
   backupStatus(): Promise<BackupStatusView> {
     if (this.backupDoneAt !== undefined && Date.now() >= this.backupDoneAt) {
       const now = new Date();
@@ -835,7 +835,7 @@ export class FakeDaemonHttp implements DaemonHttp {
     return Promise.resolve(this.backup);
   }
 
-  /** 原型的备份设置（356 号票）：改的只记在内存里 */
+  /** 原型的备份设置：改的只记在内存里 */
   backupConfig(body: BackupConfigBody): Promise<BackupStatusView> {
     if (body.time !== undefined && !/^\d{2}:\d{2}$/.test(body.time)) return Promise.reject(new Error("时刻要写成 HH:mm"));
     let next: BackupStatusView = { ...this.backup };
@@ -879,7 +879,7 @@ export class FakeDaemonHttp implements DaemonHttp {
     return Promise.resolve({ opened: true });
   }
 
-  // 系统提示（71 号票）：编的几份，改的只记在内存里
+  // 系统提示：编的几份，改的只记在内存里
   systemPrompts(): Promise<SystemPromptList> {
     return Promise.resolve(this.prompts.list());
   }
@@ -896,7 +896,7 @@ export class FakeDaemonHttp implements DaemonHttp {
     return attempt(() => this.prompts.reset(id));
   }
 
-  // 背后的 agent（368 号票）：编的
+  // 背后的 agent：编的
   backgroundAgents(maintainerId: string): Promise<BackgroundAgentList> {
     return attempt(() => fakeBackgroundAgents(maintainerId));
   }
@@ -905,7 +905,7 @@ export class FakeDaemonHttp implements DaemonHttp {
     return attempt(() => fakeBackgroundTranscript(agentId));
   }
 
-  // 每个 agent 的 ⚙（114 号票）：编的，只在内存里
+  // 每个 agent 的 ⚙：编的，只在内存里
   agentSettings(agentId: string): Promise<AgentSettingsView> {
     return attempt(() => this.agentPanels.view(agentId));
   }
@@ -926,7 +926,7 @@ export class FakeDaemonHttp implements DaemonHttp {
     return attempt(() => this.agentPanels.compact(agentId));
   }
 
-  // 项目、任务的负责人单独配模型（120 号票）：编的，只在内存里（记账本的负责人配了 v4-pro）
+  // 项目、任务的负责人单独配模型：编的，只在内存里（记账本的负责人配了 v4-pro）
   setAgentModel(agentId: string, body: AgentModelBody): Promise<AgentSettingsView> {
     return attempt(() => this.agentPanels.setModel(agentId, body));
   }
@@ -935,12 +935,12 @@ export class FakeDaemonHttp implements DaemonHttp {
     return attempt(() => this.agentPanels.followModel(agentId));
   }
 
-  // 项目、任务的负责人用哪个运行时（289 号票）：编的，只在内存里（个人博客的负责人用 Claude Code）
+  // 项目、任务的负责人用哪个运行时：编的，只在内存里（个人博客的负责人用 Claude Code）
   setAgentRuntime(agentId: string, body: AgentRuntimeBody): Promise<AgentSettingsView> {
     return attempt(() => this.agentPanels.setRuntime(agentId, body));
   }
 
-  // 从已有的会话接管（290 号票）：本机的会话是编的（fake-takeover.ts）；原型里不真的接管，交回那个编好的接管来的任务
+  // 从已有的会话接管：本机的会话是编的（fake-takeover.ts）；原型里不真的接管，交回那个编好的接管来的任务
   runtimeSessions(runtimeId: string): Promise<RuntimeSessionsView> {
     if (runtimeId !== FAKE_CLAUDE_CODE) return Promise.reject(new Error(`${runtimeId}不能接管已有的会话`));
     return new Promise((resolve) => setTimeout(() => resolve({ sessions: fakeTakeoverSessions(Date.now()) }), 300));
@@ -959,7 +959,7 @@ export class FakeDaemonHttp implements DaemonHttp {
     return attempt(() => this.agentPanels.takeover(agentId, action));
   }
 
-  // 角色（248 号票）：编的，只在内存里
+  // 角色：编的，只在内存里
   agentRoles(): Promise<AgentRolesView> {
     return Promise.resolve(this.agentPanels.rolesView());
   }
@@ -984,7 +984,7 @@ export class FakeDaemonHttp implements DaemonHttp {
     return attempt(() => this.agentPanels.assignRole(agentId, { roleId }));
   }
 
-  /** 原型的模型设置（73 号票）：只在内存里。自定义（OpenAI 兼容）服务商那一块（接口地址、模型 id、接口类型）也一样 */
+  /** 原型的模型设置：只在内存里。自定义（OpenAI 兼容）服务商那一块（接口地址、模型 id、接口类型）也一样 */
   private models: ModelSettings = { provider: "deepseek", default: { modelId: "deepseek-flash", thinkingLevel: "high" }, agents: {}, vision: {} };
 
   modelSettings(): Promise<ModelSettingsView> {
@@ -1052,7 +1052,7 @@ export class FakeDaemonHttp implements DaemonHttp {
     return new Promise((resolve) => setTimeout(() => resolve({ ok: true, models: FAKE_CUSTOM_MODELS.map((model) => ({ ...model })) }), 300));
   }
 
-  /** 原型的联网设置（154 号票；162 号票起是三种方式的队列）：只在内存里；假装配了 DeepSeek 的 key */
+  /** 原型的联网设置（是三种方式的队列）：只在内存里；假装配了 DeepSeek 的 key */
   private web: WebSettings = copyWebSettings(DEFAULT_WEB_SETTINGS);
 
   webSettings(): Promise<WebSettingsView> {
@@ -1070,19 +1070,19 @@ export class FakeDaemonHttp implements DaemonHttp {
     return this.webSettings();
   }
 
-  /** agent 运行时（286 号票）：原型里是内核自带的 pi 和 Claude Code 插件登记的（289 号票起有界面，fake-runtimes.ts） */
+  /** agent 运行时：原型里是内核自带的 pi 和 Claude Code 插件登记的（有界面，fake-runtimes.ts） */
   runtimes(): Promise<RuntimesView> {
     return Promise.resolve({ runtimes: fakeRuntimes() });
   }
 
-  // 核对已有的文件夹（305 号票）：原型里只看是不是从盘符写起
+  // 核对已有的文件夹：原型里只看是不是从盘符写起
   checkRuntimeFolder(_runtimeId: string, folder: string): Promise<WorkFolderCheckResult> {
     const written = folder.trim();
     if (!/^[a-z]:[\\/]/i.test(written)) return Promise.reject(new Error(`「${written}」不是完整的路径：要从盘符写起（比如 D:\\work\\ledger）`));
     return Promise.resolve({ folder: written });
   }
 
-  // 新建时的默认文件夹（305 号票）：编的，只在内存里
+  // 新建时的默认文件夹：编的，只在内存里
   setRuntimeFolder(_runtimeId: string, folder: string | null): Promise<RuntimesView> {
     return attempt(() => {
       setFakeDefaultFolder(folder);
@@ -1090,7 +1090,7 @@ export class FakeDaemonHttp implements DaemonHttp {
     });
   }
 
-  /** 设置 · 插件（211 号票）：假连接里的两个插件 */
+  /** 设置 · 插件：假连接里的两个插件 */
   plugins(): Promise<PluginsView> {
     if (!this.pluginSettings) return Promise.reject(new Error("原型里没有插件设置"));
     return Promise.resolve(this.pluginSettings.pluginList());
@@ -1111,7 +1111,7 @@ export class FakeDaemonHttp implements DaemonHttp {
     );
   }
 
-  /** 设置 · 数据源（295 号票）：原型里编的几个数据源和导入文件夹（prototype/fake-data-sources.ts） */
+  /** 设置 · 数据源：原型里编的几个数据源和导入文件夹（prototype/fake-data-sources.ts） */
   private readonly fakeDataSources = new FakeDataSources();
 
   dataSources(): Promise<DataSourcesView> {
@@ -1138,7 +1138,7 @@ export class FakeDaemonHttp implements DaemonHttp {
     return this.fakeDataSources.live(id, body);
   }
 
-  /** 设置 · 组件（323 号票）：原型里编的几个组件（prototype/fake-components.ts） */
+  /** 设置 · 组件：原型里编的几个组件（prototype/fake-components.ts） */
   private readonly fakeComponents = new FakeComponents();
 
   components(): Promise<ComponentsView> {
@@ -1161,7 +1161,7 @@ export class FakeDaemonHttp implements DaemonHttp {
     return this.fakeComponents.importFrom(path);
   }
 
-  /** 开机自启（347 号票）：只在内存里；地址带 ?demo-autostart=off|elsewhere|dev 看别的样子 */
+  /** 开机自启：只在内存里；地址带 ?demo-autostart=off|elsewhere|dev 看别的样子 */
   private autostartValue = fakeAutostart();
 
   autostart(): Promise<AutostartView> {
@@ -1174,13 +1174,13 @@ export class FakeDaemonHttp implements DaemonHttp {
     return new Promise((resolve) => setTimeout(() => resolve(this.autostartValue), 300));
   }
 
-  /** 网页是哪一版（116 号票）：地址里带 ?demo-update 时是假的新一版（和假连接推的一样），平常不知道（不提示） */
+  /** 网页是哪一版：地址里带 ?demo-update 时是假的新一版（和假连接推的一样），平常不知道（不提示） */
   webVersion(): Promise<WebVersionView> {
     const version = fakeServerWebVersion();
     return Promise.resolve(version === undefined ? {} : { version });
   }
 
-  /** Debug 工具集（124 号票）：原型里没有识别进程，过 0.8 秒回一句假的识别结果 */
+  /** Debug 工具集：原型里没有识别进程，过 0.8 秒回一句假的识别结果 */
   async debugRecognize(audio: Blob): Promise<DebugRecognizeResult> {
     await new Promise((resolve) => setTimeout(resolve, 800));
     return { ok: true, text: `（原型里的假结果）收到 ${audio.size} 字节的录音`, ms: 812, model: "faster-whisper large-v3（原型）", device: "cpu", language: "zh" };
@@ -1200,16 +1200,16 @@ export class FakeDaemonHttp implements DaemonHttp {
     return { ok: true, audioBase64: btoa(binary), mime: "audio/wav", ms: 1203, model: "audio.cpp/tts（原型）", voiceName: voice?.name ?? "原型里的假音色" };
   }
 
-  /** 原型里授权的文件夹（只在内存里，134 号票） */
+  /** 原型里授权的文件夹（只在内存里） */
   private folders: string[] = ["D:\\照片", "D:\\文档"];
 
-  /** 悬浮按钮上说的一段（149 号票）：原型里没有识别，过 0.8 秒回一句假的 */
+  /** 悬浮按钮上说的一段：原型里没有识别，过 0.8 秒回一句假的 */
   async pageVoice(): Promise<PageVoiceResult> {
     await new Promise((resolve) => setTimeout(resolve, 800));
     return { ok: true, text: "把我周末在杭州拍的照片贴上来" };
   }
 
-  /** 原型的候选缩略图（149 号票）：和原图一样是画出来的 SVG */
+  /** 原型的候选缩略图：和原图一样是画出来的 SVG */
   pageFileThumbUrl(token: string): string {
     return this.pageFileUrl(token);
   }
@@ -1280,7 +1280,7 @@ function fakeDateOf(d: Date): string {
   return nowIso(d).slice(0, 10);
 }
 
-/** 原型的备份（335 号票）：每天 03:30 守护进程自己做，昨晚那次写进了同步目录；下一次是明天 03:30 */
+/** 原型的备份：每天 03:30 守护进程自己做，昨晚那次写进了同步目录；下一次是明天 03:30 */
 function fakeBackupStatus(): BackupStatusView {
   const day = fakeDay;
   const dateOf = fakeDateOf;

@@ -1,14 +1,14 @@
-// 快速动作"授权文件夹"（138 号票，用户 2026-10-18：秘书能看到的文件范围和"浏览"里的二狗不要有区别；在聊天里授权了某些目录，
+// 快速动作"授权文件夹"（秘书能看到的文件范围和"浏览"里的二狗不要有区别；在聊天里授权了某些目录，
 // 设置里不用再设一次）：用户对秘书说"把图片和下载文件夹授权给你""别让二狗看下载了"，秘书用"提议快速动作"提出 authorize_folders，
 // 参数是方向（加进来、拿掉）和文件夹的完整路径（可以几个；"刚才翻过的那几个"由秘书换成具体路径）。
 // - 只有一份"授权的文件夹"：设置 · 授权的文件夹里那一份（local-folders.ts），执行就是改它；"浏览"里替上传框找文件（find_files）、
 //   秘书替用户找照片和文件都先在这里找。设置页每次重新显示时重新取，所以聊天里授权的回到设置页就能看到；
 // - 规范化：加进来的只认完整路径、存在的文件夹，加上以后最多 LOCAL_FOLDERS_MAX 个；拿掉的要在授权的文件夹里（找不到了的也能拿掉）；
 //   都已经是这样的（全都授权过了、全都不在里面）不出卡，原因回给秘书；
-// - 一律要用户点按钮（2026-10-18 用户定：任何 agent 自己都不能改授权的文件夹）：confirm: "always"，不管用户原话点没点名，
+// - 一律要用户点按钮（任何 agent 自己都不能改授权的文件夹）：confirm: "always"，不管用户原话点没点名，
 //   都出一张待确认的卡（卡上写清加、拿掉哪几个完整路径），用户点"执行"才改；设置页里用户自己的加、叉照旧马上存；
 // - 不落入任何内置类别（用户的自定义类别照样能按 quick_action:authorize_folders 匹配它）。
-// 授权在守卫里的含义（355 号票，guard/judge.ts）：所有 agent 读授权的文件夹里的文件都不用问；写、删、覆盖照原来的规矩。
+// 授权在守卫里的含义（guard/judge.ts）：所有 agent 读授权的文件夹里的文件都不用问；写、删、覆盖照原来的规矩。
 import { AUTHORIZE_FOLDERS_ACTION, LOCAL_FOLDERS_MAX, type LocalFoldersView, t, tTable, Type } from "@ergo/protocol";
 import { RequestRejected } from "../errors.ts";
 import { defineQuickAction, PROPOSE_QUICK_ACTION, type QuickActionExecutor } from "../quick-actions/index.ts";
@@ -94,7 +94,7 @@ export function authorizeFoldersAction(localFolders: LocalFolders): QuickActionE
 }
 
 /**
- * 秘书的上下文块（138 号票，agent 贡献的上下文块，被唤起时注入、每次现取）：现在授权了哪几个文件夹（没有写"还没有"），
+ * 秘书的上下文块（agent 贡献的上下文块，被唤起时注入、每次现取）：现在授权了哪几个文件夹（没有写"还没有"），
  * 聊天里授权、取消授权用快速动作（要用户在卡上点"执行"），替用户找照片、找文件先在这里找
  */
 // @i18n-ignore-next model：秘书的上下文块

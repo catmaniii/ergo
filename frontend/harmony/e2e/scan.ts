@@ -1,4 +1,4 @@
-// 扫码连接在鸿蒙模拟器上的联调（364 号票），和 frontend/android/e2e/scan.ts 走同样的路。只连模拟器（hdc 目标 127.0.0.1:5555，下面卡着），
+// 扫码连接在鸿蒙模拟器上的联调，和 frontend/android/e2e/scan.ts 走同样的路。只连模拟器（hdc 目标 127.0.0.1:5555，下面卡着），
 // 连临时守护进程和假的服务管家，绝不碰真机和真的二狗、服务管家。模拟器能装不签名的包。先有一个开着的模拟器，再：
 //   npm run build:harmony -- --webview-debug
 //   node frontend/harmony/e2e/scan.ts [截图目录]

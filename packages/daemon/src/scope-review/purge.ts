@@ -1,8 +1,8 @@
-// 彻底删除和范围记录（18 号票；改写函数表见 memory/rewriters.ts）：
+// 彻底删除和范围记录（改写函数表见 memory/rewriters.ts）：
 // - 范围记录的改写：摘要、说明、依据（可能引着用户的原话）换成删除标记；种类、哪次审视、归属、来源原样保留。
 //   连带改写它在时间线上的那条记录（幂等键 scopeTimelineKey）和越界通知（每个版本），改写后追加一条新版本（同一个 id：
 //   开着的页面换掉手里的，项目档案里的 scope-records.md 换掉那一条）。删项目、删任务时也用它改写那个项目、那个任务的范围记录
-//   （279 号票起由这里在"删除参与方"登记表里登记，registerScopeRecordDeletion；那时只换负载，不连带、不追加新版本，照原来的做法）；
+//   （由这里在"删除参与方"登记表里登记，registerScopeRecordDeletion；那时只换负载，不连带、不追加新版本，照原来的做法）；
 // - 引用（PurgeQuotes）：范围记录上记着审视时看到的用户原话从哪来（sources）。彻底删除用户在负责人会话里的一条消息、
 //   审批卡上的一次批准时，记着它的范围记录一起改写——审视的模型可能原样引了，也可能转述了，不去辨认，凡是看到过的都改。
 import {
@@ -75,7 +75,7 @@ export const scopeRecordQuotes: readonly PurgeQuotes[] = [
 ];
 
 /**
- * 范围审视登记的参与方（279 号票）：删项目时这个项目的范围记录（项目列表频道上的，18 号票：摘要、说明、依据可能引着用户的原话），
+ * 范围审视登记的参与方：删项目时这个项目的范围记录（项目列表频道上的：摘要、说明、依据可能引着用户的原话），
  * 删任务时这个任务的（看板频道上不属于项目的任务的）——照彻底删除的改写函数字段级改写
  */
 export function registerScopeRecordDeletion(participants: Pick<DeletionParticipants, "register">): () => void {

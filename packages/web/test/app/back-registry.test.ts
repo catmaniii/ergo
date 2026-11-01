@@ -1,4 +1,4 @@
-// 返回栈在页面上的那一半（62 号票）：弹窗、选择器、标题栏的"返回"各自挂上一层，带着自己的关法；
+// 返回栈在页面上的那一半：弹窗、选择器、标题栏的"返回"各自挂上一层，带着自己的关法；
 // 按返回键时运行该退的那一层的关法。先退哪一层由状态层定（test/state/back-stack.test.ts）。
 import { describe, expect, test } from "vitest";
 import { createBackRegistry } from "../../src/app/back-registry.ts";
@@ -29,7 +29,7 @@ describe("按返回键", () => {
     expect(done).toEqual(["回看板"]);
   });
 
-  test("开着 overlay 吗（116 号票）：弹窗挂着时是，拿下了不是", () => {
+  test("开着 overlay 吗：弹窗挂着时是，拿下了不是", () => {
     const back = createBackRegistry();
     back.open("page", () => {});
     expect(back.overlayOpen()).toBe(false);

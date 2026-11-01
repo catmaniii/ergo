@@ -1,4 +1,4 @@
-// 主切面：流程的会话回退（153 号票：带 report_step、状态进行中的那条 assistant 消息之前是"撤回到步骤「…」开始前"；
+// 主切面：流程的会话回退（带 report_step、状态进行中的那条 assistant 消息之前是"撤回到步骤「…」开始前"；
 // 回退、切换分支之后授权的计划和已执行的调用按保留的分支重新算；计划核对按保留的分支上成功执行过的调用重建、重放）。真的守护进程，流程的负责人接 faux 剧本，
 // 测试扮演前端：
 // - 撤回到步骤开始前：那一步及之后回到没做；计划核对按保留的分支重建——被放弃那段里做过的那一步不算做过，跳过它直接做后一步被引回；
@@ -207,7 +207,7 @@ describe("会话回退（流程）", { timeout: LONG_TEST_MS }, () => {
     expect([redirected.outcome, redirected.blockedBy]).toEqual(["blocked", "plan_redirect"]);
     expect(stepStates(td.daemon.tasks.get(taskId)!)).toEqual({ s1: "done", s2: "pending", s3: "pending" });
 
-    // 切回原来那条分支（151 号票的切换）：步骤按那条分支推导（s1、s2 做完了），核对也按那条——读周报放行，流程做完
+    // 切回原来那条分支（切换）：步骤按那条分支推导（s1、s2 做完了），核对也按那条——读周报放行，流程做完
     expect(ok(await frontend.request(METHODS.switchBranch, { conversation: M1, branchId: "b0" }, "k-back"))).toEqual({ branchId: "b0" });
     const back = await taskWhere(frontend, (e) => e.change === "rolled_back" && after(tasksOf(frontend), rolled)(e), "切回原来那条");
     expect(back.task.state).toBe("running");

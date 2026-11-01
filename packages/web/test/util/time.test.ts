@@ -1,4 +1,4 @@
-// "下一次"的时间（282 号票，util/time.ts 的 nextTimeLabel）：提醒卡、看板、任务详情上的"下一次 / 下次"，在今年的照旧写月-日，
+// "下一次"的时间（util/time.ts 的 nextTimeLabel）：提醒卡、看板、任务详情上的"下一次 / 下次"，在今年的照旧写月-日，
 // 不在今年的带上年份；所有重复种类一样（每年的提醒、12 月建的每月提醒落到明年 1 月）。"现在"由调用方给，测试不看真时钟。
 import { describe, expect, test } from "vitest";
 import { nextTimeLabel, timeLabel } from "../../src/util/time.ts";

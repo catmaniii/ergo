@@ -1,4 +1,4 @@
-// 主切面里走任务流程的小工具（14 号票起；13 号票的 task-execution.test.ts 里有同样的一份，各用各的）：
+// 主切面里走任务流程的小工具（task-execution.test.ts 里有同样的一份，各用各的）：
 // 负责人 faux 剧本的步骤、从前端收到的事件里挑任务、卡片、待我处理事项、会话消息，建任务、确认计划。
 import fs from "node:fs";
 import {
@@ -42,7 +42,7 @@ export const latestCards = (frontend: TestFrontend): Card[] => [...new Map(cards
 export const tasksOf = (frontend: TestFrontend) => frontend.events({ channel: BOARD, type: EVENT_TYPES.task }).map((f) => f.payload as TaskEventPayload);
 export const inboxOf = (frontend: TestFrontend): InboxItem[] => frontend.events({ channel: INBOX, type: EVENT_TYPES.inboxItem }).map((f) => (f.payload as InboxItemEventPayload).item);
 export const stageStates = (task: Task) => Object.fromEntries((task.stages?.list ?? []).map((s) => [s.stageId, s.state]));
-/** 会话里的时间线记录（25 号票的 timeline_record：偏离、计划变更、自行调整计划……） */
+/** 会话里的时间线记录（timeline_record：偏离、计划变更、自行调整计划……） */
 export const recordsOf = (frontend: TestFrontend, channel: string) => frontend.events({ channel, type: EVENT_TYPES.timelineRecord }).map((f) => f.payload as TimelineRecordEventPayload);
 /** 负责人会话里交给它的系统通知 */
 export const noticesOf = (frontend: TestFrontend, channel: string) => messagesOf(frontend, channel).filter((m) => m.agentInput && m.message.speaker === "system");

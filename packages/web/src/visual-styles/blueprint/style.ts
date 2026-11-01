@@ -1,4 +1,4 @@
-// 工程蓝图（47 号票，设计稿 docs/architecture/design/styles/f-*.dc.html）：直角、1.5px 线框带角标、网格底、钴蓝；深色就是真正的蓝图纸
+// 工程蓝图（设计稿 docs/architecture/design/styles/f-*.dc.html）：直角、1.5px 线框带角标、网格底、钴蓝；深色就是真正的蓝图纸
 // （深蓝底、浅蓝线）。密度比别的风格低：标题栏 60、消息之间 16、卡片内边距大。
 // 颜色取自设计稿样式里 .root（浅色）、.root.dark（深色）两套变量 --bg、--surface、--line、--text、--muted、--accent、
 // --accent-ink、--accent-soft、--warn、--warn-ink、--code（renderVals() 只挑强调色：默认钴蓝，深色下换成 #9DB4FF）；
@@ -10,7 +10,7 @@ import type { VisualStyle } from "../tokens.ts";
 
 export const blueprint: VisualStyle = {
   id: "blueprint",
-  // 名字和一句话按当前语言（169 号票，取的时候现查）
+  // 名字和一句话按当前语言（取的时候现查）
   get name() {
     return t("styles.blueprint.name");
   },
@@ -47,7 +47,7 @@ export const blueprint: VisualStyle = {
     // 最坏的底算），沿色相加深到 #b23a0a：网格线（#dde2ee，见 style.css）上 4.62:1、页面底色上 5.68:1、白底上 6.0:1；深色 #ffb070 原样
     you: ["#b23a0a", "#ffb070"],
     "you-bg": ["#fdf0e8", "#3a3245"],
-    // 个人助理的名字标签（43 号票；设计稿的 .name：淡蓝底 --accent-soft、钴蓝字、钴蓝细框，前后一对 [ ]）。
+    // 个人助理的名字标签（设计稿的 .name：淡蓝底 --accent-soft、钴蓝字、钴蓝细框，前后一对 [ ]）。
     // 设计稿的淡蓝 #e3eaf8 和浅色页面底色亮度差 1.14、深色 #1c2d5c 和卡片底色 1.14，名字标签测试要 1.15，各加深 / 提亮一档
     "name-bg": ["#dbe4f6", "#22366b"],
     "name-fg": "var(--primary)",
@@ -98,7 +98,7 @@ export const blueprint: VisualStyle = {
     "shadow-note": "3px 3px 0 var(--data-bg)",
     // 窄屏整页滑入的详情页左边缘：一道线，不是阴影
     "shadow-slide": "-1.5px 0 0 var(--border)",
-    // 宽屏阶段栏的 × 这类浮在栏边上的小圆钮（88 号票）：小一号的硬投影
+    // 宽屏阶段栏的 × 这类浮在栏边上的小圆钮：小一号的硬投影
     "shadow-btn": "2px 2px 0 var(--data-bg)",
 
     // ---- 间距密度：页面左右 16、消息之间 16、标题栏 60（设计稿） ----

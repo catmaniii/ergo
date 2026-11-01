@@ -1,23 +1,23 @@
-// "记忆"（167 号票，导航栏的"记忆"，#/more/memory）。285 号票重排（用户 2026-10-26 看过对照图定的）：
+// "记忆"（导航栏的"记忆"，#/more/memory）。重排（看过对照图定的）：
 // - 最上面一张卡"和记忆管理员聊"：写每晚 03:00 整理、最近一次的结果，和了解你访谈聊到哪了；点了是和记忆管理员的整页对话
 //   （#/more/memory/curator，CuratorPage.tsx：宽屏也不留左边的栏目，‹ 回记忆页；输入框上面一行访谈的进度和"开始访谈"）。
-//   记忆管理员不再是栏目里的一层，284 号票的"找管理员聊聊"那一行去掉（开访谈在对话里，/interview 照旧）；
+//   记忆管理员不再是栏目里的一层，"找管理员聊聊"那一行去掉（开访谈在对话里，/interview 照旧）；
 // - 下面四栏，从你确认过的、到推断的、到还拿不准的、到原始记录（route.ts 的 MEMORY_LAYERS）：
-//   - 档案（#/more/memory/files[/<编号>]）：281 号票的个人档案，按"我 / 家人 / 重要的人 / 其他人"分组（内核的页面 PersonalFilesColumn）；
+//   - 档案（#/more/memory/files[/<编号>]）：个人档案，按"我 / 家人 / 重要的人 / 其他人"分组（内核的页面 PersonalFilesColumn）；
 //   - 结论（#/more/memory/claims[/<编号>]，ClaimsBrowse.tsx）：按层分组、按状态筛；点一条是它的证据链和竞争解释（EvidenceBrowse.tsx——
-//     233 号票的"证据与推理"那一栏没点开时就是结论列表少了筛选，285 号票并进来；旧地址 #/more/memory/evidence[/<编号>] 换过来）；
+//     "证据与推理"那一栏没点开时就是结论列表少了筛选，旧地址 #/more/memory/evidence[/<编号>] 换过来）；
 //   - 问题箱（#/more/memory/questions，QuestionsBrowse.tsx）：整理时还拿不准的地方变成的问题；
 //   - 素材（#/more/memory/materials，MaterialsBrowse.tsx）：原始记录，列表上写现在一共几条；顶栏"成批删除"进 #/more/memory/materials-delete
 //     （MaterialsBulkDelete.tsx，原来设置里"删除素材"那一整套）；点开一条是再下一级，标题写"素材详情"；
-// - 最下面隔一道线一行"数据源"（295 号票，设置下面的内核页面：外面接进来的数据是素材的又一个来处）；
-// - 再下面一个默认收起的"记忆系统 · 会意 v1.0 · 设置"块（336 号票）：记忆的三个开关（简报、顺口问、每周约访谈）从设置列表搬到了这里
+// - 最下面隔一道线一行"数据源"（设置下面的内核页面：外面接进来的数据是素材的又一个来处）；
+// - 再下面一个默认收起的"记忆系统 · 会意 v1.0 · 设置"块：记忆的三个开关（简报、顺口问、每周约访谈）从设置列表搬到了这里
 //   （MemorySettingsSection.tsx），记忆页里就能找到；页头那行写这套记忆系统的名字（「会意」/ Subtext，plugins/memory/system.ts）。
-// 用户 2026-10-31 定：它是插件，标题栏写「记忆系统 · 会意 v1.0」/「Memory System · Subtext v1.0」（shell.pages.memory.title，导航那一项还是"记忆"），
+// 它是插件，标题栏写「记忆系统 · 会意 v1.0」/「Memory System · Subtext v1.0」（shell.pages.memory.title，导航那一项还是"记忆"），
 // 标题下面挂一个「实验性」标签和一句说明（还在打磨、数据在本机、能停用能删），别只写在文档里。
 // 排法照设置（MorePage 的 SettingsSection）：记忆直接显示在导航里时，宽屏左边是首页、右边是选中的那栏（没选时是档案）；竖屏先列首页，
 // 点进去的栏返回到首页。记忆管理员的对话两种都是整页。
 // 收进"更多"时（MemoryColumn）：那一栏里先列首页，点进去的栏返回到首页。标题栏的 ‹ 回上一级不压新记录（goBackTo）。
-// 193 号票：挪进记忆插件（plugins/memory/plugin.tsx 登记成网页插件的页面），记忆插件停用时整页不出现（导航里没有"记忆"，
+// 挪进记忆插件（plugins/memory/plugin.tsx 登记成网页插件的页面），记忆插件停用时整页不出现（导航里没有"记忆"，
 // 设置里列出内核的"删除素材"、"更多"里列出个人档案，删除和档案照常）。成批删除、素材详情、档案是内核的，从这里引。
 import { useEffect, useState } from "react";
 import { goBackFromMaterial, goBackTo, type Navigate, toHash } from "../../app/route.ts";
@@ -38,7 +38,7 @@ import { MemorySettingsSection } from "./MemorySettingsSection.tsx";
 import { isMemoryItem, MEMORY_ITEMS_WITH_SUB, MEMORY_LAYERS, type MemoryItem, type MemoryLayer, memoryRedirect, memoryRoute } from "./route.ts";
 import { memoryExperimentalBadge, memoryExperimentalNote, memorySystemTagline } from "./system.ts";
 
-/** 几栏的名字（171 号票起按当前语言现取） */
+/** 几栏的名字（按当前语言现取） */
 const LAYER_TITLE: Readonly<Record<MemoryLayer, string>> = tTable({
   files: "pages.memory.files",
   claims: "pages.memory.claims",
@@ -68,13 +68,13 @@ function parentOf(item: MemoryItem, sub: string | undefined) {
   return memoryRoute();
 }
 
-/** 一栏的 ‹：回上一级；从数据源详情点过来看一条素材的回那里（343 号票） */
+/** 一栏的 ‹：回上一级；从数据源详情点过来看一条素材的回那里 */
 function backFromLayer(item: MemoryItem, sub: string | undefined): void {
   if (item === "materials" && sub !== undefined) goBackFromMaterial(parentOf(item, sub));
   else goBackTo(parentOf(item, sub));
 }
 
-/** 地址里的再下一级（点开的一个人、一条结论、一条素材）只在有下一级的栏里算数（193 号票起核心的路由原样交过来，由这里认） */
+/** 地址里的再下一级（点开的一个人、一条结论、一条素材）只在有下一级的栏里算数（核心的路由原样交过来，由这里认） */
 const subOf = (item: MemoryItem, sub: string | undefined) => (MEMORY_ITEMS_WITH_SUB.includes(item) ? sub : undefined);
 
 /** 旧地址（证据与推理）在地址栏里换成新地址，不压新记录；换之前照新地址画 */
@@ -125,7 +125,7 @@ function MemoryHome({ current, navigate, onBack }: { current?: MemoryItem | unde
   const { http } = useStore();
   const [counts, setCounts] = useState<Counts>({});
   const [summary, setSummary] = useState<MemorySummaryView>();
-  // 284 号票：了解你访谈的样子（聊过几个、下次聊什么、是不是正在聊）；取不到就只写一句说明
+  // 了解你访谈的样子（聊过几个、下次聊什么、是不是正在聊）；取不到就只写一句说明
   const [interview, setInterview] = useState<InterviewStatusView>();
   useEffect(() => {
     let live = true;
@@ -164,8 +164,8 @@ function MemoryHome({ current, navigate, onBack }: { current?: MemoryItem | unde
     <div className="chat-col">
       <TopBar title={t("shell.pages.memory.title")} onBack={onBack} />
       <div className="scroll">
-        {/* 用户 2026-10-31 定：标题写「记忆系统 · 会意 v1.0」，这一行挂「实验性」标签、说它在做什么、数据在哪、怎么停用和删掉；
-            336 号票起的名字（「会意」/ Subtext）现在在标题栏里，这里只写它做什么；导航那一项还是"记忆" */}
+        {/* 标题写「记忆系统 · 会意 v1.0」，这一行挂「实验性」标签、说它在做什么、数据在哪、怎么停用和删掉；
+            名字（「会意」/ Subtext）现在在标题栏里，这里只写它做什么；导航那一项还是"记忆" */}
         <div className="menu memory-system" data-system="memory">
           <div className="memory-system-head">
             <span className="memory-experimental" data-tag="experimental">
@@ -203,7 +203,7 @@ function MemoryHome({ current, navigate, onBack }: { current?: MemoryItem | unde
             </button>
           ))}
         </div>
-        {/* 295 号票：数据源（设置下面的内核页面）：外面接进来的数据是素材的又一个来处，这里放个链接 */}
+        {/* 数据源（设置下面的内核页面）：外面接进来的数据是素材的又一个来处，这里放个链接 */}
         <div className="menu memory-files-link">
           <button type="button" className="menu-item" data-page="data-sources" onClick={() => navigate({ tab: "more", page: "data-sources" })}>
             <span className="menu-text">
@@ -213,7 +213,7 @@ function MemoryHome({ current, navigate, onBack }: { current?: MemoryItem | unde
             <span className="muted">›</span>
           </button>
         </div>
-        {/* 336 号票：记忆的三个开关搬到了这里（原来在设置列表最下面），默认收起 */}
+        {/* 记忆的三个开关搬到了这里（原来在设置列表最下面），默认收起 */}
         <MemorySettingsSection />
       </div>
     </div>
@@ -246,7 +246,7 @@ function LayerBody({ item, sub, navigate }: { item: Exclude<MemoryItem, "curator
       // 点开一条是再下一级；忘掉、彻底删除这一条后回到列表（不压新记录）
       return <MaterialsBrowse sub={sub} onOpen={(id) => navigate(memoryRoute("materials", id))} onClose={() => goBackTo(memoryRoute("materials"))} navigate={navigate} />;
     case "claims":
-      // 285：点一条结论是它的证据链和竞争解释（233 号票的"证据与推理"并进来）；竞争解释里点一条换到它；那条不在了回到列表
+      // 点一条结论是它的证据链和竞争解释（"证据与推理"并进来）；竞争解释里点一条换到它；那条不在了回到列表
       return sub === undefined ? (
         <ClaimsBrowse onOpen={(id) => navigate(memoryRoute("claims", id))} />
       ) : (

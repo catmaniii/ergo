@@ -1,8 +1,8 @@
-// 主切面：网页是哪一版（116 号票）。服务端的页面更新了（npm run build:web 换了 index.html，守护进程不重启），开着的页面要知道：
+// 主切面：网页是哪一版。服务端的页面更新了（npm run build:web 换了 index.html，守护进程不重启），开着的页面要知道：
 // - 守护进程从它提供的 index.html 里取版本号（构建时写进 <head> 的 <meta name="ergo-web-version">），连上（含重连）时订阅的响应里带着；
 // - index.html 换了一版，几秒内（测试里 50 毫秒看一眼）在活动状态频道上推一条临时的 web_version，开着的前端都收到；同一版不重复推；
 // - 页面切回前台时经 GET /api/web-version 问一次；外网端口上要设备凭证；
-// - 重新构建的中途（Vite 先清空 dist/，文件不在）照旧是上一版、不推；新文件里没有版本号（这张票之前构建的）是不知道，也不推。
+// - 重新构建的中途（Vite 先清空 dist/，文件不在）照旧是上一版、不推；新文件里没有版本号（以前构建的）是不知道，也不推。
 // 页面一律是临时目录里的假 index.html。
 import fs from "node:fs";
 import path from "node:path";

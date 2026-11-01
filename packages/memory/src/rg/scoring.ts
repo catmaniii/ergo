@@ -1,7 +1,7 @@
 // 假设的状态和置信度怎么从关联算出来（第 4.3、5、7.3 节）。规则版、模型版共用这一套，推理实现只管交关联。
 //
 // 关联的多重按证据权重记分（似然比取分贝，可加）：weak 3、strong 6、decisive 10。只算能当依据的（本人且有效）。
-// - 一条假设有决定性的反证（用户明说的、纠正的；329 号票：反证要落地——拿不准的事实当不了推翻）、又没有决定性的支持 → 撤回
+// - 一条假设有决定性的反证（用户明说的、纠正的；反证要落地——拿不准的事实当不了推翻）、又没有决定性的支持 → 撤回
 //   （retracted，retractedBy 指向那条反证，留墓碑）；
 // - 一组里剩下的按"支持 − 反证"排：领先的比第二名多 6 分贝以上、自己是正的、而且至少有一条判别性的支持
 //   （至少是强的，别的假设没有、或者在它那里更轻）→ active，
@@ -9,7 +9,7 @@
 //   不是正的、没有判别性的强支持——领先够了只缺判别性支持时不写"不到 6"）。只剩一条的，是正的就 active；
 // - 搜不到不判负：没有找到的东西不扣分。
 // 置信度只有 low、medium、high，再按 confidenceCap 封顶（推断的最多 medium；need、value 证据少、不跨时期和场景的最多 low）。
-// 330 号票（ADR-0032）：
+// ADR-0032：
 // - R14：随口说的不再自动算决定性——只有当面确认 / 否掉、回答了解你问题、用户的纠正、预测被证伪（link-sources.ts）算决定性，
 //   别的"决定性"按强的算（6 分贝，不当推翻、也不当决定性的支持）；
 // - R12：已验证碰上有分量的反例（落了地的强反证）先降回猜测、标复核，等弄清：反例以后又有够分量的支持（合起来 6 分贝以上，
@@ -30,7 +30,7 @@ export function upgrade(weight: LinkWeight): LinkWeight {
   return weight === "weak" ? "strong" : "decisive";
 }
 
-/** 330 号票（R12）：一条有分量的反例（落了地、按 R14 算下来至少是强的反证） */
+/** ADR-0032 R12：一条有分量的反例（落了地、按 R14 算下来至少是强的反证） */
 export interface Counterexample {
   target: string;
   rationale: string;
@@ -55,16 +55,16 @@ export interface Tally {
   /** 支持的证据来自几个月份、几种场景（need、value 的门槛） */
   periods: number;
   contexts: number;
-  /** 330 号票（R12）：有分量的反例 */
+  /** ADR-0032 R12：有分量的反例 */
   counterexamples?: Counterexample[];
-  /** 330 号票（R12、R14）：用户当面确认过（决定性的支持是当面的） */
+  /** ADR-0032 R12、R14：用户当面确认过（决定性的支持是当面的） */
   userConfirmed?: boolean;
-  /** 330 号票（R12）：每条支持的分贝和它背后的证据最晚是什么时候的事（判"反例以后又有够分量的支持"） */
+  /** ADR-0032 R12：每条支持的分贝和它背后的证据最晚是什么时候的事（判"反例以后又有够分量的支持"） */
   supportTimes?: { db: number; atMs: number }[];
 }
 
 /**
- * 330 号票（R14）：计分时这条关联算多重——决定性的只有当面确认 / 否掉、回答、证伪、明说结论自己那条、用户的纠正，
+ * ADR-0032 R14：计分时这条关联算多重——决定性的只有当面确认 / 否掉、回答、证伪、明说结论自己那条、用户的纠正，
  * 别的（随口说的、模型判的、追问判的）按强的算
  */
 export function effectiveWeight(link: Pick<StoredLink, "weight" | "rationale" | "target">, view: RgView): LinkWeight {
@@ -150,9 +150,9 @@ export function tally(claimId: string, links: readonly StoredLink[], view: RgVie
     } else {
       t.refute += db;
       t.refuteTargets.push(link.target);
-      // 329 号票：推翻（撤回）要反证落地——拿不准的事实（真冲突里的一边）是猜测，记分照算，但当不了决定性的推翻（原始推理图谱的 rebut）
+      // 推翻（撤回）要反证落地——拿不准的事实（真冲突里的一边）是猜测，记分照算，但当不了决定性的推翻（原始推理图谱的 rebut）
       if (weight === "decisive" && !t.decisiveRefute && landed(link.target, view)) t.decisiveRefute = link;
-      // 330 号票（R12）：落了地的强反证是有分量的反例
+      // ADR-0032 R12：落了地的强反证是有分量的反例
       else if (weight === "strong" && landed(link.target, view)) t.counterexamples!.push({ target: link.target, rationale: link.rationale, atMs: latestMs(link.target, view) });
     }
   }
@@ -173,12 +173,12 @@ export interface Decision {
   retractedBy: string | null;
   /** 一句话：为什么是这个状态（写进修订日志） */
   reason: string;
-  /** 330 号票（R12）：证据够已验证，但碰上了还没弄清的有分量的反例（降回猜测、要标复核） */
+  /** ADR-0032 R12：证据够已验证，但碰上了还没弄清的有分量的反例（降回猜测、要标复核） */
   counterexample?: Counterexample;
 }
 
 /**
- * 330 号票（R12）：还没弄清的有分量的反例——用户当面确认过的不算（当面确认的最有分量）；反例以后又有够分量的支持
+ * ADR-0032 R12：还没弄清的有分量的反例——用户当面确认过的不算（当面确认的最有分量）；反例以后又有够分量的支持
  * （合起来 LEAD_DB 以上：只是例外）的不算
  */
 export function unresolvedCounterexamples(t: Tally): Counterexample[] {

@@ -1,4 +1,4 @@
-// 工具包里"发附件"的开关（117 号票，state/send-attachment.ts）：默认开着（不写），关掉了写 false；拨一下之后别的几样原样；
+// 工具包里"发附件"的开关（state/send-attachment.ts）：默认开着（不写），关掉了写 false；拨一下之后别的几样原样；
 // 工具包写成一句话、改动的说法里关掉了才提；负责人时间线里那条发附件的调用说成人话。
 import { toolkitExpansions } from "@ergo/protocol";
 import { describe, expect, test } from "vitest";

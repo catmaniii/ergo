@@ -1,4 +1,4 @@
-// 长程任务的依赖图（91 号票，用户 2026-10-11："项目的多个阶段有可能是并行的"）：
+// 长程任务的依赖图（"项目的多个阶段有可能是并行的"）：
 // 阶段号和编号、分层、整张图和小图、画哪一份计划、横向阶段条，写成纯函数；界面（ui/conversation/StageGraph.tsx）只管画。
 // - 第几阶段 = 最长那条前置链的长度（没有前置的是第 1 阶段），同号的就是并行的；同一阶段有几个时按计划里的先后编 4a、4b、4c
 //   （stageCodes：编号形如 4a，阶段 id 是负责人起的 s1、s2，编号现算）。图、阶段标签、聊天里的阶段框、
@@ -112,7 +112,7 @@ export interface GraphLook {
   readonly st: "pending" | "in_progress" | "submitted" | "accepted" | "failed" | "stopped" | "abandoned";
 }
 
-/** 各状态的样子；字是语言文件的 key（170 号票起取的时候按当前语言现查） */
+/** 各状态的样子；字是语言文件的 key（取的时候按当前语言现查） */
 const LOOK: Readonly<Record<GraphNodeState | "to_accept", Omit<GraphLook, "text"> & { readonly key: string }>> = {
   pending: { icon: "○", key: "state.stageGraph.look.pending", st: "pending" },
   running: { icon: "◐", key: "state.stageGraph.look.running", st: "in_progress" },
@@ -149,7 +149,7 @@ export interface GraphStageInput {
   readonly marks?: StageMarks | undefined;
   /** 计划变更里新加的、改过的（小签上的字，stageChangeMark） */
   readonly mark?: string | undefined;
-  /** 计划里存的编号（93 号票）；之前的计划没有，按依赖图现算 */
+  /** 计划里存的编号；之前的计划没有，按依赖图现算 */
   readonly code?: string | undefined;
 }
 
@@ -230,7 +230,7 @@ export function pendingPlanChange(state: UiState, taskId: string): { cardId: str
   return found;
 }
 
-/** 一个阶段在计划里写的（比较两版有没有改过它；编号不算——93 号票之前存下的计划没有编号） */
+/** 一个阶段在计划里写的（比较两版有没有改过它；编号不算——以前存下的计划没有编号） */
 export const stageJson = (plan: Plan, id: string) => {
   const stage = plan.stages.find((s) => s.stageId === id);
   return JSON.stringify(stage && { ...stage, code: undefined });
@@ -263,7 +263,7 @@ function removedStages(plans: readonly Plan[], kept: ReadonlySet<string>): Remov
   return [...out.values()];
 }
 
-/** 被计划去掉的一个阶段：标题、前置、编号（93 号票起旧版计划里存着）照确认过的旧版计划 */
+/** 被计划去掉的一个阶段：标题、前置、编号（旧版计划里存着）照确认过的旧版计划 */
 export interface RemovedStage {
   readonly id: string;
   readonly title: string;

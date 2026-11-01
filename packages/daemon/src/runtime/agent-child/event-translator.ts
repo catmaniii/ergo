@@ -1,7 +1,7 @@
 // pi 会话事件 → 宿主协议消息（只管消息、工具调用和用量；回合的开始和结束由 AgentSessionRunner 管）。
 // pi 的词汇（stopReason 等）在这里换成二狗自己的。
-// 用量（24 号票）：每条模型回复定稿时报一条；压缩会话（手动或自动）生成摘要的那次模型调用，在压缩结束时报一条（purpose: compaction）。
-// 压缩结束（114 号票）：每次都报一条 compacted（压好了、没什么可压的、被中止、没压成），pi 的说法在这里换成二狗的。
+// 用量：每条模型回复定稿时报一条；压缩会话（手动或自动）生成摘要的那次模型调用，在压缩结束时报一条（purpose: compaction）。
+// 压缩结束：每次都报一条 compacted（压好了、没什么可压的、被中止、没压成），pi 的说法在这里换成二狗的。
 import type { AssistantMessage, StopReason as PiStopReason, Usage } from "@earendil-works/pi-ai";
 import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
 import { t, type ToolResultMedia } from "@ergo/protocol";
@@ -164,7 +164,7 @@ function resultText(result: unknown): string {
     .join("\n");
 }
 
-/** 结果里非文字的块是什么、多大（图片的 data 是 base64：按解出来的字节数算）（53 号票） */
+/** 结果里非文字的块是什么、多大（图片的 data 是 base64：按解出来的字节数算） */
 function resultMedia(result: unknown): ToolResultMedia[] {
   return resultBlocks(result)
     .filter((block) => block.type !== "text")
@@ -178,7 +178,7 @@ function resultMedia(result: unknown): ToolResultMedia[] {
 /** pi 说"没什么可压的"的两种（会话太短、刚压过）：不算没压成 */
 const NOTHING_TO_COMPACT = /Nothing to compact|Already compacted/;
 
-/** pi 的压缩结束事件 → 宿主协议的 compacted（114 号票） */
+/** pi 的压缩结束事件 → 宿主协议的 compacted */
 function compactedReport(event: Extract<AgentSessionEvent, { type: "compaction_end" }>): CompactedReport {
   const reason = event.reason;
   if (event.result) return { type: "compacted", reason, outcome: "done", tokensBefore: event.result.tokensBefore };

@@ -1,14 +1,14 @@
-// 手机插件自己存储里的原始数据（300 号票）：照片的时间地点、位置的原始坐标点，按本地日期一天一个文件
+// 手机插件自己存储里的原始数据：照片的时间地点、位置的原始坐标点，按本地日期一天一个文件
 // （<数据目录>/phone/photos/<YYYY-MM-DD>.json、phone/locations/<YYYY-MM-DD>.json，内容 { format: 1, items: [...] }，按时间先后）。
 // - 不进事件、不进素材：进素材的是整理好的一天一条摘要（events.ts 的 phone_photos_day / phone_location_day）；
 // - 数据源页按天列出（几条、整理过没有），能按天清掉；断开并连已导入的一起删、移除插件连数据删时整个删掉；
 // - 一条按编号只收一次（照片是 App 给的编号的哈希，位置点是时间）；每条记着整理过没有（s），整理之后又交来的那天的另整理成补的一份；
 // - 按天清掉时记下清到哪一刻（phone/<种类>/cleared.json，{ format: 1, days: { 日期: 毫秒 } }）：那天这一刻以前的再交来不再收——
-//   手机每次都把最近几天拍的照片读一遍交过来，不记的话清掉的马上又回来、整理过的那天还多出一份"补记"（304 号票在模拟器上碰到的）；
+//   手机每次都把最近几天拍的照片读一遍交过来，不记的话清掉的马上又回来、整理过的那天还多出一份"补记"（在模拟器上碰到的）；
 //   清掉以后才有的（今天接着拍的、接着记的）照收。整个删掉（断开并删）时这份也删，重新连上从头收；
 // - 写文件先写临时文件再改名（写到一半崩了不留半个文件）；每天几条、整理过没有记在内存里（第一次用时把文件读一遍），页面打开时不再读文件。
 // 跟数据目录一起进备份快照（个人数据，同别的）。
-// 308 号票：照片、位置点可以多一个系统转出来的地名（addr：街道或地标、区县、城市），App 转得了才有。
+// 照片、位置点可以多一个系统转出来的地名（addr：街道或地标、区县、城市），App 转得了才有。
 import fs from "node:fs";
 import path from "node:path";
 import type { PhoneAddress } from "@ergo/protocol";
@@ -26,7 +26,7 @@ export interface RawItem {
 export interface RawPhoto extends RawItem {
   lat?: number;
   lon?: number;
-  /** 拍摄地点的系统地名（308 号票，手机转得了才有） */
+  /** 拍摄地点的系统地名（手机转得了才有） */
   addr?: PhoneAddress;
 }
 
@@ -36,7 +36,7 @@ export interface RawPoint extends RawItem {
   lon: number;
   /** 精度（米） */
   acc?: number;
-  /** 系统地名（308 号票，手机转得了才有） */
+  /** 系统地名（手机转得了才有） */
   addr?: PhoneAddress;
 }
 
@@ -45,7 +45,7 @@ export interface RawStore<T extends RawItem> {
   add(items: readonly T[], dateOf: (item: T) => string): { added: number; dates: string[] };
   /** 有哪几天（新的在前） */
   days(): DataSourceRawDay[];
-  /** 这一天的全部（按时间先后；308 号票按位置点聚常去的地方用） */
+  /** 这一天的全部（按时间先后；按位置点聚常去的地方用） */
   itemsOf(date: string): T[];
   /** before（本地日期）之前、还有没整理的那几天，连同没整理的那些（旧的在前） */
   pending(before: string): Array<{ date: string; items: T[] }>;
@@ -148,7 +148,7 @@ export function openRawStore<T extends RawItem>(dir: string, log: (line: string)
         const existing = read(date);
         const byId = new Map(existing.map((i) => [i.id, i]));
         const clearedAt = ensureCleared().get(date);
-        // 308 号票：收过的这次带来了系统地名、原来没有的（上次手机没转成），补上地名（不算新收的，整理过的摘要不重写）
+        // 收过的这次带来了系统地名、原来没有的（上次手机没转成），补上地名（不算新收的，整理过的摘要不重写）
         let patched = false;
         const fresh = incoming.filter((i) => {
           const known = byId.get(i.id);

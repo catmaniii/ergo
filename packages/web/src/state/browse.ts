@@ -1,14 +1,14 @@
-// "浏览"页签（134 号票，鸿蒙 App 里的原生内置浏览器）的纯函数：搜索引擎（必应、百度、搜狗、谷歌，默认必应，设置里能改）、
-// 最近访问（打开过的网页的标题和地址，空白页上列出来；165 号票起就是完整的浏览记录，删、清空、分组、搜在 browse-tools.ts）。地址栏里打的字变成要打开的网址在 app/browse-address.ts（要用 URL），
+// "浏览"页签（鸿蒙 App 里的原生内置浏览器）的纯函数：搜索引擎（必应、百度、搜狗、谷歌，默认必应，设置里能改）、
+// 最近访问（打开过的网页的标题和地址，空白页上列出来；就是完整的浏览记录，删、清空、分组、搜在 browse-tools.ts）。地址栏里打的字变成要打开的网址在 app/browse-address.ts（要用 URL），
 // 记在这台设备上的那一半在 app/browse-settings.ts。
 import { BROWSE_SEARCH_ENGINE_IDS, BROWSE_SEARCH_ENGINES, type BrowseSearchEngineId, browseSearchEngineOf, browseSearchUrl, DEFAULT_BROWSE_SEARCH_ENGINE, t, tTable } from "./protocol.ts";
 
-/** 搜索引擎的名字（170 号票起按当前语言现取） */
+/** 搜索引擎的名字（按当前语言现取） */
 const ENGINE_LABEL = tTable({ bing: "state.browse.engine.bing", baidu: "state.browse.engine.baidu", sogou: "state.browse.engine.sogou", google: "state.browse.engine.google" });
 
 /**
  * 能选的搜索引擎：名字和搜索地址（关键词按 encodeURIComponent 接在后面）；名字是取值函数，用的时候现取。
- * 182 号票起地址、认不认得、拼地址在协议包（守护进程给秘书拼内置浏览器要打开的结果页也用），这里只多名字
+ * 地址、认不认得、拼地址在协议包（守护进程给秘书拼内置浏览器要打开的结果页也用），这里只多名字
  */
 export const SEARCH_ENGINES = {
   bing: {
@@ -58,7 +58,7 @@ export interface RecentVisit {
 }
 
 /**
- * 浏览记录最多记几条（165 号票：原来最近访问只记 20 条，现在是完整的浏览记录——菜单里"浏览记录"列全部、能搜能删，
+ * 浏览记录最多记几条（完整的浏览记录——菜单里"浏览记录"列全部、能搜能删，
  * 空白页的"最近访问"列前 RECENTS_SHOWN 条，地址栏输入时的候选从全部里找）
  */
 export const BROWSE_HISTORY_MAX = 500;
@@ -95,7 +95,7 @@ export function shortAddress(url: string): string {
 }
 
 /**
- * 秘书会话里网页指令那一句（134 号票第二部分，MessageEnvelope.pageCommand）下面的小字：在哪个网页、哪个框上说的、是说的还是打的。
+ * 秘书会话里网页指令那一句（MessageEnvelope.pageCommand）下面的小字：在哪个网页、哪个框上说的、是说的还是打的。
  * 网页没标题写地址（去掉 http(s)://）
  */
 export function pageCommandLabel(mark: { title: string; url: string; field: string; spoken?: boolean }): string {
@@ -105,7 +105,7 @@ export function pageCommandLabel(mark: { title: string; url: string; field: stri
 }
 
 /**
- * 网页候选卡（147 号票，browse_pick）上点一张：单张的框就选这一张，多张的框勾上或取消；按候选的先后排（照 145 号票的候选面板）。
+ * 网页候选卡（browse_pick）上点一张：单张的框就选这一张，多张的框勾上或取消；按候选的先后排（照候选面板）。
  * order 是候选的取件码（按卡上的先后），不在里面的不认
  */
 export function togglePick(selected: readonly string[], token: string, multiple: boolean, order: readonly string[]): string[] {

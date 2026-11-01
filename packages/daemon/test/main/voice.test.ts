@@ -1,6 +1,6 @@
-// 主切面：语音消息（规格第 22 节，31 号票）。前端把整段录音经分片续传上传，传完发一条带语音 part 的消息；
+// 主切面：语音消息（规格第 22 节）。前端把整段录音经分片续传上传，传完发一条带语音 part 的消息；
 // 守护进程建出这条语音（VoiceRecord：音频、时长、格式、波形），在后台用 faster-whisper 识别，识别状态的变化经会话频道推给前端；
-// agent 收到的是识别出的文字（注明"语音转写"），识别完成前这条输入在 agent 的输入队列里等着。第一阶段不用大模型修正（用户 2026-10-08 定）。
+// agent 收到的是识别出的文字（注明"语音转写"），识别完成前这条输入在 agent 的输入队列里等着。第一阶段不用大模型修正。
 // 语音转写和打的字一样参与快速动作的"点明"判定（气泡下直接显示的识别文字就算用户确认过）。
 // 识别进程一律是假的（fixtures/fake-recognizer.mjs）：不加载真模型、不联网、不占显卡。
 import fs from "node:fs";
@@ -75,7 +75,7 @@ async function turnEnds(frontend: TestFrontend, count: number): Promise<void> {
 
 describe("发一条语音", () => {
   /**
-   * 245 号票：下面三条"诊断"用例只看自己发的那几条语音（按 messageId 找、按自己这一刻往后收的事件数），
+   * 下面三条"诊断"用例只看自己发的那几条语音（按 messageId 找、按自己这一刻往后收的事件数），
    * 对守护进程的数据目录没有别的假设，所以共用一个。别的用例要么在验重启 / 识别进程闲置退出 / 特定配置，
    * 要么要看"历史分页里只有这一条"，仍旧每例一个。
    */
@@ -192,7 +192,7 @@ describe("发一条语音", () => {
     expect(page.voices).toEqual([done]);
   });
 
-  it("录音的诊断（37 号票）：按下 → 开录的毫秒数、是不是预热命中，存进语音对象（整数），本机的历史分页取得到；消息里不留。宽松：多带的字段、不合理的数字丢掉不拒收，没带就没有", async () => {
+  it("录音的诊断：按下 → 开录的毫秒数、是不是预热命中，存进语音对象（整数），本机的历史分页取得到；消息里不留。宽松：多带的字段、不合理的数字丢掉不拒收，没带就没有", async () => {
     const td = shared();
     const url = td.url;
     const frontend = await connectFrontend(td, [SECRETARY]);
@@ -221,7 +221,7 @@ describe("发一条语音", () => {
     expect(listed).toMatchObject({ status: "done", capture: { startDelayMs: 12, prewarmed: true } });
   });
 
-  it("麦克风诊断记录（61 号票）：开麦原因、冷启动耗时、最大振幅、最近的麦克风开关、浏览器存进语音对象，本机的历史分页取得到。宽松：类型不对的字段、记录里坏掉的条目丢掉，超长的截断，诊断整个不是对象也不拒收", async () => {
+  it("麦克风诊断记录：开麦原因、冷启动耗时、最大振幅、最近的麦克风开关、浏览器存进语音对象，本机的历史分页取得到。宽松：类型不对的字段、记录里坏掉的条目丢掉，超长的截断，诊断整个不是对象也不拒收", async () => {
     const td = shared();
     const url = td.url;
     const frontend = await connectFrontend(td, [SECRETARY]);
@@ -291,7 +291,7 @@ describe("发一条语音", () => {
     expect(page.body.voices!.find((v) => v.messageId === full.messageId)!.capture).toMatchObject({ openReason: "edit-out", gumMs: 120, browser: ua });
   });
 
-  it("鸿蒙 App 的原生录音（63 号票）：WAV（16 kHz 单声道 16 位 PCM）从上传到识别完成，照常播放；诊断标明是原生录的，带上备好用了多久、按下到第一块数据、原生开录到第一块数据", async () => {
+  it("鸿蒙 App 的原生录音：WAV（16 kHz 单声道 16 位 PCM）从上传到识别完成，照常播放；诊断标明是原生录的，带上备好用了多久、按下到第一块数据、原生开录到第一块数据", async () => {
     const { url, daemon, recognizerLog: log } = await startTestDaemon({ secretary: [{ kind: "echo_context" }] });
     const frontend = await TestFrontend.connect(url);
     await frontend.subscribe({ [SECRETARY]: 0 });
@@ -390,7 +390,7 @@ describe("语音消息的规矩", () => {
   });
 });
 
-/** 配置里写明测试的模型（faux）看得了图（79 号票起不写也按模型目录算看得了，这里写明，不依赖目录），秘书回显上下文 */
+/** 配置里写明测试的模型（faux）看得了图（不写也按模型目录算看得了，这里写明，不依赖目录），秘书回显上下文 */
 async function visionDaemon() {
   const dataDir = makeTempDir("ergo-data-");
   fs.mkdirSync(path.join(dataDir, "config"), { recursive: true });
@@ -520,7 +520,7 @@ describe("识别失败和重新识别", () => {
     await waitUntil(() => notices().length > 0);
     expect(new Set(notices().map((i) => i.id)).size).toBe(1);
     expect(notices()[0]).toMatchObject({ title: "语音识别不可用", urgency: "non_blocking", body: expect.stringMatching(/voice\.recognizer\.python/) });
-    // 守护进程照常：文字消息照常回（两条语音都没交给秘书，208 号票）
+    // 守护进程照常：文字消息照常回（两条语音都没交给秘书）
     await frontend.sendText("在吗");
     await turnEnds(frontend, 1);
     expect(frontend.events({ channel: SECRETARY, type: TURN_START })).toHaveLength(1);
@@ -546,23 +546,23 @@ describe("识别失败和重新识别", () => {
   });
 });
 
-/** 208 号票：语音各个版本的状态，带第几次自动重试（"queued#2"） */
+/** 语音各个版本的状态，带第几次自动重试（"queued#2"） */
 const retryVersions = (frontend: TestFrontend) => voiceVersions(frontend).map((v) => `${v.status}${v.autoRetry ? `#${v.autoRetry}` : ""}`);
 /** 假识别进程识别过几次 */
 const transcribes = (log: string) => recognizerLog(log).filter((e) => e.event === "transcribe").length;
 /** 待我处理里"语音识别不可用"的说明（各个版本） */
 const unavailableNotices = (frontend: TestFrontend) =>
   frontend.events({ channel: CHANNELS.inbox, type: EVENT_TYPES.inboxItem }).map((f) => (f.payload as InboxItemEventPayload).item).filter((i) => i.kind === "notice" && i.notice === "voice_recognizer_unavailable");
-/** 210 号票：晚交的语音后面那句说明里的"几点几分"（消息的时间按守护进程的时区；测试底座不写 timeZone，就是本机的） */
+/** 晚交的语音后面那句说明里的"几点几分"（消息的时间按守护进程的时区；测试底座不写 timeZone，就是本机的） */
 const clockOf = (iso: string) => new Intl.DateTimeFormat("en-US", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(iso));
-/** 210 号票：交给秘书的各轮各是哪条消息（turn_start 的 inputMessageId，按先后） */
+/** 交给秘书的各轮各是哪条消息（turn_start 的 inputMessageId，按先后） */
 const turnInputs = (frontend: TestFrontend) => frontend.events({ channel: SECRETARY, type: TURN_START }).map((f) => (f.payload as TurnStartEventPayload).inputMessageId);
-/** 210 号票：放行假识别进程某一次识别的文件（还没放上） */
+/** 放行假识别进程某一次识别的文件（还没放上） */
 const holdFile = () => path.join(makeTempDir("ergo-asr-hold-"), "go");
-/** 210 号票：正在第 n 次自动重试（停在识别中）的语音 */
+/** 正在第 n 次自动重试（停在识别中）的语音 */
 const retrying = (n: number) => (v: { status: string; autoRetry?: number }) => v.status === "recognizing" && v.autoRetry === n;
 
-describe("识别没做成时自动重试（208 号票：不再把空白交给二狗）", () => {
+describe("识别没做成时自动重试（不再把空白交给二狗）", () => {
   /** 正式的是隔 15 秒、60 秒、3 分钟重试；测试里隔 50 毫秒 */
   const RETRY = { voice: { recognizer: { autoRetrySeconds: [0.05, 0.05, 0.05] } } };
   const FILLER = "请不吝点赞 订阅 转发 打赏支持明镜与点点栏目";
@@ -627,7 +627,7 @@ describe("识别没做成时自动重试（208 号票：不再把空白交给二
     expect(echo).not.toContain("识别失败");
   });
 
-  it("带着附件的 4 次都失败：照旧交给秘书，图片照常、语音那段是「[语音，识别失败]」，后面一句说明这条消息是几点发的（210 号票：进过自动重试的晚交了）", async () => {
+  it("带着附件的 4 次都失败：照旧交给秘书，图片照常、语音那段是「[语音，识别失败]」，后面一句说明这条消息是几点发的（进过自动重试的晚交了）", async () => {
     const { url } = await startTestDaemon({ secretary: [{ kind: "echo_context" }], config: RETRY });
     const frontend = await TestFrontend.connect(url);
     await frontend.subscribe({ [SECRETARY]: 0 });
@@ -739,7 +739,7 @@ describe("识别没做成时自动重试（208 号票：不再把空白交给二
   });
 });
 
-describe("自动重试期间不挡后面的输入（210 号票，用户 2026-10-20：语音重试期间，我发的文字可以先发给二狗）", () => {
+describe("自动重试期间不挡后面的输入（语音重试期间，我发的文字可以先发给二狗）", () => {
   /** 正式的是隔 15 秒、60 秒、3 分钟重试；测试里隔 50 毫秒，"重试中"由假识别进程停住（holdEach），测试放行 */
   const RETRY = { voice: { recognizer: { autoRetrySeconds: [0.05, 0.05, 0.05] } } };
   /** 秘书每一轮都回显它看到的上下文（几轮就几步） */
@@ -806,7 +806,7 @@ describe("自动重试期间不挡后面的输入（210 号票，用户 2026-10-
     expect(lastEcho(frontend)).not.toContain("识别晚了");
   });
 
-  it("重试完了还不行（只有这段语音的）：照 208 号票不交、不唤起；重试期间打的字照常交，秘书只看到打的字", async () => {
+  it("重试完了还不行（只有这段语音的）：不交、不唤起；重试期间打的字照常交，秘书只看到打的字", async () => {
     const retry = holdFile();
     const { url, daemon } = await startTestDaemon({ secretary: ECHO, config: RETRY });
     const frontend = await TestFrontend.connect(url);
@@ -884,7 +884,7 @@ describe("自动重试期间不挡后面的输入（210 号票，用户 2026-10-
 });
 
 describe("识别进程", () => {
-  it("守护进程一起来就拉起、加载模型（45 号票的预热；环境照 agent 子进程的白名单，没有守护进程的密钥）；配了闲置退出的，闲置超过配置的时间自动退出、不重拉，再来语音时重新拉起", async () => {
+  it("守护进程一起来就拉起、加载模型（预热；环境照 agent 子进程的白名单，没有守护进程的密钥）；配了闲置退出的，闲置超过配置的时间自动退出、不重拉，再来语音时重新拉起", async () => {
     const { url, recognizerLog: log } = await startTestDaemon({
       config: { voice: { recognizer: { idleMinutes: 0.01 } } },
       env: { DEEPSEEK_API_KEY: "sk-不该给识别进程", ERGO_SENTINEL_VOICE: "x" },
@@ -989,7 +989,7 @@ describe("快速动作的点明（语音转写和打的字一样参与判定）"
       { source: "self", conversation: SECRETARY, segments: [{ form: "voice", source: "self", notes: ["transcribed"], text: "下周三上午体检" }] },
     ]);
 
-    // 识别失败、只有语音的不交给秘书（208 号票），带着图片的照旧交：语音那段没有文字，不算点明
+    // 识别失败、只有语音的不交给秘书，带着图片的照旧交：语音那段没有文字，不算点明
     const image = await media.upload(td.url, png({ width: 8, height: 8 }), { name: "房租.png", mime: "image/png" });
     const audio = await media.upload(td.url, fakeRecording({ error: "听不清" }), { name: "语音.webm", mime: "audio/webm" });
     await frontend.sendParts([{ type: "image", mediaId: image.mediaId, name: "房租.png", mime: "image/png" }, voice(audio.mediaId)]);
@@ -998,7 +998,7 @@ describe("快速动作的点明（语音转写和打的字一样参与判定）"
   });
 });
 
-describe("负责人干活时用户发的话排队（144 号票）", () => {
+describe("负责人干活时用户发的话排队", () => {
   const M1 = maintainerChannel("tm-1");
   const echo: FauxStep = { kind: "echo_context" };
   const turnEndsOf = (frontend: TestFrontend) => frontend.events({ channel: M1, type: TURN_END }).map((f) => f.payload as { inputMessageId: string });
@@ -1036,7 +1036,7 @@ describe("负责人干活时用户发的话排队（144 号票）", () => {
   }, 90_000);
 });
 
-// 179 号票：排队时就建出语音、识别完了（voice 事件在前），agent 又说了一页多才交出去成为消息（message 事件在后）。
+// 排队时就建出语音、识别完了（voice 事件在前），agent 又说了一页多才交出去成为消息（message 事件在后）。
 // 新打开的页面（任务页、项目的会话页、秘书主线）第一次订阅只补发最近一页，语音的 voice 事件落在这一页之前——补发要先带上它，
 // 不然前端拿不到语音对象，气泡一直是"识别中…"（10-19 日报那一轮的真事）。
 /** 新打开一个页面，第一次订阅这个会话（游标 0），等补发到现在的最后一条 */
@@ -1051,7 +1051,7 @@ async function freshPage(td: TestDaemon, conversation: ConversationId): Promise<
 /** 补发的这一页里最早那条消息的序号 */
 const firstMessageSeq = (page: TestFrontend, conversation: ConversationId) => page.events({ channel: conversation, type: MESSAGE })[0]!.seq;
 
-describe("第一次订阅补发的那一页带上它引用的语音对象（179 号票）", () => {
+describe("第一次订阅补发的那一页带上它引用的语音对象", () => {
   /** 说得慢的一大段：吐字放慢后要说好一会儿，够在它说着的时候排队 */
   const LONG = "这是一段很长很长的回复，要说好一会儿。".repeat(60);
   const PM1 = maintainerChannel("pm-1");
@@ -1145,7 +1145,7 @@ describe("素材", () => {
     await waitUntil(() => !fs.existsSync(path.join(daemon.layout.media, sent.mediaId)));
     expect((await request(url, `/api/media/${sent.mediaId}`)).status).toBe(404);
     // 秘书的会话文件里那条输入也改写了：秘书停下、改写、再拉起（改写做完才拉起），等它拉起来了再读一次会话文件。
-    // 255 号票：以前在改写途中反复读会话文件——读的那一刻正好赶上改写子进程改名，Windows 上改名就 EPERM
+    // 以前在改写途中反复读会话文件——读的那一刻正好赶上改写子进程改名，Windows 上改名就 EPERM
     // （改写以前碰上一次就放弃、等下次启动，用例空等 20 秒报"等待超时"）；目录里还会列出改写的临时文件，读它时已经改名没了（ENOENT）
     await waitUntil(() => daemon.secretary.pid !== undefined && daemon.secretary.pid !== secretaryPid && daemon.secretary.status === "idle", {
       timeoutMs: 20_000,
@@ -1197,18 +1197,18 @@ describe("素材", () => {
   });
 });
 
-/** 日志里不该有转写的正文（180 号票：串词本身、用户说的话） */
+/** 日志里不该有转写的正文（串词本身、用户说的话） */
 function expectNoTranscript(lines: readonly string[], ...words: string[]) {
   for (const line of lines) for (const word of ["与点点", "请不吝点赞", ...words]) expect(line).not.toContain(word);
 }
 
-/** 日志里剔除串词的那几行（180 号票） */
+/** 日志里剔除串词的那几行 */
 const strippedLines = (lines: readonly string[]) => lines.filter((line) => line.includes("剔除了"));
 
 /** 一段 WAV"录音"的 base64（悬浮按钮、Debug 页送识别的样子） */
 const wavBase64 = (text: string) => Buffer.from(fakeWavRecording({ text })).toString("base64");
 
-describe("识别结果里剔掉模型自带的串词（180 号票：FasterWhisper 自己编进来的「请不吝点赞 订阅 转发……」，当成没说过）", () => {
+describe("识别结果里剔掉模型自带的串词（FasterWhisper 自己编进来的「请不吝点赞 订阅 转发……」，当成没说过）", () => {
   const AD = "请不吝点赞 订阅 转发 打赏支持明镜与点点栏目";
 
   it("串词夹在语音里：气泡下的文字、交给秘书的、素材里都没有它，别的话一字不差、分段对得上；日志里有剔除的记录、没有正文", async () => {

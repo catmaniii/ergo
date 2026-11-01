@@ -1,6 +1,6 @@
 // 主切面：会话历史分页（规格第 5 节 HTTP）。
 // 前端第一次订阅会话频道时，WebSocket 只补发最近一页（50 条消息起）的事件；往上翻时经 HTTP 按页取更早的消息。
-// 分页结果和 WebSocket 上的事件在交界处不重不漏。时间线记录（偏离、范围变更、越界、快速动作的操作记录）跟着它所在的那一页（25 号票）。
+// 分页结果和 WebSocket 上的事件在交界处不重不漏。时间线记录（偏离、范围变更、越界、快速动作的操作记录）跟着它所在的那一页。
 import {
   type AgentVoiceRecord,
   CHANNELS,
@@ -160,7 +160,7 @@ describe("会话历史分页", () => {
     saveOrCheckRecording("timeline-history", frontend.recording.filter((input) => input.kind !== "history_page" || input.page !== partial));
   });
 
-  it("第一次补发的这一页正好从 agent 的一条语音消息起：它的 agent 语音对象最后一版落在这条消息前面，先补发它（179 号票），这一页之前的别的不补", async () => {
+  it("第一次补发的这一页正好从 agent 的一条语音消息起：它的 agent 语音对象最后一版落在这条消息前面，先补发它，这一页之前的别的不补", async () => {
     const { url, daemon } = await startTestDaemon();
     seedHistory(daemon, 20);
     // 秘书念完的一条语音：agent 语音对象的最后一版（带上语音消息的 id）先落，紧接着是那条语音消息

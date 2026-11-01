@@ -14,11 +14,11 @@ const BODY_MAX = 200;
 /** 通知的 id、页面地址最长多少 */
 const ID_MAX = 200;
 const ROUTE_MAX = 512;
-/** 系统要求标题、正文都不能为空：网页没给时用这两句（175 号票起按 App 现在的语言取） */
+/** 系统要求标题、正文都不能为空：网页没给时用这两句（按 App 现在的语言取） */
 const EMPTY_TITLE = (): string => t('harmony.notify.emptyTitle');
 const EMPTY_BODY = (): string => t('harmony.notify.emptyBody');
 
-/** notifyState() 回的：系统设置里这个应用的通知开没开，问没问过用户；124 号票起还有 App 现在算不算在前台 */
+/** notifyState() 回的：系统设置里这个应用的通知开没开，问没问过用户；还有 App 现在算不算在前台 */
 interface NotifyStateMessage {
   enabled: boolean;
   asked: boolean;
@@ -26,7 +26,7 @@ interface NotifyStateMessage {
 }
 
 /**
- * notifyShow() 回的这一条的结果（124 号票，Debug 工具集的通知记录用）：published 发出去了（number 是通知编号）、
+ * notifyShow() 回的这一条的结果（Debug 工具集的通知记录用）：published 发出去了（number 是通知编号）、
  * foreground App 在前台没发、disabled 通知没打开（用户关了通知或这个渠道）、failed 出错（message 是原因）
  */
 interface NotifyShownMessage {
@@ -97,7 +97,7 @@ function numberOf(id: string): number {
 }
 
 /**
- * 用户点开的那一条（110 号票）：EntryAbility 在 onCreate（App 没在跑、被点开的通知拉起来）、onNewWant（App 在跑）里
+ * 用户点开的那一条：EntryAbility 在 onCreate（App 没在跑、被点开的通知拉起来）、onNewWant（App 在跑）里
  * 从 want 取出来记下，等网页经原生桥 notifyTakeOpen() 来取（取一次就清掉）；记下时告诉 Index.ets，它调网页登记的
  * window.__ergoNotifyOpen() 让网页来取。只记最新的一条（连着点了两条，去后点的那一条）
  */
@@ -142,7 +142,7 @@ export class NotifyTaps {
 export const notifyTaps: NotifyTaps = new NotifyTaps();
 
 /**
- * 系统通知（110 号票，用户 2026-10-13 定：先做不用实名认证的这一步）：Notification Kit 的本地通知，App 自己往通知栏发，
+ * 系统通知（先做不用实名认证的这一步）：Notification Kit 的本地通知，App 自己往通知栏发，
  * 不经华为服务器，不用在 AppGallery Connect 开通什么、不用改签名，也不用在 module.json5 里声明权限（publish 没有要求权限）。
  * App 的进程要活着（开着，或者刚切到后台、还没被系统冻结）才发得出；App 关着、被冻结后发不出，那要靠以后的推送服务（Push Kit）。
  * - 授权：第一次向用户要（notificationManager.requestEnableNotification，系统的授权框，要 App 在前台；网页开场在前台时要），
@@ -153,7 +153,7 @@ export const notifyTaps: NotifyTaps = new NotifyTaps();
  *   同一件事只出一条、换掉时不再响（isAlertOnce）。
  * - 点：通知带一个 wantAgent（START_ABILITY 拉起 EntryAbility，want 里带着 id 和页面地址），点了 App 到前台
  *   （singleton 的 Ability 在跑时走 onNewWant），地址交回网页（NotifyTaps），通知随即从通知栏收掉（tapDismissed）。
- * - 124 号票（网页设置里的 Debug 工具集）：show 回这一条的结果（Promise<string>，网页记进通知记录）；第 5 个参数 force 为真时
+ * -（网页设置里的 Debug 工具集）：show 回这一条的结果（Promise<string>，网页记进通知记录）；第 5 个参数 force 为真时
  *   App 在前台也发（绕过上面的"前台不发"，只有 Debug 工具集用；旧版网页只给 4 个参数，照旧）；state 多带 App 现在算不算前台；
  *   resetAsked 清掉"问过了"（系统自己的授权框还是只弹一次，重置后多半只能拉起系统设置）。
  */
@@ -178,7 +178,7 @@ export class NativeNotify {
     return JSON.stringify(message);
   }
 
-  /** 清掉"问过用户了"（124 号票：Debug 工具集的重置首次提示），回之后的 state() */
+  /** 清掉"问过用户了"（Debug 工具集的重置首次提示），回之后的 state() */
   resetAsked(): string {
     this.settings.clearNotifyAsked();
     hilog.info(DOMAIN, TAG, 'notification asked mark cleared');

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 假的 Debian（321 号票的测试用）：VPS 脚本调用的系统命令（apt-get、systemctl、nginx、certbot、ufw、useradd、headscale……）
+# 假的 Debian（测试用）：VPS 脚本调用的系统命令（apt-get、systemctl、nginx、certbot、ufw、useradd、headscale……）
 # 都落到这里，按 $FAKE 下的文件模拟机器的状态，每次调用记一行进 $FAKE/calls.log。
 # 文件系统那一半是真的：脚本带着 ERGO_TEST_ROOT 跑，/etc、/var 都落在那个临时目录里。
 set -u

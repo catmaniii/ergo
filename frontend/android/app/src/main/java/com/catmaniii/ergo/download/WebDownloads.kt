@@ -52,7 +52,7 @@ fun cookieAllowed(target: String, initiator: String, serverOrigin: String): Bool
 class DownloadRequest(val url: String, val userAgent: String, val contentDisposition: String?, val mime: String?, val length: Long, val initiator: String)
 
 /**
- * 拦下载（对应鸿蒙的 DownloadDivert，160 号票，原生浏览器里能渲染的文件）：want 说要不要拦——拦下的照样下进缓存，但不提示、不弹"保存到"，
+ * 拦下载（对应鸿蒙的 DownloadDivert，原生浏览器里能渲染的文件）：want 说要不要拦——拦下的照样下进缓存，但不提示、不弹"保存到"，
  * 下完 finished 交出缓存里的路径（由拦的人管，删不删、存不存）；失败 failed
  */
 interface DownloadDivert {
@@ -63,7 +63,7 @@ interface DownloadDivert {
     fun isDiverted(request: DownloadRequest): Boolean
 }
 
-/** 存好了一个文件（165 号票，下载记录）：名字、存在哪（系统"保存到"给的地址）、大小（字节）、类型（不知道是空串） */
+/** 存好了一个文件（下载记录）：名字、存在哪（系统"保存到"给的地址）、大小（字节）、类型（不知道是空串） */
 typealias DownloadSaved = (name: String, uri: String, size: Long, mime: String) -> Unit
 
 /** 弹系统的"保存到"（MainActivity 起系统界面）；用户取消回 null */
@@ -72,7 +72,7 @@ interface SavePicker {
 }
 
 /**
- * 网页里的下载（对应鸿蒙 download/WebDownloads.ets，96 号票）：安卓的 WebView 不自己下载，这里自己下到缓存，下完弹系统的"保存到"让用户选位置，
+ * 网页里的下载（对应鸿蒙 download/WebDownloads.ets）：安卓的 WebView 不自己下载，这里自己下到缓存，下完弹系统的"保存到"让用户选位置，
  * 再拷过去、删掉缓存里的那份。自己发请求所以 cookie 也要自己带：只带这个地址该带的；不自动跟重定向，每一跳重新算 cookie，
  * 免得把二狗的设备凭证跟着重定向带到别的网站。
  */
@@ -178,8 +178,8 @@ class WebDownloads(
     private class HttpFailure(val code: Int) : Exception("HTTP $code")
 
     /**
-     * 把缓存里的一个文件弹"保存到"存出去（文件名默认 name）；keep 为真时缓存里那份留着（160 号票：拦下的下载点"下载"，
-     * 可能还要再看、再存），否则存完、取消都删掉。mimeType：别处取到的文件（359 号票，长按元素）记进下载记录的类型
+     * 把缓存里的一个文件弹"保存到"存出去（文件名默认 name）；keep 为真时缓存里那份留着（拦下的下载点"下载"，
+     * 可能还要再看、再存），否则存完、取消都删掉。mimeType：别处取到的文件（长按元素）记进下载记录的类型
      */
     fun saveFile(file: File, name: String, keep: Boolean, mimeType: String? = null) {
         if (mimeType != null) mimes[file.path] = mimeType
@@ -210,7 +210,7 @@ class WebDownloads(
             main.post {
                 if (ok) {
                     notify(t("harmony.downloads.saved", mapOf("name" to name)))
-                    // 下载记录（165 号票）
+                    // 下载记录
                     saved?.invoke(name, uri.toString(), size, mime)
                 } else {
                     notify(t("harmony.downloads.saveFailed", mapOf("name" to name)))

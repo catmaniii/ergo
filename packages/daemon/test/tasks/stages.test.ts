@@ -80,7 +80,7 @@ describe("下一步", () => {
     expect(nextStep(stages(spec))).toEqual(step);
   });
 
-  // 并行（20 号票）：有子 agent 在做的阶段不算负责人手头的
+  // 并行：有子 agent 在做的阶段不算负责人手头的
   it.each([
     // 负责人自己在做 s1、子 agent 在做 s4：接着做
     ["s1:running s4:running", ["s4"], { kind: "continue" }],
@@ -131,7 +131,7 @@ describe("返工：按依赖重开指定阶段和它的全部下游，其余保�
   });
 });
 
-describe("执行中从某个阶段重做（84 号票）", () => {
+describe("执行中从某个阶段重做", () => {
   // s1 已验收，s2 在做（被拉回过一次、写过宣布完成的话），s3 还没开始；s4 不依赖 s1
   const running = stages("s1:accepted s2:running").map((s) =>
     s.stageId === "s1"
@@ -140,7 +140,7 @@ describe("执行中从某个阶段重做（84 号票）", () => {
           attempts: 1,
           startedAt: "2026-10-11T09:00:00.000+08:00",
           acceptance: s.acceptance.map((a) => ({ ...a, result: { passed: true, at: "2026-10-11T09:30:00.000+08:00" } })),
-          // 274 号票：宣布完成时系统查到的个数
+          // 宣布完成时系统查到的个数
           observed: { at: "2026-10-11T09:29:00.000+08:00", sent: [], created: 1, modified: 0, deleted: 0, mismatches: 0 },
         }
       : s.stageId === "s2"
@@ -159,7 +159,7 @@ describe("执行中从某个阶段重做（84 号票）", () => {
     const [s1, s2, s3] = after;
     expect(s1).toMatchObject({ reopenNo: 2, attempts: 1 });
     expect(s1!.acceptance.every((a) => a.result === undefined)).toBe(true);
-    // 274 号票：上一轮宣布完成时系统查到的个数也清掉（新的一轮宣布完成时重新汇总）
+    // 上一轮宣布完成时系统查到的个数也清掉（新的一轮宣布完成时重新汇总）
     expect(s1!.observed).toBeUndefined();
     expect(s2).toMatchObject({ reopenNo: 2 });
     expect(s2!.pullBacks).toBeUndefined();
@@ -184,7 +184,7 @@ describe("第 N/M 阶段和守卫看到的当前阶段", () => {
     expect(guardStageId(stages(spec))).toBe(current);
   });
 
-  // 并行（20 号票）：负责人的当前阶段是它最后一次开始的（focus），几个阶段同时在做时不按计划里的顺序取
+  // 并行：负责人的当前阶段是它最后一次开始的（focus），几个阶段同时在做时不按计划里的顺序取
   it.each([
     // 负责人在 s4、子 agent 在 s1：是 s4
     ["s1:running s4:running", "s4", ["s1"], "s4"],

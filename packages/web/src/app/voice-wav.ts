@@ -1,7 +1,7 @@
-// 原生录音交出来的 PCM 做成 WAV（63 号票）：鸿蒙 App 的 AudioCapturer 录的是裸 PCM（16 kHz、单声道、16 位小端），
+// 原生录音交出来的 PCM 做成 WAV：鸿蒙 App 的 AudioCapturer 录的是裸 PCM（16 kHz、单声道、16 位小端），
 // 网页加上 44 字节的标准头就是守护进程认得的 audio/wav（按开头的 RIFF/WAVE 认，见 packages/daemon/src/media/audio.ts），照常上传、识别。
-// 顺带量整段的最大振幅：不发空白语音（61 号票）在原生录音上直接看样本。
-// 346 号票：语音识别走 audio.cpp 时服务只收 WAV，浏览器录的 webm、ogg、mp4 解码后也从这里做成 WAV（wavOfSamples）。
+// 顺带量整段的最大振幅：不发空白语音在原生录音上直接看样本。
+// 语音识别走 audio.cpp 时服务只收 WAV，浏览器录的 webm、ogg、mp4 解码后也从这里做成 WAV（wavOfSamples）。
 import type { PcmFormat } from "./native-voice.ts";
 
 function writeAscii(view: DataView, at: number, text: string): void {

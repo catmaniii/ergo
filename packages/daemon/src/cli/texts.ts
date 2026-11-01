@@ -1,4 +1,4 @@
-// ergo 命令里几处共用的说法（318 号票）
+// ergo 命令里几处共用的说法
 import { t } from "@ergo/protocol";
 import { DownloadError } from "../components/downloader.ts";
 

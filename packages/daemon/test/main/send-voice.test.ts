@@ -1,4 +1,4 @@
-// 主切面：用户打字时 agent 也能发语音气泡（86 号票，规格第 22 节"用户打字时也能发语音"）。
+// 主切面：用户打字时 agent 也能发语音气泡（规格第 22 节"用户打字时也能发语音"）。
 // 和用户直接对话的 agent 用"发语音"工具（send_voice）把一段口语稿合成成和语音回复一样的语音气泡：同一个合成服务、参考音色、
 // 分段推送、入库、追加 tts_audio 消息、失败说明、重启重做——和语音回复共用 voice-synthesis.ts 那一半。
 // 这一轮另写的文字照语音轮的规矩：普通的话收进气泡（coversReply），代码、表格、链接这类念不出来的照常显示。
@@ -192,7 +192,7 @@ describe("用户打字，个人助理发语音", () => {
     expect(audio.body).toEqual(wav);
     // 历史分页带上它（转文字看得到送进 TTS 的原文）
     expect((await frontend.history(SECRETARY)).agentVoices).toEqual([closed]);
-    // 87 号票：分页正好切在气泡和发语音的调用记录之间时，只有调用记录的那一页也带上它建出的语音（前端据此认出这次调用发出了气泡、不单独显示）
+    // 分页正好切在气泡和发语音的调用记录之间时，只有调用记录的那一页也带上它建出的语音（前端据此认出这次调用发出了气泡、不单独显示）
     const callSeq = frontend.events({ channel: SECRETARY, type: MESSAGE }).find((f) => (f.payload as MessageEventPayload).message.parts.some((p) => p.type === "tool_call" && p.tool === "send_voice"))!.seq;
     const callOnly = await frontend.history(SECRETARY, { before: callSeq + 1, limit: 1 });
     expect(callOnly.messages.map((m) => m.seq)).toEqual([callSeq]);
@@ -366,7 +366,7 @@ describe("发不出去：工具交回原因，不出空气泡", () => {
     expect(toolCall.resultSummary).toBe(`语音没发出去：${failed.error}。照常用文字回复用户。`);
     await turnEnds(frontend, 1);
     expect(ttsMessages(frontend)).toEqual([]);
-    // 会话里的说明只说这条语音没发出去和原因（用户 2026-10-11 定：不说"这次只发文字"）
+    // 会话里的说明只说这条语音没发出去和原因（不说"这次只发文字"）
     expect(notes(frontend)).toEqual([`这条语音没发出去（${failed.error}）。`]);
     expect(agentTextMessages(frontend).map((m) => textOf(m.parts))).toEqual(["语音没发出去，我用文字说：明早九点开会。"]);
     // 没合成出来的：这一轮的文字照常显示（没有气泡可收）
@@ -506,7 +506,7 @@ describe("谁能用", () => {
     expect((await finishedSendVoice(frontend, 1, pm)).categoryTitles).toEqual([]);
   });
 
-  it("后台在做的任务里用不了；用户在任务详情里说话（负责人在忙，排队，144 号票）：这一轮里还不算，这一轮做完交出去、下一轮能用", async () => {
+  it("后台在做的任务里用不了；用户在任务详情里说话（负责人在忙，排队）：这一轮里还不算，这一轮做完交出去、下一轮能用", async () => {
     const tts = await startFakeSpeechService();
     // 第二步一次调两个工具：先跑 sleep，再发语音——用户在 sleep 时说的话排着队（这一轮做完才交给它）
     const sleepThenVoice: FauxStep = {

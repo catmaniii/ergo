@@ -1,6 +1,6 @@
-// 运营方案（130 号票）的说法：负责人的工具说明和工具结果、被拒的原因、交给负责人的通知、时间线上的一笔、卡的纯文本降级。
+// 运营方案的说法：负责人的工具说明和工具结果、被拒的原因、交给负责人的通知、时间线上的一笔、卡的纯文本降级。
 // 编排（operations.ts、builtin-means.ts）里不写文字，都从这里取。
-// 174 号票：给用户看的（卡的纯文本降级、时间线上的一笔、卡上确认时被拒的原因、一条的结局）走 t()，生成时按当时的语言；
+// 给用户看的（卡的纯文本降级、时间线上的一笔、卡上确认时被拒的原因、一条的结局）走 t()，生成时按当时的语言；
 // 给负责人（模型）看的（工具说明、工具结果、校验的问题、通知）照旧中文，标 @i18n-ignore model。
 import {
   capabilitiesText,
@@ -32,7 +32,7 @@ import { PROPOSE_OPERATIONS_TOOL } from "./tool-names.ts";
 
 const NL = "\n";
 
-/** 交给负责人的那几样都按中文写（174 号票）：对象里的每个函数包一层 forModel */
+/** 交给负责人的那几样都按中文写：对象里的每个函数包一层 forModel */
 function inChinese<T extends Record<string, (...args: never[]) => string>>(texts: T): T {
   return Object.fromEntries(Object.entries(texts).map(([k, fn]) => [k, (...args: never[]) => forModel(() => fn(...args))])) as T;
 }

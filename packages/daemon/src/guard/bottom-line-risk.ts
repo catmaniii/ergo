@@ -1,4 +1,4 @@
-// 硬底线的兜底（101 号票评审后定）：对话审批关着时"先问我"大多放开了，但原来有一些"先问"兜着的是守卫看不准、可能碰到硬底线
+// 硬底线的兜底：对话审批关着时"先问我"大多放开了，但原来有一些"先问"兜着的是守卫看不准、可能碰到硬底线
 // （写二狗自己的受保护区域、读密钥区、读过密钥之后往外送）的写法——这些不随放开走，两边（秘书、任务的 agent）都照旧问或拒。
 // 这里是判定函数用的纯函数（不读文件）：
 // - 带通配符的路径：通配符之前那段目录（展开靠调用方的环境事实 EnvironmentFacts.wildcards）；
@@ -6,7 +6,7 @@
 //   Git Bash 写法、`~`、`$HOME`、`%USERPROFILE%`、`$env:USERPROFILE` 拼出来的，数据目录的目录名（`.ergo` 这样写在变量后面的）
 //   和它的 8.3 短名；
 // - 一段文字是不是要往外送（秘书的特别敏感：往外 POST、发信……；目标都是本机的不算）；网址是不是本机；
-// - 网址是不是二狗自己（139 号票：本机的、端口是守护进程实际监听的本机端口或外网端口；"发往本机不算对外"的例外不包括它）。
+// - 网址是不是二狗自己（本机的、端口是守护进程实际监听的本机端口或外网端口；"发往本机不算对外"的例外不包括它）。
 import { t } from "@ergo/protocol";
 import { win32 } from "node:path";
 import { absolutePathsIn, comparable, isWithin, isWithinAny } from "./paths.ts";
@@ -165,7 +165,7 @@ export function isLocalUrl(url: string): boolean {
 const DEFAULT_PORTS: Readonly<Record<string, number>> = { "http:": 80, "https:": 443, "ws:": 80, "wss:": 443 };
 
 /**
- * 网址是不是二狗自己（139 号票；"是不是二狗自己"只在这里判）：本机的（同 isLocalUrl），端口是二狗自己的端口之一（守护进程实际
+ * 网址是不是二狗自己（"是不是二狗自己"只在这里判）：本机的（同 isLocalUrl），端口是二狗自己的端口之一（守护进程实际
  * 监听的本机端口和外网端口，由守护进程传进来，GuardPlaces.ownPorts）。是的话返回这个端口，不是返回 undefined。
  * 没写协议的（`127.0.0.1:8810/api`、`localhost:8810`，curl 和浏览器工具都认）按 http 补上再看；没写端口的按协议的默认端口
  */
@@ -185,7 +185,7 @@ export function ownPortsOf(urls: readonly unknown[], ownPorts: readonly number[]
   return [...new Set(found)];
 }
 
-/** 发往二狗自己的端口时依据上加的一句（139 号票）：审批卡、时间线上看得到 */
+/** 发往二狗自己的端口时依据上加的一句：审批卡、时间线上看得到 */
 export function ownApiNote(ports: readonly number[]): string {
   return t("guard.ownApiNote", { ports: ports.join(t("pages.common.listSep")) });
 }
@@ -214,8 +214,8 @@ export function urlsInText(text: string): string[] {
 }
 
 /**
- * 一段看不透的文字（内联脚本、拆不开的命令）是不是要往外送（秘书的特别敏感，101 号票）：有往外送的写法就算；写着的网址都是本机的
- * （127.0.0.1、localhost、::1）不算对外——网址里有二狗自己的端口的不算"都是本机"（139 号票，ownPorts 见 ownPortOf）
+ * 一段看不透的文字（内联脚本、拆不开的命令）是不是要往外送（秘书的特别敏感）：有往外送的写法就算；写着的网址都是本机的
+ * （127.0.0.1、localhost、::1）不算对外——网址里有二狗自己的端口的不算"都是本机"（ownPorts 见 ownPortOf）
  */
 export function sendsInText(text: string, ownPorts: readonly number[]): boolean {
   const urls = urlsInText(text);

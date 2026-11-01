@@ -1,5 +1,5 @@
 // stop 钩子（stop.ts）结束进程前的核对：不误杀。只有"在听这个端口的就是 pid 文件里那个进程（pid 相同、启动时间对得上）"才结束它。
-// 查不到是谁（353 号票：netstat 靠不住）时不结束，也不说已经停了；端口空没空由调用方真绑、真连得来，不看 netstat。
+// 查不到是谁（netstat 靠不住）时不结束，也不说已经停了；端口空没空由调用方真绑、真连得来，不看 netstat。
 // @i18n-ignore-file log：命令行工具的输出（LSM 显示给看日志的人）
 import type { PidRecord } from "./pid-file.ts";
 

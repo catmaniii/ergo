@@ -1,4 +1,4 @@
-// 88 号票：宽屏长程任务的阶段栏开着还是藏掉（整栏藏掉，用户 2026-10-11 定），按设备记住（存在这台设备的浏览器里，和外观、风格一样），默认开着；
+// 宽屏长程任务的阶段栏开着还是藏掉（整栏藏掉），按设备记住（存在这台设备的浏览器里，和外观、风格一样），默认开着；
 // 存储用不了（隐私模式、禁用了站点数据）时按默认，改了只在这次打开里生效、不报错。存储换成假的。
 import { describe, expect, test } from "vitest";
 import { PROJECT_SIDE_KEY, stageSideSettingIn } from "../../src/app/stage-side-setting.ts";
@@ -66,7 +66,7 @@ describe("阶段栏开着还是藏掉：按设备记住", () => {
   });
 });
 
-describe("宽屏项目的档案栏开着还是藏掉（104 号票）：同一个做法，和阶段栏分开记", () => {
+describe("宽屏项目的档案栏开着还是藏掉：同一个做法，和阶段栏分开记", () => {
   test("默认开着；藏掉记在自己的键上，阶段栏不跟着变；打开擦掉记号", () => {
     const storage = memoryStorage();
     const side = stageSideSettingIn(() => storage, PROJECT_SIDE_KEY);

@@ -1,9 +1,9 @@
-// 模型版编交互策略（201 号票）：把成立的需求、价值交给模型写成"什么场合 → 怎么做"。
+// 模型版编交互策略：把成立的需求、价值交给模型写成"什么场合 → 怎么做"。
 // - 一次请求写好几个依据（每个依据是同一主题的成立的需求、价值，带 key）；key 照抄回来，伪造的丢掉；
 // - 措辞要具体、可执行：提示词里讲清楚，代码再挡一道——"注意他的感受""尊重他的需求""适当安排"这类空话、太短的做法丢掉，
 //   做法全丢光的那条不要；领域只认 8 个（rg/domains.ts）；
 // - 写出来的照旧是 proposed，本人确认才 active（rg/strategies.ts 的 StrategyBook.writeWithModel 落库）。
-// - 218 号票：输出上限按依据个数估（STRATEGY_OUTPUT_PER_BASIS，1500 到 8000），依据多于 STRATEGY_BATCH_BASES 个时分批；
+// -输出上限按依据个数估（STRATEGY_OUTPUT_PER_BASIS，1500 到 8000），依据多于 STRATEGY_BATCH_BASES 个时分批；
 //   截断、解析不了的照 llm/robust.ts 救回完整的几条、剩下的对半切小重试（LlmReasoner.writeStrategies）。
 import type { ChatRequest } from "../llm/chat.ts";
 import { isStringArray } from "../llm/json.ts";
@@ -21,7 +21,7 @@ export const STRATEGY_SYSTEM = `你是记忆系统的助手，把对一个人已
 /** 空话：只表态度、不说做什么 */
 export const VAGUE_ACTION =
   /注意(?:用户|他|她)?的?(?:感受|情绪|需求|想法)|尊重(?:用户|他|她)?的?(?:需求|意愿|想法|选择|感受)|考虑(?:到)?(?:用户|他|她)?的?(?:需求|感受|偏好|价值观|想法)|关注(?:用户|他|她)?的?(?:需求|感受|情绪)|照顾(?:用户|他|她)?的?(?:感受|情绪)|(?:满足|理解)(?:用户|他|她)?的?需求|适当(?:地)?(?:安排|调整|处理)|合理(?:地)?(?:安排|调整)|酌情/;
-/** 218 号票：一个依据估多少输出 token（一条策略：场合、1 到 3 条做法、领域；真跑时四五个依据写了 1000–1240 token） */
+/** 一个依据估多少输出 token（一条策略：场合、1 到 3 条做法、领域；真跑时四五个依据写了 1000–1240 token） */
 export const STRATEGY_OUTPUT_PER_BASIS = 250;
 /** 一批最多几个依据 */
 export const STRATEGY_BATCH_BASES = 12;

@@ -1,20 +1,20 @@
-// 相关门槛（202 号票）：假设、断言、检索结果要和问题相关到一定程度才拿来用；对不上就当没有，不硬挑一组。
+// 相关门槛：假设、断言、检索结果要和问题相关到一定程度才拿来用；对不上就当没有，不硬挑一组。
 //
 // 一条检索结果算"命中"（hitSupported）——检索这一层总会给满 limit 条，排在前面不等于相关：
 // - 原话或它在 at 成立的事实的精炼陈述里有问题的话题词（question.ts 的 topicTerms：去掉"喜欢、是不是、为什么"这类问法里的词）；
 // - 或者事实图谱扩展那一路带来的（问题里认出了实体）、推理图谱那一路带来的（经过已经过了门槛的假设）；
-// - 或者向量那一路的余弦超过这个问题的向量门槛（205 号票）：问题和自带背景语料（background.ts，200 条和谁都无关的日常短句）的
+// - 或者向量那一路的余弦超过这个问题的向量门槛：问题和自带背景语料（background.ts，200 条和谁都无关的日常短句）的
 //   余弦分布的第 95 百分位——比随便一句闲聊更像才算挨着。门槛跟着向量模型和问题走，不用固定的数（202 用的 0.5 在 bge-m3 上
 //   分不开相关不相关：字面对不上的也在 0.46–0.54）；没有向量函数时向量那一路不算命中。
-//   206 号票加第二道：还要在这个人自己库里的记录里排得靠前——问题和库里全部证据（没忘掉、at 以前知道的）的余弦取第 90 百分位，
+//   加第二道：还要在这个人自己库里的记录里排得靠前——问题和库里全部证据（没忘掉、at 以前知道的）的余弦取第 90 百分位，
 //   超过它、或者进了前 3（库小时第 90 百分位就是最高那一两条，进前 3 也算）。205 那道量的是"是不是在说自己"（背景是客观短句，
 //   本人记录天然更像），这一道量的才是"是不是在说这件事"。两道都跟着模型和数据走，不对着答案调。
 //
-// 一条断言过门槛（gateClaims）：196 号票的三条路（往上走、结论索引、领域）里至少一条命中、名次在前几名（RelevanceGate，可配）：
+// 一条断言过门槛（gateClaims）：三条路（往上走、结论索引、领域）里至少一条命中、名次在前几名（RelevanceGate，可配）：
 // - 往上走：这条路是从检索结果出发的，名次看挂着它的检索结果——只算命中的（上面那条），至少有一条排在检索的前 hitRank 名
 //   （默认 5，就是检索那条路回答里会说的条数）。不再按断言之间排名次：一组假设挂着好几条观察，分数总比只挂在第 1 条原话上的
 //   明说断言高，按断言排会把后者挤掉；
-// - 结论索引：断言陈述里有话题词，或者向量那一路的余弦超过这个问题的向量门槛（196 的结论索引本身只收余弦到 0.5 的，所以实际是
+// - 结论索引：断言陈述里有话题词，或者向量那一路的余弦超过这个问题的向量门槛（结论索引本身只收余弦到 0.5 的，所以实际是
 //   两个里大的那个）；按两路 RRF 分排，同分并列，名次到 topN；
 // - 领域：领域那条路自己的排法（对上的领域多的、断言更专一的在前），名次到 topN。
 // 往上走、结论索引命中的是"直接说到这件事的"（direct）；只有领域命中的是"同一方面的"——回答里只当背景列出，不靠它下结论
@@ -36,9 +36,9 @@ export interface RelevanceGate {
   topN: number;
   /** 往上走：挂着它的、命中的检索结果至少有一条排在前几名（默认 5，检索那条路回答里会说的条数） */
   hitRank: number;
-  /** 向量门槛取问题和背景语料余弦分布的第几百分位（默认 0.95，205 号票） */
+  /** 向量门槛取问题和背景语料余弦分布的第几百分位（默认 0.95） */
   vectorPercentile: number;
-  /** 第二道：问题和这个人自己库里全部证据的余弦取第几百分位（默认 0.9，206 号票） */
+  /** 第二道：问题和这个人自己库里全部证据的余弦取第几百分位（默认 0.9） */
   ownPercentile: number;
   /** 第二道：库小时进了前几也算（默认 3） */
   ownTopK: number;
@@ -46,7 +46,7 @@ export interface RelevanceGate {
 
 export const DEFAULT_RELEVANCE_GATE: RelevanceGate = { routes: ROUTES, topN: 3, hitRank: 5, vectorPercentile: BACKGROUND_PERCENTILE, ownPercentile: 0.9, ownTopK: 3 };
 
-/** 第二道门槛（206 号票）：问题和自己库里全部证据的余弦分布 */
+/** 第二道门槛：问题和自己库里全部证据的余弦分布 */
 export interface OwnLibraryThreshold {
   /** 第 ownPercentile 百分位（最近名次法） */
   percentile: number;
@@ -56,7 +56,7 @@ export interface OwnLibraryThreshold {
   size: number;
 }
 
-/** 一个问题的两道向量门槛（206 号票）：background 是 205 的背景语料那道，own 是自己库那道 */
+/** 一个问题的两道向量门槛：background 是背景语料那道，own 是自己库那道 */
 export interface VectorGate {
   background: number | null;
   own: OwnLibraryThreshold | null;
@@ -64,7 +64,7 @@ export interface VectorGate {
 
 /**
  * 余弦过不过向量门槛：两道都要过——超过背景那道，并且超过自己库的第 90 百分位、或者进了前 3（不低于第 3 高的那个）。
- * 没有向量函数、库里没有向量时不算。只给一个数时（205 的写法）超过它就算；null 不算。
+ * 没有向量函数、库里没有向量时不算。只给一个数时（写法）超过它就算；null 不算。
  */
 export function vectorPasses(gate: VectorGate | number | null, cos: number): boolean {
   if (gate === null) return false;
@@ -80,7 +80,7 @@ export function resolveGate(...overrides: (Partial<RelevanceGate> | undefined)[]
 
 /**
  * 一条检索结果和问题挨不挨着（见文件开头）。topic 是问题的话题词；vector 是这个问题的向量门槛（questionVectorGate 的两道，
- * 或者 205 的一个数），余弦过了才算（vectorPasses），null 时向量那一路不算
+ * 或者一个数），余弦过了才算（vectorPasses），null 时向量那一路不算
  */
 export function hitSupported(hit: Hit, topic: readonly string[], view: RgView, vector: VectorGate | number | null): boolean {
   const c = hit.channels;
@@ -168,14 +168,14 @@ export interface QuestionRelevance {
   gated: GatedClaim[];
   /** base 里算命中的检索结果 */
   supportedHitIds: string[];
-  /** 背景语料那道向量门槛（205；和 vectorGate.background 一样）；没有向量函数时是 null */
+  /** 背景语料那道向量门槛（和 vectorGate.background 一样）；没有向量函数时是 null */
   vectorThreshold: number | null;
-  /** 两道向量门槛（206 号票） */
+  /** 两道向量门槛 */
   vectorGate: VectorGate;
 }
 
 /**
- * 第二道门槛（206 号票）：问题（查询角色）和这个人自己库里全部证据的余弦——没忘掉的、给了 at 时 at 以前知道的，
+ * 第二道门槛：问题（查询角色）和这个人自己库里全部证据的余弦——没忘掉的、给了 at 时 at 以前知道的，
  * 用引擎的向量函数这个模型算好的证据向量——取第 p 百分位和第 topK 高的。没有向量函数、库里没有这个模型的向量时是 null。
  */
 export async function ownLibraryThreshold(rg: ReasoningGraph, question: string, at?: string, p?: number, topK?: number): Promise<OwnLibraryThreshold | null> {
@@ -195,7 +195,7 @@ export async function ownLibraryThreshold(rg: ReasoningGraph, question: string, 
   return { percentile: percentile(values, p ?? cfg.ownPercentile), kth: values[Math.min(k, values.length) - 1]!, size: values.length };
 }
 
-/** 这个问题的两道向量门槛（206 号票）：背景语料那道（205）和自己库那道 */
+/** 这个问题的两道向量门槛：背景语料那道和自己库那道 */
 export async function questionVectorGate(rg: ReasoningGraph, question: string, at?: string, gate?: Partial<RelevanceGate>): Promise<VectorGate> {
   const cfg = resolveGate(rg.relevanceGate, gate);
   const background = await backgroundThreshold(rg.embedder(), question, cfg.vectorPercentile);
@@ -204,7 +204,7 @@ export async function questionVectorGate(rg: ReasoningGraph, question: string, a
 }
 
 /**
- * 明说优先（205）收紧（206 号票）：那句明说的话要和挑到的那组说的是同一件事，三条满足一条就算——
+ * 明说优先收紧：那句明说的话要和挑到的那组说的是同一件事，三条满足一条就算——
  * observations：它的支持证据和那组的观察是同一批证据（"最近周末想好好休息"和"这周六的聚会我就不去了"是同一句话）；
  * topic：它的陈述里有问题的话题词；
  * relevance：它自己的陈述过了相关门槛（结论索引那条路命中），不只是往上走挂在一条命中的原话上进来的。

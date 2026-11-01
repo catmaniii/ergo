@@ -138,7 +138,7 @@ describe("别推断", () => {
   });
 });
 
-describe("记下来的文件（366 号票）", () => {
+describe("记下来的文件", () => {
   const mediaId = "a".repeat(64);
   const file = { mediaId, kind: "image" as const, name: "cat.png", mime: "image/png", size: 120, width: 8, height: 6, via: "original" as const, fetchCallId: "call-fetch" };
   const origin = { page: { title: "相册", url: "https://photos.example.cn/album" }, address: "https://cdn.example.cn/cat.png?sig=abc" };
@@ -218,7 +218,7 @@ describe("显式记忆命令素材", () => {
     const commands = t.materials.list({ kind: "memory_command" });
     expect(commands).toMatchObject([
       { mode: "say", source: "self", conversation: CHANNELS.secretary, context: ["command:remember", "secretary"], segments: [{ form: "typed", source: "self", notes: [], text: "下周三上午体检" }] },
-      // 语音里说的（31 号票）：本人，注明转写
+      // 语音里说的：本人，注明转写
       { source: "self", segments: [{ form: "voice", source: "self", notes: ["transcribed"], text: "周五交房租" }] },
       { context: ["command:remember", "secretary"], segments: [{ form: "choice", source: "self", notes: ["agent_proposed"], text: "对青霉素过敏" }] },
       // 只在引用块里的：外部、不可信，只留引用和哈希

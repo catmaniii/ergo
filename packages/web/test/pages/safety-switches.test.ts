@@ -1,6 +1,6 @@
-// 设置 · 关注类别最上面的两个开关（315 号票，pages/more/SafetySwitches.tsx）：有风险的事先问我、任务超预算就停下。
+// 设置 · 关注类别最上面的两个开关（pages/more/SafetySwitches.tsx）：有风险的事先问我、任务超预算就停下。
 // 每个开关一行：标题、下面一句开着 / 关掉各会怎样（写明改了马上生效），勾着跟着守护进程给的；还没取到时点不了。
-// 界面上不出现"秘书""待我处理"（43 号票的规矩）；英文也有。用 React 在 Node 里渲染出来查。
+// 界面上不出现"秘书""待我处理"；英文也有。用 React 在 Node 里渲染出来查。
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, test, vi } from "vitest";

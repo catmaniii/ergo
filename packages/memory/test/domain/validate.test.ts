@@ -157,7 +157,7 @@ describe("断言的校验（置信上限按层和证据厚薄封顶）", () => {
     expect(problemsOfClaim(claim({ epistemic: "inferred", method: "explicit" })).join()).toMatch(/method/);
   });
 
-  it("复核标记是布尔值（329 号票：待复核不再占真值状态）；needs_review 不再是断言的状态", () => {
+  it("复核标记是布尔值（待复核不再占真值状态）；needs_review 不再是断言的状态", () => {
     expect(problemsOfClaim(claim({ needsReview: true }))).toEqual([]);
     expect(problemsOfClaim(claim({ needsReview: undefined as never })).join()).toMatch(/needsReview/);
     expect(problemsOfClaim(claim({ status: "needs_review" as never })).join()).toMatch(/status/);

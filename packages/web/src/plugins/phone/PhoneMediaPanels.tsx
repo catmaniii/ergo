@@ -1,11 +1,11 @@
-// 手机插件在设置 · 数据源里画的照片、位置两块（300 号票，dataSources 插槽）和 App 开着时同步它们的后台部件（background 插槽）：
+// 手机插件在设置 · 数据源里画的照片、位置两块（dataSources 插槽）和 App 开着时同步它们的后台部件（background 插槽）：
 // - "手机 · 照片的时间地点"下面：在鸿蒙 App 里没连着是"连上相册"（系统的授权框：读相册、读照片位置），连着是"现在同步"和手机上的
 //   授权怎么样；不在 App 里（电脑、手机浏览器、旧版 App）写明要到 App 里连；
 // - "手机 · 位置"下面：在 App 里没连着是"开始记位置"（系统的授权框：定位），连着是"现在同步"、"App 在后台也记"的开关、手机上的
 //   授权和在不在记；不在 App 里写明；
-// - 两块都写明耗电和隐私（数据源页上写明，用户 2026-10-25 的票要的）：在不在 App 里都写；
+// - 两块都写明耗电和隐私（数据源页上写明）：在不在 App 里都写；
 // - 后台部件：只在 App 里（有这两组方法）跑——开场、回到前台（距上次超过 5 分钟）、每 30 分钟各同步一次（media-sync.ts）；
-// - 308 号票："手机 · 位置"那一块后面接"常去的地方"（PhonePlaces.tsx）。
+// -"手机 · 位置"那一块后面接"常去的地方"（PhonePlaces.tsx）。
 // 纯渲染的几块（PhotosPanelView、LocationPanelView）测试在 Node 里直接渲染。
 import { useEffect, useState } from "react";
 import type { NativeLocationState, NativePhone, NativePhoneLocation, NativePhotosState } from "../../app/native-phone.ts";
@@ -200,7 +200,7 @@ export function PhotosPanel({ source, onView }: { source: DataSourceView; onView
 
 /**
  * "手机 · 位置"断开了（就在这一页点的"断开"，或者别处断开的）而 App 还在记：马上让它停下（手机上没交出去的点一起删、
- * 后台也记的通知跟着没了），不等下一次同步（304 号票在模拟器上看到断开以后那一行还写"正在记"）；交回之后的状态
+ * 后台也记的通知跟着没了），不等下一次同步（在模拟器上看到断开以后那一行还写"正在记"）；交回之后的状态
  */
 export async function stopIfDisconnected(location: NativePhoneLocation, connection: DataSourceView["connection"]): Promise<NativeLocationState | undefined> {
   const state = location.state();

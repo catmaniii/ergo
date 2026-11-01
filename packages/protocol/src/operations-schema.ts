@@ -1,5 +1,5 @@
 // @i18n-ignore-file model：这里的中文都是工具参数的说明（给负责人看）
-// 运营方案（130 号票，ADR-0028）的 schema，用 TypeBox 定义，守护进程和 Web 共用生成的类型。名字和纯函数在 operations.ts。
+// 运营方案（ADR-0028）的 schema，用 TypeBox 定义，守护进程和 Web 共用生成的类型。名字和纯函数在 operations.ts。
 // - 负责人用 propose_operations 交的一条（OperationItemDraft，工具的参数）：标识、名字、运营手段、触发（时间表或事件）、
 //   怎么做（普通任务或流程；流程带它的步骤）、每次做什么、要的能力、失败时怎样；要用户手动的写明要手动做什么；
 // - 运行时逐条校验之后的一条（OperationItem）：多了手段的说法、二狗能不能替用户做、触发的说法；流程的步骤换成审查修补后的计划
@@ -49,7 +49,7 @@ export const OperationWorkflowDraft = Type.Object(
 export type OperationWorkflowDraft = Static<typeof OperationWorkflowDraft>;
 
 /**
- * 服务名（133 号票）：英文小写、数字、连字符，字母或数字开头结尾，最长 32（连着的两个连字符运行时另外拒：LSM 的名字不许 "--"）。
+ * 服务名：英文小写、数字、连字符，字母或数字开头结尾，最长 32（连着的两个连字符运行时另外拒：LSM 的名字不许 "--"）。
  * 上线后在 LSM 里、转发的应用名都是 <项目编号>-<服务名>（serviceAppName），LSM 的名字最长 48
  */
 export const OPERATION_SERVICE_NAME_PATTERN = "^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$";
@@ -82,10 +82,10 @@ export const OperationServiceHealth = Type.Object(
   { additionalProperties: false, description: "健康检查（可以不写：不写就只看端口有没有人听）" },
 );
 
-/** 服务的前缀约定（132 号票）：strip 转发时去掉前缀（服务当自己在根上，默认）；keep 原样带着（框架的 base 设成了 ERGO_BASE_PATH） */
+/** 服务的前缀约定：strip 转发时去掉前缀（服务当自己在根上，默认）；keep 原样带着（框架的 base 设成了 ERGO_BASE_PATH） */
 export const OPERATION_SERVICE_PREFIX_MODES = ["strip", "keep"] as const;
 
-/** 负责人写的一个服务（运营手段"服务"那一条的 service，133 号票） */
+/** 负责人写的一个服务（运营手段"服务"那一条的 service） */
 export const OperationServiceDraft = Type.Object(
   {
     name: Type.String({ pattern: OPERATION_SERVICE_NAME_PATTERN, description: "服务名（英文小写、数字、连字符，比如 web）：上线后在 LSM 里叫 <项目编号>-<服务名>，网页的地址是 /apps/<项目编号>-<服务名>/" }),
@@ -174,7 +174,7 @@ const ITEM_FIELDS = {
   capabilities: OperationCapabilities,
   onFailure: Type.Optional(Type.String()),
   manual: Type.Optional(Type.String()),
-  /** 运营手段"服务"（133 号票）：要上线到 LSM 的服务 */
+  /** 运营手段"服务"：要上线到 LSM 的服务 */
   service: Type.Optional(OperationService),
 };
 
@@ -220,9 +220,9 @@ export const ProjectOperations = Type.Object({
 export type ProjectOperations = Static<typeof ProjectOperations>;
 
 /**
- * "运营方案变更"卡（operations_change，130 号票）：使用中（或已停用）的项目，负责人交了新的一份运营方案，和现在生效的比出差异——
+ * "运营方案变更"卡（operations_change）：使用中（或已停用）的项目，负责人交了新的一份运营方案，和现在生效的比出差异——
  * 加了哪几条、改了哪几条（就地改时间的标 inPlace）、去掉哪几条、照旧却没跑着的重新开起来。用户确认一次就照差异生效：
- * 建、改、取消对应的内部任务；拒绝什么都不动。附负责人引用的、运行时核实过的用户原话（照 125 号票的立项要求变更卡）
+ * 建、改、取消对应的内部任务；拒绝什么都不动。附负责人引用的、运行时核实过的用户原话（照立项要求变更卡）
  */
 export const OperationsChangeCardPayload = Type.Object({
   projectId: Type.String(),
@@ -255,7 +255,7 @@ export const OperationsConfirmInput = Type.Union([
 export type OperationsConfirmInput = Static<typeof OperationsConfirmInput>;
 
 /**
- * 服务入口卡（service_entry，133 号票）：秘书给出的某个项目的服务的入口（用户说"打开简报站""简报站的页面在哪"），放进聊天，
+ * 服务入口卡（service_entry）：秘书给出的某个项目的服务的入口（用户说"打开简报站""简报站的页面在哪"），放进聊天，
  * 出来就是已处理（没有要用户选的）。卡上写"打开「X」"，点了在内置浏览器里打开 url；在不在线按前端手里的服务状态现画
  */
 export const ServiceEntryCardPayload = Type.Object({
@@ -273,7 +273,7 @@ export const ServiceEntryCardPayload = Type.Object({
 export type ServiceEntryCardPayload = Static<typeof ServiceEntryCardPayload>;
 
 /**
- * 项目的服务全部启动 / 全部关闭（project_services_action，257 号票）：项目卡片、项目页上的"启动""关闭"。只有使用中、有在 LSM 上的服务、
+ * 项目的服务全部启动 / 全部关闭（project_services_action）：项目卡片、项目页上的"启动""关闭"。只有使用中、有在 LSM 上的服务、
  * LSM 连着的项目能做；关闭之后一直关着（取消开机自启），直到再启动
  */
 export const ProjectServicesActionParams = Type.Object({ projectId: Type.String({ minLength: 1 }), action: Type.Enum(PROJECT_SERVICES_ACTIONS) });

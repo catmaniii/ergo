@@ -1,4 +1,4 @@
-// 联网搜索的逻辑（70 号票，照搬用户 web-search skill 的 search.mjs）：假的浏览器驱动，不起浏览器、不联网。
+// 联网搜索的逻辑（照搬用户 web-search skill 的 search.mjs）：假的浏览器驱动，不起浏览器、不联网。
 // 回退顺序 DDG → Bing → Google；没结果、结果和查询不相关、被反爬拦截、打不开都换下一个；浏览器用不了直接报；Bing 跳转链接解包；
 // 指定引擎就只用它；地区照 skill 的写法进各引擎的地址；Tavily 走假的 POST（不联网、key 是假的）。
 import { describe, expect, it } from "vitest";

@@ -1,13 +1,13 @@
-// 项目的负责人在自己项目里发起任务的工具（64 号票，规格第 8 节"项目内部任务"；守护进程代为执行，只在它的对话段里有）。
-// 发起的规矩和秘书一样（用户 2026-10-09 定，ADR 0019），发起的两个和秘书共用 launch-tools.ts：
+// 项目的负责人在自己项目里发起任务的工具（规格第 8 节"项目内部任务"；守护进程代为执行，只在它的对话段里有）。
+// 发起的规矩和秘书一样（ADR 0019），发起的两个和秘书共用 launch-tools.ts：
 // - start_workflow / create_task：用户在这个项目的负责人会话里点明了要发起流程 / 长程任务才建（点明的判断和秘书共用一份）。
 //   建出的是项目内部任务：执行的就是这个负责人，只动这个项目，只在项目里看得到（不上全局看板，秘书看不到它的细节）；
 // - suggest_task：用户没点明、负责人觉得该做维护时，最多给一张建议卡（一轮一张），卡上"作为流程""作为长程任务"，用户点了才建出
 //   （tasks/cards.ts 的 suggestTaskCardType 认得卡上的 internal，通知交给负责人）；
-// - write_task_brief：和用户对齐之后负责人自己写任务书，运行时派一张起草计划的工单给它（16 号票的单项目任务那一套：
+// - write_task_brief：和用户对齐之后负责人自己写任务书，运行时派一张起草计划的工单给它（单项目任务那一套：
 //   这一段对话先收尾、写回，起草计划是新的一段）。
 // 名字和秘书的那几个一样（点明的说法、拒绝时交回的原因都通用），说明写的是项目内部任务。
-// @i18n-ignore-file model：工具说明、参数说明、工具结果都给负责人看，照旧中文；工具的中文名（title，界面上显示）跟着当前语言（172 号票）
+// @i18n-ignore-file model：工具说明、参数说明、工具结果都给负责人看，照旧中文；工具的中文名（title，界面上显示）跟着当前语言
 import { forModel, t, type TaskKind, TASK_KIND_LABEL, TaskBrief, Type } from "@ergo/protocol";
 import { defineHostTool, type HostTool } from "../agent-manager/host-tools.ts";
 import type { CardService } from "../cards/cards.ts";

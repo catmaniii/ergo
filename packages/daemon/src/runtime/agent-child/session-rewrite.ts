@@ -1,16 +1,16 @@
-// 彻底删除（规格第 14、15 节，21 号票）在会话文件这一侧：把 agent 会话文件（pi 的 JSONL）里对应的原话改写成删除标记。
+// 彻底删除（规格第 14、15 节）在会话文件这一侧：把 agent 会话文件（pi 的 JSONL）里对应的原话改写成删除标记。
 // 会话文件的形状是 pi 的，所以这段放在子进程这一层、用 pi 的类型做类型检查（ADR-0004、ADR-0008）；守护进程以一次性子进程
 // （rewrite-main.ts）的方式调用它。要改的：
 // - 用户消息：子进程在每条用户输入前记了一条自定义条目（SESSION_INPUT_TAG，带 inputId），紧跟着的那条用户消息就是它，
-//   内容整个换成删除标记（附件的内联内容、图片一起去掉）。21 号票之前的会话没有这个标签，找不到就不改；
+//   内容整个换成删除标记（附件的内联内容、图片一起去掉）。以前的会话没有这个标签，找不到就不改；
 // - 某几次工具调用（提议"记住"）：助手消息里这次调用的参数里的文字、这次调用的工具结果整个换成删除标记；
-// - 某个工具（素材检索）的结果里提到被删素材的那几行，换成"- <素材 id> · 删除标记"；问记忆（265 号票）的结果里提到被删素材的
+// - 某个工具（素材检索）的结果里提到被删素材的那几行，换成"- <素材 id> · 删除标记"；问记忆的结果里提到被删素材的
 //   证据编号的那几行同样换，连同这一条下面的续行（简报的一条记录分几行写：编号、原话、精炼）；编号、素材 id 按整段认；
-// - 某几类自定义消息（跟在用户输入后面的上下文消息，266 号票：每条消息的记忆简报按证据编号引原话）里提到被删证据编号的行，同上；
-// - 某几类自定义条目（范围审视结果的副本，18 号票）：数据里的文字全换成删除标记，结构不变；
+// - 某几类自定义消息（跟在用户输入后面的上下文消息：每条消息的记忆简报按证据编号引原话）里提到被删证据编号的行，同上；
+// - 某几类自定义条目（范围审视结果的副本）：数据里的文字全换成删除标记，结构不变；
 // - 压缩摘要、分支摘要：被改的条目落在某次压缩覆盖的范围里（在它保留的第一条之前），这段摘要整段换成 summaryMarker；
 //   分支摘要在被改的条目之后的，一样换掉（摘要是从原话生成的，只改原话不改摘要等于没删）；
-// - 换模型时的交接摘要（83 号票）：新会话开头那条（HANDOFF_SUMMARY_TYPE）是从原来的会话写的，原来的会话里有要改的条目时
+// - 换模型时的交接摘要：新会话开头那条（HANDOFF_SUMMARY_TYPE）是从原来的会话写的，原来的会话里有要改的条目时
 //   整段换成 summaryMarker，这个会话后来覆盖了它的压缩摘要也换掉；原来的会话自己又是换过来的、它开头的交接摘要被换掉了，
 //   从它再往后换的也一样（跨文件看，一层层往后推）。
 // 改写是幂等的：已经是删除标记的不再算"改了"。只改有变化的文件；先写临时文件再改名，并保留原来的修改时间
@@ -43,9 +43,9 @@ export function rewriteSessionDir(request: SessionRewriteRequest): SessionRewrit
     const rewritten = scanned.handoffFrom !== undefined && covered.has(scanned.handoffFrom) ? rewriteSessionText(text, request, { handoffCovered: true }) : scanned;
     if (rewritten.entries === 0 && rewritten.summaries === 0) continue;
     const stat = fs.statSync(file);
-    // 临时文件改名成会话文件（255 号票）：会话文件被占着（备份在复制、杀毒在扫，哪怕只是在读）时等一会儿重试——以前碰上一次就放弃，
+    // 临时文件改名成会话文件：会话文件被占着（备份在复制、杀毒在扫，哪怕只是在读）时等一会儿重试——以前碰上一次就放弃，
     // 要等下次守护进程启动才再改，这期间被删的原话还在会话文件里、重新拉起的 agent 照样看得到。一直占着就照旧抛错（调用方记日志、
-    // 下次启动再改），临时文件删掉不留。265 号票起和产品里别处写临时文件再改名的一起走 util/atomic-file.ts；
+    // 下次启动再改），临时文件删掉不留。和产品里别处写临时文件再改名的一起走 util/atomic-file.ts；
     // 这里在一次性子进程里同步做，阻塞等待只挡它自己
     writeFileAtomic(file, rewritten.text, { temp: `${file}.rewrite-${process.pid}.tmp` });
     fs.utimesSync(file, stat.atimeMs / 1000, stat.mtimeMs / 1000);
@@ -57,7 +57,7 @@ export function rewriteSessionDir(request: SessionRewriteRequest): SessionRewrit
 }
 
 /**
- * 有要改的内容的会话，连同从它们换过来的（83 号票：交接摘要从原来的会话写，再往后换的摘要又是从这段摘要写的，一层层往后推）
+ * 有要改的内容的会话，连同从它们换过来的（交接摘要从原来的会话写，再往后换的摘要又是从这段摘要写的，一层层往后推）
  */
 function coveredSessions(sessions: ReadonlyArray<{ name: string; targeted: boolean; from: string | undefined }>): Set<string> {
   const covered = new Set(sessions.filter((s) => s.targeted).map((s) => s.name));
@@ -74,7 +74,7 @@ function coveredSessions(sessions: ReadonlyArray<{ name: string; targeted: boole
 
 type Line = { raw: string; entry?: FileEntry };
 
-/** 改写一个会话文件的结果：改了几条条目、换掉了几段摘要；有没有要改的条目（已经改过的也算）、是从哪个会话换过来的（83 号票） */
+/** 改写一个会话文件的结果：改了几条条目、换掉了几段摘要；有没有要改的条目（已经改过的也算）、是从哪个会话换过来的 */
 export interface SessionTextRewrite {
   text: string;
   entries: number;
@@ -84,7 +84,7 @@ export interface SessionTextRewrite {
 }
 
 /**
- * 改写一个会话文件的内容（纯函数）。handoffCovered：开头的交接摘要（83 号票）是从有要改的内容的会话写的，整段换掉
+ * 改写一个会话文件的内容（纯函数）。handoffCovered：开头的交接摘要是从有要改的内容的会话写的，整段换掉
  * （要不要换得看原来的会话，由 rewriteSessionDir 跨文件判断）
  */
 export function rewriteSessionText(text: string, request: SessionRewriteRequest, options: { handoffCovered?: boolean } = {}): SessionTextRewrite {
@@ -109,7 +109,7 @@ export function rewriteSessionText(text: string, request: SessionRewriteRequest,
       handoffAt = index;
       return;
     }
-    // 266 号票：跟在用户输入后面的上下文消息（记忆简报）里引着被删证据的行
+    // 跟在用户输入后面的上下文消息（记忆简报）里引着被删证据的行
     if (entry.type === "custom_message") {
       const next = rewriteContextMessage(entry as CustomMessageEntry, request);
       if (next === undefined) return;
@@ -123,7 +123,7 @@ export function rewriteSessionText(text: string, request: SessionRewriteRequest,
     if (entry.type === "custom") {
       const custom = entry as CustomEntry;
       if (custom.customType === SESSION_INPUT_TAG) tagged = inputs.has(String((custom.data as { inputId?: unknown } | undefined)?.inputId));
-      // 范围审视结果的副本（18 号票）：数据里的文字全换掉（不进模型的上下文，不影响摘要）
+      // 范围审视结果的副本：数据里的文字全换掉（不进模型的上下文，不影响摘要）
       if (customTypes.has(custom.customType)) {
         const next = { ...custom, data: purgedStrings(custom.data, request.marker) };
         const raw = JSON.stringify(next);
@@ -145,7 +145,7 @@ export function rewriteSessionText(text: string, request: SessionRewriteRequest,
   });
 
   let summaries = 0;
-  // 交接摘要（83 号票）：原来的会话里有要改的内容，整段换掉（数据里从哪个会话换过来的留着，后面再换过来的据此判断）；
+  // 交接摘要：原来的会话里有要改的内容，整段换掉（数据里从哪个会话换过来的留着，后面再换过来的据此判断）；
   // 它也算被改的条目：这个会话后来压缩时的摘要是连它一起写的，覆盖了它的压缩摘要一样换掉
   if (options.handoffCovered && handoffAt !== undefined) {
     targeted.push(handoffAt);
@@ -217,14 +217,14 @@ function rewriteMessage(
   return undefined;
 }
 
-/** 272 号票：这段文字里有已经换成"- 字串 · 删除标记"的行（再换一遍不变，但这一条照样算被改的条目：摘要覆不覆盖按它判断，重跑时一样） */
+/** 这段文字里有已经换成"- 字串 · 删除标记"的行（再换一遍不变，但这一条照样算被改的条目：摘要覆不覆盖按它判断，重跑时一样） */
 function markedAlready(text: string, needles: readonly string[], marker: string): boolean {
   return text.split("\n").some((l) => needles.some((needle) => l === `- ${needle} · ${marker}`));
 }
 
 /**
- * 一条自定义消息（266 号票：跟在用户输入后面的上下文消息）要不要改、改成什么：按 contextLines 里它那一类的规矩换行
- * （272 号票起和工具结果同一个 util/mentions.ts 的 replaceMentionLines：换过的行不再吃后面的行）；
+ * 一条自定义消息（跟在用户输入后面的上下文消息）要不要改、改成什么：按 contextLines 里它那一类的规矩换行
+ * （和工具结果同一个 util/mentions.ts 的 replaceMentionLines：换过的行不再吃后面的行）；
  * 提到了被删字串的（已经换过的也算，摘要覆不覆盖按它判断）交回改后的样子，没提到的是 undefined
  */
 function rewriteContextMessage(entry: CustomMessageEntry, request: SessionRewriteRequest): CustomMessageEntry | undefined {

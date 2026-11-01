@@ -1,4 +1,4 @@
-// 会话滚到底（108 号票）：右下角"回到最新"的 ↓ 什么时候出、上面标什么；缩小后伸到最后一条下面的标注算进滚动范围多少。
+// 会话滚到底：右下角"回到最新"的 ↓ 什么时候出、上面标什么；缩小后伸到最后一条下面的标注算进滚动范围多少。
 // 滚到底就停（sizer 把伸出去的裁掉）靠真实排版，这里测不了：核对办法见 docs/architecture/README.md 的"会话的缩放和滚到底"。
 import { describe, expect, test } from "vitest";
 import { AT_LATEST_PX, afterScroll, atLatest, type ContentKind, jumpBadge, jumpToLatestShown, maxSeq, newSince, ZOOM_TAIL_GAP_PX, zoomedOutTail } from "../../src/state/index.ts";
@@ -109,7 +109,7 @@ describe("↓ 上标什么：离开底部之后新到的", () => {
     expect(jumpBadge(items, "e")).toBeUndefined();
   });
 
-  test("118 号票：附件挪到了这一轮文字的后面，按停在底部时手里最大的序号算——后来排到附件前面的话算新的，挪到后面的旧附件、早就在的话不算", () => {
+  test("附件挪到了这一轮文字的后面，按停在底部时手里最大的序号算——后来排到附件前面的话算新的，挪到后面的旧附件、早就在的话不算", () => {
     const later = [seqItem("u1", 1, "user"), seqItem("g", 3, "tool"), seqItem("r", 4), seqItem("att", 2)];
     expect(maxSeq(later)).toBe(4);
     // 停在底部时是 u1、att（附件是最后一条，最大的序号 2）；之后调了工具、写了文字，附件挪到文字后面

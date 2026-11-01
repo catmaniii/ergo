@@ -183,7 +183,7 @@ describe("确定性：不重复、可重建", () => {
 
   test("彻底删除改写过的事件（\"已删除\"标记）一律跳过，不产生素材，也不写原文副本", async () => {
     const t = materialsSetup();
-    // 素材模块停着时用户发了一条，还没采；21 号票的彻底删除把它改写成"已删除"标记
+    // 素材模块停着时用户发了一条，还没采；彻底删除把它改写成"已删除"标记
     await t.materials.stop();
     const { message, event } = postMessage(t.store, [text("这句要彻底删掉")]);
     const deleted: DeletedEventPayload = { deleted: true, deletedAt: "2026-10-09T10:00:00.000+08:00", messageId: message.id, messageTime: message.time };
@@ -208,15 +208,15 @@ describe("七类素材事件和回避信号", () => {
       memory_command: "say",
       task_outcome: "do",
       avoidance_signal: "do",
-      // 303 号票：数据源的三种
+      // 数据源的三种
       observed_behavior: "do",
       received_writing: "say",
       own_writing: "say",
     });
   });
 
-  test("其他票按采集接口把自己的事件类型登记为某类素材（替身：审批决定），用户接受 agent 的提议注明 agent 先提出", () => {
-    // 替身：07 号票的审批决定事件还没做，这里用一个测试里的事件类型（正式的会加进 EVENT_TYPES）
+  test("其他模块按采集接口把自己的事件类型登记为某类素材（替身：审批决定），用户接受 agent 的提议注明 agent 先提出", () => {
+    // 替身：审批决定事件还没做，这里用一个测试里的事件类型（正式的会加进 EVENT_TYPES）
     const approvalSource: MaterialSource = {
       name: "test-approval-decision",
       eventType: TEST_APPROVAL_DECIDED,

@@ -1,6 +1,6 @@
-// 视觉风格的对比度（39 号票）：风格清单里的每一套，在浅色、深色下，字和它底下的颜色要拉得开——正文 4.5:1，大字 3:1
+// 视觉风格的对比度：风格清单里的每一套，在浅色、深色下，字和它底下的颜色要拉得开——正文 4.5:1，大字 3:1
 // （WCAG 2 的算法）。按风格清单跑，以后加的风格自动算进来，经典也一样，没有例外。
-// 119 号票起风格可以带几种主色（经典的 8 种）：每种主色换上之后整张表再查一遍——主色当字用（链接、导航高亮）压在卡片上、
+// 风格可以带几种主色（经典的 8 种）：每种主色换上之后整张表再查一遍——主色当字用（链接、导航高亮）压在卡片上、
 // 主色块（主按钮）和你发的消息上的白字，都要 4.5:1。
 import { describe, expect, test } from "vitest";
 import { BASE_STYLE, effectiveTokens, resolveColor, type Theme, type TokenName, VISUAL_STYLES } from "../../src/visual-styles/index.ts";
@@ -25,9 +25,9 @@ const PAIRS: ReadonlyArray<readonly [fg: TokenName, bg: TokenName, where: string
   ["ok", "surface", "通过、完成的字", 4.5],
   ["data-fg", "data-bg", "数据小签", 4.5],
   ["op-fg", "op-bg", "命中关注类别的小签", 4.5],
-  ["op-fg", "surface", "运行部分完成（176 号票）、日历上错过和中断的字", 4.5],
+  ["op-fg", "surface", "运行部分完成、日历上错过和中断的字", 4.5],
   ["on-color", "danger-fill", "危险按钮上的字", 4.5],
-  ["name-fg", "name-bg", "个人助理的名字标签（43 号票）", 4.5],
+  ["name-fg", "name-bg", "个人助理的名字标签", 4.5],
 ];
 
 describe("对比度的算法", () => {

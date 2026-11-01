@@ -1,5 +1,5 @@
 // 恢复命令：从指定日期的快照恢复数据目录（规格第 18 节）。出事时先停掉二狗，再跑：
-//   ergo restore <日期 YYYY-MM-DD> [--from local|sync|<目录>]            一行命令、npm 装的（356 号票，ergo 命令用自带的 Node 跑这个文件）
+//   ergo restore <日期 YYYY-MM-DD> [--from local|sync|<目录>]            一行命令、npm 装的（ergo 命令用自带的 Node 跑这个文件）
 //   ergo restore --list
 //   <专用 Node 的绝对路径> packages/daemon/src/restore.ts <日期> ...      自己 git clone 的
 // 恢复完再把二狗起来（ergo start；git clone 的经服务管家起 ergo-daemon）。恢复命令自己不启停任何服务；守护进程还在运行时拒绝执行。

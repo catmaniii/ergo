@@ -1,4 +1,4 @@
-// 系统通知的统一出口（110 号票）：到点的提醒这类"马上告诉用户"的事，除了页面顶上的框，另外发一条系统通知——
+// 系统通知的统一出口：到点的提醒这类"马上告诉用户"的事，除了页面顶上的框，另外发一条系统通知——
 // 鸿蒙 App 里（新版 App，原生桥有通知这一组方法）交给 App 发到系统通知栏（native-notify.ts；App 在前台时 App 不发，顶上已经有了）；
 // 别的地方（浏览器、旧版 App）照旧弹浏览器通知（Notification，用户允许了才弹）。两条路二选一，调用方不用管走哪条：
 // 只给一条（id、标题、正文、点了去哪）。
@@ -7,7 +7,7 @@
 // - 点了通知：浏览器里把窗口拉到前面；App 里 App 自己到了前台、把这一条交回网页——都去那一项的地址，并告诉订阅的
 //   （顶上的框据此把这一条收起）。
 // 不碰浏览器的全局变量（页面上那一份在 page-notify.ts），测试在 Node 里用假的 Notification、假的原生桥。
-// 124 号票：每一条的结果交给 record（Debug 工具集的通知记录）：走哪条路、已发 / 前台不发 / 没授权 / 重复跳过 / 出错 /
+// 每一条的结果交给 record（Debug 工具集的通知记录）：走哪条路、已发 / 前台不发 / 没授权 / 重复跳过 / 出错 /
 // App 没回结果 / 浏览器不支持；Debug 工具集"前台也强制发"的经 show 的 force 交给 App。
 import { type NotifyOutcome, type NotifyRecord, type NotifyVia, nowIso, type PageAlert, t } from "../state/index.ts";
 import type { NativeNotifyShown } from "./native-notify.ts";
@@ -46,8 +46,8 @@ export function clipNotice(notice: SystemNotice): SystemNotice {
 
 /**
  * 顶上的通知（到点的提醒这些，守护进程的 notify 事件）对应的一条：点了去待办里那一项，没有对应事项的去待办列表
- * （同顶上框里的"查看"）；秘书新消息（109 号票，界面自己出的）去秘书会话里那一条（#/secretary/at/<那一条>）；
- * 名字占位（43 号票）换成名字本身（plain）
+ * （同顶上框里的"查看"）；秘书新消息（界面自己出的）去秘书会话里那一条（#/secretary/at/<那一条>）；
+ * 名字占位换成名字本身（plain）
  */
 export function alertNotice(alert: PageAlert, plain: (text: string) => string): SystemNotice {
   const route = alert.secretary ? toHash({ tab: "secretary", at: alert.secretary.at }) : toHash(alert.itemId ? { tab: "inbox", itemId: alert.itemId } : { tab: "inbox" });
@@ -71,7 +71,7 @@ export interface SystemNotifyEnv {
   focus(): void;
   /** 去这个页面地址 */
   go(route: string): void;
-  /** 每一条的结果记下来（124 号票：Debug 工具集的通知记录）；不给就不记 */
+  /** 每一条的结果记下来（Debug 工具集的通知记录）；不给就不记 */
   record?(entry: NotifyRecord): void;
   /** 记录上的时间；不给用现在 */
   now?(): string;
@@ -91,7 +91,7 @@ const QUIET_REPEATS: ReadonlySet<NotifyOutcome> = new Set(["duplicate", "denied"
 
 export function createSystemNotifier(env: SystemNotifyEnv): SystemNotifier {
   const sent = new Set<string>();
-  /** 每个 id 最近记的结果（124 号票：接连的重复跳过、没授权只记一次） */
+  /** 每个 id 最近记的结果（接连的重复跳过、没授权只记一次） */
   const recorded = new Map<string, NotifyOutcome>();
   const listeners = new Set<(id: string) => void>();
   const open = (id: string, route: string) => {

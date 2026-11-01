@@ -1,4 +1,4 @@
-// 鸿蒙 App 的原生内置浏览器（134 号票）在网页这一侧的接口。App 里的实现在 frontend/harmony/entry/src/main/ets/browser/
+// 鸿蒙 App 的原生内置浏览器在网页这一侧的接口。App 里的实现在 frontend/harmony/entry/src/main/ets/browser/
 // （另一个 ArkWeb 的 Web 组件，叠在二狗的网页上面、盖住"浏览"页签的内容区），经原生桥 ergoNative 的这一组方法调：
 // - browserAttach()：网页有"浏览"页签了（App 据此把主页面上点的外链改到这里打开，不再交给系统浏览器），回浏览器现在的样子（JSON）；
 // - browserLayout(json)：内容区在页面上的位置大小（CSS 像素和 devicePixelRatio）、要不要显示——App 照着把浏览器的 Web 摆到那里，
@@ -6,38 +6,38 @@
 // - browserLoad(url)：打开一个网址（只认 http、https）；browserNav(action)：后退、前进、刷新、停止、用系统浏览器打开现在这一页。
 // App 往网页推的（地址、标题、加载进度、能不能后退前进变了；主页面上点了外链、App 已经在浏览器里打开了，网页切到"浏览"）
 // 调网页登记的 window.__ergoBrowser(json)。
-// 这组方法都在才算有（新版 App）；没有（旧版 App、不在 App 里）时没有"浏览"页签，openInAppBrowser 照旧用 132 号票的嵌入框叠层，
+// 这组方法都在才算有（新版 App）；没有（旧版 App、不在 App 里）时没有"浏览"页签，openInAppBrowser 照旧用嵌入框叠层，
 // 外链照旧交给系统浏览器。App 回的东西形状不一定对：一律核对，不对就当没有，不抛错。
-// 134 号票第二部分（网页的框上的悬浮按钮）还有一组（NATIVE_PAGE_METHODS，都在才有 NativeBrowser.page）：
+// （网页的框上的悬浮按钮）还有一组（NATIVE_PAGE_METHODS，都在才有 NativeBrowser.page）：
 // - browserPage(op, argsJson)：调浏览器里网页上的页面桥（fields 列框、fill 填字、mark 按钮的样子、bubble 按钮旁边的气泡画成什么样），
 //   回页面桥回的 JSON；
 // - browserFileChunk(id, base64)：要交的文件一段一段写进 App 的缓存；browserFiles(json)：交进页面桥认出的框（塞进 input.files），
 //   或交给 App 拦下的选文件对话框（handleFileList）；browserChooser(choice)：拦下的对话框上用户选了"自己选"（system）或取消。
 // App 推过来的多三种：page（页面桥报的话：悬浮按钮挂在哪个框上、点了、长按说话、气泡上点了什么）、chooser（网页弹出选文件对话框、
-// App 拦下了）、bubble-close（146 号票：气泡开着时按了返回，App 先收起气泡）。
+// App 拦下了）、bubble-close（气泡开着时按了返回，App 先收起气泡）。
 // 页面桥报的话出自外部网页里的脚本（App 核对过口令），这里照样按形状核对，只信形状对的。
-// 147 号票（浏览侧边栏）：页面桥多报 selected（选中的框变了），气泡上多一个动作 sidebar（回话太长，去侧边栏看）；browserPage 多三个操作：selected 现问选中的框、
+// 浏览侧边栏：页面桥多报 selected（选中的框变了），气泡上多一个动作 sidebar（回话太长，去侧边栏看）；browserPage 多三个操作：selected 现问选中的框、
 // text 取整页文字、clearSelection 取消选中（App 的 PageControl.ets 的 PAGE_OPS 里也要有）。
-// 侧边栏由 App 画在原生网页上面（148 号票起宽屏挤压：浏览器经 browserLayout 报的是让出右边之后的那一块，两者不相叠）：browserSide(json) 报侧边栏摆在哪
+// 侧边栏由 App 画在原生网页上面（宽屏挤压：浏览器经 browserLayout 报的是让出右边之后的那一块，两者不相叠）：browserSide(json) 报侧边栏摆在哪
 // （CSS 像素和 devicePixelRatio）和交给侧边栏网页的样子（view，JSON 字符串，App 原样转给侧边栏的网页）；App 推过来的多一种
 // side（侧边栏上点了收起 close、× clearSelection、侧边栏里点了外部链接 link；toggle 留着备用）。有 browserSide 才有侧边栏（NativeBrowser.side）。
-// 149 号票：browserPage 多一个操作 pick（挑图片窗口画成什么样，App 的 PAGE_OPS 里也要有），页面桥多报 pick（窗口上点了什么），
+// browserPage 多一个操作 pick（挑图片窗口画成什么样，App 的 PAGE_OPS 里也要有），页面桥多报 pick（窗口上点了什么），
 // App 推过来的多一种 pick-close（窗口开着时按了返回）；页面桥报的框带着框里的内容（value）；原生桥多一个可选的
 // browserDiscard（放掉预备好了没用上的文件，新版 App 才有，NativePageControl.discard）。
-// 160 号票（能渲染的文件用二狗的渲染打开）：原生桥多一个可选的 browserDoc(op, id)（新版 App 才有，NativeBrowser.docs）——
+// 能渲染的文件用二狗的渲染打开：原生桥多一个可选的 browserDoc(op, id)（新版 App 才有，NativeBrowser.docs）——
 // enable 告诉 App 网页能渲染文件了（App 这才推 document、拦能渲染的下载）、source 取文件内容（页面上显示的字，或拦下的下载的字节 base64）、
 // save 下载（页面上的经浏览器重新下载一次、拦下的直接弹"保存到"）、outside 用系统浏览器打开、drop 放掉拦下的下载在 App 缓存里的那份；
 // App 推过来的多一种 document：浏览器里加载完一页（via page，带响应类型）、拦下了一个可能能渲染的下载（via download，带服务端给的文件名、大小）。
-// 164 号票（秘书看网页上能点的东西、按编号点）：browserPage 多两个操作 snapshot、click（App 的 PAGE_OPS 里也要有）。旧版 App 不认
+// 秘书看网页上能点的东西、按编号点：browserPage 多两个操作 snapshot、click（App 的 PAGE_OPS 里也要有）。旧版 App 不认
 // （PAGE_OPS 里没有，回空串）：再问一次 selected，页面桥在就是 App 太旧（NativePageControl.snapshot / click 回 "old"），不在就是页面桥不在。
-// 184 号票（按编号填字、交文件）：browserPage 多一个操作 refField（按编号找要填的文本框、要交的上传框，App 的 PAGE_OPS 里也要有；
+// 按编号填字、交文件：browserPage 多一个操作 refField（按编号找要填的文本框、要交的上传框，App 的 PAGE_OPS 里也要有；
 // 旧版 App 同样回 "old"）；看的结果里多文本框、上传框、下拉框的字段；交文件的目标多一种按编号的（先 refField 找到框、再交进它的框编号）。
-// 165 号票（"浏览"右上角 ⋮ 菜单）：原生桥多一个可选的 browserTool(op, json)（新版 App 才有，NativeBrowser.tools），都回 Promise<string>（JSON）——
+// "浏览"右上角 ⋮ 菜单：原生桥多一个可选的 browserTool(op, json)（新版 App 才有，NativeBrowser.tools），都回 Promise<string>（JSON）——
 // find 在页面里查找（ArkWeb 的 searchAllAsync）、findNext 上一个 / 下一个、findClear 清掉高亮、sites 按网站记住的文字大小和桌面版
 // （App 照着在每一页开始时设文字缩放、给这些网站换桌面版的浏览器标识）、share 系统分享面板、clear 清缓存 / Cookie 和网站数据、
 // downloads 列下载记录、openDownload 打开一个、removeDownloads 删记录（不删文件）、findBar 查找栏开没开（返回手势先收起它）；
 // App 推过来的多两种 find（查找结果：第几个、一共几个、数完了没有）、find-close（查找栏开着时按了返回，网页收起它）。
-// 359 号票（长按网页元素的圆钮）：页面桥多报 element、element-open、element-voice，气泡的发送可能带着元素；browserPage 多五个操作 elementInfo、elementPrepare、
+// 长按网页元素的圆钮：页面桥多报 element、element-open、element-voice，气泡的发送可能带着元素；browserPage 多五个操作 elementInfo、elementPrepare、
 // elementChunk、elementRect、elementShotDone（App 的 PAGE_OPS 里也要有）；browserTool 多几个操作（App 的 browser/ElementFiles）：elementFetch 带登录状态和来源页把一个
 // 地址取进 App 的缓存、elementShot 截一块网页、elementRead 分段读出来、elementWrite 分段写进去、elementSave 弹"保存到"并记进下载记录、elementDownload 下载一个地址、
 // elementDrop 放掉缓存里的那份。
@@ -50,29 +50,29 @@ import { PAGE_ELEMENT_OPTION_MAX, PAGE_ELEMENT_OPTIONS_MAX, PAGE_ELEMENT_ROLES, 
 
 /**
  * 侧边栏上点了什么（App 转回来的）：开合（备用）、"收起"、×、侧边栏里点了外部链接（窄屏收起让用户看网页）。
- * App 推过来的话的一种，属于原生桥的接口（212 号票从浏览插件的 browse-side.ts 挪到这里：核心不 import 插件）
+ * App 推过来的话的一种，属于原生桥的接口（从浏览插件的 browse-side.ts 挪到这里：核心不 import 插件）
  */
 export type SideAction = "toggle" | "close" | "clearSelection" | "link";
 
 /** 原生桥上浏览器这一组方法的名字（NativeBridge.ets 的 NATIVE_BRIDGE_METHODS 里也是这几个） */
 export const NATIVE_BROWSER_METHODS = ["browserAttach", "browserLayout", "browserLoad", "browserNav"] as const;
 
-/** 原生桥上页面桥这一组方法的名字（134 号票第二部分） */
+/** 原生桥上页面桥这一组方法的名字 */
 export const NATIVE_PAGE_METHODS = ["browserPage", "browserFileChunk", "browserFiles", "browserChooser"] as const;
 
-/** 原生桥上浏览侧边栏的方法（147 号票）：App 照着摆侧边栏和把手 */
+/** 原生桥上浏览侧边栏的方法：App 照着摆侧边栏和把手 */
 export const NATIVE_SIDE_METHOD = "browserSide";
 
-/** 原生桥上放掉预备好的文件的方法（149 号票，新版 App 才有） */
+/** 原生桥上放掉预备好的文件的方法（新版 App 才有） */
 export const NATIVE_DISCARD_METHOD = "browserDiscard";
 
-/** 原生桥上能渲染的文件那一个方法（160 号票，新版 App 才有）：browserDoc(op, id) */
+/** 原生桥上能渲染的文件那一个方法（新版 App 才有）：browserDoc(op, id) */
 export const NATIVE_DOC_METHOD = "browserDoc";
 
-/** 原生桥上 ⋮ 菜单用到的原生工具（165 号票，新版 App 才有）：browserTool(op, json) */
+/** 原生桥上 ⋮ 菜单用到的原生工具（新版 App 才有）：browserTool(op, json) */
 export const NATIVE_TOOL_METHOD = "browserTool";
 
-/** 一条下载记录（165 号票，App 记的：在浏览器里下载、存好了的文件）：名字、大小（字节）、存好的时间（毫秒）、存在哪（系统"保存到"给的地址）、类型 */
+/** 一条下载记录（App 记的：在浏览器里下载、存好了的文件）：名字、大小（字节）、存好的时间（毫秒）、存在哪（系统"保存到"给的地址）、类型 */
 export interface DownloadRecord {
   readonly id: string;
   readonly name: string;
@@ -89,7 +89,7 @@ export interface ClearOutcome {
   readonly reason?: string;
 }
 
-/** ⋮ 菜单用到的原生工具（165 号票，经 browserTool） */
+/** ⋮ 菜单用到的原生工具（经 browserTool） */
 export interface NativeToolControl {
   /** 在页面里查找（结果由 App 推 find）；空串等于清掉 */
   find(text: string): void;
@@ -111,11 +111,11 @@ export interface NativeToolControl {
   openDownload(id: string): Promise<PageOutcome>;
   /** 删下载记录（文件留着） */
   removeDownloads(ids: readonly string[]): Promise<PageOutcome>;
-  /** 长按元素的圆钮（359 号票）：取元素的内容、下载，放在 App 的缓存里 */
+  /** 长按元素的圆钮：取元素的内容、下载，放在 App 的缓存里 */
   readonly element: NativeElementFiles;
 }
 
-/** App 缓存里的一个元素文件（359 号票）：编号、名字、类型、大小 */
+/** App 缓存里的一个元素文件：编号、名字、类型、大小 */
 export interface AppElementFile {
   readonly id: string;
   readonly name: string;
@@ -124,12 +124,12 @@ export interface AppElementFile {
 }
 
 /**
- * App 没取成的原因（359 号票）：code 是 too-large 太大、http 服务端回了错误（status）、network 连不上、bad-url 地址不对、shot 截图不成、no-web 浏览器不在；
+ * App 没取成的原因：code 是 too-large 太大、http 服务端回了错误（status）、network 连不上、bad-url 地址不对、shot 截图不成、no-web 浏览器不在；
  * 不认识的操作（旧版 App）是 old。字由二狗的网页写
  */
 export type AppElementFailure = { readonly ok: false; readonly code: string; readonly status?: number };
 
-/** 取元素内容、下载这一组（359 号票，经 browserTool） */
+/** 取元素内容、下载这一组（经 browserTool） */
 export interface NativeElementFiles {
   /** 带登录状态和来源页把一个地址取进缓存，超过 maxBytes 不要 */
   fetch(url: string, maxBytes: number): Promise<({ ok: true } & AppElementFile) | AppElementFailure>;
@@ -148,7 +148,7 @@ export interface NativeElementFiles {
 }
 
 /**
- * App 报来的一个文件（160 号票）：浏览器里加载完的一页（via page，mime 是 document.contentType），或拦下的一个下载（via download，
+ * App 报来的一个文件：浏览器里加载完的一页（via page，mime 是 document.contentType），或拦下的一个下载（via download，
  * mime 是响应的类型，name 是服务端给的文件名，bytes 是大小）。编号 p…、d… 由 App 发，取内容、下载都凭它
  */
 export interface BrowserDoc {
@@ -160,7 +160,7 @@ export interface BrowserDoc {
   readonly bytes?: number;
 }
 
-/** 能渲染的文件这一组（160 号票，经 browserDoc） */
+/** 能渲染的文件这一组（经 browserDoc） */
 export interface NativeDocControl {
   /** 网页能渲染文件了：App 这才推 document、拦能渲染的下载（旧版网页不调，App 照旧） */
   enable(): void;
@@ -217,8 +217,8 @@ export interface ChooserRequest {
 
 /**
  * App 推过来的：state 浏览器的样子变了；open App 在浏览器里打开了一个链接（主页面上点的外链），网页切到"浏览"；
- * page 页面桥报的话；chooser 网页弹出选文件对话框、App 拦下了；bubble-close 气泡开着时按了返回（146 号票）；
- * pick-close 挑图片窗口开着时按了返回（149 号票）
+ * page 页面桥报的话；chooser 网页弹出选文件对话框、App 拦下了；bubble-close 气泡开着时按了返回；
+ * pick-close 挑图片窗口开着时按了返回
  */
 export type NativeBrowserEvent =
   | { type: "state"; state: BrowserState }
@@ -246,7 +246,7 @@ export interface StagedFile {
   readonly mime: string;
 }
 
-/** 整页文字（147 号票）：网页、文字、截没截、一共多少字 */
+/** 整页文字：网页、文字、截没截、一共多少字 */
 export interface PageText {
   readonly page: PageInfo;
   readonly text: string;
@@ -254,63 +254,63 @@ export interface PageText {
   readonly total: number;
 }
 
-/** 网页上能点的东西（164 号票）：网页、能点的（编号由页面桥给）、一共几个；页面桥说不成的是原因 */
+/** 网页上能点的东西：网页、能点的（编号由页面桥给）、一共几个；页面桥说不成的是原因 */
 export type PageSnapshot = { ok: true; page: PageInfo; elements: PageElement[]; total: number } | { ok: false; reason: string };
 
-/** 按编号点了（164 号票）：点了什么（种类、文字）、点完那一刻的网页；页面桥说不成的是原因（换了网页、元素不在了、字变了……） */
+/** 按编号点了：点了什么（种类、文字）、点完那一刻的网页；页面桥说不成的是原因（换了网页、元素不在了、字变了……） */
 export type PageClick = { ok: true; role: PageElementRole; text: string; page: PageInfo } | { ok: false; reason: string };
 
-/** 按编号找到的框（184 号票）：框的说法（id 是页面桥的框编号）、那一刻的网页；页面桥说不成的是原因（换了网页、种类不对……） */
+/** 按编号找到的框：框的说法（id 是页面桥的框编号）、那一刻的网页；页面桥说不成的是原因（换了网页、种类不对……） */
 export type PageRefField = { ok: true; page: PageInfo; field: PageField } | { ok: false; reason: string };
 
-/** 交文件交到哪（184 号票起多一种按编号的：url 是看的时候那一页的地址） */
+/** 交文件交到哪（多一种按编号的：url 是看的时候那一页的地址） */
 export type DeliverTarget = { fieldId: string } | { ref: string; url: string } | "chooser";
 
 /** 旧版 App 不认 snapshot、click（页面桥照样在） */
 export type AppTooOld = "old";
 
-/** 按编号找长按认出来的元素（359 号票）：元素的说法、那一刻的网页；换了网页、元素不在了是原因 */
+/** 按编号找长按认出来的元素：元素的说法、那一刻的网页；换了网页、元素不在了是原因 */
 export type PageElementInfo = { ok: true; page: PageInfo; element: PickedElement } | { ok: false; reason: string };
 
-/** 页面里读好的一段（359 号票）：还在读 ready 为假；读到了是 base64、类型、一共多少字节、读完没有 */
+/** 页面里读好的一段：还在读 ready 为假；读到了是 base64、类型、一共多少字节、读完没有 */
 export type PageElementChunk = { ok: true; ready: false } | { ok: true; ready: true; base64: string; mime: string; total: number; done: boolean } | { ok: false; reason: string };
 
-/** 要截图的元素在网页这一块上的位置（359 号票；物理像素）；partial 是只有一部分在屏幕上 */
+/** 要截图的元素在网页这一块上的位置（物理像素）；partial 是只有一部分在屏幕上 */
 export type PageElementRect = { ok: true; x: number; y: number; width: number; height: number; partial: boolean } | { ok: false; reason: string };
 
-/** 页面桥这一组（134 号票第二部分） */
+/** 页面桥这一组 */
 export interface NativePageControl {
   /** 页面上能填的框（页面桥现列）；页面桥不在是 undefined */
   fields(): Promise<{ page: PageInfo; fields: PageField[] } | undefined>;
   fill(fieldId: string, text: string): Promise<PageOutcome>;
   mark(fieldId: string, mark: PageBridgeMark): void;
-  /** 悬浮按钮旁边的气泡画成这个样子（146 号票）；页面桥不在、没画上是 false */
+  /** 悬浮按钮旁边的气泡画成这个样子；页面桥不在、没画上是 false */
   bubble(view: PageBubbleView): Promise<boolean>;
-  /** 挑图片窗口画成这个样子（149 号票）；页面桥不在、旧版 App 不认、没画上是 false */
+  /** 挑图片窗口画成这个样子；页面桥不在、旧版 App 不认、没画上是 false */
   pick(view: PagePickView): Promise<boolean>;
-  /** 页面桥自己的字换成当前语言的这几句（169 号票）；旧版 App 不认、页面桥不在就算了（页面桥照旧中文） */
+  /** 页面桥自己的字换成当前语言的这几句；旧版 App 不认、页面桥不在就算了（页面桥照旧中文） */
   texts?(texts: PageBridgeTexts): void;
   /** 把一个文件的字节交给 App（分段，每段 base64 后约 512 KB）；交不了是 false */
   putFile(id: string, bytes: Uint8Array): Promise<boolean>;
-  /** 交文件：交进页面桥认出的框，或交给拦下的选文件对话框；184 号票起也能按编号交（先找到上传框，找不到回原因） */
+  /** 交文件：交进页面桥认出的框，或交给拦下的选文件对话框；也能按编号交（先找到上传框，找不到回原因） */
   deliver(target: DeliverTarget, files: readonly StagedFile[]): Promise<PageOutcome>;
   /** 拦下的选文件对话框：自己选（系统的选择器）或取消 */
   chooser(choice: "system" | "cancel"): Promise<PageOutcome>;
-  /** 现在选中的框（147 号票）；页面桥不在是 undefined */
+  /** 现在选中的框；页面桥不在是 undefined */
   selected(): Promise<{ page: PageInfo; field: PageField | null } | undefined>;
-  /** 整页文字（147 号票）；页面桥不在是 undefined */
+  /** 整页文字；页面桥不在是 undefined */
   text(): Promise<PageText | undefined>;
-  /** 取消选中（147 号票） */
+  /** 取消选中 */
   clearSelection(): Promise<PageOutcome>;
-  /** 放掉交给 App 暂存、没用上的文件（149 号票：预备好的候选）；旧版 App 没有 */
+  /** 放掉交给 App 暂存、没用上的文件（预备好的候选）；旧版 App 没有 */
   discard?(ids: readonly string[]): void;
-  /** 网页上能点的东西（164 号票），最多 max 个；旧版 App 是 "old"，页面桥不在是 undefined */
+  /** 网页上能点的东西，最多 max 个；旧版 App 是 "old"，页面桥不在是 undefined */
   snapshot(max: number): Promise<PageSnapshot | AppTooOld | undefined>;
-  /** 按编号点（164 号票），url 是看的时候那一页的地址；旧版 App 是 "old"，页面桥不在是 undefined */
+  /** 按编号点，url 是看的时候那一页的地址；旧版 App 是 "old"，页面桥不在是 undefined */
   click(ref: string, url: string): Promise<PageClick | AppTooOld | undefined>;
-  /** 按编号找要填的文本框、要交的上传框（184 号票），url 同上；旧版 App 是 "old"，页面桥不在是 undefined */
+  /** 按编号找要填的文本框、要交的上传框，url 同上；旧版 App 是 "old"，页面桥不在是 undefined */
   refField(ref: string, url: string, want: "textbox" | "upload"): Promise<PageRefField | AppTooOld | undefined>;
-  /** 按编号找长按认出来的元素（359 号票），url 是那一页的地址；旧版 App 是 "old"，页面桥不在是 undefined */
+  /** 按编号找长按认出来的元素，url 是那一页的地址；旧版 App 是 "old"，页面桥不在是 undefined */
   elementInfo(id: string, url: string): Promise<PageElementInfo | AppTooOld | undefined>;
   /** blob:、data:、canvas 只有页面读得到：开始读；读不了是原因 */
   elementPrepare(id: string, url: string): Promise<PageOutcome>;
@@ -332,11 +332,11 @@ export interface NativeBrowser {
   subscribe(listener: (event: NativeBrowserEvent) => void): () => void;
   /** 页面桥这一组（新版 App 才有） */
   readonly page?: NativePageControl;
-  /** 浏览侧边栏（147 号票，新版 App 才有）：报侧边栏、把手摆在哪 */
+  /** 浏览侧边栏（新版 App 才有）：报侧边栏、把手摆在哪 */
   readonly side?: (report: SideReport) => void;
-  /** 能渲染的文件（160 号票，新版 App 才有） */
+  /** 能渲染的文件（新版 App 才有） */
   readonly docs?: NativeDocControl;
-  /** ⋮ 菜单用到的原生工具（165 号票，新版 App 才有） */
+  /** ⋮ 菜单用到的原生工具（新版 App 才有） */
   readonly tools?: NativeToolControl;
 }
 
@@ -380,7 +380,7 @@ const PAGE_FIELD_KINDS: readonly string[] = ["text", "textarea", "editable", "fi
 const FIELD_ID = /^f\d{1,6}$/;
 const text = (v: unknown, max: number): string | undefined => (typeof v === "string" ? v.slice(0, max) : undefined);
 
-/** 页面桥报的框（侧边栏模式那一页收 App 转过来的也用它）：形状不对的当没有；框里的内容（149 号票）截到 FIELD_VALUE_MAX 字 */
+/** 页面桥报的框（侧边栏模式那一页收 App 转过来的也用它）：形状不对的当没有；框里的内容截到 FIELD_VALUE_MAX 字 */
 export function parsePageField(value: unknown): PageField | undefined {
   if (!isObject(value) || typeof value.id !== "string" || !FIELD_ID.test(value.id) || typeof value.kind !== "string" || !PAGE_FIELD_KINDS.includes(value.kind)) return undefined;
   const placeholder = text(value.placeholder, 80);
@@ -414,12 +414,12 @@ function fieldsOf(value: unknown): PageField[] | undefined {
 
 const ELEMENT_REF = /^e\d{1,6}$/;
 
-/** 页面桥交来的一个能点的东西（164 号票）：编号、种类不对的丢掉；文字截到 200，地址只认 http(s)、截到 2000 */
+/** 页面桥交来的一个能点的东西：编号、种类不对的丢掉；文字截到 200，地址只认 http(s)、截到 2000 */
 function elementOf(value: unknown): PageElement | undefined {
   if (!isObject(value) || typeof value.ref !== "string" || !ELEMENT_REF.test(value.ref) || typeof value.text !== "string") return undefined;
   if (typeof value.role !== "string" || !(PAGE_ELEMENT_ROLES as readonly string[]).includes(value.role)) return undefined;
   const href = typeof value.href === "string" && /^https?:\/\//i.test(value.href) ? value.href.slice(0, 2000) : undefined;
-  // 184 号票：文本框、上传框、下拉框的字段（形状不对的不要）
+  // 文本框、上传框、下拉框的字段（形状不对的不要）
   const value40 = typeof value.valuePreview === "string" && value.valuePreview ? value.valuePreview.slice(0, PAGE_ELEMENT_VALUE_MAX) : undefined;
   const accept = typeof value.accept === "string" && value.accept ? value.accept.slice(0, 200) : undefined;
   const options = Array.isArray(value.options)
@@ -445,7 +445,7 @@ function elementOf(value: unknown): PageElement | undefined {
 
 const webUrl = (v: unknown): string | undefined => (typeof v === "string" && /^https?:\/\//i.test(v) && v.length <= PICKED_ELEMENT_URL_MAX ? v : undefined);
 
-/** 页面桥报的长按认出来的元素（359 号票）：编号、种类不对的丢掉；地址只认 http(s)，字截到上限 */
+/** 页面桥报的长按认出来的元素：编号、种类不对的丢掉；地址只认 http(s)，字截到上限 */
 export function pickedElementOf(value: unknown): PickedElement | undefined {
   if (!isObject(value) || typeof value.id !== "string" || !/^x[0-9]{1,6}$/.test(value.id)) return undefined;
   if (typeof value.kind !== "string" || !(PICKED_ELEMENT_KINDS as readonly string[]).includes(value.kind)) return undefined;
@@ -470,13 +470,13 @@ export function pickedElementOf(value: unknown): PickedElement | undefined {
   };
 }
 
-/** 页面桥说不成的原因（164 号票的看、点） */
+/** 页面桥说不成的原因（看、点） */
 const refusal = (reply: Json | undefined) => ({ ok: false as const, reason: typeof reply?.reason === "string" && reply.reason ? reply.reason.slice(0, 500) : "页面桥没回结果" }); // @i18n-ignore model：看、点网页的原因进秘书的网页工具结果（给模型看）
 
 /** 打的字最多多少（和协议的 PAGE_COMMAND_TEXT_MAX 一样；这里只按长度截，守护进程再核对） */
 const BUBBLE_TEXT_MAX = 2000;
 
-/** 气泡上点的（146 号票）：动作认得、带的字形状对才认；发送带着的框（149 号票）形状不对就不带 */
+/** 气泡上点的：动作认得、带的字形状对才认；发送带着的框形状不对就不带 */
 function bubbleActionOf(e: Json): PageBubbleAction | undefined {
   switch (e.action) {
     case "send": {
@@ -495,7 +495,7 @@ function bubbleActionOf(e: Json): PageBubbleAction | undefined {
   }
 }
 
-/** 挑图片窗口上点的（149 号票）：哪张卡、动作认得、带的取件码形状对才认 */
+/** 挑图片窗口上点的：哪张卡、动作认得、带的取件码形状对才认 */
 function pickActionOf(e: Json): PagePickAction | undefined {
   if (typeof e.id !== "string" || e.id === "" || e.id.length > 100) return undefined;
   const id = e.id;
@@ -562,7 +562,7 @@ export function parsePageEvent(json: unknown): PageBridgeEvent | undefined {
 
 const DOC_ID = /^[pd]\d{1,9}$/;
 
-/** App 报来的文件（160 号票）：形状不对的当没有 */
+/** App 报来的文件：形状不对的当没有 */
 function docOf(value: unknown): BrowserDoc | undefined {
   if (!isObject(value) || typeof value.id !== "string" || !DOC_ID.test(value.id) || typeof value.url !== "string" || !/^https?:\/\//i.test(value.url)) return undefined;
   if (value.via !== "page" && value.via !== "download") return undefined;
@@ -649,7 +649,7 @@ export function wrapNativeBrowser(bridge: BridgeObject, scope: NativeBrowserScop
   };
 }
 
-/** 能渲染的文件这一组的包装（160 号票）：都经 browserDoc(op, id)，App 回 Promise<string>；出错、回的不是字符串当空串 */
+/** 能渲染的文件这一组的包装：都经 browserDoc(op, id)，App 回 Promise<string>；出错、回的不是字符串当空串 */
 function wrapDocControl(bridge: BridgeObject): NativeDocControl {
   const ask = async (op: string, id: string): Promise<string> => {
     try {
@@ -677,7 +677,7 @@ function downloadOf(value: unknown): DownloadRecord | undefined {
   return { id, name: name.slice(0, 255), size: Math.max(0, Math.round(size)), time, uri: uri.slice(0, 4096), mime: typeof mime === "string" ? mime.slice(0, 200) : "" };
 }
 
-/** ⋮ 菜单用到的原生工具的包装（165 号票）：都经 browserTool(op, json)，App 回 Promise<string>；出错、回的不对当失败 */
+/** ⋮ 菜单用到的原生工具的包装：都经 browserTool(op, json)，App 回 Promise<string>；出错、回的不对当失败 */
 function wrapToolControl(bridge: BridgeObject): NativeToolControl {
   const ask = async (op: string, args: unknown): Promise<string> => {
     try {
@@ -765,7 +765,7 @@ function outcomeOf(json: unknown): PageOutcome {
   return { ok: o.ok, ...(typeof o.count === "number" ? { count: o.count } : {}), ...(typeof o.reason === "string" && o.reason ? { reason: o.reason } : {}) };
 }
 
-/** 页面桥这一组的包装：App 都回 Promise<string>，回的不对一律当失败；canDiscard：App 有放掉预备文件的方法（149 号票） */
+/** 页面桥这一组的包装：App 都回 Promise<string>，回的不对一律当失败；canDiscard：App 有放掉预备文件的方法 */
 function wrapPageControl(bridge: BridgeObject, canDiscard: boolean): NativePageControl {
   const ask = async (method: string, ...args: string[]): Promise<string> => {
     try {
@@ -775,7 +775,7 @@ function wrapPageControl(bridge: BridgeObject, canDiscard: boolean): NativePageC
       return "";
     }
   };
-  /** 现在选中的框（147 号票）；回的不对是 undefined */
+  /** 现在选中的框；回的不对是 undefined */
   const selected = async (): Promise<{ page: PageInfo; field: PageField | null } | undefined> => {
     const reply = parse(await ask("browserPage", "selected", "[]"));
     const page = pageInfoOf(reply?.page);
@@ -784,9 +784,9 @@ function wrapPageControl(bridge: BridgeObject, canDiscard: boolean): NativePageC
     const field = fieldOf(reply.field);
     return field ? { page, field } : undefined;
   };
-  /** 页面桥的新操作回空串（164 号票）：页面桥照样在（selected 回得出来）是旧版 App 不认这个操作，不在就是页面桥不在 */
+  /** 页面桥的新操作回空串：页面桥照样在（selected 回得出来）是旧版 App 不认这个操作，不在就是页面桥不在 */
   const tooOld = async (): Promise<AppTooOld | undefined> => ((await selected()) ? "old" : undefined);
-  /** 按编号找框（184 号票） */
+  /** 按编号找框 */
   const refField = async (ref: string, url: string, want: "textbox" | "upload"): Promise<PageRefField | AppTooOld | undefined> => {
     const raw = await ask("browserPage", "refField", JSON.stringify([ref, url, want]));
     if (raw === "") return tooOld();
@@ -843,7 +843,7 @@ function wrapPageControl(bridge: BridgeObject, canDiscard: boolean): NativePageC
     },
     async deliver(target, files) {
       if (target === "chooser" || !("ref" in target)) return deliverTo(target, files);
-      // 按编号交（184 号票）：交之前再找一次框（还是那一页、编号认得、还是上传框），交进它的框编号
+      // 按编号交：交之前再找一次框（还是那一页、编号认得、还是上传框），交进它的框编号
       const found = await refField(target.ref, target.url, "upload");
       if (found === "old") return { ok: false, reason: t("app.nativeBrowser.refTooOld") };
       if (!found) return { ok: false, reason: t("app.nativeBrowser.bridgeGone") };

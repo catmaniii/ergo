@@ -1,23 +1,22 @@
-// 个人档案（281 号票）：用户本人和档案里的人各一份，内核的数据（停用记忆插件也在）。
-// 285 号票起它在哪：记忆插件在用时是记忆页里的"档案"一栏（#/more/memory/files[/<编号>]，plugins/memory/MemoryPage.tsx）；记忆插件停用时
+// 个人档案：用户本人和档案里的人各一份，内核的数据（停用记忆插件也在）。
+// 它在哪：记忆插件在用时是记忆页里的"档案"一栏（#/more/memory/files[/<编号>]，plugins/memory/MemoryPage.tsx）；记忆插件停用时
 // 是"更多"里的个人档案（#/more/files[/<编号>]，pages/MorePage.tsx）。两处都画 PersonalFilesColumn（标题栏、"加一个人"、列表或一份档案）。
 // 设置 · 身份（"我的名字"下面）一个链接，去这两处里在的那一处。
-// - 列表（285 号票）：分四组——我（本人那份，一直在）、家人、重要的人、其他人（state/personal-files.ts 的 personalFileGroups），
+// - 列表：分四组——我（本人那份，一直在）、家人、重要的人、其他人（state/personal-files.ts 的 personalFileGroups），
 //   组名后写几个人，空的组写"还没有"；标题栏上"加一个人"，就地填称呼、关系、分组（不选按关系猜）；
 // - 一份档案三块：固定信息（每个字段一行：现在的值、出处——哪天起、怎么写进来的、原话；以前的值点开看；"改"就地改，改了就算确认；
 //   改的时候能撤销最近一次写入、删这个字段）、记下的事（日期、原文、出处；记一件、删一件）、二狗了解到的；
 //   号码类按组分开写（身份证号 6 · 8 · 4、手机号 3 · 4 · 4），等宽字；
-// - 283 号票：生日、纪念日字段下面一个"每年提前几天提醒"的勾（勾上、改天数、取消都当场生效；农历、提醒插件没启用写明）；
-// - 302 号票：内置字段"纪念日"能有几个、各带名字：一个都没有时列一个空的"纪念日"（"填写"就地填名字和日子），有了排在生日后面，
+// -生日、纪念日字段下面一个"每年提前几天提醒"的勾（勾上、改天数、取消都当场生效；农历、提醒插件没启用写明）；
+// -内置字段"纪念日"能有几个、各带名字：一个都没有时列一个空的"纪念日"（"填写"就地填名字和日子），有了排在生日后面，
 //   最后一个下面"再加一个纪念日"；
 //   "二狗了解到的"经记忆插件现取（GET /api/personal-files/<编号>/learned）：统一记忆里和这个人有关的结论、事实、原话，只读；
 //   记忆插件没启用、推理库还没建好时写一句原因，不报错；
 // - 删：忘掉（档案里没有了，原话还在）或彻底删除（连同核对卡、读过它的记录一起抹掉，收不回），彻底删除时可以勾"出处的原话也一起删"
 //   （照删素材的规矩问你）；本人那份删不掉，删一个人连他的整份档案；
 // - 本人的姓名就是设置 · 身份里的"我的名字"：这里改了那里跟着变，反过来也是（没有历史）。
-// - 285 号票：一份档案的头上（名字、关系旁边）一个"分组"的下拉，改了当场生效；没选过的写"按关系猜的，可以改"。
+// -一份档案的头上（名字、关系旁边）一个"分组"的下拉，改了当场生效；没选过的写"按关系猜的，可以改"。
 // 档案经 HTTP 现取（不走事件）；每次改完用接口回的那份。版式照现有设计体系（分节、行、按钮、Sheet 确认框都是现成的类），
-// 入口位置和版式要用户定（票的 Comments）。
 import { type FormEvent, Fragment, useCallback, useEffect, useState } from "react";
 import { useStore } from "../../app/store.tsx";
 import {
@@ -65,7 +64,7 @@ const NEW_FIELD = "+new";
 const NEW_ANNIVERSARY = "+anniversary";
 
 /**
- * 档案的一栏（285 号票）：标题栏（列表上有"加一个人"）和一整块滚动区，里面是列表或者点开的一个人。记忆 · 档案和"更多"里的个人档案都画它；
+ * 档案的一栏：标题栏（列表上有"加一个人"）和一整块滚动区，里面是列表或者点开的一个人。记忆 · 档案和"更多"里的个人档案都画它；
  * onBack 是标题栏的 ‹（宽屏的列表没有）
  */
 export function PersonalFilesColumn({
@@ -98,7 +97,7 @@ export function PersonalFilesColumn({
   );
 }
 
-/** 列表（285 号票）：我、家人、重要的人、其他人四组；正在加人时最上面是就地填的表 */
+/** 列表：我、家人、重要的人、其他人四组；正在加人时最上面是就地填的表 */
 function FilesList({ onOpen, adding, onAdding }: { onOpen(personId: string): void; adding: boolean; onAdding(adding: boolean): void }) {
   const { http } = useStore();
   const [view, setView] = useState<PersonalFilesView>();
@@ -190,7 +189,7 @@ function FileRow({ name, sub, onOpen }: { name: string; sub: string; onOpen(): v
   );
 }
 
-/** 就地加一个人：称呼（必填）、关系、分组（285：不选按关系猜） */
+/** 就地加一个人：称呼（必填）、关系、分组（不选按关系猜） */
 function AddPersonForm({ onCancel, onAdded }: { onCancel(): void; onAdded(file: PersonalFileView): void }) {
   const { http } = useStore();
   const [name, setName] = useState("");
@@ -396,7 +395,7 @@ function FileDetail({ personId, onRemoved }: { personId: string; onRemoved(): vo
   );
 }
 
-/** 生日、纪念日的每年提醒（283 号票）：勾上、改天数、取消当场生效；认不出日子、提醒插件没启用时写明 */
+/** 生日、纪念日的每年提醒：勾上、改天数、取消当场生效；认不出日子、提醒插件没启用时写明 */
 function AnnualRow({
   file,
   field,
@@ -431,7 +430,7 @@ function AnnualRow({
   );
 }
 
-/** 二狗了解到的（283 号票）：经记忆插件现取，只读；没启用、没建好写原因 */
+/** 二狗了解到的：经记忆插件现取，只读；没启用、没建好写原因 */
 function LearnedBlock({ personId }: { personId: string }) {
   const { http } = useStore();
   const [view, setView] = useState<PersonalFileLearnedView>();
@@ -642,7 +641,7 @@ function FieldEditor({
 }
 
 /**
- * 加一个自定义字段：名字和值。302：anniversary 是加一个纪念日——名字（"结婚纪念日"，不填就叫"纪念日"）和日子，
+ * 加一个自定义字段：名字和值。anniversary 是加一个纪念日——名字（"结婚纪念日"，不填就叫"纪念日"）和日子，
  * 写进内置的"纪念日"（"anniversary:<名字>"），认得出公历日子的保存后能开每年提醒
  */
 function NewFieldRow({ file, apply, onDone, anniversary = false }: { file: PersonalFileView; apply(request: Promise<PersonalFileView>): Promise<boolean>; onDone(): void; anniversary?: boolean }) {

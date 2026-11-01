@@ -1,4 +1,4 @@
-// 内置浏览器（132 号票，app/in-app-browser.ts）：打开（地址写进 hash 路由，外部网站照旧新窗口）、关掉（×、Esc——框里有焦点时也认——直接关，
+// 内置浏览器（app/in-app-browser.ts）：打开（地址写进 hash 路由，外部网站照旧新窗口）、关掉（×、Esc——框里有焦点时也认——直接关，
 // 鸿蒙的返回手势和 ‹ 一致：框里能后退先退一页、退不了才关；都回到盖住之前的那一页；框里点过链接时有 Navigation API 直接回到打开之前那一条记录）、
 // 顶栏的后退 / 刷新 / 新窗口打开、
 // 标题和地址跟着框里的页面走。页面的 window、框、返回栈换成假的（浏览器的历史：一串记录加当前位置，框里的导航也压记录）。
@@ -99,7 +99,7 @@ function fakePage(start: string, options: { withNavigation?: boolean } = {}) {
   };
 }
 
-/** 假的框：地址、标题、响应类型读得到（cross 为真时像跨源一样读了抛错），后退、刷新记下来；框里那一页的点击监听（160 号票）也记着 */
+/** 假的框：地址、标题、响应类型读得到（cross 为真时像跨源一样读了抛错），后退、刷新记下来；框里那一页的点击监听也记着 */
 function fakeFrame(src: string) {
   const keys = keyTarget();
   const clicks = new Set<(e: LinkClick) => void>();
@@ -224,7 +224,7 @@ describe("打开", () => {
     expect(p.here()).toBe("#/secretary");
   });
 
-  test("鸿蒙 App 里（134 号票，有原生的内置浏览器）：转发的地址、外部网站都交给它，不压内置浏览器的记录、不新开窗口", () => {
+  test("鸿蒙 App 里（有原生的内置浏览器）：转发的地址、外部网站都交给它，不压内置浏览器的记录、不新开窗口", () => {
     const p = fakePage("#/projects");
     const native: string[] = [];
     const nativeOpen = (url: string) => {
@@ -437,7 +437,7 @@ describe("顶栏和框里的页面", () => {
   });
 });
 
-// ───────────────────────── 160 号票：能渲染的文件用二狗的渲染打开 ─────────────────────────
+// ─────────────────────────能渲染的文件用二狗的渲染打开 ─────────────────────────
 
 /** 框里页面上的一个链接（点到的元素往上找到它）：href 是浏览器给的完整地址 */
 function linkTo(href: string, attrs: string[] = []) {
@@ -453,7 +453,7 @@ function openLoaded(from: string, url: string) {
   return b;
 }
 
-describe("能渲染的文件（160 号票）", () => {
+describe("能渲染的文件", () => {
   test("框里点同一个服务里能渲染的文件链接：拦下来（框不跳过去、不下载），盖一层渲染；地址换成文件的（刷新还在）；标题是文件名，‹ 亮着", () => {
     const b = openLoaded("#/projects", "/apps/notes/");
     expect(b.frame.clickListeners).toBe(1);

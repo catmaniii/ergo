@@ -1,10 +1,10 @@
-// @i18n-ignore-file model：看板变化的消息只给秘书（模型）看（174 号票）
-// 秘书的看板感知（规格第 7 节"看板变化消息"，22 号票）：秘书掌握任务靠看板，不靠对话记忆。
+// @i18n-ignore-file model：看板变化的消息只给秘书（模型）看
+// 秘书的看板感知（规格第 7 节"看板变化消息"）：秘书掌握任务靠看板，不靠对话记忆。
 // - 现在的看板：看板种类表（kinds.ts）里各种东西的派生视图（和看板频道推给前端的是同一批事件归并出来的）；
 // - "上次看到的样子"：上一条交到秘书手里的用户消息开始处理（turn_start）那一刻的看板。交给秘书下一条用户消息时，
 //   两者有差别（新出现的、状态变了的、换了阶段的）就写成一条"看板变化"上下文消息，跟在这条用户消息后面
 //   （宿主协议的 user_input.context），系统提示不动；没变就不加。运行时给秘书的通知（系统消息）不带，变化攒到下一条用户消息
-//   （任务做完另有马上给的通知，secretary/task-done.ts，99 号票；做完的那一行下一条用户消息时照旧再报一次）；
+//   （任务做完另有马上给的通知，secretary/task-done.ts，做完的那一行下一条用户消息时照旧再报一次）；
 // - 重启后、秘书子进程崩溃后对一遍（resync）：从事件日志找最后一条处理完的用户消息的 turn_start，把那之前的看板事件
 //   归并成"上次看到的样子"（处理到一半被打断的那条没交到秘书手里，它带的变化下次再说）。被打断的那条可能已经连同
 //   看板变化进了秘书的会话文件，这时下一条会把同样的变化再报一次：宁可重报，不能丢。
@@ -31,7 +31,7 @@ export function boardChangeText(lines: readonly string[]): string {
   return [`${BOARD_CHANGE_TAG}自你上次收到用户的消息以来，任务看板上有这些变化（运行时附上的，不是用户说的；要看全貌用 ${VIEW_BOARD_TOOL}）：`, ...lines].join("\n");
 }
 
-/** kinds：看板上有哪几种（登记表，现取；126 号票：停用的插件那一种不在，它的事件不算看板变化） */
+/** kinds：看板上有哪几种（登记表，现取；停用的插件那一种不在，它的事件不算看板变化） */
 export function createBoardWatch(options: { store: EventStore; conversation: ConversationId; kinds: BoardKinds }): BoardWatch {
   const { store, conversation, kinds } = options;
   let seen: BoardSnapshot = new Map();

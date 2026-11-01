@@ -1,6 +1,6 @@
-// 设置里的"备份"（335 号票）：同步目录、最近一次（谁做的、成没成）、下一次什么时候（或者交给了外部定时器）、
-// 现在有没有一份在做，"立即备份"做完怎么说。纯函数，界面（pages/more/BackupPage.tsx，356 号票起单独一页）只管画：能不能点看 canRun，要不要接着取看 busy。
-// 356 号票多了最近一次校验怎么说、一处快照的日期和大小。
+// 设置里的"备份"：同步目录、最近一次（谁做的、成没成）、下一次什么时候（或者交给了外部定时器）、
+// 现在有没有一份在做，"立即备份"做完怎么说。纯函数，界面（pages/more/BackupPage.tsx，单独一页）只管画：能不能点看 canRun，要不要接着取看 busy。
+// 多了最近一次校验怎么说、一处快照的日期和大小。
 import { sizeLabel } from "./detail-content.ts";
 import { type BackupRunRecord, type BackupSnapshotPlace, type BackupStatusView, type BackupVerifyCheck, t } from "./protocol.ts";
 

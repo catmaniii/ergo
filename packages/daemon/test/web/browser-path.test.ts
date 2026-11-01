@@ -1,4 +1,4 @@
-// 用哪个浏览器（70 号票，用户显式写了二狗的配置 web.browserPath 时它排最前）：测试里全是临时目录里的假路径，
+// 用哪个浏览器（用户显式写了二狗的配置 web.browserPath 时它排最前）：测试里全是临时目录里的假路径，
 // 假的 chrome.exe 只有一段 PE 文件头（签没签名由签名表那一项决定），不碰本机装的浏览器。
 import fs from "node:fs";
 import path from "node:path";

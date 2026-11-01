@@ -1,4 +1,4 @@
-// 项目的服务首页的缩略图（140 号票）：守护进程自己用无头浏览器（web/browser.ts）给运营中的、有网页的服务截首页，项目卡、项目页的
+// 项目的服务首页的缩略图：守护进程自己用无头浏览器（web/browser.ts）给运营中的、有网页的服务截首页，项目卡、项目页的
 // "运营概况"上显示，点了和入口一样在内置浏览器里打开。截图是守护进程做的，不是 agent 做的（不经守卫）。
 // - 怎么截（captureServiceHome）：打开经二狗转发的本机地址 http://127.0.0.1:<本机端口>/apps/<应用名>/<首页>（相对地址都对），
 //   1280×800 排版、0.5 倍出图，存成 640×400 的 JPEG；页面没有响应、状态码 ≥ 400（服务不在线时转发给的说明页）、超时的算没截成；
@@ -154,7 +154,7 @@ export function createServiceThumbnails(options: ServiceThumbnailsOptions): Serv
       // 停了、项目删掉了（forgetProject 中止了它）：不写
       if (stopped || entry.forgotten) return;
       if (jpeg.length === 0) throw new Error("截出来是空的"); // @i18n-ignore log：截不成的原因只进日志
-      // 先写临时文件再改名；上一张正被人取着（开着）时改名等一会儿重试（265 号票）。同步写：写之前查过的"停了、项目删掉了"写完之前不会变
+      // 先写临时文件再改名；上一张正被人取着（开着）时改名等一会儿重试。同步写：写之前查过的"停了、项目删掉了"写完之前不会变
       writeFileAtomic(jpg(app), jpeg);
       const meta: Meta = { takenAt: clockIso(clock) };
       fs.writeFileSync(json(app), JSON.stringify(meta));

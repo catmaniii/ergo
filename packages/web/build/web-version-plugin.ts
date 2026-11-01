@@ -1,4 +1,4 @@
-// 页面是哪一版（116 号票）：构建时算出构建产物内容的哈希，写进 index.html <head> 开头的 <meta name="ergo-web-version">
+// 页面是哪一版：构建时算出构建产物内容的哈希，写进 index.html <head> 开头的 <meta name="ergo-web-version">
 // （写法在协议包的 web-version.ts）。守护进程从它提供的 index.html 里取出来告诉开着的页面（gateway/web-version.ts），
 // 页面读自己的（src/app/web-version.ts），对不上就提示刷新。
 // 哈希的是产物里的全部文件（按文件名排好，名字和内容一起算），和插件的先后无关：vite-plugin-singlefile 内联之后只剩 index.html，

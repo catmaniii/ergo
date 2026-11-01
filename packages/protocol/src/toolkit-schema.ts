@@ -1,8 +1,8 @@
-// 工具包、skill 库和 MCP 登记的 schema（规格第 20、21 节，27 号票），用 TypeBox 定义，守护进程和 Web 共用生成的类型：
+// 工具包、skill 库和 MCP 登记的 schema（规格第 20、21 节），用 TypeBox 定义，守护进程和 Web 共用生成的类型：
 // - 工具包里能选的东西（ToolkitCatalog，设置里的 skill 库页、项目页和任务详情的工具包区用）：skill 库里的 skill（框架自带的、
 //   用户导入的）和配置区里登记的 MCP（每个工具的中文名、要不要联网、能不能当秘书的快速动作）。走 HTTP（GET）；
-// - 导入 skill（POST）：把一个含 SKILL.md 的目录复制一份进数据目录的 skill 区；可以导入并改名，也可以把一个目录作为一个集合整套导入（72 号票）；
-// - 秘书用的 skill（72 号票，GET 看、POST 改）：秘书也能用 skill 库里的 skill，默认装 agent-browser、yt-dlp，设置里的 skill 库页勾选；
+// - 导入 skill（POST）：把一个含 SKILL.md 的目录复制一份进数据目录的 skill 区；可以导入并改名，也可以把一个目录作为一个集合整套导入；
+// - 秘书用的 skill（GET 看、POST 改）：秘书也能用 skill 库里的 skill，默认装 agent-browser、yt-dlp，设置里的 skill 库页勾选；
 // - 用户在项目页或任务详情里直接改工具包（set_toolkit 请求）：扩大、减少都直接写进工具包，不出计划变更卡；
 // - "工具包变更"卡（toolkit_change）：项目负责人不在任务里时要开 bash、加 MCP、开联网，提交它进待我处理，用户批准或拒绝。
 // 名字和纯函数在 toolkit.ts。
@@ -11,7 +11,7 @@ import { PlanToolkit } from "./task-schema.ts";
 
 /**
  * skill 库里的一个 skill：名字（SKILL.md 的 name）、说明、来源（框架自带的、你导入的）；
- * 整套导入的带上它属于哪个集合（72 号票）。集合里的每个 skill 仍是库里独立的名字，工具包里写的是 skill 名
+ * 整套导入的带上它属于哪个集合。集合里的每个 skill 仍是库里独立的名字，工具包里写的是 skill 名
  */
 export const SkillEntry = Type.Object({
   name: Type.String(),
@@ -19,7 +19,7 @@ export const SkillEntry = Type.Object({
   origin: Type.Union([Type.Literal("framework"), Type.Literal("imported")]),
   /** 属于哪个集合（集合名）；单个导入的、框架自带的没有 */
   collection: Type.Optional(Type.String()),
-  /** 负责人提交的（358 号票）：谁提的；用户自己导入的、框架自带的没有 */
+  /** 负责人提交的：谁提的；用户自己导入的、框架自带的没有 */
   submittedBy: Type.Optional(
     Type.Object({
       kind: Type.Union([Type.Literal("project"), Type.Literal("task")]),
@@ -32,7 +32,7 @@ export const SkillEntry = Type.Object({
 export type SkillEntry = Static<typeof SkillEntry>;
 
 /**
- * skill 库里的一个集合（72 号票）：一个目录整套导入的一批 skill（比如 matt-pocock、pstack），界面上显示成一项，
+ * skill 库里的一个集合：一个目录整套导入的一批 skill（比如 matt-pocock、pstack），界面上显示成一项，
  * 点进去才列出成员；工具包、秘书的 skill 选择里可以整套选，也可以单选其中几个
  */
 export const SkillCollectionEntry = Type.Object({
@@ -75,13 +75,13 @@ export type McpServerEntry = Static<typeof McpServerEntry>;
 /** 工具包里能选的东西：skill 库（集合的成员也在 skills 里，带着集合名）、集合和登记的 MCP（GET HTTP_PATHS.toolkitCatalog 的响应） */
 export const ToolkitCatalog = Type.Object({
   skills: Type.Array(SkillEntry),
-  /** 整套导入的集合（72 号票） */
+  /** 整套导入的集合 */
   collections: Type.Array(SkillCollectionEntry),
   mcp: Type.Array(McpServerEntry),
   /** MCP 登记文件读不了、写错了时的说明（这时 mcp 是空的） */
   mcpProblem: Type.Optional(Type.String()),
   /**
-   * skill 目录名的问题（82 号票）：斜杠命令就是目录名，目录名要是小写、不带空格的写法；不合的（手放进 skill 区的、更早导入的）
+   * skill 目录名的问题：斜杠命令就是目录名，目录名要是小写、不带空格的写法；不合的（手放进 skill 区的、更早导入的）
    * 二狗不自动改名，在这里一条一条说明，skill 库页上提示
    */
   skillDirProblems: Type.Optional(Type.Array(Type.String())),
@@ -89,16 +89,16 @@ export const ToolkitCatalog = Type.Object({
 export type ToolkitCatalog = Static<typeof ToolkitCatalog>;
 
 /**
- * 输入框里打 / 弹出的候选（82 号票）：二狗自己的命令（/workflow、/task……，310 号票起一律英文）和这个会话能用的 skill。
+ * 输入框里打 / 弹出的候选：二狗自己的命令（/workflow、/task……，一律英文）和这个会话能用的 skill。
  * skill 的命令名就是它的目录名（/poteto-mode），几个 skill 目录名相同时集合里的写成"集合名:目录名"；
  * 和二狗自己的命令同名的 skill 要写 /skill:目录名。
- * 289 号票：负责人用的运行时能转交斜杠命令的（Claude Code，能力清单 slash_passthrough）——除了二狗自己的命令，候选是运行时报的命令
+ * 负责人用的运行时能转交斜杠命令的（Claude Code，能力清单 slash_passthrough）——除了二狗自己的命令，候选是运行时报的命令
  * （kind 是 runtime，集合名写运行时的名字），打了原样交给它执行；二狗的 skill 不再展开
- * 310 号票：带参数提示（argumentHint）；不是用户语言的说明换成用户语言的（Claude Code 内置命令查表，别的用二狗的模型翻、缓存），
+ * 带参数提示（argumentHint）；不是用户语言的说明换成用户语言的（Claude Code 内置命令查表，别的用二狗的模型翻、缓存），
  * 原文留在 originalDescription；还没翻好的标 translating
  */
 export const SlashCommandEntry = Type.Object({
-  /** 二狗自己的命令、一个 skill，还是负责人用的运行时自己的命令（289 号票） */
+  /** 二狗自己的命令、一个 skill，还是负责人用的运行时自己的命令 */
   kind: Type.Union([Type.Literal("command"), Type.Literal("skill"), Type.Literal("runtime")]),
   /** 选中后插进输入框的写法（后面不带空格）："/workflow"、"/poteto-mode"、"/pstack:tdd"、和命令同名时 "/skill:workflow" */
   text: Type.String({ minLength: 2 }),
@@ -108,14 +108,14 @@ export const SlashCommandEntry = Type.Object({
   description: Type.String(),
   /** skill 属于哪个集合（候选里作小标）；运行时的命令写运行时的名字（"Claude Code"）；单个导入的、框架自带的、二狗的命令没有 */
   collection: Type.Optional(Type.String()),
-  /** 参数提示（310 号票）：显示在写法后面（"/review <PR 号>"），选中插入时不插它；没有参数的没有 */
+  /** 参数提示：显示在写法后面（"/review <PR 号>"），选中插入时不插它；没有参数的没有 */
   argumentHint: Type.Optional(Type.String()),
   /**
-   * 说明的原文（310 号票）：description 换成了用户语言的说法时（Claude Code 内置命令查的中文说明表、模型翻的译文）原来那句，
+   * 说明的原文：description 换成了用户语言的说法时（Claude Code 内置命令查的中文说明表、模型翻的译文）原来那句，
    * 展开的说明下面小字显示；description 本来就是用户的语言时没有
    */
   originalDescription: Type.Optional(Type.String()),
-  /** 说明正在翻（310 号票）：description 还是原文，过一会儿再取会换成译文（界面开着候选时隔一会儿再取一次） */
+  /** 说明正在翻：description 还是原文，过一会儿再取会换成译文（界面开着候选时隔一会儿再取一次） */
   translating: Type.Optional(Type.Literal(true)),
 });
 export type SlashCommandEntry = Static<typeof SlashCommandEntry>;
@@ -130,7 +130,7 @@ export type SlashCommandList = Static<typeof SlashCommandList>;
  */
 export const IMPORT_NAME_PATTERN = "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$";
 
-/** 作为集合导入（72 号票）：集合名、来源、版本、一句说明，成员在哪个子目录，哪些成员改名 */
+/** 作为集合导入：集合名、来源、版本、一句说明，成员在哪个子目录，哪些成员改名 */
 export const ImportCollectionSpec = Type.Object(
   {
     /** 集合名（skill 区里的目录名） */
@@ -156,7 +156,7 @@ export type ImportCollectionSpec = Static<typeof ImportCollectionSpec>;
 /**
  * 导入 skill（POST HTTP_PATHS.skillImport 的请求体）：path 是来源目录的绝对路径。
  * - 单个 skill：path 是含 SKILL.md 的目录；rename 给了就导入并改名；
- * - 一个集合（72 号票）：给 collection，path 是集合的根目录
+ * - 一个集合：给 collection，path 是集合的根目录
  */
 export const ImportSkillBody = Type.Object(
   {
@@ -169,7 +169,7 @@ export const ImportSkillBody = Type.Object(
 );
 export type ImportSkillBody = Static<typeof ImportSkillBody>;
 
-/** 导入报告里的一行：一个 skill 导入成功与否（72 号票） */
+/** 导入报告里的一行：一个 skill 导入成功与否 */
 export const ImportReportLine = Type.Object({
   /** skill 名（改了名的是新名字）；SKILL.md 读不出名字时是目录名 */
   name: Type.String(),
@@ -196,13 +196,13 @@ export const ImportSkillResult = Type.Object({
 });
 export type ImportSkillResult = Static<typeof ImportSkillResult>;
 
-/** 秘书默认装的 skill（72 号票，用户 2026-10-10 定）：库里还没有的不装，导入后自动装上 */
+/** 秘书默认装的 skill：库里还没有的不装，导入后自动装上 */
 export const DEFAULT_SECRETARY_SKILLS: readonly string[] = ["agent-browser", "yt-dlp"];
 
-/** 秘书的系统提示里 skill 说明超过这么多字节，设置页上提醒一句（72 号票：整套选 pstack 这类集合时很长） */
+/** 秘书的系统提示里 skill 说明超过这么多字节，设置页上提醒一句（整套选 pstack 这类集合时很长） */
 export const SECRETARY_SKILL_PROMPT_WARN_BYTES = 8 * 1024;
 
-/** 秘书用的 skill（GET HTTP_PATHS.secretarySkills 的响应、POST 的结果，72 号票） */
+/** 秘书用的 skill（GET HTTP_PATHS.secretarySkills 的响应、POST 的结果） */
 export const SecretarySkillsView = Type.Object({
   /** 选中的 skill 名（默认的两个还没导入的也列着，装配时跳过） */
   skills: Type.Array(Type.String()),
@@ -263,7 +263,7 @@ export type ToolkitChangeCardPayload = Static<typeof ToolkitChangeCardPayload>;
 
 /**
  * `toolkit_change_decided` 事件（守护进程内部的 toolkits 频道，前端不订阅）：用户批准或拒绝了一张"工具包变更"卡，
- * 或者在项目页、任务详情里直接扩大、减少了工具包。"审批决定"素材的来源（08 号票的采集按事件类型登记）
+ * 或者在项目页、任务详情里直接扩大、减少了工具包。"审批决定"素材的来源（采集按事件类型登记）
  */
 export const ToolkitDecidedPayload = Type.Object({
   /** 卡上批准（approved）、拒绝（denied），或者用户直接改的（edited） */

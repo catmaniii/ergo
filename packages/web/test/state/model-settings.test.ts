@@ -1,5 +1,5 @@
-// 设置 · 模型（73 号票）的状态层：改一处存整份、API key 只说状态、看图能力和思考档位的说法、连通测试的结果；
-// 120 号票：单独配了模型的负责人（设置页那一行下面的一句、⚙ 上"模型"那一块的话）。
+// 设置 · 模型的状态层：改一处存整份、API key 只说状态、看图能力和思考档位的说法、连通测试的结果；
+// 单独配了模型的负责人（设置页那一行下面的一句、⚙ 上"模型"那一块的话）。
 import { describe, expect, test } from "vitest";
 import {
   agentModelLines,
@@ -54,7 +54,7 @@ describe("改一处、存整份", () => {
 });
 
 describe("API key 只说状态", () => {
-  test("配了：已配置、来自哪个环境变量、服务管家从哪个文件注入，想换一个就在下面填；没配：下面填一个，也可以手动放文件；界面上不写 LSM（371）", () => {
+  test("配了：已配置、来自哪个环境变量、服务管家从哪个文件注入，想换一个就在下面填；没配：下面填一个，也可以手动放文件；界面上不写 LSM", () => {
     const on = apiKeyText({ configured: true, envVar: "DEEPSEEK_API_KEY", secretFile: "secrets/deepseek-api-key.txt", lsm: true });
     expect(on).toMatchObject({ label: "已配置", ok: true });
     expect(on.detail).toMatch(/DEEPSEEK_API_KEY.*secrets\/deepseek-api-key\.txt.*想换一个就在下面填/);
@@ -117,7 +117,7 @@ describe("连通测试的结果", () => {
   });
 });
 
-describe("单独配了模型的负责人（120 号票）", () => {
+describe("单独配了模型的负责人", () => {
   const PRO_HIGH = { modelId: "deepseek-v4-pro", thinkingLevel: "high" } as const;
   const FLASH_HIGH = { modelId: "deepseek-flash", thinkingLevel: "high" } as const;
 
@@ -142,7 +142,7 @@ describe("单独配了模型的负责人（120 号票）", () => {
     expect(maintainerOverrideLine({ maintainers: [] }, "project_maintainer")).toBeUndefined();
   });
 
-  test("⚙ 上的\"模型\"：下拉第一项写跟随哪一行和它现在用的；下一个新会话用的、按什么定的；最近在跑的会话实际用的；什么时候换（照 83 号票）", () => {
+  test("⚙ 上的\"模型\"：下拉第一项写跟随哪一行和它现在用的；下一个新会话用的、按什么定的；最近在跑的会话实际用的；什么时候换", () => {
     const follow = { agent: "project_maintainer", role: FLASH_HIGH, next: FLASH_HIGH, switchAt: "next_segment" } as const;
     expect(maintainerFollowLabel(follow)).toBe("跟随“项目负责人”的设置（现在是 deepseek-flash · 思考高）");
     expect(agentModelLines(follow)).toEqual({ next: "下一个新会话用 deepseek-flash · 思考高（跟随“项目负责人”的设置）", session: undefined, unavailable: undefined, switchNote: MODEL_SWITCH_NOTE.next_segment });

@@ -1,4 +1,4 @@
-// 页面桥测试用的 React 受控输入框（134 号票）：值在 React 的 state 里，旁边一行把 state 显示出来；表单提交了派一个 react-submitted 事件
+// 页面桥测试用的 React 受控输入框：值在 React 的 state 里，旁边一行把 state 显示出来；表单提交了派一个 react-submitted 事件
 // （测试页记一笔）。
 // 不写 JSX（打包时不用配 JSX），用 createElement。
 import { createElement, useState } from "react";

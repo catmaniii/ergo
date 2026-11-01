@@ -1,4 +1,4 @@
-// 触发底座（76 号票，ADR 0025；19 号票时叫定时作业，ADR-0017 的运行机制照旧复用）：定时（77 号票起还有事件）触发的任务的
+// 触发底座（ADR 0025；原来叫定时作业，ADR-0017 的运行机制照旧复用）：定时（还有事件）触发的任务的
 // 触发登记、触发、排队合并、名额、运行和结局、失败和自动暂停、用户的暂停恢复取消、项目停用归档和恢复、守护进程启动时补跑错过的、
 // 每次运行的授权，以及以前的定时作业迁移成定时触发的普通任务。状态全在事件日志里（任务看板频道上的 scheduled_job 事件，
 // 派生视图 views.ts），这里只管编排；说法在 texts.ts，幂等键在 keys.ts。
@@ -7,7 +7,7 @@
 //   ownerTaskId 是这个任务），进入运营中。执行的就是任务的执行者：属于项目的（项目内部任务）由项目的负责人在一张工单里做，
 //   不属于项目的由任务自己的 agent（tm-<n>，maintainers/）做——各次运行接着同一段会话，后面的运行知道前几次的情况。
 //   项目已停用、已归档时登记成已暂停。
-// - 触发（fire）：每被触发一次是一次运行。时间到了也是一种事件（source 是 time，调度器到点时进来）；77 号票的事件来源接在同一个口子上
+// - 触发（fire）：每被触发一次是一次运行。时间到了也是一种事件（source 是 time，调度器到点时进来）；事件来源接在同一个口子上
 //   （event-sources/ 的分发按订阅调 fire，去重键由来源给）。事件触发的任务的登记没有时间表，写在等什么事件（ScheduledJob.event）。
 //   上一次还没跑完又被触发：排队合并——还有排着、没开始的那一次就并进它（属于项目的工单还排着时，工单的内容一起换成合并后的）；
 //   正在跑、没有排着的，新起一次排着，等正在跑的结束再开始。不并行，不丢：期间来的都在这一批里交给它（JobRun.events）。
@@ -18,31 +18,31 @@
 //   - 不属于项目的：同一个任务上一次还在跑时不开始；有名额时交给执行它的 agent 一条带着任务和登记身份的通知（会话里先画一条运行的分段线），
 //     它处理完这一轮就结束。
 //   这一轮正常结束是成功；agent 用 fail_job_run 报了原因的、这一轮出错或被中止的是失败；有一步等不到批准被拦下或交给用户亲手做、
-//   别的做完了的是部分完成（176 号票，不算失败；报了失败、出错的照旧失败，原因后面跟着没做成的那几步）；
-//   守护进程停机打断的记为中断（不重做，不算进连续失败）。定时触发的流程一轮要收工时还有步骤没做，提醒一次（照 59 号票）再算结局。
+//   别的做完了的是部分完成（不算失败；报了失败、出错的照旧失败，原因后面跟着没做成的那几步）；
+//   守护进程停机打断的记为中断（不重做，不算进连续失败）。定时触发的流程一轮要收工时还有步骤没做，提醒一次再算结局。
 //   结局怎么定在 run-end.ts（纯函数）。
 // - 授权：普通任务的每次运行按普通对话那一套判（守卫看不到计划，受对话审批的开关管）；流程授权一次（计划卡），之后每次运行都按步骤核对
 //   （guardTask：带着授权的会话段，每次运行一段——授权项的次数、时序规则、和计划逐步比对的历史都只看这一次），任务在运营就一直有效，
 //   暂停、取消即收回；迁移来的定时作业照旧按随计划卡确认的授权（作业的授权项、时序规则、建它的任务的关注类别）。
-//   事件触发的流程（77 号票）：这次运行照的步骤是一批里每个事件各一遍、参数里的占位代入这个事件的值（tasks/workflow-events.ts），
+//   事件触发的流程：这次运行照的步骤是一批里每个事件各一遍、参数里的占位代入这个事件的值（tasks/workflow-events.ts），
 //   守卫按代入后的步骤逐步核对，授权项按执行它的负责人现取真实路径、由代入后的步骤推出（tasks/workflow-plan.ts 的 boundRunWorkflow）。
 // - 失败：记一条失败的运行记录，卡上标"最近一次失败"；连续失败到配置的次数（scheduledJobs.jobFailures）自动转为已暂停，
 //   同一事务里待我处理放一条"定时触发的任务被自动暂停"（动作：恢复、保持暂停）；中间有一次成功就重新计数。
 //   部分完成、中断、已撤回不算进连续失败，也不清零。
 // - 用户在看板上（或任务详情里）暂停、恢复、取消（scheduled_job_action，任务的 task_action 也落到这里）：暂停、取消时排着的运行一并丢掉
 //   （属于项目的退回它的工单）；取消时任务同一事务取消。任务被取消、结束了（任务详情里取消、删除项目……）触发登记随之取消。
-//   项目停用、归档时运营中的暂停，重新启用、取消归档时只恢复因此暂停的；这些都不改项目状态。141 号票起运营方案建的内部任务
+//   项目停用、归档时运营中的暂停，重新启用、取消归档时只恢复因此暂停的；这些都不改项目状态。运营方案建的内部任务
 //   跟着项目归档（任务转已归档、记下原来的状态，触发登记照旧暂停）、取消归档时回到原来的状态（followArchive）。
-// - 用户改时间表（reschedule_job，98 号票）：只换时间表、重算下一次，任务、会话、运行记录不动；暂停着的照旧暂停。
-//   改成某个时间做一次的：那一次运行做成了（没有下一次），任务算完成、触发登记随之结束（照 76 号票"到点做一次、做完即完成"）。
-// - 立即运行一次（run_job_now，100 号票；秘书的快速动作 run_task_now 也落到这里）：等同被触发一次，这次触发的来源是 manual、运行的
+// - 用户改时间表（reschedule_job）：只换时间表、重算下一次，任务、会话、运行记录不动；暂停着的照旧暂停。
+//   改成某个时间做一次的：那一次运行做成了（没有下一次），任务算完成、触发登记随之结束（"到点做一次、做完即完成"）。
+// - 立即运行一次（run_job_now，秘书的快速动作 run_task_now 也落到这里）：等同被触发一次，这次触发的来源是 manual、运行的
 //   触发记成手动，走同一个排队和名额，照常记用量、走授权与守卫；不改时间表（下一次不动）、不算错过补发、不算"某个时间做一次"的那一次。
 //   上一次还没跑完（在跑、排着）的不开始、说明原因；暂停着的（用户暂停、连续失败自动暂停）能跑一次，跑完照旧暂停，那一次照常按授权跑；
 //   因项目停用、归档暂停的不行；事件触发的流程步骤里要用事件的值的不行（没有事件可代入）。
-// - 迁移（不改写事件日志，ADR 0025）：76 号票之前长程任务计划里登记的定时作业（没取消的），各建出一个定时触发的普通任务
+// - 迁移（不改写事件日志，ADR 0025）：以前长程任务计划里登记的定时作业（没取消的），各建出一个定时触发的普通任务
 //   （新的 task 事件，origin 是 migrated，执行的 agent、会话、运行记录、授权都沿用：负责人照旧是作业自己的 jm-<n> 或项目的负责人），
 //   同一事务追加一条 scheduled_job 的 migrated（ownerTaskId 指向它）。原来的事件一条不动。
-// - 错过的触发（规格第 13、17 节）：守护进程启动时（23 号票的恢复做完之后），过了点的运营中登记不管错过几次只补跑一次
+// - 错过的触发（规格第 13、17 节）：守护进程启动时（恢复做完之后），过了点的运营中登记不管错过几次只补跑一次
 //   （运行记录写明错过了几次），下一次从现在往后算；补完再重启不会再补（下一次的时间和这次运行同一事务落盘）。
 import { randomUUID } from "node:crypto";
 import {
@@ -170,7 +170,7 @@ import { type BlockedStep, type RunEnd, runEnd } from "./run-end.ts";
 import { legacyPlanJobs } from "./legacy-plan.ts";
 import { countJobs, getJob, getRun, jobOfTask, jobsOfProject, listJobs, runsIn, runsOfJob } from "./views.ts";
 
-/** 作业自己的负责人（76 号票之前登记的、不属于项目的定时作业，j-<n> 的是 jm-<n>；迁移成普通任务后照旧由它做） */
+/** 作业自己的负责人（以前登记的、不属于项目的定时作业，j-<n> 的是 jm-<n>；迁移成普通任务后照旧由它做） */
 export function jobMaintainerId(jobId: string): string {
   return `jm-${jobId.replace(/^j-/, "")}`;
 }
@@ -189,7 +189,7 @@ const PREVIOUS_RUNS_SHOWN = 3;
 export interface ScheduledJobsOptions {
   store: EventStore;
   tasks: TaskService;
-  /** 项目系统给触发底座的（277 号票的入口）：按编号、按任务找没删掉的项目 */
+  /** 项目系统给触发底座的（入口）：按编号、按任务找没删掉的项目 */
   projects: ProjectLookup;
   /** 派单器里触发底座要用的那几样：派一张运行工单、合并时换掉还排着的工单的内容、这次的活做完了让这一段收尾、暂停取消时退回排着的工单 */
   workOrders: JobWorkOrders;
@@ -204,12 +204,12 @@ export interface ScheduledJobsOptions {
   /** 连续失败几次自动暂停（配置 scheduledJobs.jobFailures） */
   failureLimit: number;
   /**
-   * 事件触发的任务一次运行最多照多少步（77 号票，配置 eventSources.maxRunSteps）：一批事件数 × 流程的步骤数（普通任务每个事件算一步）。
+   * 事件触发的任务一次运行最多照多少步（配置 eventSources.maxRunSteps）：一批事件数 × 流程的步骤数（普通任务每个事件算一步）。
    * 排着的那一次到了上限，再来的事件另起一次排着（一次接一次跑）。不给是不限
    */
   maxRunSteps?: number | undefined;
   /**
-   * 这个会话此刻是不是正在撤回、切换分支（155 号票，conversation/rollback.ts 的 navigating）：运行中被中止的那一轮是撤回、切换引起的，
+   * 这个会话此刻是不是正在撤回、切换分支（conversation/rollback.ts 的 navigating）：运行中被中止的那一轮是撤回、切换引起的，
    * 这次运行记"已撤回"、不算失败。不给是都不是（按停止一样记失败）
    */
   navigating?: (conversation: ConversationId) => "rollback" | "switch" | undefined;
@@ -219,7 +219,7 @@ export interface ScheduledJobsOptions {
 export interface ScheduledJobs {
   /** 接上事件（登记、运行的结局、项目停用归档）：要在负责人开始接输入之前（它们被杀后标中断时这里要看到） */
   attach(): void;
-  /** 23 号票的恢复做完之后：补登记、迁移以前的定时作业，对一遍重启前在跑的运行，登记到点的计时器，补跑停机期间错过的，排着的按名额开始 */
+  /** 恢复做完之后：补登记、迁移以前的定时作业，对一遍重启前在跑的运行，登记到点的计时器，补跑停机期间错过的，排着的按名额开始 */
   start(): void;
   stop(): void;
   get(jobId: string): ScheduledJob | undefined;
@@ -229,7 +229,7 @@ export interface ScheduledJobs {
   /** 一个定时触发的任务的触发登记（还没登记好的是 undefined） */
   ofTask(taskId: string): ScheduledJob | undefined;
   /**
-   * 触发底座的口子（76 号票）：这个任务被触发了一次（77 号票的事件来源接在这里；时间到了由调度器自己进来）。
+   * 触发底座的口子：这个任务被触发了一次（事件来源接在这里；时间到了由调度器自己进来）。
    * 没在跑的起一次运行；上一次还没跑完的排队合并（并进还排着的那一次，或者新起一次等正在跑的结束）。
    * 任务没登记好、暂停着、取消了的不运行（ignored，写明原因）。幂等键由事件来源给（同一个事件重发只收一次）；
    * 不给的每次都算一个新事件（jobKeys.fire 各取各的，排队合并期间来的几次不会撞成一次）
@@ -238,12 +238,12 @@ export interface ScheduledJobs {
   /** 用户在看板上的动作：同一个幂等键重发拿到同一个结果 */
   act(params: ScheduledJobActionParams, idempotencyKey: string): ScheduledJobActionResult;
   /**
-   * 用户改时间表（98 号票）：只换时间表、重算下一次；同一个幂等键重发拿到同一个结果。没有的、事件触发的、已取消的，
+   * 用户改时间表：只换时间表、重算下一次；同一个幂等键重发拿到同一个结果。没有的、事件触发的、已取消的，
    * 某个时间做一次的时间已过的抛 RequestRejected
    */
   reschedule(params: RescheduleJobParams, idempotencyKey: string): RescheduleJobResult;
   /**
-   * 立即运行一次（100 号票，任务操作菜单里的；by 是谁让它跑的，默认用户）：等同被触发一次，触发记成手动，不改时间表；暂停着的也能跑一次、
+   * 立即运行一次（任务操作菜单里的；by 是谁让它跑的，默认用户）：等同被触发一次，触发记成手动，不改时间表；暂停着的也能跑一次、
    * 照旧暂停。同一个幂等键重发拿到同一次运行。没有的、取消了的、上一次还没跑完的……抛 RequestRejected（原因给人看）
    */
   runNow(params: RunJobNowParams, idempotencyKey: string, by?: TaskActor): RunJobNowResult;
@@ -254,12 +254,12 @@ export interface ScheduledJobs {
   /** 用户对定时触发的任务的暂停、恢复、取消（任务详情里的 task_action 落到这里）；不是定时触发的任务抛 RequestRejected */
   actOnTask(taskId: string, action: ScheduledJobAction, idempotencyKey: string): { taskId: string; state: Task["state"] };
   /**
-   * 取消一个定时、事件触发的任务（130 号票：运营方案里去掉了这一条）要追加的事件（不追加，和卡片更新同一事务）：触发登记取消、
+   * 取消一个定时、事件触发的任务（运营方案里去掉了这一条）要追加的事件（不追加，和卡片更新同一事务）：触发登记取消、
    * 排着的运行丢掉、任务随之取消；还没登记触发的（等时间的、刚建出的）只取消任务；已经结束了的什么都不追加
    */
   cancelTaskEvents(taskId: string, by: TaskActor): NewEvent[];
   /**
-   * 就地改一个定时触发的任务的时间表（130 号票：运营方案里只改了时间）要追加的事件（不追加）：同"改时间"（98 号票），记成 by 做的。
+   * 就地改一个定时触发的任务的时间表（运营方案里只改了时间）要追加的事件（不追加）：同"改时间"，记成 by 做的。
    * 改不了（没有触发登记、已取消、事件触发的、时间不对）返回 undefined，调用方撤了重建
    */
   rescheduleTaskEvents(taskId: string, schedule: ReminderSchedule, by: TaskActor): NewEvent[] | undefined;
@@ -272,18 +272,18 @@ export interface ScheduledJobs {
   /** 守卫看到的这份触发登记现在这次运行的授权（runAssembly 的 guardTask 就是它；测试也直接看） */
   guardTask(jobId: string, ctx?: GuardTaskContext): GuardTask | null;
   /**
-   * 升级前交了、升级后才确认的长程任务计划里还写着定时作业（76 号票，主会话定：不悄悄丢掉）：照以前定时作业的迁移办法建成定时触发的
+   * 升级前交了、升级后才确认的长程任务计划里还写着定时作业（不悄悄丢掉）：照以前定时作业的迁移办法建成定时触发的
    * 普通任务。给出要和确认计划同一事务追加的事件，和卡上的说明（"计划里的定时作业已改成定时任务「X」"）；计划里没有的给空的
    */
   legacyPlanConfirmed(task: Task, stored: StoredPlan, grantInfo: Record<string, GrantInfo>): { events: NewEvent[]; note?: string };
   /** 现在正在运行的那一次（运行号） */
   currentRun(jobId: string): string | undefined;
-  /** 一次运行交给执行它的 agent 的那条通知的消息 id（还没交的是 undefined）：换模型只在一次运行的开头换（83 号票） */
+  /** 一次运行交给执行它的 agent 的那条通知的消息 id（还没交的是 undefined）：换模型只在一次运行的开头换 */
   runNoticeId(runId: string): string | undefined;
   /** 个人工作日历变了：跟着它变的按新的工作日历重算下一次 */
   rearm(): void;
   /**
-   * 日历上定时触发的任务（35 号票用）：[from, to) 之间每个没取消的触发登记的时间表展开（按当前的个人工作日历，"按我的工作日"的照它；
+   * 日历上定时触发的任务（用）：[from, to) 之间每个没取消的触发登记的时间表展开（按当前的个人工作日历，"按我的工作日"的照它；
    * 已暂停的也展开，看 state、pausedBy 标出来），和这段时间里到点的运行记录（按触发时间）
    */
   calendar(from: Date, to: Date): JobCalendarEntry[];
@@ -296,7 +296,7 @@ export type FireOutcome = { outcome: "queued"; runId: string } | { outcome: "mer
 export interface JobCalendarEntry {
   /** 定时触发的（事件触发的不上日历） */
   job: ScheduledJob & { schedule: ReminderSchedule };
-  /** 现在的时间表从哪一刻起生效：登记的时候，或者用户最后一次改时间表的时候（98 号票）；之前的只列真跑过的 */
+  /** 现在的时间表从哪一刻起生效：登记的时候，或者用户最后一次改时间表的时候；之前的只列真跑过的 */
   since: string;
   /** 时间表在这段时间里的每一次（协议时间），先到的在前 */
   occurrences: string[];
@@ -332,10 +332,10 @@ const projectPause = (project: Pick<Project, "state"> | undefined): JobPauseReas
   project?.state === "retired" ? "project_retired" : project?.state === "archived" ? "project_archived" : undefined;
 
 /**
- * 流程这次运行要照的步骤：事件触发的（77 号票）一批里每个事件各走一遍、参数里的占位代入这个事件的值；定时触发的就是授权的那份计划的步骤
+ * 流程这次运行要照的步骤：事件触发的一批里每个事件各走一遍、参数里的占位代入这个事件的值；定时触发的就是授权的那份计划的步骤
  */
 const runSteps = (job: ScheduledJob, stored: StoredPlan, run: JobRun | undefined): WorkflowStepView[] => {
-  // 用户让它立即运行一次的那次触发不是事件（100 号票）：不代入；只有它的就是授权的那份计划的步骤
+  // 用户让它立即运行一次的那次触发不是事件：不代入；只有它的就是授权的那份计划的步骤
   const events = job.event && run ? externalEvents(run) : [];
   return events.length > 0 ? runWorkflowSteps(stored.workflow!.steps, events) : stored.workflow!.steps;
 };
@@ -344,10 +344,10 @@ const runSteps = (job: ScheduledJob, stored: StoredPlan, run: JobRun | undefined
 const eventsPerRun = (maxRunSteps: number | undefined, stepsPerEvent: number): number =>
   maxRunSteps === undefined ? Number.POSITIVE_INFINITY : Math.max(1, Math.floor(maxRunSteps / Math.max(1, stepsPerEvent)));
 
-/** 换掉执行用的计划里的授权项（事件触发的流程每次运行由代入后的步骤推出，77 号票） */
+/** 换掉执行用的计划里的授权项（事件触发的流程每次运行由代入后的步骤推出） */
 const withGrants = (plan: Plan, grants: readonly PlanGrant[]): Plan => ({ ...plan, stages: plan.stages.map((st) => ({ ...st, policy: { ...st.policy, grants: [...grants] } })) });
 
-/** 改时间（98 号票）的结果：状态（照旧）、新的时间表、下一次 */
+/** 改时间的结果：状态（照旧）、新的时间表、下一次 */
 const rescheduleResult = (job: ScheduledJob): RescheduleJobResult => ({ jobId: job.id, state: job.state, schedule: job.schedule!, ...(job.nextAt === undefined ? {} : { nextAt: job.nextAt }) });
 
 /** 某个时间做一次的任务（等时间）的计时器 */
@@ -363,7 +363,7 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
   const reported = new Map<string, string>();
   /**
    * 这次运行里没做成的几步（运行号 → 哪一步 → 怎么没做成）：等不到批准被拦下的（按审批）、交给用户亲手做的（按"交给我做"事项），
-   * 同一个审批、同一条事项只算一次。别的都做完了是部分完成（176 号票），报了失败、出错的跟在失败的原因后面。重启后这一轮反正算中断
+   * 同一个审批、同一条事项只算一次。别的都做完了是部分完成，报了失败、出错的跟在失败的原因后面。重启后这一轮反正算中断
    */
   const blockedSteps = new Map<string, Map<string, BlockedStep>>();
   /** 定时触发的流程：这一次运行已经提醒过一次还有步骤没做（重启后这次反正算中断） */
@@ -394,7 +394,7 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
   const runningRunOf = (jobId: string) => runsOfJob(store.reader, jobId).find((r) => r.state === "running");
   /** 属于哪个定时触发的任务（还没迁移的没有） */
   const ownerOf = (job: ScheduledJob): Task | undefined => (job.ownerTaskId === undefined ? undefined : tasks.get(job.ownerTaskId));
-  /** 定时触发的流程（76 号票起登记的）：授权的那份计划 */
+  /** 定时触发的流程（登记的）：授权的那份计划 */
   const workflowOf = (job: ScheduledJob): StoredPlan | undefined => {
     if (isLegacyJob(job)) return undefined;
     const task = ownerOf(job);
@@ -411,7 +411,7 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
    */
   const registerTrigger = (task: Task) => {
     if (task.state !== "operating" || !task.trigger) return;
-    // 定时触发的（重复的时间表）、事件触发的（77 号票：等事件来源推来）
+    // 定时触发的（重复的时间表）、事件触发的（等事件来源推来）
     const schedule = task.trigger.kind === "schedule" && isRepeating(task.trigger.schedule) ? task.trigger.schedule : undefined;
     const event = task.trigger.kind === "event" ? task.trigger : undefined;
     if (!schedule && !event) return;
@@ -453,13 +453,13 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
   };
 
   /**
-   * 升级前交了、升级后才确认的长程任务计划里的定时作业（主会话定，不悄悄丢掉）：照以前定时作业的迁移办法——每个定义登记成一份以前那样的
+   * 升级前交了、升级后才确认的长程任务计划里的定时作业（不悄悄丢掉）：照以前定时作业的迁移办法——每个定义登记成一份以前那样的
    * 定时作业（属于项目的由项目的负责人做，不属于的由作业自己的负责人 jm-<n> 做；每次运行的授权照计划卡上的，连同用户的限制编出的规则），
    * 同一事务建出它的定时触发的普通任务（ownerTaskId 指向它）。给出要和确认计划同一事务追加的事件，和卡上的说明
    */
   const legacyPlanConfirmed = (task: Task, stored: StoredPlan, cardInfo: Record<string, GrantInfo>): { events: NewEvent[]; note?: string } => {
     const defs = legacyPlanJobs(stored.plan);
-    // 属于项目的作业只来自单项目任务（和 19 号票登记时一样）
+    // 属于项目的作业只来自单项目任务（和登记时一样）
     const project = taskProjectScope(task) === "single" ? projects.projectOf(task) : undefined;
     const pausedBy = projectPause(project);
     const limitRules = (stored.plan.userLimits ?? []).flatMap((l) => l.temporalRules);
@@ -508,7 +508,7 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
   };
 
   /**
-   * 76 号票之前的定时作业（没有它的任务、还没取消）迁移成定时触发的普通任务（ADR 0025：不改写事件日志）：
+   * 以前的定时作业（没有它的任务、还没取消）迁移成定时触发的普通任务（ADR 0025：不改写事件日志）：
    * 新的 task 事件建出任务（执行的 agent、会话、授权、运行记录照旧），同一事务一条 scheduled_job 的 migrated 指向它
    */
   const migrateLegacy = () => {
@@ -529,7 +529,7 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
   // ───────────────────────── 某个时间做一次 ─────────────────────────
 
   /**
-   * 某个时间做一次（用户 2026-10-10 定）：时间到了也是一条事件——等时间的任务到点进排队，之后和现在做一次的一样（执行控制器、派单器照常：
+   * 某个时间做一次：时间到了也是一条事件——等时间的任务到点进排队，之后和现在做一次的一样（执行控制器、派单器照常：
    * 有名额就开始，做完即完成）。等时间时登记计时器，离开等时间（到点、取消）就撤掉；那个时间已经过了的（授权计划时已经过了点）马上进排队
    */
   const armOnce = (task: Task) => {
@@ -584,7 +584,7 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
    */
   const enqueue = (job: ScheduledJob, event: TriggerEvent, init: RunInit, key: string): FireOutcome => {
     const pending = outstanding(job.id);
-    // 事件触发的（77 号票）：排着的那一次到了上限（一批事件数 × 步骤数），再来的另起一次排着
+    // 事件触发的：排着的那一次到了上限（一批事件数 × 步骤数），再来的另起一次排着
     const perRun = job.event ? eventsPerRun(options.maxRunSteps, workflowOf(job)?.workflow?.steps.length ?? 1) : Number.POSITIVE_INFINITY;
     const last = pending.findLast((r) => r.state === "queued");
     const queued = last && runEvents(last).length < perRun ? last : undefined;
@@ -637,7 +637,7 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
     return { events: [jobEvent({ ...counted, lastRun: placed }, "triggered", by, placed, key), ...(dispatched?.events ?? [])], run: placed, dispatched: dispatched !== undefined };
   };
 
-  // ───────────────────────── 立即运行一次（100 号票） ─────────────────────────
+  // ───────────────────────── 立即运行一次 ─────────────────────────
 
   /**
    * 能不能立即运行一次（不能的抛 RequestRejected，原因给人看）：没有的、取消了的不行；同一个任务上一次还没跑完（在跑、排着）的不开始；
@@ -740,7 +740,7 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
   const startOwnRun = (run: JobRun) => {
     const job = getJob(store.reader, run.jobId);
     if (!job) return;
-    // 暂停着也能立即运行一次（100 号票，排着时暂停的照旧丢掉：暂停时 dropQueued）
+    // 暂停着也能立即运行一次（排着时暂停的照旧丢掉：暂停时 dropQueued）
     if (job.state !== "active" && !(job.state === "paused" && run.trigger === "manual")) return finish(run, { state: "dropped", reason: droppedReason(job) });
     const running: JobRun = { ...run, state: "running", startedAt: now() };
     const conversation = maintainerChannel(job.maintainerId);
@@ -764,7 +764,7 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
 
   /**
    * 一次运行结束：成功清零连续失败，算数的失败加一；运营中的连续失败到了次数自动暂停，同一事务里待我处理放一条事项。
-   * 中断、排着时被丢掉的、运行中你撤回了会话的（已撤回，155 号票）、部分完成的（176 号票）不算进连续失败，也不改"最近一次失败"。
+   * 中断、排着时被丢掉的、运行中你撤回了会话的（已撤回）、部分完成的不算进连续失败，也不改"最近一次失败"。
    * 不属于项目的：结束之后名额空出来（slots 叫 fill），排着的下一次开始
    */
   function finish(run: JobRun, end: RunEnd): void {
@@ -782,7 +782,7 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
       ...(summary === undefined ? {} : { summary }),
       ...(steps ? { steps } : {}),
     };
-    // 部分完成（176 号票）照中断那类：不算进连续失败、也不清零，不改"最近一次失败"
+    // 部分完成照中断那类：不算进连续失败、也不清零，不改"最近一次失败"
     const counted = end.state === "done" || end.state === "failed";
     const failures = end.state === "done" ? 0 : counted ? job.consecutiveFailures + 1 : job.consecutiveFailures;
     let after: ScheduledJob = {
@@ -806,7 +806,7 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
         body: notice.body,
         source: jobSource(job),
         ...internalMark(job.internal),
-        // 105 号票：定时触发的任务（76 号票起作业都属于一个）去任务的整页；还没迁移的作业前端按 data 里的作业去看板或项目页
+        // 定时触发的任务（作业都属于一个）去任务的整页；还没迁移的作业前端按 data 里的作业去看板或项目页
         ...(job.ownerTaskId === undefined ? {} : { origin: { taskId: job.ownerTaskId } }),
         urgency: "non_blocking",
         actions: [JOB_AUTO_PAUSED_ACTIONS.resume, JOB_AUTO_PAUSED_ACTIONS.keep],
@@ -817,7 +817,7 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
       // 自动暂停时排着的那一次一并丢掉
       events.push(...dropQueued(after, run.runId));
     }
-    // 改成某个时间做一次的（98 号票）：那一次做成了，任务算完成
+    // 改成某个时间做一次的：那一次做成了，任务算完成
     if (!alert) events.push(...onceCompleted(after, ended));
     store.appendBatch([jobEvent(after, "run_finished", "system", ended, jobKeys.runEnd(run.runId)), ...events]);
     reported.delete(run.runId);
@@ -830,8 +830,8 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
   }
 
   /**
-   * 改成某个时间做一次的（98 号票）：这次运行做成了时间表上那一次（到点的时刻就是那一刻）、没有下一次、没有别的还没结束的运行——
-   * 照 76 号票"到点做一次、做完即完成"，触发登记结束（系统取消，排在前面：任务结束时不再取消一遍），任务从运营中算完成。
+   * 改成某个时间做一次的：这次运行做成了时间表上那一次（到点的时刻就是那一刻）、没有下一次、没有别的还没结束的运行——
+   * "到点做一次、做完即完成"，触发登记结束（系统取消，排在前面：任务结束时不再取消一遍），任务从运营中算完成。
    * 没做成的（失败、中断）不算：任务还在运营中，用户能再改时间或取消
    */
   const onceCompleted = (job: ScheduledJob, ended: JobRun): NewEvent[] => {
@@ -845,7 +845,7 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
     return [jobEvent(closed, "cancelled", "system"), tasks.buildChange(task, { ...task, state: "done" }, { by: "system", change: "completed" }).event];
   };
 
-  /** 定时触发的流程这次运行里各步的样子：汇报过的照汇报的；还报着"在做"的、没报的，真执行过的推断成做完（照 59 号票） */
+  /** 定时触发的流程这次运行里各步的样子：汇报过的照汇报的；还报着"在做"的、没报的，真执行过的推断成做完 */
   const stepsOf = (job: ScheduledJob, run: JobRun): { list: TaskStep[]; executed: Set<string>; stored: StoredPlan } | undefined => {
     const stored = workflowOf(job);
     if (!stored?.workflow) return undefined;
@@ -859,9 +859,9 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
   };
 
   /**
-   * 这一轮结束了：这次运行怎么结束的（被打断是中断；你撤回会话、切换分支时被中止的是已撤回，155 号票；出错、中止、报了做不了是失败；
-   * 定时触发的流程收工时还有步骤既没做完也没说明跳过——提醒过一次之后、或者一步都没做——也是失败，照 59 号票的口径不算做完；
-   * 都不是、但有一步等不到批准被拦下或交给用户亲手做的是部分完成，176 号票）。怎么定在 run-end.ts
+   * 这一轮结束了：这次运行怎么结束的（被打断是中断；你撤回会话、切换分支时被中止的是已撤回，出错、中止、报了做不了是失败；
+   * 定时触发的流程收工时还有步骤既没做完也没说明跳过——提醒过一次之后、或者一步都没做——也是失败，照口径不算做完；
+   * 都不是、但有一步等不到批准被拦下或交给用户亲手做的是部分完成）。怎么定在 run-end.ts
    */
   const endOf = (job: ScheduledJob, turn: TurnEndEventPayload, run: JobRun): RunEnd =>
     runEnd({
@@ -872,7 +872,7 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
       blocked: [...(blockedSteps.get(run.runId)?.values() ?? [])],
     });
 
-  /** 定时触发的流程：收工时还有几步既没做完也没说明跳过（执行过却没报的照 59 号票推断成做完）；没有的、不是流程的是 undefined */
+  /** 定时触发的流程：收工时还有几步既没做完也没说明跳过（执行过却没报的推断成做完）；没有的、不是流程的是 undefined */
   const stepsLeft = (job: ScheduledJob, run: JobRun): string | undefined => {
     const current = stepsOf(job, run);
     if (!current) return undefined;
@@ -882,9 +882,9 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
   };
 
   /**
-   * 定时触发的流程（59 号票的收尾提醒）：这一轮正常结束、这次运行做过事（有对上步骤、执行成功的调用）、还有步骤既没执行、
+   * 定时触发的流程（收尾提醒）：这一轮正常结束、这次运行做过事（有对上步骤、执行成功的调用）、还有步骤既没执行、
    * 这次运行还没提醒过、agent 没报失败：提醒一次，这一轮先不算结局（agent 接着做，下一轮结束再算）。有一步被拦下的照样提醒
-   * （176 号票：被拦下不再一定是失败，接着做完、说明跳过了的是部分完成）
+   * （被拦下不再一定是失败，接着做完、说明跳过了的是部分完成）
    */
   const nudgeIfPending = (job: ScheduledJob, run: JobRun, turn: TurnEndEventPayload): boolean => {
     if (turn.outcome !== "completed" || nudged.has(run.runId) || reported.has(run.runId)) return false;
@@ -924,7 +924,7 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
       if (said) summaries.set(run.runId, oneLine(said, RUN_SUMMARY_MAX));
     }
     const end = endOf(job, turn, run);
-    // 属于项目的照样让工单收尾；被打断的、撤回了的、部分完成的（176 号票）这次运行马上记下结局（工单的结局不再改它）
+    // 属于项目的照样让工单收尾；被打断的、撤回了的、部分完成的这次运行马上记下结局（工单的结局不再改它）
     if (job.projectId === undefined || end.state === "interrupted" || end.state === "rolled_back" || end.state === "partial") finish(run, end);
     if (job.projectId === undefined) return;
     const wo = run.workOrderId === undefined ? undefined : workOrders.get(run.workOrderId);
@@ -944,7 +944,7 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
 
   /**
    * 这条调用是哪份触发登记的运行里的：归属里写着的（作业自己的负责人、项目负责人的运行工单段）；不然看执行它的 agent 这一轮在处理的输入
-   * （任务自己的 agent：会话的归属只写任务，这一轮处理的是一次运行的通知才算那次运行的，176 号票补上）
+   * （任务自己的 agent：会话的归属只写任务，这一轮处理的是一次运行的通知才算那次运行的）
    */
   const jobOfCall = (scope: MessageScope | undefined, agentId: string): string | undefined =>
     jobOfScope(scope) ??
@@ -1028,7 +1028,7 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
     store.appendBatch(cancelEvents(job, "system"));
   };
 
-  // ───────────────────────── 改时间（98 号票） ─────────────────────────
+  // ───────────────────────── 改时间 ─────────────────────────
 
   /** 交来的时间表规范一下：重复的周几、几号去重排好；某个时间做一次的写成带时区偏移的协议时间（时间认不出、已经过了的抛 RequestRejected） */
   const checkedSchedule = (schedule: ReminderSchedule): ReminderSchedule => {
@@ -1070,7 +1070,7 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
   // ───────────────────────── 项目停用、归档（放弃）、恢复、删除 ─────────────────────────
 
   /**
-   * 运营方案建的内部任务跟着项目走（141 号票，用户 2026-10-18 定）：项目归档（放弃）时运营中、等时间的和结束了的跟着归档
+   * 运营方案建的内部任务跟着项目走：项目归档（放弃）时运营中、等时间的和结束了的跟着归档
    * （系统做的，记下原来的状态 archivedFrom；运营中的触发登记照下面暂停，等时间的计时器随之撤掉），取消归档时回到原来的状态
    * （运营中的触发登记照下面恢复，等时间的重新登记计时器）。进行中的不动：项目还有在做、排队的工单时本来就不能归档。
    * 用户自己归档的没有 archivedFrom，取消归档时照旧留在已归档
@@ -1094,7 +1094,7 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
     const jobs = jobsOfProject(store.reader, project.id);
     let events: NewEvent[] = [];
     if (change === "retired" || change === "archived" || change === "abandoned") {
-      // 运营中的暂停（之前就暂停了的保持原样）。放弃（建设中、筹备中的项目归档）和归档一样：112 号票起建设任务做完不再自动进入
+      // 运营中的暂停（之前就暂停了的保持原样）。放弃（建设中、筹备中的项目归档）和归档一样：建设任务做完不再自动进入
       // 使用中，项目可能在建设中停很久、带着定时触发的任务，放弃时也要停下（取消归档时照归档的恢复）
       events = jobs.filter((j) => j.state === "active").flatMap((j) => pauseEvents(j, change === "retired" ? "project_retired" : "project_archived", "system"));
     } else if (change === "reactivated") {
@@ -1145,7 +1145,7 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
   };
 
   /**
-   * 定时触发的流程：这次运行里汇报某一步（照 58 号票的 report_step；开始一步时，别的还报着"在做"、真执行过的推断成做完）。
+   * 定时触发的流程：这次运行里汇报某一步（照 report_step；开始一步时，别的还报着"在做"、真执行过的推断成做完）。
    * 只记在这次运行上（每次运行从头算），步骤都做完不提前结束这次运行：这一轮正常结束就算成功
    */
   const reportStep = (maintainerId: string, report: { stepId: string; state: ReportedStepState; gist?: string }) => {
@@ -1161,7 +1161,7 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
       return { ...rest, state: report.state, ...(report.gist ? { gist: report.gist } : {}) };
     });
     const updated: JobRun = { ...run, steps: list };
-    // 报某一步开始了：在执行它的 agent 的会话频道上记一条步骤开始的记号（153 号票：一次运行是一段会话，回退点只在这一次运行里）
+    // 报某一步开始了：在执行它的 agent 的会话频道上记一条步骤开始的记号（一次运行是一段会话，回退点只在这一次运行里）
     const step = report.state === "in_progress" ? list.find((s) => s.stepId === report.stepId) : undefined;
     const mark = step && stepStartEvent(maintainerChannel(job.maintainerId), job.ownerTaskId!, maintainerId, step, currentHostToolCall(), now());
     store.appendBatch([jobEvent({ ...job, ...(job.lastRun?.runId === run.runId ? { lastRun: updated } : {}), updatedAt: now() }, "run_step", "maintainer", updated), ...(mark ? [mark] : [])]);
@@ -1177,7 +1177,7 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
   const guardTask = (jobId: string, ctx?: GuardTaskContext): GuardTask | null => {
     const job = getJob(store.reader, jobId);
     if (!job) return null;
-    // 授权有效：运营中；暂停着时用户让它立即运行一次（100 号票），那一次照常按授权跑（暂停只是不到点运行，不另开后门：守卫照常判）
+    // 授权有效：运营中；暂停着时用户让它立即运行一次，那一次照常按授权跑（暂停只是不到点运行，不另开后门：守卫照常判）
     const live = job.state === "active" || (job.state === "paused" && runningRunOf(job.id)?.trigger === "manual");
     if (isLegacyJob(job)) {
       const plan = tasks.confirmedPlan(job.taskId)?.plan;
@@ -1192,7 +1192,7 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
     if (!stored?.workflow) return null;
     const run = runningRunOf(job.id);
     const confirmedAt = stored.decidedAt ? Date.parse(stored.decidedAt) : Date.parse(job.createdAt);
-    // 事件触发的流程（77 号票）：这次运行代入了事件的值的步骤和由它推出的授权项
+    // 事件触发的流程：这次运行代入了事件的值的步骤和由它推出的授权项
     const bound = job.event ? boundOf(job, stored, run, ctx) : undefined;
     const plan = toGuardPlan(bound ? withGrants(stored.plan, bound.grants) : stored.plan, { confirmedAt });
     const grants = live ? plan.grants.map((g) => ({ ...g, expiresAt: Number.POSITIVE_INFINITY })) : [];
@@ -1202,7 +1202,7 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
   };
 
   /**
-   * 事件触发的流程这次运行代入了事件的值的步骤和授权项（77 号票）：按发起调用的 agent 现取真实路径、推出授权项，同一次运行、同一个 agent 只算一次。
+   * 事件触发的流程这次运行代入了事件的值的步骤和授权项：按发起调用的 agent 现取真实路径、推出授权项，同一次运行、同一个 agent 只算一次。
    * 不给 ctx 的（只要归属的地方）只代入、不推授权
    */
   const boundOf = (job: ScheduledJob, stored: StoredPlan, run: JobRun | undefined, ctx: GuardTaskContext | undefined): { steps: WorkflowStepView[]; grants: PlanGrant[] } => {
@@ -1228,7 +1228,7 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
     const fail = failJobRunTool({ reportFailure }, maintainerId, options.failureLimit);
     return {
       ...(toolkit ? { toolkit } : {}),
-      // 定时触发的流程：照 58 号票汇报每一步（这次运行里的），执行中不能改步骤
+      // 定时触发的流程：汇报每一步（这次运行里的），执行中不能改步骤
       tools: workflow ? [runReportStepTool({ reportStep }, maintainerId), fail, runPlanChangeRefusalTool()] : [fail],
       source: jobSource(job),
       ...internalMark(job.internal),
@@ -1237,7 +1237,7 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
     };
   };
 
-  /** 事件触发的流程这次运行 bash 的环境变量（77 号票）：这一批事件的值，命令里只引用变量 */
+  /** 事件触发的流程这次运行 bash 的环境变量：这一批事件的值，命令里只引用变量 */
   const runShellEnv = (job: ScheduledJob, workflow: StoredPlan | undefined): { shellEnv?: Record<string, string> } => {
     const run = job.event && workflow?.workflow ? runningRunOf(job.id) : undefined;
     return run ? { shellEnv: eventShellEnv(externalEvents(run)) } : {};
@@ -1279,7 +1279,7 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
       if (onceAt(task) !== undefined) return armOnce(task);
       if (!isTriggered(task)) return;
       if (task.state === "operating") registerTrigger(task);
-      // 跟着项目归档的（141 号票，记着原来的状态）不算结束：触发登记照项目归档暂停着，取消归档时恢复
+      // 跟着项目归档的（记着原来的状态）不算结束：触发登记照项目归档暂停着，取消归档时恢复
       else if (from !== task.state && ENDED_TASK_STATES.includes(task.state) && task.archivedFrom === undefined) onTaskEnded(task);
       return;
     }
@@ -1416,14 +1416,14 @@ export function createScheduledJobs(options: ScheduledJobsOptions): ScheduledJob
     legacyPlanConfirmed,
     calendar(from, to) {
       const inRange = (iso: string) => Date.parse(iso) >= from.getTime() && Date.parse(iso) < to.getTime();
-      // 用户改时间表（98 号票）只在事件里：按先后走一遍，记下每份最后一次改的时刻（系统按工作日历重算下一次的不算，时间表没变）
+      // 用户改时间表只在事件里：按先后走一遍，记下每份最后一次改的时刻（系统按工作日历重算下一次的不算，时间表没变）
       const since = new Map<string, string>();
       for (const event of store.read(CHANNELS.board, 0, EVENT_TYPES.scheduledJob)) {
         if (isDeletedEventPayload(event.payload)) continue;
         const { job, change, by } = event.payload as ScheduledJobEventPayload;
         if (change === "rescheduled" && by === "user") since.set(job.id, job.updatedAt);
       }
-      // 事件触发的（77 号票）没有时间表，不上日历
+      // 事件触发的没有时间表，不上日历
       return listJobs(store.reader, ["active", "paused"])
         .filter((job): job is ScheduledJob & { schedule: ReminderSchedule } => job.schedule !== undefined)
         .map((job) => ({

@@ -1,4 +1,4 @@
-// MCP 登记变更（239 号票）：给负责人一个工具 request_mcp_change——把一条 MCP 登记加、改、删。整条链照 27 号票的工具包变更：
+// MCP 登记变更：给负责人一个工具 request_mcp_change——把一条 MCP 登记加、改、删。整条链照工具包变更：
 // - 工具只校验 + 出一张"MCP 登记变更"卡（mcp_change）进待我处理，**不写任何文件**；校验不过当场回原因、不出卡；
 // - 用户在卡上确认之后，运行时按 name 合并写进数据目录配置区的 mcp.json（mcp/writer.ts：保留别的条目、原子写、
 //   写前留一份进 config/.history/），然后真把这个 MCP 拉起来一次做自检（tools/list），结果写进卡和时间线；
@@ -62,10 +62,10 @@ export interface McpChangeService {
   decide(payload: McpChangeCardPayload, cardId: string, decision: "approved" | "denied", note: string | undefined, idempotencyKey: string): Promise<CardActionEffect<McpChangeCardPayload>>;
 }
 
-/** 一次决定要记的时间线和通知写在哪个会话、带什么归属（358 号票的 skill 变更也用它） */
+/** 一次决定要记的时间线和通知写在哪个会话、带什么归属（skill 变更也用它） */
 export const changeScopeOf = (submitter: McpChangeSubmitter) => (submitter.kind === "project" ? { projectId: submitter.projectId } : { taskId: submitter.taskId, ...(submitter.projectId === undefined ? {} : { projectId: submitter.projectId }) });
 
-/** 找提交的人要的两样（358 号票的 skill 变更也用它） */
+/** 找提交的人要的两样（skill 变更也用它） */
 export type SubmitterLookups = Pick<McpChangeServiceOptions, "projectOf" | "taskOf">;
 
 /** 提交的人：目标对得上现在的项目、任务，不然找不到 */

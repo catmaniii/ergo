@@ -1,4 +1,4 @@
-// 读 VPS 上 nginx 的配置（322 号票）：`lsm vps site add` 的体检要看出布局（443 前面有没有 stream 前门、前门后面的站点听哪个地址），
+// 读 VPS 上 nginx 的配置：`lsm vps site add` 的体检要看出布局（443 前面有没有 stream 前门、前门后面的站点听哪个地址），
 // `lsm vps scan` 要列出已有的站点和证书。都只读：VPS 上跑 `nginx -T`（把 nginx 实际读到的所有文件按顺序打出来），
 // 这里把它解析成一棵树，按 include 拼回去，就知道每个 server 是在 http 里还是在 stream 里。
 //

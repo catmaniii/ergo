@@ -1,4 +1,4 @@
-// 227 号票：对抗复核（reflect 末尾的一步，假模型）+ 复评水位、表象覆盖（整理报告）。
+// 对抗复核（reflect 末尾的一步，假模型）+ 复评水位、表象覆盖（整理报告）。
 // 复核员不看结论：只给支持证据原话（最多 8 条、打乱顺序），先让它写自己的推断，再判候选结论 yes / no / unclear。
 // no → 结论待复核（记修订，原因"对抗复核不一致"）；unclear 只计数；单独 5 次调用预算；判过的不重复判。
 import { afterEach, describe, expect, it } from "vitest";
@@ -53,7 +53,7 @@ function reviewerOf(verdicts: Readonly<Record<string, "yes" | "no" | "unclear">>
 
 const ingest = (engine: MemoryEngine, id: string, text: string, over: Partial<EvidenceDraft> = {}) => engine.ingestEvidence(say(id, text, SUPPORT_TIME, over));
 
-describe("对抗复核（227）", () => {
+describe("对抗复核", () => {
   it("判 no：结论加复核标记（真值状态不动）、记一条原因'对抗复核不一致'的修订，进 rejectedByReview", async () => {
     const t = openEngine(NOW);
     const evidence = ingest(t.engine, "ev-r1", "周末不想被别人提前排满，想自己安排。", { context: ["weekend"] });
@@ -209,7 +209,7 @@ class NeedValueReasoner implements Reasoner {
   }
 }
 
-describe("整理时跑对抗复核；报告里的复评水位、表象覆盖（227）", () => {
+describe("整理时跑对抗复核；报告里的复评水位、表象覆盖", () => {
   it("每晚整理时 reflect 末尾复核新结论；判 no 的进整理报告，整理报告里打对抗复核那一行", async () => {
     const t = openEngine("2026-10-10T02:00:00+08:00", { reasoner: new NeedValueReasoner(), reviewer: reviewerOf({ "用户需要能自己安排周末": "no" }), joint: false });
     t.engine.ingestEvidence(say("ev-i1", "我喜欢爬山。", "2026-07-01T10:00:00+08:00", { context: ["weekend"] }));
@@ -262,7 +262,7 @@ describe("整理时跑对抗复核；报告里的复评水位、表象覆盖（2
     t.setNow("2026-10-10T03:00:00+08:00");
     expect(await t.engine.runNightly({ userActive: false })).toMatchObject({ ran: true });
 
-    // 两条推断的、成立的：一条很久没复核，一条刚复核过（272 号票起明说的不算，见下一条）
+    // 两条推断的、成立的：一条很久没复核，一条刚复核过（明说的不算，见下一条）
     const stale = eligibleClaim(t.engine, "用户需要能自己安排周末", ["ev-w01"]);
     const recent = eligibleClaim(t.engine, "用户看重周末的自主", ["ev-w01"]);
     t.engine.store.updateClaim(stale.id, { reviewedAt: "2026-08-01T00:00:00+08:00" }, { reason: "测试：很久没复核" });
@@ -279,7 +279,7 @@ describe("整理时跑对抗复核；报告里的复评水位、表象覆盖（2
     expect(r.report.representation).toEqual({});
   });
 
-  // 272 号票第 5 条：线上"到期待复评 106 条"全是用户明说的偏好——明说的跟着用户的话走（那句话被纠正、忘掉时才动），不按 30 天复评，
+  // 线上"到期待复评 106 条"全是用户明说的偏好——明说的跟着用户的话走（那句话被纠正、忘掉时才动），不按 30 天复评，
   // 从这一行和计数里拿掉；推断的照旧
   it("用户明说的结论不算到期待复评：从没复核过、很久没复核的都不算；推断的照旧算", async () => {
     const t = openEngine("2026-10-09T22:00:00+08:00");

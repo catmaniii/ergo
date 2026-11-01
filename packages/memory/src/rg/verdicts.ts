@@ -1,4 +1,4 @@
-// 263 号票：用户对一条结论直接表态——对（confirm）、不对（reject）、拿不准（doubt）。线上是记忆管理员的 review_memory_claim 调它。
+// 用户对一条结论直接表态——对（confirm）、不对（reject）、拿不准（doubt）。线上是记忆管理员的 review_memory_claim 调它。
 //
 // 为什么要走这里，不直接改结论的状态：结论的状态每次整理都按关联重新算（scoring.ts）。直接改库，下一次整理计分就改回去了
 // （改成成立的又变回"还拿不准"，撤回的又恢复成立）。所以用户的表态要变成计分认的东西：
@@ -126,7 +126,7 @@ function revertConfirmation(engine: MemoryEngine, claimId: string, byEvidenceId:
 /** 用户对一条结论表态（见文件开头）：记表态证据、收回先前相反的表态、走引擎的写接口；被拒时抛 ClaimVerdictRefused、什么都不写 */
 export function recordClaimVerdict(engine: MemoryEngine, claimId: string, verdict: ClaimVerdict, options: ClaimVerdictOptions = {}): ClaimVerdictResult {
   const store = engine.store;
-  // 267 号票：经唯一写入口——记下用户的表态（经谁转达写进留痕；原因是管理员记下的那句）
+  // 经唯一写入口——记下用户的表态（经谁转达写进留痕；原因是管理员记下的那句）
   return engine.gate.write({ op: "verdict", actor: "user_verdict", ...(options.via ? { via: options.via } : {}), reason: options.note ?? VERDICT_NOTE[verdict] }, () => {
     const claim = store.getClaim(claimId);
     if (!claim) throw new Error(`没有这条断言：${claimId}`);

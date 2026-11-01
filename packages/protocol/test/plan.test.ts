@@ -1,4 +1,4 @@
-// 计划的纯函数（12 号票）：授权项列表、卡上由代码生成的授权行和时序规则说明、停点随勾选变化。
+// 计划的纯函数：授权项列表、卡上由代码生成的授权行和时序规则说明、停点随勾选变化。
 import { describe, expect, test } from "vitest";
 import {
   grantNotAuthorizedLabel,
@@ -85,7 +85,7 @@ describe("授权项和生成的文字", () => {
     expect(grantText(plan.stages[1]!.policy.grants[0]!, grantInfo.push)).toBe("推送（git_push） · 以我的名义对外发送或发布：remote 是 origin，branch 是 main 或 report；最多 2 次；7 天内有效");
     expect(grantText(plan.stageGroups[0]!.policy.grants[0]!, grantInfo.write)).toBe("写文件（write）：path 是 out；不限次数；3 天内有效");
     expect(grantText(plan.stages[0]!.policy.grants[0]!, undefined)).toBe("web_fetch：不限对象；最多 20 次；7 天内有效");
-    // 58 号票：流程里通用 bash 的步骤推出的授权项只限那条命令
+    // 流程里通用 bash 的步骤推出的授权项只限那条命令
     expect(grantText({ id: "g-s1", tool: "git_push", title: "s1「推送」", scope: { remote: "origin", branch: "main" }, maxUses: 1, command: "git push origin main" }, undefined)).toBe(
       "git_push：remote 是 origin，branch 是 main；只限命令「git push origin main」；最多 1 次；7 天内有效",
     );
@@ -95,10 +95,10 @@ describe("授权项和生成的文字", () => {
     );
   });
 
-  test("定时触发的任务每次运行的授权（19 号票的定时作业，76 号票迁移成定时触发的普通任务）：主文里次数按每次运行算、没有天数（任务在运营就一直有效）", () => {
+  test("定时触发的任务每次运行的授权（定时作业，迁移成定时触发的普通任务）：主文里次数按每次运行算、没有天数（任务在运营就一直有效）", () => {
     const daily = { id: "send-daily", tool: "http_request", title: "把日报发到 hook", scope: { url: "http://127.0.0.1/daily" }, maxUses: 1, validDays: 3 };
     expect(grantText(daily, undefined, "job")).toBe("http_request：url 是 http://127.0.0.1/daily；每次运行最多 1 次；任务在运营就一直有效，暂停、取消即收回");
-    // 76 号票起计划里没有定时作业：策略只有阶段的和阶段组的
+    // 计划里没有定时作业：策略只有阶段的和阶段组的
     expect(planPolicies(plan).map((p) => p.owner.kind)).toEqual(["stage", "stage", "group"]);
     expect(policyOwnerLabel(planPolicies(plan)[2]!.owner)).toBe("阶段组「成文」的各阶段");
   });
@@ -138,7 +138,7 @@ describe("停点（授权后还会在几处停下来）", () => {
 
 const kinds = (stops: readonly { kind: string }[]) => stops.map((s) => s.kind);
 
-describe("“有风险的事先问我”关着（新装默认，378 号票）", () => {
+describe("“有风险的事先问我”关着（新装默认）", () => {
   const none ={ removed: new Set<string>(), narrowed: new Set<string>() };
   const asks = { plan, grantInfo: { ...grantInfo, push: { ...grantInfo.push!, disposition: "ask_first" as const } } };
 
@@ -173,7 +173,7 @@ describe("“有风险的事先问我”关着（新装默认，378 号票）", 
 /** 几个阶段和各自的前置 */
 const deps = (list: [string, string[]][]) => list.map(([id, after]) => ({ id, after }));
 
-describe("第几阶段、编号（91 号票）", () => {
+describe("第几阶段、编号", () => {
 
   test("第几阶段是最长那条前置链的长度，同号的是并行的；同一阶段有几个时按计划里的先后加 a、b", () => {
     const stages = deps([
@@ -206,11 +206,11 @@ describe("第几阶段、编号（91 号票）", () => {
   });
 });
 
-/** 只要阶段 id 和前置的计划（编号只看这两样；93 号票） */
+/** 只要阶段 id 和前置的计划（编号只看这两样） */
 const shape = (list: [string, string[]][]): Pick<Plan, "stages"> => ({ stages: list.map(([stageId, dependsOn]) => ({ ...plan.stages[0]!, stageId, dependsOn })) });
 const codesOf = (p: Pick<Plan, "stages">) => Object.fromEntries(p.stages.map((s) => [s.stageId, s.code]));
 
-describe("编号存进计划（93 号票）", () => {
+describe("编号存进计划", () => {
 
   test("第一版：一个阶段号只有一个是阶段号，有几个按计划里的先后加 a、b", () => {
     const first = withStageCodes(shape([["s1", []], ["s2", []], ["s3", ["s1", "s2"]], ["s4", ["s3"]]]));
@@ -248,7 +248,7 @@ describe("编号存进计划（93 号票）", () => {
     expect(codesOf(next)).toEqual({ s2: "1b", s1: "1a", s3: "2", s4: "1c" });
   });
 
-  test("第 X/N 阶段（93 号票评审：守护进程写的和界面状态行共用）：X 是存下的编号，N 是存下的编号里最大的阶段号；去掉中间的阶段之后不会写出\"第 3/2 阶段\"", () => {
+  test("第 X/N 阶段（守护进程写的和界面状态行共用）：X 是存下的编号，N 是存下的编号里最大的阶段号；去掉中间的阶段之后不会写出\"第 3/2 阶段\"", () => {
     const first = withStageCodes(shape([["s1", []], ["s2", ["s1"]], ["s3", ["s2"]]]));
     expect(codesOf(first)).toEqual({ s1: "1", s2: "2", s3: "3" });
     // 去掉中间的 s2，s3 改成接在 s1 后面：s3 还是 3（不改名），依赖图只有两层
@@ -270,7 +270,7 @@ describe("编号存进计划（93 号票）", () => {
     const list = initialStages({ ...plan, stages: stored.stages });
     expect(list.map((s) => s.code)).toEqual(["1b", "1a"]);
     expect(listStageCodes(list)).toEqual(new Map([["s1", "1b"], ["s2", "1a"]]));
-    // 一共几个阶段号照存下的编号（93 号票评审）：两个都还是第 1 阶段的号，不按现在的依赖图算成 2
+    // 一共几个阶段号照存下的编号：两个都还是第 1 阶段的号，不按现在的依赖图算成 2
     expect(stageLayerCount(list)).toBe(1);
     // 没存编号的阶段列表照旧现算
     expect(listStageCodes(initialStages(plan))).toEqual(new Map([["s1", "1"], ["s2", "2"]]));

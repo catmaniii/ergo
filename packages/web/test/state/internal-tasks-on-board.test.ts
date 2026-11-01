@@ -1,4 +1,4 @@
-// 前端状态层：运营方案建的内部任务也上任务看板（141 号票，2026-10-18 用户定"显示，只能暂停、恢复"）。
+// 前端状态层：运营方案建的内部任务也上任务看板（显示，只能暂停、恢复）。
 // - 看板分组：运营方案里的一条生效成的内部任务在对应的组里（运营中的定时、事件触发的在运营中；某个时间做一次的照它的状态；
 //   跟着项目归档了的在已归档），每张卡带着属于哪个项目（点了进项目）；别的内部任务（维护任务、对话框里选了项目建的定时任务）照旧不上；
 //   项目删掉了的随项目一起拿掉；
@@ -219,7 +219,7 @@ describe("项目在用时运营方案里的一条只能暂停、恢复", () => {
     expect(canBatch(subject(state, "t-1"), "pause")).toBe(true);
     expect(canBatch(subject(state, "t-7"), "archive")).toBe(false);
     const entries = ["t-1", "t-4", "t-7"].map((id) => ({ id, title: id, subject: subject(state, id) }));
-    // 删除（186 号票）：项目内部任务随项目删，都不算
+    // 删除：项目内部任务随项目删，都不算
     expect(batchCounts(entries)).toEqual({ pause: 1, resume: 0, cancel: 0, archive: 1, delete: 0 });
     const { ended } = projectInternalTasks(state, "p-1");
     expect(ended.map((v) => [v.task.id, v.archivable])).toEqual([
@@ -230,7 +230,7 @@ describe("项目在用时运营方案里的一条只能暂停、恢复", () => {
 
   test("去掉了的（变更时去掉、不再绑在现在的方案里）、项目归档了的：照常（能归档、能取消）", () => {
     const state = replay(world().list);
-    // 186 号票：项目内部任务不能单独删，最后一行写明为什么
+    // 项目内部任务不能单独删，最后一行写明为什么
     expect(taskActionItems(subject(state, "t-4"))).toEqual([
       { kind: "act", action: "archive", label: "归档" },
       { kind: "delete_note", label: "不能删除：这是项目「AI 简报站」的内部任务，项目还在时由项目管：删项目时它一起删掉" },

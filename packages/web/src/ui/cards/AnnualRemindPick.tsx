@@ -1,4 +1,4 @@
-// 生日、纪念日"每年提前几天提醒"的勾和天数（283 号票）：个人档案的核对卡、候选核对卡、档案页共用。默认勾着、提前 3 天。
+// 生日、纪念日"每年提前几天提醒"的勾和天数：个人档案的核对卡、候选核对卡、档案页共用。默认勾着、提前 3 天。
 import { ANNUAL_REMINDER_DAY_CHOICES, annualDaysLabel, t } from "../../state/index.ts";
 
 export function AnnualRemindPick({

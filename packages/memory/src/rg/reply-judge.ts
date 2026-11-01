@@ -1,6 +1,6 @@
-// 顺口问的回答由记忆管理员每晚整理时批量判（271 号票，用户 2026-10-25 定）。
+// 顺口问的回答由记忆管理员每晚整理时批量判。
 //
-// 线上秘书按当时的话题和语气自己改写问法（不再原样带 198 那一句），用户也常常不正面答——问"这阵子是不是特别忙"，答"最近在赶项目"。
+// 线上秘书按当时的话题和语气自己改写问法，用户也常常不正面答——问"这阵子是不是特别忙"，答"最近在赶项目"。
 // 白天的规则（questions.ts 的 classifyReply）只认紧接着的下一句里明显的"是 / 不是 / 跳过 / 别问这个"，认不出的不在白天记跳过，
 // 留到每晚整理：把问题和用户之后的几句话一起交给记忆管理员（模型）判，不拖慢白天回话，花整理的预算。
 //
@@ -159,7 +159,7 @@ export function planReplies(book: QuestionBook, store: MemoryStore, source: Repl
   for (const question of asked) {
     const askedAt = question.lastAskedAt;
     if (askedAt === null) continue;
-    // 当天才问的（到第二天才算"问了没答"，198 的规矩）：明天夜里再看
+    // 当天才问的（到第二天才算"问了没答"，规矩）：明天夜里再看
     if (sameLocalDay(at, askedAt) || toMs(askedAt) > toMs(at)) {
       plan.later.push(question);
       continue;

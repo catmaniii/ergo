@@ -140,14 +140,14 @@ describe("ergo-daemon 的 LSM 条目", () => {
   const entry = fs.readFileSync(path.join(repoRoot, "deploy/lsm/ergo-daemon.example.yaml"), "utf8").replaceAll("\r\n", "\n");
   const code = entry.replace(/#[^\n]*/g, "");
 
-  it("接入 link 协议（23 号票）：探活档位 linked（接入层断了降级回 /healthz）、启动时注入身份、开着 autoRestart；stop 钩子留作接入层断开时的兜底", () => {
+  it("接入 link 协议：探活档位 linked（接入层断了降级回 /healthz）、启动时注入身份、开着 autoRestart；stop 钩子留作接入层断开时的兜底", () => {
     expect(code).toMatch(/^probe:\n\s+tier: linked\n\s+port: 8810\n\s+health:\n\s+url: http:\/\/127\.0\.0\.1:8810\/healthz\n/m);
     expect(code).toMatch(/^link:\n\s+enabled: true\s*\n/m);
     expect(code).toMatch(/^autoRestart:\n\s+enabled: true\n/m);
     expect(code).toMatch(/^\s+stop:\n\s+argv:\n\s+- <专用 Node 路径>\n\s+- packages\/daemon\/src\/stop\.ts\n/m);
   });
 
-  it("对 audiocpp（本机 LSM 托管的语音合成服务）是弱依赖（32 号票）：不等它就绪，它没开时语音回复退回只发文字", () => {
+  it("对 audiocpp（本机 LSM 托管的语音合成服务）是弱依赖：不等它就绪，它没开时语音回复退回只发文字", () => {
     expect(code).toMatch(/^dependsOn:\n\s+- id: audiocpp\n\s+type: soft\s*\n/m);
   });
 
@@ -158,7 +158,7 @@ describe("ergo-daemon 的 LSM 条目", () => {
   });
 });
 
-describe("ergo-asr 的 LSM 条目（250 号票：语音识别服务）", () => {
+describe("ergo-asr 的 LSM 条目（语音识别服务）", () => {
   const entry = fs.readFileSync(path.join(repoRoot, "deploy/lsm/ergo-asr.example.yaml"), "utf8").replaceAll("\r\n", "\n");
   const code = entry.replace(/#[^\n]*/g, "");
 

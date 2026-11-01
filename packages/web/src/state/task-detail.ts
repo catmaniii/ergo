@@ -1,16 +1,16 @@
-// 任务详情（纯函数，13 号票）：阶段抽屉里各阶段的样子、详情页上能对任务做的控制。
+// 任务详情（纯函数）：阶段抽屉里各阶段的样子、详情页上能对任务做的控制。
 // - 阶段：执行中的状态、验收方式和结果来自任务（看板频道上的 task 事件，Task.stages.list），交付件、模式、授权、
 //   时序规则、预算来自计划卡上的计划（确认的那份是勾掉、收窄之后的）；还没开始执行时按计划列出、都是未开始
 //   （initialStages，和守护进程建阶段用的同一份）；一个阶段的授权和时序规则是它自己的加所属阶段组的（stagePolicies）；
-//   预算用了多少 token（24 号票）来自看板频道上这个任务的用量合计（按调用时的阶段）；
-//   计划换过版的（14 号票：计划变更确认、负责人自行调整计划）取看板频道上最新的 task_plan（现在生效的计划和授权说法），
+//   预算用了多少 token来自看板频道上这个任务的用量合计（按调用时的阶段）；
+//   计划换过版的（计划变更确认、负责人自行调整计划）取看板频道上最新的 task_plan（现在生效的计划和授权说法），
 //   去掉、收窄的授权不再显示，新加的阶段有交付件、预算和授权；
-// - 停下的阶段带上为什么停（14 号票：阈值、做不了、超预算、计划变更）；
-// - 控制：90 号票起任务详情的按钮收进状态签浮层和"⋯"，菜单项在 task-menu.ts（taskActionItems）；这里留着从某个阶段重做
-//   （84 号票：canReopenStage，开始过的阶段就能）和还收不收话；
-// - 阶段详情要的（84 号票）：要你留意的"权""外""问"（stageMarks：
+// - 停下的阶段带上为什么停（阈值、做不了、超预算、计划变更）；
+// - 控制：任务详情的按钮收进状态签浮层和"⋯"，菜单项在 task-menu.ts（taskActionItems）；这里留着从某个阶段重做
+//   （canReopenStage，开始过的阶段就能）和还收不收话；
+// - 阶段详情要的：要你留意的"权""外""问"（stageMarks：
 //   算授权的授权项按守护进程给的 GrantInfo.outward 分本机、对外；"问"是计划的停点里落在这个阶段上的（协议包的 stageStops）；
-//   "敏"要计划里写会用到的敏感数据，在 85 号票），选这种执行方式的理由和初步思路、开始过没有（协议包的 stageStarted）、
+//   "敏"要计划里写会用到的敏感数据），选这种执行方式的理由和初步思路、开始过没有（协议包的 stageStarted）、
 //   这一阶段的时序规则原文（点进规则详情）。
 import {
   type AcceptanceMethod,
@@ -47,7 +47,7 @@ export interface StageView {
   title: string;
   /** 第几阶段（1 起） */
   n: number;
-  /** 计划里存的编号（93 号票，"1a"）；之前的计划没有，读的地方按依赖图现算 */
+  /** 计划里存的编号（"1a"）；之前的计划没有，读的地方按依赖图现算 */
   code?: string;
   state: StageState;
   waitReason?: TaskWaitReason;
@@ -64,26 +64,26 @@ export interface StageView {
   grants: string[];
   rules: string[];
   /**
-   * 预算，和这一份预算里已经用掉的 token（usedTokens，24 号票）。361 号票：阶段开始了照运行时算好记在阶段上的（用量从这一份的起算点算），
+   * 预算，和这一份预算里已经用掉的 token（usedTokens）。阶段开始了照运行时算好记在阶段上的（用量从这一份的起算点算），
    * 没开始的照计划（新计划里只有次数）；baseToolCalls 是这一份从第几次工具调用起算
    */
   budget?: { tokens: number; toolCalls: number; usedTokens: number; baseToolCalls?: number; cost?: { amount: number; currency: string }; scale?: number };
-  /** 估的和实际的工具调用次数（361 号票：验收时记下的） */
+  /** 估的和实际的工具调用次数（验收时记下的） */
   calls?: { estimated: number; actual: number };
-  /** 选这种模式的理由、开放阶段的初步思路（84 号票：计划里写了才有） */
+  /** 选这种模式的理由、开放阶段的初步思路（计划里写了才有） */
   modeReason?: string;
   roughIdea?: string;
-  /** 开始过（"从这里重做"只对开始过的阶段，84 号票） */
+  /** 开始过（"从这里重做"只对开始过的阶段） */
   started: boolean;
-  /** 要你留意的：本机的授权、对外的动作、会停下来问你的（84 号票） */
+  /** 要你留意的：本机的授权、对外的动作、会停下来问你的 */
   marks: StageMarks;
-  /** 这一阶段（加上所属阶段组）的时序规则原文：点一条看它的详情（84 号票） */
+  /** 这一阶段（加上所属阶段组）的时序规则原文：点一条看它的详情 */
   ruleDocs: PlanTemporalRule[];
-  /** 最近一次宣布完成时评审输入里运行时核实过的用户原话（125 号票：负责人引用、守护进程核实的；重开后清掉） */
+  /** 最近一次宣布完成时评审输入里运行时核实过的用户原话（负责人引用、守护进程核实的；重开后清掉） */
   userWords?: VerifiedUserWords[];
-  /** 负责人最近一次宣布完成时写的那一两句（274 号票：阶段详情"系统查到的结果"里和系统查到的摆在一起；重开后清掉） */
+  /** 负责人最近一次宣布完成时写的那一两句（阶段详情"系统查到的结果"里和系统查到的摆在一起；重开后清掉） */
   summary?: string;
-  /** 最近一次宣布完成时系统从效果日志里汇总的个数（274 号票：阶段框上那一行；重开后清掉） */
+  /** 最近一次宣布完成时系统从效果日志里汇总的个数（阶段框上那一行；重开后清掉） */
   observed?: StageObservedCounts;
 }
 
@@ -95,9 +95,9 @@ export interface StageMarkItem {
 }
 
 /**
- * 一个阶段要你留意的几样（"敏"在 85 号票）：
- * - perm 敏感权限（84 号票叫本机授权，93 号票统一叫敏感权限）：算授权的授权项里不对外的（动你电脑里的东西）；只读的授权也算在这里（85 号票再分出去）；
- * - out 对外动作：算授权的授权项里对外的（守护进程给的 GrantInfo.outward，84 号票之前算的授权说法没有它，都算本机）；
+ * 一个阶段要你留意的几样：
+ * - perm 敏感权限（叫本机授权，统一叫敏感权限）：算授权的授权项里不对外的（动你电脑里的东西）；只读的授权也算在这里（再分出去）；
+ * - out 对外动作：算授权的授权项里对外的（守护进程给的 GrantInfo.outward，以前算的授权说法没有它，都算本机）；
  * - ask 会问你：计划的停点里落在这个阶段上的（stageStops：由你验收、落在"先问我""交给我做"类别里的授权、收窄了的；
  *   "有风险的事先问我"关着时只有由你验收、交给我做的）
  */
@@ -119,14 +119,14 @@ export function stageMarks(effective: EffectivePlan, stageId: string, grants: re
   return {
     perm: granted.filter((g) => !outward(g)).map(item),
     out: granted.filter(outward).map(item),
-    // 91 号票：第几阶段按依赖图的编号写（并行的 4a、4b）
+    // 第几阶段按依赖图的编号写（并行的 4a、4b）
     ask: stageStops(effective, stageId, planStageCodes(effective.plan), asksOff).map((s) => ({ text: s.text })),
   };
 }
 
 /**
- * 任务现在生效的计划和授权说法：换过版的取最新的 task_plan（14 号票），没换过的取计划卡（或确认过的计划变更卡）；还没收到时没有
- * （91 号票：依赖图画计划变更等你确认时，拿它和变更后的那份比，标出新加、改过、去掉的阶段）
+ * 任务现在生效的计划和授权说法：换过版的取最新的 task_plan，没换过的取计划卡（或确认过的计划变更卡）；还没收到时没有
+ * （依赖图画计划变更等你确认时，拿它和变更后的那份比，标出新加、改过、去掉的阶段）
  */
 export function effectivePlanOf(state: UiState, task: Task): (Pick<PlanCardPayload | PlanChangeCardPayload | TaskPlanEventPayload, "plan" | "grantInfo"> & { narrowedGrants?: readonly string[] | undefined }) | undefined {
   const revised = state.taskPlans[task.id];
@@ -135,7 +135,7 @@ export function effectivePlanOf(state: UiState, task: Task): (Pick<PlanCardPaylo
   return card?.type === "plan" ? (card.payload as PlanCardPayload) : card?.type === "plan_change" ? (card.payload as PlanChangeCardPayload) : undefined;
 }
 
-/** 任务现在生效的计划里的工具包（任务详情的工具包区，27 号票）；计划还没收到时没有 */
+/** 任务现在生效的计划里的工具包（任务详情的工具包区）；计划还没收到时没有 */
 export function taskToolkit(state: UiState, taskId: string): PlanToolkit | undefined {
   const task = state.tasks[taskId];
   return task ? effectivePlanOf(state, task)?.plan.toolkit : undefined;
@@ -191,14 +191,14 @@ export function taskStages(state: UiState, taskId: string): StageView[] {
       marks: effective ? stageMarks(effective, s.stageId, policies.flatMap((p) => p.grants), asksOffIn(state)) : { perm: [], out: [], ask: [] },
       ruleDocs: policies.flatMap((p) => p.temporalRules),
       ...(s.userWords && s.userWords.length > 0 ? { userWords: s.userWords } : {}),
-      // 274 号票：负责人最近一次宣布完成时写的那一两句（自报）、那时系统从效果日志里汇总的个数
+      // 负责人最近一次宣布完成时写的那一两句（自报）、那时系统从效果日志里汇总的个数
       ...(s.summary ? { summary: s.summary } : {}),
       ...(s.observed ? { observed: s.observed } : {}),
     };
   });
 }
 
-/** 对任务做一件事时附带的：哪个阶段、你写的说明，从这里重做时直接改的这一阶段（125 号票，只给 rework） */
+/** 对任务做一件事时附带的：哪个阶段、你写的说明，从这里重做时直接改的这一阶段（只给 rework） */
 export interface TaskActOptions {
   stageId?: string;
   note?: string;
@@ -206,7 +206,7 @@ export interface TaskActOptions {
 }
 
 /**
- * 现在能从这个阶段重做吗（84 号票，用户 2026-10-11 定：阶段开始过就能重开）："谁能改"表里现在能返工
+ * 现在能从这个阶段重做吗（阶段开始过就能重开）："谁能改"表里现在能返工
  * （建好了阶段的长程任务，执行中、等我、暂停、排队、失败、已完成都行），而且这个阶段开始过
  */
 export function canReopenStage(task: Task, stageId: string): boolean {

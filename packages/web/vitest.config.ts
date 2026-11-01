@@ -8,9 +8,9 @@ export default defineConfig({
   test: {
     name: "web",
     include: ["test/**/*.test.ts"],
-    // 168 号票：每个测试文件开始前装上自带的中文（t() 查得到句子）
+    // 每个测试文件开始前装上自带的中文（t() 查得到句子）
     setupFiles: ["test/setup-locales.ts", "../../vitest.setup-no-network.mjs"],
-    // 244 号票：转译缓存（page-opens 走集成车道，见 vitest.integration.config.ts）
+    // 转译缓存（page-opens 走集成车道，见 vitest.integration.config.ts）
     fsModuleCache: true,
   },
 });

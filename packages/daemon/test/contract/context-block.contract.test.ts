@@ -1,12 +1,12 @@
-// pi 契约测试：重注入块（规格第 8 节，13 号票）。每次唤起和每次压缩之后，运行时把一块固定内容
+// pi 契约测试：重注入块（规格第 8 节）。每次唤起和每次压缩之后，运行时把一块固定内容
 // "计划摘要 + 当前阶段 + 授权 + 边界"作为上下文消息注入会话，不改系统提示：
 // - 装配参数里给了 contextBlock：每条输入之前（被唤起：刚拉起，或者闲着时来了新输入），最新的一块作为一条上下文消息
 //   进会话（模型看到的是用户角色的一条消息）；插话不算唤起；
-// - 守护进程随时用 contribution（128 号票之前是 context_block）按 id 换成最新的一块；压缩之后（pi 的 session_compact）子进程把最新的一块再注入一次。
+// - 守护进程随时用 contribution（以前是 context_block）按 id 换成最新的一块；压缩之后（pi 的 session_compact）子进程把最新的一块再注入一次。
 // 压缩用 compact 命令手动触发（pi 的 session.compact，模型先被调用一次写摘要；守护进程现在不发它）。
-// 22 号票加的：用户输入可以带一条跟在它后面的上下文消息（秘书的看板变化）；装配里给了压缩指令时，自动压缩（上下文溢出）
+// 加的：用户输入可以带一条跟在它后面的上下文消息（秘书的看板变化）；装配里给了压缩指令时，自动压缩（上下文溢出）
 // 和手动压缩写摘要都按它写（秘书专用的压缩指令）。
-// 128 号票（通用贡献清单）：插件经 agent 贡献缝给的上下文块排在重注入块后面一起注入、按 id 换文字；钩子订阅 system_prompt_suffix
+// 通用贡献清单：插件经 agent 贡献缝给的上下文块排在重注入块后面一起注入、按 id 换文字；钩子订阅 system_prompt_suffix
 // 每轮接在系统提示末尾（不进会话）。
 import { describe, expect, it } from "vitest";
 import { REINJECTION_BLOCK_ID } from "../../src/runtime/index.ts";
@@ -93,7 +93,7 @@ describe("pi 契约：重注入块", () => {
     expect(seen.indexOf("[user] 压缩之后")).toBeGreaterThan(blocks[1]!);
   });
 
-  // 128 号票：插件的上下文块和重注入块一起、按清单的先后注入；按 id 换文字；system_prompt_suffix 每轮现拼在系统提示末尾、不进会话
+  // 插件的上下文块和重注入块一起、按清单的先后注入；按 id 换文字；system_prompt_suffix 每轮现拼在系统提示末尾、不进会话
   it("插件的上下文块排在重注入块后面一起注入、按 id 换文字；system_prompt_suffix 接在系统提示末尾，换了文字下一轮就是新的", async () => {
     const { daemon } = await startTestDaemon();
     const { agent, log } = spawnTestAgent(daemon, {
@@ -128,7 +128,7 @@ describe("pi 契约：重注入块", () => {
     expect(second.filter((l) => l.startsWith("[user]")).slice(-3)).toEqual(["[user] 【运行时注入】计划摘要", "[user] 【记忆简报】v2", "[user] 接着"]);
   });
 
-  // 22 号票：秘书的看板变化消息跟在用户这条消息后面（不是前面），系统提示不变；没给的那一轮不追加
+  // 秘书的看板变化消息跟在用户这条消息后面（不是前面），系统提示不变；没给的那一轮不追加
   it("用户输入可以带一条跟在它后面的上下文消息：模型看到它紧跟在这条用户消息之后，系统提示不变；不带的那一轮什么都不加", async () => {
     const { daemon } = await startTestDaemon();
     const { agent, log } = spawnTestAgent(daemon, {
@@ -155,7 +155,7 @@ describe("pi 契约：重注入块", () => {
     expect(tail).toEqual(["[user] 第一句", "[user] 【看板变化】任务 t-1：执行中 → 等我", "[assistant] 好", "[user] 第二句"]);
   });
 
-  describe("自定义的压缩指令（22 号票）", () => {
+  describe("自定义的压缩指令", () => {
     const INSTRUCTIONS = "【秘书压缩指令】丢掉任务的执行细节和已解决的问答；保留进行中的话题和还没处理的指示。";
     /**
      * 很长的一轮（约 2.5 万 token，超过 pi 默认留着不压的 2 万）：压缩时留下它和它之后的，它之前的那一轮（开头）写进摘要

@@ -1,7 +1,7 @@
-// 业务层：角色（248 号票）——配置区 agent-roles.json 怎么存、怎么查、怎么回退、迁移怎么做。
+// 业务层：角色——配置区 agent-roles.json 怎么存、怎么查、怎么回退、迁移怎么做。
 // 光看这一层，不起守护进程：
-// - 默认角色的名字和音色就是全局名字（43）和全局选中的参考音色（31）：读按全局现取，写也写全局；
-// - 角色：名字照 43 号票的规矩查，音色要参考音色清单里现在有的（写不存在的拒收；插件没启用时写音色拒收，名字和角色分配照常）；
+// - 默认角色的名字和音色就是全局名字和全局选中的参考音色：读按全局现取，写也写全局；
+// - 角色：名字照规矩查，音色要参考音色清单里现在有的（写不存在的拒收；插件没启用时写音色拒收，名字和角色分配照常）；
 // - 没指定角色 = 跟默认；指定默认角色也等于跟默认（文件里不留这一项）；
 // - 删角色：默认角色不能删，还有 agent 指定的不能删（写明谁在用）；
 // - 迁移：第一次读到文件不存在时，从旧的 agent-profiles.json + 全局名字 + 全局选中音色造默认角色和各个 agent 的角色；
@@ -66,7 +66,7 @@ function setup(options: { voices?: (RoleVoices & { drop(id: string): void }) | u
   };
 }
 
-/** 旧配置（241 号票）的形状 */
+/** 旧配置的形状 */
 const legacyFile = (agents: Record<string, { name?: string; voiceId?: string }>) => ({ format: 1, agents });
 const legacyEntries = (file: string): unknown => JSON.parse(fs.readFileSync(file, "utf8"));
 
@@ -149,7 +149,7 @@ describe("迁移：从旧的名字音色配置 + 全局名字 + 全局音色造�
 
   it("迁移写不进去：先在内存里用迁移结果（名字和音色不丢），下次启动再写", () => {
     const { roles, file, legacyFile: legacy } = setup({ legacy: legacyFile({ secretary: { name: "小明" } }) });
-    // 让原子写最后那一下改名失败（265 号票起临时文件名带随机串，占不住了）；用不算"被占着"的错误，不等重试：写会失败
+    // 让原子写最后那一下改名失败（临时文件名带随机串，占不住了）；用不算"被占着"的错误，不等重试：写会失败
     const rename = vi.spyOn(fs, "renameSync").mockImplementation(() => {
       throw Object.assign(new Error("磁盘满了"), { code: "ENOSPC" });
     });
@@ -172,7 +172,7 @@ describe("默认角色：名字和音色就是全局那两个", () => {
     const { roles, read, setName } = setup();
     roles.start();
     expect(roles.defaultRole().name).toBe("二狗");
-    // 设置顶上那个名字输入框改名（43）：默认角色的名字跟着（全局是真相）
+    // 设置顶上那个名字输入框改名：默认角色的名字跟着（全局是真相）
     setName("阿福");
     expect(roles.defaultRole().name).toBe("阿福");
     expect(roles.roleOf("secretary").name).toBe("阿福");
@@ -207,7 +207,7 @@ describe("默认角色：名字和音色就是全局那两个", () => {
     expect(roles.roleOf("secretary")).toMatchObject({ name: "小明", isDefault: true });
   });
 
-  // 379 号票：没起过名时全局名字跟着语言走，文件里那份镜像不跟（语言改了不写文件）；旧的默认角色留下的是用户眼前的名字，不是过时的镜像
+  // 没起过名时全局名字跟着语言走，文件里那份镜像不跟（语言改了不写文件）；旧的默认角色留下的是用户眼前的名字，不是过时的镜像
   it("换了语言之后把别的角色设成默认：旧的默认角色留下现在显示的名字，不留文件里过时的镜像", () => {
     const { roles, read, setName } = setup();
     roles.start();

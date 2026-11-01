@@ -149,13 +149,13 @@ describe("秘书的围栏是草稿区", () => {
 describe("受保护区域：写入一律'永不'，密钥区连读都拒绝", () => {
   const PROTECTED = [
     ["配置区", `${P.config}\\watch-categories.json`],
-    // 个人工作日历（29 号票）：额外规则和手动标记、导入的节假日数据，只由运行时写
+    // 个人工作日历：额外规则和手动标记、导入的节假日数据，只由运行时写
     ["配置区里的个人工作日历", `${P.config}\\workday-calendar.json`],
     ["配置区里导入的节假日数据", `${P.config}\\holidays\\cn-2027.json`],
     ["密钥区", `${P.secrets}\\deepseek.key`],
     ["数据库区", `${P.db}\\ergo.db`],
     ["二狗程序目录", `${P.programDir}\\packages\\daemon\\src\\guard\\judge.ts`],
-    // 项目档案的历史区（15 号票）：运行时自动留的旧版本，只由运行时写
+    // 项目档案的历史区：运行时自动留的旧版本，只由运行时写
     ["项目档案的历史区", `${P.records}\\.history\\20261008100000000\\spec.md`],
     ["别的项目的历史区", `${P.projects}\\ledger\\.history\\20261008100000000\\glossary.md`],
   ] as const;
@@ -227,7 +227,7 @@ describe("受保护区域：写入一律'永不'，密钥区连读都拒绝", ()
   });
 });
 
-describe("git 的配置和钩子（28 号票）：在工作目录里，但写它们按'越出项目目录'判", () => {
+describe("git 的配置和钩子：在工作目录里，但写它们按'越出项目目录'判", () => {
   const ready = v1Satisfied();
   const GIT_CONTROL = [
     `${P.workDir}\\.git\\config`,
@@ -276,7 +276,7 @@ describe("git 的配置和钩子（28 号票）：在工作目录里，但写它
   });
 });
 
-describe("项目档案的历史区（15 号票）：只由运行时写", () => {
+describe("项目档案的历史区：只由运行时写", () => {
   const history = `${P.records}\\.history`;
 
   it("删除包含历史区的目录（整个项目档案）：文件工具、bash、移动都是永不", () => {

@@ -90,7 +90,7 @@ class AddressPage(
         textSp(ErgoTheme.ADDRESS_TITLE_SP)
         typeface = Typeface.DEFAULT_BOLD
     }
-    /** 最上面的大按钮（364 号票）：手填放下面 */
+    /** 最上面的大按钮：手填放下面 */
     private val scan = ErgoButton(context, ButtonKind.EMPHASIZED).apply { setOnClickListener { onScan() } }
     private val scanHint = TextView(context).apply { textSp(ErgoTheme.ADDRESS_HINT_SP) }
     private val heading = TextView(context).apply { textSp(ErgoTheme.ADDRESS_HEADING_SP) }
@@ -286,7 +286,7 @@ class ErrorPage(private val context: Context, onRetry: () -> Unit, onEdit: () ->
 }
 
 /**
- * 扫码之后测连接的那一页（364 号票，pages/Index.ets 的 ConnectPage）：正在连、连不上（原因、提醒检查什么、重试和重新扫码）。
+ * 扫码之后测连接的那一页（pages/Index.ets 的 ConnectPage）：正在连、连不上（原因、提醒检查什么、重试和重新扫码）。
  * 连得上就直接进配对页，这一页只是一闪
  */
 class ConnectPage(private val context: Context, onRetry: () -> Unit, onRescan: () -> Unit, onBack: () -> Unit) : NativePage {

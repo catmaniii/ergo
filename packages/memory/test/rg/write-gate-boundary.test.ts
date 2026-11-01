@@ -1,4 +1,4 @@
-// 267 号票：推理图谱只有一个写入口。代码里除了存储本身（store/store.ts）和写入口（rg/write-gate.ts），
+// 推理图谱只有一个写入口。代码里除了存储本身（store/store.ts）和写入口（rg/write-gate.ts），
 // 谁都不直接调存储的写操作（证据、事实、结论、关联、推断、追问、预测），也不拿 SQL 直接改这几张表——
 // 一律经 engine.gate（或 rgWriter / rgSession）写，写之前过检查、写完留痕。测试夹具可以直接往库里灌（那是测试的事）。
 import fs from "node:fs";

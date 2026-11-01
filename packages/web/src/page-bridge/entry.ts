@@ -1,4 +1,4 @@
-// 页面桥注入到网页里的入口（134 号票）：构建成一段独立的脚本（build/page-bridge.ts 打包成 IIFE），宿主注入前把下面的口令占位换成
+// 页面桥注入到网页里的入口：构建成一段独立的脚本（build/page-bridge.ts 打包成 IIFE），宿主注入前把下面的口令占位换成
 // 随机的口令（鸿蒙 App：frontend/harmony/entry/src/main/ets/browser/PageHost.ets）。只在主框架里装、只装一次；宿主的 post 和口令在
 // 注入的那一刻拿到、只留在闭包里；入口 window.__ergoPage 冻结、不能改不能删。口令没换（不是 32 个十六进制字）、宿主没给 post 就什么都不装。
 import { installPageBridge, type BridgeWindow } from "./bridge.ts";

@@ -1,13 +1,13 @@
-// 负责人执行任务时的工具（守护进程代为执行，13 号票）：开始阶段、宣布阶段完成、报告进展、转为等我、失败；
-// 14 号票加了提交计划变更、自行调整计划、标做不了，以及阈值、偏离的说法（这一支为什么停下 stopReasonText、催促、说明进展）；
-// 121 号票起这两个工具只交要改的（DRAFT_RULE、removeStages），交来的已验收阶段按现在的定义保留时结果里说明（keptAcceptedText）。
-// 125 号票：宣布阶段完成、计划变更、自行调整都能附用户消息的 id（userWords，USER_WORDS_PARAM）：运行时核实过的单独一栏
+// 负责人执行任务时的工具（守护进程代为执行）：开始阶段、宣布阶段完成、报告进展、转为等我、失败；
+// 加了提交计划变更、自行调整计划、标做不了，以及阈值、偏离的说法（这一支为什么停下 stopReasonText、催促、说明进展）；
+// 这两个工具只交要改的（DRAFT_RULE、removeStages），交来的已验收阶段按现在的定义保留时结果里说明（keptAcceptedText）。
+// 宣布阶段完成、计划变更、自行调整都能附用户消息的 id（userWords，USER_WORDS_PARAM）：运行时核实过的单独一栏
 // （评审的输入、计划变更卡、时间线），没核实过的那几条在结果里说明（refusedUserWordsText），其余照常。
 // 都绑定在一个任务上（负责人只能对它执行的那个任务做），逻辑在控制器（execution.ts，返回结构化的结果）；
 // 给模型看的话都在这里组织：工具结果，以及控制器交给负责人的通知（noticeText）。被拒时原因以出错的工具结果交回负责人。
 // 这几个工具都不落入任何关注类别（只改二狗自己的任务状态、产生卡片），在守卫的工具注册表里照样登记、照样先经守卫判定。
 // @i18n-ignore-file model：这里的话都给负责人看（工具说明、工具结果、交给它的通知），照旧中文——用到的协议包说法也包在 forModel 里取中文。
-// 给用户看的（这一支为什么停下、用量和预算、重做时改了什么）在 stop-texts.ts；工具的中文名（title）跟着当前语言（172 号票）
+// 给用户看的（这一支为什么停下、用量和预算、重做时改了什么）在 stop-texts.ts；工具的中文名（title）跟着当前语言
 import {
   ACCEPTANCE_VERDICT_LABEL,
   forModel,
@@ -64,11 +64,11 @@ export function stageText(h: StageHandoff): string {
   return forModel(() => {
     if (h.stageId === WORKFLOW_STAGE_ID) return `接着按计划的步骤做（计划和进度见重注入块）。${REPORT_STEP_RULE}`;
     return [
-      // 367 号票：这一行网页认（折成一行时写"接着做第 N 阶段：标题"），写法在协议包
+      // 这一行网页认（折成一行时写"接着做第 N 阶段：标题"），写法在协议包
       stageBriefLine(h),
       ...stageBrief(h.plan, h.stageId),
       ...(h.notes ?? []),
-      // 84 号票（认领时的交代）：之前交过的，带上次数和最近一次没通过的标准
+      // 认领时的交代：之前交过的，带上次数和最近一次没通过的标准
       ...(h.history ? [`这个阶段之前做过 ${h.history.attempts} 次，最近一次没通过的标准：${h.history.lastFailed.join("；") || "（无）"}`] : []),
       ...(h.budget ? [stageBudgetLine(h.budget)] : []),
       ...authorizationSection(stageAuthorization(h.plan, h.stageId, h.grantInfo), boundaryLines(h.plan, h.cwd)),
@@ -97,7 +97,7 @@ function nextText(next: NextUp): string {
 /** 几行拼起来（空的去掉） */
 const lines = (...xs: string[]) => xs.filter(Boolean).join("\n");
 
-/** 核实过的用户原话（125 号票）：结果里写一句写进了哪一栏 */
+/** 核实过的用户原话：结果里写一句写进了哪一栏 */
 const wordsTaken = (words: readonly VerifiedUserWords[], where: string) => (words.length > 0 ? `你引用的 ${words.length} 条用户原话运行时核实过了，已写进${where}的"${t("protocol.userWords.title")}"一栏。` : "");
 
 export function completeStageText(r: CompleteStageResult): string {
@@ -139,7 +139,7 @@ function verdictText(r: CompleteStageResult): string {
 const changeLines = (r: { changes: PlanChangeProposal["changes"] }) => r.changes.map((c) => `- ${planChangeItemText(c)}`);
 
 /**
- * 交来的已验收阶段和现在不一样、按现在的定义保留了（121 号票）：
+ * 交来的已验收阶段和现在不一样、按现在的定义保留了：
  * "已验收的阶段 s1、s3 交来的定义和现在不一样，已按现在的定义保留（阶段 s1 的验收标准第 2 条和现在不一样；…）；要改已验收的阶段请让用户返工。"
  */
 export function keptAcceptedText(kept: readonly AcceptedDifference[]): string {
@@ -200,7 +200,7 @@ export function startStageText(r: StartStageResult): string {
 /** 已经做了的一件事，交给负责人的说法：工具名（参数摘要） */
 const said = (e: StageEffect) => oneLine(`${e.toolTitle ?? e.tool}（${e.argsSummary}）`, 120);
 
-/** 阶段的说法；流程只有一个内部的阶段，说"流程"（58 号票：流程的负责人看到的是步骤，不是阶段） */
+/** 阶段的说法；流程只有一个内部的阶段，说"流程"（流程的负责人看到的是步骤，不是阶段） */
 const stageName = (s: StageRef) => (s.stageId === WORKFLOW_STAGE_ID ? "流程" : `阶段 ${s.stageId}「${s.title}」`);
 
 /** 每句都按中文取（给模型看的；里面用到的协议包说法也是中文） */
@@ -221,7 +221,7 @@ export const noticeText = inChinese({
       ? `${stageName(stage)}挂起的那次调用已获批准，但现在${stageName(current)}正在验收。等它有结论后用 ${EXECUTION_TOOL.startStage} 切回 ${stage.stageId}，再原样重试（批准只在 ${stage.stageId} 里有效）。`
       : `${stageName(stage)}挂起的那次调用已获批准，但现在在做的是${stageName(current)}。要重试，先调用 ${EXECUTION_TOOL.startStage} 切回 ${stage.stageId}，再原样调用一次（批准只在 ${stage.stageId} 里有效，在别的阶段里重试会再问用户）。`,
   userAccepted: (stage: StageRef, next: StageHandoff | undefined) => [`用户验收通过了${stageName(stage)}。`, ...(next ? [stageText(next)] : [])].join("\n"),
-  /** 112 号票：在等用户验收的阶段按新规矩（阶段自动验收）交给评审，评审判过了 */
+  /** 在等用户验收的阶段按新规矩（阶段自动验收）交给评审，评审判过了 */
   handedAccepted: (stage: StageRef, next: StageHandoff | undefined) =>
     [`${stageName(stage)}原定由用户验收的标准，按新规矩（阶段自动验收）交给评审验了：通过，这个阶段验收了。`, ...(next ? [stageText(next)] : [])].join("\n"),
   handedReturned: (stage: StageRef, failed: readonly AcceptanceVerdict[]) =>
@@ -236,7 +236,7 @@ export const noticeText = inChinese({
   stuckResumed: () => "用户让你继续执行（你之前卡住求助了：看看用户在会话里说了什么、做了什么，接着做）。",
   retry: (reason: string | undefined) => `用户让你重试${reason ? `（之前判失败的原因：${reason}）` : ""}。接着做，做不下去再说明原因。`,
   /**
-   * 用户从某个阶段重做（返工，84 号票起阶段开始过就能）：重开后交给负责人的那句——重开了哪几个、
+   * 用户从某个阶段重做（返工，阶段开始过就能）：重开后交给负责人的那句——重开了哪几个、
    * 用户说了什么，再按依赖重新做，之前那一次的尝试记录开始阶段时会给它；这一段已经做了的事不撤回，分本机、对外说清楚（同
    * 撤回到某处时那句的说法：对外已经做了的撤不回、仍然有效，重做时不要再做一遍，内容不对就跟用户说怎么补救）。
    * state 是重做之后任务的状态：暂停着的等用户继续、排队中的等名额
@@ -253,7 +253,7 @@ export const noticeText = inChinese({
     const then = how.state === "paused" ? "（任务暂停着：用户继续之后再做）" : how.state === "queued" ? "（执行名额满了，先排队）" : "";
     return [
       `用户从${stageName(stage)}重做${how.stopped ? "（你手头那一轮已经停下）" : ""}：重开了 ${reopened.join("、")}（回到未开始，验收结果清掉），其余阶段不动。${note ? `用户说：「${note}」。` : ""}`,
-      // 125 号票：用户在重做时直接改了这一阶段的验收标准、交付件（这就是用户的确认，计划已经换成新的一版）
+      // 用户在重做时直接改了这一阶段的验收标准、交付件（这就是用户的确认，计划已经换成新的一版）
       ...(how.edited
         ? [`用户在重做时直接改了${stageName(stage)}（这就是用户的确认，计划已换成第 ${how.edited.revision} 版，评审按新的验收；以重注入块里的为准）：`, ...how.edited.lines]
         : []),
@@ -267,9 +267,9 @@ export const noticeText = inChinese({
     ].join("\n");
   },
   /**
-   * 用户撤回了会话之后（152 号票，撤回到阶段开始前之后让负责人接着做的那句）：任务回到那时的进度，
+   * 用户撤回了会话之后（撤回到阶段开始前之后让负责人接着做的那句）：任务回到那时的进度，
    * 运行时替你重新开始了一个阶段。stage：撤回到的就是这个阶段开始前；external：被放弃的那段里已经对外做了的（撤不回、仍然有效）；
-   * switched：是切换到了另一条分支（151 号票，不写摘要、不作废）
+   * switched：是切换到了另一条分支（不写摘要、不作废）
    */
   rolledBack: (how: { stage?: StageRef; external: readonly { toolTitle?: string; tool: string; argsSummary: string }[]; switched?: boolean }) =>
     [
@@ -283,18 +283,17 @@ export const noticeText = inChinese({
       how.stage ? "从这一阶段重新开始、重做；之前那一次的尝试记录开始阶段时会给你。" : "从这里接着做。",
     ].join(""),
   /**
-   * 274 号票：从某个阶段重做之后，范围外已验收的阶段按各自的验收标准再核一遍，有没过的——重开后交给负责人的那句
+   * 从某个阶段重做之后，范围外已验收的阶段按各自的验收标准再核一遍，有没过的——重开后交给负责人的那句
    * "另外复验发现 M1 已经不合格，先告诉用户。"；运行时已经放进用户的待办、记进会话，不自动重做，由用户决定
    */
   reverifyFailed: (failed: ReadonlyArray<{ stage: StageRef; criteria: readonly string[] }>) =>
     `另外复验发现 ${failed.map((f) => `${stageName(f.stage)}（没过的标准：${f.criteria.join("；")}）`).join("、")} 已经不合格，先告诉用户（运行时已经放进用户的待办，由用户决定要不要也重做它）；不要自己去重做它。`,
   acceptanceInterrupted: (stage: StageRef) => `${stageName(stage)}的验收被打断了（守护进程重启），没有结论。再调用 ${EXECUTION_TOOL.completeStage} 宣布一次完成。`,
-  /** 中断不确定之后（23 号票）用户在任务详情里点了"继续"：why 是"中断：不确定 X 是否已执行" */
+  /** 中断不确定之后用户在任务详情里点了"继续"：why 是"中断：不确定 X 是否已执行" */
   interruptedResumed: (why: string) => `用户让你继续执行（之前${why}：看看用户在会话里说了什么；没说的话先查一下那次调用的效果，再决定要不要重做，别重复做）。`,
   /** 中断不确定之后用户在待我处理里说了那次调用（call）做没做 */
   interruptedAnswered: (call: string, executed: boolean) =>
     executed ? `用户确认过了：${call}已经执行了，不要重做，接着往下做。` : `用户确认过了：${call}没有执行，重做这一步，然后接着往下做。`,
-  // ───── 14 号票 ─────
   /** 这一支停下找用户（阈值超了、做不了、超预算）：有别的阶段能做就交代它，没有就说任务转等我 */
   branchStopped: (stages: readonly StageRef[], reason: BranchStopReason, next: StageHandoff | undefined, stillRunning = false) => {
     const overBudget = reason.kind === "over_budget";
@@ -325,9 +324,9 @@ export const noticeText = inChinese({
     narrowed: readonly string[];
     toolkit: { added: readonly string[]; after: PlanToolkit } | undefined;
     resumed: readonly StageRef[];
-    /** 这张卡加了预算、开始过的阶段（361 号票）：用量从现在起重新算 */
+    /** 这张卡加了预算、开始过的阶段：用量从现在起重新算 */
     budgetReset: readonly StageRef[];
-    /** 这张卡没给它加预算、还停在超预算的阶段（361 号票） */
+    /** 这张卡没给它加预算、还停在超预算的阶段 */
     stillOverBudget: readonly StageRef[];
   }) =>
     [
@@ -349,7 +348,7 @@ export const noticeText = inChinese({
       : `用户拒绝了计划变更${note ? `：「${note}」` : ""}。在现有授权内重排受影响的阶段${stages.length > 0 ? `（${stages.map(stageName).join("、")}）` : ""}：用 ${EXECUTION_TOOL.revisePlan} 自行调整计划（不扩大授权，不出卡，记进时间线）；在现有授权内做不到，就用 ${EXECUTION_TOOL.markInfeasible} 把这些阶段标做不了。`,
 });
 
-/** 任务停下时各种原因在等什么（361 号票：工具被拒时写明，不让负责人猜） */
+/** 任务停下时各种原因在等什么（工具被拒时写明，不让负责人猜） */
 const WAITING_FOR: Readonly<Record<TaskWaitReason, string>> = {
   approval: "用户批准或拒绝审批卡",
   hand_over: "用户亲手做完“交给我做”的事",
@@ -362,7 +361,7 @@ const WAITING_FOR: Readonly<Record<TaskWaitReason, string>> = {
   runtime_off: "用户启用运行这个任务的运行时插件",
 };
 
-/** 工具被拒时交回 agent 的话（361 号票）：因为什么停、在等什么、现在能做什么 */
+/** 工具被拒时交回 agent 的话：因为什么停、在等什么、现在能做什么 */
 export const refusalText = inChinese({
   /** 超预算停下：用了多少、预算多少，在等什么，不是审批卡的问题，只放行哪两个工具；planChange 是已经交了、还在等的那张加预算的卡 */
   overBudget: (taskId: string, stage: StageRef, spend: { used: StageSpend; budget: StageAllowance }, planChange: string | undefined) =>
@@ -382,7 +381,7 @@ export const refusalText = inChinese({
 
 // ───────────────────────── 工具 ─────────────────────────
 
-/** 计划变更、自行调整计划怎么交 plan（121 号票：只交要改的） */
+/** 计划变更、自行调整计划怎么交 plan（只交要改的） */
 const DRAFT_RULE =
   "plan 里只交要改的：要改某个阶段，stages 里只交这个阶段就行（这个阶段的各栏写全）；没写到的阶段从当前计划原样带上（编号、前置关系、验收状态不变），不用抄；" +
   "新加的阶段写进 stages，要去掉的阶段写在 removeStages。别的栏（阶段组、工具包、项目、假设栏……）不改就不写，写了整栏按写的算。" +
@@ -426,7 +425,7 @@ export function executionTools(execution: TaskExecution, scope: MaintainerScope)
         { additionalProperties: false },
       ),
       // 跑验收脚本、改验收次数：不是只读或幂等。验收被打断（守护进程重启）时控制器把阶段交回负责人、让它再宣布一次
-      // （13 号票），所以被杀后不当成说不清做没做完的调用（23 号票）
+      // 所以被杀后不当成说不清做没做完的调用
       readOnlyOrIdempotent: false,
       recoveredByController: true,
       timeoutMs: COMPLETE_STAGE_TIMEOUT_MS,

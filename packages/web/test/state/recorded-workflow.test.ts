@@ -1,4 +1,4 @@
-// 前端状态层回放 58 号票（流程：起草、审查修补、一次授权、按步骤执行）主切面录下的事件流：
+// 前端状态层回放（流程：起草、审查修补、一次授权、按步骤执行）主切面录下的事件流：
 // - workflow（workflow.test.ts）：负责人交出两步的计划（写笔记、读一遍，条件"先写再读"），流程计划卡进待我处理；
 //   授权后排队、开始执行，负责人用 report_step 自报每一步，两步都做完时流程完成。
 // 重新录：ERGO_RECORD_EVENTS=1 npx vitest run packages/daemon/test/main/workflow.test.ts -t 录给前端回放

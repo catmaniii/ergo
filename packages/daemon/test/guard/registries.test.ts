@@ -14,7 +14,7 @@ import { call, inChat, inTask, maintainer, v1Satisfied } from "./helpers/guard-i
 import { makeTempDir } from "../helpers/temp-dir.ts";
 
 describe("工具注册表", () => {
-  it("带类型的特殊 bash 工具：类别、做完告诉我、联网照 28 号票的登记表；只读或幂等只有状态和差异（从严）", () => {
+  it("带类型的特殊 bash 工具：类别、做完告诉我、联网照登记表；只读或幂等只有状态和差异（从严）", () => {
     // [工具, 关注类别, 做完告诉我, 只读或幂等, 要联网]
     const TABLE: [string, string[], boolean, boolean, boolean][] = [
       ["git_status_diff", [], false, true, false],

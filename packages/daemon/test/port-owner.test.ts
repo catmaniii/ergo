@@ -1,5 +1,5 @@
-// 端口被谁占着（315 号票，process/port-owner.ts）：守护进程起动前查两个端口，被占时说清是谁（Windows 上查得到进程名和 PID）。
-// netstat 靠不住时（353 号票）也要认得出谁在听：假输出和服务管家的 packages/supervisor/tests/netstat.test.mjs 同构。
+// 端口被谁占着（process/port-owner.ts）：守护进程起动前查两个端口，被占时说清是谁（Windows 上查得到进程名和 PID）。
+// netstat 靠不住时也要认得出谁在听：假输出和服务管家的 packages/supervisor/tests/netstat.test.mjs 同构。
 // 端口都是系统挑的临时端口，不碰 8810 / 8811。
 import net from "node:net";
 import { describe, expect, it, onTestFinished } from "vitest";

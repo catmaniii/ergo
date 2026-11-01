@@ -4,7 +4,7 @@
 // 不在表里的程序映射成 shell_command（拆得开、不落在任何类别，不打断）；它参数里长得像路径的词一并带上，
 // 过路径围栏和受保护区域（不知道读还是写，按写算）。表里的程序处理完后，没用到的、长得像路径的词按"读"补上，
 // 保证"命令里出现项目外的路径"一定能看到。
-// 177 号票：表里按程序登记哪些位置是路径——echo、printf 这些只和字打交道的参数都不是（textOnly），grep 的模式、sed 的脚本
+// 表里按程序登记哪些位置是路径——echo、printf 这些只和字打交道的参数都不是（textOnly），grep 的模式、sed 的脚本
 // 没法确定也不是；该是路径的位置（-o、of=、-C……）值没法确定时照样是没法确定的路径，不跳过。
 
 import { t } from "@ergo/protocol";
@@ -20,7 +20,7 @@ export interface ShellWord {
   /** 可能的几个静态值（循环变量、赋过几次值的变量）；当路径用时每个都算一遍 */
   alternatives?: string[];
   /**
-   * 原文去掉命令替换、进程替换、算术展开之后的样子（和原文不一样时才有，177 号票）：没法确定的词像不像路径按它看——
+   * 原文去掉命令替换、进程替换、算术展开之后的样子（和原文不一样时才有）：没法确定的词像不像路径按它看——
    * "$(cat a/b)" 里的斜杠是里面那条命令的（那条命令另外单独判），不说明这个词的值是路径；"$(pwd)/out" 照旧像路径
    */
   pathText?: string;
@@ -127,7 +127,7 @@ function parseArgs(args: readonly ShellWord[], valueOptions: readonly string[] =
     const word = args[i]!;
     const v = word.value;
     i++;
-    // `--name="$X"`：选项名写死、值没法确定（177 号票：原来整个当成操作数，-o 这类写文件的位置就漏了）
+    // `--name="$X"`：选项名写死、值没法确定（原来整个当成操作数，-o 这类写文件的位置就漏了）
     const dynamicLong = !onlyOperands && v === null ? /^--([\w-]+)=(.*)$/s.exec(word.text) : null;
     if (dynamicLong) {
       options.push({ name: `--${dynamicLong[1]}`, value: { value: null, text: dynamicLong[2]! }, word });
@@ -223,7 +223,7 @@ export function looksLikePath(v: string): boolean {
   return v.includes("/") || v.includes("\\") || v.startsWith("~") || v.startsWith(".") || /^[a-z]:/i.test(v);
 }
 
-/** 词是不是可能指向路径：静态值长得像路径，或者没法确定的词原文（去掉命令替换之后，177 号票）里有路径分隔符 */
+/** 词是不是可能指向路径：静态值长得像路径，或者没法确定的词原文（去掉命令替换之后）里有路径分隔符 */
 function mayBePath(word: ShellWord): boolean {
   if (word.value !== null) return looksLikePath(word.value) || looksLikePath(word.value.replace(/^--?[\w-]+=/, ""));
   if (word.alternatives?.some(looksLikePath)) return true;
@@ -282,7 +282,7 @@ function readEach(valueOptions: string[] = []): Handler {
 }
 
 /**
- * 第一个操作数是模式或脚本（grep、sed、awk、jq），后面的是文件。模式和脚本不是路径，没法静态确定的也不是（177 号票）；
+ * 第一个操作数是模式或脚本（grep、sed、awk、jq），后面的是文件。模式和脚本不是路径，没法静态确定的也不是；
  * 用 -e / -f 给了模式的没有这一个；rg --files、--type-list 不搜内容，没有模式
  */
 function patternThenFiles(valueOptions: string[], patternOptions: string[]): Handler {
@@ -343,7 +343,7 @@ function transfer(tool: typeof TOOL.move | typeof TOOL.copy): Handler {
     for (const s of all) {
       const from = inv.path(s);
       if (from !== undefined) inv.emit(tool, { from, to });
-      // 从 /dev/null 这类伪设备拷过去：就是把目标清空、整个重写（177 号票：原来连目标都没判）
+      // 从 /dev/null 这类伪设备拷过去：就是把目标清空、整个重写（原来连目标都没判）
       else if (to !== undefined) inv.emit(TOOL.write, { path: to });
     }
   };
@@ -368,7 +368,7 @@ function editEach(valueOptions: string[], skipFirstOperand = false): Handler {
 
 const tee: Handler = (inv, args) => {
   const parsed = parseArgs(args);
-  // tee -a 只往末尾追加：带上 append（54 号票，guard/nature.ts 据此算动手而不是删改）
+  // tee -a 只往末尾追加：带上 append（guard/nature.ts 据此算动手而不是删改）
   if (has(parsed, "-a", "--append")) inv.emitEachPath(TOOL.edit, parsed.operands, { append: true });
   else inv.emitEachPath(TOOL.write, parsed.operands);
 };
@@ -381,7 +381,7 @@ const truncate: Handler = (inv, args) => {
 
 const dd: Handler = (inv, args) => {
   for (const w of args) {
-    // 没法确定的 of=…、if=…（177 号票：原来跳过了）：文件没法确定
+    // 没法确定的 of=…、if=…（原来跳过了）：文件没法确定
     const m = w.value === null ? /^(if|of)=(.*)$/.exec(w.text) : /^(if|of)=(.*)$/.exec(w.value);
     if (!m) continue;
     inv.skip(w);
@@ -433,7 +433,7 @@ const git: Handler = (inv, args) => {
       inv.skip(w);
       const raw = v ?? w.text;
       const value = raw.slice(raw.indexOf("=") + 1);
-      // 没法确定的（177 号票：原来跳过了）：仓库没法确定
+      // 没法确定的（原来跳过了）：仓库没法确定
       repoWords.push(v === null ? { value: null, text: value } : { value, text: value });
       i++;
     } else if (v === "-c" || (v !== null && v.startsWith("-c") && v.length > 2)) {
@@ -472,7 +472,7 @@ const git: Handler = (inv, args) => {
       inv.emit(TOOL.git_commit, { repoPath, message: message?.value ?? message?.text ?? null, ...(has(parsed, "--amend") ? { amend: true } : {}) });
       return;
     }
-    // 改写提交历史（54 号票评审）：变基、filter-branch / filter-repo 一律算
+    // 改写提交历史：变基、filter-branch / filter-repo 一律算
     case "rebase":
     case "filter-branch":
     case "filter-repo":
@@ -783,7 +783,7 @@ const curl: Handler = (inv, args) => {
   // -K 配置文件里能再写网址、数据和上传，守卫看不见
   if (has(parsed, "-K", "--config")) inv.unseenInput = true;
   inv.emit(TOOL.http_request, { method, url: url?.value ?? url?.text ?? null, ...(data.length > 0 ? { data } : {}), command: inv.ctx.text });
-  // 读：-d @文件、-F x=@文件、-T 文件、-K 配置；写：-o 文件，--output-dir 目录。没法确定的值照样是没法确定的路径（177 号票：原来跳过了）
+  // 读：-d @文件、-F x=@文件、-T 文件、-K 配置；写：-o 文件，--output-dir 目录。没法确定的值照样是没法确定的路径（原来跳过了）
   for (const o of parsed.options) {
     if (!o.value) continue;
     const v = o.value.value;
@@ -933,7 +933,7 @@ const NETWORK_HANDLERS: Readonly<Record<string, Handler>> = {
 const BARE_LOCAL_URL = /^(?:localhost|127(?:\.\d{1,3}){3}|\[::1\])(?::\d+)?(?:[/?#]\S*)?$/i;
 
 /**
- * 浏览器工具（139 号票）：agent-browser，和直接起的浏览器（chrome、msedge……带上调试端口一样能被程序操作）。命令本身照旧按
+ * 浏览器工具：agent-browser，和直接起的浏览器（chrome、msedge……带上调试端口一样能被程序操作）。命令本身照旧按
  * "其他命令"拆（像路径的词照旧不知道读写，截图写到哪照旧管）；命令里写着网址的（参数里的网址、没写协议的本机地址、`--app=` 这样
  * 写在选项里的、eval 的脚本里写着的）另拆一条"用浏览器打开网页"，打开的是不是二狗自己的页面由判定函数看。
  * 拼出来的网址（变量、命令替换）认不出，和守卫别处一样不追
@@ -1201,7 +1201,7 @@ const shopt: Handler = (inv, args) => {
 // ───────────────────────── 只和字打交道的 ─────────────────────────
 
 /**
- * 参数都不是路径的命令（177 号票）：echo、printf 的参数和格式串，tr 的字符集，basename / dirname、expr、seq 的字，
+ * 参数都不是路径的命令：echo、printf 的参数和格式串，tr 的字符集，basename / dirname、expr、seq 的字，
  * read、unset、let、export 这些内建命令的变量名和选项。它们不按参数打开文件（读写文件只经重定向，另拆）；
  * 参数里的命令替换另外单独判。printf -v、read 这些给变量赋的值由 split.ts 算成没法确定
  */
@@ -1261,7 +1261,7 @@ const tar: Handler = (inv, args, program) => {
     inv.ctx.opaque(t("guard.shell.tarExec", { option: execOption.name }));
     return;
   }
-  // -C 进到的目录、-f 的归档文件：没法确定的照样算（177 号票：`"$X"` 原文里没有斜杠，原来不当路径）
+  // -C 进到的目录、-f 的归档文件：没法确定的照样算（`"$X"` 原文里没有斜杠，原来不当路径）
   const places = [optionValue(parsed, "-C", "--directory"), optionValue(parsed, "-f", "--file")].filter((w): w is ShellWord => w !== undefined && w.value === null && !mayBePath(w));
   const paths = places.flatMap((w) => toList(inv.path(w)));
   genericCommand(inv, program, args);
@@ -1336,7 +1336,7 @@ const READ_ONLY_PROGRAMS: Readonly<Record<string, Handler>> = {
 };
 
 /**
- * 只看的命令（54 号票：一次工具调用做了什么性质的事，guard/nature.ts）：拆成"其他命令"（shell_command）时，程序是这些的只是看——
+ * 只看的命令（一次工具调用做了什么性质的事，guard/nature.ts）：拆成"其他命令"（shell_command）时，程序是这些的只是看——
  * 程序表里只读的那些，加上几个只输出、不碰文件的（不在程序表里，拆成"其他命令"）。读写文件另拆成读、写调用，不靠这张表
  */
 export const READ_ONLY_COMMANDS: readonly string[] = Object.freeze([
@@ -1363,7 +1363,7 @@ export const READ_ONLY_COMMANDS: readonly string[] = Object.freeze([
 const PROGRAMS: Readonly<Record<string, Handler>> = {
   // 只读
   ...READ_ONLY_PROGRAMS,
-  // 只和字打交道的（177 号票）
+  // 只和字打交道的
   ...Object.fromEntries(TEXT_ONLY_PROGRAMS.map((name) => [name, textOnly])),
   date,
   // 写、删
@@ -1396,7 +1396,7 @@ const PROGRAMS: Readonly<Record<string, Handler>> = {
   tsc: (inv) => inv.emit(TOOL.start_build, { repoPath: inv.ctx.cwd(), args: inv.ctx.text }),
   // 联网（程序名查表时是小写）
   ...Object.fromEntries(Object.entries(NETWORK_HANDLERS).map(([name, handler]) => [name.toLowerCase(), handler])),
-  // 浏览器工具（139 号票）
+  // 浏览器工具
   ...Object.fromEntries(BROWSER_PROGRAMS.map((name) => [name, browser])),
   // 解释器
   bash: interpreter(["-c"], SHELL_VALUE_OPTIONS), sh: interpreter(["-c"], SHELL_VALUE_OPTIONS), zsh: interpreter(["-c"], SHELL_VALUE_OPTIONS),

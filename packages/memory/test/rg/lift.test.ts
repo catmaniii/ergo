@@ -1,4 +1,4 @@
-// 195 号票：规则版的需求、价值层通用规则。例子都是自己写的（不看 fixtures/truth）。
+// 规则版的需求、价值层通用规则。例子都是自己写的（不看 fixtures/truth）。
 import { afterEach, describe, expect, it } from "vitest";
 import { addDays } from "../../src/domain/time.ts";
 import type { Claim, EvidenceDraft } from "../../src/domain/types.ts";
@@ -14,7 +14,7 @@ const WEEKEND = { context: ["weekend", "social"] };
 const WORKDAY = { context: ["workday", "work"] };
 
 /** 周末两次推掉活动、说不喜欢周末被排满；工作日两次推掉会议和加班、说工作日也不喜欢被排满
- *  （229 号票：明说的那两句也带上方面标签——只差日型不算两种场合，跨场景要靠方面不同） */
+ *  （明说的那两句也带上方面标签——只差日型不算两种场合，跨场景要靠方面不同） */
 function autonomyEvents(dates: { w1: string; w2: string; w3: string; d1: string; d2: string; d3: string }): EvidenceDraft[] {
   return [
     say("ev-1", "周六的聚餐我不去了", dates.w1, WEEKEND),
@@ -52,7 +52,7 @@ async function crossScene(dates = AUG_TO_OCT) {
   return t;
 }
 
-/** 223 号票：灌几条证据、整理一次，返回引擎和这次的报告 */
+/** 灌几条证据、整理一次，返回引擎和这次的报告 */
 async function reflectStory(events: EvidenceDraft[]) {
   const t = openEngine("2026-10-12T12:00:00+08:00");
   for (const e of events) t.engine.ingestEvidence(e);
@@ -79,7 +79,7 @@ describe("需求层：同一主题跨场景、跨时期成立才往上抽", () =
     const trace = engine.tracePremises(autonomy.id);
     expect(trace.premises.every((p) => p.kind === "claim")).toBe(true);
     const leaves = (x: typeof trace): string[] => (x.premises.length === 0 ? [x.id] : x.premises.flatMap(leaves));
-    // 329 号票（R7）：下层的"自主安排"各自被那句明说的话直接证实（不靠推掉活动那几条观察），依据改挂到明说的话上，
+    // ADR-0032 R7：下层的"自主安排"各自被那句明说的话直接证实（不靠推掉活动那几条观察），依据改挂到明说的话上，
     // 推掉活动的那条推理链记作历史——前提链走现在的依据，追到的原话是两句明说的
     expect([...new Set(leaves(trace))].toSorted()).toEqual(["ev-3", "ev-6"]);
     expect(engine.store.inferencesOf(weekend.id).find((i) => i.status === "history")!.premiseIds.toSorted()).toEqual(engine.rg.registry.getGroup("repeated_decline|weekend|social")!.observationIds.toSorted());
@@ -137,7 +137,7 @@ describe("需求层：同一主题跨场景、跨时期成立才往上抽", () =
 
   it("另一族：周末、工作日、假期都说喜欢爬山 → 稳定的兴趣 / 各场合各自的原因", async () => {
     const t = openEngine("2026-10-12T12:00:00+08:00");
-    // 229 号票：三种场合靠方面不同（周末社交 / 工作 / 家里），只差日型不算两种
+    // 三种场合靠方面不同（周末社交 / 工作 / 家里），只差日型不算两种
     t.engine.ingestEvidence(say("ev-a", "周末我喜欢去爬山", "2026-08-09T10:00:00+08:00", { context: ["weekend", "social"] }));
     t.engine.ingestEvidence(say("ev-b", "工作日晚上也喜欢去爬山", "2026-09-09T20:00:00+08:00", { context: ["workday", "work"] }));
     t.engine.ingestEvidence(say("ev-c", "放假也最喜欢爬山", "2026-10-02T10:00:00+08:00", { context: ["holiday", "family"] }));
@@ -149,7 +149,7 @@ describe("需求层：同一主题跨场景、跨时期成立才往上抽", () =
 });
 
 describe("需求层：反证和失效", () => {
-  // 330 号票（R14）：随口说的不再自动算决定性，要推翻得是用户的纠正（当面的、明确的）
+  // ADR-0032 R14：随口说的不再自动算决定性，要推翻得是用户的纠正（当面的、明确的）
   it("加入反证：用户纠正说喜欢别人定好的行程 → '重视自主安排'撤回留墓碑，价值层跟着撤回；剩下的仍分不出来", async () => {
     const t = await crossScene();
     const autonomy = member(t.engine, NEED, "need_autonomy");
@@ -196,7 +196,7 @@ describe("需求层：反证和失效", () => {
     }
     expect(engine.getUserModel({}).values).toEqual([]);
     await engine.reflect();
-    // 329 号票（R4）：工作日的"自主安排"没了明说那句的直接证实，退回推掉活动的推理链、是猜测；猜测也能往上抽，
+    // ADR-0032 R4：工作日的"自主安排"没了明说那句的直接证实，退回推掉活动的推理链、是猜测；猜测也能往上抽，
     // 两种场合还在，组不撤；推出来的需求、价值都是猜测。不在了的那句明说的从前提里去掉（它撤回了），没去掉还活着的
     expect(engine.rg.registry.getGroup(NEED)!.live).toBe(true);
     for (const id of lifted) expect(engine.store.getClaim(id)).toMatchObject({ status: "contested", retractedBy: null });
@@ -216,7 +216,7 @@ describe("需求层：反证和失效", () => {
     await t.engine.reflect();
     expect(member(t.engine, "repeated_decline|weekend|social", "scene_autonomy").status).toBe("retracted");
     const statuses = t.engine.store.revisions(autonomy.id, "claim").flatMap((r) => (r.changes.status ? [r.changes.status.to] : []));
-    // 下层那条被纠正推翻了，按 R8 连带撤回（撤回只留给真有推翻者的，Q2）。330 号票：纠正走的是"纠正"不是"改口"，明说的那条
+    // 下层那条被纠正推翻了，按 R8 连带撤回（撤回只留给真有推翻者的，Q2）。纠正走的是"纠正"不是"改口"，明说的那条
     // 被纠正掉、不先经过一次降回猜测，所以修订里直接是撤回
     expect(statuses.at(-1)).toBe("retracted");
     // 墓碑指向被纠正掉的那条明说的"不喜欢被提前排满"（它是需求的前提之一，最先被推翻）
@@ -253,10 +253,10 @@ describe("价值层", () => {
   });
 });
 
-// 223 号票：往上抽的"两种场合"从"所有共享维度都无交集"放宽成"有一个维度不同"；
-// 229 号票再收窄成只看"方面（domain）"维度：只差日型（周末/工作日/假期）或出行（出差/休假）不算两种。
+// 往上抽的"两种场合"从"所有共享维度都无交集"放宽成"有一个维度不同"；
+// 再收窄成只看"方面（domain）"维度：只差日型（周末/工作日/假期）或出行（出差/休假）不算两种。
 // 老严格判定（双方都写了标签的维度全都无交集）只用来统计，不卡门槛。
-describe("229：两种场合只看方面维度不同，严格判定只做统计", () => {
+describe("两种场合只看方面维度不同，严格判定只做统计", () => {
   const HOME_LEISURE = ["family", "leisure"];
   const HOME_WORK = ["family", "work"];
   /** 家里、休闲 和 家里、工作 两种场合（方面不同）：八月两条、九月一条，三个证据两个月 */
@@ -350,7 +350,7 @@ describe("229：两种场合只看方面维度不同，严格判定只做统计"
   });
 });
 
-describe("226：规则版往上抽也给每条解释拼一条预测，并记进预测账本", () => {
+describe("规则版往上抽也给每条解释拼一条预测，并记进预测账本", () => {
   it("需求、价值两层的解释都写明「接下来两周……」；成立的自主需求记一条（+14 天），还拿不准的不记", async () => {
     const { engine } = await crossScene();
     const autonomy = member(engine, NEED, "need_autonomy");

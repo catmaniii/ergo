@@ -8,7 +8,7 @@ import { t } from '../common/AppTexts';
 import { closeQuietly, errorText } from './PhoneCommon';
 
 /**
- * 读本机：坐标转地名（308 号票；用户 2026-10-26 选了"系统转地名 + 常去地起名"）。照片的拍摄地点、位置点交给网页之前，用鸿蒙系统的
+ * 读本机：坐标转地名（选了"系统转地名 + 常去地起名"）。照片的拍摄地点、位置点交给网页之前，用鸿蒙系统的
  * 坐标转地址（geoLocationManager.getAddressesFromLocation：官方文档没写要不要联网，大概率走华为的地图服务，坐标会发给华为，用户接受）
  * 转成地名——街道或地标、区县、城市（addressOf），和坐标一起交；守护进程那边按"起了名的 > 系统地名 > 坐标"写进摘要。
  * - 不反复重试、不耗电：系统说转不了（isGeocoderAvailable 为假，查一次记 5 分钟）就不调；一次同步最多调 20 次；一次没转成（没网、系统
@@ -248,7 +248,7 @@ export class PhoneGeocoder {
 
   /**
    * 现在转得了地名没有（状态里报给网页，"常去的地方"那一块写一句）：系统说能转、又不在没转成以后的暂停里。
-   * 模拟器上 isGeocoderAvailable 为真、调起来却回 3301300（308 号票在 Pura 90 模拟器上看到的），所以要算上暂停
+   * 模拟器上 isGeocoderAvailable 为真、调起来却回 3301300（在 Pura 90 模拟器上看到的），所以要算上暂停
    */
   usable(): boolean {
     return Date.now() >= this.pausedUntil && this.available();
@@ -338,7 +338,7 @@ export class PhoneGeocoder {
     }
     try {
       // 先在手机最近一次定到的位置附近（约 50 公里）找，没有再不限范围找：只写"西湖"时别找到别的省的同名地方
-      // （308 号票在模拟器上不限范围找"西湖"找到的是苗栗县西湖乡）
+      // （在模拟器上不限范围找"西湖"找到的是苗栗县西湖乡）
       let found: geoLocationManager.GeoAddress[] = [];
       const near = lastLocation();
       if (near !== undefined) {
@@ -350,7 +350,7 @@ export class PhoneGeocoder {
         try {
           found = await withTimeout(geoLocationManager.getAddressesFromLocationName(bounded), CALL_TIMEOUT_MS);
         } catch (e) {
-          // 附近没有时系统回 3301400 而不是空的（308 号票在模拟器上看到的）：当作附近没有，接着不限范围找
+          // 附近没有时系统回 3301400 而不是空的（在模拟器上看到的）：当作附近没有，接着不限范围找
           hilog.info(DOMAIN, TAG, 'find place nearby: none (%{public}s)', JSON.stringify(e));
           found = [];
         }

@@ -1,8 +1,8 @@
-// 主切面：设置里的"模型"（73 号票，规格第 1 节"模型"）。
+// 主切面：设置里的"模型"（规格第 1 节"模型"）。
 // - 设置页取、存（GET / POST /api/model-settings）：服务商只有 DeepSeek，默认模型、按 agent 覆盖和思考档位；
 // - 一个会话固定一个模型：改了以后下一个新会话生效，正在进行的会话（接着的会话）照它开始时的；记账照实际用的模型；
 // - API key 只有状态：接口、日志里都没有 key 的内容，请求体也放不进 key；
-// - 319 号票：网页上能填 key（POST /api/model-settings/key）——写进密钥区的文件、GET 马上说配了、现在起的模型调用就用新的，
+// -网页上能填 key（POST /api/model-settings/key）——写进密钥区的文件、GET 马上说配了、现在起的模型调用就用新的，
 //   太短、空的、多出字段的回 400；再填一次换掉旧的；响应和日志里都没有 key 的内容；
 // - 2026-10-30：填 key 的请求体可以点名服务商（设置 · 模型按服务商逐条列出 key）：写它自己的密钥文件，不认识的服务商回 400；
 // - 连通测试在一次性子进程里发一条极短的请求，回首 token 延迟；同一时间只跑一个（再要回 409"上一个还没测完"）；
@@ -85,7 +85,7 @@ describe("设置里的模型", () => {
     expect((await modelSettingsApi.view(none.url)).body.apiKey.configured).toBe(false);
   }, 60_000);
 
-  it("在网页上填模型的 key（319 号票）：没配时 GET 说没配；填一个就写进密钥区的文件、GET 说配了、现在起的模型调用就用新的；太短、空的回 400；再填一次换掉旧的", async () => {
+  it("在网页上填模型的 key：没配时 GET 说没配；填一个就写进密钥区的文件、GET 说配了、现在起的模型调用就用新的；太短、空的回 400；再填一次换掉旧的", async () => {
     const logs: string[] = [];
     const fake = await startFakeDeepSeek();
     const td = await startTestDaemon({ env: { DEEPSEEK_API_KEY: undefined }, catalogBaseUrl: fake.baseUrl, log: (line) => logs.push(line) });
@@ -108,7 +108,7 @@ describe("设置里的模型", () => {
     expect(fs.readFileSync(file, "utf8")).toBe(`${FILLED}\n`);
     expect(fs.readdirSync(td.daemon.layout.secrets)).toEqual(["deepseek-api-key.txt"]);
     expect((await modelSettingsApi.key(td.url)).body.apiKey.configured).toBe(true);
-    // 联网设置里 DeepSeek 的 key 也跟着成"配了"（319 号票：联网工具也从现在用的那一份取）
+    // 联网设置里 DeepSeek 的 key 也跟着成"配了"（联网工具也从现在用的那一份取）
     expect((await webSettingsApi.view(td.url)).body.deepseekKey.configured).toBe(true);
     // 现在起的模型调用（连通测试发到本机的假 DeepSeek）带的是新 key
     expect((await modelSettingsApi.test(td.url)).body).toMatchObject({ ok: true });
@@ -177,7 +177,7 @@ describe("设置里的模型", () => {
     expect(fs.readFileSync(files("custom"), "utf8")).toBe(`${CUSTOM_KEY}\n`);
   }, 60_000);
 
-  it("填好 key 不用重启：秘书下一条消息之前按新的重新拉起，发给模型的请求带的就是新 key（319 号票）", { timeout: 90_000 }, async () => {
+  it("填好 key 不用重启：秘书下一条消息之前按新的重新拉起，发给模型的请求带的就是新 key", { timeout: 90_000 }, async () => {
     const fake = await startFakeDeepSeek();
     const td = await startTestDaemon({ modelsFromSettings: ["secretary"], catalogBaseUrl: fake.baseUrl, env: { DEEPSEEK_API_KEY: undefined } });
     const FILLED = fakeSecret("sk-", "main-319-now-secretary-T6q3");
@@ -250,7 +250,7 @@ describe("设置里的模型", () => {
     ]);
   }, 90_000);
 
-  it("秘书只有一条长期主线会话：重启后接着它、照它开始时的模型（设置页上看得到主线会话现在用的）；停机时改了秘书的模型，用户的下一条消息时才换（83 号票）", async () => {
+  it("秘书只有一条长期主线会话：重启后接着它、照它开始时的模型（设置页上看得到主线会话现在用的）；停机时改了秘书的模型，用户的下一条消息时才换", async () => {
     const fake = await startFakeDeepSeek();
     const dataDir = makeTempDir("ergo-data-");
     const homeDir = makeTempDir("ergo-home-");

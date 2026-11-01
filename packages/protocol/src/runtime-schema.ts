@@ -1,13 +1,13 @@
-// agent 运行时的请求体和 ⚙ 里那一块（289 号票），用 TypeBox 定义；名字、能力清单、登记表给网页的样子在 runtimes.ts（不引用 TypeBox）。
+// agent 运行时的请求体和 ⚙ 里那一块，用 TypeBox 定义；名字、能力清单、登记表给网页的样子在 runtimes.ts（不引用 TypeBox）。
 // - RuntimeOptions：负责人给它的运行时选的值（任务、项目上记着的 runtimeOptions；宿主协议的装配参数原样带上）；
 // - AgentRuntimeBody：PUT /api/agents/<agent id>/runtime——用哪个运行时、选的模型和设置项；
 // - AgentRuntimeStateView：⚙ 面板（AgentSettingsView.runtime）里运行时一块。
-// 290 号票（从运行时已有的会话接管）：
+// 从运行时已有的会话接管：
 // - RuntimeTakeover：任务、项目上记着的"接管自哪个会话"（Task.takeover、Project.takeover），也是二狗的写入锁；
 // - TakeOverBody / TakeOverResult：POST /api/runtimes/<运行时>/take-over——从选中的会话建任务或项目；
-// - TakeoverActionBody：POST /api/agents/<agent id>/takeover——交还给运行时（释放写入锁）、收回到二狗；292 号票加了交给官方 App
+// - TakeoverActionBody：POST /api/agents/<agent id>/takeover——交还给运行时（释放写入锁）、收回到二狗；加了交给官方 App
 //   （Remote Control，RuntimeTakeover.remote 记着后台会话和链接）。
-// 305 号票（新建时选工作文件夹）：
+// 新建时选工作文件夹：
 // - WorkFolderChoice：发起任务、新建项目、建议立项卡上"在哪个文件夹做"；
 // - RuntimeFolderBody：PUT /api/runtimes/<运行时>/work-folder——设置里定的新建时的默认文件夹。
 import { type Static, Type } from "typebox";
@@ -49,7 +49,7 @@ export const AgentRuntimeStateView = Type.Object({
   /** 现在用的运行时不能用（"Claude Code插件没启用"）；能用是没有 */
   unavailable: Type.Optional(Type.String()),
   /**
-   * 接管自运行时已有的会话（290 号票）：哪个会话、工作目录、交还了没有（交还了的负责人不拉起，收回后接着）。不是接管来的没有
+   * 接管自运行时已有的会话：哪个会话、工作目录、交还了没有（交还了的负责人不拉起，收回后接着）。不是接管来的没有
    */
   takeover: Type.Optional(
     Type.Object({
@@ -59,23 +59,23 @@ export const AgentRuntimeStateView = Type.Object({
       forkedFrom: Type.Optional(Type.String()),
       /** 二狗接管着以外的（交还了、在官方 App 里）都是 true */
       returned: Type.Boolean(),
-      /** 现在在哪边（292 号票：二狗接管 / 官方 App / 空着） */
+      /** 现在在哪边（二狗接管 / 官方 App / 空着） */
       place: Type.Enum(TAKEOVER_PLACES),
-      /** 二狗自己开的会话（292 号票：交给官方 App 时才记下的，不能"交还"） */
+      /** 二狗自己开的会话（交给官方 App 时才记下的，不能"交还"） */
       own: Type.Optional(Type.Literal(true)),
-      /** 官方 App 里接着它的链接（292 号票，在官方 App 里、拿到了才有） */
+      /** 官方 App 里接着它的链接（在官方 App 里、拿到了才有） */
       url: Type.Optional(Type.String()),
     }),
   ),
-  /** 能交给官方 App（292 号票：运行时的能力清单 remote_control）；不是接管来的会话也能交（还没开始的交的时候被拒） */
+  /** 能交给官方 App（运行时的能力清单 remote_control）；不是接管来的会话也能交（还没开始的交的时候被拒） */
   remoteControl: Type.Optional(Type.Literal(true)),
-  /** 负责人的工作文件夹（305 号票：能选工作文件夹的运行时才写；守卫的项目目录就是它） */
+  /** 负责人的工作文件夹（能选工作文件夹的运行时才写；守卫的项目目录就是它） */
   workdir: Type.Optional(Type.String()),
 });
 export type AgentRuntimeStateView = Static<typeof AgentRuntimeStateView>;
 
 /**
- * 新建能选工作文件夹的运行时（Claude Code）的任务、项目时"在哪个文件夹做"（305 号票）：
+ * 新建能选工作文件夹的运行时（Claude Code）的任务、项目时"在哪个文件夹做"：
  * - new：在这个运行时的默认文件夹下新开一个子文件夹；name 是子文件夹名（不写按标题生成，workFolderName），不合法的字符换掉、重名加序号。
  *   还没设默认文件夹时照旧用二狗给任务开的工作目录（项目的在项目档案里）；
  * - existing：用一个已有的文件夹（绝对路径）：不存在、是文件、在数据目录或二狗程序目录里的被拒，写明原因。
@@ -87,12 +87,12 @@ export const WorkFolderChoice = Type.Union([
 ]);
 export type WorkFolderChoice = Static<typeof WorkFolderChoice>;
 
-/** 设置里定的新建时的默认文件夹（PUT /api/runtimes/<运行时>/work-folder，305 号票）：null 是不设；响应是 RuntimesView */
+/** 设置里定的新建时的默认文件夹（PUT /api/runtimes/<运行时>/work-folder）：null 是不设；响应是 RuntimesView */
 export const RuntimeFolderBody = Type.Object({ folder: Type.Union([Type.String({ minLength: 2, maxLength: 260 }), Type.Null()]) });
 export type RuntimeFolderBody = Static<typeof RuntimeFolderBody>;
 
 /**
- * 从运行时已有的会话接管来的（290 号票，任务、项目上记着：Task.takeover、Project.takeover）。
+ * 从运行时已有的会话接管来的（任务、项目上记着：Task.takeover、Project.takeover）。
  * 二狗的写入锁就是它：记着它、没交还、负责人还用这个运行时、任务 / 项目没删，二狗就管着这个会话——这期间只有这个负责人的子进程写它
  * （别的任务、项目再接管同一个会话被拒，只能分叉一份），交还以后负责人不拉起，收回（核对过它没在别处开着）才接着。
  * 负责人换了别的运行时（⚙ 里换运行时换完）就不再记着它（工作目录照旧）
@@ -108,14 +108,14 @@ export const RuntimeTakeover = Type.Object({
   forkedFrom: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),
   /** 什么时候接管的（协议时间） */
   at: Type.String(),
-  /** 交还了（协议时间）：负责人不拉起、二狗不再写它；收回时去掉。交给官方 App（292 号票）也记它（同样不拉起、不写），另有 remote.since */
+  /** 交还了（协议时间）：负责人不拉起、二狗不再写它；收回时去掉。交给官方 App也记它（同样不拉起、不写），另有 remote.since */
   returnedAt: Type.Optional(Type.String()),
   /**
-   * 二狗自己开的会话（292 号票）：不是从已有的会话接管来的，第一次交给官方 App 时才记下这一条（会话 id 是那时负责人接着的那个）。
+   * 二狗自己开的会话：不是从已有的会话接管来的，第一次交给官方 App 时才记下这一条（会话 id 是那时负责人接着的那个）。
    * 拉起时不按它恢复（照常接着会话目录里的），⚙ 里不给"交还"（那是接管来的才有的）
    */
   own: Type.Optional(Type.Literal(true)),
-  /** 交给官方 App 过（292 号票，RuntimeRemote）：后台会话的短 id、链接；现在还在官方 App 里时有 since */
+  /** 交给官方 App 过（RuntimeRemote）：后台会话的短 id、链接；现在还在官方 App 里时有 since */
   remote: Type.Optional(
     Type.Object({
       /** 运行时自己的后台会话的短 id（Claude Code 的 `claude stop <短id>` 用它）；有了它，之后再交出去就是唤醒它（不带参数，带了会开出副本） */
@@ -134,7 +134,7 @@ export const RuntimeTakeover = Type.Object({
 export type RuntimeTakeover = Static<typeof RuntimeTakeover>;
 
 /**
- * 从运行时已有的会话接管（POST /api/runtimes/<运行时>/take-over，290 号票）：建任务还是项目、哪个会话、要不要分叉一份接管。
+ * 从运行时已有的会话接管（POST /api/runtimes/<运行时>/take-over）：建任务还是项目、哪个会话、要不要分叉一份接管。
  * - 会话正被别处占着（终端里开着、后台会话在跑、二狗的别的任务 / 项目在管）的，不分叉就被拒（409，写明在哪开着）；fork 为 true 时分叉一份新的接管，原会话不动；
  * - task：request 是接着让它做什么（普通任务，第一条输入就是它）；project：request 是项目要做成什么（一句话目标，可空，空的用会话标题）；
  * - 工作目录用会话原来的（守卫的项目目录就是它）；同一幂等键重发拿到第一次建出的
@@ -158,6 +158,6 @@ export const TakeOverResult = Type.Object({
 });
 export type TakeOverResult = Static<typeof TakeOverResult>;
 
-/** 交还给运行时 / 收回到二狗（POST /api/agents/<agent id>/takeover，290 号票），响应是 ⚙ 面板（AgentSettingsView） */
+/** 交还给运行时 / 收回到二狗（POST /api/agents/<agent id>/takeover），响应是 ⚙ 面板（AgentSettingsView） */
 export const TakeoverActionBody = Type.Object({ action: Type.Enum(TAKEOVER_ACTIONS) });
 export type TakeoverActionBody = Static<typeof TakeoverActionBody>;

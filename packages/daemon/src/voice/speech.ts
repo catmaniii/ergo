@@ -1,5 +1,5 @@
-// 语音合成（规格第 21、22 节，32 号票）：经本机 LSM 托管的 audio.cpp 服务（第三方开源的语音合成服务，可选；Fish-Audio S2 Pro）的 HTTP 接口，
-// 用参考音色克隆。这里只管调它（LSM 里对它声明弱依赖；345 号票起可以在设置 · 组件里装，见 components/audiocpp-host.ts），它没开时这次语音回复退回只发文字。
+// 语音合成（规格第 21、22 节）：经本机 LSM 托管的 audio.cpp 服务（第三方开源的语音合成服务，可选；Fish-Audio S2 Pro）的 HTTP 接口，
+// 用参考音色克隆。这里只管调它（LSM 里对它声明弱依赖；可以在设置 · 组件里装，见 components/audiocpp-host.ts），它没开时这次语音回复退回只发文字。
 // 接口契约见 audio.cpp 仓库 app/server/README.md：POST /v1/audio/speech，{ model, input, voice_ref, reference_text }，回 audio/wav。
 // Fish 克隆时 voice_ref（参考 WAV 的路径，服务读本机文件）和 reference_text（逐字稿）必须同时给。
 // audio.cpp 读不了带中文的路径：参考音色的目录和文件名都是英文（reference-voices.ts），数据目录本身的路径里有非英文字符时
@@ -10,7 +10,7 @@
 // 问不到（出错、列表里没有）时记配置里写的模型名，下次合成成功后再问。示例配置里模型 id 是占位符（要填 Fish-Audio S2 Pro
 // 在服务上的模型 id，常见的是 tts）：原样用时不发请求，每次都报清楚（退回只发文字）。
 // 日志和报错里只写字数、参考音色的 id 和文件名，不写要合成的原文和参考录音的完整路径。
-// 45 号票：服务没开（连不上）抛 SpeechServiceOff；health() 看 GET /health（模型预热用它低频探活，见 warmup.ts）。
+// 服务没开（连不上）抛 SpeechServiceOff；health() 看 GET /health（模型预热用它低频探活，见 warmup.ts）。
 import path from "node:path";
 import { t } from "@ergo/protocol";
 import { isPlaceholder, type SpeechTimeoutConfig } from "../config/config.ts";
@@ -42,7 +42,7 @@ export interface SpeechSynthesizer {
    * 服务忙抛 SpeechServiceBusy，服务没开（连不上）抛 SpeechServiceOff
    */
   synthesize(request: SpeechRequest, options: { estimatedSeconds: number; signal?: AbortSignal }): Promise<SpeechResult>;
-  /** 服务开着吗（GET /health；45 号票的预热用它低频探活）：连不上、回的不是 2xx 都算没开，带上原因 */
+  /** 服务开着吗（GET /health；预热用它低频探活）：连不上、回的不是 2xx 都算没开，带上原因 */
   health(signal?: AbortSignal): Promise<{ up: true } | { up: false; reason: string }>;
 }
 

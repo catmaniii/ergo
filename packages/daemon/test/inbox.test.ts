@@ -1,5 +1,5 @@
 // 待我处理（模块层）：已读、归档、删除、处理通知；卡着任务（紧急度前两档）的事项处理之前不能归档或删除。
-// 卡着任务的事项要等产生它们的票（审批卡 07、计划卡 12……）才会真的出现，主切面场景由那些票补；这里从模块的接口测。
+// 卡着任务的事项要等产生它们的模块（审批卡、计划卡……）才会真的出现，主切面场景由那些模块的测试补；这里从模块的接口测。
 import path from "node:path";
 import { CHANNELS, type InboxItem, nowIso } from "@ergo/protocol";
 import { describe, expect, test } from "vitest";

@@ -5,21 +5,21 @@
 // - 待我处理：假事项也走 inbox_item 事件；标已读、归档、删除、处理通知照守护进程的规矩（卡着任务的处理之前不能归档或删除）；
 // - 已配对设备：假设备走 device 事件；吊销推一条吊销事件；批准假的配对请求卡多一台设备；
 // - 发起任务（按钮，或者点"建议发起任务"卡上的"发起任务"）：在看板频道推一条 task 事件（规划中）；
-//   普通任务（75 号票）：排队中 → 执行中（agent 在它的会话里调几次工具）→ 自动完成，助理在对话里转告；做完了在它的会话里接着说，演一遍接着做；
-// - 定时触发（76 号票）：发起对话框里选"定时"建的普通任务建出就是运营中，登记它的触发（看板频道上的 scheduled_job）；
+//   普通任务：排队中 → 执行中（agent 在它的会话里调几次工具）→ 自动完成，助理在对话里转告；做完了在它的会话里接着说，演一遍接着做；
+// - 定时触发：发起对话框里选"定时"建的普通任务建出就是运营中，登记它的触发（看板频道上的 scheduled_job）；
 //   暂停、恢复、取消（看板卡、任务详情）落到它的触发上，取消时任务一起取消；选"只提醒我"建一条简单提醒；
-// - 任务的暂停、继续、取消、归档（90 号票：看板卡的菜单、多选、任务详情的"⋯"）：照"谁能改"表演一遍状态变化（没有执行），
+// - 任务的暂停、继续、取消、归档（看板卡的菜单、多选、任务详情的"⋯"）：照"谁能改"表演一遍状态变化（没有执行），
 //   一次处理多个任务时逐条回报；重试、返工、验收这些假任务做不了；
 // - 工作日历：假的节假日数据和个人设置走工作日历频道；改个人设置（假 HTTP 交过来）推一条 workday_settings 事件。
-// - 日历（35 号票）：按月看的每一天（假 HTTP 交过来），工作日判定照上面的假工作日历算，提醒和作业是假的（fake-calendar.ts）。
-// - 关注类别设置（26 号票）：假设置走 watch_category_settings 事件；改设置照守护进程的规矩（内置类别只能往严里调），推一条新的。
-// - 项目（15 号票）：假项目走项目列表频道上的 project 事件；点"立项"、立项书卡的确认、项目页上的动作、删除的二次确认、
+// - 日历：按月看的每一天（假 HTTP 交过来），工作日判定照上面的假工作日历算，提醒和作业是假的（fake-calendar.ts）。
+// - 关注类别设置：假设置走 watch_category_settings 事件；改设置照守护进程的规矩（内置类别只能往严里调），推一条新的。
+// - 项目：假项目走项目列表频道上的 project 事件；点"立项"、立项书卡的确认、项目页上的动作、删除的二次确认、
 //   任务转为项目都照守护进程的规矩（状态迁移按协议包的 PROJECT_ACTION_RULES）；点"新建项目"推一张假的建议立项卡。
-// - 语音消息（31 号票）：发出去的语音带上假的语音对象 id（v-fake-），过一会儿推"识别中""识别完成"（文字是原型的占位）；
+// - 语音消息：发出去的语音带上假的语音对象 id（v-fake-），过一会儿推"识别中""识别完成"（文字是原型的占位）；
 //   重新识别同样走一遍。
-// - 关于页、Debug 工具集（124 号票）：守护进程的版本是这个页面的版本（3 小时 12 分钟前起来的）；断开重连演一遍断开、连上；
+// - 关于页、Debug 工具集：守护进程的版本是这个页面的版本（3 小时 12 分钟前起来的）；断开重连演一遍断开、连上；
 //   一次性的提醒（只提醒我、测试提醒）一小时内到点的照守护进程那样到点：待办里置顶一条、推一条 notify。
-// - 流程撤回之后等你（155 号票）：一次性的流程撤回之后停在那里，一分钟内没在它的会话里说话，待办里一条"流程在等你"（卡着它）、
+// - 流程撤回之后等你：一次性的流程撤回之后停在那里，一分钟内没在它的会话里说话，待办里一条"流程在等你"（卡着它）、
 //   推一条 notify；说了话这条记成处理过。
 // 由守护进程提供页面时，接了真数据的频道（秘书会话、卡片、待我处理……）走 WebSocket，这里的假数据只给其余页面用。
 import { APP_VERSION } from "../app/build-info.ts";
@@ -217,7 +217,7 @@ export const FAKE_VOICE_PREFIX = "v-fake-";
 /** 这些动作算"关掉不处理"（回避信号），卡片状态记为已关闭 */
 const DISMISS_ACTIONS = new Set<CardAction>(["dismiss", "cancel"]);
 
-/** 原型里定的工作文件夹（305 号票）：能选工作文件夹的运行时才定；已有的照填的，新开的是默认文件夹下按名字起（原型不真建） */
+/** 原型里定的工作文件夹：能选工作文件夹的运行时才定；已有的照填的，新开的是默认文件夹下按名字起（原型不真建） */
 function fakeWorkdir(runtime: string | undefined, folder: WorkFolderChoice | undefined, title: string): string | undefined {
   const found = fakeRuntimes().find((r) => r.id === runtime);
   if (!found?.workFolder) return undefined;
@@ -226,11 +226,11 @@ function fakeWorkdir(runtime: string | undefined, folder: WorkFolderChoice | und
   return parent === undefined ? undefined : joinFolder(parent, workFolderName(folder?.name ?? title) || "新的工作");
 }
 
-/** 原型开头的两个开关：都关着（新装的样子，用户 2026-11-01 定） */
+/** 原型开头的两个开关：都关着（新装的样子） */
 export const FAKE_SAFETY_START: SafetySettingsView = { conversationApprovals: false, budgetControl: false };
 
 export class FakeConnection implements Connection {
-  /** 两个开关现在的样子（378 号票）：假 HTTP 改了交过来，和守护进程一样推给网页 */
+  /** 两个开关现在的样子：假 HTTP 改了交过来，和守护进程一样推给网页 */
   private safety = FAKE_SAFETY_START;
   private readonly log: EventFrame[] = [];
   private readonly seqs: Record<string, number> = {};
@@ -238,29 +238,29 @@ export class FakeConnection implements Connection {
   private readonly inbox = new Map<string, InboxItem>();
   private readonly devices = new Map<string, PairedDevice>();
   private workday: WorkdaySettings = FAKE_WORKDAY_SETTINGS;
-  /** 个人助理的名字（43 号票）：原型里从没起过名开始（默认的跟着语言走），只记在内存里 */
+  /** 个人助理的名字：原型里从没起过名开始（默认的跟着语言走），只记在内存里 */
   private assistantName: string | undefined;
-  /** 我的名字（249 号票，用户自己的名字）：原型里一开始没设，只记在内存里 */
+  /** 我的名字（用户自己的名字）：原型里一开始没设，只记在内存里 */
   private userName: string | undefined;
-  /** 语言（168 号票）：原型里从地址的 ?lang= 开始（没写是中文），只记在内存里；只有打包进去的几种 */
+  /** 语言：原型里从地址的 ?lang= 开始（没写是中文），只记在内存里；只有打包进去的几种 */
   private language = prototypeLanguage();
   /** 词典换过几次（临时事件 locale 的版本） */
   private localeNo = 0;
   private readonly projects = new Map<string, Project>();
-  /** 项目的服务（133 号票的临时事件 project_services）：257 号票起点"启动""关闭"会变，整份推一次 */
+  /** 项目的服务（临时事件 project_services）：点"启动""关闭"会变，整份推一次 */
   private services: ProjectServiceView[] = FAKE_PROJECT_SERVICES.map((v) => ({ ...v }));
   private readonly tasks = new Map<string, Task>();
-  /** 定时触发的任务的触发登记（76 号票）：按任务 id */
+  /** 定时触发的任务的触发登记：按任务 id */
   private readonly triggers = new Map<string, ScheduledJob>();
   private reminderNo = 0;
-  /** 假连接建的提醒（只提醒我、Debug 工具集的测试提醒）现在的样子：取消、归档、删除（185 号票）照它演 */
+  /** 假连接建的提醒（只提醒我、Debug 工具集的测试提醒）现在的样子：取消、归档、删除照它演 */
   private readonly reminders = new Map<string, Reminder>();
-  /** 原型里正在回复的一轮（144 号票：一段一段流出来，这时输入框上有"停止"、发的话排队）：会话 → 这一轮 */
+  /** 原型里正在回复的一轮（一段一段流出来，这时输入框上有"停止"、发的话排队）：会话 → 这一轮 */
   private readonly turns = new Map<string, FakeTurn>();
-  /** 原型里排队的消息（144 号票）：会话 → 整队 */
+  /** 原型里排队的消息：会话 → 整队 */
   private readonly queues = new Map<string, QueuedMessage[]>();
   private deliver: ((input: UiInput) => void) | undefined;
-  /** 设置 · 插件（211 号票）：原型里两个插件的状况，停用、启用、移除只在内存里 */
+  /** 设置 · 插件：原型里两个插件的状况，停用、启用、移除只在内存里 */
   private readonly plugins = new FakePlugins(demoList("demo-plugins-off"), demoList("demo-plugins-removed"));
   private taskNo = 0;
   private watch: WatchCategoriesState = FAKE_WATCH_CATEGORIES;
@@ -269,12 +269,12 @@ export class FakeConnection implements Connection {
   private itemNo = 0;
   private voiceNo = 0;
   private readonly voices = new Map<string, VoiceRecord>();
-  /** 已读位置（109 号票，键是会话 id）：只往后挪 */
+  /** 已读位置（键是会话 id）：只往后挪 */
   private readonly readMarks = new Map<string, number>();
-  /** 流程撤回之后在等你的（155 号票）：会话 → 第几次撤回、哪个流程、放过的提醒 */
+  /** 流程撤回之后在等你的：会话 → 第几次撤回、哪个流程、放过的提醒 */
   private readonly rollbackWaits = new Map<string, { no: number; taskId: string; reminder?: string }>();
   private rollbackWaitNo = 0;
-  /** Debug 工具集里点了几次断开重连、最近一次（124 号票） */
+  /** Debug 工具集里点了几次断开重连、最近一次 */
   private manualDrops = 0;
   private lastManualDrop: { at: string; reason: string } | undefined;
 
@@ -289,7 +289,7 @@ export class FakeConnection implements Connection {
         if (job.ownerTaskId) this.triggers.set(job.ownerTaskId, job);
       }
     }
-    // 秘书主线最后演过一次会话回退（150 号票）：缩小后看得到 ↶、⑂、🧭 分支摘要
+    // 秘书主线最后演过一次会话回退：缩小后看得到 ↶、⑂、🧭 分支摘要
     appendRollbackDemo(this.branchLog);
     for (const item of FAKE_INBOX) {
       this.inbox.set(item.id, item);
@@ -307,13 +307,13 @@ export class FakeConnection implements Connection {
     this.append(CHANNELS.workdayCalendar, EVENT_TYPES.holidayData, { years: FAKE_HOLIDAYS });
     this.append(CHANNELS.workdayCalendar, EVENT_TYPES.workdaySettings, { settings: this.workday, source: "settings" } satisfies WorkdaySettingsEventPayload);
     this.append(CHANNELS.watchCategories, EVENT_TYPES.watchCategorySettings, { state: this.watch, change: { op: "file" }, by: "system", time: nowIso() } satisfies WatchCategorySettingsEventPayload);
-    // 已读位置（109 号票）：原型里的历史都算看过（照守护进程启动时记的那条）。地址里带 ?demo-unread 时，看过之后秘书又在"你不在时"
+    // 已读位置：原型里的历史都算看过（照守护进程启动时记的那条）。地址里带 ?demo-unread 时，看过之后秘书又在"你不在时"
     // 念了一段语音（看"秘书"页签的红点、顶上的"秘书有 N 条新消息"、秘书会话里不在时念的语音小栏）
     this.readMarks.set(CHANNELS.secretary, this.seqs[CHANNELS.secretary] ?? 0);
     this.append(CHANNELS.readMarks, EVENT_TYPES.readMark, { conversation: CHANNELS.secretary, seq: this.readMarks.get(CHANNELS.secretary)!, time: nowIso() } satisfies ReadMarkEventPayload);
     if (demoParam("demo-unread") !== null) {
       for (const e of awayDemo()) this.append(e.channel, e.type, e.payload);
-      // 秘书会话里还有一张没处理的快速动作卡进了待办：输入框上面"等你处理"栏（107 号票）和不在时念的语音小栏一起出现
+      // 秘书会话里还有一张没处理的快速动作卡进了待办：输入框上面"等你处理"栏和不在时念的语音小栏一起出现
       const item: InboxItem = { id: "i-demo-relay", kind: "card", cardId: "c-qa-4", title: "转达给项目「记账本」的负责人", source: ASSISTANT_NAME_MARK, urgency: "non_blocking", createdAt: nowIso(), read: false, version: 1, pinned: false, archived: false, deleted: false, origin: { conversation: CHANNELS.secretary } };
       this.inbox.set(item.id, item);
       this.append(CHANNELS.inbox, EVENT_TYPES.inboxItem, { item } satisfies InboxItemEventPayload);
@@ -340,7 +340,7 @@ export class FakeConnection implements Connection {
     return { name: checked.name, changed: true };
   }
 
-  /** 我的名字（249 号票，假 HTTP 交过来）：和守护进程一样按同一条规则查（不合规抛错），null / 空串是清除；只记在内存里 */
+  /** 我的名字（假 HTTP 交过来）：和守护进程一样按同一条规则查（不合规抛错），null / 空串是清除；只记在内存里 */
   userNameView(): UserNameView {
     return this.userName === undefined ? {} : { name: this.userName };
   }
@@ -394,7 +394,7 @@ export class FakeConnection implements Connection {
     return { language, changed: true };
   }
 
-  /** 设置 · 插件（假 HTTP 交过来，211 号票）：清单 */
+  /** 设置 · 插件（假 HTTP 交过来）：清单 */
   pluginList(): PluginsView {
     return this.plugins.view();
   }
@@ -467,7 +467,7 @@ export class FakeConnection implements Connection {
     });
   }
 
-  /** 秘书页上看到哪一条了（109 号票）：和守护进程一样只往后挪、比最后一条还靠后的按最后一条记，推一条 read_mark */
+  /** 秘书页上看到哪一条了：和守护进程一样只往后挪、比最后一条还靠后的按最后一条记，推一条 read_mark */
   markRead(req: MarkReadRequest): void {
     const seq = Math.min(req.seq, this.seqs[req.conversation] ?? 0);
     if (seq <= (this.readMarks.get(req.conversation) ?? -1)) return;
@@ -475,13 +475,13 @@ export class FakeConnection implements Connection {
     later(100, () => this.emit(CHANNELS.readMarks, EVENT_TYPES.readMark, { conversation: req.conversation, seq, time: nowIso() } satisfies ReadMarkEventPayload));
   }
 
-  /** 守护进程的版本（124 号票：关于页、Debug 工具集）：原型里就是这个页面的版本，3 小时 12 分钟前起来的；回得慢一点，"测一次延迟"有个数 */
+  /** 守护进程的版本（关于页、Debug 工具集）：原型里就是这个页面的版本，3 小时 12 分钟前起来的；回得慢一点，"测一次延迟"有个数 */
   daemonInfo(): Promise<DaemonInfo> {
     const now = Date.now();
     return new Promise((resolve) => later(18, () => resolve({ version: APP_VERSION, startedAt: nowIso(new Date(now - FAKE_DAEMON_UPTIME_MS)), now: nowIso(new Date(now + 18)) })));
   }
 
-  /** 这次打开以来的连接情况（124 号票）：原型的假连接不会断；?demo-debug 时给几个假数，看 Debug 页的样子 */
+  /** 这次打开以来的连接情况：原型的假连接不会断；?demo-debug 时给几个假数，看 Debug 页的样子 */
   stats(): ConnectionStats {
     const demo = demoParam("demo-debug") !== null;
     const drops = this.manualDrops + (demo ? 2 : 0);
@@ -490,7 +490,7 @@ export class FakeConnection implements Connection {
     return { drops, reconnects: drops, lastDrop };
   }
 
-  /** 断开重连（124 号票）：原型里报一下断开、0.6 秒后又连上 */
+  /** 断开重连：原型里报一下断开、0.6 秒后又连上 */
   reconnect(): void {
     this.manualDrops += 1;
     this.lastManualDrop = { at: nowIso(), reason: "在 Debug 工具集里点了断开重连" };
@@ -545,16 +545,16 @@ export class FakeConnection implements Connection {
 
   connect(cursors: Record<string, number>, deliver: (input: UiInput) => void): () => void {
     this.deliver = deliver;
-    // 打开时补发的历史（标成补发的：不自动播语音、不算秘书刚说完的一轮），之后报补发推完了（109 号票）
+    // 打开时补发的历史（标成补发的：不自动播语音、不算秘书刚说完的一轮），之后报补发推完了
     for (const frame of this.log) if (frame.seq > (cursors[frame.channel] ?? 0)) deliver({ kind: "frame", frame, catchUp: true });
     deliver({ kind: "synced" });
-    // 133 号票：项目的服务（守护进程订阅时补推一次全量的那个临时事件）
+    // 项目的服务（守护进程订阅时补推一次全量的那个临时事件）
     this.pushServices();
-    // 168 号票：实际在用的语言和词典的版本（守护进程订阅语言频道时补推的那个临时事件）
+    // 实际在用的语言和词典的版本（守护进程订阅语言频道时补推的那个临时事件）
     deliver({ kind: "frame", frame: this.localeFrame() });
-    // 193 号票：插件的状况（守护进程订阅插件频道时补推的那个临时事件）：原型里提醒、记忆都在运行；?demo-plugins-off=memory,reminders 看停用的样子
+    // 插件的状况（守护进程订阅插件频道时补推的那个临时事件）：原型里提醒、记忆都在运行；?demo-plugins-off=memory,reminders 看停用的样子
     deliver({ kind: "frame", frame: this.pluginStatusFrame() });
-    // 378 号票：两个开关（守护进程订阅关注类别频道时补推的那个临时事件）
+    // 两个开关（守护进程订阅关注类别频道时补推的那个临时事件）
     deliver({ kind: "frame", frame: this.safetyFrame() });
     this.demoAlerts(deliver);
     this.demoSecretaryTurn();
@@ -565,7 +565,7 @@ export class FakeConnection implements Connection {
   }
 
   /**
-   * 流程撤回之后停在那里（155 号票，照守护进程的 tasks/rollback-wait.ts）：一次性的流程跟着撤回还在执行中、排队中的，一分钟
+   * 流程撤回之后停在那里（照守护进程的 tasks/rollback-wait.ts）：一次性的流程跟着撤回还在执行中、排队中的，一分钟
    * （ROLLBACK_WAIT_REMIND_MS）内没在这个会话里说话，待办里放一条"流程在等你"（卡着它，来源是这个任务），推一条 notify；只放一次
    */
   private armRollbackWait(conversation: string, frames: readonly EventFrame[]): void {
@@ -613,7 +613,7 @@ export class FakeConnection implements Connection {
     });
   }
 
-  /** 不等了（155 号票）：在这个会话里说了话（resumed）、又撤回了一次（voided）；放过的提醒还没处理的记成处理过 */
+  /** 不等了：在这个会话里说了话（resumed）、又撤回了一次（voided）；放过的提醒还没处理的记成处理过 */
   private settleRollbackWait(conversation: string, how: keyof typeof ROLLBACK_WAIT_SETTLED): void {
     const wait = this.rollbackWaits.get(conversation);
     if (!wait) return;
@@ -630,9 +630,9 @@ export class FakeConnection implements Connection {
     this.settleRollbackWait(req.conversation, "resumed");
     const time = nowIso();
     const messageId = `u-${req.idempotencyKey}`;
-    // 语音（31 号票）：带上假的语音对象 id，之后推识别的过程
+    // 语音：带上假的语音对象 id，之后推识别的过程
     const parts = req.parts.map((p): MessagePart => (p.type === "voice" ? { ...p, voiceId: `${FAKE_VOICE_PREFIX}${++this.voiceNo}` } : p));
-    // 正在回复（144 号票）：排进队，这一轮说完（或者点了停止）一起交出去
+    // 正在回复：排进队，这一轮说完（或者点了停止）一起交出去
     if (this.turns.has(req.conversation)) {
       const item: QueuedMessage = { message: { id: messageId, conversation: req.conversation, speaker: "user", time, parts }, idempotencyKey: req.idempotencyKey };
       later(250, () => {
@@ -653,13 +653,13 @@ export class FakeConnection implements Connection {
         this.recognizeVoice(voice);
       }
     });
-    // 做完了的普通任务里接着说（75 号票）：演一遍接着做
+    // 做完了的普通任务里接着说：演一遍接着做
     const plain = [...this.tasks.values()].find((t) => isPlainTask(t) && t.state === "done" && maintainerChannel(t.maintainerId) === req.conversation);
     if (plain) {
       later(500, () => this.runPlain(plain, "continued", "（原型）好，接着做。"));
       return;
     }
-    // 一轮回复（144 号票起一段一段流出来：说着的时候能停止、发的话排队）
+    // 一轮回复（一段一段流出来：说着的时候能停止、发的话排队）
     later(600, () => this.startTurn(req.conversation, [messageId], FAKE_REPLY));
   }
 
@@ -710,18 +710,18 @@ export class FakeConnection implements Connection {
     this.emit(conversation, EVENT_TYPES.messageQueue, { change, messageIds: [...messageIds], queue, ...(requestKey === undefined ? {} : { requestKey }) } satisfies MessageQueueEventPayload);
   }
 
-  /** 原型的事件日志给会话回退用（150 号票，fake-branches.ts） */
+  /** 原型的事件日志给会话回退用（fake-branches.ts） */
   private readonly branchLog: FakeBranchLog = {
     append: (channel, type, payload) => this.append(channel, type, payload),
     frames: (channel) => this.log.filter((f) => f.channel === channel),
   };
 
-  /** 回退前的确认（150 号票，假 HTTP 交过来）：这一段做了的事按假会话里的工具调用编 */
+  /** 回退前的确认（假 HTTP 交过来）：这一段做了的事按假会话里的工具调用编 */
   rollbackPreview(conversation: ConversationId, before: RollbackTarget): RollbackPreview {
     return fakeRollbackPreview(this.branchLog, conversation, before);
   }
 
-  /** 会话回退（150 号票）：过一会儿长出新分支（推 session_branch、分支摘要）；回不到那里的说原因 */
+  /** 会话回退：过一会儿长出新分支（推 session_branch、分支摘要）；回不到那里的说原因 */
   rollbackSession(req: RollbackSessionRequest): Promise<RollbackSessionResult> {
     return new Promise((resolve, reject) =>
       later(600, () => {
@@ -739,18 +739,18 @@ export class FakeConnection implements Connection {
     );
   }
 
-  /** 一条分支的样子（151 号票，假 HTTP 交过来）：它自己那一段的消息、遗留效果、分支摘要 */
+  /** 一条分支的样子（假 HTTP 交过来）：它自己那一段的消息、遗留效果、分支摘要 */
   branchView(conversation: ConversationId, branchId: string, against?: string): BranchView {
     return fakeBranchView(this.branchLog, conversation, branchId, against);
   }
 
-  /** 切换分支（151 号票）：正在回复的先停下，过一会儿切过去（推 session_branch）；切不过去的说原因 */
+  /** 切换分支：正在回复的先停下，过一会儿切过去（推 session_branch）；切不过去的说原因 */
   switchBranch(req: SwitchBranchRequest): Promise<SwitchBranchResult> {
     if (this.turns.has(req.conversation)) this.endTurn(req.conversation, "aborted");
     return this.settleBranchRequest(req.idempotencyKey, 600, () => fakeSwitchBranch(this.branchLog, req.conversation, req.branchId));
   }
 
-  /** 申请撤回（151 号票）：记一条 effect_undo_requested；不能申请的说原因 */
+  /** 申请撤回：记一条 effect_undo_requested；不能申请的说原因 */
   requestEffectUndo(req: RequestEffectUndoRequest): Promise<RequestEffectUndoResult> {
     return this.settleBranchRequest(req.idempotencyKey, 200, () => fakeEffectUndo(this.branchLog, req.conversation, req.branchId, req.callId));
   }
@@ -829,7 +829,7 @@ export class FakeConnection implements Connection {
         this.deliver?.({ kind: "request_failed", idempotencyKey: req.idempotencyKey, error: "已被处理" });
         return;
       }
-      // "建议发起任务"卡的两个按钮（58 号票）：作为流程、作为长程任务
+      // "建议发起任务"卡的两个按钮：作为流程、作为长程任务
       const kind: TaskKind | undefined = card.type !== "suggest_task" ? undefined : req.action === "start_workflow" ? "workflow" : req.action === "start_task" ? "long_running" : undefined;
       const started = kind ? this.createTask(card.payload as SuggestTaskCardPayload, "suggestion", (card.payload as SuggestTaskCardPayload).projects ?? [], kind) : undefined;
       const payload = started && kind ? { ...(card.payload as SuggestTaskCardPayload), taskId: started.id, kind } : this.projectCardEffect(card, req.action, req.note);
@@ -860,12 +860,12 @@ export class FakeConnection implements Connection {
       const title = req.request.trim().split("\n")[0]!.slice(0, 40);
       const runtime = req.projects.length === 1 ? undefined : req.runtime;
       const task = this.createTask({ title, why: req.request.trim() }, "button", req.projects, req.kind, req.trigger, req.voiceAnnounce === true && req.projects.length !== 1, runtime, fakeWorkdir(runtime, req.folder, title));
-      // 定时的普通任务（76 号票）：建出就是运营中，登记触发，到点才运行
+      // 定时的普通任务：建出就是运营中，登记触发，到点才运行
       if (task.state === "operating") {
         this.registerTrigger(task);
         return;
       }
-      // 普通任务（75 号票）：不经助理，排到了就开始做
+      // 普通任务：不经助理，排到了就开始做
       if (isPlainTask(task)) {
         later(600, () => this.runPlain(task, "started", `（原型）收到，开始做「${task.title}」。`));
         return;
@@ -881,7 +881,7 @@ export class FakeConnection implements Connection {
     });
   }
 
-  /** 普通任务的一轮（75 号票）：执行中 → agent 调几次工具、说结果 → 自动完成，助理转告 */
+  /** 普通任务的一轮：执行中 → agent 调几次工具、说结果 → 自动完成，助理转告 */
   private runPlain(task: Task, change: "started" | "continued", opening: string): void {
     const channel = maintainerChannel(task.maintainerId);
     const say = (speaker: "agent" | "system", parts: MessagePart[]) => {
@@ -942,9 +942,9 @@ export class FakeConnection implements Connection {
       projects,
       projectIds,
       ...(voiceAnnounce ? { voiceAnnounce: true } : {}),
-      // 289 号票：发起对话框里选的运行时（pi 不写）
+      // 发起对话框里选的运行时（pi 不写）
       ...(runtime === undefined || runtime === PI_RUNTIME_ID ? {} : { runtime }),
-      // 305 号票：在哪个文件夹做（原型不真建文件夹）
+      // 在哪个文件夹做（原型不真建文件夹）
       ...(workdir === undefined ? {} : { workdir }),
       createdAt: time,
       updatedAt: time,
@@ -958,9 +958,9 @@ export class FakeConnection implements Connection {
     later(600, () => {
       const request = req.request.trim();
       this.itemNo += 1;
-      // 289 号票：选了运行时的照写在卡上（pi 不写）
+      // 选了运行时的照写在卡上（pi 不写）
       const runtime = req.runtime === undefined || req.runtime === PI_RUNTIME_ID ? {} : { runtime: req.runtime };
-      // 305 号票：选的文件夹照写在卡上（新开的、没起名的不写：按项目名）
+      // 选的文件夹照写在卡上（新开的、没起名的不写：按项目名）
       const folder = req.folder === undefined || runtime.runtime === undefined || (req.folder.kind === "new" && req.folder.name === undefined) ? {} : { folder: req.folder };
       const payload: SuggestProjectCardPayload = { name: request.split("\n")[0]!.slice(0, 20), goal: request.slice(0, 300), ...runtime, ...folder };
       const card: Card = {
@@ -1013,7 +1013,7 @@ export class FakeConnection implements Connection {
         this.deliver?.({ kind: "request_failed", idempotencyKey: req.idempotencyKey, error: project ? projectActionRefusal(project, req.action) : "没有这个项目" });
         return;
       }
-      // 转入使用不马上转（259 号票）：出一张"转入使用"确认卡（还在等的就用那一张）
+      // 转入使用不马上转：出一张"转入使用"确认卡（还在等的就用那一张）
       if (req.action === "go_live") return this.askGoLive(project);
       // 迁移和守护进程用同一张表（共享协议包的 projectActionTarget）；删除不马上删
       const target = projectActionTarget(project, req.action);
@@ -1024,7 +1024,7 @@ export class FakeConnection implements Connection {
   }
 
   /**
-   * 项目卡片、项目页上的"启动""关闭"（257 号票）：照守护进程的规矩——使用中、有在 LSM 上的服务才收下；先标"启动中…""关闭中…"，
+   * 项目卡片、项目页上的"启动""关闭"：照守护进程的规矩——使用中、有在 LSM 上的服务才收下；先标"启动中…""关闭中…"，
    * 一会儿之后全部起来（在线、开机自启）或全部关掉（已关闭）
    */
   projectServicesAction(req: ProjectServicesActionRequest): void {
@@ -1085,7 +1085,7 @@ export class FakeConnection implements Connection {
   }
 
   /**
-   * 转入使用（259 号票）：已经有"首版做完了"卡、"转入使用"卡在等的就用那一张；没有就出一张"转入使用"卡（你在项目页点的），
+   * 转入使用：已经有"首版做完了"卡、"转入使用"卡在等的就用那一张；没有就出一张"转入使用"卡（你在项目页点的），
    * 清单照假的项目规范编（fakeGoLiveChecklist）
    */
   private askGoLive(project: Project): void {
@@ -1098,7 +1098,7 @@ export class FakeConnection implements Connection {
     this.emit(CHANNELS.cards, EVENT_TYPES.card, { card } satisfies CardEventPayload);
   }
 
-  /** "转入使用"卡上的确认、先不转（259 号票）：确认了项目进入使用中（带着运营方案的照"首版做完了"卡记结局），先不转的不动 */
+  /** "转入使用"卡上的确认、先不转：确认了项目进入使用中（带着运营方案的照"首版做完了"卡记结局），先不转的不动 */
   private goLiveEffect(payload: GoLiveCardPayload, action: CardAction): unknown {
     const project = this.projects.get(payload.projectId);
     if (!project) return undefined;
@@ -1166,7 +1166,7 @@ export class FakeConnection implements Connection {
   }
 
   /**
-   * 建议立项卡点了"立项"、立项书卡上的确认、"首版做完了"卡上的选择（112 号票）：项目跟着变，返回卡片的新负载
+   * 建议立项卡点了"立项"、立项书卡上的确认、"首版做完了"卡上的选择：项目跟着变，返回卡片的新负载
    * （不相干的卡返回 undefined）
    */
   private projectCardEffect(card: Card, action: CardAction, note?: string): unknown {
@@ -1189,7 +1189,7 @@ export class FakeConnection implements Connection {
     const project = this.projects.get(payload.projectId);
     if (!project) return undefined;
     const { charter, toolkit } = payload;
-    // 不管点哪个，项目类型、工作目录和工具包在确认时就生效（305 号票：新建时选了文件夹的不改）
+    // 不管点哪个，项目类型、工作目录和工具包在确认时就生效（新建时选了文件夹的不改）
     const confirmed: Partial<Project> = {
       kind: charter.kind,
       workdir: project.workdir.external ? project.workdir : charter.bindExternal ? { external: true, path: charter.externalPath } : { external: false },
@@ -1205,12 +1205,12 @@ export class FakeConnection implements Connection {
     return { ...payload, confirmed: { start: true, buildTaskId: task.id } };
   }
 
-  /** "首版做完了"卡上的选择（112 号票）：转入使用、继续建设（建出下一轮建设任务）、放弃并归档 */
+  /** "首版做完了"卡上的选择：转入使用、继续建设（建出下一轮建设任务）、放弃并归档 */
   private buildDoneEffect(payload: BuildDoneCardPayload, action: CardAction, note: string | undefined): unknown {
     const project = this.projects.get(payload.projectId);
     if (!project) return undefined;
     if (action === "put_in_use") {
-      // 130 号票：带着运营方案的，每一条一起生效（原型不真建任务：开得起来的记"已开起来"，要你手动的记"要你手动"）
+      // 带着运营方案的，每一条一起生效（原型不真建任务：开得起来的记"已开起来"，要你手动的记"要你手动"）
       const ops = payload.operations;
       const results = ops?.items.map((i) => ({ key: i.key, name: i.name, outcome: i.automatic ? ("created" as const) : ("manual" as const) }));
       const operations = ops && { revision: ops.revision, confirmedAt: nowIso(), items: ops.items.map(({ workflow: _w, ...i }) => ({ ...i, ...(i.automatic ? { taskId: `t-ops-${i.key}` } : {}) })) };
@@ -1228,7 +1228,7 @@ export class FakeConnection implements Connection {
     return { ...payload, decided: { choice: "keep_building", request, nextTaskId: task.id } };
   }
 
-  /** "补齐规范文档"卡（262 号票）：补齐记一个假的任务编号（原型不真建任务、不真补档案），不补什么都不动 */
+  /** "补齐规范文档"卡：补齐记一个假的任务编号（原型不真建任务、不真补档案），不补什么都不动 */
   private standardBackfillEffect(payload: StandardBackfillCardPayload, action: CardAction): unknown {
     const at = nowIso();
     if (action === "dismiss") return { ...payload, decided: { choice: "skip", at } };
@@ -1236,7 +1236,7 @@ export class FakeConnection implements Connection {
     return { ...payload, decided: { choice: "backfill", at, taskId: `t-proto-backfill-${payload.projectId}` } };
   }
 
-  /** "运营方案变更"卡（130 号票）：确认的照差异记下结局、项目上的运营方案换成新的一份（原型不真建、不真取消任务）；拒绝的什么都不动 */
+  /** "运营方案变更"卡：确认的照差异记下结局、项目上的运营方案换成新的一份（原型不真建、不真取消任务）；拒绝的什么都不动 */
   private operationsChangeEffect(payload: OperationsChangeCardPayload, action: CardAction): unknown {
     const project = this.projects.get(payload.projectId);
     if (!project) return undefined;
@@ -1265,7 +1265,7 @@ export class FakeConnection implements Connection {
     return next ? nowIso(next) : undefined;
   }
 
-  /** 定时、事件触发的任务登记它的触发（76、77 号票） */
+  /** 定时、事件触发的任务登记它的触发 */
   private registerTrigger(task: Task): void {
     if (task.trigger?.kind !== "schedule" && task.trigger?.kind !== "event") return;
     const time = nowIso();
@@ -1296,7 +1296,7 @@ export class FakeConnection implements Connection {
     this.emit(CHANNELS.board, EVENT_TYPES.scheduledJob, { job, change: "registered", by: "user" } satisfies ScheduledJobEventPayload);
   }
 
-  /** 暂停、恢复、取消定时触发的任务（76 号票）：落到它的触发上，取消时任务一起取消；原型旧的假定时作业控制不了。做不了时返回原因 */
+  /** 暂停、恢复、取消定时触发的任务：落到它的触发上，取消时任务一起取消；原型旧的假定时作业控制不了。做不了时返回原因 */
   private actOnTrigger(job: ScheduledJob, action: "pause" | "resume" | "cancel"): string | undefined {
     if ((action === "pause" && job.state !== "active") || (action === "resume" && job.state !== "paused") || job.state === "cancelled") return "现在不能这样做";
     const time = nowIso();
@@ -1334,7 +1334,7 @@ export class FakeConnection implements Connection {
   }
 
   /**
-   * 改时间（98 号票）：只换时间表、重算下一次（暂停着的照旧暂停），记一条用户改的 rescheduled；事件触发的、已取消的、
+   * 改时间：只换时间表、重算下一次（暂停着的照旧暂停），记一条用户改的 rescheduled；事件触发的、已取消的、
    * 某个时间做一次的时间已过的说做不了
    */
   rescheduleJob(req: RescheduleJobRequest): Promise<RescheduleJobResult> {
@@ -1367,7 +1367,7 @@ export class FakeConnection implements Connection {
   }
 
   /**
-   * 立即运行一次（100 号票）：演一遍运行（排队 → 运行中 → 成功），触发记成手动、时间表不动；暂停着的跑一次照旧暂停。
+   * 立即运行一次：演一遍运行（排队 → 运行中 → 成功），触发记成手动、时间表不动；暂停着的跑一次照旧暂停。
    * 上一次还在跑的、已取消的、原型旧的假定时作业说做不了
    */
   runJobNow(req: RunJobNowRequest): Promise<RunJobNowResult> {
@@ -1397,7 +1397,7 @@ export class FakeConnection implements Connection {
     );
   }
 
-  /** 项目的自动播报（354 号票）：照协议包的 canSetProjectVoiceAnnounce 改假项目的开关，推一条 voice_announce_set */
+  /** 项目的自动播报：照协议包的 canSetProjectVoiceAnnounce 改假项目的开关，推一条 voice_announce_set */
   setProjectVoiceAnnounce(req: SetProjectVoiceAnnounceRequest): Promise<SetProjectVoiceAnnounceResult> {
     return new Promise((resolve, reject) =>
       later(300, () => {
@@ -1414,7 +1414,7 @@ export class FakeConnection implements Connection {
     );
   }
 
-  /** 跑完自动播报（100 号票）：照协议包的 canSetVoiceAnnounce 改假任务的开关，推一条 voice_announce_set */
+  /** 跑完自动播报：照协议包的 canSetVoiceAnnounce 改假任务的开关，推一条 voice_announce_set */
   setVoiceAnnounce(req: SetVoiceAnnounceRequest): Promise<SetVoiceAnnounceResult> {
     return new Promise((resolve, reject) =>
       later(300, () => {
@@ -1451,14 +1451,14 @@ export class FakeConnection implements Connection {
     });
   }
 
-  /** 一次处理多个任务（90 号票）：一个一个演，逐条回报 */
+  /** 一次处理多个任务：一个一个演，逐条回报 */
   taskBatchAction(req: TaskBatchActionRequest): Promise<TaskBatchActionResult> {
     return new Promise((resolve) => later(300, () => resolve({ results: req.taskIds.map((id) => this.actOnTask(id, req.action)) })));
   }
 
   /**
    * 对一个假任务做暂停、继续、取消、归档、删除：定时触发的运营中时落到它的触发上；别的照"谁能改"表改状态。
-   * 186 号票：没结束的归档先取消再归档（运营中的连同触发一起取消）；删除先照取消停下，再推一条带 deleted 的任务事件（看板上拿掉）
+   * 没结束的归档先取消再归档（运营中的连同触发一起取消）；删除先照取消停下，再推一条带 deleted 的任务事件（看板上拿掉）
    */
   private actOnTask(taskId: string, action: TaskBatchAction): TaskBatchItemResult {
     const task = this.tasks.get(taskId);
@@ -1490,7 +1490,7 @@ export class FakeConnection implements Connection {
   }
 
   /**
-   * 对假提醒取消、归档、删除（185 号票）：照守护进程的规则一条条演——取消只对待触发的，归档只对已经结束、没归档的，删除对没删过的；
+   * 对假提醒取消、归档、删除：照守护进程的规则一条条演——取消只对待触发的，归档只对已经结束、没归档的，删除对没删过的；
    * 逐条回报，提醒的新样子推到看板频道
    */
   reminderAction(req: ReminderActionRequest): Promise<ReminderActionResult> {
@@ -1528,7 +1528,7 @@ export class FakeConnection implements Connection {
     return { id: reminderId, text: p.text, ...(p.schedule ? { schedule: p.schedule } : {}), status: p.status, ...(p.nextAt ? { nextAt: p.nextAt } : {}), ...(p.archived ? { archived: true } : {}), cardId: card.id, createdAt: card.createdAt, updatedAt: nowIso() };
   }
 
-  /** 提醒变了，聊天里假的提醒卡跟着变（185 号票：取消了已处理，删了作废、写已删除） */
+  /** 提醒变了，聊天里假的提醒卡跟着变（取消了已处理，删了作废、写已删除） */
   private updateFakeReminderCard(r: Reminder, action: "cancel" | "archive" | "delete"): void {
     const card = this.cards.get(r.cardId);
     if (!card || card.type !== "reminder") return;
@@ -1547,7 +1547,7 @@ export class FakeConnection implements Connection {
     this.emit(CHANNELS.cards, EVENT_TYPES.card, { card: next } satisfies CardEventPayload);
   }
 
-  /** 发起对话框里的"只提醒我"（76 号票）：建一条假的简单提醒，推到看板频道；事件发生时提醒的（77 号票）没有下一次 */
+  /** 发起对话框里的"只提醒我"：建一条假的简单提醒，推到看板频道；事件发生时提醒的没有下一次 */
   createReminder(req: CreateReminderRequest): void {
     later(300, () => {
       const nextAt = this.nextAt(req.schedule);
@@ -1572,7 +1572,7 @@ export class FakeConnection implements Connection {
   }
 
   /**
-   * 设备多选（123 号票）：照守护进程的做法——能做的都做（协议包的 deviceBatchSkip），延期从原到期日和现在里晚的那个起算，
+   * 设备多选：照守护进程的做法——能做的都做（协议包的 deviceBatchSkip），延期从原到期日和现在里晚的那个起算，
    * 删除时还没吊销的先吊销。原型里"就是这台"被吊销、删除时，过一会儿报连接 unpaired（被吊销），走"本设备已被吊销"那一页
    */
   deviceBatchAction(req: DeviceBatchActionRequest): Promise<DeviceBatchActionResult> {
@@ -1668,7 +1668,7 @@ export class FakeConnection implements Connection {
   }
 
   /**
-   * 演示页面顶上的通知（105、106 号票）：地址里带 ?demo-alerts=N 时，连上后陆续来 N 条到点的通知（临时的 notify 事件，
+   * 演示页面顶上的通知：地址里带 ?demo-alerts=N 时，连上后陆续来 N 条到点的通知（临时的 notify 事件，
    * 对应前几条没读的事项），看框里轮播、"2/3"、自动收起；?demo-alerts=long 来一条标题、正文都很长的，看框的大小固定、
    * 放不下省略。平常不来
    */
@@ -1689,7 +1689,7 @@ export class FakeConnection implements Connection {
   }
 
   /**
-   * 演示秘书说完一轮（109 号票）：地址里带 ?demo-unread 时，连上后一会儿秘书收到一件做完的事、在主线里说一声（实时推来的回合），
+   * 演示秘书说完一轮：地址里带 ?demo-unread 时，连上后一会儿秘书收到一件做完的事、在主线里说一声（实时推来的回合），
    * 不在看秘书会话时顶上提醒一条
    */
   private demoSecretaryTurn(): void {
@@ -1706,7 +1706,7 @@ export class FakeConnection implements Connection {
   }
 
   /**
-   * 演示服务端的页面更新了（116 号票）：地址里带 ?demo-update 时，连上后一会儿活动状态频道上推来一条 web_version（假的新一版），
+   * 演示服务端的页面更新了：地址里带 ?demo-update 时，连上后一会儿活动状态频道上推来一条 web_version（假的新一版），
    * 和页面自己的对不上，出"二狗有新版本 · 刷新"；切到后台再回来、什么都没打开时直接刷新（原型刷新后又从头演一遍）。平常不推
    */
   private demoUpdate(deliver: (input: UiInput) => void): void {
@@ -1722,7 +1722,7 @@ export class FakeConnection implements Connection {
   }
 }
 
-/** 原型里假的守护进程起来多久了（124 号票：关于页的"已运行"） */
+/** 原型里假的守护进程起来多久了（关于页的"已运行"） */
 const FAKE_DAEMON_UPTIME_MS = 3 * 3_600_000 + 12 * 60_000;
 
 /** ?demo-alerts=long 的那一条（对应待办里"卡住求助：smartctl 读不到 sdb"） */
@@ -1734,14 +1734,14 @@ const DEMO_LONG_ALERT: NotifyEventPayload = {
 };
 
 /**
- * 地址里逗号分开的插件名（193 号票的 ?demo-plugins-off=memory,reminders：那几个算在配置里停用了；211 号票的 ?demo-plugins-removed=：
+ * 地址里逗号分开的插件名（?demo-plugins-off=memory,reminders：那几个算在配置里停用了；?demo-plugins-removed=：
  * 算移除了）——看停用、移除插件后的样子（截图、page-opens 测试）
  */
 function demoList(name: string): Set<string> {
   return new Set((demoParam(name) ?? "").split(",").map((x) => x.trim()));
 }
 
-/** ?demo-update（116 号票）时假的服务端现在是哪一版；平常不知道 */
+/** ?demo-update时假的服务端现在是哪一版；平常不知道 */
 export function fakeServerWebVersion(): string | undefined {
   return demoParam("demo-update") === null ? undefined : "demo-update";
 }
@@ -1799,7 +1799,7 @@ function later(ms: number, f: () => void): void {
   setTimeout(f, ms);
 }
 
-/** 原型里正在回复的一轮（144 号票）：交给它的几条输入、回复的消息 id、整段话、说到哪了 */
+/** 原型里正在回复的一轮：交给它的几条输入、回复的消息 id、整段话、说到哪了 */
 interface FakeTurn {
   readonly inputs: readonly string[];
   readonly replyId: string;
@@ -1808,7 +1808,7 @@ interface FakeTurn {
   timer: ReturnType<typeof setInterval> | undefined;
 }
 
-/** 原型的回复（144 号票起一段一段流出来，说得够久，能在它说着的时候停止、排队） */
+/** 原型的回复（一段一段流出来，说得够久，能在它说着的时候停止、排队） */
 const FAKE_REPLY =
   "（原型）收到。我先把你说的拆成几步：第一步看看现在的情况，第二步列出要改的地方，第三步一项一项改完再告诉你。" +
   "这里是假数据，接上守护进程后是真实的回复；说着的时候可以点输入框旁的“停止”，也可以接着发话——发的话先排队，这一轮说完再交给我。";

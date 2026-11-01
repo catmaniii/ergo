@@ -34,7 +34,7 @@ class BridgeCall(val method: String, private val args: JSONArray, private val id
 }
 
 /**
- * 原生桥的通道（349 号票，安全要求见票和 docs/architecture/adr/0040）：一个 WebView 一份，只认一个来源。
+ * 原生桥的通道（安全要求见 docs/architecture/adr/0040）：一个 WebView 一份，只认一个来源。
  * - addWebMessageListener 带来源白名单：别的来源的页面、iframe 里根本没有通道对象；
  * - addDocumentStartJavaScript 带同一个白名单：垫片（assets/ergo-native-shim.js）只进二狗的页面，在网页的脚本之前；
  * - 每条消息再核对一遍：来源是配好的、发信的是主框架（对应鸿蒙 NativeBridge 的 allowed()）。同来源的 iframe（比如二狗转发的服务页面、

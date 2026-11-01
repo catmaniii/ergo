@@ -1,7 +1,7 @@
-// 每日整理（198 号票，架构文档第 7.6 节；CONTEXT.md 的"做梦阶段"）：每天凌晨 03:00（可配置）跑一次。PoC 里用模拟时钟，不真起定时器；
+// 每日整理（架构文档第 7.6 节；CONTEXT.md 的"做梦阶段"）：每天凌晨 03:00（可配置）跑一次。PoC 里用模拟时钟，不真起定时器；
 // 接进二狗时作为记忆插件的内部作业登记，由调度器到点调 runNightly。
 //
-// 什么时候跑（主会话 2026-10-20 定的第 1 条）：
+// 什么时候跑：
 // - 到点前不跑（not_due，告诉下次几点）；同一夜跑过了不再跑（already_ran）；
 // - 跑之前看用户是不是正在用（给了 userActive 用它；给了 lastActiveAt 看它；都没给看最近一条本人记录）：30 分钟里在用就往后推 30 分钟，
 //   最多推到 05:00——到 05:00 不再推，照跑（late）；错过了（机器关着）到了再补跑，也记 late。
@@ -14,14 +14,14 @@
 //   4. 编交互策略（compileStrategies：成立的需求、价值 → 新的 proposed，已有的跟着依据走）；
 //   5. 从推理图谱出了解你问题（question-sources.ts），交给问题箱更新（去重、别问这个、冷却、过期、优先级；要弄清的有结果了的标不用问了）；
 //   6. 整理报告：新的、变了的（之前 → 之后）、待复核的、问题队列的变化，外加拼好的一段文字。
-//   7. 预测账本（226 号票，rg/predictions.ts，实际在 reflect 末尾跑）：成立的结论当时写下预测，到期判应验没有；只记账、不改分。
+//   7. 预测账本（rg/predictions.ts，实际在 reflect 末尾跑）：成立的结论当时写下预测，到期判应验没有；只记账、不改分。
 //      报告里带这一夜新记几条、判几条（应验 / 落空 / 还说不准）、还开着几条。
-//   8. 每晚校验（267 号票，rg/nightly-validate.ts；给了 validator 才做，守护进程给的是记忆系统自己的图谱自检 graphSelfCheck）：
+//   8. 每晚校验（rg/nightly-validate.ts；给了 validator 才做，守护进程给的是记忆系统自己的图谱自检 graphSelfCheck）：
 //      整张推理图谱查一遍（rg/graph-check.ts），不合格的结论转待复核（经唯一写入口，夜班），写进报告。
-// 预算（270 号票，rg/nightly-lanes.ts）：一夜总共 maxModelCalls 次（对抗复核另算）——第二次 reflect 只用第一次剩下的；
-// reflect 里按道花：新证据排第一，判回答（271）有一小份保底、排在新证据之后，重跑旧追问用剩下的，往上抽留 1/4。
+// 预算（rg/nightly-lanes.ts）：一夜总共 maxModelCalls 次（对抗复核另算）——第二次 reflect 只用第一次剩下的；
+// reflect 里按道花：新证据排第一，判回答有一小份保底、排在新证据之后，重跑旧追问用剩下的，往上抽留 1/4。
 // 报告写每一道、每一步花了几次，还积压几条新证据。
-// 顺口问的回答（271 号票，rg/reply-judge.ts；给了 replyJudge 才做）：第 1 步的"问了没答算跳过"换成记忆管理员判——问过、还在等回答的问题，
+// 顺口问的回答（rg/reply-judge.ts；给了 replyJudge 才做）：第 1 步的"问了没答算跳过"换成记忆管理员判——问过、还在等回答的问题，
 // 把问题和用户之后的几句话交给模型判（reflect 里判回答那一道），答了回写（第 3 步同一夜按判法判）、没答算跳过一次、拿不准留到下一夜；
 // 过期挪到判完以后（问过的先判，答了的不会因为今晚到期就丢掉）。没给模型（规则版、演示）照旧。
 // 永不推送：报告和问题都只进问题箱和记忆页，顺口问只在用户来对话时（pickQuestion）。
@@ -34,7 +34,7 @@ import { generateQuestions, type DroppedQuestion } from "./rg/question-sources.t
 import type { Question, QuestionView } from "./rg/questions.ts";
 import type { BackpropStats, PredictionStats } from "./rg/predictions.ts";
 
-/** 330 号票：两次整理的"落空往回打"合起来（都没有就不写这一项） */
+/** 两次整理的"落空往回打"合起来（都没有就不写这一项） */
 function addBackprop(a: BackpropStats | undefined, b: BackpropStats | undefined): { backprop?: BackpropStats } {
   if (!a && !b) return {};
   const zero: BackpropStats = { retracted: 0, countered: 0, undetermined: 0, counterexamples: 0 };
@@ -79,10 +79,10 @@ export interface NightlyOptions {
   /** 用户最后一次在用的时间（不给 userActive 时看它） */
   lastActiveAt?: string;
   config?: Partial<NightlyConfig>;
-  /** 这一夜最多调几次模型（规则版不调；对抗复核另算）。270 号票起判完回答再整理的那一次只用第一次剩下的，一夜合起来不超过它 */
+  /** 这一夜最多调几次模型（规则版不调；对抗复核另算）。判完回答再整理的那一次只用第一次剩下的，一夜合起来不超过它 */
   maxModelCalls?: number;
   /**
-   * 手动整理一次（235 号票：用户点了"立即整理一次"，不等 03:00）：
+   * 手动整理一次（用户点了"立即整理一次"，不等 03:00）：
    * - **现在就跑**：不看几点、不看用户在不在用（`user_active` 的推后只该管 03:00 的定时那一次）；
    * - **不看"这一夜跑过了"**：同一天 03:00 跑过、或者刚才手动跑过，都照样进来——省钱靠的是引擎自己的增量
    *   （证据按 sourceRef 跳过、抽事实按 extraction_log 每条每条一次、假设/追问/往上抽走 rg_* 簿记），没有新东西时几乎不调模型；
@@ -91,16 +91,16 @@ export interface NightlyOptions {
    * - 整理报告里 `night` 还是那一天、`late` 是 false、推后次数不变。
    */
   manual?: boolean;
-  /** 267 号票：整理完跑的推理图谱校验器（守护进程给的是 graphSelfCheck，326 号票起不再起别的程序）；不给就不校验 */
+  /** 整理完跑的推理图谱校验器（守护进程给的是 graphSelfCheck，不再起别的程序）；不给就不校验 */
   validator?: GraphValidator;
   /**
-   * 271 号票：判顺口问的回答的模型（守护进程给 LlmReplyJudge，和整理同一个模型）。给了就由它判问过的问题用户有没有在答，
+   * 判顺口问的回答的模型（守护进程给 LlmReplyJudge，和整理同一个模型）。给了就由它判问过的问题用户有没有在答，
    * 不再按"问了没答到第二天"一律记跳过；不给照旧
    */
   replyJudge?: ReplyJudge;
-  /** 271 号票：取问过以后用户说的话（守护进程按会话里的消息取）；不给按本人证据的时间取（evidenceFollowUps） */
+  /** 取问过以后用户说的话（守护进程按会话里的消息取）；不给按本人证据的时间取（evidenceFollowUps） */
   followUps?: ReplyFollowUpSource;
-  /** 271 号票：判回答那一道的保底最多几次（默认 REPLY_JUDGE_RESERVE；实际按这一夜要问模型的问题数） */
+  /** 判回答那一道的保底最多几次（默认 REPLY_JUDGE_RESERVE；实际按这一夜要问模型的问题数） */
   replyReserve?: number;
 }
 
@@ -151,25 +151,25 @@ export interface NightlyReport {
   newClaims: ClaimBrief[];
   /** 状态、置信度变了的旧断言（之前 → 之后） */
   changedClaims: ClaimChange[];
-  /** 跑之前标着复核的（这一夜重判了；329 号票起"待复核"是复核标记，不占真值状态） */
+  /** 跑之前标着复核的（这一夜重判了；"待复核"是复核标记，不占真值状态） */
   reviewedClaims: ClaimBrief[];
   /** 跑完还标着复核的（预算用完没做完的、依据还在重推的） */
   needsReview: ClaimBrief[];
   /**
-   * 到期待复评：active、reviewed_at 为空或早于 30 天前的结论条数（270 号票起模型版有剩下的预算时重跑它们那几组的追问）。
-   * 272 号票起用户明说的不算（跟着那句话走，不按时间复评）
+   * 到期待复评：active、reviewed_at 为空或早于 30 天前的结论条数（模型版有剩下的预算时重跑它们那几组的追问）。
+   * 用户明说的不算（跟着那句话走，不按时间复评）
    */
   reviewDue: number;
-  /** 270 号票：这一夜的预算按道花了几次（两次整理合起来；对抗复核另算） */
+  /** 这一夜的预算按道花了几次（两次整理合起来；对抗复核另算） */
   spend: ReflectSpend;
-  /** 270 号票：跑完还有几条新证据没整理完（下一夜按时间先后接着做） */
+  /** 跑完还有几条新证据没整理完（下一夜按时间先后接着做） */
   backlog: number;
   /** 这一夜处理的证据按来源级别和说/做分桶的条数（本人说的、本人做的、本人纠正、别人转述、助理记的、系统记的） */
   representation: Record<string, number>;
   strategies: { created: string[]; updated: string[]; statusChanged: string[] };
-  /** 226 号票：预测账本（reflect 末尾记下来、到期判；还开着几条是全库） */
+  /** 预测账本（reflect 末尾记下来、到期判；还开着几条是全库） */
   predictions: PredictionStats;
-  /** 267 号票：每晚校验（给了校验器才有） */
+  /** 每晚校验（给了校验器才有） */
   validation?: NightlyValidation;
   questions: {
     added: QuestionView[];
@@ -182,7 +182,7 @@ export interface NightlyReport {
     skipped: QuestionView[];
     /** 跳过两次退下的 */
     retired: QuestionView[];
-    /** 271 号票：记忆管理员夜里判顺口问的回答（给了 replyJudge 才有）：答了、没答、拿不准、没轮到、当天才问的 */
+    /** 记忆管理员夜里判顺口问的回答（给了 replyJudge 才有）：答了、没答、拿不准、没轮到、当天才问的 */
     replies?: RepliesReport;
     /** 没建的草稿（别问这个、冷却、刚答过……）和措辞不过关丢掉的 */
     notCreated: { key: string; reason: string }[];
@@ -246,7 +246,7 @@ export class SimClock {
 /** 这个时间要不要跑这一夜的整理：没到点、跑过了、用户在用（推后，最多到 latest）、跑（手动整理不看前四条） */
 export function nightlyDecision(at: string, state: NightlyState, config: NightlyConfig, userActive: boolean, options: { manual?: boolean } = {}): NightlyDecision {
   const night = localDate(at);
-  // 235 号票：用户点了"立即整理一次"——现在就跑，不看几点、不看用户在不在用、也不看这一夜跑过没有（省钱靠引擎的增量）
+  // 用户点了"立即整理一次"——现在就跑，不看几点、不看用户在不在用、也不看这一夜跑过没有（省钱靠引擎的增量）
   if (options.manual === true) return { night, run: true, late: false };
   if (state.ranNight === night) return { night, run: false, reason: "already_ran", nextAt: atClock(addDays(at, 1), config.time) };
   const due = atClock(at, config.time);
@@ -264,7 +264,7 @@ export function nightlyDecision(at: string, state: NightlyState, config: Nightly
 // ---------- 跑一次 ----------
 
 /**
- * 手动整理在 `nightly_runs` 里的键（235 号票）：和那一夜的定时水位（`night` 那一行）分开，一次手动一行，
+ * 手动整理在 `nightly_runs` 里的键：和那一夜的定时水位（`night` 那一行）分开，一次手动一行，
  * 同一分钟点两次算同一行（报告以后来的为准）。这样手动整理**不会把那一夜写成"已经整理过"**，当天 03:00 的定时那次照常跑。
  * 报告里的 `night` 还是那一天的本地日期——这个键只用来存运行状态和报告。
  */
@@ -301,9 +301,9 @@ function userActiveAt(engine: MemoryEngine, at: string, options: NightlyOptions,
 
 const brief = (c: Claim): ClaimBrief => ({ id: c.id, statement: c.statement, tier: c.tier, status: c.status, confidence: c.confidence });
 
-// ---------- 复评水位、表象覆盖（227 号票） ----------
+// ---------- 复评水位、表象覆盖 ----------
 
-/** 到期待复评的条数：active、reviewed_at 为空或早于 REVIEW_DUE_DAYS（30）天前，用户明说的不算（272 号票；水位和判法在 rg/nightly-lanes.ts） */
+/** 到期待复评的条数：active、reviewed_at 为空或早于 REVIEW_DUE_DAYS（30）天前，用户明说的不算（水位和判法在 rg/nightly-lanes.ts） */
 export function reviewDueCount(store: MemoryStore, at: string): number {
   return store.listClaims({ status: "active" }).filter((c) => isReviewDue(c, at)).length;
 }
@@ -346,7 +346,7 @@ export async function runNightly(engine: MemoryEngine, options: NightlyOptions =
   if (toMs(at) !== toMs(now)) throw new Error(`runNightly 的 at（${at}）要和引擎的时钟（${now}）一致：模拟时钟先拨到 at`);
   const config: NightlyConfig = { ...DEFAULT_NIGHTLY, ...options.config };
   const night = localDate(at);
-  // 235 号票：手动整理用自己的运行状态键，不动那一夜的定时水位
+  // 手动整理用自己的运行状态键，不动那一夜的定时水位
   const stateKey = options.manual === true ? manualRunKey(night, at) : night;
   const state = readState(engine, stateKey);
   const active = userActiveAt(engine, at, options, config);
@@ -368,7 +368,7 @@ export async function runNightly(engine: MemoryEngine, options: NightlyOptions =
   const before = new Map(store.listClaims().map((c) => [c.id, brief(c)]));
   const reviewedClaims = store.listClaims({ needsReview: true }).map(brief);
 
-  // 207 号票：reflect 里联动分不出的问题已经经钩子进箱，这一夜新出的按"跑之前没有"算
+  // reflect 里联动分不出的问题已经经钩子进箱，这一夜新出的按"跑之前没有"算
   const existing = new Set(book.listRaw().map((q) => q.id));
   // 271：给了判回答的模型，问过的问题交给记忆管理员判（reflect 里判回答那一道），不再一律记跳过；过期挪到判完以后
   const judge = options.replyJudge;
@@ -390,14 +390,14 @@ export async function runNightly(engine: MemoryEngine, options: NightlyOptions =
   const judged = plan === undefined ? undefined : applyReplyJudgments(book, plan, judgments, at);
   const expired = judge === undefined ? expiredFirst : book.expire(at);
   const resolved = book.applyPendingAnswers(at);
-  // 226 号票：预测账本的两步在 reflect 末尾跑；第二次 reflect 不再判到期预测，保证一夜最多 10 条。
-  // 270 号票：第二次只用第一次剩下的预算（一夜合起来不超过 maxModelCalls；对抗复核照旧另算）
+  // 预测账本的两步在 reflect 末尾跑；第二次 reflect 不再判到期预测，保证一夜最多 10 条。
+  // 第二次只用第一次剩下的预算（一夜合起来不超过 maxModelCalls；对抗复核照旧另算）
   const leftover = Math.max(0, (options.maxModelCalls ?? DEFAULT_MAX_MODEL_CALLS) - reflect.modelCalls);
   const secondReflect = resolved.length > 0 && store.listClaims({ needsReview: true }).length > 0 ? await engine.reflect({ maxModelCalls: leftover, predictionDueLimit: 0 }) : null;
   const compiled = engine.compileStrategies();
   const generated = generateQuestions(engine.rg, at);
   const refreshed = book.refresh(generated.drafts, at);
-  // 267 号票：整理完把推理图谱整张查一遍，不合格的结论转待复核（在拍"整理之后"的快照之前，报告里的待复核才算上它们）
+  // 整理完把推理图谱整张查一遍，不合格的结论转待复核（在拍"整理之后"的快照之前，报告里的待复核才算上它们）
   const validation = options.validator === undefined ? undefined : await validateNightly(engine, options.validator);
 
   const after = store.listClaims();
@@ -466,7 +466,7 @@ export function formatNightlyReport(r: NightlyReport, config: NightlyConfig = DE
   const deferred = r.deferrals > 0 ? `，用户在用推后了 ${r.deferrals} 次` : "";
   lines.push(`整理报告（${r.night} 这一夜，${when} 跑的${deferred}${r.late ? `；到 ${config.latest} 不再推，照跑` : ""}）`);
   const rf = r.reflect;
-  // 270 号票：整理完几条、还积压几条（两次整理合起来），预算按道、按步骤各花了几次
+  // 整理完几条、还积压几条（两次整理合起来），预算按道、按步骤各花了几次
   const processed = new Set([...rf.processedEvidenceIds, ...(r.secondReflect?.processedEvidenceIds ?? [])]).size;
   lines.push(
     rf.skipped
@@ -488,7 +488,7 @@ export function formatNightlyReport(r: NightlyReport, config: NightlyConfig = DE
   lines.push(`- 新的：${r.newClaims.length === 0 ? "（没有）" : r.newClaims.map((c) => `${c.id}「${cut(c.statement)}」${STATUS_CN[c.status]}`).join("；")}`);
   lines.push(`- 变了的：${r.changedClaims.length === 0 ? "（没有）" : r.changedClaims.map((c) => `${c.id} ${STATUS_CN[c.from]}（${c.fromConfidence}）→ ${STATUS_CN[c.to]}（${c.toConfidence}）`).join("；")}`);
   lines.push(`- 还标着复核的：${r.needsReview.length === 0 ? "（没有）" : r.needsReview.map((c) => c.id).join("、")}`);
-  // 256 号票：往上抽先出的临时结论、以及结构上就没过的组
+  // 往上抽先出的临时结论、以及结构上就没过的组
   const lift = r.reflect.stats?.lift;
   if (lift && (lift.provisional > 0 || lift.failed > 0)) {
     const soft = Object.entries(lift.provisionalByReason).map(([k, n]) => `${k} ${n} 组`).join("、");
@@ -506,7 +506,7 @@ export function formatNightlyReport(r: NightlyReport, config: NightlyConfig = DE
     `- 预测账本：新记 ${r.predictions.created} 条、到期判 ${r.predictions.judged} 条（应验 ${r.predictions.hit}、落空 ${r.predictions.miss}、还说不准 ${r.predictions.unclear}），还开着 ${r.predictions.open} 条`,
   );
   const bp = r.predictions.backprop;
-  if (bp) lines.push(`- 预测落空往回打（330 号票）：撤了错的前提 ${bp.retracted} 条、可废止的来源挨反证 ${bp.countered} 条、判不出撤哪条 ${bp.undetermined} 条（出了问题）、前提都已验证挨反例 ${bp.counterexamples} 条`);
+  if (bp) lines.push(`- 预测落空往回打：撤了错的前提 ${bp.retracted} 条、可废止的来源挨反证 ${bp.countered} 条、判不出撤哪条 ${bp.undetermined} 条（出了问题）、前提都已验证挨反例 ${bp.counterexamples} 条`);
   if (r.validation) lines.push(`- ${validationLine(r.validation)}`);
   const refused = [...r.reflect.dropped, ...(r.secondReflect?.dropped ?? [])].filter((d) => d.stage === "gate");
   if (refused.length > 0) lines.push(`- 写入口拒了 ${refused.length} 处（原因交回给整理，这一夜没写进去）：${refused.slice(0, 3).map((d) => cut(d.reason, 60)).join("；")}${refused.length > 3 ? "……" : ""}`);
@@ -536,7 +536,7 @@ export function formatNightlyReport(r: NightlyReport, config: NightlyConfig = DE
 }
 
 /**
- * 271 号票：记忆管理员夜里判顺口问的回答那一行（没有要判的是 undefined）：问了几次模型，答了、没答（算跳过一次）、拿不准、没轮到、当天才问的
+ * 记忆管理员夜里判顺口问的回答那一行（没有要判的是 undefined）：问了几次模型，答了、没答（算跳过一次）、拿不准、没轮到、当天才问的
  */
 export function repliesLine(r: RepliesReport): string | undefined {
   const total = r.answered.length + r.notAnswered.length + r.retired.length + r.unsure.length + r.waiting.length + r.later.length;
@@ -551,7 +551,7 @@ export function repliesLine(r: RepliesReport): string | undefined {
   return `顺口问的回答（记忆管理员看问过以后用户说的话，问了 ${r.calls} 次模型）：${parts.join("；")}`;
 }
 
-/** 270 号票：按步骤记的那几步（建库统计 stats.steps 的键）怎么说 */
+/** 按步骤记的那几步（建库统计 stats.steps 的键）怎么说 */
 const STEP_CN: readonly (readonly [keyof StageStatsMap, string])[] = [
   ["extract", "抽事实"],
   ["propose", "出假设"],
@@ -564,7 +564,7 @@ const STEP_CN: readonly (readonly [keyof StageStatsMap, string])[] = [
 const spentCalls = (s: ReflectSpend) => REFLECT_LANES.reduce((n, lane) => n + s[lane], 0);
 
 /**
- * 270 号票：预算那一行——这一夜调了几次（上限几次），按道（新证据、重跑旧追问、往上抽、判预测、编策略）、按步骤各几次；
+ * 预算那一行——这一夜调了几次（上限几次），按道（新证据、重跑旧追问、往上抽、判预测、编策略）、按步骤各几次；
  * 对抗复核另算（它有自己的 5 次）
  */
 export function spendLine(r: Pick<NightlyReport, "spend" | "reflect" | "secondReflect">): string {
@@ -575,7 +575,7 @@ export function spendLine(r: Pick<NightlyReport, "spend" | "reflect" | "secondRe
     return n > 0 ? [`${name} ${n}`] : [];
   });
   const reviews = reflects.flatMap((rf) => (rf.review ? [rf.review.modelCalls] : []));
-  // 272 号票：问过、没变化就没再问的（出假设的观察、往上抽的下层断言）
+  // 问过、没变化就没再问的（出假设的观察、往上抽的下层断言）
   const unchanged = (["propose", "lift"] as const).flatMap((key) => {
     const n = reflects.reduce((sum, rf) => sum + (rf.stats?.steps[key]?.unchanged ?? 0), 0);
     return n > 0 ? [key === "propose" ? `出假设 ${n} 条观察` : `往上抽 ${n} 条下层断言`] : [];
@@ -588,10 +588,10 @@ export function spendLine(r: Pick<NightlyReport, "spend" | "reflect" | "secondRe
   ].join("；");
 }
 
-/** 每晚校验那一行（267 号票） */
+/** 每晚校验那一行 */
 export function validationLine(v: NightlyValidation): string {
   if (v.state === "skipped") return `每晚校验：跳过（${v.reason ?? "原因不明"}）`;
-  // 329 号票：违反传播铁律的降回猜测（以前的报告里这一项是 326 号票的"降成假设"）
+  // 违反传播铁律的降回猜测（以前的报告里这一项是"降成假设"）
   const downgraded = v.downgraded ?? [];
   const changes = downgraded.length === 0 ? "" : `；${downgraded.length} 条已验证的压在没验证的前提上，降回猜测（${downgraded.join("、")}）`;
   if (v.state === "ok") return `每晚校验：查了 ${v.nodes} 个节点，${v.validator}通过${changes}`;

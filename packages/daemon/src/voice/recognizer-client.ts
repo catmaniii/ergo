@@ -1,6 +1,6 @@
-// 语音识别的另一条接入（250 号票）：不自己拉起 Python，经 HTTP 调 LSM 托管的那条服务（`recognizer.py --serve`，
+// 语音识别的另一条接入：不自己拉起 Python，经 HTTP 调 LSM 托管的那条服务（`recognizer.py --serve`，
 // 登记见 deploy/lsm/ergo-asr.example.yaml）。两条接入对上层是同一个接口（recognizer.ts 的 Recognizer）：
-// 预热 / 208 号票的健康检查 / Debug 页 / 设置 · 语音的状态 / 语音插件都只认这个接口，一行都不用改。
+// 预热 /健康检查 / Debug 页 / 设置 · 语音的状态 / 语音插件都只认这个接口，一行都不用改。
 // - 服务由 LSM 启停，二狗不拉起、不结束它（也不管它占的显存）；闲置多久卸载模型是那个服务自己的事，
 //   所以配置里的 idleMinutes 只在 spawn 模式下有意义（这里不看）；
 // - 接口（契约见 recognizer.py 开头）：POST /v1/warmup 让它开始加载模型（带上和 stdio 那一行 init 一样的
@@ -9,12 +9,12 @@
 // - 状态机、超时语义和 spawn 那条一样：预热是"没加载好就让它加载、等它好"（service 说加载好了之前每 POLL_MS 看一次 /health，
 //   最多等 timeout.baseMs + timeout.coldStartMs，这个余量按本机实测 44–58 秒的加载留过）；一次识别最多等多久按语音时长和设备算
 //   （recognizeTimeoutMs），超时就把这一代作废（状态记成出错、报一次它没了）、这次以出错结束，下次调用重新预热；
-// - 208 号票的 check()：加载好、空着的先 GET /health 问一句（限时 checkTimeoutMs），答"还加载着"就算正常、马上回；
+// -check()：加载好、空着的先 GET /health 问一句（限时 checkTimeoutMs），答"还加载着"就算正常、马上回；
 //   答不上、连不上、说模型没了就把它作废、重新预热（LSM 会在服务自己挂了之后重新拉起，这里只管等它）；
 // - 连不上、服务回了结构化的错误（fatal）、预热失败都映射成 RecognizerUnavailable（重试没用，要人修），
 //   识别本身出错（不是 fatal）是这一次没识别成、服务还在；
-// - 180 号票的串词过滤和 spawn 那条共用（recognizer.ts 的 stripFiller），拿到的结果一样干净。
-// 346 号票：又多了一条接 HTTP 的（recognizer-audiocpp.ts，audio.cpp 服务）。状态机、超时语义、串词过滤是一样的，所以这里分成两层：
+// -串词过滤和 spawn 那条共用（recognizer.ts 的 stripFiller），拿到的结果一样干净。
+// 又多了一条接 HTTP 的（recognizer-audiocpp.ts，audio.cpp 服务）。状态机、超时语义、串词过滤是一样的，所以这里分成两层：
 // createServiceRecognizer 是共用的状态机，接口的差别都在 ServiceProtocol 后面；createHttpRecognizer 是 recognizer.py --serve 那一份接口。
 import fs from "node:fs";
 import { nowIso, t, VOICE_MAX_MS, type VoiceModelState } from "@ergo/protocol";
@@ -40,9 +40,9 @@ export interface HttpRecognizerOptions {
   init: RecognizerInit;
   /** 一次识别最多等多久（按时长和设备算，见 recognizeTimeoutMs） */
   timeout: RecognizeTimeoutConfig;
-  /** 识别结果里要剔掉的模型自带串词（180 号票，编译好的规则）；不给不剔 */
+  /** 识别结果里要剔掉的模型自带串词（编译好的规则）；不给不剔 */
   stripRules?: readonly StripRule[];
-  /** check()（208 号票）问服务一句最多等多久（毫秒）；不给是 CHECK_TIMEOUT_MS */
+  /** check()问服务一句最多等多久（毫秒）；不给是 CHECK_TIMEOUT_MS */
   checkTimeoutMs?: number;
   log: (line: string) => void;
 }
@@ -86,9 +86,9 @@ export interface ServiceProtocol {
 
 /** 共用的状态机要的：check 问一句最多等多久、串词规则 */
 export interface ServiceRecognizerOptions {
-  /** check()（208 号票）问服务一句最多等多久（毫秒）；不给是 CHECK_TIMEOUT_MS */
+  /** check()问服务一句最多等多久（毫秒）；不给是 CHECK_TIMEOUT_MS */
   checkTimeoutMs?: number;
-  /** 识别结果里要剔掉的模型自带串词（180 号票，编译好的规则）；不给不剔 */
+  /** 识别结果里要剔掉的模型自带串词（编译好的规则）；不给不剔 */
   stripRules?: readonly StripRule[];
   log: (line: string) => void;
 }
@@ -124,7 +124,7 @@ export function createHttpRecognizer(options: HttpRecognizerOptions): Recognizer
 
     return {
       /**
-       * 让它加载、等它加载好（预热，45 号票）：POST /v1/warmup 一句（带设置），模型还没好就每 POLL_MS 看一次 /health，
+       * 让它加载、等它加载好（预热）：POST /v1/warmup 一句（带设置），模型还没好就每 POLL_MS 看一次 /health，
        * 最多等 timeout.baseMs + timeout.coldStartMs（本机实测加载一次 44–58 秒）。服务说加载失败就不等了
        */
       async load(alive) {

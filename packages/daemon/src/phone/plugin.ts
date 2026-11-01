@@ -1,19 +1,19 @@
-// "手机"插件（299 号票，issue 25 生活数据源第一波；用户 2026-10-25："手机上接二狗 App 本机也放到第一批"）：手机上的二狗 App
+// "手机"插件：手机上的二狗 App
 // 读本机，经网页交给守护进程。网页那一半是 packages/web/src/plugins/phone/（同名，一起启停：数据源页上的"从通讯录挑人""连上手机日历"
 // "连上相册""开始记位置"、App 开着时定时同步的后台部件）；App 的原生那一层在 frontend/harmony（phone/ 下几个文件，原生桥 phone* 几个方法）。
-// - 数据契约：登记四个数据源（数据源贡献点，295 号票），插件停用也认得——
+// - 数据契约：登记四个数据源（数据源贡献点），插件停用也认得——
 //   - "手机 · 通讯录选人"（phone-contacts）：手动的（没有连接这回事）；App 交来用户在系统选人界面里挑的人（push），写成
 //     phone_contact_picked，交给个人档案的候选核对卡（逐条确认才写进档案，号码逐位核对）；不进记忆素材；
 //   - "手机 · 日历"（phone-calendar）：用户在 App 里点"连上手机日历"、系统弹窗授权后连着；App 开着时每隔一会儿交一次同步范围里的
 //     全部日程（push），写成增量 phone_calendar_event，交给日历插件当外部日历显示（calendar，标出来自手机）；不进记忆素材；
 //     授权被撤回时 App 交来原因，连接状态写明；断开时插件记下没连着（App 不再交）；
-//   - "手机 · 照片的时间地点"（phone-photos，300 号票）：用户在 App 里点"连上相册"、系统弹窗授权后连着；App 开着时交最近几天拍的照片的
+//   - "手机 · 照片的时间地点"（phone-photos）：用户在 App 里点"连上相册"、系统弹窗授权后连着；App 开着时交最近几天拍的照片的
 //     拍摄时间和地点（push，不传照片本身），原始的时间地点存在插件自己的存储里（按天、能清掉，raw），按天整理成一条摘要写成
 //     phone_photos_day，采成素材（观察到的本人行为；地点放场景、不算整条是位置：sensitive 写空，位置没打开推断时证据里去掉地点）；
-//   - "手机 · 位置"（phone-location，300 号票）：用户在 App 里点"开始记位置"、系统弹窗授权后 App 定时记位置，App 开着时把记下的点交过来
+//   - "手机 · 位置"（phone-location）：用户在 App 里点"开始记位置"、系统弹窗授权后 App 定时记位置，App 开着时把记下的点交过来
 //     （push）；原始坐标点存在插件自己的存储里（按天、能清掉，raw），按天整理成"去过哪、待了多久"一条摘要写成 phone_location_day，
 //     采成素材（观察到的本人行为，整条是位置：sensitive ["location"]，记忆的敏感类别"位置"没打开推断时不拿来推断）。
-//     308 号票：照片、位置点可以带 App 在手机上转好的系统地名；"手机 · 位置"下面有"常去的地方"（连接状态的 panel，起名、改名、删、
+//     照片、位置点可以带 App 在手机上转好的系统地名；"手机 · 位置"下面有"常去的地方"（连接状态的 panel，起名、改名、删、
 //     手动加一处经 configure 交来，存在插件自己的存储 phone/places.json）；摘要和场景里的地点按"起了名的 > 系统地名 > 坐标"写。
 //   四个都只有"导入"这种用法（没有按需查），导入关着时不收；断开并连已导入的一起删：记录整条换成标记（摘要采成的素材跟着彻底删除），
 //   档案候选里从通讯录来的、还没写进档案的跟着删（个人档案登记的删除参与方），照片、位置插件自己存储里的那一份整个删掉。
@@ -21,7 +21,7 @@
 //   已经写进档案的、还没处理的候选，摘要采成的素材不在这里删（写明了）。
 // - 依赖：内核的事件存储、时钟、数据目录（KERNEL.layout：插件自己的存储放在 phone/）、个人档案的收候选（KERNEL.personalFiles）；
 //   日历插件是可选依赖（wants：不在时"手机 · 日历"写明日历插件没启用，照常收）。没有给 agent 的工具、上下文块。
-// - 数据源详情里看数据（343 号票）：已获取的——通讯录、日历不进素材，由 stored 列；照片、位置进素材的摘要内核按素材的出处列。
+// - 数据源详情里看数据：已获取的——通讯录、日历不进素材，由 stored 列；照片、位置进素材的摘要内核按素材的出处列。
 //   都没有"现在能查到的"（live）：数据由手机交来，守护进程查不了上游。
 import {
   type EventType,
@@ -162,7 +162,7 @@ export const phonePlugin: PluginDefinition = {
       usages: { import: { default: true } },
       records: [{ channel: PHONE_CHANNEL, type: PHONE_LOCATION_DAY }],
       status: () => ctx.active(PHONE).locationStatus(),
-      // 常去的地方（308 号票）：起名、改名、删、手动加一处，网页插件在"手机 · 位置"那一块里经填设置交来（values.places）
+      // 常去的地方：起名、改名、删、手动加一处，网页插件在"手机 · 位置"那一块里经填设置交来（values.places）
       configure: (values) => Promise.resolve(ctx.active(PHONE).configurePlaces(values)),
       push: { body: PhoneLocationPush, receive: (data) => ctx.active(PHONE).receiveLocation(data as PhoneLocationPush) },
       disconnect: (c) => ctx.active(PHONE).unlinkLocation(c.purge),
@@ -178,7 +178,7 @@ export const phonePlugin: PluginDefinition = {
     ctx.dataSources.register(calendar);
     ctx.dataSources.register(photos);
     ctx.dataSources.register(location);
-    // 照片、位置一天一条的摘要采成素材（303 号票的写法；确定性：只看事件本身）：观察到的本人行为，场景带从几点到几点、地点。
+    // 照片、位置一天一条的摘要采成素材（写法；确定性：只看事件本身）：观察到的本人行为，场景带从几点到几点、地点。
     // 照片那条地点只在场景里（sensitive 写空：位置没打开推断时证据里去掉地点、这条照读）；位置那条整条是位置
     for (const [type, source, sensitive] of [
       [PHONE_PHOTOS_DAY, photos, []],

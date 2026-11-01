@@ -1,4 +1,4 @@
-// iCal 里"某个时区的本地时间"换成时刻（297 号票）：DTSTART;TZID=America/New_York:20261026T090000 这种。用 Node 自带的 Intl
+// iCal 里"某个时区的本地时间"换成时刻：DTSTART;TZID=America/New_York:20261026T090000 这种。用 Node 自带的 Intl
 // （IANA 时区库），不加依赖、不读日历里附带的 VTIMEZONE。
 // - 认不得的时区名（Outlook 的 Windows 名字、自定义的）由调用方退回日历的默认时区，再退回这台电脑的时区；
 // - 夏令时跳过去的那一段（本地时间不存在）按跳之前的偏移算（RFC 5545 3.3.5：时刻往后挪）；

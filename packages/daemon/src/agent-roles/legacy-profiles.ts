@@ -1,4 +1,4 @@
-// 旧配置（241 号票）：config/agent-profiles.json 的只读版本，只在 248 号票第一次迁移到角色表时读一次。
+// 旧配置：config/agent-profiles.json 的只读版本，只在第一次迁移到角色表时读一次。
 // 形状：{ format: 1, agents: { "<agent id>": { name?, voiceId? } } }。读不出来的项当成没配（和 241 一样），记日志；
 // 迁移之后这个文件保留不删（回滚用），守护进程不再读它（除了这里）。
 import fs from "node:fs";

@@ -1,4 +1,4 @@
-// 核心留给浏览插件的口子（212 号票，app/native-open.ts）：132 号票的内置浏览器在鸿蒙 App 里改开原生浏览器，
+// 核心留给浏览插件的口子（app/native-open.ts）：内置浏览器在鸿蒙 App 里改开原生浏览器，
 // 浏览插件装上时登记打开的办法，停用时撤掉；没登记时返回 false，调用方照旧（嵌入框叠层、外部网站新开窗口）。
 import { describe, expect, test } from "vitest";
 import { openInPageNativeBrowser, setPageNativeOpener } from "../../src/app/native-open.ts";

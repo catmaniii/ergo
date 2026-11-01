@@ -1,6 +1,6 @@
-// ergo components list | add <id> [--accept-license] | remove <id> | import <文件或文件夹>（318 号票，接 323 的组件和下载器）：
+// ergo components list | add <id> [--accept-license] | remove <id> | import <文件或文件夹>（接组件和下载器）：
 // 只是二狗本机端口上组件接口（GET/POST /api/components…）的终端前端——下载、校验、装、离线导入都在守护进程里那一份，网页和这里共用。
-// 二狗没在跑时说一句先 ergo start。要确认许可的组件（345 号票）：没加 --accept-license 时打出许可、不下载。
+// 二狗没在跑时说一句先 ergo start。要确认许可的组件：没加 --accept-license 时打出许可、不下载。
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { type ComponentImportResult, type ComponentsView, type ComponentView, componentBusy, componentNeedsLicense, t } from "@ergo/protocol";

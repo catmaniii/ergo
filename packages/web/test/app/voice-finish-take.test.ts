@@ -1,6 +1,6 @@
-// 语音识别走 audio.cpp 时服务只收 WAV（346 号票）：浏览器录完先转好再交出去。
+// 语音识别走 audio.cpp 时服务只收 WAV：浏览器录完先转好再交出去。
 // 录音器（voice-recorder.ts）只管"交出去之前过一道、转不了照原样交"；做成 WAV 的算法在 voice-wav.ts；要不要转看 voice-format.ts。
-// 真的解码（OfflineAudioContext）在 voice-browser.ts，要真浏览器，这里测不到，由 346 号票的 Comments 里那次真 Chrome 核对。
+// 真的解码（OfflineAudioContext）在 voice-browser.ts，要真浏览器，这里测不到。
 import { afterEach, describe, expect, test } from "vitest";
 import { noteRecognizerInput, recognizerWantsWav } from "../../src/app/voice-format.ts";
 import type { MicRecorder, MicStream, VoiceMedia } from "../../src/app/voice-recorder.ts";

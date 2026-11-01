@@ -1,4 +1,4 @@
-// 负责人的运行时闸门（286 号票，agent-host/runtime-gate.ts）：负责人照它的运行时属性（没写是 pi）；运行时插件没在运行时 off 写明原因；
+// 负责人的运行时闸门（agent-host/runtime-gate.ts）：负责人照它的运行时属性（没写是 pi）；运行时插件没在运行时 off 写明原因；
 // held 要等负责人做完手头那一轮；能不能用变了、运行时不能用的负责人做完了那一轮都通知。
 import { describe, expect, it } from "vitest";
 import { createRuntimeGate } from "../../src/agent-host/runtime-gate.ts";
@@ -52,7 +52,7 @@ describe("负责人的运行时闸门", () => {
     expect(gate.held("tm-1")).toBeUndefined();
   });
 
-  it("309 号票：范围审视由二狗另起的运行时照它登记的（recordedScopeReview）；运行时报过的斜杠命令名按负责人、它还没跑过时用这个运行时最近报的", () => {
+  it("范围审视由二狗另起的运行时照它登记的（recordedScopeReview）；运行时报过的斜杠命令名按负责人、它还没跑过时用这个运行时最近报的", () => {
     const { gate, runtimes } = setup();
     runtimes.register({ ...fakeRuntime, id: "fake-recorded", recordedScopeReview: true });
     expect(gate.recordedScopeReview("fake-recorded")).toBe(true);

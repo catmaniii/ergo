@@ -1,4 +1,4 @@
-// 201 号票：模型版往上抽（偏好 → 需求 → 价值观）和模型版编交互策略。假模型按剧本回，不调 DeepSeek。例子都是自己写的。
+// 模型版往上抽（偏好 → 需求 → 价值观）和模型版编交互策略。假模型按剧本回，不调 DeepSeek。例子都是自己写的。
 import { afterEach, describe, expect, it } from "vitest";
 import { addDays } from "../../src/domain/time.ts";
 import type { Claim, EvidenceDraft } from "../../src/domain/types.ts";
@@ -18,14 +18,14 @@ afterEach(closeEngines);
 
 const NOW = "2026-10-12T12:00:00+08:00";
 
-/** 223 号票：家里、休闲 和 家里、工作 两种场合（共享「家里」），八月两条、九月一条，三个证据两个月 */
+/** 家里、休闲 和 家里、工作 两种场合（共享「家里」），八月两条、九月一条，三个证据两个月 */
 const HOME_STORY: EvidenceDraft[] = [
   say("ev-h1", "我不喜欢在家里被提前排满", "2026-08-08T10:00:00+08:00", { context: ["family", "leisure"] }),
   say("ev-h2", "我也讨厌家里被安排聚会", "2026-08-16T10:00:00+08:00", { context: ["family", "leisure"] }),
   say("ev-h3", "我不喜欢家里给我安排的行程", "2026-09-06T10:00:00+08:00", { context: ["family", "work"] }),
 ];
 
-/** 三种场景（周末社交、假期家里、工作日工作，229 号票起要方面不同才算两种）、三个月（4、8、10 月）都说不喜欢被排满 */
+/** 三种场景（周末社交、假期家里、工作日工作，要方面不同才算两种）、三个月（4、8、10 月）都说不喜欢被排满 */
 const STORY: EvidenceDraft[] = [
   say("ev-1", "我不喜欢周末被排得满满的", "2026-04-04T10:00:00+08:00", { context: ["weekend", "social"] }),
   say("ev-2", "假期我也不喜欢被提前排满", "2026-08-02T10:00:00+08:00", { context: ["holiday", "family"] }),
@@ -160,7 +160,7 @@ const stated = (engine: MemoryEngine, evidenceId: string): Claim => {
 };
 
 describe("门槛由代码判，不交给模型", () => {
-  it("只落一种场景的组结构上就不问；差月份、差证据条数的先出临时结论（256 号票）", async () => {
+  it("只落一种场景的组结构上就不问；差月份、差证据条数的先出临时结论", async () => {
     // 只在一个场景（周末）里反复出现：结构门槛（两种以上的场合）没过，不问模型
     const oneScene = await run({}, [
       say("ev-1", "我不喜欢周末被排得满满的", "2026-04-04T10:00:00+08:00", { context: ["weekend"] }),
@@ -268,7 +268,7 @@ describe("门槛过了才问模型：结构化输出写成需求层一组竞争�
     const group = liftGroup(engine, "need")!;
     expect(group.description).toContain("临时结论");
     expect((group.params as { provisional?: boolean }).provisional).toBe(true);
-    // 329 号票（R4）：临时结论（猜测）也能往上推——价值层拿它再抽一组，也是临时结论
+    // ADR-0032 R4：临时结论（猜测）也能往上推——价值层拿它再抽一组，也是临时结论
     expect(report.stats!.lift.provisional).toBe(2);
     expect(report.stats!.lift.provisionalByReason).toEqual({ 证据条数不够: 2, 月份不够: 1 });
     expect(liftGroup(engine, "value")!.description).toContain("临时结论");
@@ -289,7 +289,7 @@ describe("计分接上：状态、置信上限、用户模型照旧", () => {
     expect(engine.getUserModel({}).values.map((e) => [e.claimId, e.label, e.confidence])).toContainEqual([need!.id, "inferred", "medium"]);
   });
 
-  // 330 号票（R14）：随口说的不再自动算决定性——模型判给用户明说事实的"决定性"计分时按强的算，不撤回（当面确认、纠正的才撤）
+  // ADR-0032 R14：随口说的不再自动算决定性——模型判给用户明说事实的"决定性"计分时按强的算，不撤回（当面确认、纠正的才撤）
   it("模型把决定性给了用户随口明说的事实：按强的算，不撤回、还是猜测", async () => {
     const { engine } = await run({
       need: (r) => {
@@ -307,7 +307,7 @@ describe("计分接上：状态、置信上限、用户模型照旧", () => {
   });
 });
 
-describe("价值层照 195 的条件再抽一次", () => {
+describe("价值层照条件再抽一次", () => {
   it("需求成立、跨三种场景三个月 → 再问一次模型，出价值层一组；和需求同一个主题", async () => {
     const { engine, model } = await run();
     const need = members(engine, liftGroup(engine, "need")!.key)[0]!;
@@ -336,10 +336,10 @@ describe("已有的组：下次整理不重复问模型", () => {
     expect(t.engine.store.getClaim(need.id)!.status).toBe("active");
 
     t.engine.invalidateEvidence("ev-3", "用户说忘掉");
-    // 329 号票：少了一条支持，组当场按剩下的证据重判，不再静默成立（以前是转待复核）
+    // 少了一条支持，组当场按剩下的证据重判，不再静默成立（以前是转待复核）
     expect(t.engine.store.getClaim(need.id)!.status).toBe("contested");
     await t.engine.reflect();
-    // 256 号票：少了一条依据，但结构门槛（两种场合 + 两条证据）还过得了 → 不再整组撤回，
+    // 少了一条依据，但结构门槛（两种场合 + 两条证据）还过得了 → 不再整组撤回，
     // 降成临时结论接着挂着，置信度按薄的压到 low；再少到条件不够才组撤下，组里的结论也不撤、留成猜测（Q2，没有推翻者）
     const kept = liftGroup(t.engine, "need")!;
     expect(kept.live).toBe(true);
@@ -398,7 +398,7 @@ const manyNeeds = (n: number) => (r: ChatRequest) => {
   };
 };
 
-describe("334：每晚的预算——编交互策略留几次，出问题照跑，往上抽用剩下的", () => {
+describe("每晚的预算——编交互策略留几次，出问题照跑，往上抽用剩下的", () => {
   /** STORY 加上同一天说喜欢又说不喜欢爬山（事实这一层真冲突，出问题不用模型） */
   const CLASH: EvidenceDraft[] = [...STORY, say("ev-x1", "我喜欢爬山", "2026-10-10T08:00:00+08:00"), say("ev-x2", "我不喜欢爬山", "2026-10-10T20:00:00+08:00")];
 
@@ -453,7 +453,7 @@ describe("模型版编交互策略", () => {
       status: "proposed",
       confirmedBy: null,
     });
-    // 330 号票（R6）：同主题的猜测（把握不是 low 的）也挂进依据
+    // ADR-0032 R6：同主题的猜测（把握不是 low 的）也挂进依据
     expect(s!.basisClaimIds).toEqual(expect.arrayContaining([need.id, value.id]));
     expect(s!.basisClaimIds.filter((id) => id !== need.id && id !== value.id).map((id) => engine.store.getClaim(id)!.status)).toEqual(
       s!.basisClaimIds.filter((id) => id !== need.id && id !== value.id).map(() => "contested"),
@@ -489,14 +489,14 @@ describe("预计费用（--dry-run）加上往上抽、编策略两步", () => {
     expect(plan.estimate.byPurpose.lift!.inputTokens).toBeGreaterThan(0);
     expect(formatPlan(plan, "test")).toMatch(/\| lift \| 2 \|/);
     const small = await planModelRun(source(STORY.slice(0, 2)));
-    // 256 号票：两条证据也过了结构门槛（先出临时结论），所以这次照样估往上抽两次（需求层、价值层）；
+    // 两条证据也过了结构门槛（先出临时结论），所以这次照样估往上抽两次（需求层、价值层）；
     // 估算还按"会出需求"算了一次编策略（实际编策略要成立的需求、价值）
     expect(small.estimate.byPurpose.lift).toMatchObject({ calls: 2 });
     expect(small.estimate.byPurpose.strategies).toMatchObject({ calls: 1 });
   });
 });
 
-describe("226：往上抽的每条解释写一条预测（进结论的 predicts，成立的进预测账本）", () => {
+describe("往上抽的每条解释写一条预测（进结论的 predicts，成立的进预测账本）", () => {
   it("模型输出带 predicts → 结论上有；需求 +14 天、价值 +30 天记进账本", async () => {
     const { engine } = await run({
       need: (r) => {
@@ -510,7 +510,7 @@ describe("226：往上抽的每条解释写一条预测（进结论的 predicts�
     });
     const group = liftGroup(engine, "need")!;
     const [need, busy] = members(engine, group.key);
-    // 330 号票：没写推法的按可废止（原始推理图谱：缺省按弱的算）
+    // 没写推法的按可废止（原始推理图谱：缺省按弱的算）
     expect(need!.predicts).toEqual([{ claim: "接下来两周再被约周末，他还会推掉", outcome: "pending", evidenceIds: [], derivation: "defeasible" }]);
     expect(busy!.predicts.map((p) => p.claim)).toEqual(["接下来两周他还会说忙"]);
     const value = members(engine, liftGroup(engine, "value")!.key)[0]!;
@@ -523,7 +523,7 @@ describe("226：往上抽的每条解释写一条预测（进结论的 predicts�
     expect(open.find((p) => p.claimId === value.id)?.dueAt).toBe(addDays(NOW, 30));
   });
 
-  it("330：模型说预测是演绎的，只有结论陈述里真有全称说法（每次、从不……）才认 deductive，别的照样按可废止；账本节点带着推法", async () => {
+  it("模型说预测是演绎的，只有结论陈述里真有全称说法（每次、从不……）才认 deductive，别的照样按可废止；账本节点带着推法", async () => {
     const { engine } = await run({
       need: (r) => {
         const out = withPredicts(needOutput(r), ["下次再被约周末，他还会推掉", "接下来两周他还会说忙"]);
@@ -577,7 +577,7 @@ describe("226：往上抽的每条解释写一条预测（进结论的 predicts�
   });
 });
 
-describe("221：往上抽的提示词讲清一组要跨两种以上互不重叠的场景", () => {
+describe("往上抽的提示词讲清一组要跨两种以上互不重叠的场景", () => {
   /** 周末三条（跨 4、6、8 月）+ 假期、工作日各一条：整体过门槛（假期家里 vs 工作日工作，方面不同），只挑周末的归组就只落一种场景 */
   const ONE_SCENE_STORY: EvidenceDraft[] = [
     say("ev-w1", "我不喜欢周末被排得满满的", "2026-04-04T10:00:00+08:00", { context: ["weekend"] }),
@@ -622,9 +622,9 @@ describe("221：往上抽的提示词讲清一组要跨两种以上互不重叠�
   });
 });
 
-// 223 号票：往上抽的"两种场合"按维度判不同（共享一个标签也算），老严格判定只用来统计；
+// 往上抽的"两种场合"按维度判不同（共享一个标签也算），老严格判定只用来统计；
 // 月份、证据条数的门槛一个没改。
-describe("223：两种场合按维度判不同，严格判定只做统计", () => {
+describe("两种场合按维度判不同，严格判定只做统计", () => {
   const TIMES: Readonly<Record<string, string>> = {
     "ev-aug-1": "2026-08-08T10:00:00+08:00",
     "ev-aug-2": "2026-08-16T10:00:00+08:00",
@@ -637,7 +637,7 @@ describe("223：两种场合按维度判不同，严格判定只做统计", () =
   const homeLeisure = ["family", "leisure"];
   const homeWork = ["family", "work"];
 
-  it("共享「家里」的两组场景现在的门槛算过了；月份、证据条数不够的降成临时结论，差在哪照旧写（256 号票）", () => {
+  it("共享「家里」的两组场景现在的门槛算过了；月份、证据条数不够的降成临时结论，差在哪照旧写", () => {
     const ok = liftThreshold("need", [premise(homeLeisure, ["ev-aug-1", "ev-aug-2"]), premise(homeWork, ["ev-sep"])], view);
     expect(ok).toMatchObject({ ok: true, provisional: false, disjoint: true, months: 2 });
     expect(ok.evidenceIds).toHaveLength(3);
@@ -664,7 +664,7 @@ describe("223：两种场合按维度判不同，严格判定只做统计", () =
   });
 });
 
-// 272 号票第 6 条：往上抽每夜把同一批没被用上的下层断言再问一遍模型（线上 10-25 一夜 9 次、270 号票试跑每夜 7 次）。
+// 往上抽每夜把同一批没被用上的下层断言再问一遍模型（线上 10-25 一夜 9 次、试跑每夜 7 次）。
 // 问过一次、模型没归组的，没变化就不再问；其中哪条有了新证据，只把它当这一批再问（别的照旧给摘要，可以一起归组）
 const premiseIds = (text: string) =>
   text
@@ -672,7 +672,7 @@ const premiseIds = (text: string) =>
     .filter((l) => l.startsWith("{"))
     .map((l) => (JSON.parse(l) as { claim_id: string }).claim_id);
 
-describe("272：往上抽没变化就不再问", () => {
+describe("往上抽没变化就不再问", () => {
   it("没被用上的下层断言问过一次、模型没归组：之后的夜里没变化就不问（记成下层断言没有变化）；其中一条有了新证据，只把它当这一批再问", async () => {
     const t = await run({ need: () => ({ groups: [] }) });
     const liftCalls = () => t.model.calls.filter((c) => c.purpose === "lift");

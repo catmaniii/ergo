@@ -1,13 +1,13 @@
-// 主切面（70 号票）：先把功能跑通——秘书能联网、配上联网搜索和读网页；对话里的"先问我"靠一个开关（guard.conversationApprovals，
-// 正式默认关着；101 号票改了关着时秘书的范围）。真的守护进程，秘书接 faux 剧本，联网搜索、读网页是假的（不起浏览器、不连真网络），
+// 主切面：先把功能跑通——秘书能联网、配上联网搜索和读网页；对话里的"先问我"靠一个开关（guard.conversationApprovals，
+// 正式默认关着；改了关着时秘书的范围）。真的守护进程，秘书接 faux 剧本，联网搜索、读网页是假的（不起浏览器、不连真网络），
 // 测试扮演前端。
 // - 联网工具：工具调用记录照常（参数摘要是查询词、网址，不落入关注类别，直接做），详情页取得到中文名、完整参数和返回、
 //   读网页的效果记录里有网址；
 // - 对话审批关着：读草稿区外的文件、bash 里碰草稿区外的路径直接做，照常标关注类别、进效果日志，不出审批卡；开着时同一次调用照原样出审批卡；
-// - 关着时判断不了的（没写着数据目录的内联脚本、读路径不明的文件）也直接做、照常标出（101 号票；要写的路径没法确定的照旧问，评审后定）；
-// - 关着时秘书特别敏感的照旧出审批卡、批了才做（101 号票）：以我的名义对外发送、删草稿区外的文件、覆盖路径没法确定的文件
+// - 关着时判断不了的（没写着数据目录的内联脚本、读路径不明的文件）也直接做、照常标出（要写的路径没法确定的照旧问）；
+// - 关着时秘书特别敏感的照旧出审批卡、批了才做：以我的名义对外发送、删草稿区外的文件、覆盖路径没法确定的文件
 //   （可能在草稿区外）、文件工具写草稿区外（原来硬拒绝）；可能碰到硬底线的（跑写着配置区路径的脚本）也照旧问；发往本机的 POST
-//   不算对外（评审后定）；
+//   不算对外；
 // - 关着也照旧：受保护区域写入永不、密钥区连读都拒绝。
 import fs from "node:fs";
 import path from "node:path";
@@ -87,7 +87,7 @@ describe("秘书的联网搜索、读网页（假的实现）", () => {
     expect(search).toMatchObject({ tool: "web_search", argsSummary: "二狗 天气", categoryTitles: [], disposition: "do", genericBash: false, outcome: "done" });
     expect(search!.resultSummary).toMatch(/^搜索: 二狗 天气 （浏览器 ddg，2 条） 1\. 二狗 天气 一/);
     expect(fetchPart).toMatchObject({ tool: "web_fetch", argsSummary: "https://a.example/1", categoryTitles: [], disposition: "do", outcome: "done" });
-    // 秘书有 bash：联网工具交给实现"这个 agent 能用 agent-browser"（162 号票）；秘书有 browse_* 工具，交给实现这一轮（秘书页签里发的）用不了内置浏览器（182 号票）
+    // 秘书有 bash：联网工具交给实现"这个 agent 能用 agent-browser"；秘书有 browse_* 工具，交给实现这一轮（秘书页签里发的）用不了内置浏览器
     expect(web.searches).toEqual([{ query: "二狗 天气", n: 2, agentBrowser: true, appBrowser: false }]);
     expect(web.fetches).toEqual([{ url: "https://a.example/1", max: 8000, agentBrowser: true, appBrowser: false }]);
     const seen = lastEcho(frontend);
@@ -178,7 +178,7 @@ describe("对话审批的开关", () => {
       config: approvals("off"),
     });
     await tell(frontend, "动一动受保护的地方");
-    // 文件工具写草稿区外关着时不再是硬拒绝（101 号票），写进数据库区照旧永不
+    // 文件工具写草稿区外关着时不再是硬拒绝，写进数据库区照旧永不
     expect(toolPartsOf(frontend).map((p) => [p.tool, p.blockedBy ?? null, p.disposition, p.outcome])).toEqual([
       ["read", "hard_refusal", "do", "blocked"],
       ["write", null, "never", "blocked"],
@@ -192,7 +192,7 @@ describe("对话审批的开关", () => {
     expect(frontend.events({ channel: CARDS })).toEqual([]);
   });
 
-  it("关着时判断不了的直接做、照常标出（101 号票）：没写着数据目录的内联脚本、只读的路径没法确定、发往本机的 POST；不出审批卡", async () => {
+  it("关着时判断不了的直接做、照常标出：没写着数据目录的内联脚本、只读的路径没法确定、发往本机的 POST；不出审批卡", async () => {
     const dataDir = makeTempDir("ergo-data-");
     const layout = dataDirLayout(realPathOf(dataDir)!);
     const { frontend, daemon } = await setup({
@@ -221,7 +221,7 @@ describe("对话审批的开关", () => {
     expect(frontend.events({ channel: CARDS })).toEqual([]);
   });
 
-  it("关着时秘书特别敏感的、可能碰到硬底线的照旧出审批卡，批了才做（101 号票）：对外发送、删草稿区外的文件、覆盖路径没法确定的文件、跑写着配置区路径的脚本、文件工具写草稿区外（原来硬拒绝）", async () => {
+  it("关着时秘书特别敏感的、可能碰到硬底线的照旧出审批卡，批了才做：对外发送、删草稿区外的文件、覆盖路径没法确定的文件、跑写着配置区路径的脚本、文件工具写草稿区外（原来硬拒绝）", async () => {
     const outside = realPathOf(makeTempDir("ergo-outside-"))!;
     fs.writeFileSync(path.join(outside, "keep.txt"), "留着");
     const dataDir = makeTempDir("ergo-data-");

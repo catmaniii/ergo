@@ -1,4 +1,4 @@
-// 秘书调使用中的项目的操作（260 号票；268 号票补了验收、登记、版本号）在事件日志里的事件：守护进程内部的 operations 频道（和运营方案、
+// 秘书调使用中的项目的操作（补了验收、登记、版本号）在事件日志里的事件：守护进程内部的 operations 频道（和运营方案、
 // 项目的服务放在一起——删除项目时这个项目在 operations 频道上的事件整条换成"已删除"标记，这几种跟着一起，不用另登记）。
 // 前端不订阅，聊天里看到的是工具调用记录，时间线上另有一条 project_op。
 // - project_op_called：秘书经 project_ops 调了一次（真的发出去了才记：服务回了、连不上、等不到、脚本跑了、动作做了、建了工单；
@@ -26,12 +26,12 @@ export interface ProjectOpCalledPayload {
   projectName: string;
   /** 操作名（ops.json 里 tools[].name，或通用操作的名字） */
   op: string;
-  /** 用的是运营接口清单第几版（268）；通用操作是 null */
+  /** 用的是运营接口清单第几版；通用操作是 null */
   version: number | null;
   /** 通用操作（白送的） */
   builtin: boolean;
   kind: OpKind;
-  /** 只读（kind 是 query；260 号票起就有的字段，留着） */
+  /** 只读（kind 是 query；就有的字段，留着） */
   readOnly: boolean;
   /** 风险标记（只记不做） */
   risk?: OpRisk;

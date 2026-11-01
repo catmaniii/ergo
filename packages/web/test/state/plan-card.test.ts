@@ -1,4 +1,4 @@
-// 前端状态层：计划卡上的勾选（12 号票）。勾掉、收窄授权项、改假设栏变成"确认"的输入，
+// 前端状态层：计划卡上的勾选。勾掉、收窄授权项、改假设栏变成"确认"的输入，
 // 守护进程拿它改存储里的计划（主切面 tasks.test.ts 里验证）；停点随勾选变化（协议包的 planStops，这里接上勾选验一遍）。
 import { describe, expect, test } from "vitest";
 import { type GrantInfo, narrowedGrantIds, type Plan, planConfirmInput, planStops } from "../../src/state/index.ts";
@@ -59,7 +59,7 @@ describe("计划卡上的勾选变成确认的输入", () => {
     expect(planConfirmInput(plan, { ...nothing, assumptions: ["只用公开资料"] })).toEqual({});
   });
 
-  test("假设是多行框（105 号票）：一条里换了行照原样留着（只去掉首尾空白）；只剩空行、空格的一条也算清空、去掉", () => {
+  test("假设是多行框：一条里换了行照原样留着（只去掉首尾空白）；只剩空行、空格的一条也算清空、去掉", () => {
     expect(planConfirmInput(plan, { ...nothing, assumptions: ["只用公开资料，\n不登录任何网站\n", "\n  \n"] })).toEqual({ assumptions: ["只用公开资料，\n不登录任何网站"] });
   });
 });

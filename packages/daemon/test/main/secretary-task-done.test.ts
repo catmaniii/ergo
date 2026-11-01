@@ -1,4 +1,4 @@
-// 主切面：任务做完告诉秘书（99 号票，规格第 7 节"任务做完告诉秘书"）。真的守护进程，秘书、负责人接 faux 剧本，测试扮演前端：
+// 主切面：任务做完告诉秘书（规格第 7 节"任务做完告诉秘书"）。真的守护进程，秘书、负责人接 faux 剧本，测试扮演前端：
 // - 普通任务、流程、长程任务做完，定时触发的任务每次运行成功，秘书都收到一条"任务做完"的通知（剧本里 echo_context 回显它收到的），
 //   写明哪个任务、做它的 agent 最后说的那段话（太长截短并写明）、交付的文件；秘书接着在主线里说一声（不等用户开口）；
 // - 流程报完最后一步、长程任务最后一个阶段验收通过时 agent 这一轮还没说完：等它说完再交（通知里是它最后那段话）；
@@ -133,7 +133,7 @@ describe("做完就告诉秘书，秘书在主线里说一声", () => {
     expect(messagesOf(frontend, SECRETARY).map((m) => m.message.speaker)).toEqual(["system", "agent"]);
   });
 
-  // 311 号票（294 号票端到端小测第 5 条：跑 pytest 留下的 __pycache__ 里的 .pyc 也数进了"交了几个文件"）
+  // （端到端小测第 5 条：跑 pytest 留下的 __pycache__ 里的 .pyc 也数进了"交了几个文件"）
   it("交付的文件不算缓存和编译产物：__pycache__、*.pyc、node_modules、.pytest_cache 这类不列也不数", async () => {
     const { frontend } = await setup({
       config: APPROVALS_OFF,
@@ -266,7 +266,7 @@ describe("定时触发的任务每次运行完", () => {
         ASK_ONE,
       ].join("\n\n"),
     );
-    // 115 号票：会话里折成一行时的一句话总结（运行时拼的）
+    // 会话里折成一行时的一句话总结（运行时拼的）
     expect(doneNotices(frontend)[0]!.message.summary).toBe("t-1「每天早上出简报」第 1 次运行做完了");
     await secretaryTurns(frontend, 1);
     expect(secretarySaid(frontend)).toEqual(["今天的简报写好了，要我念给你听吗？"]);
@@ -289,7 +289,7 @@ describe("定时触发的任务每次运行完", () => {
   }, 90_000);
 });
 
-describe("改成某个时间做一次的定时任务（98 号票）", () => {
+describe("改成某个时间做一次的定时任务", () => {
   it("那一次做成了、任务从运营中随之完成：秘书只收到一件（按那次运行说，写明任务随之完成），不另报任务做完", async () => {
     const clock = new ManualClock(at(5, 8));
     const { frontend } = await setup({ clock, secretary: [say("航班查好了，要我念给你听吗？")], maintainer: [say("查好了：两班直飞")] });
@@ -330,7 +330,7 @@ describe("运行的结果只算这一次运行", () => {
     ];
     const { daemon, frontend } = await setup({ clock, reuse: { dataDir, homeDir }, secretary: [ECHO], maintainer: (id) => (id === "pm-1" ? [say("今天的资讯汇总好了：三条要闻"), ...writeBack] : []) });
     seedProject(daemon, "资讯站", { state: "in_use", charterConfirmed: true, kind: "dev", toolkit: { skills: [], mcp: [], bash: true, network: true } });
-    // 76 号票之前长程任务计划里登记的、属于项目「资讯站」的定时作业（不是项目内部的）：由项目的负责人在一张工单里做
+    // 以前长程任务计划里登记的、属于项目「资讯站」的定时作业（不是项目内部的）：由项目的负责人在一张工单里做
     const time = nowIso(at(5, 8));
     const creator: Task = { id: "t-1", title: "准备每天的资讯", summary: "准备每天的资讯", state: "done", origin: "request", kind: "long_running", maintainerId: "tm-1", projects: ["资讯站"], projectIds: ["p-1"], projectScope: "single", createdAt: time, updatedAt: time };
     const legacy: ScheduledJob = {
@@ -475,7 +475,7 @@ describe("并成一条、排在后面、起来后补", () => {
       return `普通任务 ${id}「${title}」在后台做完了。\n它最后说：\n${maintainer} 做完了`;
     };
     expect([first.slice(3), second.slice(3)].toSorted()).toEqual([item("t-1", "第一件"), item("t-2", "第二件")].toSorted());
-    // 115 号票：并成一条的总结写几件、各是哪件（先后和通知里的一样）
+    // 并成一条的总结写几件、各是哪件（先后和通知里的一样）
     const names = [first, second].map((part) => /普通任务 (t-\d+「[^」]+」)/.exec(part)![1]!);
     expect(doneNotices(frontend)[0]!.message.summary).toBe(`2 件事做完了：${names.join("、")}`);
     await secretaryTurns(frontend, 1);
@@ -593,12 +593,12 @@ describe("用户说要念", () => {
   }, 60_000);
 });
 
-/** 秘书会话里运行时放的附件（115 号票）：给人看的系统消息（不排进秘书的输入队列），只有文件 part */
+/** 秘书会话里运行时放的附件：给人看的系统消息（不排进秘书的输入队列），只有文件 part */
 const attachmentMessages = (frontend: TestFrontend) =>
   messagesOf(frontend, SECRETARY).filter((m) => m.message.speaker === "system" && m.agentInput !== true && m.message.parts.length > 0 && m.message.parts.every((p) => p.type === "file"));
 const WEEKLY = "# 第 41 周周报\n\n- 九月账单核对完了\n- 训练记录：三次\n\n| 事项 | 进度 |\n|---|---|\n| 家庭账本 | 完成 |\n";
 
-describe("会话里折成一行、交付的文件作为附件（115 号票）", () => {
+describe("会话里折成一行、交付的文件作为附件", () => {
   it("交付的文件里能预览的（Markdown、纯文本）由运行时作为附件放进秘书会话，紧跟在通知后面、点得开预览；不能预览的、超过附件上限的只在全文里写路径；模型看到的照旧是全文", async () => {
     const big = `# 很大的报告\n${"这一行凑字数。".repeat(40)}\n`;
     const { url, frontend } = await setup({
@@ -632,7 +632,7 @@ describe("会话里折成一行、交付的文件作为附件（115 号票）", 
       { type: "file", mediaId: expect.stringMatching(/^[0-9a-f]{64}$/), name: "todo.txt", mime: "text/plain", size: Buffer.byteLength("周一交周报\n") },
       { type: "file", mediaId: expect.stringMatching(/^[0-9a-f]{64}$/), name: "weekly.md", mime: "text/markdown", size: Buffer.byteLength(WEEKLY) },
     ]);
-    // 点"预览"去报告页：内容接口取得到（113 号票）
+    // 点"预览"去报告页：内容接口取得到
     const weekly = all[1]!.message.parts[1] as { mediaId: string };
     expect((await media.text(url, weekly.mediaId)).body).toMatchObject({ name: "weekly.md", mime: "text/markdown", text: WEEKLY, truncated: false });
     // 交给秘书的照旧是通知的全文，附件不在它的输入里

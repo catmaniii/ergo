@@ -1,4 +1,4 @@
-// 前端状态层：记忆管理员（242 号票）。看板"运营中"多一张"记忆整理 · 每天 03:00"的卡，点进去落在记忆页的管理员那一层
+// 前端状态层：记忆管理员。看板"运营中"多一张"记忆整理 · 每天 03:00"的卡，点进去落在记忆页的管理员那一层
 // （#/more/memory/curator）；记忆插件没在运行时不出现（和别的插件条目一样）。
 import { describe, expect, test } from "vitest";
 import { boardGroups, replay } from "../../src/state/index.ts";

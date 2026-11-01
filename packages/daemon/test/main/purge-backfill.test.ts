@@ -1,8 +1,8 @@
-// 主切面：彻底删除的一次性补抹（272 号票第 1 条）。真的守护进程起在一个"265 号票以前就删过东西"的数据目录上：
+// 主切面：彻底删除的一次性补抹。真的守护进程起在一个"以前就删过东西"的数据目录上：
 // - 推理库里那条素材的证据已经删了（记忆插件跟着记忆命令删的，留着审计）；事件日志里登记着那次彻底删除（记忆命令），
-//   但秘书问记忆那次调用的记录、完整内容和秘书会话文件里的结果还引着被删的原话（265 号票以前不按证据编号找）；
+//   但秘书问记忆那次调用的记录、完整内容和秘书会话文件里的结果还引着被删的原话（以前不按证据编号找）；
 // - 守护进程起来：问记忆结果里引着被删素材证据编号的那几行（连同原话这些续行）换成删除标记，别的证据、简报结构一字不动；
-//   秘书的会话上追加一条 messages_purged，秘书据此把会话文件里的结果也按编号换掉——每条消息的记忆简报（266 号票，跟在用户输入后面的
+//   秘书的会话上追加一条 messages_purged，秘书据此把会话文件里的结果也按编号换掉——每条消息的记忆简报（跟在用户输入后面的
 //   上下文消息，只在会话文件里引原话）一样换；内部频道记一笔；
 // - 再起一次不再跑（记过了）。
 // 记忆插件关着跑：补抹是内核这一侧的（推理库属于数据目录，插件停用了照样补）。不碰 ~/.ergo、不调模型。
@@ -38,7 +38,7 @@ const at = "2026-10-22T04:00:00.000Z";
 const say = (sourceRef: string, text: string, when: string): EvidenceDraft => ({ sourceLevel: "self", mode: "say", kind: "utterance", text, context: [], eventTime: when, observedAt: when, sourceRef });
 const line = (entry: unknown) => JSON.stringify(entry);
 
-/** 265 号票以前就在的数据：推理库（证据已删、留着审计）、事件日志、秘书的会话文件；返回简报和被删那条的证据编号 */
+/** 以前就在的数据：推理库（证据已删、留着审计）、事件日志、秘书的会话文件；返回简报和被删那条的证据编号 */
 async function existingData(dataDir: string): Promise<{ brief: string; peanutEv: string; messageBrief: string }> {
   const layout = dataDirLayout(dataDir);
   const clock = new ManualClock(new Date(2026, 9, 12, 12, 0));
@@ -77,7 +77,7 @@ async function existingData(dataDir: string): Promise<{ brief: string; peanutEv:
     store.close();
   }
 
-  // 秘书的会话文件：那次问记忆的结果；后来一句话跟着的记忆简报（266 号票的写法：结论下面一行一条原话）
+  // 秘书的会话文件：那次问记忆的结果；后来一句话跟着的记忆简报（写法：结论下面一行一条原话）
   const messageBrief = [
     "【记忆简报】和用户这句话相关的记忆",
     "【对用户的理解】",
@@ -128,8 +128,8 @@ function sessionResult(dataDir: string): string {
   throw new Error("会话文件里没有 ask_memory 的结果");
 }
 
-describe("彻底删除的一次性补抹（272 号票）", () => {
-  it("265 号票以前删过的素材：守护进程起来时把问记忆结果里引着它的那几行换成删除标记（事件日志和秘书会话文件），别的一字不动；记一笔，再起不再跑", async () => {
+describe("彻底删除的一次性补抹", () => {
+  it("以前删过的素材：守护进程起来时把问记忆结果里引着它的那几行换成删除标记（事件日志和秘书会话文件），别的一字不动；记一笔，再起不再跑", async () => {
     const dataDir = makeTempDir("ergo-data-");
     const homeDir = makeTempDir("ergo-home-");
     const { brief, peanutEv, messageBrief } = await existingData(dataDir);
@@ -165,7 +165,7 @@ describe("彻底删除的一次性补抹（272 号票）", () => {
     await waitUntil(() => !sessionResult(dataDir).includes(PEANUT), { timeoutMs: 30_000, describe: () => "秘书会话文件里问记忆的结果改写" });
     expect(sessionResult(dataDir)).toContain(gone);
     expect(sessionResult(dataDir)).toContain(CILANTRO);
-    // 每条消息的记忆简报（266 号票）也按编号换掉，香菜那句、简报的结构都在
+    // 每条消息的记忆简报也按编号换掉，香菜那句、简报的结构都在
     expect(sessionBrief(dataDir)).not.toContain(PEANUT);
     expect(sessionBrief(dataDir)).toBe(messageBrief.replace(`  · 支持 [${peanutEv}] 2026-05-01 · 本人说的：「${PEANUT}」`, gone));
     await first.daemon.stop();

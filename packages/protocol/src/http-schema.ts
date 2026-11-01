@@ -1,4 +1,4 @@
-// HTTP 接口（上传、下载、历史分页；10 号票起还有"被信任吗"和设备配对）的请求体和响应体，用 TypeBox 定义。
+// HTTP 接口（上传、下载、历史分页；还有"被信任吗"和设备配对）的请求体和响应体，用 TypeBox 定义。
 // 路径和错误码在 http.ts。
 import { type Static, type TSchema, Type } from "typebox";
 import { Compile } from "typebox/compile";
@@ -55,10 +55,10 @@ export const HttpErrorBody = Type.Object({
 export type HttpErrorBody = Static<typeof HttpErrorBody>;
 
 /**
- * 文本类附件的内容（113 号票，报告页用，GET /api/media/<媒体 id>/text）。名字、类型取消息里最近一次引用它的文件 part；
+ * 文本类附件的内容（报告页用，GET /api/media/<媒体 id>/text）。名字、类型取消息里最近一次引用它的文件 part；
  * text 是按 UTF-8 解好的文字，文件超过 MEDIA_TEXT_MAX_BYTES 时只有开头那么多（截在字符边上，truncated 为真）；
  * bytes 是整个文件的字节数；sentAt 是引用它的那条消息发出的时间。
- * 117 号票：HTML、SVG 附件的内容不经这里给（text 是空的、truncated 为假），frame 写明在框里看哪一种——报告页用 HTTP_PATHS 的
+ * HTML、SVG 附件的内容不经这里给（text 是空的、truncated 为假），frame 写明在框里看哪一种——报告页用 HTTP_PATHS 的
  * mediaHtml（<iframe sandbox>）或 mediaSvg（<img>）显示
  */
 export const MediaTextView = Type.Object({
@@ -114,8 +114,8 @@ export const UploadedMedia = Type.Object({
 export type UploadedMedia = Static<typeof UploadedMedia>;
 
 /**
- * 历史分页里的一条消息：它的 message 事件在会话频道里的序号，连同事件负载（含归属：任务、项目、阶段——时间线的全局层按它聚色块，25 号票）。
- * 被彻底删除的消息（21 号票）只有"已删除"标记（消息 id 和时间），原文不在了
+ * 历史分页里的一条消息：它的 message 事件在会话频道里的序号，连同事件负载（含归属：任务、项目、阶段——时间线的全局层按它聚色块）。
+ * 被彻底删除的消息只有"已删除"标记（消息 id 和时间），原文不在了
  */
 export const HistoryMessage = Type.Union([
   Type.Object({
@@ -123,9 +123,9 @@ export const HistoryMessage = Type.Union([
     message: MessageEnvelope,
     idempotencyKey: Type.Optional(Type.String()),
     ...MessageScope.properties,
-    /** 排队交出的那一批（144 号票，消息事件里的 queueDelivery）：同一批里第一条之后的不是回退点（150 号票，它们和第一条一起交给 agent） */
+    /** 排队交出的那一批（消息事件里的 queueDelivery）：同一批里第一条之后的不是回退点（它们和第一条一起交给 agent） */
     queueDelivery: Type.Optional(Type.String()),
-    /** 运行时交给 agent 的通知（消息事件里的 agentInput）：长的在会话里折成一行（367 号票） */
+    /** 运行时交给 agent 的通知（消息事件里的 agentInput）：长的在会话里折成一行 */
     agentInput: Type.Optional(Type.Boolean()),
   }),
   Type.Object({ seq: Type.Integer({ minimum: 1 }), deleted: DeletedEventPayload }),
@@ -133,7 +133,7 @@ export const HistoryMessage = Type.Union([
 export type HistoryMessage = Static<typeof HistoryMessage>;
 
 /**
- * 历史分页里消息之间的一条时间线记录（25 号票）：时间线记录（偏离、范围变更、越界……）或快速动作的执行（操作记录），
+ * 历史分页里消息之间的一条时间线记录：时间线记录（偏离、范围变更、越界……）或快速动作的执行（操作记录），
  * 连同它在会话频道里的序号和事件负载。工具调用记录本身就是消息，跟着消息走
  */
 export const HistoryRecord = Type.Union([
@@ -143,7 +143,7 @@ export const HistoryRecord = Type.Union([
 export type HistoryRecord = Static<typeof HistoryRecord>;
 
 /**
- * 一页里长程任务阶段开始的记号（152 号票，stage_start 事件，StageStartEventPayload）：缩小视图在那一处画"撤回到阶段「…」开始前"
+ * 一页里长程任务阶段开始的记号（stage_start 事件，StageStartEventPayload）：缩小视图在那一处画"撤回到阶段「…」开始前"
  */
 export const HistoryStageStart = Type.Object({
   seq: Type.Integer({ minimum: 1 }),
@@ -170,18 +170,18 @@ export const HistoryPage = Type.Object({
   records: Type.Array(HistoryRecord),
   hasMore: Type.Boolean(),
   /**
-   * 这一页的语音消息引用的语音对象的最新状态（31 号票）：它们的 voice 事件可能早于 WebSocket 第一次补发的那一页，
+   * 这一页的语音消息引用的语音对象的最新状态：它们的 voice 事件可能早于 WebSocket 第一次补发的那一页，
    * 往上翻时跟着这一页一起取回。没有语音时不带
    */
   voices: Type.Optional(Type.Array(VoiceRecord)),
-  /** 这一页里 agent 的语音消息引用的 agent 语音对象的最新状态（32 号票：送进 TTS 的原文在这里）。没有时不带 */
+  /** 这一页里 agent 的语音消息引用的 agent 语音对象的最新状态（送进 TTS 的原文在这里）。没有时不带 */
   agentVoices: Type.Optional(Type.Array(AgentVoiceRecord)),
-  /** 这一页覆盖的序号里长程任务阶段开始的记号（152 号票，和 records 同一个范围，回退过的只留当前分支上的）。没有时不带 */
+  /** 这一页覆盖的序号里长程任务阶段开始的记号（和 records 同一个范围，回退过的只留当前分支上的）。没有时不带 */
   stageStarts: Type.Optional(Type.Array(HistoryStageStart)),
 });
 export type HistoryPage = Static<typeof HistoryPage>;
 
-// ───────────────────────── 设备配对（10 号票） ─────────────────────────
+// ───────────────────────── 设备配对 ─────────────────────────
 
 /** GET /api/access：这个请求被信任吗。local：从本机端口进来；device：带着有效凭证的已配对设备；none：还没配对 */
 export const AccessInfo = Type.Union([
@@ -215,7 +215,7 @@ export type PairingCreateBody = Static<typeof PairingCreateBody>;
 export const PairingRenameBody = Type.Object({ deviceName: Type.String() });
 export type PairingRenameBody = Static<typeof PairingRenameBody>;
 
-// ───────────────────────── 设置里按会话、按时间段删除素材（21 号票） ─────────────────────────
+// ───────────────────────── 设置里按会话、按时间段删除素材 ─────────────────────────
 
 /** 看素材范围里有几条：不给范围就是全部 */
 export const MaterialScopeBody = Type.Object({ scope: Type.Optional(MaterialScope) });
@@ -225,9 +225,9 @@ export type MaterialScopeBody = Static<typeof MaterialScopeBody>;
 export const MaterialScopeSummary = Type.Object({
   count: Type.Integer({ minimum: 0 }),
   conversations: Type.Array(Type.Object({ conversation: Type.String(), count: Type.Integer({ minimum: 0 }) })),
-  /** 范围里没有素材的语音（没识别出文字的）有几条：彻底删除时连同录音一起删（31 号票）；没有时不带 */
+  /** 范围里没有素材的语音（没识别出文字的）有几条：彻底删除时连同录音一起删；没有时不带 */
   voices: Type.Optional(Type.Integer({ minimum: 1 })),
-  /** 素材库只保管、不采集新素材（记忆插件没启用，129 号票）：记忆 · 素材页顶上写明（167 号票）；在采集时不带 */
+  /** 素材库只保管、不采集新素材（记忆插件没启用）：记忆 · 素材页顶上写明；在采集时不带 */
   keepingOnly: Type.Optional(Type.Literal(true)),
 });
 export type MaterialScopeSummary = Static<typeof MaterialScopeSummary>;
@@ -244,16 +244,16 @@ export type DeleteMaterialsBody = Static<typeof DeleteMaterialsBody>;
 export const DeleteMaterialsResult = Type.Object({ count: Type.Integer({ minimum: 0 }) });
 export type DeleteMaterialsResult = Static<typeof DeleteMaterialsResult>;
 
-// ───────────────────────── 设置里看素材（158 号票） ─────────────────────────
+// ───────────────────────── 设置里看素材 ─────────────────────────
 
 /**
- * 记忆 · 素材的筛选（167 号票），都可以不给，给了的都要满足：
+ * 记忆 · 素材的筛选，都可以不给，给了的都要满足：
  * - from / to：时间段（带时区的 ISO 时间，两头都算，按素材的时间），可以只给一头；
  * - facets：种类（MATERIAL_FACETS），算其中任一种就行；空数组等于不筛；
  * - conversation：来源会话（秘书主线、某个负责人的会话）；不来自会话的素材这时不列；
  * - query：关键词，按空白拆开、每个词都要有——用素材库的关键词检索（和秘书的素材检索同一个索引：本人的话、引用的说明、存的网页的正文）；
  *   这时列表里的摘录换成命中的那一段；
- * - dataSource：哪个数据源导入的（素材信封出处的 origin.dataSource，343 号票）；不是数据源导入的素材这时不列
+ * - dataSource：哪个数据源导入的（素材信封出处的 origin.dataSource）；不是数据源导入的素材这时不列
  */
 export const MaterialListFilter = Type.Object({
   from: Type.Optional(Type.String({ minLength: 1 })),
@@ -267,7 +267,7 @@ export type MaterialListFilter = Static<typeof MaterialListFilter>;
 
 /**
  * 素材列表的一页（POST /api/materials/list）：范围同上（不给是全部），新的在前（按素材的时间）；offset 从 0 起。
- * 167 号票起可以再给筛选（filter），在范围里再筛
+ * 可以再给筛选（filter），在范围里再筛
  */
 export const MaterialListBody = Type.Object({
   scope: Type.Optional(MaterialScope),
@@ -278,14 +278,14 @@ export const MaterialListBody = Type.Object({
 export type MaterialListBody = Static<typeof MaterialListBody>;
 
 /**
- * 素材上的标记：说过"别推断"的（21 号票）；在会话回退留下的废弃分支里的（150 号票，查询时现算，切回去就不在了）；
- * 项目内部的记录（64 号票：由系统记下的、秘书检索不到，删项目时随项目删）。没有的不带
+ * 素材上的标记：说过"别推断"的；在会话回退留下的废弃分支里的（查询时现算，切回去就不在了）；
+ * 项目内部的记录（由系统记下的、秘书检索不到，删项目时随项目删）。没有的不带
  */
 export const MaterialMarks = Type.Object({
   noInfer: Type.Optional(Type.Literal(true)),
   abandoned: Type.Optional(Type.Literal(true)),
   internal: Type.Optional(ProjectInternal),
-  /** 来自了解你访谈（284 号票：访谈开着时在记忆管理员的会话里说的） */
+  /** 来自了解你访谈（访谈开着时在记忆管理员的会话里说的） */
   interview: Type.Optional(Type.Literal(true)),
 });
 export type MaterialMarks = Static<typeof MaterialMarks>;
@@ -301,7 +301,7 @@ export const MaterialListItem = Type.Object({
   /** 开头一段（本人的话、附件的文件名、卡片的说明） */
   excerpt: Type.String(),
   marks: MaterialMarks,
-  /** 数据源导入的、数据源有几个账号的：哪个账号（344 号票，素材信封出处的 origin.account：id 和打了码的邮箱） */
+  /** 数据源导入的、数据源有几个账号的：哪个账号（素材信封出处的 origin.account：id 和打了码的邮箱） */
   account: Type.Optional(Type.Object({ id: Type.String(), label: Type.String() })),
 });
 export type MaterialListItem = Static<typeof MaterialListItem>;
@@ -330,7 +330,7 @@ export const MaterialSegmentView = Type.Object({
       mediaId: Type.String(),
       name: Type.Optional(Type.String()),
       mime: Type.Optional(Type.String()),
-      /** 记下来的文件（366 号票）：怎么画（图片还是文件）、大小、宽高 */
+      /** 记下来的文件：怎么画（图片还是文件）、大小、宽高 */
       kind: Type.Optional(Type.Union([Type.Literal("image"), Type.Literal("file")])),
       size: Type.Optional(Type.Integer({ minimum: 0 })),
       width: Type.Optional(Type.Integer()),
@@ -339,10 +339,10 @@ export const MaterialSegmentView = Type.Object({
   ),
   /** 引用块的原文（素材只记了哈希）：出处的消息还在时从消息里取 */
   quoted: Type.Optional(Type.String()),
-  /** 附件、语音在出处的消息里的那个 part（图片、文件、视频、语音）；记下来的文件（366 号票）不在消息里，由素材里记的媒体拼出来 */
+  /** 附件、语音在出处的消息里的那个 part（图片、文件、视频、语音）；记下来的文件不在消息里，由素材里记的媒体拼出来 */
   part: Type.Optional(MessagePart),
   /**
-   * 你存的网页（165 号票，网页那一段）：存下的标题、正文（网页上的外部数据，素材里只记了网址和哈希）、截没截、原文一共多少字——
+   * 你存的网页（网页那一段）：存下的标题、正文（网页上的外部数据，素材里只记了网址和哈希）、截没截、原文一共多少字——
    * 原始事件还在、没被彻底删除时从事件里取
    */
   saved: Type.Optional(Type.Object({ title: Type.String(), text: Type.String(), truncated: Type.Boolean(), total: Type.Integer({ minimum: 0 }) })),
@@ -381,7 +381,7 @@ export const MaterialDetailView = Type.Object({
 });
 export type MaterialDetailView = Static<typeof MaterialDetailView>;
 
-// ───────────────────────── 设置里的工作日历（29 号票） ─────────────────────────
+// ───────────────────────── 设置里的工作日历 ─────────────────────────
 
 /** 改个人设置（POST /api/workday-calendar） */
 export const WorkdayChangeBody = Type.Object({ change: WorkdayChange });
@@ -400,7 +400,7 @@ export const WorkdayMonthView = Type.Object({
 });
 export type WorkdayMonthView = Static<typeof WorkdayMonthView>;
 
-// ───────────────────────── 工具调用的完整参数和返回（53 号票） ─────────────────────────
+// ───────────────────────── 工具调用的完整参数和返回 ─────────────────────────
 
 /**
  * 工具返回里没有内联的一块二进制内容（比如读图片时的图片）：只说是什么、多大。
@@ -420,7 +420,7 @@ export const TruncatedValue = Type.Object({ pointer: Type.String(), bytes: Type.
 export type TruncatedValue = Static<typeof TruncatedValue>;
 
 /**
- * 一次效果涉及的一个对象（56 号票）：按工具登记里的参数规则认的路径、收件人、网址。
+ * 一次效果涉及的一个对象：按工具登记里的参数规则认的路径、收件人、网址。
  * 路径是规范化后的绝对路径；access 是这个路径怎么碰的（读、写、删，unknown 是拆出来的命令不知道读还是写）。
  * uncertain：守卫当时没法确定的值（比如命令里的变量），value 是原文
  */
@@ -433,7 +433,7 @@ export const ToolCallEffectObject = Type.Object({
 export type ToolCallEffectObject = Static<typeof ToolCallEffectObject>;
 
 /**
- * 一次调用的一条效果记录（56 号票）：守卫的效果日志里记下的，执行成功的调用才有。通用 bash 拆出来的每条操作各一条。
+ * 一次调用的一条效果记录：守卫的效果日志里记下的，执行成功的调用才有。通用 bash 拆出来的每条操作各一条。
  * summary 是效果摘要（做了什么、改动的文件、成功与否、结果的开头一小段），和效果日志里的一样经过隐私处理。
  * objects 只认得内置工具、带类型的 bash 工具和伪工具的参数规则；别的工具（MCP、二狗自己的工具）是空的，涉及的文件写在摘要里
  */
@@ -446,7 +446,7 @@ export const ToolCallEffect = Type.Object({
   toolTitle: Type.Optional(Type.String()),
   summary: Type.String(),
   objects: Type.Array(ToolCallEffectObject),
-  /** 写了多少（68 号票：效果日志里写入的全文、编辑的新旧片段只记长度和摘要哈希）：写文件"写入 N 字"、改文件"改了 K 处" */
+  /** 写了多少（效果日志里写入的全文、编辑的新旧片段只记长度和摘要哈希）：写文件"写入 N 字"、改文件"改了 K 处" */
   content: Type.Optional(Type.String()),
 });
 export type ToolCallEffect = Static<typeof ToolCallEffect>;
@@ -457,9 +457,9 @@ export type ToolCallEffect = Static<typeof ToolCallEffect>;
  * - 和聊天里的工具调用记录一样经过隐私处理：读过的密钥值换成"（密钥）"；读了密钥文件的不记返回（resultWithheld）；
  * - 单个值（返回的文字、参数里的每个字符串）超过 TOOL_CALL_VALUE_MAX_BYTES 的只留开头，末尾注明"已截断"和原长，truncated 里列出；
  * - 二进制内容（图片）不内联：返回的文字里是 [image] 这样的占位，media 里说明是什么、多大；
- * - 彻底删除过的（21 号票的口径）：参数和返回里的文字都换成删除标记，purged 为 true；删除项目时照同样的口径一起改写的
- *   （66 号票）另有 purgedBy 为 project_deletion，详情页写"已随项目删除"；
- * - 过了保留期、超出总量上限清掉了的（65 号票）：cleared 注明原因，args 只剩参数摘要（一行文字）、result 只剩结果摘要，
+ * - 彻底删除过的（口径）：参数和返回里的文字都换成删除标记，purged 为 true；删除项目时照同样的口径一起改写的
+ *   另有 purgedBy 为 project_deletion，详情页写"已随项目删除"；
+ * - 过了保留期、超出总量上限清掉了的：cleared 注明原因，args 只剩参数摘要（一行文字）、result 只剩结果摘要，
  *   和聊天里工具调用记录的摘要一样长；工具、结局、归属、时间、图片说明、效果记录照旧。
  * 宽松、向后兼容：以后只加可选字段；前端认不得的字段不管
  */
@@ -481,13 +481,13 @@ export const ToolCallDetail = Type.Object({
   startedAt: Type.Optional(Type.String()),
   endedAt: Type.Optional(Type.String()),
   /**
-   * 完整参数（模型给的原样，没有规范化）。288 号票起：Claude Code 这类运行时的调用，tool 是映射到守卫工具登记表之后的名字（守卫按它判，
+   * 完整参数（模型给的原样，没有规范化）。Claude Code 这类运行时的调用，tool 是映射到守卫工具登记表之后的名字（守卫按它判，
    * Bash → bash、Read → read……），这里是运行时自己的工具收到的原样参数，工具名在 nativeTool
    */
   args: Type.Unknown(),
-  /** 运行时自己的工具名（288 号票：Claude Code 的 Bash、Read、Edit……）；和 tool 一样的、pi 的调用没有 */
+  /** 运行时自己的工具名（Claude Code 的 Bash、Read、Edit……）；和 tool 一样的、pi 的调用没有 */
   nativeTool: Type.Optional(Type.String()),
-  /** 子代理里的调用（288 号票）：调用这个子代理的那次调用的 callId；主线的没有 */
+  /** 子代理里的调用：调用这个子代理的那次调用的 callId；主线的没有 */
   parentCallId: Type.Optional(Type.String()),
   /** 完整返回：工具交回模型的文字；被拦下的是模型收到的说明 */
   result: Type.String(),
@@ -499,24 +499,24 @@ export const ToolCallDetail = Type.Object({
   resultWithheld: Type.Optional(Type.Literal("secret_file")),
   purged: Type.Optional(Type.Literal(true)),
   /**
-   * 删掉的是哪种删除（66 号票）：删除项目时一起改写的为 project_deletion——项目负责人会话里的、属于这个项目的调用，
+   * 删掉的是哪种删除：删除项目时一起改写的为 project_deletion——项目负责人会话里的、属于这个项目的调用，
    * 和项目之外读过这个项目的调用（秘书会话里的、跨项目任务的评审）；彻底删除的没有这个字段
    */
   purgedBy: Type.Optional(Type.Literal("project_deletion")),
   /**
-   * 完整内容清掉了（65 号票）：为什么（过了保留期 expired、超出总量上限时从最旧的清 over_limit）、什么时候清的。
+   * 完整内容清掉了：为什么（过了保留期 expired、超出总量上限时从最旧的清 over_limit）、什么时候清的。
    * 清掉之后 args 是参数摘要（一行文字）、result 是结果摘要，截断说明跟着去掉
    */
   cleared: Type.Optional(Type.Object({ reason: Type.Enum(TOOL_CALL_CLEAR_REASONS), at: Type.String() })),
   /**
-   * 这次调用的效果记录（56 号票，取的时候从效果日志里找，顺带返回）：执行成功（outcome 是 done）的调用才有这个字段，
+   * 这次调用的效果记录（取的时候从效果日志里找，顺带返回）：执行成功（outcome 是 done）的调用才有这个字段，
    * 找不到时是空数组（守护进程加上调用 id 之前的旧记录按"紧跟在这次调用的记录后面"找）；没执行的、彻底删除过的没有
    */
   effects: Type.Optional(Type.Array(ToolCallEffect)),
 });
 export type ToolCallDetail = Static<typeof ToolCallDetail>;
 
-// ───────────────────────── 长程任务的阶段详情（84 号票） ─────────────────────────
+// ───────────────────────── 长程任务的阶段详情 ─────────────────────────
 
 /** 一件已经做了的事在哪儿生效：本机（改了本机的文件、跑了命令……），对外（往外送：推送、发消息、带数据的请求……） */
 export const STAGE_EFFECT_REACHES = ["local", "external"] as const;
@@ -538,7 +538,7 @@ export const StageEffect = Type.Object({
 });
 export type StageEffect = Static<typeof StageEffect>;
 
-// ───────────────────────── 阶段"系统查到的结果"（274 号票） ─────────────────────────
+// ───────────────────────── 阶段"系统查到的结果" ─────────────────────────
 
 /** 对外发送的一件是什么：消息（有收件人）、请求（发给网址的）、别的对外动作（推送、发布、建远端仓库……） */
 export const STAGE_SEND_KINDS = ["message", "request", "action"] as const;
@@ -556,7 +556,7 @@ export const STAGE_CLAIM_RESULTS = ["found", "untouched", "deleted"] as const;
 export type StageClaimResult = (typeof STAGE_CLAIM_RESULTS)[number];
 
 /**
- * 一个阶段这一轮（上次重开之后）系统从效果日志里查到的（274 号票，本该是每轮结束系统直接查到的结果；二狗查不了世界，
+ * 一个阶段这一轮（上次重开之后）系统从效果日志里查到的（本该是每轮结束系统直接查到的结果；二狗查不了世界，
  * 用效果日志代替）：
  * - sent：对外发送的每一件（和"从这里重做"列的对外的同一个口径：守卫的 sendsOut），按先后，同一件只列一次；
  * - files：改了哪些文件（效果日志里写、删的路径参数；工作目录、仓库这类"在哪儿做"的参数不算），按第一次动它的先后；
@@ -580,12 +580,12 @@ export const StageObserved = Type.Object({
 export type StageObserved = Static<typeof StageObserved>;
 
 /**
- * 长程任务一个阶段从守护进程现取的几样（GET /api/tasks/<任务 id>/stages/<阶段 id>，84 号票）：
+ * 长程任务一个阶段从守护进程现取的几样（GET /api/tasks/<任务 id>/stages/<阶段 id>）：
  * - grantUses：这一阶段（连同所属阶段组）的每项授权用了几次，和守卫计次同一个口径（效果日志里本任务、这个阶段、授予之后、同一工具、
  *   对象范围之内的）；grantId 是计划里的授权项 id；
  * - reopenScope：从这里重做会重开的阶段（它和依赖它的、开始过的），按计划里的顺序；
  * - effects：这几个阶段这一轮（上次重开之后）已经做了的事。重做不撤回它们，只列出来、告诉负责人；
- * - observed：这个阶段这一轮系统查到的结果（274 号票）；开始过的阶段才有。
+ * - observed：这个阶段这一轮系统查到的结果；开始过的阶段才有。
  * 宽松、向后兼容：以后只加可选字段
  */
 export const TaskStageView = Type.Object({
@@ -598,7 +598,7 @@ export const TaskStageView = Type.Object({
 });
 export type TaskStageView = Static<typeof TaskStageView>;
 
-// ───────────────────────── 完整内容的保留期和总量上限（65 号票） ─────────────────────────
+// ───────────────────────── 完整内容的保留期和总量上限 ─────────────────────────
 
 /**
  * 设置里的"工具调用的完整内容"（GET /api/tool-call-storage）：现在占了多大、保留多久、总量上限，照现在的规则马上清会清掉多少。
@@ -643,7 +643,7 @@ export const ToolCallCleanupResult = Type.Object({
 });
 export type ToolCallCleanupResult = Static<typeof ToolCallCleanupResult>;
 
-// ───────────────────────── 网页是哪一版（116 号票） ─────────────────────────
+// ───────────────────────── 网页是哪一版 ─────────────────────────
 
 /** GET /api/web-version：守护进程现在提供的网页是哪一版（index.html 里的版本号，web-version.ts）；没有版本号、还没构建时不带 */
 export const WebVersionView = Type.Object({

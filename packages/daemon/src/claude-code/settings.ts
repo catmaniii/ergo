@@ -1,9 +1,9 @@
-// Claude Code 运行时的设置项和可选模型（289 号票，issue 24 第三节丁类："⚙ 里按运行时多出'权限模式''思考档位'两项"）：
+// Claude Code 运行时的设置项和可选模型（"⚙ 里按运行时多出'权限模式''思考档位'两项"）：
 // 守护进程这一侧（runtime.ts 的 settings()、models()，⚙ 里列）和适配子进程（child/session.ts 拉起 query 时翻成 SDK 的选项）共用这一份，
 // 所以这里不 import 子进程的模块、不 import SDK（boundary.test.ts）。
 // - 权限模式（SDK 的 permissionMode）：跟 Claude Code 自己的设置（默认：不传，用户 settings 里的 defaultMode）、默认、自动接受改文件、
 //   计划模式、自动（模型判断）、不问（没放行的拒绝）。bypassPermissions（全部放行）不列：要另开 allowDangerouslySkipPermissions，
-//   二狗守卫（288 号票）之外再全放行没有意义；
+//   二狗守卫之外再全放行没有意义；
 // - 思考档位（SDK 的 effort）：跟 Claude Code 自己的设置（不传）、low / medium / high / xhigh / max；
 // - 模型：子进程起来时报回 Claude Code 自己的列表（supportedModels，宿主协议 runtime_catalog，守护进程记在运行时登记表上）；
 //   还没报过时先列 Claude Code 的三个别名（opus / sonnet / haiku，总是指向各自最新的那个）。没选是跟 Claude Code 自己的设置（不传 model）。
@@ -50,7 +50,7 @@ export const CLAUDE_FALLBACK_MODELS: readonly RuntimeModelView[] = [
 ];
 
 /**
- * 授权的文件夹翻成 Claude Code 的只读放行规则（355 号票）：`Read(//d/照片/**)`（Claude Code 在 Windows 上把路径规范成 /d/照片，开头两个斜杠是从根算的绝对路径；
+ * 授权的文件夹翻成 Claude Code 的只读放行规则：`Read(//d/照片/**)`（Claude Code 在 Windows 上把路径规范成 /d/照片，开头两个斜杠是从根算的绝对路径；
  * Read 规则也管 Grep、Glob）。不用 additionalDirectories：那个连写也放开了。Bash 不在这个规则里：守卫放行了的 Bash 到 Claude Code 自己的权限，要问人时走 canUseTool（直接放行）。
  * 守卫的 PreToolUse 钩子在规则之前，这些规则放不开守卫拦下的。网络路径、路径里有规则语法用的字符（括号、通配符）的不写规则，照样走 canUseTool
  */

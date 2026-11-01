@@ -1,4 +1,4 @@
-// 待我处理事项的种类名和通知的动作按钮（107 号票从 pages/InboxPage.tsx 抽出来）：待办详情（NoticeView）和会话里的"等你处理"栏
+// 待我处理事项的种类名和通知的动作按钮（从 pages/InboxPage.tsx 抽出来）：待办详情（NoticeView）和会话里的"等你处理"栏
 // （ui/conversation/InboxBar.tsx）用同一份——点了哪个动作都是同一个请求（inbox_action handle，choice 是这个动作），两边一起变；
 // 去设置里某一页修的动作是去那一页的链接，不算处理。
 import { useState } from "react";
@@ -55,14 +55,14 @@ const NOTICE_LABEL: Readonly<Record<NoticeType, string>> = tTable({
 
 /**
  * 去设置里某一页修的动作：点了是去那一页，不算处理（修好后守护进程自动归档这条）——
- * "关注类别设置文件有问题"的"去设置页修复"、"还没有参考音色"的"去导入参考音色"（32 号票）、"向量模型还没下载"的"去装组件"（323 号票）
+ * "关注类别设置文件有问题"的"去设置页修复"、"还没有参考音色"的"去导入参考音色"、"向量模型还没下载"的"去装组件"
  */
 const SETTINGS_LINKS: Partial<Record<NoticeType, { action: string; page: MorePage }>> = {
   watch_categories_broken: { action: WATCH_CATEGORIES_REPAIR_ACTION, page: "watch" },
   voice_reference_missing: { action: VOICE_REFERENCE_IMPORT_ACTION, page: "voice" },
-  // 323 号票：向量模型还没下载——"去装组件"去设置 · 组件
+  // 向量模型还没下载——"去装组件"去设置 · 组件
   embedding_model_missing: { action: COMPONENTS_INSTALL_ACTION, page: "components" },
-  // 347 号票：组件有新版本——"去更新组件"去设置 · 组件，点了"更新"才换
+  // 组件有新版本——"去更新组件"去设置 · 组件，点了"更新"才换
   component_update_available: { action: COMPONENTS_UPDATE_ACTION, page: "components" },
 };
 
@@ -85,7 +85,7 @@ export function inboxKindLabel(item: InboxItem, cardType: string | undefined): s
 
 /**
  * 通知的动作：处理过的写"✓ 选了哪个"，没处理的一排按钮（第一个是主按钮）。
- * 动作存的、点了交给守护进程的是中文原字（按字认），显示时换成当前语言（inboxActionText，172 号票）。
+ * 动作存的、点了交给守护进程的是中文原字（按字认），显示时换成当前语言（inboxActionText）。
  * small：会话里的栏用小号按钮；className：按钮那一排的类名（待办详情是卡片底下的 auth-actions）
  */
 export function NoticeActions({ item, small = false, className = "auth-actions" }: { item: NoticeInboxItem; small?: boolean; className?: string }) {
@@ -113,7 +113,7 @@ export function NoticeActions({ item, small = false, className = "auth-actions" 
 }
 
 /**
- * "重做之后复验没过"的两个动作（274 号票："先不管"、"把 M1 也重开"）：先不管就是处理掉这一条；
+ * "重做之后复验没过"的两个动作（"先不管"、"把 M1 也重开"）：先不管就是处理掉这一条；
  * "把第 N 阶段也重做…"先出重做对话框（写这次要怎么改、看要一起重做的阶段和已经做了的事），确认了才从
  * 第一个还能重做的没过的阶段重做——守护进程重做时把这一条记成"把没过的阶段也重做"。任务不在手里、阶段都重做过了的，这个按钮点不了
  */

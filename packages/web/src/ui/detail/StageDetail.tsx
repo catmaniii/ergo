@@ -1,24 +1,24 @@
 /**
- * 长程任务的阶段详情（60 号票）——头上"第 N 阶段"、状态、第几轮，标题旁边要你留意的小标记（MarkBadges）；"回到会话里这一段""⟲ 从这里重做…"；
+ * 长程任务的阶段详情——头上"第 N 阶段"、状态、第几轮，标题旁边要你留意的小标记（MarkBadges）；"回到会话里这一段""⟲ 从这里重做…"；
  * 这一步出过的状况（incidents.tsx 的图标和说法）；交付件；验收标准（逐条带核对结果、怎么验收）；尝试记录（每次交上来的结论和备注、
  * 每次重开）；要你留意的（MarkRows：敏感权限、对外的动作、会问你的，授权写"已用 N/M"，下面是图例）；执行方式（理由、步骤或初步思路）；
  * 这一阶段的规则（PolicyRows：一条一行，点进去看它的详情）。
  * "从这里重做"的对话框：写这次要怎么改、列出要一起重做的阶段（它和依赖它的、开始过的）、这几个阶段这一轮已经做了的事，
- * 确认了才动——落到 task_action 的 rework（连同下游；13 号票，84 号票起开始过的阶段就有这个按钮）。
- * 125 号票：重做对话框里能直接改这一阶段的验收标准原文和交付件（你改的就是你的确认，不出卡，点重做就生效，时间线上记前后对照）；
+ * 确认了才动——落到 task_action 的 rework（连同下游；开始过的阶段就有这个按钮）。
+ * 重做对话框里能直接改这一阶段的验收标准原文和交付件（你改的就是你的确认，不出卡，点重做就生效，时间线上记前后对照）；
  * 阶段详情里多一节"评审输入里你的原话"：最近一次宣布完成时负责人引用、运行时核实过的（评审只认这一栏）。
  * 计划里写的（交付件、验收、模式和理由、授权、规则、预算）取阶段抽屉用的那份；从会话、看板推出来的（状况、尝试记录、第几轮、
  * 这一段的第一条、重做的范围、工具调用用了几次）由状态层给（state/stage-detail.ts），按这个任务的整段会话算；
- * 守护进程那边才有的（授权已用几次、这一段已经做了的事）每次打开现取（GET /api/tasks/<任务>/stages/<阶段>，84 号票）。
- * 几处取舍（84 号票，用户 2026-10-11 都接受了）：
- * - 重做不撤回（真撤回在 85 号票）：已经做了的事只分"本机""对外"列出来、写明收不回，不分"能撤回""能补救"，也没有补偿阶段；
- * - 要你留意的没有"敏"（计划里还没有会用到的敏感数据，85 号票），图例只列"权""外""问"，说明按电脑上的事改写，
- *   "权"84 号票起叫"本机授权"，93 号票用户定统一叫"敏感权限"（和收着的阶段框条外的图例同一个名字），只读的授权也算在
- *   里面（85 号票再分）；多一行预算（60 号票就有）；
+ * 守护进程那边才有的（授权已用几次、这一段已经做了的事）每次打开现取（GET /api/tasks/<任务>/stages/<阶段>）。
+ * 几处取舍（都接受了）：
+ * - 重做不撤回：已经做了的事只分"本机""对外"列出来、写明收不回，不分"能撤回""能补救"，也没有补偿阶段；
+ * - 要你留意的没有"敏"（计划里还没有会用到的敏感数据），图例只列"权""外""问"，说明按电脑上的事改写，
+ *   "权"叫"本机授权"，用户定统一叫"敏感权限"（和收着的阶段框条外的图例同一个名字），只读的授权也算在
+ *   里面（再分）；多一行预算（就有）；
  * - 尝试记录的备注：负责人宣布完成时写的那句和你退回时写的说明各一行（不是有你的说明时只显示你的）；
  * - 规则一条一行（不按规则集），违反了怎么办多一级退回；
- * - 交上来的原始数据、凭据核对、认领时审查、执行轨迹与规则核对二狗没有（85 号票）。
- * 274 号票加了一节"系统查到的结果"（交付件下面）：本该是每轮结束系统直接查世界写出的结果、验收时系统查到的，
+ * - 交上来的原始数据、凭据核对、认领时审查、执行轨迹与规则核对二狗没有。
+ * 加了一节"系统查到的结果"（交付件下面）：本该是每轮结束系统直接查世界写出的结果、验收时系统查到的，
  * 二狗查不了世界，从效果日志汇总这一阶段这一轮发了什么、改了哪些文件（守护进程现取），和负责人自报的那一两句
  * 摆在一起（"两种声音"：系统查到的浅绿底、Agent 说的灰字），自报里提到、系统没查到的文件标出来。
  */
@@ -66,11 +66,11 @@ import { Section } from "./section.tsx";
 export interface StageDetailSource {
   readonly taskId: string;
   readonly stages: readonly Stage[];
-  /** 现在能从这个阶段重做（开始过的阶段，建好了阶段的长程任务，84 号票） */
+  /** 现在能从这个阶段重做（开始过的阶段，建好了阶段的长程任务） */
   canRework(stageId: string): boolean;
   /**
    * 从这个阶段重做（连同它的下游），note 是这次要怎么改（交给负责人）；edit 是在对话框里直接改的这一阶段的验收标准、交付件
-   * （125 号票：不出卡，点重做就生效）
+   * （不出卡，点重做就生效）
    */
   rework(stageId: string, note: string | undefined, edit?: StageEdit): void;
 }
@@ -78,7 +78,7 @@ export interface StageDetailSource {
 // ───────────────────────── 要你留意的 ─────────────────────────
 
 /**
- * 要你留意的几样：字、名字、说明（"敏"在 85 号票）。说明里的例子不写手机上的事，
+ * 要你留意的几样：字、名字、说明。说明里的例子不写手机上的事，
  * 二狗是电脑上的，换成写文件、删改、推送、发消息这类
  */
 const markMeta = () =>
@@ -105,7 +105,7 @@ export function MarkBadges({ marks, quiet }: { marks: StageMarks | undefined; qu
   );
 }
 
-/** 要你留意的几样，一样一行，逐条写出是什么；used 是授权项 id → 用了几次（详情里写"已用 N/M"）。聊天里计划卡的提纲点开也用它（93 号票） */
+/** 要你留意的几样，一样一行，逐条写出是什么；used 是授权项 id → 用了几次（详情里写"已用 N/M"）。聊天里计划卡的提纲点开也用它 */
 export function MarkRows({ marks, used }: { marks: StageMarks; used?: ReadonlyMap<string, number> | undefined }) {
   const rows = markMeta().filter((x) => marks[x.key].length > 0);
   if (!rows.length)
@@ -165,7 +165,7 @@ function useStageView(taskId: string, stageId: string, refresh: string): ViewSta
   return got?.key === key ? got.view : { state: "loading" };
 }
 
-// ───────────────────────── 系统查到的结果（274 号票） ─────────────────────────
+// ───────────────────────── 系统查到的结果 ─────────────────────────
 
 /** 路径显示末尾一段（窄栏里放得下），完整的在 title 里 */
 const fileName = (p: string) => p.split(/[\\/]/).filter((x) => x !== "").at(-1) ?? p;
@@ -257,7 +257,7 @@ export function StageDetail({
   stageId: string;
   items: readonly ChatItem[];
   onReveal?: ((id?: string) => void) | undefined;
-  /** 点一条规则看它的详情（84 号票） */
+  /** 点一条规则看它的详情 */
   onRule?: ((ruleId: string) => void) | undefined;
 }) {
   const { ui } = useStore();
@@ -267,7 +267,7 @@ export function StageDetail({
   // 授权已用几次跟着这个阶段的工具调用次数、状态变
   const view = useStageView(taskId, stageId, `${stage?.status ?? ""}:${stage?.budget.usedToolCalls ?? 0}:${stage?.attempts ?? 0}`);
   if (!source || !stage) return <div className="muted">{t("ui.stageDetail.gone")}</div>;
-  // 91 号票：第几阶段按依赖图的编号（并行的写 4a、4b）
+  // 第几阶段按依赖图的编号（并行的写 4a、4b）
   const codes = stageCodes(stages);
   const n = codes.get(stage.id);
   const facts = stageDetailFacts(ui, items, taskId, stageId);
@@ -401,7 +401,7 @@ export function StageDetail({
           {t("ui.stageDetail.budget", { budget: budgetText(stage.budget) })}
           {over && ` · ${t("ui.stageDetail.overBudget")}`}
         </div>
-        {/* 361 号票：这个数怎么算的、按前面的实际调过没有、估的和实际的次数 */}
+        {/* 这个数怎么算的、按前面的实际调过没有、估的和实际的次数 */}
         <div className="dt-note muted">
           {[
             t("ui.stageDrawer.budget.how"),
@@ -488,7 +488,7 @@ function PolicyRows({ rules, onRule }: { rules: readonly PlanTemporalRule[]; onR
 }
 
 /**
- * 一个阶段的一条规则（84 号票：阶段详情里点一条钻进来）：复用 60 号票检测项全览的那一条
+ * 一个阶段的一条规则（阶段详情里点一条钻进来）：复用检测项全览的那一条
  * （形式化写法、接口、修法、规则原文）；长程任务的阶段规则没有规划时的审查，生效阶段是执行时
  */
 export function StageRuleDetail({ source, taskId, stageId, ruleId }: { source: StageDetailSource | undefined; taskId: string; stageId: string; ruleId: string }) {
@@ -547,7 +547,7 @@ export function ReopenDialog({
   onConfirm(note: string | undefined, edit: StageEdit | undefined): void;
 }) {
   const [note, setNote] = useState("");
-  // 125 号票：这一阶段原来的验收标准、交付件，和对话框里改着的草稿
+  // 这一阶段原来的验收标准、交付件，和对话框里改着的草稿
   const stage = stages.find((s) => s.id === stageId);
   const criteria = stage?.acceptance.map((a) => a.text) ?? [];
   const deliverables = stage ? stageDeliverables(stage) : [];
@@ -638,7 +638,7 @@ const methodTag = (method: Stage["acceptance"][number]["method"] | undefined) =>
   method === undefined ? t("ui.stageDetail.reviewNew") : method === "user" ? t("ui.stageDetail.byYou") : method === "script" ? t("ui.stageDetail.autoCheck") : ACCEPTANCE_METHOD_LABEL[method];
 
 /**
- * 重做对话框里直接改这一阶段（125 号票）：验收标准一条一个输入框（改过的沿用原来那条的验收方式，新加的由评审验收），交付件一样；
+ * 重做对话框里直接改这一阶段：验收标准一条一个输入框（改过的沿用原来那条的验收方式，新加的由评审验收），交付件一样；
  * 每条能去掉，各能加一条。改了就是你的确认：不出卡，点重做就换成新一版计划，时间线上记一笔前后对照
  */
 function StageEditFields({

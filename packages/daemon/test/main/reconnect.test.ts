@@ -83,7 +83,7 @@ describe("重连与多个前端", () => {
     expect(refreshed.events()).toEqual(a.events({ persistedOnly: true }));
   });
 
-  it("订阅之后紧跟着发一个空订阅当回执：它的响应排在这次补发的事件全部之后；回执自己不补发、不改订阅（Web 据此分开补发的和实时推来的，36 号票）", async () => {
+  it("订阅之后紧跟着发一个空订阅当回执：它的响应排在这次补发的事件全部之后；回执自己不补发、不改订阅（Web 据此分开补发的和实时推来的）", async () => {
     const { url } = await startTestDaemon({
       secretary: [
         { kind: "reply", text: "在的" },

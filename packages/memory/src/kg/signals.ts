@@ -80,9 +80,9 @@ export function hasAlwaysMarker(clause: string): boolean {
   return ALWAYS_MARKERS.some((w) => clause.includes(w));
 }
 
-// ---------- 334 号票：用户自己说了"变了" ----------
+// ----------用户自己说了"变了" ----------
 //
-// 上面的变化信号（changeSignals）是宽的："现在、最近、这阵子"也算。334 号票（用户 10-27 选 A）起，前后两句意思相反时，
+// 上面的变化信号（changeSignals）是宽的："现在、最近、这阵子"也算。前后两句意思相反时，
 // 只有新的那句**自己说了变化**才按"新取代旧"走；没说的当矛盾（两边都是猜测、问用户），哪边都不自动赢（原始推理图谱 LIFECYCLE §6b：
 // 不许"信先到的、信后到的"）。所以这里只认明说变化的说法，拿不准的一律不算（宁可多问一句，也不吞掉新说法）：
 // - 不再、再也不、已经不、不…了 / 没…了（"不读博了""没兴趣了"）；
@@ -103,7 +103,7 @@ const EXPLICIT_CHANGE_PATTERNS: readonly RegExp[] = [
 const NOW_MARKERS: readonly string[] = ["现在", "如今", "后来", "目前"];
 
 /**
- * 334 号票：这句话本身有没有明说"变了"（命中的说法）。span 是抽出这条事实的那段原话（分句），fullText 是整条证据——
+ * 这句话本身有没有明说"变了"（命中的说法）。span 是抽出这条事实的那段原话（分句），fullText 是整条证据——
  * "以前…，现在…"跨分句，在整条里看；别的在分句里看
  */
 export function explicitChangeSignals(span: string, fullText: string = span): string[] {
@@ -121,7 +121,7 @@ export function explicitChangeSignals(span: string, fullText: string = span): st
 }
 
 /**
- * 334 号票：这句话自己说了从什么时候起（时间说法、"以前""一直"）——说了的，抽出来的有效期可以早于说这句话的那天；
+ * 这句话自己说了从什么时候起（时间说法、"以前""一直"）——说了的，抽出来的有效期可以早于说这句话的那天；
  * 没说的（说的是现在的感受、打算），开始不能早于说这句话的那天
  */
 export function statesOwnStart(span: string, ref: string): boolean {

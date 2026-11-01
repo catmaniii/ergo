@@ -1,5 +1,5 @@
-// 简单提醒卡（06 号票；185 号票加了归档、删除）。193 号票：挪进提醒插件，登记成卡片类型 reminder 的画法（plugins/reminders/plugin.tsx）；
-// 提醒插件停用时这张卡（聊天、待办、任务详情里）显示占位（守护进程那边卡上的动作回"提醒插件没启用"，126 号票）。
+// 简单提醒卡（加了归档、删除）。挪进提醒插件，登记成卡片类型 reminder 的画法（plugins/reminders/plugin.tsx）；
+// 提醒插件停用时这张卡（聊天、待办、任务详情里）显示占位（守护进程那边卡上的动作回"提醒插件没启用"）。
 import { useState } from "react";
 import { useStore } from "../../app/store.tsx";
 import { outcomeLabel } from "../../model/cards.ts";
@@ -14,7 +14,7 @@ import { ReminderDeleteConfirm } from "./reminder-menu.tsx";
  * 简单提醒卡：时间或重复规则和内容，可以"改"（新的时间或重复规则，动作 save 带输入）和"取消提醒"。
  * 一次性的到点后卡片变成已触发（不能再改）；重复的到点后仍可以改，显示下一次的时间。
  * 时间的写法、钟点、换规则都用共享协议包的 reminder-schedule.ts，这里不按规则种类分支。
- * 185 号票：还没响的多一个"删除"；响过的、取消了的卡片已经处理完，结果下面还有"归档"（没归档的）、"删除"——归档、删除不是卡片动作，
+ * 还没响的多一个"删除"；响过的、取消了的卡片已经处理完，结果下面还有"归档"（没归档的）、"删除"——归档、删除不是卡片动作，
  * 交 reminder_action（被拒的原因页面底部提示）；删除先确认一次（和看板菜单同一个确认）。归档了写"· 已归档"，删了写"已删除"、不再有按钮。
  */
 export function ReminderCard({ state, payload: p, done, act }: CardProps<ReminderCardPayload>) {
@@ -22,7 +22,7 @@ export function ReminderCard({ state, payload: p, done, act }: CardProps<Reminde
   const [edit, setEdit] = useState<{ version: number; schedule: ReminderSchedule }>();
   const editing = edit?.version === state.card.version;
   const more = useReminderCardActs(state, p);
-  // 事件发生时提醒的（77 号票）：没有时间表，卡上写在等什么事件，不能改时间（要按时间提醒就取消了另建）
+  // 事件发生时提醒的：没有时间表，卡上写在等什么事件，不能改时间（要按时间提醒就取消了另建）
   if (!p.schedule) {
     return (
       <CardShell
@@ -84,7 +84,7 @@ export function ReminderCard({ state, payload: p, done, act }: CardProps<Reminde
 }
 
 /**
- * 提醒卡上的归档、删除（185 号票）：处理完之后的那行字（已触发 · 时间 / 取消的结果，归档了加"· 已归档"，删了是"已删除"）、
+ * 提醒卡上的归档、删除：处理完之后的那行字（已触发 · 时间 / 取消的结果，归档了加"· 已归档"，删了是"已删除"）、
  * 处理完之后的按钮（归档、删除）、还没响时的"删除"按钮、删除的确认框。交 reminder_action，没成的原因在页面底部提示
  */
 function useReminderCardActs(state: CardProps<ReminderCardPayload>["state"], p: ReminderCardPayload) {

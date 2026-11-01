@@ -1,4 +1,4 @@
-// 这个页面上的阶段条收成一行还是展开（88 号票，368 号票起是对话框顶部的阶段条）：把 stage-side-setting.ts 接到 localStorage 上，
+// 这个页面上的阶段条收成一行还是展开（是对话框顶部的阶段条）：把 stage-side-setting.ts 接到 localStorage 上，
 // 给界面 hook。单独一个文件，那个模块就不碰浏览器的全局变量，能在 Node 里测（写法照 page-voice.ts 的自动播放开关）。
 import { useSyncExternalStore } from "react";
 import type { StageSidePref } from "../state/index.ts";

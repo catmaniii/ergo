@@ -1,4 +1,4 @@
-// 原型里的记忆推理库（233 号票）：结论、证据与推理、问题箱的假数据——照 weekend 那组"周末推掉活动"编的，
+// 原型里的记忆推理库：结论、证据与推理、问题箱的假数据——照 weekend 那组"周末推掉活动"编的，
 // 和 fake-materials.ts 里的假素材对得上（话是同一批）。
 // 直接打开构建产物（file://）时没有守护进程，只读接口回这一份；地址带 ?demo-memory-empty（有库、空的）和
 // ?demo-memory-off（库还没建）看空数据和降级的样子（截图、page-opens 测试）。
@@ -312,7 +312,7 @@ export function fakeMemoryClaim(claimId: string): MemoryClaimDetailView | undefi
       premises: { id: claim.id, kind: "claim", label: claim.statement, status: claim.status, premises: [] },
       evidence: [],
       revisions: [REVISIONS[0]!],
-      // 330 号票：猜测写明为什么还是猜测
+      // 猜测写明为什么还是猜测
       ...(claim.status === "contested" ? { whyGuess: { unverifiedPremises: [], evidence: "竞争的假设还没分出来（领先 3 分贝，不到 6）" } } : {}),
     };
   }
@@ -331,7 +331,7 @@ export function fakeMemoryClaim(claimId: string): MemoryClaimDetailView | undefi
   };
 }
 
-/** 原型：做法（330 号票）——一条在用、建在已验证上的，一条待你确认、建在猜测上的 */
+/** 原型：做法——一条在用、建在已验证上的，一条待你确认、建在猜测上的 */
 export function fakeMemoryStrategies(): MemoryStrategiesView {
   if (off()) return { ready: false, reason: REASONS.off, items: [] };
   if (empty()) return { ready: true, items: [] };

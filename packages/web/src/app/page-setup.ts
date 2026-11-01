@@ -1,4 +1,4 @@
-// 首次设置向导（319 号票）在网页上的那一半里"碰浏览器"的那部分：取状态的钩子（useSetup）、这个页面是不是演示页、
+// 首次设置向导在网页上的那一半里"碰浏览器"的那部分：取状态的钩子（useSetup）、这个页面是不是演示页、
 // 首页那条引导条在这台设备上的那一份（window.localStorage）。纯的部分在 app/setup.ts，那边能在 Node 里直接测。
 // 分开写照 app/board-fold-setting.ts（纯）和 app/page-board-fold.ts（钩子）的分法：一个模块不碰浏览器的全局变量。
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";

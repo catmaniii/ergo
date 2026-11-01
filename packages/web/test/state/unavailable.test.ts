@@ -1,4 +1,4 @@
-// 停用的插件拥有的会话条目换成占位（193 号票，state/chat-items.ts 的 maskUnavailable）：归哪个没启用的插件由界面按网页插件宿主现算
+// 停用的插件拥有的会话条目换成占位（state/chat-items.ts 的 maskUnavailable）：归哪个没启用的插件由界面按网页插件宿主现算
 // （这里直接给）；换成的那一条 id、序号、时间、归属照原来的，要点那一行写"（X插件没启用，这条内容暂时看不到）"，对话层画成一行
 // （chatLook 的 unavailable），详情打不开（开着的时候停的写"X插件没启用"），长程任务的阶段框里照"已删除"留在对话层。
 import { describe, expect, test } from "vitest";

@@ -1,4 +1,4 @@
-// 组件服务（323 号票）：守护进程里一份下载器，设置 · 组件、以后的 `ergo components`（318 号票）、`npm run download-model` 共用。
+// 组件服务：守护进程里一份下载器，设置 · 组件、以后的 `ergo components`、`npm run download-model` 共用。
 // - 状态：清单里每个组件装了没有（装着的记在 <组件区>/installed.json；没有记录、但文件都在而且大小对得上的——以前用下载命令放进去的——
 //   也算装好了）、别处有没有（provided 的检测）、正在下的进度。
 // - 装：一次下一个组件（排队），依赖的先装；先查磁盘空间，再探速挑快的下载地址，文件下到 <组件区>/.staging/<id>/ 里——不解开的文件
@@ -8,10 +8,10 @@
 // - 离线导入：一个文件、一个文件夹、一个 .tar / .tgz 包，按清单里的大小和 sha256 认（没写 sha256 的小文件按大小和名字），
 //   认得的放进临时目录、凑齐了就照常换上；还差的写明，点继续会从网上下剩下的。
 // - 只认清单里的校验值：镜像只是换个地方下，内容对不上就不用（见 downloader.ts）。
-// - 许可（345 号票）：清单里写了要确认的，第一次下载前接口要带 licenseAccepted，没带不开始；确认过的记在 <组件区>/licenses.json，
+// - 许可：清单里写了要确认的，第一次下载前接口要带 licenseAccepted，没带不开始；确认过的记在 <组件区>/licenses.json，
 //   许可换了版本（revision）要重新确认。离线导入也算用它：导入齐了还没确认的，停在"出错了"，写明要先确认。
-// - 装好以后还要接上的（345 号票，见 host.ts）：常驻服务的事交给 host，这里只在换上前后、删前后叫它一声。
-// - 查更新（347 号票，ADR-0042，取清单、验签在 update-check.ts）：查到的新条目先放着（offered），状态显示"有新版本"，正在用的那一条一个字节不动；
+// - 装好以后还要接上的（见 host.ts）：常驻服务的事交给 host，这里只在换上前后、删前后叫它一声。
+// - 查更新（ADR-0042，取清单、验签在 update-check.ts）：查到的新条目先放着（offered），状态显示"有新版本"，正在用的那一条一个字节不动；
 //   点了"更新"（或者这个组件还没装、点了安装）才按新条目下，换上之后它成了现在用的，并记进 installed.json（重启时随程序的清单还是旧的，比随程序的新才用它）。
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -82,7 +82,7 @@ export interface ComponentsOptions {
   diskMargin?: number;
   /** 装好以后还要接上的（常驻服务）；不给就只管文件 */
   host?: ComponentHost;
-  /** 查更新（347 号票）；不给就没有 */
+  /** 查更新；不给就没有 */
   updates?: UpdateChecker;
   log: (line: string) => void;
 }
@@ -93,7 +93,7 @@ interface InstallRecord {
   variant: string;
   installedAt: string;
   from: "download" | "import";
-  /** 查更新换上的（347 号票）：装的是新版本清单里的哪一条、那份清单是哪一版发布的；随程序的清单赶上来之前用它 */
+  /** 查更新换上的：装的是新版本清单里的哪一条、那份清单是哪一版发布的；随程序的清单赶上来之前用它 */
   entry?: ManifestComponent;
   entryRelease?: string;
 }
@@ -244,7 +244,7 @@ export function createComponents(options: ComponentsOptions): Components {
   const byId = new Map(manifest.components.map((c) => [c.id, c]));
   let order = dependencyOrder(manifest.components);
 
-  // 查更新查到的（347 号票）：比现在用的新、还没换上的条目。要下的、要显示的都按它（goalOf），正在用的 byId 不动，下载失败、取消了旧的照常用
+  // 查更新查到的：比现在用的新、还没换上的条目。要下的、要显示的都按它（goalOf），正在用的 byId 不动，下载失败、取消了旧的照常用
   const offered = new Map<string, ManifestComponent>();
   let offeredRelease: string | undefined;
   const goalOf = (c: ManifestComponent): ManifestComponent => offered.get(c.id) ?? c;

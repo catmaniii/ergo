@@ -1,4 +1,4 @@
-// 发起任务对话框里"事件发生时"的编辑（357 号票）：只能写在运营方案里的来源（项目的服务）这里不列，另外两种照常；万一拿到一个这种来源的值也画得出来、不出错。
+// 发起任务对话框里"事件发生时"的编辑：只能写在运营方案里的来源（项目的服务）这里不列，另外两种照常；万一拿到一个这种来源的值也画得出来、不出错。
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";

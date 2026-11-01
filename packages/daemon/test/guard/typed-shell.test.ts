@@ -1,4 +1,4 @@
-// 守卫切面：带类型的特殊 bash 工具的判定（28 号票）。八个工具的登记见 registries.test.ts；这里是对话和任务里的处置、
+// 守卫切面：带类型的特殊 bash 工具的判定。八个工具的登记见 registries.test.ts；这里是对话和任务里的处置、
 // 授权项按对象范围放行、仓库路径过围栏和受保护区域、工具包的 bash 和联网开关。用真实 git 仓库跑的序列在主切面
 // （test/main/typed-shell.test.ts），守卫自己的序列在场景文件 scenarios/typed-shell-tools.guard.json。
 import { describe, expect, it } from "vitest";
@@ -92,7 +92,7 @@ describe("仓库路径过路径围栏", () => {
     }
   });
 
-  it("只读的状态和差异：受保护区域按 03 号票的规则——密钥区连读都硬拒绝，别处是'越出项目目录'", () => {
+  it("只读的状态和差异：受保护区域按规则——密钥区连读都硬拒绝，别处是'越出项目目录'", () => {
     const secrets = judgeToolCall(inTask(maintainer(), call("git_status_diff", { repoPath: P.secrets }), v1Satisfied(P.secrets)));
     expect(secrets.hardRefusal).toEqual(["secrets_area"]);
     for (const area of [P.config, P.db, P.programDir]) {

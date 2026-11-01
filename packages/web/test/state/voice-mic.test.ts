@@ -1,6 +1,6 @@
-// 麦克风预热的开关时机（37 号票，state/voice-mic.ts）：进语音模式（页面在前台）就开着、不录；离开语音模式、页面切到后台就关；
-// 回到前台、按下时再开；语音模式里闲置不关（44 号票）。自动要麦克风被拒过就不再自动要（按下照样要）。
-// 61 号票：打字、分屏时让路，焦点回来 0.5 秒后再预热；开关的原因；录到的是不是静音。纯函数，表格和输入序列断言。
+// 麦克风预热的开关时机（state/voice-mic.ts）：进语音模式（页面在前台）就开着、不录；离开语音模式、页面切到后台就关；
+// 回到前台、按下时再开；语音模式里闲置不关。自动要麦克风被拒过就不再自动要（按下照样要）。
+// 打字、分屏时让路，焦点回来 0.5 秒后再预热；开关的原因；录到的是不是静音。纯函数，表格和输入序列断言。
 import { describe, expect, test } from "vitest";
 import {
   initialVoiceMic,
@@ -52,13 +52,13 @@ describe("什么时候开着、什么时候关", () => {
     ["切到后台又回到前台", [enter, hidden, shown], true],
     ["离开语音模式后页面回到前台：不开", [enter, { kind: "leave" }, shown], false],
     ["按着的时候切到后台：关", [enter, press, hidden], false],
-    ["语音模式里很久不按也不关（44 号票）：录完一条、再录一条，一直开着", [enter, press, lift, press, lift], true],
+    ["语音模式里很久不按也不关：录完一条、再录一条，一直开着", [enter, press, lift, press, lift], true],
   ])("%s", (_name, inputs, wanted) => {
     expect(voiceMicWanted(run(inputs))).toBe(wanted);
   });
 });
 
-// 61 号票（用户 2026-10-09 反馈"麦克风被占用"，调研 docs/architecture/research/16 的方案一）：页面里可输入的元素拿到焦点、窗口失去焦点（分屏）时
+// 反馈"麦克风被占用"，调研 docs/architecture/research/16 的方案一：页面里可输入的元素拿到焦点、窗口失去焦点（分屏）时
 // 立即放开麦克风，让系统输入法的语音能用；焦点回来 0.5 秒后（仍在语音模式、页面在前台）再预热。按住说话的时候焦点怎么变都不打断。
 const T = 1_000_000;
 const typing = (time = T): VoiceMicInput => ({ kind: "editing", editing: true, time });
@@ -201,7 +201,7 @@ describe("哪些元素算可输入的（拿到焦点就让路）", () => {
   });
 });
 
-// 36 号票评审加的兜底 (a)（默认不开，app/voice-fallbacks.ts 打开时界面才送 playback）：播放语音时先关麦克风，播完再预热，
+// 加的兜底 (a)（默认不开，app/voice-fallbacks.ts 打开时界面才送 playback）：播放语音时先关麦克风，播完再预热，
 // 免得语音模式里开着的麦克风（回声消除）把播放拖进通话模式。代价：播放期间按下要等"准备中"。
 const playing = (on: boolean): VoiceMicInput => ({ kind: "playback", playing: on });
 
@@ -245,7 +245,7 @@ describe("权限", () => {
   });
 });
 
-// 63 号票：鸿蒙 App 里录音走原生（AudioCapturer）。"开着"在原生后端是录音器备好（PREPARED）、不采集、不占麦克风，
+// 鸿蒙 App 里录音走原生（AudioCapturer）。"开着"在原生后端是录音器备好（PREPARED）、不采集、不占麦克风，
 // 不挡系统输入法的语音，所以打字、分屏时不用让路；兜底 (a) 也不用（备好的录音器不影响播放）。离开语音模式、切到后台照样放掉（release）。
 const enterNative: VoiceMicInput = { ...enter, backend: "native" };
 

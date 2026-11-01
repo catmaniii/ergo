@@ -1,4 +1,4 @@
-// skill 变更的审批决定（358 号票）产生的素材（规格第 15 节）：用户在"skill 变更"卡上批准或拒绝（skill_decided），
+// skill 变更的审批决定产生的素材（规格第 15 节）：用户在"skill 变更"卡上批准或拒绝（skill_decided），
 // 记成"审批决定"（本人的选择）；用户在卡上写的话是本人打的字。整条链照 MCP 登记变更的 mcp/material-source.ts。
 // 在 daemon.ts 里、materials.start() 之前登记；彻底删除时只换掉用户写的话（改写函数登记进记忆模块的改写函数表）。
 import { EVENT_TYPES, type SkillDecidedPayload } from "@ergo/protocol";

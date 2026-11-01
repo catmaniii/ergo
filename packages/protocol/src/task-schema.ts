@@ -58,7 +58,7 @@ export const TaskStageAcceptance = Type.Object({
 export type TaskStageAcceptance = Static<typeof TaskStageAcceptance>;
 
 /**
- * 负责人宣布一个阶段完成时，系统从效果日志里汇总的这一轮做了什么（274 号票，本该是每轮结束系统直接查到的结果；
+ * 负责人宣布一个阶段完成时，系统从效果日志里汇总的这一轮做了什么（本该是每轮结束系统直接查到的结果；
  * 二狗查不了世界，用效果日志代替）：只记个数和工具名，不记路径、网址、内容——看板卡、阶段框上那一行用它；逐条的（发了什么、
  * 改了哪些文件、和自报对不上的）在阶段详情里现取（TaskStageView.observed），彻底删除后跟着效果日志变。
  * - sent：对外发送的（消息、请求、对外动作），按工具数（带上工具的名字），按第一次出现的先后；
@@ -78,7 +78,7 @@ export const StageObservedCounts = Type.Object({
 export type StageObservedCounts = Static<typeof StageObservedCounts>;
 
 /**
- * 一个阶段这一份预算（361 号票）：负责人只估工具调用次数（计划里的 budget.toolCalls），token 预算由运行时算——
+ * 一个阶段这一份预算：负责人只估工具调用次数（计划里的 budget.toolCalls），token 预算由运行时算——
  * 预计次数（乘校准比例）× 单次计量（这个任务或项目最近每次调用实际记多少，没有历史时按上下文大小估）。
  * 阶段开始时算好记在阶段上；追加预算继续、确认加预算的计划变更时重新算。升级前就开始了的阶段没有，照计划里写的数
  */
@@ -100,11 +100,11 @@ export const StageBudget = Type.Object({
 });
 export type StageBudget = Static<typeof StageBudget>;
 
-/** 一个阶段估的和实际的工具调用次数（361 号票）：验收时记下，同一任务后面的阶段按它校准，也给负责人看 */
+/** 一个阶段估的和实际的工具调用次数：验收时记下，同一任务后面的阶段按它校准，也给负责人看 */
 export const StageCalls = Type.Object({ estimated: Type.Integer({ minimum: 0 }), actual: Type.Integer({ minimum: 0 }) });
 export type StageCalls = Static<typeof StageCalls>;
 
-/** 执行中一个阶段的状态（13 号票）：控制器保管，阶段抽屉和看板的"第 N/M 阶段"取自这里 */
+/** 执行中一个阶段的状态：控制器保管，阶段抽屉和看板的"第 N/M 阶段"取自这里 */
 export const TaskStage = Type.Object({
   stageId: Type.String(),
   title: Type.String(),
@@ -121,43 +121,43 @@ export const TaskStage = Type.Object({
   /** 第一次开始的时间：做到一半停下（等过用户、换去做别的阶段）的阶段，能开始时优先接着做 */
   startedAt: Type.Optional(Type.String()),
   /**
-   * 阈值的计数（14 号票）：被拉回（按规则退回）几次、验收（脚本、评审）退回几次、同一次停滞里催了几次。
+   * 阈值的计数：被拉回（按规则退回）几次、验收（脚本、评审）退回几次、同一次停滞里催了几次。
    * 超过阈值这一支停下找用户（卡住求助）；用户让它接着走时清零，催促有了进展也清零。没有就是 0
    */
   pullBacks: Type.Optional(Type.Integer({ minimum: 0 })),
   returns: Type.Optional(Type.Integer({ minimum: 0 })),
   nudges: Type.Optional(Type.Integer({ minimum: 0 })),
-  /** 这一支为什么停下等用户（14 号票：阈值写明超了什么、做不了的原因、超预算用了多少；state 为 waiting 时） */
+  /** 这一支为什么停下等用户（阈值写明超了什么、做不了的原因、超预算用了多少；state 为 waiting 时） */
   waitNote: Type.Optional(Type.String()),
-  /** 这一份预算（361 号票，见 StageBudget）；还没开始、升级前就开始了的阶段没有 */
+  /** 这一份预算（见 StageBudget）；还没开始、升级前就开始了的阶段没有 */
   budget: Type.Optional(StageBudget),
-  /** 估的和实际的工具调用次数（361 号票，见 StageCalls）：验收时记下，重开时清掉 */
+  /** 估的和实际的工具调用次数（见 StageCalls）：验收时记下，重开时清掉 */
   calls: Type.Optional(StageCalls),
   /**
-   * 最近一次是任务第几次重做时被重开的（84 号票，Task.reworks 当时的值）：效果日志里判定时任务重做次数比它小的是之前那一轮做的
+   * 最近一次是任务第几次重做时被重开的（Task.reworks 当时的值）：效果日志里判定时任务重做次数比它小的是之前那一轮做的
    * （守卫的 GuardTask.reworkNo），"从这里重做"列已经做了的事只算这一轮。没被重开过的没有
    */
   reopenNo: Type.Optional(Type.Integer({ minimum: 1 })),
   /**
-   * 重开时它最近一次交上来没通过的标准（84 号票：重开清掉了验收结果，开始这个阶段时交代里照样带上上次没过的，同认领时
+   * 重开时它最近一次交上来没通过的标准（重开清掉了验收结果，开始这个阶段时交代里照样带上上次没过的，同认领时
    * "最近一次没通过的标准"）；重开之前没交过的没有
    */
   lastFailed: Type.Optional(Type.Array(Type.String())),
-  /** 负责人最近一次宣布完成时写的那一两句（84 号票：complete_stage 的 summary；由你验收的阶段，你验收时的结论卡上带着它） */
+  /** 负责人最近一次宣布完成时写的那一两句（complete_stage 的 summary；由你验收的阶段，你验收时的结论卡上带着它） */
   summary: Type.Optional(Type.String()),
-  /** 编号（93 号票：从计划里存的带过来，"第 1a 阶段"；计划调整后已有的不变）。93 号票之前开始执行的没有，按依赖图现算（listStageCodes） */
+  /** 编号（从计划里存的带过来，"第 1a 阶段"；计划调整后已有的不变）。以前开始执行的没有，按依赖图现算（listStageCodes） */
   code: Type.Optional(Type.String()),
   /**
-   * 最近一次宣布完成时负责人引用、运行时核实过的用户原话（125 号票）：评审的输入里单独一栏就是它，阶段详情里列出。
+   * 最近一次宣布完成时负责人引用、运行时核实过的用户原话：评审的输入里单独一栏就是它，阶段详情里列出。
    * 没引用（或都没核实过）的没有；重开时清掉
    */
   userWords: Type.Optional(Type.Array(VerifiedUserWords)),
-  /** 最近一次宣布完成时系统从效果日志里汇总的个数（274 号票，StageObservedCounts）；没宣布过、重开之后没有 */
+  /** 最近一次宣布完成时系统从效果日志里汇总的个数（StageObservedCounts）；没宣布过、重开之后没有 */
   observed: Type.Optional(StageObservedCounts),
 });
 export type TaskStage = Static<typeof TaskStage>;
 
-/** 流程执行时一步的状态（58 号票）：负责人用 report_step 自报，任务看板上的 Task.steps.list */
+/** 流程执行时一步的状态：负责人用 report_step 自报，任务看板上的 Task.steps.list */
 export const TaskStep = Type.Object({
   stepId: Type.String(),
   title: Type.String(),
@@ -165,7 +165,7 @@ export const TaskStep = Type.Object({
   /** 做完时的一句话要点、跳过或失败的原因 */
   gist: Type.Optional(Type.String()),
   /**
-   * 状态是推断出来的，不是负责人报的（59 号票）：开始了下一步、上一步还报着在做的，
+   * 状态是推断出来的，不是负责人报的：开始了下一步、上一步还报着在做的，
    * 算做完；一轮收工时（计划里的步骤都执行过或说明跳过了），还报着在做的、执行过却没报的，算做完
    */
   inferred: Type.Optional(Type.Literal(true)),
@@ -173,8 +173,8 @@ export const TaskStep = Type.Object({
 export type TaskStep = Static<typeof TaskStep>;
 
 /**
- * 任务的触发方式（76 号票，ADR 0025）：一次性（现在做一次）、定时（按时间表，"按我的工作日"跟着个人工作日历；或者某个时间做一次）、
- * 事件（77 号票：事件发生时——哪个事件来源、哪几种事件、过滤条件，见 event-sources.ts 的登记表）。任务上不写就是一次性
+ * 任务的触发方式（ADR 0025）：一次性（现在做一次）、定时（按时间表，"按我的工作日"跟着个人工作日历；或者某个时间做一次）、
+ * 事件（事件发生时——哪个事件来源、哪几种事件、过滤条件，见 event-sources.ts 的登记表）。任务上不写就是一次性
  */
 export const TaskTrigger = Type.Union([Type.Object({ kind: Type.Literal("once") }), Type.Object({ kind: Type.Literal("schedule"), schedule: ReminderSchedule }), EventTrigger]);
 export type TaskTrigger = Static<typeof TaskTrigger>;
@@ -189,51 +189,51 @@ export const Task = Type.Object({
   state: TaskStateSchema,
   origin: Type.Enum(TASK_ORIGINS),
   /**
-   * 任务的做法（58 号票 ADR 0019；75 号票 ADR 0025 加了普通任务）：普通任务、流程或长程任务，建卡时定下、不能换。
+   * 任务的做法（ADR 0019；ADR 0025 加了普通任务）：普通任务、流程或长程任务，建卡时定下、不能换。
    * 流程和长程任务分开之前建的任务没有这一项，都算长程任务（用 taskKind 取）
    */
   kind: Type.Optional(Type.Enum(TASK_KINDS)),
   /**
-   * 触发方式（76 号票，ADR 0025）：不写是一次性。定时、事件触发的（只有普通任务和流程）登记好了是运营中，每被触发一次是一次运行，
+   * 触发方式（ADR 0025）：不写是一次性。定时、事件触发的（只有普通任务和流程）登记好了是运营中，每被触发一次是一次运行，
    * 各次运行接着同一段会话；触发登记（时间表、下一次、运行记录、暂停）在看板频道的 scheduled_job 事件里（ScheduledJob.ownerTaskId 是这个任务）
    */
   trigger: Type.Optional(TaskTrigger),
-  /** 执行的负责人（12 号票：任务自己的负责人，建卡时产生）；它的会话频道是 maintainer:<负责人 id> */
+  /** 执行的负责人（任务自己的负责人，建卡时产生）；它的会话频道是 maintainer:<负责人 id> */
   maintainerId: Type.String(),
   /**
-   * 任务自己的负责人用的 agent 运行时（286 号票，runtimes.ts）：内核自带的 pi，或者插件登记的运行时的 id；没写是 pi。
+   * 任务自己的负责人用的 agent 运行时（runtimes.ts）：内核自带的 pi，或者插件登记的运行时的 id；没写是 pi。
    * 负责人按它拉起哪个子进程入口（宿主协议不变）；登记它的插件停用时负责人不启动、执行中的任务转等我（写明哪个插件没启用），启用后接着。
-   * 由项目的负责人执行的任务按项目的（Project.runtime）。289 号票起新建时选（发起对话框、秘书建任务时带上），之后在负责人的 ⚙ 里换
+   * 由项目的负责人执行的任务按项目的（Project.runtime）。新建时选（发起对话框、秘书建任务时带上），之后在负责人的 ⚙ 里换
    * （手头这一条做完、原来的写好交接摘要才改成新的，记一条 runtime_set）
    */
   runtime: Type.Optional(Type.String({ minLength: 1 })),
-  /** 给运行时选的值（289 号票，⚙ 里：运行时自己的模型、权限模式、思考档位……）；没有是都跟运行时自己的默认。由项目的负责人执行的任务不用 */
+  /** 给运行时选的值（⚙ 里：运行时自己的模型、权限模式、思考档位……）；没有是都跟运行时自己的默认。由项目的负责人执行的任务不用 */
   runtimeOptions: Type.Optional(RuntimeOptions),
   /**
-   * 任务自己的负责人的工作目录在数据目录外面（290 号票：从运行时已有的会话接管来的，就是会话原来的工作目录）：绝对路径（真实路径）。
+   * 任务自己的负责人的工作目录在数据目录外面（从运行时已有的会话接管来的，就是会话原来的工作目录）：绝对路径（真实路径）。
    * 负责人在这里干活、守卫的工作目录就是它；删任务时不删它（只删数据目录输出区里任务自己的那一格）。没有是在输出区里任务自己的那一格
    */
   workdir: Type.Optional(Type.String({ minLength: 3, maxLength: 1000 })),
-  /** 从运行时已有的会话接管来的（290 号票，RuntimeTakeover：哪个会话、交还了没有；也是二狗的写入锁）。不是接管来的没有 */
+  /** 从运行时已有的会话接管来的（RuntimeTakeover：哪个会话、交还了没有；也是二狗的写入锁）。不是接管来的没有 */
   takeover: Type.Optional(RuntimeTakeover),
   /** 涉及的项目：用户点"发起任务"时选的，有了计划后取自计划 */
   projects: Type.Array(Type.String()),
-  /** 涉及的项目的编号（15 号票起：项目名按当时的项目列表认出来的；项目列表按它数进行中的任务） */
+  /** 涉及的项目的编号（项目名按当时的项目列表认出来的；项目列表按它数进行中的任务） */
   projectIds: Type.Optional(Type.Array(Type.String())),
   /**
-   * 涉及几个项目（17 号票）：建卡时定下（建卡时没写项目的，第一版任务书定下），之后不随计划改动重新判断。
-   * 17 号票之前建的任务没有，按 taskProjectScope 推
+   * 涉及几个项目：建卡时定下（建卡时没写项目的，第一版任务书定下），之后不随计划改动重新判断。
+   * 以前建的任务没有，按 taskProjectScope 推
    */
   projectScope: Type.Optional(Type.Enum(TASK_PROJECT_SCOPES)),
   /**
-   * 项目内部任务（64 号票）：项目的负责人在自己项目里发起（或秘书替用户在这个项目里建）、由它执行的（单项目任务，projectIds 就是这个项目），
+   * 项目内部任务：项目的负责人在自己项目里发起（或秘书替用户在这个项目里建）、由它执行的（单项目任务，projectIds 就是这个项目），
    * 只在项目内部看得到——不上全局任务看板，在项目页的"内部任务"一栏（见 project-internal.ts 的 isProjectInternal）。建卡时定下，不能换
    */
   internal: Type.Optional(ProjectInternal),
   /**
-   * 阶段：total 取自计划（还没有计划时没有这一项）；current 是正在第几阶段（按计划里的顺序，开始执行后才有，13 号票）；
-   * list 是执行中各阶段的状态（开始执行后才有，13 号票）；focus 是负责人最后一次开始的阶段（它 start_stage 的、运行时替它开始的；
-   * 用户同意并行时交给子 agent 的不算，20 号票）：几个阶段同时在做时，负责人的当前阶段按它定
+   * 阶段：total 取自计划（还没有计划时没有这一项）；current 是正在第几阶段（按计划里的顺序，开始执行后才有）；
+   * list 是执行中各阶段的状态（开始执行后才有）；focus 是负责人最后一次开始的阶段（它 start_stage 的、运行时替它开始的；
+   * 用户同意并行时交给子 agent 的不算）：几个阶段同时在做时，负责人的当前阶段按它定
    */
   stages: Type.Optional(
     Type.Object({
@@ -244,7 +244,7 @@ export const Task = Type.Object({
     }),
   ),
   /**
-   * 流程的步骤（58 号票）：total 取自提交的计划（还没有计划时没有这一项），done 是做完（含跳过）的步数；
+   * 流程的步骤：total 取自提交的计划（还没有计划时没有这一项），done 是做完（含跳过）的步数；
    * list 是执行中各步的状态（开始执行后才有）。流程的进度是 done / total
    */
   steps: Type.Optional(
@@ -264,27 +264,27 @@ export const Task = Type.Object({
   waitNote: Type.Optional(Type.String()),
   /** 失败的原因（负责人判失败时必须写） */
   failReason: Type.Optional(Type.String()),
-  /** 系统暂停的原因（14 号票：累计被拒太多次）；用户继续时清掉 */
+  /** 系统暂停的原因（累计被拒太多次）；用户继续时清掉 */
   pauseReason: Type.Optional(Type.Enum(TASK_PAUSE_REASONS)),
-  /** 累计被用户拒绝了几次（审批、计划变更，14 号票）；满了任务转已暂停，用户继续时清零 */
+  /** 累计被用户拒绝了几次（审批、计划变更）；满了任务转已暂停，用户继续时清零 */
   rejections: Type.Optional(Type.Integer({ minimum: 0 })),
   /**
-   * 从某个阶段重做（返工）过几次（84 号票，重开时的 generation）：守卫判定时记下当时的值（效果日志的 reworkNo），
+   * 从某个阶段重做（返工）过几次（重开时的 generation）：守卫判定时记下当时的值（效果日志的 reworkNo），
    * 重做之前那一轮迟到的结果不算进新的一轮。没重做过的没有
    */
   reworks: Type.Optional(Type.Integer({ minimum: 1 })),
   /**
-   * 跑完自动语音播报（100 号票，用户事先给的授权）：开着时做完（定时、事件触发的是每次运行成功）秘书不问，直接把结果的要点念成语音气泡；
-   * 不写是关着（照 99 号票问用户要不要念）。项目内部的任务做完不告诉秘书，没有这一项
+   * 跑完自动语音播报（用户事先给的授权）：开着时做完（定时、事件触发的是每次运行成功）秘书不问，直接把结果的要点念成语音气泡；
+   * 不写是关着（问用户要不要念）。项目内部的任务做完不告诉秘书，没有这一项
    */
   voiceAnnounce: Type.Optional(Type.Boolean()),
   /**
-   * 跟着项目归档前的状态（141 号票）：项目归档（放弃）时运营方案建的内部任务跟着归档，记下原来的状态；取消归档时回到它、清掉。
+   * 跟着项目归档前的状态：项目归档（放弃）时运营方案建的内部任务跟着归档，记下原来的状态；取消归档时回到它、清掉。
    * 用户自己归档的没有（取消归档时照旧留在已归档）
    */
   archivedFrom: Type.Optional(TaskStateSchema),
   /**
-   * 用户删了这个任务（186 号票）：最后一条 task 事件（change: deleted）带着它，文字换成了删除标记；看板、日历、待办、秘书的查看板
+   * 用户删了这个任务：最后一条 task 事件（change: deleted）带着它，文字换成了删除标记；看板、日历、待办、秘书的查看板
    * 都不再有它（守护进程的派生视图读任务时跳过，Web 收到时拿掉它和它的负责人会话）。行留着、编号不收回
    */
   deleted: Type.Optional(Type.Literal(true)),
@@ -302,14 +302,14 @@ export const TaskEventPayload = Type.Object({
   /** 这次变化说的是哪个阶段（阶段的开始、验收、等用户、返工……） */
   stageId: Type.Optional(Type.String()),
   /**
-   * 返工、从这里重做（change 为 rework，84 号票）重开了哪几个阶段：stageId 是你点的那个，这里是它和依赖它的、开始过的。
-   * 84 号票之前的记录没有（那时只对已完成的任务返工：这一刻没验收的就是重开的）
+   * 返工、从这里重做（change 为 rework）重开了哪几个阶段：stageId 是你点的那个，这里是它和依赖它的、开始过的。
+   * 以前的记录没有（那时只对已完成的任务返工：这一刻没验收的就是重开的）
    */
   reopened: Type.Optional(Type.Array(Type.String())),
 });
 export type TaskEventPayload = Static<typeof TaskEventPayload>;
 
-/** 重做时改的一条验收标准（125 号票）：原文；from 是它替换的原来第几条（从 0 数，方式、脚本照原来的），不写是新加的（评审验收） */
+/** 重做时改的一条验收标准：原文；from 是它替换的原来第几条（从 0 数，方式、脚本照原来的），不写是新加的（评审验收） */
 export const StageAcceptanceEdit = Type.Object(
   {
     criterion: Type.String({ minLength: 1, maxLength: 1000 }),
@@ -320,7 +320,7 @@ export const StageAcceptanceEdit = Type.Object(
 export type StageAcceptanceEdit = Static<typeof StageAcceptanceEdit>;
 
 /**
- * "从这里重做"时直接改这一阶段（125 号票）：验收标准（整栏：留下的、改过的、新加的；没列的原来那条去掉）、交付件（整栏）。
+ * "从这里重做"时直接改这一阶段：验收标准（整栏：留下的、改过的、新加的；没列的原来那条去掉）、交付件（整栏）。
  * 不写的那一栏不改。你改的就是你的确认，不出计划变更卡；只改你点的这一阶段，依赖它的照重做的规矩重做
  */
 export const StageEdit = Type.Object(
@@ -333,7 +333,7 @@ export const StageEdit = Type.Object(
 export type StageEdit = Static<typeof StageEdit>;
 
 /**
- * 用户对任务的控制（task_action，13 号票）：暂停、继续、取消、失败后重试、返工（stageId 是要重开的阶段，连同它的下游）、
+ * 用户对任务的控制（task_action）：暂停、继续、取消、失败后重试、返工（stageId 是要重开的阶段，连同它的下游）、
  * 由我验收的阶段验收通过或退回（stageId 是那个阶段）。note 是用户附的话（返工、退回的原因），交给负责人
  */
 export const TaskActionParams = Type.Object({
@@ -341,7 +341,7 @@ export const TaskActionParams = Type.Object({
   action: Type.Enum(TASK_ACTIONS),
   stageId: Type.Optional(Type.String({ minLength: 1 })),
   note: Type.Optional(Type.String({ maxLength: 2000 })),
-  /** 从这里重做时直接改的这一阶段的验收标准、交付件（125 号票，只给 rework）：你改的就是你的确认，不出卡，点重做就生效 */
+  /** 从这里重做时直接改的这一阶段的验收标准、交付件（只给 rework）：你改的就是你的确认，不出卡，点重做就生效 */
   stageEdit: Type.Optional(StageEdit),
 });
 export type TaskActionParams = Static<typeof TaskActionParams>;
@@ -351,7 +351,7 @@ export const TaskActionResult = Type.Object({ taskId: Type.String(), state: Task
 export type TaskActionResult = Static<typeof TaskActionResult>;
 
 /**
- * 一次对多个任务做同一个控制（task_batch_action，90 号票：看板多选）。每个任务各自成败：做不了的（状态不对、找不到）不影响别的，
+ * 一次对多个任务做同一个控制（task_batch_action：看板多选）。每个任务各自成败：做不了的（状态不对、找不到）不影响别的，
  * 结果里逐条写明；任务不能重复
  */
 export const TaskBatchActionParams = Type.Object({
@@ -372,7 +372,7 @@ export const TaskBatchActionResult = Type.Object({ results: Type.Array(TaskBatch
 export type TaskBatchActionResult = Static<typeof TaskBatchActionResult>;
 
 /**
- * 进度卡（progress，13 号票）：任务时间线上的一张卡，出现在负责人的会话里。
+ * 进度卡（progress）：任务时间线上的一张卡，出现在负责人的会话里。
  * - progress：负责人"报告进展"，写所属任务、第 N/M 阶段、进展说明；
  * - acceptance：一个阶段的验收结论（每条标准的方式和结果），judgedBy 是谁判的（评审方式的标"评审判定"）
  */
@@ -381,10 +381,10 @@ export const ProgressCardPayload = Type.Object({
   taskTitle: Type.String(),
   stageId: Type.String(),
   stageTitle: Type.String(),
-  /** 第 N/M 阶段：N 按计划里的顺序（93 号票起文字里写 stageCode；之前的卡、认不出编号时才用这两个） */
+  /** 第 N/M 阶段：N 按计划里的顺序（文字里写 stageCode；之前的卡、认不出编号时才用这两个） */
   stageIndex: Type.Integer({ minimum: 1 }),
   stageTotal: Type.Integer({ minimum: 1 }),
-  /** 这一阶段的编号（93 号票：计划里存的，"第 1a 阶段"）；之前的卡没有 */
+  /** 这一阶段的编号（计划里存的，"第 1a 阶段"）；之前的卡没有 */
   stageCode: Type.Optional(Type.String()),
   kind: Type.Enum(PROGRESS_CARD_KINDS),
   text: Type.String(),
@@ -393,13 +393,13 @@ export const ProgressCardPayload = Type.Object({
       passed: Type.Boolean(),
       judgedBy: Type.Enum(ACCEPTANCE_METHODS),
       /**
-       * 逐条结果：note 是脚本的输出末尾、评审的理由；你验收时退回写的原因记在由你验收的那几条上（84 号票，彻底删除那条退回时连带换成删除标记）。
-       * notRun：这一条的验收没跑起来（311 号票：脚本起不来、命令找不到），不是跑了没过——退回的框照它写"验收没跑起来"；之前的卡没有
+       * 逐条结果：note 是脚本的输出末尾、评审的理由；你验收时退回写的原因记在由你验收的那几条上（彻底删除那条退回时连带换成删除标记）。
+       * notRun：这一条的验收没跑起来（脚本起不来、命令找不到），不是跑了没过——退回的框照它写"验收没跑起来"；之前的卡没有
        */
       results: Type.Array(
         Type.Object({ criterion: Type.String(), method: Type.Enum(ACCEPTANCE_METHODS), passed: Type.Boolean(), note: Type.Optional(Type.String()), notRun: Type.Optional(Type.Boolean()) }),
       ),
-      /** 这次交上来时负责人宣布完成写的那一两句（84 号票：complete_stage 的 summary，尝试记录的备注）；之前的卡没有 */
+      /** 这次交上来时负责人宣布完成写的那一两句（complete_stage 的 summary，尝试记录的备注）；之前的卡没有 */
       summary: Type.Optional(Type.String()),
     }),
   ),
@@ -414,24 +414,24 @@ export const StartTaskParams = Type.Object({
   request: Type.String({ minLength: 1, maxLength: 4000 }),
   projects: Type.Optional(Type.Array(Type.String({ minLength: 1, maxLength: 80 }), { maxItems: 20 })),
   /**
-   * 发起对话框里先选的做法（58 号票；75 号票起有普通任务，对话框里默认选它）：不写是长程任务（老的前端只认两种）。
+   * 发起对话框里先选的做法（有普通任务，对话框里默认选它）：不写是长程任务（老的前端只认两种）。
    * 普通任务不经助理澄清，要做的事就是交给 agent 的任务书，建出就排队、有名额就开始做
    */
   kind: Type.Optional(Type.Enum(TASK_KINDS)),
   /**
-   * 发起对话框里的"什么时候做"（76 号票）：不写是现在做一次；定时的写时间表（重复的，"按我的工作日"跟着个人工作日历；或者某个时间做一次）；
-   * 事件发生时（77 号票）写事件来源、事件和过滤条件。长程任务只能现在做一次。"只提醒我"不是任务，走 create_reminder
+   * 发起对话框里的"什么时候做"：不写是现在做一次；定时的写时间表（重复的，"按我的工作日"跟着个人工作日历；或者某个时间做一次）；
+   * 事件发生时写事件来源、事件和过滤条件。长程任务只能现在做一次。"只提醒我"不是任务，走 create_reminder
    */
   trigger: Type.Optional(TaskTrigger),
-  /** 发起对话框里先勾上"跑完自动播报"（100 号票）：只选了一个项目（建成项目内部任务）的不认 */
+  /** 发起对话框里先勾上"跑完自动播报"：只选了一个项目（建成项目内部任务）的不认 */
   voiceAnnounce: Type.Optional(Type.Boolean()),
   /**
-   * 发起对话框里选的运行时（289 号票：pi 或者现在能用的运行时插件登记的，GET /api/runtimes）：不写是 pi；不认得、插件没启用的被拒。
+   * 发起对话框里选的运行时（pi 或者现在能用的运行时插件登记的，GET /api/runtimes）：不写是 pi；不认得、插件没启用的被拒。
    * 只选了一个项目（建成项目内部任务）的不认：由项目的负责人执行，照项目的
    */
   runtime: Type.Optional(Type.String({ minLength: 1, maxLength: 80 })),
   /**
-   * 在哪个文件夹做（305 号票）：选了能选工作文件夹的运行时（Claude Code）才认，pi 的不看；不写是在默认文件夹下按标题新开一个
+   * 在哪个文件夹做：选了能选工作文件夹的运行时（Claude Code）才认，pi 的不看；不写是在默认文件夹下按标题新开一个
    * （没设默认文件夹的照旧用二狗给任务开的工作目录）。用已有文件夹的，路径不对（不存在、是文件、在数据目录或二狗程序目录里）被拒
    */
   folder: Type.Optional(WorkFolderChoice),
@@ -439,7 +439,7 @@ export const StartTaskParams = Type.Object({
 export type StartTaskParams = Static<typeof StartTaskParams>;
 
 /**
- * 开关任务的"跑完自动播报"（100 号票，set_voice_announce）：任务操作菜单里的"跑完自动播报：开 / 关"、秘书照用户说的。
+ * 开关任务的"跑完自动播报"（set_voice_announce）：任务操作菜单里的"跑完自动播报：开 / 关"、秘书照用户说的。
  * 还没结束的、不是项目内部的任务才能开关
  */
 export const SetVoiceAnnounceParams = Type.Object({ taskId: Type.String({ minLength: 1 }), on: Type.Boolean() });
@@ -463,7 +463,7 @@ export const TaskBrief = Type.Object(
     constraints: Type.Array(Type.String({ minLength: 1 }), { description: "约束（用户说过的限制、不能做的事），尽量用用户的原话：负责人据此编译成规则，计划卡上和原话一起列出" }),
     dataSources: Type.Optional(
       Type.Array(Type.String({ minLength: 1 }), {
-        description: "数据源（362 号票）：要用到的数据在哪，登记过的 MCP 写名字（比如“MCP retention-board”），文件写完整路径。负责人只看得到任务书：你对用户说写了数据源，这里就要真写上；不用数据就不写",
+        description: "数据源：要用到的数据在哪，登记过的 MCP 写名字（比如“MCP retention-board”），文件写完整路径。负责人只看得到任务书：你对用户说写了数据源，这里就要真写上；不用数据就不写",
       }),
     ),
     projects: Type.Array(Type.String({ minLength: 1 }), { description: "涉及的项目（不涉及就写空数组；用户发起时选了项目的，以它为依据）" }),
@@ -493,12 +493,12 @@ export const PlanGrant = Type.Object(
     }),
     maxUses: Type.Optional(Type.Integer({ minimum: 1, description: "次数上限；不写表示不限次数" })),
     command: Type.Optional(
-      Type.String({ minLength: 1, description: "只放行从这条通用 bash 命令拆出来的调用（流程里通用 bash 的步骤由运行时推出，58 号票）；不写表示不限" }),
+      Type.String({ minLength: 1, description: "只放行从这条通用 bash 命令拆出来的调用（流程里通用 bash 的步骤由运行时推出）；不写表示不限" }),
     ),
-    exactArgs: Type.Optional(Type.Literal(true, { description: "只认对象范围里写了的参数：调用多带了别的参数就超出（流程的步骤由运行时推出，58 号票）" })),
+    exactArgs: Type.Optional(Type.Literal(true, { description: "只认对象范围里写了的参数：调用多带了别的参数就超出（流程的步骤由运行时推出）" })),
     realScope: Type.Optional(
       Type.Record(Type.String(), Type.Union([Type.String(), Type.Array(Type.String(), { minItems: 1 })]), {
-        description: "路径类参数的真实路径（展开符号链接、目录联接）：调用里的路径的真实路径也要落在它里面，取不到的不放行（流程的步骤由运行时推出，58 号票）",
+        description: "路径类参数的真实路径（展开符号链接、目录联接）：调用里的路径的真实路径也要落在它里面，取不到的不放行（流程的步骤由运行时推出）",
       }),
     ),
     validDays: Type.Optional(Type.Number({ exclusiveMinimum: 0, maximum: 365, description: "有效期（天）；不写是 7 天" })),
@@ -553,7 +553,7 @@ const planStageFields = {
   policy: PlanPolicy,
   budget: Type.Object(
     { tokens: Type.Integer({ minimum: 0 }), toolCalls: Type.Integer({ minimum: 0 }) },
-    { additionalProperties: false, description: "预算：token（运行时算，361 号票起新计划里是 0；之前存下的计划有数）和工具调用次数" },
+    { additionalProperties: false, description: "预算：token（运行时算，新计划里是 0；之前存下的计划有数）和工具调用次数" },
   ),
   groupId: Type.Optional(Type.String({ description: "所属阶段组的 id" })),
 };
@@ -562,7 +562,7 @@ const planStageFields = {
 export const PlanStageDraft = Type.Object(
   {
     ...planStageFields,
-    // 361 号票：负责人只估次数，token 预算由运行时按实测算；写了 tokens 也不作数（旧的调用照样过校验）
+    // 负责人只估次数，token 预算由运行时按实测算；写了 tokens 也不作数（旧的调用照样过校验）
     budget: Type.Object(
       {
         toolCalls: Type.Integer({ minimum: 0, description: "这个阶段大概要多少次工具调用（读一个文件、改一处、跑一次命令都算一次）" }),
@@ -576,7 +576,7 @@ export const PlanStageDraft = Type.Object(
 export type PlanStageDraft = Static<typeof PlanStageDraft>;
 
 /**
- * 计划里的一个阶段。code 是编号（93 号票，形如 M4a）：守护进程定计划、每次调整时按依赖层定下存进来
+ * 计划里的一个阶段。code 是编号（形如 M4a）：守护进程定计划、每次调整时按依赖层定下存进来
  * （协议包 plan.ts 的 withStageCodes），已有的阶段不改号；之前存下的计划没有，读的地方按依赖图现算
  */
 export const PlanStage = Type.Object(
@@ -601,9 +601,9 @@ export const PlanToolkit = Type.Object(
     mcp: Type.Array(Type.String(), { description: "MCP 名单" }),
     bash: Type.Boolean({ description: "能不能用 bash" }),
     network: Type.Boolean({ description: "能不能联网" }),
-    /** 102 号票：负责人能不能用 tell_secretary 给秘书发消息。不写是能（默认开，之前存下的工具包都没有这一项）；用户关掉了是 false */
+    /** 负责人能不能用 tell_secretary 给秘书发消息。不写是能（默认开，之前存下的工具包都没有这一项）；用户关掉了是 false */
     tellSecretary: Type.Optional(Type.Boolean({ description: `能不能给${ASSISTANT_NAME_MARK}发消息（tell_secretary）；不写是能` })),
-    /** 117 号票：负责人能不能用 send_attachment 把工作目录里的文件作为附件发进它的会话（tell_secretary 带附件也看它）。不写是能；用户关掉了是 false */
+    /** 负责人能不能用 send_attachment 把工作目录里的文件作为附件发进它的会话（tell_secretary 带附件也看它）。不写是能；用户关掉了是 false */
     sendAttachment: Type.Optional(Type.Boolean({ description: "能不能把文件作为附件发给用户（send_attachment）；不写是能" })),
   },
   { additionalProperties: false, description: "工具包" },
@@ -611,7 +611,7 @@ export const PlanToolkit = Type.Object(
 export type PlanToolkit = Static<typeof PlanToolkit>;
 
 /**
- * 涉及的一个项目和它的改动（确认后变成工单，16、17 号票）。涉及多个项目的任务（17 号票）每一行写明所属阶段和这张工单自己的验收标准：
+ * 涉及的一个项目和它的改动（确认后变成工单）。涉及多个项目的任务每一行写明所属阶段和这张工单自己的验收标准：
  * 用户确认计划时每一行建成一张发往这个项目的工单，所属阶段开始时才派出；同一阶段同一项目只写一行
  */
 export const PlanProject = Type.Object(
@@ -652,7 +652,7 @@ export const GrantNarrowing = Type.Object(
 export type GrantNarrowing = Static<typeof GrantNarrowing>;
 
 /**
- * 用户说过的一条限制（对话里说的、任务书约束里写的），由起草计划的负责人编译成时序规则或授权收窄（26 号票）：
+ * 用户说过的一条限制（对话里说的、任务书约束里写的），由起草计划的负责人编译成时序规则或授权收窄：
  * 每条附上用户的原话；规则在整个任务执行期间都检查（交给守卫时加到每个阶段上），先过规则校验；
  * 收窄对计划里的授权项再收窄（只能收窄），提交时就落到授权项上。计划卡上把它们和原话一起列出
  */
@@ -669,7 +669,7 @@ export type PlanUserLimit = Static<typeof PlanUserLimit>;
 
 /**
  * 计划（规格第 8 节）：负责人起草、用"提交计划"工具交出，存在二狗的存储里；计划卡由代码从它生成。
- * 76 号票（ADR 0025）起计划里不再写定时作业（scheduledJobs）：要定时做的事在发起对话框里建成定时触发的普通任务或流程。
+ * （ADR 0025）起计划里不再写定时作业（scheduledJobs）：要定时做的事在发起对话框里建成定时触发的普通任务或流程。
  * 之前存下的计划里可能还带着这一项（事件日志不改写），读的地方一律不认它
  */
 const planFields = <S extends TSchema>(stage: S) => ({
@@ -692,14 +692,14 @@ const planFields = <S extends TSchema>(stage: S) => ({
     },
     { additionalProperties: false },
   ),
-  tokenEstimate: Type.Integer({ minimum: 0, description: "整个任务的 token 粗估（361 号票起由运行时算：各阶段预计次数 × 单次计量）" }),
-  /** 上面那个粗估按账本单价大约多少钱（361 号票，运行时算的）；模型没有单价、之前存下的计划没有 */
+  tokenEstimate: Type.Integer({ minimum: 0, description: "整个任务的 token 粗估（由运行时算：各阶段预计次数 × 单次计量）" }),
+  /** 上面那个粗估按账本单价大约多少钱（运行时算的）；模型没有单价、之前存下的计划没有 */
   costEstimate: Type.Optional(Type.Object({ amount: Type.Number({ minimum: 0 }), currency: Type.String() })),
 });
 export const Plan = Type.Object(planFields(PlanStage), { additionalProperties: false });
 /**
- * 负责人用"提交计划"交的计划：阶段里没有编号（编号由守护进程定，93 号票）。
- * 361 号票：整个任务的 token 粗估也由运行时算，不用写，写了也不算
+ * 负责人用"提交计划"交的计划：阶段里没有编号（编号由守护进程定）。
+ * 整个任务的 token 粗估也由运行时算，不用写，写了也不算
  */
 export const PlanSubmission = Type.Object(
   { ...planFields(PlanStageDraft), tokenEstimate: Type.Optional(Type.Integer({ minimum: 0, description: "不用写：运行时算" })) },
@@ -718,8 +718,8 @@ export const GrantInfo = Type.Object({
   categoryTitles: Type.Array(Type.String()),
   disposition: Type.Enum(DISPOSITIONS),
   /**
-   * 这种操作是不是对外的（84 号票，阶段详情的"权""外"按它分）：守卫的 sendsOut 拿对象范围当参数判——会联网，带了请求数据或者
-   * 不是只往下拉的（推送、发消息、带数据的请求……），和重做前列出的"对外"同一个口径。84 号票之前算的没有（都算本机）
+   * 这种操作是不是对外的（阶段详情的"权""外"按它分）：守卫的 sendsOut 拿对象范围当参数判——会联网，带了请求数据或者
+   * 不是只往下拉的（推送、发消息、带数据的请求……），和重做前列出的"对外"同一个口径。以前算的没有（都算本机）
    */
   outward: Type.Optional(Type.Boolean()),
 });
@@ -745,17 +745,17 @@ export const PlanCardPayload = Type.Object({
   narrowedGrants: Type.Optional(Type.Array(Type.String())),
   /** 用户确认时改过假设栏 */
   assumptionsEdited: Type.Optional(Type.Boolean()),
-  /** 用户确认时在卡上给这个任务加的关注类别 id（在 plan.watchCategories 里；26 号票） */
+  /** 用户确认时在卡上给这个任务加的关注类别 id（在 plan.watchCategories 里） */
   addedCategories: Type.Optional(Type.Array(Type.String())),
   /**
    * 用户的限制里核对得上原话的（限制 id）：quote 原样出现在任务书的约束、用户发起任务时写的话或用户在这个任务的会话里的消息里。
-   * 不在这里的，卡上显示成"负责人转述"（26 号票）
+   * 不在这里的，卡上显示成"负责人转述"
    */
   verifiedQuotes: Type.Optional(Type.Array(Type.String())),
 });
 export type PlanCardPayload = Static<typeof PlanCardPayload>;
 
-/** 计划卡上给这个任务加的一个关注类别：和设置页同一套确定规则，只存在这个任务的计划里（26 号票） */
+/** 计划卡上给这个任务加的一个关注类别：和设置页同一套确定规则，只存在这个任务的计划里 */
 export const PlanCategoryAddition = Type.Object(
   {
     title: Type.String({ minLength: 1, maxLength: WATCH_CATEGORY_TITLE_MAX }),
@@ -778,13 +778,13 @@ export const PlanConfirmInput = Type.Object(
 );
 export type PlanConfirmInput = Static<typeof PlanConfirmInput>;
 
-// ───────────────────────── 计划变更（14 号票） ─────────────────────────
+// ───────────────────────── 计划变更 ─────────────────────────
 
 const draftFields = planFields(PlanStageDraft);
 
 /**
  * 负责人在执行中交来的计划（"提交计划变更"和"自行调整计划"两个工具的参数）：本任务的关注类别、用户的限制、记忆范围
- * 执行中沿用当前计划，不在里面。121 号票起只交要改的：stages 里只写要改的、新加的阶段，没写到的阶段从当前计划原样带上；
+ * 执行中沿用当前计划，不在里面。只交要改的：stages 里只写要改的、新加的阶段，没写到的阶段从当前计划原样带上；
  * 别的栏不写是沿用当前计划，写了整栏按写的算（守护进程 tasks/plan-change.ts 的 mergeDraft）
  */
 export const PlanDraft = Type.Object(
@@ -864,7 +864,7 @@ export const PlanChangeItem = Type.Union([
 export type PlanChangeItem = Static<typeof PlanChangeItem>;
 
 /**
- * 计划变更卡（plan_change，14 号票）：负责人执行中要扩大授权、加能力、加项目、改目标或验收时提交，进待我处理。
+ * 计划变更卡（plan_change）：负责人执行中要扩大授权、加能力、加项目、改目标或验收时提交，进待我处理。
  * 卡上只列相对当前计划新增或改动的部分（changes），只有受影响的阶段（affectedStages）停下来等确认。
  * 确认（可以像计划卡一样勾掉、收窄授权项，加本任务的关注类别）后计划和授权项随之更新，受影响的阶段恢复；
  * 拒绝后负责人在现有授权内重排受影响的阶段，做不到就标做不了、任务转等我
@@ -892,7 +892,7 @@ export const PlanChangeCardPayload = Type.Object({
   narrowedGrants: Type.Optional(Type.Array(Type.String())),
   addedCategories: Type.Optional(Type.Array(Type.String())),
   /**
-   * 负责人引用、运行时核实过的用户原话（125 号票）：卡上单独一栏，标明"运行时核实"——用户一眼看到"这是因为我说了 X"。
+   * 负责人引用、运行时核实过的用户原话：卡上单独一栏，标明"运行时核实"——用户一眼看到"这是因为我说了 X"。
    * 负责人在 why 里写的"用户说了……"只是转述。没引用的没有（之前的卡也没有，可选字段，版本不变）
    */
   userWords: Type.Optional(Type.Array(VerifiedUserWords, { maxItems: USER_WORDS_MAX })),
@@ -900,7 +900,7 @@ export const PlanChangeCardPayload = Type.Object({
 export type PlanChangeCardPayload = Static<typeof PlanChangeCardPayload>;
 
 /**
- * `task_plan` 事件（任务看板频道，14 号票）：执行中任务现在生效的计划换了一版（计划变更确认、负责人自行调整计划）时推一条。
+ * `task_plan` 事件（任务看板频道）：执行中任务现在生效的计划换了一版（计划变更确认、负责人自行调整计划）时推一条。
  * 任务详情的阶段抽屉按它显示（交付件、预算、授权都按这一版：去掉、收窄的授权项不再显示，新加的阶段也有）；
  * 没收到过的任务按它的计划卡
  */
@@ -936,13 +936,13 @@ export const QuestionAnswer = Type.Object({ questionId: Type.String(), answer: T
 export type QuestionAnswer = Static<typeof QuestionAnswer>;
 
 /**
- * 提问卡：成批提问，每题带推荐；回答了就带上答案。秘书澄清用户意图时问；16 号票起项目负责人干活中遇到要问的也用它
+ * 提问卡：成批提问，每题带推荐；回答了就带上答案。秘书澄清用户意图时问；项目负责人干活中遇到要问的也用它
  * （工单转等澄清，askedBy 记着是谁为哪张工单问的，回答交回它，不交给秘书）
  */
 export const QuestionsCardPayload = Type.Object({
   /** 澄清的是哪个任务 */
   taskId: Type.Optional(Type.String()),
-  /** 项目负责人为工单提问（16 号票）：哪个负责人、哪个项目、哪张工单 */
+  /** 项目负责人为工单提问：哪个负责人、哪个项目、哪张工单 */
   askedBy: Type.Optional(Type.Object({ maintainerId: Type.String(), projectId: Type.String(), workOrderId: Type.String() })),
   intro: Type.Optional(Type.String()),
   questions: Type.Array(Question, { minItems: 1 }),
@@ -958,7 +958,7 @@ export type QuestionsAnswerInput = Static<typeof QuestionsAnswerInput>;
 export const QuestionsAnsweredPayload = Type.Object({
   cardId: Type.String(),
   taskId: Type.Optional(Type.String()),
-  /** 项目负责人为工单问的（16 号票）：所属的项目（素材的"任务或项目"） */
+  /** 项目负责人为工单问的：所属的项目（素材的"任务或项目"） */
   projectId: Type.Optional(Type.String()),
   answers: Type.Array(
     Type.Object({
@@ -977,19 +977,19 @@ export const QuestionsAnsweredPayload = Type.Object({
 export type QuestionsAnsweredPayload = Static<typeof QuestionsAnsweredPayload>;
 
 /**
- * "建议发起任务"卡：秘书觉得该发起、但用户没点明的事。卡上两个按钮"作为流程""作为长程任务"（58 号票），
+ * "建议发起任务"卡：秘书觉得该发起、但用户没点明的事。卡上两个按钮"作为流程""作为长程任务"，
  * 用户点了才建任务（建出后带上任务编号和种类）
  */
 export const SuggestTaskCardPayload = Type.Object({
   title: Type.String({ minLength: 1, maxLength: 80 }),
   why: Type.String({ minLength: 1, maxLength: 1000 }),
-  /** 涉及的项目（项目列表里的名字，16 号票）：恰好一个时建出的任务由这个项目的负责人起草并执行 */
+  /** 涉及的项目（项目列表里的名字）：恰好一个时建出的任务由这个项目的负责人起草并执行 */
   projects: Type.Optional(Type.Array(Type.String({ minLength: 1 }))),
   taskId: Type.Optional(Type.String()),
-  /** 用户点的是哪个按钮：建出的任务的种类（58 号票；建议卡只建有计划的两种，普通任务由助理直接交出去） */
+  /** 用户点的是哪个按钮：建出的任务的种类（建议卡只建有计划的两种，普通任务由助理直接交出去） */
   kind: Type.Optional(Type.Enum(PLANNED_TASK_KINDS)),
   /**
-   * 项目的负责人在自己的会话里给的建议卡（64 号票）：点了建出的是这个项目的内部任务（项目的负责人执行、只在项目里看得到），
+   * 项目的负责人在自己的会话里给的建议卡：点了建出的是这个项目的内部任务（项目的负责人执行、只在项目里看得到），
    * 通知交给它而不是秘书。秘书给的建议卡没有这一项
    */
   internal: Type.Optional(ProjectInternal),

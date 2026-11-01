@@ -3,7 +3,7 @@
 // - 纯文本降级版本由 toText 按负载生成，存在卡片实体的 text 里：不认识这种卡（或这个版本）的前端显示它；
 // - 动作：每个动作写明结构化输入的 schema（没有输入就写 undefined），run 拿到的 input 类型由它推出；
 //   run 决定动作之后卡片的状态和负载，并可以给出随卡片更新一起（同一事务）追加的事件（比如提醒被改了）。
-// 本票登记简单提醒卡（reminders/card.ts），其他卡由各自的票登记（daemon.ts 里组装注册表）。
+// 这里登记简单提醒卡（reminders/card.ts），其他卡由各自的模块登记（daemon.ts 里组装注册表）。
 import { CARD_TYPE_VERSIONS, type Card, type CardAction, type CardStatus, type CardType, schemaChecker, type Static, type TSchema } from "@ergo/protocol";
 import type { NewEvent, PurgeRewrite } from "../events/event-store.ts";
 import type { PurgeContext } from "../events/purge.ts";
@@ -40,10 +40,10 @@ export interface CardActionEffect<P> {
   events?: NewEvent[];
   /** 彻底删除（只有记忆删除卡用）：同一事务里改写的事件，见事件存储的 appendBatch */
   purge?: PurgeRewrite[];
-  /** 卡片更新连同 events 落盘之后叫一次（22 号票：快速动作卡上确认的任务控制，事后提示用户、把对应的通知记成处理过） */
+  /** 卡片更新连同 events 落盘之后叫一次（快速动作卡上确认的任务控制，事后提示用户、把对应的通知记成处理过） */
   afterCommit?: () => void;
   /**
-   * 没落盘时叫一次（84 号票：晚一点才有结果的动作等着的时候卡在别处改了、或者落盘出错）：放开动作占着的东西
+   * 没落盘时叫一次（晚一点才有结果的动作等着的时候卡在别处改了、或者落盘出错）：放开动作占着的东西
    * （归档清单上"继续"返工时停稳了的负责人会话）
    */
   abandon?: () => void;
@@ -59,7 +59,7 @@ export interface CardActionSpec<P, I = undefined> {
    */
   input: I;
   /**
-   * 执行动作；不让做时抛 RequestRejected（比如提醒已经响过了，不能再改）。要先等一件事的（84 号票：归档清单上"继续"返工，
+   * 执行动作；不让做时抛 RequestRejected（比如提醒已经响过了，不能再改）。要先等一件事的（归档清单上"继续"返工，
    * 先停稳负责人手头这一轮）返回 Promise：等到了再按卡片那时的样子核一遍（期间被别处改过就不落盘）
    */
   run(ctx: CardActionContext<P, CardActionInput<I>>): CardActionEffect<P> | Promise<CardActionEffect<P>>;
@@ -79,7 +79,7 @@ export interface CardTypeDefinition<S extends TSchema = TSchema, A extends CardA
   /** 纯文本降级版本：不认识这种卡的前端（以及以后的 Telegram 之类）显示它 */
   toText(payload: Static<S>): string;
   /**
-   * 彻底删除（21 号票）时这种卡的负载怎么改写：只把带原话的文本字段换成删除标记，状态相关的字段不变。
+   * 彻底删除时这种卡的负载怎么改写：只把带原话的文本字段换成删除标记，状态相关的字段不变。
    * 负载里会有用户原话的卡（快速动作卡、记忆删除卡）要写；不写的卡不会被彻底删除改写
    */
   purge?(payload: Static<S>, context: PurgeContext): Static<S>;
@@ -103,7 +103,7 @@ export class CardTypeRegistry {
   private readonly types = new Map<string, RegisteredCardType>();
 
   /**
-   * 登记一种卡；同一类型登记两次报错（测试替换登记用 replace）。返回撤销函数（126 号票：插件停用时撤掉）：
+   * 登记一种卡；同一类型登记两次报错（测试替换登记用 replace）。返回撤销函数（插件停用时撤掉）：
    * 只撤自己登记的那一份，已经被别的替换掉的不动
    */
   register(definition: CardTypeDefinition, options: { replace?: boolean } = {}): () => void {

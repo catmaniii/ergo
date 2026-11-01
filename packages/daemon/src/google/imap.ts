@@ -1,4 +1,4 @@
-// 只读的 IMAP 客户端（298 号票，Gmail 按需查用；不加依赖，用 Node 自带的 tls）。只做查邮件要的那几条命令：
+// 只读的 IMAP 客户端（Gmail 按需查用；不加依赖，用 Node 自带的 tls）。只做查邮件要的那几条命令：
 // CAPABILITY、LOGIN、LIST、EXAMINE（只读打开）、UID SEARCH、UID FETCH（只取 BODY.PEEK[...]，不会把邮件标成已读）、LOGOUT、NOOP。
 // - **只读**：发命令的那一处只放行上面这几条（assertReadOnly）；SELECT、STORE、EXPUNGE、APPEND、COPY、MOVE、DELETE……一律拒绝、不发出去；
 //   FETCH 里不许有 BODY[...]（不带 PEEK 的会标已读）和 RFC822 / RFC822.TEXT。EXAMINE 回来的不是 [READ-ONLY] 的也不往下做；

@@ -1,4 +1,4 @@
-// 368 号票：负责人背后的 agent 说成人话（标题栏入口、一行上写什么、现在在做哪一步、用时），临时事件记下版本号
+// 负责人背后的 agent 说成人话（标题栏入口、一行上写什么、现在在做哪一步、用时），临时事件记下版本号
 import { describe, expect, test } from "vitest";
 import {
   backgroundAgentDoing,

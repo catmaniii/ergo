@@ -1,7 +1,7 @@
-// 时间线的缩放（25 号票）录不出来的边角，手写事件序列回放：秘书主线跨天（守护进程的消息时间是真钟，录不出跨天）、
-// 项目负责人的工单段和对话段（16 号票还没做，按共享协议的工单分隔 part 构造）、范围变更和越界（18 号票还没做）、
-// 偏离（14 号票还没做）——这几种记录按共享协议 timeline.ts 的 schema 构造，先过 schema 校验。
-// 还有快速动作的操作记录（21 号票转来：时间线上可见，按凭什么执行的取样式；彻底删除时跟着卡片换掉原话），
+// 时间线的缩放录不出来的边角，手写事件序列回放：秘书主线跨天（守护进程的消息时间是真钟，录不出跨天）、
+// 项目负责人的工单段和对话段（还没做，按共享协议的工单分隔 part 构造）、范围变更和越界（还没做）、
+// 偏离（还没做）——这几种记录按共享协议 timeline.ts 的 schema 构造，先过 schema 校验。
+// 还有快速动作的操作记录（转来：时间线上可见，按凭什么执行的取样式；彻底删除时跟着卡片换掉原话），
 // 往上翻取回的旧页里的记录，活动状态的说明和进度、断线重连后按序号补齐。
 import { HistoryPage as HistoryPageSchema, schemaChecker, TimelineRecordEventPayload } from "@ergo/protocol";
 import { describe, expect, test } from "vitest";
@@ -48,7 +48,7 @@ function tool(callId: string, overrides: Partial<ToolCallPart> = {}): ToolCallPa
   return { type: "tool_call", callId, tool: "write", argsSummary: "a.md", categoryTitles: [], disposition: "do", withinGrant: false, genericBash: false, outcome: "done", ...overrides };
 }
 
-/** 一张已执行的快速动作卡和它的操作记录（basis 不给就是 25 号票之前的记录） */
+/** 一张已执行的快速动作卡和它的操作记录（basis 不给就是以前的记录） */
 function quickAction(
   conversation: string,
   seq: number,
@@ -114,7 +114,7 @@ describe("秘书主线：全局层按天聚色块", () => {
     ...quickAction(S, 9, 2, { id: "a2", title: "下周一不上班", explicit: true, basis: "explicit", handledAt: "2026-10-08T08:05:00.000+08:00" }),
     // 推断出来、处置是直接做（在已有授权内）：直接执行
     ...quickAction(S, 10, 3, { id: "a3", title: "记住：喜欢靠窗", explicit: false, basis: "within_grant", handledAt: "2026-10-08T08:06:00.000+08:00" }),
-    // 25 号票之前的操作记录：没写凭什么执行的，推断出来的不知道
+    // 以前的操作记录：没写凭什么执行的，推断出来的不知道
     ...quickAction(S, 11, 4, { id: "a4", title: "记住：早年的", explicit: false, handledAt: "2026-10-08T08:07:00.000+08:00" }),
   ];
   const state = replay(inputs);
@@ -210,7 +210,7 @@ describe("项目负责人的会话：全局层按工单段聚色块，对话段�
   };
   const inputs: Array<EventFrame | UiInput> = [
     frame("projects", 1, "project", { project, change: "created", from: null, by: "user" }),
-    // 立项问答（16 号票之前没有分隔线）
+    // 立项问答（以前没有分隔线）
     frame(PM, 1, "message", { message: message("p1", PM, T("00:00"), [text("这个项目做什么？")], "user"), projectId: "p-1" }),
     frame(PM, 2, "message", { message: message("p2", PM, T("00:10"), [text("先问几个问题")]), projectId: "p-1" }),
     // 第一张工单
@@ -225,7 +225,7 @@ describe("项目负责人的会话：全局层按工单段聚色块，对话段�
     frame(PM, 9, "message", { message: message("p9", PM, T("03:00"), [divider("W-2", "出清单")], "system"), projectId: "p-1", taskId: "t-3" }),
     frame(PM, 10, "message", { message: message("p10", PM, T("03:05"), [tool("c2", { tool: "move_files", argsSummary: "回收区", categoryTitles: ["删除或覆盖"], disposition: "do_then_tell" })]), projectId: "p-1", taskId: "t-3" }),
     // 新前端还不认识的记录：完整视图里照样显示，要点层不收
-    recordFrame(PM, 11, { record: { id: "x-1", kind: "something_new", summary: "以后的票加的记录", time: T("03:06") }, projectId: "p-1" }),
+    recordFrame(PM, 11, { record: { id: "x-1", kind: "something_new", summary: "以后加的记录", time: T("03:06") }, projectId: "p-1" }),
   ];
   const state = replay(inputs);
 
@@ -264,7 +264,7 @@ describe("项目负责人的会话：全局层按工单段聚色块，对话段�
   });
 });
 
-describe("任务的负责人会话：偏离记录（14 号票）进要点层，并落在它所在阶段的色块上", () => {
+describe("任务的负责人会话：偏离记录进要点层，并落在它所在阶段的色块上", () => {
   const TM = "maintainer:tm-5";
   const task = {
     id: "t-5",

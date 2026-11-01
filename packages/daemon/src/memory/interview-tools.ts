@@ -1,14 +1,14 @@
 // @i18n-ignore-file model：工具的说明、参数说明和交回的文字都是给记忆管理员（模型）看的；工具的名字走 t()。
 //
-// 记忆管理员做了解你访谈用的四个工具（284 号票；问法写在它的系统提示和开场的系统消息里，见 interview-guide.ts）：
+// 记忆管理员做了解你访谈用的四个工具（问法写在它的系统提示和开场的系统消息里，见 interview-guide.ts）：
 // - begin_interview：用户在管理员的会话里直接说想做访谈时开一次（从约访卡、记忆页、秘书那里开的不用它：那几处已经开好、放了开场的系统消息）；
 // - finish_interview：收尾——记下这个主题聊透了没有（聊透了下次换下一个），会话里放一句给用户看的说明；
 // - forget_interview_answers：用户说"这个别记"：把这次访谈里用户最近说的几句忘掉（走现有的忘掉：追加一条记忆命令，素材库删掉、
 //   推理库里照老规矩处理），不留在素材里；
-// - propose_personal_file：访谈里听到的档案信息（生日、电话、单位……）记下（用户 2026-10-25 定）：访谈开着时按 281 号票的快速动作
+// - propose_personal_file：访谈里听到的档案信息（生日、电话、单位……）记下：访谈开着时按快速动作
 //   personal_file 的执行器校验、只记在访谈的服务里，不出卡；收尾 finish_interview 时这次记下的合成一张档案核对卡（interview_files），
 //   逐条确认，确认的经 personal_file 的执行器写进档案（同一个写入口），留痕写"记忆管理员提议、用户确认的"。不一项一张，
-//   283 号票的"每天一张"也不并进来（访谈刚聊完时核对最顺）。没在访谈里时照 281 号票出一人一张的核对卡（总是出卡）。
+//   "每天一张"也不并进来（访谈刚聊完时核对最顺）。没在访谈里时出一人一张的核对卡（总是出卡）。
 // 管理员自己的总结只是它的回复：没有把总结写成结论的工具（review_memory_claim 只记用户对已有结论的表态）。
 // 另外 interviewInputContext：访谈开着时跟在它每一轮输入后面的问法要点、第几个来回（curator.ts 交给会话的 inputContext）。
 import { randomUUID } from "node:crypto";
@@ -34,7 +34,7 @@ export interface InterviewToolDeps {
   /** 素材库：认出这几句话的素材 */
   materials: Pick<Materials, "list">;
   /**
-   * 没在访谈里时提议写个人档案（281 号票的快速动作 personal_file，总是出核对卡）；组合根给。访谈里的由访谈的服务记下、收尾时合成一张卡
+   * 没在访谈里时提议写个人档案（快速动作 personal_file，总是出核对卡）；组合根给。访谈里的由访谈的服务记下、收尾时合成一张卡
    */
   proposePersonalFile?: (params: unknown, call: HostToolCall) => HostToolOutput | Promise<HostToolOutput>;
   log?: (line: string) => void;
@@ -75,7 +75,7 @@ export function interviewInputContext(
   const session = interviews.active();
   if (!session) return undefined;
   // 开场的系统消息那一轮（按开始时记下的消息编号认）：从哪开的、访谈编号、问法——这些不写在用户看得到的那一行里；
-  // 330 号票（R15）：问题箱里还开着的几个一并交给它（访谈里可以连问几个）
+  // ADR-0032 R15：问题箱里还开着的几个一并交给它（访谈里可以连问几个）
   if (message.speaker === "system") return message.id === session.openingMessageId ? interviewOpeningContext(session.id, session.topic, session.by, box()) : undefined;
   const round = interviews.answersOf(session.id).indexOf(message.id) + 1;
   return round > 0 ? interviewTurnContext(session.topic, round) : undefined;
@@ -143,7 +143,7 @@ export function interviewTools(deps: InterviewToolDeps): HostTool[] {
         const picked = answers.slice(Math.max(0, end - args.count), end);
         const found = picked.flatMap((messageId) => deps.materials.list({ messageId }));
         const materialIds = [...new Set(found.map((m) => m.id))];
-        // 366 号票：这几句里记下来的文件一起删（命令记着媒体编号，memory/after-purge.ts）
+        // 这几句里记下来的文件一起删（命令记着媒体编号，memory/after-purge.ts）
         const mediaIds = rememberedMediaOf(found);
         if (materialIds.length === 0) return { text: "这几句话没有在素材里（已经忘掉了，或者语音还没识别出来）。照实告诉用户这段不会记。" };
         const payload: DeleteCommandPayload = {
@@ -179,7 +179,7 @@ export function interviewTools(deps: InterviewToolDeps): HostTool[] {
   ];
 }
 
-/** 330 号票（R15）：问题箱里还开着（没问过）的，按优先级最多 INTERVIEW_BOX_MAX 个；推理库读不到是空的 */
+/** ADR-0032 R15：问题箱里还开着（没问过）的，按优先级最多 INTERVIEW_BOX_MAX 个；推理库读不到是空的 */
 export function openBoxQuestions(graph: { questions(query: { limit?: number }): { ready: boolean; items: readonly { id: string; text: string; status: string }[] } }): InterviewBoxQuestion[] {
   try {
     const view = graph.questions({ limit: 50 });

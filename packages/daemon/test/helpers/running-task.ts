@@ -1,8 +1,8 @@
 // 主切面里要一个"执行中"的任务，两种走法：
-// - runningTask（22 号票：秘书的看板感知、任务控制）：任务直接经任务服务建出、写好任务书，负责人（faux）交一份只有一个阶段的计划，
+// - runningTask（秘书的看板感知、任务控制）：任务直接经任务服务建出、写好任务书，负责人（faux）交一份只有一个阶段的计划，
 //   测试在计划卡上确认，有名额就开始执行。
 //   用法：startTestDaemon({ maintainer: maintainerScript() })，连上订阅了看板和卡片频道的前端，再 runningTask(td, frontend, "标题")。
-// - startRunningTask（23 号票的被杀恢复、LSM 报忙）：只经前端协议走，守护进程在测试进程里、在独立进程里都能用。
+// - startRunningTask（被杀恢复、LSM 报忙）：只经前端协议走，守护进程在测试进程里、在独立进程里都能用。
 //   前端点"发起任务"，秘书按剧本写任务书交给 t-1 的负责人 tm-1，负责人按剧本交一份一个阶段、开 bash 的计划，前端在计划卡上确认。
 //     const td = await startTestDaemon({ secretary: SECRETARY_BRIEFS, maintainer: (_id, n) => maintainerScripts(执行时的剧本)[n - 1] ?? [] });
 //     const frontend = await TestFrontend.connect(td.url);
@@ -15,7 +15,7 @@ import type { TestFrontend } from "./frontend.ts";
 import { samplePlan, submitPlanStep } from "./plans.ts";
 import { waitUntil } from "./process.ts";
 
-/** 只有一个开放阶段、评审验收（112 号票起长程任务不能写由你验收）、不涉及授权的计划 */
+/** 只有一个开放阶段、评审验收（长程任务不能写由你验收）、不涉及授权的计划 */
 export function onePlan(): Plan {
   const base = samplePlan();
   return {
@@ -84,7 +84,7 @@ export const SECRETARY_BRIEFS: FauxStep[] = [
 
 /**
  * 一个阶段、工具包开 bash 不联网、脚本验收的计划。带一条在项目外建目录的授权项（不会真用到）：计划因此"预料到了"越出项目目录
- * 这一类，任务里读写项目外的文件判为超出授权——先问用户、调用等着用户批准（14 号票：计划完全没涉及的类别会马上挂起这一支，
+ * 这一类，任务里读写项目外的文件判为超出授权——先问用户、调用等着用户批准（计划完全没涉及的类别会马上挂起这一支，
  * 不等），这里的主切面要的是"调用在等审批"
  */
 export function bashPlan(): Plan {

@@ -1,9 +1,9 @@
-// 记忆 · 素材的成批删除（167 号票起在这里：素材页顶栏的"成批删除"进来，#/more/memory/materials-delete；原来是设置 · 删除素材，
+// 记忆 · 素材的成批删除（在这里：素材页顶栏的"成批删除"进来，#/more/memory/materials-delete；原来是设置 · 删除素材，
 // 这一整套原样挪过来，删的语义、确认、删不掉的说明一字不改）。
-// 21 号票：按会话或按时间段删。三种删法：忘掉（默认）、彻底删除、别推断。
+// 按会话或按时间段删。三种删法：忘掉（默认）、彻底删除、别推断。
 // 范围里有几条素材、有素材的会话都问守护进程（HTTP）；确认后对范围内的全部素材执行，同一次确认重发只执行一次。
-// 彻底删除另外连带范围里没有素材的语音（没识别出文字的，31 号票）：它们的消息和录音一起删，范围里只有它们时也能删。
-// 158 号票：下面列出范围里的素材（新的在前，一次 30 条，"再显示"接着取），点一条进下一级（167 号票起 #/more/memory/materials-delete/<素材 id>）看完整内容和来源、
+// 彻底删除另外连带范围里没有素材的语音（没识别出文字的）：它们的消息和录音一起删，范围里只有它们时也能删。
+// 下面列出范围里的素材（新的在前，一次 30 条，"再显示"接着取），点一条进下一级（#/more/memory/materials-delete/<素材 id>）看完整内容和来源、
 // 跳到出处的那条消息、单独删这一条（MaterialDetail.tsx）。选的范围、删法和列表在这一页一直留着：进详情再返回还在原处；
 // 跳到出处的消息再回来（这一页重新打开）范围和删法也还是上次选的（只记在这次打开的网页里，刷新回到默认）。
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -42,7 +42,7 @@ function rangeIso(value: string, end: boolean): string {
   return nowIso(new Date(end ? ms + 59_999 : ms));
 }
 
-/** 上次选的范围和删法（158：跳到出处的消息再回来，这一页重新打开时还是它；只记在这次打开的网页里） */
+/** 上次选的范围和删法（跳到出处的消息再回来，这一页重新打开时还是它；只记在这次打开的网页里） */
 interface Choice {
   by: By;
   conversation: string;
@@ -52,7 +52,7 @@ interface Choice {
 }
 let remembered: Choice | undefined;
 
-/** 确认框的标题（171 号票：英文按删法各写一句，中文和原来拼出来的"<删法>：<范围>？"一样） */
+/** 确认框的标题（英文按删法各写一句，中文和原来拼出来的"<删法>：<范围>？"一样） */
 const CONFIRM_TITLE: Readonly<Record<MemoryDeleteMode, string>> = {
   forget: "pages.materialsDelete.confirmTitle.forget",
   purge: "pages.materialsDelete.confirmTitle.purge",
@@ -106,7 +106,7 @@ export function MaterialsBulkDelete({ item, onOpen, onClose, navigate }: { item?
     };
   }, [http, scope, scopeKey]);
 
-  // 范围里的素材（158）：换了范围、删过之后从头取；同一个范围删过之后取回的条数不少于原来手里的（返回列表时还在原处）
+  // 范围里的素材：换了范围、删过之后从头取；同一个范围删过之后取回的条数不少于原来手里的（返回列表时还在原处）
   const [list, setList] = useState<{ key: string; scope: string; items: MaterialListItem[]; total: number }>();
   const [listFailed, setListFailed] = useState<string>();
   const shown = useRef({ scope: "", count: 0 });

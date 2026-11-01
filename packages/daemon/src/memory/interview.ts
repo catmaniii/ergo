@@ -1,5 +1,5 @@
-// 了解你访谈（284 号票，CONTEXT.md"了解你访谈"；计划 .scratch/ergo-memory/plan-2026-10-25-phase2.md 第 4 节第二批）：
-// 记忆管理员和用户约的访谈，一次一个主题，用来冷启动对用户的了解。用户 2026-10-25 定：由记忆管理员来做，每周约一次，用户也能随时开。
+// 了解你访谈（CONTEXT.md"了解你访谈"）：
+// 记忆管理员和用户约的访谈，一次一个主题，用来冷启动对用户的了解。由记忆管理员来做，每周约一次，用户也能随时开。
 //
 // 这个文件是访谈的记录和发起（记忆插件装配，服务 MEMORY_INTERVIEWS）：
 // - 记录（事件溯源，守护进程内部的 internal 频道、事件类型 memory_interview，按 change 分）：约了一次（invited）、开始（started：
@@ -15,9 +15,9 @@
 // - 访谈开着时，用户在管理员的会话里说的话（打的字、语音）归属里带着访谈编号和管理员问的那一句（MessageScope.interviewId、
 //   interviewQuestion，组合根的 userMessageScopeOf 现取 messageScope()），素材的采集规则据此标上"来自访谈"（INTERVIEW_CONTEXT）、
 //   把问的那句作为上下文排在用户的话前面（标明是管理员问的，不算本人的话），当晚整理照常读成本人的证据；
-// - 档案信息（用户 2026-10-25 定）：管理员聊的时候听到了用 propose_personal_file 记下（collectFile：校验过、只记在内存里，不出卡），
-//   收尾时这次记下的合成一张档案核对卡（卡片类型 interview_files），逐条"确认""不记"；确认的经 281 号票的快速动作 personal_file 的
-//   执行器写进档案（同一个写入口、同样留痕，写"记忆管理员提议、用户确认的"）。283 号票的"每天一张"不并进来；
+// - 档案信息：管理员聊的时候听到了用 propose_personal_file 记下（collectFile：校验过、只记在内存里，不出卡），
+//   收尾时这次记下的合成一张档案核对卡（卡片类型 interview_files），逐条"确认""不记"；确认的经快速动作 personal_file 的
+//   执行器写进档案（同一个写入口、同样留痕，写"记忆管理员提议、用户确认的"）。"每天一张"不并进来；
 // - 结束（管理员的 finish_interview）：记一条 ended，会话里放一句给用户看的说明（记下了几段、主题算不算聊过），有档案信息的同一事务出那张核对卡。
 //   管理员的总结只是它的回复，不进素材、不写成结论。
 // 用量：访谈就在管理员的会话里，模型调用照常记在记忆管理员名下（账本的角色 curator，消耗页上"记忆管理员"那一行）。
@@ -185,12 +185,12 @@ export interface MemoryInterviews {
   /**
    * 管理员在访谈里听到的档案信息（propose_personal_file 的参数，和 personal_file 快速动作同一份）：按 personal_file 的执行器校验、
    * 拆成一人一项记在内存里（同一个人的同一项以后记的为准），收尾时合成一张核对卡。交回给管理员的话；没在聊（或者没有 personal_file 的执行器）
-   * 是 undefined——调用方照 281 号票出一人一张的核对卡
+   * 是 undefined——调用方出一人一张的核对卡
    */
   collectFile(params: PersonalFileParams, call: { inputMessageId?: string | undefined; toolCallId?: string | undefined }): { text: string; isError?: boolean } | undefined;
   /**
    * 档案核对卡上点了"确认"：这一条经 personal_file 的执行器写进档案（同一事务记操作记录、卡片更新）；remind 是生日、纪念日的每年提醒
-   * 勾了没有、提前几天（283 号票；不给照卡上默认的建）
+   * 勾了没有、提前几天（不给照卡上默认的建）
    */
   confirmFile(card: Card, payload: InterviewFilesCardPayload, itemId: string, remind?: ReadonlyArray<{ field: string; daysBefore: number }>): CardActionEffect<InterviewFilesCardPayload>;
   /** 现在该约就约一次（内部作业到点时做的就是它）：放了卡交回卡片编号 */
@@ -267,7 +267,7 @@ interface NormalizedFile {
   relation?: string;
   fields: PersonalFileCardField[];
   note?: { text: string; date: string };
-  /** 283 号票：生日、纪念日的每年提醒（默认勾着） */
+  /** 生日、纪念日的每年提醒（默认勾着） */
   remind?: PersonalFileCardRemind[];
 }
 
@@ -521,7 +521,7 @@ export function createMemoryInterviews(options: MemoryInterviewsOptions): Memory
         throw new RequestRejected("bad_params", t("memory.interview.files.failed", { reason: err instanceof Error ? err.message : String(err) }));
       }
       const context = actionContext(card, { actionId: item.id, conversation: payload.conversation, ...(item.inputMessageId === undefined ? {} : { inputMessageId: item.inputMessageId }) });
-      // 283 号票：勾了的每年提醒（只认这一条卡上列着的字段）；没带照规范化给的默认（勾着、提前 3 天）
+      // 勾了的每年提醒（只认这一条卡上列着的字段）；没带照规范化给的默认（勾着、提前 3 天）
       const offered = new Set((checked.params as unknown as NormalizedFile).remind?.map((r) => r.field) ?? []);
       const params = remind === undefined ? checked.params : { ...(checked.params as object), chosen: remind.filter((r) => offered.has(r.field)) };
       const outcome = options.quickActions.execute(executor, params, context, checked.title);

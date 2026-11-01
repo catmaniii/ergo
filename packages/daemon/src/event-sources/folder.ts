@@ -1,4 +1,4 @@
-// 本机文件夹变化（77 号票，来源编号 folder）：用 Node 自带的 fs.watch 监视指定文件夹（含子文件夹时 recursive），
+// 本机文件夹变化（来源编号 folder）：用 Node 自带的 fs.watch 监视指定文件夹（含子文件夹时 recursive），
 // 新增、修改、删除文件推给等它的订阅，可以按文件名模式过滤（*.pdf）。
 // - 合成一次：fs.watch 报一次变化只记下是哪个文件，等这个文件安静 settleMs（配置 eventSources.folderSettleMs）再去看它
 //   （一直在变的最多等 settleMs 的 10 倍）；看的时候和比对底子比：底子里没有、现在有是新增，大小或修改时间变了是修改，底子里有、现在没了是删除，
@@ -235,7 +235,7 @@ export function createFolderSource(options: FolderSourceOptions): EventSourceImp
     const save = () => {
       const data: Baseline = { folder, root, recursive, files: Object.fromEntries([...files].map(([k, e]) => [k, [e.m, e.s]])), seq };
       try {
-        // 先写临时文件再改名（被占着时重试，265 号票）
+        // 先写临时文件再改名（被占着时重试）
         writeFileAtomic(file, JSON.stringify(data));
       } catch (err) {
         ctx.log(folderLog.saveError(folder, errorText(err)));

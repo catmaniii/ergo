@@ -1,7 +1,7 @@
-// 参考音色（规格第 22 节，32 号票）：用户导入的一段干净录音加它的逐字稿，agent 用语音回复时照它的声音克隆。属于个人数据，
+// 参考音色（规格第 22 节）：用户导入的一段干净录音加它的逐字稿，agent 用语音回复时照它的声音克隆。属于个人数据，
 // 存在数据目录的 voices 区（不进仓库），文件就是真相，不进事件日志：
-//   voices/<id>/reference.wav   参考录音（230 号票起：导入的常见音频先经本机 ffmpeg 转成 16 kHz、单声道、PCM16 的 WAV 再存）
-//   voices/<id>/reference.txt   逐字稿（UTF-8；Fish 克隆要 voice_ref 和 reference_text 同时给；230 号票起不给就自动识别）
+//   voices/<id>/reference.wav   参考录音（导入的常见音频先经本机 ffmpeg 转成 16 kHz、单声道、PCM16 的 WAV 再存）
+//   voices/<id>/reference.txt   逐字稿（UTF-8；Fish 克隆要 voice_ref 和 reference_text 同时给；不给就自动识别）
 //   voices/<id>/voice.json      { format: 1, id, name, audioFile, referenceTextFile, durationMs, sha256, importedAt, builtin? }
 //   voices/current.json         { format: 1, voiceId }：设置里选的那一个
 // audio.cpp 读不了带中文的路径，所以目录和文件名都用英文 id（导入时生成 v-xxxxxxxx），显示名只在 voice.json 里。
@@ -15,7 +15,7 @@
 // 装过之后再启动就看到标记、什么都不做；从来没装过的（用户一上来就自己导入了）照"一条都没有时装内置的"办。
 // 理由和取舍见 docs/architecture/adr/0036-builtin-default-voice.md。
 // 语音回复用"现在的那个"：设置里选过的；没选过（或选的被删了）就用最早导入的（只有一个时就是它）。
-// 230 号票（用户定"导入音频要支持更多类型……大不了用本地 ffmpeg 转""直接用语音转文本识别逐字稿"）：
+// "导入音频要支持更多类型……大不了用本地 ffmpeg 转""直接用语音转文本识别逐字稿"：
 // - 导入收 wav、mp3、m4a、aac、opus、ogg、flac、webm 等常见音频，转码在 audio-convert.ts（可注入，测试不真跑 ffmpeg）；
 // - 1–30 秒按转换后的真实时长判；转不了、ffmpeg 不在、识别为空或失败都给明确的原因，不建目录；
 // - 请求里给了 referenceText 就照用（兼容旧调用、手工修正），不给就调识别进程的 transcribe()（和语音消息共用）；
@@ -62,7 +62,7 @@ export interface ResolvedReferenceVoice extends ReferenceVoice {
   audioPath: string;
 }
 
-/** 导入一个参考音色要的东西：名字、录音（常见音频，转不转由实现来）、可选的逐字稿（230 号票：不给就自动识别） */
+/** 导入一个参考音色要的东西：名字、录音（常见音频，转不转由实现来）、可选的逐字稿（不给就自动识别） */
 export interface ReferenceVoiceImport {
   name: string;
   referenceText?: string;
@@ -94,7 +94,7 @@ export interface ReferenceVoices {
   audioPath(voiceId: string): string | undefined;
   /**
    * 导入一个：同样的录音和名字已经导过就拿到那一个（created 为 false）。不合规矩的抛 RequestRejected；
-   * 230 号票起录音收常见音频（先经本机 ffmpeg 转成 16 kHz 单声道 WAV），不给逐字稿就自动识别（抛 ReferenceVoiceTranscribeFailed）
+   * 录音收常见音频（先经本机 ffmpeg 转成 16 kHz 单声道 WAV），不给逐字稿就自动识别（抛 ReferenceVoiceTranscribeFailed）
    */
   import(input: ReferenceVoiceImport): Promise<{ voice: ReferenceVoice; created: boolean }>;
   /** 选它作为语音回复用的 */
@@ -116,7 +116,7 @@ export interface ReferenceVoiceOptions {
   /** voices 区 */
   dir: string;
   log: (line: string) => void;
-  /** 把导入的音频转成 16 kHz 单声道 PCM16 WAV 的执行器（230 号票；测试换成不跑 ffmpeg 的假的） */
+  /** 把导入的音频转成 16 kHz 单声道 PCM16 WAV 的执行器（测试换成不跑 ffmpeg 的假的） */
   converter: AudioConverter;
   /** 自动识别逐字稿用的识别进程（和语音消息共用）；不给时只能导入带逐字稿的 */
   recognizer?: Recognizer;
@@ -243,7 +243,7 @@ export function openReferenceVoices(options: ReferenceVoiceOptions): ReferenceVo
     return voice;
   };
 
-  /** 自动识别逐字稿（230 号票）：识别进程没就绪、识别失败或超时都算 ReferenceVoiceTranscribeFailed（HTTP 503） */
+  /** 自动识别逐字稿：识别进程没就绪、识别失败或超时都算 ReferenceVoiceTranscribeFailed（HTTP 503） */
   const transcribe = async (audioPath: string, audioMs: number): Promise<string> => {
     if (!recognizer) throw new RequestRejected("bad_params", t("voice.reference.noRecognizer"));
     let text: string;
@@ -288,12 +288,12 @@ export function openReferenceVoices(options: ReferenceVoiceOptions): ReferenceVo
       if (!name || name.length > REFERENCE_VOICE_NAME_MAX) throw new RequestRejected("bad_params", t("voice.reference.badName", { max: REFERENCE_VOICE_NAME_MAX }));
       if (givenText.length > REFERENCE_VOICE_TEXT_MAX) throw new RequestRejected("bad_params", t("voice.reference.badText", { max: REFERENCE_VOICE_TEXT_MAX }));
       if (audio.length > REFERENCE_VOICE_MAX_BYTES) throw new RequestRejected("bad_params", t("voice.reference.tooBig", { max: REFERENCE_VOICE_MAX_BYTES / 1024 / 1024 }));
-      // 同样的录音和名字：早就有，直接交回（230 号票：不必再转一次码）
+      // 同样的录音和名字：早就有，直接交回（不必再转一次码）
       const sha256 = createHash("sha256").update(audio).digest("hex");
       const same = all().find((v) => v.sha256 === sha256 && v.name === name);
       if (same) return { voice: publicOf(same), created: false };
 
-      // 230 号票：统一经本机 ffmpeg 转成 16 kHz、单声道、PCM16 的 WAV；1–30 秒按转换后的真实时长判
+      // 统一经本机 ffmpeg 转成 16 kHz、单声道、PCM16 的 WAV；1–30 秒按转换后的真实时长判
       const converted = await converter.convert(audio);
       try {
         const wav = readWav(converted.wav);
@@ -316,7 +316,7 @@ export function openReferenceVoices(options: ReferenceVoiceOptions): ReferenceVo
           fs.writeFileSync(path.join(staging, AUDIO_FILE), converted.wav);
           fs.writeFileSync(path.join(staging, TEXT_FILE), referenceText, "utf8");
           fs.writeFileSync(path.join(staging, META_FILE), `${JSON.stringify(meta, null, 2)}\n`, "utf8");
-          // 刚写的文件被杀毒扫着时整个目录改名等一会儿重试（265 号票；异步等，不挡事件循环）
+          // 刚写的文件被杀毒扫着时整个目录改名等一会儿重试（异步等，不挡事件循环）
           await renameRetryingAsync(staging, path.join(dir, id));
         } catch (err) {
           fs.rmSync(staging, { recursive: true, force: true });

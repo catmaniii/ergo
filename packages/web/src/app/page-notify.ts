@@ -1,4 +1,4 @@
-// 系统通知的出口接到页面上（110 号票）：app/system-notify.ts 不碰浏览器的全局变量，这里接上 window.Notification、
+// 系统通知的出口接到页面上：app/system-notify.ts 不碰浏览器的全局变量，这里接上 window.Notification、
 // 鸿蒙 App 的原生桥（page-native.ts）和页面地址。单独一个文件，system-notify.ts、native-notify.ts 就能在 Node 里测。
 import { pushHash } from "./history-nav.ts";
 import { followNotifyInApp, type NotifyOpenScope } from "./native-notify.ts";
@@ -21,7 +21,7 @@ function browserNotifications(): BrowserNotifications | undefined {
   };
 }
 
-/** 这个页面的那一份出口（几处发通知共用：同一件事只发一条；124 号票起每一条的结果记进 Debug 工具集的通知记录） */
+/** 这个页面的那一份出口（几处发通知共用：同一件事只发一条；每一条的结果记进 Debug 工具集的通知记录） */
 export function pageNotifier(): SystemNotifier {
   notifier ??= createSystemNotifier({
     app: pageNativeApp()?.notify,

@@ -1,5 +1,5 @@
 // @i18n-ignore-file model：证据原文里的场景一行、几条合成一条时的抬头是给整理模型读的数据（进推理库），不随界面语言变
-// 数据源素材读成证据（303 号票，issue 25 第 2 节"按来源定证据的性质""数据源顺带给场景""量大的先整理"）。
+// 数据源素材读成证据（"按来源定证据的性质""数据源顺带给场景""量大的先整理"）。
 // evidence-source.ts 的 MaterialsEvidenceSource 用这里的几样：
 //
 // - 证据的性质跟着素材的种类走，不在这里另判：观察到的本人行为是本人做的（来源本人 + "做" → 事实的出处 observed，能撑关于用户的结论）、
@@ -9,7 +9,7 @@
 //   时间段、地点、和谁（证据没有放地点和人的字段，@ergo/memory 不改）；场景标签取插件给的场景维度标签（不认得的丢掉），加上那天是工作日
 //   还是周末（按日子：周一到周五算工作日，节假日不认），插件没给方面（work、social……）时再从原文按关键词推。
 //   地点算位置这一类：位置没打开推断时这一行不带地点、也不拿它推场景。
-// - 哪个账号（344 号票，Gmail 有几个账号）：素材的 origin.account 带过去——场景那一行写"账号 t***@example.com"（打了码的，339 号票：完整邮箱不给模型），
+// - 哪个账号（Gmail 有几个账号）：素材的 origin.account 带过去——场景那一行写"账号 t***@example.com"（打了码的：完整邮箱不给模型），
 //   合成一条时不同账号的不合在一起（分组的键带账号）。这之前导入的素材没有账号，原文和以前一样。
 // - 每晚整理的预算（groupDataSourceItems）：同一个数据源、同一个账号、同一种素材、同一天超过 DIGEST_OVER 条的合成一条证据（每条一行），
 //   出处写成 digest:<素材 id,…>（materialIdsOfRef 拆回素材 id，删除、"回忆了 N 条记忆"都按它找）；当天的先不读，等这一天过完再合；
@@ -69,7 +69,7 @@ function clock(iso: string, day: string): string {
   return localDate(iso) === day ? time : `${iso.slice(5, 10)} ${time}`;
 }
 
-/** 场景的几项：时间（段）、地点（位置没打开推断时不带）、和谁、哪个账号（344 号票，打了码的） */
+/** 场景的几项：时间（段）、地点（位置没打开推断时不带）、和谁、哪个账号（打了码的） */
 export function sceneParts(material: Pick<Material, "time" | "origin">, placeAllowed: boolean): string[] {
   const scene = material.origin?.scene ?? {};
   const day = localDate(material.time);
@@ -115,7 +115,7 @@ export function sceneTags(tags: readonly string[], time: string, text: string): 
   return result;
 }
 
-/** 合成一条的分组：同一个数据源、同一个账号（344 号票）、同一种素材、同一天 */
+/** 合成一条的分组：同一个数据源、同一个账号、同一种素材、同一天 */
 export function digestGroupKey(material: Pick<Material, "kind" | "time" | "origin">): string {
   return [material.origin?.dataSource ?? "", material.origin?.account?.id ?? "", material.kind, localDate(material.time)].join("\u0000");
 }

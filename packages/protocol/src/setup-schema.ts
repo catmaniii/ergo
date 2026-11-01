@@ -1,4 +1,4 @@
-// 首次设置向导（319 号票）的请求体，用 TypeBox 定义：POST /api/setup 的 { step, skip }。
+// 首次设置向导的请求体，用 TypeBox 定义：POST /api/setup 的 { step, skip }。
 // 形状（给前端看的类型、五步的名字）在 setup.ts——那边不引用 TypeBox，网页打包时不会把 schema 带进去。
 // 这一份只用来在网关查请求体：step 不是五步之一、多了字段都回 400，不悄悄当成某一步。
 import { type Static, Type } from "typebox";

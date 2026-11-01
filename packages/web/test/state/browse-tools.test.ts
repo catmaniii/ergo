@@ -1,4 +1,4 @@
-// 165 号票："浏览"页签右上角 ⋮ 菜单的纯函数（state/browse-tools.ts）：菜单项能不能用、按网站记住的文字大小和桌面版、
+// "浏览"页签右上角 ⋮ 菜单的纯函数（state/browse-tools.ts）：菜单项能不能用、按网站记住的文字大小和桌面版、
 // 浏览记录的删、清空、按日期分组、搜，查找栏的计数，下载记录存在哪，清除浏览数据怎么分给 App 和网页。
 import { describe, expect, test } from "vitest";
 import {
@@ -38,7 +38,7 @@ const flat = (input: BrowseMenuInput) => browseMenu(input).flatMap((g) => g.item
 const item = (input: BrowseMenuInput, id: string) => flat(input).find((i) => i.id === id)!;
 
 describe("浏览记录：删一条、多选删、清当前网站、按日期分组、搜", () => {
-  test("完整的浏览记录最多记 500 条（原来最近访问只记 20 条）；空白页列前 20 条", () => {
+  test("完整的浏览记录最多记 500 条；空白页列前 20 条", () => {
     let many: RecentVisit[] = [];
     for (let i = 0; i < 520; i++) many = addRecentVisit(many, visit(`https://x${i}.com/`, i));
     expect(many).toHaveLength(BROWSE_HISTORY_MAX);

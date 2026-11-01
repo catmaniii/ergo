@@ -1,5 +1,5 @@
-// 语音识别进程的宿主（voice/recognizer.ts，31 号票）：按需拉起、放进自己的 Job 对象、JSON 行一问一答、闲置退出、超时和出错；
-// 45 号票：拉起后马上加载模型（load）、模型的状态（state / onState）、闲置时间为 0 时常驻。
+// 语音识别进程的宿主（voice/recognizer.ts）：按需拉起、放进自己的 Job 对象、JSON 行一问一答、闲置退出、超时和出错；
+// 拉起后马上加载模型（load）、模型的状态（state / onState）、闲置时间为 0 时常驻。
 // 接的是假的识别进程（fixtures/fake-recognizer.mjs），不加载真模型。
 import fs from "node:fs";
 import path from "node:path";
@@ -135,7 +135,7 @@ describe("识别进程", () => {
     await expect(recognizer.transcribe({ path: recording({ text: "照常", noise: "Downloading model..." }) })).resolves.toMatchObject({ text: "照常" });
   });
 
-  it("180 号票：交出结果之前剔掉模型自带的串词（文字、分段一起），记下剔了几个字；日志只记字数和命中的规则，没有正文；没命中的一字不差、不记", async () => {
+  it("交出结果之前剔掉模型自带的串词（文字、分段一起），记下剔了几个字；日志只记字数和命中的规则，没有正文；没命中的一字不差、不记", async () => {
     const lines: string[] = [];
     const { recognizer, recording } = setup({ stripRules: compileStripRules(DEFAULT_VOICE_CONFIG.recognizer.stripPatterns, () => {}), log: (line) => lines.push(line) });
     const mixed = await recognizer.transcribe({ path: recording({ text: "下午三点开会。请不吝点赞 订阅 转发 打赏支持明镜与点点栏目。别忘了。", seconds: 3 }) });
@@ -150,7 +150,7 @@ describe("识别进程", () => {
     for (const line of lines) expect(line).not.toMatch(/与点点|请不吝点赞|下午三点|别忘了|公众号/);
   });
 
-  it("180 号票：没给剔除规则时什么都不剔", async () => {
+  it("没给剔除规则时什么都不剔", async () => {
     const { recognizer, recording } = setup();
     expect(await recognizer.transcribe({ path: recording({ text: "请不吝点赞。" }) })).toMatchObject({ text: "请不吝点赞。" });
   });
@@ -203,7 +203,7 @@ describe("识别进程", () => {
     await expect(recognizer.transcribe({ path: recording({ text: "又来" }) })).resolves.toMatchObject({ text: "又来" });
   });
 
-  it("208 号票 check()（重试之前看识别服务正不正常）：加载好、空着的问它一句（加载请求，马上回报），不另起进程、不报加载好；没在跑的拉起并等加载好", async () => {
+  it("check()（重试之前看识别服务正不正常）：加载好、空着的问它一句（加载请求，马上回报），不另起进程、不报加载好；没在跑的拉起并等加载好", async () => {
     const { recognizer, log } = setup();
     const events: string[] = [];
     recognizer.onLifecycle((e) => events.push(e.type));
@@ -223,7 +223,7 @@ describe("识别进程", () => {
     expect(recognizerLog(log).filter((e) => e.event === "start")).toHaveLength(2);
   });
 
-  it("208 号票 check()：进程活着却不应答（卡住了），限时一到就结束它、重新拉起并等加载好；拉起也不行的以 RecognizerUnavailable 结束", async () => {
+  it("check()：进程活着却不应答（卡住了），限时一到就结束它、重新拉起并等加载好；拉起也不行的以 RecognizerUnavailable 结束", async () => {
     const lines: string[] = [];
     const { recognizer, log } = setup({ checkTimeoutMs: 300, log: (l) => lines.push(l) });
     await recognizer.load();
@@ -244,7 +244,7 @@ describe("识别进程", () => {
     expect((err as Error).message).toBe("模型加载失败：no CUDA");
   });
 
-  it("208 号票 check()：正给别处识别着（Debug 页、悬浮按钮）的不另外问，它自己的超时守着", async () => {
+  it("check()：正给别处识别着（Debug 页、悬浮按钮）的不另外问，它自己的超时守着", async () => {
     const { recognizer, log, recording, dir } = setup();
     await recognizer.load();
     const hold = path.join(dir, "go");

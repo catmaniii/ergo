@@ -1,5 +1,5 @@
 // planguard 不用求解器的后端：穷举搜索，和 Z3 同一个字典序目标（同步记录和哈希见同目录 VERSION）；
-// 58 号票为流程的审查修补加进来。
+// 为流程的审查修补加进来。
 import { type Backend, type Blocked, type Candidate, type Problem, type Solution, goalHolds, lessThan, objectiveVector, quantityValues, usedActions } from "./reviewer.ts";
 
 function evaluate(problem: Problem, c: Candidate, selection: number[], relaxed: boolean, required: Set<string> | null): [number, string[]] | null {

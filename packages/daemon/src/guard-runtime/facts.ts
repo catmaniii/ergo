@@ -2,16 +2,16 @@
 // 都由这里在判定之前现取，作为 GuardInput.facts 传进去。按一次判定实际要判的调用（judgement.calls，
 // 通用 bash 已拆成伪工具调用）取：
 // - 每个路径参数：在不在、是不是目录、真实路径（fs.realpathSync.native：展开符号链接、目录联接和 8.3 短名；
-//   还不存在的文件按最近的已有上级目录算）。运行时自动留旧版本的地方（15 号票：项目档案，不含工作目录和历史区）
+//   还不存在的文件按最近的已有上级目录算）。运行时自动留旧版本的地方（项目档案，不含工作目录和历史区）
 //   算已备份——写的路径和它的真实路径都在那里才算；
 // - 负责人和子 agent 项目里的路径：包含它的 git 仓库的未提交改动和 HEAD（v1 模板"删除或覆盖前须已提交"
 //   "不重复推送"要用）；只在项目范围之内往上找仓库，项目里不在仓库里的目录写 repository: false。
 //   秘书的草稿区不受 v1 模板约束，不取；
 // - 要跑的脚本（run_script）：扫描出的联网库或函数（script-scan.ts）；
-// - 带通配符的路径：展开成的现有路径（util/wildcards.ts，展不开的是通配符之前那段目录；101 号票评审后定：守卫逐个比受保护区域、密钥区）；
-// - 这个 agent 在做任务、项目时（111 号票，FactsContext.ownWork）：认任务、项目自己的临时文件要的——文件的创建时间（stat 的 birthtime），
+// - 带通配符的路径：展开成的现有路径（util/wildcards.ts，展不开的是通配符之前那段目录；守卫逐个比受保护区域、密钥区）；
+// - 这个 agent 在做任务、项目时（FactsContext.ownWork）：认任务、项目自己的临时文件要的——文件的创建时间（stat 的 birthtime），
 //   要删除的、在工作目录里的目录里面有什么（递归、不跟进链接，最多 MAX_CONTENTS 项），带通配符要删除的展开成的每个现有路径的文件事实；
-// - 有授权的文件夹时（355 号票，FactsContext.authorizedFolders）：通配符展开成的路径落在里面的，也取一份文件事实——读授权的文件夹按真实路径算，
+// - 有授权的文件夹时（FactsContext.authorizedFolders）：通配符展开成的路径落在里面的，也取一份文件事实——读授权的文件夹按真实路径算，
 //   通配符穿过的符号链接只有这样才看得见。
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -48,13 +48,13 @@ export interface FactsContext {
   homeDir: string;
   /** 运行时自动留旧版本的地方（被覆盖或删除前留一份）：算已备份 */
   backedUp?: (path: string) => boolean;
-  /** 这个 agent 在做任务、项目（111 号票：判定时给了 GuardOwnWork）：另取创建时间、要删除的目录里面有什么 */
+  /** 这个 agent 在做任务、项目（判定时给了 GuardOwnWork）：另取创建时间、要删除的目录里面有什么 */
   ownWork?: boolean;
-  /** 授权的文件夹（355 号票）：通配符展开成的路径落在里面的另取文件事实 */
+  /** 授权的文件夹：通配符展开成的路径落在里面的另取文件事实 */
   authorizedFolders?: readonly string[];
 }
 
-/** 判定用的授权的文件夹（355 号票）：名单上写的和它们的真实路径（文件夹本身是链接、短名时两种写法都认），去重 */
+/** 判定用的授权的文件夹：名单上写的和它们的真实路径（文件夹本身是链接、短名时两种写法都认），去重 */
 export function authorizedFolderRoots(folders: readonly string[]): string[] {
   const roots = new Map<string, string>();
   for (const folder of folders) {
@@ -65,7 +65,7 @@ export function authorizedFolderRoots(folders: readonly string[]): string[] {
 
 /**
  * 只取这些调用里路径的文件事实（在不在、是不是目录、真实路径），不取 git 状态、不扫脚本：
- * 流程规划时（58 号票）推授权项的真实路径、标出真实路径在项目之外的步骤用
+ * 流程规划时推授权项的真实路径、标出真实路径在项目之外的步骤用
  */
 export function gatherFileFacts(calls: ReadonlyArray<Pick<JudgedCall, "tool" | "args">>, ctx: FactsContext): EnvironmentFacts {
   const files = fileFactsOf(calls, ctx);
@@ -120,7 +120,7 @@ function fileFact(p: string, backedUp: ((path: string) => boolean) | undefined):
   return fact;
 }
 
-// ───────────────────────── 任务、项目自己的临时文件（111 号票） ─────────────────────────
+// ───────────────────────── 任务、项目自己的临时文件 ─────────────────────────
 
 /** 要删除的目录里面最多列多少项：再多就算列不全（不算任务、项目自己的临时文件，照旧要备份或提交） */
 const MAX_CONTENTS = 2000;

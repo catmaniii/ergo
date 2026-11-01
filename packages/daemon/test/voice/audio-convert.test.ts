@@ -1,4 +1,4 @@
-// 参考音色导入的转码（230 号票）：真的去拉假 ffmpeg（fixtures/fake-ffmpeg.mjs，不解码、不装依赖），验命令行参数、
+// 参考音色导入的转码：真的去拉假 ffmpeg（fixtures/fake-ffmpeg.mjs，不解码、不装依赖），验命令行参数、
 // 交回的 WAV、临时目录清掉，和本机没有 ffmpeg / 转码失败时怎么分。真的 ffmpeg 一次都不跑。
 import fs from "node:fs";
 import path from "node:path";
@@ -10,7 +10,7 @@ import { makeTempDir } from "../helpers/temp-dir.ts";
 
 const quiet = () => {};
 
-describe("把常见音频转成 16 kHz 单声道 PCM16 的 WAV（230 号票）", () => {
+describe("把常见音频转成 16 kHz 单声道 PCM16 的 WAV", () => {
   it("ffmpeg 的参数：16 kHz、单声道、PCM16、WAV，输入和输出是给的那两个文件", () => {
     expect(ffmpegArgs("input.bin", "output.wav")).toEqual([
       "-hide_banner",

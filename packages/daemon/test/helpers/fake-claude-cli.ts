@@ -1,11 +1,11 @@
-// 测试用的本机 claude 命令行（292 号票，只在测试里）：Claude Code 插件交给官方 App、收回时跑的 `claude agents --json [--all]`、
+// 测试用的本机 claude 命令行（只在测试里）：Claude Code 插件交给官方 App、收回时跑的 `claude agents --json [--all]`、
 // `claude --bg --resume <id> [--remote-control <名字>]`、`claude stop <短id>`、`claude logs <短id>` 换成它——不起真的 claude、不花额度、
-// 不碰用户真实的 ~/.claude。它照调研 35 实测的样子扮演本机：
+// 不碰用户真实的 ~/.claude。它实测的样子扮演本机：
 // - 后台会话（jobs）：第一次带 --remote-control 开，短 id 是会话 id 的前 8 位，连上 claude.ai（链接每次同一个）；`stop` 后停着（加 --all 才列出来）；
 //   停着的不带参数唤醒（照存下的参数醒来、同一个链接），带了参数另开一份副本（新的短 id、新的链接）；
 // - 这个会话在别的进程里开着（终端里 interactive，或者 ergoOpen 说二狗自己的进程还在）时 `--bg` 不抢、另开一份副本；
 // - `logs` 只在后台会话在跑时有输出（后台界面的样子，带控制序列和链接）。
-// 给了 290 号票的假会话来源（FakeClaudeSessions）时，它的"正开着的"（open）照这里的状态算（原来写进去的条目照样留着）。
+// 给了假会话来源（FakeClaudeSessions）时，它的"正开着的"（open）照这里的状态算（原来写进去的条目照样留着）。
 import type { ClaudeCli, ClaudeCliResult } from "../../src/claude-code/cli.ts";
 import type { ClaudeRunningSession } from "../../src/claude-code/sessions-protocol.ts";
 import type { FakeClaudeSessions } from "./fake-claude-sessions.ts";
@@ -118,7 +118,7 @@ export class FakeClaudeCli implements ClaudeCli {
       job.pid = this.nextPid++;
       this.jobs.set(id, job);
     };
-    // 别的进程开着：不抢，另开一份副本（调研 35 E1）
+    // 别的进程开着：不抢，另开一份副本
     const open = [...this.interactive, ...this.ergoOpen(), ...this.hidden.map((id) => ({ sessionId: id }))].find((e) => e.sessionId === sessionId);
     if (open) {
       const copy = `copy${++this.copies}`.padEnd(8, "0");
@@ -128,7 +128,7 @@ export class FakeClaudeCli implements ClaudeCli {
     const existing = this.jobs.get(short);
     if (existing) {
       if (existing.pid !== undefined) return ok(`backgrounded · ${short} (already running)\n`);
-      // 停着的带参数：另开一份副本（调研 35 第 6a 步）
+      // 停着的带参数：另开一份副本
       if (flags.length > 0) {
         const copy = `copy${++this.copies}`.padEnd(8, "0");
         start(copy, { sessionId: `${copy}-0000-4000-8000-000000000000`, flags, url: `https://claude.ai/code/session_01Copy${this.copies}` });

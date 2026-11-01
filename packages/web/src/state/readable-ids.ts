@@ -1,5 +1,5 @@
-// 给用户看的编号（159 号票，2026-10-18 用户定）：任务、负责人、项目、工单、定时作业不只写 t-3、tm-2，带上简短描述，写成仓库里原来的
-// "编号「简短描述」"（163 号票）——"t-3「给记账本加周报」"、"tm-2「记账本的任务负责人」"。名字从状态层现取（任务标题、项目名、工单标题、
+// 给用户看的编号：任务、负责人、项目、工单、定时作业不只写 t-3、tm-2，带上简短描述，写成仓库里原来的
+// "编号「简短描述」"——"t-3「给记账本加周报」"、"tm-2「记账本的任务负责人」"。名字从状态层现取（任务标题、项目名、工单标题、
 // 负责人属于哪个任务或项目），名字变了跟着变。取不到的：补发推完了（caughtUp）还没有就是删掉了，写"t-3（已删除）"；还没推完的只写"t-3"，
 // 免得刚打开时满屏"已删除"。写法在协议包（readable-ids.ts），守护进程拼给用户看的句子用同一套。纯函数。
 import { ASSISTANT_NAME_MARK, CHANNELS, deletedIdLabel, MAINTAINER_CHANNEL_PREFIX, maintainerIdLabel, type MaintainerOwner, MEMORY_CURATOR_AGENT_ID, namedIdLabel, t } from "./protocol.ts";
@@ -28,7 +28,7 @@ export function workOrderLabel(state: UiState, workOrderId: string): string {
   return workOrder ? namedIdLabel(workOrderId, workOrder.title) : missing(state, workOrderId);
 }
 
-/** "j-1「每天备份」"（76 号票之前的定时作业） */
+/** "j-1「每天备份」"（以前的定时作业） */
 export function jobLabel(state: UiState, jobId: string): string {
   const job = state.scheduledJobs[jobId];
   return job ? namedIdLabel(jobId, job.title) : missing(state, jobId);
@@ -87,8 +87,8 @@ export function readableId(state: UiState, ref: string): string {
 }
 
 /**
- * 会话的名字（记忆删除卡里素材的来源、记忆 · 素材按会话筛和成批删除时选会话，167 号票起在"记忆"页）：秘书主线写名字占位（能放标签的地方用 NamedText 显示成名字标签，
- * 下拉选项这类纯文字的地方用 useNamedPlain 换成名字，43 号票），负责人的写"tm-2「记账本的任务负责人」"
+ * 会话的名字（记忆删除卡里素材的来源、记忆 · 素材按会话筛和成批删除时选会话，在"记忆"页）：秘书主线写名字占位（能放标签的地方用 NamedText 显示成名字标签，
+ * 下拉选项这类纯文字的地方用 useNamedPlain 换成名字），负责人的写"tm-2「记账本的任务负责人」"
  */
 export function conversationName(state: UiState, conversation: string): string {
   if (conversation === CHANNELS.secretary) return t("state.readableIds.secretaryMain", { name: ASSISTANT_NAME_MARK });
@@ -96,7 +96,7 @@ export function conversationName(state: UiState, conversation: string): string {
 }
 
 /**
- * 句子里说哪个会话（成批删除素材的确认框，163 号票；167 号票起在记忆 · 素材）：秘书主线写"会话「二狗主线」"（名字占位同上）；负责人的编号已经带「」，
+ * 句子里说哪个会话（成批删除素材的确认框，在记忆 · 素材）：秘书主线写"会话「二狗主线」"（名字占位同上）；负责人的编号已经带「」，
  * 写"会话 tm-2「记账本的任务负责人」"，不再套一层「」
  */
 export function conversationPhrase(state: UiState, conversation: string): string {

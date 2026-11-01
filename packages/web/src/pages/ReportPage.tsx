@@ -1,5 +1,5 @@
 /**
- * 报告页（113 号票）：文本类附件渲染着看（#/report/<媒体 id>），不用下载。每次打开现取内容（守护进程的内容接口只回 JSON，
+ * 报告页：文本类附件渲染着看（#/report/<媒体 id>），不用下载。每次打开现取内容（守护进程的内容接口只回 JSON，
  * 不让浏览器直接渲染文件），可刷新、可收藏，链接发给同一前端的另一台已配对设备也能打开。
  * - 标题栏是文件名和"下载"；正文上面一行写类型、大小、什么时候发的；
  * - Markdown 用和聊天、详情页同一套 react-markdown + remarkGfm（不开 raw HTML），纯文本按原文显示；
@@ -7,11 +7,11 @@
  * - 不加载远程图片：Markdown 里的图片一律不请求，画成占位，有地址的给一个链接（免得报告页变成会往外发请求的窗口）；
  * - 截断了顶上一条提示；取不到（文件不在了、不能预览、解不出来、连不上）说清楚怎么办，不白屏；
  * - 大报告分段画（状态层的 markdownChunks）：先画第一段，其余每段各占一个任务接着画，1 MB 的报告也不会把页面卡住一两秒。
- * - HTML（117 号票）：正文是一个 <iframe sandbox>（协议包的 HTML_PREVIEW_SANDBOX：页面的功能都给，只不给 allow-same-origin、
+ * - HTML：正文是一个 <iframe sandbox>（协议包的 HTML_PREVIEW_SANDBOX：页面的功能都给，只不给 allow-same-origin、
  *   allow-top-navigation），指向守护进程的 HTML 接口（响应头里同一份沙箱和 CSP），铺满报告页、在框里滚动；页面能从外网取数据
- *   （用户 2026-10-13 定一阶段不加限制），但它是陌生来源，拿不到二狗的 cookie、本地存储，连二狗的接口被网关拒（Origin: null），
+ *   （一阶段不加限制），但它是陌生来源，拿不到二狗的 cookie、本地存储，连二狗的接口被网关拒（Origin: null），
  *   也不能把整页导航走；里面的链接在新窗口打开（鸿蒙 App 里交给系统浏览器）；
- * - SVG（117 号票）：用 <img> 显示（<img> 里的 SVG 不跑脚本），放在浅色底上（深色主题里透明底的线条也看得清）。
+ * - SVG：用 <img> 显示（<img> 里的 SVG 不跑脚本），放在浅色底上（深色主题里透明底的线条也看得清）。
  * 显示什么由状态层的 reportPageView 推（state/attachments.ts）；标题栏的 ‹ 回到点进来的那个会话，直接打开的回秘书页。
  */
 import { memo, useEffect, useMemo, useState } from "react";
@@ -73,8 +73,8 @@ const MarkdownChunk = memo(function MarkdownChunk({ text, components }: { text: 
 });
 
 /**
- * Markdown 正文：分段的一段段接着画（每段单独解析，画完一段让出主线程再画下一段）。124 号票起关于页的更新日志也用它。
- * components：换掉报告页的哪几样画法（160 号票内置浏览器渲染文件时，链接按文件的地址解析、在内置浏览器里跟过去）；要稳定（useMemo）
+ * Markdown 正文：分段的一段段接着画（每段单独解析，画完一段让出主线程再画下一段）。关于页的更新日志也用它。
+ * components：换掉报告页的哪几样画法（内置浏览器渲染文件时，链接按文件的地址解析、在内置浏览器里跟过去）；要稳定（useMemo）
  */
 export function MarkdownBody({ text, components }: { text: string; components?: Components }) {
   const merged = useMemo(() => (components ? { ...REPORT_MD, ...components } : REPORT_MD), [components]);
@@ -95,7 +95,7 @@ export function MarkdownBody({ text, components }: { text: string; components?: 
   );
 }
 
-/** HTML、SVG 的正文（117 号票）：HTML 在沙箱框里，SVG 在 <img> 里；没有地址（原型里没有内容的假附件）时说一声 */
+/** HTML、SVG 的正文：HTML 在沙箱框里，SVG 在 <img> 里；没有地址（原型里没有内容的假附件）时说一声 */
 function FramedBody({ src, frame, name }: { src: string | undefined; frame: FramePreview; name: string }) {
   if (!src) return <div className="page-placeholder">{t("pages.report.noPrototypeContent")}</div>;
   if (frame === "svg") {

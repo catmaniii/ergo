@@ -1,4 +1,4 @@
-// 233 号票：记忆的推理库只读读出来的东西（概览、结论列表、一条的完整解释、问题箱）。
+// 记忆的推理库只读读出来的东西（概览、结论列表、一条的完整解释、问题箱）。
 // 用临时目录里的真 SQLite 和真 MemoryEngine（手写的几条证据、结论、关联、推断、问题），没有模型调用；
 // 概览里的"最近一次整理"用一份假的记录（真视图由主切面 test/main/memory-graph.test.ts 覆盖）。
 import path from "node:path";
@@ -436,7 +436,7 @@ describe("问题箱（GET /api/memory/questions）", () => {
   });
 });
 
-describe("做法（GET /api/memory/strategies，330 号票）", () => {
+describe("做法（GET /api/memory/strategies）", () => {
   it("不含撤回的，在用的在前；标'建在猜测上'（依据里能用的都是猜测）、'理由没了'（依据都撤回了），依据带现在的状态；只读不写库", () => {
     const file = rgDbFile();
     const seeded = seed(file);
@@ -471,7 +471,7 @@ describe("做法（GET /api/memory/strategies，330 号票）", () => {
   });
 });
 
-describe("猜测为什么还是猜测（330 号票 R5）", () => {
+describe("猜测为什么还是猜测（R5）", () => {
   it("猜测的那条结论详情带 whyGuess；已验证的没有", () => {
     const file = rgDbFile();
     const seeded = seed(file);

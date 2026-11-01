@@ -1,26 +1,25 @@
-// 了解你问题从哪来（198 号票，架构文档第 7.6 节）：每日整理时从推理图谱里找"还拿不准、问一句就能分清"的地方，出问题的草稿。
+// 了解你问题从哪来（架构文档第 7.6 节）：每日整理时从推理图谱里找"还拿不准、问一句就能分清"的地方，出问题的草稿。
 // 来源：追问检索以后还分不清的竞争假设，另外照调研 11 的六个来源（规则版，都是通用的规矩，不看哪条数据）：
 // - unresolved（竞争假设分不清）：一组里某条判别性追问已经检索过了，它要区分的两条还都活着、谁也没以至少 medium 成立 → 用追问的问法；
-// - contradiction（矛盾）：事实这一层真冲突、两条都还 contested → 问"现在更接近后一种吗"（334 号票起前后两句意思相反、
+// - contradiction（矛盾）：事实这一层真冲突、两条都还 contested → 问"现在更接近后一种吗"（前后两句意思相反、
 //   后说的没自己说变了的也落到这里：问法带上两句各是哪天说的）；
 // - low_confidence_high_value（低置信但高价值）：一条假设算成立、把握却还低，又影响常做的决定 → 用能支持它的那条追问来确认；
 // - tension（张力：说的和做的不一样）：用户说过喜欢（不喜欢）某样活动，后来又推掉（去了）它 → 问下次还想不想去；
 // - normative（规范性判断）：推断的断言里带"太忙、应该、有害"这类评判 → 评判不能说出口，只能问"要不要我帮你……"；
 // - prediction_violation（预测落空）：一条假设成立以后，又来了和它对不上的本人记录 → 问以后还会不会这样，不静默改写；
 // - out_of_character（反常输入）：用户没头没尾地说了和以前相反的话（事实层已经按观点变化接上了）→ 先问一句再当真。
-//   334 号票起没说变了的相反说法事实层当矛盾、不再接上，新数据走上面的"矛盾"；这里只剩老库里以前按日子先后接上的。
-// 330 号票（R10）：演绎预测落空、判不出是哪条前提错了（没验证的不止一条，Duhem-Quine），或者前提都已验证（只能是漏了条件或反证有误）
+//   没说变了的相反说法事实层当矛盾、不再接上，新数据走上面的"矛盾"；这里只剩老库里以前按日子先后接上的。
+// ADR-0032 R10：演绎预测落空、判不出是哪条前提错了（没验证的不止一条，Duhem-Quine），或者前提都已验证（只能是漏了条件或反证有误）
 // → 每条嫌疑一个问题（也记成 prediction_violation）："这一条现在还对吗"——还对：嫌疑落到别的上；不对了：就是它错了，撤回。
 // 每个草稿写明：问法（中性、问具体的事、不问动机）、为什么问、区分哪几个假设、什么回答支持哪边（AnswerEffect）、领域和场景（拿来和对话对上）、
 // 优先级里的几项。措辞过不了 leadingPhrases 的不出（任务书第 12 节：不通过诱导、隐蔽影响来验证假设）。
 // 去重、"别问这个"、冷却、过期在 questions.ts（QuestionBook.refresh）。
 //
-// 207 号票：
 // - 优先级的主项改成"回答能不能直接分出胜负"（answerSeparation：要弄清的几条假设对这个回答的预期差得多不多），
-//   再乘上分数接近的程度、近 30 天这类事出现得多不多（还没问过、跳过一次减半照旧）。198 的"范围""回答的分量"不再单独乘：
+//   再乘上分数接近的程度、近 30 天这类事出现得多不多（还没问过、跳过一次减半照旧）。"范围""回答的分量"不再单独乘：
 //   只能记弱的那种回答在"分得出胜负"里打对折。
-// - 334b（用户 10-27）：同一处矛盾只留一个问题——矛盾根源组的两边正是"矛盾"那一路要问的一对（事实层还拿不准）时，根源的追问不另出问题。
-// - 199 的对比模式、矛盾根源（知识图谱联动的组）也从这里出问题：分不出（组里没有一条成立）时，每条能区分的追问一个问题，
+// - 334b：同一处矛盾只留一个问题——矛盾根源组的两边正是"矛盾"那一路要问的一对（事实层还拿不准）时，根源的追问不另出问题。
+// -对比模式、矛盾根源（知识图谱联动的组）也从这里出问题：分不出（组里没有一条成立）时，每条能区分的追问一个问题，
 //   问法、回答各支持哪边由 rg/joint.ts 的 questionFor 给（"会去 / 不会去"能回答的具体的事）；分出来了就不出。
 //   reflect 里联动经 QuestionSink 交给问题箱（questions.ts），每日整理照样从这里出、按 key 对上。
 import { USER_ENTITY_ID } from "../domain/ids.ts";
@@ -66,7 +65,7 @@ export interface AnswerEffect {
   note: string;
   /** 回答得很明确时事实这一层的改动（矛盾、张力、反常）：定下来的事实、到期的事实、当成被纠正的证据 */
   facts?: { activate?: string[]; supersede?: string[]; correctEvidence?: string[] };
-  /** 330 号票（R6）：回答得很明确时交互策略怎么办——keep 还要（记成重新确认）、retract 不要了（撤回） */
+  /** ADR-0032 R6：回答得很明确时交互策略怎么办——keep 还要（记成重新确认）、retract 不要了（撤回） */
   strategies?: { keep?: string[]; retract?: string[] };
 }
 
@@ -75,14 +74,14 @@ export interface QuestionAnswers {
   no: AnswerEffect;
 }
 
-/** 问题要弄清的对象：断言（推断的、明说的）或事实（矛盾时没有明说的断言）；330 号票：或者一条交互策略（做法的理由没了，还要不要） */
+/** 问题要弄清的对象：断言（推断的、明说的）或事实（矛盾时没有明说的断言）；或者一条交互策略（做法的理由没了，还要不要） */
 export interface QuestionTarget {
   id: string;
   kind: "claim" | "fact" | "strategy";
   statement: string;
 }
 
-/** 优先级的几项（207 号票）：优先级 = 回答能不能分出胜负 × 分数接近的程度 × 常不常遇到 × 还没问过 */
+/** 优先级的几项：优先级 = 回答能不能分出胜负 × 分数接近的程度 × 常不常遇到 × 还没问过 */
 export interface PriorityDetail {
   /**
    * 回答能不能直接分出胜负（answerSeparation）：要弄清的几条假设对"是""不是"两种回答的预期差得多不多，两种回答取平均。
@@ -189,7 +188,7 @@ const PROBE_ANSWERS: Readonly<Record<string, { yes: { supports: string[]; refute
   lift_long_ago: { yes: { supports: ["value_enduring"], refutes: ["value_phase"] }, no: { supports: ["value_phase"], refutes: ["value_enduring"] } },
 };
 
-// ---------- 回答能不能分出胜负（207 号票） ----------
+// ---------- 回答能不能分出胜负 ----------
 
 /** 一种回答对一条目标的预期：支持（或事实这一层定下来）+1，反驳（或到期）−1，不涉及 0 */
 function expectationOf(effect: AnswerEffect, id: string): number {
@@ -232,7 +231,7 @@ const STATUS_LABEL: Readonly<Record<string, string>> = { active: "成立", conte
 export const claimStatusLabel = (s: string): string => STATUS_LABEL[s] ?? s;
 
 /** 月 日（"10 月 17 日"） */
-/** 330 号票：结论陈述是第三人称（"用户……"），问用户时换成"你……" */
+/** 结论陈述是第三人称（"用户……"），问用户时换成"你……" */
 function youOf(statement: string): string {
   return statement.replace(/^用户/, "你");
 }
@@ -250,7 +249,7 @@ function restrictedDims(context: readonly string[]): number {
   return dims + other;
 }
 
-/** 影响多大范围的决定：不限场景的是 1，每限一个维度打一折。207 号票起不进优先级，只用来判"低置信但高价值"的"高价值" */
+/** 影响多大范围的决定：不限场景的是 1，每限一个维度打一折。不进优先级，只用来判"低置信但高价值"的"高价值" */
 const breadthOf = (context: readonly string[]): number => round3(1 / (1 + 0.5 * restrictedDims(context)));
 
 const CONFIDENCE_CLOSENESS: Readonly<Record<Confidence, number>> = { low: 1, medium: 0.6, high: 0.3 };
@@ -304,7 +303,7 @@ export function generateQuestions(rg: ReasoningGraph, at: string, options: Gener
 }
 
 export interface GenerateOptions {
-  /** 只出这几组的（竞争假设分不清那一路；别的来源不跑）。199 的联动在 reflect 里用它给自己的组出问题 */
+  /** 只出这几组的（竞争假设分不清那一路；别的来源不跑）。联动在 reflect 里用它给自己的组出问题 */
   groups?: readonly string[];
 }
 
@@ -462,7 +461,7 @@ class Generator {
     const registry = this.rg.registry;
     for (const g of registry.listGroups({ live: true })) {
       if (this.groups && !this.groups.has(g.key)) continue;
-      // 199 的联动出的组：分不出（组里没有一条成立）才问，问法、判法由 joint.questionFor 给
+      //联动出的组：分不出（组里没有一条成立）才问，问法、判法由 joint.questionFor 给
       const joint = isJointGroup(g) ? this.rg.joint : undefined;
       if (isJointGroup(g) && (!joint || !joint.undecided(g.key))) continue;
       if (this.askedAsContradiction(g)) {
@@ -480,7 +479,7 @@ class Generator {
         const pair = probe.discriminates.map((id) => this.store.getClaim(id));
         if (pair.some((c) => c === undefined)) continue;
         const [a, b] = pair as [Claim, Claim];
-        // 329 号票："待复核"是复核标记：标着的（依据在重推）先不问
+        // "待复核"是复核标记：标着的（依据在重推）先不问
         if (a.needsReview || b.needsReview) continue;
         const jq = joint?.questionFor(g.key, template);
         if (joint && !jq) {
@@ -567,7 +566,7 @@ class Generator {
   }
 
   /**
-   * 334b（用户 2026-10-27）：同一处矛盾只留一个问题——矛盾根源那组（199）的两边里有一对正是"矛盾"那一路要问的（事实层真冲突、
+   * 334b：同一处矛盾只留一个问题——矛盾根源那组的两边里有一对正是"矛盾"那一路要问的（事实层真冲突、
    * 两条都还拿不准），它的追问不再另出问题（R15 少问；R13 只说"分不清再问你"）。说的和做的不一样、别的根源组照旧
    */
   private askedAsContradiction(g: GroupRecord): boolean {
@@ -601,7 +600,7 @@ class Generator {
         kind: "contradiction",
         sources: ["contradiction"],
         text: `关于${name}：你${monthDay(factTime(older))}说过"${pa}"，${sameLocalDay(factTime(older), factTime(newer)) ? "后来" : `${monthDay(factTime(newer))}`}又说"${pb}"。现在更接近后一种吗？`,
-        why: `你说过的两句话对不上：${older.id}「${older.statement}」和 ${newer.id}「${newer.statement}」，有效期重叠、场景对得上，后说的那句又没自己说"变了"（不再、改成、以前…现在…这类），哪边都不自动赢（334 号票），事实这一层两条都还拿不准。${this.answerNotes(answers)}`,
+        why: `你说过的两句话对不上：${older.id}「${older.statement}」和 ${newer.id}「${newer.statement}」，有效期重叠、场景对得上，后说的那句又没自己说"变了"（不再、改成、以前…现在…这类），哪边都不自动赢，事实这一层两条都还拿不准。${this.answerNotes(answers)}`,
         targets,
         answers,
         probeId: null,
@@ -729,7 +728,7 @@ class Generator {
     }
   }
 
-  // ---------- 330 号票：演绎预测落空、判不出撤哪条 ----------
+  // ----------演绎预测落空、判不出撤哪条 ----------
 
   private fromFalsified(): void {
     for (const p of this.store.listPredictions({ status: "miss" })) {
@@ -773,7 +772,7 @@ class Generator {
     }
   }
 
-  // ---------- 330 号票（R12）：已验证碰上有分量的反例 ----------
+  // ----------ADR-0032 R12：已验证碰上有分量的反例 ----------
 
   /** 降回猜测、标着复核、碰上还没弄清的有分量的反例的：问是不是例外（是：你确认过，照旧已验证；不是：撤回） */
   private fromCounterexamples(): void {
@@ -805,7 +804,7 @@ class Generator {
     }
   }
 
-  // ---------- 330 号票（R13）：两条打架都已验证 ----------
+  // ----------ADR-0032 R13：两条打架都已验证 ----------
 
   /** 跨组互相矛盾、都够已验证、场合对得上的（按场合分不开的）：问现在更接近哪一条 */
   private fromVerifiedConflicts(): void {
@@ -831,7 +830,7 @@ class Generator {
     }
   }
 
-  // ---------- 330 号票（R3）：别人转述的 ----------
+  // ----------ADR-0032 R3：别人转述的 ----------
 
   /**
    * 转述起的猜测（还是猜测的）问一句"是这样吗"：是 → 你确认过（直接证实、已验证），不是 → 撤回。
@@ -895,7 +894,7 @@ class Generator {
     }
   }
 
-  // ---------- 330 号票（R6）：做法的理由没了，还要不要 ----------
+  // ----------ADR-0032 R6：做法的理由没了，还要不要 ----------
 
   private fromStrategies(): void {
     for (const s of this.store.listStrategies({ status: ["active", "paused"] })) {

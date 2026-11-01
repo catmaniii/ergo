@@ -1,4 +1,4 @@
-// 用户 PATH（318 号票）：装的时候把 <安装目录>\bin 加进**用户的** PATH（HKCU\Environment\Path，不要管理员），卸载时撤掉。
+// 用户 PATH：装的时候把 <安装目录>\bin 加进**用户的** PATH（HKCU\Environment\Path，不要管理员），卸载时撤掉。
 // 读用 reg query，写用 .NET 的 Environment.SetEnvironmentVariable(…, "User")（写完会广播"环境变了"，新开的终端就认）。
 // 测试换成一个 JSON 文件（环境变量 ERGO_USER_ENV_FILE），不碰真的注册表。
 // @i18n-ignore-file log：出错原因给开发者看

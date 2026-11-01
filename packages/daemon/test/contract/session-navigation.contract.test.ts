@@ -1,4 +1,4 @@
-// pi 契约测试：会话树上挪（150 号票：会话回退；151 号票：切换分支）。用的是 pi 会话文件（JSONL）和会话树的这些行为：
+// pi 契约测试：会话树上挪（会话回退；切换分支）。用的是 pi 会话文件（JSONL）和会话树的这些行为：
 // - 每条输入在会话文件里是 [上下文块…][输入标记][用户消息]：回到"这条输入之前"，叶子落在它第一条条目的父条目上
 //   （前面那条是自定义消息——换模型新开会话开头的交接摘要——也落得对，navigateTree 在这种情况下落不对）；
 // - 写分支摘要：被放弃的那段（原来的叶子到共同祖先）交给模型、要求接在 pi 的提示后面；摘要条目接在新叶子下面，进新分支的上下文；
@@ -6,7 +6,7 @@
 // - 叶子落盘：挪完追加一条记号（不进模型的上下文），子进程退出、重开文件时叶子还在新分支上（pi 重开时取文件里的最后一条）；
 // - 不写摘要的挪（切换分支）一样落盘，原来那条分支整条回到上下文里；
 // - 找不到这条输入时报原因，会话不动；
-// - 152 号票：回到某次工具调用的结果之后（afterCall：最后一条工具结果）、回到它所在的那条回复之前（beforeCall：那条 assistant 消息的父条目）。
+// -回到某次工具调用的结果之后（afterCall：最后一条工具结果）、回到它所在的那条回复之前（beforeCall：那条 assistant 消息的父条目）。
 import fs from "node:fs";
 import { BRANCH_SUMMARY_INSTRUCTIONS } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
@@ -163,7 +163,7 @@ describe("pi 契约：会话树上挪", () => {
     expect(seen).not.toContain("第二句");
   });
 
-  it("不写摘要地挪到原来那条分支的末端（151 号票的切换）：一样落盘，重开后原来那条整条回到上下文里", async () => {
+  it("不写摘要地挪到原来那条分支的末端（切换）：一样落盘，重开后原来那条整条回到上下文里", async () => {
     const { daemon } = await startTestDaemon();
     const run = await chat(
       daemon,
@@ -191,7 +191,7 @@ describe("pi 契约：会话树上挪", () => {
     expect(seen).not.toContain("分支摘要");
   });
 
-  it("回到某次工具调用的结果之后（afterCall）、回到它所在的那条回复之前（beforeCall，152 号票）：叶子落在最后一条工具结果上、落在那条回复的父条目上", async () => {
+  it("回到某次工具调用的结果之后（afterCall）、回到它所在的那条回复之前（beforeCall）：叶子落在最后一条工具结果上、落在那条回复的父条目上", async () => {
     const { daemon } = await startTestDaemon();
     const run = await chat(
       daemon,

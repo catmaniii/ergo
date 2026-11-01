@@ -1,4 +1,4 @@
-// DeepSeek 的联网搜索（Search）、读网页（Fetch）接口（154 号票）：本机临时端口上的假 DeepSeek（base URL 可配），不连真网络、不用真 key。
+// DeepSeek 的联网搜索（Search）、读网页（Fetch）接口：本机临时端口上的假 DeepSeek（base URL 可配），不连真网络、不用真 key。
 // - 请求：POST /v1/tools/search（query、count）、/v1/tools/fetch（url），Bearer 用 DeepSeek 的 key（和模型共用，每次现取）；
 // - 选项映射：n → count（最多 50）、time → 查询后面加 after:日期、region → lang:（对不上的不加）、查询超过 128 字不发请求；
 // - 结果：标题、地址、短摘要、长摘要、日期、站点、相关度、权威度，原样的字段留给 json；

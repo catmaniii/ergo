@@ -1,4 +1,4 @@
-// 设置 · 数据源（295 号票，issue 25）：把插件登记的数据源（registry.ts）接成一处——
+// 设置 · 数据源：把插件登记的数据源（registry.ts）接成一处——
 // - 页面（view）：每个数据源的名字、登记它的插件、连接状态（插件报的；没在运行时按密钥区有没有东西估）、上次同步和条数、正在同步、
 //   两种用法各开没开、用到的敏感类别（对上记忆的敏感类别开关：默认只记录、不用于推断）、认哪种文件、定期导入的时间；导入文件夹的路径、
 //   留在里面没导入的文件和原因、最近导入的；
@@ -9,33 +9,32 @@
 // - 导入文件夹（import-folder.ts）：每隔一会儿、文件夹里一有变化、用户点"现在检查"时看一遍，认得的交给那个数据源导入、挪进"已导入"，
 //   认不出的、几个数据源都认的、插件没启用的、导入关着的、出错的留在原地并提示；出错的同一个文件自动再看时不重试（手动看时重试）。
 // 同步、导入出错的原因里带着这个数据源的密钥的换成 ***（redactSecrets），记进同步记录（events.ts）。
-// 299 号票加了：设备交来的（push：按数据源登记的 schema 查、交给它收下、记同步记录 trigger device，同一个幂等键重发只收一次）、
+// 加了：设备交来的（push：按数据源登记的 schema 查、交给它收下、记同步记录 trigger device，同一个幂等键重发只收一次）、
 // 外部日历（calendarEvents：插件在运行的数据源交给日历插件显示的日程，经 KERNEL.externalCalendars 给日历插件）、
 // 数据源自己数"共几条"（count）、同步记录带"这次进来的是什么"（summary）。
-// 300 号票加了：原始数据（raw：插件自己存储里的，页面按天列出；动作 clear_raw 清掉几天的，插件在运行时才行）。
-// 297 号票：定期导入可以"每隔几分钟"（内部作业的 IntervalSchedule）；每隔几分钟的那种，到点同步了、什么都没变（新进来 0 条、没出错、
+// 加了：原始数据（raw：插件自己存储里的，页面按天列出；动作 clear_raw 清掉几天的，插件在运行时才行）。
+// 定期导入可以"每隔几分钟"（内部作业的 IntervalSchedule）；每隔几分钟的那种，到点同步了、什么都没变（新进来 0 条、没出错、
 // 上一条记下的同步也没出错）的那次不记事件（每 30 分钟一条会把事件日志撑大），只在内存里记着、页面上照样显示"上次同步"；
 // 重启后显示最后记下的那次。数据源可以说导入的东西去哪（destination，不写是整理成素材）、填好设置连上以后马上同步一次（syncOnConnect）、
 // 报一句提示（note）和它下面的几样（items）。
-// 307 号票：数据源报的插件那一块要的数据（panel）、断开时要说的一句（disconnectNote）原样交给页面；有本机文件夹的（localFolder）能
+// 数据源报的插件那一块要的数据（panel）、断开时要说的一句（disconnectNote）原样交给页面；有本机文件夹的（localFolder）能
 // "在电脑上打开"（open 动作，和导入文件夹同一个 openFolder）。
-// 306 号票：
 // - 按需查的工具只在连上时给秘书：插件在运行、按需查开着之外还要连着（插件报的最近一次已知的连接状态，status 要快、不连网，装配时不等网络）；
-//   没连、出错（Key 失效、地址失效）的不给。给出去的那份变了才让秘书重新装配（295 合并时定的）：用法开关、填设置、断开、插件起停、
+//   没连、出错（Key 失效、地址失效）的不给。给出去的那份变了才让秘书重新装配（合并时定的）：用法开关、填设置、断开、插件起停、
 //   同步完、设备交来、按需查调完（插件可能在这时发现 Key 失效）都比一比；正在跑的一轮里再调没连上的回"没连上 / 出错了"；
 // - 外部日历的版本（calendarVersion）：交给日历的日程变了（数据源的记录写进了新的、断开了、插件起停、连接状态变了）就往上加、
 //   通知订阅的（组合根在工作日历频道上推临时事件 external_calendar），开着的日历页不用换月就重新取；
-// - 出错的自己回来（主会话 2026-10-26 定）：插件在运行、报出错、能再试（登记了 recheck，或者有 sync 且导入开着；能填设置的要密钥区里
+// - 出错的自己回来：插件在运行、报出错、能再试（登记了 recheck，或者有 sync 且导入开着；能填设置的要密钥区里
 //   真有东西）的数据源，内核每小时替它试一次（recheck 用存着的设置再测连接；没有 recheck 的照同步那样同步一次，不看连没连着），
 //   试过了比一比——好了就回到连着（按需查的工具跟着回来、秘书重新装配一次），没好一小时后再试；Key 失效、密码错这种也照样试，
 //   页面上写明"每小时自动再试一次"（autoRetry）；
 // - 断开的确认框按数据源说话：页面上带"有没有填过的密钥"（hasSecrets）、"导入的进不进素材"（toMaterials，它的记录登记了素材来源没有），
 //   数据源报的一句（disconnectNote）插件没报的从数据源登记的那一句取。
-// 343 号票（数据源详情里看数据）：
+// 数据源详情里看数据：
 // - 已获取的（stored）：数据源自己会列的叫它（插件在运行时），它的记录进素材的按素材的出处列（素材是内核的，插件停了也列得出），点开跳素材详情；
 // - 现在能查到的（live）：现查上游，只读。插件没在运行、没连上、出错的不叫，写明；不写事件、不进素材（这里什么都不记），出错的原因里的密钥换成 ***；
 //   查的时候可能发现 Key 失效（插件记在内存里）：查完和按需查一样比一比。不看按需查开着没有——那个开关管给秘书的工具，这里是用户自己看。
-// 344 号票（Gmail 多账号）：
+// Gmail 多账号：
 // - 起来时叫数据源的 migrate（密钥区的老样子转成新样子；插件没启用也叫），转不成记一条日志、照常起来，下次再试；
 // - 断开动作带 item 是只断开它下面的一样（数据源的 disconnectItem）：只删这一样的密钥，选了连已导入的一起删只删归它的记录；"上次同步"照旧；
 // - 已获取的里写明素材是哪个账号的（还连着的写完整邮箱，只给页面）；现查的结果带 groups（一个账号一组）。
@@ -94,7 +93,7 @@ const SYNC_WAIT_MS = 20_000;
 const SCAN_EVERY_MS = 60_000;
 /** 文件刚改过多久之内算"还在写"，不碰它 */
 const SETTLE_MS = 3_000;
-/** 出错的数据源多久替它再试一次（306 号票，主会话定的每小时） */
+/** 出错的数据源多久替它再试一次（每小时） */
 export const RETRY_EVERY_MS = 60 * 60_000;
 
 export interface DataSourcesOptions {
@@ -114,9 +113,9 @@ export interface DataSourcesOptions {
   folder: { imports: string; imported: string };
   /** 记忆那边允许用来推断的敏感类别（配置 memory.sensitiveCategories） */
   inferable: () => readonly SensitiveCategory[];
-  /** 素材库：哪类事件登记了素材来源（306 号票：断开的确认框说不说"素材"） */
+  /** 素材库：哪类事件登记了素材来源（断开的确认框说不说"素材"） */
   materials: Pick<Materials, "captures">;
-  /** 这个数据源导入的素材的一页（343 号票，新的在前；就是 POST /api/materials/list 按 filter.dataSource 筛的那一份） */
+  /** 这个数据源导入的素材的一页（新的在前；就是 POST /api/materials/list 按 filter.dataSource 筛的那一份） */
   materialsOf(dataSource: string, page: { offset: number; limit: number }): MaterialListPage;
   now: () => string;
   /** 在电脑上打开文件夹（测试换成假的） */
@@ -137,15 +136,15 @@ export interface DataSources {
   folder(body: ImportFolderActionBody): Promise<ImportFolderActionResult>;
   /** 同步一次（正在同步的等同一次）：交回新进来几条或者出错的原因；不能同步的抛 RequestRejected */
   sync(id: string, trigger: "manual" | "scheduled"): Promise<{ added?: number; error?: string }>;
-  /** 设备交来的（299 号票）：不认得的数据源抛 not_found，插件没在运行、不收、导入关着、data 不对抛 RequestRejected */
+  /** 设备交来的：不认得的数据源抛 not_found，插件没在运行、不收、导入关着、data 不对抛 RequestRejected */
   push(id: string, body: DataSourcePushBody): Promise<DataSourcePushResult>;
-  /** 已获取的一页（343 号票）：不认得的数据源抛 not_found，没有这回事的抛 RequestRejected；列不出来的写在 problem */
+  /** 已获取的一页：不认得的数据源抛 not_found，没有这回事的抛 RequestRejected；列不出来的写在 problem */
   stored(id: string, body: DataSourceStoredBody): DataSourceStoredPage;
-  /** 现查上游（343 号票，只读、什么都不存）：不认得的数据源抛 not_found，不能现查的抛 RequestRejected；插件没在运行、没连上、查不到的写在结果里 */
+  /** 现查上游（只读、什么都不存）：不认得的数据源抛 not_found，不能现查的抛 RequestRejected；插件没在运行、没连上、查不到的写在结果里 */
   live(id: string, body: DataSourceLiveBody): Promise<DataSourceLiveResult>;
-  /** 外部日历（299 号票）：插件在运行的数据源交给日历插件显示的 [from, to) 里的日程（出错的那个数据源跳过、记日志） */
+  /** 外部日历：插件在运行的数据源交给日历插件显示的 [from, to) 里的日程（出错的那个数据源跳过、记日志） */
   calendarEvents(from: Date, to: Date): CalendarExternalEntry[];
-  /** 外部日历现在的版本（306 号票）：交给日历的日程变了就往上加（只增不减，毫秒时间起步） */
+  /** 外部日历现在的版本：交给日历的日程变了就往上加（只增不减，毫秒时间起步） */
   calendarVersion(): number;
   /** 外部日历变了（交来新版本）；返回取消订阅 */
   onCalendarChange(listener: (version: number) => void): () => void;
@@ -194,7 +193,7 @@ export function describeSyncSchedule(schedule: DataSourceSchedule): string {
   return t("dataSources.every.minutes", { n: minutes });
 }
 
-/** 出错后再试挂在调度器上的 key（306 号票） */
+/** 出错后再试挂在调度器上的 key */
 const retryKey = (id: string) => `data-source-retry:${id}`;
 
 /** 设备交来的那一次的幂等键（同一个键重发只回第一次记下的） */
@@ -248,7 +247,7 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
     } catch (err) {
       status = { connection: "error", problem: describe(err) };
     }
-    // 填设置没过：没连上的算出错；已经连着的（297 号票：Google 日历已有一个日历、再加一个没加上）照样连着，原因写在出错那一行
+    // 填设置没过：没连上的算出错；已经连着的（Google 日历已有一个日历、再加一个没加上）照样连着，原因写在出错那一行
     const failed = configureProblems.get(source.id);
     if (failed !== undefined) return { ...status, connection: status.connection === "connected" ? "connected" : "error", problem: failed };
     return status.problem === undefined ? status : { ...status, problem: redact(entry, status.problem) };
@@ -258,9 +257,9 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
     return status === "manual" || status.connection === "connected";
   };
   /**
-   * 出错了、内核每小时替它再试一次的（306 号票）：插件在运行、报出错、能再试（登记了 recheck，或者有 sync 且导入开着），
+   * 出错了、内核每小时替它再试一次的：插件在运行、报出错、能再试（登记了 recheck，或者有 sync 且导入开着），
    * 能填设置的还要密钥区里真有东西（只是填设置没过、什么都没存的不算：没什么可试）。
-   * 344 号票：几个账号里有一个登录不上（连着、带 needsAuth，给了 recheck）也算：别的账号照常，那一个每小时替它再试
+   * 几个账号里有一个登录不上（连着、带 needsAuth，给了 recheck）也算：别的账号照常，那一个每小时替它再试
    */
   const retryable = (entry: DataSourceEntry): boolean => {
     const { source } = entry;
@@ -272,12 +271,12 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
     return status.connection === "error" || (status.connection === "connected" && status.needsAuth === true && source.recheck !== undefined);
   };
   /**
-   * 按需查的工具现在给不给（306 号票）：插件在运行、按需查开着、连着。连接状态是插件报的最近一次已知的（status 要快、不连网：
+   * 按需查的工具现在给不给：插件在运行、按需查开着、连着。连接状态是插件报的最近一次已知的（status 要快、不连网：
    * 插件在同步、按需查时碰到 Key 失效记在内存里），装配时不等网络；没连、出错（Key 失效、地址失效）的不给
    */
   const queryReady = (entry: DataSourceEntry) => entry.source.tools !== undefined && entry.owner.running() && usageOn(entry, "query") && connected(entry);
 
-  /** 它导入的记录现在有几条（还没删掉的）；插件在运行、自己会数的（299 号票）由它数 */
+  /** 它导入的记录现在有几条（还没删掉的）；插件在运行、自己会数的由它数 */
   const countOf = (entry: DataSourceEntry): number => {
     if (entry.source.count && entry.owner.running()) {
       try {
@@ -299,7 +298,7 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
     const last = new Map<string, DataSourceSyncedPayload>();
     const files: DataSourceSyncedPayload[] = [];
     for (const { synced, disconnected } of dataSourceRecords(store)) {
-      // 只断开它下面的一样（344）不算：别的几样照常，"上次同步"照旧
+      // 只断开它下面的一样不算：别的几样照常，"上次同步"照旧
       if (disconnected && disconnected.item === undefined) last.delete(disconnected.source);
       if (!synced) continue;
       last.set(synced.source, synced);
@@ -313,7 +312,7 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
     return { last, files: files.toReversed() };
   };
 
-  /** 原始数据（300 号票）：插件在运行、登记了的才有；列不出来的记日志、不写 */
+  /** 原始数据：插件在运行、登记了的才有；列不出来的记日志、不写 */
   const rawOf = (entry: DataSourceEntry): DataSourceRawView | undefined => {
     const { raw } = entry.source;
     if (!raw || !entry.owner.running()) return undefined;
@@ -325,7 +324,7 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
     }
   };
 
-  /** 它的记录登记了素材来源（306 号票：断开的确认框；343 号票：已获取的按素材的出处列） */
+  /** 它的记录登记了素材来源（断开的确认框；已获取的按素材的出处列） */
   const toMaterials = (entry: DataSourceEntry) => (entry.source.records ?? []).some((r) => options.materials.captures(r.type));
 
   const sourceView = (entry: DataSourceEntry, last: DataSourceSyncedPayload | undefined): DataSourceView => {
@@ -337,7 +336,7 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
     const raw = rawOf(entry);
     const destination = source.usages.import?.destination;
     const reported = status !== "manual" && available ? status : undefined;
-    // 断开时要说的一句：插件在运行时报的（随状态变），没报的用数据源登记的那一句（306 号票：手机日历、通讯录、Google 联系人）
+    // 断开时要说的一句：插件在运行时报的（随状态变），没报的用数据源登记的那一句（手机日历、通讯录、Google 联系人）
     const disconnectNote = reported?.disconnectNote ?? source.disconnectNote;
     return {
       id: source.id,
@@ -412,7 +411,7 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
     return previous === undefined || previous.error !== undefined;
   };
 
-  /** 同步一次；retry 是出错后每小时的再试（不看连没连着，306 号票） */
+  /** 同步一次；retry 是出错后每小时的再试（不看连没连着） */
   const startSync = (id: string, trigger: "manual" | "scheduled", retry = false): Promise<{ added?: number; error?: string }> => {
     const entry = entryOf(id);
     const { source } = entry;
@@ -479,7 +478,7 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
     }
   };
 
-  /** 哪些数据源的按需查现在给得出工具（插件在运行、按需查开着、连着：306 号票）：变了才让秘书重新装配 */
+  /** 哪些数据源的按需查现在给得出工具（插件在运行、按需查开着、连着）：变了才让秘书重新装配 */
   const queryToolOwners = (): string =>
     registry
       .list()
@@ -528,7 +527,7 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
     });
   };
 
-  // ---- 外部日历的版本（306 号票） ----
+  // ---- 外部日历的版本 ----
 
   /** 外部日历的版本：交给日历的日程变了就往上加（只增不减；毫秒时间起步，重启后照样比以前的大） */
   let calendarVersion = Date.now();
@@ -569,7 +568,7 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
     });
   };
 
-  // ---- 出错的自己回来（306 号票：每小时替它再试一次） ----
+  // ---- 出错的自己回来（每小时替它再试一次） ----
 
   /** 挂着再试的数据源（调度器的 key 是 data-source-retry:<id>）、正在再试的 */
   const retryArmed = new Set<string>();
@@ -738,11 +737,11 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
         } catch (err) {
           status = { connection: "error", problem: describe(err) };
         }
-        // 出错的记下原因；连上了、或者填完是"没连"（297 号票：删掉了最后一个日历）的清掉
+        // 出错的记下原因；连上了、或者填完是"没连"（删掉了最后一个日历）的清掉
         if (status.connection === "error") configureProblems.set(id, redact(entry, status.problem ?? t("dataSources.configureFailed")));
         else configureProblems.delete(id);
         refresh();
-        // 连上了、导入开着、数据源要的话马上同步一次（297 号票），和"立即同步"一样最多等一会儿
+        // 连上了、导入开着、数据源要的话马上同步一次，和"立即同步"一样最多等一会儿
         if (status.connection === "connected" && source.usages.import?.syncOnConnect && source.sync && usageOn(entry, "import")) {
           const waited = await waitSync(sync(id, "manual"));
           return { view: view(), ...(waited?.added === undefined ? {} : { added: waited.added }), ...(waited?.error === undefined ? {} : { error: waited.error }) };
@@ -750,7 +749,7 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
         return { view: view() };
       }
       case "open": {
-        // 在电脑上打开它的文件夹（307 号票：Looki 存到本地的位置），和导入文件夹的"在电脑上打开"同一个做法
+        // 在电脑上打开它的文件夹（Looki 存到本地的位置），和导入文件夹的"在电脑上打开"同一个做法
         if (!source.localFolder) throw new RequestRejected("not_allowed", t("dataSources.noFolder", { title: source.title }));
         if (!entry.owner.running()) throw new RequestRejected("not_allowed", pluginOff(entry));
         try {
@@ -773,7 +772,7 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
         // 同一个幂等键重发：什么都不再做，只回第一次记下的
         const before = disconnectedBefore(store, body.idempotencyKey);
         if (before) return { view: view(), ...(before.counts ? { purged: before.counts } : {}) };
-        // 只断开它下面的一样（344）：要插件在运行（插件认得哪一样）
+        // 只断开它下面的一样：要插件在运行（插件认得哪一样）
         if (body.item !== undefined) {
           if (!source.disconnectItem) throw new RequestRejected("not_allowed", t("dataSources.noDisconnectItem", { title: source.title }));
           if (!entry.owner.running()) throw new RequestRejected("not_allowed", pluginOff(entry));
@@ -878,7 +877,7 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
       }
     }
     if (!toMaterials(entry)) throw new RequestRejected("not_allowed", t("dataSources.noStored", { title: source.title }));
-    // 进素材的：素材是内核的，插件停了照样列得出；点开跳素材详情。有账号的写明是哪个账号（344：还连着的写完整邮箱，只给页面；断开了的写素材里记的打码的）
+    // 进素材的：素材是内核的，插件停了照样列得出；点开跳素材详情。有账号的写明是哪个账号（还连着的写完整邮箱，只给页面；断开了的写素材里记的打码的）
     const { total, items } = options.materialsOf(id, page);
     const status = statusOf(entry);
     const shown = new Map(status === "manual" ? [] : (status.items ?? []).map((item) => [item.id, item.title]));
@@ -951,7 +950,7 @@ export function createDataSources(options: DataSourcesOptions): DataSources {
     refresh,
     start(startOptions = {}) {
       fs.mkdirSync(options.folder.imported, { recursive: true });
-      // 密钥区的老样子转成新样子（344）：最先做；转不成记一条、照常起来（下次启动再试，插件照老样子接着用）
+      // 密钥区的老样子转成新样子：最先做；转不成记一条、照常起来（下次启动再试，插件照老样子接着用）
       for (const entry of registry.list()) {
         try {
           entry.source.migrate?.(contextOf(entry));

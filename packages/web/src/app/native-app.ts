@@ -1,20 +1,20 @@
-// 鸿蒙 App（62 号票）在网页这一侧：App 是个原生壳，用 ArkWeb 加载二狗的地址，并用 javaScriptProxy 往页面里注入
+// 鸿蒙 App在网页这一侧：App 是个原生壳，用 ArkWeb 加载二狗的地址，并用 javaScriptProxy 往页面里注入
 // window.ergoNative（frontend/harmony/entry/src/main/ets/bridge/NativeBridge.ets）。
 // 检测到它时：设置里显示"在鸿蒙 App 里运行"和 App 版本、能回到 App 的地址页；外观告诉 App，状态栏和窗口底色跟着变；
 // 系统返回键：网页经 setCanGoBack 报"还能不能在网页里返回"，App 按返回键时调网页登记的 window.__ergoBack()。
 // 没有时什么都不变。原生桥只对 App 里配好的那个来源开放，来源不对时 App 不做事、版本号回空串。
 // 这里不碰浏览器的全局变量（页面上的 window 在 page-native.ts 接进来），测试在 Node 里用假的原生桥跑。
-// 63 号票的原生录音也在 ergoNative 上：有录音这一组方法（新版 App）时 NativeApp.voice 是它的包装（native-voice.ts），
+// 原生录音也在 ergoNative 上：有录音这一组方法（新版 App）时 NativeApp.voice 是它的包装（native-voice.ts），
 // 没有（旧版 App、不在 App 里）时录音照旧用浏览器的 getUserMedia。
-// 105 号票：App 把网页延伸到了底部手势条底下，经 safeArea() 和推送的 window.__ergoInsets(json) 告诉页面那一截多高，
+// App 把网页延伸到了底部手势条底下，经 safeArea() 和推送的 window.__ergoInsets(json) 告诉页面那一截多高，
 // 页面底部只让开一小截（appBottomReserve），不再留整条白边；旧版 App 没有 safeArea，什么都不变。
-// 110 号票：有通知这一组方法（新版 App）时 NativeApp.notify 是它的包装（native-notify.ts），提醒发到系统通知栏；
+// 有通知这一组方法（新版 App）时 NativeApp.notify 是它的包装（native-notify.ts），提醒发到系统通知栏；
 // 没有时照旧弹浏览器通知（走哪条路在 system-notify.ts）。
-// 134 号票：有浏览器这一组方法（新版 App）时 NativeApp.browser 是它的包装（native-browser.ts），导航多"浏览"页签、
+// 有浏览器这一组方法（新版 App）时 NativeApp.browser 是它的包装（native-browser.ts），导航多"浏览"页签、
 // openInAppBrowser 和外链都在 App 的原生浏览器里打开；没有时照旧（嵌入框叠层、外链交给系统浏览器）。
-// 175 号票：App 原生的字（地址页、出错页、下载的提示、交回网页的原因……，key 是 harmony.*）跟着二狗的全局语言：有 setTexts 的新版 App，
+// App 原生的字（地址页、出错页、下载的提示、交回网页的原因……，key 是 harmony.*）跟着二狗的全局语言：有 setTexts 的新版 App，
 // 网页开场、换了语言时把当前语言的这几句交过去（appTexts、followLocaleInApp）；旧版 App 没有，照旧中文。
-// 299 号票：有手机这一组方法（新版 App）时 NativeApp.phone 是它的包装（native-phone.ts）：从通讯录挑人、读手机日历；没有时这两样做不了。
+// 有手机这一组方法（新版 App）时 NativeApp.phone 是它的包装（native-phone.ts）：从通讯录挑人、读手机日历；没有时这两样做不了。
 import { activeLocale, onLocaleChange, t, type ThemeChoice } from "../state/index.ts";
 import { appObject, exposeToApp } from "./app-names.ts";
 import type { BackRegistry } from "./back-registry.ts";
@@ -38,27 +38,27 @@ export interface NativeApp {
   setColorMode(choice: ThemeChoice): void;
   /** 告诉 App 现在还能不能在网页里返回：能就由网页退一级，不能 App 按返回键就退出 */
   setCanGoBack(flag: boolean): void;
-  /** App 的原生录音（63 号票）；旧版 App 没有 */
+  /** App 的原生录音；旧版 App 没有 */
   readonly voice?: NativeVoice;
-  /** 底部避让区多高（105 号票）：App 还没量到、回的不对是 undefined；旧版 App 没有这个方法 */
+  /** 底部避让区多高：App 还没量到、回的不对是 undefined；旧版 App 没有这个方法 */
   readonly safeArea?: () => NativeInsets | undefined;
-  /** App 的系统通知（110 号票）；旧版 App 没有 */
+  /** App 的系统通知；旧版 App 没有 */
   readonly notify?: NativeNotify;
-  /** App 的原生内置浏览器（134 号票，"浏览"页签）；旧版 App 没有 */
+  /** App 的原生内置浏览器（"浏览"页签）；旧版 App 没有 */
   readonly browser?: NativeBrowser;
-  /** 把 App 原生的字换成这些（175 号票）；旧版 App 没有 */
+  /** 把 App 原生的字换成这些；旧版 App 没有 */
   readonly setTexts?: (texts: NativeAppTexts) => void;
-  /** 读本机（299 号票）：从通讯录挑人、读手机日历；旧版 App 没有 */
+  /** 读本机：从通讯录挑人、读手机日历；旧版 App 没有 */
   readonly phone?: NativePhone;
 }
 
-/** 交给 App 的原生的字（175 号票）：二狗现在用的语言、harmony.* 的 key → 当前语言的句子（缺的已经用中文补上） */
+/** 交给 App 的原生的字：二狗现在用的语言、harmony.* 的 key → 当前语言的句子（缺的已经用中文补上） */
 export interface NativeAppTexts {
   readonly language: string;
   readonly texts: Readonly<Record<string, string>>;
 }
 
-/** App 报的避让区（105 号票）：bottom 是底部手势条（三键导航条）那一截的高度，物理像素 */
+/** App 报的避让区：bottom 是底部手势条（三键导航条）那一截的高度，物理像素 */
 export interface NativeInsets {
   readonly bottom: number;
 }
@@ -75,8 +75,8 @@ export function parseNativeInsets(json: unknown): NativeInsets | undefined {
 }
 
 /**
- * 手势条那一截里页面底部还让开多少（105 号票）：四分之一。各风格的底部横栏、输入框自己还留着下边距，
- * 原来让开一半时用户 2026-10-13 在平板上看下面还空，要输入框和底部导航再往下；左下角、右下角被挡一点用户说不要紧。
+ * 手势条那一截里页面底部还让开多少：四分之一。各风格的底部横栏、输入框自己还留着下边距，
+ * 原来让开一半时在平板上看下面还空，要输入框和底部导航再往下；左下角、右下角被挡一点用户说不要紧。
  * 真机上看着压字了就调大它
  */
 export const APP_BOTTOM_KEEP_RATIO = 0.25;
@@ -103,7 +103,7 @@ function callBridge(bridge: BridgeObject, method: string, ...args: (string | boo
 
 /**
  * 页面的全局对象里有没有 App 注入的原生桥；没有、形状不对、App 拒绝了这个页面都返回 undefined。
- * 有原生录音时在 scope 上登记 App 推送用的 __ergoVoice，有原生浏览器时登记 __ergoBrowser（134 号票）。
+ * 有原生录音时在 scope 上登记 App 推送用的 __ergoVoice，有原生浏览器时登记 __ergoBrowser。
  */
 export function detectNativeApp(scope: { ergoNative?: unknown } & NativeVoiceScope & NativeBrowserScope): NativeApp | undefined {
   const bridge = appObject(scope, "ergoNative");
@@ -137,14 +137,14 @@ export function detectNativeApp(scope: { ergoNative?: unknown } & NativeVoiceSco
 /** App 原生的字的 key 都以它开头（共享协议包 locales/<语言>/harmony.json） */
 const APP_TEXT_PREFIX = "harmony.";
 
-/** 当前语言的 App 原生的字（175 号票）：词典里（连同回退的中文）每个 harmony.* 的 key 按当前语言取好；{name} 原样留给 App 换 */
+/** 当前语言的 App 原生的字：词典里（连同回退的中文）每个 harmony.* 的 key 按当前语言取好；{name} 原样留给 App 换 */
 export function appTexts(): NativeAppTexts {
   const locale = activeLocale();
   const keys = new Set([...Object.keys(locale.fallback), ...Object.keys(locale.messages)].filter((k) => k.startsWith(APP_TEXT_PREFIX)));
   return { language: locale.meta.id, texts: Object.fromEntries([...keys].toSorted().map((k) => [k, t(k)])) };
 }
 
-/** App 原生的字跟着语言（175 号票）：马上交一次，之后换了语言（字不一样了）再交；返回停下。旧版 App 没有 setTexts：什么都不做 */
+/** App 原生的字跟着语言：马上交一次，之后换了语言（字不一样了）再交；返回停下。旧版 App 没有 setTexts：什么都不做 */
 export function followLocaleInApp(app: NativeApp, texts: () => NativeAppTexts = appTexts, subscribe: (fn: () => void) => () => void = onLocaleChange): () => void {
   const setTexts = app.setTexts;
   if (!setTexts) return () => {};
@@ -204,7 +204,7 @@ export interface InsetsScope {
 }
 
 /**
- * 底部避让接到 App 上（105 号票）：马上问一次（App 可能还没量到），登记 window.__ergoInsets 等 App 推（量到了、转屏了），
+ * 底部避让接到 App 上：马上问一次（App 可能还没量到），登记 window.__ergoInsets 等 App 推（量到了、转屏了），
  * 每次拿到对的就交给 apply；返回停下。旧版 App 没有 safeArea：什么都不做
  */
 export function followInsetsInApp(app: NativeApp, scope: InsetsScope, apply: (insets: NativeInsets) => void): () => void {

@@ -3,7 +3,7 @@
 //   "只确认，稍后开工"是在 agent 先提出的东西上做的选择（本人，注明 agent 先提出）；确认时附的说明是用户自己的话（本人）。
 // 另外两种由别处采集：用户在负责人会话里的发言（会话频道上的消息事件，带所属的项目），"建议立项"卡被关掉或长期没处理
 // （卡片模块通用的回避信号）。
-// 彻底删除（21 号票）、删除项目（deletion.ts）时：立项书的事件把用户写的说明和立项书正文（目标、范围、首版、外部路径）
+// 彻底删除、删除项目（deletion.ts）时：立项书的事件把用户写的说明和立项书正文（目标、范围、首版、外部路径）
 // 换成删除标记，决定、版本、项目类型、绑不绑外部路径、工具包、首个建设任务原样保留。
 import { type Charter, CHARTER_DECISION_LABEL, EVENT_TYPES, PROJECT_KIND_LABEL, PURGED_TEXT, toolkitBashWording, t } from "@ergo/protocol";
 import { purgedField, type PurgeRewriter } from "../events/purge.ts";
@@ -47,7 +47,7 @@ export function purgedCharter(charter: Charter): Charter {
     scope: charter.scope.map(() => PURGED_TEXT),
     firstVersion: PURGED_TEXT,
     ...(charter.externalPath === undefined ? {} : { externalPath: PURGED_TEXT }),
-    // 运营方式（130 号票，选填）
+    // 运营方式（选填）
     ...(charter.operations === undefined ? {} : { operations: PURGED_TEXT }),
   };
 }

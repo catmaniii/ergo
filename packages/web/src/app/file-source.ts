@@ -1,7 +1,7 @@
-// 内置浏览器渲染文件时取内容（160 号票）。哪些渲染、怎么画在状态层（state/file-view.ts），这里是要用到浏览器 API 的那一半：
-// - fetchFileText：网页的内置浏览器（132 号票，/apps/… 和二狗同源，带着凭证）直接请求文件——只读开头 MEDIA_TEXT_MAX_BYTES（1 MB），
+// 内置浏览器渲染文件时取内容。哪些渲染、怎么画在状态层（state/file-view.ts），这里是要用到浏览器 API 的那一半：
+// - fetchFileText：网页的内置浏览器（/apps/… 和二狗同源，带着凭证）直接请求文件——只读开头 MEDIA_TEXT_MAX_BYTES（1 MB），
 //   截在字符边上；响应不是能渲染的文本（网页、图片……）就不读正文，回 page，调用方照旧在框里当网页开；
-// - nativeFileText：鸿蒙 App 的原生浏览器交来的（134 号票）——页面上显示的字（浏览器已经解好了），或者拦下的下载的字节（base64）；
+// - nativeFileText：鸿蒙 App 的原生浏览器交来的——页面上显示的字（浏览器已经解好了），或者拦下的下载的字节（base64）；
 // - decodeFileBytes：按 Content-Type 写的字符集解；没写先按 UTF-8，不行再按 GB18030（国内常见的 GBK 文本；报告页只按 UTF-8，
 //   这里是别人网站上的文件，多认一种）；解出来含 NUL 的是二进制，不当文本。
 // 不碰页面的全局变量（fetch 由调用方给），测试在 Node 里跑（test/app/file-source.test.ts）。
@@ -31,7 +31,7 @@ export function decodeFileBytes(bytes: Uint8Array, charset: string | undefined, 
   return text === undefined || text.includes("\u0000") ? { ok: false } : { ok: true, text };
 }
 
-/** 不是文本文件（169 号票起按当前语言，取的时候现拼） */
+/** 不是文本文件（按当前语言，取的时候现拼） */
 const notText = (): FileTextResult => ({ status: "error", title: t("app.fileSource.notText"), detail: t("app.fileSource.notTextDetail") });
 
 /** 取文件失败（title 是"取文件失败"） */

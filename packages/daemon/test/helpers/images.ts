@@ -141,7 +141,7 @@ function riffChunk(type: string, data: Buffer): Buffer {
 }
 
 /**
- * 一张真能解码、像照片一样有渐变的 PNG（145 号票：秘书看图时缩小的那一步要真的解开、缩小、编码；全黑的图缩小后
+ * 一张真能解码、像照片一样有渐变的 PNG（秘书看图时缩小的那一步要真的解开、缩小、编码；全黑的图缩小后
  * 存成 PNG 就够小，这种渐变的缩小后是 JPEG）
  */
 export function gradientPng(width: number, height: number): Buffer {

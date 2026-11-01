@@ -1,13 +1,13 @@
-// 详情页显示什么（56 号票）：各种详情（文字、工具调用……），按二狗的条目（52 号票的 chat-items.ts）
+// 详情页显示什么：各种详情（文字、工具调用……），按二狗的条目（chat-items.ts）
 // 改写成纯函数，界面（ui/detail/DetailPane.tsx）只管画。详情按条目 id 存，这里每次用 locateChatItem 现查，所以流式更新、
 // 往上翻之后看到的都是现在的样子。
 // 详情的种类：
 // - 文本：用户消息、回复、思考、语音（用户的是识别出的文字，agent 的是送进 TTS 的原文）、系统说明；
-// - 工具调用组：按先后列出每一步思考和调用，出了状况的标清楚是第几次（用户 2026-10-09 定）；
-// - 调用记忆（187 号票）："这次用到的记忆"——按先后列出思考、每次检索（为什么查、查了什么、找到的每条：怎么找出来的、读没读全文）、
+// - 工具调用组：按先后列出每一步思考和调用，出了状况的标清楚是第几次；
+// - 调用记忆："这次用到的记忆"——按先后列出思考、每次检索（为什么查、查了什么、找到的每条：怎么找出来的、读没读全文）、
 //   读全文（读的是前面检索到的那条就不另列，在那条上标"读了全文"）；每条的原话、时间、在哪由界面按素材 id 现取（memory-recall.ts）；
 // - 单次工具调用：按调用的 id 打开（组里的一次，或者挂在某一条上的内部工具调用、发出了气泡的发语音调用）；完整参数和返回由界面现取
-//   （53 号票），这里只投影。工具发的语音（87 号票）的详情里也带着发它的那次调用（会话里不单独显示它）；
+//   这里只投影。工具发的语音的详情里也带着发它的那次调用（会话里不单独显示它）；
 // - 卡片、时间线记录（偏离、范围变更、越界、操作记录……）。
 import {
   type AgentLetterKind,
@@ -50,16 +50,16 @@ export interface TextDetail {
   /** 这一条现在的 id（"在对话中定位"用） */
   readonly itemId: string;
   readonly tag: TextDetailTag;
-  /** 种类的中文名：用户输入、模型思考、模型回复、语音转写、语音回复、系统说明；秘书转达的话写"<名字占位>转达"（103 号票） */
+  /** 种类的中文名：用户输入、模型思考、模型回复、语音转写、语音回复、系统说明；秘书转达的话写"<名字占位>转达" */
   readonly label: string;
   /** 完整内容 */
   readonly text: string;
   /** 字数（按字符串长度数） */
   readonly chars: number;
-  /** 模型回复本来就是 Markdown，按渲染后的样子看；agent 之间的来信（115 号票）也照 Markdown 画；其余按原文看 */
+  /** 模型回复本来就是 Markdown，按渲染后的样子看；agent 之间的来信也照 Markdown 画；其余按原文看 */
   readonly markdown: boolean;
   /**
-   * agent 之间的来信（115 号票：任务做完、负责人来信、秘书转达、计划检查）：哪种。会话里只有一行，这里是全文——种类写在 label，
+   * agent 之间的来信（任务做完、负责人来信、秘书转达、计划检查）：哪种。会话里只有一行，这里是全文——种类写在 label，
    * 标题行是那一句总结；运行时写的单个换行照样分行（agent-letters.ts 的 letterMarkdown）。别的没有
    */
   readonly letter: AgentLetterKind | undefined;
@@ -74,13 +74,13 @@ export interface TextDetail {
   /** 语音：谁说的（用户的是语音转写，agent 的是语音回复）、时长；用户的还有识别状态 */
   readonly voice: { readonly speaker: "user" | "agent"; readonly duration: string; readonly status?: string } | undefined;
   /**
-   * 工具发的语音（87 号票）：发这条语音的那次"发语音"调用，和单次工具调用的详情一样的内容（会话里不单独显示它）。
+   * 工具发的语音：发这条语音的那次"发语音"调用，和单次工具调用的详情一样的内容（会话里不单独显示它）。
    * 语音回复、用户的语音、别的文本没有
    */
   readonly toolCall: CallDetail | undefined;
 }
 
-/** 一次调用的结局怎么说：已执行、执行中、没有执行（被拦下、你拒绝了、等你批准）、出错（170 号票起按当前语言现取，界面按 outcome 判断） */
+/** 一次调用的结局怎么说：已执行、执行中、没有执行（被拦下、你拒绝了、等你批准）、出错（按当前语言现取，界面按 outcome 判断） */
 export type CallStatus = string;
 
 const CALL_STATUS_TEXT = tTable({
@@ -103,12 +103,12 @@ export const CALL_GRANT_LABEL: Readonly<Record<CallGrant, string>> = tTable({
 export interface CallLine {
   /** 这次调用的 id：点进单次调用的详情用 */
   readonly id: string;
-  /** 工具调用 part 的 callId：取完整参数和返回用（53 号票） */
+  /** 工具调用 part 的 callId：取完整参数和返回用 */
   readonly callId: string;
   readonly tool: string;
-  /** 工具的中文名（67 号票；MCP 工具和没登记的是原名） */
+  /** 工具的中文名（MCP 工具和没登记的是原名） */
   readonly label: string;
-  /** 说人话的那一句（67 号票，call-sentence.ts）：没有模板的是"中文名 · 参数值" */
+  /** 说人话的那一句（call-sentence.ts）：没有模板的是"中文名 · 参数值" */
   readonly sentence: string;
   /** 那一句是有模板说成的人话 */
   readonly said: boolean;
@@ -118,9 +118,9 @@ export interface CallLine {
   readonly result: string | undefined;
   /** 第几次：组里算进"调用了 N 个工具"的调用按先后从 1 数；顺利执行的内部工具、不在组里的调用没有 */
   readonly number: number | undefined;
-  /** 内部工具（52 号票的 INTERNAL_TOOLS）：会话里由什么代表它；不是内部工具的没有 */
+  /** 内部工具（INTERNAL_TOOLS）：会话里由什么代表它；不是内部工具的没有 */
   readonly internal: string | undefined;
-  /** 发出了语音气泡的"发语音"调用（87 号票）：会话里不单独显示，由那个气泡代表 */
+  /** 发出了语音气泡的"发语音"调用：会话里不单独显示，由那个气泡代表 */
   readonly sentVoice: boolean;
   /** 结局（工具调用 part 的 outcome）：界面按它判断；status 是它的说法 */
   readonly outcome: ToolCallOutcome;
@@ -185,7 +185,7 @@ export interface CallDetail {
   readonly stage: string | undefined;
 }
 
-/** 调用记忆里找到的一条（187 号票）：原话、时间、在哪由界面按素材 id 现取 */
+/** 调用记忆里找到的一条：原话、时间、在哪由界面按素材 id 现取 */
 export interface RecallHitLine {
   readonly materialId: string;
   /** 怎么找出来的："关键词命中"、"语义相近（0.71）"……；读全文的没有 */
@@ -202,7 +202,7 @@ export type RecallStepLine =
       /** 这次调用的 id（点进单次调用的详情） */
       readonly id: string;
       readonly callId: string;
-      /** 为什么查；187 号票之前的记录没有，写"查：<query>" */
+      /** 为什么查；以前的记录没有，写"查：<query>" */
       readonly title: string;
       /** 查了什么（有为什么查时另写一行）；没有为什么查的已经写在 title 里，这里没有 */
       readonly query: string | undefined;
@@ -210,7 +210,7 @@ export type RecallStepLine =
       readonly hits: readonly RecallHitLine[] | undefined;
     }
   | { readonly kind: "read"; readonly id: string; readonly callId: string; readonly hit: RecallHitLine }
-  /** 266 号票：自动带上的记忆简报——每条为什么带它、说到的结论（界面按编号现取说法），简报引的原话背后的素材 */
+  /** 自动带上的记忆简报——每条为什么带它、说到的结论（界面按编号现取说法），简报引的原话背后的素材 */
   | { readonly kind: "brief"; readonly id: string; readonly title: string; readonly items: readonly BriefItemLine[]; readonly hits: readonly RecallHitLine[] };
 
 export interface RecallDetail {
@@ -260,7 +260,7 @@ export interface RecordDetail {
   readonly operation: { readonly name: string; readonly basis: string | undefined; readonly ok: boolean; readonly result: string; readonly cardId: string } | undefined;
 }
 
-/** 每种详情都有：挂在这一条上的内部工具调用（52 号票：条目里不显示，详情页查得到） */
+/** 每种详情都有：挂在这一条上的内部工具调用（条目里不显示，详情页查得到） */
 interface WithInternalCalls {
   readonly internalCalls: readonly CallLine[];
 }
@@ -271,7 +271,7 @@ interface WithInternalCalls {
  */
 export type DetailContent =
   | { readonly kind: "missing"; readonly reason: "not_found" | "deleted" }
-  /** 插件没启用（193 号票）：打开着的时候它的插件停了，这一条换成了占位 */
+  /** 插件没启用：打开着的时候它的插件停了，这一条换成了占位 */
   | { readonly kind: "missing"; readonly reason: "unavailable"; readonly plugin: string }
   | ((TextDetail | GroupDetail | RecallDetail | CardDetail | RecordDetail) & WithInternalCalls)
   | CallDetail;
@@ -290,7 +290,7 @@ export function detailContent(state: UiState, items: readonly ChatItem[], ref: D
   const { item, call } = found;
   const base = { itemId: item.id, time: item.time, scope: item.scope };
   if (call) {
-    // 调用记忆（187 号票）里的一次也照组里的一次编号：第几次、共几次
+    // 调用记忆里的一次也照组里的一次编号：第几次、共几次
     const counted = item.kind === "tool_group" || item.kind === "recall" ? item.calls : [];
     const index = counted.findIndex((c) => c.id === call.id);
     const position = index < 0 ? undefined : { number: index + 1, count: counted.length };
@@ -301,7 +301,7 @@ export function detailContent(state: UiState, items: readonly ChatItem[], ref: D
   switch (item.kind) {
     case "user": {
       const detail = textOf("user", item.text, item.message.parts);
-      // 秘书转达的话（103 号票）：种类写"<名字>转达"，不是"用户输入"；115 号票起是来信，全文照 Markdown 画
+      // 秘书转达的话：种类写"<名字>转达"，不是"用户输入"；是来信，全文照 Markdown 画
       if (item.letter) return asLetter(detail, item.letter);
       return item.relayed ? { ...detail, label: relayLabel() } : detail;
     }
@@ -311,9 +311,9 @@ export function detailContent(state: UiState, items: readonly ChatItem[], ref: D
       return textOf("reply", item.text, item.parts);
     case "system": {
       const detail = textOf("system", item.text, item.parts);
-      // 分支摘要（150 号票）：种类写"分支摘要"
+      // 分支摘要：种类写"分支摘要"
       if (item.branch) return { ...detail, label: t("state.detailContent.branchSummary") };
-      // 写给 agent 的来信（115 号票）：种类写"任务做完""负责人来信"……，不是"系统说明"
+      // 写给 agent 的来信：种类写"任务做完""负责人来信"……，不是"系统说明"
       return item.letter ? asLetter(detail, item.letter) : detail;
     }
     case "voice":
@@ -331,7 +331,7 @@ export function detailContent(state: UiState, items: readonly ChatItem[], ref: D
     case "unavailable":
       return { kind: "missing", reason: "unavailable", plugin: item.plugin };
     case "divider":
-      // 工单分隔线没有详情（52 号票），按 id 打开时当作找不到
+      // 工单分隔线没有详情，按 id 打开时当作找不到
       return { kind: "missing", reason: "not_found" };
   }
 }
@@ -343,7 +343,7 @@ const CARD_STATUS_TEXT = tTable({
   expired: "state.detailContent.card.expired",
 });
 
-/** 来信的详情（115 号票）：种类写来信的种类，带上那一句总结，全文照 Markdown 画 */
+/** 来信的详情：种类写来信的种类，带上那一句总结，全文照 Markdown 画 */
 function asLetter(detail: TextDetail & WithInternalCalls, letter: AgentLetter): TextDetail & WithInternalCalls {
   return { ...detail, label: letter.label, letter: letter.kind, summary: letter.summary, markdown: true };
 }
@@ -354,7 +354,7 @@ function cardDetail(state: UiState, base: Pick<CardDetail, "itemId" | "time" | "
   return { kind: "card", ...base, ...head };
 }
 
-/** 一张卡详情头上的一行：种类、卡片纯文本的第一行、待处理还是已处理（91 号票：按卡片 id 打开计划卡、计划变更卡的详情也用它）；没收到过这张卡没有 */
+/** 一张卡详情头上的一行：种类、卡片纯文本的第一行、待处理还是已处理（按卡片 id 打开计划卡、计划变更卡的详情也用它）；没收到过这张卡没有 */
 export function cardHeadOf(state: UiState, cardId: string): Pick<CardDetail, "cardId" | "cardType" | "title" | "status" | "pending"> | undefined {
   const card = state.cards[cardId]?.card;
   if (!card) return undefined;
@@ -410,7 +410,7 @@ function recallDetail(base: Pick<RecallDetail, "itemId" | "time" | "scope">, ite
     if (call.brief) return [{ kind: "brief", id: call.id, title: t("state.memoryRecall.brief"), items: briefItemLines(call.brief), hits: (entry.hits ?? []).map(line) }];
     if (entry.source === "read") return (entry.hits ?? []).filter((h) => !searched.has(h.materialId)).map((h) => ({ kind: "read", id: call.id, callId: call.part.callId, hit: line(h) }));
     const query = entry.query ?? "";
-    // 263 号票：问记忆写"问记忆：<问题>"，找到的是简报里引用的证据背后的素材
+    // 问记忆写"问记忆：<问题>"，找到的是简报里引用的证据背后的素材
     const title = entry.source === "ask" ? t("state.memoryRecall.ask", { question: query }) : (entry.why ?? t("state.memoryRecall.queryOnly", { query }));
     return [
       {
@@ -505,17 +505,17 @@ function grantOf(part: ChatToolCall["part"]): CallGrant {
 
 /**
  * 守卫怎么判的：被拦下的原因不是处置时先写原因，再写按处置会怎么判；判定出错时没有处置（原来 parts.tsx 的 dispositionText）。
- * 任务的 agent 超出授权、先不管直接做的（101 号票），处置后面写明
+ * 任务的 agent 超出授权、先不管直接做的，处置后面写明
  */
 function verdictOf(part: ChatToolCall["part"]): string {
   const disposition = part.disposition ? DISPOSITION_LABEL[part.disposition] : "";
   if (part.blockedBy === "judge_error") return t("state.detailContent.verdict.judgeError", { why: TOOL_CALL_BLOCK_LABEL.judge_error });
   if (part.blockedBy) return disposition ? t("state.detailContent.verdict.blockedWithDisposition", { why: TOOL_CALL_BLOCK_LABEL[part.blockedBy], disposition }) : TOOL_CALL_BLOCK_LABEL[part.blockedBy];
-  // 任务的 agent 超出授权、先不管直接做的调用，处置后面的说法（101 号票）
+  // 任务的 agent 超出授权、先不管直接做的调用，处置后面的说法
   return part.beyondGrant ? t("state.detailContent.verdict.beyondGrant", { disposition }) : disposition;
 }
 
-// ───────────────────────── 完整参数和返回（53 号票的接口取来的） ─────────────────────────
+// ───────────────────────── 完整参数和返回（接口取来的） ─────────────────────────
 
 /** 一次调用的完整参数和返回，整理成详情要显示的样子 */
 export interface CallFullContent {
@@ -535,11 +535,11 @@ export interface CallFullContent {
   readonly withheld: boolean;
   /**
    * 删掉了（参数和返回里的文字都换成了删除标记）时的说法：彻底删除的"已彻底删除"，删除项目时一起删掉的"已随项目删除"
-   * （66 号票）；没删的是 undefined
+   * 没删的是 undefined
    */
   readonly purgedLabel: string | undefined;
   /**
-   * 过了保留期、超出总量上限清掉了（65 号票）：参数和返回只剩摘要，界面按它退回聊天里的摘要（和没存完整内容一样），
+   * 过了保留期、超出总量上限清掉了：参数和返回只剩摘要，界面按它退回聊天里的摘要（和没存完整内容一样），
    * clearedNote 是注明的那句。没清掉的是 undefined
    */
   readonly cleared: ToolCallClearReason | undefined;
@@ -557,7 +557,7 @@ export interface CallFullContent {
   readonly effects: readonly EffectLine[] | undefined;
 }
 
-/** 一条效果记录：哪个工具、效果摘要、涉及的对象（"改动 D:\…\b.md"、"发给 …"），写了多少（"写入 N 字"，68 号票） */
+/** 一条效果记录：哪个工具、效果摘要、涉及的对象（"改动 D:\…\b.md"、"发给 …"），写了多少（"写入 N 字"） */
 export interface EffectLine {
   readonly seq: number;
   readonly title: string;
@@ -579,13 +579,13 @@ function effectObjectText(o: ToolCallEffectObject): string {
   return t(o.uncertain ? "state.detailContent.effect.objectUncertain" : "state.detailContent.effect.object", { how, value: o.value });
 }
 
-/** 完整内容删掉了的说法：彻底删除的、删除项目时一起删掉的（66 号票，ToolCallDetail.purgedBy） */
+/** 完整内容删掉了的说法：彻底删除的、删除项目时一起删掉的（ToolCallDetail.purgedBy） */
 export const TOOL_CALL_PURGED_LABEL: Readonly<Record<"purge" | "project_deletion", string>> = tTable({
   purge: "state.detailContent.purged.purge",
   project_deletion: "state.detailContent.purged.projectDeletion",
 });
 
-/** 完整内容为什么清掉了（65 号票）：详情页退回摘要时注明的那句 */
+/** 完整内容为什么清掉了：详情页退回摘要时注明的那句 */
 export const TOOL_CALL_CLEARED_NOTE: Readonly<Record<ToolCallClearReason, string>> = tTable({
   expired: "state.detailContent.cleared.expired",
   over_limit: "state.detailContent.cleared.overLimit",
@@ -606,7 +606,7 @@ export function callFullContent(detail: ToolCallDetail): CallFullContent {
     }),
     withheld: detail.resultWithheld !== undefined,
     purgedLabel: detail.purged === true ? TOOL_CALL_PURGED_LABEL[detail.purgedBy ?? "purge"] : undefined,
-    // 删掉了的按删除说（66 号票之前清掉过再删掉的，负载里还留着清掉的说明）
+    // 删掉了的按删除说（以前清掉过再删掉的，负载里还留着清掉的说明）
     cleared: detail.purged === true ? undefined : detail.cleared?.reason,
     clearedNote: detail.purged === true || !detail.cleared ? undefined : TOOL_CALL_CLEARED_NOTE[detail.cleared.reason],
     media: (detail.media ?? []).map((m) => {
@@ -673,7 +673,7 @@ function textDetail(state: UiState, base: TextBase, tag: Exclude<TextDetailTag, 
 
 /**
  * 语音：用户的是识别出的文字（语音转写），agent 的是送进 TTS 的原文（语音回复）。
- * 工具发的（87 号票）下面再给发它的那次调用（"在对话中定位"定位到的还是这个气泡）
+ * 工具发的下面再给发它的那次调用（"在对话中定位"定位到的还是这个气泡）
  */
 function voiceDetail(state: UiState, base: TextBase, item: Extract<ChatItem, { kind: "voice" }>): TextDetail & WithInternalCalls {
   const { part, toolCall } = item;
@@ -697,7 +697,7 @@ function voiceDetail(state: UiState, base: TextBase, item: Extract<ChatItem, { k
   };
 }
 
-/** 在做哪个阶段：第 n 阶段「标题」（任务的阶段列表里有它时；91 号票起按依赖图的编号，并行的写 4a、4b） */
+/** 在做哪个阶段：第 n 阶段「标题」（任务的阶段列表里有它时；按依赖图的编号，并行的写 4a、4b） */
 function stageLabel(state: UiState, scope: MessageScope): string | undefined {
   if (scope.taskId === undefined || scope.stageId === undefined) return undefined;
   const stage = taskStages(state, scope.taskId).find((s) => s.stageId === scope.stageId);

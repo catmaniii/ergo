@@ -1,4 +1,4 @@
-// 新建时选工作文件夹（305 号票）在网页这一侧的状态层：哪个运行时能选、交给守护进程的选择、能不能交、"新开一个"下面那一行、
+// 新建时选工作文件夹在网页这一侧的状态层：哪个运行时能选、交给守护进程的选择、能不能交、"新开一个"下面那一行、
 // 最近用过的文件夹（本机会话的工作目录去重）、建议立项卡上那一行。
 import { describe, expect, it } from "vitest";
 import {
@@ -22,7 +22,7 @@ const PI: AgentRuntimeView = { id: "pi", title: "pi", available: true, capabilit
 const CLAUDE: AgentRuntimeView = { id: "claude-code", title: "Claude Code", plugin: "claude-code", available: true, capabilities: caps(["take_over"]), settings: [], workFolder: { defaultFolder: "D:\\work\\claude" } };
 const session = (cwd: string, updatedAt: string): ResumableSessionView => ({ id: cwd + updatedAt, title: "x", cwd, updatedAt });
 
-describe("新建时选工作文件夹（网页状态层，305 号票）", () => {
+describe("新建时选工作文件夹（网页状态层）", () => {
   it("能选工作文件夹的运行时：现在能用、清单里带 workFolder 的；pi、停用了的、没取到清单的不算", () => {
     expect(workFolderRuntime([PI, CLAUDE], "claude-code")).toBe(CLAUDE);
     expect(workFolderRuntime([PI, CLAUDE], "pi")).toBeUndefined();

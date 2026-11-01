@@ -1,12 +1,12 @@
-// 内核登记的运营手段（130 号票，登记表见 means.ts）：
+// 内核登记的运营手段（登记表见 means.ts）：
 // - schedule 定时触发的任务：重复的时间表（每天、每周几、每月几号、按我的工作日），或者某个时间做一次；
-// - event 事件触发的任务：77 号票的事件来源、事件、过滤（二狗内部事件、本机文件夹变化、项目的服务报的事件……）；
+// - event 事件触发的任务：事件来源、事件、过滤（二狗内部事件、本机文件夹变化、项目的服务报的事件……）；
 //   这两种的做法都可以是普通任务或流程（流程带它的固定计划，确认方案时一起授权）。生效时建成这个项目的内部任务，执行者是项目的
-//   负责人（64 号票的规矩不变）：定时、事件触发的进运营中，触发底座登记它的触发，到点或来事件时派一张运行工单给负责人；
+//   负责人（规矩不变）：定时、事件触发的进运营中，触发底座登记它的触发，到点或来事件时派一张运行工单给负责人；
 //   项目停用、重新启用时的暂停和恢复由触发底座按项目的状态管（不登记 pause / resume）；
 // - public_entry 公网入口：规格写明属第二阶段，二狗现在还做不了（automatic 为 false），方案的格式给它留着位置——负责人写进方案时
 //   写明要用户手动做哪几步，卡上标"需要你手动"，确认时不假装生效。
-// 项目自己的服务（service，登记到 LSM 上线）133 号票起二狗能做了，在 project-services/means.ts；280 号票起由运营层自己经登记口登记
+// 项目自己的服务（service，登记到 LSM 上线）二狗能做了，在 project-services/means.ts；由运营层自己经登记口登记
 // （project-ops/layer.ts），组装函数在事件触发和公网入口之间装运营层。
 import { describeEventTrigger, describeSchedule, isRepeating, type OperationItem, type OperationItemDraft, type ReminderSchedule, SERVICE_EVENT_NAME_FILTER, SERVICE_EVENT_SOURCE, SERVICE_REPORTED_EVENT, t, type TaskTrigger } from "@ergo/protocol";
 import type { ScheduledJobs } from "../scheduled-jobs/index.ts";
@@ -60,7 +60,7 @@ function scheduleMeans(deps: BuiltinMeansDeps): OperationMeans {
     describe: (item) => (item.schedule ? describeSchedule(item.schedule) : t("operations.means.scheduleTrigger")),
     apply: (item, ctx) => applyTriggered(deps, item, { kind: "schedule", schedule: item.schedule as ReminderSchedule }, ctx),
     revoke: (binding) => (binding.taskId ? deps.scheduledJobs().cancelTaskEvents(binding.taskId, "user") : []),
-    // 只改了重复的时间表：就地改时间（98 号票的"改时间"，任务、会话、运行记录不变）；别的改动撤了重建
+    // 只改了重复的时间表：就地改时间（"改时间"，任务、会话、运行记录不变）；别的改动撤了重建
     update(before, after, binding) {
       if (!binding.taskId || !onlyScheduleChanged(before, after) || !after.schedule || !before.schedule || !isRepeating(before.schedule) || !isRepeating(after.schedule)) return undefined;
       return deps.scheduledJobs().rescheduleTaskEvents(binding.taskId, after.schedule, "user");
@@ -104,7 +104,7 @@ function manualMeans(id: string, label: () => string, hint: string): OperationMe
 
 /**
  * 内核登记的，分两段（先后就是工具说明里列的先后）：triggered 是定时触发的任务、事件触发的任务，manual 是要用户手动的公网入口。
- * 两段中间是运营层自己经登记口登记的 service（项目自己的服务，133 号票；280 号票起组装函数在两段之间装运营层，不再替它插进来）
+ * 两段中间是运营层自己经登记口登记的 service（项目自己的服务，组装函数在两段之间装运营层，不再替它插进来）
  */
 export function builtinOperationMeans(deps: BuiltinMeansDeps): { triggered: OperationMeans[]; manual: OperationMeans[] } {
   // @i18n-ignore-next model：工具说明里的提示

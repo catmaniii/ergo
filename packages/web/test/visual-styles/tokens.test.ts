@@ -1,4 +1,4 @@
-// 风格 token 实际的颜色（39 号票）：对比度测试、地址栏颜色、设置里的预览都靠它。顺着 var(--别的 token) 找下去；
+// 风格 token 实际的颜色：对比度测试、地址栏颜色、设置里的预览都靠它。顺着 var(--别的 token) 找下去；
 // 半透明的颜色（玻璃这类风格的面板）按"叠在页面底色上"算——不支持毛玻璃的浏览器退回的就是这个样子，字的对比度不能靠模糊撑。
 import { describe, expect, test } from "vitest";
 import { BASE_STYLE, effectiveTokens, fontStack, resolveColor, type VisualStyle } from "../../src/visual-styles/index.ts";

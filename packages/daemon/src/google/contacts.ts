@@ -1,5 +1,5 @@
-// Google · 联系人的服务（301 号票）：导入文件夹交来的 vCard → 解析（vcard.ts）→ 整理出要进档案候选的人（contact-offers.ts）→
-// 只记以前没交过的（contacts-events.ts）→ 一批一批交给个人档案的候选、当场合成候选核对卡（和 299 号票手机通讯录选人同一条路：
+// Google · 联系人的服务：导入文件夹交来的 vCard → 解析（vcard.ts）→ 整理出要进档案候选的人（contact-offers.ts）→
+// 只记以前没交过的（contacts-events.ts）→ 一批一批交给个人档案的候选、当场合成候选核对卡（和手机通讯录选人同一条路：
 // KERNEL.personalFiles 的 addCandidates / composeCandidates，来源写 vcard、数据源写 google-contacts）。
 // - 同一份再导一次不重复出候选：同一个人同一个字段同一个值交过就不再交（不管用户在卡上写了、没写还是还没处理）；换了新号码、新生日的
 //   才再交，卡上写着档案里原来的值。断开并删已导入的以后记录没了，再导就是从头来；
@@ -40,7 +40,7 @@ export interface GoogleContactsService {
   importFile(file: ImportFile, ctx: DataSourceImportContext): Promise<DataSourceSyncResult>;
   /** 交过（和排着的）几个人：数据源页的"共几条" */
   count(): number;
-  /** 导入的人（343 号票，数据源详情的"已获取的"）：同一个人导几次算一条，后导的在前 */
+  /** 导入的人（数据源详情的"已获取的"）：同一个人导几次算一条，后导的在前 */
   stored(query: DataSourceStoredQuery): DataSourceStoredResult;
   /** 上一批的卡处理完了就交下一批（插件起来时、卡片变了时叫） */
   offerNext(): void;

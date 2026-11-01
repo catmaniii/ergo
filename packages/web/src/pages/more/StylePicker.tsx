@@ -1,7 +1,7 @@
-// 设置 · 外观 · 风格（39 号票）：风格清单里的每一套，浅色、深色两张预览加名字；选了马上生效，只记在这台设备上。
+// 设置 · 外观 · 风格：风格清单里的每一套，浅色、深色两张预览加名字；选了马上生效，只记在这台设备上。
 // 预览是用这套风格自己的 token 和规则现场画的一小段场景（StylePreview.tsx，原理见 src/visual-styles/preview.ts），
 // 风格清单里加了风格，这里自动多一项。
-// 119 号票：能换主色的风格（现在只有经典）选中时，紧跟在它的选项后面出现一排主色色块（AccentPicker），点了马上换、记在这台设备上；
+// 能换主色的风格（现在只有经典）选中时，紧跟在它的选项后面出现一排主色色块（AccentPicker），点了马上换、记在这台设备上；
 // 选别的风格时不显示。经典的两张预览按经典选过的主色画。
 import { Fragment, useSyncExternalStore } from "react";
 import { pageTheme } from "../../app/page-theme.ts";
@@ -41,7 +41,7 @@ export function StylePicker() {
 }
 
 /**
- * 一套风格的主色（119 号票）：一排色块，点了马上换，当前那个打勾。每个色块挂着这套风格和这种主色（data-style、data-accent），
+ * 一套风格的主色：一排色块，点了马上换，当前那个打勾。每个色块挂着这套风格和这种主色（data-style、data-accent），
  * 底色是 var(--primary-fill)——生成的样式表在这两个属性上换 token，所以色块就是那种主色在现在深浅下的实色块（主按钮的颜色）
  */
 function AccentPicker({ style, current, onChoose }: { style: VisualStyle; current: string; onChoose(id: string): void }) {

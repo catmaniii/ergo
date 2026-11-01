@@ -1,28 +1,28 @@
-// agent 用语音回复（规格第 22 节，32 号票）。用户发的是语音，agent 这一轮的回复就由运行时合成语音（秘书和负责人的会话都一样）：
+// agent 用语音回复（规格第 22 节）。用户发的是语音，agent 这一轮的回复就由运行时合成语音（秘书和负责人的会话都一样）：
 //
 // - 是否用语音：运行时按"用户上一条是不是语音"判定，不只靠提示词。看的是这一轮处理的用户消息（交给 agent 的那条输入，
 //   和这一轮里收下的插话）里最后一条：它是语音就用语音回复。用户重新识别了之前没识别出来的语音、运行时交给 agent 的那条通知
-//   （31 号票，isVoiceRetryNotice）也算用户的语音。别的运行时通知引起的一轮不用语音（比如任务执行中的阶段通知）。
+//   （isVoiceRetryNotice）也算用户的语音。别的运行时通知引起的一轮不用语音（比如任务执行中的阶段通知）。
 // - 交给 agent 的这条语音输入后面跟一条说明（输入后面的上下文消息，有参考音色时才带）：这次的回复会合成语音，
 //   回复长或有念不出来的内容时用"口语总结"工具另写一段适合听的。口语总结工具由各处的装配放进代为执行的工具
 //   （秘书、负责人起草和执行、项目负责人的各段都有；守卫照常判定，不落入任何关注类别）。
 // - 这一轮开始（turn_start）时输入是语音、有参考音色：建出 agent 语音对象（replying，记下这一轮开始的序号）。
-//   用户 2026-10-08 定：这一轮前端不流式显示回复的文字，只显示"正在回复…"。
+//   这一轮前端不流式显示回复的文字，只显示"正在回复…"。
 // - 一轮结束（完成）时定口语稿：回复的文字去掉 Markdown 标记后估出来念得完（maxSeconds 内）、又没有代码表格链接这类
 //   念不出来的，整段合成（合成好只出语音气泡，文字收进语音，长按"转文字"才看）；否则合成口语总结，详细内容照常是这一轮的
 //   文字和附件——agent 用工具写了就用它（太长的截到念得完）；没写的先追问它一次（followUp：会话在处理下一条输入之前交给它，
 //   这次不算新回复，它说的不进会话，用量照常记账），追问了还没写才由运行时兜底（回复开头念得完的几句，加一句
 //   "详细内容我发在聊天里了"）。口语稿定了就排队合成。
-// - 口语稿定了之后的那一半（86 号票抽进 voice-synthesis.ts，和发语音工具共用）：排队（一次一条：显卡可能同时在给别的程序用）、
-//   分段合成和推送（38 号票）、入库、同一事务追加新版本和载着它的 tts_audio 消息、失败说明（这一轮退回只发文字；
+// - 口语稿定了之后的那一半（抽进 voice-synthesis.ts，和发语音工具共用）：排队（一次一条：显卡可能同时在给别的程序用）、
+//   分段合成和推送、入库、同一事务追加新版本和载着它的 tts_audio 消息、失败说明（这一轮退回只发文字；
 //   分段合成到一半失败的记成"只合成了一部分"，回复的文字照常显示）、重启后重做。
 // - 这一轮最后没用语音（没回复完、最后一句不是语音、没有要念的文字、没有参考音色）的记成 skipped，文字照常显示。
 //   没有任何参考音色时不建语音对象，待我处理里放一条"去导入参考音色"（开着的只有一条），导入之后自动归档。
 // - 守护进程在途中停了（被杀了），重启后：还在回复的记成 skipped（那条输入由会话标成中断，不重送）；在追问口语总结的
 //   直接由运行时兜底；还在合成的重做一遍（合成只是几次 HTTP 调用，不算"中断不确定"）：推过的段先收回，从第一段重新合成。
-// - 86 号票：用户打字的那一轮 agent 也能用"发语音"工具发语音，它的行为都在 send-voice.ts。这里只把跟着回合记下的交给它：
+// -用户打字的那一轮 agent 也能用"发语音"工具发语音，它的行为都在 send-voice.ts。这里只把跟着回合记下的交给它：
 //   正在进行的一轮（开始的序号、回复的归属，openTurn）、一轮结束（closeTurn：这一轮回复了哪些消息、结局），启动时先让它收尾（start）。
-// - 354 号票：用户说话问某个任务、项目的进展，这一轮秘书用发语音工具带 relay 写了两段（send-voice.ts 记到这一轮上：relayThisTurn）：
+// -用户说话问某个任务、项目的进展，这一轮秘书用发语音工具带 relay 写了两段（send-voice.ts 记到这一轮上：relayThisTurn）：
 //   语音回复合成的就是这两段（秘书开场 + 负责人的声音），不看回复多长；回复的文字照常显示（mode 记成 summary，agent 写的）。
 //   记在内存里：这一轮没结束就停了的，和别的语音轮一样记成 skipped，那条输入由会话标成中断。
 import { randomUUID } from "node:crypto";
@@ -76,13 +76,13 @@ export interface VoiceRepliesOptions {
   inbox: InboxService;
   references: ReferenceVoices;
   /**
-   * 这个会话里说话的 agent 现在用哪个参考音色（241 号票：按 agent 配的覆盖，没配 / 被删了跟全局默认）；
+   * 这个会话里说话的 agent 现在用哪个参考音色（按 agent 配的覆盖，没配 / 被删了跟全局默认）；
    * 不给时一律用 references.current()（和以前一样）
    */
   voiceOf?: (conversation: ConversationId) => ResolvedReferenceVoice | undefined;
-  /** 转述负责人的进展时（354 号票）：一个 agent 的角色名（转文字时写）；不给时用 agent id */
+  /** 转述负责人的进展时：一个 agent 的角色名（转文字时写）；不给时用 agent id */
   speakerName?: (agentId: string) => string;
-  /** 这个 agent 自己的声音（354 号票，agent-voice-ref.ts）：没有是 undefined，这时退回一条秘书的语音；不给就是都没有 */
+  /** 这个 agent 自己的声音（agent-voice-ref.ts）：没有是 undefined，这时退回一条秘书的语音；不给就是都没有 */
   ownVoiceOf?: (agentId: string) => OwnVoice | undefined;
   speech: SpeechSynthesizer;
   /** 念多快、多长算长（配置里的 voice.reply） */
@@ -91,7 +91,7 @@ export interface VoiceRepliesOptions {
   clock: Clock;
   /** 合成出的 WAV 先写在这里再入库，分段合成的段也放在这里（数据目录的临时区） */
   tmpDir: string;
-  /** 发语音工具最多等合成多久就先交回"还在合成"（毫秒，86 号票）；不给是 send-voice.ts 的 SEND_VOICE_WAIT_MS */
+  /** 发语音工具最多等合成多久就先交回"还在合成"（毫秒）；不给是 send-voice.ts 的 SEND_VOICE_WAIT_MS */
   sendVoiceWaitMs?: number;
   log: (line: string) => void;
 }
@@ -120,7 +120,7 @@ interface OpenTurn {
   scope: MessageScope;
   /** 这一轮开始时就建出的 agent 语音对象（输入是语音、有参考音色时） */
   voiceId?: string;
-  /** 语音轮里秘书用发语音工具写的两段（354 号票）：语音回复合成它们 */
+  /** 语音轮里秘书用发语音工具写的两段：语音回复合成它们 */
   relay?: RelayedSpeech;
 }
 
@@ -149,7 +149,7 @@ export function createVoiceReplies(options: VoiceRepliesOptions): VoiceReplies {
   const { advance } = synthesis;
   const missing = standingNotice({ store, inbox, notice: "voice_reference_missing" });
 
-  /** 这个会话里说话的 agent 用哪个参考音色（241 号票：自己配的覆盖全局；没配、被删了跟全局默认） */
+  /** 这个会话里说话的 agent 用哪个参考音色（自己配的覆盖全局；没配、被删了跟全局默认） */
   const voiceFor = (conversation: ConversationId): ResolvedReferenceVoice | undefined => options.voiceOf?.(conversation) ?? references.current();
 
   /** 这条输入是用户的语音吗 */
@@ -183,7 +183,7 @@ export function createVoiceReplies(options: VoiceRepliesOptions): VoiceReplies {
     },
   });
 
-  // 用户打字的那一轮也能发语音（86 号票，行为都在 send-voice.ts）：这一轮的情况从这里取，回合结束时告诉它
+  // 用户打字的那一轮也能发语音（行为都在 send-voice.ts）：这一轮的情况从这里取，回合结束时告诉它
   const sendVoice = createSendVoice({
     store,
     references,
@@ -245,10 +245,10 @@ export function createVoiceReplies(options: VoiceRepliesOptions): VoiceReplies {
         // 这一轮回复的归属先取输入的（agent 发了消息就换成它的）
         const conversation = event.channel as ConversationId;
         const input = startedInputs(store.reader, conversation).find((q) => q.messageId === inputMessageId);
-        // 一起交出的一批（144 号票）：另外几条也是这一轮处理的用户消息（看最后一条是不是语音）
+        // 一起交出的一批：另外几条也是这一轮处理的用户消息（看最后一条是不是语音）
         const turn: OpenTurn = { inputMessageId, seq: event.seq, handled: [inputMessageId, ...moreInputMessageIds], replies: [], scope: input?.scope ?? {} };
         turns.set(event.channel, turn);
-        // 输入是语音、有参考音色：这一轮用语音回复，回复的文字不流式显示（一起交出的一批看最后一条，144 号票）
+        // 输入是语音、有参考音色：这一轮用语音回复，回复的文字不流式显示（一起交出的一批看最后一条）
         if (voiceTurn(turn) && voiceFor(conversation)) {
           turn.voiceId = create(conversation, inputMessageId, { scope: turn.scope, turnSeq: event.seq, replyMessageIds: [], status: "replying" })?.id;
         }
@@ -300,7 +300,7 @@ export function createVoiceReplies(options: VoiceRepliesOptions): VoiceReplies {
   /** 一轮结束：定这一轮用不用语音、口语稿是什么；回复长又没写口语总结的，等会话追问 agent（followUp） */
   const endTurn = (conversation: ConversationId, turn: OpenTurn, outcome: TurnEndEventPayload["outcome"]) => {
     turns.delete(conversation);
-    // 这一轮里发语音工具发的语音：定这一轮另写的文字收不收进气泡（86 号票）
+    // 这一轮里发语音工具发的语音：定这一轮另写的文字收不收进气泡
     sendVoice.closeTurn(conversation, { seq: turn.seq, replies: turn.replies, outcome });
     const summary = summaries.get(turn.inputMessageId);
     summaries.delete(turn.inputMessageId);
@@ -314,7 +314,7 @@ export function createVoiceReplies(options: VoiceRepliesOptions): VoiceReplies {
       announceMissing();
       return skip(replying, SKIPPED.noReference());
     }
-    // 秘书写了两段（354 号票）：合成的就是它们，回复的文字照常显示
+    // 秘书写了两段：合成的就是它们，回复的文字照常显示
     const plan: SpokenPlan = turn.relay ? { mode: "summary", summaryBy: "agent", text: turn.relay.text } : planSpoken(replyText, summary);
     const decided = {
       scope: turn.scope,
@@ -400,7 +400,7 @@ export function createVoiceReplies(options: VoiceRepliesOptions): VoiceReplies {
       unwatchReferences = references.onChange(() => {
         if (references.current()) missing.retire();
       });
-      // 工具发的语音、回合还没结束就停了的（86 号票）：那一轮已经被打断，另写的文字照常显示
+      // 工具发的语音、回合还没结束就停了的：那一轮已经被打断，另写的文字照常显示
       sendVoice.start();
       // 上次没处理完的：还在回复的那一轮已经被打断（会话把那条输入标成中断，不重送）；在追问口语总结的直接兜底；
       // 还在合成的重做一遍（合成只是几次 HTTP 调用）。分段合成的段都是临时的：全删，重做的从头再推

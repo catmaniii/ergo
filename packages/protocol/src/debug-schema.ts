@@ -1,4 +1,4 @@
-// 设置里的"关于二狗"和 Debug 工具集（124 号票）要从守护进程取的几样：
+// 设置里的"关于二狗"和 Debug 工具集要从守护进程取的几样：
 // - 守护进程是哪一版、什么时候起来的、它此刻的时间（daemon_info，WebSocket 上的查询方法，不带幂等键、没有副作用）：
 //   关于页显示版本和已运行多久；Debug 工具集"测一次延迟"量的就是它的往返，"完整链路"的测试提醒按它的时钟算到点的时刻
 //   （手机和电脑的钟差几秒时，"5 秒后"也是守护进程那边的 5 秒）；
@@ -33,7 +33,7 @@ export type DebugRecognizeBody = Static<typeof DebugRecognizeBody>;
 
 /**
  * 识别的结果：识别出的文字、守护进程这边花了多久（毫秒）、用的模型和设备；识别不了的说原因。
- * 180 号票：文字是剔掉模型自带串词之后的，剔了几个字在 strippedChars（没剔没有；文字是空的就是整条只有串词，已丢弃）
+ * 文字是剔掉模型自带串词之后的，剔了几个字在 strippedChars（没剔没有；文字是空的就是整条只有串词，已丢弃）
  */
 export const DebugRecognizeResult = Type.Union([
   Type.Object({

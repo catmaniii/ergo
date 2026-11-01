@@ -1,16 +1,16 @@
-// 日历（纯函数，35 号票）：主导航的日历页。
+// 日历（纯函数）：主导航的日历页。
 // - 守护进程按月给出每一天的日历条目（HTTP，CalendarMonthView：工作日判定和原因、当天的提醒、当天的定时作业）。页面取回的一个月
 //   作为 calendar_month 输入并进状态层；提醒、作业的变化是任务看板频道上的事件，工作日历的变化是工作日历频道上的事件——
 //   收到序号比手里这份记着的（asOf）大的这些事件，这份就旧了（calendarMonthOf 的 stale），页面重新取。
 //   重复规则、工作日判定都在守护进程那边按共享协议包的纯函数展开，这里不另算。
 // - 格子上的样子（calendarCells）：上班或休息、原因的短词、手动标记、当天几条提醒、几次定时作业（已暂停的不算）、有没有失败的作业；
 // - 某一天的详情（calendarDayDetail）：工作日判定和原因、节假日、缺数据的提示、当天的提醒（时间、内容、触发没有）、
-//   当天定时触发的任务的每一次（几点、属于哪个项目、这一次的结果或预计）；点一次去它的任务详情（76 号票，jobPlace；还没迁移的定时作业
+//   当天定时触发的任务的每一次（几点、属于哪个项目、这一次的结果或预计）；点一次去它的任务详情（jobPlace；还没迁移的定时作业
 //   去它在看板或项目页上的位置）。
 // - 年月选择（calendarYearChoices）：今年前后若干年，缺节假日数据的年份标出来（工作日历频道上的节假日数据）。
-// - 299 号票：外部日历（数据源交来的日程：手机日历……）——格子上几条（calendarCells 的 external），详情里一节（时间或"全天"、标题、
+// -外部日历（数据源交来的日程：手机日历……）——格子上几条（calendarCells 的 external），详情里一节（时间或"全天"、标题、
 //   来自哪里：数据源的名字、哪个日历、地点）。只读，点了不去别处。
-// - 306 号票：外部日程变了是工作日历频道上的临时事件 external_calendar（带版本，订阅时补推一条），记在 changedAt.external；
+// -外部日程变了是工作日历频道上的临时事件 external_calendar（带版本，订阅时补推一条），记在 changedAt.external；
 //   比取回的那一份的 asOf.external 大就算旧了，开着的日历页（月视图、当天详情）不用换月就重新取。
 import {
   CALENDAR_JOB_STATUS_LABEL,
@@ -43,7 +43,7 @@ import { workdayCalendarOf } from "./workday.ts";
 
 /**
  * 状态层里的日历：取回的每个月（键是 YYYY-MM），和最近一条会让日历变的事件的序号（任务看板上的提醒和作业、工作日历）；
- * external 是外部日程的版本（306 号票：工作日历频道上的临时事件 external_calendar 带来的，不是序号）
+ * external 是外部日程的版本（工作日历频道上的临时事件 external_calendar 带来的，不是序号）
  */
 export interface CalendarState {
   readonly months: Readonly<Record<string, CalendarMonthView>>;
@@ -80,7 +80,7 @@ export interface CalendarCell {
   jobs: number;
   /** 当天失败的作业有几次（格子上标出来） */
   failedJobs: number;
-  /** 外部日历（299 号票：手机日历……）当天几条 */
+  /** 外部日历（手机日历……）当天几条 */
   external: number;
 }
 
@@ -121,7 +121,7 @@ export interface CalendarReminderRow {
 export interface CalendarJobRow {
   key: string;
   jobId: string;
-  /** 定时触发的任务（76 号票）：点开去它的任务详情；还没迁移的定时作业没有 */
+  /** 定时触发的任务：点开去它的任务详情；还没迁移的定时作业没有 */
   taskId?: string;
   time: string;
   title: string;
@@ -136,7 +136,7 @@ export interface CalendarJobRow {
   schedule: string;
 }
 
-/** 详情里外部日历的一条（299 号票） */
+/** 详情里外部日历的一条 */
 export interface CalendarExternalRow {
   key: string;
   /** 几点到几点："09:00–10:00"；全天的写"全天"；跨天的从开始那天的时刻写起 */
@@ -161,11 +161,11 @@ export interface CalendarDayDetail {
   missing: string | undefined;
   reminders: CalendarReminderRow[];
   jobs: CalendarJobRow[];
-  /** 外部日历的日程（299 号票）；没有是空的 */
+  /** 外部日历的日程；没有是空的 */
   external: CalendarExternalRow[];
 }
 
-/** 外部日历的一条（299 号票）：全天的写"全天"，有结束的写"开始–结束" */
+/** 外部日历的一条：全天的写"全天"，有结束的写"开始–结束" */
 function externalRow(e: CalendarExternalEntry): CalendarExternalRow {
   const time = e.allDay ? t("state.calendar.allDay") : e.end === undefined ? clockLabel(e.at) : t("state.calendar.timeRange", { from: clockLabel(e.at), to: clockLabel(e.end) });
   const where = [e.sourceTitle, ...(e.calendar === undefined ? [] : [e.calendar])].join(" · ");
@@ -186,7 +186,7 @@ function jobStatusText(j: CalendarJobEntry): string {
   const run = j.run;
   if (!run) return label;
   const catchUp = run.trigger === "catch_up" ? `${JOB_RUN_TRIGGER_LABEL.catch_up}${run.missed ? t("state.calendar.missedRuns", { count: run.missed }) : ""} · ` : "";
-  // 失败、中断、没运行、已撤回（155 号票）写上原因；部分完成（176 号票）写哪一步没做成
+  // 失败、中断、没运行、已撤回写上原因；部分完成写哪一步没做成
   const reason = run.reason && (run.state === "failed" || run.state === "interrupted" || run.state === "dropped" || run.state === "rolled_back" || run.state === "partial") ? t("state.calendar.reason", { reason: run.reason }) : "";
   return `${catchUp}${label}${reason}`;
 }
@@ -227,7 +227,7 @@ export function calendarDayDetail(view: CalendarMonthView, date: string): Calend
 }
 
 /**
- * 点一次去哪：定时触发的任务（76 号票）去它的任务详情（按运行分段，看得到这一次）；还没迁移的定时作业属于项目的去项目页上它那一行，
+ * 点一次去哪：定时触发的任务去它的任务详情（按运行分段，看得到这一次）；还没迁移的定时作业属于项目的去项目页上它那一行，
  * 不属于项目的去看板上它的作业卡
  */
 export type JobPlace = { kind: "task"; taskId: string } | { kind: "project"; projectId: string; jobId: string } | { kind: "board"; jobId: string };

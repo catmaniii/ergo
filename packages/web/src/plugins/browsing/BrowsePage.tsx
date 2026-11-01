@@ -1,33 +1,33 @@
 /**
- * 160 号票：浏览器里加载完的一页、拦下的下载是能渲染的文件（markdown 这类，app/browse-files.ts 定）时，原生浏览器藏起来，内容区里画
+ * 浏览器里加载完的一页、拦下的下载是能渲染的文件（markdown 这类，app/browse-files.ts 定）时，原生浏览器藏起来，内容区里画
  * 二狗的渲染层（ui/file-view.tsx：看原文、下载、用系统浏览器打开，拦下的下载多一个关闭）；返回手势先轮到它（页面上的浏览器能后退就后退，
  * 不能就收起露出原文；拦下的收起）。里面点的链接在浏览器里打开。
  *
- * "浏览"页签（134 号票，用户 2026-10-18："相当于二狗增加一个 tab 栏：浏览，点进去是一个浏览器的界面，可以输入网址，可以打开网页"）。
+ * "浏览"页签（"相当于二狗增加一个 tab 栏：浏览，点进去是一个浏览器的界面，可以输入网址，可以打开网页"）。
  * 只在鸿蒙 App 里有（导航只在有原生浏览器时多这一项）。网页画顶栏和内容区的框，框里是 App 叠上来的原生 ArkWeb：
  * - 顶栏：后退、前进、地址栏（网址直接开，关键词拿设置里选的搜索引擎搜）、刷新（加载中是停止）、用系统浏览器打开；下面一条加载进度；
  * - 内容区：一个占位的框（.browse-host），它在页面上的位置大小经原生桥报给 App（browserLayout），App 把浏览器的 Web 摆在那里盖住它；
  *   框变了（转屏、宽窄屏切换、输入法、页面更新提示条挤下来）就重新报。切到别的页签报"藏起来"：Web 留着，切回来页面原样还在；
  * - 还没打开过网页、或者在改地址栏时，浏览器藏起来，框里列最近访问（点一条打开）；
  * - 返回手势由 App 先退浏览器的网页历史，退到头才照别的页签的规矩（Index.ets 的 onBackPress）；
- * - 网页的框上的悬浮按钮点了、长按说话，网页弹出选文件对话框时（134 号票第二部分），146 号票起都在网页里悬浮按钮旁边的小气泡里
+ * - 网页的框上的悬浮按钮点了、长按说话，网页弹出选文件对话框时，都在网页里悬浮按钮旁边的小气泡里
  *   （页面桥画，app/page-bubble.ts 交给它），浏览器下面不再出面板。
- * - 147 号票（用户定：开合按钮放在顶上那一栏）：顶栏最右边一个二狗的图标按钮，点了二狗侧边栏（秘书本人）从右边滑出来，再点收起
+ * -（开合按钮放在顶上那一栏）：顶栏最右边一个二狗的图标按钮，点了二狗侧边栏（秘书本人）从右边滑出来，再点收起
  *   （按钮展开着时是按下的样子，侧边栏顶上也有"收起"）；窄屏整屏盖住，收起回到网页。原生网页盖在这一页上面，所以侧边栏由 App 画在
  *   原生网页上面（App 另开的一个 Web 组件，加载二狗网页的侧边栏模式）。展开没展开记在这台设备上。
- * - 148 号票（2026-10-18 用户在平板横屏上提：侧边栏不能只是盖住网页，要挤压网页；宽度要能像"详情"那样拖）：宽屏展开时侧边栏在内容区
+ * -（2026-10-18 用户在平板横屏上提：侧边栏不能只是盖住网页，要挤压网页；宽度要能像"详情"那样拖）：宽屏展开时侧边栏在内容区
  *   右边，浏览器让出右边（侧边栏宽度加中间一条分隔条），两者不重叠；刚展开时浏览器先不让、等侧边栏滑到位再让（useSettled），收起时
  *   马上恢复原宽，中间不露空隙。分隔条（照"详情"阶段栏的 Splitter）这一页自己画在两个原生 Web 中间的缝里，拖着时浏览器、侧边栏
  *   的位置每帧最多报一次，松手宽度记在这台设备上；宽度有上下限，内容区变了（转屏、窗口变化）夹回。浏览器、侧边栏、分隔条摆在哪
  *   一起算（app/browse-side.ts 的 browseFrames），浏览器经 browserLayout、侧边栏经 browserSide 报给 App（useNativeFrames）：
  *   内容区变了、展开收起、拖着、网页和选中的框变了都重新报，没变不报；离开这一页报"都藏起来"。
- * - 165 号票（用户 2026-10-19）：顶栏最右边、二狗侧边栏开关旁边一个 ⋮，替掉原来的"用系统浏览器打开"按钮；点了弹菜单（手机上从底部
+ * -顶栏最右边、二狗侧边栏开关旁边一个 ⋮，替掉原来的"用系统浏览器打开"按钮；点了弹菜单（手机上从底部
  *   弹出、宽屏是下拉菜单，pages/BrowseTools.tsx）：让二狗总结这一页、存进二狗的素材、在页面里查找、文字大小、桌面版网站、分享、
  *   用系统浏览器打开、浏览记录、下载记录、清除浏览数据。原生网页盖在这一页上面，二狗画的菜单、浏览记录、下载记录、对话框盖不过它，
  *   所以它们开着时浏览器先藏起来（Web 留着，关上原样回来；宽屏侧边栏展开着时下拉菜单贴着浏览器的右上角弹，清除浏览数据的对话框开着时
  *   侧边栏也藏起来）；查找栏在顶栏下面（浏览器跟着变矮，照样看得见高亮）。页面底部的短提示也会被原生网页盖住，这一页的提示（存好了、
  *   清好了……）写在顶栏上，过一会儿消失。空白页的最近访问和菜单里的完整浏览记录同一套：长按删、多选删、清空全部。
- * - 275 号票（用户 2026-10-25：设置里改了界面风格，侧边栏要重启 App 才跟着变）：报给 App 的侧边栏样子里带着这一页现在的外观
+ * -（设置里改了界面风格，侧边栏要重启 App 才跟着变）：报给 App 的侧边栏样子里带着这一页现在的外观
  *   （外观、风格、主色，app/theme.ts 的 appearance），外观变了也重报；侧边栏那一页收到就照着换（side-remote.ts）。
  * 不在 App 里打开这个地址（#/browse）只有一句说明。
  */
@@ -141,7 +141,7 @@ function useHostBox(host: React.RefObject<HTMLDivElement | null>): HostBox | und
 const SIDE_SLIDE_MS = 260;
 
 /**
- * 宽屏展开的侧边栏滑到位了没有（148 号票）：on 变成 true 后过 SIDE_SLIDE_MS 才是 true——这之前浏览器照旧全宽、侧边栏盖在它右边滑进来，
+ * 宽屏展开的侧边栏滑到位了没有：on 变成 true 后过 SIDE_SLIDE_MS 才是 true——这之前浏览器照旧全宽、侧边栏盖在它右边滑进来，
  * 滑到位了浏览器再让出右边（网页只重排一次，中间不会露出一块空的）；on 变成 false 马上是 false（收起时浏览器马上恢复原宽，
  * 侧边栏盖着它滑出去）。转屏从窄屏到宽屏时侧边栏不滑（App 只在显示、藏起来时滑），也照样等一下再挤，那一下侧边栏盖着浏览器右边
  */
@@ -159,7 +159,7 @@ function useSettled(on: boolean): boolean {
 }
 
 /**
- * 侧边栏的宽度（148 号票）：这台设备记住的，拖着的时候是拖到的。拖分隔条时每帧最多更新一次（报给 App 的位置也就每帧最多一次，
+ * 侧边栏的宽度：这台设备记住的，拖着的时候是拖到的。拖分隔条时每帧最多更新一次（报给 App 的位置也就每帧最多一次，
  * 这一帧里挪的几下攒在一起），松手才记到这台设备上（照"详情"阶段栏）
  */
 function useSideWidth() {
@@ -202,7 +202,7 @@ function useSideWidth() {
 }
 
 /**
- * 把浏览器、侧边栏摆在哪报给 App：浏览器经 browserLayout（browserVisible：打开过网页、没在改地址栏），侧边栏经 browserSide（147 号票，
+ * 把浏览器、侧边栏摆在哪报给 App：浏览器经 browserLayout（browserVisible：打开过网页、没在改地址栏），侧边栏经 browserSide（
  * 旧版 App 没有就只报浏览器）。每次渲染都算一遍，没变不报；先报浏览器再报侧边栏（收起时浏览器先恢复原宽，侧边栏盖着它滑出去）。
  * 拿下时报"都藏起来"（Web 留着，切回来页面原样还在；侧边栏展开没展开照旧记着，回来照上次的样子）
  */
@@ -210,7 +210,7 @@ function useNativeFrames(browser: NativeBrowser, side: BrowseSide | undefined, b
   const lastLayout = useRef<BrowserLayout | undefined>(undefined);
   const lastSide = useRef("");
   const reportSide = browser.side;
-  // 275 号票：侧边栏的样子带着现在的外观，外观变了重报（侧边栏跟着换风格）
+  // 侧边栏的样子带着现在的外观，外观变了重报（侧边栏跟着换风格）
   const theme = pageTheme();
   const appearance = useSyncExternalStore(theme.subscribe, theme.appearance);
   useLayoutEffect(() => {
@@ -273,7 +273,7 @@ function NativeBrowse({ browser, wide }: { browser: NativeBrowser; wide: boolean
   const state = useBrowserState();
   const engine = useSearchEngine();
   const recents = useRecentVisits();
-  // ⋮ 菜单（165 号票）：菜单、浏览记录 / 下载记录（盖在内容区里）、清除浏览数据的对话框开着时浏览器藏起来
+  // ⋮ 菜单：菜单、浏览记录 / 下载记录（盖在内容区里）、清除浏览数据的对话框开着时浏览器藏起来
   const { sendMessage, http } = useStore();
   const settings = pageBrowseSettings();
   const sites = useSiteSettings();
@@ -296,7 +296,7 @@ function NativeBrowse({ browser, wide }: { browser: NativeBrowser; wide: boolean
   /** 点了打开、App 还没推回地址之前也算打开了（浏览器马上显示） */
   const [requested, setRequested] = useState(false);
   const opened = state.url !== "" || requested;
-  // 浏览侧边栏（147 号票）：侧边栏由 App 画在原生网页上面；宽屏挤压网页、中间的分隔条能拖（148 号票）。这里算位置、报给 App
+  // 浏览侧边栏：侧边栏由 App 画在原生网页上面；宽屏挤压网页、中间的分隔条能拖。这里算位置、报给 App
   const side = pageBrowseSide();
   const sideView = useBrowseSide();
   useEffect(() => setBrowseSideWide(wide), [wide]);
@@ -306,7 +306,7 @@ function NativeBrowse({ browser, wide }: { browser: NativeBrowser; wide: boolean
   const box = useHostBox(host);
   // 清除浏览数据的对话框开着时侧边栏也藏起来（宽屏上居中的对话框可能伸到它底下）
   const frames = box ? browseFrames(box.host, box.viewport, { wide, open: sideOpen, shown: !clearing, settled, width: sideWidth.width }) : undefined;
-  // 能渲染的文件（160 号票）：渲染层画在内容区里，原生浏览器藏起来；改地址栏时照旧列最近访问
+  // 能渲染的文件：渲染层画在内容区里，原生浏览器藏起来；改地址栏时照旧列最近访问
   const files = pageBrowseFiles();
   const file = useBrowseFile();
   const showFile = files !== undefined && file !== undefined && !editing && panel === undefined;
@@ -367,7 +367,7 @@ function NativeBrowse({ browser, wide }: { browser: NativeBrowser; wide: boolean
     const site = siteKeyOf(state.url);
     switch (id) {
       case "summarize":
-        // 147 号票侧边栏发消息的那条路：打开侧边栏（手机上整屏），替用户发一句，带网页上下文
+        // 侧边栏发消息的那条路：打开侧边栏（手机上整屏），替用户发一句，带网页上下文
         if (!side) return;
         side.setOpen(true);
         sendMessage(CHANNELS.secretary, [{ type: "text", text: summarizePageText() }], undefined, side.context());
@@ -449,7 +449,7 @@ function NativeBrowse({ browser, wide }: { browser: NativeBrowser; wide: boolean
             <Icon name="reload" />
           </button>
         )}
-        {/* 浏览侧边栏的开合（147 号票，用户定：放在顶上这一栏的最右边）：展开着时是按下的样子 */}
+        {/* 浏览侧边栏的开合（放在顶上这一栏的最右边）：展开着时是按下的样子 */}
         {side && browser.side && (
           <button
             type="button"
@@ -462,7 +462,7 @@ function NativeBrowse({ browser, wide }: { browser: NativeBrowser; wide: boolean
             <Icon name="ergo" />
           </button>
         )}
-        {/* ⋮ 菜单（165 号票）：替掉原来的"用系统浏览器打开"；菜单开着时再按一下是收起（按下不让菜单先关、点击再打开） */}
+        {/* ⋮ 菜单：替掉原来的"用系统浏览器打开"；菜单开着时再按一下是收起（按下不让菜单先关、点击再打开） */}
         <button
           ref={menuButton}
           type="button"
@@ -564,7 +564,7 @@ function NativeBrowse({ browser, wide }: { browser: NativeBrowser; wide: boolean
             style={yieldStyle}
           />
         )}
-        {/* 浏览器和侧边栏中间的分隔条（148 号票）：两个原生 Web 都不盖这条缝，触摸到这一页；拖着调侧边栏的宽度 */}
+        {/* 浏览器和侧边栏中间的分隔条：两个原生 Web 都不盖这条缝，触摸到这一页；拖着调侧边栏的宽度 */}
         {box && frames?.splitter && (
           <div className="browse-split" style={{ left: frames.splitter.x - Math.round(box.host.x), width: frames.splitter.width }}>
             <Splitter

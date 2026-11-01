@@ -1,4 +1,4 @@
-// 158 号票：设置里删除素材的地方能看每条素材的内容。状态层推导列表的一行、详情里的每一段（照会话里的样子画什么）、来源的各行、
+// 设置里删除素材的地方能看每条素材的内容。状态层推导列表的一行、详情里的每一段（照会话里的样子画什么）、来源的各行、
 // 标记、能不能跳到出处的那条消息，以及详情里三种删法能不能点。
 import { describe, expect, test } from "vitest";
 import {
@@ -94,7 +94,7 @@ describe("详情里的每一段", () => {
   });
 });
 
-describe("记下来的文件（366 号票）", () => {
+describe("记下来的文件", () => {
   const remembered = { form: "attachment" as const, source: "external_untrusted" as const, label: image.name, media: { mediaId: image.mediaId, name: image.name, mime: image.mime, kind: "image" as const }, part: image };
 
   test("描述、图（照附件画）、来源网页和地址（能点）", () => {
@@ -123,7 +123,7 @@ describe("记下来的文件（366 号票）", () => {
   });
 });
 
-describe("你存的网页（165 号票）", () => {
+describe("你存的网页", () => {
   const page = "https://travel.example.com/hangzhou";
   const saved = (truncated: boolean) =>
     view({

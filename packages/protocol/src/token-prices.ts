@@ -1,4 +1,4 @@
-// 框架自带的 token 单价表（94 号票）：用户的配置里没写单价（tokenPrices）的模型，消耗页的粗估成本按这里算。
+// 框架自带的 token 单价表：用户的配置里没写单价（tokenPrices）的模型，消耗页的粗估成本按这里算。
 // DeepSeek 的价格分高峰、空闲两个时段：每一笔用量按它记账的时间落在哪个时段算价。
 //
 // 价格和高峰时段的规则都取自 DeepSeek 官网（https://api-docs.deepseek.com/zh-cn/quick_start/pricing），2026-10-12 读的。
@@ -22,7 +22,7 @@ export const BUILTIN_PRICE_SOURCE = Object.freeze({
 export const BUILTIN_PRICE_CURRENCY = "CNY";
 
 /**
- * 按次计费的联网调用的自带单价（154 号票）：DeepSeek 的联网搜索、读网页每 1000 次成功请求各 5 元，即每次 0.005 元；
+ * 按次计费的联网调用的自带单价：DeepSeek 的联网搜索、读网页每 1000 次成功请求各 5 元，即每次 0.005 元；
  * 没结果、失败、超时的不计费。键是「服务/种类」（usage.ts 的 WEB_CALL_SERVICES、WEB_CALL_KINDS）。官网改价只改这里
  */
 export const BUILTIN_WEB_CALL_PRICES: Readonly<Record<string, number>> = Object.freeze({
@@ -76,7 +76,7 @@ export const BUILTIN_PRICE_ALIASES: Readonly<Record<string, string>> = Object.fr
 
 /**
  * 高峰时段：北京时间（UTC+8）周一至周五、不含国内法定节假日的 9:00–12:00、14:00–18:00（含开头不含结尾，分钟数从零点起）。
- * 其余时间（含周末、法定节假日全天）是空闲时段。法定节假日看国内的节假日数据（29 号票，框架自带的加导入的）；
+ * 其余时间（含周末、法定节假日全天）是空闲时段。法定节假日看国内的节假日数据（框架自带的加导入的）；
  * 调休上班的周末官网没说，照"周一至周五"按空闲算
  */
 export const PEAK_HOURS = Object.freeze({

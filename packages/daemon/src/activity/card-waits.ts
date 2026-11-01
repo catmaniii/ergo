@@ -1,10 +1,10 @@
-// 待处理的卡片里，哪些是某个 agent 在等用户（规格术语"活动状态"的"等你"，25 号票）：
+// 待处理的卡片里，哪些是某个 agent 在等用户（规格术语"活动状态"的"等你"）：
 // - 审批卡：发起调用的 agent（审批表里的 origin.agentId）在等你批准。子进程里那次调用还在等时，agent 管家已经报了"等你"；
 //   挂起、这一轮结束以后卡还没处理的，靠这里接着算"等你"；
-// - 提问卡：没回答之前，提问的一方在等你回答。负责人为工单问的、转问用户的（16、17 号票）卡上记着是谁（askedBy），别的是秘书问的。
-//   369 号票：放久了（超过 materials.staleCardDays 没答）不再算在等，卡还在聊天历史里，照样能答（到点由 stale-questions.ts 叫重新算）。
-// 说明带上要处理的那张卡（369 号票：标题上点了跳到它），有几张在等时是最近的那张，并写一共几张。
-// 全部由事件推出（卡片视图、审批表），守护进程重启后照样对。后面的票有新的"等用户"的卡（工单的等澄清……），往 CARD_WAITS 里加一行，
+// - 提问卡：没回答之前，提问的一方在等你回答。负责人为工单问的、转问用户的卡上记着是谁（askedBy），别的是秘书问的。
+//   放久了（超过 materials.staleCardDays 没答）不再算在等，卡还在聊天历史里，照样能答（到点由 stale-questions.ts 叫重新算）。
+// 说明带上要处理的那张卡（标题上点了跳到它），有几张在等时是最近的那张，并写一共几张。
+// 全部由事件推出（卡片视图、审批表），守护进程重启后照样对。以后有新的"等用户"的卡（工单的等澄清……），往 CARD_WAITS 里加一行，
 // 标题上照样点得到（运行时的提问卡不在这里：它只在这一轮里等，子进程那边报，见 conversation/runtime-questions.ts）。
 import type { ActivityDetail, ApprovalCardPayload, Card, QuestionsCardPayload } from "@ergo/protocol";
 import { getApproval } from "../approvals/views.ts";
@@ -28,7 +28,7 @@ const CARD_WAITS: Readonly<Record<string, CardWait>> = {
 export const CARD_WAIT_TYPES: readonly string[] = Object.keys(CARD_WAITS);
 
 /**
- * 放久了就不算在等的卡（369 号票）：只有秘书在聊天里随口问的提问卡。
+ * 放久了就不算在等的卡：只有秘书在聊天里随口问的提问卡。
  * 审批卡一直算：不批，那次调用就做不了。为任务问的、负责人为工单问的也一直算：它们正卡着工作，放久了更不能没人提醒
  */
 export function cardWaitGoesStale(card: Pick<Card, "type" | "payload">): boolean {

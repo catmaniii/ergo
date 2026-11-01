@@ -37,7 +37,7 @@ describe("卡片的纯文本降级", () => {
   });
 });
 
-describe("像网络上的自动访问的配对请求（137 号票）", () => {
+describe("像网络上的自动访问的配对请求", () => {
   const pairing = { requestId: "pr-1", deviceName: "Chrome · Linux", shortCode: "482913", fingerprint: "9f3ac21e", from: "经前门转发，无法识别", expiresAt: "2026-10-18T00:52:00.000+08:00" };
 
   test("待办那一行标一下：配对请求卡带着原因的给原因；像普通浏览器的、别的卡、还没收到的卡都没有", () => {
@@ -56,14 +56,14 @@ describe("像网络上的自动访问的配对请求（137 号票）", () => {
 });
 
 describe("快速动作卡上两行的说法", () => {
-  test("秘书转达（103 号票）写“发给”“转达的话”：卡上看得出发给谁、发什么；别的动作照旧“对象”“内容”", () => {
+  test("秘书转达写“发给”“转达的话”：卡上看得出发给谁、发什么；别的动作照旧“对象”“内容”", () => {
     expect(quickActionFieldLabels("tell_task")).toEqual({ target: "发给", content: "转达的话" });
     expect(quickActionFieldLabels("tell_project")).toEqual({ target: "发给", content: "转达的话" });
     expect(quickActionFieldLabels("pause_task")).toEqual({ target: "对象", content: "内容" });
     expect(quickActionFieldLabels("remember")).toEqual({ target: "对象", content: "内容" });
   });
 
-  test("授权文件夹（138 号票）写“文件夹”“说明”", () => {
+  test("授权文件夹写“文件夹”“说明”", () => {
     expect(quickActionFieldLabels("authorize_folders")).toEqual({ target: "文件夹", content: "说明" });
   });
 });

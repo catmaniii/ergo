@@ -1,19 +1,18 @@
-// 项目规范（issue 19，258 号票）：每个项目默认继承的一套文档要求，模板放在框架里按版本分目录
+// 项目规范：每个项目默认继承的一套文档要求，模板放在框架里按版本分目录
 // （packages/daemon/templates/project-standard/<版本>/<开发类 dev | 其他类 other>/<语言>/）。这里是守护进程和 Web 共用的名字和形状：
 // 规范里有哪几份文档、哪几份必须有（会检查）、只读接口 GET /api/projects/<id>/standard 返回什么（ProjectStandardView）。
 // 不引用 TypeBox。
 // - 四份必须有、会检查：规格、架构图、进展、决策记录（ADR）；"其他"类不要架构图（只三份）。立项书、术语表、项目清单、范围记录照旧，算辅助
-//   （issue 19 第 1、4 条）；
 // - 开发类另有 tickets/（一票一文件，格式同二狗自己的票）和 ops.json（运营接口清单，MCP 格式，转运营前才要求有）（第 6、7 条）；
-// - 检查清单：当前状态转到下一个状态之前要做到的（第 3 条）。258 号票先给结构和"进展已写回"一项，其余由 259 号票填；
-// - 本项目的规范改写（第 5 条，261 号票）：负责人提、用户在"规范改写"卡上确认才生效（照立项要求变更那套）。一条改写管规范里的
+// - 检查清单：当前状态转到下一个状态之前要做到的（第 3 条）。结构和"进展已写回"一项之外，其余是转入使用的检查；
+// - 本项目的规范改写（第 5 条）：负责人提、用户在"规范改写"卡上确认才生效（照立项要求变更那套）。一条改写管规范里的
 //   某一份（这个项目不要它、换一种写法）或者多出来的一份（按档案里的位置）；规范里每一份在这个项目里算什么按改写算
 //   （effectiveStandardDocs），检查清单里看某一份文档的项，这个项目不要那一份就不列（standardChecklistApplies）。模板出了新版不自动带旧项目，
 //   只提示有新版（standardHasNewer），要跟也由负责人提、用户确认。
 import { t, tTable } from "./i18n/runtime.ts";
 import type { ProjectKind, ProjectState } from "./projects.ts";
 
-/** 框架里最新的规范模板版本：新项目建档时用它，记在项目上（Project.standardVersion）。模板升级不自动带旧项目（第 5 条，261 号票提示） */
+/** 框架里最新的规范模板版本：新项目建档时用它，记在项目上（Project.standardVersion）。模板升级不自动带旧项目（第 5 条，提示） */
 export const PROJECT_STANDARD_LATEST = "v1";
 
 /** 规范里的文档 */
@@ -74,7 +73,7 @@ export const STANDARD_DOC_LABEL: Readonly<Record<StandardDocKey, string>> = tTab
   scopeRecords: "protocol.projectStandard.doc.scopeRecords",
 });
 
-/** 规范改写里多出来的一份（261 号票）：不在默认规范里，名字和位置是改写里写的 */
+/** 规范改写里多出来的一份：不在默认规范里，名字和位置是改写里写的 */
 export const STANDARD_CUSTOM_DOC = "custom";
 export type StandardDocViewKey = StandardDocKey | typeof STANDARD_CUSTOM_DOC;
 
@@ -82,9 +81,9 @@ export type StandardDocViewKey = StandardDocKey | typeof STANDARD_CUSTOM_DOC;
 export interface StandardDocView {
   /** 规范里的哪一份；改写里多出来的是 custom（名字在 title） */
   key: StandardDocViewKey;
-  /** 改写里多出来的那份的名字（261 号票） */
+  /** 改写里多出来的那份的名字 */
   title?: string;
-  /** 本项目的规范改写动了这一份（261 号票）：不要（drop，不再检查）、换一种写法（change）、多出来的（add） */
+  /** 本项目的规范改写动了这一份：不要（drop，不再检查）、换一种写法（change）、多出来的（add） */
   override?: StandardOverrideKind;
   /** 在项目档案里的位置（相对项目档案，目录以 / 结尾）：spec.md、adr/ */
   path: string;
@@ -101,15 +100,15 @@ export interface StandardDocView {
 }
 
 /**
- * 检查清单里的项（258 号票只有"进展已写回"；259 号票加上转运营——建设中 → 使用中——的那几项，issue 19 第 3 条）：
+ * 检查清单里的项（只有"进展已写回"；加上转运营——建设中 → 使用中——的那几项）：
  * - architecture：架构图写清服务和对外接口（architecture.md 写过、"用到的服务""对外接口"两张表都有行，没有就写一行"无"；
  *   运营方案里的服务架构图里都写着）；
- * - ops：运营接口清单验收通过（268 号票起照 112 号票的自动验收：格式对、每个操作一条能跑通的测试、只读的真不写；项目服务上的操作
- *   等服务上线后再测，别的都过了也算做到。259 号票时只查 ops.json 不是模板原样、是合法的 JSON、tools 是列表、每个接口有 name）；
- * - services：服务按模板在 LSM 登记——架构图里写的服务都写进了运营方案（means: service，133 号票的模板），确认转入使用时
+ * - ops：运营接口清单验收通过（照自动验收：格式对、每个操作一条能跑通的测试、只读的真不写；项目服务上的操作
+ *   等服务上线后再测，别的都过了也算做到。原来只查 ops.json 不是模板原样、是合法的 JSON、tools 是列表、每个接口有 name）；
+ * - services：服务按模板在 LSM 登记——架构图里写的服务都写进了运营方案（means: service，模板），确认转入使用时
  *   运行时照它交给 LSM 登记、启动；
  * - public_entry：要外网的开好 /apps/<项目>/——对外接口里走 /apps/…、公网的，运营方案里有对应的带网页（web）的服务，
- *   确认后经二狗转发（issue 20：共用隧道和配对认证）；
+ *   确认后经二狗转发（共用隧道和配对认证）；
  * - progress_written：进展已写回（所有转换都要）。
  * 开发类的建设中 → 使用中五项都查；其他类只查进展，运营方案里真有服务的照开发类查（第 4 条"真有服务就按开发类来"）。
  * 别的转换（筹备中 → 建设中、使用中 → 已停用、已停用 → 使用中）只要进展写回（停用时的反向收回由运行时做，不在清单里）
@@ -126,7 +125,7 @@ export const STANDARD_CHECKLIST_ITEM_LABEL: Readonly<Record<StandardChecklistIte
 });
 
 /**
- * 检查清单里每一项看的是哪一份文档（261 号票）：这个项目不要那一份（规范改写），这一项就不列。架构图写清服务和对外接口看架构图、
+ * 检查清单里每一项看的是哪一份文档：这个项目不要那一份（规范改写），这一项就不列。架构图写清服务和对外接口看架构图、
  * 运营接口清单已交看 ops.json；服务登记、/apps/ 两项看运营方案，不挂在哪一份文档上（不要架构图时只按运营方案查）；进展不能不要
  */
 export const STANDARD_CHECKLIST_ITEM_DOC: Readonly<Record<StandardChecklistItemId, StandardDocKey | undefined>> = {
@@ -153,7 +152,7 @@ export interface StandardChecklistItem {
    * （"没有服务，不用登记"、"确认后开 /apps/p-1-site/"）
    */
   detail?: string;
-  /** 现在还验不了、上线后再验（362 号票：服务还没上线，转入使用才上线）：算做到了，卡上单独标出来 */
+  /** 现在还验不了、上线后再验（服务还没上线，转入使用才上线）：算做到了，卡上单独标出来 */
   later?: boolean;
 }
 
@@ -163,7 +162,7 @@ export function checklistMissing<I extends Pick<StandardChecklistItem, "done">>(
 }
 
 /**
- * 每个状态的检查清单管哪一次转换：筹备中 → 建设中、建设中 → 使用中（重点，259 号票）、使用中 → 已停用（反向收回）、已停用 → 使用中；
+ * 每个状态的检查清单管哪一次转换：筹备中 → 建设中、建设中 → 使用中（重点）、使用中 → 已停用（反向收回）、已停用 → 使用中；
  * 已归档没有（取消归档只是回到归档前的状态）
  */
 export const STANDARD_CHECKLIST_TO: Readonly<Record<ProjectState, ProjectState | null>> = {
@@ -183,7 +182,7 @@ export interface StandardChecklistView {
   items: StandardChecklistItem[];
 }
 
-// ───────────────────────── 本项目的规范改写（261 号票） ─────────────────────────
+// ───────────────────────── 本项目的规范改写 ─────────────────────────
 
 /** 改写能动的几份：从模板生成的那几份（辅助的几份本来就不检查，不用改写） */
 export const STANDARD_OVERRIDABLE_DOCS = ["spec", "architecture", "progress", "adr", "tickets", "ops"] as const satisfies readonly StandardDocKey[];
@@ -218,8 +217,8 @@ export interface StandardChangeItem {
 
 /**
  * 跟新版规范：项目记着的版本换成框架里最新的（缺的文档从新版模板补上，已有的不动）。
- * 272 号票：规范上线之前建的项目（没有版本）也走这条路补齐规范文档——没有 from，missing 是提的时候算的缺的几份；
- * 确认后照 262 号票的补齐做（改用规范、从模板放进缺的几份，再建一个任务交给负责人照项目现状写好）
+ * 规范上线之前建的项目（没有版本）也走这条路补齐规范文档——没有 from，missing 是提的时候算的缺的几份；
+ * 确认后照补齐做（改用规范、从模板放进缺的几份，再建一个任务交给负责人照项目现状写好）
  */
 export interface StandardUpgrade {
   from?: string;
@@ -282,7 +281,7 @@ export function standardChangeItemText(item: StandardChangeItem): string {
   return item.after ? standardOverrideText(item.after) : "";
 }
 
-/** 跟新版规范写成一句；没有版本的项目（272 号票）写成补齐规范文档，缺的几份跟在后面 */
+/** 跟新版规范写成一句；没有版本的项目写成补齐规范文档，缺的几份跟在后面 */
 export function standardUpgradeText(u: StandardUpgrade): string {
   if (u.from !== undefined) return t("protocol.projectStandard.change.upgrade", { from: u.from, to: u.to });
   const missing = u.missing ?? [];
@@ -327,9 +326,9 @@ export type StandardOverrideView = StandardOverrideEntry & {
 /** 只读接口 GET /api/projects/<id>/standard 的返回 */
 export interface ProjectStandardView {
   projectId: string;
-  /** 建档时用的模板版本；规范上线之前建的项目没有（null：262 号票出"补齐文档"的任务） */
+  /** 建档时用的模板版本；规范上线之前建的项目没有（null：出"补齐文档"的任务） */
   version: string | null;
-  /** 框架里最新的模板版本（261 号票：项目用的旧了，提示有新版——standardHasNewer；不自动跟） */
+  /** 框架里最新的模板版本（项目用的旧了，提示有新版——standardHasNewer；不自动跟） */
   latest: string;
   /** 项目类型（立项书确认之后才有；之前按其他类的三份算） */
   kind: ProjectKind | null;
@@ -341,12 +340,12 @@ export interface ProjectStandardView {
   overrides: StandardOverrideView[];
 }
 
-/** 模板出了新版：项目记着的版本不是框架里最新的（规范上线之前建的没有版本，归 262 号票补齐，不算） */
+/** 模板出了新版：项目记着的版本不是框架里最新的（规范上线之前建的没有版本，归补齐，不算） */
 export function standardHasNewer(view: Pick<ProjectStandardView, "version" | "latest">): boolean {
   return view.version !== null && view.version !== view.latest;
 }
 
-/** 一份文档在项目页上怎么说：写了、只有模板（在，但还是模板原样）、缺（不在）、本项目不要（规范改写，261 号票） */
+/** 一份文档在项目页上怎么说：写了、只有模板（在，但还是模板原样）、缺（不在）、本项目不要（规范改写） */
 export const STANDARD_DOC_STATES = ["written", "template", "missing", "dropped"] as const;
 export type StandardDocState = (typeof STANDARD_DOC_STATES)[number];
 
@@ -363,8 +362,8 @@ export function standardDocState(doc: Pick<StandardDocView, "exists" | "untouche
   return doc.untouched === true ? "template" : "written";
 }
 
-// ───────────────────────── 现有项目补齐规范文档（262 号票） ─────────────────────────
-// issue 19 第 10 条（用户原话："可以给个任务，但是不一定要补，我确认后再补"）：规范上线之前建的项目（没有版本）出一张"补齐规范文档"卡，
+// ───────────────────────── 现有项目补齐规范文档 ─────────────────────────
+// 用户原话："可以给个任务，但是不一定要补，我确认后再补"：规范上线之前建的项目（没有版本）出一张"补齐规范文档"卡，
 // 写明按它的类型和本项目的规范改写缺哪几份；用户选"补齐"才改用现在的规范、建任务交给负责人补，选"不补"就不补；一个项目只出一次。
 
 /** 补齐时算进来的几种：必须有的、这类另有的（开发类的票、转运营之前要有的运营接口清单）；辅助的照旧不算 */

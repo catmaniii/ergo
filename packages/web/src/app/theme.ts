@@ -1,11 +1,11 @@
-// 外观（34 号票）和视觉风格（39 号票）在浏览器里的那一半：读写这台设备记住的选择（localStorage），给页面挂标记，
+// 外观和视觉风格在浏览器里的那一半：读写这台设备记住的选择（localStorage），给页面挂标记，
 // 跟着系统深浅色变。算实际用哪种在 state/theme.ts、state/visual-style.ts；有哪几套风格在 src/visual-styles/。
 //
 // 页面上跟外观、风格有关的几处：
 // - 根元素的 data-theme：选了浅色、深色就挂上，跟随系统时去掉。样式按它切 color-scheme，颜色 token 用
 //   light-dark() 跟着 color-scheme 走（styles/base.css）；
 // - 根元素的 data-style：现在用哪套风格（记住的不在风格清单里就是经典）。风格的 token 挂在 [data-style="<id>"] 上；
-// - 根元素的 data-accent（119 号票）：这套风格能换主色（现在只有经典）就挂选的那种（没选过、不认识的是第一种，蓝），
+// - 根元素的 data-accent：这套风格能换主色（现在只有经典）就挂选的那种（没选过、不认识的是第一种，蓝），
 //   不能换的风格不挂。主色换掉的 token 挂在 [data-style="<id>"][data-accent="<主色>"] 上；
 // - <meta name="color-scheme">：浅色 light、深色 dark、跟随系统 light dark；
 // - <meta name="theme-color">：移动端浏览器地址栏的颜色，和这套风格的标题栏底色（--bar-bg，经典是 --surface）一致；
@@ -13,7 +13,7 @@
 // - <link rel="stylesheet" data-preview-fonts>：设置里风格预览用的字体（只收预览场景里那几个字，打开设置时挂一次）。
 // 打开页面时 index.html 里的内联脚本在页面脚本加载前就按记住的选择挂好这几处，不先闪一下另一种颜色、另一套风格；
 // 它和这里做的是同一件事，改一处要改另一处（test/app/theme.test.ts 比对两边的结果）。
-// 275 号票：鸿蒙 App 的浏览侧边栏是另一份网页（App 另开的 Web 组件，?ergo=side），设置在"浏览"那一份里改。现在的外观（appearance：
+// 鸿蒙 App 的浏览侧边栏是另一份网页（App 另开的 Web 组件，?ergo=side），设置在"浏览"那一份里改。现在的外观（appearance：
 // 外观、风格、主色）随"浏览"页交给侧边栏的样子经 App 转过去，侧边栏照着套（adopt：马上换、不写存储），不用重启 App。
 import { accentOf, DEFAULT_VISUAL_STYLE, resolveTheme, type Theme, type ThemeChoice, themeChoiceOf, visualStyleOf } from "../state/index.ts";
 import type { StylePageInfo } from "../visual-styles/page.ts";
@@ -54,14 +54,14 @@ export interface ThemeEnv {
 /** 记在 localStorage 里的键（index.html 的内联脚本也用它们） */
 const THEME_KEY = "ergo-theme";
 const STYLE_KEY = "ergo-style";
-/** 主色（119 号票）：只记一个值，换了风格也留着 */
+/** 主色：只记一个值，换了风格也留着 */
 const ACCENT_KEY = "ergo-accent";
 
 /** 风格字体样式表的记号（index.html 的内联脚本挂的也带它）、风格预览字体样式表的记号 */
 const FONTS_MARK = "data-style-fonts";
 const PREVIEW_FONTS_MARK = "data-preview-fonts";
 
-/** 现在的外观（275 号票：交给另一份网页照着套）：外观、风格；这套风格能换主色时带上主色 */
+/** 现在的外观（交给另一份网页照着套）：外观、风格；这套风格能换主色时带上主色 */
 export interface Appearance {
   readonly theme: ThemeChoice;
   readonly style: string;
@@ -80,7 +80,7 @@ export interface ThemeController {
   /** 选一套风格：马上生效，并记在这台设备上；清单里没有的按经典 */
   chooseStyle(id: string): void;
   /**
-   * 一套风格（不给就是现在用的那套）用哪种主色（119 号票）：选过的，没选过、不认识的是它的第一种；这套风格不能换主色给 undefined。
+   * 一套风格（不给就是现在用的那套）用哪种主色：选过的，没选过、不认识的是它的第一种；这套风格不能换主色给 undefined。
    * 设置里画经典的预览也按它（现在用的是别的风格时也照样给经典选过的那种）
    */
   accent(styleId?: string): string | undefined;
@@ -90,10 +90,10 @@ export interface ThemeController {
   subscribe(listener: () => void): () => void;
   /** 设置里画风格预览时调：挂上预览用的字体样式表（挂过就不再挂，离开设置也留着；没有就什么都不做） */
   showPreviewFonts(): void;
-  /** 现在的外观（275 号票）：没变时是同一个对象（界面拿它当 useSyncExternalStore 的快照） */
+  /** 现在的外观：没变时是同一个对象（界面拿它当 useSyncExternalStore 的快照） */
   appearance(): Appearance;
   /**
-   * 照另一份网页交来的外观马上换（275 号票，浏览侧边栏）：认不出的风格按经典、外观按跟随系统、主色按这套风格的第一种；
+   * 照另一份网页交来的外观马上换（浏览侧边栏）：认不出的风格按经典、外观按跟随系统、主色按这套风格的第一种；
    * 和现在一样就什么都不做。不写存储——选择记在设置那一份里，App 重推的旧样子不能把记住的改回去
    */
   adopt(next: Appearance): void;

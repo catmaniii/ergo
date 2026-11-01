@@ -1,4 +1,4 @@
-// 运行时核实过的用户原话、立项要求变更、重做时直接改这一阶段（125 号票）：页面上怎么显示、交出什么。
+// 运行时核实过的用户原话、立项要求变更、重做时直接改这一阶段：页面上怎么显示、交出什么。
 import { describe, expect, test } from "vitest";
 import {
   ASSISTANT_NAME_MARK,

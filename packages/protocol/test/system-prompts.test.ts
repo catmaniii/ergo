@@ -1,4 +1,4 @@
-// 系统提示文件里占位符的写法、检查和填值（71 号票，system-prompts.ts）：守护进程和设置页共用。
+// 系统提示文件里占位符的写法、检查和填值（system-prompts.ts）：守护进程和设置页共用。
 // 写错的一律报出第几行、错在哪，不默默填空串；条件独占一行时整行去掉，所以挪进 md 之后拼出来的提示逐字不变。
 import { describe, expect, it } from "vitest";
 import { normalizePromptSource, parsePromptTemplate, type PromptNode, PromptValueMissing, promptIssuesText, renderPromptTemplate, type PromptTemplateSpec } from "../src/system-prompts.ts";

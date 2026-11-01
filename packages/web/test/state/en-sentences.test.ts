@@ -1,4 +1,4 @@
-// 170 号票：英文下工具调用说成人话的一句（call-sentence、shell-sentence、sentence-parts）、浏览的 ⋮ 菜单（browse-tools）、
+// 英文下工具调用说成人话的一句（call-sentence、shell-sentence、sentence-parts）、浏览的 ⋮ 菜单（browse-tools）、
 // 工具调用的完整内容（tool-call-storage）都是英文，没有中文；换回中文又和原来一样（常量表取值时现查，不用重建）。
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import {
@@ -48,7 +48,7 @@ describe("英文下工具调用说成人话", () => {
   test("没有模板的退回：英文的工具名 · 参数值", () => {
     expect(say("submit_plan", "x=1")).toBe("Submit plan · 1");
     expect(toolLabel("read")).toBe("Read file");
-    // 给秘书发消息的名字是协议包的常量（172 号票迁），别的都是英文
+    // 给秘书发消息的名字是协议包的常量（迁），别的都是英文
     const chinese = Object.entries(TOOL_LABELS).filter(([tool, label]) => tool !== "tell_secretary" && CJK.test(label));
     expect(chinese).toEqual([]);
   });

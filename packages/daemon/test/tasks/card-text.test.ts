@@ -1,4 +1,4 @@
-// 卡片的纯文字说法（toText，175 号票）：网页卡片详情的标题、引用卡片那一行、认不得的卡都显示它，和别的卡一样按当时的语言写。
+// 卡片的纯文字说法（toText）：网页卡片详情的标题、引用卡片那一行、认不得的卡都显示它，和别的卡一样按当时的语言写。
 // tasks/ 的几种卡（建议发起任务、提问、计划、流程计划、计划变更、进度、归档清单）：中文下和原来一字不差，英文下没有汉字（用户的内容除外）。
 import { activeLocaleFrom, DEFAULT_LANGUAGE, setActiveLocale } from "@ergo/protocol";
 import { afterEach, describe, expect, it } from "vitest";

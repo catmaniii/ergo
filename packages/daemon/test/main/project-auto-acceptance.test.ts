@@ -1,4 +1,4 @@
-// 主切面：阶段自动验收（112 号票，用户 2026-10-13 定：先是项目里的任务，同日同意扩到所有长程任务）。真的守护进程，项目的负责人、
+// 主切面：阶段自动验收（先是项目里的任务，同日同意扩到所有长程任务）。真的守护进程，项目的负责人、
 // 任务的负责人、评审子 agent 接 faux 剧本，测试扮演前端。
 // - 项目的任务（项目的负责人执行的）起草计划时写由你验收（user）：计划检查退回，说明"阶段自动验收，改成 script 或 review"；
 //   改好再交才出计划卡；确认后各阶段做完自动验收（脚本、评审），不出"等你验收"；任务的工具包开了 bash 的，评审也能在工作目录里跑命令；
@@ -137,8 +137,8 @@ describe("项目里的任务：起草时只写脚本、评审，之后自动验�
           say("做完了"),
         ];
       },
-      // 评审先在工作目录里跑一条命令（任务的工具包开了 bash，112 号票返修：能跑的跑一遍再判），再交结论
-      // 362 号票：还读了项目档案（立项书、规格）：只读，不出审批卡
+      // 评审先在工作目录里跑一条命令（任务的工具包开了 bash：能跑的跑一遍再判），再交结论
+      // 还读了项目档案（立项书、规格）：只读，不出审批卡
       reviewer: () => [call("read", { path: path.join(path.dirname(d.progress()), "charter.md") }), call("bash", { command: "cat ../spec.md >/dev/null; cat sources.md report.md 2>/dev/null; echo 评审跑过了" }), ...pass()],
     });
     const frontend = await connect(td.url);
@@ -441,7 +441,7 @@ function seedLegacyPlainTask(td: TestDaemon): Task {
 /** 每一轮写好资料清单、试着宣布 s1 完成（重做之前 s1 已经验收了，被拒，无妨），再说一句 */
 const reworkSteps = (): FauxStep[] => Array.from({ length: 4 }, () => [write("sources.md", "- 来源\n"), completeStage("s1", "重核了来源"), say("好")]).flat();
 
-describe("项目外的长程任务一样（用户 2026-10-13 同意扩到所有长程任务）", () => {
+describe("项目外的长程任务一样（扩到所有长程任务）", () => {
   it("升级前的不涉及项目的任务：启动时没验收的 s2 改由评审，验收过的 s1 不动；从 s1 重做（重开了）：重开时就改由评审，重做完由评审验收，不再找你验收", async () => {
     const d = dirs();
     const TM1 = maintainerChannel("tm-1");

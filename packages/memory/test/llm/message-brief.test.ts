@@ -1,7 +1,7 @@
-// 266 号票：每条消息的记忆简报（messageBrief）。用户发来一句话，只用本机检索和相关门槛（202、206 号票）判有没有相关的记忆，
-// 有才带一份：D 组"对用户的理解"那几节（结论连支撑它的原话，219 号票的格式；还没分出胜负的解释；明说过的禁忌），上限照 BRIEF_LIMITS；
+// 每条消息的记忆简报（messageBrief）。用户发来一句话，只用本机检索和相关门槛判有没有相关的记忆，
+// 有才带一份：D 组"对用户的理解"那几节（结论连支撑它的原话，格式；还没分出胜负的解释；明说过的禁忌），上限照 BRIEF_LIMITS；
 // 没过相关门槛的（三条路每层最相关的那几条）不带，记录那节（检索到的原话，总有 10 条）不带。同一段对话里带过、没变的不再带，只补新的。
-// 例子是 196 号票测试的那个人（自己写的，不看 fixtures/truth）。
+// 例子是测试的那个人（自己写的，不看 fixtures/truth）。
 import { afterEach, describe, expect, it } from "vitest";
 import { FakeEmbedder } from "../../src/embedding/fake.ts";
 import { BRIEF_LIMITS, messageBrief, type MessageBrief } from "../../src/llm/brief.ts";
@@ -34,7 +34,7 @@ describe("每条消息的记忆简报：有相关的才带", () => {
     const stated = statedOf(engine, "ev-w3", "dislikes");
     expect(b.profile.claims.map((c) => c.claimId)).toContain(stated.id);
     expect(b.text).toContain(`[${stated.id}] 偏好 · 用户说的 · 已验证`);
-    // 原话（219 号票的格式）挂在结论下面
+    // 原话（格式）挂在结论下面
     expect(b.text).toContain("· 支持 [ev-w3] 2026-04-04 10:00 · 本人说的：「我不喜欢周末被排得满满的」");
     // 只有过了门槛的：直接说到这件事的，或者同一方面的；三条路每层最相关、没过门槛的不带
     expect(b.profile.claims.every((c) => c.reason === "direct" || c.reason === "area")).toBe(true);

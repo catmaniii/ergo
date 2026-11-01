@@ -1,7 +1,7 @@
-// 一次性子进程的入口：列本机的 Claude Code 会话、查哪些正开着、读前情、分叉（290 号票，sessions.ts）。守护进程这一侧的 Claude Code 插件
+// 一次性子进程的入口：列本机的 Claude Code 会话、查哪些正开着、读前情、分叉（sessions.ts）。守护进程这一侧的 Claude Code 插件
 // 经内核的一次性子进程（KERNEL.oneShot：Job 对象、白名单环境）用 `node sessions-main.ts` 拉起（../sessions.ts）：stdin 读一行请求，
 // stdout 写一行结果（{ ok: true, result } 或 { ok: false, error }），然后退出。
-// SDK 的列、读、分叉函数只在这里用真的（test/claude-code/boundary.test.ts 检查；318 号票起经 load-sdk.ts 加载，仓库里没有时到组件区找）；`claude agents --json` 用本机的 claude（env.ts 找；
+// SDK 的列、读、分叉函数只在这里用真的（test/claude-code/boundary.test.ts 检查；经 load-sdk.ts 加载，仓库里没有时到组件区找）；`claude agents --json` 用本机的 claude（env.ts 找；
 // 不是 Windows 的按 PATH 里的 claude），只读、不起会话。
 // @i18n-ignore-file log：出错说明交回守护进程记日志、给开发者看
 import { execFile } from "node:child_process";

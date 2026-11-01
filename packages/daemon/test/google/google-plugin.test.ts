@@ -1,9 +1,9 @@
-// Google 插件的日历订阅（297 号票）在假内核里（startPluginKernel：真的插件宿主、数据源那一层、外部日历的登记表），拉地址用注入的假 fetch，
+// Google 插件的日历订阅在假内核里（startPluginKernel：真的插件宿主、数据源那一层、外部日历的登记表），拉地址用注入的假 fetch，
 // 不连 Google：
 // - 设置 · 数据源里的 Google · 日历：名字、两种用法（导入每 30 分钟、显示在日历里不进素材）、没连；日历插件不在时写"日历插件没启用"；
 // - 填地址：测试连接（拉一遍）→ 存密钥区（事件、日志里没有地址）、马上同步一次（条数按事件数）、页面上列出几个日历；
 //   地址不对（不是网址、不是 https、拿到的不是日历、404）的写明原因、什么都不存；
-// - 完整邮箱（339 号票）：页面上的账号和每个日历的说明是完整邮箱，私钥不出现；共享的日历不算账号、id 照旧打码；日志、按需查的结果里没有账号；
+// - 完整邮箱：页面上的账号和每个日历的说明是完整邮箱，私钥不出现；共享的日历不算账号、id 照旧打码；日志、按需查的结果里没有账号；
 //   断开以后页面上没了；
 // - 同步：只写新的、变了的、没了的；地址失效了写明"地址失效了"、那个日历下面也写着，拉到的照样写；
 // - 交给日历的日程：标出来自 Google 哪个日历、重复事件展开、全天的按日期；删掉一个日历它的日程跟着没了；
@@ -34,7 +34,7 @@ const key = () => `g-${++keySeq}`;
 async function start(options: { at?: Date } = {}) {
   const remote = fakeCalendarFetch();
   remote.routes.set(MINE, { status: 200, body: myCalendar() });
-  // 301 号票起 Google 插件要个人档案（联系人进档案候选）：日历这边用不上，给个假的
+  // Google 插件要个人档案（联系人进档案候选）：日历这边用不上，给个假的
   const k = await startPluginKernel({
     plugins: [createGooglePlugin({ fetch: remote.fetch })],
     at: options.at ?? new Date("2026-10-24T09:00:00+08:00"),
@@ -144,7 +144,7 @@ describe("填地址", () => {
     expect(fs.readFileSync(path.join(k.layout.dataSourceSecrets, `${SOURCE}.json`), "utf8")).not.toContain("private-1111");
   });
 
-  it("344 走一遍：两个账号的日历自己的名字一样时，设置里靠说明里的完整邮箱分得开；日程上只有名字（用户起个名字才分得开，见 344 的 Comments）", async () => {
+  it("344 走一遍：两个账号的日历自己的名字一样时，设置里靠说明里的完整邮箱分得开；日程上只有名字（用户起个名字才分得开，见 Comments）", async () => {
     const { k, remote } = await start();
     const WORK = googleAddress("work.mail@gmail.com", "private-11112222333344445555666677778888");
     remote.routes.set(MINE, { status: 200, body: icsOf({ name: "陈晓", events: [["UID:a@google.com", "DTSTART:20261025T010000Z", "DTEND:20261025T020000Z", "SUMMARY:甲"]] }) });
@@ -199,7 +199,7 @@ describe("填地址", () => {
   });
 });
 
-describe("完整邮箱只给页面（339 号票）", () => {
+describe("完整邮箱只给页面", () => {
   const EMAIL = "chenxiao@gmail.com";
 
   it("页面上的账号和日历说明是完整邮箱、私钥不在里面；日志里没有邮箱和私钥；断开以后页面上没了", async () => {
@@ -306,11 +306,11 @@ describe("同步和交给日历的日程", () => {
     ]);
     expect(source.count).toBe(7);
     expect(leaked(k)).toBe(false);
-    // 还有一个日历拉得到：照样连着（306：只有每个日历都一直不行才算出错）
+    // 还有一个日历拉得到：照样连着（只有每个日历都一直不行才算出错）
     expect(source.connection).toBe("connected");
   });
 
-  it("偶尔一次 404 不停（306）：一个日历连着 3 次失效才算它坏了，中间拉到一次就重数", async () => {
+  it("偶尔一次 404 不停：一个日历连着 3 次失效才算它坏了，中间拉到一次就重数", async () => {
     const { k, remote } = await start();
     await configure(k, { add: MINE, name: "工作" });
     const sync = () => k.dataSources.act(SOURCE, { action: "sync", idempotencyKey: key() });
@@ -331,7 +331,7 @@ describe("同步和交给日历的日程", () => {
     expect(sourceOf(k)).toMatchObject({ connection: "error", problem: expect.stringContaining("地址失效了（Google 回了 404）"), autoRetry: true });
   });
 
-  it("每个日历都连着几次地址失效、没权限（306）：出错（写明哪个日历怎么了），秘书没有\"查 Google 日历\"、定期导入到点不拉；一时拉不到的照样连着；每小时替它再试，地址又好了就回到连着、工具回来", async () => {
+  it("每个日历都连着几次地址失效、没权限：出错（写明哪个日历怎么了），秘书没有\"查 Google 日历\"、定期导入到点不拉；一时拉不到的照样连着；每小时替它再试，地址又好了就回到连着、工具回来", async () => {
     const { k, remote } = await start();
     await configure(k, { add: MINE, name: "工作" });
     remote.routes.set(FAMILY, { status: 200, body: icsOf({ events: [] }) });
@@ -408,7 +408,7 @@ async function ask(k: PluginKernel, args: Record<string, unknown>): Promise<stri
 
 describe("按需查", () => {
 
-  it("秘书有\"查 Google 日历\"：现拉明天的安排（夹在外部数据里）；没填地址时没有这个工具（306）", async () => {
+  it("秘书有\"查 Google 日历\"：现拉明天的安排（夹在外部数据里）；没填地址时没有这个工具", async () => {
     const { k, remote } = await start();
     expect(k.agent.toolsFor(SECRETARY_TARGET).map((t) => t.spec.name)).not.toContain(GOOGLE_CALENDAR_TOOL);
     await configure(k, { add: MINE, name: "工作" });

@@ -2,9 +2,9 @@
 // 先在内存库里用规则版把同一份数据整理一遍，拿到结构（多少条证据、几组假设、几条追问、每条追问搜到几条），
 // 再照模型版真实会发的请求（LlmFactExtractor.requestFor、LlmReasoner 的 propose / probes / judge 请求）估输入 token，
 // 输出 token 按每类请求的经验值估（见 OUTPUT_GUESS）。追问按两轮算（往高里算）。
-// planEvalModelRun（192 号票）：评测的"真模型"开关跑之前的预计——评测要建的每个库各估一遍推理的请求（证据、时间一样的库只算一次：
+// planEvalModelRun：评测的"真模型"开关跑之前的预计——评测要建的每个库各估一遍推理的请求（证据、时间一样的库只算一次：
 // 同样的请求只问一次），抽事实按全部证据算一遍（所有库共用一个抽取器，抽过的不再问），扰动以后再整理一次按"每条追问再判一轮 + 出一次假设、一次追问"估。
-// 201 号票：加上往上抽（需求层、价值层）和编交互策略两步（plan-lift.ts）。
+// 加上往上抽（需求层、价值层）和编交互策略两步（plan-lift.ts）。
 import type { Evidence, EvidenceDraft } from "../domain/types.ts";
 import { MemoryEngine } from "../engine.ts";
 import type { EvidenceSource } from "../evidence/source.ts";
@@ -18,7 +18,7 @@ import { estimateCost, estimateTokens, PRICE_SOURCE, type CostEstimate, type Pla
 import { planLiftCalls } from "./plan-lift.ts";
 
 /**
- * 每类请求的输出 token 估计。192 号票照第一次真跑的实际数改大了：抽事实每批平均写了 2167 个（每条证据约 300 个还常被截断），
+ * 每类请求的输出 token 估计。照第一次真跑的实际数改大了：抽事实每批平均写了 2167 个（每条证据约 300 个还常被截断），
  * propose 每次都写满了 2000 的上限——原来的 150 / 条、300 / 组（至少 600）估少了好几倍
  */
 export const OUTPUT_GUESS = { extractPerEvidence: 400, proposePerGroup: 800, proposeMin: 4000, probes: 600, judge: 500 } as const;
@@ -52,7 +52,7 @@ export async function planModelRun(source: EvidenceSource, options: { model?: st
     const calls = [...extractCalls(evidence, engine, model, options.batchSize)];
     const r = await reasonerCalls(engine, model, rounds);
     calls.push(...r.calls);
-    // 往上抽、编策略（201 号票）
+    // 往上抽、编策略
     const lifting = planLiftCalls(engine, new LlmReasoner({ ...NEVER, name: model }), rounds);
     calls.push(...lifting.calls);
     return {
@@ -94,7 +94,7 @@ async function reasonerCalls(engine: MemoryEngine, model: string, rounds: number
   const facts = engine.store.factsValidAt(view.at).filter((f) => view.usableFact(f));
   const groups = rg.registry
     .listGroups({ live: true })
-    // 199 号票：联动的组（对比模式、矛盾根源）由代码判，不发请求
+    // 联动的组（对比模式、矛盾根源）由代码判，不发请求
     .filter((g) => !isJointGroup(g))
     .map((g) => rg.groupView(g.key))
     .filter((g): g is GroupView => g !== undefined);

@@ -1,29 +1,29 @@
-// 数据源的统一外形（295 号票，issue 25；ADR-0027 的"数据源"贡献点）：插件写数据源时用的类型。
+// 数据源的统一外形（ADR-0027 的"数据源"贡献点）：插件写数据源时用的类型。
 // 每种外部数据（挂脖相机、Google、手机、账单……）一个插件，插件在数据契约里 ctx.dataSources.register(数据源)：
 // - 静态的：id、名字、一句话、用到的敏感类别、提供哪两种用法（按需查 / 导入）和默认开没开、定期导入的时间、它拥有的记录（事件）、
 //   认导入文件夹里哪种文件——插件停用、没装上也认得（设置 · 数据源照样列出、写"X插件没启用"；断开并删照样删得掉、条数照样数得出）；
 // - 要插件在运行才能做的（连接状态、填设置、同步、导入一个文件、断开时插件自己的清理、按需查的工具）写成函数，里面经 ctx.active
 //   现取插件自己的服务（和运行时贡献点一样，见手册第 7 节）。内核只在插件在运行时叫它们。
-// 规矩（issue 25 第 2、4 节）：数据源只产素材、不产结论——插件写自己的事件、经 ctx.materialSources.register 变成素材（ADR-0006；
-// 303 号票起采集规则里用 material.ts 的 dataSourceMaterial 写成观察到的本人行为 / 别人写给你的 / 本人写的三种之一，带场景和敏感类别），
+// 规矩：数据源只产素材、不产结论——插件写自己的事件、经 ctx.materialSources.register 变成素材（ADR-0006；
+// 采集规则里用 material.ts 的 dataSourceMaterial 写成观察到的本人行为 / 别人写给你的 / 本人写的三种之一，带场景和敏感类别），
 // 不碰推理图谱、不直接写个人档案；量大的（照片、位置点、心率）先整理成一段一段的摘要再写事件，原始数据留在来源那边或插件自己的存储里。
 // 密钥（API Key、应用专用密码、私密地址）只经 ctx.secrets 存进数据目录的密钥区（data-sources/secrets.ts），不进仓库、日志、事件；
 // 同步、导入出错的原因里要是带着密钥，内核记下之前换成 ***。
-// 299 号票加了三样（"手机"插件用，别的设备上的数据源、外部日历同样能用）：
+// 加了三样（"手机"插件用，别的设备上的数据源、外部日历同样能用）：
 // - push：设备交来的（手机上的二狗 App 读本机的通讯录、日历，经网页 POST /api/data-sources/<id>/push）——内核按 schema 查、
 //   记同步记录（trigger device），数据源写自己的记录；
 // - calendar：交给日历插件显示的日程（外部日历：只读、不进素材），日历按月取时经内核现取；
 // - count：数据源页的"共几条"由数据源自己数（记录是增量的，按记录条数数不对时）；同步结果多了一句 summary（这次进来的是什么）。
-// 300 号票加了 raw：插件自己存储里的原始数据（手机位置的原始坐标点、照片的时间地点），数据源页按天列出、能按天清掉。
-// 297 号票（Google 日历订阅）又加了几样：定期导入可以每隔几分钟（DataSourceSchedule）、导入的东西去哪（destination）、
+// 加了 raw：插件自己存储里的原始数据（手机位置的原始坐标点、照片的时间地点），数据源页按天列出、能按天清掉。
+// （Google 日历订阅）又加了几样：定期导入可以每隔几分钟（DataSourceSchedule）、导入的东西去哪（destination）、
 // 连上以后马上同步一次（syncOnConnect）、连接状态带一句提示（note）和下面的几样（items：几个日历）。
-// 307 号票（Looki 存一份到本地）：连接状态带插件那一块要的数据（panel）、断开时要说的一句（disconnectNote），
+// Looki 存一份到本地：连接状态带插件那一块要的数据（panel）、断开时要说的一句（disconnectNote），
 // 数据源可以有一个本机的文件夹（localFolder），数据源页上"在电脑上打开"它。
-// 306 号票：按需查的工具只在连着时给秘书（连接状态用 status() 报的最近一次已知的，所以 status 要快、不连网，插件在同步、按需查时
+// 按需查的工具只在连着时给秘书（连接状态用 status() 报的最近一次已知的，所以 status 要快、不连网，插件在同步、按需查时
 // 碰到 Key 失效记在内存里、下一次 status 报出错）；数据源自己也能登记断开时要说的一句（disconnectNote，没有连接状态的数据源用）。
-// 343 号票（数据源页的详情里看数据）加了两个可选的方法：stored（已获取的、不进素材的列出来：日历事件、手机记录；进素材的不用写，内核按素材的出处列）、
+// （数据源页的详情里看数据）加了两个可选的方法：stored（已获取的、不进素材的列出来：日历事件、手机记录；进素材的不用写，内核按素材的出处列）、
 // live（现查上游给人看：只读，不写事件、不进素材、不进记忆、不经过模型）；status 可以带 needsAuth（要用户去授权、重新填）。
-// 344 号票（Gmail 多账号）加了：migrate（启动时把密钥区的老样子转成新样子）、disconnectItem（单独断开它下面的一样）、
+// （Gmail 多账号）加了：migrate（启动时把密钥区的老样子转成新样子）、disconnectItem（单独断开它下面的一样）、
 // DataSourceItem 的 count、off、removable，现查的 groups（按账号显示），素材的 origin.account（material.ts）。
 import type { CalendarExternalEntry, DataSourceDataItem, DataSourceLiveGroup, ReminderSchedule, TSchema } from "@ergo/protocol";
 import type { HostTool } from "../agent-manager/host-tools.ts";
@@ -32,7 +32,7 @@ import type { StoredEvent } from "../events/event-store.ts";
 import type { IntervalSchedule } from "../scheduler/internal-jobs.ts";
 
 /**
- * 定期导入的时间：提醒那一套（每天 04:00、每周……），或者每隔几分钟（297 号票：Google 日历每 30 分钟拉一次，`{ kind: "every", minutes: 30 }`；
+ * 定期导入的时间：提醒那一套（每天 04:00、每周……），或者每隔几分钟（Google 日历每 30 分钟拉一次，`{ kind: "every", minutes: 30 }`；
  * 每小时写 60）。每隔几分钟的从上一次同步往后数，守护进程停着时错过了，开机补一次
  */
 export type DataSourceSchedule = ReminderSchedule | IntervalSchedule;
@@ -54,24 +54,24 @@ export interface DataSourceContext {
   log(line: string): void;
 }
 
-/** 数据源下面的一样（297 号票：Google 日历订阅的几个日历；344 号票：Gmail 的几个账号）：给人看的名字、一句说明（去掉私钥的地址、状态）、它自己出的错 */
+/** 数据源下面的一样（Google 日历订阅的几个日历；Gmail 的几个账号）：给人看的名字、一句说明（去掉私钥的地址、状态）、它自己出的错 */
 export interface DataSourceItem {
   /** 插件自己认的 id（网页插件在设置那一块里按它删掉这一样） */
   id: string;
   title: string;
   detail?: string;
   problem?: string;
-  /** 这一样导入了几条（344 号票：断开一个账号的确认框里说） */
+  /** 这一样导入了几条（断开一个账号的确认框里说） */
   count?: number;
-  /** 这一样关着（344 号票：Gmail 账号的开关） */
+  /** 这一样关着（Gmail 账号的开关） */
   off?: true;
-  /** 能单独断开（344 号票：数据源给了 disconnectItem） */
+  /** 能单独断开（数据源给了 disconnectItem） */
   removable?: true;
 }
 
 /**
  * 连接状态（数据源报的）：没连、连着、出错（原因给人看）；account 是连的哪个账号（只进页面，不进日志和给模型的内容；Google 是完整邮箱，Looki 是打了码的，可以不给）。
- * note 是一句提示、不算出错（297 号票："日历插件没启用：同步来的事件现在在日历里看不到"）；items 是它下面的几样（几个日历）
+ * note 是一句提示、不算出错（"日历插件没启用：同步来的事件现在在日历里看不到"）；items 是它下面的几样（几个日历）
  */
 export interface DataSourceStatus {
   connection: "not_connected" | "connected" | "error";
@@ -79,11 +79,11 @@ export interface DataSourceStatus {
   account?: string;
   note?: string;
   items?: readonly DataSourceItem[];
-  /** 插件画的设置那一块要的数据（307 号票：Looki 的"存一份到本地"），内核原样交给网页（DataSourceView.panel），不看里面 */
+  /** 插件画的设置那一块要的数据（Looki 的"存一份到本地"），内核原样交给网页（DataSourceView.panel），不看里面 */
   panel?: unknown;
-  /** 断开时要说一句的（307 号票：Looki 存到本地的文件不删），断开的确认框里写 */
+  /** 断开时要说一句的（Looki 存到本地的文件不删），断开的确认框里写 */
   disconnectNote?: string;
-  /** 要用户去授权、重新填（343 号票：手机上的授权被拒、被撤回，登录没过、Key 不认）：卡片上的小签写"要授权" */
+  /** 要用户去授权、重新填（手机上的授权被拒、被撤回，登录没过、Key 不认）：卡片上的小签写"要授权" */
   needsAuth?: boolean;
 }
 
@@ -94,7 +94,7 @@ export interface DataSourceSyncContext extends DataSourceContext {
   readonly signal: AbortSignal;
 }
 
-/** 出错后再试时交给数据源的（306 号票）：中止信号（守护进程停时置位） */
+/** 出错后再试时交给数据源的：中止信号（守护进程停时置位） */
 export interface DataSourceRecheckContext extends DataSourceContext {
   readonly signal: AbortSignal;
 }
@@ -105,7 +105,7 @@ export interface DataSourceSyncResult {
   summary?: string;
 }
 
-/** 设备交来时交给数据源的（299 号票） */
+/** 设备交来时交给数据源的 */
 export type DataSourcePushContext = DataSourceContext;
 
 /** 设备交来的收下了：新进来几条、这次进来的是什么，reply 原样交回设备（各数据源自己的样子） */
@@ -114,7 +114,7 @@ export interface DataSourcePushOutcome extends DataSourceSyncResult {
 }
 
 /**
- * 设备交来的（299 号票）：body 是 data 的 schema（内核先按它查，不对回 400）；receive 写这个数据源拥有的记录。
+ * 设备交来的：body 是 data 的 schema（内核先按它查，不对回 400）；receive 写这个数据源拥有的记录。
  * 不收（比如没连着）抛 RequestRejected（回 400，不记同步记录）；别的错记进同步记录
  */
 export interface DataSourcePush {
@@ -122,7 +122,7 @@ export interface DataSourcePush {
   receive(data: unknown, ctx: DataSourcePushContext): DataSourcePushOutcome | Promise<DataSourcePushOutcome>;
 }
 
-/** 交给日历插件显示的一条日程（外部日历；299 号票）：数据源和它的名字由内核补上 */
+/** 交给日历插件显示的一条日程（外部日历）：数据源和它的名字由内核补上 */
 export type DataSourceCalendarEvent = Omit<CalendarExternalEntry, "source" | "sourceTitle">;
 
 /** 导入文件夹里交给数据源的一个文件（已经挪进"已导入"，导入出错时内核挪回去） */
@@ -156,7 +156,7 @@ export interface DataSourceFileType {
   import(file: ImportFile, ctx: DataSourceImportContext): Promise<DataSourceSyncResult>;
 }
 
-/** 原始数据里的一天（300 号票）：哪一天（本地日期 YYYY-MM-DD）、几条、整理成摘要了没有 */
+/** 原始数据里的一天：哪一天（本地日期 YYYY-MM-DD）、几条、整理成摘要了没有 */
 export interface DataSourceRawDay {
   readonly date: string;
   readonly count: number;
@@ -164,7 +164,7 @@ export interface DataSourceRawDay {
 }
 
 /**
- * 插件自己存储里的原始数据（300 号票：手机位置的原始坐标点、照片的时间地点）：不在 records 里、不进素材（进素材的是整理好的摘要），
+ * 插件自己存储里的原始数据（手机位置的原始坐标点、照片的时间地点）：不在 records 里、不进素材（进素材的是整理好的摘要），
  * 数据源页按天列出、能按天清掉。断开并连已导入的一起删时由插件的 disconnect（purge）删
  */
 export interface DataSourceRaw {
@@ -176,7 +176,7 @@ export interface DataSourceRaw {
   clear(dates: readonly string[], ctx: DataSourceContext): number;
 }
 
-/** 列已获取的时要哪一页（343 号票）：offset 从 0 起，新的在前 */
+/** 列已获取的时要哪一页：offset 从 0 起，新的在前 */
 export interface DataSourceStoredQuery {
   readonly offset: number;
   readonly limit: number;
@@ -189,7 +189,7 @@ export interface DataSourceStoredResult {
   readonly items: readonly DataSourceDataItem[];
 }
 
-/** 现查什么（343 号票）：不带 open 是列表（只给标题、副标题、时间，量大的别带正文）；open 是点开一条（要带正文），编号是列表里给的 */
+/** 现查什么：不带 open 是列表（只给标题、副标题、时间，量大的别带正文）；open 是点开一条（要带正文），编号是列表里给的 */
 export interface DataSourceLiveQuery {
   readonly open?: string;
 }
@@ -201,7 +201,7 @@ export interface DataSourceLiveContext extends DataSourceContext {
 
 /**
  * 现查的结果：scope 是查的是什么（给人看的一句），total 是上游一共几条（只列了一部分时），notes 是查到了、但有要说的（几个日历里有一个没拉到）；
- * groups 是按几组显示（344 号票：Gmail 一个账号一组，一组查不到的原因写在它的 problem，内核把密钥换成 ***；名字不换，地址是给人看的）
+ * groups 是按几组显示（Gmail 一个账号一组，一组查不到的原因写在它的 problem，内核把密钥换成 ***；名字不换，地址是给人看的）
  */
 export interface DataSourceLiveAnswer {
   readonly items: readonly DataSourceDataItem[];
@@ -227,7 +227,7 @@ export interface DataSource {
   readonly summary?: string;
   /**
    * 用到的敏感类别（健康、财务、位置、关系……）：对上记忆的敏感类别开关，页面上写明这几类默认只记录、不用于推断。
-   * 303 号票：dataSourceMaterial 写的素材不写 sensitive 就带上这里的全部（保守），插件按记录写窄
+   * dataSourceMaterial 写的素材不写 sensitive 就带上这里的全部（保守），插件按记录写窄
    */
   readonly sensitive?: readonly SensitiveCategory[];
   /**
@@ -240,11 +240,11 @@ export interface DataSource {
       readonly default: boolean;
       readonly schedule?: DataSourceSchedule;
       /**
-       * 导入的东西去哪（给人看的，取值函数走 t()；297 号票："显示在日历里，不进素材"）。不写是"整理成素材"——数据源只产素材是默认，
-       * 有的数据该直接给别的插件（issue 25 第 3 节：Google 日历的事件给日历插件）
+       * 导入的东西去哪（给人看的，取值函数走 t()；"显示在日历里，不进素材"）。不写是"整理成素材"——数据源只产素材是默认，
+       * 有的数据该直接给别的插件（Google 日历的事件给日历插件）
        */
       readonly destination?: string;
-      /** 填好设置、连上以后马上同步一次（导入开着时；297 号票：填了日历地址就该看到事件，不等下一次定期导入） */
+      /** 填好设置、连上以后马上同步一次（导入开着时；填了日历地址就该看到事件，不等下一次定期导入） */
       readonly syncOnConnect?: boolean;
     };
   };
@@ -259,7 +259,7 @@ export interface DataSource {
   /** 同步一次：拉新的、写它拥有的记录，交回新进来几条；抛错的记下原因（下次照常） */
   sync?(ctx: DataSourceSyncContext): Promise<DataSourceSyncResult>;
   /**
-   * 出错后再试（306 号票）：status() 报出错时内核每小时叫一次，插件用存着的设置再测一次连接（不写记录、不用用户重填），
+   * 出错后再试：status() 报出错时内核每小时叫一次，插件用存着的设置再测一次连接（不写记录、不用用户重填），
    * 更新自己记着的状态（好了就清掉出错），下一次 status() 报出来；Key 失效、密码错这种也照样叫（用户可能在别处修好了）。
    * 不给的、导入开着的照同步那样同步一次
    */
@@ -267,48 +267,48 @@ export interface DataSource {
   /** 断开时插件自己的清理（停掉它自己开的、purge 时删它自己存储里的原始数据）；密钥区那一格、它拥有的记录由内核删 */
   disconnect?(ctx: DataSourceContext & { readonly purge: boolean }): void | Promise<void>;
   /**
-   * 单独断开它下面的一样（344 号票：Gmail 的一个账号）：插件只删这一样的密钥、清掉它记着的状态，交回哪些记录归这一样——选了"连已导入的一起删"时
+   * 单独断开它下面的一样（Gmail 的一个账号）：插件只删这一样的密钥、清掉它记着的状态，交回哪些记录归这一样——选了"连已导入的一起删"时
    * 内核只删 records 里归它的（素材跟着记录走），同步记录、别的几样不动。没有这一样抛错（原因给人看）。插件在运行时才叫
    */
   disconnectItem?(item: string, ctx: DataSourceContext): { owns(event: StoredEvent): boolean };
   /**
-   * 启动时把密钥区里的老样子转成新样子（344 号票：Gmail 的两个键转成一组账号）：内核每次起来叫一次，插件没启用也叫（只动密钥区，不连网），
+   * 启动时把密钥区里的老样子转成新样子（Gmail 的两个键转成一组账号）：内核每次起来叫一次，插件没启用也叫（只动密钥区，不连网），
    * 所以要能重复执行、转好了什么都不做。备份留在密钥区（这一格里），不放备份区。转不成抛错：内核记一条日志（密钥换成 ***）、照常起来，下次启动再试，
    * 所以插件要能照老样子接着用
    */
   migrate?(ctx: DataSourceContext): void;
   /**
-   * 按需查的工具（给秘书）：按需查开着、插件在运行、连着（306 号票：status() 报的最近一次已知的连接状态）时才给；关掉、没连上了以后
+   * 按需查的工具（给秘书）：按需查开着、插件在运行、连着（status() 报的最近一次已知的连接状态）时才给；关掉、没连上了以后
    * 正在跑的一轮里再调回"关着""没连上 / 出错了"
    */
   tools?(ctx: DataSourceContext): readonly HostTool[];
-  /** 设备交来的（299 号票：手机上的二狗 App）：算"导入"这种用法，导入关着时不收 */
+  /** 设备交来的（手机上的二狗 App）：算"导入"这种用法，导入关着时不收 */
   readonly push?: DataSourcePush;
-  /** 现在共几条（插件在运行时代替按 records 数；299 号票：手机日历的记录是增量，按条数数不对） */
+  /** 现在共几条（插件在运行时代替按 records 数；手机日历的记录是增量，按条数数不对） */
   count?(ctx: DataSourceContext): number;
-  /** 交给日历插件显示的日程（外部日历，299 号票）：[from, to) 里的；插件在运行时日历按月取才叫，要快 */
+  /** 交给日历插件显示的日程（外部日历）：[from, to) 里的；插件在运行时日历按月取才叫，要快 */
   calendar?(range: { from: Date; to: Date }, ctx: DataSourceContext): readonly DataSourceCalendarEvent[];
   /**
-   * 它在这台电脑上的文件夹（307 号票：Looki 存到本地的位置）：数据源页的"在电脑上打开"（open 动作）由内核用和导入文件夹同一个做法打开它。
+   * 它在这台电脑上的文件夹（Looki 存到本地的位置）：数据源页的"在电脑上打开"（open 动作）由内核用和导入文件夹同一个做法打开它。
    * 插件在运行时才叫；交回前插件自己建好，没有（还不能打开）交回 undefined 或者抛错（原因给人看）
    */
   localFolder?(ctx: DataSourceContext): string | undefined;
-  /** 插件自己存储里的原始数据（300 号票）：数据源页按天列出、能按天清掉；插件在运行时才叫 */
+  /** 插件自己存储里的原始数据：数据源页按天列出、能按天清掉；插件在运行时才叫 */
   readonly raw?: DataSourceRaw;
   /**
-   * 已获取的（343 号票）：不进素材的记录列出来（日历事件、手机记录），新的在前。进素材的不用写（内核按素材的出处列）；写了的优先用它。
+   * 已获取的：不进素材的记录列出来（日历事件、手机记录），新的在前。进素材的不用写（内核按素材的出处列）；写了的优先用它。
    * 插件在运行时才叫，要快（打开数据源详情时叫），不连网
    */
   stored?(query: DataSourceStoredQuery, ctx: DataSourceContext): DataSourceStoredResult;
   /**
-   * 现查上游给人看（343 号票，数据源详情的"现在能查到的"）：只读，**不写事件、不进素材、不进记忆、不经过模型**。内核只在插件在运行、连着时叫
+   * 现查上游给人看（数据源详情的"现在能查到的"）：只读，**不写事件、不进素材、不进记忆、不经过模型**。内核只在插件在运行、连着时叫
    * （不看按需查开着没有：那个开关管给秘书的工具）；查不到抛错（原因给人看，内核把密钥换成 ***）；Key 失效这些照按需查那样记在内存里
    */
   live?(query: DataSourceLiveQuery, ctx: DataSourceLiveContext): Promise<DataSourceLiveAnswer>;
   /**
-   * 断开（只靠导入文件夹的是"删除已导入的"）时确认框里要说的一句，写成取值函数走 t()（306 号票）：没有密钥、导入的不进素材的数据源
+   * 断开（只靠导入文件夹的是"删除已导入的"）时确认框里要说的一句，写成取值函数走 t()：没有密钥、导入的不进素材的数据源
    * （手机日历、通讯录、Google 联系人）说实际会删什么、会怎样——确认框里"填过的密钥从这台电脑上删掉""素材照样在"只在真有密钥、
-   * 真进素材时才出现。插件停用也认得；插件在运行时 status() 报的 disconnectNote 优先（随状态变的：307 号票 Looki 存到本地的文件）
+   * 真进素材时才出现。插件停用也认得；插件在运行时 status() 报的 disconnectNote 优先（随状态变的：Looki 存到本地的文件）
    */
   readonly disconnectNote?: string;
 }

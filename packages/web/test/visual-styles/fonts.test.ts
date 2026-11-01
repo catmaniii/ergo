@@ -1,4 +1,4 @@
-// 风格的字体（39 号票）由二狗自己提供：构建时把风格清单里写的 fontsource 包按 unicode-range 切好的 woff2 拷进
+// 风格的字体由二狗自己提供：构建时把风格清单里写的 fontsource 包按 unicode-range 切好的 woff2 拷进
 // dist/fonts/，每套有字体的风格一份样式表 <风格 id>.css。这里查构建插件给出的那份清单（拷什么、样式表长什么样），
 // 以及这套风格提供的每个字体都有人用（正文、标题、数字三个字体 token 至少一个用到它；没提供字体的不查）；
 // 设置里风格预览用的 preview.css 只收管着预览场景里那几个字的 @font-face（打开设置只为预览多下几片）。
@@ -89,7 +89,7 @@ describe("设置里风格预览用的字体（preview.css）", () => {
     expect(needed.length).toBeLessThanOrEqual(Math.max(1, full.length / 10));
   });
 
-  test("净白格栅的预览：中文只下一片字体（169 号票起预览场景也有英文的，英文的字在拉丁字母那几片里，中文下用不着、浏览器不会去下）", () => {
+  test("净白格栅的预览：中文只下一片字体（预览场景也有英文的，英文的字在拉丁字母那几片里，中文下用不着、浏览器不会去下）", () => {
     const grid = faces(plan.stylesheets.get("grid.css")!);
     const han = chars.filter((ch) => /\p{Script=Han}/u.test(ch));
     expect(faces(preview!).filter((face) => grid.includes(face) && han.some((ch) => covers(face, ch)))).toHaveLength(1);

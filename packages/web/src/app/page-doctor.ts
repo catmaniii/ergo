@@ -1,4 +1,4 @@
-// 体检（319 号票的 319b）在网页上的那一半里"碰浏览器"的那部分：取八项检查的钩子（useDoctor）、这个页面是不是演示页。
+// 体检（319b）在网页上的那一半里"碰浏览器"的那部分：取八项检查的钩子（useDoctor）、这个页面是不是演示页。
 // 纯的部分（请求、演示页的假数据、事实拼句）在 app/doctor.ts，那边能在 Node 里直接测；分工照 app/setup.ts / app/page-setup.ts。
 import { useCallback, useEffect, useState } from "react";
 import type { DoctorView } from "../state/index.ts";

@@ -1,5 +1,5 @@
-// 在鸿蒙 App 的原生内置浏览器里打开一个地址（134 号票：132 号票的内置浏览器叠层在 App 里改到"浏览"里打开，外部网站也是）。
-// 212 号票起原生内置浏览器是浏览插件的：插件装上时登记打开的办法（plugins/browsing/page-browse.ts 的 openInPageNativeBrowser），
+// 在鸿蒙 App 的原生内置浏览器里打开一个地址（内置浏览器叠层在 App 里改到"浏览"里打开，外部网站也是）。
+// 原生内置浏览器是浏览插件的：插件装上时登记打开的办法（plugins/browsing/page-browse.ts 的 openInPageNativeBrowser），
 // 停用时撤掉；核心（app/page-in-app-browser.ts）经这里取，没登记（不在 App 里、旧版 App、浏览插件没启用）时返回 false，调用方照旧
 // （嵌入框叠层、外部网站新开窗口）。核心留的口子，核心不 import 插件。
 

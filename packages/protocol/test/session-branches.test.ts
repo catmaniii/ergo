@@ -1,4 +1,4 @@
-// 会话树（150 号票）的推导：每段序号属于哪条分支、当前路径上的序号段、分叉点、回退长出的新分支、这段会话从哪开始。
+// 会话树的推导：每段序号属于哪条分支、当前路径上的序号段、分叉点、回退长出的新分支、这段会话从哪开始。
 import { describe, expect, it } from "vitest";
 import {
   agentSessionStart,
@@ -87,7 +87,7 @@ describe("会话树", () => {
     expect(rangesFrom(pathRanges(one), 14)).toEqual([{ from: 14, to: INF }]);
   });
 
-  it("切回原来那条（151 号票）：它之后追加的接着属于它，路径是它自己的两段", () => {
+  it("切回原来那条：它之后追加的接着属于它，路径是它自己的两段", () => {
     const one = rollback(SINGLE_BRANCH, { seq: 5 }, 11);
     const back: ConversationBranches = { ...one, current: "b0", epochs: [...one.epochs, { from: 30, branch: "b0" }] };
     expect(pathRanges(back)).toEqual([
@@ -97,7 +97,7 @@ describe("会话树", () => {
     expect(branchForks(back)).toEqual([{ at: 5, branches: ["b1"] }]);
   });
 
-  it("切换分支（151 号票）：当前分支换过去、原来那条记下末端；两条各自那一段对称，能再切回来", () => {
+  it("切换分支：当前分支换过去、原来那条记下末端；两条各自那一段对称，能再切回来", () => {
     const one = rollback(SINGLE_BRANCH, { seq: 5 }, 11);
     // b1 上又说了几句（11..29），第 30 条切回 b0
     const back = switchedTree(one, "b0", 30, "tip-b1");
@@ -136,7 +136,7 @@ describe("会话树", () => {
     expect(subtractRanges([{ from: 10, to: INF }], [{ from: 0, to: 12 }, { from: 30, to: INF }])).toEqual([{ from: 12, to: 30 }]);
   });
 
-  it("这段会话从哪开始：清空的分隔线、换模型的说明（有标记的、150 号票之前按文字认的）、会话分段线", () => {
+  it("这段会话从哪开始：清空的分隔线、换模型的说明（有标记的、以前按文字认的）、会话分段线", () => {
     expect(agentSessionStart(sys([{ type: "conversation_cleared" }]))).toBe(true);
     expect(agentSessionStart(sys([{ type: "text", text: "已换成 DeepSeek V4 Pro 模型（思考：高），接着之前的对话。" }]))).toBe(true);
     expect(agentSessionStart(sys([{ type: "text", text: "随便一句" }], { sessionStart: true }))).toBe(true);
@@ -145,7 +145,7 @@ describe("会话树", () => {
     expect(agentSessionStart({ speaker: "user", parts: [{ type: "text", text: "已换成 X，接着之前的对话。" }] })).toBe(false);
   });
 
-  it("能回退的会话：秘书主会话、任务和项目负责人的会话（152 号票）；阶段开始的回退点的说法", () => {
+  it("能回退的会话：秘书主会话、任务和项目负责人的会话；阶段开始的回退点的说法", () => {
     expect(rollbackEnabled("secretary")).toBe(true);
     expect(rollbackEnabled("maintainer:tm-1")).toBe(true);
     expect(rollbackEnabled("maintainer:pm-1")).toBe(true);

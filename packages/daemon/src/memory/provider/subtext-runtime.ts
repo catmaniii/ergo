@@ -1,12 +1,12 @@
 // @i18n-ignore-file log：这里只有日志和给宿主的出错说明（这一版还没接界面）
-// 会意插件的运行接入（337 号票第一段）：组合根只 import memory/provider/ 这个槽（memory/ 里插件内部的那些文件
+// 会意插件的运行接入：组合根只 import memory/provider/ 这个槽（memory/ 里插件内部的那些文件
 // 只有插件清单 import，见 test/memory/boundary.test.ts），所以替它把会意插件要的东西备齐：
 // - 一份缓存的只读引擎（engine-provider.ts：第一次用时打开、之后一直用、close 时关掉；库还没建、版本对不上、
 //   打不开时是 undefined，插件那边就当"这一会儿没有记忆"）；
 // - 推理库那一侧的彻底删除（purge-rg.ts 的 purgeMaterials，和记忆插件自己那一份同一个函数）：只按素材删证据和事实，
 //   素材库、原话副本是内核的，这里不碰。它的 start()（订阅记忆命令）和 reconcile() 仍然只由记忆插件自己那一份做；
 // - 整理记录里最近一次跑完的时间（ergo.db 的 memory_nightly 视图，插件没启用过时没有这张表）、推理库占多少字节；
-// - 337 号票第二段：按原话记一条（用户说"帮我记一句"）——落在现有的"显式记忆命令"那条链上，不另造写库路径：
+// -按原话记一条（用户说"帮我记一句"）——落在现有的"显式记忆命令"那条链上，不另造写库路径：
 //   追加一条 memory_command（from.kind 是 secretary，带会话/消息/工具调用）→ 素材库照旧把它采成"显式记忆命令"素材 →
 //   立刻用每晚整理同一个 evidenceDraftOf 读成证据、经推理库的唯一写入口入库（整理时按出处跳过，不会重复读）。
 // 插件自己不带引擎、也不关它：引擎是这一份建、这一份关（组合根的 teardown 里）。
@@ -23,11 +23,11 @@ import { latestNightlyRecord } from "../nightly-record.ts";
 import { createReasoningPurge } from "../purge-rg.ts";
 import type { SubtextProviderDeps, SubtextRememberCommand, SubtextRememberRecord } from "./subtext.ts";
 
-/** 337 号票：按原话记一条的写在留痕里记的"经谁转达"（和"记住"这条记忆命令同一个意思：用户发起） */
+/** 按原话记一条的写在留痕里记的"经谁转达"（和"记住"这条记忆命令同一个意思：用户发起） */
 export const REMEMBER_VIA = "经秘书记一句";
 
 export interface SubtextRuntimeOptions {
-  /** 推理库 rg.db 的路径（338 号票起是插件自己的数据目录：<数据目录>/memory/subtext/rg.db） */
+  /** 推理库 rg.db 的路径（是插件自己的数据目录：<数据目录>/memory/subtext/rg.db） */
   file: string;
   /** 引擎的时钟（"现在"）；整理记录的视图也从它 */
   clock: Clock;
@@ -39,7 +39,7 @@ export interface SubtextRuntimeOptions {
   config: MemoryConfig;
   /**
    * 事件日志：读整理记录（memory_nightly 的派生视图）；彻底删除那一份要 read / onAppend（这里不订阅，只借它的删除函数）；
-   * 337 号票起"记一句"要 append（追加一条 memory_command）
+   * "记一句"要 append（追加一条 memory_command）
    */
   store: Pick<EventStore, "reader" | "read" | "onAppend" | "append">;
   /** 素材库：把证据的出处对回素材、按来源找素材；"记一句"还要读刚采到的那条素材 */
@@ -74,7 +74,7 @@ export function createSubtextRuntime(options: SubtextRuntimeOptions): SubtextRun
     model,
     log: options.log,
   });
-  // 337 号票：写推理库那一下随用随开一份可写的（和顺口问同一条路，不在这份缓存的读者引擎上写）
+  // 写推理库那一下随用随开一份可写的（和顺口问同一条路，不在这份缓存的读者引擎上写）
   const withWriteEngine = createWritableEngineUse({
     file: options.file,
     clock: () => clockIso(options.clock),
@@ -95,7 +95,7 @@ export function createSubtextRuntime(options: SubtextRuntimeOptions): SubtextRun
           command: "remember",
           content: command.text,
           // 用户自己说的话（秘书只是照抄过来）：和快速动作那条路的"本人打的字"同一个来源标记。
-          // 366 号票：带着文件、来源的（"这张图记下来"）文字是秘书写的描述：用户的选择，注明 agent 先提出
+          // 带着文件、来源的（"这张图记下来"）文字是秘书写的描述：用户的选择，注明 agent 先提出
           source: command.file === undefined && command.origin === undefined ? "typed" : "proposed",
           from: {
             kind: "secretary",
@@ -155,7 +155,7 @@ export function createSubtextRuntime(options: SubtextRuntimeOptions): SubtextRun
           return undefined;
         }
       },
-      // 会意的数据现在占多少：推理库 rg.db（338 号票起在它自己的数据目录 <数据目录>/memory/subtext/ 里）
+      // 会意的数据现在占多少：推理库 rg.db（在它自己的数据目录 <数据目录>/memory/subtext/ 里）
       bytes: () => {
         try {
           return fs.statSync(options.file).size;

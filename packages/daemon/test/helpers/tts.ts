@@ -1,8 +1,8 @@
-// 语音回复的测试底座（32 号票）：假的语音合成服务（代替本机 LSM 托管的 audio.cpp，空闲端口，测试结束时关掉）、
+// 语音回复的测试底座：假的语音合成服务（代替本机 LSM 托管的 audio.cpp，空闲端口，测试结束时关掉）、
 // 生成 WAV、导入参考音色。测试一律不碰本机 8090 上的真服务、不占显卡。
-// 38 号票起守护进程分段合成：一段一次请求，假服务按段（按请求）回；script 给接下来几次请求各自怎么回，
+// 守护进程分段合成：一段一次请求，假服务按段（按请求）回；script 给接下来几次请求各自怎么回，
 // hold 住的可以一次放行一个（releaseNext），看守护进程是不是合成好一段推一段。
-// 45 号票起守护进程启动后（和导入参考音色后）会发一条预热的试合成：它单独记在 warmups、单独回（behaveWarmup），不影响别的。
+// 守护进程启动后（和导入参考音色后）会发一条预热的试合成：它单独记在 warmups、单独回（behaveWarmup），不影响别的。
 // ADR-0036 起开源版自带一条内置的默认参考音色（v-default），新装的数据目录一启动就有——测"用户自己导入的音色"的用例从
 // "用户把内置的删了"开始（importReferenceVoice 先删它），测"一条参考音色都没有"的用例用 dataDirWithoutReferenceVoices。
 import fs from "node:fs";
@@ -85,7 +85,7 @@ export interface FakeSpeechService {
   /** 收到的合成请求（不含预热的试合成） */
   readonly requests: FakeSpeechRequest[];
   /**
-   * 收到的预热的试合成（45 号票：稿子是 WARMUP_TEXT 的请求）。它们单独记、单独回（behaveWarmup），不占 script、behave 定的回法，
+   * 收到的预热的试合成（稿子是 WARMUP_TEXT 的请求）。它们单独记、单独回（behaveWarmup），不占 script、behave 定的回法，
    * 别的测试不用管守护进程什么时候预热
    */
   readonly warmups: FakeSpeechRequest[];
@@ -233,7 +233,7 @@ export async function startFakeSpeechService(): Promise<FakeSpeechService> {
   };
 }
 
-/** 设置里的语音页：两个语音模型的状态（45 号票） */
+/** 设置里的语音页：两个语音模型的状态 */
 export const voiceModelsApi = {
   get: (url: string) => requestJson<VoiceModelsView>(url, HTTP_PATHS.voiceModels),
 };
@@ -241,7 +241,7 @@ export const voiceModelsApi = {
 /** 设置里的语音页：参考音色的 HTTP 接口 */
 export const referenceVoicesApi = {
   list: (url: string) => requestJson<ReferenceVoiceList>(url, HTTP_PATHS.referenceVoices),
-  /** 导入一个：名字和音频；referenceText 不给由守护进程自动识别（230 号票），给了照用 */
+  /** 导入一个：名字和音频；referenceText 不给由守护进程自动识别，给了照用 */
   import: (url: string, voice: { name: string; referenceText?: string; audio: Buffer }) =>
     requestJson<ReferenceVoice & { message?: string }>(url, HTTP_PATHS.referenceVoices, {
       method: "POST",

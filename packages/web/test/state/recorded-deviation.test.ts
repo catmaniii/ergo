@@ -1,4 +1,4 @@
-// 前端状态层回放 14 号票（偏离、阈值与计划变更）主切面录下的事件流：
+// 前端状态层回放（偏离、阈值与计划变更）主切面录下的事件流：
 // - task-plan-change（plan-change.test.ts）：计划变更卡（只列变化）、只停受影响的阶段、拒绝、自行调整计划（时间线上一条记录，
 //   阶段抽屉按现在生效的计划显示）、做不了转等我；
 // - task-over-budget（deviation.test.ts）：用量超过预算让负责人说明进展（状态不变），超过 2 倍转等我（超预算）、追加预算继续；
@@ -116,7 +116,7 @@ describe("回放：计划变更、拒绝、重排、做不了（task-plan-change
     // 停下这一支是一条偏离记录（属于 s1）
     expect(records(end).find((r) => r.kind === "deviation")?.summary).toContain("做不了：工作目录里没有资料");
     expect(notices(end, "stuck_help")).toMatchObject([{ urgency: "blocking", actions: ["继续执行"] }]);
-    // 90 号票起任务详情的按钮收进状态签浮层和"⋯"（同一份菜单项）
+    // 任务详情的按钮收进状态签浮层和"⋯"（同一份菜单项）
     expect(taskActionItems(task).map((c) => c.label)).toEqual(["暂停", "继续执行", "取消任务", "从某阶段重做…", "归档", "删除任务"]);
   });
 });

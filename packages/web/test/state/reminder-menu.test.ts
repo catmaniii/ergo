@@ -1,8 +1,8 @@
-// 156 号票：看板上简单提醒的卡也能长按 / 右键管理、能多选。菜单项照提醒现在能做的（改时间、取消提醒），后面"多选"；
+// 看板上简单提醒的卡也能长按 / 右键管理、能多选。菜单项照提醒现在能做的（改时间、取消提醒），后面"多选"；
 // 多选时提醒能一起做的只有取消，和任务混着选时批量动作只给两者都能做的（取消），别的灰掉、写明为什么；
 // 改时间的对话框（时间已过、没改的不能存）和保存后的提示。表格驱动，纯函数。
-// 185 号票：已经结束的（一次性的已触发、已取消）能归档，任何提醒能删（先确认）；多选里提醒能一起取消、归档、删除，
-// 和任务混选只给两者都能做的（取消、归档；186 号票起任务也能删，删除对两边都生效）。
+// 已经结束的（一次性的已触发、已取消）能归档，任何提醒能删（先确认）；多选里提醒能一起取消、归档、删除，
+// 和任务混选只给两者都能做的（取消、归档；任务也能删，删除对两边都生效）。
 import { describe, expect, test } from "vitest";
 import {
   batchCancelConfirm,
@@ -80,7 +80,7 @@ describe("看板多选里的提醒：能一起取消；和任务混选只给两�
   test("只选了任务：和原来一样（每个按钮只算能做的），不用另外说明", () => {
     const tasks = [run, done, paused];
     expect(boardBatchCounts(tasks)).toEqual(batchCounts(tasks));
-    // 186 号票：任务能删（没结束的先停下），没结束的归档先取消
+    // 任务能删（没结束的先停下），没结束的归档先取消
     expect(boardBatchCounts(tasks)).toEqual({ pause: 1, resume: 1, cancel: 2, archive: 3, delete: 3 });
     expect(boardBatchTargets(tasks, "delete")).toEqual({ ids: ["t-run", "t-done", "t-paused"], skipped: 0 });
     expect(boardBatchTargets(tasks, "archive")).toEqual({ ids: ["t-run", "t-done", "t-paused"], skipped: 0 });
@@ -102,10 +102,10 @@ describe("看板多选里的提醒：能一起取消；和任务混选只给两�
     const mixed = [run, done, paused, rent, visa];
     expect(boardBatchCounts(mixed)).toEqual({ pause: 0, resume: 0, cancel: 3, archive: 4, delete: 5 });
     expect(boardBatchTargets(mixed, "cancel")).toEqual({ ids: ["t-run", "t-paused", "r-rent"], skipped: 2 });
-    // 没结束的任务归档先取消（186 号票）；待触发的提醒照旧不能归档
+    // 没结束的任务归档先取消；待触发的提醒照旧不能归档
     expect(boardBatchTargets(mixed, "archive")).toEqual({ ids: ["t-run", "t-done", "t-paused", "r-visa"], skipped: 1 });
     expect(boardBatchTargets(mixed, "pause")).toEqual({ ids: [], skipped: 5 });
-    // 删除对任务和提醒都生效（186 号票）
+    // 删除对任务和提醒都生效
     expect(boardBatchTargets(mixed, "delete")).toEqual({ ids: ["t-run", "t-done", "t-paused", "r-rent", "r-visa"], skipped: 0 });
     expect(boardBatchWhy(mixed)).toBe("选了任务和简单提醒：能一起取消、归档、删除；暂停、继续要只选任务");
   });
@@ -124,7 +124,7 @@ describe("看板多选里的提醒：能一起取消；和任务混选只给两�
   });
 });
 
-describe("一起删除提醒（185 号票）：先确认一次；做完的提示", () => {
+describe("一起删除提醒：先确认一次；做完的提示", () => {
   test("确认写清几条、删了以后什么样、收不回", () => {
     expect(boardBatchDeleteConfirm({ reminders: 3 })).toEqual({
       title: "删除 3 条提醒？",

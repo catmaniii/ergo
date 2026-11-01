@@ -31,7 +31,7 @@ describe("谁能改", () => {
     ["running", "paused", "system", true],
     ["queued", "paused", "user", true],
     ["queued", "paused", "maintainer", false],
-    // 14 号票：累计被拒太多次时系统暂停（恢复执行时回到排队中的也算）
+    // 累计被拒太多次时系统暂停（恢复执行时回到排队中的也算）
     ["queued", "paused", "system", true],
     ["waiting_for_user", "paused", "system", true],
     ["paused", "running", "user", true],
@@ -39,7 +39,7 @@ describe("谁能改", () => {
     ["failed", "running", "user", true],
     ["done", "running", "user", true],
     ["done", "archived", "user", true],
-    // 141 号票：运营方案建的内部任务跟着项目归档（系统做的）、取消归档时回到原来的状态；进行中的不跟着走
+    // 运营方案建的内部任务跟着项目归档（系统做的）、取消归档时回到原来的状态；进行中的不跟着走
     ["done", "archived", "system", true],
     ["operating", "archived", "system", true],
     ["scheduled", "archived", "system", true],
@@ -55,16 +55,16 @@ describe("谁能改", () => {
     ["running", "cancelled", "secretary", true],
     ["running", "cancelled", "maintainer", false],
     ["done", "cancelled", "user", false],
-    // 转为项目（15 号票）：用户把任何未结束的任务转为项目，任务以"已完成 · 已转为项目"结束
+    // 转为项目：用户把任何未结束的任务转为项目，任务以"已完成 · 已转为项目"结束
     ["planning", "done", "user", true],
     ["awaiting_confirm", "done", "user", true],
     ["running", "done", "user", true],
     ["paused", "done", "user", true],
     ["planning", "done", "secretary", false],
-    // 152 号票：撤回会话回到任务已经完成之后的那一处（失败是被放弃那段里的）——只在跟着会话推导时发生，不是用户的控制
+    // 撤回会话回到任务已经完成之后的那一处（失败是被放弃那段里的）——只在跟着会话推导时发生，不是用户的控制
     ["failed", "done", "user", true],
     ["failed", "done", "maintainer", false],
-    // 13 号票：全部阶段验收通过后系统自动完成（最后一个阶段由用户验收时，任务可能正在等我）
+    // 全部阶段验收通过后系统自动完成（最后一个阶段由用户验收时，任务可能正在等我）
     ["running", "done", "system", true],
     ["waiting_for_user", "done", "system", true],
     ["waiting_for_user", "done", "maintainer", false],
@@ -88,7 +88,7 @@ describe("谁能改", () => {
     expect(checkTaskTransition("running", "done", "secretary")).toEqual({ ok: false, reason: "秘书不能把任务从「执行中」改成「已完成」（完成只有负责人、系统能做，撤回会话（回到它结束之后的那一处）只有用户能做，转为项目只有用户能做）" });
   });
 
-  it("已归档、已取消是终点：除了已取消的可以归档，哪儿也去不了（141 号票：跟着项目归档的，取消归档时由系统回到原来的状态）", () => {
+  it("已归档、已取消是终点：除了已取消的可以归档，哪儿也去不了（跟着项目归档的，取消归档时由系统回到原来的状态）", () => {
     const followed: readonly string[] = ["operating", "scheduled", "done", "failed", "cancelled"];
     for (const to of TASK_STATES) for (const by of TASK_ACTORS) expect(allowed("archived", to, by)).toBe(by === "system" && followed.includes(to));
     for (const to of TASK_STATES) for (const by of TASK_ACTORS) expect(allowed("cancelled", to, by)).toBe(to === "archived" && (by === "user" || by === "system"));

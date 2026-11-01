@@ -31,7 +31,7 @@
    - 2026-05-07 起，npm 包改到 `@earendil-works` 命名空间下（[pi.dev changelog](https://pi.dev/changelog/2026/5/7/pi-has-a-new-home)）。
    - 2026-10-01 发布 1.0。从 0.74.0 到 1.0.4 一共发了 58 个版本，其中 9 个版本带 "Breaking Changes" 小节（依据 [PI/packages/coding-agent/CHANGELOG.md](https://github.com/earendil-works/pi/blob/ddaa0a0341a8/packages/coding-agent/CHANGELOG.md)，作者自己统计）。
    - **pi-agent-core 1.0 把实验性的 `AgentHarness` 整个删了**，连同 sessions、compaction、skills、harness tools 一起，叫用户改用 `pi-durable`（[PI/packages/agent/CHANGELOG.md](https://github.com/earendil-works/pi/blob/ddaa0a0341a8/packages/agent/CHANGELOG.md)）。
-   - 【判断】前作用的正是 `pi-agent-core@0.85.1` 的 `AgentHarness`（调研 01，未公开）。ergo 想继承它的机制，就必须迁到 pi-durable，或者回到 `Agent` 类自己搭。
+   - 【判断】前作用的正是 `pi-agent-core@0.85.1` 的 `AgentHarness`。ergo 想继承它的机制，就必须迁到 pi-durable，或者回到 `Agent` 类自己搭。
 3. **`pi-durable` 最接近 ergo 想要的底座，但刚出生不久。**
    - 它提供可崩溃恢复的会话、任务和文档运行时，并给出了正式的 subagent 写法：任务拥有子会话；有后台 anchor；能持久化子 agent 并给它 steer 或 follow-up；有任务图。每个会话可以单独配置 model、tools、extensions、instructions 和 cwd（[PI/packages/durable/README.md](https://github.com/earendil-works/pi/blob/ddaa0a0341a8/packages/durable/README.md)）。
    - 但它 2026-09-19 才在 npm 首发（0.0.1，见 [npm registry](https://registry.npmjs.org/@earendil-works/pi-durable)），README 第一行就写着 "Experimental. The API changes without notice between releases."，1.0.3 和 1.0.4 又各有破坏性变更。
@@ -349,7 +349,7 @@ ergo 应当重点看这个包。来源：[PI/packages/durable/README.md](https:/
   - `pi-server` 支持一个会话同时被多个展示端 attach。
   - pi-durable 的 `viewState()` / `watch()` / `watchEvents()` 明确是给 UI 用的。
   - 但这几样都是 experimental，pi-protocol 也还没有鉴权。
-- 【判断】ergo 的 Web 聊天 UI 应该自己写。前端框架可以随意选，后端走自己的 Gateway 协议，比如 WebSocket 加事件流。可以参考 pi-web-ui 的组件拆法（ChatPanel / AgentInterface / ArtifactsPanel）和 durable 的"一切都是提交过的状态"这个模型，但不要依赖它们。前作的 Web UI 设计更值得继承（见调研 01）。
+- 【判断】ergo 的 Web 聊天 UI 应该自己写。前端框架可以随意选，后端走自己的 Gateway 协议，比如 WebSocket 加事件流。可以参考 pi-web-ui 的组件拆法（ChatPanel / AgentInterface / ArtifactsPanel）和 durable 的"一切都是提交过的状态"这个模型，但不要依赖它们。前作的 Web UI 设计更值得继承。
 
 ### A5. 语言、运行时、许可证、发版节奏与 API 稳定性
 
@@ -710,8 +710,8 @@ ergo 的差异化 (1) 和 Hermes、Honcho 直接相邻，需要单独再调研 H
 
 | 差异化 | OpenClaw 已有 | OpenClaw 的不足 | pi 现成可用 | ergo 需自建 |
 |---|---|---|---|---|
-| **(1) 挖掘动机的记忆** | 分层文件记忆；provenance、taint 和会话类型门槛；dreaming 两道关加 `DREAMS.md` 审阅；`USER.md` 指令加 supersede；standing intents；Active Memory 回忆子 agent；混合检索加衰减加重要度；Honcho 插件；memory-wiki 的 claims、evidence、矛盾追踪 | 不建模动机、需求、价值观；明确拒绝"dossier"；晋升按有用性而不是解释力；没有置信度上限、竞争假设、判别性追问；没有"言行不一"检测；只能启用一个记忆插件 | 注入：`before_agent_start`（分段，保缓存）、`context`、`transformContext/prepareRequest`；写入时机：`agent_settled`、`session_before_compact`、`turn_end`；持久化：`appendEntry`、durable `defineDoc`；后台推理：`ctx.modelRegistry.streamSimple` | 全部存储（SQLite、FTS、向量）；事实抽取管道（带来源）；分层推理图（L1 事实 → L2 动机 → L3 需求 → L4 内核，可以复用 四层动机模型（调研 02，未公开）的四层、置信上限和判别性追问）；整理任务（借鉴 dreaming 的"确定性门槛加有边界的模型回合"）；隐私和用户审阅界面；注入策略（哪一层、什么时候、多少预算） |
-| **(2) 长任务可配置提醒、少打扰、普通聊天模式** | 推送通知可按类别开关、有安静时段和详细程度；heartbeat 默认安静（NO_REPLY、`heartbeat_respond`、activeHours）；progress drafts 和 progress card；Goals；cron 一次性提醒；`notifyOnExit`；队列模式 steer/followup/collect | 偏好是按类别和按设备的，**不能按任务设**（比如"只在失败或需要我决定时告诉我""每到一个里程碑汇报""超过 ETA 才提醒"）；没有跨渠道的"注意力预算"；主动消息不进上下文（#88757）；heartbeat 很贵；"聊天 vs 任务"不是一等模式 | `Agent` 事件流（turn、tool、agent_settled）；steering 和 follow-up 队列；`ctx.ui.notify/setStatus/setWidget`（只限 TUI 或 RPC）；pi-durable：持久任务、后台任务、`watchEvents`、`taskGraph`、`pi.usage` | 任务登记处加**提醒策略引擎**（每个任务的规则、全局安静时段、汇总和批量、升级规则）；投递渠道；"聊天模式"路由（轻模型、无工具或只读工具，可以用 `input` 事件或 virtual model 分流）；主动消息回写会话；继承前作的打断分级（见调研 01 §0 第 6 条） |
+| **(1) 挖掘动机的记忆** | 分层文件记忆；provenance、taint 和会话类型门槛；dreaming 两道关加 `DREAMS.md` 审阅；`USER.md` 指令加 supersede；standing intents；Active Memory 回忆子 agent；混合检索加衰减加重要度；Honcho 插件；memory-wiki 的 claims、evidence、矛盾追踪 | 不建模动机、需求、价值观；明确拒绝"dossier"；晋升按有用性而不是解释力；没有置信度上限、竞争假设、判别性追问；没有"言行不一"检测；只能启用一个记忆插件 | 注入：`before_agent_start`（分段，保缓存）、`context`、`transformContext/prepareRequest`；写入时机：`agent_settled`、`session_before_compact`、`turn_end`；持久化：`appendEntry`、durable `defineDoc`；后台推理：`ctx.modelRegistry.streamSimple` | 全部存储（SQLite、FTS、向量）；事实抽取管道（带来源）；分层推理图（L1 事实 → L2 动机 → L3 需求 → L4 内核，可以复用 四层动机模型的四层、置信上限和判别性追问）；整理任务（借鉴 dreaming 的"确定性门槛加有边界的模型回合"）；隐私和用户审阅界面；注入策略（哪一层、什么时候、多少预算） |
+| **(2) 长任务可配置提醒、少打扰、普通聊天模式** | 推送通知可按类别开关、有安静时段和详细程度；heartbeat 默认安静（NO_REPLY、`heartbeat_respond`、activeHours）；progress drafts 和 progress card；Goals；cron 一次性提醒；`notifyOnExit`；队列模式 steer/followup/collect | 偏好是按类别和按设备的，**不能按任务设**（比如"只在失败或需要我决定时告诉我""每到一个里程碑汇报""超过 ETA 才提醒"）；没有跨渠道的"注意力预算"；主动消息不进上下文（#88757）；heartbeat 很贵；"聊天 vs 任务"不是一等模式 | `Agent` 事件流（turn、tool、agent_settled）；steering 和 follow-up 队列；`ctx.ui.notify/setStatus/setWidget`（只限 TUI 或 RPC）；pi-durable：持久任务、后台任务、`watchEvents`、`taskGraph`、`pi.usage` | 任务登记处加**提醒策略引擎**（每个任务的规则、全局安静时段、汇总和批量、升级规则）；投递渠道；"聊天模式"路由（轻模型、无工具或只读工具，可以用 `input` 事件或 virtual model 分流）；主动消息回写会话；继承前作的打断分级 |
 | **(3) 秘书主 agent + 项目级子 agent 组 + 角色受限的专家 + PM agent** | team preset（coordinator 加三个专家、allowAgents、delegationMode）；每个 agent 单独的 workspace、tools、sandbox；`sessions_spawn`（深度、announce 链、worktree、visible 会话）；Swarm；Workboard 看板和 dispatch；Goals；项目作用域的记忆；A2A/ACP | "prefer" 只是提示词引导，没有调度器；没有"项目"这个实体（不能把 agent 组、预算、生命周期绑在一个项目上）；没有 PM 角色模板；子 agent 只拿到 `AGENTS.md`，看不到用户模型（这是有意的）；并发按父会话算；会话可见性和 agent-to-agent 默认全开，默认隔离很弱 | 核心没有；官方 subagent 示例（子进程、scout/planner/reviewer/worker、并行或串联）；`setActiveTools`、`tool_call` 门禁按角色限制工具；pi-durable：任务拥有子会话、后台 anchor、按会话 `configure`（model、tools、extensions、instructions、cwd）、`taskGraph`、按会话挂 hooks；社区 `pi-subagents` | 项目模型（project → agent group → role → member）；角色策略**写在代码里强制**（tool_call 或 durable `beforeTool`）；PM agent 的状态机（用看板或 durable 文档，参考 Workboard 的九种状态）；秘书的路由和汇总；agent 间消息（只能发、可见性收紧）；预算和并发上限；可观察的 UI（任务树、各 agent 的 transcript） |
 
 ### C2. 关于底座选型的建议【判断】

@@ -1,6 +1,6 @@
-// 简单提醒卡的长按 / 右键菜单（纯函数，156 号票）。用户 2026-10-18：简单提醒的卡片要能右键管理、能多选选中。
+// 简单提醒卡的长按 / 右键菜单（纯函数）。简单提醒的卡片要能右键管理、能多选选中。
 // - 菜单项照提醒现在能做的：待触发、到点提醒的"改时间"（带着现在的时间表，点了弹出改时间的对话框，存了落在提醒卡的 save 上）；
-//   待触发的"取消提醒"（收不回，标红）；185 号票起已经结束的（一次性的已触发、已取消）"归档"（进看板的"已归档"；没有取消归档，照任务），
+//   待触发的"取消提醒"（收不回，标红）；已经结束的（一次性的已触发、已取消）"归档"（进看板的"已归档"；没有取消归档，照任务），
 //   任何提醒"删除提醒"（先确认，标红）；后面"多选"（和任务卡一样进多选并勾上这一张）。
 //   事件发生时提醒的没有时间表，不能改时间（提醒卡上同样不能改：要按时间提醒就取消了另建）。
 // - 多选时提醒能一起做的：取消（待触发的）、归档（已经结束、没归档的）、删除（都能删）（canBatchReminder）；和任务混选的规则在 board-batch.ts。
@@ -9,7 +9,7 @@
 import { describeSchedule, describeTime, type ReminderSchedule, t, type TaskBatchAction, tTable } from "./protocol.ts";
 
 /**
- * 菜单、多选要看的提醒的样子：一次性的待触发 → 已触发，重复的、事件发生时提醒的一直待触发；任何时候能取消（185 号票起已取消的也在看板上）；
+ * 菜单、多选要看的提醒的样子：一次性的待触发 → 已触发，重复的、事件发生时提醒的一直待触发；任何时候能取消（已取消的也在看板上）；
  * 已经结束的能归档（archived）。到点提醒的有时间表。删了的不上看板，不会走到这里
  */
 export interface ReminderMenuSubject {
@@ -30,7 +30,7 @@ export type ReminderMenuItem =
   | { readonly kind: "select"; readonly label: string };
 
 /**
- * 菜单项的说法（170 号票起按当前语言现取）：改时间（和任务菜单里定时任务的"改时间"同一个说法，98 号票）、取消提醒（和提醒卡上的按钮
+ * 菜单项的说法（按当前语言现取）：改时间（和任务菜单里定时任务的"改时间"同一个说法）、取消提醒（和提醒卡上的按钮
  * 同一个说法）、归档（和任务的同一个说法）、删除提醒、多选
  */
 export const REMINDER_MENU_LABEL: Readonly<Record<ReminderMenuItem["kind"], string>> = tTable({
@@ -63,14 +63,14 @@ export function canBatchReminder(r: ReminderMenuSubject, action: TaskBatchAction
 }
 
 /**
- * 删一条提醒之前确认一次（185 号票）：删了以后什么样、收不回；还没响的提一句只想不再提醒可以取消，结束了没归档的提一句可以归档
+ * 删一条提醒之前确认一次：删了以后什么样、收不回；还没响的提一句只想不再提醒可以取消，结束了没归档的提一句可以归档
  */
 export function reminderDeleteConfirm(title: string, r: ReminderMenuSubject): { title: string; body: string } {
   const key = r.status === "pending" ? "state.reminderMenu.deleteBody.pending" : archivable(r) ? "state.reminderMenu.deleteBody.ended" : "state.reminderMenu.deleteBody.archived";
   return { title: t("state.reminderMenu.deleteTitle", { title }), body: t(key) };
 }
 
-/** 改时间的对话框里的说明（170 号票起按当前语言现取，原来是常量 REMINDER_RESCHEDULE_HINT） */
+/** 改时间的对话框里的说明（按当前语言现取，原来是常量 REMINDER_RESCHEDULE_HINT） */
 export function reminderRescheduleHint(): string {
   return t("state.reminderMenu.hint");
 }

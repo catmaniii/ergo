@@ -1,6 +1,5 @@
 // agent 的活动状态（规格术语"活动状态"）：agent 此刻在做什么——休眠、干活中（附带在做什么）、等你、排队（子进程满了，等名额）。
-// 和任务状态、项目状态分开：互不改写。agent 管家报变化，守护进程在活动状态频道上记 activity 事件（12 号票）；
-// "等你"、说明、干活中在做什么、看板和项目列表上的小圆点在 25 号票。
+// 和任务状态、项目状态分开：互不改写。agent 管家报变化，守护进程在活动状态频道上记 activity 事件；
 // 说明是带种类的结构化数据（ActivityDetail），给人看的文字由 activityDetailText 按表生成（守护进程不写中文文案进事件）。
 import { type Static, Type } from "typebox";
 import { t, tTable } from "./i18n/runtime.ts";
@@ -18,8 +17,8 @@ export const ACTIVITY_STATE_LABEL: Readonly<Record<ActivityState, string>> = tTa
 /**
  * 说明的种类：
  * - 干活中：被唤起（拉起了、还没交来输入）、处理一条输入；此刻在做什么（临时的进度）：思考、写回复、调用某个工具；
- * - 等你：等你批准（审批）、等你回答（澄清：提问卡）、等你启用它用的运行时插件（286 号票：负责人有活却拉不起来，plugin 是插件给人看的名字）、
- *   等你收回（290 号票：接管来的会话交还给运行时了，负责人有活也不拉起，runtime 是运行时给人看的名字）、在官方 App 里（292 号票：
+ * - 等你：等你批准（审批）、等你回答（澄清：提问卡）、等你启用它用的运行时插件（负责人有活却拉不起来，plugin 是插件给人看的名字）、
+ *   等你收回（接管来的会话交还给运行时了，负责人有活也不拉起，runtime 是运行时给人看的名字）、在官方 App 里（
  *   会话交给官方 App 了，负责人有活也不拉起，收回到二狗后接着）；
  * - 休眠：空闲（子进程还在、没有输入）、闲置退出。
  */
@@ -33,13 +32,13 @@ export const ActivityDetail = Type.Object({
   tool: Type.Optional(Type.String()),
   /** 已经写了多少字：思考、写回复 */
   chars: Type.Optional(Type.Integer({ minimum: 0 })),
-  /** 没启用的运行时插件给人看的名字（286 号票：等你启用它） */
+  /** 没启用的运行时插件给人看的名字（等你启用它） */
   plugin: Type.Optional(Type.String()),
-  /** 接管来的会话交还给了哪个运行时（290 号票：等你收回；292 号票：交给了哪个运行时的官方 App），给人看的名字 */
+  /** 接管来的会话交还给了哪个运行时（等你收回；交给了哪个运行时的官方 App），给人看的名字 */
   runtime: Type.Optional(Type.String()),
-  /** 等你：要处理的那张卡（369 号票：标题上点了跳到它；有几张在等时是最近的那张）。这之前记下的事件没有 */
+  /** 等你：要处理的那张卡（标题上点了跳到它；有几张在等时是最近的那张）。这之前记下的事件没有 */
   cardId: Type.Optional(Type.String()),
-  /** 等你：一共几张卡在等（369 号票：两张及以上才写） */
+  /** 等你：一共几张卡在等（两张及以上才写） */
   cardCount: Type.Optional(Type.Integer({ minimum: 2 })),
 });
 export type ActivityDetail = Static<typeof ActivityDetail>;
@@ -90,14 +89,14 @@ export type ActivityProgressEventPayload = Static<typeof ActivityProgressEventPa
 export const ACTIVITY_PROGRESS_INTERVAL_MS = 100;
 
 /**
- * agent 这一轮出错时会话里留的那条系统说明里的固定字样（守护进程写进去，Web 认它）。172 号票起按写的时候的语言写，
+ * agent 这一轮出错时会话里留的那条系统说明里的固定字样（守护进程写进去，Web 认它）。按写的时候的语言写，
  * 认的时候中文的（以前存下的）和当前语言的都认
  */
 const TURN_FAILED_MARK_ZH = "这次没能回复："; // @i18n-ignore fixed：认以前存下的中文说明
 
 /**
  * agent 这一轮出错（模型调用失败、超时……）时会话里留的那条系统说明："<名字>这次没能回复：<原因>"（守护进程的 agent 会话写）。
- * Web 的阶段详情把它算成"要你看一眼"的一件状况（60 号票：出错归"要你看一眼"）
+ * Web 的阶段详情把它算成"要你看一眼"的一件状况（出错归"要你看一眼"）
  */
 export function turnFailedNote(name: string, reason: string): string {
   return t("protocol.activity.turnFailed", { name, reason });

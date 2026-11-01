@@ -10,7 +10,7 @@ import java.net.URL
 data class ConnectResult(val failure: ConnectFailure?, val detail: String = "")
 
 /**
- * 真的请求一次（364 号票，对应鸿蒙 common/ConnectProbe.ets）：GET <来源>/api/access，约 10 秒没回就算超时，确认回话的是二狗。
+ * 真的请求一次（对应鸿蒙 common/ConnectProbe.ets）：GET <来源>/api/access，约 10 秒没回就算超时，确认回话的是二狗。
  * 不带任何 cookie（HttpURLConnection 不碰 WebView 的 cookie），不跟跳转（跳到别处的不算二狗）。后台线程跑，回主线程；取消后不再回。
  */
 class ConnectProbe(private val origin: String, private val onDone: (ConnectResult) -> Unit) {
@@ -96,7 +96,7 @@ class ConnectProbe(private val origin: String, private val onDone: (ConnectResul
     }
 
     companion object {
-        /** 约 10 秒（票里定的，错误文案里也写着 10 秒） */
+        /** 约 10 秒（错误文案里也写着 10 秒） */
         const val TIMEOUT_MS = 10_000
         /** 协议包 http.ts 的 HTTP_PATHS.access */
         const val ACCESS_PATH = "/api/access"

@@ -1,4 +1,4 @@
-// 构建、发版、源码装的命令（318 号票），根 package.json 里的 npm run build / release / ergo:install / release:keygen 都到这里：
+// 构建、发版、源码装的命令，根 package.json 里的 npm run build / release / ergo:install / release:keygen 都到这里：
 //   build    [--skip-web]
 //   release  [--node <目录或zip>] [--node-version <版本>] [--node-dist <地址>] [--out <目录>] [--version <版本>]
 //            [--sign-key <私钥文件>]（口令放环境变量 ERGO_SIGN_PASSWORD）[--skip-web] [--no-launcher] [--no-npm]

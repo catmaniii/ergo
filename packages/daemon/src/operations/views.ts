@@ -1,4 +1,4 @@
-// 运营方案（130 号票）的派生视图：operations 频道上每一份运营方案一行（交上来的、用户的决定）。项目上现在生效的那一版在
+// 运营方案的派生视图：operations 频道上每一份运营方案一行（交上来的、用户的决定）。项目上现在生效的那一版在
 // 项目列表频道的 project 事件里（Project.operations），不在这里。删掉的项目的行照留（事件换成了删除标记的不再更新）。
 import type { DerivedView } from "../events/event-store.ts";
 import type { ReadonlyDatabase } from "../storage/sqlite.ts";

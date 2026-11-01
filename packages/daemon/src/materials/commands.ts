@@ -1,11 +1,11 @@
-// 显式记忆命令（规格第 14、15 节，21 号票）在素材模块这一侧。memory_command 事件有两个作用：
+// 显式记忆命令（规格第 14、15 节）在素材模块这一侧。memory_command 事件有两个作用：
 // - 它是"显式记忆命令"素材的来源（每条命令一条：记住、忘掉、彻底删除、别推断都算；删除项目时随项目彻底删除的不算——
-//   那不是用户下的记忆命令，66 号票）；
+//   那不是用户下的记忆命令）；
 // - 它是删除（忘掉、彻底删除）和标记（别推断）素材的依据。materials.db 是派生的（ADR-0006），
 //   所以删除也记在事件日志里，删掉 materials.db 重建、从原文副本补回时照样删掉、照样标上。
 // 彻底删除另外要改写原始事件，那是记忆命令模块（memory/）在追加这条命令的同一事务里做的；"记住"的命令事件被彻底删除时，
 // 只把要记住的内容换成删除标记（rememberCommandPurge），删除类的命令事件永不改写（它是"这些被删了"的记录）。
-// 366 号票："记住"能带上文件和来源（用户说"这张图记下来"）：文字是秘书写的描述（用户的选择，注明 agent 先提出），后面跟附件（文件本身在媒体库，取不到原文件的注明是截图）
+// "记住"能带上文件和来源（用户说"这张图记下来"）：文字是秘书写的描述（用户的选择，注明 agent 先提出），后面跟附件（文件本身在媒体库，取不到原文件的注明是截图）
 // 和来源网页、元素的地址（外部内容，只留引用）。删除类的命令记着这些素材记下来的文件（mediaIds），之后没人引用就删媒体文件（memory/after-purge.ts）。
 import {
   type DeleteCommandPayload,
@@ -28,13 +28,13 @@ import type { Material } from "./types.ts";
 /** 记忆命令事件所在的频道：守护进程内部的素材频道（前端不订阅） */
 export const MATERIALS_CHANNEL = "materials";
 
-/** "显式记忆命令"这种素材来源的名字：素材 id 由它和事件算出来，改了就换 id。按原话记一条（337）也用它认刚采到的那条 */
+/** "显式记忆命令"这种素材来源的名字：素材 id 由它和事件算出来，改了就换 id。按原话记一条也用它认刚采到的那条 */
 export const MEMORY_COMMAND_SOURCE = "memory-command";
 
-/** 记下来的文件那一段的位置（366 号票）：它不在消息里，素材页、删除都按它认 */
+/** 记下来的文件那一段的位置：它不在消息里，素材页、删除都按它认 */
 export const REMEMBERED_FILE_FIELD = "file";
 
-/** 这几条素材记下来的文件（366 号票，媒体编号去重）：忘掉、彻底删除的命令记着它们 */
+/** 这几条素材记下来的文件（媒体编号去重）：忘掉、彻底删除的命令记着它们 */
 export function rememberedMediaOf(materials: ReadonlyArray<Pick<Material, "segments">>): string[] {
   return [...new Set(materials.flatMap((m) => m.segments.flatMap((s) => (s.form === "attachment" && s.locator.field === REMEMBERED_FILE_FIELD && s.media ? [s.media.mediaId] : []))))];
 }
@@ -49,7 +49,7 @@ export function commandEffect(payload: MemoryCommandEventPayload): { forget: rea
 /** 时间写到分钟："2026-10-01 00:00" */
 const minuteOf = (iso: string) => iso.slice(0, 16).replace("T", " ");
 
-/** 范围的说法（素材里、卡片上用）："会话 secretary"、"2026-10-01 00:00 到 2026-10-07 23:59"、"设置里点开看过的这一条素材"（158 号票） */
+/** 范围的说法（素材里、卡片上用）："会话 secretary"、"2026-10-01 00:00 到 2026-10-07 23:59"、"设置里点开看过的这一条素材" */
 export function scopeLabel(scope: MaterialScope): string {
   if (scope.kind === "conversation") return t("materials.scope.conversation", { conversation: scope.conversation });
   if (scope.kind === "material") return t("materials.scope.material");
@@ -57,7 +57,7 @@ export function scopeLabel(scope: MaterialScope): string {
 }
 
 /**
- * "记住"的内容按它从哪里来标来源：用户自己打的字 → 本人打的字；用户语音里说的 → 本人，注明"转写"（31 号票）；只在引用块里 → 外部、不可信（只留引用和哈希）；
+ * "记住"的内容按它从哪里来标来源：用户自己打的字 → 本人打的字；用户语音里说的 → 本人，注明"转写"；只在引用块里 → 外部、不可信（只留引用和哈希）；
  * 只在用户引用的卡片里、或者秘书推断出来用户确认的 → 用户的选择，注明 agent 先提出
  */
 function rememberPiece(p: RememberCommandPayload): MaterialPiece {
@@ -75,7 +75,7 @@ function rememberPiece(p: RememberCommandPayload): MaterialPiece {
   }
 }
 
-/** 记下来的文件（366 号票）：附件一段，取不到原文件时注明是截图，说明里也写明 */
+/** 记下来的文件：附件一段，取不到原文件时注明是截图，说明里也写明 */
 function rememberedFilePiece(file: RememberedFile): MaterialPiece {
   const media = {
     mediaId: file.mediaId,
@@ -91,7 +91,7 @@ function rememberedFilePiece(file: RememberedFile): MaterialPiece {
   return { form: "attachment", media, locator, label: t("materials.screenshotLabel", { name: file.name }), notes: [file.partial ? "screenshot_partial" : "screenshot"] };
 }
 
-/** 记下来的东西的来源（366 号票）：来源网页（标题和地址进说明），元素自己的地址（只记地址，不进索引） */
+/** 记下来的东西的来源：来源网页（标题和地址进说明），元素自己的地址（只记地址，不进索引） */
 function rememberedOriginPieces(origin: RememberedOrigin): MaterialPiece[] {
   return [
     ...(origin.page ? [{ form: "web_page" as const, url: origin.page.url, title: origin.page.title, locator: { field: "page" } }] : []),
@@ -99,7 +99,7 @@ function rememberedOriginPieces(origin: RememberedOrigin): MaterialPiece[] {
   ];
 }
 
-/** 用户下的删除类命令：对话里的、设置里的、记忆管理员按用户的话下的（242 号票；删除项目、删除任务、断开数据源连数据删时随着删的不产生素材） */
+/** 用户下的删除类命令：对话里的、设置里的、记忆管理员按用户的话下的（删除项目、删除任务、断开数据源连数据删时随着删的不产生素材） */
 type UserDeleteCommand = DeleteCommandPayload & { from: Exclude<DeleteCommandPayload["from"], { kind: "project_deletion" } | { kind: "task_deletion" } | { kind: "data_source" }> };
 
 /** 忘掉、彻底删除、别推断：只记删法和条数，不含被删素材的原话（不然刚忘掉的话又进了素材库） */
@@ -107,9 +107,9 @@ function deletionPiece(p: UserDeleteCommand): MaterialPiece {
   const label = MEMORY_COMMAND_LABEL[p.command];
   const count = p.materialIds.length;
   const locator = { field: "materialIds" };
-  // 242 号票：记忆管理员按用户的话下的命令（没有卡片，记下是哪个会话）
+  // 记忆管理员按用户的话下的命令（没有卡片，记下是哪个会话）
   if (p.from.kind === "curator") return { form: "choice", text: t("materials.deletion.curator", { command: label, count, n: count }), locator };
-  // 281 号票：删个人档案里的东西时用户选了连出处一起删（档案页上亲手选的）
+  // 删个人档案里的东西时用户选了连出处一起删（档案页上亲手选的）
   if (p.from.kind === "personal_file") return { form: "text", text: t("materials.deletion.personalFile", { command: label, count, n: count }), locator };
   return p.from.kind === "chat"
     ? { form: "choice", text: t("materials.deletion.chat", { command: label, count, n: count }), locator }
@@ -132,15 +132,15 @@ export const memoryCommandSource: MaterialSource = {
   eventType: EVENT_TYPES.memoryCommand,
   capture(event) {
     const p = event.payload as MemoryCommandEventPayload;
-    // 删除项目时随项目彻底删掉的内部记录（66 号票）、删除任务时随任务删掉的系统记录（186 号票）、断开数据源时连已导入的一起删的
-    // （295 号票：数据源导入的记录采成的素材）：不是用户下的记忆命令，不产生素材（事件本身就是"这些被删了"的记录）
+    // 删除项目时随项目彻底删掉的内部记录、删除任务时随任务删掉的系统记录、断开数据源时连已导入的一起删的
+    // 数据源导入的记录采成的素材：不是用户下的记忆命令，不产生素材（事件本身就是"这些被删了"的记录）
     if (p.command !== "remember" && (p.from.kind === "project_deletion" || p.from.kind === "task_deletion" || p.from.kind === "data_source")) return [];
     const pieces: MaterialPiece[] =
       p.command === "remember" ? [rememberPiece(p), ...(p.file ? [rememberedFilePiece(p.file)] : []), ...(p.origin ? rememberedOriginPieces(p.origin) : [])] : [deletionPiece(p as UserDeleteCommand)];
     const chat = p.from.kind === "chat" ? p.from : undefined;
-    // 337 号票：秘书按用户的话记的（没有卡片、没有快速动作），记下那个会话，并把原话来自哪条消息写进出处（检索、删除都靠它）
+    // 秘书按用户的话记的（没有卡片、没有快速动作），记下那个会话，并把原话来自哪条消息写进出处（检索、删除都靠它）
     const secretary = p.command === "remember" && p.from.kind === "secretary" ? p.from : undefined;
-    // 242 号票：记忆管理员在它的会话里下的命令也算用户下的（用户是让它做的），记下那个会话
+    // 记忆管理员在它的会话里下的命令也算用户下的（用户是让它做的），记下那个会话
     const curator = p.command !== "remember" && p.from.kind === "curator" ? p.from : undefined;
     const conversation = chat?.conversation ?? secretary?.conversation ?? curator?.conversation;
     return [

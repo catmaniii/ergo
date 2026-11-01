@@ -1,4 +1,4 @@
-// 主切面：连接地址（364 号票）——手机从外面连到二狗用的地址。入口问服务管家（link 协议 §8，这里是替身；真的管理器走一遍在
+// 主切面：连接地址——手机从外面连到二狗用的地址。入口问服务管家（link 协议 §8，这里是替身；真的管理器走一遍在
 // test/lsm/link-entries-real.test.ts），服务管家不知道的用户手填。两个端口都是系统挑的，不碰真的 8810 / 8811、不碰真的服务管家。
 import fs from "node:fs";
 import path from "node:path";
@@ -28,7 +28,7 @@ async function until(check: () => boolean | Promise<boolean>, what: string): Pro
 /** 这个临时环境里连不上真的服务管家：端口写 1，数据目录是空的 */
 const noRealManager = () => ({ ERGO_SVC_PORT: "1", LSM_DATA_DIR: makeTempDir() });
 
-describe("连接地址（364 号票）", () => {
+describe("连接地址", () => {
   it("新管理器：hello 里说了外网端口和要入口，公网、tailnet 都给；顺序对、打不通的标明；变了推过来", { timeout: 60_000 }, async () => {
     const standIn = await startLsmStandIn({ entries: { entries: [], wrongPort: [] } });
     const td = await startTestDaemon({ env: { ...noRealManager(), ...standIn.env } });

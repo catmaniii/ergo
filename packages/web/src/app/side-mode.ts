@@ -1,6 +1,6 @@
-// 这一页是不是侧边栏模式（147 号票）：鸿蒙 App 另开一个 Web 组件加载二狗网页加上 ?ergo=side，摆在原生网页上面当浏览侧边栏。
+// 这一页是不是侧边栏模式：鸿蒙 App 另开一个 Web 组件加载二狗网页加上 ?ergo=side，摆在原生网页上面当浏览侧边栏。
 // 认出来是外壳的事（App.tsx 据此整页只画侧边栏、不接页面上的别的），画什么由浏览插件给（plugins/slots.ts 的 TabSlot.Side）。
-// 212 号票从浏览插件的 side-remote.ts、page-side.ts 挪到这里（核心不 import 插件）；那两个文件照旧转出这几个名字。
+// 从浏览插件的 side-remote.ts、page-side.ts 挪到这里（核心不 import 插件）；那两个文件照旧转出这几个名字。
 // isSideMode 不碰浏览器的全局变量，能在 Node 里测；SIDE_MODE 经 globalThis 取地址，Node 里是 false。
 
 /** 地址里带着它就是侧边栏模式 */

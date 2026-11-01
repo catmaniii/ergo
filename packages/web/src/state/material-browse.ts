@@ -1,4 +1,4 @@
-// 记忆 · 素材的浏览（167 号票，用户 2026-10-19 要的"素材管理加按时间范围浏览，不然以后会太多"）：纯函数，页面在 pages/more/MaterialsBrowse.tsx。
+// 记忆 · 素材的浏览（素材管理加按时间范围浏览，不然以后会太多）：纯函数，页面在 pages/more/MaterialsBrowse.tsx。
 // - 时间范围：快捷选项今天、近 7 天（默认）、近 30 天，自定义起止日期；往前一段、往后一段按这一段的天数翻（最晚到今天）；
 //   搜的时候能一键换成全部时间。范围是一段本地日期（两头都算），交给守护进程时落成头一天零点到最后一天最后一刻（带时区的 ISO）；
 // - 列表按日期分组：今天、昨天，别的写"10 月 17 日 周六"，不是今年的带年份；新的在前（守护进程已经按素材的时间排好）；
@@ -82,7 +82,7 @@ export function materialRangePreset(range: MaterialRange, now: Date): MaterialRa
   return current.kind !== "all" && current.from === range.from && current.to === range.to ? range.kind : undefined;
 }
 
-/** 月份的写法（170 号票，date-words.ts）：中文是数字（"10 月 17 日"），英文是简写（"Oct 17"）；日期的几种写法是整句的模板 */
+/** 月份的写法（date-words.ts）：中文是数字（"10 月 17 日"），英文是简写（"Oct 17"）；日期的几种写法是整句的模板 */
 const monthName = monthWord;
 
 /** 一天写成"10 月 17 日"，不是今年的带年份 */

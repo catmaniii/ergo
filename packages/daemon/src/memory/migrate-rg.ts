@@ -1,6 +1,6 @@
-// 338 号票：会意的推理库搬进插件自己的数据目录（<数据目录>/memory/subtext/rg.db）。
+// 会意的推理库搬进插件自己的数据目录（<数据目录>/memory/subtext/rg.db）。
 // 为什么单独一个文件：这一步要在打开引擎之前做，和插件的实现无关；做成纯函数好测（不进 daemon.ts 也能验）。
-// 规矩（见 .scratch/ergo-v2/impl/338-memory-data-migration.md）：照 migrate/legacy-db.ts 那一套——
+// 规矩：照 migrate/legacy-db.ts 那一套——
 // - 只搬 rg.db（连同 -wal / -shm）；素材库 materials.db 和事件日志归内核，不动；
 // - 先复制一份到 backup/pre-migration-<时间>/，再移动；目标已存在就不动（幂等）；
 // - 写 migrated.json 记从哪来、什么时候、搬之前多大；回滚就是把它移回 db/。

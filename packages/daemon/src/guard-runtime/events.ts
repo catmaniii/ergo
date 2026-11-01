@@ -1,7 +1,7 @@
 // 守卫接入运行时后的事件（规格第 4、9 节）：都在事件日志里一个守护进程内部的频道 `guard` 上，前端不订阅它。
 // 前端看到的是这些事件的另一面：聊天里的工具调用 part、审批卡、待我处理事项。
 // - 审批表（approvals/views.ts）由 approval_* 事件归并：先写库（approval_requested）再建审批卡、通知前端；
-// - 审批决定（approval_decided）是"审批决定"素材的来源（08 号票采集）；挂起（approval_suspended）给 13 号票把任务转等我；
+// - 审批决定（approval_decided）是"审批决定"素材的来源；挂起（approval_suspended）让任务转等我；
 // - 效果日志（effect-log.ts）由 effect_recorded 归并，只有执行成功的调用才有。
 import { type ConversationId, EVENT_TYPES, type InboxOrigin, internalScopeLabel, type MessageScope, pickMessageScope, type ProjectInternal } from "@ergo/protocol";
 import type { EffectRecord } from "../guard/index.ts";
@@ -20,12 +20,12 @@ export const GUARD_EVENTS = {
   /** 执行成功的调用追加进效果日志 */
   effectRecorded: "effect_recorded",
   /**
-   * 任务里一次对外调用被判"永不"（13 号票）：记下它的对象（收件人、推送的远端和分支……）。
+   * 任务里一次对外调用被判"永不"：记下它的对象（收件人、推送的远端和分支……）。
    * 同一任务里之后针对同一对象的调用至少按"先问我"（规格第 9 节"永不"）
    */
   neverRecorded: "never_recorded",
   /**
-   * 放行、开始执行的一次有副作用的调用（23 号票，规格第 17 节）：注册表里没标"只读或幂等"的（bash 拆出的伪工具有一个不是的
+   * 放行、开始执行的一次有副作用的调用（规格第 17 节）：注册表里没标"只读或幂等"的（bash 拆出的伪工具有一个不是的
    * 也算）。还没结束时守护进程被杀（或子进程意外退出），就是说不清做没做完的调用（executions.ts）
    */
   toolCallStarted: "tool_call_started",
@@ -42,12 +42,12 @@ export const GUARD_EVENTS = {
    */
   toolCallInterrupted: "tool_call_interrupted",
   /**
-   * 任务里一次调用被按规则退回（拉回，14 号票）：前提没满足、用到了别的阶段的授权项……。控制器据此给这一支的拉回次数加 1，
+   * 任务里一次调用被按规则退回（拉回）：前提没满足、用到了别的阶段的授权项……。控制器据此给这一支的拉回次数加 1，
    * 满了再犯就找用户
    */
   pulledBack: "pulled_back",
   /**
-   * 流程里一次调用执行成功了（59 号票）：对上了计划里的哪一步（没对上是 null）。执行时的计划检查按它重放已经做过的事，
+   * 流程里一次调用执行成功了：对上了计划里的哪一步（没对上是 null）。执行时的计划检查按它重放已经做过的事，
    * 收尾提醒按它看哪些步骤还没执行
    */
   planCallCommitted: "plan_call_committed",
@@ -81,11 +81,11 @@ export interface NeverRecordedPayload {
 
 /**
  * 一次工具调用从哪儿来：哪个 agent、哪个会话、哪个任务的哪个阶段、哪个会话段，卡片和事项上写的来源。
- * 审批记录、"交给我做"事项、审批决定和挂起事件都带它；13 号票接任务时往这里加字段。
+ * 审批记录、"交给我做"事项、审批决定和挂起事件都带它；接任务时往这里加字段。
  */
 export interface CallOrigin {
   agentId: string;
-  /** 调用所在的会话：工具调用 part、审批卡引用、给 agent 的通知都追加在这里；任务里由 13 号票定 */
+  /** 调用所在的会话：工具调用 part、审批卡引用、给 agent 的通知都追加在这里；任务里由任务的执行模块定 */
   conversation: ConversationId | null;
   /** 调用所属的任务和阶段；对话里为 null */
   taskId: string | null;
@@ -95,19 +95,19 @@ export interface CallOrigin {
   /** 审批卡、"交给我做"事项上的来源："秘书对话"，任务里写任务和阶段 */
   source: string;
   /**
-   * 项目内部的调用（64 号票：项目的负责人做项目内部任务的工单、它计划里的定时作业的运行）：审批卡、"交给我做"、
+   * 项目内部的调用（项目的负责人做项目内部任务的工单、它计划里的定时作业的运行）：审批卡、"交给我做"、
    * 中断不确定这些事项带上它（秘书看不到细节）
    */
   internal?: ProjectInternal;
   /**
-   * 会话里追加的消息（审批卡引用、给 agent 的通知）带上的归属：判定这次调用那一刻会话的归属（和工具调用记录同一份，25 号票），
-   * 项目负责人的还有项目（16 号票）；没有时（秘书、16 号票之前记下的）按 taskId、stageId
+   * 会话里追加的消息（审批卡引用、给 agent 的通知）带上的归属：判定这次调用那一刻会话的归属（和工具调用记录同一份），
+   * 项目负责人的还有项目；没有时（秘书、以前记下的）按 taskId、stageId
    */
   messageScope?: MessageScope;
 }
 
 /**
- * 改写（彻底删除、删除项目）时调用的来处：项目内部的（64 号票）来源里写着任务名（"项目「X」内部 · 任务「T」"），只留"项目「X」内部"；
+ * 改写（彻底删除、删除项目）时调用的来处：项目内部的来源里写着任务名（"项目「X」内部 · 任务「T」"），只留"项目「X」内部"；
  * 别的原样
  */
 export function purgedOrigin<O extends Pick<CallOrigin, "source" | "internal">>(origin: O): O {
@@ -121,9 +121,9 @@ export function originScope(origin: CallOrigin): MessageScope {
 }
 
 /**
- * 一次调用引出的待我处理事项（审批卡、"交给我做"、中断不确定）从哪来（105 号票）：调用实际所在的会话（卡片引用、给 agent 的通知
+ * 一次调用引出的待我处理事项（审批卡、"交给我做"、中断不确定）从哪来：调用实际所在的会话（卡片引用、给 agent 的通知
  * 都追加在这里），加上任务、项目（项目负责人会话里的、项目内部的）、那次调用和阶段。任务号记的是调用归属的任务，不一定是会话的主人：
- * 多项目任务（17 号票）派到项目的工单由项目负责人做，调用记着那个多项目任务、却在项目负责人的会话里。所以待我处理里"去看看 ›"
+ * 多项目任务派到项目的工单由项目负责人做，调用记着那个多项目任务、却在项目负责人的会话里。所以待我处理里"去看看 ›"
  * 按会话去（Web 的 state/inbox-jump.ts：会话是任务自己的去任务整页，是项目负责人的去项目），再定位到那张卡、那次调用
  */
 export function callInboxOrigin(origin: CallOrigin, toolCallId: string): { origin: InboxOrigin } {
@@ -169,13 +169,13 @@ export interface ApprovalRequestedPayload {
   approval: ApprovalRecord;
 }
 
-/** 审批决定：批准、拒绝；收窄（只放行一部分）先留出形状，由计划卡、计划变更这些确认（12、14）用 */
+/** 审批决定：批准、拒绝；收窄（只放行一部分）先留出形状，由计划卡、计划变更这些确认用 */
 export type ApprovalDecision = "approved" | "denied" | "narrowed";
 
 export interface ApprovalDecidedPayload {
   approvalId: string;
   decision: ApprovalDecision;
-  /** 收窄成什么（decision 为 narrowed 时）；本票不产生 */
+  /** 收窄成什么（decision 为 narrowed 时）；这里不产生 */
   narrowing?: { summary: string };
   /** 用户附带的说明（拒绝的理由） */
   note?: string;
@@ -196,7 +196,7 @@ export interface ApprovalDecidedPayload {
   categories: string[];
 }
 
-/** 挂起：调用从哪儿来（任务和阶段，对话里为 null），13 号票据此让任务这一支转等我（原因"审批"） */
+/** 挂起：调用从哪儿来（任务和阶段，对话里为 null），据此让任务这一支转等我（原因"审批"） */
 export interface ApprovalSuspendedPayload {
   approvalId: string;
   origin: CallOrigin;
@@ -215,7 +215,7 @@ export interface EffectRecordedPayload {
   records: EffectRecord[];
 }
 
-/** 一次正在执行的有副作用的调用（23 号票）：从哪儿来、调用的工具、给人看的调用摘要（写进事件日志之前擦过读过的密钥值） */
+/** 一次正在执行的有副作用的调用：从哪儿来、调用的工具、给人看的调用摘要（写进事件日志之前擦过读过的密钥值） */
 export interface ExecutionRecord {
   toolCallId: string;
   origin: CallOrigin;

@@ -1,4 +1,4 @@
-// 负责人的运行时在界面上（289 号票）：运行时清单（GET /api/runtimes，取一次缓存着；发起对话框、⚙ 打开时重取，插件停用、启用之后跟着变）、
+// 负责人的运行时在界面上：运行时清单（GET /api/runtimes，取一次缓存着；发起对话框、⚙ 打开时重取，插件停用、启用之后跟着变）、
 // 卡上的运行时签（默认的 pi 不标）、新建项目和任务时选运行时（照发起对话框里"什么时候做"那一排 .seg；只有 pi 能选时不显示）。
 // 说法在状态层（state/runtimes.ts）。
 import { useEffect, useState } from "react";
@@ -35,7 +35,7 @@ export function useRuntimes(fresh = false): readonly AgentRuntimeView[] | undefi
   return list;
 }
 
-/** 改了运行时的设置之后（305 号票：新建时的默认文件夹）把守护进程交回的清单换上，挂着的都跟着变 */
+/** 改了运行时的设置之后（新建时的默认文件夹）把守护进程交回的清单换上，挂着的都跟着变 */
 export function setRuntimesCache(list: readonly AgentRuntimeView[]): void {
   cached = list;
   for (const listener of listeners) listener(list);
@@ -53,7 +53,7 @@ export function RuntimeChip({ runtime, className }: { runtime: string | undefine
 }
 
 /**
- * 卡上的"在官方 App 里"（292 号票：会话交给了官方 App）：卡整张是按钮，里面不能再套链接，拿到的链接放在提示里（⚙ 里那一块能点开）
+ * 卡上的"在官方 App 里"（会话交给了官方 App）：卡整张是按钮，里面不能再套链接，拿到的链接放在提示里（⚙ 里那一块能点开）
  */
 export function RemoteBadge({ badge, className }: { badge: { label: string; url?: string }; className?: string }) {
   return (
@@ -65,7 +65,7 @@ export function RemoteBadge({ badge, className }: { badge: { label: string; url?
 
 /**
  * 新建项目、任务时选运行时：现在能用的几个排成一排；只有 pi 能选时什么都不显示。
- * 323 号票：Claude Code 接入的组件没装（别处也没有）时那一项灰掉，点一下去设置 · 组件装
+ * Claude Code 接入的组件没装（别处也没有）时那一项灰掉，点一下去设置 · 组件装
  */
 export function RuntimePicker({ value, onChange }: { value: string; onChange(runtime: string): void }) {
   const choices = runtimeChoices(useRuntimes(true));

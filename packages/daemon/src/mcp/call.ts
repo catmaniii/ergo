@@ -1,7 +1,7 @@
-// 秘书带参调 MCP（240 号票）：秘书的工具 mcp_call——调一个登记过的 MCP 工具，参数由模型给。
+// 秘书带参调 MCP：秘书的工具 mcp_call——调一个登记过的 MCP 工具，参数由模型给。
 // 要补的口子：一个相册应用的 MCP 登记好了，秘书只能调参数写死在登记里的快速动作（mcp/quick-action.ts），
 // person.rename{id,name}、filter.set{personId} 这类带参的调不了，只能改用浏览器点页面，或者发一张卡转给项目负责人。
-// 用户 2026-10-21 定："不要加那么多限制，让秘书能调 MCP 的所有功能"。
+// "不要加那么多限制，让秘书能调 MCP 的所有功能"。
 //
 // 所以这里就是一条直路：**登记过就调**。不分读 / 写、不看出没标"只读或幂等"、不看类别和底线、不出审批卡；参数原样发过去，
 // 服务进程报的错原样带回来。平台自己的守卫照旧判这一次工具调用（和别的工具一视同仁：那是运行时对所有调用的规则，
@@ -99,7 +99,7 @@ export function createMcpCallService(options: McpCallServiceOptions): McpCallSer
         { additionalProperties: false },
       ),
       readOnlyOrIdempotent: false,
-      // args 里套着目标工具的参数：给人看的参数摘要先擦掉像密钥的值（280 号票：工具自己声明，守卫运行时不再按名字认）
+      // args 里套着目标工具的参数：给人看的参数摘要先擦掉像密钥的值（工具自己声明，守卫运行时不再按名字认）
       maskArgs: true,
       run: async (given) => {
         const target = splitTarget(given.tool.trim());

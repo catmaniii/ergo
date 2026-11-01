@@ -1,5 +1,5 @@
 // explainClaim、tracePremises（第 7.2 节）：结论、推法、前提链、支持证据和反证（带原文）、只当背景的、竞争假设、追问和结果、修订历史。
-// 330 号票：猜测写明"为什么还是猜测"（哪条前提没证实、证据哪里不够，R5）；从它推出来的预测节点和结局（R10）。
+// 猜测写明"为什么还是猜测"（哪条前提没证实、证据哪里不够，R5）；从它推出来的预测节点和结局（R10）。
 import type { Claim, Evidence, PredictionRecord, StoredLink } from "../domain/types.ts";
 import { storeLookup, unverifiedPremises } from "./graph-rules.ts";
 import { idKind } from "../domain/ids.ts";
@@ -51,7 +51,7 @@ export function tracePremises(rg: ReasoningGraph, claimId: string): PremiseTrace
       const c = rg.store.getClaim(id)!;
       const node: PremiseTrace = { id, kind: "claim", label: c.statement, status: c.status, premises: [] };
       if (depth >= MAX_TRACE_DEPTH) return { ...node, truncated: true };
-      // 329 号票（R7）：改挂到直接证实以后，原来的推理链记作历史，前提链走现在的依据（只有历史的照旧走历史）
+      // ADR-0032 R7：改挂到直接证实以后，原来的推理链记作历史，前提链走现在的依据（只有历史的照旧走历史）
       const all = rg.store.inferencesOf(id);
       const current = all.filter((i) => i.status !== "history");
       const premises = [...new Set((current.length > 0 ? current : all).flatMap((i) => i.premiseIds))];
@@ -78,7 +78,7 @@ function labelOf(rg: ReasoningGraph, id: string): string {
 }
 
 /**
- * 330 号票（R5）：一条猜测为什么还是猜测——推理链上没验证的前提（猜测、拿不准、撤回的；R4 铁律压着），加上证据哪里不够
+ * ADR-0032 R5：一条猜测为什么还是猜测——推理链上没验证的前提（猜测、拿不准、撤回的；R4 铁律压着），加上证据哪里不够
  * （组里还没分出来、只剩它但反证不比支持少、它那组的条件不成立了、依据在重推、用户说的那句和别的话对不上）。不是猜测的是 null
  */
 export function guessReason(rg: ReasoningGraph, claim: Claim): GuessReason | null {
@@ -141,7 +141,7 @@ export function explainClaim(rg: ReasoningGraph, claimId: string): ClaimExplanat
     revisions: [...store.revisions(claimId, "claim"), ...store.revisions(claimId, "link")]
       .toSorted((a, b) => a.seq - b.seq)
       .map((r) => {
-        // 267 号票：每条修订标上是哪一次写留下的（谁写的、做什么、经谁转达）
+        // 每条修订标上是哪一次写留下的（谁写的、做什么、经谁转达）
         const record = writes.get(r.seq);
         return record ? { ...r, by: { actor: record.actor, op: record.op, via: record.via } } : r;
       }),

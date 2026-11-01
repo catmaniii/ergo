@@ -1,4 +1,4 @@
-// 取发布包（318 号票，ergo update 用；安装脚本 install.ps1 里有同样的一份 PowerShell 写的）：
+// 取发布包（ergo update 用；安装脚本 install.ps1 里有同样的一份 PowerShell 写的）：
 //   1. 发布的索引 latest.json：{ version, node, nodeTested, files: { zip, sums, signature } }；
 //   2. 校验值清单 SHA256SUMS（sha256sum 的格式）和它的签名 SHA256SUMS.minisig（发布钥匙签的）；
 //   3. 发布包 ergo-<版本>-win-x64.zip（按清单里的 sha256 下，断了接着下）。
@@ -16,7 +16,7 @@ import { extractTar } from "../components/tar.ts";
 import type { Transport } from "../components/transport.ts";
 import { type MinisignPublicKey, verify } from "./minisign.ts";
 
-/** 公开仓库（317 号票定名；改名时改这里，安装脚本里也有一份） */
+/** 公开仓库（定名；改名时改这里，安装脚本里也有一份） */
 export const GITHUB_REPO_URL = "https://github.com/catmaniii/ergo";
 /** npm 上放发布包的平台包 */
 export const NPM_PLATFORM_PACKAGE = "ergo-ai-win32-x64";

@@ -1,4 +1,4 @@
-// 系统提示的文件（71 号票，一份提示一个 md 文件）：默认的在本包的 prompts/<编号>.md（随程序分发、进仓库），
+// 系统提示的文件（一份提示一个 md 文件）：默认的在本包的 prompts/<编号>.md（随程序分发、进仓库），
 // 用户改的在数据目录配置区的 prompts/<编号>.md（个人数据，随数据目录备份；配置区 agent 写不了）。有用户的就用用户的，没有用默认的。
 //
 // - 每次装配 agent 时现读文件（render），所以改了下一次装配就生效，不用重启守护进程；秘书是常驻的，按文件的修改时间
@@ -11,16 +11,16 @@
 // - 设置页经 save / reset 改：占位符写错的拒收（RequestRejected，HTTP 回 400，写明第几行错在哪）；和默认的一样等于恢复默认（删掉用户的文件）。
 //   改了之后通知 onChange 的（秘书据此在手头这一条处理完后按新的提示重新拉起）。
 // 前缀（prefix.md）加在每个 agent 的系统提示最前面，由 agent 管家在拉起时加（withPrefix），各模块不用管。
-// 249 号票起前缀后面还跟一句用户自己的名字（"用户叫「…」，需要称呼用户时用这个名字"；没设就没有），也在 withPrefix 里。
+// 前缀后面还跟一句用户自己的名字（"用户叫「…」，需要称呼用户时用这个名字"；没设就没有），也在 withPrefix 里。
 //
-// 每个 agent 单独的提示词（114 号票，会话里的 ⚙）：在数据目录配置区的 agent-prompts/ 里按 agent 分，<agent id>.append.md 是接在通用模板
+// 每个 agent 单独的提示词（会话里的 ⚙）：在数据目录配置区的 agent-prompts/ 里按 agent 分，<agent id>.append.md 是接在通用模板
 // （这个角色的那一份，用户改过的就是改过的）后面的一段，<agent id>.replace.md 是整份自己写的（替换通用模板，通用模板之后再改不影响它）；
 // 一个 agent 只有其中一份。装配这个 agent 的角色提示时带上 agent id（render 的第三个参数）才用它，片段、前缀、别的几份照旧。
 // 两种都是提示文件的写法，按这个角色的通用模板查占位符（和设置页同一个检查，协议包的 agentPromptProblem）；存之前查、写错的拒收；
 // 文件被直接改坏了、装配时缺了值（任务转为项目后模板换了这类）：这次用通用模板，记一行日志，面板上写明错在哪，agent 照常拉起。
 // 存了、恢复用通用模板之后通知 onAgentChange 的（各模块据此让这个 agent 手头这一条处理完后按新的提示重新拉起）。
 //
-// 插件贡献的（128 号票）：插件宿主收齐的条件、公用占位符、片段（options.plugins），和内核的合成一份清单（registry.ts 的 promptRegistry）。
+// 插件贡献的：插件宿主收齐的条件、公用占位符、片段（options.plugins），和内核的合成一份清单（registry.ts 的 promptRegistry）。
 // 插件的条件在装配时现算（插件这时在不在运行），插件的占位符总有值；插件的片段排在内核的后面，设置页上照样能看、能改、能恢复默认，
 // 默认的文件在插件目录里。不给 plugins 时按插件清单里的、都当在运行（测试、纯函数用：和默认全开的守护进程一样）。
 import fs from "node:fs";
@@ -58,20 +58,20 @@ export interface PromptLibraryOptions {
   defaultsDir?: string;
   /** 用户改的放在哪（数据目录配置区的 prompts/）；不填就只有默认的（测试、纯函数用） */
   userDir?: string;
-  /** 每个 agent 单独的提示词放在哪（数据目录配置区的 agent-prompts/，114 号票）；不填就没有单独的 */
+  /** 每个 agent 单独的提示词放在哪（数据目录配置区的 agent-prompts/）；不填就没有单独的 */
   agentsDir?: string;
   /**
-   * 插件在系统提示里的（128 号票：插件宿主收齐的条件、占位符、片段）和它们在不在运行（插件的条件按它，装配时现算）；
+   * 插件在系统提示里的（插件宿主收齐的条件、占位符、片段）和它们在不在运行（插件的条件按它，装配时现算）；
    * 不填是插件清单里的、都当在运行（测试、纯函数用）
    */
   plugins?: { prompts: readonly PluginPrompts[]; running(plugin: string): boolean };
   /**
-   * 这个 agent 自己起的名字（241 号票）：给了 agentId 的角色提示（秘书那份除外——它的名字本来就在 `{{名字}}` 占位里）
+   * 这个 agent 自己起的名字：给了 agentId 的角色提示（秘书那份除外——它的名字本来就在 `{{名字}}` 占位里）
    * 末尾加一句"用户叫你「…」"，让模型自我介绍、说到自己时用这个名字。没配（undefined）就不加，和以前一模一样
    */
   agentName?: (agentId: string) => string | undefined;
   /**
-   * 用户自己的名字（249 号票："我的名字"）：设了就在每个 agent 的系统提示最前面（前缀后面空一行）加一句"用户叫「…」，
+   * 用户自己的名字（"我的名字"）：设了就在每个 agent 的系统提示最前面（前缀后面空一行）加一句"用户叫「…」，
    * 需要称呼用户时用这个名字"，让模型知道该称呼用户什么（对话、念给用户听的话都可以这样叫）。没设（undefined、空串）
    * 就不加，提示和以前**逐字节一样**。现取（改了名字下一次装配就用新的）
    */
@@ -91,7 +91,7 @@ export class PromptFilesBroken extends Error {}
 /** 装配时没有值的那个占位符的说法（设置页上的问题里用） */
 const missingWhat = (err: { flag?: boolean; placeholder: string }) => (err.flag ? t("prompts.problem.flag", { name: err.placeholder }) : `{{${err.placeholder}}}`);
 
-/** 一个 agent 单独的提示词（114 号票）：哪种写法、内容（规范化过的）；有错时（这时用通用模板）写明错在哪 */
+/** 一个 agent 单独的提示词：哪种写法、内容（规范化过的）；有错时（这时用通用模板）写明错在哪 */
 export interface AgentOwnPrompt {
   mode: AgentPromptMode;
   content: string;
@@ -101,7 +101,7 @@ export interface AgentOwnPrompt {
 export interface PromptLibrary {
   /**
    * 填好值的一份提示（不带前缀）；用户改的有错、这次缺值时，出错的那一份用默认的。
-   * 给了 agentId（114 号票）：这份是这个 agent 的角色提示，它有单独的提示词就照它（追加在后面，或整份替换）
+   * 给了 agentId：这份是这个 agent 的角色提示，它有单独的提示词就照它（追加在后面，或整份替换）
    */
   render<Id extends PromptId>(id: Id, values: PromptValuesOf<Id>, agentId?: string): string;
   /** 前缀加在 agent 的系统提示前面（前缀是空的原样返回） */
@@ -123,7 +123,7 @@ export interface PromptLibrary {
   reset(id: string): SystemPromptDetail;
   /** 某份提示被设置页改了（保存、恢复默认）；返回取消订阅 */
   onChange(listener: (id: string) => void): () => void;
-  /** 这个 agent 单独的提示词（114 号票；role 是它的通用模板，按它查对不对）；没有是 undefined */
+  /** 这个 agent 单独的提示词（role 是它的通用模板，按它查对不对）；没有是 undefined */
   agentPrompt(agentId: string, role: PromptId): AgentOwnPrompt | undefined;
   /** 存这个 agent 单独的提示词：占位符照 role 查，写错的拒收；追加的是空的等于恢复用通用模板 */
   saveAgentPrompt(agentId: string, role: PromptId, mode: AgentPromptMode, content: string): void;
@@ -132,7 +132,7 @@ export interface PromptLibrary {
   /** 某个 agent 单独的提示词改了（存、恢复用通用模板）；返回取消订阅 */
   onAgentChange(listener: (agentId: string) => void): () => void;
   /**
-   * 这个 agent 自己的名字或者音色改了（241 号票）：和单独的提示词改了走同一条通知，各模块据此让这个 agent
+   * 这个 agent 自己的名字或者音色改了：和单独的提示词改了走同一条通知，各模块据此让这个 agent
    * 手头这一条处理完后按新的重新装配（名字写进它的系统提示）
    */
   agentChanged(agentId: string): void;
@@ -142,13 +142,13 @@ export interface PromptLibrary {
 const AGENT_FILE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
 /**
- * 这个 agent 自己起的名字（241 号票）写在它角色提示的末尾：和秘书系统提示里那句一个说法，让模型自我介绍、
+ * 这个 agent 自己起的名字写在它角色提示的末尾：和秘书系统提示里那句一个说法，让模型自我介绍、
  * 说到自己时用这个名字。没配名字的不加，和以前一字不差
  */
 const identityLine = (name: string) => `用户叫你「${name}」：自我介绍、说到你自己时用这个名字。`; // @i18n-ignore model：系统提示里给模型看的一句
 
 /**
- * 用户自己的名字那一句（249 号票）：加在每个 agent 的系统提示最前面（前缀后面），让模型知道该怎么称呼用户。
+ * 用户自己的名字那一句：加在每个 agent 的系统提示最前面（前缀后面），让模型知道该怎么称呼用户。
  * 和上面那句（agent 自己的名字）不是一回事；没设就不加，提示逐字节不变
  */
 const userNameLine = (name: string) => `用户叫「${name}」，需要称呼用户时用这个名字（对话、念给用户听的话都可以这样叫）。`; // @i18n-ignore model：系统提示里给模型看的一句
@@ -167,7 +167,7 @@ interface Loaded {
   broken?: string;
 }
 
-/** 检查用的 spec：自己的占位符（连同只在某个条件成立时才有值的）加上公用的、插件的条件（128 号票），能插的片段连同插件插进来的 */
+/** 检查用的 spec：自己的占位符（连同只在某个条件成立时才有值的）加上公用的、插件的条件，能插的片段连同插件插进来的 */
 export function promptSpec(id: PromptId, registry: PromptRegistry = promptRegistry(manifestPrompts())): PromptTemplateSpec {
   return specOf(registry, id);
 }
@@ -204,7 +204,7 @@ function placeholdersOf(registry: PromptRegistry, id: string): SystemPromptPlace
       return { name, kind: "value" as const, description: valueDescription(spec), ...(flag === undefined ? {} : { onlyWhen: flag }) };
     }),
     ...Object.entries(d.flags).map(([name, description]) => ({ name, kind: "flag" as const, description })),
-    // 插件的条件（128 号票）和这份自己的条件一样列（设置页按条件查）
+    // 插件的条件和这份自己的条件一样列（设置页按条件查）
     ...(d.common ? registry.pluginFlags.map((f) => ({ name: f.name, kind: "flag" as const, description: f.description })) : []),
     ...registry.partials(id).map((p) => ({ name: p, kind: "partial" as const, description: registry.definition(p).title })),
     ...(d.common ? registry.common.map((c) => ({ name: c.name, kind: "value" as const, description: c.description, common: true })) : []),
@@ -224,7 +224,7 @@ function summaryOf(registry: PromptRegistry, id: string, loaded: Loaded): System
   };
 }
 
-/** 单独的提示词按 agent id 起文件名：只认字母、数字开头，字母、数字、`.`、`_`、`-`（114 号票） */
+/** 单独的提示词按 agent id 起文件名：只认字母、数字开头，字母、数字、`.`、`_`、`-` */
 function requireAgentFileId(agentId: string): void {
   if (!AGENT_FILE_ID.test(agentId)) throw new RequestRejected("not_found", t("prompts.noAgent", { agentId }));
 }
@@ -248,16 +248,16 @@ export function createPromptLibrary(options: PromptLibraryOptions = {}): PromptL
   const missedAtRender = new Map<string, { source: string; problem: string }>();
   const { agentsDir } = options;
   const agentListeners = new Set<(agentId: string) => void>();
-  /** 这个 agent 自己起的名字（241 号票：会话里的 ⚙、设置 · 语音里按 agent 配的；没配是 undefined，跟默认） */
+  /** 这个 agent 自己起的名字（会话里的 ⚙、设置 · 语音里按 agent 配的；没配是 undefined，跟默认） */
   const agentName = options.agentName;
-  /** 用户自己的名字（249 号票：设置 · 身份里的"我的名字"；没设是 undefined，提示一个字不变） */
+  /** 用户自己的名字（设置 · 身份里的"我的名字"；没设是 undefined，提示一个字不变） */
   const userName = options.userName;
   /** 单独的提示词有错时只记一次日志（同一个 agent、同样的内容） */
   const reportedOwn = new Map<string, string>();
   /** 装配时缺了值的单独的提示词（agent → 内容、错在哪）：内容没变就一直用通用模板 */
   const ownMissed = new Map<string, { source: string; problem: string }>();
 
-  /** 默认的文件：内核的在默认目录里，插件的片段在插件目录里（128 号票） */
+  /** 默认的文件：内核的在默认目录里，插件的片段在插件目录里 */
   const defaultFile = (id: string) => registry.pluginFile(id) ?? path.join(defaultsDir, `${id}${EXT}`);
   const userFile = (id: string) => (userDir === undefined ? undefined : path.join(userDir, `${id}${EXT}`));
   /** 设置页给的编号：不认得的回"没有这份" */
@@ -265,7 +265,7 @@ export function createPromptLibrary(options: PromptLibraryOptions = {}): PromptL
     if (!registry.has(id)) throw new RequestRejected("not_found", t("prompts.noPrompt", { id }));
     return id;
   };
-  /** 公用占位符的值（工具名、标记）和插件的条件（插件此刻在不在运行，128 号票）：只给能用它们的提示 */
+  /** 公用占位符的值（工具名、标记）和插件的条件（插件此刻在不在运行）：只给能用它们的提示 */
   const commonValues = (id: string): Record<string, string | boolean> =>
     registry.definition(id).common
       ? { ...Object.fromEntries(registry.common.map((c) => [c.name, c.value])), ...Object.fromEntries(registry.pluginFlags.map((f) => [f.name, plugins.running(f.plugin)])) }
@@ -440,7 +440,7 @@ export function createPromptLibrary(options: PromptLibraryOptions = {}): PromptL
   };
 
   /**
-   * 角色提示末尾那句"用户叫你「…」"（241 号票）：只给带了 agent id 的角色提示，秘书那份不加（它的名字在 `{{名字}}` 占位里，
+   * 角色提示末尾那句"用户叫你「…」"：只给带了 agent id 的角色提示，秘书那份不加（它的名字在 `{{名字}}` 占位里，
    * 别重复）；片段、前缀、压缩指令都不经过这里。没配名字、不是角色提示的原样返回
    */
   const withIdentity = (id: string, text: string, agentId: string | undefined): string => {
@@ -486,7 +486,7 @@ export function createPromptLibrary(options: PromptLibraryOptions = {}): PromptL
     withPrefix(systemPrompt) {
       const prefix = nodesFor("prefix");
       const text = renderPromptTemplate(prefix, {}, () => [], "prefix").trim();
-      // 用户自己的名字（249 号票）：设了才有这一句；没设时 text 原样，和以前逐字节一样
+      // 用户自己的名字：设了才有这一句；没设时 text 原样，和以前逐字节一样
       const name = userName?.();
       const userLine = name === undefined || name.trim() === "" ? "" : userNameLine(name);
       const head = [text, userLine].filter((part) => part !== "").join("\n\n");
@@ -496,7 +496,7 @@ export function createPromptLibrary(options: PromptLibraryOptions = {}): PromptL
     revision(ids, agentId) {
       const all = [...new Set(ids.flatMap((id) => [id, ...registry.partialsOf(id)]))];
       const files = all.map((id) => `${id}:${fileStamp(userFile(id))}`);
-      // 这个 agent 单独的提示词（114 号票）也算：直接改了文件，秘书下一轮之前看得出来
+      // 这个 agent 单独的提示词也算：直接改了文件，秘书下一轮之前看得出来
       if (agentId !== undefined && AGENT_FILE_ID.test(agentId)) for (const mode of ["append", "replace"] as const) files.push(`${agentId}.${mode}:${fileStamp(ownFile(agentId, mode))}`);
       return files.join(";");
     },
@@ -543,7 +543,7 @@ export function createPromptLibrary(options: PromptLibraryOptions = {}): PromptL
         return detailOf(id);
       }
       if (before !== undefined && normalizePromptSource(before) === source) return detailOf(id);
-      // 先写临时文件再改名，被占着时重试（265 号票）
+      // 先写临时文件再改名，被占着时重试
       writeFileAtomic(userFile(id)!, `${source}\n`);
       changed(id);
       return detailOf(id);

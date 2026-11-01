@@ -1,4 +1,4 @@
-// 发给模型之前的投影，第 2 版（79 号票）。冻结：这里用到的常量和小函数都归第 2 版所有，不从会变的模块取（也不从第 1 版取）；
+// 发给模型之前的投影，第 2 版。冻结：这里用到的常量和小函数都归第 2 版所有，不从会变的模块取（也不从第 1 版取）；
 // 要改规则就加第 3 版（新文件），在 model-projection.ts 里登记，这个文件原样留着。
 // 期望的输出是 test/model-projection.test.ts 里手写的字面量。
 //
@@ -18,7 +18,7 @@
 // - 其他类型 → 只给文件名、类型和大小；
 // - 语音 → "语音转写：<识别出的文字>"（文字由调用方从这条语音取来）；识别失败的 → "[语音，识别失败]"；
 // - TTS 音频、视频 → 占位；工具调用、工单分隔 → 一行。
-// @i18n-ignore-file model：模型投影，把会话写成交给模型的上下文（173 号票）
+// @i18n-ignore-file model：模型投影，把会话写成交给模型的上下文
 import type { MessagePart } from "@ergo/protocol";
 import { READ_ATTACHMENT_TOOL } from "../media/tool-names.ts";
 import type { AttachmentContent, ContentNeeded, ModelInput, ProjectionInput, Projector } from "./model-projection.ts";

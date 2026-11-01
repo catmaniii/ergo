@@ -1,8 +1,8 @@
-// 页面路由的地址（app/route-hash.ts）：日历的地址（35 号票）。#/calendar 看本月，#/calendar/YYYY-MM 看那个月，#/calendar/YYYY-MM-DD 展开那一天；
+// 页面路由的地址（app/route-hash.ts）：日历的地址。#/calendar 看本月，#/calendar/YYYY-MM 看那个月，#/calendar/YYYY-MM-DD 展开那一天；
 // 月份、日期写错了或不存在（2026-13、2026-02-30）当成没带，回到本月——日历页渲染时拆不出来会整页白屏。
 // 日历里点作业去看板、项目页上它那一项的地址也在这里；设置里改了名的页认旧地址。
-// 74 号票：设置里的"外观与风格"是设置下面的一页（#/more/appearance），点进去才是具体选项。
-// 167 号票："记忆"分三层（素材、动机挖掘、索引），设置里的删除素材并进记忆 · 素材，旧地址跳过去。
+// 设置里的"外观与风格"是设置下面的一页（#/more/appearance），点进去才是具体选项。
+// "记忆"分三层（素材、动机挖掘、索引），设置里的删除素材并进记忆 · 素材，旧地址跳过去。
 import { describe, expect, test } from "vitest";
 import { inboxJumpRoute, isMorePage, legacyHashRedirect, MORE_PAGES, navItemOf, parseHash, type Route, toHash } from "../../src/app/route-hash.ts";
 import type { InboxJump } from "../../src/state/index.ts";
@@ -53,9 +53,9 @@ test("外观与风格是设置下面的一页：地址拆得开、拼得回，�
   expect(navItemOf({ tab: "more", page: "appearance" })).toBe("settings");
 });
 
-test("系统提示是设置下面的一页，点进某一份是下一级（71 号票）：地址拆得开、拼得回，属于主导航的设置", () => {
-  // 343 号票：数据源详情、共用的导入文件夹
-  // 设备配对的二维码界面（364 号票）：只认 qr 这一个下一级，别的回到设备配对
+test("系统提示是设置下面的一页，点进某一份是下一级：地址拆得开、拼得回，属于主导航的设置", () => {
+  // 数据源详情、共用的导入文件夹
+  // 设备配对的二维码界面：只认 qr 这一个下一级，别的回到设备配对
   expect(parseHash("#/more/devices/qr")).toEqual({ tab: "more", page: "devices", item: "qr" });
   expect(toHash({ tab: "more", page: "devices", item: "qr" })).toBe("#/more/devices/qr");
   expect(parseHash("#/more/devices/other")).toEqual({ tab: "more", page: "devices" });
@@ -73,7 +73,7 @@ test("系统提示是设置下面的一页，点进某一份是下一级（71 �
   expect(parseHash("#/more/skills/x")).toEqual({ tab: "more", page: "skills" });
 });
 
-test("记忆分三层（167 号票）：#/more/memory/<层>，素材里点开一条、成批删除是再下一级；都属于主导航的记忆（193 号票起是记忆插件的页面）", () => {
+test("记忆分三层：#/more/memory/<层>，素材里点开一条、成批删除是再下一级；都属于主导航的记忆（是记忆插件的页面）", () => {
   expect(parseHash("#/more/memory")).toEqual({ tab: "more", page: "memory" });
   for (const item of ["materials", "motives", "index", "materials-delete"] as const) {
     expect(parseHash(`#/more/memory/${item}`)).toEqual({ tab: "more", page: "memory", item });
@@ -83,15 +83,15 @@ test("记忆分三层（167 号票）：#/more/memory/<层>，素材里点开一
   expect(parseHash("#/more/memory/materials-delete/mat-1")).toEqual({ tab: "more", page: "memory", item: "materials-delete", sub: "mat-1" });
   expect(parseHash(toHash({ tab: "more", page: "memory", item: "materials", sub: "mat-1" }))).toEqual({ tab: "more", page: "memory", item: "materials", sub: "mat-1" });
   expect(navItemOf({ tab: "more", page: "memory", item: "materials", sub: "mat-1" })).toBe("memory");
-  // 193 号票：记忆是网页插件的页面，item、sub 原样交给插件（认不得的层、动机挖掘和索引的下一级由记忆页自己不认）
+  // 记忆是网页插件的页面，item、sub 原样交给插件（认不得的层、动机挖掘和索引的下一级由记忆页自己不认）
   expect(parseHash("#/more/memory/nope")).toEqual({ tab: "more", page: "memory", item: "nope" });
   expect(parseHash("#/more/memory/motives/x")).toEqual({ tab: "more", page: "memory", item: "motives", sub: "x" });
-  // 设置下面不再有 167 号票之前的删除素材（#/more/materials 是旧地址，见下面）
+  // 设置下面不再有以前的删除素材（#/more/materials 是旧地址，见下面）
   expect(MORE_PAGES).not.toContain("materials");
   expect(MORE_PAGES).not.toContain("memory");
 });
 
-test("网页插件的页面（193 号票）：#/more/<页面 id>[/<item>[/<sub>]]，导航里那一项就是页面的 id；核心的页照旧", () => {
+test("网页插件的页面：#/more/<页面 id>[/<item>[/<sub>]]，导航里那一项就是页面的 id；核心的页照旧", () => {
   expect(parseHash("#/more/notes")).toEqual({ tab: "more", page: "notes" });
   expect(parseHash("#/more/notes/a/b/c")).toEqual({ tab: "more", page: "notes", item: "a", sub: "b" });
   expect(toHash({ tab: "more", page: "notes", item: "a", sub: "b" })).toBe("#/more/notes/a/b");
@@ -100,14 +100,14 @@ test("网页插件的页面（193 号票）：#/more/<页面 id>[/<item>[/<sub>]
   expect(isMorePage("usage")).toBe(true);
 });
 
-test("设置下面的删除素材（193 号票：内核的成批删除，记忆插件停用时列在设置里）：#/more/materials-delete，点开一条是下一级；属于设置", () => {
+test("设置下面的删除素材（内核的成批删除，记忆插件停用时列在设置里）：#/more/materials-delete，点开一条是下一级；属于设置", () => {
   expect(parseHash("#/more/materials-delete")).toEqual({ tab: "more", page: "materials-delete" });
   expect(parseHash("#/more/materials-delete/mat-1")).toEqual({ tab: "more", page: "materials-delete", item: "mat-1" });
   expect(toHash({ tab: "more", page: "materials-delete", item: "mat-1" })).toBe("#/more/materials-delete/mat-1");
   expect(navItemOf({ tab: "more", page: "materials-delete" })).toBe("settings");
 });
 
-test("个人档案（281 号票）：#/more/files，点进一个人是下一级 #/more/files/<编号>；属于\"更多\"，不是设置下面的页", () => {
+test("个人档案：#/more/files，点进一个人是下一级 #/more/files/<编号>；属于\"更多\"，不是设置下面的页", () => {
   expect(parseHash("#/more/files")).toEqual({ tab: "more", page: "files" });
   expect(parseHash("#/more/files/p-1")).toEqual({ tab: "more", page: "files", item: "p-1" });
   expect(toHash({ tab: "more", page: "files", item: "me" })).toBe("#/more/files/me");
@@ -115,12 +115,12 @@ test("个人档案（281 号票）：#/more/files，点进一个人是下一级 
   expect(navItemOf({ tab: "more", page: "files", item: "me" })).toBe("more");
 });
 
-test("设置里删除素材的旧地址（21、158 号票）照样打得开，跳到记忆 · 素材", () => {
+test("设置里删除素材的旧地址照样打得开，跳到记忆 · 素材", () => {
   expect(parseHash("#/more/materials")).toEqual({ tab: "more", page: "memory", item: "materials" });
   expect(parseHash("#/more/materials/mat-1")).toEqual({ tab: "more", page: "memory", item: "materials", sub: "mat-1" });
   expect(legacyHashRedirect("#/more/materials")).toBe("#/more/memory/materials");
   expect(legacyHashRedirect("#/more/materials/mat-1")).toBe("#/more/memory/materials/mat-1");
-  // 35 号票的旧地址同样换掉
+  // 旧地址同样换掉
   expect(legacyHashRedirect("#/more/workday-calendar")).toBe("#/more/workday-rules");
   // 不是旧地址的不动
   expect(legacyHashRedirect("#/more/memory/materials")).toBeUndefined();
@@ -129,13 +129,13 @@ test("设置里删除素材的旧地址（21、158 号票）照样打得开，�
   expect(legacyHashRedirect("")).toBeUndefined();
 });
 
-test("模型是设置下面的一页（73 号票）：地址拆得开、拼得回，属于主导航的设置", () => {
+test("模型是设置下面的一页：地址拆得开、拼得回，属于主导航的设置", () => {
   expect(parseHash("#/more/models")).toEqual({ tab: "more", page: "models" });
   expect(toHash({ tab: "more", page: "models" })).toBe("#/more/models");
   expect(navItemOf({ tab: "more", page: "models" })).toBe("settings");
 });
 
-test("关于二狗、Debug 工具集是设置下面的两页（124 号票）：地址拆得开、拼得回，属于主导航的设置", () => {
+test("关于二狗、Debug 工具集是设置下面的两页：地址拆得开、拼得回，属于主导航的设置", () => {
   for (const page of ["about", "debug"] as const) {
     expect(parseHash(`#/more/${page}`)).toEqual({ tab: "more", page });
     expect(toHash({ tab: "more", page })).toBe(`#/more/${page}`);
@@ -143,14 +143,14 @@ test("关于二狗、Debug 工具集是设置下面的两页（124 号票）：�
   }
 });
 
-test("体检是设置下面的一页（319 号票的 319b）：地址拆得开、拼得回，属于主导航的设置", () => {
+test("体检是设置下面的一页（319b）：地址拆得开、拼得回，属于主导航的设置", () => {
   expect(parseHash("#/more/doctor")).toEqual({ tab: "more", page: "doctor" });
   expect(toHash({ tab: "more", page: "doctor" })).toBe("#/more/doctor");
   expect(navItemOf({ tab: "more", page: "doctor" })).toBe("settings");
   expect(MORE_PAGES).toContain("doctor");
 });
 
-// 105 号票：待办里"去看看 ›"去的地址，会话里要定位的那一条（卡片、调用）写在 /at/ 后面
+// 待办里"去看看 ›"去的地址，会话里要定位的那一条（卡片、调用）写在 /at/ 后面
 describe("待办里跳过去的地址", () => {
   test.each<[string, InboxJump, string]>([
     ["任务的整页，定位到卡", { kind: "task", taskId: "t-1", at: "c-1" }, "#/tasks/t-1/at/c-1"],
@@ -173,7 +173,7 @@ describe("待办里跳过去的地址", () => {
     expect(parseHash(hash)).toMatchObject(route);
   });
 
-  test("368 号票：项目的对话框定位到任务，带 at 的定位到那一条；老地址 …/chat 照旧认", () => {
+  test("项目的对话框定位到任务，带 at 的定位到那一条；老地址 …/chat 照旧认", () => {
     expect(toHash({ tab: "projects", projectId: "p-1", taskId: "t-1" })).toBe("#/projects/p-1/tasks/t-1");
     expect(parseHash("#/projects/p-1/tasks/t-1")).toEqual({ tab: "projects", projectId: "p-1", taskId: "t-1" });
     expect(toHash({ tab: "projects", projectId: "p-1", taskId: "t-1", at: "c:1" })).toBe("#/projects/p-1/tasks/t-1/at/c%3A1");
@@ -189,7 +189,7 @@ describe("待办里跳过去的地址", () => {
   });
 });
 
-// 113 号票：报告页（文本类附件渲染着看）#/report/<媒体 id>：可刷新、可收藏，链接发给同一前端的另一台已配对设备也能打开
+// 报告页（文本类附件渲染着看）#/report/<媒体 id>：可刷新、可收藏，链接发给同一前端的另一台已配对设备也能打开
 test("报告页的地址：拆得开、拼得回；不属于主导航的哪一项；没带媒体 id 回秘书页", () => {
   const mediaId = "a".repeat(64);
   expect(parseHash(`#/report/${mediaId}`)).toEqual({ tab: "report", mediaId });

@@ -1,9 +1,9 @@
-// 330 号票 A（R12、R13、R14、矛盾根源选 A）：矛盾怎么处理。例子都是自己写的（不看 fixtures/truth）。
+// A（R12、R13、R14、矛盾根源选 A）：矛盾怎么处理。例子都是自己写的（不看 fixtures/truth）。
 // - R12 已验证碰上有分量的反例：先降回猜测、加复核标记；弄清以后三种结局——只是例外（后面又有够分量的支持、或者你当面确认）恢复已验证；
 //   支持都在一种场合、反例在另一种场合 → 结论层收窄成"在某场合下成立"（新结论取代原结论，留痕）；真错（你当面否掉）撤回。
 // - R13 两条打架都已验证（跨组）：都降回猜测；各自的支持能按场合分开就各自收窄；分不清出一个问题；自检查"互相矛盾却都已验证"。
 // - R14 随口说的不再自动算决定性（当面问、你明确确认 / 否掉的才算）；说的和做的对不上当矛盾处理，哪边都不自动赢，"嘴上和行为不一样"记一笔。
-// - 矛盾根源（用户 10-27 选 A）：不豁免铁律——琢磨出来的根源判断没经你确认只当猜测、出问题、不写回；你答了才定、才改事实。
+// - 矛盾根源：不豁免铁律——琢磨出来的根源判断没经你确认只当猜测、出问题、不写回；你答了才定、才改事实。
 import { afterEach, describe, expect, it } from "vitest";
 import type { Claim, EvidenceDraft, LinkWeight } from "../../src/domain/types.ts";
 import type { MemoryEngine } from "../../src/engine.ts";
@@ -294,7 +294,7 @@ function rootGroupOf(engine: MemoryEngine, prefix: string): string {
 }
 
 describe("矛盾根源（用户选 A：不豁免铁律）", () => {
-  it("琢磨出来的根源（从图上的关系补出场景）证据再多也只当猜测：不定根源、不改事实；同一处矛盾只问'现在更接近哪个'（334b）；你答了才定、才改事实", async () => {
+  it("琢磨出来的根源（从图上的关系补出场景）证据再多也只当猜测：不定根源、不改事实；同一处矛盾只问'现在更接近哪个'；你答了才定、才改事实", async () => {
     const t = openEngine(NOW);
     for (const d of PHONE) t.engine.ingestEvidence(d);
     const report = await t.engine.reflect();
@@ -305,7 +305,7 @@ describe("矛盾根源（用户选 A：不豁免铁律）", () => {
     expect(p2.context).toEqual(["workday"]);
     const scene = t.engine.rg.registry.members(key).find((m) => m.template === "root:scene_differs")!;
     const question = t.engine.listQuestions().find((q) => q.targets.some((x) => x.id === scene.claimId) || q.answers.yes.supports.includes(scene.claimId) || q.answers.no.supports.includes(scene.claimId));
-    // 334b（用户 10-27）：根源组的两边正是事实层还拿不准的那几句，同一处矛盾只留"现在更接近哪个"，根源的追问不另出问题
+    // 334b：根源组的两边正是事实层还拿不准的那几句，同一处矛盾只留"现在更接近哪个"，根源的追问不另出问题
     expect(question).toBeUndefined();
     expect(t.engine.listQuestions({ status: "open" })).toEqual([]);
     const sides = t.engine.rg.registry.getGroup(key)!.params as { sideA: string[]; sideB: string[] };

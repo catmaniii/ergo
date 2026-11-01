@@ -1,14 +1,14 @@
-// 项目的服务（133 号票）的单元切面：
+// 项目的服务的单元切面：
 // - 一个服务写得对不对（spec.ts）：工作目录不出界（项目档案里也行）、密钥、补齐、交给 LSM 的定义；
 // - 接入层的名下服务（lsm/link.ts）：新管理器（welcome 里有 services）能登记、启停、撤销、收状态推送，断线时在途的请求回"断了"；
 //   老管理器什么都不发；
 // - 上线、撤下（project-services.ts，假的接入层）：二狗没接入 LSM 记"要你手动"；LSM 没连上的等连上再做，接上后补做；
 //   在跑时改端口先停再登记；LSM 里没登记过的撤下不去找 LSM；LSM 推来的状态换算成在线、失败……
-// - 接上 LSM 时兜底（269 号票）：接上后的第一份全量里上线了、用户没关、没在跑的整份登记、启动，记上线的结果（带 revive）；在跑的、
+// - 接上 LSM 时兜底：接上后的第一份全量里上线了、用户没关、没在跑的整份登记、启动，记上线的结果（带 revive）；在跑的、
 //   关着的、还没做完的、要你手动的不算；接上之后再挂不拉；拉的时候不看挂没挂、用户点了关闭照最新的来；拉不起来通知负责人。
-// - 上线记录卡在失败（363 号票）：启动报"已经有一份在跑"先按健康检查再看一眼；记着失败、LSM 报告在线的回到上线了，缺凭证、登记旧了的
+// - 上线记录卡在失败：启动报"已经有一份在跑"先按健康检查再看一眼；记着失败、LSM 报告在线的回到上线了，缺凭证、登记旧了的
 //   更新登记、重启一次；没在跑的、开关关着的、登记对不上的不动。
-// - 服务首页的缩略图（140 号票，截图注入假的）：上线并在线后截一次、6 小时内有人看不重截、过了 6 小时有人看补截、改了方案或重启后重截、
+// - 服务首页的缩略图（截图注入假的）：上线并在线后截一次、6 小时内有人看不重截、过了 6 小时有人看补截、改了方案或重启后重截、
 //   同时只截一个、截不了的留旧图（没有旧图的不给截图时间）、守护进程起来时不一口气截、删除项目时删掉；怎么截（假的浏览器驱动）。
 import fs from "node:fs";
 import path from "node:path";
@@ -122,7 +122,7 @@ describe("一个服务写得对不对（spec.ts）", () => {
     expect(lsmDefinition(restarting, { title: "网页", projectName: "简报站" }, "D:/data/secrets")).toMatchObject({ autostart: false, autoRestart: true });
   });
 
-  it("357：给了报事件的地址和凭证文件的，定义里注入（凭证只写路径）；不给的不注入；这两个变量不能自己写", () => {
+  it("给了报事件的地址和凭证文件的，定义里注入（凭证只写路径）；不给的不注入；这两个变量不能自己写", () => {
     const { ctx } = specPaths();
     const s = normalizeService(draft({}).service!, ctx);
     const env = lsmDefinition(s, { title: "网页", projectName: "简报站" }, "D:/data/secrets", undefined, { url: "http://127.0.0.1:8810/api/service-events", tokenFile: "D:/data/secrets/service-tokens/p-1-web.token" }).env;
@@ -210,7 +210,7 @@ describe("接入层的名下服务（lsm/link.ts）", () => {
 });
 
 /**
- * 假的接入层：支不支持由测试定，请求按测试给的回。calls 记"种类 名字"，requests 另记登记的定义、开关、force（257 号票）；
+ * 假的接入层：支不支持由测试定，请求按测试给的回。calls 记"种类 名字"，requests 另记登记的定义、开关、force；
  * holdNext(种类) 让下一次这种请求等测试放行（做到一半又点）
  */
 function fakeLsm(support: LsmServicesSupport) {
@@ -464,7 +464,7 @@ const rejectionOf = (fn: () => unknown): string => {
   return "没拒";
 };
 
-describe("项目的服务全部关闭、启动（257 号票）", () => {
+describe("项目的服务全部关闭、启动", () => {
 
   it("关闭：每个服务先取消开机自启、再强制停，记成关着；守护进程重启、LSM 重新接上都不去拉起；启动：整份重新登记（恢复开机自启）并启动", async () => {
     const lsm = fakeLsm("supported");
@@ -606,7 +606,7 @@ describe("项目的服务全部关闭、启动（257 号票）", () => {
     stopped.services.stop();
   });
 
-  it("关着的项目停用后重新启用（用户 2026-10-24 定，259 号票改）：重新启用就全部拉起——记一条“全部启动”、重新登记（开机自启开）并启动；取消归档回到使用中同样；本来开着的不多记", async () => {
+  it("关着的项目停用后重新启用：重新启用就全部拉起——记一条“全部启动”、重新登记（开机自启开）并启动；取消归档回到使用中同样；本来开着的不多记", async () => {
     const lsm = fakeLsm("supported");
     const { services, want, store, project } = setup(lsm.services);
     services.start();
@@ -746,7 +746,7 @@ const noticesOf = (store: ReturnType<typeof setup>["store"]) => store.read(maint
 /** 324：登记的回复（在跑的；restartNeeded 是定义变了） */
 const putReply = (name: string, restartNeeded: boolean): LsmServicesReply => ({ ok: true, changed: restartNeeded, restartNeeded, service: { id: `ergo-daemon--${name}`, name, port: 1, state: "RUNNING", up: true } });
 
-describe("接上 LSM 时重新登记在跑的（324 号票）", () => {
+describe("接上 LSM 时重新登记在跑的", () => {
   it("在跑的照现在的方案整份再登记：定义变了（二狗换了 Node）LSM 回 restartNeeded 就强制重启一次，不记事件、不当挂了；没变的只登记不重启", async () => {
     const lsm = fakeLsm("supported");
     const { services, want, service, store, make } = setup(lsm.services);
@@ -780,7 +780,7 @@ describe("接上 LSM 时重新登记在跑的（324 号票）", () => {
   });
 });
 
-describe("接上 LSM 时兜底（269 号票）", () => {
+describe("接上 LSM 时兜底", () => {
 
   it("守护进程起来、接上 LSM 后的第一份全量里停着、失败、LSM 里没有了的：整份登记、启动，记上线的结果（带 revive）；在跑、启动中、停止中的不动；接上之后再挂、又来一份全量都不拉", async () => {
     const lsm = fakeLsm("supported");
@@ -818,7 +818,7 @@ describe("接上 LSM 时兜底（269 号票）", () => {
       ["live", "online"],
     ]);
 
-    // 接上之后又挂了：不拉（照 133 的故障通知走）；又来一份全量（没有重新接上）也不拉
+    // 接上之后又挂了：不拉（照故障通知走）；又来一份全量（没有重新接上）也不拉
     lsm.requests.length = 0;
     lsm.services.push({ full: false, services: [{ id: "ergo-daemon--p-1-web", name: "p-1-web", port: 1, state: "FAILED", up: false, lastError: "退出码 1" }], removed: [] });
     await again.idle();
@@ -976,7 +976,7 @@ const fakeCredentials = (have: readonly string[] = []) => {
   };
 };
 
-describe("启动报“已经有一份在跑”：先按健康检查再看一眼（363 号票）", () => {
+describe("启动报“已经有一份在跑”：先按健康检查再看一眼", () => {
   it("上线时报 already-running、健康检查过了：记上线，不记失败、不通知，转发登记上，看着是在线；健康检查不过：记失败、通知负责人", async () => {
     const lsm = fakeLsm("supported");
     let alive = true;
@@ -1108,7 +1108,7 @@ describe("启动报“已经有一份在跑”：先按健康检查再看一眼�
   });
 });
 
-describe("上线记录卡在失败、服务其实在跑：自愈（363 号票）", () => {
+describe("上线记录卡在失败、服务其实在跑：自愈", () => {
   it("回放 10-29：上线、already-running 失败、LSM 报告在跑——接上时的全量：回到上线了，历史不改只追加，不通知，日志一行，转发补上；再来一份全量不再动", async () => {
     const lsm = fakeLsm("supported");
     const lines: string[] = [];
@@ -1231,7 +1231,7 @@ describe("上线记录卡在失败、服务其实在跑：自愈（363 号票）
     const creds = fakeCredentials(["p-1-same", "p-1-node"]);
     const lines: string[] = [];
     const { services, want, service, store, make } = setup(lsm.services, undefined, { events: creds.events, log: (l) => lines.push(l) });
-    // 先按"没有凭证"的旧版本上线（357 之前）：这时不发凭证
+    // 先按"没有凭证"的旧版本上线：这时不发凭证
     const old = make({ events: undefined });
     old.start();
     want(true);
@@ -1454,7 +1454,7 @@ function thumbSetup() {
   return { ...base, lsm, dir, shots, push, file };
 }
 
-describe("服务首页的缩略图（140 号票）", () => {
+describe("服务首页的缩略图", () => {
 
   it("上线并在线后截一次（经二狗本机端口的转发）；6 小时内有人看不重截，过了 6 小时有人看补一张；重启了（离上一张 10 分钟以上）、改了方案重截；不在线的不截", async () => {
     const { services, want, shots, push, clock, store, published, file } = thumbSetup();

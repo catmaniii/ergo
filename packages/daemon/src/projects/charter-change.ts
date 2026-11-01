@@ -1,5 +1,5 @@
-// 立项要求变更（125 号票；方案"用户授权的效力"第 2 节第 3 条）：立项书确认之后，用户在会话里说要改立项要求（目标、范围、首版），
-// 项目的负责人用 propose_charter_change 提出——只交改动的几处（照 121 号票：没写的照旧，写了的整项按写的算），附上它引用的用户
+// 立项要求变更（方案"用户授权的效力"第 2 节第 3 条）：立项书确认之后，用户在会话里说要改立项要求（目标、范围、首版），
+// 项目的负责人用 propose_charter_change 提出——只交改动的几处（没写的照旧，写了的整项按写的算），附上它引用的用户
 // 消息 id（运行时核实，conversation/user-words.ts）。运行时出一张"立项要求变更"卡（charter_change）：
 // - 卡上逐条对照新旧（协议包 projects.ts 的 charterChangeItems），附运行时核实过的用户原话；进待办（不卡任务），也出在用户说话的
 //   那个会话里（项目负责人的会话本来就有：工具产生的卡片；秘书转达来的出在秘书会话里）；同一个项目一次只有一张在等；
@@ -88,12 +88,12 @@ const projectChanged = (project: Project, time: string): NewEvent => {
 const changeLines = (p: { changes: CharterChangeCardPayload["changes"] }) => p.changes.map((c) => `- ${charterChangeItemText(c)}`);
 
 /** 依据的用户原话（运行时核实过的）的几行 */
-// 卡片的纯文本降级、时间线上那一笔的详细说明给用户看（173 号票：生成时按当时的语言）
+// 卡片的纯文本降级、时间线上那一笔的详细说明给用户看（生成时按当时的语言）
 const wordsLines = (words: readonly VerifiedUserWords[]) => (words.length > 0 ? [t("projects.charterChange.words", { title: USER_WORDS_TITLE }), ...words.map((w) => `- ${userWordsLine(w)}`)] : []);
 
 /**
  * 负责人的工具说明（工具名都插值）。里面引了协议包的标签（立项书各栏的名字、"不走这条路"的说明），那些跟着当前语言：
- * 给模型看的这份在中文下现取（173 号票：不在模块加载时取，那时只有启动时的语言）
+ * 给模型看的这份在中文下现取（不在模块加载时取，那时只有启动时的语言）
  */
 // @i18n-ignore-start model：工具说明、参数说明给负责人看
 const toolDescription = () =>
@@ -345,7 +345,7 @@ export function createCharterChanges(options: CharterChangesOptions): CharterCha
   };
 }
 
-/** "立项要求变更"卡（125 号票）：确认（confirm）、拒绝（reject，可附说明） */
+/** "立项要求变更"卡：确认（confirm）、拒绝（reject，可附说明） */
 export function charterChangeCardType(changes: Pick<CharterChanges, "decide">) {
   return defineCardType({
     type: "charter_change",

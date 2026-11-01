@@ -1,12 +1,12 @@
-// 网页按真守护进程报的状况装网页插件（193 号票，ADR-0027："测试可以只起内核加某几个插件；同时要有走真实装配路径的测试"——
+// 网页按真守护进程报的状况装网页插件（ADR-0027："测试可以只起内核加某几个插件；同时要有走真实装配路径的测试"——
 // dsh 的复盘 0001：手挂插件的单元测试全过、上线即崩）。这里不手挂插件：
 // - 守护进程那边的主切面（packages/daemon/test/main/plugin-status.test.ts）经组合根和插件清单起真的守护进程，停用只经数据目录配置的
 //   plugins.disabled，把网页收到的事件流录成 recordings/plugins-*.json；
 // - 这里把录下的事件流原样交给前端状态层（replay），再用真的网页插件清单（plugins/manifest.ts）建宿主、按状态层里的插件状况装和停，
 //   查页面、导航、设置、对话条目、详情、卡片、看板、日历这几个插槽里有什么，停用的插件拥有的位置交回占位用的名字；
-// - 213 号票：日历也是插件（导航里的"日历"、#/calendar 那一页）；停用日历、停用提醒时日历照常（提醒是它的可选依赖）；
+// -日历也是插件（导航里的"日历"、#/calendar 那一页）；停用日历、停用提醒时日历照常（提醒是它的可选依赖）；
 // - 对话里的"回忆了 N 条记忆"：按事件构造一段会话，记忆插件停用时换成占位（maskUnavailable），用 React 在 Node 里渲染出那一行。
-// - 297 号票：Google 插件（设置 · 数据源里 Google · 日历下面那一块，dataSources 插槽）；停用 Google 时那一块交回"Google"。
+// -Google 插件（设置 · 数据源里 Google · 日历下面那一块，dataSources 插槽）；停用 Google 时那一块交回"Google"。
 import fs from "node:fs";
 import path from "node:path";
 import { CHANNELS } from "@ergo/protocol";
@@ -34,7 +34,7 @@ function assembled(recording: string) {
 
 type Host = ReturnType<typeof assembled>["host"];
 
-/** 插槽里现在有的（按插槽列出键；212 号票加了页签） */
+/** 插槽里现在有的（按插槽列出键；加了页签） */
 const slotsOf = (host: Host) => ({
   pages: host.list("pages").map((p) => p.id),
   tabs: host.list("tabs").map((e) => e.id),
@@ -50,7 +50,7 @@ const at = (s: number) => `2026-10-20T10:00:${String(s).padStart(2, "0")}.000+08
 const render = (host: Host, item: ChatItem) => renderToStaticMarkup(createElement(PluginHostProvider, { host }, createElement(ChatItemView, { item, actions: {} })));
 const recallOf = (list: readonly ChatItem[]) => list.find((it) => it.kind === "recall" || (it.kind === "unavailable" && it.was === "recall"))!;
 
-/** 一段秘书会话：用户问一句，秘书检索了一次记忆（187 号票的结构化命中），然后回答 */
+/** 一段秘书会话：用户问一句，秘书检索了一次记忆（结构化命中），然后回答 */
 function recallConversation(): ChatItem[] {
   const S = CHANNELS.secretary;
   const message = (seq: number, speaker: "user" | "agent", parts: MessagePart[]): EventFrame => frame(S, seq, "message", { message: { id: `m-${seq}`, conversation: S, speaker, time: at(seq), parts } });
@@ -116,11 +116,11 @@ describe("按真守护进程报的状况装网页插件", () => {
     expect([host.running("reminders"), host.running("memory")]).toEqual([false, true]);
     expect(slotsOf(host)).toEqual({ pages: ["calendar", "memory"], tabs: ["browse"], chatItems: ["recall"], details: ["recall"], cards: ["memory_delete", "interview", "interview_files", "browse_pick"], boardEntries: ["memory_curator"], calendar: [], dataSources: ["phone-contacts", "phone-calendar", "phone-photos", "phone-location", "google-calendar", "google-gmail", "google-contacts", "looki"] });
     expect([host.unavailable("cards", "reminder"), host.unavailable("boardEntries", "reminder"), host.unavailable("calendar", "reminders")]).toEqual(["提醒", "提醒", "提醒"]);
-    // 285 号票起记忆页的"档案"也盖住"更多"里的个人档案
+    // 记忆页的"档案"也盖住"更多"里的个人档案
     expect(host.list("pages").flatMap((p) => p.covers ?? [])).toEqual(["materials-delete", "files"]);
   });
 
-  test("配置里停用日历插件（213 号票，录下的事件流）：导航里没有日历，日历那一页交回\"日历\"（写\"日历插件没启用\"）；提醒、记忆照常，提醒在日历插槽里的照样登记（日历页不在，画不出来）", () => {
+  test("配置里停用日历插件（录下的事件流）：导航里没有日历，日历那一页交回\"日历\"（写\"日历插件没启用\"）；提醒、记忆照常，提醒在日历插槽里的照样登记（日历页不在，画不出来）", () => {
     const { state, host } = assembled("plugins-calendar-off");
     expect(state.pluginStatus?.plugins.map((p) => [p.name, p.state])).toEqual([
       ["reminders", "running"],
@@ -149,7 +149,7 @@ describe("按真守护进程报的状况装网页插件", () => {
     expect(host.list("calendar")).toEqual([]);
   });
 
-  test("配置里停用浏览插件（212 号票，录下的事件流）：没有\"浏览\"页签（App 里导航也没有这一项）、网页候选卡没有画法，拥有的位置交回\"内置浏览器\"；提醒、记忆照常", () => {
+  test("配置里停用浏览插件（录下的事件流）：没有\"浏览\"页签（App 里导航也没有这一项）、网页候选卡没有画法，拥有的位置交回\"内置浏览器\"；提醒、记忆照常", () => {
     const { state, host } = assembled("plugins-browsing-off");
     expect(state.pluginStatus?.plugins.map((p) => [p.name, p.state])).toEqual([
       ["reminders", "running"],
@@ -179,7 +179,7 @@ describe("按真守护进程报的状况装网页插件", () => {
     expect(navItemsFor({ browse: host.get("tabs", "browse") !== undefined, plugins: host.list("pages") })).toEqual(["secretary", "tasks", "projects", "inbox", "browse", "calendar", "usage", "memory", "settings"]);
   });
 
-  test("配置里停用 Google 插件（297 号票，录下的事件流）：设置 · 数据源里没有 Google · 日历、Google · 联系人（301）下面那一块，交回\"Google\"；日历照常", () => {
+  test("配置里停用 Google 插件（录下的事件流）：设置 · 数据源里没有 Google · 日历、Google · 联系人下面那一块，交回\"Google\"；日历照常", () => {
     const { state, host } = assembled("plugins-google-off");
     expect(state.pluginStatus?.plugins.map((p) => [p.name, p.state]).slice(-2)).toEqual([
       ["google", "disabled"],
@@ -191,7 +191,7 @@ describe("按真守护进程报的状况装网页插件", () => {
     expect(host.unavailable("dataSources", "google-contacts")).toBe("Google");
   });
 
-  test("日历的页面（213 号票）：导航里的字、图标和原来一样，点了去它自己的地址 #/calendar（不在 #/more 下面），收进\"更多\"时也是整页", () => {
+  test("日历的页面：导航里的字、图标和原来一样，点了去它自己的地址 #/calendar（不在 #/more 下面），收进\"更多\"时也是整页", () => {
     const host = createWebPluginHost({ plugins: WEB_PLUGIN_MANIFEST, log: () => {} });
     host.apply(undefined);
     const page = host.get("pages", "calendar")!;
@@ -221,7 +221,7 @@ describe("按真守护进程报的状况装网页插件", () => {
 describe("对话里的\"回忆了 N 条记忆\"", () => {
   const items = recallConversation();
 
-  test("记忆插件在运行：照 187 号票画成一行（记忆插件画的）", () => {
+  test("记忆插件在运行：画成一行（记忆插件画的）", () => {
     const { host } = assembled("plugins-reminders-off");
     const masked = maskUnavailable(items, (it) => host.unavailable("chatItems", it.kind));
     expect(masked).toBe(items);

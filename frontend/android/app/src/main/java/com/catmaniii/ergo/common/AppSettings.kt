@@ -16,7 +16,7 @@ class AppSettings(context: Context) {
 
     fun notifyAsked(): Boolean = prefs.getString(KEY_NOTIFY_ASKED, "") == "1"
     fun setNotifyAsked() = put(KEY_NOTIFY_ASKED, "1")
-    /** Debug 工具集的"重置首次提示"（124 号票）：当作没问过用户 */
+    /** Debug 工具集的"重置首次提示"：当作没问过用户 */
     fun clearNotifyAsked() = put(KEY_NOTIFY_ASKED, "")
 
     fun appTexts(): String = prefs.getString(KEY_APP_TEXTS, "") ?: ""

@@ -4,7 +4,7 @@
 // 1. 新设备在外网端口上发起请求（createRequest）：拿到设备名（默认由 User-Agent 生成）、6 位短码、8 位十六进制短指纹，
 //    和一个认出这个请求的配对 cookie；同时卡片频道上多一张配对请求卡、待我处理里多一项（页面内提示）。
 //    同一来源 10 分钟内最多 5 个请求（经隧道的以 nginx 覆盖写的 X-Real-IP 为来源）。
-//    137 号票：配对页要用户点了"请求配对"才发请求（公网上的扫描程序只打开页面，不再产生请求）；
+//    配对页要用户点了"请求配对"才发请求（公网上的扫描程序只打开页面，不再产生请求）；
 //    浏览器标识像网络上的自动访问（无界面浏览器、爬虫、程序库……，协议包的 automatedAccess）的，请求和卡上记着原因，
 //    卡上一句醒目的提示，批准照样能批；
 // 2. 新设备上改设备名（rename）：卡片跟着改（版本加 1），所以用户批准的一定是他看到的那个名字；
@@ -19,7 +19,7 @@
 // 凭证从最近一次使用起 365 天有效，每次使用都续期（使用记录最多一小时落一次，免得每个请求都写一条事件：
 // 续期因此最多提前一小时失效，不会推迟）；吊销后立即失效，网关关掉这台设备开着的 WebSocket（onRevoked）。
 //
-// 123 号票：设置里多选管理（batch，前端的 device_batch_action；单台的"⋯"菜单也走它）——
+// 设置里多选管理（batch，前端的 device_batch_action；单台的"⋯"菜单也走它）——
 // - 延期：到期日 = max(原到期日, 现在) + 选的天数（协议包的 extendedExpiry）。过期的、没用过作废的延期后重新有效：
 //   服务端一直留着凭证的哈希，设备手里的凭证又能用了。吊销了的不能延期（吊销不可撤销）。之后每次使用的续期只往后推
 //   （max(原到期日, 现在 + 365 天)），不把延期缩回去；
@@ -129,7 +129,7 @@ export interface PairingService {
   refresh(deviceId: string): boolean;
   /** 吊销（来自前端的请求，带幂等键） */
   revoke(deviceId: string, idempotencyKey: string): RevokeDeviceResult;
-  /** 设置里多选的延期、吊销、删除（123 号票）：能做的都做、逐台回报做了还是跳过 */
+  /** 设置里多选的延期、吊销、删除：能做的都做、逐台回报做了还是跳过 */
   batch(params: DeviceBatchActionParams, idempotencyKey: string): DeviceBatchActionResult;
   /** 已配对设备（删了的不在里面） */
   list(): PairedDevice[];
@@ -223,7 +223,7 @@ export function createPairingService(options: PairingServiceOptions): PairingSer
   const touch = (d: PairedDevice): PairedDevice => {
     const now = clock.now();
     if (d.activated && now - ms(d.lastUsedAt) < DEVICE_USE_RECORD_INTERVAL_MS) return d;
-    // 续期只往后推：延期到更远的（123 号票）不缩回"现在 + 365 天"
+    // 续期只往后推：延期到更远的不缩回"现在 + 365 天"
     const next: PairedDevice = { ...d, activated: true, lastUsedAt: iso(now), expiresAt: iso(Math.max(ms(d.expiresAt), now + DEVICE_CREDENTIAL_TTL_MS)) };
     store.append(deviceEvent(next, d.activated ? "used" : "activated"));
     return next;
@@ -282,7 +282,7 @@ export function createPairingService(options: PairingServiceOptions): PairingSer
       const fingerprint = fingerprintOf(secret);
       const from = sourceLabel(input.source, input.viaTunnel);
       const expiresAt = iso(now + PAIRING_REQUEST_TTL_MS);
-      // 像网络上的自动访问（137 号票）：只是记下原因、卡上提示，不拦
+      // 像网络上的自动访问：只是记下原因、卡上提示，不拦
       const automated = automatedAccess(input.userAgent);
       const flagged = automated === undefined ? {} : { automated };
       const payload: PairingCardPayload = { requestId, deviceName, shortCode, fingerprint, from, expiresAt, ...flagged };
@@ -372,7 +372,7 @@ export function createPairingService(options: PairingServiceOptions): PairingSer
         return { deviceId };
       }
       const device = getDevice(store.reader, deviceId);
-      // 删了的（123 号票）列表里已经没有了
+      // 删了的列表里已经没有了
       if (!device || device.deletedAt !== undefined) throw new RequestRejected("not_found", t("pairing.noDevice", { deviceId }));
       if (device.revoked) throw new RequestRejected("conflict", t("pairing.revoked"));
       const { duplicate } = store.append(deviceEvent(revokedDevice(device, iso(clock.now())), "revoked", idempotencyKey));

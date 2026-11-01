@@ -1,4 +1,4 @@
-// 会话树上挪（150 号票：会话回退；151 号票：切换分支），子进程这一侧。做法同 pi 的 navigateTree
+// 会话树上挪（会话回退；切换分支），子进程这一侧。做法同 pi 的 navigateTree
 // （回退写分支摘要、切换不写），落到二狗的会话文件上有几处不一样，所以不直接调 navigateTree，用 pi 导出的
 // 同一套零件拼（collectEntriesForBranchSummary、generateBranchSummary、SessionManager 的 branchWithSummary / branch，
 // 最后 refreshContext 换掉内存里的上下文——navigateTree 自己也是这几步）：
@@ -61,7 +61,7 @@ export async function navigateSession(session: AgentSession, command: NavigateCo
     const at = targetLeaf(sm.getBranch(), command.target, (id) => sm.getEntry(id));
     if (at === from) throw new NavigationError(t("runtime.navigate.alreadyHere"));
     let summary: { text: string; stored: string; details: unknown; usage: unknown } | undefined;
-    // pi 自己写分支摘要（能力清单 branch_summary）：守护进程交给它的只会是 instructions（写好的 written 是给不自己写的运行时的，293 号票）
+    // pi 自己写分支摘要（能力清单 branch_summary）：守护进程交给它的只会是 instructions（写好的 written 是给不自己写的运行时的）
     if (command.summary && "instructions" in command.summary) {
       const { entries } = collectEntriesForBranchSummary(sm, from, at);
       if (entries.length > 0) summary = await writeSummary(session, entries, command.summary.instructions, deps, command.requestId, emit);
@@ -82,7 +82,7 @@ export async function navigateSession(session: AgentSession, command: NavigateCo
 
 /**
  * 新叶子：回到某条输入之前——在当前这一支上找到这条输入的标记，往前跳过紧挨着它的上下文块（同一条输入注入的），落在第一条的父条目上；
- * 或者会话文件里给定的那一条；152 号票起还有某次工具调用（beforeCall：它所在的那条 assistant 消息的父条目，即回退点那条
+ * 或者会话文件里给定的那一条；还有某次工具调用（beforeCall：它所在的那条 assistant 消息的父条目，即回退点那条
  * 条目的 parentId；afterCall：那条 assistant 消息后面紧跟着的最后一条工具结果，同一条回复里的几次调用都留着）
  */
 function targetLeaf(branch: readonly SessionEntry[], target: NavigateCommand["target"], entry: (id: string) => SessionEntry | undefined): string {

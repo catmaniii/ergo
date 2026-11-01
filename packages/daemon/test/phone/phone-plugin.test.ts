@@ -1,11 +1,11 @@
-// "手机"插件（299 号票）在假内核里（startPluginKernel：真的插件宿主、数据源那一层、设置 · 插件那一层），个人档案换成记下调用的假的：
+// "手机"插件在假内核里（startPluginKernel：真的插件宿主、数据源那一层、设置 · 插件那一层），个人档案换成记下调用的假的：
 // - 数据契约登记四个数据源（插件停用也列出、写明没启用）；
 // - 通讯录选人：电话去掉空白横线、生日去掉没有年份的前缀、空的去掉，交给档案候选（origin contacts、数据源 phone-contacts），
 //   合成候选核对卡，交回卡的编号；
 // - 手机日历：增量（新、改、范围里没了的删、范围外的不动）、状况（撤回、拒了、读不了，同样的不重复记）、条数、给日历的 [from, to)；
 //   断开时记下没连着；日历插件不在时写明；
 // - 停用、启用（记录还在、接着用），移除并连数据删（phone 频道整条换成标记）；
-// - 300 号票的照片、位置：没授权、撤回写明原因（同样的不重复记），没有读照片位置的授权时不带地点，拍摄时间在明天以后的不收，
+// -照片、位置：没授权、撤回写明原因（同样的不重复记），没有读照片位置的授权时不带地点，拍摄时间在明天以后的不收，
 //   整理之后又交来那天的补一条；位置精度太差的点不用、零星几个点写明没待够；原始数据按天清掉，停用时不列、清不了；
 //   移除并连数据删时插件自己的存储整个删掉。
 import fs from "node:fs";
@@ -163,7 +163,7 @@ const day = (d: number, hh: number, mm = 0) => nowIso(new Date(2026, 9, d, hh, m
 /** 照片、位置那一类摘要（按先后） */
 const daysOf = (k: PluginKernel, type: string) => k.store.read(PHONE_CHANNEL, 0, type).map((e) => e.payload as PhoneDaySummaryPayload);
 
-describe("手机插件：照片的时间地点、位置（300 号票）", () => {
+describe("手机插件：照片的时间地点、位置", () => {
   const WINDOW_PHOTOS = { from: day(19, 9), to: day(27, 9) };
   const NOW = new Date(2026, 9, 26, 9);
 
@@ -209,7 +209,7 @@ describe("手机插件：照片的时间地点、位置（300 号票）", () => 
     // 原始数据按天清掉（重复的、没有的日子不算）
     expect(await k.dataSources.act(PHONE_PHOTOS_SOURCE, { action: "clear_raw", dates: ["2026-10-25", "2026-10-25", "2026-10-01"], idempotencyKey: key() })).toMatchObject({ cleared: 3 });
     expect(sourceOf(k, PHONE_PHOTOS_SOURCE).raw).toEqual({ title: "原始的照片时间地点", days: [] });
-    // 手机每次都把最近几天的照片读一遍：清掉的再交来不再收、也不多一份补记（304 号票在模拟器上碰到的）；
+    // 手机每次都把最近几天的照片读一遍：清掉的再交来不再收、也不多一份补记（在模拟器上碰到的）；
     // 今天清掉以后才拍的照收（清到哪一刻记在插件自己的存储里）
     const photosAgain = { device: "Pura 90", state: "granted", location: true, ...WINDOW_PHOTOS } as const;
     await pushTo(k, PHONE_PHOTOS_SOURCE, { ...photosAgain, photos: [{ key: "t1", takenAt: day(26, 8, 0) }] });
@@ -283,7 +283,7 @@ describe("手机插件：照片的时间地点、位置（300 号票）", () => 
     expect(fs.existsSync(path.join(k.dir, "phone"))).toBe(false);
   });
 
-  it("308 号票 常去的地方：没连着也能起名；停用时那一块不画、填设置回没启用；断开留着已导入的时留着，连已导入的一起删时删掉；移除并连数据删时一起删", async () => {
+  it("常去的地方：没连着也能起名；停用时那一块不画、填设置回没启用；断开留着已导入的时留着，连已导入的一起删时删掉；移除并连数据删时一起删", async () => {
     const { k } = await start(NOW);
     const places = () => (sourceOf(k, PHONE_LOCATION_SOURCE).panel as { places: Array<{ name: string }> } | undefined)?.places.map((p) => p.name);
     await k.dataSources.act(PHONE_LOCATION_SOURCE, { action: "configure", values: { places: "add", name: "家", lat: "30.28", lon: "120.1" }, idempotencyKey: key() });

@@ -1,6 +1,6 @@
-// WAV（32 号票）：参考音色只收 WAV，audio.cpp 合成出来的也是 WAV。这里读 WAV 头量时长（导入参考音色时核对、
+// WAV：参考音色只收 WAV，audio.cpp 合成出来的也是 WAV。这里读 WAV 头量时长（导入参考音色时核对、
 // 合成出的语音记进语音对象），再从采样算出画气泡用的波形摘要。只认 PCM（8/16/24/32 位整数）和 32 位浮点。
-// 38 号票起分段合成：各段依次拼成一条（joinWavs，段间留停顿、接缝做淡入淡出），各段在整条里的位置（wavOffsetsMs）。
+// 分段合成：各段依次拼成一条（joinWavs，段间留停顿、接缝做淡入淡出），各段在整条里的位置（wavOffsetsMs）。
 
 export interface WavInfo {
   sampleRate: number;
@@ -119,7 +119,7 @@ function writeSampleAt(bytes: Buffer, at: number, info: WavInfo, value: number):
   }
 }
 
-// ───────────── 分段合成的拼接（38 号票） ─────────────
+// ───────────── 分段合成的拼接 ─────────────
 
 /** 两段 WAV 的格式一样吗（采样率、声道、位深、编码）：一样才能直接拼 */
 export function sameWavFormat(a: WavInfo, b: WavInfo): boolean {

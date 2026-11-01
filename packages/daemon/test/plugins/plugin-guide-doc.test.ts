@@ -1,12 +1,12 @@
-// 215 号票：插件开发手册（docs/architecture/plugin-development.md）和给 agent 用的 skill（.claude/skills/ergo-plugin/SKILL.md）跟代码对得上。
-// 照 @ergo/memory 的 architecture-doc.test.ts（197 号票）的做法，只读文件、不跑代码，用正则认声明。查五样：
+// 插件开发手册（docs/architecture/plugin-development.md）和给 agent 用的 skill（.claude/skills/ergo-plugin/SKILL.md）跟代码对得上。
+// 照 @ergo/memory 的 architecture-doc.test.ts的做法，只读文件、不跑代码，用正则认声明。查五样：
 // 1. 代码片段：手册里每个 ts / tsx 代码块前面一行写着 <!-- 摘自 <仓库里的路径> -->，块里每一行（去掉首尾空白、空行不算，
 //    单独一行的 "// …" 是省略号）按先后都在那个文件里找得到。没写摘自哪里的 ts / tsx 代码块算错（手册里不放编的代码）。
 // 2. 名字表：每张前面写着 <!-- 名字表 --> 的表（表头"名字、文件、说明"），名字格里每个反引号名字（"名字"或"名字.成员"）在写明的文件里
 //    声明着，"名字.成员"的成员在这个名字的声明块里。
 // 3. 讲全了：插件的定义、两边宿主给插件的上下文、数据契约、"连数据删"、网页的插槽表，它们的每个成员手册里都用反引号提到过——
 //    宿主加了能登记的东西而手册没写，这里就红。
-// 4. 手册和 skill 里反引号括起来的仓库路径（packages/、docs/、.scratch/、.claude/ 开头的）都存在；
+// 4. 手册和 skill 里反引号括起来的仓库路径（packages/、docs/、.claude/ 开头的）都存在；
 // 5. 相对链接指向的文件都存在。
 import fs from "node:fs";
 import path from "node:path";
@@ -217,7 +217,7 @@ export function uncoveredMembers(md: string, members: readonly string[]): string
 /** 反引号括起来的仓库路径中不存在的 */
 export function missingPaths(md: string): string[] {
   const out: string[] = [];
-  for (const m of prose(md).matchAll(/`((?:packages|docs|\.scratch|\.claude)\/[^`\s]*)`/g)) {
+  for (const m of prose(md).matchAll(/`((?:packages|docs|\.claude)\/[^`\s]*)`/g)) {
     const p = m[1]!;
     if (/[<>*…]/.test(p)) continue;
     if (!fs.existsSync(path.join(REPO, p))) out.push(p);

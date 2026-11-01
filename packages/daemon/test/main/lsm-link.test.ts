@@ -1,8 +1,8 @@
-// 主切面：接入 LSM 的 link 协议（规格第 1 节"服务登记"，23 号票）。测试里用替身当管理器（helpers/lsm-stand-in.ts），
+// 主切面：接入 LSM 的 link 协议（规格第 1 节"服务登记"）。测试里用替身当管理器（helpers/lsm-stand-in.ts），
 // 把它的身份（LSM_URL / LSM_SERVICE_ID / LSM_TOKEN / LSM_PROTOCOL）放进守护进程的环境：
-// - 握手报上 pid、端口和能力；心跳报健康（秘书不在运行、启用着的插件没装上时报 degraded，126 号票）和忙不忙：有任务处于执行中、或者有正在执行的有副作用的调用时报"忙"（原因写明），
+// - 握手报上 pid、端口和能力；心跳报健康（秘书不在运行、启用着的插件没装上时报 degraded）和忙不忙：有任务处于执行中、或者有正在执行的有副作用的调用时报"忙"（原因写明），
 //   没有时不报；忙闲变了马上补一次；
-//   并行派出的子 agent（20 号票）的有副作用的调用也算；
+//   并行派出的子 agent的有副作用的调用也算；
 // - 停机：立即的马上优雅停止；等空闲的忙时挂起（可撤销），不忙了再停；停完发 bye；
 // - 被重复启动（管理器回 conflict）：守护进程停下；
 // - 没有注入身份时静默跳过、照常起来；注入了但连不上也照常起来，之后连上。
@@ -98,7 +98,7 @@ describe("接入 LSM：握手和心跳", () => {
     expect(await lsm.waitFor((m) => heartbeat(m) && m.health === "ok", "报健康的心跳")).toMatchObject({ busy: false });
   }, 60_000);
 
-  it("启用着的插件没装上：秘书在运行也报 degraded（LSM 上亮黄灯，126 号票）", async () => {
+  it("启用着的插件没装上：秘书在运行也报 degraded（LSM 上亮黄灯）", async () => {
     const nowhere = serviceKey<unknown>("nowhere");
     const { lsm, td } = await linkedDaemon(100, [{ name: "orphan", title: "缺依赖的", needs: [nowhere], setup() {} }]);
     await waitUntil(() => td.daemon.secretary.status === "idle", { timeoutMs: SECRETARY_START_TIMEOUT_MS, describe: () => `秘书现在是 ${td.daemon.secretary.status}` });
@@ -167,7 +167,7 @@ describe("接入 LSM：停机", () => {
     expect(fs.readFileSync(path.join(td.daemon.layout.scratch, "done.txt"), "utf8")).toBe("好了");
   }, 60_000);
 
-  it("子 agent（20 号票）有正在执行的有副作用的调用、任务本身在等我：也报忙（原因写子 agent 的调用）；等空闲再停会等它做完", async () => {
+  it("子 agent有正在执行的有副作用的调用、任务本身在等我：也报忙（原因写子 agent 的调用）；等空闲再停会等它做完", async () => {
     const lsm = await startLsmStandIn({ heartbeatIntervalMs: 200 });
     // 负责人把 s1 交给 sa-1，用户同意后自己转为等我；sa-1 跑一个等 go.txt 出现才结束的脚本
     const run = [

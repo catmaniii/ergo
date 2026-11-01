@@ -1,5 +1,5 @@
-// VPS 上的 https 站点和证书（322 号票）：`lsm vps site add | remove`、`lsm vps certs`、`lsm vps scan`。
-// 和 321 的 setup 同一套底子：执行层（exec）、问答（io）、专用钥匙、只读体检、脚本整份显示了才跑、状态文件（vps-setup.json）。
+// VPS 上的 https 站点和证书：`lsm vps site add | remove`、`lsm vps certs`、`lsm vps scan`。
+// 和 setup 同一套底子：执行层（exec）、问答（io）、专用钥匙、只读体检、脚本整份显示了才跑、状态文件（vps-setup.json）。
 //
 // site add 的顺序：
 //   1. 定域名（默认 <名字>.<IP>.sslip.io）、本机专用钥匙、登进 VPS；

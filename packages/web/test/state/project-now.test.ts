@@ -1,4 +1,4 @@
-// 项目的"运营概况"和项目页最上面的"现在"（140 号票）的状态层：
+// 项目的"运营概况"和项目页最上面的"现在"的状态层：
 // - 运营概况：服务入口带缩略图（截过的给截图时间、上线了还没图的只悄悄取一次、不在线的灰掉）；定时任务收起时一行写清几条、各几点
 //   （名字用运营方案里那一条的名字，你暂停了的标"已暂停"），展开每条有时间表、下次、上次和结果、状态；没有定时任务的没有那一行、
 //   没有服务的没有入口、两样都没有就没有；只有使用中的有，停用、归档了的照样列、整块标出来；
@@ -221,7 +221,7 @@ describe("运营概况", () => {
   });
 });
 
-describe("运营概况里的“启动”“关闭”（257 号票）", () => {
+describe("运营概况里的“启动”“关闭”", () => {
   test("使用中、有在 LSM 上的服务的才有那一行：在线时只能关闭；你关着的写“已关闭”、只能启动，缩略图灰着标“已关闭”；停用了的、只有定时任务的没有", () => {
     expect(projectOperationsSummary(replay(inUse().list), "p-1")!.power).toEqual({ state: "online", text: "在线", canStart: false, canStop: true });
     const off = projectOperationsSummary(replay(inUse({ services: [service({ paused: true, status: "offline", thumbnailAt: "2026-10-18T08:00:00.000+08:00" })] }).list), "p-1")!;
@@ -299,7 +299,7 @@ describe("“现在”按项目状态挑内容", () => {
     expect(working?.kind === "building" && working.stuck.some((s) => s.kind === "stale")).toBe(false);
   });
 
-  test("建设中：“转入使用”确认卡还在等（259 号票）——“现在”里直接放这张卡；处理了就不放", () => {
+  test("建设中：“转入使用”确认卡还在等——“现在”里直接放这张卡；处理了就不放", () => {
     const f = frames();
     f.project(project({ state: "building", buildTaskId: "t-1" }));
     f.task(task("t-1", { title: "建设首版", state: "running" }));
@@ -312,7 +312,7 @@ describe("“现在”按项目状态挑内容", () => {
     expect(after?.kind === "building" && after.goLiveCardId).toBeUndefined();
   });
 
-  // 311 号票（294 号票端到端小测第 6 条，截图 25）：建设任务那一行同时写"待确认 · 计划等你确认"和"尚无计划"
+  // 端到端小测第 6 条，截图 25：建设任务那一行同时写"待确认 · 计划等你确认"和"尚无计划"
   test("建设任务的计划还没授权（规划中、计划等你确认）：只写状态，不再另写“尚无计划”；授权了照旧有进度", () => {
     const f = frames();
     f.project(project({ state: "building", buildTaskId: "t-1" }));

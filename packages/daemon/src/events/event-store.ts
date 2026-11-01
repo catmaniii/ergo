@@ -5,12 +5,12 @@
 // - 派生视图可以清空后从事件日志整体重建；视图的表结构变了（要从负载算的新列）时，建表返回 "refill"，打开时只给它补一遍
 //   （视图登记了 channels 的只读那几个频道）。
 // - 事件日志不可修改，例外有三个（规格第 15 节），都只换负载、不删行（频道、序号、类型、时间都在）：
-//   1. 彻底删除（21 号票）、2. 删除项目时改写属于项目的原话（15 号票，ADR-0010）：同一个口子 appendBatch 的 purge。
+//   1. 彻底删除、2. 删除项目时改写属于项目的原话（ADR-0010）：同一个口子 appendBatch 的 purge。
 //      换成什么由记忆模块按事件类型登记的改写函数定（memory/rewriters.ts）：消息事件整条换成"已删除"标记
 //      （共享协议包的 DeletedEventPayload），别的事件只把带原话的文本字段换成删除标记文字、状态不变。
 //      派生视图看不到"已删除"标记（和素材采集一样跳过），改写后在同一事务里整体重建；提交后做一次 WAL 检查点（TRUNCATE），
 //      连接开着 secure_delete（storage/sqlite.ts），旧内容不留在 WAL 和空闲页里。
-//   3. 保留期清理（65 号票，ADR-0024）：expireContent 把过了保留期、超出总量上限的工具调用完整内容换成只剩摘要的版本。
+//   3. 保留期清理（ADR-0024）：expireContent 把过了保留期、超出总量上限的工具调用完整内容换成只剩摘要的版本。
 //      只改得了在视图上登记过 contentExpiry 的事件类型（现在只有 tool_call_detail）；只去掉内容、不改别的视图归并出的东西，
 //      所以不重放视图（完整内容可能上 GB），只叫登记它的视图更新自己记着的大小、样子；不通知订阅者，也不马上做 WAL 检查点
 //      （见 expireContent 里的说明）。
@@ -43,7 +43,7 @@ export interface PurgeRewrite {
   payload: unknown;
 }
 
-/** 保留期清理时一条事件换成的只剩摘要的负载（65 号票）：事件类型要在视图上登记过 contentExpiry */
+/** 保留期清理时一条事件换成的只剩摘要的负载：事件类型要在视图上登记过 contentExpiry */
 export interface ExpiredContent {
   globalSeq: number;
   payload: unknown;
@@ -76,7 +76,7 @@ export interface DerivedView {
   /** 把一条事件归并进视图；不关心的事件直接忽略 */
   apply(db: Database, event: StoredEvent): void;
   /**
-   * 这个视图所属的模块拥有的、要做保留期清理的那类事件（65 号票，EventStore.expireContent 只改写登记过的类型，一类只能登记一次）。
+   * 这个视图所属的模块拥有的、要做保留期清理的那类事件（EventStore.expireContent 只改写登记过的类型，一类只能登记一次）。
    * 改写后叫 expired（event 是换过之后的）：视图里记着负载本身的东西（大小、清没清）在这里更新，和 apply 归并换过的负载结果一致
    */
   contentExpiry?: { eventType: string; expired(db: Database, event: StoredEvent): void };
@@ -94,7 +94,7 @@ export interface EventStore {
    */
   appendBatch(events: readonly NewEvent[], options?: { purge?: readonly PurgeRewrite[] }): AppendResult[];
   /**
-   * 保留期清理（65 号票）：同一事务里把这些事件（全局序号）的负载换成只剩摘要的样子（没变的不动；没有这条事件、或者它的类型
+   * 保留期清理：同一事务里把这些事件（全局序号）的负载换成只剩摘要的样子（没变的不动；没有这条事件、或者它的类型
    * 没有视图登记 contentExpiry 时整组回滚），返回改写了几条。只去掉内容、不改别的视图归并出的东西，所以不重放视图，
    * 只叫登记它的视图的 expired；不通知订阅者；不马上做 WAL 检查点。换成什么由拥有这类事件的模块定
    * （工具调用的完整内容：guard-runtime/tool-call-details.ts 的 clearedDetail）
@@ -126,12 +126,12 @@ export interface EventStore {
   /** 清空所有派生视图，再按全局序号把事件日志整个重放一遍 */
   rebuildViews(): void;
   /**
-   * 把一个视图摘下来（126 号票：插件运行中停用）：之后的追加、整体重放都不再更新它，表和里面的内容留着；
+   * 把一个视图摘下来（插件运行中停用）：之后的追加、整体重放都不再更新它，表和里面的内容留着；
    * 记成"停着的视图"，下次登记它时（打开事件存储时，或者运行中 attachView）整表清空、按事件日志补一遍
    */
   detachView(name: string): void;
   /**
-   * 运行中登记一个视图（211 号票：插件运行中启用、装回）：建表；它停过（记着是停着的）或者建表说要补（"refill"）时，
+   * 运行中登记一个视图（插件运行中启用、装回）：建表；它停过（记着是停着的）或者建表说要补（"refill"）时，
    * 同一个事务里整表清空、按事件日志补一遍（登记了 channels 的只读那几个频道），和打开事件存储时一样；之后的追加、整体重放都更新它。
    * 已经登记着的不动
    */
@@ -150,7 +150,7 @@ export interface OpenEventStoreOptions {
   file: string;
   views: readonly DerivedView[];
   /**
-   * 这次不登记的视图的名字（126 号票：配置里停用了、缺依赖没装的插件声明的视图）：记成"停着的视图"——表留着、不再更新；
+   * 这次不登记的视图的名字（配置里停用了、缺依赖没装的插件声明的视图）：记成"停着的视图"——表留着、不再更新；
    * 以后哪次打开时又登记了，先整表清空、按事件日志补一遍（停着的这段时间里追加、改写的事件它都没看到）
    */
   dormantViews?: readonly string[];

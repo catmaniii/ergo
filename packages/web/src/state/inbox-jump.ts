@@ -1,4 +1,4 @@
-// 待办里每一项"去看看 ›"跳到哪（105 号票，纯函数）：
+// 待办里每一项"去看看 ›"跳到哪（纯函数）：
 // - 事项上记了来源（origin，守护进程建事项时记下）的按来源去：记了会话的（一次调用、一张卡实际所在的会话）按"卡在哪个会话"去——
 //   秘书会话、任务自己的会话（任务整页；项目内部任务的会话就是项目负责人的，也去任务）、项目负责人的会话（项目，多项目任务派来的工单
 //   在这里做）；没记会话的有任务去任务的整页（负责它的 agent 的会话），有项目去项目的整页（负责人的会话；删除项目的确认去项目页）。
@@ -60,7 +60,7 @@ export function inboxJump(state: UiState, item: InboxItem): InboxJump | undefine
 /**
  * 按记下的来源去。记了会话的（审批卡、交给我做、中断不确定、快速动作卡：一次调用、一张卡实际所在的会话）按"卡在哪个会话"去：
  * 秘书会话；任务自己的负责人的会话去任务整页（项目内部任务的负责人就是项目的负责人，也去任务）；项目负责人的会话去项目——
- * 多项目任务（17 号票）派到项目的工单由项目负责人做，调用记着那个多项目任务，可卡出在项目负责人的会话里，去任务整页找不到它。
+ * 多项目任务派到项目的工单由项目负责人做，调用记着那个多项目任务，可卡出在项目负责人的会话里，去任务整页找不到它。
  * 没记会话的（任务、项目自己的事项）有任务去任务、有项目去项目
  */
 function originJump(state: UiState, item: InboxItem): InboxJump | undefined {
@@ -77,7 +77,7 @@ function originJump(state: UiState, item: InboxItem): InboxJump | undefined {
 }
 
 /**
- * 会话里的一条（卡、调用、消息）去哪个页面看（158 号票：设置里素材的出处也按这个去）：秘书会话；负责人的会话按它是哪个任务自己的、
+ * 会话里的一条（卡、调用、消息）去哪个页面看（设置里素材的出处也按这个去）：秘书会话；负责人的会话按它是哪个任务自己的、
  * 哪个项目的，去任务、项目的整页（和待办的"去看看 ›"同一个认法）；认不出的是 undefined
  */
 export function conversationAtJump(state: UiState, conversation: string, ids: { taskId?: string | undefined; projectId?: string | undefined }, at: string): InboxJump | undefined {
@@ -100,7 +100,7 @@ function conversationJump(state: UiState, maintainerId: string, origin: { taskId
   return undefined;
 }
 
-/** 还没迁移的定时作业被自动暂停（76 号票之后的属于定时触发的任务，记了任务）：看板上那张作业卡，项目里的去项目页那一行 */
+/** 还没迁移的定时作业被自动暂停（后来的属于定时触发的任务，记了任务）：看板上那张作业卡，项目里的去项目页那一行 */
 function jobJump(state: UiState, data: unknown): InboxJump | undefined {
   const jobId = (data as { jobId?: unknown } | undefined)?.jobId;
   if (typeof jobId !== "string") return undefined;

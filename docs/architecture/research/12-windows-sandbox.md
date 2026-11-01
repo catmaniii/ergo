@@ -119,7 +119,7 @@
 - **第三方实测**（oxbox PR #34，25H2 Pro，build 26200，[oxbox]）：
   - `wsb.exe` 不在系统镜像里。第一次启动 `WindowsSandbox.exe` 时，系统从 Store 装上 `MicrosoftWindows.WindowsSandbox_0.8.107.0`，之后才有 `wsb.exe`。
   - 在 SSH 这类非交互会话里：`wsb start` 30.6 s 后返回 `Cancelled`；`WindowsSandbox.exe` 返回 0，但什么都没跑。
-- 【推测】二狗 daemon 由 LSM 在用户登录后的交互会话里拉起（调研 08 §3.5，未公开），应该能满足"交互会话"这一条；但锁屏后或无人登录时不行。
+- 【推测】二狗 daemon 由 LSM 在用户登录后的交互会话里拉起，应该能满足"交互会话"这一条；但锁屏后或无人登录时不行。
 - **启动时间**：
   - 微软只说 "takes a few seconds to launch"（[wsb-ov]）。
   - 第三方计时（[yaah]）：
@@ -482,7 +482,7 @@
 
 ## 6. 对二狗的含义【建议】
 
-背景：每个项目有两个目录，"项目档案"和"工作目录"。项目的维护 agent 和它的子 agent 只能碰这两个目录。daemon 由 LSM 托管；项目不许自带任何自启机制（计划任务、Run 键都不行，见调研 08 §3.6（未公开））。
+背景：每个项目有两个目录，"项目档案"和"工作目录"。项目的维护 agent 和它的子 agent 只能碰这两个目录。daemon 由 LSM 托管；项目不许自带任何自启机制（计划任务、Run 键都不行）。
 
 1. **OS 沙箱只管子进程，管不到 daemon 进程里的文件工具。**
    - 【推测】pi SDK 的 read / write / edit 工具在 daemon 进程里以用户身份执行，需要对照 pi 的工具实现确认。
@@ -641,7 +641,6 @@
 **本地**
 
 - `~\.codex\.sandbox\sandbox.log`、`~\.codex\.sandbox\setup_marker.json`、`~\.codex\sandbox.log`、`~\.codex\config.toml`（只读；没有读 `.sandbox-secrets` 和 `auth.json`）
-- 调研 08（未公开）：LSM 的自启方式、job 连坐、ADR-0005
 
 <!-- 引用标签的链接定义（正文里的 [标签] 指向这里） -->
 [wsb-ov]: https://learn.microsoft.com/en-us/windows/security/application-security/application-isolation/windows-sandbox/

@@ -1,4 +1,4 @@
-// 只读的 IMAP 客户端（298 号票，google/imap.ts）：不加依赖，自己写的那部分——
+// 只读的 IMAP 客户端（google/imap.ts）：不加依赖，自己写的那部分——
 // - 按字节读回应（literal 被切在几个包里、长度 0 的、几条回应挤在一个包里）、解值（带方括号的 atom、NIL、引号里的转义、嵌套的括号）；
 // - 只读：只放行 CAPABILITY / LOGIN / LIST / EXAMINE / UID SEARCH / UID FETCH（只能 BODY.PEEK）/ LOGOUT / NOOP，写操作和会标已读的 FETCH 拒绝；
 // - 连本机的假 IMAP 服务（TLS，测试的自签证书经 ca 信任）：登录、列邮箱（\All、\Sent、修改过的 UTF-7 的中文名）、只读打开、

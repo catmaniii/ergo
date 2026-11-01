@@ -1,4 +1,4 @@
-// 主切面：skill 库、MCP 登记与工具包（27 号票，规格第 3、11、20、21 节）。
+// 主切面：skill 库、MCP 登记与工具包（规格第 3、11、20、21 节）。
 // - skill 库：列出框架自带的和数据目录 skill 区里的；设置里导入的复制一份进 skill 区，能写进工具包；~/.claude/skills 里的不出现；
 // - 负责人的会话严格按工具包装配：只有工具包列的 skill（skillPaths），bash、MCP、联网照开关；用户目录里的 skill 一个都没有；
 // - 工具包一变立即生效：负责人正在干活时等它做完手头这一步（当前的工具调用结束、下一次模型调用之前）就重启子进程、
@@ -70,7 +70,7 @@ async function nthReply(frontend: TestFrontend, channel: string, n: number): Pro
 
 /** 上下文里系统提示的最新样子：从最后一条 [system] 起（换了工具包时 pi 追加一条系统消息，按段替换） */
 const latestSystem = (seen: string) => seen.slice(seen.lastIndexOf("[system]"));
-/** 此刻能用的工具那几行：开头那一份（换了工具包接着会话也是开头一份、按这次交的先后，会话中途不列增减，273 号票） */
+/** 此刻能用的工具那几行：开头那一份（换了工具包接着会话也是开头一份、按这次交的先后，会话中途不列增减） */
 const toolLines = (seen: string) => toolsNow(seen).map((name) => `[tool] ${name}`);
 
 async function connect(td: TestDaemon, channels: string[] = []) {
@@ -376,7 +376,7 @@ describe("按工具包装配负责人的会话", () => {
     // 只连本机一个没人听的端口（和无效代理同一个地址），不往外发任何东西
     const GET = "curl -s -m 5 http://127.0.0.1:9/notes";
     const POST = "curl -s -m 5 -X POST -d a=1 http://127.0.0.1:9/notes";
-    // 联网关着时连本机放行（362 号票），要拒的得是外面的地址；守卫先拦，不会真发（.invalid 也解析不出来）
+    // 联网关着时连本机放行，要拒的得是外面的地址；守卫先拦，不会真发（.invalid 也解析不出来）
     const OUTSIDE = "curl -s -m 5 http://example.invalid/notes";
     const td = await startTestDaemon({
       maintainer: (_id, spawn) =>

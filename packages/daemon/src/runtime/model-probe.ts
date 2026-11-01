@@ -1,4 +1,4 @@
-// 守护进程这一侧调用"模型探查"（设置里的"模型"，73 号票）：拉起一次性子进程 agent-child/model-probe-main.ts，
+// 守护进程这一侧调用"模型探查"（设置里的"模型"）：拉起一次性子进程 agent-child/model-probe-main.ts，
 // stdin 送一行请求（列出模型目录里某个服务商的模型，或者连通测试）、stdout 读一行结果，等它退出。模型目录只有子进程查得到
 // （ADR-0001、ADR-0004），守护进程自己不跑模型（ADR-0002），这里只转手。凭据在请求里经 stdin 送达，不进子进程的环境变量。
 import path from "node:path";

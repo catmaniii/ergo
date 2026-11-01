@@ -42,7 +42,7 @@ export function CardShell({
   label?: string;
   /** 处理完之后显示的文字，默认按处理结果（比如提醒卡到点后写"已触发"） */
   doneLabel?: string;
-  /** 处理完之后还能做的（185 号票：提醒卡响过、取消了以后还能归档、删除；不是卡片动作，各自交请求） */
+  /** 处理完之后还能做的（提醒卡响过、取消了以后还能归档、删除；不是卡片动作，各自交请求） */
   doneActions?: ReactNode;
 }) {
   const { card, pending } = state;

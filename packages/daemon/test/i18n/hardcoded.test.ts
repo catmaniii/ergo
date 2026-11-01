@@ -1,4 +1,4 @@
-// 还剩多少处写死的中文（168 号票：多语言迁移的棘轮）。
+// 还剩多少处写死的中文（多语言迁移的棘轮）。
 // - 怎么数：含中文的字符串、模板、正则、JSX 文字各算一处；注释、日志调用里的、标了 @i18n-ignore 的不算（scanSource 的表格测试）；
 // - 棘轮：每个区域还剩几处不能比基线多（新写的界面文字要走 t()），也不能比基线少却不改基线（降下来了就把基线改下来，
 //   `npm run i18n:check -- --lower-baseline`）；标注写错了也算失败。基线每个区域一个文件，在 hardcoded-baseline/ 里。
@@ -74,7 +74,7 @@ describe("怎么数", () => {
 });
 
 describe("区域", () => {
-  it("按区域表认领：守护进程 tasks/ 和 173 号票的几个目录排在其余目录前面；原型的演示数据、多语言自己的代码、测试不扫", () => {
+  it("按区域表认领：守护进程 tasks/ 和另外几个目录排在其余目录前面；原型的演示数据、多语言自己的代码、测试不扫", () => {
     expect(regionOf("packages/web/src/ui/main-nav.tsx")?.region).toBe("web-ui");
     expect(regionOf("packages/web/src/App.tsx")?.region).toBe("web-ui");
     expect(regionOf("packages/web/src/state/nav.ts")?.region).toBe("web-state");
@@ -99,15 +99,15 @@ describe("棘轮：每个区域写死的中文只许降不许升", () => {
     expect(scans.filter((s) => s.markerErrors.length > 0).map((s) => `${s.file}：${s.markerErrors.join("；")}`)).toEqual([]);
   });
 
-  // 175 号票收紧：迁完了，每个区域都是 0；剩下的只有标了原因的（npm run i18n:check -- --ignored <区域> 列出）。基线不许再往上改
-  it("175 号票收紧：每个区域的基线都是 0", () => {
+  // 收紧：迁完了，每个区域都是 0；剩下的只有标了原因的（npm run i18n:check -- --ignored <区域> 列出）。基线不许再往上改
+  it("收紧：每个区域的基线都是 0", () => {
     expect(Object.fromEntries(HARDCODED_REGIONS.map(({ region }) => [region, readBaseline(REPO, region)]))).toEqual(
       Object.fromEntries(HARDCODED_REGIONS.map(({ region }) => [region, 0])),
     );
   });
 
-  for (const { region, ticket } of HARDCODED_REGIONS) {
-    it(`${region}（${ticket} 号票迁）`, () => {
+  for (const { region } of HARDCODED_REGIONS) {
+    it(`${region} 不比基线多`, () => {
       const baseline = readBaseline(REPO, region);
       const count = counts[region] ?? 0;
       const places = () =>

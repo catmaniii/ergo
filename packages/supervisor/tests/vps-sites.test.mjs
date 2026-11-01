@@ -1,4 +1,4 @@
-// VPS 上的 https 站点和证书（322 号票）：site add / remove 的脚本在假 Debian 上用 Git Bash 真的跑（直接听 443、
+// VPS 上的 https 站点和证书：site add / remove 的脚本在假 Debian 上用 Git Bash 真的跑（直接听 443、
 // 80 被别的程序占着要临时停、443 前面有 stream 前门三种布局；重跑不改东西；nginx -t 不过撤回；签失败也拉起来），
 // 布局判断、nginx 配置解析的单测，和经假执行层的整条流程（certs、scan 认领）。不连任何真机器。
 import './_isolate.mjs';   // 必须是第一个 import：先把数据目录换成临时目录

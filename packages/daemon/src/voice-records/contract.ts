@@ -1,7 +1,7 @@
-// 语音消息的素材（规格第 15、22 节，31 号票）和彻底删除时怎么改写它的事件。
+// 语音消息的素材（规格第 15、22 节）和彻底删除时怎么改写它的事件。
 // - 用户的语音算用户发言（本人）：识别完成（voice 事件、状态完成）时产生一条素材。素材的文字是识别出的文字，
 //   切段注明"转写"，信封的情境标签带 voice_transcript；切段里同时留着音频的引用，随原文副本一起存。
-//   识别失败的没有文字，不产生素材（用户重新识别成功时才产生）。了解你访谈（284 号票）开着时在记忆管理员的会话里说的，
+//   识别失败的没有文字，不产生素材（用户重新识别成功时才产生）。了解你访谈开着时在记忆管理员的会话里说的，
 //   语音对象带着访谈编号（interviewId），情境标签多一个 interview（"来自访谈"）；带着管理员问的那一句（interviewQuestion）的，
 //   那一句作为上下文切段排在转写前面。
 //   消息事件本身不为语音产生素材（materials/sources.ts 不给语音切段）：那时还没有文字。语音连同附件一起发的（2026-10-10 起），
@@ -11,7 +11,7 @@
 //   这条语音的其余 voice 事件，以及重新识别成功后交给 agent 的那条通知（里面有转写）。
 // - 设置里按会话、按时间段彻底删除时，没有素材的语音（识别失败的、还没识别完的、素材早先被忘掉了的）也要删掉消息和音频：
 //   voicePurgeTargets 给出范围里这些语音的原始事件，记忆模块的批量删除把它们和素材的原始事件一起改写（连带的照上）。
-// 214 号票起语音是插件（voice/），这里是内核的数据契约（voice-records/index.ts）：素材来源和改写函数由语音插件在它的数据契约里登记
+// 语音是插件（voice/），这里是内核的数据契约（voice-records/index.ts）：素材来源和改写函数由语音插件在它的数据契约里登记
 // （ADR-0027：不管开没开都登记，停用也不撤），设置里成批删除时没有素材的语音（voicePurgeTargets）由内核直接用——语音插件停用了照样删得掉。
 import {
   EVENT_TYPES,
@@ -31,7 +31,7 @@ import { conversationKind, interviewQuestionSegments, type Material, type Materi
 import { voicesIn } from "./views.ts";
 
 /**
- * 用户重新识别成功后交给 agent 的那条通知的幂等键（31 号票，每条语音最多一条：识别完成之后不能再重新识别）：
+ * 用户重新识别成功后交给 agent 的那条通知的幂等键（每条语音最多一条：识别完成之后不能再重新识别）：
  * 彻底删除时连带改写它（里面有转写）
  */
 export const voiceRetryNoticeKey = (voiceId: string) => `voice-retry-notice:${voiceId}`;
@@ -57,7 +57,7 @@ export const voiceMaterialSource: MaterialSource = {
         ...(voice.taskId === undefined ? {} : { task: voice.taskId }),
         ...(voice.projectId === undefined ? {} : { project: voice.projectId }),
         context: [conversationKind(voice.conversation), VOICE_TRANSCRIPT_CONTEXT, ...(voice.interviewId === undefined ? [] : [INTERVIEW_CONTEXT])],
-        // 访谈里的（284 号票）：管理员问的那一句排在转写前面（上下文，不是本人的话）
+        // 访谈里的：管理员问的那一句排在转写前面（上下文，不是本人的话）
         segments: [
           ...(voice.interviewId === undefined ? [] : interviewQuestionSegments(voice.interviewQuestion)),
           ...segmentPieces([{ form: "voice", mediaId: voice.mediaId, transcript: text, locator: { part: 0 } }]),
@@ -91,7 +91,7 @@ export const voicePurge: PurgeRewriter = {
   eventType: EVENT_TYPES.voice,
   rewrite(event) {
     const payload = event.payload as VoiceEventPayload;
-    // 别的字段（180 号票的 dropInput）照留
+    // 别的字段（dropInput）照留
     return { ...payload, voice: purgedVoice(payload.voice) } satisfies VoiceEventPayload;
   },
   related(event, store) {
@@ -103,12 +103,12 @@ export const voicePurge: PurgeRewriter = {
 };
 
 /**
- * 设置里彻底删除一个范围（会话、时间段）时，范围里没有素材的语音的原始事件（31 号票）：识别失败的、还没识别完的、
+ * 设置里彻底删除一个范围（会话、时间段）时，范围里没有素材的语音的原始事件：识别失败的、还没识别完的、
  * 素材早先被忘掉了的。消息已经不在了（删过了）的不算；时间按说话（发消息）的时间。
  * materials 是这次一起删的素材：有素材的语音由素材那边带上，这里不重复
  */
 export function voicePurgeTargets(store: EventStore, scope: MaterialScope, materials: readonly Material[]): StoredEvent[] {
-  // 只删一条素材（158 号票，设置里看过内容后删的）：不连带别的语音
+  // 只删一条素材（设置里看过内容后删的）：不连带别的语音
   if (scope.kind === "material") return [];
   const covered = new Set(materials.map((m) => m.ref.recordId));
   const from = scope.kind === "time_range" ? Date.parse(scope.from) : Number.NEGATIVE_INFINITY;

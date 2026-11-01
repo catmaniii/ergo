@@ -1,6 +1,6 @@
-// agent 贡献模块（128 号票）：按给谁（哪种 agent、哪种会话、此刻的工具包）筛插件的工具、上下文块、钩子订阅；登记都能撤销、撤了通知。
+// agent 贡献模块：按给谁（哪种 agent、哪种会话、此刻的工具包）筛插件的工具、上下文块、钩子订阅；登记都能撤销、撤了通知。
 // 经插件宿主登记、停用时撤掉在 test/plugins/host.test.ts，走真实装配路径的在 test/main/agent-contributions.test.ts。
-// 212 号票：工具排在哪（at: "end"，内核的工具之后）、输入附注（接在那条输入自己的文字末尾），走真实装配路径的在 test/main/browsing-plugin.test.ts。
+// 工具排在哪（at: "end"，内核的工具之后）、输入附注（接在那条输入自己的文字末尾），走真实装配路径的在 test/main/browsing-plugin.test.ts。
 import { type PlanToolkit, Type } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
 import { createAgentContributions, type ContributionTarget } from "../../src/agent-host/contributions.ts";
@@ -57,7 +57,7 @@ describe("agent 贡献模块", () => {
     expect(changes).toEqual([1, 2, 3, 4]);
   });
 
-  it("266 号票：跟在输入后面的块可以是异步算的（记忆简报要检索）——有一块是异步的就整个等齐了再拼，先后照登记的；回话要带的 part 按给谁收齐", async () => {
+  it("跟在输入后面的块可以是异步算的（记忆简报要检索）——有一块是异步的就整个等齐了再拼，先后照登记的；回话要带的 part 按给谁收齐", async () => {
     const contributions = createAgentContributions({ log: () => {} });
     contributions.context.register({ when: "input", text: async (message) => `【简报】${message.id}`, replyParts: () => [{ type: "text", text: "简报的部分" }] });
     contributions.context.register({ when: "input", text: () => "【顺口问】" });
@@ -79,7 +79,7 @@ describe("agent 贡献模块", () => {
     expect(await failing.inputContextFor(secretary, message)).toBe("【留着】");
   });
 
-  it("212 号票：写着 at: \"end\" 的工具只在 end 那一处给（排在内核的工具之后），重名按两处合起来认", () => {
+  it("写着 at: \"end\" 的工具只在 end 那一处给（排在内核的工具之后），重名按两处合起来认", () => {
     const logs: string[] = [];
     const contributions = createAgentContributions({ log: (line) => logs.push(line) });
     contributions.tools.register({ tools: () => [tool("early"), tool("both")] });
@@ -92,7 +92,7 @@ describe("agent 贡献模块", () => {
     expect(contributions.toolsFor(secretary, "end")).toEqual([]);
   });
 
-  it("212 号票：输入附注按给谁筛、几条换行拼在一起（没有内容的不算）；登记、撤销都通知，撤了就没有了", () => {
+  it("输入附注按给谁筛、几条换行拼在一起（没有内容的不算）；登记、撤销都通知，撤了就没有了", () => {
     const contributions = createAgentContributions({ log: () => {} });
     const changes: number[] = [];
     contributions.onChange(() => changes.push(changes.length + 1));

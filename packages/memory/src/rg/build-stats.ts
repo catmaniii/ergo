@@ -1,4 +1,4 @@
-// 218 号票：一次建库的统计——推理每一步的模型调用（调用、截断、解析不了、救回、恢复、放弃，llm/robust.ts）、
+// 一次建库的统计——推理每一步的模型调用（调用、截断、解析不了、救回、恢复、放弃，llm/robust.ts）、
 // 往上抽门槛的判法结果（没过的按哪一条没过计数），加上当前库的样子（结论数、组数、各层几条、策略几条）。
 // reflect 的报告带一份（ReflectReport.stats），评测建库时把抽事实、整理（扰动的库再整理一次）的合起来记进 EngineStat。
 import { CLAIM_TIERS, type ClaimTier } from "../domain/types.ts";
@@ -66,7 +66,7 @@ export function storeShape(engine: MemoryEngine): StoreShape {
 
 const STEP_ORDER: readonly StageName[] = ["extract", "propose", "probes", "judge", "lift", "strategies"];
 
-/** 237 号票：整理每一步的说法（建库进度、卡住时看停在哪一步） */
+/** 整理每一步的说法（建库进度、卡住时看停在哪一步） */
 export const REFLECT_STEP_LABELS: Readonly<Record<ReflectStep, string>> = {
   extract: "抽事实",
   propose: "出假设",
@@ -82,7 +82,7 @@ export const REFLECT_STEP_LABELS: Readonly<Record<ReflectStep, string>> = {
   strategies: "编策略",
 };
 
-/** 237 号票：一步的开始、结束写成一行进度（前面带时间戳由调用方加） */
+/** 一步的开始、结束写成一行进度（前面带时间戳由调用方加） */
 export function formatStepEvent(event: ReflectStepEvent): string {
   return `${REFLECT_STEP_LABELS[event.step]}${event.phase === "start" ? "…" : " 做完"}${event.detail ? `：${event.detail}` : ""}`;
 }

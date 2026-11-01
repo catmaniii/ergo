@@ -1,14 +1,14 @@
-// 197 号票：记忆系统的总览文档（docs/architecture/memory-system.md）和代码对得上。改了接口名、挪了文件而没改文档，这里就红。
+// 记忆系统的总览文档（docs/architecture/memory-system.md）和代码对得上。改了接口名、挪了文件而没改文档，这里就红。
 // 查三样：
 // 1. 接口表：每张前面写着 <!-- 接口表 --> 的表，表头是"状态、接口、文件、参数要点、返回"。状态是 ✅ 或 🧪 的行：
 //    - 文件要存在；
 //    - 接口格里每个反引号名字都要在文件里找得到：记忆包（@ergo/memory）入口转出的文件，名字要是这个文件的导出、也要是包入口的导出；
-//      记忆包别的文件、评测包（packages/memory-eval，评测这类）的文件，名字要是这个文件的导出；守护进程、网页、协议包的文件，名字要在文件里声明；
+//      记忆包别的文件，名字要是这个文件的导出；守护进程、网页、协议包的文件，名字要在文件里声明；
 //      "名字.成员"的成员要在这个名字的声明块里。
 //    状态是 📋 或写着"进行中"的行不查名字（还没有代码）。
-// 2. 文档里反引号括起来的、以 packages/、docs/、.scratch/ 开头的路径，和相对链接指向的文件，都要存在。
+// 2. 文档里反引号括起来的、以 packages/、docs/ 开头的路径，和相对链接指向的文件，都要存在。
 // 3. mermaid 的几条硬规矩：流程图的节点名、连线上的字都加引号；时序图的消息里不出现分号、井号。
-// 197 号票第二版（记忆接进二狗以后）又加了三样，管住守护进程这一侧：
+// 第二版（记忆接进二狗以后）又加了三样，管住守护进程这一侧：
 // 4. 工具表：每张前面写着 <!-- 工具表 --> 的表，表头是"状态、工具、给谁、文件、做什么"。✅、🧪 行的每个工具名都要以字符串字面量
 //    出现在写明的文件里；守护进程里记忆的工具名（memory/tool-names.ts 的常量、CURATOR_TOOL_NAMES）每一个都要在工具表里有一行。
 // 5. 守护进程 packages/daemon/src/memory/、网页 packages/web/src/plugins/memory/ 下的每个源文件，完整路径都要在文档里出现。
@@ -20,18 +20,10 @@ import { describe, expect, it } from "vitest";
 
 const REPO = fileURLToPath(new URL("../../../", import.meta.url));
 const DOC = path.join(REPO, "docs", "architecture", "memory-system.md");
-/**
- * 公开仓库里没有评测包 packages/memory-eval（326 号票：评测和评测数据只留私有仓库）。
- * 文档里的接口表会提到它的源文件，公开版里那些行没法核——读文档时按"目录在不在"决定要不要把那些行去掉，
- * 私有仓库照旧一个都查。
- */
-const HAS_MEMORY_EVAL = fs.existsSync(path.join(REPO, "packages", "memory-eval"));
-const docForChecks = (text: string): string =>
-  HAS_MEMORY_EVAL ? text : text.split(/\r?\n/).filter((line) => !line.includes("packages/memory-eval")).join("\n");
 /** 记忆包的入口（@ergo/memory） */
 const ENTRY = "packages/memory/src/index.ts";
-/** 记忆包和评测包的源码（326 号票分成两个包）：这两处的文件按"导出"认名字 */
-const LAB_SRC: readonly string[] = ["packages/memory/src/", "packages/memory-eval/src/"];
+/** 记忆包的源码：这里的文件按"导出"认名字 */
+const LAB_SRC: readonly string[] = ["packages/memory/src/"];
 
 export const TABLE_MARKER = "<!-- 接口表 -->";
 export const TABLE_HEADER: readonly string[] = ["状态", "接口", "文件", "参数要点", "返回"];
@@ -194,8 +186,6 @@ function hasMember(block: readonly string[], member: string): boolean {
 /** 一行接口表的问题（没有问题是空数组） */
 export function checkRow(row: InterfaceRow): string[] {
   if (!row.checked) return [];
-  // 公开仓库里没有评测包（326 号票）：文档里指向它的行没法核，跳过（私有仓库照旧查）
-  if (!HAS_MEMORY_EVAL && row.file?.includes("packages/memory-eval/")) return [];
   const where = `第 ${row.line} 行`;
   if (!row.file) return [`${where}：没写文件`];
   if (!fs.existsSync(path.join(REPO, row.file))) return [`${where}：文件 ${row.file} 不存在`];
@@ -223,7 +213,7 @@ export function checkRow(row: InterfaceRow): string[] {
 /** 文档里反引号括起来的仓库路径中不存在的 */
 export function missingPaths(md: string): string[] {
   const out: string[] = [];
-  for (const m of md.matchAll(/`((?:packages|docs|\.scratch)\/[^`\s]*)`/g)) {
+  for (const m of md.matchAll(/`((?:packages|docs)\/[^`\s]*)`/g)) {
     const p = m[1]!;
     if (/[<>*…]/.test(p)) continue;
     if (!fs.existsSync(path.join(REPO, p))) out.push(p);
@@ -396,12 +386,12 @@ export function mermaidProblems(md: string): string[] {
 // ---------- 测试 ----------
 
 describe("docs/architecture/memory-system.md 和代码对得上", () => {
-  const md = docForChecks(fs.readFileSync(DOC, "utf8"));
+  const md = fs.readFileSync(DOC, "utf8");
   const parsed = parseInterfaceTables(md);
 
   it("接口表的格式写对了", () => {
     expect(parsed.problems).toEqual([]);
-    expect(parsed.tables).toBeGreaterThanOrEqual(10);
+    expect(parsed.tables).toBeGreaterThanOrEqual(9);
     expect(parsed.rows.filter((r) => r.checked).length).toBeGreaterThan(300);
   });
 
@@ -455,7 +445,7 @@ describe("检查本身管用", () => {
         "| ✅ | `memoryPlugin.setup` | `packages/daemon/src/memory/nope.ts` | 文件不对 | — |",
         "| ✅ | `KERNEL.materials` | `packages/daemon/src/plugins/kernel.ts` | 对的 | — |",
         "| ✅ | `KERNEL.memories` | `packages/daemon/src/plugins/kernel.ts` | 成员写错 | — |",
-        "| 🧪 | `runEval` | `packages/memory-eval/src/eval/run.ts` | 不经包入口，对的 | — |",
+        "| 🧪 | `openDatabase` | `packages/memory/src/store/sqlite.ts` | 不经包入口，对的 | — |",
         "| 📋（198） | `runNightly` | — | 还没有 | — |",
       ]),
     );

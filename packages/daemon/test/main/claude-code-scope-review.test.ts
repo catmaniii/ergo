@@ -1,4 +1,4 @@
-// 主切面：Claude Code 的范围审视由二狗另起、二狗 skill 的斜杠写法自动换（309 号票）。真的守护进程走组合根和插件清单，清单里的 Claude Code 插件经
+// 主切面：Claude Code 的范围审视由二狗另起、二狗 skill 的斜杠写法自动换。真的守护进程走组合根和插件清单，清单里的 Claude Code 插件经
 // extraPlugins 换成子进程接假 SDK 的那个（helpers/fake-claude-code.ts：运行时、适配子进程、钩子都是真的；SDK 按 faux 剧本扮演 claude，/compact 扮演
 // Claude Code 的手动压缩、先叫 PreCompact 钩子），审视用的便宜模型由 faux 扮演；不启动真的 claude、不花额度、不碰用户真实的 ~/.claude。
 // - Claude 子进程里调不了二狗的审视模型：压缩前（PreCompact 钩子报 compacting）守护进程按自己记下的这段会话事件另起一次一次性审视（审视的模型、

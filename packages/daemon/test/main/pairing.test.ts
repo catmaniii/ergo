@@ -138,7 +138,7 @@ describe("来源", () => {
   });
 });
 
-describe("像网络上的自动访问（137 号票）", () => {
+describe("像网络上的自动访问", () => {
   const HEADLESS_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/134.0.0.0 Safari/537.36";
   const LINUX_CHROME_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36";
 
@@ -223,7 +223,7 @@ describe("批准与凭证", () => {
     // 每次使用都续期：浏览器里的 cookie 跟着延长
     expect(health.setCookies.find((c) => c.name === DEVICE_COOKIE)).toMatchObject({ value: device.credential, attributes: { "max-age": String(400 * 24 * 3600) } });
 
-    // 历史分页、媒体上传（09 的接口）照常能用
+    // 历史分页、媒体上传（接口）照常能用
     expect((await device.request(HTTP_PATHS.history("secretary"))).status).toBe(200);
     expect((await device.request(HTTP_PATHS.uploads, { method: "POST", body: { name: "a.txt", mime: "text/plain", size: 3 } })).status).toBe(201);
 
@@ -385,14 +385,14 @@ describe("领到凭证之后的第一次使用（可注入时钟）", () => {
   });
 });
 
-/** 浏览器打开一个地址时带的头（254 号票：Chrome 的一次页面导航长这样） */
+/** 浏览器打开一个地址时带的头（Chrome 的一次页面导航长这样） */
 const NAVIGATION = {
   accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
   "sec-fetch-dest": "document",
   "sec-fetch-mode": "navigate",
 };
 
-describe("浏览器打开哪个地址都给页面（254 号票）", () => {
+describe("浏览器打开哪个地址都给页面", () => {
   it("没配上对的浏览器打开首页以外的地址：给的是页面本身（前端显示配对页），不是\"这台设备还没配对\"的 JSON", async () => {
     const { externalUrl } = await setup();
     const device = new TestDevice(externalUrl);

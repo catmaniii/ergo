@@ -1,11 +1,11 @@
-// 联网搜索、读网页的冒烟脚本（70 号票）：真的起浏览器、真的联网，手动跑，不进测试（npm test 不跑它）。
+// 联网搜索、读网页的冒烟脚本：真的起浏览器、真的联网，手动跑，不进测试（npm test 不跑它）。
 //   npm run smoke:web                                  # 默认搜"Node.js 最新版本"，读 https://example.com
 //   npm run smoke:web -- "查询词" "https://某个网址"
 //   npm run smoke:web -- "查询词" "https://某个网址" --browser "C:/Program Files/Google/Chrome/Application/chrome.exe"
 //   npm run smoke:web -- "查询词" --engine google --region cn-zh --time w
 //   npm run smoke:web -- "查询词" --tavily              # 走 Tavily：key 从环境变量 TAVILY_API_KEY 取（和守护进程一样）
 //   npm run smoke:web -- "查询词" "https://某个网址" --deepseek
-//                                                       # 154 号票：真的调 DeepSeek 的搜索、读网页接口（按次计费，每次 0.005 元）。
+//                                                       #：真的调 DeepSeek 的搜索、读网页接口（按次计费，每次 0.005 元）。
 //                                                       # key 从环境变量 DEEPSEEK_API_KEY 取（和守护进程、模型共用同一份）；
 //                                                       # 搜索指定 engine=deepseek，读网页直接调 DeepSeek 读网页（不先直接请求）
 // 浏览器按守护进程同样的顺序找（web/browser-path.ts）：--browser 相当于配置里的 web.browserPath。

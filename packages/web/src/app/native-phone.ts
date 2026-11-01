@@ -1,4 +1,4 @@
-// 鸿蒙 App 读本机（299 号票）在网页这一侧的接口：App 里的实现在 frontend/harmony/entry/src/main/ets/phone/PhoneData.ets，
+// 鸿蒙 App 读本机在网页这一侧的接口：App 里的实现在 frontend/harmony/entry/src/main/ets/phone/PhoneData.ets，
 // 经原生桥 ergoNative 的这一组方法调（名字和 NativeBridge.ets 的 NATIVE_BRIDGE_METHODS 里的一样）：
 // - phoneContactsPick()：拉起系统的选人界面（不用通讯录权限、不读整个通讯录），回用户挑的几个人
 //   （{"ok": true, "device", "contacts": [{"name", "phones", "birthday"?, "addresses"}]}，取消了 {"ok": false, "reason": "cancelled"}）；
@@ -7,7 +7,7 @@
 // - phoneCalendarRead(from, to)：只读 [from, to)（毫秒）里的日程，重复的展开成每一次
 //   （{"ok": true, "events": [{"key", "title", "start", "end"?, "allDay", "location"?, "calendar"?}]}，start、end 是毫秒；
 //   读不了 {"ok": false, "state": "denied" | "unavailable", "message"?}）。
-// 300 号票加了两组（NativePhone.photos、NativePhone.location；旧一点的 App 没有这两组，只有前面四个）：
+// 加了两组（NativePhone.photos、NativePhone.location；旧一点的 App 没有这两组，只有前面四个）：
 // - phonePhotosState()：读相册、读照片位置的授权给没给、问没问过、这台设备叫什么（{"granted", "location", "asked", "device"}）；
 // - phonePhotosPrepare(userAction)：没给就弹系统的授权框（读相册、读照片位置一起要）；userAction 为真而用户拒过时拉起二次授权；回之后的状态；
 // - phonePhotosRead(from, to)：只读 [from, to)（毫秒）里拍的照片的拍摄时间和地点，不读照片本身
@@ -19,7 +19,7 @@
 //   长时任务每 10 分钟接着记，通知栏一直显示）；停下时手机上没交出去的点一起删；回之后的状态；
 // - phoneLocationRead()：手机上记下、还没交出去的点（{"ok": true, "points": [{"at", "lat", "lon", "accuracy"?}]}，at 是毫秒）；
 // - phoneLocationAck(until)：交给守护进程了，删掉 until（毫秒）以前（含）的点。
-// 308 号票：照片、位置点多一个 App 用系统的坐标转地址转好的地名（"address": {"spot", "district", "city"}，转不了的没有），定位的状态多一个
+// 照片、位置点多一个 App 用系统的坐标转地址转好的地名（"address": {"spot", "district", "city"}，转不了的没有），定位的状态多一个
 // 系统能不能转地名（"geocoder"）；另加一组"常去的地方"手动加一处用的（NativePhone.places；旧一点的 App 没有）：
 // - phonePlaceHere()：现在在哪（定一次位、转地名）：{"ok": true, "lat", "lon", "address"?}；没定位授权 {"ok": false, "state": "denied"}；
 // - phonePlaceFind(text)：按地名找（系统的地址转坐标）：{"ok": true, "lat", "lon", "address"?}；找不到 {"ok": false, "state": "not_found"}。
@@ -41,11 +41,11 @@ import {
 
 /** 原生桥上手机这一组方法的名字（四个都在才算有） */
 export const NATIVE_PHONE_METHODS = ["phoneContactsPick", "phoneCalendarState", "phoneCalendarPrepare", "phoneCalendarRead"] as const;
-/** 照片的时间地点这一组（300 号票，三个都在才算有） */
+/** 照片的时间地点这一组（三个都在才算有） */
 export const NATIVE_PHONE_PHOTOS_METHODS = ["phonePhotosState", "phonePhotosPrepare", "phonePhotosRead"] as const;
-/** 位置这一组（300 号票，五个都在才算有） */
+/** 位置这一组（五个都在才算有） */
 export const NATIVE_PHONE_LOCATION_METHODS = ["phoneLocationState", "phoneLocationPrepare", "phoneLocationRecord", "phoneLocationRead", "phoneLocationAck"] as const;
-/** 常去的地方手动加一处用的这一组（308 号票，两个都在才算有） */
+/** 常去的地方手动加一处用的这一组（两个都在才算有） */
 export const NATIVE_PHONE_PLACE_METHODS = ["phonePlaceHere", "phonePlaceFind"] as const;
 
 /** 读手机日历的授权：给没给、问没问过用户、这台设备给人看的名字 */
@@ -61,7 +61,7 @@ export type NativeContactsPick = { ok: true; contacts: PhoneContact[]; device?: 
 /** 读日历的结果：读到了（日程，时间换成了协议时间）、没授权、读不了 */
 export type NativeCalendarRead = { ok: true; events: PhoneCalendarEvent[] } | { ok: false; state: "denied" | "unavailable"; message?: string };
 
-/** 读相册的授权（300 号票）：读相册给没给、读照片位置给没给、问没问过、这台设备的名字 */
+/** 读相册的授权：读相册给没给、读照片位置给没给、问没问过、这台设备的名字 */
 export interface NativePhotosState {
   readonly granted: boolean;
   readonly location: boolean;
@@ -72,7 +72,7 @@ export interface NativePhotosState {
 /** 读照片的结果：读到了（时间换成了协议时间；location 是有没有读照片位置的授权）、没授权、读不了 */
 export type NativePhotosRead = { ok: true; photos: PhonePhoto[]; location: boolean } | { ok: false; state: "denied" | "unavailable"; message?: string };
 
-/** 定位的授权和记的状况（300 号票）：给没给（precise 是精确位置也给了）、问没问过、在不在记、后台也记没有、这台设备的名字 */
+/** 定位的授权和记的状况：给没给（precise 是精确位置也给了）、问没问过、在不在记、后台也记没有、这台设备的名字 */
 export interface NativeLocationState {
   readonly granted: boolean;
   readonly precise: boolean;
@@ -81,7 +81,7 @@ export interface NativeLocationState {
   readonly background: boolean;
   /** 系统的位置开关关着（记不到；模拟器上默认关着） */
   readonly switchOff?: true;
-  /** 系统能不能把坐标转成地名（308 号票；旧一点的 App 不报，没有） */
+  /** 系统能不能把坐标转成地名（旧一点的 App 不报，没有） */
   readonly geocoder?: boolean;
   readonly device?: string;
 }
@@ -89,10 +89,10 @@ export interface NativeLocationState {
 /** 读手机上记下的点：读到了（时间换成了协议时间，按先后）、没授权、读不了 */
 export type NativeLocationRead = { ok: true; points: PhoneLocationPoint[] } | { ok: false; state: "denied" | "unavailable"; message?: string };
 
-/** 定位一次、按地名找的结果（308 号票）：找到了（经纬度、系统地名）、没有定位授权、没找到、读不了 */
+/** 定位一次、按地名找的结果：找到了（经纬度、系统地名）、没有定位授权、没找到、读不了 */
 export type NativePlaceFix = { ok: true; lat: number; lon: number; address?: PhoneAddress } | { ok: false; reason: "denied" | "not_found" | "unavailable"; message?: string };
 
-/** 常去的地方手动加一处用的（308 号票） */
+/** 常去的地方手动加一处用的 */
 export interface NativePhonePlaces {
   /** 现在在哪（定一次位，转好地名） */
   here(): Promise<NativePlaceFix>;
@@ -100,7 +100,7 @@ export interface NativePhonePlaces {
   find(text: string): Promise<NativePlaceFix>;
 }
 
-/** 照片的时间地点（300 号票） */
+/** 照片的时间地点 */
 export interface NativePhonePhotos {
   /** App 回的不对是 undefined */
   state(): NativePhotosState | undefined;
@@ -109,7 +109,7 @@ export interface NativePhonePhotos {
   read(from: Date, to: Date): Promise<NativePhotosRead>;
 }
 
-/** 位置（300 号票） */
+/** 位置 */
 export interface NativePhoneLocation {
   /** App 回的不对是 undefined */
   state(): NativeLocationState | undefined;
@@ -128,11 +128,11 @@ export interface NativePhone {
   /** 要授权（系统的授权框）；userAction 为真而用户拒过时拉起二次授权。回之后的状态 */
   prepareCalendar(userAction: boolean): Promise<NativeCalendarState | undefined>;
   readCalendar(from: Date, to: Date): Promise<NativeCalendarRead>;
-  /** 照片的时间地点（300 号票）；旧一点的 App 没有 */
+  /** 照片的时间地点；旧一点的 App 没有 */
   readonly photos?: NativePhonePhotos;
-  /** 位置（300 号票）；旧一点的 App 没有 */
+  /** 位置；旧一点的 App 没有 */
   readonly location?: NativePhoneLocation;
-  /** 常去的地方手动加一处用的（308 号票）；旧一点的 App 没有 */
+  /** 常去的地方手动加一处用的；旧一点的 App 没有 */
   readonly places?: NativePhonePlaces;
 }
 
@@ -241,7 +241,7 @@ function placeOf(lat: unknown, lon: unknown): { lat: number; lon: number } | und
   return { lat, lon };
 }
 
-/** App 交来的系统地名（308 号票）：每段截到上限，空的去掉；一段都没有是 undefined */
+/** App 交来的系统地名：每段截到上限，空的去掉；一段都没有是 undefined */
 export function parseAddress(value: unknown): PhoneAddress | undefined {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
   const o = value as Record<string, unknown>;
@@ -315,7 +315,7 @@ export function parseLocationRead(json: unknown): NativeLocationRead {
   return { ok: true, points };
 }
 
-/** App 回的定位一次、按地名找的结果（308 号票）；不对当读不了 */
+/** App 回的定位一次、按地名找的结果；不对当读不了 */
 export function parsePlaceFix(json: unknown): NativePlaceFix {
   const o = parseObject(json);
   if (!o) return { ok: false, reason: "unavailable" };
@@ -354,7 +354,7 @@ function callSync(bridge: BridgeObject, method: string, ...args: string[]): stri
   }
 }
 
-/** 照片的时间地点这一组（300 号票）都在时包装起来 */
+/** 照片的时间地点这一组都在时包装起来 */
 function wrapPhotos(bridge: BridgeObject): NativePhonePhotos | undefined {
   if (!NATIVE_PHONE_PHOTOS_METHODS.every((m) => typeof bridge[m] === "function")) return undefined;
   return {
@@ -364,7 +364,7 @@ function wrapPhotos(bridge: BridgeObject): NativePhonePhotos | undefined {
   };
 }
 
-/** 位置这一组（300 号票）都在时包装起来 */
+/** 位置这一组都在时包装起来 */
 function wrapLocation(bridge: BridgeObject): NativePhoneLocation | undefined {
   if (!NATIVE_PHONE_LOCATION_METHODS.every((m) => typeof bridge[m] === "function")) return undefined;
   return {
@@ -376,7 +376,7 @@ function wrapLocation(bridge: BridgeObject): NativePhoneLocation | undefined {
   };
 }
 
-/** 常去的地方这一组（308 号票）都在时包装起来 */
+/** 常去的地方这一组都在时包装起来 */
 function wrapPlaces(bridge: BridgeObject): NativePhonePlaces | undefined {
   if (!NATIVE_PHONE_PLACE_METHODS.every((m) => typeof bridge[m] === "function")) return undefined;
   return {

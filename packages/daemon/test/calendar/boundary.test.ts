@@ -1,7 +1,7 @@
-// 日历插件的边界（213 号票，ADR-0027，照提醒、记忆插件的 test/reminders/boundary.test.ts、test/memory/boundary.test.ts）：
+// 日历插件的边界（ADR-0027，照提醒、记忆插件的 test/reminders/boundary.test.ts、test/memory/boundary.test.ts）：
 // 1. 组合根（daemon.ts）里不出现日历插件：不建日历的服务、不 import 日历的内部，网关的按月取经 calendar/api.ts 的服务名现取；
 // 2. 日历目录之外只从 calendar/api.ts 拿日历的东西（服务名和类型），写明的例外只有插件清单列它；
-// 3. 日历插件不拥有数据：没有派生视图、卡片类型、彻底删除的改写函数、素材来源、移除时的"连数据删"（211 号票的勾选对它是空的）。
+// 3. 日历插件不拥有数据：没有派生视图、卡片类型、彻底删除的改写函数、素材来源、移除时的"连数据删"（勾选对它是空的）。
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";

@@ -1,4 +1,4 @@
-// 90 号票评审：批量请求按协议上限分批交（看板一次 200 个、待办一次 500 条），结果按原来的先后接起来。
+// 批量请求按协议上限分批交（看板一次 200 个、待办一次 500 条），结果按原来的先后接起来。
 import { describe, expect, test } from "vitest";
 import { INBOX_ACTION_MAX, inChunks, TASK_BATCH_MAX } from "../../src/state/index.ts";
 

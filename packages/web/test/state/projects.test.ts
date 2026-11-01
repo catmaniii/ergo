@@ -1,4 +1,4 @@
-// 项目列表（15 号票）：项目列表频道上的 project 事件归并成每个项目的最新状态；进行中任务数来自看板频道上的任务；
+// 项目列表：项目列表频道上的 project 事件归并成每个项目的最新状态；进行中任务数来自看板频道上的任务；
 // 项目页上的入口按协议包的 projectActions；删掉的项目连同它的负责人会话从界面上拿掉。
 import { describe, expect, test } from "vitest";
 import {
@@ -63,7 +63,7 @@ describe("项目列表", () => {
     ]);
     // 项目页上的入口按状态给出
     expect(selectProject(state, "p-1")?.actions).toEqual(["retire", "archive"]);
-    // 自动播报（354 号票）：默认关；已归档的不能开关
+    // 自动播报：默认关；已归档的不能开关
     expect(selectProject(state, "p-1")?.announce).toBe(false);
     expect(selectProject(state, "p-3")?.announce).toBeUndefined();
     expect(selectProject(state, "p-3")?.actions).toEqual(["unarchive", "delete"]);
@@ -71,7 +71,7 @@ describe("项目列表", () => {
     expect(selectableProjectNames(state)).toEqual(["记账本", "家电档案"]);
   });
 
-  test("还在立项（立项书没确认）的项目：只选了它时不能发起（64 号票）", () => {
+  test("还在立项（立项书没确认）的项目：只选了它时不能发起", () => {
     const state = replay([
       projectFrame(1, project("p-1", { name: "记账本", state: "in_use", charterConfirmed: true })),
       projectFrame(2, project("p-2", { name: "家电档案" })),
@@ -86,7 +86,7 @@ describe("项目列表", () => {
     expect(selectProject(state, "p-1")?.actions).toEqual(["start_build", "abandon", "go_live"]);
   });
 
-  test("建设中有“转入使用…”（259 号票，只出确认卡）；已经有一张转入使用的确认卡在等（“首版做完了”卡、“转入使用”卡）时不再给，卡处理了又给", () => {
+  test("建设中有“转入使用…”（只出确认卡）；已经有一张转入使用的确认卡在等（“首版做完了”卡、“转入使用”卡）时不再给，卡处理了又给", () => {
     const building = projectFrame(1, project("p-1", { name: "记账本", state: "building", charterConfirmed: true, buildTaskId: "t-1" }));
     const running = taskFrame(1, task("t-1", "running", ["p-1"]));
     expect(selectProject(replay([building, running]), "p-1")?.actions).toEqual(["abandon", "go_live"]);
@@ -122,7 +122,7 @@ describe("项目列表", () => {
   });
 });
 
-/** 一张用户发起的任务的工单（16 号票） */
+/** 一张用户发起的任务的工单 */
 function order(id: string, projectId: string, state: WorkOrder["state"], overrides: Partial<UserTaskWorkOrder> = {}): UserTaskWorkOrder {
   return { id, projectId, maintainerId: `pm-${projectId}`, source: "user_task", kind: "plan", taskId: "t-1", taskTitle: "t-1", title: `起草计划：t-1`, state, createdAt: T, updatedAt: T, ...overrides };
 }
@@ -130,7 +130,7 @@ function order(id: string, projectId: string, state: WorkOrder["state"], overrid
 const orderFrame = (seq: number, w: WorkOrder, change: WorkOrderEventPayload["change"] = "created") =>
   frame("projects", seq, "work_order", { workOrder: w, change, from: null, by: "system" } satisfies WorkOrderEventPayload);
 
-describe("工单（16 号票）", () => {
+describe("工单", () => {
   test("重置负责人是项目页上单独的入口（不和项目状态动作排在一起）：已归档的不能重置", () => {
     const state = replay([projectFrame(1, project("p-1", { state: "in_use" })), projectFrame(2, project("p-2", { state: "archived" }))]);
     expect(selectProject(state, "p-1")).toMatchObject({ actions: ["retire", "archive"], canResetMaintainer: true, archiveBlocked: undefined });
@@ -190,7 +190,7 @@ describe("工单（16 号票）", () => {
   });
 });
 
-/** 项目 p-1（记账本）的标记和它的一个内部任务（64 号票） */
+/** 项目 p-1（记账本）的标记和它的一个内部任务 */
 const P1_INTERNAL = { projectId: "p-1", projectName: "记账本" };
 const internal = (id: string, state: Task["state"], extra: Partial<Task> = {}): Task => ({ ...task(id, state, ["p-1"]), maintainerId: "pm-p-1", projects: ["记账本"], internal: P1_INTERNAL, ...extra });
 
@@ -218,7 +218,7 @@ const p1Job = (id: string, extra: Partial<ScheduledJob> = {}): ScheduledJob => (
 });
 const jobFrame = (seq: number, job: ScheduledJob) => frame("board", seq, "scheduled_job", { job, change: "registered", by: "system" } satisfies ScheduledJobEventPayload);
 
-describe("项目内部任务（64 号票）", () => {
+describe("项目内部任务", () => {
   test("不上全局看板；项目页的“内部任务”一栏列出它们（没结束的、结束了的、归档了的三组，写明种类、状态和进度；结束了的能归档）；别的项目、普通任务不在这一栏", () => {
     const later = "2026-10-08T09:05:00.000+08:00";
     const state = replay([
@@ -228,13 +228,13 @@ describe("项目内部任务（64 号票）", () => {
       taskFrame(3, internal("t-3", "done", { kind: "long_running", stages: { total: 1, current: 1, list: [{ stageId: "s1", title: "s1", state: "accepted", dependsOn: [], acceptance: [], attempts: 1 }] } })),
       taskFrame(4, task("t-4", "running", ["p-1"])),
       taskFrame(5, internal("t-5", "archived")),
-      // 全局任务（不属于项目内部的）结束了也不在这一栏：在全局看板上（90 号票起直接归档，或者在每周的归档清单上）
+      // 全局任务（不属于项目内部的）结束了也不在这一栏：在全局看板上（直接归档，或者在每周的归档清单上）
       taskFrame(6, task("t-6", "done", ["p-1"])),
     ]);
     // 全局看板上只有普通任务
     expect(boardGroups(state).flatMap((g) => g.items.flatMap((i) => (i.kind === "task" ? [i.task.id] : [])))).toEqual(["t-4", "t-6"]);
     const { open, ended, archived } = projectInternalTasks(state, "p-1");
-    // 进度和看板卡同一份（60 号票）：长程任务是已验收的阶段数。311 号票：计划授权之前（看板卡上写"尚无计划"，0/0；这里的流程没有
+    // 进度和看板卡同一份：长程任务是已验收的阶段数。计划授权之前（看板卡上写"尚无计划"，0/0；这里的流程没有
     // 授权了的计划卡）这一栏不写进度——状态已经写了"待确认 · 计划等你确认"，不再同时写"尚无计划"
     expect(open.map((v) => [v.task.id, v.kindLabel, v.status, v.progress, v.archivable])).toEqual([
       ["t-2", "长程任务", "待确认 · 计划等你确认", undefined, false],
@@ -242,7 +242,7 @@ describe("项目内部任务（64 号票）", () => {
     ]);
     expect(ended.map((v) => [v.task.id, v.status, v.progress, v.archivable])).toEqual([["t-3", "已完成", { done: 1, total: 1, unit: "stage" }, true]]);
     expect(archived.map((v) => [v.task.id, v.archivable])).toEqual([["t-5", false]]);
-    // 结束了的全局任务也能直接归档（90 号票：看板卡的菜单、多选），不在这一栏
+    // 结束了的全局任务也能直接归档（看板卡的菜单、多选），不在这一栏
     expect(availableTaskActions(state.tasks["t-6"]!, "user")).toContain("archive");
     // 进行中的任务数照样算上内部任务
     expect(selectProject(state, "p-1")?.activeTasks).toBe(3);

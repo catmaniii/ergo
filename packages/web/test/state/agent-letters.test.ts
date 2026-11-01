@@ -1,8 +1,8 @@
-// 115 号票：agent 之间的来信（秘书会话里的任务做完、负责人来信，负责人会话里的秘书转达，运行时补给负责人的计划检查）在会话里
+// agent 之间的来信（秘书会话里的任务做完、负责人来信，负责人会话里的秘书转达，运行时补给负责人的计划检查）在会话里
 // 只显示一行——图标、种类、一句话总结、时间、"详情 ›"——点开看全文（照 Markdown 画）；交给 agent 的照旧是全文（守护进程测）。
 // 先回放主切面录下的真实事件流：task-done-voice（定时任务跑完自动播报，通知后面跟着运行时放的日报附件）、
 // secretary-letter（普通任务的 agent 做到一半给秘书发一条、接着做完）；旧消息（没存总结）、秘书转达、不折的那些按共享协议的 schema 构造。
-// 367 号票：运行时交给 agent 的长通知没有标记也折；用户截图里那一段做测试数据，再回放一遍 task-execution 看真的阶段说明。
+// 运行时交给 agent 的长通知没有标记也折；用户截图里那一段做测试数据，再回放一遍 task-execution 看真的阶段说明。
 import fs from "node:fs";
 import path from "node:path";
 import { MessageEventPayload as MessageEventPayloadSchema, schemaChecker } from "@ergo/protocol";
@@ -62,7 +62,7 @@ describe("回放：定时任务跑完自动播报，通知后面跟着日报附�
     expect(LETTER_LOOK.task_done).toEqual({ label: "任务做完", icon: "✅" });
     expect(notice).toMatchObject({ kind: "system", keyLine: `任务做完：${SUMMARY}`, content: "context", detail: "text" });
     expect(chatLook(notice)).toEqual({ form: "letter", letter: letterOf(notice), open: "row" });
-    // 秘书的会话：通知、语音气泡（回复收进了气泡，工具调用不算）、附件（118 号票起挪到秘书这一轮的回复后面）
+    // 秘书的会话：通知、语音气泡（回复收进了气泡，工具调用不算）、附件（挪到秘书这一轮的回复后面）
     expect(lines(items).map(([kind, , letter]) => `${kind} ${letter}`)).toEqual(["system task_done", "voice -", "system -"]);
   });
 
@@ -85,7 +85,7 @@ describe("回放：定时任务跑完自动播报，通知后面跟着日报附�
     expect(content.chars).toBe(content.text.length);
   });
 
-  test("旧消息（115 号票之前交的，没存总结）照样折：总结取正文去掉标记、跳过引子之后的第一句，截到 30 字", () => {
+  test("旧消息（以前交的，没存总结）照样折：总结取正文去掉标记、跳过引子之后的第一句，截到 30 字", () => {
     const old = replay(
       inputs.map((input) => {
         if (input.kind !== "frame" || input.frame.channel !== SECRETARY || input.frame.type !== "message") return input;
@@ -155,7 +155,7 @@ describe("来信的标记认形状（事件日志里的消息写好了就不改�
 const relayed = (seq: number, id: string, said: string, summary?: string) =>
   messageFrame(TM, seq, { id, speaker: "user", parts: [text(said)], relayedBy: "secretary", ...(summary === undefined ? {} : { summary }) }, { taskId: "t-9" });
 
-describe("秘书转达的话（103 号票的那一句）", () => {
+describe("秘书转达的话（那一句）", () => {
   test("负责人会话里折成一行，种类写“<名字>转达”：总结是守护进程存的（转达的话的第一句）；旧的没存的取第一句", () => {
     const state = replay([
       { kind: "frame", frame: messageFrame(TM, 1, { id: "u1", speaker: "user", parts: [text("先写结论部分")] }, { taskId: "t-9" }) },
@@ -211,7 +211,7 @@ describe("详情里全文照 Markdown 画（letterMarkdown）", () => {
     expect(letterMarkdown("看这段：\n```\nls -l\ncat a.md\n```\n完")).toBe("看这段：  \n```\nls -l\ncat a.md\n```\n完");
   });
 
-  test("列表后面紧跟不缩进的一行（367 号票）：隔一个空行，免得并进上一项；缩进的续行、项与项之间不动", () => {
+  test("列表后面紧跟不缩进的一行：隔一个空行，免得并进上一项；缩进的续行、项与项之间不动", () => {
     expect(letterMarkdown("授权：\n- （没有）\n时序规则：\n- 一条\n- 两条\n完")).toBe("授权：  \n- （没有）\n\n时序规则：  \n- 一条  \n- 两条\n\n完");
     expect(letterMarkdown("- 一条\n  接着写\n- 两条")).toBe("- 一条  \n  接着写  \n- 两条");
     expect(letterMarkdown("1. 一条\n2. 两条\n完")).toBe("1. 一条  \n2. 两条\n\n完");
@@ -238,7 +238,7 @@ const STAGE_NOTICE = [
 const LONG = "字".repeat(121);
 const frames = (...list: EventFrame[]) => replay(list.map((f): UiInput => ({ kind: "frame", frame: f })));
 
-describe("交给 agent 的长通知折成一行（367 号票）", () => {
+describe("交给 agent 的长通知折成一行", () => {
   const state = frames(messageFrame(TM, 1, { id: "n1", speaker: "system", parts: [text(STAGE_NOTICE)] }, { agentInput: true, taskId: "t-9", stageId: "s3" }));
   const items = chatItems(state, TM);
   const notice = items[0]!;

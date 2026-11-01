@@ -1,12 +1,12 @@
 // @i18n-ignore-file model：摘要和地点写进素材，给记忆整理模型、检索读的中文（同 data-sources/material.ts 的场景一行；手册第 9 节"给模型看的只用中文"）
-// 一天的照片、位置整理成一条摘要（300 号票，issue 25"量大的先整理成摘要再进素材"）。纯函数：只看交进来的原始数据和起了名的地方，
+// 一天的照片、位置整理成一条摘要（量大的先整理成摘要再进素材）。纯函数：只看交进来的原始数据和起了名的地方，
 // 时间按守护进程的本地时间分。
-// - 地点（308 号票，用户 2026-10-26 选了"系统转地名 + 常去地起名"）：按"起了名的 > 系统地名 > 坐标"写——落在起了名的地方的范围里
+// - 地点（选了"系统转地名 + 常去地起名"）：按"起了名的 > 系统地名 > 坐标"写——落在起了名的地方的范围里
 //   （几处都盖住取中心最近的）写名字（"家""公司"）；不然写手机系统转出来的地名（这一处的几条里最多的那个，"杭州市西湖区北山街"）；
 //   都没有写坐标：经纬度保留两位小数（约一公里）"北纬 30.27°、东经 120.15° 一带"。守护进程自己不联网、不调地图服务，地名是 App 在
 //   手机上转好交来的；起名、改名后以前的摘要不重写（摘要写成事件就不动了），往后整理的用新名；
 // - 照片：按拍摄时间排，隔了一小时以上、或者都有地点而离开一公里以上就另起一段；摘要写哪个时段拍了几张、几张没有地点，
-//   地点不写进摘要正文、只放进场景（位置没打开推断时证据里去掉地点、这条照读——303 号票的规矩）；
+//   地点不写进摘要正文、只放进场景（位置没打开推断时证据里去掉地点、这条照读——规矩）；
 // - 位置：照"停留点"的做法（一串点都在 STAY_RADIUS_M 以内、前后超过 STAY_MIN_MS 算在那儿待了一段），同一处的几段合起来，
 //   写"去过哪、待了多久"；精度太差的点（定位半径超过 MAX_ACCURACY_M）不用；中间隔了 MAX_GAP_MS 以上没有点的不算一直待着，写明有空档。
 //   整条都是位置（敏感类别"位置"），地点同时放进场景。
@@ -60,7 +60,7 @@ export function placeLabel(p: LatLon): string {
   return `${lat}、${lon} 一带`;
 }
 
-/** 起了名的一处（308 号票）：名字、中心、范围（半径，米） */
+/** 起了名的一处：名字、中心、范围（半径，米） */
 export interface NamedPlace {
   id: string;
   name: string;
@@ -69,7 +69,7 @@ export interface NamedPlace {
   radius: number;
 }
 
-/** 系统地名写成一段（308 号票，"杭州市西湖区北山街"；协议包的 phoneAddressLabel，网页显示也用它） */
+/** 系统地名写成一段（"杭州市西湖区北山街"；协议包的 phoneAddressLabel，网页显示也用它） */
 export const addressLabel: (addr: PhoneAddress | undefined) => string | undefined = phoneAddressLabel;
 
 /** 盖住这一点的起了名的那一处（在它的范围里；几处都盖住时取中心最近的）；没有是 undefined */
@@ -227,14 +227,14 @@ export function detectStays(points: readonly RawPoint[]): Stay[] {
 
 interface Place {
   where: LatLon;
-  /** 落在起了名的哪一处的范围里（308 号票） */
+  /** 落在起了名的哪一处的范围里 */
   named?: NamedPlace;
   spans: Array<{ from: number; to: number }>;
   total: number;
   points: RawPoint[];
 }
 
-/** 几段停留合成几处，按第一次到的先后：落在同一处起了名的地方的范围里的算一处（308 号票）；别的离得 SAME_PLACE_M 以内算同一处 */
+/** 几段停留合成几处，按第一次到的先后：落在同一处起了名的地方的范围里的算一处；别的离得 SAME_PLACE_M 以内算同一处 */
 function mergeStays(stays: readonly Stay[], named: readonly NamedPlace[]): Place[] {
   const places: Place[] = [];
   for (const stay of stays) {

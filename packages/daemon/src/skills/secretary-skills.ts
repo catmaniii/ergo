@@ -1,7 +1,7 @@
-// 秘书用的 skill（72 号票）：秘书也能用 skill 库里的 skill（之前只有执行中的负责人和项目负责人的对话段才有）。
+// 秘书用的 skill：秘书也能用 skill 库里的 skill（之前只有执行中的负责人和项目负责人的对话段才有）。
 // - 名单存在数据目录配置区的 secretary-skills.json（随数据目录备份，不进仓库），是真相；只由运行时写（设置里的 skill 库页，
-//   POST HTTP_PATHS.secretarySkills）；配置区是受保护区域，agent 用任何方式都写不进（03 号票），所以秘书不能自己给自己加 skill。
-// - 没有这个文件时按默认的（DEFAULT_SECRETARY_SKILLS：agent-browser、yt-dlp，用户 2026-10-10 定）；默认的这两个库里还没有的
+//   POST HTTP_PATHS.secretarySkills）；配置区是受保护区域，agent 用任何方式都写不进，所以秘书不能自己给自己加 skill。
+// - 没有这个文件时按默认的（DEFAULT_SECRETARY_SKILLS：agent-browser、yt-dlp）；默认的这两个库里还没有的
 //   不装也不记日志（导入之后下一次装配自动装上）——在设置里改过名单也一样：名单里留着的默认项可以先于导入（只有它们可以），
 //   别的只能选库里有的。文件读不了、写错了时按默认的装，设置页上显示问题。
 // - 每次装配秘书时现读（下一次装配生效）；在设置里改了之后叫 onChange 登记的函数（秘书据此做完手头这一条就按新名单重新装配）。
@@ -25,11 +25,11 @@ export interface SecretarySkills {
   paths(): string[];
   /** 名单在设置里改了时叫 fn；返回取消登记的函数 */
   onChange(fn: () => void): () => void;
-  /** 名单里的一个 skill 在库里被改了、删了（358 号票）：叫 onChange 登记的函数，下一次装配按新的 */
+  /** 名单里的一个 skill 在库里被改了、删了：叫 onChange 登记的函数，下一次装配按新的 */
   libraryChanged(): void;
 }
 
-/** 设置页上显示的问题：提到秘书写名字占位，前端按用户起的名字显示（43 号票） */
+/** 设置页上显示的问题：提到秘书写名字占位，前端按用户起的名字显示 */
 function problemText(reason: string): string {
   return t("skills.secretary.problem", { assistant: ASSISTANT_NAME_MARK, reason });
 }

@@ -1,7 +1,7 @@
-// MCP（规格第 3、9、20 节，27 号票）：登记在配置区（registration.ts），写进项目或任务的工具包才授权给负责人。
+// MCP（规格第 3、9、20 节）：登记在配置区（registration.ts），写进项目或任务的工具包才授权给负责人。
 // - 服务进程由守护进程按需拉起（第一次有会话装配到它、第一次调用它时），放进它自己的 Job 对象，凭据按登记注入（client.ts）。
 //   它们不是服务：不对外监听端口，不在 LSM 登记；守护进程停止、被杀时一起结束。登记改了（命令、参数、环境）下次用到时按新的重起；
-//   command 写 node 的用二狗自己那份（377 号票，和项目服务一样：PATH 上可能没有 node）；
+//   command 写 node 的用二狗自己那份（和项目服务一样：PATH 上可能没有 node）；
 // - 会话里的 MCP 工具是守护进程代为执行的工具（hostToolsFor）：工具包列了这个 MCP 才有，联网开关关着时没有要联网的那些；
 //   名字是 mcp__<MCP 名>__<工具名>，在守卫的工具注册表里按登记的类别、底线、参数规则、"只读或幂等"判（来源 mcp）。
 //   agent 的调用先过守卫，再由守护进程转给服务进程（call）；agent 子进程和它的孙进程碰不到凭据；
@@ -47,7 +47,7 @@ export interface McpQuickActionTool {
   serverTitle: string;
 }
 
-/** 给负责人看的一条 MCP（362 号票） */
+/** 给负责人看的一条 MCP */
 export interface RegisteredMcp {
   name: string;
   title: string;
@@ -59,7 +59,7 @@ export interface McpService {
   registrations(): McpRegistrationRead;
   /** 给界面看的登记（工具包区、skill 库页） */
   catalog(): { servers: McpServerEntry[]; problem?: string };
-  /** 给负责人看的清单（362 号票）：登记了哪些 MCP，叫什么、是什么、有哪些工具；说明优先用登记写的，没写用服务进程报过的 */
+  /** 给负责人看的清单：登记了哪些 MCP，叫什么、是什么、有哪些工具；说明优先用登记写的，没写用服务进程报过的 */
   brief(): RegisteredMcp[];
   /** 登记了这个 MCP */
   has(server: string): boolean;
@@ -70,14 +70,14 @@ export interface McpService {
   /** 调用一个登记了的工具（守卫已经放行；快速动作在用户确认之后） */
   call(server: string, tool: string, args: Record<string, unknown>, signal?: AbortSignal): Promise<McpCallResult>;
   /**
-   * 批准一条登记之后的自检（239 号票）：按现在的登记把这个 MCP 拉起来一次，等它报完 tools/list。
+   * 批准一条登记之后的自检：按现在的登记把这个 MCP 拉起来一次，等它报完 tools/list。
    * 起不来、超时都只回原因，不改登记（登记留着，用户可以用一张 remove 卡撤掉）；预算不给时用登记里的 timeoutMs，再不然 20 秒
    */
   probe(server: string, timeoutMs?: number): Promise<{ ok: boolean; tools: string[]; problem?: string }>;
   /** 授权给秘书快速动作的工具 */
   quickActionTools(): McpQuickActionTool[];
   /**
-   * 按这个 MCP 的登记从守护进程环境里注入的凭据（240 号票：事件日志、时间线里的参数把出现的值换成"来自环境变量 X"，
+   * 按这个 MCP 的登记从守护进程环境里注入的凭据（事件日志、时间线里的参数把出现的值换成"来自环境变量 X"，
    * 不写原值）
    */
   injectedSecrets(server: string): Array<{ name: string; variable: string; value: string }>;
@@ -114,7 +114,7 @@ export function createMcpService(options: McpServiceOptions): McpService {
 
   const registrations = () => readMcpRegistrations(options.file);
 
-  /** 擦掉按这份登记注入的凭据值（30 号票的 redactSecretValues：原样、URL 编码、base64 的写法都擦） */
+  /** 擦掉按这份登记注入的凭据值（redactSecretValues：原样、URL 编码、base64 的写法都擦） */
   const redactorOf = (registration: McpServerRegistration) => {
     const { secrets } = serverEnv(registration, options.parentEnv);
     return (text: string) => redactSecretValues(text, secrets);
@@ -189,7 +189,7 @@ export function createMcpService(options: McpServiceOptions): McpService {
   };
 
   /**
-   * 批准一条登记之后的自检（239 号票）：按现在的登记拉起服务进程、等它报完 tools/list。
+   * 批准一条登记之后的自检：按现在的登记拉起服务进程、等它报完 tools/list。
    * 拉不起来、超时都只回原因（登记留着）；超时之后连接照样在后台接着拉，拉起来了下次用到时就是现成的
    */
   const probe = async (server: string, timeoutMs?: number): Promise<{ ok: boolean; tools: string[]; problem?: string }> => {

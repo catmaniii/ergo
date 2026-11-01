@@ -1,4 +1,4 @@
-// 返回栈在页面上的那一半（62 号票，系统返回键）：弹窗、选择器、详情页、标题栏的"返回"各自挂上一层，
+// 返回栈在页面上的那一半（系统返回键）：弹窗、选择器、详情页、标题栏的"返回"各自挂上一层，
 // 带着自己的关法；按返回键（鸿蒙 App 调 window.__ergoBack）时运行该退的那一层的关法。先退哪一层由状态层定（state/back-stack.ts）。
 // 这里不碰 React 和浏览器的全局变量，测试在 Node 里跑；React 钩子 useBackLayer 和页面上的那一份在 page-back.ts。
 import { type BackKind, type BackStack, backTarget, canGoBack, closeBackLayer, openBackLayer, overlayOpen } from "../state/index.ts";
@@ -10,7 +10,7 @@ export interface BackRegistry {
   back(): boolean;
   /** 现在还能不能在网页里返回 */
   canGoBack(): boolean;
-  /** 开着弹窗、选择器、详情页、抽屉这些吗（116 号票） */
+  /** 开着弹窗、选择器、详情页、抽屉这些吗 */
   overlayOpen(): boolean;
   /** 挂上、拿下时通知；返回退订 */
   subscribe(listener: () => void): () => void;

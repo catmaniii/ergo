@@ -1,4 +1,4 @@
-// Debug 工具集（124 号票）在页面上的那一份：都只在页面内存里，刷新、重开 App 就没了。
+// Debug 工具集在页面上的那一份：都只在页面内存里，刷新、重开 App 就没了。
 // - 入口：关于页连点版本号 8 次打开，1 小时有效（state/debug-tools.ts 的 debugTap / debugOpen），"现在收起"马上关；
 // - 页面日志：页面一打开就开始收（main.tsx 第一个 import 的 page-log-start.ts 调 startPageLog），最近 200 条；
 // - 通知记录：系统通知的出口（page-notify.ts）每发一条记一条，最近 20 条；

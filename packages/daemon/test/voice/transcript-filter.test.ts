@@ -1,4 +1,4 @@
-// 识别结果里剔除模型自带的串词（voice/transcript-filter.ts，180 号票）：FasterWhisper 偶尔把"请不吝点赞 订阅 转发 打赏支持明镜与点点栏目"
+// 识别结果里剔除模型自带的串词（voice/transcript-filter.ts）：FasterWhisper 偶尔把"请不吝点赞 订阅 转发 打赏支持明镜与点点栏目"
 // 这类训练语料里的句子编进转写。按句（。！？!?；;换行，另外每个分段的边界也算一句的边界）切开，命中规则的句子整句删掉；
 // 分段跟着删、留下的分段和文字对得上；删完没剩有字的就是空的；没命中时原样不动（undefined）。
 import { DEFAULT_VOICE_CONFIG } from "../../src/config/config.ts";
@@ -15,7 +15,7 @@ function segmentsOf(...texts: string[]): TranscriptSegment[] {
 
 const DEFAULTS = ["[请請]不吝?[点點][赞贊讚]", "[订訂][阅閱].{0,6}[转轉][发發]", "打[赏賞].{0,10}(明[镜鏡]|[点點][点點])", "支持(明[镜鏡]|[点點][点點]).{0,6}[栏欄]目", "字幕由.{0,10}提供"];
 
-describe("默认规则（用户 2026-10-19 给的 5 条，字都写成简繁两种都认的）", () => {
+describe("默认规则（字都写成简繁两种都认的）", () => {
   it("默认就是这 5 条", () => {
     expect(DEFAULT_VOICE_CONFIG.recognizer.stripPatterns).toEqual(DEFAULTS);
     expect(rules.map((r) => r.pattern)).toEqual(DEFAULT_VOICE_CONFIG.recognizer.stripPatterns);

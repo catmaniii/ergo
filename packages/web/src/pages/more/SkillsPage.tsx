@@ -1,7 +1,6 @@
-// 设置 · skill 库（27、72 号票）：框架自带的一批（第一阶段只有示例）和你导入的（数据目录的 skill 区）；导入 skill 的入口在这里。
+// 设置 · skill 库：框架自带的一批（第一阶段只有示例）和你导入的（数据目录的 skill 区）；导入 skill 的入口在这里。
 // 列表和导入都走守护进程的 HTTP（GET 工具包目录、POST 导入）；原型里是假实现（prototype/fake-http.ts）。
 // 二狗不读 ~/.claude/skills：现成的 skill 要用，就在这里显式导入一份。下面顺带列出配置区里登记的 MCP（只读：在配置区的 mcp.json 里改）。
-// 72 号票：
 // - 整套导入的集合（matt-pocock、pstack 这类）不一个一个列，各显示成一项：集合名、几个 skill、版本、来源、一句说明，点开才列出成员；
 //   单个导入的、框架自带的照旧一个一个列（分组是状态层的 groupSkills）；
 // - 秘书用的 skill：最上面一栏，选择和工具包区同一个部件（ui/skill-picker.tsx：集合整套选，点开单选），默认 agent-browser、yt-dlp；
@@ -93,7 +92,7 @@ export function SkillsPage() {
       {!catalog && !problem && <div className="muted">{t("pages.skills.loading")}</div>}
       {lastImport && <ImportReport result={lastImport} onClose={() => setLastImport(undefined)} />}
       {catalog?.skillDirProblems && catalog.skillDirProblems.length > 0 && (
-        // 斜杠命令就是 skill 的目录名（82 号票）：不合规的目录名二狗不自动改，这里提示
+        // 斜杠命令就是 skill 的目录名：不合规的目录名二狗不自动改，这里提示
         <div className="hint skill-dir-problems">
           {t("pages.skills.dirProblems")}
           <ul>
@@ -207,7 +206,7 @@ function SkillRow({ skill, used }: { skill: LibrarySkill; used: readonly string[
       <div>
         <b>{skill.name}</b>
         <div className="muted">{skill.description}</div>
-        {/* 负责人提交的（358 号票）：标上谁提的 */}
+        {/* 负责人提交的：标上谁提的 */}
         {skill.submittedBy && <div className="muted">{t(skill.submittedBy.kind === "project" ? "pages.skills.submittedByProject" : "pages.skills.submittedByTask", { title: skill.submittedBy.title })}</div>}
         <div className="muted">{used.length ? t("pages.skills.usedIn", { list: used.join(t("pages.common.listSep")) }) : t("pages.skills.notUsed")}</div>
       </div>

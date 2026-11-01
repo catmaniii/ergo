@@ -1,15 +1,15 @@
 // 简单提醒的时间规则：协议里的 ReminderSchedule（schema 和类型），以及所有按规则种类（一次性、每天、每周几、每月几号、
 // 每年某月某日、按我的工作日）分支的逻辑：下一次响的时间、钟点、只改钟点、按重复规则拼出时间表、中文写法。
 // 守护进程（提醒模块、秘书的工具、内部作业）和 Web（提醒卡、看板）都用这一份，别处不再按 schedule.kind 分支。
-// 定时作业（19 号票）的时间表也是它。时间都按本地时间算（守护进程所在机器、或浏览器的时区）。
+// 定时作业的时间表也是它。时间都按本地时间算（守护进程所在机器、或浏览器的时区）。
 //
-// "按我的工作日"（29 号票）：只在个人工作日历（workday-calendar.ts）上的上班日的那个钟点响。工作日历由调用方经
+// "按我的工作日"：只在个人工作日历（workday-calendar.ts）上的上班日的那个钟点响。工作日历由调用方经
 // ScheduleContext 传给 nextOccurrence（必填：漏传在编译时就报错），每次按当时的工作日历算：工作日历改了（某天标成休息），
 // 下一次跟着变，不用重建提醒。哪些时间表要跟着工作日历变，看 dependsOnWorkdayCalendar。
 //
-// "每年某月某日"（282 号票）：只认公历（农历的日子每年落在公历的不同天，先不做）。2 月 29 日的规矩：闰年在 2 月 29 日响，
+// "每年某月某日"：只认公历（农历的日子每年落在公历的不同天，先不做）。2 月 29 日的规矩：闰年在 2 月 29 日响，
 // 平年在 2 月 28 日响（和"每月几号"没有这天的月份在月底一样）；拼时间表时只收日历上有的日子（2 月最多 29 日，4 月最多 30 日）。
-// 档案里的生日、纪念日"提前几天提醒"（283 号票）先用 monthDayBefore 算出提醒的那天，再按每年拼时间表。
+// 档案里的生日、纪念日"提前几天提醒"先用 monthDayBefore 算出提醒的那天，再按每年拼时间表。
 import { type Static, Type } from "typebox";
 import { t, tTable } from "./i18n/runtime.ts";
 import { daysInMonth, monthName, pad2, weekdayChar } from "./local-date.ts";
@@ -36,7 +36,7 @@ export const REPEAT_KIND_LABEL: Readonly<Record<RepeatKind, string>> = tTable({
 /** 一天里的几点几分（24 小时制，本地时间） */
 export const ClockTime = Type.String({ pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]$" });
 
-/** 一年里的某月某日（公历）：每年的提醒用；档案里的生日、纪念日（283 号票）也是这个形状 */
+/** 一年里的某月某日（公历）：每年的提醒用；档案里的生日、纪念日也是这个形状 */
 export interface MonthDay {
   /** 1–12 */
   month: number;
@@ -55,7 +55,7 @@ export const ReminderSchedule = Type.Union([
   Type.Object({ kind: Type.Literal("weekly"), time: ClockTime, weekdays: Type.Array(Type.Integer({ minimum: 0, maximum: 6 }), { minItems: 1, maxItems: 7 }) }),
   /** 每月几号：这个月没有这一天（比如 2 月的 30 号）就在这个月的最后一天响 */
   Type.Object({ kind: Type.Literal("monthly"), time: ClockTime, days: Type.Array(Type.Integer({ minimum: 1, maximum: 31 }), { minItems: 1, maxItems: 31 }) }),
-  /** 每年某月某日（公历，282 号票）：2 月 29 日在平年的 2 月 28 日响 */
+  /** 每年某月某日（公历）：2 月 29 日在平年的 2 月 28 日响 */
   Type.Object({ kind: Type.Literal("yearly"), time: ClockTime, month: Type.Integer({ minimum: 1, maximum: 12 }), day: Type.Integer({ minimum: 1, maximum: 31 }) }),
   /** 按我的工作日：个人工作日历上的上班日（新加坡或国内的工作日、调休补班、额外规则、手动标记） */
   Type.Object({ kind: Type.Literal("workdays"), time: ClockTime }),
@@ -191,7 +191,7 @@ export function nextOccurrence(schedule: ReminderSchedule, after: Date, context:
 }
 
 /**
- * 时间表在 [from, to) 之间的每次触发时刻，先到的在前（日历上展开定时作业、提醒用，35 号票）；"按我的工作日"按 context 里
+ * 时间表在 [from, to) 之间的每次触发时刻，先到的在前（日历上展开定时作业、提醒用）；"按我的工作日"按 context 里
  * 当时的工作日历算。最多 limit 个（防御：每分钟一次的规则展开很长的区间时截断）
  */
 export function occurrencesBetween(schedule: ReminderSchedule, from: Date, to: Date, context: ScheduleContext, limit = 1000): Date[] {
@@ -287,7 +287,7 @@ export function isMonthDay(value: MonthDay): boolean {
 }
 
 /**
- * 某月某日往前数几天是哪一天（283 号票：生日、纪念日"提前 3 天提醒"）：3 月 2 日提前 3 天是 2 月 27 日，1 月 1 日提前 3 天是
+ * 某月某日往前数几天是哪一天（生日、纪念日"提前 3 天提醒"）：3 月 2 日提前 3 天是 2 月 27 日，1 月 1 日提前 3 天是
  * 12 月 29 日。按平年数：只有 2 月 28 日之后 n 天以内的日子（提前 3 天时是 3 月 1–3 日）在闰年会多提前 1 天（3 月 2 日提前 3 天
  * 在闰年也是 2 月 27 日），别的日子不受影响；2 月 29 日往前数和闰年一样（提前 3 天是 2 月 26 日）；提前 0 天就是原来那天。
  * 结果拿去按每年拼时间表（repeatSchedule）

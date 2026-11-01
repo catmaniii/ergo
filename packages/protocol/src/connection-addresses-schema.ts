@@ -1,4 +1,4 @@
-// 连接地址（364 号票）：POST /api/connection-addresses 的请求体。形状在 connection-addresses.ts（不引用 TypeBox）。
+// 连接地址：POST /api/connection-addresses 的请求体。形状在 connection-addresses.ts（不引用 TypeBox）。
 import { type Static, Type } from "typebox";
 import { CONNECTION_ADDRESS_MAX_LENGTH } from "./connection-addresses.ts";
 

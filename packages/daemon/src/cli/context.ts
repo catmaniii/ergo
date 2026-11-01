@@ -1,4 +1,4 @@
-// ergo 命令的上下文（318 号票）：装在哪、数据在哪、服务管家的数据在哪、怎么输出、怎么联网。各条命令只经它拿这些，测试换成假的。
+// ergo 命令的上下文：装在哪、数据在哪、服务管家的数据在哪、怎么输出、怎么联网。各条命令只经它拿这些，测试换成假的。
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";

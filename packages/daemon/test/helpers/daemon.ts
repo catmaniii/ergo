@@ -33,7 +33,7 @@ import type { WebAccess } from "../../src/web/index.ts";
 import { type FakeLoad, fakeRecognizerCommand, setFakeLoad } from "./voice.ts";
 
 /**
- * 测试里的守护进程：多一个 voiceReplies（214 号票起语音回复是语音插件的，守护进程不再直接带它；这里经插件的服务现取，
+ * 测试里的守护进程：多一个 voiceReplies（语音回复是语音插件的，守护进程不再直接带它；这里经插件的服务现取，
  * 测试照旧写 daemon.voiceReplies.whenIdle() 等识别、合成的队列空了。语音插件没在运行时马上回）
  */
 export type TestDaemonHandle = Daemon & { readonly voiceReplies: { whenIdle(): Promise<void> } };
@@ -68,7 +68,7 @@ export interface StartTestDaemonOptions {
   /** 秘书流式输出的速度（token/秒）；不填则尽快吐完 */
   secretaryTokensPerSecond?: number;
   /**
-   * 记忆管理员的 faux 剧本（242 号票）：每一步对应一次模型调用。不填则它一被调用就得到错误回复
+   * 记忆管理员的 faux 剧本：每一步对应一次模型调用。不填则它一被调用就得到错误回复
    * （03:00 那一夜照旧整理，失败也照旧记，不崩守护进程）
    */
   curator?: FauxStep[];
@@ -85,7 +85,7 @@ export interface StartTestDaemonOptions {
    */
   maintainer?: FauxStep[] | ((maintainerId: string, spawn: number) => FauxStep[]);
   /**
-   * 范围审视用的模型（faux 扮演便宜模型，18 号票）的剧本：按负责人 id 和它第几次被唤起（和 maintainer 一起数）给，每次审视取一步，
+   * 范围审视用的模型（faux 扮演便宜模型）的剧本：按负责人 id 和它第几次被唤起（和 maintainer 一起数）给，每次审视取一步，
    * 回复要是约定的 JSON（{"records":[…]}）。不填（或者给的剧本用完了）是 NO_SCOPE_FINDINGS：每次审视都"在范围之内"
    */
   scopeReviewer?: (maintainerId: string, spawn: number) => FauxStep[];
@@ -93,40 +93,40 @@ export interface StartTestDaemonOptions {
   scopeReviewerTokensPerSecond?: number;
   /** 工单结束时的范围审视最多等多久（毫秒；不填是配置的单次模型调用超时再加半分钟）：测审视超时时用 */
   scopeReviewTimeoutMs?: number;
-  /** 从某个阶段重做之前停稳负责人最多等多久（毫秒；不填是 10 秒）：测到点没停下的那一轮作废时用（84 号票） */
+  /** 从某个阶段重做之前停稳负责人最多等多久（毫秒；不填是 10 秒）：测到点没停下的那一轮作废时用 */
   reworkStopTimeoutMs?: number;
   /**
-   * 评审子 agent 的 faux 剧本（13 号票）：每次评审一个新的子进程，按它的 agent id（review-<任务>-<阶段>-<第几次>）给剧本；
+   * 评审子 agent 的 faux 剧本：每次评审一个新的子进程，按它的 agent id（review-<任务>-<阶段>-<第几次>）给剧本；
    * 不填则评审一被调用就得到错误回复（评审出错，验收不通过）
    */
   reviewer?: (reviewId: string) => FauxStep[];
   /** 评审子 agent 的 faux 模型每秒吐多少 token（不填是 pi 的默认，很快）：要评审"正评着"的时候做点什么（比如删任务）时用 */
   reviewerTokensPerSecond?: number;
-  /** 设置页选文件夹的框列的各个盘（138 号票）；不给是一个盘也没有（测试不去看本机的盘） */
+  /** 设置页选文件夹的框列的各个盘；不给是一个盘也没有（测试不去看本机的盘） */
   folderDrives?: () => Promise<string[]>;
-  /** 设置 · 数据源的"在电脑上打开"导入文件夹（295 号票）；不给是打不开（测试永远不拉起资源管理器） */
+  /** 设置 · 数据源的"在电脑上打开"导入文件夹；不给是打不开（测试永远不拉起资源管理器） */
   openFolder?: (dir: string) => Promise<void>;
   /**
-   * 设置 · 组件（323 号票）：清单、检测、下载那一层……换成测试的（helpers/fake-downloads.ts）。不给的几样：检测是固定的
+   * 设置 · 组件：清单、检测、下载那一层……换成测试的（helpers/fake-downloads.ts）。不给的几样：检测是固定的
    * （没有 N 卡、什么都没检测到），下载那一层什么都不下（测试永远不连真的下载地址），清单是随程序发布的那份
    */
   components?: StartDaemonOptions["components"];
   /**
-   * 并行派出的子 agent 的 faux 剧本（20 号票）：每个子 agent 一个新的子进程，按它的 id（sa-<n>）和这是它第几次被拉起（1 起；
+   * 并行派出的子 agent 的 faux 剧本：每个子 agent 一个新的子进程，按它的 id（sa-<n>）和这是它第几次被拉起（1 起；
    * 工具包变了重新装配时再拉起，会话接着原来的）给剧本；不填则子 agent 一被调用就得到错误回复（交回负责人的是"出错了"）
    */
   subAgent?: (agentId: string, spawn: number) => FauxStep[];
   /** 直接指定秘书的模型（比如一个装配不起来的模型，测秘书起不来）；给了就不看 secretary 剧本 */
   secretaryModel?: ModelSpec;
   /**
-   * 翻斜杠命令的说明用的 faux 剧本（310 号票）：每批一个新的子进程，剧本从头开始，每条说明取一步。不填是不翻（显示原文）——
+   * 翻斜杠命令的说明用的 faux 剧本：每批一个新的子进程，剧本从头开始，每条说明取一步。不填是不翻（显示原文）——
    * 免得跟随秘书时秘书的剧本被翻译吃掉
    */
   translator?: FauxStep[];
   /** 秘书不在运行超过这么久 /healthz 报不健康（默认 30 秒） */
   secretaryDownThresholdMs?: number;
   /**
-   * 任务做完告诉秘书（99 号票）：做完一件之后安静多久（毫秒，按 clock 算）才交给秘书。不填是 TASK_DONE_TEST_SETTLE_MS（200 毫秒，
+   * 任务做完告诉秘书：做完一件之后安静多久（毫秒，按 clock 算）才交给秘书。不填是 TASK_DONE_TEST_SETTLE_MS（200 毫秒，
    * 免得每个做完的任务都多等正式的 2 秒）；测"几件差不多同时做完的并成一条"时给大一点，配手动拨的时钟
    */
   taskDoneSettleMs?: number;
@@ -135,12 +135,12 @@ export interface StartTestDaemonOptions {
   /** 沿用已有的数据目录和主目录（测"停掉再起"）；不填就新建临时目录 */
   reuse?: { dataDir: string; homeDir: string };
   /**
-   * 第一次装（315 号票）：数据目录是一个还不存在的新目录（临时目录下面的一层），也不写测试的配置文件（守卫、语音的测试设置都不写，
+   * 第一次装：数据目录是一个还不存在的新目录（临时目录下面的一层），也不写测试的配置文件（守卫、语音的测试设置都不写，
    * 照正式的默认）——看守护进程自己把数据目录建好。和 reuse、config、plugins 不一起用
    */
   fresh?: boolean;
   /**
-   * 不写测试的配置文件（315 号票）：数据目录里的配置文件原样（测试自己先写好的、上一次留下的），守卫、语音、预算的测试设置都不加——
+   * 不写测试的配置文件：数据目录里的配置文件原样（测试自己先写好的、上一次留下的），守卫、语音、预算的测试设置都不加——
    * 看新装 / 已有的数据目录各按什么默认起来。fresh 隐含它
    */
   keepConfig?: boolean;
@@ -154,20 +154,20 @@ export interface StartTestDaemonOptions {
   portFromConfig?: boolean;
   /** WebSocket 心跳的间隔（毫秒）；默认 30 秒 */
   heartbeatIntervalMs?: number;
-  /** 多久看一眼 index.html 换没换（毫秒，116 号票）；默认 2 秒 */
+  /** 多久看一眼 index.html 换没换（毫秒）；默认 2 秒 */
   webVersionPollMs?: number;
-  /** 交给官方 App 的会话多久只读跟随一次（292 号票）；不填 60 秒 */
+  /** 交给官方 App 的会话多久只读跟随一次；不填 60 秒 */
   remoteFollowMs?: number;
-  /** 多久看一眼数据目录的 locales/ 变没变（毫秒，168 号票）；不填 200 毫秒（测试里放了语言文件很快就看得到） */
+  /** 多久看一眼数据目录的 locales/ 变没变（毫秒）；不填 200 毫秒（测试里放了语言文件很快就看得到） */
   localesPollMs?: number;
   /**
    * 时钟（比如 ManualClock，到点不靠真等）；不填用系统时钟。
-   * 265 号票：给了时钟时默认停掉记忆插件（见 memoryPlugin）——拨时钟跨过 03:00 会在后台唤醒记忆管理员、多拉一个子进程调一次模型
+   * 给了时钟时默认停掉记忆插件（见 memoryPlugin）——拨时钟跨过 03:00 会在后台唤醒记忆管理员、多拉一个子进程调一次模型
    */
   clock?: Clock;
   /**
-   * 记忆插件开不开（265 号票）。不填：给了 clock 就停掉（记忆插件 03:00 的作业会在后台唤醒记忆管理员，拉起一个 pi 子进程调一次模型、
-   * 记一笔系统开销，赶没赶在断言之前全看机器忙不忙——255 号票查出的竞态；拨时钟的用例大多跨过 03:00），没给 clock 照清单全装。
+   * 记忆插件开不开。不填：给了 clock 就停掉（记忆插件 03:00 的作业会在后台唤醒记忆管理员，拉起一个 pi 子进程调一次模型、
+   * 记一笔系统开销，赶没赶在断言之前全看机器忙不忙——查出的竞态；拨时钟的用例大多跨过 03:00），没给 clock 照清单全装。
    * 测记忆的（素材采集、素材检索、问记忆、推理库、每晚整理、记忆管理员）又给了 clock 的写 true。
    * 给了 plugins、config.plugins，或者沿用的数据目录已经起过守护进程（停掉再起）时，不填就照它们的（不再按 clock 默认停）
    */
@@ -180,7 +180,7 @@ export interface StartTestDaemonOptions {
    */
   embedder?: Embedder | "bge-m3";
   /**
-   * 记忆整理用的模型（225 号票）：不填给假模型（每次整理新建一个，回空对象，永远不连真的 DeepSeek——测试环境里
+   * 记忆整理用的模型：不填给假模型（每次整理新建一个，回空对象，永远不连真的 DeepSeek——测试环境里
    * 可能带着真的 DEEPSEEK_API_KEY）；要观察它被问了几次就给自己的工厂
    */
   memoryModel?: () => ChatModel;
@@ -194,84 +194,84 @@ export interface StartTestDaemonOptions {
   log?: (line: string) => void;
   /** 额外登记（或替换）的快速动作（比如 quick-action-fixtures.ts 里的替身） */
   quickActions?: readonly QuickActionExecutor[];
-  /** 负责人会话的工具包（bash、联网开关）；不填是起草计划时的（没有 bash，70 号票起联网开着）。测带类型的 bash 工具时给开了 bash 的（28 号票） */
+  /** 负责人会话的工具包（bash、联网开关）；不填是起草计划时的（没有 bash，联网开着）。测带类型的 bash 工具时给开了 bash 的 */
   maintainerToolkit?: (maintainerId: string) => ShellToolkit;
   /** GitHub 命令行换成假的（程序和它前面的固定参数，见 fixtures/fake-gh.mjs）；不填时是 PATH 上的 gh，测试里别让它真跑 */
   ghCommand?: readonly string[];
   /**
-   * 语音识别进程的命令（31 号票）；不填是假的识别进程（fixtures/fake-recognizer.mjs，记录写进 recognizerLog），
+   * 语音识别进程的命令；不填是假的识别进程（fixtures/fake-recognizer.mjs，记录写进 recognizerLog），
    * 永远不跑真的 faster-whisper
    */
   recognizerCommand?: readonly string[];
-  /** 假的识别进程加载模型时怎么回（45 号票：守护进程一起来就预热；见 voice.ts 的 FakeLoad、setFakeLoad）；不填照常加载 */
+  /** 假的识别进程加载模型时怎么回（守护进程一起来就预热；见 voice.ts 的 FakeLoad、setFakeLoad）；不填照常加载 */
   recognizerLoad?: FakeLoad;
   /**
-   * 参考音色导入时把常见音频转成 WAV 的 ffmpeg 命令（230 号票）；不填是假的 ffmpeg（fixtures/fake-ffmpeg.mjs，
+   * 参考音色导入时把常见音频转成 WAV 的 ffmpeg 命令；不填是假的 ffmpeg（fixtures/fake-ffmpeg.mjs，
    * 记录写进 ffmpegLog），永远不跑本机的 ffmpeg
    */
   ffmpegCommand?: readonly string[];
-  /** 识别模型没加载起来、加载好很快又退出时，第几次之后隔多久再试（毫秒，45 号票）；不填是正式的（5 秒起） */
+  /** 识别模型没加载起来、加载好很快又退出时，第几次之后隔多久再试（毫秒）；不填是正式的（5 秒起） */
   recognizerRetryMs?: readonly number[];
-  /** 识别进程加载好之后多久没崩算稳定（毫秒，45 号票）；不填是正式的 60 秒 */
+  /** 识别进程加载好之后多久没崩算稳定（毫秒）；不填是正式的 60 秒 */
   recognizerStableMs?: number;
-  /** 发语音工具最多等合成多久就先交回"还在合成"（毫秒，86 号票）；不填是正式的 */
+  /** 发语音工具最多等合成多久就先交回"还在合成"（毫秒）；不填是正式的 */
   sendVoiceWaitMs?: number;
   /**
-   * 语音合成服务的地址（32 号票，代替本机 LSM 托管的 audio.cpp）：给 tts.ts 的假服务的地址；
+   * 语音合成服务的地址（代替本机 LSM 托管的 audio.cpp）：给 tts.ts 的假服务的地址；
    * 不填是本机 1 号端口（连不上），永远不打到本机 8090 上真的 audio.cpp
    */
   speechUrl?: string;
-  /** 联网搜索、读网页（70 号票）：不填是假的、一律回"测试里不联网"（web.ts 的 fakeWebAccess），永远不起浏览器、不连真网络 */
+  /** 联网搜索、读网页：不填是假的、一律回"测试里不联网"（web.ts 的 fakeWebAccess），永远不起浏览器、不连真网络 */
   webAccess?: WebAccess;
   /**
-   * DeepSeek 的联网搜索、读网页接口的地址（154 号票）：给本机假服务的地址（fake-deepseek-tools.ts）；不填是本机 1 号端口（连不上），
+   * DeepSeek 的联网搜索、读网页接口的地址：给本机假服务的地址（fake-deepseek-tools.ts）；不填是本机 1 号端口（连不上），
    * 永远不连真的 DeepSeek（测试环境里可能带着真的 DEEPSEEK_API_KEY）
    */
   webDeepseekBaseUrl?: string;
-  /** 项目的服务首页怎么截（140 号票）：不填是一律截不成（"测试里不截图"），永远不起浏览器 */
+  /** 项目的服务首页怎么截：不填是一律截不成（"测试里不截图"），永远不起浏览器 */
   serviceThumbnail?: (url: string, signal: AbortSignal) => Promise<Buffer>;
-  /** 浏览器的路径（70 号票：注入 agent 的 bash 环境的 AGENT_BROWSER_EXECUTABLE_PATH）：给假的路径；不填是没找到（不注入），不探测本机 */
+  /** 浏览器的路径（注入 agent 的 bash 环境的 AGENT_BROWSER_EXECUTABLE_PATH）：给假的路径；不填是没找到（不注入），不探测本机 */
   browserPath?: string;
   /**
-   * 按设置里的"模型"拉起的几类 agent（73 号票）：列出的不给 faux 剧本，守护进程按设置取目录模型（DeepSeek），请求都发到
+   * 按设置里的"模型"拉起的几类 agent：列出的不给 faux 剧本，守护进程按设置取目录模型（DeepSeek），请求都发到
    * catalogBaseUrl（本机的假 DeepSeek，fake-deepseek.ts）；maintainer 是任务、项目、定时作业的负责人。不列的照旧是 faux
    */
   modelsFromSettings?: ReadonlyArray<"secretary" | "maintainer" | "reviewer" | "sub_agent" | "scope_review">;
   /**
-   * 只有这些负责人按设置里的"模型"取目录模型（83 号票：定时作业的负责人用目录模型，建作业的任务的负责人照旧按 faux 剧本交计划）；
+   * 只有这些负责人按设置里的"模型"取目录模型（定时作业的负责人用目录模型，建作业的任务的负责人照旧按 faux 剧本交计划）；
    * 项目负责人（pm-）按项目负责人的设置，别的按任务负责人的。modelsFromSettings 里有 maintainer 时不看它
    */
   maintainersFromSettings?: (maintainerId: string) => boolean;
-  /** 目录模型（设置里的"模型"）的请求和连通测试发到哪（73 号票）；不填是本机 1 号端口（连不上），永远不连真的 DeepSeek */
+  /** 目录模型（设置里的"模型"）的请求和连通测试发到哪；不填是本机 1 号端口（连不上），永远不连真的 DeepSeek */
   catalogBaseUrl?: string;
   /**
-   * 只装这些插件（126 号票，插件清单 plugins/manifest.ts 里的名字）；不填是全装。走真实的装配路径：清单里别的插件写进数据目录配置的
+   * 只装这些插件（插件清单 plugins/manifest.ts 里的名字）；不填是全装。走真实的装配路径：清单里别的插件写进数据目录配置的
    * plugins.disabled（和 config 里给的 plugins.disabled 合起来），守护进程照常按组合根和插件清单起来，不手挂插件
    */
   plugins?: readonly string[];
-  /** 接在插件清单后面的插件（126 号票：比如装不上的，测降级），和清单里的走同一条装配路径 */
+  /** 接在插件清单后面的插件（比如装不上的，测降级），和清单里的走同一条装配路径 */
   extraPlugins?: readonly PluginDefinition[];
-  /** 会话回退之后的撤销接口（150 号票）：测"回退之后调到了它"；不填是守护进程默认的什么都不做 */
+  /** 会话回退之后的撤销接口：测"回退之后调到了它"；不填是守护进程默认的什么都不做 */
   sessionRollbackHook?: SessionRollbackHook;
-  /** 立项后叫醒负责人先开口（362 号票）：测试里默认关，假模型的剧本不多一轮；要测的写 true */
+  /** 立项后叫醒负责人先开口：测试里默认关，假模型的剧本不多一轮；要测的写 true */
   kickoffOpening?: boolean;
   /**
    * 用例结束就停掉（默认）。一个 describe 共用一个守护进程时写 false（用 suiteDaemon 起它，由 afterAll 停，
-   * 或者在测试文件里自己 afterAll(() => td.daemon.stop())）——245 号票
+   * 或者在测试文件里自己 afterAll(() => td.daemon.stop())）——
    */
   stopOnTestFinished?: boolean;
 }
 
-/** 测试里任务做完告诉秘书默认安静多久（毫秒，99 号票）：比正式的 2 秒短，做完的通知马上就到 */
+/** 测试里任务做完告诉秘书默认安静多久（毫秒）：比正式的 2 秒短，做完的通知马上就到 */
 export const TASK_DONE_TEST_SETTLE_MS = 200;
 
-/** 目录模型（设置里的"模型"）默认的请求地址：本机 1 号端口，连不上（73 号票：测试里永远不连真的 DeepSeek） */
+/** 目录模型（设置里的"模型"）默认的请求地址：本机 1 号端口，连不上（测试里永远不连真的 DeepSeek） */
 export const NO_CATALOG_URL = "http://127.0.0.1:1";
 
-/** DeepSeek 的联网搜索、读网页接口默认的地址：本机 1 号端口，连不上（154 号票：测试里永远不连真的 DeepSeek） */
+/** DeepSeek 的联网搜索、读网页接口默认的地址：本机 1 号端口，连不上（测试里永远不连真的 DeepSeek） */
 export const NO_DEEPSEEK_TOOLS_URL = "http://127.0.0.1:1";
 
-/** 范围审视的默认剧本（18 号票）：每次审视都回"这段工作都在范围之内"（够一个子进程审视很多次） */
+/** 范围审视的默认剧本：每次审视都回"这段工作都在范围之内"（够一个子进程审视很多次） */
 export const NO_SCOPE_FINDINGS: readonly FauxStep[] = Array.from({ length: 30 }, () => ({ kind: "reply", text: '{"records":[]}' }) as const);
 
 /** 测试页的内容：网关应当原样提供它 */
@@ -288,7 +288,7 @@ export const TEST_PAGE = "<!doctype html><html><head><title>二狗测试页</tit
  */
 export async function startTestDaemon(options: StartTestDaemonOptions = {}): Promise<TestDaemon> {
   // 每例一个的（默认）临时目录挂在当前用例的 onTestFinished 上；共用的（suiteDaemon 在 beforeAll 里调）不能那样，
-  // onTestFinished 在用例外面会抛错——改成记下来，收回在 suiteDaemon 的 afterAll（245 号票）
+  // onTestFinished 在用例外面会抛错——改成记下来，收回在 suiteDaemon 的 afterAll
   const deferCleanup = options.stopOnTestFinished === false;
   const tempDirs: string[] = [];
   const tempDir = (prefix: string): string => {
@@ -324,9 +324,9 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
             fauxModel(options.secretary ?? [], options.secretaryTokensPerSecond === undefined ? {} : { tokensPerSecond: options.secretaryTokensPerSecond }),
         }),
     ...(options.secretaryDownThresholdMs === undefined ? {} : { secretaryDownThresholdMs: options.secretaryDownThresholdMs }),
-    // 310 号票：翻斜杠命令的说明（不填是不翻）
+    // 翻斜杠命令的说明（不填是不翻）
     slashTranslationModel: options.translator === undefined ? null : fauxModel(options.translator),
-    // 242 号票：记忆管理员的模型（不填是空的 faux 剧本：一被调用就出错，和秘书的默认一样）
+    // 记忆管理员的模型（不填是空的 faux 剧本：一被调用就出错，和秘书的默认一样）
     curatorModel: options.curatorModel ?? fauxModel(options.curator ?? []),
     taskDoneSettleMs: options.taskDoneSettleMs ?? TASK_DONE_TEST_SETTLE_MS,
     kickoffOpening: options.kickoffOpening ?? false,
@@ -417,7 +417,7 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
 }
 
 /*
- * 245 号票试过、撤掉了：`waitForJobProcesses(td)`——等 Windows Job 里比此刻多出进程（bash 和它跑的命令都在 Job 里），
+ * 试过、撤掉了：`waitForJobProcesses(td)`——等 Windows Job 里比此刻多出进程（bash 和它跑的命令都在 Job 里），
  * 用来把"触发之后真等 1.5 秒猜命令跑起来了"换成事件驱动。单独跑的时候能省 1–1.5 秒/处，但并行跑（2 workers、
  * 机器上还有别的活）时子进程起来要十几秒，等待会超时；而且如果命令在我们取基线之前就已经起来了，进程数不会再涨，
  * 只能干等。固定 1.5 秒虽然糙，但对"它大概已经在跑了"这件事更稳，所以调用点全部还原了。
@@ -425,7 +425,7 @@ export async function startTestDaemon(options: StartTestDaemonOptions = {}): Pro
  */
 
 /**
- * 一个 describe 里共用一个守护进程（245 号票）：在 describe 体里调用（收集用例的时候），它自己注册 beforeAll / afterAll，
+ * 一个 describe 里共用一个守护进程：在 describe 体里调用（收集用例的时候），它自己注册 beforeAll / afterAll，
  * 返回取这个守护进程的函数——用例里写 `const td = shared();`。
  *
  * 共用时用例之间必须互不相干，照这几条写：
@@ -469,7 +469,7 @@ export async function connectFrontend(td: TestDaemon, channels: readonly string[
 }
 
 /**
- * 共用守护进程的"净底"（245 号票）：在 beforeAll 里调一次，把上一个用例留下的收掉——
+ * 共用守护进程的"净底"：在 beforeAll 里调一次，把上一个用例留下的收掉——
  * 待我处理里没处理完的归档（它们的状态、计数会干扰"待我处理里有几条"这类断言），没结束的任务取消
  * （不然它一直占着全局执行名额，还会往待我处理里塞新事项）。用例自己建的东西不在这里收：下一个用例不看它。
  */
@@ -487,13 +487,13 @@ export async function cleanSharedState(td: TestDaemon): Promise<void> {
 }
 
 /**
- * 对话审批（70 号票）在测试底座里默认打开：已有的审批、"等你"、被杀后恢复这些用例测的就是这套机制（代码保留，配置一开就恢复）；
+ * 对话审批在测试底座里默认打开：已有的审批、"等你"、被杀后恢复这些用例测的就是这套机制（代码保留，配置一开就恢复）；
  * 测关掉的（正式的默认 off）显式写 config: { guard: { conversationApprovals: "off" } }。数据目录里已经写过 guard 的（停掉再起）不动
  */
 export const TEST_GUARD_CONFIG = { guard: { conversationApprovals: "on" } } as const;
 
 /**
- * 只装给的插件（126 号票）：清单里别的写进配置的 plugins.disabled（和给的合起来）。不给 only 时配置原样。
+ * 只装给的插件：清单里别的写进配置的 plugins.disabled（和给的合起来）。不给 only 时配置原样。
  * 沿用数据目录（reuse）时也照写：这次给了 only 就以这次的为准，没给就保留数据目录配置里原来的
  */
 function withOnlyPlugins(config: Record<string, unknown> | undefined, only: readonly string[] | undefined): Record<string, unknown> | undefined {
@@ -507,7 +507,7 @@ function withOnlyPlugins(config: Record<string, unknown> | undefined, only: read
 const MEMORY_PLUGIN = "memory";
 
 /**
- * 记忆插件开不开（265 号票，见 StartTestDaemonOptions.memoryPlugin）：给了 memoryPlugin 照它；没给、给了 clock、
+ * 记忆插件开不开（见 StartTestDaemonOptions.memoryPlugin）：给了 memoryPlugin 照它；没给、给了 clock、
  * 用例和数据目录都还没定过插件时停掉。停掉写进配置的 plugins.disabled（走真实的装配路径，和 plugins 一样）；
  * 打开只在配置里本来停着它时拿掉（默认就是开着的，不多写一个空的 plugins）
  */
@@ -549,7 +549,7 @@ export function writeTestConfig(dataDir: string, config: Record<string, unknown>
 }
 
 /**
- * 预算控制（93 号票）在测试底座里照旧关着（tasks.thresholds.budgetControl: false）：315 号票起新装的数据目录（还没有事件库）起来时
+ * 预算控制在测试底座里照旧关着（tasks.thresholds.budgetControl: false）：新装的数据目录（还没有事件库）起来时
  * 守护进程把它打开、写进配置文件，而测试的临时数据目录都是"新装"——明着写上关着，用例照原来的行为。测预算的显式写 true；
  * 数据目录里已经写过的（停掉再起）不动
  */
@@ -565,7 +565,7 @@ function withTestTasks(config: Record<string, unknown> | undefined, existing: Re
 const isObject = (v: unknown) => typeof v === "object" && v !== null && !Array.isArray(v);
 
 /**
- * 语音识别没做成时的自动重试（208 号票，正式的隔 15 秒、60 秒、3 分钟）在测试底座里默认关掉（voice.recognizer.autoRetrySeconds: []）：
+ * 语音识别没做成时的自动重试（正式的隔 15 秒、60 秒、3 分钟）在测试底座里默认关掉（voice.recognizer.autoRetrySeconds: []）：
  * 识别失败马上有结局，别的用例不用等。测自动重试的显式写 config: { voice: { recognizer: { autoRetrySeconds: [...] } } }；
  * 数据目录里已经写过的（停掉再起）不动
  */
@@ -596,7 +596,7 @@ export function fauxModel(script: FauxStep[], options: { tokensPerSecond?: numbe
   return { kind: "faux", thinkingLevel: "off", script, ...options };
 }
 
-/** 提醒插件提供的服务（126 号票：提醒是插件，经插件宿主按名字取）；提醒插件没在运行时报错 */
+/** 提醒插件提供的服务（提醒是插件，经插件宿主按名字取）；提醒插件没在运行时报错 */
 export function reminderService(daemon: Daemon): ReminderService {
   const service = daemon.plugins.service(REMINDERS);
   if (!service) throw new Error("提醒插件没在运行");

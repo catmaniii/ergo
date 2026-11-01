@@ -1,4 +1,4 @@
-// 新建时选工作文件夹（305 号票，work-folders/）：核对已有的文件夹（绝对路径、在、是文件夹、不在不许用的地方）、默认文件夹的存取、
+// 新建时选工作文件夹（work-folders/）：核对已有的文件夹（绝对路径、在、是文件夹、不在不许用的地方）、默认文件夹的存取、
 // 新建时定工作目录（不能选的运行时照旧；新开的按标题起名、不合法的字符换掉、重名加序号；默认文件夹不在了的写明）。
 import fs from "node:fs";
 import path from "node:path";
@@ -40,7 +40,7 @@ const reason = (fn: () => unknown): string => {
   throw new Error("应该抛错");
 };
 
-describe("新建时选工作文件夹（305 号票）", () => {
+describe("新建时选工作文件夹", () => {
   it("核对已有的文件夹：要绝对路径、在、是文件夹、不在数据目录和程序目录里；行的交回真实路径", () => {
     const { folders, work, data, program } = setup();
     fs.writeFileSync(path.join(work, "a.txt"), "x");

@@ -1,4 +1,4 @@
-// 项目在用时运营方案里的一条只能暂停、恢复（141 号票，纯函数）：规则是协议包的 operationsItemLock（守护进程按同一份拒绝用户的取消、
+// 项目在用时运营方案里的一条只能暂停、恢复（纯函数）：规则是协议包的 operationsItemLock（守护进程按同一份拒绝用户的取消、
 // 归档），这里按状态层里的项目取出来——任务的菜单（task-menu.ts 的 operationsLock）、看板卡和项目页作业行上的按钮
 // （scheduled-jobs.ts）、项目页内部任务一栏的"归档"都看它。
 import { operationsItemLock, type Task } from "./protocol.ts";

@@ -1,4 +1,4 @@
-// 安卓 App 的构建辅助（349 号票）：找 Android Studio 自带的 JDK、SDK，认出参数。`build-android.ts` 用它构建，
+// 安卓 App 的构建辅助：找 Android Studio 自带的 JDK、SDK，认出参数。`build-android.ts` 用它构建，
 // `frontend/test/android.test.ts` 测它。
 import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
@@ -49,7 +49,7 @@ export function findAndroidTools(env: NodeJS.ProcessEnv, platform: NodeJS.Platfo
   return { javaHome, sdk };
 }
 
-/** 指定发布用的调试钥匙在哪的环境变量（376 号票）；不设就看用户目录下的默认位置 */
+/** 指定发布用的调试钥匙在哪的环境变量；不设就看用户目录下的默认位置 */
 export const DEBUG_KEYSTORE_ENV = "ERGO_ANDROID_DEBUG_KEYSTORE";
 
 /**
@@ -59,7 +59,7 @@ export const DEBUG_KEYSTORE_ENV = "ERGO_ANDROID_DEBUG_KEYSTORE";
 export const RELEASE_CERT_SHA256 = "7bab3e5b4b1c72d4640eb21f33abbfd0e631ee126b60ac6848457afefd460a09";
 
 /**
- * 发布用的调试钥匙（376 号票）：不进仓库，默认放在 <用户目录>/.ergo-release/。
+ * 发布用的调试钥匙：不进仓库，默认放在 <用户目录>/.ergo-release/。
  * 没有时回 undefined，构建照常用这台机器默认的调试签名（外人自己构建就是这样）；环境变量指的文件不存在算出错，免得以为签对了。
  */
 export function findDebugKeystore(env: NodeJS.ProcessEnv, home: string, exists: (file: string) => boolean = existsSync): string | undefined | { error: string } {

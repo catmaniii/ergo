@@ -1,11 +1,11 @@
-// 个人档案（281 号票）的派生视图（ergo.db）：从 personal_files 频道归并。
+// 个人档案的派生视图（ergo.db）：从 personal_files 频道归并。
 // - personal_people：重要的人（本人那份一直在，不进这张表）；
 // - personal_values：每个字段的每个值一行，现在的值 until 是空的，旧值记着到哪天为止（同一字段来了新值，上一行补上 until）；
 //   撤销最近一次写入删掉那一行、上一行的 until 清空；忘掉一个字段删掉它的全部行；
 // - personal_notes：记下的事；
-// - personal_reminders（283）：生日、纪念日的每年提醒——哪个人哪个字段、提前几天、对应提醒插件里的哪一条；字段、人删了跟着删；
-// - personal_candidates（283）：记忆管理员攒的候选（一个人被提到、或者他的一条固定信息）、合进了哪张卡、结局；
-// - personal_groups（285）：用户给档案里的人选的分组；没选过的不在这张表里（按关系猜）。281–302 号票建的库里没有这张表，打开时补一遍。
+// - personal_reminders：生日、纪念日的每年提醒——哪个人哪个字段、提前几天、对应提醒插件里的哪一条；字段、人删了跟着删；
+// - personal_candidates：记忆管理员攒的候选（一个人被提到、或者他的一条固定信息）、合进了哪张卡、结局；
+// - personal_groups：用户给档案里的人选的分组；没选过的不在这张表里（按关系猜）。以前建的库里没有这张表，打开时补一遍。
 // 留痕（trail）按 JSON 存在行上，档案页按它写"出处"。彻底删除改写事件后整体重放：被改写的值紧跟着就被删除事件去掉，不会露出删除标记。
 import type { DerivedView, StoredEvent } from "../events/event-store.ts";
 import type { Database, ReadonlyDatabase } from "../storage/sqlite.ts";
@@ -65,7 +65,7 @@ export const personalFilesView: DerivedView = {
       CREATE INDEX IF NOT EXISTS personal_candidates_by_key ON personal_candidates (person_key);
       CREATE TABLE IF NOT EXISTS personal_groups (person_id TEXT PRIMARY KEY, grp TEXT NOT NULL);
     `);
-    // 新建的表（第一次装上、手删过库；285 号票起升级时缺 personal_groups）：从事件日志补一遍，只读这一个频道。
+    // 新建的表（第一次装上、手删过库；升级时缺 personal_groups）：从事件日志补一遍，只读这一个频道。
     // 补之前先清空已有的几张表——重放不会先清，已有的行会和补进来的撞（UNIQUE）
     if (existed) return undefined;
     personalFilesView.clear(db);
@@ -239,7 +239,7 @@ export function notesOf(reader: ReadonlyDatabase, personId: string): StoredNote[
     .map((r) => ({ noteId: r.note_id, text: r.text, date: r.date, at: r.at, trail: JSON.parse(r.trail) as PersonalFileTrail, globalSeq: Number(r.global_seq) }));
 }
 
-/** 一条每年提醒的设置（283） */
+/** 一条每年提醒的设置 */
 export interface StoredReminder {
   personId: string;
   field: string;
@@ -258,7 +258,7 @@ export function remindersOf(reader: ReadonlyDatabase, personId?: string): Stored
   return rows.map((r) => ({ personId: r.person_id, field: r.field, daysBefore: Number(r.days_before), ...(r.reminder_id === null ? {} : { reminderId: r.reminder_id }) }));
 }
 
-/** 一条候选（283） */
+/** 一条候选 */
 export interface StoredCandidate {
   candidateId: string;
   personKey: string;

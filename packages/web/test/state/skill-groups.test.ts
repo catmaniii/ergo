@@ -1,4 +1,4 @@
-// skill 库按集合显示、按集合选（72 号票）：集合显示成一项、点开才列成员；选择时能整套选、整套去掉，点开能单选其中几个。
+// skill 库按集合显示、按集合选：集合显示成一项、点开才列成员；选择时能整套选、整套去掉，点开能单选其中几个。
 // 守护进程的回答按协议的 schema 构造；用的是自己造的假集合（三五个成员），不是真的第三方 skill。
 import { schemaChecker, ToolkitCatalog as CatalogSchema } from "@ergo/protocol";
 import { describe, expect, test } from "vitest";

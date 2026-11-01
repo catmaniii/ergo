@@ -1,4 +1,4 @@
-// 触发登记（76 号票，ADR 0025；19 号票时叫"定时作业"，事件和类型的名字照旧是 scheduled_job，事件日志不改写）的名字和纯函数：
+// 触发登记（ADR 0025；原来叫"定时作业"，事件和类型的名字照旧是 scheduled_job，事件日志不改写）的名字和纯函数：
 // 登记的状态、为什么暂停、运行记录的状态和触发方式、看板分组、用户在看板上能做的动作、卡上的说法；以及每周归档清单（规格第 8 节）每一项的选择。
 // 只有常量和纯函数，不引用 TypeBox（Web 只用这些）。schema 在 scheduled-job-schema.ts。
 //
@@ -7,7 +7,7 @@
 // 每被触发一次是一次运行（JobRun）；上一次还没跑完又被触发：排队合并，等它结束再跑一次，期间来的触发合成一批（JobRun.events）交给它。
 // 属于项目的任务每次运行是交给项目负责人的一张工单；不属于项目的由任务自己的 agent 做，各次运行接着同一段会话。
 // 状态：运营中 ⇄ 已暂停（用户在看板上切换；连续失败到了次数自动暂停；项目停用、归档时暂停，重新启用、取消归档时恢复），
-// 用户可以取消（任务随之取消）。76 号票之前长程任务计划里登记的定时作业迁移成定时触发的普通任务（新事件建出任务，原来的事件不动），
+// 用户可以取消（任务随之取消）。以前长程任务计划里登记的定时作业迁移成定时触发的普通任务（新事件建出任务，原来的事件不动），
 // 它们每次运行的授权（随计划卡确认的）照旧：任务在运营就一直有效（不按 7 天续期），暂停、取消即收回。
 import { followLocale, t, tTable } from "./i18n/runtime.ts";
 import type { BoardGroup } from "./tasks.ts";
@@ -41,8 +41,8 @@ export const JOB_PAUSE_REASON_LABEL: Readonly<Record<JobPauseReason, string>> = 
  * 一次运行的状态：排队（等全局执行名额；属于项目的作业是交给项目负责人的一张工单，在项目的队列里排着，排着时不占名额）、
  * 运行中（真正开始了，占着一个名额）、成功、失败（负责人报了做不了、这一轮出错或被中止、审批等不到被拦下……）、
  * 中断（守护进程停机时正做到一半：不重做，也不算进连续失败）、没运行（还排着时作业暂停、取消了，一并丢掉：不算进连续失败）、
- * 已撤回（155 号票，用户 2026-10-18 定：正在运行时你撤回了会话、切换了分支，这次运行到此为止——不算失败，不算进连续失败，
- * 不触发连续失败自动暂停，也不改"最近一次失败"）、部分完成（176 号票，用户 2026-10-19 定：有一步等不到批准被拦下、或者交给你亲手做，
+ * 已撤回（正在运行时你撤回了会话、切换了分支，这次运行到此为止——不算失败，不算进连续失败，
+ * 不触发连续失败自动暂停，也不改"最近一次失败"）、部分完成（有一步等不到批准被拦下、或者交给你亲手做，
  * 别的负责人做完了——既不算成功也不算失败，和中断一样不算进连续失败、也不清零，不触发自动暂停，不改"最近一次失败"）
  */
 export const JOB_RUN_STATES = ["queued", "running", "done", "failed", "interrupted", "dropped", "rolled_back", "partial"] as const;
@@ -63,8 +63,8 @@ export const JOB_RUN_STATE_KEYS: Readonly<Record<JobRunState, string>> = {
 export const JOB_RUN_STATE_LABEL: Readonly<Record<JobRunState, string>> = tTable(JOB_RUN_STATE_KEYS);
 
 /**
- * 这次运行为什么开始：到点了，守护进程启动时补跑停机期间错过的（错过几次都只补跑一次），还是事件推送过来（77 号票接事件来源），
- * 还是用户让它立即运行一次（100 号票：任务操作菜单里的"立即运行一次"、秘书照用户说的；不改时间表、不算错过补发）。
+ * 这次运行为什么开始：到点了，守护进程启动时补跑停机期间错过的（错过几次都只补跑一次），还是事件推送过来（接事件来源），
+ * 还是用户让它立即运行一次（任务操作菜单里的"立即运行一次"、秘书照用户说的；不改时间表、不算错过补发）。
  * 合进来的触发（排队合并）记在运行的 events 里，这里只记最先那一次
  */
 export const JOB_RUN_TRIGGERS = ["scheduled", "catch_up", "event", "manual"] as const;
@@ -78,19 +78,19 @@ export const JOB_RUN_TRIGGER_LABEL: Readonly<Record<JobRunTrigger, string>> = tT
 });
 
 /**
- * 触发底座收到的事件从哪来（76 号票）：时间到了（定时）也是一种事件；77 号票的事件来源（二狗内部事件、本机文件夹变化……）
+ * 触发底座收到的事件从哪来：时间到了（定时）也是一种事件；事件来源（二狗内部事件、本机文件夹变化……）
  * 用自己的编号接在同一个口子上（scheduled-jobs/ 的 fire）
  */
 export const TIME_TRIGGER_SOURCE = "time";
 
-/** 用户让它立即运行一次（100 号票）的那次触发的来源：不是时间到了，也不是事件来源推来的事件（不带事件的值） */
+/** 用户让它立即运行一次的那次触发的来源：不是时间到了，也不是事件来源推来的事件（不带事件的值） */
 export const MANUAL_TRIGGER_SOURCE = "manual";
 
 /**
- * 看板频道上 scheduled_job 事件的"这次是什么变化"：登记（76 号票起是定时触发的任务登记好了；之前是确认计划后）、暂停、恢复、取消、
+ * 看板频道上 scheduled_job 事件的"这次是什么变化"：登记（是定时触发的任务登记好了；之前是确认计划后）、暂停、恢复、取消、
  * 到点（一次运行进了队列，下一次的时间跟着往后算）、运行开始、运行结束（成功或失败；连续失败到了次数时同一事务自动暂停）、
- * 下一次的时间重算了（"按我的工作日"的时间表在工作日历变了之后，系统做的；98 号票起也是用户改了时间表，用户做的）；
- * 76 号票：迁移（以前的定时作业有了它的定时触发的普通任务）、
+ * 下一次的时间重算了（"按我的工作日"的时间表在工作日历变了之后，系统做的；也是用户改了时间表，用户做的）；
+ * 迁移（以前的定时作业有了它的定时触发的普通任务）、
  * 合并（上一次还没跑完、又来了触发：并进还排着的那一次）、一次运行里汇报了一步（定时触发的流程的 report_step）
  */
 export const SCHEDULED_JOB_CHANGES = ["registered", "paused", "resumed", "cancelled", "triggered", "run_started", "run_finished", "rescheduled", "migrated", "merged", "run_step"] as const;
@@ -114,7 +114,7 @@ export function scheduledJobActions(job: { state: ScheduledJobState }): Schedule
 }
 
 /**
- * 能不能改时间表（98 号票，reschedule_job）：定时触发的（有时间表）、没取消的——暂停着的也能改（改完照旧暂停）；
+ * 能不能改时间表（reschedule_job）：定时触发的（有时间表）、没取消的——暂停着的也能改（改完照旧暂停）；
  * 事件触发的没有时间表，改不了
  */
 export function canRescheduleJob(job: { state: ScheduledJobState; schedule?: unknown }): boolean {
@@ -122,14 +122,14 @@ export function canRescheduleJob(job: { state: ScheduledJobState; schedule?: unk
 }
 
 /**
- * 能不能立即运行一次（100 号票，run_job_now）：没取消的——定时、事件触发的都能；暂停着的也能（跑一次照旧暂停，不恢复）。
+ * 能不能立即运行一次（run_job_now）：没取消的——定时、事件触发的都能；暂停着的也能（跑一次照旧暂停，不恢复）。
  * 上一次还没跑完的另由守护进程拒绝并说明（看运行记录，这里不看）
  */
 export function canRunJobNow(job: { state: ScheduledJobState }): boolean {
   return job.state !== "cancelled";
 }
 
-/** 触发登记在看板上的分组：运营中、已暂停的都在"运营中"组（卡上写状态）；已取消的不上看板（76 号票起看板上是它的任务） */
+/** 触发登记在看板上的分组：运营中、已暂停的都在"运营中"组（卡上写状态）；已取消的不上看板（看板上是它的任务） */
 export function boardGroupOfScheduledJob(state: ScheduledJobState): BoardGroup | undefined {
   return state === "cancelled" ? undefined : "ops";
 }
@@ -144,7 +144,7 @@ export function scheduledJobStatusText(job: { state: ScheduledJobState; pausedBy
   return t("protocol.scheduledJobs.status.paused", { label, reason: JOB_PAUSE_REASON_LABEL[job.pausedBy] });
 }
 
-/** 运行中你撤回了会话、切换了分支（155 号票）：这次运行记"已撤回"时写的原因 */
+/** 运行中你撤回了会话、切换了分支：这次运行记"已撤回"时写的原因 */
 export const JOB_RUN_ROLLED_BACK_REASON = tTable({
   rollback: "protocol.scheduledJobs.rolledBack.rollback",
   switch: "protocol.scheduledJobs.rolledBack.switch",
@@ -152,11 +152,11 @@ export const JOB_RUN_ROLLED_BACK_REASON = tTable({
 
 /** 作业卡上"最近一次失败"的标记（跟着当前语言，followLocale） */
 export let LAST_RUN_FAILED_LABEL = "";
-/** 作业卡上"最近一次部分完成"的标记（176 号票） */
+/** 作业卡上"最近一次部分完成"的标记 */
 export let LAST_RUN_PARTIAL_LABEL = "";
 
 /**
- * 卡上标的最近一次的结局（项目页作业行、还没迁移的作业卡、秘书的查看板）：最近一次是部分完成的标"最近一次部分完成"（176 号票，
+ * 卡上标的最近一次的结局（项目页作业行、还没迁移的作业卡、秘书的查看板）：最近一次是部分完成的标"最近一次部分完成"（
  * 它比"最近一次失败"新：那一次不改 lastFailed，照旧标失败就说反了）；不然最近一次算数的失败了标"最近一次失败"；都不是不标
  */
 export function lastRunMark(job: { lastFailed: boolean; lastRun?: { state: JobRunState } | undefined }): { text: string; partial: boolean } | undefined {
@@ -166,7 +166,7 @@ export function lastRunMark(job: { lastFailed: boolean; lastRun?: { state: JobRu
 
 /**
  * "定时触发的任务被自动暂停"事项（待我处理里的通知 scheduled_job_auto_paused）的两个动作。事项的动作按这几个字认
- * （存进事件、点了按字找处理的），不跟着语言变（172 号票）
+ * （存进事件、点了按字找处理的），不跟着语言变
  */
 export const JOB_AUTO_PAUSED_ACTIONS = { resume: "恢复", keep: "保持暂停" } as const; // @i18n-ignore fixed：事项的动作按字认
 

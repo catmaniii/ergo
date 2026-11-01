@@ -1,5 +1,5 @@
 /**
- * 执行中出过的状况（60 号票）：图标、个数一行、清单——
+ * 执行中出过的状况：图标、个数一行、清单——
  * - 图标：已处理的带 ✓、颜色平和；要注意的换成感叹号；
  * - 个数一行（阶段抽屉全开、宽屏阶段栏下面）：每类一个图标、名字、几次，点一个看是哪几次；
  * - 出过的状况一页（详情栏）：按类筛，一件一行，点一行进那一条的详情。
@@ -15,7 +15,7 @@ export function IncidentIcon({ kind, attention }: { kind: IncidentKind; attentio
   const warn = attention === true || kind === "look";
   const label = warn ? t("ui.incidents.iconAttention", { name: m.name }) : t("ui.incidents.iconDone", { name: m.name, done: m.done });
   return (
-    // data-mark：收着的阶段框在缩小后条外的标注从这里拉线指过来（91 号票）
+    // data-mark：收着的阶段框在缩小后条外的标注从这里拉线指过来
     <span className={`ic ic-${kind}${warn ? " ic-warn" : ""}`} title={label} aria-label={label} data-mark={`ic:${kind}`}>
       <span className="ic-g">{warn ? "!" : m.glyph}</span>
       {!warn && kind !== "data" && (
@@ -27,7 +27,7 @@ export function IncidentIcon({ kind, attention }: { kind: IncidentKind; attentio
   );
 }
 
-/** 并排的几个图标，不写个数（91 号票：依赖图上一个阶段、聊天里的阶段框上） */
+/** 并排的几个图标，不写个数（依赖图上一个阶段、聊天里的阶段框上） */
 export function IncidentIcons({ list }: { list: readonly Incident[] }) {
   const kinds = incidentKinds(list);
   if (!kinds.length) return null;

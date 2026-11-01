@@ -1,4 +1,4 @@
-// npm run i18n:check（168 号票）：多语言的检查工具。
+// npm run i18n:check：多语言的检查工具。
 //   npm run i18n:check                          每种语言缺的、多的、插值参数对不上的句子；~/.ergo/locales 里读不进来的文件；
 //                                               写死的中文每个区域还剩几处、基线是多少
 //   npm run i18n:check -- --data-dir "D:\…"     指定数据目录（不填取 ERGO_DATA_DIR，没设是用户主目录下的 .ergo）
@@ -83,12 +83,12 @@ if (check.problems.length > 0) {
 
 console.log("\n写死的中文（不含日志和标了 @i18n-ignore 的）：");
 const counts = countByRegion(scanRepo(REPO));
-for (const { region, ticket } of HARDCODED_REGIONS) {
+for (const { region } of HARDCODED_REGIONS) {
   const count = counts[region] ?? 0;
   const baseline = readBaseline(REPO, region);
   let note = baseline === undefined ? "还没有基线" : count > baseline ? `比基线 ${baseline} 多了 ${count - baseline} 处 ✗` : count < baseline ? `比基线 ${baseline} 少了 ${baseline - count} 处，可以降基线` : "和基线一样";
   if (values["lower-baseline"] && lowerBaseline(REPO, region, count)) note += `；基线改成了 ${count}`;
-  console.log(`  ${region.padEnd(13)}（${ticket} 号票）${String(count).padStart(5)} 处 · ${note}`);
+  console.log(`  ${region.padEnd(13)}${String(count).padStart(5)} 处 · ${note}`);
 }
 
 if (builtinBroken(check)) {

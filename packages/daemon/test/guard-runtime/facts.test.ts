@@ -49,7 +49,7 @@ describe("文件", () => {
     expect(facts.files?.[target]).toEqual({ exists: false, realPath: path.join(outside, "x.txt") });
   });
 
-  it("悬空的目录联接（指向的地方没了）：取不到真实路径，不退回成写的路径（58 号票）", () => {
+  it("悬空的目录联接（指向的地方没了）：取不到真实路径，不退回成写的路径", () => {
     const scratch = real(makeTempDir("ergo-scratch-"));
     const gone = path.join(real(makeTempDir("ergo-outside-")), "gone");
     fs.mkdirSync(gone);
@@ -94,7 +94,7 @@ describe("文件", () => {
   });
 });
 
-describe("带通配符的路径（101 号票评审后定）", () => {
+describe("带通配符的路径", () => {
   it("展开成现有的路径；展不开的是通配符之前那段目录；不带通配符的不取", () => {
     const scratch = real(makeTempDir("ergo-scratch-"));
     fs.mkdirSync(path.join(scratch, "config"));
@@ -109,7 +109,7 @@ describe("带通配符的路径（101 号票评审后定）", () => {
 
 const birth = (p: string) => fs.statSync(p).birthtimeMs;
 
-describe("临时文件要的事实（111 号票，调用方说这个 agent 在做任务、项目时才取）", () => {
+describe("临时文件要的事实（调用方说这个 agent 在做任务、项目时才取）", () => {
 
   it("文件的创建时间；没说在做任务的不取", () => {
     const records = real(makeTempDir("ergo-records-"));
@@ -216,7 +216,7 @@ describe("git", () => {
   });
 });
 
-describe("授权的文件夹（355 号票，真的目录联接）", () => {
+describe("授权的文件夹（真的目录联接）", () => {
   /** 授权的文件夹 photos，里面一个目录联接 link 指到外面的 outside（那里有 secret.txt），一个普通文件 a.txt */
   function folders() {
     const base = real(makeTempDir("ergo-folders-"));

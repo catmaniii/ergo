@@ -1,9 +1,9 @@
-// 重注入块（规格第 8 节"重注入块"，13 号票）：每次唤起负责人、每次压缩之后，运行时作为一条上下文消息注入的固定内容——
+// 重注入块（规格第 8 节"重注入块"）：每次唤起负责人、每次压缩之后，运行时作为一条上下文消息注入的固定内容——
 // 计划摘要 + 当前阶段 + 授权 + 边界。系统提示不变；计划、授权、阶段只存在二狗自己的存储里，这一块每次由它现生成。
 // 一个阶段的交代（交付件、验收标准、模式）、授权和时序规则、边界也用在阶段变化时交给负责人的通知里（execution-tools.ts）。
 // 纯函数：同样的任务、计划、授权说法，生成同样的文字。
 // @i18n-ignore-file model：重注入块和阶段交代都给负责人（子 agent、范围审查）看，照旧中文——导出的几个都包一层 forModel，
-// 里面用到的协议包说法（状态名、授权项说法、时序规则）也取中文（172 号票）
+// 里面用到的协议包说法（状态名、授权项说法、时序规则）也取中文
 import {
   ACCEPTANCE_METHOD_LABEL,
   forModel,
@@ -31,7 +31,7 @@ import { EXECUTION_TOOL } from "./tool-names.ts";
 export interface ContextBlockInput {
   task: Task;
   plan: Plan;
-  /** 任务书里的目标（计划变更改了目标的，是确认后的新目标，14 号票） */
+  /** 任务书里的目标（计划变更改了目标的，是确认后的新目标） */
   goal: string;
   /** 任务书里的验收标准（没有的不写；计划变更改了的是新的） */
   criteria?: readonly string[];
@@ -39,11 +39,11 @@ export interface ContextBlockInput {
   cwd: string;
   /** 每项授权在守卫眼里的样子（和计划卡上的说法一样） */
   grantInfo: Readonly<Record<string, GrantInfo>>;
-  /** 有子 agent 在做的阶段（20 号票）：当前阶段按负责人最后一次开始的阶段定，这几个不算它手头的 */
+  /** 有子 agent 在做的阶段：当前阶段按负责人最后一次开始的阶段定，这几个不算它手头的 */
   busy?: ReadonlySet<string>;
-  /** 当前阶段另写的几行交代（17 号票：涉及多个项目的任务里本阶段发往各项目的工单） */
+  /** 当前阶段另写的几行交代（涉及多个项目的任务里本阶段发往各项目的工单） */
   notes?: (stageId: string) => readonly string[];
-  /** 打开了预算控制（361 号票）：写上这个阶段的预算、前面估的和实际的次数 */
+  /** 打开了预算控制：写上这个阶段的预算、前面估的和实际的次数 */
   budgetControl?: boolean;
 }
 
@@ -72,7 +72,7 @@ export function stageBrief(plan: Plan, stageId: string): string[] {
       `- 交付件：${stage.deliverables.join("；")}`,
       `- 验收标准：${stage.acceptance.map(criterionText).join("；")}`,
       `- 模式：${stage.mode === "steps" ? `定步：${(stage.steps ?? []).join(" → ")}` : "开放"}`,
-      // 84 号票：开放的阶段起草时写的初步思路（认领时的交代："初步思路（参考，不限制你）"）
+      // 开放的阶段起草时写的初步思路（认领时的交代："初步思路（参考，不限制你）"）
       ...(stage.mode === "open" && stage.roughIdea ? [`- 初步思路（参考，不限制你）：${stage.roughIdea}`] : []),
     ];
   });
@@ -128,10 +128,10 @@ export function authorizationSection(auth: { grants: readonly string[]; rules: r
   });
 }
 
-/** token 预算怎么算（361 号票）：给负责人的话都用这一句 */
+/** token 预算怎么算：给负责人的话都用这一句 */
 export const BUDGET_RULE = "token 按没命中缓存的输入 + 输出 + 命中缓存的十分之一算，不是账本上的真实 token";
 
-/** 这个阶段这一份预算（361 号票）：交代、重注入块里写明 */
+/** 这个阶段这一份预算：交代、重注入块里写明 */
 export function stageBudgetLine(budget: StageBudget): string {
   return forModel(
     () =>
@@ -140,7 +140,7 @@ export function stageBudgetLine(budget: StageBudget): string {
   );
 }
 
-/** 前面估的和实际的工具调用次数（361 号票）：负责人写后面的阶段、提计划变更时照这个比例估 */
+/** 前面估的和实际的工具调用次数：负责人写后面的阶段、提计划变更时照这个比例估 */
 export function callHistoryLines(records: ReadonlyArray<{ name: string; estimated: number; actual: number }>, scope: "task" | "project"): string[] {
   if (records.length === 0) return [];
   // 同一个任务后面的阶段运行时已经按比例调了（thresholds.ts 的 callScale），它再乘一遍就算了两次；新任务的比例从 1 开始，要它自己照着估
@@ -154,7 +154,7 @@ export function contextBlockText(input: ContextBlockInput): string {
     const list = task.stages?.list ?? [];
     const n = list.length > 0 ? stagePosition(list, task.stages?.focus, input.busy) : 1;
     const focus = list[n - 1] ?? list[0];
-    // 93 号票起写编号（计划里存的）/ 一共几个阶段号，和界面、给用户的说法一致；还没开始执行的按计划
+    // 写编号（计划里存的）/ 一共几个阶段号，和界面、给用户的说法一致；还没开始执行的按计划
     // "/" 后面是一共几个阶段号，和界面状态行同一种算法（协议包 stageCodeAt）
     const here = list.length > 0 ? (focus ? stageCodeAt(list, focus.stageId) : undefined) : stageCodeAt(plan.stages, plan.stages[0]!.stageId);
     const at = here ? `${here.code}/${here.total}` : `${n}/${stageLayerCount(list)}`;

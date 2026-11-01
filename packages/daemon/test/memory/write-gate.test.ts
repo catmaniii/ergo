@@ -1,9 +1,9 @@
-// 267 号票：推理图谱的唯一写入口（ADR-0030），守护进程这一侧。
+// 推理图谱的唯一写入口（ADR-0030），守护进程这一侧。
 // - 守护进程的代码不直接写推理库（证据、事实、结论、关联、推断、追问、预测），一律经 @ergo/memory 的 engine.gate；
 // - 秘书和负责人没有写的路：秘书只有只读的素材、问记忆工具（问记忆那份引擎的写入口开成只读，写一律拒），记忆页也只读；
 //   能写的工具只在记忆管理员的工具包里；负责人拿不到任何记忆工具；
 // - 记忆命令（忘掉、彻底删除、别推断）在推理库里记成"用户发起"，经谁转达进留痕；
-// - 每晚校验用的是 @ergo/memory 自己的图谱自检（326 号票起不再起 Python、不找本机的东西）：插件接上的就是它。
+// - 每晚校验用的是 @ergo/memory 自己的图谱自检（不再起 Python、不找本机的东西）：插件接上的就是它。
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -135,7 +135,7 @@ function offerQuestion(engine: MemoryEngine, claimId: string): string {
 }
 
 describe("秘书和负责人没有写推理图谱的路", () => {
-  it("秘书的记忆工具只读（检索素材、读素材、问记忆；271 号票的标顺口问只在内存里记个标记），能写的工具只在记忆管理员的工具包里", () => {
+  it("秘书的记忆工具只读（检索素材、读素材、问记忆；标顺口问只在内存里记个标记），能写的工具只在记忆管理员的工具包里", () => {
     const materials = {} as Materials;
     const woven = createWovenQuestions({ withEngine: () => undefined, store: {} as never, materials, enabled: () => true, inferableSensitiveCategories: () => [], log: () => {} });
     const tools = [searchMaterialsTool(materials), readMaterialTool(materials), askMemoryTool({ get: () => undefined }), woven.markTool()];
@@ -163,7 +163,7 @@ describe("秘书和负责人没有写推理图谱的路", () => {
       expect(() => engine.recordClaimVerdict(claimId, "doubt")).toThrow(ReasoningWriteRefused);
       expect(() => engine.gate.write({ op: "mark_review", reason: "测试" }, () => engine.gate.updateClaim(claimId, { needsReview: true }, { reason: "测试" }))).toThrow(ReasoningWriteRefused);
       expect(() => engine.invalidateEvidence(engine.store.listEvidence()[0]!.id, "测试")).toThrow(ReasoningWriteRefused);
-      // 问题箱也改不了（264 号票的顺口问要写，得用随用随开的可写引擎）
+      // 问题箱也改不了（顺口问要写，得用随用随开的可写引擎）
       expect(() => engine.markQuestionAsked(questionId, { via: WOVEN_VIA })).toThrow(ReasoningWriteRefused);
       expect(() => engine.declineQuestion(questionId, { via: WOVEN_VIA })).toThrow(ReasoningWriteRefused);
       expect(engine.listQuestions().find((q) => q.id === questionId)!.status).toBe("open");
@@ -186,7 +186,7 @@ describe("秘书和负责人没有写推理图谱的路", () => {
   });
 });
 
-describe("顺口问的写经唯一写入口（264 号票接进线上的那几条路）", () => {
+describe("顺口问的写经唯一写入口（接进线上的那几条路）", () => {
   it("随用随开的可写引擎：记问过是记忆管理员、跳过是用户的表态、别问这个是用户发起，都经秘书顺口问；别问这个不能由管理员自己下", async () => {
     const { file, claimId, t } = await builtDb();
     const questionId = withWritable(file, t, (engine) => offerQuestion(engine, claimId));
@@ -254,7 +254,7 @@ describe("记忆命令在推理库里记成用户发起", () => {
   });
 });
 
-describe("每晚校验接的是记忆系统自己的图谱自检（326 号票）", () => {
+describe("每晚校验接的是记忆系统自己的图谱自检", () => {
   it("记忆插件给每晚整理的校验器是 graphSelfCheck：不起 Python、不找本机的 skill 目录、没有要配的环境变量", () => {
     const plugin = fs.readFileSync(path.join(SRC, "memory", "plugin.ts"), "utf8");
     expect(plugin).toMatch(/validator:\s*graphSelfCheck\b/);
@@ -294,14 +294,14 @@ describe("整理记录给记忆管理员的那段话", () => {
     expect(consolidationText({ ...ran, validation: { state: "ok", problems: 0, claimIds: [] } })).toContain("每晚校验通过了");
   });
 
-  it("270：整理完几条新证据、还积压几条、预算按道花在哪，照实告诉管理员；以前的记录没有这一项就不说", () => {
+  it("整理完几条新证据、还积压几条、预算按道花在哪，照实告诉管理员；以前的记录没有这一项就不说", () => {
     const said = consolidationText({ ...ran, pendingEvidence: 38, spend: { limit: 200, newEvidence: 145, rejudge: 5, lift: 33, predictions: 0, strategies: 0, review: 0 } });
     expect(said).toContain("新证据整理完 2 条、还积压 38 条");
     expect(said).toContain("新证据 145、判回答 0、重跑旧追问 5、往上抽 33、判预测 0、编策略 0（上限 200），对抗复核另算 0 次");
     expect(consolidationText(ran)).not.toContain("还积压");
   });
 
-  it("271：这一夜判了顺口问的回答，告诉管理员答了几个、没在答几个、拿不准几个；没动静不说", () => {
+  it("这一夜判了顺口问的回答，告诉管理员答了几个、没在答几个、拿不准几个；没动静不说", () => {
     const said = consolidationText({ ...ran, spend: { limit: 200, newEvidence: 10, replies: 3, rejudge: 0, lift: 0, predictions: 0, strategies: 0, review: 0 }, replies: { calls: 3, answered: 1, notAnswered: 1, unsure: 1, waiting: 0 } });
     expect(said).toContain("判回答 3");
     expect(said).toContain("看了白天顺口问以后用户说的话：答了 1 个（回写成本人证据）、没在答 1 个（算跳过一次）、拿不准 1 个（留到下一夜）。");

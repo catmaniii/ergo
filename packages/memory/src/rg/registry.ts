@@ -1,5 +1,5 @@
 // 推理图谱的账本（rg_* 表，store/schema.ts）：竞争假设分组、组里的断言和模板、追问出自哪个模板、明说的事实对应哪条断言、
-// 哪条证据被哪个推理实现整理过、模型版问过哪条观察和下层断言（272 号票，没变化就不再问）。这些是从断言、事实推出来的簿记，不进修订日志（断言、关联、推断、追问本身的改动都进）。
+// 哪条证据被哪个推理实现整理过、模型版问过哪条观察和下层断言（没变化就不再问）。这些是从断言、事实推出来的簿记，不进修订日志（断言、关联、推断、追问本身的改动都进）。
 import type { MemoryStore } from "../store/store.ts";
 
 export interface GroupRecord {
@@ -82,7 +82,7 @@ export class RgRegistry {
     this.db.run("INSERT OR IGNORE INTO rg_members (claim_id, group_key, template) VALUES (?, ?, ?)", claimId, groupKey, template);
   }
 
-  /** 329 号票：撤了的结论重新推出来时（新建一条），旧的那条移出这一组（留墓碑，组里只认新的） */
+  /** 撤了的结论重新推出来时（新建一条），旧的那条移出这一组（留墓碑，组里只认新的） */
   removeMember(claimId: string): void {
     this.db.run("DELETE FROM rg_members WHERE claim_id = ?", claimId);
   }
@@ -138,7 +138,7 @@ export class RgRegistry {
     this.db.run("INSERT OR IGNORE INTO rg_reflected (evidence_id, reasoner, at) VALUES (?, ?, ?)", evidenceId, reasoner, this.store.now());
   }
 
-  // ---------- 问过的（272 号票） ----------
+  // ---------- 问过的 ----------
 
   /** 这一步、这个推理实现上次问到这条时它的签名；没问过是 undefined */
   askedSignature(step: string, reasoner: string, subject: string): string | undefined {

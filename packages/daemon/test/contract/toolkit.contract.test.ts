@@ -1,10 +1,10 @@
-// pi 契约测试：按工具包装配会话、换一套工具包接着同一个会话（27 号票，规格第 3、21 节）。
+// pi 契约测试：按工具包装配会话、换一套工具包接着同一个会话（规格第 3、21 节）。
 // - 按工具包装配：只加载工具包里列的 skill（经 additionalSkillPaths，noSkills: true），工具白名单和工具包一致、有 skill 时含 read；
 //   测试机（临时的 HOME、USERPROFILE）的 ~/.pi 和 ~/.claude/skills 里预先放了配置和 skill，装配出的会话里一个都没有，也不用 CLI 认证；
 // - 做完手头这一步就停下（宿主协议的 yield）：当前这一批工具调用结束、下一次模型调用之前回合以 yielded 结束，会话文件里没有做了一半的回合；
 // - 同一个会话文件换一套工具包重新装配后，追加一条"工具包已变更"接着原来的对话：新加的 skill 和工具可用，去掉的不在
-//   （工具清单是开头一份、按这次交的先后，273 号票）；
-// - 只在用户点名时才用的 skill（frontmatter 的 disable-model-invocation，72 号票）：pi 不放进 skill 清单，二狗另起一段追加在系统提示后面。
+//   （工具清单是开头一份、按这次交的先后）；
+// - 只在用户点名时才用的 skill（frontmatter 的 disable-model-invocation）：pi 不放进 skill 清单，二狗另起一段追加在系统提示后面。
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -135,7 +135,7 @@ describe("pi 契约：按工具包装配会话", () => {
     expect(seen).not.toContain("MARKER_SHOULD_NOT_RUN");
     // 新的工具包：pi 把这次的系统提示和工具的变化记成接着的一条系统消息（skills 段换成新的名单，写明加了哪些工具、去掉了哪些）。
     // 发给模型时：系统提示的分段补丁看模型——faux 认会话中途的系统消息，就照这样追加；不认的（第一阶段的 deepseek-flash）pi 把更新后的系统提示
-    // 放回开头，那一次的提示词前缀缓存失效（规格说的代价）。工具清单（273 号票）一律是开头一份、按这次交的先后，中途不再有工具增减
+    // 放回开头，那一次的提示词前缀缓存失效（规格说的代价）。工具清单一律是开头一份、按这次交的先后，中途不再有工具增减
     // （DeepSeek 的请求里工具本来就是整份的 tools 字段）。这里核对模型眼里现在的样子：new-skill 和 write 可用，old-skill、slow_step 不在
     const update = seen.slice(seen.indexOf("[toolResult] slow_step"));
     const skillsNow = update.slice(update.indexOf("<skills>"), update.indexOf("</skills>"));

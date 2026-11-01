@@ -1,4 +1,4 @@
-// 主切面：agent 贡献缝（128 号票，ADR-0027）。走真实的装配路径：测试用的插件接在插件清单后面（startTestDaemon 的 extraPlugins，
+// 主切面：agent 贡献缝（ADR-0027）。走真实的装配路径：测试用的插件接在插件清单后面（startTestDaemon 的 extraPlugins，
 // 和清单里的插件同一条路：插件宿主装配 → agent 贡献模块 → 秘书、agent 宿主的装配 → 宿主协议的通用贡献清单 → 子进程里的桥接扩展）。
 // - 插件给"任务的负责人、起草计划的会话"一个工具：起草计划的负责人看得到、调用得了（守卫照它带的登记判、记下调用），
 //   执行的会话里没有（按会话种类筛）、秘书看不到（按 agent 筛）；
@@ -115,7 +115,7 @@ describe("agent 贡献缝", () => {
     expect(maintainerSpawns()).toHaveLength(2);
     expect(execution.hostTools?.map((t) => t.name)).not.toContain("probe_lookup");
     expect(execution.contributions).toEqual({
-      // 355 号票：授权的文件夹那一块也给负责人，没有授权的文件夹时文字是空的（不注入）
+      // 授权的文件夹那一块也给负责人，没有授权的文件夹时文字是空的（不注入）
       contextBlocks: [{ id: "probe:brief", text: "【探针：简报 v2】" }, { id: "authorized-folders", text: "" }],
       hooks: [{ id: "probe:rules", kind: "system_prompt_suffix", text: "【探针的规矩 v2】" }],
     });

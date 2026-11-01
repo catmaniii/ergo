@@ -1,7 +1,7 @@
-// 主切面：首次设置向导的两条接口（319 号票）——GET /api/setup 看五步各自做完了没有，POST /api/setup 标
+// 主切面：首次设置向导的两条接口——GET /api/setup 看五步各自做完了没有，POST /api/setup 标
 // "以后再说"（skip: true）或者"看过了/做完了"。各步的 ready 是组合根注入的现算取值：
 // 我的名字（userName.current()）、模型的 key（modelSettings.keyView()）、已配对的设备（pairing.list()）；
-// 能力（347 号票）和 safety 没有条件，只有看过了才算 done。
+// 能力和 safety 没有条件，只有看过了才算 done。
 // 都在临时目录、系统挑的空闲端口上（不碰真的 ~/.ergo），条件用真的服务造（设了我的名字、写错请求体），不碰真的设备。
 import fs from "node:fs";
 import { SETUP_STEPS } from "@ergo/protocol";
@@ -12,7 +12,7 @@ import { setupApi, userNameApi } from "../helpers/http.ts";
 
 const configOf = (dataDir: string) => JSON.parse(fs.readFileSync(dataDirLayout(dataDir).configFile, "utf8")) as Record<string, unknown>;
 
-describe("首次设置向导的接口（319 号票）", () => {
+describe("首次设置向导的接口", () => {
   it("GET /api/setup：五步都还没做；条件满足的那步自己算 ready 和 done（设了我的名字）；标'以后再说'的 done 但 ready 不变，写回配置文件", { timeout: 60_000 }, async () => {
     const td = await startTestDaemon({ fresh: true, env: { DEEPSEEK_API_KEY: undefined } });
     const fresh = await setupApi.view(td.url);

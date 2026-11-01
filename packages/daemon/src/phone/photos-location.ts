@@ -1,4 +1,4 @@
-// "手机"插件的照片、位置（300 号票）：收手机上的二狗 App 交来的（经内核的数据源 push，查过 schema）。
+// "手机"插件的照片、位置：收手机上的二狗 App 交来的（经内核的数据源 push，查过 schema）。
 // - 照片的时间地点：连着（用户在 App 里点了"连上相册"）时收 App 读到的最近几天拍的照片的拍摄时间和地点（不收照片本身），
 //   按本地日期存进插件自己的存储（raw-store.ts，一张照片按 App 给的编号的哈希只收一次）；
 // - 位置：连着（用户在 App 里点了"开始记位置"）时收 App 记下的位置点，同样按天存进插件自己的存储（按时间只收一次）；
@@ -8,7 +8,7 @@
 // - 没授权、撤回了、读不了的记下状况和原因（数据源页写明），同手机日历；断开时记下没连着，连已导入的一起删时插件自己存储里的那一份整个删掉
 //   （摘要由内核按 records 删，素材跟着删）；
 // - 原始数据数据源页按天列出、能按天清掉（数据源的 raw）。
-// 308 号票（地名）：
+// 地名：
 // - App 交来的照片、位置点可以带系统转出来的地名（App 在手机上转，转不了的只有坐标），和坐标一起存进原始数据；收过的照片这次带来了
 //   原来没有的地名时补上（raw-store.ts）；
 // - 常去的地方（places.ts）：起了名的存在插件自己的存储里（phone/places.json），"手机 · 位置"的连接状态里带"常去的地方"那一块（panel：
@@ -53,7 +53,7 @@ import { dateOfIso, type DaySummary, type NamedPlace, summarizeLocation, summari
 
 /** 插件自己的存储在数据目录里的哪（移除插件连数据删时删它） */
 export const PHONE_DATA_DIR = "phone";
-/** 起了名的常去的地方存在插件自己的存储里的哪个文件（308 号票） */
+/** 起了名的常去的地方存在插件自己的存储里的哪个文件 */
 export const PLACES_FILE = "places.json";
 
 export interface PhoneMediaServiceOptions {
@@ -78,7 +78,7 @@ export interface PhoneMediaService {
   locationRawDays(): DataSourceRawDay[];
   clearPhotosRaw(dates: readonly string[]): number;
   clearLocationRaw(dates: readonly string[]): number;
-  /** 常去的地方（308 号票）：起名、改名、删、手动加一处（values.places 是哪一样，见协议包 phone.ts）；交回"手机 · 位置"不算出错的状态 */
+  /** 常去的地方：起名、改名、删、手动加一处（values.places 是哪一样，见协议包 phone.ts）；交回"手机 · 位置"不算出错的状态 */
   configurePlaces(values: Readonly<Record<string, string>>): DataSourceStatus;
 }
 
@@ -103,7 +103,7 @@ const round5 = (n: number) => Math.round(n * 1e5) / 1e5;
 /** "10-25、10-26" */
 const shortDates = (dates: readonly string[]) => formatList(dates.map((d) => d.slice(5)));
 
-/** App 交来的系统地名：每段去掉首尾空白、空的去掉；一段都没有是 undefined（308 号票） */
+/** App 交来的系统地名：每段去掉首尾空白、空的去掉；一段都没有是 undefined */
 function cleanAddress(addr: PhoneAddress | undefined): PhoneAddress | undefined {
   if (!addr) return undefined;
   const out: PhoneAddress = {};
@@ -144,7 +144,7 @@ export function createPhoneMediaService(options: PhoneMediaServiceOptions): Phon
     raw: openRawStore<RawPoint>(path.join(root, "locations"), log),
     summarize: summarizeLocation,
   };
-  /** 起了名的常去的地方（308 号票） */
+  /** 起了名的常去的地方 */
   const places = openPlacesStore(path.join(root, PLACES_FILE), log);
   /** "常去的地方"那一块（不含 refused）：位置点、起了名的变了才重算 */
   let placesCache: PhonePlacesView | undefined;
@@ -186,7 +186,7 @@ export function createPhoneMediaService(options: PhoneMediaServiceOptions): Phon
   const closeDays = <T extends RawItem>(kind: Kind<T>, device: string | undefined): string[] => {
     const today = localDate(new Date(options.nowMs()));
     const written: string[] = [];
-    // 起了名的地方（308 号票）：整理时的样子，改名以后整理的才用新名
+    // 起了名的地方：整理时的样子，改名以后整理的才用新名
     const named = places.list();
     for (const { date, items } of kind.raw.pending(today)) {
       const parts = livePayloads<PhoneDaySummaryPayload>(store, kind.day).filter((p) => p.date === date).map((p) => p.part);
@@ -311,7 +311,7 @@ export function createPhoneMediaService(options: PhoneMediaServiceOptions): Phon
     return { connection: "connected", ...account };
   };
 
-  /** "手机 · 位置"的连接状态（308 号票）：带"常去的地方"那一块（没连着也画：可以先起名、手动加），起了名的有几处时断开的确认框里说一句 */
+  /** "手机 · 位置"的连接状态：带"常去的地方"那一块（没连着也画：可以先起名、手动加），起了名的有几处时断开的确认框里说一句 */
   const locationStatus = (): DataSourceStatus => {
     const saved = places.list();
     const note = saved.length === 0 ? {} : { disconnectNote: t("phone.places.disconnectNote", { names: formatList(saved.slice(0, 5).map((p) => p.name)), total: saved.length }) };
@@ -321,7 +321,7 @@ export function createPhoneMediaService(options: PhoneMediaServiceOptions): Phon
   const unlink = (kind: AnyKind, purge: boolean) => {
     if (mediaStatus(store, kind.status)?.linked) appendStatus(kind, { linked: false });
     if (purge) kind.raw.clearAll();
-    // 断开位置并连已导入的一起删：起了名的常去的地方一起删（308 号票）
+    // 断开位置并连已导入的一起删：起了名的常去的地方一起删
     if (purge && kind.name === "location") {
       places.clearAll();
       placesRefused = undefined;
@@ -329,7 +329,7 @@ export function createPhoneMediaService(options: PhoneMediaServiceOptions): Phon
     if (kind.name === "location") placesCache = undefined;
   };
 
-  /** 起名、改名、删、手动加一处（308 号票）；做不成的原因记在 placesRefused（那一块里写） */
+  /** 起名、改名、删、手动加一处；做不成的原因记在 placesRefused（那一块里写） */
   const applyPlaces = (values: Readonly<Record<string, string>>): string | undefined => {
     const saved = places.list();
     const checkName = (name: string, self?: string): string | undefined => {

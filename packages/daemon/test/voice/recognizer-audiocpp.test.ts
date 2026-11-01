@@ -1,4 +1,4 @@
-// 语音识别的第三条接入（346 号票）：调 audio.cpp 服务上的模型（voice/recognizer-audiocpp.ts）。
+// 语音识别的第三条接入：调 audio.cpp 服务上的模型（voice/recognizer-audiocpp.ts）。
 // 对上层是同一个接口（Recognizer），这里验的是"预热 / 识别 / 串词过滤 / 连不上 / 超时 / 模型没了"和另外两条语义一样，
 // 再加上这个服务特有的：只收 WAV、语言提示只认几种、没有"加载了没有"的接口。
 // 接的是假服务（helpers/fake-audiocpp-asr.ts，真 HTTP、端口由系统挑，错误照真服务试出来的写），不碰 8090、不加载真模型、不联网。
@@ -286,7 +286,7 @@ describe("调 audio.cpp 服务上的语音识别模型", () => {
     });
   });
 
-  describe("check（208 号票：重试之前看一眼）", () => {
+  describe("check（重试之前看一眼）", () => {
     it("加载好、服务正常：问一句模型列表就回，不重新预热", async () => {
       const { service, recognizer } = await setup();
       await recognizer.load();

@@ -60,7 +60,7 @@
   "projects.records.charterOperations": "运营方式",
   "projects.records.operationsNote": "（只是个大概，不算授权：项目做完时负责人交运营方案，你确认那一次才算。）",
   "projects.records.changes": "变更记录",
-  "projects.records.changesIntro": "立项书确认之后，负责人提出、你在“立项要求变更”卡上确认了的改动（125 号票）。",
+  "projects.records.changesIntro": "立项书确认之后，负责人提出、你在“立项要求变更”卡上确认了的改动。",
   "projects.records.changeHead": "第 {revision} 次（{at}）",
   "projects.records.changeWhy": "- 负责人为什么提：{why}",
   "projects.records.changeWords": "- 依据的用户原话（{badge}）：",

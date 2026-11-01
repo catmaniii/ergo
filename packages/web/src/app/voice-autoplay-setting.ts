@@ -1,4 +1,4 @@
-// 设置里的"自动播放 agent 的语音"开关（36 号票）在浏览器里的那一半：读写这台设备记住的值（localStorage），改了马上告诉界面。
+// 设置里的"自动播放 agent 的语音"开关在浏览器里的那一半：读写这台设备记住的值（localStorage），改了马上告诉界面。
 // 默认开；只在关掉时留一个记号，打开就擦掉（回到默认）。存储用不了时按默认，改了只在这次打开里生效。
 // 认不认记住的值在 state/voice-autoplay.ts（autoplaySettingOf）。页面上用的那一个在 app/page-voice.ts。
 import { autoplaySettingOf } from "../state/index.ts";

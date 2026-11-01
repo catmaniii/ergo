@@ -1,7 +1,7 @@
-// 宽屏一条侧栏拖到多宽（91 号票做长程任务的阶段栏时写的，368 号票起阶段栏没了）在浏览器里的那一半：读写这台设备记住的宽度（localStorage），改了马上告诉界面。
+// 宽屏一条侧栏拖到多宽（做长程任务的阶段栏时写的，阶段栏没了）在浏览器里的那一半：读写这台设备记住的宽度（localStorage），改了马上告诉界面。
 // 拖回初值就擦掉记号（回到默认）。存储用不了时按默认，改了只在这次打开里生效。写法照栏的开合（stage-side-setting.ts）。
-// 104 号票宽屏的档案栏（PROJECT_SIDE_WIDTH，页面上那一个在 app/page-project-wall.ts）。
-// 148 号票宽屏浏览侧边栏拖到多宽也是这个做法、自己的键和初值（BROWSE_SIDE_WIDTH，212 号票起在浏览插件的 plugins/browsing/browse-side.ts，
+// 宽屏的档案栏（PROJECT_SIDE_WIDTH，页面上那一个在 app/page-project-wall.ts）。
+// 宽屏浏览侧边栏拖到多宽也是这个做法、自己的键和初值（BROWSE_SIDE_WIDTH，在浏览插件的 plugins/browsing/browse-side.ts，
 // 页面上那一个在 plugins/browsing/page-browse.ts）。
 import { PROJECT_SIDE_WIDTH_INITIAL, projectSideWidthOf } from "../state/index.ts";
 import type { DeviceStorage } from "./device-storage.ts";
@@ -13,7 +13,7 @@ export interface SideWidthSpec {
   parse(raw: string | null): number;
 }
 
-/** 宽屏项目的档案栏（104 号票） */
+/** 宽屏项目的档案栏 */
 export const PROJECT_SIDE_WIDTH: SideWidthSpec = { key: "ergo-project-side-width", initial: PROJECT_SIDE_WIDTH_INITIAL, parse: projectSideWidthOf };
 
 export interface StageSideWidthSetting {

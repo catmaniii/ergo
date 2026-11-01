@@ -57,7 +57,7 @@ describe("秘书给的时间落成时间表", () => {
     expect(resolveReminderTime({ time: "09:00", repeat: { kind: "monthly", days: [15, 1] } }, NOW)).toEqual({ kind: "monthly", time: "09:00", days: [1, 15] });
   });
 
-  test("每年某月某日（282 号票）：几点加 repeat 的 month、day；2 月 29 日也收", () => {
+  test("每年某月某日：几点加 repeat 的 month、day；2 月 29 日也收", () => {
     expect(resolveReminderTime({ time: "9:00", repeat: { kind: "yearly", month: 3, day: 2 } }, NOW)).toEqual({ kind: "yearly", time: "09:00", month: 3, day: 2 });
     expect(resolveReminderTime({ time: "08:00", repeat: { kind: "yearly", month: 2, day: 29 } }, NOW)).toEqual({ kind: "yearly", time: "08:00", month: 2, day: 29 });
   });

@@ -1,4 +1,4 @@
-// 主切面：数据源的统一外形和共用导入文件夹（295 号票，ADR-0027 的"数据源"贡献点）。真的守护进程走组合根和插件清单；
+// 主切面：数据源的统一外形和共用导入文件夹（ADR-0027 的"数据源"贡献点）。真的守护进程走组合根和插件清单；
 // 测试用的假数据源插件（helpers/fake-data-source.ts，只在测试里）经 extraPlugins 接在清单后面，在数据契约里登记两个数据源：
 // - GET /api/data-sources：两个数据源（连接状态、两种用法、敏感类别、认哪种文件）和导入文件夹的路径；
 // - 填 Key（POST configure）：存进数据目录密钥区的 data-sources/，事件日志里没有；
@@ -7,10 +7,10 @@
 // - 断开并连已导入的一起删：它的记录、同步记录换成"已删除"标记，由这些记录采成的素材（连原文副本）彻底删除，"已导入"里它的文件删掉；
 //   别的数据源导入的不动；
 // - 插件运行中停用：数据源页写明没启用、立即同步回 400；在电脑上打开导入文件夹交给打开文件夹的那一下（测试里是假的）；
-// - 306 号票：按需查的工具只在连上时给秘书——没连时秘书的工具清单里没有，填好 Key 后有（秘书重新装配一次），别的插件起停不惊动秘书，
+// -按需查的工具只在连上时给秘书——没连时秘书的工具清单里没有，填好 Key 后有（秘书重新装配一次），别的插件起停不惊动秘书，
 //   Key 失效（同步时远端不认）后又没有，重新填好又有；外部日历（手机日历）交来新的日程、断开时工作日历频道上推 external_calendar
 //   带更大的版本，日历按月给的 asOf.external 跟着变（开着的日历页据此不用换月就重新取）。
-// - 343 号票：素材按数据源过滤（POST /api/materials/list 的 filter.dataSource）、数据源详情的"已获取的"（POST …/stored）、"现在能查到的"（POST …/live）
+// -素材按数据源过滤（POST /api/materials/list 的 filter.dataSource）、数据源详情的"已获取的"（POST …/stored）、"现在能查到的"（POST …/live）
 //   走真的 HTTP；外网端口上和别的接口一样，没有设备凭证回 401。各数据源的现查在 test/data-sources/data-browse.test.ts。
 import fs from "node:fs";
 import path from "node:path";
@@ -49,7 +49,7 @@ const lastSecretaryText = (frontend: TestFrontend) =>
   (frontend.events({ channel: CHANNELS.secretary, type: EVENT_TYPES.message }).at(-1)!.payload as MessageEventPayload).message.parts.map((p) => (p.type === "text" ? p.text : "")).join("");
 /** 假数据源采成的素材 */
 const fakeMaterials = (td: TestDaemon) => td.daemon.materials.list().filter((m) => m.ref.event.channel === FAKE_CHANNEL);
-/** 只看假数据源插件的（插件清单里的真数据源，比如 299 号票的手机，排在前面） */
+/** 只看假数据源插件的（插件清单里的真数据源，比如手机，排在前面） */
 const fakeSources = <T extends { plugin: string }>(sources: readonly T[]) => sources.filter((s) => s.plugin === FAKE_SOURCE_PLUGIN);
 /** 往导入文件夹放一个文件（修改时间拨到一分钟前：刚写的文件算"还在写"，不碰） */
 const drop = (td: TestDaemon, name: string, content: string) => {
@@ -132,7 +132,7 @@ describe("数据源：统一外形和共用导入文件夹（假数据源插件�
     expect(opened).toEqual([layout.imports]);
   });
 
-  it("343：素材按数据源过滤；已获取的按素材的出处列（点开是素材 id）；不进素材也不会列、不能现查的回 400，不认得的回 404，参数不对回 400；外网端口没凭证回 401", async () => {
+  it("素材按数据源过滤；已获取的按素材的出处列（点开是素材 id）；不进素材也不会列、不能现查的回 400，不认得的回 404，参数不对回 400；外网端口没凭证回 401", async () => {
     const td = await startTestDaemon({ extraPlugins: [fakeDataSourcePlugin] });
     await dataSourcesApi.act(td.url, FAKE_SOURCE_ID, { action: "configure", values: { key: FAKE_KEY }, idempotencyKey: key() });
     fakeRemote.next = [
@@ -188,7 +188,7 @@ describe("数据源：统一外形和共用导入文件夹（假数据源插件�
     expect((await dataSourcesApi.act(td.url, FAKE_SOURCE_ID, { action: "nope" } as never)).status).toBe(400);
   });
 
-  it("按需查的工具只在连上时给秘书：没连没有，连上后有（秘书重新装配一次），别的插件起停不惊动秘书，Key 失效后又没有；出错时每小时自动再试，远端好了就回到连着、秘书重新有工具；重新填好也行（306）", { timeout: 90_000 }, async () => {
+  it("按需查的工具只在连上时给秘书：没连没有，连上后有（秘书重新装配一次），别的插件起停不惊动秘书，Key 失效后又没有；出错时每小时自动再试，远端好了就回到连着、秘书重新有工具；重新填好也行", { timeout: 90_000 }, async () => {
     // 秘书每一轮只回一句：这次装配里有没有"查假数据源"（回显整个上下文会一轮比一轮长，长到触发压缩）
     const PROBE: FauxStep = { kind: "branch_on_context", contains: [`[tool] ${FAKE_QUERY_TOOL}`], matched: { kind: "reply", text: "有工具" }, otherwise: { kind: "reply", text: "没工具" } };
     // 钉在白天：用真实时间的话，半夜跑时拨钟会撞上夜里的内部作业
@@ -267,7 +267,7 @@ describe("数据源：统一外形和共用导入文件夹（假数据源插件�
     expect(await fakeOf()).toMatchObject({ connection: "connected" });
   });
 
-  it("外部日历变了推给网页：手机日历交来新的日程、断开时工作日历频道上推 external_calendar（版本更大），日历按月给的 asOf.external 跟着变；什么都没变的不推（306）", { timeout: 60_000 }, async () => {
+  it("外部日历变了推给网页：手机日历交来新的日程、断开时工作日历频道上推 external_calendar（版本更大），日历按月给的 asOf.external 跟着变；什么都没变的不推", { timeout: 60_000 }, async () => {
     const td = await startTestDaemon({ plugins: ["calendar", "phone"] });
     const frontend = await TestFrontend.connect(td.url);
     await frontend.subscribe({ [CHANNELS.workdayCalendar]: 0 });

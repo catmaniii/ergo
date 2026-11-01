@@ -1,4 +1,4 @@
-// 页面日志（124 号票：Debug 工具集的"日志与本机存储"）：页面一打开就开始收（main.tsx 里最先调 page-debug.ts 的 startPageLog），
+// 页面日志（Debug 工具集的"日志与本机存储"）：页面一打开就开始收（main.tsx 里最先调 page-debug.ts 的 startPageLog），
 // console.error / console.warn、没接住的错误（window 的 error 事件）、没接住的 Promise 拒绝（unhandledrejection），留最近 200 条，
 // 能复制、能清空。只在页面内存里，刷新就没了。原来的 console 照常输出。
 // 这里不碰浏览器的全局变量（页面上那一份在 page-debug.ts），测试用假的 console 和 window。

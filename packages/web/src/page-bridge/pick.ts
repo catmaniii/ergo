@@ -1,4 +1,4 @@
-// 挑图片窗口（149 号票，用户 2026-10-18："挑图片的窗口不跟着悬浮按钮，固定弹在屏幕上让用户挑。二狗的聊天窗里也能看到、能挑"）：
+// 挑图片窗口（"挑图片的窗口不跟着悬浮按钮，固定弹在屏幕上让用户挑。二狗的聊天窗里也能看到、能挑"）：
 // 秘书给候选（网页候选卡）时，这个框所在的网页上弹出的窗口。画在页面桥那个封闭的 shadow root 里（和悬浮按钮、气泡一起），
 // 只管画和收用户点了什么，样子由宿主交来（PagePickView：二狗的网页 app/page-pick.ts 照候选卡算好），点了什么交给 onAction。
 // - 摆在哪（rules.ts 的 placePickWindow）：只看看得见的部分——手机上贴着底、占满宽，宽屏底部居中、宽度有上限；不跟着悬浮按钮，
@@ -7,8 +7,8 @@
 //   （会话里的候选卡照样能挑）；
 // - 缩略图是二狗的网页凭取件码从守护进程取来的小图（base64），在这里解成位图画进 canvas——不用 <img src="data:…">，免得网站的 CSP
 //   不许 data: 图片；没有缩略图（不是图片、做不出来）的画文件图标和名字；文字一律 textContent。
-// - 169 号票：窗口自己的字（"都不要""交"、读屏的说明）按二狗的网页交来的语言（texts.ts），没交来是中文；标题、提示本来就由网页给。
-// - 181 号票：标题里的名字（网页另给的 titleParts）画成名字标签，颜色和气泡里的一样（同一个 shadow root 里的样式表）；读屏说明是纯名字。
+// -窗口自己的字（"都不要""交"、读屏的说明）按二狗的网页交来的语言（texts.ts），没交来是中文；标题、提示本来就由网页给。
+// -标题里的名字（网页另给的 titleParts）画成名字标签，颜色和气泡里的一样（同一个 shadow root 里的样式表）；读屏说明是纯名字。
 import { appendNamed, el, ICON_CLOSE, makeButton, namedTextOf, stopBubbling } from "./bubble.ts";
 import type { PageBubbleFile, PagePickAction, PagePickPhase, PagePickView } from "./protocol.ts";
 import { PICK_MAX_HEIGHT, placePickWindow, type Rect } from "./rules.ts";
@@ -68,7 +68,7 @@ export interface PickTools {
   decode(base64: string): string;
   makeBitmap(blob: Blob): Promise<ImageBitmap>;
   BlobCtor: typeof Blob;
-  /** 页面桥自己的字（169 号票） */
+  /** 页面桥自己的字 */
   texts: BridgeTexts;
 }
 
@@ -80,7 +80,7 @@ export interface PickWindow {
   show(view: PagePickView): void;
   /** 收起（返回手势、页面桥自己收）；宿主随后交来 none */
   hide(): void;
-  /** 二狗的网页交来了别的语言（169 号票）、别的名字（181 号票）：说明、按钮上的字换过来（勾着的、横排滚到哪不动） */
+  /** 二狗的网页交来了别的语言、别的名字：说明、按钮上的字换过来（勾着的、横排滚到哪不动） */
   relabel(): void;
   /** 每一帧摆位置：view 是看得见的部分；回窗口现在占的那一块（没开着是 undefined，气泡据此不盖住它） */
   frame(view: Rect): Rect | undefined;
@@ -215,7 +215,7 @@ export function createPickWindow(doc: Document, tools: PickTools, onAction: (act
   };
 
   const update = (v: Extract<PagePickView, { kind: "pick" }>) => {
-    // 标题：网页给了几段（181 号票）名字画成名字标签，没给（旧版网页）是纯文字
+    // 标题：网页给了几段名字画成名字标签，没给（旧版网页）是纯文字
     title.replaceChildren();
     appendNamed(doc, title, v.titleParts ?? [v.title]);
     const busy = v.phase === "sending" || v.phase === "done";

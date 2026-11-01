@@ -1,4 +1,4 @@
-// 语音插件的边界（214 号票，ADR-0027，照提醒、记忆插件的 boundary.test.ts）：核心留口子，不 import 插件——
+// 语音插件的边界（ADR-0027，照提醒、记忆插件的 boundary.test.ts）：核心留口子，不 import 插件——
 // 1. 组合根（daemon.ts）里不出现语音插件的内部：识别进程、识别、合成、语音回复、预热、参考音色、Debug 的语音组都不在这里建，
 //    只按插件清单装、经 voice/api.ts 的服务名现取；
 // 2. voice/ 之外只 import voice/api.ts（例外写明：插件清单列它；配置段 voice 还在内核的配置里解析，语速的类型从 spoken-text.ts 取）；

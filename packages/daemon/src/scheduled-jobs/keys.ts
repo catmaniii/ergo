@@ -1,14 +1,14 @@
-// 触发底座的事件的幂等键（19 号票的定时作业起；76 号票加了登记、迁移、合并、分段线、收尾提醒）：同一件事只做一次
+// 触发底座的事件的幂等键（定时作业起；加了登记、迁移、合并、分段线、收尾提醒）：同一件事只做一次
 // （重启后补登记、补跑、重复的动作都靠它），键的写法只在这里。
 export const jobKeys = {
   /** 定时触发的任务登记好了（运营中）：登记它的触发（一个任务只登记一次） */
   registerTask: (taskId: string) => `job-register-task:${taskId}`,
-  /** 76 号票之前的定时作业迁移成定时触发的普通任务（建出任务的 task 事件） */
+  /** 以前的定时作业迁移成定时触发的普通任务（建出任务的 task 事件） */
   migrate: (jobId: string) => `job-migrate:${jobId}`,
   /** 同一事务里把触发登记指向迁移出来的任务（scheduled_job 的 migrated） */
   migrateLink: (jobId: string) => `job-migrate:${jobId}#job`,
   /**
-   * 升级前交了、升级后才确认的长程任务计划里的第 i 个定时作业（76 号票之后确认时照迁移的办法建成定时触发的普通任务）：
+   * 升级前交了、升级后才确认的长程任务计划里的第 i 个定时作业（后来确认时照迁移的办法建成定时触发的普通任务）：
    * 建出任务的 task 事件；登记的 scheduled_job 在后面加 #job
    */
   legacyPlanJob: (planId: string, index: number) => `job-legacy-plan:${planId}:${index}`,

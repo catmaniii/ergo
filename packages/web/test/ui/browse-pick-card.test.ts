@@ -1,8 +1,8 @@
-// 网页候选卡（147 号票，ui/cards/BrowsePickCard.tsx）：秘书在浏览侧边栏里替选中的上传框找文件、拿不准时放进会话的候选。用 React 在 Node 里渲染出来查：
+// 网页候选卡（ui/cards/BrowsePickCard.tsx）：秘书在浏览侧边栏里替选中的上传框找文件、拿不准时放进会话的候选。用 React 在 Node 里渲染出来查：
 // - 单张的框：一组单选（radio），秘书推荐的预先选上（只取一个），按钮写"交"；多张的框：勾选框，按钮写"交 N 个"，一个没选时灰掉；都有"都不要"；
 // - 处理完了：格子里标着选了哪几个、都停用，没有按钮，写处理结果；
 // - 点一张（state/browse.ts 的 togglePick）：单张的框换选这一张，多张的框勾上或取消，按候选的先后排；不是候选里的不认；
-// - 149 号票：缩略图是守护进程缩好的小图（/api/page-files/<取件码>/thumb），不下原图；点了"交"没交进去，原因记在卡上、还能再点。
+// -缩略图是守护进程缩好的小图（/api/page-files/<取件码>/thumb），不下原图；点了"交"没交进去，原因记在卡上、还能再点。
 import { type ComponentProps, createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
@@ -81,7 +81,7 @@ describe("网页候选卡", () => {
     expect(html).toContain("选了 1 个，交进去了 1 个");
   });
 
-  test("没交进去（149 号票）：原因写在卡上（网页上的挑图片窗口里点的也一样），还能再点交", () => {
+  test("没交进去：原因写在卡上（网页上的挑图片窗口里点的也一样），还能再点交", () => {
     const html = render(payload(false, { recommended: ["t1"], failed: "没交进去：浏览器已经换了网页，原来的上传框不在了" }));
     expect(html).toContain('class="xcard-pick-note failed"');
     expect(html).toContain("没交进去：浏览器已经换了网页，原来的上传框不在了（可以再点交）");

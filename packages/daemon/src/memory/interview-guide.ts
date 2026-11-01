@@ -1,15 +1,15 @@
-// @i18n-ignore-file model：整份是交给记忆管理员（模型）看的话——访谈开场的系统消息、每个主题从哪问起、收尾时工具交回的提示（174 号票：给模型看的照旧中文）。
+// @i18n-ignore-file model：整份是交给记忆管理员（模型）看的话——访谈开场的系统消息、每个主题从哪问起、收尾时工具交回的提示（给模型看的照旧中文）。
 //
-// 了解你访谈（284 号票）的问法。总的规矩（一次一个问题、往深一次一层、带选项不连追"为什么"、十来个来回、"这个别记"、收尾）写在
+// 了解你访谈的问法。总的规矩（一次一个问题、往深一次一层、带选项不连追"为什么"、十来个来回、"这个别记"、收尾）写在
 // 管理员的系统提示里（prompts/memory-curator.md 的"了解你访谈"一节，用户在设置 · 系统提示里能改）；这里是每一次访谈里交给它的：
 // - 开场的系统消息（interviewOpening）：只有一行"【了解你访谈】这次聊：<主题>"——它在会话里用户看得到，不写内部的东西
 //   （从哪开的、访谈编号），也不写长篇的问法；
 // - 跟在输入后面的上下文（不显示在会话里，照秘书的看板变化那一套；interview-tools.ts 的 interviewInputContext 挑哪一段）：开场那一轮
 //   带从哪开的、访谈编号、这次的主题从哪几方面问起和问法要点（interviewOpeningContext），之后用户的每一次回答带一句"进行中、第几个来回"
 //   和要点提醒（interviewTurnContext，十来个来回就收尾）——用户改过提示词、删了那一节时照样把要点带到。
-// 档案信息（用户 2026-10-25 定）：聊的时候听到了就用 propose_personal_file 记下（不出卡、不打断），收尾 finish_interview 时这次记下的
-// 合成一张核对卡逐条确认——不一项一张，283 号票的"每天一张"也不并进来（访谈刚聊完时核对最顺）。
-// 依据：Park 等人的 1000 人访谈研究（一次认真的访谈抵得上几个月的零碎聊天）；05 号调研的提醒：大模型做阶梯访谈时容易把动机往高处拔，
+// 档案信息：聊的时候听到了就用 propose_personal_file 记下（不出卡、不打断），收尾 finish_interview 时这次记下的
+// 合成一张核对卡逐条确认——不一项一张，"每天一张"也不并进来（访谈刚聊完时核对最顺）。
+// 依据：Park 等人的 1000 人访谈研究（一次认真的访谈抵得上几个月的零碎聊天）；提醒：大模型做阶梯访谈时容易把动机往高处拔，
 // 所以只往深问一层、给选项让用户挑，不替他总结成价值观。
 import { INTERVIEW_TOPIC_LABEL, type InterviewStarter, type InterviewTopic, forModel } from "@ergo/protocol";
 
@@ -74,7 +74,7 @@ export function interviewOpeningContext(interviewId: string, topic: InterviewTop
   ].join("\n");
 }
 
-/** 330 号票（R15）：问题箱里攒着的一个"了解你问题"（编号、问法） */
+/** ADR-0032 R15：问题箱里攒着的一个"了解你问题"（编号、问法） */
 export interface InterviewBoxQuestion {
   id: string;
   text: string;
@@ -84,7 +84,7 @@ export interface InterviewBoxQuestion {
 export const INTERVIEW_BOX_MAX = 3;
 
 /**
- * 330 号票（R15）：平时聊天一次对话最多顺口问一个；访谈是用户同意开的，问题箱里攒着的可以一并问几个（还是一次一个、聊到相关的地方再问）。
+ * ADR-0032 R15：平时聊天一次对话最多顺口问一个；访谈是用户同意开的，问题箱里攒着的可以一并问几个（还是一次一个、聊到相关的地方再问）。
  * 没有就不写
  */
 export function interviewBoxLines(box: readonly InterviewBoxQuestion[]): string[] {

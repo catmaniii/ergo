@@ -1,4 +1,4 @@
-// agent 运行时的登记表（286 号票，ADR-0027 的"运行时"贡献点）：负责人用哪个运行时跑它的会话。
+// agent 运行时的登记表（ADR-0027 的"运行时"贡献点）：负责人用哪个运行时跑它的会话。
 // - 一个运行时（AgentRuntime）：id、给人看的名字、子进程入口（实现宿主协议的脚本，守护进程用 process.execPath 拉起，每个会话一个，
 //   ADR-0002、ADR-0004）、能力清单（共享协议包 RUNTIME_OPERATIONS 每一项能不能做）、可选模型和设置项、（可选）列本机能接管的会话。
 // - 内核自带的 pi 由组合根照同一个接口登记（piRuntime：不是插件、不能停用）；插件的在数据契约里登记（plugins/host.ts 的
@@ -7,14 +7,14 @@
 // - 用它的：agent 管家拉起负责人时按它解析子进程入口（resolve：不能用的抛"X插件没启用"）；运行时闸门（agent-host/runtime-gate.ts）
 //   按它判负责人能不能启动、执行中的任务要不要转等我；网页经 GET /api/runtimes 拿到全部（view）。
 // - 能不能用变了（插件运行中停用、启用）由组合根在插件宿主的状况变了时叫 changed()，订阅的跟着看一眼。
-// - 289 号票：有自己的模型、斜杠命令的运行时（Claude Code）在子进程起来时报回它们（宿主协议 runtime_catalog），agent 管家交给
+// -有自己的模型、斜杠命令的运行时（Claude Code）在子进程起来时报回它们（宿主协议 runtime_catalog），agent 管家交给
 //   noteCatalog 记下（只在内存里）：view() 的模型列表以报回的为准（还没报过用运行时自己给的 models()）；斜杠命令按负责人记
 //   （commandsOf：这个负责人最近报的，它还没跑过时用这个运行时最近报的）。
-// - 290 号票（接管已有会话）：能接管的运行时（能力清单 take_over）要给四个函数——列本机的会话（sessions：标题、工作目录、分支、
+// -（接管已有会话）：能接管的运行时（能力清单 take_over）要给四个函数——列本机的会话（sessions：标题、工作目录、分支、
 //   最近活动、大小，正被别处占着的写明）、核对一个会话现在有没有被别处占着（sessionBusy：接管、收回前再看一次）、分叉一份
 //   （forkSession：被占着的"分叉一份接管"）、读主线最近一段（sessionHistory：前情，大会话只读尾部）。登记表经同名的方法转给接管服务
 //   （takeover/），先核对运行时能用、能接管。二狗自己的写入锁（哪个任务、项目在管）不在这里，在接管服务里。
-// - 292 号票（交给官方 App、再收回来）：能力清单 remote_control 的运行时要给 remoteControl（开 / 唤醒运行时自己的后台会话连上官方 App、
+// -（交给官方 App、再收回来）：能力清单 remote_control 的运行时要给 remoteControl（开 / 唤醒运行时自己的后台会话连上官方 App、
 //   拿链接、停掉、只读跟随读新内容）和 currentSession（负责人现在接着的是哪个会话：看会话目录里运行时自己记的）。登记表经 remoteControl()、
 //   currentSession() 转给接管服务，先核对运行时能用、能交；"现在在哪边"记在任务、项目上（接管服务管）。
 // 宿主协议不分运行时：pi 的子进程和插件的子进程收同一条"启动"、说同一套消息（ADR-0004），所以守护进程、网页都不用知道下面是谁。
@@ -39,59 +39,59 @@ export interface AgentRuntime {
   /** 设置项（权限模式、思考档位……，给人看的字按当前语言）；不给是没有 */
   settings?(): readonly RuntimeSettingView[];
   /**
-   * 列本机能接管的会话（能力清单里 take_over 是 true 的要给，290 号票）：最近活动的在前；正被别处占着的写明 busy
+   * 列本机能接管的会话（能力清单里 take_over 是 true 的要给）：最近活动的在前；正被别处占着的写明 busy
    * （查不到占没占的也写上，一律当占着）。插件没在运行时不会叫它
    */
   sessions?(): Promise<readonly ResumableSessionView[]>;
-  /** 这个会话现在有没有被别处占着（take_over 要给，290 号票；接管、收回前再核对一次）：占着的给人看的说明，空闲是 undefined；查不到抛错 */
+  /** 这个会话现在有没有被别处占着（take_over 要给，接管、收回前再核对一次）：占着的给人看的说明，空闲是 undefined；查不到抛错 */
   sessionBusy?(sessionId: string): Promise<string | undefined>;
-  /** 分叉一份（take_over 要给，290 号票："分叉一份接管"）：新会话的 id；原会话不动 */
+  /** 分叉一份（take_over 要给："分叉一份接管"）：新会话的 id；原会话不动 */
   forkSession?(sessionId: string, cwd: string): Promise<string>;
-  /** 读会话主线最近一段（take_over 要给，290 号票：前情）：大会话只读尾部，翻成二狗的样子 */
+  /** 读会话主线最近一段（take_over 要给：前情）：大会话只读尾部，翻成二狗的样子 */
   sessionHistory?(sessionId: string, cwd: string): Promise<RuntimeHistory>;
   /**
-   * 新建时能选工作文件夹（305 号票，Claude Code 是 true、pi 没有）：新建它的任务、项目时多"在哪个文件夹做"，设置里能定新建时的
+   * 新建时能选工作文件夹（Claude Code 是 true、pi 没有）：新建它的任务、项目时多"在哪个文件夹做"，设置里能定新建时的
    * 默认文件夹（work-folders/）；选定的文件夹就是负责人的工作目录
    */
   readonly workFolder?: true;
   /**
-   * 范围审视由二狗按自己记下的事件另起一次做（309 号票，Claude Code 是 true、pi 没有）：运行时的子进程里调不了二狗的审视模型，压缩之前它报 compacting、
+   * 范围审视由二狗按自己记下的事件另起一次做（Claude Code 是 true、pi 没有）：运行时的子进程里调不了二狗的审视模型，压缩之前它报 compacting、
    * 工单结束时守护进程不给它送 scope_review，都由守护进程把这段会话整理好、在一次性子进程里用审视的模型做（同 pi 的提示和结果格式）。
    * 能力清单 scope_review 照样是 true（范围审视做得成）
    */
   readonly recordedScopeReview?: true;
   /**
-   * 运行时自带、二狗没装配的工具在守卫工具登记表里的登记（288 号票：Claude Code 的 TodoWrite、Agent、Skill、AskUserQuestion……，来源是 runtime）。
+   * 运行时自带、二狗没装配的工具在守卫工具登记表里的登记（Claude Code 的 TodoWrite、Agent、Skill、AskUserQuestion……，来源是 runtime）。
    * 用这个运行时的负责人的会话：守卫的登记表加上它们、工具包标上 runtimeTools（这些和没登记的不按工具白名单硬拒绝，没登记的照未登记的写操作判）。
    * 能对上二狗工具的（Claude 的 Bash、Read……）由子进程在 guard_request 里映射过去，不在这里。pi 没有
    */
   readonly guardTools?: readonly ToolDescriptor[];
   /**
-   * 运行时自带的工具单次调用的超时（毫秒，288 号票）：盖过守护进程的默认（配置里的单次工具调用超时）；null 是不按单次超时算
+   * 运行时自带的工具单次调用的超时（毫秒）：盖过守护进程的默认（配置里的单次工具调用超时）；null 是不按单次超时算
    * （Claude 的子代理一次可能跑十几分钟、它里面的每次调用照常各自计时；等用户回答的不算卡住）。没写的照默认
    */
   readonly toolTimeouts?: Readonly<Record<string, number | null>>;
   /**
-   * 工具包里的 skill 交给这个运行时之后的斜杠命令（291 号票，不带 /，和 skillDirs 一一对应、同样的先后）：Claude Code 把它们拼成本地插件 ergo，
+   * 工具包里的 skill 交给这个运行时之后的斜杠命令（不带 /，和 skillDirs 一一对应、同样的先后）：Claude Code 把它们拼成本地插件 ergo，
    * 命令是 ergo:<目录名>。输入框的 / 补全按它列（运行时自己报的命令里有同名的就不重复）。不给的（pi）二狗自己展开 /目录名
    */
   toolkitSkillCommands?(skillDirs: readonly string[]): readonly string[];
   /**
-   * 运行时自带命令的说明、参数提示按用户的语言（310 号票：输入框的 / 补全；Claude Code 内置命令的中文说明表）：只给现在的语言里有的，
+   * 运行时自带命令的说明、参数提示按用户的语言（输入框的 / 补全；Claude Code 内置命令的中文说明表）：只给现在的语言里有的，
    * 没有是 undefined（照它报的原文，不是用户语言的再交给二狗的模型翻）。name 不带 /
    */
   commandText?(name: string): { description?: string; argumentHint?: string } | undefined;
-  /** 交给官方 App 接着、再收回来（能力清单 remote_control 是 true 的要给，292 号票），见 RuntimeRemoteControl */
+  /** 交给官方 App 接着、再收回来（能力清单 remote_control 是 true 的要给），见 RuntimeRemoteControl */
   remoteControl?: RuntimeRemoteControl;
   /**
-   * 负责人现在接着的运行时会话（remote_control 要给，292 号票）：看负责人会话目录里运行时自己记的（最近用的那个）——二狗自己开的会话交给官方 App
+   * 负责人现在接着的运行时会话（remote_control 要给）：看负责人会话目录里运行时自己记的（最近用的那个）——二狗自己开的会话交给官方 App
    * 时按它，接管来的中途换过会话 id（/clear）的也按它。会话 id、开始时的工作目录；还没开始（运行时那边还没有这个会话）是 undefined
    */
   currentSession?(sessionDir: string): { sessionId: string; cwd: string } | undefined;
 }
 
 /**
- * 交给官方 App（292 号票，issue 24 用户答复第 6 条"二选一、要能互转"；调研 35）：运行时自己的那几样。二狗这一侧的顺序（打断、关掉自己的进程、
+ * 交给官方 App（二选一、要能互转）：运行时自己的那几样。二狗这一侧的顺序（打断、关掉自己的进程、
  * 记下在哪边、只读跟随、收回后接着）在接管服务（takeover/）。
  */
 export interface RuntimeRemoteControl {
@@ -112,7 +112,7 @@ export interface RuntimeRemoteControl {
   follow(input: { sessionId: string; cwd: string; after?: string; final: boolean; tail?: boolean }): Promise<RuntimeFollow>;
 }
 
-/** 只读跟随读到的（292 号票） */
+/** 只读跟随读到的 */
 export interface RuntimeFollow {
   /** 新的几条（按先后，翻成二狗的样子，同前情）：key 是运行时那边这一条的 id（补记时按它去重），at 是那边记的时间（有就写） */
   items: Array<RuntimeHistoryItem & { key: string; at?: string }>;
@@ -123,7 +123,7 @@ export interface RuntimeFollow {
 }
 
 /**
- * 接管时读到的会话主线最近一段（290 号票，前情）：运行时自己的记录翻成二狗的样子，接管服务据此在负责人的会话里记成前情消息。
+ * 接管时读到的会话主线最近一段（前情）：运行时自己的记录翻成二狗的样子，接管服务据此在负责人的会话里记成前情消息。
  * 按先后：用户说的一句、它的一条回复（文字、思考、工具调用：工具名照二狗守卫的登记表映射过的，结果只留摘要）、压缩过的标记。
  * truncated：更早的还有（留在运行时自己的记录里）
  */
@@ -158,7 +158,7 @@ export interface RuntimeOwner {
   readonly plugin: string;
   readonly title: string;
   running(): boolean;
-  /** 插件没装上是因为它要的外部组件没装时（315 号票）：没装什么、怎么装；不是这样是 undefined（不给也是） */
+  /** 插件没装上是因为它要的外部组件没装时：没装什么、怎么装；不是这样是 undefined（不给也是） */
   missing?(): string | undefined;
 }
 
@@ -166,9 +166,9 @@ export interface RuntimeOwner {
 export interface RuntimeUnavailable {
   reason: string;
   plugin: string;
-  /** 不是插件没启用，是接管来的会话交还给运行时了（290 号票，运行时闸门给的）：plugin 这时是运行时给人看的名字 */
+  /** 不是插件没启用，是接管来的会话交还给运行时了（运行时闸门给的）：plugin 这时是运行时给人看的名字 */
   returned?: true;
-  /** 交还的是交给了官方 App（292 号票，也带 returned） */
+  /** 交还的是交给了官方 App（也带 returned） */
   remote?: true;
 }
 
@@ -182,17 +182,17 @@ export interface RuntimeRegistry {
   resolve(id: string): AgentRuntime;
   /** 能不能做某项会话操作（不认得的 id 当不能；插件停用了照它登记的说，能不能用另看 unavailable） */
   supports(id: string, operation: RuntimeOperation): boolean;
-  /** 列这个运行时在本机能接管的会话（290 号票）：不能用、不能接管的抛 RequestRejected（not_allowed，给人看的原因） */
+  /** 列这个运行时在本机能接管的会话：不能用、不能接管的抛 RequestRejected（not_allowed，给人看的原因） */
   sessions(id: string): Promise<readonly ResumableSessionView[]>;
-  /** 一个会话现在有没有被别处占着（290 号票）：同上核对；占着的说明，空闲是 undefined */
+  /** 一个会话现在有没有被别处占着：同上核对；占着的说明，空闲是 undefined */
   sessionBusy(id: string, sessionId: string): Promise<string | undefined>;
-  /** 分叉一份（290 号票）：同上核对；新会话的 id */
+  /** 分叉一份：同上核对；新会话的 id */
   forkSession(id: string, sessionId: string, cwd: string): Promise<string>;
-  /** 读主线最近一段（290 号票）：同上核对 */
+  /** 读主线最近一段：同上核对 */
   sessionHistory(id: string, sessionId: string, cwd: string): Promise<RuntimeHistory>;
-  /** 交给官方 App 用的那几样（292 号票）：不能用、不能交的抛 RequestRejected（not_allowed，给人看的原因） */
+  /** 交给官方 App 用的那几样：不能用、不能交的抛 RequestRejected（not_allowed，给人看的原因） */
   remoteControl(id: string): RuntimeRemoteControl;
-  /** 负责人现在接着的运行时会话（292 号票）：同上核对；还没开始是 undefined */
+  /** 负责人现在接着的运行时会话：同上核对；还没开始是 undefined */
   currentSession(id: string, sessionDir: string): { sessionId: string; cwd: string } | undefined;
   /** 给网页的：pi 在最前，插件的按登记的先后（停用了的插件的也在，available 是 false） */
   view(): RuntimesView;
@@ -201,11 +201,11 @@ export interface RuntimeRegistry {
   /** 订阅"能不能用变了"；返回取消订阅 */
   onChange(listener: () => void): () => void;
   /**
-   * 记下运行时的子进程报回的模型列表、斜杠命令（289 号票，宿主协议 runtime_catalog）：模型按运行时记（view 用它），命令按负责人记，
+   * 记下运行时的子进程报回的模型列表、斜杠命令（宿主协议 runtime_catalog）：模型按运行时记（view 用它），命令按负责人记，
    * 也记成这个运行时最近报的
    */
   noteCatalog(runtimeId: string, agentId: string, catalog: Omit<RuntimeCatalogReport, "type">): void;
-  /** 这个负责人能用的运行时斜杠命令（289 号票）：它最近报的；它还没跑过时是这个运行时最近报的；都没有是 undefined */
+  /** 这个负责人能用的运行时斜杠命令：它最近报的；它还没跑过时是这个运行时最近报的；都没有是 undefined */
   commandsOf(runtimeId: string, agentId: string): RuntimeCatalogReport["commands"];
 }
 
@@ -226,7 +226,7 @@ export const piRuntime: AgentRuntime = {
     rollback: true,
     branch_switch: true,
     branch_summary: true,
-    // 撤回不动文件（293 号票：Claude Code 的文件检查点才有）
+    // 撤回不动文件（Claude Code 的文件检查点才有）
     rewind_files: false,
     model_handoff: true,
     thinking_levels: true,
@@ -242,12 +242,12 @@ export const piRuntime: AgentRuntime = {
 
 export function createRuntimeRegistry(options: {
   log: (line: string) => void;
-  /** 能选工作文件夹的运行时设的新建时的默认文件夹（305 号票，work-folders/）：view() 里带上；不给是都没设 */
+  /** 能选工作文件夹的运行时设的新建时的默认文件夹（work-folders/）：view() 里带上；不给是都没设 */
   defaultFolder?: (runtimeId: string) => string | undefined;
 }): RuntimeRegistry {
   const entries: Array<{ runtime: AgentRuntime; owner: RuntimeOwner | undefined }> = [];
   const listeners = new Set<() => void>();
-  /** 子进程报回的（289 号票）：运行时 → 模型列表、最近报的命令；负责人 → 它的命令 */
+  /** 子进程报回的：运行时 → 模型列表、最近报的命令；负责人 → 它的命令 */
   const catalogs = new Map<string, { models?: RuntimeModelView[]; commands?: RuntimeCatalogReport["commands"] }>();
   const agentCommands = new Map<string, { runtime: string; commands: NonNullable<RuntimeCatalogReport["commands"]> }>();
   const find = (id: string) => entries.find((e) => e.runtime.id === id);
@@ -260,7 +260,7 @@ export function createRuntimeRegistry(options: {
     const entry = find(id);
     if (!entry) return { reason: t("runtime.registry.unknown", { id }), plugin: id };
     if (!entry.owner || entry.owner.running()) return undefined;
-    // 外部组件没装（315 号票：Claude Code 的 Agent SDK）：说没装什么、怎么装，不说"没启用"
+    // 外部组件没装（Claude Code 的 Agent SDK）：说没装什么、怎么装，不说"没启用"
     return { reason: entry.owner.missing?.() ?? t("plugins.notEnabled", { title: entry.owner.title }), plugin: entry.owner.title };
   };
 
@@ -270,7 +270,7 @@ export function createRuntimeRegistry(options: {
     return find(id)!.runtime;
   };
 
-  /** 能接管已有会话的运行时（290 号票）：不能用、不能接管的抛 RequestRejected（not_allowed） */
+  /** 能接管已有会话的运行时：不能用、不能接管的抛 RequestRejected（not_allowed） */
   const takeOverOf = (id: string): AgentRuntime => {
     const runtime = resolve(id);
     if (!runtime.capabilities.take_over || !runtime.sessions || !runtime.sessionBusy || !runtime.forkSession || !runtime.sessionHistory) {
@@ -279,7 +279,7 @@ export function createRuntimeRegistry(options: {
     return runtime;
   };
 
-  /** 能交给官方 App 的运行时（292 号票）：不能用、不能交的抛 RequestRejected（not_allowed） */
+  /** 能交给官方 App 的运行时：不能用、不能交的抛 RequestRejected（not_allowed） */
   const remoteOf = (id: string): AgentRuntime & Required<Pick<AgentRuntime, "remoteControl" | "currentSession">> => {
     const runtime = resolve(id);
     if (!runtime.capabilities.remote_control || !runtime.remoteControl || !runtime.currentSession) {
@@ -328,7 +328,7 @@ export function createRuntimeRegistry(options: {
       return {
         runtimes: ordered.map(({ runtime, owner }): AgentRuntimeView => {
           const off = unavailable(runtime.id);
-          // 子进程报回过的模型列表优先（289 号票）
+          // 子进程报回过的模型列表优先
           const models = catalogs.get(runtime.id)?.models ?? runtime.models?.();
           return {
             id: runtime.id,

@@ -6,7 +6,7 @@ import path from "node:path";
 
 /**
  * 真实路径；还不存在的按最近的已有上级目录展开，再接上后面几段。连根都取不到时为 undefined。
- * 悬空的链接（链接本身在、指向的地方没了）也是 undefined：它指向哪里说不清，不能退回成写的路径（58 号票）
+ * 悬空的链接（链接本身在、指向的地方没了）也是 undefined：它指向哪里说不清，不能退回成写的路径
  */
 export function realPathOf(p: string): string | undefined {
   const rest: string[] = [];

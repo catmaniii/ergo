@@ -1,4 +1,4 @@
-// 测试用的守护进程（被杀后的恢复，23 号票）：在独立进程里起一个守护进程实例（临时数据目录、系统挑的端口、faux 模型），
+// 测试用的守护进程（被杀后的恢复）：在独立进程里起一个守护进程实例（临时数据目录、系统挑的端口、faux 模型），
 // 好让测试像 LSM 重启时那样直接杀掉它（连带 Job 对象里的 agent 子进程和孙进程）。测试本身扮演前端，经 WebSocket 连它。
 //
 // 用法：node killable-daemon.ts '<JSON 参数>'（KillableDaemonArgs）。起来后往 stdout 报一行 { ready: { url, externalUrl, pid } }，之后：
@@ -26,9 +26,9 @@ export interface KillableDaemonArgs {
   secretaryTokensPerSecond?: number;
   /** 负责人的 faux 剧本：负责人 id → 第几次唤起（从 1 起）的剧本；没给的唤起得到空剧本（一调用就出错） */
   maintainer: Record<string, FauxStep[][]>;
-  /** 并行派出的子 agent（20 号票）的 faux 剧本：子 agent id（sa-<n>）→ 剧本；没给的得到空剧本 */
+  /** 并行派出的子 agent的 faux 剧本：子 agent id（sa-<n>）→ 剧本；没给的得到空剧本 */
   subAgent?: Record<string, FauxStep[]>;
-  /** 语音合成服务的地址：测试进程里起的假服务（helpers/tts.ts，86 号票）；不给是连不上的地址 */
+  /** 语音合成服务的地址：测试进程里起的假服务（helpers/tts.ts）；不给是连不上的地址 */
   speechUrl?: string;
 }
 
@@ -52,15 +52,15 @@ const daemon = await startDaemon({
   maintainerModel: (maintainerId, spawn) => faux(args.maintainer[maintainerId]?.[spawn - 1] ?? []),
   reviewerModel: () => faux([]),
   subAgentModel: (agentId) => faux(args.subAgent?.[agentId] ?? []),
-  // 和 startTestDaemon 一样：识别进程是假的、合成服务连不上（45 号票起守护进程一起来就预热，不能拉真的 Python、碰本机 8090）
+  // 和 startTestDaemon 一样：识别进程是假的、合成服务连不上（守护进程一起来就预热，不能拉真的 Python、碰本机 8090）
   recognizerCommand: [process.execPath, FAKE_RECOGNIZER],
-  // 230 号票：参考音色导入的转码也是假的（不跑本机的 ffmpeg）
+  // 参考音色导入的转码也是假的（不跑本机的 ffmpeg）
   ffmpegCommand: [process.execPath, FAKE_FFMPEG, `${args.dataDir}/ffmpeg-test.jsonl`],
   speechUrl: args.speechUrl ?? "http://127.0.0.1:1",
-  // 和 startTestDaemon 一样：联网搜索、读网页是假的（不起浏览器、不连真网络），不探测本机的浏览器（70 号票）
+  // 和 startTestDaemon 一样：联网搜索、读网页是假的（不起浏览器、不连真网络），不探测本机的浏览器
   webAccess: fakeWebAccess(),
   browserPath: () => undefined,
-  // 和 startTestDaemon 一样：按设置里的"模型"拉起的目录模型的请求发到连不上的地址，永远不连真的 DeepSeek（73 号票）
+  // 和 startTestDaemon 一样：按设置里的"模型"拉起的目录模型的请求发到连不上的地址，永远不连真的 DeepSeek
   catalogBaseUrl: "http://127.0.0.1:1",
   log:(line) => process.stderr.write(`${line}\n`),
 });

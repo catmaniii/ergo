@@ -1,20 +1,20 @@
-// 个人助理的名字（43 号票，规格第 19 节"名称"）：用户给秘书起的名字，存在守护进程（各设备一样），改了经名字频道推来。
+// 个人助理的名字（规格第 19 节"名称"）：用户给秘书起的名字，存在守护进程（各设备一样），改了经名字频道推来。
 // 界面上凡是说到它的地方都用这个名字（带底色的小标签，ui/assistant-name.tsx）；守护进程生成的话里提到秘书的写名字占位，
 // 按现在的名字显示（splitAssistantName / fillAssistantName），所以改名后旧的话也跟着变。改名走 HTTP（守护进程改完推一条事件）。
-// 43 号票之前存下的事件里写死了"秘书""待我处理"的那几句固定的话，显示前按协议包的对照表 LEGACY_WORDING 换成现在的说法。
+// 以前存下的事件里写死了"秘书""待我处理"的那几句固定的话，显示前按协议包的对照表 LEGACY_WORDING 换成现在的说法。
 import { type AssistantNameSegment, CHANNELS, currentWording, defaultAssistantName, fillAssistantName, splitAssistantName, t } from "./protocol.ts";
 import type { UiState } from "./ui-state.ts";
 
-/** 现在的名字；没收到过名字事件就是默认的，跟当前语言走（379 号票：中文二狗、英文 ergo），起过的名字任何语言下原样 */
+/** 现在的名字；没收到过名字事件就是默认的，跟当前语言走（中文二狗、英文 ergo），起过的名字任何语言下原样 */
 export function assistantNameOf(state: UiState): string {
-  // 秘书指定的角色（248 号票；241 号票是它自己配的名字）优先；跟默认就是设置里的全局名字（43）——名字频道上最新的那个，
+  // 秘书指定的角色（是它自己配的名字）优先；跟默认就是设置里的全局名字——名字频道上最新的那个，
   // 还没收到事件时退回取回的那份里写的（打开页面的头一下；换了语言会重取，App.tsx 的 AgentRolesSync），都没有是默认的。秘书的 agent id 和它的会话名都是 "secretary"
   const own = state.agentRoles?.agents.find((a) => a.agentId === CHANNELS.secretary)?.identity;
   if (own?.ownRoleId !== undefined) return own.name;
   return state.assistantName ?? own?.name ?? defaultAssistantName();
 }
 
-/** 秘书页左上角标题的前缀（89 号票，用户 2026-10-11 定）：标题是"个人秘书：<名字>"（170 号票起按当前语言现取，原来是常量 SECRETARY_TITLE_PREFIX） */
+/** 秘书页左上角标题的前缀：标题是"个人秘书：<名字>"（按当前语言现取，原来是常量 SECRETARY_TITLE_PREFIX） */
 export function secretaryTitlePrefix(): string {
   return t("state.assistantName.titlePrefix");
 }
@@ -42,7 +42,7 @@ export function secretaryTitle(name: string): SecretaryTitle {
 }
 
 /**
- * 名字的第一个字（40 号票：暖纸手帐的圆形字头像画它）。取的是第一个字素簇（Intl.Segmenter）：国旗、用零宽连接符拼成的
+ * 名字的第一个字（暖纸手帐的圆形字头像画它）。取的是第一个字素簇（Intl.Segmenter）：国旗、用零宽连接符拼成的
  * 组合表情、带组合附加符号的字母都算一个字，不拆开；没有 Intl.Segmenter 的环境退回按码点取（这几种会只取到第一个码点）。
  * 前后的空白不算；名字是空的给空字符串。写成 CSS 字符串在界面层（ui/conversation/conversation-root.ts）
  */

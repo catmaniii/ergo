@@ -6,7 +6,7 @@
 //   别的事件（审批决定、卡片、工具调用记录、效果日志）只改带原话的字段，状态不变（审批表重建后仍是已拒绝）；
 //   没有别的消息引用的附件媒体文件一起删（按媒体 id 下载 404）；
 // 设置里按会话、按时间段批量做这三种删除；附件菜单"作为材料投喂"发的消息记成"用户主动投喂的材料"。
-// 167 号票：记忆 · 素材按时间段、种类、会话、关键词取（POST /api/materials/list 的 filter）；成批删除（原来设置里的那一套）照旧是上面两个接口。
+// 记忆 · 素材按时间段、种类、会话、关键词取（POST /api/materials/list 的 filter）；成批删除（原来设置里的那一套）照旧是上面两个接口。
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -60,7 +60,7 @@ const latest = (frontend: TestFrontend, id: string): Card => cardsOf(frontend).f
 const deleteCards = (frontend: TestFrontend): Card[] => [...new Map(cardsOf(frontend).filter((c) => c.type === "memory_delete").map((c) => [c.id, c])).values()];
 const lastReply = (frontend: TestFrontend): string =>
   (frontend.events({ channel: SECRETARY, type: EVENT_TYPES.message }).at(-1)!.payload as MessageEventPayload).message.parts.map((p) => (p.type === "text" ? p.text : "")).join("");
-/** 聊天里某个工具的调用记录（07 的守卫接入：每次工具调用一条只有工具调用 part 的消息） */
+/** 聊天里某个工具的调用记录（守卫接入：每次工具调用一条只有工具调用 part 的消息） */
 const toolCallRecords = (frontend: TestFrontend, tool: string) =>
   frontend.events({ channel: SECRETARY, type: EVENT_TYPES.message }).flatMap((f) => {
     if (isDeletedEventPayload(f.payload)) return [];
@@ -176,7 +176,7 @@ describe("彻底删除", () => {
         {
           seq: searchRecord.seq,
           messageId: searchRecord.messageId,
-          // 调用记忆的结构化部分（187 号票）：为什么查、查了什么同样换掉；命中只有编号、种类这些，留着（网页按编号取不到，写"已删除"）
+          // 调用记忆的结构化部分：为什么查、查了什么同样换掉；命中只有编号、种类这些，留着（网页按编号取不到，写"已删除"）
           replacement: {
             parts: [
               {
@@ -278,7 +278,7 @@ describe("彻底删除", () => {
     for (const f of fs.readdirSync(sessionDir)) expect(fs.readFileSync(path.join(sessionDir, f), "utf8")).not.toContain("起疹子");
   });
 
-  // 265 号票（263 号票交回的第 3 条）：问记忆的结果按证据编号（ev-…）引原话、不带素材 id，以前彻底删除只改写检索素材的结果，
+  // 交回的第 3 条：问记忆的结果按证据编号（ev-…）引原话、不带素材 id，以前彻底删除只改写检索素材的结果，
   // 问记忆那次调用的记录、完整内容和会话文件里的结果都还留着原话
   it("问记忆（ask_memory）引过被删的那句：那次调用的记录和完整内容、秘书会话文件里的结果都不剩原话，别的证据照旧", { timeout: 60_000 }, async () => {
     const peanut = "我对花生过敏，吃了会起疹子";
@@ -437,7 +437,7 @@ describe("设置里按会话、按时间段删除", () => {
   });
 });
 
-describe("设置里点开一条素材看内容（158 号票）", () => {
+describe("设置里点开一条素材看内容", () => {
   it("范围里的素材一页一页列出来（新的在前），点开看完整内容和来源；在详情里删的只是这一条，口径同按范围删；删了再看是 404", async () => {
     const { url, daemon } = await startTestDaemon();
     const frontend = await TestFrontend.connect(url);
@@ -485,7 +485,7 @@ describe("设置里点开一条素材看内容（158 号票）", () => {
   });
 });
 
-describe("记忆 · 素材按时间段、种类、会话、关键词取（167 号票）", () => {
+describe("记忆 · 素材按时间段、种类、会话、关键词取", () => {
   it("筛选都在守护进程里做，新的在前；搜的时候摘录是命中的那一段；坏的筛选回 400", async () => {
     const { url, daemon } = await startTestDaemon();
     const frontend = await TestFrontend.connect(url);

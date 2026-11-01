@@ -1,6 +1,6 @@
-// Claude Code 的工具调用都过二狗守卫（288 号票，issue 24 用户答复第 4 条"所有工具调用都经二狗守卫"、方案 2.4）。
+// Claude Code 的工具调用都过二狗守卫（"所有工具调用都经二狗守卫"、方案 2.4）。
 // 全量闸口是二狗交给 SDK 的 PreToolUse 钩子——canUseTool 只在 Claude Code 自己的权限系统本来就要问人时才叫（用户设置里放行过的、内置的安全命令
-// 直接过），不是全量闸口（调研 32 第 4.2 节）；钩子每次工具调用都过，子代理里的也过（钩子输入带 agent_id）。每次调用：
+// 直接过），不是全量闸口；钩子每次工具调用都过，子代理里的也过（钩子输入带 agent_id）。每次调用：
 // - 先让翻译那一层赶上（钩子可能比前面那条回复先到手），确保这次调用报过 tool_call_start，再发 guard_request（和 pi 一样：开始在前、判定在后）；
 //   工具名和参数映射到守卫的工具登记表（toGuardCall），原样的放在 native 里（工具调用的完整内容存它）；
 // - 守卫拦下 → permissionDecision: deny，模型收到守卫的说明；
@@ -14,7 +14,7 @@
 //   等 ask_user_reply——选择题的回答按 SDK 的写法交回（updatedInput.answers：题目 → 回答，多选的用逗号连起来），计划批准就放行、打回就拒绝并转达你的话；
 // - 回合中止（SDK 给钩子、canUseTool 的中止信号）：等着的判定、提问按"不放行 / 没答"收尾。
 // 钩子的超时给到一天：钩子超时 Claude Code 当作钩子出错、接着走它自己的权限，等于没过守卫；守护进程这边等审批有自己的时限，总会回判定。
-// 291 号票：二狗交给 Claude 的工具（进程内 MCP 服务，host-tools.ts）——mcp__ergo__<工具名> 映射成二狗的工具名、参数原样，守卫按那个工具的登记判；
+// 二狗交给 Claude 的工具（进程内 MCP 服务，host-tools.ts）——mcp__ergo__<工具名> 映射成二狗的工具名、参数原样，守卫按那个工具的登记判；
 // 工具包里的 MCP 两边同名，原样判。这些工具守卫放行了就 permissionDecision: allow（二狗的工具二狗自己管，不再走 Claude Code 自己的权限提示；
 // 用户的 deny 规则照样赢）。PostToolUse 要交给模型的话由会话合在一起（守卫的这一份是 postToolContext，会话另有工具包变更的通知）。
 // @i18n-ignore-file model：交回 Claude、给模型看的说明（守卫的说明本来就是中文）；日志
@@ -127,7 +127,7 @@ export interface ClaudeGuardDeps {
    * 发判定请求之前：让翻译那一层赶上、确保这次调用报过 tool_call_start（钩子比那条回复先到手时由这里先报）
    */
   ensureStarted: (toolCallId: string, toolName: string, args: unknown) => void;
-  /** 这是二狗交给 Claude 的工具（Claude 的工具名；291 号票）：守卫放行了就直接 allow */
+  /** 这是二狗交给 Claude 的工具（Claude 的工具名）：守卫放行了就直接 allow */
   ownTool?: (claudeName: string) => boolean;
   log: (line: string) => void;
 }

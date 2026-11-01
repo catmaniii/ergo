@@ -1,20 +1,20 @@
-// 了解你问题的问题箱（198 号票，架构文档第 7.6 节）：存、去重、优先级、过期、顺口问、回答回写、跳过、"别问这个"。
+// 了解你问题的问题箱（架构文档第 7.6 节）：存、去重、优先级、过期、顺口问、回答回写、跳过、"别问这个"。
 // 问题从哪来见 question-sources.ts；每日整理（nightly.ts）每夜把新草稿交给 refresh。
 //
-// 规矩（主会话 2026-10-20 定的第 2–5 条）：
+// 规矩：
 // - 问题箱：同一个 key 只有一个还开着的问题；"别问这个"挡住的那一类、跳过两次退下的不再生成；答过、过期的冷却 30 天；
 //   刚回答过关于某条假设的问题，30 天内不再就它发问。过期时间默认 30 天，目标里有近期状态的跟着它的有效期提前。
-// - 顺口问（pick）：每轮回话前看一眼。急事、在等用户做决定时不问；今天问过了不问；话题（196 号票的领域和场景）对得上的才问，
+// - 顺口问（pick）：每轮回话前看一眼。急事、在等用户做决定时不问；今天问过了不问；话题（领域和场景）对得上的才问，
 //   挑优先级最高的那个，在回话末尾带一句。对不上的留在问题箱里。永不推送：只有这里和 list 两个出口。
 // - 跳过：问了没答（调用的人告诉 recordSkip，或者到第二天还没答）算跳过一次；同一个问题跳过两次退下，记一条回避信号（系统观察到的，不当依据）。
 // - 回答（recordAnswer）：回答记成一条本人证据。规则版按"是 / 不是 / 说不好"读，回答得很明确（确实、一点都不、当然……）的马上照问题里写的
 //   判法记决定性的支持或反证（支持的走 confirmClaim，标"你确认过"；反证让那一组重新定状态，撤回留墓碑）；有偏向但不明确的等下一夜
 //   （applyPendingAnswers）记强的；说不好的照样是证据，不判输赢。
 // - 透明：每个问题带"为什么问、为了弄清哪几个假设、什么回答支持哪边"，经过（question_log，只追加）在 list 里看得到。
-// - 207 号票：问题箱也是 199 联动的 QuestionSink（引擎默认接上）：reflect 里矛盾根源、对比模式分不出时交来的问题经 offer 进箱
+// -问题箱也是 199 联动的 QuestionSink（引擎默认接上）：reflect 里矛盾根源、对比模式分不出时交来的问题经 offer 进箱
 //   （和每夜 refresh 同一套去重、"别问这个"、退下、冷却、刚答过），那一组分出来了经 onClosed 标"不用问了"。
 //   优先级 = 回答能不能分出胜负 × 分数接近的程度 × 常不常遇到 × 还没问过（question-sources.ts 的 PriorityDetail）。
-// - 271 号票：线上秘书按语气自己改写问法，问了就标一下（标了才 markAsked）；用户紧接着的下一句照旧由白天的规则（classifyReply）认明显的，
+// -线上秘书按语气自己改写问法，问了就标一下（标了才 markAsked）；用户紧接着的下一句照旧由白天的规则（classifyReply）认明显的，
 //   规则没认出来的不在白天记跳过（pick 的 settle: false），留给每晚整理时记忆管理员把问题和用户之后的几句话一起看（rg/reply-judge.ts）：
 //   答了经 recordAnswer（reading 交来模型读出的是 / 不是）回写，没答的 recordNightSkip 算跳过一次，拿不准的 recordUnsure 留到下一夜。
 import { addDays, localDate, sameLocalDay, toMs } from "../domain/time.ts";
@@ -37,7 +37,7 @@ export type QuestionStatus = (typeof QUESTION_STATUSES)[number];
 
 export type AnswerVerdict = "yes" | "no" | "unclear";
 
-/** 271 号票加了 unsure：每晚整理时记忆管理员看了问过以后用户说的话，拿不准有没有在答，留到下一夜 */
+/** 加了 unsure：每晚整理时记忆管理员看了问过以后用户说的话，拿不准有没有在答，留到下一夜 */
 export const QUESTION_EVENTS = ["created", "asked", "skipped", "retired", "answered", "resolved", "declined", "expired", "obsolete", "unsure"] as const;
 export type QuestionEvent = (typeof QUESTION_EVENTS)[number];
 
@@ -116,21 +116,21 @@ export interface PickOptions {
   /** 秘书这一轮在等用户做决定（审批、二选一） */
   awaitingDecision?: boolean;
   /**
-   * 只看不记（264 号票）：照样挑、写好那一句，但不记"问过"——线上秘书回话前先挑，等它真的在回话里带上了再 markAsked。
+   * 只看不记：照样挑、写好那一句，但不记"问过"——线上秘书回话前先挑，等它真的在回话里带上了再 markAsked。
    * 问了没答到第二天算跳过那一步照常做
    */
   peek?: boolean;
   /**
-   * 挑之前先把问了没答、已经到第二天的记成跳过（默认 true，198 的规矩）。271 号票：线上传 false——白天规则没认出回答的问题
+   * 挑之前先把问了没答、已经到第二天的记成跳过（默认 true，规矩）。线上传 false——白天规则没认出回答的问题
    * 留给每晚整理时记忆管理员判过再记（rg/reply-judge.ts），白天不抢先记跳过
    */
   settle?: boolean;
-  /** 267 号票：谁挑的、经谁带出去（留痕用；不给是记忆管理员）——挑之前把问了没答到第二天的记成跳过、记"问过"都算它的 */
+  /** 谁挑的、经谁带出去（留痕用；不给是记忆管理员）——挑之前把问了没答到第二天的记成跳过、记"问过"都算它的 */
   actor?: WriteActor;
   via?: string;
 }
 
-/** 267 号票：问题箱的写经唯一写入口时，谁写的、经谁转达（不给按写操作的默认：问过是记忆管理员，跳过、回答是用户的表态，别问这个是用户发起） */
+/** 问题箱的写经唯一写入口时，谁写的、经谁转达（不给按写操作的默认：问过是记忆管理员，跳过、回答是用户的表态，别问这个是用户发起） */
 export interface QuestionWriteBy {
   actor?: WriteActor;
   via?: string;
@@ -146,14 +146,14 @@ export interface PickResult {
   question?: QuestionView;
   /** 回话末尾顺口带的那一句 */
   text?: string;
-  /** 话题对上在哪（领域、说法），问了的时候写进经过（264 号票：peek 之后 markAsked 用） */
+  /** 话题对上在哪（领域、说法），问了的时候写进经过（peek 之后 markAsked 用） */
   matchedOn?: string;
   /** 看过的问题：对没对上、为什么 */
   considered: { questionId: string; matched: boolean; why: string }[];
 }
 
 /**
- * 用户在顺口问之后的下一句是什么（264 号票）：在回答这个问题、跳过、说"别问这个"，还是在说别的（不算回答）
+ * 用户在顺口问之后的下一句是什么：在回答这个问题、跳过、说"别问这个"，还是在说别的（不算回答）
  */
 export type ReplyKind = "answer" | "skip" | "decline" | "unrelated";
 
@@ -178,7 +178,7 @@ export interface AnswerRecord {
   applied: "now" | "nightly" | "none";
 }
 
-/** 271 号票：交给 recordAnswer 的读法（每晚整理时记忆管理员判出来的：是 / 不是 / 说不好，说得明不明确） */
+/** 交给 recordAnswer 的读法（每晚整理时记忆管理员判出来的：是 / 不是 / 说不好，说得明不明确） */
 export interface AnswerReading {
   verdict: AnswerVerdict;
   clear: boolean;
@@ -314,7 +314,7 @@ function fromRow(r: Record<string, unknown>): Question {
   };
 }
 
-/** 优先级 = 回答能不能分出胜负 × 分数接近的程度 × 常不常遇到 × 还没问过（207 号票） */
+/** 优先级 = 回答能不能分出胜负 × 分数接近的程度 × 常不常遇到 × 还没问过 */
 export function questionPriority(d: PriorityDetail): number {
   return round3(d.separation * d.closeness * d.frequency * d.fresh);
 }
@@ -356,7 +356,7 @@ export function classifyAnswer(text: string): { verdict: AnswerVerdict; clear: b
   return { verdict: "unclear", clear: false, cue: "" };
 }
 
-// ---------- 用户的下一句是不是在答这个问题（264 号票） ----------
+// ---------- 用户的下一句是不是在答这个问题 ----------
 
 /** "别问这个"的说法：这一类以后不再问。"别问为什么，反正……"这类不算 */
 const DECLINE_PHRASES: readonly string[] = ["别问这个", "别问这种", "别问这些", "别问了", "别再问", "不要问这个", "不要再问", "不要问了", "以后别问", "这个别问", "这种别问", "这些别问", "不想被问", "别打听"];
@@ -498,7 +498,7 @@ export class QuestionBook implements QuestionSink {
     return this.engine.store;
   }
 
-  /** 267 号票：写推理图谱经唯一写入口 */
+  /** 写推理图谱经唯一写入口 */
   private get w(): RgWriter {
     return rgWriter(this.engine.store);
   }
@@ -508,7 +508,7 @@ export class QuestionBook implements QuestionSink {
   }
 
   /**
-   * 267 号票：问题箱的每一次改动也经唯一写入口（264 号票顺口问接进线上以后一并收进来）——开一次写，说清谁写、做什么、经谁转达；
+   * 问题箱的每一次改动也经唯一写入口（顺口问接进线上以后一并收进来）——开一次写，说清谁写、做什么、经谁转达；
    * 下面 insert / save / log / 挡住一类都向写入口报一声（noteQuestion），留痕记一行。只读的引擎（秘书那一份）开不了写，改不了问题箱
    */
   private session<T>(intent: WriteIntent, fn: () => T): T {
@@ -723,7 +723,7 @@ export class QuestionBook implements QuestionSink {
     return { added: q };
   }
 
-  // ---------- 199 联动交来的问题（QuestionSink，207 号票） ----------
+  // ---------- 199 联动交来的问题（QuestionSink） ----------
 
   /**
    * 交来一个草稿（不碰别的问题）：同 key 开着的更新，新的建上；挡住的、退下的、冷却中的、刚答过那条假设的不建，返回原因。
@@ -775,7 +775,7 @@ export class QuestionBook implements QuestionSink {
   }
 
   /**
-   * 彻底删除（234 号票）：要弄清的目标（断言、事实）被删了或者转成待复核了，开着的相关问题标过期，
+   * 彻底删除：要弄清的目标（断言、事实）被删了或者转成待复核了，开着的相关问题标过期，
    * 以后不再问（和到时间过期同一个状态；日志里写明是因为依据被删）
    */
   expireForTargets(targets: { claimIds?: readonly string[]; factIds?: readonly string[] }, at: string, reason: string): Question[] {
@@ -792,7 +792,7 @@ export class QuestionBook implements QuestionSink {
     const out = { skipped: [] as Question[], retired: [] as Question[] };
     const due = this.listRaw({ status: "asked" }).filter((q) => !(q.lastAskedAt === null || sameLocalDay(at, q.lastAskedAt) || toMs(q.lastAskedAt) > toMs(at)));
     if (due.length === 0) return out;
-    // 267 号票：经写入口（跳过两次退下时那条回避信号也是在这一次写里入库的）；整理时是夜班，挑问题时是挑的那一方
+    // 经写入口（跳过两次退下时那条回避信号也是在这一次写里入库的）；整理时是夜班，挑问题时是挑的那一方
     return this.session({ op: "skip", ...writeBy(by), reason: "问了以后到第二天还没回答，算跳过一次" }, () => {
       for (const q of due) {
         const r = this.skip(q, at, "问了以后到第二天还没回答，算跳过一次");
@@ -807,7 +807,7 @@ export class QuestionBook implements QuestionSink {
   /** 这一轮要不要顺口问、问哪个（问了就记下"问过"）；不问时写明为什么 */
   pick(conversationText: string, options: PickOptions = {}): PickResult {
     const at = options.at ?? this.store.now();
-    // 267 号票：挑的那一方（不给是记忆管理员——ADR-0030 白天提顺口问归它），记跳过、记"问过"都按它留痕
+    // 挑的那一方（不给是记忆管理员——ADR-0030 白天提顺口问归它），记跳过、记"问过"都按它留痕
     const by: QuestionWriteBy = { actor: options.actor ?? "curator", ...(options.via === undefined ? {} : { via: options.via }) };
     return this.store.transaction(() => {
       if (options.settle !== false) this.settleUnanswered(at, by);
@@ -842,7 +842,7 @@ export class QuestionBook implements QuestionSink {
       if (matched.length === 0) return none("no_match", `话题对不上，${candidates.length} 个问题留在问题箱里`, considered);
       const best = matched.toSorted((a, b) => b.q.priority - a.q.priority || b.shared.length + b.terms.length - (a.shared.length + a.terms.length))[0]!;
       const on = [domainLabels(best.shared), best.terms.join("、")].filter((s) => s.length > 0).join("；");
-      // 只看不记（264 号票）：线上等秘书真的在回话里带上了再 markAsked
+      // 只看不记：线上等秘书真的在回话里带上了再 markAsked
       const chosen = options.peek ? best.q : this.session({ op: "ask", ...by, reason: `顺口问（话题对上了：${on}）` }, () => this.saveAsked(best.q, at, `顺口问（话题对上了：${on}）`));
       return {
         ask: true,
@@ -865,7 +865,7 @@ export class QuestionBook implements QuestionSink {
   }
 
   /**
-   * 秘书真的在回话里带上了这个问题（264 号票：peek 挑出来的那个）：记"问过"。只有还在问题箱里（open）的能记；
+   * 秘书真的在回话里带上了这个问题（peek 挑出来的那个）：记"问过"。只有还在问题箱里（open）的能记；
    * 记了以后同一天不再挑（每天最多一个按"问过"算）
    */
   markAsked(questionId: string, options: { at?: string; how?: string } & QuestionWriteBy = {}): QuestionView {
@@ -877,7 +877,7 @@ export class QuestionBook implements QuestionSink {
     return this.session({ op: "ask", ...writeBy(options), reason: how }, () => this.view(this.saveAsked(q, at, how)));
   }
 
-  /** 按这个问题读用户的下一句（264 号票，classifyReply）：在答、跳过、别问这个，还是在说别的 */
+  /** 按这个问题读用户的下一句（classifyReply）：在答、跳过、别问这个，还是在说别的 */
   readReply(questionId: string, reply: string): ReplyReading {
     const q = this.get(questionId);
     if (!q) throw new Error(`没有这个问题：${questionId}`);
@@ -908,7 +908,7 @@ export class QuestionBook implements QuestionSink {
     const q = this.get(questionId);
     if (!q) throw new Error(`没有这个问题：${questionId}`);
     if (q.status !== "asked") throw new Error(`问题 ${questionId} ${STATUS_TEXT[q.status]}，不是在等回答，谈不上跳过`);
-    // 267 号票：用户的表态（他不接这个问题）
+    // 用户的表态（他不接这个问题）
     return this.session({ op: "skip", actor: options.actor ?? "user_verdict", ...(options.via === undefined ? {} : { via: options.via }), reason: `用户没接了解你问题 ${q.id}` }, () => this.skip(q, at, "用户没接这个问题"));
   }
 
@@ -945,7 +945,7 @@ export class QuestionBook implements QuestionSink {
     const q = this.get(questionId);
     if (!q) throw new Error(`没有这个问题：${questionId}`);
     if (q.status !== "open" && q.status !== "asked") throw new Error(`问题 ${questionId} ${STATUS_TEXT[q.status]}，不用再关`);
-    // 267 号票："别问这个"只由用户发起（写入口认 actor 是用户）
+    // "别问这个"只由用户发起（写入口认 actor 是用户）
     return this.session({ op: "decline", ...writeBy(options), reason: `用户说别问这个（${q.id}，这一类：${q.topic}）` }, () => {
       const evidence = options.evidence === undefined ? undefined : this.resolveEvidence(options.evidence);
       const evidenceId = evidence?.id ?? null;
@@ -959,10 +959,10 @@ export class QuestionBook implements QuestionSink {
     });
   }
 
-  // ---------- 每晚整理时判回答（271 号票，rg/reply-judge.ts） ----------
+  // ---------- 每晚整理时判回答（rg/reply-judge.ts） ----------
 
   /**
-   * 记忆管理员夜里看了问过以后用户说的话，判成没在答：算跳过一次（跳过两次退下、记回避信号），照 198 的"问了没答"。
+   * 记忆管理员夜里看了问过以后用户说的话，判成没在答：算跳过一次（跳过两次退下、记回避信号），照"问了没答"。
    * 夜班写，经谁转达写进留痕（via）
    */
   recordNightSkip(questionId: string, options: { at?: string; why: string; via?: string }): SkipRecord {
@@ -1020,11 +1020,11 @@ export class QuestionBook implements QuestionSink {
     if (!q) throw new Error(`没有这个问题：${questionId}`);
     if (q.status !== "open" && q.status !== "asked") throw new Error(`问题 ${questionId} ${STATUS_TEXT[q.status]}，不能再答`);
     if (typeof evidence !== "string" && evidence.sourceLevel !== "self") throw new Error(`只认本人的回答（这条的来源是 ${evidence.sourceLevel}）`);
-    // 267 号票：经写入口——用户的表态（回答证据入库、问题记"答了"、明确时马上判的确认 / 重定那组 / 改事实，都在这一次写里）
+    // 经写入口——用户的表态（回答证据入库、问题记"答了"、明确时马上判的确认 / 重定那组 / 改事实，都在这一次写里）
     return this.session({ op: "verdict", actor: options.actor ?? "user_verdict", ...(options.via === undefined ? {} : { via: options.via }), reason: `回答了解你问题 ${q.id}` }, () => {
       const e = this.resolveEvidence(evidence);
       if (!canSupportUserClaims(e)) throw new Error(`只认本人有效的回答（${e.id} 的来源是 ${e.sourceLevel}、状态是 ${e.status}）`);
-      // 271 号票：每晚整理时记忆管理员判出来的回答交来它读出的是 / 不是（隐含的回答规则读不出来）；没交就照规则读
+      // 每晚整理时记忆管理员判出来的回答交来它读出的是 / 不是（隐含的回答规则读不出来）；没交就照规则读
       const { verdict, clear } = options.reading ?? classifyAnswer(e.text);
       const answered: Question = { ...q, status: "answered", answerEvidenceId: e.id, verdict, clear, answeredAt: at, before: this.snapshot(q) };
       this.save(answered);
@@ -1077,7 +1077,7 @@ export class QuestionBook implements QuestionSink {
 
   /** 按一种回答的判法写进推理图谱：支持、反证（同一句回答抽出的事实已经这样关联过的不重复记），涉及的组重新定状态；明确时改事实这一层 */
   private apply(q: Question, effect: AnswerEffect, evidenceId: string, weight: LinkWeight, clear: boolean, at: string): { written: number; already: number } {
-    // 267 号票：经唯一写入口——记下用户的表态（他对了解你问题的回答）；不明确、夜里才判的写明是每晚整理按回答判的
+    // 经唯一写入口——记下用户的表态（他对了解你问题的回答）；不明确、夜里才判的写明是每晚整理按回答判的
     return rgSession(this.store, { op: "verdict", actor: "user_verdict", ...(clear ? {} : { via: "每晚整理按回答判" }), reason: `回答了解你问题 ${q.id}` }, () => this.applyAnswer(q, effect, evidenceId, weight, clear, at));
   }
 
@@ -1109,7 +1109,7 @@ export class QuestionBook implements QuestionSink {
     }
     for (const id of effect.refutes) {
       if (!usable(id)) continue;
-      // 330 号票（R3）：转述起的猜测（不在组里）你说"不是"——你亲口否掉，撤回（R8，墓碑是你那句话）
+      // ADR-0032 R3：转述起的猜测（不在组里）你说"不是"——你亲口否掉，撤回（R8，墓碑是你那句话）
       if (weight === "decisive" && q.kind === "relayed" && !rg.registry.memberOf(id) && usable(id)!.epistemic !== "explicit") {
         rg.rejectClaim(id, evidenceId);
         count.written += 1;
@@ -1126,7 +1126,7 @@ export class QuestionBook implements QuestionSink {
     }
     for (const g of groups) if (rg.registry.getGroup(g)?.live) rg.redecideGroup(g);
     if (clear && effect.facts) this.applyFacts(effect.facts, evidenceId, at, cause);
-    // 330 号票（R6）：做法的理由没了、用户答得很明确——还要的记成重新确认，不要了的撤回（不明确的不动，留着下次再问）
+    // ADR-0032 R6：做法的理由没了、用户答得很明确——还要的记成重新确认，不要了的撤回（不明确的不动，留着下次再问）
     if (clear && effect.strategies) {
       for (const id of effect.strategies.keep ?? []) {
         this.engine.strategies.answerBasisGone(id, true, evidenceId);
@@ -1169,7 +1169,7 @@ export class QuestionBook implements QuestionSink {
       const by = winner ? (registry.explicitClaimOf(winner) ?? null) : null;
       const wasActive = this.store.getClaim(claimId)?.status === "active";
       this.w.updateClaim(claimId, by ? { status: "superseded", supersededBy: by, competesWith: [], validTo: until, reviewedAt: at } : { validTo: until, competesWith: [], reviewedAt: at }, cause);
-      // 267 号票：成立的那条被取代了，以它为前提的跟着动；329 号票起照传播铁律降回猜测（前提照挂、保留，R4）
+      // 成立的那条被取代了，以它为前提的跟着动；照传播铁律降回猜测（前提照挂、保留，R4）
       if (by && wasActive) this.engine.rg.keeper.downgradeDependents(claimId, at, { ...cause, reason: `前提 ${claimId} 被取代了（${cause.reason}）` }, this.engine.rg.view(at));
     }
     for (const id of facts.correctEvidence ?? []) {

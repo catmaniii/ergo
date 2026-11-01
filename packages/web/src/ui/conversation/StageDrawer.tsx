@@ -1,8 +1,8 @@
 /**
- * 手机：对话框顶部的阶段条；宽屏：左边栏里的整张图（StageSideBody，用户 2026-11-01，和档案共用栏位；放在哪、展开到哪一档见 stage-panel.tsx）：
- * - 第一行一个阶段标签（StageChip）："◐ 第 N 阶段 · 已验收几个/共几个 ▾"（60 号票；小三角表示能点，展开时朝上），点它展开、收起；
- *   任务做完了换成一句话（比如"✓ 首版已完成 · 4/4 ▾"，368 号票）；计划还没确认时写"计划图"；刚被拉回、拦下、你拒绝时闪一下；
- * - 下面是抽屉：半开是横向的阶段条，全开是整个计划的依赖图（91 号票，StageGraph.tsx；同层并排、曲线连线），下面一行是出过的状况
+ * 手机：对话框顶部的阶段条；宽屏：左边栏里的整张图（StageSideBody，和档案共用栏位；放在哪、展开到哪一档见 stage-panel.tsx）：
+ * - 第一行一个阶段标签（StageChip）："◐ 第 N 阶段 · 已验收几个/共几个 ▾"（小三角表示能点，展开时朝上），点它展开、收起；
+ *   任务做完了换成一句话（比如"✓ 首版已完成 · 4/4 ▾"）；计划还没确认时写"计划图"；刚被拉回、拦下、你拒绝时闪一下；
+ * - 下面是抽屉：半开是横向的阶段条，全开是整个计划的依赖图（StageGraph.tsx；同层并排、曲线连线），下面一行是出过的状况
  *   （每类几次，点一个看是哪几次：counts 由任务详情给）。底下的把手往下拉展开一档、往上推收回一档；
  * - 点一个阶段选中它的同时，在右边的详情栏（手机从右侧滑入）打开它的阶段详情（onSelect + onDetail，ui/detail/StageDetail.tsx）：交付件和验收标准都在那里。
  * 等你确认的计划（计划卡、计划变更）也画在这里。
@@ -53,7 +53,7 @@ export function currentStage(stages: Stage[]): Stage | undefined {
 
 /**
  * 预算一行：用了多少（token 来自账本，工具调用次数数的是这个阶段的调用记录）有数时写"用了 / 预算"，没有时只写预算（阶段卡、阶段详情共用）。
- * 361 号票：token 预算是阶段开始时运行时算的，还没算（0）时只写次数；算得出钱时带上大约多少钱
+ * token 预算是阶段开始时运行时算的，还没算（0）时只写次数；算得出钱时带上大约多少钱
  */
 export function budgetText(b: Stage["budget"]): string {
   const calls = b.usedToolCalls === undefined ? t("ui.stageDrawer.budget.calls", { count: b.toolCalls }) : t("ui.stageDrawer.budget.callsUsed", { used: b.usedToolCalls, total: b.toolCalls });
@@ -106,8 +106,8 @@ export function usePing(latest: { key: string; kind: GuardPingKind } | undefined
 /**
  * 标题里的阶段标签：聊天里正在看的那一段属于第几阶段（状态图标跟着这个阶段），后面是整份计划
  * 验收了几个；小三角表示能点，点它开关计划（展开时三角朝上）；刚被拉回 / 拦下 / 你拒绝时闪一下（ping），"回到这一阶段"。
- * 91 号票：第几阶段按依赖图的阶段号（并行的同号）；计划还没确认、画的是等你确认的计划时写"计划图"。
- * 368 号票：标签不在标题栏了（手机、电脑都在阶段条第一行），有地方写全，不再省"第 … 阶段"几个字
+ * 第几阶段按依赖图的阶段号（并行的同号）；计划还没确认、画的是等你确认的计划时写"计划图"。
+ * 标签不在标题栏了（手机、电脑都在阶段条第一行），有地方写全，不再省"第 … 阶段"几个字
  */
 export function StageChip({
   graph,
@@ -124,7 +124,7 @@ export function StageChip({
   open: boolean;
   onTap(): void;
   ping?: GuardPingKind | undefined;
-  /** 任务做完了：这一行写的话（368 号票，比如"首版已完成"） */
+  /** 任务做完了：这一行写的话（比如"首版已完成"） */
   done?: { text: string; ok: boolean } | undefined;
 }) {
   if (done !== undefined)
@@ -182,7 +182,7 @@ function Counts({ graph, counts }: { graph: StageGraph; counts: ReactNode }) {
   return counts ? <div className="md-counts">{counts}</div> : null;
 }
 
-/** 宽屏左边栏里的阶段进展（用户 2026-11-01：和项目档案共用一个栏位）：整张依赖图，最下面一行是出过的状况。点一个阶段：选中它，右边详情栏打开它 */
+/** 宽屏左边栏里的阶段进展（和项目档案共用一个栏位）：整张依赖图，最下面一行是出过的状况。点一个阶段：选中它，右边详情栏打开它 */
 export function StageSideBody({
   graph,
   selected,
@@ -214,7 +214,7 @@ export function StageSideBody({
 }
 
 /**
- * 一个阶段的卡片：交付件、验收标准、模式、授权、规则、预算（任务详情"计划"一栏逐个列出；91 号票起阶段栏、抽屉里不再放它，
+ * 一个阶段的卡片：交付件、验收标准、模式、授权、规则、预算（任务详情"计划"一栏逐个列出；阶段栏、抽屉里不再放它，
  * 点阶段在右边的详情栏看阶段详情）。第几阶段按依赖图的编号（并行的写 4a、4b）
  */
 export function StageCard({ stages, id }: { stages: Stage[]; id?: string }) {
@@ -237,7 +237,7 @@ export function StageCard({ stages, id }: { stages: Stage[]; id?: string }) {
       <dl className="kv">
         <dt>{t("ui.stageDrawer.card.deliverable")}</dt>
         <dd>{s.deliverable}</dd>
-        {/* 274 号票：最近一次交上来时系统从执行记录里查到的，和自报对不上的另标 */}
+        {/* 最近一次交上来时系统从执行记录里查到的，和自报对不上的另标 */}
         {s.observed && (
           <>
             <dt>{t("ui.stageDrawer.card.observed")}</dt>

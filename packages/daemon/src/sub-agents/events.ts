@@ -1,10 +1,10 @@
-// 子 agent 并行的事件（20 号票）：都在守护进程内部的 sub_agents 频道上，前端不订阅。
+// 子 agent 并行的事件：都在守护进程内部的 sub_agents 频道上，前端不订阅。
 // 前端看到的是它们的另一面：并行确认卡、负责人会话里子 agent 的工具调用记录和交回的结果、活动状态。
 // - parallel_proposed：负责人提议了一次并行（子 agent 的 id 在这时定下）；
 // - parallel_decided：用户在并行确认卡上同意并行或不同意（和卡片更新同一事务），"审批决定"素材的来源；
 // - sub_agent_started / sub_agent_finished：一个子 agent 拉起（名额满了时在排队）、结束（交回了结果、出错、被打断、任务停了）。
-// 派生视图（views.ts）由它们归并：哪个子 agent 属于哪个任务的哪个阶段、现在还在不在做（24 号票按它把用量归到任务）。
-// 368 号票（背后的 agent，background.ts 归并、从 HTTP 给网页）：
+// 派生视图（views.ts）由它们归并：哪个子 agent 属于哪个任务的哪个阶段、现在还在不在做（按它把用量归到任务）。
+// 背后的 agent，background.ts 归并、从 HTTP 给网页：
 // - sub_agent_said：一次性的 agent（子 agent、评审）收到的那条输入、说的每一段话（模型输出），它们的工具调用照旧记在别处（tool_call_detail）；
 // - review_started / review_finished：一次评审拉起、结束（之前评审不记事件，只有账本和工具调用）。
 import { EVENT_TYPES, type ParallelAgent, type ParallelDecision } from "@ergo/protocol";
@@ -21,7 +21,7 @@ export const SUB_AGENT_EVENTS = {
   reviewFinished: "review_finished",
 } as const;
 
-/** 一个子 agent 属于谁：哪个任务的哪个阶段、哪个负责人的哪次提议（24 号票按它把子 agent 的用量归到任务和阶段） */
+/** 一个子 agent 属于谁：哪个任务的哪个阶段、哪个负责人的哪次提议（按它把子 agent 的用量归到任务和阶段） */
 export interface SubAgentOwner {
   taskId: string;
   stageId: string;
@@ -74,7 +74,7 @@ export interface SubAgentFinishedPayload extends SubAgentOwner {
   time: string;
 }
 
-/** 一次性的 agent 收到的输入、说的一段话（368 号票）。随任务、项目一起删（文字换成删除标记，material-source.ts 的 purgedParallelPayload） */
+/** 一次性的 agent 收到的输入、说的一段话。随任务、项目一起删（文字换成删除标记，material-source.ts 的 purgedParallelPayload） */
 export interface AgentSaidPayload {
   agentId: string;
   taskId: string;
@@ -84,7 +84,7 @@ export interface AgentSaidPayload {
   time: string;
 }
 
-/** 一次评审拉起（368 号票）：谁、评审哪个任务的哪个阶段、任务的负责人 */
+/** 一次评审拉起：谁、评审哪个任务的哪个阶段、任务的负责人 */
 export interface ReviewStartedPayload {
   agentId: string;
   taskId: string;
@@ -94,7 +94,7 @@ export interface ReviewStartedPayload {
   time: string;
 }
 
-/** 一次评审结束（368 号票）：交了结论（done）、没交就结束了（error）、被停下（stopped） */
+/** 一次评审结束：交了结论（done）、没交就结束了（error）、被停下（stopped） */
 export interface ReviewFinishedPayload {
   agentId: string;
   taskId: string;

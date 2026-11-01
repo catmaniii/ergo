@@ -1,4 +1,4 @@
-// 净白格栅（39 号票，设计稿 docs/architecture/design/styles/b-*.dc.html）：Noto Sans SC、黑白细线、一抹信号橙只给"要你"的事、
+// 净白格栅（设计稿 docs/architecture/design/styles/b-*.dc.html）：Noto Sans SC、黑白细线、一抹信号橙只给"要你"的事、
 // 无阴影、细线分隔、密度高。主按钮和你发的消息是墨色块（浅色下黑底白字，深色下反过来）。
 // token 在这里；只靠 token 做不到的（聊天里个人助理的话不套气泡、看板是一行一行的列表……）在 style.css。
 import { t } from "@ergo/protocol";
@@ -6,7 +6,7 @@ import type { VisualStyle } from "../tokens.ts";
 
 export const grid: VisualStyle = {
   id: "grid",
-  // 名字和一句话按当前语言（169 号票，取的时候现查）
+  // 名字和一句话按当前语言（取的时候现查）
   get name() {
     return t("styles.grid.name");
   },
@@ -34,7 +34,7 @@ export const grid: VisualStyle = {
     // 信号橙：只给"要你"的事（等你、问你、未读）
     you: ["#c2410c", "#ff8a4c"],
     "you-bg": ["#fff4ed", "#2a160c"],
-    // 个人助理的名字标签（43 号票要求名字带底色；设计稿里名字只是一行灰字）：按黑白灰推成浅灰底墨字，不用信号橙
+    // 个人助理的名字标签（要求名字带底色；设计稿里名字只是一行灰字）：按黑白灰推成浅灰底墨字，不用信号橙
     "name-bg": ["#e8e8e8", "#2a2a2d"],
     "name-fg": "var(--text)",
     // 内容类型色：收敛成低饱和，时间线全局层的色块还分得开
@@ -74,7 +74,7 @@ export const grid: VisualStyle = {
     "shadow-menu": "0 0 0 1px var(--text)",
     "shadow-float": "0 0 0 1px var(--border)",
     "shadow-note": "0 0 0 1px var(--border)",
-    // 宽屏阶段栏的 × 这类浮在栏边上的小圆钮（88 号票）：不要阴影（按钮自己有一圈线）
+    // 宽屏阶段栏的 × 这类浮在栏边上的小圆钮：不要阴影（按钮自己有一圈线）
     "shadow-btn": "none",
 
     // ---- 间距密度：页面留白宽一点，列表本身靠细线分隔、排得密 ----

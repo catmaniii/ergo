@@ -1,4 +1,4 @@
-// ergo 命令的分派（318 号票）：入口见 main.ts（启动器跑它）；测试直接调 runCli。
+// ergo 命令的分派：入口见 main.ts（启动器跑它）；测试直接调 runCli。
 import fs from "node:fs";
 import path from "node:path";
 import { t } from "@ergo/protocol";
@@ -95,7 +95,7 @@ export async function runCli(argv: readonly string[], ctx: CliContext): Promise<
     case "components":
       return cmdComponents(ctx, args.positional[0], args.positional[1], { acceptLicense: flagOn(args, "accept-license") });
     case "backup":
-      // 原样转给备份、恢复的命令行工具（356 号票）
+      // 原样转给备份、恢复的命令行工具
       return cmdBackupTool(ctx, "run-backup", argv.slice(argv.indexOf("backup") + 1));
     case "restore":
       return cmdBackupTool(ctx, "restore", argv.slice(argv.indexOf("restore") + 1));
@@ -105,7 +105,7 @@ export async function runCli(argv: readonly string[], ctx: CliContext): Promise<
     case "onboard":
       return cmdOnboard(ctx);
     case "notify":
-      // 给项目的服务用的（357 号票）：报一个事件，叫醒等它的任务
+      // 给项目的服务用的：报一个事件，叫醒等它的任务
       return cmdNotify(ctx, args.positional[0], args.flags.get("data"));
     default:
       ctx.io.err(t("cli.unknownCommand", { command: args.command }));

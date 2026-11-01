@@ -1,6 +1,6 @@
 // 前端状态层回放（规格 Testing Decisions）：输入一串事件帧和本地动作，断言归并出的界面状态。
 // 秘书聊天的主线流程（乐观显示被替换、流式到定稿、断线重连补发）回放主切面录下的真实事件流，见 recorded.test.ts；
-// 这里是录不出来、或者还没有真数据的边角（卡片在 06 号票接真数据），用手写的事件序列。
+// 这里是录不出来、或者还没有真数据的边角，用手写的事件序列。
 import { describe, expect, test } from "vitest";
 import { type ConversationId, type ConversationItem, conversationView, replay, resumeCursors, selectCard, type UiInput } from "../../src/state/index.ts";
 import { card, frame, textMessage } from "./events.ts";
@@ -93,7 +93,7 @@ describe("卡片", () => {
 });
 
 describe("不认识的事件", () => {
-  test("只推进序号，别的不变（后面的票再往状态层里加处理）", () => {
+  test("只推进序号，别的不变（以后再往状态层里加处理）", () => {
     const before = replay([frame("secretary", 1, "message", { message: textMessage("m1", "agent", "早") })]);
     const after = replay([frame("secretary", 2, "some_future_event", { anything: true })], before);
     expect(resumeCursors(after)).toEqual({ secretary: 2 });

@@ -1,4 +1,4 @@
-// 前端状态层：角色（248 号票）——秘书指定的角色优先于全局的名字（43 号票），
+// 前端状态层：角色——秘书指定的角色优先于全局的名字，
 // 名字和音色写成话（"现在：小明（指定的角色）"）、"跟随默认（<默认角色的名字>）"、改名边打边查、谁在用写成人话。
 import { describe, expect, test } from "vitest";
 import {
@@ -141,7 +141,7 @@ describe("写成话", () => {
     expect(agentLabelText(state, "nobody")).toBe("nobody");
   });
 
-  // 379 号票：名字频道上没有事件（没起过名）时，"谁在用"里的秘书是默认的名字，不是一段空白
+  // 名字频道上没有事件（没起过名）时，"谁在用"里的秘书是默认的名字，不是一段空白
   test("没起过名：秘书的叫法是默认的名字", () => {
     const state = replay([withRoles(view({ agents: [{ agentId: "secretary", kind: "secretary", label: ASSISTANT_NAME_MARK, identity: identity() }] }))]);
     expect(agentLabelText(state, "secretary")).toBe("二狗");

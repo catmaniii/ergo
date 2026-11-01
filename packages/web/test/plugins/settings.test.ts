@@ -1,8 +1,8 @@
-// 设置 · 插件（211 号票）：
+// 设置 · 插件：
 // - 走真实的装配路径：守护进程主切面（packages/daemon/test/main/plugin-status.test.ts）里在设置里运行中停用、启用记忆插件，
 //   移除提醒插件并连数据删，录下网页收到的事件流（recordings/plugins-hot-toggle.json）；这里原样一条一条交给状态层，每收到一次插件的状况
 //   就用真的网页插件清单建的宿主装、停，查页面和栏目马上收起、启用后回来；删除记录到了以后手里以前的提醒和提醒卡拿掉；
-//   213 号票：运行中停用、再启用日历插件的那一段（recordings/plugins-calendar-hot.json）：导航里的日历马上收起、启用后回来；
+//   运行中停用、再启用日历插件的那一段（recordings/plugins-calendar-hot.json）：导航里的日历马上收起、启用后回来；
 // - 设置里那一块（PluginList）和确认框（PluginConfirm）用 React 在 Node 里渲染出来查：状况、它带来了什么、依赖、按钮，
 //   停用时列出一起停的、启用时列出一起开的、移除时"连它的数据一起彻底删除"的勾选（默认不勾），勾了第二步写明删哪些、删不掉哪些、不能恢复。
 import fs from "node:fs";
@@ -77,7 +77,7 @@ describe("运行中停用、启用、移除：网页插件跟着收起、放回�
     expect(Object.values(state.cards).filter((c) => c.card.type === "reminder")).toEqual([]);
   });
 
-  test("运行中停用、再启用日历插件（213 号票）：导航里的日历马上收起、#/calendar 交回\"日历\"（写没启用），启用后回来；提醒、记忆一直在", () => {
+  test("运行中停用、再启用日历插件：导航里的日历马上收起、#/calendar 交回\"日历\"（写没启用），启用后回来；提醒、记忆一直在", () => {
     const host = createWebPluginHost({ plugins: WEB_PLUGIN_MANIFEST, log: () => {} });
     const seen: string[] = [];
     let state: UiState = initialUiState;
@@ -150,7 +150,7 @@ describe("设置里的插件那一块", () => {
     expect(render([plugin("reminders"), plugin("memory")], { busy: "reminders" })).toContain('<span class="muted">正在处理……</span>');
   });
 
-  test("要的外部组件没装（315 号票：Claude Code 的 Agent SDK）：状况写\"没装\"，下面那一句就是没装什么、怎么装（不再套\"没装上：\"）；装好之前没有启用，能停用、移除", () => {
+  test("要的外部组件没装（Claude Code 的 Agent SDK）：状况写\"没装\"，下面那一句就是没装什么、怎么装（不再套\"没装上：\"）；装好之前没有启用，能停用、移除", () => {
     const how = "没装 Claude Code 的 Agent SDK（@anthropic-ai/claude-agent-sdk）：……运行 npm install --no-save @anthropic-ai/claude-agent-sdk@0.3.296";
     const cc: PluginInfo = { name: "claude-code", title: "Claude Code", summary: "用本机的 Claude Code 跑会话", state: "skipped", missing: true, problem: how, cannotEnable: how, brings: { tools: [], cards: [], jobs: [] }, needs: [], neededBy: [], stopsWith: [], startsWith: [] };
     const html = render([plugin("reminders"), cc]);
@@ -163,7 +163,7 @@ describe("设置里的插件那一块", () => {
     expect(row).toContain(">移除<");
   });
 
-  test("日历（213 号票）：守护进程那一半没带工具、卡片，网页上是导航里的「日历」页；没写明连数据删，移除时没有那个勾选", () => {
+  test("日历：守护进程那一半没带工具、卡片，网页上是导航里的「日历」页；没写明连数据删，移除时没有那个勾选", () => {
     const calendar: PluginInfo = { name: "calendar", title: "日历", summary: "按月看每天上班还是休息", state: "running", brings: { tools: [], cards: [], jobs: [] }, needs: [], neededBy: [], stopsWith: [], startsWith: [] };
     const html = render([plugin("reminders"), plugin("memory"), calendar]);
     expect(html).toContain('<div class="plugin-row plugin-running" data-plugin="calendar"><div class="plugin-head"><span class="plugin-name">日历</span><span class="chip chip-ok">运行中</span></div>');

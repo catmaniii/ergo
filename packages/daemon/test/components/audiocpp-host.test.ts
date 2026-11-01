@@ -1,4 +1,4 @@
-// 语音合成在组件页一键装（345 号票，ADR-0038）：假程序（解开的假 zip + 服务管家"拉起"时在清单写的端口上起假语音服务）+ 假下载站 + 假服务管家
+// 语音合成在组件页一键装（ADR-0038）：假程序（解开的假 zip + 服务管家"拉起"时在清单写的端口上起假语音服务）+ 假下载站 + 假服务管家
 // （LSM 替身，经真的 lsm/link.ts 接入）跑通：安装 → 生成配置 → 登记 → 启动 → 健康检查 → 进名单 → 语音合成调得到。
 // 端口都是系统挑的，不碰 8090；不联网；不跑真的 audio.cpp。
 import fs from "node:fs";
@@ -72,7 +72,7 @@ function testManifest(fake: FakeDownloads, port: number, over: { version?: strin
           sources,
           variants: [{ id: "q8", parts: [{ files: [{ path: GGUF, size: MODEL.length, sha256: sha256(MODEL) }] }] }],
         },
-        // 346 号票的样子：再加一条带 serve 的组件，用同一个程序
+        // 样子：再加一条带 serve 的组件，用同一个程序
         ...(over.extra
           ? [
               {
@@ -824,7 +824,7 @@ describe("启动、停止、更新", () => {
     expect(one(s.view(), "audiocpp")).toMatchObject({ state: "installed", installedVersion: "0.9.4", service: { state: "running", autostart: true } });
   });
 
-  test("再加一个模型（346 号票的样子）：配置里两个模型、重启服务；删一个写回一个、重启；更新失败不影响", async () => {
+  test("再加一个模型（样子）：配置里两个模型、重启服务；删一个写回一个、重启；更新失败不影响", async () => {
     const s = await setup({ extra: true });
     await s.installAll();
     expect(s.configs.at(-1)?.models.map((m) => m.id)).toEqual(["tts"]);
@@ -844,7 +844,7 @@ describe("启动、停止、更新", () => {
     expect(one(s.view(), "audiocpp").service?.state).toBe("running");
   });
 
-  describe("语音识别模型（346 号票）", () => {
+  describe("语音识别模型", () => {
     /** 记下来的：组件页告诉语音识别那一边的事 */
     function link(configured?: string): { calls: string[]; recognizer: RecognizerLink } {
       const calls: string[] = [];

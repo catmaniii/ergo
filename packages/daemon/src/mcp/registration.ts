@@ -1,6 +1,6 @@
-// MCP 登记（规格第 9、18、20 节，27 号票）：用户在数据目录配置区的 mcp.json 里登记 MCP，二狗只读（配置区是受保护区域，
+// MCP 登记（规格第 9、18、20 节）：用户在数据目录配置区的 mcp.json 里登记 MCP，二狗只读（配置区是受保护区域，
 // agent 写不进去）。登记了才能写进项目或任务的工具包、授权给负责人；每次用到时现读，改了不用重启。
-// 239 号票起 agent 有了提登记的入口：负责人用 request_mcp_change 出一张"MCP 登记变更"卡，用户确认之后由运行时写这个文件
+// agent 有了提登记的入口：负责人用 request_mcp_change 出一张"MCP 登记变更"卡，用户确认之后由运行时写这个文件
 // （mcp/change.ts、mcp/writer.ts）——agent 自己仍然写不进来。
 //
 // 一个 MCP 的登记：
@@ -87,14 +87,14 @@ export function guardFieldsOf(reg: McpToolRegistration): Omit<ToolDescriptor, "n
 
 const EnvValue = Type.Union([Type.String(), Type.Object({ fromEnv: Type.String({ minLength: 1 }) }, { additionalProperties: false })]);
 
-/** 一个 MCP 的登记（schema 也给 MCP 登记变更的工具用：写进去之前按它再校一遍，239 号票） */
+/** 一个 MCP 的登记（schema 也给 MCP 登记变更的工具用：写进去之前按它再校一遍） */
 export const McpServerRegistrationSchema = Type.Object(
   {
     title: Type.Optional(Type.String({ maxLength: 60 })),
     command: Type.String({ minLength: 1 }),
     args: Type.Optional(Type.Array(Type.String())),
     cwd: Type.Optional(Type.String()),
-    /** 单次调用、自检最多等多久（毫秒）；不写按工具调用的默认超时（239 号票） */
+    /** 单次调用、自检最多等多久（毫秒）；不写按工具调用的默认超时 */
     timeoutMs: Type.Optional(Type.Integer({ minimum: 1000, maximum: 600_000 })),
     env: Type.Optional(Type.Record(Type.String(), EnvValue)),
     tools: Type.Record(Name, McpToolRegistration),
@@ -135,7 +135,7 @@ export function readMcpRegistrations(file: string): McpRegistrationRead {
 /**
  * 服务进程的环境变量：原样的值，加上按登记从守护进程环境里取的凭据（取不到的不给，说明里写出缺了哪些）。
  * secrets 是注入的凭据值：服务进程的输出、工具结果、它报的说明里出现了一律擦掉（mcp.ts）；
- * injected 是这些凭据的来路（240 号票：秘书带参调用时，参数里出现的注入值换成"来自环境变量 X"，不写原值）
+ * injected 是这些凭据的来路（秘书带参调用时，参数里出现的注入值换成"来自环境变量 X"，不写原值）
  */
 export function serverEnv(
   registration: McpServerRegistration,

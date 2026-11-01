@@ -1,7 +1,7 @@
-// 结论的索引（196 号票）：断言的陈述建关键词（FTS5 trigram）和向量索引，照事实精炼陈述那一套（第 4.2、6 节）；
+// 结论的索引：断言的陈述建关键词（FTS5 trigram）和向量索引，照事实精炼陈述那一套（第 4.2、6 节）；
 // 另记每条断言的适用领域（rg/domains.ts）。都是从断言推出来的簿记（claim_fts、claim_vectors、claim_index 三张表），不进修订日志。
 //
-// 怎么跟着断言走：不改存储写断言的路径（和 192 号票并行，接线只加不改），而是用的时候先同步——sync() 把现有断言和索引对一遍：
+// 怎么跟着断言走：不改存储写断言的路径（接线只加不改），而是用的时候先同步——sync() 把现有断言和索引对一遍：
 // - 撤回的断言从关键词、向量索引里删掉（和撤回的事实一样）；别的状态都留着，查的时候再按状态、有效期过滤；
 // - 陈述变了（往上抽的断言随新观察改写）：关键词表换掉、旧向量作废，等 indexVectors 补算；
 // - 领域每次重算（依据会变），变了才写。
@@ -14,7 +14,7 @@ import type { MemoryStore } from "../store/store.ts";
 import { claimDomains, type Domain } from "./domains.ts";
 
 // keyword.ts、vector.ts 的索引类型只列了证据和事实两张表；SQL 只用表名和 id 列名，断言的表照同样的形状建（store/schema.ts）。
-// 不去改那两个文件的类型（192 号票在改检索），这里转一下。
+// 不去改那两个文件的类型（在改检索），这里转一下。
 const CLAIM_KEYWORDS = { table: "claim_fts", idColumn: "claim_id" } as unknown as KeywordIndex;
 const CLAIM_VECTORS = { table: "claim_vectors", idColumn: "claim_id" } as unknown as VectorIndex;
 

@@ -1,8 +1,8 @@
-// 会话树在守护进程这一侧（150 号票，形状和推导在共享协议包的 session-branches.ts）：
+// 会话树在守护进程这一侧（形状和推导在共享协议包的 session-branches.ts）：
 // - 派生视图 session_branches：每个会话最新的会话树（会话频道上最新一条 session_branch 带着整棵），重建时照样从事件日志归并；
 // - 当前路径上的事件：往上翻历史（history.ts 的 historyPage）、第一次订阅补发哪一页（firstReplayAfter）、回退点的校验都沿当前分支取；
 // - 第一次订阅时最新那条 session_branch 落在补发的一页之前，网关先补发它（前端据此认出哪些是废弃分支上的）；
-// - 素材在不在废弃分支里（检索时排在后面，用户定的第 3 条）。
+// - 素材在不在废弃分支里（检索时排在后面）。
 import {
   CHANNELS,
   type ConversationBranches,
@@ -88,7 +88,7 @@ function conversationChannel(channel: string): boolean {
 }
 
 /**
- * 一条事件在不在废弃分支上（用户定的第 3 条：废弃分支里的话照样留在素材里，标"在废弃分支里"，检索时排在当前分支的后面）。
+ * 一条事件在不在废弃分支上（废弃分支里的话照样留在素材里，标"在废弃分支里"，检索时排在当前分支的后面）。
  * 不是会话频道上的、会话没回退过的都不在
  */
 export function inAbandonedBranch(db: ReadonlyDatabase, event: { channel: string; seq: number }): boolean {
@@ -98,7 +98,7 @@ export function inAbandonedBranch(db: ReadonlyDatabase, event: { channel: string
 }
 
 /**
- * 别的频道上的事件（守卫频道的 plan_call_committed、看板上的事件……）在不在这个会话当前分支的路径上（153 号票：流程的计划核对按保留的
+ * 别的频道上的事件（守卫频道的 plan_call_committed、看板上的事件……）在不在这个会话当前分支的路径上（流程的计划核对按保留的
  * 分支重建）：看它前面最后一条会话事件——那条在当前路径上（或者会话里那时还没有事件），它就在。和 tasks/session-follow.ts 的 onPathAt
  * 同一个口径，只是不把整个会话频道读出来：路径上每一段 [from, to) 换成全局序号的窗口（from 那条的全局序号 < g < to 那条的全局序号）。
  * 没回退过的一律在

@@ -1,5 +1,5 @@
-// Looki 回包 → 插件自己的记录（296 号票）：一个时刻一条 looki_moment、一篇 AI 日记一条 looki_journal（负载见 api.ts）。
-// 官方文档（调研 38 的 1.3 节）列了字段名，没写清的几处这里宽松地读，等用户拿到 Key 真机核对（296 号票 Comments 列着）：
+// Looki 回包 → 插件自己的记录：一个时刻一条 looki_moment、一篇 AI 日记一条 looki_journal（负载见 api.ts）。
+// 官方文档（调研 38 的 1.3 节）列了字段名，没写清的几处这里宽松地读，等用户拿到 Key 真机核对：
 // - 时间：start_time / end_time 可能是带偏移的 ISO、不带偏移的日期时间、只有钟点（拼上 date）、epoch 秒或毫秒；时区按 tz（IANA 名字或 +08:00），
 //   认不出用本机的；一律写成带偏移的 ISO（和协议时间一样到毫秒）；
 // - 地点：文档里地点写在文件上（location，"地点描述"），时刻上有没有没写——先取时刻上的（location / place / address），没有取封面文件上的；

@@ -1,10 +1,10 @@
 // @i18n-ignore-file model：起不来的原因写进工具结果（给模型看）
-// 带类型的特殊 bash 工具（28 号票）。上层只从这里取东西：
+// 带类型的特殊 bash 工具。上层只从这里取东西：
 // - createTypedShell(...)：守护进程里建一份（环境、超时、GitHub 命令行在哪）；
 // - toolsFor({ cwd, toolkit })：一个会话的工具，随工具包的 bash 开关出现——bash 关着时一个都没有；联网开关关着时没有要联网的
-//   推送、建远端仓库、装依赖（27 号票评审后定：联网关着时会话里没有任何要联网的工具）。
+//   推送、建远端仓库、装依赖（联网关着时会话里没有任何要联网的工具）。
 //   拉起会话的模块把它们加进代为执行的工具（hostTools），pi 的工具里同时给 bash；秘书的固定工具里没有它们；
-// - runScript(...)：用同一个启动器跑一段固定的脚本（13 号票的阶段验收）。
+// - runScript(...)：用同一个启动器跑一段固定的脚本（阶段验收）。
 //
 // 工具起的进程：环境是系统变量白名单（buildChildEnv，没有守护进程的密钥；推送、建远端仓库靠本机已登录的 git 和
 // GitHub 命令行，二狗不另外注入凭据），联网开关关着时另加一组无效代理（OFFLINE_SHELL_ENV）；每次调用一个 Job 对象（runner.ts）。
@@ -45,7 +45,7 @@ export interface TypedShell {
   /** 一个会话的工具：bash 关着时一个都没有，联网关着时没有要联网的 */
   toolsFor(session: { cwd: string; toolkit: ShellToolkit }): HostTool[];
   /**
-   * 跑一段固定的脚本（13 号票的阶段验收：用户确认过的计划里写的，不经守卫）：和工具一样的启动器
+   * 跑一段固定的脚本（阶段验收：用户确认过的计划里写的，不经守卫）：和工具一样的启动器
    * （闸门进程先放进这次调用的 Job 对象再起 Git Bash）、环境和联网开关
    */
   runScript(input: { cwd: string; script: string; network: boolean; timeoutMs: number; signal?: AbortSignal }): Promise<ShellRunResult>;
@@ -72,14 +72,14 @@ export function createTypedShell(options: TypedShellOptions): TypedShell {
   const run = (input: { cwd: string; script: string; args?: readonly string[]; network: boolean; timeoutMs: number; signal?: AbortSignal | undefined }): Promise<ShellRunResult> => {
     bash ??= findGitBash(options.parentEnv);
     if (bash === undefined) return Promise.resolve({ exitCode: null, stdout: "", output: "", truncated: false, error: "找不到 Git Bash（要装 Git for Windows）" });
-    // 238 号票：告诉脚本和它起的程序"你在哪个 Git Bash 里"。findGitBash 找到的 Git\bin\bash.exe 是 Git for Windows 的
+    // 告诉脚本和它起的程序"你在哪个 Git Bash 里"。findGitBash 找到的 Git\bin\bash.exe 是 Git for Windows 的
     // 包装脚本，它 exec 的 Git\usr\bin\bash.exe 才是 bash 本身（bash 里的 $BASH 就是后者）；SHELL 统一指向实现的这一条
     // （MSYS 起 native 程序时会换成真正的 bash 那条，两个是同一个 Git Bash）。
     // 不沿用外面可能有、可能没有的那个（从 PowerShell、LSM 起来时没有，脚本里看到的就是 null）。
     // 只在 Windows 上设：别的系统上 findGitBash 给的是 PATH 上的 "bash"，不是路径。
     const env = buildChildEnv(options.parentEnv, {
       ...SHELL_ENV,
-      // 362 号票：阶段验收脚本和带类型的 bash 工具里 Python 用 UTF-8（中文 Windows 的控制台默认 GBK，打印中文报错）
+      // 阶段验收脚本和带类型的 bash 工具里 Python 用 UTF-8（中文 Windows 的控制台默认 GBK，打印中文报错）
       ...SCRIPT_UTF8_ENV,
       ...(process.platform === "win32" ? { SHELL: bash } : {}),
       ...(input.network ? {} : OFFLINE_SHELL_ENV),

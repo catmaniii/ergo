@@ -1,13 +1,13 @@
-// 每个 agent 的 ⚙ 面板（114 号票）：接口的请求体和响应体。名字和单独提示词的检查在 agent-settings.ts（不引用 TypeBox）。
+// 每个 agent 的 ⚙ 面板：接口的请求体和响应体。名字和单独提示词的检查在 agent-settings.ts（不引用 TypeBox）。
 //
-// GET /api/agents/<agent id> 取面板要的全部（AgentSettingsView）：这个 agent 自己的名字和音色（241 号票）、单独的提示词和通用模板、
+// GET /api/agents/<agent id> 取面板要的全部（AgentSettingsView）：这个 agent 自己的名字和音色、单独的提示词和通用模板、
 // 现在实际用的系统提示全文、清空、上下文用量和压缩；
 // PUT /api/agents/<agent id>/prompt 存单独的提示词（AgentPromptBody）：占位符写错回 400、写明第几行；追加的是空的等于恢复用通用模板；
 // DELETE /api/agents/<agent id>/prompt 恢复用通用模板；
 // POST /api/agents/<agent id>/clear 清空当前对话（AgentClearBody，带幂等键）：在处理一条时等它说完再清；
 // POST /api/agents/<agent id>/compact 现在压缩：在处理一条时等它说完，没在跑的先拉起再压；不等压完，面板按 compaction 的状态再取；
-// PUT /api/agents/<agent id>/model 项目、任务的负责人单独配模型（AgentModelBody，120 号票），DELETE 改回跟随它那一行；
-// PUT /api/agents/<agent id>/runtime 项目、任务的负责人用哪个运行时、给它选的模型和设置项（AgentRuntimeBody，289 号票）。
+// PUT /api/agents/<agent id>/model 项目、任务的负责人单独配模型（AgentModelBody），DELETE 改回跟随它那一行；
+// PUT /api/agents/<agent id>/runtime 项目、任务的负责人用哪个运行时、给它选的模型和设置项（AgentRuntimeBody）。
 // 都回 AgentSettingsView。只读的（任务结束了、项目归档了）存、清、压、配模型都回 400，写明原因。
 import { type Static, Type } from "typebox";
 import { AgentIdentityView } from "./agent-profiles-schema.ts";
@@ -73,7 +73,7 @@ export const AgentContextView = Type.Object({
   /** 正在处理一条输入 */
   busy: Type.Boolean(),
   usedTokens: Type.Optional(Type.Integer({ minimum: 0 })),
-  /** 其中缓存命中的（311 号票：界面单写"其中缓存命中 …"）；那次没命中缓存的没有 */
+  /** 其中缓存命中的（界面单写"其中缓存命中 …"）；那次没命中缓存的没有 */
   cacheHitTokens: Type.Optional(Type.Integer({ minimum: 0 })),
   /** 那次调用的时间 */
   measuredAt: Type.Optional(Type.String()),
@@ -98,7 +98,7 @@ export type AgentContextView = Static<typeof AgentContextView>;
 const AgentModelChoice = Type.Object({ modelId: Type.String({ minLength: 1 }), thinkingLevel: Type.Enum(MODEL_THINKING_LEVELS) });
 
 /**
- * 这个负责人用什么模型（120 号票，只有项目、任务的负责人有）：跟随它那一行（设置 · 模型里的项目负责人 / 任务负责人），
+ * 这个负责人用什么模型（只有项目、任务的负责人有）：跟随它那一行（设置 · 模型里的项目负责人 / 任务负责人），
  * 或者单独选定模型和思考档位。可选的模型、看图能力和设置 · 模型页是同一份（GET /api/model-settings 的 models）
  */
 export const AgentModelView = Type.Object({
@@ -114,7 +114,7 @@ export const AgentModelView = Type.Object({
   next: AgentModelChoice,
   /** 这个负责人最近一次在跑的会话实际用的（接着的会话是它开始时的；守护进程这次起来以后它跑过才有） */
   session: Type.Optional(Type.Object({ modelId: Type.String(), thinkingLevel: Type.String(), vision: Type.Boolean() })),
-  /** 改了以后什么时候换（83 号票的规矩：一个会话固定一个模型） */
+  /** 改了以后什么时候换（规矩：一个会话固定一个模型） */
   switchAt: Type.Enum(MODEL_SWITCH_AT),
 });
 export type AgentModelView = Static<typeof AgentModelView>;
@@ -127,7 +127,7 @@ export const AgentSettingsView = Type.Object({
   label: Type.String(),
   /** 只能看不能改的原因（任务结束了、项目归档了）；能改是没有 */
   readOnly: Type.Optional(Type.String()),
-  /** 这个 agent 现在用哪个角色、名字和音色是什么（248 号票） */
+  /** 这个 agent 现在用哪个角色、名字和音色是什么 */
   identity: AgentIdentityView,
   /** 角色下拉的选项（默认角色 + 各个角色；跟默认的那一项不在这里，界面上单独写"跟默认（<默认角色的名字>）"） */
   roles: Type.Array(AgentRoleOption),
@@ -141,11 +141,11 @@ export const AgentSettingsView = Type.Object({
   clear: AgentClearView,
   context: AgentContextView,
   /**
-   * 用什么模型（120 号票）：项目、任务的负责人才有；秘书的在设置 · 模型里。289 号票起这是二狗自己的模型目录（pi 用的）：
+   * 用什么模型：项目、任务的负责人才有；秘书的在设置 · 模型里。这是二狗自己的模型目录（pi 用的）：
    * 负责人用的运行时有自己的模型列表的（Claude Code）不看它，看 runtime 里选的
    */
   model: Type.Optional(AgentModelView),
-  /** 用哪个运行时、给它选的模型和设置项（289 号票）：项目、任务的负责人才有 */
+  /** 用哪个运行时、给它选的模型和设置项：项目、任务的负责人才有 */
   runtime: Type.Optional(AgentRuntimeStateView),
 });
 export type AgentSettingsView = Static<typeof AgentSettingsView>;

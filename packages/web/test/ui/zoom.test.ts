@@ -1,4 +1,4 @@
-// 会话缩放的数学部分（54 号票，ui/zoom/zoom.ts）：档位（levelOf，对数空间里最近的一档）、
+// 会话缩放的数学部分（ui/zoom/zoom.ts）：档位（levelOf，对数空间里最近的一档）、
 // 三层的不透明度（layerOpacity，交叉淡入淡出）、松手吸附（snap）、锚点公式（缩放时焦点下面那一点内容不动）、
 // 对数空间插值的动画、写给 CSS 的变量。手势和观感靠用户评审，这里不测。
 // 缩放控制器要的几个元素换成假的（只留它读写的那几个属性），requestAnimationFrame 换成手动推进的。
@@ -146,7 +146,7 @@ describe("锚点：缩放时焦点（双指中点、鼠标、视口中心）下�
     expect(sizer.style.height).toBe("1800px");
   });
 
-  test("只在缩小时出现的尾部区域（extra）：缩小后算进滚动范围，对话层不算（108 号票：缩小后伸到最后一条下面的标注靠它）", () => {
+  test("只在缩小时出现的尾部区域（extra）：缩小后算进滚动范围，对话层不算（缩小后伸到最后一条下面的标注靠它）", () => {
     const { ctl, sizer } = fakeDom();
     ctl.setContentHeight(4000, 300);
     expect(sizer.style.height).toBe("4000px");
@@ -205,7 +205,7 @@ describe("松手吸附：动画到最近的一档，焦点下面的内容不动"
   });
 });
 
-describe("跨档改了布局时换算焦点（二狗，57 号票：工具调用组对话层一行、缩小后逐次画）", () => {
+describe("跨档改了布局时换算焦点（二狗：工具调用组对话层一行、缩小后逐次画）", () => {
   test("跨档那一帧：先用旧的内容坐标记下，换档后用换算后的坐标放焦点；set 返回换算后的，同一档里不换算", () => {
     const { ctl, viewport, root } = fakeDom();
     ctl.setContentHeight(5000, 0);

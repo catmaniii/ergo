@@ -1,17 +1,17 @@
-// 悬浮按钮旁边的小气泡（146 号票，用户 2026-10-18：点一下就在按钮旁边打字，按住说话时按钮旁边有实时的波形，二狗的回话也在按钮
+// 悬浮按钮旁边的小气泡（点一下就在按钮旁边打字，按住说话时按钮旁边有实时的波形，二狗的回话也在按钮
 // 旁边的小气泡里）。画在页面桥那个封闭的 shadow root 里（和悬浮按钮一起，网站的 CSS、脚本都碰不到），只管画和收用户点了什么，
 // 样子由宿主交来（PageBubbleView：二狗的网页 app/page-bubble.ts 照它的面板算好），点了什么交给 onAction。
-// 149 号票起悬浮按钮背后就是秘书本人：气泡只放打字、说话、回话（"二狗在想……"、秘书正忙时"排在后面"）；秘书给的候选不在气泡里，
+// 悬浮按钮背后就是秘书本人：气泡只放打字、说话、回话（"二狗在想……"、秘书正忙时"排在后面"）；秘书给的候选不在气泡里，
 // 画在固定位置的挑图片窗口里（pick.ts）。
 // 页面桥为了不等来回，有两样先自己画：点了按钮先出打字框（在点的那一下里聚焦，手机上输入法才弹得出来）、按够了先出在听；
 // 宿主随后交来的一样就留着（打字框里打了一半的字不丢），不一样就照宿主的改。
 // - 摆在哪（rules.ts）：每一帧照悬浮按钮、按钮挂着的框和看得见的部分（输入法弹起时只剩上面那一截）摆——在听的时候放在按钮上方
-//   （placeListening，149 号票：手指按在按钮上，下方会被挡住；贴着顶时放在左右空间大的一侧），别的时候放在按钮背离框的那一边、
-//   不盖住框（placeBubble，主会话 2026-10-18 定）；没有按钮（不知道是哪个框）放在下面居中；
+//   （placeListening：手指按在按钮上，下方会被挡住；贴着顶时放在左右空间大的一侧），别的时候放在按钮背离框的那一边、
+//   不盖住框（placeBubble）；没有按钮（不知道是哪个框）放在下面居中；
 // - 文字一律 textContent（模型回的话里有 HTML 也只是字）；
 // - 气泡里的按键、输入、点按不往网页里冒泡（网站的快捷键、"点外面就关"的菜单不会被它触发；网页在捕获阶段还是能看到）。
-// - 169 号票：页面桥自己的字（标题、×、发送、在听的提示、"让二狗选"……）按二狗的网页交来的语言（texts.ts），没交来是中文。
-// - 181 号票：标题、"二狗在想……"、"让二狗选"里的名字是用户起的那个，画成名字标签（照二狗网页里的 .assistant-name：左右留一点、
+// -页面桥自己的字（标题、×、发送、在听的提示、"让二狗选"……）按二狗的网页交来的语言（texts.ts），没交来是中文。
+// -标题、"二狗在想……"、"让二狗选"里的名字是用户起的那个，画成名字标签（照二狗网页里的 .assistant-name：左右留一点、
 //   圆角、底色、字色、不换行；颜色是二狗的网页照现在的风格交来的，没交来是经典的）；读屏说明只写名字本身。
 import type { PageBubbleAction, PageBubbleView, PageNamedPart, PageNamedText } from "./protocol.ts";
 import { BUBBLE_MAX_HEIGHT, bubbleWidth, placeBubble, placeListening, type Rect, recordedText, WAVE_BARS, waveBars } from "./rules.ts";
@@ -28,7 +28,7 @@ export const ICON_CLOSE =
   '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
 
 /**
- * 名字标签的颜色交来了（181 号票）：另一段样式表（接在 BUBBLE_STYLE 后面，盖过经典的），跟着网页的深浅色挑一对；没交来是空的。
+ * 名字标签的颜色交来了：另一段样式表（接在 BUBBLE_STYLE 后面，盖过经典的），跟着网页的深浅色挑一对；没交来是空的。
  * 颜色在 texts.ts 收的时候核对过是 #rrggbb
  */
 export function nameTagStyle(colors: NameTagColors | undefined): string {
@@ -115,7 +115,7 @@ textarea::placeholder { color: #9aa3b5; }
 }
 `;
 
-/** 页面桥在注入那一刻记下的内置函数（网页的脚本之后改了也碍不着）；页面桥自己的字（169 号票） */
+/** 页面桥在注入那一刻记下的内置函数（网页的脚本之后改了也碍不着）；页面桥自己的字 */
 export interface BubbleTools {
   now(): number;
   texts: BridgeTexts;
@@ -136,7 +136,7 @@ export interface Bubble {
   setCancelZone(on: boolean): void;
   /** 收起（页面桥自己收：点外面、框被滚出屏幕；宿主随后交来 none） */
   hide(): void;
-  /** 二狗的网页交来了别的语言（169 号票）、别的名字（181 号票）：一直挂着的几处说明换过来，开着的照现在的样子重画 */
+  /** 二狗的网页交来了别的语言、别的名字：一直挂着的几处说明换过来，开着的照现在的样子重画 */
   relabel(): void;
   /** 每一帧摆位置、走秒：button 是悬浮按钮（undefined 是没有按钮），view 是看得见的部分，field 是按钮挂着的框（不许盖住它） */
   frame(button: Rect | undefined, view: Rect, field?: Rect): void;
@@ -169,7 +169,7 @@ export function bubbleViewOf(value: unknown): PageBubbleView | undefined {
     case "listening":
       return { kind, fieldId, label: str(v.label, 200), ...withParts("labelParts", v.labelParts, 200), levels: Array.isArray(v.levels) ? v.levels.slice(-100).map((n) => (typeof n === "number" ? n : 0)) : [] };
     case "busy":
-      // 宿主没给那一句时画"二狗在想……"（按页面桥现在的语言，见 render）；说到助理的那一句另给几段（181 号票）
+      // 宿主没给那一句时画"二狗在想……"（按页面桥现在的语言，见 render）；说到助理的那一句另给几段
       return { kind, fieldId, said, text, ...withParts("textParts", v.textParts) };
     case "reply":
       return { kind, fieldId, said, text, failed: v.failed === true, system: v.system === true, more: v.more === true };
@@ -186,7 +186,7 @@ export function el<K extends keyof HTMLElementTagNameMap>(doc: Document, tag: K,
   return e;
 }
 
-/** 一句带名字的话画进 parent（181 号票）：字是字，名字是名字标签（span.name）；都用 textContent */
+/** 一句带名字的话画进 parent：字是字，名字是名字标签（span.name）；都用 textContent */
 export function appendNamed(doc: Document, parent: HTMLElement, parts: PageNamedText): void {
   for (const part of parts) parent.append(typeof part === "string" ? doc.createTextNode(part) : el(doc, "span", "name", part.name));
 }
@@ -265,7 +265,7 @@ export function createBubble(doc: Document, tools: BubbleTools, onAction: (actio
   };
 
   const button = (className: string, text: string, onClick: () => void) => makeButton(doc, className, text, onClick);
-  /** 字里有名字的按钮（181 号票："让二狗选"） */
+  /** 字里有名字的按钮（"让二狗选"） */
   const namedButton = (className: string, parts: PageNamedText, onClick: () => void) => {
     const b = makeButton(doc, className, "", onClick);
     appendNamed(doc, b, parts);
@@ -418,7 +418,7 @@ export function createBubble(doc: Document, tools: BubbleTools, onAction: (actio
       case "reply":
         saidAndText(next.said, next.text, next.failed);
         if (next.system) foot.append(button("btn", tx.get("bridge.bubble.pickMyself"), () => act({ action: "system" })));
-        // 回话太长（147 号票）：去浏览侧边栏看全文（回话也记在秘书的会话里）
+        // 回话太长：去浏览侧边栏看全文（回话也记在秘书的会话里）
         if (next.more) foot.append(button("btn", tx.get("bridge.bubble.seeInSidebar"), () => act({ action: "sidebar" })));
         break;
     }
@@ -493,7 +493,7 @@ export function createBubble(doc: Document, tools: BubbleTools, onAction: (actio
       const full = bubbleWidth(area.right - area.left);
       // 按内容要多高：气泡现在的高度，加上身子里滚不下的那一截
       const natural = root.offsetHeight - body.clientHeight + body.scrollHeight;
-      // 在听：放在按钮上方（149 号票，手指在按钮上）；别的时候放在背离框的那一边
+      // 在听：放在按钮上方（手指在按钮上）；别的时候放在背离框的那一边
       const at = view.kind === "listening" && buttonRect ? placeListening(buttonRect, { width: full, height: natural }, area) : placeBubble(buttonRect, { width: full, height: natural }, area, field);
       const width = Math.round(at.width ?? full);
       const tailAt = at.side === "left" || at.side === "right" ? `${Math.round(at.tailY ?? 0)}` : `${Math.round(at.tailX)}`;

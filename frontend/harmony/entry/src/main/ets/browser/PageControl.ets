@@ -15,13 +15,13 @@ export const PAGE_HOST_NAME = 'ergoPageHost';
 const PAGE_BRIDGE_FILE = 'page-bridge.js';
 const NONCE_MARK = '__ERGO_PAGE_NONCE__';
 /**
- * 网页能调的页面桥方法（交文件那三个由这里自己调）；bubble 是悬浮按钮旁边的气泡画成什么样（146 号票）；
- * 147 号票（浏览侧边栏）多三个：selected（现在选中的框）、text（整页文字）、clearSelection（取消选中）；
- * 149 号票多一个 pick（挑图片窗口画成什么样）；164 号票多两个：snapshot（网页上能点的东西，编号记在页面桥里）、click（按编号点，
+ * 网页能调的页面桥方法（交文件那三个由这里自己调）；bubble 是悬浮按钮旁边的气泡画成什么样；
+ * （浏览侧边栏）多三个：selected（现在选中的框）、text（整页文字）、clearSelection（取消选中）；
+ * 还有一个 pick（挑图片窗口画成什么样）；还有两个：snapshot（网页上能点的东西，编号记在页面桥里）、click（按编号点，
  * 页面桥核对还是那一页、元素还在、字没变才点；开新窗口的在这个浏览器里打开）。名字和 packages/web/src/page-bridge/protocol.ts 的
  * PageBridgeApi 一致。旧版 App 没有这两个时回空串，二狗的网页据此说"App 太旧，装新版才能点"。
- * 169 号票多一个 texts：页面桥自己的字（悬浮按钮的说明、气泡和挑图片窗口上的按钮）换成二狗的网页交来的当前语言；旧版 App 没有时页面桥照旧中文。
- * 184 号票多一个 refField：按编号找要填的文本框、要交的上传框（页面桥核对还是那一页、编号认得、种类没变，回框的编号，二狗的网页再照它
+ * 还有一个 texts：页面桥自己的字（悬浮按钮的说明、气泡和挑图片窗口上的按钮）换成二狗的网页交来的当前语言；旧版 App 没有时页面桥照旧中文。
+ * 还有一个 refField：按编号找要填的文本框、要交的上传框（页面桥核对还是那一页、编号认得、种类没变，回框的编号，二狗的网页再照它
  * fill、经 browserFiles 交）；旧版 App 没有时回空串，二狗的网页据此说"App 太旧，装新版才能按编号填和交"
  */
 const PAGE_OPS: string[] = ['fields', 'fill', 'mark', 'bubble', 'pick', 'selected', 'text', 'clearSelection', 'snapshot', 'click', 'refField', 'texts', 'elementInfo', 'elementPrepare', 'elementChunk', 'elementRect', 'elementShotDone'];
@@ -49,12 +49,12 @@ interface BubbleKind {
   kind: string;
 }
 
-/** 推给二狗的网页的：气泡开着时按了返回，收起气泡（146 号票） */
+/** 推给二狗的网页的：气泡开着时按了返回，收起气泡 */
 class BubbleClose {
   type: string = 'bubble-close';
 }
 
-/** 推给二狗的网页的：挑图片窗口开着时按了返回，收起窗口（149 号票；会话里的候选卡照样能挑） */
+/** 推给二狗的网页的：挑图片窗口开着时按了返回，收起窗口（会话里的候选卡照样能挑） */
 class PickClose {
   type: string = 'pick-close';
 }
@@ -151,7 +151,7 @@ export class PageHost {
 }
 
 /**
- * 页面桥（134 号票第二部分）在 App 这一侧：给浏览器的 Web 注入页面桥脚本（换好口令）、收它报的话转给二狗的网页、
+ * 页面桥在 App 这一侧：给浏览器的 Web 注入页面桥脚本（换好口令）、收它报的话转给二狗的网页、
  * 替二狗的网页调页面桥（填字、按钮的样子）、把二狗的网页交来的文件交进网页（两条路：页面桥塞进选文件的框；交给拦下的选文件对话框），
  * 以及拦下网页弹出的选文件对话框（onShowFileSelector）问用户"让二狗选 / 自己选"。
  * 浏览器的 Web 不挂二狗的原生桥；网页的脚本能碰到的只有 ergoPageHost.post，没有口令说的话一律不认。
@@ -176,9 +176,9 @@ export class PageControl {
   private chooserFieldAt: number = 0;
   /** 二狗的网页写进来的文件：编号 → 写了多少字节 */
   private staged: Map<string, number> = new Map<string, number>();
-  /** 悬浮按钮旁边的气泡开着（146 号票：二狗的网页最近交给页面桥的样子不是 none）：返回手势先收起它 */
+  /** 悬浮按钮旁边的气泡开着（二狗的网页最近交给页面桥的样子不是 none）：返回手势先收起它 */
   private bubbleOpen: boolean = false;
-  /** 挑图片窗口开着（149 号票，同上）：气泡之后收它 */
+  /** 挑图片窗口开着（同上）：气泡之后收它 */
   private pickOpen: boolean = false;
 
   constructor(context: common.UIAbilityContext, controller: webview.WebviewController, emit: (json: string) => void,
@@ -293,7 +293,7 @@ export class PageControl {
 
   /**
    * 返回手势（Index.ets 的 onBackPress，浏览器显示着时先问这里）：气泡开着就告诉二狗的网页收起（它收起、交给页面桥 none），
-   * 气泡没开、挑图片窗口开着（149 号票）就收窗口，回 true 表示接住了；都没开回 false，照原来的退网页历史
+   * 气泡没开、挑图片窗口开着就收窗口，回 true 表示接住了；都没开回 false，照原来的退网页历史
    */
   closeBubble(): boolean {
     if (this.bubbleOpen) {
@@ -371,7 +371,7 @@ export class PageControl {
   }
 
   /**
-   * 放掉预备好了没用上的文件（149 号票：候选一出来二狗的网页就把原图写进来，挑完、卡处理掉了、换了网页，没选的那些用不上）：
+   * 放掉预备好了没用上的文件（候选一出来二狗的网页就把原图写进来，挑完、卡处理掉了、换了网页，没选的那些用不上）：
    * json 是文件编号的数组；不认得的编号跳过。回 {"ok", "count"（删了几个）}
    */
   discard(json: string): Promise<string> {

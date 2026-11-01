@@ -1,4 +1,4 @@
-// 安卓 App（349 号票）的契约：原生桥的方法名和网页一侧对得上，外部网页碰不到原生桥的那几条写法没被改掉，
+// 安卓 App的契约：原生桥的方法名和网页一侧对得上，外部网页碰不到原生桥的那几条写法没被改掉，
 // 句子都在语言文件里，签名材料和生成的东西不进仓库，构建脚本的辅助。
 // 真正在 WebView 里证明"外部页面调不到 ergoNative"的是模拟器联调 frontend/android/e2e/run.ts（要模拟器，不在这里跑）。
 import { spawnSync } from "node:child_process";
@@ -104,7 +104,7 @@ describe("原生桥的方法名和网页一侧一样", () => {
     expect(all.filter((name) => !name.startsWith("phone")).toSorted()).toEqual(mainMethods().toSorted());
   });
 
-  test("第一版不开手机数据源（票里定的）：一个 phone 开头的方法都没有，网页认不出这一组，功能自然不出现", () => {
+  test("第一版不开手机数据源：一个 phone 开头的方法都没有，网页认不出这一组，功能自然不出现", () => {
     expect(mainMethods().filter((name) => name.startsWith("phone"))).toEqual([]);
   });
 });
@@ -286,7 +286,7 @@ const harmonyElementFiles = () => read(path.join(REPO, "frontend/harmony/entry/s
 const webBrowser = () => read(path.join(REPO, "packages/web/src/app/native-browser.ts"));
 const webElementOps = () => [...webBrowser().matchAll(/ask\("(element[A-Za-z]+)"/g)].map((m) => m[1]!).toSorted();
 
-describe("长按元素的圆钮（359 号票）：两个 App 和网页对得上", () => {
+describe("长按元素的圆钮：两个 App 和网页对得上", () => {
   test("browserTool 里 element 开头的操作：网页发的、安卓认的、鸿蒙认的一样", () => {
     expect(webElementOps()).toEqual(["elementDownload", "elementDrop", "elementFetch", "elementRead", "elementSave", "elementShot", "elementWrite"]);
     expect([...kotlin("browser/ElementFiles.kt").matchAll(/"(element[A-Za-z]+)" ->/g)].map((m) => m[1]!).toSorted()).toEqual(webElementOps());

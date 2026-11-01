@@ -1,5 +1,5 @@
 /*
- * 像素小屋（49 号票）：只靠 token（pixel/style.ts）做不到的规则，全部限定在 :root[data-style="pixel"] 下
+ * 像素小屋：只靠 token（pixel/style.ts）做不到的规则，全部限定在 :root[data-style="pixel"] 下
  * （不会漏到别的风格；设置里的预览把开头换成 :host(...)，所以根元素上只再加属性，见 src/visual-styles/preview.ts）。
  * 设计稿：docs/architecture/design/styles/h-chat、h-tasks、h-inbox、h-wide（.dc.html）。要点：
  * - 像素框（设计稿的 .px）：四周 3px 的墨色线，四个角各缺一格——上下左右四道不模糊、不扩散的投影（--pixel-edge）。投影画在元素外面、
@@ -174,7 +174,7 @@
 }
 /*
  * 标题里、输入框占位里的名字是设计稿 .name 的大小：12px、左右 6、一行 1.5 倍高，竖着居中
- * （秘书页的标题"个人秘书：<名字>"（89 号票）就是设计稿 h-chat 标题"个人助理 [二狗]"的样子：标题字后面一颗小标签）
+ * （秘书页的标题"个人秘书：<名字>"就是设计稿 h-chat 标题"个人助理 [二狗]"的样子：标题字后面一颗小标签）
  */
 :root[data-style="pixel"] .topbar .title .assistant-name,
 :root[data-style="pixel"] .composer-placeholder .assistant-name {
@@ -228,7 +228,7 @@
   flex: 1 1 0;
 }
 /*
- * 和标题栏算一个头的页签（.seg-head，待我处理；标题栏挂着 data-joined，46 号票 TopBar 的 joined）：设计稿里页签就在标题栏那个
+ * 和标题栏算一个头的页签（.seg-head，待我处理；标题栏挂着 data-joined，TopBar 的 joined）：设计稿里页签就在标题栏那个
  * 像素框里。标题栏的框不画下边线，页签接在它下面、和它一样宽，只画左、右、下三道线，两块合成一个框
  */
 :root[data-style="pixel"] .topbar[data-joined] {
@@ -383,7 +383,7 @@
 }
 /*
  * 当前那一项：草地绿、白色粗字（深色是深字），一个画在里面的像素框（--pixel-frame）。不往外伸：竖栏只有 43px 宽；
- * 导航放得下几项是按每项不含外框的长度量的（33 号票），往外伸的框会量不进去
+ * 导航放得下几项是按每项不含外框的长度量的，往外伸的框会量不进去
  */
 :root[data-style="pixel"] .tab.on {
   background:
@@ -549,7 +549,7 @@
  * （画在里面，共 32；你的卡片色、个人助理的浅绿底），里面一个像素三角；波形直角竖条 4 隔 2、高 24；时长 Press Start 2P 9px；
  * 下半截上面一道 2px 的虚线（你的深莓色、个人助理的墨色）。
  * 播放键（32）、间隔（10）、竖条（4；隔 2 是经典的值）、左右内边距（12）、竖线（0：框是投影，不占地方）是 token（style.ts 的 voice-*），
- * styles/voice.css 按它画，框宽、波形格数也按它算（42 号票的共用办法）；这里只画样子
+ * styles/voice.css 按它画，框宽、波形格数也按它算（共用办法）；这里只画样子
  */
 :root[data-style="pixel"] .voice-bubble {
   box-shadow: var(--pixel-edge);
@@ -721,7 +721,7 @@
   box-shadow: var(--pixel-edge-s);
   text-align: center;
 }
-/* 会话里的"等你处理"栏（107 号票）：和输入栏一样浮在格子底上的像素框 */
+/* 会话里的"等你处理"栏：和输入栏一样浮在格子底上的像素框 */
 :root[data-style="pixel"] .ibar,
 :root[data-style="pixel"] .missed-voices {
   margin: 6px 15px 0;
@@ -845,7 +845,7 @@
 }
 /*
  * 卡片：像素框；第一行标题、右边状态签（设计稿），下面一整行 HP 格进度，再下面一行几/几、token 这些，再往下照旧。
- * 只换排法、不改结构，只认类名（TasksPage 给状态所在的那一行补了 .bcard-status-row、给数字补了 .bcard-num，41 号票）：
+ * 只换排法、不改结构，只认类名（TasksPage 给状态所在的那一行补了 .bcard-status-row、给数字补了 .bcard-num）：
  * 卡片按行折排（flex-wrap）；.bcard-status-row 和进度 .bcard-progress 拆开（display: contents，不影响继承），
  * 标题那一行、状态、一个占满整行的空元素（::after）排在最前面（order -1），空元素把后面的东西折到下一行；
  * 进度条占满一整行，它后面的几/几、token、时间表挨着排成一行；卡片里下面几行（.bcard-meta、.bcard-waiting、作业的授权）各占一整行
@@ -865,7 +865,7 @@
   min-width: 0;
 }
 /*
- * 宽屏的看板排成多列网格时（88 号票，.board[data-layout="grid"]）：卡片窄到 280 上下，种类签加标题那一块和右边的状态小牌挤在一行时，
+ * 宽屏的看板排成多列网格时（.board[data-layout="grid"]）：卡片窄到 280 上下，种类签加标题那一块和右边的状态小牌挤在一行时，
  * 长的状态（"等时间 · 10 月 8 日（周四）09:00 做"）会把标题挤成一个字一行。那一块至少留 10em，放不下时状态小牌掉到下一行
  */
 :root[data-style="pixel"] .board[data-layout="grid"] .bcard-row {
@@ -874,7 +874,7 @@
 :root[data-style="pixel"] .bcard-status-row {
   display: contents;
 }
-/* 多选时（90 号票）卡上多了勾选框：标题至少留 6em，放不下时自己掉到下一行，不被挤成一两个字一行 */
+/* 多选时卡上多了勾选框：标题至少留 6em，放不下时自己掉到下一行，不被挤成一两个字一行 */
 :root[data-style="pixel"] .board.selecting .bcard-title {
   flex-basis: 6em;
 }
@@ -935,7 +935,7 @@
   background: var(--pixel-pick);
 }
 /*
- * 项目一览（104 号票）：档案卡的正文是像素框；页签只画上、左、右三道（下沿往下压 3px、盖住正文上面那道线，和正文连成一块）；
+ * 项目一览：档案卡的正文是像素框；页签只画上、左、右三道（下沿往下压 3px、盖住正文上面那道线，和正文连成一块）；
  * 压着的那页纸是小号的像素框，错开 8（像素框画在外面，错开少了两道框挤在一起）
  */
 :root[data-style="pixel"] .pfile-body {
@@ -961,7 +961,7 @@
  * - 在做（.t-run：浅绿底、正文色字）：规划中、执行中、运营中；运行中；工单在做；
  * - 做成了（卡片色、绿字）：运行完成、工单完成；
  * - 出错（淡红底、暖红字）：失败；运行失败、被打断；工单退回、做不了；
- * - 运行部分完成（176 号票：有一步没做成、别的做完了）：淡橙底、橙字；
+ * - 运行部分完成（有一步没做成、别的做完了）：淡橙底、橙字；
  * - 中性（.t-idle：卡片色、灰字）：排队中、等时间、已完成、已取消、已归档、已暂停，运行排队、跳过——有意和经典不一样：经典里排队、
  *   等时间是 op 色、已完成是绿，设计稿看板上的"排队中""已完成"都是中性的。基础规则也是中性，兜住以后新加的状态
  */
@@ -1022,8 +1022,8 @@
 }
 /*
  * HP 格进度（设计稿的 .hp：一格一个阶段 / 一步，格子 1px 墨色框、空的是 --code 底、做完的草地绿，格间 2px）：
- * 用的是产品已有的两条进度——看板卡、项目页内部任务一行的小进度条（60 号票的 sl-progress，ui/TaskProgress.tsx）和流程会话标题栏上的
- * 进度条（ui/conversation/PlanTimeline.tsx 的 progress-bar）。两处都在进度条上挂了一共几格（--progress-total，49 号票补的）。
+ * 用的是产品已有的两条进度——看板卡、项目页内部任务一行的小进度条（sl-progress，ui/TaskProgress.tsx）和流程会话标题栏上的
+ * 进度条（ui/conversation/PlanTimeline.tsx 的 progress-bar）。两处都在进度条上挂了一共几格（--progress-total）。
  * - 格数：一共几格，但最多 --pixel-hp-max 格——每格的格心（一格减去两边 1px 的框和 2px 的格间）至少 5px，再多就挤成一团。
  *   格心 =（条宽 + 2）÷ 格数 − 4，上限按条的宽定：72 宽的小进度条 8 格（格心 5.25）、标题栏上 48 宽的 5 格（6），
  *   看板卡上占满一整行的 20 格（条最窄 200 左右，6.1）。
@@ -1141,7 +1141,7 @@
 /*
  * 未读的点（设计稿：行内右边一个 10px 的暖红小方块、2px 的像素框）：排在行尾"⋯"的左边。"⋯"固定 40 宽、字靠右，
  * 点画在它左边空出来的那一截里（绝对定位：不另占一格，说明那一行和经典一样宽；不接点击，点到那里还是打开"⋯"的菜单）；
- * 看过的那一行这个位置空着（48 号票用户定的同一个位置）
+ * 看过的那一行这个位置空着（用户定的同一个位置）
  */
 :root[data-style="pixel"] .inbox-dot {
   position: absolute;

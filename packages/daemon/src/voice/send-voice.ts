@@ -1,18 +1,18 @@
-// 用户打字时 agent 也能发语音（86 号票，规格第 22 节"用户打字时也能发语音"）："发语音"工具 send_voice({ text })。
+// 用户打字时 agent 也能发语音（规格第 22 节"用户打字时也能发语音"）："发语音"工具 send_voice({ text })。
 // 和用户直接对话的 agent 把一段口语稿合成成和语音回复一样的语音气泡（同一个合成服务、参考音色、分段推送、长按"转文字"）。
 // "发语音"的行为都在这里：工具本身、回合结束时这一轮另写的文字收不收进气泡、重启时的收尾、被中断的调用补什么结果。
 // 回合从哪儿开始、回复了哪些消息由语音回复（voice-reply.ts）跟着会话频道上的回合记下，交给这里（openTurn、closeTurn）。
 // - 装配：和口语总结工具一样经 conversationTools 放进每个和用户说话的会话（秘书、负责人起草和执行、项目负责人各段、定时作业的运行），
-//   工具列表固定（提示词前缀缓存不受影响）；用不用得了在调用时看这一轮（用户 2026-10-11 定"只给和用户直接对话的地方"）：
+//   工具列表固定（提示词前缀缓存不受影响）；用不用得了在调用时看这一轮（只给和用户直接对话的地方）：
 //   这一轮处理的用户消息（交给 agent 的那条输入，和子进程收下、已经进了上下文的插话：HostToolCall.interjected，宿主协议 16）里
 //   有用户说的话才能发——个人助理、用户直接跟项目负责人说话、用户在任务详情里说话（负责人在忙时作为插话送进去）的那一轮；
-//   后台在做的任务、定时 / 事件触发的运行、运行时的通知引起的一轮返回清楚的原因——只有一类通知例外（100 号票）：开了"跑完自动播报"的
+//   后台在做的任务、定时 / 事件触发的运行、运行时的通知引起的一轮返回清楚的原因——只有一类通知例外：开了"跑完自动播报"的
 //   任务做完的通知（secretary/notice-tags.ts 的 isAutoAnnounceNotice），开关是用户事先给的授权，秘书处理它的那一轮能发；
 //   审批已批准、状态变化、开关关着的任务做完这些照旧不行。用户最后说的一句是语音（语音轮）、有参考音色时
-//   直接返回"已经在合成了"（用户定：回复本来就由语音回复合成）；语音轮没有参考音色的照"没有参考音色"回。
+//   直接返回"已经在合成了"（回复本来就由语音回复合成）；语音轮没有参考音色的照"没有参考音色"回。
 // - 口语稿：去掉 Markdown 标记后送进 TTS（spoken-text.ts 的 speakable）；有代码、表格、图片、链接地址这类念不出来的不发，让 agent 去掉；
 //   长度按 voice.reply 的 maxSeconds / charsPerSecond 算（estimateSpeechSeconds），超了返回"太长了，缩到 N 秒以内"，工具里不截。
-//   工具说明照用户定的"要说的都放进语音"：要让用户听到的都写进口语稿，文字里只留念不出来的。
+//   工具说明"要说的都放进语音"：要让用户听到的都写进口语稿，文字里只留念不出来的。
 // - 没有参考音色：返回原因（不静默改走文字），待我处理里提示去导入（和语音回复同一条，开着的只有一条）。
 // - 建出 agent 语音对象（mode 是 tool，直接是"合成中"，带上这一轮开始的序号 turnSeq 和工具调用 id），交给 voice-synthesis.ts 排队合成——
 //   分段推送、入库、追加 tts_audio 消息、失败说明、重启重做都和语音回复共用；等合成有了结局，把结局（发出去了、只发了一部分、
@@ -24,7 +24,7 @@
 // - 守卫：不落入任何关注类别、不弹审批；每次多发一条消息，不是只读或幂等；被杀时语音由合成那边重启重做（recoveredByController，
 //   不当成"中断不确定"），agent 的会话里那次调用补上"会自己补发、不要重发"（interruptedResults，经 interruptedToolResults）。
 // - 日志只写字数、参考音色的 id、参考录音的文件名；不写要合成的正文、不写参考录音的完整路径。
-// - 转述负责人的进展（354 号票，用户 2026-11-01 定，可选参数 relay：转述谁 source、负责人那段的稿子 text）：不增加打扰，跟现有规矩走，只是换声音——
+// - 转述负责人的进展（可选参数 relay：转述谁 source、负责人那段的稿子 text）：不增加打扰，跟现有规矩走，只是换声音——
 //   秘书写两段，运行时合成一条语音：开场用秘书的声音，那段用发信人自己的声音。声音只能是运行时查的：工具没有指定音色、agent 的参数；
 //   source 只认通知上记的（MessageEnvelope.relaySources，发信人也记在那里）——通知引起的一轮只认这条通知的，用户问的一轮认交给秘书过的通知，
 //   写别的、还没来过信的任务都不发、交回原因；只有秘书的会话能带（负责人不能直接发）。发信人没有自己的声音（没配、和秘书一样、被删了，
@@ -88,7 +88,7 @@ export interface SendVoiceOptions {
   store: EventStore;
   references: ReferenceVoices;
   /**
-   * 这个会话里说话的 agent 现在用哪个参考音色（241 号票：自己配的覆盖全局，没配 / 被删了跟全局默认）；
+   * 这个会话里说话的 agent 现在用哪个参考音色（自己配的覆盖全局，没配 / 被删了跟全局默认）；
    * 不给时用 references.current()（和以前一样）
    */
   voiceOf?: (conversation: ConversationId) => ResolvedReferenceVoice | undefined;
@@ -101,11 +101,11 @@ export interface SendVoiceOptions {
   openTurn(conversation: ConversationId): SendVoiceTurn | undefined;
   /** 没有参考音色：待我处理里提示去导入 */
   announceMissing(): void;
-  /** 语音轮里秘书写了两段（354 号票）：记到这一轮上，语音回复念它们；没有在进行的一轮（不该发生）回 false */
+  /** 语音轮里秘书写了两段：记到这一轮上，语音回复念它们；没有在进行的一轮（不该发生）回 false */
   relayThisTurn(conversation: ConversationId, relay: RelayedSpeech): boolean;
-  /** 一个 agent 的角色名（354 号票，转文字时写）；不给时用 agent id */
+  /** 一个 agent 的角色名（转文字时写）；不给时用 agent id */
   speakerName?: (agentId: string) => string;
-  /** 这个 agent 自己的声音（354 号票）：没有是 undefined，这时退回一条秘书的语音；不给就是都没有 */
+  /** 这个 agent 自己的声音：没有是 undefined，这时退回一条秘书的语音；不给就是都没有 */
   ownVoiceOf?: (agentId: string) => OwnVoice | undefined;
   /** 最多等合成多久就先交回"还在合成"（毫秒）；不给是 SEND_VOICE_WAIT_MS */
   waitMs?: number;
@@ -113,7 +113,7 @@ export interface SendVoiceOptions {
 }
 
 /**
- * 一次转述合成什么（354 号票）：text 是连起来的（老的读者照常读得到，退回一条秘书的语音时念的也是它）；parts 是各段的声音和说话的人，
+ * 一次转述合成什么：text 是连起来的（老的读者照常读得到，退回一条秘书的语音时念的也是它）；parts 是各段的声音和说话的人，
  * 发信人没有自己的声音时没有
  */
 export interface RelayedSpeech {
@@ -140,7 +140,7 @@ const secondsOf = (ms: number | undefined) => Math.round((ms ?? 0) / 100) / 10;
 
 /**
  * 合成的结局交回 agent 的话；undefined 是没等到（调用被中止、守护进程在停），still 是等了很久还在合成。
- * merged：这次带了 relay、但发信人没有自己的声音，合成的是一条秘书的语音（354 号票）
+ * merged：这次带了 relay、但发信人没有自己的声音，合成的是一条秘书的语音
  */
 function outcomeText(voice: AgentVoiceRecord | undefined | "still", merged = false): HostToolOutput {
   if (voice === "still") return { text: SEND_VOICE_RESULT.stillSynthesizing };
@@ -194,7 +194,7 @@ export function createSendVoice(options: SendVoiceOptions): SendVoice {
       .join("\n\n");
 
   /**
-   * 这个来源是谁发的（354 号票）：只认通知上记的（MessageEnvelope.relaySources）。通知引起的一轮只认这条通知的；
+   * 这个来源是谁发的：只认通知上记的（MessageEnvelope.relaySources）。通知引起的一轮只认这条通知的；
    * 用户问的一轮认交给秘书过的通知（任务做完的、来信的）。同一个来源有几个发信人的（负责人和它的子 agent 的信并在一条里、
    * 来过好几次）：按最近的在前，有自己声音的优先（relayedSpeech 取第一个有声音的）。没有是空的
    */
@@ -209,7 +209,7 @@ export function createSendVoice(options: SendVoiceOptions): SendVoice {
     return notices.flatMap((m) => (m.relaySources ?? []).filter((s) => s.source === source).map((s) => s.agentId));
   };
 
-  /** 秘书写的两段 → 这次合成什么（354 号票）：发信人没有自己的声音的连成一条秘书的语音 */
+  /** 秘书写的两段 → 这次合成什么：发信人没有自己的声音的连成一条秘书的语音 */
   const relayedSpeech = (conversation: ConversationId, reference: ResolvedReferenceVoice, senders: readonly string[], opening: string, relayed: string): RelayedSpeech => {
     const text = `${opening}\n${relayed}`;
     const owner = senders.flatMap((agentId) => {
@@ -247,13 +247,13 @@ export function createSendVoice(options: SendVoiceOptions): SendVoice {
     recoveredByController: true,
     async run({ text, relay }, call) {
       // 这一轮处理的用户消息：交给 agent 的那条输入，和子进程收下的插话；用户最后说的一句决定能不能发。
-      // 开了"跑完自动播报"的任务做完的通知（100 号票）是用户事先给的授权：这一轮也能发（语音落在那条通知的回复里）
-      // 144 号票：排队交出的一批里另外几条（moreInputMessageIds）也是这一轮处理的
+      // 开了"跑完自动播报"的任务做完的通知是用户事先给的授权：这一轮也能发（语音落在那条通知的回复里）
+      // 排队交出的一批里另外几条（moreInputMessageIds）也是这一轮处理的
       const handled = [call.inputMessageId, ...(call.moreInputMessageIds ?? []), ...(call.interjected ?? [])].flatMap((id) => (id === undefined ? [] : (getMessage(store.reader, id) ?? [])));
-      // 秘书转达的话（103 号票）不算用户在和它直接说话：用户在秘书那里，不在这个会话里
+      // 秘书转达的话不算用户在和它直接说话：用户在秘书那里，不在这个会话里
       const said = handled.findLast((m) => (m.speaker === "user" && m.relayedBy === undefined) || options.isVoiceInput(m) || isAutoAnnounceNotice(m));
       if (!said) return { text: SEND_VOICE_RESULT.notDirect, isError: true };
-      // 说话的是哪个 agent 用它的音色（241 号票）：自己配的，没配跟全局默认
+      // 说话的是哪个 agent 用它的音色：自己配的，没配跟全局默认
       const reference = options.voiceOf?.(said.conversation) ?? references.current();
       if (!reference) {
         log("agent 想发语音，但还没有导入任何参考音色：这次没发");
@@ -262,7 +262,7 @@ export function createSendVoice(options: SendVoiceOptions): SendVoice {
       }
       if (options.isVoiceInput(said) && !relay) return { text: SEND_VOICE_RESULT.voiceTurn };
       const conversation = said.conversation;
-      // 转述（354 号票）：只有秘书能转述；转述谁只认通知上记的
+      // 转述：只有秘书能转述；转述谁只认通知上记的
       if (relay && conversation !== CHANNELS.secretary) return { text: SEND_VOICE_RESULT.relayNotSecretary, isError: true };
       const senders = relay ? relaySenders(said, relay.source.trim()) : [];
       if (relay && senders.length === 0) return { text: isAutoAnnounceNotice(said) ? SEND_VOICE_RESULT.relayNotInNotice(relay.source) : SEND_VOICE_RESULT.relayNothing(relay.source), isError: true };

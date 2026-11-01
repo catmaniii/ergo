@@ -1,7 +1,7 @@
-// 主切面：看板多选的批量操作（90 号票，规格第 19 节"任务看板"）。真的守护进程，负责人接 faux 剧本，测试扮演前端。
+// 主切面：看板多选的批量操作（规格第 19 节"任务看板"）。真的守护进程，负责人接 faux 剧本，测试扮演前端。
 // - task_batch_action 一次对多个任务做暂停、继续、取消、归档：每个任务各自按"谁能改"表判断、各自成败，结果按请求里的先后逐条回报
 //   （做不了的写原因，和单个 task_action 被拒时同一句）；同一个幂等键重发，做成了的拿到同一个结果；
-// - 结束了的任务（全局任务也行）能直接归档（没结束的 186 号票起先取消再归档，见 task-delete.test.ts）；
+// - 结束了的任务（全局任务也行）能直接归档（没结束的先取消再归档，见 task-delete.test.ts）；
 // - 定时触发的任务运营中时的暂停、继续、取消照旧落到它的触发上（取消时任务一起取消），取消之后能归档。
 // - 失败的任务直接归档（单个、批量）：它留下的"失败后的抉择"作废——不再卡着任务、能归档删除，再点"重试"被拒、不会假装做成了。
 import { CHANNELS, EVENT_TYPES, type InboxItem, type InboxItemEventPayload } from "@ergo/protocol";
@@ -44,7 +44,7 @@ describe("一次处理多个任务", () => {
     expect(ok(await frontend.taskBatchAction({ taskIds: [running, planning], action: "cancel" }, "k-cancel"))).toEqual(cancelled);
     expect(ok(await frontend.taskBatchAction({ taskIds: [running, planning], action: "cancel" }, "k-cancel"))).toEqual(cancelled);
 
-    // 归档：结束了的全局任务直接归档（运营中的定时任务没结束：186 号票起先取消再归档，见 task-delete.test.ts）
+    // 归档：结束了的全局任务直接归档（运营中的定时任务没结束：先取消再归档，见 task-delete.test.ts）
     expect(ok(await frontend.taskBatchAction({ taskIds: [running, planning], action: "archive" }))).toEqual({
       results: [
         { taskId: running, ok: true, state: "archived" },

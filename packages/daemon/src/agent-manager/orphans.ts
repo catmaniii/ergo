@@ -2,12 +2,12 @@
 // 比如 bash 起的后台程序在 bash 退出后留下的，或者 agent 子进程退出后它没结束的孙进程。agent 管家按周期（默认每分钟）
 // 把它们结束掉。Job 不允许脱离（job-object.ts），所以 agent 起的进程都在 Job 里，跑不掉。
 //
-// 178 号票补的两条：
+// 补的两条：
 // - **还在跑的工具调用期间起的进程这一轮不杀**：Git Bash（MSYS2）里一个 MSYS 进程 fork 再 exec 另一个 MSYS 程序时，新程序是个
 //   新的 Windows 进程，它的 Windows 父进程（fork 出来的中间进程）交接完马上就退了。管道各段、`bash 脚本`、它们下面的整棵树
 //   因此顺着父进程号走不到，可 bash 还在等它们。按创建时间认：晚于所有活着的 agent 里最早一个还没结束的工具调用的开始时间
 //   （留 1 秒余量）的、取不到创建时间的，这一轮先留着；调用都结束之后它们若还在，下一轮照样回收。
-// - **agent-browser 跟着开它的 agent 走**（用户 2026-10-19 定）：agent 的 bash 环境里 AGENT_BROWSER_SOCKET_DIR 指向这个 agent
+// - **agent-browser 跟着开它的 agent 走**：agent 的 bash 环境里 AGENT_BROWSER_SOCKET_DIR 指向这个 agent
 //   自己的目录（agent-manager.ts 注入），agent-browser 的守护进程在那里写 `<会话>.pid`。pid 文件里写着的、在 Job 里、可执行文件名
 //   是 agent-browser 开头的守护进程算开它的 agent 的，连同它下面的进程（它开的 Chrome）都不当孤儿——只限那个 agent 还活着、
 //   还没闲置太久（管家决定给不给它的目录）。认不准的（改了 socket 目录、pid 被复用了……）照旧回收。

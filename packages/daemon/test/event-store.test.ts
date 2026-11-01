@@ -260,10 +260,10 @@ describe("派生视图", () => {
     }
   });
 
-  test("输入队列的先后（210 号票）：进过自动重试的语音有了结局、还等着的，排到此刻队列的末尾；手动重新识别回队的照旧按消息的先后；重建视图、旧表补列后一样", () => {
+  test("输入队列的先后：进过自动重试的语音有了结局、还等着的，排到此刻队列的末尾；手动重新识别回队的照旧按消息的先后；重建视图、旧表补列后一样", () => {
     const store = openStore();
     try {
-      // 早先只有语音、识别失败没交的（208 号票）
+      // 早先只有语音、识别失败没交的
       store.append({ channel: "secretary", type: "message", payload: userMessage("m0", "（语音）") });
       store.append(voiceEvent("m0", "failed"));
       // 这条语音第一次没识别成，等着重试：照旧在队里（AgentSession 跳过它），按消息的先后
@@ -277,7 +277,7 @@ describe("派生视图", () => {
       expect(pendingIds(store)).toEqual(["m1", "m2", "mv"]);
       store.append({ channel: "secretary", type: "message", payload: userMessage("m3", "还有") });
       expect(pendingIds(store)).toEqual(["m1", "m2", "mv", "m3"]);
-      // 手动重新识别成功（没有自动重试的次数）：没交的回到队里，位置照消息原来的先后（208 号票，不变）
+      // 手动重新识别成功（没有自动重试的次数）：没交的回到队里，位置照消息原来的先后（不变）
       store.append({ ...voiceEvent("m0", "done", {}), payload: { voice: { id: "v-m0", messageId: "m0", conversation: "secretary", status: "done", attempt: 2 }, restoreInput: true } });
       const expected = ["m0", "m1", "m2", "mv", "m3"];
       expect(pendingIds(store)).toEqual(expected);
@@ -292,7 +292,7 @@ describe("派生视图", () => {
       store.close();
     }
 
-    // 210 号票之前建的表没有 queue_seq：打开时补上这一列，照常排
+    // 以前建的表没有 queue_seq：打开时补上这一列，照常排
     const old = openStore();
     old.append({ channel: "secretary", type: "message", payload: userMessage("o1", "以前说的") });
     old.close();
@@ -338,7 +338,7 @@ describe("派生视图", () => {
   });
 });
 
-/** 秘书会话里一条语音的某一版（210 号票测输入队列的先后）：没有自动重试次数的失败带 dropInput（只有这段语音的不交） */
+/** 秘书会话里一条语音的某一版（测输入队列的先后）：没有自动重试次数的失败带 dropInput（只有这段语音的不交） */
 const voiceEvent = (messageId: string, status: string, extra: Record<string, unknown> = {}) => ({
   channel: "secretary",
   type: "voice",
@@ -454,7 +454,7 @@ const sizesView: DerivedView = {
 const sizes = (store: EventStore) =>
   store.reader.all<{ global_seq: number; bytes: number; applied: number }>("SELECT * FROM note_sizes ORDER BY global_seq").map((r) => [Number(r.global_seq), Number(r.bytes), Number(r.applied)]);
 
-describe("保留期清理：把过期的内容换成只剩摘要的样子（65 号票，事件日志不可修改的第三个例外）", () => {
+describe("保留期清理：把过期的内容换成只剩摘要的样子（事件日志不可修改的第三个例外）", () => {
   test("负载换成给出的样子，频道、序号、类型、时间不变；不重放派生视图（只叫登记它的视图），不通知订阅者；返回改写了几条", () => {
     const store = openStore([...conversationViews, sizesView]);
     try {
@@ -543,7 +543,7 @@ describe("视图的表是新建的（refill）：打开时从事件日志补一�
     }
   });
 
-  test("视图登记了频道（68 号票）：补表时只读这几个频道的事件，按全局序号、分批读全", () => {
+  test("视图登记了频道：补表时只读这几个频道的事件，按全局序号、分批读全", () => {
     const file = path.join(makeTempDir(), "ergo.db");
     let store = openEventStore({ file, views: [] });
     const expected: number[] = [];
@@ -580,7 +580,7 @@ const notesCounter: DerivedView = {
 };
 const noteCount = (store: EventStore) => Number(store.reader.get<{ n: number }>("SELECT n FROM note_count")?.n ?? 0);
 
-describe("停着的视图（126 号票：停用的插件的视图）", () => {
+describe("停着的视图（停用的插件的视图）", () => {
   test("摘下来的视图（插件运行中停用）：之后的追加、整体重放都不再更新它，表和内容留着；下次打开时又登记了，整表清空、按事件日志补一遍", () => {
     const file = path.join(makeTempDir(), "ergo.db");
     const logs: string[] = [];
@@ -632,7 +632,7 @@ describe("停着的视图（126 号票：停用的插件的视图）", () => {
     store.close();
   });
 
-  test("运行中又登记摘下来的视图（211 号票：插件运行中启用）：马上整表清空、按事件日志补齐（停着时彻底删除改写过的也照改写后的），之后的追加、整体重放都更新它", () => {
+  test("运行中又登记摘下来的视图（插件运行中启用）：马上整表清空、按事件日志补齐（停着时彻底删除改写过的也照改写后的），之后的追加、整体重放都更新它", () => {
     const file = path.join(makeTempDir(), "ergo.db");
     const logs: string[] = [];
     const store = openEventStore({ file, views: [notesCounter], log: (l) => logs.push(l) });

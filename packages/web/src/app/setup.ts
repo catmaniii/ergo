@@ -1,4 +1,4 @@
-// 首次设置向导（319 号票，用户 2026-10-27 定："只做网页前端，不做终端 ergo onboard"）在网页上的这一半里"不碰浏览器"的那部分：
+// 首次设置向导（"只做网页前端，不做终端 ergo onboard"）在网页上的这一半里"不碰浏览器"的那部分：
 // 取五步各自做完了没有（GET /api/setup）、标一步"以后再说"或者"看过了 / 做完了"（POST /api/setup），
 // 页面要的"现在该显示哪一步""打完这一步换到哪一步""做完了几步"，演示页的假状态，以及首页那条引导条在这台设备上的记号。
 // 五步是哪五步、形状是什么在共享协议包的 setup.ts；真相是守护进程（数据目录配置文件的 setup 节），这边一个字节也不存。
@@ -90,7 +90,7 @@ export function demoMarked(view: SetupView, id: SetupStepId): SetupView {
   return { steps, complete: steps.every((step) => step.done) };
 }
 
-/** 首页顶上那条"花两分钟配一下"关掉了没有，记在这台设备的哪个键上（319 号票） */
+/** 首页顶上那条"花两分钟配一下"关掉了没有，记在这台设备的哪个键上 */
 export const SETUP_BANNER_KEY = "ergo-setup-banner-dismissed";
 
 export interface SetupBannerSetting {

@@ -1,7 +1,7 @@
-// 阶段详情从守护进程现取的（84 号票，tasks/stage-view.ts）：效果日志里的一条在哪儿生效（只看的不列，本机、对外），
+// 阶段详情从守护进程现取的（tasks/stage-view.ts）：效果日志里的一条在哪儿生效（只看的不列，本机、对外），
 // 从这里重做时列出的"这几步已经做了的事"（重开范围里的阶段、这一轮的、同一件只列一次），没有这个阶段时没有。
 // 纯函数，表格驱动；授权已用几次和守卫计次同一个函数（guard/grants.ts 的 grantUses），在主切面测试里查。
-// 274 号票：一个阶段这一轮系统查到的结果（发了什么、改了哪些文件、本机做的别的事）、负责人自报里提到的文件对不对得上、看板卡上的个数。
+// 一个阶段这一轮系统查到的结果（发了什么、改了哪些文件、本机做的别的事）、负责人自报里提到的文件对不对得上、看板卡上的个数。
 import type { Task, TaskStage } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
 import { BUILTIN_TOOL_REGISTRY, type EffectRecord, TOOL, type ToolRegistry } from "../../src/guard/index.ts";
@@ -95,7 +95,7 @@ describe("这几步已经做了的事", () => {
   });
 });
 
-// ───────────────────────── 274 号票：系统查到的结果 ─────────────────────────
+// ─────────────────────────系统查到的结果 ─────────────────────────
 
 /** 内置的加一个登记过的、会发消息的 MCP 工具（有收件人） */
 const withMail: ToolRegistry = {
@@ -111,7 +111,7 @@ const withMail: ToolRegistry = {
   },
 };
 
-describe("一个阶段这一轮系统查到的结果（274 号票）", () => {
+describe("一个阶段这一轮系统查到的结果", () => {
   // s1 做完了；s2 在任务第 1 次重做时重开过，这一轮的从重开之后算
   const t = task([
     stage("s1", [], { summary: "报告在 out/report.md，删掉了 old.md，另有 summary.pdf" }),
@@ -216,7 +216,7 @@ describe("一个阶段这一轮系统查到的结果（274 号票）", () => {
     });
   });
 
-  it("看板卡上那一行的个数不算缓存和编译产物（311 号票：__pycache__、*.pyc、node_modules……）；阶段详情里逐条的照列", () => {
+  it("看板卡上那一行的个数不算缓存和编译产物（__pycache__、*.pyc、node_modules……）；阶段详情里逐条的照列", () => {
     const files = [
       { path: "D:/w/todo.py", change: "created" as const },
       { path: "D:/w/__pycache__/todo.cpython-312.pyc", change: "created" as const },

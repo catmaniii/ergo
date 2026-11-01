@@ -1,4 +1,4 @@
-// 负责人的运行时在网页这一侧（289 号票）的状态层：会话的负责人用哪个运行时（项目的照项目、没写照转来的任务，任务的照任务，秘书是 pi）、
+// 负责人的运行时在网页这一侧的状态层：会话的负责人用哪个运行时（项目的照项目、没写照转来的任务，任务的照任务，秘书是 pi）、
 // 能力清单（清单还没取到、不认得的当都支持）、新建时能选的（只有 pi 时不显示）、卡上的签（pi 不标）、⚙ 里换运行时的选项和那一行说明。
 import { describe, expect, it } from "vitest";
 import {
@@ -52,7 +52,7 @@ describe("负责人的运行时（网页状态层）", () => {
     expect(projectRuntime(project("p4", { runtime: "claude-code", fromTaskId: "t2" }), state.tasks)).toBe("claude-code");
   });
 
-  it("撤回的确认框按运行时多说的（293 号票）：分支摘要不是它自己写的、撤回时恢复文件（阶段、步骤开始前不恢复）；pi 什么都不多说", () => {
+  it("撤回的确认框按运行时多说的：分支摘要不是它自己写的、撤回时恢复文件（阶段、步骤开始前不恢复）；pi 什么都不多说", () => {
     const withRollback: AgentRuntimeView = { ...CLAUDE, capabilities: caps(["rollback", "branch_switch", "rewind_files", "compact"]) };
     expect(rollbackRuntimeNotes([PI, withRollback], "pi", false)).toEqual({ lines: [], restoresFiles: false, runtimeTitle: "pi" });
     expect(rollbackRuntimeNotes([PI, withRollback], "claude-code", false)).toEqual({
@@ -66,7 +66,7 @@ describe("负责人的运行时（网页状态层）", () => {
     });
   });
 
-  it("分支摘要上恢复文件的那一句（293 号票）：只写文件名、超过三个写一共几个，没有要恢复的、阶段开始前没恢复、出错了各有说法", () => {
+  it("分支摘要上恢复文件的那一句：只写文件名、超过三个写一共几个，没有要恢复的、阶段开始前没恢复、出错了各有说法", () => {
     expect(branchFilesLine({ restored: ["D:\\code\\flaky-ci\\.github\\workflows\\ci.yml", "test/helpers/retry.ts"] })).toBe("文件恢复到了撤回点：ci.yml、retry.ts（Bash 改的追不到）");
     expect(branchFilesLine({ restored: ["a.md", "b.md", "c.md", "d.md"] })).toBe("文件恢复到了撤回点：a.md、b.md、c.md 等 4 个（Bash 改的追不到）");
     expect(branchFilesLine({ restored: [] })).toBe("没有要恢复的文件（只追 Write、Edit 改的，Bash 改的追不到）");

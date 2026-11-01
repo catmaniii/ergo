@@ -30,12 +30,12 @@ const inboxIds = (dbFile: string) => snapshotEvents(dbFile, CHANNELS.inbox).map(
 
 describe("每晚的备份", () => {
   it("到 03:30 调度器做一份快照：本机备份区多出当天的日期目录，ergo.db 和 materials.db 用 VACUUM INTO 生成、能通过完整性检查，其余文件已复制", async () => {
-    // 265 号票：给了时钟时底座默认停掉记忆插件；推理库 rg.db 是它起来时建的，这里要看它进了快照，打开
+    // 给了时钟时底座默认停掉记忆插件；推理库 rg.db 是它起来时建的，这里要看它进了快照，打开
     const { daemon, dataDir, layout, syncDir, advanceTo } = await setup({ memoryPlugin: true });
     const item = daemon.inbox.add({ kind: "notice", notice: "missed_reminder", title: "快照之前的事项", source: "测试", urgency: "non_blocking" });
     put(dataDir, "sessions/maintainer-demo/s1.jsonl", '{"type":"session","id":"s1"}\n{"type":"message","n":1}\n');
     put(dataDir, "projects/p-demo/charter.md", "# 立项书\n");
-    // 素材库（08 号票建的 materials.db，守护进程开着）：另开一个连接写一张探针表，WAL 里还有没合并回主文件的内容
+    // 素材库（以前建的 materials.db，守护进程开着）：另开一个连接写一张探针表，WAL 里还有没合并回主文件的内容
     const memory = openDatabase(path.join(layout.db, "materials.db"));
     onTestFinished(() => memory.close());
     memory.exec("CREATE TABLE backup_probe (id TEXT PRIMARY KEY, text TEXT)");
@@ -52,7 +52,7 @@ describe("每晚的备份", () => {
         "data/config/ergo.json",
         "data/db/ergo.db",
         "data/db/materials.db",
-        // 338 号票：推理库在会意插件自己的数据目录里，跟着数据目录进快照
+        // 推理库在会意插件自己的数据目录里，跟着数据目录进快照
         "data/memory/subtext/rg.db",
         "data/sessions/maintainer-demo/s1.jsonl",
         "data/projects/p-demo/charter.md",
@@ -133,7 +133,7 @@ describe("每晚的备份", () => {
   it("快照里没有密钥区、临时区、导入文件夹的文件，没有外部工作目录里的文件（项目绑定了外部路径也一样），也不包含本机备份区自己", async () => {
     const { dataDir, layout, syncDir, advanceTo } = await setup();
     put(dataDir, "secrets/deepseek-api-key.txt", "sk-不该进备份");
-    // 295 号票：导入文件夹（放进来没导的、导完挪到"已导入"的）不进快照——Takeout 这类导出可能几十 GB，导入后的数据已经在事件和素材里
+    // 导入文件夹（放进来没导的、导完挪到"已导入"的）不进快照——Takeout 这类导出可能几十 GB，导入后的数据已经在事件和素材里
     put(dataDir, "imports/takeout-2026.zip", "还没导入的导出包");
     put(dataDir, "imports/imported/bills.csv", "导完挪进已导入的账单");
     put(dataDir, "tmp/scratch/draft.md", "草稿区里的文件");

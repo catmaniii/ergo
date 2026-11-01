@@ -1,6 +1,6 @@
-// 216 号票：记忆简报（给大模型回答器看的上下文）。A、B、C 只有各组自己检索出的记录；D 是 C 的记录加上和问题相关的用户画像
-// （196 号票三条路找到的结论、还没分出胜负的竞争解释、明说过的要求和硬约束）。简报有长度上限，只放挑出来的那些。
-// 例子是 196 号票测试的那个人（自己写的，不看 fixtures/truth），外加一条别人转述、一条被本人纠正的话。
+// 记忆简报（给大模型回答器看的上下文）。A、B、C 只有各组自己检索出的记录；D 是 C 的记录加上和问题相关的用户画像
+// （三条路找到的结论、还没分出胜负的竞争解释、明说过的要求和硬约束）。简报有长度上限，只放挑出来的那些。
+// 例子是测试的那个人（自己写的，不看 fixtures/truth），外加一条别人转述、一条被本人纠正的话。
 import { afterEach, describe, expect, it } from "vitest";
 import { FakeEmbedder } from "../../src/embedding/fake.ts";
 import {
@@ -113,7 +113,7 @@ describe("记忆简报：A、B、C 只有记录，D 是 C 的记录加用户画�
     expect(n).toMatchObject({ tier: "need", status: "active", confidence: need.confidence, epistemic: "inferred" });
     expect(n.supportIds.length).toBeGreaterThan(0);
     const conf = { low: "低", medium: "中", high: "高" }[need.confidence];
-    // 330 号票（R5）：真值状态说"已验证 / 猜测"
+    // ADR-0032 R5：真值状态说"已验证 / 猜测"
     expect(d.text).toContain(`[${need.id}] 需求 · 推断的 · 已验证 · 把握${conf}：${need.statement}。支持 ${n.supportIds.length} 条、反对 ${n.refuteIds.length} 条`);
     expect(d.text).toContain(`[${stated.id}] 偏好 · 用户说的 · 已验证`);
     // 往上抽那组：重视自主安排占上风，"近期整体负荷高"被 ev-c2（周六晚上不加班、在家休息）推翻
@@ -132,7 +132,7 @@ describe("记忆简报：A、B、C 只有记录，D 是 C 的记录加用户画�
     expect(p.requirements).toEqual([]);
   });
 
-  it("330 号票（R5）：猜测照样进简报、标'猜测'和把握，标着复核的再标'复核中'；抬头写清猜测可以照着说、拿来推荐，把握低的留余地", async () => {
+  it("ADR-0032 R5：猜测照样进简报、标'猜测'和把握，标着复核的再标'复核中'；抬头写清猜测可以照着说、拿来推荐，把握低的留余地", async () => {
     const engine = await story();
     // 工作日那句话被忘掉：需求退回推理链、成了猜测（标着复核，等下一次整理）
     engine.invalidateEvidence("ev-d3", "用户说忘掉");
@@ -177,7 +177,7 @@ describe("记忆简报：A、B、C 只有记录，D 是 C 的记录加用户画�
     const withCounter = d.profile!.claims.find((c) => c.refuteIds.length > 0);
     expect(withCounter).toBeDefined();
     const ref = withCounter!.quotes!.find((q) => q.polarity === "refutes")!;
-    // 结论下面的反对证据（219）：原话写在那一行
+    // 结论下面的反对证据：原话写在那一行
     expect(d.text).toContain(`· 反对 [${ref.evidenceId}]`);
     expect(d.text).toContain(`[${ref.evidenceId}] ${ref.time} · ${ref.label}：「${ref.text}」`);
   });
@@ -230,7 +230,7 @@ function claimSection(b: MemoryBrief): string {
 const count = (text: string, part: string) => text.split(part).length - 1;
 const idsOf = (quotes: readonly BriefQuote[] | undefined, polarity?: BriefQuote["polarity"]) => (quotes ?? []).filter((q) => polarity === undefined || q.polarity === polarity).map((q) => q.evidenceId);
 
-describe("记忆简报 D：结论下面带上相关证据的原话（219 号票）", () => {
+describe("记忆简报 D：结论下面带上相关证据的原话", () => {
   const D = "hybrid_kg_rg" as const;
 
   it("每条结论下面带上支持的（最多 3 条）、反对的（最多 2 条）证据：时间、谁说的、原话", async () => {
@@ -370,7 +370,7 @@ describe("记忆简报 D：结论下面带上相关证据的原话（219 号票�
   });
 });
 
-/** 一条合成的结论：222 号票排序、去重的单元测试用（不建库、不调模型） */
+/** 一条合成的结论：排序、去重的单元测试用（不建库、不调模型） */
 const fakeClaim = (over: Partial<BriefClaim> & { claimId: string }): BriefClaim => ({
   statement: "用户重视自主安排",
   tier: "need",
@@ -388,7 +388,7 @@ const ordered = (claims: readonly BriefClaim[], rank: ReadonlyMap<string, number
 const idsOfDedupe = (claims: readonly BriefClaim[], winners?: ReadonlySet<string>) =>
   dedupeClaims(claims, winners).claims.map((c) => c.claimId);
 
-describe("记忆简报 D：结论按和问题的相关程度挑、去掉重复（222 号票）", () => {
+describe("记忆简报 D：结论按和问题的相关程度挑、去掉重复", () => {
   it("先看支持证据在 C 组检索里的最好名次（没有的算最差），再看分数、层级、把握", () => {
     // 一条支持证据在检索前 10 里，一条在 200 名外（不在名次表里）
     expect(ordered([fakeClaim({ claimId: "cl-late", supportIds: ["ev-far"] }), fakeClaim({ claimId: "cl-early", supportIds: ["ev-near"] })], new Map([["ev-near", 4]]))).toEqual(["cl-early", "cl-late"]);
@@ -453,12 +453,12 @@ describe("记忆简报 D：结论按和问题的相关程度挑、去掉重复�
   });
 });
 
-describe("记忆简报 D：极性相反的陈述永远不合并（228 号票）", () => {
+describe("记忆简报 D：极性相反的陈述永远不合并", () => {
   it("只差否定词的两条算极性相反：不、没、没有、别、未、无、非", () => {
-    // 票上的两个例子
+    // 两个例子
     expect(similarStatements("用户喜欢加班", "用户不喜欢加班")).toBe(false);
     expect(similarStatements("用户不在意署名", "用户在意署名")).toBe(false);
-    // 字面上重合度到 0.8 的也拦住（228 之前这种会被当成近乎同文并掉）
+    // 字面上重合度到 0.8 的也拦住（以前这种会被当成近乎同文并掉）
     expect(similarStatements("用户喜欢周末去参加朋友的聚会", "用户不喜欢周末去参加朋友的聚会")).toBe(false);
     expect(similarStatements("用户不在意作品署名的方式", "用户在意作品署名的方式")).toBe(false);
     // 否定词表里的其余几个
@@ -481,7 +481,7 @@ describe("记忆简报 D：极性相反的陈述永远不合并（228 号票）"
   it("同一组里两条相反的也不合并：那正是竞争解释，并掉就少一种", () => {
     const yes = fakeClaim({ claimId: "cl-yes", statement: "用户喜欢加班", groupKey: "g" });
     const no = fakeClaim({ claimId: "cl-no", statement: "用户不喜欢加班", groupKey: "g", confidence: "high", supportIds: ["ev-1", "ev-2"] });
-    // 把握高、支持证据多也不并掉（222 的组内斗法不适用于相反的两条）
+    // 把握高、支持证据多也不并掉（组内斗法不适用于相反的两条）
     expect(dedupeClaims([yes, no])).toMatchObject({ claims: [yes, no], dropped: 0 });
     expect(idsOfDedupe([yes, no], new Set(["cl-no"]))).toEqual(["cl-yes", "cl-no"]);
     // 组里还有别的同组结论时照旧并别的，只把相反的那条留下
@@ -512,7 +512,7 @@ describe("记忆简报 D：极性相反的陈述永远不合并（228 号票）"
   });
 });
 
-describe("记忆简报 D：同样字数里按相关程度挑（222 号票）", () => {
+describe("记忆简报 D：同样字数里按相关程度挑", () => {
   const spacious = { records: 0, profileChars: 100_000 } as const;
 
   it("同一组、近乎同文的只出现一条：组里占上风的那条留下，去掉的照旧记进 omitted.claims", async () => {
@@ -522,7 +522,7 @@ describe("记忆简报 D：同样字数里按相关程度挑（222 号票）", (
     expect(new Set(keys).size).toBe(keys.length);
     // 组里占上风、把握高的三条都留下了（这三组各有好几条结论进了候选）
     expect(d.profile!.claims.map((c) => c.claimId)).toEqual(expect.arrayContaining([statedOf(engine, "ev-w3", "dislikes").id, member(engine, NEED, "need_autonomy").id, member(engine, VALUE, "value_enduring").id, member(engine, WEEKEND_GROUP, "scene_autonomy").id]));
-    // 候选一共 9 条：同一组去掉了 4 条，写进去 5 条——330 号票（R3）起 ev-h1 那句转述起了一条猜测（不在组里，标"猜测"照样给）
+    // 候选一共 9 条：同一组去掉了 4 条，写进去 5 条——ADR-0032 R3起 ev-h1 那句转述起了一条猜测（不在组里，标"猜测"照样给）
     expect(d.profile!.claims.length).toBe(5);
     expect(d.omitted.claims).toBe(4);
     const relayed = d.profile!.claims.filter((c) => isRelayedGuess(engine.store, c.claimId));
@@ -535,7 +535,7 @@ describe("记忆简报 D：同样字数里按相关程度挑（222 号票）", (
     const d = await memoryBrief(engine, TASK_Q, { at: NOW, group: "hybrid_kg_rg", limits: spacious });
     const ranked = (await engine.search(TASK_Q, { ...briefSearchOptions("hybrid_kg", TASK_Q, NOW), limit: BRIEF_RANK_DEPTH })).map((h) => h.evidenceId);
     const rank = new Map(ranked.map((id, i) => [id, i]));
-    // 330 号票（R3）：转述起的猜测没有支持证据（转述只当背景），名次算最差、排在最后
+    // ADR-0032 R3：转述起的猜测没有支持证据（转述只当背景），名次算最差、排在最后
     const supported = d.profile!.claims.filter((c) => !isRelayedGuess(engine.store, c.claimId));
     expect(d.profile!.claims.slice(supported.length).every((c) => isRelayedGuess(engine.store, c.claimId))).toBe(true);
     const best = supported.map((c) => Math.min(...c.supportIds.map((id) => rank.get(id) ?? Number.POSITIVE_INFINITY)));
@@ -549,7 +549,7 @@ describe("记忆简报 D：同样字数里按相关程度挑（222 号票）", (
     const engine = await story();
     const full = await memoryBrief(engine, SELF_Q, { at: NOW, group: "hybrid_kg_rg", limits: spacious });
     const total = full.profile!.claims.length + full.omitted.claims;
-    // 330 号票（R3）：多了 ev-h1 那句转述起的一条猜测
+    // ADR-0032 R3：多了 ev-h1 那句转述起的一条猜测
     expect(total).toBe(9);
     const small = await memoryBrief(engine, SELF_Q, { at: NOW, group: "hybrid_kg_rg", limits: { ...spacious, claims: 2 } });
     expect(small.profile!.claims.length).toBe(2);
@@ -564,4 +564,4 @@ describe("记忆简报 D：同样字数里按相关程度挑（222 号票）", (
   });
 });
 
-// "记忆简报的检索设置和评测一样"（briefSearchOptions 对评测的 searchOptionsFor）：326 号票起在评测包的 test/eval/brief-search-options.test.ts
+// "记忆简报的检索设置和评测一样"（briefSearchOptions 对评测的 searchOptionsFor）：在评测包的 test/eval/brief-search-options.test.ts

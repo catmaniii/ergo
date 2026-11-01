@@ -1,4 +1,4 @@
-// 鸿蒙 App 里录一段语音（63 号票，用户 2026-10-09 要求：用系统自带的录音能力，"准备好但不使用"）：
+// 鸿蒙 App 里录一段语音（用系统自带的录音能力，"准备好但不使用"）：
 // 录音交给 App 的 AudioCapturer（经原生桥，见 native-voice.ts），这里是它在网页这一侧的状态，和浏览器的 VoiceRecorder 同一个接口
 // （VoiceCaptureBackend），手势、预热的时机、诊断都沿用 voice-session.ts。
 // - open：让 App 备好录音器（createAudioCapturer → PREPARED）：不采集、不申请音频焦点、麦克风指示灯不亮，不挡系统输入法的语音；
@@ -154,7 +154,7 @@ export class NativeVoiceRecorder implements VoiceCaptureBackend {
         blob: new Blob([wavOf(result.pcm, result.format)], { type: "audio/wav" }),
         mime: "audio/wav",
         capture: { ...captureOf(take, result.firstDataMs, peak), micLog: this.options.log.relativeTo(take.pressedAt) },
-        // 61 号票的不发空白语音：原生录音直接看样本
+        // 不发空白语音：原生录音直接看样本
         silent: peak < VOICE_SILENT_PEAK,
       };
     });

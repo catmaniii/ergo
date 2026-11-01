@@ -1,13 +1,13 @@
-// 语音服务接到服务管家（345 号票，ADR-0038；346 号票，ADR-0039 加了语音识别模型）：audio.cpp 的程序和模型是两个组件，都装好以后这里把它们接起来——
+// 语音服务接到服务管家（ADR-0038；ADR-0039 加了语音识别模型）：audio.cpp 的程序和模型是两个组件，都装好以后这里把它们接起来——
 // 生成 server.json（只绑 127.0.0.1、lazy_load 开、模型 id 用配置里的）→ 经 lsm/link.ts 登记 → 启动 → 等 GET /health → 进开机自启名单。
 // 哪一步失败都回滚（撤登记、删这次生成的配置）并写清哪一步、什么原因；程序和模型的文件留着，点"启动"不用重新下载。
-// 哪些模型算数看清单：写了 serve 的组件都写进 models[]，346 号票再加一条就是再加一个模型，装上、删掉都会重启服务。
+// 哪些模型算数看清单：写了 serve 的组件都写进 models[]，再加一条就是再加一个模型，装上、删掉都会重启服务。
 // **绝不覆盖用户自己配的服务**：配置（voice.speech.url）指别处、端口已经有人听、服务管家里这个端口已经登记给别人（手写的 audiocpp）、
 // 名下已经有同名的登记却不是我们生成的，都算"已有自己配的"：组件显示"在用它"，不下载、不登记。我们生成的认 server.json 在不在。
 // 协议碰不到手写在注册表里的服务（名下的服务只看得到自己命名空间），手写的服务停着时只有 put 回的 port-conflict 看得出来：
 // 点安装时空跑一次 put，登记得上就马上撤掉；查出来以后每分钟再看一次它撤了没有。
 // 组件服务不等这里：装好后的接上、点"启动"都在后台排队（一次一件），页面看 service 的 state；失败不抛错，写进 state 和 error。
-// 语音识别模型（serve.task 是 asr）还要多一件（346 号票）：用户自己配了别的语音识别（recognizer-link.ts）就不让装；服务接上了才把识别指过来，删了指回去。
+// 语音识别模型（serve.task 是 asr）还要多一件：用户自己配了别的语音识别（recognizer-link.ts）就不让装；服务接上了才把识别指过来，删了指回去。
 import fs from "node:fs";
 import net from "node:net";
 import os from "node:os";
@@ -27,7 +27,7 @@ export interface AudioCppHostOptions {
   componentsDir: string;
   /** 配置里的 voice.speech */
   speech: { url: string; model: string };
-  /** 语音识别那一边（346 号票）：有没有用户自己配的、服务接上了、模型删了；不给就只管服务 */
+  /** 语音识别那一边：有没有用户自己配的、服务接上了、模型删了；不给就只管服务 */
   recognizer?: RecognizerLink;
   /** 启动以后最多等 GET /health 多久（毫秒）；不给是 30 秒 */
   healthTimeoutMs?: number;
@@ -96,7 +96,7 @@ function matchesGlob(name: string, pattern: string): boolean {
   return lower.length - tail.length >= at && lower.endsWith(tail);
 }
 const concerns = (c: ManifestComponent): boolean => c.service !== undefined || c.serve !== undefined;
-/** 语音识别模型（346 号票） */
+/** 语音识别模型 */
 const isRecognizerModel = (c: ManifestComponent): boolean => c.serve?.task === "asr";
 const healthUrl = (service: ManifestService) => `http://127.0.0.1:${service.port}${service.health}`;
 const replyError = (reply: LsmServicesReply): string => (reply.ok ? "" : reply.error.message);

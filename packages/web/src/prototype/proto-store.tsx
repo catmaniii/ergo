@@ -1,8 +1,8 @@
 // 原型里看板、设置这些假数据的本地状态。
-// 这些频道的事件和归并在后面的票里接进前端状态层（定时作业 19……），到时候这个文件整个删掉。
-// 项目 15 号票起在前端状态层里（state/projects.ts；原型的假项目由假连接作为 project 事件推来）。
-// 待我处理 06 号票起已经在前端状态层里（原型的假事项由假连接作为 inbox_item 事件推来）；
-// 看板上的任务和简单提醒 12 号票起也在前端状态层里（state/board.ts），这里的假看板只补上还没接真数据的条目。
+// 这些频道的事件和归并以后接进前端状态层，到时候这个文件整个删掉。
+// 项目在前端状态层里（state/projects.ts；原型的假项目由假连接作为 project 事件推来）。
+// 待我处理已经在前端状态层里（原型的假事项由假连接作为 inbox_item 事件推来）；
+// 看板上的任务和简单提醒也在前端状态层里（state/board.ts），这里的假看板只补上还没接真数据的条目。
 //
 // 卡片处理后别的假数据要跟着变（确认了计划，假任务就进排队中）：这里看的是前端状态层里卡片的变化，
 // 不认具体是哪个连接，所以 App.tsx 里换掉连接也照样工作。
@@ -58,11 +58,11 @@ function toastFor(card: Card, action: CardAction): string | undefined {
   if (card.type === "suggest_project" && action === "kickoff") return `项目「${String(payload.name)}」诞生了（筹备中），负责人随之产生`;
   if (card.type === "suggest_task" && action === "start_task") return `已发起任务「${String(payload.title)}」（规划中）`;
   if (card.type === "charter") return action === "confirm_start" ? "已开工：发起了首个建设任务，项目进入建设中" : "立项书已确认，项目留在筹备中";
-  // 125 号票：立项要求变更
+  // 立项要求变更
   if (card.type === "charter_change") return action === "confirm" ? "立项书改好了，末尾记了这次变更" : "已拒绝，立项书不变";
-  // 261 号票：规范改写
+  // 规范改写
   if (card.type === "standard_change") return action === "confirm" ? "规范改好了，记进了项目档案" : "已拒绝，规范不变";
-  // 262 号票：补齐规范文档
+  // 补齐规范文档
   if (card.type === "standard_backfill") return action === "confirm" ? "改用了规范，建了任务交给负责人补" : "不补了，不会再问";
   if (card.id === "c-plan-bills") return action === "confirm" ? "计划已确认，任务进入排队中" : "已打回，意见交给了起草计划的负责人";
   if (card.type === "pairing" && action === "approve") return "已批准，新设备拿到凭证";
@@ -78,7 +78,7 @@ function handledLongAgo(card: Card): boolean {
 }
 
 /**
- * realBoard：看板频道接了真数据（由守护进程提供页面时）。看板上的任务、简单提醒、定时作业（19 号票）都来自前端状态层，
+ * realBoard：看板频道接了真数据（由守护进程提供页面时）。看板上的任务、简单提醒、定时作业都来自前端状态层，
  * 不再有假条目；没有守护进程时，假看板里的任务、提醒、定时作业都在。
  */
 export function ProtoProvider({ children, realBoard = false }: { children: ReactNode; realBoard?: boolean }) {

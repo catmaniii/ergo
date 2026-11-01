@@ -1,9 +1,9 @@
-// 项目的"运营概况"（140 号票，ui/operations-summary.tsx）怎么画、怎么点：用 React 在 Node 里渲染出来查，点的那几处直接拿到元素调它的 onClick。
+// 项目的"运营概况"（ui/operations-summary.tsx）怎么画、怎么点：用 React 在 Node 里渲染出来查，点的那几处直接拿到元素调它的 onClick。
 // - 收起：一行写清几条、各几点，右边一个展开钮；展开：每条一行（名字、时间表、下次、上次和结果、状态），点一行进任务整页；
 // - 没有定时任务的没有那一行、没有服务的没有入口；暂停了的标"已暂停"，上次失败的标出来；
 // - 服务：截过图的前面一张缩略图（不在线的灰掉、标"不在线"），上线了还没图的只悄悄取一次（藏着），截不了的只有入口；
 // - 项目卡整张能点开项目：展开钮、一行行的链接、缩略图都不往外冒；
-// - 257 号票：使用中、有在 LSM 上的服务的，服务前面一行开关——现在怎样和“启动”“关闭”两个按钮（不能点的灰掉，点了不往外冒）；
+// -使用中、有在 LSM 上的服务的，服务前面一行开关——现在怎样和“启动”“关闭”两个按钮（不能点的灰掉，点了不往外冒）；
 //   关闭的确认框写清关几个服务、一直关着（取消开机自启）、不是停用。
 import { createElement, isValidElement, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -96,7 +96,7 @@ describe("运营概况", () => {
     expect(html).toContain('<span class="ops-sum-next">下次 —</span><span class="ops-sum-last ops-sum-failed">上次 10-11 18:04 失败</span><span class="st st-paused">已暂停</span>');
   });
 
-  test("上次部分完成的（176 号票）单独一种颜色，不标红", () => {
+  test("上次部分完成的单独一种颜色，不标红", () => {
     const partial: SummaryTimedTask = { ...daily, last: { at: "2026-10-18T08:12:00.000+08:00", text: "部分完成", failed: false, partial: true } };
     const html = render(props(summary({ timed: [partial] }), true));
     expect(html).toContain('<span class="ops-sum-last ops-sum-partial">上次 10-18 08:12 部分完成</span>');
@@ -153,7 +153,7 @@ describe("运营概况", () => {
   });
 });
 
-describe("服务的“启动”“关闭”（257 号票）", () => {
+describe("服务的“启动”“关闭”", () => {
   test("有开关的在服务前面画一行：现在怎样和两个按钮，不能点的灰掉；失败的写原因；LSM 没连上的两个都灰掉、写原因；没有开关的不画", () => {
     const online = render(props(summary({ power: { state: "online", text: "在线", canStart: false, canStop: true } })));
     expect(online).toContain('<div class="ops-power ops-power-online">');

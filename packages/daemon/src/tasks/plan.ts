@@ -1,16 +1,16 @@
 // 计划（规格第 8 节）在守护进程里的纯函数：
 // - checkPlan：负责人提交时，查 schema 管不到的（schema 由 pi 按工具参数先校验，守护进程再按同一个 schema 校验一次）：
 //   阶段和阶段组的引用、前置关系不成环、每份策略（授权项：id 唯一、工具登记过、对象范围的参数是这个工具的；
-//   时序规则：validateTemporalRules，05 号票）、本任务的关注类别（全局的一个不能少、处置只能更严、新加的要写确定的规则）、
-//   用户说过的限制（26 号票：编译出的规则过规则校验，授权收窄只能收窄、提交时就落到授权项上）；
+//   时序规则：validateTemporalRules）、本任务的关注类别（全局的一个不能少、处置只能更严、新加的要写确定的规则）、
+//   用户说过的限制（编译出的规则过规则校验，授权收窄只能收窄、提交时就落到授权项上）；
 // - grantInfoOf：每项授权在守卫眼里的样子（工具的中文名、落在哪些关注类别、任务里最严的处置），计划卡据此生成授权行和停点；
-// - narrowPlan：用户在计划卡上勾掉或收窄授权项（validateGrantChange：只能收窄）、改假设栏、加本任务的关注类别（26 号票）；
-// - planConfirmation：计划卡、计划变更卡（14 号票）上"确认"共用的一段：收窄、快照关注类别、重算授权行、plan_decided 的负载；
-// - snapshotWatchCategories：确认计划时把本任务调严过的全局自定义类别连当时的规则一起快照进计划（26 号票）；
+// - narrowPlan：用户在计划卡上勾掉或收窄授权项（validateGrantChange：只能收窄）、改假设栏、加本任务的关注类别；
+// - planConfirmation：计划卡、计划变更卡上"确认"共用的一段：收窄、快照关注类别、重算授权行、plan_decided 的负载；
+// - snapshotWatchCategories：确认计划时把本任务调严过的全局自定义类别连当时的规则一起快照进计划；
 // - toGuardPlan：确认后的计划交给守卫的样子（GuardPlan：授权项挂到阶段上、时序规则照原样、限制编译出的规则加到每个阶段上、
-//   本任务的关注类别写成 TaskWatchSettings：判定时和当前的全局设置取最严），13 号票用；14 号票起每项授权的授予时间、
+//   本任务的关注类别写成 TaskWatchSettings：判定时和当前的全局设置取最严），用；每项授权的授予时间、
 //   到期时间可以单独给（GrantTime：计划变更之后原样留着的照旧、续期之后延长），守卫的授权项 id 对回计划里的用 planGrantIdOf；
-// - checkRevisedPlan：计划变更和自行调整（14 号票）时对新计划的检查：阶段和策略照提交计划时查，
+// - checkRevisedPlan：计划变更和自行调整时对新计划的检查：阶段和策略照提交计划时查，
 //   用户的限制里的授权收窄重新落到授权项上（收窄的授权项已经去掉的不管）。
 // 策略（授权项加时序规则）挂在阶段上或阶段组上，列表和怎么称呼它们在协议包的 plan.ts（planPolicies、planGrants）。
 import {
@@ -61,7 +61,7 @@ import type { StoredPlan } from "./views.ts";
 export interface PlanCheckContext {
   /** 这个任务的工具注册表（授权项、时序规则里的工具和参数照它查） */
   tools: ToolRegistry;
-  /** 工具包里不在 skill 库里的 skill、没登记的 MCP（27 号票：一条一句；不给就不查） */
+  /** 工具包里不在 skill 库里的 skill、没登记的 MCP（一条一句；不给就不查） */
   toolkitProblems?: ToolkitProblems;
   /** 全局的关注类别设置（数据目录配置区） */
   settings: WatchCategorySettings;
@@ -101,7 +101,7 @@ export function globalWatchCategories(settings: WatchCategorySettings): GlobalWa
 export type PlanCheck = { ok: true; plan: Plan } | { ok: false; problems: string[] };
 
 /**
- * 负责人交来的计划（361 号票）：它只估工具调用次数，写了 token 也不作数——存进计划的 token 是 0（阶段开始时运行时按实测算，
+ * 负责人交来的计划：它只估工具调用次数，写了 token 也不作数——存进计划的 token 是 0（阶段开始时运行时按实测算，
  * 记在阶段上）；计划卡上整个任务的粗估和大约多少钱按此刻的单次计量算
  */
 export function planFromSubmission(submission: PlanSubmission, meter: { perCall: number; costPerCall?: { amount: number; currency: string } } | undefined): Plan {
@@ -115,7 +115,7 @@ export function planFromSubmission(submission: PlanSubmission, meter: { perCall:
   };
 }
 
-/** 工具包里的 skill 要在 skill 库里、MCP 要登记过（27 号票，toolkit/ 给）：不合的一条一句 */
+/** 工具包里的 skill 要在 skill 库里、MCP 要登记过（toolkit/ 给）：不合的一条一句 */
 export type ToolkitProblems = (toolkit: Pick<Plan["toolkit"], "skills" | "mcp">) => string[];
 
 /**
@@ -132,7 +132,7 @@ export function checkPlan(plan: Plan, ctx: PlanCheckContext & { taskId: string }
 }
 
 /**
- * 计划变更和自行调整时对新计划的检查（14 号票）：阶段（引用、前置不成环、定步有步骤、脚本有命令）和每份策略（授权项、时序规则）照提交计划时查；
+ * 计划变更和自行调整时对新计划的检查：阶段（引用、前置不成环、定步有步骤、脚本有命令）和每份策略（授权项、时序规则）照提交计划时查；
  * 本任务的关注类别、用户的限制沿用当前计划（负责人改不了），限制里的授权收窄重新落到授权项上——收窄的授权项已经去掉了的跳过
  */
 export function checkRevisedPlan(plan: Plan, tools: ToolRegistry, toolkitProblems?: ToolkitProblems): PlanCheck {
@@ -148,7 +148,7 @@ export function checkRevisedPlan(plan: Plan, tools: ToolRegistry, toolkitProblem
 // 计划检查的问题交回负责人（提交、修改计划的工具结果），照旧中文
 // @i18n-ignore-start model
 /**
- * 用户说过的限制（26 号票）：id 唯一；每条至少编译出一条时序规则或授权收窄（编译不了的写进假设栏）；规则过规则校验
+ * 用户说过的限制：id 唯一；每条至少编译出一条时序规则或授权收窄（编译不了的写进假设栏）；规则过规则校验
  * （规则 id 和阶段、阶段组的规则一起在整份计划里唯一，见 policyProblems）；收窄只能收窄，依次落到授权项上
  */
 function applyUserLimits(plan: Plan, tools: ToolRegistry): { plan: Plan; problems: string[] } {
@@ -257,7 +257,7 @@ function policyProblems(plan: Plan, tools: ToolRegistry): string[] {
 
 function grantProblems(grant: PlanGrant, tools: ToolRegistry): string[] {
   const tool = findTool(tools, grant.tool);
-  // 362 号票：别说"没有这个工具"。propose_operations、check_ops 这类运行时代为执行的工具执行时照样有，只是不用（也不能）写进授权项；真写错名字的也按这句改
+  // 别说"没有这个工具"。propose_operations、check_ops 这类运行时代为执行的工具执行时照样有，只是不用（也不能）写进授权项；真写错名字的也按这句改
   if (!tool) return [`授权项 ${grant.id}：${grant.tool} 不能写进授权项（授权项只写内置工具、带类型的 bash 工具和工具包里的 MCP）。运行时代为执行的工具（比如 propose_operations、check_ops）不用授权，执行时照样有：去掉这一项；是写错了名字的改对`];
   return Object.keys(grant.scope)
     .filter((param) => !Object.hasOwn(tool.args, param))
@@ -323,7 +323,7 @@ function quoteForm(text: string): string {
 
 /**
  * 用户的限制里核对得上原话的（限制 id）：quote 原样出现在 sources 的某一段里（用户自己的话：任务书的约束、
- * 发起任务时写的话、用户在这个任务的会话里的消息）。对不上的，计划卡上显示成"负责人转述"（26 号票）
+ * 发起任务时写的话、用户在这个任务的会话里的消息）。对不上的，计划卡上显示成"负责人转述"
  */
 export function verifiedQuotes(limits: readonly { id: string; quote: string }[], sources: readonly string[]): string[] {
   const texts = sources.map((text) => text.replace(/\s+/g, " "));
@@ -361,7 +361,7 @@ export function grantInfoOf(plan: Plan, ctx: PlanCheckContext): Record<string, G
       dispositions.push(category.disposition);
     }
     for (const id of tool?.bottomLines ?? []) dispositions.push(BOTTOM_LINES[id].disposition);
-    // 对外（84 号票，阶段详情的"权""外"按它分）：拿对象范围当参数问守卫的 sendsOut（和重做前列出的"对外"同一个口径）
+    // 对外（阶段详情的"权""外"按它分）：拿对象范围当参数问守卫的 sendsOut（和重做前列出的"对外"同一个口径）
     const outward = tool !== undefined && sendsOut(tool, grant.scope);
     info[grant.id] = { toolTitle: tool?.title ?? grant.tool, categoryTitles: titles, disposition: WIRE_DISPOSITION[strictest(...dispositions)], outward };
   }
@@ -386,7 +386,7 @@ export type PlanNarrowing =
       removed: PlanGrant[];
       narrowed: string[];
       assumptions?: { before: string[]; after: string[] };
-      /** 用户在卡上给这个任务加的关注类别（26 号票） */
+      /** 用户在卡上给这个任务加的关注类别 */
       added?: PlanWatchCategory[];
     }
   /** 授权项的问题（勾掉、收窄得不对：放宽了、没有这一项）和加的关注类别的问题分开给 */
@@ -474,7 +474,7 @@ export interface PlanConfirmation {
 }
 
 /**
- * 76 号票之前交的计划里可能还写着定时作业（scheduledJobs，协议的 Plan 里已经没有这一栏）：确认时从计划里拿掉，确认后的计划、
+ * 以前交的计划里可能还写着定时作业（scheduledJobs，协议的 Plan 里已经没有这一栏）：确认时从计划里拿掉，确认后的计划、
  * 计划卡的负载才合现在的 schema。里面的作业由触发底座照迁移的办法建成定时触发的普通任务（scheduled-jobs/legacy-plan.ts）
  */
 export function withoutLegacyJobs(plan: Plan): Plan {
@@ -484,7 +484,7 @@ export function withoutLegacyJobs(plan: Plan): Plan {
 }
 
 /**
- * 卡上的"确认"（计划卡 12 号票、计划变更卡 14 号票共用）：勾掉、收窄授权项、改假设栏、加本任务的关注类别（id 是本任务的），
+ * 卡上的"确认"（计划卡、计划变更卡共用）：勾掉、收窄授权项、改假设栏、加本任务的关注类别（id 是本任务的），
  * 不合的抛 RequestRejected；本任务调严过的全局自定义类别连现在的规则一起快照进确认的计划（全局后来调松、删掉，已确认的任务
  * 仍按确认时的设置检查）；加了类别可能让授权项的处置变严（落在"先问我"里就不算授权），授权行跟着重算
  */
@@ -550,7 +550,7 @@ function addedCategories(plan: Plan, additions: NonNullable<PlanConfirmInput["ad
 }
 
 /**
- * 确认计划时的快照（26 号票）：本任务调严过的全局自定义类别（处置比现在的全局严），连同现在的名字和规则一起写进计划。
+ * 确认计划时的快照：本任务调严过的全局自定义类别（处置比现在的全局严），连同现在的名字和规则一起写进计划。
  * 这样全局后来调松、改规则或删掉它，已确认的任务仍按确认时的设置检查；全局调严照样生效（判定时和全局设置取最严）。
  * 没调严的全局类别不快照，跟着全局走；内置类别的规则在代码里，处置本来就在计划里；本任务新加的类别本来就带规则
  */
@@ -579,17 +579,17 @@ export const planGrantIdOf = (guardGrantId: string): string => guardGrantId.spli
 export const grantValidityMs = (grant: PlanGrant | undefined): number => (grant?.validDays ?? DEFAULT_GRANT_VALID_DAYS) * DAY_MS;
 
 /**
- * 确认后的计划交给守卫的样子（13 号票的控制器用）：
+ * 确认后的计划交给守卫的样子（控制器用）：
  * - 授权项挂到所属阶段上（toGuardGrant，授予时间是确认的时刻）；
  *   阶段组的策略里的授权项给组里每个阶段各一份（id 写成"授权项 id@阶段 id"），次数按阶段各算各的；
- * - 阶段和阶段组的时序规则照原样（05 号票的 stages / stageGroups 形状），用户的限制编译出的规则加到每个阶段上；
+ * - 阶段和阶段组的时序规则照原样（stages / stageGroups 形状），用户的限制编译出的规则加到每个阶段上；
  * - 本任务的关注类别写成 TaskWatchSettings（确认时已经快照好，见 snapshotWatchCategories）：
  *   判定时和当前的全局设置取最严，所以不用全局设置，也不必跟着全局设置重算
  */
 export function toGuardPlan(plan: Plan, options: { confirmedAt: number; grantTimes?: Readonly<Record<string, GrantTime>> }): GuardPlan {
   const { confirmedAt } = options;
   const groups = new Map(plan.stageGroups.map((g) => [g.groupId, g]));
-  // 每项授权单独记了授予时间、到期时间的（14 号票：计划变更、续期之后）用记下的
+  // 每项授权单独记了授予时间、到期时间的（计划变更、续期之后）用记下的
   const timed = (g: Grant): Grant => {
     const tm = options.grantTimes?.[g.grantId];
     return tm ? { ...g, grantedAt: tm.grantedAt, expiresAt: tm.expiresAt } : g;
@@ -612,11 +612,11 @@ export function toGuardPlan(plan: Plan, options: { confirmedAt: number; grantTim
   };
 }
 
-/** 定时作业的一次运行在守卫眼里只有一个"阶段"：作业每次运行的授权项、时序规则都挂在它上面（19 号票） */
+/** 定时作业的一次运行在守卫眼里只有一个"阶段"：作业每次运行的授权项、时序规则都挂在它上面 */
 export const JOB_RUN_STAGE = "run";
 
 /**
- * 定时作业每次运行的授权交给守卫的样子（19 号票，规格第 13 节"定时作业的授权"）：
+ * 定时作业每次运行的授权交给守卫的样子（规格第 13 节"定时作业的授权"）：
  * - 授权项挂在 JOB_RUN_STAGE 上，授予时间是作业登记的时刻，作业在就一直有效（不按 7 天、不续期）；次数按每次运行算
  *   （守卫按这一次运行的会话段数效果，见 GuardTask.segmentScoped）；
  * - 时序规则：作业自己的，加上计划里用户的限制编译出的（登记时已经合在一起）；

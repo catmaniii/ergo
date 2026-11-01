@@ -1,8 +1,8 @@
-// 存进二狗的素材（165 号票，模块层）："浏览"的 ⋮ 菜单里把开着的一页存进素材。存下的是素材频道上的一条 web_page_saved 事件，
+// 存进二狗的素材（模块层）："浏览"的 ⋮ 菜单里把开着的一页存进素材。存下的是素材频道上的一条 web_page_saved 事件，
 // 采成一条"用户主动投喂的材料"素材（来源本人：存是用户做的；情境 saved_web_page）；网页那一段是外部、不可信的，只记网址、标题和正文的哈希——
 // 正文不进切段、不进原文副本（推断不拿它当用户的话）。同一个幂等键重发只存一次；彻底删除时事件里的标题、地址、正文换成删除标记。
-// 166 号票（用户 2026-10-19 定，规格第 15 节的例外）：用户主动存的网页，正文进检索的索引（关键词、向量）——按正文里的字检索得到；
-// 166 之前存的（索引里没有正文）守护进程起来时按原始事件补进索引。
+// 规格第 15 节的例外：用户主动存的网页，正文进检索的索引（关键词、向量）——按正文里的字检索得到；
+//以前存的（索引里没有正文）守护进程起来时按原始事件补进索引。
 import fs from "node:fs";
 import path from "node:path";
 import { EVENT_TYPES, type MemoryCommandEventPayload, PURGED_TEXT, SAVED_WEB_PAGE_CONTEXT, type WebPageSavedEventPayload } from "@ergo/protocol";
@@ -69,7 +69,7 @@ describe("存一页", () => {
     expect(fs.readFileSync(path.join(t.materialsDir, material!.original!.path), "utf8")).not.toContain("灵隐寺");
   });
 
-  test("按标题、网址的关键词检索得到；166 号票起按正文里的字也检索得到（长词走索引、短词子串过滤）", () => {
+  test("按标题、网址的关键词检索得到；按正文里的字也检索得到（长词走索引、短词子串过滤）", () => {
     const { t, pages } = setup();
     pages().save(PAGE);
     expect(t.materials.searchKeyword("杭州玩什么").map((m) => m.context)).toEqual([[SAVED_WEB_PAGE_CONTEXT]]);
@@ -80,7 +80,7 @@ describe("存一页", () => {
     expect(t.materials.searchKeyword("断桥残雪")).toEqual([]);
   });
 
-  test("有向量模型时按正文的意思也检索得到（166 号票）", async () => {
+  test("有向量模型时按正文的意思也检索得到", async () => {
     const { t, pages } = setup();
     pages().save({ ...PAGE, title: "清单", text: "下个月搬到新住处之前要准备的东西：纸箱、胶带、记号笔。" });
     pages().save({ ...PAGE, idempotencyKey: "save-2", title: "菜谱", text: "番茄炒蛋的做法。" });
@@ -99,11 +99,11 @@ describe("存一页", () => {
     expect(material).toMatchObject({ source: "self", time: TIME, context: [SAVED_WEB_PAGE_CONTEXT] });
   });
 
-  test("166 之前存的网页（索引里没有正文）：守护进程起来时按原始事件把正文补进索引，向量重算；只补一次", async () => {
+  test("以前存的网页（索引里没有正文）：守护进程起来时按原始事件把正文补进索引，向量重算；只补一次", async () => {
     const { t, pages } = setup();
     const { materialId } = pages().save(PAGE);
     await vectorsSettled(t.materials);
-    // 扮成 166 之前的库：索引文字只有引用的说明，没记过索引文字的版本
+    // 扮成以前的库：索引文字只有引用的说明，没记过索引文字的版本
     const label = `${PAGE.title}（${PAGE.url}）`;
     const embedder = new FakeEmbedder();
     await t.reopen({

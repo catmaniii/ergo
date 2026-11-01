@@ -1,4 +1,4 @@
-// 斜杠命令里的 skill（72 号票起 /skill:名字，82 号票改成直接 /目录名，用户 2026-10-10 定）。
+// 斜杠命令里的 skill（/skill:名字，改成直接 /目录名）。
 // - **命令名就是 skill 的目录名**（/poteto-mode、/mp-tdd、pstack 的 /tdd），不论 SKILL.md 里的名字带不带空格；
 //   显示的名字照 SKILL.md 原样（"Poteto Mode"）。目录名导入时已经规范成小写、不带空格的写法（skills/library.ts）。
 // - 不做最长匹配：/ 后面到第一个空白就是命令名，后面是用户的话。
@@ -67,8 +67,8 @@ function whose(s: LibrarySkill): string {
 }
 
 /**
- * skill 目录名的问题（82 号票，启动时记日志、skill 库页上提示，二狗不自动改名）：
- * - 目录名不是小写、不带空格的写法（手放进 skill 区的、82 号票之前导入的）；
+ * skill 目录名的问题（启动时记日志、skill 库页上提示，二狗不自动改名）：
+ * - 目录名不是小写、不带空格的写法（手放进 skill 区的、以前导入的）；
  * - 两个不在集合里的 skill 目录名相同（只有手放的才会）：/目录名 认先扫到的那个，另一个没有斜杠命令
  */
 export function skillDirProblems(skills: readonly LibrarySkill[]): string[] {

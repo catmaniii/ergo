@@ -1,4 +1,4 @@
-// 165 号票：浏览记录的删、多选删、清空、清一个网站的，按网站记住的文字大小和桌面版——记在这台设备上的那一半
+// 浏览记录的删、多选删、清空、清一个网站的，按网站记住的文字大小和桌面版——记在这台设备上的那一半
 // （app/browse-settings.ts，存储换成假的）。
 import { describe, expect, test } from "vitest";
 import { browseSettingsIn } from "../../src/app/browse-settings.ts";

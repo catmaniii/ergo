@@ -1,4 +1,4 @@
-// 向量函数的接口：检索（③ 号票）只认它。PoC 有两种实现：假向量（fake.ts，测试和演示）、transformers.js 跑的真模型（transformers.ts，现在是 bge-m3）。
+// 向量函数的接口：检索只认它。PoC 有两种实现：假向量（fake.ts，测试和演示）、transformers.js 跑的真模型（transformers.ts，现在是 bge-m3）。
 // 查询和文档分开算（调研 22：以后可能换 Qwen3-Embedding 这类查询要加指令前缀、文档不加的模型）；
 // 池化方式、前缀是适配器的配置项。bge-m3 两种角色一样。向量表里每条记模型名，换了模型（名字变了）整批重算。
 

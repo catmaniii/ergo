@@ -1,6 +1,6 @@
-// 104 号票：项目页照任务页（88 号票）改——项目一览占满内容区（宽屏多列的"档案墙"，按项目状态分组，已归档默认收起，顶上一条概览），
+// 项目页照任务页改——项目一览占满内容区（宽屏多列的"档案墙"，按项目状态分组，已归档默认收起，顶上一条概览），
 // 点卡片、从别处跳进来整页是这个项目（宽屏会话占主区、项目详情在能开合能拖宽的档案栏里），‹、浏览器后退回一览并滚回原来的位置；
-// 368 号票起手机上也是一览 → 对话框，档案滑进来；对话框显示哪个任务（projectConversationTask）、任务在哪个项目的对话框里（taskHomeProject）。
+// 手机上也是一览 → 对话框，档案滑进来；对话框显示哪个任务（projectConversationTask）、任务在哪个项目的对话框里（taskHomeProject）。
 import { describe, expect, test } from "vitest";
 import { parseHash, toHash } from "../../src/app/route-hash.ts";
 import {
@@ -38,7 +38,7 @@ function project(id: string, overrides: Partial<Project> = {}): Project {
 
 const projectFrame = (seq: number, p: Project) => frame("projects", seq, "project", { project: p, change: "created", from: null, by: "user" } satisfies ProjectEventPayload);
 
-/** 项目 p-1 的一个内部任务（64 号票） */
+/** 项目 p-1 的一个内部任务 */
 function internal(id: string, state: Task["state"], updatedAt = T): Task {
   return { id, title: id, summary: id, state, origin: "button", maintainerId: "pm-p-1", projects: ["项目p-1"], projectIds: ["p-1"], internal: { projectId: "p-1", projectName: "项目p-1" }, createdAt: T, updatedAt };
 }
@@ -96,7 +96,7 @@ describe("项目页显示什么：一览和项目二选一", () => {
   });
 });
 
-describe("项目的对话框显示哪个任务（368 号票）", () => {
+describe("项目的对话框显示哪个任务", () => {
   const P = project("p-1", { state: "building" });
   const later = "2026-10-09T09:00:00.000+08:00";
   const order = (seq: number, taskId: string) =>
@@ -213,7 +213,7 @@ describe("项目一览：按项目状态分组，顶上一条概览", () => {
   });
 });
 
-describe("分组收起：照看板（90 号票），按设备记住，默认已归档收起；和任务看板分开记", () => {
+describe("分组收起：照看板，按设备记住，默认已归档收起；和任务看板分开记", () => {
   test("没记过：已归档收起，其它展开", () => {
     expect([...projectFoldedOf(null)]).toEqual(["archived"]);
   });

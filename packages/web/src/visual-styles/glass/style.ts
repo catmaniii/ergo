@@ -1,10 +1,10 @@
-// 玻璃光纹（46 号票，设计稿 docs/architecture/design/styles/e-*.dc.html）：磨砂玻璃面板浮在点阵底上、电光蓝微光，正文 Noto Sans SC，
+// 玻璃光纹（设计稿 docs/architecture/design/styles/e-*.dc.html）：磨砂玻璃面板浮在点阵底上、电光蓝微光，正文 Noto Sans SC，
 // 时间、时长、计数这些数字用 Chakra Petch。按钮、你发的消息是电光蓝实色块；"要你"的事（等你验收、卡住、未读）是砖红（设计稿的 --warn）。
 // token 在这里；只靠 token 做不到的（点阵底、磨砂玻璃、浮起的标题栏 / 导航 / 输入栏、带微光的选中条和进度条……）在 style.css。
 //
 // 颜色取设计稿 renderVals() 的浅色、深色两套（--bg、--surface、--border、--text、--muted、--accent、--accent-ink、--accent-soft、
 // --warn、--warn-ink、--warn-soft、--code、--dot）。磨砂玻璃的半透明底（设计稿的 --surface，浅色白 74%、深色 72%）和点阵的点（--dot）
-// 写在 style.css 里（--glass-bg、--glass-dot），只给标题栏、导航、输入栏用（用户 2026-10-11 定）；面板的亮边（--edge）是 card-border。
+// 写在 style.css 里（--glass-bg、--glass-dot），只给标题栏、导航、输入栏用；面板的亮边（--edge）是 card-border。
 // 这里的 surface 是不透明的：玻璃叠在页面底色上的样子（浅色 #fbfbfd、深色 #14192d），卡片、气泡、看板卡、待办行这些浮在点阵上的面板，
 // 和弹层、菜单、窄屏滑入的详情页这些盖在内容上的东西都用它。
 //
@@ -17,7 +17,7 @@ import type { VisualStyle } from "../tokens.ts";
 
 export const glass: VisualStyle = {
   id: "glass",
-  // 名字和一句话按当前语言（169 号票，取的时候现查）
+  // 名字和一句话按当前语言（取的时候现查）
   get name() {
     return t("styles.glass.name");
   },
@@ -64,7 +64,7 @@ export const glass: VisualStyle = {
     "op-bg": ["#f8eddb", "#2f2a22"],
     "op-fg": ["#7d4b00", "#f3c06a"],
     ok: ["#0f6431", "#5fd38d"],
-    // 个人助理的名字标签（43 号票；设计稿的 .name：淡蓝底、蓝字、一圈蓝线，线在 style.css）。底色比数据小签深一档，
+    // 个人助理的名字标签（设计稿的 .name：淡蓝底、蓝字、一圈蓝线，线在 style.css）。底色比数据小签深一档，
     // 和页面底色、玻璃分得出来（浅色 1.20 / 1.31 倍，深色 1.63 / 1.48 倍）；字和底浅色 5.36:1、深色 5.84:1
     "name-bg": ["#d5ddf9", "#2b365b"],
     "name-fg": ["#1e49ce", "#9db4ff"],

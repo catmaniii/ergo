@@ -1,5 +1,5 @@
-// 设置里的联网搜索队列（162 号票）：初始顺序、实际用哪几种（DeepSeek 要配 key）、至少留一个、154 号票旧设置的迁移、schema。
-// 182 号票：队列里多第四种"手机 App 的内置浏览器"（排最后、启用）；162 号票存的三项的文件读的时候把它加在最后，认不得的方式跳过。
+// 设置里的联网搜索队列：初始顺序、实际用哪几种（DeepSeek 要配 key）、至少留一个、旧设置的迁移、schema。
+// 队列里多第四种"手机 App 的内置浏览器"（排最后、启用）；存的三项的文件读的时候把它加在最后，认不得的方式跳过。
 // "浏览"页签的搜索引擎（必应、百度……）拼结果页地址的函数挪到协议包（守护进程给秘书拼内置浏览器要打开的结果页）。
 import { describe, expect, test } from "vitest";
 import {
@@ -25,7 +25,7 @@ import {
 const queue = (...entries: [WebSettings["queue"][number]["method"], boolean][]): WebSettings => ({ queue: entries.map(([method, enabled]) => ({ method, enabled })) });
 
 describe("联网搜索的队列", () => {
-  test("初始顺序照 161 号票的报告：DeepSeek → 浏览器 → agent-browser，182 号票的手机 App 的内置浏览器排最后，都启用；默认值改不动", () => {
+  test("初始顺序照报告：DeepSeek → 浏览器 → agent-browser，手机 App 的内置浏览器排最后，都启用；默认值改不动", () => {
     expect(DEFAULT_WEB_SETTINGS).toEqual(queue(["deepseek", true], ["browser", true], ["agent-browser", true], ["app-browser", true]));
     expect(WEB_METHOD_LABEL["app-browser"]).toBe("手机 App 的内置浏览器");
     expect(Object.isFrozen(DEFAULT_WEB_SETTINGS.queue[0])).toBe(true);
@@ -61,7 +61,7 @@ describe("联网搜索的队列", () => {
     }
   });
 
-  test("设置文件里的队列（182 号票）：162 号票存的三项读成四项，手机 App 的内置浏览器加在最后、启用；认不得的方式跳过；重复的留给合规检查", () => {
+  test("设置文件里的队列：存的三项读成四项，手机 App 的内置浏览器加在最后、启用；认不得的方式跳过；重复的留给合规检查", () => {
     const old = [
       { method: "browser", enabled: true },
       { method: "agent-browser", enabled: false },
@@ -77,7 +77,7 @@ describe("联网搜索的队列", () => {
     expect(webSettingsProblem(dup.settings, true)).toMatch(/^队列里要四种方式各一项/);
   });
 
-  test("154 号票的旧设置并进队列：默认浏览器的浏览器排第一、DeepSeek 第二，agent-browser、手机 App 的内置浏览器在后面，都启用；读网页的开关没有对应的了", () => {
+  test("旧设置并进队列：默认浏览器的浏览器排第一、DeepSeek 第二，agent-browser、手机 App 的内置浏览器在后面，都启用；读网页的开关没有对应的了", () => {
     expect(migrateWebSettingsV1({ search: "deepseek", deepseekFetch: true })).toEqual(queue(["deepseek", true], ["browser", true], ["agent-browser", true], ["app-browser", true]));
     expect(migrateWebSettingsV1({ search: "deepseek", deepseekFetch: false })).toEqual(queue(["deepseek", true], ["browser", true], ["agent-browser", true], ["app-browser", true]));
     expect(migrateWebSettingsV1({ search: "browser", deepseekFetch: false })).toEqual(queue(["browser", true], ["deepseek", true], ["agent-browser", true], ["app-browser", true]));
@@ -104,7 +104,7 @@ describe("联网搜索的队列", () => {
   });
 });
 
-describe("“浏览”页签的搜索引擎（182 号票挪到协议包）", () => {
+describe("“浏览”页签的搜索引擎（挪到协议包）", () => {
   test("必应、百度、搜狗、谷歌；认不得的、没记过的按默认必应；关键词按 encodeURIComponent 接在结果页地址后面", () => {
     expect(BROWSE_SEARCH_ENGINE_IDS).toEqual(["bing", "baidu", "sogou", "google"]);
     expect(browseSearchEngineOf(undefined)).toBe("bing");

@@ -1,5 +1,5 @@
-// 任务模块在"删除参与方"登记表里的那一份（279 号票；登记表见 deletion/participants.ts）。186 号票的 tasks/records-purge.ts 并进来：
-// 删项目时随项目删的内部任务（ADR-0010、64 号票）、用户删一个任务（186 号票）共用这几样任务自己的记录——
+// 任务模块在"删除参与方"登记表里的那一份（登记表见 deletion/participants.ts）。tasks/records-purge.ts 并进来：
+// 删项目时随项目删的内部任务（ADR-0010）、用户删一个任务共用这几样任务自己的记录——
 // - 看板频道上它们的每条 task 事件：任务的文字换成删除标记（purgedTask），行留着、编号不收回；
 // - 看板频道上现在生效的计划换了一版时推的 task_plan（计划栏、阶段抽屉按它画）：整条换成"已删除"标记；
 // - tasks 频道上它们的任务书、计划、计划的决定……：整条换成"已删除"标记。
@@ -50,7 +50,7 @@ export function registerTaskDeletion(participants: Pick<DeletionParticipants, "r
   const undoProject = participants.register(PROJECT_DELETION, {
     owner: "tasks",
     join: ({ project }, plan) => ({
-      // 项目的内部任务（64 号票）随项目一起删
+      // 项目的内部任务随项目一起删
       scope() {
         for (const task of listTasks(plan.store.reader)) if (isInternalTo(task, project.id)) plan.tasks.add(task.id);
       },

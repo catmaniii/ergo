@@ -1,4 +1,4 @@
-// 守卫切面：一次工具调用做了什么性质的事——只看、动手、删改（54 号票，guard/nature.ts，用户 2026-10-09 定由守护进程判定，
+// 守卫切面：一次工具调用做了什么性质的事——只看、动手、删改（guard/nature.ts，由守护进程判定，
 // 按"动没动原来就有的东西"分）。按这次判定实际要判的调用（通用 bash 拆成的伪工具调用）取最重的；
 // 局部改、整个覆盖已有的文件都算删改，文件在不在看环境事实，查不清的按新建算动手。
 import { describe, expect, test } from "vitest";
@@ -24,8 +24,8 @@ describe("模型直接调的工具", () => {
     ["搜索内容", "grep", { pattern: "TODO" }, {}, "look"],
     ["查找文件", "find", { pattern: "*.md" }, {}, "look"],
     ["git 状态和差异", "git_status_diff", {}, {}, "look"],
-    ["联网搜索（70 号票）", "web_search", { query: "二狗", engine: "bing", tavily: true }, {}, "look"],
-    ["读网页（70 号票）", "web_fetch", { url: "https://example.com/a" }, {}, "look"],
+    ["联网搜索", "web_search", { query: "二狗", engine: "bing", tavily: true }, {}, "look"],
+    ["读网页", "web_fetch", { url: "https://example.com/a" }, {}, "look"],
     ["写一个新文件", "write", { path: "new.md", content: "x" }, absent("new.md"), "act"],
     ["整个覆盖一个已有的文件：删改", "write", { path: "old.md", content: "x" }, existing("old.md"), "modify"],
     ["写文件、查不清在不在：按新建算", "write", { path: "maybe.md", content: "x" }, {}, "act"],
@@ -80,7 +80,7 @@ describe("通用 bash：按拆出来的每条调用取最重的", () => {
     ["mv a.txt b.txt", absent("b.txt"), "modify"],
     ["rm -rf build", {}, "modify"],
     ["ls && rm a.txt", {}, "modify"],
-    // git：丢掉改动、改写历史、删改分支和标签、删远端分支都是删改（54 号票评审）；提交、普通推送、建分支是动手；看状态是只看
+    // git：丢掉改动、改写历史、删改分支和标签、删远端分支都是删改；提交、普通推送、建分支是动手；看状态是只看
     ["git reset --hard HEAD", {}, "modify"],
     ["git reset HEAD~1", {}, "modify"],
     ["git reset --soft HEAD~2", {}, "modify"],

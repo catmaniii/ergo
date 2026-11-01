@@ -1,4 +1,4 @@
-// 首次设置向导（319 号票）网页那一半的纯逻辑（app/setup.ts）：现在该显示哪一步、打完一步接着显示哪一步、
+// 首次设置向导网页那一半的纯逻辑（app/setup.ts）：现在该显示哪一步、打完一步接着显示哪一步、
 // 做完了几步、点了某个步骤显示哪一屏、演示页的假状态、点"以后再说 / 这一步就这样"发出去的那一份请求体、
 // 首页那条引导条关掉后记在哪台设备的哪个键上。页面本身见 test/pages/setup-wizard.test.ts，i18n 见 npm run i18n:check。
 import { describe, expect, test } from "vitest";
@@ -65,7 +65,7 @@ describe("打完这一步接着显示哪一步", () => {
     expect(setupStepAfter(view(), "language")?.id).toBe("model");
     expect(setupStepAfter(view(["capabilities"]), "language")?.id).toBe("model");
     expect(setupStepAfter(view(["model"]), "language")?.id).toBe("capabilities");
-    // 347 号票：模型 Key 配好了，接着就是能力那一步（向量模型只在这里装，不会被跳过）
+    // 模型 Key 配好了，接着就是能力那一步（向量模型只在这里装，不会被跳过）
     expect(setupStepAfter(view(["language", "model"]), "model")?.id).toBe("capabilities");
   });
 

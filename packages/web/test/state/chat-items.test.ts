@@ -1,4 +1,4 @@
-// 会话条目层（52 号票）：把会话拆成条目（ChatItem）——用户消息、思考、回复、工具调用组（含出了状况的调用）、
+// 会话条目层：把会话拆成条目（ChatItem）——用户消息、思考、回复、工具调用组（含出了状况的调用）、
 // 卡片、系统说明、时间线记录、工单分隔、语音。先回放主切面录下的真实事件流（秘书会话、任务的负责人会话、项目的负责人会话），
 // 录像覆盖不到的情形（思考并进组、各种状况、内部工具、换 agent、往上翻、乐观显示……）按共享协议的 schema 构造事件。
 import fs from "node:fs";
@@ -126,7 +126,7 @@ describe("回放：任务的负责人会话（timeline-zoom）", () => {
     expect(locateChatItem(items, call.id)).toEqual({ item: plan, call });
   });
 
-  test("从待办跳过来（105 号票）：按卡片 id 定位到那张卡那一条，按调用 id 定位到那次调用；会话里还没有的不定位", () => {
+  test("从待办跳过来：按卡片 id 定位到那张卡那一条，按调用 id 定位到那次调用；会话里还没有的不定位", () => {
     const plan = items[1]!;
     expect(plan.kind === "card" && revealTargetId(items, plan.cardId)).toBe(plan.id);
     const group = items.find((it) => it.kind === "tool_group")!;
@@ -135,7 +135,7 @@ describe("回放：任务的负责人会话（timeline-zoom）", () => {
     expect(revealTargetId(items, "c-不在这里")).toBeUndefined();
   });
 
-  test("从设置里的素材跳过来（158 号票）：按消息 id 定位到那条用户消息（自己发的条目 id 是幂等键）、语音", () => {
+  test("从设置里的素材跳过来：按消息 id 定位到那条用户消息（自己发的条目 id 是幂等键）、语音", () => {
     const S = "secretary";
     const voice: MessagePart = { type: "voice", voiceId: "v-1", mediaId: "b".repeat(64), mime: "audio/webm", durationMs: 1200, waveform: [3, 9] };
     const said = chatItems(
@@ -172,7 +172,7 @@ describe("回放：任务的负责人会话（timeline-zoom）", () => {
     ]);
   });
 
-  test("两侧标注：每条带着自己的要点（25 号票 marksOf 推出的），合起来和原来要点层的一样，一个不多一个不少", () => {
+  test("两侧标注：每条带着自己的要点（marksOf 推出的），合起来和原来要点层的一样，一个不多一个不少", () => {
     expect(items.map((it) => it.marks.map((m) => (m.kind === "tool" ? `${m.toolCall!.tool}${m.style ? `[${m.style}]` : ""}${m.genericBash ? "{通用 bash}" : ""}` : m.kind)))).toEqual([
       [],
       [],
@@ -284,10 +284,10 @@ describe("回放：秘书会话", () => {
     ]);
   });
 
-  test("彻底删除（memory-purge）：被删的消息只剩一条已删除；改写过的检索素材照样单独一行调用记忆（187 号票）；卡片隔开；操作记录一条", () => {
+  test("彻底删除（memory-purge）：被删的消息只剩一条已删除；改写过的检索素材照样单独一行调用记忆；卡片隔开；操作记录一条", () => {
     const items = chatItems(replay(load("memory-purge")), "secretary");
     expect(items.map(shape)).toEqual(["user", "reply", "deleted", "reply", "user", "recall", "card", "tool_group[propose_quick_action]", "reply", "record", "user", "reply"]);
-    // 录像是 187 号票之前录的（没有结构化的部分），结果摘要又被彻底删除改写了：认不出找到几条，写查了几次
+    // 录像是以前录的（没有结构化的部分），结果摘要又被彻底删除改写了：认不出找到几条，写查了几次
     expect(items[5]).toMatchObject({ kind: "recall", keyLine: "查了 1 次记忆", detail: "recall" });
     expect(items[2]).toMatchObject({ kind: "deleted", keyLine: "已删除", content: "context", detail: undefined });
     expect(items[9]).toMatchObject({ kind: "record", keyLine: "操作记录：彻底删除 1 条素材", detail: "record" });
@@ -326,7 +326,7 @@ describe("回放：项目的负责人会话（work-orders-queue）", () => {
   });
 });
 
-describe("录像覆盖不到的：出了状况的调用也在组里、按先后排（用户 2026-10-09 改）", () => {
+describe("录像覆盖不到的：出了状况的调用也在组里、按先后排", () => {
   test.each([
     ["顺利执行", {}, null, null, null],
     ["授权内放行", { withinGrant: true, categoryTitles: ["越出项目目录"] }, null, null, "granted"],
@@ -436,7 +436,7 @@ describe("录像覆盖不到的：出了状况的调用也在组里、按先后�
   });
 });
 
-describe("录像覆盖不到的：思考并进工具调用组（用户 2026-10-09 定）", () => {
+describe("录像覆盖不到的：思考并进工具调用组", () => {
   const scope = { taskId: "t-9", stageId: "s1" };
   const long = "先看看目录里有什么，".repeat(13); // 130 字
 
@@ -532,12 +532,12 @@ const INTERNAL: ReadonlyArray<readonly [string, "card" | "record" | "system" | "
   ["propose_parallel", "card", "parallel"],
   ["submit_charter", "card", "charter"],
   ["propose_charter_change", "card", "charter_change"],
-  // 261 号票：本项目的规范改写（用户确认了才生效）
+  // 本项目的规范改写（用户确认了才生效）
   ["propose_standard_change", "card", "standard_change"],
   ["request_toolkit_change", "card", "toolkit_change"],
-  // 239 号票：登记 MCP（加、改、删一条，用户确认之后运行时才写配置区）
+  // 登记 MCP（加、改、删一条，用户确认之后运行时才写配置区）
   ["request_mcp_change", "card", "mcp_change"],
-  // 358 号票：把 skill 提交进 skill 库（加、改、删，用户确认之后运行时才写 skill 区）
+  // 把 skill 提交进 skill 库（加、改、删，用户确认之后运行时才写 skill 区）
   ["request_skill_change", "card", "skill_change"],
   ["adjust_skills", "record", "toolkit"],
   ["dispatch_work_order", "record", "work_order"],
@@ -551,7 +551,7 @@ function representing(kind: string, sub: string | undefined): EventFrame[] {
   return [messageFrame(1, "rep", "system", [text("负责人判任务失败：做不下去")])];
 }
 
-describe("录像覆盖不到的：内部工具不算进组（用户 2026-10-09 定）", () => {
+describe("录像覆盖不到的：内部工具不算进组", () => {
   test("名单就是这些（一处常量）；开始阶段、转为等我这类在会话里没有别的痕迹的不算；评审子 agent 的调用不进会话，也不在名单里", () => {
     expect(Object.keys(INTERNAL_TOOLS).toSorted()).toEqual(INTERNAL.map(([name]) => name).toSorted());
     expect(Object.fromEntries(Object.entries(INTERNAL_TOOLS).map(([name, info]) => [name, info.shownAs.kind]))).toEqual(Object.fromEntries(INTERNAL.map(([name, kind]) => [name, kind])));
@@ -596,7 +596,7 @@ describe("录像覆盖不到的：时间线记录、附件、引用的卡片、�
         callFrame(3, "b", {}, { taskId: "t-9", stageId: "s1" }),
         recordFrame(4, { record: { id: "sc-1", kind: "scope_change", summary: "加了一个导出步骤", time: at("02:00") } }),
         recordFrame(5, { record: { id: "os-1", kind: "out_of_scope", summary: "顺手整理了文档目录", time: at("03:00") } }),
-        recordFrame(6, { record: { id: "x-1", kind: "something_new", summary: "以后的票加的记录", time: at("04:00") } }),
+        recordFrame(6, { record: { id: "x-1", kind: "something_new", summary: "以后加的记录", time: at("04:00") } }),
       ]),
       TM,
     );
@@ -606,7 +606,7 @@ describe("录像覆盖不到的：时间线记录、附件、引用的卡片、�
       ["group:m-b#0", "tool_group", "调用了 1 个工具：写文件", [], "tool_group"],
       ["record:sc-1", "record", "范围变更：加了一个导出步骤", ["scope_change"], "record"],
       ["record:os-1", "record", "越界：顺手整理了文档目录", ["out_of_scope"], "record"],
-      ["record:x-1", "record", "记录：以后的票加的记录", [], "record"],
+      ["record:x-1", "record", "记录：以后加的记录", [], "record"],
     ]);
     expect(items[1]).toMatchObject({ time: at("01:00"), scope: { taskId: "t-9", stageId: "s1" }, content: "context" });
   });
@@ -633,7 +633,7 @@ describe("录像覆盖不到的：时间线记录、附件、引用的卡片、�
   });
 });
 
-describe("秘书转达的话（103 号票）", () => {
+describe("秘书转达的话", () => {
   test("用户消息里标着 relayedBy 的：条目标成转达的，要点那一行写“<名字>转达：”，带一个转达的要点（标在第一段文字上），详情的种类写“<名字>转达”；用户自己打的照旧", () => {
     const state = replay([
       messageFrame(1, "u1", "user", [text("先写结论部分")], { taskId: "t-9" }),
@@ -653,7 +653,7 @@ describe("秘书转达的话（103 号票）", () => {
   });
 });
 
-describe("在官方 App 里发生的（292 号票，只读跟随补记的）", () => {
+describe("在官方 App 里发生的（只读跟随补记的）", () => {
   test("标着 remote 的用户消息：要点那一行写“在官方 App 里：”；回复带 remote；别的照旧", () => {
     const state = replay([
       messageFrame(1, "u1", "user", [text("先写结论部分")], { taskId: "t-9" }),
@@ -775,7 +775,7 @@ describe("条目 id：往上翻、实时追加之后不变（例外：组跨两�
 const md = (name: string): MessagePart => ({ type: "file", mediaId: `md-${name}`, name, mime: "text/markdown", size: 10 });
 const png = (name: string): MessagePart => ({ type: "image", mediaId: `md-${name}`, name, mime: "image/png" });
 
-describe("附件一律显示在文字后面（118 号票）", () => {
+describe("附件一律显示在文字后面", () => {
   const S = "secretary";
   /** 秘书会话里的一条消息 */
   const sm = (seq: number, id: string, speaker: MessageEnvelope["speaker"], parts: MessagePart[]) => messageFrame(seq, id, speaker, parts, {}, S);
@@ -865,7 +865,7 @@ describe("附件一律显示在文字后面（118 号票）", () => {
     expect(ids([...start, stream(2, "r1", "要点是")])).toEqual(["u1", "att1", "r1"]);
     expect(ids([...start, sm(3, "r1", "agent", [text("周报发你了，要点是预算")])])).toEqual(["u1", "r1", "att1"]);
 
-    // 115 号票：任务做完的来信 + 只有文件的系统消息
+    // 任务做完的来信 + 只有文件的系统消息
     const letterFrame = frame(S, 1, "message", checked(checkMessage, { message: { id: "n1", conversation: S, speaker: "system", time: at("00:01"), parts: [text("【任务做完】后台有一件事做完了：\n\nt-5 做完了")], summary: "t-5「AI 日报」做完了，交了 1 个文件" }, agentInput: true }));
     const done = [letterFrame, sm(2, "n1-files", "system", [md("ai-news.md")])];
     expect(ids(done)).toEqual(["n1", "n1-files"]);
@@ -873,7 +873,7 @@ describe("附件一律显示在文字后面（118 号票）", () => {
     expect(ids([...done, sm(3, "r3", "agent", [text("日报出好了，要我念给你听吗？")])])).toEqual(["n1", "r3", "n1-files"]);
   });
 
-  test("挪了之后 id、序号不变：详情、定位（105 号票）照样按 id 找得到", () => {
+  test("挪了之后 id、序号不变：详情、定位照样按 id 找得到", () => {
     const items = chatItems(replay([sm(1, "u1", "user", [text("发我")]), sm(2, "att1", "agent", [md("a.md")]), sm(3, "r1", "agent", [text("给你")])]), S);
     expect(items.map((it) => [it.id, it.seq])).toEqual([
       ["u1", 1],

@@ -1,4 +1,4 @@
-// 主切面：子 agent 并行（规格第 8、11 节，20 号票）。真的守护进程，负责人、子 agent 都接 faux 剧本，测试扮演前端。
+// 主切面：子 agent 并行（规格第 8、11 节）。真的守护进程，负责人、子 agent 都接 faux 剧本，测试扮演前端。
 // 任务直接经任务服务建出、写好任务书，负责人交计划，用户在计划卡上确认；执行中负责人用"提议并行"工具提议派子 agent：
 // - 待我处理出现并行确认卡；用户确认前不拉起任何子 agent，可并行的阶段照常按顺序做；用户拒绝则照常串行；
 // - 用户确认后每个子 agent 一个子进程，拿到负责人给它的工作说明；工具包是负责人的子集，守卫按任务的计划、它的阶段判定；
@@ -52,7 +52,7 @@ type ToolCallPart = Extract<MessagePart, { type: "tool_call" }>;
 const say = (text: string): FauxStep => ({ kind: "reply", text });
 const call = (name: string, args: Record<string, unknown>): FauxStep => ({ kind: "reply", toolCalls: [{ name, arguments: args as never }] });
 const write = (file: string, content: string) => call("write", { path: file, content });
-/** 这次模型调用照给定的用量上报（账本据此记一条，24 号票） */
+/** 这次模型调用照给定的用量上报（账本据此记一条） */
 const withUsage = (step: FauxStep, usage: FauxUsage): FauxStep => ({ ...step, usage }) as FauxStep;
 const completeStage = (stageId: string) => call("complete_stage", { stageId, summary: `阶段 ${stageId} 做完了` });
 const propose = (agents: Array<{ stageId: string; step?: string; instructions: string; workDir?: string }>, reason = "两个阶段互不依赖，同时做省时间") =>
@@ -89,7 +89,7 @@ const parallelCard = (frontend: TestFrontend) => cardWhere(frontend, (c) => c.ty
 
 /**
  * 一个开放模式的阶段：写一个文件，脚本验收它在不在。预算给足：faux 模型每次调用按整个上下文报用量（一次一万 token 上下），
- * 用量超过预算时运行时会让负责人说明进展（14 号票），多出来的一条输入会打乱剧本
+ * 用量超过预算时运行时会让负责人说明进展，多出来的一条输入会打乱剧本
  */
 const fileStage = (stageId: string, file: string): Plan["stages"][number] => ({
   stageId,
@@ -297,8 +297,8 @@ describe("提议并行", () => {
     expect(seenBySub).toContain("写 a.txt，内容是 A");
     expect(seenBySub).toContain("阶段 s1「做 a.txt」");
     const subTools = seenBySub.split("\n").filter((l) => l.startsWith("[tool] ")).map((l) => l.slice("[tool] ".length));
-    // 负责人的计划里 bash、联网都关着：子 agent 只有读写、搜索文件的工具（70 号票起 grep、find 照给），和负责人一样配着联网搜索、读网页
-    // （联网关着，守卫拒绝），给秘书发消息（102 号票：工具包里默认开着，负责人有它就有）
+    // 负责人的计划里 bash、联网都关着：子 agent 只有读写、搜索文件的工具（grep、find 照给），和负责人一样配着联网搜索、读网页
+    // （联网关着，守卫拒绝），给秘书发消息（工具包里默认开着，负责人有它就有）
     expect(subTools.toSorted()).toEqual(["edit", "find", "grep", "ls", "read", "tell_secretary", "web_fetch", "web_search", "write"]);
 
     // 子 agent 的工具调用记录在负责人的会话里，归到所属任务、阶段和子 agent
@@ -307,7 +307,7 @@ describe("提议并行", () => {
       ["sa-1", "s1", taskId, "write", "done"],
       ["sa-2", "s2", taskId, "write", "done"],
     ]);
-    // 按调用 id 取得到子 agent 那次调用的完整参数（53 号票）
+    // 按调用 id 取得到子 agent 那次调用的完整参数
     const subWrite = subCalls.find((c) => c.scope.agentId === "sa-2")!;
     expect((await toolCallDetail(td.url, subWrite.callId)).body).toMatchObject({ agentId: "sa-2", conversation: M1, taskId, stageId: "s2", tool: "write", args: { path: "b.txt", content: "B" } });
 
@@ -579,7 +579,7 @@ describe("负责人的当前阶段", () => {
     const s2Again = tasksOf(frontend).filter((e) => e.change === "stage_started" && e.stageId === "s2").at(-1)!;
     expect(s2Again).toMatchObject({ by: "system", task: { stages: { focus: "s2" } } });
 
-    // token 账本（24 号票）：负责人在 s2 时它的用量记在 s2（不按计划顺序记成 s1）；子 agent 的用量记在它自己的阶段 s1、角色是子 agent，
+    // token 账本：负责人在 s2 时它的用量记在 s2（不按计划顺序记成 s1）；子 agent 的用量记在它自己的阶段 s1、角色是子 agent，
     // 不看负责人当时在哪个阶段，算进 s1 的预算
     const entries = td.daemon.ledger.entries({ kind: "task", id: taskId });
     expect(entries.find((e) => e.agentId === "tm-1" && e.tokens.cacheMiss === MAINTAINER_IN_S2.cacheMiss)).toMatchObject({ role: "maintainer", stageId: "s2" });
@@ -600,7 +600,7 @@ describe("负责人的当前阶段", () => {
 });
 
 describe("工具包收窄", () => {
-  it("负责人的工具包收窄（模拟 14 号票改计划）后调 reassemble：活着的子 agent 做完手头这一步（当前的工具调用结束）就停掉，按新的交集重新拉起、接着原来的会话做；工具包没变的不动", async () => {
+  it("负责人的工具包收窄（模拟改计划）后调 reassemble：活着的子 agent 做完手头这一步（当前的工具调用结束）就停掉，按新的交集重新拉起、接着原来的会话做；工具包没变的不动", async () => {
     const dataDir = makeTempDir("ergo-data-");
     const homeDir = makeTempDir("ergo-home-");
     const outside = path.join(homeDir, "参考资料.txt");
@@ -625,7 +625,7 @@ describe("工具包收窄", () => {
     // 工具包没变：不动
     expect(td.daemon.subAgents.reassemble(taskId)).toEqual([]);
 
-    // 模拟 14 号票改计划：确认的计划改成 bash 关着
+    // 模拟改计划：确认的计划改成 bash 关着
     const decided = td.daemon.store.read(TASKS_CHANNEL, 0, TASK_EVENTS.planDecided).at(-1)!.payload as PlanDecidedPayload;
     td.daemon.store.append({ channel: TASKS_CHANNEL, type: TASK_EVENTS.planDecided, payload: { ...decided, plan: { ...decided.plan!, toolkit: { ...decided.plan!.toolkit, bash: false } } } });
     expect(td.daemon.subAgents.reassemble(taskId)).toEqual(["sa-1"]);
@@ -635,7 +635,7 @@ describe("工具包收窄", () => {
 
     // 批准：读文件这一步做完，停掉它、按新的装配重新拉起（下一步写 b.txt 不再在旧的装配里做）
     ok(await frontend.cardAction({ cardId: approval.id, action: "approve", expectedVersion: approval.version }));
-    // 重新拉起：接着原来的会话，没有 bash 和带类型的 bash 工具（联网搜索、读网页每个会话都配，70 号票；给秘书发消息负责人有它就有，102 号票）；交给它一条"工具包已变更"
+    // 重新拉起：接着原来的会话，没有 bash 和带类型的 bash 工具（联网搜索、读网页每个会话都配，给秘书发消息负责人有它就有）；交给它一条"工具包已变更"
     const result = await messageWhere(frontend, M1, (m) => m.agentId === "sa-1" && m.message.speaker === "system", "sa-1 的结果");
     const second = requests().filter((r) => r.agentId === "sa-1")[1]!;
     expect(second).toMatchObject({ continueSession: true, hostTools: ["web_search", "web_fetch", "tell_secretary"] });
@@ -693,7 +693,7 @@ describe("名额", () => {
     await waitUntil(() => activityOf(frontend).some((p) => p.agentId === "sa-2" && p.state === "queued"), { describe: () => "等 sa-2 排队" });
     await taskWhere(frontend, (e) => e.task.id === t1 && e.change === "completed", "任务一完成");
     const sa2 = activityOf(frontend).filter((p) => p.agentId === "sa-2").map((p) => p.state);
-    // 先排队；名额空出来后拉起就是"干活中"（25 号票：被唤起），做完休眠
+    // 先排队；名额空出来后拉起就是"干活中"（被唤起），做完休眠
     expect(sa2.slice(0, 2)).toEqual(["queued", "working"]);
     await waitUntil(() => activityOf(frontend).filter((p) => p.agentId === "sa-2").at(-1)?.state === "sleeping", { describe: () => "等 sa-2 休眠" });
     expect(subAgentEvents(td, SUB_AGENT_EVENTS.subAgentFinished).map((p) => [p.agentId, p.outcome]).toSorted()).toEqual([

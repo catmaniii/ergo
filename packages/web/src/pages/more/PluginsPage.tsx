@@ -1,5 +1,5 @@
-// 设置 · 插件（211 号票，用户 2026-10-20："设置界面里面要能查看当前加载了哪些插件，还有可以把它暂时禁用或者是移除。相当于是可以热插拔"）：
-// - 列出守护进程清单里的全部插件：名字（按当前语言）、一句话、状况（运行中 / 已停用 / 没装上带原因 / 已移除；315 号票起要的外部组件没装的
+// 设置 · 插件（"设置界面里面要能查看当前加载了哪些插件，还有可以把它暂时禁用或者是移除。相当于是可以热插拔"）：
+// - 列出守护进程清单里的全部插件：名字（按当前语言）、一句话、状况（运行中 / 已停用 / 没装上带原因 / 已移除；要的外部组件没装的
 //   写"没装"和怎么装，装好之前启用不了）、它带来了什么
 //   （给二狗的工具几个、卡片、定时作业——守护进程写；网页上的页面、栏目——网页插件自己写，WebPluginDefinition.brings）、依赖；
 // - 停用、启用马上生效（不重启）：停用之前确认框里列出会一起停的（要用它的插件），启用时它要的插件没开的列出、一起开；
@@ -41,7 +41,7 @@ export function pluginLines(plugin: PluginInfo, all: readonly PluginInfo[], web:
   return lines;
 }
 
-/** 状况的说法；没装上是因为它要的外部组件没装时（315 号票）写"没装" */
+/** 状况的说法；没装上是因为它要的外部组件没装时写"没装" */
 export function pluginStateText(state: PluginState, missing?: boolean): string {
   return state === "skipped" && missing ? t("pages.plugins.state.missing") : t(`pages.plugins.state.${state}`);
 }
@@ -147,7 +147,7 @@ function PluginRow({ plugin: p, all, web, busy, onAct }: { plugin: PluginInfo; a
         <span className={STATE_CHIP[p.state]}>{pluginStateText(p.state, p.missing)}</span>
       </div>
       {p.summary && <div className="plugin-summary">{p.summary}</div>}
-      {/* 外部组件没装（315 号票）：那一句本身就写着没装什么、怎么装，不再套"没装上：" */}
+      {/* 外部组件没装：那一句本身就写着没装什么、怎么装，不再套"没装上：" */}
       {p.problem !== undefined && <div className="field-error">{p.missing ? p.problem : t("pages.plugins.problem", { reason: p.problem })}</div>}
       {p.cannotEnable !== undefined && p.state !== "skipped" && <div className="field-error">{t("pages.plugins.cannotEnable", { reason: p.cannotEnable })}</div>}
       <ul className="plugin-brings">

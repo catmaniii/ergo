@@ -1,4 +1,4 @@
-// 手机安装包（376 号票）：npm run release 顺带收这两个文件，放进发布目录、写进 SHA256SUMS（和 Windows 包一起被签）。
+// 手机安装包：npm run release 顺带收这两个文件，放进发布目录、写进 SHA256SUMS（和 Windows 包一起被签）。
 // latest.json 不提它们，ergo update 和安装脚本只按名字找 Windows 包，不受影响。
 //   - 默认收现成的产物；--build-mobile 先构建；--no-mobile 不带；
 //   - 没工具链、没产物、产物不合格，都只跳过这一个，写明原因，Windows 包照打。工具链齐了却构建失败才算出错。

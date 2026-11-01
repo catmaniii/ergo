@@ -75,7 +75,7 @@ describe("用户明确点了对象和内容", () => {
     const sent = await tell(frontend, "记住：下周三上午体检。");
 
     const messages = frontend.events({ channel: SECRETARY, type: EVENT_TYPES.message }).map((f) => (f.payload as MessageEventPayload).message);
-    // 用户的话、"已执行"卡、这次工具调用的记录（07 的守卫接入：提议快速动作只产生卡片，不落入任何类别，直接做）、秘书的回复
+    // 用户的话、"已执行"卡、这次工具调用的记录（守卫接入：提议快速动作只产生卡片，不落入任何类别，直接做）、秘书的回复
     expect(messages.map((m) => `${m.speaker}:${m.parts.map((p) => p.type).join(",")}`)).toEqual(["user:text", "agent:card_ref", "agent:tool_call", "agent:text"]);
     expect(messages[2]!.parts[0]).toMatchObject({ type: "tool_call", tool: "propose_quick_action", categoryTitles: [], disposition: "do", outcome: "done" });
     const [card, ...others] = cardsOf(frontend);
@@ -99,7 +99,7 @@ describe("用户明确点了对象和内容", () => {
         name: "记住",
         title: "记住：下周三上午体检",
         explicit: true,
-        // 凭什么执行的（25 号票）：用户点明的
+        // 凭什么执行的：用户点明的
         basis: "explicit",
         cardId: card!.id,
         result: { ok: true, summary: expect.any(String) },
@@ -204,12 +204,12 @@ describe("秘书推断出来的", () => {
     await frontend.cardAction({ cardId: remember!.id, action: "execute", expectedVersion: 1 });
     await frontend.next(SECRETARY, EVENT_TYPES.quickActionExecuted);
     expect(executions(frontend).map((e) => e.action.type)).toEqual(["tidy_note", "remember"]);
-    // 凭什么执行的（25 号票）：推断出来、直接做的是授权内；先问、用户确认后执行的是确认后
+    // 凭什么执行的：推断出来、直接做的是授权内；先问、用户确认后执行的是确认后
     expect(executions(frontend).map((e) => e.basis)).toEqual(["within_grant", "confirmed"]);
     expect(daemon.materials.list({ kind: "memory_command" })).toMatchObject([{ segments: [{ form: "choice", notes: ["agent_proposed"], text: "对青霉素过敏" }] }]);
   });
 
-  it("对话审批关着（70 号票）也照旧：秘书推断出的快速动作照样出卡请用户确认、进待我处理——那是确认用户的意图，不是安全审批", async () => {
+  it("对话审批关着也照旧：秘书推断出的快速动作照样出卡请用户确认、进待我处理——那是确认用户的意图，不是安全审批", async () => {
     const { frontend } = await setup([propose("send_note", { to: "王五", text: "明天见" }), { kind: "reply", text: "等你确认" }], {
       config: { guard: { conversationApprovals: "off" } },
     });

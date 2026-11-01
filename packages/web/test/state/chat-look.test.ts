@@ -1,4 +1,4 @@
-// 聊天区精简（57 号票）：对话层里每一条长什么样（state/chat-look.ts 的 chatLook）。
+// 聊天区精简：对话层里每一条长什么样（state/chat-look.ts 的 chatLook）。
 // 先回放主切面录下的真实事件流（任务的负责人会话、秘书会话、项目的负责人会话），覆盖各种条目的显示形态：
 // 工具调用组是一行"调用了 N 个工具"加小签（出了状况的醒目），思考一行"💭 Agent 的想法（点开看）"，回复切出第一段、
 // 有后文才给"展开 / 详情"，用户气泡和说明整条可点，语音在长按菜单里；录像覆盖不到的（多段的回复、正在想、执行中、
@@ -60,7 +60,7 @@ function openWays(items: readonly ChatItem[]): Record<string, string> {
 describe("回放：任务的负责人会话", () => {
   test("timeline-zoom：每组一行小字，顺利的标做完告诉你、授权内；问过你的那一组醒目（跟你有关），被拦下的那一组醒目（被拦下）", () => {
     const items = chatItems(replay(load("timeline-zoom")), "maintainer:tm-1");
-    // 任务书、开始执行时的阶段说明是交给负责人的长通知，折成一行（367 号票）；短的说明照旧
+    // 任务书、开始执行时的阶段说明是交给负责人的长通知，折成一行；短的说明照旧
     expect(looks(items).map(brief)).toEqual([
       "letter",
       "card",
@@ -124,7 +124,7 @@ describe("回放：秘书会话", () => {
     const items = chatItems(replay(load("memory-purge")), "secretary");
     const shown = looks(items);
     expect(shown.filter((l) => l.form === "deleted")).toEqual([{ form: "deleted", open: undefined }]);
-    // 检索素材是调用记忆（187 号票），单独一行，不算进调用了几个工具
+    // 检索素材是调用记忆，单独一行，不算进调用了几个工具
     expect(shown.filter((l) => l.form === "tool_line").map(brief)).toEqual(["调用了 1 个工具"]);
     expect(shown.filter((l) => l.form === "recall_line")).toEqual([{ form: "recall_line", text: "查了 1 次记忆", found: false, open: "row" }]);
   });
@@ -163,7 +163,7 @@ describe("有详情的条目怎么打开（整条可点的用户气泡和说明�
   });
 });
 
-describe("缩小后逐次画（用户 2026-10-10 定：组只存在于对话层，要点层、全局层每次调用各一块）", () => {
+describe("缩小后逐次画（组只存在于对话层，要点层、全局层每次调用各一块）", () => {
   test("timeline-zoom：只有组拆成块，每次调用一块；性质色、要点按这一次算，不取组里最重的；被拦下的前面加 ⛔；按块的 id 找得到组和那一次", () => {
     const items = chatItems(replay(load("timeline-zoom")), "maintainer:tm-1");
     expect(items.map((it) => zoomBlocks(it).length)).toEqual([0, 0, 0, 0, 4, 0, 1, 0, 0, 2, 0, 0, 0, 0]);
@@ -195,7 +195,7 @@ describe("缩小后逐次画（用户 2026-10-10 定：组只存在于对话层�
     expect(items).toHaveLength(1);
     expect(zoomBlocks(items[0]!).map((b) => (b.kind === "thinking" ? b.keyLine : `${b.keyLine}${b.error ? "（出错）" : ""}`))).toEqual([
       "思考：先看看目录",
-      // 67 号票起是说人话的那一句；出错不加前缀
+      // 是说人话的那一句；出错不加前缀
       "列出 .",
       "✕ 写 c3.md",
       "⏸ 写 c4.md",
@@ -240,7 +240,7 @@ describe("录像覆盖不到的：回复", () => {
     expect(replyCut("\n\n正文")).toEqual({ head: "\n\n正文", rest: "" });
   });
 
-  test("多段的回复给“收起 / 展开细节”和“详情 ›”；默认整段展开（用户 2026-10-10 定）", () => {
+  test("多段的回复给“收起 / 展开细节”和“详情 ›”；默认整段展开", () => {
     const items = chatItems(replay([messageFrame(1, "a1", "agent", [text("一共 ¥3,412.60。\n\n- 外卖 ¥1,286.00\n- 餐馆 ¥1,530.60")])]), S);
     expect(looks(items)).toEqual([{ form: "reply", head: "一共 ¥3,412.60。", more: true, open: "link" }]);
     expect(REPLY_OPEN_BY_DEFAULT).toBe(true);

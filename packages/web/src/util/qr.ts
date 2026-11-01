@@ -1,4 +1,4 @@
-// 二维码的方阵和路径（364 号票，设备配对页）：qrcode-generator 算出黑白方块。不碰 React，frontend/test、测试都能直接用；画成 SVG 在 ui/qr-code.tsx。
+// 二维码的方阵和路径（设备配对页）：qrcode-generator 算出黑白方块。不碰 React，frontend/test、测试都能直接用；画成 SVG 在 ui/qr-code.tsx。
 import createQr from "qrcode-generator";
 
 /** 静区：规范要求至少 4 格 */

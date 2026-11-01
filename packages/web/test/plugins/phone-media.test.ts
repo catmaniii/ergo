@@ -1,4 +1,4 @@
-// 手机插件的照片、位置（300 号票）在网页这一侧：
+// 手机插件的照片、位置在网页这一侧：
 // - 原生桥上照片、位置这两组方法（native-phone.ts）：各自都在才有 NativePhone.photos / location（旧一点的 App 只有前面四个）；
 //   App 回的一律核对——毫秒换成协议时间、没读照片位置的授权时不带地点、经纬度不对或正好 (0, 0) 当没有地点、位置点按时间排；
 // - 同步一次（media-sync.ts，假的原生桥和 HTTP）：连上时先要授权、给了带 link 交过去（照片读最近 7 天、上次同步更早时往前挪；
@@ -201,7 +201,7 @@ describe("位置同步一次", () => {
     expect(revoked.pushed).toEqual([{ state: "revoked", reason: "手机的设置里关掉了" }]);
   });
 
-  test("304 号票在模拟器上碰到的：系统的位置开关关着——手机上写明记不到；没有要交的点时交一次原因，写着出错的不再交；有点照常交；开关打开后照常交", async () => {
+  test("在模拟器上碰到的：系统的位置开关关着——手机上写明记不到；没有要交的点时交一次原因，写着出错的不再交；有点照常交；开关打开后照常交", async () => {
     const off = { granted: true, precise: true, asked: true, recording: true, background: false, switchOff: true } as const;
     expect(parseLocationState(JSON.stringify(off))).toEqual(off);
     expect(locationStateText(off)).toBe("允许二狗定位（精确位置），要记，但手机的位置开关关着、记不到：在控制中心或设置里打开「位置」");
@@ -225,7 +225,7 @@ describe("位置同步一次", () => {
     expect(link.pushed).toEqual([{ state: "granted", link: true, background: false, points: [] }]);
   });
 
-  test("304 号票在模拟器上看到的：在数据源页上断开了（没连），App 还在记的马上停下，不等下一次同步；连着的、没在记的不动", async () => {
+  test("在模拟器上看到的：在数据源页上断开了（没连），App 还在记的马上停下，不等下一次同步；连着的、没在记的不动", async () => {
     const recording = { granted: true, precise: true, asked: true, recording: true, background: true };
     const a = fakeLocation(recording);
     expect(await stopIfDisconnected(a.location, "not_connected")).toMatchObject({ recording: false, background: false });

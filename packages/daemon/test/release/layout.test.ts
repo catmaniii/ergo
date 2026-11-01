@@ -1,4 +1,4 @@
-// 安装布局（318 号票）：认出装好的 / 开发 / npm 装的；current（一行文本记在用的版本）的切换；版本比大小；只留两个版本；用户 PATH 的增删（假的存储，不碰注册表）。
+// 安装布局：认出装好的 / 开发 / npm 装的；current（一行文本记在用的版本）的切换；版本比大小；只留两个版本；用户 PATH 的增删（假的存储，不碰注册表）。
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";

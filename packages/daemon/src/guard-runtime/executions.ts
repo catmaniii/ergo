@@ -1,4 +1,4 @@
-// 有副作用的调用的执行记录（23 号票，规格第 17 节"被杀后的恢复"、第 21 节"只读或幂等"）。
+// 有副作用的调用的执行记录（规格第 17 节"被杀后的恢复"、第 21 节"只读或幂等"）。
 // 守护进程被杀时 Job 对象把 agent 子进程连同它们起的进程一起结束，正在执行的工具调用说不清做没做完。按工具注册表分：
 // - 只读或幂等的：不记在这里。重新拉起时会话文件里补一条"被中断"的工具结果（runtime 的 INTERRUPTED_TOOL_RESULT），
 //   由模型决定要不要重做；
@@ -107,7 +107,7 @@ export function runningExecutions(db: ReadonlyDatabase, agentId?: string): Execu
 
 /**
  * 这个 agent 说不清做没做完的调用：还在执行的（守护进程刚起来、还没记中断的，或者子进程刚退出）和已经记成中断的。
- * 20 号票的子 agent 被打断、随任务停下时，交回负责人的说明里写明这些调用等用户确认、不要重做
+ * 子 agent 被打断、随任务停下时，交回负责人的说明里写明这些调用等用户确认、不要重做
  */
 export function uncertainExecutions(db: ReadonlyDatabase, agentId: string): ExecutionRecord[] {
   return rowsOf(db, ["running", "interrupted"], agentId).map((row) => JSON.parse(row.record) as ExecutionRecord);
@@ -214,7 +214,7 @@ export function interruptedToolResults(db: ReadonlyDatabase, agentId: string): R
 }
 
 /**
- * 彻底删除（21 号票）、删除项目（15 号票）：执行记录里的调用摘要、结果摘要（参数、输出里可能有原话）换成删除标记，
+ * 彻底删除、删除项目：执行记录里的调用摘要、结果摘要（参数、输出里可能有原话）换成删除标记，
  * 调用 id、来源、工具、成功与否、时间不变（派生视图照样知道哪次调用还在执行、被中断了）
  */
 export const executionPurges: readonly PurgeRewriter[] = [
@@ -253,7 +253,7 @@ function executionKey(event: StoredEvent): { toolCallId: string; agentId: string
 
 /**
  * 这次调用的执行记录事件（彻底删除时连同别处同样的调用摘要一起改写，见 memory/purge.ts）。
- * 给了 agent 的只认这个 agent 的（不同 agent 的调用 id 可能撞上；删除项目时按一次调用的完整内容找，66 号票）
+ * 给了 agent 的只认这个 agent 的（不同 agent 的调用 id 可能撞上；删除项目时按一次调用的完整内容找）
  */
 export function executionEventsOfCall(store: EventStore, toolCallId: string, agentId?: string): StoredEvent[] {
   return EXECUTION_TEXT_EVENTS.flatMap((type) =>

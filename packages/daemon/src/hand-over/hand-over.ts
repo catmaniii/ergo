@@ -63,7 +63,7 @@ export function createHandOverService(options: { store: EventStore; inbox: Inbox
         source: data.origin.source,
         ...internalMark(data.origin.internal),
         ...callInboxOrigin(data.origin, data.toolCallId),
-        // 对话里的不卡任务；任务里的按卡住任务算（13 号票接任务一侧）
+        // 对话里的不卡任务；任务里的按卡住任务算（接任务一侧）
         urgency: data.origin.taskId === null ? "non_blocking" : "blocking",
         actions: [HAND_OVER_DONE],
         data,

@@ -1,4 +1,4 @@
-// 进度条上给风格用的"一共几格"（49 号票，ui/progress-cells.ts）：看板卡、项目页内部任务一行的小进度条（TaskProgress.tsx）、
+// 进度条上给风格用的"一共几格"（ui/progress-cells.ts）：看板卡、项目页内部任务一行的小进度条（TaskProgress.tsx）、
 // 流程会话标题栏上的进度条（PlanTimeline.tsx 的 PlanProgress）挂内联自定义属性 --progress-total，像素小屋按它画 HP 格。
 // 直接用 React 在 Node 里把这两个组件渲染出来查：属性挂在哪个元素上、值对不对（不带单位，至少 1 格）。
 // 步数多时格数封顶是样式的事（style.css 的 --pixel-hp-max），这里挂的照旧是真实的步数，见 test/visual-styles/pixel.test.ts。

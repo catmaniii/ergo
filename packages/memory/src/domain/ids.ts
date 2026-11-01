@@ -8,9 +8,9 @@ export const ID_PREFIX = {
   claim: "cl",
   inference: "in",
   probe: "pr",
-  /** 交互策略（196 号票） */
+  /** 交互策略 */
   strategy: "st",
-  /** 预测账本（226 号票） */
+  /** 预测账本 */
   prediction: "pd",
 } as const;
 

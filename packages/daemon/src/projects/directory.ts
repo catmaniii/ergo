@@ -1,4 +1,4 @@
-// 项目列表的只读视图（278 号票，方案 C）：按编号、按负责人、按任务、按名字找没删掉的项目，
+// 项目列表的只读视图：按编号、按负责人、按任务、按名字找没删掉的项目，
 // 项目档案各文件在哪。只读事件存储的派生视图（views.ts），不要项目服务，谁都能建一份——任务模块建在项目系统之前（项目系统要任务模块），
 // 它要的 TaskProjects（核对项目名、认成编号、任务属于哪个项目、内部任务在哪个项目）就从这里拿，"任务 → 项目"不用再后接线。
 // 项目服务（projects.ts）里同名的几样也是它。
@@ -19,7 +19,7 @@ export interface ProjectDirectory extends ProjectLookup, ScopeReviewProjects, Ta
   ofMaintainer(maintainerId: string): { project: Project; deleted: boolean } | undefined;
   /** 某个负责人维护的、没删掉的项目 */
   maintainedBy(maintainerId: string): Project | undefined;
-  /** 任务属于哪个项目（16 号票）：由这个项目的负责人执行的任务（只涉及一个项目的）；任务自己的负责人执行的、项目删掉了的没有 */
+  /** 任务属于哪个项目：由这个项目的负责人执行的任务（只涉及一个项目的）；任务自己的负责人执行的、项目删掉了的没有 */
   projectOf(task: Task): Project | undefined;
   /** 项目档案各文件的位置 */
   records(projectId: string): ProjectRecordsPaths;

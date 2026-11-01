@@ -1,9 +1,9 @@
-// 主切面：项目规范（258 号票，issue 19 第 1、4、6、11 条）。真的守护进程，测试扮演前端（负责人交立项书直接调项目模块，不走剧本）。
+// 主切面：项目规范（第 1、4、6、11 条）。真的守护进程，测试扮演前端（负责人交立项书直接调项目模块，不走剧本）。
 // - 新项目立项时记下建档用的规范模板版本，档案里的规格、进展、决策记录照模板生成（类型还没定，按其他类那三份）；
 // - 立项书确认成开发类：补上架构图、tickets/、ops.json；其他类不补；
 // - 只读接口 GET /api/projects/<id>/standard：模板版本、每份文档在不在和最近修改时间（必须有的标出来、还是模板原样的标出来）、
 //   当前状态的检查清单（"进展已写回"）、规范改写（空的）；文档缺了照实说；规范上线之前建的项目版本是 null；没有的项目 404。
-// 261 号票（issue 19 第 5 条）：本项目的规范改写——负责人引用用户的话提（propose_standard_change，faux 剧本），"规范改写"卡上逐处对照、
+// 本项目的规范改写——负责人引用用户的话提（propose_standard_change，faux 剧本），"规范改写"卡上逐处对照、
 // 附原话、进待办，用户确认才生效（接口、档案里的 standard-overrides.md、检查清单、重启不补回不要的那份），拒绝的不变；模板出了新版只提示，
 // 跟新版也要确认。
 import fs from "node:fs";
@@ -164,7 +164,7 @@ const MESSAGE_ID = "m-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{1
 /** 负责人从最近一条用户消息末尾抄出 id，调用工具（参数 userWords） */
 const citing = (name: string, args: Record<string, unknown>): FauxStep => ({ kind: "call_with_matches", from: "user", pattern: MESSAGE_ID, argument: "userWords", toolCall: { name, arguments: args as never } });
 
-describe("本项目的规范改写（261 号票）", () => {
+describe("本项目的规范改写", () => {
   it("负责人引用用户的话提出（不要架构图、进展换写法、多一份运维手册）：卡上逐处对照、附原话、进待办；确认才生效——接口和档案里的 standard-overrides.md 看得出和默认规范哪里不同，检查清单按改写后的，重启也不补回架构图；拒绝的不变；一次只有一张在等；进展不能不要", async () => {
     const dataDir = makeTempDir("ergo-data-");
     const homeDir = makeTempDir("ergo-home-");
@@ -227,7 +227,7 @@ describe("本项目的规范改写（261 号票）", () => {
       ["adr", "adr/", "template"],
       ["custom", "runbook.md", "missing"],
     ]);
-    // 建设中 → 使用中的检查清单按改写后的：这个项目不要架构图，架构图那项不列（259 号票的另外几项照列）
+    // 建设中 → 使用中的检查清单按改写后的：这个项目不要架构图，架构图那项不列（另外几项照列）
     expect(changed.checklist.items.map((i) => i.id)).toEqual(["ops", "services", "public_entry", "progress_written"]);
     const overridesFile = path.join(records.root, "standard-overrides.md");
     await waitUntil(() => fs.existsSync(overridesFile), { describe: () => "档案里的 standard-overrides.md" });
@@ -270,7 +270,7 @@ describe("本项目的规范改写（261 号票）", () => {
     await inputsDone(fresh, PM1);
   }, 120_000);
 
-  it("模板出了新版只提示：项目记着的旧版本照旧，接口里 latest 是新版、档案不动；跟新版也由负责人提、用户确认，确认后版本换成新的、缺的文档从新版模板补上（已有的不动）；已经是最新的不能再跟，规范上线之前建的这样提是补齐规范文档（272 号票）", async () => {
+  it("模板出了新版只提示：项目记着的旧版本照旧，接口里 latest 是新版、档案不动；跟新版也由负责人提、用户确认，确认后版本换成新的、缺的文档从新版模板补上（已有的不动）；已经是最新的不能再跟，规范上线之前建的这样提是补齐规范文档", async () => {
     const td = await startTestDaemon();
     const frontend = await connect(td.url, [CARDS, INBOX, PROJECTS]);
     // 建档时用的是以前的一版（目录里已经没有了）：照旧的最小文档集
@@ -300,8 +300,8 @@ describe("本项目的规范改写（261 号票）", () => {
     expect(fs.readFileSync(records.spec, "utf8")).toBe("# 规格\n\n导入招行的 CSV。\n");
     expect(await standardOf(td, old.id)).toMatchObject({ version: PROJECT_STANDARD_LATEST, latest: PROJECT_STANDARD_LATEST });
 
-    // 已经是最新的：不能再跟。规范上线之前建的（没有版本）：272 号票起这样提就是补齐规范文档（卡上没有"从哪一版"，
-    // 确认后照 262 号票的补齐做，主切面在 project-standard-backfill.test.ts）
+    // 已经是最新的：不能再跟。规范上线之前建的（没有版本）：这样提就是补齐规范文档（卡上没有"从哪一版"，
+    // 确认后照补齐做，主切面在 project-standard-backfill.test.ts）
     const again = await tool.run({ upgrade: true, why: "再跟一次" }, { toolCallId: "t-again" });
     expect(again).toMatchObject({ isError: true, text: `项目「旧账本」用的已经是最新的规范 ${PROJECT_STANDARD_LATEST}` });
     const legacy = seedProject(td.daemon, "老相册", { state: "in_use", kind: "other", charterConfirmed: true });

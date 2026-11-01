@@ -1,12 +1,12 @@
-// 涉及多个项目的任务（17 号票）里工单往来的工具（守护进程代为执行，工具名在 tool-names.ts）：
+// 涉及多个项目的任务里工单往来的工具（守护进程代为执行，工具名在 tool-names.ts）：
 // - 任务负责人的固定工具包（规格第 11 节"固定工具包"）：读项目档案（只能读这个任务涉及的项目）、派工单（dispatch_work_order，
 //   规划期间被拒）、汇总回执（summarize_receipts）；回答项目负责人的提问（answer_work_order）算"派工单"那一样的工单往来；
-//   答不了转问用户（forward_to_user，指明工单）是运行时控制，和 16 号票里负责人问用户同一条路（提问卡进待我处理）。
+//   答不了转问用户（forward_to_user，指明工单）是运行时控制，和负责人问用户同一条路（提问卡进待我处理）。
 //   这几样都只改二狗自己的状态、产生卡片，不写文件、不跑 bash、不联网，改不了任何项目；
 // - 项目负责人交回执（submit_receipt）：完成、退回（会伤害本项目的改动）或做不了，退回、做不了必须写理由。
 // 计划外的工单命中"计划外工单"类别的判定不在守卫接入运行时那一步（派工单这个工具本身不落入任何类别），而在派单器里按派出的内容判
 // （unplanned.ts），要确认的出工单卡，这次调用马上返回（不等用户确认）。
-// @i18n-ignore-file model：工具说明、参数说明、结果和拒绝的原因给模型看（173 号票）；工具的名字走 t()
+// @i18n-ignore-file model：工具说明、参数说明、结果和拒绝的原因给模型看；工具的名字走 t()
 import { QuestionDraft, Type, t } from "@ergo/protocol";
 import { defineHostTool, type HostTool, type HostToolOutput } from "../agent-manager/host-tools.ts";
 import { RequestRejected } from "../errors.ts";
@@ -140,7 +140,7 @@ export function answerWorkOrderTool(workOrders: () => Pick<WorkOrders, "answerWo
   });
 }
 
-/** 任务负责人答不了项目负责人的提问时转问用户（运行时控制，和 16 号票里负责人问用户同一条路：提问卡进待我处理） */
+/** 任务负责人答不了项目负责人的提问时转问用户（运行时控制，和负责人问用户同一条路：提问卡进待我处理） */
 export function forwardToUserTool(workOrders: () => Pick<WorkOrders, "forwardClarification">, scope: MaintainerScope): HostTool {
   return defineHostTool({
     name: MULTI_PROJECT_TOOL.forwardToUser,

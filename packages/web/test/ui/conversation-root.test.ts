@@ -1,4 +1,4 @@
-// 会话外层 .conv 上给风格用的属性（40 号票，ui/conversation/conversation-root.ts）：data-mode 两种会话都有，
+// 会话外层 .conv 上给风格用的属性（ui/conversation/conversation-root.ts）：data-mode 两种会话都有，
 // --assistant-initial（名字的第一个字，CSS 字符串）只在秘书的会话里挂。用 React 在 Node 里渲染出来查，确认 React 真的把
 // 自定义属性写进了 style（暖纸手帐的字头像靠它），负责人的会话一个 style 都不带。
 import { createElement } from "react";
@@ -13,7 +13,7 @@ describe("会话外层 .conv 的属性", () => {
     expect(render("secretary", "二狗")).toBe('<div class="conv" data-mode="secretary" style="--assistant-initial:&quot;二&quot;"></div>');
   });
 
-  test("起名个人助理（89 号票之前的默认名字）是个；国旗这类按一个字取", () => {
+  test("起名个人助理（以前的默认名字）是个；国旗这类按一个字取", () => {
     expect(render("secretary", "个人助理")).toContain("--assistant-initial:&quot;个&quot;");
     expect(render("secretary", "🇨🇳二狗")).toContain("--assistant-initial:&quot;🇨🇳&quot;");
   });

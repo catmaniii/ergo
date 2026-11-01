@@ -1,4 +1,4 @@
-// 页面日志（124 号票：Debug 工具集）：页面一打开就开始收 console.error / console.warn、没接住的错误、没接住的 Promise 拒绝，
+// 页面日志（Debug 工具集）：页面一打开就开始收 console.error / console.warn、没接住的错误、没接住的 Promise 拒绝，
 // 留最近 200 条，能清空；原来的 console 照常输出。console、window 换成假的。
 import { describe, expect, test } from "vitest";
 import { collectPageLog, createListStore } from "../../src/app/page-log.ts";

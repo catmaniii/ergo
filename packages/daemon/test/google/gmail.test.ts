@@ -1,4 +1,4 @@
-// Google 插件的 Gmail（298 号票）在假内核里（startPluginKernel：真的插件宿主、数据源那一层、素材库），IMAP 连本机起的假服务
+// Google 插件的 Gmail在假内核里（startPluginKernel：真的插件宿主、数据源那一层、素材库），IMAP 连本机起的假服务
 // （helpers/fake-imap.ts，TLS 测试证书），不连 Gmail、不联网；邮箱、人名全是编的：
 // - 设置 · 数据源里的 Google · Gmail：名字、按需查默认开、导入（只导我发出的）默认关、每小时、没连；
 // - 填地址和应用专用密码：测试连接（登录、列邮箱）过了才存密钥区（空格去掉）；密码不对、要应用专用密码、地址不对、没填密码写明原因、什么都不存；
@@ -25,7 +25,7 @@ import { waitUntil } from "../helpers/process.ts";
 
 const SOURCE = "google-gmail";
 const PASSWORD = APP_PASSWORD.replace(/\s+/g, "");
-/** 账号的 id（344 号票：邮件编号、密钥区都带它） */
+/** 账号的 id（邮件编号、密钥区都带它） */
 const ACCOUNT = accountIdOf(ME);
 
 let keySeq = 0;
@@ -38,7 +38,7 @@ afterEach(async () => {
 
 async function start(options: { at?: Date } = {}) {
   server = await startFakeImapServer({ user: ME, password: PASSWORD });
-  // 301 号票起 Google 插件要个人档案（联系人进档案候选）：Gmail 这边用不上，给个假的
+  // Google 插件要个人档案（联系人进档案候选）：Gmail 这边用不上，给个假的
   const k = await startPluginKernel({
     plugins: [createGooglePlugin({ imap: server.endpoint, imapTimeoutMs: 5_000 })],
     at: options.at ?? new Date("2026-10-25T09:00:00+08:00"),
@@ -139,7 +139,7 @@ describe("填地址和应用专用密码", () => {
   });
 });
 
-describe("完整邮箱只给页面（339 号票）", () => {
+describe("完整邮箱只给页面", () => {
   it("页面上是完整邮箱；日志里打码（登录没通过、连上了），没有完整邮箱；工具说明和没搜到的结果里没有账号；断开以后页面上没了", async () => {
     const { k } = await start();
     await configure(k, { address: ME, password: "wrongpasswordxyz" });
@@ -162,7 +162,7 @@ describe("完整邮箱只给页面（339 号票）", () => {
 });
 
 describe("按需查", () => {
-  it("没填时秘书没有这两个工具（306）；填了以后：按关键词搜到行程单（夹在外部数据里、带编号），读一封给正文和附件；没被标成已读、假服务没收到写操作", async () => {
+  it("没填时秘书没有这两个工具；填了以后：按关键词搜到行程单（夹在外部数据里、带编号），读一封给正文和附件；没被标成已读、假服务没收到写操作", async () => {
     const { k, imap } = await start();
     const ticket = imap.add(ticketMail(), ["INBOX", "all"]);
     imap.add(injectionMail(), ["INBOX", "all"]);
@@ -255,7 +255,7 @@ describe("按需查", () => {
     expect(JSON.stringify(k.dataSources.view())).not.toContain("revokedpassword1");
   });
 
-  it("登录没通过（出错）后每小时自动再试一次（306）：用存着的地址、密码再登录，Google 那边好了就自己回到连着，秘书又有这两个工具", async () => {
+  it("登录没通过（出错）后每小时自动再试一次：用存着的地址、密码再登录，Google 那边好了就自己回到连着，秘书又有这两个工具", async () => {
     const { k, imap } = await start();
     await connect(k);
     const gmailTools = () => k.agent.toolsFor(SECRETARY_TARGET).map((t) => t.spec.name).filter((n) => /gmail/i.test(n));

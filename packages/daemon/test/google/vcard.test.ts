@@ -1,4 +1,4 @@
-// vCard 解析（301 号票，google/vcard.ts）：Google 联系人导出的 3.0、手机导出的 2.1（QUOTED-PRINTABLE）、4.0 的写法，示例联系人都是编的
+// vCard 解析（google/vcard.ts）：Google 联系人导出的 3.0、手机导出的 2.1（QUOTED-PRINTABLE）、4.0 的写法，示例联系人都是编的
 // （名字、号码、地址不是真的）：
 // - 称呼（FN，没有就用 N 拼：中文连着写、西文"名 姓"）、昵称、中文名；
 // - 续行（包括把一个汉字的几个字节折到两行的）、BOM 和 CRLF、UTF-16、GB18030（老手机）、QUOTED-PRINTABLE 和它的软换行；

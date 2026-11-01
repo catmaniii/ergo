@@ -1,8 +1,8 @@
-// 服务管家的开机自启（342 号票）：计划任务 LocalServiceManager。注册、删除由 lsm 的 install-autostart / uninstall-autostart 做
+// 服务管家的开机自启：计划任务 LocalServiceManager。注册、删除由 lsm 的 install-autostart / uninstall-autostart 做
 // （packages/supervisor/src/autostart.mjs），这里只管三件事：读它现在指着哪、认它是不是这个安装的、把"真的动任务"挡在测试外面。
 //
 // 这个任务的名字是固定的，一台电脑只有一个，开发机上就有一个正在用的，所以动它只有一条路，路上有一道关：
-//   - ergo 起 lsm 只有 service.ts 的 runLsm 一个入口，它先问 interceptTaskCommand；守护进程里向导的开关（347 号票）走 runTaskCommand，同样先问它；
+//   - ergo 起 lsm 只有 service.ts 的 runLsm 一个入口，它先问 interceptTaskCommand；守护进程里向导的开关走 runTaskCommand，同样先问它；
 //   - 设了 ERGO_AUTOSTART_TASK_FILE：动的是那个 JSON 文件（和 ERGO_USER_ENV_FILE 假 PATH 一个路子），不起 lsm；
 //   - 在 vitest 里又没设：直接拒绝，也不起 lsm。忘了设假任务的测试会红，不会碰到真的。
 import { execFile, spawnSync } from "node:child_process";
@@ -119,7 +119,7 @@ export function interceptTaskCommand(env: NodeJS.ProcessEnv, args: readonly stri
 }
 
 /**
- * 守护进程里动任务（向导的开关，347 号票）：和 ergo svc install-autostart / uninstall-autostart 同一条命令，先过上面那一关；不卡住守护进程
+ * 守护进程里动任务（向导的开关）：和 ergo svc install-autostart / uninstall-autostart 同一条命令，先过上面那一关；不卡住守护进程
  */
 export function runTaskCommand(env: NodeJS.ProcessEnv, command: "install-autostart" | "uninstall-autostart", target: { node: string; script: string; dataDir: string }): Promise<LsmResult> {
   const intercepted = interceptTaskCommand(env, [command], target);

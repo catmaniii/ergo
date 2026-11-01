@@ -1,4 +1,4 @@
-// minisign 格式的签名（318 号票）：发版时用发布钥匙给校验值清单（SHA256SUMS）和组件清单签名，安装脚本、ergo update、守护进程读组件清单时验。
+// minisign 格式的签名：发版时用发布钥匙给校验值清单（SHA256SUMS）和组件清单签名，安装脚本、ergo update、守护进程读组件清单时验。
 // 不加依赖：Ed25519 用 Node 自带的 crypto；"ED"（预哈希）签名的 BLAKE2b-512 也是 Node 自带的；私钥文件的校验和（BLAKE2b-256）用 blake2b.ts，
 // 加了口令的私钥用 Node 自带的 scrypt 解（和 libsodium 的 crypto_pwhash_scryptsalsa208sha256 一样的参数换算）。
 // 安装脚本（installer/install.ps1）在 PowerShell 里另有一份只验不签的实现（C#），两份按同一个格式写、测试互相验。

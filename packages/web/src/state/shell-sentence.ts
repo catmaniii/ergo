@@ -1,12 +1,12 @@
-// 通用 bash 说成人话（67 号票）：把参数摘要里的命令（守护进程截到 160 字的一行，guard-runtime/describe.ts 的 summarizeArgs）
+// 通用 bash 说成人话：把参数摘要里的命令（守护进程截到 160 字的一行，guard-runtime/describe.ts 的 summarizeArgs）
 // 简单拆开，常见的命令各说一句，用"，"接起来："跑测试，把改动提交：修复登录超时"。
-// 用户 2026-10-10 定：前端自己简单拆，不用守护进程守卫那边的拆解结果（guard/shell/split.ts）——那份是给守卫判定用的，
+// 前端自己简单拆，不用守护进程守卫那边的拆解结果（guard/shell/split.ts）——那份是给守卫判定用的，
 // 要宁可多报；这里只是给人看的一句，认不出的命令不硬说。
 // 拆法：引号里的不拆；顶层的 &&、||、;、&、换行分成先后几段，| 后面那段是管道下游（head、grep、wc 这类过滤只看不说）；
 // 开头的环境变量赋值和 sudo、env、time 这类包装跳过；> / >> 写进文件的另说一句"写 …"，2>&1、> /dev/null 不算。
 // 认不出的命令：整条都认不出时交回 undefined（退回"通用 bash · 命令"），夹在认得的中间的说"运行 某命令"。
-// 说法：动词加对象，不带"了"（用户 2026-10-10 定）。纯函数。
-// 170 号票起按当前语言（state.shellSentence.*）；几句之间的"，"英文是", "。
+// 说法：动词加对象，不带"了"。纯函数。
+// 按当前语言（state.shellSentence.*）；几句之间的"，"英文是", "。
 import { t } from "./protocol.ts";
 import { joinList, pathsText, shortPath, shortUrl } from "./sentence-parts.ts";
 

@@ -1,7 +1,7 @@
-// 这个页面上的语音播放（31、36 号票）：把播放器（app/voice-playback.ts）接到浏览器的 <audio> 上、把"自动播放 agent 的语音"
+// 这个页面上的语音播放：把播放器（app/voice-playback.ts）接到浏览器的 <audio> 上、把"自动播放 agent 的语音"
 // 开关（app/voice-autoplay-setting.ts）接到 localStorage 上，给界面几个 hook；还有"开着哪些会话"（会话组件挂上时登记，
 // 自动播放只播开着的会话里的）。单独一个文件，那两个模块就不碰浏览器的全局变量，能在 Node 里测。
-// 38 号票：分段合成的 agent 语音边收边播用 Web Audio（webAudioScheduler：取段、解码、按时间排程，接缝淡入淡出）；
+// 分段合成的 agent 语音边收边播用 Web Audio（webAudioScheduler：取段、解码、按时间排程，接缝淡入淡出）；
 // agentVoiceUrls 把 DaemonHttp 接成状态层 agentVoicePlayback 要的拼地址的两个函数。
 import { useEffect, useSyncExternalStore } from "react";
 import { AGENT_VOICE_SEGMENT_FADE_MS, type AgentVoiceUrls, type ConversationId, t } from "../state/index.ts";
@@ -84,7 +84,7 @@ export function useVoicePlaying(id: string): boolean {
   return useSyncExternalStore(p.subscribe, () => p.isPlaying(id));
 }
 
-/** 这一条被语音输入暂停在半路了（209 号票：气泡上标"已暂停"，点一下从那里接着放） */
+/** 这一条被语音输入暂停在半路了（气泡上标"已暂停"，点一下从那里接着放） */
 export function useVoicePaused(id: string): boolean {
   const p = pageVoicePlayer();
   return useSyncExternalStore(p.subscribe, () => p.isPaused(id));

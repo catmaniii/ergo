@@ -1,4 +1,4 @@
-// 交付统计不算的东西（311 号票，294 号票端到端小测第 5 条：跑 pytest 留下的 __pycache__ 里的 .pyc 也数进了"交了几个文件"）：
+// 交付统计不算的东西（端到端小测第 5 条：跑 pytest 留下的 __pycache__ 里的 .pyc 也数进了"交了几个文件"）：
 // 缓存、依赖、编译产物、版本库这类目录整个不算，编译产物、系统生成的文件不算。秘书转告"交了几个文件"（secretary/task-done.ts）、
 // 任务卡"新建 N 个文件"（stage-view.ts 的 observedCounts）、项目"最新交付件"（project-ops/builtin.ts）都按这一份。
 // 写法照 project-ops/snapshot.ts 的忽略规则（一组目录名、按文件名判）；隐藏的（点开头的）各处另外照旧跳过。按小写比（Windows 不分大小写）。

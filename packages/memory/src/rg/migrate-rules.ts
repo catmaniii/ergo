@@ -1,13 +1,13 @@
-// 老库照新规矩迁移一次（329 号票 R16 ①，ADR-0032）。只改状态和标记，不重判证据（那是 333 号票的"全量重判一次"）：
+// 老库照新规矩迁移一次（R16 ①，ADR-0032）。只改状态和标记，不重判证据（那是"全量重判一次"）：
 // 1. 待复核不再是真值状态：status 还是 needs_review 的结论改成复核标记（needs_review 列），真值状态回到转待复核之前的那个
 //    （修订日志里找；找不到算猜测）；当时一起停用的推断（needs_review）前提都还在库里的恢复成立（R4：前提照挂），前提被删了的照旧停用；
-// 2. 恢复被 326 号票改过的身份：修订日志里改过 kind 的，改回建号时的那个（R1 身份锁死，没验证是状态不是身份）；
+// 2. 恢复被改过的身份：修订日志里改过 kind 的，改回建号时的那个（R1 身份锁死，没验证是状态不是身份）；
 // 3. 用户亲口确认过、还没改挂依据的：依据改挂到确认上（R7），已验证；
 // 4. 传播铁律（R4）：已验证、前提有没验证的降回猜测（前提照挂、保留），往下的已验证跟着降，到不动为止；
 // 5. 悬空的（前提都不在了）、推论没前提的：加复核标记，下一次整理重判（rejudge：悬空的撤回、墓碑指不在了的前提）。
-// 被错撤的（墓碑指着只是拿不准的前提）不在这里复活，留给 333 号票的全量重判（R16 ②）。
+// 被错撤的（墓碑指着只是拿不准的前提）不在这里复活，留给全量重判（R16 ②）。
 // 每一步经唯一写入口（规矩迁移 migrate，夜班），一条结论一次写：一条被拒只记进报告，不连累别的。跑两遍结果一样（第二遍什么都不写）。
-// 329 号票只写代码和测试，不接进守护进程、不在真库上跑：333 号票先在副本上跑、出前后对照，用户点头再上真库（先备份）。
+// 只写代码和测试，不接进守护进程、不在真库上跑：先在副本上跑、出前后对照，用户点头再上真库（先备份）。
 import type { Claim, RevisionCause } from "../domain/types.ts";
 import type { MemoryEngine } from "../engine.ts";
 import { isDangling, lacksPremises, refExists, storeLookup, unverifiedPremises, ironLawReason } from "./graph-rules.ts";
@@ -34,7 +34,7 @@ export interface RulesMigrationReport {
 const LEGACY_REVIEW = "needs_review";
 
 /** 迁移每一笔修订的起因（没有起因证据） */
-const cause = (reason: string): RevisionCause => ({ evidenceId: null, reason: `规矩迁移（329 号票）：${reason}` });
+const cause = (reason: string): RevisionCause => ({ evidenceId: null, reason: `规矩迁移：${reason}` });
 const LIVE: ReadonlySet<string> = new Set(["active", "contested"]);
 
 /** 跑一次迁移（见文件开头） */
@@ -46,7 +46,7 @@ export function migrateToRules(engine: MemoryEngine, options: { at?: string } = 
   /** 一次写；被写入口拒了记进报告（quiet 时不记，留给调用方再试一种写法），交回写成没有 */
   const write = <T>(claimId: string, step: string, reason: string, fn: () => T, quiet = false): { ok: true; value: T } | { ok: false } => {
     try {
-      return { ok: true, value: engine.gate.write({ op: "migrate", reason: `规矩迁移（329 号票）：${reason}` }, fn) };
+      return { ok: true, value: engine.gate.write({ op: "migrate", reason: `规矩迁移：${reason}` }, fn) };
     } catch (err) {
       if (!quiet) report.refused.push({ claimId, step, reason: err instanceof Error ? err.message : String(err) });
       return { ok: false };

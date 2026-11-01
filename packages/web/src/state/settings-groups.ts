@@ -1,4 +1,4 @@
-// 设置列表的四组（247 号票，用户 2026-10-22 定方案 A）：身份、能力、规则、数据与设备。
+// 设置列表的四组：身份、能力、规则、数据与设备。
 // 这里只是"哪四组、这台设备记住了哪几组收起了"——分组和组里的页是界面的事，在 pages/MorePage.tsx 的 SETTINGS_GROUPS；
 // 认、写、点一下这三样和任务看板、项目一览共用 board-fold.ts 的 foldedOf / foldedText / toggleFolded。
 // 默认四组都展开（没记过时一组都不收起）。记在这台设备的浏览器里（localStorage 的 ergo-settings-folded，读写在

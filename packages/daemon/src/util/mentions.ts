@@ -1,7 +1,7 @@
-// 一段文字里有没有"整段地"提到某个编号（265 号票）：前后挨着的不是字母、数字、下划线、连字符才算——证据编号 ev-1000
+// 一段文字里有没有"整段地"提到某个编号：前后挨着的不是字母、数字、下划线、连字符才算——证据编号 ev-1000
 // 不会当成 ev-10000 的一部分（推理库的编号补零到 4 位，过了 9999 就会有前缀相同的）。彻底删除按编号找问记忆的结果时用
 // （memory/purge.ts 找事件日志里的记录、runtime/agent-child/session-rewrite.ts 改会话文件里的行）。
-// 272 号票：按编号换行（replaceMentionLines）也挪到这里——会话文件（子进程）和事件日志里的一次性补抹（memory/purge-backfill.ts）
+// 按编号换行（replaceMentionLines）也挪到这里——会话文件（子进程）和事件日志里的一次性补抹（memory/purge-backfill.ts）
 // 用同一个认法。
 const ID_CHAR = /[0-9A-Za-z_-]/;
 
@@ -28,7 +28,7 @@ const quoteDelta = (line: string) => [...line].reduce((n, ch) => n + (ch === "�
 /**
  * 工具结果里提到这些字串的行换成"- 字串 · 删除标记"（字串按整段认）。continuation 时这一条的续行一起换掉：往下缩进、又不是新一条
  * （不以 -、·、"1." 这类开头）的行（问记忆的简报一条记录分几行写：编号、原话、精炼），和这一条里没合上的「」里的行（原话本来就有换行）。
- * 已经是"- 字串 · 删除标记"的行原样留着、不再吃后面的行（272 号票：以前第二遍会把紧跟着的、缩进比它深的别的内容当续行换掉），
+ * 已经是"- 字串 · 删除标记"的行原样留着、不再吃后面的行（以前第二遍会把紧跟着的、缩进比它深的别的内容当续行换掉），
  * 所以再换一遍不变（幂等：会话文件每次启动都会按以前的彻底删除再对一遍）。没有要换的是 undefined
  */
 export function replaceMentionLines(text: string, needles: readonly string[], marker: string, options: { continuation?: boolean } = {}): string | undefined {

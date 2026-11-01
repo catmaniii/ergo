@@ -1,4 +1,4 @@
-// 返回栈（62 号票，系统返回键）：鸿蒙 App 里按系统返回键，网页按层级退一级——
+// 返回栈（系统返回键）：鸿蒙 App 里按系统返回键，网页按层级退一级——
 // 先关最后打开的那个弹窗、选择器、详情页（overlay），没有再回这一页的上一级（page：标题栏的"‹ 返回"），
 // 都没有就是到了顶层，交给系统退出 App。
 import { describe, expect, test } from "vitest";
@@ -41,7 +41,7 @@ describe("挂上、拿下", () => {
     expect(stack).toEqual([]);
   });
 
-  test("开着弹窗、详情这些 overlay 吗（116 号票：开着就不在回到前台时直接刷新）：只有 page 的不算", () => {
+  test("开着弹窗、详情这些 overlay 吗（开着就不在回到前台时直接刷新）：只有 page 的不算", () => {
     expect(overlayOpen(run([]))).toBe(false);
     expect(overlayOpen(run([["open", page(1)]]))).toBe(false);
     expect(overlayOpen(run([["open", page(1)], ["open", overlay(2)]]))).toBe(true);

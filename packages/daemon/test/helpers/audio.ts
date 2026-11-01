@@ -1,4 +1,4 @@
-// 参考音色导入（230 号票）的测试底座：假的 ffmpeg（fixtures/fake-ffmpeg.mjs，不解码、不真转码、不跑本机的 ffmpeg）、
+// 参考音色导入的测试底座：假的 ffmpeg（fixtures/fake-ffmpeg.mjs，不解码、不真转码、不跑本机的 ffmpeg）、
 // 造一段假的 mp3（"多格式"用例的内容，假 ffmpeg 只看后面那行指令）、读假 ffmpeg 的记录。
 // 交回的 WAV 是 16 kHz、单声道、16 位 PCM；时长按指令（不给按输入 WAV 的头算，mp3 这类默认 3 秒）。
 import fs from "node:fs";

@@ -1,14 +1,14 @@
-// 项目页的布局（纯函数，104 号票，用户 2026-10-12："项目页面也和任务改成类似的风格吧：项目一览全屏显示，点击项目卡片进入全屏的
-// 和项目负责人的对话和详情界面……全屏的项目一览和管理界面的风格要和任务一览和管理界面体现出一定视觉差异"）。照 88 号票任务页的做法：
+// 项目页的布局（纯函数："项目页面也和任务改成类似的风格吧：项目一览全屏显示，点击项目卡片进入全屏的
+// 和项目负责人的对话和详情界面……全屏的项目一览和管理界面的风格要和任务一览和管理界面体现出一定视觉差异"）。任务页的做法：
 // - 项目一览和项目二选一：没点项目时整页是项目一览（宽屏每组排成多列的"档案墙"，窄屏一列），按项目状态分组（使用中、建设中、
-//   筹备中、已停用、已归档；没有项目的组不列），每组标题点一下收起 / 展开，按设备记住，默认已归档收起（照 90 号票的看板分组）；
+//   筹备中、已停用、已归档；没有项目的组不列），每组标题点一下收起 / 展开，按设备记住，默认已归档收起（照看板分组）；
 //   顶上一条概览（各状态几个、负责人在干活的、进行中的内部任务、定时触发的）；
 // - 点卡片、从别处跳进来（#/projects/<项目>，也认 …/chat、…/jobs/<作业>）整页是这个项目的对话框：和负责人的会话占主区，项目的详情
 //   （项目头、立项书、内部任务、定时触发的、工单流水线、工具包、范围记录、负责人）在档案里——宽屏在会话左边，栏顶 × 整栏藏掉、
 //   标题栏左边的"项目档案"标签再打开，分界线能拖，开合和宽度按设备记住（照原来长程任务的阶段栏）；日历里点作业过来时这一次把档案打开；
-// - 368 号票（用户 2026-11-01："不管点哪里进去，同一个 agent 的对话框看起来应该都一样"）：手机上也是点卡片就进对话框，不再多一层项目页，
+// -（"不管点哪里进去，同一个 agent 的对话框看起来应该都一样"）：手机上也是点卡片就进对话框，不再多一层项目页，
 //   档案从右边滑进来；项目负责人做的任务没有单独的详情页（#/tasks/<任务> 换成 #/projects/<项目>/tasks/<任务>，定位到这个任务）；
-// - 从项目回到一览时滚回离开时的位置（宽窄屏一样，照 88 号票用户定的任务看板）。
+// - 从项目回到一览时滚回离开时的位置（宽窄屏一样，用户定的任务看板）。
 import { type ActivityState, ENDED_TASK_STATES, isInternalTo, isJobRunWorkOrder, type Project, PROJECT_KIND_LABEL, PROJECT_STATE_LABEL, t, type Task, type TaskState, UNFINISHED_TASK_STATES } from "./protocol.ts";
 import { foldedOf, foldedText } from "./board-fold.ts";
 import { PROJECT_GROUPS, type ProjectView, projectViews } from "./projects.ts";
@@ -20,7 +20,7 @@ import { projectPipeline } from "./work-orders.ts";
 export type ProjectGroup = (typeof PROJECT_GROUPS)[number];
 
 /**
- * 项目页现在显示什么：项目一览（宽屏 grid 多列档案墙、窄屏 list 一列），或者一个项目的对话框（宽窄屏一样，368 号票）。
+ * 项目页现在显示什么：项目一览（宽屏 grid 多列档案墙、窄屏 list 一列），或者一个项目的对话框（宽窄屏一样）。
  * job 是日历里点名的那个定时作业（档案里那一行高亮），task 是地址点名要定位到的任务
  */
 export type ProjectPageView = { kind: "wall"; layout: "grid" | "list" } | { kind: "project"; projectId: string; job?: string; task?: string };
@@ -31,10 +31,10 @@ export function projectPageView(at: { wide: boolean; projectId?: string | undefi
   return { kind: "project", projectId: at.projectId, ...(at.jobId ? { job: at.jobId } : {}), ...(at.taskId ? { task: at.taskId } : {}) };
 }
 
-// ───────────────────────── 对话框里显示哪个任务（368 号票） ─────────────────────────
+// ───────────────────────── 对话框里显示哪个任务 ─────────────────────────
 
 /**
- * 这个任务在哪个项目的对话框里（368 号票）：由项目的负责人做的任务（内部任务，或者涉及一个项目、交给它的负责人的，转为项目的那个任务也是）
+ * 这个任务在哪个项目的对话框里：由项目的负责人做的任务（内部任务，或者涉及一个项目、交给它的负责人的，转为项目的那个任务也是）
  * 和项目是同一个 agent、同一个对话框，没有自己的详情页。别的（跨项目的、不属于项目的，有自己的负责人）是 undefined
  */
 export function taskHomeProject(state: UiState, task: Pick<Task, "maintainerId"> & { internal?: Task["internal"] }): Project | undefined {
@@ -78,9 +78,9 @@ export interface ProjectCard {
   readonly stateLabel: string;
   /** 负责人在干什么（休眠、干活中……） */
   readonly activity: ActivityState;
-  /** 进行中的内部任务（64 号票：负责人在项目里执行的、还没结束的） */
+  /** 进行中的内部任务（负责人在项目里执行的、还没结束的） */
   readonly internalOpen: number;
-  /** 定时触发的（76 号票：这个项目名下没取消的定时作业） */
+  /** 定时触发的（这个项目名下没取消的定时作业） */
   readonly scheduled: number;
   /** 最近一次动静：项目自己、负责人的活动、内部任务、工单最近一次变化的时间 */
   readonly lastAt: string;
@@ -144,7 +144,7 @@ export function projectWall(state: UiState): ProjectWall {
   };
 }
 
-// ───────────────────────── 分组收起（照 90 号票的看板，另记一份） ─────────────────────────
+// ───────────────────────── 分组收起（照看板，另记一份） ─────────────────────────
 
 /** 没记过时收起的组：已归档 */
 export const PROJECT_FOLDED_DEFAULT: readonly ProjectGroup[] = ["archived"];

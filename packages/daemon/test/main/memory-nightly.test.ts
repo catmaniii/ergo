@@ -1,6 +1,6 @@
-// 主切面：记忆插件的每晚整理（225 号票）。走真实的装配路径：守护进程起来就建好推理库，03:00 的内部作业到点整理一次，
+// 主切面：记忆插件的每晚整理。走真实的装配路径：守护进程起来就建好推理库，03:00 的内部作业到点整理一次，
 // 整理记录落进事件日志和派生视图；运行中停用记忆插件后作业撤掉、下一夜不再跑，推理库和素材都留着。
-// 236 号票起抽事实默认走模型版：假模型交回的一批事实落进 rg.db（manifest 记 model:<名>），不联网、不调真模型。
+// 抽事实默认走模型版：假模型交回的一批事实落进 rg.db（manifest 记 model:<名>），不联网、不调真模型。
 // 模型是假的（memoryModel），不联网、不调真模型；时钟是手动拨的。
 import fs from "node:fs";
 import { type ChatRequest, FakeChatModel } from "@ergo/memory";
@@ -41,7 +41,7 @@ describe("记忆插件的每晚整理", () => {
     const clock = new ManualClock(at(10, 7, 2, 0));
     const td = await startTestDaemon({
       clock,
-      // 265 号票：给了 clock 时底座默认停掉记忆插件；这里测的就是它 03:00 的整理，打开
+      // 给了 clock 时底座默认停掉记忆插件；这里测的就是它 03:00 的整理，打开
       memoryPlugin: true,
       // 假模型（和后台的 faux 秘书一样，测试里永远不连真的 DeepSeek）
       memoryModel: () => new FakeChatModel(fakeMemoryModel),

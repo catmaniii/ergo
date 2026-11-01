@@ -1,4 +1,4 @@
-// 服务首页的缩略图（140 号票）真的截一张：**要本机的浏览器**（照 web/recorded-results.browser.test.ts：按二狗同样的顺序找，
+// 服务首页的缩略图真的截一张：**要本机的浏览器**（照 web/recorded-results.browser.test.ts：按二狗同样的顺序找，
 // 找不到的跳过，原因写进测试报告）。起一个本机的小页面当"服务的首页"，用正式的驱动（playwrightDriver）和正式的截法
 // （captureServiceHome）截下来：是 JPEG、640×400（1280×800 排版、0.5 倍出图）；打不开的页面（404）算没截成。不连外网。
 import http from "node:http";

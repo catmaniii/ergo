@@ -1,4 +1,4 @@
-// 设置 · 系统提示（71 号票，一份提示一个 md 文件）：各 agent 的系统提示按前缀、各角色、共用片段列出，标明用的是默认的
+// 设置 · 系统提示（一份提示一个 md 文件）：各 agent 的系统提示按前缀、各角色、共用片段列出，标明用的是默认的
 // 还是改过的；点进某一份（#/more/prompts/<编号>）直接在页面里看、改、保存（存进数据目录配置区的 prompts/），能一键恢复默认。
 // 占位符写错时就地提示第几行错在哪、存不进去（检查和守护进程用同一个函数，守护进程那边照样再查）。
 // 每次打开现取（文件可能被直接改过），不缓存。说法在状态层（state/system-prompts.ts）。
@@ -105,7 +105,7 @@ function PromptEditor({ id }: { id: string }) {
   const value = draft ?? detail?.content ?? "";
   const check = detail && checkSystemPromptDraft(detail, value);
   const dirty = check?.changed === true;
-  // 鸿蒙 App 的系统返回键（62 号票）：改了一半没保存时先撤销这次修改，再按才回到列表
+  // 鸿蒙 App 的系统返回键：改了一半没保存时先撤销这次修改，再按才回到列表
   useBackLayer("overlay", dirty && !busy, () => {
     setDraft(undefined);
     setRejected(undefined);

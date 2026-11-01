@@ -1,12 +1,12 @@
-// 工单和负责人会话分段的 schema（规格第 11、12 节，16 号票），用 TypeBox 定义，守护进程和 Web 共用生成的类型。
+// 工单和负责人会话分段的 schema（规格第 11、12 节），用 TypeBox 定义，守护进程和 Web 共用生成的类型。
 // - 项目列表频道上的 work_order 事件：工单的最新状态（WorkOrder）。项目页的工单流水线、看板上任务卡的"等项目 X"都从它来；
 //   工单不在看板上单独占卡；
 // - 负责人会话频道上的 segment 事件：会话分段的最新状态（MaintainerSegment）。界面上的分段线是同一事务里追加的一条
 //   带工单分隔 part（work_order_divider）的消息，segment 事件给守护进程自己（固定上下文里的"上一段摘要"、
 //   接哪个会话）和想看分段细节的前端。
-// - 工单卡（work_order，17 号票）：计划外的工单"待你确认"，用户确认派出或拒绝。
-// 工单按来源分成几支（WorkOrder 是它们的联合，按 source 区分）：用户发起的单项目任务（16 号票，起草计划、执行）、
-// 涉及多个项目的任务的负责人派来的改动（17 号票，带所属阶段、验收标准、回执）、定时作业的一次运行（19 号票，不属于任务）。
+// - 工单卡（work_order）：计划外的工单"待你确认"，用户确认派出或拒绝。
+// 工单按来源分成几支（WorkOrder 是它们的联合，按 source 区分）：用户发起的单项目任务（起草计划、执行）、
+// 涉及多个项目的任务的负责人派来的改动（带所属阶段、验收标准、回执）、定时作业的一次运行（不属于任务）。
 // 前两支属于任务（taskId、taskTitle），认是不是定时作业的运行用 isJobRunWorkOrder，要任务编号用 workOrderTaskId。
 // 名字（状态、结局、来源、种类、流水线三栏）在 work-orders.ts。
 import { type Static, Type } from "typebox";
@@ -27,10 +27,10 @@ const workOrderCommon = {
   state: WorkOrderStateSchema,
   /** 已结束的：完成、退回、做不了、没派出 */
   outcome: Type.Optional(Type.Enum(WORK_ORDER_OUTCOMES)),
-  /** 退回、做不了的原因（发给已归档项目的、任务取消了、任务失败的原因；17 号票起也有项目负责人写的理由） */
+  /** 退回、做不了的原因（发给已归档项目的、任务取消了、任务失败的原因；也有项目负责人写的理由） */
   reason: Type.Optional(Type.String()),
   /**
-   * 等澄清时：在等哪张提问卡的回答（16 号票：用户发起的单项目任务直接问用户；17 号票：任务负责人答不了、转问用户的那张，
+   * 等澄清时：在等哪张提问卡的回答（用户发起的单项目任务直接问用户；任务负责人答不了、转问用户的那张，
    * 用户回答后经任务负责人交回）
    */
   questionsCardId: Type.Optional(Type.String()),
@@ -49,7 +49,7 @@ const belongsToTask = {
   taskTitle: Type.String(),
 };
 
-/** 用户发起的单项目任务的工单（16 号票）：起草计划、执行，派出即进收件负责人的队列 */
+/** 用户发起的单项目任务的工单：起草计划、执行，派出即进收件负责人的队列 */
 export const UserTaskWorkOrder = Type.Object({
   ...workOrderCommon,
   ...belongsToTask,
@@ -64,7 +64,7 @@ export const UserTaskWorkOrder = Type.Object({
 export type UserTaskWorkOrder = Static<typeof UserTaskWorkOrder>;
 
 /**
- * 涉及多个项目的任务的负责人派来的改动（17 号票）：计划内的在确认计划时建出、所属阶段开始时派出；计划外的待你确认，
+ * 涉及多个项目的任务的负责人派来的改动：计划内的在确认计划时建出、所属阶段开始时派出；计划外的待你确认，
  * 确认后派出。项目负责人做完交回执，回执交给派单的任务负责人
  */
 export const TaskMaintainerWorkOrder = Type.Object({
@@ -95,7 +95,7 @@ export type TaskMaintainerWorkOrder = Static<typeof TaskMaintainerWorkOrder>;
 export type TaskWorkOrder = UserTaskWorkOrder | TaskMaintainerWorkOrder;
 
 /**
- * 定时作业的一次运行（19 号票）：属于项目的作业到点时派出，不属于任何任务，记着哪个作业、哪一次运行。
+ * 定时作业的一次运行：属于项目的作业到点时派出，不属于任何任务，记着哪个作业、哪一次运行。
  * 排到了还要有全局执行名额才开始
  */
 export const JobRunWorkOrder = Type.Object({
@@ -114,7 +114,7 @@ export const WorkOrder = Type.Union([UserTaskWorkOrder, TaskMaintainerWorkOrder,
 export type WorkOrder = Static<typeof WorkOrder>;
 
 /**
- * 工单卡（work_order，17 号票）：执行中任务负责人派出计划外的工单时命中"计划外工单"类别（任务里默认先问我），
+ * 工单卡（work_order）：执行中任务负责人派出计划外的工单时命中"计划外工单"类别（任务里默认先问我），
  * 工单待你确认，待我处理出现这张卡。"确认派出"（dispatch）之后工单才进入项目负责人的队列，"拒绝"（deny）则不派
  */
 export const WorkOrderCardPayload = Type.Object({
@@ -156,7 +156,7 @@ export const MaintainerSegment = Type.Object({
   maintainerId: Type.String(),
   projectId: Type.String(),
   kind: Type.Enum(SEGMENT_KINDS),
-  /** 工单段：哪张工单、所属任务（定时作业的一次运行是哪个作业，19 号票） */
+  /** 工单段：哪张工单、所属任务（定时作业的一次运行是哪个作业） */
   workOrderId: Type.Optional(Type.String()),
   taskId: Type.Optional(Type.String()),
   scheduledJobId: Type.Optional(Type.String()),
@@ -166,7 +166,7 @@ export const MaintainerSegment = Type.Object({
    */
   session: Type.String(),
   /**
-   * 这个负责人的第一段、而且是对话段：这个名字的会话还没有时，接着它以前的会话（任务转为项目时原任务的、16 号票之前的立项问答）；
+   * 这个负责人的第一段、而且是对话段：这个名字的会话还没有时，接着它以前的会话（任务转为项目时原任务的、以前的立项问答）；
    * 接的是哪个由子进程报回，记成 session
    */
   continueEarlier: Type.Optional(Type.Boolean()),

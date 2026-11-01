@@ -1,10 +1,10 @@
-// 原型的运营方案（130 号票）：读书笔记库的"首版做完了"卡上带的那一份（等你确认并转入使用），家庭菜谱现在生效的运营方案
+// 原型的运营方案：读书笔记库的"首版做完了"卡上带的那一份（等你确认并转入使用），家庭菜谱现在生效的运营方案
 // （项目页"运营方案"一节：在跑、暂停、没生效、要你手动各一条）和它等你确认的"运营方案变更"卡（改时间、加上、去掉、照旧）。
-// 133 号票：运营手段"服务"——读书笔记库的方案里"随手翻页面"是要上线的服务；家庭菜谱的"菜谱网页"上线了（在线，有入口），它的上一张
+// 运营手段"服务"——读书笔记库的方案里"随手翻页面"是要上线的服务；家庭菜谱的"菜谱网页"上线了（在线，有入口），它的上一张
 // 变更卡（第 2 份，加上了这个服务）你确认过了、卡上带着入口，等你确认的那张改了它的启动命令；家庭网盘的服务挂了（项目卡上标红）。
-// 140 号票：服务首页的缩略图（画好的假网页，fakeServiceThumbnail）——菜谱网页、网盘页面（挂了：灰着标"不在线"）各一张，停用了的
+// 服务首页的缩略图（画好的假网页，fakeServiceThumbnail）——菜谱网页、网盘页面（挂了：灰着标"不在线"）各一张，停用了的
 // 旧作品集网站留着最后一张；家庭菜谱两条定时任务的最近几次运行（时令菜提醒那次失败了）。
-// 357 号票：服务报事件——读书笔记库的方案里多一条等"书摘同步失败"的；家庭菜谱的"菜谱网页"报过几个事件（叫醒了的、名字写错没人等的），"价格异常时比价"等它报事件。
+// 服务报事件——读书笔记库的方案里多一条等"书摘同步失败"的；家庭菜谱的"菜谱网页"报过几个事件（叫醒了的、名字写错没人等的），"价格异常时比价"等它报事件。
 import {
   CHANNELS,
   EVENT_TYPES,
@@ -88,7 +88,7 @@ export const READING_OPERATIONS: OperationsPlanView = {
 };
 
 /**
- * 259 号票：相册库的负责人提转入使用时带着的运营方案（"转入使用"确认卡上的那一份）：相册浏览页是要上线的服务——其他类的项目真有服务，
+ * 相册库的负责人提转入使用时带着的运营方案（"转入使用"确认卡上的那一份）：相册浏览页是要上线的服务——其他类的项目真有服务，
  * 检查清单照开发类查
  */
 export const PHOTOS_OPERATIONS: OperationsPlanView = {
@@ -308,7 +308,7 @@ const FAKE_THUMBNAILS: Record<string, string> = {
   }),
 };
 
-/** 原型的服务首页缩略图（140 号票）：按应用名给画好的假网页；没画的没有 */
+/** 原型的服务首页缩略图：按应用名给画好的假网页；没画的没有 */
 export function fakeServiceThumbnail(app: string): string | undefined {
   return FAKE_THUMBNAILS[app];
 }
@@ -368,7 +368,7 @@ export const RECIPES_OPERATIONS_CHANGE: OperationsChangeCardPayload = {
   ],
 };
 
-/** 一次运行（140 号票：项目页"现在"里的最近几次运行） */
+/** 一次运行（项目页"现在"里的最近几次运行） */
 const recipesRun = (jobId: string, n: number, state: "done" | "failed" | "partial", ended: string, reason?: string, summary?: string) => ({
   runId: `${jobId}-r${n}`,
   jobId,
@@ -382,7 +382,7 @@ const recipesRun = (jobId: string, n: number, state: "done" | "failed" | "partia
   ...(summary ? { summary } : {}),
 });
 
-/** 家庭菜谱运营方案里两条的触发登记（项目页上的状态照它算：一条在跑、一条你暂停了）；140 号票起带最近几次运行（runs，先跑的在前） */
+/** 家庭菜谱运营方案里两条的触发登记（项目页上的状态照它算：一条在跑、一条你暂停了）；带最近几次运行（runs，先跑的在前） */
 export const RECIPES_JOBS = [
   {
     id: "sj-recipes-menu",
@@ -391,7 +391,7 @@ export const RECIPES_JOBS = [
     schedule: { kind: "weekly" as const, time: "09:00", weekdays: [6] },
     state: "active" as const,
     nextAt: at("10-10", "09:00"),
-    // 176 号票：第 2 次部分完成（推送到手机那一步没等到你的批准，菜单和买菜清单照样做好了）
+    // 第 2 次部分完成（推送到手机那一步没等到你的批准，菜单和买菜清单照样做好了）
     runs: [
       recipesRun("sj-recipes-menu", 1, "done", at("09-26", "09:03")),
       recipesRun(
@@ -415,7 +415,7 @@ export const RECIPES_JOBS = [
 ];
 
 /**
- * 141 号票：家庭菜谱运营方案里那两条生效成的内部任务（origin operations）——上任务看板的"运营中"，卡上标"家庭菜谱"，
+ * 家庭菜谱运营方案里那两条生效成的内部任务（origin operations）——上任务看板的"运营中"，卡上标"家庭菜谱"，
  * 菜单里只有暂停 / 恢复和"这是项目「家庭菜谱」运营方案里的一条……"
  */
 const recipesTask = (id: string, title: string, trigger: Task["trigger"]): Task => ({
@@ -437,11 +437,11 @@ const recipesTask = (id: string, title: string, trigger: Task["trigger"]): Task 
 
 export const RECIPES_OPERATIONS_TASKS: Task[] = [
   ...RECIPES_JOBS.map((j) => recipesTask(j.ownerTaskId, j.title, { kind: "schedule", schedule: j.schedule })),
-  // 357 号票：等菜谱网页报"价格异常"的那一条
+  // 等菜谱网页报"价格异常"的那一条
   recipesTask("t-recipes-price", "价格异常时比价", { kind: "event", source: "service", events: ["reported"], filter: { name: "价格异常" } }),
 ];
 
-// ───────────────────────── 140 号票：相册库建设中卡住的几样（项目页最上面的"现在"） ─────────────────────────
+// ─────────────────────────相册库建设中卡住的几样（项目页最上面的"现在"） ─────────────────────────
 
 const PHOTOS = { projectId: "p-photos", projectName: "相册库" };
 

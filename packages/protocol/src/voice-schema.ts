@@ -1,7 +1,7 @@
-// 语音消息的 schema（规格第 22 节，31 号票）：一条语音 = 一个数据对象，音频和它的文字绑在一起。
+// 语音消息的 schema（规格第 22 节）：一条语音 = 一个数据对象，音频和它的文字绑在一起。
 // 消息里的语音 part（schema.ts 的 VoicePart）只引用它（voiceId）并带上画气泡要的时长和波形；
 // 识别的结果和识别状态在 VoiceRecord 里，随会话频道上的 voice 事件更新。
-// （用户 2026-10-08 改：第一阶段不用大模型修正，识别出的文字就是 faster-whisper 的结果。）
+// （第一阶段不用大模型修正，识别出的文字就是 faster-whisper 的结果。）
 import { type Static, Type } from "typebox";
 import { ConversationId, MessageScope, VoiceCapture, VoiceDurationMs, VoiceWaveform } from "./schema.ts";
 import { AGENT_VOICE_MODES, AGENT_VOICE_STATUSES, REFERENCE_VOICE_NAME_MAX, REFERENCE_VOICE_TEXT_MAX, VOICE_MODEL_STATUSES, VOICE_STATUSES } from "./voice.ts";
@@ -43,7 +43,7 @@ export const VoiceRecord = Type.Object({
   /** 消息所属的任务、项目（负责人会话里的；素材的"任务或项目"取自这里） */
   taskId: Type.Optional(Type.String()),
   projectId: Type.Optional(Type.String()),
-  /** 消息属于哪一次了解你访谈（284 号票：访谈开着时在记忆管理员的会话里说的；语音转写的素材据此标上"来自访谈"） */
+  /** 消息属于哪一次了解你访谈（访谈开着时在记忆管理员的会话里说的；语音转写的素材据此标上"来自访谈"） */
   interviewId: Type.Optional(Type.String()),
   /** 访谈里这句话答的是管理员的哪一问（消息归属的 interviewQuestion；素材把它放进上下文） */
   interviewQuestion: Type.Optional(Type.String()),
@@ -57,24 +57,24 @@ export const VoiceRecord = Type.Object({
   /** 第几次识别（用户手动重新识别加 1；自动重试不算，见 autoRetry） */
   attempt: Type.Integer({ minimum: 1 }),
   /**
-   * 第几次自动重试（208 号票）：识别没做成（识别进程出错、超时、退出、不可用）时隔一会儿自动再试，最多几次由配置定
+   * 第几次自动重试：识别没做成（识别进程出错、超时、退出、不可用）时隔一会儿自动再试，最多几次由配置定
    * （voice.recognizer.autoRetrySeconds，默认隔 15 秒、60 秒、3 分钟三次）。等着重试、正在重试时气泡上写"识别中（第 N 次重试）"；
    * 有了结局之后留着（重试了几次）。只有第一次识别会自动重试，手动重新识别时去掉
    */
   autoRetry: Type.Optional(Type.Integer({ minimum: 1 })),
-  /** 等着自动重试时下一次重试的时刻（208 号票；状态是排队）。守护进程重启后到点接着试；开始识别时去掉 */
+  /** 等着自动重试时下一次重试的时刻（状态是排队）。守护进程重启后到点接着试；开始识别时去掉 */
   retryAt: Type.Optional(Type.String()),
   recognition: Type.Optional(VoiceRecognition),
   /** 识别失败的原因（自动重试完了还不行的，是最后一次的原因） */
   error: Type.Optional(Type.String()),
   /**
-   * 识别出来的只有模型自带的串词（180 号票："请不吝点赞 订阅 转发……"，识别时剔掉后什么都不剩）：状态是失败、不自动重试。
-   * 208 号票起识别失败的都当作没说过——消息里只有这段语音的，不交给 agent（见 VoiceEventPayload.dropInput、MessageEventPayload.dropInput）。
+   * 识别出来的只有模型自带的串词（"请不吝点赞 订阅 转发……"，识别时剔掉后什么都不剩）：状态是失败、不自动重试。
+   * 识别失败的都当作没说过——消息里只有这段语音的，不交给 agent（见 VoiceEventPayload.dropInput、MessageEventPayload.dropInput）。
    * 重新识别时去掉
    */
   onlyFiller: Type.Optional(Type.Literal(true)),
   /**
-   * 录音的诊断（37 号票）：前端随语音带来的"按下 → 录音器真正开始"的毫秒数（整数）和是不是预热命中；
+   * 录音的诊断：前端随语音带来的"按下 → 录音器真正开始"的毫秒数（整数）和是不是预热命中；
    * 前端没带（旧版本）、带的不合理时没有。本机的历史分页接口（GET /api/conversations/<会话>/messages 的 voices）取得到
    */
   capture: Type.Optional(VoiceCapture),
@@ -89,19 +89,19 @@ export type VoiceRecord = Static<typeof VoiceRecord>;
 export const VoiceEventPayload = Type.Object({
   voice: VoiceRecord,
   /**
-   * 这条语音的消息不交给 agent 了（180 号票：识别出来的只有串词；208 号票起识别失败的都是——自动重试完了还不行、静音之类重试也没用的；
+   * 这条语音的消息不交给 agent 了（识别出来的只有串词；识别失败的都是——自动重试完了还不行、静音之类重试也没用的；
    * 消息里也只有这段语音）：还在 agent 的输入队列里等着的直接出队（记成没交），不唤起 agent、不回话（等同于没发）
    */
   dropInput: Type.Optional(Type.Literal(true)),
   /**
-   * 这条语音的消息回到 agent 的输入队列（208 号票）：识别失败时出了队、没交给 agent 的，用户手动重新识别成功了，
+   * 这条语音的消息回到 agent 的输入队列：识别失败时出了队、没交给 agent 的，用户手动重新识别成功了，
    * 作为一条正常的用户输入交过去（第一次交；交过"识别失败"的另交一条通知，不带它）
    */
   restoreInput: Type.Optional(Type.Literal(true)),
 });
 export type VoiceEventPayload = Static<typeof VoiceEventPayload>;
 
-/** 气泡菜单里的"重新识别"：只有识别失败的能重新识别（一次试一次，不自动重试；208 号票起试之前同样先看识别服务正不正常） */
+/** 气泡菜单里的"重新识别"：只有识别失败的能重新识别（一次试一次，不自动重试；试之前同样先看识别服务正不正常） */
 export const RetryVoiceParams = Type.Object({ voiceId: Type.String({ minLength: 1 }) });
 export type RetryVoiceParams = Static<typeof RetryVoiceParams>;
 
@@ -109,7 +109,7 @@ export type RetryVoiceParams = Static<typeof RetryVoiceParams>;
 export const RetryVoiceResult = Type.Object({ voiceId: Type.String(), version: Type.Integer({ minimum: 1 }) });
 export type RetryVoiceResult = Static<typeof RetryVoiceResult>;
 
-// ───────────────────────── agent 发的语音（32 号票） ─────────────────────────
+// ───────────────────────── agent 发的语音 ─────────────────────────
 
 export const AgentVoiceStatus = Type.Enum(AGENT_VOICE_STATUSES);
 export type AgentVoiceStatus = Static<typeof AgentVoiceStatus>;
@@ -118,7 +118,7 @@ export const AgentVoiceMode = Type.Enum(AGENT_VOICE_MODES);
 export type AgentVoiceMode = Static<typeof AgentVoiceMode>;
 
 /**
- * 分段合成里合成好的一段（38 号票）：第几段就是它在 AgentVoiceRecord.segments 里的位置（0 起），
+ * 分段合成里合成好的一段：第几段就是它在 AgentVoiceRecord.segments 里的位置（0 起），
  * 音频从 HTTP_PATHS.agentVoiceSegment(语音 id, 第几段) 取（临时的：合成完了过一阵就删，重播、下载用完整音频）
  */
 export const AgentVoiceSegment = Type.Object({
@@ -130,7 +130,7 @@ export const AgentVoiceSegment = Type.Object({
 export type AgentVoiceSegment = Static<typeof AgentVoiceSegment>;
 
 /**
- * 一条语音里一个人说的一段（354 号票）：秘书先开场、再接负责人自己的声音，合成一条。声音（referenceVoice）和说话的人（speaker：
+ * 一条语音里一个人说的一段：秘书先开场、再接负责人自己的声音，合成一条。声音（referenceVoice）和说话的人（speaker：
  * agent id 和角色名，转文字时写"小张："）都是运行时定的——秘书的按它自己的角色，负责人的按通知上记的发信人查角色，模型指定不了
  */
 export const AgentVoicePart = Type.Object({
@@ -146,7 +146,7 @@ export type AgentVoicePart = Static<typeof AgentVoicePart>;
 /**
  * agent 发的一条语音（语音回复）：用户发语音时，agent 这一轮的回复由运行时合成语音。
  * 绑定音频（入库的媒体，按内容哈希）、时长、送进 TTS 的原文、所用参考音色、TTS 模型，以及对应的完整回复在哪几条消息里。
- * 86 号票起也可以是 agent 在用户打字的那一轮用"发语音"工具发的（mode 是 tool）：调用时建出，字段同一套
+ * 也可以是 agent 在用户打字的那一轮用"发语音"工具发的（mode 是 tool）：调用时建出，字段同一套
  */
 export const AgentVoiceRecord = Type.Object({
   id: Type.String(),
@@ -161,24 +161,24 @@ export const AgentVoiceRecord = Type.Object({
   /**
    * 这一轮开始（turn_start 事件）在会话频道上的序号：回复还没定（replying）时，这之后 agent 发的消息都算这一轮的回复
    * （前端据此不显示它们的文字）；回合结束时 agent 用语音回复的那一轮才有（插话里有语音的、回合结束时才知道的没有）。
-   * 工具发的（86 号票）调用时就有：这一轮还没结束（coversReply 还没定）时，前端同样不显示这之后 agent 发的消息的文字
+   * 工具发的调用时就有：这一轮还没结束（coversReply 还没定）时，前端同样不显示这之后 agent 发的消息的文字
    */
   turnSeq: Type.Optional(Type.Integer({ minimum: 0 })),
   /**
    * 对应的完整回复：agent 这一轮发出的文字、图片、文件、卡片所在的消息，按先后（回合结束时定；agent 只写了口语总结时可以为空）。
-   * 工具发的（86 号票）回合结束时定，记在这一轮最后一条工具发的语音上（同一轮发了几条时，前面的是空的）
+   * 工具发的回合结束时定，记在这一轮最后一条工具发的语音上（同一轮发了几条时，前面的是空的）
    */
   replyMessageIds: Type.Array(Type.String()),
-  /** 送进 TTS 的是整段回复、口语总结，还是 agent 用"发语音"工具给的口语稿（86 号票的 tool；前两种回合结束时定，tool 调用时就定） */
+  /** 送进 TTS 的是整段回复、口语总结，还是 agent 用"发语音"工具给的口语稿（tool；前两种回合结束时定，tool 调用时就定） */
   mode: Type.Optional(AgentVoiceMode),
   /**
-   * 工具发的语音（86 号票，mode 是 tool）：这一轮 agent 另写的文字收进气泡（true，长按"转文字"时接在原文后面）还是照常显示（false）。
+   * 工具发的语音（mode 是 tool）：这一轮 agent 另写的文字收进气泡（true，长按"转文字"时接在原文后面）还是照常显示（false）。
    * 照语音轮的规矩，回合结束时定：这一轮回复的文字去掉 Markdown 标记后念得完、又没有代码表格链接这类念不出来的才收进去；
    * 没回复完的、没有别的文字的、那时已经没合成出来的是 false（之后才没合成出来的，agentVoiceCoversReply 按状态不收）。
    * 回合还没结束的没有（守护进程重启时那一轮已经被打断，定成 false）；整段合成、口语总结的语音没有
    */
   coversReply: Type.Optional(Type.Boolean()),
-  /** 工具发的语音（86 号票）：发它的那次工具调用的 id（守护进程重启后给 agent 的会话补那次调用的结果用）；别的没有 */
+  /** 工具发的语音：发它的那次工具调用的 id（守护进程重启后给 agent 的会话补那次调用的结果用）；别的没有 */
   toolCallId: Type.Optional(Type.String()),
   /**
    * 口语总结是谁写的：agent 用工具写的（这一轮里写的，或者运行时追问后补写的），或者追问了还没写、运行时从回复开头截的
@@ -190,7 +190,7 @@ export const AgentVoiceRecord = Type.Object({
   /** 所用的参考音色：id 和当时的显示名（回合结束时定；工具发的调用时定） */
   referenceVoice: Type.Optional(Type.Object({ id: Type.String(), name: Type.String() })),
   /**
-   * 不止一个人的声音（354 号票，秘书开场 + 负责人的声音）：按先后依次合成，拼成一条。这时 text 是各段连起来的（老的读者照常读得到），
+   * 不止一个人的声音（秘书开场 + 负责人的声音）：按先后依次合成，拼成一条。这时 text 是各段连起来的（老的读者照常读得到），
    * referenceVoice 是第一段的。负责人没有自己的声音（没配、和秘书的一样、被删了）时不写，就是一条秘书的语音。之前的语音记录都没有
    */
   parts: Type.Optional(Type.Array(AgentVoicePart)),
@@ -198,7 +198,7 @@ export const AgentVoiceRecord = Type.Object({
   model: Type.Optional(Type.String()),
   status: AgentVoiceStatus,
   /**
-   * 分段合成（38 号票）：口语稿切成了几段（第一段合成好时定）。只有一段的不推段，合成好直接是完成
+   * 分段合成：口语稿切成了几段（第一段合成好时定）。只有一段的不推段，合成好直接是完成
    */
   segmentCount: Type.Optional(Type.Integer({ minimum: 1 })),
   /** 已经合成好、推给前端的段，按先后（不止一段时才有；完成时是全部，合成到一半失败时是失败前的那几段） */
@@ -210,7 +210,7 @@ export const AgentVoiceRecord = Type.Object({
   waveform: Type.Optional(VoiceWaveform),
   /** 载着这条语音的消息（合成完成时追加的那条） */
   messageId: Type.Optional(Type.String()),
-  /** 从开始合成到第一段出来花了多久（毫秒；第一声只等它，38 号票）。只有一段的就是整条的耗时 */
+  /** 从开始合成到第一段出来花了多久（毫秒；第一声只等它）。只有一段的就是整条的耗时 */
   firstSegmentMs: Type.Optional(Type.Integer({ minimum: 0 })),
   /** 从开始合成到出结果（整条拼好入库）花了多久（毫秒；含 audio.cpp 第一次用到时加载模型） */
   elapsedMs: Type.Optional(Type.Integer({ minimum: 0 })),
@@ -227,7 +227,7 @@ export type AgentVoiceRecord = Static<typeof AgentVoiceRecord>;
 export const AgentVoiceEventPayload = Type.Object({ voice: AgentVoiceRecord });
 export type AgentVoiceEventPayload = Static<typeof AgentVoiceEventPayload>;
 
-// ───────────────────────── 参考音色（32 号票，设置里的语音页） ─────────────────────────
+// ───────────────────────── 参考音色（设置里的语音页） ─────────────────────────
 
 /** 一个参考音色（个人数据，存在数据目录的 voices 区，目录和文件用英文 id 命名，显示名另存） */
 export const ReferenceVoice = Type.Object({
@@ -253,7 +253,7 @@ export type ReferenceVoiceList = Static<typeof ReferenceVoiceList>;
 
 /**
  * 导入一个参考音色：名字、音频（base64，wav、mp3、m4a、aac、opus、ogg、flac、webm 等常见格式，服务端转成 WAV），
- * 可选的逐字稿（230 号票：不给就自动识别；给了照用，兼容旧调用和手工修正）
+ * 可选的逐字稿（不给就自动识别；给了照用，兼容旧调用和手工修正）
  */
 export const ImportReferenceVoiceBody = Type.Object({
   name: Type.String({ minLength: 1, maxLength: REFERENCE_VOICE_NAME_MAX }),
@@ -263,7 +263,7 @@ export const ImportReferenceVoiceBody = Type.Object({
 });
 export type ImportReferenceVoiceBody = Static<typeof ImportReferenceVoiceBody>;
 
-// ───────────────────────── 语音模型的状态（45 号票：模型预热） ─────────────────────────
+// ───────────────────────── 语音模型的状态（模型预热） ─────────────────────────
 
 export const VoiceModelStatus = Type.Enum(VOICE_MODEL_STATUSES);
 export type VoiceModelStatus = Static<typeof VoiceModelStatus>;
@@ -297,7 +297,7 @@ export const VoiceModelsView = Type.Object({
   recognizerEngines: Type.Array(Type.String()),
   /** 现在用的识别引擎 */
   recognizerEngine: Type.String(),
-  /** 现在的接入只认 WAV（346 号票，audio.cpp）：网页录完先转成 WAV 再传；没有是什么格式都认 */
+  /** 现在的接入只认 WAV（audio.cpp）：网页录完先转成 WAV 再传；没有是什么格式都认 */
   recognizerInput: Type.Optional(Type.Literal("wav")),
   recognizer: VoiceModelState,
   speech: VoiceModelState,

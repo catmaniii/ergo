@@ -1,10 +1,10 @@
-// 知识图谱和推理图谱联动（199 号票）。用户 2026-10-20："知识图谱是知其然，推理图谱是知其所以然。"
+// 知识图谱和推理图谱联动。"知识图谱是知其然，推理图谱是知其所以然。"
 // reflect() 里的先后（rg/reasoning-graph.ts 调这里）：
 //   1. 知识图谱：抽取、对齐实体（engine.extractFacts）、变化判定（kg/graph.ts）、找对比模式（kgPhase：kg/motifs.ts）、认矛盾（rg/conflict-roots.ts）；
 //   2. 推理图谱：对比模式、矛盾根源各出一组竞争假设（propose），和原有的观察模式一起走追问 → 计分 → 往上抽；
 //   3. 写回知识图谱（rg/writeback.ts）；
 //   4. 用户模型（不存，下次取快照按新的断言现算）；
-//   5. 问题队列：分不出的组进"了解你问题"（syncQuestions）。207 号票起接到 198 的问题箱：每条能区分的追问一个问题，照 198 的格式
+//   5. 问题队列：分不出的组进"了解你问题"（syncQuestions）。接到 198 的问题箱：每条能区分的追问一个问题，照格式
 //      （question-sources.ts 出草稿：为什么问、区分哪几个、回答各支持哪边、领域和场景、优先级、过期时间），经 QuestionSink 交给
 //      QuestionBook（引擎默认接上），走同一套顺口问、跳过、"别问这个"、回写；joint_questions 留作簿记。问法和"是 / 不是"各支持哪边见 questionFor。
 // 对比模式、矛盾根源的假设、追问、判定都由代码按知识图谱算（规则版、模型版共用：模型版的区别在抽取，见 kg/llm-extractor.ts）。
@@ -35,7 +35,7 @@ export const isJointGroup = (g: Pick<GroupRecord, "pattern">): boolean => isCont
 
 const TRIGGER_LABELS: Readonly<Record<ConflictTrigger, string>> = { contested: "真冲突", say_do: "说的和做的不一样", flip_flop: "观点来回变" };
 
-/** 联动交给问题箱的了解你问题（207 号票起照 198 的格式；draft 原样交给 QuestionBook） */
+/** 联动交给问题箱的了解你问题（照格式；draft 原样交给 QuestionBook） */
 export interface KnowYouQuestion {
   /** 同问题箱里的 key（probe:<追问 id>） */
   key: string;
@@ -61,7 +61,7 @@ export interface KnowYouQuestion {
   draft: QuestionDraft;
 }
 
-/** 接问题队列的钩子：引擎默认接 198 的 QuestionBook；onClosed 是那一组分出来了（或者这个问题不用问了） */
+/** 接问题队列的钩子：引擎默认接 QuestionBook；onClosed 是那一组分出来了（或者这个问题不用问了） */
 export interface QuestionSink {
   onQuestion(question: KnowYouQuestion): void;
   onClosed?(key: string, at: string, why: string): void;
@@ -99,7 +99,7 @@ export interface ContrastParams {
   acceptedEvidenceIds: string[];
   controlEvidenceIds: string[];
   relatedFactIds: string[];
-  /** 推掉的那几次共有的别的属性的值（备择那几条说的；207 号票问问题用） */
+  /** 推掉的那几次共有的别的属性的值（备择那几条说的；问问题用） */
   alternativeLabels?: Partial<Record<ContrastDimension, string>>;
   rateWith: number;
   rateWithout: number;
@@ -145,7 +145,7 @@ function dedupe(links: readonly TargetLink[]): TargetLink[] {
   return [...m.values()];
 }
 
-/** 329 号票：当"更深的需求"候选时的先后——已验证的在前，再按把握 */
+/** 当"更深的需求"候选时的先后——已验证的在前，再按把握 */
 const needRank = (c: Claim): number => (c.status === "active" ? 0 : 3) + ({ high: 0, medium: 1, low: 2 } as const)[c.confidence];
 
 export class JointReasoner {
@@ -180,7 +180,7 @@ export class JointReasoner {
   }
 
   /**
-   * 330 号票（矛盾根源，用户 10-27 选 A）：真冲突的两边，事实自己带的场景标签对不上、或者有效期不重叠——事实本身就写清了能把两边分开，
+   * 矛盾根源：真冲突的两边，事实自己带的场景标签对不上、或者有效期不重叠——事实本身就写清了能把两边分开，
    * 直接把事实改成不冲突（摘掉互相的 contestedWith，没有别的冲突就回到成立），照旧留痕、能撤回；不建根源猜测
    */
   private separateByFacts(): void {
@@ -194,7 +194,7 @@ export class JointReasoner {
       }
     }
     if (plans.size === 0) return;
-    rgSession(this.store, { op: "writeback", actor: "nightly", reason: "事实本身写清了场合或时间：两边分得开，不算矛盾（用户 10-27 选 A）" }, () => {
+    rgSession(this.store, { op: "writeback", actor: "nightly", reason: "事实本身写清了场合或时间：两边分得开，不算矛盾" }, () => {
       const w = rgWriter(this.store);
       for (const [id, apart] of plans) {
         const f = this.store.getFact(id)!;
@@ -208,7 +208,7 @@ export class JointReasoner {
     });
   }
 
-  /** 330 号票（R14）：说的和做的对不上，"嘴上和行为不一样"记一笔——两边的事实互相标 gap（ref 是这个矛盾）；哪边都不自动赢 */
+  /** ADR-0032 R14：说的和做的对不上，"嘴上和行为不一样"记一笔——两边的事实互相标 gap（ref 是这个矛盾）；哪边都不自动赢 */
   private markSayDoGaps(conflicts: readonly ConflictRecord[]): void {
     const marks = this.rg.writeback.marks;
     for (const c of conflicts) {
@@ -259,7 +259,7 @@ export class JointReasoner {
   propose(phase: KgPhase, view: RgView): HypothesisGroupDraft[] {
     const drafts: HypothesisGroupDraft[] = [];
     for (const m of phase.motifs) drafts.push(this.contrastGroup(m, phase.records));
-    // 329 号票（R4）：猜测（把握 low 的、还在竞争的）也能当矛盾根源"更深的需求"那一条的依据，推出来的也是猜测；已验证的、把握高的排前面
+    // ADR-0032 R4：猜测（把握 low 的、还在竞争的）也能当矛盾根源"更深的需求"那一条的依据，推出来的也是猜测；已验证的、把握高的排前面
     const needs = this.store
       .listClaims({ status: ["active", "contested"] })
       .filter((c) => (c.tier === "need" || c.tier === "value") && !this.isJointClaim(c.id))
@@ -543,7 +543,7 @@ export class JointReasoner {
   }
 
   /**
-   * 这一组的一条追问能不能问用户、怎么问（207 号票）：问能用"是 / 不是"（会去 / 不会去）回答的具体的事，写明两种回答各支持、反驳哪几个模板。
+   * 这一组的一条追问能不能问用户、怎么问：问能用"是 / 不是"（会去 / 不会去）回答的具体的事，写明两种回答各支持、反驳哪几个模板。
    * - 对比模式："下次王哥再约你，你会去吗？"（区分"和组织者有关"与"各有各的原因"）、"同样是工作日晚上的邀约，要是换成别人约，你会去吗？"
    *   （区分"和组织者有关"与"和时间段有关"）：两种回答都能分出胜负；
    * - 矛盾根源：查原话（有一条记错了吗）、查时间（后来变过吗）、查场景（是在不同的场合吗）、查约束（只是这阵子被耽误了吗，只问说的和做的不一样）、
@@ -827,7 +827,7 @@ export interface JointSummary {
   questions: KnowYouQuestion[];
 }
 
-// ---------- 问法（207 号票：能用"是 / 不是""会去 / 不会去"回答的具体的事） ----------
+// ---------- 问法（能用"是 / 不是""会去 / 不会去"回答的具体的事） ----------
 
 /** 两种回答各支持、反驳哪几个模板 */
 const pair = (yes: [string[], string[]], no: [string[], string[]]): JointQuestion["answers"] => ({ yes: { supports: yes[0], refutes: yes[1] }, no: { supports: no[0], refutes: no[1] } });
@@ -911,7 +911,7 @@ function rootAsk(template: string, p: RootParams, pa: string, pb: string, need: 
   }
 }
 
-/** 330 号票（矛盾根源，选 A）：两条事实的有效期不重叠（一条到期了另一条才开始） */
+/** 矛盾根源，选 A：两条事实的有效期不重叠（一条到期了另一条才开始） */
 function validityDisjoint(a: Fact, b: Fact): boolean {
   return (a.validTo !== null && b.validFrom !== null && toMs(a.validTo) <= toMs(b.validFrom)) || (b.validTo !== null && a.validFrom !== null && toMs(b.validTo) <= toMs(a.validFrom));
 }

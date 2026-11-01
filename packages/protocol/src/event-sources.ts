@@ -1,13 +1,13 @@
-// 事件来源登记表（77 号票，ADR 0025）：事件触发的任务、简单提醒靠事件推送触发，事件从哪来叫"事件来源"。
+// 事件来源登记表（ADR 0025）：事件触发的任务、简单提醒靠事件推送触发，事件从哪来叫"事件来源"。
 // 每个来源登记：名字、能产生哪些事件、事件带哪些字段（流程步骤的参数可以写成 {{事件.字段名}} 的占位）、可以按什么过滤。
 // 以后接邮件这些，只在 EVENT_SOURCES 里加一项（连同它自己"在等什么事件"的说法 describe），守护进程 event-sources/ 里再加它的实现；
 // 对话框、守护进程的检查、看板卡上的说法、交给 agent 的结构化输入都从这张表推出。现在三个来源：
 // - 二狗内部事件（ergo）：任务或流程完成、失败、转"等我"；项目状态变化；定时、事件触发的任务的一次运行失败。可以按任务、项目过滤；
 // - 本机文件夹变化（folder）：指定文件夹（可含子文件夹）里新增、修改、删除文件，可以按文件名模式过滤（比如 *.pdf）；
-// - 项目的服务（service，357 号票，ADR-0043）：项目自己的服务报的事件。事件名由服务自己定，登记表里只算一种事件，名字写在过滤条件 name 里；
+// - 项目的服务（service，ADR-0043）：项目自己的服务报的事件。事件名由服务自己定，登记表里只算一种事件，名字写在过滤条件 name 里；
 //   只能写在运营方案里（planOnly）：发起任务对话框、简单提醒选不了，只有用户确认过的方案才等得到它。
 // 只有常量和纯函数，不引用 TypeBox（Web 只用这些）。schema 在 event-source-schema.ts。
-// 172 号票：来源、事件、过滤条件的名字和说明跟着当前语言（取值时现查）；字段的中文名是占位里写的名字（{{事件.文件路径}}），
+// 来源、事件、过滤条件的名字和说明跟着当前语言（取值时现查）；字段的中文名是占位里写的名字（{{事件.文件路径}}），
 // 也是交给 agent 的结构化输入里的键，不跟着语言变。
 import { t, tTable } from "./i18n/runtime.ts";
 
@@ -15,7 +15,7 @@ import { t, tTable } from "./i18n/runtime.ts";
 export const ERGO_EVENT_SOURCE = "ergo";
 /** 本机文件夹变化 */
 export const FOLDER_EVENT_SOURCE = "folder";
-/** 项目的服务报的事件（357 号票） */
+/** 项目的服务报的事件 */
 export const SERVICE_EVENT_SOURCE = "service";
 /** 项目的服务这个来源在登记表里唯一的一种事件（事件名写在过滤条件 name 里） */
 export const SERVICE_REPORTED_EVENT = "reported";
@@ -76,7 +76,7 @@ export interface EventSourceDescriptor {
   events: readonly EventKindDescriptor[];
   fields: readonly EventFieldDescriptor[];
   filters: readonly EventFilterDescriptor[];
-  /** 只能写在运营方案里（357 号票）：发起任务对话框、简单提醒选不了，建的时候也拒 */
+  /** 只能写在运营方案里：发起任务对话框、简单提醒选不了，建的时候也拒 */
   planOnly?: true;
   /**
    * 在等这个来源的什么事件（describeEventTrigger 交给它）：kinds 是选的事件的中文名（按选的先后），names 把编号换成名字。
@@ -93,7 +93,7 @@ export type ErgoEvent = (typeof ERGO_EVENTS)[number];
 export const FOLDER_EVENTS = ["added", "changed", "removed"] as const;
 export type FolderEvent = (typeof FOLDER_EVENTS)[number];
 
-/** 登记表里的一项加上说法：texts（tTable）里的名字、说明取值时按当前语言现查（172 号票） */
+/** 登记表里的一项加上说法：texts（tTable）里的名字、说明取值时按当前语言现查 */
 function withTexts<T extends object, K extends string>(fixed: T, texts: Readonly<Record<K, string>>): T & Readonly<Record<K, string>> {
   return Object.defineProperties({ ...fixed }, Object.getOwnPropertyDescriptors(texts)) as T & Readonly<Record<K, string>>;
 }
@@ -318,7 +318,7 @@ export function eventTriggerProblems(trigger: EventTriggerShape): string[] {
   return problems;
 }
 
-/** 这个事件触发方式只能写在运营方案里（357 号票：发起任务对话框、简单提醒、别的入口建的时候拒）：拒的原因；能用的是 undefined */
+/** 这个事件触发方式只能写在运营方案里（发起任务对话框、简单提醒、别的入口建的时候拒）：拒的原因；能用的是 undefined */
 export function planOnlyProblem(trigger: Pick<EventTriggerShape, "source">): string | undefined {
   const source = eventSourceOf(trigger.source);
   return source?.planOnly ? t("protocol.eventSources.problem.planOnly", { source: source.label }) : undefined;
@@ -397,7 +397,7 @@ export const EVENT_PLACEHOLDER_PATTERN = PLACEHOLDER;
 export const eventValueText = (v: unknown): string => (typeof v === "string" ? v : typeof v === "number" || typeof v === "boolean" ? String(v) : JSON.stringify(v));
 
 /**
- * 代入事件的值（流程每次运行执行前，59 号票的核对按代入后的值比）：字符串里的每个占位换成这次事件里那个字段的值；整个字符串就是一个占位的，
+ * 代入事件的值（流程每次运行执行前，核对按代入后的值比）：字符串里的每个占位换成这次事件里那个字段的值；整个字符串就是一个占位的，
  * 换成值本身（数字照样是数字）。只换一遍：代入的值里就算写着 {{事件.…}} 也原样留着，不会再被代入。
  * 这次事件里没有的字段，占位原样留着（执行时照样核对，对不上会被拦下）。
  * 通用 bash 的命令不用它：值不拼进命令，命令里换成引用环境变量（守护进程 tasks/workflow-events.ts 的 shellCommandWithVars）

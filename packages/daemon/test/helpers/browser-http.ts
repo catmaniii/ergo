@@ -1,6 +1,6 @@
 // 主切面里"像浏览器一样"的 HTTP 请求：对测试守护进程的某个端口发一个请求，拿回状态码、响应头、正文（文本）和 Set-Cookie。
 // 用 node:http 直接发，Host、Origin、Cookie、X-Real-IP 这些头想怎么写就怎么写（测"写成本机地址也不享受本机信任"）。
-// 上传、下载、翻历史用 http.ts（09）。
+// 上传、下载、翻历史用 http.ts。
 import http from "node:http";
 
 export interface SetCookie {

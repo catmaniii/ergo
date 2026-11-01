@@ -11,7 +11,7 @@
 // "之前"的范围：
 // - 只看效果日志里已经成功执行过的调用：被拦下、执行失败、没进效果日志的调用，既满足不了"之前必须做过"，也触发不了"之前不能做过"；
 // - 效果日志按范围过滤：任务里只看同一个任务的；不属于任务的只看同一个 agent、同一段会话的；
-// - 效果日志里内容类的参数（写入的全文、编辑的新旧片段）只记了长度和摘要哈希（68 号票），读不到原文：
+// - 效果日志里内容类的参数（写入的全文、编辑的新旧片段）只记了长度和摘要哈希，读不到原文：
 //   规则求值时一碰到（取值、比对象、转文字……）就算这一步对这条规则"判断不了"，见 checkRule；
 //   规则校验也不许 $prior 读它们，规划时就会被拦下（rule-validation.ts）；
 // - 一次 bash 拆出的几条调用一起判：对"之前不能做过"，同一条命令里真正可能在前面执行的也算（`a && b`、`a; b` 里的 a，
@@ -78,7 +78,7 @@ export interface TemporalRuleContext {
   tools: ToolRegistry;
   /** 解析路径的环境：agent 的工作目录和用户主目录 */
   env: ShellEnv;
-  /** 是不是任务、项目自己的临时文件（111 号票，判定函数认出来的，own-temp.ts）：规则看到的路径上的 ownTemp；不给都是 false */
+  /** 是不是任务、项目自己的临时文件（判定函数认出来的，own-temp.ts）：规则看到的路径上的 ownTemp；不给都是 false */
   ownTemp?: (path: string) => boolean;
 }
 
@@ -110,7 +110,7 @@ export function checkTemporalRules(context: TemporalRuleContext): TemporalRuleHi
       const descriptor = findTool(context.tools, e.tool);
       return { step, digested, digestedContent: digested.some((name) => descriptor?.args[name]?.kind === "content") };
     });
-  // 任务、项目自己的临时文件（111 号票）只标在这次要判定的调用上
+  // 任务、项目自己的临时文件只标在这次要判定的调用上
   const currentView: RuleView = context.ownTemp ? { ...view, ownTemp: context.ownTemp } : view;
   const current = context.calls.map((c, i) =>
     ruleStep(currentView, { id: `c${i + 1}`, tool: c.tool, args: c.args, origin: c.origin, text: c.text, unseenInput: c.unseenInput }),
@@ -154,7 +154,7 @@ export function checkTemporalRules(context: TemporalRuleContext): TemporalRuleHi
   return hits.list();
 }
 
-/** 这次判定要检查的规则：v1 模板、当前阶段的、它所属阶段组的、调用方另给的（59 号票：计划检查取修法也用它） */
+/** 这次判定要检查的规则：v1 模板、当前阶段的、它所属阶段组的、调用方另给的（计划检查取修法也用它） */
 export function rulesInEffect(context: Pick<TemporalRuleContext, "rules" | "task" | "tools">): RuleDoc[] {
   const rules: TemporalRule[] = [...v1RuleTemplates(context.tools)];
   const task = context.task;
@@ -167,7 +167,7 @@ export function rulesInEffect(context: Pick<TemporalRuleContext, "rules" | "task
   return rules as RuleDoc[];
 }
 
-/** 效果日志的范围：任务里只看同一个任务的；不属于任务的（含带着授权的会话段，19 号票）只看同一个 agent、同一段会话的 */
+/** 效果日志的范围：任务里只看同一个任务的；不属于任务的（含带着授权的会话段）只看同一个 agent、同一段会话的 */
 function inScope(e: EffectRecord, context: TemporalRuleContext): boolean {
   if (context.task && !context.task.segmentScoped) return e.taskId === context.task.taskId;
   return e.taskId === null && e.agentId === context.agent.agentId && e.segmentId === context.segmentId;
@@ -211,7 +211,7 @@ function violationMessage(rule: RuleDoc, rendered: string, what: string): string
   return t("guard.rules.violated", { what, title: ruleTitle(rule), detail });
 }
 
-/** 效果日志里的一步（或者同一条命令里先执行的一段），记着哪些参数只记了长度和摘要哈希（68 号票） */
+/** 效果日志里的一步（或者同一条命令里先执行的一段），记着哪些参数只记了长度和摘要哈希 */
 interface Prior {
   step: RuleStep;
   /** 缩过的参数名 */
@@ -231,7 +231,7 @@ interface RuleOutcome {
 }
 
 /**
- * 判一条规则（照 planguard 的 check）。效果日志里只记了长度和摘要哈希的内容读不到原文（68 号票）：
+ * 判一条规则（照 planguard 的 check）。效果日志里只记了长度和摘要哈希的内容读不到原文：
  * 求值时读到它（取值、比对象、转文字都算，靠读的时候记，不靠规则的写法）的那几步，对这条规则一律算"判断不了"，
  * 不能当成满足——去掉它们再判一遍，按三值逻辑合起来：
  * - before：去掉之后还满足的照旧满足（别的步满足了）；不满足的判断不了（去掉的那几步也许满足）；

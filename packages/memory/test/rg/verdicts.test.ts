@@ -1,6 +1,6 @@
-// 263 号票：用户对一条结论直接表态（对 / 不对 / 拿不准）走引擎，不直接改库——不然下一次整理计分又把它改回去。
+// 用户对一条结论直接表态（对 / 不对 / 拿不准）走引擎，不直接改库——不然下一次整理计分又把它改回去。
 // 例子是周末社交案例（任务书第 11 节，规则版）：前三条时那组四种解释都还拿不准；第 4 条进来以后"重视周末自主安排"成立、
-// "不喜欢社交"碰上"我不反感见朋友"——330 号票（R14）起随口说的不再自动算决定性，它只降成猜测；要撤回得用户纠正（afterCorrection）。
+// "不喜欢社交"碰上"我不反感见朋友"——ADR-0032 R14起随口说的不再自动算决定性，它只降成猜测；要撤回得用户纠正（afterCorrection）。
 import { afterEach, describe, expect, it } from "vitest";
 import { isVerdictEvidence, VERDICT_SOURCE_PREFIX } from "../../src/evidence/boundary.ts";
 import { judgeDuePredictions, type PredictionJudgeInput } from "../../src/rg/predictions.ts";
@@ -26,7 +26,7 @@ async function afterFour() {
   return t;
 }
 
-/** 330 号票（R14）：第 4 条以后用户又纠正了一句"我不是不喜欢社交"——纠正算决定性，"不喜欢社交"被它撤回（不是表态撤的） */
+/** ADR-0032 R14：第 4 条以后用户又纠正了一句"我不是不喜欢社交"——纠正算决定性，"不喜欢社交"被它撤回（不是表态撤的） */
 async function afterCorrection() {
   const t = await afterFour();
   t.setNow("2026-10-14T12:00:00+08:00");
@@ -103,7 +103,7 @@ describe("用户说这条不对：记决定性反证，整理不改回", () => {
     chatter(t, "ev-n1", "2026-10-14T12:00:00+08:00");
     await t.engine.reflect();
     expect(t.engine.store.getClaim(autonomy.id)!.status).toBe("active");
-    // 329 号票（R11）：撤回不被计分改回，只在推翻它的东西不在了时复活。直接改库写的墓碑指着一条还在的证据，所以留着；
+    // ADR-0032 R11：撤回不被计分改回，只在推翻它的东西不在了时复活。直接改库写的墓碑指着一条还在的证据，所以留着；
     // 但库里没有用户否认的证据、没有反证，下游也没跟着撤——所以用户说不对照样要走 recordClaimVerdict
     // （以前管理员的工具写 retractedBy: null，连库都写不进去——retracted 要有墓碑，校验直接拒；这里给一条当墓碑）
     t.engine.store.updateClaim(autonomy.id, { status: "retracted", retractedBy: "ev-w04" }, { reason: "测试：直接改库" });
@@ -175,7 +175,7 @@ describe("用户说这条不对：记决定性反证，整理不改回", () => {
 });
 
 describe("用户说这条拿不准：加复核标记，下一次整理按证据重判", () => {
-  it("加复核标记（真值状态不动，329 号票）；下一次整理按现有的证据重判（证据还撑得住就还是成立），摘掉标记", async () => {
+  it("加复核标记（真值状态不动）；下一次整理按现有的证据重判（证据还撑得住就还是成立），摘掉标记", async () => {
     const t = await afterFour();
     const autonomy = claimOf(t.engine, "scene_autonomy");
     const result = t.engine.recordClaimVerdict(autonomy.id, "doubt", { note: "记忆管理员按用户的话加复核标记" });

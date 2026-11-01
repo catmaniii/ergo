@@ -1,4 +1,4 @@
-// 285 号票：记忆页的说法——顶上"和记忆管理员聊"那张卡的两行（最近一次整理、了解你访谈），记忆管理员整页对话里输入框上面那一行。
+// 记忆页的说法——顶上"和记忆管理员聊"那张卡的两行（最近一次整理、了解你访谈），记忆管理员整页对话里输入框上面那一行。
 // 档案的四组（我 / 家人 / 重要的人 / 其他人）。
 import { describe, expect, test } from "vitest";
 import {
@@ -57,7 +57,7 @@ describe("记忆管理员对话里输入框上面那一行", () => {
 
 const person = (id: string, name: string, over: Partial<PersonalFileSummary> = {}): PersonalFileSummary => ({ id, kind: "person", name, filled: 1, notes: 0, ...over });
 
-describe("档案的四组（285 号票）", () => {
+describe("档案的四组", () => {
 
   test("我、家人、重要的人、其他人，组里按建的先后；本人那份在\"我\"；空的组也列（写还没有）", () => {
     const groups = personalFileGroups({

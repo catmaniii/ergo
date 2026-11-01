@@ -1,9 +1,9 @@
-// 前端状态层：主导航按空间自适应（33 号票）。导航项按固定顺序排——秘书、任务、项目、待我处理、日历（35 号票加）、消耗、记忆、设置——
+// 前端状态层：主导航按空间自适应。导航项按固定顺序排——秘书、任务、项目、待我处理、日历、消耗、记忆、设置——
 // 放得下的直接显示，放不下的从末尾起收进"更多"；有收起的才出现"更多"，"更多"自己也要放得下。
 // 长度是界面量出来的（横屏是竖栏的高度、竖屏是底部横栏的宽度），这里直接给数。
-// 43 号票起导航上每一项的名字都是两个字（待我处理叫"待办"；秘书那一项 89 号票起固定写"秘书"，不随起的名字变），图标在上、字在下，
+// 导航上每一项的名字都是两个字（待我处理叫"待办"；秘书那一项固定写"秘书"，不随起的名字变），图标在上、字在下，
 // 竖栏按"图标 + 两个字"收窄：竖栏里每项一样高（一行字），横栏里每格一样宽（两个字不到一格的最小宽度）。
-// 193 号票起"记忆"是记忆插件的页面：按它登记的 order（80）插进核心的几项里，插件停用了就没有这一项。213 号票起"日历"也是
+// "记忆"是记忆插件的页面：按它登记的 order（80）插进核心的几项里，插件停用了就没有这一项。"日历"也是
 // （日历插件，order 60：待办、浏览后面，消耗前面，和原来一样）。下面除了专门测这个的，都按默认全开算。
 import { describe, expect, test } from "vitest";
 import { fitNav, NAV_LABELS, navBadgeCount, navHighlight, navItemsFor, nextNavFit, type NavItem, type NavMeasures } from "../../src/state/index.ts";
@@ -17,9 +17,9 @@ const RAIL_ALL = 51 * 8; // 408
 /** 最少直接显示的几项（秘书、任务、项目、待办）加"更多" */
 const RAIL_MIN = 51 * 5; // 255
 
-/** 记忆插件的页面（193 号票）：排在消耗后面、设置前面 */
+/** 记忆插件的页面：排在消耗后面、设置前面 */
 const MEMORY = { id: "memory", order: 80 };
-/** 日历插件的页面（213 号票）：排在待办（浏览）后面、消耗前面 */
+/** 日历插件的页面：排在待办（浏览）后面、消耗前面 */
 const CALENDAR = { id: "calendar", order: 60 };
 /** 默认全开时浏览器里的导航项 */
 const WEB = navItemsFor({ browse: false, plugins: [CALENDAR, MEMORY] });
@@ -37,7 +37,7 @@ describe("主导航按空间自适应", () => {
     ["只放得下最少的几个：秘书、任务、项目、待办加更多（日历收进更多）", RAIL_MIN, ["secretary", "tasks", "projects", "inbox"], ["calendar", "usage", "memory", "settings"]],
     ["比最少的几个多一点也放不下第五个：日历加进来就要 306", RAIL_MIN + 50, ["secretary", "tasks", "projects", "inbox"], ["calendar", "usage", "memory", "settings"]],
     ["日历刚好放得下：日历跟在待办后面直接显示", RAIL_MIN + 51, ["secretary", "tasks", "projects", "inbox", "calendar"], ["usage", "memory", "settings"]],
-    // 43 号票之前"个人助理""待我处理"在竖栏里折成两行（70 高），全部要 464；现在每项一行，408 就放得下
+    // 以前"个人助理""待我处理"在竖栏里折成两行（70 高），全部要 464；现在每项一行，408 就放得下
     ["名字都是两个字以后：原来要 464 才放得下全部，现在 408", 408, ALL, []],
   ])("%s", (_name, available, shown, folded) => {
     expect(fit(available)).toEqual({ shown, folded });
@@ -68,7 +68,7 @@ describe("主导航按空间自适应", () => {
   });
 });
 
-describe("鸿蒙 App 里多一项“浏览”（134 号票）", () => {
+describe("鸿蒙 App 里多一项“浏览”", () => {
   const APP = navItemsFor({ browse: true, plugins: [CALENDAR, MEMORY] });
   const bar: Omit<NavMeasures, "available"> = { sizes: { secretary: 56, tasks: 56, projects: 56, inbox: 56, browse: 56, calendar: 56, usage: 56, memory: 56, settings: 56 }, more: 56 };
 
@@ -87,13 +87,13 @@ describe("鸿蒙 App 里多一项“浏览”（134 号票）", () => {
   });
 });
 
-describe("网页插件的页面（193 号票）", () => {
+describe("网页插件的页面", () => {
   test("默认全开时和以前一样：记忆排在消耗后面、设置前面；记忆插件停用了没有这一项", () => {
     expect(WEB).toEqual(ALL);
     expect(navItemsFor({ browse: false, plugins: [CALENDAR] })).toEqual(["secretary", "tasks", "projects", "inbox", "calendar", "usage", "settings"]);
   });
 
-  test("日历（213 号票起是日历插件的页面）：默认全开时排在待办、浏览后面，消耗前面，和以前一样；日历插件停用了没有这一项", () => {
+  test("日历（是日历插件的页面）：默认全开时排在待办、浏览后面，消耗前面，和以前一样；日历插件停用了没有这一项", () => {
     expect(navItemsFor({ browse: true, plugins: [CALENDAR, MEMORY] })).toEqual(["secretary", "tasks", "projects", "inbox", "browse", "calendar", "usage", "memory", "settings"]);
     expect(navItemsFor({ browse: false, plugins: [MEMORY] })).toEqual(["secretary", "tasks", "projects", "inbox", "usage", "memory", "settings"]);
     expect(navItemsFor({ browse: false })).toEqual(["secretary", "tasks", "projects", "inbox", "usage", "settings"]);
@@ -130,8 +130,8 @@ describe("打字时不往更多里收（2026-10-12：平板上一点输入框，
   });
 });
 
-describe("导航上每一项写的字（43 号票：一律两个字）", () => {
-  test("秘书那一项固定写“秘书”（89 号票：不再写起的名字或“助理”），待我处理写“待办”，别的照旧", () => {
+describe("导航上每一项写的字（一律两个字）", () => {
+  test("秘书那一项固定写“秘书”（不再写起的名字或“助理”），待我处理写“待办”，别的照旧", () => {
     expect(NAV_LABELS).toEqual({
       secretary: "秘书",
       tasks: "任务",

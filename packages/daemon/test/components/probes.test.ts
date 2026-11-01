@@ -1,4 +1,4 @@
-// 组件的检测（323 号票）：on-path:<程序>（PATH 上有没有）、node-package:<包名>（程序的 node_modules 里有没有）、
+// 组件的检测：on-path:<程序>（PATH 上有没有）、node-package:<包名>（程序的 node_modules 里有没有）、
 // 配置里的识别程序（LSM 模式、配置写的 Python 在不在）和合成服务。不联网、不跑模型；N 卡那一项要真跑 nvidia-smi，这里不测。
 import fs from "node:fs";
 import path from "node:path";
@@ -39,7 +39,7 @@ describe("检测", () => {
     expect(createComponentProbes({ config: config({ mode: "spawn", python }), env: {} }).provided("voice-recognizer")).toBe(`已有自己配的语音识别，在用它（配置里的 Python：${python}）`);
     expect(createComponentProbes({ config: config({ mode: "spawn", python: path.join(dir, "missing.exe") }), env: {} }).provided("voice-recognizer")).toBeUndefined();
     expect(createComponentProbes({ config: config({ mode: "spawn", python: "python-not-on-path" }), env: { PATH: dir } }).provided("voice-recognizer")).toBeUndefined();
-    // 合成：345 号票起不再只看配置写了地址（默认就写着），由 audiocpp-host.ts 现探有没有用户自己配的服务，这里只取结果
+    // 合成：不再只看配置写了地址（默认就写着），由 audiocpp-host.ts 现探有没有用户自己配的服务，这里只取结果
     expect(createComponentProbes({ config: config({ mode: "spawn", python: "python" }), env: {} }).provided("voice-speech")).toBeUndefined();
     expect(createComponentProbes({ config: config({ mode: "spawn", python: "python" }), env: {}, speechProvided: () => "在用它" }).provided("voice-speech")).toBe("在用它");
   });
@@ -54,7 +54,7 @@ describe("检测", () => {
     expect(createComponentProbes({ config: config({ mode: "spawn", python: "python" }), env: { PATH: dir, PATHEXT: ".exe" }, hasFasterWhisper: () => true }).provided("voice-recognizer")).toBe(`已有自己配的语音识别，在用它（配置里的 Python：${alias}）`);
   });
 
-  test("识别（346 号票）：默认的 python 光在 PATH 上不算，要真的装了 faster-whisper；问一次记住。不然随便有个 Python 就装不了组件", () => {
+  test("识别：默认的 python 光在 PATH 上不算，要真的装了 faster-whisper；问一次记住。不然随便有个 Python 就装不了组件", () => {
     const dir = makeTempDir();
     const python = path.join(dir, "python.exe");
     fs.writeFileSync(python, "");

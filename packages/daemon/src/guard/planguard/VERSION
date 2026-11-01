@@ -1,12 +1,12 @@
 # planguard 引擎同步记录
 
 这个目录是一份独立的规则引擎（三值表达式、过去时规则检查、规划时审查修补、执行时监控），整目录同步，二狗只在目录外面接入。
-同步日期: 2026-10-07（05 号票）；2026-10-09（58 号票补上规划时审查，引擎文件的哈希没变）；2026-10-09（59 号票补上执行时监控 monitor.ts，引擎文件的哈希没变）
+同步日期: 2026-10-07；2026-10-09（补上规划时审查，引擎文件的哈希没变）；2026-10-09（补上执行时监控 monitor.ts，引擎文件的哈希没变）
 
-包含: expr.ts、checker.ts 全部；spec.ts 全部（05 号票只用到 RULE_KEYS、REPAIR_KINDS 和参数规范化，
-      58 号票补上 prepareScenario 和 normalizePlan——对规则文档的细查仍由 src/guard/rule-validation.ts 做）；
-      reviewer.ts、search.ts 全部（58 号票：流程的计划先过审查修补，接入在 src/guard/workflow-review.ts）；
-      monitor.ts 全部（59 号票：流程执行时每次调用和授权的计划比对，接入在 src/guard/plan-monitor.ts）
+包含: expr.ts、checker.ts 全部；spec.ts 全部（先只用到 RULE_KEYS、REPAIR_KINDS 和参数规范化，
+      后来补上 prepareScenario 和 normalizePlan——对规则文档的细查仍由 src/guard/rule-validation.ts 做）；
+      reviewer.ts、search.ts 全部（流程的计划先过审查修补，接入在 src/guard/workflow-review.ts）；
+      monitor.ts 全部（流程执行时每次调用和授权的计划比对，接入在 src/guard/plan-monitor.ts）
 不含: cases.ts（用例的跑法写在 test/guard/planguard-review.test.ts、planguard-monitor.test.ts 里）
 
 和引擎原版的差别（语义不改）:
@@ -34,7 +34,7 @@
   a1cb0ab8ae40e23b373a0fe59e810018a664ac0b28fe0e622252c6d2d1cc6ee7 *office.planguard.json
   de56004c6357bad399bcfbfdd2c2a96066d98044b5da80a3184c30716fcfe7fb *facts.json（原版的整份）
 
-执行时用例（test/guard/planguard-runtime/）和引擎同一版（59 号票）：
+执行时用例（test/guard/planguard-runtime/）和引擎同一版：
   {storage,office,travel}/runtime.json 和 travel/evening.json（travel 执行序列的出处），
   场景文档和事实沿用 planguard-review/ 里那几份
   b786bfd651534bd184283eb4581897baa41aa1f7b2284b8744c7127256ca0b4b *storage/runtime.json

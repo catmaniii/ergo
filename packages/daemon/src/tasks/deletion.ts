@@ -1,6 +1,6 @@
-// 删除任务（186 号票，用户 2026-10-20 定"任务能删除，连会话和工作目录一起删"；照删项目的做法：ADR-0010、15 号票）。
+// 删除任务（"任务能删除，连会话和工作目录一起删"；照删项目的做法：ADR-0010）。
 // 用户在看板卡的菜单、任务详情的"⋯"、看板多选里点了删除（网页先确认一次），或者在秘书那里确认了快速动作 delete_task：
-// 1. 能不能删（不能删的拒绝、写明原因，什么都不动）：项目在用时运营方案里的一条（141 号票，到项目里改运营方案）；项目内部任务、
+// 1. 能不能删（不能删的拒绝、写明原因，什么都不动）：项目在用时运营方案里的一条（到项目里改运营方案）；项目内部任务、
 //    转为项目了的、由还在的项目的负责人做的（照项目的规矩：项目还在时由项目管，协议包 taskDeleteRefusal）；以前的定时作业迁移成的
 //    定时任务还在用它工作目录的（legacyJobsUsing）；
 // 2. 先停：没结束的照现有的取消走（运营中的定时、事件触发的任务落到触发上：触发登记取消、排着的运行丢掉，子 agent 随任务结束停下）；
@@ -23,9 +23,9 @@
 //    - 待我处理里属于这个任务的事项（数据、来处里记着它的，上面那些卡的，负责人和子 agent 的中断不确定）：标题、正文、来源换成删除标记，
 //      再追加一版删掉的（待办里不再有）；
 //    - 素材库里从上面改写了的事件采到的系统记录（任务的结局、计划和审批的决定、对产出的反应、回避信号……）：照删项目的口径
-//      （66 号票）同一事务记一条彻底删除的记忆命令（出处 task_deletion，不产生"显式记忆命令"素材），素材和索引删掉、记下墓碑；
+//      同一事务记一条彻底删除的记忆命令（出处 task_deletion，不产生"显式记忆命令"素材），素材和索引删掉、记下墓碑；
 //      用户本人说过的话（在负责人会话里的发言、投喂的材料）不删：原文副本里有（ADR-0006），重建时补回；
-//    改写哪些、换成什么由"删除参与方"登记表定（279 号票，deletion/participants.ts）：任务自己的记录、会话和卡片（tasks/deletion-participants.ts）、
+//    改写哪些、换成什么由"删除参与方"登记表定（deletion/participants.ts）：任务自己的记录、会话和卡片（tasks/deletion-participants.ts）、
 //    并行（sub-agents/deletion.ts）、触发登记（scheduled-jobs/purge.ts）、审批和效果日志这些（guard-runtime/deletion.ts）、范围记录
 //    （scope-review/purge.ts）、待我处理（inbox/deletion.ts）、素材（memory/deletion-participants.ts）各自登记，删项目时也走同一张表；
 // 5. 最后删文件（任务已经删了，不再回头）：会话区里负责人和子 agent 的会话（pi 的会话文件整个删掉）、输出区里任务的工作目录
@@ -61,7 +61,7 @@ export interface TaskDeletionDeps {
   stopAcceptance(taskId: string): Promise<void>;
   /** 还在（没删掉）的项目里由这个负责人维护的那一个：任务转为项目了的、由项目的负责人做的 */
   projectOf(maintainerId: string): { name: string } | undefined;
-  /** 项目在用时运营方案里的一条（141 号票）：那句说明；不是的 undefined */
+  /** 项目在用时运营方案里的一条：那句说明；不是的 undefined */
   operationsLock(task: Task): string | undefined;
   /** 取消一个没结束的任务（和 task_action 的取消同一条路：运营中的定时任务落到触发上） */
   cancel(taskId: string, idempotencyKey: string): unknown;
@@ -88,7 +88,7 @@ export function createTaskDeletion(deps: TaskDeletionDeps): TaskDeletion {
   /** 正在删的（按任务）：同一个任务同时删两次的第二次等第一次 */
   const inFlight = new Map<string, Promise<TaskActionResult>>();
 
-  /** 以前的定时作业（19 号票）迁移成了别的定时任务、还在用这个任务的工作目录（作业负责人在 outputs/<建它的任务> 里干活） */
+  /** 以前的定时作业迁移成了别的定时任务、还在用这个任务的工作目录（作业负责人在 outputs/<建它的任务> 里干活） */
   const legacyJobsUsing = (task: Task): ScheduledJob[] =>
     listJobs(store.reader).filter((j) => j.taskId === task.id && j.ownerTaskId !== undefined && j.ownerTaskId !== task.id && j.state !== "cancelled");
 

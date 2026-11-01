@@ -4,10 +4,10 @@
 // - 提示词要求带证据 id 的结构化输出；证据 id 不是这一批里的（伪造的）、字段不合格的，写入前丢掉，记进 dropped；
 // - 出处不标 model_extracted：仍按证据定（本人说的 user_stated、做的 observed），这样模型版的事实照样参加变化判定和推理；
 //   是谁抽的记在 extractedBy。
-// - 199 号票：另外交实体和实体之间的关系（relations：事件的组织者、参加的人、地点、时间段、活动类型、提前多久约的，和谁一起、提到了谁，
+// -另外交实体和实体之间的关系（relations：事件的组织者、参加的人、地点、时间段、活动类型、提前多久约的，和谁一起、提到了谁，
 //   人和人的关系）和别名（aliases）。证据 id 不是这一批的、谓词不认得、时间段和提前多久的值不在说法表里、别名的两个叫法原文里没有的，写入前丢掉；
 //   事件名没写日子的补上（同名的两次邀约不会并成一个）。
-// - 334 号票：模型常把"有点想回去读博了"这种说现在的话的 valid_from 给成 null（= 一直），写事实时由 kg/graph.ts 兜住：
+// -模型常把"有点想回去读博了"这种说现在的话的 valid_from 给成 null（= 一直），写事实时由 kg/graph.ts 兜住：
 //   原话没说从什么时候起的，开始按说话那天算；change 只是参考，变化判定看原话里有没有明说变化的说法（kg/signals.ts 的
 //   explicitChangeSignals），模型说有变化不算数。
 import { compareTime, isZonedIso, localDate } from "../domain/time.ts";
@@ -23,7 +23,7 @@ import { EVENT_PREDICATES, LEAD_BUCKETS, RELATION_PREDICATES, SLOT_PATTERN } fro
 export interface PrepareOptions {
   budget: ModelBudget;
   dropped: DroppedOutput[];
-  /** 218 号票：调用统计（抽事实这一步只记数：调用、截断、解析不了、空回答） */
+  /** 调用统计（抽事实这一步只记数：调用、截断、解析不了、空回答） */
   stats?: StageStatsMap;
 }
 
@@ -59,7 +59,7 @@ export const EXTRACT_SYSTEM = `你是记忆系统的事实抽取器。从用户�
  - 用户和谁一起 went_with、提到了谁 mentioned（主语写"用户"）；人和用户的关系 colleague_of、family_of、friend_of、work_contact_of（主语是那个人，宾语写"用户"）；
 "aliases"：同一个人的两个叫法 {"evidence_id", "name", "alias"}，两个叫法都要在原文里出现。`;
 
-/** 199 号票：模型交的关系能用的谓词 */
+/** 模型交的关系能用的谓词 */
 const RELATION_FACT_PREDICATES: ReadonlySet<string> = new Set<string>([...EVENT_PREDICATES, ...RELATION_PREDICATES, "went_with", "mentioned"]);
 const USER_NAMES = new Set(["用户", "user", "我", "本人"]);
 const DATED = /\d{4}-\d{2}-\d{2}/;
@@ -103,7 +103,7 @@ export class LlmFactExtractor implements PreparableExtractor, AliasAware {
       purpose: "extract",
       system: EXTRACT_SYSTEM,
       user: `已知实体名（同一个东西请用这些名字）：${names.join("、") || "（还没有）"}\n证据：\n${lines.join("\n")}`,
-      // 每条证据最多 3 条事实、带精炼陈述和原文片段；192 号票第一次真跑时 300 / 条常被截断，放到 800 / 条
+      // 每条证据最多 3 条事实、带精炼陈述和原文片段；第一次真跑时 300 / 条常被截断，放到 800 / 条
       maxTokens: MAX_TOKENS_PER_EVIDENCE * batch.length,
     };
   }
@@ -135,7 +135,7 @@ export class LlmFactExtractor implements PreparableExtractor, AliasAware {
     return ready;
   }
 
-  /** 199 号票：prepare 时模型交的别名（引擎抽事实之前先对齐） */
+  /** prepare 时模型交的别名（引擎抽事实之前先对齐） */
   aliasesOf(evidence: Evidence, _known: KgView): AliasDraft[] {
     return (this.aliasCache.get(evidence.id) ?? []).map((a) => ({ ...a }));
   }
@@ -194,7 +194,7 @@ export class LlmFactExtractor implements PreparableExtractor, AliasAware {
         drop("有效期不是带时区的 ISO 时间");
         continue;
       }
-      // 204 号票：截止早于开始的写事实时会被校验挡下、整次抽取崩掉，写入前丢掉
+      // 截止早于开始的写事实时会被校验挡下、整次抽取崩掉，写入前丢掉
       if (validFrom && validTo && compareTime(validTo, validFrom) < 0) {
         drop("有效期截止早于开始");
         continue;
@@ -218,7 +218,7 @@ export class LlmFactExtractor implements PreparableExtractor, AliasAware {
     return out;
   }
 
-  /** 199 号票：校验模型交的关系（证据 id 得是这一批的、谓词得认得、主语宾语合格、时间段和提前多久的值在说法表里） */
+  /** 校验模型交的关系（证据 id 得是这一批的、谓词得认得、主语宾语合格、时间段和提前多久的值在说法表里） */
   private validateRelations(parsed: Record<string, unknown>, batch: readonly Evidence[], dropped: DroppedOutput[]): Map<string, FactDraft[]> {
     const out = new Map<string, FactDraft[]>();
     const byId = new Map(batch.map((e) => [e.id, e]));
@@ -289,7 +289,7 @@ export class LlmFactExtractor implements PreparableExtractor, AliasAware {
     return out;
   }
 
-  /** 199 号票：校验模型交的别名（证据 id 得是这一批的，两个叫法都要在原文里） */
+  /** 校验模型交的别名（证据 id 得是这一批的，两个叫法都要在原文里） */
   private validateAliases(parsed: Record<string, unknown>, batch: readonly Evidence[], dropped: DroppedOutput[]): Map<string, AliasDraft[]> {
     const out = new Map<string, AliasDraft[]>();
     const byId = new Map(batch.map((e) => [e.id, e]));

@@ -1,4 +1,4 @@
-// 录下的结果页（81 号票）：2026-10-10 搜"Node.js 最新版本"，DuckDuckGo、Bing、Google 各录一页（test/fixtures/web/）。
+// 录下的结果页：2026-10-10 搜"Node.js 最新版本"，DuckDuckGo、Bing、Google 各录一页（test/fixtures/web/）。
 // **要本机的浏览器**：在真浏览器里打开录下的页面，按正式代码同一套取法（playwrightPage → pickResults）取结果——
 // 浏览器按二狗同样的顺序找（web/browser-path.ts），找不到（比如没有浏览器的 CI）每一条都跳过，原因写进测试报告。
 // 不连真网络：浏览器的所有请求都被拦下，页面本身回录下的 HTML，别的一律中止。

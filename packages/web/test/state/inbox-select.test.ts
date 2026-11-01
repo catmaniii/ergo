@@ -1,4 +1,4 @@
-// 90 号票：待办多选。守护进程的 inbox_action 是全部生效或全部不生效，所以先剔掉做不了的（卡着任务、还没处理的不能归档或删除；
+// 待办多选。守护进程的 inbox_action 是全部生效或全部不生效，所以先剔掉做不了的（卡着任务、还没处理的不能归档或删除；
 // 卡片不能一起处理），交上去的只有会变的那几条，跳过的写明几条、为什么；"一起处理"只给所选通知都有的"知道了"，要做决定的一条条来。
 import { describe, expect, test } from "vitest";
 import { allSelected, inboxBatchCounts, inboxBatchHandle, inboxBatchTargets, type InboxEntry, type InboxItem } from "../../src/state/index.ts";

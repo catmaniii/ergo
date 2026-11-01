@@ -1,9 +1,9 @@
-// agent 用语音回复（32 号票）给模型和给人看的话，都在这里组织（编排在 voice-reply.ts，合成和失败说明在 86 号票抽出的 voice-synthesis.ts，只给结构化的数据）：
+// agent 用语音回复给模型和给人看的话，都在这里组织（编排在 voice-reply.ts，合成和失败说明在抽出的 voice-synthesis.ts，只给结构化的数据）：
 // 交给 agent 的语音输入后面跟的说明、口语总结工具的说明和结果、回复长又没写总结时追问的那句、运行时兜底截的总结最后那句、
 // 退回只发文字时会话里的说明、最后没用语音的原因、"还没有参考音色"的待我处理事项；
-// 45 号票：模型预热时合成模型的状态里给人看的说明（设置 · 语音里显示，编排在 warmup.ts）；
-// 86 号票：用户打字时 agent 发语音的工具（send_voice）的说明、参数、结果，和没有参考音色时的待我处理事项（编排在 send-voice.ts）。
-// 173 号票：给模型看的（交给 agent 的说明、工具说明和结果）标 @i18n-ignore model；给人看的（工具的名字、会话里的说明、没用语音的原因、
+// 模型预热时合成模型的状态里给人看的说明（设置 · 语音里显示，编排在 warmup.ts）；
+// 用户打字时 agent 发语音的工具（send_voice）的说明、参数、结果，和没有参考音色时的待我处理事项（编排在 send-voice.ts）。
+// 给模型看的（交给 agent 的说明、工具说明和结果）标 @i18n-ignore model；给人看的（工具的名字、会话里的说明、没用语音的原因、
 // 待我处理事项、预热状态、兜底总结最后那句）走 t()，生成时按当时的语言
 import { t, tTable, VOICE_REFERENCE_IMPORT_ACTION } from "@ergo/protocol";
 import { INTERRUPTED_PREFIX } from "../runtime/host-protocol.ts";
@@ -62,26 +62,26 @@ export function synthesisFailedNote(reason: string): string {
   return t("voice.notes.synthesisFailed", { reason });
 }
 
-/** 分段合成到一半没合成下去（38 号票）：已经合成的几段照常能播，会话里的说明 */
+/** 分段合成到一半没合成下去：已经合成的几段照常能播，会话里的说明 */
 export function synthesisPartialNote(reason: string): string {
   return t("voice.notes.synthesisPartial", { reason });
 }
 
 /**
- * 发语音工具发的语音（86 号票）没合成出来时会话里的说明：只说这一条没发出去和原因（agent 拿到原因会自己用文字说；
+ * 发语音工具发的语音没合成出来时会话里的说明：只说这一条没发出去和原因（agent 拿到原因会自己用文字说；
  * 同一轮后面再发成了也不矛盾），不说"这次只发文字"
  */
 export function toolVoiceFailedNote(reason: string): string {
   return t("voice.notes.toolVoiceFailed", { reason });
 }
 
-/** 发语音工具发的语音分段合成到一半没合成下去（86 号票）：已经发出去的几段照常能播 */
+/** 发语音工具发的语音分段合成到一半没合成下去：已经发出去的几段照常能播 */
 export function toolVoicePartialNote(reason: string): string {
   return t("voice.notes.toolVoicePartial", { reason });
 }
 
 /**
- * 不止一个人的声音（354 号票）的语音合成到一半没合成下去：已经发出去的照常能播，说明写清谁的话没念到、没念到的文字（文字不丢）
+ * 不止一个人的声音的语音合成到一半没合成下去：已经发出去的照常能播，说明写清谁的话没念到、没念到的文字（文字不丢）
  */
 export function relayPartialNote(reason: string, names: readonly string[], text: string): string {
   return t("voice.notes.relayPartial", { reason, names: names.join(t("common.listSeparator")), text });
@@ -119,7 +119,7 @@ export function referenceGoneReason(name: string): string {
 }
 
 /**
- * "还没有参考音色"的待我处理事项：语音回复（用户发了语音）和发语音工具（86 号票，agent 想发语音）共用这一条
+ * "还没有参考音色"的待我处理事项：语音回复（用户发了语音）和发语音工具（agent 想发语音）共用这一条
  * （同一种事项开着的只留一条，所以不分是谁报的）
  */
 export const missingReferenceNotice = () => ({
@@ -130,16 +130,16 @@ export const missingReferenceNotice = () => ({
   actions: [VOICE_REFERENCE_IMPORT_ACTION, "知道了"], // @i18n-ignore fixed
 });
 
-// ───────────── 用户打字时 agent 也能发语音（86 号票，send-voice.ts） ─────────────
+// ───────────── 用户打字时 agent 也能发语音（send-voice.ts） ─────────────
 
-/** "发语音"工具，和它在调用记录里的名字（214 号票起名字是数据契约，在内核的 voice-records/names.ts） */
+/** "发语音"工具，和它在调用记录里的名字（名字是数据契约，在内核的 voice-records/names.ts） */
 export { SEND_VOICE_TOOL } from "../voice-records/index.ts";
 export const sendVoiceTitle = () => t("voice.tools.sendVoice");
 
 // @i18n-ignore-start model：发语音工具的说明、参数、结果
 
 /**
- * 发语音工具的说明（用户 2026-10-11 定"要说的都放进语音"：要让用户听到的都写进口语稿，文字里只留念不出来的东西；
+ * 发语音工具的说明（"要说的都放进语音"：要让用户听到的都写进口语稿，文字里只留念不出来的东西；
  * 这一轮另写的普通的话只该是"好的，念给你听"这类引子，会收进语音气泡）
  */
 export function sendVoiceToolDescription(pace: SpokenPace, waitMinutes: number): string {
@@ -158,7 +158,7 @@ export function sendVoiceToolDescription(pace: SpokenPace, waitMinutes: number):
 /** 发语音工具参数的说明 */
 export const SEND_VOICE_PARAM = "要念给用户听的口语稿（要让用户听到的话都写在这里，像说话一样，不用 Markdown）；带 relay 时这里写你自己的开场";
 
-/** 发语音工具 relay 参数的说明（354 号票） */
+/** 发语音工具 relay 参数的说明 */
 export const SEND_VOICE_RELAY_PARAM = "可选：转述任务、项目负责人的进展时才写";
 export const SEND_VOICE_RELAY_SOURCE_PARAM = "转述谁：照抄通知里“relay.source 写”后面的编号（任务 t-5、项目 p-1）；用户问某个任务或项目的进展时写它的编号，它要给你来过信或者做完的通知";
 export const SEND_VOICE_RELAY_TEXT_PARAM = "负责人那段的口语稿：用负责人的第一人称，只转述它信里、通知里有的，不加别的事；不用 Markdown";
@@ -182,7 +182,7 @@ export const SEND_VOICE_RESULT = {
   stillSynthesizing: "语音还在合成（排在别的语音后面，或者合成得慢）：合成好会自己出现在聊天里，不要重发，接着做别的就行。",
   /** 同一次调用又执行了一遍（幂等键撞了）：语音只发一条 */
   alreadySent: "这次调用的语音已经交给合成了（同一次调用只发一条），合成好会自己出现在聊天里，不要重发。",
-  // 354 号票：转述负责人的进展（relay）
+  // 转述负责人的进展（relay）
   /** 不是秘书的会话 */
   relayNotSecretary: "只有秘书能转述负责人的进展，你这里不能带 relay，也不能直接给用户发别人的声音：要告诉用户的用 tell_secretary 写给秘书，或者去掉 relay 用你自己的声音说。没有发。",
   /** 通知引起的一轮：source 不是这条通知写着的 */
@@ -200,17 +200,17 @@ export const SEND_VOICE_RESULT = {
 } as const;
 
 /**
- * 语音插件运行中停用了（214 号票），还没按新的装配重新拉起的 agent 在正在跑的一轮里再调口语总结、发语音：交回模型的话
+ * 语音插件运行中停用了，还没按新的装配重新拉起的 agent 在正在跑的一轮里再调口语总结、发语音：交回模型的话
  * （照插件宿主给别的插件的工具包的那层，plugins/host.ts）
  */
 export const voiceToolOff = (title: string, tool: string) => `${title}插件没启用：现在用不了 ${tool}（用户停用了这个插件）。如实告诉用户，不要说已经做好了。`;
 
-/** 守护进程（或 agent 子进程）在发语音的调用执行到一半时重启了：会话里补上的结果（86 号票，经 interruptedToolResults） */
+/** 守护进程（或 agent 子进程）在发语音的调用执行到一半时重启了：会话里补上的结果（经 interruptedToolResults） */
 export const SEND_VOICE_INTERRUPTED = `${INTERRUPTED_PREFIX}这条语音已经交给运行时合成，会自己补发出来（发不出去时会话里有说明），不要重发。`;
 // @i18n-ignore-end
 
 /**
- * 模型预热（45 号票）：合成模型的状态里的说明（设置 · 语音里显示）。queued：合成的预热排在识别模型的后面（不同时往显卡里加载）；
+ * 模型预热：合成模型的状态里的说明（设置 · 语音里显示）。queued：合成的预热排在识别模型的后面（不同时往显卡里加载）；
  * needsReference：还没有参考音色，没法用实际会用的音色试合成；busy：试合成碰上服务忙（503），隔一会儿（按探活的间隔）再试
  */
 export const SPEECH_WARMUP_TEXT = tTable({

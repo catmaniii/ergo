@@ -1,6 +1,6 @@
 // 校验：每种对象一个 problemsOfX（返回问题清单，空的就是合格）；存储写入前用 assertValid 抛错。
 // 只查一条对象自己说得清的规则（枚举、前缀、时间、状态和配套字段、置信上限的静态部分）；
-// 要看别的对象才知道的（证据数够不够升 medium）由 confidenceCap 给 ④ 号票的推理用。
+// 要看别的对象才知道的（证据数够不够升 medium）由 confidenceCap 给推理用。
 import { idKind, isIdOf } from "./ids.ts";
 import { addDays, compareTime, isZonedIso } from "./time.ts";
 import {
@@ -212,7 +212,7 @@ export function problemsOfClaim(c: Claim): Problems {
   if (!methodOk) p.push(`method ${c.method} 和 epistemic ${c.epistemic} 对不上`);
 
   // 置信上限的静态部分：need、value 最多 medium、只能从推断起（kind hypothesis）。
-  // 329 号票：kind 只说来源（建号时定、不改），不再表达"已证实"——已验证是状态 active，推断出来的也能已验证（ADR-0032）
+  // kind 只说来源（建号时定、不改），不再表达"已证实"——已验证是状态 active，推断出来的也能已验证（ADR-0032）
   if (c.tier === "need" || c.tier === "value") {
     if (!confidenceAtMost(c.confidence, "medium")) p.push(`${c.tier} 的 confidence 最多 medium`);
     if (c.kind !== "hypothesis") p.push(`${c.tier} 的 kind 只能是 hypothesis（只能从推断起）`);
@@ -261,7 +261,7 @@ export function problemsOfProbe(pr: Probe): Problems {
   return p;
 }
 
-/** 交互策略（196 号票）：active 的要有用户确认的证据 */
+/** 交互策略：active 的要有用户确认的证据 */
 export function problemsOfStrategy(st: Strategy): Problems {
   const p: Problems = [];
   prefixed(p, "id", st.id, "strategy");
@@ -283,12 +283,12 @@ export function problemsOfStrategy(st: Strategy): Problems {
   return p;
 }
 
-/** 预测账本（226 号票）：开着的没有判定时间；判了（hit / miss / unclear）的要有判定时间 */
+/** 预测账本：开着的没有判定时间；判了（hit / miss / unclear）的要有判定时间 */
 export function problemsOfPrediction(prediction: PredictionRecord): Problems {
   const p: Problems = [];
   prefixed(p, "id", prediction.id, "prediction");
   prefixed(p, "claimId", prediction.claimId, "claim");
-  // 330 号票：预测节点的来源（至少一条，第一条就是 claimId）、推法、墓碑
+  // 预测节点的来源（至少一条，第一条就是 claimId）、推法、墓碑
   ids(p, "premiseIds", prediction.premiseIds, ["claim"], 1);
   if (!Array.isArray(prediction.premiseIds) || prediction.premiseIds[0] !== prediction.claimId) p.push("premiseIds 的第一条应是 claimId");
   oneOf(p, "derivation", prediction.derivation, DERIVATIONS);

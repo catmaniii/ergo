@@ -1,11 +1,11 @@
-// Looki 的设置那一块（296 号票）：设置 · 数据源里 Looki 下面插件画的（dataSources 插槽）——
+// Looki 的设置那一块：设置 · 数据源里 Looki 下面插件画的（dataSources 插槽）——
 // - 区域：中国区（looki.tech）/ 海外（looki.ai）。还没存过 Key 的默认中国区；存着 Key 的不预选（不点就沿用存着的，账号那一行写着现在是哪个区）；
 // - API Key：输入框是密码框、不回显，填了才发；存着 Key 时不填就是"沿用存着的、再测一次"。Key 只经 POST 交给守护进程存进密钥区，
 //   回来的整页里没有它，发完马上清掉输入框；
 // - "测试连接并保存"：守护进程先校验地址、再拿 Key 读账号，过了才存；结果按回来的整页写一句（连上了 / 没连上的原因）；
 // - 一段说明：Key 在 Looki 网页版哪里建、只存在这台电脑上；导入到昨天为止（当天的时刻还在变），照片视频不导入。
 // 组件本身是纯渲染加一个请求（LookiPanelView 不碰 HTTP，测试在 Node 里直接渲染）。
-// 307 号票：后面跟着"存一份到本地"那一块（LookiArchive.tsx：位置、存哪几类、已存多少、补存）。
+// 后面跟着"存一份到本地"那一块（LookiArchive.tsx：位置、存哪几类、已存多少、补存）。
 import { useState } from "react";
 import { useStore } from "../../app/store.tsx";
 import { type DataSourcesView, type DataSourceView, t } from "../../state/index.ts";

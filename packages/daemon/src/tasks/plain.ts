@@ -1,20 +1,20 @@
-// 普通任务（75 号票，ADR 0025）：有任务卡、有自己的 agent，在后台用 agent loop 直接做——不规划、不授权、不检查。
+// 普通任务（ADR 0025）：有任务卡、有自己的 agent，在后台用 agent loop 直接做——不规划、不授权、不检查。
 // 这里只放普通任务自己的几样（纯函数和说法），编排在执行控制器（execution.ts：排队、名额、开始、一轮做完算完成、接着说）里：
 // - 建出就排队（规划中、待确认都没有）：有名额就开始，交给 agent 的第一条输入就是任务书——用户或助理交代的那段话（plainBriefText）；
-// - agent 这一轮正常结束、手上没有别的输入了，任务自动完成（completed），助理收到结果在对话里转告（99 号票起和别的任务一样由
+// - agent 这一轮正常结束、手上没有别的输入了，任务自动完成（completed），助理收到结果在对话里转告（和别的任务一样由
 //   secretary/task-done.ts 告诉它；项目内部的只收到一句做完了，internalPlainDoneNotice）；
 //   出错、被打断的那一轮不算做完：任务转等我（卡住求助），用户在任务详情里回一句就接着做；
 // - 做完了用户在任务详情里接着说（或者运行时交给它一条通知，比如事后批准了一次调用）：任务回到执行中（continued），接着做；
 // - 守卫按普通对话那一套判（调用不属于任务：守卫看不到计划和授权，受 guard.conversationApprovals 管，默认关着：
-//   它是任务的 agent，"先问我"的一律直接做、照常标出，101 号票；受保护区域、密钥的硬拒绝和"永不"照旧）。
+//   它是任务的 agent，"先问我"的一律直接做、照常标出，受保护区域、密钥的硬拒绝和"永不"照旧）。
 // 执行的 agent：不涉及项目或涉及多个项目的，是任务自己的 agent（tm-<n>，maintainers/ 里的普通任务装配，工具包是 plainToolkit）；
-// 只涉及一个项目的建成这个项目的内部任务（64 号票），由项目的负责人在一张执行的工单段里做（projects/maintainers.ts）。
-// 172 号票：交给 agent、助理的话照旧中文（标 model，用到的时间说法也取中文）；会话里、待办里给人看的两句（plainStuckNote、plainDoneNote）按当时的语言写
+// 只涉及一个项目的建成这个项目的内部任务，由项目的负责人在一张执行的工单段里做（projects/maintainers.ts）。
+// 交给 agent、助理的话照旧中文（标 model，用到的时间说法也取中文）；会话里、待办里给人看的两句（plainStuckNote、plainDoneNote）按当时的语言写
 import { describeTime, forModel, isProjectInternal, type MessageEnvelope, onceAt, type PlanToolkit, t, type Task } from "@ergo/protocol";
 import { oneLine } from "../util/text.ts";
 
 /**
- * 不属于项目的普通任务的 agent 的工具包（75 号票）：和负责人同一套装配——读写文件、bash、联网（联网搜索、读网页）都开着，
+ * 不属于项目的普通任务的 agent 的工具包：和负责人同一套装配——读写文件、bash、联网（联网搜索、读网页）都开着，
  * skill 用助理那一份（设置里的 skill 库页勾的，默认 agent-browser、yt-dlp：交出去的事多是"搜一下、下下来"这类），没有 MCP。
  * 项目内部的普通任务用项目的工具包（项目的负责人在这个项目里能用什么就是什么）
  */
@@ -37,7 +37,7 @@ export function plainBriefText(task: Task): string {
 /** 执行的工单（项目内部的普通任务，第一张）的内容：放进固定上下文里的"这次的工单" */
 export const plainOrderInstructions = (task: Task) => `普通任务 ${task.id}「${task.title}」${onceAtNote(task)}：直接做，不规划、不用计划卡。要做的事——\n${task.summary.trim()}`;
 
-/** 某个时间做一次的（76 号票）：开始时写明它是定在什么时候做的（现在到点了） */
+/** 某个时间做一次的：开始时写明它是定在什么时候做的（现在到点了） */
 export function onceAtNote(task: Task): string {
   const at = onceAt(task);
   return at === undefined ? "" : `（定在 ${forModel(() => describeTime(new Date(at)))} 做的，现在到点了）`;
@@ -47,7 +47,7 @@ export function onceAtNote(task: Task): string {
 const BRIEF_GIST_CHARS = 200;
 
 /**
- * 项目内部的普通任务做完之后用户在详情里接着说，续派的工单的内容（75 号票评审）：新的一段是新会话，任务书不会再交一遍，
+ * 项目内部的普通任务做完之后用户在详情里接着说，续派的工单的内容：新的一段是新会话，任务书不会再交一遍，
  * 工单里要做的事就是用户这次说的；原来交代的只留摘要、连同上一轮的结果作为背景，写明做完了的不要重做（下载、写文件、发送这类
  * 有副作用的做过一遍了）
  */
@@ -87,8 +87,8 @@ export function plainResult(recentAgentMessages: readonly MessageEnvelope[]): st
 
 // @i18n-ignore-start model：交给助理的通知、工具结果
 /**
- * 项目内部的普通任务做完了：交给助理的通知（75 号票；ADR 0023：助理看不到细节），只说在哪个项目里做完了、结果在项目页的任务详情里，
- * 不带结果。不属于项目的普通任务做完和别的任务一样由 secretary/task-done.ts 告诉助理（99 号票：带着结果，问用户要不要念出来）
+ * 项目内部的普通任务做完了：交给助理的通知（ADR 0023：助理看不到细节），只说在哪个项目里做完了、结果在项目页的任务详情里，
+ * 不带结果。不属于项目的普通任务做完和别的任务一样由 secretary/task-done.ts 告诉助理（带着结果，问用户要不要念出来）
  */
 export function internalPlainDoneNotice(task: Task): string {
   const project = task.internal?.projectName ?? "";

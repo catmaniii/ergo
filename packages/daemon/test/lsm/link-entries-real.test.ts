@@ -1,4 +1,4 @@
-// 二狗的接入层（lsm/link.ts）对真的服务管家（packages/supervisor 的 Supervisor + 接入层）走一遍"指向自己的入口"（协议 §8，364 号票）。
+// 二狗的接入层（lsm/link.ts）对真的服务管家（packages/supervisor 的 Supervisor + 接入层）走一遍"指向自己的入口"（协议 §8）。
 //
 // 安全措施：服务管家的注册表、账本都在临时目录（LSM_DATA_DIR，模块加载前就设好）；端口全是临时挑的；不调 refresh，不起任何进程，
 // 不碰真的服务管家（7420）和真的二狗（8810、8811）。
@@ -22,7 +22,7 @@ const freePort = () =>
     });
   });
 
-describe("真的服务管家（364 号票）", () => {
+describe("真的服务管家", () => {
   const DATA = fs.mkdtempSync(path.join(os.tmpdir(), "ergo-entries-real-"));
   const saved = { dir: process.env.LSM_DATA_DIR, quiet: process.env.LSM_QUIET };
   let server: http.Server;

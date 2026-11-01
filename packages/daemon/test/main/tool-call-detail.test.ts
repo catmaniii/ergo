@@ -1,8 +1,8 @@
-// 主切面：工具调用的完整参数和返回（53 号票，详情页用）。真的守护进程，agent 接 faux 剧本，测试扮演前端：
+// 主切面：工具调用的完整参数和返回（详情页用）。真的守护进程，agent 接 faux 剧本，测试扮演前端：
 // 聊天里的工具调用 part 照旧只带摘要；按调用 id 经 HTTP 取完整参数和完整返回（GET /api/tool-calls/<调用 id>）——
 // 普通的、被拦下的、出错的都有；和摘要一样擦掉读过的密钥值、读了密钥文件的不记返回；单个值超过 200KB 截断并注明；
 // 守护进程被杀后重启照样取得到；彻底删除后只剩删除标记；外网端口和别的接口一样要设备凭证。
-// 56 号票起执行成功的顺带这次调用的效果记录（摘要、涉及的对象），旧记录按紧跟在调用记录后面找；彻底删除、删除项目时
+// 执行成功的顺带这次调用的效果记录（摘要、涉及的对象），旧记录按紧跟在调用记录后面找；彻底删除、删除项目时
 // 按调用 id 找到的效果日志一起改写，调用 id 去掉。
 import fs from "node:fs";
 import path from "node:path";
@@ -53,7 +53,7 @@ const ENV_VALUE = "Zq81mWp4vX2cT9";
 type ToolCallPart = Extract<MessagePart, { type: "tool_call" }>;
 const call = (name: string, args: Record<string, unknown>): FauxStep => ({ kind: "reply", toolCalls: [{ name, arguments: args as never }] });
 const reply = (text: string): FauxStep => ({ kind: "reply", text });
-/** 秘书照着检索结果里的素材 id 提议删除（21 号票的记忆删除卡） */
+/** 秘书照着检索结果里的素材 id 提议删除（记忆删除卡） */
 const proposeFromResults = (type: "purge"): FauxStep => ({
   kind: "call_with_matches",
   toolCall: { name: "propose_quick_action", arguments: { type, params: {} } },
@@ -104,7 +104,7 @@ const toolPartsOf = (frontend: TestFrontend, channel: string = SECRETARY): ToolC
 /** 效果日志里的全部记录（守卫频道上的 effect_recorded） */
 const effectLog = (store: EventStore): EffectRecord[] => store.read(GUARD_CHANNEL, 0, GUARD_EVENTS.effectRecorded).flatMap((e) => (e.payload as EffectRecordedPayload).records);
 
-/** 把这次调用的效果日志改回加上调用 id 之前的样子（像 56 号票之前的守护进程写下的）：位置不变，去掉调用 id */
+/** 把这次调用的效果日志改回加上调用 id 之前的样子（像以前的守护进程写下的）：位置不变，去掉调用 id */
 function asLegacyEffects(store: EventStore, callId: string): void {
   const events = store.read(GUARD_CHANNEL, 0, GUARD_EVENTS.effectRecorded).filter((e) => (e.payload as EffectRecordedPayload).records.some((r) => r.callId === callId));
   expect(events).toHaveLength(1);
@@ -217,7 +217,7 @@ describe("按调用 id 取完整参数和返回", () => {
   });
 });
 
-describe("效果记录（56 号票）", () => {
+describe("效果记录", () => {
   it("执行成功的顺带这次调用的效果记录：摘要、涉及的对象；通用 bash 拆出来的几条各一条；被拦下的、出错的没有", async () => {
     const outside = realPathOf(makeTempDir("ergo-outside-"))!;
     const { url, dataDir, daemon } = await startTestDaemon({
@@ -244,7 +244,7 @@ describe("效果记录（56 号票）", () => {
         toolTitle: "写文件",
         summary: expect.stringMatching(/^写文件；改动 .*notes\.md；成功；结果：Successfully wrote/),
         objects: [{ kind: "path", access: "write", value: path.join(scratch, "notes.md") }],
-        // 68 号票：效果日志里写入的全文只记长度和摘要哈希，注明写了多少
+        // 效果日志里写入的全文只记长度和摘要哈希，注明写了多少
         content: `写入 ${NOTES.length} 字`,
       },
     ]);
@@ -396,7 +396,7 @@ describe("彻底删除", () => {
     expect(search.resultSummary).not.toContain(last);
     const excerpt = said.find((s) => before.result.split("\n").find((l) => l.includes(last))!.includes(s))!;
     expect(search.resultSummary).not.toContain(excerpt);
-    // 这次检索的效果记录（56 号票）：它的工具调用记录不会被改写（摘要里没有这条素材），只能按调用 id 找到
+    // 这次检索的效果记录：它的工具调用记录不会被改写（摘要里没有这条素材），只能按调用 id 找到
     expect(before.effects).toEqual([expect.objectContaining({ tool: "search_materials", summary: expect.stringContaining("成功") })]);
     const effectSeq = before.effects![0]!.seq;
 
@@ -489,7 +489,7 @@ describe("删除项目", () => {
       .find((d) => d.agentId.startsWith("review-") && d.tool === "read")!;
     const reviewed = (await toolCallDetail(td.url, reviewerRead.callId)).body;
     expect(reviewed).toMatchObject({ conversation: null, taskId, stageId: "s1", projectId: "p-1", result: expect.stringContaining("谈妥了续租") });
-    // 它的效果记录（56 号票）：摘要里有读到的开头
+    // 它的效果记录：摘要里有读到的开头
     expect(reviewed.effects).toEqual([expect.objectContaining({ tool: "read", summary: expect.stringContaining("谈妥了续租") })]);
 
     // 执行工单写回之后结束；归档、删除（二次确认）
@@ -500,7 +500,7 @@ describe("删除项目", () => {
     );
 
     // 加上调用 id 之前的旧效果日志也要找到（没有调用 id，也不在负责人名下）：
-    // - 评审子 agent 交评审的那次（53 号票之后、56 号票之前的样子）：紧跟在它的完整内容后面；
+    // - 评审子 agent 交评审的那次（较早的样子）：紧跟在它的完整内容后面；
     const store = td.daemon.store;
     const submit = store
       .read("tool_calls")
@@ -509,7 +509,7 @@ describe("删除项目", () => {
     asLegacyEffects(store, submit.callId);
     const submitSeq = effectLog(store).find((r) => r.agentId === submit.agentId && r.tool === "submit_review")!.seq;
     expect((await toolCallDetail(td.url, submit.callId)).body.effects?.map((e) => e.seq)).toEqual([submitSeq]);
-    // - 负责人会话里子 agent 的一次调用（53 号票之前的样子，没有完整内容）：紧跟在它的工具调用记录后面
+    // - 负责人会话里子 agent 的一次调用（以前的样子，没有完整内容）：紧跟在它的工具调用记录后面
     const pmChannel = maintainerChannel("pm-1");
     const writeRecord = store
       .read(pmChannel, 0, EVENT_TYPES.message)
@@ -533,7 +533,7 @@ describe("删除项目", () => {
     await eventually(() => projectEventsOf(frontend), (e) => e.change === "deleted", "项目删掉");
 
     const after = await toolCallDetail(td.url, reviewerRead.callId);
-    // 注明是随项目删掉的（66 号票：详情页写"已随项目删除"）
+    // 注明是随项目删掉的（详情页写"已随项目删除"）
     expect(after.body).toMatchObject({ purged: true, purgedBy: "project_deletion", result: PURGED_TEXT, projectId: "p-1" });
     expect(after.body).not.toHaveProperty("effects");
     // 完整内容里一个字都不剩：评审读的、负责人写的；效果日志里也是（评审子 agent 的按调用 id 找到，调用 id 去掉）
@@ -600,7 +600,7 @@ describe("隐私", () => {
     });
     expect((await toolCallDetail(url, printf!.callId)).body.args).toEqual({ command: "printf '%s\\n' （密钥） > notes.txt" });
     expect((await toolCallDetail(url, cat!.callId)).body.result.trim()).toBe("（密钥）");
-    // 效果记录（56 号票）和效果日志里的一样脱敏：读密钥文件的摘要里不记结果，读过的值换成"（密钥）"
+    // 效果记录和效果日志里的一样脱敏：读密钥文件的摘要里不记结果，读过的值换成"（密钥）"
     const readEffects = (await toolCallDetail(url, read!.callId)).body.effects;
     expect(readEffects).toEqual([
       { seq: expect.any(Number), tool: "read", toolTitle: "读文件", summary: expect.stringContaining("结果：（密钥文件的内容不记录）"), objects: [{ kind: "path", access: "read", value: expect.stringMatching(/[\\/]t-1[\\/]\.env$/) }] },

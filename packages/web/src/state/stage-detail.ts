@@ -1,20 +1,20 @@
-// 长程任务的阶段详情（60 号票）要的、从会话里推出来的那几样，
+// 长程任务的阶段详情要的、从会话里推出来的那几样，
 // 纯函数；交付件、验收标准、执行方式、授权、规则、预算这些计划里写的，界面直接从阶段（任务详情的阶段抽屉用的那份）取。
 // 包括：
 // - 出过的状况（ui/incidents.tsx 的 incidentsOf / incidentsIn）：分成几类——拦下、拉回、额外确认、敏感数据、要你看一眼，
 //   聊天里图标、详情里清单用同一套说法；已经处理好的带 ✓，没处理好、要你看一眼的用感叹号。二狗的数据换成：
 //   工具调用（被拦下、按规则退回、按计划引回或改回、问过你、你拒绝了、等你批准、读了密钥文件）、验收结论的进度卡（没通过的是退回重做，
 //   紧跟着这一支停下找你的是"没通过，要你决定"）、时间线记录（偏离、越界）、这一轮出错时留的系统说明（出错归
-//   "要你看一眼"；二狗认协议包 isTurnFailedNote 那一条）、你从某个阶段重做的记录（84 号票：时间线的 reopen，算"撤回"一类，
+//   "要你看一眼"；二狗认协议包 isTurnFailedNote 那一条）、你从某个阶段重做的记录（时间线的 reopen，算"撤回"一类，
 //   重开记录也归它；二狗不撤回本机的改动，不写"本机的改动跟着恢复了"）。"攻击"
-//   （网页里的注入）二狗没有对应的数据，不出现（85 号票）；
-// - 尝试记录：每次交上来验收的结论（验收结论的进度卡：过没过、哪几条不满足、备注——负责人宣布完成时写的那一两句，84 号票起
+//   （网页里的注入）二狗没有对应的数据，不出现；
+// - 尝试记录：每次交上来验收的结论（验收结论的进度卡：过没过、哪几条不满足、备注——负责人宣布完成时写的那一两句，
 //   记在卡上（acceptance.summary），之前的卡从 complete_stage 的参数里拆；你退回时写的说明记在卡上由你验收的那几条的备注里，
-//   负责人的备注、你的说明），和每次返工、从这里重做（看板上的 rework，55 号票的 taskReopens）；
+//   负责人的备注、你的说明），和每次返工、从这里重做（看板上的 rework，taskReopens）；
 // - 这个阶段用了几次工具调用（授权和用量的"工具调用 N/M"：会话里归属这个阶段的工具调用记录数）；
 // - 第几轮（每重开一次加 1）；
 // - "回到会话里这一段"：这个阶段的第一条；
-// - "从这里重做"的范围在共享协议包里（reopenScope，84 号票：和守护进程同一份）。
+// - "从这里重做"的范围在共享协议包里（reopenScope：和守护进程同一份）。
 // 这些都按这个任务的整段会话算：任务详情打开时把任务开始以来的历史都取回来（historyNeededSince 说还要不要往前取），
 // 往上翻不会让数字变。
 import { type ConversationId, isTurnFailedNote, type ProgressCardPayload, t, tTable } from "./protocol.ts";
@@ -39,13 +39,13 @@ export interface Incident {
 }
 
 /** 每一类的名字、图标上的字、处理好了怎么说、说明 */
-// 170 号票起字按当前语言现取（state.stageDetail.incident.<类>.name / glyph / done / hint）
+// 字按当前语言现取（state.stageDetail.incident.<类>.name / glyph / done / hint）
 export const INCIDENT_META: Readonly<Record<IncidentKind, { name: string; glyph: string; done: string; hint: string }>> = {
   attack: incidentMeta("attack"),
   block: incidentMeta("block"),
   pullback: incidentMeta("pullback"),
   ask: incidentMeta("ask"),
-  // 二狗不撤回本机的改动（84 号票：从这里重做只列出做过的事），不写"已撤回""本机的改动跟着恢复了"
+  // 二狗不撤回本机的改动（从这里重做只列出做过的事），不写"已撤回""本机的改动跟着恢复了"
   undo: incidentMeta("undo"),
   data: incidentMeta("data"),
   look: incidentMeta("look"),
@@ -56,7 +56,7 @@ function incidentMeta(kind: IncidentKind) {
   return tTable({ name: `${key}.name`, glyph: `${key}.glyph`, done: `${key}.done`, hint: `${key}.hint` });
 }
 
-/** 验收结论的进度卡：哪个阶段、过没过、哪几条不满足（91 号票：聊天里的阶段框也用它） */
+/** 验收结论的进度卡：哪个阶段、过没过、哪几条不满足（聊天里的阶段框也用它） */
 export function acceptanceOf(state: UiState, item: ChatItem): (ProgressCardPayload & { acceptance: NonNullable<ProgressCardPayload["acceptance"]> }) | undefined {
   if (item.kind !== "card") return undefined;
   const card = state.cards[item.cardId]?.card;
@@ -65,13 +65,13 @@ export function acceptanceOf(state: UiState, item: ChatItem): (ProgressCardPaylo
   return p.kind === "acceptance" && p.acceptance ? (p as ProgressCardPayload & { acceptance: NonNullable<ProgressCardPayload["acceptance"]> }) : undefined;
 }
 
-/** 一条属于哪个阶段：验收结论的进度卡看卡上写的，别的看归属（和 55 号票书脊的口径一样；91 号票的阶段框也按它分） */
+/** 一条属于哪个阶段：验收结论的进度卡看卡上写的，别的看归属（和书脊的口径一样；阶段框也按它分） */
 export function stageOfItem(state: UiState, item: ChatItem): string | undefined {
   return acceptanceOf(state, item)?.stageId ?? item.scope.stageId;
 }
 
 /**
- * 这个任务的条目按阶段分（91 号票：依赖图上每个阶段出过的状况）：验收结论的进度卡看卡上写的阶段，别的看归属；
+ * 这个任务的条目按阶段分（依赖图上每个阶段出过的状况）：验收结论的进度卡看卡上写的阶段，别的看归属；
  * 不属于哪个阶段的不在里面
  */
 export function itemsByStage(state: UiState, items: readonly ChatItem[], taskId: string): Map<string, ChatItem[]> {
@@ -88,7 +88,7 @@ export function itemsByStage(state: UiState, items: readonly ChatItem[], taskId:
 }
 
 /**
- * 聊天里每一条属于哪个阶段（91 号票：标题栏的阶段标签跟着聊天滚到哪一段变）：这个任务的、带着阶段的
+ * 聊天里每一条属于哪个阶段（标题栏的阶段标签跟着聊天滚到哪一段变）：这个任务的、带着阶段的
  * 按它（验收结论的进度卡按卡上写的）；没带的（回复、思考、别的任务的）算前面最近那一段的；最前面还没开始阶段的那几条没有。
  * 展开的阶段框里每次调用、每段思考一行，滚过去时报上来的是它们的 id（zoomBlocks 的块）：调用带着这个任务的阶段的按它，别的算所在那一条的
  */
@@ -104,7 +104,7 @@ export function stageAtItems(state: UiState, items: readonly ChatItem[], taskId:
   return out;
 }
 
-/** 这一支停下找你的"偏离"记录（14 号票：和没通过的验收结论同一事务、紧跟在它后面） */
+/** 这一支停下找你的"偏离"记录（和没通过的验收结论同一事务、紧跟在它后面） */
 export const isDeviation = (item: ChatItem | undefined) => item?.kind === "record" && item.record.type === "timeline" && item.record.timeline.kind === "deviation";
 
 /** 一条上出的状况（一条可能有好几种：工具调用组里每次调用各算各的） */
@@ -125,7 +125,7 @@ function incidentsOf(state: UiState, item: ChatItem, next: ChatItem | undefined)
         else if (call.issue === "asked") out.push(one("ask", t("state.stageDetail.asked", { what })));
         // 还在等你批准的也算（确认不是当场弹窗，会"等着"）
         else if (call.issue === "waiting") out.push(one("ask", t("state.stageDetail.waiting", { what }), true));
-        // 读了密钥文件（67 号票的 🔒）：用到敏感数据
+        // 读了密钥文件（🔒）：用到敏感数据
         if (part.readsSecretFile && part.outcome === "done") out.push(one("data", t("state.stageDetail.secretFile", { what })));
       }
       return out;
@@ -142,7 +142,7 @@ function incidentsOf(state: UiState, item: ChatItem, next: ChatItem | undefined)
       if (item.record.type !== "timeline") return [];
       const { kind, summary } = item.record.timeline;
       if (kind === "deviation" || kind === "out_of_scope") return [at("look", summary, true)];
-      // 你从某个阶段重做了（84 号票）：重开记录算"撤回"一类
+      // 你从某个阶段重做了：重开记录算"撤回"一类
       if (kind === "reopen") return [at("undo", summary)];
       return [];
     }
@@ -264,7 +264,7 @@ export function stageDetailFacts(state: UiState, items: readonly ChatItem[], tas
     if (!a) return [];
     const card = it.kind === "card" ? state.cards[it.cardId]?.card : undefined;
     const seq = it.seq ?? Infinity;
-    // 84 号票起卡上记着这次交上来时写的那句；之前的卡从宣布完成的调用参数里拆
+    // 卡上记着这次交上来时写的那句；之前的卡从宣布完成的调用参数里拆
     const note = a.acceptance.summary ?? completionNote(completions.findLast((c) => c.seq! > since && c.seq! < seq));
     since = seq;
     const userNote = a.acceptance.results.find((r) => r.method === "user" && r.note)?.note;

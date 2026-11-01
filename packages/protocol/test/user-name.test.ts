@@ -1,4 +1,4 @@
-// 我的名字（249 号票）：用户**自己**的名字。起名的规矩照个人助理的名字（43 号票）那一条，
+// 我的名字：用户**自己**的名字。起名的规矩照个人助理的名字那一条，
 // 设置接口 GET/PUT /api/user-name 的路径也在协议包里（守护进程和网页都从这儿取）。
 import { describe, expect, it } from "vitest";
 import { checkUserName, HTTP_PATHS, parseHttpPath, USER_NAME_MAX } from "../src/index.ts";

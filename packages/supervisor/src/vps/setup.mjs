@@ -1,4 +1,4 @@
-// `lsm vps setup | status | remove | approve` 的步骤（321 号票）。CLI 和测试共用：
+// `lsm vps setup | status | remove | approve` 的步骤。CLI 和测试共用：
 // 外部命令、端口、https 都经执行层（exec），问你的话经 io，服务管家的启停经 lsm——测试三样都换成假的。
 //
 // setup 的顺序：

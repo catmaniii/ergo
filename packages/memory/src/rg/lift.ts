@@ -1,7 +1,7 @@
-// 往上抽一层（195 号票）：规则版推理的需求、价值层通用规则（第 4.3、5 节）。
+// 往上抽一层：规则版推理的需求、价值层通用规则（第 4.3、5 节）。
 //
 // - 需求层：同一主题的偏好或状态断言（推断的和用户明说的都算，要 active、至少 medium），在两种以上不同的场合
-//   （按第 5 节的维度比；229 号票起只看"方面（domain）"维度：方面标签集合不同才算两种，「家里、休闲」和「家里、工作」算两种，
+//   （按第 5 节的维度比；只看"方面（domain）"维度：方面标签集合不同才算两种，「家里、休闲」和「家里、工作」算两种，
 //   只差日型（周末/工作日/假期）或出行（出差/休假）不算）、两个以上月份都成立，支持背后至少 3 条证据 → 出需求层的一组竞争假设
 //   （"上位解释"），至少两条，互相登记；推断是"结论 ← 这几条断言"（method = induction）；
 // - 价值层：成立的需求断言（active、至少 medium）自己也跨两种以上场合、三个以上月份时才出；置信度最多 medium（confidenceCap）；
@@ -22,7 +22,7 @@ export const LIFT_MIN_PERIODS: Readonly<Record<LiftLevel, number>> = { need: 2, 
 /** 支持背后至少几条证据（一两条的不出） */
 export const LIFT_MIN_EVIDENCE = 3;
 /**
- * 硬下限（256 号票）：证据少到只有一条时，往上抽没有意义——一条证据推"长期需求"就是编。
+ * 硬下限：证据少到只有一条时，往上抽没有意义——一条证据推"长期需求"就是编。
  * 两条以上先出结论、标成临时的（见 llm-lift.ts 的 provisional）：置信度由 scoring 的 confidenceCap
  * 按"证据薄、不跨时期、不跨场景"自动压到 low，跨度长起来以后重抽 + rescore 会自己升上去
  */
@@ -46,7 +46,7 @@ type Family = "autonomy" | "load" | "interest" | "value";
 
 interface LiftTemplate extends HypothesisTemplate {
   family: Family;
-  /** 226 号票：这条解释要是成立，接下来两周应该看到什么（一句预测，进预测账本）；拼不出就留空 */
+  /** 这条解释要是成立，接下来两周应该看到什么（一句预测，进预测账本）；拼不出就留空 */
   predicts?(p: LiftParams): string;
 }
 
@@ -334,10 +334,10 @@ const sameTags = (a: readonly string[], b: readonly string[]): boolean => {
 };
 
 /**
- * 两组场景是不是两种不同的场合（229 号票收窄只看"方面（domain）"维度）：
+ * 两组场景是不是两种不同的场合（收窄只看"方面（domain）"维度）：
  * - 两边都有方面标签、且集合不同 → 算两种（「家里、休闲」和「家里、工作」共享「家里」，也算两种）；
  * - 只差日型（周末/工作日/假期）、只差出行（出差/休假）不算两种；
- * - 两边都没有方面标签、但都有不认得的标签、且集合不同 → 算两种（沿用 223 号票对不认得标签的处理）；
+ * - 两边都没有方面标签、但都有不认得的标签、且集合不同 → 算两种（沿用对不认得标签的处理）；
  * - 两边一样、有一边不限场景（没写标签）、或者被包含合并后只剩一组，都不算。
  */
 export function scenesDiffer(a: readonly string[], b: readonly string[]): boolean {
@@ -350,19 +350,19 @@ export function scenesDiffer(a: readonly string[], b: readonly string[]): boolea
   return unknownLeft.length > 0 && unknownRight.length > 0 && !sameTags(unknownLeft, unknownRight);
 }
 
-/** 有没有两种不同的场合（229 号票起按 scenesDiffer 只看方面维度判，门槛用这个；不限场景的和谁都一样，不算） */
+/** 有没有两种不同的场合（按 scenesDiffer 只看方面维度判，门槛用这个；不限场景的和谁都一样，不算） */
 export function hasDisjointScenes(scenes: readonly (readonly string[])[]): boolean {
   for (let i = 0; i < scenes.length; i++) for (let j = i + 1; j < scenes.length; j++) if (scenesDiffer(scenes[i]!, scenes[j]!)) return true;
   return false;
 }
 
-/** 老口径（223 号票起只用来统计，不卡门槛）：所有双方都写了标签的维度上都无交集才算两种 */
+/** 老口径（只用来统计，不卡门槛）：所有双方都写了标签的维度上都无交集才算两种 */
 export function hasDisjointScenesStrict(scenes: readonly (readonly string[])[]): boolean {
   for (let i = 0; i < scenes.length; i++) for (let j = i + 1; j < scenes.length; j++) if (!contextsCompatible(scenes[i]!, scenes[j]!)) return true;
   return false;
 }
 
-/** 记一组过了门槛（223 号票）：总共几组，另按老严格判定分两桶（passed = passedStrict + passedLoose） */
+/** 记一组过了门槛：总共几组，另按老严格判定分两桶（passed = passedStrict + passedLoose） */
 export function countLiftGatePass(gate: LiftGateStats | undefined, scenes: readonly (readonly string[])[]): void {
   if (!gate) return;
   gate.passed += 1;
@@ -370,7 +370,7 @@ export function countLiftGatePass(gate: LiftGateStats | undefined, scenes: reado
   else gate.passedLoose += 1;
 }
 
-/** 这一层能出哪些组：按主题归拢输入，够条件的出一组上位解释（gate 给了就记过了门槛的统计，223 号票） */
+/** 这一层能出哪些组：按主题归拢输入，够条件的出一组上位解释（gate 给了就记过了门槛的统计） */
 export function liftGroups(level: LiftLevel, inputs: readonly LiftInput[], view: RgView, gate?: LiftGateStats): HypothesisGroupDraft[] {
   const byTheme = new Map<string, LiftInput[]>();
   for (const input of inputs) for (const theme of themesOf(input, view)) byTheme.set(theme, [...(byTheme.get(theme) ?? []), input]);

@@ -1,21 +1,21 @@
-// 运营方案（130 号票，ADR-0028；规格第 8 节"项目内部任务"、第 11 节"项目状态变更时找用户"）：项目转入使用后怎么运转，由项目的
-// 负责人起草，用户在卡上确认一次就全部生效——确认就是授权，之后照方案跑，不再逐项问（用户 2026-10-17 定："以后项目做完之后只要我
+// 运营方案（ADR-0028；规格第 8 节"项目内部任务"、第 11 节"项目状态变更时找用户"）：项目转入使用后怎么运转，由项目的
+// 负责人起草，用户在卡上确认一次就全部生效——确认就是授权，之后照方案跑，不再逐项问（"以后项目做完之后只要我
 // 确认一下就可以自动转运营，运营模式不限"）。
 // - 负责人用 propose_operations 交一份完整的运营方案（tool）：运行时逐条校验——手段在登记表里（means.ts）、手段自己的校验、要的能力
 //   不超出项目的工具包、流程的那几条先检查再审查修补（和 propose_plan 同一套，守卫眼里执行它的是项目的负责人）。不过的整份退回，写明
 //   哪一条为什么；
 // - 建设期间交的（项目在建设中）：记下（operations_proposed，mode build），等建设任务做完出现在"首版做完了"卡上（projects.ts 的
-//   buildDonePayload 取 pendingBuildPlan）；卡已经出了的同一事务更新卡（版本加 1，用户照新的那份确认）；259 号票起"转入使用"确认卡
+//   buildDonePayload 取 pendingBuildPlan）；卡已经出了的同一事务更新卡（版本加 1，用户照新的那份确认）；"转入使用"确认卡
 //   （go_live）同样带着它、同样更新，卡上的转运营检查清单跟着按新的方案重算（goLiveChecklist）；
 // - "首版做完了"卡上点"确认并转入使用"（projects.ts 的 decideBuild 叫 putInUse）：方案里每一条生效——automatic 的手段 apply，
 //   建成这个项目的内部任务（定时、事件触发的进运营中，授权一直有效）；要用户手动的记成"要你手动"；做不了的记原因、别的照常生效、
 //   项目照常转进使用中，通知负责人。项目上记下现在生效的运营方案（Project.operations，和转入使用同一条 project 事件），
 //   负责人会话的时间线上记一笔"运营方案已生效"。卡片动作带幂等键：同一次确认重发不会再建一遍；
 // - 使用中（或已停用）的项目交的：和现在生效的比出差异（diff.ts），出"运营方案变更"卡（同一个项目一次只有一张在等：新交的顶掉旧的），
-//   进待办，也出在用户说那句话的会话里（照 125 号票的立项要求变更卡）；用户确认一次就照差异生效：加上的建、只改了时间的就地改、
+//   进待办，也出在用户说那句话的会话里（照立项要求变更卡）；用户确认一次就照差异生效：加上的建、只改了时间的就地改、
 //   别的改动撤了重建、去掉的取消、照旧却没跑着的重新开起来；拒绝的什么都不动；
 // - 停用、重新启用：定时、事件触发的内部任务由触发底座按项目的状态暂停、恢复（scheduled-jobs 的 onProject）；登记了 pause / resume 的
-//   手段（项目自己的服务，133 号票：撤出 LSM、撤掉转发，重新登记、启动）由这里在项目停用（含使用中归档）、重新启用（含取消归档
+//   手段（项目自己的服务：撤出 LSM、撤掉转发，重新登记、启动）由这里在项目停用（含使用中归档）、重新启用（含取消归档
 //   回到使用中）时叫。已归档照现有规矩（触发底座暂停，取消归档恢复）。
 import {
   capabilitiesBeyond,
@@ -92,7 +92,7 @@ export interface OperationsOptions {
   /** 核实负责人引用的用户原话；不给就不核实 */
   userWords?: UserWordsDeps;
   /**
-   * 转运营检查清单（259 号票，项目模块的 goLiveChecklist）：建设期间又交了一份方案、更新"首版做完了""转入使用"卡时，卡上的清单
+   * 转运营检查清单（项目模块的 goLiveChecklist）：建设期间又交了一份方案、更新"首版做完了""转入使用"卡时，卡上的清单
    * 按新的方案重算。不给就不重算
    */
   goLiveChecklist?: (projectId: string, plan: OperationsPlanView) => GoLiveChecklistItem[];
@@ -117,7 +117,7 @@ export interface Operations {
   /** 建设任务做完出"首版做完了"卡时卡上带的：负责人建设期间交的、还没确认的那一份 */
   pendingBuildPlan(projectId: string): OperationsPlanView | undefined;
   /**
-   * "首版做完了"卡、"转入使用"确认卡（via，259 号票）上确认并转入使用（project 是转入使用之前的样子，plan 是卡上的那一份）：
+   * "首版做完了"卡、"转入使用"确认卡（via）上确认并转入使用（project 是转入使用之前的样子，plan 是卡上的那一份）：
    * 方案里每一条生效。流程那几条审查要用户逐项确认的事项没勾完的抛 RequestRejected（整张卡不动）
    */
   putInUse(project: Project, plan: OperationsPlanView, input: OperationsConfirmInput, key: string, cardId: string, via?: "build_done" | "go_live"): PutInUseOperations;
@@ -226,7 +226,7 @@ export function createOperations(options: OperationsOptions): Operations {
       checkEventTrigger: options.checkEventTrigger,
       names: { project: (id: string) => (id === project.id ? project.name : getProjectRow(store.reader, id)?.project.name), task: (id: string) => options.tasks.get(id)?.title },
     };
-    // 同一种手段的几条之间撞没撞（133 号票：同一个项目两个服务同名、同端口）
+    // 同一种手段的几条之间撞没撞（同一个项目两个服务同名、同端口）
     for (const means of options.means.list()) {
       const same = drafts.filter((d) => d.means === means.id);
       if (same.length > 0 && means.checkPlan) problems.push(...forModel(() => means.checkPlan!(same, checkContext)));
@@ -241,7 +241,7 @@ export function createOperations(options: OperationsOptions): Operations {
         continue;
       }
       const approach = d.approach ?? "plain";
-      // 校验的问题交回负责人：按中文写（里面用到的协议包说法、手段的名字也是中文，174 号票）
+      // 校验的问题交回负责人：按中文写（里面用到的协议包说法、手段的名字也是中文）
       const own = forModel(() => means.check(d, checkContext));
       for (const p of own) problems.push(refusal.item(i, name, p));
       if (d.service && means.id !== OPERATION_SERVICE_MEANS) problems.push(refusal.serviceOnly(i, name));
@@ -267,7 +267,7 @@ export function createOperations(options: OperationsOptions): Operations {
       };
       // 运行时补齐的（服务的工作目录换成绝对路径、默认值）：这一条自己的校验过了才补
       const item = own.length === 0 && means.normalize ? means.normalize(written, d, checkContext) : written;
-      // 要连出去看的（服务的前缀下自检，133 号票）：这一条别的都对了才看
+      // 要连出去看的（服务的前缀下自检）：这一条别的都对了才看
       if (own.length === 0 && means.selfCheck) {
         const checked = await means.selfCheck(item);
         for (const p of checked.problems) problems.push(refusal.item(i, name, p));
@@ -391,7 +391,7 @@ export function createOperations(options: OperationsOptions): Operations {
   /** 还在等的"运营方案变更"卡（同一个项目一次只有一张） */
   const pendingChangeCards = (projectId: string) => listPendingCards(store.reader, ["operations_change"]).filter((c) => (c.payload as OperationsChangeCardPayload).projectId === projectId);
 
-  /** 还没选的"首版做完了"卡、还没确认的"转入使用"卡（259 号票）：都带着建设期间交的方案 */
+  /** 还没选的"首版做完了"卡、还没确认的"转入使用"卡：都带着建设期间交的方案 */
   const pendingGoLiveCards = (projectId: string) => listPendingCards(store.reader, ["build_done", "go_live"]).filter((c) => (c.payload as { projectId?: string }).projectId === projectId);
 
   /** 核实引用的用户原话 */
@@ -427,7 +427,7 @@ export function createOperations(options: OperationsOptions): Operations {
     };
     if (proposed.mode === "build") {
       // 建设期间交的：等建设任务做完出现在"首版做完了"卡上；卡已经出了的同一事务更新卡（用户照新的那份确认）。
-      // 259 号票："转入使用"确认卡同样更新；卡上的转运营检查清单按新的方案重算
+      // "转入使用"确认卡同样更新；卡上的转运营检查清单按新的方案重算
       const pendingCards = pendingGoLiveCards(projectId);
       const view = planView(proposed);
       const checklist = pendingCards.length > 0 ? options.goLiveChecklist?.(projectId, view) : undefined;
@@ -614,7 +614,7 @@ export function createOperations(options: OperationsOptions): Operations {
   };
 }
 
-/** "运营方案变更"卡（130 号票）：确认（confirm，流程审查要你逐项确认的事项勾完才行）、拒绝（reject，可附说明） */
+/** "运营方案变更"卡：确认（confirm，流程审查要你逐项确认的事项勾完才行）、拒绝（reject，可附说明） */
 export function operationsChangeCardType(operations: Pick<Operations, "decideChange">) {
   return defineCardType({
     type: "operations_change",

@@ -1,4 +1,4 @@
-// 删除项目时它的内部任务一起删掉（64 号票）：任务的文字换成删除标记（ADR 0010）。84 号票起阶段上多了负责人宣布完成时写的那句
+// 删除项目时它的内部任务一起删掉：任务的文字换成删除标记（ADR 0010）。阶段上多了负责人宣布完成时写的那句
 // （summary）、重开时记下的上次没过的标准（lastFailed），一样换掉；编号、状态、计数这些结构字段原样。
 import { PURGED_TEXT, type Task, type TaskStage } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";

@@ -152,7 +152,7 @@ describe("存计划时的检查", () => {
       ["授权项 g-x：teleport 不能写进授权项（授权项只写内置工具、带类型的 bash 工具和工具包里的 MCP）。运行时代为执行的工具（比如 propose_operations、check_ops）不用授权，执行时照样有：去掉这一项；是写错了名字的改对"],
     ],
     [
-      // 362 号票：真模型试验里它说"没有 propose_operations 这个工具"，负责人白担心了一场
+      // 真模型试验里它说"没有 propose_operations 这个工具"，负责人白担心了一场
       "授权项写了运行时代为执行的工具：不说没有，说执行时照样有",
       (p: Plan) => withStagePolicy(p, 0, { grants: [{ id: "propose-ops", tool: "propose_operations", title: "交方案", scope: {} }] }),
       ["授权项 propose-ops：propose_operations 不能写进授权项（授权项只写内置工具、带类型的 bash 工具和工具包里的 MCP）。运行时代为执行的工具（比如 propose_operations、check_ops）不用授权，执行时照样有：去掉这一项；是写错了名字的改对"],
@@ -213,7 +213,7 @@ describe("确认时勾掉或收窄授权项", () => {
   });
 });
 
-describe("确认后的计划交给守卫的样子（13 号票用）", () => {
+describe("确认后的计划交给守卫的样子（用）", () => {
   it("授权项挂到所属阶段（阶段组的授权项给组里每个阶段各一份），授予时间是确认的时刻，有效期按天；时序规则照原样；本任务的关注类别写成 TaskWatchSettings", () => {
     const confirmedAt = Date.UTC(2026, 9, 8, 1);
     const p = plan({
@@ -237,7 +237,7 @@ describe("确认后的计划交给守卫的样子（13 号票用）", () => {
   });
 });
 
-describe("迁移来的定时作业每次运行的授权（19 号票登记的；76 号票起计划里不再写定时作业）", () => {
+describe("迁移来的定时作业每次运行的授权（计划里不再写定时作业）", () => {
   const dailyGrant: PlanGrant = { id: "send-daily", tool: "http_request", title: "把日报发到 hook", scope: { url: ["http://127.0.0.1/daily", "http://127.0.0.1/weekly"] }, maxUses: 2 };
 
   it("交给守卫的样子：授权项挂在唯一的\"运行\"阶段上，作业在就一直有效（没有天数、不续期），时序规则照原样，本任务的关注类别照确认时的", () => {
@@ -250,7 +250,7 @@ describe("迁移来的定时作业每次运行的授权（19 号票登记的；7
   });
 });
 
-describe("确认时把本任务调严过的全局自定义类别连规则一起快照进计划（26 号票）", () => {
+describe("确认时把本任务调严过的全局自定义类别连规则一起快照进计划", () => {
   const migrations = { id: "c-1", title: "动迁移目录", match: { paths: ["E:\\work\\notes\\db\\migrations"] }, chat: "ask_first" as const, task: "ask_first" as const };
   const settings: WatchCategorySettings = { custom: [migrations] };
   const submitted = plan({
@@ -288,7 +288,7 @@ describe("确认时把本任务调严过的全局自定义类别连规则一起�
   });
 });
 
-describe("用户说过的限制：负责人编译成时序规则或授权收窄，附上原话（26 号票）", () => {
+describe("用户说过的限制：负责人编译成时序规则或授权收窄，附上原话", () => {
   const noMain = { id: "no-push-main", trigger: { tool: "git_push", where: { eq: ["$current.args.branch", "main"] } }, on_violation: "block" };
   const limit = (overrides: Partial<NonNullable<Plan["userLimits"]>[number]> = {}): NonNullable<Plan["userLimits"]>[number] => ({
     id: "l1",
@@ -367,7 +367,7 @@ describe("每项授权在守卫眼里的样子（计划卡上的授权行和停�
     // git_push 落在"以我的名义对外发送"：任务里默认"计划里列了才做"，本任务调成了"先问我"
     const p = plan({ watchCategories: BUILTIN_CATEGORY_IDS.map((id) => (id === "external_send" ? { id, disposition: "ask_first" as const } : { id })) });
     const info = grantInfoOf(p, { tools, settings: NO_SETTINGS });
-    // 对外（84 号票，阶段详情的"权""外"按它分）：推送会联网往外送，写文件不是
+    // 对外（阶段详情的"权""外"按它分）：推送会联网往外送，写文件不是
     expect(info["push-main"]).toEqual({ toolTitle: "git 推送", categoryTitles: ["以我的名义对外发送或发布"], disposition: "ask_first", outward: true });
     expect(info["write-out"]).toEqual({ toolTitle: "写文件", categoryTitles: [], disposition: "do", outward: false });
     expect(grantInfoOf(plan(), { tools, settings: NO_SETTINGS })["push-main"]?.disposition).toBe("planned_only");

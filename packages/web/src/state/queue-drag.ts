@@ -1,4 +1,4 @@
-// 聊天区里排队的消息长按拖动改顺序（144 号票）：pointer 事件 → 拖动状态的纯函数。界面（ui/conversation/queue-drag.tsx）只把 DOM 的
+// 聊天区里排队的消息长按拖动改顺序：pointer 事件 → 拖动状态的纯函数。界面（ui/conversation/queue-drag.tsx）只把 DOM 的
 // pointer 事件、长按计时、量出来的气泡位置交进来，照状态给每个气泡挪位置；不用拖拽库。
 // - 按下：手机上（touch、pen）按住 QUEUE_HOLD_MS 不动才开始拖（照 ui/long-press.ts 的长按），没到时间挪开超过 QUEUE_MOVE_TOLERANCE_PX
 //   算在滚动，不拖；电脑上（mouse）按住挪开超过容差就开始拖，按住不动到时间也开始；

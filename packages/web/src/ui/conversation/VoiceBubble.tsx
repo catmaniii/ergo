@@ -1,21 +1,21 @@
 /**
- * 语音气泡（规格第 22 节；31 号票起，36 号票改成同框）：和文字类似的气泡，带播放图标和时长，宽度随时长变。
- * 语音和它的文字在同一个框里（用户 2026-10-08 定）：播放条和时长在上，文字在下；有文字时框按文字撑开，随时长的宽度是最小宽度。
+ * 语音气泡（规格第 22 节；改成同框）：和文字类似的气泡，带播放图标和时长，宽度随时长变。
+ * 语音和它的文字在同一个框里：播放条和时长在上，文字在下；有文字时框按文字撑开，随时长的宽度是最小宽度。
  * 点一下播放或暂停（同一时间只播一条，app/voice-playback.ts）；长按（桌面上右键）弹出菜单。开始语音输入时被暂停在半路的
- * （209 号票），时长后面标"已暂停"，点一下从那里接着放。两种用法：
+ * 时长后面标"已暂停"，点一下从那里接着放。两种用法：
  * - VoiceBubble：用户发的语音。识别出的文字识别完成就直接显示在框里，这段文字就算用户对识别结果的确认；
  *   还没识别完显示"识别中…"，失败显示"识别失败"。菜单里有"复制文字"，失败的还有"重新识别"；
- * - AgentVoiceBubble：agent 发的语音（32 号票的 TTS 音频）。默认框里只有播放条和时长，菜单里"转文字"在框里展开送进 TTS 的
+ * - AgentVoiceBubble：agent 发的语音（TTS 音频）。默认框里只有播放条和时长，菜单里"转文字"在框里展开送进 TTS 的
  *   原文，再点"收起文字"收起；"复制文字"。新到的 agent 语音会自动播放（app/voice-autoplay.ts），浏览器拦下了就在框里提示
  *   "点一下播放"。
- * - StreamingAgentVoiceBubble（38 号票）：分段合成中的 agent 语音，第一段到了就出现在会话末尾，时长随已到的段增长、标"合成中"，
+ * - StreamingAgentVoiceBubble：分段合成中的 agent 语音，第一段到了就出现在会话末尾，时长随已到的段增长、标"合成中"，
  *   点一下边收边播（再点停掉整条）；合成完了换成载着完整音频的那条消息（AgentVoiceBubble），重播用完整音频。
  *   agent 的语音在播放器里按语音 id 认（边收边播和完整音频是同一条），用户的语音按媒体 id 认。
  * 框的样子（有没有下半截、宽度怎么定、菜单里展开收起那一项）由状态层的 voiceBubbleLook / agentVoiceBubbleLook 给出。
- * 播放条里的波形只画按时长定的那几格（状态层的 voiceWave，69 号票），时长紧跟在波形后面，框因为文字变宽时空白留在行尾。
- * 42 号票起框宽、波形格数按现在这套视觉风格的播放条尺寸算（风格的 voice-* token，useVoiceBarSizes），换风格跟着变。
- * 消息通用的菜单项（引用等）等消息有了通用菜单再加。56 号票起菜单里有"详情 ›"（点一下是播放，详情从这里进）。
- * 菜单经 ui/popup.tsx 画在应用框最上面的一层（用户 2026-10-10 反馈被输入栏挡住：会话的缩放内容带 transform，就地画盖不过外面），
+ * 播放条里的波形只画按时长定的那几格（状态层的 voiceWave），时长紧跟在波形后面，框因为文字变宽时空白留在行尾。
+ * 框宽、波形格数按现在这套视觉风格的播放条尺寸算（风格的 voice-* token，useVoiceBarSizes），换风格跟着变。
+ * 消息通用的菜单项（引用等）等消息有了通用菜单再加。菜单里有"详情 ›"（点一下是播放，详情从这里进）。
+ * 菜单经 ui/popup.tsx 画在应用框最上面的一层（反馈被输入栏挡住：会话的缩放内容带 transform，就地画盖不过外面），
  * 贴着气泡：默认在下方，放不下翻到上方；自己发的右边对齐，agent 的左边对齐（原来样式里 .user .voice-menu 的规矩）。
  */
 import { useMemo, useRef, useState, useSyncExternalStore } from "react";
@@ -49,7 +49,7 @@ import { useToast } from "../toast.tsx";
 type VoicePart = Extract<MessagePart, { type: "voice" }>;
 type TtsAudioPart = Extract<MessagePart, { type: "tts_audio" }>;
 
-/** 现在这套视觉风格的播放条尺寸（42 号票）：换风格时跟着变 */
+/** 现在这套视觉风格的播放条尺寸：换风格时跟着变 */
 function useVoiceBarSizes(): VoiceBarSizes {
   const theme = pageTheme();
   const styleId = useSyncExternalStore(theme.subscribe, theme.style);
@@ -77,7 +77,7 @@ export function VoiceBubble({ part, onDetail }: { part: VoicePart; onDetail?: ((
   );
 }
 
-/** 已经识别出文字的用户语音，文字由别处给（158 号票：设置里素材的详情，照会话里的语音条画；不能重新识别） */
+/** 已经识别出文字的用户语音，文字由别处给（设置里素材的详情，照会话里的语音条画；不能重新识别） */
 export function TranscribedVoiceBubble({ part, text }: { part: VoicePart; text: string }) {
   const { http } = useStore();
   const sizes = useVoiceBarSizes();
@@ -94,7 +94,7 @@ export function TranscribedVoiceBubble({ part, text }: { part: VoicePart; text: 
   );
 }
 
-/** agent 发的语音（32 号票的语音回复）：文字不默认展开，长按（桌面右键）"转文字"在框里展开送进 TTS 的原文，再点收起 */
+/** agent 发的语音（语音回复）：文字不默认展开，长按（桌面右键）"转文字"在框里展开送进 TTS 的原文，再点收起 */
 export function AgentVoiceBubble({ part, onDetail }: { part: TtsAudioPart; onDetail?: (() => void) | undefined }) {
   const { ui, http } = useStore();
   const [expanded, setExpanded] = useState(false);
@@ -115,7 +115,7 @@ export function AgentVoiceBubble({ part, onDetail }: { part: TtsAudioPart; onDet
   );
 }
 
-/** 分段合成中的 agent 语音（38 号票）：时长是已经到了的段，标"合成中"，点一下边收边播 */
+/** 分段合成中的 agent 语音：时长是已经到了的段，标"合成中"，点一下边收边播 */
 export function StreamingAgentVoiceBubble({ voice }: { voice: AgentVoiceRecord }) {
   const { http } = useStore();
   const [expanded, setExpanded] = useState(false);
@@ -149,13 +149,13 @@ export interface VoiceBubbleViewProps {
   text: string | undefined;
   /** 框的样子：框里下半截显示什么、宽度怎么定 */
   look: VoiceBubbleLook;
-  /** 时长后面的小字（分段合成中的"合成中"）；不给时被语音输入暂停在半路的标"已暂停"（209 号票） */
+  /** 时长后面的小字（分段合成中的"合成中"）；不给时被语音输入暂停在半路的标"已暂停" */
   note?: string;
   /** 菜单里展开 / 收起文字的那一项（agent 发的语音才有） */
   textToggle?: AgentVoiceBubbleLook["textToggle"] & { onToggle(): void };
   /** 给了就在菜单里加"重新识别" */
   onRetry?: () => void;
-  /** 给了就在菜单里加"详情 ›"（56 号票：点一下是播放，详情从菜单进） */
+  /** 给了就在菜单里加"详情 ›"（点一下是播放，详情从菜单进） */
   onDetail?: (() => void) | undefined;
   /** 长按菜单和气泡哪一边对齐：自己发的靠右（end），agent 的靠左（start，默认） */
   menuAlign?: PopupAlign;
@@ -167,7 +167,7 @@ export function VoiceBubbleView({ playId, source, duration, wave, text, look, no
   const blocked = useVoiceBlocked(playId);
   const paused = useVoicePaused(playId);
   const note = given ?? (paused ? t("ui.voiceBubble.paused") : undefined);
-  // 长按菜单开没开：点别处、滚动、缩放、鸿蒙 App 的系统返回键（62 号票）都会关，见 ui/popup.tsx
+  // 长按菜单开没开：点别处、滚动、缩放、鸿蒙 App 的系统返回键都会关，见 ui/popup.tsx
   const [menu, setMenu] = useState(false);
   const bubbleRef = useRef<HTMLButtonElement>(null);
 
@@ -175,7 +175,7 @@ export function VoiceBubbleView({ playId, source, duration, wave, text, look, no
     if (source !== undefined) toggleVoice(playId, source);
     else toast(t("ui.voiceBubble.cannotPlay"));
   };
-  // 点一下播放；长按、桌面上右键弹出菜单（ui/long-press.ts，90 号票抽出来和看板卡片共用）
+  // 点一下播放；长按、桌面上右键弹出菜单（ui/long-press.ts，抽出来和看板卡片共用）
   const press = useLongPress(() => setMenu(true), { onTap: play });
 
   const copy = () => {

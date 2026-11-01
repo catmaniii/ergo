@@ -1,5 +1,5 @@
-// 事实上的标记（199 号票，写回知识图谱用）：
-// - gap：说的和做的不一样，两条都保留，互相标 gap（05 号调研 L1'：stated 和 revealed 冲突时两条都保留并标 gap）；
+// 事实上的标记（写回知识图谱用）：
+// - gap：说的和做的不一样，两条都保留，互相标 gap（L1'：stated 和 revealed 冲突时两条都保留并标 gap）；
 // - explained_by：矛盾的两边都能用一条需求、价值断言解释，关联到那条断言。
 // 标记存在 kg_marks（当前的样子），每次加上、撤掉都经 MemoryStore.recordRevision 记一条修订（对象是那条事实），起因是推理图谱定根源的那条断言。
 import type { MemoryStore } from "../store/store.ts";

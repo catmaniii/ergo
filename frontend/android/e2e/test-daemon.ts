@@ -1,4 +1,4 @@
-// 模拟器联调用的临时守护进程（349 号票）：用 packages/daemon 主切面的测试底座起，数据目录、主目录都是临时的，端口由系统挑（不占 8810、8811），
+// 模拟器联调用的临时守护进程：用 packages/daemon 主切面的测试底座起，数据目录、主目录都是临时的，端口由系统挑（不占 8810、8811），
 // 秘书接假模型（按剧本回话），不连真的模型、不碰真的二狗。stdout 第一行打 JSON（两个端口），收到 stdin 的 stop 或 stdin 关掉时停掉并删临时目录。
 // 只给 frontend/android/e2e/ 下的脚本用。
 import { randomUUID } from "node:crypto";
@@ -20,7 +20,7 @@ const SCRIPT = Array.from({ length: 200 }, () => ({ kind: "reply", text: "好的
 const lsmDir = fs.mkdtempSync(path.join(os.tmpdir(), "ergo-android-e2e-lsm-"));
 
 /**
- * 假的服务管家（364 号票，E2E_FAKE_LSM=1 时才有）：只会 link 协议 §8，把 stdin 的 entries <json> 推给守护进程。
+ * 假的服务管家（E2E_FAKE_LSM=1 时才有）：只会 link 协议 §8，把 stdin 的 entries <json> 推给守护进程。
  * 二维码界面上的地址从这里来；绝不碰真的服务管家
  */
 let entries: unknown = { entries: [], wrongPort: [] };

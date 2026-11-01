@@ -1,4 +1,4 @@
-// 秘书来了新消息要让用户知道（109 号票，纯函数；规格第 19 节"秘书来了新消息"）。起因：定时任务跑完，秘书在主线里念了一段语音，
+// 秘书来了新消息要让用户知道（纯函数；规格第 19 节"秘书来了新消息"）。起因：定时任务跑完，秘书在主线里念了一段语音，
 // 用户完全没察觉——秘书说话不弹提醒、不进待办、"秘书"页签没有红点，语音只在页面开着、当场收到时才自动播放。
 //
 // - 没看过的：秘书会话里已读位置之后、用户看得到的那几样（文字回复、语音气泡、卡片；工具调用、思考、系统说明不算），
@@ -6,14 +6,14 @@
 //   几台设备同步；这台设备刚看到的先记上），还没收到过时当作全部看过。导航上"秘书"那一项有没看过的就亮红点（secretaryNavDot）。
 // - 怎么算看过：用户在秘书页、页面在前台、补发推完了，对话层滚到了那条（视口 40% 高处那一条和它之前的）、或者停在最底部
 //   （seenThrough 算到哪个序号，界面报 mark_read）。
-// - 顶上提醒（106 号票的轮播框）：用户不在看秘书会话时（在别的页面、页面在后台），秘书说完一轮、发出了看得到的东西，
+// - 顶上提醒（轮播框）：用户不在看秘书会话时（在别的页面、页面在后台），秘书说完一轮、发出了看得到的东西，
 //   提醒一条（secretaryTurnAlert）："<名字>：<这一轮第一段文字或语音的开头>"，"查看"去秘书会话里那一条；一轮只出一条；
 //   这一轮的语音还在合成（第一段到了也算）、合成好了消息还没到时先等它出来。打开、切回前台、重连上（补发推完了）时还有没看过的，出一条"<名字>有 N 条新消息"
 //   （secretaryUnreadAlert，只在顶上框里出、不另发系统通知），"查看"去第一条没看过的。在看秘书会话时都不出。别的设备上看过了（已读位置到了）提醒随之拿掉（ui-state）。
 // - 不在时念的语音（missedVoicesOnOpen / missedVoiceBar）：打开秘书会话时有没看过、这台设备上也没放过的语音气泡（不在时到的，
 //   没自动播），输入框上面出一条小栏"你不在时<名字>念了 1 段语音（1 分 06 秒）"，点播放从第一段接着放，点定位滚到那条气泡；
 //   放过（点了播放、点了那条气泡）就拿掉，都拿掉了小栏就没了。不直接自动播（用户可能在不方便出声的地方，浏览器也要点一下才肯出声）。
-// 界面上的话照 43、89 号票说秘书用户起的名字：写名字占位（ASSISTANT_NAME_MARK），框里画成名字标签、系统通知里换成名字本身。
+// 界面上的话说秘书用户起的名字：写名字占位（ASSISTANT_NAME_MARK），框里画成名字标签、系统通知里换成名字本身。
 // 计时、页面在不在前台、播放器在 app/secretary-unread.ts，这里只管算。
 import { type ChatItem, chatItems } from "./chat-items.ts";
 import { ASSISTANT_NAME_MARK, CHANNELS, t } from "./protocol.ts";
@@ -125,14 +125,14 @@ export function secretaryUnreadAlert(state: UiState, env: SecretaryAlertEnv): Pa
 }
 
 /**
- * 顶上的这一条要不要另发系统通知（浏览器通知、鸿蒙 App 的通知栏，110 号票的出口）："<名字>有 N 条新消息"不发，只在顶上框里出——
+ * 顶上的这一条要不要另发系统通知（浏览器通知、鸿蒙 App 的通知栏，出口）："<名字>有 N 条新消息"不发，只在顶上框里出——
  * 它是切回前台、刷新页面时才生成的，说到的那几轮在后台时各自已经发过一条；别的照发
  */
 export function alertNotifiesSystem(alert: PageAlert): boolean {
   return !alert.id.startsWith(SECRETARY_UNREAD_ALERT);
 }
 
-/** 提醒说到的最后一条的序号：几条里最大的（118 号票起附件挪到了文字后面，排在最后的不一定序号最大） */
+/** 提醒说到的最后一条的序号：几条里最大的（附件挪到了文字后面，排在最后的不一定序号最大） */
 function lastSeq(items: readonly ChatItem[]): number {
   return Math.max(...items.map((it) => it.seq!));
 }
@@ -179,14 +179,14 @@ function unseenVoices(state: UiState): string[] {
  * 也没放过（heard）的，按先后。打开之后才到的（用户看着的时候到的）不加——那时用户在看，开着自动播放的当场就播了
  */
 export function missedVoicesOnOpen(state: UiState, kept: readonly string[], heard: ReadonlySet<string>): readonly string[] {
-  // 会话回退之后（150 号票）：落在废弃分支上的不再补播
+  // 会话回退之后：落在废弃分支上的不再补播
   const abandoned = abandonedVoices(state, kept);
   const stay = kept.filter((id) => !heard.has(id) && !abandoned.has(id));
   const next = [...stay, ...unseenVoices(state).filter((id) => !heard.has(id) && !stay.includes(id))];
   return next.length === kept.length && next.every((id, i) => id === kept[i]) ? kept : next;
 }
 
-/** 这几段语音里载着它的消息落在废弃分支上的（150 号票：会话回退之后不再补播；还没到的消息不算） */
+/** 这几段语音里载着它的消息落在废弃分支上的（会话回退之后不再补播；还没到的消息不算） */
 function abandonedVoices(state: UiState, ids: readonly string[]): ReadonlySet<string> {
   if (ids.length === 0 || (state.conversations[SECRETARY]?.branches?.branches.length ?? 1) <= 1) return new Set();
   const all = new Set((state.conversations[SECRETARY]?.messages ?? []).flatMap((m) => ("message" in m ? [m.message.id] : [])));

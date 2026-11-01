@@ -298,7 +298,7 @@ class PageControl(
         }
     }
 
-    /** 放掉预备好了没用上的文件（149 号票）：json 是文件编号的数组；不认得的编号跳过。回 {"ok", "count"（删了几个）} */
+    /** 放掉预备好了没用上的文件：json 是文件编号的数组；不认得的编号跳过。回 {"ok", "count"（删了几个）} */
     fun discard(json: String): String {
         val ids = try {
             val parsed = JSONArray(json)

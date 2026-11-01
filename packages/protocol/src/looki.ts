@@ -1,4 +1,4 @@
-// Looki 插件的"存一份到本地"（307 号票；默认存照片 + 日记 + vlog）：守护进程的 Looki 插件每天同步时刻时顺带把照片、AI 日记、vlog
+// Looki 插件的"存一份到本地"（默认存照片 + 日记 + vlog）：守护进程的 Looki 插件每天同步时刻时顺带把照片、AI 日记、vlog
 // 下载到一个本地文件夹（默认在「文档」下的 Looki；换成网盘的同步目录，手机上也翻得到），按 年-月\日期\时刻 分文件夹。设置 · 数据源里 Looki 下面插件画的那一块要的数据（DataSourceView.panel）
 // 和填设置时交的值（configure 的 values）的写法在这里。不引用 TypeBox。
 
@@ -20,7 +20,7 @@ export const LOOKI_BACKFILL_MAX_DAYS = 366;
  * - backfill：把以前的也存下来（from、to：YYYY-MM-DD，含两头，往回补：从 to 往前到 from）；
  * - stop：停下补存；resume：接着补；
  * - retry：现在接着存（停下了、有没存齐的时，不等下一次同步）。
- * 不带 archive 的是 296 号票的填 Key、选区域、测试连接
+ * 不带 archive 的是填 Key、选区域、测试连接
  */
 export const LOOKI_ARCHIVE_OPS = ["settings", "backfill", "stop", "resume", "retry"] as const;
 export type LookiArchiveOp = (typeof LOOKI_ARCHIVE_OPS)[number];

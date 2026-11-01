@@ -1,8 +1,8 @@
-// 334 号票（用户 2026-10-27 选 A，ADR-0032"前后两句对不上"）：你后来说的话不能被以前的话吞掉。
+// ADR-0032"前后两句对不上"：你后来说的话不能被以前的话吞掉。
 // - 前后两句意思相反、后说的那句没自己说"变了"：当矛盾——两条都是猜测、问题箱出一个"现在更接近哪个"，简报和快照里两句都给得出；
 // - 后说的那句自己说了变化（"我以前……现在不……了"）：用户亲口说的变化，照旧新取代旧，旧的到这天为止；
 // - 一句话抽出来的事实，开始不早于说这句话的那天（模型给 valid_from: null 时按说话那天算）。
-// 例子是自己写的（照 334 号票里 p3 的读博那件事的样子，不看评测的标准答案）。
+// 例子是自己写的（照 p3 的读博那件事的样子，不看评测的标准答案）。
 import { afterEach, describe, expect, it } from "vitest";
 import { toMs } from "../../src/domain/time.ts";
 import { FakeEmbedder } from "../../src/embedding/fake.ts";
@@ -58,7 +58,7 @@ async function phdStory() {
   return t;
 }
 
-describe("334：前后两句对不上，后说的没自己说变了 → 矛盾，哪边都不自动赢", () => {
+describe("前后两句对不上，后说的没自己说变了 → 矛盾，哪边都不自动赢", () => {
   it("08-04「不再读博了」+ 10-18「有点想回去读博了」：两条都是猜测，新那句的有效期不早于 10-18", async () => {
     const { engine } = await phdStory();
     const quit = factOf(engine, "ev-quit", "prefers", "读博", true);
@@ -101,7 +101,7 @@ describe("334：前后两句对不上，后说的没自己说变了 → 矛盾�
     expect(engine.listQuestions().filter((x) => x.kind === "out_of_character")).toEqual([]);
   });
 
-  it("334b（用户 10-27）：同一处矛盾只留这一个问题——矛盾根源那组的'是不同场合吗 / 有一条记错了吗 / 想法后来变过吗'不再另出，再整理一夜也一样", async () => {
+  it("334b：同一处矛盾只留这一个问题——矛盾根源那组的'是不同场合吗 / 有一条记错了吗 / 想法后来变过吗'不再另出，再整理一夜也一样", async () => {
     const t = await phdStory();
     const quit = factOf(t.engine, "ev-quit", "prefers", "读博", true);
     const back = factOf(t.engine, "ev-back", "prefers", "读博", false);
@@ -140,7 +140,7 @@ describe("334：前后两句对不上，后说的没自己说变了 → 矛盾�
   });
 });
 
-describe("334：后说的那句自己说了变化 → 用户亲口说的变化，新取代旧", () => {
+describe("后说的那句自己说了变化 → 用户亲口说的变化，新取代旧", () => {
   it("「我以前喜欢爬山，现在不喜欢了」：旧的到这天为止、被取代；新的成立；不当矛盾、不出问题", async () => {
     const t = openEngine("2026-03-02T03:00:00+08:00");
     t.engine.ingestEvidence(say("ev-like", "我喜欢爬山", "2026-03-01T10:00:00+08:00"));

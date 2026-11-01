@@ -1,4 +1,4 @@
-// 270 号票：每晚整理的预算按道花（模型版，假模型）。线上 10-22 到 10-25 连着四夜"新证据 0 条"：每夜把全部旧追问按建组先后重判一遍，
+// 每晚整理的预算按道花（模型版，假模型）。线上 10-22 到 10-25 连着四夜"新证据 0 条"：每夜把全部旧追问按建组先后重判一遍，
 // 前段 150 次用光，新组的追问排在最后轮不上（预算用完时还被写成"没找到"），记整理过又是全有或全无——一次被挡就一条都不记。
 // 这里搭一个小世界：十个旧话题各两条证据（一组竞争假设、三条追问），新证据进来以后看预算先花在哪。
 import { afterEach, describe, expect, it } from "vitest";
@@ -107,7 +107,7 @@ async function builtWorld(support: readonly string[] = [], merge: readonly strin
 /** 前段（新证据、重跑旧追问）最多几次：总数减掉留给往上抽的那 1/4 */
 const early = (limit: number) => limit - Math.floor(limit * LIFT_BUDGET_SHARE);
 
-describe("270：每晚整理先读新证据", () => {
+describe("每晚整理先读新证据", () => {
   it("新证据先：新组的追问、检索结果里有新证据的旧追问先问；别的旧追问没有新东西，不重判；整理完的新证据记下来", async () => {
     const t = await builtWorld();
     t.setNow("2026-10-13T03:00:00+08:00");
@@ -151,7 +151,7 @@ describe("270：每晚整理先读新证据", () => {
     t.asked.length = 0;
     t.setNow("2026-10-21T03:00:00+08:00");
     const night2 = await t.engine.reflect({ maxModelCalls: 13 });
-    // 抽过的不再抽；272 号票起第一夜问过、没进组的观察没变化，不再拿去出假设：判证据 10（电子琴、乒乓球、冲浪板，天文台问了一条）
+    // 抽过的不再抽；第一夜问过、没进组的观察没变化，不再拿去出假设：判证据 10（电子琴、乒乓球、冲浪板，天文台问了一条）
     expect(t.asked).toEqual(["电子琴第1问", "电子琴第2问", "电子琴第3问", "乒乓球第1问", "乒乓球第2问", "乒乓球第3问", "冲浪板第1问", "冲浪板第2问", "冲浪板第3问", "天文台第1问"]);
     expect(night2.processedEvidenceIds).toEqual(["ev-new2", "ev-new3", "ev-new4"]);
     expect(night2.backlog).toBe(1);
@@ -247,7 +247,7 @@ describe("270：每晚整理先读新证据", () => {
   });
 });
 
-// 272 号票第 6 条：整理里两处重复花钱——一直没进组的新观察每夜再拿去出一次假设、往上抽每夜把同一批没被用上的下层断言再问一遍
+// 整理里两处重复花钱——一直没进组的新观察每夜再拿去出一次假设、往上抽每夜把同一批没被用上的下层断言再问一遍
 // （往上抽那一处在 llm-lift.test.ts）。没变化就跳过，有新证据才再问。
 const proposeRequests = (t: { model: FakeChatModel }) => t.model.calls.filter((c) => c.purpose === "propose");
 const factIdsIn = (text: string) =>
@@ -260,7 +260,7 @@ const batchFacts = (requests: readonly ChatRequest[]) => requests.flatMap((r) =>
 /** "别的事实"（只有摘要，可以并进组）里的观察 */
 const otherFacts = (request: ChatRequest) => factIdsIn(request.user.split("别的事实")[1]!);
 
-describe("272：没变化就不再问出假设", () => {
+describe("没变化就不再问出假设", () => {
   it("一直没进组的新观察问过一次就不再当这一批的观察（只在别的事实里给模型看）；它有了新证据才再问；一条要问的观察都没有的夜里不问出假设", async () => {
     const t = await builtWorld([], [NEW]);
     // 第二夜：攀岩馆说了一次——一条观察，进不了组

@@ -1,4 +1,4 @@
-// 主切面：时间线（规格第 5、19 节，25 号票）。真的守护进程，负责人接 faux 剧本，测试扮演前端。
+// 主切面：时间线（规格第 5、19 节）。真的守护进程，负责人接 faux 剧本，测试扮演前端。
 // 一个两阶段的任务（工作目录 outputs/t-1 事先建成 git 仓库，计划开了 bash），负责人在两个阶段里做了几种调用：
 // 直接做的写文件、通用 bash、授权内的建目录、做完告诉我的提交、先问过的读主目录、被硬拒绝的写围栏外；每个阶段的验收是脚本。
 // - 工具调用 part 带齐第 5 节的字段（工具名、参数摘要、命中的关注类别、判定、是否授权内、是否通用 bash），取自守卫的判定；
@@ -105,7 +105,7 @@ describe("演示流程（录给前端回放）", () => {
     const td = await startTestDaemon({
       reuse: { dataDir, homeDir },
       config: { agents: { idleMinutes: 0.02 } },
-      // 录像只录任务的时间线：任务做完告诉秘书（99 号票）不落在录像的这段时间里（不然活动频道多出秘书忙、闲的两帧，而且看先后）
+      // 录像只录任务的时间线：任务做完告诉秘书不落在录像的这段时间里（不然活动频道多出秘书忙、闲的两帧，而且看先后）
       taskDoneSettleMs: 600_000,
       maintainer: (_id, spawn) =>
         spawn === 1
@@ -163,7 +163,7 @@ describe("演示流程（录给前端回放）", () => {
       { tool: "complete_stage", categoryTitles: [], disposition: "do", withinGrant: false, genericBash: false, outcome: "done" },
     ]);
     expect(parts[2]!.argsSummary).toBe("ls");
-    // 做了什么性质的事（54 号票，guard/nature.ts）：ls、读主目录是只看；写新文件、建目录、提交、交计划、宣布阶段完成是动手，
+    // 做了什么性质的事（guard/nature.ts）：ls、读主目录是只看；写新文件、建目录、提交、交计划、宣布阶段完成是动手，
     // 被硬拒绝的写（围栏外的新文件）也按要做的事算
     expect(parts.map((p) => [p.tool, p.nature])).toEqual([
       ["submit_plan", "act"],

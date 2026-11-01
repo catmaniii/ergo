@@ -1,16 +1,16 @@
-// 带证据的回答（④ 号票第 6 条）：answer(question, { at, context, gate })。规则版用模板拼句子。
-// 202 号票先分流（rg/question.ts），各走各的：
+// 带证据的回答：answer(question, { at, context, gate })。规则版用模板拼句子。
+// 先分流（rg/question.ts），各走各的：
 // - 事实回忆（"10 月 3 日参加了什么"）只走检索：找到的本人证据和它的精炼陈述，每句后面带证据 id。
-//   前几条都和问题不挨着（rg/relevance.ts 的 hitSupported：没有话题词、余弦没超过这个问题的向量门槛——205 号票起按自带背景语料
+//   前几条都和问题不挨着（rg/relevance.ts 的 hitSupported：没有话题词、余弦没超过这个问题的向量门槛——按自带背景语料
 //   校准，比随便一句闲聊更像才算）、或者说到的事实之间真冲突（事实图谱判的
 //   "同时间同场景互相排斥"）时明说"不确定"，并说缺什么证据；
-// - 关于自己的判断（"我是不是……"）、为什么：查用户模型和推理图谱——196 号票的三条路（relevantUserModel）找断言，过相关门槛
+// - 关于自己的判断（"我是不是……"）、为什么：查用户模型和推理图谱——三条路（relevantUserModel）找断言，过相关门槛
 //   （relevance.ts）的才拿来用，对不上就当没有，不硬挑一组。找到的那组竞争假设分出来了就说比较可能的解释、反证、已经排除的、
 //   还没排除的；相关的需求、价值观（往上抽出来的）一起说；没分出来、只有还拿不准的就明说"不确定"，给出能区分的追问（问具体的事，
 //   不问动机）；什么都没过门槛就说"证据不够"、缺什么，只列找到的相关记录。只是同一方面（领域对上）的断言当背景列出，不靠它下结论；
-// - 任务和建议（"帮我……"）：走 adviseTask（196 号票），这次明说的要求排第一，下面几层推翻不了它。
+// - 任务和建议（"帮我……"）：走 adviseTask，这次明说的要求排第一，下面几层推翻不了它。
 // 只有本人的有效证据当依据；别人转述的单独说一句"不当依据"。
-// 每条引用带角色（192 号票）：结论、用户说过的、记录、还没排除的、已经排除的、反证，评测按角色分"断言了什么"。
+// 每条引用带角色：结论、用户说过的、记录、还没排除的、已经排除的、反证，评测按角色分"断言了什么"。
 import { validAt } from "../domain/time.ts";
 import type { Claim, ClaimTier, Fact } from "../domain/types.ts";
 import type { Hit } from "../retrieval/types.ts";
@@ -29,7 +29,7 @@ export const GENERIC_PROBE = "最近一次是什么情况？当时在忙什么�
 /** 关于自己的判断、什么都没找到时给的追问：问具体的事，不问动机 */
 export const SELF_PROBE = "最近一次和这件事有关的具体情况是什么样的？当时在做什么、和谁一起、是谁定的？";
 
-/** 不确定时说缺什么（202 号票） */
+/** 不确定时说缺什么 */
 export const MISSING = {
   record: "直接说到这件事的原话或做过的记录",
   ownRecord: "你自己说的或做过的记录（别人转述的不当依据）",
@@ -93,9 +93,9 @@ function conflictsAmong(citations: readonly Citation[], view: RgView): [Fact, Fa
 
 /**
  * 只按检索结果拼的回答（不进推理图谱）：前几条里和问题挨着的本人证据和它们的精炼陈述，每句后面带证据 id。
- * 不确定（202 号票）：一条挨着的都没有（检索总会给满，排在前面不等于相关）、只有别人说的、或者说到的事实之间真冲突时明说，并说缺什么证据。
- * 事实回忆走它；评测里没有推理图谱的 A、B、C 组也用它（拿各组自己的检索结果，192 号票）——不确定的判法四组一样，消融只拿掉推理图谱。
- * minCosine 是这个问题的向量门槛（206 号票起是 questionVectorGate 算好的两道，也可以给一个数）；不给（null）时向量那一路不算挨着，只看话题词和图扩展。
+ * 不确定：一条挨着的都没有（检索总会给满，排在前面不等于相关）、只有别人说的、或者说到的事实之间真冲突时明说，并说缺什么证据。
+ * 事实回忆走它；评测里没有推理图谱的 A、B、C 组也用它（拿各组自己的检索结果）——不确定的判法四组一样，消融只拿掉推理图谱。
+ * minCosine 是这个问题的向量门槛（是 questionVectorGate 算好的两道，也可以给一个数）；不给（null）时向量那一路不算挨着，只看话题词和图扩展。
  */
 export function answerFromHits(rg: ReasoningGraph, question: string, hits: readonly Hit[], view: RgView, minCosine: VectorGate | number | null = null): Answer {
   const kind = classifyQuestion(question);
@@ -198,7 +198,7 @@ async function reasoningAnswer(rg: ReasoningGraph, question: string, kind: "self
   let certain = false;
   let excludedPart: string[] = [];
   let groupOpen: Claim[] = [];
-  /** 已经放在最前面"以你说的为准"说了的明说断言（205 号票：组没分出来时以明说的为准） */
+  /** 已经放在最前面"以你说的为准"说了的明说断言（组没分出来时以明说的为准） */
   const led = new Set<string>();
   const quoteOf = (ids: readonly string[]) => {
     const text = ids.map((id) => store.getEvidence(id)?.text).find((t) => t !== undefined && t.length > 0);
@@ -221,8 +221,8 @@ async function reasoningAnswer(rg: ReasoningGraph, question: string, kind: "self
       }
       groupOpen = open;
     } else {
-      // 明说的最权威（205 号票）：几种解释还没分出来，但用户明说过相关的话——以明说的为准、算有结论，引用那句原话；几种解释照样列。
-      // 206 号票：那句明说的话要和这组说的是同一件事（同一批观察、共同的话题词、它自己的陈述过了门槛，三条之一），对不上的只跟在后面当"你说过"
+      // 明说的最权威：几种解释还没分出来，但用户明说过相关的话——以明说的为准、算有结论，引用那句原话；几种解释照样列。
+      // 那句明说的话要和这组说的是同一件事（同一批观察、共同的话题词、它自己的陈述过了门槛，三条之一），对不上的只跟在后面当"你说过"
       const viaOf = (c: Claim) => relevance.gated.find((g) => g.claimId === c.id)?.via ?? [];
       const sameMatter = explicit.filter((c) => explicitSameMatter(rg, c, group, relevance.topic, viaOf(c)).same);
       if (sameMatter.length > 0) {
@@ -309,8 +309,8 @@ function discriminatingProbes(rg: ReasoningGraph, claim: Claim): { probeId: stri
 }
 
 /**
- * 任务和建议：交给 adviseTask（196 号票），明说的要求排第一；引用按各层的角色记。
- * 建议附了追问也算有结论（205 号票）：建议照常给了，追问只是补充，放在 probes 里。
+ * 任务和建议：交给 adviseTask，明说的要求排第一；引用按各层的角色记。
+ * 建议附了追问也算有结论：建议照常给了，追问只是补充，放在 probes 里。
  */
 async function taskAnswer(rg: ReasoningGraph, question: string, at: string, options: AnswerOptions): Promise<Answer> {
   const advice = await rg.adviseTask(question, { at, context: options.context });

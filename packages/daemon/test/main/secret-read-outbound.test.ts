@@ -1,6 +1,6 @@
-// 主切面：读过 .env 之后只拦往外送（规格第 9 节，30 号票）。真的守护进程，负责人接 faux 剧本，测试扮演前端。
+// 主切面：读过 .env 之后只拦往外送（规格第 9 节）。真的守护进程，负责人接 faux 剧本，测试扮演前端。
 // 任务 t-1 的工作目录事先建成一个临时 git 仓库（.env 不进仓库），远端是临时目录里的本地裸仓库；装依赖按锁文件认 pnpm，
-// 守护进程的 PATH 上最前面是一个假的 pnpm（不连网）。13 号票按计划装配工具包之前，负责人的工具包由测试接缝
+// 守护进程的 PATH 上最前面是一个假的 pnpm（不连网）。按计划装配工具包之前，负责人的工具包由测试接缝
 // maintainerToolkit 给（开 bash、开联网），调用不属于任务（起草计划那一段），按对话里的处置判。
 // 读过 .env 之后：装依赖（带类型的和通用 bash 的）照常执行；推送（带类型的和通用 bash 的）一律禁止、不问用户，
 // 模型收到的说明写明原因；远端什么也没收到。把 .env 里没有前缀的随机值（正则认不出）原样或 base64 写进 GET 的网址：
@@ -188,7 +188,7 @@ describe("负责人会话里读过 .env 之后", () => {
         ["done", expect.stringContaining("（密钥）")],
       ]);
       expect(parts[2]!.argsSummary).toBe("printf '%s\\n' （密钥） > notes.txt");
-      // 读了密钥文件的带上标记（界面加 🔒，67 号票）；别的调用没有这个字段
+      // 读了密钥文件的带上标记（界面加 🔒）；别的调用没有这个字段
       expect(parts.map((p) => p.readsSecretFile ?? null)).toEqual([true, true, null, null, null]);
       // 效果日志的效果摘要同样
       const effects = listEffects(daemon.store.reader, SEGMENT);

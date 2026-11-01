@@ -93,7 +93,7 @@ export const ImagePart = Type.Object({
   mime: Type.String(),
   width: Type.Optional(Type.Integer()),
   height: Type.Optional(Type.Integer()),
-  /** 用户"作为材料投喂"发的（21 号票） */
+  /** 用户"作为材料投喂"发的 */
   asMaterial: Type.Optional(Type.Boolean()),
 });
 export const FilePart = Type.Object({
@@ -102,15 +102,15 @@ export const FilePart = Type.Object({
   name: Type.String(),
   mime: Type.String(),
   size: Type.Integer({ minimum: 0 }),
-  /** 用户经附件菜单"作为材料投喂"发的：这条消息记成"用户主动投喂的材料"素材（21 号票） */
+  /** 用户经附件菜单"作为材料投喂"发的：这条消息记成"用户主动投喂的材料"素材 */
   asMaterial: Type.Optional(Type.Boolean()),
 });
-/** 波形摘要：每格 0–100 的音量（画语音气泡用，31 号票） */
+/** 波形摘要：每格 0–100 的音量（画语音气泡用） */
 export const VoiceWaveform = Type.Array(Type.Integer({ minimum: 0, maximum: VOICE_WAVEFORM_MAX }), { maxItems: VOICE_WAVEFORM_MAX_BARS });
 /** 语音的时长（毫秒）：最多 60 秒，加上一点浏览器计时的出入 */
 export const VoiceDurationMs = Type.Integer({ minimum: 0, maximum: VOICE_MAX_MS + VOICE_DURATION_SLACK_MS });
 /**
- * 麦克风诊断记录的一条（61 号票）：麦克风开关、音轨事件的时刻和原因。
+ * 麦克风诊断记录的一条：麦克风开关、音轨事件的时刻和原因。
  * event：open 开始要麦克风（reason 是原因）、ready 要到了（ms 是 getUserMedia 的毫秒数）、fail 没要到（reason 是错误名）、
  * close 停掉音轨（reason 是原因）、mute / unmute / ended 音轨被系统静音、恢复、收走，silent 录完一段整段是静音（ms 是这一段的毫秒数）。
  * 每条还带上那一刻的页面信号（document.hasFocus()、document.visibilityState），鸿蒙浏览器、原生壳里焦点或前后台报得不对时能查出来。
@@ -129,23 +129,23 @@ export const VoiceMicLogEntry = Type.Object({
 });
 export type VoiceMicLogEntry = Static<typeof VoiceMicLogEntry>;
 /**
- * 录音的诊断（37 号票，麦克风预热；61 号票加了开麦原因、冷启动耗时、整段最大振幅、麦克风诊断记录和浏览器；
- * 63 号票加了录音走哪儿、原生录音器备好用了多久、原生开录到第一块数据）：
+ * 录音的诊断（麦克风预热；加了开麦原因、冷启动耗时、整段最大振幅、麦克风诊断记录和浏览器；
+ * 加了录音走哪儿、原生录音器备好用了多久、原生开录到第一块数据）：
  * 按下"按住 说话"到录音器真正开始（浏览器是 MediaRecorder 的 start 事件，鸿蒙 App 的原生录音是第一块数据）花了多少毫秒，
  * 以及这次是不是预热命中（按下时麦克风流已经开着、原生录音器已经备好，按下即录）。只用来在用户手机上看实际数字，不影响别的行为。
  * 这是守护进程整理后存进语音对象（VoiceRecord.capture）的样子；前端随语音 part 带来的（VoicePart.capture）收的时候一概不校验，
  * 守护进程只取认得的、类型对的，数字不合理（负数）的丢掉，带得不对也不拒收这条语音；消息的语音 part 里不留
  */
 export const VoiceCapture = Type.Object({
-  /** 录音走哪儿（63 号票）：web 是浏览器的 getUserMedia + MediaRecorder，native 是鸿蒙 App 的原生录音器（AudioCapturer） */
+  /** 录音走哪儿：web 是浏览器的 getUserMedia + MediaRecorder，native 是鸿蒙 App 的原生录音器（AudioCapturer） */
   backend: Type.Optional(Type.String({ maxLength: VOICE_CAPTURE_TEXT_MAX.reason })),
   /** 按下 → 录音器真正开始（毫秒；原生录音是按下 → 第一块数据）；录音器没报开始时没有 */
   startDelayMs: Type.Optional(Type.Number()),
   /** 预热命中：按下时麦克风流已经就绪（原生：录音器已经备好） */
   prewarmed: Type.Optional(Type.Boolean()),
-  /** 原生录音器备好用了多久（毫秒，createAudioCapturer 从调用到返回；原生的冷启动耗时，63 号票） */
+  /** 原生录音器备好用了多久（毫秒，createAudioCapturer 从调用到返回；原生的冷启动耗时） */
   prepareMs: Type.Optional(Type.Number()),
-  /** 原生录音器 start 到第一块数据（毫秒，App 里量的；startDelayMs 减去它就是按下到网页调进 App 的那一截，63 号票） */
+  /** 原生录音器 start 到第一块数据（毫秒，App 里量的；startDelayMs 减去它就是按下到网页调进 App 的那一截） */
   firstDataMs: Type.Optional(Type.Number()),
   /** 录这一段的麦克风流是为什么打开的：enter、visible、focus、edit-out、press、stale、silent、playback-end…… */
   openReason: Type.Optional(Type.String({ maxLength: VOICE_CAPTURE_TEXT_MAX.reason })),
@@ -160,7 +160,7 @@ export const VoiceCapture = Type.Object({
 });
 export type VoiceCapture = Static<typeof VoiceCapture>;
 /**
- * 语音（31 号票）：一条语音是一个语音对象（voice-schema.ts 的 VoiceRecord），part 只引用它，带上画气泡要的时长和波形。
+ * 语音：一条语音是一个语音对象（voice-schema.ts 的 VoiceRecord），part 只引用它，带上画气泡要的时长和波形。
  * 用户发的：先经 HTTP 上传整段录音，发消息时不带 voiceId，服务端核对音频、建出语音对象后填上；
  * 识别出的文字和识别状态在 VoiceRecord 里（会话频道上的 voice 事件），不在消息里
  */
@@ -173,16 +173,16 @@ export const VoicePart = Type.Object({
   durationMs: VoiceDurationMs,
   waveform: VoiceWaveform,
   /**
-   * 录音的诊断（37、61 号票）：只在发送时带，守护进程整理后存进语音对象，消息里不留。
+   * 录音的诊断：只在发送时带，守护进程整理后存进语音对象，消息里不留。
    * 收的时候不校验（只是诊断，带得不对、多带了也不拒收这条语音），类型照 VoiceCapture 写
    */
   capture: Type.Optional(Type.Unsafe<VoiceCapture>(Type.Unknown())),
 });
 /**
- * agent 发的语音（32 号票的语音回复）：一条是一个 agent 语音对象（voice-schema.ts 的 AgentVoiceRecord），合成完成时运行时追加一条
+ * agent 发的语音（语音回复）：一条是一个 agent 语音对象（voice-schema.ts 的 AgentVoiceRecord），合成完成时运行时追加一条
  * 只有它的消息。part 带上播放和画气泡要的（合成出的音频、格式、时长、波形）；送进 TTS 的原文、所用参考音色、TTS 模型、
  * 对应的完整回复在哪条消息里，在 AgentVoiceRecord 里（会话频道上的 agent_voice 事件）。时长不受用户语音 60 秒的限制。
- * 38 号票起分段合成：音频是各段拼好的完整的一条；合成到一半没合成下去的（partial）同样追加，音频是推出去的那几段拼成的
+ * 分段合成：音频是各段拼好的完整的一条；合成到一半没合成下去的（partial）同样追加，音频是推出去的那几段拼成的
  */
 export const TtsAudioPart = Type.Object({
   type: Type.Literal("tts_audio"),
@@ -196,7 +196,7 @@ export const TtsAudioPart = Type.Object({
 export const VideoPart = Type.Object({ type: Type.Literal("video"), mediaId: Type.String() });
 
 /**
- * 一次调用记忆找到、读到的一条素材（187 号票）：只有编号和几样说明，没有原话——网页按素材 id 现取原文（GET /api/materials/<素材 id>），
+ * 一次调用记忆找到、读到的一条素材：只有编号和几样说明，没有原话——网页按素材 id 现取原文（GET /api/materials/<素材 id>），
  * 素材被忘掉、彻底删除之后就取不到了（显示"这条记忆已删除"）
  */
 export const MemoryRecallHit = Type.Object({
@@ -215,13 +215,13 @@ export const MemoryRecallHit = Type.Object({
 export type MemoryRecallHit = Static<typeof MemoryRecallHit>;
 
 /**
- * 一次调用记忆（187 号票）：从哪来、为什么查、查了什么、找到读到的素材。给模型的文字照旧，这一份是给网页画"回忆了 N 条记忆 ›"
+ * 一次调用记忆：从哪来、为什么查、查了什么、找到读到的素材。给模型的文字照旧，这一份是给网页画"回忆了 N 条记忆 ›"
  * 和"这次用到的记忆"的结构化部分。现在挂在检索素材、读素材的工具调用 part 上（ToolCallPart.recall）；以后的记忆简报、推理图谱
  * 不是工具调用，另起一种 part 带同样的这一份
  */
 export const MemoryRecall = Type.Object({
   source: Type.Enum(MEMORY_RECALL_SOURCES),
-  /** 为什么查（search_materials 的 why：为了回答什么去查记忆）；读全文的、187 号票之前的记录没有 */
+  /** 为什么查（search_materials 的 why：为了回答什么去查记忆）；读全文的、以前的记录没有 */
   why: Type.Optional(Type.String()),
   /** 查了什么（search_materials 的 query）；读全文的没有 */
   query: Type.Optional(Type.String()),
@@ -240,15 +240,15 @@ export const ToolCallPart = Type.Object({
   /** 命中的关注类别显示用的名字（比如"越出项目目录"；用户自定义的类别是它的名字），不是类别 id */
   categoryTitles: Type.Array(Type.String()),
   /**
-   * 命中的关注类别的 id（和 categoryTitles 一一对应；内置的是 delete_or_overwrite 这类，自定义的是它的 id）。173 号票起：名字按记下时的
-   * 语言写，认类别要看 id。没命中的、173 号票之前的记录没有
+   * 命中的关注类别的 id（和 categoryTitles 一一对应；内置的是 delete_or_overwrite 这类，自定义的是它的 id）。名字按记下时的
+   * 语言写，认类别要看 id。没命中的、以前的记录没有
    */
   categories: Type.Optional(Type.Array(Type.String())),
   /** 守卫的处置（六档之一）；守卫判定出错时没有（blockedBy 为 judge_error） */
   disposition: Type.Optional(Disposition),
   /**
    * 被拦下的原因不是处置时：硬拒绝、按规则退回（这时 disposition 只说明按处置会怎么判）、判定出错；
-   * 流程执行时按计划引回前置步骤、计划检查直接拦下（59 号票）
+   * 流程执行时按计划引回前置步骤、计划检查直接拦下
    */
   blockedBy: Type.Optional(Type.Enum(TOOL_CALL_BLOCKS)),
   /** 是否属于授权内 */
@@ -259,32 +259,32 @@ export const ToolCallPart = Type.Object({
   /** 结果摘要 */
   resultSummary: Type.Optional(Type.String()),
   /**
-   * 这次调用做了什么性质的事：只看、动手、删改（54 号票，守护进程按守卫的判定定，被拦下的也按要做的事记；界面上没执行的按只看画）。
-   * 54 号票之前的记录、守卫判定出错的没有：前端按工具名估
+   * 这次调用做了什么性质的事：只看、动手、删改（守护进程按守卫的判定定，被拦下的也按要做的事记；界面上没执行的按只看画）。
+   * 以前的记录、守卫判定出错的没有：前端按工具名估
    */
   nature: Type.Optional(ToolNature),
   /**
-   * 这次调用要动的是对外的事（out，"外"）还是本机的敏感权限（perm，"权"）（93 号票，见 constants.ts 的 TOOL_CALL_MARKS）：
-   * 命中了关注类别的才有（被拦下的也照"要做的事"记，界面只标放行执行完的）。93 号票之前的记录没有，界面不标
+   * 这次调用要动的是对外的事（out，"外"）还是本机的敏感权限（perm，"权"）（见 constants.ts 的 TOOL_CALL_MARKS）：
+   * 命中了关注类别的才有（被拦下的也照"要做的事"记，界面只标放行执行完的）。以前的记录没有，界面不标
    */
   mark: Type.Optional(Type.Enum(TOOL_CALL_MARKS)),
   /**
-   * 这次调用读了密钥文件（.env 这类，放行执行了的；结果摘要不记文件内容，67 号票）：界面在说人话的那一句前面加 🔒
-   * （读了敏感数据的标法）。只在是的时候带；67 号票之前的记录没有
+   * 这次调用读了密钥文件（.env 这类，放行执行了的；结果摘要不记文件内容）：界面在说人话的那一句前面加 🔒
+   * （读了敏感数据的标法）。只在是的时候带；以前的记录没有
    */
   readsSecretFile: Type.Optional(Type.Boolean()),
   /**
-   * 超出授权、先不管（101 号票）：对话审批关着时，任务的 agent（秘书以外的 agent）这次调用本来要先问用户——"先问我"类别、
+   * 超出授权、先不管：对话审批关着时，任务的 agent（秘书以外的 agent）这次调用本来要先问用户——"先问我"类别、
    * "计划里列了才做"没被授权项覆盖的（超出授权、没预料到的类别）、判断不了的——按直接做执行了。界面在"守卫怎么判的"后面写明。
-   * 只在是的时候带；101 号票之前的记录没有
+   * 只在是的时候带；以前的记录没有
    */
   beyondGrant: Type.Optional(Type.Literal(true)),
   /**
-   * 流程执行时这次调用和授权的计划比对的结果（60 号票：每次调用记下对上的步骤、是否计划外、判定、修回）：
+   * 流程执行时这次调用和授权的计划比对的结果（每次调用记下对上的步骤、是否计划外、判定、修回）：
    * 算在哪一步（对上的那一步；没对上时是同一工具的第一步，给人看的）、计划里没有这个工具的步骤、查出的问题（没被放行的那几种的类别：
    * off_plan、out_of_scope、out_of_order、repeat、forbidden、rule:<规则 id>、rule_unknown:<规则 id>、checker_error）、
    * 真的用上了的自动纠偏（rewrite 按计划改回参数后执行、redirect 没执行、引回前置步骤）。
-   * 界面"接下来的计划"虚线框据此把偏离标在那一格。不在流程里的调用、60 号票之前的记录没有
+   * 界面"接下来的计划"虚线框据此把偏离标在那一格。不在流程里的调用、以前的记录没有
    */
   plan: Type.Optional(
     Type.Object({
@@ -295,13 +295,13 @@ export const ToolCallPart = Type.Object({
     }),
   ),
   /**
-   * 调用记忆的结构化部分（187 号票）：检索素材、读素材执行了的才有——为什么查、查了什么、找到读到的素材（编号、种类、时间、来源会话、
-   * 怎么找出来的）。网页据此把这两个工具单独画成"回忆了 N 条记忆 ›"，不算进"调用了 N 个工具"。187 号票之前的记录没有
+   * 调用记忆的结构化部分：检索素材、读素材执行了的才有——为什么查、查了什么、找到读到的素材（编号、种类、时间、来源会话、
+   * 怎么找出来的）。网页据此把这两个工具单独画成"回忆了 N 条记忆 ›"，不算进"调用了 N 个工具"。以前的记录没有
    * （网页从参数摘要、结果里认）；彻底删除时 why、query 换成删除标记
    */
   recall: Type.Optional(MemoryRecall),
   /**
-   * 子代理里的调用（288 号票：Claude Code 的 Agent 工具派出去的子代理自己调的工具，也过守卫、也留记录）：调用这个子代理的那次调用的 callId。
+   * 子代理里的调用（Claude Code 的 Agent 工具派出去的子代理自己调的工具，也过守卫、也留记录）：调用这个子代理的那次调用的 callId。
    * 主线的调用、pi 的调用没有；界面暂时照普通调用画
    */
   parentCallId: Type.Optional(Type.String()),
@@ -316,7 +316,7 @@ export const WorkOrderDividerPart = Type.Object({
 });
 
 /**
- * 定时触发的任务的会话里一次运行的分段线（76 号票）：每次运行开始时画一条，任务详情按运行分段（缩小后按运行聚色块）。
+ * 定时触发的任务的会话里一次运行的分段线：每次运行开始时画一条，任务详情按运行分段（缩小后按运行聚色块）。
  * jobId、runId 是触发登记和这次运行；title 是"第 3 次运行 · 10-08 09:00 到点"
  */
 export const RunDividerPart = Type.Object({
@@ -328,7 +328,7 @@ export const RunDividerPart = Type.Object({
 export type RunDividerPart = Static<typeof RunDividerPart>;
 
 /**
- * 清空当前对话的分隔线（114 号票）：用户在会话的 ⚙ 里点了"清空当前对话"，agent 从这里起新开一段会话、不再带着之前的聊天
+ * 清空当前对话的分隔线：用户在会话的 ⚙ 里点了"清空当前对话"，agent 从这里起新开一段会话、不再带着之前的聊天
  * （旧消息不删，界面上收在分隔线上面"更早的对话"里，往上翻照样能看）。时间就是这条消息的时间。项目负责人的"清空"是重置负责人，
  * 照旧用工单分隔线（work_order_divider）
  */
@@ -336,12 +336,12 @@ export const ConversationClearedPart = Type.Object({ type: Type.Literal("convers
 export type ConversationClearedPart = Static<typeof ConversationClearedPart>;
 
 /**
- * 分支摘要（150 号票，会话回退）：用户在缩小视图里点 ↶ 回到某条之前，会话树上长出一条新分支，开头这一条写着给被放弃的
+ * 分支摘要（会话回退）：用户在缩小视图里点 ↶ 回到某条之前，会话树上长出一条新分支，开头这一条写着给被放弃的
  * 那段写的摘要（做到了哪一步、对外产生了哪些效果、风险点）。对话层显示 🧭 加摘要，缩放层标题"分支摘要"；它本身也是回退点
  * （撤回到这条分支开始前）。branchId 是这条新分支（session-branches.ts）。系统消息，不进 agent 的输入队列（摘要已经在模型的上下文里）
  */
 /**
- * 撤回时运行时把它改过的文件恢复了没有（293 号票，能力清单 rewind_files：Claude Code 的文件检查点，只追它自己的 Write、Edit 改的文件）：
+ * 撤回时运行时把它改过的文件恢复了没有（能力清单 rewind_files：Claude Code 的文件检查点，只追它自己的 Write、Edit 改的文件）：
  * 恢复了哪些文件（运行时报的路径，没有要恢复的是空的）；撤回点是一次工具调用前后（阶段、步骤开始前）时不恢复（skipped：检查点只按整条输入记）；
  * 恢复出错时 error 是原因（对话照样撤回了）。运行时撤回不动文件的（pi）没有这一项
  */
@@ -356,17 +356,17 @@ export const BranchSummaryPart = Type.Object({
   type: Type.Literal("branch_summary"),
   branchId: Type.String(),
   summary: Type.String(),
-  /** 运行时把文件恢复到撤回点没有（293 号票，见 BranchFilesRewind）；撤回不动文件的运行时没有 */
+  /** 运行时把文件恢复到撤回点没有（见 BranchFilesRewind）；撤回不动文件的运行时没有 */
   files: Type.Optional(BranchFilesRewind),
   /**
-   * 撤回之后交给 agent 接着做的那句（152 号票：长程任务回退之后运行时替负责人重新开始一个阶段的交代，撤回后让负责人
+   * 撤回之后交给 agent 接着做的那句（长程任务回退之后运行时替负责人重新开始一个阶段的交代，撤回后让负责人
    * 接着做的提醒）：这条分支摘要已经说清楚了，界面上不重复显示那条通知。没有接着做的没有
    */
   notice: Type.Optional(Type.String()),
 });
 export type BranchSummaryPart = Static<typeof BranchSummaryPart>;
 
-/** 记忆简报里的一条（266 号票）：为什么带、说到的结论（编号，网页按编号现取说法）、经哪几条路过的相关门槛 */
+/** 记忆简报里的一条：为什么带、说到的结论（编号，网页按编号现取说法）、经哪几条路过的相关门槛 */
 export const MemoryBriefItem = Type.Object({
   /** 记带过没有用的键：claim:<结论编号>、group:<组>、strategy:<策略编号> */
   key: Type.String(),
@@ -380,7 +380,7 @@ export const MemoryBriefItem = Type.Object({
 export type MemoryBriefItem = Static<typeof MemoryBriefItem>;
 
 /**
- * 记忆简报（266 号票）：用户这句话有相关的记忆时，守护进程自动追加在秘书这一轮输入尾部的那块简报的结构化部分，挂在秘书这一轮的
+ * 记忆简报：用户这句话有相关的记忆时，守护进程自动追加在秘书这一轮输入尾部的那块简报的结构化部分，挂在秘书这一轮的
  * （第一条）回话上——网页把它和调用记忆的工具一起算进"回忆了 N 条记忆 ›"，点开能看到为什么带它。给模型的正文不在这里（在会话文件里）；
  * 这里只有编号、哈希和数：命中的素材（素材 id）、为什么带的那几条（结论编号）、带过的指纹（同一段对话里没变的不再带，重启后从这里认）、
  * 估的 token 数和字数。没有原话、没有用户这句话的文字（彻底删除不用改写它）
@@ -427,68 +427,68 @@ export const MessageEnvelope = Type.Object({
   time: Type.String(),
   parts: Type.Array(MessagePart),
   /**
-   * 谁转达的（103 号票）：秘书按用户的话往任务、项目负责人的会话里转达的那一句。发言方照旧是用户（对方照用户在这里直接说话处理：
+   * 谁转达的：秘书按用户的话往任务、项目负责人的会话里转达的那一句。发言方照旧是用户（对方照用户在这里直接说话处理：
    * 在干活时是插话、闲着时唤起、做完了的普通任务接着做），只是标上是秘书转达的——交给 agent 时开头写明，界面上标出来，
    * 不算用户"本人"的原话素材（原话在秘书会话里采过）。用户自己发的消息没有这一项
    */
   relayedBy: Type.Optional(Type.Literal("secretary")),
   /**
-   * 秘书转达的那一句是用户在秘书那里哪句话（125 号票）：秘书处理那条用户消息时提出的转达，记下那条消息的 id。
+   * 秘书转达的那一句是用户在秘书那里哪句话：秘书处理那条用户消息时提出的转达，记下那条消息的 id。
    * 负责人引用转达进它会话的这一句，守护进程按它换成用户的原话核实（转达者只供审计）；之前转达的、秘书不是在回用户的话时转达的没有
    */
   relayOf: Type.Optional(Type.String()),
   /**
-   * 一句话总结（115 号票）：别的 agent 或运行时写给 agent 的来信（agent-letters.ts：任务做完、负责人来信、秘书转达……）在会话里
+   * 一句话总结：别的 agent 或运行时写给 agent 的来信（agent-letters.ts：任务做完、负责人来信、秘书转达……）在会话里
    * 折成一行时显示的那句——任务做完的由运行时拼（"t-5「AI 日报」第 2 次运行做完了，交了 1 个文件"），负责人来信是 tell_secretary
    * 的总结参数，秘书转达是转达的话的第一句。只给界面看，交给 agent 的照旧是全文；旧消息没有，界面取正文的第一句
    */
   summary: Type.Optional(Type.String()),
   /**
-   * 这条通知能转述谁（354 号票，交给秘书的任务做完、负责人来信才有）：写在通知里的编号（任务 t-5、项目 p-1）和信上的发信人（agent id）。
+   * 这条通知能转述谁（交给秘书的任务做完、负责人来信才有）：写在通知里的编号（任务 t-5、项目 p-1）和信上的发信人（agent id）。
    * 秘书用 send_voice 的 relay 转述时只认这里记的，声音由运行时按发信人查角色，所以通知里的文字（信的原话也在里面）写什么都指定不了别人的声音。
    * 只给运行时看，不交给 agent；之前的通知、之前的信没有（不能转述）
    */
   relaySources: Type.Optional(Type.Array(Type.Object({ source: Type.String(), agentId: Type.String() }))),
   /**
-   * 网页上下的指令（134–148 号票）：用户在"浏览"里某个网页的框上打字或说话让二狗填，一次性的页面助手处理完记进秘书会话的那一句（用户消息）。
-   * 记着在哪个网页、哪个框上说的、是不是说的；已经处理过了，不进秘书的输入队列。149 号票起悬浮按钮发的是带 browsing（via: "button"）的
+   * 网页上下的指令：用户在"浏览"里某个网页的框上打字或说话让二狗填，一次性的页面助手处理完记进秘书会话的那一句（用户消息）。
+   * 记着在哪个网页、哪个框上说的、是不是说的；已经处理过了，不进秘书的输入队列。悬浮按钮发的是带 browsing（via: "button"）的
    * 普通消息，这个只留给以前的记录
    */
   pageCommand: Type.Optional(PageCommandMark),
   /**
-   * 浏览侧边栏里发的（147 号票）：用户在"浏览"右边的二狗侧边栏里跟秘书说的这句，当时内置浏览器里开着哪个网页、选中了哪个框，
+   * 浏览侧边栏里发的：用户在"浏览"右边的二狗侧边栏里跟秘书说的这句，当时内置浏览器里开着哪个网页、选中了哪个框，
    * 哪个浏览器（秘书的网页工具据此找到发消息的那台设备）。交给秘书时写明；会话里这条下面标"在网页「X」上说"。秘书页签里发的没有。
-   * 149 号票起悬浮按钮上发的也是它（via: "button"，带目标框、是不是说的），下面标"在网页「X」的「框」上打字 / 说"
+   * 悬浮按钮上发的也是它（via: "button"，带目标框、是不是说的），下面标"在网页「X」的「框」上打字 / 说"
    */
   browsing: Type.Optional(BrowsingMark),
   /**
-   * agent 的这条回复说到一半被停下了（144 号票：用户点了停止，或者任务暂停、取消时中止了这一轮）：已经说出来的留着，界面上标"已停止"。
+   * agent 的这条回复说到一半被停下了（用户点了停止，或者任务暂停、取消时中止了这一轮）：已经说出来的留着，界面上标"已停止"。
    * 说完了的、之前的消息没有
    */
   stopped: Type.Optional(Type.Literal(true)),
   /**
-   * agent 从这里新开了一段会话（150 号票）：换模型新开会话的那条说明（83 号票）带上它，之前的聊天不在 agent 的上下文里，回退点只在这之后
-   * （session-branches.ts 的 agentSessionStart；清空的分隔线、会话分段线按 part 认，150 号票之前的换模型说明按文字认）
+   * agent 从这里新开了一段会话：换模型新开会话的那条说明带上它，之前的聊天不在 agent 的上下文里，回退点只在这之后
+   * （session-branches.ts 的 agentSessionStart；清空的分隔线、会话分段线按 part 认，以前的换模型说明按文字认）
    */
   sessionStart: Type.Optional(Type.Literal(true)),
   /**
-   * agent 的这条回复后面跟着调用的工具（152 号票：模型同一条回复里的工具调用 id）：撤回到"开始阶段"那次调用之前时，这条回复连同
+   * agent 的这条回复后面跟着调用的工具（模型同一条回复里的工具调用 id）：撤回到"开始阶段"那次调用之前时，这条回复连同
    * 它说的话一起回到废弃分支上（会话树上回到这条回复之前）。没调用工具的、之前的消息没有
    */
   calls: Type.Optional(Type.Array(Type.String())),
   /**
-   * 第一版任务书交给负责人的那条系统说明（172 号票）：网页的对话层照常显示它（不收进阶段框），按这一项认，不认文字
+   * 第一版任务书交给负责人的那条系统说明：网页的对话层照常显示它（不收进阶段框），按这一项认，不认文字
    * （这句交给负责人，照旧中文；之后改过的任务书、之前的消息没有这一项，之前的那条网页按开头的"任务书："认）
    */
   taskBrief: Type.Optional(Type.Literal(true)),
   /**
-   * 前情（290 号票）：从运行时已有的会话接管时，从运行时自己的会话记录里读出来的主线最近一段（用户说的、它回的、工具调用），
+   * 前情：从运行时已有的会话接管时，从运行时自己的会话记录里读出来的主线最近一段（用户说的、它回的、工具调用），
    * 导进负责人的会话给人看（缩放三档照常）。运行时那边本来就有这些，不交给 agent（不进输入队列），也不采成用户的原话素材
    * （那是用户跟运行时说的，原文在运行时自己的记录里）。更早的留在运行时自己的记录里。别的消息没有
    */
   prelude: Type.Optional(Type.Literal(true)),
   /**
-   * 在官方 App 里发生的（292 号票，只读跟随）：会话交给官方 App（Remote Control）期间，用户在那边说的、运行时回的、调用的工具，二狗读运行时
+   * 在官方 App 里发生的（只读跟随）：会话交给官方 App（Remote Control）期间，用户在那边说的、运行时回的、调用的工具，二狗读运行时
    * 自己的会话记录补记进负责人的会话（不重复记）。和前情一样：运行时那边本来就有，不交给 agent、不采成用户的原话素材；界面上标"在官方 App 里"。
    * 别的消息没有
    */
@@ -526,7 +526,7 @@ export const Card = Type.Object({
   handledAt: Type.Optional(Type.String()),
   /** 处理结果：点了哪个动作，附带的说明（打回意见、勾掉了哪几项授权……） */
   outcome: Type.Optional(Type.Object({ action: CardAction, note: Type.Optional(Type.String()) })),
-  /** 系统让它作废时的说明（status 为 expired；84 号票：从某个阶段重做之后旧的审批卡、计划变更卡），再点旧按钮回这句 */
+  /** 系统让它作废时的说明（status 为 expired；从某个阶段重做之后旧的审批卡、计划变更卡），再点旧按钮回这句 */
   expiredNote: Type.Optional(Type.String()),
 });
 export type Card = Static<typeof Card>;
@@ -581,7 +581,7 @@ export const SubscribeResult = Type.Object({
    */
   resync: Type.Array(Type.String()),
   /**
-   * 守护进程现在提供的网页是哪一版（116 号票，web-version.ts）：页面和自己的对不上就提示刷新。index.html 里没有版本号（这张票之前构建的）、
+   * 守护进程现在提供的网页是哪一版（web-version.ts）：页面和自己的对不上就提示刷新。index.html 里没有版本号（以前构建的）、
    * 还没构建时不带
    */
   webVersion: Type.Optional(Type.String()),
@@ -592,18 +592,18 @@ export const SendMessageParams = Type.Object({
   conversation: ConversationId,
   parts: Type.Array(MessagePart, { minItems: 1, maxItems: 64 }),
   /**
-   * 这句话是在哪个任务的详情里说的（75 号票）：项目的负责人的会话里同时有好几件事，项目内部的普通任务做完之后用户在它的详情里
+   * 这句话是在哪个任务的详情里说的：项目的负责人的会话里同时有好几件事，项目内部的普通任务做完之后用户在它的详情里
    * 接着说，靠它认出说的是这件事——消息属于这个任务，任务回到执行中、派一张执行的工单接着做。别的会话、别的任务不看它
    */
   taskId: Type.Optional(Type.String({ minLength: 1, maxLength: 40 })),
-  /** 浏览侧边栏里、悬浮按钮上（149 号票）发的（只认秘书会话）：当时的网页、选中的框、哪个浏览器 */
+  /** 浏览侧边栏里、悬浮按钮上发的（只认秘书会话）：当时的网页、选中的框、哪个浏览器 */
   browsing: Type.Optional(BrowsingContext),
 });
 export type SendMessageParams = Static<typeof SendMessageParams>;
 
 /**
  * 发消息的结果：落盘后的消息 id 和它在会话频道里的序号（同一幂等键重发拿到同一个结果）。
- * 二狗正在回复时发的排进了队（144 号票，queued）：序号是排进来的那条 message_queue 事件的，消息 id 是交出去时那条消息的
+ * 二狗正在回复时发的排进了队（queued）：序号是排进来的那条 message_queue 事件的，消息 id 是交出去时那条消息的
  */
 export const SendMessageResult = Type.Object({ messageId: Type.String(), seq: Type.Integer(), queued: Type.Optional(Type.Literal(true)) });
 export type SendMessageResult = Static<typeof SendMessageResult>;
@@ -627,26 +627,26 @@ export type CardActionResult = Static<typeof CardActionResult>;
 // ───────────────────────── 事件负载 ─────────────────────────
 
 /**
- * 会话里一条消息（或时间线上的一条记录）的归属，只有这一份定义（25 号票起）：消息事件、历史分页、时间线记录都摊开带着这几个字段，
+ * 会话里一条消息（或时间线上的一条记录）的归属，只有这一份定义：消息事件、历史分页、时间线记录都摊开带着这几个字段，
  * 取值用 message-scope.ts 的 pickMessageScope。
  */
 export const MessageScope = Type.Object({
-  /** 属于哪个任务、哪个项目（负责人会话里的消息由 13、15、16 号票带上；秘书会话里没有）。素材的"任务或项目"取自这里 */
+  /** 属于哪个任务、哪个项目（负责人会话里的消息带上；秘书会话里没有）。素材的"任务或项目"取自这里 */
   taskId: Type.Optional(Type.String()),
   projectId: Type.Optional(Type.String()),
   /** 属于任务的：那时任务在哪个阶段（开始执行之后才有；工具调用记录取守卫判定时的阶段）。时间线的全局层据此按阶段聚色块 */
   stageId: Type.Optional(Type.String()),
-  /** 属于哪个定时作业的一次运行（19 号票交给负责人执行作业时带上）；负责人处理它时的 token 用量记在作业名下（24 号票） */
+  /** 属于哪个定时作业的一次运行（交给负责人执行作业时带上）；负责人处理它时的 token 用量记在作业名下 */
   scheduledJobId: Type.Optional(Type.String()),
-  /** 哪个 agent 说的：一个会话里不止一个 agent 时写明（20 号票的子 agent）；只有一个 agent 的会话不写 */
+  /** 哪个 agent 说的：一个会话里不止一个 agent 时写明（子 agent）；只有一个 agent 的会话不写 */
   agentId: Type.Optional(Type.String()),
   /**
-   * 属于哪一次了解你访谈（284 号票）：访谈开着时用户在记忆管理员的会话里说的话带上它（语音对象跟着带），
+   * 属于哪一次了解你访谈：访谈开着时用户在记忆管理员的会话里说的话带上它（语音对象跟着带），
    * 素材据此标上"来自访谈"。别的会话、访谈没开着时没有
    */
   interviewId: Type.Optional(Type.String()),
   /**
-   * 这句话答的是管理员的哪一问（284 号票）：访谈开着时，用户说话那一刻管理员在这次访谈里最近的一段话（取末尾 200 字）。
+   * 这句话答的是管理员的哪一问：访谈开着时，用户说话那一刻管理员在这次访谈里最近的一段话（取末尾 200 字）。
    * 素材据此把问的那句放进上下文（标明是管理员问的，不算本人的话）。和 interviewId 一起有
    */
   interviewQuestion: Type.Optional(Type.String()),
@@ -665,17 +665,17 @@ export const MessageEventPayload = Type.Object({
    */
   agentInput: Type.Optional(Type.Boolean()),
   /**
-   * 运行时给 agent 的通知里，agent 正在干活时以插话送达的（14 号票：现在只有无进展的催促）：
+   * 运行时给 agent 的通知里，agent 正在干活时以插话送达的（现在只有无进展的催促）：
    * 在下一次模型调用之前插入，不等这一轮结束；agent 闲着时和别的通知一样排队处理
    */
   interject: Type.Optional(Type.Boolean()),
   /**
-   * 运行时给项目负责人的通知里，只在对话段处理的（362 号票：服务没上线、挂了这类和手头工单无关的事）：正在做工单时排着，不打断这张工单，
+   * 运行时给项目负责人的通知里，只在对话段处理的（服务没上线、挂了这类和手头工单无关的事）：正在做工单时排着，不打断这张工单，
    * 空下来开一个对话段交给它。对话段里才有修它要用的工具（propose_operations）
    */
   chatOnly: Type.Optional(Type.Literal(true)),
   /**
-   * 任务执行交给负责人的通知是哪一种、说的是哪几个阶段（361 号票，只给运行时看）：状态一变，排着没交的旧通知按它作废出队，
+   * 任务执行交给负责人的通知是哪一种、说的是哪几个阶段（只给运行时看）：状态一变，排着没交的旧通知按它作废出队，
    * 同一种新的来了旧的也出队，免得一条叫醒一轮。别的通知没有
    */
   taskNotice: Type.Optional(
@@ -685,17 +685,17 @@ export const MessageEventPayload = Type.Object({
     }),
   ),
   /**
-   * 用户自己发的消息从哪来（125 号票）：本机端口，或者外网端口上的已配对设备。运行时核实用户原话时写"从哪台设备来的"；
-   * 125 号票之前的、秘书转达的、agent 和系统的消息没有
+   * 用户自己发的消息从哪来：本机端口，或者外网端口上的已配对设备。运行时核实用户原话时写"从哪台设备来的"；
+   * 以前的、秘书转达的、agent 和系统的消息没有
    */
   sentFrom: Type.Optional(SentFrom),
   /**
-   * 排队交出的那一批（144 号票）：二狗回复时用户又发的几句先排队，这一轮做完（或者用户点了停止）一起交出去、追加成普通的用户消息，
+   * 排队交出的那一批：二狗回复时用户又发的几句先排队，这一轮做完（或者用户点了停止）一起交出去、追加成普通的用户消息，
    * 同一批的带同一个值，agent 把它们作为一轮的输入一起处理。不是从队里交出的没有
    */
   queueDelivery: Type.Optional(Type.String()),
   /**
-   * 不交给 agent（180 号票只管串词，208 号票起识别失败的都是）：排队时就识别失败的语音消息（消息里只有这段语音），交出去时照常成为会话里的消息，
+   * 不交给 agent（只管串词，识别失败的都是）：排队时就识别失败的语音消息（消息里只有这段语音），交出去时照常成为会话里的消息，
    * 但不进 agent 的输入队列（等同于没发；之后手动重新识别成功了再回到队里）。别的消息没有
    */
   dropInput: Type.Optional(Type.Literal(true)),
@@ -703,15 +703,15 @@ export const MessageEventPayload = Type.Object({
 export type MessageEventPayload = Static<typeof MessageEventPayload>;
 
 /**
- * 同一轮一起交给 agent 的另外几条输入（144 号票：排队交出的一批），按先后；inputMessageId 是这一批的第一条。只有一条时不带
+ * 同一轮一起交给 agent 的另外几条输入（排队交出的一批），按先后；inputMessageId 是这一批的第一条。只有一条时不带
  */
 const MoreInputMessageIds = Type.Optional(Type.Array(Type.String(), { minItems: 1 }));
 
-/** `turn_start` 事件：agent 开始处理会话里的一条用户消息（144 号票起可以是一起交出的一批） */
+/** `turn_start` 事件：agent 开始处理会话里的一条用户消息（可以是一起交出的一批） */
 export const TurnStartEventPayload = Type.Object({ inputMessageId: Type.String(), moreInputMessageIds: MoreInputMessageIds });
 export type TurnStartEventPayload = Static<typeof TurnStartEventPayload>;
 
-/** `turn_end` 事件：agent 处理完会话里的一条用户消息（出队；144 号票起一起交出的一批同时出队） */
+/** `turn_end` 事件：agent 处理完会话里的一条用户消息（出队；一起交出的一批同时出队） */
 export const TurnEndEventPayload = Type.Object({
   /** 处理的是哪条用户消息 */
   inputMessageId: Type.String(),
@@ -755,7 +755,7 @@ export const CardDismissedEventPayload = Type.Object({
 });
 export type CardDismissedEventPayload = Static<typeof CardDismissedEventPayload>;
 
-/** `card_stale` 事件：建议卡、提问卡长期没处理（08 号票计时并产生）。回避信号的素材 */
+/** `card_stale` 事件：建议卡、提问卡长期没处理（计时并产生）。回避信号的素材 */
 export const CardStaleEventPayload = Type.Object({
   cardId: Type.String(),
   cardType: Type.String(),
@@ -769,7 +769,7 @@ export const CardStaleEventPayload = Type.Object({
 export type CardStaleEventPayload = Static<typeof CardStaleEventPayload>;
 
 /**
- * 彻底删除（规格第 15 节，21 号票做）改写后的事件负载：事件的频道、序号、类型、时间不变，负载整个换成这个标记，原文一个字不留。
+ * 彻底删除（规格第 15 节，做）改写后的事件负载：事件的频道、序号、类型、时间不变，负载整个换成这个标记，原文一个字不留。
  * 事件日志不可修改，例外有三个（彻底删除、删除项目、工具调用完整内容的保留期清理），整条换成这个标记的只有前两个。素材采集遇到它一律跳过；前端在原来的位置显示"已删除"。判断用 deleted-event.ts 的 isDeletedEventPayload。
  */
 export const DeletedEventPayload = Type.Object({
@@ -782,10 +782,10 @@ export const DeletedEventPayload = Type.Object({
 });
 export type DeletedEventPayload = Static<typeof DeletedEventPayload>;
 
-// ───────────────────────── 项目内部（64 号票） ─────────────────────────
+// ───────────────────────── 项目内部 ─────────────────────────
 
 /**
- * 项目内部的标记（64 号票，ADR-0023）：项目内部任务，以及跟着它的待我处理事项、定时作业、项目的负责人给的建议卡，
+ * 项目内部的标记（ADR-0023）：项目内部任务，以及跟着它的待我处理事项、定时作业、项目的负责人给的建议卡，
  * 都带着它属于哪个项目。只在项目内部看得到（判断只用 project-internal.ts 的 isProjectInternal）
  */
 export const ProjectInternal = Type.Object({ projectId: Type.String(), projectName: Type.String() });
@@ -794,7 +794,7 @@ export type ProjectInternal = Static<typeof ProjectInternal>;
 // ───────────────────────── 待我处理 ─────────────────────────
 
 /**
- * 事项从哪来（105 号票）：待我处理里"去看看 ›"跳过去的地方，守护进程建事项时记下（任务的事项经 project-internal.ts 的 taskInboxOrigin 一起带上）。
+ * 事项从哪来：待我处理里"去看看 ›"跳过去的地方，守护进程建事项时记下（任务的事项经 project-internal.ts 的 taskInboxOrigin 一起带上）。
  * 都是编号，彻底删除、删除项目改写事项时原样留着。旧事项没有；系统的事项（备份、节假日、语音、关注类别……）不记，
  * 前端按通知的种类认去处
  */
@@ -828,13 +828,13 @@ const inboxItemBase = {
   archived: Type.Boolean(),
   deleted: Type.Boolean(),
   /**
-   * 项目内部的事项（64 号票）：项目内部任务的计划卡、审批、卡住求助……建的时候标上。秘书看不到它的细节
+   * 项目内部的事项：项目内部任务的计划卡、审批、卡住求助……建的时候标上。秘书看不到它的细节
    * （列出待我处理只有一行"项目「X」内部的事项"，卡片不能放进秘书的聊天）
    */
   internal: Type.Optional(ProjectInternal),
-  /** 从哪来（105 号票）：待我处理里"去看看 ›"去的地方；旧事项、系统的事项没有 */
+  /** 从哪来：待我处理里"去看看 ›"去的地方；旧事项、系统的事项没有 */
   origin: Type.Optional(InboxOrigin),
-  /** 放久了（369 号票：提问卡超过 materials.staleCardDays 没答）：不再算要紧，还列在待处理里，照样能答 */
+  /** 放久了（提问卡超过 materials.staleCardDays 没答）：不再算要紧，还列在待处理里，照样能答 */
   stale: Type.Optional(Type.Boolean()),
 };
 
@@ -854,11 +854,11 @@ export const NoticeInboxItem = Type.Object({
   /** 处理结果：点了哪个动作 */
   handled: Type.Optional(Type.String()),
   handledAt: Type.Optional(Type.String()),
-  /** 系统替你记成处理过（作废）时的说明（84 号票：从某个阶段重做之后旧的等你验收、卡住求助……），再点旧按钮回这句 */
+  /** 系统替你记成处理过（作废）时的说明（从某个阶段重做之后旧的等你验收、卡住求助……），再点旧按钮回这句 */
   handledNote: Type.Optional(Type.String()),
   /** 相关的卡（比如到点的提醒对应的提醒卡），可以没有 */
   cardId: Type.Optional(Type.String()),
-  /** 某种通知自己的结构化内容（比如归档清单的每一项），由产生它的票定 */
+  /** 某种通知自己的结构化内容（比如归档清单的每一项），由产生它的模块定 */
   data: Type.Optional(Type.Unknown()),
 });
 export type NoticeInboxItem = Static<typeof NoticeInboxItem>;
@@ -920,16 +920,16 @@ export const Reminder = Type.Object({
   text: Type.String(),
   /** 到点提醒的：时间表（事件发生时提醒的没有） */
   schedule: Type.Optional(ReminderSchedule),
-  /** 事件发生时提醒（77 号票）：哪个事件来源、哪几种事件、过滤条件；一直待触发，每来一次事件发一条通知 */
+  /** 事件发生时提醒：哪个事件来源、哪几种事件、过滤条件；一直待触发，每来一次事件发一条通知 */
   event: Type.Optional(EventTrigger),
   status: ReminderStatus,
   /** 下一次响的时间；已触发的一次性提醒和已取消的没有 */
   nextAt: Type.Optional(Type.String()),
   /** 最近一次响的时间（事件发生时提醒的是那次事件的时刻） */
   lastFiredAt: Type.Optional(Type.String()),
-  /** 事件发生时提醒的（77 号票）：最近一次是什么事件（一句话） */
+  /** 事件发生时提醒的：最近一次是什么事件（一句话） */
   lastEvent: Type.Optional(Type.String()),
-  /** 归档了（185 号票）：只有已经结束的（一次性的已触发、已取消）能归档；任务没有取消归档，提醒也没有 */
+  /** 归档了：只有已经结束的（一次性的已触发、已取消）能归档；任务没有取消归档，提醒也没有 */
   archived: Type.Optional(Type.Boolean()),
   /** 它的提醒卡 */
   cardId: Type.String(),
@@ -955,17 +955,17 @@ export const ReminderCardPayload = Type.Object({
   reminderId: Type.String(),
   text: Type.String(),
   schedule: Type.Optional(ReminderSchedule),
-  /** 事件发生时提醒的（77 号票）：在等什么事件；卡上不能改时间 */
+  /** 事件发生时提醒的：在等什么事件；卡上不能改时间 */
   event: Type.Optional(EventTrigger),
   status: ReminderStatus,
   nextAt: Type.Optional(Type.String()),
   lastFiredAt: Type.Optional(Type.String()),
-  /** 归档了（185 号票）：卡上写"已归档"，还能删 */
+  /** 归档了：卡上写"已归档"，还能删 */
   archived: Type.Optional(Type.Boolean()),
 });
 export type ReminderCardPayload = Static<typeof ReminderCardPayload>;
 
-// ───────────────────────── 停止和排队（144 号票） ─────────────────────────
+// ───────────────────────── 停止和排队 ─────────────────────────
 
 /**
  * 排队中的一条消息：二狗正在回复时用户发的话（排进来时按发消息的规矩核对过附件、收下了语音）。交出去时照它追加一条用户消息——
@@ -977,7 +977,7 @@ export const QueuedMessage = Type.Object({
   idempotencyKey: Type.String(),
   /** 排进来时认的归属（交出去时认不出来就用它） */
   ...MessageScope.properties,
-  /** 在哪个任务的详情里说的（75 号票，发消息时的 taskId）：交出去时据此认归属 */
+  /** 在哪个任务的详情里说的（发消息时的 taskId）：交出去时据此认归属 */
   inTask: Type.Optional(Type.String()),
   sentFrom: Type.Optional(SentFrom),
 });
@@ -1020,7 +1020,7 @@ export type QueuedMessageActionParams = Static<typeof QueuedMessageActionParams>
 export const QueuedMessageActionResult = Type.Object({ changed: Type.Boolean(), queue: Type.Array(QueuedMessage) });
 export type QueuedMessageActionResult = Static<typeof QueuedMessageActionResult>;
 
-// ───────────────────────── 已读位置（109 号票） ─────────────────────────
+// ───────────────────────── 已读位置 ─────────────────────────
 
 /**
  * `read_mark` 事件（已读位置频道上）：这个会话已读到哪个序号（会话频道上的序号，这之前的都算看过）。只往后挪；
@@ -1076,14 +1076,14 @@ export const ReminderEditInput = Type.Object({
 export type ReminderEditInput = Static<typeof ReminderEditInput>;
 
 /**
- * 发起对话框里选了"只提醒我"（create_reminder，76 号票）：提醒什么、什么时候（一次性的，或者和定时触发的任务同一套重复时间表，
+ * 发起对话框里选了"只提醒我"（create_reminder）：提醒什么、什么时候（一次性的，或者和定时触发的任务同一套重复时间表，
  * "按我的工作日"跟着个人工作日历）。不用 agent，到点只发一条通知；用户建的，建出照样有提醒卡
  */
 export const CreateReminderParams = Type.Object({
   text: Type.String({ minLength: 1, maxLength: 500 }),
   /** 到点提醒：时间表（和 event 二选一） */
   schedule: Type.Optional(ReminderSchedule),
-  /** 事件发生时提醒（77 号票）：哪个事件来源、哪几种事件、过滤条件（和 schedule 二选一） */
+  /** 事件发生时提醒：哪个事件来源、哪几种事件、过滤条件（和 schedule 二选一） */
   event: Type.Optional(EventTrigger),
 });
 export type CreateReminderParams = Static<typeof CreateReminderParams>;
@@ -1093,7 +1093,7 @@ export const CreateReminderResult = Type.Object({ reminderId: Type.String() });
 export type CreateReminderResult = Static<typeof CreateReminderResult>;
 
 /**
- * 对一条或几条简单提醒做同一件事（reminder_action，185 号票）：取消、归档、删除。看板卡的菜单、提醒卡上的按钮交一条，看板多选交几条
+ * 对一条或几条简单提醒做同一件事（reminder_action）：取消、归档、删除。看板卡的菜单、提醒卡上的按钮交一条，看板多选交几条
  */
 export const ReminderActionParams = Type.Object({
   reminderIds: Type.Array(Type.String({ minLength: 1 }), { minItems: 1, maxItems: REMINDER_ACTION_MAX, uniqueItems: true }),
@@ -1116,7 +1116,7 @@ export type ReminderActionResult = Static<typeof ReminderActionResult>;
 // ───────────────────────── 设备配对与已配对设备 ─────────────────────────
 
 /**
- * 配对请求看起来像网络上的自动访问（137 号票）：守护进程收到请求时按浏览器标识判断（协议包 pairing.ts 的 automatedAccess），
+ * 配对请求看起来像网络上的自动访问：守护进程收到请求时按浏览器标识判断（协议包 pairing.ts 的 automatedAccess），
  * 原因给人看（"浏览器标识带「HeadlessChrome」，是无界面浏览器"）。只是提示，批准照样能批
  */
 export const PairingAutomated = Type.Object({ reason: Type.String({ minLength: 1 }) });
@@ -1135,7 +1135,7 @@ export const PairingCardPayload = Type.Object({
   from: Type.String(),
   /** 待批的请求什么时候过期 */
   expiresAt: Type.String(),
-  /** 看起来像网络上的自动访问（137 号票）：卡上和批准页上一句醒目的提示；像普通浏览器的没有这一项 */
+  /** 看起来像网络上的自动访问：卡上和批准页上一句醒目的提示；像普通浏览器的没有这一项 */
   automated: Type.Optional(PairingAutomated),
 });
 export type PairingCardPayload = Static<typeof PairingCardPayload>;
@@ -1156,14 +1156,14 @@ export const PairedDevice = Type.Object({
   lastUsedAt: Type.String(),
   /**
    * 凭证什么时候失效：启用之后是最近一次使用之后 365 天；还没启用时是领到凭证之后 24 小时。
-   * 123 号票起可以延期（往后推，过期、作废了的因此重新有效）；使用时的续期只往后推、不把延期缩回去
+   * 可以延期（往后推，过期、作废了的因此重新有效）；使用时的续期只往后推、不把延期缩回去
    */
   expiresAt: Type.String(),
   revoked: Type.Boolean(),
   revokedAt: Type.Optional(Type.String()),
-  /** 最近一次延期（123 号票）；没延期过的没有 */
+  /** 最近一次延期；没延期过的没有 */
   extendedAt: Type.Optional(Type.String()),
-  /** 删除于（123 号票）：删了的不在列表里、凭证一律不认（删之前先吊销）；事件日志里的记录留着 */
+  /** 删除于：删了的不在列表里、凭证一律不认（删之前先吊销）；事件日志里的记录留着 */
   deletedAt: Type.Optional(Type.String()),
 });
 export type PairedDevice = Static<typeof PairedDevice>;
@@ -1180,7 +1180,7 @@ export const RevokeDeviceResult = Type.Object({ deviceId: Type.String() });
 export type RevokeDeviceResult = Static<typeof RevokeDeviceResult>;
 
 /**
- * 一次对几台已配对设备做同一件事（device_batch_action，123 号票：设置里的多选，单台的"⋯"菜单也走它）：
+ * 一次对几台已配对设备做同一件事（device_batch_action：设置里的多选，单台的"⋯"菜单也走它）：
  * 延期（days 天，延期时必填）、吊销、删除。能做的都做，不能做的跳过（DEVICE_BATCH_SKIPS），设备不能重复
  */
 export const DeviceBatchActionParams = Type.Object({
@@ -1201,7 +1201,7 @@ export type DeviceBatchItemResult = Static<typeof DeviceBatchItemResult>;
 export const DeviceBatchActionResult = Type.Object({ results: Type.Array(DeviceBatchItemResult) });
 export type DeviceBatchActionResult = Static<typeof DeviceBatchActionResult>;
 
-/// ───────────────────────── 快速动作与记忆命令（21 号票） ─────────────────────────
+/// ───────────────────────── 快速动作与记忆命令 ─────────────────────────
 
 /**
  * 规范化后的快速动作：动作类型（执行器注册表里登记的）和参数。参数的形状由各动作类型的执行器定（它自带参数的 schema），
@@ -1252,8 +1252,8 @@ export const QuickActionExecutedEventPayload = Type.Object({
   title: Type.String(),
   explicit: Type.Boolean(),
   /**
-   * 凭什么执行的：用户点明的、在已有授权内、用户确认后（QUICK_ACTION_BASES；时间线按它取样式，25 号票）。
-   * 25 号票之前的操作记录没有这一项：点明的看 explicit，其余的不知道
+   * 凭什么执行的：用户点明的、在已有授权内、用户确认后（QUICK_ACTION_BASES；时间线按它取样式）。
+   * 以前的操作记录没有这一项：点明的看 explicit，其余的不知道
    */
   basis: Type.Optional(Type.Enum(QUICK_ACTION_BASES)),
   /** 对应的卡片（快速动作卡或记忆删除卡） */
@@ -1267,7 +1267,7 @@ export type MemoryDeleteMode = Static<typeof MemoryDeleteMode>;
 
 /**
  * 素材的范围（设置里按会话或按时间段删除）：时间段两头都算，按素材的时间（原始记录的时间）。
- * 158 号票起还有"这一条"（material）：设置里点开一条素材看内容，在详情里删的就是它（彻底删除时不连带范围里没有素材的语音）
+ * 还有"这一条"（material）：设置里点开一条素材看内容，在详情里删的就是它（彻底删除时不连带范围里没有素材的语音）
  */
 export const MaterialScope = Type.Union([
   Type.Object({ kind: Type.Literal("conversation"), conversation: Type.String({ minLength: 1 }) }),
@@ -1325,7 +1325,7 @@ const ChatCommandOrigin = Type.Object({
 });
 
 /**
- * 337 号票："记住"从秘书那里来（用户说"帮我记一句"，秘书调工具记一条）——没有快速动作、没有卡片，所以 actionId / cardId 这两个
+ * "记住"从秘书那里来（用户说"帮我记一句"，秘书调工具记一条）——没有快速动作、没有卡片，所以 actionId / cardId 这两个
  * 字段不存在，不硬编一个假的。记下是哪个会话、哪条用户消息（有就记）、哪次工具调用（有就记，彻底删除时连同那次调用一起改写）。
  * 和 ChatCommandOrigin 并列成联合的一支：老的 chat 来源一个字段不动，老事件照旧解析
  */
@@ -1337,7 +1337,7 @@ const SecretaryCommandOrigin = Type.Object({
 });
 
 /**
- * 366 号票：跟着"记住"一起存的文件（用户说"这张图记下来"，秘书把长按的元素取回来的文件带上）。文件本身在媒体库，这里记媒体编号和给人看的样子：
+ * 跟着"记住"一起存的文件（用户说"这张图记下来"，秘书把长按的元素取回来的文件带上）。文件本身在媒体库，这里记媒体编号和给人看的样子：
  * via 写明是元素本身还是截图（partial：只截到屏幕上看得见的部分）；fetchCallId 是取回它的那次工具调用（彻底删除时连同改写：会话文件里那次调用的结果里有图）
  */
 export const RememberedFile = Type.Object({
@@ -1355,14 +1355,14 @@ export const RememberedFile = Type.Object({
 });
 export type RememberedFile = Static<typeof RememberedFile>;
 
-/** 366 号票：记下来的东西从哪来：来源网页（标题、地址）、元素自己的地址（只有 http、https 的才写）。都是网页上的，外部数据 */
+/** 记下来的东西从哪来：来源网页（标题、地址）、元素自己的地址（只有 http、https 的才写）。都是网页上的，外部数据 */
 export const RememberedOrigin = Type.Object({
   page: Type.Optional(Type.Object({ title: Type.String(), url: Type.String() })),
   address: Type.Optional(Type.String()),
 });
 export type RememberedOrigin = Static<typeof RememberedOrigin>;
 
-/** "记住"：要记住的内容和它从哪里来（素材的来源标记跟着它，见 REMEMBER_SOURCES）；366 号票起能带上文件和来源 */
+/** "记住"：要记住的内容和它从哪里来（素材的来源标记跟着它，见 REMEMBER_SOURCES）；能带上文件和来源 */
 export const RememberCommandPayload = Type.Object({
   commandId: Type.String(),
   command: Type.Literal("remember"),
@@ -1376,25 +1376,25 @@ export type RememberCommandPayload = Static<typeof RememberCommandPayload>;
 
 /**
  * 忘掉、彻底删除、别推断：哪些素材；从对话里的记忆删除卡，或者设置里按会话、按时间段批量删除；
- * 66 号票起还有删除项目时随项目彻底删除的（这个项目的内部任务由系统记下的素材，用户本人的话不在里面），186 号票起还有删除任务时随任务删的
+ * 还有删除项目时随项目彻底删除的（这个项目的内部任务由系统记下的素材，用户本人的话不在里面），还有删除任务时随任务删的
  */
 export const DeleteCommandPayload = Type.Object({
   commandId: Type.String(),
   command: MemoryDeleteMode,
   materialIds: Type.Array(Type.String()),
-  /** 366 号票：这些素材记下来的文件（媒体编号）：忘掉、彻底删除之后没有别的消息、素材引用就删掉媒体文件 */
+  /** 这些素材记下来的文件（媒体编号）：忘掉、彻底删除之后没有别的消息、素材引用就删掉媒体文件 */
   mediaIds: Type.Optional(Type.Array(Type.String())),
   from: Type.Union([
     ChatCommandOrigin,
     Type.Object({ kind: Type.Literal("settings"), scope: MaterialScope }),
-    // 242 号票：记忆管理员在它的会话里按用户的话下的命令（没有卡片、没有快速动作，记下是哪个会话）
+    // 记忆管理员在它的会话里按用户的话下的命令（没有卡片、没有快速动作，记下是哪个会话）
     Type.Object({ kind: Type.Literal("curator"), conversation: Type.String() }),
     Type.Object({ kind: Type.Literal("project_deletion"), projectId: Type.String() }),
-    // 186 号票：删除任务时随任务彻底删掉的系统记录（从改写了的任务事件、审批、卡片采到的结局、决定、反应……；用户本人的话不在里面）
+    // 删除任务时随任务彻底删掉的系统记录（从改写了的任务事件、审批、卡片采到的结局、决定、反应……；用户本人的话不在里面）
     Type.Object({ kind: Type.Literal("task_deletion"), taskId: Type.String() }),
-    // 281 号票：彻底删除个人档案里的东西时，用户选了连出处（那句原话的素材）一起彻底删除
+    // 彻底删除个人档案里的东西时，用户选了连出处（那句原话的素材）一起彻底删除
     Type.Object({ kind: Type.Literal("personal_file"), personId: Type.String() }),
-    // 295 号票：断开一个数据源时用户选了"连已导入的一起删"：由它导入的记录采成的素材随着彻底删除（不产生"显式记忆命令"素材）
+    // 断开一个数据源时用户选了"连已导入的一起删"：由它导入的记录采成的素材随着彻底删除（不产生"显式记忆命令"素材）
     Type.Object({ kind: Type.Literal("data_source"), source: Type.String() }),
   ]),
 });

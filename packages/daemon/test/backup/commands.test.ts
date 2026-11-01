@@ -1,4 +1,4 @@
-// 页面上写的恢复、定时命令（356 号票）：按这台电脑的装法现算。一行命令（和 npm）装的有 ergo 命令，自己 git clone 的在代码目录里跑；
+// 页面上写的恢复、定时命令：按这台电脑的装法现算。一行命令（和 npm）装的有 ergo 命令，自己 git clone 的在代码目录里跑；
 // 写出来的路径要真指得到东西（版本目录里是转好的 .js，仓库里是 .ts）。
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";

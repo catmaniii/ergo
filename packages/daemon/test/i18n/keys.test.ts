@@ -1,8 +1,8 @@
-// 代码里用到的 key 都在语言文件里（168 号票）：t("…")、tParts("…")、<T k="…">、tTable({ …: "…" }) 里写的 key，中文的语言文件里
+// 代码里用到的 key 都在语言文件里：t("…")、tParts("…")、<T k="…">、tTable({ …: "…" }) 里写的 key，中文的语言文件里
 // 都要有（复数的几种写法算有）——key 写错了这里就挂，不用等到页面上显示出 key 本身。网页里用的 key 还得在网页打包的区域里
 // （WEB_NAMESPACES，守护进程用的区域网页拿不到）。网页打包的 glob 和 WEB_NAMESPACES 两边一致。
 // 拼出来的 key（`shell.language.problem.${code}`）查不到，由英文完整的测试和运行时的提示兜着。
-// 175 号票：鸿蒙 App 原生（frontend/harmony 的 .ets）写的 t('…') 也查，而且只能是 harmony.*（App 只有这一块），这一块不分单复数（App 不挑）。
+// 鸿蒙 App 原生（frontend/harmony 的 .ets）写的 t('…') 也查，而且只能是 harmony.*（App 只有这一块），这一块不分单复数（App 不挑）。
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -59,7 +59,7 @@ describe("代码里用到的 key", () => {
     expect(wrong).toEqual([]);
   });
 
-  it("网页里拼出来的 key（`某区域.x.${原因}`）开头那一段也在网页打包的区域里：不然页面上显示的是键名（371）", () => {
+  it("网页里拼出来的 key（`某区域.x.${原因}`）开头那一段也在网页打包的区域里：不然页面上显示的是键名", () => {
     const web = new Set<string>(WEB_NAMESPACES);
     expect(prefixes("t(`shell.a.${x}`); tParts(`pairing.b.${y}`, {}); t(\"shell.c\")")).toEqual(["shell", "pairing"]);
     const webFiles = files.filter((file) => file.includes(`${path.sep}web${path.sep}src${path.sep}`));

@@ -232,7 +232,7 @@ describe("自定义（OpenAI 兼容）服务商：子进程里登记", () => {
     expect(answered[0]!.body.model).toBe(CUSTOM.modelId);
   }, 60_000);
 
-  it("没登记就查不到这个 provider（和 73 号票一样：模型目录里没有就是没有）", async () => {
+  it("没登记就查不到这个 provider（模型目录里没有就是没有）", async () => {
     const catalog = await runModelProbe({ type: "catalog", provider: CUSTOM_PROVIDER_ID }, probeOptions());
     expect(catalog).toEqual({ type: "catalog", models: [] });
   }, 60_000);

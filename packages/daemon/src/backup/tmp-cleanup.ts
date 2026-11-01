@@ -2,7 +2,7 @@
 // 秘书给用户的产出作为附件存进了媒体库（素材区），不在临时区，清理不会丢（第 7 节）。
 // - 按修改时间算"7 天前"，时钟可注入；
 // - 删完变空、本身也 7 天没动过的子目录一并删掉；临时区下的第一层目录（各模块自己的一格，比如秘书草稿区）留着
-//   （keepTopDirs: false 时第一层的也删：agent 工作目录里的临时目录 .ergo-tmp，177 号票）；
+//   （keepTopDirs: false 时第一层的也删：agent 工作目录里的临时目录 .ergo-tmp）；
 // - 符号链接和目录联接不动、不跟进。
 import fs from "node:fs";
 import path from "node:path";

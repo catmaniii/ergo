@@ -19,7 +19,7 @@ export interface ToolCall {
 /** 工具包里和判定有关的部分（ADR-0003） */
 export interface GuardToolkit {
   bash: boolean;
-  /** 联网开关：关着时联网的工具和命令硬拒绝（70 号票起秘书和别的 agent 一样按传入的判，秘书是开着的） */
+  /** 联网开关：关着时联网的工具和命令硬拒绝（秘书和别的 agent 一样按传入的判，秘书是开着的） */
   network: boolean;
   /**
    * 工具包给的工具（会话装配的工具白名单，bash 和带类型的 bash 工具由 bash 开关管）。
@@ -27,7 +27,7 @@ export interface GuardToolkit {
    */
   tools?: readonly string[];
   /**
-   * 会话跑在自带工具的运行时上（288 号票：Claude Code）：运行时自带、二狗没装配的工具不按工具白名单硬拒绝——登记表里来源是 runtime 的
+   * 会话跑在自带工具的运行时上（Claude Code）：运行时自带、二狗没装配的工具不按工具白名单硬拒绝——登记表里来源是 runtime 的
    * 照登记判，没登记的（用户自己配的 MCP、运行时以后加的工具）照"未登记的写操作"判。能对上二狗工具的（Bash → bash、Write → write……）
    * 照旧按白名单和 bash 开关（起草计划时没有 write，Claude 的 Write 一样硬拒绝）。pi 的会话不带
    */
@@ -58,11 +58,11 @@ export interface ExecutingAgent {
   /** 工作目录（含绑定的外部路径） */
   workingDirs: string[];
   /**
-   * 它的 bash 起的进程带着的、值已知的环境变量（77 号票：事件触发的流程这次运行的事件的值）：拆 bash 命令时按值展开（paths.ts 的 agentShellEnv）
+   * 它的 bash 起的进程带着的、值已知的环境变量（事件触发的流程这次运行的事件的值）：拆 bash 命令时按值展开（paths.ts 的 agentShellEnv）
    */
   shellVars?: Readonly<Record<string, string>>;
   /**
-   * 它的 Git Bash 里 `/tmp` 挂到的 Windows 目录（177 号票）：Git Bash 的挂载表在同一个用户的所有 Git Bash 进程之间共用，
+   * 它的 Git Bash 里 `/tmp` 挂到的 Windows 目录：Git Bash 的挂载表在同一个用户的所有 Git Bash 进程之间共用，
    * `/tmp` 跟着第一个起来的那个进程的 TMP / TEMP；二狗起的 bash 进程本身的 TMP / TEMP 都是守护进程的那一份，守护进程按它给。
    * 拆 bash 命令时 `/tmp` 按它解析（在项目外，但不再算没法确定）；不给照旧算没法确定
    */
@@ -81,7 +81,7 @@ export interface GuardPlaces {
     db: string;
     /** 项目区：秘书只读 */
     projects: string;
-    /** skill 区：受保护（358 号票：只由运行时写，用户导入、负责人提交走确认卡） */
+    /** skill 区：受保护（只由运行时写，用户导入、负责人提交走确认卡） */
     skills?: string;
   };
   /** 二狗程序目录：受保护 */
@@ -89,7 +89,7 @@ export interface GuardPlaces {
   /** 用户主目录：展开 `~`、`$HOME` 用 */
   homeDir: string;
   /**
-   * 二狗自己的端口（139 号票）：守护进程实际监听的本机端口和外网端口（测试里是随机挑的，由守护进程传进来，不写死 8810、8811）。
+   * 二狗自己的端口：守护进程实际监听的本机端口和外网端口（测试里是随机挑的，由守护进程传进来，不写死 8810、8811）。
    * 发往本机这两个端口的请求不算"发往本机、不算对外"的例外；用浏览器工具打开这两个端口的页面也算"以我的名义对外发送或发布"
    */
   ownPorts: readonly number[];
@@ -108,18 +108,18 @@ export interface Grant {
   /** 次数上限；不填表示不限次数。按效果日志里实际生效的效果计数 */
   maxUses?: number;
   /**
-   * 只放行从这条通用 bash 命令拆出来的调用（58 号票：流程里通用 bash 的步骤，授权限定到命令本身）；
+   * 只放行从这条通用 bash 命令拆出来的调用（流程里通用 bash 的步骤，授权限定到命令本身）；
    * 不填表示不限是怎么调用的。比较时只去掉首尾空白（grants.ts 的 commandKey）
    */
   command?: string;
   /**
-   * 只认对象范围里写了的参数：调用多带了范围里没有的参数（值不是空的）就超出（58 号票：流程里非 bash 的步骤推出的授权项，
+   * 只认对象范围里写了的参数：调用多带了范围里没有的参数（值不是空的）就超出（流程里非 bash 的步骤推出的授权项，
    * 步骤里没写的参数不受授权）
    */
   exactArgs?: true;
   /**
    * 路径类参数的真实路径（规划时解析：展开符号链接、目录联接、8.3 短名）：调用里的路径在判定前现取的真实路径也要落在它里面，
-   * 取不到的不算在范围内（58 号票：流程的步骤推出的授权项按真实路径比）。对象范围里还是写的路径，两样都要对得上
+   * 取不到的不算在范围内（流程的步骤推出的授权项按真实路径比）。对象范围里还是写的路径，两样都要对得上
    */
   realScope?: Record<string, string | string[]>;
   /** 所属阶段：只在这个阶段内有效 */
@@ -140,7 +140,7 @@ export interface GuardPlan {
   stages?: GuardStage[];
   /** 阶段组：共用的时序规则套给组里的每个阶段 */
   stageGroups?: GuardStageGroup[];
-  /** 流程（59 号票）：用户已授权的那份计划的步骤，执行时每次调用和它比对（plan-monitor.ts）；长程任务没有 */
+  /** 流程：用户已授权的那份计划的步骤，执行时每次调用和它比对（plan-monitor.ts）；长程任务没有 */
   workflow?: GuardWorkflow;
 }
 
@@ -159,7 +159,7 @@ export interface GuardWorkflowStep {
   realPaths?: Readonly<Record<string, string>>;
 }
 
-/** 流程的计划在守卫眼里（59 号票）：哪一版、目标、步骤，连同负责人说明跳过的步骤（report_step skipped） */
+/** 流程的计划在守卫眼里：哪一版、目标、步骤，连同负责人说明跳过的步骤（report_step skipped） */
 export interface GuardWorkflow {
   planId: string;
   goal: string;
@@ -182,7 +182,7 @@ export interface GuardStageGroup {
 }
 
 /**
- * 判一次调用时运行时交给"调用所属的任务"的取法的（77 号票）：发起调用的 agent、它的工具注册表、用户主目录。
+ * 判一次调用时运行时交给"调用所属的任务"的取法的：发起调用的 agent、它的工具注册表、用户主目录。
  * 事件触发的流程每次运行按它现取代入了事件的值之后的路径的真实路径、推出这次运行的授权项
  */
 export interface GuardTaskContext {
@@ -197,12 +197,12 @@ export interface GuardTask {
   plan: GuardPlan;
   currentStageId: string;
   /**
-   * 任务此刻从某个阶段重做过几次（84 号票，Task.reworks，重开时的 generation）：效果日志记下判定那一刻的值，
+   * 任务此刻从某个阶段重做过几次（Task.reworks，重开时的 generation）：效果日志记下判定那一刻的值，
    * 重做之前判定、结束得晚的调用的效果不算进新的一轮。没重做过的不写
    */
   reworkNo?: number;
   /**
-   * 不是任务、但带着自己的授权的一段（19 号票：定时作业的一次运行带着作业的授权项、时序规则、本任务的关注类别）：
+   * 不是任务、但带着自己的授权的一段（定时作业的一次运行带着作业的授权项、时序规则、本任务的关注类别）：
    * 按任务的那一套判（计划里列了才做的看授权项），但效果日志、时序规则、授权项的次数只看这一段会话（segmentId），
    * 调用和效果的归属里没有任务（taskId 是作业 id，只给规则里的 $task 用）
    */
@@ -242,21 +242,21 @@ export interface EffectRecord {
   /** 从 bash 拆出、拿到了守卫看不见的输入（JudgedCall.unseenInput）：规则里的 $prior.outward 照它算 */
   unseenInput?: true;
   /**
-   * 哪次调用产生的（模型给的调用 id，56 号票起记；详情页按它找一次调用的效果）。通用 bash 拆出来的几条是同一个。
+   * 哪次调用产生的（模型给的调用 id，记；详情页按它找一次调用的效果）。通用 bash 拆出来的几条是同一个。
    * 之前的记录没有：紧跟在那次调用的记录后面（guard-runtime/effect-log.ts 的 effectsOfCall）。彻底删除时去掉
    */
   callId?: string;
-  /** 判定这次调用时任务重做过几次（GuardTask.reworkNo，84 号票）：阶段的 reopenNo 比它大的，这条是重开之前那一轮的；没有就是 0 */
+  /** 判定这次调用时任务重做过几次（GuardTask.reworkNo）：阶段的 reopenNo 比它大的，这条是重开之前那一轮的；没有就是 0 */
   reworkNo?: number;
   /**
-   * 这次调用新建的路径（111 号票）：要写的路径参数（access 为 write）里，判定前现取的环境事实说它还不存在的（exists 为 false）。
+   * 这次调用新建的路径：要写的路径参数（access 为 write）里，判定前现取的环境事实说它还不存在的（exists 为 false）。
    * 守卫据此认任务、项目自己的临时文件（GuardOwnWork）；之前的记录没有，彻底删除时去掉
    */
   created?: string[];
 }
 
 /**
- * 临时文件怎么认（111 号票，用户 2026-10-13 定"覆盖和删除的限制，只对系统已有的资源、数据、配置以及项目阶段交付件"，
+ * 临时文件怎么认（"覆盖和删除的限制，只对系统已有的资源、数据、配置以及项目阶段交付件"，
  * 又补充"任务和项目的临时文件都是一样的"）：按发起调用的 agent 所属的范围给——
  * - 项目里（项目的负责人：直接和用户对话、做工单、做内部任务、定时运行，和它派的子 agent）：按项目，项目开始之后生成的、
  *   不是交付件的都算项目的临时文件，不要求是哪一个任务建的；
@@ -287,7 +287,7 @@ export interface GuardOwnWork {
 export interface EnvironmentFacts {
   /** 文件元数据，键是绝对路径（大小写、分隔符不敏感） */
   files?: Record<string, FileFact>;
-  /** git 状态，键是仓库根目录（05 号票的"当下必须满足某条件"用） */
+  /** git 状态，键是仓库根目录（"当下必须满足某条件"用） */
   git?: Record<string, GitFact>;
   /** 要跑的脚本扫描结果，键是脚本的绝对路径 */
   scripts?: Record<string, ScriptFact>;
@@ -297,7 +297,7 @@ export interface EnvironmentFacts {
    */
   secretValues?: readonly string[];
   /**
-   * 带通配符的路径展开成的现有路径（101 号票评审后定，guard-runtime/facts.ts 用 util/wildcards.ts 的 expandWildcards 现取），
+   * 带通配符的路径展开成的现有路径（guard-runtime/facts.ts 用 util/wildcards.ts 的 expandWildcards 现取），
    * 键是带通配符的绝对路径（大小写、分隔符不敏感）；展不开的是通配符之前那段目录。没给的，判定时按通配符之前那段目录算
    */
   wildcards?: Record<string, readonly string[]>;
@@ -315,22 +315,22 @@ export interface FileFact {
   realPath?: string;
   /**
    * 调用方确知这个文件当前的内容已有备份（v1 模板"删除或覆盖之前必须已备份或已提交"用）；不给按没有。
-   * 项目档案里的文件被整体重写或删除前，运行时会自动留一份旧版本（15 号票），所以 07、15 号票对项目档案里的文件传 true
+   * 项目档案里的文件被整体重写或删除前，运行时会自动留一份旧版本，所以对项目档案里的文件传 true
    */
   backedUp?: boolean;
   /**
-   * 创建时间（毫秒，stat 的 birthtime；111 号票）：认这个任务开始之后才有的文件（脚本里间接生成、守卫没看见的也认得出）。
+   * 创建时间（毫秒，stat 的 birthtime）：认这个任务开始之后才有的文件（脚本里间接生成、守卫没看见的也认得出）。
    * 调用方给了 GuardOwnWork 时才取；读不到不写（认不出的按已有的算）
    */
   createdAt?: number;
   /**
-   * 要删除的目录里面有什么（111 号票，递归、不跟进链接）：每一项的路径和创建时间。complete 为 false 是太多、读不全或者里面有链接
+   * 要删除的目录里面有什么（递归、不跟进链接）：每一项的路径和创建时间。complete 为 false 是太多、读不全或者里面有链接
    * （符号链接、目录联接），这时不算任务、项目自己的临时文件。调用方给了 GuardOwnWork、要删除的是目录时才取
    */
   contents?: DirContents;
 }
 
-/** 一个目录里面有什么（FileFact.contents，111 号票） */
+/** 一个目录里面有什么（FileFact.contents） */
 export interface DirContents {
   entries: ReadonlyArray<{ path: string; createdAt?: number }>;
   complete: boolean;
@@ -355,11 +355,11 @@ export interface GitFact {
 export interface ScriptFact {
   /** 脚本里用到的联网库或函数（如 `requests`、`fetch`）；空数组表示没扫到 */
   networkUsage: string[];
-  /** 只连本机的（362 号票）：用到了能联网的库，但脚本里写的地址都是本机。不算联网，联网开关关着也能跑；没有就不写 */
+  /** 只连本机的：用到了能联网的库，但脚本里写的地址都是本机。不算联网，联网开关关着也能跑；没有就不写 */
   localOnly?: string[];
   /**
    * 脚本里写着的绝对路径（guard 的 absolutePathsIn；尽力而为）。看不出读还是写，按拆不开算：写着密钥区里的路径判"永不"，
-   * 写着别的受保护区域里的路径落入"未知的写操作"（先问用户）（26 号票）
+   * 写着别的受保护区域里的路径落入"未知的写操作"（先问用户）
    */
   mentionedPaths?: string[];
 }
@@ -374,7 +374,7 @@ export interface GuardInput {
   segmentId?: string;
   /**
    * 效果日志。时序规则只看范围之内的：任务里只看同一个任务的；不属于任务的只看同一个 agent、同一段会话的
-   * （负责人会话跨工单延续，一次读 .env 不能永久生效）。07、13 号票按这个范围传，判定时也再过滤一遍。
+   * （负责人会话跨工单延续，一次读 .env 不能永久生效）。按这个范围传，判定时也再过滤一遍。
    * 授权项计次另有自己的范围（同一任务、授权项所属阶段）。
    */
   effectLog: readonly EffectRecord[];
@@ -390,12 +390,12 @@ export interface GuardInput {
    */
   temporalRules?: readonly TemporalRule[];
   /**
-   * 同一任务里被判过"永不"的对象（13 号票控制器的硬检查，neverObjectsOf 给出）：再对它们做对外动作至少先问。
+   * 同一任务里被判过"永不"的对象（控制器的硬检查，neverObjectsOf 给出）：再对它们做对外动作至少先问。
    * 对话里不传
    */
   neverObjects?: readonly string[];
   /**
-   * 对话审批的开关（70 号票起，配置 guard.conversationApprovals，默认 off；101 号票用户 2026-10-12 改了 off 的范围）。
+   * 对话审批的开关（配置 guard.conversationApprovals，默认 off；改了 off 的范围）。
    * on：一切照原样（"先问我"出审批卡，任务里按计划授权核对）。off：
    * - 秘书：大部分"先问我"按"直接做"（依据记 approvalsOff），含判断不了的（keepAsking）；特别敏感的照旧要用户授权——以我的名义
    *   对外发送或发布、账户与安全、不可逆的提交（SECRETARY_ASKS），和写草稿区之外（writesOutsideScratch：文件工具写草稿区外原来是
@@ -404,25 +404,25 @@ export interface GuardInput {
    *   一律不拦——"先问我"、"计划里列了才做"没被授权项覆盖的、判断不了的（含时序规则判断不了的）、对被判过"永不"的对象再做对外动作，
    *   都按"直接做"（依据记 beyondGrant），用到别的阶段的授权项也不拉回；任务里判断出来确实违反、要问的时序规则照旧问。
    * 两边都不变的：三条硬底线（写受保护区域、读密钥区、已经确定要把密钥内容往外送）、硬拒绝、永不、交给我做、做完告诉我、
-   * 时序规则的按规则退回；可能碰到硬底线、原来靠"先问"兜着的（nearBottomLine，101 号票评审后定）照旧问。流程的逐步核对在守卫接入里（plan-check.ts）：计划外会改东西的、超出步骤写的对象要问的，任务的 agent
+   * 时序规则的按规则退回；可能碰到硬底线、原来靠"先问"兜着的（nearBottomLine）照旧问。流程的逐步核对在守卫接入里（plan-check.ts）：计划外会改东西的、超出步骤写的对象要问的，任务的 agent
    * 也按直接做；步骤先后、自动纠偏照旧。
    * 不传按 on（判定函数本身从严，守卫接入和计划外工单的判定按配置传）
    */
   conversationApprovals?: ConversationApprovals;
   /**
-   * 临时文件怎么认（111 号票，见 GuardOwnWork）：项目的 agent 按项目、项目外任务的 agent 按任务给。删除、整体重写开始之后才有的、
+   * 临时文件怎么认（见 GuardOwnWork）：项目的 agent 按项目、项目外任务的 agent 按任务给。删除、整体重写开始之后才有的、
    * 不是交付件的文件不落入"删除或覆盖"、不受 v1 模板"删除或覆盖之前必须已备份或已提交"约束；不给一切照旧
    */
   ownWork?: GuardOwnWork;
   /**
-   * 授权的文件夹（355 号票，用户在设置里授权的那一份，调用方判定前现读，连同它们的真实路径：guard-runtime/facts.ts 的 authorizedFolderRoots）：
+   * 授权的文件夹（用户在设置里授权的那一份，调用方判定前现读，连同它们的真实路径：guard-runtime/facts.ts 的 authorizedFolderRoots）：
    * 文件工具和 bash 的读，真实路径落在这里面的不算越出项目目录，计划比对也不算越界。只放开读：写、删、覆盖、跑里面的脚本、git、cd 进去都照旧；
    * 密钥区、受保护区域、整个数据目录、密钥文件就算在这里面也不算；取不到真实路径的不算。不给就没有
    */
   authorizedFolders?: readonly string[];
 }
 
-/** 对话里的审批开不开（70 号票）：on 是原来的样子（先问我出审批卡），off 是先问我按直接做 */
+/** 对话里的审批开不开：on 是原来的样子（先问我出审批卡），off 是先问我按直接做 */
 export const CONVERSATION_APPROVALS = ["off", "on"] as const;
 export type ConversationApprovals = (typeof CONVERSATION_APPROVALS)[number];
 
@@ -462,7 +462,7 @@ export type HardRefusalId = "fence" | "secrets_area" | "network_off" | "no_bash"
 export interface DispositionFinding {
   /**
    * protected_area：写受保护区域（永不）；notify：工具带"做完告诉我"标记；
-   * never_object：对外动作的对象在这个任务里被判过"永不"（先问，13 号票）
+   * never_object：对外动作的对象在这个任务里被判过"永不"（先问）
    */
   kind: "category" | "bottom_line" | "protected_area" | "notify" | "temporal_rule" | "never_object";
   /** 关注类别 id、底线 id、受保护区域、工具名或规则 id */
@@ -471,40 +471,40 @@ export interface DispositionFinding {
   disposition: Disposition;
   /** 授权项落定了"计划里列了才做"时，类别本身的处置 */
   categoryDisposition?: Disposition;
-  /** 对话审批关着（70 号票）：秘书本来"先问我"的，按"直接做"放行了 */
+  /** 对话审批关着：秘书本来"先问我"的，按"直接做"放行了 */
   approvalsOff?: true;
   /**
-   * 对话审批关着时，非秘书的 agent（任务的 agent）超出授权的，先不管、按"直接做"放行了（101 号票）：本来"先问我"的，
+   * 对话审批关着时，非秘书的 agent（任务的 agent）超出授权的，先不管、按"直接做"放行了：本来"先问我"的，
    * 含"计划里列了才做"没被授权项覆盖的（偏离程度 deviation 留着）、判断不了的（keepAsking）
    */
   beyondGrant?: true;
   /**
-   * 牵涉密钥和受保护区域、判断不了的（70 号票评审后定）：要写（或看不出读写）的路径没法确定（可能落在受保护区域里）、
-   * "读过 .env 或密钥文件之后不许往外送""对外内容不许含密钥"判断不了、脚本里写着受保护区域的路径。70 号票时对话审批关着也照旧先问；
-   * 101 号票（用户 2026-10-12 定"现阶段安全不要搞得太敏感"）起关着时只作标记留在依据上；其中可能碰到硬底线的（要写的路径没法确定、
-   * 脚本里写着受保护区域的路径、确实读过密钥之后判断不了的）另标 nearBottomLine，照旧问（评审后定）
+   * 牵涉密钥和受保护区域、判断不了的：要写（或看不出读写）的路径没法确定（可能落在受保护区域里）、
+   * "读过 .env 或密钥文件之后不许往外送""对外内容不许含密钥"判断不了、脚本里写着受保护区域的路径。原来对话审批关着也照旧先问；
+   * （现阶段安全不要搞得太敏感）起关着时只作标记留在依据上；其中可能碰到硬底线的（要写的路径没法确定、
+   * 脚本里写着受保护区域的路径、确实读过密钥之后判断不了的）另标 nearBottomLine，照旧问
    */
   keepAsking?: true;
   /**
-   * 秘书要写的地方在草稿区之外（101 号票）：文件工具写草稿区外（对话审批开着时是硬拒绝"围栏"），bash 确定要写、删草稿区外的路径，
+   * 秘书要写的地方在草稿区之外：文件工具写草稿区外（对话审批开着时是硬拒绝"围栏"），bash 确定要写、删草稿区外的路径，
    * 删除或覆盖的路径没法确定（可能在草稿区外）。对话审批关着时这一条照旧要用户授权（秘书特别敏感的操作之一）
    */
   writesOutsideScratch?: true;
-  /** 时序规则判断不了（101 号票）：对话审批关着时任务的 agent 按直接做；判断出来确实违反的没有它 */
+  /** 时序规则判断不了：对话审批关着时任务的 agent 按直接做；判断出来确实违反的没有它 */
   ruleUnknown?: true;
   /**
-   * 可能碰到硬底线（101 号票评审后定）：守卫看不准、原来靠"先问"兜着的写法——带通配符的路径可能落在受保护区域里、看不透的命令里
+   * 可能碰到硬底线：守卫看不准、原来靠"先问"兜着的写法——带通配符的路径可能落在受保护区域里、看不透的命令里
    * 写着数据目录或受保护区域的路径、确实读过 .env 或密钥文件之后看不透可能往外送的调用。对话审批关着时秘书和任务的 agent 都照旧先问
    */
   nearBottomLine?: true;
-  /** "以我的名义对外发送或发布"这一条只因为发往本机（127.0.0.1、localhost、::1）的请求命中（101 号票）：秘书的特别敏感不算它 */
+  /** "以我的名义对外发送或发布"这一条只因为发往本机（127.0.0.1、localhost、::1）的请求命中：秘书的特别敏感不算它 */
   localTarget?: true;
   /** 这个类别是因为哪些参数命中的：授权项的对象范围要管到这些参数才能放行它 */
   objectArgs?: string[];
   /** 放行它的授权项 */
   grantId?: string;
   /**
-   * "计划里列了才做"而没有授权项覆盖时，这一处偏离计划到什么程度（14 号票）：
+   * "计划里列了才做"而没有授权项覆盖时，这一处偏离计划到什么程度：
    * exceeds_grant 超出授权（计划对这个类别有授权项，但这次超出了对象范围、次数或有效期）；
    * unanticipated 没预料到的类别（计划里完全没有这个类别的授权项）
    */
@@ -525,7 +525,7 @@ export interface HardRefusalFinding {
 /**
  * 一条"按规则退回"的原因：agent 自己能补救的前提没满足。id 是时序规则的 id，或守卫自己的
  * SCRIPT_NOT_CHECKED（联网开关关着时，要跑的脚本执行前没法检查：还不存在、读不了或看不出是哪个，比如同一条命令里现写现跑）、
- * GRANT_OTHER_STAGE（用到的授权项属于别的阶段，13 号票）
+ * GRANT_OTHER_STAGE（用到的授权项属于别的阶段）
  */
 export interface PullBackFinding {
   kind: "pull_back";
@@ -538,7 +538,7 @@ export interface PullBackFinding {
 export const SCRIPT_NOT_CHECKED = "script_not_checked";
 
 /**
- * 守卫自己的"按规则退回"（13 号票控制器的硬检查"授权只在所属阶段内有效"）：用到的授权项属于别的阶段，
+ * 守卫自己的"按规则退回"（控制器的硬检查"授权只在所属阶段内有效"）：用到的授权项属于别的阶段，
  * 不按授权放行，也不问用户，拉回当前阶段
  */
 export const GRANT_OTHER_STAGE = "grant_other_stage";
@@ -546,7 +546,7 @@ export const GRANT_OTHER_STAGE = "grant_other_stage";
 export type GuardFinding = DispositionFinding | HardRefusalFinding | PullBackFinding;
 
 /**
- * 任务里偏离计划的分级（规格第 8 节"偏离的逐级升级"，14 号票）：授权内的只记一笔（withinGrant），
+ * 任务里偏离计划的分级（规格第 8 节"偏离的逐级升级"）：授权内的只记一笔（withinGrant），
  * 超出授权（exceeds_grant）先问用户，没预料到的类别（unanticipated）先问用户并暂停这一支
  */
 export type PlanDeviation = "exceeds_grant" | "unanticipated";
@@ -561,7 +561,7 @@ export interface GuardJudgement {
    * 生效的"按规则退回"（拉回）：时序规则的前提没满足、agent 自己能补救（先提交、先单独跑测试、先写好脚本再跑……），
    * 列出这些规则的 id（守卫自己的是 SCRIPT_NOT_CHECKED）。
    * 不为 null 时这次调用不执行，不问用户，给模型的说明写明怎么补救；它不是处置的一档，不算被判过"永不"，
-   * 计入拉回次数（13、14 号票）。硬拒绝或"永不"同时生效时为 null（那两样更硬），原因仍留在 findings 里。
+   * 计入拉回次数。硬拒绝或"永不"同时生效时为 null（那两样更硬），原因仍留在 findings 里。
    */
   pullBack: string[] | null;
   /** 处置（六档之一）：各条处置依据取最严。hardRefusal、pullBack 不为 null 时调用不会执行，这里仍给出按处置会怎么判 */
@@ -575,13 +575,13 @@ export interface GuardJudgement {
   /** 是否属于授权内：会执行（没有硬拒绝、没有退回），并且有"计划里列了才做"的命中是靠授权项放行的 */
   withinGrant: boolean;
   /**
-   * 偏离计划的程度（14 号票）：处置是"先问我"、并且有"计划里列了才做"的命中没被授权项覆盖时才有——
+   * 偏离计划的程度：处置是"先问我"、并且有"计划里列了才做"的命中没被授权项覆盖时才有——
    * 有一处是没预料到的类别就是 unanticipated（问用户并暂停这一支），否则 exceeds_grant（问用户）。
    * 硬拒绝、按规则退回、"先问我"类别本身、对话里都是 null
    */
   deviation: PlanDeviation | null;
   /**
-   * 这次调用整个就是读授权的文件夹（355 号票）：拆出来的每一条都只是看（读、列、搜，只看的命令），没有命中任何关注类别，
+   * 这次调用整个就是读授权的文件夹：拆出来的每一条都只是看（读、列、搜，只看的命令），没有命中任何关注类别，
    * 至少有一处读的是授权的文件夹。流程执行时的计划比对据此不算计划外、超范围（plan-monitor.ts）。不是的不写
    */
   authorizedRead?: true;

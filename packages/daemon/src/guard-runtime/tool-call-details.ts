@@ -1,4 +1,4 @@
-// 工具调用的完整参数和返回（53 号票，详情页用；规格第 19 节）：聊天里的工具调用 part 只有摘要（参数 160 字、结果 200 字），
+// 工具调用的完整参数和返回（详情页用；规格第 19 节）：聊天里的工具调用 part 只有摘要（参数 160 字、结果 200 字），
 // 完整的在这里——每次经守卫的调用（秘书、负责人、子 agent、评审，被拦下的、出错的都算）在 tool_call_end 时另存一份。
 //
 // 为什么调用结束时另存、不去读 pi 的会话文件：
@@ -16,19 +16,19 @@
 //   truncated 里按 JSON Pointer 列出（先擦再截：截断处不会留下半个密钥）；
 // - 二进制内容（图片）本来就不在返回的文字里（子进程换成 [image] 这样的占位），media 里说明是什么、多大
 //   （宿主协议 11 的 tool_call_end.media）。
-// - Claude Code 这类运行时的调用（288 号票）：参数存运行时自己的工具收到的原样（guard_request.native），工具名另记 nativeTool；
+// - Claude Code 这类运行时的调用：参数存运行时自己的工具收到的原样（guard_request.native），工具名另记 nativeTool；
 //   子代理里的调用记着调用它的那次调用（parentCallId）。
 // 归属（任务、项目、阶段）和工具调用记录同一份，判定那一刻取的；评审子 agent 的调用不在任何会话里，也带着它评审的任务、
 // 阶段和项目（tasks/review.ts）。
 // 彻底删除（ADR-0008 的口径）：工具调用记录被改写的那些调用、执行记录被改写的调用、返回里提到被删素材的检索调用，
 // 它们的完整内容一起改写（memory/purge.ts）；删除项目时项目负责人会话里的（含子 agent 的）、负责人的、归属这个项目的
-// （含评审子 agent 的）一起改写（279 号票起经"删除参与方"登记表，guard-runtime/deletion.ts），66 号票起还有项目之外读过这个项目的（projects/outside-reads.ts：
+// （含评审子 agent 的）一起改写（经"删除参与方"登记表，guard-runtime/deletion.ts），还有项目之外读过这个项目的（projects/outside-reads.ts：
 // 先按视图的几列筛，再逐条读负载，detailRowsOf、detailEventAt）：参数和返回里的文字换成删除标记，工具、结局这些结构字段不变，
 // 删除项目时的另记 purgedBy。
 // 只靠完整内容找到的检索调用，会话里的 messages_purged 不会列出（它的工具调用记录没改）：前端不要缓存完整内容。
-// 效果记录（56 号票）不另存：取的时候从效果日志里按调用 id 找（effect-log.ts 的 effectsOfCall），执行成功的顺带返回；
+// 效果记录不另存：取的时候从效果日志里按调用 id 找（effect-log.ts 的 effectsOfCall），执行成功的顺带返回；
 // 改写完整内容时，按调用 id 找到的效果日志一起改写。
-// 保留期和总量上限（65 号票，ADR-0024）：过了保留期的、超出总量上限时从最旧的起，换成只剩摘要的样子（clearedDetail，
+// 保留期和总量上限（ADR-0024）：过了保留期的、超出总量上限时从最旧的起，换成只剩摘要的样子（clearedDetail，
 // 经 EventStore.expireContent 改写，不重放派生视图；视图上登记了 contentExpiry）；视图另记每条存下的时间、大小、
 // 归属的任务、现在的样子（state），清理按它挑（detail-retention.ts）。清掉的接口照样回 200，cleared 注明原因。
 import {
@@ -107,7 +107,7 @@ const DETAIL_TABLE = `
 export const toolCallDetailsView: DerivedView = {
   name: "tool_call_details",
   create: (db) => {
-    // 53 号票建的表没有任务、时间、大小、状态这几列（65 号票加的，都要从负载算，ALTER 加列补不上）：
+    // 以前建的表没有任务、时间、大小、状态这几列（都要从负载算，ALTER 加列补不上）：
     // 表删掉重建，由事件存储打开时从事件日志补回来（只补这一个视图；彻底删除过的本来就只剩删除标记，补不回原文）
     const columns = db.all<{ name: string }>("PRAGMA table_info(tool_call_details)");
     const legacy = columns.length > 0 && !columns.some((c) => c.name === "state");
@@ -144,7 +144,7 @@ export function toolCallDetail(state: CallState, end: ToolCallEnd, context: Deta
   const { privacy } = context;
   const truncated: TruncatedValue[] = [];
   const withheld = privacy.readsSecretFile;
-  // 运行时自己的工具收到的原样参数（288 号票：Claude Code 的调用，守卫判的是映射到登记表之后的那份）
+  // 运行时自己的工具收到的原样参数（Claude Code 的调用，守卫判的是映射到登记表之后的那份）
   const args = truncateStrings(privacy.deep(state.native ? state.native.args : state.args), "/args", truncated);
   const result = withheld ? secretFileResult() : truncateValue(privacy.text(end.resultText), "/result", truncated);
   return {
@@ -175,7 +175,7 @@ export function recordToolCallDetail(store: EventStore, detail: ToolCallDetail):
 
 /**
  * 按调用 id 取完整内容（同一个 id 有几份时取最后一份）；没有是 undefined。
- * 执行成功的顺带这次调用的效果记录（56 号票，现从效果日志里找，effect-log.ts 的 effectsOfCall）；彻底删除过的不带
+ * 执行成功的顺带这次调用的效果记录（现从效果日志里找，effect-log.ts 的 effectsOfCall）；彻底删除过的不带
  */
 export function findToolCallDetail(store: EventStore, callId: string): ToolCallDetail | undefined {
   const row = store.reader.get<{ global_seq: number }>("SELECT global_seq FROM tool_call_details WHERE call_id = ? ORDER BY global_seq DESC LIMIT 1", callId);
@@ -200,7 +200,7 @@ export function detailEventsOfProject(store: EventStore, project: { maintainerCo
 }
 
 /**
- * 属于一个任务的调用的完整内容的事件（删除任务时找，186 号票）：它的负责人会话里的（含子 agent 的；任务转为项目、项目删掉了的
+ * 属于一个任务的调用的完整内容的事件（删除任务时找）：它的负责人会话里的（含子 agent 的；任务转为项目、项目删掉了的
  * 不给会话）、这几个 agent（负责人、子 agent）自己的、归属这个任务又不在任何会话里的（评审子 agent 的）。秘书会话里归属这个任务的调用不算
  */
 export function detailEventsOfTask(store: EventStore, task: { conversation?: string | undefined; agentIds: readonly string[]; taskId: string }): StoredEvent[] {
@@ -215,7 +215,7 @@ export function detailEventsOfTask(store: EventStore, task: { conversation?: str
   );
 }
 
-/** 视图里一次调用的几列（不读负载）：删除项目时先按它们筛，要看负载的再逐条读（detailEventAt，66 号票） */
+/** 视图里一次调用的几列（不读负载）：删除项目时先按它们筛，要看负载的再逐条读（detailEventAt） */
 export interface DetailRow {
   globalSeq: number;
   callId: string;
@@ -237,7 +237,7 @@ export function detailRowsOf(store: EventStore, tools: readonly string[], conver
     .map((r) => ({ globalSeq: Number(r.global_seq), callId: r.call_id, agentId: r.agent_id, conversation: r.conversation }));
 }
 
-/** 某个工具的全部调用的完整内容的事件，按全局序号（272 号票：一次性补抹问记忆、问记忆管理员的结果） */
+/** 某个工具的全部调用的完整内容的事件，按全局序号（一次性补抹问记忆、问记忆管理员的结果） */
 export function detailEventsOfTool(store: EventStore, tool: string): StoredEvent[] {
   return detailEventsWhere(store, "tool = ?", tool);
 }
@@ -254,7 +254,7 @@ export function detailEventsOfToolMentioning(store: EventStore, tool: string, te
 }
 
 /**
- * 返回或参数里有这段文字的调用的完整内容（281 号票：彻底删除个人档案里的值时，读过它的、参数里带着它的调用）；
+ * 返回或参数里有这段文字的调用的完整内容（彻底删除个人档案里的值时，读过它的、参数里带着它的调用）；
  * tools 给了只看这几个工具的
  */
 export function detailEventsMentioning(store: EventStore, text: string, tools?: readonly string[]): StoredEvent[] {
@@ -280,8 +280,8 @@ export function detailEventAt(store: EventStore, globalSeq: number): StoredEvent
 
 /**
  * 彻底删除（ADR-0008）：参数里的文字、返回换成删除标记，工具、结局、归属、时间不变；截断说明、"不记返回"的原因、
- * 过了保留期清掉的说明（65 号票）跟着去掉（内容都没了，详情页按删除说）。图片的说明里没有原话，留着。
- * 删除项目时一起改写的（66 号票）另记 purgedBy，彻底删除过的再随项目改写时还算彻底删除的（不改说法）
+ * 过了保留期清掉的说明跟着去掉（内容都没了，详情页按删除说）。图片的说明里没有原话，留着。
+ * 删除项目时一起改写的另记 purgedBy，彻底删除过的再随项目改写时还算彻底删除的（不改说法）
  */
 export const toolCallDetailPurge: PurgeRewriter = {
   eventType: TOOL_CALL_DETAIL_EVENT,
@@ -301,11 +301,11 @@ export const toolCallDetailPurge: PurgeRewriter = {
   },
 };
 
-// ───────────────────────── 保留期和总量上限（65 号票） ─────────────────────────
+// ───────────────────────── 保留期和总量上限 ─────────────────────────
 
 /**
  * 清掉完整内容（过了保留期、超出总量上限）后剩下的样子：参数只剩参数摘要、返回只剩结果摘要（和聊天里工具调用记录的摘要
- * 同一个写法；存的时候已经擦过密钥；工具自己声明了参数要打码的按 tools 里的登记擦，280 号票），截断说明跟着去掉；工具、结局、归属、
+ * 同一个写法；存的时候已经擦过密钥；工具自己声明了参数要打码的按 tools 里的登记擦），截断说明跟着去掉；工具、结局、归属、
  * 时间、图片说明、"不记返回"的原因不变，记下为什么、什么时候清的。效果记录不在这里，照旧从效果日志里找
  */
 export function clearedDetail(detail: ToolCallDetail, reason: ToolCallClearReason, at: string, tools: ToolRegistry): ToolCallDetail {

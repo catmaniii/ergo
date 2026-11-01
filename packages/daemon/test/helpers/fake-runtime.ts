@@ -1,4 +1,4 @@
-// 测试用的假运行时插件（286 号票，只在测试里）：照"运行时"贡献点在数据契约里登记一个运行时 fake，子进程入口是
+// 测试用的假运行时插件（只在测试里）：照"运行时"贡献点在数据契约里登记一个运行时 fake，子进程入口是
 // fixtures/fake-runtime-child.ts（不跑模型，只说宿主协议）。主切面经 startTestDaemon 的 extraPlugins 接在插件清单后面，
 // 和真插件走同一条装配路径；停用、启用经设置 · 插件（或配置 plugins.disabled）。
 import { fileURLToPath } from "node:url";
@@ -41,7 +41,7 @@ export const fakeRuntime: AgentRuntime = {
   models: () => [{ id: "fake-1", title: "假模型一号" }],
   settings: () => [{ id: "mode", title: "模式", options: [{ value: "calm", title: "稳" }, { value: "fast", title: "快" }], default: "calm" }],
   sessions: () => Promise.resolve([{ id: "s-1", title: "以前的会话", cwd: "D:/work/demo", updatedAt: "2026-10-25T09:00:00+08:00" }]),
-  // 290 号票：能接管的运行时四样都要给（假的：都空闲、分叉出 s-1-fork、没有前情）
+  // 能接管的运行时四样都要给（假的：都空闲、分叉出 s-1-fork、没有前情）
   sessionBusy: () => Promise.resolve(undefined),
   forkSession: (sessionId) => Promise.resolve(`${sessionId}-fork`),
   sessionHistory: () => Promise.resolve({ items: [], truncated: false }),

@@ -1,10 +1,10 @@
 // pi 契约测试：守护进程代为执行的工具（宿主工具），和用户输入里的图片。
-// - 宿主工具：秘书建、改、取消提醒这类只产生卡片的工具（06），"读取附件""把文件作为附件发出"（09）……
+// - 宿主工具：秘书建、改、取消提醒这类只产生卡片的工具，"读取附件""把文件作为附件发出"……
 //   装配参数里给出工具的名字、说明和参数的 JSON Schema，子进程把它们登记成 pi 的自定义工具；模型调用时，
 //   子进程发 host_tool_call 给守护进程，等同一 requestId 的 host_tool_result 再把结果交回模型。
 //   工具白名单是空的（秘书没有 pi 的内置工具）时，宿主工具照样可用；一次一个、按模型给出的顺序执行。
-//   调用时带上这一轮已经进了上下文的插话（86 号票，宿主协议 16：发语音工具据此认出用户在说话的那一轮）。
-// - 图片输入（09）：用户输入带图片时，模型调用的上下文里有这张图片。
+//   调用时带上这一轮已经进了上下文的插话（宿主协议 16：发语音工具据此认出用户在说话的那一轮）。
+// - 图片输入：用户输入带图片时，模型调用的上下文里有这张图片。
 import { describe, expect, it } from "vitest";
 import type { HostToolSpec } from "../../src/runtime/index.ts";
 import { fauxModel, spawnTestAgent, startTestDaemon } from "../helpers/daemon.ts";
@@ -102,7 +102,7 @@ describe("pi 契约：守护进程代为执行的工具", () => {
     expect((await log.next("turn_end")).outcome).toBe("completed");
   });
 
-  it("调用带上这一轮已经进了上下文的插话（86 号票）：送进去还排着的不算（同一批里后面的调用），进了上下文之后才算；下一轮不再带", async () => {
+  it("调用带上这一轮已经进了上下文的插话：送进去还排着的不算（同一批里后面的调用），进了上下文之后才算；下一轮不再带", async () => {
     const { daemon } = await startTestDaemon();
     const { agent, log } = spawnTestAgent(daemon, {
       agentId: "contract-host-tool-interjected",

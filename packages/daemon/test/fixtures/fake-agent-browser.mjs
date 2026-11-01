@@ -1,4 +1,4 @@
-// 假的 agent-browser（178 号票）：照真的那样分 CLI 和守护进程。测试把 node.exe 拷成 agent-browser-*.exe 来跑它，
+// 假的 agent-browser：照真的那样分 CLI 和守护进程。测试把 node.exe 拷成 agent-browser-*.exe 来跑它，
 // 进程快照里的可执行文件名就和真的一样是 agent-browser 开头的。
 // - CLI：起一个脱离的守护进程（同一个可执行文件），等它在 $AGENT_BROWSER_SOCKET_DIR/<会话>.pid 写下自己的 pid 再退出——
 //   和真的一样，CLI 一退，守护进程的父进程就不在了；

@@ -1,7 +1,7 @@
-// 插件宿主（126 号票，ADR-0027）：按依赖排序装、依赖方先停；每次注册返回撤销函数、记在插件名下，停用时全部撤掉；
+// 插件宿主（ADR-0027）：按依赖排序装、依赖方先停；每次注册返回撤销函数、记在插件名下，停用时全部撤掉；
 // 缺依赖的不装、原因可见；可选依赖；数据契约停用也登记；装配、启动出错的不装，依赖它的也不装；停用的插件的视图不再更新。
-// 用真的登记表：卡片类型、彻底删除的改写函数、素材模块、快速动作、内部作业、看板种类、事件触发的订阅方、agent 贡献（128 号票）、
-// 转发登记表（132 号票）、运营手段（130 号票）、agent 运行时（286 号票）、事件存储。
+// 用真的登记表：卡片类型、彻底删除的改写函数、素材模块、快速动作、内部作业、看板种类、事件触发的订阅方、agent 贡献、
+// 转发登记表、运营手段、agent 运行时、事件存储。
 // 走组合根和插件清单的那条路在主切面测（test/main/plugins.test.ts）。
 import path from "node:path";
 import { type EventType, Type, workdayCalendar } from "@ergo/protocol";
@@ -80,7 +80,7 @@ async function kernel(host: PluginHost, options: { dir?: string } = {}) {
   const internalJobs = createInternalJobs({ store, scheduler, clock, log, scheduleContext: () => ({ calendar: workdayCalendar([], { rules: [], marks: [] }) }) });
   const inbox = createInboxService({ store, notifications: createEphemeralBus(), now: () => clockIso(clock) });
   const materials = openMaterials({ store, dbDir: dir, materialsDir: path.join(dir, "materials"), log });
-  // 采成素材（记忆插件开着时那样，129 号票）：插件经契约声明的来源采得出素材
+  // 采成素材（记忆插件开着时那样）：插件经契约声明的来源采得出素材
   materials.collect({ embedder: new FakeEmbedder(), scheduler, clock, inbox, staleCardDays: 7 });
   let closed = false;
   /** 停宿主、关库（只做一次；测试里换一个宿主接着用同一个数据目录时先叫它） */
@@ -169,17 +169,17 @@ describe("注册都能撤销", () => {
           boardKind<{ id: string }>({ label: "笔记", order: 15, describes: "每条笔记", eventType: NOTE_EVENT, fromEvent: (p) => p as { id: string }, list: () => [], toEntry: (n) => ({ key: n.id, name: n.id, status: "", group: undefined }) }),
         );
         ctx.eventSubscribers.register({ kind: "note", subscriptions: () => [], watches: () => false, deliver: () => {} });
-        // 运营手段（130 号票）：要用户手动的一种
+        // 运营手段：要用户手动的一种
         ctx.operationMeans.register({ id: "note_board", label: "笔记墙", hint: "贴到笔记墙上", automatic: false, check: () => [], describe: () => "笔记墙" });
-        // agent 贡献（128 号票）：给秘书的工具、跟在输入后面的和被唤起时注入的上下文块、钩子订阅
+        // agent 贡献：给秘书的工具、跟在输入后面的和被唤起时注入的上下文块、钩子订阅
         ctx.agent.tools.register({ to: { agents: ["secretary"] }, tools: () => [noteTool] });
         ctx.agent.context.register({ when: "input", text: () => "【笔记】" });
         ctx.agent.context.register({ when: "wake", id: "briefing", text: () => "【笔记简报】" });
         ctx.agent.hooks.register({ id: "rules", kind: "system_prompt_suffix", text: () => "【笔记的规矩】" });
-        // 212 号票：排在内核的工具之后的工具、输入附注
+        // 排在内核的工具之后的工具、输入附注
         ctx.agent.tools.register({ to: { agents: ["secretary"] }, at: "end", tools: () => [lateTool] });
         ctx.agent.notes.register({ text: () => "（笔记的附注）" });
-        // 转发的应用（132 号票）
+        // 转发的应用
         ctx.apps.register({ name: "notes-web", target: "http://127.0.0.1:5173", title: "笔记" });
         ctx.effect(() => {
           const off = store.onAppend((e) => seen.push(e.type));
@@ -291,7 +291,7 @@ describe("依赖靠声明", () => {
     expect(trace.slice(6)).toEqual(["c:stop", "b:stop", "a:stop"]);
   });
 
-  it("运行中停用一个插件：依赖它的先停，都记成停用了（211 号票：设置里一起写进 plugins.disabled）", async () => {
+  it("运行中停用一个插件：依赖它的先停，都记成停用了（设置里一起写进 plugins.disabled）", async () => {
     const trace: string[] = [];
     const { host, logs } = hostOf([tracer("a", trace, { provides: [A] }), tracer("b", trace, { needs: [A], provides: [B] }), tracer("c", trace, { needs: [B] }), tracer("d", trace)]);
     await kernel(host);
@@ -302,7 +302,7 @@ describe("依赖靠声明", () => {
     expect(logs).toContain("插件停用了：b、c、a");
   });
 
-  it("给网页的状况（193 号票）：清单里每个插件按清单的先后，名字、给人看的名字、在运行 / 停用了 / 没装上（带原因）；运行中停用时通知", async () => {
+  it("给网页的状况：清单里每个插件按清单的先后，名字、给人看的名字、在运行 / 停用了 / 没装上（带原因）；运行中停用时通知", async () => {
     const trace: string[] = [];
     const WEATHER = serviceKey<unknown>("weather");
     const { host } = hostOf([tracer("a", trace, { provides: [A], title: "甲" }), tracer("x", trace, { needs: [WEATHER] }), tracer("b", trace, { needs: [A] }), tracer("off", trace)], ["off"]);
@@ -471,7 +471,7 @@ describe("出错的插件", () => {
 });
 
 describe("数据契约", () => {
-  it("素材来源（129 号票）写在契约里：停用的插件的事件照样采得成素材（重建 materials.db、留原话副本靠它），运行中停用后也不撤", async () => {
+  it("素材来源写在契约里：停用的插件的事件照样采得成素材（重建 materials.db、留原话副本靠它），运行中停用后也不撤", async () => {
     const noteSource: MaterialSource = {
       name: "test-note",
       eventType: NOTE_EVENT,
@@ -532,7 +532,7 @@ describe("数据契约", () => {
     expect(() => dismiss(k2)).toThrow("笔记插件没启用");
   });
 
-  it("运行时贡献点（286 号票）写在契约里：配置里停用的插件也登记（认得、写得出\"X插件没启用\"），能不能用跟着插件在不在运行；运行中停用、启用跟着变；宿主停时撤掉", async () => {
+  it("运行时贡献点写在契约里：配置里停用的插件也登记（认得、写得出\"X插件没启用\"），能不能用跟着插件在不在运行；运行中停用、启用跟着变；宿主停时撤掉", async () => {
     const off = hostOf([fakeRuntimePlugin], ["fake-runtime"]);
     const k = await kernel(off.host);
     expect(k.runtimes.get("fake")).toBe(fakeRuntime);
@@ -557,7 +557,7 @@ describe("数据契约", () => {
     expect(k2.runtimes.unavailable("fake")?.reason).toBe("假运行时插件没启用");
   });
 
-  it("数据源贡献点（295 号票）写在契约里：配置里停用的插件也登记（设置 · 数据源照样列出），在不在运行跟着插件；运行中停用、启用跟着变；宿主停时撤掉", async () => {
+  it("数据源贡献点写在契约里：配置里停用的插件也登记（设置 · 数据源照样列出），在不在运行跟着插件；运行中停用、启用跟着变；宿主停时撤掉", async () => {
     const plugin: PluginDefinition = {
       name: "life",
       title: "生活",
@@ -581,7 +581,7 @@ describe("数据契约", () => {
     expect(k2.dataSources.get("life")!.owner.running()).toBe(true);
   });
 
-  it("内核现取插件的服务（213 号票，PluginHost.active：网关的日历接口这样取）：插件在运行时给出；配置里停用、运行中停用时回\"X插件没启用\"（not_allowed）；再启用照常；内核的照给；谁都不提供的算写错了代码", async () => {
+  it("内核现取插件的服务（PluginHost.active：网关的日历接口这样取）：插件在运行时给出；配置里停用、运行中停用时回\"X插件没启用\"（not_allowed）；再启用照常；内核的照给；谁都不提供的算写错了代码", async () => {
     const NOTES = serviceKey<{ act: () => string }>("notes");
     const plugin: PluginDefinition = { name: "notes", title: "笔记", provides: [NOTES], setup: (ctx) => ctx.provide(NOTES, { act: () => "做了" }) };
     const off = hostOf([plugin], ["notes"]);
@@ -632,7 +632,7 @@ function notesPlugin(trace: string[]) {
   return { plugin, NOTES, contexts, setups: () => setups };
 }
 
-describe("运行中启用、移除（211 号票：设置里的热插拔）", () => {
+describe("运行中启用、移除（设置里的热插拔）", () => {
   const A = serviceKey<unknown>("a");
   const B = serviceKey<unknown>("b");
   const secretary = { agent: "secretary", agentId: "secretary", session: "secretary" } as const;
@@ -798,7 +798,7 @@ describe("运行中启用、移除（211 号票：设置里的热插拔）", () 
     expect(await host.enable("child")).toEqual(["flaky", "child"]);
   });
 
-  it("要的外部组件没装（315 号票，missing）：不装配、记成没装上（设置里 missing、那一句、启用不了），依赖它的不装，运行时写那一句；装好后启用就装上（依赖它的跟着装上）", async () => {
+  it("要的外部组件没装（missing）：不装配、记成没装上（设置里 missing、那一句、启用不了），依赖它的不装，运行时写那一句；装好后启用就装上（依赖它的跟着装上）", async () => {
     let installed = false;
     const trace: string[] = [];
     const EXT = serviceKey<unknown>("ext");

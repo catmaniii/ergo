@@ -275,7 +275,7 @@ describe("回放：吊销一台已配对设备（device-revoke）", () => {
   });
 });
 
-describe("回放：已配对设备的多选管理（device-batch，123 号票）", () => {
+describe("回放：已配对设备的多选管理（device-batch）", () => {
   // 录的是只订阅了"已配对设备"的设置页：配了四台（一台领取的响应丢了、一台还在等首次使用），吊销一台，过两天一起延期 90 天
   // （吊销了的跳过），作废的那台带原凭证进来启用了，最后删掉两台（还在等首次使用的那台先吊销再删）
   const inputs = load("device-batch");
@@ -323,7 +323,7 @@ describe("回放：这台设备被吊销（device-revoked-here）", () => {
     // 刷新：新的状态里什么都没有，服务端只回 none
     const afterReload = revokedMarkAfter({ access: "none" }, marked);
     expect(pairingOpening(undefined, afterReload)).toBe("revoked");
-    // 没有记号的浏览器是新设备的说明页（137 号票起都要点"请求配对"才发请求）
+    // 没有记号的浏览器是新设备的说明页（都要点"请求配对"才发请求）
     expect(pairingOpening(undefined, false)).toBe("new");
   });
 });
@@ -354,7 +354,7 @@ describe("回放：彻底删除（memory-purge）", () => {
 
 describe("回放：发起任务到计划确认（task-initiation）", () => {
   // 秘书按用户的话直接建任务 → 提问卡"全按推荐" → 负责人交计划，待我处理里出现计划卡 → 收窄一项授权后确认 → 任务排队，
-  // 有执行名额马上开始第 1 阶段（13 号票）
+  // 有执行名额马上开始第 1 阶段
   const inputs = load("task-initiation");
   const planCardEvent = indexOf(inputs, (i) => i.kind === "frame" && i.frame.type === "card" && (i.frame.payload as { card: { type: string } }).card.type === "plan");
   const confirm = indexOf(inputs, (i) => i.kind === "card_action" && i.action === "confirm");
@@ -368,7 +368,7 @@ describe("回放：发起任务到计划确认（task-initiation）", () => {
     expect(card.card).toMatchObject({ status: "handled", outcome: { action: "answer", note: "全按推荐" } });
   });
 
-  test("369 号票：秘书的提问卡也进待办，去处是秘书会话里这张卡；答完了不再待处理", () => {
+  test("秘书的提问卡也进待办，去处是秘书会话里这张卡；答完了不再待处理", () => {
     const all = replay(inputs);
     const card = Object.values(all.cards).find((c) => c.card.type === "questions")!.card;
     const added = indexOf(inputs, (i) => i.kind === "frame" && i.frame.type === "inbox_item" && (i.frame.payload as { item: { cardId?: string } }).item.cardId === card.id);
@@ -410,7 +410,7 @@ describe("回放：发起任务到计划确认（task-initiation）", () => {
 const maintainerView = (state: UiState) => conversationView(state, "maintainer:tm-1");
 
 describe("回放：两阶段任务到完成、再返工（task-execution）", () => {
-  // 13 号票：计划确认后开始执行；第一阶段脚本验收通过，第二阶段评审判定通过，任务自动完成；再返工第二阶段
+  // 计划确认后开始执行；第一阶段脚本验收通过，第二阶段评审判定通过，任务自动完成；再返工第二阶段
   const inputs = load("task-execution");
   const taskFrames = inputs.flatMap((i, at) => (i.kind === "frame" && i.frame.type === "task" ? [{ at, payload: i.frame.payload as { change: string; stageId?: string } }] : []));
   const atChange = (change: string, nth = 0) => taskFrames.filter((f) => f.payload.change === change)[nth]!.at;
@@ -433,7 +433,7 @@ describe("回放：两阶段任务到完成、再返工（task-execution）", ()
       ["s1", "running"],
       ["s2", "pending"],
     ]);
-    // 90 号票：任务详情的按钮收进状态签浮层和"⋯"（同一份菜单项）；开始过的阶段能从某阶段重做（84 号票）
+    // 任务详情的按钮收进状态签浮层和"⋯"（同一份菜单项）；开始过的阶段能从某阶段重做
     expect(taskActionItems(selectTask(state, "t-1")!).map((c) => c.label)).toEqual(["暂停", "取消任务", "从某阶段重做…", "归档", "删除任务"]);
   });
 
@@ -459,7 +459,7 @@ describe("回放：两阶段任务到完成、再返工（task-execution）", ()
       .flatMap((p) => (p.type === "card_ref" ? [selectCard(end, p.cardId)?.card] : []))
       .filter((c) => c?.type === "progress");
     expect(cards.map((c) => (c!.payload as { acceptance?: { judgedBy: string } }).acceptance?.judgedBy)).toEqual(["script", "review", "review"]);
-    // 返工先选阶段（90 号票：点了"返工…"弹出选阶段、写怎么改的对话框）；结束了的能直接归档
+    // 返工先选阶段（点了"返工…"弹出选阶段、写怎么改的对话框）；结束了的能直接归档
     expect(taskActionItems(selectTask(state, "t-1")!).map((c) => c.label)).toEqual(["返工…", "归档", "删除任务"]);
   });
 
@@ -485,7 +485,7 @@ const isParallelCard = (input: UiInput) => input.kind === "frame" && input.frame
 const cardIdOf = (state: UiState) => Object.values(state.cards).find((c) => c.card.type === "parallel")!.card.id;
 
 describe("回放：并行确认卡被拒、照常串行做完（parallel-sequential）", () => {
-  // 20 号票：执行中负责人提议把 s1、s2 派给两个子 agent 并行 → 待我处理里出现并行确认卡（不卡任务）→ 用户确认之前负责人照常
+  // 执行中负责人提议把 s1、s2 派给两个子 agent 并行 → 待我处理里出现并行确认卡（不卡任务）→ 用户确认之前负责人照常
   // 先做完 s1、开始 s2 → 用户点"不并行，按顺序做"（附一句话）→ 负责人收到通知，照常做完 s2，任务完成。没拉起任何子 agent
   const inputs = load("parallel-sequential");
   const proposed = indexOf(inputs, isParallelCard);
@@ -541,7 +541,7 @@ describe("回放：并行确认卡被拒、照常串行做完（parallel-sequent
 describe("回放：负责人用带类型的 bash 工具干活（typed-shell-tools）", () => {
   // 录制在 packages/daemon/test/main/typed-shell.test.ts：看状态和差异 → 提交 → 建远端仓库（问过）→ 没跑测试就推送（退回）→
   // 测试没通过 → 推送仍退回 → 测试通过 → 推送（问过）→ force push 两次（一律禁止）→ 合并有冲突 → 合并 → 构建 → 装依赖。
-  // 时间线上的样式归 25 号票；这里断言工具调用 part 的字段（判定、授权内、通用 bash、结果）
+  // 这里断言工具调用 part 的字段（判定、授权内、通用 bash、结果）
   const inputs = load("typed-shell-tools");
   const maintainer = "maintainer:tm-1";
   const toolCalls = (state: UiState) =>
@@ -718,7 +718,7 @@ describe("回放：设置里的关注类别（watch-categories）", () => {
 
 describe("回放：项目的一生（project-lifecycle）", () => {
   // 录制在 packages/daemon/test/main/projects.test.ts 的"演示流程"：建议立项 → 立项 → 立项问答（开发类、绑定外部路径）
-  // → 立项书卡"确认并开工" → 首个建设任务做完出"首版做完了"卡（112 号票）、转入使用 → 停用、重新启用；另一个项目放弃、取消归档、再放弃、删除
+  // → 立项书卡"确认并开工" → 首个建设任务做完出"首版做完了"卡、转入使用 → 停用、重新启用；另一个项目放弃、取消归档、再放弃、删除
   const inputs = load("project-lifecycle");
   const at = (change: string) => replay(inputs.slice(0, indexOf(inputs, projectEvent(change)) + 1));
 
@@ -832,7 +832,7 @@ describe("回放：范围审视（scope-review）", () => {
     expect(summaries(project.out_of_scope)).toEqual(["顺手改了立项书范围外的 README"]);
     expect(project.scope_change).toEqual([]);
     expect(project.out_of_scope[0]).toMatchObject({ kind: "越界", trigger: "工单结束时" });
-    // 159 号票：工单、任务都写编号加名字（现取）
+    // 工单、任务都写编号加名字（现取）
     expect(project.out_of_scope[0]!.where).toBe("工单 wo-2「执行：给记账本加周报」 · 任务 t-1「给记账本加周报」");
     expect(summaries(taskScopeRecords(state, "t-1").out_of_scope)).toEqual(["顺手改了立项书范围外的 README"]);
     const [notice] = openOutOfScopeNotices(state);
@@ -992,7 +992,7 @@ describe("回放：节假日数据缺失 → 发起更新任务 → 计划卡（
     expect(selectTask(planning, "t-1")).toMatchObject({ title: "更新 2027 年国内节假日数据", state: "planning", origin: "button" });
   });
 
-  test("计划卡（负载版本 5：76 号票起计划里没有定时作业）：确认后任务排队，有名额马上开始执行（13 号票）", () => {
+  test("计划卡（负载版本 5：计划里没有定时作业）：确认后任务排队，有名额马上开始执行", () => {
     const card = selectCard(state, planCardId)!.card;
     expect(card).toMatchObject({ type: "plan", typeVersion: CARD_TYPE_VERSIONS.plan, status: "handled", outcome: { action: "confirm" } });
     expect(cardDisplay(state, planCardId)).toMatchObject({ kind: "typed", type: "plan" });
@@ -1015,7 +1015,7 @@ const cardTokens = (state: UiState) =>
     .find((i) => i.kind === "task" && i.task.id === "t-1");
 
 describe("回放：任务的 token 用量（token-ledger）", () => {
-  // 24 号票：剧本里每次回话带固定的用量；起草计划 2 次、执行 5 次（s1 两次、s2 两次、全部验收之后收尾一次）、评审子 agent 3 次
+  // 剧本里每次回话带固定的用量；起草计划 2 次、执行 5 次（s1 两次、s2 两次、全部验收之后收尾一次）、评审子 agent 3 次
   const inputs = load("token-ledger");
   const totalsFrames = inputs.flatMap((i, at) => (i.kind === "frame" && i.frame.type === "token_totals" ? [at] : []));
 

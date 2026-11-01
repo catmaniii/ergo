@@ -566,7 +566,7 @@
   "pages.debug.env.uptime": "页面开了多久",
   "pages.debug.env.copyHead": "二狗 Debug 信息（{time}）",
   "pages.debug.env.copyRow": "{label}：{value}",
-  "pages.debug.env.copied": "已复制，可以发给主会话了",
+  "pages.debug.env.copied": "已复制",
   "pages.debug.env.copyAll": "一键复制",
   "pages.debug.connection.connecting": "连接中",
   "pages.debug.connection.online": "已连上",

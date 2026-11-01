@@ -1,4 +1,4 @@
-// 语音识别的第三条接入（346 号票，ADR-0039）：调 audio.cpp 服务上的语音识别模型（POST /v1/audio/transcriptions），不用 Python。
+// 语音识别的第三条接入（ADR-0039）：调 audio.cpp 服务上的语音识别模型（POST /v1/audio/transcriptions），不用 Python。
 // 服务和语音合成是同一个（组件页装的 ergo-daemon--audiocpp，或者手动配的），模型 id 固定是 asr。对上层是同一个接口（recognizer.ts 的 Recognizer）；
 // 状态机、超时语义、串词过滤和调 LSM 那条共用（recognizer-client.ts 的 createServiceRecognizer），这里只写这个服务的接口。下面这些都是拿真服务试出来的：
 // - **只收 WAV**（文件名不是 .wav 回 400，内容不是 WAV 回 500；webm 在 v0.9.3 也不收）。浏览器录的是 webm、ogg、mp4，所以网页在这种接入下先转成 WAV 再传
@@ -30,9 +30,9 @@ export interface AudioCppRecognizerOptions {
   timeout: RecognizeTimeoutConfig;
   /** 录音不是 WAV 时转成 WAV（正式的是本机的 ffmpeg）；不给的话不是 WAV 的这一条失败 */
   convert?: AudioConverter;
-  /** 识别结果里要剔掉的模型自带串词（180 号票，编译好的规则）；不给不剔 */
+  /** 识别结果里要剔掉的模型自带串词（编译好的规则）；不给不剔 */
   stripRules?: readonly StripRule[];
-  /** check()（208 号票）问服务一句最多等多久（毫秒）；不给是 CHECK_TIMEOUT_MS */
+  /** check()问服务一句最多等多久（毫秒）；不给是 CHECK_TIMEOUT_MS */
   checkTimeoutMs?: number;
   log: (line: string) => void;
 }

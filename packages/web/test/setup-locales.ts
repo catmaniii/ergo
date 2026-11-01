@@ -1,4 +1,4 @@
-// vitest 的 setupFiles（168 号票）：每个测试文件开始前装上自带的中文（直接读共享协议包的 locales/），
+// vitest 的 setupFiles：每个测试文件开始前装上自带的中文（直接读共享协议包的 locales/），
 // 状态层、界面里调 t() 的测得到中文；要测英文的用例自己 setActiveLocale 换。
 import fs from "node:fs";
 import path from "node:path";

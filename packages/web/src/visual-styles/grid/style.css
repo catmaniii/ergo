@@ -1,5 +1,5 @@
 /*
- * 净白格栅（39 号票）：只靠 token（grid/style.ts）做不到的规则，全部限定在 :root[data-style="grid"] 下
+ * 净白格栅：只靠 token（grid/style.ts）做不到的规则，全部限定在 :root[data-style="grid"] 下
  * （不会漏到别的风格；设置里的预览把开头换成 :host(...)，所以根元素上只再加属性，见 src/visual-styles/preview.ts）。
  * 设计稿：docs/architecture/design/styles/b-chat、b-tasks、b-inbox、b-wide（.dc.html）。要点：黑白细线、无阴影、细线分隔、
  * 列表排得密；个人助理的话不套气泡；"要你"的事（等你、问你、未读）才用信号橙（--you）。
@@ -177,7 +177,7 @@
 :root[data-style="grid"] .assistant .bubble {
   padding: 0;
   border-left: none;
-  /* 57 号票起回复是 .bubble.md，会带上阶段抽屉 .md 的下边线；这套风格不套气泡，下边线不要 */
+  /* 回复是 .bubble.md，会带上阶段抽屉 .md 的下边线；这套风格不套气泡，下边线不要 */
   border-bottom: none;
   border-radius: 0;
   background: none;
@@ -324,7 +324,7 @@
   background: none;
 }
 /*
- * 宽屏的看板排成多列网格时（88 号票，.board[data-layout="grid"]）：一行一行的样子不变，列和列之间留白 32，每一列像一段列表
+ * 宽屏的看板排成多列网格时（.board[data-layout="grid"]）：一行一行的样子不变，列和列之间留白 32，每一列像一段列表
  * （分组标题下的墨线照旧横贯整行；同一行的几项一样高，下面的墨线在各列里对齐）
  */
 :root[data-style="grid"] .board[data-layout="grid"] .bgroup {

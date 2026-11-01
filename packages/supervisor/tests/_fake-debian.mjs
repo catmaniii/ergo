@@ -1,4 +1,4 @@
-// 测试用的"假 Debian"（321 号票）：在一个临时目录里搭出 VPS 的根目录（/etc、/var 落在里面），
+// 测试用的"假 Debian"：在一个临时目录里搭出 VPS 的根目录（/etc、/var 落在里面），
 // 系统命令（apt-get、systemctl、nginx、certbot、ufw……）换成 _fake-debian.sh 里的假货，
 // 然后用 Git Bash 把生成的 VPS 脚本**真的跑一遍**——幂等、断了接着做、nginx -t 不过撤回、remove 原样撤，都在这里验。
 // 绝不用 WSL 的 bash（C:\Windows\System32\bash.exe）：那是用户自己在用的 WSL，不能碰。

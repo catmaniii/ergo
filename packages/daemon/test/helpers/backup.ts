@@ -25,9 +25,9 @@ export interface BackupDaemonOptions {
   config?: Record<string, unknown>;
   /** 守护进程的日志 */
   log?: (line: string) => void;
-  /** 记忆插件开不开（265 号票：底座给了时钟默认停掉它，要 rg.db 的写 true；见 startTestDaemon 的 memoryPlugin） */
+  /** 记忆插件开不开（底座给了时钟默认停掉它，要 rg.db 的写 true；见 startTestDaemon 的 memoryPlugin） */
   memoryPlugin?: boolean;
-  /** "在电脑上打开"（356 号票）：测试记下要打开哪里，不真的开窗口 */
+  /** "在电脑上打开"：测试记下要打开哪里，不真的开窗口 */
   openFolder?: (dir: string) => Promise<void>;
 }
 
@@ -81,7 +81,7 @@ export async function restartBackupDaemon(previous: BackupDaemon, time: Date, op
   return startBackupDaemon({ ...options, start: time, syncDir: previous.syncDir, reuse: { dataDir: previous.dataDir, homeDir: previous.homeDir } });
 }
 
-/** 本机备份区里有什么（不算最近一次备份的记录 last-backup.json，335 号票）：日期目录和别的东西 */
+/** 本机备份区里有什么（不算最近一次备份的记录 last-backup.json）：日期目录和别的东西 */
 export function backupArea(dir: string): string[] {
   return fs.readdirSync(dir).filter((name) => name !== BACKUP_RECORD_FILE);
 }

@@ -1,4 +1,4 @@
-// 运营层照插件的纪律写（280 号票，方案 C 第 4 点）：只起运营层（project-ops/layer.ts 的 createOpsLayer）加假的登记口和假的项目系统，
+// 运营层照插件的纪律写（方案 C 第 4 点）：只起运营层（project-ops/layer.ts 的 createOpsLayer）加假的登记口和假的项目系统，
 // 不起守护进程、不接 LSM。看三件事：
 // - 装配时只经宿主现成的登记口登记（就是插件宿主给插件的 ctx 里那几样）：服务入口卡、运营手段"服务"；上线了的服务的 /apps 转发经转发登记口，
 //   不再拿整张转发登记表；
@@ -105,7 +105,7 @@ function opsLayer() {
   return { ops, store, project, workdir, published, logs, ...recording };
 }
 
-describe("运营层照插件的纪律写（280）", () => {
+describe("运营层照插件的纪律写", () => {
   it("装配时只经宿主现成的登记口登记：服务入口卡、运营手段“服务”；上线了的服务开始时经转发登记口登记 /apps（不拿整张转发登记表）", () => {
     const { ops, store, project, workdir, registered, apps, logs } = opsLayer();
     expect(registered).toEqual(["卡片类型 service_entry", "运营手段 service"]);

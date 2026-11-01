@@ -1,10 +1,10 @@
-// 候选核对卡（283 号票，卡片类型 personal_file_suggest）：每晚整理把白天听到的人物信息攒成候选，第二天一张卡逐条核对——
+// 候选核对卡（卡片类型 personal_file_suggest）：每晚整理把白天听到的人物信息攒成候选，第二天一张卡逐条核对——
 // 按人分块（新的人先有一条"建一份档案"，不勾它这个人的别的条目也写不进去），每条一个勾（默认都勾着），生日、纪念日下面带
 // "每年提前几天提醒"；直接写进档案的生日跟着回执出的那种只有一条"每年提醒"。卡上不放原话，只写哪几天听到的。
 // "写进勾了的"把勾了的写进档案（留痕：经记忆管理员、你在卡上确认），"都不用"关掉；没勾的以后不再提。
-// 299 号票：从手机通讯录挑的人（origin contacts）也上这张卡——建档那一条写"从手机通讯录挑的"，电话照 281 的核对卡一位一位列在小格子里，
+// 从手机通讯录挑的人（origin contacts）也上这张卡——建档那一条写"从手机通讯录挑的"，电话照核对卡一位一位列在小格子里，
 // 底下多一句"号码请一位一位对一遍"。
-// 301 号票：导入的通讯录 vCard（origin vcard，Google 联系人导出的）也上这张卡——建档那一条写"从导入的通讯录来的"，底下的话写明没勾的以后不再提。
+// 导入的通讯录 vCard（origin vcard，Google 联系人导出的）也上这张卡——建档那一条写"从导入的通讯录来的"，底下的话写明没勾的以后不再提。
 import { useState } from "react";
 import { toHash } from "../../app/route.ts";
 import { numberGroups, type PersonalFileSuggestCardPayload, type PersonalFileSuggestInput, type PersonalFileSuggestItem, PURGED_TEXT, suggestGroups, suggestHeard, t } from "../../state/index.ts";
@@ -18,7 +18,7 @@ interface Pick {
   days: number;
 }
 
-/** 号码类的值（299 号票：通讯录挑来的电话）一位一位列出，别的照原样 */
+/** 号码类的值（通讯录挑来的电话）一位一位列出，别的照原样 */
 function Value({ item }: { item: PersonalFileSuggestItem }) {
   if (item.number === true && item.value !== undefined && item.value !== PURGED_TEXT) return <Digits value={item.value} />;
   return <>{valueText(item)}</>;

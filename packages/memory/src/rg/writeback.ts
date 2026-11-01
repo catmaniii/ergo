@@ -1,4 +1,4 @@
-// 结论写回知识图谱（199 号票）：矛盾的根源定了（那组里有一条 active）以后，照结论改知识图谱，写修订日志，两张图保持一致：
+// 结论写回知识图谱：矛盾的根源定了（那组里有一条 active）以后，照结论改知识图谱，写修订日志，两张图保持一致：
 // - 有一条记错了 → 那条事实 corrected（retractedBy 指向另一边的证据），和它冲突的另一边恢复；依赖它的推断、断言经传播钩子待复核
 //   （这组根源假设自己不算：它的前提里就有这条事实）；
 // - 时间变了 → 补有效期：早的那边到晚的那边开始时为止（superseded，supersededBy 是晚的那条）；说的和做的不一样时，说的那条到第一次没做到时为止；
@@ -51,7 +51,7 @@ export class KgWriteback {
     return this.engine.store;
   }
 
-  /** 267 号票：写事实、关联经唯一写入口（在调用方开的那一次写里） */
+  /** 写事实、关联经唯一写入口（在调用方开的那一次写里） */
   private get w(): RgWriter {
     return rgWriter(this.engine.store);
   }
@@ -64,7 +64,7 @@ export class KgWriteback {
       const view = this.rg.groupView(g.key);
       const winner = g.live && view ? view.members.find((m) => m.claim.status === "active") : undefined;
       const current = this.current(g.key);
-      // 267 号票：每份写回各开一次写；这组根源假设自己不算"依赖被改掉的事实的"（它们就是起因，同传播的 sparedClaimIds）
+      // 每份写回各开一次写；这组根源假设自己不算"依赖被改掉的事实的"（它们就是起因，同传播的 sparedClaimIds）
       const members = this.rg.registry.members(g.key).map((m) => m.claimId);
       if (current && (!winner || current.claimId !== winner.claim.id)) {
         const why = winner ? `根源换成了 ${winner.claim.id}` : "根源不再成立";

@@ -5,7 +5,7 @@
 // - probesFor：组里两条假设预期不同的地方出追问（问具体的事，不问动机），带第二轮检索的短语；
 // - judge：追问搜到的证据，抽出的事实按组里每条假设的预期配；能让被区分的两条此消彼长的证据算"找到了"，
 //   什么都没配上是 not_found（inconclusive，不判负）。别人转述的只记成背景（context），不当依据；
-// - lift：往上抽需求、价值层（195 号票，lift.ts）。
+// - lift：往上抽需求、价值层（lift.ts）。
 import { USER_ENTITY_ID } from "../domain/ids.ts";
 import type { Fact, Probe } from "../domain/types.ts";
 import { WEIGHT_DB } from "./scoring.ts";
@@ -71,7 +71,7 @@ export class RuleReasoner implements Reasoner {
     };
   }
 
-  /** 往上抽一层（195 号票）：同一主题在两种以上场合、两个以上时期成立 → 上位解释（lift.ts；223 号票起过了门槛的组记进统计） */
+  /** 往上抽一层：同一主题在两种以上场合、两个以上时期成立 → 上位解释（lift.ts；过了门槛的组记进统计） */
   async lift(level: LiftLevel, inputs: LiftInput[], ctx: ReasonerContext): Promise<HypothesisGroupDraft[]> {
     return liftGroups(level, inputs, ctx.view, ctx.stats?.lift);
   }

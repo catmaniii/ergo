@@ -1,4 +1,4 @@
-// 转发本机服务的页面（132 号票）里不经网关也能测的部分：响应头怎么改写（Location、CSP 的 frame-ancestors、Set-Cookie）、
+// 转发本机服务的页面里不经网关也能测的部分：响应头怎么改写（Location、CSP 的 frame-ancestors、Set-Cookie）、
 // 前缀下自检（页面里以 / 开头、不在前缀下的地址和写死的本机地址；抓假服务的首页；命令行）。经网关的转发在主切面 test/main/app-proxy.test.ts。
 import { execFile } from "node:child_process";
 import http from "node:http";

@@ -61,18 +61,18 @@ export interface AgentSessionRunner {
   /** 会话的名字（宿主协议的 session：会话文件名去掉扩展名） */
   readonly session: string;
   readonly loaded: LoadedResources;
-  /** 会话的模型实际能不能看图（79 号票：装配参数给了 vision 按它，没给按模型目录；73 号票起接着的会话照它开始时的） */
+  /** 会话的模型实际能不能看图（装配参数给了 vision 按它，没给按模型目录；接着的会话照它开始时的） */
   readonly vision: boolean;
-  /** 会话实际用的模型（73 号票：接着已有的会话时是它开始时的） */
+  /** 会话实际用的模型（接着已有的会话时是它开始时的） */
   readonly model: SessionModel;
-  /** 会话的上下文窗口和 pi 的压缩设置（114 号票） */
+  /** 会话的上下文窗口和 pi 的压缩设置 */
   readonly contextInfo: SessionContextInfo;
-  /** 换模型（83 号票）：这次拉起换了（或者想换没换成）时才有，在 ready 里报回 */
+  /** 换模型：这次拉起换了（或者想换没换成）时才有，在 ready 里报回 */
   readonly handoff: HandoffReport | undefined;
   /** ready 之后再报的（写交接摘要那次调用的用量：agent 管家在 ready 时才知道会话 id）；取一次就清空 */
   takeAfterReady(): AgentReport[];
   /**
-   * 开始一个回合（支持视觉的模型另外带图片；context 是跟在这条用户消息后面的一条上下文消息，22 号票）；
+   * 开始一个回合（支持视觉的模型另外带图片；context 是跟在这条用户消息后面的一条上下文消息）；
    * 上一回合没结束时回 busy
    */
   prompt(inputId: string, text: string, images: readonly InputImage[], context?: string): void;
@@ -84,17 +84,17 @@ export interface AgentSessionRunner {
   updateContribution(id: string, text: string): void;
   /** 手动压缩会话（先中止进行中的回合） */
   compact(): Promise<void>;
-  /** 换成最新的范围审视对照物和近期范围记录（18 号票）；没装配范围审视时回 bad_command */
+  /** 换成最新的范围审视对照物和近期范围记录；没装配范围审视时回 bad_command */
   setScopeContext(reference: string, recentRecords: string | undefined, model?: ModelSpec): void;
   /** 守护进程要的范围审视：审视会话里还没审视过的部分（model 是这次用的），结果以 scope_review_result 报回；做完才兑现 */
   reviewScope(requestId: string, reference: string, model?: ModelSpec): Promise<void>;
   /**
-   * 会话树上挪（150 号票：会话回退；151 号票：切换分支）：回到某条输入之前或者某一条，回退时写分支摘要，叶子落盘；
+   * 会话树上挪（会话回退；切换分支）：回到某条输入之前或者某一条，回退时写分支摘要，叶子落盘；
    * 结果以 session_navigated 报回，做完才兑现
    */
   navigate(command: Extract<HostCommand, { type: "navigate_session" }>): Promise<void>;
   /**
-   * 换运行时之前写交接摘要（289 号票）：用这个会话的模型照 pi 的压缩摘要写法写一份（handoff.ts，同换模型），不改会话；
+   * 换运行时之前写交接摘要：用这个会话的模型照 pi 的压缩摘要写法写一份（handoff.ts，同换模型），不改会话；
    * 结果以 handoff_written 报回、那次调用的用量另报（purpose: handoff），做完才兑现
    */
   writeHandoff(command: Extract<HostCommand, { type: "write_handoff" }>): Promise<void>;
@@ -123,10 +123,10 @@ export async function openAgentSession(
   for (const [provider, apiKey] of Object.entries(assembly.credentials)) {
     await modelRuntime.setRuntimeApiKey(provider, apiKey);
   }
-  // 先打开会话：一个会话固定一个模型（73 号票），接着已有的会话时照它开始时的模型、思考档位和看图能力
+  // 先打开会话：一个会话固定一个模型，接着已有的会话时照它开始时的模型、思考档位和看图能力
   let sessionManager = sessionManagerFor(assembly);
   let setup = sessionSetup(assembly, sessionManager, modelRuntime);
-  // 换模型就新开会话（83 号票）：接着的会话开始时的模型和这次的不一样、装配参数又给了 handoff，先用原来的模型写交接摘要，
+  // 换模型就新开会话：接着的会话开始时的模型和这次的不一样、装配参数又给了 handoff，先用原来的模型写交接摘要，
   // 写成了就换到新会话（第一条是这份摘要，会话建好之后加进去）；没写成照旧接着原来的会话
   const switched = await switchModel(assembly, sessionManager, setup, modelRuntime);
   try {
@@ -150,16 +150,16 @@ async function startPiSession(
   opened: { modelRuntime: ModelRuntime; sessionManager: SessionManager; setup: SessionSetup; switched: ModelSwitch | undefined },
 ): Promise<AgentSessionRunner> {
   const { modelRuntime, sessionManager, setup, switched } = opened;
-  // 看图能力（79 号票）：配置里写明的为准，没写的按模型目录；会话用的模型按实际生效的改写，pi 对历史里、工具结果里的图片也照它处理
+  // 看图能力：配置里写明的为准，没写的按模型目录；会话用的模型按实际生效的改写，pi 对历史里、工具结果里的图片也照它处理
   const model = withVision(setup.model, setup.vision);
 
   const guard = new GuardForwarder(emit);
   const hostTools = new HostToolBridge(emit);
-  // 范围审视（18 号票，负责人的会话才有）：审视用的模型是 faux 时注册成另一个 provider，和会话的各按各的剧本
+  // 范围审视（负责人的会话才有）：审视用的模型是 faux 时注册成另一个 provider，和会话的各按各的剧本
   const reviewer = assembly.scopeReview
     ? new ScopeReviewer(assembly.scopeReview, resolveModel(assembly.scopeReview.model, modelRuntime, FAUX_REVIEW_PROVIDER_ID), {
         modelRuntime,
-        // 73 号票：守护进程每次审视时现取审视用的模型，换了模型时子进程照这里解析
+        // 守护进程每次审视时现取审视用的模型，换了模型时子进程照这里解析
         resolve: (spec) => resolveModel(spec, modelRuntime, FAUX_REVIEW_PROVIDER_ID),
         emit,
       })
@@ -168,8 +168,8 @@ async function startPiSession(
   const settingsManager = SettingsManager.inMemory({});
   /** 建好的 pi 会话（按压缩指令写摘要要它的模型调用函数；会话建好之后才会压缩） */
   let piSession: AgentSession | undefined;
-  // 通用桥接扩展（128 号票）：守卫转发（打开了才接）、上下文块、钩子订阅、范围审视（负责人，18 号票）都经它翻译给 pi；
-  // 一样都没有就不挂（和 128 号票之前一个内联扩展都不挂时一样）
+  // 通用桥接扩展：守卫转发（打开了才接）、上下文块、钩子订阅、范围审视（负责人）都经它翻译给 pi；
+  // 一样都没有就不挂（和以前一个内联扩展都不挂时一样）
   const bridge = new ContributionBridge(assembly.contributions, {
     guard: assembly.forwardToolCalls ? guard : undefined,
     reviewer,
@@ -190,7 +190,7 @@ async function startPiSession(
     noThemes: true,
     noContextFiles: true,
     ...(assembly.systemPrompt === undefined ? {} : { systemPrompt: assembly.systemPrompt }),
-    // 只在用户点名时才用的 skill（72 号票）：pi 不放进 skill 清单，另起一段追加在系统提示后面（见 user-invoked-skills.ts）。
+    // 只在用户点名时才用的 skill：pi 不放进 skill 清单，另起一段追加在系统提示后面（见 user-invoked-skills.ts）。
     // reload 时先加载 skill、后取追加段，这里取到的就是这次加载的
     appendSystemPromptOverride: (base) => {
       const block = userInvokedSkillsBlock(resourceLoader.getSkills().skills);
@@ -213,12 +213,12 @@ async function startPiSession(
     customTools: [...hostTools.tools(assembly.contributions.tools), ...shellOverrides(assembly), ...fileSearchOverrides(assembly.tools, assembly.cwd)],
   });
   piSession = session;
-  // 接着会话时工具清单以这次交的为准（273 号票）：发给模型的工具按这次交的先后、开头一份，不按 pi 重放会话里增减的结果
+  // 接着会话时工具清单以这次交的为准：发给模型的工具按这次交的先后、开头一份，不按 pi 重放会话里增减的结果
   installToolOrder(session);
   const vision = model.input.includes(IMAGE_INPUT);
-  // 会话开始时（和第一次接着 73 号票之前开的会话时）记下看图能力：之后接着这个会话都照它（新会话在第一条消息时随之写盘）
+  // 会话开始时（和第一次接着以前开的会话时）记下看图能力：之后接着这个会话都照它（新会话在第一条消息时随之写盘）
   if (setup.recordVision) session.sessionManager.appendCustomEntry(SESSION_MODEL_ENTRY, { vision });
-  // 换到的新会话：第一条是交接摘要（83 号票；新会话一开始就在盘上，这一条马上落盘）
+  // 换到的新会话：第一条是交接摘要（新会话一开始就在盘上，这一条马上落盘）
   if (switched?.summary !== undefined) await session.sendCustomMessage(handoffMessage(switched.summary, switched.report.from, switched.report.to));
 
   const loaded: LoadedResources = {
@@ -237,7 +237,7 @@ async function startPiSession(
     // 照旧接着和装配参数不一样的会话（没给 handoff、交接摘要没写成）：守护进程下一条能换的输入之前带上 handoff 重新拉起
     ...(setup.differs ? { differs: true as const } : {}),
   };
-  // 上下文窗口和压缩设置（114 号票）：⚙ 里的上下文用量、离自动压缩还有多少按它算（pi 的设置只在内存里，是 pi 默认的）
+  // 上下文窗口和压缩设置：⚙ 里的上下文用量、离自动压缩还有多少按它算（pi 的设置只在内存里，是 pi 默认的）
   const compaction = settingsManager.getCompactionSettings(model);
   const contextInfo: SessionContextInfo = { window: model.contextWindow, reserveTokens: compaction.reserveTokens, keepRecentTokens: compaction.keepRecentTokens };
   return new PiSessionRunner(
@@ -265,7 +265,7 @@ interface ModelSwitch {
 }
 
 /**
- * 换模型就新开会话（83 号票）：接着的会话开始时的模型和装配参数里的不一样（sessionSetup 的 differs）、装配参数给了 handoff 才换。
+ * 换模型就新开会话：接着的会话开始时的模型和装配参数里的不一样（sessionSetup 的 differs）、装配参数给了 handoff 才换。
  * 先用原来的模型写交接摘要（handoff.ts），写成了建好新会话（空文件交给 pi 打开，马上在盘上）；没写成报原因，照旧接着原来的
  */
 async function switchModel(assembly: SessionAssembly, sessionManager: SessionManager, setup: SessionSetup, modelRuntime: ModelRuntime): Promise<ModelSwitch | undefined> {
@@ -300,19 +300,19 @@ interface SessionSetup {
   /** 要把看图能力记进会话文件（目录里的模型、会话里还没记过） */
   recordVision: boolean;
   /**
-   * 接着的会话开始时的模型（或按模型支持的档换算后的思考档位）和装配参数里的不一样（83 号票）：原来的和装配参数要的。
+   * 接着的会话开始时的模型（或按模型支持的档换算后的思考档位）和装配参数里的不一样：原来的和装配参数要的。
    * 一样的、新开的会话、faux、装配参数里的模型目录里没有的，都不写
    */
   differs?: { from: ModelRef; to: ModelRef };
 }
 
 /**
- * 一个会话固定一个模型（73 号票，规格第 1 节）：
+ * 一个会话固定一个模型（规格第 1 节）：
  * - 新开的会话（会话里还没有消息）用装配参数里的模型和思考档位，看图能力按配置写明的（装配参数 vision 表）、没写按模型目录；
  * - 接着已有的会话（目录里的模型）照会话开始时的：模型和思考档位取 pi 在会话文件里记的（model_change、thinking_level_change），
- *   看图能力取子进程记的（SESSION_MODEL_ENTRY；73 号票之前开的会话没有，按配置和目录定下、这次记上）。设置里改了只对新会话生效；
+ *   看图能力取子进程记的（SESSION_MODEL_ENTRY；以前开的会话没有，按配置和目录定下、这次记上）。设置里改了只对新会话生效；
  *   记下的模型目录里已经没有了（pi 升级去掉了）才用装配参数里的，写一行日志；
- *   和装配参数里的不一样（思考档位按模型支持的档换算之后比）时记下 differs：装配参数给了 handoff 就换（83 号票，switchModel）；
+ *   和装配参数里的不一样（思考档位按模型支持的档换算之后比）时记下 differs：装配参数给了 handoff 就换（switchModel）；
  * - faux（测试）一律照装配参数：剧本按每次拉起给，接着会话也换成这次的剧本
  */
 function sessionSetup(assembly: SessionAssembly, sessionManager: SessionManager, modelRuntime: ModelRuntime): SessionSetup {
@@ -345,7 +345,7 @@ function sessionSetup(assembly: SessionAssembly, sessionManager: SessionManager,
 }
 
 /**
- * 接着的会话开始时的模型和装配参数里的比（83 号票）：模型不一样，或者思考档位按装配参数的模型支持的档换算之后（pi 新开会话时
+ * 接着的会话开始时的模型和装配参数里的比：模型不一样，或者思考档位按装配参数的模型支持的档换算之后（pi 新开会话时
  * 也这样换算、记下换算后的）不一样，就是不一样。装配参数里的模型目录里没有：比不了，当一样（照旧接着，写一行日志）
  */
 function differsFrom(
@@ -380,7 +380,7 @@ function lastCustomData(sessionManager: SessionManager, customType: string): Rec
 const IMAGE_INPUT = "image";
 
 /**
- * 按配置写明的看图能力改写模型能收的输入（79 号票）：写了能看的补上图片，写了不能看的去掉图片，没写的按模型目录原样。
+ * 按配置写明的看图能力改写模型能收的输入：写了能看的补上图片，写了不能看的去掉图片，没写的按模型目录原样。
  * pi 发请求前按它处理会话里的图片（看不了的，用户消息、工具结果里的图片都换成一句占位），pi 的 read 工具读图也按它
  */
 function withVision<M extends { input: readonly string[] }>(model: M, vision: boolean | undefined): M {
@@ -398,11 +398,11 @@ export function sessionNameOf(file: string): string {
 
 /**
  * 会话从哪来：
- * - 指定了名字（16 号票：负责人会话分段）：有这个会话就接着它；还没有时选了 continueSession 就接着最近的那个
- *   （项目负责人的第一段对话段接着任务转来的、16 号票之前的会话），目录里没有会话就新开一个、用这个名字存
+ * - 指定了名字（负责人会话分段）：有这个会话就接着它；还没有时选了 continueSession 就接着最近的那个
+ *   （项目负责人的第一段对话段接着任务转来的、以前的会话），目录里没有会话就新开一个、用这个名字存
  *   （pi 在第一条消息之后才真正写盘）；
  * - 没指定：选了 continueSession 接着最近的，都没有就新开。
- * 工作目录变了（任务转为项目、绑定外部工作目录，15 号票）也接着同一个会话：pi 的 continueRecent 在指定了会话目录时只挑
+ * 工作目录变了（任务转为项目、绑定外部工作目录）也接着同一个会话：pi 的 continueRecent 在指定了会话目录时只挑
  * 工作目录相同的会话，所以自己挑、用新的工作目录打开（工具按新的工作目录）
  */
 function sessionManagerFor(assembly: SessionAssembly): SessionManager {
@@ -416,7 +416,7 @@ function sessionManagerFor(assembly: SessionAssembly): SessionManager {
 }
 
 /**
- * 清空当前对话之后的那一段（114 号票，装配参数 freshSession）：会话目录里还没有这个名字的会话，就先建一个空文件再交给 pi 打开
+ * 清空当前对话之后的那一段（装配参数 freshSession）：会话目录里还没有这个名字的会话，就先建一个空文件再交给 pi 打开
  * （和换模型的新会话一样：pi 对空文件写好会话头、之后每条马上落盘，所以这一刻它就是最近的会话，之后接最近的都接得上它）；
  * 已经有了返回 undefined，照常接
  */
@@ -431,7 +431,7 @@ function freshSessionManager(assembly: SessionAssembly): SessionManager | undefi
 }
 
 /**
- * 接着一个已有的会话：打开之前去掉末尾写到一半的一行，打开之后给最后一个回合里被中断的工具调用补上结果（被杀后的恢复，23 号票；
+ * 接着一个已有的会话：打开之前去掉末尾写到一半的一行，打开之后给最后一个回合里被中断的工具调用补上结果（被杀后的恢复，
  * 指定名字接着的分段会话一样修补）
  */
 function reopen(assembly: SessionAssembly, recent: string): SessionManager {
@@ -463,7 +463,7 @@ function mostRecentSessionFile(sessionDir: string): string | undefined {
 const BASH = "bash";
 
 /**
- * 要给 bash 起的进程加环境变量（联网开关关着时的无效代理）或临时目录（177 号票）：用同名的自定义工具换掉 pi 自带的 bash，
+ * 要给 bash 起的进程加环境变量（联网开关关着时的无效代理）或临时目录：用同名的自定义工具换掉 pi 自带的 bash，
  * 行为和自带的一样（同一个实现），只在起进程前把 shellEnv 覆盖上去、在命令前面 export 临时目录（commandPrefix）。
  * 自定义工具和内置工具同名时 pi 用自定义的。
  */
@@ -487,7 +487,7 @@ function shellOverrides(assembly: SessionAssembly): ToolDefinition[] {
 }
 
 /**
- * 命令前面那一行：把 TMPDIR、TEMP、TMP 指到临时目录（177 号票）。只 export 给这条命令起的进程，bash 进程本身的 TMP / TEMP 不动
+ * 命令前面那一行：把 TMPDIR、TEMP、TMP 指到临时目录。只 export 给这条命令起的进程，bash 进程本身的 TMP / TEMP 不动
  * （Git Bash 的 /tmp 挂到哪由第一个起来的 Git Bash 进程的 TMP / TEMP 定，见 agent-manager/work-temp.ts）
  */
 export function shellTempPrefix(dir: string): string {
@@ -525,21 +525,21 @@ class PiSessionRunner implements AgentSessionRunner {
   /** 这一轮里收下的插话（输入 id），回合结束时报给守护进程 */
   private interjected: string[] = [];
   /**
-   * 这一轮里已经排进 pi 的插话队列的（输入 id，按先后；86 号票）：pi 在下一次模型调用之前把队里的按先后放进上下文，
+   * 这一轮里已经排进 pi 的插话队列的（输入 id，按先后）：pi 在下一次模型调用之前把队里的按先后放进上下文，
    * 还排着的是它的 getSteeringMessages()，所以前面那几条就是已经进了上下文的
    */
   private queuedInterjections: string[] = [];
   /** 这一轮被要求中止过：工具执行到一半被中止时 pi 报的是出错（"This operation was aborted"），照样算中止 */
   private abortRequested = false;
-  /** 这一轮被要求做完手头这一步就停下（27 号票） */
+  /** 这一轮被要求做完手头这一步就停下 */
   private yieldRequested = false;
   /** 这一轮按要求停在了两次模型调用之间 */
   private yielded = false;
   /** 停下时还排着、没进上下文的插话有几条（排在最后的那几条） */
   private undelivered = 0;
-  /** 写分支摘要要的（150 号票） */
+  /** 写分支摘要要的 */
   private readonly navigation: NavigationDeps;
-  /** 凭据（289 号票：写交接摘要没写成时，原因里去掉它们的内容） */
+  /** 凭据（写交接摘要没写成时，原因里去掉它们的内容） */
   private readonly credentials: Readonly<Record<string, string>>;
 
   constructor(
@@ -573,14 +573,14 @@ class PiSessionRunner implements AgentSessionRunner {
     this.emit = emit;
     this.guard = guard;
     this.hostTools = hostTools;
-    // 86 号票：宿主工具调用时报这一轮已经进了上下文的插话
+    // 宿主工具调用时报这一轮已经进了上下文的插话
     hostTools.setInterjections(() => this.deliveredInterjections());
     this.translator = new EventTranslator(emit, session.model);
     session.subscribe((event) => {
       this.translator.handle(event);
       if (event.type === "agent_settled") this.onSettled();
     });
-    // 做完手头这一步就停下（27 号票）：pi 在一批工具调用的结果都进了会话之后、决定要不要接着下一次模型调用之前问 finishTurn，
+    // 做完手头这一步就停下：pi 在一批工具调用的结果都进了会话之后、决定要不要接着下一次模型调用之前问 finishTurn，
     // 这时说"结束"，回合就停在两次模型调用之间。包在 pi 自己的 finishTurn（扩展的 turn_end 边界）外面，不替换它
     const agent = session.agent;
     const previous = agent.finishTurn;
@@ -615,14 +615,14 @@ class PiSessionRunner implements AgentSessionRunner {
     this.translator.lastStopReason = undefined;
     const options = images.length > 0 ? { images: imageContents(images) } : undefined;
     // 每条输入之前（被唤起：刚拉起，或者闲着时来了新输入）按先后注入最新的各上下文块（重注入块是其中一块；不在回合里：直接追加进会话）
-    // （第一块马上送，和 128 号票之前只有重注入块时同一个时机）
+    // （第一块马上送，和以前只有重注入块时同一个时机）
     const [first, ...rest] = this.bridge.contextMessages();
     rest
       .reduce((sent, message) => sent.then(() => this.piSession.sendCustomMessage(message)), first ? this.piSession.sendCustomMessage(first) : Promise.resolve())
       .then(() => {
         // 会话文件里先记下这条用户消息是哪条输入：彻底删除时据此找到原文（不进模型的上下文）
         this.piSession.sessionManager.appendCustomEntry(SESSION_INPUT_TAG, { inputId });
-        // 跟在这条用户消息后面的上下文消息（秘书的看板变化，22 号票）：pi 的 nextTurn 把它排在下一次 prompt 的用户消息之后
+        // 跟在这条用户消息后面的上下文消息（秘书的看板变化）：pi 的 nextTurn 把它排在下一次 prompt 的用户消息之后
         if (context !== undefined) void this.piSession.sendCustomMessage({ customType: INPUT_CONTEXT_TYPE, content: context, display: false }, { deliverAs: "nextTurn" });
         return this.piSession.prompt(text, options);
       })
@@ -650,7 +650,7 @@ class PiSessionRunner implements AgentSessionRunner {
     );
   }
 
-  /** 这一轮已经进了上下文的插话（86 号票）：排进队的减去还排着的、停下时清掉的 */
+  /** 这一轮已经进了上下文的插话：排进队的减去还排着的、停下时清掉的 */
   private deliveredInterjections(): string[] {
     const pending = this.piSession.getSteeringMessages().length + this.undelivered;
     return this.queuedInterjections.slice(0, Math.max(0, this.queuedInterjections.length - pending));

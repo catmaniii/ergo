@@ -1,4 +1,4 @@
-// 把页面桥（src/page-bridge/entry.ts，134 号票）打包成注入网页用的一段独立脚本（IIFE，压缩过）。
+// 把页面桥（src/page-bridge/entry.ts）打包成注入网页用的一段独立脚本（IIFE，压缩过）。
 // 鸿蒙 App 构建时（npm run build:harmony，frontend/scripts/build-harmony.ts）写进 App 的 rawfile/page-bridge.js，App 注入前把口令占位换掉；
 // 测试（test/page-bridge/）在真的 Chrome 里跑同一份。
 import { fileURLToPath } from "node:url";

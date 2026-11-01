@@ -1,5 +1,5 @@
 /**
- * 扫码之后测连不连得上（364 号票，对应安卓 common/ConnectCheck.kt）：这个文件只有判断，不碰网络、不碰界面的字，不引用任何 kit，
+ * 扫码之后测连不连得上（对应安卓 common/ConnectCheck.kt）：这个文件只有判断，不碰网络、不碰界面的字，不引用任何 kit，
  * frontend/test/connect.test.ts 直接把它跑起来和安卓拿同一份例子（frontend/test/connect-vectors.tsv）核对。
  */
 

@@ -8,9 +8,9 @@
 >   - 不加标的是一手资料，附出处；
 >   - 【建议】是作者的看法；
 >   - 【未核实】是没查到定论的。
-> - **和 05 号调研的关系**：05 号调研（未公开）讲的是概念和产品现状。这次补上运行时、许可证、存储和字段名。有两处要修正 05：
->   - 05 写 Mem0 v3 "用 `linked_memory_ids` 关联新旧记忆"。这次在 OSS 文档、迁移文档、算法博客里都没找到这个字段，改为【未核实】。托管版 API 里能查到的是 `replaced_by`（§2.2）。
->   - 05 写 Hindsight 有带置信度的 opinion 网络。这是论文里的设计；当前文档的 `fact_type` 只有 world、experience、observation 三种，没有 opinion（§2.4）。
+> - **和之前调研的关系**：之前的调研讲的是概念和产品现状。这次补上运行时、许可证、存储和字段名。有两处要修正：
+>   - 之前写 Mem0 v3 "用 `linked_memory_ids` 关联新旧记忆"。这次在 OSS 文档、迁移文档、算法博客里都没找到这个字段，改为【未核实】。托管版 API 里能查到的是 `replaced_by`（§2.2）。
+>   - 之前写 Hindsight 有带置信度的 opinion 网络。这是论文里的设计；当前文档的 `fact_type` 只有 world、experience、observation 三种，没有 opinion（§2.4）。
 
 ---
 
@@ -157,7 +157,7 @@
   | 用户、会话、消息管理 | 内建 | 自己做 |
   | 部署 | 托管，或部署在用户自己的云上 | 只能自己部署 |
 
-  - Zep 托管版另有 Observations、user summary 等（见 05 号调研 §1.2）。Graphiti 开源版里没查到对应功能【未核实】。
+  - Zep 托管版另有 Observations、user summary 等。Graphiti 开源版里没查到对应功能【未核实】。
 - **版本和活跃度**：
   - `graphiti-core` 0.31.1（2026-10-15）；
   - 0.31.0（10-14）把默认 OpenAI 模型换成 gpt-6-luna，MCP 服务升到 MCP SDK 2.x（https://api.github.com/repos/getzep/graphiti/releases ）。
@@ -420,7 +420,7 @@
   - 只用文件后端能不能完全不要 ChromaDB；
   - 图存储能不能用 Milvus Lite 的本地文件。
 - **Mem0**：
-  - `linked_memory_ids` 是否存在（05 号调研写过，这次没找到）；
+  - `linked_memory_ids` 是否存在（这次没找到）；
   - "oss-v2-to-v3" 对应哪个包版本；
   - OSS 版每条记忆的字段名（`created_at` 等是托管版 API 的字段）。
 - **Graphiti**：

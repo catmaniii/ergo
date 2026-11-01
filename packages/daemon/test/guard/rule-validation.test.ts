@@ -35,7 +35,7 @@ describe("规则校验", () => {
     ["读了触发它的工具没有的参数", { when: { eq: ["$current.args.remotes", "origin"] } }, /git_push.*没有参数 remotes/],
     ["读了之前那次调用的工具没有的参数", { require: { before: { tool: "run_tests", where: { eq: ["$prior.args.remote", "x"] } } } }, /run_tests.*没有参数 remote/],
     ["get 写法读的参数也查", { when: { eq: [{ get: ["$current.args", "remotes"] }, "x"] } }, /没有参数 remotes/],
-    // 68 号票：效果日志里写入的全文、编辑的新旧片段只记了长度和摘要哈希
+    // 效果日志里写入的全文、编辑的新旧片段只记了长度和摘要哈希
     ["之前那次读写进去的全文", { require: { before: { tool: "write", where: { eq: ["$prior.args.content", "x"] } } } }, /write 的参数 content只记了长度和摘要哈希/],
     ["之前那次读改文件的新旧片段", { require: { before: { tool: "edit", where: { present: "$prior.args.edits" } } } }, /edit 的参数 edits只记了长度和摘要哈希/],
     ["之前那次读拼起来的内容，工具里有写文件", { require: { not_before: { tool: ["git_commit", "write"], where: { eq: ["$prior.content", "x"] } } } }, /write 的内容只记了长度和摘要哈希/],
@@ -75,7 +75,7 @@ describe("规则校验", () => {
     expect(validate([ok, ok]).problems.join("\n")).toMatch(/id tests-before-push 重复/);
   });
 
-  it("这次调用写的内容、之前写文件的路径和提交说明照常能读（68 号票只缩了效果日志里的内容）", () => {
+  it("这次调用写的内容、之前写文件的路径和提交说明照常能读（只缩了效果日志里的内容）", () => {
     const rule = {
       id: "after-notes",
       trigger: { tool: "write" },

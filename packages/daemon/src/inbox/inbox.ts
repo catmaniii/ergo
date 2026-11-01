@@ -6,7 +6,7 @@
 //   判断用共享协议包的 isInboxItemProcessed（Web 状态层、原型的假连接用的是同一个）；
 // - 已读、归档、删除和通知的处理结果在待我处理频道推送（inbox_item 事件是事项的最新状态），多个前端之间实时同步；
 // - alert：要马上告诉用户的事项（到点的提醒），另推一条临时的 notify 事件：前端给出页面内提示，用户允许时再发浏览器通知。
-// 具体的通知（错过的提醒、中断不确定、越界通知……）由产生它们的票用 add / buildAdd 放进来；
+// 具体的通知（错过的提醒、中断不确定、越界通知……）由产生它们的模块用 add / buildAdd 放进来；
 // 用户选了通知的某个动作之后要做点什么的（"备份失败"上的"重试"），用 onNoticeHandled 登记。
 import { randomUUID } from "node:crypto";
 import {
@@ -48,13 +48,13 @@ export type NewInboxItem =
 
 /** 系统改一条事项（比如新的一次提醒到点时，上一次的取消置顶） */
 /**
- * 系统改一条事项能改的；handled、handledAt、handledNote 只对通知：系统替你记成处理过（84 号票：从某个阶段重做之后作废的，
- * handledNote 是再点旧按钮时回的那句）。185 号票加了 deleted：删了的提醒，它在待我处理里的事项跟着删掉；369 号票加了 stale：提问卡放久了
+ * 系统改一条事项能改的；handled、handledAt、handledNote 只对通知：系统替你记成处理过（从某个阶段重做之后作废的，
+ * handledNote 是再点旧按钮时回的那句）。加了 deleted：删了的提醒，它在待我处理里的事项跟着删掉；加了 stale：提问卡放久了
  */
 export type InboxItemChange = Partial<Pick<InboxItem, "title" | "urgency" | "pinned" | "archived" | "read" | "deleted" | "stale">> & Partial<Pick<NoticeInboxItem, "handled" | "handledAt" | "handledNote">>;
 
 /**
- * 改写待我处理事项（删除项目时改写属于它的事项，15 号票）：标题和正文换成删除标记，
+ * 改写待我处理事项（删除项目时改写属于它的事项）：标题和正文换成删除标记，
  * 种类、紧急度、动作、选了哪个动作、已读、归档这些状态和结构化数据不变
  */
 export const inboxItemPurge: PurgeRewriter = {
@@ -66,7 +66,7 @@ export const inboxItemPurge: PurgeRewriter = {
 };
 
 /**
- * 一条事项的文字换成删除标记：标题、正文；项目内部的事项（64 号票）来源里写着任务名（"项目「X」内部 · 任务「T」"），
+ * 一条事项的文字换成删除标记：标题、正文；项目内部的事项来源里写着任务名（"项目「X」内部 · 任务「T」"），
  * 只留"项目「X」内部"
  */
 export function purgedInboxItem(item: InboxItem): InboxItem {
@@ -164,9 +164,9 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
       read: false,
       archived: false,
       deleted: false,
-      // 项目内部的事项（64 号票）：秘书看不到细节
+      // 项目内部的事项：秘书看不到细节
       ...(input.internal === undefined ? {} : { internal: input.internal }),
-      // 从哪来（105 号票）：待我处理里"去看看 ›"去的地方
+      // 从哪来：待我处理里"去看看 ›"去的地方
       ...(input.origin === undefined || Object.keys(input.origin).length === 0 ? {} : { origin: input.origin }),
     };
     const item: InboxItem =

@@ -13,7 +13,7 @@ import { notifyTaps } from '../notify/NativeNotify';
 export const TEST_SCAN_KEY: string = 'ergoTestScan';
 
 /**
- * 联调的测试入口（364 号票）：模拟器没有能对准屏幕的相机，App 开着时 aa start 带 --ps ergoTestScanText <文字> 或 --ps ergoTestScanImage <file:// 路径>
+ * 联调的测试入口：模拟器没有能对准屏幕的相机，App 开着时 aa start 带 --ps ergoTestScanText <文字> 或 --ps ergoTestScanImage <file:// 路径>
  * （图片走系统的解码器 detectBarcode）。只有 --webview-debug 的包才有：正式的包里别的应用不能这样塞一个地址进来
  */
 function takeTestScan(want: Want): void {
@@ -48,14 +48,14 @@ export default class EntryAbility extends UIAbility {
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'set color mode failed: %{public}s', JSON.stringify(err));
     }
-    // App 原生的字（175 号票）：读打包进来的自带语言；记得上次二狗的语言就用它，从没连上过用英文
+    // App 原生的字：读打包进来的自带语言；记得上次二狗的语言就用它，从没连上过用英文
     appTexts.load(this.context);
-    // App 没在跑、点开通知栏里的一条拉起来的（110 号票）：记下那一条，网页开场来取
+    // App 没在跑、点开通知栏里的一条拉起来的：记下那一条，网页开场来取
     notifyTaps.fromWant(want);
     hilog.info(DOMAIN, TAG, 'Ability onCreate');
   }
 
-  // App 在跑（前台、后台）时点开通知栏里的一条（110 号票）：Ability 是 singleton，系统把它拉到前台、走这里；
+  // App 在跑（前台、后台）时点开通知栏里的一条：Ability 是 singleton，系统把它拉到前台、走这里；
   // 记下那一条，Index.ets 让网页来取
   onNewWant(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     notifyTaps.fromWant(want);

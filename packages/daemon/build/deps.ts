@@ -1,7 +1,7 @@
-// 发布包里带哪些依赖（318 号票）：从守护进程、协议包、记忆、服务管家这几个运行时的包出发，照 package-lock.json 按 Node 的解析规则
+// 发布包里带哪些依赖：从守护进程、协议包、记忆、服务管家这几个运行时的包出发，照 package-lock.json 按 Node 的解析规则
 // 找出要用到的第三方包（依赖、可选依赖、非可选的对等依赖），从已经装好的 node_modules 里复制过去——不在用户机器上跑 npm、不联网。
 // 不带的：
-//   - Claude Code 的 Agent SDK（@anthropic-ai/claude-agent-sdk*，Anthropic 自己的许可，不随二狗分发；用的人经组件装，315、323 号票）；
+//   - Claude Code 的 Agent SDK（@anthropic-ai/claude-agent-sdk*，Anthropic 自己的许可，不随二狗分发；用的人经组件装）；
 //   - 别的平台的原生库（只留 Windows x64：onnxruntime-node 的 darwin / linux / win32-arm64，pi-tui 的 darwin / linux / win32-arm64）；
 //   - 运行时用不到的：类型声明（.d.ts）、source map、说明文档（许可证文件留着）。
 // 网页（packages/web）构建成单个 index.html，它的依赖不进 node_modules，只进许可证清单（licenses.ts）。

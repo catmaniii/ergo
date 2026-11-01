@@ -8,7 +8,7 @@ import { chromium, type Page } from "playwright-core";
 import { findChrome } from "./chrome.ts";
 
 const base = process.argv[2] ?? "http://127.0.0.1:8810/";
-// 设置里只切两页：设置列表本身，和"角色与声音"（248 号票新加的一页，默认角色、角色表、每个 agent 用哪个角色都在这一页上）
+// 设置里只切两页：设置列表本身，和"角色与声音"（新加的一页，默认角色、角色表、每个 agent 用哪个角色都在这一页上）
 const PAGES = ["#/secretary", "#/tasks", "#/projects", "#/inbox", "#/browse", "#/calendar", "#/more", "#/more/usage", "#/more/settings", "#/more/roles", "#/more/memory/curator"];
 const DISCONNECTED = "连接断开";
 

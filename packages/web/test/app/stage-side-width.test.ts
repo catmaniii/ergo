@@ -1,4 +1,4 @@
-// 91 号票：宽屏侧栏和聊天之间的分界线拖到的宽度按设备记住（主会话建议；合并前用户点了头）。368 号票起阶段栏没了，量档案栏和浏览侧边栏。
+// 宽屏侧栏和聊天之间的分界线拖到的宽度按设备记住。阶段栏没了，量档案栏和浏览侧边栏。
 // 存储用不了（隐私模式、禁用了站点数据）时按默认，改了只在这次打开里生效、不报错。存储换成假的。
 import { describe, expect, test } from "vitest";
 import { PROJECT_SIDE_WIDTH, stageSideWidthSettingIn } from "../../src/app/stage-side-width.ts";
@@ -18,7 +18,7 @@ function unavailableStorage(): never {
   throw new Error("SecurityError");
 }
 
-describe("宽屏项目的档案栏的宽度（104 号票）：按设备记住，368 号票起任务的档案栏也是这一个", () => {
+describe("宽屏项目的档案栏的宽度：按设备记住，任务的档案栏也是这一个", () => {
   test("没拖过：380", () => {
     expect(stageSideWidthSettingIn(() => memoryStorage(), PROJECT_SIDE_WIDTH).width()).toBe(380);
   });
@@ -62,7 +62,7 @@ describe("宽屏项目的档案栏的宽度（104 号票）：按设备记住，
   });
 });
 
-describe("浏览侧边栏的宽度（148 号票）：同一个做法，初值 400，自己的键", () => {
+describe("浏览侧边栏的宽度：同一个做法，初值 400，自己的键", () => {
   test("没拖过 400；拖过记在自己的键上，档案栏不跟着变；拖回 400 不留记号", () => {
     const storage = memoryStorage();
     const side = stageSideWidthSettingIn(() => storage, BROWSE_SIDE_WIDTH);

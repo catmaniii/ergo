@@ -574,7 +574,7 @@
   "pages.debug.env.uptime": "Page open for",
   "pages.debug.env.copyHead": "Ergo debug info ({time})",
   "pages.debug.env.copyRow": "{label}: {value}",
-  "pages.debug.env.copied": "Copied. You can send it to the main session now",
+  "pages.debug.env.copied": "Copied",
   "pages.debug.env.copyAll": "Copy all",
   "pages.debug.connection.connecting": "Connecting",
   "pages.debug.connection.online": "Connected",

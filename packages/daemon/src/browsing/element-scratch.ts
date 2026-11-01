@@ -1,4 +1,4 @@
-// 取元素内容时放进草稿区的那一份（359 号票）放在哪、叫什么；366 号票：记下来的文件忘掉、彻底删除时，这一份也按这里的写法找到删掉（memory/after-purge.ts）。
+// 取元素内容时放进草稿区的那一份放在哪、叫什么；记下来的文件忘掉、彻底删除时，这一份也按这里的写法找到删掉（memory/after-purge.ts）。
 import fs from "node:fs";
 import path from "node:path";
 import { sanitizeName } from "../media/media-store.ts";

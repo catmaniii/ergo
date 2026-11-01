@@ -1,4 +1,4 @@
-// 日历里的提醒（35 号票）。193 号票：从日历页（pages/CalendarPage.tsx）挪进提醒插件，登记成网页插件的日历插槽（plugins/reminders/plugin.tsx）：
+// 日历里的提醒。从日历页（pages/CalendarPage.tsx）挪进提醒插件，登记成网页插件的日历插槽（plugins/reminders/plugin.tsx）：
 // 图例里的"提醒"、每天格子里当天几条提醒的小标、点开一天的"提醒"那一节（时间、内容、重复规则、触发没有）。都排在核心的定时作业前面；
 // 提醒插件停用时都没有。每天的提醒是守护进程按月给的日历条目里的（内核的日历现取提醒的服务，提醒插件停用时是空的），状态层照旧推导。
 import { type CalendarCell, type CalendarDayDetail, t } from "../../state/index.ts";

@@ -1,15 +1,15 @@
-// 看板多选的操作栏（90 号票）："已选 N 个 · 暂停 · 继续 · 取消 · 归档 · 完成"。
+// 看板多选的操作栏："已选 N 个 · 暂停 · 继续 · 取消 · 归档 · 完成"。
 // - 每个操作只对能做的生效（state/task-menu.ts 的 batchCounts / batchTargets：照"谁能改"表，运营中的定时任务看它的触发），
 //   按钮上写个数（"取消（3）"），一个都不能做时灰掉；
 // - 取消先确认一次，写清几个会取消、几个跳过；
-// - 真任务交给守护进程（task_batch_action，各自成败、逐条回报；一次最多 TASK_BATCH_MAX 个，多了分批一批批交，结果接起来——
-//   90 号票评审），原型看板上的假任务在页面上演（prototype/proto-task-acts.ts）；
+// - 真任务交给守护进程（task_batch_action，各自成败、逐条回报；一次最多 TASK_BATCH_MAX 个，多了分批一批批交，结果接起来），
+//   原型看板上的假任务在页面上演（prototype/proto-task-acts.ts）；
 //   做完提示结果：全成功是页面底部一句短提示，有没成的弹出来逐条写为什么（有一批整个被拒时，那一批的每个都写"没交上去"和原因）。
-// 156 号票：简单提醒也能勾上；和任务混选时批量动作只给两者都能做的，别的灰掉，按钮下面写明为什么（state/board-batch.ts）。
-// 185 号票：提醒能一起取消、归档、删除，操作栏多一个只对提醒的"删除"（先确认）；混选时能一起取消、归档。真提醒交 reminder_action
+// 简单提醒也能勾上；和任务混选时批量动作只给两者都能做的，别的灰掉，按钮下面写明为什么（state/board-batch.ts）。
+// 提醒能一起取消、归档、删除，操作栏多一个只对提醒的"删除"（先确认）；混选时能一起取消、归档。真提醒交 reminder_action
 // （各自成败、逐条回报，一次最多 REMINDER_ACTION_MAX 条，多了分批），原型的假提醒在页面上演（取消挪进最近结束、归档挪进已归档、删除拿掉）。
-// 157 号票：右边原来的"完成"换成"✕ 退出多选"（ui/select-mode.tsx），操作栏整条染一层强调色，一眼看得出在多选。
-// 186 号票：任务也能删（交 task_batch_action 的 delete，没结束的守护进程先停下再删；先确认，写清几个任务、几条提醒、不能删的为什么），
+// 右边是"✕ 退出多选"（ui/select-mode.tsx），操作栏整条染一层强调色，一眼看得出在多选。
+// 任务也能删（交 task_batch_action 的 delete，没结束的守护进程先停下再删；先确认，写清几个任务、几条提醒、不能删的为什么），
 // 混选时删除对两边都生效；没结束的任务也能归档（守护进程先取消再归档），有这样的时归档先确认，写明其中几个会先取消。
 import { useState } from "react";
 import { useStore } from "../app/store.tsx";
@@ -53,7 +53,7 @@ function protoReminderAfter(r: ReminderSummary, action: ReminderAction): Reminde
 }
 
 /**
- * 一次对几条提醒取消、归档、删除（156 号票的取消，185 号票加了归档、删除）：真提醒交 reminder_action（各自成败、逐条回报；
+ * 一次对几条提醒取消、归档、删除（取消，加了归档、删除）：真提醒交 reminder_action（各自成败、逐条回报；
  * 一次最多 REMINDER_ACTION_MAX 条，多了分批，一批整个被拒时那一批每条都记成没交上去），原型的假提醒在页面上演
  */
 function useReminderBatch(): (entries: readonly ReminderBatchEntry[], action: ReminderAction) => Promise<BatchItemResult[]> {
@@ -129,7 +129,7 @@ function useBoardBatch(): (ids: readonly string[], action: TaskBatchAction) => P
         patches.set(id, { status: after.status, waitReason: undefined, ...(after.activity ? { activity: after.activity, activityNote: undefined } : {}) });
         results.push({ taskId: id, ok: true });
       }
-      // 删除（186 号票）：假任务从看板上拿掉；别的照状态变
+      // 删除：假任务从看板上拿掉；别的照状态变
       update((s) => ({
         ...s,
         board: s.board.flatMap((e) => (e.kind !== "task" || !patches.has(e.id) ? [e] : action === "delete" ? [] : [{ ...e, ...patches.get(e.id) }])),
@@ -185,7 +185,7 @@ export function BoardSelectBar({ entries, onDone }: { entries: readonly BoardBat
             disabled={busy || counts[a] === 0}
             onClick={() => {
               const { ids, skipped } = boardBatchTargets(entries, a);
-              // 删除先确认（185 号票只对提醒，186 号票起任务也能删）：写清几个任务、几条提醒，没结束的先停下，不能删的为什么
+              // 删除先确认（只对提醒，任务也能删）：写清几个任务、几条提醒，没结束的先停下，不能删的为什么
               if (a === "delete") {
                 const tasks = entries.filter((e) => e.kind === "task" && ids.includes(e.id));
                 const running = tasks.filter((e) => e.kind === "task" && notEnded(e.subject)).length;
@@ -196,7 +196,7 @@ export function BoardSelectBar({ entries, onDone }: { entries: readonly BoardBat
                   ok: tasks.length === 0 ? t("pages.boardSelect.deleteReminders") : t("pages.boardSelect.deleteAll"),
                 });
               }
-              // 归档里有没结束的任务（186 号票：先取消再归档）：先确认；都结束了的照旧直接归档
+              // 归档里有没结束的任务（先取消再归档）：先确认；都结束了的照旧直接归档
               if (a === "archive") {
                 const asked = boardBatchArchiveConfirm(entries);
                 return asked ? setConfirm({ action: "archive", ...asked, ok: t("pages.boardSelect.archiveAll") }) : go(a);

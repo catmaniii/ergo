@@ -1,4 +1,4 @@
-// 守卫切面：为并行派出的子 agent（20 号票）。子 agent 的装配从它的负责人收窄（sub-agents/assembly.ts），
+// 守卫切面：为并行派出的子 agent。子 agent 的装配从它的负责人收窄（sub-agents/assembly.ts），
 // 判定照常走守卫的纯函数：
 // - 工具包是负责人工具包的子集：负责人没有的工具（bash 关着时的 bash 和带类型的 bash 工具、MCP），子 agent 也没有；
 //   负责人推进任务的工具（宣布阶段完成、提议并行……）子 agent 不给；
@@ -45,7 +45,7 @@ describe("子 agent 的工具包是负责人的子集", () => {
     const sub = subAgentAssembly(m, { agentId: "sa-1", cwd: WORKTREE, hostTools: ["git_commit"] });
     expect(sub.piTools).toEqual(m.piTools);
     expect(sub.toolkit).toEqual({ bash: true, network: true });
-    // 177 号票：开了 bash 的有自己的临时目录（它工作目录里的 .ergo-tmp），守卫按同样的 TMPDIR、TEMP、TMP 展开
+    // 开了 bash 的有自己的临时目录（它工作目录里的 .ergo-tmp），守卫按同样的 TMPDIR、TEMP、TMP 展开
     const temp = `${WORKTREE}\\.ergo-tmp`;
     expect(sub.tempDir).toBe(temp);
     expect(sub.guardAgent).toEqual({
@@ -72,7 +72,7 @@ describe("子 agent 的工具包是负责人的子集", () => {
     ["候选里有负责人没有的工具（MCP）：去掉", maintainer(), ["git_commit", "mcp_mail_send"], ["git_commit"]],
     ["负责人没开 bash：候选的带类型工具都不给", noBash, TYPED, []],
     ["只读的负责人：什么都不给", readOnly, [...TYPED, "submit_plan"], []],
-    // 70 号票：联网搜索、读网页是候选，负责人有的子 agent 也有（联网开关照负责人的）
+    // 联网搜索、读网页是候选，负责人有的子 agent 也有（联网开关照负责人的）
     ["联网工具：负责人有就给", maintainer({ hostTools: [...TYPED, ...DRIVING, "web_search", "web_fetch"] }), [...TYPED, "web_search", "web_fetch"], [...TYPED, "web_search", "web_fetch"]],
     ["联网工具：负责人没有就不给", readOnly, ["web_search", "web_fetch"], []],
   ];

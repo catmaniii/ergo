@@ -34,7 +34,7 @@ fun frameOf(value: JSONObject, dpr: Double): BrowserFrame? {
 }
 
 /**
- * 原生的内置浏览器（对应鸿蒙 browser/InAppBrowser.ets，134 号票，"浏览"页签）：另一个 WebView，叠在二狗的网页上面、盖住"浏览"页签的内容区
+ * 原生的内置浏览器（对应鸿蒙 browser/InAppBrowser.ets，"浏览"页签）：另一个 WebView，叠在二狗的网页上面、盖住"浏览"页签的内容区
  * （位置大小由网页经原生桥 browserLayout 报来，MainActivity 摆）。这里是它的状态和动作。
  * - 不挂二狗的原生桥：外部网页拿不到二狗的任何原生能力；
  * - 只开 http、https；别的协议（tel:、mailto:、App 跳转）交给系统；

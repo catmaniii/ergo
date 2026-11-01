@@ -1,7 +1,7 @@
-// 原型用的假日历（35 号票，直接打开构建产物、没有守护进程时）：守护进程按月给出的每一天的日历条目，这里用假连接里的
+// 原型用的假日历（直接打开构建产物、没有守护进程时）：守护进程按月给出的每一天的日历条目，这里用假连接里的
 // 节假日数据和个人设置算工作日判定，几条假的提醒和定时作业（和看板上的假条目同名）用共享协议包的时间规则展开到当天：
 // 过了点的算响过、跑过（有一天的账单汇总失败、有一天的早报部分完成），没到点的是待触发、预计，暂停着的是已暂停。
-// 299 号票：外部日历里手机日历同步来的几条；297 号票：Google 日历订阅同步来的几条（每周一的站会、出差、看牙、生日）。
+// 外部日历里手机日历同步来的几条；Google 日历订阅同步来的几条（每周一的站会、出差、看牙、生日）。
 import {
   activeLocale,
   type CalendarDay,
@@ -26,7 +26,7 @@ const FAKE_REMINDERS: { id: string; text: string; schedule: ReminderSchedule }[]
   { id: "r-mom-birthday", text: "妈妈生日，订蛋糕", schedule: { kind: "yearly", time: "09:00", month: 3, day: 2 } },
 ];
 
-/** 定时触发的任务的每一次（76 号票：带着任务的点开去任务详情；fake-conversations.ts 里的「每天早上出早报」）和还没迁移的旧作业 */
+/** 定时触发的任务的每一次（带着任务的点开去任务详情；fake-conversations.ts 里的「每天早上出早报」）和还没迁移的旧作业 */
 const FAKE_JOBS: { id: string; title: string; schedule: ReminderSchedule; taskId?: string; projectId?: string; projectName?: string; paused?: boolean }[] = [
   { id: "sj-daily-bills", title: "每天 21:00 汇总当天账单", schedule: { kind: "daily", time: "21:00" }, projectId: "p-ledger", projectName: "记账本" },
   { id: "j-brief", title: "每天早上出早报", schedule: { kind: "workdays", time: "08:00" }, taskId: "t-brief" },
@@ -84,7 +84,7 @@ export function fakeCalendarMonth(month: string, holidays: readonly HolidayYear[
       const due = nowIso(at);
       const base = { jobId: j.id, ...(j.taskId ? { taskId: j.taskId } : {}), title: j.title, schedule: j.schedule, ...(j.projectId ? { projectId: j.projectId, projectName: j.projectName } : {}), at: due };
       const past = at.getTime() <= now;
-      // 账单汇总每月 6 号失败一次；早报每月 9 号部分完成一次（176 号票）
+      // 账单汇总每月 6 号失败一次；早报每月 9 号部分完成一次
       const failed = past && j.id === "sj-daily-bills" && at.getDate() === 6;
       const partial = past && j.id === "j-brief" && at.getDate() === 9;
       const state = failed ? "failed" : partial ? "partial" : "done";
@@ -99,7 +99,7 @@ export function fakeCalendarMonth(month: string, holidays: readonly HolidayYear[
       days.get(localDate(at))?.jobs.push(entry);
     }
   }
-  // 外部日历（299 号票）：手机日历同步来的几条（这个月 8 日看牙医、12 日全天的妈妈生日、20–22 日出差）
+  // 外部日历：手机日历同步来的几条（这个月 8 日看牙医、12 日全天的妈妈生日、20–22 日出差）
   for (const e of [...fakePhoneEvents(year, m), ...fakeGoogleEvents(year, m)]) {
     const start = new Date(e.at);
     const last = e.end === undefined ? start : new Date(Date.parse(e.end) - 1);

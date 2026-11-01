@@ -77,7 +77,7 @@ fun cookiePairs(raw: String?): List<Pair<String, String>> = (raw ?: "").split(';
 }
 
 /**
- * "浏览"页签右上角 ⋮ 菜单（对应鸿蒙 browser/BrowserTools.ets，165 号票）用到的原生能力，二狗的网页经原生桥 browserTool(op, json) 调，都回 JSON：
+ * "浏览"页签右上角 ⋮ 菜单（对应鸿蒙 browser/BrowserTools.ets）用到的原生能力，二狗的网页经原生桥 browserTool(op, json) 调，都回 JSON：
  * - find / findNext / findClear：WebView 自带的页内查找，结果经 searchResult 推 {type: "find"}；findBar 是网页的查找栏开没开——开着时返回手势先收起它；
  * - sites：按网站记住的文字大小、桌面版（记在二狗网页那边，整份交过来）。文字大小在每一页开始时设；桌面版换浏览器标识，只给内置浏览器这一个 WebView，
  *   二狗的网页不受影响（鸿蒙的 setUserAgentForHosts 对整个 App 生效，要排除二狗自己的主机名，这里同样排除，免得内置浏览器开二狗页面时换标识）；

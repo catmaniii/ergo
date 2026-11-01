@@ -1,4 +1,4 @@
-// token 账本的一条（规格第 16 节，24 号票）：每次模型调用一条，记在守护进程内部的 ledger 频道上（token_usage 事件，前端不订阅），
+// token 账本的一条（规格第 16 节）：每次模型调用一条，记在守护进程内部的 ledger 频道上（token_usage 事件，前端不订阅），
 // 派生视图 token_ledger（views.ts）。用量的数从子进程上报的 usage 来（宿主协议），归属由拉起 agent 的模块给（SpawnAgentRequest.ledger）。
 import type { ContextUsageKind, LedgerOwner, LedgerPurpose, LedgerRole, TokenCounts, WebCallKind, WebCallService } from "@ergo/protocol";
 import type { UsageReport } from "../runtime/index.ts";
@@ -53,7 +53,7 @@ export interface LedgerEntry extends TokenUsagePayload {
   seq: number;
 }
 
-/** 账本频道上的事件：一次按次计费的联网调用（154 号票：DeepSeek 的联网搜索、读网页，成功、有结果的才记） */
+/** 账本频道上的事件：一次按次计费的联网调用（DeepSeek 的联网搜索、读网页，成功、有结果的才记） */
 export const WEB_CALL_EVENT = "web_call";
 
 /** 联网工具交给账本的一次调用：哪个 agent 发起的、它此刻的归属（agent 管家现取，拉起时没给是 undefined）、哪家的接口、哪一种 */
@@ -76,7 +76,7 @@ export interface WebCallPayload {
 }
 
 /**
- * 账本频道上的事件：插件追加在 agent 输入后面的一块上下文估了多少 token（266 号票：每条消息的记忆简报）。不调模型，这些 token
+ * 账本频道上的事件：插件追加在 agent 输入后面的一块上下文估了多少 token（每条消息的记忆简报）。不调模型，这些 token
  * 已经算在那个 agent 这一轮的输入里了（token_usage），这里另记一笔，用量页单列"记忆简报"一项；不进 token 的合计、不叫 onRecorded
  */
 export const CONTEXT_USAGE_EVENT = "context_usage";

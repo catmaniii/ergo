@@ -1,4 +1,4 @@
-// ergo notify（357 号票）：用法、环境变量、连不上、二狗拒了、报上了的退出码和说法；请求带的东西。接口是本机一个假的 HTTP 服务（真的接口在主切面）。
+// ergo notify：用法、环境变量、连不上、二狗拒了、报上了的退出码和说法；请求带的东西。接口是本机一个假的 HTTP 服务（真的接口在主切面）。
 // 版本目录里真跑一遍在 test/build/stage.test.ts。
 import http from "node:http";
 import type { AddressInfo } from "node:net";

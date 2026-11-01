@@ -1,4 +1,4 @@
-// 设置 · 备份页上写的恢复、定时命令（356 号票）：按这台电脑上二狗的装法现算，复制了就能跑（PowerShell）。
+// 设置 · 备份页上写的恢复、定时命令：按这台电脑上二狗的装法现算，复制了就能跑（PowerShell）。
 // - 一行命令装的（版本目录里跑）、npm 装的：有 ergo 命令，用 ergo stop / restore / start / backup。版本目录里没有 npm run（程序的 package.json 没有 scripts），
 //   也不写版本目录的路径：ergo update 之后路径就变了，定时任务会悄悄断；ergo 命令在 PATH 上、升级后还是它。
 // - 自己 git clone 的（仓库里跑）：没有 ergo 命令，服务管家在 packages\supervisor 里，恢复跑 .ts 源文件，用跑守护进程的同一份 Node。

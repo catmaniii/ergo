@@ -31,7 +31,7 @@ export const P = {
   scratch: "D:\\ergo-data\\tmp\\scratch",
   /** 项目外的某个目录 */
   outside: "E:\\elsewhere",
-  /** 二狗自己的端口（139 号票）：守护进程实际监听的本机端口和外网端口，这里随手挑两个不常见的 */
+  /** 二狗自己的端口：守护进程实际监听的本机端口和外网端口，这里随手挑两个不常见的 */
   ownPorts: [48810, 48811],
 } as const;
 

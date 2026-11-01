@@ -1,4 +1,4 @@
-// 设置 · 备份改配置（356 号票）：写配置文件只动 backup 这几个键，别的内容和格式按字节不变；文件被改坏了回明确的错、不覆盖。
+// 设置 · 备份改配置：写配置文件只动 backup 这几个键，别的内容和格式按字节不变；文件被改坏了回明确的错、不覆盖。
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";

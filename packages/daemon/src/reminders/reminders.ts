@@ -1,24 +1,24 @@
 // 简单提醒（规格第 7、8、13 节）：到点只发一条通知、不需要 agent 干活。秘书负责建、改、取消（工具在 tools.ts），
-// 用户也能在提醒卡上改、取消（卡片类型在 card.ts，动作的结果由这里给出）；76 号票起用户在发起对话框里选"只提醒我"也能直接建
+// 用户也能在提醒卡上改、取消（卡片类型在 card.ts，动作的结果由这里给出）；用户在发起对话框里选"只提醒我"也能直接建
 // （create_reminder，createFromUser），时间表和定时触发的任务同一套。
 // - 状态：一次性的 待触发 → 已触发；重复的（每天、每周几、每月几号、每年某月某日、按我的工作日）一直待触发；任何时候可以取消。
 // - 每条提醒有一张提醒卡；提醒变了，卡片跟着变（同一事务）。
 // - 存储：任务看板频道上的 reminder 事件（最新状态 + 这次的变化 + 谁做的），派生视图 reminders（views.ts）。
-// - "按我的工作日"（29 号票）：下一次按当时的个人工作日历算（scheduleContext）。工作日历改了（比如明天标成休息），
+// - "按我的工作日"：下一次按当时的个人工作日历算（scheduleContext）。工作日历改了（比如明天标成休息），
 //   recalculate 按新的工作日历重算跟着它变的提醒（dependsOnWorkdayCalendar），下一次变了就追加一条 updated（by system），
 //   提醒卡跟着变，不用重建提醒。
 // - 到点：调度器（时钟可注入）直接通知前端，不拉起任何 agent：待我处理里放一条置顶的提醒事项、推一条临时的 notify。
 //   同一个提醒在待我处理里最多一条置顶：新的一次到点时，上一次的置顶事项取消置顶（还没处理的顺手归档）。
 // - 晚了才到点（守护进程那时没在运行、机器睡着了）：晚了 60 分钟以内照发，标明晚了多久；更晚的不弹提示，
-//   改放进待我处理（错过的提醒）。重复提醒错过多次只按最近一次处理（规格第 13 节）。19 号票把同一套规则扩到定时作业。
+//   改放进待我处理（错过的提醒）。重复提醒错过多次只按最近一次处理（规格第 13 节）。把同一套规则扩到定时作业。
 // - 调度：启动时把待触发的提醒登记进调度器（已经过了点的马上按上面的规则处理）；之后每条 reminder 事件
 //   （不论是秘书、用户还是到点引起的）都按它的新状态重新登记。所以守护进程正常重启后，还没到点的提醒照常触发。
-// - 日历（35 号票）：calendar 给出一段时间里每条没取消的提醒的时间表展开（按当前的工作日历）、现在的时间表从哪一刻起生效、
+// - 日历：calendar 给出一段时间里每条没取消的提醒的时间表展开（按当前的工作日历）、现在的时间表从哪一刻起生效、
 //   这段时间里的触发记录（照发的、错过的，按触发时间：reminder 事件里的 lastFiredAt 就是那一次该响的时刻）。
-// - 事件发生时提醒（77 号票）：提醒不写时间表，写在等什么事件（event，和事件触发的任务同一套登记表）；一直待触发，
+// - 事件发生时提醒：提醒不写时间表，写在等什么事件（event，和事件触发的任务同一套登记表）；一直待触发，
 //   事件来源推来一次（event-sources/ 的分发调 fireOnEvent），就像到点一样发一条通知（待我处理里置顶一条、推一条 notify），
 //   reminder 事件记下这次事件的时刻和一句话（去重键由事件来源给，同一次事件只提醒一次）。日历上不列它们。
-// - 归档、删除（185 号票）：已经结束的（一次性的已触发、已取消）能归档（archived，看板上进"已归档"；没有取消归档，照任务）；
+// - 归档、删除：已经结束的（一次性的已触发、已取消）能归档（archived，看板上进"已归档"；没有取消归档，照任务）；
 //   任何提醒都能删——状态变成已删除（编号不收回），调度器跟着 reminder 事件取消计时器（还没触发的不再响），提醒卡写"已删除"
 //   （卡片作废，再点旧按钮回"提醒已经删了"），待我处理里它的到点、错过的事项删掉，日历上不再列它；事件日志只追加一条 deleted，
 //   原来的事件不改写（这不是"彻底删除素材"）。用户在看板、提醒卡上做的交 reminder_action（act，各自成败、逐条回报；卡片动作只收
@@ -76,7 +76,7 @@ export interface ReminderFiring {
   lateMinutes?: number;
 }
 
-/** 日历上的一条提醒（35 号票） */
+/** 日历上的一条提醒 */
 export interface ReminderCalendarEntry {
   /** 到点提醒的（事件发生时提醒的不上日历） */
   reminder: Reminder & { schedule: ReminderSchedule };
@@ -105,11 +105,11 @@ export interface ReminderService {
   /** 建一条提醒（连同它的提醒卡）；时间不对时抛 ReminderInputError */
   create(input: NewReminder, by: Speaker): { reminder: Reminder; cardId: string };
   /**
-   * 用户在发起对话框里选了"只提醒我"（create_reminder，76 号票）：建一条提醒，同一幂等键重发拿到同一条；时间不对的抛 RequestRejected
+   * 用户在发起对话框里选了"只提醒我"（create_reminder）：建一条提醒，同一幂等键重发拿到同一条；时间不对的抛 RequestRejected
    */
   createFromUser(input: NewReminder, idempotencyKey: string): { reminderId: string };
   /**
-   * 事件发生时提醒的（77 号票）：等的事件来了（事件来源经 event-sources/ 的分发推来），发一条通知。不在待触发、不是等事件的不响；
+   * 事件发生时提醒的：等的事件来了（事件来源经 event-sources/ 的分发推来），发一条通知。不在待触发、不是等事件的不响；
    * 同一个去重键只响一次
    */
   fireOnEvent(reminderId: string, event: TriggerEvent, idempotencyKey: string): void;
@@ -121,20 +121,20 @@ export interface ReminderService {
   editFromCard(reminderId: string, edit: ReminderEdit): CardActionEffect<ReminderCardPayload>;
   /** 用户在提醒卡上"取消提醒"的结果（卡片动作 cancel_reminder）：卡片已处理 */
   cancelFromCard(reminderId: string): CardActionEffect<ReminderCardPayload>;
-  /** 归档一条已经结束的提醒（185 号票）：一次性的已触发、已取消；还没结束、归档过、删过的抛 RequestRejected（not_allowed） */
+  /** 归档一条已经结束的提醒：一次性的已触发、已取消；还没结束、归档过、删过的抛 RequestRejected（not_allowed） */
   archive(reminderId: string, by: Speaker): { reminder: Reminder; cardId: string };
-  /** 删一条提醒（185 号票）：任何没删过的；还没触发的停掉时间表，提醒卡写已删除，待我处理里它的事项删掉 */
+  /** 删一条提醒：任何没删过的；还没触发的停掉时间表，提醒卡写已删除，待我处理里它的事项删掉 */
   remove(reminderId: string, by: Speaker): { reminder: Reminder; cardId: string };
   /** 删一条提醒的事件（不追加）：快速动作"删除简单提醒"和卡片更新、操作记录同一事务追加；不存在、删过的抛 RequestRejected */
   buildRemove(reminderId: string, by: Speaker): { reminder: Reminder; events: NewEvent[] };
-  /** 用户在看板、提醒卡上对一条或几条提醒做同一件事（reminder_action，185 号票）：取消、归档、删除，各自成败、逐条回报 */
+  /** 用户在看板、提醒卡上对一条或几条提醒做同一件事（reminder_action）：取消、归档、删除，各自成败、逐条回报 */
   act(params: ReminderActionParams, idempotencyKey: string): ReminderActionResult;
   get(reminderId: string): Reminder | undefined;
   /** 待触发的提醒（给秘书看，比如它给错了编号时） */
   pending(): Reminder[];
   /** 没删过的提醒（先建的在前；秘书给错了要删的编号时列出来） */
   list(): Reminder[];
-  /** 日历（35 号票）：[from, to) 之间每条没取消的提醒的时间表展开、现在的时间表从哪一刻起生效、这段时间的触发记录 */
+  /** 日历：[from, to) 之间每条没取消的提醒的时间表展开、现在的时间表从哪一刻起生效、这段时间的触发记录 */
   calendar(from: Date, to: Date): ReminderCalendarEntry[];
   /** 工作日历变了：按新的工作日历重算跟着它变的提醒的下一次（变了才追加事件） */
   recalculate(): void;
@@ -153,9 +153,9 @@ export interface ReminderServiceOptions {
   scheduleContext: () => ScheduleContext;
   /** 晚了这么多分钟以内照发；更晚的改放进待我处理（规格第 13 节；默认见 thresholds.ts，配置 reminders.lateLimitMinutes） */
   lateLimitMinutes?: number;
-  /** 事件发生时提醒的（77 号票）：事件触发方式对不对（登记表和来源的实现现查）；不给就不收事件发生时提醒的 */
+  /** 事件发生时提醒的：事件触发方式对不对（登记表和来源的实现现查）；不给就不收事件发生时提醒的 */
   checkEvent?: (trigger: EventTrigger) => string[];
-  /** reminder_action 里没想到的错记日志（185 号票）；不给就不记 */
+  /** reminder_action 里没想到的错记日志；不给就不记 */
   log?: (line: string) => void;
 }
 
@@ -176,7 +176,7 @@ function cardPayloadOf(r: Reminder): ReminderCardPayload {
   };
 }
 
-/** 删过的提醒不能再动（185 号票） */
+/** 删过的提醒不能再动 */
 const deletedError = (reminder: Reminder) => new RequestRejected("not_allowed", t("reminders.alreadyDeleted", { id: reminder.id, text: reminder.text }));
 
 /** 编号对不上：说明没有，再列出能做这件事的那几条（秘书给错了编号时照着改） */
@@ -244,7 +244,7 @@ export function createReminderService(options: ReminderServiceOptions): Reminder
         .join(t("reminders.listSep"));
       throw new RequestRejected("not_found", list ? t("reminders.noSuchPending", { id: reminderId, list }) : t("reminders.noSuchNone", { id: reminderId }));
     }
-    // 185 号票起是 not_allowed（原来是 bad_params：提醒卡上点不到这里，秘书只看原因，reminder_action 逐条回报时码要对）
+    // 是 not_allowed（原来是 bad_params：提醒卡上点不到这里，秘书只看原因，reminder_action 逐条回报时码要对）
     if (reminder.status === "fired") throw new RequestRejected("not_allowed", t("reminders.alreadyFired", { id: reminderId, text: reminder.text }));
     if (reminder.status === "cancelled") throw new RequestRejected("not_allowed", t("reminders.alreadyCancelled", { id: reminderId, text: reminder.text }));
     return reminder;
@@ -310,7 +310,7 @@ export function createReminderService(options: ReminderServiceOptions): Reminder
 
   /** 取消的事件（秘书的工具、reminder_action）：提醒卡已处理，结果是"取消提醒"；秘书取消的写明是按你的话 */
   const cancelEvents = (reminder: Reminder, by: Speaker): { reminder: Reminder; events: NewEvent[] } => {
-    // 名字写占位，前端按用户起的名字显示（43 号票）
+    // 名字写占位，前端按用户起的名字显示
     const note = by === "agent" ? t("reminders.cancelledByAssistant", { assistant: ASSISTANT_NAME_MARK }) : undefined;
     return {
       reminder,
@@ -502,7 +502,7 @@ export function createReminderService(options: ReminderServiceOptions): Reminder
         firings.set(reminder.id, [...(firings.get(reminder.id) ?? []), { dueAt: reminder.lastFiredAt, change, ...(lateMinutes === undefined ? {} : { lateMinutes }) }]);
       }
       return listReminders(store.reader)
-        // 取消了的、删了的（185 号票）不上日历
+        // 取消了的、删了的不上日历
         .filter((r): r is Reminder & { schedule: ReminderSchedule } => r.status !== "cancelled" && r.status !== "deleted" && r.schedule !== undefined)
         .map((reminder) => ({
           reminder,

@@ -1,4 +1,4 @@
-// 记忆的推理库（rg.db）只读看的形状（233 号票）：网页"记忆"页的结论、证据与推理、问题箱三层从这个契约取。
+// 记忆的推理库（rg.db）只读看的形状：网页"记忆"页的结论、证据与推理、问题箱三层从这个契约取。
 // - 本文件只是类型和取值表（不引用 TypeBox、不引用 @ergo/memory）：守护进程把 @ergo/memory 的数据映射成这里的视图，
 //   网页按它画；两边对"一条结论有哪些字段""哪些状态"看法一致；
 // - 给人看的说法（层、状态、把握、认知来源、问题的种类和状态、修订的哪种操作）由网页的状态层 state/memory-graph.ts 按这里
@@ -14,7 +14,7 @@ export type MemoryClaimTier = (typeof MEMORY_CLAIM_TIERS)[number];
 
 /**
  * 结论的状态：已验证、猜测（没验证，按把握分高低）、已撤回、已被取代（@ergo/memory 的 CLAIM_STATUSES）。
- * 329 号票起"待复核"不再是状态，是单独的复核标记（MemoryClaimBrief.needsReview）
+ * "待复核"不再是状态，是单独的复核标记（MemoryClaimBrief.needsReview）
  */
 export const MEMORY_CLAIM_STATUSES = ["active", "contested", "retracted", "superseded"] as const;
 export type MemoryClaimStatus = (typeof MEMORY_CLAIM_STATUSES)[number];
@@ -49,7 +49,7 @@ export type MemoryLinkWeight = (typeof MEMORY_LINK_WEIGHTS)[number];
 
 /**
  * 推断的状态（@ergo/memory 的 INFERENCE_STATUSES）：成立、停用（前提被删了，等整理重推）、撤回、
- * 历史（329 号票：结论被直接证实以后，原来那条推理链记作历史）
+ * 历史（结论被直接证实以后，原来那条推理链记作历史）
  */
 export const MEMORY_INFERENCE_STATUSES = ["active", "needs_review", "retracted", "history"] as const;
 export type MemoryInferenceStatus = (typeof MEMORY_INFERENCE_STATUSES)[number];
@@ -58,11 +58,11 @@ export type MemoryInferenceStatus = (typeof MEMORY_INFERENCE_STATUSES)[number];
 export const MEMORY_REVISION_OPS = ["create", "update", "delete"] as const;
 export type MemoryRevisionOp = (typeof MEMORY_REVISION_OPS)[number];
 
-/** 267 号票：推理图谱是谁写的（@ergo/memory 的 WRITE_ACTORS：夜班、记忆管理员、用户的表态、用户发起） */
+/** 推理图谱是谁写的（@ergo/memory 的 WRITE_ACTORS：夜班、记忆管理员、用户的表态、用户发起） */
 export const MEMORY_WRITE_ACTORS = ["nightly", "curator", "user_verdict", "user"] as const;
 export type MemoryWriteActor = (typeof MEMORY_WRITE_ACTORS)[number];
 
-/** 267 号票：唯一写入口的哪种写操作（@ergo/memory 的 WRITE_OPS） */
+/** 唯一写入口的哪种写操作（@ergo/memory 的 WRITE_OPS） */
 export const MEMORY_WRITE_OPS = [
   "ingest",
   "extract",
@@ -100,7 +100,7 @@ export type MemoryQuestionStatus = (typeof MEMORY_QUESTION_STATUSES)[number];
 
 /**
  * 问题的经过里的一笔（@ergo/memory 的 QUESTION_EVENTS）：生成、顺口问了、跳过一次、跳过两次退下、答了、判过了、"别问这个"、过期、不用问了；
- * 271 号票加了 unsure（每晚整理时记忆管理员拿不准用户有没有在答，留到下一夜）
+ * 加了 unsure（每晚整理时记忆管理员拿不准用户有没有在答，留到下一夜）
  */
 export const MEMORY_QUESTION_EVENTS = ["created", "asked", "skipped", "retired", "answered", "resolved", "declined", "expired", "obsolete", "unsure"] as const;
 export type MemoryQuestionEvent = (typeof MEMORY_QUESTION_EVENTS)[number];
@@ -145,7 +145,7 @@ export interface MemoryClaimBrief {
   statement: string;
   tier: MemoryClaimTier;
   status: MemoryClaimStatus;
-  /** 329 号票：复核标记（依据刚变了、等下一次整理重判；不改真值状态） */
+  /** 复核标记（依据刚变了、等下一次整理重判；不改真值状态） */
   needsReview: boolean;
   confidence: MemoryConfidence;
   /** 认知来源 */
@@ -161,7 +161,7 @@ export interface MemoryClaimBrief {
   refutes: number;
 }
 
-/** 结论列表一页（233 号票，GET /api/memory/claims） */
+/** 结论列表一页（GET /api/memory/claims） */
 export interface MemoryClaimListPage extends MemoryGraphStatus {
   /** 符合条件的一共几条（不受 limit 限制） */
   total: number;
@@ -237,7 +237,7 @@ export interface MemoryRevisionView {
   changes: MemoryRevisionChange[];
   reason: string;
   at: string;
-  /** 267 号票：留下这条修订的那次写（唯一写入口的留痕）：谁写的、哪种写操作、经谁转达；写入口以前的老修订没有 */
+  /** 留下这条修订的那次写（唯一写入口的留痕）：谁写的、哪种写操作、经谁转达；写入口以前的老修订没有 */
   by?: { actor: MemoryWriteActor; op: MemoryWriteOp; via?: string };
 }
 
@@ -272,11 +272,11 @@ export interface MemoryClaimDetailView extends MemoryGraphStatus {
   /** 用到的全部原话（去重） */
   evidence: MemoryEvidenceQuote[];
   revisions: MemoryRevisionView[];
-  /** 330 号票（R5）：猜测为什么还是猜测——没证实的前提、证据哪里不够（不是猜测的没有） */
+  /** ADR-0032 R5：猜测为什么还是猜测——没证实的前提、证据哪里不够（不是猜测的没有） */
   whyGuess?: MemoryGuessReason;
 }
 
-/** 330 号票（R5）：一条猜测为什么还是猜测（@ergo/memory 的 GuessReason） */
+/** ADR-0032 R5：一条猜测为什么还是猜测（@ergo/memory 的 GuessReason） */
 export interface MemoryGuessReason {
   /** 推理链上没证实的前提（猜测、拿不准、撤回的）；status 是原值 */
   unverifiedPremises: { id: string; statement: string; status: string }[];
@@ -288,7 +288,7 @@ export interface MemoryGuessReason {
 export const MEMORY_STRATEGY_STATUSES = ["proposed", "active", "paused", "retracted"] as const;
 export type MemoryStrategyStatus = (typeof MEMORY_STRATEGY_STATUSES)[number];
 
-/** 一条做法（330 号票，GET /api/memory/strategies）：什么场合 → 怎么做，挂着它依据的结论 */
+/** 一条做法（GET /api/memory/strategies）：什么场合 → 怎么做，挂着它依据的结论 */
 export interface MemoryStrategyView {
   id: string;
   /** 触发场合的说法 */
@@ -307,7 +307,7 @@ export interface MemoryStrategyView {
   createdAt: string;
 }
 
-/** 做法列表（330 号票，GET /api/memory/strategies）：不含撤回的 */
+/** 做法列表（GET /api/memory/strategies）：不含撤回的 */
 export interface MemoryStrategiesView extends MemoryGraphStatus {
   items: MemoryStrategyView[];
 }
@@ -329,12 +329,12 @@ export interface MemoryLastNight {
   needsReview: number;
   /** 没跑成、推后的原因（给人看的一句话） */
   reason?: string;
-  /** 记忆管理员这一夜自己额外花了几次模型调用（叙述、判断用；242 号票；没见过的是没有） */
+  /** 记忆管理员这一夜自己额外花了几次模型调用（叙述、判断用；没见过的是没有） */
   curatorModelCalls?: number;
 }
 
 /**
- * 记忆管理员（242 号票）的 agent 编号和它的会话：按需拉起的 agent（243 号票：起来时只建壳，来输入、到 03:00 才拉起，闲置退出），
+ * 记忆管理员的 agent 编号和它的会话：按需拉起的 agent（起来时只建壳，来输入、到 03:00 才拉起，闲置退出），
  * 每晚 03:00 被唤醒去整理，平时是记忆页上可以找它说话的那一层（#/more/memory/curator）。会话照负责人的频道开（maintainer:<agent id>），网页按这个频道订阅、发消息。
  */
 export const MEMORY_CURATOR_AGENT_ID = "memory-curator";
@@ -360,7 +360,7 @@ export interface MemorySummaryView extends MemoryGraphStatus {
 /** 一条问题要弄清的对象（断言或事实）现在的样子 */
 export interface MemoryQuestionTargetView {
   id: string;
-  /** 330 号票：strategy 是一条做法（"做法的理由没了，还要不要"） */
+  /** strategy 是一条做法（"做法的理由没了，还要不要"） */
   kind: "claim" | "fact" | "strategy";
   statement: string;
   /** 断言是 CLAIM_STATUSES、事实是 FACT_STATUSES 的原值；不在了是 missing */
@@ -401,7 +401,7 @@ export interface MemoryQuestionItem {
   outcome: string | null;
   /** 回答记成的那条证据 */
   answerEvidenceId: string | null;
-  /** 回答的原话（264 号票：证据还在、能当依据时有；被忘掉、删掉了是 null） */
+  /** 回答的原话（证据还在、能当依据时有；被忘掉、删掉了是 null） */
   answerText: string | null;
   /** 回答读成什么；还没答是 null */
   verdict: MemoryAnswerVerdict | null;
@@ -411,7 +411,7 @@ export interface MemoryQuestionItem {
   lastAskedAt: string | null;
   /** 什么时候答的；没答是 null */
   answeredAt: string | null;
-  /** 经过（264 号票：问过、跳过、答了、别问这个……），按先后；detail 是 @ergo/memory 写的一句话 */
+  /** 经过（问过、跳过、答了、别问这个……），按先后；detail 是 @ergo/memory 写的一句话 */
   history: MemoryQuestionLogEntry[];
   createdAt: string;
   expiresAt: string;

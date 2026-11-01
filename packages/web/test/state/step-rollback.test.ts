@@ -1,4 +1,4 @@
-// 流程会话的步骤开始回退点（153 号票：带 report_step、状态进行中的那条 assistant 消息之前
+// 流程会话的步骤开始回退点（带 report_step、状态进行中的那条 assistant 消息之前
 // 是"撤回到步骤「…」开始前"）的前端状态：回放负责人会话频道上的事件（手写的，照主切面 daemon/test/main/session-rollback-workflow.test.ts
 // 的形状），看
 // - 步骤开始的记号（stage_start 带 stepId）挂在含这次 report_step 的那条回复上；没说话的（只有调用）挂在这次调用那一块上（汇报步骤

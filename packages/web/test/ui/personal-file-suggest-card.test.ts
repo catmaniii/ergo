@@ -1,6 +1,6 @@
-// 候选核对卡（283 号票，ui/cards/PersonalFileSuggestCard.tsx）上从手机通讯录挑的人（299 号票）：用 React 在 Node 里渲染出来查——
-// 建档那一条写"从手机通讯录挑的"（不写提到几次）；电话一位一位列在小格子里（照 281 的核对卡）；底下写"号码请一位一位对一遍"，
-// 不写"从聊天里听来的"；界面上没有"秘书""待我处理"这些字。301 号票：导入的通讯录 vCard（origin vcard）建档写"从导入的通讯录来的"、
+// 候选核对卡（ui/cards/PersonalFileSuggestCard.tsx）上从手机通讯录挑的人：用 React 在 Node 里渲染出来查——
+// 建档那一条写"从手机通讯录挑的"（不写提到几次）；电话一位一位列在小格子里（照核对卡）；底下写"号码请一位一位对一遍"，
+// 不写"从聊天里听来的"；界面上没有"秘书""待我处理"这些字。导入的通讯录 vCard（origin vcard）建档写"从导入的通讯录来的"、
 // 带关系的写在称呼后面，底下写明没勾的不再提、号码逐位核对。
 import { type ComponentProps, createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -44,7 +44,7 @@ describe("候选核对卡上从手机通讯录挑的人", () => {
     expect(html).not.toMatch(/秘书|待我处理/);
   });
 
-  test("301：导入的通讯录——建档写从导入的通讯录来的、关系写在称呼后面、纪念日照写；没勾的不再提、号码逐位核对", () => {
+  test("导入的通讯录——建档写从导入的通讯录来的、关系写在称呼后面、纪念日照写；没勾的不再提、号码逐位核对", () => {
     const mom = { name: "张丽", relation: "母亲", isNew: true };
     const html = render({
       ...picked,

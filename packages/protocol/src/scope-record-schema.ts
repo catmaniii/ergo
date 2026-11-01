@@ -1,4 +1,4 @@
-// 范围记录的 schema（规格第 10 节，18 号票），用 TypeBox 定义，守护进程和 Web 共用生成的类型。名字在 scope-records.ts。
+// 范围记录的 schema（规格第 10 节），用 TypeBox 定义，守护进程和 Web 共用生成的类型。名字在 scope-records.ts。
 // - 项目列表频道上的 scope_record 事件：项目负责人的一条范围记录（简版项目页的"范围记录"一节）；
 // - 任务看板频道上的 scope_record 事件：不属于项目的任务（任务自己的负责人）的一条范围记录（任务详情里显示）。
 //   落在哪个频道由 scopeRecordChannel 定（scope-records.ts）。

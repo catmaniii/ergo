@@ -1,4 +1,4 @@
-// 语音气泡播放条的尺寸（42 号票）：每套风格的 voice-* token（像素）换算成状态层算框宽、波形格数要的数
+// 语音气泡播放条的尺寸：每套风格的 voice-* token（像素）换算成状态层算框宽、波形格数要的数
 // （state/voice.ts 的 VoiceBarSizes）。styles/voice.css 按同样的 token 画，两边对得上；页面（ui/conversation/VoiceBubble.tsx）
 // 按现在这套风格取。纯数据和纯函数。
 import type { VoiceBarSizes } from "../state/voice.ts";

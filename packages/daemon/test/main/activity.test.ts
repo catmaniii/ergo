@@ -1,4 +1,4 @@
-// 主切面：活动状态（规格术语"活动状态"，25 号票）。agent 此刻在做什么：休眠、干活中（附带在做什么）、等你、排队。
+// 主切面：活动状态（规格术语"活动状态"）。agent 此刻在做什么：休眠、干活中（附带在做什么）、等你、排队。
 // - 活动状态频道在 agent 被唤起、开始干活、等用户（审批）、闲置退出时各推一条落盘的 activity 事件（排队见 agent-limits.test.ts）；
 // - "等你"不只看子进程：审批挂起、这一轮结束以后，还有属于这个 agent 的待处理审批卡、提问卡就是等你（说明写原因），
 //   处理掉以后回到休眠；由事件推出，守护进程重启后照样对；
@@ -44,7 +44,7 @@ const activityOf = (frontend: TestFrontend, agentId: string) =>
 /** 一条活动状态：状态和说明 */
 const is = (state: ActivityState, detail?: ActivityDetail) => ({ state, ...(detail === undefined ? {} : { detail }) });
 const kindIs = (kind: ActivityDetail["kind"]) => (a: { detail?: ActivityDetail }) => a.detail?.kind === kind;
-/** 等你批准读文件：369 号票起说明带上那张卡的编号 */
+/** 等你批准读文件：说明带上那张卡的编号 */
 const approvalOf = (cardId: string): ActivityDetail => ({ kind: "approval", tool: "读文件", cardId });
 const cardsOf = (frontend: TestFrontend): Card[] => frontend.events({ channel: CARDS, type: EVENT_TYPES.card }).map((f) => (f.payload as CardEventPayload).card);
 const taskChanges = (frontend: TestFrontend) => frontend.events({ channel: BOARD, type: EVENT_TYPES.task }).map((f) => (f.payload as TaskEventPayload).change);
@@ -192,7 +192,7 @@ describe("活动状态频道", () => {
     await waitUntil(() => activityOf(frontend, "secretary").some((a) => a.state === "waiting_for_user"), { timeoutMs: 20_000, describe: () => JSON.stringify(activityOf(frontend, "secretary")) });
     const card = cardsOf(frontend).find((c) => c.type === "questions")!;
     expect(activityOf(frontend, "secretary").slice(-2)).toEqual([is("working", { kind: "handling_input" }), is("waiting_for_user", { kind: "clarification", cardId: card.id })]);
-    // 369 号票：标题说在等你的卡，待办里一定有一条；"去看看 ›"回秘书会话定位到它
+    // 标题说在等你的卡，待办里一定有一条；"去看看 ›"回秘书会话定位到它
     const [item] = td.daemon.inbox.itemsForCard(card.id);
     expect(item).toMatchObject({ kind: "card", urgency: "non_blocking", origin: { conversation: SECRETARY } });
     expect(td.daemon.inbox.isProcessed(item!)).toBe(false);

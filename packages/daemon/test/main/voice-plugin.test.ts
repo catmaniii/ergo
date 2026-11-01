@@ -1,6 +1,6 @@
-// 主切面：语音拆成插件（214 号票，ADR-0027；用户 2026-10-20："把内置浏览器和网页工具，日历和语音这三个拆成插件"）。
+// 主切面：语音拆成插件（ADR-0027；"把内置浏览器和网页工具，日历和语音这三个拆成插件"）。
 // 开着时的行为由语音的主切面（voice*.test.ts、send-voice、auto-voice-announce）照旧测，一条不改；这里测停用、启用、移除。
-// 走真实的装配路径：经组合根和插件清单起守护进程，设置 · 插件（211 号票的 POST /api/plugins/voice）运行中停用、启用、移除；
+// 走真实的装配路径：经组合根和插件清单起守护进程，设置 · 插件（POST /api/plugins/voice）运行中停用、启用、移除；
 // 识别进程是假的（fixtures/fake-recognizer.mjs），合成服务是假的（helpers/tts.ts），模型是 faux。
 // - 停用：识别进程停掉、合成不再调用；还没识别完的语音不再挡输入队列（只有语音的先不交，带附件的照交、语音那段是"识别失败"）；
 //   历史里的语音照样投影成识别出的文字；秘书没有口语总结、发语音工具，系统提示里不讲念语音；再发语音回"语音插件没启用"；
@@ -50,7 +50,7 @@ const messages = (frontend: TestFrontend): MessageEnvelope[] => frontend.events(
 const lastEcho = (frontend: TestFrontend) => stripTimeMarkers(withoutFoldersBlock(textOf(messages(frontend).filter((m) => m.speaker === "agent").at(-1)!.parts)));
 /** 回显的各行 */
 const linesOf = (echo: string) => echo.split("\n");
-/** 秘书这一轮有的工具：开头那一份（换了一套工具接着会话也是开头一份、按这次交的先后，会话中途不列增减，273 号票） */
+/** 秘书这一轮有的工具：开头那一份（换了一套工具接着会话也是开头一份、按这次交的先后，会话中途不列增减） */
 const toolsIn = toolsNow;
 /** 秘书这一轮的系统提示：最后一条 [system] 那一段（换了系统提示接着会话时，会话中途另有一条） */
 const latestPrompt = (echo: string) => {
@@ -72,7 +72,7 @@ const refusalOf = (r: ResponseFrame): string => {
 };
 const ECHO = Array.from({ length: 6 }, () => ({ kind: "echo_context" as const }));
 
-describe("语音插件：运行中停用、启用（214 号票）", () => {
+describe("语音插件：运行中停用、启用", () => {
   it("停用：识别进程停掉；还没识别完的语音不再挡队列（只有语音的先不交）；历史照样投影成文字；秘书没有口语总结和发语音；再发语音回没启用。启用：识别进程起来，接着识别、识别出来交给秘书", { timeout: 90_000 }, async () => {
     const hold = holdFile();
     const { url, daemon, recognizerLog: log } = await startTestDaemon({ secretary: ECHO });
@@ -209,7 +209,7 @@ describe("语音插件：运行中停用、启用（214 号票）", () => {
   });
 });
 
-describe("语音插件：移除并连数据删（214 号票）", () => {
+describe("语音插件：移除并连数据删", () => {
   it("删录音、合成出的音频、语音事件里的文字、参考音色、待我处理里语音的说明；会话里交给过二狗的那部分不删", { timeout: 90_000 }, async () => {
     const tts = await startFakeSpeechService();
     const reply = "好的，明早九点提醒你交报告。";

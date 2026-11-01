@@ -1,4 +1,4 @@
-// 语音插件的网页这一半（214 号票，ADR-0027 的网页插槽；照 assembly.test.ts 走真实的装配路径）：守护进程那边的主切面
+// 语音插件的网页这一半（ADR-0027 的网页插槽；照 assembly.test.ts 走真实的装配路径）：守护进程那边的主切面
 // （packages/daemon/test/main/plugin-status.test.ts）经组合根和插件清单起真的守护进程、配置里停用语音插件，把网页收到的事件流
 // 录成 recordings/plugins-voice-off.json；这里原样交给前端状态层，用真的网页插件清单建宿主、按状况装和停，再用 React 在 Node 里渲染：
 // - 开着：输入框右边有"文字 / 语音"切换（话筒），设置列表里有"语音"、页面是语音插件画的，后台部件里有自动播放；
@@ -59,9 +59,9 @@ describe("语音插件的网页这一半", () => {
       ["looki", "running"],
     ]);
     expect(host.running("voice")).toBe(false);
-    // 设置页里只剩别的插件的（305 号票：设置 · Claude Code）
+    // 设置页里只剩别的插件的（设置 · Claude Code）
     expect([host.list("composerVoice"), host.list("settingsPages").map((e) => e.id)]).toEqual([[], ["claude-code"]]);
-    // 后台部件里只剩别的插件的（299 号票：手机插件同步手机日历；300 号票：同步照片、位置）
+    // 后台部件里只剩别的插件的（手机插件同步手机日历；同步照片、位置）
     expect(host.list("background").map((e) => e.id)).toEqual(["phone-calendar-sync", "phone-media-sync"]);
     expect([host.unavailable("composerVoice", "voice"), host.unavailable("background", "voice-autoplay"), host.unavailable("settingsPages", "voice")]).toEqual(["语音", "语音", "语音"]);
     // 别的插件照常

@@ -1,4 +1,4 @@
-// 367 号票：运行时交给负责人的长通知在会话里折成一行，只改显示。这里查守护进程这一边：交给 agent 的还是全文、不多存东西；
+// 运行时交给负责人的长通知在会话里折成一行，只改显示。这里查守护进程这一边：交给 agent 的还是全文、不多存东西；
 // 阶段说明那一行照协议包的写法写，界面认得出是哪一步；历史分页带着"交给了 agent"（往上翻出来的老消息也折）。折起来怎么画在网页的测试里。
 import path from "node:path";
 import { letterKindOf, maintainerChannel, type MessageEventPayload, stageBriefOf } from "@ergo/protocol";

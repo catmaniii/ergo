@@ -1,4 +1,4 @@
-// 转 JS（318 号票）：剥类型用 Node 自带的；相对路径的 .ts 改成 .js，工作区包名改成到 packages/<包>/src/index.js 的相对路径。
+// 转 JS：剥类型用 Node 自带的；相对路径的 .ts 改成 .js，工作区包名改成到 packages/<包>/src/index.js 的相对路径。
 import { describe, expect, it } from "vitest";
 import { rewriteSpecifiers, transpileSource } from "../../build/transpile.ts";
 

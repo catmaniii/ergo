@@ -1,8 +1,8 @@
-// 每周的归档清单（规格第 8、13 节，19 号票）：任务模块在调度器上登记的一个内部作业（scheduler/internal-jobs.ts，错过了开机后补一次），
+// 每周的归档清单（规格第 8、13 节）：任务模块在调度器上登记的一个内部作业（scheduler/internal-jobs.ts，错过了开机后补一次），
 // 把结束（已完成、失败、已取消）超过 archiveAfterDays 天（thresholds.ts，配置 tasks.thresholds.archiveAfterDays）、还没归档的任务
 // 汇总成一张归档清单卡（archive_list），放进待我处理（不卡任务）。每一项可选：
 // - 归档：任务变为已归档（看板的已归档分组）；
-// - 继续改：已完成的走 13 号票的返工（从最后一个阶段重开，也可以指明阶段；"用户对产出的反应"里的"要求返工"照常产生），
+// - 继续改：已完成的走返工（从最后一个阶段重开，也可以指明阶段；"用户对产出的反应"里的"要求返工"照常产生），
 //   失败的走重试，任务回到执行中（名额满了回到排队中）；已取消的、转为项目结束的在状态机里回不到执行中，没有这一项；
 // - 先留着：任务不变（下周还结束超过这么多天、还没归档的话会再出现）。
 // 每一项都选了之后卡片算处理完；新的一周的清单出来时上一张还没处理完的过期。任务的变化走执行控制器（继续改）和任务模块（归档），
@@ -57,7 +57,7 @@ export function createArchiveList(options: ArchiveListOptions): ArchiveList {
     const cutoff = clock.now() - options.afterDays * DAY_MS;
     const items: ArchiveListItem[] = tasks
       .list()
-      // 项目内部任务不在全局看板上，不进归档清单（64 号票：用户在项目页上归档它们；清单卡的文字秘书看得到）
+      // 项目内部任务不在全局看板上，不进归档清单（用户在项目页上归档它们；清单卡的文字秘书看得到）
       .filter((t) => !isProjectInternal(t) && ENDED_TASK_STATES.includes(t.state) && t.state !== "archived" && Date.parse(t.updatedAt) <= cutoff)
       .toSorted((a, b) => a.updatedAt.localeCompare(b.updatedAt))
       .map((t) => ({ taskId: t.id, title: t.title, state: t.state, ...(t.endKind ? { endKind: t.endKind } : {}), endedAt: t.updatedAt, choices: choicesOf(t) }));
@@ -120,7 +120,7 @@ export function archiveListCardType(deps: { tasks: TaskService; execution: () =>
               events.push(...prepared.events);
               afterCommit = prepared.afterCommit;
             } else {
-              // 返工和"从这里重做"同一条路（84 号票）：先停稳负责人手头这一轮再重置，和卡片更新同一事务落盘，落盘后（或没落盘）放开
+              // 返工和"从这里重做"同一条路：先停稳负责人手头这一轮再重置，和卡片更新同一事务落盘，落盘后（或没落盘）放开
               const params = { taskId: task.id, action: "rework" as const, ...(stageId === undefined ? {} : { stageId }), ...note };
               return deps
                 .execution()

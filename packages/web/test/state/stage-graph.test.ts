@@ -1,4 +1,4 @@
-// 91 号票：长程任务的计划栏画成依赖图——第几阶段是最长那条前置链的长度（同号的就是并行的），
+// 长程任务的计划栏画成依赖图——第几阶段是最长那条前置链的长度（同号的就是并行的），
 // 同一阶段有几个时按计划里的先后编 4a、4b；自上而下分层、同层并排、曲线连线；节点大小按栏的宽高算；
 // 有等你确认的计划（计划卡、计划变更卡）就画它（新加的标"新"、改过的标"改"、去掉的也画上），否则画现在生效的那份
 // （被计划变更去掉的阶段也留在图上）。
@@ -142,7 +142,7 @@ describe("画哪一份计划：回放 task-plan-change", () => {
     expect(g!.nodes[0]!.marks?.perm.map((m) => m.grantId)).toEqual(["dir1"]);
   });
 
-  test("拒绝之后、负责人自行调整了顺序：画现在生效的那份，编号是存在计划里的、调整了先后也不变（93 号票）；执行中的状态和出过的状况", () => {
+  test("拒绝之后、负责人自行调整了顺序：画现在生效的那份，编号是存在计划里的、调整了先后也不变；执行中的状态和出过的状况", () => {
     const state = replay(inputs);
     const g = taskStageGraph(state, "t-1", convItems(state));
     expect(g?.kind).toBe("live");
@@ -173,10 +173,10 @@ describe("计划变更加一个阶段、去掉一个阶段（构造）", () => {
   const basePlan = (planCard.payload as { plan: PlanChangeCardPayload["plan"] }).plan;
   const s1 = basePlan.stages[0]!;
   // 变更后：s2 去掉，加 s3（在 s1 之后）
-  // 新加的阶段没有编号（93 号票：守护进程定计划时才给；这里不给，按依赖图现算）
+  // 新加的阶段没有编号（守护进程定计划时才给；这里不给，按依赖图现算）
   const { code: _code, ...s1Fields } = s1;
   const s3 = { ...s1Fields, stageId: "s3", title: "写摘要", dependsOn: ["s1"], policy: { grants: [], temporalRules: [] } };
-  // 录像是 76 号票之前录的，计划里还带着定时作业（现在的 schema 不收，读的地方也不认），新造的这一版不带
+  // 录像是以前录的，计划里还带着定时作业（现在的 schema 不收，读的地方也不认），新造的这一版不带
   const { scheduledJobs: _legacy, ...rest } = basePlan as typeof basePlan & { scheduledJobs?: unknown };
   const newPlan = { ...rest, stages: [s1, s3] };
   const payload: PlanChangeCardPayload = {
@@ -203,7 +203,7 @@ describe("计划变更加一个阶段、去掉一个阶段（构造）", () => {
     const g = taskStageGraph(pending, "t-1", []);
     expect(g?.kind).toBe("change");
     expect(g?.cardId).toBe("c-change");
-    // 编号存在计划里（93 号票）：s1 去掉了并行的 s2 也还是 1a，去掉的 s2 是旧版里的 1b
+    // 编号存在计划里：s1 去掉了并行的 s2 也还是 1a，去掉的 s2 是旧版里的 1b
     expect(brief(g)).toEqual(["s1 1a running", "s3 2 pending 新", "s2 1b removed"]);
     expect(g!.nodes.find((n) => n.id === "s2")!.after).toEqual([]);
   });
@@ -340,7 +340,7 @@ describe("标题栏的阶段标签跟着聊天滚动变", () => {
 describe("界面上写\"第 N 阶段\"的地方按编号（并行的写 1a、1b，和计划图一致）：回放 task-plan-change", () => {
   const inputs = load("task-plan-change");
 
-  test("各阶段的编号：执行中按看板上的阶段列表、还没开始执行的按计划卡，都是存在计划里的（93 号票：自行调整了先后，编号不变）", () => {
+  test("各阶段的编号：执行中按看板上的阶段列表、还没开始执行的按计划卡，都是存在计划里的（自行调整了先后，编号不变）", () => {
     expect(Object.fromEntries(taskStageCodes(until(inputs, 7), "t-1"))).toEqual({ s1: "1a", s2: "1b" });
     const state = replay(inputs);
     expect(Object.fromEntries(taskStageCodes(state, "t-1"))).toEqual({ s2: "1b", s1: "1a" });
@@ -350,7 +350,7 @@ describe("界面上写\"第 N 阶段\"的地方按编号（并行的写 1a、1b�
     expect(stageLabelIn(state, "t-x", "s1", "第 2 阶段")).toBe("第 2 阶段");
   });
 
-  test("会话里验收结论的要点、调用的详情写编号（守护进程 93 号票起写在卡上的也是编号）", () => {
+  test("会话里验收结论的要点、调用的详情写编号（守护进程写在卡上的也是编号）", () => {
     const state = replay(inputs);
     const items = chatItems(state, "maintainer:tm-1");
     const acceptance = items.flatMap((it) => it.marks).find((m) => m.kind === "acceptance");
@@ -371,7 +371,7 @@ describe("界面上写\"第 N 阶段\"的地方按编号（并行的写 1a、1b�
     expect(taskActionItems(both).flatMap((c) => (c.kind === "accept" ? [c.label] : []))).toEqual(["第 1b 阶段验收通过", "第 1a 阶段验收通过"]);
   });
 
-  test("任务详情状态行的\"第 N/M 阶段\"：负责人正在做的那一阶段的编号 / 一共几个阶段号（并行的算一个；93 号票评审：和守护进程写的同一处算）", () => {
+  test("任务详情状态行的\"第 N/M 阶段\"：负责人正在做的那一阶段的编号 / 一共几个阶段号（并行的算一个；和守护进程写的同一处算）", () => {
     const state = replay(inputs);
     // 两个阶段并行：都是第 1 阶段的号，一共 1 个阶段号（看板上写的是第 1/2 个）；负责人自行调整了先后，编号不变
     const task = state.tasks["t-1"]!;

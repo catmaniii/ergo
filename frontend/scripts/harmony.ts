@@ -1,4 +1,4 @@
-// 鸿蒙 App 的构建辅助（62 号票）：找 DevEco Studio 自带的工具、从模板生成本机的 build-profile.json5、
+// 鸿蒙 App 的构建辅助：找 DevEco Studio 自带的工具、从模板生成本机的 build-profile.json5、
 // 认出签名材料。`build-harmony.ts` 用它构建，`frontend/test/harmony.test.ts` 用它检查仓库里没有签名材料。
 import { copyFileSync, existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
@@ -118,7 +118,7 @@ export function webviewDebugIn(buildProfile: string): boolean | undefined {
   return value === undefined ? undefined : value === "true";
 }
 
-/** App 原生的字（175 号票）：自带语言的 harmony.json 收成一份，打包进 rawfile（App 的 common/AppTexts.ets 读它） */
+/** App 原生的字：自带语言的 harmony.json 收成一份，打包进 rawfile（App 的 common/AppTexts.ets 读它） */
 export const HARMONY_TEXTS_FILE = "harmony-texts.json";
 
 /** 共享协议包的自带语言 */

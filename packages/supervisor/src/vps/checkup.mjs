@@ -1,4 +1,4 @@
-// 体检（321 号票）：VPS 上跑只读的 sh/checkup.sh，本机解析、判断能不能搭；再从电脑上连一下 VPS 的端口，
+// 体检：VPS 上跑只读的 sh/checkup.sh，本机解析、判断能不能搭；再从电脑上连一下 VPS 的端口，
 // 看云厂商的安全组放没放行（程序不替你开安全组，只告诉你去开哪几个）。
 import { parseOutput } from './scripts.mjs';
 

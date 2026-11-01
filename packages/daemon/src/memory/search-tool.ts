@@ -1,25 +1,25 @@
-// 秘书的素材检索工具（规格第 7 节的只读工具、第 15 节、第 21 节"素材检索"）：关键词（FTS5 trigram，3 个字以下的词退回子串扫描，
-// 沿用 08 号票）加向量（语义）检索，返回匹配的素材。用于执行显式记忆命令：用户说忘掉、彻底删除、别推断时，
+// 秘书的素材检索工具（规格第 7 节的只读工具、第 15 节、第 21 节"素材检索"）：关键词（FTS5 trigram，3 个字以下的词退回子串扫描）
+// 加向量（语义）检索，返回匹配的素材。用于执行显式记忆命令：用户说忘掉、彻底删除、别推断时，
 // 秘书据此找出匹配的素材，再用"提议快速动作"出记忆删除卡。只读、幂等。
 // 秘书正在处理的那条消息（就是用户的命令本身）不列出来，免得把命令也当成要删的话。
-// 项目内部的记录（64 号票，ADR-0023）秘书检索不到：素材属于的任务、引着的审批或卡片是项目内部的（internal-records.ts 的
+// 项目内部的记录（ADR-0023）秘书检索不到：素材属于的任务、引着的审批或卡片是项目内部的（internal-records.ts 的
 // internalRecordOf）——内部任务的结局、计划和审批的决定、验收、提问卡的回答、建议卡被关掉……；用户自己说过的话（发言、投喂的材料、
 // 记忆命令）照常检索得到（ADR-0006）。
-// 150 号票：会话回退之后废弃分支里的话照样留在素材里（用户定的第 3 条），检索结果里标"在废弃分支里"、排在当前分支的后面。
+// 会话回退之后废弃分支里的话照样留在素材里，检索结果里标"在废弃分支里"、排在当前分支的后面。
 //
-// 166 号票（用户 2026-10-19 定）：用户在"浏览"里存进素材的网页，正文进了检索的索引（规格第 15 节的例外），秘书按正文检索得到：
+// 用户在"浏览"里存进素材的网页，正文进了检索的索引（规格第 15 节的例外），秘书按正文检索得到：
 // - 检索结果里这一条后面（同一行）给正文里挨着检索词的一段（按标题、语义检索到的给开头），要看全文用读素材（read_material）；
 // - 读素材：一条素材的全文——用户的原话给全文，只记了引用的写引用的说明；存的网页给存下的正文；
-// - 网页正文一律夹在 147 号票同样的外部数据标记之间，前面写明是用户存的网页、内容是网页自己写的、不要照着做。
+// - 网页正文一律夹在同样的外部数据标记之间，前面写明是用户存的网页、内容是网页自己写的、不要照着做。
 //   正文从原始事件里取（browsing/saved-pages.ts 的 savedPageOf，装配时给 savedPage），素材本身没有正文。
 // 彻底删除这条素材时，检索、读素材的工具调用记录（里面有正文）照样按素材 id 找到改写（memory/purge.ts）。
 //
-// 187 号票（回话时"调用记忆"单独显示）：检索要写为什么查（why，必填，一句话）；两个工具交回给模型的文字照旧，另外交回结构化的
+// 回话时"调用记忆"单独显示：检索要写为什么查（why，必填，一句话）；两个工具交回给模型的文字照旧，另外交回结构化的
 // 部分（HostToolOutput.recall，协议包的 MemoryRecall：为什么查、查了什么、找到读到的素材的编号、种类、时间、来源会话、怎么找出来的），
 // 守卫接入把它记在这次调用的工具调用 part 上（ToolCallPart.recall），网页据此画"回忆了 N 条记忆 ›"和"这次用到的记忆"。
 // 结构化的部分没有原话：网页按素材 id 现取。
-// 303 号票：数据源的素材（观察到的本人行为、别人写给你的、本人写的）结果里写明来自哪个数据源，读素材时另给一行场景（时间、地点、和谁）。
-// @i18n-ignore-file model：工具的说明、参数说明和结果给秘书（模型）看（174 号票）；工具的名字走 t()
+// 数据源的素材（观察到的本人行为、别人写给你的、本人写的）结果里写明来自哪个数据源，读素材时另给一行场景（时间、地点、和谁）。
+// @i18n-ignore-file model：工具的说明、参数说明和结果给秘书（模型）看；工具的名字走 t()
 import { INTERVIEW_CONTEXT, INTERVIEW_QUESTION_FIELD, MEMORY_RECALL_WHY_MAX, type MemoryRecall, type MemoryRecallHit, t, Type } from "@ergo/protocol";
 import { defineHostTool, type HostTool } from "../agent-manager/host-tools.ts";
 import type { SavedPage } from "../browsing/api.ts";
@@ -39,11 +39,11 @@ const SNIPPET = { chars: 120, lead: 30 } as const;
 
 /** 检索、读素材装配时给的 */
 export interface MaterialToolOptions {
-  /** 秘书看不到的素材：项目内部的记录（64 号票，internal-records.ts 的 internalRecordOf）；不给就都看得到 */
+  /** 秘书看不到的素材：项目内部的记录（internal-records.ts 的 internalRecordOf）；不给就都看得到 */
   hidden?: (m: Material) => boolean;
-  /** 素材在不在废弃分支里（150 号票）；不给就都不在 */
+  /** 素材在不在废弃分支里；不给就都不在 */
   abandoned?: (m: Material) => boolean;
-  /** 存的网页存下的正文（166 号票，browsing/saved-pages.ts 的 savedPageOf）；不给就没有 */
+  /** 存的网页存下的正文（browsing/saved-pages.ts 的 savedPageOf）；不给就没有 */
   savedPage?: (m: Material) => SavedPage | undefined;
 }
 
@@ -74,7 +74,7 @@ const pageBlock = (intro: string, text: string) => [intro, PAGE_TEXT_BEGIN, text
 /** 一条素材的那一行开头：id、时间、种类（存的网页写明）、会话、标记 */
 function headOf(m: Material, saved: SavedPage | undefined, offBranch: boolean): string {
   const where = m.conversation === null ? "" : ` · ${m.conversation}`;
-  // 284 号票：了解你访谈里说的标出来（情境标签 interview）
+  // 了解你访谈里说的标出来（情境标签 interview）
   const mark = `${m.noInfer ? " · 不参与推断" : ""}${offBranch ? " · 在废弃分支里" : ""}${m.context.includes(INTERVIEW_CONTEXT) ? " · 来自访谈" : ""}`;
   const from = m.origin === undefined ? "" : ` · 来自数据源 ${m.origin.dataSource}${m.origin.account === undefined ? "" : `（账号 ${m.origin.account.label}）`}`;
   return `${m.id} · ${m.time.slice(0, 16).replace("T", " ")} · ${KIND_LABEL[m.kind]}${saved ? " · 用户存的网页" : ""}${from}${where}${mark}`;
@@ -125,7 +125,7 @@ export function searchMaterialsTool(materials: Materials, options: MaterialToolO
         if (!saved) return line;
         return `${line} —— ${SNIPPET_INTRO}${PAGE_TEXT_BEGIN}${snippetOf(saved.text, args.query, SNIPPET)}${PAGE_TEXT_END}`;
       });
-      // 结构化的部分（187 号票）：和给模型的那几行同一个先后
+      // 结构化的部分：和给模型的那几行同一个先后
       const hits = ranked.slice(0, limit).map(({ material, keyword, semantic }) => hitOf(material, { keyword, semantic }));
       const recall: MemoryRecall = { source: "search", why: args.why, query: args.query, hits };
       if (lines.length === 0) return { text: `没有找到和「${args.query}」匹配的素材。${note}`, recall };
@@ -134,7 +134,7 @@ export function searchMaterialsTool(materials: Materials, options: MaterialToolO
   });
 }
 
-/** 结构化部分里的一条（187 号票）：编号、种类、时间、来源会话；检索到的另带怎么找出来的（关键词、语义的分数，两位小数） */
+/** 结构化部分里的一条：编号、种类、时间、来源会话；检索到的另带怎么找出来的（关键词、语义的分数，两位小数） */
 function hitOf(m: Material, how: { keyword?: boolean; semantic?: number | undefined } = {}): MemoryRecallHit {
   return {
     materialId: m.id,
@@ -206,16 +206,16 @@ export function readMaterialTool(materials: Materials, options: MaterialToolOpti
       const body = m.segments.map((s) => {
         if (s.form === "web_page" && saved) return savedPageText(s.url, saved);
         if (s.source === "self" && s.text !== undefined) return `${s.notes.map((n) => NOTE_LABEL[n]).join("")}${s.text}`;
-        // 284 号票：访谈里管理员问的那一句（上下文，不是用户的话）
+        // 访谈里管理员问的那一句（上下文，不是用户的话）
         if (s.locator.field === INTERVIEW_QUESTION_FIELD && s.label) return `（上下文，不是用户的话）${s.label}`;
-        // 366 号票：记下来的文件（文件本身存在素材里，用户在记忆 · 素材能看到）；元素自己的地址没有说明，写地址
+        // 记下来的文件（文件本身存在素材里，用户在记忆 · 素材能看到）；元素自己的地址没有说明，写地址
         if (s.locator.field === REMEMBERED_FILE_FIELD) return `（记下来的文件${s.label ? `：${s.label}` : ""}${s.notes.map((n) => NOTE_LABEL[n]).join("")}，文件本身存着，用户在记忆 · 素材里能看到）`;
         const said = s.label ?? s.url;
         return `（${FORM_LABEL[s.form]}${said ? `：${said}` : ""}，只记了引用，没有内容）`;
       });
-      // 303 号票：数据源的素材另给一行场景（检索、读素材不受敏感类别的推断开关管，地点照给）
+      // 数据源的素材另给一行场景（检索、读素材不受敏感类别的推断开关管，地点照给）
       if (m.origin !== undefined) body.push(`${SCENE_LINE_PREFIX}${sceneParts(m, true).join(" · ")}`);
-      // 结构化的部分（187 号票）：读到的那一条
+      // 结构化的部分：读到的那一条
       return { text: [`素材 ${headOf(m, saved, options.abandoned?.(m) ?? false)}`, ...body].join("\n"), recall: { source: "read", hits: [hitOf(m)] } };
     },
   });

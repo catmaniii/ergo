@@ -1,4 +1,4 @@
-// 项目状态机（15 号票）："哪个状态能做哪个动作"只有一份（PROJECT_ACTION_RULES），守护进程据此校验，Web 据此给出入口。
+// 项目状态机："哪个状态能做哪个动作"只有一份（PROJECT_ACTION_RULES），守护进程据此校验，Web 据此给出入口。
 import { describe, expect, test } from "vitest";
 import {
   ARCHIVING_ACTIONS,
@@ -23,7 +23,7 @@ describe("项目页上能做的动作", () => {
     // 筹备中：放弃；立项书确认之后（稍后开工）还能开工
     ["preparing", false, ["abandon"]],
     ["preparing", true, ["start_build", "abandon"]],
-    // 建设中：放弃（首个建设任务没失败、没取消时不能再开工）；转入使用（259 号票：只出确认卡）
+    // 建设中：放弃（首个建设任务没失败、没取消时不能再开工）；转入使用（只出确认卡）
     ["building", true, ["abandon", "go_live"]],
     // 使用中 ⇄ 已停用，只能用户手动归档（不能"放弃"）
     ["in_use", true, ["retire", "archive"]],
@@ -41,7 +41,7 @@ describe("项目页上能做的动作", () => {
     expect(projectActions(project("building", true), "done")).toEqual(["abandon", "go_live"]);
   });
 
-  test("删除只能从已归档发起；转入使用只能从建设中发起（259 号票）", () => {
+  test("删除只能从已归档发起；转入使用只能从建设中发起", () => {
     for (const state of PROJECT_STATES) expect(projectActions(project(state, true)).includes("delete")).toBe(state === "archived");
     for (const state of PROJECT_STATES) expect(projectActions(project(state, true)).includes("go_live")).toBe(state === "building");
   });
@@ -64,7 +64,7 @@ describe("做了动作之后", () => {
     ["retired", "reactivate", { state: "in_use", change: "reactivated" }],
     ["retired", "archive", { state: "archived", change: "archived", archivedFrom: "retired" }],
     ["archived", "delete", undefined],
-    // 259 号票：转入使用不改状态，等用户在确认卡上确认
+    // 转入使用不改状态，等用户在确认卡上确认
     ["building", "go_live", undefined],
   ])("%s 上 %s → %j", (state, action, target) => {
     expect(projectActionTarget({ state }, action as (typeof PROJECT_ACTIONS)[number])).toEqual(target);
@@ -75,13 +75,13 @@ describe("做了动作之后", () => {
     expect(projectActionTarget({ state: "archived" }, "unarchive")).toEqual({ state: "preparing", change: "unarchived" });
   });
 
-  test("除了删除、转入使用（都等用户确认），每个动作都在项目列表频道上记一种变化（重置负责人不改项目状态，不在项目动作里，16 号票）", () => {
+  test("除了删除、转入使用（都等用户确认），每个动作都在项目列表频道上记一种变化（重置负责人不改项目状态，不在项目动作里）", () => {
     for (const action of PROJECT_ACTIONS) expect(projectActionTarget({ state: "archived", archivedFrom: "in_use" }, action) === undefined).toBe(action === "delete" || action === "go_live");
     expect(PROJECT_ACTIONS).not.toContain("reset_maintainer");
   });
 });
 
-describe("重置负责人和归档（16 号票）", () => {
+describe("重置负责人和归档", () => {
   test("重置负责人是项目页上单独的入口（不改项目状态，不在项目动作里）：没归档的都能重置，已归档的负责人会话只读、不能", () => {
     for (const state of PROJECT_STATES) expect(canResetMaintainer({ state })).toBe(state !== "archived");
   });
@@ -95,7 +95,7 @@ describe("重置负责人和归档（16 号票）", () => {
         { taskId: "t-5", taskTitle: "导出账单" },
       ]),
     ).toBe("项目还有正在做或排队的工单：先完成或取消任务 t-3「加周报」、t-5「导出账单」，再归档");
-    // 定时作业的一次运行（19 号票）不属于任务：写明等它做完
+    // 定时作业的一次运行不属于任务：写明等它做完
     expect(archiveBlockedText([{ taskId: "t-3", taskTitle: "加周报" }, { title: "每天早上出简报" }])).toBe(
       "项目还有正在做或排队的工单：先完成或取消任务 t-3「加周报」，等定时任务的运行「每天早上出简报」做完，再归档",
     );

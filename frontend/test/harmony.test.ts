@@ -1,4 +1,4 @@
-// 鸿蒙 App（62 号票）：签名材料只在本机，不进仓库（整个仓库都查）；构建脚本找得到 DevEco、从模板生成本机的 build-profile.json5，
+// 鸿蒙 App：签名材料只在本机，不进仓库（整个仓库都查）；构建脚本找得到 DevEco、从模板生成本机的 build-profile.json5，
 // WebView 调试默认关。
 // 真正构建要装 DevEco（`npm run build:harmony`），不在这里跑。
 import { execFileSync, spawnSync } from "node:child_process";
@@ -217,7 +217,7 @@ describe("找 DevEco Studio", () => {
   });
 });
 
-describe("App 原生的字（175 号票）", () => {
+describe("App 原生的字", () => {
   test("自带的每种语言的 harmony.json 收成一份：中文、英文都有，key 一样，只有 harmony.*", () => {
     const texts = harmonyTexts(LOCALES_DIR);
     expect(Object.keys(texts)).toEqual(expect.arrayContaining(["zh-CN", "en"]));
@@ -250,8 +250,8 @@ describe("App 原生的字（175 号票）", () => {
 });
 
 /**
- * phone/ 下某个文件里不引用别的东西的函数，单拿出来去掉类型跑（304 号票在模拟器上核对出来的 PhoneData.ets 的 birthdayOf、localDayStart；
- * 308 号票 PhoneGeocode.ets 的 addressOf、nearestIndex）
+ * phone/ 下某个文件里不引用别的东西的函数，单拿出来去掉类型跑（在模拟器上核对出来的 PhoneData.ets 的 birthdayOf、localDayStart；
+ * PhoneGeocode.ets 的 addressOf、nearestIndex）
  */
 async function phoneFunction<T>(file: string, name: string): Promise<T> {
   const source = readFileSync(path.join(HARMONY_DIR, `entry/src/main/ets/phone/${file}`), "utf8");
@@ -262,7 +262,7 @@ async function phoneFunction<T>(file: string, name: string): Promise<T> {
 }
 const phoneDataFunction = <T,>(name: string) => phoneFunction<T>("PhoneData.ets", name);
 
-describe("读本机（299、300 号票）", () => {
+describe("读本机", () => {
   test("原生桥开着读本机这一组方法（只给主界面），名字和网页一侧 NATIVE_PHONE_METHODS 一样；只要读全部日历的权限，不要通讯录权限", () => {
     const bridge = readFileSync(path.join(HARMONY_DIR, "entry/src/main/ets/bridge/NativeBridge.ets"), "utf8");
     const main = /NATIVE_BRIDGE_METHODS: string\[\] = \[([^\]]*)\]/.exec(bridge)![1]!;
@@ -280,7 +280,7 @@ describe("读本机（299、300 号票）", () => {
     expect(module).not.toContain("READ_CONTACTS");
   });
 
-  test("300 号票：照片、位置两组方法（只给主界面）名字和网页一侧一样；权限是读相册、读照片位置、定位、长时任务，后台定位走位置类的长时任务", () => {
+  test("照片、位置两组方法（只给主界面）名字和网页一侧一样；权限是读相册、读照片位置、定位、长时任务，后台定位走位置类的长时任务", () => {
     const bridge = readFileSync(path.join(HARMONY_DIR, "entry/src/main/ets/bridge/NativeBridge.ets"), "utf8");
     const main = /NATIVE_BRIDGE_METHODS: string\[\] = \[([^\]]*)\]/.exec(bridge)![1]!;
     const side = /NATIVE_SIDE_BRIDGE_METHODS: string\[\] = \[([^\]]*)\]/.exec(bridge)![1]!;
@@ -302,7 +302,7 @@ describe("读本机（299、300 号票）", () => {
       const strings = readFileSync(path.join(HARMONY_DIR, `entry/src/main/resources/${lang}/element/string.json`), "utf8");
       for (const name of ["photos_reason", "photo_location_reason", "location_reason"]) expect(strings).toContain(`"${name}"`);
     }
-    // 系统的位置开关关着时报 switchOff（网页写明记不到），开关打开时重新订（304 号票在模拟器上碰到：模拟器默认关着）
+    // 系统的位置开关关着时报 switchOff（网页写明记不到），开关打开时重新订（在模拟器上碰到：模拟器默认关着）
     const location = readFileSync(path.join(HARMONY_DIR, "entry/src/main/ets/phone/PhoneLocation.ets"), "utf8");
     expect(location).toContain("geoLocationManager.isLocationEnabled()");
     expect(location).toContain("geoLocationManager.on('locationEnabledChange'");
@@ -331,7 +331,7 @@ describe("读本机（299、300 号票）", () => {
     expect(birthdayOf(undefined)).toBeUndefined();
   });
 
-  test("308 号票：常去的地方那一组（只给主界面）名字和网页一侧一样；照片、位置读出来时转地名，状态里报 geocoder；不加权限", () => {
+  test("常去的地方那一组（只给主界面）名字和网页一侧一样；照片、位置读出来时转地名，状态里报 geocoder；不加权限", () => {
     const bridge = readFileSync(path.join(HARMONY_DIR, "entry/src/main/ets/bridge/NativeBridge.ets"), "utf8");
     const main = /NATIVE_BRIDGE_METHODS: string\[\] = \[([^\]]*)\]/.exec(bridge)![1]!;
     const side = /NATIVE_SIDE_BRIDGE_METHODS: string\[\] = \[([^\]]*)\]/.exec(bridge)![1]!;
@@ -350,7 +350,7 @@ describe("读本机（299、300 号票）", () => {
     expect(readFileSync(path.join(HARMONY_DIR, "entry/src/main/ets/phone/PhoneLocation.ets"), "utf8")).toContain("state.geocoder = this.geocoder.usable();");
   });
 
-  test("308 号票：系统给的地址取城市、区县、街道或地标（每段最多 30 个字，一段都没有是 undefined）；缓存里 200 米以内最近的那一处", async () => {
+  test("系统给的地址取城市、区县、街道或地标（每段最多 30 个字，一段都没有是 undefined）；缓存里 200 米以内最近的那一处", async () => {
     const addressOf = await phoneFunction<(geo: Record<string, unknown>) => Record<string, string> | undefined>("PhoneGeocode.ets", "addressOf");
     expect(addressOf({ administrativeArea: "浙江省", subAdministrativeArea: "杭州市", locality: "杭州市", subLocality: "西湖区", roadName: "北山街", premises: "84号", placeName: "浙江省杭州市西湖区北山街84号" })).toEqual({
       city: "杭州市",

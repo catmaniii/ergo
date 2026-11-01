@@ -1,8 +1,8 @@
-// 备份命令（335 号票）：npm run backup —— 自己把备份做完，和守护进程每晚那次是同一套代码（backup/backup.ts 的 backupWithLock：
+// 备份命令：npm run backup —— 自己把备份做完，和守护进程每晚那次是同一套代码（backup/backup.ts 的 backupWithLock：
 // 本机快照、写进同步目录、保留、回收公共池），不经守护进程。
 //   npm run backup                    立即备份：重做今天的快照（已有的换掉），再写进同步目录
 //   npm run backup -- --scheduled     给定时器用：只补齐今天缺的（本机、同步目录里都有了就什么也不动）
-// 一行命令、npm 装的没有 npm run（程序目录里没有 scripts），用 ergo backup [--scheduled]（356 号票，ergo 命令用自带的 Node 跑这个文件）。
+// 一行命令、npm 装的没有 npm run（程序目录里没有 scripts），用 ergo backup [--scheduled]（ergo 命令用自带的 Node 跑这个文件）。
 //
 // - 守护进程在不在跑都能用，不用停二狗：数据库用 VACUUM INTO 另开只读连接在线复制（WAL 模式下另一个进程开着库照样一致，
 //   守护进程照常写），会话 JSONL 只取到最后一个完整的行。

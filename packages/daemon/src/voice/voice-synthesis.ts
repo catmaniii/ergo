@@ -1,8 +1,8 @@
-// 一段口语稿变成 agent 的语音气泡（86 号票从 voice-reply.ts 抽出来）：语音回复（用户发语音的那一轮，voice-reply.ts）和
+// 一段口语稿变成 agent 的语音气泡（从 voice-reply.ts 抽出来）：语音回复（用户发语音的那一轮，voice-reply.ts）和
 // "发语音"工具（用户打字的那一轮，send-voice.ts）共用这一半。口语稿怎么定、什么时候用语音由它们自己管，交到这里的是
 // 一条已经定了口语稿和参考音色、状态是"合成中"（synthesizing）的 agent 语音对象：
 // - 排队：一次一条（同一个 audio.cpp 可能同时在给别的程序合成），在 agent 处理下一条输入时照常进行。
-// - 分段合成（38 号票）：口语稿按句切成几段（spoken-text.ts 的 speechSegments，第一段短），一段一次请求依次合成；
+// - 分段合成：口语稿按句切成几段（spoken-text.ts 的 speechSegments，第一段短），一段一次请求依次合成；
 //   每合成好一段（最后一段除外）存进临时区（segment-files.ts，前端经 HTTP 取）、追加一个新版本带上已合成的段（时长、在整条里的
 //   位置），前端第一段到了就出气泡、接着播。全部合成好拼成一条完整音频（同样的格式，段间留 SEGMENT_GAP_MS 的停顿）入库。
 //   只有一段的不推段，合成好直接完成。语音对象记第一段出来用了多久（firstSegmentMs）和整条用了多久（elapsedMs）。
@@ -12,12 +12,12 @@
 //   不论在哪一步失败（服务没开、忙、出错、超时、回的不是 WAV、存不进去、参考音色被删了）都记成失败，会话里追加一条说明。
 //   服务忙（503）不等超时，说明里写"语音服务忙"。分段合成到一半失败的（已经推出去了几段）：推出去的几段拼成一条，
 //   记成"只合成了一部分"（partial），同样追加载着它的消息，会话里一条说明。说明的话：语音回复的照旧（"这次只发文字"、
-//   "回复的文字照常显示"），发语音工具发的只说这一条语音没发出去 / 只发出去了一部分和原因（用户 2026-10-11 定）。
+//   "回复的文字照常显示"），发语音工具发的只说这一条语音没发出去 / 只发出去了一部分和原因。
 // - 合成这边追加版本时在最新的一版上改（还在合成才写）：发语音工具回合结束时另记的 coversReply、replyMessageIds 不会被冲掉。
 // - 守护进程在途中停了（被杀了）：还在合成的由调用方在启动时重新排队（start 之后），这里重做一遍（合成只是几次 HTTP 调用，
 //   不算"中断不确定"）：推过的段先收回，从第一段重新合成。
 // - 等结局（settled）：发语音工具要把结局（发出去了、只发了一部分、没发出去和原因）交回 agent，排队之后等它。
-// - 不止一个人的声音（354 号票，语音对象的 parts：秘书开场 + 负责人的声音）：每个人的那段各自切段、按先后依次合成，每次请求带这一段自己的
+// - 不止一个人的声音（语音对象的 parts：秘书开场 + 负责人的声音）：每个人的那段各自切段、按先后依次合成，每次请求带这一段自己的
 //   参考音色（voiceRef、逐字稿）；分段推送、拼接、总长度、入库都照旧，气泡只有一条。后面那个人的音色合成前被删了（包括重启后重做时）：
 //   去掉 parts，整段用第一个人（秘书）的声音，就是一条秘书的语音。合成到一半没合成下去的照旧是"只合成了一部分"，
 //   会话里的说明另写清谁的话没念到、没念到的文字是什么（文字不丢）；一段都没出来的照旧是失败。重启重做也照旧：从第一段重新来。
@@ -66,7 +66,7 @@ function segmentsOf(pieces: readonly Piece[]): AgentVoiceSegment[] {
   return pieces.map((p, i) => ({ durationMs: p.info.durationMs, offsetMs: offsets[i]! }));
 }
 
-/** 会话里的说明：发语音工具发的只说这一条没发出去（86 号票），语音回复的照旧说这次只发文字 */
+/** 会话里的说明：发语音工具发的只说这一条没发出去，语音回复的照旧说这次只发文字 */
 const failedNote = (voice: AgentVoiceRecord, reason: string) => (voice.mode === "tool" ? toolVoiceFailedNote(reason) : synthesisFailedNote(reason));
 const partialNote = (voice: AgentVoiceRecord, reason: string, unsaid: Unsaid | undefined) =>
   unsaid ? relayPartialNote(reason, unsaid.names, unsaid.text) : voice.mode === "tool" ? toolVoicePartialNote(reason) : synthesisPartialNote(reason);
@@ -74,7 +74,7 @@ const partialNote = (voice: AgentVoiceRecord, reason: string, unsaid: Unsaid | u
 /** 依次合成的一段：文字、用谁的参考音色、谁说的（不分人的语音没有） */
 type PlannedSegment = { text: string; reference: ResolvedReferenceVoice; speaker?: string };
 
-/** 不止一个人的语音合成到一半没合成下去（354 号票）：谁的话没念到（念了一半的也算）、没念到的文字 */
+/** 不止一个人的语音合成到一半没合成下去：谁的话没念到（念了一半的也算）、没念到的文字 */
 type Unsaid = { names: string[]; text: string };
 
 /** 一段口语稿切成依次合成的几段；切不出来的（没有念得出来的字）整段送 */
@@ -229,7 +229,7 @@ export function createVoiceSynthesis(options: VoiceSynthesisOptions): VoiceSynth
       voice = advanceOwn(voice, {}, { drop: ["segments", "segmentCount", "firstSegmentMs"] });
       if (!voice?.text) return;
     }
-    // 负责人的音色在排队时被删了（354 号票）：不分两段，就是一条秘书的语音（text 是连起来的，一个字不丢）
+    // 负责人的音色在排队时被删了：不分两段，就是一条秘书的语音（text 是连起来的，一个字不丢）
     if (voice.parts?.some((part) => !references.get(part.referenceVoice.id))) {
       log(`agent 语音 ${voice.id} 里有一段的参考音色不在了：整条用第一段的声音`);
       voice = advanceOwn(voice, {}, { drop: ["parts"] });

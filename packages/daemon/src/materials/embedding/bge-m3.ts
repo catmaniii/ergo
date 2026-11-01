@@ -1,7 +1,7 @@
 // 正式运行的向量模型：量化版 bge-m3（规格第 15 节；记忆子地图「素材管理」Q6：用 CPU，不用显卡，数据不出本机）。
 // - ONNX 模型来自 Hugging Face 的 Xenova/bge-m3（transformers.js 用的转换版），锁定版本，用 q8 量化（onnx/model_quantized.onnx，约 570 MB）；
 // - 文件放在数据目录的模型区：<模型区>/Xenova/bge-m3/...（transformers.js 的本地模型目录结构）；
-// - 不在时守护进程提示用户在设置 · 组件里装上（323 号票：组件清单 components/manifest.json 里的 bge-m3，和这里的 BGE_M3 一致，
+// - 不在时守护进程提示用户在设置 · 组件里装上（组件清单 components/manifest.json 里的 bge-m3，和这里的 BGE_M3 一致，
 //   测试核对），或者运行下载命令（npm run download-model），素材和关键词索引照常；就位后补算；
 // - 推理在工作线程里（worker-host.ts + bge-m3-backend.ts），CLS 池化加归一化，1024 维。
 import os from "node:os";

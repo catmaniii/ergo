@@ -1,11 +1,11 @@
-// 设置 · 浏览与填框里"agent 联网搜索、读网页"一节（154 号票；162 号票改成三种方式的队列，用户 2026-10-18 定："这三种方式的名称、
+// 设置 · 浏览与填框里"agent 联网搜索、读网页"一节（改成三种方式的队列："这三种方式的名称、
 // 特点作为一个标签。三个标签在一个队列里面排序……排最上面的最优先。这三个也可以 disable，但是不能全部 disable，至少要保留一个"）：
 // 页面上的说法和"改一处、存整份"的纯函数，界面（pages/more/WebToolsSetting.tsx）只管画。
-// - 每一项：名字、一句话特点（161 号票报告 §6.2）、排第几、开关；能上移、下移（电脑上也能拖）；
+// - 每一项：名字、一句话特点、排第几、开关；能上移、下移（电脑上也能拖）；
 // - 不能全停：剩最后一个启用的，它的开关点不了，写明原因；没配 DeepSeek 的 key 时那一项写明、关着、点不了（存着的不变）；
 // - 设置存在守护进程（所有设备一样），每改一处就整份存回去（POST /api/web-settings），下一次搜索、读网页就按新的；
 // - DeepSeek 回过余额不足（402）时写明哪会儿、这期间按顺序换了后面的。
-// 182 号票（用户 2026-10-19："你把那个英文的工具名列出来，第四个就是二狗鸿蒙客户端内嵌浏览器"）：多第四种"鸿蒙 App 的内置浏览器"；
+// "你把那个英文的工具名列出来，第四个就是二狗鸿蒙客户端内嵌浏览器"：多第四种"鸿蒙 App 的内置浏览器"；
 // 每张标签写上用的英文工具名（webMethodTools）。DeepSeek 和浏览器用的是同一对 web_search、web_fetch（用户问"怎么区分"）：
 // 写出各自的 engine，说明里写不写 engine 时按队列挑、结果的标题写着实际用了哪种。
 import { clockLabel } from "@ergo/protocol";
@@ -14,7 +14,7 @@ import { ASSISTANT_NAME_MARK, BUILTIN_WEB_CALL_PRICES, copyWebSettings, t, tPart
 /** 每次多少钱（元），说法里用 */
 const PER_CALL = BUILTIN_WEB_CALL_PRICES["deepseek/search"] ?? 0.005;
 
-/** 四种方式各一句特点（161 号票报告 §6.2，照用户给的样子"免费 · 中等速度 · 只能搜和读"；第四种是 182 号票的初稿）；170 号票起取值时按当前语言现取 */
+/** 四种方式各一句特点（照用户给的样子"免费 · 中等速度 · 只能搜和读"；第四种是初稿）；取值时按当前语言现取 */
 export const WEB_METHOD_TRAIT: Readonly<Record<WebMethod, string>> = Object.freeze({
   get deepseek() {
     return t("state.webSettings.trait.deepseek", { price: PER_CALL });
@@ -30,7 +30,7 @@ export const WEB_METHOD_TRAIT: Readonly<Record<WebMethod, string>> = Object.free
   },
 });
 
-/** 标签上"用的英文工具名"那一行的一段（182 号票）：字、工具名（等宽）、engine 的写法（小一号的等宽） */
+/** 标签上"用的英文工具名"那一行的一段：字、工具名（等宽）、engine 的写法（小一号的等宽） */
 export interface WebToolPart {
   kind: "text" | "tool" | "engine";
   text: string;
@@ -39,7 +39,7 @@ export interface WebToolPart {
 const tool = (text: string): WebToolPart => ({ kind: "tool", text });
 
 /**
- * 这种方式用哪些英文工具（182 号票）：DeepSeek、浏览器是 web_search（写各自的 engine）、web_fetch（直接请求被拦时由它代读）；
+ * 这种方式用哪些英文工具：DeepSeek、浏览器是 web_search（写各自的 engine）、web_fetch（直接请求被拦时由它代读）；
  * agent-browser 是 bash 里的命令；内置浏览器是秘书的 browse_* 工具。句子按当前语言（工具名、engine 原样）
  */
 export function webMethodTools(method: WebMethod): WebToolPart[] {
@@ -63,7 +63,7 @@ export function webMethodTools(method: WebMethod): WebToolPart[] {
   return parts.map((p) => (typeof p === "string" ? { kind: "text", text: p } : (p as WebToolPart)));
 }
 
-// 170 号票：页面上的几句说明原来是模块顶层的常量，改成函数（按当前语言现取）
+// 页面上的几句说明是函数（按当前语言现取）
 
 /** 这一节最上面的说明（说到秘书的地方用名字占位，界面换成名字） */
 export function webQueueIntro(): string {
@@ -79,7 +79,7 @@ export function webToolsHint(): string {
 export interface WebQueueRow {
   method: WebMethod;
   label: string;
-  /** 用的英文工具名那一行（182 号票） */
+  /** 用的英文工具名那一行 */
   tools: WebToolPart[];
   trait: string;
   /** 排第几（1 起） */

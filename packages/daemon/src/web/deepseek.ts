@@ -1,5 +1,5 @@
-// DeepSeek 的联网搜索（Search）、读网页（Fetch）接口（154 号票，文档 https://api-docs.deepseek.com/zh-cn/guides/search/ ，2026-10-18 读）：
-// 联网搜索、读网页的一种方式，和浏览器、Tavily 并列（用户 2026-10-18 定："作为一种选择，不作为唯一方式"）；用哪种由 access.ts 定。
+// DeepSeek 的联网搜索（Search）、读网页（Fetch）接口（文档 https://api-docs.deepseek.com/zh-cn/guides/search/ ，2026-10-18 读）：
+// 联网搜索、读网页的一种方式，和浏览器、Tavily 并列（"作为一种选择，不作为唯一方式"）；用哪种由 access.ts 定。
 // - 接口：POST <base>/v1/tools/search（query 1–128 字、count 1–50），POST <base>/v1/tools/fetch（url），回 Markdown 正文；
 //   Bearer 用 DeepSeek 的 API key——和模型共用同一份（环境变量 DEEPSEEK_API_KEY，LSM 从数据目录密钥区注入，每次现取）；
 // - 选项映射（deepseekQuery）：n → count（最多 50），time → 查询后面加 after:日期，region → lang:（对不上的不加），
@@ -9,7 +9,7 @@
 //   （DeepSeek 只对 HTTP 200 且有结果的计费，所以"成了"就是"计费了"，记账照它）；
 // - 限速：Search、Fetch 各自账号级 QPS 5（和 key、模型并发无关），这里各一个限速器，守护进程里只有一个客户端，所有 agent 共用；
 //   Fetch 另有按目标域名的限速（DeepSeek 那边回 429，照样重试）。
-// @i18n-ignore-file model：DeepSeek 出错的原因进联网工具的结果，给模型看；KIND_LABEL 只在日志里用（173 号票）
+// @i18n-ignore-file model：DeepSeek 出错的原因进联网工具的结果，给模型看；KIND_LABEL 只在日志里用
 import { setTimeout as delay } from "node:timers/promises";
 import { nowIso } from "@ergo/protocol";
 import { providerOf } from "../model-settings/providers.ts";

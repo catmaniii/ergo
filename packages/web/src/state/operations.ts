@@ -1,12 +1,12 @@
-// 运营方案（130 号票，ADR-0028）的视图（纯函数）：
+// 运营方案（ADR-0028）的视图（纯函数）：
 // - 项目页"运营方案"一节：现在生效的运营方案（Project.operations）里每一条一行——叫什么、怎么触发、怎么做、要的能力，
 //   状态是在跑、暂停（及原因）、没生效（及原因）、要你手动（二狗现在还做不了的写明要做哪几步）、已结束；
 //   状态照它生效成的内部任务和触发登记现算（看板频道上的任务、定时作业），收不到的照"在跑"写；
 // - "运营方案变更"卡：差异按"加上、改了、去掉、重新开起来、照旧"分几组；
 // - 这个项目的"运营方案变更"卡（项目页那一节下面列着）。
-// 133 号票：服务那一条（means: service）的状态不看内部任务，看项目的服务（UiState.projectServices：上线到哪了、LSM 推来的在不在线），
+// 服务那一条（means: service）的状态不看内部任务，看项目的服务（UiState.projectServices：上线到哪了、LSM 推来的在不在线），
 // 行上带着它（入口"打开「X」"）。
-// 357 号票：服务那一条列这个服务最近报的事件（名字、时间、有没有叫醒，名字写错的也在这里看得到），等项目的服务报事件的那一条列它等的这个名字的。
+// 服务那一条列这个服务最近报的事件（名字、时间、有没有叫醒，名字写错的也在这里看得到），等项目的服务报事件的那一条列它等的这个名字的。
 import {
   capabilitiesText,
   ENDED_TASK_STATES,
@@ -46,9 +46,9 @@ export interface OperationRow {
   howText: string;
   /** 它生效成的内部任务（点过去看任务详情） */
   taskId?: string;
-  /** 服务那一条（133 号票）：项目的服务（入口、在不在线） */
+  /** 服务那一条：项目的服务（入口、在不在线） */
   service?: ProjectServiceView;
-  /** 服务那一条、等项目的服务报事件的那一条（357 号票）：最近收到的事件（新的在前）；空的是还没收到过，别的条没有 */
+  /** 服务那一条、等项目的服务报事件的那一条：最近收到的事件（新的在前）；空的是还没收到过，别的条没有 */
   events?: OperationEventView[];
 }
 
@@ -77,7 +77,7 @@ function eventsOfName(state: UiState, projectId: string, name: string): Operatio
 /** 服务的样子 → 运营方案那一行的状态色 */
 const SERVICE_ROW_STATUS = { online: "running", busy: "running", offline: "paused", withdrawn: "paused", failed: "failed", manual: "manual" } as const;
 
-/** 服务那一条的状态（133 号票）：照项目的服务现算；还没收到的写"状态未知" */
+/** 服务那一条的状态：照项目的服务现算；还没收到的写"状态未知" */
 function serviceRow(state: UiState, projectId: string, item: ProjectOperationItem, base: Omit<OperationRow, "status" | "statusText">): OperationRow {
   if (item.failed !== undefined) return { ...base, status: "failed", statusText: t("state.operations.status.failed"), detail: item.failed };
   const view = serviceOfItem(state, projectId, item.key);

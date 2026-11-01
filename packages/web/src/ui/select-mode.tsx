@@ -1,4 +1,4 @@
-// 多选模式的共用部件（157 号票，看板、待办、已配对设备共用）。用户 2026-10-18：多选模式要有明显的"退出多选"按钮，
+// 多选模式的共用部件（看板、待办、已配对设备共用）。多选模式要有明显的"退出多选"按钮，
 // 原来只是标题栏的"多选"亮起来，不容易意识到自己在多选模式里。
 // - SelectToggle：标题栏的"多选"，进了多选模式换成写着字的"退出多选"（实色），点了退出、勾的清空；
 // - SelectExit：底部操作栏上"已选 N 个"那一行右边的"✕ 退出多选"（原来写"完成"，和提醒、任务的"完成"分不清）；
@@ -52,7 +52,7 @@ export function useSelectingBack(selecting: boolean, onExit: () => void): void {
   }, [selecting]);
 }
 
-/** 多选时卡片左上的勾选框（看板的任务卡、提醒卡共用；193 号票起提醒卡在提醒插件里，挪到这里） */
+/** 多选时卡片左上的勾选框（看板的任务卡、提醒卡共用；提醒卡在提醒插件里，挪到这里） */
 export function CardCheck({ checked }: { checked: boolean }) {
   return (
     <span className={`bsel${checked ? " on" : ""}`} aria-hidden="true">

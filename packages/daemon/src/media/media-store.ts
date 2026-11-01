@@ -5,7 +5,7 @@
 //   服务端已收到的偏移就是 .part 文件的大小：连接中途断了，已经写下的字节照样算数，前端从这里接着传。
 // - 入库：图片（浏览器能直接显示的 JPEG、PNG、GIF、WebP，看内容判断）先剥掉 EXIF 这类元数据，剥过的才是入库版本；
 //   媒体 id 是入库版本的 sha256。收尾时校验的是原始上传字节的 sha256。
-// - 被引用的媒体永不回收；本票不做媒体回收。第一阶段不生成缩略图等派生物。
+// - 被引用的媒体永不回收；这里不做媒体回收。第一阶段不生成缩略图等派生物。
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -38,7 +38,7 @@ export interface MediaInfo {
   size: number;
   /** 浏览器能直接显示的图片才有 */
   image: ImageInfo | undefined;
-  /** 按内容认出来的音频才有（语音消息的录音，31 号票） */
+  /** 按内容认出来的音频才有（语音消息的录音） */
   audio: AudioInfo | undefined;
 }
 
@@ -52,7 +52,7 @@ export interface MediaStore {
   writeChunk(uploadId: string, offset: number, body: Readable): Promise<UploadStatus>;
   /** 收尾：校验原始上传字节的 sha256，入库。同一个上传重复收尾拿到同一个结果 */
   completeUpload(uploadId: string, sha256: string): Promise<UploadedMedia>;
-  /** 把本机的一个文件复制进媒体库（秘书把草稿区里的文件、117 号票起负责人把工作目录里的文件作为附件发出来时用）；原文件不动 */
+  /** 把本机的一个文件复制进媒体库（秘书把草稿区里的文件、负责人把工作目录里的文件作为附件发出来时用）；原文件不动 */
   ingestFile(file: string, info: { name: string; mime: string }): Promise<UploadedMedia>;
   /** 入库的媒体；没有这个媒体是 undefined */
   info(mediaId: string): MediaInfo | undefined;
@@ -61,7 +61,7 @@ export interface MediaStore {
   /** 入库媒体开头最多 bytes 个字节 */
   readHead(mediaId: string, bytes: number): Buffer;
   /**
-   * 删掉一份入库媒体，连同由它派生的文件（名字是"媒体 id."开头的，比如以后的缩略图）。彻底删除（21 号票）时用：
+   * 删掉一份入库媒体，连同由它派生的文件（名字是"媒体 id."开头的，比如以后的缩略图）。彻底删除时用：
    * 调用方先确认没有别的消息、素材还引用它。没有这份媒体时什么都不做
    */
   remove(mediaId: string): void;
@@ -329,7 +329,7 @@ async function hashFile(file: string): Promise<string> {
   return hash.digest("hex");
 }
 
-/** 先写到旁边的临时文件再改名：媒体库里不会出现写了一半的文件；刚写完的文件被杀毒扫着时改名等一会儿重试（265 号票） */
+/** 先写到旁边的临时文件再改名：媒体库里不会出现写了一半的文件；刚写完的文件被杀毒扫着时改名等一会儿重试 */
 function writeAtomically(target: string, write: (tmp: string) => void): void {
   const tmp = `${target}.${randomUUID()}.tmp`;
   try {
@@ -342,7 +342,7 @@ function writeAtomically(target: string, write: (tmp: string) => void): void {
   }
 }
 
-/** 收完的上传挪进媒体库（被占着时等一会儿重试，265 号票）；跨盘时复制一份再删原来的 */
+/** 收完的上传挪进媒体库（被占着时等一会儿重试）；跨盘时复制一份再删原来的 */
 function moveFile(from: string, to: string): void {
   try {
     renameRetrying(from, to);

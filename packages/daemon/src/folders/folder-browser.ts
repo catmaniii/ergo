@@ -1,4 +1,4 @@
-// 列子文件夹（138 号票）：设置 · 授权的文件夹里"添加文件夹"的框，在守护进程那台电脑上一路点进去选文件夹（GET /api/local-folders/browse）。
+// 列子文件夹：设置 · 授权的文件夹里"添加文件夹"的框，在守护进程那台电脑上一路点进去选文件夹（GET /api/local-folders/browse）。
 // - 不给路径：常用位置（图片、下载、桌面、文档、用户目录，存在的才列）和各个盘（Windows 上 C:\、D:\……，别的系统是 /）；
 // - 给路径：它的子文件夹（只列文件夹，隐藏的、系统的不列——和 find_files 走文件夹时同一条规则 isSkippedFolder；
 //   符号链接、目录联接也不列，find_files 同样不跟进），按名字排，最多 limit 个（多了截断，total 写一共几个），和上一级（盘的根没有）；
@@ -10,7 +10,7 @@ import path from "node:path";
 import { FOLDER_BROWSE_MAX, type FolderBrowseView, type FolderEntry, t } from "@ergo/protocol";
 
 /**
- * 隐藏的、系统的文件夹：设置里选文件夹的框不列，浏览插件的 find_files 走文件夹时也不进（138 号票，同一条规则；212 号票从 find-files.ts 挪到这里：授权的文件夹是内核的）。点开头的（.git 这类）、$ 开头的
+ * 隐藏的、系统的文件夹：设置里选文件夹的框不列，浏览插件的 find_files 走文件夹时也不进（同一条规则；从 find-files.ts 挪到这里：授权的文件夹是内核的）。点开头的（.git 这类）、$ 开头的
  * （$Recycle.Bin、$WinREAgent 这类系统的），和这几个（Windows 上本来就藏着的 AppData、ProgramData 等；不分大小写）
  */
 const SKIPPED_DIRS = new Set(["node_modules", "__pycache__", "system volume information", "config.msi", "msocache", "appdata", "programdata"]);

@@ -1,10 +1,10 @@
-// 记忆 · 结论（233 号票，#/more/memory/claims）：从素材里整理出来的结论，按层分组（近期状态、偏好、需求、价值观），
+// 记忆 · 结论（#/more/memory/claims）：从素材里整理出来的结论，按层分组（近期状态、偏好、需求、价值观），
 // 顶上按状态筛（全凭概览给的条数），点一条去"证据与推理"看它的证据链和竞争解释。
 // - 一行：陈述；下面编号 · 层级 · 状态 · 把握 · 来源，更新时间，支持/反证/竞争解释的条数小签；
 // - 顶上：结论一共几条、各层各几条；最近一次整理是那一夜、跑成什么样、新出几条；问题箱开着几个在首页上写；
 // - 推理库还没建、正被每晚整理占着：写原因和空数据（不报错、不是空白的页）；
 // - 一页最多 MEMORY_CLAIMS_MAX 条（接口的上限），超过时写明只显示前几条。
-// - 330 号票：每条结论一行上先是醒目的"已验证 / 猜测"小签（标着复核的再加"复核中"）；最下面一节"做法"（交互策略）：
+// -每条结论一行上先是醒目的"已验证 / 猜测"小签（标着复核的再加"复核中"）；最下面一节"做法"（交互策略）：
 //   在用 / 待你确认、"建在猜测上"、"理由没了"的小签，下面是依据的结论（GET /api/memory/strategies）。
 // 说法和推导都在状态层（state/memory-graph.ts），这里只管画。
 import { useEffect, useState } from "react";
@@ -30,7 +30,7 @@ import {
 
 const errorText = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
-/** 330 号票：醒目的小签（已验证绿、猜测橙、别的淡） */
+/** 醒目的小签（已验证绿、猜测橙、别的淡） */
 export function Badges({ badges }: { badges: readonly MemoryBadge[] }) {
   return (
     <>
@@ -66,7 +66,7 @@ export function ClaimRowButton({ item, onOpen }: { item: MemoryClaimBrief; onOpe
   );
 }
 
-/** 330 号票：做法（交互策略）那一节；没有做法不出这一节 */
+/** 做法（交互策略）那一节；没有做法不出这一节 */
 function StrategySection({ view }: { view: MemoryStrategiesView | undefined }) {
   if (view === undefined || !view.ready || view.items.length === 0) return null;
   return (
@@ -128,7 +128,7 @@ export function ClaimsBrowse({ onOpen }: { onOpen(id: string): void }) {
     retryLoad(() => http.memorySummary())
       .then((view) => live && setSummary(view))
       .catch(() => {});
-    // 330 号票：做法（交互策略）；取不到就不出那一节
+    // 做法（交互策略）；取不到就不出那一节
     http
       .memoryStrategies()
       .then((view) => live && setStrategies(view))

@@ -1,4 +1,4 @@
-// 主切面：从已有的 Claude Code 会话接管（290 号票，Claude Code 接入一期之五）。真的守护进程走组合根和插件清单；清单里的 Claude Code 插件
+// 主切面：从已有的 Claude Code 会话接管。真的守护进程走组合根和插件清单；清单里的 Claude Code 插件
 // 换成同名的、子进程接假 SDK、会话来源是假本机的那个（helpers/fake-claude-sessions.ts：编的会话、编的"正开着"、编的前情，
 // 不读用户真实的 ~/.claude、不起 claude、不花额度）：
 // - 列出：本机的会话连同标题、工作目录、分支、最近活动、大小；终端里开着的、后台会话、停着的后台记录标成占着；查不到占没占的一律占着；
@@ -95,7 +95,7 @@ async function nthReply(td: TestDaemon, channel: string, n: number): Promise<Fak
 }
 const taskNow = (td: TestDaemon, id: string): Task => td.daemon.tasks.get(id)!;
 
-describe("从已有的 Claude Code 会话接管（290 号票）", () => {
+describe("从已有的 Claude Code 会话接管", () => {
   it("列出本机的会话，终端里开着的、后台会话标成占着；查不到占没占的一律占着", async () => {
     const { td, sessions, dirs } = await setup();
     const listed = await takeoverApi.sessions(td.url, CC);
@@ -196,7 +196,7 @@ describe("从已有的 Claude Code 会话接管（290 号票）", () => {
 
     // ⚙ 里看得到接管自哪个会话
     const panel = await agentSettingsApi.view(td.url, task.maintainerId);
-    // 292 号票起写明现在在哪边（二狗接管着）
+    // 写明现在在哪边（二狗接管着）
     expect(panel.body.runtime?.takeover).toEqual({ sessionId: "s-idle", title: "修 CI 的 flaky 测试", cwd: task.workdir, returned: false, place: "ergo" });
 
     const returned = await agentSettingsApi.takeover(td.url, task.maintainerId, "return");

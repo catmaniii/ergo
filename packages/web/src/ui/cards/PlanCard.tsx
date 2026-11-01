@@ -1,15 +1,15 @@
 /**
- * 计划确认卡（规格第 8 节，12 号票）：由守护进程从负责人提交的结构化计划生成，负载是 PlanCardPayload。
+ * 计划确认卡（规格第 8 节）：由守护进程从负责人提交的结构化计划生成，负载是 PlanCardPayload。
  * - 一个"确认"按钮；授权项可逐行勾掉或收窄（次数改少、对象范围里去掉一些值），可附意见打回；
  * - 授权行和时序规则的主文由代码从结构化数据生成（协议包的 grantText、temporalRuleText），负责人写的标题只作灰字备注；
- *   落在"先问我""交给我做"类别里的授权行不算授权：标"执行时仍会问"（"有风险的事先问我"关着时标"现在直接做"，378 号票；
+ *   落在"先问我""交给我做"类别里的授权行不算授权：标"执行时仍会问"（"有风险的事先问我"关着时标"现在直接做"，
  *   或"交给你做"），不能勾选；
  * - "授权后还会在 N 处停下来"由代码算（planStops，按开关；一处都没有就不写）：旧计划里由你验收的阶段、仍会问的、勾掉的、收窄的，随勾选实时更新；
  *   负责人填的停点预告只作参考；
- * - 假设栏每条可改，确认时随计划一起保存；105 号票起每条是随内容长高的多行框（整段看得全、在任意位置改），清空就是去掉这一条；
- * - 逐行列出涉及的项目和改动、定时作业定义（确认后登记在 19 号票）；涉及多个项目的任务（17 号票）每一行还写着所属阶段和
+ * - 假设栏每条可改，确认时随计划一起保存；每条是随内容长高的多行框（整段看得全、在任意位置改），清空就是去掉这一条；
+ * - 逐行列出涉及的项目和改动、定时作业定义；涉及多个项目的任务每一行还写着所属阶段和
  *   这张工单的验收标准，确认后每一行建成一张工单，所属阶段开始时派出；
- * - 细节（阶段、验收、工具包、记忆范围）默认折叠；26 号票起细节里还有：
+ * - 细节（阶段、验收、工具包、记忆范围）默认折叠；细节里还有：
  *   - 本任务要提醒的关注类别：默认取全局（删不掉），标明负责人调严的、为本任务加的；确认前可以用和设置页同一套确定规则
  *     给这个任务加类别（只能加，已有的删不掉；还没确认的可以不加了），随确认交出；
  *   - 你说过的限制：负责人编译成的时序规则和授权收窄（文字由代码从结构化数据生成），和你的原话一起列出。
@@ -76,10 +76,10 @@ export function PlanCard({ state, payload: p, done, act }: CardProps<PlanCardPay
   const [drafts, setDrafts] = useState<Record<string, GrantNarrowingDraft>>({});
   /** 改过的假设栏（没动过是 undefined） */
   const [assumptions, setAssumptions] = useState<string[] | undefined>();
-  // 91 号票：计划还没确认时点左边图上的一个阶段，打开这张卡的详情、定位到这一阶段（细节一打开就展开）
+  // 计划还没确认时点左边图上的一个阶段，打开这张卡的详情、定位到这一阶段（细节一打开就展开）
   const { focus } = useStageFocus();
   const [details, setDetails] = useState(focus !== undefined);
-  // 93 号票：详情里点小流程图上的一个阶段，细节跟着展开（定位到那一阶段）
+  // 详情里点小流程图上的一个阶段，细节跟着展开（定位到那一阶段）
   const [seenFocus, setSeenFocus] = useState(focus);
   if (focus !== seenFocus) {
     setSeenFocus(focus);
@@ -93,7 +93,7 @@ export function PlanCard({ state, payload: p, done, act }: CardProps<PlanCardPay
   const [adding, setAdding] = useState<{ form: CategoryForm; disposition: Disposition; problems: string[] }>();
   const { ui } = useStore();
   const tools = ui.watchCategories?.state.tools ?? [];
-  // 375 号票：没勾的操作执行时怎样，看"有风险的事先问我"开没开（新装时关着：超出授权的直接做）。取不到就不说这一句，处理过的卡也不说
+  // 没勾的操作执行时怎样，看"有风险的事先问我"开没开（新装时关着：超出授权的直接做）。取不到就不说这一句，处理过的卡也不说
   const asksOff = asksOffIn(ui);
 
   const choice = { removed, drafts, ...(assumptions === undefined ? {} : { assumptions }), added };
@@ -110,7 +110,7 @@ export function PlanCard({ state, payload: p, done, act }: CardProps<PlanCardPay
     setAdded([...added, result.addition]);
     setAdding(undefined);
   };
-  // 91 号票：第几阶段按依赖图的编号写（并行的写 4a、4b，和左边的计划图一致）
+  // 第几阶段按依赖图的编号写（并行的写 4a、4b，和左边的计划图一致）
   const codes = planStageCodes(plan);
   const stops = done ? planStops(p, undefined, codes, asksOff) : planStops(p, { removed, narrowed: narrowedGrantIds(plan, choice) }, codes, asksOff);
   const global = new Set(p.globalCategories);
@@ -166,7 +166,7 @@ export function PlanCard({ state, payload: p, done, act }: CardProps<PlanCardPay
         </span>
       </div>
       <div className="muted">{t("ui.planCard.budgetHow")}</div>
-      {/* 93 号票：一直列着各阶段的提纲，点一项就地展开、左边图上高亮 */}
+      {/* 一直列着各阶段的提纲，点一项就地展开、左边图上高亮 */}
       <PlanOutline card={state.card} />
       {stops.length > 0 && (
         <ul className="plain-list plan-stops">
@@ -415,7 +415,7 @@ export function PlanCard({ state, payload: p, done, act }: CardProps<PlanCardPay
               <NamedText text={toolkitLabel({ skills: plan.toolkit.skills, mcps: plan.toolkit.mcp, bash: plan.toolkit.bash, network: plan.toolkit.network, ...tellSecretaryField(tellSecretaryOn(plan.toolkit)), ...sendAttachmentField(sendAttachmentOn(plan.toolkit)) })} />
             </div>
           </div>
-          {/* 378 号票：负责人没预告停点就不写"0 处" */}
+          {/* 负责人没预告停点就不写"0 处" */}
           {(plan.stops.count > 0 || plan.stops.where.length > 0) && (
             <div className="plan-stage">
               <b>{t("ui.planCard.stops.title")}</b>

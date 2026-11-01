@@ -1,4 +1,4 @@
-// 按编号认、按编号换行（util/mentions.ts）：265 号票写在子进程的会话文件改写里，272 号票挪进来，事件日志里的一次性补抹
+// 按编号认、按编号换行（util/mentions.ts）：写在子进程的会话文件改写里，挪进来，事件日志里的一次性补抹
 // （memory/purge-backfill.ts）和会话文件用同一份。
 import { describe, expect, it } from "vitest";
 import { mentionsId, replaceMentionLines } from "../../src/util/mentions.ts";

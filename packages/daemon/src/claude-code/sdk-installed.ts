@@ -1,8 +1,8 @@
-// Claude Code 的 Agent SDK 装没装（315 号票）：SDK（@anthropic-ai/claude-agent-sdk）是 Anthropic 自己的许可、不是开源，二狗不随它分发——
+// Claude Code 的 Agent SDK 装没装：SDK（@anthropic-ai/claude-agent-sdk）是 Anthropic 自己的许可、不是开源，二狗不随它分发——
 // 它在 packages/daemon/package.json 里是可选依赖（optionalDependencies：照常 npm install 会装上，打包发布时去掉，用的人自己装、用自己的订阅）。
 // 没装时 Claude Code 插件不装配（插件宿主的 PluginDefinition.missing）：设置 · 插件里写"没装"和怎么装，新建任务、项目时 Claude Code 那一项
 // 写同一句，别的功能不受影响。
-// 两个地方找（318 号票）：按 Node 的解析规则从程序目录往上找 node_modules（开发、npm 装的）；找不到再看组件区
+// 两个地方找：按 Node 的解析规则从程序目录往上找 node_modules（开发、npm 装的）；找不到再看组件区
 // （<数据目录>\components\claude-code\node_modules，设置 · 组件或 ergo components add claude-code 从 npm 官方下的，安装包、源码装都是这样）。
 // 只找、不加载它：SDK 只在子进程里引（child/load-sdk.ts；test/claude-code/boundary.test.ts：src 里引用 SDK 的只有 claude-code/child/ 和
 // 这个文件，这个文件里没有 import）。

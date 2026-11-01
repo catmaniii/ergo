@@ -1,4 +1,4 @@
-// 项目的服务的入口（133 号票，ui/service-entry.tsx）："打开「X」"按钮、前面的圆点按在不在线换颜色（svc-<kind>），不压缩时后面一句状态；
+// 项目的服务的入口（ui/service-entry.tsx）："打开「X」"按钮、前面的圆点按在不在线换颜色（svc-<kind>），不压缩时后面一句状态；
 // 没有网页的只标状态、没有按钮。点了做什么见状态层的 serviceEntryClick（test/state/project-services.test.ts）。用 React 在 Node 里渲染出来查。
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";

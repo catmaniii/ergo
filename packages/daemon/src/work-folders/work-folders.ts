@@ -1,4 +1,4 @@
-// 新建时选工作文件夹（305 号票，用户 2026-10-25 试用后："从网页上创建了一个新的 Claude Code 的任务是成功了，但是我找不到设置默认的
+// 新建时选工作文件夹（试用后："从网页上创建了一个新的 Claude Code 的任务是成功了，但是我找不到设置默认的
 // 新的 Claude Code 的项目文件夹的方法"）。能选工作文件夹的运行时（AgentRuntime.workFolder，现在是 Claude Code；pi 不变）的任务、项目：
 // - 设置里定"新建时的默认文件夹"（每个运行时一个，存在配置区 config/work-folders.json，{ format: 1, defaults: { <运行时>: <文件夹> } }，
 //   只由运行时写）：新的任务、项目默认在它下面新开一个子文件夹（按标题起名，workFolderName；重名加序号 "名字 (2)"）；
@@ -6,7 +6,7 @@
 // - 新建时也能选"用一个已有的文件夹"：绝对路径、在、是文件夹、不在数据目录或二狗程序目录里（受保护区域和整个数据目录，
 //   和本机文件夹变化不许监视的地方同一份），交回真实路径；不行的抛 RequestRejected（bad_params，写明原因）。
 // 定下的文件夹就是负责人的工作目录（Task.workdir、Project.workdir 在外面），守卫的项目目录就是它；删任务、项目时不删它。
-// 290 号票接管来的会话的工作目录也按这里的规矩核对（在数据目录、程序目录里的不接）。
+// 接管来的会话的工作目录也按这里的规矩核对（在数据目录、程序目录里的不接）。
 import fs from "node:fs";
 import path from "node:path";
 import { t, type WorkFolderChoice, workFolderName } from "@ergo/protocol";

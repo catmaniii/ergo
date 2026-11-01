@@ -1,6 +1,6 @@
-// 识别进程的 Python 脚本（src/voice/recognizer.py，31 号票）：和守护进程这一侧说的 JSON 行对得上；显卡不可用、加载失败、
+// 识别进程的 Python 脚本（src/voice/recognizer.py）：和守护进程这一侧说的 JSON 行对得上；显卡不可用、加载失败、
 // 识别时显卡出错都退回 CPU 的模型并记下原因；库打到 stdout 上的东西不混进协议。
-// 250 号票：同一份脚本的 --serve（LSM 托管的那条 HTTP 服务）也在这里真起起来验一遍：预热、状态、识别、错误。
+// 同一份脚本的 --serve（LSM 托管的那条 HTTP 服务）也在这里真起起来验一遍：预热、状态、识别、错误。
 // faster-whisper 和 ctranslate2 换成临时目录里的替身模块（PYTHONPATH 指过去，-s 不读用户目录的 site-packages）：
 // 不加载真模型、不占显卡。本机没有 Python 时跳过。
 import { type ChildProcess, spawn, spawnSync } from "node:child_process";
@@ -147,7 +147,7 @@ describe.runIf(hasPython)("识别进程的 Python 脚本", () => {
     expect(runFails.loads()).toEqual(["large-v3 cuda int8_float16", "small cpu int8"]);
   }, 30_000);
 
-  it("加载（45 号票的预热）：拉起后马上在显卡上加载，回报模型、设备、计算精度、加载耗时；之后的识别不再加载", async () => {
+  it("加载（预热）：拉起后马上在显卡上加载，回报模型、设备、计算精度、加载耗时；之后的识别不再加载", async () => {
     const { recognizer, audio, loads } = setup();
     const loaded = await recognizer.load();
     expect(loaded).toMatchObject({ model: "large-v3", device: "cuda", computeType: "int8_float16" });
@@ -177,7 +177,7 @@ describe.runIf(hasPython)("识别进程的 Python 脚本", () => {
   }, 30_000);
 });
 
-// ───────────── --serve：LSM 托管的那条（250 号票） ─────────────
+// ───────────── --serve：LSM 托管的那条 ─────────────
 
 /** 服务回的模型状态（和 recognizer.py 的 status() 一样） */
 interface ServeStatus {

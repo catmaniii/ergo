@@ -1,8 +1,8 @@
-// 主切面：角色（248 号票）——名字 + 音色绑成一个角色，设置 · 角色与声音里维护、每个 agent 只选一个。
-// 用户 2026-10-22 定的三件事：
+// 主切面：角色——名字 + 音色绑成一个角色，设置 · 角色与声音里维护、每个 agent 只选一个。
+// 三件事：
 // - 角色只给 agent 用：选中一个角色就是同时启用它的名字和音色；
 // - 每个 agent 可以选跟默认角色（没指定就用默认的角色）或者某个角色；
-// - 旧配置（241 号票的 agent-profiles.json）自动迁移，一个不丢；旧的 GET /api/agent-profiles 只保留只读兼容。
+// - 旧配置（agent-profiles.json）自动迁移，一个不丢；旧的 GET /api/agent-profiles 只保留只读兼容。
 // 这里跑的是真的守护进程（模型是 faux、合成服务是假的、参考音色是编的示例）：
 // - 迁移：起之前放着旧配置和全局名字，起来之后角色表对得上、名字和音色都没丢、旧文件还在、再起一次不重复迁移；
 // - 列表：秘书、每个在的项目负责人、每个在的任务负责人、记忆管理员，默认角色标出来，谁在用写清楚；
@@ -190,7 +190,7 @@ describe("角色的增删改：校验、默认唯一、删在用回 400", () => 
   });
 });
 
-describe("删在用的角色：报错里不出现编号和占位（371）", () => {
+describe("删在用的角色：报错里不出现编号和占位", () => {
   const messageOf = (res: { body: unknown }) => (res.body as { message?: string }).message ?? "";
 
   it("秘书在用：写它现在的名字，不写名字占位，也不写 secretary", async () => {
@@ -235,7 +235,7 @@ describe("生效：默认角色的名字和音色，没指定的 agent 跟着一
     expect(roleOf(listed.body, defaultId)).toMatchObject({ name: "二狗" });
     expect(agentRowOf(listed.body, "secretary")!.identity).toMatchObject({ name: "二狗", roleId: defaultId, nameSource: "default" });
 
-    // 改默认角色的名字 = 改全局名字（43 号票）：名字频道上一条事件
+    // 改默认角色的名字 = 改全局名字：名字频道上一条事件
     expect((await agentRolesApi.update(url, defaultId, { name: "阿福" })).status).toBe(200);
     await expect.poll(async () => frontend.events({ channel: ASSISTANT, type: EVENT_TYPES.assistantName }).map((f) => (f.payload as AssistantNameEventPayload).name)).toEqual(["阿福"]);
     const panel = await agentSettingsApi.view(url, "secretary");

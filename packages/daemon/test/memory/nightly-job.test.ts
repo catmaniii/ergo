@@ -1,7 +1,7 @@
-// 225 号票：每晚 03:00 的记忆整理作业（假模型、假向量、真 MemoryEngine + 临时目录里的 sqlite、真事件日志）。
+// 每晚 03:00 的记忆整理作业（假模型、假向量、真 MemoryEngine + 临时目录里的 sqlite、真事件日志）。
 // 覆盖：到点/未到点、用户在用往后推（最多到 05:00）、预算用完下次接着做、整理失败不影响素材库、
 // 没配模型 key 就跳过并记原因、推理库要重建时只提示一次、停用（abort）时正在推后的那一次马上停。
-// 236 号票：抽事实默认走模型版（LlmFactExtractor，和推理同一个假模型、同一份预算），配置开关换成规则版，
+// 抽事实默认走模型版（LlmFactExtractor，和推理同一个假模型、同一份预算），配置开关换成规则版，
 // 抽取的输出被截断时这一夜照跑（记进 dropped，不进待我处理）。
 import fs from "node:fs";
 import path from "node:path";
@@ -52,7 +52,7 @@ function say(id: string, text: string, when: Date, context: string[] = ["weekend
 }
 
 /**
- * 模型版抽取器的回复（236）：这一批每条证据抽一条"喜欢周末自己安排时间"的事实。
+ * 模型版抽取器的回复：这一批每条证据抽一条"喜欢周末自己安排时间"的事实。
  * 宾语带上证据 id，免得几条证据抽出来的事实并成一条（并了也没有两条观察，推理那步不会问模型）。
  */
 function extractedFacts(request: ChatRequest): unknown {
@@ -104,18 +104,18 @@ interface SetupOptions {
   at?: Date;
   materials?: Material[];
   maxModelCalls?: number;
-  /** 237 号票：这一夜的墙钟上限（分钟）；不给是 60 */
+  /** 这一夜的墙钟上限（分钟）；不给是 60 */
   nightlyTimeoutMinutes?: number;
-  /** 抽事实用哪个（236）：不给是 model（默认） */
+  /** 抽事实用哪个：不给是 model（默认） */
   extractor?: "model" | "rule";
-  /** 234 号票：允许用来推断的敏感类别（默认空 = 健康这类记录、不推断） */
+  /** 允许用来推断的敏感类别（默认空 = 健康这类记录、不推断） */
   sensitiveCategories?: readonly SensitiveCategory[];
   /** null = 不给模型（按 DEEPSEEK_API_KEY 建）；不给 = 假模型 */
   chat?: (() => ChatModel) | null;
   env?: Record<string, string | undefined>;
-  /** 向量函数（235：不给 FakeEmbedder，能模拟"模型文件不在"） */
+  /** 向量函数（不给 FakeEmbedder，能模拟"模型文件不在"） */
   embedder?: MemoryEmbedder;
-  /** 267 号票：整理完跑的推理图谱校验器（插件给的是 graphSelfCheck；测试里有假的） */
+  /** 整理完跑的推理图谱校验器（插件给的是 graphSelfCheck；测试里有假的） */
   validator?: GraphValidator;
 }
 
@@ -344,8 +344,8 @@ describe("每晚 03:00 的记忆整理作业", () => {
     expect(reportAt(t, "2026-10-11").reflect.processedEvidenceIds).toHaveLength(3);
   });
 
-  // 270 号票：线上 10-22 到 10-25 连着几夜"新证据 0 条"——旧追问每夜全部重判、新组的追问排在最后轮不上，记整理过又是全有或全无
-  it("270：预算紧时新证据先——新组的追问先问，旧追问没有新东西不重判；整理完的新证据记下来，记录里有每一道的调用数", async () => {
+  // 线上 10-22 到 10-25 连着几夜"新证据 0 条"——旧追问每夜全部重判、新组的追问排在最后轮不上，记整理过又是全有或全无
+  it("预算紧时新证据先——新组的追问先问，旧追问没有新东西不重判；整理完的新证据记下来，记录里有每一道的调用数", async () => {
     const topics = ["皮划艇", "羽毛球", "电子琴", "攀岩馆"];
     const topicOf = (text: string) => topics.find((k) => text.includes(k));
     const asked: string[] = [];
@@ -418,7 +418,7 @@ describe("每晚 03:00 的记忆整理作业", () => {
     expect(second!.text).toContain("预算：调了");
   });
 
-  // 235 号票：用户不用等到 03:00，"立即整理一次"走同一份作业（同一个引擎、同一份预算、同一条整理记录）
+  // 用户不用等到 03:00，"立即整理一次"走同一份作业（同一个引擎、同一份预算、同一条整理记录）
   it("手动整理一次：没到 03:00 也跑、记一条 manual 的记录、受同一份预算约束；不吃那一夜的定时水位（同一天 03:00 照常跑）", async () => {
     const t = setup({
       at: at(10, 10, 1, 0),
@@ -528,7 +528,7 @@ describe("每晚 03:00 的记忆整理作业", () => {
     expect(t.items).toHaveLength(1);
   });
 
-  // 235 号票：四条降级之四——整理跑一半崩（抽事实成了、推理那步模型坏了）：已写的不丢，下一夜接着做
+  // 四条降级之四——整理跑一半崩（抽事实成了、推理那步模型坏了）：已写的不丢，下一夜接着做
   it("整理跑一半崩：已经写进库的证据和事实不丢，下一夜接着做，抽过的不再重抽", async () => {
     const t = setup({
       materials: [
@@ -599,7 +599,7 @@ describe("每晚 03:00 的记忆整理作业", () => {
     expect(t.materials).toHaveLength(1);
   });
 
-  // 235 号票：四条降级之一——向量模型不在（用户没下载）时整理照常，不算向量、不报错
+  // 四条降级之一——向量模型不在（用户没下载）时整理照常，不算向量、不报错
   it("向量模型不在：这一夜照常整理（不算向量、不报错），素材和证据都进库、不当成失败", async () => {
     const t = setup({
       embedder: kernelEmbedderAdapter(new FakeEmbedder({ available: false })),
@@ -638,7 +638,7 @@ describe("每晚 03:00 的记忆整理作业", () => {
     expect(t.items).toHaveLength(1);
   });
 
-  it("墙钟上限（237）：到点还没跑完就中止、记一条 failed（整理超时）+ 待我处理一条，whenIdle 返回，下一夜照常", async () => {
+  it("墙钟上限：到点还没跑完就中止、记一条 failed（整理超时）+ 待我处理一条，whenIdle 返回，下一夜照常", async () => {
     let slow = true;
     const chat: ChatModel = {
       name: "fake-llm",
@@ -679,7 +679,7 @@ describe("每晚 03:00 的记忆整理作业", () => {
     expect(t.records().every((record) => record.state === "deferred")).toBe(true);
   });
 
-  it("267 号票：整理完跑每晚校验——校验器拿到这一夜整理完的引擎；结果进整理记录（通过 / 跳过写明原因），写入口拒了几处也记下", async () => {
+  it("整理完跑每晚校验——校验器拿到这一夜整理完的引擎；结果进整理记录（通过 / 跳过写明原因），写入口拒了几处也记下", async () => {
     const seen: number[] = [];
     const t = setup({
       materials: [say("mat-1", "这周六的聚会我就不去了，最近周末想好好休息。", at(10, 9, 20, 0)), say("mat-2", "我不反感见朋友，只是不喜欢周末被提前排满。", at(10, 9, 22, 0))],
@@ -698,7 +698,7 @@ describe("每晚 03:00 的记忆整理作业", () => {
     expect(record!.text).toContain("每晚校验：跳过（这一夜不查）");
   });
 
-  it("329 号票（ADR-0032）：前提的事实后来真冲突了，明说的那条成了猜测、身份不改——整理记录里不再有\"结论 ↔ 假设\"，校验照样通过", async () => {
+  it("ADR-0032：前提的事实后来真冲突了，明说的那条成了猜测、身份不改——整理记录里不再有\"结论 ↔ 假设\"，校验照样通过", async () => {
     const t = setup({ materials: [say("mat-1", "我喜欢吃辣", at(10, 9, 8, 0))], extractor: "rule", validator: graphSelfCheck });
     const first = await t.handle.run("scheduled", t.signal);
     expect(first).toMatchObject({ state: "ran" });
@@ -718,7 +718,7 @@ describe("每晚 03:00 的记忆整理作业", () => {
     });
   });
 
-  it("326 号票：没装 Python、没有本机的 skill（环境变量全空）也照样做完校验——记忆系统自己的图谱自检，通过就记通过，不是跳过", async () => {
+  it("没装 Python、没有本机的 skill（环境变量全空）也照样做完校验——记忆系统自己的图谱自检，通过就记通过，不是跳过", async () => {
     const t = setup({
       materials: [say("mat-1", "这周六的聚会我就不去了，最近周末想好好休息。", at(10, 9, 20, 0)), say("mat-2", "我不反感见朋友，只是不喜欢周末被提前排满。", at(10, 9, 22, 0))],
       extractor: "rule",
@@ -730,14 +730,14 @@ describe("每晚 03:00 的记忆整理作业", () => {
     expect(record!.text).toMatch(/每晚校验：查了 \d+ 个节点，图谱自检通过/);
   });
 
-  it("作业名和时间表是票里写的那个", () => {
+  it("作业名和时间表是定好的那个", () => {
     const t = setup({ materials: [] });
     expect(t.handle.job.name).toBe(MEMORY_NIGHTLY_JOB);
     expect(t.handle.job.name).toBe("memory-nightly");
     expect(t.handle.job.schedule).toEqual({ kind: "daily", time: "03:00" });
   });
 
-  // 234 号票：敏感类别默认记录、不用于推断；配置里允许了才进证据
+  // 敏感类别默认记录、不用于推断；配置里允许了才进证据
   it("敏感类别（健康）默认不进证据；配置里允许了才进", async () => {
     const off = setup({ materials: [say("mat-1", "周三体检", at(10, 9, 20, 0), [])] });
     await off.handle.run("scheduled", off.signal);
@@ -750,7 +750,7 @@ describe("每晚 03:00 的记忆整理作业", () => {
     on.withDb((db) => expect(Number(db.get<{ n: number }>("SELECT COUNT(*) AS n FROM evidence")?.n)).toBe(1));
   });
 
-  // 263 号票：线上每晚整理接上对抗复核（227）和判到期预测（226），和推理同一个模型
+  // 线上每晚整理接上对抗复核和判到期预测，和推理同一个模型
   it("对抗复核和判预测接上了：还没复核过的需求结论交给复核员（判不一致转待复核）、到期的预测交给模型判；次数和结果进整理记录", async () => {
     const t = setup({ materials: [say("mat-1", "这周六朋友排的聚会我又推掉了。", at(10, 9, 20, 0))] });
     seedNeedWithDuePrediction(t.file);
@@ -786,11 +786,11 @@ describe("每晚 03:00 的记忆整理作业", () => {
 });
 
 /**
- * 263 号票的例子：rg.db 里先放一条推断出来的需求结论（成立、把握中、两条本人原话支持，还没复核过）和它到期的一条预测
+ * 例子：rg.db 里先放一条推断出来的需求结论（成立、把握中、两条本人原话支持，还没复核过）和它到期的一条预测
  * （9 月 20 日记的、10 月 4 日到期）。直接写库：评测之外很难靠规则版、假模型凑出一条往上抽的需求
  */
-// 333 号票：全量重判一次走同一份引擎设置（同一个模型、写入口、敏感类别），不读新素材；模型外面包了计量，进度和花费对得上；能撤回
-describe("333：全量重判一次（作业的 runFullRejudge）", () => {
+// 全量重判一次走同一份引擎设置（同一个模型、写入口、敏感类别），不读新素材；模型外面包了计量，进度和花费对得上；能撤回
+describe("全量重判一次（作业的 runFullRejudge）", () => {
   const topics = ["皮划艇", "羽毛球", "电子琴"];
   const topicOf = (text: string) => topics.find((k) => text.includes(k));
 
@@ -852,7 +852,7 @@ describe("333：全量重判一次（作业的 runFullRejudge）", () => {
   it("不读新素材、只重判标着复核的组；进度一步一行，最后一行的花费和报告、模型真调的次数一致；快照能撤回", async () => {
     const { t, asked } = topicWorld();
     expect(await t.handle.run("scheduled", t.signal)).toMatchObject({ state: "ran", processedEvidence: 6 });
-    // 老代码留下的"待复核"状态（329 的迁移改成复核标记）：羽毛球那组的"喜欢"
+    // 老代码留下的"待复核"状态（迁移改成复核标记）：羽毛球那组的"喜欢"
     const claimId = t.withDb((db) => db.get<{ id: string }>("SELECT id FROM claims WHERE statement = '用户喜欢羽毛球'")!.id);
     t.withDb((db) => {
       db.run("UPDATE claims SET status = 'needs_review' WHERE id = ?", claimId);

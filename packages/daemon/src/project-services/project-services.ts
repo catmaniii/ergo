@@ -1,4 +1,4 @@
-// 项目的服务（133 号票）：运营手段"服务"生效之后，替它到 LSM 上线、撤下，接 LSM 推来的状态，有网页的在转发登记表里登记。
+// 项目的服务：运营手段"服务"生效之后，替它到 LSM 上线、撤下，接 LSM 推来的状态，有网页的在转发登记表里登记。
 // - 要求（service_desired，和确认运营方案、项目停用 / 重新启用同一事务追加）落盘之后，这里异步去做，一个服务一次只做一件
 //   （同一个服务的要求排队，做的时候又来了新的就照最新的再做一遍，旧的结果不记）：
 //   · 上线：经接入协议（LSM 的 link-protocol §7）登记 / 更新（put，整份替换，带开机自启）→ 没在跑的启动（等到就绪或失败）、在跑而
@@ -15,32 +15,32 @@
 //   service_outage，守护进程重启了也不重报）；LSM 没连上（状态未知）时不判。用户那边照旧只在入口、项目页、秘书看板上标着。
 // - 守护进程起来时（start）：上线了的、有网页的先在转发登记表里登记上（不等 LSM），没做完的接着做。
 // - 给前端、秘书看的样子（ProjectServiceView）由派生视图和内存里的状态现算，变了就整份推一次（publish：项目列表频道的临时事件）。
-// - 140 号票：有网页的服务首页的缩略图（thumbnails.ts 截、存）。这里定什么时候截：上线了并且在线（健康检查过了；上线时还没在线的
+// -有网页的服务首页的缩略图（thumbnails.ts 截、存）。这里定什么时候截：上线了并且在线（健康检查过了；上线时还没在线的
 //   等它在线）、改了运营方案（确认了这个项目的新一份）、服务重启了（LSM 推来的状态从不在线变回在线；接上 LSM 时的第一份全量不算，
 //   守护进程起来时不一口气截一堆）；取图的请求算"有人在看"，旧了（6 小时）、还没有的补一张。截出来的时间带在 ProjectServiceView 上。
-// - 257 号票：项目卡片、项目页上的"启动""关闭"和秘书的工具都交给 power()：使用中、有在 LSM 上的服务、LSM 连着才收下（不然说清原因，
+// -项目卡片、项目页上的"启动""关闭"和秘书的工具都交给 power()：使用中、有在 LSM 上的服务、LSM 连着才收下（不然说清原因，
 //   什么都不记），记一条 service_power（最新的一条算数），每个服务排进它那一串照最新的开关做：
 //   · 关闭：取消开机自启、强制停（二狗登记的服务没有停机命令），记 service_power_done（关好了、没关成及原因；没关成的重新接上 LSM 时再关）；
 //   · 启动：照定义整份重新登记（开机自启回到定义里的样子）、启动等到就绪——就是"上线"那一套，结果照样记 service_rollout（带 powerSeq），
 //     起不来的就是上线失败（原因来自 LSM，通知负责人）；
 //   · 关着的时候又要上线（改了方案、重新接上 LSM 补做）：登记时开机自启写关、不启动，在跑的停掉——关了就一直关着；
-//   · 例外（用户 2026-10-24 定，259 号票）：关着的项目停用后重新启用（含取消归档回到使用中），重新启用就全部拉起——同一时刻记一条
+//   · 例外：关着的项目停用后重新启用（含取消归档回到使用中），重新启用就全部拉起——同一时刻记一条
 //     "全部启动"（by user），重新上线照它做；
 //   · 做的时候又点了：做完这一步，旧的结果不记，照最新的再做一遍；守护进程起来时没做完的接着做，做完了的什么都不动（关着的不拉起）；
 //   · 关着、还在启动 / 关闭的不看挂没挂（不通知负责人）；转发照样登记着，打开是"服务没在线"的说明页。
-// - 269 号票（用户 2026-10-25 定"二狗自己兜底"：电脑重启后 LSM 没按开机自启拉服务，使用中的项目服务一直停着）：二狗接上 LSM
+// -（"二狗自己兜底"：电脑重启后 LSM 没按开机自启拉服务，使用中的项目服务一直停着）：二狗接上 LSM
 //   （守护进程起来、LSM 重新接上，welcome 里有 services）时，记下上线了、用户没关（开关不是关着、不在启动 / 关闭中）、项目使用中的
 //   服务；接上后的第一份全量里它没在跑（停着、失败、LSM 里没有了；启动中、停止中的是 LSM 自己在弄，不动）就排进它那一串，照"上线"
 //   那一套整份登记、启动等到就绪，结果记 service_rollout（revive: true），起不来的通知负责人。只在接上时做一次：之后挂了照上面的故障
 //   通知走，不自动反复拉（免得和 LSM 的挂了自动重启打架）；拉的时候不看挂没挂；还在上线中的、要你手动的照 133 补做，不算在里面。
 //   start() 在接入层建好、还没连上时叫（组合根里紧跟着 linkToLsm），所以守护进程起来那一次也是收到 welcome 时记下。
-// - 324 号票：同一份全量里在跑的（RUNNING / DEGRADED）照现在的方案整份再登记一次（resync）——同一份定义 LSM 不改；二狗换了 Node
+// -同一份全量里在跑的（RUNNING / DEGRADED）照现在的方案整份再登记一次（resync）——同一份定义 LSM 不改；二狗换了 Node
 //   这类让定义变了的（命令开头的 node 换成二狗自己那份），LSM 回 restartNeeded，强制重启一次让它用上。不记事件，只记日志；
 //   重启时不看挂没挂（和兜底拉起同一套）。
-// - 357 号票：上线时给服务发报事件的地址和专属凭证（service-events.ts）：登记之前没有凭证就发一份，定义里注入；撤下的要求一落盘就作废（不等 LSM 撤完），
+// -上线时给服务发报事件的地址和专属凭证（service-events.ts）：登记之前没有凭证就发一份，定义里注入；撤下的要求一落盘就作废（不等 LSM 撤完），
 //   重新上线发新的；发了新凭证而服务还在跑的重启一次（它手里的是旧的）。服务最近报的事件带在 ProjectServiceView 上。
-// - 363 号票（10-29 一次 netstat 乱报留下的：LSM 以为服务没在跑，二狗接上时去拉，启动报已经有一份在跑，记成失败；之后再没有新的结果，页面一直写失败；
-//   269、324 只管"上线了"的，这种服务接上时也不重新登记，357 的凭证就发不到它手上）：
+// -（10-29 一次 netstat 乱报留下的：LSM 以为服务没在跑，二狗接上时去拉，启动报已经有一份在跑，记成失败；之后再没有新的结果，页面一直写失败；
+//   269、324 只管"上线了"的，这种服务接上时也不重新登记，凭证就发不到它手上）：
 //   · 启动报 already-running（LSM 回的 code 是 failed，只有文字里有这个词）先按健康检查再看一眼（healthCheck）：真在跑算上线了；那一份是这次登记之前起的，
 //     登记变了、刚发了凭证的重启一次；真没在跑才记失败；
 //   · 自愈（heal）：记着上线失败、LSM 报告它在线（接上时的全量和之后的推送都算）、用户没关、项目使用中的，照现在的方案整份再登记一次：登记不进去的（跑的还是
@@ -87,7 +87,7 @@ export interface ProjectServicesOptions {
   store: EventStore;
   /** 接入 LSM 的名下服务（接入层建在后面：用到时现取） */
   lsm: () => LsmServices;
-  /** 转发登记表（132 号票）的登记口：和插件宿主给插件的 ctx.apps 同一套（280 号票：只要登记，撤销函数自己收着） */
+  /** 转发登记表的登记口：和插件宿主给插件的 ctx.apps 同一套（只要登记，撤销函数自己收着） */
   apps: Pick<AppRegistry, "register">;
   /** 数据目录的密钥区（真实路径）：密钥的引用换成这里的文件 */
   secretsDir: string;
@@ -106,11 +106,11 @@ export interface ProjectServicesOptions {
   /** 挂了 / 又在线持续多久（毫秒）才报给负责人；不填是 SERVICE_OUTAGE_GRACE_MS */
   outageGraceMs?: number;
   /**
-   * 服务首页的缩略图（140 号票）：存在哪（数据目录的缓存区）、怎么截（正式的用无头浏览器，测试注入假的）、二狗本机端口的地址
+   * 服务首页的缩略图：存在哪（数据目录的缓存区）、怎么截（正式的用无头浏览器，测试注入假的）、二狗本机端口的地址
    * （网关开好之后才有：截的是经二狗转发的 /apps/<应用名>/）、一次最多截多久；不给就不截
    */
   thumbnails?: { dir: string; capture: (url: string, signal: AbortSignal) => Promise<Buffer>; baseUrl: () => string | undefined; timeoutMs?: number };
-  /** 服务报事件（357 号票）：凭证、最近收到的，和报事件的地址（网关开好之后才有）；不给就不发凭证、不注入 */
+  /** 服务报事件：凭证、最近收到的，和报事件的地址（网关开好之后才有）；不给就不发凭证、不注入 */
   events?: { service: Pick<ServiceEvents, "credentialFile" | "ensureCredential" | "revokeCredential" | "sweepCredentials" | "recent" | "forgetProject" | "onChange">; url: () => string | undefined };
   now: () => string;
   log: (line: string) => void;
@@ -126,7 +126,7 @@ export interface ProjectServices {
   /** LSM 推来的在不在线（LSM 没连上、还没推过来是 unknown） */
   status(app: string): ServiceStatus;
   /**
-   * 服务首页的缩略图（140 号票，取图的接口用）：按项目编号和服务名给文件和截图时间，没有是 undefined。顺带算"有人在看"：
+   * 服务首页的缩略图（取图的接口用）：按项目编号和服务名给文件和截图时间，没有是 undefined。顺带算"有人在看"：
    * 上线了、在线的，旧了（6 小时）、还没有的补截一张（截好了推一次新的样子）
    */
   thumbnail(projectId: string, name: string): { file: string; takenAt: string } | undefined;
@@ -172,7 +172,7 @@ export function replyReason(reply: Extract<LsmServicesReply, { ok: false }>): st
   return [reply.error.message, ...details, ...(last ? [last] : [])].join(t("projectServices.reasonSep"));
 }
 
-/** basis：LSM 回复里带着的这个服务的状态（362 号票：通知负责人时写上它判断的依据），只进通知 */
+/** basis：LSM 回复里带着的这个服务的状态（通知负责人时写上它判断的依据），只进通知 */
 type Outcome = { state: ServiceRolloutState; reason?: string; basis?: string; registered: boolean };
 
 /** LSM 回的失败里，这个服务现在的状态：状态、健康检查、它的说明 */
@@ -182,7 +182,7 @@ const statusBasis = (s: LsmServiceStatus | undefined): string | undefined => {
   return parts.join("，"); // @i18n-ignore model
 };
 
-/** 一条结果是哪种做法来的：接上时兜底拉起（269）、自愈（363）；照运营方案、开关做的不写 */
+/** 一条结果是哪种做法来的：接上时兜底拉起、自愈；照运营方案、开关做的不写 */
 type RolloutHow = "revive" | "heal";
 
 /** LSM 回的失败 → 上线失败（连接没了的不记：等重新接上再做） */
@@ -203,7 +203,7 @@ const livenessOf = (s: ServiceStatus): Liveness => {
   return s === "unknown" ? "unknown" : "between";
 };
 
-/** 负责人自己核实时连哪（362 号票）：健康检查的地址，没写健康检查的连首页 */
+/** 负责人自己核实时连哪：健康检查的地址，没写健康检查的连首页 */
 const probeUrl = (row: ServiceRow) => `http://127.0.0.1:${row.desired.service.port}${row.desired.service.health?.path ?? "/"}`;
 
 /** 这一行做完了没有：没有结果的是还没做完；要你手动的、撤下失败的重新接上 LSM 时再做 */
@@ -240,7 +240,7 @@ export function createProjectServices(options: ProjectServicesOptions): ProjectS
   let started = false;
   let stopped = false;
   let published = "";
-  /** 要截首页、还没在线的（140 号票）：上线了、改了方案，等它在线再截 */
+  /** 要截首页、还没在线的：上线了、改了方案，等它在线再截 */
   const shotPending = new Set<string>();
   /** 269：接上 LSM 时记下的、上线了而用户没关的服务（应用名）：等接上后的第一份全量，没在跑的拉起来；没接上、用过了是 undefined */
   let reviveOnFull: Set<string> | undefined;
@@ -307,7 +307,7 @@ export function createProjectServices(options: ProjectServicesOptions): ProjectS
     }
   };
 
-  /** 现在能截哪个地址（140 号票）：上线了、该在 LSM 上、在线、有网页的，经二狗本机端口的转发；别的截不了 */
+  /** 现在能截哪个地址：上线了、该在 LSM 上、在线、有网页的，经二狗本机端口的转发；别的截不了 */
   const shotTarget = (app: string): string | undefined => {
     const base = options.thumbnails?.baseUrl();
     const row = base === undefined ? undefined : serviceRow(store.reader, app);
@@ -360,7 +360,7 @@ export function createProjectServices(options: ProjectServicesOptions): ProjectS
     proxied.delete(app);
   };
 
-  /** 交给 LSM 的定义；on 是 false（257：这个项目的服务你关着）时开机自启写关 */
+  /** 交给 LSM 的定义；on 是 false（这个项目的服务你关着）时开机自启写关 */
   const definitionOf = (row: ServiceRow, on: boolean) => {
     const project = options.project(row.projectId);
     const url = options.events?.url();
@@ -382,7 +382,7 @@ export function createProjectServices(options: ProjectServicesOptions): ProjectS
 
   /**
    * 上线：登记 / 更新、启动或重启、登记转发；LSM 没连上时 undefined（等连上）。
-   * on 是 false（257：这个项目的服务你关着）：登记时开机自启写关、不启动，在跑的停掉
+   * on 是 false（这个项目的服务你关着）：登记时开机自启写关、不启动，在跑的停掉
    */
   const bringUp = async (row: ServiceRow, on: boolean): Promise<Outcome | undefined> => {
     const lsm = options.lsm();
@@ -457,7 +457,7 @@ export function createProjectServices(options: ProjectServicesOptions): ProjectS
   };
 
   /**
-   * 上线失败、要你手动：通知项目的负责人（唤起它；项目已归档的不通知）。362 号票：这些通知都只在对话段里处理，不打断正在做的工单。269：接上 LSM 时兜底拉不起来的说明是接上时拉的；363：自愈时重启没起来的
+   * 上线失败、要你手动：通知项目的负责人（唤起它；项目已归档的不通知）。这些通知都只在对话段里处理，不打断正在做的工单。接上 LSM 时兜底拉不起来的说明是接上时拉的；自愈时重启没起来的
    * 说明是更新登记时重启的（once 带着那一次结果的幂等键：每次各通知一次）
    */
   const notices = (row: ServiceRow, outcome: Outcome, once?: { how: RolloutHow; key: string }): NewEvent[] => {
@@ -466,7 +466,7 @@ export function createProjectServices(options: ProjectServicesOptions): ProjectS
     if (!project || project.state === "archived") return [];
     const v = viewOf(row);
     const reason = outcome.reason ?? "";
-    // 362 号票：依据写全（LSM 给的原因，加上它报的状态），提示先自己连健康检查的地址核实
+    // 依据写全（LSM 给的原因，加上它报的状态），提示先自己连健康检查的地址核实
     // @i18n-ignore-next model：交给负责人的通知
     const said = outcome.basis ? `${reason}（${outcome.basis}）` : reason;
     const text = outcome.state === "manual" ? noticeText.manual(v, reason) : once?.how === "revive" ? noticeText.reviveFailed(v, said, probeUrl(row)) : once?.how === "heal" ? noticeText.healRestartFailed(v, said, probeUrl(row)) : noticeText.failed(v, said, probeUrl(row));
@@ -614,7 +614,7 @@ export function createProjectServices(options: ProjectServicesOptions): ProjectS
   };
 
   /**
-   * 把一个服务做到它该有的样子：先是运营方案要的（上线、撤下），再是开关要的（257：全部启动、全部关闭）。
+   * 把一个服务做到它该有的样子：先是运营方案要的（上线、撤下），再是开关要的（全部启动、全部关闭）。
    * 做的时候又来了新的要求、又点了开关，就照最新的再做（旧的结果不记）；retry：要你手动的、撤下失败的、关闭没做成的也再做
    */
   const reconcile = async (app: string, retry: boolean): Promise<void> => {
@@ -782,7 +782,7 @@ export function createProjectServices(options: ProjectServicesOptions): ProjectS
     });
   };
 
-  /** 269：接上后的第一份全量到了：接上时记下的、现在还该兜底的，LSM 里没在跑的拉起来；324：在跑的整份再登记一次 */
+  /** 接上后的第一份全量到了：接上时记下的、现在还该兜底的，LSM 里没在跑的拉起来；在跑的整份再登记一次 */
   const reviveStopped = (message: LsmServicesStatusMessage) => {
     const candidates = reviveOnFull;
     reviveOnFull = undefined;
@@ -890,7 +890,7 @@ export function createProjectServices(options: ProjectServicesOptions): ProjectS
           } else if (event.channel === CHANNELS.projects && event.type === EVENT_TYPES.project) {
             // 删掉的项目：转发撤掉（它的服务早在归档时就撤下了，这里再保险一下）
             const p = event.payload as ProjectEventPayload;
-            // 用户 2026-10-24 定（259 号票改 257 号票）：关着服务的项目停用后重新启用（含使用中归档后取消归档回到使用中），重新启用就把
+            // 关着服务的项目停用后重新启用（含使用中归档后取消归档回到使用中），重新启用就把
             // 服务全部拉起来，不再保持关着——记一条"全部启动"，重新上线时照它登记（恢复开机自启）、启动
             const reactivated = p.change === "reactivated" || (p.change === "unarchived" && p.project.state === "in_use");
             if (reactivated && !servicePower(store.reader, p.project.id).on) {
@@ -899,7 +899,7 @@ export function createProjectServices(options: ProjectServicesOptions): ProjectS
             }
             if (p.change === "deleted") {
               for (const app of proxied.keys()) if (app.startsWith(`${p.project.id}-`) && serviceRow(store.reader, app) === undefined) unproxy(app);
-              // 缩略图一起删掉（140 号票）；357：服务的凭证、最近收到的事件也是
+              // 缩略图一起删掉；服务的凭证、最近收到的事件也是
               shots?.forgetProject(p.project.id);
               options.events?.service.forgetProject(p.project.id);
             }
@@ -911,7 +911,7 @@ export function createProjectServices(options: ProjectServicesOptions): ProjectS
       const lsm = options.lsm();
       unsubscribe.push(
         lsm.onStatus((message) => {
-          // 之前的在不在线（140 号票：从不在线变回在线算重启了，重截首页）；接上 LSM 后的第一份全量之前的不算
+          // 之前的在不在线（从不在线变回在线算重启了，重截首页）；接上 LSM 后的第一份全量之前的不算
           const before = haveFull ? new Map(statuses) : undefined;
           if (message.full) {
             statuses.clear();

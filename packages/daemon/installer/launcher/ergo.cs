@@ -1,4 +1,4 @@
-// ergo.exe：ergo 命令的小启动器（318 号票）。只做一件事：找到安装里的 node，跑命令行 app\packages\daemon\src\cli\main.js，
+// ergo.exe：ergo 命令的小启动器。只做一件事：找到安装里的 node，跑命令行 app\packages\daemon\src\cli\main.js，
 // 参数原样交过去，退出码原样交回。用 Windows 自带的 C# 编译器编（packages/daemon/build/launcher.ts）；编不了、或者被杀毒软件拦了，
 // 用同目录的 ergo.cmd（同样的事，批处理写的）。
 //

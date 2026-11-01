@@ -1,4 +1,4 @@
-// 主切面：秘书主会话的会话回退（150 号票，回退和分支）。真的守护进程，秘书接 faux provider；测试扮演前端：
+// 主切面：秘书主会话的会话回退（回退和分支）。真的守护进程，秘书接 faux provider；测试扮演前端：
 // - 回到某条用户消息之前：秘书停稳、写分支摘要（BRANCH_SUMMARY_INSTRUCTIONS 原样交给模型）、会话树长出新分支；会话频道上一条 session_branch
 //   （整棵树）和新分支开头一条分支摘要；同一个幂等键重发拿到同一个结果；往上翻历史只有当前分支上的；
 //   守护进程重启后分支照旧，秘书下一轮的上下文从回退点接着、带着摘要（会话文件的叶子落了盘）；后连上的前端补发里先给最新的会话树；
@@ -263,7 +263,7 @@ describe("会话回退（秘书主会话）", { timeout: LONG_TEST_MS }, () => {
     await phone.sendText("第一句");
     await waitTurns(phone, 1);
     const second = await phone.sendText("第二句：把便条的事都办了");
-    // 对外发送对话审批关着也先问（101 号票）：一张张批准，这一轮做完
+    // 对外发送对话审批关着也先问：一张张批准，这一轮做完
     const approved = new Set<string>();
     await waitUntil(
       () => {

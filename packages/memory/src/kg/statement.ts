@@ -1,6 +1,6 @@
-// 精炼陈述的模板（规则版）：把一条事实写成一句单独看得懂的话，带时间和场景、去掉口语碎屑（用户 2026-10-20 提）。
-// 例："用户 2026-10-01 在周末、社交场合拒绝了聚会"、"用户从 2026-10-01 起在周末、社交场合偏好休息"。
-// 模型版由模型写（④ 号票），不经这里。有效期变了（观点变化让旧的到期）时，规则版的陈述跟着重写（graph.ts）。
+// 精炼陈述的模板（规则版）：把一条事实写成一句单独看得懂的话，带时间和场景、去掉口语碎屑。
+// 例："1 在周末、社交场合拒绝了聚会"、"用户从 2026-10-01 起在周末、社交场合偏好休息"。
+// 模型版由模型写，不经这里。有效期变了（观点变化让旧的到期）时，规则版的陈述跟着重写（graph.ts）。
 import { localDate } from "../domain/time.ts";
 import { EPISODIC_PREDICATES, type Assertion, type Predicate } from "../domain/types.ts";
 import { CONTEXT_DIMENSIONS, CONTEXT_LABELS } from "./context.ts";
@@ -28,7 +28,7 @@ const VERBS: Readonly<Record<Predicate, readonly [string, string]>> = {
   dislikes: ["不喜欢", "不反感"],
   works_on: ["在做", "不再做"],
   associated_with: ["和", "和"],
-  // 199 号票：实体和实体之间的关系；{o} 是宾语的位置（没有 {o} 的宾语接在后面）
+  // 实体和实体之间的关系；{o} 是宾语的位置（没有 {o} 的宾语接在后面）
   organized_by: ["由{o}组织", "不是{o}组织的"],
   involves: ["有{o}参加", "没有{o}参加"],
   held_at: ["地点在{o}", "地点不在{o}"],

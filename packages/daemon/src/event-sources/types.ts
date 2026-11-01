@@ -1,4 +1,4 @@
-// 事件来源的实现要守的形状（77 号票）：登记表（协议包 event-sources.ts）里的每个来源在守护进程里有一份实现，
+// 事件来源的实现要守的形状：登记表（协议包 event-sources.ts）里的每个来源在守护进程里有一份实现，
 // 由事件触发的分发（triggers.ts）按订阅交给它去盯，它推来的事件再由分发交给触发底座或简单提醒。
 import type { EventTrigger, TriggerEvent } from "@ergo/protocol";
 
@@ -9,7 +9,7 @@ import type { EventTrigger, TriggerEvent } from "@ergo/protocol";
 export interface EventSubscription {
   /** 订阅的编号：触发登记的 j-N，简单提醒的 r-N */
   id: string;
-  /** task 是事件触发的任务；别的是登记的订阅方（126 号票：提醒插件登记的 reminder） */
+  /** task 是事件触发的任务；别的是登记的订阅方（提醒插件登记的 reminder） */
   kind: string;
   trigger: EventTrigger;
   /** 事件触发的任务：它自己（自己的事不触发自己） */
@@ -37,7 +37,7 @@ export interface EventSourceContext {
  */
 export type EventDelivery = { outcome: "queued" | "merged"; runId: string } | { outcome: "ignored"; reason: string } | { outcome: "inactive" } | { outcome: "handed" };
 
-/** 分发给来源的口子：比 emit 多告诉来源交没交成（357 号票：项目的服务报事件要照实回服务） */
+/** 分发给来源的口子：比 emit 多告诉来源交没交成（项目的服务报事件要照实回服务） */
 export interface DeliveringContext extends EventSourceContext {
   deliver(sub: EventSubscription, event: SourceEvent): EventDelivery;
 }

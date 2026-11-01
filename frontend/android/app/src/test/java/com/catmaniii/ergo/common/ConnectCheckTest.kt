@@ -16,7 +16,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * 扫码连接（364 号票）：和鸿蒙拿同一份例子（frontend/test/connect-vectors.tsv，鸿蒙那边由 frontend/test/connect.test.ts 跑），
+ * 扫码连接：和鸿蒙拿同一份例子（frontend/test/connect-vectors.tsv，鸿蒙那边由 frontend/test/connect.test.ts 跑），
  * 网页生成的二维码（frontend/test/qr-samples.tsv，和 qrcode-generator 的输出核对过）用真的 ZXing 解一遍比对内容。
  */
 class ConnectCheckTest {

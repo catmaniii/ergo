@@ -1,11 +1,11 @@
-// Google 插件（297 号票，issue 25 生活数据源第一波；ADR-0027 的"数据源"贡献点）：接 Google 账号里的数据，一个插件、几个数据源。
-// 297 号票做了日历订阅（Google · 日历：私密 iCal 地址，只读，不用建 Google Cloud 项目——调研 37、39）；298 号票加了 Gmail
-// （Google · Gmail：应用专用密码 + 只读 IMAP，按需查；可选导入我发出的邮件）；301 号票加了联系人（Google · 联系人：用户导出的 vCard
+// Google 插件（ADR-0027 的"数据源"贡献点）：接 Google 账号里的数据，一个插件、几个数据源。
+// 做了日历订阅（Google · 日历：私密 iCal 地址，只读，不用建 Google Cloud 项目——调研 37）；加了 Gmail
+// （Google · Gmail：应用专用密码 + 只读 IMAP，按需查；可选导入我发出的邮件）；加了联系人（Google · 联系人：用户导出的 vCard
 // 放进导入文件夹，进档案候选）。网页那一半是 packages/web/src/plugins/google/（同名，一起启停：设置 · 数据源里 Google · 日历、
 // Google · Gmail 下面填设置的那两块，Google · 联系人下面怎么导出的那一块）。
-// - 数据契约：数据源 Google · 日历（calendar-source.ts：同步来的日程经数据源的 calendar() 交给日历插件当外部日历显示，299 号票定的路）、
+// - 数据契约：数据源 Google · 日历（calendar-source.ts：同步来的日程经数据源的 calendar() 交给日历插件当外部日历显示，定的路）、
 //   Google · Gmail（gmail-source.ts）、Google · 联系人（contacts-source.ts：认导入文件夹里的 vCard，交给个人档案的候选核对卡，
-//   299 号票手机通讯录选人同一条路）；导入的你发出的邮件采成"本人写的"素材（采集规则在下面），彻底删除时主题、正文、收件人换掉；
+//   手机通讯录选人同一条路）；导入的你发出的邮件采成"本人写的"素材（采集规则在下面），彻底删除时主题、正文、收件人换掉；
 //   移除时连数据删：同步来的日历事件、日历的名字、导入的你发出的邮件、导入的联系人记录（google 频道的几类事件），和密钥区里的
 //   私密地址、Gmail 地址和密码；
 // - 装配：日历订阅的服务（calendar-feeds.ts：存地址、测试连接、同步、展开）、Gmail 的服务（gmail.ts：存设置、测试连接、搜、读、导入）、
@@ -15,7 +15,7 @@
 //   写"日历插件没启用"，日历停了 Google 照常同步、按需查照常；
 // - 给秘书的"查 Google 日历""搜 Gmail 邮件""读 Gmail 邮件"由内核替数据源登记（按需查开着、插件在运行时才有），插件自己不经 ctx.agent
 //   登记工具；系统提示里不讲它们。
-// 344 号票：Gmail 可以连几个账号（gmail-accounts.ts），导入的素材写明是哪个账号的（origin.account）。
+// Gmail 可以连几个账号（gmail-accounts.ts），导入的素材写明是哪个账号的（origin.account）。
 // 测试里不连 Google：拉地址用注入的 fetch 或本机假服务（createGooglePlugin 的 fetch、timeoutMs），IMAP 连本机的假服务（imap：地址、端口、
 // 测试证书）。
 import { type CardEventPayload, CHANNELS, EVENT_TYPES, type EventType, PURGED_TEXT, t } from "@ergo/protocol";
@@ -73,7 +73,7 @@ export function createGooglePlugin(options: GooglePluginOptions = {}): PluginDef
       const gmail = googleGmailSource(() => ctx.active(GOOGLE).gmail);
       ctx.dataSources.register(gmail);
       ctx.dataSources.register(googleContactsSource(() => ctx.active(GOOGLE).contacts));
-      // 导入的你发出的邮件 → "本人写的"素材（303 号票的写法；只看事件本身）；敏感类别按每封写窄（同步时按关键词判断、写进负载）
+      // 导入的你发出的邮件 → "本人写的"素材（写法；只看事件本身）；敏感类别按每封写窄（同步时按关键词判断、写进负载）
       ctx.materialSources.register({
         name: GMAIL_SENT_MATERIAL,
         eventType: GOOGLE_GMAIL_SENT as EventType,

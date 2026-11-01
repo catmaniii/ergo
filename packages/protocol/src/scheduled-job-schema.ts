@@ -1,7 +1,7 @@
-// 触发登记（76 号票；19 号票时叫定时作业）和归档清单的 schema（规格第 8、13 节），用 TypeBox 定义，守护进程和 Web 共用生成的类型。
+// 触发登记（原来叫定时作业）和归档清单的 schema（规格第 8、13 节），用 TypeBox 定义，守护进程和 Web 共用生成的类型。
 // - 任务看板频道上的 scheduled_job 事件：触发登记的最新状态（ScheduledJob），这次的变化，和这次说到的那一次运行（JobRun）。
 //   看板运营中分组里定时触发的任务卡（时间表、下一次、最近一次运行）、项目页、日历、任务详情按运行分段都从它来；运行记录按 runId 留最新的；
-// - 看板上的 scheduled_job_action 请求：暂停、恢复、取消；reschedule_job 请求：改时间表（98 号票）；run_job_now 请求：立即运行一次（100 号票）；
+// - 看板上的 scheduled_job_action 请求：暂停、恢复、取消；reschedule_job 请求：改时间表；run_job_now 请求：立即运行一次；
 // - 归档清单卡（archive_list）：每周一次，把结束超过 7 天、还没归档的任务汇总成一张卡，每项选归档、继续改、先留着。
 // 名字（状态、变化、动作、选择）在 scheduled-jobs.ts。
 import { type Static, Type } from "typebox";
@@ -13,8 +13,8 @@ import { GrantInfo, PlanGrant, PlanTemporalRule, TaskStep } from "./task-schema.
 import { TASK_ACTORS, TASK_END_KINDS, TASK_STATES } from "./tasks.ts";
 
 /**
- * 触发底座收到的一次触发（76 号票）：从哪来（时间到了是 time；77 号票的事件来源用登记表里的编号：ergo、folder）、什么时候、
- * 一句给人和 agent 看的说明；77 号票：哪一种事件（来源登记的事件编号，时间到了的没有）、事件里的值（键是来源登记的字段的键，
+ * 触发底座收到的一次触发：从哪来（时间到了是 time；事件来源用登记表里的编号：ergo、folder）、什么时候、
+ * 一句给人和 agent 看的说明；哪一种事件（来源登记的事件编号，时间到了的没有）、事件里的值（键是来源登记的字段的键，
  * 流程步骤参数里的占位按它代入，交给 agent 时按字段的中文名写成结构化的输入）。一次运行处理一批：最先那一次，加上排队合并进来的
  */
 export const TriggerEvent = Type.Object({
@@ -38,39 +38,39 @@ export const JobRun = Type.Object({
   /** 开机补跑时停机期间错过了几次（错过几次都只补跑这一次） */
   missed: Type.Optional(Type.Integer({ minimum: 1 })),
   /**
-   * 这次运行处理的一批触发（76 号票）：最先那一次，加上它还排着、或者上一次还没跑完时又来的（排队合并，先后照来的顺序）。
-   * 76 号票之前的运行没有（只有 dueAt 那一次到点）
+   * 这次运行处理的一批触发：最先那一次，加上它还排着、或者上一次还没跑完时又来的（排队合并，先后照来的顺序）。
+   * 以前的运行没有（只有 dueAt 那一次到点）
    */
   events: Type.Optional(Type.Array(TriggerEvent)),
   state: Type.Enum(JOB_RUN_STATES),
   queuedAt: Type.String(),
   startedAt: Type.Optional(Type.String()),
   endedAt: Type.Optional(Type.String()),
-  /** 失败、中断、没运行、已撤回的原因（负责人报的、出错的、工单退回的、停机打断的、排着时作业暂停了的……）；部分完成的是哪几步没做成（176 号票） */
+  /** 失败、中断、没运行、已撤回的原因（负责人报的、出错的、工单退回的、停机打断的、排着时作业暂停了的……）；部分完成的是哪几步没做成 */
   reason: Type.Optional(Type.String()),
   /**
-   * 这次运行最后说的话（76 号票：一两句，压成一行截短）：后面的运行知道前几次的结果——属于项目的每次运行是一张新工单、新会话，
+   * 这次运行最后说的话（一两句，压成一行截短）：后面的运行知道前几次的结果——属于项目的每次运行是一张新工单、新会话，
    * 工单里带着前几次的结局和它
    */
   summary: Type.Optional(Type.String()),
   /** 属于项目的作业：这次运行是哪张工单 */
   workOrderId: Type.Optional(Type.String()),
   /**
-   * 定时触发的流程（76 号票）：这次运行里各步的状态（agent 用 report_step 汇报的，运行结束时执行过却没报的推断成做完；
+   * 定时触发的流程：这次运行里各步的状态（agent 用 report_step 汇报的，运行结束时执行过却没报的推断成做完；
    * 每次运行从头算，任务详情按运行分段时显示"做完 N/M 步"）
    */
   steps: Type.Optional(Type.Array(TaskStep)),
 });
 export type JobRun = Static<typeof JobRun>;
 
-/** 一份触发登记（scheduled_job 事件里是它的最新状态；19 号票时叫定时作业，76 号票起都属于一个定时触发的任务） */
+/** 一份触发登记（scheduled_job 事件里是它的最新状态；原来叫定时作业，都属于一个定时触发的任务） */
 export const ScheduledJob = Type.Object({
   /** 作业编号：j-1、j-2…… */
   id: Type.String(),
   title: Type.String(),
   /** 定时触发的：时间表（事件触发的没有） */
   schedule: Type.Optional(ReminderSchedule),
-  /** 事件触发的（77 号票）：哪个事件来源、哪几种事件、过滤条件（和任务的触发方式一样）；定时触发的没有 */
+  /** 事件触发的：哪个事件来源、哪几种事件、过滤条件（和任务的触发方式一样）；定时触发的没有 */
   event: Type.Optional(EventTrigger),
   /** 每次要做的事 */
   each: Type.String(),
@@ -80,18 +80,18 @@ export const ScheduledJob = Type.Object({
   /** 执行的负责人：属于项目的是项目的负责人，不属于项目的是作业自己的负责人（jm-<n>） */
   maintainerId: Type.String(),
   /**
-   * 授权所在的任务：76 号票起登记的就是它属于的那个定时触发的任务（流程的授权在它确认的计划里）；
-   * 76 号票之前的是建它的长程任务（计划里带着它的定义，每次运行的工具包、本任务的关注类别取自那份计划）
+   * 授权所在的任务：登记的就是它属于的那个定时触发的任务（流程的授权在它确认的计划里）；
+   * 以前的是建它的长程任务（计划里带着它的定义，每次运行的工具包、本任务的关注类别取自那份计划）
    */
   taskId: Type.String(),
   taskTitle: Type.String(),
   /**
-   * 属于哪个定时触发的任务（76 号票）：看板上、任务详情里显示的是这个任务。76 号票起登记的就是 taskId；
+   * 属于哪个定时触发的任务：看板上、任务详情里显示的是这个任务。登记的就是 taskId；
    * 之前的定时作业迁移时（scheduled_job 的 migrated）补上迁移出的那个普通任务。没有的是还没迁移（或者迁移前就取消了）的
    */
   ownerTaskId: Type.Optional(Type.String()),
   /**
-   * 项目内部任务的计划里定的作业（64 号票）：跟着任务只在项目内部看得到——不上全局看板的"运营中"，在项目页的定时作业里；
+   * 项目内部任务的计划里定的作业：跟着任务只在项目内部看得到——不上全局看板的"运营中"，在项目页的定时作业里；
    * 要用户处理的照常进待我处理（标着项目内部）
    */
   internal: Type.Optional(ProjectInternal),
@@ -139,7 +139,7 @@ export const ScheduledJobActionResult = Type.Object({ jobId: Type.String(), stat
 export type ScheduledJobActionResult = Static<typeof ScheduledJobActionResult>;
 
 /**
- * 改时间表（98 号票，reschedule_job）：定时触发的、没取消的触发登记换一份时间表（和简单提醒同一个 ReminderSchedule：重复的，
+ * 改时间表（reschedule_job）：定时触发的、没取消的触发登记换一份时间表（和简单提醒同一个 ReminderSchedule：重复的，
  * 或者某个时间做一次——那个时间要在将来）。任务、会话、运行记录都不变，下一次按新的现算；暂停着的改完照旧暂停
  */
 export const RescheduleJobParams = Type.Object({ jobId: Type.String({ minLength: 1 }), schedule: ReminderSchedule });
@@ -150,7 +150,7 @@ export const RescheduleJobResult = Type.Object({ jobId: Type.String(), state: Ty
 export type RescheduleJobResult = Static<typeof RescheduleJobResult>;
 
 /**
- * 立即运行一次（100 号票，run_job_now）：没取消的触发登记（定时、事件触发的都行；暂停着的也行，跑一次照旧暂停）等同被触发一次——
+ * 立即运行一次（run_job_now）：没取消的触发登记（定时、事件触发的都行；暂停着的也行，跑一次照旧暂停）等同被触发一次——
  * 运行的触发记成手动（manual），走同一个排队和名额，照常记用量、照常走授权与守卫；不改时间表、不算错过补发。
  * 同一个任务上一次还没跑完（在跑、排着）的不开始，拒绝并说明
  */

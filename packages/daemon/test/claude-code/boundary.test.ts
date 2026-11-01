@@ -1,11 +1,11 @@
-// Claude Code 插件的边界（287 号票，ADR-0027、ADR-0001，照日历插件的 test/calendar/boundary.test.ts 和 pi 的 test/pi-boundary.test.ts）：
+// Claude Code 插件的边界（ADR-0027、ADR-0001，照日历插件的 test/calendar/boundary.test.ts 和 pi 的 test/pi-boundary.test.ts）：
 // 1. 组合根（daemon.ts）里不出现它；插件目录之外只从 claude-code/api.ts 拿东西，写明的例外只有插件清单列它；
 // 2. 子进程的模块（claude-code/child/）只由守护进程按路径拉起：src 里别的模块不 import 它们；
 // 3. Agent SDK 只在子进程里：src 里只有 claude-code/child/ 引用 @anthropic-ai/claude-agent-sdk，真的 SDK 函数只在两个入口里引——适配子进程的
-//    main.ts（query）、290 号票的一次性子进程 sessions-main.ts（listSessions、getSessionMessages、forkSession）；别处只引类型；
-//    例外是 315 号票的 claude-code/sdk-installed.ts：只按包名找它装没装（SDK 是可选依赖），文件里没有 import 它；
-// 4. 插件不拥有数据：没有视图，数据契约里只登记运行时（能力清单逐项写明），装配只备好接管用的会话来源（290 号票：要内核的一次性子进程）
-//    和交给官方 App 用的命令行（292 号票：要守护进程自己的环境）。
+//    main.ts（query）、一次性子进程 sessions-main.ts（listSessions、getSessionMessages、forkSession）；别处只引类型；
+//    例外是 claude-code/sdk-installed.ts：只按包名找它装没装（SDK 是可选依赖），文件里没有 import 它；
+// 4. 插件不拥有数据：没有视图，数据契约里只登记运行时（能力清单逐项写明），装配只备好接管用的会话来源（要内核的一次性子进程）
+//    和交给官方 App 用的命令行（要守护进程自己的环境）。
 import fs from "node:fs";
 import path from "node:path";
 import { RUNTIME_OPERATIONS } from "@ergo/protocol";
@@ -64,7 +64,7 @@ describe("Claude Code 插件的边界", () => {
     expect(referencing.filter((p) => !p.startsWith("claude-code/child/"))).toEqual(["claude-code/sdk-installed.ts"]);
     const finder = withoutComments(files.find((f) => f.path === "claude-code/sdk-installed.ts")!.content);
     expect(finder).not.toMatch(/(?:from\s*|import\s*\(\s*)["']@anthropic-ai\/claude-agent-sdk/);
-    // 318 号票：静态 import 真的 SDK 的一个都没有（装好的程序里 node_modules 没有它，静态 import 会让子进程起不来）；
+    // 静态 import 真的 SDK 的一个都没有（装好的程序里 node_modules 没有它，静态 import 会让子进程起不来）；
     // 只有 load-sdk.ts 动态 import 它（找不到再到组件区找），适配子进程、一次性子进程两个入口从那里拿
     const escaped = SDK.replace("/", "\\/");
     const valueImports = files.filter((f) => new RegExp(`import\\s+(?!type\\b)[^;]*from\\s+["']${escaped}["']`).test(withoutComments(f.content))).map((f) => f.path);
@@ -77,7 +77,7 @@ describe("Claude Code 插件的边界", () => {
 
   it("插件不拥有数据：没有视图；数据契约里只登记 Claude Code 运行时（能力清单逐项写明、子进程入口是 child/main）", () => {
     expect(claudeCodePlugin.views ?? []).toEqual([]);
-    // 290 号票：接管已有会话的会话来源经内核的一次性子进程读本机会话；292 号票：交给官方 App 的命令行按守护进程自己的环境跑
+    // 接管已有会话的会话来源经内核的一次性子进程读本机会话；交给官方 App 的命令行按守护进程自己的环境跑
     expect(claudeCodePlugin.needs ?? []).toEqual([KERNEL.oneShot, KERNEL.env]);
     const registered: AgentRuntime[] = [];
     const touched: string[] = [];

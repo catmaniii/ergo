@@ -1,6 +1,6 @@
-// 按队列选方式（162 号票）的纯函数：web_search 不指定 engine 时依次试哪几种、什么时候停下让模型用 agent-browser、只启用 agent-browser 时；
+// 按队列选方式的纯函数：web_search 不指定 engine 时依次试哪几种、什么时候停下让模型用 agent-browser、只启用 agent-browser 时；
 // web_fetch 在直接请求之后依次试哪几种；显式指定 engine 时停用了、没 key 的拒绝；工具说明、参数里能写的 engine。
-// 182 号票：第四种"鸿蒙 App 的内置浏览器"——这一轮能用（秘书从浏览侧边栏、悬浮按钮来的那一轮）时 web_search 只试排在它前面的，
+// 第四种"鸿蒙 App 的内置浏览器"——这一轮能用（秘书从浏览侧边栏、悬浮按钮来的那一轮）时 web_search 只试排在它前面的，
 // 到它就停下（排第一时一个都不试）；这一轮用不了时跳过它；停用了不在队列里。
 import type { WebMethod } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
@@ -38,7 +38,7 @@ describe("web_search 按队列依次试", () => {
   });
 });
 
-describe("鸿蒙 App 的内置浏览器（182 号票）", () => {
+describe("鸿蒙 App 的内置浏览器", () => {
   it("这一轮能用、排第一：一个都不试，停下让模型先用 browse_*，后面的写明", () => {
     expect(searchPlan(q("app-browser", "deepseek", "browser", "agent-browser"), true, true)).toEqual({
       kind: "try",

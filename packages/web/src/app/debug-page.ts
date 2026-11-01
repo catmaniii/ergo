@@ -1,6 +1,6 @@
-// Debug 工具集（124 号票）在页面上要的几样（接浏览器、鸿蒙 App 的原生桥）：
+// Debug 工具集在页面上要的几样（接浏览器、鸿蒙 App 的原生桥）：
 // - 复制一段文字：先用 navigator.clipboard，ArkWeb 里不行（没有、被拒）就退回选中文字的老办法（execCommand("copy")）；
-// - 录几秒：App 里用原生录音（63 号票的 NativeVoiceRecorder），浏览器里用页面录音（VoiceRecorder），和"按住说话"同一套后端；
+// - 录几秒：App 里用原生录音（NativeVoiceRecorder），浏览器里用页面录音（VoiceRecorder），和"按住说话"同一套后端；
 // - 放一段音频（录的回放、合成的那一句）；
 // - 版本与环境：原生桥有哪些方法、屏幕和视口、安全区、风格和深浅色、主色；
 // - 本机存储里二狗记的键；重置首次提示（页面一侧"要麦克风被拒过"的记号、App 记的 notify_asked）。

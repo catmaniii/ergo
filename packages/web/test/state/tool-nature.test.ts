@@ -1,6 +1,6 @@
-// 工具调用的性质（54 号票，state/tool-nature.ts）：只看、动手、删改，要点层、全局层的工具色块按它分深浅
-// （最重的一档是删改，不只是删除）。守护进程记在工具调用 part 上（nature，用户 2026-10-09 定）；
-// 54 号票之前的记录没有，按工具名和"删除或覆盖"类别估。
+// 工具调用的性质（state/tool-nature.ts）：只看、动手、删改，要点层、全局层的工具色块按它分深浅
+// （最重的一档是删改，不只是删除）。守护进程记在工具调用 part 上（nature）；
+// 以前的记录没有，按工具名和"删除或覆盖"类别估。
 // 工具调用组取组里最重的。
 import fs from "node:fs";
 import path from "node:path";
@@ -66,7 +66,7 @@ describe("旧记录（没有 nature）：按工具名和\"删除或覆盖\"类�
     ["工具名像移除", tool("removeTag"), "modify"],
     ["命中删除或覆盖（带括号的全称）", tool("move_files", { categoryTitles: ["以我的名义对外发送或发布", "删除或覆盖（项目档案和工作目录内）"] }), "modify"],
     ["读文件命中了别的类别", tool("read", { categoryTitles: ["越出项目目录"] }), "look"],
-    // 173 号票：带了类别 id 的按 id 认，不看名字（名字按记下时的语言写）
+    // 带了类别 id 的按 id 认，不看名字（名字按记下时的语言写）
     ["带类别 id：命中删除或覆盖（英文的名字）", tool("write", { categories: ["delete_or_overwrite"], categoryTitles: ["Deleting or overwriting (in project records and working folders)"] }), "modify"],
     ["带类别 id：没命中删除或覆盖，名字里有那几个字也不算", tool("write", { categories: ["outside_project"], categoryTitles: ["删除或覆盖"] }), "act"],
   ])("%s", (_name, part, nature) => {

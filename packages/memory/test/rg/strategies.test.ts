@@ -1,5 +1,5 @@
-// 196 号票：交互策略（规则版）——成立的需求、价值编译成"什么场合 → 怎么做"，用户确认才生效。
-// 330 号票（R6）：可以建在猜测上（标"建在猜测上"，照旧要点头）；依据变成猜测不暂停；依据都被推翻了，点过头的不自动停、不自动撤，
+// 交互策略（规则版）——成立的需求、价值编译成"什么场合 → 怎么做"，用户确认才生效。
+// ADR-0032 R6：可以建在猜测上（标"建在猜测上"，照旧要点头）；依据变成猜测不暂停；依据都被推翻了，点过头的不自动停、不自动撤，
 // 问题箱出一条"这条做法的理由没了，还要不要"，没点头的提议收回。
 import { afterEach, describe, expect, it } from "vitest";
 import { generateQuestions } from "../../src/rg/question-sources.ts";
@@ -18,7 +18,7 @@ const RECOVERY = "leave_recovery|load";
 async function compiled() {
   const t = await storyEngine();
   const report = t.engine.compileStrategies();
-  // 330 号票（R6）：自主安排一条（依据有已验证的），留出休息一条（依据都是猜测）
+  // ADR-0032 R6：自主安排一条（依据有已验证的），留出休息一条（依据都是猜测）
   expect(report.strategies.map((s) => s.key).toSorted()).toEqual([RECOVERY, AUTONOMY].toSorted());
   return { ...t, strategy: report.strategies.find((s) => s.key === AUTONOMY)!, recovery: report.strategies.find((s) => s.key === RECOVERY)! };
 }
@@ -31,7 +31,7 @@ function basisQuestions(engine: import("../../src/engine.ts").MemoryEngine, at: 
 }
 
 describe("编译：成立的需求、价值 → 什么场合怎么做", () => {
-  it("'重视自主安排'（需求）和'长期看重自主安排'（价值）编成一条策略，proposed，挂着这两条依据（330：还有'现阶段的需要'那条猜测）", async () => {
+  it("'重视自主安排'（需求）和'长期看重自主安排'（价值）编成一条策略，proposed，挂着这两条依据（还有'现阶段的需要'那条猜测）", async () => {
     const { engine, strategy } = await compiled();
     const need = member(engine, NEED, "need_autonomy");
     const value = member(engine, VALUE, "value_enduring");
@@ -65,7 +65,7 @@ describe("编译：成立的需求、价值 → 什么场合怎么做", () => {
     expect(again).toMatchObject({ created: [], updated: [], statusChanged: [] });
   });
 
-  it("330 号票（R6）：猜测也能编——'留出休息'那条依据都是猜测，标'建在猜测上'，照旧 proposed、要点头才生效；把握 low 的猜测不拿来编", async () => {
+  it("ADR-0032 R6：猜测也能编——'留出休息'那条依据都是猜测，标'建在猜测上'，照旧 proposed、要点头才生效；把握 low 的猜测不拿来编", async () => {
     const { engine, recovery } = await compiled();
     expect(recovery.status).toBe("proposed");
     expect(recovery.basisClaimIds.map((id) => engine.store.getClaim(id)!.status)).toEqual(recovery.basisClaimIds.map(() => "contested"));
@@ -101,7 +101,7 @@ describe("编译：成立的需求、价值 → 什么场合怎么做", () => {
 
   it("别的主题：不分场合都喜欢爬山 → '有空闲、要推荐活动时：可以优先提议爬山'", async () => {
     const t = openEngine(NOW);
-    // 229 号票：三种场合靠方面不同（周末社交 / 工作 / 家里），只差日型不算两种
+    // 三种场合靠方面不同（周末社交 / 工作 / 家里），只差日型不算两种
     t.engine.ingestEvidence(say("ev-h1", "周末我喜欢去爬山", "2026-08-09T10:00:00+08:00", { context: ["weekend", "social"] }));
     t.engine.ingestEvidence(say("ev-h2", "工作日晚上也喜欢去爬山", "2026-09-09T20:00:00+08:00", { context: ["workday", "work"] }));
     t.engine.ingestEvidence(say("ev-h3", "放假也最喜欢爬山", "2026-10-02T10:00:00+08:00", { context: ["holiday", "family"] }));
@@ -190,7 +190,7 @@ describe("确认：只有用户确认才 active，进用户模型快照", () => 
   });
 });
 
-describe("跟着依据走（330 号票 R6）：依据变成猜测照旧用、标出来；依据都被推翻 → 点过头的问还要不要，没点头的收回", () => {
+describe("跟着依据走（R6）：依据变成猜测照旧用、标出来；依据都被推翻 → 点过头的问还要不要，没点头的收回", () => {
   it("依据被忘掉（工作日那句话）→ 需求、价值降成猜测 → 策略不暂停，照旧在用；reflect 后还是猜测 → 照旧在用，快照里标'建在猜测上'", async () => {
     const { engine, strategy } = await compiled();
     engine.ingestEvidence(say("ev-ok", "以后就这样", NOW));
@@ -279,7 +279,7 @@ describe("跟着依据走（330 号票 R6）：依据变成猜测照旧用、标
     expect(statusTrail(engine, strategy.id)).toEqual(["proposed", "active"]);
   });
 
-  it("老库里暂停着的（330 以前依据拿不准就停）：依据还活着 → 同步时恢复（确认过的回到 active）", async () => {
+  it("老库里暂停着的（以前依据拿不准就停）：依据还活着 → 同步时恢复（确认过的回到 active）", async () => {
     const { engine, strategy } = await compiled();
     engine.ingestEvidence(say("ev-ok", "以后就这样", NOW));
     engine.confirmStrategy(strategy.id, "ev-ok");

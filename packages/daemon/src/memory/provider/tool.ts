@@ -1,15 +1,15 @@
-// @i18n-ignore-file model：工具的说明、参数说明和结果都是给秘书（模型）看的（174 号票）；工具的名字走 t()
-// 秘书的"记一句"工具（337 号票第二步）：用户明确说"帮我记一句""记住……"时，秘书把**用户的原话**交给它——
-// 不对面那张快速动作卡（21 号票那条路要用户核对卡片），而是直接转给记忆插件槽的宿主（host.remember），由在跑的那个记忆插件
+// @i18n-ignore-file model：工具的说明、参数说明和结果都是给秘书（模型）看的；工具的名字走 t()
+// 秘书的"记一句"工具：用户明确说"帮我记一句""记住……"时，秘书把**用户的原话**交给它——
+// 不对面那张快速动作卡（那条路要用户核对卡片），而是直接转给记忆插件槽的宿主（host.remember），由在跑的那个记忆插件
 // 按原话存下来（会意这一版：写成一条"显式记忆命令"素材、立刻读成证据入库，见 memory/provider/subtext.ts）。
 //
 // - 只给秘书（和 ask_memory、mark_woven_question 一样经 agent 贡献缝登记到 agents: ["secretary"]），记忆插件停用时它跟着没了；
 // - 说明里写明：只有用户让你记的时候才用，不要自己随手记——随手记会把秘书的推断混成用户的话，而这条口径是"按原话存、不让插件去猜"；
 // - 过守卫：defineHostTool 的登记写全（不是绕过去自己执行）。它只往记忆里新增、不改已有的东西，所以不落任何内置类别；
-//   幂等键按"会话 + 消息 + 原话"算，同一句话再调一次不会记两遍，所以是"只读或幂等"（23 号票被杀后可以直接重跑）；
+//   幂等键按"会话 + 消息 + 原话"算，同一句话再调一次不会记两遍，所以是"只读或幂等"（被杀后可以直接重跑）；
 // - 出处：这条会话 + 秘书正在处理的那条用户消息 + 这一次工具调用（宿主据此把记忆落到会话/消息上，彻底删除时找得回来）；
 // - 没记成（记忆插件没启用、推理库这一会儿用不了……）如实回一句，让秘书跟用户说清，不假装记下了。
-// 366 号票（用户 2026-11-01："这张图记下来还是尽量可以下载吧"）：加一个可选的 file（文件编号）：用户在长按的网页元素上说记下来时，图、文件本身连同描述、来源网页和地址一起存进素材。
+// "这张图记下来还是尽量可以下载吧"：加一个可选的 file（文件编号）：用户在长按的网页元素上说记下来时，图、文件本身连同描述、来源网页和地址一起存进素材。
 // 不按意图分类，由秘书判断；编号只认这一轮 browse_element_content 取回来的（浏览插件核对），不能传路径（参数按 FILE_REF 校验）。这时 text 是秘书写的描述，不是用户的原话，
 // 来源标记跟着变（subtext-runtime.ts）。带不上文件（取不到、超了附件上限……）照实回"只记了文字"。
 import { CHANNELS, type MemoryItem, type MemoryRememberInput, type MemorySource, type RememberedFile, t, Type } from "@ergo/protocol";
@@ -27,7 +27,7 @@ export interface RememberToolDeps {
   remember(input: MemoryRememberInput): Promise<MemoryItem>;
   /** 事件日志的读：认秘书正在处理的这条输入属于哪个会话 */
   store: Pick<EventStore, "reader">;
-  /** 366 号票：这一次能带上什么（浏览插件给：这一轮长按的元素取回来的文件、来源网页和地址）；浏览插件没启用是 undefined，不给也是 */
+  /** 这一次能带上什么（浏览插件给：这一轮长按的元素取回来的文件、来源网页和地址）；浏览插件没启用是 undefined，不给也是 */
   elementToRemember?: (ref: string | undefined, call: HostToolCall) => ElementToRemember | undefined;
 }
 
@@ -53,7 +53,7 @@ const RememberParams = Type.Object(
 
 const messageOf = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
-/** 连文件一起存下了（366 号票）：存了什么、在哪看得到；存的是截图的说清 */
+/** 连文件一起存下了：存了什么、在哪看得到；存的是截图的说清 */
 function withFileText(head: string, file: RememberedFile): string {
   const how = file.via === "screenshot" ? `存的是截的这个元素的图，不是原文件${file.partial ? "，只截到了屏幕上看得见的部分" : ""}：告诉用户时说清是截图。` : ""; // @i18n-ignore model：工具结果
   return `${head}，连同文件「${file.name}」（${file.mime}，${sizeLabel(file.size)}）和它的来源一起存进了素材，用户在记忆 · 素材里能看到。${how}不用再复述一遍。`; // @i18n-ignore model：工具结果

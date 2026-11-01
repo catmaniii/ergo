@@ -1,7 +1,7 @@
 // 负责人的"提交计划"工具（守护进程代为执行）：参数就是共享协议包的计划 schema（PlanSubmission：阶段里没有编号，编号由守护进程定，
-// 93 号票；pi 先按它校验，不合就把原因交回模型、不转；守护进程再按同一个 schema 校验一次），检查（tasks/plan.ts）不过时原因交回负责人、不出计划卡。
+// pi 先按它校验，不合就把原因交回模型、不转；守护进程再按同一个 schema 校验一次），检查（tasks/plan.ts）不过时原因交回负责人、不出计划卡。
 // 工具绑定在一个任务上：负责人只能给它执行的那个任务提交计划。
-// 112 号票：长程任务的阶段自动验收，说明里写明验收方式只能写脚本、评审（写了由你验收的计划检查退回）。
+// 长程任务的阶段自动验收，说明里写明验收方式只能写脚本、评审（写了由你验收的计划检查退回）。
 import { PlanSubmission, stagesAutoAccepted, t } from "@ergo/protocol";
 import { defineHostTool, type HostTool } from "../agent-manager/host-tools.ts";
 import { RequestRejected } from "../errors.ts";

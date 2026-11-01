@@ -1,10 +1,10 @@
 /**
- * 检测项全览（60 号票）——
+ * 检测项全览——
  * 这次审查一共用了哪些规则、每条的形式化写法是什么、本次审查在它上面查到了什么、它声明了几种修法、最后为什么选了那一种。
  * "接口"那一行是调用写法（ApiLine）。
  * 规则原文从审查结果里带着的那一份取（WorkflowReview.docs：守护进程审查真正用的，v1 模板加计划里写的，没写修补方案的已补上），
  * 判定结果从本次审查结果里取，两边用规则 id 对上；数据由状态层的 ruleBook 给（state/workflow-view.ts）。
- * 二狗多的：违反了怎么办有三种（协议包的 ON_VIOLATION_TEXT，计划卡、阶段详情同一个说法，84 号票合成一份，不只是"违反后直接拦截"）；
+ * 二狗多的：违反了怎么办有三种（协议包的 ON_VIOLATION_TEXT，计划卡、阶段详情同一个说法，合成一份，不只是"违反后直接拦截"）；
  * 规则来自框架还是计划，写在生效阶段那一行。
  */
 import { useState } from "react";
@@ -80,7 +80,7 @@ export function RuleBook({ review }: { review: WorkflowReview }) {
   );
 }
 
-/** 检测项全览里的一条（84 号票：长程任务阶段规则的详情页也用它） */
+/** 检测项全览里的一条（长程任务阶段规则的详情页也用它） */
 export function RuleRow({ rule, open, onToggle }: { rule: RuleBookRule; open: boolean; onToggle(): void }) {
   const { probe, status, violations, deferred, repairs, chosen } = rule;
   const chosenKinds = chosen.map((c) => c.kind);

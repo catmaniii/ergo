@@ -1,4 +1,4 @@
-// 登记的 MCP 的 command 写 node（377 号票）：一行命令装的电脑 PATH 上可能根本没有 node，要换成二狗自己那份，和项目服务同一条规矩：
+// 登记的 MCP 的 command 写 node：一行命令装的电脑 PATH 上可能根本没有 node，要换成二狗自己那份，和项目服务同一条规矩：
 // - PATH 上没有 node：command 写 node 的照样起得来、调得通；
 // - 写的是绝对路径：原样用，不换（给一份不存在的"二狗那份"，它照样起得来）。
 // 都是真的闸门进程和假 MCP 服务（fixtures/fake-mcp-server.mjs），环境里的 PATH 指一个空目录。

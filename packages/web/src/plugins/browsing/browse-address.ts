@@ -1,4 +1,4 @@
-// "浏览"页签（134 号票）的地址栏：打的字变成要打开的网址——网址直接开，关键词拿设置里选的搜索引擎搜（搜索引擎的清单在 state/browse.ts）。
+// "浏览"页签的地址栏：打的字变成要打开的网址——网址直接开，关键词拿设置里选的搜索引擎搜（搜索引擎的清单在 state/browse.ts）。
 // 只开 http、https；javascript:、file: 这些一律当关键词。
 import { type SearchEngineId, searchUrl } from "../../state/index.ts";
 

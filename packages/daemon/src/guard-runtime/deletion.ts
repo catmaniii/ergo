@@ -1,12 +1,12 @@
-// 守卫接入运行时在"删除参与方"登记表里的那一份（279 号票；登记表见 deletion/participants.ts）：这次删除的 agent 的审批、效果日志、
+// 守卫接入运行时在"删除参与方"登记表里的那一份（登记表见 deletion/participants.ts）：这次删除的 agent 的审批、效果日志、
 // 执行记录和调用另存的完整内容，照彻底删除的改写函数字段级改写（ADR-0008：原话换成删除标记，状态不变）。原来在 projects/deletion.ts
-// （ADR-0010：这个项目负责人的）、tasks/deletion.ts（186 号票：任务自己的负责人和子 agent 的）里各写一遍。
+// （ADR-0010：这个项目负责人的）、tasks/deletion.ts（任务自己的负责人和子 agent 的）里各写一遍。
 // - 审批请求和它的决定；效果日志里全是这几个 agent 的那几条；
-// - 有副作用的调用的执行记录（调用摘要、结果摘要，23 号票）；
-// - 调用另存的完整参数和返回（53 号票）：删项目时负责人会话里的（含子 agent 的）、负责人自己的、归属这个项目的（评审子 agent 的）；
+// - 有副作用的调用的执行记录（调用摘要、结果摘要）；
+// - 调用另存的完整参数和返回：删项目时负责人会话里的（含子 agent 的）、负责人自己的、归属这个项目的（评审子 agent 的）；
 //   删任务时它自己的负责人会话里的、这几个 agent 的、归属这个任务的评审子 agent 的。连同它们的效果日志（记了调用 id 的按调用 id 和
 //   agent，旧的按紧跟在完整内容后面）；
-// - 没有完整内容的更早的调用（53 号票之前）：会话里工具调用记录后面紧跟着的旧效果日志。
+// - 没有完整内容的更早的调用：会话里工具调用记录后面紧跟着的旧效果日志。
 // 审批卡：删项目时字段级改写、追加新版本（立项书卡、规范改写卡一样，状态不变：审批还是已批准）；删任务时整张换成标记。
 import { EVENT_TYPES, maintainerChannel, type MessageEventPayload, type ToolCallDetail } from "@ergo/protocol";
 import { type DeletionParticipants, type DeletionPlan, liveEvents, PROJECT_DELETION, TASK_DELETION } from "../deletion/participants.ts";

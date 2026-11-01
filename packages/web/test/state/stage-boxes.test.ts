@@ -1,11 +1,11 @@
-// 91 号票第 6 块：长程任务的会话按阶段成框——
+// 长程任务的会话按阶段成框——
 // 聊天里只留你说的、Agent 说的、计划和出错（二狗：你的消息、语音、回复、任务书、计划卡、计划变更卡、自行调整计划的记录、
 // 还等你处理的卡、这一轮出错的说明），其余连着的按阶段分组：同一阶段连着的是一组，中间插了照常显示的就断开；自己不带阶段的
 // 跟着后面最近的那个阶段，后面没有就跟前面的；都没有的是一条细的（不属于哪个阶段的后台事项）。
 // 每个框：第几阶段、标题、出过的情况、完成情况；一句小结；点开是要点。收着时条外的标注一类一条。
 // 回放：task-execution（一条直线，验收通过、你从「写报告」重做）、task-plan-change（并行的两个阶段，计划变更、卡住求助）、
 // task-rejections（审批你拒绝了几次）、parallel-sequential（不带阶段的说明跟着后面的阶段）。
-// 93 号票：重做记录（写了原因的也算）收进框里；框里的验收结论画成横条（verdictStrip）；收着的框条外多了"外""权"两类。
+// 重做记录（写了原因的也算）收进框里；框里的验收结论画成横条（verdictStrip）；收着的框条外多了"外""权"两类。
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
@@ -53,7 +53,7 @@ function withoutReason(item: ChatItem): ChatItem {
 }
 
 describe("哪些照常显示、其余怎么分组", () => {
-  test("一条直线的任务：任务书、计划卡、回复照常显示；每段后台事项按阶段成组，重做记录（写了原因的连同你说的话，93 号票）收进重做之后那一轮的框、是它的第一条", () => {
+  test("一条直线的任务：任务书、计划卡、回复照常显示；每段后台事项按阶段成组，重做记录（写了原因的连同你说的话）收进重做之后那一轮的框、是它的第一条", () => {
     const { state, items } = session("task-execution");
     expect(items.map((it) => stageChatShown(state, it))).toEqual([true, true, true, false, false, false, false, false, false, false, false, true, false, false, false, false, false, true]);
     expect(reopenSummary(items[12]!)).toContain("你说：「缺一段方案对比」");
@@ -82,19 +82,19 @@ describe("哪些照常显示、其余怎么分组", () => {
     expect([tail.stageId, at(parallel.items, tail.ids)]).toEqual(["s2", [9, 10, 11, 12, 13]]);
   });
 
-  test("任务书按消息上的 taskBrief 认，不认文字（172 号票：英文下写的也照常显示；之前的消息没有 taskBrief，按开头的中文认）", () => {
+  test("任务书按消息上的 taskBrief 认，不认文字（英文下写的也照常显示；之前的消息没有 taskBrief，按开头的中文认）", () => {
     const { state, items } = session("task-execution");
     const brief = items[0]!;
     if (brief.kind !== "system") throw new Error("应当是任务书");
     expect(stageChatShown(state, brief)).toBe(true);
-    // 274 号票重录过：录下的任务书带着 taskBrief；去掉它、换成英文的，就认不出了
+    // 重录过：录下的任务书带着 taskBrief；去掉它、换成英文的，就认不出了
     const { taskBrief: _brief, ...plain } = brief;
     const other = { ...plain, text: "Brief for task t-1" };
     expect(stageChatShown(state, other)).toBe(false);
     expect(stageChatShown(state, { ...other, taskBrief: true })).toBe(true);
   });
 
-  test("重做之后复验没过的记录照常显示（274 号票：要先告诉你），重做记录照旧收进框里", () => {
+  test("重做之后复验没过的记录照常显示（要先告诉你），重做记录照旧收进框里", () => {
     const { state, items } = session("task-execution");
     const reopen = items.find((it) => reopenSummary(it) !== undefined);
     if (reopen?.kind !== "record" || reopen.record.type !== "timeline") throw new Error("应当有一条重做记录");
@@ -114,7 +114,7 @@ describe("哪些照常显示、其余怎么分组", () => {
   });
 });
 
-describe("项目的对话框：会话不是这个任务独占的（368 号票）", () => {
+describe("项目的对话框：会话不是这个任务独占的", () => {
   test("别的任务、项目自己的条目断开、照常显示，不并进框也不收成一句话；这个任务不在阶段里的也不收", () => {
     const { state, items } = session("task-execution");
     // 这一段会话里插一条项目自己的工具调用（不带任务）
@@ -170,7 +170,7 @@ describe("每个框上写什么", () => {
       const cut = [...items.slice(0, 11), reopen, items[13]!];
       return stageBoxes(state, cut, "t-1", { stale, running: true }).map((b) => [b.stageId, at(items, b.ids), b.status.text, b.stale, b.live, b.incidents.map((x) => x.kind)]);
     };
-    // 写了原因的重做记录（93 号票）收进新一轮的框、是它的第一条，算撤回一类
+    // 写了原因的重做记录收进新一轮的框、是它的第一条，算撤回一类
     expect(run(items[12]!)).toEqual([
       ["s1", [3, 4, 5, 6], "✓ 完成", false, false, []],
       ["s2", [7, 8, 9, 10], "已作废", true, false, []],
@@ -184,7 +184,7 @@ describe("每个框上写什么", () => {
     ]);
   });
 
-  test("要点：系统查到的结果（274 号票，宣布完成时效果日志汇总的个数），验收时查到的（每条标准的备注取第一行；都没有备注的写核对了几条都通过）", () => {
+  test("要点：系统查到的结果（宣布完成时效果日志汇总的个数），验收时查到的（每条标准的备注取第一行；都没有备注的写核对了几条都通过）", () => {
     const { state, items } = session("task-execution");
     const [first] = stageBoxes(state, items, "t-1", { stale: new Set() });
     expect(first!.lines).toEqual(["系统查到：没有对外发送；新建 1 个文件", "资料清单存在：退出码 0"]);
@@ -283,7 +283,7 @@ describe("缩放里的阶段框", () => {
   test("书脊上写阶段的编号（并行的 1a、1b）", () => {
     const { state, items } = session("task-plan-change");
     const labels = new Map(zoomDecor(state, CONV, items).spines.map((sp) => [sp.stageId, sp.label]));
-    // 93 号票：编号存在计划里，负责人自行调整了先后也不变
+    // 编号存在计划里，负责人自行调整了先后也不变
     expect(Object.fromEntries(labels)).toEqual({ s1: "1a", s2: "1b" });
   });
 
@@ -293,7 +293,7 @@ describe("缩放里的阶段框", () => {
     const groupOf = new Map(groups.flatMap((g) => g.ids.map((id) => [id, g] as const)));
     const { spines } = zoomDecor(state, CONV, items);
     const shown = stageBoxSpines(spines, groupOf, new Set());
-    // 重做那一轮从重做记录开始：93 号票起它也收在框里（新一轮的第一条），上沿落在那个框上
+    // 重做那一轮从重做记录开始：它也收在框里（新一轮的第一条），上沿落在那个框上
     expect(spines.map((sp) => at(items, [sp.firstId])[0])).toEqual([3, 7, 12]);
     expect(shown.map((sp) => sp.firstId)).toEqual(spines.map((sp) => `sbox:${groupOf.get(sp.firstId)!.id}`));
     expect(shown.map((sp) => sp.lastId)).toEqual(spines.map((sp) => `sbox:${groupOf.get(sp.lastId)!.id}`));
@@ -309,7 +309,7 @@ describe("缩放里的阶段框", () => {
   });
 });
 
-describe("框里交上来验收的结论画成横条（93 号票）", () => {
+describe("框里交上来验收的结论画成横条", () => {
   test("验收通过：一行\"验收通过：「…」\"，右边写核对了几条，点开逐条标准和系统查到的", () => {
     const { state, items } = session("task-execution");
     const [first] = stageBoxes(state, items, "t-1", { stale: new Set() });
@@ -363,7 +363,7 @@ describe("框里交上来验收的结论画成横条（93 号票）", () => {
     expect(verdictStrip(returned, true)).toMatchObject({ tone: "failed", title: "几次都没通过：「写报告」", tail: "交给你决定" });
   });
 
-  // 311 号票（294 号票端到端小测第 7 条）：验收脚本根本没跑起来（闸门进程起不来、命令找不到）时不写"和实际对不上"
+  // 端到端小测第 7 条：验收脚本根本没跑起来（闸门进程起不来、命令找不到）时不写"和实际对不上"
   test("没过的都是验收没跑起来的：右边写“验收没跑起来”，系统查到的写起不来的原因；有一条是跑了没过的照旧写“和实际对不上”", () => {
     const base = { taskId: "t-1", taskTitle: "X", stageId: "s1", stageTitle: "实现 todo.py", stageIndex: 1, stageTotal: 2, kind: "acceptance" as const, text: "" };
     const notRun = { criterion: "add / list / done 全流程可用", method: "script" as const, passed: false, notRun: true, note: "脚本没跑起来：闸门进程起不来" };
@@ -393,12 +393,12 @@ describe("框里交上来验收的结论画成横条（93 号票）", () => {
   });
 });
 
-/** 会话里的工具调用组：每次调用都记上 mark（守护进程 93 号票起记的；录像里的调用没有命中关注类别，补上） */
+/** 会话里的工具调用组：每次调用都记上 mark（守护进程记的；录像里的调用没有命中关注类别，补上） */
 function withMarks(items: readonly ChatItem[], mark: "out" | "perm"): ChatItem[] {
   return items.map((it) => (it.kind === "tool_group" ? { ...it, calls: it.calls.map((c) => ({ ...c, part: { ...c.part, mark } })) } : it));
 }
 
-describe("收着的框条外的\"外\"\"权\"（93 号票）", () => {
+describe("收着的框条外的\"外\"\"权\"", () => {
 
   test("放行执行完、记了 mark 的调用：一次的写那一句，几次的按工具的中文名数；排在出过的情况后面，箭头不指框上的图标", () => {
     const { state, items } = session("task-execution");

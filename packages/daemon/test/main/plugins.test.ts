@@ -1,7 +1,7 @@
-// 主切面：插件（126 号票，ADR-0027）。走真实的装配路径：经组合根（startDaemon）和插件清单起守护进程，停用插件只经数据目录配置的
+// 主切面：插件（ADR-0027）。走真实的装配路径：经组合根（startDaemon）和插件清单起守护进程，停用插件只经数据目录配置的
 // plugins.disabled（startTestDaemon 的 plugins 选项写的就是它），不手挂插件（dsh 的复盘 0001：手挂插件的单元测试全过、上线即崩）。
-// - 默认全装：提醒插件、记忆插件（129 号票）在运行；停用记忆插件的在 memory-plugin.test.ts；
-// - 配置里停用提醒插件：守护进程照常起，日志和健康信息里写明；秘书照常聊天，它没有提醒工具、系统提示里没有提醒（128 号票：
+// - 默认全装：提醒插件、记忆插件在运行；停用记忆插件的在 memory-plugin.test.ts；
+// - 配置里停用提醒插件：守护进程照常起，日志和健康信息里写明；秘书照常聊天，它没有提醒工具、系统提示里没有提醒（
 //   agent 那一侧也是提醒插件贡献的），不产生提醒和卡片；发起对话框里的"只提醒我"回"提醒插件没启用"；看板、日历照常，
 //   只是没有提醒那一类；别的功能（素材、工作日历）照常；
 // - 停用期间：以前的提醒卡上的按钮回"提醒插件没启用"，彻底删除照常（提醒卡是数据契约，停用也登记）；
@@ -64,7 +64,7 @@ describe("插件清单和配置", () => {
     const frontend = await TestFrontend.connect(td.url);
     await frontend.subscribe(ALL);
     await tell(frontend, "明早 9 点提醒我交报告");
-    // 128 号票：秘书没有提醒的三个工具，系统提示里没有提醒（别的工具、别的段落照旧）；不产生提醒和卡片
+    // 秘书没有提醒的三个工具，系统提示里没有提醒（别的工具、别的段落照旧）；不产生提醒和卡片
     const seen = assemblyOf(lastSecretaryText(frontend));
     expect(seen).not.toMatch(/reminder|提醒/);
     expect(seen).toContain("[tool] send_attachment\n[tool] search_materials\n[tool] read_material");
@@ -115,7 +115,7 @@ describe("插件清单和配置", () => {
     // 再启用：视图补齐，到点照常响
     const logs: string[] = [];
     const clock = new ManualClock(at(10, 7, 23));
-    // 下面拨过 03:00：只关掉记忆整理（memory.enabled，265 号票），不要后台唤醒记忆管理员；插件照样在运行
+    // 下面拨过 03:00：只关掉记忆整理（memory.enabled），不要后台唤醒记忆管理员；插件照样在运行
     const third = await startTestDaemon({
       plugins: ["reminders", "memory", "voice", "browsing", "claude-code", "phone", "google", "looki"],
       clock,

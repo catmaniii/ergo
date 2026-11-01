@@ -1,4 +1,4 @@
-// 主切面：计划变更和自行调整计划（规格第 8 节"计划变更"、第 5 节卡片，14 号票）。真的守护进程，负责人接 faux 剧本。
+// 主切面：计划变更和自行调整计划（规格第 8 节"计划变更"、第 5 节卡片）。真的守护进程，负责人接 faux 剧本。
 // - 负责人提交计划变更（扩大授权、加能力……）：待我处理出现计划变更卡，卡上只列变化的部分；只有受影响的阶段停下等确认，
 //   其余阶段照常推进；用户确认后计划和授权项随之更新，受影响的阶段恢复，工具包变了负责人按新工具包重新拉起；
 //   看板上推一条 task_plan（阶段抽屉显示现在生效的计划），时间线上记一笔计划变更；
@@ -6,8 +6,8 @@
 // - 用户拒绝：负责人在现有授权内重排（revise_plan 自行调整计划，记进时间线、不出卡），做不到就标做不了，任务转等我；
 // - 不扩大授权的调整直接改；借调整扩大授权的被拒，提示改走计划变更；不扩大授权的变更也不出卡，提示直接调整；
 //   同一任务一次只有一张计划变更卡在等；
-// - 收窄工具包的计划变更确认后：负责人按新工具包重新拉起，活着的子 agent 做完手头这一步后按新的交集重新装配（20 号票的 reassemble）；
-// - 阶段编号存进计划（93 号票）：第一版按依赖层定，调整时已有的不变、新加的按所在的阶段给号；看板上的阶段、进度卡写编号。
+// - 收窄工具包的计划变更确认后：负责人按新工具包重新拉起，活着的子 agent 做完手头这一步后按新的交集重新装配（reassemble）；
+// - 阶段编号存进计划：第一版按依赖层定，调整时已有的不变、新加的按所在的阶段给号；看板上的阶段、进度卡写编号。
 import fs from "node:fs";
 import path from "node:path";
 import { CHANNELS, EVENT_TYPES, maintainerChannel, type Plan, type PlanCardPayload, type PlanChangeCardPayload, type ProgressCardPayload, type TaskPlanEventPayload } from "@ergo/protocol";
@@ -221,7 +221,7 @@ function threeStagePlan(): Plan {
   return { ...plan, stages: [s1!, s2!, s3] };
 }
 
-describe("计划变更只交要改的阶段（121 号票）", () => {
+describe("计划变更只交要改的阶段", () => {
   it("只交一个没验收的阶段（前置是已验收的）能提出计划变更、只停它；交全部阶段时已验收的阶段有细小出入按现在的定义保留；自行调整也能只交改动的阶段；被拒时说清是哪一处", async () => {
     const plan = threeStagePlan();
     const [s1, s2, s3] = plan.stages;
@@ -303,7 +303,7 @@ describe("计划变更只交要改的阶段（121 号票）", () => {
   }, 90_000);
 });
 
-describe("阶段编号存进计划（93 号票）", () => {
+describe("阶段编号存进计划", () => {
   it("第一版并行的两个是 1a、1b；计划变更加的阶段按所在的阶段给号（1c、2），已有的不变；看板上的阶段、进度卡写编号", async () => {
     const plan = parallelPlan();
     const added: Plan = {
@@ -340,7 +340,7 @@ describe("阶段编号存进计划（93 号票）", () => {
     await inputsDone(frontend, M1);
   }, 90_000);
 
-  it("被拒的计划变更卡上显示过的号也算用过（93 号票评审）：下一张卡上新加的阶段不再拿这个号，旧卡上的号不会指到别的阶段", async () => {
+  it("被拒的计划变更卡上显示过的号也算用过：下一张卡上新加的阶段不再拿这个号，旧卡上的号不会指到别的阶段", async () => {
     const plan = parallelPlan();
     const more = (stageId: string, title: string): Plan => ({ ...plan, stages: [...plan.stages, { ...plan.stages[1]!, stageId, title, dependsOn: [] }] });
     const td = await startTestDaemon({
@@ -468,7 +468,7 @@ describe("收窄工具包的计划变更和子 agent", () => {
     const result = await eventually(() => messagesOf(frontend, M1), (m) => m.agentId === "sa-1" && m.message.speaker === "system" && m.agentInput === true, "sa-1 交回的结果");
     const again = requests().filter((r) => r.agentId === "sa-1");
     expect(again).toHaveLength(2);
-    // 联网搜索、读网页每个会话都配（70 号票），和 bash 开关无关；给秘书发消息负责人有它就有（102 号票）
+    // 联网搜索、读网页每个会话都配，和 bash 开关无关；给秘书发消息负责人有它就有
     expect(again[1]).toMatchObject({ continueSession: true, hostTools: ["web_search", "web_fetch", "tell_secretary"] });
     expect(again[1]!.tools).not.toContain("bash");
     expect(textOf(result)).toContain("工具包已变更");

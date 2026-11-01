@@ -99,7 +99,7 @@ export function listEntries(db: ReadonlyDatabase, owner?: LedgerOwner | null): L
 }
 
 /**
- * 某个 agent 最近的一条（114 号票：⚙ 里的上下文用量、上次压缩）：只看这几种用途、全局序号大于 afterSeq 的（这段会话里的）；没有是 undefined
+ * 某个 agent 最近的一条（⚙ 里的上下文用量、上次压缩）：只看这几种用途、全局序号大于 afterSeq 的（这段会话里的）；没有是 undefined
  */
 export function lastEntryOf(db: ReadonlyDatabase, agentId: string, purposes: readonly LedgerPurpose[], afterSeq = 0): LedgerEntry | undefined {
   if (purposes.length === 0) return undefined;
@@ -166,7 +166,7 @@ export function ownerTotals(db: ReadonlyDatabase, owner: LedgerOwner, pending?: 
 const BUDGET_ROWS = "role <> 'reviewer' AND purpose <> 'scope_review'";
 
 /**
- * 算预算时命中缓存的 token 按几分之一记（361 号票）。只有这个数按它算（看板上的 budgetTokens、预算比较）：
+ * 算预算时命中缓存的 token 按几分之一记。只有这个数按它算（看板上的 budgetTokens、预算比较）：
  * 账本的逐笔记录、消耗页显示的真实 token 和钱不变。上下文 15 万时一次调用实际只花约 ¥0.01，全算进去一两次调用预算就爆了。
  * 不按钱算：自定义模型可能没有单价
  */
@@ -180,7 +180,7 @@ const BUDGET_TOKENS_SQL = `cache_miss + output + CAST(cache_hit AS INTEGER) / ${
 
 /**
  * 任务的某个阶段用掉的 token。budget 为假是真实的（命中 + 未命中 + 输出）；budget 为真是预算用的那个数（budgetTokensOf，
- * 只算进预算的部分 BUDGET_ROWS，14 号票的预算比较用），和看板上 byStage 的 budgetTokens 一样
+ * 只算进预算的部分 BUDGET_ROWS，预算比较用），和看板上 byStage 的 budgetTokens 一样
  */
 export function stageTokenSum(db: ReadonlyDatabase, taskId: string, stageId: string, budget: boolean): number {
   const row = db.get<{ total: number | null }>(
@@ -191,14 +191,14 @@ export function stageTokenSum(db: ReadonlyDatabase, taskId: string, stageId: str
   return Number(row?.total ?? 0);
 }
 
-/** 单次计量看最近多少次调用（361 号票） */
+/** 单次计量看最近多少次调用 */
 const METER_RECENT_CALLS = 20;
 /** 每次调用除了缓存着的上下文还要记的：没命中的输入加输出（真模型试验里平均 2900 + 720） */
 const METER_FRESH_TOKENS = 3_000;
 /** 一次调用都还没记过时，假定上下文有这么大 */
 const METER_DEFAULT_CONTEXT = 20_000;
 
-/** 这个 agent 最近几次算进预算的调用，最近的在前（361 号票：单次计量） */
+/** 这个 agent 最近几次算进预算的调用，最近的在前（单次计量） */
 export function recentBudgetCalls(db: ReadonlyDatabase, agentId: string): Array<{ tokens: TokenCounts; model: string; time: string }> {
   return db
     .all<{ cache_hit: number; cache_miss: number; output: number; model: string; time: string }>(
@@ -212,7 +212,7 @@ export function recentBudgetCalls(db: ReadonlyDatabase, agentId: string): Array<
 const meterOfContext = (context: number): number => Math.trunc(context / BUDGET_CACHE_HIT_DIVISOR) + METER_FRESH_TOKENS;
 
 /**
- * 单次计量（361 号票）：一次调用大约记多少 token。最近的实测平均，和按最近一次的上下文大小估的，取大的（上下文只会越来越大，
+ * 单次计量：一次调用大约记多少 token。最近的实测平均，和按最近一次的上下文大小估的，取大的（上下文只会越来越大，
  * 平均落后于它）；一次都没记过时按假定的上下文估
  */
 export function callMeterTokens(recent: readonly TokenCounts[]): number {
@@ -224,7 +224,7 @@ export function callMeterTokens(recent: readonly TokenCounts[]): number {
 
 /**
  * 范围里（含两头的日期）按天、agent、模型、记账时间分的合计；owned 是有归属的（没有归属的按角色分系统开销、未归属）。
- * 按记账时间分开（94 号票）：自带价格表分高峰、空闲时段，每一笔按它的时间算价
+ * 按记账时间分开：自带价格表分高峰、空闲时段，每一笔按它的时间算价
  */
 export function rangeRows(
   db: ReadonlyDatabase,
@@ -240,7 +240,7 @@ export function rangeRows(
 }
 
 /**
- * 按次计费的联网调用（154 号票）：每次成功的 DeepSeek 联网搜索、读网页一行（账本频道上的 web_call 事件），和 token_ledger 分开
+ * 按次计费的联网调用：每次成功的 DeepSeek 联网搜索、读网页一行（账本频道上的 web_call 事件），和 token_ledger 分开
  * （没有 token、不进 token 的合计和预算），消耗页的 web 一节从这里聚合。可从事件日志重建
  */
 export const webCallsView: DerivedView = {
@@ -297,7 +297,7 @@ export function webCallRows(
 }
 
 /**
- * 插件追加在 agent 输入后面的上下文估的 token（266 号票：记忆简报）：每带一次一行（账本频道上的 context_usage 事件），
+ * 插件追加在 agent 输入后面的上下文估的 token（记忆简报）：每带一次一行（账本频道上的 context_usage 事件），
  * 和 token_ledger 分开（不进 token 的合计和预算），用量页的"记忆简报"一项从这里聚合。可从事件日志重建
  */
 export const contextUsageView: DerivedView = {

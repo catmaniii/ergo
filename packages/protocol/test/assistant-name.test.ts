@@ -1,4 +1,4 @@
-// 个人助理的名字（43 号票）：起名的规则，和守护进程生成的话里的名字占位怎么换成名字。
+// 个人助理的名字：起名的规则，和守护进程生成的话里的名字占位怎么换成名字。
 import fs from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";
 import { activeLocale, ASSISTANT_NAME_MARK, checkAssistantName, currentWording, defaultAssistantName, fillAssistantName, type Messages, setActiveLocale, splitAssistantName } from "../src/index.ts";
@@ -33,7 +33,7 @@ describe("起名的规则：去掉首尾空白后 1–8 个字，不能有换行
     expect(result.ok ? "" : result.error).toMatch(reason);
   });
 
-  // 89 号票（用户 2026-10-11 定）：默认名字从"个人助理"改成"二狗"；名字占位 ⟦个人助理⟧ 是内部记号，不跟着改
+  // 默认名字从"个人助理"改成"二狗"；名字占位 ⟦个人助理⟧ 是内部记号，不跟着改
   it("默认是\"二狗\"，它自己当然合规；名字占位不是默认名字", () => {
     expect(defaultAssistantName()).toBe("二狗");
     expect(checkAssistantName(defaultAssistantName())).toEqual({ ok: true, name: "二狗" });
@@ -41,7 +41,7 @@ describe("起名的规则：去掉首尾空白后 1–8 个字，不能有换行
   });
 });
 
-// 379 号票：用户没起过名字时，默认名跟当前语言走（真的语言文件）
+// 用户没起过名字时，默认名跟当前语言走（真的语言文件）
 describe("默认的名字跟着当前语言", () => {
   const zh = activeLocale();
   const en = JSON.parse(fs.readFileSync(new URL("../locales/en/protocol.json", import.meta.url), "utf8")) as Messages;
@@ -93,7 +93,7 @@ describe("编号、路径不动", () => {
   });
 });
 
-describe("43 号票之前存下的旧说法：前端显示时按对照表换成名字占位（只认这几句固定的话）", () => {
+describe("以前存下的旧说法：前端显示时按对照表换成名字占位（只认这几句固定的话）", () => {
   const M = ASSISTANT_NAME_MARK;
   it.each<[string, string, string]>([
     ["审批卡、交给我做、中断、快速动作事项的来源（整个字段）", "秘书对话", `${M}对话`],

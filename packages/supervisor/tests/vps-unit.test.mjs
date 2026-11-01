@@ -1,4 +1,4 @@
-// `lsm vps setup` 的零件（321 号票）：VPS 地址、钥匙那一句、域名、体检结果的判断、状态文件、
+// `lsm vps setup` 的零件：VPS 地址、钥匙那一句、域名、体检结果的判断、状态文件、
 // 隧道服务的登记（Windows 路径进 YAML）、"接到了 8810"的判断（拿本机起的假二狗网关真打）、nginx 站点、headscale 配置。全部离线。
 import './_isolate.mjs';   // 必须是第一个 import：先把数据目录换成临时目录
 import test from 'node:test';

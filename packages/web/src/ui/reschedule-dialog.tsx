@@ -1,7 +1,7 @@
-// 改时间的对话框（98 号票）：任务操作菜单里运营中的定时任务点"改时间"弹出。和发起任务对话框同一套时间表编辑（TimedScheduleEditor：
+// 改时间的对话框：任务操作菜单里运营中的定时任务点"改时间"弹出。和发起任务对话框同一套时间表编辑（TimedScheduleEditor：
 // 按时间表反复做 / 某个时间做一次，含"按我的工作日"），从现在的时间表起草（state/reschedule.ts）；某个时间做一次的时间已过、没改的不能存。
 // 只换时间表：任务、会话、运行记录都不变。保存交给用的地方（发请求、提示改成了什么）。
-// 156 号票：看板上简单提醒卡的菜单里"改时间"也弹这样一个对话框（ReminderRescheduleDialog）：样子一样，时间表编辑用提醒卡上同一个
+// 看板上简单提醒卡的菜单里"改时间"也弹这样一个对话框（ReminderRescheduleDialog）：样子一样，时间表编辑用提醒卡上同一个
 // （ScheduleEditor：一次性 / 每天、每周几、每月几号、按我的工作日），没改的、一次性的时间已过的不能存。
 import { useState } from "react";
 import {
@@ -80,7 +80,7 @@ export function RescheduleDialog({
   );
 }
 
-/** 简单提醒的改时间（156 号票）：title 是提醒的内容，current 是现在的时间表（预填）；存了交给用的地方（落在提醒卡的 save 上） */
+/** 简单提醒的改时间：title 是提醒的内容，current 是现在的时间表（预填）；存了交给用的地方（落在提醒卡的 save 上） */
 export function ReminderRescheduleDialog({ title, current, onCancel, onSave }: { title: string; current: ReminderSchedule; onCancel(): void; onSave(schedule: ReminderSchedule): void }) {
   const [draft, setDraft] = useState(current);
   /** 改的时候现取此刻（渲染时不取时钟） */

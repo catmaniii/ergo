@@ -1,4 +1,4 @@
-// 226 号票：预测账本的表和存储方法（增、查、改，改动进修订日志）。
+// 预测账本的表和存储方法（增、查、改，改动进修订日志）。
 // 账本的建、判在 rg/predictions.ts（test/rg/predictions.test.ts），这里只管存储这一层。
 import { afterEach, describe, expect, it } from "vitest";
 import type { Claim, EvidenceDraft } from "../../src/domain/types.ts";

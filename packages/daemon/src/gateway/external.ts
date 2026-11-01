@@ -120,7 +120,7 @@ export function handlePairingRoute(req: http.IncomingMessage, res: http.ServerRe
 
 /**
  * 设备凭证的 Set-Cookie：默认 DEVICE_COOKIE_MAX_AGE_MS（400 天，比服务端多留 35 天，过期一个月内的设备延期后直接能用；
- * 每次使用都重新下发）；延期到更远的（123 号票）给到那时（配对模块的 cookieMaxAgeMs），免得 cookie 先在浏览器里过期
+ * 每次使用都重新下发）；延期到更远的给到那时（配对模块的 cookieMaxAgeMs），免得 cookie 先在浏览器里过期
  */
 export function deviceCookie(credential: string, maxAgeMs = DEVICE_COOKIE_MAX_AGE_MS): string {
   return setCookieHeader(DEVICE_COOKIE, credential, maxAgeMs);

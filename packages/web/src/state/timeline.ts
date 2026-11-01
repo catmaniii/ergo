@@ -1,15 +1,15 @@
-// 时间线的要点（规格第 19 节，25 号票）：秘书聊天和负责人会话里哪些是要点、怎么说、怎么聚块。
-// 54 号票起会话的缩放换成一镜到底（ui/zoom/ZoomHistory.tsx，条目来自 chat-items.ts），25 号票的分段按钮和要点层、全局层
+// 时间线的要点（规格第 19 节）：秘书聊天和负责人会话里哪些是要点、怎么说、怎么聚块。
+// 会话的缩放换成一镜到底（ui/zoom/ZoomHistory.tsx，条目来自 chat-items.ts），分段按钮和要点层、全局层
 // 两套单独的渲染去掉了；要点（marksOf、partMarksOf）照旧在这里推，缩小后右侧的标注用它们。gistView、globalView 留着：
-// 测试拿 gistView 核对条目层的要点一条不少；globalView 的聚块（按天、按工单段、按阶段）是 55 号票底色带要的分段。
+// 测试拿 gistView 核对条目层的要点一条不少；globalView 的聚块（按天、按工单段、按阶段）是底色带要的分段。
 // 纯函数，输入是前端状态层的时间线（ui-state.ts 的 timelineItems：消息和时间线记录按序号排好）：
 // - 要点层（gistView）：只留要点——关注类别命中的操作、审批、偏离、验收、通用 bash、范围变更和越界，以及被拦下、问过的操作，
-//   以及快速动作的操作记录（21 号票转来：每次执行都标出）、秘书转达进来的话（103 号票）；其余条目收起成"收起了 N 条"；
+//   以及快速动作的操作记录（转来：每次执行都标出）、秘书转达进来的话；其余条目收起成"收起了 N 条"；
 // - 全局层（globalView）：把会话聚成色块——任务的负责人会话按阶段（消息带着的 stageId；开始执行之前是"规划"），
 //   项目负责人的会话按工单段（工单分隔 part 起一段，对话段也各成一块），秘书主线按天；色块上仍标出这些要点；
 // - 三种样式（授权内放行、做完告诉我、被拦下或问过）和更细的说法（被拦下、问过、你点明的、你确认后）、结果的文字、
 //   通用 bash 标记都在这里推出来，界面只管画：工具调用按守卫的判定（opOfToolCall），操作记录按它凭什么执行的（点明、授权内、确认后）；
-//   通用 bash 标记取自工具调用 part 的 genericBash（守卫判定时定的），带类型的特殊 bash 工具（28 号票）不带。
+//   通用 bash 标记取自工具调用 part 的 genericBash（守卫判定时定的），带类型的特殊 bash 工具不带。
 // 往上翻取回的旧页里的记录一样在这里（全局层按已加载的部分聚块）。
 import {
   ACCEPTANCE_VERDICT_LABEL,
@@ -41,13 +41,13 @@ export const OP_STYLES = ["granted", "notify", "stopped"] as const;
 export type OpStyle = (typeof OP_STYLES)[number];
 export const OP_STYLE_LABEL: Readonly<Record<OpStyle, string>> = tTable({ granted: "state.timeline.style.granted", notify: "state.timeline.style.notify", stopped: "state.timeline.style.stopped" });
 
-/** 通用 bash 标记的文字（要点、色块上的小标记、图例共用）："通用 bash"（170 号票起按当前语言现取） */
+/** 通用 bash 标记的文字（要点、色块上的小标记、图例共用）："通用 bash"（按当前语言现取） */
 export function genericBashLabel(): string {
   return t("state.timeline.genericBash");
 }
 
 /**
- * 说法按当前语言现取的表（170 号票）：每一项是可枚举的取值函数，取的时候才查（Object.entries、展开、toEqual 照常）。
+ * 说法按当前语言现取的表：每一项是可枚举的取值函数，取的时候才查（Object.entries、展开、toEqual 照常）。
  * 跟 tTable 一样，只是值来自函数（自己的 key、协议包的说法、名字占位拼的话混在一起时用）
  */
 function lazyTable<K extends string>(getters: Readonly<Record<K, () => string>>): Readonly<Record<K, string>> {
@@ -69,14 +69,14 @@ export const OP_REASON: Readonly<Record<OpReason, { readonly style: OpStyle; rea
   confirmed: { style: "stopped", get label() { return QUICK_ACTION_BASIS_LABEL.confirmed; } },
 };
 
-/** 聚块的颜色有几种（tone 0 到 N-1；25 号票全局层的色板，55 号票的底色带配色照这个数）；0 号留给规划、对话段 */
+/** 聚块的颜色有几种（tone 0 到 N-1；全局层的色板，底色带配色照这个数）；0 号留给规划、对话段 */
 export const TIMELINE_TONE_COUNT = 6;
 /** 第 n 个（从 1 起）阶段、工单段的颜色：在 1 号到最后一号之间轮转（0 号留着） */
 const cycledTone = (n: number) => 1 + ((n - 1) % (TIMELINE_TONE_COUNT - 1));
 
 /**
- * 秘书转达的话（103 号票：秘书按用户的话插进任务、项目负责人会话的那一句）在界面上的说法：气泡上方的小标注、要点、详情的种类。
- * 写名字占位，界面按名字标签画（"二狗转达"）。170 号票起按当前语言现取
+ * 秘书转达的话（秘书按用户的话插进任务、项目负责人会话的那一句）在界面上的说法：气泡上方的小标注、要点、详情的种类。
+ * 写名字占位，界面按名字标签画（"二狗转达"）。按当前语言现取
  */
 export function relayLabel(): string {
   return t("state.timeline.relay", { name: ASSISTANT_NAME_MARK });
@@ -120,7 +120,7 @@ export interface TimelineMark {
   severity?: TimelineRecordSeverity;
   /** 审批要点的审批卡（界面按卡片的处理结果写"已批准""已拒绝"） */
   cardId?: string;
-  /** 验收要点：这一次验收过没过（55 号票：缩小后通过的不在右侧标，书脊那一段变绿就是通过了） */
+  /** 验收要点：这一次验收过没过（缩小后通过的不在右侧标，书脊那一段变绿就是通过了） */
   passed?: boolean;
   time?: string;
   /** 工具调用要点的原 part（界面据此打开详情） */
@@ -212,7 +212,7 @@ export function timelineItemTime(item: TimelineItem): string | undefined {
   return item.message.time || undefined;
 }
 
-/** 操作记录凭什么执行的：点明的、确认后的算问过或用户决定的，授权内的算授权内；25 号票之前的记录只知道点没点明 */
+/** 操作记录凭什么执行的：点明的、确认后的算问过或用户决定的，授权内的算授权内；以前的记录只知道点没点明 */
 function operationReason(operation: Extract<ConversationRecord, { type: "operation" }>["operation"]): OpReason | undefined {
   const basis = operation.basis ?? (operation.explicit ? "explicit" : undefined);
   if (basis === undefined) return undefined;
@@ -269,7 +269,7 @@ export function marksOf(state: UiState, item: TimelineItem): TimelineMark[] {
 }
 
 /**
- * 一条消息里第 i 个 part 的要点（没有就是空的）：工具调用、审批卡、验收卡；秘书转达的话（103 号票）标在它的第一段文字上。
+ * 一条消息里第 i 个 part 的要点（没有就是空的）：工具调用、审批卡、验收卡；秘书转达的话标在它的第一段文字上。
  * 会话条目层（chat-items.ts）把一条消息拆成几条时，每条取自己那几个 part 的要点
  */
 export function partMarksOf(state: UiState, item: TimelineItem, i: number): TimelineMark[] {
@@ -312,7 +312,7 @@ export function partMarksOf(state: UiState, item: TimelineItem, i: number): Time
   if (card?.type === "progress") {
     const p = card.payload as ProgressCardPayload;
     if (p.kind !== "acceptance" || !p.acceptance) return [];
-    // 91 号票：第几阶段按依赖图的编号（卡上守护进程写的是计划里的顺序号，认不出这个阶段时才用它）
+    // 第几阶段按依赖图的编号（卡上守护进程写的是计划里的顺序号，认不出这个阶段时才用它）
     const stage = stageLabelIn(state, p.taskId, p.stageId, t("state.timeline.stageN", { code: p.stageCode ?? p.stageIndex }));
     const title = t(p.acceptance.passed ? "state.timeline.acceptancePassed" : "state.timeline.acceptanceFailed", { stage, title: p.stageTitle, judge: ACCEPTANCE_VERDICT_LABEL[p.acceptance.judgedBy] });
     return [{ key, itemKey, kind: "acceptance", short: MARK_KIND_LABEL.acceptance, title, categories: [], genericBash: false, passed: p.acceptance.passed, ...at }];
@@ -338,8 +338,8 @@ export function gistView(state: UiState, conversation: ConversationId): GistRow[
 }
 
 /**
- * 这个会话在全局层怎么聚色块：秘书主线按天；项目负责人的会话（或者会话里有工单分隔线）按段；定时触发的任务的会话（有运行的分隔线，
- * 76 号票）按运行；别的（任务的负责人）按阶段
+ * 这个会话在全局层怎么聚色块：秘书主线按天；项目负责人的会话（或者会话里有工单分隔线）按段；定时触发的任务的会话（有运行的分隔线）
+ * 按运行；别的（任务的负责人）按阶段
  */
 export function timelineGrouping(state: UiState, conversation: ConversationId): TimelineGrouping {
   if (conversation === CHANNELS.secretary) return "day";
@@ -379,14 +379,14 @@ function segmentPlacer(): Placer {
       const key = `segment:${timelineItemKey(item)}`;
       if (!divider.workOrderId) return { key, title: t("state.timeline.chatSegmentTitled", { title: divider.title }), tone: 0 };
       workOrders += 1;
-      // 163 号票：工单写"工单 wo-3「标题」"，和别处的 t-3「标题」同一种写法
+      // 工单写"工单 wo-3「标题」"，和别处的 t-3「标题」同一种写法
       return { key, title: t("state.timeline.workOrder", { id: idLabel(divider.workOrderId, divider.title) }), tone: cycledTone(workOrders) };
     }
     return current ? undefined : { key: "segment:start", title: t("state.timeline.chatSegment"), tone: 0 };
   };
 }
 
-/** 按运行（76 号票）：每次运行的分隔线起一块（"第 2 次运行 · …"）；第一次运行之前的（流程起草、授权计划）算一块"运行之前" */
+/** 按运行：每次运行的分隔线起一块（"第 2 次运行 · …"）；第一次运行之前的（流程起草、授权计划）算一块"运行之前" */
 function runPlacer(): Placer {
   let runs = 0;
   return (item, current) => {

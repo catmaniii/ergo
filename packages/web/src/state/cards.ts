@@ -26,13 +26,13 @@ export function cardDisplay(state: UiState, cardId: string): CardDisplay | undef
   return { kind: "typed", type: card.type, state: view };
 }
 
-/** 配对请求卡上"像网络上的自动访问"的原因（137 号票，待办那一行上标一下）；别的卡、像普通浏览器的、还没收到的是 undefined */
+/** 配对请求卡上"像网络上的自动访问"的原因（待办那一行上标一下）；别的卡、像普通浏览器的、还没收到的是 undefined */
 export function automatedPairingReason(card: Card | undefined): string | undefined {
   return card?.type === "pairing" ? (card.payload as PairingCardPayload).automated?.reason : undefined;
 }
 
 /**
- * 还在等批准的配对请求（设备配对的二维码界面上就地批准，364 号票）：按来的先后。过期的不算，
+ * 还在等批准的配对请求（设备配对的二维码界面上就地批准）：按来的先后。过期的不算，
  * 守护进程要过一会儿才把它标成过期，这边按卡上的时间先当它没了
  */
 export function pendingPairingCardIds(state: UiState, now: number): string[] {
@@ -48,8 +48,8 @@ export function cardWebPath(cardId: string): string {
 }
 
 /**
- * 快速动作卡上"对象""内容"两行的说法（按动作类型）：秘书转达（103 号票，tell_task / tell_project）写"发给"和"转达的话"，
- * 卡上一眼看出发给谁、发什么；授权文件夹（138 号票）写"文件夹"（完整路径）和"说明"（设置里能看能改）；别的动作照旧"对象""内容"
+ * 快速动作卡上"对象""内容"两行的说法（按动作类型）：秘书转达（tell_task / tell_project）写"发给"和"转达的话"，
+ * 卡上一眼看出发给谁、发什么；授权文件夹写"文件夹"（完整路径）和"说明"（设置里能看能改）；别的动作照旧"对象""内容"
  */
 export function quickActionFieldLabels(actionType: string): { target: string; content: string } {
   if (actionType === "tell_task" || actionType === "tell_project") return { target: t("state.cards.field.sendTo"), content: t("state.cards.field.relayText") };

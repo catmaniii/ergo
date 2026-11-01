@@ -240,7 +240,7 @@ describe("WebSocket 连接", () => {
     expect(inputs.at(-1)).toEqual({ kind: "request_failed", idempotencyKey: "k-t", error: "任务现在是执行中，只有已完成的任务能返工" });
   });
 
-  test("一次处理多个任务（90 号票）：带幂等键，逐条的结果交回来；整个被拒时变成 request_failed，等结果的也知道没成", async () => {
+  test("一次处理多个任务：带幂等键，逐条的结果交回来；整个被拒时变成 request_failed，等结果的也知道没成", async () => {
     const { connection } = connect();
     const socket = openAndSubscribe();
     const done = connection.taskBatchAction({ taskIds: ["t-1", "t-2"], action: "pause", idempotencyKey: "k-b" });
@@ -272,7 +272,7 @@ describe("WebSocket 连接", () => {
     await expect(done).resolves.toEqual({ results: [{ taskId: "t-1", ok: true, state: "cancelled" }] });
   });
 
-  test("设备多选（123 号票）：延期带天数和幂等键，逐台的结果交回来；吊销、删除不带天数；整个被拒时变成 request_failed", async () => {
+  test("设备多选：延期带天数和幂等键，逐台的结果交回来；吊销、删除不带天数；整个被拒时变成 request_failed", async () => {
     const { connection } = connect();
     const socket = openAndSubscribe();
     const done = connection.deviceBatchAction({ action: "extend", deviceIds: ["d-1", "d-2"], days: 90, idempotencyKey: "k-e" });
@@ -335,7 +335,7 @@ describe("WebSocket 连接", () => {
     // 项目页上的动作照常（没有因为多出来的订阅响应被重发）
     expect(socket.sent.filter((f) => f.method === "project_action")).toHaveLength(1);
     expect(socket.last("project_action")).toMatchObject({ params: { projectId: "p-1", action: "retire" }, idempotencyKey: "k-p" });
-    // 257 号票：项目卡片、项目页上的"启动""关闭"
+    // 项目卡片、项目页上的"启动""关闭"
     connection.projectServicesAction({ projectId: "p-1", action: "stop", idempotencyKey: "k-s" });
     expect(socket.last("project_services_action")).toMatchObject({ params: { projectId: "p-1", action: "stop" }, idempotencyKey: "k-s" });
     // 转为项目带用户定的项目名
@@ -439,7 +439,7 @@ describe("WebSocket 连接", () => {
     expect(inputs.at(-1)).toEqual({ kind: "frame", frame: event("maintainer:pm-1", 2, "agent_voice") });
   });
 
-  test("补发推完了（109 号票）：主订阅的回执到了报 synced，断线重连之后再报一次；多订阅频道的回执不报", () => {
+  test("补发推完了：主订阅的回执到了报 synced，断线重连之后再报一次；多订阅频道的回执不报", () => {
     const { connection } = connect();
     const first = sockets[0]!;
     first.open();
@@ -458,7 +458,7 @@ describe("WebSocket 连接", () => {
     expect(inputs.filter((i) => i.kind === "synced")).toHaveLength(2);
   });
 
-  test("网页是哪一版（116 号票）：订阅的响应里带着就告诉状态层（连上、重连各一次）；没带（旧版守护进程、页面没有版本号）不报", () => {
+  test("网页是哪一版：订阅的响应里带着就告诉状态层（连上、重连各一次）；没带（旧版守护进程、页面没有版本号）不报", () => {
     connect();
     const first = sockets[0]!;
     first.open();
@@ -484,7 +484,7 @@ describe("WebSocket 连接", () => {
     expect(inputs.filter((i) => i.kind === "web_version")).toHaveLength(2);
   });
 
-  test("记已读位置（109 号票）：带幂等键；没连上时先记着，连上后发", () => {
+  test("记已读位置：带幂等键；没连上时先记着，连上后发", () => {
     const { connection } = connect();
     connection.markRead({ conversation: "secretary", seq: 12, idempotencyKey: "k-read" });
     const socket = openAndSubscribe();
@@ -503,7 +503,7 @@ describe("WebSocket 连接", () => {
   });
 });
 
-describe("关于页、Debug 工具集要的（124 号票）", () => {
+describe("关于页、Debug 工具集要的", () => {
   const INFO = { version: "0.1.0", startedAt: "2026-10-14T18:00:00.000+08:00", now: "2026-10-14T21:12:00.000+08:00" };
 
   test("守护进程的版本：发 daemon_info（不带幂等键），等到回的结果；没连上时直接说没连上，不排队", async () => {
@@ -578,7 +578,7 @@ describe("关于页、Debug 工具集要的（124 号票）", () => {
   });
 });
 
-describe("浏览侧边栏（147 号票）", () => {
+describe("浏览侧边栏", () => {
   const STATUS = { browser: "b-0123456789abcdef", page: { title: "报名", url: "https://form.example.cn/apply" } };
 
   test("侧边栏发的消息带网页上下文", () => {

@@ -1,4 +1,4 @@
-// 失效传播（第 7.3 节）：沿依赖一路往下传到底（267 号票起不设深度上限，主会话 2026-10-25 按 ADR-0030 定），每一步写修订；轻的支持被拿掉只重算置信度；1 版的库补上关联的多重。
+// 失效传播（第 7.3 节）：沿依赖一路往下传到底（不设深度上限，按 ADR-0030 定），每一步写修订；轻的支持被拿掉只重算置信度；1 版的库补上关联的多重。
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -50,7 +50,7 @@ describe("沿依赖往下传", () => {
     }
     const fact = factOf(engine, "ev-1", "prefers", "爬山");
     engine.invalidateEvidence("ev-1", "忘掉");
-    // 329 号票：忘掉 = 来源失效。明说的跟着事实撤回（墓碑指那条事实）；往下每一层的前提都只剩撤了的那条 → 撤回（墓碑指上一层），不留悬空
+    // 忘掉 = 来源失效。明说的跟着事实撤回（墓碑指那条事实）；往下每一层的前提都只剩撤了的那条 → 撤回（墓碑指上一层），不留悬空
     expect(engine.store.getClaim(root.id)).toMatchObject({ status: "retracted", retractedBy: fact.id });
     const statuses = chain.map((c) => engine.store.getClaim(c.id)!.status);
     expect(statuses).toEqual(Array(12).fill("retracted"));
@@ -79,8 +79,8 @@ describe("沿依赖往下传", () => {
 });
 
 describe("存储：1 版的库", () => {
-  it("打开 188 号票的 1 版库时给关联表补上多重这一列", () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "memory-lab-v1-"));
+  it("打开 1 版库时给关联表补上多重这一列", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "memory-v1-"));
     try {
       const file = path.join(dir, "v1.db");
       const { DatabaseSync } = createRequire(import.meta.url)("node:sqlite") as typeof import("node:sqlite");

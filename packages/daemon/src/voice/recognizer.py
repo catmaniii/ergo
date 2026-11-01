@@ -1,13 +1,13 @@
-# 二狗的语音识别进程（31 号票）：守护进程按需拉起，用 faster-whisper 识别语音消息的录音。
+# 二狗的语音识别进程：守护进程按需拉起，用 faster-whisper 识别语音消息的录音。
 # 守护进程那一侧见 recognizer.ts。两边走 stdin / stdout 的 JSON 行，一次处理一条：
 #   守护进程 → 这里：{"type": "init", "primary": {...}, "fallback": {...} | null}（拉起后第一行）
-#                     {"id": 1, "type": "load"}（45 号票：紧接着设置，让它加载模型）
+#                     {"id": 1, "type": "load"}（紧接着设置，让它加载模型）
 #                     {"id": 2, "type": "transcribe", "path": "...", "language": "zh", "initialPrompt": "..."}
 #                     {"type": "exit"}
 #   这里 → 守护进程：{"id": 1, "result": {"model", "device", "computeType", "loadMs", "fallbackReason"?}}（加载好了）
 #                     {"id": 2, "result": {"text", "language", "segments", "duration", "model", "device", "computeType", "fallbackReason"?}}
 #                     {"id": 2, "error": "...", "fatal": true?}（fatal：模型没加载起来，这个进程不能再用；加载出错一律是 fatal）
-# - 守护进程拉起后马上让它加载模型（预热，45 号票），之后一直留在内存里（守护进程默认让它常驻；配了闲置退出的，闲置后让它退出）；
+# - 守护进程拉起后马上让它加载模型（预热），之后一直留在内存里（守护进程默认让它常驻；配了闲置退出的，闲置后让它退出）；
 #   没收到"加载"就来了识别的，识别时再加载；
 # - 先用 primary（默认显卡上的 large-v3、int8_float16）；显卡不可用、加载失败（比如显存不够），或者识别时显卡出错，
 #   退回 fallback（默认 CPU 上的 small），结果里记下实际用的和退回的原因；
@@ -16,11 +16,11 @@
 # - Windows 上 ctranslate2 要靠 CUDA_PATH 才找得到 cuBLAS（PATH 里有 CUDA 的 bin 目录也不够），而守护进程
 #   按白名单传环境变量、不带 CUDA_PATH：开头从 PATH 里找放 cublas64_*.dll 的 bin 目录，推出 CUDA_PATH。
 #
-# 250 号票：同一条脚本也是 LSM 托管的那条服务（`python -s recognizer.py --serve --port 8091`，见
+# 同一条脚本也是 LSM 托管的那条服务（`python -s recognizer.py --serve --port 8091`，见
 # deploy/lsm/ergo-asr.example.yaml）。不带参数时照旧是 stdin / stdout 那套（守护进程自己拉起的那条路、测试、手工调试，
 # 一行都不变）；带了 --serve 就只听 127.0.0.1、不带 token（和 audio.cpp 一样），接口：
 #   GET  /health        → 模型状态 {"ok", "loaded", "model", "device", "computeType", "loadMs"?, "fallbackReason"?, "error"?}
-#                         模型没加载好 ok / loaded 都是 false，不 5xx（LSM 的探活得答得上、208 号票也得看得懂）；
+#                         模型没加载好 ok / loaded 都是 false，不 5xx（LSM 的探活得答得上、也得看得懂）；
 #                         加载失败（fatal 的那种）写在 error 里。加载着时不带 error，ok 是 false
 #   GET  /v1/models     → 同一份模型状态（给人和调试看；二狗这一侧不用它）
 #   POST /v1/warmup     → 开始加载模型，异步，马上回上面那份状态（已经在加载、已经加载好就马上回；失败过的再试一次）。
@@ -248,7 +248,7 @@ def run_stdio():
             return
 
 
-# ───────────── --serve：LSM 托管的那条（250 号票） ─────────────
+# ───────────── --serve：LSM 托管的那条 ─────────────
 
 DEFAULT_SERVE_PORT = 8091
 
@@ -264,7 +264,7 @@ class Service:
     """一条服务的一生：一份模型状态、一次加载、一次一条识别（和 stdio 那条一次处理一条一样）。
 
     模型加载放在后台线程里做（一次 44–58 秒，不能让 /v1/warmup 挂住）；/health 和 /v1/models 只读状态、不排队，
-    所以 LSM 的探活、208 号票问"还正不正常"一句都答得上，不会被一次识别挡在后面。
+    所以 LSM 的探活、问"还正不正常"都答得上，不会被一次识别挡在后面。
     """
 
     def __init__(self):

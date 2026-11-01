@@ -10,7 +10,7 @@
 // - calls：每一步 `{ tool, args, commit?, expect }`。commit 照 planguard：这一步算不算执行成功、进效果日志；
 //   不写时按判定（直接做、做完告诉我的进，其余不进）。进效果日志的是规范化之后的参数（effectRecordsFor）。
 // - context（二狗自己的）：agent、task、settings、now；每一步还可以写 facts、at（时间）、stage（切到哪个阶段）、
-//   settings（从这一步起按这份关注类别设置判：模拟用户在设置页改了全局设置，26 号票）。
+//   settings（从这一步起按这份关注类别设置判：模拟用户在设置页改了全局设置）。
 //
 // expect 里能写：
 // - hardRefusal：生效的硬拒绝原因（如 ["fence"]），没有硬拒绝写 null；pullBack：生效的按规则退回（规则 id），没有写 null；disposition：六档之一；

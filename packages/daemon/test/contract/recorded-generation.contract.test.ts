@@ -1,4 +1,4 @@
-// pi 契约：按二狗自己的事件记录另起一次生成（293 号票，一次性子进程 agent-child/recorded-generation-main.ts）。真的拉起子进程，模型接 faux：
+// pi 契约：按二狗自己的事件记录另起一次生成（一次性子进程 agent-child/recorded-generation-main.ts）。真的拉起子进程，模型接 faux：
 // - 给被放弃的那段写分支摘要：二狗记下的会话（用户的话、回复、工具调用和结果、之前的分支摘要）摆成 pi 的会话条目（工具结果 pi 写分支摘要时不带），用 pi 撤回时同一个
 //   generateBranchSummary——模型看到的是 pi 的分支摘要提示，会话转成 pi 的文字写法，摘要要求接在后面；交回给人看的摘要（不带 pi 的
 //   开头和文件清单）、进新分支上下文的那段（pi 放进上下文的样子，带上改过的文件）、那次调用的用量（purpose: branch_summary）；
@@ -25,7 +25,7 @@ const request = (script: Parameters<typeof fauxModel>[0], turns: RecordedTurn[] 
 
 const run = (r: RecordedGenerationRequest) => runRecordedGeneration(r, { env: buildChildEnv(process.env), timeoutMs: 25_000 });
 
-describe("pi 契约：按二狗的事件记录另起一次生成（293 号票）", () => {
+describe("pi 契约：按二狗的事件记录另起一次生成", () => {
   it("写分支摘要：pi 的提示和会话写法、摘要要求接在后面；交回给人看的、进上下文的、用量", async () => {
     // 回复里带上看到的上下文：核对模型看到的输入
     const result = await run(request([{ kind: "reply_with_context", text: "摘要：建了照片索引。\n\n看到的：{{context}}" }]));
@@ -62,7 +62,7 @@ const reviewRequest = (script: Parameters<typeof fauxModel>[0], turns: RecordedT
   usageId: "scope-review-pm-1-1",
 });
 
-describe("pi 契约：按二狗的事件记录另起一次范围审视（309 号票）", () => {
+describe("pi 契约：按二狗的事件记录另起一次范围审视", () => {
   it("审视：pi 子进程里审视的同一套——审视的说明作系统提示，对照物在前、按 pi 的写法转成文字的工作记录在后（之前的分支摘要不算）；回复按约定的 JSON 解析，用量 purpose 是 scope_review", async () => {
     const reply = JSON.stringify({ records: [{ kind: "out_of_scope", summary: "建了索引", detail: "@@" }, { kind: "bogus", summary: "不认得的种类不记" }] }).replace('"@@"', '"看到的：{{context}}"');
     const result = await run(reviewRequest([{ kind: "reply_with_context", text: reply }]));

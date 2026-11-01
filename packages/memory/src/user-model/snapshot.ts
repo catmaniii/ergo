@@ -4,9 +4,9 @@
 // 2. 场景过滤：断言的场景和问的场景对得上（按维度比，kg/context.ts），或者断言不限场景。一个场景的偏好不推广到另一个场景；
 // 3. 分三层：近期状态、偏好和目标、长期价值取向（need、value 合在这层），每条带"用户说的 / 推断的 / 你确认过的"和支持证据；
 // 4. 还拿不准的单列：contested 的（猜测）附上竞争的那几条；active 但证据不够（不到 medium）的也列在这里。每条带真值状态、把握、谁说的
-//    （330 号票 R5：猜测也给，标明是猜测、把握多少；二狗可以照着说，把握低的留余地）。retracted 的不进快照（第 7.3 节第 5 条）。
-//    330 号票：标着复核的（依据刚变了，"待复核"不占真值状态）照它的真值状态给，标上 needsReview。
-// 5. 交互策略（196 号票）：用户确认过的（rg/strategies.ts 的 activeStrategyEntries，只读）；330 号票（R6）起建在猜测上的也算，
+//    （R5：猜测也给，标明是猜测、把握多少；二狗可以照着说，把握低的留余地）。retracted 的不进快照（第 7.3 节第 5 条）。
+//    标着复核的（依据刚变了，"待复核"不占真值状态）照它的真值状态给，标上 needsReview。
+// 5. 交互策略：用户确认过的（rg/strategies.ts 的 activeStrategyEntries，只读）；ADR-0032 R6起建在猜测上的也算，
 //    依据被推翻了照旧在用（等用户回答"还要不要"），各标 onGuess、basisGone。
 import { validAt } from "../domain/time.ts";
 import type { Claim, ClaimStatus } from "../domain/types.ts";

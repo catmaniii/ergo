@@ -4,7 +4,7 @@
 // - 项目负责人的 submit_charter：立项问答的结论（范围、目标、首版程度、项目类型、是否绑定外部工作目录）和提议的工具包，
 //   运行时据此生成立项书卡放进待我处理。工具绑定在一个项目上：负责人只能给它维护的那个项目交。
 // 两个都只产生卡片，不落入任何关注类别。
-// @i18n-ignore-file model：工具说明、参数说明、结果给模型看（173 号票）；工具的名字走 t()
+// @i18n-ignore-file model：工具说明、参数说明、结果给模型看；工具的名字走 t()
 import { Charter, CHANNELS, PI_RUNTIME_ID, PROJECT_GOAL_MAX, PROJECT_NAME_MAX, PROJECT_USER_WORDS_MAX, toolkitBashWording, Type, t, type WorkFolderChoice } from "@ergo/protocol";
 import { defineHostTool, type HostTool, type HostToolCall } from "../agent-manager/host-tools.ts";
 import type { CardService } from "../cards/cards.ts";
@@ -66,7 +66,7 @@ const SubmitCharterParams = Type.Object(
 );
 
 /**
- * 卡上带的用户原话（362 号票）：秘书正在处理的那几句（运行时核实过，发言方是用户才算：语音是识别出的文字，"新建项目"的通知不算）在前，
+ * 卡上带的用户原话：秘书正在处理的那几句（运行时核实过，发言方是用户才算：语音是识别出的文字，"新建项目"的通知不算）在前，
  * 秘书抄的前面几句里说的接在后面；一样的不写两遍，太长的截掉
  */
 function kickoffWords(copied: string | undefined, deps: UserWordsDeps | undefined, call: HostToolCall): string | undefined {
@@ -78,8 +78,8 @@ function kickoffWords(copied: string | undefined, deps: UserWordsDeps | undefine
 }
 
 /**
- * 秘书的"建议立项"；runtimeRefusal：写的运行时现在能不能用（289 号票，不给就不查）；workFolder：写的文件夹（305 号票：已有的核对路径，
- * 不给就不查）；userWords：核实用户这句话（362 号票：出卡时原样带上，不靠秘书转述；不给就只有秘书抄的）
+ * 秘书的"建议立项"；runtimeRefusal：写的运行时现在能不能用（不给就不查）；workFolder：写的文件夹（已有的核对路径，
+ * 不给就不查）；userWords：核实用户这句话（出卡时原样带上，不靠秘书转述；不给就只有秘书抄的）
  */
 export function suggestProjectTool(cards: CardService, runtimeRefusal?: (runtime: string) => string | undefined, workFolder?: Pick<ProjectWorkFolder, "precheck">, userWords?: UserWordsDeps): HostTool {
   return defineHostTool({
@@ -93,7 +93,7 @@ export function suggestProjectTool(cards: CardService, runtimeRefusal?: (runtime
       const runtime = args.runtime === undefined || args.runtime === PI_RUNTIME_ID ? undefined : args.runtime;
       const refused = runtime === undefined ? undefined : runtimeRefusal?.(runtime);
       if (refused !== undefined) return { text: refused, isError: true };
-      // 在哪个文件夹做（305 号票）：能选工作文件夹的运行时才记；已有的这时核对
+      // 在哪个文件夹做：能选工作文件夹的运行时才记；已有的这时核对
       const folder: WorkFolderChoice | undefined =
         runtime === undefined ? undefined : args.folder !== undefined ? { kind: "existing", path: args.folder } : args.folderName !== undefined ? { kind: "new", name: args.folderName } : undefined;
       try {
@@ -122,7 +122,7 @@ export function submitCharterTool(projects: ProjectService, scope: { projectId: 
       const { toolkit, ...charter } = args;
       try {
         const { cardId, revision, toolkit: proposed, fixedWorkdir } = projects.submitCharter(scope.projectId, scope.maintainerId, { charter, ...(toolkit === undefined ? {} : { toolkit }) });
-        // 311 号票：工作目录在立项之前就定在外面了，立项书照它写成已绑定：告诉负责人一声（交的绑不绑、哪条路径不算）
+        // 工作目录在立项之前就定在外面了，立项书照它写成已绑定：告诉负责人一声（交的绑不绑、哪条路径不算）
         const fixed = fixedWorkdir === undefined ? "" : `工作目录在立项之前就定了，立项书里照它写成绑定 ${fixedWorkdir}（交的绑不绑、哪条路径不算）。`;
         return {
           text: `立项书已提交（第 ${revision} 版，提议的${toolkitBashWording(proposed.bash)}），立项书卡放进了用户的待我处理。${fixed}用户确认之前项目留在筹备中；用户有意见会直接和你说。`,

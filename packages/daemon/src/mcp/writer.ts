@@ -1,4 +1,4 @@
-// MCP 登记的写入（239 号票）：用户在"登记变更"卡上点确认之后，只有运行时从这里写配置区的 mcp.json。
+// MCP 登记的写入：用户在"登记变更"卡上点确认之后，只有运行时从这里写配置区的 mcp.json。
 // 规矩（照记忆推理库/备份留旧版本、项目档案历史区的写法）：
 // - 按 name 合并：只动这一条，别的一条不碰（键按名字排好，写出来的文件稳定，备份之间好比对）；
 // - 写前把旧的那一份复制进 config/.history/（mcp-<时间>.json，只留最近几份）；
@@ -79,7 +79,7 @@ export function applyMcpChange(target: McpWriteTarget, change: McpRegistrationCh
     fs.copyFileSync(target.file, backup);
     pruneHistory(target, target.keepHistory ?? KEEP_HISTORY);
   }
-  // 临时文件和目标在同一个目录（rename 才是原子的），写完再顶上去；被占着时等一会儿重试，失败时临时文件删掉（265 号票，atomic-file.ts）
+  // 临时文件和目标在同一个目录（rename 才是原子的），写完再顶上去；被占着时等一会儿重试，失败时临时文件删掉（atomic-file.ts）
   writeFileAtomic(target.file, `${JSON.stringify({ servers }, null, 2)}\n`);
   return { ...(backup === undefined ? {} : { backup }), before: Object.keys(current.servers).toSorted(), after: Object.keys(servers) };
 }

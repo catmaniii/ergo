@@ -1,6 +1,6 @@
 // 时序规则看到的"一步"：一次调用（这次要判定的，或效果日志里执行成功过的）规范化之后的样子，
 // 再加上几项由参数和环境事实推出来的字段。规则只认工具名和参数，参数名统一：
-// - 参数名照工具注册表。带类型的工具和从通用 bash 拆出的伪工具同名、参数名相同（03 号票），
+// - 参数名照工具注册表。带类型的工具和从通用 bash 拆出的伪工具同名、参数名相同，
 //   所以 `git_push {remote: "origin"}` 和 bash 里的 `git push origin main` 规范化成同一种形式；
 // - 路径参数解析成绝对路径（Windows 语义），不填且登记为默认取工作目录的，取工作目录；
 // - HTTP 方法转大写；登记了 pattern / type 的参数照 planguard 检查，不符合的换成"未知"；
@@ -9,7 +9,7 @@
 // - 空值（null、undefined）的参数去掉。
 //
 // 规范化是幂等的：效果日志里存的就是规范化之后的参数（"未知"存成 `{"$unknown": 原值}`），读回来再规范化一遍不变。
-// @i18n-ignore-file data：规则引擎里的值（"未知"值的原话；默认远端、当前分支是对外对象的身份，比对用），不翻（173 号票）
+// @i18n-ignore-file data：规则引擎里的值（"未知"值的原话；默认远端、当前分支是对外对象的身份，比对用），不翻
 import { agentScope, comparable, isWindowsAbsolutePath, isWithin, isWithinAny, resolveAgentPath, type ShellEnv } from "./paths.ts";
 import { MISSING, Unknown, canonical, isUnknown } from "./planguard/expr.ts";
 import { normalizeValue } from "./planguard/spec.ts";
@@ -79,7 +79,7 @@ export function absolutePathArgs(call: Pick<JudgedCall, "tool" | "args">, tools:
 
 /**
  * 这些调用会删除或整体重写哪些路径（按 pathReplacement 认；整体重写的不论现在在不在都列上）：规范化后的绝对路径。
- * 运行时据此在放行之前给项目档案留旧版本（15 号票）
+ * 运行时据此在放行之前给项目档案留旧版本
  */
 export function replacedPaths(calls: ReadonlyArray<Pick<JudgedCall, "tool" | "args">>, tools: ToolRegistry, env: ShellEnv): string[] {
   const out: string[] = [];
@@ -147,7 +147,7 @@ export const STEP_FIELDS = [
  * - committed：已 git 提交——环境事实里有包含它的仓库、它（和它下面）没有未提交的改动；项目档案（工作目录之外的部分）
  *   不在 git 里，一律不算已提交；别处没有对应的 git 事实时为"未知"；
  * - secretFile：是不是 .env 或密钥文件；
- * - ownTemp：是不是任务、项目自己的临时文件（111 号票：判定函数按效果日志、创建时间、交付件认出来的，own-temp.ts）；
+ * - ownTemp：是不是任务、项目自己的临时文件（判定函数按效果日志、创建时间、交付件认出来的，own-temp.ts）；
  *   v1 模板"删除或覆盖之前必须已备份或已提交"不管它。不是要判定的这次调用（效果日志里的），或者没给认法的，都是 false。
  */
 export interface RulePath {
@@ -163,7 +163,7 @@ export interface RulePath {
   ownTemp: boolean;
 }
 
-/** 推字段要用的东西：注册表、解析路径的环境、发起这次判定的 agent、环境事实，和认任务、项目自己的临时文件的函数（111 号票，可选） */
+/** 推字段要用的东西：注册表、解析路径的环境、发起这次判定的 agent、环境事实，和认任务、项目自己的临时文件的函数（可选） */
 export interface RuleView {
   tools: ToolRegistry;
   env: ShellEnv;
@@ -262,7 +262,7 @@ function committedOf(view: RuleView, path: string | Unknown): boolean | Unknown 
   if (isUnknown(path)) return path;
   const found = gitFactOf(view.facts, path);
   if (!found) {
-    // 项目档案（工作目录之外的部分）不在 git 里：覆盖和删除前看 backedUp（运行时会自动留旧版本，15 号票）
+    // 项目档案（工作目录之外的部分）不在 git 里：覆盖和删除前看 backedUp（运行时会自动留旧版本）
     const agent = view.agent;
     if (agent.kind !== "secretary" && isWithinAny(path, agent.projectRecords) && !isWithinAny(path, agent.workingDirs)) return false;
     return new Unknown("git 状态");

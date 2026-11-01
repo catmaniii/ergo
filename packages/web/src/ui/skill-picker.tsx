@@ -1,4 +1,4 @@
-// skill 的选择（72 号票）：工具包区（项目页、任务详情）和设置里秘书用的 skill 共用。
+// skill 的选择：工具包区（项目页、任务详情）和设置里秘书用的 skill 共用。
 // 集合（matt-pocock、pstack 这类整套导入的）显示成一项：可以整套选、整套去掉，点开能单选其中几个；单个的 skill 一个一个列。
 // 怎么分组、怎么显示、选了之后的名单都是状态层的纯函数（state/skill-groups.ts），这里只管画。
 import { useState } from "react";

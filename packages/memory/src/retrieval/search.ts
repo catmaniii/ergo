@@ -1,4 +1,4 @@
-// 混合检索（第 6 节）：vector（A 组）、hybrid（B 组）、hybrid_kg（C 组）三种模式；hybrid_kg_rg（D 组）由引擎交给 ④ 号票的推理图谱。
+// 混合检索（第 6 节）：vector（A 组）、hybrid（B 组）、hybrid_kg（C 组）三种模式；hybrid_kg_rg（D 组）由引擎交给推理图谱。
 //
 // 每种模式都能选搜哪一层（layers）：原话（证据）、精炼陈述（事实的 statement），或两层。命中精炼陈述的经事实的 evidenceIds 回到原话，
 // 结果按证据去重。各路：
@@ -6,14 +6,14 @@
 //   evidence_vector / fact_vector：余弦（vector.ts）；
 //   graph：图扩展（expand.ts，只有 C 组）。
 // - A 组只用向量两路，融合分是余弦（两层都搜时一条证据取两层里高的那个），不做 RRF；
-// - B、C 组各路（每路最多取前 DEPTH 条）用 RRF（k = 60）融合。两层都搜时精炼陈述那两路权重 0.5、原话两路 1.0（194 号票：
+// - B、C 组各路（每路最多取前 DEPTH 条）用 RRF（k = 60）融合。两层都搜时精炼陈述那两路权重 0.5、原话两路 1.0（
 //   精炼陈述是从原话派生的，可能漏、可能错，不能压过原话）；图扩展那一路 1.0（它是 C 组要量的东西）。
 // 过滤（调用的人给了才过滤，A 组也一样；评测里 A 组不给）：
 // - 来源等级、证据状态（被忘掉的不要，被纠正的留着、命中里标 corrected）：所有路；
 // - 发生时间范围：原话两路按证据的，精炼陈述和图扩展按事实的；
 // - 有效期 at：只管事实（精炼陈述、图扩展），原话没有有效期；
-// - 场景（194 号票）：默认 soft，对不上的不扔、只往后排——每一路照常排，场景对不上的命中这一路给它的票乘 contextPenalty（默认 0.5）；
-//   contextMode = "strict" 是 190 的硬过滤。原话两路看证据的标签，精炼陈述看给它名次的那条事实的场景（按分句定，比证据的标签准），
+// - 场景：默认 soft，对不上的不扔、只往后排——每一路照常排，场景对不上的命中这一路给它的票乘 contextPenalty（默认 0.5）；
+//   contextMode = "strict" 是硬过滤。原话两路看证据的标签，精炼陈述看给它名次的那条事实的场景（按分句定，比证据的标签准），
 //   图扩展看带出它的事实（都对不上才算对不上）。没写场景的照常。
 import type { Evidence, Fact } from "../domain/types.ts";
 import { toMs, validAt } from "../domain/time.ts";
@@ -31,9 +31,9 @@ import { EVIDENCE_VECTORS, FACT_VECTORS, vectorRank } from "./vector.ts";
 /** 每一路最多取前几条进融合 */
 export const DEPTH = 50;
 export const DEFAULT_LIMIT = 10;
-/** 两层都搜时精炼陈述那两路的 RRF 权重（原话两路 1.0）。194 号票按原则定，不对着题调；模型版抽取覆盖率上去以后再评 */
+/** 两层都搜时精炼陈述那两路的 RRF 权重（原话两路 1.0）。按原则定，不对着题调；模型版抽取覆盖率上去以后再评 */
 export const DEFAULT_STATEMENT_WEIGHT = 0.5;
-/** 场景默认往后排，不扔（194 号票） */
+/** 场景默认往后排，不扔 */
 export const DEFAULT_CONTEXT_MODE: ContextMode = "soft";
 /** soft 时场景对不上的命中乘的系数：打对折，一条对不上的要在两路里都排到前面，才抵得上一条对得上、只在一路排前面的 */
 export const DEFAULT_CONTEXT_PENALTY = 0.5;

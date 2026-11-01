@@ -1,4 +1,4 @@
-// 项目档案的旧版本（15 号票）：放行一次要删除或整体重写项目档案里东西的调用之前，运行时把旧的留进项目自己的历史区。
+// 项目档案的旧版本：放行一次要删除或整体重写项目档案里东西的调用之前，运行时把旧的留进项目自己的历史区。
 // 认"要删除或整体重写哪些路径"和 v1 模板"删除或覆盖前须已备份或已提交"是同一份（守卫的 replacedPaths / pathReplacement）；
 // 只覆盖项目档案：工作目录（默认的 workdir/ 也是）靠 git 提交或备份，历史区只由运行时写。
 import fs from "node:fs";
@@ -79,7 +79,7 @@ describe("项目档案里的文件被整体重写或删除前留旧版本", () =
   });
 });
 
-describe("立项书的运营方式（130 号票）", () => {
+describe("立项书的运营方式", () => {
   const charter = { goal: "每天出 AI 日报", scope: ["抓新闻", "写日报"], firstVersion: "能出一期", kind: "other" as const, bindExternal: false };
   const toolkit = { skills: [], mcp: [], bash: false, network: true };
   const confirmed = { decision: "start" as const, at: AT, workdir: "D:\\ergo\\projects\\p-1\\workdir" };
@@ -91,7 +91,7 @@ describe("立项书的运营方式（130 号票）", () => {
   });
 });
 
-describe("工作目录在外面的项目（311 号票）", () => {
+describe("工作目录在外面的项目", () => {
   test("建档时工作目录已经在外面（新建时选的文件夹、接管来的会话原来的）：不建档案里那个用不上的 workdir/；在档案里的照旧建", () => {
     const projectsDir = path.join(fs.realpathSync.native(makeTempDir("ergo-data-")), "projects");
     const outside = projectRecordsPaths(projectsDir, "p-1");

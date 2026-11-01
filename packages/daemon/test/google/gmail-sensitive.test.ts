@@ -1,4 +1,4 @@
-// 导入的"我发出的邮件"按每封写窄敏感类别（298 号票，主会话 2026-10-26 定，google/gmail-sensitive.ts）：简单关键词，
+// 导入的"我发出的邮件"按每封写窄敏感类别（google/gmail-sensitive.ts）：简单关键词，
 // 明显是财务、健康的标上，判不准的不标——单字（"病""药"）、人名（Bill）、"毛病""芍药"这类不算。
 import { describe, expect, it } from "vitest";
 import { sentMailSensitive } from "../../src/google/gmail-sensitive.ts";

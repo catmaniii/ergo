@@ -1,4 +1,4 @@
-// 前端状态层：往上翻的历史分页和附件消息（09 号票）。
+// 前端状态层：往上翻的历史分页和附件消息。
 // 先回放主切面录下的真实事件流（recordings/secretary-history.json、secretary-attachments.json），再补手写的边角。
 import fs from "node:fs";
 import path from "node:path";

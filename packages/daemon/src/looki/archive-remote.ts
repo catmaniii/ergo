@@ -1,5 +1,5 @@
-// "存一份到本地"（307 号票）读 Looki 回来的文件、vlog：官方文档（调研 38 的 1.3 节）列了字段名，没写清的几处这里宽松地读，等用户拿到 Key
-// 真机核对（307 号票 Comments 列着）——
+// "存一份到本地"读 Looki 回来的文件、vlog：官方文档（调研 38 的 1.3 节）列了字段名，没写清的几处这里宽松地读，等用户拿到 Key
+// 真机核对——
 // - 文件（GET /moments/{id}/files）：id、media_type（IMAGE / VIDEO / AUDIO）、temporary_url（预签名链接，1 小时失效）、created_at、
 //   size、duration、location。id 也认 file_id；链接也认 url / download_url / file_url；种类也认 type / file_type / mime_type（image/jpeg），
 //   都没有按链接的扩展名猜；拍摄时间也认 taken_at / captured_at / shot_at / recorded_at / timestamp，按时刻的时区读（records.ts 的 lookiTime）；

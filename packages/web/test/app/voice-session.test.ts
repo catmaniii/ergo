@@ -1,6 +1,6 @@
-// "按住 说话"在浏览器里的那一半（37 号票，app/voice-session.ts）：麦克风预热——进语音模式就打开麦克风流、接好音量分析，
-// 但不录（录音器按下才开始）；离开语音模式、页面切到后台时停掉所有音轨，回到前台再预热；语音模式里闲置不关（44 号票）。
-// 61 号票：打字、分屏时让路，焦点回来 0.5 秒后再预热；按下时音轨失效了就重开、录完整段是静音就不发；麦克风诊断记录。
+// "按住 说话"在浏览器里的那一半（app/voice-session.ts）：麦克风预热——进语音模式就打开麦克风流、接好音量分析，
+// 但不录（录音器按下才开始）；离开语音模式、页面切到后台时停掉所有音轨，回到前台再预热；语音模式里闲置不关。
+// 打字、分屏时让路，焦点回来 0.5 秒后再预热；按下时音轨失效了就重开、录完整段是静音就不发；麦克风诊断记录。
 // 浏览器的 getUserMedia、MediaRecorder、AudioContext、音轨事件、页面的前后台、焦点、计时器和时钟都换成假的。
 import { describe, expect, test } from "vitest";
 import { VoiceMicLog } from "../../src/app/voice-mic-log.ts";
@@ -340,7 +340,7 @@ describe("预热：进语音模式就备好麦克风，但不录", () => {
     expect(browser.liveStreams()).toHaveLength(1);
   });
 
-  test("按着的时候落下第二根手指（54 号票：在捏合缩放会话）：这一段丢掉，之后抬手也不发，不提示太短；麦克风不关，下一条照常", async () => {
+  test("按着的时候落下第二根手指（在捏合缩放会话）：这一段丢掉，之后抬手也不发，不提示太短；麦克风不关，下一条照常", async () => {
     const { browser, session, recorded } = setup();
     session.enter();
     await settle();
@@ -420,7 +420,7 @@ describe("关掉麦克风：所有音轨停掉（指示灯熄灭）", () => {
     expect(browser.liveStreams()).toEqual([]);
   });
 
-  test("语音模式里很久不按也不关（44 号票）：放着几个小时、录完一条后再放着，麦克风一直开着，按下即录", async () => {
+  test("语音模式里很久不按也不关：放着几个小时、录完一条后再放着，麦克风一直开着，按下即录", async () => {
     const { browser, session, recorded } = setup();
     session.enter();
     await settle();
@@ -448,7 +448,7 @@ describe("关掉麦克风：所有音轨停掉（指示灯熄灭）", () => {
 
 });
 
-// 61 号票（用户 2026-10-09 反馈"麦克风被占用"）：页面里可输入的元素拿到焦点、窗口失去焦点（分屏）时真正停掉音轨，
+// 反馈"麦克风被占用"：页面里可输入的元素拿到焦点、窗口失去焦点（分屏）时真正停掉音轨，
 // 让系统输入法的语音能用；焦点回来 0.5 秒后（仍在语音模式、页面在前台）重新预热。
 describe("让路：打字、分屏时放开麦克风，回来再预热", () => {
   test("输入框拿到焦点：立即停掉所有音轨、关掉音量分析；离开 0.5 秒后重新打开（新的流），还是不录", async () => {
@@ -817,7 +817,7 @@ describe("不发空白语音：录完的一段整段是静音就不发", () => {
   });
 });
 
-// 61 号票：随每条语音带上麦克风的诊断，守护进程存进语音对象的 capture，用户在真机上试完后在本机接口看
+// 随每条语音带上麦克风的诊断，守护进程存进语音对象的 capture，用户在真机上试完后在本机接口看
 describe("诊断记录：这次开麦的原因、冷启动耗时、最近的麦克风开关、浏览器", () => {
   test("一条语音带上：录它的流为什么开、getUserMedia 花了多久、最近的开关（相对按下的毫秒数和原因）、UA", async () => {
     const { browser, session, recorded } = setup({ grant: "manual" });
@@ -845,7 +845,7 @@ describe("诊断记录：这次开麦的原因、冷启动耗时、最近的麦�
     await settle();
 
     expect(recorded[0]!.capture).toEqual({
-      // 录音走哪儿（63 号票）：浏览器录的是 web，鸿蒙 App 的原生录音是 native
+      // 录音走哪儿：浏览器录的是 web，鸿蒙 App 的原生录音是 native
       backend: "web",
       prewarmed: true,
       startDelayMs: 0,
@@ -1055,7 +1055,7 @@ describe("权限", () => {
   });
 });
 
-// 36 号票评审加的两种兜底（app/voice-fallbacks.ts，默认都不开）：语音模式里麦克风一直开着、回声消除开着，
+// 加的两种兜底（app/voice-fallbacks.ts，默认都不开）：语音模式里麦克风一直开着、回声消除开着，
 // 可能把 agent 语音的播放拖进通话模式（通话音量、听筒、蓝牙切到 SCO）。真机对比后再定开哪个。
 /** 开着某种兜底的会话 */
 function setupWith(fallbacks: { releaseMicWhilePlaying: boolean; disableEchoCancellation: boolean }) {

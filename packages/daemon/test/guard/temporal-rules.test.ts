@@ -376,7 +376,7 @@ describe("时序规则：判断不了就问用户", () => {
   });
 });
 
-/** 执行成功过的一次调用在效果日志里的样子：原文（68 号票之前）或者缩过的 */
+/** 执行成功过的一次调用在效果日志里的样子：原文或者缩过的 */
 function done(seq: number, toolCall: ToolCall, compact: boolean): EffectRecord[] {
   const input = inTask(maintainer(), toolCall);
   return effectRecordsFor(input, judgeToolCall(input), { firstSeq: seq, at: NOW - (100 - seq) * 60_000 }).map((r) =>
@@ -386,7 +386,7 @@ function done(seq: number, toolCall: ToolCall, compact: boolean): EffectRecord[]
 const gist = (j: GuardJudgement) => ({ disposition: j.disposition, pullBack: j.pullBack, rules: j.temporalRules.map((h) => [h.ruleId, h.status, h.outcome]) });
 const edit = (seq: number, compact: boolean) => done(seq, call("edit", { path: "notes.md", edits: [{ oldText: "第 1 行", newText: "第一行" }] }), compact);
 
-describe("效果日志里内容类的参数只记长度和摘要哈希（68 号票）", () => {
+describe("效果日志里内容类的参数只记长度和摘要哈希", () => {
   const NOTES = `${P.workDir}\\notes.md`;
   const BODY = Array.from({ length: 20 }, (_, i) => `第 ${i + 1} 行笔记`).join("\n");
   const write = (seq: number, compact: boolean, content = BODY) => done(seq, call("write", { path: "notes.md", content }), compact);
@@ -460,7 +460,7 @@ const plainHit = (rule: TemporalRule, target: string, effectLog: EffectRecord[])
 const notBefore = (where: unknown): TemporalRule => ({ id: "nb", trigger: { tool: "mcp_plain" }, require: { not_before: { tool: "mcp_plain", where } }, on_violation: "block" });
 const before = (where: unknown): TemporalRule => ({ id: "b", trigger: { tool: "mcp_plain" }, require: { before: { tool: "mcp_plain", where } }, on_violation: "block" });
 
-describe("执行时读到效果日志里只记了长度和摘要哈希的值（68 号票）：一律判断不了，不能当成满足", () => {
+describe("执行时读到效果日志里只记了长度和摘要哈希的值：一律判断不了，不能当成满足", () => {
   it("not_before：整份比参数、known 取值——原文时违反；缩过之后判断不了，先问（不是放行）", () => {
     for (const where of [{ eq: ["$prior.args", "$current.args"] }, { known: { get: ["$prior", "args.target"] } }]) {
       const rule = notBefore(where);

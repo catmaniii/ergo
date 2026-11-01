@@ -1,26 +1,26 @@
 // @i18n-ignore-file log：这一版没接线（工具、简报、页面下一段才改接），中文只有日志、给宿主的出错说明和插件清单里的名字
-// 会意 / Subtext 记忆插件（337 号票第二步"插件化"的第一步：把现有这套包成一个 MemoryProvider、登记进注册表、在组合根起来）。
+// 会意 / Subtext 记忆插件（"插件化"的第一步：把现有这套包成一个 MemoryProvider、登记进注册表、在组合根起来）。
 //
 // 这一版**只包一层**，不搬实现、不改行为：现有的素材采集、记忆命令、curator、purge、访谈、网页照旧走各自的路
 // （packages/daemon/src/memory/*、packages/memory），插件里的每个方法都接到**现成的**东西上：
 //
 //   search  → @ergo/memory 的引擎检索（memoryBrief / ask_memory 用的那一套：hybrid_kg、两层、关键词 + 向量 + 事实图谱），
 //             命中是证据（Evidence），映射成 MemoryItem；出处从证据的 sourceRef 拆回素材 id（几条合成的一条是 digest:<id,…>，
-//             materialIdsOfRef），素材库还在的话再补上它来自哪条消息。**出处一条都对不上的条目不交出去**（用户 2026-10-28 定：
+//             materialIdsOfRef），素材库还在的话再补上它来自哪条消息。**出处一条都对不上的条目不交出去**（
 //             没有出处的条目不进简报）——这一版宁可少给，不硬编。
-//   remember → 337 号票第二段接上了：用户说"帮我记一句"时按原话存一条（不猜、不改写）。落的是现有的"显式记忆命令"那条链
+//   remember →接上了：用户说"帮我记一句"时按原话存一条（不猜、不改写）。落的是现有的"显式记忆命令"那条链
 //             （组合根给 write 这一手：追加一条 memory_command（from.kind 是 secretary，带会话/消息/工具调用）→ 素材库照旧采成
 //             "显式记忆命令"素材 → 立刻用每晚整理同一个 evidenceDraftOf 读成证据、经推理库的唯一写入口入库；整理时按出处跳过）。
 //             这一步**不**再要求快速动作和卡片：REMEMBER 的 from 多了一支没有卡片的来源（protocol 的 RememberCommandPayload），
 //             老事件（chat 来源）照旧。组合根没给 write 时明着回 not_implemented，不编造事件。
-//             366 号票：能带文件和来源（用户说"这张图记下来"）：一起写进那条命令，素材里多一段附件（文件本身在媒体库）和来源，条目上写 extra.fileStored。
+//             能带文件和来源（用户说"这张图记下来"）：一起写进那条命令，素材里多一段附件（文件本身在媒体库）和来源，条目上写 extra.fileStored。
 //   forget   → 推理库那一侧现成的彻底删除（purge-rg.ts 的 purgeMaterials：按素材 id 删证据和只靠它的事实、依赖的结论加复核标记、
 //             写审计），按来源把素材 id 找出来交给它（material 直接是它；conversation / message 查素材库；task / project 在素材库里按
 //             信封上的 task / project 过滤）。只动推理库：素材库、原话副本是内核的，这里不碰。
 //             按条目（items）、按时间段（range）这一版没接；all（整库删）**明确拒绝**（回 failed 写清原因）。
 //   health   → 有效证据条数（引擎开着才数得出来）、最近一次整理跑完的时间（整理记录里最近一条 ran 的 ranAt）、
-//             推理库占多少字节（会意的数据就是推理库；338 号票起它在会意自己的数据目录里，<数据目录>/memory/subtext/rg.db）。
-//   brief    → 现成的每条消息简报（266 号票，engine.messageBrief，和秘书那条路同一份实现）：回正文和这次带上了哪几条
+//             推理库占多少字节（会意的数据就是推理库；它在会意自己的数据目录里，<数据目录>/memory/subtext/rg.db）。
+//   brief    → 现成的每条消息简报（engine.messageBrief，和秘书那条路同一份实现）：回正文和这次带上了哪几条
 //             （keys 就是 engine.messageBrief 回来的 brought：键 → 指纹，宿主下一轮当 known 交回来，没变的不再带）；
 //             结构化那两样（为什么带、命中的素材）一起回，宿主写进"回忆了 N 条记忆"。不带是 undefined。
 //   observe  → 这一步回 skipped：现有管道自己摄取（素材库采集 + 每晚整理读成证据），插件不重复收。
@@ -82,7 +82,7 @@ export interface SubtextProviderDeps {
    */
   deleteMaterials?: (materialIds: readonly string[]) => PurgeReport | undefined;
   /**
-   * 337 号票：按原话记一条要写库的那一手（组合根给：追加一条"显式记忆命令"事件 → 素材库照旧采成素材 →
+   * 按原话记一条要写库的那一手（组合根给：追加一条"显式记忆命令"事件 → 素材库照旧采成素材 →
    * 立刻用每晚整理同一个 evidenceDraftOf 读成证据、经推理库的唯一写入口入库）。不给时 remember 回 not_implemented
    */
   remember?: (command: SubtextRememberCommand) => SubtextRememberRecord;
@@ -99,7 +99,7 @@ export interface SubtextRememberCommand {
   inputMessageId?: string;
   toolCallId?: string;
   idempotencyKey: string;
-  /** 366 号票：连同这句一起存的文件、记下来的东西的来源；有它们时 text 是秘书写的描述，不是用户的原话 */
+  /** 连同这句一起存的文件、记下来的东西的来源；有它们时 text 是秘书写的描述，不是用户的原话 */
   file?: RememberedFile;
   origin?: RememberedOrigin;
 }
@@ -126,10 +126,10 @@ export function subtextProviderFactory(deps: SubtextProviderDeps): MemoryProvide
 export const SUBTEXT_INFO: MemoryProviderInfo = {
   api: MEMORY_API_VERSION,
   id: "subtext",
-  // @i18n-ignore-next fixed：插件清单里的名字（和 336 号票定的"会意 / Subtext"一致）
+  // @i18n-ignore-next fixed：插件清单里的名字（和"会意 / Subtext"一致）
   name: { zh: "会意", en: "Subtext" },
   version: SUBTEXT_VERSION,
-  // 会意是自研的实验性那一个（337 号票：生产里只有它，标"实验性"）
+  // 会意是自研的实验性那一个（生产里只有它，标"实验性"）
   experimental: true,
   // 这一版只声明 brief（每轮简报是它自己的实现）；整理、工具、设置项、页签下一段再说
   capabilities: { brief: true },
@@ -262,7 +262,7 @@ export function createSubtextProvider(deps: SubtextProviderDeps): SubtextProvide
 
     async remember(input: MemoryRememberInput): Promise<MemoryItem> {
       running();
-      // 按原话存：只去掉首尾空白，不改写、不推断（用户 2026-10-28 定）
+      // 按原话存：只去掉首尾空白，不改写、不推断
       const text = input.text.trim();
       if (text === "") throw new RequestRejected("bad_params", "记什么？要记住的那一句话是空的"); // @i18n-ignore log：调用方（工具）据此回话
       const sources = input.sources ?? [];
@@ -384,7 +384,7 @@ export function createSubtextProvider(deps: SubtextProviderDeps): SubtextProvide
       // 库用不了就不带（和秘书那条路一样：这一轮照常回话）
       if (engine === undefined) return undefined;
       try {
-        // 现成的每条消息简报（266 号票）：本机检索 + 相关门槛，不调模型；不相关、都带过了是 undefined。
+        // 现成的每条消息简报：本机检索 + 相关门槛，不调模型；不相关、都带过了是 undefined。
         // known（这一段带过的键和指纹）交回引擎，没变的不再带；brought 当 keys 交给宿主
         return await engineMessageBrief(engine, context, deps.materials);
       } catch (err) {
@@ -400,7 +400,7 @@ const messageOf = (err: unknown) => (err instanceof Error ? err.message : String
 
 /**
  * 按原话记一条的幂等键：同一个会话、同一条消息里的同一句话再记一次不落第二条事件（模型重试、同一句调用两次）。
- * 换个会话、换句话就是另一条；哈希一下免得把整句原话当键存进库里。366 号票：带了文件的另算（先只记了文字，取到文件再带上记一次时不能算重复）
+ * 换个会话、换句话就是另一条；哈希一下免得把整句原话当键存进库里。带了文件的另算（先只记了文字，取到文件再带上记一次时不能算重复）
  */
 function rememberKey(text: string, conversation: string, messageId: string | undefined, mediaId: string | undefined): string {
   return `memory-remember:${createHash("sha256").update([conversation, messageId ?? "", text, ...(mediaId === undefined ? [] : [mediaId])].join("\u0000"), "utf8").digest("hex").slice(0, 32)}`;

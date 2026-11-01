@@ -1,4 +1,4 @@
-// 一次对多个任务做同一个控制（90 号票，tasks/batch.ts）：一个一个交给单个任务的那条路，各自成败、逐条回报（按请求里的先后），
+// 一次对多个任务做同一个控制（tasks/batch.ts）：一个一个交给单个任务的那条路，各自成败、逐条回报（按请求里的先后），
 // 每个任务用由这次幂等键派生的幂等键；做不了的（状态不对、找不到）写明原因，不影响别的；别的错记日志、回"内部出错"。
 // 单个任务的那条路换成假的；真的守护进程上的在主切面 test/main/task-batch.test.ts。
 import type { TaskActionParams, TaskActionResult } from "@ergo/protocol";

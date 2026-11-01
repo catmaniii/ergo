@@ -1,4 +1,4 @@
-// Gmail 的几个账号（344 号票）：密钥区那一格（data-sources/google-gmail.json）里怎么存，和老配置（298 号票：只有一个账号）怎么转过来。
+// Gmail 的几个账号：密钥区那一格（data-sources/google-gmail.json）里怎么存，和老配置（只有一个账号）怎么转过来。
 //
 // 存法（照 Google 日历的 feeds，一个值一格，不把几个账号拼成一段 JSON：内核按"这一格里的每个值"把出错原因里的密钥换成 ***，拼起来就换不到了）：
 // - accounts：几个账号的 id，逗号分开，按加的先后；
@@ -24,7 +24,7 @@ const ACCOUNTS_KEY = "accounts";
 const addressKey = (id: string) => `account.${id}.address`;
 const passwordKey = (id: string) => `account.${id}.password`;
 const enabledKey = (id: string) => `account.${id}.enabled`;
-/** 老配置的两个键（298 号票） */
+/** 老配置的两个键 */
 const OLD_ADDRESS_KEY = "address";
 const OLD_PASSWORD_KEY = "password";
 /** 迁移的备份（在密钥区同一格里） */

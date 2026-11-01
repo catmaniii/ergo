@@ -1,4 +1,4 @@
-// 找 Git Bash（src/typed-shell/git-bash.ts）。238 号票查到的坑：测试里的守护进程拿到的环境是 process.env 摊平出来的
+// 找 Git Bash（src/typed-shell/git-bash.ts）。查到的坑：测试里的守护进程拿到的环境是 process.env 摊平出来的
 // 普通对象，键只剩大写（PROGRAMFILES）；实现原来写死 env.ProgramFiles，查不到就掉到 PATH 上 WSL 的 bash，报"找不到 Git Bash"。
 // 这里造一个假的 Program Files，不依赖这台机器真的装了 Git。
 import fs from "node:fs";

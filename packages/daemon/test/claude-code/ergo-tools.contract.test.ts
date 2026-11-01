@@ -1,4 +1,4 @@
-// Claude Code 适配子进程的契约测试：二狗的工具、上下文、工具包里的 skill 交给 Claude Code（291 号票）。SDK 是手动挡的假的
+// Claude Code 适配子进程的契约测试：二狗的工具、上下文、工具包里的 skill 交给 Claude Code。SDK 是手动挡的假的
 // （helpers/fake-claude-sdk.ts：测试扮演 claude 和它的 MCP 客户端、叫钩子），不启动真的 claude、不花额度、不碰用户真实的 ~/.claude。
 // - 二狗的工具经进程内 MCP 服务交给 Claude：mcp__ergo__<工具名>、工具包里的 MCP 按服务各一个；tools/call 转成 host_tool_call（调用 id 是
 //   _meta 里的 tool_use id，没带时按工具名认领），结果交回 MCP；取消了的交回"回合已中止"、晚到的结果不报错；报给守护进程的工具名换回二狗的；
@@ -266,7 +266,7 @@ describe("进上下文不显示的内容经钩子注入（假 SDK）", () => {
     });
     await child.log.next("ready");
     const query = await child.fake.nth(1);
-    // 309 号票：装配了范围审视的多一个 PreCompact（压缩之前报 compacting）
+    // 装配了范围审视的多一个 PreCompact（压缩之前报 compacting）
     expect(Object.keys(query.options.hooks ?? {}).toSorted()).toEqual(["PostToolUse", "PostToolUseFailure", "PreCompact", "SessionStart", "UserPromptSubmit"]);
 
     // 第一条：SessionStart（startup）先注入上下文块和"一直在"的那段，UserPromptSubmit 只加这条后面跟的；上下文块只注入一次

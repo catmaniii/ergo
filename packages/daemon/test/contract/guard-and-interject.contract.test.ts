@@ -2,9 +2,9 @@
 // - 工具调用能停在 pi 的 tool_call 钩子里，等守护进程异步送回判定（规格要求最长能等 5 分钟，这里用 2 秒模拟），
 //   等待期间工具不执行，按判定执行或不执行；
 // - 回合进行中送的插话（pi 的 steer），在当前这一步做完之后、下一次模型调用之前进入上下文。
-//   144 号票起插话只用于运行时标了插话送达的通知（14 号票的无进展催促）：用户在 agent 回复时说的话排队，这一轮做完再作为下一轮的输入
+//   插话只用于运行时标了插话送达的通知（无进展催促）：用户在 agent 回复时说的话排队，这一轮做完再作为下一轮的输入
 //   （那一边是守护进程的事，主切面 test/main/message-queue.test.ts）；这里的插话照催促的样子写。
-// - 中止（144 号票的"停止"，任务暂停、取消也是它）：已经流出来的文字留在定稿消息里（stopReason 是 aborted），回合以中止结束。
+// - 中止（"停止"，任务暂停、取消也是它）：已经流出来的文字留在定稿消息里（stopReason 是 aborted），回合以中止结束。
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -77,7 +77,7 @@ describe("pi 契约：守卫转发", () => {
   });
 });
 
-describe("pi 契约：守卫放行时换掉参数（59 号票：流程执行时按计划改回参数）", () => {
+describe("pi 契约：守卫放行时换掉参数（流程执行时按计划改回参数）", () => {
   it("放行带了参数：按换掉的参数执行，工具结果前面加上说明，模型看得到", async () => {
     const { daemon } = await startTestDaemon();
     const cwd = makeTempDir("ergo-cwd-");
@@ -150,7 +150,7 @@ describe("pi 契约：插话", () => {
   it("回合进行中送的插话，在当前工具调用之后、下一次模型调用之前进入上下文", async () => {
     const { daemon } = await startTestDaemon();
     const cwd = makeTempDir("ergo-cwd-");
-    // 运行时的催促（14 号票）：守护进程交给子进程时开头带"[系统通知]"
+    // 运行时的催促：守护进程交给子进程时开头带"[系统通知]"
     const interjection = "[系统通知] 已经 20 分钟没有新进展了，说一下卡在哪、接下来怎么做";
     const { agent, log } = spawnTestAgent(daemon, {
       agentId: "contract-interject",
@@ -172,7 +172,7 @@ describe("pi 契约：插话", () => {
 
     await log.next("tool_call_end");
     const echo = await log.next("message_final");
-    // 回合结束时列出这一轮里收下的插话（守护进程据此把那条输入记成"已处理"，13 号票）
+    // 回合结束时列出这一轮里收下的插话（守护进程据此把那条输入记成"已处理"）
     expect(await log.next("turn_end")).toEqual({ type: "turn_end", outcome: "completed", interjected: ["in-2"] });
 
     // 第二次模型调用看到的上下文：原输入 → 工具结果 → 催促
@@ -207,7 +207,7 @@ describe("pi 契约：插话", () => {
   });
 });
 
-describe("pi 契约：中止（144 号票的停止）", () => {
+describe("pi 契约：中止（停止）", () => {
   it("说到一半中止：已经流出来的文字留在定稿消息里（stopReason 是 aborted），回合以中止结束；下一轮的模型调用看得到这段说了一半的话", async () => {
     const { daemon } = await startTestDaemon();
     const long = "这是一段很长的回复，说了一半会被停下。".repeat(80);

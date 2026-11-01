@@ -1,8 +1,8 @@
-// Google · Gmail 的"现在能查到的"（343 号票，数据源详情）：现连现查、只读（和按需查同一套：EXAMINE 打开、只取 BODY.PEEK，不标已读）。
+// Google · Gmail 的"现在能查到的"（数据源详情）：现连现查、只读（和按需查同一套：EXAMINE 打开、只取 BODY.PEEK，不标已读）。
 // - 列表只给发件人、主题、时间（只取信头），点开一封才取正文（open，编号是列表给的）；
 // - 敏感类别沿用 gmail-sensitive.ts 的规则：主题（点开的再加正文）里明显是财务、健康的标个小签，判不准的不标；只是提醒，什么都不记；
 // - 不写事件、不进素材、不进记忆、不经过模型。邮件里的内容是别人写的，页面只当文字显示。
-// 344 号票：按账号显示（groups：一个账号一组，名字是完整邮箱，只给页面）；一个账号查不到写在它那一组，别的照常。
+// 按账号显示（groups：一个账号一组，名字是完整邮箱，只给页面）；一个账号查不到写在它那一组，别的照常。
 import { type DataSourceDataItem, type DataSourceLiveGroup, nowIso, t } from "@ergo/protocol";
 import type { DataSourceLiveAnswer, DataSourceLiveContext, DataSourceLiveQuery } from "../data-sources/api.ts";
 import { type GmailListed, type GmailMessage, SEARCH_MAX, type GmailService } from "./gmail.ts";

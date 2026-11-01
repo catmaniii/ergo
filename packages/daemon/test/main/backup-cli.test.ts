@@ -1,4 +1,4 @@
-// 命令行备份（335 号票，npm run backup → src/run-backup.ts）：像外部定时器那样拉起脚本（只给环境），看退出码和输出。
+// 命令行备份（npm run backup → src/run-backup.ts）：像外部定时器那样拉起脚本（只给环境），看退出码和输出。
 // 守护进程是测试里起的（不碰真的守护进程），数据目录、同步目录都是临时目录，端口是系统挑的；拉起的进程用完即销毁。
 import { type ChildProcess, spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";

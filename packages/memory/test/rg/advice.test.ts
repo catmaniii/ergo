@@ -1,4 +1,4 @@
-// 196 号票：给任务出建议——按权威排：这次明说的要求 > 硬约束 > 明确的偏好 > 相关的需求和价值观 > 能用的策略。
+// 给任务出建议——按权威排：这次明说的要求 > 硬约束 > 明确的偏好 > 相关的需求和价值观 > 能用的策略。
 import { afterEach, describe, expect, it } from "vitest";
 import { splitRequirements } from "../../src/rg/advice.ts";
 import { closeEngines, say } from "./helpers.ts";
@@ -25,10 +25,10 @@ describe("给任务出建议：按权威排好", () => {
     const value = member(engine, VALUE, "value_enduring");
     expect(advice.motives.map((m) => m.claimId)).toEqual([member(engine, WEEKEND_GROUP, "scene_autonomy").id, need.id, value.id]);
     expect(advice.motives.find((m) => m.claimId === need.id)).toMatchObject({ label: "inferred", confidence: "medium", overriddenBy: null });
-    // 猜测单列（330 号票 R5：标明是猜测，可以参考、推荐），不在 ④ 的已验证那几条里
+    // 猜测单列（R5：标明是猜测，可以参考、推荐），不在 ④ 的已验证那几条里
     expect(advice.uncertain.find((u) => u.claimId === member(engine, NEED, "no_interest").id)).toMatchObject({ guess: true });
     expect(advice.motives.map((m) => m.claimId)).not.toContain(member(engine, NEED, "no_interest").id);
-    // 还没确认的策略标"待你确认"；330 号票（R6）：建在猜测上的也出，标出来
+    // 还没确认的策略标"待你确认"；ADR-0032 R6：建在猜测上的也出，标出来
     expect(advice.strategies).toEqual([
       expect.objectContaining({ status: "proposed", use: "confirm_first", when: "安排周末、工作日的活动时", onGuess: false, basisGone: false }),
       expect.objectContaining({ status: "proposed", use: "confirm_first", when: "安排日程、接新事情时", onGuess: true, basisGone: false }),

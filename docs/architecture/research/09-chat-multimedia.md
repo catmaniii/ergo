@@ -756,7 +756,7 @@ const rec = new MediaRecorder(stream, mimeType ? { mimeType, audioBitsPerSecond:
 - **工具结果里的图片**：pi-ai 先发一条 `role:"tool"` 的文本消息；只有图片时文本写 "(see attached image)"。然后**另起一条 user 消息**，用 `image_url` 把图片带上。不会把图片直接塞进 tool 消息（[同文件 L1406-1460](https://github.com/earendil-works/pi/blob/ae92585d3b3e5f1e4b123d14a34314d826d8d9f5/packages/ai/src/api/openai-completions.ts#L1406-L1460)）。
 - 缓存命中从 `prompt_cache_hit_tokens` 读取（同文件）。
 - 目录从 0.86.0（2026-09-19）起改为 `deepseek-flash`，并刷新了价格（[CHANGELOG](https://github.com/earendil-works/pi/blob/ae92585d3b3e5f1e4b123d14a34314d826d8d9f5/packages/ai/CHANGELOG.md)，#9423）。
-- 前作当年就是走 openai-completions 兼容层，并设了 `thinkingFormat:"deepseek"`（调研 01，未公开）。
+- 前作当年就是走 openai-completions 兼容层，并设了 `thinkingFormat:"deepseek"`。
 - **坑**：pi-ai 目录里的 `cost` 用的是**高峰价**，而且不区分时段。它算出的成本在空闲时段会**高估 2 倍**。
   - 【建议】ergo 自己按请求时间（北京时间、工作日、法定节假日）重算费用，pi-ai 的 cost 只当上限参考。
 

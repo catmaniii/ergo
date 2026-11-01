@@ -1,4 +1,4 @@
-// 网页插件宿主（193 号票，ADR-0027 的网页插槽，plugins/host.ts）：类型化插槽的登记和撤销、按守护进程报的状态装和停、
+// 网页插件宿主（ADR-0027 的网页插槽，plugins/host.ts）：类型化插槽的登记和撤销、按守护进程报的状态装和停、
 // 停用的插件拥有的位置给占位用的名字。照守护进程的插件宿主（packages/daemon/src/plugins/host.ts）借 Cordis 的规矩：
 // 每次登记都返回撤销函数、记在插件名下，停用时倒着撤，停了以后再经它登记直接报错。
 import { describe, expect, test } from "vitest";

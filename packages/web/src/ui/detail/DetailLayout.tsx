@@ -1,10 +1,10 @@
 /**
- * 详情页放在哪（56 号票，宽窄两种布局和返回栈；取代原来的 WithToolDetail 和竖屏的底部弹层）：
+ * 详情页放在哪（宽窄两种布局和返回栈；取代原来的 WithToolDetail 和竖屏的底部弹层）：
  * - 宽屏：会话 | 详情，有详情时才出现右栏和分隔线；右栏能拖宽，但显示宽度封顶在窗宽的 32%（state/detail-pane.ts）；
  *   会话的内容列始终铺满中间一栏，开合详情不改变它；
  * - 窄屏：详情整页从右边滑入，盖住底部导航（页面挂到 App 外框里的 .dp-host 上，不在会话页里面），底下的会话和导航往左让 30%；
  *   标题栏的 ‹ 一层层退，退到底滑回会话；
- * - 返回栈、"在对话中定位"、宽窄切换、鸿蒙的系统返回都走状态层的纯函数（state/detail-pane.ts）；系统返回经 62 号票的
+ * - 返回栈、"在对话中定位"、宽窄切换、鸿蒙的系统返回都走状态层的纯函数（state/detail-pane.ts）；系统返回经
  *   useBackLayer 接进页面的返回栈。
  * 用法：页面里 const conversationRef = useRef<ConversationHandle>(null); const detail = useDetail(wide, 会话, conversationRef)，
  * 会话组件接 onDetail={detail.open} ref={conversationRef}，外面包 <DetailLayout wide detail={detail} conversation={会话}>。
@@ -46,11 +46,11 @@ export interface DetailController {
   readonly shown: boolean;
   /** 从会话里打开一条（条目、组里某一步、挂着的内部调用的 id） */
   open(id: string): void;
-  /** 从会话外面打开一页详情（60 号票：计划台账里的一份计划、阶段抽屉里的一个阶段），清空返回栈 */
+  /** 从会话外面打开一页详情（计划台账里的一份计划、阶段抽屉里的一个阶段），清空返回栈 */
   show(target: DetailTarget): void;
   /** 详情里钻进另一条 */
   drill(id: string): void;
-  /** 详情里钻进另一页（84 号票：阶段详情里点一条规则） */
+  /** 详情里钻进另一页（阶段详情里点一条规则） */
   go(target: DetailTarget): void;
   /** 标题栏的 ‹ */
   close(): void;
@@ -94,7 +94,7 @@ export function useDetail(wide: boolean, conversation: ConversationId | undefine
     },
     [wide, conversationRef],
   );
-  // 系统返回（鸿蒙的返回键，62 号票的返回栈）：详情先一层层退，窄屏再滑回会话。有东西可退时挂一层——窄屏的详情页开着，
+  // 系统返回（鸿蒙的返回键，返回栈）：详情先一层层退，窄屏再滑回会话。有东西可退时挂一层——窄屏的详情页开着，
   // 或者详情里点进去过（宽屏也算）；宽屏只开着一层时不挂，交给外面（返回先退详情的栈，窄屏再回会话，宽屏栈空了不关右栏）
   const back = useCallback(() => {
     const next = systemBack(navRef.current, wide);
@@ -108,9 +108,9 @@ export function useDetail(wide: boolean, conversation: ConversationId | undefine
 
 /**
  * 主栏 + 详情：宽屏在右栏，窄屏整页滑入。
- * stages：长程任务的阶段（60 号票：阶段详情要的交付件、验收、授权、预算这些计划里写的，和能不能从这里重做），任务详情页给；
- * panel：任务详情"⋯"里的计划、工单、工具包、消耗、运行（90 号票：原来的页签）画成什么，任务详情页给（没有会话的原型假任务也能开）；
- * archive：档案（368 号票：手机上从右边滑进来的那一页；宽屏在会话左边，由对话框自己放）
+ * stages：长程任务的阶段（阶段详情要的交付件、验收、授权、预算这些计划里写的，和能不能从这里重做），任务详情页给；
+ * panel：任务详情"⋯"里的计划、工单、工具包、消耗、运行（原来的页签）画成什么，任务详情页给（没有会话的原型假任务也能开）；
+ * archive：档案（手机上从右边滑进来的那一页；宽屏在会话左边，由对话框自己放）
  */
 export function DetailLayout({
   wide,

@@ -1,4 +1,4 @@
-// 主切面：多语言（168 号票，用户 2026-10-19 定的三条）。
+// 主切面：多语言（三条）。
 // - 全局一个语言：设置接口改，改了以后语言频道上推一条 language 事件和一条临时事件 locale，开着的前端都跟着变；存在配置区，重启后还在；
 //   停着时手改了配置文件，启动后以文件为准补一条事件；只能选列表里有的；
 // - 网页的词典：实际在用的语言，自带的加上 ~/.ergo/locales 里的（合好的，只有网页用到的区域），不是中文时连同中文的（回退用）；
@@ -20,7 +20,7 @@ import { waitUntil } from "../helpers/process.ts";
 const { language: LANGUAGE, secretary: SECRETARY, board: BOARD } = CHANNELS;
 const ECHO: FauxStep = { kind: "echo_context" };
 const LINE = "用 English 回答用户，给用户看的报告、文件也用 English。";
-/** 379 号票：紧跟着说清提示里的产品名对英文用户怎么写 */
+/** 紧跟着说清提示里的产品名对英文用户怎么写 */
 const PRODUCT_NAME_LINE = "系统提示和工具说明里的“二狗”是这个产品的中文名，对用户说的时候写 ergo。";
 
 const languageEvents = (frontend: TestFrontend) => frontend.events({ channel: LANGUAGE, type: EVENT_TYPES.language }).map((f) => f.payload as LanguageEventPayload);

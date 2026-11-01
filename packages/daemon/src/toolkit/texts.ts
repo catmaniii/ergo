@@ -1,7 +1,7 @@
-// 工具包（27 号票）给人和模型看的话，都在这里组织（编排在 toolkit.ts，只给结构化的数据）：
+// 工具包给人和模型看的话，都在这里组织（编排在 toolkit.ts，只给结构化的数据）：
 // 工具名、提交计划变更的工具名一律插值常量；"增减 skill"、"申请工具包变更"两个工具的说明和结果，改工具包被拒的原因，
 // 时间线上记的为什么改，交给负责人的通知，"工具包变更"卡的纯文本降级和待我处理里的标题。
-// 174 号票：给用户看的（改工具包被拒的原因、时间线上记的为什么改、卡片、待我处理的标题和来源、工具的名字）走 t()；
+// 给用户看的（改工具包被拒的原因、时间线上记的为什么改、卡片、待我处理的标题和来源、工具的名字）走 t()；
 // 给负责人的（工具说明、工具结果、通知）照旧中文，用到协议包的说法的包一层 forModel。
 import { forModel, type PlanToolkit, type SkillCollectionEntry, type SkillEntry, t, toolkitChangeText, toolkitText } from "@ergo/protocol";
 import { EXECUTION_TOOL } from "../tasks/tool-names.ts";
@@ -43,7 +43,7 @@ export const ADJUST_SKILLS_PARAMS = {
   remove: "要去掉的 skill 名；写集合名是整套去掉",
   why: "为什么（记进时间线）",
 } as const;
-/** 要加的 skill 不在库里：库里有哪些（集合只列集合名和几个成员，72 号票） */
+/** 要加的 skill 不在库里：库里有哪些（集合只列集合名和几个成员） */
 export function notInLibraryText(unknown: readonly string[], library: readonly SkillEntry[], collections: readonly SkillCollectionEntry[]): string {
   const singles = library.filter((s) => !s.collection).map((s) => s.name);
   const collectionLines = collections.map((c) => `${c.name}（${c.skills.length} 个：${c.skills.join("、")}）`);

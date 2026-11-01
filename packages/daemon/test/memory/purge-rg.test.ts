@@ -1,7 +1,7 @@
-// 234 号票：彻底删除登记进推理库、别推断、敏感类别（模块层，临时目录 + 规则版，不调模型）。
+// 彻底删除登记进推理库、别推断、敏感类别（模块层，临时目录 + 规则版，不调模型）。
 // 覆盖：删素材 → 按素材 id 找到证据、证据和它的事实没了、依赖的结论待复核、相关问题过期、审计有记录、
-// 原文在 rg.db 里搜不到；别推断不静默保留成立；素材检索不受影响。（直接删事实的 purgeFacts 263 号票删了：没有调用方）
-// 303 号票：几条数据源素材合成的一条证据，删其中一条就撤整条、剩下的下一夜重新读；启动时数据源素材的证据照现在的敏感类别重读一遍，
+// 原文在 rg.db 里搜不到；别推断不静默保留成立；素材检索不受影响。（直接删事实的 purgeFacts 删了：没有调用方）
+// 几条数据源素材合成的一条证据，删其中一条就撤整条、剩下的下一夜重新读；启动时数据源素材的证据照现在的敏感类别重读一遍，
 // 读出来不一样的（位置关了要去掉地点）撤掉。
 import fs from "node:fs";
 import path from "node:path";
@@ -182,7 +182,7 @@ describe("彻底删除：素材 → 证据 → 事实 → 依赖的结论和问�
     try {
       expect(engine.getEvidence(seeded.evidenceId)).toBeUndefined();
       expect(engine.getFact(seeded.factId)).toBeUndefined();
-      // 329 号票：待复核不再是状态——依赖的结论加复核标记（只靠被删的那条的，推断停用、先当猜测，等整理重推）
+      // 待复核不再是状态——依赖的结论加复核标记（只靠被删的那条的，推断停用、先当猜测，等整理重推）
       expect(engine.store.getClaim(seeded.claimId)!.needsReview).toBe(true);
       const explicit = seeded.explicitClaimId === undefined ? undefined : engine.store.getClaim(seeded.explicitClaimId);
       expect(explicit === undefined || explicit.needsReview).toBe(true);
@@ -305,7 +305,7 @@ describe("启动时补做历史命令", () => {
   });
 });
 
-// 303 号票：数据源素材的证据（测试自己的一类事件，负载里给一条记录，用 dataSourceMaterial 写成素材）
+// 数据源素材的证据（测试自己的一类事件，负载里给一条记录，用 dataSourceMaterial 写成素材）
 const RECORD_EVENT = "test-data-source-record" as never;
 const recordSource: MaterialSource = { name: "test-data-source-record", eventType: RECORD_EVENT, capture: (event) => [dataSourceMaterial({ id: "camera", sensitive: [] }, event.payload as DataSourceRecordMaterial)] };
 function addRecord(t: Setup, payload: DataSourceRecordMaterial) {
@@ -331,7 +331,7 @@ const evidenceRefs = (file: string, t: Setup) => {
   }
 };
 
-describe("303：数据源素材的证据", () => {
+describe("数据源素材的证据", () => {
   it("几条合成的一条：删其中一条就撤整条（审计记着删的那条），剩下的下一夜一条一条重新读", () => {
     const t = materialsSetup({ sources: [recordSource] });
     const members = Array.from({ length: DIGEST_OVER + 1 }, (_, i) => addRecord(t, { kind: "observed_behavior", text: `第 ${i + 1} 件事`, time: `2026-10-05T1${i}:00:00.000+08:00` }));

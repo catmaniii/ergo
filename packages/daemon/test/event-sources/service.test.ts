@@ -1,4 +1,4 @@
-// 项目的服务报的事件（357 号票）的前台：谁在等（同一个项目、名字一字不差）、暂停着的不交、交给分发的那一条长什么样；过滤条件现查。
+// 项目的服务报的事件的前台：谁在等（同一个项目、名字一字不差）、暂停着的不交、交给分发的那一条长什么样；过滤条件现查。
 import type { EventTrigger } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
 import { createServiceEventDesk, type EventDelivery, type EventSubscription, type SourceEvent } from "../../src/event-sources/index.ts";

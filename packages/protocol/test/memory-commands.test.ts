@@ -1,5 +1,5 @@
-// 337 号票：显式记忆命令的负载（`MemoryCommandEventPayload`）多了"从秘书那里来、没有卡片"的来源。
-// 这一张票只放松了"记住"的 `from`（`chat` 或 `secretary` 二选一），要守住的是：
+// 显式记忆命令的负载（`MemoryCommandEventPayload`）多了"从秘书那里来、没有卡片"的来源。
+// 这里只放松了"记住"的 `from`（`chat` 或 `secretary` 二选一），要守住的是：
 // - 历史事件（`from.kind` 是 `chat`，带快速动作和卡片）照旧解析得动——schema 放宽不能让老事件变成非法；
 // - 新来源带着会话、消息（有就带）、工具调用（有就带），不硬编 actionId / cardId；
 // - 不合法的不收（chat 少了卡片、secretary 少了会话、不认识的来源、空的必填项）；
@@ -31,7 +31,7 @@ const secretaryRemember = (over: Record<string, unknown> = {}): unknown => ({
   ...over,
 });
 
-describe("记住带文件和来源（366 号票）", () => {
+describe("记住带文件和来源", () => {
   const file = { mediaId: "a".repeat(64), kind: "image", name: "cat.png", mime: "image/png", size: 120, via: "original" };
 
   test("文件、来源都可以不带；带的时候写全；截图写明怎么来的", () => {

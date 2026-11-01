@@ -1,5 +1,5 @@
-// 手机安装包（376 号票）：npm run release 收现成的、给参数构建、没工具链跳过并写明原因；不合格的产物不收；
-// 收到的写进 SHA256SUMS、被一起签，ergo update 只看 Windows 包，latest.json 不提它们。真的构建、模拟器验证见票的 Comments，这里不跑工具链。
+// 手机安装包：npm run release 收现成的、给参数构建、没工具链跳过并写明原因；不合格的产物不收；
+// 收到的写进 SHA256SUMS、被一起签，ergo update 只看 Windows 包，latest.json 不提它们。这里不跑工具链。
 import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";

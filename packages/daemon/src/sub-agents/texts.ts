@@ -1,7 +1,7 @@
-// 子 agent 并行（20 号票）给人和模型看的话，都在这里组织（编排在 sub-agents.ts，只给结构化的数据）：
+// 子 agent 并行给人和模型看的话，都在这里组织（编排在 sub-agents.ts，只给结构化的数据）：
 // 一个子 agent 的一行说法、并行确认卡的纯文本降级、提议的工具结果、用户决定后交给负责人的通知、交给子 agent 的工作说明、
 // 子 agent 交回负责人的结果、子 agent 的调用事后才被批准或拒绝时给负责人的通知、工具包变了重新装配时给子 agent 的说明。
-// 174 号票：卡片的纯文本、素材里的一句、审批卡的来源给用户看，走 t()；交给负责人、子 agent 的（工具结果、通知、工作说明）照旧中文，
+// 卡片的纯文本、素材里的一句、审批卡的来源给用户看，走 t()；交给负责人、子 agent 的（工具结果、通知、工作说明）照旧中文，
 // 整个包一层 forModel（里面用到的一行说法、协议包的说法也是中文）。
 import { forModel, type GrantInfo, type ParallelAgent, type ParallelCardPayload, type Plan, t, type Task, taskInboxOrigin } from "@ergo/protocol";
 import type { ApprovalDecision } from "../guard-runtime/events.ts";
@@ -22,7 +22,7 @@ export function subAgentLine(a: AgentRef): string {
 
 /** 审批卡、"交给我做"事项上子 agent 的调用写的来源 */
 export function subAgentSource(task: Pick<Task, "id" | "title" | "internal">, stageId: string, agentId: string): string {
-  // 项目内部任务（64 号票）写明"项目「X」内部"
+  // 项目内部任务写明"项目「X」内部"
   return t("subAgents.source", { origin: taskInboxOrigin(task).source, stageId, agentId });
 }
 
@@ -84,7 +84,7 @@ function workTextZh(input: { task: Pick<Task, "id" | "title">; agent: ParallelAg
 export const STOPPED_BY: Readonly<Record<"paused" | "ended", string>> = { paused: "任务暂停了", ended: "任务结束了" };
 
 /**
- * 子 agent 被打断、随任务停下时还在执行的有副作用的调用（23 号票：说不清做没做完，已经放进待我处理等用户确认）：
+ * 子 agent 被打断、随任务停下时还在执行的有副作用的调用（说不清做没做完，已经放进待我处理等用户确认）：
  * 交回负责人的说明里写明，免得负责人接手时把它重做一遍
  */
 function uncertainText(uncertain: readonly string[]): string {
@@ -94,7 +94,7 @@ function uncertainText(uncertain: readonly string[]): string {
 
 /**
  * 子 agent 交回负责人的那条消息：做完了交回的话，出错、被打断、随任务停下的说明。
- * uncertain：被打断、随任务停下时还在执行的有副作用的调用的摘要（23 号票）
+ * uncertain：被打断、随任务停下时还在执行的有副作用的调用的摘要
  */
 function resultTextZh(agent: ParallelAgent, outcome: SubAgentOutcome, reply: string, detail?: string, uncertain: readonly string[] = []): string {
   const name = `子 agent ${subAgentLine(agent)}`;
@@ -134,7 +134,7 @@ function reassembledTextZh(before: { piTools: readonly string[]; hostTools: read
 }
 // @i18n-ignore-end
 
-/** 给模型的都按中文写（174 号票） */
+/** 给模型的都按中文写 */
 export const proposeResultText = (...args: Parameters<typeof proposeResultTextZh>): string => forModel(() => proposeResultTextZh(...args));
 export const confirmedNotice = (...args: Parameters<typeof confirmedNoticeZh>): string => forModel(() => confirmedNoticeZh(...args));
 export const declinedNotice = (...args: Parameters<typeof declinedNoticeZh>): string => forModel(() => declinedNoticeZh(...args));

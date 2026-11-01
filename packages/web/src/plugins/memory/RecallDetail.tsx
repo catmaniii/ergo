@@ -1,5 +1,5 @@
 /**
- * "这次用到的记忆"（187 号票）：会话里"回忆了 N 条记忆 ›"那一行点开的详情。内容由状态层的 detailContent 推好（RecallDetail：
+ * "这次用到的记忆"：会话里"回忆了 N 条记忆 ›"那一行点开的详情。内容由状态层的 detailContent 推好（RecallDetail：
  * 按先后的思考、每次检索、读全文），这里只管画。按调用先后列出：
  * - 每次检索：为什么查（旧记录没有，写"查：<query>"）、查了什么，找到的每条；"这次调用 ›"点进单次调用的详情（参数、完整返回）；
  * - 找到的每条（RecallHitCard）：每次打开现取（GET /api/materials/<素材 id>，记忆页同一个接口，不缓存）——原话（本人的话；长的截断、
@@ -7,12 +7,12 @@
  *   （出处的消息还在当前分支上才有，去哪和记忆页的"跳到这条消息"同一个认法）、种类、怎么找出来的、读了全文；
  *   取不到（忘掉了、彻底删除了）写"这条记忆已删除"，不显示原文；
  * - 读全文的：读的是前面检索到的那条就在那条上标"读了全文"，别的单独一条"读了一条记忆的全文"；
- * - 187 号票之前的检索记录没有逐条的命中：现取这次调用的完整返回（53 号票的接口），按行认出素材 id（parseLegacyHits），取不到的注明；
- * - 266 号票：自动带上的记忆简报（不是工具调用，没有"这次调用 ›"）：每条为什么带它（直接说到这件事、经哪条路找到的；同一方面；
+ * -以前的检索记录没有逐条的命中：现取这次调用的完整返回（接口），按行认出素材 id（parseLegacyHits），取不到的注明；
+ * -自动带上的记忆简报（不是工具调用，没有"这次调用 ›"）：每条为什么带它（直接说到这件事、经哪条路找到的；同一方面；
  *   还没分出胜负；明说过的禁忌）、说到的结论——每次打开按编号现取说法（GET /api/memory/claims/<编号>），带"看证据与推理 ›"，
  *   结论已经没有了（撤回、彻底删除）写明；下面是简报引的原话背后的素材，和检索的一样画。
  * 排版借详情栏的几样（dt-head、dt-title、chips、dg-think），11 套风格跟着各自的详情栏走。
- * 193 号票：从 ui/detail/ 挪进记忆插件，登记成详情 recall 的画法（plugins/memory/plugin.tsx）。
+ * 从 ui/detail/ 挪进记忆插件，登记成详情 recall 的画法（plugins/memory/plugin.tsx）。
  */
 import { useEffect, useState } from "react";
 import { inboxJumpRoute, toHash } from "../../app/route.ts";
@@ -37,7 +37,7 @@ import { MEMORY_PAGE } from "./route.ts";
 
 type Content = Extract<DetailContent, { kind: "recall" }>;
 
-/** 详情插槽 recall 的正文（193 号票）：核心按详情的种类交过来，挂着的内部工具调用由核心接在后面 */
+/** 详情插槽 recall 的正文：核心按详情的种类交过来，挂着的内部工具调用由核心接在后面 */
 export function RecallDetailBody({ content, onOpen }: { content: DetailContent; onOpen?: ((id: string) => void) | undefined }) {
   return content.kind === "recall" ? <RecallDetail content={content} onOpen={onOpen} /> : null;
 }
@@ -139,7 +139,7 @@ function HitList({ hits }: { hits: readonly RecallHitLine[] }) {
 
 type ClaimLoaded = { kind: "claim"; claim: MemoryClaimBrief } | { kind: "missing" } | { kind: "failed"; message: string };
 
-/** 记忆简报说到的一条结论（266 号票）：每次打开按编号现取说法（不缓存：撤回、彻底删除之后再打开就是"已经没有了"） */
+/** 记忆简报说到的一条结论：每次打开按编号现取说法（不缓存：撤回、彻底删除之后再打开就是"已经没有了"） */
 function BriefClaim({ claimId }: { claimId: string }) {
   const { http } = useStore();
   const [got, setGot] = useState<{ id: string; loaded: ClaimLoaded }>();
@@ -174,7 +174,7 @@ function BriefClaim({ claimId }: { claimId: string }) {
 
 type Legacy = { state: "loading" } | { state: "ready"; hits: RecallHitLine[] } | { state: "missing" };
 
-/** 187 号票之前的检索：现取完整返回，按行认出命中（读全文的标记旧记录不另算） */
+/** 以前的检索：现取完整返回，按行认出命中（读全文的标记旧记录不另算） */
 function LegacyHits({ callId }: { callId: string }) {
   const { http } = useStore();
   const [got, setGot] = useState<{ callId: string; legacy: Legacy }>();

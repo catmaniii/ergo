@@ -1,8 +1,8 @@
-// 一条废弃分支的详情（151 号票）：点 ⑂ 展开的预览打开，依次是
+// 一条废弃分支的详情：点 ⑂ 展开的预览打开，依次是
 // "已废弃分支 · 只读"、遗留效果（N 件：本机 / 对外、这件事、原因；能撤的「申请撤回」，点了变"已提交撤销请求"；不能撤的"无法撤回"）、
 // 分支摘要、完整历史。数据在状态层的 abandoned-branch.ts（守护进程那份经 HTTP 取：遗留效果、分支摘要、手里没有的消息）。
 // 「申请撤回」不只在这一页记着（那样刷新就没了），交给守护进程记进事件日志、调撤销接口
-// （默认什么都不做，用户定的第 4 条），几台设备、刷新之后都还是"已提交"；点下去先显示"已提交撤销请求"，被拒了收回来（原因进顶上的失败提示）。
+// （默认什么都不做），几台设备、刷新之后都还是"已提交"；点下去先显示"已提交撤销请求"，被拒了收回来（原因进顶上的失败提示）。
 import { useEffect, useMemo, useState } from "react";
 import { useStore } from "../../app/store.tsx";
 import { abandonedBranch, type BranchEffectView, type ConversationId, currentBranch, t } from "../../state/index.ts";

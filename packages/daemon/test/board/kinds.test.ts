@@ -1,4 +1,4 @@
-// 看板种类的登记表（126 号票）：内核的任务、定时触发的任务两行先登记，插件登记自己的那一行（按 order 排），撤销后不在；
+// 看板种类的登记表：内核的任务、定时触发的任务两行先登记，插件登记自己的那一行（按 order 排），撤销后不在；
 // 空看板的说法、"查看板"工具的说明跟着登记表走。
 import { EVENT_TYPES } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";

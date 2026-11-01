@@ -1,5 +1,5 @@
 // @i18n-ignore-file model：这里的中文都是 schema 里给模型看的参数说明
-// 流程（58 号票，ADR 0019）的 schema，用 TypeBox 定义，守护进程和 Web 共用生成的类型。名字和纯函数在 workflow.ts。
+// 流程（ADR 0019）的 schema，用 TypeBox 定义，守护进程和 Web 共用生成的类型。名字和纯函数在 workflow.ts。
 // 固定计划：
 // - 负责人用 propose_plan 交出的计划（WorkflowPlanDraft）：目标、一串步骤（PlanStep：id、标题、工具、参数、前置步骤），
 //   连同这份计划要满足的条件（rules：时序规则，planguard 格式；条件不放在单独的规则文档里，由负责人写进计划，
@@ -98,21 +98,21 @@ export const WorkflowStepView = Type.Object({
   conditions: Type.Array(WorkflowCondition),
   /**
    * 这一步里真实路径落在项目、工作区之外的路径（规划时解析：展开符号链接、目录联接）：参数名、写的路径（绝对）、真实路径。
-   * 计划卡上标出来（58 号票复审：步骤写的是项目里的 sub，sub 实际指向项目外）
+   * 计划卡上标出来（复审：步骤写的是项目里的 sub，sub 实际指向项目外）
    */
   outside: Type.Optional(Type.Array(Type.Object({ arg: Type.String(), path: Type.String(), realPath: Type.String() }))),
   /**
-   * 审查修补时从这一步的数组参数里剔除的对象（59 号票，参数名 → 剔除的值，规范化后的写法）：执行时再碰它们直接拦下
+   * 审查修补时从这一步的数组参数里剔除的对象（参数名 → 剔除的值，规范化后的写法）：执行时再碰它们直接拦下
    * （审查时明确排除在计划之外的对象）
    */
   excluded: Type.Optional(Type.Record(Type.String(), Type.Array(Type.Unknown()))),
   /**
    * 这一步（连同剔除的对象）里的路径规划时现取的真实路径（解析成的绝对路径 → 真实路径）：执行时每次调用和这一步比对，
-   * 路径按真实路径比（59 号票，和 58 号票的授权项一个口径）。界面不显示
+   * 路径按真实路径比（和授权项一个口径）。界面不显示
    */
   realPaths: Type.Optional(Type.Record(Type.String(), Type.String())),
   /**
-   * 事件触发的流程（77 号票）：这一步的参数（或标题）里写了哪些事件占位（{{事件.文件路径}} 的"文件路径"）。规划时不知道值：
+   * 事件触发的流程：这一步的参数（或标题）里写了哪些事件占位（{{事件.文件路径}} 的"文件路径"）。规划时不知道值：
    * 不标敏感、不发授权；每次运行代入这次事件的值，按代入后的值核对、推出授权。计划卡上照写占位，标出"代入事件的值"
    */
   eventValues: Type.Optional(Type.Array(Type.String())),
@@ -176,9 +176,9 @@ export const WorkflowReview = Type.Object({
   /** 逐条规则单独扫一遍的结果：每条规则查了多久、原计划里查出几处违反、几处判不了 */
   rules: Type.Array(WorkflowRuleProbe),
   /**
-   * 这次审查真正用的那一份规则原文（60 号票，检测项全览用）：框架的 v1 模板加负责人写进计划的，
+   * 这次审查真正用的那一份规则原文（检测项全览用）：框架的 v1 模板加负责人写进计划的，
    * 没写修补方案的已按违反时怎么办补上（planguard 格式）。计划详情的"检测项全览"据此写出每条的形式化写法、可选的修法和代价。
-   * 60 号票之前的计划、审查没跑成的没有
+   * 以前的计划、审查没跑成的没有
    */
   docs: Type.Optional(Type.Array(PlanTemporalRule)),
   /** 这次审查花了多少毫秒 */
@@ -226,12 +226,12 @@ export const WorkflowPlanCardPayload = Type.Object({
   /** 审查没让这版交给你授权：退回负责人补充、判定不可执行（这样的卡只能"让负责人改""知道了"或者取消任务） */
   refused: Type.Optional(Type.Enum(WORKFLOW_REFUSALS)),
   /**
-   * 定时触发的流程（76 号票）：它的时间表。卡上写明按时间表反复运行、授权一直有效，直到暂停或取消（TIMED_WORKFLOW_GRANT_TEXT）。
+   * 定时触发的流程：它的时间表。卡上写明按时间表反复运行、授权一直有效，直到暂停或取消（TIMED_WORKFLOW_GRANT_TEXT）。
    * 现在做一次的流程没有
    */
   schedule: Type.Optional(ReminderSchedule),
   /**
-   * 事件触发的流程（77 号票）：在等什么事件。卡上写明每次事件发生时运行、授权一直有效，直到暂停或取消（EVENT_WORKFLOW_GRANT_TEXT）；
+   * 事件触发的流程：在等什么事件。卡上写明每次事件发生时运行、授权一直有效，直到暂停或取消（EVENT_WORKFLOW_GRANT_TEXT）；
    * 步骤参数里的 {{事件.字段名}} 照写显示，每次运行代入这次事件的值、按代入后的值核对和授权
    */
   event: Type.Optional(EventTrigger),

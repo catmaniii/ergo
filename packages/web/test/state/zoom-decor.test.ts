@@ -1,4 +1,4 @@
-// 缩小后条外的装饰（55 号票，state/zoom-decor.ts）：右侧标注的 ×N、左侧任务卡或工单卡、底色带、书脊的分段和颜色、重开之前的已废弃。
+// 缩小后条外的装饰（state/zoom-decor.ts）：右侧标注的 ×N、左侧任务卡或工单卡、底色带、书脊的分段和颜色、重开之前的已废弃。
 // 先回放主切面录下的真实事件流：任务的负责人会话（timeline-zoom：两个阶段都验收通过；task-execution：做完后返工重开 s2）、
 // 项目负责人的会话（work-orders-queue：四张工单，项目负责人执行两个任务）、涉及多个项目的任务（multi-project：任务负责人的会话
 // 和两个项目负责人的会话）、计划变更（task-plan-change：一个阶段停下等你、另一个先做完）。
@@ -74,7 +74,7 @@ describe("回放：任务的负责人会话", () => {
     // 左边一张任务卡，挂在这个任务的第一条上：只写一句总结（计划的目标），任务已经完成
     expect([...decor.left]).toEqual([[items[0]!.id, { kind: "task", taskId: "t-1", no: "1", summary: "整理笔记，再写一份报告", live: false }]]);
     expect(decor.stale.size).toBe(0);
-    // 验收通过不在右侧标（书脊那一段变绿就是通过了）；条目层的要点照旧有它（25 号票要点层的基准不变）
+    // 验收通过不在右侧标（书脊那一段变绿就是通过了）；条目层的要点照旧有它（要点层的基准不变）
     const rects = new Map(zoomRects(items).map((r) => [r.id, r]));
     for (const i of [8, 11]) {
       expect(items[i]!.marks.map((m) => [m.kind, m.passed])).toEqual([["acceptance", true]]);
@@ -99,15 +99,15 @@ describe("回放：任务的负责人会话", () => {
   test("task-execution：返工重开 s2——返工之前 s2 那一轮是已重开（那张验收结论淡一点、标已废弃），返工后的一轮验收通过；s1 不受影响", () => {
     const state = replay(load("task-execution"));
     const conv = "maintainer:tm-1";
-    // 看板上 change 为 rework 的那条任务事件：事件上写着重开了哪几个（84 号票重录过，274 号票又重录了一遍）
+    // 看板上 change 为 rework 的那条任务事件：事件上写着重开了哪几个（重录过，又重录了一遍）
     expect(state.taskReopens["t-1"]).toEqual([{ time: "2026-10-25T11:41:10.735+08:00", stageIds: ["s2"] }]);
-    // 84 号票重录过：消息带着阶段（25 号票），每一轮从这个阶段的第一条起
+    // 重录过：消息带着阶段，每一轮从这个阶段的第一条起
     expect(spinesOf(state, conv)).toEqual(["t-1/s1 ok 3-6", "t-1/s2 stale 7-9", "t-1/s2 ok 12-15"]);
     const items = chatItems(state, conv);
     // 重开之前 s2 那一轮整段（写文件、宣布完成、那张验收结论）标已废弃
     const stale = zoomDecor(state, conv, items).stale;
     expect(items.flatMap((it, i) => (stale.has(it.id) ? [i] : []))).toEqual([7, 8, 9]);
-    // 84 号票：返工是一条重做记录（交给负责人接着做的那句通知不再显示）
+    // 返工是一条重做记录（交给负责人接着做的那句通知不再显示）
     expect(items[12]!.keyLine).toBe("重做：你从「写报告」重做（只重做这一阶段）。你说：「缺一段方案对比」");
     // 底色带到最后那张验收结论（返工后的一轮）为止
     expect(bandsOf(state, conv)).toEqual(["任务1 · X 的调研 0-15 n0"]);
@@ -279,7 +279,7 @@ describe("构造：书脊的颜色", () => {
   });
 });
 
-describe("构造：普通任务（75 号票）", () => {
+describe("构造：普通任务", () => {
   test("普通任务没有阶段：不画书脊；任务卡照画（总结写任务的标题），点开写无计划；没有计划，不铺底色（没有计划的任务不铺）", () => {
     const task: Task = {
       id: "t-9",

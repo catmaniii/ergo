@@ -1,4 +1,4 @@
-// 272 号票：主切面里摆一次"秘书问过记忆"——秘书会话里一条 ask_memory 的调用记录（结果摘要）和它的完整内容（完整返回），
+// 主切面里摆一次"秘书问过记忆"——秘书会话里一条 ask_memory 的调用记录（结果摘要）和它的完整内容（完整返回），
 // 简报里按证据编号引着某条素材的原话。真让秘书问一遍要靠检索碰巧带出那条证据；彻底删除找的是事件日志里的这两条，直接摆出来。
 import { CHANNELS, EVENT_TYPES, type MessageEventPayload, type ToolCallDetail } from "@ergo/protocol";
 import { dataDirLayout } from "../../src/config/data-dir.ts";

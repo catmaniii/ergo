@@ -14,9 +14,9 @@
 // - PDF → 先抽取文本（由调用方抽好），再按文本类处理；抽不出文字的说明一句；
 // - 其他类型 → 只给文件名、类型和大小；
 // - 语音 → "语音转写：<识别出的文字>"（文字由调用方从这条语音取来）；识别失败的 → "[语音，识别失败]"；
-//   （31 号票填上的：语音 part 之前只预留、从没有消息带着它交给过模型，所以就地写进第 1 版，没有另起第 2 版）
+//   （填上的：语音 part 之前只预留、从没有消息带着它交给过模型，所以就地写进第 1 版，没有另起第 2 版）
 // - TTS 音频、视频 → 占位；工具调用、工单分隔 → 一行。
-// @i18n-ignore-file model：模型投影，把会话写成交给模型的上下文（173 号票）
+// @i18n-ignore-file model：模型投影，把会话写成交给模型的上下文
 import type { MessagePart } from "@ergo/protocol";
 import { READ_ATTACHMENT_TOOL } from "../media/tool-names.ts";
 import type { AttachmentContent, ContentNeeded, ModelInput, ProjectionInput, Projector } from "./model-projection.ts";

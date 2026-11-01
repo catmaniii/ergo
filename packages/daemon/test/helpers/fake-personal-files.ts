@@ -1,5 +1,5 @@
 // 假内核里的个人档案（KERNEL.personalFiles，只在测试里）：记下交来的候选；合成候选核对卡时在假内核的卡片里真建一张
-// personal_file_suggest（负载只有交来的称呼），测试能把它改成处理完了（301 号票：Google 联系人一批一批交，看上一张卡处理了没有）。
+// personal_file_suggest（负载只有交来的称呼），测试能把它改成处理完了（Google 联系人一批一批交，看上一张卡处理了没有）。
 // 档案里的人、我的名字由测试给。
 import { CARD_TYPE_VERSIONS, Type } from "@ergo/protocol";
 import type { CardService } from "../../src/cards/cards.ts";

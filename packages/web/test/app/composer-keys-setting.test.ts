@@ -1,4 +1,4 @@
-// 设置里的换行键（用户 2026-11-01 要的）：默认 Ctrl，按设备记住；存储用不了时按默认，改了只在这次打开里生效。
+// 设置里的换行键：默认 Ctrl，按设备记住；存储用不了时按默认，改了只在这次打开里生效。
 import { describe, expect, test } from "vitest";
 import { newlineKeySettingIn } from "../../src/app/composer-keys-setting.ts";
 

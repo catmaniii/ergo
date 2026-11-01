@@ -1,6 +1,6 @@
-// 斜杠命令的写法（175 号票加英文别名；310 号票用户 2026-10-26 定"所有命令用英文"）：
+// 斜杠命令的写法（加英文别名；"所有命令用英文"）：
 // - 命令一律写英文：/workflow、/task（记忆管理员的会话里 /interview、/consolidate），哪种界面语言候选里都写英文的、说明按界面语言；
-// - 中文的老写法（/流程、/任务、/访谈、/整理）和 175 号票的 /ergo_workflow、/ergo_task 照样认，候选里不列；
+// - 中文的老写法（/流程、/任务、/访谈、/整理）和 /ergo_workflow、/ergo_task 照样认，候选里不列；
 // - 和 skill 同名时这几种写法都算二狗自己的命令（秘书、项目的会话里叫 task 的 skill 要写 /skill:task；任务的会话里没有这两个命令，直接 /task）；
 // - 英文写法后面紧跟 - _ : . / 的是 skill 的名字（/task-runner），不算命令；
 // - 给模型看的说法写英文的，也认的写法跟一句。
@@ -16,7 +16,7 @@ afterEach(() => use(DEFAULT_LANGUAGE));
 const skill = (command: string) => ({ command, name: command, description: `${command} 的说明`, dir: `/skills/${command}` });
 
 describe("斜杠命令的写法", () => {
-  it("英文的写法、中文的老写法、175 号票的别名都认成同一个命令；后面不是空白、标点的不算", () => {
+  it("英文的写法、中文的老写法、别名都认成同一个命令；后面不是空白、标点的不算", () => {
     const ergo = ergoCommandsIn("secretary");
     expect(ergoCommandAt("/workflow 整理下载目录", ergo)?.text).toBe("/workflow");
     expect(ergoCommandAt("/task", ergo)?.text).toBe("/task");
@@ -43,7 +43,7 @@ describe("斜杠命令的写法", () => {
     expect(commandAt("/task 调研 NAS", "/task")).toBe(true);
     expect(commandAt("/task，调研 NAS", "/task")).toBe(true);
     expect(commandAt("/task!", "/task")).toBe(true);
-    // 中文的老写法照旧：后面跟标点（含 -）就算（82 号票的 /流程-助手）
+    // 中文的老写法照旧：后面跟标点（含 -）就算（/流程-助手）
     expect(commandAt("/流程-助手 看看", "/流程")).toBe(true);
     expect(commandAt("/流程图怎么画", "/流程")).toBe(false);
   });

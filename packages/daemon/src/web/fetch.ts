@@ -1,14 +1,14 @@
-// 读网页（70 号票）：照搬用户 web-search skill 的 fetch.mjs——先直接请求（快，不起浏览器）；被 403、429 拦、服务器出错（5xx）、
+// 读网页：照搬用户 web-search skill 的 fetch.mjs——先直接请求（快，不起浏览器）；被 403、429 拦、服务器出错（5xx）、
 // 别的不成功的状态或者网络出错时，改用浏览器真实渲染再取（能过多数反爬墙）。JSON、纯文本、XML、CSV 原样交回，网页抽正文纯文本，
-// 超过 max 个字截断。skill 的 --raw、--browser 两个选项二狗的工具不给（票面定的接口是 web_fetch(url, max?)）。
+// 超过 max 个字截断。skill 的 --raw、--browser 两个选项二狗的工具不给（接口是 web_fetch(url, max?)）。
 // 直接请求在守护进程里做（Node 的 fetch，可注入），浏览器经 browser.ts 的薄接口。
-// 比 skill 多两条（评审后定）：直接请求有超时（DIRECT_TIMEOUT_MS，连上和读完正文一起算；超时了按网络出错算、改用浏览器），
+// 比 skill 多两条：直接请求有超时（DIRECT_TIMEOUT_MS，连上和读完正文一起算；超时了按网络出错算、改用浏览器），
 // 正文只读前 DIRECT_MAX_BYTES 字节（读到上限就停，注明只读了前面；再大的网页抽出来也只交回 max 个字）。
-// 154 号票：直接请求和浏览器中间多一条 DeepSeek 读网页（deepseek.ts，回的已经是 Markdown，照 max 截短）。162 号票起直接请求之后
+// 直接请求和浏览器中间多一条 DeepSeek 读网页（deepseek.ts，回的已经是 Markdown，照 max 截短）。直接请求之后
 // 试哪几条、按什么顺序照设置里的队列（access.ts 交进来 after：DeepSeek 停用了或没 key 时没有它，浏览器停用了时没有浏览器）。
 // 前面的没读到（DeepSeek 403 被安全策略拒、404 没取到正文，浏览器打不开……）的原因写进后面读到的结果里。
 // 本机、内网、没有点的主机名的网址不交给 DeepSeek（它取不到，也不该把本机的地址往外送）。
-// @i18n-ignore-file model：读到的正文、出错的原因都交回模型（173 号票）
+// @i18n-ignore-file model：读到的正文、出错的原因都交回模型
 import { isIP } from "node:net";
 import { type BrowserDriver, BrowserUnavailable } from "./browser.ts";
 import { DeepSeekFailed, type DeepSeekTools } from "./deepseek.ts";
@@ -28,8 +28,8 @@ export interface FetchedPage {
 }
 
 /**
- * 直接请求和后面的几条都没读到：说法直接给模型看；agentBrowser 是设置里还启用着 agent-browser、发起调用的 agent 用得了（162 号票：
- * 工具提示用它），appBrowser 同样是鸿蒙 App 的内置浏览器（182 号票：启用着、这一轮用得了）
+ * 直接请求和后面的几条都没读到：说法直接给模型看；agentBrowser 是设置里还启用着 agent-browser、发起调用的 agent 用得了（
+ * 工具提示用它），appBrowser 同样是鸿蒙 App 的内置浏览器（启用着、这一轮用得了）
  */
 export class FetchFailed extends Error {
   override readonly name = "FetchFailed";
@@ -168,8 +168,8 @@ export function isPrivateUrl(url: string): boolean {
 }
 
 /**
- * 读网页：先直接请求，被拦、不成功、网络出错、超时时按 after 的顺序换：DeepSeek 读网页（给了 deepseek、不是本机内网的网址时，154 号票）、
- * 浏览器（162 号票起顺序和用不用都照设置里的队列；不给 after 是 DeepSeek → 浏览器）。前面的没读到时，后面读到的结果里多一行"说明"
+ * 读网页：先直接请求，被拦、不成功、网络出错、超时时按 after 的顺序换：DeepSeek 读网页（给了 deepseek、不是本机内网的网址时）、
+ * 浏览器（顺序和用不用都照设置里的队列；不给 after 是 DeepSeek → 浏览器）。前面的没读到时，后面读到的结果里多一行"说明"
  * 写明前面的原因（只是直接请求没成不写，浏览器的结果里本来就有 HTTP 状态）。都不行时抛 FetchFailed（每一条的原因都说清楚；
  * agentBrowser、appBrowser 照传进来的，工具据此提示用 agent-browser、内置浏览器）。limits 默认是 DIRECT_TIMEOUT_MS、DIRECT_MAX_BYTES（测试里换小的）
  */

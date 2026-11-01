@@ -14,7 +14,7 @@ afterEach(() => {
   for (const dir of dirs.splice(0)) fs.rmSync(dir, { recursive: true, force: true });
 });
 function writeTemp(content: unknown): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "memory-lab-ev-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "memory-ev-"));
   dirs.push(dir);
   const file = path.join(dir, "events.json");
   fs.writeFileSync(file, typeof content === "string" ? content : JSON.stringify(content));

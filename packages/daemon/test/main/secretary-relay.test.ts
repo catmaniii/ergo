@@ -1,4 +1,4 @@
-// 主切面：秘书转达（103 号票）。用户在和秘书说话时要它给已有的任务、项目的负责人捎一句话，秘书（faux）用"提议快速动作"提出
+// 主切面：秘书转达。用户在和秘书说话时要它给已有的任务、项目的负责人捎一句话，秘书（faux）用"提议快速动作"提出
 // tell_task / tell_project：
 // - 用户点明了（这句话里原样写着转给谁、转什么）：运行时直接插进对方的会话，走用户在任务详情 / 负责人会话里直接说话的那条路——
 //   普通任务在干活时是插话、做完了的重新进行中接着做；长程任务闲着时唤起；定时触发的任务、项目的负责人照用户在那里说话的做法；
@@ -112,7 +112,7 @@ describe("用户点明了：普通任务", () => {
     await tell(frontend, `告诉 t-1，${MP3}`);
     const [first] = relayedIn(frontend, TM1);
     expect(first).toMatchObject({ taskId: "t-1", message: { speaker: "user", relayedBy: "secretary", parts: [{ type: "text", text: MP3 }] } });
-    // 115 号票：会话里折成一行时的一句话总结是转达的话本身的第一句
+    // 会话里折成一行时的一句话总结是转达的话本身的第一句
     expect(first!.message.summary).toBe(MP3);
     const [card] = quickCards(frontend);
     expect(card).toMatchObject({
@@ -277,7 +277,7 @@ describe("定时触发的任务、项目的负责人；收不了的目标", () =
     expect(reasons[0]).toContain("任务「写周报」已取消，不再收消息");
     expect(reasons[1]).toContain("任务「旧手机数据迁移」已归档，不再收消息");
     expect(reasons[2]).toBe("不能这样做：没有任务「t-99」：用 view_board 查看板，写任务编号；项目里的事请用 tell_project 转给项目的负责人");
-    // 项目内部的任务和真没有的一个说法（64、66 号票）：不带项目名、不说它在不在，免得按编号试出项目内部有哪些任务
+    // 项目内部的任务和真没有的一个说法：不带项目名、不说它在不在，免得按编号试出项目内部有哪些任务
     expect(reasons[3]).toBe(reasons[2]!.replace("t-99", "t-4"));
     expect(reasons[3]).not.toContain("记账本");
     expect(reasons[4]).toContain("项目「旧相册」已归档：负责人会话只读");

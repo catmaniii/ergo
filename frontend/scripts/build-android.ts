@@ -1,6 +1,6 @@
-// `npm run build:android`（349 号票）：把页面桥和 App 原生的字收进 assets，再用工程自带的 gradlew 构建 APK。
+// `npm run build:android`：把页面桥和 App 原生的字收进 assets，再用工程自带的 gradlew 构建 APK。
 // 依赖本机装的 Android Studio（自带的 JDK）和 SDK，所以不进 `npm run check`。第一次构建 Gradle 从官方源下 Android 构建插件和 AndroidX 库。
-// 调试版用调试签名：本机有发布用的调试钥匙（376 号票，见 android.ts 的 findDebugKeystore）就用它，这样发布的包能一直覆盖安装；没有就用默认的。
+// 调试版用调试签名：本机有发布用的调试钥匙（见 android.ts 的 findDebugKeystore）就用它，这样发布的包能一直覆盖安装；没有就用默认的。
 // 正式签名的材料只在本机（frontend/android/keystore.properties，不进仓库）。
 // WebView 调试默认关，`npm run build:android -- --webview-debug` 才开（开着的 App 接上 USB 就能被取走设备凭证）。
 import { spawnSync } from "node:child_process";

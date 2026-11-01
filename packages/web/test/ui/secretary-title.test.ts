@@ -1,4 +1,4 @@
-// 秘书页左上角的标题（89 号票，ui/secretary-title.tsx）："个人秘书："后面跟名字标签（.assistant-name，和正文里的名字同一个样子），
+// 秘书页左上角的标题（ui/secretary-title.tsx）："个人秘书："后面跟名字标签（.assistant-name，和正文里的名字同一个样子），
 // 名字跟着改名变；外层挂窄屏上字号按几个字的名字缩 --secretary-fit-chars（最多 4，base.css 的 .secretary-title）和整行的
 // 纯文字 title（名字被截成省略号时悬停看得到全称）。用 React 在 Node 里渲染出来查。
 import { createElement } from "react";

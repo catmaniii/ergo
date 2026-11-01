@@ -1,4 +1,4 @@
-// 聊天里计划卡的阶段提纲（93 号票，提纲、图例、计划卡里
+// 聊天里计划卡的阶段提纲（提纲、图例、计划卡里
 // 算 status / changed / was / removed 的那几行）：计划卡、计划变更卡一直列着各阶段，按阶段号分组——这一阶段只有一个的写在"第 N 阶段"
 // 那一行，几个并行的写"可并行 · N 个"、下面逐个列出；每一项是标题、新 / 改的小签、要你留意的小标记（权、外、问）、不是没开始的写状态、
 // 计划变更去掉的划掉写"已去掉"。点一项就地展开它的要点（ui/cards/PlanOutline.tsx），左边图上那一阶段高亮。
@@ -66,7 +66,7 @@ function effectivePlanId(state: UiState, taskId: string): string | undefined {
   return card?.type === "plan" || card?.type === "plan_change" ? (card.payload as PlanCardPayload | PlanChangeCardPayload).planId : undefined;
 }
 
-/** 提纲上的状态（93 号票，用户 2026-10-12 定）：做完的写"已验收"，别的照左边依赖图的说法（进行中、等你……） */
+/** 提纲上的状态：做完的写"已验收"，别的照左边依赖图的说法（进行中、等你……） */
 function outlineLook(st: GraphNodeState, waitReason: string | undefined): GraphLook {
   const look = graphLook(st, waitReason);
   return st === "accepted" ? { ...look, text: t("state.planOutline.accepted") } : look;
@@ -142,7 +142,7 @@ function outlineLegend(payload: PlanCardPayload | PlanChangeCardPayload, items: 
 }
 
 /**
- * 计划详情里的小流程图（93 号票，"流程（从上往下，一个阶段一行；同一行的可以同时做）"：
+ * 计划详情里的小流程图（"流程（从上往下，一个阶段一行；同一行的可以同时做）"：
  * planNodes(plan, live, { changed, removed, focus })）：计划变更卡画变更后的那份（新加的标"新"、改过的标"改"、去掉的也画上，
  * 状态照执行中的，和左栏一样）；计划卡画卡上的那份，这份计划在执行时带上状态（还没确认的都是没开始，标出要你留意的）
  */

@@ -1,6 +1,6 @@
-// 运营接口清单（260 号票；268 号票照用户 2026-10-13 的设计草稿补齐）：项目档案里的 ops.json，负责人写，验收过了才登记给秘书用
+// 运营接口清单（照设计草稿补齐）：项目档案里的 ops.json，负责人写，验收过了才登记给秘书用
 // （registry.ts：验收 acceptance.ts、登记带版本号；秘书用的是登记着的那一版，档案里改了重新验收、版本号加一）。
-// 格式照 MCP 的 tools/list（用户 2026-10-13 定"清单照 MCP 格式"），每个操作在 MCP 的 Tool 上多写几样（草稿逐条）：
+// 格式照 MCP 的 tools/list（清单照 MCP 格式），每个操作在 MCP 的 Tool 上多写几样（草稿逐条）：
 //   {
 //     "endpoint": { "service": "<服务名>", "path": "/ops" },   // 本机调用口（http 实现方式用）：可不写，默认 path 是 /ops、service 是这个项目唯一的服务
 //     "tools": [ {
@@ -11,10 +11,10 @@
 //       "impl"（实现方式，不写是 http）, "usage"（可选的用法说明，describe 时一起给）, "test"（验收用的一条测试：{ "args", "sayIncludes"? }）
 //     } ]
 //   }
-// - 种类：旧清单（260 号票的）只写了 annotations.readOnlyHint 的照读——true 是只读查询，false 是有副作用的动作；两个都写的要对得上
+// - 种类：旧清单只写了 annotations.readOnlyHint 的照读——true 是只读查询，false 是有副作用的动作；两个都写的要对得上
 //   （query 配 true，action / run 配 false）。都没写的照 MCP 的默认算有副作用的动作（验收时要求写明 kind）。
 // - 实现方式（impl.type）：
-//   - http：项目服务的本机调用口（call.ts，260 号票那一套）；
+//   - http：项目服务的本机调用口（call.ts，那一套）；
 //   - script：工作目录里的脚本，JSON 进出（script.ts）——file 是相对项目工作目录的路径，按扩展名选解释器，args 是固定的附加参数；
 //   - ergo：二狗自带动作绑参数（builtin.ts：就是白送的那几个通用操作）——action 是动作名，params 是绑定的参数，
 //     值可以写 "{{参数名}}" 代入这个操作的参数；
@@ -31,7 +31,7 @@ import { problem, type OpsMsg } from "./problems.ts";
 export const OP_KINDS = ["query", "action", "run"] as const;
 export type OpKind = (typeof OP_KINDS)[number];
 
-/** 风险标记（草稿：直接做 / 要确认 / 交给我做，映射到关注类别）：用户 2026-10-25 定只记不做——清单里能写、照读照显示，不接守卫 */
+/** 风险标记（草稿：直接做 / 要确认 / 交给我做，映射到关注类别）：只记不做——清单里能写、照读照显示，不接守卫 */
 export const OP_RISKS = ["direct", "confirm", "handoff"] as const;
 export type OpRisk = (typeof OP_RISKS)[number];
 
@@ -85,7 +85,7 @@ export const DEFAULT_OPS_PATH = "/ops";
 export const OP_NAME = /^[A-Za-z0-9_.-]{1,128}$/;
 /** 调用口的路径：/ 开头、不是 // 开头（那会换掉主机）、没有空白和反斜杠 */
 const OPS_PATH = /^\/(?!\/)[^\s\\]*$/;
-/** 服务名（同 133 号票的服务名，宽一点：交方案时已经校验过） */
+/** 服务名（同服务名，宽一点：交方案时已经校验过） */
 const SERVICE_NAME = /^[a-z0-9][a-z0-9-]{0,31}$/;
 /** 脚本认得的扩展名（script.ts 按它选解释器） */
 export const SCRIPT_EXTENSIONS = [".mjs", ".js", ".cjs", ".ts", ".mts", ".py", ".ps1", ".cmd", ".bat", ".exe"] as const;

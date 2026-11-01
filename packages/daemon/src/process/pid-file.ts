@@ -19,7 +19,7 @@ export interface PidRecord {
 /**
  * 写 pid 文件（当前进程）。启动时间在 Windows 上取系统记的进程创建时间（stop 钩子核对时用的就是它）：
  * 按 process.uptime() 倒推的是 Node 自己开始计时的那一刻，杀毒软件拦下新进程扫描时会比创建时间晚好几秒，
- * stop 钩子就当成"pid 被别的进程复用了"、不肯停（318 号票在装好的程序上碰到）
+ * stop 钩子就当成"pid 被别的进程复用了"、不肯停（在装好的程序上碰到）
  */
 export function writePidFile(file: string, port: number): PidRecord {
   const started = processStartTime(process.pid) ?? new Date(Date.now() - process.uptime() * 1000);
@@ -72,7 +72,7 @@ export function processRunning(record: Pick<PidRecord, "pid" | "startedAt">): bo
 
 /**
  * 这个数据目录是不是已经有守护进程在运行：pid 文件里的进程还在运行（启动时间也对得上），或者本机端口上有进程在听。
- * 在运行时给出理由。守护进程启动时据此保证一个数据目录只有一个实例（23 号票），恢复命令据此拒绝在守护进程运行时恢复
+ * 在运行时给出理由。守护进程启动时据此保证一个数据目录只有一个实例，恢复命令据此拒绝在守护进程运行时恢复
  */
 export async function daemonRunning(pidFile: string, port: number): Promise<string | undefined> {
   const record = readPidFile(pidFile);

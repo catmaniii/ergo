@@ -1,4 +1,4 @@
-// 原型里本机的 Claude Code 会话（290 号票，编的；真的是守护进程经 SDK 的 listSessions 和 `claude agents --json` 列的）：
+// 原型里本机的 Claude Code 会话（编的；真的是守护进程经 SDK 的 listSessions 和 `claude agents --json` 列的）：
 // 一个已经接管成任务 t-flaky 的（二狗在管）、一个在终端里开着的、一个停着的后台会话记着的、几个空闲的（有大会话、有没分支的）。
 import type { ResumableSessionView } from "../state/index.ts";
 import { FAKE_TAKEOVER_TASK } from "./fake-conversations.ts";

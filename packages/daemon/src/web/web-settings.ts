@@ -1,8 +1,8 @@
-// 设置里 agent 的联网搜索、读网页（154 号票起；162 号票改成三种方式的队列，用户 2026-10-18 定；182 号票加第四种"鸿蒙 App 的内置浏览器"，
-// 162 号票存的三项读的时候把它加在最后、认不得的方式跳过）：DeepSeek 付费搜索、二狗自带的浏览器搜索、
+// 设置里 agent 的联网搜索、读网页（改成三种方式的队列，加第四种"鸿蒙 App 的内置浏览器"，
+// 存的三项读的时候把它加在最后、认不得的方式跳过）：DeepSeek 付费搜索、二狗自带的浏览器搜索、
 // agent-browser 排成一个队列，排前面的先用，能停用（至少留一个）。数据目录配置区的 web-settings.json 是真相，只由设置接口写，所有设备一样；
 // 没有文件按默认（protocol 的 DEFAULT_WEB_SETTINGS：DeepSeek → 浏览器 → agent-browser → 鸿蒙 App 的内置浏览器，都启用——DeepSeek 配了 key 时才实际用上）。
-// 154 号票的旧文件（format 1：默认的搜索方式、读网页用不用 DeepSeek）读成队列（migrateWebSettingsV1），记一条日志，存一次写成 format 2。
+// 旧文件（format 1：默认的搜索方式、读网页用不用 DeepSeek）读成队列（migrateWebSettingsV1），记一条日志，存一次写成 format 2。
 // 启动时读一次，之后只经设置接口改（手改要重启）；文件读不出来按默认用、记一条日志、设置页上写明原因，存一次就覆盖（照模型设置的做法）。
 // 存之前查合规（webSettingsProblem：四种各一项、至少留一个启用而且用得上的）。联网工具每次现取（access.ts 的 settings），改了下一次
 // 搜索、读网页就按新的；工具说明跟着队列写（tools.ts），所以改了通知听的人（onChange）：常驻的秘书手头这一条处理完按新的重新装配。
@@ -78,16 +78,16 @@ function readSettings(file: string, log: (line: string) => void): { settings: We
   }
   if (v1Checker.check(parsed)) {
     const settings = migrateWebSettingsV1(parsed);
-    log(`联网设置是 154 号票的旧格式（默认的搜索方式 ${parsed.search === "deepseek" ? "DeepSeek" : "浏览器"}，读网页${parsed.deepseekFetch ? "用" : "不用"} DeepSeek），按队列读：${describeQueue(settings)}；设置页保存后写成新格式`);
+    log(`联网设置是旧格式（默认的搜索方式 ${parsed.search === "deepseek" ? "DeepSeek" : "浏览器"}，读网页${parsed.deepseekFetch ? "用" : "不用"} DeepSeek），按队列读：${describeQueue(settings)}；设置页保存后写成新格式`);
     return { settings };
   }
   if (!fileChecker.check(parsed)) return broken(t("web.settings.badFormat", { detail: fileChecker.firstError(parsed) ?? t("web.settings.invalid") }));
-  // 182 号票：认不得的方式跳过，缺的（162 号票存的三项里没有鸿蒙 App 的内置浏览器）加在最后、启用；不立刻改写，设置页存一次才写进去
+  // 认不得的方式跳过，缺的（存的三项里没有鸿蒙 App 的内置浏览器）加在最后、启用；不立刻改写，设置页存一次才写进去
   const { settings, skipped, added } = normalizeWebQueue(parsed.queue);
   const shape = webQueueShapeProblem(settings);
   if (shape) return broken(shape);
   if (skipped.length > 0) log(`联网设置的文件里认不得的方式跳过：${skipped.join("、")}`);
-  if (added.length > 0) log(`联网设置的文件里没有${added.map((m) => WEB_METHOD_LABEL[m]).join("、")}（182 号票新加的），加在最后、启用；设置页保存后写进文件`);
+  if (added.length > 0) log(`联网设置的文件里没有${added.map((m) => WEB_METHOD_LABEL[m]).join("、")}（新加的），加在最后、启用；设置页保存后写进文件`);
   return { settings };
 }
 

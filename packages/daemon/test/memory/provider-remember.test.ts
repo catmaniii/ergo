@@ -1,4 +1,4 @@
-// 337 号票第二段：秘书的"记一句"工具 → 记忆插件槽的宿主 → 会意插件 → 真的落进记忆；彻底删除这条会话时能删掉。
+// 秘书的"记一句"工具 → 记忆插件槽的宿主 → 会意插件 → 真的落进记忆；彻底删除这条会话时能删掉。
 // 用临时目录里的真守护进程（临时数据目录、假向量、假模型；不碰真的 ~/.ergo，不起服务管家）。
 // 这一份测的是工具背后的那条链（不经过模型）：工具本身、宿主的 remember、会意写的"显式记忆命令"素材和推理库里的证据；
 // 秘书在会话里真的调这个工具是 test/main/memory-remember.test.ts 的事。
@@ -111,7 +111,7 @@ describe("记一句：经工具落到记忆里", () => {
 
 const item = (extra: Record<string, unknown>) => ({ id: "ev-1", kind: "note", text: "一只猫", createdAt: "2026-11-01T00:00:00.000+08:00", tags: [], sources: [{ kind: "conversation" as const, id: SECRETARY }], extra });
 
-describe("记一句带文件（366 号票）", () => {
+describe("记一句带文件", () => {
   const file = { mediaId: "a".repeat(64), kind: "image" as const, name: "cat.png", mime: "image/png", size: 120, via: "original" as const };
   const call = { toolCallId: "call-remember" };
 
@@ -174,7 +174,7 @@ describe("记一句带文件（366 号票）", () => {
   });
 });
 
-/** 337 号票：写推理库时留痕写的"经谁转达"（这个常量给测试认，别改成别处去） */
+/** 写推理库时留痕写的"经谁转达"（这个常量给测试认，别改成别处去） */
 describe("记一句的留痕", () => {
   it("写推理库那一笔记的是用户发起、经秘书记一句", () => {
     expect(REMEMBER_VIA).toBe("经秘书记一句");

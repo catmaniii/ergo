@@ -1,4 +1,4 @@
-// 关注类别设置（规格第 9 节，26 号票）。用户的调整和自定义类别是数据，放在数据目录配置区的 config/watch-categories.json
+// 关注类别设置（规格第 9 节）。用户的调整和自定义类别是数据，放在数据目录配置区的 config/watch-categories.json
 // （守卫的写法；守卫每次判定现读）。这里是唯一写它的地方：
 // - 设置页的修改（update_watch_categories 请求）→ 校验（内置类别只能往严里调、两条底线改不动、名字和规则写对）
 //   → 写文件（先写临时文件再改名）→ 关注类别频道上一条 watch_category_settings 事件（设置的最新样子，前端据此同步）；
@@ -177,7 +177,7 @@ export function createWatchCategoryService(options: WatchCategoryServiceOptions)
       ...(settings.custom && settings.custom.length > 0 ? { custom: settings.custom } : {}),
     };
     const text = `${JSON.stringify(body, null, 2)}\n`;
-    // 先写临时文件再改名，被占着时重试（265 号票）
+    // 先写临时文件再改名，被占着时重试
     writeFileAtomic(file, text);
     cached = { text, settings: body, problems: [] };
     return cached;

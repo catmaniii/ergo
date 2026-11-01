@@ -16,7 +16,7 @@
         "name": "ohos.permission.INTERNET"
       },
       {
-        // 读本机（299 号票，phone/PhoneData.ets）：只读手机日历里的日程（全部日历账户，只有 READ_CALENDAR 读不到系统日历和别的应用建的）。
+        // 读本机（phone/PhoneData.ets）：只读手机日历里的日程（全部日历账户，只有 READ_CALENDAR 读不到系统日历和别的应用建的）。
         // 受限权限：调试包走 DevEco 的自动签名（签名时要带上它），上架要审核（docs/architecture/research/36）。用户在数据源页点"连上手机日历"时才要。
         // 通讯录选人用系统的选人界面，不用权限
         "name": "ohos.permission.READ_WHOLE_CALENDAR",
@@ -29,7 +29,7 @@
         }
       },
       {
-        // 读本机（300 号票，phone/PhonePhotos.ets）：读相册里照片的拍摄时间（不读照片本身）。受限权限：调试包走 DevEco 的自动签名
+        // 读本机（phone/PhonePhotos.ets）：读相册里照片的拍摄时间（不读照片本身）。受限权限：调试包走 DevEco 的自动签名
         // （签名时要带上它），上架要审核（docs/architecture/research/36）。用户在数据源页点"连上相册"时才要
         "name": "ohos.permission.READ_IMAGEVIDEO",
         "reason": "$string:photos_reason",
@@ -41,7 +41,7 @@
         }
       },
       {
-        // 读本机（300 号票）：照片里的拍摄地点（没有它系统把照片的位置信息去掉），和读相册一起要
+        // 读本机：照片里的拍摄地点（没有它系统把照片的位置信息去掉），和读相册一起要
         "name": "ohos.permission.MEDIA_LOCATION",
         "reason": "$string:photo_location_reason",
         "usedScene": {
@@ -52,7 +52,7 @@
         }
       },
       {
-        // 读本机（300 号票，phone/PhoneLocation.ets）：定时记位置。大概位置和精确位置一起要（鸿蒙要求精确位置和大概位置同时申请，
+        // 读本机（phone/PhoneLocation.ets）：定时记位置。大概位置和精确位置一起要（鸿蒙要求精确位置和大概位置同时申请，
         // 用户可以只给大概的）；用户在数据源页点"开始记位置"时才要。打开"后台也记"时靠位置类的长时任务在后台接着记，所以写 always
         "name": "ohos.permission.APPROXIMATELY_LOCATION",
         "reason": "$string:location_reason",
@@ -74,11 +74,11 @@
         }
       },
       {
-        // 长时任务（300 号票：位置"后台也记"时，backgroundModes 里的 location；系统授予，不弹框）
+        // 长时任务（位置"后台也记"时，backgroundModes 里的 location；系统授予，不弹框）
         "name": "ohos.permission.KEEP_BACKGROUND_RUNNING"
       },
       {
-        // 按住说话：原生录音（63 号票，voice/NativeVoice.ets 的 AudioCapturer）；没有原生录音的旧版网页还走 getUserMedia。
+        // 按住说话：原生录音（voice/NativeVoice.ets 的 AudioCapturer）；没有原生录音的旧版网页还走 getUserMedia。
         // 运行时在网页进语音模式、要备好录音器时才向用户申请
         "name": "ohos.permission.MICROPHONE",
         "reason": "$string:microphone_reason",
@@ -100,7 +100,7 @@
         "startWindowIcon": "$media:startIcon",
         "startWindowBackground": "$color:start_window_background",
         "exported": true,
-        // 位置"后台也记"（300 号票）：位置类的长时任务，App 在后台时接着定时定位，通知栏一直显示
+        // 位置"后台也记"：位置类的长时任务，App 在后台时接着定时定位，通知栏一直显示
         "backgroundModes": [
           "location"
         ],

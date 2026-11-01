@@ -1,8 +1,8 @@
-// 大模型回答器（216 号票）：模拟二狗上线时的秘书——读着记忆简报（llm/brief.ts）回答用户的问题。和规则模板的 answerQuestion
+// 大模型回答器：模拟二狗上线时的秘书——读着记忆简报（llm/brief.ts）回答用户的问题。和规则模板的 answerQuestion
 // （rg/answer.ts）平行：输入问题、问的时间、场景和一份记忆简报，交回同样的 Answer（route = "llm"），评测照原来的判法判。
 // 规则模板保留，给不花钱的测试和对照用。
 // - 提示词照秘书的口径写，通用，不针对哪道题、哪个人（ANSWER_SYSTEM 是常量）：依据记忆回答，只有本人的话当依据、别人转述的不当依据；
-//   有反证要说出反证的内容；结论下面列着的原话是它的依据，用到结论时要说出具体的事例（219 号票）；
+//   有反证要说出反证的内容；结论下面列着的原话是它的依据，用到结论时要说出具体的事例；
 //   证据不够就直说不确定、说缺什么；要做决定、出主意时给具体方案，用户这次明说的要求优先。
 //   用户消息里只有问题、问的时间、场景和简报正文（requestFor），没有别的东西。
 // - 要求模型只输出一个 JSON：回答文字（每条依据带证据编号）、是否不确定、当依据的证据、提到的反证、提到但不当依据的转述、用到的结论、缺什么。
@@ -139,7 +139,7 @@ export class LlmAnswerer {
     const stripped = stripIds(out.answer.trim(), new Set([...evidence, ...claimSet]));
     for (const id of stripped.removed) invalid.add(id);
 
-    // 原话在记录那节，或者只在结论下面（219）
+    // 原话在记录那节，或者只在结论下面
     const textOf = (id: string) => brief.records.find((r) => r.evidenceId === id)?.text ?? brief.profile?.claims.flatMap((c) => c.quotes ?? []).find((q) => q.evidenceId === id)?.text ?? "";
     const citations: Citation[] = [
       ...used.grounds.map((id): Citation => ({ claimId: null, factId: null, evidenceIds: [id], text: textOf(id), role: "record" })),

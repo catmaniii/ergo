@@ -94,7 +94,7 @@ describe("用户发言入库", () => {
 describe("回避信号", () => {
   it("前端关掉一张建议卡：一条回避信号；另一张 7 天没处理：前端收到 card_stale，又一条回避信号；7 天内处理了的不产生。都按卡片标题搜得到", async () => {
     const clock = new ManualClock(new Date(2026, 9, 8, 9, 0));
-    // 265 号票：给了 clock 时底座默认停掉记忆插件；回避信号的计时是它开的（采成素材），打开
+    // 给了 clock 时底座默认停掉记忆插件；回避信号的计时是它开的（采成素材），打开
     const { url, daemon } = await startTestDaemon({ cardTypes: [suggestTaskFixture], clock, memoryPlugin: true });
     const frontend = await TestFrontend.connect(url);
     await frontend.subscribe({ [CARDS]: 0 });
@@ -139,7 +139,7 @@ describe("向量模型不在", () => {
     expect(item).toMatchObject({ kind: "notice", notice: "embedding_model_missing", urgency: "non_blocking", source: "系统" });
     expect(item.kind === "notice" && item.body).toContain(`npm run download-model -- --data-dir "${dataDir}"`);
     expect(item.kind === "notice" && item.body).toContain(path.join(dataDir, "models", "Xenova", "bge-m3"));
-    // 323 号票：先说在设置 · 组件里装，动作"去装组件"由网页带过去
+    // 先说在设置 · 组件里装，动作"去装组件"由网页带过去
     expect(item.kind === "notice" && item.body).toContain("设置 · 组件");
     expect(item.kind === "notice" && item.actions).toEqual(["去装组件", "知道了"]);
 

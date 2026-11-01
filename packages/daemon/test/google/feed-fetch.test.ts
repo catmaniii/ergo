@@ -1,4 +1,4 @@
-// 私密地址里哪一段能给人看（339 号票）：个人日历的 id 是完整邮箱，算账号、原样显示；共享、订阅的日历不算账号，id 照旧打码；
+// 私密地址里哪一段能给人看：个人日历的 id 是完整邮箱，算账号、原样显示；共享、订阅的日历不算账号，id 照旧打码；
 // 不是邮箱的 id 不原样显示（可能就是私钥那一段）。路径里的私钥任何时候都不出现。
 import { describe, expect, it } from "vitest";
 import { accountOf, maskAddress } from "../../src/google/feed-fetch.ts";

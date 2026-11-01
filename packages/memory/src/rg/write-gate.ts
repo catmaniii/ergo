@@ -1,4 +1,4 @@
-// 推理图谱的唯一写入口（267 号票，ADR-0030）：一组受检查的写操作。谁写都经它——每晚整理（记忆管理员的夜班）、记忆管理员、
+// 推理图谱的唯一写入口（ADR-0030）：一组受检查的写操作。谁写都经它——每晚整理（记忆管理员的夜班）、记忆管理员、
 // 记下用户的表态、用户发起的忘掉 / 彻底删除 / 别推断；秘书和负责人只读（它们那一份引擎开成只读，写一律拒）。
 //
 // 用法：engine.gate.write({ op, actor?, via?, reason }, () => { engine.gate.updateClaim(…); … })。
@@ -18,19 +18,19 @@
 // - lift_threshold 往上抽过结构门槛：两种以上不同的场合、至少两条证据（llm-lift.ts 的 liftThreshold，时期不够的照样能出临时结论）；
 // - dangling 不留悬空结论：还活着的结论，推出它的前提里至少有一条还在（没撤回、没被取代、没被忘掉；猜测、拿不准的也算在）
 //   （复核标记着的不查，同上）；
-// - dependents 传播铁律（329 号票 R4，ADR-0032）：已验证的结论，成立推断写的前提都得已验证（结论已验证、事实成立或被取代、证据有效）。
+// - dependents 传播铁律（R4，ADR-0032）：已验证的结论，成立推断写的前提都得已验证（结论已验证、事实成立或被取代、证据有效）。
 //   这次碰过的已验证结论查它自己（建的时候就查）；这次变了的前提（结论不再已验证、事实不再成立、证据失效、删了）查依赖它的——
 //   依赖它的已验证要在同一次写里降回猜测（前提照挂、保留；reasoning-graph.ts 的 downgradeDependents），撤了的照 R8 撤，有直接证实的改挂依据；
-// - cycle 依赖不绕圈（329 号票）：这次写的推断（新建、改了前提、重新成立）不能让结论顺着前提绕回自己；
+// - cycle 依赖不绕圈：这次写的推断（新建、改了前提、重新成立）不能让结论顺着前提绕回自己；
 // - evidence_backed（要有证据那一档）：判一条结论成立，要有至少一条能当依据（本人的、还有效）的支持；推翻要有墓碑（validate 和 exists 管）；
 // - user_confirm（要用户确认那一档）：推翻用户亲口说过或确认过的结论，只能由用户发起（用户的表态、用户的纠正、跟着用户的话走）；
 // - sensitive（要用户确认那一档）：敏感类别（健康、情绪、财务、关系）里没打开的那几类上，不推断（明说的、用户确认过的照常记）；
 // - never（永远不做）：改原话、删证据和事实（只有彻底删除、别推断能删）、编造证据（只有素材入库和用户的表态能添证据）、
-//   改结论的身份（kind 建号时定，329 号票 R1：要换得新建一条）；
+//   改结论的身份（kind 建号时定，R1：要换得新建一条）；
 // - permission：只读的引擎什么都不让写；忘掉、彻底删除、别推断、"别问这个"只由用户发起；用户的表态、纠正只能按用户的话记。
-// 326 号票那条"前提里有拿不准的事实就自动降成假设"（改 kind）329 号票去掉了：身份锁死，没验证是状态（猜测），由铁律管。
+// 那条"前提里有拿不准的事实就自动降成假设"（改 kind）去掉了：身份锁死，没验证是状态（猜测），由铁律管。
 //
-// 问题箱（rg/questions.ts）的改动也经这里（264 号票的顺口问接进线上以后收进来）：出问题、过期（question）、记"问过"（ask）、
+// 问题箱（rg/questions.ts）的改动也经这里（顺口问接进线上以后收进来）：出问题、过期（question）、记"问过"（ask）、
 // 跳过和回避信号（skip）、"别问这个"（decline）、回答回写（verdict）各开一次写，问题箱向写入口报改了哪个问题（noteQuestion），
 // 留痕记一行（object_type = question）；问题箱自己的表不进修订日志，所以这几样只查权限，不查推理图谱的那几条。
 import { confidenceAtMost, confidenceCap } from "../domain/validate.ts";
@@ -124,9 +124,9 @@ const OP_DEFAULT_ACTOR: Readonly<Record<WriteOp, WriteActor>> = {
   ask: "curator",
   skip: "nightly",
   decline: "user",
-  // 329 号票：老库的规矩迁移是守护进程起来时代码跑的，记在夜班名下（不是用户发起，也不是管理员白天的判断）
+  // 老库的规矩迁移是守护进程起来时代码跑的，记在夜班名下（不是用户发起，也不是管理员白天的判断）
   migrate: "nightly",
-  // 333 号票：全量重判一次（full-rejudge.ts）是代码按规矩跑的，同每晚整理记在夜班名下
+  // 全量重判一次（full-rejudge.ts）是代码按规矩跑的，同每晚整理记在夜班名下
   rejudge: "nightly",
 };
 
@@ -321,7 +321,7 @@ export class ReasoningWriteGate implements RgGate {
       let result: T;
       try {
         result = fn();
-        // 330 号票（R8、R11 落到预测节点上）：这次状态变了的结论，以它为来源的预测跟着作废、跟着回来（同一次写里，免得每个撤回的地方各记着）
+        // R8、R11 落到预测节点上：这次状态变了的结论，以它为来源的预测跟着作废、跟着回来（同一次写里，免得每个撤回的地方各记着）
         const moved = this.store
           .revisionsBetween(frame.startSeq, this.store.latestRevisionSeq())
           .filter((r) => r.objectType === "claim" && r.changes.status !== undefined)
@@ -601,8 +601,8 @@ export class ReasoningWriteGate implements RgGate {
       }
       if (t.type === "fact" && t.deleted && !deleting) problems.push({ check: "never", objectId: t.id, message: `不能删事实：事实 ${t.id} 只有彻底删除、别推断（用户发起）能删` });
     }
-    // 329 号票（R1）：身份锁死——kind 建号时定，之后不改（要换得新建一条，旧的撤回或被取代）。
-    // 只有规矩迁移（migrate）能把 326 号票改过的身份改回建号时的那个（修订日志里第一次改 kind 的 from）
+    // ADR-0032 R1：身份锁死——kind 建号时定，之后不改（要换得新建一条，旧的撤回或被取代）。
+    // 只有规矩迁移（migrate）能把改过的身份改回建号时的那个（修订日志里第一次改 kind 的 from）
     for (const t of touched.claims.values()) {
       if (t.created || !t.changed.has("kind")) continue;
       const original = this.store.revisions(t.id, "claim").find((r) => r.changes.kind !== undefined)?.changes.kind?.from;
@@ -687,7 +687,7 @@ export class ReasoningWriteGate implements RgGate {
       }
     }
 
-    // 329 号票：只是降成猜测、复活成猜测（状态改了、把握没动）不重查把握——老数据把握超了的不该挡住降级、撤回往下传
+    // 只是降成猜测、复活成猜测（状态改了、把握没动）不重查把握——老数据把握超了的不该挡住降级、撤回往下传
     const statusRaised = t.changed.has("status") && claim.status === "active";
     if (live && (t.created || t.changed.has("confidence") || t.changed.has("epistemic") || t.changed.has("method") || statusRaised || t.links.length > 0)) {
       // 按推法封顶把握
@@ -756,7 +756,7 @@ export class ReasoningWriteGate implements RgGate {
   }
 
   /**
-   * 传播铁律（329 号票 R4）：已验证的结论，成立推断写的前提都得已验证。
+   * 传播铁律（R4）：已验证的结论，成立推断写的前提都得已验证。
    * - 这次碰过的已验证结论（新建的、改了状态和推断的）查它自己：建的时候就压在猜测上的也拦（以前写入口不拦、自检才拦）；
    * - 这次变了的前提（结论不再已验证、事实不再成立、证据失效、删了），不管在链上第几层，以它为前提（成立推断）的结论不能还已验证——
    *   要在同一次写里降回猜测（前提照挂、保留），撤回的照 R8 撤，有直接证实的改挂依据。不设深度上限
@@ -831,7 +831,7 @@ export class ReasoningWriteGate implements RgGate {
     }
   }
 
-  /** 依赖不绕圈（329 号票）：这次写的推断（新建、改了前提、重新成立）不能让结论顺着成立推断的前提绕回自己 */
+  /** 依赖不绕圈：这次写的推断（新建、改了前提、重新成立）不能让结论顺着成立推断的前提绕回自己 */
   private checkCycles(touched: Touched, problems: WriteProblem[]): void {
     const starts = new Set<string>();
     for (const t of touched.inferences.values()) {

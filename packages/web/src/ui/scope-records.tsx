@@ -1,4 +1,4 @@
-// 范围记录（18 号票）：简版项目页、任务详情里共用。越界和范围变更分开两组（各自最近的在前），
+// 范围记录：简版项目页、任务详情里共用。越界和范围变更分开两组（各自最近的在前），
 // 每条写明摘要、依据（范围变更）、说明、哪次审视的、属于哪张工单和哪个任务、时间。
 import { useState } from "react";
 import { SCOPE_RECORD_KIND_LABEL, type ScopeRecordGroups, type ScopeRecordKind, type ScopeRecordView, t } from "../state/index.ts";

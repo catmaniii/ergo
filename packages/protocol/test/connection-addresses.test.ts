@@ -1,4 +1,4 @@
-// 共享协议包：连接地址（364 号票）——手机 App 认不认、手填的能不能存、怎么排序。
+// 共享协议包：连接地址——手机 App 认不认、手填的能不能存、怎么排序。
 import { describe, expect, test } from "vitest";
 import { type ConnectionAddress, checkAppAddress, checkManualConnectionAddress, isLanHost, orderConnectionAddresses } from "../src/connection-addresses.ts";
 

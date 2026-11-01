@@ -1,6 +1,6 @@
-// token 账本与消耗页的 schema（规格第 16 节，24 号票），用 TypeBox 定义，守护进程和 Web 共用生成的类型。
+// token 账本与消耗页的 schema（规格第 16 节），用 TypeBox 定义，守护进程和 Web 共用生成的类型。
 // - 看板频道上的 token_totals 事件：一个任务（或定时作业）名下的用量合计，每次新的模型调用后推一条；
-// - 单价（每百万 token）：配置里的 tokenPrices（不分时段），没写的用框架自带的价格表（token-prices.ts，分高峰、空闲，94 号票）；
+// - 单价（每百万 token）：配置里的 tokenPrices（不分时段），没写的用框架自带的价格表（token-prices.ts，分高峰、空闲）；
 // - 消耗页：GET /api/usage?from=&to= 的响应（按天、按 agent 汇总，秘书单列为系统开销，未归属的另列，粗估成本）。
 // 名字（角色、归属种类、调用用途、消耗页上的三类）和纯函数（合计、成本）在 usage.ts；自带价格表和高峰时段在 token-prices.ts。
 import { type Static, Type } from "typebox";
@@ -66,7 +66,7 @@ export type TokenPrice = Static<typeof TokenPrice>;
 /**
  * 一个模型和它的单价（消耗页上列出用到的单价）：
  * - source: "config"：配置里写的单价，不分时段；
- * - source: "builtin"：框架自带的价格表（94 号票），高峰、空闲各一份；pricedAs 是按哪个模型算的（旧名字按 deepseek-flash）
+ * - source: "builtin"：框架自带的价格表，高峰、空闲各一份；pricedAs 是按哪个模型算的（旧名字按 deepseek-flash）
  */
 export const ModelPrice = Type.Union([
   Type.Object({ model: Type.String(), source: Type.Literal("config"), ...TokenPrice.properties }),
@@ -114,7 +114,7 @@ export type UsageDay = Static<typeof UsageDay>;
 
 /**
  * 成本怎么算的：一律粗估。配置里写了单价的模型 = 用量 × 配置的单价（不分时段）；没写的用框架自带的价格表，
- * 每一笔按记账时间落在高峰还是空闲时段算（94 号票）；两边都没有的不算进成本
+ * 每一笔按记账时间落在高峰还是空闲时段算；两边都没有的不算进成本
  */
 export const UsagePricing = Type.Object({
   estimate: Type.Literal(true),
@@ -131,7 +131,7 @@ export const UsagePricing = Type.Object({
 });
 export type UsagePricing = Static<typeof UsagePricing>;
 
-/** 按次计费的联网调用的一段合计（154 号票）：几次、粗估多少钱 */
+/** 按次计费的联网调用的一段合计：几次、粗估多少钱 */
 export const UsageWebTally = Type.Object({ calls: Count, cost: Type.Number({ minimum: 0 }) });
 export type UsageWebTally = Static<typeof UsageWebTally>;
 
@@ -156,7 +156,7 @@ export const WebCallPrice = Type.Object({
 export type WebCallPrice = Static<typeof WebCallPrice>;
 
 /**
- * 消耗页上按次计费的联网调用（154 号票）：DeepSeek 的联网搜索、读网页各几次、多少钱，按 agent 分；
+ * 消耗页上按次计费的联网调用：DeepSeek 的联网搜索、读网页各几次、多少钱，按 agent 分；
  * 只记成功、有结果的（DeepSeek 只对这些计费）。成本是粗估、查的时候按现在的单价算，不算进 token 的合计（total 里只有模型调用），页面上另写
  */
 export const UsageWeb = Type.Object({
@@ -171,7 +171,7 @@ export const UsageWeb = Type.Object({
 export type UsageWeb = Static<typeof UsageWeb>;
 
 /**
- * 消耗页上的"记忆简报"一项（266 号票）：范围里自动带了几次、估的 token、粗估的钱。这些 token 已经算在秘书的用量里（是秘书这一轮多读的输入），
+ * 消耗页上的"记忆简报"一项：范围里自动带了几次、估的 token、粗估的钱。这些 token 已经算在秘书的用量里（是秘书这一轮多读的输入），
  * 这里另列出来；钱按带进去那一次没命中缓存、秘书最近一次干活用的模型的单价算（之后留在会话里每次照样读，命中缓存，没算进来）
  */
 export const UsageMemoryBrief = Type.Object({ count: Count, tokens: Count, cost: Type.Number({ minimum: 0 }) });
@@ -189,9 +189,9 @@ export const UsageSummary = Type.Object({
   system: UsageTally,
   unattributed: UsageTally,
   pricing: UsagePricing,
-  /** 按次计费的联网调用（DeepSeek 的联网搜索、读网页，154 号票） */
+  /** 按次计费的联网调用（DeepSeek 的联网搜索、读网页） */
   web: UsageWeb,
-  /** 记忆简报（266 号票）：已经算在秘书的用量里，另列一项 */
+  /** 记忆简报：已经算在秘书的用量里，另列一项 */
   memoryBrief: UsageMemoryBrief,
 });
 export type UsageSummary = Static<typeof UsageSummary>;

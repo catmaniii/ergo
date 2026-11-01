@@ -1,4 +1,4 @@
-// 主切面：新建任务选运行时、⚙ 按运行时、斜杠命令转交、中途换运行时（289 号票，Claude Code 接入一期之四）。真的守护进程走组合根和插件清单；
+// 主切面：新建任务选运行时、⚙ 按运行时、斜杠命令转交、中途换运行时。真的守护进程走组合根和插件清单；
 // 清单里的 Claude Code 插件经 extraPlugins 换成同名的、子进程接假 SDK 的那个（helpers/fake-claude-code.ts：运行时、适配子进程都是真的，
 // 只有 SDK 是按 faux 剧本吐事件的假的，不启动真的 claude、不花额度）：
 // - 点"发起任务"选 Claude Code（start_task 的 runtime）：任务记着运行时，负责人经 Claude Code 的子进程跑；输入框里打的 /compact
@@ -8,7 +8,7 @@
 //   不认得的值回 400；
 // - 中途换运行时（pi → Claude Code）：原来的 pi 写交接摘要，Claude Code 新开会话，摘要跟着下一条输入交过去；会话里记一条"已换成"；
 //   任务记着新的运行时；
-// - 原来的运行时写不了交接摘要、回 unsupported（377 号票，假运行时 helpers/fake-runtime.ts 就这样回）：马上按没写成换，不等到超时。
+// - 原来的运行时写不了交接摘要、回 unsupported（假运行时 helpers/fake-runtime.ts 就这样回）：马上按没写成换，不等到超时。
 import { CHANNELS, EVENT_TYPES, HTTP_PATHS, maintainerChannel, type MessageEventPayload, METHODS, type SlashCommandList, type Task } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
 import { CLAUDE_CODE_RUNTIME_ID } from "../../src/claude-code/api.ts";
@@ -53,7 +53,7 @@ async function nthAgentReply(td: TestDaemon, channel: string, n: number): Promis
 
 const slashCommands = (url: string, conversation: string) => requestJson<SlashCommandList & { message?: string }>(url, HTTP_PATHS.slashCommands(conversation));
 
-describe("新建任务选运行时、斜杠命令转交（289 号票）", () => {
+describe("新建任务选运行时、斜杠命令转交", () => {
   it("点发起任务选 Claude Code：负责人用它；输入框里的 /compact 原样交给 Claude Code，候选里有它报的命令；没选的 pi 任务照旧", async () => {
     // 每个负责人第一次拉起回一句做完，之后（任务做完接着说）把看到的回显出来
     const td = await startTestDaemon({ extraPlugins: [fakeSdkClaudeCodePlugin], maintainer: (_id, spawn) => (spawn === 1 ? [{ kind: "reply", text: "整理好了。" }, echo] : [echo]) });
@@ -71,10 +71,10 @@ describe("新建任务选运行时、斜杠命令转交（289 号票）", () => 
     // 输入框的候选：Claude Code 报的命令（任务的会话没有二狗自己的命令）
     const list = (await slashCommands(td.url, channel)).body;
     expect(list.commands.filter((c) => c.kind === "runtime").map((c) => c.text)).toEqual(["/compact", "/context", "/review", "/deploy-notes"]);
-    // 310 号票：内置命令的说明换成中文，原文留着
+    // 内置命令的说明换成中文，原文留着
     expect(list.commands.find((c) => c.text === "/review")).toMatchObject({ name: "review", description: "评审一个拉取请求（PR）", originalDescription: "Review a pull request", collection: "Claude Code" });
 
-    // 原样交过去：没有时间标记、没有消息 id 那一行——/compact 在 Claude Code 那边真的压缩了（309 号票起假 SDK 扮演手动压缩，时间线上记一笔），
+    // 原样交过去：没有时间标记、没有消息 id 那一行——/compact 在 Claude Code 那边真的压缩了（假 SDK 扮演手动压缩，时间线上记一笔），
     // 别的命令原样到了 Claude 手里
     await frontend.sendText("/compact", { conversation: channel });
     await waitUntil(() => td.daemon.store.read(channel, 0, EVENT_TYPES.timelineRecord).some((e) => (e.payload as { record: { kind: string } }).record.kind === "compaction"), {
@@ -118,7 +118,7 @@ describe("新建任务选运行时、斜杠命令转交（289 号票）", () => 
   }, 60_000);
 });
 
-describe("新建项目选运行时（289 号票）", () => {
+describe("新建项目选运行时", () => {
   it("点新建项目选 Claude Code：通知里写明，秘书照写在建议立项卡上；点立项后项目的负责人用它；选了不认得的被拒", async () => {
     const td = await startTestDaemon({
       extraPlugins: [fakeSdkClaudeCodePlugin],
@@ -139,7 +139,7 @@ describe("新建项目选运行时（289 号票）", () => {
   }, 60_000);
 });
 
-describe("⚙ 按运行时、中途换运行时（289 号票）", () => {
+describe("⚙ 按运行时、中途换运行时", () => {
   it("Claude Code 的负责人：⚙ 里多权限模式、思考档位，模型列表是它报的；选的值交给子进程；不认得的值回 400", async () => {
     const td = await startTestDaemon({ extraPlugins: [fakeSdkClaudeCodePlugin], maintainer: (_id, spawn) => (spawn === 1 ? [{ kind: "reply", text: "整理好了。" }, echo] : [echo]) });
     const task = td.daemon.tasks.delegate({ title: "整理下载目录", instructions: "把下载目录按月份分好", runtime: CLAUDE_CODE_RUNTIME_ID });
@@ -197,7 +197,7 @@ describe("⚙ 按运行时、中途换运行时（289 号票）", () => {
     await frontend.sendText("再按年份分一遍", { conversation: channel });
     const seen = JSON.parse(await nthAgentReply(td, channel, 2)) as FakeClaudeEcho;
     expect(seen.input).toContain("再按年份分一遍");
-    // 交接摘要跟着这条输入交过去：291 号票起经 UserPromptSubmit 钩子的 additionalContext（不在用户消息里）
+    // 交接摘要跟着这条输入交过去：经 UserPromptSubmit 钩子的 additionalContext（不在用户消息里）
     expect(seen.hookContext).toContain(SUMMARY);
     expect(seen.input).not.toContain(SUMMARY);
     // Claude Code 这边是新开的会话（不是接着谁）
@@ -206,7 +206,7 @@ describe("⚙ 按运行时、中途换运行时（289 号票）", () => {
     expect(spawns().at(-1)).toEqual({ agentId: task.maintainerId, runtime: CLAUDE_CODE_RUNTIME_ID });
   }, 90_000);
 
-  it("原来的运行时对写交接摘要回 unsupported（377 号票）：马上按没写成换，不等到超时；会话里写明原因，下一条输入交给新的运行时", async () => {
+  it("原来的运行时对写交接摘要回 unsupported：马上按没写成换，不等到超时；会话里写明原因，下一条输入交给新的运行时", async () => {
     const td = await startTestDaemon({ extraPlugins: [fakeRuntimePlugin], maintainer: [{ kind: "reply", text: "pi 接着做了。" }] });
     const task = td.daemon.tasks.delegate({ title: "整理下载目录", instructions: "把下载目录按月份分好", runtime: FAKE_RUNTIME_ID });
     await waitState(td, task.id, "done");

@@ -1,19 +1,19 @@
-// 看素材（158 号票在设置里，167 号票起在"记忆 · 素材"；用户 2026-10-18 要的"删除素材的地方能看每条素材的内容"）：
+// 看素材（在设置里，在"记忆 · 素材"；"删除素材的地方能看每条素材的内容"）：
 // - 列表：范围（同设置里删除的范围：全部、一个会话、一个时间段、这一条）里的素材一页一页列出来，新的在前；每条带种类、时间、会话、
 //   摘录（同记忆删除卡的摘录）和标记；
 // - 一条的完整内容：信封里的都给（种类、说或做、时间、会话、任务、项目、来源等级、情境标签、每一段、原始事件、原文副本），
-//   本人的段带全文。素材只记了本人的话，引用块、附件、语音只记了引用和哈希（08 号票）——出处的消息还在时从消息里补上：
+//   本人的段带全文。素材只记了本人的话，引用块、附件、语音只记了引用和哈希——出处的消息还在时从消息里补上：
 //   引用块的原文，附件、语音在消息里的那个 part（界面照会话里的样子画图片、文件、语音条）。出处的消息被彻底删除了的补不上。
-// - 标记：说过"别推断"的（21）；在会话回退留下的废弃分支里的（150：查询时现算，切回去就不在了；装配时给 abandoned）；
-//   项目内部的记录（64：由系统记下的，删项目时随项目删；装配时给 internal）。出处的消息在废弃分支里时跳不过去（会话里只显示当前分支）。
-// - 你存的网页（165："浏览"的 ⋮ 菜单里存进素材的）：素材里网页那一段只记了网址、标题和哈希，存下的正文（外部数据）在原始事件里，
+// - 标记：说过"别推断"的；在会话回退留下的废弃分支里的（查询时现算，切回去就不在了；装配时给 abandoned）；
+//   项目内部的记录（由系统记下的，删项目时随项目删；装配时给 internal）。出处的消息在废弃分支里时跳不过去（会话里只显示当前分支）。
+// - 你存的网页（"浏览"的 ⋮ 菜单里存进素材的）：素材里网页那一段只记了网址、标题和哈希，存下的正文（外部数据）在原始事件里，
 //   事件还在、没被彻底删除时补上（段视图的 saved；browsing/saved-pages.ts 的 savedPageOf，秘书读素材也用它）。
-// - 167 号票（记忆 · 素材）：在范围里再筛（filter）——时间段、种类（materials/facets.ts）、来源会话、关键词。关键词用素材库的关键词检索
+// -（记忆 · 素材）：在范围里再筛（filter）——时间段、种类（materials/facets.ts）、来源会话、关键词。关键词用素材库的关键词检索
 //   （和秘书的素材检索同一个索引：本人的话、引用的说明、存的网页的正文）；只保管（记忆插件没启用、库里没有新素材）时退回逐条比对同一份文字
 //   （每个词都要有、不分大小写，同关键词检索的口径）。搜的时候列表里的摘录换成命中的那一段（存的网页按正文命中的给正文里那一段）。
 //   列表新的在前按素材的时间（以前按原始事件倒着排：识别得慢的语音、补回的素材会排错日子，页面按日期分组）。
-// - 343 号票：filter 再加一项 dataSource（素材信封出处的 origin.dataSource）：数据源详情的"已获取的"按它列。
-// - 366 号票：记下来的文件（"这张图记下来"）不在消息里，那一段的 part 由素材里记的媒体拼出来，照附件的样子画。
+// -filter 再加一项 dataSource（素材信封出处的 origin.dataSource）：数据源详情的"已获取的"按它列。
+// -记下来的文件（"这张图记下来"）不在消息里，那一段的 part 由素材里记的媒体拼出来，照附件的样子画。
 // 这是内核的（同设置里的批量删除 bulk.ts）：记忆插件停用时照样能看、能删已有的素材。只读。
 import {
   attachmentPartFrom,
@@ -47,7 +47,7 @@ const HIT_SNIPPET = { chars: LIST_EXCERPT_CHARS, lead: 20 } as const;
 const KEYWORD_ALL = 1_000_000;
 
 export interface MaterialBrowser {
-  /** 范围里的素材（不给范围是全部），再按 filter 筛（167），新的在前（按素材的时间）；offset 从 0 起。时间不对抛 RequestRejected */
+  /** 范围里的素材（不给范围是全部），再按 filter 筛，新的在前（按素材的时间）；offset 从 0 起。时间不对抛 RequestRejected */
   list(scope: MaterialScope | undefined, page: { offset?: number | undefined; limit?: number | undefined }, filter?: MaterialListFilter): MaterialListPage;
   /** 一条素材的完整内容和来源；没有这条（删了）是 undefined */
   detail(id: string): MaterialDetailView | undefined;
@@ -56,9 +56,9 @@ export interface MaterialBrowser {
 export interface MaterialBrowserOptions {
   store: EventStore;
   materials: Materials;
-  /** 素材在不在废弃分支里（150 号票，conversation/session-branches.ts 的 inAbandonedBranch） */
+  /** 素材在不在废弃分支里（conversation/session-branches.ts 的 inAbandonedBranch） */
   abandoned(material: Material): boolean;
-  /** 由系统记下的项目内部记录是哪个项目的（64 号票，internal-records.ts 的 internalRecordOf）；不是的为 undefined */
+  /** 由系统记下的项目内部记录是哪个项目的（internal-records.ts 的 internalRecordOf）；不是的为 undefined */
   internal(material: Material): ProjectInternal | undefined;
 }
 
@@ -71,7 +71,7 @@ export function createMaterialBrowser(options: MaterialBrowserOptions): Material
       ...(m.noInfer ? { noInfer: true as const } : {}),
       ...(abandoned ? { abandoned: true as const } : {}),
       ...(internal ? { internal } : {}),
-      // 284 号票：了解你访谈里说的（情境标签 interview）
+      // 了解你访谈里说的（情境标签 interview）
       ...(m.context.includes(INTERVIEW_CONTEXT) ? { interview: true as const } : {}),
     };
   };
@@ -170,7 +170,7 @@ function liveMessage(store: EventStore, messageId: string): MessageEnvelope | un
   return getMessage(store.reader, messageId);
 }
 
-/** 一段：信封里的（不含位置），出处的消息还在时补上引用块的原文、附件和语音在消息里的 part；你存的网页补上存下的正文（165） */
+/** 一段：信封里的（不含位置），出处的消息还在时补上引用块的原文、附件和语音在消息里的 part；你存的网页补上存下的正文 */
 function segmentView(s: Material["segments"][number], message: MessageEnvelope | undefined, saved?: MaterialSegmentView["saved"]): MaterialSegmentView {
   const view: MaterialSegmentView = {
     form: s.form,
@@ -198,7 +198,7 @@ function segmentView(s: Material["segments"][number], message: MessageEnvelope |
   return view;
 }
 
-/** 记下来的文件（366 号票）：素材里记的媒体 → 消息里的 part（图片、文件卡片），照附件的样子画 */
+/** 记下来的文件：素材里记的媒体 → 消息里的 part（图片、文件卡片），照附件的样子画 */
 function rememberedPart(media: Material["segments"][number]["media"]): Pick<MaterialSegmentView, "part"> {
   if (media?.name === undefined || media.mime === undefined) return {};
   return { part: attachmentPartFrom({ mediaId: media.mediaId, kind: media.kind ?? "file", name: media.name, mime: media.mime, size: media.size ?? 0, width: media.width, height: media.height }) };

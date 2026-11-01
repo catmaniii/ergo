@@ -1,8 +1,8 @@
-// 秘书的"读项目档案"工具（规格第 7 节"只读工具"，22 号票）：用户问某个项目进展如何时，秘书按项目（编号或名字）直接读
+// 秘书的"读项目档案"工具（规格第 7 节"只读工具"）：用户问某个项目进展如何时，秘书按项目（编号或名字）直接读
 // 它的项目档案作答，不唤醒、不拉起它的负责人。任意项目都能读，含已归档的（删掉的没有了）。
-// 读的是 15 号票建好的最小文档集（立项书、规格、术语表、ADR、进展、项目清单、范围记录），位置由 projectRecordsPaths 给出：
+// 读的是建好的最小文档集（立项书、规格、术语表、ADR、进展、项目清单、范围记录），位置由 projectRecordsPaths 给出：
 // 秘书不用知道路径（和秘书文件工具对项目档案的只读是两回事）。只读，不落入任何关注类别；没有对应的写工具。
-// @i18n-ignore-file model：读项目档案交回模型的结果、说明（结果开头的写法 RECORDS_RESULT_HEAD 要认得出，173 号票）；工具的名字走 t()
+// @i18n-ignore-file model：读项目档案交回模型的结果、说明（结果开头的写法 RECORDS_RESULT_HEAD 要认得出）；工具的名字走 t()
 import fs from "node:fs";
 import path from "node:path";
 import { type Project, PROJECT_STATE_LABEL, Type, t, forModel } from "@ergo/protocol";
@@ -85,7 +85,7 @@ export function projectRecordsText(project: Project, paths: ProjectRecordsPaths,
 const RECORDS_RESULT_HEAD = /^项目 (p-\d+)「/;
 
 /**
- * 读项目档案那次调用读的是哪个项目：按返回开头写的项目编号认（66 号票：删除项目时找读过它的调用）。不按参数里的名字认——
+ * 读项目档案那次调用读的是哪个项目：按返回开头写的项目编号认（删除项目时找读过它的调用）。不按参数里的名字认——
  * 删掉的项目的名字可以被新项目重用；编号不回收。没读成（找不到、有歧义）的返回开头不是这样，为 undefined。
  * 过了保留期清掉的完整内容只剩结果摘要，开头照样是这一句
  */
@@ -94,7 +94,7 @@ export function projectIdOfRecordsResult(result: string): string | undefined {
 }
 
 /**
- * 读项目档案的工具。scope 不给是秘书的（任意项目）；17 号票涉及多个项目的任务的负责人也用它（固定工具包的"读项目档案"），
+ * 读项目档案的工具。scope 不给是秘书的（任意项目）；涉及多个项目的任务的负责人也用它（固定工具包的"读项目档案"），
  * 只能读这个任务涉及的项目（scope.projects），说明另写
  */
 export function readProjectRecordsTool(projects: ProjectService, scope?: { projects: () => Project[]; description: string }): HostTool {

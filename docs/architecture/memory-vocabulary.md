@@ -34,9 +34,9 @@ Status: 2026-10-21 定稿；2026-10-27 按 ADR-0032 改了状态、复核标记�
 
 1. **已实现的列名不再改**：`claims / tier / epistemic / method / links / inferences` 已经进了代码、测试和评测；改名要迁移库 + 改测试 + 重跑评测，收益只是叫法统一。要改的话单独做。
 2. **新增的东西按模板词汇起名**：比如预测账本用 `claim_id / predicts / made_at / due_at / status`；复评水位叫 `reviewDue`；以后要加"节点导出"就照 `id / kind / statement / deps / status` 出。
-3. **对外一律用模板词**：导出的 JSON（`memory:dump-claims`）、网页记忆页、给用户看的报告，说的是"层、结论、依赖、状态、预测"；`tier`、`claim`、`link` 这些只在代码里出现。
+3. **对外一律用模板词**：导出的 JSON、网页记忆页、给用户看的报告，说的是"层、结论、依赖、状态、预测"；`tier`、`claim`、`link` 这些只在代码里出现。
 
 ## 待办
 
-- ~~`memory:dump-claims` 加一个 `--format template`~~ **2026-10-23 做了**：`npm run memory:dump-template`（`packages/daemon/test/memory/dump-template.ts`）只读导线上 `rg.db` → 模板 `nodes` 形状的 YAML，给人看图、拿别的工具查（每晚校验不用它，改成直接查库的图谱自检）。只做单向导出（rg.db → 模板），反向导入以后再说。
+- 模板形状的导出：`npm run memory:dump-template`（`packages/daemon/test/memory/dump-template.ts`）只读导线上 `rg.db` → 模板 `nodes` 形状的 YAML，给人看图、拿别的工具查（每晚校验不用它，改成直接查库的图谱自检）。只做单向导出（rg.db → 模板），反向导入以后再说。
 - 网页记忆页也照模板词展示（"层 / 状态 / 依赖 / 预测"），不直接暴露数据库字段名。

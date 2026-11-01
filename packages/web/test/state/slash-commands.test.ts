@@ -1,4 +1,4 @@
-// 输入框里打 / 弹出的候选（82 号票）：什么时候弹、边打边过滤、选中插入什么、一行上显示什么、方向键怎么挪。
+// 输入框里打 / 弹出的候选：什么时候弹、边打边过滤、选中插入什么、一行上显示什么、方向键怎么挪。
 import { describe, expect, it } from "vitest";
 import { filterSlashCommands, nextSlashIndex, type SlashCommandEntry, slashGroups, slashInsertText, slashOrder, slashQuery, slashShownName, slashTranslating } from "../../src/state/index.ts";
 
@@ -47,9 +47,9 @@ describe("斜杠命令的候选", () => {
   });
 });
 
-// 310 号票：按"二狗的命令 / 工具包里的 skill / 运行时的命令"分组；组内照过滤的先后，方向键按分好组的先后挪；
+// 按"二狗的命令 / 工具包里的 skill / 运行时的命令"分组；组内照过滤的先后，方向键按分好组的先后挪；
 // 选中插入不带参数提示；还有在翻的说明时界面隔一会儿再取
-describe("斜杠候选分组（310 号票）", () => {
+describe("斜杠候选分组", () => {
   const CLAUDE: SlashCommandEntry[] = [
     { kind: "command", text: "/workflow", name: "workflow", description: "发起一个流程", argumentHint: "<要做的事>" },
     { kind: "skill", text: "/ergo:tdd", name: "tdd", description: "先写测试" },

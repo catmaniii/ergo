@@ -1,6 +1,6 @@
-// 207 号票：199 的矛盾根源、对比模式分不出时出的问题，经 QuestionSink 接到 198 的问题箱（QuestionBook），照 198 的格式
+// 矛盾根源、对比模式分不出时出的问题，经 QuestionSink 接到 198 的问题箱（QuestionBook），照格式
 // （为什么问、区分哪几个、回答各支持哪边、领域和场景、优先级、过期时间），走同一套顺口问、跳过、"别问这个"、回写。
-// 例子都是自己写的（和 199 的测试同一类说法）。
+// 例子都是自己写的（和测试同一类说法）。
 import { afterEach, describe, expect, it } from "vitest";
 import { addDays } from "../../src/domain/time.ts";
 import type { EvidenceDraft } from "../../src/domain/types.ts";
@@ -50,8 +50,8 @@ function questionsOfGroup(engine: MemoryEngine, groupKey: string, status?: Quest
   return engine.listQuestions(status ? { status } : {}).filter((q) => q.probeId !== null && probes.has(q.probeId));
 }
 
-describe("199 的问题接到 198 的问题箱", () => {
-  it("默认接上：reflect 里矛盾根源分不出 → 问题箱里就有，照 198 的格式（为什么问、区分哪几个、回答各支持哪边、领域和场景、优先级、过期时间）", async () => {
+describe("问题接到 198 的问题箱", () => {
+  it("默认接上：reflect 里矛盾根源分不出 → 问题箱里就有，照格式（为什么问、区分哪几个、回答各支持哪边、领域和场景、优先级、过期时间）", async () => {
     const { engine } = await reflected(JOB);
     const key = groupOf(engine, "conflict_root|say_do|");
     const members = new Set(engine.rg.registry.members(key).map((m) => m.claimId));
@@ -119,7 +119,7 @@ describe("199 的问题接到 198 的问题箱", () => {
     expect(rec).toMatchObject({ verdict: "yes", clear: true, applied: "now" });
     expect(engine.store.getClaim(gap)).toMatchObject({ status: "active", epistemic: "user_confirmed" });
     await engine.reflect();
-    // 写回：说的和做的两边都标 gap（ref 是这条根源）；330 号票（R14）发现矛盾时记的那一笔（ref 是矛盾本身）也还在
+    // 写回：说的和做的两边都标 gap（ref 是这条根源）；ADR-0032 R14发现矛盾时记的那一笔（ref 是矛盾本身）也还在
     const stated = engine.store.factsByEvidence("ev-j1").find((f) => f.predicate === "works_on")!;
     expect(engine.factMarks(stated.id).map((m) => m.kind)).toEqual(["gap", "gap"]);
     expect(engine.factMarks(stated.id).map((m) => m.ref)).toContain(gap);

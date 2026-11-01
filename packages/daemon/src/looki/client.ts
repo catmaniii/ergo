@@ -1,6 +1,6 @@
-// Looki 官方开放接口的客户端（296 号票，调研 38 的 1.3 节）：只读、全部 GET，请求头 X-API-Key；中国区 open.looki.tech、海外 open.looki.ai
+// Looki 官方开放接口的客户端（调研 38 的 1.3 节）：只读、全部 GET，请求头 X-API-Key；中国区 open.looki.tech、海外 open.looki.ai
 // 各一套地址（用户在设置里选区域，地址写死在这里，不让填别的——Key 只发给这两个地址，官方 Skill 的要求）。
-// 测试连接直接拿 Key 调所选区域的 /me 一步判断（主会话 2026-10-25 定：不先去 open.looki.ai 做不带 Key 的地址检查——地址本来写死，
+// 测试连接直接拿 Key 调所选区域的 /me 一步判断（不先去 open.looki.ai 做不带 Key 的地址检查——地址本来写死，
 // 中国区也不必依赖海外那台）。
 // - 出错分几种（LookiError.failure）：Key 不认（401/403）、限速（429，每个 Key 每分钟 60 次，超了等 60 秒，Retry-After 给了按它）、
 //   连不上（网络、超时）、那边出错（5xx）、回的不对（别的 4xx、不是 JSON、包里写着出错）；给人看的原因走 t()。
@@ -136,7 +136,7 @@ export interface LookiPage {
 }
 
 /**
- * 一页（307 号票：时刻的文件、vlog）：列表照 listOf 找；下一页的游标认 next_cursor_id / next_cursor / cursor / next（字符串或数字），
+ * 一页（时刻的文件、vlog）：列表照 listOf 找；下一页的游标认 next_cursor_id / next_cursor / cursor / next（字符串或数字），
  * has_more 是 false 的没有下一页。官方文档只写了参数叫 cursor_id、没写回包，等真机核对
  */
 export function pageOf(value: unknown): LookiPage {
@@ -159,9 +159,9 @@ export interface LookiClient {
   search(query: string, range?: { start?: string; end?: string }): Promise<unknown[]>;
   /** 按天分组的日记：从 cursorDate 往前 maxDays 天（≤31），新的在前 */
   journals(cursorDate: string, maxDays: number): Promise<unknown[]>;
-  /** 一个时刻里的照片、视频、录音文件（307 号票：存一份到本地），一页最多 100 个；文件带 1 小时失效的下载链接 */
+  /** 一个时刻里的照片、视频、录音文件（存一份到本地），一页最多 100 个；文件带 1 小时失效的下载链接 */
   files(momentId: string, cursor?: string): Promise<LookiPage>;
-  /** AI 生成的每日 vlog（307 号票）：录制日期在 from–to 之间的（参数名官方文档没写全，回来的再按日期筛一遍） */
+  /** AI 生成的每日 vlog：录制日期在 from–to 之间的（参数名官方文档没写全，回来的再按日期筛一遍） */
   vlogs(range: { from: string; to: string }, cursor?: string): Promise<LookiPage>;
 }
 

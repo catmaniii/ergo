@@ -1,4 +1,4 @@
-// 主切面（可注入时钟）：无进展的催促、授权项的有效期和续期（规格第 8 节"阈值"、第 9 节"授权项"，14 号票）。
+// 主切面（可注入时钟）：无进展的催促、授权项的有效期和续期（规格第 8 节"阈值"、第 9 节"授权项"）。
 // - 负责人活着、任务在执行中、有阶段在做，20 分钟内没有成功的工具调用、也没有阶段推进：催一次（负责人正在干活时以插话送达）；
 //   中间有了成功的工具调用或阶段推进，从那一刻重新计时，催促计数清零；同一次停滞里催满 3 次仍无进展，这一支停下、
 //   任务转等我（卡住求助）；负责人的子进程不在运行（闲置退出了）不算停滞，不催；
@@ -205,7 +205,7 @@ describe("无进展：阶段推进、负责人不在运行", () => {
 const tasksNudges = (td: Awaited<ReturnType<typeof startTestDaemon>>, taskId: string) => [td.daemon.tasks.get(taskId)?.stages?.list?.[0]?.nudges ?? 0];
 
 describe("授权项的有效期", () => {
-  it("“有风险的事先问我”关着：续期事项上不说会再问你（378 号票）", async () => {
+  it("“有风险的事先问我”关着：续期事项上不说会再问你", async () => {
     const t0 = new Date(2026, 9, 8, 9, 0).getTime();
     const clock = new ManualClock(t0);
     const outside = real(makeTempDir("ergo-out-"));

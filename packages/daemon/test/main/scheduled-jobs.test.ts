@@ -1,10 +1,10 @@
-// 主切面：定时触发的任务的每次运行与错过补发（规格第 8、13、17 节；19 号票的定时作业，76 号票起并进定时触发的任务，ADR 0025）。
+// 主切面：定时触发的任务的每次运行与错过补发（规格第 8、13、17 节；定时作业，并进定时触发的任务，ADR 0025）。
 // 真的守护进程，秘书、负责人接 faux 剧本，调度器的时钟换成手动拨的（ManualClock），测试扮演前端。
 // （发起、排队合并、接着同一段会话、流程逐步核对、迁移见 triggers.test.ts）
 // - 登记：发起对话框里选"定时"建出就登记它的触发（触发底座的一条 scheduled_job），看板的"运营中"一组出现这个任务；
 // - 到点：属于项目的作为一张来源为"定时触发"的工单交给项目负责人，不属于项目的由任务自己的 agent 执行；
 //   每次运行真正开始时占一个全局执行名额（在项目队列里排着不占），满了排队；每次运行留一条运行记录；用量记在任务名下；
-// - 迁移来的定时作业的授权：授权内的对外发送不问，超出的先问（等不到批准被拦下，别的做完了这次记部分完成，176 号票），用户的限制编出的规则禁止的被拦；
+// - 迁移来的定时作业的授权：授权内的对外发送不问，超出的先问（等不到批准被拦下，别的做完了这次记部分完成），用户的限制编出的规则禁止的被拦；
 // - 失败：标"最近一次失败"，连续失败 3 次自动暂停、待我处理里一条"已自动暂停"；
 // - 用户在看板上暂停（排着的运行一并丢掉）、恢复；项目停用、归档时暂停，重新启用、取消归档时恢复；
 // - 守护进程停着期间错过的：只补跑一次，补完再重启不再补；停机打断的那次记为中断，不算进连续失败；
@@ -248,7 +248,7 @@ const toolCallsOf = (frontend: TestFrontend, channel: string): ToolCallRecord[] 
 };
 
 describe("迁移来的定时作业的授权", () => {
-  it("76 号票之前随计划卡确认的定时作业（每次运行的授权、用户的限制编出的规则）迁移后照旧：授权内的对外发送不问，限制编出的规则禁止的被拦，超出的先问、等不到批准被拦下，这一轮做完了记部分完成；暂停即收回授权", async () => {
+  it("以前随计划卡确认的定时作业（每次运行的授权、用户的限制编出的规则）迁移后照旧：授权内的对外发送不问，限制编出的规则禁止的被拦，超出的先问、等不到批准被拦下，这一轮做完了记部分完成；暂停即收回授权", async () => {
     const hook = await startHook();
     try {
       const daily = hook.url("/daily");
@@ -262,7 +262,7 @@ describe("迁移来的定时作业的授权", () => {
         if (id === "jm-1") return n === 1 ? [curl(daily), curl(secret), curl(other), say("发完了")] : [say("好")];
         return n === 1 ? [submitPlanStep(plan), say("计划交上去了")] : [say("好"), say("好")];
       };
-      // 76 号票之前：一个任务的计划确认了（工具包开着 bash、联网），作业随它登记（作业自己的负责人 jm-1、授权项、限制编出的规则）
+      // 以前：一个任务的计划确认了（工具包开着 bash、联网），作业随它登记（作业自己的负责人 jm-1、授权项、限制编出的规则）
       const first = await startTestDaemon({ clock: new ManualClock(START), reuse: { dataDir: d.dataDir, homeDir: d.homeDir }, maintainer });
       const before = await connect(first);
       const task = first.daemon.tasks.createByRequest({ title: "每天早上发日报", summary: "每天早上发日报" });
@@ -307,7 +307,7 @@ describe("迁移来的定时作业的授权", () => {
       // 超出授权的那一次先问：出审批卡
       const approval = await eventually(() => cardsOf(frontend), (c) => c.type === "approval" && c.status === "pending", "审批卡");
       expect(JSON.stringify(approval.payload)).toContain("/other");
-      // 等不到批准（默认等 5 分钟）：拦下，这一轮接着做完，这次运行记为部分完成（176 号票；不算进连续失败）
+      // 等不到批准（默认等 5 分钟）：拦下，这一轮接着做完，这次运行记为部分完成（不算进连续失败）
       clock.advanceTo(at(10, 8, 9, 6));
       const finished = await jobWhere(frontend, (e) => e.change === "run_finished", "运行结束");
       expect(finished.run).toMatchObject({ runId: "j-1-r1", state: "partial", reason: expect.stringMatching(/^有一步没等到你的批准：「.+」（.*\/other.*）$/) });
@@ -373,7 +373,7 @@ function projectPlan(): Plan {
   };
 }
 
-/** 项目里的一个长程任务（64 号票起只涉及一个项目的任务是这个项目的内部任务）：项目的负责人建好、写好任务书 */
+/** 项目里的一个长程任务（只涉及一个项目的任务是这个项目的内部任务）：项目的负责人建好、写好任务书 */
 async function startProjectTask(td: TestDaemon, frontend: TestFrontend, title: string, project: string): Promise<string> {
   const task = projectTask(td.daemon, project, title, { goal: title, acceptanceCriteria: ["每周都有周报"], constraints: [], memoryScope: "" });
   await eventually(() => tasksOf(frontend), (e) => e.change === "created" && e.task.id === task.id, `任务「${title}」`);
@@ -437,7 +437,7 @@ describe("属于项目的", () => {
     expect(tools).toContain("[tool] write");
     expect(tools).not.toContain("[tool] complete_stage");
     expect(tools).not.toContain("[tool] ask_clarification");
-    // 用量记在任务名下（不是项目、触发登记）：这一段的四次模型调用，加上工单结束时的范围审视（18 号票）
+    // 用量记在任务名下（不是项目、触发登记）：这一段的四次模型调用，加上工单结束时的范围审视
     expect(td.daemon.ledger.totals({ kind: "task", id: taskId })).toMatchObject({
       calls: 5,
       byAgent: [
@@ -684,7 +684,7 @@ describe("暂停和恢复", () => {
     // 恢复后照常到点
     clock.advanceTo(at(10, 10, 9, 0));
     await jobWhere(frontend, (e) => e.change === "run_finished" && e.run?.state === "done", "运行结束");
-    // 日历上的查询（35 号票用）：时间表展开（暂停期间的照样列出）、这段时间里的运行记录
+    // 日历上的查询（用）：时间表展开（暂停期间的照样列出）、这段时间里的运行记录
     const [entry] = td.daemon.scheduledJobs.calendar(at(10, 8, 0), at(10, 11, 0));
     expect(entry!.job).toMatchObject({ id: "j-1", state: "active" });
     expect(entry!.occurrences).toEqual([nowIso(at(10, 8, 9)), nowIso(at(10, 9, 9)), nowIso(at(10, 10, 9))]);
@@ -758,7 +758,7 @@ describe("项目停用、归档和恢复", () => {
     expect(td.daemon.scheduledJobs.ofProject("p-1").map((j) => `${j.id}:${j.state}`)).toEqual(["j-1:active", "j-2:cancelled"]);
   }, 120_000);
 
-  it("建设中的项目放弃（归档）时它运营中的定时触发一样暂停（112 号票起项目可能久停在建设中）；取消归档回到建设中时恢复", async () => {
+  it("建设中的项目放弃（归档）时它运营中的定时触发一样暂停（项目可能久停在建设中）；取消归档回到建设中时恢复", async () => {
     const clock = new ManualClock(START);
     const td = await startTestDaemon({ clock, secretary: [say("好的")], maintainer: () => [say("好")] });
     seedProject(td.daemon, "资讯站", { state: "building", charterConfirmed: true, kind: "other", toolkit: { skills: [], mcp: [], bash: false, network: false } });
@@ -878,7 +878,7 @@ describe("归档清单", () => {
       clock,
       maintainer: (id, n) => {
         if (n === 1) return [submitPlanStep(onePlan()), say("计划交上去了")];
-        // 订机票做不下去；别的宣布完成，交给评审验收（112 号票起长程任务不再由你验收）
+        // 订机票做不下去；别的宣布完成，交给评审验收（长程任务不再由你验收）
         if (id === "tm-3") return [call("fail_task", { reason: "航司页面改版，抓不到价格" }), say("失败了"), say("重试中")];
         return [call("complete_stage", { stageId: "s1", summary: "做完了" }), say("做完了"), say("好，接着改")];
       },

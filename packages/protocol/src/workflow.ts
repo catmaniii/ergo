@@ -1,4 +1,4 @@
-// 流程（58 号票，ADR 0019）的名字和纯函数：不引用 TypeBox（Web 只用这些常量和类型）。schema 在 workflow-schema.ts。
+// 流程（ADR 0019）的名字和纯函数：不引用 TypeBox（Web 只用这些常量和类型）。schema 在 workflow-schema.ts。
 // 固定计划：
 // - 计划是一串步骤（每步一次工具调用：工具和参数，连同前置步骤），连同这份计划要满足的条件（时序规则）；
 // - 计划先过审查修补（planguard 的 reviewer），审查结果的几种状态、修补动作的说法见计划审查面板；
@@ -46,12 +46,12 @@ export const WORKFLOW_REVIEW_STATUS_LABEL: Readonly<Record<WorkflowReviewStatus,
 };
 
 /**
- * 定时触发的流程（76 号票，ADR 0017：授权随计划卡确认）：卡上写明这次授权管多久——用户点授权时就知道它不按 7 天到期，
+ * 定时触发的流程（ADR 0017：授权随计划卡确认）：卡上写明这次授权管多久——用户点授权时就知道它不按 7 天到期，
  * 之后每次运行都照它，直到暂停或取消
  */
 export let TIMED_WORKFLOW_GRANT_TEXT = "";
 
-/** 事件触发的流程（77 号票）：计划卡上写明授权管多久，和步骤里的事件占位怎么用（对话框、守护进程生成的卡片文字共用） */
+/** 事件触发的流程：计划卡上写明授权管多久，和步骤里的事件占位怎么用（对话框、守护进程生成的卡片文字共用） */
 export let EVENT_WORKFLOW_GRANT_TEXT = "";
 export let EVENT_PLACEHOLDER_NOTE = "";
 
@@ -140,7 +140,7 @@ export function workflowConfirmationItems(
   ];
   // 审查说要问，却说不出问什么：不能因此默认放行，给一条兜底的
   if (items.length === 0 && review.status === "needs_confirmation") items.push({ key: "fallback", text: t("protocol.workflow.confirm.fallback") });
-  // 58 号票：真实路径在工作目录之外的步骤（写的是 sub，sub 实际指到别处），授权前逐条勾
+  // 真实路径在工作目录之外的步骤（写的是 sub，sub 实际指到别处），授权前逐条勾
   for (const step of steps) {
     for (const o of step.outside ?? []) {
       items.push({ key: `o:${step.id}:${o.arg}:${o.path}`, text: t("protocol.workflow.confirm.outside", { step: step.id, title: step.title, arg: o.arg, path: o.path, real: o.realPath }) });

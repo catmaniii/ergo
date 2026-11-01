@@ -1,4 +1,4 @@
-// 设置里的"系统提示"（71 号票）：接口的请求体和响应体。占位符的写法和检查在 system-prompts.ts（不引用 TypeBox）。
+// 设置里的"系统提示"：接口的请求体和响应体。占位符的写法和检查在 system-prompts.ts（不引用 TypeBox）。
 //
 // GET /api/system-prompts 列出全部（前缀、各角色、共用片段）和各自用的是默认还是改过的；
 // GET /api/system-prompts/<编号> 取一份：现在用的内容、默认的内容、能用的占位符；

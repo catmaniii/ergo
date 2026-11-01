@@ -38,7 +38,7 @@ describe("本机端口", () => {
     await expect(connectTcp(LAN_ADDRESS!, Number(new URL(url).port))).rejects.toThrow(/ECONNREFUSED|连接超时|EHOSTUNREACH|ENETUNREACH/);
   });
 
-  it("健康探针 /healthz：秘书在运行时健康；插件的状况也在里面（126 号票）", async () => {
+  it("健康探针 /healthz：秘书在运行时健康；插件的状况也在里面", async () => {
     const { url, daemon } = await startTestDaemon();
     await waitUntil(() => daemon.secretary.status === "idle", { timeoutMs: SECRETARY_START_TIMEOUT_MS, describe: () => `秘书现在是 ${daemon.secretary.status}` });
     const res = await get(url, "/healthz");
@@ -47,7 +47,7 @@ describe("本机端口", () => {
     expect(JSON.parse(res.body)).toEqual({ ok: true, status: "ok", secretary: "idle", plugins: { running: ["reminders", "memory", "calendar", "voice", "browsing", "claude-code", "phone", "google", "looki"], disabled: [], skipped: [] }, webUi: true, reasons: [] });
   });
 
-  it("健康探针 /healthz：启用着的插件没装上（缺依赖、装配出错）算降级，status 是 degraded、写明哪个插件为什么，照旧回 200；配置里停用的不算（126 号票）", async () => {
+  it("健康探针 /healthz：启用着的插件没装上（缺依赖、装配出错）算降级，status 是 degraded、写明哪个插件为什么，照旧回 200；配置里停用的不算", async () => {
     const nowhere = serviceKey<unknown>("nowhere");
     const { url, daemon } = await startTestDaemon({
       extraPlugins: [
@@ -84,7 +84,7 @@ describe("本机端口", () => {
     });
   });
 
-  it("健康探针 /healthz：配置里停用了插件不算降级（126 号票）", async () => {
+  it("健康探针 /healthz：配置里停用了插件不算降级", async () => {
     const { url, daemon } = await startTestDaemon({ plugins: [] });
     await waitUntil(() => daemon.secretary.status === "idle", { timeoutMs: SECRETARY_START_TIMEOUT_MS, describe: () => `秘书现在是 ${daemon.secretary.status}` });
     const res = await get(url, "/healthz");
@@ -139,7 +139,7 @@ describe("本机端口", () => {
     expect(page.body.length).toBeGreaterThan(100_000);
     for (const pattern of SECRET_PATTERNS) expect(page.body, `页面里出现了 ${pattern}`).not.toMatch(pattern);
     expect(page.body).not.toContain(key);
-    // 116 号票：构建产物带着版本号，连上时订阅的响应里就是它（开着的页面据此知道服务端的页面更新了）
+    // 构建产物带着版本号，连上时订阅的响应里就是它（开着的页面据此知道服务端的页面更新了）
     const version = webVersionInHtml(page.body);
     expect(version).toMatch(/^[0-9a-f]{16}$/);
     const frontend = await TestFrontend.connect(url);
@@ -148,7 +148,7 @@ describe("本机端口", () => {
     expect(page.body).not.toContain("lsm-token-MARKER");
     const health = (await get(url, "/healthz")).body;
     for (const pattern of SECRET_PATTERNS) expect(health).not.toMatch(pattern);
-    // 视觉风格的字体（39 号票）：构建时拷进了 fonts/，经本机端口取得到，样式表里引用的字体文件也在；
+    // 视觉风格的字体：构建时拷进了 fonts/，经本机端口取得到，样式表里引用的字体文件也在；
     // 外网端口上还没配对的新设备取不到
     const fonts = await get(url, "/fonts/grid.css");
     expect(fonts.status).toBe(200);
@@ -223,7 +223,7 @@ describe("请求帧", () => {
     expect(await frontend.request("send_message", text("没带幂等键"))).toMatchObject({ ok: false, error: { code: "idempotency_key_required" } });
     expect(await frontend.request("send_message", { conversation: "secretary", parts: [] }, "k-empty")).toMatchObject({ ok: false, error: { code: "bad_params" } });
     expect(await frontend.request("send_message", text("   "), "k-blank")).toMatchObject({ ok: false, error: { code: "bad_params" } });
-    // 负责人的会话（13 号票起能发）：没有这个负责人
+    // 负责人的会话（能发）：没有这个负责人
     expect(await frontend.request("send_message", { conversation: "maintainer:p-notes", parts: [{ type: "text", text: "在吗" }] }, "k-m")).toMatchObject({ ok: false, error: { code: "not_found" } });
     expect(await frontend.request("card_action", { cardId: "c1", action: "approve", expectedVersion: 1 }, "k-c")).toMatchObject({ ok: false, error: { code: "not_found" } });
     expect(await frontend.request("inbox_action", { itemIds: ["i1"], action: "read" }, "k-i")).toMatchObject({ ok: false, error: { code: "not_found" } });

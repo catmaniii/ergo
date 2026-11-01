@@ -1,4 +1,4 @@
-// 安卓 App 内置浏览器的模拟器联调（349 号票第 3 阶段）：外部页面碰不到 ergoNative（安全要求的证明）、悬浮按钮、填表、选元素、交文件、
+// 安卓 App 内置浏览器的模拟器联调（第 3 阶段）：外部页面碰不到 ergoNative（安全要求的证明）、悬浮按钮、填表、选元素、交文件、
 // 下载、能渲染的文件、⋮ 菜单。外部网页是本机起的假网站，不联网。只用模拟器，连临时守护进程。
 //   npm run build:android -- --webview-debug
 //   node frontend/android/e2e/browser.ts emulator-5570 [截图目录]

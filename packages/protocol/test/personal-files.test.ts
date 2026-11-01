@@ -1,6 +1,6 @@
-// 个人档案（281 号票）两边共用的规矩：字段叫什么、秘书写的字段名怎么认、哪些算号码、号码怎么逐位分组、值合不合规；接口的路径。
-// 302 号票：内置字段"纪念日"（能有几个、各带名字）。
-// 285 号票：档案里的人分组（家人、重要的人、其他人），没选的按"和我的关系"猜。
+// 个人档案两边共用的规矩：字段叫什么、秘书写的字段名怎么认、哪些算号码、号码怎么逐位分组、值合不合规；接口的路径。
+// 内置字段"纪念日"（能有几个、各带名字）。
+// 档案里的人分组（家人、重要的人、其他人），没选的按"和我的关系"猜。
 // 示例号码都是编的。
 import { describe, expect, it } from "vitest";
 import {
@@ -55,7 +55,7 @@ describe("字段", () => {
   });
 });
 
-describe("内置字段纪念日（302 号票）", () => {
+describe("内置字段纪念日", () => {
   it("283 时建了同名的自定义字段、还没有这个纪念日的：接着写那个自定义字段，不另起一个；两个都有的写纪念日", () => {
     expect(personalFieldOf("self", "结婚纪念日", ["birthday", "custom:结婚纪念日"])).toBe("custom:结婚纪念日");
     expect(personalFieldOf("self", "anniversary:结婚纪念日", ["custom:结婚纪念日"])).toBe("custom:结婚纪念日");
@@ -137,14 +137,14 @@ describe("接口的路径", () => {
     expect(parseHttpPath(HTTP_PATHS.personalFiles)).toEqual({ route: "personal_files" });
     expect(parseHttpPath(HTTP_PATHS.personalFile("p-1"))).toEqual({ route: "personal_file", personId: "p-1" });
     expect(parseHttpPath(HTTP_PATHS.personalFileDelete("me"))).toEqual({ route: "personal_file_delete", personId: "me" });
-    // 283 号票：二狗了解到的
+    // 二狗了解到的
     expect(HTTP_PATHS.personalFileLearned("p-1")).toBe("/api/personal-files/p-1/learned");
     expect(parseHttpPath(HTTP_PATHS.personalFileLearned("p-1"))).toEqual({ route: "personal_file_learned", personId: "p-1" });
     expect(parseHttpPath("/api/personal-files/me/other")).toBeUndefined();
   });
 });
 
-// 283 号票：生日、纪念日的每年提醒；不进整理提示的字段
+// 生日、纪念日的每年提醒；不进整理提示的字段
 describe("每年的日子", () => {
   it("生日和名字里带生日、纪念日的自定义字段算；别的不算", () => {
     expect(isAnnualField("birthday")).toBe(true);
@@ -188,7 +188,7 @@ describe("每年的日子", () => {
   });
 });
 
-describe("档案里的人分组（285 号票）", () => {
+describe("档案里的人分组", () => {
   it("三组：家人、重要的人、其他人（本人那份不分组，列表上单独一组\"我\"）", () => {
     expect(PERSON_GROUPS).toEqual(["family", "important", "others"]);
   });

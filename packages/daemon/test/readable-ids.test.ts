@@ -1,5 +1,5 @@
-// 159 号票：守护进程拼给用户看的句子（时间线记录、会话里的说明、越界通知、卡片的处理结果）里，工单、任务、负责人
-// 带上名字；163 号票统一写成仓库里原来的"编号「简短描述」"（"wo-3「加一个导出说明」"、"t-5「建设「记账本」首版」"、
+// 守护进程拼给用户看的句子（时间线记录、会话里的说明、越界通知、卡片的处理结果）里，工单、任务、负责人
+// 带上名字；统一写成仓库里原来的"编号「简短描述」"（"wo-3「加一个导出说明」"、"t-5「建设「记账本」首版」"、
 // "pm-1「记账本的项目负责人」"），句式回到加名字之前的样子；给 agent 看的照旧只写编号。
 import type { MaintainerSegment, Project, ScopeRecord, Task, TaskMaintainerWorkOrder, WorkOrder } from "@ergo/protocol";
 import { describe, expect, test } from "vitest";

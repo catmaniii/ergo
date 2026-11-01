@@ -1,7 +1,7 @@
-// 联网搜索、读网页两个工具（70 号票）：给模型看的文字、参数的校验、出错时的说法。联网经假的实现，不起浏览器、不联网。
-// 154 号票：engine 多了 deepseek、browser、tavily；DeepSeek 的结果写长摘要、站点、日期和"优质""权威"的提示，json 给原样的字段；
+// 联网搜索、读网页两个工具：给模型看的文字、参数的校验、出错时的说法。联网经假的实现，不起浏览器、不联网。
+// engine 多了 deepseek、browser、tavily；DeepSeek 的结果写长摘要、站点、日期和"优质""权威"的提示，json 给原样的字段；
 // 换了路的写一句说明；DeepSeek 成了的调用（计费的）交给 onBilled 记账，记在发起调用的 agent 名下。
-// 162 号票：工具说明、能写的 engine 跟着设置里的队列（停用了的、没 key 的不写，Tavily 配了 key 才写）；agent-browser 在队列里的位置写进
+// 工具说明、能写的 engine 跟着设置里的队列（停用了的、没 key 的不写，Tavily 配了 key 才写）；agent-browser 在队列里的位置写进
 // 说明（排第一先用它、排中间/最后什么时候用、停用了别拿它搜、只启用了它时别调 web_search；别用管道接它的输出）；结果的标题行写明用了哪种；
 // 只用 agent-browser、指定的方式停用了、试到 agent-browser 为止、读网页都没读到时的说法。
 import type { WebMethod } from "@ergo/protocol";
@@ -223,7 +223,7 @@ const searchWith = (err: Error) => byName(webTools(thrower(err), { setup: { queu
 const found = (engine: "ddg" | "tavily") => fakeWebAccess({ search: () => ({ engine, results: [{ title: "一", url: "https://a.example/1", snippet: "摘要" }] }) });
 const searchKeys = (tools: ReturnType<typeof webTools>) => Object.keys((byName(tools, TOOL.web_search).spec.parameters as { properties: object }).properties);
 
-describe("工具说明、能写的 engine 跟着设置里的队列（162 号票）", () => {
+describe("工具说明、能写的 engine 跟着设置里的队列", () => {
   it("初始顺序：写明顺序，各种方式都写；agent-browser 排最后、都没搜成时用它，别用管道接它的输出", () => {
     const text = webSearchDescription({ queue: ALL, tavily: false }, true);
     expect(text).toContain("用户在设置里排的联网搜索顺序：DeepSeek → 浏览器 → agent-browser，排前面的先用。不填 engine 时按这个顺序试，没搜成自动换下一个，结果里写明用了哪种、前面的为什么没成。");
@@ -333,7 +333,7 @@ const FOUR: WebMethod[] = ["deepseek", "browser", "agent-browser", "app-browser"
 const secretarySearch = (access: ReturnType<typeof fakeWebAccess>, queue: WebMethod[], sideTurn: false | "bing" | "baidu" = "bing") =>
   byName(webTools(access, { setup: { queue, tavily: false }, agentBrowser: true, appBrowser: () => (sideTurn ? { engine: sideTurn } : undefined) }), TOOL.web_search);
 
-describe("鸿蒙 App 的内置浏览器（182 号票）", () => {
+describe("鸿蒙 App 的内置浏览器", () => {
   it("说明：只给有 browse_* 工具的（秘书）写它的位置、只在侧边栏和悬浮按钮那一轮算数、那一轮的顺序；没有的不提", () => {
     const text = webSearchDescription({ queue: ["app-browser", "deepseek", "browser", "agent-browser"], tavily: false }, true, true);
     expect(text).toContain("用户在设置里排的联网搜索顺序：鸿蒙 App 的内置浏览器 → DeepSeek → 浏览器 → agent-browser，排前面的先用。");

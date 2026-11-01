@@ -1,8 +1,8 @@
-// 会话回退（150 号票，规格 .scratch/ergo-v2/session-rollback.md）。
-// 秘书主会话先用；任务、项目负责人的会话在 152 号票接上（同一套，入口也一样）。
+// 会话回退。
+// 秘书主会话、任务和项目负责人的会话同一套，入口也一样。
 //
 // - 回退点：会话缩小视图里条左侧的 ↶，一律"回到这一条之前"：用户消息（撤回到这条请求之前）、分支摘要（撤回到这条分支开始前）。
-//   只在当前路径上、这段会话里（最近一次清空、换模型之后，用户定的第 5 条）；系统通知、网页上下的指令、排队一起交出的一批里第一条之后的不是。
+//   只在当前路径上、这段会话里（最近一次清空、换模型之后）；系统通知、网页上下的指令、排队一起交出的一批里第一条之后的不是。
 // - 回退前的确认（preview）："做了的事" = 回退点之后、这个会话里成功执行、有副作用的工具调用（守卫的效果记录，只看的不算），
 //   本机还是对外按效果日志的参数认（effectReach）；"收不回" = 对外的；本机但不可撤的（删除或覆盖、不可逆的提交：这次调用命中的关注类别）
 //   写明原因、不算收不回。
@@ -10,11 +10,10 @@
 //   （摘要要求接在 pi 的提示后面）、会话树切到回退点之前、叶子落盘；挪成了在同一事务里记：
 //   - session_branch：这次之后的会话树（新分支从这条事件起；原来的当前分支记下离开时的末端）；
 //   - 新分支开头一条分支摘要（系统消息，branch_summary part；本身也是回退点）；
-//   - 被放弃的那段里 agent 发起、还没处理的卡作废，写明"用户撤回了会话"（照 84 号票的 expired；用户引用的卡、别处来的卡不动）；
+//   - 被放弃的那段里 agent 发起、还没处理的卡作废，写明"用户撤回了会话"（照 expired；用户引用的卡、别处来的卡不动）；
 //   - 被放弃的那段里还排着没交给 agent 的输入（运行时的通知）带到新分支上（追加一条一样的，原来那条出队）。
-//   之后放开：排队的消息（144 号票）交给新分支。最后调撤销接口（onSessionRollback，默认什么都不做）。
+//   之后放开：排队的消息交给新分支。最后调撤销接口（onSessionRollback，默认什么都不做）。
 // - 同一个幂等键重发拿到第一次的结果；一个会话同时只做一次。
-// 151 号票：
 // - 切换分支（switchBranch）：先停稳正在回复的（和回退同一个 navigateSession），子进程会话树切到那条分支离开时的末端，不写摘要，
 //   叶子落盘；记一条 session_branch（change: switch），原来的当前分支对称地成为废弃分支（记下它离开时的末端）。不作废卡片、不撤销效果；
 //   离开的那条上还排着没交给 agent 的输入照样带到切过去的那条上（同回退）。只能切到这段会话里（清空、换模型之后）分出去、
@@ -23,23 +22,23 @@
 //   最后一次被回退离开时写的分支摘要（之后那条上又多了消息的不算：说的是那时的样子：按叶子对，只被切换离开过的没有）；
 // - 申请撤回（requestEffectUndo）：废弃分支上一件能申请撤回的遗留效果，记一笔 effect_undo_requested、调撤销接口的
 //   onEffectUndoRequest（默认什么都不做）；同一件只记一次。
-// 152 号票：任务、项目负责人的会话也能回退（同一套）——
+// 任务、项目负责人的会话也能回退（同一套）——
 // - 回退点多一种：长程任务一个阶段开始前（stageStart：负责人会话频道上那条 stage_start 记号，stage-starts.ts）。负责人从一条通知知道的，
 //   回到那条通知之前；从"开始阶段"那次调用知道的，回到那条回复之前（beforeCall）；在别的调用里开始的（验收通过接着开始下一个……），
 //   回到那次调用的结果之后（afterCall）；
 // - 会话自己说现在能不能回退（refusal：项目负责人这一段已经结束了、任务取消了……）；
 // - 跟着会话树走的业务状态（follow：长程任务的阶段、计划按保留的分支推导，tasks/execution.ts 的 followSession）：它的事件、作废的卡、
 //   作废出队的输入（不带到新分支）和分支事件同一事务；它交给负责人接着做的那句记在分支摘要上（界面上不重复显示）。
-//   切换分支（151 号票的 switchBranch）同样先问 refusal、同一事务调 follow（change: switch，按切过去的那条分支推导，不作废卡片；
+//   切换分支（switchBranch）同样先问 refusal、同一事务调 follow（change: switch，按切过去的那条分支推导，不作废卡片；
 //   离开那条上排着的这个任务的旧通知作废出队、不带过去）。
-// 153 号票：流程的会话也有"撤回到步骤「…」开始前"——
+// 流程的会话也有"撤回到步骤「…」开始前"——
 // - 回退点：同一条 stage_start 记号带 stepId（负责人调 report_step(status="in_progress") 时记的），回到含这次调用的那条回复之前（beforeCall）；
 //   任务状态取看板上这次汇报（step_reported）之前的；
 // - 这段会话从哪开始多一种：定时、事件触发的任务一次运行的分段线（rollbackSegmentStart：一次运行就是一段会话，只在这一次运行里回退）；
 // - 流程的步骤、计划核对按保留的分支推导在 follow（tasks/execution.ts 的 followSession）和守卫的计划核对（guard-runtime/plan-check.ts）里。
-// 155 号票：撤回、切换期间记着这个会话在做哪一种（navigating）——定时、事件触发的任务运行中被中止的那一轮，触发底座据此把这次运行
+// 撤回、切换期间记着这个会话在做哪一种（navigating）——定时、事件触发的任务运行中被中止的那一轮，触发底座据此把这次运行
 // 记"已撤回"（不算失败）；流程撤回之后停住等你、一分钟没说话提醒一次在 tasks/rollback-wait.ts。
-// 293 号票（Claude Code 的负责人）：同一套。运行时不自己写分支摘要的（能力清单 branch_summary 是 false），agent 的会话按被放弃的那段（这里交给它
+// Claude Code 的负责人：同一套。运行时不自己写分支摘要的（能力清单 branch_summary 是 false），agent 的会话按被放弃的那段（这里交给它
 // 现算的 abandoned）里二狗自己记下的事件另起一次写；运行时把它改过的文件恢复到撤回点的（能力清单 rewind_files），恢复了哪些记在分支摘要上（files）。
 import { randomUUID } from "node:crypto";
 import {
@@ -98,27 +97,27 @@ import { inputOf, pendingInputs } from "./views.ts";
 
 /**
  * 流程推进自己的工具（提交计划、汇报步骤）：只改二狗自己记的计划、步骤状态，
- * 不算这一段在真实世界里做了的事（153 号票）
+ * 不算这一段在真实世界里做了的事
  */
 const PLANNING_TOOLS: ReadonlySet<string> = new Set([WORKFLOW_TOOL.proposePlan, WORKFLOW_TOOL.reportStep]);
 
 /** 关注类别给人看的名字（工具调用记录上记的是名字，categoryTitles） */
 const titleOf = (id: "external_send" | "delete_or_overwrite" | "irreversible_commit") => builtinCategory(id).title;
 /**
- * 这次调用命中了这个内置类别没有（173 号票）：记了类别 id 的按 id 认；之前的记录只有名字（那时都是中文），按中文的名字认
+ * 这次调用命中了这个内置类别没有：记了类别 id 的按 id 认；之前的记录只有名字（那时都是中文），按中文的名字认
  */
 const hasCategory = (part: { categoryTitles: readonly string[]; categories?: readonly string[] | undefined }, id: "external_send" | "delete_or_overwrite" | "irreversible_commit") =>
   part.categories ? part.categories.includes(id) : part.categoryTitles.includes(inModelLanguage(() => titleOf(id)));
 
-/** 一个能回退的会话的 agent（秘书；152 号票起任务、项目负责人）：在会话树上挪、判定副作用要的工具注册表 */
+/** 一个能回退的会话的 agent（秘书；任务、项目负责人）：在会话树上挪、判定副作用要的工具注册表 */
 export interface RollbackSession {
   agentId: string;
   navigate(request: SessionNavigation, commit: (navigated: SessionNavigated) => void): Promise<SessionNavigated>;
   effectTools(): ToolRegistry;
-  /** 现在不能回退的原因（152 号票：项目负责人这一段会话已经结束了、任务取消了、有子 agent 在做……）；能就是 undefined */
+  /** 现在不能回退的原因（项目负责人这一段会话已经结束了、任务取消了、有子 agent 在做……）；能就是 undefined */
   refusal?(): string | undefined;
   /**
-   * 跟着会话树走的业务状态（152 号票：长程任务的阶段、计划按保留的分支推导）：挪成了、记分支事件时一起算（同一事务）。
+   * 跟着会话树走的业务状态（长程任务的阶段、计划按保留的分支推导）：挪成了、记分支事件时一起算（同一事务）。
    * 这个会话没有跟着走的（秘书、普通任务、项目负责人的对话段……）返回 undefined
    */
   follow?(input: Omit<SessionFollowInput, "taskId">): SessionFollowResult | undefined;
@@ -126,7 +125,7 @@ export interface RollbackSession {
 
 /**
  * 撤销接口：会话回退之后调一次，交给它被放弃的那一段（会话频道上的序号段）和那一段已经做了的事。
- * 真正撤销本机效果、补救对外效果以后接（85 号票），守护进程默认的什么都不做
+ * 真正撤销本机效果、补救对外效果以后接，守护进程默认的什么都不做
  */
 export interface SessionRollbackHook {
   onSessionRollback(event: {
@@ -140,7 +139,7 @@ export interface SessionRollbackHook {
     effects: RollbackEffect[];
   }): Promise<void>;
   /**
-   * 用户在废弃分支的详情里对一件遗留效果点了「申请撤回」（151 号票）：交给它这一件。真正的撤销以后接（85 号票），默认什么都不做
+   * 用户在废弃分支的详情里对一件遗留效果点了「申请撤回」：交给它这一件。真正的撤销以后接，默认什么都不做
    */
   onEffectUndoRequest?(event: { conversation: ConversationId; branchId: string; effect: RollbackEffect }): Promise<void>;
 }
@@ -159,14 +158,14 @@ export interface SessionRollbacks {
   preview(conversation: ConversationId, before: RollbackTarget, session: RollbackSession): RollbackPreview;
   /** 回退：停稳 agent、写分支摘要、会话树长出新分支、记进事件日志；做完才兑现，没做成抛出原因（会话没动） */
   rollback(conversation: ConversationId, before: RollbackTarget, session: RollbackSession, idempotencyKey: string): Promise<RollbackSessionResult>;
-  /** 切换到一条废弃分支（151 号票）：停稳 agent、会话树切到它的末端、记进事件日志；做完才兑现，没做成抛出原因（会话没动） */
+  /** 切换到一条废弃分支：停稳 agent、会话树切到它的末端、记进事件日志；做完才兑现，没做成抛出原因（会话没动） */
   switchBranch(conversation: ConversationId, branchId: string, session: RollbackSession, idempotencyKey: string): Promise<SwitchBranchResult>;
-  /** 一条分支的样子（151 号票）：它路径上不在 against（不给是当前分支）路径上的那一段 */
+  /** 一条分支的样子：它路径上不在 against（不给是当前分支）路径上的那一段 */
   branchView(conversation: ConversationId, branchId: string, against: string | undefined, session: RollbackSession): BranchView;
-  /** 申请撤回废弃分支上的一件遗留效果（151 号票）：记一笔、调撤销接口；同一件再申请拿到第一次的时间 */
+  /** 申请撤回废弃分支上的一件遗留效果：记一笔、调撤销接口；同一件再申请拿到第一次的时间 */
   requestEffectUndo(conversation: ConversationId, branchId: string, callId: string, session: RollbackSession): Promise<RequestEffectUndoResult>;
   /**
-   * 这个会话此刻是不是正在撤回、切换分支（155 号票）：停稳期间被中止的那一轮是用户撤回、切换引起的——定时、事件触发的任务这次运行
+   * 这个会话此刻是不是正在撤回、切换分支：停稳期间被中止的那一轮是用户撤回、切换引起的——定时、事件触发的任务这次运行
    * 记"已撤回"、不算失败（触发底座在这一轮结束时问）。不是的是 undefined
    */
   navigating(conversation: ConversationId): "rollback" | "switch" | undefined;
@@ -177,13 +176,13 @@ interface RollbackPlan {
   cut: number;
   target: SessionNavigation["target"];
   fork: { parent: string; cutoff: number };
-  /** 撤回到长程任务一个阶段开始前（152 号票）：那个阶段、阶段开始那一刻（看板上那条 stage_started 的全局序号：任务状态取它之前的） */
+  /** 撤回到长程任务一个阶段开始前：那个阶段、阶段开始那一刻（看板上那条 stage_started 的全局序号：任务状态取它之前的） */
   stage?: { stageId: string; title: string; startedAt: number };
-  /** 撤回到流程一个步骤开始前（153 号票）：那一步、开始那一刻（看板上那条 step_reported 的全局序号：任务状态取它之前的） */
+  /** 撤回到流程一个步骤开始前：那一步、开始那一刻（看板上那条 step_reported 的全局序号：任务状态取它之前的） */
   step?: { stepId: string; title: string; startedAt: number };
 }
 
-/** 一条通知和它开始处理之间，这一条说明负责人手上在忙别的：agent 说的话、工具调用记录，别的输入的回合（152 号票） */
+/** 一条通知和它开始处理之间，这一条说明负责人手上在忙别的：agent 说的话、工具调用记录，别的输入的回合 */
 function busyBetween(event: StoredEvent): boolean {
   if (event.type === EVENT_TYPES.turnStart || event.type === EVENT_TYPES.turnEnd) return true;
   if (event.type !== EVENT_TYPES.message || isDeletedEventPayload(event.payload)) return false;
@@ -202,7 +201,7 @@ const onlyThisSegment = () => t("conversation.rollback.onlyThisSegment");
 export function createSessionRollbacks(options: SessionRollbackOptions): SessionRollbacks {
   const { store, cards, log } = options;
   const hook = options.hook ?? NOOP_ROLLBACK_HOOK;
-  /** 正在回退、切换的会话（155 号票起记着是哪一种：触发底座问"这一轮是不是撤回中止的"） */
+  /** 正在回退、切换的会话（记着是哪一种：触发底座问"这一轮是不是撤回中止的"） */
   const busy = new Map<string, "rollback" | "switch">();
 
   /** 一条消息在会话频道上的事件（不在这个会话里、被彻底删除了的没有） */
@@ -213,7 +212,7 @@ export function createSessionRollbacks(options: SessionRollbackOptions): Session
     return event && !isDeletedEventPayload(event.payload) ? event : undefined;
   };
 
-  /** 回退点不在这段会话里时的说法（152 号票起项目负责人的是当前这一段；153 号票起定时、事件触发的是这一次运行） */
+  /** 回退点不在这段会话里时的说法（项目负责人的是当前这一段；定时、事件触发的是这一次运行） */
   /** 当前路径上这段会话从哪开始（最近一条"agent 新开一段会话"的消息、一次运行的分段线的序号；没有是 0） */
   const segmentStart = (conversation: ConversationId): number => {
     let before = Number.MAX_SAFE_INTEGER;
@@ -242,7 +241,7 @@ export function createSessionRollbacks(options: SessionRollbackOptions): Session
       const payload = event.payload as MessageEventPayload;
       const { message } = payload;
       if (message.speaker !== "user" || message.pageCommand !== undefined) throw new RequestRejected("not_allowed", t("conversation.rollback.onlyYours"));
-      // 293 号票：接管时导进来的前情（290 号票）不是交给 agent 的输入，运行时那边没有它的记录
+      // 接管时导进来的前情不是交给 agent 的输入，运行时那边没有它的记录
       if (message.prelude === true) throw new RequestRejected("not_allowed", t("conversation.rollback.prelude"));
       if (!inRanges(ranges, event.seq)) throw new RequestRejected("not_allowed", t("conversation.rollback.messageOffPath"));
       if (event.seq <= start) throw new RequestRejected("not_allowed", onlyThisSegment());
@@ -262,7 +261,7 @@ export function createSessionRollbacks(options: SessionRollbackOptions): Session
   };
 
   /**
-   * 撤回到长程任务一个阶段开始前（152 号票）：按那条 stage_start 记号写的负责人是怎么知道的——
+   * 撤回到长程任务一个阶段开始前：按那条 stage_start 记号写的负责人是怎么知道的——
    * - 一条通知：回到这条通知之前（它要已经交给负责人了，而且交过去的时候负责人手上没在忙别的：会话频道上这条通知和它开始处理之间
    *   没有别的输入的回合、agent 的话，不然两边对不上）；交来时负责人正说着手头这一轮收尾的话的，见 closingTarget；
    * - "开始阶段"那次调用（负责人自己换去做这个阶段，撤回点在认领之前）：回到这条回复之前——会话频道上截在这条回复说的话
@@ -276,7 +275,7 @@ export function createSessionRollbacks(options: SessionRollbackOptions): Session
     const mark = markEvent.payload as StageStartEventPayload;
     if (!inRanges(ranges, markEvent.seq)) throw new RequestRejected("not_allowed", t(mark.stepId === undefined ? "conversation.rollback.stageOffPath" : "conversation.rollback.stepOffPath"));
     if (markEvent.seq <= start) throw new RequestRejected("not_allowed", onlyThisSegment());
-    // 开始那一刻：长程任务是看板上这个阶段这次开始（stage_started），流程的步骤是这次汇报开始（step_reported，153 号票）；都和记号同一批、在它前面
+    // 开始那一刻：长程任务是看板上这个阶段这次开始（stage_started），流程的步骤是这次汇报开始（step_reported）；都和记号同一批、在它前面
     const startedEvent = store
       .read(CHANNELS.board, 0, EVENT_TYPES.task)
       .findLast((e) => {
@@ -426,7 +425,7 @@ export function createSessionRollbacks(options: SessionRollbackOptions): Session
     // 停稳期间追加的（说到一半的回复、turn_end）都落在被放弃的那段里：按现在的样子重新算
     const tree = branchTreeOf(store.reader, conversation);
     const abandoned = rangesFrom(pathRanges(tree), rollback.cut);
-    // 跟着会话树走的业务状态（152 号票：长程任务按保留的分支推导）：只看被放弃的那段之前（全局序号）；撤回到阶段开始前的取那次开始之前
+    // 跟着会话树走的业务状态（长程任务按保留的分支推导）：只看被放弃的那段之前（全局序号）；撤回到阶段开始前的取那次开始之前
     const first = abandoned[0] === undefined ? undefined : store.eventAt(conversation, abandoned[0].from);
     const boundary = Math.min(first?.globalSeq ?? Number.POSITIVE_INFINITY, rollback.stage?.startedAt ?? rollback.step?.startedAt ?? Number.POSITIVE_INFINITY);
     const followed = session.follow?.({
@@ -454,7 +453,7 @@ export function createSessionRollbacks(options: SessionRollbackOptions): Session
           branchId,
           summary: text,
           ...(followed?.notice === undefined ? {} : { notice: followed.notice }),
-          // 293 号票：运行时把它改过的文件恢复到撤回点没有（Claude Code 的文件检查点）
+          // 运行时把它改过的文件恢复到撤回点没有（Claude Code 的文件检查点）
           ...(navigated.files === undefined ? {} : { files: navigated.files }),
         },
       ],
@@ -469,7 +468,7 @@ export function createSessionRollbacks(options: SessionRollbackOptions): Session
     const carried: { from: string; to: string }[] = [];
     const carriedEvents: NewEvent[] = [];
     for (const input of pendingInputs(store.reader, conversation)) {
-      // 跟着走的业务状态作废出队的（152 号票：长程任务被放弃的那段里排着的运行时通知）不带过去
+      // 跟着走的业务状态作废出队的（长程任务被放弃的那段里排着的运行时通知）不带过去
       if (followed?.voidedInputs.has(input.messageId)) continue;
       const event = store.readGlobal(input.globalSeq - 1, 1)[0];
       if (!event || !inRanges(abandoned, event.seq) || isDeletedEventPayload(event.payload)) continue;
@@ -491,7 +490,7 @@ export function createSessionRollbacks(options: SessionRollbackOptions): Session
       by: "user",
       time,
     };
-    // 任务会话里（152 号票）：摘要归到这个任务、跟着走完之后在做的阶段（放进重新开始的那个阶段框）
+    // 任务会话里：摘要归到这个任务、跟着走完之后在做的阶段（放进重新开始的那个阶段框）
     const summaryPayload: MessageEventPayload = { message: summary, ...followed?.scope };
     return {
       events: [
@@ -564,7 +563,7 @@ export function createSessionRollbacks(options: SessionRollbackOptions): Session
     const carried: { from: string; to: string }[] = [];
     const events: NewEvent[] = [];
     for (const input of pendingInputs(store.reader, conversation)) {
-      // 跟着走的业务状态作废出队的（152 号票：任务回到切过去那条分支上的进度，离开那条上排着的这个任务的旧通知）不带过去
+      // 跟着走的业务状态作废出队的（任务回到切过去那条分支上的进度，离开那条上排着的这个任务的旧通知）不带过去
       if (skip.has(input.messageId)) continue;
       const event = store.readGlobal(input.globalSeq - 1, 1)[0];
       if (!event || !inRanges(left, event.seq) || isDeletedEventPayload(event.payload)) continue;
@@ -602,7 +601,7 @@ export function createSessionRollbacks(options: SessionRollbackOptions): Session
         const effects = effectsIn(conversation, rangesFrom(pathRanges(tree), rollback.cut), session);
         const branchId = nextBranchId(tree);
         let committed: ReturnType<typeof commitEvents> | undefined;
-        // 被放弃的那段按停稳之后的样子现算（293 号票：运行时不自己写分支摘要的，二狗按这一段里自己记下的事件写）
+        // 被放弃的那段按停稳之后的样子现算（运行时不自己写分支摘要的，二狗按这一段里自己记下的事件写）
         const abandoned = () => rangesFrom(pathRanges(branchTreeOf(store.reader, conversation)), rollback.cut);
         await session.navigate({ target: rollback.target, summary: { instructions: BRANCH_SUMMARY_INSTRUCTIONS, abandoned }, marker: { branchId, change: "rollback" } }, (navigated) => {
           committed = commitEvents(conversation, before, rollback, branchId, navigated, session, effects);
@@ -641,7 +640,7 @@ export function createSessionRollbacks(options: SessionRollbackOptions): Session
       busy.set(conversation, "switch");
       try {
         const tip = switchTarget(conversation, branchId, branchTreeOf(store.reader, conversation));
-        // 会话自己说现在能不能切（152 号票：项目负责人这一段已经结束了、任务取消了、子 agent 还在跑……）
+        // 会话自己说现在能不能切（项目负责人这一段已经结束了、任务取消了、子 agent 还在跑……）
         const refusal = session.refusal?.();
         if (refusal !== undefined) throw new RequestRejected("not_allowed", refusal);
         let from: string | undefined;
@@ -653,7 +652,7 @@ export function createSessionRollbacks(options: SessionRollbackOptions): Session
           const time = nowIso();
           const next = switchedTree(tree, branchId, at, navigated.from);
           const left = branchOwnRanges(next, tree.current);
-          // 跟着会话树走的业务状态（152 号票：长程任务的阶段、计划按切过去的那条分支推导）：同一事务；不作废卡片
+          // 跟着会话树走的业务状态（长程任务的阶段、计划按切过去的那条分支推导）：同一事务；不作废卡片
           const followed = session.follow?.({ conversation, change: "switch", tree: next, abandoned: left, external: [] });
           const { carried, events } = carryInputs(conversation, left, at, time, followed?.voidedInputs);
           const payload: SessionBranchEventPayload = { change: "switch", branches: next, from: tree.current, to: branchId, ...(carried.length > 0 ? { carried } : {}), by: "user", time };

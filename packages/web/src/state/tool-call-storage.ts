@@ -1,4 +1,4 @@
-// 设置里的"工具调用的完整内容"（65 号票）：守护进程另存的每次调用的完整参数和返回占了多大、留多久、总量上限，
+// 设置里的"工具调用的完整内容"：守护进程另存的每次调用的完整参数和返回占了多大、留多久、总量上限，
 // "现在就清理"会清掉多少、清完怎么说。纯函数，界面（pages/more/ToolCallStorageSetting.tsx）只管画；能不能点看 canClean。
 import { t, type ToolCallCleanupResult, type ToolCallStorageView } from "./protocol.ts";
 import { sizeLabel } from "./detail-content.ts";

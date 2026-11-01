@@ -1,10 +1,10 @@
 // 内部作业（规格第 13 节）：守护进程自己按时间表做的事——每晚备份、每周校验最新快照、每天清理临时区，
-// 以后还有归档清单（19）、回避信号计时（08）、授权到期提醒（14）。挂在调度器上，不用 Windows 计划任务。
+// 以后还有归档清单、回避信号计时、授权到期提醒。挂在调度器上，不用 Windows 计划任务。
 //
 // 时间表用简单提醒的那一套时间规则（共享协议包 reminder-schedule.ts 的 ReminderSchedule 和 nextOccurrence），
-// 时间规则只在那一个模块里。"按我的工作日"按当前的个人工作日历算（29 号票）；工作日历改了，rearm 把跟着它变的作业
+// 时间规则只在那一个模块里。"按我的工作日"按当前的个人工作日历算；工作日历改了，rearm 把跟着它变的作业
 // （dependsOnWorkdayCalendar）按新的工作日历重新登记。
-// 297 号票起另有"每隔几分钟"（IntervalSchedule，{ kind: "every", minutes }）：数据源的定期导入（Google 日历每 30 分钟拉一次）用，
+// 另有"每隔几分钟"（IntervalSchedule，{ kind: "every", minutes }）：数据源的定期导入（Google 日历每 30 分钟拉一次）用，
 // 从上一次开始跑的时刻往后数；提醒那套规则里没有它（提醒不会每隔几分钟响），所以只在内部作业这里认。
 //
 // 错过的开机后补一次：每个作业上一次开始跑的时间记在事件日志里（内部频道 internal 上的 internal_job 事件，不推给前端），
@@ -12,7 +12,7 @@
 // 停机期间错过好几次也只补一次（跑完之后的下一次从跑完的那一刻往后算）；补完再重启不会再补。
 // 第一次见到某个作业时只记下"从现在起算"，不马上跑（新的数据目录不会一启动就备份）。
 //
-// 356 号票：设置页上改了备份的时刻、谁来定时，要不重启换时间表：撤掉旧的、再 register（fromNow），从现在往后算下一次，不因为新的时刻已经过了点就马上补跑。
+// 设置页上改了备份的时刻、谁来定时，要不重启换时间表：撤掉旧的、再 register（fromNow），从现在往后算下一次，不因为新的时刻已经过了点就马上补跑。
 //
 // 作业的 run 是异步的。跑完（成功或失败都算跑过；失败由作业自己报告）记一次，再登记下一次。
 // 守护进程停止时中止信号（AbortSignal）置位，作业因此中止（抛 AbortError）的不算跑过，下次启动照常补。
@@ -35,10 +35,10 @@ export interface InternalJobState {
   lastRunAt?: string;
 }
 
-/** 这次为什么跑：到点了、启动时补错过的、用户点了"立即跑一次"（235 号票，手动整理） */
+/** 这次为什么跑：到点了、启动时补错过的、用户点了"立即跑一次"（手动整理） */
 export type JobTrigger = "scheduled" | "catch_up" | "manual";
 
-/** 每隔几分钟（297 号票）：从上一次开始跑的时刻往后数，错过了开机补一次 */
+/** 每隔几分钟：从上一次开始跑的时刻往后数，错过了开机补一次 */
 export interface IntervalSchedule {
   readonly kind: "every";
   readonly minutes: number;
@@ -53,7 +53,7 @@ export const isInterval = (schedule: JobSchedule): schedule is IntervalSchedule 
 export interface InternalJob {
   /** 作业名（也是调度器里的 key 的一部分），比如 backup */
   name: string;
-  /** 时间表：和简单提醒同一种（每天、每周几……），或者每隔几分钟（297 号票） */
+  /** 时间表：和简单提醒同一种（每天、每周几……），或者每隔几分钟 */
   schedule: JobSchedule;
   /** 跑一次；signal 在守护进程停止时置位，作业要尽快停下（抛 AbortError） */
   run(trigger: JobTrigger, signal: AbortSignal): Promise<unknown>;
@@ -61,14 +61,14 @@ export interface InternalJob {
 
 export interface InternalJobs {
   /**
-   * 登记一个作业：错过了就马上补跑一次，否则登记到下一次。返回撤销函数（126 号票：插件停用时撤掉）：
+   * 登记一个作业：错过了就马上补跑一次，否则登记到下一次。返回撤销函数（插件停用时撤掉）：
    * 取消计时器、不再登记下一次；正在跑的那一次跑完照常记下，之后不再排。
-   * fromNow（356 号票：运行中换时间表）：从现在往后算下一次，不补跑
+   * fromNow（运行中换时间表）：从现在往后算下一次，不补跑
    */
   register(job: InternalJob, options?: { fromNow?: boolean }): () => void;
   state(name: string): InternalJobState | undefined;
   /**
-   * 登记着的作业下一次什么时候跑（335 号票：设置里"备份"写下一次）：正在跑的按"这一次跑完之后"算（从现在往后），
+   * 登记着的作业下一次什么时候跑（设置里"备份"写下一次）：正在跑的按"这一次跑完之后"算（从现在往后），
    * 没登记（撤销了、没登记过）、没有下一次是 undefined
    */
   nextRun(name: string): Date | undefined;
@@ -91,7 +91,7 @@ export interface InternalJobsOptions {
 
 /**
  * 错过了没有：上一次（还没跑过就是开始算的那一刻）之后的下一次，不晚于 now 就是错过了——启动时马上补一次；
- * 错过好几次也只算这一次。没有下一次（一次性的已经过了）是 undefined。纯函数，19 号票的定时作业也直接用它。
+ * 错过好几次也只算这一次。没有下一次（一次性的已经过了）是 undefined。纯函数，定时作业也直接用它。
  */
 export function nextDue(schedule: JobSchedule, last: Date, now: Date, context: ScheduleContext): { at: Date; missed: boolean } | undefined {
   const at = isInterval(schedule) ? new Date(last.getTime() + Math.max(1, schedule.minutes) * 60_000) : nextOccurrence(schedule, last, context);
@@ -191,7 +191,7 @@ export function createInternalJobs(options: InternalJobsOptions): InternalJobs {
       const state = getJobState(store.reader, name);
       const last = busy.has(name) || !state ? now : Date.parse(state.lastRunAt ?? state.since);
       const due = nextDue(job.schedule, new Date(last), new Date(now), options.scheduleContext());
-      // 算出来已经过了点：刚换过时间表（356 号票），真正排着的是从现在往后的那一次
+      // 算出来已经过了点：刚换过时间表，真正排着的是从现在往后的那一次
       return due?.missed ? nextDue(job.schedule, new Date(now), new Date(now), options.scheduleContext())?.at : due?.at;
     },
     async whenIdle() {

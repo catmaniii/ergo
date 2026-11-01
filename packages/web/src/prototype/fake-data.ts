@@ -92,7 +92,7 @@ export const FAKE_BOARD: BoardEntry[] = (
       title: "个税年度汇算材料",
       status: "waiting_for_user",
       waitReason: "over_budget",
-      // 90 号票：真的超预算任务看板卡、状态签浮层上写的原因（守护进程的说法，见 tasks/thresholds.ts）
+      // 真的超预算任务看板卡、状态签浮层上写的原因（守护进程的说法，见 tasks/thresholds.ts）
       waitNote: "用了 452000 token、41 次工具调用（预算 200000 token、30 次），超过预算的 2 倍",
       stage: { current: 2, total: 3 },
       activity: "waiting_for_user",
@@ -103,41 +103,41 @@ export const FAKE_BOARD: BoardEntry[] = (
     { kind: "task", id: "t-nas", title: "NAS 硬盘健康巡检", status: "waiting_for_user", waitReason: "stuck", stage: { current: 1, total: 2 }, activity: "waiting_for_user", tokens: 45_000, projects: [], updatedAt: at("10-07", "06:30") },
     { kind: "task", id: "t-notes", title: "读书笔记整理成卡片", status: "waiting_for_user", waitReason: "clarification", stage: { current: 1, total: 3 }, activity: "waiting_for_user", tokens: 22_000, projects: [], updatedAt: at("10-06", "21:10") },
     // 进行中
-    // 阶段一律自动验收（112 号票）：最后一个阶段交上来了，评审在核对，不等你
+    // 阶段一律自动验收：最后一个阶段交上来了，评审在核对，不等你
     { kind: "task", id: "t-health", title: "季度体检报告整理", status: "running", stage: { current: 3, total: 3 }, activity: "working", activityNote: "评审在核对第 3 阶段", tokens: 96_000, projects: [], updatedAt: at("10-06", "18:00") },
     { kind: "task", id: "t-xian", title: "十一月西安行程", status: "planning", activity: "working", activityNote: "和你对齐意图", tokens: 8_000, projects: [], updatedAt: at("10-07", "08:31") },
-    // 289 号票：个人博客的负责人用 Claude Code（卡上标出）；311 号票：Claude Code 的用量大半是缓存命中，卡上单写
+    // 个人博客的负责人用 Claude Code（卡上标出）；Claude Code 的用量大半是缓存命中，卡上单写
     { kind: "task", id: "t-blog", title: "博客迁移到 Astro", status: "running", runtime: "claude-code", stage: { current: 3, total: 5 }, activity: "working", activityNote: "跑端到端测试", tokens: 356_000, cacheHitTokens: 298_000, projects: ["个人博客"], updatedAt: at("10-07", "09:10") },
     { kind: "task", id: "t-netdisk", title: "家庭网盘去重", status: "queued", activity: "queued", activityNote: "等项目「家庭网盘」", tokens: 0, projects: ["家庭网盘"], updatedAt: at("10-07", "07:40") },
     { kind: "task", id: "t-car", title: "车险比价", status: "paused", stage: { current: 1, total: 2 }, activity: "sleeping", tokens: 27_000, projects: [], updatedAt: at("10-06", "20:13") },
     // 运营中
     { kind: "reminder", id: "r-rent", title: "交房租", status: "pending", nextAt: at("10-08", "09:00"), schedule: { kind: "monthly", time: "09:00", days: [8] } },
-    // "按我的工作日"在 29 号票加；原型先写成周一到周五
+    // 原型先写成周一到周五
     { kind: "reminder", id: "r-weekly", title: "准备周会材料", status: "pending", nextAt: at("10-08", "17:30"), schedule: { kind: "weekly", time: "17:30", weekdays: [1, 2, 3, 4, 5] } },
     { kind: "reminder", id: "r-dentist", title: "看牙（洗牙）", status: "pending", nextAt: at("10-17", "10:00"), schedule: { kind: "once", at: at("10-17", "10:00") } },
     { kind: "reminder", id: "r-run", title: "跑步", status: "pending", nextAt: at("10-07", "19:00"), schedule: { kind: "weekly", time: "19:00", weekdays: [1, 3, 5] } },
-    // 每年某月某日（282 号票）：今年的已经过了，下一次在明年（卡上、看板上带年份）
+    // 每年某月某日：今年的已经过了，下一次在明年（卡上、看板上带年份）
     { kind: "reminder", id: "r-mom-birthday", title: "妈妈生日，订蛋糕", status: "pending", nextAt: "2027-03-02T09:00:00+08:00", schedule: { kind: "yearly", time: "09:00", month: 3, day: 2 } },
-    // 定时触发的任务（76 号票）是假连接里的真任务（fake-conversations.ts 的 FAKE_TIMED_TASK、FAKE_TIMED_WORKFLOW），不在这里
+    // 定时触发的任务是假连接里的真任务（fake-conversations.ts 的 FAKE_TIMED_TASK、FAKE_TIMED_WORKFLOW），不在这里
     // 最近结束
     { kind: "task", id: "t-resume", title: "简历更新", status: "done", stage: { current: 2, total: 2 }, activity: "sleeping", tokens: 88_000, projects: [], updatedAt: at("10-05", "11:00") },
     { kind: "task", id: "t-ledger-build", title: "搭一个记账本", status: "done", stage: { current: 4, total: 4 }, activity: "sleeping", tokens: 512_000, projects: ["记账本"], updatedAt: at("09-28", "20:00"), endNote: "已转为项目" },
     { kind: "task", id: "t-flight", title: "盯特价机票", status: "failed", stage: { current: 1, total: 2 }, activity: "sleeping", tokens: 41_000, projects: [], updatedAt: at("10-04", "12:00") },
     { kind: "task", id: "t-moving", title: "搬家清单", status: "cancelled", activity: "sleeping", tokens: 5_000, projects: [], updatedAt: at("10-02", "09:00") },
     { kind: "reminder", id: "r-visa", title: "续签证材料", status: "fired", nextAt: at("10-03", "10:00"), schedule: { kind: "once", at: at("10-03", "10:00") } },
-    // 185 号票：用户说的"打个电话"（响过的一次性提醒，能归档、删除），已取消的也在最近结束
+    // 用户说的"打个电话"（响过的一次性提醒，能归档、删除），已取消的也在最近结束
     { kind: "reminder", id: "r-call", title: "打个电话", status: "fired", nextAt: at("10-06", "20:00"), schedule: { kind: "once", at: at("10-06", "20:00") } },
     { kind: "reminder", id: "r-parcel", title: "取快递", status: "cancelled", nextAt: at("10-09", "18:00"), schedule: { kind: "once", at: at("10-09", "18:00") } },
     // 已归档
     { kind: "task", id: "t-oldphone", title: "旧手机数据迁移", status: "archived", stage: { current: 2, total: 2 }, activity: "sleeping", tokens: 64_000, projects: [], updatedAt: at("09-10", "10:00") },
     { kind: "task", id: "t-review", title: "上半年总结", status: "archived", stage: { current: 1, total: 1 }, activity: "sleeping", tokens: 33_000, projects: [], updatedAt: at("07-02", "10:00") },
-    // 185 号票：归档了的提醒
+    // 归档了的提醒
     { kind: "reminder", id: "r-water", title: "交水费", status: "fired", archived: true, nextAt: at("09-25", "09:00"), schedule: { kind: "once", at: at("09-25", "09:00") } },
   ] satisfies BoardEntry[]
 ).map(withProgress);
 
 /**
- * 假长程任务看板卡上的进度（60 号票：已验收的阶段数）：在第几阶段就是前面几个验收了，做完、归档的全部验收了；
+ * 假长程任务看板卡上的进度（已验收的阶段数）：在第几阶段就是前面几个验收了，做完、归档的全部验收了；
  * 还在规划、等确认计划的尚无计划
  */
 function withProgress(e: BoardEntry): BoardEntry {
@@ -165,7 +165,7 @@ export interface TaskDetail {
   scopeRecords: ScopeRecord[];
 }
 
-// 84 号票：阶段详情的执行方式理由和初步思路、要你留意的（权、外、问）、规则原文（点进详情）
+// 阶段详情的执行方式理由和初步思路、要你留意的（权、外、问）、规则原文（点进详情）
 const NO_MARKS = { perm: [], out: [], ask: [] };
 const PHOTO_STAGES: Stage[] = [
   {
@@ -306,7 +306,7 @@ const BLOG_STAGES: Stage[] = [
 ];
 
 /**
- * 阶段详情从守护进程现取的（84 号票，原型的 fake-http 给）：授权已用几次（任务 → 阶段 → 授权项），
+ * 阶段详情从守护进程现取的（原型的 fake-http 给）：授权已用几次（任务 → 阶段 → 授权项），
  * 各阶段这一轮已经做了的事（本机的、对外的）
  */
 export const FAKE_GRANT_USES: Readonly<Record<string, Readonly<Record<string, { grantId: string; used: number }[]>>>> = {
@@ -323,7 +323,7 @@ export const FAKE_STAGE_EFFECTS: Readonly<Record<string, readonly StageEffect[]>
   ],
 };
 
-// 90 号票：等我 · 超预算的长程任务（第 2 阶段用量超过预算的 2 倍停下）
+// 等我 · 超预算的长程任务（第 2 阶段用量超过预算的 2 倍停下）
 const TAX_STAGES: Stage[] = [
   {
     id: "s1",
@@ -439,7 +439,7 @@ export function taskDetailOf(id: string): TaskDetail {
 // ---------- 项目 ----------
 
 /**
- * 假项目（15 号票起是协议包里的 Project，由假连接作为项目列表频道上的 project 事件推来）。
+ * 假项目（是协议包里的 Project，由假连接作为项目列表频道上的 project 事件推来）。
  * 负责人 id 和 fake-conversations.ts 里 MAINTAINERS 的会话对得上（记账本、个人博客、家电档案有假会话）
  */
 function fakeProject(x: Pick<Project, "id" | "name" | "goal" | "state"> & Partial<Project>): Project {
@@ -464,12 +464,12 @@ export const FAKE_PROJECTS: Project[] = [
     kind: "dev",
     workdir: { external: true, path: "/示例/外部/blog" },
     toolkit: { skills: [], mcp: [], bash: true, network: true },
-    // 289 号票：负责人用 Claude Code（原型的运行时清单 fake-runtimes.ts）
+    // 负责人用 Claude Code（原型的运行时清单 fake-runtimes.ts）
     runtime: "claude-code",
   }),
   fakeProject({ id: "p-photos", name: "相册库", goal: "全家的照片按事件归档，一处可查", state: "building", kind: "other", buildTaskId: "t-photos", toolkit: { skills: [], mcp: [], bash: false, network: false } }),
   fakeProject({ id: "p-netdisk", name: "家庭网盘", goal: "家里的文件统一放一处，自动去重和备份", state: "in_use", kind: "dev", toolkit: { skills: [], mcp: [], bash: true, network: false } }),
-  // 311 号票：新建时选了 Claude Code 和一个文件夹（305 号票）——立项书卡上照它写成已绑定那个文件夹
+  // 新建时选了 Claude Code 和一个文件夹——立项书卡上照它写成已绑定那个文件夹
   fakeProject({
     id: "p-appliance",
     name: "家电档案",
@@ -481,7 +481,7 @@ export const FAKE_PROJECTS: Project[] = [
   }),
   fakeProject({ id: "p-oldsite", name: "旧作品集网站", goal: "以前的作品集，不再更新", state: "retired", kind: "dev" }),
   fakeProject({ id: "p-english", name: "英语学习", goal: "每天十个单词，周末复习", state: "archived", archivedFrom: "in_use", kind: "other" }),
-  // 104 号票：项目一览排成多列的档案墙，多几个才看得出一组一组的样子（这几个没有假的项目详情，项目里各节照真数据画）
+  // 项目一览排成多列的档案墙，多几个才看得出一组一组的样子（这几个没有假的项目详情，项目里各节照真数据画）
   fakeProject({
     id: "p-recipes",
     name: "家庭菜谱",
@@ -490,10 +490,10 @@ export const FAKE_PROJECTS: Project[] = [
     kind: "other",
     toolkit: { skills: [], mcp: [], bash: false, network: true },
     updatedAt: at("10-07", "18:40"),
-    // 130 号票：现在生效的运营方案（项目页"运营方案"一节）
+    // 现在生效的运营方案（项目页"运营方案"一节）
     operations: RECIPES_OPERATIONS,
   }),
-  // 112 号票：首个建设任务做完了，"首版做完了"卡在待办里等你选（不选就停在建设中）
+  // 首个建设任务做完了，"首版做完了"卡在待办里等你选（不选就停在建设中）
   fakeProject({
     id: "p-reading",
     name: "读书笔记库",
@@ -508,9 +508,9 @@ export const FAKE_PROJECTS: Project[] = [
 ];
 
 /**
- * 104 号票：项目一览的卡片上写负责人在干什么、定时触发的有几个——原型的假项目在项目列表频道之外再推这几条（假连接建出时推）：
+ * 项目一览的卡片上写负责人在干什么、定时触发的有几个——原型的假项目在项目列表频道之外再推这几条（假连接建出时推）：
  * 两个负责人的活动状态（博客的在干活、相册库的等你批准），和假项目详情里那几个定时作业（标成项目内部的，不上全局看板）。
- * 369 号票：秘书在等那张提问卡（标题上"等你回答提问"点了跳到它），相册库的审批卡在任务「家庭照片整理与去重」里（跳到别的页）
+ * 秘书在等那张提问卡（标题上"等你回答提问"点了跳到它），相册库的审批卡在任务「家庭照片整理与去重」里（跳到别的页）
  */
 export const FAKE_PROJECT_EVENTS: { channel: string; type: string; payload: unknown }[] = [
   { channel: CHANNELS.activity, type: EVENT_TYPES.activity, payload: { agentId: "secretary", state: "waiting_for_user", since: at("10-07", "08:31"), detail: { kind: "clarification", cardId: "c-q-1" } } satisfies ActivityEventPayload },
@@ -520,10 +520,10 @@ export const FAKE_PROJECT_EVENTS: { channel: string; type: string; payload: unkn
     { id: "sj-daily-bills", projectId: "p-ledger", projectName: "记账本", title: "汇总当天账单", schedule: { kind: "daily", time: "21:00" }, state: "active" },
     { id: "sj-monthly", projectId: "p-ledger", projectName: "记账本", title: "出月报", schedule: { kind: "monthly", time: "09:00", days: [1] }, state: "paused" },
     { id: "sj-photo-backup", projectId: "p-photos", projectName: "相册库", title: "每周日备份照片", schedule: { kind: "weekly", time: "03:00", weekdays: [0] }, state: "paused" },
-    // 130 号票：家庭菜谱运营方案里两条的触发登记
+    // 家庭菜谱运营方案里两条的触发登记
     ...RECIPES_JOBS.map((j) => ({ ...j, projectId: "p-recipes", projectName: "家庭菜谱" })),
   ].flatMap((j: { id: string; projectId: string; projectName: string; title: string; schedule: unknown; state: string; ownerTaskId?: string; nextAt?: string; runs?: JobRun[] }) =>
-    // 140 号票：带最近几次运行的，每次运行一条 run_finished（最后一次就是登记上的最近一次）
+    // 带最近几次运行的，每次运行一条 run_finished（最后一次就是登记上的最近一次）
     [undefined, ...(j.runs ?? [])].map((run, i) => ({
       channel: CHANNELS.board,
       type: EVENT_TYPES.scheduledJob,
@@ -559,9 +559,9 @@ export const FAKE_PROJECT_EVENTS: { channel: string; type: string; payload: unkn
       } satisfies ScheduledJobEventPayload,
     })),
   ),
-  // 140 号票：相册库建设中卡住的几样
+  // 相册库建设中卡住的几样
   ...PHOTOS_BUILD_EVENTS,
-  // 141 号票：家庭菜谱运营方案里那两条的任务（上任务看板的运营中，标着项目）
+  // 家庭菜谱运营方案里那两条的任务（上任务看板的运营中，标着项目）
   ...RECIPES_OPERATIONS_TASKS.map((task) => ({ channel: CHANNELS.board, type: EVENT_TYPES.task, payload: { task, change: "created", from: null, by: "user" } satisfies TaskEventPayload })),
 ];
 
@@ -646,7 +646,7 @@ const FAKE_INBOX_ITEMS: InboxItem[] = [
   cardItem({ id: "i-pc", cardId: "c-pc-1", title: "计划变更：第 3 阶段加 MCP「demo-exif-reader」", source: "任务「家庭照片整理与去重」", urgency: "blocking", createdAt: at("10-07", "09:05"), read: true }),
   cardItem({ id: "i-pc2", cardId: "c-pc-2", title: "扩大授权：上线时改 DNS 记录", source: "任务「博客迁移到 Astro」", urgency: "non_blocking", createdAt: at("10-06", "23:10"), read: true }),
   cardItem({ id: "i-cc", cardId: "c-cc-ledger", title: "立项要求变更：记账本的报表改成每周一份", source: "项目「记账本」", urgency: "non_blocking", createdAt: at("10-06", "21:38"), read: false }),
-  // 284 号票：记忆管理员这周的约访卡（不卡事）
+  // 记忆管理员这周的约访卡（不卡事）
   cardItem({ id: "i-interview", cardId: "c-interview", title: "有空聊 10 分钟吗？这次聊：工作和一天怎么过", source: "记忆管理员", urgency: "non_blocking", createdAt: at("10-07", "10:00"), read: false }),
   notice({
     id: "i-ssl",
@@ -670,12 +670,12 @@ const FAKE_INBOX_ITEMS: InboxItem[] = [
     read: false,
     actions: ["我来看看", "跳过 sdb", "取消任务"],
   }),
-  // 283 号票：每晚整理攒的候选核对卡
+  // 每晚整理攒的候选核对卡
   cardItem({ id: "i-pfs", cardId: "c-pfs-1", title: "核对要记进档案的候选", source: "记忆管理员", urgency: "non_blocking", createdAt: at("10-08", "03:12"), read: false }),
   cardItem({ id: "i-pair", cardId: "c-pair-1", title: "新设备请求配对：iPad · Safari", source: "设备配对", urgency: "non_blocking", createdAt: at("10-07", "09:30"), read: false }),
-  // 137 号票：像网络上的自动访问的配对请求（行上标一句，详情的卡上写原因）
+  // 像网络上的自动访问的配对请求（行上标一句，详情的卡上写原因）
   cardItem({ id: "i-pair-bot", cardId: "c-pair-bot", title: "新设备请求配对：Chrome · Linux", source: "设备配对", urgency: "non_blocking", createdAt: at("10-07", "00:47"), read: false }),
-  // 107 号票：项目内部任务卡住求助（项目的负责人会话也是它的会话，项目整页的"等你处理"栏里有它）。阶段一律自动验收，验收退回 2 次还不过才来找你
+  // 项目内部任务卡住求助（项目的负责人会话也是它的会话，项目整页的"等你处理"栏里有它）。阶段一律自动验收，验收退回 2 次还不过才来找你
   notice({
     id: "i-internal-stuck",
     notice: "stuck_help",
@@ -724,7 +724,7 @@ const FAKE_INBOX_ITEMS: InboxItem[] = [
   notice({ id: "i-missed", notice: "missed_reminder", title: "错过的提醒：周日 10:00 买菜", body: "电脑关机期间错过，晚了 26 小时，按规则改放到这里。", source: "简单提醒", urgency: "non_blocking", createdAt: at("10-05", "12:00"), read: true, actions: ["知道了"] }),
   notice({ id: "i-snap", notice: "snapshot_check_failed", title: "周校验没通过：10-04 的快照", body: "打开 10-04 快照里的 ergo.db 做完整性检查失败（page 1882 校验和不对）。", source: "系统", urgency: "non_blocking", createdAt: at("10-05", "04:00"), read: true, actions: ["重新校验", "知道了"] }),
   notice({ id: "i-fail", notice: "failure_choice", title: "「盯特价机票」失败了", body: "航司页面改版，脚本连续 3 天抓不到价格。", source: "任务「盯特价机票」", urgency: "non_blocking", createdAt: at("10-04", "12:00"), read: true, actions: ["重试", "重新起草计划再试", "放弃"] }),
-  // 274 号票：重做之后复验没过（假长程任务「换新电脑」从第 3 阶段重做后，范围外已验收的第 1 阶段按自己的验收标准再核一遍没过）
+  // 重做之后复验没过（假长程任务「换新电脑」从第 3 阶段重做后，范围外已验收的第 1 阶段按自己的验收标准再核一遍没过）
   notice({
     id: "i-reverify",
     notice: "reverify_failed",
@@ -740,11 +740,11 @@ const FAKE_INBOX_ITEMS: InboxItem[] = [
   notice({ id: "i-old", notice: "missed_reminder", title: "错过的提醒：周五 18:00 取快递", body: "晚了 3 小时。", source: "简单提醒", urgency: "non_blocking", createdAt: at("10-03", "21:00"), read: true, actions: ["知道了"], archived: true }),
 ];
 
-/** 卡处理了，谁就不再等你（369 号票：假连接在卡片动作之后推一条活动状态） */
+/** 卡处理了，谁就不再等你（假连接在卡片动作之后推一条活动状态） */
 export const FAKE_CARD_WAITERS: Readonly<Record<string, string>> = { "c-q-1": "secretary", "c-appr-1": "project-photos" };
 
 /**
- * 事项从哪来（105 号票，待办里"去看看 ›"去的地方）：照守护进程的记法——任务的事项记任务（审批、中断不确定还记那次调用），
+ * 事项从哪来（待办里"去看看 ›"去的地方）：照守护进程的记法——任务的事项记任务（审批、中断不确定还记那次调用），
  * 项目的记项目；提醒、系统的不记（按种类去日历、设置）。"定时作业被自动暂停"那条当作还没迁移的旧作业，没有去处
  */
 const FAKE_INBOX_ORIGINS: Readonly<Record<string, InboxOrigin>> = {
@@ -813,14 +813,14 @@ const HOUR_MS = 3600_000;
 const DAY_MS = 24 * HOUR_MS;
 const fromNow = (ms: number) => nowIso(new Date(Date.now() + ms));
 
-/** 原型里假装是从这台设备上打开的（设置 · 已配对设备里标"就是这台"；吊销、删除它会走"本设备已被吊销"那一页，123 号票） */
+/** 原型里假装是从这台设备上打开的（设置 · 已配对设备里标"就是这台"；吊销、删除它会走"本设备已被吊销"那一页） */
 export const FAKE_SELF_DEVICE_ID = "d1";
 
 /** 原型的信任来源：经外网端口、带着 d1 的凭证（真的守护进程提供页面时问 /api/access） */
 export const FAKE_ACCESS: AccessInfo = { access: "device", device: { id: FAKE_SELF_DEVICE_ID, name: "iPhone · Safari（iOS 19）" } };
 
 /**
- * 已配对设备：假连接作为已配对设备频道上的 device 事件推给前端状态层。各种状态都有一台（123 号票：多选、延期、吊销、删除都能演示）：
+ * 已配对设备：假连接作为已配对设备频道上的 device 事件推给前端状态层。各种状态都有一台（多选、延期、吊销、删除都能演示）：
  * 有效的（就是这台、平板）、快到期的、等待首次使用的、过期的（连续 365 天没用）、没用过作废的、吊销了的
  */
 export const FAKE_DEVICES: PairedDevice[] = [
@@ -850,7 +850,7 @@ export const FAKE_SKILLS: SkillEntry[] = [
   { id: "sk-photo", name: "demo-photo-sorter", description: "按拍摄时间和地点给照片分组（假数据）。", origin: "imported", usedBy: ["项目「相册库」"] },
 ];
 
-/** 原型的 skill 集合（72 号票）：整套导入的两套假集合，skill 库页上各显示成一项 */
+/** 原型的 skill 集合：整套导入的两套假集合，skill 库页上各显示成一项 */
 const FAKE_COLLECTIONS: { name: string; source: string; version: string; description: string; skills: { name: string; description: string }[] }[] = [
   {
     name: "demo-methods",
@@ -879,7 +879,7 @@ const FAKE_COLLECTIONS: { name: string; source: string; version: string; descrip
   },
 ];
 
-/** 原型的 skill 库和已登记的 MCP（工具包区、skill 库页取它；27 号票）；集合（72 号票） */
+/** 原型的 skill 库和已登记的 MCP（工具包区、skill 库页取它）；集合 */
 export const FAKE_TOOLKIT_CATALOG: ToolkitCatalog = {
   skills: [
     ...FAKE_SKILLS.map((s): LibrarySkill => ({ name: s.name, description: s.description, origin: s.origin })),
@@ -902,21 +902,21 @@ export const FAKE_TOOLKIT_CATALOG: ToolkitCatalog = {
   ],
 };
 
-/** 原型里输入框打 / 弹出的二狗自己的命令（82 号票，说法照守护进程的） */
+/** 原型里输入框打 / 弹出的二狗自己的命令（说法照守护进程的） */
 export const FAKE_SLASH_COMMANDS: SlashCommandEntry[] = [
   { kind: "command", text: "/workflow", name: "workflow", description: "发起一个流程：负责人把要做的事排成步骤，你授权一次，照步骤做", argumentHint: "<要做的事>" },
   { kind: "command", text: "/task", name: "task", description: "发起一个长程任务：负责人分阶段做，逐阶段验收", argumentHint: "<要做的事>" },
 ];
 
-/** 记忆管理员会话里的命令（310 号票，含了解你访谈） */
+/** 记忆管理员会话里的命令（含了解你访谈） */
 export const FAKE_CURATOR_COMMANDS: SlashCommandEntry[] = [
   { kind: "command", text: "/interview", name: "interview", description: "开一次了解你访谈：一次聊一个主题，聊到的记进记忆，档案信息最后给你核对", argumentHint: "[主题]" },
   { kind: "command", text: "/consolidate", name: "consolidate", description: "现在整理一次记忆：和每晚 03:00 那次一样，把攒着的素材整理成结论" },
 ];
 
 /**
- * 原型里输入框打 / 弹出的 skill（82 号票）：写法是目录名；显示的名字带空格的（Demo Mode）跟在写法后面；
- * 两个集合里目录名相同的（review）写成"集合名:目录名"；和命令同名的写 /skill:目录名（310 号票起命令是英文的 /workflow、/task）
+ * 原型里输入框打 / 弹出的 skill：写法是目录名；显示的名字带空格的（Demo Mode）跟在写法后面；
+ * 两个集合里目录名相同的（review）写成"集合名:目录名"；和命令同名的写 /skill:目录名（命令是英文的 /workflow、/task）
  */
 export const FAKE_SLASH_SKILLS: SlashCommandEntry[] = [
   {
@@ -939,7 +939,7 @@ export const FAKE_SLASH_SKILLS: SlashCommandEntry[] = [
 /** 设置里删除素材时能选的会话（原型）：会话 id 和名字 */
 export const FAKE_SESSIONS = [
   { id: "secretary", name: `${ASSISTANT_NAME_MARK}主线` },
-  // 负责人的编号和看板、项目列表上的对得上（159 号票：界面按编号现取它属于谁）
+  // 负责人的编号和看板、项目列表上的对得上（界面按编号现取它属于谁）
   { id: "maintainer:project-photos", name: "项目「相册库」的负责人" },
   { id: "maintainer:project-ledger", name: "项目「记账本」的负责人" },
   { id: "maintainer:tm-invoices", name: "任务「整理九月的发票」的负责人" },
@@ -967,7 +967,7 @@ const AGENTS: { agentId: string; role: LedgerRole; system?: boolean; scale: numb
   { agentId: "review-t-blog-s3-1", role: "reviewer", scale: 0.5 },
 ];
 
-/** 假账本用的模型：配置里没写单价，按框架自带的价格表、按每一笔的时段算（94 号票，和守护进程一样） */
+/** 假账本用的模型：配置里没写单价，按框架自带的价格表、按每一笔的时段算（和守护进程一样） */
 const FAKE_MODEL = "deepseek/deepseek-flash";
 const FAKE_PRICE = builtinPriceOf(FAKE_MODEL)!;
 
@@ -997,7 +997,7 @@ const FAKE_LEDGER: { day: string; time: string; agentId: string; role: LedgerRol
   return out;
 })();
 
-/** 假账本里几个 agent 每天的联网调用（154 号票：DeepSeek 的联网搜索、读网页，按次计费） */
+/** 假账本里几个 agent 每天的联网调用（DeepSeek 的联网搜索、读网页，按次计费） */
 const FAKE_WEB_CALLS: Readonly<Record<string, { search: number; fetch: number }>> = { secretary: { search: 3, fetch: 1 }, "project-photos": { search: 2, fetch: 1 }, "tm-invoices": { search: 1, fetch: 2 } };
 
 /** 假的消耗页"联网搜索、读网页"一节：照假账本里有用量的日子算 */
@@ -1062,7 +1062,7 @@ export function fakeUsageSummary(range: { from: string; to: string }): UsageSumm
   };
 }
 
-/** 假的"记忆简报"一项（266 号票）：秘书每有一笔用量算带了 6 次、每次约 480 token（线上实测的平均），按高峰没命中缓存的单价算钱 */
+/** 假的"记忆简报"一项：秘书每有一笔用量算带了 6 次、每次约 480 token（线上实测的平均），按高峰没命中缓存的单价算钱 */
 function fakeUsageMemoryBrief(secretaryRows: number): UsageSummary["memoryBrief"] {
   const count = secretaryRows * 6;
   const tokens = count * 480;
@@ -1070,7 +1070,7 @@ function fakeUsageMemoryBrief(secretaryRows: number): UsageSummary["memoryBrief"
 }
 
 /**
- * 工作日历的假数据（29 号票）：节假日只带 2026 年 9–12 月（摘自 docs/architecture/research/13-holidays-sg-cn.md，是公开数据），
+ * 工作日历的假数据：节假日只带 2026 年 9–12 月（摘自 docs/architecture/research/13-holidays-sg-cn.md，是公开数据），
  * 个人设置是虚构的。由守护进程提供页面时用的是框架自带的完整数据和真的个人设置。
  */
 const PROTO_SOURCE = [{ title: "原型：摘自调研文件 docs/architecture/research/13-holidays-sg-cn.md", url: "https://www.mom.gov.sg/employment-practices/public-holidays" }];

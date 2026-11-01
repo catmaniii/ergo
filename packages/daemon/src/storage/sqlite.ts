@@ -36,7 +36,7 @@ export function openDatabase(file: string): Database {
   db.exec("PRAGMA synchronous = NORMAL");
   db.exec("PRAGMA foreign_keys = ON");
   db.exec("PRAGMA busy_timeout = 5000");
-  // 删掉、改写的内容不留在空闲页里（彻底删除，21 号票）
+  // 删掉、改写的内容不留在空闲页里（彻底删除）
   db.exec("PRAGMA secure_delete = ON");
   return wrap(db);
 }
@@ -59,7 +59,7 @@ export function vacuumIntoSync(source: string, dest: string): void {
   const db = new DatabaseSync(source, { readOnly: true });
   try {
     db.exec("PRAGMA busy_timeout = 5000");
-  // 删掉、改写的内容不留在空闲页里（彻底删除，21 号票）
+  // 删掉、改写的内容不留在空闲页里（彻底删除）
   db.exec("PRAGMA secure_delete = ON");
     db.prepare("VACUUM INTO ?").run(dest);
   } finally {

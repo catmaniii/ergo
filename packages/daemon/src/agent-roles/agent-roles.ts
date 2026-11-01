@@ -1,11 +1,11 @@
-// 角色（248 号票）：配置区 agent-roles.json 的存、校验、回退，替掉 241 号票"每个 agent 各管各的名字和音色"。
+// 角色：配置区 agent-roles.json 的存、校验、回退，替掉"每个 agent 各管各的名字和音色"。
 // 形状见协议包的 agent-roles.ts / agent-roles-schema.ts：
 //   { format: 1, defaultRoleId, roles: [{ id, name, voiceId? }], assignments: { "<agent id>": "<角色 id>" } }
 // - 慢点读：每次现读（文件很小），改了下一轮 / 下一次合成就生效，不用重启；读坏了不让守护进程起不来，也不覆盖它（改的时候回 400 说明）；
-// - 默认角色（defaultRoleId 指的那一行）：名字就是全局名字（43 号票），音色就是全局选中的参考音色（31 号票）——
+// - 默认角色（defaultRoleId 指的那一行）：名字就是全局名字，音色就是全局选中的参考音色——
 //   读的时候按全局现取，写的时候写全局（改名 = assistantName.change，换音色 = 参考音色的 select），文件里那份是给人看的镜像，
 //   所以设置顶上的名字输入框、角色页、秘书的系统提示、历史消息里的名字占位永远是同一个名字；
-// - 别的角色：name 照 43 号票的规矩查，voiceId 可空（= 跟当前默认音色）；写不存在的音色 400；
+// - 别的角色：name 照规矩查，voiceId 可空（= 跟当前默认音色）；写不存在的音色 400；
 //   语音插件没启用时写音色 400 带原因（名字和角色分配照常，名字不归语音插件管）；
 // - 角色指定的音色后来被删了：自己回退到当前默认音色（合成那边按 voiceIdOf 的 undefined 走老路）；
 // - 没指定角色的 agent = 跟默认角色；把默认角色自己写进 assignments 等于跟默认（存的时候不留这一项）；
@@ -55,7 +55,7 @@ export interface RoleDocument {
 /** 一个 agent 现在生效的角色（名字、音色都按它取） */
 export interface ResolvedRole {
   id: string;
-  /** 默认角色是全局名字（43）；别的角色是自己那个名字 */
+  /** 默认角色是全局名字；别的角色是自己那个名字 */
   name: string;
   /** 角色指定的参考音色；默认角色、跟默认音色时是 undefined（用当前默认音色） */
   voiceId: string | undefined;
@@ -84,14 +84,14 @@ export interface AgentRoles {
   update(roleId: string, body: AgentRoleUpdateBody): RoleDocument;
   /**
    * 删一个角色：默认角色、还有 agent 指定的都抛 RequestRejected。
-   * isGone 认哪些 agent 已经没了（任务、项目删掉时这里的指定不跟着清）：它们不算在用，那一项随角色一起清（不然报一个改不了的编号，这个角色永远删不掉，371 号票）
+   * isGone 认哪些 agent 已经没了（任务、项目删掉时这里的指定不跟着清）：它们不算在用，那一项随角色一起清（不然报一个改不了的编号，这个角色永远删不掉）
    */
   remove(roleId: string, isGone?: (agentId: string) => boolean): RoleDocument;
   /** 把某个角色设成默认：全局名字和音色跟着变成那个角色的 */
   setDefault(roleId: string): RoleDocument;
   /** 给一个 agent 选角色：null（或默认角色）= 跟默认 */
   assign(agentId: string, roleId: string | null): RoleDocument;
-  /** 全局名字 / 音色改了（43、31）：默认角色在文件里的那份镜像跟着记 */
+  /** 全局名字 / 音色改了：默认角色在文件里的那份镜像跟着记 */
   refreshGlobals(): void;
   /** 改了时叫 fn（这次该重新装配的 agent id）；返回取消登记的函数 */
   onChange(fn: (agentIds: readonly string[]) => void): () => void;
@@ -102,15 +102,15 @@ export interface AgentRoles {
 export interface AgentRolesOptions {
   /** config/agent-roles.json（数据目录配置区） */
   file: string;
-  /** config/agent-profiles.json（241 号票的旧文件）：只在迁移时读，迁完保留不删（回滚用） */
+  /** config/agent-profiles.json（旧文件）：只在迁移时读，迁完保留不删（回滚用） */
   legacyFile: string;
-  /** 全局名字（43 号票）：默认角色的名字 */
+  /** 全局名字：默认角色的名字 */
   assistantName: () => string;
-  /** 改全局名字（43）：默认角色改名走的也是它；名字已经校验过 */
+  /** 改全局名字：默认角色改名走的也是它；名字已经校验过 */
   setAssistantName: (name: string) => void;
   /** 参考音色（语音插件在运行时才有；现取） */
   voices?: () => RoleVoices | undefined;
-  /** 选中全局的参考音色（31）：默认角色换音色走的也是它 */
+  /** 选中全局的参考音色：默认角色换音色走的也是它 */
   selectVoice?: (voiceId: string) => void;
   log: (line: string) => void;
 }
@@ -123,7 +123,7 @@ function obj(value: unknown): Record<string, unknown> | undefined {
 /** 按 agent id 排一下：手看的时候好找，两次写同样的内容也一样 */
 const sortedAssignments = (assignments: Record<string, string>) => Object.fromEntries(Object.entries(assignments).toSorted(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
 
-/** 名字合不合规（和 43 号票同一个检查）：不合规抛 RequestRejected，存不进去 */
+/** 名字合不合规：不合规抛 RequestRejected，存不进去 */
 function checkedName(raw: string): string {
   const checked = checkAssistantName(raw);
   if (!checked.ok) throw new RequestRejected("bad_params", checked.error);
@@ -414,7 +414,7 @@ export function openAgentRoles(options: AgentRolesOptions): AgentRoles {
       const role = mustRole(doc, roleId);
       if (role.id === doc.defaultRoleId) return doc;
       const previous = doc.defaultRoleId;
-      // 旧的默认角色留下现在显示的名字：没起过名时全局名字跟着语言走（379 号票），文件里那份镜像可能还是换语言之前的
+      // 旧的默认角色留下现在显示的名字：没起过名时全局名字跟着语言走，文件里那份镜像可能还是换语言之前的
       const outgoing = findRole(doc, previous);
       if (outgoing !== undefined) outgoing.name = defaultName();
       doc.defaultRoleId = role.id;

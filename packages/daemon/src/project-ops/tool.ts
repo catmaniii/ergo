@@ -1,4 +1,4 @@
-// 秘书的 project_ops（260 号票；268 号票照用户 2026-10-13 的设计草稿补齐）：所有使用中的项目统一一个工具，各项目的操作不注册成单独的工具
+// 秘书的 project_ops（照设计草稿补齐）：所有使用中的项目统一一个工具，各项目的操作不注册成单独的工具
 // （模型的工具列表不变），用到才读：
 // - list：使用中的项目和各自的操作（通用操作开头列一次；项目自己的操作是登记着的那一版清单里的，标种类、风险标记）；档案里的清单
 //   没交、读不了、新改的验收没过 / 在等服务的照实写；
@@ -6,10 +6,10 @@
 //   实现方式、风险标记、用法说明、怎么调；
 // - call：先按清单整理、校验参数（args.ts：中文名换成值、补默认值、按 JSON Schema 校验），不对的不发、连同这个操作的说明退回；
 //   再按实现方式跑（runner.ts：http / script / ergo / maintainer），结果里一句能念的 say（实现没给的二狗按结果补，记下 sayFilled）和附件。
-//   **使用中的项目调操作不用确认**（用户 2026-10-24）：不出卡；风险标记照读照显示、不接守卫（用户 2026-10-25 定只记不做）；
+//   **使用中的项目调操作不用确认**：不出卡；风险标记照读照显示、不接守卫（只记不做）；
 //   平台自己的守卫照旧判这一次 project_ops 调用（和别的工具一视同仁）。
 // 调不了的回原因、什么都不发、不记录：项目找不到 / 有歧义、项目不是使用中的、操作不存在（项目清单没登记过的只有通用操作）、参数不对、
-// 调用口对不上服务、服务关着（257）、还在上线、上线失败、要你手动、负责人收不了工单。
+// 调用口对不上服务、服务关着、还在上线、上线失败、要你手动、负责人收不了工单。
 // 发出去了的记一条时间线（秘书会话，project_op）和 project_op_called（operations 频道，带清单的版本号），参数里像密钥的擦掉。
 // createProjectOps 把清单的验收和登记（registry.ts）、秘书的工具、负责人的 check_ops（check-tool.ts）、转运营检查清单那一项装在一起。
 import { CHANNELS, type OperationsPlanView, type Project, type ProjectServiceView, type StandardChecklistItem, STANDARD_CHECKLIST_ITEM_LABEL, t, Type } from "@ergo/protocol";
@@ -47,7 +47,7 @@ export interface ProjectOpsDeps {
   store: EventStore;
   /** 项目（删掉的不在里面）、项目档案的位置、项目现在的工作目录 */
   projects: { list(): Project[]; records(projectId: string): Pick<ProjectRecordsPaths, "root" | "ops">; workdir(project: Project): string };
-  /** 项目的服务（133）：调用口在哪个端口、现在什么样（关着、上线了没有） */
+  /** 项目的服务：调用口在哪个端口、现在什么样（关着、上线了没有） */
   services: Pick<ProjectServices, "view">;
   /** 建设中的项目要随转入使用生效的那份运营方案（验收时 http 的调用口看它里面的服务） */
   pendingPlan?: (projectId: string) => OperationsPlanView | undefined;
@@ -87,7 +87,7 @@ export interface ProjectOps {
   goLiveEvents(project: Project): NewEvent[];
   /** 转入使用的请求之前：档案里那份重验一遍（负责人、秘书提转入使用时等它，卡上直接是结论） */
   prepareGoLive(projectId: string): Promise<void>;
-  /** 项目的服务上线了（362 号票）：使用中的项目，档案里那份重验一遍，全过了登记成新的一版；没过的告诉负责人 */
+  /** 项目的服务上线了：使用中的项目，档案里那份重验一遍，全过了登记成新的一版；没过的告诉负责人 */
   recheckAfterLive(projectId: string): Promise<void>;
 }
 
@@ -339,7 +339,7 @@ export function createProjectOps(deps: ProjectOpsDeps): ProjectOps {
         parameters: Params,
         // call 可能改东西（看的是哪个操作，这里不分）：被杀之后不重做
         readOnlyOrIdempotent: false,
-        // args 里套着项目接口的参数：给人看的参数摘要先擦掉像密钥的值（280 号票：工具自己声明，守卫运行时不再按名字认）
+        // args 里套着项目接口的参数：给人看的参数摘要先擦掉像密钥的值（工具自己声明，守卫运行时不再按名字认）
         maskArgs: true,
         run: async (given, invocation) => {
           try {
