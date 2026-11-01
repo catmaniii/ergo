@@ -64,11 +64,13 @@ export const McpToolEntry = Type.Object({
 });
 export type McpToolEntry = Static<typeof McpToolEntry>;
 
-/** 配置区里登记的一个 MCP */
+/** 登记的一个 MCP：配置区里写的，或者项目自动转的 */
 export const McpServerEntry = Type.Object({
   name: Type.String(),
   title: Type.String(),
   tools: Type.Array(McpToolEntry),
+  /** 项目转入使用时自动转的（ADR-0045）：哪个项目。算出来的，不在 mcp.json 里，不能手改、手删 */
+  auto: Type.Optional(Type.Object({ projectId: Type.String(), projectName: Type.String() })),
 });
 export type McpServerEntry = Static<typeof McpServerEntry>;
 
@@ -78,7 +80,7 @@ export const ToolkitCatalog = Type.Object({
   /** 整套导入的集合 */
   collections: Type.Array(SkillCollectionEntry),
   mcp: Type.Array(McpServerEntry),
-  /** MCP 登记文件读不了、写错了时的说明（这时 mcp 是空的） */
+  /** MCP 登记文件读不了、写错了时的说明（这时 mcp 里只有项目自动转的） */
   mcpProblem: Type.Optional(Type.String()),
   /**
    * skill 目录名的问题：斜杠命令就是目录名，目录名要是小写、不带空格的写法；不合的（手放进 skill 区的、更早导入的）

@@ -39,9 +39,9 @@ function splitTarget(value: string): { server: string; tool: string } {
   return at > 0 ? { server: value.slice(0, at), tool: value.slice(at + 1) } : { server: value, tool: "" };
 }
 
-/** 现在登记了的工具（"MCP 名/工具名"）：没登记时列给秘书，才操作得下去 */
+/** 现在登记了的工具（"MCP 名/工具名"）：没登记时列给秘书，才操作得下去（项目自动转的不列：秘书用 project_ops） */
 function registeredTools(read: McpRegistrationRead): string[] {
-  return Object.entries(read.servers).flatMap(([server, serverReg]) => Object.keys(serverReg.tools).map((tool) => `${server}/${tool}`));
+  return Object.entries(read.servers).flatMap(([server, serverReg]) => (read.auto?.[server] ? [] : Object.keys(serverReg.tools).map((tool) => `${server}/${tool}`)));
 }
 
 export interface McpCallServiceOptions {
@@ -107,6 +107,8 @@ export function createMcpCallService(options: McpCallServiceOptions): McpCallSer
         const args = given.args ?? {};
         const read = mcp.registrations();
         if (read.problem !== undefined) return { text: text.registrationProblemText(read.problem), isError: true };
+        const auto = read.auto?.[target.server];
+        if (auto) return { text: text.autoServerText(target.server, auto.projectName), isError: true };
         const serverReg = read.servers[target.server];
         if (!serverReg) return { text: text.notRegisteredServerText(target.server, registeredTools(read)), isError: true };
         const registration = serverReg.tools[target.tool];

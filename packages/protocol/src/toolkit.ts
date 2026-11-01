@@ -172,6 +172,19 @@ export function mcpToolName(server: string, tool: string): string {
   return `${MCP_TOOL_PREFIX}${server}__${tool}`;
 }
 
+/** 项目转入使用时自动转出的 MCP 的名字开头（ADR-0045）。项目编号都是 p- 开头，所以留的是 project-p- 这一段 */
+const PROJECT_OPS_MCP_PREFIX = "project-";
+
+/** 这个项目自动转出的 MCP 叫什么：按项目编号生成，定了不变（工具名 mcp__project-p-3__<操作名>） */
+export function projectOpsMcpName(projectId: string): string {
+  return `${PROJECT_OPS_MCP_PREFIX}${projectId}`;
+}
+
+/** 这个名字留给项目自动转的 MCP（负责人提登记时不能用，用户自己写进 mcp.json 的照样优先） */
+export function isProjectOpsMcpName(name: string): boolean {
+  return name.startsWith(`${PROJECT_OPS_MCP_PREFIX}p-`);
+}
+
 /** 会话里的这个工具是不是这几个 MCP 之外的 MCP 工具（MCP 名里没有连着的两个下划线，按前缀认不会认错） */
 export function isMcpToolOutside(name: string, servers: readonly string[]): boolean {
   return name.startsWith(MCP_TOOL_PREFIX) && !servers.some((server) => name.startsWith(mcpToolName(server, "")));

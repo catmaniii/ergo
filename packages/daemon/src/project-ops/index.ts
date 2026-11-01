@@ -9,6 +9,7 @@
 // - acceptance.ts（照自动验收：格式对、每个操作一条能跑通的测试、只读的真不写）、snapshot.ts（只读的真不写比文件）、
 //   registry.ts（验收、登记、版本号）；
 // - tool.ts：秘书的 project_ops 和装配（createProjectOps）；check-tool.ts：负责人的 check_ops；
+// - mcp-export.ts：项目自动转的 MCP（算出来的登记、凭证、转发程序问的接口、自检，ADR-0045）；mcp-bridge-main.ts：stdio 转发程序本身；
 // - events.ts：operations 频道上的事件；texts.ts：说法；problems.ts：清单的问题（key 加参数，用到时按语言说）；tool-names.ts：工具名。
 export { type OpsCheckOp, type OpsCheckResult } from "./acceptance.ts";
 export { bindPlaceholders, enumOptions, prepareArgs, schemaProblems, schemaWarnings } from "./args.ts";
@@ -39,6 +40,7 @@ export {
 } from "./manifest.ts";
 export { OPS_PROBLEM_CODES, type OpsMsg, problemForModel, problemText } from "./problems.ts";
 export { fallbackSay, parseReply, type ParsedReply } from "./reply.ts";
+export { OPS_MCP_BRIDGE } from "./mcp-export.ts";
 export { type OpsChecklistView, type OpsRegistry } from "./registry.ts";
 export { createProjectOps, endpointService, PROJECT_OPS_CALL_TIMEOUT_MS, PROJECT_OPS_CHECK_TIMEOUT_MS, type ProjectOps, type ProjectOpsDeps } from "./tool.ts";
 export { CHECK_OPS_TOOL, PROJECT_OPS_TOOL } from "./tool-names.ts";

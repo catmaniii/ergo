@@ -13,6 +13,7 @@
 // - 工具的 quickAction：授权给秘书的快速动作（14 节"调用一个已登记并授权给秘书快速动作的 MCP 工具，参数固定"），
 //   写快速动作的说法和固定的参数。
 // 没登记的工具不进会话（服务进程报了也不用）。
+// 使用中的项目自动转的 MCP（ADR-0045）不在这个文件里：登记是算出来的，mcp.ts 现读时和这里的合起来。
 import fs from "node:fs";
 import { t } from "@ergo/protocol";
 import { MCP_NAME_PATTERN, schemaChecker, type Static, Type } from "@ergo/protocol";
@@ -108,10 +109,20 @@ export type McpRegistrations = Static<typeof McpRegistrationFile>["servers"];
 
 const checker = schemaChecker(McpRegistrationFile);
 
-/** 读出来的登记；读不了、写错了时 problem 写明，servers 是空的（一个也不用） */
+/** 项目自动转的 MCP 是哪个项目的（ADR-0045） */
+export interface McpOrigin {
+  projectId: string;
+  projectName: string;
+}
+
+/**
+ * 读出来的登记；读不了、写错了时 problem 写明，文件里的一个也不用。
+ * auto：servers 里哪几条是项目自动转的（算出来的，不在文件里，见 mcp.ts 的 computed）；只读文件时没有
+ */
 export interface McpRegistrationRead {
   servers: McpRegistrations;
   problem?: string;
+  auto?: Readonly<Record<string, McpOrigin>>;
 }
 
 /** 现读配置区的 mcp.json；没有这个文件就是没登记 */

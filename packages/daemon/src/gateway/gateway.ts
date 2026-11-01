@@ -392,6 +392,11 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
       req.resume();
       return sendError(res, "forbidden", t("gateway.serviceEvents.localOnly"));
     }
+    // 项目自动转的 MCP 同样只在本机端口开（ADR-0045）
+    if (pathnameOf(req) === HTTP_PATHS.projectOpsMcp) {
+      req.resume();
+      return sendError(res, "forbidden", t("gateway.projectOpsMcp.localOnly"));
+    }
     const check = checkExternalOrigin(req.headers);
     if (!check.ok) {
       req.resume();

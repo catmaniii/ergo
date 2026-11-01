@@ -6,9 +6,12 @@
 //   名字是 mcp__<MCP 名>__<工具名>，在守卫的工具注册表里按登记的类别、底线、参数规则、"只读或幂等"判（来源 mcp）。
 //   agent 的调用先过守卫，再由守护进程转给服务进程（call）；agent 子进程和它的孙进程碰不到凭据；
 // - 注入的凭据值不出守护进程：服务进程的 stderr 进日志、工具结果交给 agent 和写进事件日志、它报的工具说明给模型看之前都擦掉（redactorOf）；
-// - 授权给秘书快速动作的工具（quickActionTools）：参数按登记固定，见 quick-action.ts。
+// - 授权给秘书快速动作的工具（quickActionTools）：参数按登记固定，见 quick-action.ts；
+// - 算出来的登记（computed，ADR-0045）：使用中的项目自动转的 MCP 不写进 mcp.json，每次现读时和用户写的合起来。撞名时用户写的优先，
+//   自动的那个跳过并记一行日志。它的凭据只在内存里（给 serverEnv 的环境多一份），照样按"注入的凭据"擦；工具清单是登记自己带的，
+//   所以装配时不用拉起服务进程，第一次调用才拉起。调用时把调用者放进 tools/call 的 _meta（别的 MCP 不带）。
 import path from "node:path";
-import { type McpServerEntry, mcpToolName, t } from "@ergo/protocol";
+import { isProjectOpsMcpName, type McpServerEntry, mcpToolName, PROJECT_OPS_MCP_CALLER_META, type ProjectOpsMcpCaller, t } from "@ergo/protocol";
 import type { HostTool } from "../agent-manager/host-tools.ts";
 import { redactSecretValues, type ToolDescriptor } from "../guard/index.ts";
 import type { JobObject } from "../process/job-object.ts";
@@ -16,11 +19,20 @@ import { buildChildEnv } from "../process/child-env.ts";
 import { ownNodeProgram } from "../process/own-node.ts";
 import type { JsonValue } from "../runtime/index.ts";
 import { connectMcp, type McpCallResult, type McpConnection, type McpListedTool } from "./client.ts";
-import { guardFieldsOf, type McpRegistrationRead, type McpServerRegistration, type McpToolRegistration, readMcpRegistrations, serverEnv } from "./registration.ts";
+import { guardFieldsOf, type McpOrigin, type McpRegistrationRead, type McpServerRegistration, type McpToolRegistration, readMcpRegistrations, serverEnv } from "./registration.ts";
+
+/** 算出来的一条登记：登记本身、只在内存里的凭据（登记的 env 按名字 fromEnv 取它）、从哪个项目转的 */
+export interface ComputedMcp {
+  registration: McpServerRegistration;
+  env: Readonly<Record<string, string>>;
+  origin: McpOrigin;
+}
 
 export interface McpServiceOptions {
   /** 配置区的 mcp.json */
   file: string;
+  /** 算出来的登记（项目自动转的 MCP）：每次现读时取，和 mcp.json 里的合起来；撞名时 mcp.json 的优先 */
+  computed?: () => Readonly<Record<string, ComputedMcp>>;
   /** 守护进程自己的环境：系统变量白名单从这里挑，登记的凭据（fromEnv）从这里取 */
   parentEnv: Readonly<Record<string, string | undefined>>;
   /** 服务进程默认的工作目录（登记里没写 cwd 时） */
@@ -52,6 +64,8 @@ export interface RegisteredMcp {
   name: string;
   title: string;
   tools: Array<{ name: string; title: string; description?: string }>;
+  /** 项目自动转的：哪个项目 */
+  auto?: McpOrigin;
 }
 
 export interface McpService {
@@ -67,8 +81,8 @@ export interface McpService {
   descriptors(): ToolDescriptor[];
   /** 会话里的 MCP 工具（守护进程代为执行）：工具包列了的 MCP、联网关着时去掉要联网的；顺带在后台把服务进程拉起来（拿到参数说明） */
   hostToolsFor(toolkit: { mcp: readonly string[]; network: boolean }): HostTool[];
-  /** 调用一个登记了的工具（守卫已经放行；快速动作在用户确认之后） */
-  call(server: string, tool: string, args: Record<string, unknown>, signal?: AbortSignal): Promise<McpCallResult>;
+  /** 调用一个登记了的工具（守卫已经放行；快速动作在用户确认之后）。caller 只交给项目自动转的 MCP */
+  call(server: string, tool: string, args: Record<string, unknown>, signal?: AbortSignal, caller?: ProjectOpsMcpCaller): Promise<McpCallResult>;
   /**
    * 批准一条登记之后的自检：按现在的登记把这个 MCP 拉起来一次，等它报完 tools/list。
    * 起不来、超时都只回原因，不改登记（登记留着，用户可以用一张 remove 卡撤掉）；预算不给时用登记里的 timeoutMs，再不然 20 秒
@@ -83,6 +97,10 @@ export interface McpService {
   injectedSecrets(server: string): Array<{ name: string; variable: string; value: string }>;
   /** 现在活着的服务进程（闸门进程的 pid，服务进程是它的子进程） */
   live(): Array<{ server: string; pid: number }>;
+  /** 结束这个 MCP 的服务进程（下次用到时再拉起；正调着的不收）：项目自动转的那个自检完就收，不白占内存 */
+  release(server: string): void;
+  /** 结束已经不算登记了的服务进程（项目不在使用中了，它自动转的 MCP 跟着没有）。mcp.json 读不了时只收项目自动转的 */
+  sweep(): void;
   /** 结束全部服务进程 */
   stop(): Promise<void>;
 }
@@ -110,13 +128,45 @@ export function createMcpService(options: McpServiceOptions): McpService {
   const connections = new Map<string, { key: string; connection: Promise<McpConnection>; settled?: McpConnection }>();
   /** 服务进程报过的工具（参数说明、说明）：重起之后照样留着，下次报了再换 */
   const listed = new Map<string, readonly McpListedTool[]>();
+  /** 正在调的（release 不收正调着的） */
+  const calling = new Map<string, number>();
+  /** 撞名说过的（同一个名字只记一行日志，不然每次现读都写一行） */
+  const shadowed = new Set<string>();
   let stopped = false;
 
-  const registrations = () => readMcpRegistrations(options.file);
+  /** mcp.json 和算出来的合起来；算出来的凭据另放（不进登记，登记会交给调用方） */
+  const readAll = (): { read: McpRegistrationRead; computedEnv: Record<string, Readonly<Record<string, string>>> } => {
+    const file = readMcpRegistrations(options.file);
+    const servers = { ...file.servers };
+    const auto: Record<string, McpOrigin> = {};
+    const computedEnv: Record<string, Readonly<Record<string, string>>> = {};
+    for (const [name, computed] of Object.entries(options.computed?.() ?? {})) {
+      if (Object.hasOwn(file.servers, name)) {
+        if (!shadowed.has(name)) {
+          shadowed.add(name);
+          options.log(`mcp.json 里写了和项目 ${computed.origin.projectId} 自动转的 MCP 同名的 ${name}：用写的那条，自动的跳过`);
+        }
+        continue;
+      }
+      shadowed.delete(name);
+      servers[name] = computed.registration;
+      auto[name] = computed.origin;
+      computedEnv[name] = computed.env;
+    }
+    return { read: { servers, ...(file.problem === undefined ? {} : { problem: file.problem }), ...(Object.keys(auto).length > 0 ? { auto } : {}) }, computedEnv };
+  };
+
+  const registrations = () => readAll().read;
+
+  /** 这个 MCP 取凭据的环境：守护进程自己的，算出来的 MCP 再加它内存里那份 */
+  const envOf = (server: string): Readonly<Record<string, string | undefined>> => {
+    const extra = readAll().computedEnv[server];
+    return extra ? { ...options.parentEnv, ...extra } : options.parentEnv;
+  };
 
   /** 擦掉按这份登记注入的凭据值（redactSecretValues：原样、URL 编码、base64 的写法都擦） */
-  const redactorOf = (registration: McpServerRegistration) => {
-    const { secrets } = serverEnv(registration, options.parentEnv);
+  const redactorOf = (server: string, registration: McpServerRegistration) => {
+    const { secrets } = serverEnv(registration, envOf(server));
     return (text: string) => redactSecretValues(text, secrets);
   };
 
@@ -130,10 +180,10 @@ export function createMcpService(options: McpServiceOptions): McpService {
       void existing.connection.then((c) => c.close()).catch(() => {});
       connections.delete(server);
     }
-    const { env, missing } = serverEnv(registration, options.parentEnv);
+    const { env, missing } = serverEnv(registration, envOf(server));
     if (missing.length > 0) options.log(`MCP ${server} 登记要的凭据守护进程的环境里没有：${missing.join("、")}（照样拉起，服务进程可能用不了）`);
     // 服务进程说的话（stderr、不是 JSON 的输出、起不来的原因）进守护进程日志之前擦掉注入的凭据
-    const redact = redactorOf(registration);
+    const redact = redactorOf(server, registration);
     const log = (line: string) => options.log(redact(line));
     const connection = connectMcp({
       name: server,
@@ -166,12 +216,21 @@ export function createMcpService(options: McpServiceOptions): McpService {
     return connection;
   };
 
-  const call = async (server: string, tool: string, args: Record<string, unknown>, signal?: AbortSignal): Promise<McpCallResult> => {
-    const registration = registrations().servers[server];
+  /** 收掉一个服务进程：没起来的等它起来再收 */
+  const closeConnection = (server: string) => {
+    const entry = connections.get(server);
+    if (!entry) return;
+    connections.delete(server);
+    void entry.connection.then((c) => c.close()).catch(() => {});
+  };
+
+  const call = async (server: string, tool: string, args: Record<string, unknown>, signal?: AbortSignal, caller?: ProjectOpsMcpCaller): Promise<McpCallResult> => {
+    const read = registrations();
+    const registration = read.servers[server];
     // @i18n-ignore-start model：工具结果（快速动作的卡上也照原样显示）
     if (!registration?.tools[tool]) return { text: `没有登记 MCP 工具 ${server}/${tool}`, isError: true };
     // 结果交给 agent、写进事件日志（工具调用记录、操作记录、卡片）之前擦掉注入的凭据：服务进程可能把它原样报回来
-    const redact = redactorOf(registration);
+    const redact = redactorOf(server, registration);
     const failed = (text: string): McpCallResult => ({ text: redact(text), isError: true });
     let connection: McpConnection;
     try {
@@ -179,11 +238,16 @@ export function createMcpService(options: McpServiceOptions): McpService {
     } catch (err) {
       return failed(`MCP ${server} 用不了：${err instanceof Error ? err.message : String(err)}`);
     }
+    calling.set(server, (calling.get(server) ?? 0) + 1);
     try {
-      const result = await connection.callTool(tool, args, { timeoutMs: registration.timeoutMs ?? options.callTimeoutMs, ...(signal ? { signal } : {}) });
+      // 调用者只告诉二狗自己带的转发程序（别的 MCP 是外面的程序，用不着知道哪个 agent 在调）
+      const meta = read.auto?.[server] && caller ? { [PROJECT_OPS_MCP_CALLER_META]: caller } : undefined;
+      const result = await connection.callTool(tool, args, { timeoutMs: registration.timeoutMs ?? options.callTimeoutMs, ...(signal ? { signal } : {}), ...(meta ? { meta } : {}) });
       return { text: redact(result.text), isError: result.isError };
     } catch (err) {
       return failed(`调用 MCP 工具 ${server}/${tool} 没做成：${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      calling.set(server, (calling.get(server) ?? 1) - 1);
     }
     // @i18n-ignore-end
   };
@@ -221,19 +285,23 @@ export function createMcpService(options: McpServiceOptions): McpService {
             readOnlyOrIdempotent: reg.readOnlyOrIdempotent === true,
             ...(reg.quickAction ? { quickAction: reg.quickAction.title } : {}),
           })),
+          ...(read.auto?.[name] ? { auto: read.auto[name] } : {}),
         })),
         ...(read.problem === undefined ? {} : { problem: read.problem }),
       };
     },
-    brief: () =>
-      Object.entries(registrations().servers).map(([name, s]) => ({
+    brief() {
+      const read = registrations();
+      return Object.entries(read.servers).map(([name, s]) => ({
         name,
         title: s.title ?? name,
         tools: Object.entries(s.tools).map(([tool, reg]) => {
           const description = reg.description ?? listed.get(name)?.find((known) => known.name === tool)?.description;
           return { name: tool, title: reg.title, ...(description === undefined ? {} : { description }) };
         }),
-      })),
+        ...(read.auto?.[name] ? { auto: read.auto[name] } : {}),
+      }));
+    },
     has: (server) => Object.hasOwn(registrations().servers, server),
     descriptors: () => allTools(registrations()).map(({ server, serverReg, tool, reg }) => descriptorOf(server, serverReg, tool, reg)),
     hostToolsFor(toolkit) {
@@ -246,8 +314,8 @@ export function createMcpService(options: McpServiceOptions): McpService {
           continue;
         }
         const reported = listed.get(server);
-        // 还没拿到服务进程报的参数说明：在后台拉起它（下次装配就有了）
-        if (!reported) void ensure(server, serverReg).catch(() => {});
+        // 还没拿到服务进程报的参数说明：在后台拉起它（下次装配就有了）。项目自动转的说明都在登记里，不用为这个拉起
+        if (!reported && !read.auto?.[server]) void ensure(server, serverReg).catch(() => {});
         for (const [tool, reg] of Object.entries(serverReg.tools)) {
           if (reg.network !== false && !toolkit.network) continue;
           const fromServer = reported?.find((known) => known.name === tool);
@@ -261,7 +329,12 @@ export function createMcpService(options: McpServiceOptions): McpService {
             },
             run: async (args, hostCall) => {
               const params = typeof args === "object" && args !== null && !Array.isArray(args) ? (args as Record<string, unknown>) : {};
-              const result = await call(server, tool, params, hostCall.signal);
+              const caller: ProjectOpsMcpCaller = {
+                toolCallId: hostCall.toolCallId,
+                ...(hostCall.agentId === undefined ? {} : { agentId: hostCall.agentId }),
+                ...(hostCall.inputMessageId === undefined ? {} : { inputMessageId: hostCall.inputMessageId }),
+              };
+              const result = await call(server, tool, params, hostCall.signal, caller);
               return { text: result.text, isError: result.isError };
             },
           });
@@ -273,13 +346,25 @@ export function createMcpService(options: McpServiceOptions): McpService {
     probe,
     injectedSecrets(server) {
       const registration = registrations().servers[server];
-      return registration === undefined ? [] : serverEnv(registration, options.parentEnv).injected;
+      return registration === undefined ? [] : serverEnv(registration, envOf(server)).injected;
     },
     quickActionTools: () =>
       allTools(registrations()).flatMap(({ server, serverReg, tool, reg }) =>
         reg.quickAction ? [{ server, tool, title: reg.quickAction.title, args: reg.quickAction.args, registration: reg, serverTitle: serverReg.title ?? server }] : [],
       ),
     live: () => [...connections.entries()].flatMap(([server, c]) => (c.settled ? [{ server, pid: c.settled.pid }] : [])),
+    release(server) {
+      if (!calling.get(server)) closeConnection(server);
+    },
+    sweep() {
+      if (connections.size === 0) return;
+      const read = registrations();
+      for (const server of connections.keys()) {
+        if (Object.hasOwn(read.servers, server)) continue;
+        // mcp.json 读不了时用户写的也不在 servers 里：那些先不动。项目自动转的不看文件，该收就收（它的凭证已经作废了）
+        if (read.problem === undefined || isProjectOpsMcpName(server)) closeConnection(server);
+      }
+    },
     async stop() {
       stopped = true;
       const all = [...connections.values()];

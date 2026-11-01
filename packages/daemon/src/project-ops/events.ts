@@ -1,7 +1,7 @@
 // 秘书调使用中的项目的操作（补了验收、登记、版本号）在事件日志里的事件：守护进程内部的 operations 频道（和运营方案、
 // 项目的服务放在一起——删除项目时这个项目在 operations 频道上的事件整条换成"已删除"标记，这几种跟着一起，不用另登记）。
 // 前端不订阅，聊天里看到的是工具调用记录，时间线上另有一条 project_op。
-// - project_op_called：秘书经 project_ops 调了一次（真的发出去了才记：服务回了、连不上、等不到、脚本跑了、动作做了、建了工单；
+// - project_op_called：秘书经 project_ops、或者别的 agent 经项目自动转的 MCP（ADR-0045）调了一次（真的发出去了才记：服务回了、连不上、等不到、脚本跑了、动作做了、建了工单；
 //   找不到项目、参数不对、服务关着、清单没登记这些没发出去的不记）。记着用的是清单第几版（通用操作没有版本）、种类、风险标记
 //   （只记不做）、实现方式、能念的那句和是不是二狗补的；参数里像密钥的擦掉（发给实现的是原参数）。
 // - ops_manifest_checked：验收了一份清单（内容的指纹 hash），全过或没过（等服务上线的不记：服务起来以后再验）。同一份内容验过就不再自动验，
@@ -51,8 +51,11 @@ export interface ProjectOpCalledPayload {
   sayFilled: boolean;
   /** 实现回的附件（压成一行、截短） */
   result: { ok: boolean; text: string };
-  /** 谁调的：现在只有秘书 */
-  by: "secretary";
+  /** 谁调的：秘书（project_ops）、别的 agent（项目自动转的 MCP） */
+  by: "secretary" | "agent";
+  /** by 是 agent：哪个 agent、它的称呼（"项目「X」的负责人"、"任务「T」的负责人"） */
+  agentId?: string;
+  caller?: string;
   time: string;
 }
 

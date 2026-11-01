@@ -139,11 +139,12 @@ function projectSystemWithFakeKernel() {
     },
     agentHost,
     slots: { hasSlot: () => true, onFreed: () => {} },
-    taskMaintainers: { release: () => Promise.resolve() },
+    taskMaintainers: { release: () => Promise.resolve(), reassemble: () => {} },
     subAgents: { reassemble: () => [] },
     toolkits: { skillTool: unexpected("工具包的 skillTool"), requestTool: unexpected("工具包的 requestTool") },
     mcpChanges: { requestTool: unexpected("MCP 登记变更的 requestTool") },
     skillChanges: { requestTool: unexpected("skill 变更的 requestTool") },
+    mcp: { registrations: () => ({ servers: {} }), probe: unexpected("MCP 自检"), release: () => {}, sweep: () => {} },
   };
 
   const stops: Array<() => void | Promise<void>> = [];

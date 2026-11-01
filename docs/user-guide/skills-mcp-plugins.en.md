@@ -106,6 +106,18 @@ After deletion, the name stays in toolkits and is skipped when used, with no err
 
 Each MCP server lists its name and registered tools. After a tool it says **needs internet** or **read-only or idempotent**; those authorized for the secretary's quick actions say so too. This section is view-only; you can't change it on the page.
 
+### MCP servers made from projects
+
+**What it is:** when a project goes live, the operations in its operations API list that passed the check automatically become an MCP server named `project-<project id>` (for example `project-p-3`). It needs no registration and isn't in `mcp.json`.
+
+In the list it says "Made automatically from project "XX"" underneath.
+
+- **Can't be changed or removed:** its tools follow the operations API list and change when the owner edits the list and the check passes. When the project is paused, archived or deleted, it goes away.
+- **Using it:** the project's own owner can use it right away; its toolkit shows "made from this project, always here". Other projects and tasks put it in their toolkit like any other MCP server, under the same toolkit rules.
+- **The secretary:** doesn't use it, and keeps calling the project's operations for you directly.
+- **Records:** each call puts a line on the caller's timeline saying who called.
+- **Same name:** if you wrote one with the same name in `mcp.json`, yours is used and the automatic one doesn't appear.
+
 ### Registering an MCP server: write the config yourself
 
 **When to use it:** You have an MCP service and want agents to use it.
@@ -170,7 +182,7 @@ When the secretary calls one, the timeline records who called what. The guard ju
 
 ### Removing an MCP server
 
-Delete that section from `mcp.json`, or have the owner submit a card to delete it.
+Delete that section from `mcp.json`, or have the owner submit a card to delete it. Ones made from projects can't be removed; see [MCP servers made from projects](#mcp-servers-made-from-projects).
 
 ## Toolkits
 

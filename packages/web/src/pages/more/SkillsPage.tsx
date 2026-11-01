@@ -155,6 +155,7 @@ export function SkillsPage() {
             <div key={m.name} className="skill-row">
               <div>
                 <b>{t("pages.skills.titleWithId", { title: m.title, id: m.name })}</b>
+                {m.auto && <div className="hint">{t("pages.skills.mcpAuto", { project: m.auto.projectName })}</div>}
                 {m.tools.map((tool) => (
                   <div key={tool.name} className="muted">
                     {t("pages.skills.titleWithId", { title: tool.title, id: tool.name })}

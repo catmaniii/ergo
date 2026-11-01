@@ -17,6 +17,8 @@
   "mcp.change.who.task": "任务「{task}」的负责人",
   "mcp.change.alreadyRegistered": "已经登记了 MCP {name}：要改它用 action: update",
   "mcp.change.notRegistered": "没有登记 MCP {name}：要加它用 action: add",
+  "mcp.change.autoNoChange": "MCP {name} 是项目「{project}」转入使用时自动转的，不能手改、手删：它的工具跟着运营接口清单走，项目不在使用中了它就没有了",
+  "mcp.change.reservedName": "{name} 这种名字留给项目自动转的 MCP，换一个名字",
   "mcp.change.badName": "MCP 的名字 {name} 不合规：只能用小写、大写字母、数字、- 和 _，不能以符号开头，也不能连着两个 _",
   "mcp.change.missingCommand": "command 要写要拉起的命令（比如 node），不能是空的",
   "mcp.change.plaintextSecret": "这几项看着是密钥，不要写明文：{names}。密钥写 { fromEnv: \"变量名\" }，运行时按名字从自己的环境里取（由服务管家注入）",

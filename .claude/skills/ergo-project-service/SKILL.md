@@ -5,7 +5,7 @@ description: 写一个能被二狗（ergo）托管的项目服务时用：项目
 
 # 写项目服务
 
-先读 `.claude/skills/ergo-dev/SKILL.md`。设计理由在 `docs/architecture/adr/0028-operations-plan-one-confirmation-authorizes.md`、`docs/architecture/adr/0043-project-service-events.md`，转发和报事件的说明在 `docs/architecture/README.md` 的"转发本机服务的页面""项目的服务报事件"两节。
+先读 `.claude/skills/ergo-dev/SKILL.md`。设计理由在 `docs/architecture/adr/0028-operations-plan-one-confirmation-authorizes.md`、`docs/architecture/adr/0043-project-service-events.md`、`docs/architecture/adr/0045-project-ops-auto-mcp.md`，转发和报事件的说明在 `docs/architecture/README.md` 的"转发本机服务的页面""项目的服务报事件"两节。
 
 ## 是什么
 
@@ -94,7 +94,19 @@ description: 写一个能被二狗（ergo）托管的项目服务时用：项目
 - 不写调用口也行：`impl` 写 `script`（工作目录里的脚本）、`ergo`（二狗自带动作）、`maintainer`（转给负责人）。
 - 负责人用 `check_ops` 验收，全过才登记给秘书。http 的操作要等服务上线后才测得到。更多写法：`packages/daemon/test/helpers/fake-ops-app.ts`。
 
-### 给负责人：登记 MCP（放进项目的工具包）
+### 给别的 agent：清单自动转成 MCP，不用写转发
+
+项目转入使用，`ops.json` 验收过的操作**自动多一个标准 MCP**，不用负责人写任何东西、不多一张卡。
+
+- 名字 `project-<项目编号>`（`project-p-3`），工具名 `mcp__project-p-3__<操作名>`。这个项目的负责人工具包里自动有，别的项目、任务的负责人走 `request_toolkit_change` 或计划的工具包。
+- 进程是二狗带的 stdio 转发程序（`project-ops/mcp-bridge-main.ts`），经本机端口到和 `project_ops` 同一段逻辑：四种实现方式都能调，结果有 `say`，记录写明谁调的。验收的测试标记不带。
+- 守卫：`kind: query` 算只读或幂等，都不联网；`risk` 只写进说明给模型看。
+- 改了 `ops.json` 用 `check_ops`，过了登记新版，工具跟着变，不用重启。项目停用、归档、删除，MCP 跟着没有。
+- 操作名只用字母、数字、`-`、`_` 才转得了（带点的只有秘书能用，自检时写明）。白送的通用操作不转。
+
+### 还要手写时：登记 MCP（放进项目的工具包）
+
+清单能表达的不用手写。这几种才手写：工具要流式或长连接、不是这个项目的东西（外面的程序、别的语言的 SDK）、要在 `mcp.json` 里定类别和底线让守卫管（自动转的只有只读和联网两样）、要给秘书做快速动作。
 
 二狗只说 MCP 的 stdio 传输：`initialize`、`tools/list`、`tools/call`，每行一个 JSON-RPC。MCP 进程由守护进程按需拉起，**不是服务**，不监听端口，不在服务管家里。项目服务是 HTTP 的，就写一个很薄的 stdio 进程转发给它。
 
@@ -131,7 +143,7 @@ description: 写一个能被二狗（ergo）托管的项目服务时用：项目
 
 要跑全流程（真的服务管家、真子进程、真命令行，模型是假的）照抄 `packages/daemon/test/main/service-events-real.test.ts`。
 
-改二狗这一侧的看：`packages/daemon/test/main/operation-services.test.ts`（服务管家替身）、`packages/daemon/test/main/service-events.test.ts`、`packages/daemon/test/main/mcp-registration.test.ts`、`packages/daemon/test/project-ops/project-ops.test.ts`。
+改二狗这一侧的看：`packages/daemon/test/main/operation-services.test.ts`（服务管家替身）、`packages/daemon/test/main/service-events.test.ts`、`packages/daemon/test/main/mcp-registration.test.ts`、`packages/daemon/test/main/project-ops-mcp.test.ts`（自动转的 MCP）、`packages/daemon/test/project-ops/project-ops.test.ts`。
 
 ## 完成前检查
 

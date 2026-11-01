@@ -62,13 +62,15 @@ export interface RunOptions {
   why?: string;
   inputMessageId?: string;
   signal?: AbortSignal;
+  /** 不是秘书调的：调用者的称呼（别的 agent 经项目自动转的 MCP；交给负责人的工单里写明） */
+  caller?: string;
 }
 
 /** 交给负责人的那段话 */
-export function maintainerInstructions(op: ProjectOp, args: Record<string, unknown>, why: string | undefined): string {
+export function maintainerInstructions(op: ProjectOp, args: Record<string, unknown>, why: string | undefined, caller?: string): string {
   const body = op.impl.type === "maintainer" && op.impl.instructions ? String(bindPlaceholders(op.impl.instructions, args)) : `用户要做「${op.title ?? op.name}」：${op.description}`;
   return [
-    `秘书代用户调了运营接口「${op.title ?? op.name}」（${op.name}），转给你当工单：`,
+    `${caller ?? "秘书代用户"}调了运营接口「${op.title ?? op.name}」（${op.name}），转给你当工单：`,
     body,
     `参数：${Object.keys(args).length > 0 ? JSON.stringify(args) : "（没有参数）"}`,
     ...(why ? [`为什么：${why}`] : []),
@@ -132,7 +134,7 @@ export async function runOp(ctx: RunContext, op: ProjectOp, args: Record<string,
   }
   // maintainer：转给负责人当工单
   const title = op.title ?? op.name;
-  const instructions = maintainerInstructions(op, args, opts.why);
+  const instructions = maintainerInstructions(op, args, opts.why, opts.caller);
   try {
     if (opts.test) {
       ctx.delegate({ project: ctx.project, title, instructions, check: true });

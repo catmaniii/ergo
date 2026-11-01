@@ -97,6 +97,7 @@ function opsLayer() {
     browser: unexpected("浏览器"),
     ports: { local: 18810, external: 18811 },
     newJob: () => undefined,
+    opsMcp: { agentOf: () => undefined, mcp: () => ({ registrations: () => ({ servers: {} }), probe: unexpected("MCP 自检"), release: () => {}, sweep: () => {} }), changed: () => {} },
     clock,
     now,
     log: (line) => logs.push(line),

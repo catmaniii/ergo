@@ -1163,6 +1163,8 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const secretarySkills = createSecretarySkills({ file: layout.secretarySkillsFile, library: skills, log });
     const mcp = createMcpService({
       file: layout.mcpFile,
+      // 项目转入使用时自动转的 MCP：算出来的登记，每次现读时合进去，不写进 mcp.json（ADR-0045）
+      computed: () => projectSystem.projectOpsMcp.registrations(),
       parentEnv: options.env,
       cwd: defaultMcpCwd(layout.tmp),
       nodePath: process.execPath,
@@ -2401,7 +2403,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 项目系统接上建在它之后的内核模块：执行控制器、agent 宿主、执行名额、任务的负责人、子 agent、工具包、MCP 登记变更、skill 变更都建好了。
     // 接着（和原来同一个位置）：项目的建设任务做完了出"首版做完了"卡（任务完成回调）、运营方案跟着项目停用启用（订阅项目事件）、派单器开始
     // （派单器写回最多催几次和执行中的催促同一个阈值，14；工单结束时的范围审视由项目的负责人做）
-    projectSystem.connect({ execution: taskExecution, agentHost, slots, taskMaintainers: maintainers, subAgents, toolkits, mcpChanges, skillChanges }, teardown);
+    projectSystem.connect({ execution: taskExecution, agentHost, slots, taskMaintainers: maintainers, subAgents, toolkits, mcpChanges, skillChanges, mcp }, teardown);
     // 任务的负责人在派单器接上之后再起：重启时马上要拉起的涉及多个项目的任务的负责人，一起来就可能派工单
     maintainers.start();
     teardown.push(() => maintainers.stop());
@@ -2820,6 +2822,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
         serviceThumbnail: (projectId, name) => projectSystem.serviceThumbnail(projectId, name),
         // 项目的服务报事件：只在本机端口（网关挡外网端口）
         serviceEvents: projectSystem.serviceEvents,
+        projectOpsMcp: projectSystem.projectOpsMcp,
         // 项目规范的只读视图
         projectStandard: (projectId) => projectSystem.projectStandard(projectId),
         log,

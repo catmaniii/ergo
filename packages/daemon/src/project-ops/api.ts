@@ -7,7 +7,7 @@
 // - 它的登记走宿主现成的登记口（layer.ts 的 OpsLayerContext：卡片类型、运营手段 ctx.operationMeans、转发 ctx.apps，每次登记返回撤销函数），
 //   不再由组装函数替它把"服务"插进内核的运营手段、把整张转发登记表交给它。
 // 前两条 test/projects/boundary.test.ts 守着，第三条 test/project-ops/layer.test.ts 看着。只放常量和类型，不 import 运营层的服务实现。
-import type { HttpErrorCode, Project, ServiceEventReply, StandardChecklistItem } from "@ergo/protocol";
+import type { HttpErrorCode, Project, ProjectOpsMcpBody, ProjectOpsMcpReply, ServiceEventReply, StandardChecklistItem } from "@ergo/protocol";
 import type { HostTool } from "../agent-manager/host-tools.ts";
 import type { NewEvent } from "../events/event-store.ts";
 
@@ -53,6 +53,14 @@ export interface ServiceEventsApi {
   authenticate(credential: string | undefined): { ok: true; caller: ServiceEventCaller } | ServiceEventRefusal;
   /** 报一次：oversized 是请求体超了上限，没读完（事件名也不知道） */
   report(caller: ServiceEventCaller, input: { event?: string; data?: unknown; oversized?: boolean }): { ok: true; reply: ServiceEventReply } | ServiceEventRefusal;
+}
+
+/** 网关的 POST /api/project-ops-mcp 要的（只在本机端口开，ADR-0045）：先认凭证，再读请求体，再回 MCP 的结果 */
+export interface ProjectOpsMcpApi {
+  /** 请求体最多读多少字节 */
+  readonly maxBodyBytes: number;
+  authenticate(credential: string | undefined): { ok: true; projectId: string } | { ok: false; code: "unauthorized"; message: string };
+  handle(projectId: string, body: ProjectOpsMcpBody, signal: AbortSignal): Promise<ProjectOpsMcpReply>;
 }
 
 /** 秘书的工具里运营层给的（projects/secretary-tools.ts 接进项目系统给秘书的那几样）。先后是秘书看到的工具顺序（测试比对它） */

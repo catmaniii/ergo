@@ -15,7 +15,7 @@ const REGISTERED_TOOL_NOTE_MAX = 80;
  * 已登记的 MCP 清单（真模型试验里新任务的负责人问"看板叫什么名字"，要用户告诉它）：拼在负责人的系统提示里，起草计划、申请工具包变更时对得上。
  * 一个都没登记的是 undefined
  */
-export function registeredMcpText(servers: ReadonlyArray<{ name: string; title: string; tools: ReadonlyArray<{ name: string; title: string; description?: string }> }>): string | undefined {
+export function registeredMcpText(servers: ReadonlyArray<{ name: string; title: string; tools: ReadonlyArray<{ name: string; title: string; description?: string }>; auto?: { projectName: string } }>): string | undefined {
   if (servers.length === 0) return undefined;
   const toolLine = (tool: { name: string; title: string; description?: string }) => {
     const note = tool.description?.trim().split(/\r?\n/)[0]?.slice(0, REGISTERED_TOOL_NOTE_MAX);
@@ -23,7 +23,7 @@ export function registeredMcpText(servers: ReadonlyArray<{ name: string; title: 
   };
   return [
     "已登记的 MCP（库里现在有这些。用户说的数据源、看板对得上哪个就用哪个，不用再问它叫什么；要用就把名字写进工具包：起草计划时写进计划的工具包 toolkit.mcp，项目的对话段里用 request_toolkit_change 申请）：",
-    ...servers.map((s) => `- ${s.name}${s.title === s.name ? "" : `（${s.title}）`}：${s.tools.map(toolLine).join("；") || "没登记工具"}`),
+    ...servers.map((s) => `- ${s.name}${s.auto ? `（项目「${s.auto.projectName}」的运营接口自动转的：不用登记、不能手改；这个项目自己的负责人工具包里自动有，别的要配进工具包）` : s.title === s.name ? "" : `（${s.title}）`}：${s.tools.map(toolLine).join("；") || "没登记工具"}`),
   ].join("\n");
 }
 // @i18n-ignore-end
@@ -76,6 +76,10 @@ export const problemsText = (problems: readonly string[]) => problems.join(t("to
 export const alreadyRegisteredText = (name: string) => t("mcp.change.alreadyRegistered", { name });
 /** 一条 MCP 没有登记（update、remove 时） */
 export const notRegisteredText = (name: string) => t("mcp.change.notRegistered", { name });
+/** 项目自动转的 MCP 不能手改、手删（ADR-0045） */
+export const autoNoChangeText = (name: string, project: string) => t("mcp.change.autoNoChange", { name, project });
+/** 这种名字留给项目自动转的 MCP（add 时） */
+export const reservedNameText = (name: string) => t("mcp.change.reservedName", { name });
 /** 名字的格式不对 */
 export const badNameText = (name: string) => t("mcp.change.badName", { name });
 /** command 没写（或只有空白） */

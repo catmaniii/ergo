@@ -226,7 +226,7 @@ describe("秘书的 project_ops：照草稿补齐", () => {
     await ledgerBuilt(td, frontend, app.port);
     // "首版做完了"卡上的清单：后台验完了刷新成"验收通过"
     const card = await eventually(() => cardsOf(frontend), (c) => c.type === "build_done" && opsItem(c)?.done === true, "清单验收通过");
-    expect(opsItem(card)).toMatchObject({ label: "运营接口清单验收通过（ops.json）", done: true, detail: "验收通过：5 个操作的测试都跑通，只读的没写东西" });
+    expect(opsItem(card)).toMatchObject({ label: "运营接口清单验收通过（ops.json）", done: true, detail: "验收通过：5 个操作的测试都跑通，只读的没写东西；这个项目的 5 个操作会同时转成 MCP，别的 agent 配进工具包就能用" });
     // 测试调用带测试标记：有副作用的没真记账
     expect(app.calls().map((c) => [c.name, c["_meta"]])).toEqual([
       ["add_expense", { "ergo/test": true }],
@@ -328,7 +328,7 @@ describe("秘书的 project_ops：照草稿补齐", () => {
     writeOps(d.records("p-1"), LEDGER_OPS);
     ok(await frontend.request(METHODS.projectAction, { projectId: "p-1", action: "go_live" }, "k-go-live"));
     const fixed = await eventually(() => cardsOf(frontend), (c) => c.id === missing.id && opsItem(c)?.done === true, "补齐后清单打勾");
-    expect(opsItem(fixed)!.detail).toBe("验收通过：2 个操作的测试都跑通，只读的没写东西");
+    expect(opsItem(fixed)!.detail).toBe("验收通过：2 个操作的测试都跑通，只读的没写东西；这个项目的 2 个操作会同时转成 MCP，别的 agent 配进工具包就能用");
     await putInUse(td, frontend, fixed);
     expect(registeredEvents(td).map((r) => r.version)).toEqual([1]);
 
@@ -349,7 +349,7 @@ describe("秘书的 project_ops：照草稿补齐", () => {
     const checked = await td.daemon.projectOps.checkTool({ projectId: "p-1", maintainerId: "pm-1" }).run({} as never, { toolCallId: "call-check" });
     expect(checked.isError).toBeFalsy();
     expect(checked.text).toContain("验收全过：2 个操作的测试都跑通了");
-    expect(checked.text).toContain("登记成第 2 版，秘书马上用它");
+    expect(checked.text).toContain("登记成第 2 版，秘书和这个项目自动转的 MCP 马上用它");
     expect(registeredEvents(td).map((r) => [r.version, r.via])).toEqual([
       [1, "go_live"],
       [2, "changed"],

@@ -317,9 +317,16 @@ These two buttons control all of this project's services.
 - The service manager's page only opens on the PC where ergo is installed. That's where you can see logs and start or stop a single service; see [Service manager](settings.en.md#service-manager).
 - ergo can't open a public entry point yet; you have to do it by hand following the card. For outside access, see [On your phone](mobile.en.md#letting-your-phone-reach-your-computer-choosing-outside-access).
 
-### Registering as an MCP
+### Automatic MCP server
 
-If you want other agents to use a tool the project built, tell the owner "Register this service as an MCP". It issues an **MCP registration change** card, and it only takes effect when you click **Approve**. For details, see [Registering an MCP server: ask the owner](skills-mcp-plugins.en.md#registering-an-mcp-server-ask-the-owner).
+When a project goes live, the operations in its operations API list that passed the check automatically become an MCP server. There's nothing for you to do and no extra card. The card where you confirm going live says "N operations of this project also become an MCP server: other agents can use them once it's in their toolkit".
+
+- **Who can use it:** the project's own owner can use it right away. Other projects and tasks put it in their toolkit; see [MCP servers made from projects](skills-mcp-plugins.en.md#mcp-servers-made-from-projects).
+- **When the list changes:** once the owner's check passes, the tools follow, with no restart.
+- **When the project is paused, archived or deleted:** this MCP server goes away with it.
+- **Did it come up:** after going live, ergo tries it once and writes the result on the owner's timeline. A failure doesn't affect going live.
+
+For tools the list can't describe (outside programs, long-lived connections), still tell the owner "Register this service as an MCP"; see [Registering an MCP server: ask the owner](skills-mcp-plugins.en.md#registering-an-mcp-server-ask-the-owner).
 
 ### Having the secretary operate the project
 

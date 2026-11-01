@@ -901,6 +901,15 @@ export const FAKE_TOOLKIT_CATALOG: ToolkitCatalog = {
       title: "照片信息（假数据）",
       tools: [{ name: "read_exif", title: "读拍摄信息", network: false, readOnlyOrIdempotent: true, quickAction: "看一下这张照片的拍摄时间" }],
     },
+    {
+      name: "project-p-ledger",
+      title: "记账本",
+      tools: [
+        { name: "add_expense", title: "记一笔", network: false, readOnlyOrIdempotent: false },
+        { name: "list_expenses", title: "查最近的账", network: false, readOnlyOrIdempotent: true },
+      ],
+      auto: { projectId: "p-ledger", projectName: "记账本" },
+    },
   ],
 };
 

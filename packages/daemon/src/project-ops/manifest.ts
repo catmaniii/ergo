@@ -24,7 +24,7 @@
 // 参数说明写得对不对、测试跑不跑得通是验收的事（acceptance.ts）。
 import crypto from "node:crypto";
 import fs from "node:fs";
-import { t } from "@ergo/protocol";
+import { MCP_NAME_PATTERN, t } from "@ergo/protocol";
 import { problem, type OpsMsg } from "./problems.ts";
 
 /** 三种操作（草稿：只读查询 / 有副作用的动作 / 触发一次运行） */
@@ -245,6 +245,13 @@ function opOf(tool: unknown, index: number): ProjectOp {
     ...(tested === undefined ? {} : { test: tested }),
   };
 }
+
+/** MCP 工具名长度上限（同 mcp.json 的登记） */
+const MCP_TOOL_NAME_MAX = 64;
+const MCP_TOOL_NAME = new RegExp(MCP_NAME_PATTERN);
+
+/** 这个操作能不能转成 MCP 工具（ADR-0045）：名字合 MCP 工具名的规矩（会话里的工具名靠它分段，模型那边也只认这些字符） */
+export const canExport = (op: Pick<ProjectOp, "name">) => op.name.length <= MCP_TOOL_NAME_MAX && MCP_TOOL_NAME.test(op.name);
 
 /** 只读查询（旧清单的"只读"） */
 export const isReadOnly = (op: Pick<ProjectOp, "kind">) => op.kind === "query";

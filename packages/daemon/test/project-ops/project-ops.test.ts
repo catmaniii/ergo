@@ -365,7 +365,7 @@ describe("清单验收和版本号（照自动验收）", () => {
     // 清单上先是"正在验收"（后台开验），验完了 onChecked
     expect(s.ops.checklistItem(building)).toMatchObject({ id: "ops", done: false, detail: "2 个操作，正在验收" });
     await waitFor(() => s.checked.length > 0);
-    expect(s.ops.checklistItem(building)).toMatchObject({ id: "ops", done: true, detail: "验收通过：2 个操作的测试都跑通，只读的没写东西" });
+    expect(s.ops.checklistItem(building)).toMatchObject({ id: "ops", done: true, detail: "验收通过：2 个操作的测试都跑通，只读的没写东西；这个项目的 2 个操作会同时转成 MCP，别的 agent 配进工具包就能用" });
     // 测试调用带着测试标记，有副作用的没真记
     expect(app.calls().map((c) => [c.name, c["_meta"]])).toEqual([
       ["add_expense", { "ergo/test": true }],
@@ -442,7 +442,7 @@ describe("清单验收和版本号（照自动验收）", () => {
       ops: { "p-1": LEDGER_OPS },
     });
     await s.ops.prepareGoLive("p-1");
-    expect(s.ops.checklistItem(building)).toMatchObject({ done: true, later: true, detail: "2 个操作格式对、能跑的测试都过了；项目服务上的 2 个要服务在跑才能测，上线后自动复验" });
+    expect(s.ops.checklistItem(building)).toMatchObject({ done: true, later: true, detail: "2 个操作格式对、能跑的测试都过了；项目服务上的 2 个要服务在跑才能测，上线后自动复验；这个项目的 2 个操作会同时转成 MCP，别的 agent 配进工具包就能用" });
     // 转入使用时不登记（还没全过）
     expect(s.ops.goLiveEvents(building)).toEqual([]);
     // 转入使用、服务起来了：秘书第一次用到时验、过了登记
@@ -521,7 +521,7 @@ describe("清单验收和版本号（照自动验收）", () => {
     s.writeOps("p-1", { ...LEDGER_OPS, tools: [{ ...LEDGER_OPS.tools[0]!, usage: "金额不清楚先问" }, LEDGER_OPS.tools[1]!] });
     const passed = await s.check("p-1");
     expect(passed.isError).toBe(false);
-    expect(passed.text).toContain("登记成第 2 版，秘书马上用它");
+    expect(passed.text).toContain("登记成第 2 版，秘书和这个项目自动转的 MCP 马上用它");
     const done = await s.run({ action: "call", project: "记账本", op: "add_expense", args: { amount: 32, note: "午饭" } });
     expect(done.text).toContain("（运营接口清单第 2 版）做好了");
     expect(s.called().map((c) => [c.op, c.version])).toEqual([

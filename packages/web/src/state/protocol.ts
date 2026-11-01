@@ -580,7 +580,7 @@ export { INBOX_ACTION_MAX, REMINDER_ACTION_MAX, TASK_BATCH_MAX } from "@ergo/pro
 export { OUT_OF_SCOPE_ACK, SCOPE_RECORD_KIND_LABEL, SCOPE_RECORD_KINDS, scopeRecordChannel, SCOPE_REVIEW_TRIGGER_LABEL } from "@ergo/protocol";
 export type { OutOfScopeNoticeData, ScopeOwnership, ScopeRecord, ScopeRecordEventPayload, ScopeRecordKind, ScopeReviewTrigger, ScopeSources } from "@ergo/protocol";
 // skill 库、MCP 登记与工具包：工具包区、skill 库页、工具包变更卡；集合、导入并改名、秘书用的 skill
-export { capabilityText, DEFAULT_SECRETARY_SKILLS, IMPORT_NAME_PATTERN, SECRETARY_SKILL_PROMPT_WARN_BYTES, toolkitChangeText } from "@ergo/protocol";
+export { capabilityText, DEFAULT_SECRETARY_SKILLS, IMPORT_NAME_PATTERN, projectOpsMcpName, SECRETARY_SKILL_PROMPT_WARN_BYTES, toolkitChangeText } from "@ergo/protocol";
 // 工具包里"给秘书发消息"的开关（名字写名字占位）
 export { canTellSecretary, TELL_SECRETARY_CAPABILITY, tellSecretaryField } from "@ergo/protocol";
 // 工具包里"发附件"那个开关

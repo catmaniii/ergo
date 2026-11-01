@@ -12,12 +12,16 @@
 // 调用口对不上服务、服务关着、还在上线、上线失败、要你手动、负责人收不了工单。
 // 发出去了的记一条时间线（秘书会话，project_op）和 project_op_called（operations 频道，带清单的版本号），参数里像密钥的擦掉。
 // createProjectOps 把清单的验收和登记（registry.ts）、秘书的工具、负责人的 check_ops（check-tool.ts）、转运营检查清单那一项装在一起。
-import { CHANNELS, type OperationsPlanView, type Project, type ProjectServiceView, type StandardChecklistItem, STANDARD_CHECKLIST_ITEM_LABEL, t, Type } from "@ergo/protocol";
+// 别的 agent 经项目自动转的 MCP 调（callFromMcp，ADR-0045）走同一段执行逻辑（整理校验参数、runOp、记录），差别只有：
+// 只认登记着的那一版里能转的操作（通用操作不转；档案里新改的要 check_ops 过了才算，不在调用时顺手验）、记录写明是谁调的、时间线记在调用者的会话上、
+// 跟负责人说一句不走"用户的话"那条路（agent 说的不能算用户说的），算一条通知。
+import { randomUUID } from "node:crypto";
+import { CHANNELS, type ConversationId, forModel, mcpToolName, type MessageScope, type OperationsPlanView, type Project, projectOpsMcpName, type ProjectServiceView, type StandardChecklistItem, STANDARD_CHECKLIST_ITEM_LABEL, t, Type } from "@ergo/protocol";
 import { defineHostTool, type HostTool } from "../agent-manager/host-tools.ts";
 import { buildTimelineRecord } from "../conversation/messages.ts";
 import { RequestRejected } from "../errors.ts";
 import type { EventStore, NewEvent } from "../events/event-store.ts";
-import { maskSecretArgValues } from "../guard/index.ts";
+import { maskSecretArgValues, redactSecretValues } from "../guard/index.ts";
 import type { JobObject } from "../process/job-object.ts";
 import type { ProjectServices } from "../project-services/project-services.ts";
 import { OPERATIONS_CHANNEL, type ProjectRecordsPaths } from "../projects/api.ts";
@@ -27,7 +31,7 @@ import { prepareArgs } from "./args.ts";
 import { type BuiltinContext, type BuiltinJobs, BUILTIN_OP_NAMES, builtinOp, builtinOps, isBuiltinName } from "./builtin.ts";
 import { checkOpsTool } from "./check-tool.ts";
 import { PROJECT_OPS_EVENTS, type ProjectOpCalledPayload } from "./events.ts";
-import type { OpsEndpoint, ProjectOp } from "./manifest.ts";
+import { canExport, type OpsEndpoint, type ProjectOp } from "./manifest.ts";
 import { type OpsMsg, problem } from "./problems.ts";
 import { fallbackSay } from "./reply.ts";
 import { createOpsRegistry, type OpsChecklistView, type OpsRegistry } from "./registry.ts";
@@ -75,8 +79,30 @@ export interface ProjectOpsDeps {
   newJob?: () => JobObject | undefined;
 }
 
+/** 经项目自动转的 MCP 调的是谁 */
+export interface OpsMcpCaller {
+  /** 称呼（"项目「X」的负责人"）：用到时按当时的语言说 */
+  who: () => string;
+  agentId?: string;
+  /** 时间线记在哪个会话、带什么归属；认不出是哪个负责人的没有时间线（事件里照样记） */
+  conversation?: ConversationId;
+  scope?: MessageScope;
+}
+
+/** 经 MCP 调一次的情境 */
+export interface OpsMcpInvocation {
+  caller: OpsMcpCaller;
+  toolCallId?: string;
+  inputMessageId?: string;
+  signal?: AbortSignal;
+  /** 这个 MCP 的凭证：结果、记录里出现了擦掉 */
+  secrets: readonly string[];
+}
+
 export interface ProjectOps {
   registry: OpsRegistry;
+  /** 别的 agent 经项目自动转的 MCP 调一个操作：say 是能念的那句（调不了的没有） */
+  callFromMcp(projectId: string, name: string, given: Record<string, unknown>, invocation: OpsMcpInvocation): Promise<{ text: string; isError: boolean; say?: string }>;
   /** 秘书的 project_ops */
   tool(): HostTool;
   /** 项目负责人的 check_ops（绑定在它维护的项目上） */
@@ -145,25 +171,31 @@ export function createProjectOps(deps: ProjectOpsDeps): ProjectOps {
     return { kind: "ok", port: found.port, app: found.app };
   };
 
-  const builtinContext = (project: Project, manifest?: { version: number; ops: number }): BuiltinContext => ({
+  /** 别的 agent 经 MCP 跟负责人说一句：agent 说的不能算用户说的（秘书转达那条路是"用户的话"），放一条通知 */
+  const agentTells = (caller: OpsMcpCaller): BuiltinContext["tellMaintainer"] => ({ project, message, key, check }) => {
+    if (!check) deps.notifyMaintainer?.(project, text.agentTellsText(forModel(caller.who), message), `ops-mcp-tell:${key}`);
+    return [];
+  };
+
+  const builtinContext = (project: Project, manifest?: { version: number; ops: number }, caller?: OpsMcpCaller): BuiltinContext => ({
     project,
     services: servicesOf(project.id),
     jobs: deps.jobs,
     get scheduler() {
       return deps.scheduler();
     },
-    tellMaintainer: deps.tellMaintainer,
+    tellMaintainer: caller ? agentTells(caller) : deps.tellMaintainer,
     workdir: deps.projects.workdir(project),
     ...(manifest ? { manifest } : {}),
     now: nowDate,
   });
 
-  const runContext = (project: Project, opts: { timeoutMs: number; endpoint?: OpsEndpoint; manifest?: { version: number; ops: number } }): RunContext => ({
+  const runContext = (project: Project, opts: { timeoutMs: number; endpoint?: OpsEndpoint; manifest?: { version: number; ops: number }; caller?: OpsMcpCaller }): RunContext => ({
     project,
     endpointTarget: endpointTarget(project),
     ...(opts.endpoint ? { endpoint: opts.endpoint } : {}),
     workdir: deps.projects.workdir(project),
-    builtin: builtinContext(project, opts.manifest),
+    builtin: builtinContext(project, opts.manifest, opts.caller),
     delegate: deps.delegate,
     timeoutMs: opts.timeoutMs,
     ...(deps.newJob ? { newJob: deps.newJob } : {}),
@@ -244,9 +276,9 @@ export function createProjectOps(deps: ProjectOpsDeps): ProjectOps {
     return text.listText(listed, builtinOps());
   };
 
-  const describeOf = (project: Project, found: Awaited<ReturnType<typeof opOf>>) => {
+  const describeOf = (project: Project, found: Awaited<ReturnType<typeof opOf>>, mcpTool?: string) => {
     const service = found.builtin ? undefined : serviceOf(project, [found.op], found.endpoint);
-    return text.describeText(project, found.op, { builtin: found.builtin, ...(found.version !== undefined ? { version: found.version } : {}), ...(service ? { service } : {}) });
+    return text.describeText(project, found.op, { builtin: found.builtin, ...(found.version !== undefined ? { version: found.version } : {}), ...(service ? { service } : {}), ...(mcpTool ? { mcpTool } : {}) });
   };
 
   const describe = async (ref: string, name: string): Promise<string> => {
@@ -254,10 +286,10 @@ export function createProjectOps(deps: ProjectOpsDeps): ProjectOps {
     return describeOf(project, await opOf(project, name));
   };
 
-  /** 发出去了的记下来：时间线（秘书会话）+ project_op_called（operations 频道），跟负责人说一句的消息同一批 */
-  const record = (input: { project: Project; found: Awaited<ReturnType<typeof opOf>>; args: Record<string, unknown>; why?: string; outcome: OpOutcome; say: string; sayFilled: boolean }) => {
-    const { project, found, outcome } = input;
-    const shown = maskSecretArgValues(input.args) as Record<string, unknown>;
+  /** 发出去了的记下来：时间线（秘书会话，别的 agent 调的记在它自己的会话）+ project_op_called（operations 频道），跟负责人说一句的消息同一批 */
+  const record = (input: { project: Project; found: Awaited<ReturnType<typeof opOf>>; args: Record<string, unknown>; why?: string; outcome: OpOutcome; say: string; sayFilled: boolean; caller?: OpsMcpCaller; scrub: (value: string) => string }) => {
+    const { project, found, outcome, caller, scrub } = input;
+    const shown = JSON.parse(scrub(JSON.stringify(maskSecretArgValues(input.args)))) as Record<string, unknown>;
     const result = oneLine(outcome.detail, RECORDED_RESULT_CHARS);
     const target = outcome.target;
     const version = found.builtin ? null : (found.version ?? null);
@@ -278,49 +310,76 @@ export function createProjectOps(deps: ProjectOpsDeps): ProjectOps {
       say: input.say,
       sayFilled: input.sayFilled,
       result: { ok: outcome.ok, text: result },
-      by: "secretary",
+      by: caller ? "agent" : "secretary",
+      ...(caller?.agentId === undefined ? {} : { agentId: caller.agentId }),
+      ...(caller ? { caller: caller.who() } : {}),
       time: deps.now(),
     };
-    const timeline = buildTimelineRecord(
-      CHANNELS.secretary,
-      {
-        kind: "project_op",
-        summary: text.timelineSummary(outcome.ok, project.name, found.op.name, input.say),
-        detail: text.timelineDetail({ version, args: shown, ...(input.why === undefined ? {} : { why: input.why }), ok: outcome.ok, say: input.say, sayFilled: input.sayFilled, result }),
-      },
-      // 秘书会话里的记录不带项目归属（同 mcp_call）：是哪个项目写在话里、事件里
-      {},
-    );
-    const events: NewEvent[] = [{ channel: OPERATIONS_CHANNEL, type: PROJECT_OPS_EVENTS.called, payload }, timeline.event, ...(outcome.events ?? [])];
+    // 秘书调的记在秘书会话；别的 agent 调的记在它自己的会话（认不出是哪个负责人的没有会话可记，事件里照样写着）
+    const conversation = caller ? caller.conversation : CHANNELS.secretary;
+    const timeline =
+      conversation &&
+      buildTimelineRecord(
+        conversation,
+        {
+          kind: "project_op",
+          summary: text.timelineSummary(outcome.ok, project.name, found.op.name, input.say, caller?.who()),
+          detail: text.timelineDetail({ version, args: shown, ...(input.why === undefined ? {} : { why: input.why }), ok: outcome.ok, say: input.say, sayFilled: input.sayFilled, result }),
+        },
+        // 秘书会话里的记录不带项目归属（同 mcp_call）：是哪个项目写在话里、事件里
+        caller?.scope ?? {},
+      );
+    const events: NewEvent[] = [{ channel: OPERATIONS_CHANNEL, type: PROJECT_OPS_EVENTS.called, payload }, ...(timeline ? [timeline.event] : []), ...(outcome.events ?? [])];
     deps.store.appendBatch(events);
+  };
+
+  /** 整理校验参数、跑、记下来、说结果：秘书的 call 和 MCP 的 callFromMcp 同一段（调不了的抛 Refusal） */
+  const execute = async (input: {
+    project: Project;
+    found: Awaited<ReturnType<typeof opOf>>;
+    given: Record<string, unknown>;
+    why?: string | undefined;
+    key: string;
+    inputMessageId?: string | undefined;
+    signal?: AbortSignal | undefined;
+    caller?: OpsMcpCaller;
+    /** MCP 的工具名：说明里写怎么调（不是 project_ops 那一套） */
+    mcpTool?: string;
+    secrets?: readonly string[];
+  }): Promise<{ text: string; isError: boolean; say?: string }> => {
+    const { project, found, given, why, caller, mcpTool } = input;
+    const { op } = found;
+    const scrub = (value: string) => redactSecretValues(value, input.secrets ?? []);
+    const prepared = prepareArgs(op.inputSchema, given);
+    if (!prepared.ok) return { text: text.argsRejected(project, op, prepared.problems, describeOf(project, found, mcpTool)), isError: true };
+    const ctx = runContext(project, { timeoutMs, ...(found.endpoint ? { endpoint: found.endpoint } : {}), ...(found.version !== undefined ? { manifest: { version: found.version, ops: found.count } } : {}), ...(caller ? { caller } : {}) });
+    const ran = await runOp(ctx, op, prepared.args, {
+      test: false,
+      key: input.key,
+      ...(why === undefined ? {} : { why }),
+      ...(input.inputMessageId === undefined ? {} : { inputMessageId: input.inputMessageId }),
+      ...(input.signal ? { signal: input.signal } : {}),
+      ...(caller ? { caller: forModel(caller.who) } : {}),
+    });
+    if (!ran.sent) throw new Refusal(ran.blocked ?? ran.detail);
+    const outcome: OpOutcome = { ...ran, detail: scrub(ran.detail), ...(ran.say === undefined ? {} : { say: scrub(ran.say) }) };
+    const sayFilled = outcome.say === undefined;
+    const say = outcome.say ?? fallbackSay(op, { ok: outcome.ok, detail: outcome.detail });
+    record({ project, found, args: prepared.args, ...(why === undefined ? {} : { why }), outcome, say, sayFilled, ...(caller ? { caller } : {}), scrub });
+    deps.log(`${caller ? forModel(caller.who) : "秘书"}调项目 ${project.id} 的操作 ${op.name}${found.builtin ? "（通用）" : `（第 ${found.version} 版）`}：${outcome.ok ? "做成了" : `没做成（${oneLine(outcome.detail, 80)}）`}`);
+    const version = found.builtin ? "通用操作" : `运营接口清单第 ${found.version} 版`; // @i18n-ignore model
+    if (outcome.ok) return { text: text.callText.done(project, op, version, say, sayFilled, outcome.detail), isError: false, say };
+    const service = outcome.target.impl === "http" ? servicesOf(project.id).find((v) => v.app === (outcome.target as { app: string }).app) : undefined;
+    if (outcome.reach === "refused") return { text: text.callText.refused(project, op, outcome.target.impl === "http" ? `调用口连不上（本机 ${outcome.target.url.replace(/^http:\/\//, "")} 没有响应）` : outcome.detail, service), isError: true, say }; // @i18n-ignore model
+    if (outcome.reach === "timeout") return { text: text.callText.timeout(project, op, outcome.detail, service), isError: true, say };
+    if (outcome.reach === "aborted") return { text: text.callText.aborted(project, op), isError: true, say };
+    return { text: text.callText.failed(project, op, outcome.status, say, sayFilled, outcome.detail, describeOf(project, found, mcpTool)), isError: true, say };
   };
 
   const call = async (ref: string, name: string, given: Record<string, unknown>, why: string | undefined, invocation: { toolCallId: string; inputMessageId?: string; signal?: AbortSignal }): Promise<{ text: string; isError: boolean }> => {
     const project = mustInUse(ref);
     const found = await opOf(project, name);
-    const { op } = found;
-    const prepared = prepareArgs(op.inputSchema, given);
-    if (!prepared.ok) return { text: text.argsRejected(project, op, prepared.problems, describeOf(project, found)), isError: true };
-    const ctx = runContext(project, { timeoutMs, ...(found.endpoint ? { endpoint: found.endpoint } : {}), ...(found.version !== undefined ? { manifest: { version: found.version, ops: found.count } } : {}) });
-    const outcome = await runOp(ctx, op, prepared.args, {
-      test: false,
-      key: `project-op:${invocation.toolCallId}`,
-      ...(why === undefined ? {} : { why }),
-      ...(invocation.inputMessageId === undefined ? {} : { inputMessageId: invocation.inputMessageId }),
-      ...(invocation.signal ? { signal: invocation.signal } : {}),
-    });
-    if (!outcome.sent) throw new Refusal(outcome.blocked ?? outcome.detail);
-    const sayFilled = outcome.say === undefined;
-    const say = outcome.say ?? fallbackSay(op, { ok: outcome.ok, detail: outcome.detail });
-    record({ project, found, args: prepared.args, ...(why === undefined ? {} : { why }), outcome, say, sayFilled });
-    deps.log(`秘书调项目 ${project.id} 的操作 ${op.name}${found.builtin ? "（通用）" : `（第 ${found.version} 版）`}：${outcome.ok ? "做成了" : `没做成（${oneLine(outcome.detail, 80)}）`}`);
-    const version = found.builtin ? "通用操作" : `运营接口清单第 ${found.version} 版`; // @i18n-ignore model
-    if (outcome.ok) return { text: text.callText.done(project, op, version, say, sayFilled, outcome.detail), isError: false };
-    const service = outcome.target.impl === "http" ? servicesOf(project.id).find((v) => v.app === (outcome.target as { app: string }).app) : undefined;
-    if (outcome.reach === "refused") return { text: text.callText.refused(project, op, outcome.target.impl === "http" ? `调用口连不上（本机 ${outcome.target.url.replace(/^http:\/\//, "")} 没有响应）` : outcome.detail, service), isError: true }; // @i18n-ignore model
-    if (outcome.reach === "timeout") return { text: text.callText.timeout(project, op, outcome.detail, service), isError: true };
-    if (outcome.reach === "aborted") return { text: text.callText.aborted(project, op), isError: true };
-    return { text: text.callText.failed(project, op, outcome.status, say, sayFilled, outcome.detail, describeOf(project, found)), isError: true };
+    return execute({ project, found, given, why, key: `project-op:${invocation.toolCallId}`, inputMessageId: invocation.inputMessageId, signal: invocation.signal });
   };
 
   const checklistItem = (project: Project): StandardChecklistItem => {
@@ -331,6 +390,31 @@ export function createProjectOps(deps: ProjectOpsDeps): ProjectOps {
 
   return {
     registry,
+    async callFromMcp(projectId, name, given, invocation) {
+      try {
+        const project = deps.projects.list().find((p) => p.id === projectId);
+        if (!project) throw new Refusal(text.opsMcpNoProject(projectId));
+        if (project.state !== "in_use") throw new Refusal(text.notInUse(project));
+        const reg = registry.registered(project.id);
+        const exported = reg?.ops.filter(canExport) ?? [];
+        const op = exported.find((o) => o.name === name);
+        if (!op) throw new Refusal(text.opsMcpOpMissing(project, name, exported));
+        return await execute({
+          project,
+          found: { op, builtin: false, version: reg!.version, endpoint: reg!.endpoint, count: reg!.ops.length },
+          given,
+          key: `project-op:${invocation.caller.agentId ?? "-"}:${invocation.toolCallId ?? randomUUID()}`,
+          inputMessageId: invocation.inputMessageId,
+          signal: invocation.signal,
+          caller: invocation.caller,
+          mcpTool: mcpToolName(projectOpsMcpName(project.id), op.name),
+          secrets: invocation.secrets,
+        });
+      } catch (err) {
+        if (err instanceof Refusal) return { text: err.message, isError: true };
+        throw err;
+      }
+    },
     tool: () =>
       defineHostTool({
         name: PROJECT_OPS_TOOL,

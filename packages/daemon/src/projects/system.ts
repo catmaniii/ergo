@@ -40,6 +40,8 @@ import {
   maintainerChannel,
   type ProjectEventPayload,
   projectToolkit,
+  t,
+  type Task,
 } from "@ergo/protocol";
 import type { HostTool } from "../agent-manager/host-tools.ts";
 import type { FixedTools } from "../agent-host/assembly.ts";
@@ -63,6 +65,7 @@ import type { LsmServices } from "../lsm/link.ts";
 import { multiProjectToolkit } from "../maintainers/multi-project.ts";
 import type { Materials } from "../materials/index.ts";
 import type { McpChangeService } from "../mcp/change.ts";
+import type { ComputedMcp, McpService } from "../mcp/mcp.ts";
 import type { SkillChangeService } from "../skills/change.ts";
 import type { PurgeRewriters } from "../memory/rewriters.ts";
 import type { JobObject } from "../process/job-object.ts";
@@ -90,7 +93,7 @@ import { registerWorkOrderDeletion, workOrderPurge } from "../work-orders/purge.
 import { judgeUnplannedWorkOrder } from "../work-orders/unplanned.ts";
 import { workOrdersView } from "../work-orders/views.ts";
 import { createWorkOrders, type WorkOrders } from "../work-orders/work-orders.ts";
-import type { JobWorkOrders, SecretaryProjects, ServiceEventsApi, ToolkitProjects } from "./api.ts";
+import type { JobWorkOrders, ProjectOpsMcpApi, SecretaryProjects, ServiceEventsApi, ToolkitProjects } from "./api.ts";
 import { buildDoneCardType, charterCardType, goLiveCardType, suggestProjectCardType } from "./cards.ts";
 import { type CharterChanges, charterChangeCardType, charterChangeDecisionSource, charterChangePurges, createCharterChanges } from "./charter-change.ts";
 import { registerProjectDeletion } from "./deletion-participants.ts";
@@ -184,8 +187,8 @@ export interface ProjectSystemKernel {
   agentHost: AgentHost;
   /** 全局执行名额：定时作业的运行工单排到了还要有名额才开始 */
   slots: Pick<ExecutionSlots, "hasSlot" | "onFreed">;
-  /** 任务的负责人模块：任务转为项目时先让它放手 */
-  taskMaintainers: { release(maintainerId: string): Promise<void> };
+  /** 任务的负责人模块：任务转为项目时先让它放手；项目自动转的 MCP 变了，工具包里配了它的任务的负责人换装配 */
+  taskMaintainers: { release(maintainerId: string): Promise<void>; reassemble(maintainerId: string, notice: string): void };
   /** 子 agent：项目的工具包变了、负责人正在执行某个任务，它的子 agent 重新装配 */
   subAgents: Pick<SubAgents, "reassemble">;
   /** 工具包、MCP 登记变更：项目负责人对话段里增减 skill、申请工具包变更、登记 MCP 的工具 */
@@ -193,6 +196,8 @@ export interface ProjectSystemKernel {
   mcpChanges: Pick<McpChangeService, "requestTool">;
   /** skill 变更：项目负责人把 skill 提交进 skill 库的工具 */
   skillChanges: Pick<SkillChangeService, "requestTool">;
+  /** MCP：项目自动转的那个现读、自检、收掉服务进程 */
+  mcp: Pick<McpService, "registrations" | "probe" | "release" | "sweep">;
 }
 
 /** 收尾：各步开始了什么就排上停什么（组合根的 teardown，停的时候倒着来） */
@@ -240,6 +245,8 @@ export interface ProjectSystem {
   serviceThumbnail(projectId: string, name: string): { file: string; takenAt: string } | undefined;
   /** 网关的 POST /api/service-events：项目的服务报事件 */
   readonly serviceEvents: ServiceEventsApi;
+  /** 项目自动转的 MCP（ADR-0045）：算出来的登记（MCP 模块现读时合进去），网关的 POST /api/project-ops-mcp */
+  readonly projectOpsMcp: ProjectOpsMcpApi & { registrations(): Record<string, ComputedMcp> };
   /** 项目规范的只读视图 */
   projectStandard: ProjectService["standard"];
   /** 项目负责人此刻能用的 skill（输入框里打 / 的候选）；不是项目的负责人 undefined */
@@ -264,6 +271,9 @@ export interface ProjectSystem {
 
 /** 真实路径（取不到就原样） */
 const real = (p: string) => realPathOf(p) ?? p;
+
+/** 任务自己的负责人可能正开着会话的状态（项目自动转的 MCP 变了时让它们换装配） */
+const RUNNING_TASK_STATES: ReadonlySet<Task["state"]> = new Set(["running", "waiting_for_user", "paused", "operating"]);
 
 export function createProjectSystem(deps: ProjectSystemDeps): ProjectSystem {
   const { store, cards, inbox, tasks, places, watchSettings, clock, now, userWords, log } = deps;
@@ -381,6 +391,21 @@ export function createProjectSystem(deps: ProjectSystemDeps): ProjectSystem {
       browser: deps.browser,
       ports: deps.ports,
       newJob: deps.newJob,
+      opsMcp: {
+        // 调它的 agent 是谁：项目的负责人、任务自己的负责人（子 agent 的工具里没有 MCP）。时间线记在它自己的会话上
+        agentOf: (agentId) => {
+          const project = projects.maintainedBy(agentId);
+          if (project) return { who: () => t("mcp.change.who.project", { project: project.name }), conversation: maintainerChannel(agentId), scope: workOrders.scopeOf(agentId) ?? { projectId: project.id } };
+          const task = tasks.list().find((item) => item.maintainerId === agentId);
+          return task && { who: () => t("mcp.change.who.task", { task: task.title }), conversation: maintainerChannel(agentId), scope: { taskId: task.id, ...(task.internal ? { projectId: task.internal.projectId } : {}) } };
+        },
+        mcp: () => wired("mcp"),
+        // 登记了新的一版：项目自己的负责人、工具包里配了它的负责人按新的工具重新装配（闲着的等下次唤起，不叫醒）
+        changed: (project, name, notice) => {
+          for (const p of projects.list()) if (p.id === project.id || projectToolkit(p).mcp.includes(name)) late.projectMaintainers?.reassemble(p.maintainerId, notice);
+          for (const task of tasks.list()) if (RUNNING_TASK_STATES.has(task.state) && tasks.confirmedPlan(task.id)?.plan.toolkit.mcp.includes(name)) wired("taskMaintainers").reassemble(task.maintainerId, notice);
+        },
+      },
       clock,
       now,
       log,
@@ -532,6 +557,7 @@ export function createProjectSystem(deps: ProjectSystemDeps): ProjectSystem {
     servicesFrame: () => ops.servicesFrame(),
     serviceThumbnail: (projectId, name) => ops.thumbnail(projectId, name),
     serviceEvents: ops.serviceEvents,
+    projectOpsMcp: ops.opsMcp,
     projectStandard: (projectId) => projects.standard(projectId),
     skillsOf: (maintainerId) => wired("projectMaintainers").skillsOf(maintainerId),
 
@@ -581,6 +607,8 @@ export function createProjectSystem(deps: ProjectSystemDeps): ProjectSystem {
         checkOpsTool: (projectId, maintainerId) => ops.checkTool({ projectId, maintainerId }),
         // 查自己项目的服务最近报的事件：调试服务、等不到运行工单时看
         serviceEventsTool: (projectId) => ops.serviceEventsTool(projectId),
+        // 这个项目自动转的 MCP：负责人的工具包里自动有它
+        ownMcp: (project) => ops.opsMcp.ownMcp(project),
         layout: deps.layout,
         // 项目内部任务：对话段里发起任务的工具（点明了才建，看负责人正在处理的那条用户消息）
         internalTaskTools: (scope) => internalTaskTools({ tasks, cards, projects, userTurn: (inputMessageId) => readUserTurn(store, cards, inputMessageId) }, scope),

@@ -87,6 +87,7 @@ import {
   ImportFolderActionBody,
   ComponentActionBody,
   AutostartBody,
+  ProjectOpsMcpBody,
   ServiceEventBody,
   ComponentsActionBody,
   ComponentImportBody,
@@ -127,7 +128,7 @@ import type { WorkFolders } from "../work-folders/index.ts";
 import type { AssistantNameService } from "../assistant/index.ts";
 import type { UserNameService } from "../user-name/index.ts";
 import type { PersonalFilesService } from "../personal-files/index.ts";
-import type { ServiceEventsApi } from "../projects/api.ts";
+import type { ProjectOpsMcpApi, ServiceEventsApi } from "../projects/api.ts";
 import type { CalendarService } from "../calendar/api.ts";
 import { latestAttachment } from "../conversation/attachments-view.ts";
 import { historyPage, isConversationChannel } from "../conversation/history.ts";
@@ -309,6 +310,8 @@ export interface HttpApiOptions {
   projectStandard?: (projectId: string) => ProjectStandardView | undefined;
   /** 项目的服务报事件：POST /api/service-events，只在本机端口（网关挡外网端口）；不给就没有这个接口 */
   serviceEvents?: ServiceEventsApi;
+  /** 项目自动转的 MCP 的转发程序问工具清单、调操作（ADR-0045）：只在本机端口开 */
+  projectOpsMcp?: ProjectOpsMcpApi;
   log: (line: string) => void;
 }
 
@@ -1091,6 +1094,30 @@ export function createHttpApi(options: HttpApiOptions): HttpApi {
             const done = options.serviceEvents.report(who.caller, input);
             if (!done.ok) throw new HttpError(done.code, done.message);
             sendJson(res, 202, done.reply);
+          },
+        };
+      case "project_ops_mcp":
+        return {
+          // 项目自动转的 MCP（ADR-0045）：先认凭证（不对的不读请求体），再读，再转给项目的操作；调用方断开了（调用被中止）这边跟着中止
+          async POST(req, res) {
+            if (!options.projectOpsMcp) throw new HttpError("not_found", t("gateway.projectOpsMcp.none"));
+            const who = options.projectOpsMcp.authenticate(bearerToken(req.headers.authorization));
+            if (!who.ok) throw new HttpError(who.code, who.message);
+            const text = await readLimited(req, options.projectOpsMcp.maxBodyBytes);
+            if (text === undefined) throw new HttpError("too_large", t("gateway.projectOpsMcp.tooLarge"));
+            let raw: unknown;
+            try {
+              raw = JSON.parse(text);
+            } catch {
+              throw new HttpError("bad_request", t("gateway.badJson"));
+            }
+            const body = checkHttpBody(ProjectOpsMcpBody, raw);
+            if (!body.ok) throw new HttpError("bad_request", t("gateway.projectOpsMcp.badBody", { message: body.message }));
+            const gone = new AbortController();
+            res.once("close", () => {
+              if (!res.writableFinished) gone.abort();
+            });
+            sendJson(res, 200, await options.projectOpsMcp.handle(who.projectId, body.value, gone.signal));
           },
         };
       case "autostart":

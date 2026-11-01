@@ -127,7 +127,7 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 | `materials/`、`memory/`、`quick-actions/` | 素材库（原话副本、关键词和向量索引）、记忆插件（每晚整理、记忆管理员、访谈）、快速动作 |
 | `reminders/`、`calendar/`、`voice/`、`browsing/`、`claude-code/`、`google/`、`looki/`、`phone/` | 各个插件（每个目录里有 `plugin.ts`，别的模块只从它的 `api.ts` 取东西） |
 | `scheduler/`、`workday/`、`backup/` | 调度器和可注入的时钟、内部作业；个人工作日历和节假日；备份、校验、恢复 |
-| `web/`、`typed-shell/`、`skills/`、`mcp/`、`toolkit/`、`apps/` | 联网工具、带类型的 bash 工具（git、构建……）、skill 库（`skills/change.ts`：负责人提交 skill 的卡，路子和 `mcp/change.ts` 一样，校验和导入共用 `library.ts`）、MCP 登记、工具包、转发本机服务的页面 |
+| `web/`、`typed-shell/`、`skills/`、`mcp/`、`toolkit/`、`apps/` | 联网工具、带类型的 bash 工具（git、构建……）、skill 库（`skills/change.ts`：负责人提交 skill 的卡，路子和 `mcp/change.ts` 一样，校验和导入共用 `library.ts`）、MCP 登记（用户写的和[项目自动转的](#项目自动转的-mcp)）、工具包、转发本机服务的页面 |
 | `prompts/`、`agent-settings/`、`model-settings/`、`assistant/`、`agent-roles/`、`i18n/` | 系统提示（md 文件，用户能改）、每个 agent 的 ⚙、模型设置、助理的名字、角色、多语言 |
 | `lsm/` | 接入服务管家的 link 协议（报健康和忙不忙、优雅停机、名下的服务） |
 | `deploy/`、`deploy-nginx.ts`、`restore.ts`、`run-backup.ts`、`download-model.ts` | 命令行工具：生成和部署 nginx 站点、恢复、备份、下载模型 |
@@ -412,6 +412,20 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 - **给负责人的说明**：`prompts/project-maintainer.md` 的"被服务叫醒"一段（完整做法），`operations/builtin-means.ts`、`project-services/means.ts` 的手段说明（字段）。改做法要改这几处。
 - **服务出事的通知**：上线失败、挂了、好了、前缀自检没过都标 `chatOnly`（`MessageEventPayload`）：不进工单段，排到负责人空下来开一个对话段（`work-orders/segments.ts` 的 `accepts`），报警工单不被打断，这一段也才有 `propose_operations`。通知写服务管家判断的依据和健康检查的地址，提示先自己连一下核实。
 - **测试**：`test/main/grow-frictions.test.ts`（服务出事的通知不打断报警）、`test/main/service-events.test.ts`（假 LSM、faux 负责人）、`test/main/service-events-real.test.ts`（真的服务管家、真子进程、真命令行）、`test/cli/notify.test.ts`、`test/build/stage.test.ts`（版本目录里跑）。
+
+### 项目自动转的 MCP
+
+项目转入使用，`ops.json` 验收过的操作自动多一个标准 MCP，别的 agent 配进工具包就能用，不用手写转发（ADR-0045）。
+
+- **进程**：`project-ops/mcp-bridge-main.ts`，只用 Node 自带的。说 `initialize`、`ping`、`tools/list`、`tools/call`，经本机端口问守护进程。只转工具名、参数和 `_meta["ergo/caller"]`，验收的 `ergo/test` 走不到这条路。守护进程连不上时不崩。
+- **登记**：`project-ops/mcp-export.ts` 的 `registrations()` 现算，`createMcpService` 的 `computed` 每次现读时和 `mcp.json` 合起来，撞名时 `mcp.json` 的优先（`registrations().auto` 标着哪些是算出来的）。不写文件，`request_mcp_change` 不能改、删，也不能新加 `project-p-` 开头的。名字是 `projectOpsMcpName`：`project-<项目编号>`。
+- **接口**：`POST /api/project-ops-mcp`（只在本机端口开，`gateway.ts` 在外网端口一进来就拒）。`Authorization: Bearer`，体 `ProjectOpsMcpBody`（`tools/list`，或 `tools/call` 带 `name`、`arguments`、`caller`），回 MCP 的结果；调用方断开时中止这次调用。
+- **凭证**：一个项目一份，只在 `mcp-export.ts` 的内存里，经登记的 `env`（`fromEnv`）注入转发程序，不进守护进程的环境，也就到不了 agent。`mcp.ts` 的 `redactorOf` 按注入的值擦；`tool.ts` 记事件之前再擦一遍。项目不在使用中了作废。
+- **执行**：`tool.ts` 的 `callFromMcp` 和秘书的 `call` 共用 `execute`（`prepareArgs`、`runOp`、记录）。只认登记着的那一版里能转的操作（`canExport`），通用操作不转。`project_op_called` 写 `by: "agent"`、`agentId`、称呼；时间线记在调用者的会话上。经它跟负责人说一句是一条通知，不走秘书转达（那条路是"用户的话"）。
+- **工具包**：项目自己的负责人经 `projects/maintainers.ts` 的 `segmentToolkit` 自动带上（`ownMcp`），起草计划那一段除外；不写进项目的工具包。秘书不变，`mcp_call` 指回 `project_ops`。
+- **生命周期**：`layer.ts` 听 `ops_manifest_registered`：让用着它的负责人重新装配，后台拉一次转发程序自检（`mcp.probe`），结果写进负责人时间线，然后收掉（`mcp.release`）。听项目事件：不在使用中了作废凭证、收掉进程（`mcp.sweep`）。
+- **给负责人的说明**：`prompts/project-maintainer.md` 的"使用中"一段、`mcp/texts.ts` 的 `registeredMcpText`。模板 `ops.json` 没写这件事：`isTemplate` 按全文认"模板原样"，改了 v1 的模板，已经放进项目档案、没动过的那份就认不出了，空清单会被当成验收通过。
+- **测试**：`test/main/project-ops-mcp.test.ts`（真的转发程序、四种实现方式、凭证、外网端口、同名、假 Claude Code）、`test/project-ops/mcp-bridge.test.ts`（只测转发程序）。
 
 ### 阶段预算
 

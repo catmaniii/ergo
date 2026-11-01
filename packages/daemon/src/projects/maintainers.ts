@@ -176,6 +176,8 @@ export interface ProjectMaintainersOptions {
   goLiveTool?: (projectId: string, maintainerId: string) => HostTool;
   /** 验收运营接口清单的工具（project-ops/ 的 check_ops）：改了 ops.json 看过没过，使用中的全过了登记成新的一版 */
   checkOpsTool?: (projectId: string, maintainerId: string) => HostTool;
+  /** 这个项目自动转的 MCP（ADR-0045）：负责人这个项目里的工具包自动有它（起草计划时除外）；没有是 undefined */
+  ownMcp?: (project: Project) => string | undefined;
   /** 查自己项目的服务最近报的事件的工具（project-services/ 的 recent_service_events） */
   serviceEventsTool?: (projectId: string) => HostTool;
 }
@@ -540,18 +542,23 @@ const draftingToolkit = (project: Project): PlanToolkit => ({
  */
 function segmentToolkit(options: ProjectMaintainersOptions, project: Project): PlanToolkit {
   const { tasks } = options.host;
+  /** 项目自己的 MCP 不用配：这个项目自动转的，负责人的工具包里自动有（任务授权的交集也不筛它，调的是自己项目的操作） */
+  const withOwnMcp = (toolkit: PlanToolkit): PlanToolkit => {
+    const own = options.ownMcp?.(project);
+    return own !== undefined && !toolkit.mcp.includes(own) ? { ...toolkit, mcp: [...toolkit.mcp, own] } : toolkit;
+  };
   const wo = options.workOrders.currentWorkOrder(project.maintainerId);
-  if (!wo) return project.charterConfirmed ? projectToolkit(project) : draftingToolkit(project);
+  if (!wo) return project.charterConfirmed ? withOwnMcp(projectToolkit(project)) : draftingToolkit(project);
   if (isJobRunWorkOrder(wo)) {
     // 定时触发的普通任务（项目内部的）每次运行和项目内部的普通任务一样，工具包就是项目的
     const run = options.jobRun?.(wo, project.maintainerId);
-    return run && run.toolkit === undefined ? projectToolkit(project) : effectiveToolkit(run?.toolkit ?? emptyToolkit(), projectToolkit(project));
+    return withOwnMcp(run && run.toolkit === undefined ? projectToolkit(project) : effectiveToolkit(run?.toolkit ?? emptyToolkit(), projectToolkit(project)));
   }
   // 项目内部的普通任务：没有计划，项目的负责人在这个项目里能用什么就是什么
-  if (plainTask(tasks, wo.taskId)) return projectToolkit(project);
+  if (plainTask(tasks, wo.taskId)) return withOwnMcp(projectToolkit(project));
   // 执行的工单段、别的任务的负责人派来的改动：任务授权和项目工具包的交集；起草计划的同任务自己的负责人起草时
   const confirmed = followsPlan(wo) ? tasks.confirmedPlan(wo.taskId) : undefined;
-  return confirmed ? effectiveToolkit(confirmed.plan.toolkit, projectToolkit(project)) : draftingToolkit(project);
+  return confirmed ? withOwnMcp(effectiveToolkit(confirmed.plan.toolkit, projectToolkit(project))) : draftingToolkit(project);
 }
 
 /** 这个任务是普通任务（项目内部的普通任务由项目的负责人在执行的工单段里直接做） */

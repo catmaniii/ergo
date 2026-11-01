@@ -112,7 +112,7 @@ When a project is finished, you confirm once on a card and it goes into use:
 - the operations plan its owner wrote (a daily report at a set time, process new files arriving in a folder…) starts up as a whole, and runs from then on without asking item by item;
 - its public interfaces are listed in an operations API list, in the same format as MCP tools. Say "log thirty-two yuan for lunch" and the secretary calls your ledger.
 
-For now that list serves the secretary; turning it into a standard MCP service that other agents can use directly is still on the way.
+When a project goes live, that list also becomes a standard MCP server (stdio) automatically: no forwarding program to write, the project's own owner can use it right away, and owners of other projects and tasks can use it once it's in their toolkit. Change the list, pass the check, and the tools follow. For now it only serves ergo's own agents; setup for your own Claude Code or Cursor isn't done yet.
 
 The more of these services you collect, the bigger the things one sentence can do.
 

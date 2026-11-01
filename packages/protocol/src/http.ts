@@ -303,6 +303,7 @@ const CUSTOM_MODELS = "custom-models";
 const SAFETY_SETTINGS = "safety-settings";
 const AUTOSTART = "autostart";
 const SERVICE_EVENTS = "service-events";
+const PROJECT_OPS_MCP = "project-ops-mcp";
 const SETUP = "setup";
 const DOCTOR = "doctor";
 const CONNECTION_ADDRESSES = "connection-addresses";
@@ -533,6 +534,11 @@ export const HTTP_PATHS = {
    */
   serviceEvents: api(SERVICE_EVENTS),
   /**
+   * 项目自动转的 MCP（ADR-0045，形状在 project-ops-mcp-schema.ts）：二狗带的 stdio 转发程序问工具清单、调操作。
+   * POST（ProjectOpsMcpBody → ProjectOpsMcpReply），带 Authorization: Bearer <项目的专属凭证>。只在本机端口开，外网端口一律拒绝
+   */
+  projectOpsMcp: api(PROJECT_OPS_MCP),
+  /**
    * 首次设置向导：GET 取五步各自做完了没有（SetupView），POST 标一步"以后再说"（skip: true）
    * 或者"看过了/做完了"（SetupMarkBody → SetupView）。真相是配置文件的 setup 节，改了马上生效
    */
@@ -729,6 +735,7 @@ export type HttpRoute =
   | { route: "safety_settings" }
   | { route: "autostart" }
   | { route: "service_events" }
+  | { route: "project_ops_mcp" }
   | { route: "setup" }
   | { route: "doctor" }
   | { route: "connection_addresses" }
@@ -875,6 +882,7 @@ export function parseHttpPath(pathname: string): HttpRoute | undefined {
   if (head === SAFETY_SETTINGS && id === undefined) return { route: "safety_settings" };
   if (head === AUTOSTART && id === undefined) return { route: "autostart" };
   if (head === SERVICE_EVENTS && id === undefined) return { route: "service_events" };
+  if (head === PROJECT_OPS_MCP && id === undefined) return { route: "project_ops_mcp" };
   if (head === SETUP && id === undefined) return { route: "setup" };
   if (head === DOCTOR && id === undefined) return { route: "doctor" };
   if (head === CONNECTION_ADDRESSES && id === undefined) return { route: "connection_addresses" };

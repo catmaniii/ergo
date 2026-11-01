@@ -17,6 +17,8 @@
   "mcp.change.who.task": "the owner of task \"{task}\"",
   "mcp.change.alreadyRegistered": "MCP {name} is already registered: use action: update to change it",
   "mcp.change.notRegistered": "No MCP named {name} is registered: use action: add to add it",
+  "mcp.change.autoNoChange": "MCP {name} was made automatically when project \"{project}\" went live, so it can't be changed or removed by hand: its tools follow the operations API list, and it goes away when the project is no longer in use",
+  "mcp.change.reservedName": "Names like {name} are reserved for MCP servers made from projects; pick another name",
   "mcp.change.badName": "MCP name {name} isn't valid: use letters, digits, - and _, starting with a letter or digit, never two _ in a row",
   "mcp.change.missingCommand": "command must say what to launch (for example node); it can't be empty",
   "mcp.change.plaintextSecret": "These look like secrets; don't write them in plain text: {names}. Write { fromEnv: \"VARIABLE\" } and the runtime will read it from its own environment (injected by the service manager)",

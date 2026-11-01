@@ -36,6 +36,9 @@ export function notRegisteredServerText(server: string, registered: readonly str
   return `没有登记 MCP ${server}。现在登记着的几个 MCP 有：${listOf([...new Set(registered.map((name) => name.split("/")[0]!))])}；它们的工具：${listOf(registered)}。要接新的 MCP 让负责人用 request_mcp_change 提登记。`;
 }
 
+/** 项目自动转的 MCP 是给别的 agent 的（ADR-0045）：秘书调项目的操作还是 project_ops 一个工具 */
+export const autoServerText = (server: string, projectName: string) => `MCP ${server} 是项目「${projectName}」的运营接口自动转的，给负责人配进工具包用。你调这个项目的操作用 project_ops。`;
+
 /** 这个 MCP 有这个工具吗：没有时列出它登记了哪些（写成 <MCP 名>/<工具名>，能直接抄） */
 export function toolNotRegisteredText(server: string, serverTitle: string, available: readonly string[]): string {
   return available.length === 0

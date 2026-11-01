@@ -17,7 +17,7 @@
 // - stopped：你停止了这一轮（秘书、负责人回复时点了输入框旁的"停止"）。
 // - mcp：MCP 登记变了（你在"MCP 登记变更"卡上批准或拒绝了负责人提的加、改、删，自检结果一并记着）。
 // - skill：skill 库变了（你在"skill 变更"卡上批准或拒绝了负责人提的加、改、删，自检结果一并记着）。
-// - mcp_call：秘书带参调了一次登记过的 MCP 工具；project_op：秘书调了一次运营中的项目的接口（project_ops）。
+// - mcp_call：秘书带参调了一次登记过的 MCP 工具；project_op：秘书（project_ops）或别的 agent（项目自动转的 MCP）调了一次运营中的项目的接口，记在调用者的会话上。
 // 守护进程追加记录用 conversation/messages.ts 的 buildTimelineRecord（和 buildMessage 一样带上归属）。
 // 加新的 kind 只往 TIMELINE_RECORD_KIND_INFO 里加一行（中文名、要不要进要点层、严重度；界面按严重度取样式）；
 // 前端不认识的 kind 只在完整视图里按 summary 显示一行。
@@ -203,7 +203,7 @@ export const TIMELINE_RECORD_KIND_INFO = {
     gist: true,
     severity: "info",
   },
-  // 秘书经 project_ops 调了一次运营中的项目的接口（二狗在本机代调项目服务的调用口；调到了、没做成的都记）
+  // 秘书经 project_ops、别的 agent 经项目自动转的 MCP 调了一次运营中的项目的接口（二狗在本机代调项目服务的调用口；调到了、没做成的都记）
   project_op: {
     get label() {
       return t("protocol.timeline.kind.projectOp");

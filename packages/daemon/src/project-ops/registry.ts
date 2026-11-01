@@ -15,7 +15,7 @@ import type { EventStore, NewEvent } from "../events/event-store.ts";
 import { OPERATIONS_CHANNEL } from "../projects/api.ts";
 import { formatProblems, type OpsCheckResult, runAcceptance } from "./acceptance.ts";
 import { type OpsCheckBy, type OpsManifestCheckedPayload, type OpsManifestRegisteredPayload, PROJECT_OPS_EVENTS } from "./events.ts";
-import { manifestHash, type OpsManifestRead, parseOpsManifest, readOpsText } from "./manifest.ts";
+import { canExport, manifestHash, type OpsManifestRead, parseOpsManifest, readOpsText } from "./manifest.ts";
 import { type OpsMsg } from "./problems.ts";
 import type { RunContext } from "./runner.ts";
 
@@ -46,8 +46,8 @@ export type OpsChecklistView =
   | { state: "template" }
   | { state: "failed"; problems: OpsMsg[] }
   | { state: "checking"; count: number }
-  | { state: "waiting"; count: number; waiting: number }
-  | { state: "passed"; count: number };
+  | { state: "waiting"; count: number; waiting: number; exported: number }
+  | { state: "passed"; count: number; exported: number };
 
 export interface OpsRegistryDeps {
   store: EventStore;
@@ -71,6 +71,8 @@ export interface OpsRegistry {
   fileState(project: Project): OpsFileState;
   /** 登记着的最新一版（没登记过是 undefined） */
   registered(projectId: string): OpsManifestRegisteredPayload | undefined;
+  /** 每个项目登记着的最新一版（自动转的 MCP 每次现读时算：一次读完，不用一个项目读一遍） */
+  latestRegistered(): ReadonlyMap<string, OpsManifestRegisteredPayload>;
   /** 这份内容最近一次验收（内存里的、记下的） */
   lastCheck(projectId: string, hash: string): OpsCheck | undefined;
   /** 验收档案里现在那份（见文件开头）；没交、读不了的是 undefined */
@@ -213,6 +215,13 @@ export function createOpsRegistry(deps: OpsRegistryDeps): OpsRegistry {
   return {
     fileState,
     registered,
+    latestRegistered() {
+      const latest = new Map<string, OpsManifestRegisteredPayload>();
+      for (const { payload } of deps.store.read(OPERATIONS_CHANNEL, 0, PROJECT_OPS_EVENTS.registered)) {
+        if (!isDeletedEventPayload(payload)) latest.set((payload as OpsManifestRegisteredPayload).projectId, payload as OpsManifestRegisteredPayload);
+      }
+      return latest;
+    },
     lastCheck,
     check,
     async usable(project) {
@@ -260,8 +269,9 @@ export function createOpsRegistry(deps: OpsRegistryDeps): OpsRegistry {
         return { state: "checking", count };
       }
       if (done.outcome === "failed") return { state: "failed", problems: done.problems };
-      if (done.outcome === "waiting") return { state: "waiting", count, waiting: done.ops.filter((o) => o.result === "waiting").length };
-      return { state: "passed", count };
+      const exported = state.read.ops.filter(canExport).length;
+      if (done.outcome === "waiting") return { state: "waiting", count, waiting: done.ops.filter((o) => o.result === "waiting").length, exported };
+      return { state: "passed", count, exported };
     },
   };
 }

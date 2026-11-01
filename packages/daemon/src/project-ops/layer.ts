@@ -8,7 +8,7 @@
 // - 交出去的是各调用方的小接口：转入使用那一套（项目服务、提转入使用的工具）、秘书的工具、负责人的 check_ops、网关的启停请求、
 //   订阅时补推的服务、缩略图；接入 LSM 之后 start（组合根原来的位置，经组装函数的 startServices），停机时 stop。
 // 建这些都没有副作用（订阅事件、接 LSM 都在 start 里），所以组装函数在原来建项目的服务的位置装它：卡片类型、运营手段登记的先后照原来。
-import { CHANNELS, EVENT_TYPES, type EventFrame, HTTP_PATHS, type OperationsPlanView, type Project, type ProjectServiceView } from "@ergo/protocol";
+import { CHANNELS, EVENT_TYPES, type EventFrame, HTTP_PATHS, type OperationsPlanView, type Project, type ProjectEventPayload, type ProjectServiceView } from "@ergo/protocol";
 import type { HostTool } from "../agent-manager/host-tools.ts";
 import { checkAppPrefix } from "../apps/prefix-check.ts";
 import type { CardService } from "../cards/cards.ts";
@@ -35,8 +35,10 @@ import { captureServiceHome } from "../project-services/thumbnails.ts";
 import { projectServicesView } from "../project-services/views.ts";
 import type { OpsGoLive, OpsSecretary, ServiceEventsApi } from "./api.ts";
 import type { BuiltinContext } from "./builtin.ts";
+import { PROJECT_OPS_EVENTS, type OpsManifestRegisteredPayload } from "./events.ts";
+import { createOpsMcp, type OpsMcp, type OpsMcpDeps } from "./mcp-export.ts";
 import type { RunContext } from "./runner.ts";
-import { createProjectOps, type ProjectOps } from "./tool.ts";
+import { createProjectOps, PROJECT_OPS_CALL_TIMEOUT_MS, type ProjectOps } from "./tool.ts";
 
 // 组合根的 Daemon 句柄（测试、调试用）要的内部服务的类型：经组装函数转出
 export type { ProjectOps, ProjectServices };
@@ -89,6 +91,8 @@ export interface OpsLayerDeps {
   ports: { local: number; external: number };
   /** project_ops 跑脚本时进的 Job 对象（只在 Windows 上有） */
   newJob: () => JobObject | undefined;
+  /** 项目自动转的 MCP（ADR-0045）：调它的 agent 是谁、MCP 模块（建在运营层之后：用到时现取）、登记了新版时让用着它的会话换装配 */
+  opsMcp: Pick<OpsMcpDeps, "agentOf" | "mcp" | "changed">;
   clock: Clock;
   now: () => string;
   log: (line: string) => void;
@@ -105,6 +109,8 @@ export interface OpsLayer {
   serviceEventsTool(projectId: string): HostTool;
   /** 网关的 POST /api/service-events：项目的服务报事件 */
   readonly serviceEvents: ServiceEventsApi;
+  /** 项目自动转的 MCP：算出来的登记（MCP 模块现读时合进去）、这个项目自己的那个、网关的 POST /api/project-ops-mcp */
+  readonly opsMcp: OpsMcp;
   /** 网关：项目卡片、项目页上的"启动""关闭"：经 LSM 把项目的服务全部拉起、全部关掉（秘书的工具走同一个入口） */
   readonly requests: Required<Pick<RequestHandlers, "projectServicesAction">>;
   /** 订阅项目列表频道时补推的项目的服务现在的样子（临时事件不补发） */
@@ -189,8 +195,19 @@ export function createOpsLayer(ctx: OpsLayerContext, deps: OpsLayerDeps): OpsLay
     newJob: deps.newJob,
   });
 
+  // 项目自动转的 MCP：使用中、有已登记清单的项目多一个真的 MCP。地址是网关开好之后实际的本机端口（之前按配置的，端口变了登记跟着变、连接换新的）
+  const opsMcp = createOpsMcp({
+    store,
+    projects: { get: (projectId) => projects.get(projectId), list: () => projects.list() },
+    ops: projectOps,
+    url: () => `http://${LOCAL_HOST}:${(ports ?? deps.ports).local}${HTTP_PATHS.projectOpsMcp}`,
+    callTimeoutMs: PROJECT_OPS_CALL_TIMEOUT_MS,
+    log,
+    ...deps.opsMcp,
+  });
+
   const projectName = (projectId: string) => projects.get(projectId)?.name;
-  let offRollout: (() => void) | undefined;
+  let offEvents: (() => void) | undefined;
 
   return {
     goLive: {
@@ -211,6 +228,7 @@ export function createOpsLayer(ctx: OpsLayerContext, deps: OpsLayerDeps): OpsLay
     checkTool: (scope) => projectOps.checkTool(scope),
     serviceEventsTool: (projectId) => serviceEvents.tool(projectId),
     serviceEvents,
+    opsMcp,
     requests: {
       projectServicesAction: (params, idempotencyKey) => projectServices.power(params.projectId, params.action, "user", idempotencyKey),
     },
@@ -221,14 +239,24 @@ export function createOpsLayer(ctx: OpsLayerContext, deps: OpsLayerDeps): OpsLay
       lsm = link.lsm;
       projectServices.start();
       // 服务上线了，等它上线才能测的那几个操作自动复验（不等秘书第一次用到）
-      offRollout = store.onAppend((event) => {
-        if (event.channel !== OPERATIONS_CHANNEL || event.type !== PROJECT_SERVICE_EVENTS.rollout) return;
+      offEvents = store.onAppend((event) => {
+        // 项目不在使用中了：它自动转的 MCP 跟着没有，凭证作废、转发程序收掉
+        if (event.channel === CHANNELS.projects && event.type === EVENT_TYPES.project) return opsMcp.onProjectChanged((event.payload as ProjectEventPayload).project.id);
+        if (event.channel !== OPERATIONS_CHANNEL) return;
+        // 登记了一版：不占着追加事件这一步，放到下一轮做（换装配、拉转发程序自检）
+        if (event.type === PROJECT_OPS_EVENTS.registered) {
+          const registered = event.payload as OpsManifestRegisteredPayload;
+          setImmediate(() => opsMcp.onRegistered(registered));
+          return;
+        }
+        if (event.type !== PROJECT_SERVICE_EVENTS.rollout) return;
         const payload = event.payload as ServiceRolloutPayload;
         if (payload.state === "live") void projectOps.recheckAfterLive(payload.projectId);
       });
     },
     stop: () => {
-      offRollout?.();
+      offEvents?.();
+      opsMcp.stop();
       return projectServices.stop();
     },
     handles: { projectServices, projectOps },

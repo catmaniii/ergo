@@ -36,7 +36,8 @@ export interface McpConnection {
   readonly job: JobObject | undefined;
   /** 握手时服务进程报的工具 */
   readonly tools: readonly McpListedTool[];
-  callTool(name: string, args: Record<string, unknown>, options: { timeoutMs: number; signal?: AbortSignal }): Promise<McpCallResult>;
+  /** meta 进 tools/call 的 _meta（只有二狗自己带的转发程序用：它按这个认调用者） */
+  callTool(name: string, args: Record<string, unknown>, options: { timeoutMs: number; signal?: AbortSignal; meta?: Record<string, unknown> }): Promise<McpCallResult>;
   /** 结束服务进程（关掉 Job：它起的进程一起结束） */
   close(): void;
   readonly exited: Promise<void>;
@@ -165,8 +166,8 @@ export async function connectMcp(options: ConnectMcpOptions): Promise<McpConnect
     pid,
     job,
     tools,
-    async callTool(name, args, { timeoutMs, signal }) {
-      const result = (await request("tools/call", { name, arguments: args }, timeoutMs, signal)) as { content?: unknown; isError?: unknown; structuredContent?: unknown };
+    async callTool(name, args, { timeoutMs, signal, meta }) {
+      const result = (await request("tools/call", { name, arguments: args, ...(meta ? { _meta: meta } : {}) }, timeoutMs, signal)) as { content?: unknown; isError?: unknown; structuredContent?: unknown };
       return { text: contentText(result), isError: result?.isError === true };
     },
     close,

@@ -68,6 +68,7 @@
 // - browsing.ts：浏览侧边栏——侧边栏里、悬浮按钮上发的消息带的网页上下文、设备报的浏览器样子、秘书的网页工具转给设备的请求和结果、网页候选卡。
 // - project-services.ts：项目的服务——上线到哪了、在不在线、入口的说法和能不能点开（守护进程和 Web 共用）。
 // - service-events-schema.ts：项目的服务报事件的请求体；地址、结局的说法在 project-services.ts。
+// - project-ops-mcp-schema.ts：项目自动转的 MCP：转发程序问守护进程的请求体和回话（ADR-0045）。
 // - i18n/、i18n-schema.ts：多语言——语言文件的形状和检查、运行时的 t()、单复数、回退中文、按语言格式化（不读文件、不引用 TypeBox），
 //   全局语言设置的事件、配置文件、设置接口和网页取词典的接口的 schema。
 // - plugins.ts、plugins-schema.ts：插件的状况——守护进程清单里每个插件在运行、停用了、没装上，网页按它装、停自己的网页插件（插件频道上的临时事件）；
@@ -198,6 +199,7 @@ export * from "./page-commands.ts";
 export * from "./browsing.ts";
 export * from "./project-services.ts";
 export * from "./service-events-schema.ts";
+export * from "./project-ops-mcp-schema.ts";
 export * from "./session-branches.ts";
 export * from "./stage-starts.ts";
 export * from "./readable-ids.ts";

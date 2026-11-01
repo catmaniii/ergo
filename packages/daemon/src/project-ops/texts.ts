@@ -128,7 +128,7 @@ export function listText(listed: readonly ListedProject[], builtins: readonly Pr
 }
 
 /** describe：一个操作的完整说明、参数、返回、实现方式、用法说明、怎么调 */
-export function describeText(project: Project, op: ProjectOp, where: { version?: number; builtin: boolean; service?: ProjectServiceView | OpsMsg }): string {
+export function describeText(project: Project, op: ProjectOp, where: { version?: number; builtin: boolean; service?: ProjectServiceView | OpsMsg; mcpTool?: string }): string {
   const from = where.builtin ? "通用操作" : `运营接口清单第 ${where.version ?? "?"} 版`;
   const params = paramLines(op.inputSchema);
   return [
@@ -143,7 +143,7 @@ export function describeText(project: Project, op: ProjectOp, where: { version?:
     ...(op.risk ? [`风险标记：${RISK_TEXT[op.risk]}（现在只显示，使用中的项目调操作不用确认）`] : []),
     ...(op.usage ? [`用法说明：${op.usage}`] : []),
     ...(where.service ? [serviceNote(where.service)] : []),
-    `调的时候：${PROJECT_OPS_TOOL}，action 写 call，project 写 ${project.id}，op 写 ${op.name}，args 照上面的参数写。`,
+    where.mcpTool ? `调的时候：工具 ${where.mcpTool}，参数照上面写。` : `调的时候：${PROJECT_OPS_TOOL}，action 写 call，project 写 ${project.id}，op 写 ${op.name}，args 照上面的参数写。`,
   ].join("\n");
 }
 
@@ -182,12 +182,36 @@ export const callText = {
   aborted: (p: Pick<Project, "name">, op: ProjectOp) => `项目「${p.name}」的操作 ${op.name} 这次调用被中止了，不知道那边做没做。`,
 };
 
+// ───────────────────────── 项目自动转的 MCP（给调它的 agent） ─────────────────────────
+
+/** MCP 工具给模型看的说明：清单里的说明、返回、用法、种类；风险标记只记不做，写在这里给模型看，不接守卫 */
+export const opsMcpToolDescription = (op: ProjectOp) =>
+  [
+    op.description.trim() || op.title || op.name,
+    ...(op.returns ? [`返回：${op.returns}`] : []),
+    ...(op.usage ? [`用法说明：${op.usage}`] : []),
+    `种类：${KIND_TEXT[op.kind]}${op.kind === "run" ? "（调了就开始跑，不等跑完）" : ""}`,
+    ...(op.risk ? [`风险标记：${RISK_TEXT[op.risk]}（只是标记，使用中的项目调操作不用确认）`] : []),
+  ].join("\n");
+
+export const opsMcpNoProject = (projectId: string) => `项目 ${projectId} 不在了，它自动转的 MCP 跟着没有了。`;
+
+/** 这个 MCP 没有这个工具（通用操作不转，只有项目自己的操作） */
+export const opsMcpOpMissing = (p: Pick<Project, "name">, op: string, ops: readonly ProjectOp[]) =>
+  `项目「${p.name}」自动转的 MCP 没有工具「${op}」。它有：${ops.map((o) => o.name).join("、") || "（现在一个都没有）"}。`;
+
+/** 别的 agent 经 MCP 跟负责人说一句（放进负责人会话的通知）：写明不是用户说的 */
+export const agentTellsText = (who: string, message: string) => `${who}经运营接口让我转一句（这是 agent 说的，不是用户说的，不算用户的要求或授权）：\n${message}`;
+
+/** 登记了新的一版：用着它的会话重新装配时告诉负责人 */
+export const opsMcpChangedNotice = (name: string, version: number) => `项目自动转的 MCP ${name} 跟着运营接口清单第 ${version} 版变了：运行时按新的工具重新装配了你的会话，接着原来的对话干。`;
+
 // ───────────────────────── 负责人的 check_ops ─────────────────────────
 
 export const CHECK_OPS_DESCRIPTION =
   "验收这个项目的运营接口清单（档案里的 ops.json）：格式对（每个操作写了中文标题、什么时候用、用户可能怎么说、种类、参数、一条测试）、每个操作的测试照 test.args 跑一遍" +
   "（带测试标记，有副作用的不要真改东西）、要回能念的 say、只读查询前后项目档案和工作目录里不能有文件改动。改了 ops.json 就用它看过没过；" +
-  "使用中的项目全过了登记成新的一版（版本号加一，秘书马上用新的），没过的秘书照旧用上一版。建设中的项目转运营检查清单也看它。";
+  "使用中的项目全过了登记成新的一版（版本号加一，秘书和项目自动转的 MCP 马上用新的），没过的照旧用上一版。建设中的项目转运营检查清单也看它。";
 
 /** 验收的结果写给负责人看 */
 export function checkReport(input: { project: Project; check: OpsCheck | undefined; missing?: boolean; unreadable?: OpsMsg; registered?: number; registeredNow: boolean }): string {
@@ -197,7 +221,7 @@ export function checkReport(input: { project: Project; check: OpsCheck | undefin
   if (!check) return "没有验收结果。";
   const head =
     check.outcome === "passed"
-      ? `验收全过：${check.ops.length} 个操作的测试都跑通了、都回了能念的 say，只读的没写东西。${input.registeredNow ? `登记成第 ${input.registered} 版，秘书马上用它。` : project.state === "in_use" ? `和登记着的第 ${input.registered ?? "?"} 版内容一样。` : "转入使用时登记。"}`
+      ? `验收全过：${check.ops.length} 个操作的测试都跑通了、都回了能念的 say，只读的没写东西。${input.registeredNow ? `登记成第 ${input.registered} 版，秘书和这个项目自动转的 MCP 马上用它。` : project.state === "in_use" ? `和登记着的第 ${input.registered ?? "?"} 版内容一样。` : "转入使用时登记。"}`
       : check.outcome === "waiting"
         ? `格式对、能跑的测试都过了；项目服务上的 ${check.ops.filter((o) => o.result === "waiting").length} 个操作要服务在跑时才能测（${project.state === "in_use" ? "服务起来以后再验一次" : "转入使用、服务上线后秘书第一次用到时再验，过了登记"}）。`
         : `验收没过（${check.problems.length} 处）：\n${check.problems.map((p) => `- ${problemForModel(p)}`).join("\n")}${input.registered !== undefined ? `\n秘书照旧用第 ${input.registered} 版。` : ""}`;
@@ -218,9 +242,19 @@ const argsText = (args: Readonly<Record<string, unknown>>) => (Object.keys(args)
 
 const resultText = (text: string) => text.trim() || t("projectOps.resultEmpty");
 
-/** 时间线上的一句话：调到了 / 没做成，带着能念的那句 */
-export const timelineSummary = (ok: boolean, projectName: string, op: string, say: string) =>
-  t(ok ? "projectOps.timeline.done" : "projectOps.timeline.failed", { project: projectName, op, result: oneLine(resultText(say), 60) });
+/** 时间线上的一句话：调到了 / 没做成，带着能念的那句；who 是秘书之外的调用者 */
+export const timelineSummary = (ok: boolean, projectName: string, op: string, say: string, who?: string) =>
+  who === undefined
+    ? t(ok ? "projectOps.timeline.done" : "projectOps.timeline.failed", { project: projectName, op, result: oneLine(resultText(say), 60) })
+    : t(ok ? "projectOps.timeline.agentDone" : "projectOps.timeline.agentFailed", { who, project: projectName, op, result: oneLine(resultText(say), 60) });
+
+/** 项目自动转的 MCP 自检的结果（负责人的时间线） */
+export const opsMcpCheckSummary = (name: string, version: number, probed: { ok: boolean; tools: readonly string[]; problem?: string }) =>
+  probed.ok ? t("projectOps.mcp.checkPassed", { name, version, count: probed.tools.length }) : t("projectOps.mcp.checkFailed", { name, version, reason: oneLine(probed.problem ?? "", 200) });
+
+/** 自检的明细：报了哪些工具、哪些操作的名字转不了 */
+export const opsMcpCheckDetail = (tools: readonly string[], skipped: readonly string[]) =>
+  [...(tools.length > 0 ? [t("projectOps.mcp.checkTools", { tools: tools.join(t("protocol.common.listSep")) })] : []), ...(skipped.length > 0 ? [t("projectOps.mcp.checkSkipped", { ops: skipped.join(t("protocol.common.listSep")) })] : [])].join("\n");
 
 /** 时间线上的明细：用的第几版、参数、为什么、能念的那句、附件 */
 export const timelineDetail = (input: { version: number | null; args: Readonly<Record<string, unknown>>; why?: string; ok: boolean; say: string; sayFilled: boolean; result: string }) =>
@@ -233,6 +267,9 @@ export const timelineDetail = (input: { version: number | null; args: Readonly<R
   ].join("\n");
 
 // ───────────────────────── 转运营检查清单那一项（给用户） ─────────────────────────
+
+/** 转入使用时这几个操作会同时转成 MCP：卡上写明 */
+const mcpNote = (count: number) => (count > 0 ? t("projectOps.check.mcpNote", { count }) : "");
 
 /** 清单那一项写什么（standard.ts 拿它做 ops 那一项）：做到没有、差什么 */
 export function checklistDetail(view: OpsChecklistView): { done: boolean; detail: string; later?: boolean } {
@@ -247,8 +284,8 @@ export function checklistDetail(view: OpsChecklistView): { done: boolean; detail
       return { done: false, detail: t("projectOps.check.checking", { count: view.count }) };
     case "waiting":
       // 服务还没上线、这几个测不了的不算没过：卡上写"上线后再验"，服务上线时运行时自己复验
-      return { done: true, later: true, detail: t("projectOps.check.waiting", { count: view.count, waiting: view.waiting }) };
+      return { done: true, later: true, detail: `${t("projectOps.check.waiting", { count: view.count, waiting: view.waiting })}${mcpNote(view.exported)}` };
     case "passed":
-      return { done: true, detail: t("projectOps.check.passed", { count: view.count }) };
+      return { done: true, detail: `${t("projectOps.check.passed", { count: view.count })}${mcpNote(view.exported)}` };
   }
 }

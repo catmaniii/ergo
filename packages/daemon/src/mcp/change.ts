@@ -8,7 +8,7 @@
 // - 登记变了之后让提交的人的会话按新的装配重新拉起（和工具包变更一样：闲置时停掉子进程、下次唤起按新的），
 //   会话里这才看得到新登记的工具。
 // 为什么不能让 agent 自己写：配置区是受保护区域，守卫对任何方式的写入都是"永不"（越界），登记只能走这条路。
-import { EVENT_TYPES, maintainerChannel, MCP_NAME_PATTERN, type McpChangeAction, type McpChangeCardPayload, McpChangeCardPayload as McpChangeCardPayloadSchema, type McpChangeSubmitter, type McpDecidedPayload, schemaChecker, Type } from "@ergo/protocol";
+import { EVENT_TYPES, isProjectOpsMcpName, maintainerChannel, MCP_NAME_PATTERN, type McpChangeAction, type McpChangeCardPayload, McpChangeCardPayload as McpChangeCardPayloadSchema, type McpChangeSubmitter, type McpDecidedPayload, schemaChecker, Type } from "@ergo/protocol";
 import { defineHostTool, type HostTool } from "../agent-manager/host-tools.ts";
 import type { CardService } from "../cards/cards.ts";
 import { type CardActionEffect, defineCardType } from "../cards/registry.ts";
@@ -171,7 +171,11 @@ export function createMcpChangeService(options: McpChangeServiceOptions): McpCha
           if (!new RegExp(MCP_NAME_PATTERN).test(given.name)) return { text: text.badNameText(given.name), isError: true };
           const read = mcp.registrations();
           if (read.problem) return { text: text.problemsText([read.problem]), isError: true };
+          // 项目自动转的（算出来的，不在 mcp.json 里）：不能手改、手删；这种名字也不能抢先登记（ADR-0045）
+          const auto = read.auto?.[given.name];
+          if (auto) return { text: text.autoNoChangeText(given.name, auto.projectName), isError: true };
           const registered = Object.hasOwn(read.servers, given.name);
+          if (action === "add" && !registered && isProjectOpsMcpName(given.name)) return { text: text.reservedNameText(given.name), isError: true };
           if (action === "add" && registered) return { text: text.alreadyRegisteredText(given.name), isError: true };
           if (action !== "add" && !registered) return { text: text.notRegisteredText(given.name), isError: true };
           let registration: McpServerRegistration | undefined;

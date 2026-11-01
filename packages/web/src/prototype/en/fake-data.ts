@@ -240,6 +240,8 @@ export const EN_DATA: Phrases = {
   "搜邮件": "Search email",
   "照片信息（假数据）": "Photo info (demo data)",
   "读拍摄信息": "Read capture details",
+  "记一笔": "Log an expense",
+  "查最近的账": "See recent expenses",
   "看一下这张照片的拍摄时间": "Check when this photo was taken",
   "发起一个流程：负责人把要做的事排成步骤，你授权一次，照步骤做": "Start a workflow: the owner lays out the steps, you approve once, it follows them",
   "<要做的事>": "<what to do>",
