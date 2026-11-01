@@ -2,9 +2,9 @@
 
 二狗每个版本有什么，新的在上面。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [0.1.0] - 2026-11-01
+## [0.4.1] - 2026-11-01
 
-第一个版本。二狗是装在你自己电脑上的个人 AI 助理，只支持 Windows 10 / 11。
+下面是二狗现在有的功能。二狗是装在你自己电脑上的个人 AI 助理，只支持 Windows 10 / 11。更早的版本见 [Releases](https://github.com/catmaniii/ergo/releases)。
 
 ### 对话
 

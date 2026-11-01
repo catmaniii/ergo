@@ -1,6 +1,6 @@
 {
   "name": "@ergo/web",
-  "version": "0.1.0",
+  "version": "0.4.1",
   "private": true,
   "type": "module",
   "description": "二狗 Web UI（React 19 + Vite，手写 CSS）",
@@ -25,7 +25,7 @@
     "typecheck": "tsc --noEmit -p . && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.ui-test.json && tsc --noEmit -p tsconfig.state.json"
   },
   "dependencies": {
-    "@ergo/protocol": "0.1.0",
+    "@ergo/protocol": "0.4.1",
     "qrcode-generator": "2.0.4",
     "react": "19.3.0",
     "react-dom": "19.3.0",

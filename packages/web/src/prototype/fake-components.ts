@@ -307,7 +307,7 @@ export class FakeComponents {
     return {
       components,
       features: components.flatMap((c) => c.enables.map((f) => ({ feature: f.id, component: c.id, title: c.title, ready: c.state === "installed" || c.state === "update" || c.state === "provided" }))),
-      manifest: { release: "0.1.0", signed: false },
+      manifest: { release: "0.4.1", signed: false },
       defaultsMissing: components.filter((c) => c.wanted && c.cannotInstall === undefined && (c.state === "missing" || c.state === "paused" || c.state === "failed")).map((c) => c.id),
       updates: { ...this.updates, available: components.filter((c) => c.state === "update").map((c) => c.id) },
     };

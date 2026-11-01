@@ -24,8 +24,8 @@ android {
         applicationId = "com.catmaniii.ergo"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 1001
+        versionName = "0.4.1"
         buildConfigField("boolean", "WEBVIEW_DEBUG", webviewDebug.toString())
     }
 
