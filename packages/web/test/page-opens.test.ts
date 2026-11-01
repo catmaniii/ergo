@@ -1122,7 +1122,8 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
   test("手机宽：⚙ 里的确认框挂在最外层，不被底部弹层裁掉，按钮看得见、点得到", async () => {
     const { page, errors } = await open({ width: 390, height: 844 });
     await page.evaluate(`window.location.hash = "#/projects/p-ledger/chat"`);
-    await page.click(".agent-gear");
+    await page.click(".topbar .th-more");
+    await page.getByRole("menuitem", { name: "这个 agent 的设置" }).click();
     await page.waitForSelector(".agent-panel");
     const confirms: [string, () => Promise<unknown>][] = [
       ["恢复用通用模板", () => page.click('.agent-panel .prompt-actions button:has-text("恢复用通用模板")')],

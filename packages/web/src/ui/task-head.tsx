@@ -1,7 +1,7 @@
 // 对话框的标题栏（90 号票做任务详情时并成一行，368 号票起所有负责人的对话框——项目的、任务的——都是它，只有一套样子）。
 // 宽屏、手机都只有一行（标题栏）：
 //   宽屏：‹ [档案] 标题 [项目状态] [状态签 ▾] ●活动        [关键按钮] [背后的 agent] [▤] [⚙] [⋯]
-//   手机：‹ 标题…  [状态签 ▾] [背后的 agent] [▤] [⚙] [⋯]
+//   手机（用户 2026-11-01：标题栏太挤）分两行：‹ 标题…  [⋯]；第二行 [状态签 ▾] ●等你… [背后的 agent]。▤、⚙ 收进 ⋯（phoneRows）
 // - 状态签点开是小浮层：原来第 3 排的原因说明（守护进程写的：等我的原因、超预算用了多少预算多少、失败的原因……）、种类和进度这些小签、token 数，
 //   和这个状态能做的按钮（state/task-menu.ts 的 taskActionItems，和"⋯"下半同一份，最要紧的那个加重）；手机上状态签只写短的
 //   （statusChipText：等我的写在等什么，别的写状态），全称在浮层第一行。项目的对话框里没有在做的任务时没有状态签（标题旁边是项目的状态）；
@@ -53,6 +53,8 @@ export interface TaskHeadProps {
   panels: ReadonlyArray<{ panel: TaskPanel; label: string }>;
   onPanel(panel: TaskPanel): void;
   onPick(item: TaskMenuItem): void;
+  /** 手机上收进"⋯"的几样（缩放、这个 agent 的设置） */
+  phoneRows?: ReadonlyArray<{ label: string; pick(): void }> | undefined;
   /** "⋯"最上面另加的一项（手机上的档案） */
   moreHead?: { label: string; onPick(): void } | undefined;
   /** "⋯"里任务的那几样是哪个任务的（项目的对话框里写任务名，别的不用写） */
@@ -60,10 +62,10 @@ export interface TaskHeadProps {
 }
 
 export function TaskHead(props: TaskHeadProps) {
-  const { wide, title, onBack, lead, onTitle, badge, behind, zoom, gear, keyItem, onPick, status, activity, moreHead, menuTitle, panels, items } = props;
+  const { wide, title, onBack, lead, onTitle, badge, behind, zoom, gear, phoneRows, keyItem, onPick, status, activity, moreHead, menuTitle, panels, items } = props;
   const moreRef = useRef<HTMLButtonElement>(null);
   const [more, setMore] = useState(false);
-  const hasMore = moreHead !== undefined || panels.length > 0 || items.length > 0;
+  const hasMore = moreHead !== undefined || (phoneRows?.length ?? 0) > 0 || panels.length > 0 || items.length > 0;
   return (
     <>
       <TopBar
@@ -76,11 +78,22 @@ export function TaskHead(props: TaskHeadProps) {
             ) : (
               <span className="th-name">{title}</span>
             )}
-            {(wide || !status) && badge}
-            {status && <StatusChip {...props} status={status} />}
-            {(wide || !status) && <ActivityDot state={activity.state} note={activity.note} jump={activity.jump} />}
+            {wide && badge}
+            {wide && status && <StatusChip {...props} status={status} />}
+            {wide && <ActivityDot state={activity.state} note={activity.note} jump={activity.jump} />}
           </span>
         }
+        sub={
+          wide ? undefined : (
+            <>
+              {!status && badge}
+              {status && <StatusChip {...props} status={status} />}
+              {(!status || activity.jump) && <ActivityDot state={activity.state} note={activity.note} jump={activity.jump} />}
+              {behind}
+            </>
+          )
+        }
+        twoLine={!wide}
         onBack={onBack}
         lead={lead}
       >
@@ -89,9 +102,9 @@ export function TaskHead(props: TaskHeadProps) {
             {keyItem.label}
           </button>
         )}
-        {behind}
-        {zoom}
-        {gear}
+        {wide && behind}
+        {wide && zoom}
+        {wide && gear}
         {hasMore && (
           <button ref={moreRef} type="button" className="icon-btn th-more" aria-label={t("ui.taskHead.manage")} aria-expanded={more} aria-haspopup="menu" onClick={() => setMore(!more)}>
             ⋯
@@ -103,7 +116,7 @@ export function TaskHead(props: TaskHeadProps) {
             align="end"
             items={items}
             head={
-              (moreHead !== undefined || panels.length > 0) && (
+              (moreHead !== undefined || (phoneRows?.length ?? 0) > 0 || panels.length > 0) && (
                 <>
                   {moreHead && (
                     <button
@@ -120,6 +133,19 @@ export function TaskHead(props: TaskHeadProps) {
                       </span>
                     </button>
                   )}
+                  {phoneRows?.map((row) => (
+                    <button
+                      key={row.label}
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setMore(false);
+                        row.pick();
+                      }}
+                    >
+                      {row.label}
+                    </button>
+                  ))}
                   {menuTitle !== undefined && (panels.length > 0 || items.length > 0) && <div className="menu-empty muted th-menu-title">{menuTitle}</div>}
                   {panels.map((p) => (
                     <button
@@ -145,11 +171,6 @@ export function TaskHead(props: TaskHeadProps) {
           />
         )}
       </TopBar>
-      {!wide && status && activity.jump && (
-        <div className="th-jump">
-          <ActivityDot state={activity.state} note={activity.note} jump={activity.jump} />
-        </div>
-      )}
     </>
   );
 }

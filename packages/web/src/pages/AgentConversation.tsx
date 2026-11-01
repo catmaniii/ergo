@@ -75,7 +75,8 @@ import {
 import type { TaskSummary } from "../model/types.ts";
 import { nextTimeLabel, timeLabel } from "../util/time.ts";
 import { useTaskHistory } from "../app/task-history.ts";
-import { AgentSettingsButton } from "../ui/agent-settings.tsx";
+import { AgentSettingsButton, useAgentSettingsSheet } from "../ui/agent-settings.tsx";
+import { useZoomLevel } from "../ui/zoom/zoom-level.ts";
 import { AssistantName, NamedText } from "../ui/assistant-name.tsx";
 import { CardPanel } from "../ui/cards/CardPanel.tsx";
 import { ActivityDot, Section, Sheet, Splitter } from "../ui/common.tsx";
@@ -169,6 +170,17 @@ export function AgentDialog({
     pageProjectSide().set(next);
   };
   const showArchive = archive ? () => detail.show({ type: "archive", title: archive.label }) : undefined;
+  // 手机竖屏：缩放、这个 agent 的设置收进"⋯"（用户 2026-11-01）
+  const zoomLevel = useZoomLevel();
+  const phoneSettings = useAgentSettingsSheet(maintainerId ?? "", false, !wide && maintainerId !== undefined);
+  const phoneRows = wide
+    ? []
+    : [
+        ...(conversation && !(zoomOnlyZoomedOut && zoomLevel === 0)
+          ? [{ label: zoomLevel === 0 ? t("ui.conversation.zoomOut") : t("ui.conversation.zoomIn"), pick: () => conversationRef.current?.zoomTo(zoomLevel === 0 ? 2 : 0) }]
+          : []),
+        ...(maintainerId !== undefined ? [{ label: t("ui.agentSettings.gear"), pick: phoneSettings.open }] : []),
+      ];
   return (
     <DetailLayout wide={wide} detail={detail} conversation={conversation} stages={stages} panel={panel} archive={archive?.body}>
       <div className="chat-col" data-agent-dialog={maintainerId ?? ""}>
@@ -189,8 +201,10 @@ export function AgentDialog({
           moreHead={!wide && archive && showArchive ? { label: archive.label, onPick: showArchive } : undefined}
           behind={maintainerId !== undefined && <BackgroundAgentsEntry maintainerId={maintainerId} wide={wide} onOpen={() => detail.show({ type: "agents", maintainerId })} />}
           zoom={conversation && <ZoomToggle handle={conversationRef} onlyZoomedOut={zoomOnlyZoomedOut} />}
-          gear={maintainerId !== undefined && <AgentSettingsButton agentId={maintainerId} wide={wide} />}
+          gear={wide && maintainerId !== undefined && <AgentSettingsButton agentId={maintainerId} wide={wide} />}
+          phoneRows={phoneRows}
         />
+        {phoneSettings.sheet}
         <div className="chat-row">
           {open && (
             <>

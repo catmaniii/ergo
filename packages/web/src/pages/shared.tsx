@@ -58,13 +58,12 @@ import { useToast } from "../ui/toast.tsx";
 import { Sheet } from "../ui/common.tsx";
 
 /** "发起任务"按钮：秘书页和任务页都有 */
-/** iconOnly：窄屏标题栏挤（369 号票：标题上写着等你……时）只留一个 ＋ */
-export function StartTaskButton({ compact, iconOnly }: { compact?: boolean; iconOnly?: boolean }) {
+export function StartTaskButton({ compact }: { compact?: boolean }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button type="button" className={`btn primary ${compact ? "small" : ""}`} aria-label={iconOnly ? t("pages.startTask.buttonLabel") : undefined} title={iconOnly ? t("pages.startTask.buttonLabel") : undefined} onClick={() => setOpen(true)}>
-        {iconOnly ? t("pages.startTask.buttonIcon") : t("pages.startTask.button")}
+      <button type="button" className={`btn primary ${compact ? "small" : ""}`} onClick={() => setOpen(true)}>
+        {t("pages.startTask.button")}
       </button>
       {open && <StartTaskDialog onClose={() => setOpen(false)} />}
     </>
@@ -90,7 +89,7 @@ export function StartTaskButton({ compact, iconOnly }: { compact?: boolean; icon
  * 用户还没自己动过的几栏按它填（切到定时、选好一次还是反复、填好时间；提醒时间也是），下面一行写按你写的定在哪；
  * 动过的不再改，和写的不一样时标出来（照样能发起）。状态层的 fillWhenFromText、whenTextHint。
  */
-function StartTaskDialog({ onClose }: { onClose(): void }) {
+export function StartTaskDialog({ onClose }: { onClose(): void }) {
   const [kind, setKind] = useState<TaskKind>("plain");
   const [what, setWhat] = useState("");
   const [chosen, setChosen] = useState<string[]>([]);

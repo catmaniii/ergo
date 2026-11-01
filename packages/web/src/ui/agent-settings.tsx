@@ -14,7 +14,7 @@
 //   运行时不支持"现在压缩"的，上下文一块不放那个按钮（界面按能力清单收起运行时不支持的按钮）。
 // 设置 · 模型页上点某个单独配了模型的负责人，跳到它的页面后它的 ⚙ 自己打开（openAgentSettingsOnArrival）。
 // 每次打开现取；在等清空、在压缩时过一会儿再取一次。只读的（任务结束了、项目归档了）面板照样能看，按钮都灰着。说法在状态层（state/agent-settings.ts）。
-import { useCallback, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useStore } from "../app/store.tsx";
 import {
@@ -81,15 +81,21 @@ function takeArrival(agentId: string): boolean {
   return true;
 }
 
+/** 这个 agent 的设置面板：开它的入口可以是 ⚙，也可以是手机上"⋯"里的一行；enabled 关着时不抢别的页要打开的那一次 */
+export function useAgentSettingsSheet(agentId: string, wide: boolean, enabled = true): { open(): void; sheet: ReactNode } {
+  const [open, setOpen] = useState(() => enabled && takeArrival(agentId));
+  return { open: () => setOpen(true), sheet: open ? <AgentSettingsSheet agentId={agentId} wide={wide} onClose={() => setOpen(false)} /> : null };
+}
+
 /** 标题栏上的 ⚙：点开这个 agent 的面板 */
 export function AgentSettingsButton({ agentId, wide }: { agentId: string; wide: boolean }) {
-  const [open, setOpen] = useState(() => takeArrival(agentId));
+  const settings = useAgentSettingsSheet(agentId, wide);
   return (
     <>
-      <button type="button" className="icon-btn agent-gear" aria-label={t("ui.agentSettings.gear")} title={t("ui.agentSettings.gearTitle")} onClick={() => setOpen(true)}>
+      <button type="button" className="icon-btn agent-gear" aria-label={t("ui.agentSettings.gear")} title={t("ui.agentSettings.gearTitle")} onClick={settings.open}>
         <Icon name="gear" />
       </button>
-      {open && <AgentSettingsSheet agentId={agentId} wide={wide} onClose={() => setOpen(false)} />}
+      {settings.sheet}
     </>
   );
 }

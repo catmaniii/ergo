@@ -19,6 +19,7 @@ import { DetailLayout } from "../ui/detail/DetailLayout.tsx";
 import { MissedVoices } from "../ui/missed-voices.tsx";
 import { ModelKeyNotice, useModelKey } from "../ui/model-key-notice.tsx";
 import { SecretaryTitle } from "../ui/secretary-title.tsx";
+import { SecretaryPhoneMenu } from "./SecretaryPhoneMenu.tsx";
 import { StartTaskButton } from "./shared.tsx";
 
 /** "等你处理"栏认的是秘书会话（107 号票） */
@@ -39,13 +40,27 @@ export function SecretaryPage({ wide, at }: { wide: boolean; at?: string | undef
     <DetailLayout wide={wide} detail={detail} conversation={CHANNELS.secretary}>
       <div className="chat-col">
         {/* 副标题（249 号票）：设了"我的名字"是"<名字>的主线会话"，没设照旧（宽屏写"主线会话"，窄屏没有） */}
-        <TopBar title={<SecretaryTitle name={name} />} sub={secretaryPageSub(ui, wide)}>
-          <ActivityDot state={activity.state} note={activityNote(activity)} jump={jump} />
-          {/* 手机上标题栏挤：写着等你……时发起任务只留 ＋，名字才放得下 */}
-          <StartTaskButton compact iconOnly={!wide && jump !== undefined} />
-          <ZoomToggle handle={conversationRef} />
+        {/* 手机竖屏（用户 2026-11-01）：标题栏分两行，第二行是副标题和活动状态，按钮都收进 ⋯ */}
+        <TopBar
+          twoLine={!wide}
+          title={<SecretaryTitle name={name} />}
+          sub={
+            wide ? (
+              secretaryPageSub(ui, wide)
+            ) : (
+              <>
+                {secretaryPageSub(ui, wide) !== undefined && <span className="secretary-sub-text">{secretaryPageSub(ui, wide)}</span>}
+                <ActivityDot state={activity.state} note={activityNote(activity)} jump={jump} />
+              </>
+            )
+          }
+        >
+          {!wide && <SecretaryPhoneMenu agentId={CHANNELS.secretary} handle={conversationRef} />}
+          {wide && <ActivityDot state={activity.state} note={activityNote(activity)} jump={jump} />}
+          {wide && <StartTaskButton compact />}
+          {wide && <ZoomToggle handle={conversationRef} />}
           {/* 这个 agent 的 ⚙（114 号票）：单独的提示词、清空当前对话、上下文用量（秘书的 agent id 和它的会话 id 一样） */}
-          <AgentSettingsButton agentId={CHANNELS.secretary} wide={wide} />
+          {wide && <AgentSettingsButton agentId={CHANNELS.secretary} wide={wide} />}
         </TopBar>
         <Conversation
           conversation={CHANNELS.secretary}

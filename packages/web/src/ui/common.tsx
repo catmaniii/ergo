@@ -105,6 +105,7 @@ export function TopBar({
   onBack,
   joined = false,
   lead,
+  twoLine = false,
   children,
 }: {
   title: ReactNode;
@@ -112,11 +113,13 @@ export function TopBar({
   onBack?: () => void;
   joined?: boolean;
   lead?: ReactNode;
+  /** 手机竖屏分两行：第一行标题和按钮，第二行副标题（sub） */
+  twoLine?: boolean;
   children?: ReactNode;
 }) {
   useBackLayer("page", onBack !== undefined, onBack);
   return (
-    <header className="topbar" data-back={onBack ? "" : undefined} data-joined={joined ? "" : undefined}>
+    <header className="topbar" data-back={onBack ? "" : undefined} data-joined={joined ? "" : undefined} data-two-line={twoLine ? "" : undefined}>
       {onBack && (
         <button type="button" className="icon-btn" onClick={onBack} aria-label={t("common.back")}>
           ‹
