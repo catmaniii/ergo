@@ -14,6 +14,8 @@
 // - 269 号票：二狗接上 LSM 时兜底——电脑重启后 LSM 没拉（替身的 owned.reboot）、LSM 重启后重新接上（替身的 drop），上线了、用户没关的
 //   服务停着就整份登记、启动，记上线的结果（带 revive）；在跑的不动；接上之后又挂了不自动拉（照 133 通知维护者）；关着的不拉；
 //   拉不起来记上线失败和原因、通知维护者。
+// - 363 号票：回放 10-29 的事件（上线、already-running 记了失败、接上时全量里在跑）：回到上线了、不通知、缺凭证的重启一次拿到；启动报 already-running 真去看健康检查；
+//   真没在跑的、用户关着的不动。
 import fs from "node:fs";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
@@ -24,6 +26,7 @@ import {
   type CardEventPayload,
   CHANNELS,
   EVENT_TYPES,
+  HTTP_PATHS,
   maintainerChannel,
   type MessageEventPayload,
   METHODS,
@@ -32,11 +35,13 @@ import {
   type Project,
   type ProjectEventPayload,
   type ProjectServicesEventPayload,
+  SERVICE_NOTIFY_URL_ENV,
+  SERVICE_TOKEN_ENV,
   type TaskEventPayload,
 } from "@ergo/protocol";
 import { describe, expect, it, onTestFinished } from "vitest";
 import { OPERATIONS_CHANNEL } from "../../src/operations/events.ts";
-import { PROJECT_SERVICE_EVENTS } from "../../src/project-services/index.ts";
+import { PROJECT_SERVICE_EVENTS, type ServiceRolloutPayload } from "../../src/project-services/index.ts";
 import type { FauxStep } from "../../src/runtime/index.ts";
 import { ManualClock } from "../helpers/clock.ts";
 import { startTestDaemon, type TestDaemon } from "../helpers/daemon.ts";
@@ -767,5 +772,158 @@ describe("二狗接上 LSM 时兜底：该在线、用户没关的服务停着�
     expect(notice).toContain(reason);
     // 拉不起来的不再看挂没挂（不另报"上线后挂了"）
     expect(messagesOf(front, PM1).some((m) => textOf(m).includes("上线后挂了"))).toBe(false);
+  }, 180_000);
+});
+
+/** 363：服务管家说"已经有一份在跑"的原话（回复的 code 是 failed，只有文字里有这个词） */
+const ALREADY_RUNNING = "start 失败（already-running）：日志文件正被另一份 ergo-daemon--p-1-site 占着写——它好像已经有一个实例在跑了，没有再起第二份（ergo-daemon--p-1-site.out.log）";
+/** 363：全部上线结果 */
+const rolloutsOf = (td: TestDaemon) => td.daemon.store.read(OPERATIONS_CHANNEL, 0, PROJECT_SERVICE_EVENTS.rollout).map((e) => e.payload as ServiceRolloutPayload);
+/** 363：10-29 记下的那条失败（修好之前的版本记的，日志里一直留着）：照最近一条结果的样子往后加 */
+const stuckFailed = (td: TestDaemon) =>
+  td.daemon.store.append({
+    channel: OPERATIONS_CHANNEL,
+    type: PROJECT_SERVICE_EVENTS.rollout,
+    payload: { ...rolloutsOf(td).at(-1)!, state: "failed", reason: ALREADY_RUNNING, revive: true, time: nowIso() } satisfies ServiceRolloutPayload,
+  });
+/** 363：断了又接上，等接上后的第一份全量处理完 */
+async function reconnectLsm(lsm: LsmStandIn, td: TestDaemon) {
+  const hellos = lsm.messages.length;
+  lsm.drop();
+  await lsm.waitFor((m) => m.type === "hello", "重新握手", { from: hellos });
+  await waitUntil(() => td.daemon.projectServices.status("p-1-site") !== "unknown", { describe: () => "等接上后的第一份全量" });
+  await td.daemon.projectServices.idle();
+}
+
+describe("上线记录卡在失败、服务其实在跑（363 号票）", () => {
+  it("回放 10-29：上线、already-running 记了失败、部署后接上 LSM 全量里它在跑：页面回到上线了（历史只追加）、不通知、转发补上；357 之前登记的没有凭证：更新登记、重启一次且只一次，凭证真能用", async () => {
+    const d = dirs();
+    const lsm = await startLsmStandIn({ owned: true, heartbeatIntervalMs: 60_000 });
+    const app = await startFakeApp();
+    const daemonOptions = { reuse: { dataDir: d.dataDir, homeDir: d.homeDir }, env: lsm.env, secretary: [say("好的")], maintainer: () => Array.from({ length: 20 }, () => say("好")) };
+    const td = await startTestDaemon({ clock: new ManualClock(START), ...daemonOptions });
+    buildingProject(td);
+    const frontend = await connect(td);
+    await lsm.waitFor((m) => m.type === "hello", "握手");
+    await putInUse(td, frontend, [site(app.port)]);
+    await untilService(td, (v) => v.rollout === "live" && v.status === "online", "上线、在线");
+
+    // 10-29：netstat 乱报，接上时去拉，日志被占，记成失败；服务一直在跑。页面上写着失败
+    stuckFailed(td);
+    await untilService(td, (v) => v.rollout === "failed", "记成失败");
+    expect(serviceNow(td)).toMatchObject({ reason: ALREADY_RUNNING, status: "online" });
+    const before = rolloutsOf(td);
+
+    // 那时候 357 还没做：登记里没有报事件的地址和凭证，密钥区也没有这个服务的凭证
+    await td.daemon.stop();
+    const tokenFile = path.join(d.realData, "secrets", "service-tokens", "p-1-site.token");
+    fs.rmSync(tokenFile);
+    const owned = lsm.owned.services.get("p-1-site")!;
+    owned.definition = { ...owned.definition, env: (owned.definition.env as Array<{ name: string }>).filter((e) => e.name !== SERVICE_NOTIFY_URL_ENV && e.name !== SERVICE_TOKEN_ENV) };
+
+    // 部署：守护进程重启，接上 LSM，全量里它在跑（从没停过）
+    const from = lsm.serviceRequests().length;
+    const hellos = lsm.messages.length;
+    const again = await startTestDaemon({ clock: new ManualClock(START), ...daemonOptions });
+    await lsm.waitFor((m) => m.type === "hello", "重新握手", { from: hellos });
+    await untilService(again, (v) => v.rollout === "live" && v.status === "online", "回到上线了");
+    await again.daemon.projectServices.idle();
+
+    // 页面视图：上线了、没有失败的原因；新连上的前端订阅时拿到的就是这样
+    expect(serviceNow(again)?.reason).toBeUndefined();
+    const front = await connect(again);
+    await waitUntil(() => servicesFramesOf(front).length > 0, { describe: () => "前端拿到项目的服务" });
+    expect(servicesFramesOf(front).at(-1)).toEqual([expect.objectContaining({ app: "p-1-site", rollout: "live", status: "online" })]);
+    // 历史不改写，只追加一条
+    const after = rolloutsOf(again);
+    expect(after.slice(0, before.length)).toEqual(before);
+    expect(after.slice(before.length)).toEqual([expect.objectContaining({ app: "p-1-site", state: "live", heal: true, registered: true })]);
+    // 不通知负责人；上线失败的守护进程起来时没登记转发，这时候补上了
+    await settled(again, "pm-1");
+    expect(messagesOf(front, PM1).map(textOf)).toEqual(messagesOf(frontend, PM1).map(textOf));
+    expect((await openApp(again)).status).toBe(200);
+
+    // 更新了登记（带凭证）、重启了一次
+    expect(requestTypes(lsm, from)).toEqual(["services.put", "services.restart"]);
+    expect(lsm.serviceRequests()[from + 1]).toMatchObject({ force: true });
+    expect(lsm.serviceRequests()[from]!.service).toMatchObject({ env: expect.arrayContaining([{ name: SERVICE_TOKEN_ENV, from: "file", path: tokenFile }]) });
+    // 凭证真能用：认得出是这个服务（事件名没人等是 404，不是 401）；乱写的 401
+    const report = (token: string) => fetch(new URL(HTTP_PATHS.serviceEvents, again.url), { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify({ event: "没人等的事件" }) });
+    expect((await report(fs.readFileSync(tokenFile, "utf8"))).status).toBe(404);
+    expect((await report("nonsense")).status).toBe(401);
+
+    // 再接上一次（下次部署也一样）：登记一样、凭证有了，只整份再登记，不再重启
+    const next = lsm.serviceRequests().length;
+    await reconnectLsm(lsm, again);
+    expect(requestTypes(lsm, next)).toEqual(["services.put"]);
+    expect(rolloutsOf(again)).toHaveLength(after.length);
+  }, 180_000);
+
+  it("启动报 already-running：真在跑（真去看了健康检查）记上线，不记失败、不通知；服务真没了记失败、通知维护者，之后 LSM 报告停着也不误改；LSM 报告在跑（推送也算）才回来；用户关着的不被自愈拉起来", async () => {
+    const d = dirs();
+    const lsm = await startLsmStandIn({ owned: true, heartbeatIntervalMs: 60_000 });
+    const app = await startFakeApp();
+    const td = await startTestDaemon({ clock: new ManualClock(START), reuse: { dataDir: d.dataDir, homeDir: d.homeDir }, env: lsm.env, secretary: [say("好的")], maintainer: () => Array.from({ length: 20 }, () => say("好")) });
+    buildingProject(td);
+    const frontend = await connect(td);
+    await lsm.waitFor((m) => m.type === "hello", "握手");
+    await putInUse(td, frontend, [site(app.port)]);
+    await untilService(td, (v) => v.rollout === "live" && v.status === "online", "上线、在线");
+    await settled(td, "pm-1");
+    const notices = () => messagesOf(frontend, PM1).map(textOf).filter((t) => t.includes("二狗接上 LSM 时"));
+
+    // 10-29 的样子：LSM 以为它停着，二狗接上时去拉，启动报已经有一份在跑；假服务一直开着：算拉起来了
+    lsm.owned.reboot();
+    lsm.owned.failNextStart("p-1-site", ALREADY_RUNNING);
+    let from = lsm.serviceRequests().length;
+    await reconnectLsm(lsm, td);
+    expect(requestTypes(lsm, from)).toEqual(["services.put", "services.start"]);
+    expect(serviceNow(td)).toMatchObject({ rollout: "live", status: "online" });
+    expect(rolloutsOf(td).at(-1)).toMatchObject({ state: "live", revive: true });
+    expect(rolloutsOf(td).some((p) => p.state === "failed")).toBe(false);
+    expect(app.seen.at(-1)).toMatchObject({ method: "GET", url: "/" });
+    await settled(td, "pm-1");
+    expect(notices()).toEqual([]);
+    // LSM 下一轮探活认领了它
+    lsm.owned.setState("p-1-site", "RUNNING");
+
+    // 这回服务真没了（日志还被什么占着）：健康检查不过，记失败、通知
+    await app.close();
+    lsm.owned.reboot();
+    lsm.owned.failNextStart("p-1-site", ALREADY_RUNNING);
+    from = lsm.serviceRequests().length;
+    await reconnectLsm(lsm, td);
+    expect(requestTypes(lsm, from)).toEqual(["services.put", "services.start"]);
+    expect(serviceNow(td)).toMatchObject({ rollout: "failed", reason: ALREADY_RUNNING, status: "failed" });
+    await waitUntil(() => notices().length === 1, { describe: () => "维护者收到拉不起来的通知" });
+    await settled(td, "pm-1");
+
+    // 没在跑时不误改
+    from = lsm.serviceRequests().length;
+    lsm.owned.setState("p-1-site", "STOPPED");
+    await untilService(td, (v) => v.status === "offline", "LSM 报告停着");
+    await td.daemon.projectServices.idle();
+    expect(requestTypes(lsm, from)).toEqual([]);
+    expect(serviceNow(td)).toMatchObject({ rollout: "failed" });
+
+    // 后来它自己好了（LSM 推来在跑）：回到上线了，整份再登记一次，不重启、不通知
+    lsm.owned.setState("p-1-site", "RUNNING");
+    await untilService(td, (v) => v.rollout === "live" && v.status === "online", "推来在跑后回到上线了");
+    await td.daemon.projectServices.idle();
+    expect(requestTypes(lsm, from)).toEqual(["services.put"]);
+    await settled(td, "pm-1");
+    expect(notices()).toHaveLength(1);
+
+    // 用户关着的：记着失败、LSM 那边说它在跑、又接上一次，都一条 services.* 不发，不拉起来
+    stuckFailed(td);
+    await untilService(td, (v) => v.rollout === "failed", "又记着失败");
+    ok(await power(frontend, "stop", "k-stop"));
+    await untilService(td, (v) => v.rollout === "failed" && v.paused === true && v.power === undefined && v.status === "offline", "关着、记着失败");
+    from = lsm.serviceRequests().length;
+    lsm.owned.setState("p-1-site", "RUNNING");
+    await untilService(td, (v) => v.status === "online", "LSM 报告在跑");
+    await reconnectLsm(lsm, td);
+    expect(requestTypes(lsm, from)).toEqual([]);
+    expect(serviceNow(td)).toMatchObject({ rollout: "failed", paused: true });
   }, 180_000);
 });

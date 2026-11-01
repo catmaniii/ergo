@@ -6,6 +6,8 @@
 //   在跑时改端口先停再登记；LSM 里没登记过的撤下不去找 LSM；LSM 推来的状态换算成在线、失败……
 // - 接上 LSM 时兜底（269 号票）：接上后的第一份全量里上线了、用户没关、没在跑的整份登记、启动，记上线的结果（带 revive）；在跑的、
 //   关着的、还没做完的、要你手动的不算；接上之后再挂不拉；拉的时候不看挂没挂、用户点了关闭照最新的来；拉不起来通知维护者。
+// - 上线记录卡在失败（363 号票）：启动报"已经有一份在跑"先按健康检查再看一眼；记着失败、LSM 报告在线的回到上线了，缺凭证、登记旧了的
+//   更新登记、重启一次；没在跑的、开关关着的、登记对不上的不动。
 // - 服务首页的缩略图（140 号票，截图注入假的）：上线并在线后截一次、6 小时内有人看不重截、过了 6 小时有人看补截、改了方案或重启后重截、
 //   同时只截一个、截不了的留旧图（没有旧图的不给截图时间）、守护进程起来时不一口气截、删除项目时删掉；怎么截（假的浏览器驱动）。
 import fs from "node:fs";
@@ -28,13 +30,17 @@ import {
   projectServicesView,
   SERVICE_THUMBNAIL_SCALE,
   SERVICE_THUMBNAIL_VIEWPORT,
+  serviceHealthy,
   serviceProblems,
+  serviceRow,
   type ServiceRolloutPayload,
   statusOf,
 } from "../../src/project-services/index.ts";
 import { projectsView } from "../../src/projects/views.ts";
 import { ManualClock } from "../helpers/clock.ts";
+import { startFakeApp } from "../helpers/fake-app.ts";
 import { startLsmStandIn } from "../helpers/lsm-stand-in.ts";
+import { freePort } from "../helpers/ports.ts";
 import { waitUntil } from "../helpers/process.ts";
 import { makeTempDir } from "../helpers/temp-dir.ts";
 import { FakeBrowser } from "../helpers/web.ts";
@@ -270,6 +276,7 @@ function setup(lsm: LsmServices, clock = new ManualClock(Date.parse("2026-10-18T
     secretsDir: "D:/data/secrets",
     project: (id) => (id === "p-1" ? project : undefined),
     prefixCheck: async () => ({ url: "", status: 200, basePath: "", findings: [] }),
+    healthCheck: async () => false,
     publish: (s) => published.push(s),
     clock,
     now: nowIso,
@@ -924,6 +931,489 @@ describe("接上 LSM 时兜底（269 号票）", () => {
     fullOf(lsm, { "p-1-web": "STOPPED" });
     await services.idle();
     expect(lsm.requests).toEqual([]);
+    services.stop();
+  });
+});
+
+/** 363：服务管家说"已经有一份在跑"的原话（hooks.mjs 的 already-running，supervisor.mjs 拼的 lastError，owned.mjs 回 code: failed） */
+const ALREADY_RUNNING = "start 失败（already-running）：日志文件正被另一份 ergo-daemon--p-1-web 占着写——它好像已经有一个实例在跑了，没有再起第二份（ergo-daemon--p-1-web.out.log）";
+const alreadyRunning = (name = "p-1-web"): LsmServicesReply => ({ ok: false, error: { code: "failed", message: ALREADY_RUNNING }, service: { id: `ergo-daemon--${name}`, name, port: 1, state: "FAILED", up: false, lastError: ALREADY_RUNNING } });
+/** 363：全部上线结果 */
+const rolloutsOf = (store: ReturnType<typeof setup>["store"]) => store.read(OPERATIONS_CHANNEL, 0, PROJECT_SERVICE_EVENTS.rollout).map((e) => e.payload as ServiceRolloutPayload);
+/** 363：10-29 记下的那种失败：接上时拉、已经有一份在跑（修好之前的版本记的，日志里一直留着） */
+const stuckFailed = (store: ReturnType<typeof setup>["store"], app = "p-1-web") => {
+  const row = serviceRow(store.reader, app)!;
+  store.append({
+    channel: OPERATIONS_CHANNEL,
+    type: PROJECT_SERVICE_EVENTS.rollout,
+    payload: { projectId: row.projectId, key: row.desired.key, app, desiredSeq: row.desiredSeq, state: "failed", reason: ALREADY_RUNNING, registered: true, powerSeq: row.powerSeq, revive: true, time: nowIso() } satisfies ServiceRolloutPayload,
+  });
+};
+/** 363：LSM 推来一条状态（接上之后的推送，不是全量） */
+const pushState = (lsm: ReturnType<typeof fakeLsm>, name: string, state: string, more: { health?: string; lastError?: string } = {}) =>
+  lsm.services.push({ full: false, services: [{ id: `ergo-daemon--${name}`, name, port: 1, state, up: state === "RUNNING" || state === "DEGRADED", ...more }], removed: [] });
+/** 363：假的凭证：have 里的算已经发过了，别的第一次要时发一份（回 true） */
+const fakeCredentials = (have: readonly string[] = []) => {
+  const held = new Set(have);
+  const issued: string[] = [];
+  return {
+    issued,
+    events: {
+      service: {
+        credentialFile: (app: string) => `D:/data/secrets/service-tokens/${app}.token`,
+        ensureCredential(app: string) {
+          if (held.has(app)) return false;
+          held.add(app);
+          issued.push(app);
+          return true;
+        },
+        revokeCredential: (app: string) => void held.delete(app),
+        sweepCredentials: () => {},
+        recent: () => [],
+        forgetProject: () => {},
+        onChange: () => () => {},
+      },
+      url: () => "http://127.0.0.1:1/api/service-events",
+    },
+  };
+};
+
+describe("启动报“已经有一份在跑”：先按健康检查再看一眼（363 号票）", () => {
+  it("上线时报 already-running、健康检查过了：记上线，不记失败、不通知，转发登记上，看着是在线；健康检查不过：记失败、通知维护者", async () => {
+    const lsm = fakeLsm("supported");
+    let alive = true;
+    const checked: number[] = [];
+    const { services, want, service, store, apps } = setup(lsm.services, undefined, {
+      healthCheck: async (s) => {
+        checked.push(s.port);
+        return alive;
+      },
+    });
+    services.start();
+    lsm.replies.start = [alreadyRunning()];
+    want(true);
+    await services.idle();
+    expect(of(lsm, "p-1-web")).toEqual(["put", "start"]);
+    expect(checked).toEqual([18080]);
+    expect(services.view()[0]).toMatchObject({ rollout: "live", status: "online" });
+    expect(services.view()[0]?.reason).toBeUndefined();
+    expect(services.view()[0]?.detail).toBeUndefined();
+    expect(apps.get("p-1-web")).toBeDefined();
+    expect(rolloutsOf(store).map((p) => p.state)).toEqual(["live"]);
+    expect(noticesOf(store)).toEqual([]);
+
+    // 另一个服务：健康检查不过，真没在跑
+    alive = false;
+    lsm.replies.start = [alreadyRunning("p-1-api")];
+    want(true, other(service, "api", 18081), "api", "接口");
+    await services.idle();
+    expect(checked).toEqual([18080, 18081]);
+    expect(services.view().find((v) => v.app === "p-1-api")).toMatchObject({ rollout: "failed", reason: ALREADY_RUNNING });
+    expect(noticesOf(store)).toHaveLength(1);
+    expect(noticesOf(store)[0]).toContain(`没上线。服务管家（LSM）判断的依据：${ALREADY_RUNNING}`);
+    services.stop();
+  });
+
+  it("别的启动失败不看健康检查，照旧记失败", async () => {
+    const lsm = fakeLsm("supported");
+    const checked: number[] = [];
+    const { services, want } = setup(lsm.services, undefined, {
+      healthCheck: async (s) => {
+        checked.push(s.port);
+        return true;
+      },
+    });
+    services.start();
+    lsm.replies.start = [{ ok: false, error: { code: "failed", message: "端口 18080 已被 node.exe (4321) 占着" } }];
+    want(true);
+    await services.idle();
+    expect(checked).toEqual([]);
+    expect(services.view()[0]).toMatchObject({ rollout: "failed", reason: "端口 18080 已被 node.exe (4321) 占着" });
+    services.stop();
+  });
+
+  it("接上时拉起（10-29 那条路）：报 already-running、健康检查过了算拉起来了，记上线（带 revive），不通知；不过才记失败", async () => {
+    const lsm = fakeLsm("supported");
+    let alive = true;
+    const { services, want, store } = setup(lsm.services, undefined, { healthCheck: async () => alive });
+    services.start();
+    want(true);
+    await services.idle();
+
+    lsm.requests.length = 0;
+    lsm.replies.start = [alreadyRunning()];
+    reconnect(lsm);
+    fullOf(lsm, { "p-1-web": "STOPPED" });
+    await services.idle();
+    expect(of(lsm, "p-1-web")).toEqual(["put", "start"]);
+    expect(services.view()[0]).toMatchObject({ rollout: "live", status: "online" });
+    expect(revivesOf(store)).toEqual([expect.objectContaining({ state: "live", revive: true })]);
+    expect(noticesOf(store)).toEqual([]);
+
+    alive = false;
+    lsm.requests.length = 0;
+    lsm.replies.start = [alreadyRunning()];
+    reconnect(lsm);
+    fullOf(lsm, { "p-1-web": "STOPPED" });
+    await services.idle();
+    expect(services.view()[0]).toMatchObject({ rollout: "failed", reason: ALREADY_RUNNING });
+    expect(noticesOf(store)).toHaveLength(1);
+    services.stop();
+  });
+
+  it("在跑的那一份是登记之前起的：刚发了凭证、登记变了的重启一次才用得上；登记没变的不重启；重启时才报的不再来一遍", async () => {
+    const lsm = fakeLsm("supported");
+    const creds = fakeCredentials(["p-1-same"]);
+    const { services, want, service } = setup(lsm.services, undefined, { healthCheck: async () => true, events: creds.events });
+    services.start();
+
+    // 刚发了凭证
+    lsm.replies.start = [alreadyRunning()];
+    want(true);
+    await services.idle();
+    expect(of(lsm, "p-1-web")).toEqual(["put", "start", "restart force"]);
+    expect(services.view().find((v) => v.app === "p-1-web")).toMatchObject({ rollout: "live" });
+
+    // 凭证有了、登记也没变：看一眼就算
+    lsm.replies.start = [alreadyRunning("p-1-same")];
+    want(true, other(service, "same", 18081), "same", "同一份");
+    await services.idle();
+    expect(of(lsm, "p-1-same")).toEqual(["put", "start"]);
+
+    // 凭证有了、登记变了（LSM 以为没在跑，不回 restartNeeded，只回 changed）
+    creds.events.service.ensureCredential("p-1-changed");
+    lsm.replies.put = [{ ok: true, changed: true, restartNeeded: false, service: { id: "ergo-daemon--p-1-changed", name: "p-1-changed", port: 1, state: "STOPPED", up: false } }];
+    lsm.replies.start = [alreadyRunning("p-1-changed")];
+    want(true, other(service, "changed", 18082), "changed", "变了的");
+    await services.idle();
+    expect(of(lsm, "p-1-changed")).toEqual(["put", "start", "restart force"]);
+
+    // LSM 认得它在跑、去重启时才报的：看一眼算数，不再重启第二次
+    lsm.replies.put = [putReply("p-1-up", true)];
+    lsm.replies.restart = [alreadyRunning("p-1-up")];
+    want(true, other(service, "up", 18083), "up", "在跑的");
+    await services.idle();
+    expect(of(lsm, "p-1-up")).toEqual(["put", "restart force"]);
+    expect(services.view().find((v) => v.app === "p-1-up")).toMatchObject({ rollout: "live", status: "online" });
+    services.stop();
+  });
+
+  it("怎么看一眼：写了健康检查的 GET 它（状态码 400 以上不算）；没写的端口连得上就算；没人听的不算", async () => {
+    const app = await startFakeApp();
+    expect(await serviceHealthy({ port: app.port, health: { path: "/" } })).toBe(true);
+    expect(app.seen.map((r) => r.url)).toEqual(["/"]);
+    expect(await serviceHealthy({ port: app.port, health: { path: "/nothing-here" } })).toBe(false);
+    expect(await serviceHealthy({ port: app.port })).toBe(true);
+    const nobody = await freePort();
+    expect(await serviceHealthy({ port: nobody, health: { path: "/" } })).toBe(false);
+    expect(await serviceHealthy({ port: nobody })).toBe(false);
+  });
+});
+
+describe("上线记录卡在失败、服务其实在跑：自愈（363 号票）", () => {
+  it("回放 10-29：上线、already-running 失败、LSM 报告在跑——接上时的全量：回到上线了，历史不改只追加，不通知，日志一行，转发补上；再来一份全量不再动", async () => {
+    const lsm = fakeLsm("supported");
+    const lines: string[] = [];
+    const { services, want, store, apps, make, published } = setup(lsm.services, undefined, { log: (l) => lines.push(l) });
+    services.start();
+    want(true);
+    await services.idle();
+    stuckFailed(store);
+    expect(services.view()[0]).toMatchObject({ rollout: "failed", reason: ALREADY_RUNNING });
+    const before = rolloutsOf(store);
+
+    // 部署：守护进程重启，上线失败的不登记转发；接上 LSM，全量里它在跑
+    services.stop();
+    lsm.services.set("waiting");
+    lsm.requests.length = 0;
+    lines.length = 0;
+    const again = make();
+    again.start();
+    expect(apps.get("p-1-web")).toBeUndefined();
+    lsm.services.set("supported");
+    fullOf(lsm, { "p-1-web": "RUNNING" });
+    await again.idle();
+
+    expect(of(lsm, "p-1-web")).toEqual(["put"]);
+    expect(again.view()[0]).toMatchObject({ rollout: "live", status: "online" });
+    expect(again.view()[0]?.reason).toBeUndefined();
+    expect(apps.get("p-1-web")).toBeDefined();
+    expect(published.at(-1)?.[0]).toMatchObject({ rollout: "live" });
+    // 只追加一条，之前的原样留着
+    const after = rolloutsOf(store);
+    expect(after.slice(0, before.length)).toEqual(before);
+    expect(after.slice(before.length)).toEqual([expect.objectContaining({ app: "p-1-web", state: "live", heal: true, registered: true })]);
+    expect(after.at(-1)?.reason).toBeUndefined();
+    expect(noticesOf(store)).toEqual([]);
+    expect(lines.filter((l) => l.includes("p-1-web"))).toHaveLength(1);
+
+    lsm.requests.length = 0;
+    fullOf(lsm, { "p-1-web": "RUNNING" });
+    await again.idle();
+    expect(lsm.requests).toEqual([]);
+    expect(rolloutsOf(store)).toHaveLength(after.length);
+    again.stop();
+  });
+
+  it("之后的状态推送也算：起不来记了失败，后来 LSM 推来在线就回到上线了；回来之后挂了照常看（又能报故障）", async () => {
+    const lsm = fakeLsm("supported");
+    const { services, want, store, clock } = setup(lsm.services);
+    services.start();
+    lsm.replies.start = [{ ok: false, error: { code: "failed", message: "启动后未在 readyTimeout 内转为就绪" } }];
+    want(true);
+    await services.idle();
+    expect(services.view()[0]).toMatchObject({ rollout: "failed" });
+    expect(noticesOf(store)).toHaveLength(1);
+
+    pushState(lsm, "p-1-web", "RUNNING");
+    await services.idle();
+    expect(services.view()[0]).toMatchObject({ rollout: "live", status: "online" });
+    expect(noticesOf(store)).toHaveLength(1);
+
+    // 回到上线了：挂了持续 30 秒通知维护者（失败记着的时候不看）
+    pushState(lsm, "p-1-web", "FAILED", { lastError: "退出码 1" });
+    clock.advance(31_000);
+    await waitUntil(() => noticesOf(store).length === 2, { describe: () => JSON.stringify(noticesOf(store)) });
+    expect(noticesOf(store)[1]).toContain("上线后挂了，现在不在线。服务管家（LSM）判断的依据：退出码 1");
+    services.stop();
+  });
+
+  it("记着失败之前报过“挂了”还没好的：回来之后照 133 说一声“又在线了”（维护者等着这句），只这一句", async () => {
+    const lsm = fakeLsm("supported");
+    const { services, want, store, clock } = setup(lsm.services);
+    services.start();
+    want(true);
+    await services.idle();
+    pushState(lsm, "p-1-web", "FAILED", { lastError: "退出码 1" });
+    clock.advance(31_000);
+    await waitUntil(() => noticesOf(store).length === 1, { describe: () => JSON.stringify(noticesOf(store)) });
+    stuckFailed(store);
+
+    pushState(lsm, "p-1-web", "RUNNING");
+    await services.idle();
+    expect(services.view()[0]).toMatchObject({ rollout: "live", status: "online" });
+    expect(noticesOf(store)).toHaveLength(1);
+    clock.advance(31_000);
+    await waitUntil(() => noticesOf(store).length === 2, { describe: () => JSON.stringify(noticesOf(store)) });
+    expect(noticesOf(store)[1]).toContain("又在线了");
+    clock.advance(120_000);
+    expect(noticesOf(store)).toHaveLength(2);
+    services.stop();
+  });
+
+  it("服务真的没在跑时不误改：停着、失败、启动中、停止中、LSM 里没有了、在跑但健康检查不过的都留着失败，一条请求不发；真在线了才回来", async () => {
+    const lsm = fakeLsm("supported");
+    const { services, want, store } = setup(lsm.services);
+    services.start();
+    want(true);
+    await services.idle();
+    stuckFailed(store);
+    lsm.requests.length = 0;
+    const count = rolloutsOf(store).length;
+
+    for (const state of ["STOPPED", "FAILED", "STARTING", "STOPPING", "ORPHAN"]) pushState(lsm, "p-1-web", state);
+    pushState(lsm, "p-1-web", "RUNNING", { health: "failing" });
+    fullOf(lsm, { "p-1-web": "STOPPED" });
+    fullOf(lsm, {});
+    reconnect(lsm);
+    fullOf(lsm, { "p-1-web": "FAILED" });
+    await services.idle();
+    expect(lsm.requests).toEqual([]);
+    expect(rolloutsOf(store)).toHaveLength(count);
+    expect(services.view()[0]).toMatchObject({ rollout: "failed", reason: ALREADY_RUNNING });
+
+    pushState(lsm, "p-1-web", "DEGRADED");
+    await services.idle();
+    expect(services.view()[0]).toMatchObject({ rollout: "live" });
+    services.stop();
+  });
+
+  it("缺凭证的更新登记、重启一次且只一次（重启过程中又推来状态、又接上一次都不再重启）；登记没变的不重启；定义变了的（LSM 回 restartNeeded）也重启一次", async () => {
+    const lsm = fakeLsm("supported");
+    const creds = fakeCredentials(["p-1-same", "p-1-node"]);
+    const lines: string[] = [];
+    const { services, want, service, store, make } = setup(lsm.services, undefined, { events: creds.events, log: (l) => lines.push(l) });
+    // 先按"没有凭证"的旧版本上线（357 之前）：这时不发凭证
+    const old = make({ events: undefined });
+    old.start();
+    want(true);
+    want(true, other(service, "same", 18081), "same", "没变的");
+    want(true, other(service, "node", 18082), "node", "换了 Node 的");
+    await old.idle();
+    old.stop();
+    for (const app of ["p-1-web", "p-1-same", "p-1-node"]) stuckFailed(store, app);
+
+    lsm.services.set("waiting");
+    lsm.requests.length = 0;
+    lines.length = 0;
+    services.start();
+    lsm.services.set("supported");
+    const original = lsm.services.put;
+    lsm.services.put = async (d) => {
+      await original(d);
+      return putReply(d.name, d.name !== "p-1-same");
+    };
+    const release = lsm.holdNext("restart");
+    fullOf(lsm, { "p-1-web": "RUNNING", "p-1-same": "RUNNING", "p-1-node": "RUNNING" });
+    // 重启做到一半：LSM 推来停着、启动中、又在线——排着也不再做一遍
+    await waitUntil(() => lsm.requests.some((r) => r.type === "restart"), { describe: () => JSON.stringify(lsm.requests) });
+    for (const state of ["STOPPED", "STARTING", "RUNNING"]) pushState(lsm, "p-1-web", state);
+    release();
+    await services.idle();
+    await waitUntil(() => services.view().every((v) => v.rollout === "live"), { describe: () => JSON.stringify(services.view()) });
+    await services.idle();
+
+    expect(creds.issued).toEqual(["p-1-web"]);
+    expect(of(lsm, "p-1-web")).toEqual(["put", "restart force"]);
+    expect(lsm.requests.find((r) => r.type === "put" && r.name === "p-1-web")?.definition?.env).toEqual(
+      expect.arrayContaining([{ name: "ERGO_SERVICE_TOKEN", from: "file", path: "D:/data/secrets/service-tokens/p-1-web.token" }]),
+    );
+    expect(of(lsm, "p-1-same")).toEqual(["put"]);
+    expect(of(lsm, "p-1-node")).toEqual(["put", "restart force"]);
+    expect(noticesOf(store)).toEqual([]);
+    expect(lines.filter((l) => l.includes("p-1-web"))).toHaveLength(1);
+
+    // 下一次接上：凭证有了、登记一样，是"上线了"的那条路，不再重启
+    lsm.requests.length = 0;
+    lsm.services.put = original;
+    reconnect(lsm);
+    fullOf(lsm, { "p-1-web": "RUNNING", "p-1-same": "RUNNING", "p-1-node": "RUNNING" });
+    await services.idle();
+    expect(lsm.requests.map((r) => r.type).toSorted()).toEqual(["put", "put", "put"]);
+    services.stop();
+  });
+
+  it("登记内容对不上方案（登记不进去：比如新端口被别的服务占着，跑的还是旧的）：留着失败，不重启、不通知；下次接上登记成了才回来", async () => {
+    const lsm = fakeLsm("supported");
+    const lines: string[] = [];
+    const { services, want, store } = setup(lsm.services, undefined, { log: (l) => lines.push(l) });
+    services.start();
+    want(true);
+    await services.idle();
+    stuckFailed(store);
+    lsm.requests.length = 0;
+    lines.length = 0;
+    const conflict: LsmServicesReply = { ok: false, error: { code: "port-conflict", message: "端口 18080 已经登记给 ergo-daemon--p-2-x（探活端口）" } };
+    lsm.replies.put = [conflict];
+    pushState(lsm, "p-1-web", "RUNNING");
+    await services.idle();
+    expect(of(lsm, "p-1-web")).toEqual(["put"]);
+    expect(services.view()[0]).toMatchObject({ rollout: "failed", reason: ALREADY_RUNNING });
+    expect(noticesOf(store)).toEqual([]);
+    expect(lines.some((l) => l.includes("p-1-web") && l.includes("端口 18080"))).toBe(true);
+
+    // 连接断了的（在途）也不算：等下次接上
+    lsm.replies.put = [{ ok: false, error: { code: "disconnected", message: "断了" } }];
+    pushState(lsm, "p-1-web", "DEGRADED");
+    await services.idle();
+    expect(services.view()[0]).toMatchObject({ rollout: "failed" });
+
+    lsm.requests.length = 0;
+    reconnect(lsm);
+    fullOf(lsm, { "p-1-web": "RUNNING" });
+    await services.idle();
+    expect(of(lsm, "p-1-web")).toEqual(["put"]);
+    expect(services.view()[0]).toMatchObject({ rollout: "live" });
+    services.stop();
+  });
+
+  it("重启没成：真出事了，照上线失败记新的原因、通知维护者（写明是更新登记时重启的）；重启时报 already-running、健康检查过了算回来了", async () => {
+    const lsm = fakeLsm("supported");
+    const creds = fakeCredentials();
+    let alive = true;
+    const { services, want, service, store } = setup(lsm.services, undefined, { events: creds.events, healthCheck: async () => alive });
+    services.start();
+    want(true);
+    want(true, other(service, "api", 18081), "api", "接口");
+    await services.idle();
+    stuckFailed(store);
+    stuckFailed(store, "p-1-api");
+
+    // 凭证文件没了（备份恢复到别的机器）：要发新的、要重启
+    creds.events.service.revokeCredential("p-1-web");
+    lsm.requests.length = 0;
+    lsm.replies.restart = [{ ok: false, error: { code: "failed", message: "start 钩子成功返回，但服务未在 readyTimeout 内转为就绪" } }];
+    pushState(lsm, "p-1-web", "RUNNING");
+    await services.idle();
+    expect(of(lsm, "p-1-web")).toEqual(["put", "restart force"]);
+    expect(services.view().find((v) => v.app === "p-1-web")).toMatchObject({ rollout: "failed", reason: "start 钩子成功返回，但服务未在 readyTimeout 内转为就绪" });
+    expect(noticesOf(store)).toHaveLength(1);
+    expect(noticesOf(store)[0]).toContain("判断的依据：start 钩子成功返回，但服务未在 readyTimeout 内转为就绪");
+    expect(rolloutsOf(store).at(-1)).toMatchObject({ state: "failed", heal: true });
+
+    // 重启时报 already-running、真在跑
+    creds.events.service.revokeCredential("p-1-api");
+    lsm.requests.length = 0;
+    lsm.replies.restart = [alreadyRunning("p-1-api")];
+    pushState(lsm, "p-1-api", "RUNNING");
+    await services.idle();
+    expect(of(lsm, "p-1-api")).toEqual(["put", "restart force"]);
+    expect(services.view().find((v) => v.app === "p-1-api")).toMatchObject({ rollout: "live", status: "online" });
+    expect(noticesOf(store)).toHaveLength(1);
+
+    // 重启时报 already-running、健康检查不过：真没在跑
+    alive = false;
+    stuckFailed(store, "p-1-api");
+    creds.events.service.revokeCredential("p-1-api");
+    lsm.replies.restart = [alreadyRunning("p-1-api")];
+    pushState(lsm, "p-1-api", "DEGRADED");
+    await services.idle();
+    expect(services.view().find((v) => v.app === "p-1-api")).toMatchObject({ rollout: "failed", reason: ALREADY_RUNNING });
+    expect(noticesOf(store)).toHaveLength(2);
+    services.stop();
+  });
+
+  it("项目自己关掉的（开关关着）不被自愈拉起来：记着失败的、关着的，LSM 报告在跑、停着、重新接上都一条请求不发；项目不是使用中的同样；重启做到一半点了关闭：结果不记，接着关掉", async () => {
+    const lsm = fakeLsm("supported");
+    const creds = fakeCredentials();
+    const { services, want, store, project } = setup(lsm.services, undefined, { events: creds.events });
+    services.start();
+    want(true);
+    await services.idle();
+    stuckFailed(store);
+    services.power("p-1", "stop", "user", "k-stop");
+    await services.idle();
+    expect(of(lsm, "p-1-web").slice(-2)).toEqual(["autostart off", "stop force"]);
+    lsm.requests.length = 0;
+
+    // 关着：LSM 那边不管报什么都不动
+    pushState(lsm, "p-1-web", "RUNNING");
+    await services.idle();
+    reconnect(lsm);
+    fullOf(lsm, { "p-1-web": "RUNNING" });
+    await services.idle();
+    reconnect(lsm);
+    fullOf(lsm, { "p-1-web": "STOPPED" });
+    await services.idle();
+    expect(lsm.requests).toEqual([]);
+    expect(services.view()[0]).toMatchObject({ rollout: "failed", paused: true });
+
+    // 用户启动：照 257 走（这条路本来就是拉起）
+    services.power("p-1", "start", "user", "k-start");
+    await services.idle();
+    expect(services.view()[0]).toMatchObject({ rollout: "live" });
+    stuckFailed(store);
+
+    // 项目不是使用中的：不动
+    lsm.requests.length = 0;
+    project.state = "retired";
+    pushState(lsm, "p-1-web", "RUNNING");
+    await services.idle();
+    expect(lsm.requests).toEqual([]);
+    project.state = "in_use";
+
+    // 自愈重启做到一半用户点了关闭：这一次的结果不记，接着关掉
+    creds.events.service.revokeCredential("p-1-web");
+    const release = lsm.holdNext("restart");
+    pushState(lsm, "p-1-web", "DEGRADED");
+    await waitUntil(() => lsm.requests.some((r) => r.type === "restart"), { describe: () => JSON.stringify(lsm.requests) });
+    const count = rolloutsOf(store).length;
+    services.power("p-1", "stop", "user", "k-stop-2");
+    release();
+    await services.idle();
+    expect(of(lsm, "p-1-web")).toEqual(["put", "restart force", "autostart off", "stop force"]);
+    expect(rolloutsOf(store)).toHaveLength(count);
+    expect(services.view()[0]).toMatchObject({ rollout: "failed", paused: true });
     services.stop();
   });
 });

@@ -82,6 +82,9 @@ export const noticeText = {
   /** 269：接上 LSM 时兜底去拉，没起来 */
   reviveFailed: (view: Pick<ProjectServiceView, "title" | "app" | "port">, reason: string, probe: string) =>
     `服务「${view.title}」（${view.app}，端口 ${view.port}）本该在线（上线了、用户没关），二狗接上 LSM 时它没在跑，去拉起来没起来。服务管家（LSM）判断的依据：${reason}。${verifyFirst(probe)}真没起来再看是什么原因（端口被占、依赖没起来、日志、数据……）；修好后请用户在项目卡片上点“启动”重新拉起，要改服务的定义就用 ${PROPOSE_OPERATIONS_TOOL} 再交一份完整的运营方案。项目页上标着上线失败，不用专门去告诉用户，要用户做什么时再说。`,
+  /** 363：记着上线失败、其实在跑，二狗更新登记时重启了一次，没起来 */
+  healRestartFailed: (view: Pick<ProjectServiceView, "title" | "app" | "port">, reason: string, probe: string) =>
+    `服务「${view.title}」（${view.app}，端口 ${view.port}）之前记着上线失败，其实一直在跑；二狗照现在的方案更新了它的登记，重启了一次，没起来。服务管家（LSM）判断的依据：${reason}。${verifyFirst(probe)}真没起来再看是什么原因（端口被占、依赖没起来、日志、数据……）；修好后请用户在项目卡片上点“启动”重新拉起，要改服务的定义就用 ${PROPOSE_OPERATIONS_TOOL} 再交一份完整的运营方案。项目页上标着上线失败，不用专门去告诉用户，要用户做什么时再说。`,
   recovered: (view: Pick<ProjectServiceView, "title" | "app">) => `服务「${view.title}」（${view.app}）又在线了：之前说的它挂了的事不用再处理（查到了原因的话记进项目档案）。`,
   prefix: (view: Pick<ProjectServiceView, "title" | "app">, report: string) =>
     `服务「${view.title}」（${view.app}）上线了，但首页的前缀下自检发现有地址不在前缀下（经二狗转发、在手机上打开时会坏）：\n${report}\n改成相对地址或用 ${APP_BASE_PATH_ENV} 拼，改好后重启服务（再交一份运营方案，或者让用户在 LSM 里重启）。`,

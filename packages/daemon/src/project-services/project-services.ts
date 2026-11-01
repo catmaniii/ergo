@@ -39,10 +39,18 @@
 //   重启时不看挂没挂（和兜底拉起同一套）。
 // - 357 号票：上线时给服务发报事件的地址和专属凭证（service-events.ts）：登记之前没有凭证就发一份，定义里注入；撤下的要求一落盘就作废（不等 LSM 撤完），
 //   重新上线发新的；发了新凭证而服务还在跑的重启一次（它手里的是旧的）。服务最近报的事件带在 ProjectServiceView 上。
+// - 363 号票（10-29 一次 netstat 乱报留下的：LSM 以为服务没在跑，二狗接上时去拉，启动报已经有一份在跑，记成失败；之后再没有新的结果，页面一直写失败；
+//   269、324 只管"上线了"的，这种服务接上时也不重新登记，357 的凭证就发不到它手上）：
+//   · 启动报 already-running（LSM 回的 code 是 failed，只有文字里有这个词）先按健康检查再看一眼（healthCheck）：真在跑算上线了；那一份是这次登记之前起的，
+//     登记变了、刚发了凭证的重启一次；真没在跑才记失败；
+//   · 自愈（heal）：记着上线失败、LSM 报告它在线（接上时的全量和之后的推送都算）、用户没关、项目使用中的，照现在的方案整份再登记一次：登记不进去的（跑的还是
+//     旧方案的那一份）留着失败；登记成了记 service_rollout（heal: true）回到上线了，不通知、不跑前缀下自检，日志一行；定义变了（LSM 回 restartNeeded）、
+//     刚发了凭证的先重启一次，没起来才记失败、通知维护者。第二次起 LSM 就不回 restartNeeded、凭证也有了，不会再重启。
 import {
   CHANNELS,
   EVENT_TYPES,
   maintainerChannel,
+  type OperationService,
   type Project,
   type ProjectEventPayload,
   type ProjectServicesAction,
@@ -89,6 +97,8 @@ export interface ProjectServicesOptions {
   project: (projectId: string) => Project | undefined;
   /** 上线之后的前缀下自检（apps/prefix-check.ts 的 checkAppPrefix） */
   prefixCheck: (target: string, app: string, prefix: "strip" | "keep") => Promise<PrefixCheckResult>;
+  /** 363：LSM 说"已经有一份在跑"时自己看一眼（health-check.ts 的 serviceHealthy）；不抛错 */
+  healthCheck: (service: OperationService) => Promise<boolean>;
   /** 给前端、秘书看的样子变了：整份推一次 */
   publish: (services: ProjectServiceView[]) => void;
   /** 上线了的服务挂了 / 好了要持续多久才报（按这个时钟数） */
@@ -172,12 +182,18 @@ const statusBasis = (s: LsmServiceStatus | undefined): string | undefined => {
   return parts.join("，"); // @i18n-ignore model
 };
 
+/** 一条结果是哪种做法来的：接上时兜底拉起（269）、自愈（363）；照运营方案、开关做的不写 */
+type RolloutHow = "revive" | "heal";
+
 /** LSM 回的失败 → 上线失败（连接没了的不记：等重新接上再做） */
 const failed = (reply: Extract<LsmServicesReply, { ok: false }>, registered: boolean): Outcome | undefined => {
   if (WAIT_CODES.has(reply.error.code)) return undefined;
   const basis = statusBasis(reply.service);
   return { state: "failed", reason: reply.error.code === "timeout" ? rolloutText.timeout() : replyReason(reply), ...(basis ? { basis } : {}), registered };
 };
+
+/** 363：LSM 说"已经有一份在跑"（hooks.mjs 的 reason；回复的 code 是 failed，只有文字里有这个词） */
+const saysAlreadyRunning = (reply: Extract<LsmServicesReply, { ok: false }>): boolean => reply.error.message.includes("already-running") || reply.service?.lastError?.includes("already-running") === true;
 
 /** 在不在线归成四种：在线、挂了（失败、停了、LSM 里没有了）、中间（启动中、停止中）、不知道（LSM 没连上） */
 type Liveness = "up" | "down" | "between" | "unknown";
@@ -356,6 +372,14 @@ export function createProjectServices(options: ProjectServicesOptions): ProjectS
   /** 357：登记之前，这个服务没有凭证的发一份；发了新的回 true（还在跑的要重启才拿得到） */
   const ensureCredential = (app: string): boolean => options.events?.service.ensureCredential(app) ?? false;
 
+  /** 363：LSM 回了失败，是"已经有一份在跑"而且按健康检查看确实在跑（别的失败、别的回复都是 false） */
+  const runningAnyway = async (row: ServiceRow, reply: LsmServicesReply): Promise<boolean> => {
+    if (reply.ok || !saysAlreadyRunning(reply)) return false;
+    const running = await options.healthCheck(row.desired.service);
+    log(`服务 ${row.app} 启动时 LSM 说已经有一份在跑，看了健康检查${running ? "确实在跑：不算失败" : "没在跑：照失败记"}`);
+    return running;
+  };
+
   /**
    * 上线：登记 / 更新、启动或重启、登记转发；LSM 没连上时 undefined（等连上）。
    * on 是 false（257：这个项目的服务你关着）：登记时开机自启写关、不启动，在跑的停掉
@@ -376,11 +400,18 @@ export function createProjectServices(options: ProjectServicesOptions): ProjectS
     }
     if (!put.ok) return failed(put, row.registered);
     const up = put.service?.up === true;
-    const run = !on ? (up ? await lsm.stop(row.app, { force: true }) : put) : !up ? await lsm.start(row.app) : put.restartNeeded || fresh ? await lsm.restart(row.app, { force: true }) : put;
-    if (!run.ok) return failed(run, true);
-    // 回复里带着的状态先记上（状态推送可能晚一点到）
-    const now = run.service ?? put.service;
-    if (now) statuses.set(row.app, statusOf(now));
+    let run: LsmServicesReply = !on ? (up ? await lsm.stop(row.app, { force: true }) : put) : !up ? await lsm.start(row.app) : put.restartNeeded || fresh ? await lsm.restart(row.app, { force: true }) : put;
+    // 363：报"已经有一份在跑"、确实在跑：不算失败。LSM 以为它没在跑（不回 restartNeeded），那一份是这次登记之前起的：登记变了、刚发了凭证的重启一次才用得上
+    let running = on && (await runningAnyway(row, run));
+    if (running && !up && (put.changed || fresh)) {
+      run = await lsm.restart(row.app, { force: true });
+      running = await runningAnyway(row, run);
+    }
+    if (!run.ok && !running) return failed(run, true);
+    // 回复里带着的状态先记上（状态推送可能晚一点到）；真在跑的回复里还写着失败（LSM 下一轮探活才改过来），不照它
+    const now = run.ok ? (run.service ?? put.service) : undefined;
+    if (running) statuses.set(row.app, { status: "online" });
+    else if (now) statuses.set(row.app, statusOf(now));
     proxy(row);
     return { state: "live", registered: true };
   };
@@ -426,10 +457,10 @@ export function createProjectServices(options: ProjectServicesOptions): ProjectS
   };
 
   /**
-   * 上线失败、要你手动：通知项目的维护者（唤起它；项目已归档的不通知）。362 号票：这些通知都只在对话段里处理，不打断正在做的工单。269：接上 LSM 时兜底拉不起来的说明是接上时拉的
-   * （revive 是那一次结果的幂等键：每次接上各通知一次）
+   * 上线失败、要你手动：通知项目的维护者（唤起它；项目已归档的不通知）。362 号票：这些通知都只在对话段里处理，不打断正在做的工单。269：接上 LSM 时兜底拉不起来的说明是接上时拉的；363：自愈时重启没起来的
+   * 说明是更新登记时重启的（once 带着那一次结果的幂等键：每次各通知一次）
    */
-  const notices = (row: ServiceRow, outcome: Outcome, revive?: string): NewEvent[] => {
+  const notices = (row: ServiceRow, outcome: Outcome, once?: { how: RolloutHow; key: string }): NewEvent[] => {
     if (!row.desired.present || (outcome.state !== "failed" && outcome.state !== "manual")) return [];
     const project = options.project(row.projectId);
     if (!project || project.state === "archived") return [];
@@ -438,8 +469,8 @@ export function createProjectServices(options: ProjectServicesOptions): ProjectS
     // 362 号票：依据写全（LSM 给的原因，加上它报的状态），提示先自己连健康检查的地址核实
     // @i18n-ignore-next model：交给维护者的通知
     const said = outcome.basis ? `${reason}（${outcome.basis}）` : reason;
-    const text = outcome.state === "manual" ? noticeText.manual(v, reason) : revive ? noticeText.reviveFailed(v, said, probeUrl(row)) : noticeText.failed(v, said, probeUrl(row));
-    const key = revive ? `${revive}:notice` : `service-rollout:${row.app}:${row.desiredSeq}:${outcome.state}:notice`;
+    const text = outcome.state === "manual" ? noticeText.manual(v, reason) : once?.how === "revive" ? noticeText.reviveFailed(v, said, probeUrl(row)) : once?.how === "heal" ? noticeText.healRestartFailed(v, said, probeUrl(row)) : noticeText.failed(v, said, probeUrl(row));
+    const key = once ? `${once.key}:notice` : `service-rollout:${row.app}:${row.desiredSeq}:${outcome.state}:notice`;
     return [buildAgentNotice(maintainerChannel(project.maintainerId), text, key, { projectId: project.id }, { chatOnly: true }).event];
   };
 
@@ -542,10 +573,10 @@ export function createProjectServices(options: ProjectServicesOptions): ProjectS
 
   /**
    * 记一条上线 / 撤下的结果（上线的带着照的是哪一条开关；同一条要求照不同的开关再上线另记一条）。
-   * 269：接上 LSM 时兜底拉起的（revive）每一次都另记——幂等键接上记的时候 operations 频道的序号（上一次记的就在这个频道上，不会重）；
-   * 定义没变，不再跑前缀下自检
+   * 269：接上 LSM 时兜底拉起的（revive）、363：自愈的（heal）每一次都另记——幂等键接上记的时候 operations 频道的序号（上一次记的就在这个频道上，不会重）；
+   * 不是新方案，不再跑前缀下自检
    */
-  const recordRollout = (row: ServiceRow, outcome: Outcome, powerSeq: number | undefined, revive = false) => {
+  const recordRollout = (row: ServiceRow, outcome: Outcome, powerSeq: number | undefined, how?: RolloutHow) => {
     const payload: ServiceRolloutPayload = {
       projectId: row.projectId,
       key: row.desired.key,
@@ -555,13 +586,13 @@ export function createProjectServices(options: ProjectServicesOptions): ProjectS
       ...(outcome.reason ? { reason: outcome.reason } : {}),
       registered: outcome.registered,
       ...(powerSeq === undefined ? {} : { powerSeq }),
-      ...(revive ? { revive: true as const } : {}),
+      ...(how === "revive" ? { revive: true as const } : how === "heal" ? { heal: true as const } : {}),
       time: options.now(),
     };
     const base = `service-rollout:${row.app}:${row.desiredSeq}:${outcome.state}${powerSeq ? `:p${powerSeq}` : ""}`;
-    const key = revive ? `${base}:revive-${store.lastSeq(OPERATIONS_CHANNEL)}` : base;
-    store.appendBatch([{ channel: OPERATIONS_CHANNEL, type: PROJECT_SERVICE_EVENTS.rollout, payload, idempotencyKey: key }, ...notices(row, outcome, revive ? key : undefined)]);
-    if (outcome.state === "live" && !revive) checkPrefix(row);
+    const key = how ? `${base}:${how}-${store.lastSeq(OPERATIONS_CHANNEL)}` : base;
+    store.appendBatch([{ channel: OPERATIONS_CHANNEL, type: PROJECT_SERVICE_EVENTS.rollout, payload, idempotencyKey: key }, ...notices(row, outcome, how ? { how, key } : undefined)]);
+    if (outcome.state === "live" && !how) checkPrefix(row);
   };
 
   /** 257：记一个服务照某一条"全部关闭"做完了（关好了、没关成及原因） */
@@ -668,7 +699,7 @@ export function createProjectServices(options: ProjectServicesOptions): ProjectS
         log(outcome.state === "live" ? `接上 LSM 时服务 ${app} 没在跑：拉起来了` : `接上 LSM 时服务 ${app} 没在跑：没拉起来（${outcome.reason ?? outcome.state}）`);
         // 先放开：记下结果时（store.onAppend）照常看挂没挂
         release();
-        recordRollout(row, outcome, power.seq, true);
+        recordRollout(row, outcome, power.seq, "revive");
       } finally {
         if (held) {
           release();
@@ -701,6 +732,53 @@ export function createProjectServices(options: ProjectServicesOptions): ProjectS
         else reviving.delete(app);
         watch(app);
       }
+    });
+  };
+
+  /** 363：记着上线失败，LSM 却报告它在线；用户关着的（关了就一直关着）、在启动 / 关闭中的、项目不是使用中的不算 */
+  const healable = (row: ServiceRow): boolean => {
+    if (!row.desired.present || row.rollout?.state !== "failed" || status(row.app) !== "online") return false;
+    if (options.project(row.projectId)?.state !== "in_use") return false;
+    const power = servicePower(store.reader, row.projectId);
+    return power.on && !powerPending(row, power, false);
+  };
+
+  /**
+   * 363：自愈——照现在的方案整份再登记一次（和 324 同一条路），登记成了记上线了；要重启的先重启再记（重启完、记之前守护进程没了的，下次接上还是失败，再核对一遍：
+   * 登记一样了、凭证有了，不会多重启）。登记不进去的（跑的不是现在方案的那一份）留着失败，下次接上、再推来状态时再试。
+   * 排队时又来的排在后面，轮到时已经不是失败了，什么都不做（只重启一次）
+   */
+  const heal = (app: string, desiredSeq: number) => {
+    enqueue(app, async () => {
+      const row = serviceRow(store.reader, app);
+      const lsm = options.lsm();
+      if (stopped || !row || row.desiredSeq !== desiredSeq || !healable(row) || lsm.support !== "supported") return;
+      const power = servicePower(store.reader, row.projectId);
+      const fresh = ensureCredential(app);
+      const put = await lsm.put(definitionOf(row, true));
+      if (!put.ok) return log(`服务 ${app} 记着上线失败、其实在跑，但登记不进去，先留着：${put.error.message}`);
+      if (stopped) return;
+      const restart = put.restartNeeded === true || fresh;
+      let outcome: Outcome | undefined = { state: "live", registered: true };
+      if (restart) {
+        const restarted = await lsm.restart(app, { force: true });
+        if (restarted.ok) {
+          if (restarted.service) statuses.set(app, statusOf(restarted.service));
+        } else if (await runningAnyway(row, restarted)) statuses.set(app, { status: "online" });
+        else outcome = failed(restarted, true);
+      }
+      if (!outcome || stopped) return;
+      // 做的时候又改了方案、又点了开关：这一次的结果不记，排在后面的照最新的做
+      const latest = serviceRow(store.reader, app);
+      if (!latest || latest.desiredSeq !== row.desiredSeq || servicePower(store.reader, row.projectId).seq !== power.seq) return;
+      // 失败的守护进程起来时没登记转发
+      if (outcome.state === "live") proxy(row);
+      log(
+        outcome.state === "live"
+          ? `服务 ${app} 记着上线失败、服务管家报告它在跑：回到上线了${restart ? "（登记变了，重启了一次）" : ""}`
+          : `服务 ${app} 记着上线失败、其实在跑，更新登记后重启没起来：${outcome.reason ?? ""}`,
+      );
+      recordRollout(row, outcome, power.seq, "heal");
     });
   };
 
@@ -845,6 +923,9 @@ export function createProjectServices(options: ProjectServicesOptions): ProjectS
           if (message.full) reviveStopped(message);
           for (const s of message.services) {
             if (status(s.name) !== "online") continue;
+            // 363：全量和之后的推送都算（只推变了的，不会一直敲）
+            const row = serviceRow(store.reader, s.name);
+            if (row && healable(row)) heal(s.name, row.desiredSeq);
             const was = before?.get(s.name)?.status;
             if (shotPending.has(s.name)) shoot(s.name, "live");
             else if (was !== undefined && was !== "online") shoot(s.name, "restart");

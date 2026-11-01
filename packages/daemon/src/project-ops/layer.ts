@@ -26,6 +26,7 @@ import { realPathOf } from "../util/real-path.ts";
 import type { BrowserDriver } from "../web/index.ts";
 import { OPERATIONS_CHANNEL } from "../projects/api.ts";
 import { PROJECT_SERVICE_EVENTS, type ServiceRolloutPayload } from "../project-services/events.ts";
+import { serviceHealthy } from "../project-services/health-check.ts";
 import { serviceMeans } from "../project-services/means.ts";
 import { createProjectServices, type ProjectServices } from "../project-services/project-services.ts";
 import { openServiceTool, serviceBoardSection, serviceEntryCardType, switchServicesTool } from "../project-services/secretary-tool.ts";
@@ -139,6 +140,7 @@ export function createOpsLayer(ctx: OpsLayerContext, deps: OpsLayerDeps): OpsLay
     nodePath: process.execPath,
     project: (projectId) => projects.get(projectId),
     prefixCheck: checkAppPrefix,
+    healthCheck: serviceHealthy,
     publish: (services) => deps.notifications.publish(servicesFrameOf(services)),
     clock,
     now,
