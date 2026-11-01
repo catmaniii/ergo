@@ -1,0 +1,19 @@
+# 放到 <数据目录>/registry/services/counter.yaml，文件名和 id 一样。字段见 packages/supervisor/docs/service-schema.md
+id: counter
+name: 计数器
+root: C:\path\to\counter # 放 server.mjs 的目录，写绝对路径；钩子在这里跑
+kind: managed
+probe:
+  tier: health
+  port: 18731
+  health:
+    url: http://127.0.0.1:18731/health
+capabilities: [start, restart]
+hooks:
+  start:
+    cmd: node server.mjs
+    detaches: false # 前台常驻，由服务管家拉起
+env:
+  - name: PORT
+    from: literal
+    value: "18731"

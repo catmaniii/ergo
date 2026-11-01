@@ -834,7 +834,7 @@ export const remindersPlugin: PluginDefinition = {
 | 测什么 | 怎么测 | 例子 |
 |---|---|---|
 | 装上、停用、启用、移除 | 假内核 `startPluginKernel`（真的插件宿主、登记表、设置那一层，临时数据目录；插件要的内核服务默认之外用 `extraService` 补） | `packages/daemon/test/plugins/plugin-guide.test.ts` |
-| 边界 | 每个插件一条：组合根不出现它、目录之外只 import `api.ts`、数据契约的形状 | `packages/daemon/test/calendar/boundary.test.ts` |
+| 边界 | 每个插件一条：组合根只 import 它的 `api.ts`，不建它的服务、目录之外只 import `api.ts`、数据契约的形状 | `packages/daemon/test/calendar/boundary.test.ts` |
 | 走真实装配路径 | 主切面 `startTestDaemon({ plugins, extraPlugins })`：经组合根和插件清单起真的守护进程，停用只经数据目录配置或设置 · 插件的接口；给秘书的工具、提示、页面指令都看 | `packages/daemon/test/main/plugin-guide.test.ts`（笔记）、`calendar-plugin.test.ts`、`voice-plugin.test.ts`、`browsing-plugin.test.ts` |
 | 网页收到什么 | 主切面 `plugin-status.test.ts` 录下网页收到的事件流（`packages/web/test/state/recordings/plugins-*.json`），网页测试原样回放、用真的网页插件清单装上，查插槽和占位 | `packages/web/test/plugins/assembly.test.ts`、`settings.test.ts` |
 | 网页插件本身 | 网页插件宿主按报的状况装和停 | `packages/web/test/plugins/plugin-guide.test.ts` |

@@ -1,0 +1,5 @@
+# 放到 <数据目录>/registry/manager.yaml。服务管家的端口只从这里读，没有这个文件就是默认的 7420
+port: 18799 # 改成空闲的
+sentinels:
+  port: false
+  scheduledTask: false

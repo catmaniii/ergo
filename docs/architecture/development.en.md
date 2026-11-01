@@ -56,6 +56,7 @@ From the repository root:
 | Restore from a snapshot | `node packages/daemon/src/restore.ts <date>` (installed builds: `ergo restore <date>`; stop the daemon first either way) |
 | Deploy the VPS nginx site for the public entry | `npm run deploy:nginx` (`-- --print` only prints) |
 | Check a project service's pages against the prefix convention | `npm run check:app-prefix -- <service url> --name <app name>` ([Proxying local service pages](README.en.md#proxying-local-service-pages)) |
+| Check an operations manifest or plan without starting Ergo | `npm run check:ops -- <ops.json or plan.json> [--url <service url>] [--workdir <project workdir>]` (http operations are only called with `--url`; exit 0 passed, 1 failed, 2 bad usage) |
 
 ## Phone apps
 

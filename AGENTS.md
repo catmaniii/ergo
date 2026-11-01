@@ -12,8 +12,21 @@ ergo（二狗）是一个装在用户自己 Windows 电脑上的个人 AI 助理
 - **`docs/architecture/README.md`**：系统总览、仓库结构、架构、插件、网页、多语言。
 - **`docs/architecture/development.md`**：搭环境、常用命令、写代码的约定、测试。
 - **`docs/architecture/adr/`**：和你要动的部分相关的设计记录。推翻已有决定之前先说明理由。
-- 写插件、改插件：先读 `docs/architecture/plugin-development.md`，并按 skill `.claude/skills/ergo-plugin/SKILL.md` 的清单做。
+- 写插件、数据源、运行时、项目服务，改界面：读下面"开发 skill"里对应的那一份。
 - 改记忆系统：`docs/architecture/memory-system.md`（有测试核对接口表和路径）。
+
+## 开发 skill
+
+每份是一个普通的 Markdown 文件，写了步骤、能照抄的例子和交活清单。Claude Code 会自动发现它们；别的 agent（Codex 等）直接读对应的文件就行。别的几份都以 `ergo-dev` 为前提。
+
+| skill | 干什么 | 路径 |
+|---|---|---|
+| `ergo-dev` | 搭环境、常用命令、怎么跑测试、测试隔离（绝不碰真数据和真端口）、提交和 PR 规矩 | `.claude/skills/ergo-dev/SKILL.md` |
+| `ergo-plugin` | 写插件：能注册什么、网页部分、给 agent 的工具和上下文块、设置页、数据契约和"连数据删" | `.claude/skills/ergo-plugin/SKILL.md` |
+| `ergo-data-source` | 写数据源插件：授权、同步、存本地、在哪给用户看、怎么断开和删除 | `.claude/skills/ergo-data-source/SKILL.md` |
+| `ergo-agent-runtime` | 接一个新的 agent 运行时（比如 Codex）：一个会话一个子进程、消息和工具怎么转、记录怎么进二狗 | `.claude/skills/ergo-agent-runtime/SKILL.md` |
+| `ergo-project-service` | 写能被二狗托管的项目服务：服务管家怎么托管、怎么打开、怎么报事件、怎么登记成 MCP | `.claude/skills/ergo-project-service/SKILL.md` |
+| `ergo-web-ui` | 改界面：多语言（中英都要）、十一套风格、手机和宽屏、页面测试、哪些字不能直接写在界面上 | `.claude/skills/ergo-web-ui/SKILL.md` |
 
 ## 硬规矩
 
@@ -41,13 +54,14 @@ npm ci
 npm run test:fast          # 改完每次跑（约 2 分钟）
 npm run typecheck
 npm run lint
-npm run i18n:check
+npm run i18n:check -- --data-dir <临时目录>   # 不带它会读 ~/.ergo/locales
 npm run build:web          # 改了网页时；再跑 npx vitest run --project web test/page-opens.test.ts
 npm run test:integration   # 改到守护进程主线、组合根、装配时
 npm run test:supervisor    # 改了 packages/supervisor 时
+npm run check:ops -- <ops.json 或方案.json> --url <服务地址>   # 不起二狗校验运营接口清单和方案
 ```
 
-Windows 上跑测试前确认 `where bash` 的第一条是 Git for Windows 的 `bash.exe`；几套测试同时跑时设 `ERGO_TEST_WORKERS=2`。
+Windows 上跑测试前确认 `where bash` 的第一条是 Git for Windows 的 `bash.exe`；几套测试同时跑时设 `ERGO_TEST_WORKERS=2`。工作区的文本文件是 CRLF（仓库里是 LF）：脚本改文件时按 `\n` 匹配多行会失败，用 `\r?\n` 或先归一。
 
 ## 做完一件事
 

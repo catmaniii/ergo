@@ -1,0 +1,26 @@
+[
+  {
+    "key": "counter",
+    "name": "计数器",
+    "means": "service",
+    "instructions": "计数器的网页和调用口",
+    "capabilities": {},
+    "service": {
+      "name": "counter",
+      "command": "node server.mjs",
+      "cwd": "counter",
+      "port": 18731,
+      "env": [{ "name": "PORT", "value": "18731" }],
+      "health": { "path": "/health" },
+      "web": { "home": "/" }
+    }
+  },
+  {
+    "key": "counter-full",
+    "name": "计数满百时处理",
+    "means": "event",
+    "instructions": "看事件里的数据，写进进展，告诉用户到一百了",
+    "capabilities": {},
+    "event": { "kind": "event", "source": "service", "events": ["reported"], "filter": { "name": "计数满百" } }
+  }
+]

@@ -58,6 +58,7 @@
     "smoke:web": "node packages/daemon/src/web/smoke.ts",
     "smoke:page": "node packages/web/build/smoke-page.ts",
     "check:app-prefix": "node packages/daemon/src/apps/prefix-check-cli.ts",
+    "check:ops": "node packages/daemon/src/project-ops/check-file-cli.ts",
     "i18n:check": "node packages/daemon/src/i18n/check-cli.ts",
     "lint": "oxlint",
     "deploy:nginx": "node packages/daemon/src/deploy-nginx.ts",

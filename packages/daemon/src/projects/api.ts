@@ -118,3 +118,5 @@ export type { OperationMeans } from "../operations/means.ts";
 // —— 5. 运营层要的（280 号票）——
 export { OPERATIONS_CHANNEL, OPERATIONS_EVENTS, type OperationsDecidedPayload } from "../operations/events.ts";
 export type { ProjectRecordsPaths } from "./records.ts";
+// 不起二狗校验运营方案（project-ops/check-file.ts，npm run check:ops）：只用内核手段的 check，生效、撤销要的 deps 那边不给
+export { builtinOperationMeans, type BuiltinMeansDeps } from "../operations/builtin-means.ts";

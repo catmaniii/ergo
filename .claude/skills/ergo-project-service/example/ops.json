@@ -1,0 +1,27 @@
+{
+  "endpoint": { "service": "counter", "path": "/ops" },
+  "tools": [
+    {
+      "name": "get_count",
+      "title": "看计数",
+      "description": "看现在数到几了。用户问计数时用。",
+      "userSays": ["现在数到几了"],
+      "kind": "query",
+      "inputSchema": { "type": "object", "properties": {} },
+      "returns": "say 说现在的数；detail 是 { count }。",
+      "risk": "direct",
+      "test": { "args": {}, "sayIncludes": "现在是" }
+    },
+    {
+      "name": "add_count",
+      "title": "加几个",
+      "description": "把计数加上几。用户要加数时用。",
+      "userSays": ["加三个"],
+      "kind": "action",
+      "inputSchema": { "type": "object", "properties": { "by": { "type": "integer", "default": 1, "description": "加几" } } },
+      "returns": "say 说加好后的数。",
+      "risk": "direct",
+      "test": { "args": { "by": 1 }, "sayIncludes": "加好了" }
+    }
+  ]
+}

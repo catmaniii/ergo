@@ -79,6 +79,7 @@ Agent SDK（`@anthropic-ai/claude-agent-sdk`）是 Anthropic 自己的许可，�
 | 从快照恢复 | `node packages/daemon/src/restore.ts <日期>`（装好的程序里是 `ergo restore <日期>`，都要先停守护进程） |
 | 部署 VPS 公网入口的 nginx 站点 | `npm run deploy:nginx`（`-- --print` 只打印） |
 | 检查项目服务的页面守不守前缀约定 | `npm run check:app-prefix -- <服务地址> --name <应用名>`（[转发本机服务的页面](README.md#转发本机服务的页面)） |
+| 不起二狗校验运营接口清单和运营方案 | `npm run check:ops -- <ops.json 或方案.json> [--url <服务地址>] [--workdir <项目工作目录>]`（给了 `--url` 才真调 http 的操作；0 过了，1 没过，2 用法不对） |
 
 ## 手机 App
 
