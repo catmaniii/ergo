@@ -14,6 +14,8 @@
   "protocol.activity.detail.approvalOf": "Awaiting your approval: {tool}",
   "protocol.activity.detail.approval": "Awaiting your approval",
   "protocol.activity.detail.clarification": "Waiting for your answer",
+  "protocol.activity.detail.cardCount_one": "{text} ({count} card)",
+  "protocol.activity.detail.cardCount_other": "{text} ({count} cards)",
   "protocol.activity.detail.runtimeOff": "The {plugin} plugin isn't enabled",
   "protocol.activity.detail.handedBack": "Handed back to {runtime}; take it back to continue",
   "protocol.activity.detail.inRemote": "In the {runtime} official app; take it back to continue here",

@@ -262,6 +262,7 @@
   "tasks.deletion.failed": "没有删：{reason}",
   "tasks.cards.text.suggest": "建议发起任务：{title}（{why}）",
   "tasks.cards.text.suggestInternal": "建议发起{scope}的任务：{title}（{why}）",
+  "tasks.cards.questionsInboxTitle": "有 {count} 个问题等你回答：{first}",
   "tasks.cards.text.questions": "提问（{n} 个问题）：{questions}",
   "tasks.cards.text.plan": "计划：{title}（第 {revision} 版，{stages} 个阶段，约 {tokens} token）",
   "tasks.cards.text.planLimits": "；按你说过的话加了 {n} 条限制",

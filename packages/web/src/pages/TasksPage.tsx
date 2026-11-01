@@ -40,6 +40,7 @@ import { useStore } from "../app/store.tsx";
 import { scheduledJobStatusLabel, TASK_STATUS_LABEL, tokensLabel, tokensText, WAIT_REASON_LABEL, WORK_ORDER_STATUS_LABEL } from "../model/labels.ts";
 import {
   type AgentActivity,
+  activityJump,
   activityNote,
   agentActivity,
   BOARD_GROUP_OF_TASK_STATE,
@@ -1083,7 +1084,7 @@ function RealTaskDetail({ task, activity, wide, at, onBack }: { task: Task; acti
           gear={<AgentSettingsButton agentId={task.maintainerId} wide={wide} />}
           // 定时触发的任务运营中时，状态跟着它的触发：运营中用运营中的颜色，暂停着的灰
           status={{ text: statusText(summary), tone: task.state === "operating" && summary.trigger ? (summary.trigger.active ? "st-ops" : "st-paused") : `st-${task.state}` }}
-          activity={{ state: summary.activity, note: summary.activityNote }}
+          activity={{ state: summary.activity, note: summary.activityNote, jump: activityJump(ui, task.maintainerId) }}
           note={taskStatusNote(task)}
           meta={
             <>

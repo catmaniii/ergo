@@ -98,7 +98,7 @@ npm workspaces 管这几个包。`frontend/` 不是 workspace（鸿蒙工程的 
 | `secretary/`、`maintainers/`、`conversation/` | 秘书（常驻子进程）、维护者的唤起、会话（派生视图、输入队列、回退和分支） |
 | `tasks/`、`sub-agents/`、`scheduled-jobs/`、`event-sources/`、`recovery/` | 任务（计划、执行、阶段验收、偏离和阈值、流程）、子 agent 并行、定时和事件触发、被杀后的恢复 |
 | `projects/`、`work-orders/`、`operations/`、`project-ops/`、`project-services/`、`scope-review/` | **项目系统**：档案和规范、工单派单、运营方案和运营接口、项目服务（经服务管家托管）、范围审视。外面只能引 `projects/api.ts` |
-| `cards/`、`inbox/`、`board/`、`activity/`、`ledger/` | 卡片类型和按钮闭环、待我处理、秘书眼里的看板、活动状态、token 账本 |
+| `cards/`、`inbox/`、`board/`、`activity/`、`ledger/` | 卡片类型和按钮闭环、待我处理、秘书眼里的看板、活动状态（新的要用户处理的卡往 `activity/card-waits.ts` 的 `CARD_WAITS` 加一行：说明带上卡片编号，网页标题上的"等你……"就能点，见 `web/src/state/activity-jump.ts`；建卡时同时放进待我处理）、token 账本 |
 | `plugins/`、`deletion/`、`data-sources/`、`components/` | 插件宿主、删除参与方登记表、数据源和共用导入文件夹、按需下载的组件和下载器 |
 | `materials/`、`memory/`、`quick-actions/` | 素材库（原话副本、关键词和向量索引）、记忆插件（每晚整理、记忆管理员、访谈）、快速动作 |
 | `reminders/`、`calendar/`、`voice/`、`browsing/`、`claude-code/`、`google/`、`looki/`、`phone/` | 各个插件（每个目录里有 `plugin.ts`，别的模块只从它的 `api.ts` 取东西） |

@@ -64,6 +64,11 @@ export function listInboxItemsForCard(db: ReadonlyDatabase, cardId: string): Inb
     .map((row) => JSON.parse(row.item) as InboxItem);
 }
 
+/** 这张卡有没有过事项（删掉了的也算：用户删的不再补回来） */
+export function inboxHasCard(db: ReadonlyDatabase, cardId: string): boolean {
+  return db.get<{ one: number }>("SELECT 1 AS one FROM inbox_items WHERE card_id = ? LIMIT 1", cardId) !== undefined;
+}
+
 /** 某个事件幂等键落在了哪条事项的哪个版本上 */
 export function inboxActionByKey(db: ReadonlyDatabase, idempotencyKey: string): { itemId: string; version: number } | undefined {
   const row = db.get<{ item_id: string; version: number }>("SELECT item_id, version FROM inbox_action_keys WHERE idempotency_key = ?", idempotencyKey);

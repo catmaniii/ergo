@@ -274,6 +274,8 @@
   "tasks.deletion.failed": "Not deleted: {reason}",
   "tasks.cards.text.suggest": "Suggested task: {title} ({why})",
   "tasks.cards.text.suggestInternal": "Suggested task ({scope}): {title} ({why})",
+  "tasks.cards.questionsInboxTitle_one": "{count} question for you: {first}",
+  "tasks.cards.questionsInboxTitle_other": "{count} questions for you: {first}",
   "tasks.cards.text.questions": "Questions ({n}): {questions}",
   "tasks.cards.text.plan_one": "Plan: {title} (version {revision}, {stages} stage, about {tokens} tokens)",
   "tasks.cards.text.plan_other": "Plan: {title} (version {revision}, {stages} stages, about {tokens} tokens)",

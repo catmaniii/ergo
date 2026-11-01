@@ -1392,6 +1392,7 @@
   "ui.reminderMenu.deleted": "已删除提醒「{title}」",
   "ui.reminderMenu.keep": "留着",
   "ui.reminderMenu.delete": "删除",
+  "ui.common.activityGo": "{label}（点了去处理）",
   "ui.common.activityNote": "{state}：{note}",
   "ui.incidents.total": "一共 {count} 件",
   "ui.cards.itemSep": "；",

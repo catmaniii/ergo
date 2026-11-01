@@ -24,6 +24,7 @@ import { useStore } from "../app/store.tsx";
 import { scheduledJobStatusLabel, tokensText, WORK_ORDER_STATUS_LABEL } from "../model/labels.ts";
 import {
   ASSISTANT_NAME_MARK,
+  activityJump,
   activityNote,
   ARCHIVING_ACTIONS,
   dragProjectSideWidth,
@@ -397,7 +398,7 @@ function ProjectFull({ projectId, job, at, onBack }: { projectId: string; job?: 
           }
         >
           <span className={`pst pst-${p.state}`}>{PROJECT_STATE_LABEL[p.state]}</span>
-          <ActivityDot state={view.activity.state} note={activityNote(view.activity)} />
+          <ActivityDot state={view.activity.state} note={activityNote(view.activity)} jump={activityJump(ui, p.maintainerId)} />
           {/* 项目会话：▤ / 💬 一直显示 */}
           <ZoomToggle handle={conversationRef} />
           {/* 项目维护者的 ⚙（114 号票）：单独的提示词（跟着项目走）、清空当前对话（就是重置维护者）、上下文用量 */}
@@ -499,7 +500,7 @@ function ProjectHead({ view, onChat, narrow = false }: { view: ProjectView; onCh
       <div className="card proj-head">
         <div className="proj-head-row">
           <span className={`pst pst-${p.state}`}>{PROJECT_STATE_LABEL[p.state]}</span>
-          <ActivityDot state={view.activity.state} note={activityNote(view.activity)} />
+          <ActivityDot state={view.activity.state} note={activityNote(view.activity)} jump={activityJump(ui, p.maintainerId)} />
           <span className="muted">{t("pages.projects.activeTasks", { count: view.activeTasks })}</span>
           {p.state === "preparing" && p.charterConfirmed && <span className="chip chip-ok">{t("pages.projects.charterConfirmed")}</span>}
         </div>
@@ -934,7 +935,7 @@ function MaintainerChat({ projectId, wide, at, onBack }: { projectId: string; wi
     <DetailLayout wide={wide} detail={detail} conversation={conversation}>
       <div className="chat-col">
         <TopBar title={t("pages.projects.chatTitle", { name: view.project.name })} onBack={onBack}>
-          <ActivityDot state={view.activity.state} note={activityNote(view.activity)} />
+          <ActivityDot state={view.activity.state} note={activityNote(view.activity)} jump={activityJump(ui, view.project.maintainerId)} />
           {/* 项目会话：▤ / 💬 一直显示 */}
           <ZoomToggle handle={conversationRef} />
           <AgentSettingsButton agentId={view.project.maintainerId} wide={wide} />

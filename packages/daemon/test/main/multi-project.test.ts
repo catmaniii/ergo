@@ -11,6 +11,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
+  type ActivityEventPayload,
   type Card,
   type CardEventPayload,
   CHANNELS,
@@ -573,6 +574,11 @@ describe("涉及多个项目的任务：工单的等澄清", () => {
     expect(waiting.task.stages?.list?.find((s) => s.stageId === "s1")).toMatchObject({ state: "waiting", waitReason: "clarification", waitingOn: forwarded.id });
     // 前面那个问题没有出给用户：只有这一张提问卡
     expect(cardsOf(frontend).filter((c) => c.type === "questions").map((c) => c.id).filter((id, i, all) => all.indexOf(id) === i)).toEqual([forwarded.id]);
+    // 369 号票：提问算到问的人头上：任务负责人是等你，说明带着这张卡；秘书不受影响
+    const activityOf = (agentId: string) => td.daemon.store.read(CHANNELS.activity, 0, EVENT_TYPES.activity).map((e) => e.payload as ActivityEventPayload).filter((a) => a.agentId === agentId);
+    await waitUntil(() => activityOf("tm-1").at(-1)?.state === "waiting_for_user", { timeoutMs: 30_000, describe: () => JSON.stringify(activityOf("tm-1")) });
+    expect(activityOf("tm-1").at(-1)?.detail).toMatchObject({ kind: "clarification", cardId: forwarded.id });
+    expect(activityOf("secretary").some((a) => a.detail?.kind === "clarification")).toBe(false);
 
     // 用户回答：回答交给任务维护者（不交给项目维护者、秘书），工单还在等澄清；任务维护者交回后回到进行中
     ok(await frontend.cardAction({ cardId: forwarded.id, action: "answer", expectedVersion: 1, input: { answers: [{ questionId: "q1", answer: "要" }] } }));

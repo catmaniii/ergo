@@ -13,6 +13,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import {
+  type ActivityEventPayload,
   type Card,
   type CardEventPayload,
   CHANNELS,
@@ -452,6 +453,11 @@ describe("等澄清", () => {
     // 没有别的能推进的阶段：任务转等我，原因"澄清"
     const waiting = await taskWhere(frontend, (e) => e.task.id === taskId && e.task.state === "waiting_for_user", "任务转等我");
     expect(waiting.task.stages?.list?.[0]).toMatchObject({ state: "waiting", waitReason: "clarification", waitingOn: card.id });
+    // 369 号票：提问算到问的人头上：项目负责人是等你，说明带着这张卡；秘书不受影响
+    const activityOf = (agentId: string) => td.daemon.store.read(CHANNELS.activity, 0, EVENT_TYPES.activity).map((e) => e.payload as ActivityEventPayload).filter((a) => a.agentId === agentId);
+    await waitUntil(() => activityOf("pm-1").at(-1)?.state === "waiting_for_user", { timeoutMs: 30_000, describe: () => JSON.stringify(activityOf("pm-1")) });
+    expect(activityOf("pm-1").at(-1)?.detail).toMatchObject({ kind: "clarification", cardId: card.id });
+    expect(activityOf("secretary").some((a) => a.detail?.kind === "clarification")).toBe(false);
 
     // 用户回答：回答交回维护者（属于这个任务和项目），工单回到进行中，任务回到执行中
     ok(await frontend.cardAction({ cardId: card.id, action: "answer", expectedVersion: 1, input: { answers: [{ questionId: "q1", answer: "周一" }] } }));

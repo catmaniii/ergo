@@ -206,7 +206,7 @@ import { fakeCalendarMonth } from "./fake-calendar.ts";
 import { FakePlugins } from "./fake-plugins.ts";
 import { appendRollbackDemo, type FakeBranchLog, fakeBranchView, fakeEffectUndo, fakeRollback, fakeRollbackPreview, fakeSwitchBranch } from "./fake-branches.ts";
 import { FAKE_AT_TASK, FAKE_CARDS, FAKE_EVENT_TASK, FAKE_HISTORY, FAKE_PLAIN_TASK, FAKE_REMOTE_TASK, FAKE_TAKEOVER_TASK, FAKE_TIMED_TASK, FAKE_TIMED_WORKFLOW, FAKE_WORKFLOW_TASK } from "./fake-conversations.ts";
-import { FAKE_DEVICES, FAKE_HOLIDAYS, FAKE_SELF_DEVICE_ID, FAKE_INBOX, FAKE_PROJECT_EVENTS, FAKE_PROJECTS, FAKE_WATCH_CATEGORIES, FAKE_WORKDAY_SETTINGS } from "./fake-data.ts";
+import { FAKE_CARD_WAITERS, FAKE_DEVICES, FAKE_HOLIDAYS, FAKE_SELF_DEVICE_ID, FAKE_INBOX, FAKE_PROJECT_EVENTS, FAKE_PROJECTS, FAKE_WATCH_CATEGORIES, FAKE_WORKDAY_SETTINGS } from "./fake-data.ts";
 import { FAKE_PROJECT_SERVICES } from "./fake-operations.ts";
 import { fakeGoLiveChecklist } from "./fake-standard.ts";
 
@@ -824,6 +824,8 @@ export class FakeConnection implements Connection {
       };
       this.cards.set(next.id, next);
       this.emit(CHANNELS.cards, EVENT_TYPES.card, { card: next } satisfies CardEventPayload);
+      const waiter = FAKE_CARD_WAITERS[card.id];
+      if (waiter !== undefined) this.emit(CHANNELS.activity, EVENT_TYPES.activity, { agentId: waiter, state: "sleeping", since: nowIso() } satisfies ActivityEventPayload);
       if (card.type === "pairing" && req.action === "approve") {
         const p = card.payload as PairingCardPayload;
         const now = nowIso();

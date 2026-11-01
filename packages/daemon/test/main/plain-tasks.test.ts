@@ -160,7 +160,7 @@ describe("助理自己交出去", () => {
     await frontend.sendText("在吗");
     await turnsOf(frontend, SECRETARY, 1);
     expect(lastEcho(frontend, SECRETARY)).toContain("[tool] delegate_task");
-    const tool = taskTools(daemon.tasks, daemon.cards, () => ({ texts: [], voices: [] }) as never).find((t) => t.spec.name === "delegate_task");
+    const tool = taskTools(daemon.tasks, { store: daemon.store, cards: daemon.cards, inbox: daemon.inbox }, () => ({ texts: [], voices: [] }) as never).find((t) => t.spec.name === "delegate_task");
     expect(tool?.descriptor.title).toBe("交给后台（普通任务）");
     const description = tool?.spec.description ?? "";
     expect(description).toContain("不用等用户点明");

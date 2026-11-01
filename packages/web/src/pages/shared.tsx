@@ -58,12 +58,13 @@ import { useToast } from "../ui/toast.tsx";
 import { Sheet } from "../ui/common.tsx";
 
 /** "发起任务"按钮：秘书页和任务页都有 */
-export function StartTaskButton({ compact }: { compact?: boolean }) {
+/** iconOnly：窄屏标题栏挤（369 号票：标题上写着等你……时）只留一个 ＋ */
+export function StartTaskButton({ compact, iconOnly }: { compact?: boolean; iconOnly?: boolean }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button type="button" className={`btn primary ${compact ? "small" : ""}`} onClick={() => setOpen(true)}>
-        {t("pages.startTask.button")}
+      <button type="button" className={`btn primary ${compact ? "small" : ""}`} aria-label={iconOnly ? t("pages.startTask.buttonLabel") : undefined} title={iconOnly ? t("pages.startTask.buttonLabel") : undefined} onClick={() => setOpen(true)}>
+        {iconOnly ? t("pages.startTask.buttonIcon") : t("pages.startTask.button")}
       </button>
       {open && <StartTaskDialog onClose={() => setOpen(false)} />}
     </>

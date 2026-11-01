@@ -49,9 +49,9 @@ export type NewInboxItem =
 /** 系统改一条事项（比如新的一次提醒到点时，上一次的取消置顶） */
 /**
  * 系统改一条事项能改的；handled、handledAt、handledNote 只对通知：系统替你记成处理过（84 号票：从某个阶段重做之后作废的，
- * handledNote 是再点旧按钮时回的那句）。185 号票加了 deleted：删了的提醒，它在待我处理里的事项跟着删掉
+ * handledNote 是再点旧按钮时回的那句）。185 号票加了 deleted：删了的提醒，它在待我处理里的事项跟着删掉；369 号票加了 stale：提问卡放久了
  */
-export type InboxItemChange = Partial<Pick<InboxItem, "title" | "urgency" | "pinned" | "archived" | "read" | "deleted">> & Partial<Pick<NoticeInboxItem, "handled" | "handledAt" | "handledNote">>;
+export type InboxItemChange = Partial<Pick<InboxItem, "title" | "urgency" | "pinned" | "archived" | "read" | "deleted" | "stale">> & Partial<Pick<NoticeInboxItem, "handled" | "handledAt" | "handledNote">>;
 
 /**
  * 改写待我处理事项（删除项目时改写属于它的事项，15 号票）：标题和正文换成删除标记，

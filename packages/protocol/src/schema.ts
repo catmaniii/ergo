@@ -833,6 +833,8 @@ const inboxItemBase = {
   internal: Type.Optional(ProjectInternal),
   /** 从哪来（105 号票）：待我处理里"去看看 ›"去的地方；旧事项、系统的事项没有 */
   origin: Type.Optional(InboxOrigin),
+  /** 放久了（369 号票：提问卡超过 materials.staleCardDays 没答）：不再算要紧，还列在待处理里，照样能答 */
+  stale: Type.Optional(Type.Boolean()),
 };
 
 /** 卡片事项：要处理的那张卡。处理没处理看卡片本身的状态（在聊天里处理了，这里同步） */

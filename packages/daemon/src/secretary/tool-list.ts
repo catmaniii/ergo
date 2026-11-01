@@ -58,7 +58,7 @@ export function secretaryToolList(deps: SecretaryToolDeps): HostTool[] {
     // 281 号票：按人、按字段读个人档案（填网页表单、问证件号生日住址时先读它）
     readPersonalFileTool(personalFiles),
     // 58 号票：发起任务要用户这一轮点明了（看秘书正在处理的那条用户消息）
-    ...taskTools(tasks, cards, (inputMessageId) => readUserTurn(store, cards, inputMessageId), deps.runtimeRefusal),
+    ...taskTools(tasks, { store, cards, inbox }, (inputMessageId) => readUserTurn(store, cards, inputMessageId), deps.runtimeRefusal),
     // 建议立项（15）
     projects.suggestTool(),
     // 查看板（22），多一节"项目的服务"（133）

@@ -36,6 +36,7 @@ import {
   planOnlyProblem,
 } from "@ergo/protocol";
 import { activityView, createActivityLog } from "./activity/activity.ts";
+import { startQuestionStaleWatch } from "./activity/stale-questions.ts";
 import { agentSessionDir, createAgentManager, type AgentManager } from "./agent-manager/agent-manager.ts";
 import type { HostTool, HostToolCall } from "./agent-manager/host-tools.ts";
 import { bashTmpMount } from "./agent-manager/work-temp.ts";
@@ -204,6 +205,7 @@ import { TASK_DONE_SETTLE_MS } from "./secretary/task-done.ts";
 import { createSecretaryLetters } from "./secretary/letters.ts";
 import { type ArchiveList, archiveListCardType, createArchiveList } from "./tasks/archive-list.ts";
 import { createTaskBatch } from "./tasks/batch.ts";
+import { DAY_MS } from "./tasks/thresholds.ts";
 import { planCardType, questionsCardType, suggestTaskCardType, workflowPlanCardType } from "./tasks/cards.ts";
 import { reviewWorkflowDraft } from "./tasks/workflow-plan.ts";
 import type { WorkflowExecutor, WorkflowReviewer } from "./tasks/workflow-tools.ts";
@@ -1538,9 +1540,12 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     const job = process.platform === "win32" ? createJobObject() : undefined;
     // 活动状态：上次被杀时还在干活、排队的改记休眠（有待处理的审批卡、提问卡的是等你）；之后 agent 管家报的和待处理的卡片合起来，
     // 变了就记一条；干活中在做什么节流后作为临时事件推送（25）
-    const activity = createActivityLog({ store, now, publish: (frame) => notifications.publish(frame) });
+    // 369：提问卡放久了（materials.staleCardDays）不再算在等，待办里也不再算要紧
+    const staleAfterMs = config.materials.staleCardDays * DAY_MS;
+    const activity = createActivityLog({ store, now, staleAfterMs, publish: (frame) => notifications.publish(frame) });
     activity.settle();
     teardown.push(() => activity.stop());
+    teardown.push(startQuestionStaleWatch({ store, scheduler, inbox, staleAfterMs, now, onStale: () => activity.cardWaitsChanged() }));
     // token 账本（24）：子进程每次模型调用报的用量记一条；任务名下的记上任务的当前阶段（结束了、全部验收之后的收尾调用不算进阶段）；
     // 当前阶段是维护者的（20：它最后一次开始的那个，taskMessageScope 按任务里记的 focus 算）；
     // 子 agent、评审子 agent 拉起时自己带上阶段，不走这里。成本按现读的配置里的单价算，没配的按框架自带的价格表分时段算（94）

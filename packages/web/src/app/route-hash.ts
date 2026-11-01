@@ -1,6 +1,6 @@
 // 页面路由的地址（纯函数，不碰 window，测试在 Node 里直接用）：页面有哪些、地址怎么拆（parseHash）、怎么拼（toHash）、
 // 这一页属于主导航的哪一项（navItemOf）。盯着地址变化的 React 钩子在 route.ts。
-import { cardWebPath, type InboxJump, isAppName, type NavItem, parseLocalDate, parseMonthKey } from "../state/index.ts";
+import { type ActivityJump, cardWebPath, type InboxJump, isAppName, type NavItem, parseLocalDate, parseMonthKey } from "../state/index.ts";
 
 export type Tab = "secretary" | "tasks" | "projects" | "inbox" | "browse" | "calendar" | "more";
 
@@ -243,4 +243,9 @@ export function inboxJumpRoute(jump: InboxJump): Route {
     case "pairing":
       return { tab: "pair-approve", cardId: jump.cardId };
   }
+}
+
+/** 标题上的"等你……"（369 号票）去的地址：卡的去处同待办的"去看看 ›"，没有去处的去待办 */
+export function activityJumpRoute(jump: ActivityJump): Route {
+  return jump.kind === "inbox" ? { tab: "inbox" } : inboxJumpRoute(jump);
 }

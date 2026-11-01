@@ -12,6 +12,7 @@
   "protocol.activity.detail.approvalOf": "等你批准：{tool}",
   "protocol.activity.detail.approval": "等你批准",
   "protocol.activity.detail.clarification": "等你回答提问",
+  "protocol.activity.detail.cardCount": "{text}（共 {count} 张）",
   "protocol.activity.detail.runtimeOff": "{plugin}插件没启用",
   "protocol.activity.detail.handedBack": "已交还给 {runtime}，收回后接着",
   "protocol.activity.detail.inRemote": "在 {runtime} 的官方 App 里，收回后接着",

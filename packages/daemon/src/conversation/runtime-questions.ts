@@ -138,7 +138,7 @@ export function createRuntimeQuestions(options: RuntimeQuestionsOptions): Runtim
           store.appendBatch([card.event, item.event, message.event]);
           inbox.alert(item.item);
           pending.set(card.card.id, { cardId: card.card.id, requestId: report.requestId, agentId: session.agentId, proc, owner });
-          options.userWaits?.userWaitStarted(session.agentId, card.card.id, report.question.kind === "plan" ? { kind: "approval", tool: t("conversation.runtimeQuestion.planTool") } : { kind: "clarification" });
+          options.userWaits?.userWaitStarted(session.agentId, card.card.id, report.question.kind === "plan" ? { kind: "approval", tool: t("conversation.runtimeQuestion.planTool"), cardId: card.card.id } : { kind: "clarification", cardId: card.card.id });
         } catch (err) {
           log(`给 ${session.agentId} 的提问建卡出错：${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);
           send(proc, report.requestId, { kind: "declined", note: "二狗没能把这些问题交给用户（建卡出错）" }); // @i18n-ignore model：交回运行时、给模型看的

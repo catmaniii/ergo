@@ -352,6 +352,7 @@ export type {
   AcceptanceMethod,
   AccessInfo,
   ActivityDetail,
+  ActivityDetailKind,
   ActivityEventPayload,
   ActivityProgressEventPayload,
   ActivityState,

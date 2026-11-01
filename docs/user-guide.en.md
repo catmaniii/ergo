@@ -161,7 +161,11 @@ When the owner is writing a local service, it can reach this machine (`127.0.0.1
 
 ### 4.4 Inbox
 
-Everything that needs your decision lands here: approvals, plan confirmations, requests for help, pairing requests, due reminders… Time-limited items come first. You can also act on them in the conversation where they appeared.
+Everything that needs your decision lands here: approvals, plan confirmations, requests for help, questions, pairing requests, due reminders… Time-limited items come first. You can also act on them in the conversation where they appeared.
+
+When the title of the assistant, a task or a project says "Waiting for your answer" or "Awaiting your approval: some tool", click it to go to that card: it scrolls into view and flashes, with its buttons right there. A card in another task or project takes you there. When several are waiting you go to the latest, and the title says "(N cards)". On a phone, a task page has this line in the popup of its status chip. A card the title says is waiting always has an entry in the inbox, its "Go to chat ›" (or "Go to task ›", "Go to project ›") leads to the same place, and answering clears both.
+
+A question the assistant asked casually in chat, left unanswered for 7 days (config `materials.staleCardDays`), stops being reported as waiting and stops counting as urgent in the inbox: it sorts lower, has no red dot, and leaves the "waiting on you" bar above the assistant's input box. The card stays in the chat history and you can still answer it, from the inbox too. Questions asked for a task or by an owner are holding up work, so they never age out; neither do approval cards, which keep waiting until you decide.
 
 ### 4.5 Three-level timeline zoom
 

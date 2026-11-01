@@ -11,7 +11,10 @@
 //   或"拒绝"（可以附说明）。
 // 172 号票：卡上处理结果的一句（note）、点按钮被拒的原因按当时的语言写；交给秘书的回答照旧中文。
 // 175 号票：toText（卡片的纯文字说法：网页卡片详情的标题、引用卡片那一行、认不得的卡都显示它）和别的卡一样按当时的语言写
+// 369 号票：秘书出的提问卡也进待我处理（createSecretaryQuestions），标题说在等你的卡，待办里一定有一条
 import {
+  ASSISTANT_NAME_MARK,
+  type Card,
   CHANNELS,
   describeSchedule,
   t,
@@ -32,11 +35,15 @@ import {
   WORKFLOW_REVIEW_STATUS_LABEL,
   WorkflowConfirmInput,
   WorkflowPlanCardPayload,
+  type Urgency,
 } from "@ergo/protocol";
+import type { CardService } from "../cards/cards.ts";
 import { defineCardType } from "../cards/registry.ts";
 import { buildAgentNotice } from "../conversation/messages.ts";
 import { RequestRejected } from "../errors.ts";
-import type { NewEvent } from "../events/event-store.ts";
+import type { EventStore, NewEvent } from "../events/event-store.ts";
+import type { InboxService, NewInboxItem } from "../inbox/inbox.ts";
+import { oneLine } from "../util/text.ts";
 import type { TaskExecution } from "./execution.ts";
 import type { TaskService } from "./tasks.ts";
 
@@ -74,6 +81,32 @@ export function suggestTaskCardType(tasks: TaskService) {
         ? t("tasks.cards.text.suggestInternal", { scope: internalScopeLabel(p.internal.projectName), title: p.title, why: p.why })
         : t("tasks.cards.text.suggest", { title: p.title, why: p.why }),
   });
+}
+
+/** 待我处理里事项的标题最多多长 */
+const QUESTIONS_TITLE_MAX = 60;
+
+/** 为任务问的卡住任务，对话里问的不卡（同审批卡） */
+const secretaryQuestionsUrgency = (payload: QuestionsCardPayload): Urgency => (payload.taskId === undefined ? "non_blocking" : "blocking");
+
+/** 秘书出的提问卡在待我处理里的事项（369 号票）：去秘书会话，定位到卡 */
+export function secretaryQuestionsInboxItem(cardId: string, payload: QuestionsCardPayload): NewInboxItem {
+  return {
+    kind: "card",
+    cardId,
+    title: oneLine(t("tasks.cards.questionsInboxTitle", { count: payload.questions.length, first: payload.questions[0]!.question }), QUESTIONS_TITLE_MAX),
+    source: t("quickActions.source.secretary", { assistant: ASSISTANT_NAME_MARK }),
+    origin: { conversation: CHANNELS.secretary },
+    urgency: secretaryQuestionsUrgency(payload),
+  };
+}
+
+/** 秘书出一张提问卡：卡和待我处理的事项同一事务（369 号票） */
+export function createSecretaryQuestions(deps: { store: Pick<EventStore, "appendBatch">; cards: Pick<CardService, "buildCreate">; inbox: Pick<InboxService, "buildAdd"> }, payload: QuestionsCardPayload): Card {
+  const created = deps.cards.buildCreate({ type: "questions", urgency: secretaryQuestionsUrgency(payload), payload });
+  const item = deps.inbox.buildAdd(secretaryQuestionsInboxItem(created.card.id, payload));
+  deps.store.appendBatch([created.event, item.event]);
+  return created.card;
 }
 
 /** 提问卡上的回答交回项目维护者（16 号票，派单器的澄清给）：返回和卡片的处理同一事务追加的事件 */

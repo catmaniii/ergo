@@ -44,6 +44,7 @@ import { type ReactNode, type RefObject, useCallback, useEffect, useMemo, useRef
 import { useBackLayer } from "../../app/page-back.ts";
 import { useOpenConversation } from "../../app/page-voice.ts";
 import { useRevealHistory } from "../../app/reveal-history.ts";
+import { onRevealAgain } from "./reveal-again.ts";
 import { useStore } from "../../app/store.tsx";
 import {
   agentVoicePhase,
@@ -232,6 +233,8 @@ function ConversationView({
   useRevealHistory(conversation, revealAt, targetId !== undefined);
   const revealed = useRef<string | undefined>(undefined);
   useEffect(() => {
+    // 离开了这个地址再回来算新的一次（369 号票：标题上的"等你……"点过一次，切走再点）
+    if (!revealAt) revealed.current = undefined;
     if (!revealAt || targetId === undefined || revealed.current === revealAt) return;
     const timer = setTimeout(() => {
       revealed.current = revealAt;
@@ -245,6 +248,16 @@ function ConversationView({
   useEffect(() => {
     itemsRef.current = items;
   });
+  // 地址没变、又点了一次标题上的"等你……"（369 号票）：再滚过去、闪一下
+  useEffect(
+    () =>
+      onRevealAgain((at) => {
+        if (at !== revealAt) return;
+        const again = revealTargetId(itemsRef.current, at);
+        if (again !== undefined) ref.current?.reveal(again);
+      }),
+    [revealAt, ref],
+  );
 
   // 看到哪了（109 号票）：对话层报的位置换成序号；条目、会话收到的最后一个序号变了，按上一次报的位置再算一遍
   // （定稿的回复替换正在生成的那条时高度可能没变，对话层不会再报）

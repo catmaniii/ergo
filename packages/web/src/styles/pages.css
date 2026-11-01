@@ -340,6 +340,30 @@ fieldset {
 .act-sleeping i {
   background: color-mix(in srgb, var(--muted) 55%, transparent);
 }
+/* 标题上的"等你……"能点（369 号票）：下划线和 ›，看得出能点；字放不下省略，› 留着 */
+.act-jump {
+  flex: 0 1 auto;
+  align-self: stretch;
+  text-decoration: none;
+  cursor: pointer;
+}
+.act-jump:active {
+  opacity: 0.6;
+}
+.act-jump .act-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.act-jump .act-go {
+  flex: none;
+}
+/* 标题栏里最多占三分之一，再长省略（完整的在 title 里），左边的名字放得下 */
+.topbar > .act-jump {
+  max-width: 33%;
+}
 
 /* ---------- 会话 ---------- */
 .conv {

@@ -44,7 +44,8 @@ const activityOf = (frontend: TestFrontend, agentId: string) =>
 /** 一条活动状态：状态和说明 */
 const is = (state: ActivityState, detail?: ActivityDetail) => ({ state, ...(detail === undefined ? {} : { detail }) });
 const kindIs = (kind: ActivityDetail["kind"]) => (a: { detail?: ActivityDetail }) => a.detail?.kind === kind;
-const APPROVAL: ActivityDetail = { kind: "approval", tool: "读文件" };
+/** 等你批准读文件：369 号票起说明带上那张卡的编号 */
+const approvalOf = (cardId: string): ActivityDetail => ({ kind: "approval", tool: "读文件", cardId });
 const cardsOf = (frontend: TestFrontend): Card[] => frontend.events({ channel: CARDS, type: EVENT_TYPES.card }).map((f) => (f.payload as CardEventPayload).card);
 const taskChanges = (frontend: TestFrontend) => frontend.events({ channel: BOARD, type: EVENT_TYPES.task }).map((f) => (f.payload as TaskEventPayload).change);
 
@@ -77,7 +78,7 @@ describe("活动状态频道", () => {
     expect(activityOf(frontend, "tm-1")).toEqual([
       is("working", { kind: "woken" }),
       is("working", { kind: "handling_input" }),
-      is("waiting_for_user", APPROVAL),
+      is("waiting_for_user", approvalOf(card.id)),
       is("working", { kind: "handling_input" }),
       is("sleeping", { kind: "idle" }),
       is("sleeping", { kind: "idle_exit" }),
@@ -156,15 +157,15 @@ describe("活动状态频道", () => {
     await waitUntil(() => activityOf(frontend, "tm-1").filter((a) => a.state === "waiting_for_user").length === 2, { timeoutMs: 30_000, describe: () => JSON.stringify(activityOf(frontend, "tm-1")) });
     // 闲置退出了（子进程不在了），仍是等你，不多记
     await waitUntil(() => first.daemon.agents.live().every((a) => a.agentId !== "tm-1"), { timeoutMs: 20_000 });
+    const card = cardsOf(frontend).find((c) => c.type === "approval" && c.status === "pending")!;
+    expect(card).toBeDefined();
     expect(activityOf(frontend, "tm-1")).toEqual([
       is("working", { kind: "woken" }),
       is("working", { kind: "handling_input" }),
-      is("waiting_for_user", APPROVAL),
+      is("waiting_for_user", approvalOf(card.id)),
       is("working", { kind: "handling_input" }),
-      is("waiting_for_user", APPROVAL),
+      is("waiting_for_user", approvalOf(card.id)),
     ]);
-    const card = cardsOf(frontend).find((c) => c.type === "approval" && c.status === "pending")!;
-    expect(card).toBeDefined();
     await first.daemon.stop();
 
     // 重启：子进程都不在了，待处理的审批卡还在，仍是等你（不多记一条）
@@ -181,7 +182,7 @@ describe("活动状态频道", () => {
     expect(activityOf(fresh, "tm-1").slice(5).some((a) => a.state === "waiting_for_user")).toBe(false);
   }, 90_000);
 
-  it("提问卡没回答时秘书是等你（澄清）；回答以后回到休眠，接着处理交回来的答案", async () => {
+  it("提问卡没回答时秘书是等你（澄清，说明带着卡片编号），待办里有一条；回答以后两边都没了，回到休眠，接着处理交回来的答案", async () => {
     const td = await startTestDaemon({
       secretary: [call("ask_questions", { questions: [{ question: "调研给谁看？", options: ["自己", "团队"], recommended: "自己" }] }), say("先回答这个问题"), say("好的，给你自己看")],
     });
@@ -189,11 +190,16 @@ describe("活动状态频道", () => {
     await frontend.subscribe({ [ACTIVITY]: 0, [SECRETARY]: 0, [CARDS]: 0 });
     await frontend.sendText("帮我整理一份 X 的调研");
     await waitUntil(() => activityOf(frontend, "secretary").some((a) => a.state === "waiting_for_user"), { timeoutMs: 20_000, describe: () => JSON.stringify(activityOf(frontend, "secretary")) });
-    expect(activityOf(frontend, "secretary").slice(-2)).toEqual([is("working", { kind: "handling_input" }), is("waiting_for_user", { kind: "clarification" })]);
-
     const card = cardsOf(frontend).find((c) => c.type === "questions")!;
+    expect(activityOf(frontend, "secretary").slice(-2)).toEqual([is("working", { kind: "handling_input" }), is("waiting_for_user", { kind: "clarification", cardId: card.id })]);
+    // 369 号票：标题说在等你的卡，待办里一定有一条；"去看看 ›"回秘书会话定位到它
+    const [item] = td.daemon.inbox.itemsForCard(card.id);
+    expect(item).toMatchObject({ kind: "card", urgency: "non_blocking", origin: { conversation: SECRETARY } });
+    expect(td.daemon.inbox.isProcessed(item!)).toBe(false);
+
     const answers = (card.payload as QuestionsCardPayload).questions.map((q) => ({ questionId: q.id, answer: q.recommended }));
     expect((await frontend.cardAction({ cardId: card.id, action: "answer", expectedVersion: card.version, input: { answers } })).ok).toBe(true);
+    expect(td.daemon.inbox.isProcessed(item!)).toBe(true);
     await waitUntil(() => frontend.events({ channel: SECRETARY, type: EVENT_TYPES.turnEnd }).length === 2, { timeoutMs: 20_000 });
     await waitUntil(() => activityOf(frontend, "secretary").at(-1)?.state === "sleeping", { describe: () => JSON.stringify(activityOf(frontend, "secretary")) });
     const all = activityOf(frontend, "secretary");

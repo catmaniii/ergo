@@ -9,11 +9,12 @@
 // - "⋯"：上半是计划、工单 N、工具包、消耗、运行 N（taskPanels：宽屏在右边的详情栏打开，手机整页滑入、‹ 回到会话），下半是任务操作；
 // - 阶段标签的位置、开合阶段栏的做法照 88 号票（宽屏在左 lead、窄屏在右），由任务页给；页签那一排去掉了，会话占满。
 // - ⚙（114 号票）：负责这个任务的维护者的面板（单独的提示词、清空当前对话、上下文用量），由任务页给。
+// - 活动状态上的"等你……"能点（369 号票）：跳到要处理的那张卡；宽屏在标题栏，手机在状态签浮层里（点了浮层收起来）。
 // 真任务（RealTaskDetail）和原型的假任务（ProtoTaskDetail）都用它，菜单项、浮层的内容由任务页按各自的数据算好交进来。
 import { type ReactNode, useRef, useState } from "react";
 import { tokensText } from "../model/labels.ts";
 import type { ActivityState } from "../model/types.ts";
-import { statusChipText, t, type TaskMenuItem, type TaskPanel } from "../state/index.ts";
+import { type ActivityJump, statusChipText, t, type TaskMenuItem, type TaskPanel } from "../state/index.ts";
 import { ActivityDot, TopBar } from "./common.tsx";
 import { PopupMenu } from "./popup.tsx";
 import { TaskMenuItems, TaskMenuPopup } from "./task-menu.tsx";
@@ -33,7 +34,7 @@ export interface TaskHeadProps {
   gear?: ReactNode;
   /** 状态签：写什么、用哪种状态的颜色（st-<状态>） */
   status: { text: string; tone: string };
-  activity: { state: ActivityState; note?: string | undefined };
+  activity: { state: ActivityState; note?: string | undefined; jump?: ActivityJump | undefined };
   /** 状态签浮层：原因说明（守护进程写的那句，超预算的用量也是）、几个小签（种类、项目、第几阶段、定时……） */
   note?: string | undefined;
   meta?: ReactNode;
@@ -59,7 +60,7 @@ export function TaskHead(props: TaskHeadProps) {
         <span className="th-line">
           <span className="th-name">{title}</span>
           <StatusChip {...props} />
-          {wide && <ActivityDot state={props.activity.state} note={props.activity.note} />}
+          {wide && <ActivityDot state={props.activity.state} note={props.activity.note} jump={props.activity.jump} />}
         </span>
       }
       onBack={onBack}
@@ -134,7 +135,7 @@ function StatusChip({ wide, status, activity, note, meta, tokens, cacheHitTokens
           <div className="th-pop-meta">
             {meta}
             {/* 手机上活动状态不在标题栏，放这里 */}
-            {!wide && <ActivityDot state={activity.state} note={activity.note} />}
+            {!wide && <ActivityDot state={activity.state} note={activity.note} jump={activity.jump} onJump={() => setOpen(false)} />}
             <span className="muted">{tokensText(tokens, cacheHitTokens)}</span>
           </div>
           {items.length > 0 && (

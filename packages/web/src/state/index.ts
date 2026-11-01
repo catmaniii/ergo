@@ -85,6 +85,7 @@ export * from "./project-page.ts";
 export * from "./settings-groups.ts";
 export * from "./inbox-select.ts";
 export * from "./inbox-jump.ts";
+export * from "./activity-jump.ts";
 export * from "./materials.ts";
 export * from "./memory-graph.ts";
 export * from "./memory-page.ts";

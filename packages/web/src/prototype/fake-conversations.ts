@@ -158,7 +158,8 @@ function fakeCardText(type: CardType, payload: unknown): string {
 }
 
 export const MAINTAINERS = {
-  photos: maintainerChannel("task-photos"),
+  // 任务「家庭照片整理与去重」是项目「相册库」的内部任务，维护者就是项目的（真任务的详情按它取会话，369 号票）
+  photos: maintainerChannel("project-photos"),
   bills: maintainerChannel("task-bills"),
   ledger: maintainerChannel("project-ledger"),
   blog: maintainerChannel("project-blog"),

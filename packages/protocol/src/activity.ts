@@ -37,6 +37,10 @@ export const ActivityDetail = Type.Object({
   plugin: Type.Optional(Type.String()),
   /** 接管来的会话交还给了哪个运行时（290 号票：等你收回；292 号票：交给了哪个运行时的官方 App），给人看的名字 */
   runtime: Type.Optional(Type.String()),
+  /** 等你：要处理的那张卡（369 号票：标题上点了跳到它；有几张在等时是最近的那张）。这之前记下的事件没有 */
+  cardId: Type.Optional(Type.String()),
+  /** 等你：一共几张卡在等（369 号票：两张及以上才写） */
+  cardCount: Type.Optional(Type.Integer({ minimum: 2 })),
 });
 export type ActivityDetail = Static<typeof ActivityDetail>;
 
@@ -58,7 +62,8 @@ const ACTIVITY_DETAIL_TEXT: Readonly<Record<ActivityDetailKind, (d: ActivityDeta
 
 /** 说明的文字（不认识的种类——更新的守护进程发来的——没有文字） */
 export function activityDetailText(detail: ActivityDetail): string {
-  return Object.hasOwn(ACTIVITY_DETAIL_TEXT, detail.kind) ? ACTIVITY_DETAIL_TEXT[detail.kind](detail) : "";
+  const text = Object.hasOwn(ACTIVITY_DETAIL_TEXT, detail.kind) ? ACTIVITY_DETAIL_TEXT[detail.kind](detail) : "";
+  return text && detail.cardCount !== undefined ? t("protocol.activity.detail.cardCount", { text, count: detail.cardCount }) : text;
 }
 
 /**

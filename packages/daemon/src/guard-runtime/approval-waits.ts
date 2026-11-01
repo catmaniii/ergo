@@ -207,7 +207,7 @@ export function createApprovalWaits(options: ApprovalWaitsOptions): ApprovalWait
         }),
       };
       waits.set(approval.approvalId, wait);
-      options.userWaits?.userWaitStarted(origin.agentId, approval.approvalId, { kind: "approval", tool: request.toolTitle });
+      options.userWaits?.userWaitStarted(origin.agentId, approval.approvalId, { kind: "approval", tool: request.toolTitle, cardId: approval.cardId });
     },
     abandon(state) {
       const wait = state.approvalId === undefined ? undefined : waits.get(state.approvalId);

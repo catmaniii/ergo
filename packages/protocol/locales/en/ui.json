@@ -1448,6 +1448,7 @@
   "ui.reminderMenu.deleted": "Reminder “{title}” deleted",
   "ui.reminderMenu.keep": "Keep it",
   "ui.reminderMenu.delete": "Delete",
+  "ui.common.activityGo": "{label} (click to go there)",
   "ui.common.activityNote": "{state}: {note}",
   "ui.incidents.total": "{count} in total",
   "ui.cards.itemSep": "; ",

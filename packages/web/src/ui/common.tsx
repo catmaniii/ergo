@@ -1,9 +1,11 @@
 // 各页面共用的小部件：Splitter 和 useElementWidth。
 import { type ReactNode, type RefObject, useEffect, useRef, useState } from "react";
 import { useBackLayer } from "../app/page-back.ts";
+import { activityJumpRoute, toHash } from "../app/route-hash.ts";
 import { ACTIVITY_LABEL } from "../model/labels.ts";
 import type { ActivityState } from "../model/types.ts";
-import { t } from "../state/index.ts";
+import { type ActivityJump, t } from "../state/index.ts";
+import { revealAgain } from "./conversation/reveal-again.ts";
 
 /** 量一个元素的宽度（宽窄屏按内容区的实际宽度判断，原型的"手机宽度"预览也能用） */
 export function useElementWidth(ref: RefObject<HTMLElement | null>): number {
@@ -148,9 +150,37 @@ export function Sheet({ title, onClose, children, center }: { title: ReactNode; 
   );
 }
 
-/** 活动状态小圆点：休眠、干活中、等你、排队 */
-export function ActivityDot({ state, note }: { state: ActivityState; note?: string }) {
+/**
+ * 活动状态小圆点：休眠、干活中、等你、排队。
+ * 369 号票：标题上的给 jump（状态层 activityJump）：等你的是一个链接，写"等你……"和 ›，点了跳到要处理的那张卡；已经在这个地址了再点一次，
+ * 地址不变，会话再滚过去、闪一下。onJump：点了之后（状态签浮层里的要收起来）
+ */
+export function ActivityDot({ state, note, jump, onJump }: { state: ActivityState; note?: string | undefined; jump?: ActivityJump | undefined; onJump?: (() => void) | undefined }) {
   const label = note ? t("ui.common.activityNote", { state: ACTIVITY_LABEL[state], note }) : ACTIVITY_LABEL[state];
+  if (state === "waiting_for_user" && jump) {
+    const href = toHash(activityJumpRoute(jump));
+    const at = "at" in jump ? jump.at : undefined;
+    return (
+      <a
+        className={`act act-${state} act-jump`}
+        href={href}
+        title={t("ui.common.activityGo", { label })}
+        onClick={(e) => {
+          onJump?.();
+          if (at !== undefined && window.location.hash === href) {
+            e.preventDefault();
+            revealAgain(at);
+          }
+        }}
+      >
+        <i aria-hidden="true" />
+        <span className="act-text">{note ?? label}</span>
+        <span className="act-go" aria-hidden="true">
+          ›
+        </span>
+      </a>
+    );
+  }
   return (
     <span className={`act act-${state}`} title={label}>
       <i aria-hidden="true" />

@@ -582,6 +582,22 @@ const legendKinds = () => Object.entries(CONTENT_KIND_LABEL) as [ContentKind, st
 const naturesText = () => TOOL_NATURES.map((n) => TOOL_NATURE_LABEL[n]).join(" / ");
 
 /** 闪一下（点缩小的条放大回去、在对话中定位） */
+/** 定位时离视口上下边至少留多少 */
+const REVEAL_TOP_MARGIN = 12;
+/** 滚动停了没等到通知（老浏览器没有 scrollend）时，最多等多久就当滚完了（毫秒） */
+const SCROLL_END_WAIT_MS = 1500;
+
+/** 这一次滚动停了之后调 fn，只调一次 */
+function whenScrollEnds(el: HTMLElement, fn: () => void) {
+  const run = () => {
+    clearTimeout(timer);
+    el.removeEventListener("scrollend", run);
+    fn();
+  };
+  const timer = setTimeout(run, SCROLL_END_WAIT_MS);
+  el.addEventListener("scrollend", run);
+}
+
 function flash(el: Element) {
   el.classList.add("flash");
   setTimeout(() => el.classList.remove("flash"), 1600);
@@ -1479,19 +1495,25 @@ export const ZoomHistory = forwardRef<ZoomHistoryHandle, Props>(function ZoomHis
       followRef.current = false;
       // 定位到别处：点过 ↓ 也不算还在往底部滑了（108 号票）
       jumpingRef.current = false;
-      const toY = vp.clientHeight * 0.3;
+      // 放到三成高的地方；369 号票：整条在那儿放不下就再往上提，卡片的按钮在底下，要在眼前（比视口还高的顶到上边）
+      const toY = step ? vp.clientHeight * 0.3 : Math.max(REVEAL_TOP_MARGIN, Math.min(vp.clientHeight * 0.3, vp.clientHeight - el.offsetHeight - REVEAL_TOP_MARGIN));
       // 要放到 toY 的那一点在内容里的高度（未缩放）：整条是它的 offsetTop，某一步按屏幕位置换算
       const top = step ? (step.getBoundingClientRect().top - content.getBoundingClientRect().top) / ctl.s : el.offsetTop;
-      // 缩小着的：以它为焦点放大回对话层，同时滑到 toY；已在对话层：滚过去
-      if (ctl.level === 0) vp.scrollTo({ top: top * ctl.s - toY, behavior: "smooth" });
-      else {
-        zoomingRef.current = true;
-        ctl.animateTo(1, top, top * ctl.s - vp.scrollTop, toY);
-      }
       // 闪一下：底色之外加一圈同色外框（56 号票第 10 条，用户认可：二狗的气泡、工具行自己有底色，光闪底色看不见）。
       // 从缩小后的一块放大回去的，闪的是对话层里组那一行
       const flashed = boxedBlock ?? row;
-      flashFrame(step ?? flashed.querySelector<HTMLElement>(".zi-l0") ?? flashed);
+      const flashIt = () => flashFrame(step ?? flashed.querySelector<HTMLElement>(".zi-l0") ?? flashed);
+      // 缩小着的：以它为焦点放大回对话层，同时滑到 toY；已在对话层：滚过去。369 号票：远的要滚一秒多，滚到了才闪，不然到了已经闪完
+      if (ctl.level === 0) {
+        const target = Math.max(0, Math.min(vp.scrollHeight - vp.clientHeight, top * ctl.s - toY));
+        vp.scrollTo({ top: target, behavior: "smooth" });
+        if (Math.abs(vp.scrollTop - target) < 2) flashIt();
+        else whenScrollEnds(vp, flashIt);
+      } else {
+        zoomingRef.current = true;
+        ctl.animateTo(1, top, top * ctl.s - vp.scrollTop, toY);
+        flashIt();
+      }
     },
     followLatest() {
       followRef.current = true;

@@ -1207,6 +1207,8 @@
   "pages.workdayRules.manualHintNoCalendar": "某一天不上班或要上班（比如\"下周一我不上班\"）是手动标记，不是规则：对{name}说，它出一张快速动作卡，确认后标上。",
   "pages.workdayRules.holidayData": "节假日数据是框架自带的公开数据（新加坡人力部、中国政府网）。每年 12 月检查一次下一年的数据，缺了在待办里提醒你，点一下发起联网任务去更新。",
   "pages.startTask.button": "＋ 发起任务",
+  "pages.startTask.buttonIcon": "＋",
+  "pages.startTask.buttonLabel": "发起任务",
   "pages.startTask.title": "发起任务",
   "pages.startTask.default": "默认",
   "pages.startTask.whatRemind": "提醒什么",

@@ -506,11 +506,13 @@ export const FAKE_PROJECTS: Project[] = [
 
 /**
  * 104 号票：项目一览的卡片上写维护者在干什么、定时触发的有几个——原型的假项目在项目列表频道之外再推这几条（假连接建出时推）：
- * 两个维护者的活动状态（博客的在干活、相册库的等你批准），和假项目详情里那几个定时作业（标成项目内部的，不上全局看板）
+ * 两个维护者的活动状态（博客的在干活、相册库的等你批准），和假项目详情里那几个定时作业（标成项目内部的，不上全局看板）。
+ * 369 号票：秘书在等那张提问卡（标题上"等你回答提问"点了跳到它），相册库的审批卡在任务「家庭照片整理与去重」里（跳到别的页）
  */
 export const FAKE_PROJECT_EVENTS: { channel: string; type: string; payload: unknown }[] = [
+  { channel: CHANNELS.activity, type: EVENT_TYPES.activity, payload: { agentId: "secretary", state: "waiting_for_user", since: at("10-07", "08:31"), detail: { kind: "clarification", cardId: "c-q-1" } } satisfies ActivityEventPayload },
   { channel: CHANNELS.activity, type: EVENT_TYPES.activity, payload: { agentId: "project-blog", state: "working", since: at("10-07", "09:10"), detail: { kind: "calling_tool", tool: "运行命令" } } satisfies ActivityEventPayload },
-  { channel: CHANNELS.activity, type: EVENT_TYPES.activity, payload: { agentId: "project-photos", state: "waiting_for_user", since: at("10-07", "09:02"), detail: { kind: "approval", tool: "删除文件" } } satisfies ActivityEventPayload },
+  { channel: CHANNELS.activity, type: EVENT_TYPES.activity, payload: { agentId: "project-photos", state: "waiting_for_user", since: at("10-07", "09:02"), detail: { kind: "approval", tool: "删除文件", cardId: "c-appr-1" } } satisfies ActivityEventPayload },
   ...[
     { id: "sj-daily-bills", projectId: "p-ledger", projectName: "记账本", title: "汇总当天账单", schedule: { kind: "daily", time: "21:00" }, state: "active" },
     { id: "sj-monthly", projectId: "p-ledger", projectName: "记账本", title: "出月报", schedule: { kind: "monthly", time: "09:00", days: [1] }, state: "paused" },
@@ -633,6 +635,7 @@ function notice(x: Fresh & { notice: NoticeType; body: string; actions: string[]
 
 const FAKE_INBOX_ITEMS: InboxItem[] = [
   notice({ id: "i-rent", notice: "reminder_due", title: "该交房租了", body: "每月 8 号 09:00 的提醒。", source: "简单提醒", urgency: "non_blocking", createdAt: at("10-07", "09:00"), read: false, pinned: true, actions: ["知道了"] }),
+  cardItem({ id: "i-q", cardId: "c-q-1", title: "有 3 个问题等你回答：去几天？", source: `${ASSISTANT_NAME_MARK}对话`, urgency: "blocking", createdAt: at("10-07", "08:31"), read: false }),
   cardItem({ id: "i-appr", cardId: "c-appr-1", title: "批准一条会删除备份端文件的 rsync？", source: "任务「家庭照片整理与去重」", urgency: "blocking_deadline", createdAt: at("10-07", "09:20"), read: false }),
   cardItem({ id: "i-plan", cardId: "c-plan-bills", title: "计划等你确认：每周汇总银行账单", source: "任务「每周汇总银行账单」", urgency: "blocking", createdAt: at("10-07", "08:40"), read: false }),
   cardItem({ id: "i-par", cardId: "c-par-1", title: "并行确认：家庭照片整理与去重", source: "任务「家庭照片整理与去重」", urgency: "non_blocking", createdAt: at("10-07", "09:12"), read: false }),
@@ -734,11 +737,15 @@ const FAKE_INBOX_ITEMS: InboxItem[] = [
   notice({ id: "i-old", notice: "missed_reminder", title: "错过的提醒：周五 18:00 取快递", body: "晚了 3 小时。", source: "简单提醒", urgency: "non_blocking", createdAt: at("10-03", "21:00"), read: true, actions: ["知道了"], archived: true }),
 ];
 
+/** 卡处理了，谁就不再等你（369 号票：假连接在卡片动作之后推一条活动状态） */
+export const FAKE_CARD_WAITERS: Readonly<Record<string, string>> = { "c-q-1": "secretary", "c-appr-1": "project-photos" };
+
 /**
  * 事项从哪来（105 号票，待办里"去看看 ›"去的地方）：照守护进程的记法——任务的事项记任务（审批、中断不确定还记那次调用），
  * 项目的记项目；提醒、系统的不记（按种类去日历、设置）。"定时作业被自动暂停"那条当作还没迁移的旧作业，没有去处
  */
 const FAKE_INBOX_ORIGINS: Readonly<Record<string, InboxOrigin>> = {
+  "i-q": { conversation: "secretary" },
   "i-appr": { taskId: "t-photos", stageId: "s2" },
   "i-plan": { taskId: "t-bills" },
   "i-par": { taskId: "t-photos" },

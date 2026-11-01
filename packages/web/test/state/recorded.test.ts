@@ -31,6 +31,7 @@ import {
   type DeviceEventPayload,
   inboxBadge,
   inboxEntries,
+  inboxJump,
   type MessageEventPayload,
   type MessagePart,
   pairedDevices,
@@ -367,6 +368,18 @@ describe("回放：发起任务到计划确认（task-initiation）", () => {
     expect(card.card).toMatchObject({ status: "handled", outcome: { action: "answer", note: "全按推荐" } });
   });
 
+  test("369 号票：秘书的提问卡也进待办，去处是秘书会话里这张卡；答完了不再待处理", () => {
+    const all = replay(inputs);
+    const card = Object.values(all.cards).find((c) => c.card.type === "questions")!.card;
+    const added = indexOf(inputs, (i) => i.kind === "frame" && i.frame.type === "inbox_item" && (i.frame.payload as { item: { cardId?: string } }).item.cardId === card.id);
+    const asked = replay(inputs.slice(0, added + 1));
+    const [entry] = inboxEntries(asked, "open").filter((e) => e.item.cardId === card.id);
+    expect(entry).toMatchObject({ processed: false, item: { urgency: "blocking", origin: { conversation: "secretary" } } });
+    expect(inboxJump(asked, entry!.item)).toEqual({ kind: "secretary", at: card.id });
+    expect(inboxEntries(all, "open").some((e) => e.item.cardId === card.id)).toBe(false);
+    expect(inboxEntries(all, "done").some((e) => e.item.cardId === card.id)).toBe(true);
+  });
+
   test("维护者交了计划：任务挪到等我（待确认），待我处理里是这张计划卡、还没处理；卡上的阶段数就是看板上的 M", () => {
     const state = replay(inputs.slice(0, confirm));
     expect(groupOfTask(state, "t-1")).toBe("waiting");
@@ -385,7 +398,7 @@ describe("回放：发起任务到计划确认（task-initiation）", () => {
     expect(selectCard(sending, planCardId)?.pending).toMatchObject({ action: "confirm", status: "sending" });
     const state = replay(inputs);
     expect(selectCard(state, planCardId)?.card).toMatchObject({ status: "handled", outcome: { action: "confirm", note: "收窄 1 项" }, payload: { narrowedGrants: ["push-report"] } });
-    expect(inboxEntries(state, "done").map((e) => e.item.kind === "card" && e.item.cardId)).toEqual([planCardId]);
+    expect(inboxEntries(state, "done").map((e) => e.item.kind === "card" && e.item.cardId)).toContain(planCardId);
     expect(groupOfTask(state, "t-1")).toBe("active");
     const queued = replay(inputs.slice(0, indexOf(inputs, (i) => i.kind === "frame" && i.frame.type === "task" && (i.frame.payload as { change: string }).change === "started")));
     expect(selectTask(queued, "t-1")).toMatchObject({ state: "queued", stages: { total: 2 } });

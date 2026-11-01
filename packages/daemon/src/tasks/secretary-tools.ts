@@ -5,7 +5,7 @@
 //   和用户对齐、执行，只在项目里看得到，通知交给维护者；秘书只说"已在项目「X」里建了内部任务"，看不到细节；
 // - suggest_task：秘书觉得该发起、但用户没点明的事，只给一张"建议发起任务"卡，不建任务（卡上"作为流程""作为长程任务"由用户点；
 //   卡上写了一个项目的点了建成这个项目的内部任务，通知交给项目的维护者，秘书收不到）；
-// - ask_questions：意图澄清，提问卡成批提问，每题带推荐答案（用户的回答作为一条通知交回秘书）；
+// - ask_questions：意图澄清，提问卡成批提问，每题带推荐答案（用户的回答作为一条通知交回秘书）；卡同时进待我处理（369 号票）；
 // - write_task_brief：澄清完写任务书，运行时交给执行的维护者起草计划；
 // - delegate_task（75 号票，ADR 0025）：用户交代的事要花时间、要跑很多步、要联网下载……秘书自己决定交给后台，建一个普通任务
 //   （有任务卡、有自己的 agent，不规划、不授权、不检查；只写了一个项目的建成这个项目的内部任务，由项目的维护者做），不必等用户点明。
@@ -20,6 +20,9 @@ import { forModel, isProjectInternal, nowIso, PI_RUNTIME_ID, QuestionDraft, t, t
 import { defineHostTool, type HostTool } from "../agent-manager/host-tools.ts";
 import type { CardService } from "../cards/cards.ts";
 import { RequestRejected } from "../errors.ts";
+import type { EventStore } from "../events/event-store.ts";
+import type { InboxService } from "../inbox/inbox.ts";
+import { createSecretaryQuestions } from "./cards.ts";
 import { delegateRefusal, launchCommandText } from "./launch-intent.ts";
 import { guarded, LAUNCH_PARAMS, LAUNCH_TOOLS, launchTool, oncePerTurn, type UserTurnOf } from "./launch-tools.ts";
 import { delegatedText } from "./plain.ts";
@@ -183,7 +186,8 @@ function checkedRuntime(runtime: string | undefined, runtimeRefusal: RuntimeRefu
  * userTurn：秘书正在处理的那条用户消息里用户说了什么（quick-actions 的 readUserTurn）；runtimeRefusal：秘书写的运行时现在能不能用
  * （289 号票，不给就不查）
  */
-export function taskTools(tasks: TaskService, cards: CardService, userTurn: UserTurnOf, runtimeRefusal?: RuntimeRefusal): HostTool[] {
+export function taskTools(tasks: TaskService, deps: { store: EventStore; cards: CardService; inbox: InboxService }, userTurn: UserTurnOf, runtimeRefusal?: RuntimeRefusal): HostTool[] {
+  const { cards } = deps;
   /** 一轮最多一张建议卡 */
   const suggestedThisTurn = oncePerTurn();
   return [
@@ -263,10 +267,7 @@ export function taskTools(tasks: TaskService, cards: CardService, userTurn: User
           const asked = args.taskId === undefined ? undefined : tasks.get(args.taskId);
           if (args.taskId !== undefined && (!asked || isProjectInternal(asked))) throw new RequestRejected("not_found", `没有编号为 ${args.taskId} 的任务`);
           const questions = args.questions.map((q, i) => ({ id: `q${i + 1}`, ...q }));
-          const card = cards.create({
-            type: "questions",
-            payload: { ...(args.taskId === undefined ? {} : { taskId: args.taskId }), ...(args.intro === undefined ? {} : { intro: args.intro }), questions },
-          });
+          const card = createSecretaryQuestions(deps, { ...(args.taskId === undefined ? {} : { taskId: args.taskId }), ...(args.intro === undefined ? {} : { intro: args.intro }), questions });
           return { text: `已在聊天里放了提问卡（${questions.length} 个问题）。用户回答后你会收到一条通知，里面是答案。`, cardIds: [card.id] };
         }),
     }),

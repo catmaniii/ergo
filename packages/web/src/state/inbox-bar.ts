@@ -3,7 +3,9 @@
 // - 哪些属于这个会话只用 105 号票的 inboxJump 认：去处是这个任务、这个项目、秘书会话的，不另起一套规则；项目的维护者会话也是
 //   它的内部任务的会话（内部任务的维护者就是项目的维护者，卡出在这里），去处是这个项目内部任务的（事项带着 internal 标记）也列在项目这里；
 // - 已处理的（卡片看卡的状态、通知看选过动作没有，同 inboxItemProcessed）、已归档的不进，处理了就从栏里消失；
-// - 排序和待办的"待处理"一样（compareInboxItems：置顶、紧急度三档、同一档里新的在前）。
+// - 排序和待办的"待处理"一样（compareInboxItems：置顶、紧急度三档、同一档里新的在前）；
+// - 369 号票：秘书放久了的提问（事项标着 stale）不再挂在秘书会话这里，标题也不再说等你，要答去待办或聊天历史。负责人放久了的提问还卡着工作，
+//   任务、项目页这里照样列，免得任务写着等我却找不到卡。
 import { inboxItemProcessed } from "./inbox.ts";
 import { type InboxJump, inboxJump } from "./inbox-jump.ts";
 import { compareInboxItems, type InboxItem, isInternalTo } from "./protocol.ts";
@@ -22,7 +24,7 @@ export interface InboxBarEntry {
 export function inboxBarEntries(state: UiState, place: InboxPlace): InboxBarEntry[] {
   const out: InboxBarEntry[] = [];
   for (const item of Object.values(state.inbox).toSorted(compareInboxItems)) {
-    if (item.archived || inboxItemProcessed(state, item)) continue;
+    if (item.archived || inboxItemProcessed(state, item) || (place.kind === "secretary" && item.stale)) continue;
     const jump = inboxJump(state, item);
     if (!jump || !belongs(jump, item, place)) continue;
     const at = "at" in jump ? jump.at : undefined;

@@ -12,6 +12,7 @@
 // 275 号票：每套风格量聊天里工具调用、来信、回忆记忆的横条（和"在想什么"同一列、右边留空、窄窗口下箭头露全点得到），
 // 侧边栏模式收到交来的外观马上换风格。
 // 360 号票：小屏和手机上，会话缩小后点开的分支整块留在视口里。
+// 369 号票：标题上的"等你……"手机、电脑都看得到、点得到，点了跳到要处理的那张卡、闪一下，再点一次再闪；卡在别的页的跳过去；答完就不再等你。
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -621,6 +622,71 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     await page.close();
     expect(errors).toEqual([]);
     expect(empty).toEqual([]);
+  }, 60_000);
+
+  test.each([
+    ["手机", { width: 390, height: 844 }],
+    ["电脑", { width: 1280, height: 800 }],
+  ])("%s宽：标题上的等你回答提问看得到、能点，点了定位到提问卡；相册库的等你批准跳到任务里那张卡；答完不再等你", async (_what, viewport) => {
+    const { page, errors } = await open(viewport);
+    const go = (hash: string) => page.evaluate(`window.location.hash = ${JSON.stringify(hash)}`);
+    const hash = () => page.evaluate("window.location.hash");
+    const flashed = page.locator(".dp-flash, .flash").first();
+    try {
+      await go("#/secretary");
+      const jump = page.locator(".topbar a.act-jump");
+      await jump.waitFor();
+      expect(await jump.getAttribute("href")).toBe("#/secretary/at/c-q-1");
+      expect(await jump.locator(".act-text").textContent()).toBe("等你回答提问");
+      // 整个看得到（没有被挤出标题栏），有 ›，有下划线
+      const box = (await jump.boundingBox())!;
+      expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
+      expect(await page.evaluate(`getComputedStyle(document.querySelector(".topbar a.act-jump .act-text")).textDecorationLine`)).toBe("underline");
+      expect(await jump.locator(".act-go").textContent()).toBe("›");
+      expect(await jump.locator(".act-text").evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+      // 手机上名字也放得下（标题栏挤，发起任务只留 ＋）
+      expect(await page.locator(".topbar .secretary-title .assistant-name").evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+
+      await jump.click();
+      expect(await hash()).toBe("#/secretary/at/c-q-1");
+      await flashed.waitFor({ timeout: 5000 });
+      // 确认按钮就在眼前
+      const answer = page.locator('.xcard:has-text("去几天") button:has-text("全按推荐")').first();
+      const composerTop = (await page.locator(".composer").first().boundingBox())!.y;
+      await expect.poll(async () => {
+        const btn = (await answer.boundingBox())!;
+        return btn.y >= 0 && btn.y + btn.height <= composerTop;
+      }, { timeout: 5000 }).toBe(true);
+
+      // 闪完了再点一次：地址没变，照样再闪一下
+      await flashed.waitFor({ state: "detached", timeout: 5000 });
+      await jump.click();
+      await flashed.waitFor({ timeout: 5000 });
+      expect(await hash()).toBe("#/secretary/at/c-q-1");
+
+      // 待办里有对应的一条，"去看看"到同一个地方
+      await go("#/inbox/i-q");
+      await page.locator('.inbox-jump a[href="#/secretary/at/c-q-1"]').waitFor();
+
+      // 相册库的负责人等你批准：卡在任务「家庭照片整理与去重」里，跳过去
+      await go(viewport.width >= 900 ? "#/projects/p-photos" : "#/projects/p-photos/chat");
+      const approval = page.locator("a.act-jump").first();
+      await approval.waitFor();
+      expect(await approval.getAttribute("href")).toBe("#/tasks/t-photos/at/c-appr-1");
+      await approval.click();
+      await flashed.waitFor({ timeout: 5000 });
+      expect(await hash()).toBe("#/tasks/t-photos/at/c-appr-1");
+
+      // 答完：标题不再说等你，不再是链接
+      await go("#/secretary");
+      await jump.waitFor();
+      await answer.click();
+      await jump.waitFor({ state: "detached", timeout: 5000 });
+      expect(await page.locator(".topbar .act").first().getAttribute("class")).toContain("act-sleeping");
+      expect(errors).toEqual([]);
+    } finally {
+      await page.close();
+    }
   }, 60_000);
 
   test("缩小后撤回箭头的尖刚好碰到条的左沿，不插进去", async () => {
