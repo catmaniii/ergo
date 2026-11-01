@@ -83,11 +83,11 @@ if (existsSync(outputs.signed)) {
   console.log(`\n未签名的 HAP：${describe(outputs.unsigned)}`);
   console.log(
     [
-      "装不上未签名的 HAP。签名只要做一次：",
+      "模拟器能直接装未签名的 HAP，真机装不上（报 no signature file）。真机要签名，只要做一次：",
       "  1. 手机打开开发者模式和 USB 调试，用 USB 连上电脑（DevEco 把这台手机登记进调试用的描述文件）；",
-      "  2. DevEco Studio 打开 frontend/harmony，File → Project Structure → Project → Signing Configs，登录华为账号，勾上 Automatically generate signature，确定；",
+      "  2. DevEco Studio 打开 frontend/harmony，File → Project Structure → Project → Signing Configs，登录华为账号，只勾 Automatically generate signature（别勾 Associate with registered application），确定；",
       "  3. 再跑一次 npm run build:harmony，就会产出 entry-default-signed.hap。",
-      "签名材料只写进本机的 frontend/harmony/build-profile.json5（不进仓库）和用户目录下的 .ohos/config。详见 docs/architecture/development.md 的\"鸿蒙 App\"。",
+      "签名材料只写进本机的 frontend/harmony/build-profile.json5（不进仓库）和用户目录下的 .ohos/config。详见 docs/user-guide/mobile.md 的\"鸿蒙 App\"。",
     ].join("\n"),
   );
 } else {

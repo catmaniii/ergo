@@ -8,7 +8,7 @@
 
 | | 手机浏览器 | 鸿蒙 App | 安卓 App |
 |---|---|---|---|
-| 怎么装 | 不用装 | 自己构建、签名 | 自己构建 |
+| 怎么装 | 不用装 | 用你自己的华为账号签名后装 | 下载就能装 |
 | 二狗的全部页面 | 有 | 有 | 有 |
 | [内置浏览器](browser.md)（「浏览」页签） | 没有 | 有 | 有 |
 | 按住说话 | 有，用浏览器录音 | 有，原生录音 | 有，原生录音 |
@@ -16,7 +16,7 @@
 | 下载文件 | 浏览器下载 | 系统的"保存到" | 系统的"保存到" |
 | [手机数据](data-sources.md#手机上的数据)（通讯录、日历、照片、位置） | 没有 | 有 | 还没有 |
 
-**App 不在应用市场里，现在要自己构建再装到手机上。** 步骤见下面的[装 App](#装-app)。
+**App 不在应用市场里。** 安卓下载就能装，鸿蒙要用你自己的华为账号签名。步骤见下面的[装 App](#装-app)。
 
 ## 让手机连得到电脑：外网访问怎么选
 
@@ -106,41 +106,230 @@
 
 ## 装 App
 
-**鸿蒙和安卓 App 是同一个产品**：原生外壳里跑同一套网页，多了原生录音、系统通知、文件下载和内置浏览器。两种都要自己构建。下面的命令都在二狗目录里跑。构建和调试的细节见[开发文档](../architecture/development.md#手机-app)。
+**鸿蒙和安卓 App 是同一个产品**：原生外壳里跑同一套网页，多了原生录音、系统通知、文件下载和内置浏览器。两种都不在应用市场里，安装包放在 GitHub 的发布页。
 
-### 鸿蒙 App
+| | 安卓 | 鸿蒙 |
+|---|---|---|
+| 下载 | [ergo-android-debug.apk](https://github.com/catmaniii/ergo/releases/latest/download/ergo-android-debug.apk) | [ergo-harmony-unsigned.hap](https://github.com/catmaniii/ergo/releases/latest/download/ergo-harmony-unsigned.hap)（没有签名） |
+| 手机上怎么装 | 点开就装，不用电脑 | 先用你自己的华为账号签名，再用电脑装 |
+| 适合谁 | 所有人 | 愿意折腾的开发者 |
 
-1. 装 [DevEco Studio](https://developer.huawei.com/consumer/cn/deveco-studio/)。手机打开开发者模式和 USB 调试，用 USB 连上电脑。
-2. 跑一次 `npm run build:harmony`，生成本机的工程配置。
-3. 用 DevEco Studio 打开 `frontend\harmony`，点 File → Project Structure → Project → Signing Configs，登录华为账号，勾上 Automatically generate signature。
-4. 再跑 `npm run build:harmony`，得到 `frontend\harmony\entry\build\default\outputs\default\entry-default-signed.hap`。
-5. 用 DevEco 自带的 hdc（`<DevEco>\sdk\default\openharmony\toolchains\hdc.exe`）装上并打开：
-
-   ```powershell
-   hdc list targets
-   hdc -t <设备号> install -r frontend\harmony\entry\build\default\outputs\default\entry-default-signed.hap
-   hdc -t <设备号> shell aa start -a EntryAbility -b com.catmaniii.ergo
-   ```
+想核对下载的文件没被改过：发布页的 `SHA256SUMS` 里有这两个文件的哈希，这份清单带发布钥匙的签名。
 
 ### 安卓 App
 
-支持安卓 8 及以上。
+**下载：[ergo-android-debug.apk](https://github.com/catmaniii/ergo/releases/latest/download/ergo-android-debug.apk)**
 
-1. 装 [Android Studio](https://developer.android.com/studio)，带 Android SDK 和 JDK。手机打开开发者选项和 USB 调试，用 USB 连上电脑。
-2. 跑 `npm run build:android`，得到 `frontend\android\app\build\outputs\apk\debug\app-debug.apk`。第一次要联网取构建工具。
-3. 用 Android SDK 里的 adb 装上：
+支持安卓 8 及以上。不用电脑，也不用懂代码。
 
-   ```powershell
-   adb devices
-   adb -s <设备号> install -r frontend\android\app\build\outputs\apk\debug\app-debug.apk
-   ```
+**一步一步：**
 
-   也可以把 APK 发到手机上点开装，系统会问是否允许安装未知来源的应用。
+1. 用手机的浏览器打开上面的下载链接，把文件下载下来。
+2. 下载完点开它：从浏览器的下载提示点，或者到手机的「文件」里找「下载」文件夹。
+3. 系统说不允许安装这个来源的未知应用时，点「设置」，打开「允许来自此来源的应用」（英文系统写 Allow from this source）。
+4. 系统问要不要安装这个应用，名字是「二狗」（英文系统写 Ergo），点「安装」。
+5. 系统的安全提示说没见过这个应用、建议扫描时（Google Play 保护机制会这样），点开详细信息，选不扫描直接安装（英文系统写 Install without scanning）。它没上过应用市场，所以才这样提示。
+6. 装好后点「打开」。第一次打开是填地址的页面，接着看下面的「连上二狗」。
+
+**实际走过的和没走过的：** 第 2 到第 6 步，我们在英文系统的安卓 16 模拟器上从「文件」里点开走过一遍。括号里的英文是当时屏幕上的字，中文是对应的说法。**未验证：** 用手机浏览器真的从发布页下载、从浏览器的下载提示点开，以及各品牌真机上的提示。各品牌的字样和开关不一样，有的叫"外部来源应用下载"或"纯净模式"，照屏幕上写的打开就行。
+
+**连上二狗：** 还是这一章开头说的三步。
+
+1. [让手机连得到电脑](#让手机连得到电脑外网访问怎么选)。没接过就选 Tailscale。
+2. 在电脑上[显示配对二维码](#电脑上显示配对二维码)。
+3. 手机上[扫码连接](#app-上扫码连接)，再回电脑上[核对和批准](#配对核对和批准)。
 
 **要知道的：**
 
-- 调试版和正式版签名不同，不能直接覆盖安装。换着装要先卸载，卸载后要重新配对。
+- 这是**调试签名**的包，能正常用，但不是应用市场审过的，是这个项目自己打包发布的。它关着调试功能，接上 USB 也不能用调试工具读里面的凭证。
+- 以后每个版本都用同一把钥匙签，下载新版直接覆盖安装，配对还在。
+- **自己构建的和下载的签名不同**，不能互相覆盖。换着装要先卸载，卸载后要重新配对。
 - 打开时提示"系统的 WebView 版本太旧"，到应用商店升级「Android System WebView」。
+
+**用 adb 装（可选）：** 手机打开开发者选项和 USB 调试，用 USB 连上电脑，然后：
+
+```powershell
+adb devices
+adb -s <设备号> install -r ergo-android-debug.apk
+adb -s <设备号> shell am start -n com.catmaniii.ergo/.MainActivity
+```
+
+**想自己构建：** 要二狗的源码（见[从源码安装](install.md#从源码安装)）、[Android Studio](https://developer.android.com/studio)（带 Android SDK 和 JDK）。在二狗目录里跑 `npm run build:android`，第一次要联网取构建工具，得到 `frontend\android\app\build\outputs\apk\debug\app-debug.apk`，用上面的 adb 命令装。构建和调试的细节见[开发文档](../architecture/development.md#安卓-app)。
+
+### 鸿蒙 App
+
+这一节写给愿意折腾的开发者，要用 DevEco Studio 和华为账号。不想折腾就先用[手机浏览器](#手机浏览器)。
+
+**为什么不能下载就装：** 没上架的鸿蒙包，要用你自己的华为账号签名，签名里写明能装在哪几台手机上。我们没法替你签。所以我们提供的 HAP 没有签名：**模拟器能直接装，真机不能直接装**，真机上装它报 `no signature file`。
+
+**先看手机够不够新：** 这个包按 HarmonyOS 6.1.1（API 24）构建，系统更低的手机装不上。手机连上电脑后可以用 `hdc shell param get const.ohos.apiversion` 查，要 24 或更高。
+
+**两条路怎么选：**
+
+| | 路一：自己构建 | 路二：下载 HAP，自己签 |
+|---|---|---|
+| 要准备 | 源码、Node、DevEco、华为账号 | DevEco、华为账号，在华为开发者网站上申请证书和描述文件 |
+| 签名 | DevEco 点一下自动生成 | 自己申请，手动签 |
+| 包名被占用时 | 能改包名 | 走不通，下载的包包名改不了 |
+| 选哪条 | **先走这条** | 走不了路一时再试 |
+
+下面命令里的 `$hdc` 是 DevEco 自带的 hdc，先在 PowerShell 里设好：
+
+```powershell
+$dev = "D:\Program Files\Huawei\DevEco Studio"   # 换成你的安装目录
+$hdc = "$dev\sdk\default\openharmony\toolchains\hdc.exe"
+```
+
+#### 手机打开开发者模式
+
+两条路都要。官方步骤见[使用本地真机运行应用](https://developer.huawei.com/consumer/cn/doc/harmonyos-guides/ide-run-device)。
+
+1. 手机打开 设置 → 系统，看有没有「开发者选项」。没有的话到 设置 → 关于本机（有的系统是设备名称），连点七下「版本号」（有的系统是「软件版本」），确认开启、输入锁屏密码，手机会重启。
+2. 设置 → 系统 → 开发者选项，打开「USB 调试」。
+3. 用 USB 连上电脑，手机上弹"允许 USB 调试"时点允许。
+4. 电脑上跑 `& $hdc list targets`，能看到一串设备号就对了。
+
+#### 路一：自己构建
+
+**要准备：** [DevEco Studio](https://developer.huawei.com/consumer/cn/deveco-studio/)（我们用 26.0.0 构建，别的版本没试过）、实名认证过的华为开发者账号、Node 22（22.19 或更高）、Git。
+
+1. 拿源码、装依赖：
+
+   ```powershell
+   git clone https://github.com/catmaniii/ergo.git
+   cd ergo
+   npm ci
+   ```
+
+2. 跑一次 `npm run build:harmony`。这一次还没签名，目的是生成本机的工程配置 `frontend\harmony\build-profile.json5`，它不进仓库。脚本自己找 DevEco：默认位置是 `D:\Program Files\Huawei\DevEco Studio` 和 `C:\Program Files\Huawei\DevEco Studio`，装在别处就先设环境变量 `DEVECO_HOME`。
+3. 手机用 USB 连着电脑。用 DevEco Studio 打开 `frontend\harmony`，点 File → Project Structure → Project → Signing Configs，点 Sign In 登录华为账号。
+4. **只勾 Automatically generate signature，不要勾 Associate with registered application**，点 OK。DevEco 生成密钥、证书和描述文件，把连着的手机写进去，路径写进上面那份配置。电脑时间要和北京时间一致，否则签不成。官方说明见[自动签名](https://developer.huawei.com/consumer/cn/doc/harmonyos-guides/ide-signing-auto)。
+5. 再跑一次 `npm run build:harmony`，得到 `frontend\harmony\entry\build\default\outputs\default\entry-default-signed.hap`。
+6. 装上并打开：
+
+   ```powershell
+   & $hdc list targets
+   & $hdc -t <设备号> install -r frontend\harmony\entry\build\default\outputs\default\entry-default-signed.hap
+   & $hdc -t <设备号> shell aa start -a EntryAbility -b com.catmaniii.ergo
+   ```
+
+打开后连二狗的步骤和安卓一样，见[连上二狗](#安卓-app)那三步。
+
+**验证到哪一步：** 这条路在维护者自己的账号和手机上走通过。**未验证：** 换一个华为账号时包名 `com.catmaniii.ergo` 能不能用，见下面的[包名](#包名)。
+
+以后升级：拉新代码，再跑第 5、6 步。证书过期或者换手机时，连着手机重新做第 3、4 步。
+
+#### 路二：下载 HAP，自己签
+
+**未验证：** 这条路我们没有真的走到手机上。下面的步骤照华为官方文档写。签名命令我们用临时生成的测试证书对发布的 HAP 跑过，工具签成了、自己也验过，这只说明命令写得对，这样签的包手机不认。
+
+**先知道两个可能走不通的地方：**
+
+- **包名：** 这条路要在你的账号下建一个包名是 `com.catmaniii.ergo` 的应用，而华为要求包名全网唯一。别的账号建过，你就建不了，下载的包也改不了包名，只能回去走路一。
+- **受限权限：** 这个 HAP 申请了两个受限权限：`ohos.permission.READ_WHOLE_CALENDAR`（手机日历）和 `ohos.permission.READ_IMAGEVIDEO`（相册）。手动申请的描述文件要带上它们，要先在华为开发者网站上[申请 ACL 权限](https://developer.huawei.com/consumer/cn/doc/app/agc-help-apply-acl-0000002394212138)并通过审批，而[官方说](https://developer.huawei.com/consumer/cn/doc/harmonyos-guides/restricted-permissions)只有少量符合特殊场景的应用才批得下来。没带上时安装多半报 `grant request permissions failed`（未验证）。路一的自动签名没有这个问题：官方写明调试签名时不强制校验这类权限。
+
+**要哪些材料：**
+
+| 材料 | 文件 | 从哪来 |
+|---|---|---|
+| 密钥库 | `.p12` | DevEco：Build → Generate Key and CSR。记住口令和别名 |
+| 证书请求 | `.csr` | 同上一起生成 |
+| 应用 | 没有文件 | [创建 HarmonyOS 应用](https://developer.huawei.com/consumer/cn/doc/app/agc-help-create-app-0000002247955506)，包名填 `com.catmaniii.ergo` |
+| 调试证书 | `.cer` | [申请调试证书](https://developer.huawei.com/consumer/cn/doc/app/agc-help-debug-cert-0000002283256797)，上传 `.csr`。每个账号最多 3 个，实名账号有效期 1 年，没实名 14 天 |
+| 登记手机 | 没有文件 | [注册设备](https://developer.huawei.com/consumer/cn/doc/app/agc-help-add-device-0000002283189937)，填手机的 UDID，用 `& $hdc -t <设备号> shell bm get --udid` 查 |
+| 调试描述文件 | `.p7b` | [申请调试 Profile](https://developer.huawei.com/consumer/cn/doc/app/agc-help-debug-profile-0000002248181278)，类型选"调试"，选上面的证书和手机 |
+
+整个流程见官方的[手动签名](https://developer.huawei.com/consumer/cn/doc/harmonyos-guides/ide-signing-manual)。
+
+**一步一步：**
+
+1. 下载 [ergo-harmony-unsigned.hap](https://github.com/catmaniii/ergo/releases/latest/download/ergo-harmony-unsigned.hap)，和上面的材料放在同一个目录，在这个目录打开 PowerShell。
+2. 用 DevEco 自带的 Java 跑签名工具。别用别处装的 JDK，有的版本会让工具崩掉：
+
+   ```powershell
+   & "$dev\jbr\bin\java.exe" -jar "$dev\sdk\default\openharmony\toolchains\lib\hap-sign-tool.jar" sign-app `
+     -mode localSign -signAlg SHA256withECDSA `
+     -keyAlias <别名> -keyPwd <密钥口令> `
+     -keystoreFile my.p12 -keystorePwd <密钥库口令> `
+     -appCertFile my.cer -profileFile my.p7b `
+     -inFile ergo-harmony-unsigned.hap -outFile ergo-harmony-signed.hap
+   ```
+
+   DevEco 生成密钥时，密钥口令和密钥库口令是同一个。官方的命令说明见[搭建流水线](https://developer.huawei.com/consumer/cn/doc/harmonyos-guides/ide-command-line-building-app)的"对未签名的 HAP/APP 进行签名"。
+
+3. 装上并打开：
+
+   ```powershell
+   & $hdc -t <设备号> install -r ergo-harmony-signed.hap
+   & $hdc -t <设备号> shell aa start -a EntryAbility -b com.catmaniii.ergo
+   ```
+
+以后升级：下载新的 HAP，用同一套材料再签一次、再装。
+
+#### 模拟器
+
+想先看看，或者手边没有鸿蒙手机。模拟器不看签名，下载的 HAP 能直接装，不用华为证书。
+
+1. DevEco 里点 Tools → Device Manager → Local Emulator → New Emulator，选一个设备（镜像要 API 24 或更高），第一次要下载镜像，点 Finish，再点启动。官方说明见[创建模拟器](https://developer.huawei.com/consumer/cn/doc/harmonyos-guides/ide-emulator-create)，对电脑的要求见[使用环境](https://developer.huawei.com/consumer/cn/doc/harmonyos-guides/ide-emulator-requirements)。
+2. 装上并打开：
+
+   ```powershell
+   & $hdc list targets        # 模拟器是 127.0.0.1:<端口> 这样的设备号
+   & $hdc -t 127.0.0.1:<端口> install -r ergo-harmony-unsigned.hap
+   & $hdc -t 127.0.0.1:<端口> shell aa start -a EntryAbility -b com.catmaniii.ergo
+   ```
+
+   也可以把 HAP 文件拖到模拟器屏幕上装。
+
+3. 想连这台电脑上的二狗：先把模拟器的端口接回电脑，地址页再填 `http://127.0.0.1:8811`。
+
+   ```powershell
+   & $hdc -t 127.0.0.1:<端口> rport tcp:8811 tcp:8811
+   ```
+
+   这样能打开配对页、发出配对请求，但**配对成不了**：批准之后页面还是回到"这台设备还没配对"。我们实测是这样，鸿蒙的网页组件在 http 地址上不存设备凭证。想在模拟器里真的用，要填一个 https 地址（未验证）。
+
+安装、打开、连到配对页，我们在 Pura 90 模拟器（API 24）上用发布的 HAP 走过，连的是临时的测试二狗。
+
+#### 包名
+
+App 的包名是 `com.catmaniii.ergo`。查了华为官方文档，结论是：
+
+| 怎么签 | 官方怎么说 | 这个包名行不行 |
+|---|---|---|
+| 只勾 Automatically generate signature | 这种签名[不和应用市场的应用绑定](https://developer.huawei.com/consumer/cn/doc/harmonyos-guides/ide-signing-auto)，文档没说要查包名是否被别人占用 | **未验证：** 我们没换账号试过 |
+| 勾了 Associate with registered application | 按包名查你团队在开发者网站上的应用 | 别的账号建过这个包名就报 `Bundle name *** is already in use`，[官方给的办法](https://developer.huawei.com/consumer/cn/doc/harmonyos-faqs/signature-service-faq-0002)是改包名或者加入那个团队 |
+| 手动签名（路二） | 要先[创建应用](https://developer.huawei.com/consumer/cn/doc/app/agc-help-create-app-0000002247955506)，包名不能和别的应用（包括安卓应用）相同 | 同上，别的账号建过就建不了 |
+
+**要改包名时（只有路一能改）：**
+
+1. 改 `frontend\harmony\AppScope\app.json5` 里的 `bundleName`，比如 `com.yourname.ergo`。官方要求至少三段，每段用英文字母、数字、下划线，不能用 `harmony`、`ohos` 这类保留字，总长 7 到 128 个字符。
+2. 回 DevEco 重新点一次自动生成签名（路一第 3、4 步），再构建。
+3. 启动命令里的 `-b` 换成新包名。
+
+**改了有什么影响：** 系统把它当成另一个 App，不会覆盖旧的，要卸载旧的并重新配对。二狗的功能不受影响，代码里没有别处写死这个包名。这一行是你本地的改动，以后拉新代码要留着。
+
+#### 常见报错
+
+报错的完整列表见官方的[安装报错说明](https://developer.huawei.com/consumer/cn/doc/harmonyos-guides/bm-tool)和[自动签名报错定位](https://developer.huawei.com/consumer/cn/doc/harmonyos-faqs/signature-service-troubleshooting-0001)。
+
+| 看到的报错 | 意思 | 怎么办 |
+|---|---|---|
+| `no signature file`（9568320） | 在真机上装了没签名的包 | 走路一或路二签名。模拟器不会报这个 |
+| `device is unauthorized`（9568423） | 这台手机没登记进描述文件 | 连着手机重新自动生成签名。手动签的，把手机加进设备列表，重新下载描述文件再签 |
+| `not trusted app source`（9568322） | 描述文件和证书不配套，或者手机没登记，或者用了发布用的描述文件 | 同上，确认描述文件是用这份证书申请的调试类型 |
+| `The certificate has expired!` | 证书过期了 | 自动签名的连着手机重新生成。手动的重新申请证书和描述文件 |
+| `The signature does not take effect or has expired` | 电脑时间和北京时间不一致 | 校准电脑时间再签 |
+| `Bundle name *** is already in use` | 包名被别的账号占了 | 看上面的[包名](#包名) |
+| `Bundle name *** does not exist` | 勾了 Associate with registered application，但你的账号下没有这个应用 | 取消勾选，只留 Automatically generate signature |
+| `Failed to query agreement signing records` | 账号没实名，或者网络代理的问题 | 做开发者实名认证，DevEco 的代理不要选"自动检测" |
+| `The number of certificates has reached the limit` | 调试证书到上限了 | 到开发者网站删一个不用的调试证书 |
+| `Provision number exceeds limit` | 自动签名 30 天内超过 150 次 | 同一个 App、同一台手机不用反复签，过一阵再试 |
+| `older sdk version in the device`（9568297） | 手机系统低于 API 24 | 升级手机系统 |
+| `debug bundle can only be installed in developer mode`（9568401） | 手机没开开发者模式 | 见上面的[手机打开开发者模式](#手机打开开发者模式) |
+| `grant request permissions failed`（9568289） | 描述文件里没有 App 申请的受限权限 | 走路一，或者把 ACL 权限申请下来加进描述文件 |
+| `install provision type not same`（9568286） | 手机上已经装的和这个包的描述文件类型不同 | 卸载旧的再装：`& $hdc -t <设备号> shell bm uninstall -n com.catmaniii.ergo`，卸载后要重新配对 |
+| `generate SignerBlock failed`、`Verify Signature failed` | `.p12` 和 `.cer` 不配套 | 用同一套密钥生成的 `.csr` 重新申请证书 |
 
 ## App 上扫码连接
 
@@ -159,7 +348,7 @@
    - 鸿蒙用系统的扫码界面，不用给 App 相机权限。
    - 安卓点了才要相机权限。写着"扫电脑上的配对二维码"，把二维码放进框里。拒绝了照样能手填地址。
 4. 扫到以后，App 先真的连一次，屏幕写"正在连接…"。
-5. 连得上就进配对页，接着看[配对：核对和批准](#配对核对和批准)。连不上就报错，不进配对页。
+5. 连得上就进配对页，接着看[配对：核对和批准](#配对核对和批准)。第一次连上时系统会先问要不要发通知，盖在配对页上面，点允许。连不上就报错，不进配对页。
 
 ## 连不上怎么办
 
@@ -288,7 +477,7 @@
 1. 写"已打开"的就不用管。
 2. 写"没打开：只有页面里的提醒"的，点「去打开」。没问过就弹系统的授权框，拒绝过就打开系统的通知设置。
 
-安卓 App 配对完会主动问要不要发通知，点允许。
+第一次连上二狗时，App 会先问要不要发通知，这个框盖在配对页上面。点允许，再接着配对。
 
 **要知道的：**
 

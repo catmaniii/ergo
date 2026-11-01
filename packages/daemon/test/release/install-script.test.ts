@@ -174,7 +174,8 @@ describe.runIf(process.platform === "win32")("install.ps1 整个装一遍（本�
   it("-File：验签、解开到 versions\\<版本>、current 联接、bin、install.json；签名不对的、Node 版本没测过的不装", async () => {
     const fake = await startFakeDownloads();
     const key = releaseKey();
-    for (const [name, body] of fakeRelease("0.3.0", key.secret).files) fake.put(name, body);
+    // 真的发布里清单还列着两个手机安装包（376 号票）：安装脚本不下它们，下面 downloads 那条核对只有三个文件
+    for (const [name, body] of fakeRelease("0.3.0", key.secret, undefined, ["ergo-android-debug.apk", "ergo-harmony-unsigned.hap"]).files) fake.put(name, body);
     const dir = tmp();
     const root = path.join(dir, "inst");
     const base = `${fake.url}/m1`;

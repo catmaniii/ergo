@@ -21,6 +21,7 @@ import {
   parseBuildArgs,
   SIGNING_FILE_EXTENSIONS,
   signingMaterialIn,
+  webviewDebugIn,
 } from "../scripts/harmony.ts";
 
 const REPO = fileURLToPath(new URL("../../", import.meta.url));
@@ -138,6 +139,18 @@ describe("构建参数", () => {
 
   test("不认识的参数（比如拼错了）报错，不悄悄当成没开", () => {
     expect(parseBuildArgs(["--webview-debgu"])).toEqual({ error: expect.stringContaining("--webview-debgu") });
+  });
+
+  test("从 hvigor 生成的 BuildProfile 认出这次开没开 WebView 调试（发布时据此拒收调试包）", () => {
+    const generated = (value: string) => `export const DEBUG = true;
+export const WEBVIEW_DEBUG = ${value};
+export default class BuildProfile {
+	static readonly WEBVIEW_DEBUG = WEBVIEW_DEBUG;
+}
+`;
+    expect(webviewDebugIn(generated("false"))).toBe(false);
+    expect(webviewDebugIn(generated("true"))).toBe(true);
+    expect(webviewDebugIn("export const DEBUG = true;")).toBeUndefined();
   });
 });
 

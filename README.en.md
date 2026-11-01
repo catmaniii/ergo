@@ -49,6 +49,11 @@ Then open <http://127.0.0.1:8810/> and follow the setup wizard; from now on ergo
 
 Install options, source installs, updating, rolling back and uninstalling are in [Install, update and uninstall](docs/user-guide/install.en.md).
 
+On your phone: open ergo in the phone's browser, or install the phone app (the built-in browser is only in the app). The apps aren't in any app store:
+
+- **Android**: [download ergo-android-debug.apk](https://github.com/catmaniii/ergo/releases/latest/download/ergo-android-debug.apk) and tap it on your phone to install. See the [Android guide](docs/user-guide/mobile.md#安卓-app) (in Chinese).
+- **HarmonyOS**: you have to sign it with your own Huawei account before it installs on a phone, so this one is for developers who don't mind some setup. [Download the unsigned ergo-harmony-unsigned.hap](https://github.com/catmaniii/ergo/releases/latest/download/ergo-harmony-unsigned.hap), which installs directly only on the emulator. See the [HarmonyOS guide](docs/user-guide/mobile.md#鸿蒙-app) (in Chinese).
+
 ## One at a time
 
 ### 1. One secretary
@@ -146,7 +151,7 @@ Open a page and tap a text box or a photo upload area; a small ergo button appea
 
 Web pages used to make you click through everything. Now you just say what you want, and your memory and local data are right there. Web apps built with ergo work the same way when opened in this browser.
 
-This is only in the phone app, which you currently build yourself: see [HarmonyOS](docs/user-guide/mobile.md#鸿蒙-app) and [Android](docs/user-guide/mobile.md#安卓-app) (in Chinese).
+This is only in the phone app. On Android, [download the APK](https://github.com/catmaniii/ergo/releases/latest/download/ergo-android-debug.apk) and install it ([guide](docs/user-guide/mobile.md#安卓-app), in Chinese). On HarmonyOS you sign it with your own Huawei account: [download the unsigned HAP](https://github.com/catmaniii/ergo/releases/latest/download/ergo-harmony-unsigned.hap) ([guide](docs/user-guide/mobile.md#鸿蒙-app), in Chinese).
 
 ### The rest is there too
 
@@ -182,6 +187,7 @@ Large models still live elsewhere today, so we're handing back everything except
 ## Documentation
 
 - **To use ergo:** see the [user guide](docs/user-guide/README.md). What ergo is, how to install it and how to use each feature.
+- **Phone apps:** [Android APK](https://github.com/catmaniii/ergo/releases/latest/download/ergo-android-debug.apk) ([guide](docs/user-guide/mobile.md#安卓-app), in Chinese), [HarmonyOS HAP](https://github.com/catmaniii/ergo/releases/latest/download/ergo-harmony-unsigned.hap) (you sign it yourself; [guide](docs/user-guide/mobile.md#鸿蒙-app), in Chinese).
 - **To see how it's built:** see [System architecture](docs/architecture/README.en.md). Architecture, the memory system, deployment and decision records.
 
 For developers: [Development](docs/architecture/development.en.md), the [plugin guide](docs/architecture/plugin-development.md) (in Chinese), [CHANGELOG.md](CHANGELOG.md), [SECURITY.md](SECURITY.md).

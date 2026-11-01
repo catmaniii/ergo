@@ -32,10 +32,10 @@ export function fakeVersionZip(version: string, extra: Record<string, string | B
   }
 }
 
-/** 一版发布的几个文件（key 不给就不签） */
-export function fakeRelease(version: string, key: MinisignSecretKey | undefined, zip: Buffer = fakeVersionZip(version)): FakeReleaseFiles {
+/** 一版发布的几个文件（key 不给就不签）。alongside：清单里多写的文件，比如真的发布里跟着的手机安装包（只进清单，取发布包的人不下它们） */
+export function fakeRelease(version: string, key: MinisignSecretKey | undefined, zip: Buffer = fakeVersionZip(version), alongside: readonly string[] = []): FakeReleaseFiles {
   const zipName = `ergo-${version}-win-x64.zip`;
-  const sums = Buffer.from(formatSums([[zipName, sha256(zip)]]));
+  const sums = Buffer.from(formatSums([[zipName, sha256(zip)] as [string, string], ...alongside.map((name): [string, string] => [name, sha256(Buffer.from(name))])]));
   const index: ReleaseIndex = { format: 1, version, node: "22.23.4", nodeTested: ["22.23.4"], files: { zip: zipName, sums: "SHA256SUMS", signature: "SHA256SUMS.minisig" }, zipSize: zip.length };
   const files = new Map<string, Buffer>([
     ["latest.json", Buffer.from(JSON.stringify(index))],

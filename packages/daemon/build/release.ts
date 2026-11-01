@@ -7,7 +7,8 @@
 //      同一份清单和签名也放到发布目录（components-manifest.json，347 号票：已经装了的二狗查更新取的就是它）；
 //   6. 打成 ergo-<版本>-win-x64.zip，写 SHA256SUMS（给了钥匙再签 SHA256SUMS.minisig）、latest.json；
 //   7. 带上填好公钥的 install.ps1、npm 的两个包（ergo-ai：给有 Node 的人 npm i -g；ergo-ai-win32-x64：装着发布包，npmmirror 会同步，国内快）、
-//      winget / Scoop 清单草稿（不提交）。
+//      winget / Scoop 清单草稿（不提交）；
+//   8. 手机安装包（mobile.ts）：最先收，收到的写进第 6 步的 SHA256SUMS。没工具链的机器跳过，只打 Windows 包。
 // 真发到 npm、GitHub 之前要问用户（318 号票）；这里只打包，不发。
 import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -18,6 +19,7 @@ import { formatSums, type ReleaseIndex } from "../src/release/fetch.ts";
 import { formatPublicKey, type MinisignSecretKey, parseSecretKey, sign } from "../src/release/minisign.ts";
 import { ZipWriter } from "../src/release/zip.ts";
 import { compileLauncher, probeLauncher } from "./launcher.ts";
+import { collectMobilePackages, type MobilePackage, type MobileResult } from "./mobile.ts";
 import { buildScratch, obtainNode, TESTED_NODE_VERSIONS } from "./node-dist.ts";
 import { stageVersion } from "./stage.ts";
 
@@ -45,6 +47,10 @@ export interface ReleaseOptions {
   noLauncher?: boolean;
   /** 不打 npm 包 */
   noNpm?: boolean;
+  /** 手机安装包先构建；不给就只收现成的产物 */
+  buildMobile?: boolean;
+  /** 不带手机安装包 */
+  noMobile?: boolean;
   log?: (line: string) => void;
 }
 
@@ -58,6 +64,7 @@ export interface ReleaseResult {
   launcher: "exe" | "cmd";
   launcherNote?: string;
   npm?: { app: string; platform: string };
+  mobile: MobileResult;
 }
 
 export function commitOf(repo: string, env: NodeJS.ProcessEnv = process.env): string | undefined {
@@ -103,6 +110,19 @@ export function installScriptWithKey(publicKeyText: string | undefined): string 
   const next = script.replace(/^\$ReleasePublicKey = ''\r?$/m, () => `$ReleasePublicKey = '${line}'`);
   if (next === script) throw new Error("install.ps1 里没找到 $ReleasePublicKey = '' 那一行");
   return next;
+}
+
+/** 写校验值清单：Windows 包在前，手机包跟在后面；给了钥匙再签。回签名文件的路径 */
+export function writeSums(out: string, zip: { name: string; sha256: string }, mobile: readonly MobilePackage[], secret: MinisignSecretKey | undefined, version: string): { sums: string; signature?: string } {
+  const sums = path.join(out, "SHA256SUMS");
+  fs.writeFileSync(sums, formatSums([[zip.name, zip.sha256] as [string, string], ...mobile.map((p): [string, string] => [p.name, p.sha256])]));
+  if (!secret) {
+    fs.rmSync(`${sums}.minisig`, { force: true });
+    return { sums };
+  }
+  const signature = `${sums}.minisig`;
+  fs.writeFileSync(signature, sign(fs.readFileSync(sums), secret, { fileName: "SHA256SUMS", trustedComment: `ergo ${version} SHA256SUMS` }));
+  return { sums, signature };
 }
 
 /** npm 上给有 Node 的人的那个包（ergo-ai）：程序（不带 node_modules，依赖交给 npm 装）+ bin/ergo.mjs，没有 postinstall */
@@ -200,6 +220,8 @@ export async function buildRelease(options: ReleaseOptions): Promise<ReleaseResu
   const scratch = buildScratch("release");
   try {
     if (!options.skipWeb) buildWeb(repo, log);
+    // 最先收：构建失败时不用等后面打完包才知道
+    const mobile = await collectMobilePackages({ repo, out, ...(options.buildMobile ? { build: true } : {}), ...(options.noMobile ? { none: true } : {}), log });
     const node = await obtainNode({ ...(options.node ? { from: options.node } : {}), ...(options.nodeVersion ? { version: options.nodeVersion } : {}), ...(options.nodeDist ? { dist: options.nodeDist } : {}), scratch, log });
     log(`带的 Node：${node.version}（${node.exe}）`);
 
@@ -247,13 +269,7 @@ export async function buildRelease(options: ReleaseOptions): Promise<ReleaseResu
     const zipSha = await sha256File(zip);
     const zipSize = fs.statSync(zip).size;
     log(`  ${count} 个文件，${(zipSize / 1e6).toFixed(0)} MB，sha256 ${zipSha}`);
-    const sumsFile = path.join(out, "SHA256SUMS");
-    fs.writeFileSync(sumsFile, formatSums([[path.basename(zip), zipSha]]));
-    let signature: string | undefined;
-    if (secret) {
-      signature = path.join(out, "SHA256SUMS.minisig");
-      fs.writeFileSync(signature, sign(fs.readFileSync(sumsFile), secret, { fileName: "SHA256SUMS", trustedComment: `ergo ${version} SHA256SUMS` }));
-    }
+    const { sums: sumsFile, signature } = writeSums(out, { name: path.basename(zip), sha256: zipSha }, mobile.packages, secret, version);
     const index: ReleaseIndex = {
       format: 1,
       version,
@@ -276,7 +292,7 @@ export async function buildRelease(options: ReleaseOptions): Promise<ReleaseResu
       npm = { app, platform };
     }
     renderPackaging(path.join(out, "packaging"), { version, sha256: zipSha, url: `https://github.com/catmaniii/ergo/releases/download/v${version}/${path.basename(zip)}` });
-    return { version, zip, sums: sumsFile, ...(signature ? { signature } : {}), index, stage, launcher: launcherExe ? "exe" : "cmd", ...(launcherNote ? { launcherNote } : {}), ...(npm ? { npm } : {}) };
+    return { version, zip, sums: sumsFile, ...(signature ? { signature } : {}), index, stage, launcher: launcherExe ? "exe" : "cmd", ...(launcherNote ? { launcherNote } : {}), ...(npm ? { npm } : {}), mobile };
   } finally {
     fs.rmSync(scratch, { recursive: true, force: true });
   }

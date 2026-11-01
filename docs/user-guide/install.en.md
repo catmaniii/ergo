@@ -37,8 +37,8 @@ You don't need to install Node first: the one-line install brings its own.
 | Chrome or Edge | Agents can search the web and read pages | [Settings](settings.md#浏览与填框) (in Chinese) |
 | Tailscale, or a VPS | Use ergo from your phone or tablet away from home | [On your phone](mobile.md) (in Chinese) |
 | Claude Code, signed in on this PC | Project and task owners can work through your own Claude Code subscription | [Claude Code](claude-code.md) (in Chinese) |
-| DevEco Studio and a HarmonyOS phone | The native HarmonyOS app | [On your phone](mobile.md#鸿蒙-app) (in Chinese) |
-| Android Studio and an Android phone | The native Android app | [On your phone](mobile.md#安卓-app) (in Chinese) |
+| An Android phone | The native Android app: [download](https://github.com/catmaniii/ergo/releases/latest/download/ergo-android-debug.apk) and install it | [On your phone](mobile.md#安卓-app) (in Chinese) |
+| A HarmonyOS phone, DevEco Studio and a Huawei account | The native HarmonyOS app, signed with your own account. The [unsigned package](https://github.com/catmaniii/ergo/releases/latest/download/ergo-harmony-unsigned.hap) installs directly only on the emulator | [On your phone](mobile.md#鸿蒙-app) (in Chinese) |
 
 ## One-line install (recommended)
 
@@ -316,7 +316,7 @@ A supervisor started by the autostart task keeps running the old version's progr
 
 For a new phone: on your computer, open **More · Settings · Device pairing**, choose "Show pairing code", and tap "Scan to connect" in the Ergo app on your phone (if it can't connect, the app says why).
 
-Open pages (including a HarmonyOS app left open) offer to refresh within seconds, and refreshing gets you the new version. The app itself usually doesn't need reinstalling; its native parts and the script for giving commands on web pages are packaged with the app, so it only needs rebuilding when those change, and the CHANGELOG says so.
+Open pages (including a HarmonyOS app left open) offer to refresh within seconds, and refreshing gets you the new version. The app itself usually doesn't need reinstalling; its native parts and the script for giving commands on web pages are packaged with the app, so it only needs reinstalling when those change, and the CHANGELOG says so. On Android, download the new APK and install it over the old one; on HarmonyOS, build or sign it again and reinstall. See [Install the app](mobile.md#装-app) (in Chinese).
 
 ### When an update goes wrong
 

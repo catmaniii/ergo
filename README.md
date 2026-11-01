@@ -49,6 +49,11 @@ irm https://github.com/catmaniii/ergo/releases/latest/download/install.ps1 | iex
 
 安装选项、从源码装、升级、回滚和卸载见[安装、升级和卸载](docs/user-guide/install.md)。
 
+手机上用：手机浏览器打开就行，或者装手机 App（内置浏览器只有 App 里有）。App 不在应用市场：
+
+- **安卓**：[下载 ergo-android-debug.apk](https://github.com/catmaniii/ergo/releases/latest/download/ergo-android-debug.apk)，手机上点开就能装。见[安卓 App 教程](docs/user-guide/mobile.md#安卓-app)。
+- **鸿蒙**：要用你自己的华为账号签名才能装到手机上，适合愿意折腾的开发者。[下载没签名的 ergo-harmony-unsigned.hap](https://github.com/catmaniii/ergo/releases/latest/download/ergo-harmony-unsigned.hap)，模拟器能直接装。见[鸿蒙 App 教程](docs/user-guide/mobile.md#鸿蒙-app)。
+
 ## 一件一件讲
 
 ### 1. 一个秘书
@@ -146,7 +151,7 @@ irm https://github.com/catmaniii/ergo/releases/latest/download/install.ps1 | iex
 
 网页原来要你一个个去点，现在你只要说你想要什么；你的记忆和本地数据，都能直接用上。用二狗开发的 web 应用，在这个浏览器里打开也一样能用。
 
-这个功能只在手机 App 里有。App 现在要自己构建，见[鸿蒙](docs/user-guide/mobile.md#鸿蒙-app)和[安卓](docs/user-guide/mobile.md#安卓-app)。
+这个功能只在手机 App 里有。安卓[下载 APK](https://github.com/catmaniii/ergo/releases/latest/download/ergo-android-debug.apk) 就能装，[教程](docs/user-guide/mobile.md#安卓-app)；鸿蒙要用你自己的华为账号签名，[下载没签名的 HAP](https://github.com/catmaniii/ergo/releases/latest/download/ergo-harmony-unsigned.hap)，[教程](docs/user-guide/mobile.md#鸿蒙-app)。
 
 ### 其他的也都齐了
 
@@ -182,6 +187,7 @@ irm https://github.com/catmaniii/ergo/releases/latest/download/install.ps1 | iex
 ## 文档
 
 - **想用二狗：** 看[用户指南](docs/user-guide/README.md)。二狗是什么、怎么装、每个功能怎么用，都在这里。
+- **手机 App：** [安卓 APK](https://github.com/catmaniii/ergo/releases/latest/download/ergo-android-debug.apk)（[教程](docs/user-guide/mobile.md#安卓-app)），[鸿蒙 HAP](https://github.com/catmaniii/ergo/releases/latest/download/ergo-harmony-unsigned.hap)（要自己签名，[教程](docs/user-guide/mobile.md#鸿蒙-app)）。
 - **想知道它怎么做的：** 看[系统架构](docs/architecture/README.md)。架构、记忆系统、部署和设计记录，都在这里。
 
 给开发者：[开发](docs/architecture/development.md)、[插件开发手册](docs/architecture/plugin-development.md)、[CHANGELOG.md](CHANGELOG.md)、[SECURITY.md](SECURITY.md)。

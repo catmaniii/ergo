@@ -112,6 +112,12 @@ export function hapOutputs(harmonyDir: string): { signed: string; unsigned: stri
   return { signed: path.join(dir, "entry-default-signed.hap"), unsigned: path.join(dir, "entry-default-unsigned.hap") };
 }
 
+/** hvigor 生成的 BuildProfile.ets 里，这次构建开没开 WebView 调试；看不出来回 undefined */
+export function webviewDebugIn(buildProfile: string): boolean | undefined {
+  const value = /\bWEBVIEW_DEBUG\b[^=\n]*=\s*(true|false)\b/.exec(buildProfile)?.[1];
+  return value === undefined ? undefined : value === "true";
+}
+
 /** App 原生的字（175 号票）：自带语言的 harmony.json 收成一份，打包进 rawfile（App 的 common/AppTexts.ets 读它） */
 export const HARMONY_TEXTS_FILE = "harmony-texts.json";
 

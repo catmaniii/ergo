@@ -12,6 +12,10 @@ val webviewDebug = providers.gradleProperty("webviewDebug").orNull == "true"
 val signingFile = rootProject.file("keystore.properties")
 val signing = Properties().apply { if (signingFile.exists()) signingFile.inputStream().use { load(it) } }
 
+// 发布用的调试钥匙：npm run build:android 找到了就经 ergoDebugKeystore 传进来，每个版本都是这一把，用户才能覆盖安装；没传就是默认的调试签名。
+// 开了 WebView 调试的包绝不用它签：这样凡是这把钥匙签的包，都关着 WebView 调试
+val releaseDebugKeystore = providers.gradleProperty("ergoDebugKeystore").orNull?.takeUnless { webviewDebug }?.let { file(it) }
+
 android {
     namespace = "com.catmaniii.ergo"
     compileSdk = 36
@@ -29,13 +33,22 @@ android {
         buildConfig = true
     }
 
-    if (signingFile.exists()) {
-        signingConfigs {
+    signingConfigs {
+        if (signingFile.exists()) {
             create("release") {
                 storeFile = rootProject.file(signing.getProperty("storeFile"))
                 storePassword = signing.getProperty("storePassword")
                 keyAlias = signing.getProperty("keyAlias")
                 keyPassword = signing.getProperty("keyPassword")
+            }
+        }
+        // 这把钥匙照调试钥匙的惯例：口令 android，别名 androiddebugkey。保护它靠文件本身不外传
+        if (releaseDebugKeystore != null) {
+            getByName("debug") {
+                storeFile = releaseDebugKeystore
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
             }
         }
     }

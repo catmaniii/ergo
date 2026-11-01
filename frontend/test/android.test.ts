@@ -6,7 +6,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
-import { apkOutputs, findAndroidTools, gradleArgs, parseAndroidArgs } from "../scripts/android.ts";
+import { apkCertFrom, apkOutputs, DEBUG_KEYSTORE_ENV, findAndroidTools, findDebugKeystore, gradleArgs, parseAndroidArgs } from "../scripts/android.ts";
 import { harmonyTexts, LOCALES_DIR } from "../scripts/harmony.ts";
 
 const REPO = fileURLToPath(new URL("../../", import.meta.url));
@@ -254,6 +254,31 @@ describe("构建辅助", () => {
   test("APK 在哪：调试版一个，release 有签名和没签名两种", () => {
     expect(apkOutputs("/a", { release: false })[0]).toContain("app-debug.apk");
     expect(apkOutputs("/a", { release: true }).map((p) => path.basename(p))).toEqual(["app-release.apk", "app-release-unsigned.apk"]);
+  });
+
+  test("发布用的调试钥匙：默认在用户目录下；环境变量优先，指错了报错；没有就是默认签名，不算错", () => {
+    const home = path.join("C:", "Users", "someone");
+    const file = path.join(home, ".ergo-release", "ergo-android-debug.keystore");
+    expect(findDebugKeystore({}, home, exists(file))).toBe(file);
+    expect(findDebugKeystore({}, home, exists())).toBeUndefined();
+    expect(findDebugKeystore({ [DEBUG_KEYSTORE_ENV]: "D:\\keys\\a.keystore" }, home, exists("D:\\keys\\a.keystore", file))).toBe("D:\\keys\\a.keystore");
+    expect(findDebugKeystore({ [DEBUG_KEYSTORE_ENV]: "D:\\nowhere" }, home, exists(file))).toEqual({ error: expect.stringContaining("D:\\nowhere") });
+  });
+
+  test("钥匙文件 git 不收，工程里不写它的路径；开了 WebView 调试的包绝不用它签", () => {
+    const gradle = read(path.join(REPO, "frontend/android/app/build.gradle.kts"));
+    expect(gradle).toMatch(/gradleProperty\("ergoDebugKeystore"\)\.orNull\?\.takeUnless \{ webviewDebug \}/);
+    expect(gradle).not.toMatch(/\.ergo-release/);
+    const ignored = spawnSync("git", ["check-ignore", "-q", "frontend/android/ergo-android-debug.keystore"], { cwd: REPO });
+    expect(ignored.status).toBe(0);
+  });
+
+  test("认 apksigner 的输出：一个签名者才算数", () => {
+    const line = (n: number, hex: string) => `Signer #${n} certificate DN: CN=x\nSigner #${n} certificate SHA-256 digest: ${hex}\nSigner #${n} certificate SHA-1 digest: abc\n`;
+    const a = "A".repeat(64);
+    expect(apkCertFrom(line(1, a))).toBe("a".repeat(64));
+    expect(apkCertFrom(`${line(1, a)}${line(2, "b".repeat(64))}`)).toBeUndefined();
+    expect(apkCertFrom("nothing here")).toBeUndefined();
   });
 });
 

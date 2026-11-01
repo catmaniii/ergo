@@ -74,6 +74,7 @@ From the repository root:
 | Open the real page after deploying | `npm run smoke:page` (headless Chrome on `http://127.0.0.1:8810/`; `-- <url>` for another address) |
 | Build the HarmonyOS app | `npm run build:harmony` ([Phone apps](#phone-apps)) |
 | Build the Android app | `npm run build:android` ([Android app](#android-app)) |
+| Build a release | `npm run release` (`--build-mobile` also builds the phone packages; see [Publishing the phone packages](#publishing-the-phone-packages)) |
 | Download the embedding model | `npm run download-model` |
 | Back up now | `npm run backup` (installed builds have no `npm run`: `ergo backup`) |
 | Restore from a snapshot | `node packages/daemon/src/restore.ts <date>` (installed builds: `ergo restore <date>`; stop the daemon first either way) |
@@ -100,7 +101,7 @@ npm run build:harmony -- --webview-debug    # WebView debugging on (install this
 
 ### Signing (once)
 
-Signing material (certificates, profiles, keystore, encrypted passwords) stays local and never enters the repository: run `npm run build:harmony` once to generate the local `frontend/harmony/build-profile.json5` (ignored) → enable developer mode and USB debugging on the phone and connect it → open `frontend/harmony` in DevEco, File → Project Structure → Project → Signing Configs, sign in with a Huawei account, tick Automatically generate signature → build again. The repository holds only an unsigned template `build-profile.template.json5`; `frontend/test/harmony.test.ts` checks that no signing material is committed.
+Signing material (certificates, profiles, keystore, encrypted passwords) stays local and never enters the repository: run `npm run build:harmony` once to generate the local `frontend/harmony/build-profile.json5` (ignored) → enable developer mode and USB debugging on the phone and connect it → open `frontend/harmony` in DevEco, File → Project Structure → Project → Signing Configs, sign in with a Huawei account, tick only Automatically generate signature (not Associate with registered application) → build again. The full walkthrough, manual signing and common errors are in [On your phone](../user-guide/mobile.md#鸿蒙-app) (in Chinese). The repository holds only an unsigned template `build-profile.template.json5`; `frontend/test/harmony.test.ts` checks that no signing material is committed.
 
 ### Install, launch, debug
 
@@ -149,6 +150,22 @@ To debug pages in the WebView, install the `--webview-debug` build and use Chrom
 **Native recording** uses `AudioRecord`: created without capturing when voice mode starts, `startRecording` on press, `stop` on release, `release` when the app goes to the background or leaves voice mode. The format matches HarmonyOS (16 kHz, mono, 16-bit PCM) and the web side is unchanged. The source is `MIC`.
 
 **System notifications** are local ones with no FCM and no foreground service: they only go out while the process is alive, and nothing arrives after the system kills it. The other rules match HarmonyOS: ask for permission the first time, don't post while in the foreground, one notification per item, and tapping returns to the matching page.
+
+### Publishing the phone packages
+
+`npm run release` also puts two phone packages in the release directory and lists them in `SHA256SUMS`, signed along with the Windows package: `ergo-android-debug.apk` and `ergo-harmony-unsigned.hap`. The file names carry no version, so `releases/latest/download/<name>` keeps working. `latest.json` doesn't mention them; `ergo update` and the install script only look at the Windows package.
+
+| Command | What it does |
+|---|---|
+| `npm run release` | Collects existing build outputs |
+| `npm run release -- --build-mobile` | Builds first, then collects. **Use this for a real release**: existing outputs may be from older code |
+| `npm run release -- --no-mobile` | Leaves the phone packages out |
+
+With no toolchain, no output or an unacceptable output, only that package is skipped, with the reason printed, and the Windows package is still built; a failed build with the toolchain present is an error. Unacceptable means an APK whose certificate isn't the release one (`RELEASE_CERT_SHA256` in `frontend/scripts/android.ts`), or a HAP built with `--webview-debug`. A skipped package means its download link in the guides returns 404 for that version, so check the last lines of the output before publishing.
+
+**The release debug key:** every Android package is signed with the same key, which is what lets users keep installing over the old version. It lives in `~/.ergo-release/ergo-android-debug.keystore` by default, or wherever the environment variable `ERGO_ANDROID_DEBUG_KEYSTORE` points, and never enters the repository. `npm run build:android` signs with it when it finds it and otherwise uses this machine's default debug signature, so anyone else's build is unaffected. Builds with `--webview-debug` are never signed with it, so every package carrying this key has WebView debugging off.
+
+**Back this key up.** If it's lost or replaced, every user has to uninstall, reinstall and pair again. Anyone holding it can make a fake package that installs over the real one, so don't share it. Following the debug key convention its password is `android`; what protects it is keeping the file private.
 
 ## Coding conventions
 

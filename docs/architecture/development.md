@@ -74,6 +74,7 @@ Agent SDK（`@anthropic-ai/claude-agent-sdk`）是 Anthropic 自己的许可，�
 | 部署后打开真的页面看一眼 | `npm run smoke:page`（无头 Chrome 打开 `http://127.0.0.1:8810/`，`-- <地址>` 换地址） |
 | 构建鸿蒙 App | `npm run build:harmony`（[手机 App](#手机-app)） |
 | 构建安卓 App | `npm run build:android`（[安卓 App](#安卓-app)） |
+| 打发布包 | `npm run release`（`--build-mobile` 连手机安装包一起构建，[发布手机安装包](#发布手机安装包)） |
 | 下载向量模型 | `npm run download-model` |
 | 马上备份一次 | `npm run backup`（装好的程序里没有 `npm run`，是 `ergo backup`） |
 | 从快照恢复 | `node packages/daemon/src/restore.ts <日期>`（装好的程序里是 `ergo restore <日期>`，都要先停守护进程） |
@@ -100,7 +101,7 @@ npm run build:harmony -- --webview-debug    # 打开 WebView 调试（只在调�
 
 ### 签名（只做一次）
 
-签名材料（证书、描述文件、密钥库、加密的口令）只放在本机，不进仓库：先跑一次 `npm run build:harmony` 生成本机的 `frontend/harmony/build-profile.json5`（被忽略）→ 手机打开开发者模式和 USB 调试并连上 → DevEco 打开 `frontend/harmony`，File → Project Structure → Project → Signing Configs，登录华为账号，勾上 Automatically generate signature → 再构建。仓库里只有不含签名的模板 `build-profile.template.json5`；`frontend/test/harmony.test.ts` 检查仓库里没有签名材料。
+签名材料（证书、描述文件、密钥库、加密的口令）只放在本机，不进仓库：先跑一次 `npm run build:harmony` 生成本机的 `frontend/harmony/build-profile.json5`（被忽略）→ 手机打开开发者模式和 USB 调试并连上 → DevEco 打开 `frontend/harmony`，File → Project Structure → Project → Signing Configs，登录华为账号，只勾 Automatically generate signature（不勾 Associate with registered application）→ 再构建。给普通开发者的完整步骤、手动签名和常见报错见[手机上用](../user-guide/mobile.md#鸿蒙-app)。仓库里只有不含签名的模板 `build-profile.template.json5`；`frontend/test/harmony.test.ts` 检查仓库里没有签名材料。
 
 ### 安装、启动、调试
 
@@ -149,6 +150,22 @@ adb -s <设备号> logcat -s ErgoApp                  # App 和网页的日志
 **原生录音**用 `AudioRecord`：进语音模式时建好、不采集，按下才 `startRecording`，松手 `stop`；切到后台、离开语音模式时 `release`。格式和鸿蒙一样（16 kHz、单声道、16 位 PCM），网页一侧不变。音源用 `MIC`。
 
 **系统通知**是本地通知，不接 FCM，没有前台服务：进程活着才发得出，被系统杀掉后收不到。其余规矩和鸿蒙一样：第一次问授权，前台不发，同一件事只出一条，点了回到对应的页面。
+
+### 发布手机安装包
+
+`npm run release` 顺带把两个手机安装包放进发布目录、写进 `SHA256SUMS`，和 Windows 包一起被签：`ergo-android-debug.apk`、`ergo-harmony-unsigned.hap`。文件名不带版本号，这样 `releases/latest/download/<文件名>` 一直有效。`latest.json` 不提它们，`ergo update` 和安装脚本只认 Windows 包。
+
+| 命令 | 做什么 |
+|---|---|
+| `npm run release` | 收现成的产物 |
+| `npm run release -- --build-mobile` | 先构建再收。**正式发版用这个**，现成的产物可能是旧代码 |
+| `npm run release -- --no-mobile` | 不带手机包 |
+
+没工具链、没产物、产物不合格时，只跳过那一个，写明原因，Windows 包照打；工具链齐了却构建失败算出错。不合格指：APK 的证书不是发布用的那把（`frontend/scripts/android.ts` 的 `RELEASE_CERT_SHA256`），HAP 带了 `--webview-debug`。这次跳过了的包，教程里的下载地址在这个版本上会 404，发版前看一眼最后几行。
+
+**发布用的调试钥匙：** 安卓包都用同一把钥匙签，用户才能一直覆盖安装。默认放在 `~/.ergo-release/ergo-android-debug.keystore`，也可以用环境变量 `ERGO_ANDROID_DEBUG_KEYSTORE` 指定，不进仓库。`npm run build:android` 找到它就用它签，找不到就用这台机器默认的调试签名，所以外人自己构建不受影响。带 `--webview-debug` 的包绝不用它签，这样凡是这把钥匙签的包都关着 WebView 调试。
+
+**这把钥匙要备份。** 丢了或者换了，所有用户都要卸载重装、重新配对。别人拿到它能做出覆盖安装的假包，所以不要外传。口令按调试钥匙的惯例是 `android`，保护它靠文件本身。
 
 ## 写代码的约定
 

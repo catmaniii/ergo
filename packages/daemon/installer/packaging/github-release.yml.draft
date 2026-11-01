@@ -1,6 +1,8 @@
 # GitHub Actions release workflow draft (ticket 318). Not active: it lives here, not in .github/workflows.
 # Move it to .github/workflows/release.yml once the user decides how the release key is stored and whether to run Actions (316 / 317).
 # The release zip, SHA256SUMS(.minisig), latest.json, install.ps1 and components-manifest.json(.minisig) attached to the GitHub release come from exactly this build.
+# The phone packages (ergo-android-debug.apk, ergo-harmony-unsigned.hap) are NOT built here: they need the release debug keystore and DevEco Studio, which this runner doesn't have, so this build skips them and leaves them out of SHA256SUMS.
+# Until that's solved, a release with phone packages has to be built on a machine that has both: npm run release -- --build-mobile, then attach those two files with the rest.
 name: release
 on:
   push:

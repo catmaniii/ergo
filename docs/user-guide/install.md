@@ -37,8 +37,8 @@
 | Chrome 或 Edge | agent 联网搜索、读网页 | [浏览与填框](settings.md#浏览与填框) |
 | Tailscale，或一台 VPS | 手机、平板从外面访问 | [手机上用](mobile.md) |
 | 本机登录好的 Claude Code | 让项目、任务的负责人用你自己的 Claude Code 订阅干活 | [Claude Code](claude-code.md) |
-| DevEco Studio 和一台鸿蒙手机 | 鸿蒙原生 App | [手机上用](mobile.md#鸿蒙-app) |
-| Android Studio 和一台安卓手机 | 安卓原生 App | [手机上用](mobile.md#安卓-app) |
+| 一台安卓手机 | 安卓原生 App，[下载](https://github.com/catmaniii/ergo/releases/latest/download/ergo-android-debug.apk)就能装 | [手机上用](mobile.md#安卓-app) |
+| 一台鸿蒙手机、DevEco Studio 和华为账号 | 鸿蒙原生 App，要用你自己的账号签名。[没签名的包](https://github.com/catmaniii/ergo/releases/latest/download/ergo-harmony-unsigned.hap)模拟器能直接装 | [手机上用](mobile.md#鸿蒙-app) |
 
 ## 一行命令安装（推荐）
 
@@ -316,7 +316,7 @@ ergo version          # 看现在跑的是哪一版
 
 新装的手机：电脑上打开 **更多 · 设置 · 设备配对**，点"显示配对二维码"，用手机上的二狗 App 点"扫码连接"扫一下（连不上时 App 会说清原因）。
 
-开着的页面（包括手机上一直开着的鸿蒙 App）几秒内会提示刷新，刷新就是新版本。App 本身一般不用重装；App 里的原生部分和对网页下指令的那段脚本是随 App 打包的，这些变了才要重新打包，CHANGELOG 会写。
+开着的页面（包括手机上一直开着的鸿蒙 App）几秒内会提示刷新，刷新就是新版本。App 本身一般不用重装；App 里的原生部分和对网页下指令的那段脚本是随 App 打包的，这些变了才要重装，CHANGELOG 会写。安卓下载新的 APK 直接覆盖安装，鸿蒙重新构建或重新签名再装，见[装 App](mobile.md#装-app)。
 
 ### 升级出问题
 

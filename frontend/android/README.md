@@ -3,7 +3,7 @@
 Kotlin 原生壳加系统 WebView，加载用户配好的二狗地址，不把网页打包进 App（[ADR-0022](../../docs/architecture/adr/0022-harmony-app-native-shell-loads-daemon-page.md)）。和鸿蒙 App（`frontend/harmony/`）是同一个产品：原生画的部分照鸿蒙的 ArkTS 取值，取值集中在 `ui/ErgoTheme.kt`。
 
 - 包名 `com.catmaniii.ergo`，最低 API 26（安卓 8），目标 API 36。
-- 只侧载，不上应用商店。调试版用调试签名；正式签名材料只放本机，不进仓库。
+- 只侧载，不上应用商店。发布页上的 `ergo-android-debug.apk` 是调试版，用发布用的调试钥匙签（见下面）；正式签名材料只放本机，不进仓库。
 - 通知是本地通知，不接 FCM，没有前台服务。App 被系统杀掉后收不到，手册写明。
 - 第一版不做手机数据源（通讯录、日历、相册、位置）。网页发现 App 没有这组方法，只显示说明，不报错。
 
@@ -20,6 +20,12 @@ npm run build:android -- --release       # 正式版，要本机有 keystore.pro
 不带 `--webview-debug` 的包虽然是调试签名，但不可调试（`debuggable=false`）：Chrome 的 inspect 连不上，也不能 `run-as` 读私有数据。系统对可调试的 App 一律开着 WebView 调试，关不掉，所以两件事绑在一起。给人用的手机上装不带这个参数的包。
 
 产物：`app/build/outputs/apk/debug/app-debug.apk`；正式版是 `app/build/outputs/apk/release/app-release.apk`，本机没配签名时是 `app-release-unsigned.apk`。
+
+### 发布用的调试钥匙
+
+发布页上的 APK 每个版本都用同一把钥匙签，用户才能覆盖安装。`npm run build:android` 依次找环境变量 `ERGO_ANDROID_DEBUG_KEYSTORE` 指的文件、`~/.ergo-release/ergo-android-debug.keystore`，找到就经 Gradle 属性 `ergoDebugKeystore` 用它签，脚本第一行写明这次用的是哪把。找不到就用这台机器默认的调试签名，外人自己构建不受影响。带 `--webview-debug` 的包绝不用它签。
+
+`npm run release` 只收证书对得上 `scripts/android.ts` 里 `RELEASE_CERT_SHA256` 的 APK。这把钥匙要备份，丢了所有用户都要卸载重装。详见[开发文档](../../docs/architecture/development.md#发布手机安装包)。
 
 ### 正式签名
 
@@ -45,7 +51,7 @@ adb -s <串号> logcat -s ErgoApp               # App 和网页的日志
 
 第一次打开填二狗的外网地址（https），再按页面提示配对。App 是一台新设备，凭证留在 App 自己的 WebView 里。
 
-调试版和正式版签名不同，换着装要先卸载（凭证跟着没了，要重新配对）。
+调试版和正式版签名不同，下载的和自己构建的也不同（除非本机有发布用的调试钥匙）。换着装要先卸载（凭证跟着没了，要重新配对）。
 
 ## 代码
 

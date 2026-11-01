@@ -2,6 +2,7 @@
 //   build    [--skip-web]
 //   release  [--node <目录或zip>] [--node-version <版本>] [--node-dist <地址>] [--out <目录>] [--version <版本>]
 //            [--sign-key <私钥文件>]（口令放环境变量 ERGO_SIGN_PASSWORD）[--skip-web] [--no-launcher] [--no-npm]
+//            [--build-mobile]（手机安装包先构建；不给就只收现成的产物）[--no-mobile]（不带手机安装包）
 //   install  [--link] [--install-dir <目录>] [--no-switch] [--no-path] [--ref <标签或分支>] [--node-pointer]
 //   keygen   --out <目录> [--password]（口令放环境变量 ERGO_SIGN_PASSWORD）——生成一对 minisign 格式的发布钥匙（私钥别进仓库）
 import fs from "node:fs";
@@ -54,9 +55,13 @@ async function main(): Promise<number> {
         skipWeb: f.has("skip-web"),
         noLauncher: f.has("no-launcher"),
         noNpm: f.has("no-npm"),
+        buildMobile: f.has("build-mobile"),
+        noMobile: f.has("no-mobile"),
         log,
       });
       log(`发布包：${result.zip}`);
+      for (const p of result.mobile.packages) log(`手机安装包：${p.file}（${(p.size / 1e6).toFixed(1)} MB）`);
+      for (const s of result.mobile.skipped) log(`注意：这次没带 ${s.name}，教程里它的下载地址在这个版本上会 404。原因：${s.reason}`);
       log(`校验值：${result.sums}${result.signature ? `，签名：${result.signature}` : "（没签名：没给 --sign-key）"}`);
       log(`启动器：${result.launcher === "exe" ? "ergo.exe + ergo.cmd" : `只有 ergo.cmd（${result.launcherNote ?? "--no-launcher"}）`}`);
       return 0;
