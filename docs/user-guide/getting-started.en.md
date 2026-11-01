@@ -13,7 +13,7 @@ This chapter does four things: go through the setup wizard, fill in a model key,
 - **On this computer:** Run `ergo open`, or open <http://127.0.0.1:8810/> in a browser. Coming in through this address needs no pairing.
 - **On a phone:** You have to set up outside access and pair first. See [On your phone](mobile.en.md).
 
-It opens on the Secretary page. The first time, a bar at the top of the page says **Take two minutes to set up Ergo (model key, phone, safety defaults)**.
+It opens on the Secretary page. The first time, a bar at the top of the page says **Take two minutes to set up ergo (model key, phone, safety defaults)**.
 
 1. Click it to enter the setup wizard.
 2. If you don't want to do it now, click the × on its right. The bar won't appear again on this device.
@@ -36,7 +36,7 @@ The page says **0 of 5 steps done**. The row below it has the five steps, and th
 | A step in the row at the top | Goes back to look at that step. You can come back and change finished ones too |
 | **Later** at the top right | Back to the Secretary page. It remembers where you got to and picks up there next time |
 
-**Worth knowing:**
+**Good to know:**
 
 - Three steps tick themselves once their condition is met: **My name** filled in, a model key set up, a device paired.
 - The **Capabilities** and **Safety defaults** steps tick only after you've clicked through them.
@@ -45,20 +45,20 @@ The page says **0 of 5 steps done**. The row below it has the five steps, and th
 
 ## Step 1: Language, how to call you, assistant name
 
-**What this is:** Which language the interface uses, what ergo calls you, and what you call it.
+**What it is:** Which language the interface uses, what ergo calls you, and what you call it.
 
 **Step by step:**
 
 1. **Interface language:** This row shows the language in use. To change it, click **Settings · Language**. See [Language](settings.en.md#语言--language).
 2. **My name:** Type your name in the box, say "Alex", and click **Save**. 8 characters at most. ergo calls you this when it talks or reads to you. If you leave it empty, it just says "you".
-3. **Assistant name:** **二狗** by default, and the English interface shows it as is. To change it, click **Settings · Roles & voices**. The whole interface follows the change. See [Roles & voices](voice.en.md#roles--voices).
+3. **Assistant name:** **ergo** by default. To change it, click **Settings · Roles & voices**. The whole interface follows the change. See [Roles & voices](voice.en.md#roles--voices).
 4. Click **This is fine**.
 
-**Worth knowing:** Clicking **Settings · …** leaves the wizard. When you've made the change, come back to **Settings · Setup wizard** and carry on.
+**Good to know:** Clicking **Settings · …** leaves the wizard. When you've made the change, come back to **Settings · Setup wizard** and carry on.
 
 ## Step 2: Model key
 
-**What this is:** ergo relies on a large model to talk. The model service needs your own API key, and without one it can't reply. The default is DeepSeek.
+**What it is:** ergo relies on a large model to talk. The model service needs your own API key, and without one it can't reply. The default is DeepSeek.
 
 ![Model key: pick a provider, paste the key, save, then test](images/getting-started/02-model-key.png)
 
@@ -74,15 +74,15 @@ The page says **0 of 5 steps done**. The row below it has the five steps, and th
 
 **To use another company's model:** Pick **Custom (OpenAI-compatible)**, then fill in **Endpoint URL**, **Model id**, **API style** and the key. See [Models](settings.en.md#models). If you switch to custom, memory consolidation, web search and reading web pages still need a DeepSeek key; the page says so too.
 
-**Worth knowing:**
+**Good to know:**
 
 - The key is stored only in this computer's data folder. Agents can't read it, and the page never shows it again.
 - To see what you've spent, see [Usage](settings.en.md#usage).
-- If you skip this step, you can still use the other pages for now. Above the input box on the Secretary page it keeps saying **No model set up yet: 二狗 can't reply (no DeepSeek API key).** Click **Set it up** to fill it in.
+- If you skip this step, you can still use the other pages for now. Above the input box on the Secretary page it keeps saying **No model set up yet: ergo can't reply (no DeepSeek API key).** Click **Set it up** to fill it in.
 
 ## Step 3: Capabilities
 
-**What this is:** What you want ergo to be able to do. Plugins are feature switches; components are large downloads.
+**What it is:** What you want ergo to be able to do. Plugins are feature switches; components are large downloads.
 
 ![Capabilities: plugins and components, each saying what it does and how much it downloads](images/getting-started/03-capabilities.png)
 
@@ -112,11 +112,11 @@ Further down this page are two blocks:
 - **What's installed now:** Components with their versions, and plugins in one line.
 - **Start at boot:** A switch saying **On** or **Off**. When on, the service manager starts by itself after the computer boots and you log in, then starts ergo. When off, you run `ergo start` yourself. See [Starting at boot](settings.en.md#starting-at-boot).
 
-**Worth knowing:** If you don't want to download voice now, don't tick it. You can install it later by following the [Voice](voice.en.md#installing-the-voice-components) chapter.
+**Good to know:** If you don't want to download voice now, don't tick it. You can install it later by following the [Voice](voice.en.md#installing-the-voice-components) chapter.
 
 ## Step 4: Pair your phone
 
-**What this is:** Connects your phone to the ergo on this computer. This step shows the pairing QR code directly. If you're not using a phone, skip it for now; it doesn't affect using ergo on the computer.
+**What it is:** Connects your phone to the ergo on this computer. This step shows the pairing QR code directly. If you're not using a phone, skip it for now; it doesn't affect using ergo on the computer.
 
 ![Pair your phone: a large QR code, the address, waiting for the phone to scan](images/getting-started/04-phone-qr.png)
 
@@ -134,7 +134,7 @@ For how to pick an address, each pairing step and what to do if it won't connect
 
 ## Step 5: Safety defaults
 
-**What this is:** Two switches that decide how free a hand ergo has. Neither is ticked on a new install.
+**What it is:** Two switches that decide how free a hand ergo has. Neither is ticked on a new install.
 
 ![Safety defaults: two switches, neither ticked on a new install](images/getting-started/05-safety.png)
 
@@ -148,16 +148,16 @@ For how to pick an address, each pairing step and what to do if it won't connect
 1. Read the two items. If you want it more careful, tick them. Flipping one takes effect at once, with no need to save.
 2. Click **Read it**.
 
-**Worth knowing:** You can change these later at the top of **Settings · Rules · Watch categories**; it's the same pair of switches. See [Watch categories](settings.en.md#watch-categories).
+**Good to know:** You can change these later at the top of **Settings · Rules · Watch categories**; it's the same pair of switches. See [Watch categories](settings.en.md#watch-categories).
 
 ## Access from outside
 
-**What this is:** **→ Access from outside**, the last item in the row at the top, doesn't count as a step. This screen explains how a phone or tablet connects back to this computer from outside. There are three ways. It only explains them; it doesn't configure anything or connect it for you.
+**What it is:** **→ Access from outside**, the last item in the row at the top, doesn't count as a step. This screen explains how a phone or tablet connects back to this computer from outside. There are three ways. It only explains them; it doesn't configure anything or connect it for you.
 
 1. Click **→ Access from outside** to read it.
 2. When you're done, click **Back to the wizard**.
 
-For which of the three to pick, see [Getting your phone through to the computer](mobile.en.md#getting-your-phone-through-to-the-computer-which-way-to-use-outside-access). If you don't use a phone, you can skip it.
+For which of the three to pick, see [Letting your phone reach your computer](mobile.en.md#letting-your-phone-reach-your-computer-choosing-outside-access). If you don't use a phone, you can skip it.
 
 ## All done
 
@@ -165,12 +165,12 @@ Once all five steps are ticked, the wizard says **Setup is done — go use it**.
 
 ![Setup is done: back to ergo, or see outside access](images/getting-started/06-done.png)
 
-- Click **Back to 二狗** to return to the Secretary page.
+- Click **Back to ergo** to return to the Secretary page.
 - Click **Want to use it from outside? See Access from outside** to see the screen above.
 
 ## Your first sentence
 
-**What this is:** A test that everything's set up right. A reminder is ideal: one sentence does it, and you see the result straight away.
+**What it is:** A test that everything's set up right. A reminder is ideal: one sentence does it, and you see the result straight away.
 
 **Things you can just say:**
 
@@ -221,7 +221,7 @@ On a computer, a tablet or a phone in landscape, the navigation is a rail on the
 | 9 | Mic | Switches to hold to talk. See [Hold to talk](chat.en.md#hold-to-talk) |
 | 10 | **Send** | Enter also sends; Ctrl + Enter makes a new line |
 
-The title says **Secretary: 二狗**, where 二狗 is the name you gave it. The small text after it is **Main session**; once you've filled in **My name**, it says **Alex's main session**.
+The title says **Secretary: ergo**, where ergo is the name you gave it. The small text after it is **Main session**; once you've filled in **My name**, it says **Alex's main session**.
 
 Click any item in the session and a details pane slides out on the right. Click the ‹ at its top left to close it.
 
@@ -231,7 +231,7 @@ Click any item in the session and a details pane slides out on the right. Click 
 
 | No. | Name | What it does |
 |---|---|---|
-| 1 | First line of the title | Says **Secretary: 二狗** |
+| 1 | First line of the title | Says **Secretary: ergo** |
 | 2 | Second line of the title | The subtitle and status. **Waiting for you…** can be tapped here too |
 | 3 | ⋯ | **New task**, zoom and **Settings for this agent** are tucked in here |
 | 4 | **Waiting on you** | Same as on a computer |
@@ -281,7 +281,7 @@ Click any item in the session and a details pane slides out on the right. Click 
 | You send something and get no reply, or an error every time | The key is wrong, or your quota has run out. Go to **Settings · Capabilities · Models**, fill in the key again, and click **Test the current provider** |
 | The test says it can't connect | Check what the reason says: key, network, the provider's quota |
 | Stuck after starting a download | Look at the reason in that row. Upstream can be slow from mainland China; see [Components](settings.en.md#components) |
-| Your phone scanned but can't connect | See [If it won't connect](mobile.en.md#if-it-wont-connect) |
+| Your phone scanned but can't connect | See [When it can't connect](mobile.en.md#when-it-cant-connect) |
 | The bar at the top is gone and you want the wizard back | **Settings · Setup wizard** |
 
 For more, see [Troubleshooting](install.en.md#troubleshooting).

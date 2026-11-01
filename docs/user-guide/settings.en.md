@@ -10,18 +10,18 @@ Features with a lot to say get one line here and a link to their own chapter.
 
 ## Opening Settings
 
-- **On a computer:** Click "Settings" at the bottom of the left rail. The list is on the left, and the page you open is on the right. If the window is too short to fit it, it moves into "More".
-- **On a phone:** Tap "More" at the bottom, then "Settings". Tap an item to open it, and go back from the top left.
+- **On a computer:** Click **Settings** at the bottom of the left rail. The list is on the left, and the page you open is on the right. If the window is too short to fit it, it moves into **More**.
+- **On a phone:** Tap **More** at the bottom, then **Settings**. Tap an item to open it, and go back from the top left.
 
 ![The Settings list on a computer](images/settings/01-settings-list.png)
 
 !["More" on a phone](images/settings/02-phone-more.png)
 
-At the top of the list is "Setup wizard", then four groups: Identity, Capabilities, Rules, Data & devices. Tap a group's title to collapse or expand it; this device remembers.
+At the top of the list is **Setup wizard**, then four groups: Identity, Capabilities, Rules, Data & devices. Tap a group's title to collapse or expand it; this device remembers.
 
 A few items apply only to this device: Appearance & style, Send and new line, Search engine, Auto-play agents' voice replies, and collapsed groups. Everything else changes on all devices when changed in one place.
 
-When opened in the phone app, the top of the list gains a "Running in the phone app" block: it shows the app version, has "Change address", and shows whether "System notifications" is on, with "Turn on" when it isn't. See [On your phone](mobile.en.md).
+When opened in the phone app, the top of the list gains a **Running in the phone app** block: it shows the app version, has **Change address**, and shows whether **System notifications** is on, with **Turn on** when it isn't. See [On your phone](mobile.en.md).
 
 Memory's switches aren't in Settings but at the bottom of the Memory page. See [Memory](memory.en.md).
 
@@ -29,7 +29,7 @@ Memory's switches aren't in Settings but at the bottom of the Memory page. See [
 
 **What it is:** A guided tour for your first time. Five steps: Language, how to call you, assistant name; Model key; Capabilities; Pair your phone; Safety defaults. After those, one more screen covers outside access.
 
-**How to use it:** Click "Setup wizard". On each step you can click "This is fine" or "Later"; the fifth step has "Read it". At any time you can click "Later" in the title bar to leave, and come back another time.
+**How to use it:** Click **Setup wizard**. On each step you can click **This is fine** or **Later**; the fifth step has **Read it**. At any time you can click **Later** in the title bar to leave, and come back another time.
 
 For a full walk-through see [Getting started](getting-started.en.md).
 
@@ -39,7 +39,7 @@ For a full walk-through see [Getting started](getting-started.en.md).
 
 **What it is:** Your own name, not your assistant's.
 
-**How to change it:** Enter it in the box on this row and click "Save". To remove it, click "Clear".
+**How to change it:** Enter it in the box on this row and click **Save**. To remove it, click **Clear**.
 
 **Effect:** Agents use this name when they talk or read aloud to you. If it's empty they just call you "you".
 
@@ -49,7 +49,7 @@ For a full walk-through see [Getting started](getting-started.en.md).
 
 **What it is:** IDs, birthdays, phone numbers and addresses of you and your family, kept word for word.
 
-**How to open it:** Click this row. With the Memory plugin on it goes to Memory · Files; with it off, it's under "More".
+**How to open it:** Click this row. With the Memory plugin on it goes to Memory · Files; with it off, it's under **More**.
 
 See [Memory](memory.en.md) for more.
 
@@ -75,7 +75,7 @@ See [Voice](voice.en.md) for more.
 
 ### Appearance & style
 
-**What it is:** Light or dark, and how the interface looks. This row in the list shows the current choice, such as "System · Classic".
+**What it is:** Light or dark, and how the interface looks. This row in the list shows the current choice, such as **System · Classic**.
 
 **How to change it:** Open it.
 
@@ -87,7 +87,7 @@ See [Voice](voice.en.md) for more.
 
 ### Voice
 
-**What it is:** The status of speech recognition and speech synthesis, reference voices, and the "Auto-play agents' voice replies" switch.
+**What it is:** The status of speech recognition and speech synthesis, reference voices, and the **Auto-play agents' voice replies** switch.
 
 See [Voice](voice.en.md) for more. This item isn't in the list when the Voice plugin is off.
 
@@ -95,7 +95,7 @@ See [Voice](voice.en.md) for more. This item isn't in the list when the Voice pl
 
 **What it is:** On a computer Enter sends right away; this picks the key combination for a new line.
 
-**How to change it:** On this row click "Ctrl + Enter for a new line" or "Shift + Enter for a new line". The default is Ctrl.
+**How to change it:** On this row click **Ctrl + Enter for a new line** or **Shift + Enter for a new line**. The default is Ctrl.
 
 **Effect:** Immediately, on this device only.
 
@@ -115,22 +115,22 @@ This page has five blocks, from top to bottom:
 
 | Block | How to change it | Effect |
 |---|---|---|
-| Provider | Click DeepSeek or "Custom (OpenAI-compatible)" | Which provider handles conversations. Picking custom expands the endpoint URL, model id and API style |
-| API key | One row per provider. Paste, then click "Save key" | Takes effect at once, no restart. The key isn't shown; it only says whether it's set and where from |
+| Provider | Click DeepSeek or **Custom (OpenAI-compatible)** | Which provider handles conversations. Picking custom expands the endpoint URL, model id and API style |
+| API key | One row per provider. Paste, then click **Save key** | Takes effect at once, no restart. The key isn't shown; it only says whether it's set and where from |
 | Default model | Pick a model, then click a thinking level: Off, Low, Medium, High | Used by every agent without its own setting |
-| Agents | Secretary, Task owner, Project owner, Sub-agent, Reviewer and Scope review each have two dropdowns | The first option is "Use default"; you can also pick a model and thinking level |
+| Agents | Secretary, Task owner, Project owner, Sub-agent, Reviewer and Scope review each have two dropdowns | The first option is **Use default**; you can also pick a model and thinking level |
 | Image understanding | One dropdown per model: Follow the model catalog, Can see images, Can't see images | Models that can't see images don't get images from chat, only a one-line placeholder |
 
-**Testing the connection:** At the bottom of the API key block, click "Test the current provider". It replies that it works, or says why it doesn't.
+**Testing the connection:** At the bottom of the API key block, click **Test the current provider**. It replies that it works, or says why it doesn't.
 
 **Switching to another provider:**
 
-1. Click "Custom (OpenAI-compatible)".
-2. Fill "Endpoint URL" up to the `/v1` level.
-3. Type the "Model id" by hand, or click "Fetch list" to pick one if you don't know it. If you can't find one, click "Type it instead".
-4. For "API style", use the default if you're unsure.
-5. In the API key block, enter the key on the custom row and click "Save key".
-6. Click "Test the current provider".
+1. Click **Custom (OpenAI-compatible)**.
+2. Fill **Endpoint URL** up to the `/v1` level.
+3. Type the **Model id** by hand, or click **Fetch list** to pick one if you don't know it. If you can't find one, click **Type it instead**.
+4. For **API style**, use the default if you're unsure.
+5. In the API key block, enter the key on the custom row and click **Save key**.
+6. Click **Test the current provider**.
 
 **When it takes effect:** A session stays on one model, so after a change the next new session uses the new one. The secretary, project owner conversations and scheduled tasks start a new session on their next turn, with a handoff summary attached. A task in the middle of running doesn't switch.
 
@@ -141,7 +141,7 @@ This page has five blocks, from top to bottom:
 - Custom models have no unit price, so their cost on the Usage page comes out as 0.
 - If an owner needs its own model, set it in its ⚙. This page lists which ones have their own setting; click a name to jump there.
 - You don't have to make a provider current before entering its key. Filling in the custom row doesn't touch the DeepSeek one.
-- "Fetch list" and "Test the current provider" save this block into settings first. If the list can't be fetched it says why, and you can still type by hand.
+- **Fetch list** and **Test the current provider** save this block into settings first. If the list can't be fetched it says why, and you can still type by hand.
 - A custom model's capabilities are estimated: text only, no thinking, context about 128k, at most about 8192 tokens generated at a time. If your provider's limits are lower, replies may be cut off or return an error.
 - Switching back to DeepSeek loses nothing. The address, model id, API style and key you entered stay, so picking custom later needs no re-entry.
 - Technical details are in [Model providers](../architecture/README.en.md#model-providers).
@@ -176,20 +176,20 @@ See [Skills, MCP, toolkits and plugins](skills-mcp-plugins.en.md#plugins) for mo
 
 **Installing one:**
 
-1. Click "Install" on that block.
-2. If a license has to be accepted, "Check the license before downloading" pops up first, showing the size, license and a link to the full text. Click "Agree and download". Once accepted, it won't ask again.
-3. While downloading it shows progress, speed, time left and the source address. You can "Pause", "Resume" and "Cancel". Closing this page doesn't stop the download.
-4. It's swapped in only after verification passes, and the tag changes to "Installed".
+1. Click **Install** on that block.
+2. If a license has to be accepted, **Check the license before downloading** pops up first, showing the size, license and a link to the full text. Click **Agree and download**. Once accepted, it won't ask again.
+3. While downloading it shows progress, speed, time left and the source address. You can **Pause**, **Resume** and **Cancel**. Closing this page doesn't stop the download.
+4. It's swapped in only after verification passes, and the tag changes to **Installed**.
 
 **Other buttons:**
 
 - **Install the default components (N):** Installs in one go whatever should be installed by default and isn't. With everything installed this button isn't there.
 - **Import from file…:** If downloading doesn't work, download it yourself and enter the path of the file, folder or .tar / .tgz package. If verification matches, it's installed. When a download fails, that block lists the files still missing and their addresses.
-- **Check for updates:** Checks right away for new versions. It also checks by itself every night; with a new version the tag says "Update available", and the Inbox gets a notice. It's only swapped when you click "Update", and the old version keeps working until then.
+- **Check for updates:** Checks right away for new versions. It also checks by itself every night; with a new version the tag says **Update available**, and the Inbox gets a notice. It's only swapped when you click **Update**, and the old version keeps working until then.
 - **Remove:** The confirmation box says which folder gets deleted and which features will be grayed out. Install it again when you need it.
 - **Start, Stop:** Only on the speech program block, which also shows running status, port and whether it starts at boot.
 
-The "Available" tag means you've already set it up elsewhere; it's left alone here, and the line below says what provides it.
+The **Available** tag means you've already set it up elsewhere; it's left alone here, and the line below says what provides it.
 
 **Good to know:**
 
@@ -197,7 +197,7 @@ The "Available" tag means you've already set it up elsewhere; it's left alone he
 - The speech service only connects if ergo was started by the service manager. The data folder path can't contain Chinese characters. See [Voice](voice.en.md) for details.
 - Components aren't in backups, since they can be downloaded again.
 - Checking for updates only fetches one version list, and doesn't send your account, device or usage. The page shows which address it checks.
-- If the release page doesn't have that list yet, it says "No component update information for this version yet", and nothing is affected. If the check fails, it just shows one line with the reason and doesn't bother you; in that case components update along with ergo itself.
+- If the release page doesn't have that list yet, it says **No component update information for this version yet**, and nothing is affected. If the check fails, it just shows one line with the reason and doesn't bother you; in that case components update along with ergo itself.
 
 ### Claude Code
 
@@ -207,14 +207,14 @@ See [Claude Code](claude-code.en.md#setting-a-default-folder) for more. This ite
 
 ### Browsing & form filling
 
-**What it is:** Two unrelated things on one page: which search engine "Browse" uses in the phone app, and which methods agents use to search the web.
+**What it is:** Two unrelated things on one page: which search engine **Browse** uses in the phone app, and which methods agents use to search the web.
 
 **Where:** Settings · Capabilities · Browsing & form filling.
 
 **Search engine:**
 
 - Click Bing, Baidu, Sogou or Google. The default is Bing.
-- Effect: It's used when what you type in the address bar of "Browse" in the phone app isn't a web address. Applies to this device only.
+- Effect: It's used when what you type in the address bar of **Browse** in the phone app isn't a web address. Applies to this device only.
 
 **Agent web search and page reading:**
 
@@ -233,7 +233,7 @@ Four methods in a list; the higher ones go first. If one fails (error, timeout, 
 
 Ergo's built-in browser search uses Chrome or Edge on this computer, found automatically. If it can't find one or you want to name one, see `web.browserPath` in [Config files](../architecture/README.en.md#data-directory-and-config).
 
-The bottom line of the page, "Authorized folders", links to that item in the Data & devices group below. For how to use the built-in browser, see [Built-in browser](browser.en.md).
+The bottom line of the page, **Authorized folders**, links to that item in the Data & devices group below. For how to use the built-in browser, see [Built-in browser](browser.en.md).
 
 ## Rules
 
@@ -260,12 +260,12 @@ Both are off on a fresh install. Tick them if you want it more careful; changes 
 |---|---|
 | Just do it, log only | Doesn't bother you |
 | Do it, then tell me | Does it first, tells you when done |
-| Only if in the plan | Authorized once through the plan. Chats have no plan, so it works like "Ask me first" there |
+| Only if in the plan | Authorized once through the plan. Chats have no plan, so it works like **Ask me first** there |
 | Ask me first | Asks on the spot when running |
-| Hand it to me | ergo doesn't do it; you do it yourself and click "Done" |
+| Hand it to me | ergo doesn't do it; you do it yourself and click **Done** |
 | Never | Doesn't do it |
 
-**Built-in categories:** Each has two dropdowns, "In chats" and "In tasks". The dropdowns only offer levels no looser than the default, so you can only make them stricter. Those changed say "Stricter".
+**Built-in categories:** Each has two dropdowns, **In chats** and **In tasks**. The dropdowns only offer levels no looser than the default, so you can only make them stricter. Those changed say **Stricter**.
 
 | Built-in category | Default in chats | Default in tasks |
 |---|---|---|
@@ -279,16 +279,16 @@ Both are off on a fresh install. Tick them if you want it more careful; changes 
 | Unplanned work order | Doesn't apply | Ask me first |
 | Unknown write | Ask me first | Ask me first |
 
-**Two bottom lines:** Can't be changed. Payments and transfers, creating accounts, changing passwords or two-step verification are "Hand it to me"; putting credentials in outgoing content is "Never".
+**Two bottom lines:** Can't be changed. Payments and transfers, creating accounts, changing passwords or two-step verification are **Hand it to me**; putting credentials in outgoing content is **Never**.
 
 **Adding your own:**
 
-1. Click "+ New category".
-2. Fill in "Name", then write rules: "Matching tools", "Path is inside these folders", "Recipient is", "Amount over". If you write several they must all be met; several values within one rule mean any of them.
-3. Pick a level for "In chats" and for "In tasks"; all six are available here.
-4. Click "Save".
+1. Click **+ New category**.
+2. Fill in **Name**, then write rules: **Matching tools**, **Path is inside these folders**, **Recipient is**, **Amount over**. If you write several they must all be met; several values within one rule mean any of them.
+3. Pick a level for **In chats** and for **In tasks**; all six are available here.
+4. Click **Save**.
 
-Once created you can "Edit rule" or "Delete" it.
+Once created you can **Edit rule** or **Delete** it.
 
 **Effect:** Takes effect right away; the next tool call is judged by the new setting.
 
@@ -297,28 +297,28 @@ Once created you can "Edit rule" or "Delete" it.
 - When a call matches several categories the strictest wins, so your own categories can't loosen built-in categories or bottom lines.
 - Calls outside every category just run and are logged.
 - For tasks in progress, categories made stricter when the plan was confirmed are still checked by the settings at confirmation.
-- If the settings file gets broken by hand-editing, the guard blocks every tool call. The top of this page says what's wrong, and there's an item in the Inbox too. Fix it with the button on the page, or fix it by hand and click "I fixed it by hand, reload".
+- If the settings file gets broken by hand-editing, the guard blocks every tool call. The top of this page says what's wrong, and there's an item in the Inbox too. Fix it with the button on the page, or fix it by hand and click **I fixed it by hand, reload**.
 
 ### System prompts
 
 **What it is:** Each agent's system prompt: view, edit or restore the default. Use it when you want to change ergo's speaking habits.
 
-**Where:** Settings · Rules · System prompts. The list has three sections: Prefix, Roles, Shared fragments. Each one says "Default" or "Edited".
+**Where:** Settings · Rules · System prompts. The list has three sections: Prefix, Roles, Shared fragments. Each one says **Default** or **Edited**.
 
 **How to change it:**
 
 1. Open one.
 2. Edit in the box. A wrong placeholder gets a note right there saying which line is wrong and where, and it can't be saved.
-3. Click "Save". It says "Saved. Takes effect the next time the agent starts".
-4. To go back, click "Restore default" and confirm. The edited copy is deleted and can't be recovered. For unsaved changes use "Discard changes".
+3. Click **Save**. It says **Saved. Takes effect the next time the agent starts**.
+4. To go back, click **Restore default** and confirm. The edited copy is deleted and can't be recovered. For unsaved changes use **Discard changes**.
 
 **Effect:** Takes effect the next time the agent starts, with no restart. The secretary's takes effect once it finishes the current message.
 
 **Good to know:**
 
-- "Prefix" goes at the very start of every agent's system prompt, and is empty by default.
+- **Prefix** goes at the very start of every agent's system prompt, and is empty by default.
 - If an edited copy has errors, ergo falls back to the default, and the page says so.
-- To change just one agent, write an "Own prompt" in its ⚙ and leave this alone.
+- To change just one agent, write an **Own prompt** in its ⚙ and leave this alone.
 
 ### Workday rules
 
@@ -328,9 +328,9 @@ Once created you can "Edit rule" or "Delete" it.
 
 **How to change it:**
 
-1. Pick the type: "Every week", "Nth of each month", "Last of each month".
+1. Pick the type: **Every week**, **Nth of each month**, **Last of each month**.
 2. Pick the day of the week. For Nth of each month, also pick which one.
-3. Click "Add". To remove one, click "Delete" on it.
+3. Click **Add**. To remove one, click **Delete** on it.
 
 **You can just say:**
 
@@ -354,15 +354,15 @@ See [Data sources](data-sources.en.md) for more.
 
 **How to change it:**
 
-1. Click "Add folder".
-2. Click a common place or drive, go into the folder you want, and click "Authorize this folder". You can also paste a full path.
+1. Click **Add folder**.
+2. Click a common place or drive, go into the folder you want, and click **Authorize this folder**. You can also paste a full path.
 3. To remove one, click × on its row; it's gone right away.
 
 **You can just say:**
 
 - Authorize D:\Photos for you to read
 
-The secretary shows a card, and it's added only after you click "Run". Agents can't change this list themselves.
+The secretary shows a card, and it's added only after you click **Run**. Agents can't change this list themselves.
 
 **Good to know:**
 
@@ -386,8 +386,8 @@ Three ways to delete: Forget, Delete completely, Don't infer. See [Memory](memor
 
 **How to clear them:**
 
-1. This row says "N calls can be cleared now". Click "Clean up now".
-2. Read the confirmation box and click "Clean up".
+1. This row says **N calls can be cleared now**. Click **Clean up now**.
+2. Read the confirmation box and click **Clean up**.
 
 **Effect:** Only the full arguments and results are cleared. Chat records, key points and effect records stay, and the details page falls back to a summary. What's cleared can't be recovered.
 
@@ -409,29 +409,29 @@ Three ways to delete: Forget, Delete completely, Don't infer. See [Memory](memor
 There are two copies:
 
 - **Local copy:** In the data folder's `backups\`, by default `%USERPROFILE%\.ergo\backups`. It stays with the data folder and can't be moved separately.
-- **Sync folder (an extra copy):** A folder you choose, where the snapshot is copied again. Point it at a NAS, home storage or a cloud drive client's sync folder, and you can recover even if this computer dies. **Strongly recommended.** When it isn't set it says "Not set: only the local copy is kept".
+- **Sync folder (an extra copy):** A folder you choose, where the snapshot is copied again. Point it at a NAS, home storage or a cloud drive client's sync folder, and you can recover even if this computer dies. **Strongly recommended.** When it isn't set it says **Not set: only the local copy is kept**.
 
-Click "Open on the computer" to open this folder on ergo's computer.
+Click **Open on the computer** to open this folder on ergo's computer.
 
 #### Changing the sync folder
 
-1. If none is set click "Choose a folder…"; if one is, click "Change…". "Choose the sync folder (on ergo's computer)" pops up.
-2. Click a common place (Pictures, Downloads, Desktop, Documents, user folder) or a drive, click subfolders to go down level by level, and "Up one level" to go back.
-3. At the folder you want, click "Use this folder". You can also paste a full path below and click "Use this path".
-4. It's checked on the spot. If the folder doesn't exist it asks "This folder doesn't exist yet"; click "Create" or "No".
-5. When it works it says "Done. The next backup goes to X".
+1. If none is set click **Choose a folder…**; if one is, click **Change…**. **Choose the sync folder (on ergo's computer)** pops up.
+2. Click a common place (Pictures, Downloads, Desktop, Documents, user folder) or a drive, click subfolders to go down level by level, and **Up one level** to go back.
+3. At the folder you want, click **Use this folder**. You can also paste a full path below and click **Use this path**.
+4. It's checked on the spot. If the folder doesn't exist it asks **This folder doesn't exist yet**; click **Create** or **No**.
+5. When it works it says **Done. The next backup goes to X**.
 
 Rules for the check: full path, not inside the data folder, must be writable. If it fails it says why, and the setting stays unchanged.
 
-If you no longer want the extra copy, click "Clear" and confirm. After that only the local copy is kept.
+If you no longer want the extra copy, click **Clear** and confirm. After that only the local copy is kept.
 
 After changing folders, existing snapshots in the old folder are neither moved nor deleted. A backup in progress still writes to the original folder and switches once finished.
 
 #### When to back up
 
-- **Every night at:** The default is 03:30. After changing the time, "Save" appears beside it; click it. It says "Saved" and reschedules right away.
-- **Who schedules it:** The default is "The daemon". If the computer is off at that time, it catches up at the next start.
-- With "External timer", ergo no longer backs up on its own, and the time above has no effect. The page shows the command to call every day; click "Copy":
+- **Every night at:** The default is 03:30. After changing the time, **Save** appears beside it; click it. It says **Saved** and reschedules right away.
+- **Who schedules it:** The default is **The daemon**. If the computer is off at that time, it catches up at the next start.
+- With **External timer**, ergo no longer backs up on its own, and the time above has no effect. The page shows the command to call every day; click **Copy**:
 
   ```powershell
   ergo backup --scheduled
@@ -449,12 +449,12 @@ This computer and the sync folder each list dates and sizes. If one can't be loa
 
 #### Backing up now, checking
 
-- **Back up now:** Click to queue it; the button says "Backing up…", and a line with the result pops up when done. A manual backup redoes today's snapshot.
+- **Back up now:** Click to queue it; the button says **Backing up…**, and a line with the result pops up when done. A manual backup redoes today's snapshot.
 - **Check the latest snapshots:** Checks whether the latest snapshots are complete, with the result under the button. It also checks automatically every Sunday at 04:30, and posts a notification if it fails.
 
 #### How to restore
 
-Restoring requires stopping ergo first, so there's no one-click restore on the web page. Click "How to restore" and the page lists commands worked out for how ergo is installed on this computer, each with "Copy".
+Restoring requires stopping ergo first, so there's no one-click restore on the web page. Click **How to restore** and the page lists commands worked out for how ergo is installed on this computer, each with **Copy**.
 
 ![How to restore](images/settings/07-backup-restore.png)
 
@@ -492,13 +492,13 @@ After restoring:
 - The service manager's own data isn't in this backup.
 - The restore command refuses to run while ergo is running. It also refuses if the snapshot fails its check.
 - Writing to the sync folder counts as success. Whether the cloud drive client has finished uploading, ergo doesn't know and doesn't wait.
-- When a backup fails there's a "Backup failed" item in the Inbox saying why; click "Retry" to try again right away. The local snapshot is kept regardless.
+- When a backup fails there's a **Backup failed** item in the Inbox saying why; click **Retry** to try again right away. The local snapshot is kept regardless.
 - The log is at `logs\backup.log` in the data folder.
-- If you run from source, or your data folder isn't the default, the commands differ. Follow what "How to restore" on the page says; it's worked out for your install. If you run from source, you can also see the [development docs](../architecture/development.en.md#backup-and-restore).
+- If you run from source, or your data folder isn't the default, the commands differ. Follow what **How to restore** on the page says; it's worked out for your install. If you run from source, you can also see the [development docs](../architecture/development.en.md#backup-and-restore).
 
 ### Device pairing
 
-**What it is:** Connect a phone by scanning a code, and manage paired devices. At the top is "Show pairing code"; devices below can be extended, revoked or deleted.
+**What it is:** Connect a phone by scanning a code, and manage paired devices. At the top is **Show pairing code**; devices below can be extended, revoked or deleted.
 
 See [On your phone](mobile.en.md) for more.
 
@@ -510,7 +510,7 @@ See [On your phone](mobile.en.md) for more.
 
 ![The Checkup page](images/settings/09-doctor.png)
 
-**How to use it:** It checks as soon as you open it. Each check has a tick or an exclamation mark in front, the facts it found behind it, and how to fix anything wrong below. After fixing, click "Run again" at the top right.
+**How to use it:** It checks as soon as you open it. Each check has a tick or an exclamation mark in front, the facts it found behind it, and how to fix anything wrong below. After fixing, click **Run again** at the top right.
 
 | Check | What it checks | If it's wrong |
 |---|---|---|
@@ -519,14 +519,14 @@ See [On your phone](mobile.en.md) for more.
 | pi version | The version of pi, ergo's agent core, can be read | Without it ergo can't chat. For a one-line install, run `ergo uninstall --keep-data` first, then run the install command again; data isn't touched. For an npm install, reinstall with `npm i -g ergo-ai@latest`. If you run from the repository, run `npm ci` in the repository folder, then restart ergo |
 | Service manager | The service manager responds | Run `ergo start` to bring it up again; if that doesn't help, look at its log |
 | Model key | A key is set (no real request is sent) | Enter one in Settings · Models |
-| Components | Everything that should be installed by default is | Install what's missing in Settings · Components; "Install the default components" is the easiest |
+| Components | Everything that should be installed by default is | Install what's missing in Settings · Components; **Install the default components** is the easiest |
 | Disk space | The drive holding the data folder has over 1 GB free | Clear old backups and logs, or move the data folder to a bigger drive |
 | Outside access | Any one of: an entry registered in the service manager, an address entered by hand, or a paired device | Ignore it if you only use this computer. If your phone can't connect, see [On your phone](mobile.en.md) |
 
 **Good to know:**
 
 - Everything checked is local. It doesn't go online (other than probing local ports), call a model, or change any settings.
-- "Outside access" saying "No outside access is registered in the service manager; if your phone already connects, you can ignore this" doesn't mean it isn't set up.
+- **Outside access** saying **No outside access is registered in the service manager; if your phone already connects, you can ignore this** doesn't mean it isn't set up.
 - Something the service manager doesn't know about, such as running `tailscale serve` by hand, counts as fine once a phone has paired.
 - An entry connected to local port 8810 counts as unhealthy for this check. Port 8810 automatically trusts local requests and must never be connected to the outside.
 
@@ -534,21 +534,21 @@ See [On your phone](mobile.en.md) for more.
 
 **What it is:** The version and changelog. Copy the version from here when reporting a problem.
 
-**How to look:** Open it. The large text is the version number. Below it are the web build, the daemon's version and uptime, and how this device connects. In the app there's also the app version. Further down is "What's new in this version", and "Earlier versions" expands.
+**How to look:** Open it. The large text is the version number. Below it are the web build, the daemon's version and uptime, and how this device connects. In the app there's also the app version. Further down is **What's new in this version**, and **Earlier versions** expands.
 
 ### Debug tools
 
 **What it is:** For troubleshooting. Normally hidden.
 
-**How to open it:** In About ergo, tap the version number 8 times in a row, with no more than 2 seconds between taps. From the 4th tap, a note at the bottom says how many remain. Once open, a new item appears at the bottom of the Settings list, valid for 1 hour; refreshing the page or reopening the app makes it go away. "Close now" closes it right away.
+**How to open it:** In About ergo, tap the version number 8 times in a row, with no more than 2 seconds between taps. From the 4th tap, a note at the bottom says how many remain. Once open, a new item appears at the bottom of the Settings list, valid for 1 hour; refreshing the page or reopening the app makes it go away. **Close now** closes it right away.
 
-**What's in it:** System notifications, version & environment, connection, voice, logs & local storage. When someone's helping you look into a problem, click "Copy all" to send them the version and environment.
+**What's in it:** System notifications, version & environment, connection, voice, logs & local storage. When someone's helping you look into a problem, click **Copy all** to send them the version and environment.
 
 ## Usage
 
 **What it is:** How many tokens ergo has spent and roughly how much money. Every model call is recorded.
 
-**Where:** "Usage" in the left rail on a computer. On a phone, "More" · "Usage".
+**Where:** **Usage** in the left rail on a computer. On a phone, **More · Usage**.
 
 ![The Usage page](images/settings/08-usage.png)
 
@@ -556,17 +556,17 @@ See [On your phone](mobile.en.md) for more.
 
 1. At the top pick a time range: Today, Last 7 days, Last 30 days, This month, Custom. It opens on Last 7 days.
 2. Four big numbers: tokens in total and number of calls, cost (rough estimate), input cache hit rate, system overhead.
-3. **By day (tokens):** A bar chart. Click "Table" to switch to a table, and "Chart" to switch back.
-4. **By agent:** Each agent's cache hit, cache miss, output and rough estimate. The secretary's is listed separately under "System overhead". Scope review and compaction usage is recorded under the task or project of the owner concerned.
+3. **By day (tokens):** A bar chart. Click **Table** to switch to a table, and **Chart** to switch back.
+4. **By agent:** Each agent's cache hit, cache miss, output and rough estimate. The secretary's is listed separately under **System overhead**. Scope review and compaction usage is recorded under the task or project of the owner concerned.
 5. **Web search & page reads (billed per call):** How much DeepSeek's web search and page reads cost. Browser search is free.
 6. **Unit prices (per million tokens):** Unit prices of the models used, split into peak and off-peak.
 
 **Good to know:**
 
 - Cost is a rough estimate, not a bill. If the official site changes its prices, go by the official site.
-- The "Memory brief" line is already counted in the secretary's input, and isn't added to the totals again.
+- The **Memory brief** line is already counted in the secretary's input, and isn't added to the totals again.
 - Custom models have no unit price, so their cost comes out as 0.
-- To see just one task: "⋯" · "Usage" in the task details. Plain tasks don't have this.
+- To see just one task: **⋯ · Usage** in the task details. Plain tasks don't have this.
 
 ## Service manager
 
@@ -621,7 +621,7 @@ It only opens on this computer, not on a phone. If the port has been changed, ru
 
 There are two layers. **Only with both on does ergo come up by itself after a restart.** The one-line install turns both on by default.
 
-- **The service manager starting itself at boot:** change it with the "Start at boot" switch in the setup wizard's "Capabilities" step, or with a command.
+- **The service manager starting itself at boot:** change it with the **Start at boot** switch in the setup wizard's **Capabilities** step, or with a command.
 - **Which services the service manager starts:** change it with 开机自启 (Start at boot) on the card. The page shows which ones are on the list now.
 
 It starts when you log in to Windows, not when the computer boots. For commands and details see [Starting automatically](install.en.md#starting-automatically).

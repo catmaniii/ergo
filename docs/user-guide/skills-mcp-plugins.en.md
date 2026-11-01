@@ -23,30 +23,30 @@ A skill or MCP server in the library can't be used by agents yet. It has to go i
 
 **When to use it:** You already have a skill, say one you used in Claude Code, and want ergo's agents to use it too. ergo doesn't read `~/.claude/skills` by itself; you have to import a copy.
 
-**Where to open it:** Settings · Capabilities · Skills & MCP · "+ Import skill" at the top right.
+**Where to open it:** Settings · Capabilities · Skills & MCP · **+ Import skill** at the top right.
 
 ![The Skills & MCP page](images/skills-mcp-plugins/01-skills.png)
 
 ![The Import skill dialog](images/skills-mcp-plugins/02-import-skill.png)
 
-1. Click "+ Import skill" and stay on "Single skill".
-2. Under "Full path of the skill's folder (the one with SKILL.md)", enter the path on ergo's computer.
-3. To rename it, fill in "Rename (leave empty to use the name in SKILL.md)". Only lowercase letters, digits and hyphens are allowed.
-4. Click "Import". It says `Imported skill "X"`, and a report appears on the page; click "Got it" when you've read it.
+1. Click **+ Import skill** and stay on **Single skill**.
+2. Under **Full path of the skill's folder (the one with SKILL.md)**, enter the path on ergo's computer.
+3. To rename it, fill in **Rename (leave empty to use the name in SKILL.md)**. Only lowercase letters, digits and hyphens are allowed.
+4. Click **Import**. It says **Imported skill “X”**, and a report appears on the page; click **Got it** when you've read it.
 
-It appears under "Imported by you" on the page, with "Not in any project's toolkit yet" below it.
+It appears under **Imported by you** on the page, with **Not in any project's toolkit yet** below it.
 
 ### Importing a whole set
 
 **When to use it:** A folder holds a batch of skills that refer to each other and need to come together.
 
-1. In the import dialog, click "Whole set (collection)".
-2. Fill in "Full path of the collection's root folder", then "Collection name", "Version", "Source" and "One-line description". These four are required.
-3. If the skills aren't directly in the root, fill in "Subfolder of the root that holds the skills".
-4. If names clash with the library, write one `old=new` per line under "Rename skills".
-5. Click "Import".
+1. In the import dialog, click **Whole set (collection)**.
+2. Fill in **Full path of the collection's root folder**, then **Collection name**, **Version**, **Source** and **One-line description**. These four are required.
+3. If the skills aren't directly in the root, fill in **Subfolder of the root that holds the skills**.
+4. If names clash with the library, write one `old=new` per line under **Rename skills**.
+5. Click **Import**.
 
-The collection takes one row under "Imported collections". Click "Show N skills" to list its members.
+The collection takes one row under **Imported collections**. Click **Show N skills** to list its members.
 
 **Good to know**
 
@@ -59,13 +59,13 @@ The collection takes one row under "Imported collections". Click "Show N skills"
 
 ### Giving skills to the secretary
 
-**Where to open it:** "ergo's skills" at the very top of the same page. The name here is the one you gave your assistant.
+**Where to open it:** **ergo's skills** at the very top of the same page. The name here is the one you gave your assistant.
 
-1. Click the "+ Add from skill library" dropdown and pick a skill.
-2. A collection has two options: "Whole set: X" takes all of it, and "Pick some from X…" opens for you to tick some.
+1. Click the **+ Add from skill library** dropdown and pick a skill.
+2. A collection has two options: **Whole set: X** takes all of it, and **Pick some from X…** opens for you to tick some.
 3. To remove one, click × on its small tag.
 
-It says "Saved. ergo switches to the new skill list after finishing the current message".
+It says **Saved. ergo switches to the new skill list after finishing the current message**.
 
 **Good to know**
 
@@ -75,23 +75,23 @@ It says "Saved. ergo switches to the new skill list after finishing the current 
 
 ### Calling one by name in a chat
 
-Type `/` in the input box; the suggestions include a "Skills in ergo's toolkit" group. The command is the skill's folder name, such as `/weekly-report write this week's`.
+Type `/` in the input box; the suggestions include a **Skills in ergo's toolkit** group. The command is the skill's folder name, such as `/weekly-report write this week's`.
 
 ### Skills submitted by owners
 
-What an owner learns while working can be submitted as a skill. A "Skill change" card appears in your Inbox.
+What an owner learns while working can be submitted as a skill. A **Skill change** card appears in your Inbox.
 
-The card shows the name, description, who submitted it, the file list and size. If it has scripts, it says prominently "It contains N scripts that agents using it may run". "Full SKILL.md" can be expanded.
+The card shows the name, description, who submitted it, the file list and size. If it has scripts, it says prominently **It contains N scripts that agents using it may run**. **Full SKILL.md** can be expanded.
 
-- Click "Approve": it goes into the library and into the submitter's toolkit, and its session can use it right after. If another project wants it, add it to that toolkit.
-- Click "Deny": nothing changes. Either way you can attach a note to the owner.
+- Click **Approve**: it goes into the library and into the submitter's toolkit, and its session can use it right after. If another project wants it, add it to that toolkit.
+- Click **Deny**: nothing changes. Either way you can attach a note to the owner.
 - If the source has changed since it was submitted, approving doesn't add it to the library, and the card says it needs to be submitted again.
 
 ### Deleting a skill
 
 There's no delete button on the page. There are two ways:
 
-- **Ask the owner:** Tell the owner "Delete the X skill from the library". It shows a "Skill change" card listing which toolkits use it now; it's deleted only after you click "Approve", and one old version is kept. Only single skills you imported and skills owners submitted can be deleted this way.
+- **Ask the owner:** Tell the owner "Delete the X skill from the library". It shows a **Skill change** card listing which toolkits use it now; it's deleted only after you click **Approve**, and one old version is kept. Only single skills you imported and skills owners submitted can be deleted this way.
 - **Delete the folder yourself:** Delete its folder under `skills\` in the data folder, by default under `%USERPROFILE%\.ergo\skills\`. A whole collection is one folder. Skills built into the framework aren't here and can't be deleted.
 
 After deletion, the name stays in toolkits and is skipped when used, with no error. A skill with the same name coming back into the library works again.
@@ -100,11 +100,11 @@ After deletion, the name stays in toolkits and is skipped when used, with no err
 
 ### Seeing what's registered
 
-**Where to open it:** Settings · Capabilities · Skills & MCP, scroll down to "Registered MCP servers".
+**Where to open it:** Settings · Capabilities · Skills & MCP, scroll down to **Registered MCP servers**.
 
 ![Registered MCP servers](images/skills-mcp-plugins/03-mcp-list.png)
 
-Each MCP server lists its name and registered tools. After a tool it says "needs internet" or "read-only or idempotent"; those authorized for the secretary's quick actions say so too. This section is view-only; you can't change it on the page.
+Each MCP server lists its name and registered tools. After a tool it says **needs internet** or **read-only or idempotent**; those authorized for the secretary's quick actions say so too. This section is view-only; you can't change it on the page.
 
 ### Registering an MCP server: write the config yourself
 
@@ -129,7 +129,7 @@ Each MCP server lists its name and registered tools. After a tool it says "needs
    }
    ```
 
-3. Save. No restart needed; refresh the page and it's there. If something's wrong the page says "Can't read the MCP registry: …".
+3. Save. No restart needed; refresh the page and it's there. If something's wrong the page says **Can't read the MCP registry: …**.
 
 | Item | Meaning |
 |---|---|
@@ -149,10 +149,10 @@ A full example is at `config\mcp.example.json` in the repository.
 
 **When to use it:** A project produced an MCP service, or the owner thinks one should be connected.
 
-Tell the owner "Register this service as an MCP server". It puts an "MCP registration change" card in the Inbox, showing the start command, environment variables and tools.
+Tell the owner "Register this service as an MCP server". It puts an **MCP registration change** card in the Inbox, showing the start command, environment variables and tools.
 
-- Click "Approve": it's written into the registry and actually started once to try it. The card says "it started and reported …" or "it didn't start: …". A registration that didn't start stays too; to withdraw it, have the owner submit another card to delete it.
-- Click "Deny": nothing changes.
+- Click **Approve**: it's written into the registry and actually started once to try it. The card says **it started and reported …** or **it didn't start: …**. A registration that didn't start stays too; to withdraw it, have the owner submit another card to delete it.
+- Click **Deny**: nothing changes.
 
 If an environment variable that looks like a secret is written in plain text, this card can't be submitted; change it to `fromEnv`.
 
@@ -178,28 +178,28 @@ Delete that section from `mcp.json`, or have the owner submit a card to delete i
 
 **Where to open it:**
 
-- **Project:** In the project records on the project page, scroll down to "Toolkit". On a computer the project records are in the left column, and "Project records" in the title bar opens and closes them.
-- **Workflows and long-running tasks:** "⋯" · "Toolkit" at the top right of the task details.
+- **Project:** In the project records on the project page, scroll down to **Toolkit**. On a computer the project records are in the left column, and **Project records** in the title bar opens and closes them.
+- **Workflows and long-running tasks:** **⋯ · Toolkit** at the top right of the task details.
 - **Plain tasks:** Don't have this. Those not in a project use the secretary's skills, no MCP, and can run bash and go online. Those in a project use the project's toolkit.
 
 ![The toolkit in the project records](images/skills-mcp-plugins/04-toolkit.png)
 
 | This row | How to change it | Effect |
 |---|---|---|
-| skill | "+ Add from the skill library"; × on a small tag removes | Which instructions it can follow |
-| MCP | "+ Add a registered MCP server"; × on a small tag removes | Which outside tools it can call |
+| skill | **+ Add from the skill library**; × on a small tag removes | Which instructions it can follow |
+| MCP | **+ Add a registered MCP server**; × on a small tag removes | Which outside tools it can call |
 | bash | Checkbox | Git Bash only, and commands are still checked by the guard |
-| Network | Checkbox | When off, network tools and commands are refused, best effort, not hard isolation. When on, read-only GET requests don't bother you; other requests count as "sending out in my name" |
+| Network | Checkbox | When off, network tools and commands are refused, best effort, not hard isolation. When on, read-only GET requests don't bother you; other requests count as **sending out in my name** |
 | Message ergo | Checkbox | Owners, sub-agents and reviewers can message the secretary, who passes it on to you. Each can send at most 3 every 10 minutes |
 | Send attachments | Checkbox | Owners can send files from the working folder as attachments in the session, where you preview or download them |
 
-After a change it says "Toolkit updated. If the owner is working, it switches to the new toolkit after its current step". A Claude Code owner switches on the spot.
+After a change it says **Toolkit updated. If the owner is working, it switches to the new toolkit after its current step**. A Claude Code owner switches on the spot.
 
 **Can owners change it themselves?**
 
 - Add or remove skills: yes, on their own, recorded in the timeline.
 - Reduce abilities: yes.
-- Turn on bash, add MCP, turn on network: needs your approval. A project owner not on a task shows a "Toolkit change" card; one on a task submits a plan change.
+- Turn on bash, add MCP, turn on network: needs your approval. A project owner not on a task shows a **Toolkit change** card; one on a task submits a plan change.
 
 **You can just say** (to the owner)
 
@@ -220,23 +220,23 @@ After a change it says "Toolkit updated. If the owner is working, it switches to
 
 ![The Plugins page](images/skills-mcp-plugins/05-plugins.png)
 
-Each plugin has a block: name, status, one line of description, and below it what it brings, what it needs and what needs it. Statuses are Running, Off, Didn't load and Removed; those missing an outside component say "Not installed" and how to install it.
+Each plugin has a block: name, status, one line of description, and below it what it brings, what it needs and what needs it. Statuses are Running, Off, Didn't load and Removed; those missing an outside component say **Not installed** and how to install it.
 
 | Plugin | When turned off |
 |---|---|
 | Reminders | The secretary can't create reminders, and reminders no longer show on the board and calendar |
-| Memory | The Memory page goes away and no new materials are collected. Existing ones can still be viewed and deleted in Settings · Delete materials, and personal files move back to "More" |
+| Memory | The Memory page goes away and no new materials are collected. Existing ones can still be viewed and deleted in Settings · Delete materials, and personal files move back to **More** |
 | Calendar | The Calendar page goes away. Workday rules in Settings remain |
 | Voice | Push-to-talk and Settings · Voice go away, and replies are text only |
-| Built-in browser | "Browse", the sidebar and the floating button in the app go away |
-| Claude Code | Settings · Claude Code goes away, owners using it no longer start, and tasks in progress become "Waiting for me" |
+| Built-in browser | **Browse**, the sidebar and the floating button in the app go away |
+| Claude Code | Settings · Claude Code goes away, owners using it no longer start, and tasks in progress become **Waiting for me** |
 | Data source - Phone, Data source - Google, Data source - Looki wearable camera | That data source stops syncing, and ergo can't query it either |
 
 ### Turning off and on
 
-1. Click "Turn off" on that block. The confirmation box says "Turn off X?" and what will happen. Plugins that need it are listed too, and will be turned off with it.
-2. Click "Turn off" in the confirmation box. It says "Turned off: X".
-3. To use it again, click "Turn on". If a plugin it needs is off, it confirms first and turns both on.
+1. Click **Turn off** on that block. The confirmation box says **Turn off X?** and what will happen. Plugins that need it are listed too, and will be turned off with it.
+2. Click **Turn off** in the confirmation box. It says **Turned off: X**.
+3. To use it again, click **Turn on**. If a plugin it needs is off, it confirms first and turns both on.
 
 It takes effect right away: its pages and panels close immediately, the tools it gives ergo are gone from the next turn, and its scheduled jobs and event subscriptions stop. All the data stays and is there when you turn it back on.
 
@@ -244,17 +244,17 @@ It takes effect right away: its pages and panels close immediately, the tools it
 
 ![The confirmation box for removing a plugin](images/skills-mcp-plugins/06-remove-plugin.png)
 
-1. Click "Remove". The confirmation box says `Turns it off and moves it to "Removed" below. You can put it back later.`
-2. If you only want to put it away, just click "Remove".
-3. To delete its data too, tick "Also delete its data completely" and click "Next".
-4. The second step spells out "This deletes:" and "This can't delete:". When you've read it, click "Remove and delete". **Deleting can't be undone.**
+1. Click **Remove**. The confirmation box says **Turns it off and moves it to “Removed” below. You can put it back later.**
+2. If you only want to put it away, just click **Remove**.
+3. To delete its data too, tick **Also delete its data completely** and click **Next**.
+4. The second step spells out **This deletes:** and **This can't delete:**. When you've read it, click **Remove and delete**. **Deleting can't be undone.**
 
-Removed plugins are kept under "Removed (N)" lower on the page; open it to "Put back".
+Removed plugins are kept under **Removed (N)** lower on the page; open it to **Put back**.
 
 **Good to know**
 
 - Plugins with no data of their own (such as Calendar and Claude Code) don't have that checkbox.
-- Even with delete ticked when removing Memory, materials in the library aren't deleted. To delete them, use "Delete materials in bulk" in Memory · Materials.
+- Even with delete ticked when removing Memory, materials in the library aren't deleted. To delete them, use **Delete materials in bulk** in Memory · Materials.
 - A copy stays in backup snapshots, and disappears as snapshots rotate.
 - The secretary can't do these; you have to click on the page.
 

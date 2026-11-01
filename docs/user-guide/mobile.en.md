@@ -14,10 +14,10 @@ Whichever you pick, it's the same three steps: let your phone reach your compute
 |---|---|---|---|
 | How to install | Nothing to install | Sign it with your own Huawei account, then install | Download and install |
 | All of ergo's pages | Yes | Yes | Yes |
-| [Built-in browser](browser.en.md) (the "Browse" tab) | No | Yes | Yes |
+| [Built-in browser](browser.en.md) (the **Browse** tab) | No | Yes | Yes |
 | Hold to talk | Yes, with the browser's recording | Yes, native recording | Yes, native recording |
 | Notifications when something is due | Browser notifications, which you have to allow first | System notifications | System notifications |
-| Downloading files | Browser download | The system's "Save to" | The system's "Save to" |
+| Downloading files | Browser download | The system's **Save to** | The system's **Save to** |
 | [Data on your phone](data-sources.en.md#data-on-your-phone) (contacts, calendar, photos, location) | No | Yes | Not yet |
 
 **The apps aren't in any app store.** On Android you download and install. On HarmonyOS you have to sign with your own Huawei account. The steps are in [Install the app](#install-the-app) below.
@@ -57,19 +57,19 @@ If you're not sure, pick the first one. A tailnet is simply the devices you've s
 
 **What it is:** Scanning this code tells your phone ergo's address. The code only holds the address, no password. After scanning, you still approve the phone here.
 
-**Where to open it:** Settings · Data & devices · Device pairing. The "Pair your phone" step of the setup wizard also jumps here.
+**Where to open it:** Settings · Data & devices · Device pairing. The **Pair your phone** step of the setup wizard has the same QR code panel built in, and a link below it, **See paired devices: Settings · Device pairing**, comes to this page.
 
 **Step by step:**
 
-1. Open ergo on your computer and go to this page. At the very top is the big "Show pairing code" button.
+1. Open ergo on your computer and go to this page. At the very top is the big **Show pairing code** button.
 
    ![The Device pairing page: "Show pairing code" at the very top, with this computer, paired devices and devices no longer valid below it](images/mobile/01-devices.png)
 
-2. Click "Show pairing code". You see a big QR code. Below it are the address, what kind of address it is, and "Waiting for the phone to scan".
+2. Click **Show pairing code**. You see a big QR code. Below it are the address, what kind of address it is, and **Waiting for the phone to scan**.
 
    ![The pairing code page: the QR code, the address and "Waiting for the phone to scan", with options below to use another address or your own](images/mobile/02-qr.png)
 
-3. When there are several addresses, "Use another address" lists them below. Click one and the code changes with it. Public addresses come first, then tailnet ones, and those that have been reached from outside go ahead of the rest.
+3. When there are several addresses, **Use another address** lists them below. Click one and the code changes with it. Public addresses come first, then tailnet ones, and those that have been reached from outside go ahead of the rest.
 4. Leave this page open and connect from your phone.
 
 **The small text next to an address:**
@@ -81,18 +81,18 @@ If you're not sure, pick the first one. A tailnet is simply the devices you've s
 | The service manager can't reach it | This may be a problem on its side only. Try scanning anyway |
 | The phone must join the same tailnet first | Only on Tailnet addresses. Tailscale has to be on on your phone |
 
-**No code, and it says "Ergo can't be reached from outside right now, so a phone can't connect":** The route to the outside isn't set up yet. The page gives you two ways:
+**No code, and it says Ergo can't be reached from outside right now, so a phone can't connect:** The route to the outside isn't set up yet. The page gives you two ways:
 
-- "Set it up in the service manager". A public tunnel or a tailnet entry both work; point it at the external port when you open it. Once it's open, the code appears here by itself.
-- "Enter your own address". See below.
+- **Set it up in the service manager**. A public tunnel or a tailnet entry both work; point it at the external port when you open it. Once it's open, the code appears here by itself.
+- **Enter your own address**. See below.
 
 ![With no address: it says ergo can't be reached from outside and gives two ways, set it up in the service manager or enter your own address](images/mobile/03-qr-none.png)
 
 **Using your own address:** This is for a `tailscale serve` you ran by hand, a reverse proxy you set up yourself, or frp. The service manager doesn't know about these.
 
-1. Click "Use your own address" below the code.
+1. Click **Use your own address** below the code.
 2. Enter an https address that opens from outside and goes to ergo's external port. The placeholder says `https://ergo.example.com`.
-3. Click "Save". To drop it, click "Remove".
+3. Click **Save**. To drop it, click **Remove**.
 
 Local network addresses and this computer's own addresses aren't accepted, and the page says why.
 
@@ -104,9 +104,9 @@ Local network addresses and this computer's own addresses aren't accepted, and t
 
 1. Open your address in the phone's browser. Or scan the code on your computer with the ordinary camera: it's just a normal web address.
 2. When you see the pairing page, follow [Pairing: check and approve](#pairing-check-and-approve) below.
-3. To open it like an app, use the browser's "Add to Home Screen".
+3. To open it like an app, use the browser's **Add to Home Screen**.
 
-**Good to know:** After the server updates, open pages show "A new version of Ergo is available" at the very top. Tap "Refresh", or tap "Later" to hide it for now.
+**Good to know:** After the server updates, open pages show **A new version of ergo is available** at the very top. Tap **Refresh**, or tap **Later** to hide it for now.
 
 ## Install the app
 
@@ -129,13 +129,13 @@ Supports Android 8 and later. You don't need a computer, and you don't need to k
 **Step by step:**
 
 1. Open the download link above in your phone's browser and download the file.
-2. When it's done, open it: tap the browser's download prompt, or find the "Downloads" folder in the phone's "Files".
-3. If the system says it isn't allowed to install unknown apps from this source, tap "Settings" and turn on "Allow from this source" (允许来自此来源的应用 on a Chinese system).
-4. The system asks whether to install this app. Its name is Ergo (二狗 on a Chinese system). Tap "Install".
+2. When it's done, open it: tap the browser's download prompt, or find the **Downloads** folder in the phone's **Files**.
+3. If the system says it isn't allowed to install unknown apps from this source, tap **Settings** and turn on **Allow from this source** (允许来自此来源的应用 on a Chinese system).
+4. The system asks whether to install this app. Its name is Ergo (二狗 on a Chinese system). Tap **Install**.
 5. If a security prompt says it hasn't seen this app before and suggests a scan (Google Play Protect does this), open the details and choose Install without scanning (不扫描直接安装 on a Chinese system). You see this because the app has never been in an app store.
-6. Once it's installed, tap "Open". The first time, it opens on the page for entering an address. Then see "Connecting to ergo" below.
+6. Once it's installed, tap **Open**. The first time, it opens on the page for entering an address. Then see "Connecting to ergo" below.
 
-**What we've walked through, and what we haven't:** We went through steps 2 to 6 on an English-language Android 16 emulator, opening the file from "Files". The English wording in those steps is what was on screen at the time; the Chinese in brackets is the equivalent wording. **Not verified:** actually downloading from the releases page in a phone browser, opening the file from the browser's download prompt, and the prompts on real phones of each brand. Brands differ in wording and switches. Some call it "外部来源应用下载" (downloading apps from external sources) or "纯净模式" (pure mode). Just turn on whatever your screen says.
+**What we've walked through, and what we haven't:** We went through steps 2 to 6 on an English-language Android 16 emulator, opening the file from **Files**. The English wording in those steps is what was on screen at the time; the Chinese in brackets is the equivalent wording. **Not verified:** actually downloading from the releases page in a phone browser, opening the file from the browser's download prompt, and the prompts on real phones of each brand. Brands differ in wording and switches. Some call it **外部来源应用下载** (downloading apps from external sources) or **纯净模式** (pure mode). Just turn on whatever your screen says.
 
 **Connecting to ergo:** The same three steps from the start of this chapter.
 
@@ -148,7 +148,7 @@ Supports Android 8 and later. You don't need a computer, and you don't need to k
 - This package has a **debug signature**. It works normally, but no app store has reviewed it; this project packages and publishes it itself. Its debugging features are off, so even over USB, debugging tools can't read the credentials inside.
 - Every future version is signed with the same key. Download a new version and install it right over the old one, and your pairing stays.
 - **A build you make yourself has a different signature from the download,** so neither can install over the other. To switch, uninstall first. After uninstalling, you have to pair again.
-- If opening it says "The system WebView is too old for the Ergo app", update "Android System WebView" in your app store.
+- If opening it says **The system WebView is too old for the ergo app**, update **Android System WebView** in your app store.
 
 **Installing with adb (optional):** On the phone, turn on developer options and USB debugging, connect it to your computer over USB, then:
 
@@ -188,8 +188,8 @@ $hdc = "$dev\sdk\default\openharmony\toolchains\hdc.exe"
 
 Both routes need this. For the official steps, see [Running an app on a local device](https://developer.huawei.com/consumer/cn/doc/harmonyos-guides/ide-run-device) (in Chinese).
 
-1. On the phone, open Settings → System and look for "Developer options". If it isn't there, go to Settings → About phone (on some systems, the device name), tap "Version number" (on some systems, "Software version") seven times, confirm, and enter your lock screen password. The phone restarts.
-2. Go to Settings → System → Developer options and turn on "USB debugging".
+1. On the phone, open Settings → System and look for **Developer options**. If it isn't there, go to Settings → About phone (on some systems, the device name), tap **Version number** (on some systems, **Software version**) seven times, confirm, and enter your lock screen password. The phone restarts.
+2. Go to Settings → System → Developer options and turn on **USB debugging**.
 3. Connect to the computer over USB. When the phone asks to allow USB debugging, tap Allow.
 4. On the computer, run `& $hdc list targets`. You should see a device ID.
 
@@ -241,7 +241,7 @@ To upgrade later: pull the new code and rerun steps 5 and 6. When the certificat
 | App | No file | [Create a HarmonyOS app](https://developer.huawei.com/consumer/cn/doc/app/agc-help-create-app-0000002247955506) (in Chinese), with the bundle name `com.catmaniii.ergo` |
 | Debug certificate | `.cer` | [Apply for a debug certificate](https://developer.huawei.com/consumer/cn/doc/app/agc-help-debug-cert-0000002283256797) (in Chinese) and upload the `.csr`. Up to 3 per account. Valid for 1 year on a real-name account, 14 days without real-name verification |
 | Register the phone | No file | [Register a device](https://developer.huawei.com/consumer/cn/doc/app/agc-help-add-device-0000002283189937) (in Chinese) with the phone's UDID. Look it up with `& $hdc -t <device id> shell bm get --udid` |
-| Debug profile | `.p7b` | [Apply for a debug profile](https://developer.huawei.com/consumer/cn/doc/app/agc-help-debug-profile-0000002248181278) (in Chinese). Choose the debug type ("调试"), and select the certificate and phone above |
+| Debug profile | `.p7b` | [Apply for a debug profile](https://developer.huawei.com/consumer/cn/doc/app/agc-help-debug-profile-0000002248181278) (in Chinese). Choose the debug type (**调试**), and select the certificate and phone above |
 
 For the whole process, see the official [manual signing](https://developer.huawei.com/consumer/cn/doc/harmonyos-guides/ide-signing-manual) guide (in Chinese).
 
@@ -291,7 +291,7 @@ For a first look, or when you don't have a HarmonyOS phone handy. The emulator d
    & $hdc -t 127.0.0.1:<port> rport tcp:8811 tcp:8811
    ```
 
-   This opens the pairing page and sends a pairing request, but **pairing doesn't complete:** after you approve, the page goes back to "This device isn't paired yet". That's what we measured: HarmonyOS's web component doesn't store the device credential on an http address. To really use it in the emulator, enter an https address (not verified).
+   This opens the pairing page and sends a pairing request, but **pairing doesn't complete:** after you approve, the page goes back to **This device isn't paired yet**. That's what we measured: HarmonyOS's web component doesn't store the device credential on an http address. To really use it in the emulator, enter an https address (not verified).
 
 We've walked through installing, opening and reaching the pairing page on a Pura 90 emulator (API 24) with the published HAP, connected to a temporary test ergo.
 
@@ -326,7 +326,7 @@ For the full lists, see the official [install error reference](https://developer
 | `The signature does not take effect or has expired` | Your computer's clock doesn't match Beijing time | Correct the clock and sign again |
 | `Bundle name *** is already in use` | Another account has taken the bundle name | See [Bundle name](#bundle-name) above |
 | `Bundle name *** does not exist` | You ticked Associate with registered application, but your account has no such app | Untick it and keep only Automatically generate signature |
-| `Failed to query agreement signing records` | The account isn't real-name verified, or there's a network proxy problem | Complete developer real-name verification, and don't set DevEco's proxy to auto-detect ("自动检测") |
+| `Failed to query agreement signing records` | The account isn't real-name verified, or there's a network proxy problem | Complete developer real-name verification, and don't set DevEco's proxy to auto-detect (**自动检测**) |
 | `The number of certificates has reached the limit` | You've hit the debug certificate limit | On the developer site, delete a debug certificate you don't use |
 | `Provision number exceeds limit` | More than 150 automatic signings within 30 days | There's no need to keep re-signing the same app for the same phone. Try again after a while |
 | `older sdk version in the device` (9568297) | The phone's system is below API 24 | Upgrade the phone's system |
@@ -344,19 +344,19 @@ For the full lists, see the official [install error reference](https://developer
 **Step by step:**
 
 1. First keep the code showing on your computer; see above.
-2. On your phone, open the ergo app and tap "Scan to connect".
+2. On your phone, open the ergo app and tap **Scan to connect**.
 
-   ![The app's address page: "Scan to connect", with "Enter Ergo's address" and "Connect" below](images/mobile/05-app-address.png)
+   ![The app's address page: "Scan to connect", with "Enter ergo's address" and "Connect" below](images/mobile/05-app-address.png)
 
 3. The scanning screen opens:
    - HarmonyOS uses the system's scanning screen, so the app needs no camera permission.
-   - Android asks for camera permission only once you tap. It says "Scan the pairing code on your computer"; fit the code inside the frame. If you refuse, you can still type the address by hand.
-4. Once it has scanned, the app first tries a real connection. The screen says "Connecting…".
+   - Android asks for camera permission only once you tap. It says **Scan the pairing code on your computer**; fit the code inside the frame. If you refuse, you can still type the address by hand.
+4. Once it has scanned, the app first tries a real connection. The screen says **Connecting…**.
 5. If it gets through, you go to the pairing page; continue with [Pairing: check and approve](#pairing-check-and-approve). The first time you connect, the system first asks whether to send notifications, on top of the pairing page. Tap Allow. If it can't get through, it reports an error and doesn't go to the pairing page.
 
 ## When it can't connect
 
-If it can't connect after scanning, the app says "Can't connect to this address", with the reason, the scanned address and what to check. Below that are "Try again", "Scan again" and "Back".
+If it can't connect after scanning, the app says **Can't connect to this address**, with the reason, the scanned address and what to check. Below that are **Try again**, **Scan again** and **Back**.
 
 ![The can't-connect page: the reason, the address, three items under "Check these:", and "Try again", "Scan again" and "Back"](images/mobile/06-app-error.png)
 
@@ -366,35 +366,35 @@ If it can't connect after scanning, the app says "Can't connect to this address"
 | Timed out: no answer after 10 seconds. | The phone can't reach this address | Is your computer on? Are the tunnel and VPS running? Try another network |
 | Certificate problem: this address's HTTPS certificate doesn't check out. | The certificate expired, the domain doesn't match, or the network is intercepting | Check the certificate on the VPS or reverse proxy |
 | Can't get through: the connection was refused or the network is down. | The reverse proxy, tunnel or ergo isn't running | Check ergo and the service manager on your computer |
-| It opens, but what answered is not Ergo. | The address points to another site, or to the wrong port | Confirm it connects to external port 8811 |
+| It opens, but what answered is not ergo. | The address points to another site, or to the wrong port | Confirm it connects to external port 8811 |
 | Can't connect (…). | Some other reason; the brackets hold the original message | Look into it using the original message |
 
-**The three items under "Check these:":**
+**The three items under Check these:**
 
 - Is Tailscale on for this phone, and on the same tailnet as your computer?
-- Are Ergo and the service manager running on your computer?
+- Are ergo and the service manager running on your computer?
 - Is your VPS, tunnel or reverse proxy running, and is the link right?
 
 If the address is recognizably a tailnet one, the Tailscale item comes first.
 
-**If you scan some other code:** It says "That isn't an Ergo address" and shows what was scanned. Below that are "Scan again" and "Back".
+**If you scan some other code:** It says **That isn't an ergo address** and shows what was scanned. Below that are **Scan again** and **Back**.
 
-**If you can't scan:** It says "Scanning isn't available right now" or "Without camera access the code can't be scanned". Go back to the address page and type it in.
+**If you can't scan:** It says **Scanning isn't available right now** or **Without camera access the code can't be scanned**. Go back to the address page and type it in.
 
 ## Enter the address by hand
 
 **Step by step:**
 
-1. On the address page, type in the box under "Enter Ergo's address", for example `https://ergo.example.com`.
-2. Tap "Connect".
+1. On the address page, type in the box under **Enter ergo's address**, for example `https://ergo.example.com`.
+2. Tap **Connect**.
 
 **Good to know:**
 
-- It must be https. If you type it wrong, the reason appears below the box, such as "That address doesn't look right". Don't put a user name or password in the address.
+- It must be https; the only exceptions are `http://127.0.0.1` and `http://localhost`, for local debugging. If you type it wrong, the reason appears below the box, such as **That address doesn't look right**. Don't put a user name or password in the address.
 - The address is stored only on this phone.
-- A typed address isn't tested first; it opens directly. If it can't open, it says "Can't open Ergo" and the reason, such as "Can't connect" or "The server replied 502", with "Retry" and "Edit address" below.
+- A typed address isn't tested first; it opens directly. If it can't open, it says **Can't open ergo** and the reason, such as **Can't connect** or **The server replied 502**, with **Retry** and **Edit address** below.
 - If the address redirects somewhere else, it says where. Change the address to that one.
-- If a page opens but doesn't look like ergo, "Not Ergo?" appears at the bottom, with "Change address" and "Close" on the right.
+- If a page opens but doesn't look like ergo, **Not ergo?** appears at the bottom, with **Change address** and **Close** on the right.
 
 ## Pairing: check and approve
 
@@ -402,25 +402,25 @@ If the address is recognizably a tailnet one, the Tailscale item comes first.
 
 **Step by step:**
 
-1. On the phone you see "This device isn't paired yet". You can change the device name; it's what the approver sees.
-2. Tap "Request pairing".
+1. On the phone you see **This device isn't paired yet**. You can change the device name; it's what the approver sees.
+2. Tap **Request pairing**.
 
    ![The pairing page on the phone: the device name and "Request pairing", with "Change address" below it in the app](images/mobile/07-pairing.png)
 
-3. The phone shows a 6-digit short code and an 8-character short fingerprint, with "Waiting for approval…" and a countdown.
+3. The phone shows a 6-digit short code and an 8-character short fingerprint, with **Waiting for approval…** and a countdown.
 
    ![Waiting for approval: the short code, the short fingerprint and the countdown](images/mobile/08-pairing-wait.png)
 
-4. Go back to your computer. If the code page is open, "A phone wants to pair" appears right there, with "Device name", "Short code", "Short fingerprint" and "From". If that page isn't open, find this pairing request in the **Inbox**. Devices already paired can approve too.
+4. Go back to your computer. If the code page is open, **A phone wants to pair** appears right there, with **Device name**, **Short code**, **Short fingerprint** and **From**. If that page isn't open, find this pairing request in the **Inbox**. Devices already paired can approve too.
 
    ![The pairing request on the computer: device name, short code, short fingerprint and From, with "Deny" and "They match, approve"](images/mobile/04-qr-request.png)
 
-5. Check that the phone and computer show exactly the same thing, then click "They match, approve". **If they don't match, click "Deny":** someone may be posing as your device.
-6. The computer says "Connected". The phone says "Paired". Tap "Open Ergo".
+5. Check that the phone and computer show exactly the same thing, then click **They match, approve**. **If they don't match, click Deny:** someone may be posing as your device.
+6. The computer says **Connected**. The phone says **Paired**. Tap **Open ergo**.
 
 **Good to know:**
 
-- Pending requests expire after 5 minutes. If one expires or is denied, go back to the pairing page and tap "Request pairing" again.
+- Pending requests expire after 5 minutes. If one expires or is denied, go back to the pairing page and tap **Request pairing** again.
 - At most 5 requests from the same source within 10 minutes. After repeated failures, wait 10 minutes and try again.
 - You can also change the device name while waiting for approval, and the computer's side updates to match.
 - This computer doesn't need pairing itself: connections from its local port are trusted automatically.
@@ -431,17 +431,17 @@ If the address is recognizably a tailnet one, the Tailscale item comes first.
 
 **Where to open it (either place works):**
 
-- **If you can get into ergo:** More · Settings. In the top row, "Running in the phone app", tap "Change address" on the right.
+- **If you can get into ergo:** More · Settings. In the top row, **Running in the phone app**, tap **Change address** on the right.
 
   ![The top of the Settings page in the app: Running in the phone app, App version and "Change address", with System notifications below](images/mobile/09-app-settings.png)
 
-- **If you can't get into ergo:** It isn't paired yet, this device was revoked, or a request was never approved. "Change address" is at the very bottom of the pairing page.
+- **If you can't get into ergo:** It isn't paired yet, this device was revoked, or a request was never approved. **Change address** is at the very bottom of the pairing page.
 
 **Step by step:**
 
-1. Tap "Change address". You go back to the app's address page, with the current address in the box.
-2. Tap "Scan to connect" to scan again, or change the address and tap "Connect".
-3. If you change your mind, tap "Cancel".
+1. Tap **Change address**. You go back to the app's address page, with the current address in the box.
+2. Tap **Scan to connect** to scan again, or change the address and tap **Connect**.
+3. If you change your mind, tap **Cancel**.
 
 ## Manage paired devices
 
@@ -449,7 +449,7 @@ If the address is recognizably a tailnet one, the Tailscale item comes first.
 
 **Step by step:**
 
-1. Each device has a row showing where it connects from, when it was paired, when it was last used, and the date its credential runs until. With 30 days or less left, it's marked "expires in N days".
+1. Each device has a row showing where it connects from, when it was paired, when it was last used, and the date its credential runs until. With 30 days or less left, it's marked **expires in N days**.
 2. Click ⋯ at the end of the row, or long-press or right-click the row, to open the menu.
 
    ![Clicking ⋯ opens the menu: Extend…, Revoke, Delete, Select](images/mobile/10-device-menu.png)
@@ -468,25 +468,25 @@ If the address is recognizably a tailnet one, the Tailscale item comes first.
 - A credential is valid for one year and renews each time it's used. It expires after a full year without use.
 - If a credential isn't used even once within 24 hours of being issued, it's automatically void.
 - If you lose your phone, revoke it from your computer.
-- A revoked phone says "This device has been revoked". Tap "Request pairing" to apply again, and you'll have to approve it again too.
+- A revoked phone says **This device has been revoked**. Tap **Request pairing** to apply again, and you'll have to approve it again too.
 
 ## System notifications
 
 **What it is:** While the app is in the background, due reminders and the like go to the phone's notification bar.
 
-**Where to open it:** More · Settings: the "System notifications" row under "Running in the phone app" at the very top.
+**Where to open it:** More · Settings: the **System notifications** row under **Running in the phone app** at the very top.
 
 **Step by step:**
 
-1. If it says "On", there's nothing to do.
-2. If it says "Off: reminders only show inside the page", tap "Turn on". If you've never been asked, the system's permission box pops up. If you refused before, the system's notification settings open.
+1. If it says **On**, there's nothing to do.
+2. If it says **Off: reminders only show inside the page**, tap **Turn on**. If you've never been asked, the system's permission box pops up. If you refused before, the system's notification settings open.
 
 The first time you connect to ergo, the app first asks whether to send notifications, in a box on top of the pairing page. Tap Allow, then carry on pairing.
 
 **Good to know:**
 
 - The app sends notifications itself, with no phone maker's or Google's push service involved. After the system kills the app, you won't get any until you open it again.
-- To miss as few as possible, set ergo's battery policy to "Unrestricted" in system settings.
+- To miss as few as possible, set ergo's battery policy to **Unrestricted** in system settings.
 - Notifications aren't sent while the app is in the foreground; the page already shows them at the top.
 
 ## Troubleshooting
@@ -495,15 +495,15 @@ The first time you connect to ergo, the app first asks whether to send notificat
 |---|---|
 | Can't connect after scanning | See [When it can't connect](#when-it-cant-connect) |
 | The phone stays on the pairing page | Make sure you approved on the computer. If the request expired, request again |
-| The phone says "This device has been revoked" | Tap "Request pairing" to apply again. If you don't want to connect it any more, leave it |
-| The phone says its credential expired | It went unused for too long. Tap "Request pairing" to pair again |
-| Not sure whether the route to the outside works | On your computer, see "Outside access" under Settings · Data & devices · Checkup |
+| The phone says **This device has been revoked** | Tap **Request pairing** to apply again. If you don't want to connect it any more, leave it |
+| The phone says its credential expired | It went unused for too long. Tap **Request pairing** to pair again |
+| Not sure whether the route to the outside works | On your computer, see **Outside access** under Settings · Data & devices · Checkup |
 
 For more, see [Troubleshooting](install.en.md#troubleshooting).
 
 ## Read next
 
-- [Built-in browser](browser.en.md): "Browse" in the app.
+- [Built-in browser](browser.en.md): **Browse** in the app.
 - [Data sources](data-sources.en.md#data-on-your-phone): contacts, calendar, photos and location on your phone.
 - [Voice](voice.en.md): hold to talk.
 - [Deployment and outside access](../architecture/deployment.en.md): the technical details of outside access.

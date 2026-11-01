@@ -6,7 +6,7 @@ Screenshots show the Chinese interface; the labels in the text are the English o
 
 ergo remembers what you say and slowly gets to know you. This chapter covers five things: how to make it remember, how to make it forget, how to see what it has learned, how to correct what it got wrong, and how to delete data for good. By the end you can stay in control of what it keeps and what it uses.
 
-This memory system is called "Subtext", and the top of the page is marked "Experimental": it's still being polished, and both its behavior and the data it stores may change. All the data stays on your own computer.
+This memory system is called **Subtext**, and the top of the page is marked **Experimental**: it's still being polished, and both its behavior and the data it stores may change. All the data stays on your own computer.
 
 ## The basics
 
@@ -21,8 +21,8 @@ The **memory curator** is the agent dedicated to memory. It consolidates once a 
 
 ## Opening the Memory page
 
-- **On a PC:** click "Memory" in the vertical bar on the left.
-- **On a phone:** tap "More" at the bottom, then "Memory System · Subtext v1.0".
+- **On a PC:** click **Memory** in the vertical bar on the left.
+- **On a phone:** tap **More** at the bottom, then **Memory System · Subtext v1.0**.
 
 ![The Memory page: the home view on the left, the selected section on the right](images/memory/01-home.png)
 
@@ -33,7 +33,7 @@ From top to bottom, the page has:
 3. **Data sources:** data brought in from outside; see [Data sources](data-sources.en.md).
 4. **Memory System · Subtext v1.0 · Settings:** three switches, collapsed by default; see [The three switches](#the-three-switches).
 
-In this chapter, "Memory · Materials" means: open the Memory page, then click "Materials".
+In this chapter, **Memory · Materials** means: open the Memory page, then click **Materials**.
 
 ## Having ergo remember something
 
@@ -41,20 +41,20 @@ In this chapter, "Memory · Materials" means: open the Memory page, then click "
 
 **Things you can just say:**
 
-- Make a note: pick up the car Wednesday afternoon
-- Remember, I'm allergic to mangoes
+- Remember: pick up the car Wednesday afternoon
+- Remember that I'm allergic to mangoes
 
 **Step by step:**
 
 1. Type in the secretary's input box, or hold to talk, and say something like the above.
 2. The secretary replies "Noted".
-3. To check, open Memory · Materials and click "Memory commands" in the filters. This item's kind says "Memory command", and the content is your exact words.
+3. To check, open Memory · Materials and click **Memory commands** in the filters. This item's kind says **Memory command**, and the content is your exact words.
 
 **Good to know:**
 
-- It only records this way when you say so explicitly, and it records your exact words. The secretary won't record its own inferences as something you said; when it's unsure, it shows you a card to ask.
+- It only records this way when you say so explicitly, and it records your exact words. In English that means a sentence opening with "Remember: …", "Remember that …" or "Remember this: …"; case doesn't matter. "Remember, …", "Remember to …" and questions don't count. The secretary won't record its own inferences as something you said; when it's unsure, it shows you a card to ask.
 - Fixed facts like ID numbers and birthdays belong in [Files](#files).
-- To feed it a document: click + to the left of the input box, choose "Feed as material", then pick a file and send it. Its kind says "Material you shared".
+- To feed it a document: click + to the left of the input box, choose **Feed as material**, then pick a file and send it. Its kind says **Material you shared**.
 - In the built-in browser, long-press an image and say "Remember this image", and the image itself is saved to materials as well. See [Built-in browser](browser.en.md).
 - If you misspoke, there's no need to look for somewhere to fix it. Just say "No, not …, it's …". That sentence is saved as material too, and the next consolidation recognizes it as a correction.
 
@@ -64,9 +64,9 @@ In this chapter, "Memory · Materials" means: open the Memory page, then click "
 
 | Method | Materials | Chat history | Conclusions |
 |---|---|---|---|
-| Forget | Deleted, along with any saved images and files | Your words can still be seen | Conclusions that use it are marked "Under review"; verified ones fall back to guesses, and ones relying only on it are withdrawn |
+| Forget | Deleted, along with any saved images and files | Your words can still be seen | Conclusions that use it are marked **Under review**; verified ones fall back to guesses, and ones relying only on it are withdrawn |
 | Delete completely | Deleted, along with any saved images and files | Your words are replaced by a deletion marker; can't be recovered | Same as above, and the evidence is really deleted too |
-| Don't infer | Kept, marked "Excluded from inference" | Untouched | No longer used as a basis; conclusions that use it are treated as above |
+| Don't infer | Kept, marked **Excluded from inference** | Untouched | No longer used as a basis; conclusions that use it are treated as above |
 
 **Things you can just say:**
 
@@ -77,11 +77,11 @@ In this chapter, "Memory · Materials" means: open the Memory page, then click "
 **Step by step:**
 
 1. Say something like the above to the secretary.
-2. The secretary checks the materials first, then shows a "Memory deletion" card. Nothing has been deleted yet.
+2. The secretary checks the materials first, then shows a **Memory deletion** card. Nothing has been deleted yet.
 3. Check each item on the card. Untick anything you don't want deleted.
-4. To use a different method, change it in the "Method" dropdown. The explanation below updates.
-5. Click the button at the bottom right, such as "Forget: these 4". To back out, click "Keep them".
-6. When the card says "Forget: done for 4 materials", it's done.
+4. To use a different method, change it in the **Method** dropdown. The explanation below updates.
+5. Click the button at the bottom right, such as **Forget: these 4**. To back out, click **Keep them**.
+6. When the card says **Forget: done for 4 materials**, it's done.
 
 ![The Memory deletion card: you can remove items and change the method, and nothing is deleted until you confirm](images/memory/02-delete-card.png)
 
@@ -104,26 +104,26 @@ The list has four groups: Me, Family, Important people, Others.
 
 ### Adding a person
 
-1. Click "Add a person" at the top right.
-2. Fill in "Name", for example "Mom". "Relationship (optional)" can be left blank.
-3. If you leave "Group" alone, it's guessed from the relationship; you can change it later.
-4. Click "Add". You go straight to this person's file.
+1. Click **Add a person** at the top right.
+2. Fill in **Name**, for example "Mom". **Relationship (optional)** can be left blank.
+3. If you leave **Group** alone, it's guessed from the relationship; you can change it later.
+4. Click **Add**. You go straight to this person's file.
 
 ### Filling in or editing an item
 
-1. Find the item under "Facts" and click "Fill in" or "Edit".
-2. Write the value and click "Save".
-3. When editing an existing value, you can also click "Undo last change" to go back to the previous value, or click "Delete".
+1. Find the item under **Facts** and click **Fill in** or **Edit**.
+2. Write the value and click **Save**.
+3. When editing an existing value, you can also click **Undo last change** to go back to the previous value, or click **Delete**.
 
-Below each item it says since when it's been in effect and how it got there. Items that have changed have "N earlier values" below them; click to see the history.
+Below each item it says since when it's been in effect and how it got there. Items that have changed have **N earlier values** below them; click to see the history.
 
-- **Adding your own item:** click "Add field", and enter a field name and value, such as a license plate number.
-- **Anniversaries:** you can have several. Click "Fill in" and enter a name and date; to add another, click "Add another anniversary".
+- **Adding your own item:** click **Add field**, and enter a field name and value, such as a license plate number.
+- **Anniversaries:** you can have several. Click **Fill in** and enter a name and date; to add another, click **Add another anniversary**.
 - **Your own name:** this is the same as Settings · Identity · My name. Changing one changes the other.
 
 ### Yearly reminders
 
-Birthdays and anniversaries have "Remind me every year (Birthday)" below them. Tick it and choose "How many days before" (3 by default). It takes effect right away. You get the reminder at 09:00 on that day.
+Birthdays and anniversaries have **Remind me every year (Birthday)** below them. Tick it and choose **How many days before** (3 by default). It takes effect right away. You get the reminder at 09:00 on that day.
 
 Yearly reminders can't be set for lunar-calendar dates; the page says so. The reminders plugin has to be on.
 
@@ -131,9 +131,9 @@ Yearly reminders can't be set for lunar-calendar dates; the page says so. The re
 
 For things that aren't fixed fields, such as "Has trouble with stairs":
 
-1. Click "Add a note".
+1. Click **Add a note**.
 2. Write the content and pick a date (today by default).
-3. Click "Save".
+3. Click **Save**.
 
 ### What ergo has learned
 
@@ -141,14 +141,14 @@ This block is at the bottom of every file: conclusions, facts and quotes about t
 
 ### Deleting
 
-- To delete an item: click "Edit", then "Delete".
-- To delete a note: click "Delete" next to it.
-- To delete a person: click the button at the very bottom, which reads: Delete the whole file for "Mom". Your own file can't be deleted.
+- To delete an item: click **Edit**, then **Delete**.
+- To delete a note: click **Delete** next to it.
+- To delete a person: click the button at the very bottom, which reads: **Delete the whole file for “Mom”**. Your own file can't be deleted.
 
 Each one asks which method to use:
 
 - **Forget (default):** gone from the file and ergo can't read it; your words in the chat history remain.
-- **Delete permanently:** erased along with its history, the check cards and the records of ergo having read it. This can't be taken back. Here you can also tick "Also permanently delete the original messages".
+- **Delete completely:** erased along with its history, the check cards and the records of ergo having read it. This can't be taken back. Here you can also tick **Also permanently delete the original messages**.
 
 **Things you can just say:**
 
@@ -159,8 +159,8 @@ Each one asks which method to use:
 **Good to know:**
 
 - Birthdays and anniversaries you state clearly in chat are written straight into the file by the secretary, and yearly reminders are set up; its reply says so.
-- Numbers always get a check card that lists them digit by digit, because voice transcription can get one digit wrong. If it's right, click "Confirm and save".
-- During the nightly consolidation, ergo may also pick up candidate facts from what you said, and puts a card in Inbox the next day: "Check: should these go into your personal files?". Tick the ones you want and click "Save the ticked ones", or click "None of these". At most one card a day.
+- Numbers always get a check card that lists them digit by digit, because voice transcription can get one digit wrong. If it's right, click **Confirm and save**.
+- During the nightly consolidation, ergo may also pick up candidate facts from what you said, and puts a card in Inbox the next day: **Check: should these go into your personal files?**. Tick the ones you want and click **Save the ticked ones**, or click **None of these**. At most one card a day.
 - The secretary reads your files only when it fills in a web form for you or when you ask. What it reads is sent to your configured model provider. During the nightly consolidation, numbers and addresses are replaced with placeholders and aren't sent to the model.
 - Your phone's contacts and imported address books can also create files; see [Data sources](data-sources.en.md).
 
@@ -177,11 +177,11 @@ Each one asks which method to use:
 1. Look at the two lines at the top: the total count, and what the latest consolidation did.
 2. To see only one status, use the filter: All, Verified, Guess, Withdrawn, Replaced.
 3. Conclusions are ordered by layer: Recent state, Preferences, Needs, Values.
-4. Click one to open "Evidence and reasoning".
+4. Click one to open **Evidence and reasoning**.
 
 ![Evidence and reasoning: how this conclusion came about](images/memory/05-evidence.png)
 
-"Evidence and reasoning" shows, from top to bottom:
+**Evidence and reasoning** shows, from top to bottom:
 
 - **Evidence chain:** conclusion → premises → facts → your exact words.
 - **Supports, Counter-evidence, Background only:** each says why it counts, how much weight it carries, and the words it quotes. What others passed on second-hand is only background, never a basis.
@@ -194,7 +194,7 @@ Each one asks which method to use:
 | Tag | Meaning |
 |---|---|
 | Verified | Enough evidence; the secretary can use it directly |
-| Guess | Not confirmed yet. The secretary says "I guess" when using it; the details page for such a conclusion has "Why it's still a guess" |
+| Guess | Not confirmed yet. The secretary says "I guess" when using it; the details page for such a conclusion has **Why it's still a guess** |
 | Under review | Its basis changed; the next consolidation judges it again |
 | High confidence, Medium confidence, Low confidence | How sure it is |
 | You said so, Inferred, You confirmed it | Where this one came from |
@@ -204,7 +204,7 @@ Each one asks which method to use:
 **Good to know:**
 
 - This page is empty before the first consolidation.
-- At the bottom of the list there may be a "Habits" section: long-term habits compiled from conclusions, such as "When planning weekend activities, leave some open time". The page says they're "used only once you agree", but there's no place to agree yet. This section is view-only, and items marked "Awaiting your OK" won't be used.
+- At the bottom of the list there may be a **Habits** section: long-term habits compiled from conclusions, such as "When planning weekend activities, leave some open time". The page says they're **used only once you agree**, but there's no place to agree yet. This section is view-only, and items marked **Awaiting your OK** won't be used.
 
 ## Question box
 
@@ -245,20 +245,20 @@ This page is view-only. To answer, just reply when the secretary asks; to bring 
 
 **Step by step:**
 
-1. Pick a time range: Today, Last 7 days (default), Last 30 days, Custom. Use "‹ Earlier" and "Later ›" to move through it.
-2. To search, type keywords at the top; all the space-separated words must appear. If nothing turns up in this period, click "Search all time instead".
+1. Pick a time range: Today, Last 7 days (default), Last 30 days, Custom. Use **‹ Earlier** and **Later ›** to move through it.
+2. To search, type keywords at the top; all the space-separated words must appear. If nothing turns up in this period, click **Search all time instead**.
 3. To filter, click kinds: Said, Did, Attachments, Voice, Saved pages, Data sources, Memory commands. You can pick several.
-4. To see only one conversation, pick it in the "Conversation" dropdown. Click "Clear filters" to clear kinds and conversation.
-5. The list shows 30 at a time; click "Show N more" to continue.
-6. Click one to open "Material details".
+4. To see only one conversation, pick it in the **Conversation** dropdown. Click **Clear filters** to clear kinds and conversation.
+5. The list shows 30 at a time; click **Show N more** to continue.
+6. Click one to open **Material details**.
 
 ![Material details: content, source and delete](images/memory/08-material-detail.png)
 
-"Material details" shows the content and source. If the original message still exists, there's "Go to this message ›". At the bottom, "Delete this item" has three buttons: "Forget", "Delete completely" and "Don't infer". Clicking one first brings up a confirmation box explaining what this method does; then click the button in the box, such as "Forget".
+**Material details** shows the content and source. If the original message still exists, there's **Go to this message ›**. At the bottom, **Delete this item** has three buttons: **Forget**, **Delete completely** and **Don't infer**. Clicking one first brings up a confirmation box explaining what this method does; then click the button in the box, such as **Forget**.
 
 **Good to know:**
 
-- Items in the list can have tags: "From an interview", "Excluded from inference", "On an abandoned branch".
+- Items in the list can have tags: **From an interview**, **Excluded from inference**, **On an abandoned branch**.
 - The kind also tells you where it came from: What you said, Approval decision, Answer to a clarifying question, Task outcome, Something you did (observed)…
 - Finding materials by meaning needs the [embedding model](#troubleshooting). Search on this page uses keywords and doesn't need it.
 
@@ -274,28 +274,28 @@ There are five topics:
 4. What you care about and what bothers you
 5. What kind of help you want
 
-Once all five are covered, the topic becomes "What's changed lately".
+Once all five are covered, the topic becomes **What's changed lately**.
 
 **How to start (four ways, all the same interview):**
 
-- On the Memory page, click "Talk to the memory curator", then "Start interview" in the line above the input box.
+- On the Memory page, click **Talk to the memory curator**, then **Start interview** in the line above the input box.
 - Type `/interview` in the memory curator's input box; you can add a topic after it.
-- Click "Start" on the invitation card in Inbox.
+- Click **Start** on the invitation card in Inbox.
 - Tell the secretary "I'd like to do an interview".
 
 ![The end of an interview: a line with the result, a file check card, and the interview's progress above the input box](images/memory/09-curator.png)
 
 **Step by step:**
 
-1. Once it starts, the memory curator asks the first question on its page. The line above the input box becomes: Interviewing: Work and a typical day · say "that's enough" to stop.
+1. Once it starts, the memory curator asks the first question on its page. The line above the input box becomes: **Interviewing: Work and a typical day · say “that's enough” to stop**.
 2. Type or hold to talk, one question and one answer at a time, usually about ten rounds.
 3. If you don't want to answer, say "skip".
 4. If you'd rather not keep what you just said, say "don't keep this". It replies "OK, I won't keep that" and carries on.
 5. To stop, say "that's enough".
 6. At the end it says "Here's what I noted today", lists a few key points, and asks if they're right. Once you answer, this round is over and a result line appears in the chat.
-7. If birthdays, phone numbers and the like come up, it puts them together on one card, "Profile details from the interview", in the chat and in Inbox. Click "Confirm" or "Don't save" for each. Only what you confirm goes into your files.
+7. If birthdays, phone numbers and the like come up, it puts them together on one card, **Profile details from the interview**, in the chat and in Inbox. Click **Confirm** or **Don't save** for each. Only what you confirm goes into your files.
 
-**A weekly invitation:** every Saturday at 10:00, an invitation card may appear in Inbox: "Got 10 minutes to chat? This time: …". This card doesn't block anything.
+**A weekly invitation:** every Saturday at 10:00, an invitation card may appear in Inbox: **Got 10 minutes to chat? This time: …**. Once all five topics are covered, it's once a month. This card doesn't block anything.
 
 - **Start:** go chat with the memory curator.
 - **Maybe later:** you're invited again next week.
@@ -305,7 +305,7 @@ Want invitations again? The switch is at the bottom of the Memory page; see [The
 
 **Good to know:**
 
-- What you say is saved to materials tagged "From an interview" and used in that night's consolidation. The curator's summary is only said to you; it isn't written as a conclusion.
+- What you say is saved to materials tagged **From an interview** and used in that night's consolidation. The curator's summary is only said to you; it isn't written as a conclusion.
 - If you stop midway, that topic doesn't count as covered, and you continue next time.
 - If an interview has been open for 3 hours without wrapping up, it counts as dropped. What you say after that isn't part of the interview.
 - Interviews cost model money, recorded under the memory curator in Usage.
@@ -316,8 +316,8 @@ Want invitations again? The switch is at the bottom of the Memory page; see [The
 
 **Where to open it:**
 
-- "Talk to the memory curator" at the top of the Memory page.
-- "Memory consolidation · Daily at 03:00" on the task board; click "Open the curator ›".
+- **Talk to the memory curator** at the top of the Memory page.
+- **Memory consolidation · Daily at 03:00** on the task board; click **Open the curator ›**.
 
 The page is a normal chat. Past messages and each night's consolidation diary are above; type or hold to talk below. ⚙ in the title bar lets you edit its own prompt, clear the conversation and see context usage.
 
@@ -346,22 +346,22 @@ There are four places:
 | What you want to delete | Where to go |
 |---|---|
 | One thing you can describe | Tell the secretary "Delete completely …", and check it on the Memory deletion card |
-| One material | Memory · Materials, open it, click "Delete completely" |
+| One material | Memory · Materials, open it, click **Delete completely** |
 | A conversation's or a period's materials | Bulk delete, below |
 | An item or a person in your files | The Files page; see [Files](#deleting) |
 
 ### Bulk delete
 
-**Where to open it:** Memory · Materials, click "Bulk delete" at the top right.
+**Where to open it:** Memory · Materials, click **Bulk delete** at the top right.
 
 ![Bulk delete: pick the scope and the method](images/memory/10-bulk-delete.png)
 
-1. Choose "By conversation" or "By time range".
-2. Under "Scope", pick a conversation or enter start and end times.
-3. Under "How to delete", choose: Forget (default), Delete completely, Don't infer.
-4. Below it says "N materials in scope". The materials are listed below that; open one to see its content or delete it on its own.
+1. Choose **By conversation** or **By time range**.
+2. Under **Scope**, pick a conversation or enter start and end times.
+3. Under **How to delete**, choose: Forget (default), Delete completely, Don't infer.
+4. Below it says **N materials in scope**. The materials are listed below that; open one to see its content or delete it on its own.
 5. Click the button on the right (it carries the method's name).
-6. A confirmation box spells out the scope and the consequences. Click "Delete completely".
+6. A confirmation box spells out the scope and the consequences. Click **Delete completely**.
 
 Delete completely also removes voice messages in the scope that have no recognized text; the page says how many.
 
@@ -376,51 +376,51 @@ After deleting completely, these remain, and the page says so too:
 
 ### Removing the memory plugin
 
-**Where to open it:** Settings · Capabilities · Plugins, find "Memory".
+**Where to open it:** Settings · Capabilities · Plugins, find **Memory**.
 
 - **Turn off:** the Memory page is hidden and no new materials are collected; all earlier data stays. Turn it back on and what you said while it was off gets collected too.
-- **Remove:** click "Remove", tick "Also permanently delete its data", click "Next". The dialog lists what will and won't be deleted. Then click "Remove and delete".
+- **Remove:** click **Remove**, tick **Also delete its data completely**, click **Next**. The dialog lists what will and won't be deleted. Then click **Remove and delete**.
 
 Removing only deletes what belongs to the plugin itself: things you told ergo to "Remember", Memory deletion cards, consolidation records, interview records and so on. **Materials and conclusions are not deleted with it.** To delete materials, use the bulk delete above.
 
-When the memory plugin is off: there's no "Memory" in the navigation, "Personal files" appears under "More", and "Delete materials" appears in Settings. Files and deletion keep working.
+When the memory plugin is off: there's no **Memory** in the navigation, **Personal files** appears under **More**, and **Delete materials** appears in Settings. Files and deletion keep working.
 
 ## The three switches
 
-**Where to open it:** at the bottom of the Memory page, click "Memory System · Subtext v1.0 · Settings" to expand.
+**Where to open it:** at the bottom of the Memory page, click **Memory System · Subtext v1.0 · Settings** to expand.
 
 | Switch | When on | When off |
 |---|---|---|
 | Bring related memories with each message | When what you say matches a conclusion, the related conclusions and your original words come along in this turn, so you don't have to explain the background again | Memory is only consulted when needed |
 | Ask in passing during chats | When a related topic comes up, it asks one question along the way, at most one a day | It doesn't ask; questions stay in the Question box |
-| Weekly get-to-know interview | It invites you once a week in Inbox | No invitations; start one yourself when you want |
+| Weekly get-to-know interview | It invites you once a week in Inbox (monthly once all five topics are covered) | No invitations; start one yourself when you want |
 
 All three are on by default. Flipping one saves it right away, it applies on all devices, and it takes effect from the next message.
 
 ## How ergo uses memory when it replies
 
-When ergo checks memory, an extra line appears in the chat: "Recalled 3 memories ›".
+When ergo checks memory, an extra line appears in the chat: **Recalled 3 memories ›**.
 
-Open it to see "Memories used this time":
+Open it to see **Memories used this time**:
 
 - **Why it searched, and what it searched for.**
-- **Each item found:** your exact words, when you said them, and in which conversation. Click "See original ›" to jump to that message.
-- **The brief added automatically:** says why it was included. Click "Evidence and reasoning ›" to see that conclusion.
+- **Each item found:** your exact words, when you said them, and in which conversation. Click **See original ›** to jump to that message.
+- **The brief added automatically:** says why it was included. Click **Evidence and reasoning ›** to see that conclusion.
 
-Anything already deleted says "This memory has been deleted".
+Anything already deleted says **This memory has been deleted**.
 
-How many tokens the automatic memory used is on the Usage page, in the "Memory brief" row.
+How many tokens the automatic memory used is on the Usage page, in the **Memory brief** row.
 
 ## Troubleshooting
 
 | What you see | What's going on | What to do |
 |---|---|---|
-| Conclusions and Question box are empty, or say "The reasoning DB hasn't been built yet" | No consolidation has run yet | Wait until 03:00, or tell the memory curator "Consolidate now" |
-| It says "Skipped (no model key)" | Consolidation only accepts a DeepSeek key, even if you switched to another provider's model | Go to Settings · Capabilities · Models and fill in the DeepSeek row under "API key". No materials are lost; it continues the next night |
-| It says "The nightly consolidation is using the reasoning DB right now" | Consolidation is running | Refresh in a moment |
-| "Memory consolidation didn't finish" in Inbox | Consolidation hit an error or timed out | Read the reason inside. No materials were lost; the next run continues |
-| "Memory consolidation needs a rebuilt reasoning DB" in Inbox | The memory data doesn't match the program version | No materials were lost. There's no rebuild button in the interface yet; please report this message to us |
-| ergo can only find materials by keyword | The embedding model isn't installed | Go to Settings · Capabilities · Components and install "Embedding model bge-m3". No restart needed |
+| Conclusions and Question box are empty, or say **The reasoning DB hasn't been built yet** | No consolidation has run yet | Wait until 03:00, or tell the memory curator "Consolidate now" |
+| It says **Skipped (no model key)** | Consolidation only accepts a DeepSeek key, even if you switched to another provider's model | Go to Settings · Capabilities · Models and fill in the DeepSeek row under **API key**. No materials are lost; it continues the next night |
+| It says **The nightly consolidation is using the reasoning DB right now** | Consolidation is running | Refresh in a moment |
+| **Memory consolidation didn't finish** in Inbox | Consolidation hit an error or timed out | Read the reason inside. No materials were lost; the next run continues |
+| **Memory consolidation needs a rebuilt reasoning DB** in Inbox | The memory data doesn't match the program version | No materials were lost. There's no rebuild button in the interface yet; please report this message to us |
+| ergo can only find materials by keyword | The embedding model isn't installed | Go to Settings · Capabilities · Components and install **Embedding model bge-m3**. No restart needed |
 | The Memory page is gone | The memory plugin is off | Go to Settings · Capabilities · Plugins and turn it on |
 
 ## Related chapters

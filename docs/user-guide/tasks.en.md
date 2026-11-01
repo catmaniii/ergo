@@ -35,7 +35,7 @@ The dialog also has a fourth option, **Just remind me**: no agent, just a notifi
 
 ## New task
 
-**Where to find it:**
+**Where to open it:**
 
 - **Tasks page:** **+ New task** at the top right, on both computer and phone.
 - **Secretary page:** On a computer it's in the title bar, also **+ New task**. On a phone, tap ⋯ at the top right, then **New task**.
@@ -80,11 +80,13 @@ The dialog also has a fourth option, **Just remind me**: no agent, just a notifi
 - `/task Upgrade the home router to Wi-Fi 7: compare prices first, then give me a plan`
 - `/workflow Sort the installers, screenshots and documents in Downloads into three folders`
 
-Type `/task` or `/workflow` in the input box, followed by what to do. In Chinese, a sentence opening with 发起任务：… ("start a task") or 按流程做：… ("follow a workflow") does the same.
+Type `/task` or `/workflow` in the input box, followed by what to do. A sentence opening with "Start a task: …" or "Follow a workflow: …" does the same, and so does its Chinese counterpart, 发起任务：… or 按流程做：….
 
-**Worth knowing:**
+**Good to know:**
 
-- Workflows and long-running tasks start only when you ask for them explicitly. That means `/task` or `/workflow`, or a sentence opening with a Chinese phrase like 发起任务 or 按流程做. The same words in English don't count. 发起任务 on its own counts as a long-running task.
+- Workflows and long-running tasks start only when you ask for them explicitly. That means `/task` or `/workflow`, or a sentence opening with one of the phrases below (or a Chinese one like 发起任务 or 按流程做). Case doesn't matter, but the phrase has to open the sentence. A question doesn't count, unless it's a polite request such as "Can you start a task to …?".
+  - Workflow: "Follow a workflow", "Follow this workflow", "Start a workflow", "Start a new workflow".
+  - Long-running task: "Start a task", "Start a new task", "Start a long-running task". "Start a task" and 发起任务 on their own count as long-running tasks.
 - If you don't, the secretary can at most offer a **Suggested task** card, with **Start as Workflow**, **Start as Long-running task** and **No thanks**. It creates the task only after you click.
 - The secretary can't create scheduled or event-triggered tasks. If they don't belong to a project, it asks you to create them in this dialog. If they do, it passes them to the project's owner, and an [Operations plan change card](projects.en.md#operations-plan) appears.
 - A task's kind can't be changed once it's created.
@@ -93,7 +95,7 @@ Type `/task` or `/workflow` in the input box, followed by what to do. In Chinese
 
 ## The task brief and clarifying questions
 
-**What this is:** Before a workflow or long-running task begins, the secretary asks until what you want is clear, then writes it up as a task brief. The owner sees only the brief, not what you and the secretary talked about.
+**What it is:** Before a workflow or long-running task begins, the secretary asks until what you want is clear, then writes it up as a task brief. The owner sees only the brief, not what you and the secretary talked about.
 
 Plain tasks skip this. For a project's internal tasks, the project's owner asks in its own session.
 
@@ -109,16 +111,16 @@ Plain tasks skip this. For a project's internal tasks, the project's owner asks 
 5. Once aligned, the secretary writes the brief: goal, acceptance criteria, constraints, projects involved. The brief goes to the owner, and the owner drafts a plan.
 6. Open the task, and this brief is at the very top of the session.
 
-**Worth knowing:**
+**Good to know:**
 
 - File paths and things not to touch need spelling out, or the secretary can't put them in the brief.
 - So does where the data you need is. Say "the bills are in D:\Bills" and it can write that down.
 
 ## Plan card
 
-**What this is:** The plan the owner drafted. It doesn't start until you confirm.
+**What it is:** The plan the owner drafted. It doesn't start until you confirm.
 
-**Where to find it:**
+**Where to open it:**
 
 - In the Inbox: **Plan awaits your confirmation: …**.
 - In the task's session. Above the input box it says **1 waiting on you**; click **View card**.
@@ -146,7 +148,7 @@ Read it from top to bottom:
 3. When you've read it, click **Confirm**. The task goes into the queue and starts when its turn comes.
 4. If you're not happy, click **Send back with comments**, write what to change, then click **Send back**. To back out, click **Never mind**. The owner revises and sends a new card, with **(v2)** after the title.
 
-**Worth knowing:**
+**Good to know:**
 
 - Unticked operations aren't authorized. With **Ask me before risky things** on, it asks you when it gets to that step. With it off (as on a new install), even what's beyond the grants just runs and is logged as usual. The sentence under the grants follows the current switch setting. With it off, unticked items, narrowed items and **Ask me first** items don't count as stops, and the line for an **Ask me first** item is marked **runs without asking for now**; only **Hand it to me** items still stop. For the switch, see [Budget and notifications](#budget-and-notifications).
 - On or off, it can't write to protected areas, read the secrets area or send secrets out.
@@ -171,7 +173,7 @@ If it doesn't pass review, the card says so. There are two cases:
 
 ## Board
 
-**Where to find it:** Click **Tasks**.
+**Where to open it:** Click **Tasks**.
 
 ![The task board: grouped by status, with several columns per group](images/tasks/04-board.png)
 
@@ -194,7 +196,7 @@ The line in green is what the system found, such as **nothing sent out; files 1 
 - **Click a group title:** Collapses or expands it. This device remembers.
 - **Multi-select:** Click **Multi-select** at the top right, then click cards to tick them. Each group title has **Select all** on its right. The action bar below shows how many each action can apply to: pause, resume, cancel, archive, delete. When finished, click **Exit multi-select**.
 
-**Worth knowing:**
+**Good to know:**
 
 - Internal tasks of just one project aren't on the board. The exception is the items in force in an operations plan: their cards are labeled with the project name, and open into the project's chat.
 - **Memory consolidation · daily at 03:00** is also in the **Operating** group. See [Memory curator](memory.en.md#memory-curator).
@@ -202,7 +204,7 @@ The line in green is what the system found, such as **nothing sent out; files 1 
 
 ## The task's chat
 
-**What this is:** Opening a task shows a chat with its owner. Title bar at the top, messages in the middle, input box at the bottom. Stage progress opens on the left on a computer, and under the title bar on a phone. A project's chat looks the same.
+**What it is:** Opening a task shows a chat with its owner. Title bar at the top, messages in the middle, input box at the bottom. Stage progress opens on the left on a computer, and under the title bar on a phone. A project's chat looks the same.
 
 **The title bar on a computer:** ‹, **Task records**, the stage tag, the title, the status chip and the activity status; on the right, key buttons, background agents, ⚙ and ⋯.
 
@@ -243,7 +245,7 @@ Rollback, zoom, tool call details and so on work the same as in the secretary's 
 
 ## Stage progress
 
-**What this is:** How a long-running task tells you how far it's got. On a computer it's a full stage graph in the left column; on a phone it's a stage bar under the title bar.
+**What it is:** How a long-running task tells you how far it's got. On a computer it's a full stage graph in the left column; on a phone it's a stage bar under the title bar.
 
 ![Stage progress on a computer: the full stage graph on the left; click a stage to see its details on the right](images/tasks/07-stage-bar.png)
 
@@ -287,7 +289,7 @@ Rollback, zoom, tool call details and so on work the same as in the secretary's 
 
 ## Stage acceptance and review
 
-**What this is:** Each stage of a long-running task is accepted automatically, so you don't click through them one by one. The gatekeeping happens in the acceptance criteria on the plan card.
+**What it is:** Each stage of a long-running task is accepted automatically, so you don't click through them one by one. The gatekeeping happens in the acceptance criteria on the plan card.
 
 **A stage goes like this:**
 
@@ -306,7 +308,7 @@ Reviews also appear under [Background agents](#background-agents), where you can
 
 If you're still not happy after acceptance, or want a different approach, redo from a given stage. This is how you send a stage back.
 
-**Where to find it:**
+**Where to open it:**
 
 - Task not finished yet: **Redo from a stage…** under ⋯ or in the status chip.
 - Task done: **Rework…** under ⋯.
@@ -320,7 +322,7 @@ If you're still not happy after acceptance, or want a different approach, redo f
 4. Look at the two blocks below: **To redo**, and **Already done in these steps; not rolled back before the redo**.
 5. Click **Reopen and let the Owner continue**. If you changed the criteria, the button says **Reopen with the changes and let the Owner continue**.
 
-**Worth knowing:**
+**Good to know:**
 
 - Only this stage and those depending on it are redone; unrelated ones stay as they are. The old record stays where it was, marked abandoned.
 - What's already been done isn't rolled back. What was sent out can't be taken back, and the owner knows it happened when redoing.
@@ -342,7 +344,7 @@ For more on the two switches, see [Watch categories](settings.en.md#watch-catego
 
 ### Budget
 
-**What this is:** When writing the plan, the owner estimates how many tool calls each stage needs, and ergo works out a token budget from recent actual usage.
+**What it is:** When writing the plan, the owner estimates how many tool calls each stage needs, and ergo works out a token budget from recent actual usage.
 
 **Step by step (with the switch on):**
 
@@ -352,7 +354,7 @@ For more on the two switches, see [Watch categories](settings.en.md#watch-catego
 
 The owner can also declare it done and send it for acceptance itself, or raise a plan change card to add budget.
 
-**Worth knowing:**
+**Good to know:**
 
 - With the switch off, it only records usage and doesn't stop. When you're paying with your own key, a task that drifts off course keeps spending.
 - Budget tokens count cached input at one tenth, so it isn't the same number as the real tokens on the **Usage** page.
@@ -371,14 +373,14 @@ The owner can also declare it done and send it for acceptance itself, or raise a
 
 - **Things needing your decision:** Go to the Inbox, and above the session's input box it says **N waiting on you**. The board and the title say so too.
 - **When it's done:** The secretary tells you the result in the main session, and may ask whether to read it out. With **Read out when done** on, it reads it straight away; see [Voice](voice.en.md). When a plain internal task of a project finishes, the secretary only says it's done; see the result in the project. When a project's internal workflow or long-running task finishes, the secretary isn't told.
-- **Findings along the way:** The owner messages the secretary, who passes it on to you. If you don't want that, turn off **message 二狗** in the toolkit.
+- **Findings along the way:** The owner messages the secretary, who passes it on to you. If you don't want that, turn off **message ergo** in the toolkit.
 - **Phone notification bar:** See [System notifications](mobile.en.md#system-notifications).
 
 ## Background agents
 
-**What this is:** Owners send out sub-agents to do several things at once, and acceptance adds reviews. Here you can see who they are, what they're doing and how it's going.
+**What it is:** Owners send out sub-agents to do several things at once, and acceptance adds reviews. Here you can see who they are, what they're doing and how it's going.
 
-**Where to find it:** The chat's title bar.
+**Where to open it:** The chat's title bar.
 
 - **Computer:** It says **3 agents working in the background**. When none are running, **Background agents (2)**.
 - **Phone:** An icon and a count on the second line.
@@ -392,7 +394,7 @@ The owner can also declare it done and send it for acceptance itself, or raise a
 2. Each shows: a number (reviews say **Review**), status, what it was sent to do, which task and stage, which step it's on, time taken, number of tool calls, usage.
 3. Click one to see its conversation: the instructions it received, what it said, each tool call, the result it handed back. Click a tool call to expand its full arguments and result.
 
-**Worth knowing:**
+**Good to know:**
 
 - Running ones update live, with **It's working; this updates live.** below.
 - Finished ones are read-only, with **It has finished. You can read this, but it can't be picked up again.** below. To continue the work, talk to the owner.
@@ -425,7 +427,7 @@ When an owner makes small changes to the plan without widening its grants, it do
 
 ## Pause, cancel, archive, delete
 
-**Where to find it (all four are the same set):**
+**Where to open it (all four are the same set):**
 
 - The lower part of ⋯ in the chat.
 - The status chip in the title bar.
@@ -456,7 +458,7 @@ When an owner makes small changes to the plan without widening its grants, it do
 - Delete "car insurance comparison" (it always shows a card for you to confirm)
 - Tell t-5 to add GitHub trending from now on
 
-**Worth knowing:**
+**Good to know:**
 
 - Deleting can't be undone. What you said in it stays as material; to delete it completely, see [Delete completely](memory.en.md#delete-completely). If you just don't want to see it, archive it.
 - A project's internal tasks can't be deleted on their own: they go when the project is deleted. The menu says why.
@@ -464,7 +466,7 @@ When an owner makes small changes to the plan without widening its grants, it do
 
 ## Running on a schedule
 
-**What this is:** Sorting the Downloads folder every Monday morning, a morning briefing every day. Plain tasks and workflows can be scheduled.
+**What it is:** Sorting the Downloads folder every Monday morning, a morning briefing every day. Plain tasks and workflows can be scheduled.
 
 ![The New task dialog: the text says 每周一早上 9 点 (every Monday at 9 am), and the schedule is filled in automatically](images/tasks/09-start-schedule.png)
 
@@ -497,7 +499,7 @@ When an owner makes small changes to the plan without widening its grants, it do
 - Run the morning briefing again
 - From now on, read the morning briefing to me when it's done
 
-**Worth knowing:**
+**Good to know:**
 
 - All runs continue the same session, so later ones know what earlier ones did.
 - If it comes due again while the last run is still going, they queue and merge, adding only one extra run.
@@ -508,7 +510,7 @@ When an owner makes small changes to the plan without widening its grants, it do
 
 ## Running when something happens
 
-**What this is:** Pull out the key points when a PDF lands in the inbox folder; look into why when some task fails. It doesn't run normally, only when the event comes. Plain tasks and workflows can use this.
+**What it is:** Pull out the key points when a PDF lands in the inbox folder; look into why when some task fails. It doesn't run normally, only when the event comes. Plain tasks and workflows can use this.
 
 ![The New task dialog: When something happens and local folder changes selected](images/tasks/10-start-event.png)
 
@@ -528,7 +530,7 @@ When an owner makes small changes to the plan without widening its grants, it do
 
 **After it's created:** It's in **Operating** on the board, and the card says **Waiting for: Files added matching `*.pdf` in local folder `D:\Inbox`**. It runs once per event, and the event's content (file path, task number and so on) goes to the agent. A workflow also needs authorizing once on the plan card.
 
-**Worth knowing:**
+**Good to know:**
 
 - Events that arrive while the last run is still going are merged into one batch for the next run.
 - A workflow's step arguments can use this event's values; once you pick an event, the dialog lists what you can write.

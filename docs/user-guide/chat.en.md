@@ -4,7 +4,7 @@
 
 Screenshots show the Chinese interface; the labels in the text are the English ones.
 
-The secretary is your personal assistant. You choose its name; by default it's 二狗. What one step can finish it does directly. For what takes time, it starts a task or a project and hands it to a dedicated owner. Anything can start here.
+The secretary is your personal assistant. You choose its name; by default it's ergo. What one step can finish it does directly. For what takes time, it starts a task or a project and hands it to a dedicated owner. Anything can start here.
 
 This chapter covers how to talk to it, how to see what it did, how to roll back, and how to handle the things it needs you to decide. By the end you can use typing and voice well, take back what you got wrong, and not miss anything that needs your decision.
 
@@ -12,7 +12,7 @@ This chapter covers how to talk to it, how to see what it did, how to roll back,
 
 ## Typing
 
-**Where to find it:** Click **Secretary** in the navigation. The input box is at the very bottom and says **Message 二狗…**. In an owner's chat it says **Give the owner instructions…**.
+**Where to open it:** Click **Secretary** in the navigation. The input box is at the very bottom and says **Message ergo…**. In an owner's chat it says **Give the owner instructions…**.
 
 **Step by step:**
 
@@ -54,7 +54,7 @@ While ergo is replying, **Send** becomes **Add**, with a red **Stop** next to it
 
 Stop only stops this turn; it doesn't undo what it has done. To go back, see [Rolling back](#rolling-back).
 
-**Worth knowing:**
+**Good to know:**
 
 - When you lose the connection it says **Disconnected, reconnecting… (messages you send go out once reconnected)**.
 - A bubble that failed to send says **Failed to send:** plus the reason underneath.
@@ -62,7 +62,7 @@ Stop only stops this turn; it doesn't undo what it has done. To go back, see [Ro
 
 ## Hold to talk
 
-**What this is:** For when you don't feel like typing: talk, like sending a voice message on WeChat.
+**What it is:** For when you don't feel like typing: talk, like sending a voice message on WeChat.
 
 **Step by step:**
 
@@ -76,9 +76,9 @@ The recording panel, canceling a send and the press-and-hold menu on bubbles are
 
 ## Attachments
 
-**What this is:** Send images and files to ergo. For example, send an invoice and have it work out how much you can claim.
+**What it is:** Send images and files to ergo. For example, send an invoice and have it work out how much you can claim.
 
-**Where to find it:** The ＋ to the left of the input box. Secretary, task and project chats all have it.
+**Where to open it:** The ＋ to the left of the input box. Secretary, task and project chats all have it.
 
 ![The ＋ menu to the left of the input box (top); chosen attachments waiting above the input box (bottom)](images/chat/01-composer.png)
 
@@ -108,7 +108,7 @@ Hold to talk works the same way: pick the attachments first, and it says **Hold 
 - List the key points of this contract
 - Send me that reading note of mine again
 
-**Worth knowing:**
+**Good to know:**
 
 - You can only pick files with ＋. You can't drag files in or paste them in.
 - 200 MB per file at most.
@@ -120,9 +120,9 @@ Hold to talk works the same way: pick the attachments first, and it says **Hold 
 
 ## Slash commands
 
-**What this is:** Type `/` and pick a command to tell the agent exactly how to handle this message, such as asking by name for a long-running task or a particular skill.
+**What it is:** Type `/` and pick a command to tell the agent exactly how to handle this message, such as asking by name for a long-running task or a particular skill.
 
-**Where to find it:** Type `/` at the very start of the input box. Not available during voice input.
+**Where to open it:** Type `/` at the very start of the input box. Not available during voice input.
 
 ![Typing / pops up suggestions: ergo's commands and the skills in the toolkit](images/chat/02-slash.png)
 
@@ -144,7 +144,7 @@ To back out, press Esc or click elsewhere. On a phone, tapping a row selects it;
 | `/consolidate` | Consolidates memory now | Memory curator |
 | `/<skill name>` | Uses this skill from the toolkit | Sessions whose toolkit includes it |
 
-**Worth knowing:**
+**Good to know:**
 
 - Task owners don't have `/workflow` or `/task`, only skills.
 - When a skill and a command share a name, write `/skill:name`. The list writes it this way.
@@ -178,14 +178,14 @@ To back out, press Esc or click elsewhere. On a phone, tapping a row selects it;
 
 ## Cards in replies
 
-**What this is:** When something needs your decision, ergo doesn't just say so: it shows a card, with buttons right on it.
+**What it is:** When something needs your decision, ergo doesn't just say so: it shows a card, with buttons right on it.
 
 ![Two cards, a quick action and a suggested task, with Quote and Details › below each](images/chat/03-cards.png)
 
 | The card says | When it appears | Buttons |
 |---|---|---|
 | **Reminder** | You asked it to remind you | **Cancel reminder**, **Delete**, **Edit**. See [Reminders](calendar-reminders.en.md) |
-| **Quick action** | It does one small thing for you, such as pausing a task or passing on a message | If you named the target and content, it runs right away and the card says **Done**. If it inferred them, it says **二狗 inferred this; it runs only after you confirm.** with **Cancel** and **Run** |
+| **Quick action** | It does one small thing for you, such as pausing a task or passing on a message | If you named the target and content, it runs right away and the card says **Done**. If it inferred them, it says **ergo inferred this; it runs only after you confirm.** with **Cancel** and **Run** |
 | **Questions** | It needs something cleared up | Click one option per question, or write in **None fit? Write your own**. Click **Submit answers**. If the ones marked **Recommended** are all fine, click **Use all recommendations** |
 | **Approval** | It wants to do something risky. By default only especially sensitive things get one; see [Safety defaults](getting-started.en.md#step-5-safety-defaults) | **Deny**, **Approve once**. It acts only if you approve |
 | **Suggested task** | It thinks this should be a task | **No thanks**, **Start as Workflow**, **Start as Long-running task** |
@@ -206,7 +206,7 @@ To back out, press Esc or click elsewhere. On a phone, tapping a row selects it;
 2. Type and send. The card and your words go to ergo together.
 3. To remove the quote, click the × on that line.
 
-**Worth knowing:**
+**Good to know:**
 
 - Every card that needs handling also has an item in the Inbox. Click on either side; both change together.
 - If it didn't work, it says **Didn't go through:** plus the reason.
@@ -214,7 +214,7 @@ To back out, press Esc or click elsewhere. On a phone, tapping a row selects it;
 
 ## Zooming the timeline: three layers
 
-**What this is:** After a long chat, when you want the full picture or to find a particular spot: the whole conversation can zoom like a map.
+**What it is:** After a long chat, when you want the full picture or to find a particular spot: the whole conversation can zoom like a map.
 
 ![The same conversation in three layers: conversation, key points, overview](images/chat/04-zoom-levels.png)
 
@@ -248,7 +248,7 @@ When you let go, it snaps to the nearest layer.
 2. Scroll up and down to find the bar or label you want.
 3. Click it. It zooms back to the conversation layer, scrolls this item into view and flashes it. On a computer it also opens its details.
 
-**Worth knowing:**
+**Good to know:**
 
 - When zoomed out, the input box folds away and the legend takes its place. It comes back when you zoom in. The **Waiting on you** row stays put.
 - Switching sessions keeps you on the same layer.
@@ -256,11 +256,11 @@ When you let go, it snaps to the nearest layer.
 
 ## Rolling back
 
-**What this is:** When a conversation goes off track, take the session back to before one of your messages. ergo forgets the conversation after that point and carries on from there. That stretch isn't deleted: it becomes a grey abandoned branch.
+**What it is:** When a conversation goes off track, take the session back to before one of your messages. ergo forgets the conversation after that point and carries on from there. That stretch isn't deleted: it becomes a grey abandoned branch.
 
 **It doesn't undo what's already been done.** Messages sent and files deleted stay that way. The confirmation box lists them.
 
-**Where to find it:** Zoom out the session, and each thing you said has a ↶ on its left. It isn't there in the conversation layer; [zoom out](#zooming-the-timeline-three-layers) first.
+**Where to open it:** Zoom out the session, and each thing you said has a ↶ on its left. It isn't there in the conversation layer; [zoom out](#zooming-the-timeline-three-layers) first.
 
 **Step by step:**
 
@@ -292,7 +292,7 @@ When you let go, it snaps to the nearest layer.
 - Of several messages handed over together, only the first has a ↶.
 - Read-only sessions, such as a finished task.
 
-**Worth knowing:**
+**Good to know:**
 
 - You can roll back while ergo is replying; it stops first.
 - Unhandled cards it raised in the abandoned stretch become void.
@@ -302,9 +302,9 @@ When you let go, it snaps to the nearest layer.
 
 ## Session branches
 
-**What this is:** After a rollback, the abandoned conversation doesn't vanish: it becomes an abandoned branch. You can view it and switch back to it. When you switch back, the current one becomes the abandoned branch.
+**What it is:** After a rollback, the abandoned conversation doesn't vanish: it becomes an abandoned branch. You can view it and switch back to it. When you switch back, the current one becomes the abandoned branch.
 
-**Where to find it:** Zoom out the session. Where it forks, there's a small ⑂ square to the right of the bars.
+**Where to open it:** Zoom out the session. Where it forks, there's a small ⑂ square to the right of the bars.
 
 ![An expanded abandoned branch: Other branch and Switch to this branch, with its details on the right](images/chat/06-branch.png)
 
@@ -320,7 +320,7 @@ When you let go, it snaps to the nearest layer.
 
 **Request undo:** Local items in the leftover effects have **Request undo** on their right. Clicking it shows **Undo requested**. **For now this only records the request; it doesn't actually change the files back.** The page says so too. External items say **Can't be undone**.
 
-**Worth knowing:**
+**Good to know:**
 
 - Switching writes no summary and voids no cards.
 - A branch split off before clearing or changing the model can't be switched to. The button is grey, and hovering over it gives the reason.
@@ -328,9 +328,9 @@ When you let go, it snaps to the nearest layer.
 
 ## Tool call details
 
-**What this is:** Everything ergo does is recorded. To find out what exactly it did and why it was allowed, open it up.
+**What it is:** Everything ergo does is recorded. To find out what exactly it did and why it was allowed, open it up.
 
-**Where to find it:** A small line above the reply: **Called 3 tools ›**. It may be followed by small tags, such as **· Blocked ×1** or **· Tell you when done ×2**. The line stands out more when something went wrong.
+**Where to open it:** A small line above the reply: **Called 3 tools ›**. It may be followed by small tags, such as **· Blocked ×1** or **· Tell you when done ×2**. The line stands out more when something went wrong.
 
 ![Tool call details: what it wants to do, how the Guard ruled, arguments and result](images/chat/07-tool-detail.png)
 
@@ -357,11 +357,11 @@ When you let go, it snaps to the nearest layer.
 
 For what watch categories and dispositions are and how to change them, see [Watch categories](settings.en.md#watch-categories).
 
-**Worth knowing:** Full content is kept for 90 days by default. Once expired it says **The full content passed its retention period and was cleared; above is the summary.** See [Full tool-call records](settings.en.md#full-tool-call-records).
+**Good to know:** Full content is kept for 90 days by default. Once expired it says **The full content passed its retention period and was cleared; above is the summary.** See [Full tool-call records](settings.en.md#full-tool-call-records).
 
 ## Long notices folded to one line
 
-**What this is:** Letters between agents and the long instructions the runtime gives an owner don't need to fill your screen. In the session they take one line each.
+**What it is:** Letters between agents and the long instructions the runtime gives an owner don't need to fill your screen. In the session they take one line each.
 
 ![A folded line in an owner's chat, Continue with stage 3: First wave of implementation, with the full text on the right after opening it](images/chat/08-long-notice.png)
 
@@ -369,20 +369,20 @@ For what watch categories and dispositions are and how to change them, see [Watc
 |---|---|---|
 | ✅ **Task done** | A background task finished and tells the secretary | Secretary |
 | ✉️ **From the owner** | An owner asks the secretary to pass something on to you | Secretary |
-| 📨 **Relayed by 二狗** | The secretary passes your words to an owner | An owner's chat |
+| 📨 **Relayed by ergo** | The secretary passes your words to an owner | An owner's chat |
 | 📋 **Plan check** | The result of the runtime checking the plan | An owner's chat |
 | 📝 A one-line summary | A long note with no kind, such as **Continue with stage 3: First wave of implementation** | An owner's chat |
 
 **Step by step:** Click the line, or **Details ›** at the end of it. The details hold the full text.
 
-**Worth knowing:**
+**Good to know:**
 
 - Notes with no kind, like 📝, fold only when longer than 120 characters or 2 lines. Short ones show as usual, and ones with attachments don't fold.
 - The agent still receives the full text; folding only keeps it off your screen.
 
 ## "Waiting for you…" in the title
 
-**What this is:** When ergo is stuck waiting on you, the title says what for. Click it to get to the card that needs handling, with no scrolling.
+**What it is:** When ergo is stuck waiting on you, the title says what for. Click it to get to the card that needs handling, with no scrolling.
 
 ![After clicking Waiting for your answer in the title, it scrolls to that question card](images/chat/09-waiting.png)
 
@@ -398,7 +398,7 @@ For what watch categories and dispositions are and how to change them, see [Watc
 3. If the card is in another task or project, it jumps there.
 4. Once handled, the words in the title go away.
 
-**Worth knowing:**
+**Good to know:**
 
 - With several waiting, it goes to the latest one, and the title says **(3 cards)**.
 - Any card the title says it's waiting on always has an item in the Inbox. Answer it and both go away.
@@ -407,9 +407,9 @@ For what watch categories and dispositions are and how to change them, see [Watc
 
 ## Inbox
 
-**What this is:** Everything that needs your decision is gathered here. No need to go through every chat; this page is enough.
+**What it is:** Everything that needs your decision is gathered here. No need to go through every chat; this page is enough.
 
-**Where to find it:** Click **Inbox** in the navigation.
+**Where to open it:** Click **Inbox** in the navigation.
 
 ![Inbox: sorted by urgency on the left, the selected item on the right](images/chat/10-inbox.png)
 
@@ -458,7 +458,7 @@ Within a group, newest first. Each row shows its kind, where it came from, and t
 | Projects | **Out-of-scope notice** | **Got it** |
 | Projects | **Confirm project deletion** | **Delete**, **Keep it** |
 | Memory curator | **Interview**, **File suggestions**, **Interview profile check** | On the card; see [Memory](memory.en.md) |
-| Devices | **Pairing request** | On the card; see [Pairing](mobile.en.md#pairing-checking-and-approving) |
+| Devices | **Pairing request** | On the card; see [Pairing](mobile.en.md#pairing-check-and-approve) |
 | System | **Backup failed** | **Retry**, **Got it** |
 | System | **Backups not running** | **Back up now**, **Got it** |
 | System | **Embedding model not downloaded** | **Install it**, **Got it** |
@@ -506,7 +506,7 @@ Pressing and holding a row (right-clicking on a computer) brings up the same men
 
 ### Waiting on you
 
-**What this is:** Handle things right in the chat, without going to the Inbox. Everything whose source is this session is listed in that row above the input box.
+**What it is:** Handle things right in the chat, without going to the Inbox. Everything whose source is this session is listed in that row above the input box.
 
 **Step by step:**
 
@@ -527,7 +527,7 @@ The secretary puts the card into the chat, and you click it there.
 
 ## Notifications
 
-**What this is:** Things you should know right away, such as due reminders, cards needing your approval and pairing requests, are brought to you proactively.
+**What it is:** Things you should know right away, such as due reminders, cards needing your approval and pairing requests, are brought to you proactively.
 
 ### The box at the top of the page
 
@@ -541,11 +541,11 @@ Dismissing only hides it. The Inbox item and the red dot are still there.
 
 ### When the secretary says something new
 
-When you're not looking at the Secretary page and the secretary finishes a turn, **二狗:** plus its opening sentence pops up at the top. Click **View** to jump to it.
+When you're not looking at the Secretary page and the secretary finishes a turn, **ergo:** plus its opening sentence pops up at the top. Click **View** to jump to it.
 
-If there are still unread messages when you switch back to the page, **二狗 has 3 new messages** pops up.
+If there are still unread messages when you switch back to the page, **ergo has 3 new messages** pops up.
 
-Voice it recorded while you were away doesn't play by itself. Above the input box on the Secretary page, a line says **While you were away, 二狗 sent 1 voice message**, with **▶ Play** and **Show me**. See [Autoplay](voice.en.md#autoplay).
+Voice it recorded while you were away doesn't play by itself. Above the input box on the Secretary page, a line says **While you were away, ergo sent 1 voice message**, with **▶ Play** and **Show me**. See [Autoplay](voice.en.md#autoplay).
 
 ### Browser notifications
 
@@ -568,9 +568,9 @@ The phone app sends system notifications, which you have to turn on first. See [
 
 ## Settings for this agent
 
-**What this is:** Settings for this one agent: what to call it, how it talks, whether to start the conversation over.
+**What it is:** Settings for this one agent: what to call it, how it talks, whether to start the conversation over.
 
-**Where to find it:**
+**Where to open it:**
 
 - **Computer:** ⚙ in the title bar.
 - **Phone:** ⋯ at the top right, then **Settings for this agent**.
@@ -597,7 +597,7 @@ ergo no longer remembers what was said before. It doesn't forget work in progres
 
 | What you see | What's going on | What to do |
 |---|---|---|
-| **No model set up yet: 二狗 can't reply** | No key filled in | Click **Set it up**; see [Getting started](getting-started.en.md#step-2-model-key) |
+| **No model set up yet: ergo can't reply** | No key filled in | Click **Set it up**; see [Getting started](getting-started.en.md#step-2-model-key) |
 | **Disconnected, reconnecting…** | Lost the connection to ergo | Wait for it to reconnect; what you send will go out then. If it never reconnects, check whether ergo is still running |
 | **This page is out of date. Please refresh it.** | ergo was updated | Refresh the page |
 | The send button is grey | Nothing typed, or attachments not finished or failed | Check the attachments above the input box |

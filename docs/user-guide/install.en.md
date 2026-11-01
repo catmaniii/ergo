@@ -2,7 +2,7 @@
 
 # Install, update and uninstall
 
-This chapter covers installing ergo on your Windows PC, starting and stopping it, starting automatically, updating, rolling back and uninstalling. By the end you can get ergo running by yourself and know where to look when something goes wrong. Next, see [Getting started](getting-started.md) (in Chinese); to learn what ergo is first, see [What is ergo](README.md).
+This chapter covers installing ergo on your Windows PC, starting and stopping it, starting automatically, updating, rolling back and uninstalling. By the end you can get ergo running by yourself and know where to look when something goes wrong. Next, see [Getting started](getting-started.en.md); to learn what ergo is first, see [What is ergo](README.en.md).
 
 - [Before you install](#before-you-install)
 - [One-line install (recommended)](#one-line-install-recommended)
@@ -22,8 +22,8 @@ This chapter covers installing ergo on your Windows PC, starting and stopping it
 **What you need:**
 
 - **A Windows 10 / 11 PC.** Only Windows is supported for now.
-- **An API key for a large model:** currently [DeepSeek](https://platform.deepseek.com/); you can switch to another OpenAI-compatible provider (see [Models](settings.md#模型), in Chinese). ergo starts without a key so you can look around; it reminds you when you talk to it.
-- **Disk:** a few hundred MB for the program. The embedding model for semantic search is about 570 MB and the speech recognition model about 1 GB; both are optional.
+- **An API key for a large model:** currently [DeepSeek](https://platform.deepseek.com/); you can switch to another OpenAI-compatible provider (see [Models](settings.en.md#models)). ergo starts without a key so you can look around; it reminds you when you talk to it.
+- **Disk:** a few hundred MB for the program. The embedding model for semantic search is about 560 MB and the speech recognition model about 1 GB; both are optional.
 
 You don't need to install Node first: the one-line install brings its own.
 
@@ -32,19 +32,19 @@ You don't need to install Node first: the one-line install brings its own.
 | Install | Gives you | See |
 |---|---|---|
 | Git for Windows | Agents can run bash commands (used a lot in tasks); install from source | [Install from source](#install-from-source) |
-| Speech recognition (install it in **Settings · Components**) | Push-to-talk, recognized locally | [Voice](voice.md) (in Chinese) |
-| Speech synthesis (installed under **Settings · Components**) | ergo answers with voice | [Voice](voice.md) (in Chinese) |
-| Chrome or Edge | Agents can search the web and read pages | [Settings](settings.md#浏览与填框) (in Chinese) |
-| Tailscale, or a VPS | Use ergo from your phone or tablet away from home | [On your phone](mobile.md) (in Chinese) |
-| Claude Code, signed in on this PC | Project and task owners can work through your own Claude Code subscription | [Claude Code](claude-code.md) (in Chinese) |
-| An Android phone | The native Android app: [download](https://github.com/catmaniii/ergo/releases/latest/download/ergo-android-debug.apk) and install it | [On your phone](mobile.md#安卓-app) (in Chinese) |
-| A HarmonyOS phone, DevEco Studio and a Huawei account | The native HarmonyOS app, signed with your own account. The [unsigned package](https://github.com/catmaniii/ergo/releases/latest/download/ergo-harmony-unsigned.hap) installs directly only on the emulator | [On your phone](mobile.md#鸿蒙-app) (in Chinese) |
+| Speech recognition (install it in **Settings · Components**) | Push-to-talk, recognized locally | [Voice](voice.en.md) |
+| Speech synthesis (installed under **Settings · Components**) | ergo answers with voice | [Voice](voice.en.md) |
+| Chrome or Edge | Agents can search the web and read pages | [Settings](settings.en.md#browsing--form-filling) |
+| Tailscale, or a VPS | Use ergo from your phone or tablet away from home | [On your phone](mobile.en.md) |
+| Claude Code, signed in on this PC | Project and task owners can work through your own Claude Code subscription | [Claude Code](claude-code.en.md) |
+| An Android phone | The native Android app: [download](https://github.com/catmaniii/ergo/releases/latest/download/ergo-android-debug.apk) and install it | [On your phone](mobile.en.md#android-app) |
+| A HarmonyOS phone, DevEco Studio and a Huawei account | The native HarmonyOS app, signed with your own account. The [unsigned package](https://github.com/catmaniii/ergo/releases/latest/download/ergo-harmony-unsigned.hap) installs directly only on the emulator | [On your phone](mobile.en.md#harmonyos-app) |
 
 ## One-line install (recommended)
 
 You don't need Node beforehand, and you don't need administrator rights.
 
-**Step 1: open PowerShell.** Press the Windows key, type `powershell`, press Enter. A normal window is fine; don't "Run as administrator".
+**Step 1: open PowerShell.** Press the Windows key, type `powershell`, press Enter. A normal window is fine; don't **Run as administrator**.
 
 **Step 2: paste this line and press Enter.**
 
@@ -149,11 +149,11 @@ There are two layers, and **both must be on for ergo to come back after a restar
 | Check it | `Get-ScheduledTask -TaskName LocalServiceManager` | `ergo svc autostart` (lists them) |
 | Turn on | `ergo svc install-autostart` | `ergo svc autostart ergo-daemon on` |
 | Turn off | `ergo svc uninstall-autostart` | `ergo svc autostart ergo-daemon off` |
-| On a page | The **start at login** switch in the setup wizard's Abilities step | The switch on the card at <http://127.0.0.1:7420/> |
+| On a page | The **start at login** switch in the setup wizard's Capabilities step | The switch on the card at <http://127.0.0.1:7420/> |
 
 **To check it works:** restart the computer, log in to Windows, wait a minute or two, then open PowerShell and run `ergo status`.
 
-Worth knowing:
+**Good to know:**
 
 - **It's at login, not at power-on.** If the computer is on but sitting at the login screen, ergo won't be up. For an unattended home machine you'd need Windows to log in automatically, which is your call to make and set up.
 - **Other services work the same way.** To have a voice service start too, run `ergo svc autostart <service> on` or use the switch on its card. `ergo svc status` shows the service names.
@@ -216,7 +216,7 @@ node bin\lsm.mjs install-autostart      # start the supervisor in the background
 Start-ScheduledTask -TaskName LocalServiceManager   # start it now (or sign out and back in)
 ```
 
-Open <http://127.0.0.1:7420/>; if you see the supervisor's page, it is running. Below, `lsm` means running `node bin\lsm.mjs` inside `D:\apps\ergo\packages\supervisor`. More (profiles, a password for its web UI, the sentinel…) is in its [README](../../packages/supervisor/README.md) (Chinese).
+Open <http://127.0.0.1:7420/>; if you see the service manager's page, it is running. Below, `lsm` means running `node bin\lsm.mjs` inside `D:\apps\ergo\packages\supervisor`. More (profiles, a password for its web UI, the sentinel…) is in its [README](../../packages/supervisor/README.md) (Chinese).
 
 > With the one-line install, `ergo start / stop / status / logs` manage ergo itself and `ergo svc <subcommand>` passes through to the supervisor (`ergo svc status` = `lsm status`).
 
@@ -229,8 +229,8 @@ Set-Content -NoNewline -Encoding ascii "$env:USERPROFILE\.ergo\secrets\deepseek-
 
 - The file holds only the key. The supervisor reads it and hands it to the daemon; no agent can read the `secrets` area of the data directory.
 - **Never put the key in the repository** or in the supervisor's registry.
-- You can skip the command line: once ergo's web page is open, enter the key in the **setup wizard**'s "Model Key" step, or under **Settings · Models**, and click "Save key". It is written to the same file (`secrets\deepseek-api-key.txt`, with the folder and file created at the tightest permissions), and the next new session can use it — no restart needed; change it in the same place later. Putting the file in place by hand remains the fallback, for when the page won't open or you want a different data directory.
-- To use another vendor's model (a custom OpenAI-compatible provider), its key lives in `secrets\custom-model-api-key.txt` and the environment variable is `CUSTOM_MODEL_API_KEY`; how to fill it in is in [Settings · Models](settings.md#模型) (in Chinese).
+- You can skip the command line: once ergo's web page is open, enter the key in the **setup wizard**'s **Model key** step, or under **Settings · Models**, and click **Save key**. It is written to the same file (`secrets\deepseek-api-key.txt`, with the folder and file created at the tightest permissions), and the next new session can use it — no restart needed; change it in the same place later. Putting the file in place by hand remains the fallback, for when the page won't open or you want a different data directory.
+- To use another vendor's model (a custom OpenAI-compatible provider), its key lives in `secrets\custom-model-api-key.txt` and the environment variable is `CUSTOM_MODEL_API_KEY`; how to fill it in is in [Settings · Models](settings.en.md#models).
 
 **Step 5: register the daemon with the supervisor**
 
@@ -248,7 +248,7 @@ Set-Content -NoNewline -Encoding ascii "$env:USERPROFILE\.ergo\secrets\deepseek-
    | `<专用 Node 路径>` (dedicated Node path) | `node.exe` of the Node from step 1 | `D:\apps\node22\node.exe` |
    | `<用户主目录>` (home directory) | your user directory (the data directory is `.ergo` under it) | `C:\Users\you` |
 
-   Also: without a TTS service, delete the `dependsOn:` block (a soft dependency; removing it does not affect startup); if you changed the local port ([config file](../architecture/README.md#配置文件) (in Chinese)), change both `8810`s in the entry; leave the commented-out `exposure:` block at the end alone for now ([Option 3](../architecture/deployment.en.md#option-3-vps--ssh-reverse-tunnel--nginx-public)).
+   Also: without a TTS service, delete the `dependsOn:` block (a soft dependency; removing it does not affect startup); if you changed the local port ([config file](../architecture/README.en.md#data-directory-and-config)), change both `8810`s in the entry; leave the commented-out `exposure:` block at the end alone for now ([Option 3](../architecture/deployment.en.md#option-3-vps--ssh-reverse-tunnel--nginx-public)).
 
 3. Validate, start, enable autostart:
 
@@ -261,7 +261,7 @@ Set-Content -NoNewline -Encoding ascii "$env:USERPROFILE\.ergo\secrets\deepseek-
    node bin\lsm.mjs autostart ergo-daemon on
    ```
 
-- Once linked, the daemon reports its own health and whether it is busy: while a task is executing it shows "busy", and "stop when idle" waits for it.
+- Once linked, the daemon reports its own health and whether it is busy: while a task is executing it shows **busy**, and **stop when idle** waits for it.
 - The daemon's output is in `logs\ergo-daemon.out.log` under the supervisor's data directory, and live in the supervisor's web UI.
 - If it is killed or crashes, the supervisor restarts it with backoff; work in progress resumes by its rules, and any operation that may or may not have completed is handed to you to confirm instead of being silently redone.
 
@@ -280,9 +280,9 @@ If only the web pages changed, the daemon doesn't need a restart.
 
 ## After installing
 
-1. **Run the wizard**: open <http://127.0.0.1:8810/> (or `ergo open`) and go through the five steps of the **setup wizard**: language / how to address you / assistant name, model key (click test after filling it in), capabilities (tick which plugins and components you want: the embedding model and memory by default, voice off; models are downloaded here in the web page, not in the installer; this step also has the start-at-boot switch), pairing a phone by QR code, safe defaults, plus a screen on outside access. Any step can wait; re-enter any time from the top of **More · Settings**. See [Getting started](getting-started.md) (in Chinese).
+1. **Run the wizard**: open <http://127.0.0.1:8810/> (or `ergo open`) and go through the five steps of the **setup wizard**: language / how to address you / assistant name, model key (click test after filling it in), capabilities (tick which plugins and components you want: the embedding model and memory by default, voice off; models are downloaded here in the web page, not in the installer; this step also has the start-at-boot switch), pairing a phone by QR code, safe defaults, plus a screen on outside access. Any step can wait; re-enter any time from the top of **More · Settings**. See [Getting started](getting-started.en.md).
 2. **Try it**: say "remind me to drink water in two minutes".
-3. **Everyday commands**: `ergo start`, `ergo stop`, `ergo restart`, `ergo status`, `ergo logs`; for backups, `ergo backup` and `ergo restore` ([Backup](settings.md#备份), in Chinese).
+3. **Everyday commands**: `ergo start`, `ergo stop`, `ergo restart`, `ergo status`, `ergo logs`; for backups, `ergo backup` and `ergo restore` ([Backup](settings.en.md#backup)).
 4. **When something's wrong**: check **More · Settings · Data & devices → Doctor** first; each item says how to fix it. Then see [Troubleshooting](#troubleshooting).
 
 ## Update
@@ -314,9 +314,9 @@ A supervisor started by the autostart task keeps running the old version's progr
 
 ### On your phone
 
-For a new phone: on your computer, open **More · Settings · Device pairing**, choose "Show pairing code", and tap "Scan to connect" in the Ergo app on your phone (if it can't connect, the app says why).
+For a new phone: on your computer, open **More · Settings · Device pairing**, choose **Show pairing code**, and tap **Scan to connect** in the ergo app on your phone (if it can't connect, the app says why).
 
-Open pages (including a HarmonyOS app left open) offer to refresh within seconds, and refreshing gets you the new version. The app itself usually doesn't need reinstalling; its native parts and the script for giving commands on web pages are packaged with the app, so it only needs reinstalling when those change, and the CHANGELOG says so. On Android, download the new APK and install it over the old one; on HarmonyOS, build or sign it again and reinstall. See [Install the app](mobile.md#装-app) (in Chinese).
+Open pages (including a HarmonyOS app left open) offer to refresh within seconds, and refreshing gets you the new version. The app itself usually doesn't need reinstalling; its native parts and the script for giving commands on web pages are packaged with the app, so it only needs reinstalling when those change, and the CHANGELOG says so. On Android, download the new APK and install it over the old one; on HarmonyOS, build or sign it again and reinstall. See [Install the app](mobile.en.md#install-the-app).
 
 ### When an update goes wrong
 
@@ -352,7 +352,7 @@ Your data is in `%USERPROFILE%\.ergo` and the supervisor's in `%LOCALAPPDATA%\er
 
 ## Troubleshooting
 
-**Run a checkup first**: **More · Settings · Data & devices → "Checkup"** runs eight checks — ports, Node, pi, the service manager, the model key, components, disk, outside access — and gives the fact it found plus how to fix each one; "Run again" is in the top right. Everything it looks at is local: no network (other than probing ergo's own ports), no model calls, no settings changed.
+**Run a checkup first**: **More · Settings · Data & devices → Checkup** runs eight checks — ports, Node, pi, the service manager, the model key, components, disk, outside access — and gives the fact it found plus how to fix each one; **Run again** is in the top right. Everything it looks at is local: no network (other than probing ergo's own ports), no model calls, no settings changed.
 
 **Logs**: the daemon's output is in `logs\ergo-daemon.out.log` under the supervisor's data directory, and live in the supervisor's web UI; ergo's own health: <http://127.0.0.1:8810/healthz>.
 
@@ -364,17 +364,17 @@ Your data is in `%USERPROFILE%\.ergo` and the supervisor's in `%LOCALAPPDATA%\er
 | The page shows 503 and says `npm run build:web` | The web UI isn't built | Run `npm run build:web` in the ergo directory |
 | It says "no model configured" or every reply errors | Key missing or wrong, or out of credit | Enter a new key under **Settings · Models** (or check `secrets\deepseek-api-key.txt`, just the key), then run the connection test |
 | Commands in tasks keep failing: Git Bash not found | Git for Windows missing, or WSL's `bash` comes first on PATH | Install Git for Windows; `where bash` should list `C:\Program Files\Git\bin\bash.exe` first |
-| Push-to-talk does nothing / recognition unavailable | Recognition model not installed, speech service not running; with faster-whisper: Python path not set, faster-whisper missing, GPU unavailable | See the status in **Settings · Voice**; set up per [Voice](voice.md) (in Chinese) |
-| Voice replies are text only | TTS service not running, or `voice.speech.model` is still the placeholder | See [Voice](voice.md) (in Chinese); the note in the chat says why |
+| Push-to-talk does nothing / recognition unavailable | Recognition model not installed, speech service not running; with faster-whisper: Python path not set, faster-whisper missing, GPU unavailable | See the status in **Settings · Voice**; set up per [Voice](voice.en.md) |
+| Voice replies are text only | TTS service not running, or `voice.speech.model` is still the placeholder | See [Voice](voice.en.md); the note in the chat says why |
 | Memory search misses things with similar meaning | Embedding model not installed | Install under **Settings · Components**, or `npm run download-model` |
 | The phone can't open ergo or stays on the pairing page | Outside access not set up, or the request expired / was rate-limited | Make sure 8811 is what's exposed; approve the request in **Inbox** on the PC within 5 minutes; after repeated failures wait 10 minutes |
-| The phone says it can't connect after scanning | The phone can't reach that address | Follow the hints on the screen: is Tailscale on for the phone and on the same tailnet; are Ergo and the service manager running on the computer; is your VPS, tunnel or reverse proxy running |
-| The phone says "this device has been revoked" | It was revoked under Device pairing | Tap "Request pairing" to apply again |
+| The phone says it can't connect after scanning | The phone can't reach that address | Follow the hints on the screen: is Tailscale on for the phone and on the same tailnet; are ergo and the service manager running on the computer; is your VPS, tunnel or reverse proxy running |
+| The phone says **this device has been revoked** | It was revoked under Device pairing | Tap **Request pairing** to apply again |
 | The supervisor shows ergo yellow (degraded) | An enabled plugin failed to load | See `reasons` in `/healthz`, or the plugin's note in **Settings · Plugins** |
-| Every backup says it wasn't copied to the sync folder | `backup.syncDir` is still the example placeholder, or the folder is missing | Pick another folder in **Settings · Backup**, or use "Clear" |
+| Every backup says it wasn't copied to the sync folder | `backup.syncDir` is still the example placeholder, or the folder is missing | Pick another folder in **Settings · Backup**, or use **Clear** |
 | Web tools say no browser was found | No Chrome / Edge, or installed somewhere unusual | Set its exe path in `web.browserPath` |
-| Install or update won't go through: the antivirus says "unknown publisher", kills the process, or the installed files vanish later | Security software such as 360 blocks programs it does not recognise (`bin\ergo.exe` or the whole install folder) | Add `%LOCALAPPDATA%\Programs\ergo` to the security software's trusted list and install again; if the command still runs, use `bin\ergo.cmd` (the same command as `ergo.exe`); or install from npm (`npm i -g ergo-ai`, needs Node 22). Your data is in `%USERPROFILE%\.ergo`; reinstalling leaves it alone |
+| Install or update won't go through: the antivirus says **unknown publisher**, kills the process, or the installed files vanish later | Security software such as 360 blocks programs it does not recognise (`bin\ergo.exe` or the whole install folder) | Add `%LOCALAPPDATA%\Programs\ergo` to the security software's trusted list and install again; if the command still runs, use `bin\ergo.cmd` (the same command as `ergo.exe`); or install from npm (`npm i -g ergo-ai`, needs Node 22). Your data is in `%USERPROFILE%\.ergo`; reinstalling leaves it alone |
 | `ergo update` says it could not switch, or `ergo version` still shows the old version | The `current` file names a version that is not installed properly under `versions\` (half copied, edited by hand) | Check what `%LOCALAPPDATA%\Programs\ergo\current` says, whether that folder exists under `versions\` and has `ergo.json` in it; if not, run `ergo update` again, or install again (your data is untouched) |
 
-**Reporting a problem**: [open an issue](https://github.com/catmaniii/ergo/issues/new/choose) on GitHub and fill in the template: ergo version (**Settings · About Ergo**), Node version (`node -v`), pi version (`overrides` in the root `package.json`) and how you installed — the version, Node and pi are also on the checkup page at a glance. Please don't report security issues publicly; see [SECURITY.md](../../SECURITY.md).
+**Reporting a problem**: [open an issue](https://github.com/catmaniii/ergo/issues/new/choose) on GitHub and fill in the template: ergo version (**Settings · About ergo**), Node version (`node -v`), pi version (`overrides` in the root `package.json`) and how you installed — the version, Node and pi are also on the checkup page at a glance. Please don't report security issues publicly; see [SECURITY.md](../../SECURITY.md).
 

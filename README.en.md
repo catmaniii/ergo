@@ -4,7 +4,7 @@
 
 > **Your memory, back to you. The more it knows you, the more at ease you feel.** A personal AI assistant that lives on your own computer and takes orders by voice from your phone.
 
-**[Online demo](https://catmaniii.github.io/ergo/?lang=en)** (nothing to install, no key needed; the web prototype ships with made-up sample data) · [User guide](docs/user-guide/README.md) · [System architecture](docs/architecture/README.en.md) · [Changelog](CHANGELOG.md)
+**[Online demo](https://catmaniii.github.io/ergo/?lang=en)** (nothing to install, no key needed; the web prototype ships with made-up sample data) · [User guide](docs/user-guide/README.en.md) · [System architecture](docs/architecture/README.en.md) · [Changelog](CHANGELOG.md)
 
 <p align="center"><img src="docs/user-guide/images/readme/classic-tasks-en.png" width="620" alt="Task board"> <img src="docs/user-guide/images/readme/classic-secretary-phone-en.png" width="178" alt="The secretary on a phone"><br><sub>The task board on a PC and the secretary on a phone. Every screenshot here comes from the online demo and shows made-up sample data.</sub></p>
 
@@ -51,8 +51,8 @@ Install options, source installs, updating, rolling back and uninstalling are in
 
 On your phone: open ergo in the phone's browser, or install the phone app (the built-in browser is only in the app). The apps aren't in any app store:
 
-- **Android**: [download ergo-android-debug.apk](https://github.com/catmaniii/ergo/releases/latest/download/ergo-android-debug.apk) and tap it on your phone to install. See the [Android guide](docs/user-guide/mobile.md#安卓-app) (in Chinese).
-- **HarmonyOS**: you have to sign it with your own Huawei account before it installs on a phone, so this one is for developers who don't mind some setup. [Download the unsigned ergo-harmony-unsigned.hap](https://github.com/catmaniii/ergo/releases/latest/download/ergo-harmony-unsigned.hap), which installs directly only on the emulator. See the [HarmonyOS guide](docs/user-guide/mobile.md#鸿蒙-app) (in Chinese).
+- **Android**: [download ergo-android-debug.apk](https://github.com/catmaniii/ergo/releases/latest/download/ergo-android-debug.apk) and tap it on your phone to install. See the [Android guide](docs/user-guide/mobile.en.md#android-app).
+- **HarmonyOS**: you have to sign it with your own Huawei account before it installs on a phone, so this one is for developers who don't mind some setup. [Download the unsigned ergo-harmony-unsigned.hap](https://github.com/catmaniii/ergo/releases/latest/download/ergo-harmony-unsigned.hap), which installs directly only on the emulator. See the [HarmonyOS guide](docs/user-guide/mobile.en.md#harmonyos-app).
 
 ## One at a time
 
@@ -66,7 +66,7 @@ In ergo, **you talk only to a secretary**. It doesn't do the work itself. It und
 
 The working agents aren't a fixed cast of PM, architect, developer and tester either: that means retelling the same context over and over, which burns tokens. Our idea is **assembling a team on demand**: each project and task gets the tools, skills and MCP servers this job needs; steps that can run in parallel get temporary sub-agents that disband when done. No crowd of permanent roles to keep around.
 
-**All of it works by voice.** Out and about, hold the button on your phone and say "fix that login bug from yesterday and tell me when it's done"; the PC at home gets to work, and ergo reads you the result when it's finished. Each project's owner can have its own name and voice, so you know who's reporting with your eyes closed. Speech recognition and synthesis run locally and need extra components, see the [Voice](docs/user-guide/voice.md) (in Chinese); to reach home from your phone, see [On your phone](docs/user-guide/mobile.md) (in Chinese).
+**All of it works by voice.** Out and about, hold the button on your phone and say "fix that login bug from yesterday and tell me when it's done"; the PC at home gets to work, and ergo reads you the result when it's finished. Each project's owner can have its own name and voice, so you know who's reporting with your eyes closed. Speech recognition and synthesis run locally and need extra components, see [Voice](docs/user-guide/voice.en.md); to reach home from your phone, see [On your phone](docs/user-guide/mobile.en.md).
 
 If Claude Code is signed in on your PC, owners can also work through it (on your own subscription), with ergo's guard still checking each tool call.
 
@@ -151,7 +151,7 @@ Open a page and tap a text box or a photo upload area; a small ergo button appea
 
 Web pages used to make you click through everything. Now you just say what you want, and your memory and local data are right there. Web apps built with ergo work the same way when opened in this browser.
 
-This is only in the phone app. On Android, [download the APK](https://github.com/catmaniii/ergo/releases/latest/download/ergo-android-debug.apk) and install it ([guide](docs/user-guide/mobile.md#安卓-app), in Chinese). On HarmonyOS you sign it with your own Huawei account: [download the unsigned HAP](https://github.com/catmaniii/ergo/releases/latest/download/ergo-harmony-unsigned.hap) ([guide](docs/user-guide/mobile.md#鸿蒙-app), in Chinese).
+This is only in the phone app. On Android, [download the APK](https://github.com/catmaniii/ergo/releases/latest/download/ergo-android-debug.apk) and install it ([guide](docs/user-guide/mobile.en.md#android-app)). On HarmonyOS you sign it with your own Huawei account: [download the unsigned HAP](https://github.com/catmaniii/ergo/releases/latest/download/ergo-harmony-unsigned.hap) ([guide](docs/user-guide/mobile.en.md#harmonyos-app)).
 
 ### The rest is there too
 
@@ -186,8 +186,8 @@ Large models still live elsewhere today, so we're handing back everything except
 
 ## Documentation
 
-- **To use ergo:** see the [user guide](docs/user-guide/README.md). What ergo is, how to install it and how to use each feature.
-- **Phone apps:** [Android APK](https://github.com/catmaniii/ergo/releases/latest/download/ergo-android-debug.apk) ([guide](docs/user-guide/mobile.md#安卓-app), in Chinese), [HarmonyOS HAP](https://github.com/catmaniii/ergo/releases/latest/download/ergo-harmony-unsigned.hap) (you sign it yourself; [guide](docs/user-guide/mobile.md#鸿蒙-app), in Chinese).
+- **To use ergo:** see the [user guide](docs/user-guide/README.en.md). What ergo is, how to install it and how to use each feature.
+- **Phone apps:** [Android APK](https://github.com/catmaniii/ergo/releases/latest/download/ergo-android-debug.apk) ([guide](docs/user-guide/mobile.en.md#android-app)), [HarmonyOS HAP](https://github.com/catmaniii/ergo/releases/latest/download/ergo-harmony-unsigned.hap) (you sign it yourself; [guide](docs/user-guide/mobile.en.md#harmonyos-app)).
 - **To see how it's built:** see [System architecture](docs/architecture/README.en.md). Architecture, the memory system, deployment and decision records.
 
 For developers: [Development](docs/architecture/development.en.md), the [plugin guide](docs/architecture/plugin-development.md) (in Chinese), [CHANGELOG.md](CHANGELOG.md), [SECURITY.md](SECURITY.md).
