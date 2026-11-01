@@ -112,7 +112,7 @@
 
 | | 安卓 | 鸿蒙 |
 |---|---|---|
-| 下载 | [ergo-android-debug.apk](https://github.com/catmaniii/ergo/releases/latest/download/ergo-android-debug.apk) | [ergo-harmony-unsigned.hap](https://github.com/catmaniii/ergo/releases/latest/download/ergo-harmony-unsigned.hap)（没有签名） |
+| 下载 | [ergo-android-debug.apk](https://github.com/catmaniii/ergo/raw/main/downloads/ergo-android-debug.apk) | [ergo-harmony-unsigned.hap](https://github.com/catmaniii/ergo/raw/main/downloads/ergo-harmony-unsigned.hap)（没有签名） |
 | 手机上怎么装 | 点开就装，不用电脑 | 先用你自己的华为账号签名，再用电脑装 |
 | 适合谁 | 所有人 | 愿意折腾的开发者 |
 
@@ -120,7 +120,7 @@
 
 ### 安卓 App
 
-**下载：[ergo-android-debug.apk](https://github.com/catmaniii/ergo/releases/latest/download/ergo-android-debug.apk)**
+**下载：[ergo-android-debug.apk](https://github.com/catmaniii/ergo/raw/main/downloads/ergo-android-debug.apk)**
 
 支持安卓 8 及以上。不用电脑，也不用懂代码。
 
@@ -245,7 +245,7 @@ $hdc = "$dev\sdk\default\openharmony\toolchains\hdc.exe"
 
 **一步一步：**
 
-1. 下载 [ergo-harmony-unsigned.hap](https://github.com/catmaniii/ergo/releases/latest/download/ergo-harmony-unsigned.hap)，和上面的材料放在同一个目录，在这个目录打开 PowerShell。
+1. 下载 [ergo-harmony-unsigned.hap](https://github.com/catmaniii/ergo/raw/main/downloads/ergo-harmony-unsigned.hap)，和上面的材料放在同一个目录，在这个目录打开 PowerShell。
 2. 用 DevEco 自带的 Java 跑签名工具。别用别处装的 JDK，有的版本会让工具崩掉：
 
    ```powershell

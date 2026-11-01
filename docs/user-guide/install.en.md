@@ -37,8 +37,8 @@ You don't need to install Node first: the one-line install brings its own.
 | Chrome or Edge | Agents can search the web and read pages | [Settings](settings.en.md#browsing--form-filling) |
 | Tailscale, or a VPS | Use ergo from your phone or tablet away from home | [On your phone](mobile.en.md) |
 | Claude Code, signed in on this PC | Project and task owners can work through your own Claude Code subscription | [Claude Code](claude-code.en.md) |
-| An Android phone | The native Android app: [download](https://github.com/catmaniii/ergo/releases/latest/download/ergo-android-debug.apk) and install it | [On your phone](mobile.en.md#android-app) |
-| A HarmonyOS phone, DevEco Studio and a Huawei account | The native HarmonyOS app, signed with your own account. The [unsigned package](https://github.com/catmaniii/ergo/releases/latest/download/ergo-harmony-unsigned.hap) installs directly only on the emulator | [On your phone](mobile.en.md#harmonyos-app) |
+| An Android phone | The native Android app: [download](https://github.com/catmaniii/ergo/raw/main/downloads/ergo-android-debug.apk) and install it | [On your phone](mobile.en.md#android-app) |
+| A HarmonyOS phone, DevEco Studio and a Huawei account | The native HarmonyOS app, signed with your own account. The [unsigned package](https://github.com/catmaniii/ergo/raw/main/downloads/ergo-harmony-unsigned.hap) installs directly only on the emulator | [On your phone](mobile.en.md#harmonyos-app) |
 
 ## One-line install (recommended)
 

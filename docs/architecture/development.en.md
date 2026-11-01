@@ -155,6 +155,8 @@ To debug pages in the WebView, install the `--webview-debug` build and use Chrom
 
 `npm run release` also puts two phone packages in the release directory and lists them in `SHA256SUMS`, signed along with the Windows package: `ergo-android-debug.apk` and `ergo-harmony-unsigned.hap`. The file names carry no version, so `releases/latest/download/<name>` keeps working. `latest.json` doesn't mention them; `ergo update` and the install script only look at the Windows package.
 
+After a release, copy these two files to `downloads/` in the repo, update the version in `downloads/README.md`, and commit them together. The download links in the README and guides point there.
+
 | Command | What it does |
 |---|---|
 | `npm run release` | Collects existing build outputs |

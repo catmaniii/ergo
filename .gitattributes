@@ -11,3 +11,6 @@ packages/daemon/installer/*.ps1 text eol=lf
 frontend/android/gradlew text eol=lf
 frontend/android/gradlew.bat text eol=crlf
 frontend/android/gradle/wrapper/gradle-wrapper.jar binary
+# 手机安装包
+downloads/*.apk binary
+downloads/*.hap binary

@@ -114,7 +114,7 @@ Local network addresses and this computer's own addresses aren't accepted, and t
 
 | | Android | HarmonyOS |
 |---|---|---|
-| Download | [ergo-android-debug.apk](https://github.com/catmaniii/ergo/releases/latest/download/ergo-android-debug.apk) | [ergo-harmony-unsigned.hap](https://github.com/catmaniii/ergo/releases/latest/download/ergo-harmony-unsigned.hap) (unsigned) |
+| Download | [ergo-android-debug.apk](https://github.com/catmaniii/ergo/raw/main/downloads/ergo-android-debug.apk) | [ergo-harmony-unsigned.hap](https://github.com/catmaniii/ergo/raw/main/downloads/ergo-harmony-unsigned.hap) (unsigned) |
 | Installing on the phone | Tap it and it installs, no computer needed | Sign it first with your own Huawei account, then install from a computer |
 | Who it's for | Everyone | Developers who don't mind some setup |
 
@@ -122,7 +122,7 @@ To check that a download hasn't been tampered with: `SHA256SUMS` on the releases
 
 ### Android app
 
-**Download: [ergo-android-debug.apk](https://github.com/catmaniii/ergo/releases/latest/download/ergo-android-debug.apk)**
+**Download: [ergo-android-debug.apk](https://github.com/catmaniii/ergo/raw/main/downloads/ergo-android-debug.apk)**
 
 Supports Android 8 and later. You don't need a computer, and you don't need to know any code.
 
@@ -247,7 +247,7 @@ For the whole process, see the official [manual signing](https://developer.huawe
 
 **Step by step:**
 
-1. Download [ergo-harmony-unsigned.hap](https://github.com/catmaniii/ergo/releases/latest/download/ergo-harmony-unsigned.hap), put it in the same folder as the items above, and open PowerShell in that folder.
+1. Download [ergo-harmony-unsigned.hap](https://github.com/catmaniii/ergo/raw/main/downloads/ergo-harmony-unsigned.hap), put it in the same folder as the items above, and open PowerShell in that folder.
 2. Run the signing tool with the Java that comes with DevEco. Don't use a JDK installed elsewhere; some versions crash the tool:
 
    ```powershell

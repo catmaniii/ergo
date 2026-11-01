@@ -155,6 +155,8 @@ adb -s <设备号> logcat -s ErgoApp                  # App 和网页的日志
 
 `npm run release` 顺带把两个手机安装包放进发布目录、写进 `SHA256SUMS`，和 Windows 包一起被签：`ergo-android-debug.apk`、`ergo-harmony-unsigned.hap`。文件名不带版本号，这样 `releases/latest/download/<文件名>` 一直有效。`latest.json` 不提它们，`ergo update` 和安装脚本只认 Windows 包。
 
+发完版把这两个文件复制到仓库的 `downloads/`，改 `downloads/README.md` 里的版本号，一起提交：README 和教程的下载链接指向那里。
+
 | 命令 | 做什么 |
 |---|---|
 | `npm run release` | 收现成的产物 |

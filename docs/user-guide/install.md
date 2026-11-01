@@ -37,8 +37,8 @@
 | Chrome 或 Edge | agent 联网搜索、读网页 | [浏览与填框](settings.md#浏览与填框) |
 | Tailscale，或一台 VPS | 手机、平板从外面访问 | [手机上用](mobile.md) |
 | 本机登录好的 Claude Code | 让项目、任务的负责人用你自己的 Claude Code 订阅干活 | [Claude Code](claude-code.md) |
-| 一台安卓手机 | 安卓原生 App，[下载](https://github.com/catmaniii/ergo/releases/latest/download/ergo-android-debug.apk)就能装 | [手机上用](mobile.md#安卓-app) |
-| 一台鸿蒙手机、DevEco Studio 和华为账号 | 鸿蒙原生 App，要用你自己的账号签名。[没签名的包](https://github.com/catmaniii/ergo/releases/latest/download/ergo-harmony-unsigned.hap)模拟器能直接装 | [手机上用](mobile.md#鸿蒙-app) |
+| 一台安卓手机 | 安卓原生 App，[下载](https://github.com/catmaniii/ergo/raw/main/downloads/ergo-android-debug.apk)就能装 | [手机上用](mobile.md#安卓-app) |
+| 一台鸿蒙手机、DevEco Studio 和华为账号 | 鸿蒙原生 App，要用你自己的账号签名。[没签名的包](https://github.com/catmaniii/ergo/raw/main/downloads/ergo-harmony-unsigned.hap)模拟器能直接装 | [手机上用](mobile.md#鸿蒙-app) |
 
 ## 一行命令安装（推荐）
 
