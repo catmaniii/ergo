@@ -1,4 +1,4 @@
-// 语音消息（规格第 22 节）：时长和波形的限制、识别状态、交给 agent 的写法。
+// 语音消息：时长和波形的限制、识别状态、交给 agent 的写法。
 // 还有 agent 发的语音（语音回复）：合成状态、整段还是口语总结、参考音色的限制。
 // 只有常量和纯函数，不引用 TypeBox（类型用 import type 从 voice-schema.ts 取）：守护进程、Web 状态层和界面共用。
 import { tTable } from "./i18n/runtime.ts";

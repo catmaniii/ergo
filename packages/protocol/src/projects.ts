@@ -1,4 +1,4 @@
-// 项目（规格第 11 节）的名字：项目状态、项目类型、立项的入口、项目页上的动作、项目列表频道上的变化。
+// 项目的名字：项目状态、项目类型、立项的入口、项目页上的动作、项目列表频道上的变化。
 // 只有常量和纯函数，不引用 TypeBox（Web 只用这些常量和类型）。schema 在 project-schema.ts。
 // "哪个状态能做哪个动作"只在这里定一次（PROJECT_ACTION_RULES）：守护进程据此校验迁移，Web 据此给出入口。
 import { followLocale, t, tTable } from "./i18n/runtime.ts";

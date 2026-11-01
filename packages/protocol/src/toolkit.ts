@@ -1,4 +1,4 @@
-// 工具包（ADR-0003，规格第 3、11、20、21 节）的名字和纯函数，守护进程和 Web 共用，不引用 TypeBox：
+// 工具包（ADR-0003）的名字和纯函数，守护进程和 Web 共用，不引用 TypeBox：
 // - 工具包有六样：skill 名单、MCP 名单、bash 开关、联网开关、给秘书发消息开关（形状同计划的 PlanToolkit / projects.ts 的
 //   ToolkitShape；给秘书发消息默认开着，不写是开，关掉了写 false：canTellSecretary、tellSecretaryField）、发附件开关（
 //   负责人把工作目录里的文件作为附件发进它的会话，tell_secretary 带附件也看它；同样默认开着：canSendAttachment、sendAttachmentField）；

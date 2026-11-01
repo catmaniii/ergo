@@ -112,7 +112,7 @@ describe("负责人的运行时（网页状态层）", () => {
     expect(runtimeSettingValue(CLAUDE.settings[0]!, { id: "claude-code", title: "Claude Code", settings: { effort: "high" } })).toBe("high");
   });
 
-  it("⚙ 里的运行时一块：只有 pi 能用、用的也是 pi 时不显示（和以前一样）；用别的、在换、有别的能用时显示；秘书没有", () => {
+  it("⚙ 里的运行时一块：只有 pi 能用、用的也是 pi 时不显示；用别的、在换、有别的能用时显示；秘书没有", () => {
     const pi: AgentRuntimeStateView = { id: "pi", title: "pi", settings: {} };
     expect(runtimeBlockShown([PI, OFF], pi)).toBe(false);
     expect(runtimeBlockShown(undefined, pi)).toBe(false);

@@ -12,11 +12,11 @@
 - 只跑了 `--help`、`--version`、`auth status`、`npm view`，没有开任何 Claude Code 或 Codex 会话。
 - 另外离线跑了一次 `codex app-server generate-json-schema --out <草稿目录>` 导出协议 schema。这个命令不开会话、不联网。
 - 本机会话文件只列了目录名、文件名，并统计了每类记录有哪些字段名，没有读对话内容。
-- 官方文档、SDK 类型定义、CHANGELOG 都下载到了草稿目录，方便复核：
-  - `…\scratchpad\cc-takeover\dl-docs\`：Claude Code 和 SDK 文档、两份 CHANGELOG、条款
-  - `…\scratchpad\cc-takeover\dl-sdk\`：SDK 0.3.310 的 `sdk.d.ts`、`bridge.d.ts`、README
-  - `…\scratchpad\cc-takeover\dl-codex\`：Codex 文档
-  - `…\scratchpad\cc-takeover\codex-0104-schema\`：本机 Codex 0.104 的 app-server 协议 schema
+- 官方文档、SDK 类型定义、CHANGELOG 都下载到本地复核：
+  - Claude Code 和 SDK 文档、两份 CHANGELOG、条款
+  - SDK 0.3.310 的 `sdk.d.ts`、`bridge.d.ts`、README
+  - Codex 文档
+  - 本机 Codex 0.104 的 app-server 协议 schema
 
 ---
 
@@ -45,7 +45,7 @@
    - 但如果环境里有 `ANTHROPIC_API_KEY`，`-p` 会无条件改用 API key 按量计费。
    - 官方帮助中心 2026-10-07 写明："You can still use the Claude Agent SDK, `claude -p`, and third-party apps with your subscription limits"。
    - 条款的红线是：不得替别人代用订阅、不得收集或转手 claude.ai 的凭据和 token、不得改 claude 程序本身。二狗是自用、跑原版 claude、用本人登录，在允许范围内。
-6. **Codex（第二期）**：
+6. **Codex（以后再接）**：
    - 接法：`codex app-server`（JSON-RPC，stdio）有 `thread/list/start/resume/fork`、`turn/start/steer/interrupt`，审批是服务端主动发给客户端的请求，模型和二狗的事件很对得上。
    - 最新版已经删掉 `codex mcp-server`。
    - 远程只能通过 ChatGPT 桌面 App 当宿主，CLI 拉起的会话没有 Remote Control 的对应物。
@@ -338,7 +338,7 @@ SDK 和 `-p` 拉起的就是 claude 本身，按 claude 的凭据优先级选（
 
 ---
 
-## 6. Codex CLI（第二期，判断怎么接、工作量多大）
+## 6. Codex CLI（以后再接，判断怎么接、工作量多大）
 
 **版本先说清楚**：本机是 0.104.0，npm 最新是 0.164.0，官方文档描述的是最新版。最新版已经删掉 `codex mcp-server`：原文 "The `codex mcp-server` command and the standalone `codex-mcp-server` binary have been removed… Use the Codex app server"（[mcp-server](https://learn.chatgpt.com/docs/mcp-server)）。本机 0.104 还有这个命令（`codex mcp-server --help` 能看到），但不要基于它做方案。
 
@@ -349,13 +349,13 @@ SDK 和 `-p` 拉起的就是 claude 本身，按 claude 的凭据优先级选（
 | 恢复 | `codex resume [ID\ |--last\ |--all]`（交互）；`codex exec resume <ID> [prompt]`（非交互）；`codex fork` | 本机 `codex resume --help`、`codex exec resume --help` |
 | 无头 | `codex exec --json` 输出 JSONL，事件有 `thread.started`、`turn.started`、`turn.completed`、`turn.failed`、`item.*`、`error`；`--ephemeral` 不落盘；默认只读沙箱 | 本机 `codex exec --help`；[non-interactive-mode](https://learn.chatgpt.com/docs/non-interactive-mode) |
 | 深度集成 | `codex app-server`，JSON-RPC 2.0，默认走 stdio 按行传；ws、unix 套接字是实验性的。流程是 `initialize` → `thread/start\ | resume\ | fork` → `turn/start`，过程中可以 `turn/steer`（往进行中的这一轮插话）、`turn/interrupt`。通知有 `item/started`、`item/completed`、`item/agentMessage/delta`、`turn/completed` 等。同一个线程可以有多个连接同时订阅。官方定位是 "the interface Codex uses to power rich clients (for example, the Codex VS Code extension)"，同时声明 "experimental and aren't supported for production workloads" | [app-server](https://learn.chatgpt.com/docs/app-server) |
-| 本机 0.104 实际支持哪些 | 离线导出的 schema 里：客户端请求 60 个（含 `thread/list`、`thread/resume`、`thread/fork`、`turn/start`、`turn/steer`、`turn/interrupt`、`thread/compact/start`、`thread/rollback`、`model/list`、`account/*`）；服务端发给客户端的请求 7 个（`item/commandExecution/requestApproval`、`item/fileChange/requestApproval`、`item/tool/requestUserInput` 等）；通知 37 个 | `…\scratchpad\cc-takeover\codex-0104-schema\` |
+| 本机 0.104 实际支持哪些 | 离线导出的 schema 里：客户端请求 60 个（含 `thread/list`、`thread/resume`、`thread/fork`、`turn/start`、`turn/steer`、`turn/interrupt`、`thread/compact/start`、`thread/rollback`、`model/list`、`account/*`）；服务端发给客户端的请求 7 个（`item/commandExecution/requestApproval`、`item/fileChange/requestApproval`、`item/tool/requestUserInput` 等）；通知 37 个 | 本机导出的协议 schema |
 | 审批 | 服务端主动发 JSON-RPC 请求，客户端回答 `accept` / `acceptForSession` / `decline` / `cancel`（命令执行还能附带 execpolicy 修正） | [app-server：Approvals](https://learn.chatgpt.com/docs/app-server) |
 | 让用户也能看 | 最新版可以 `codex app-server --listen ws://127.0.0.1:4500`，再用 `codex --remote ws://…` 把终端界面接到同一个 app-server 上。本机 0.104 的 `codex --help` **没有** `--remote` | [app-server：Connect the CLI terminal UI](https://learn.chatgpt.com/docs/app-server) |
 | 远程（类似 RC） | ChatGPT 手机 App 里的 Codex/Remote 连的是**跑着 ChatGPT 桌面 App 的电脑**："you can't set it up from the Codex CLI or IDE extension"。CLI 或 app-server 拉起的会话没有对应的官方远程 | [remote-connections](https://learn.chatgpt.com/docs/remote-connections) |
 | 认证 | ChatGPT 登录（订阅）或 API key；app-server 提供 `account/login/start` 等登录流程 | [auth](https://learn.chatgpt.com/docs/auth) |
 
-**第二期判断**
+**怎么接的判断**
 - 用 app-server（stdio）做 Codex 适配器。它的线程、轮次、条目三层模型和审批请求能直接对上二狗的"会话、轮次、事件、审批"。
 - 类型可以用 `codex app-server generate-ts` 生成。
 - 工作量和 Claude 适配器同一个量级（中等）。
@@ -488,7 +488,7 @@ RC（手机、网页）能用的命令清单另见 [remote-control：Limitations
 | 命令列表变化 | `system/commands_changed` | | 刷新命令菜单 |
 | 其他 | `system/thinking_tokens`（思考 token 估计）、`system/memory_recall`、`system/files_persisted`、`system/model_refusal_fallback` / `model_refusal_no_fallback`、`system/elicitation_complete`、`system/plugin_install`、`system/mirror_error`、`system/worker_shutting_down`（RC 进程退出）、`system/control_request_progress`、`tool_use_summary`、`rate_limit_event`、`prompt_suggestion`、`auth_status` | | 按需处理，不认识的类型直接忽略（官方也是这么建议的） |
 
-**和 Codex app-server 的对应**（第二期用）
+**和 Codex app-server 的对应**（以后接 Codex 用）
 - `thread/started` ≈ `system/init`
 - `turn/started` 或 `turn/completed` ≈ 一轮的开始和 `result`
 - `item/started`、`item/completed`（item 类型有 agentMessage、reasoning、commandExecution、fileChange、mcpToolCall…）≈ `assistant` 里的 tool_use 加 `user` 里的 tool_result

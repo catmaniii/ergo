@@ -1,4 +1,4 @@
-// agent 用语音回复（规格第 22 节）。用户发的是语音，agent 这一轮的回复就由运行时合成语音（秘书和负责人的会话都一样）：
+// agent 用语音回复。用户发的是语音，agent 这一轮的回复就由运行时合成语音（秘书和负责人的会话都一样）：
 //
 // - 是否用语音：运行时按"用户上一条是不是语音"判定，不只靠提示词。看的是这一轮处理的用户消息（交给 agent 的那条输入，
 //   和这一轮里收下的插话）里最后一条：它是语音就用语音回复。用户重新识别了之前没识别出来的语音、运行时交给 agent 的那条通知
@@ -77,7 +77,7 @@ export interface VoiceRepliesOptions {
   references: ReferenceVoices;
   /**
    * 这个会话里说话的 agent 现在用哪个参考音色（按 agent 配的覆盖，没配 / 被删了跟全局默认）；
-   * 不给时一律用 references.current()（和以前一样）
+   * 不给时一律用 references.current
    */
   voiceOf?: (conversation: ConversationId) => ResolvedReferenceVoice | undefined;
   /** 转述负责人的进展时：一个 agent 的角色名（转文字时写）；不给时用 agent id */

@@ -551,7 +551,7 @@ export function createClaudeCodePlugin(
 }
 ```
 
-- **目录**：`plugin.ts`（定义）、`api.ts`（插件名、运行时的 id：插件目录之外只 import 它）、`runtime.ts`（运行时：能力清单逐项照实写，这一张没做的填 `false`）、`child/`（子进程：`main.ts` 入口只做接线，`child.ts` 宿主协议这一层，`session.ts` 一个会话的轮次和外部程序的生命周期，`translator.ts` 把外部程序的事件翻回宿主协议，`records.ts` 二狗的会话名 ⇄ 外部程序的会话 id）。
+- **目录**：`plugin.ts`（定义）、`api.ts`（插件名、运行时的 id：插件目录之外只 import 它）、`runtime.ts`（运行时：能力清单逐项照实写，还没做的填 `false`）、`child/`（子进程：`main.ts` 入口只做接线，`child.ts` 宿主协议这一层，`session.ts` 一个会话的轮次和外部程序的生命周期，`translator.ts` 把外部程序的事件翻回宿主协议，`records.ts` 二狗的会话名 ⇄ 外部程序的会话 id）。
 - **自带的 npm 依赖只在子进程里**：真的 `query` 只在 `child/main.ts` 里引，别处只引类型；外部程序的调用做成可注入的（`runClaudeChild` 的 `queryFor`），守护进程里别的代码不 import `child/`——边界测试 `packages/daemon/test/claude-code/boundary.test.ts` 查。
 - **不随二狗分发的依赖是可选的**：Claude Code 的 Agent SDK 是 Anthropic 自己的许可，在 `packages/daemon/package.json` 里写成 `optionalDependencies`（照常 `npm install` 会装上，打包发布时去掉，用的人自己装）。插件定义里给 `missing()`：它要的外部组件没装时交回给人看的一句（没装什么、在哪运行哪条命令装），装着是 `undefined`。宿主每次装配之前问一次：没装的不装配，记成没装上（`PluginInfo.missing`，设置 · 插件里状况写"没装"、下面是那一句，装好之前启用不了），依赖它的也不装；运行时不能用的原因写那一句而不是"没启用"（`RuntimeOwner.missing`）；装好后点启用就装上。数据契约照常登记。找包在不在只解析不加载（`claude-code/sdk-installed.ts` 是边界测试里写明的唯一例外）；主切面给 `createClaudeCodePlugin({ sdkInstalled })` 一个说"没装"的，不用真卸掉（`packages/daemon/test/main/fresh-install.test.ts`）。
 - **不碰外部程序的凭据和会话文件**：二狗的会话名和外部程序的会话 id 对照另记在会话目录里；交给外部程序的环境去掉会改计费方式的变量（Claude Code 是 `ANTHROPIC_API_KEY`）。

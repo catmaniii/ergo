@@ -1,4 +1,4 @@
-// 彻底删除的改写函数表（规格第 14、15 节）：按事件类型登记，一类事件一个改写函数，由拥有这类事件的模块写
+// 彻底删除的改写函数表：按事件类型登记，一类事件一个改写函数，由拥有这类事件的模块写
 // （改写的规矩见 events/purge.ts：消息整条换成"已删除"标记，别的只换带原话的文本字段、状态不变）。
 // 现在登记的（daemon.ts）：消息、时间线记录（conversation/purge.ts）、卡片（cards/cards.ts 的 cardPurge，负载按卡片类型的 purge）、
 // 卡片被关闭和长期没处理（materials/sources.ts）、"记住"的记忆命令（materials/commands.ts）、审批决定

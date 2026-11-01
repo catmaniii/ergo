@@ -1,4 +1,4 @@
-// 简单提醒的派生视图（ergo.db，规格第 4 节"提醒"）：每条提醒的最新状态。
+// 简单提醒的派生视图（ergo.db）：每条提醒的最新状态。
 // 任务看板频道上的 reminder 事件就是提醒的最新状态，视图按 id 留最后一条；守护进程启动时据此重新登记调度。
 import { CHANNELS, EVENT_TYPES, type Reminder, type ReminderEventPayload, type ReminderStatus } from "@ergo/protocol";
 import type { DerivedView } from "../events/event-store.ts";

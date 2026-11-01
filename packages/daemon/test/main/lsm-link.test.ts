@@ -1,4 +1,4 @@
-// 主切面：接入 LSM 的 link 协议（规格第 1 节"服务登记"）。测试里用替身当管理器（helpers/lsm-stand-in.ts），
+// 主切面：接入 LSM 的 link 协议。测试里用替身当管理器（helpers/lsm-stand-in.ts），
 // 把它的身份（LSM_URL / LSM_SERVICE_ID / LSM_TOKEN / LSM_PROTOCOL）放进守护进程的环境：
 // - 握手报上 pid、端口和能力；心跳报健康（秘书不在运行、启用着的插件没装上时报 degraded）和忙不忙：有任务处于执行中、或者有正在执行的有副作用的调用时报"忙"（原因写明），
 //   没有时不报；忙闲变了马上补一次；

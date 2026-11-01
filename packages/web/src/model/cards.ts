@@ -1,4 +1,4 @@
-// 第一阶段 14 种卡片的负载形状（规格第 5 节）。
+// 第一阶段 14 种卡片的负载形状。
 // 卡片类型注册表（schema、版本、纯文本降级）在守护进程（cards/registry.ts）；登记了的卡，负载的 schema 在共享协议包里
 // （简单提醒卡 ReminderCardPayload；审批卡 ApprovalCardPayload；配对请求卡 PairingCardPayload；
 // 计划卡 PlanCardPayload、提问卡 QuestionsCardPayload、"建议发起任务"卡 SuggestTaskCardPayload；
@@ -6,7 +6,7 @@
 // "建议立项"卡 SuggestProjectCardPayload、立项书卡 CharterCardPayload；进度卡 ProgressCardPayload；
 // "首版做完了"卡 BuildDoneCardPayload；"运营方案变更"卡 OperationsChangeCardPayload（"首版做完了"卡上多一节运营方案）；
 // 并行确认卡 ParallelCardPayload；工单卡 WorkOrderCardPayload；归档清单卡 ArchiveListCardPayload）。
-// 其余的先按规格写原型要显示的字段，由各自的模块登记时换成协议包里的。
+// 其余的先写原型要显示的字段，由各自的模块登记时换成协议包里的。
 import type {
   ApprovalCardPayload,
   BuildDoneCardPayload,

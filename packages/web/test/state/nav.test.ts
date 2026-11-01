@@ -37,7 +37,7 @@ describe("主导航按空间自适应", () => {
     ["只放得下最少的几个：秘书、任务、项目、待办加更多（日历收进更多）", RAIL_MIN, ["secretary", "tasks", "projects", "inbox"], ["calendar", "usage", "memory", "settings"]],
     ["比最少的几个多一点也放不下第五个：日历加进来就要 306", RAIL_MIN + 50, ["secretary", "tasks", "projects", "inbox"], ["calendar", "usage", "memory", "settings"]],
     ["日历刚好放得下：日历跟在待办后面直接显示", RAIL_MIN + 51, ["secretary", "tasks", "projects", "inbox", "calendar"], ["usage", "memory", "settings"]],
-    // 以前"个人助理""待我处理"在竖栏里折成两行（70 高），全部要 464；现在每项一行，408 就放得下
+    // "个人助理""待我处理"在竖栏里折成两行（70 高）的话全部要 464；每项一行，408 就放得下
     ["名字都是两个字以后：原来要 464 才放得下全部，现在 408", 408, ALL, []],
   ])("%s", (_name, available, shown, folded) => {
     expect(fit(available)).toEqual({ shown, folded });

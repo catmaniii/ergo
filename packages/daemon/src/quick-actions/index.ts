@@ -1,4 +1,4 @@
-// 快速动作（规格第 14 节）对外的东西。别的模块只从这里取：
+// 快速动作对外的东西。别的模块只从这里取：
 // - 登记一种动作（任务控制、MCP 调用）：defineQuickAction（参数 schema、规范化、"明确点了"的判定用
 //   explicit.ts 的辅助函数、关注、执行），在 daemon.ts 里 quickActionRegistry.register(...)；
 // - 守护进程装配：QuickActionRegistry、createQuickActionService、quickActionCardType、proposeQuickActionTool；

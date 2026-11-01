@@ -1,4 +1,4 @@
-// 时序规则（规格第 9 节）：引擎核心是 planguard（planguard/ 下的 expr + spec + checker），规则格式与它兼容。
+// 时序规则：引擎核心是 planguard（planguard/ 下的 expr + spec + checker），规则格式与它兼容。
 //
 // 四种形态（planguard 的 require 写法，见 rule-doc.ts 的 ruleForm）：
 // - B 之前必须做过 A：`require: { before: { tool: A, where? } }`；

@@ -507,7 +507,7 @@ describe("Claude Code 适配子进程（假 SDK）", () => {
     expect(query.options.env).toEqual({ PATH: "C:\\Windows", ERGO_LANGUAGE: "zh-CN", CLAUDE_AGENT_SDK_CLIENT_APP: "ergo" });
   });
 
-  it("这一张没做的命令：范围审视回没做成、会话回退（没接撤回用的会话函数）回没挪成、守卫判定和工具结果回没有在等的、贡献清单和 yield 收下不管、工单回 unsupported；exit 时手头有一轮先打断再关掉", async () => {
+  it("还没做的命令：范围审视回没做成、会话回退（没接撤回用的会话函数）回没挪成、守卫判定和工具结果回没有在等的、贡献清单和 yield 收下不管、工单回 unsupported；exit 时手头有一轮先打断再关掉", async () => {
     const child = startChild();
     await child.log.next("ready");
     child.send({ type: "scope_review", requestId: "r-1", reference: "立项书" });

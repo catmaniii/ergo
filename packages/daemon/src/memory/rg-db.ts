@@ -1,4 +1,4 @@
-// 推理库 rg.db 的落盘和 manifest（ADR-0027 的记忆插件、接入设计第 4 节）：
+// 推理库 rg.db 的落盘和 manifest（ADR-0027 的记忆插件）：
 // - 插件自己的数据目录里一个 SQLite（`fd.dataDirLayout().rgDb` = <数据目录>/memory/subtext/rg.db，搬过去的；
 //   之前是 db/rg.db），随备份快照带走；
 // - 库里的 manifest 表记下 schema 版本、@ergo/memory 的表版本、整理用的模型名、向量模型名、抽取器，建库时间；

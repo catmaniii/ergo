@@ -7,7 +7,7 @@
 // - 停用时的 HTTP（没启用也不能崩）：访谈接口 404 加一句"记忆插件没启用"，记忆的设置照常能读能改，
 //   推理库的只读接口 200 + ready=false + 原因——都不是 500；
 // - 再启用：素材库从停下的采集位置补采，停用期间没删的话成了素材、能检索，删过的不回来。
-// 默认全开时秘书看到的工具（先后、说明）、系统提示和以前逐字节一样，由已有的主切面测试守着（plugins.test.ts、secretary-chat.test.ts……）。
+// 默认全开时秘书看到的工具（先后、说明）、系统提示不变，由已有的主切面测试守着（plugins.test.ts、secretary-chat.test.ts……）。
 // 开着时秘书多一个 ask_memory（在 read_material 后面、propose_quick_action 前面），每轮醒来还有一块记忆简报
 // （推理库还空着时是空串，不产生块）；停用后这两个都没有。再多一个 ask_curator（问记忆管理员，排在 ask_memory 后面）。
 import fs from "node:fs";

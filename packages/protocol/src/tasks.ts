@@ -1,4 +1,4 @@
-// 任务（规格第 8 节）的名字：任务状态、谁改的、看板分组、计划里的枚举。
+// 任务的名字：任务状态、谁改的、看板分组、计划里的枚举。
 // 只有常量和纯函数，不引用 TypeBox（Web 只用这些常量和类型）。schema 在 task-schema.ts，计划的纯函数在 plan.ts，
 // 活动状态在 activity.ts。"谁能改"表和"现在能对任务做什么"在 task-transitions.ts（守护进程的 tasks/state-machine.ts 按它校验迁移）。
 import { followLocale, t, tTable } from "./i18n/runtime.ts";
@@ -166,7 +166,7 @@ export function hasOwnMaintainer(task: { id: string; maintainerId: string }): bo
 export type TaskEndKind = (typeof TASK_END_KINDS)[number];
 
 /**
- * 任务涉及几个项目（规格第 8 节"执行者"）：不涉及项目、单项目（由这个项目的负责人执行）、多项目（任务自己的负责人，
+ * 任务涉及几个项目：不涉及项目、单项目（由这个项目的负责人执行）、多项目（任务自己的负责人，
  * 工具包固定为读项目档案、派工单、汇总回执）。建卡时定下（建卡时没写项目的，第一版任务书定下），之后不随计划改动重新判断：
  * 单项目任务的计划不能写进别的项目，不涉及项目的任务的计划不能写项目行；多项目任务删到只剩一个项目也还是多项目任务
  */
@@ -191,7 +191,7 @@ export function taskProjectScope(task: { id: string; maintainerId: string; proje
 
 export const TASK_END_KIND_LABEL: Readonly<Record<TaskEndKind, string>> = tTable({ converted_to_project: "protocol.tasks.endKind.convertedToProject" });
 
-/** 谁改的（规格第 8 节"谁能改"表的四行） */
+/** 谁改的（"谁能改"表的四行） */
 export const TASK_ACTORS = ["user", "secretary", "maintainer", "system"] as const;
 export type TaskActor = (typeof TASK_ACTORS)[number];
 
@@ -465,7 +465,7 @@ export const PROGRESS_CARD_KINDS = ["progress", "acceptance"] as const;
 
 // ───────────────────────── 看板分组 ─────────────────────────
 
-/** 看板的五组（规格第 8 节）：等我、进行中、运营中、最近结束、已归档 */
+/** 看板的五组：等我、进行中、运营中、最近结束、已归档 */
 export const BOARD_GROUPS = ["waiting", "active", "ops", "ended", "archived"] as const;
 export type BoardGroup = (typeof BOARD_GROUPS)[number];
 

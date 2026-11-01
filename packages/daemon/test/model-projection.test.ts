@@ -1,4 +1,4 @@
-// 发给模型前的投影（规格第 5 节、第 21 节附件）：带版本号的纯函数，按模块测。
+// 发给模型前的投影：带版本号的纯函数，按模块测。
 // 期望的输出都是手写的字面量（快照），覆盖每一类 part；同样的输入和版本，输出逐字节相同。
 import type { MessagePart } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";

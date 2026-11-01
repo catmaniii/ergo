@@ -1,4 +1,4 @@
-// 语音消息的气泡（规格第 22 节）：每条语音（VoiceRecord）跟着会话频道上的 voice 事件走（ui-state.ts 按版本归并进 UiState.voices），
+// 语音消息的气泡：每条语音（VoiceRecord）跟着会话频道上的 voice 事件走（ui-state.ts 按版本归并进 UiState.voices），
 // 气泡要的东西从这里取：时长和宽度（宽度随时长变）、识别状态、文字那一行（用户发的语音默认显示识别出的文字）、
 // 能不能重新识别。第一阶段不用大模型修正，识别出的文字就是 faster-whisper 的结果。
 // 文字那一行和语音在同一个框里（播放条和时长在上、文字在下），框的样子见 voiceBubbleLook。

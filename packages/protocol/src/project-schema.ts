@@ -1,5 +1,5 @@
 // @i18n-ignore-file model：这里的中文都是 schema 里给模型看的参数说明
-// 项目、立项和它们的卡片的 schema（规格第 11 节），用 TypeBox 定义，守护进程和 Web 共用生成的类型。
+// 项目、立项和它们的卡片的 schema，用 TypeBox 定义，守护进程和 Web 共用生成的类型。
 // - 项目列表频道上的 project 事件：项目的最新状态（Project）；
 // - 立项书（Charter）：负责人在立项问答之后用"提交立项书"工具交出的结构化数据（工具的参数），立项书卡由代码从它生成；
 // - 五种卡的负载：建议立项卡（suggest_project）、立项书卡（charter）、"首版做完了"卡（build_done，带着

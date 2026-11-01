@@ -1,4 +1,4 @@
-// 附件的内容（规格第 21 节附件）：给模型投影准备内容（这一版投影要什么就读什么：文本开头若干字节、PDF 抽出的文本），
+// 附件的内容：给模型投影准备内容（这一版投影要什么就读什么：文本开头若干字节、PDF 抽出的文本），
 // 以及"读取附件"工具读全文。投影本身是纯函数（conversation/model-projection.ts），读文件都在这里。
 import fs from "node:fs";
 import type { MessagePart } from "@ergo/protocol";

@@ -1,4 +1,4 @@
-// 语音合成（规格第 21、22 节）：经本机 LSM 托管的 audio.cpp 服务（第三方开源的语音合成服务，可选；Fish-Audio S2 Pro）的 HTTP 接口，
+// 语音合成：经本机 LSM 托管的 audio.cpp 服务（第三方开源的语音合成服务，可选；Fish-Audio S2 Pro）的 HTTP 接口，
 // 用参考音色克隆。这里只管调它（LSM 里对它声明弱依赖；可以在设置 · 组件里装，见 components/audiocpp-host.ts），它没开时这次语音回复退回只发文字。
 // 接口契约见 audio.cpp 仓库 app/server/README.md：POST /v1/audio/speech，{ model, input, voice_ref, reference_text }，回 audio/wav。
 // Fish 克隆时 voice_ref（参考 WAV 的路径，服务读本机文件）和 reference_text（逐字稿）必须同时给。

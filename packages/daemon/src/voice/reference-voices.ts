@@ -1,4 +1,4 @@
-// 参考音色（规格第 22 节）：用户导入的一段干净录音加它的逐字稿，agent 用语音回复时照它的声音克隆。属于个人数据，
+// 参考音色：用户导入的一段干净录音加它的逐字稿，agent 用语音回复时照它的声音克隆。属于个人数据，
 // 存在数据目录的 voices 区（不进仓库），文件就是真相，不进事件日志：
 //   voices/<id>/reference.wav   参考录音（导入的常见音频先经本机 ffmpeg 转成 16 kHz、单声道、PCM16 的 WAV 再存）
 //   voices/<id>/reference.txt   逐字稿（UTF-8；Fish 克隆要 voice_ref 和 reference_text 同时给；不给就自动识别）

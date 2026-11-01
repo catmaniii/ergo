@@ -1,4 +1,4 @@
-// token 账本的派生视图（规格第 4 节：token 账本在 ergo.db 里，随事件在同一事务里更新，可从事件日志重建）：
+// token 账本的派生视图（token 账本在 ergo.db 里，随事件在同一事务里更新，可从事件日志重建）：
 // 每次模型调用一行（ledger 频道上的 token_usage 事件）。合计都只从这里出（SQL 聚合）：看板上推的合计在记账前算，
 // 把还没落盘的那一条作为一行并进来一起聚合（ownerTotals 的 pending），和落盘之后再查的结果一样。
 import type { LedgerOwner, LedgerPurpose, LedgerRole, TokenAgentRow, TokenCounts, TokenStageRow, TokenTotalsEventPayload, WebCallKind, WebCallService } from "@ergo/protocol";

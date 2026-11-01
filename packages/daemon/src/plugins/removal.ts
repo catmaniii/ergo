@@ -13,7 +13,7 @@
 //   彻底删除的改写函数，只在连数据删时去掉送进 TTS 的原文）；它的媒体（录音、合成出的音频）按媒体库的 id 写明，提交之后删掉。
 // -走"删除参与方"登记表（deletion/participants.ts，和删项目、删任务同一张）：插件宿主收着的各插件写明的这份，由
 //   registerPluginDataRemoval 作为一个参与方登记（设置 · 插件建的时候登记，plugins/settings.ts）；purgePluginData 只管幂等、
-//   算改写单、写删除记录、提交、提交后删文件。删的结果和以前逐条一样。
+//   算改写单、写删除记录、提交、提交后删文件。
 import fs from "node:fs";
 import path from "node:path";
 import { type CardEventPayload, CHANNELS, EVENT_TYPES, type InboxItem, type InboxItemEventPayload, type PluginDataPurgedEventPayload, type PluginPurgeCounts } from "@ergo/protocol";

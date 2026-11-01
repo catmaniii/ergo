@@ -1,4 +1,4 @@
-// 计划（规格第 8 节）在守护进程里的纯函数：
+// 计划在守护进程里的纯函数：
 // - checkPlan：负责人提交时，查 schema 管不到的（schema 由 pi 按工具参数先校验，守护进程再按同一个 schema 校验一次）：
 //   阶段和阶段组的引用、前置关系不成环、每份策略（授权项：id 唯一、工具登记过、对象范围的参数是这个工具的；
 //   时序规则：validateTemporalRules）、本任务的关注类别（全局的一个不能少、处置只能更严、新加的要写确定的规则）、
@@ -616,7 +616,7 @@ export function toGuardPlan(plan: Plan, options: { confirmedAt: number; grantTim
 export const JOB_RUN_STAGE = "run";
 
 /**
- * 定时作业每次运行的授权交给守卫的样子（规格第 13 节"定时作业的授权"）：
+ * 定时作业每次运行的授权交给守卫的样子：
  * - 授权项挂在 JOB_RUN_STAGE 上，授予时间是作业登记的时刻，作业在就一直有效（不按 7 天、不续期）；次数按每次运行算
  *   （守卫按这一次运行的会话段数效果，见 GuardTask.segmentScoped）；
  * - 时序规则：作业自己的，加上计划里用户的限制编译出的（登记时已经合在一起）；

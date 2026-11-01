@@ -20,7 +20,7 @@ import { editJsonSection } from "./json-text-edit.ts";
 export { modelConfigKey } from "./model-key.ts";
 
 export interface Ports {
-  /** 本机端口：只监听 127.0.0.1，自动信任（规格第 6 节） */
+  /** 本机端口：只监听 127.0.0.1，自动信任 */
   local: number;
   /** 外网端口：隧道的唯一目标，每个请求都要带设备凭证 */
   external: number;
@@ -78,7 +78,7 @@ export interface MemoryCuratorConfig {
 export type MemoryExtractor = "model" | "rule";
 
 /**
- * 敏感类别（接入设计第 7 节）：顺序就是文档和配置里的顺序。加了位置（数据源用到的敏感类别要对上这里：
+ * 敏感类别：顺序就是文档和配置里的顺序。加了位置（数据源用到的敏感类别要对上这里：
  * 健康、财务、位置、关系；位置和情绪、财务、关系一样还是开关占位，现在没有对应的场景标签）
  */
 export const SENSITIVE_CATEGORIES = ["health", "emotion", "finance", "relationship", "location"] as const;
@@ -92,7 +92,7 @@ export const SENSITIVE_CATEGORY_LABELS: Readonly<Record<SensitiveCategory, strin
   location: "位置", // @i18n-ignore data
 };
 
-/** 备份（规格第 18 节） */
+/** 备份 */
 export interface BackupConfig {
   /** 每晚做快照的时刻，本地时间 HH:mm（默认 03:30） */
   time: string;
@@ -141,7 +141,7 @@ export interface ErgoConfig {
   /** 守卫判定"先问我"时，子进程里这次调用最多等多久（毫秒），超时以"已提交审批，等待用户"拦下。配置里写 approvals.waitMinutes */
   approvalWaitMs: number;
   /**
-   * agent 子进程的资源限制（规格第 3 节）。配置里写 agents：maxLive（同时存活的子进程上限，默认 8）、idleMinutes（负责人闲置多久退出，
+   * agent 子进程的资源限制。配置里写 agents：maxLive（同时存活的子进程上限，默认 8）、idleMinutes（负责人闲置多久退出，
    * 默认 10）、modelCallMinutes（单次模型调用超时，默认 5）、toolCallMinutes（单次工具调用的默认超时，默认 10）、
    * orphanSweepSeconds（多久回收一次孤儿进程，默认 60）、browserIdleMinutes（agent 开的 agent-browser 闲置多久回收，默认 30）
    */
@@ -229,7 +229,7 @@ export const DEFAULT_GUARD_CONFIG: Readonly<GuardConfig> = Object.freeze({ conve
 /**
  * 首次设置向导打过的标记：用户在哪几步点了"以后再说"（skipped）、哪几步看过了/做完了（done），
  * 一步只待在一处（标了这边就从那边去掉，见 config/setup-state.ts）。各步的条件满没满足不写在这里——那是现算的。
- * format：1 是以前的版本写的（五步里第③步还是"组件"），2 是现在的。有这一节却不是 2 的都按 1 算
+ * format：2 是当前格式；有这一节却不是 2 的都按 1 算（五步里第③步是"组件"）
  */
 export interface SetupConfig {
   format: 1 | 2;
@@ -324,7 +324,7 @@ export const RECOGNIZE_MODES: readonly RecognizeMode[] = Object.freeze(["spawn",
 export const DEFAULT_RECOGNIZE_MODE: RecognizeMode = "spawn";
 
 /**
- * 语音消息（规格第 21、22 节）。配置里的写法：
+ * 语音消息。配置里的写法：
  * voice.recognizer：mode（spawn 是守护进程自己拉起 Python 子进程，默认，行为不变；lsm 是调 LSM 托管的
  * ergo-asr 服务，见 deploy/lsm/ergo-asr.example.yaml；audiocpp 是调 audio.cpp 服务上 id 为 asr 的模型，只用 language 和后面的
  * timeout、stripPatterns、autoRetrySeconds，不用 python、device、model、computeType、fallback、idleMinutes、initialPrompt）、url（lsm 模式下那个服务的地址，
@@ -346,7 +346,7 @@ export const DEFAULT_RECOGNIZE_MODE: RecognizeMode = "spawn";
  */
 export interface VoiceConfig {
   recognizer: {
-    /** 怎么接入：默认 spawn，行为与以前逐字节一样。组件页装好、删掉语音识别模型时改这一项（components/recognizer-link.ts） */
+    /** 怎么接入：默认 spawn。组件页装好、删掉语音识别模型时改这一项（components/recognizer-link.ts） */
     mode: RecognizeMode;
     /** lsm 模式下识别服务的地址（不带末尾斜杠）；spawn 模式不用 */
     url: string;
@@ -465,7 +465,7 @@ export function isPlaceholder(value: string): boolean {
   return /<[^<>]*>/.test(value);
 }
 
-/** 审批默认等 5 分钟（规格第 9 节） */
+/** 审批默认等 5 分钟 */
 export const DEFAULT_APPROVAL_WAIT_MINUTES = 5;
 
 export { DATA_DIR_ENV };
@@ -1027,7 +1027,7 @@ function parseApprovalWait(value: unknown, file: string): number {
   return Math.round(minutes * 60_000);
 }
 
-/** 任务执行时全局最多几个任务同时处于执行中（规格第 8 节"并发"） */
+/** 任务执行时全局最多几个任务同时处于执行中 */
 export const DEFAULT_MAX_RUNNING_TASKS = 3;
 
 /** tasks：执行名额是正整数；阈值里次数是正整数，停滞的分钟数、预算的倍数、续期的提前小时数是正数，找用户的倍数不小于说明进展的倍数，管不管预算是布尔 */

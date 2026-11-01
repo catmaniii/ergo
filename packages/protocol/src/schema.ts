@@ -1,4 +1,4 @@
-// 前端协议的 schema（规格第 5 节），用 TypeBox 定义。守护进程和 Web 都用这里生成的类型；
+// 前端协议的 schema，用 TypeBox 定义。守护进程和 Web 都用这里生成的类型；
 // 守护进程还拿它校验收到的请求（见 request.ts）。
 import { type Static, Type } from "typebox";
 import {
@@ -769,7 +769,7 @@ export const CardStaleEventPayload = Type.Object({
 export type CardStaleEventPayload = Static<typeof CardStaleEventPayload>;
 
 /**
- * 彻底删除（规格第 15 节，做）改写后的事件负载：事件的频道、序号、类型、时间不变，负载整个换成这个标记，原文一个字不留。
+ * 彻底删除（做）改写后的事件负载：事件的频道、序号、类型、时间不变，负载整个换成这个标记，原文一个字不留。
  * 事件日志不可修改，例外有三个（彻底删除、删除项目、工具调用完整内容的保留期清理），整条换成这个标记的只有前两个。素材采集遇到它一律跳过；前端在原来的位置显示"已删除"。判断用 deleted-event.ts 的 isDeletedEventPayload。
  */
 export const DeletedEventPayload = Type.Object({

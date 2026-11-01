@@ -1,4 +1,4 @@
-// 只有用户点明了才发起任务（规格第 7 节，ADR 0019）：运行时判定用户这一轮点明了哪种任务（表格测试）。
+// 只有用户点明了才发起任务（ADR 0019）：运行时判定用户这一轮点明了哪种任务（表格测试）。
 import { describe, expect, it } from "vitest";
 import type { UserTurn } from "../../src/quick-actions/index.ts";
 import { launchIntent, launchRefusal } from "../../src/tasks/launch-intent.ts";

@@ -1,4 +1,4 @@
-// 前端状态层回放主切面录下的真实事件流（规格 Testing Decisions）。
+// 前端状态层回放主切面录下的真实事件流。
 // 录制在 packages/daemon/test/main/recordings.test.ts：真的守护进程 + faux 秘书，模拟前端经 WebSocket 收到的帧，
 // 连同它自己的本地动作（发消息）和连接状态，原样存成 recordings/*.json。重新录的方法见那个文件。
 import fs from "node:fs";

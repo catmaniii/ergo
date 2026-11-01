@@ -5,7 +5,7 @@
 // - 每晚整理的预算：同一个数据源、同一种、同一天超过 3 条合成一条（出处 digest:…），当天的先不读，最多 N 条（按时间先后），
 //   已经读进来的按背后的素材跳过（合成的那条被忘掉时别的素材放回来）；
 // - 顺口问那条路（evidenceDraftOf）一条一条读、不看是不是当天；
-// -素材写明账号的（Gmail 有几个账号），场景那一行带打了码的邮箱，不同账号不合成一条；没写账号的原文和以前一样。
+// -素材写明账号的（Gmail 有几个账号），场景那一行带打了码的邮箱，不同账号不合成一条；没写账号的原文不变。
 import { EVENT_TYPES, type MemoryCommandEventPayload } from "@ergo/protocol";
 import { describe, expect, test } from "vitest";
 import { SENSITIVE_CATEGORIES, type SensitiveCategory } from "../../src/config/config.ts";

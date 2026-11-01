@@ -1,4 +1,4 @@
-// 在工作线程里算向量（规格第 15 节）：模型在线程里加载和推理，不阻塞守护进程的事件循环。
+// 在工作线程里算向量：模型在线程里加载和推理，不阻塞守护进程的事件循环。
 // 这里给工作线程一个假的后端（test/fixtures/fake-embed-backend.ts），不跑真模型。
 import { describe, expect, test } from "vitest";
 import { createWorkerEmbedder } from "../../src/materials/embedding/worker-host.ts";

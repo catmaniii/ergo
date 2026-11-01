@@ -1,4 +1,4 @@
-// 二狗共享协议：守护进程和前端共用的帧、频道、事件、消息信封与 part、卡片（规格第 5 节）。
+// 二狗共享协议：守护进程和前端共用的帧、频道、事件、消息信封与 part、卡片。
 // - constants.ts：名字（频道、事件类型、方法、错误码……），不引用 TypeBox；
 // - schema.ts：TypeBox 定义的 schema 和由它生成的类型；
 // - message-scope.ts：消息归属（任务、项目、阶段、agent）的取值，不引用 TypeBox；

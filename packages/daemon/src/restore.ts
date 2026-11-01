@@ -1,4 +1,4 @@
-// 恢复命令：从指定日期的快照恢复数据目录（规格第 18 节）。出事时先停掉二狗，再跑：
+// 恢复命令：从指定日期的快照恢复数据目录。出事时先停掉二狗，再跑：
 //   ergo restore <日期 YYYY-MM-DD> [--from local|sync|<目录>]            一行命令、npm 装的（ergo 命令用自带的 Node 跑这个文件）
 //   ergo restore --list
 //   <专用 Node 的绝对路径> packages/daemon/src/restore.ts <日期> ...      自己 git clone 的

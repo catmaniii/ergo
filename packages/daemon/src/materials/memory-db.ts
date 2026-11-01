@@ -1,4 +1,4 @@
-// materials.db（规格第 4、15 节）：素材和索引的单独的库（WAL），经存储薄接口打开。以前叫 memory.db，ADR-0035 改了名
+// materials.db：素材和索引的单独的库（WAL），经存储薄接口打开。以前叫 memory.db，ADR-0035 改了名
 // （老名字和记忆插件的数据目录撞了）；老库由启动时的迁移搬过来（materials/migrate-materials.ts）。
 // 只有素材模块拿得到它的连接（这个文件不出 materials/ 目录，素材模块对外不暴露连接）。
 // - materials：素材信封；search_text 是本人切段的文字加上引用的说明（文件名、网址、卡片类型和标题），关键词和向量都只索引它；

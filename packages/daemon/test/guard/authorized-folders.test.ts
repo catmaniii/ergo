@@ -116,7 +116,7 @@ describe("授权的文件夹里读：不问、不落入越出项目目录", () =
     expect(j.categories).toEqual([]);
   });
 
-  it("自己范围里的读和以前一样，不算读授权的文件夹", () => {
+  it("自己范围里的读照旧，不算读授权的文件夹", () => {
     const j = judgeToolCall(inChat(maintainer(), read(`${P.workDir}\\a.txt`), { ...FOLDERS, facts: here(`${P.workDir}\\a.txt`) }));
     expect(j.categories).toEqual([]);
     expect(j.authorizedRead).toBeUndefined();

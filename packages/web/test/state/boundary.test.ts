@@ -1,4 +1,4 @@
-// 前端状态层只能是纯函数（规格第 19 节）：不依赖 React 和 DOM，才能拿事件流直接在 Node 里回放。
+// 前端状态层只能是纯函数：不依赖 React 和 DOM，才能拿事件流直接在 Node 里回放。
 // 规则：src/state/ 里的文件只许 import src/state/ 里的其他文件（再放行 @ergo/protocol）。
 // 不许用 DOM 和 Node 的全局量由 tsconfig.state.json 检查（那里不给 DOM 和 Node 的类型）。
 import fs from "node:fs";

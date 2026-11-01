@@ -1,4 +1,4 @@
-// 按键节流（规格第 5 节"进度事件节流"）：同一个键两次推送之间至少隔 intervalMs。
+// 按键节流：同一个键两次推送之间至少隔 intervalMs。
 // 流式增量（每个会话，conversation/stream-hub.ts）和活动状态的进度（每个 agent，activity/activity.ts）共用这一套：
 // 调用方自己攒着要推的东西，有新的就 schedule；离上一次推送够久了马上 flush，不够就排一个计时器，到点再 flush 一次
 // （推那时攒下的）。flush 返回推没推出去：推了才算一次，下一次要和它隔开。钟可以注入（测试换成假的）。

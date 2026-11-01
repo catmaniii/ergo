@@ -25,7 +25,7 @@ describe("我的名字：取回来、改了、清了", () => {
 });
 
 describe("秘书页的副标题（标题那一带）：设了用名字，没设照旧", () => {
-  test("没设：宽屏写\"主线会话\"，窄屏没有副标题（和以前一样）", () => {
+  test("没设：宽屏写\"主线会话\"，窄屏没有副标题", () => {
     expect(secretaryPageSub(replay([]), true)).toBe("主线会话");
     expect(secretaryPageSub(replay([]), false)).toBeUndefined();
   });

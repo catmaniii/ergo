@@ -22,7 +22,7 @@ import type { MaterialSource } from "./capture.ts";
 import { type MaterialPiece, segmentMessage, segmentPieces } from "./segments.ts";
 import type { MaterialSegment } from "./types.ts";
 
-/** 不算素材的卡片：批准设备配对不算（规格第 21 节），关掉配对请求也不算回避 */
+/** 不算素材的卡片：批准设备配对不算，关掉配对请求也不算回避 */
 const NON_MATERIAL_CARD_TYPES: readonly CardType[] = ["pairing"];
 
 /** 会话的种类，作为情境标签（用户发言、显式记忆命令的素材都用它） */

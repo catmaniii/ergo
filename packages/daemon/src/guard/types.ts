@@ -1,4 +1,4 @@
-// 守卫判定的输入和输出（规格第 9 节）。
+// 守卫判定的输入和输出。
 // 输入：一次工具调用、发起的 agent 及其工具包、所属任务的计划、当前阶段和授权项、效果日志、
 // 全局与本任务的关注类别设置、调用方现取后传入的环境事实、当前时间。
 // 输出：硬拒绝、按规则退回、处置、命中的关注类别、是否通用 bash、命中的时序规则、是否属于授权内、给模型的说明。
@@ -95,7 +95,7 @@ export interface GuardPlaces {
   ownPorts: readonly number[];
 }
 
-/** 授权项：操作种类 + 对象范围 + 次数 + 所属阶段 + 有效期（规格第 9 节） */
+/** 授权项：操作种类 + 对象范围 + 次数 + 所属阶段 + 有效期 */
 export interface Grant {
   grantId: string;
   /** 操作种类：工具名。带类型的工具和从 bash 拆出的同一种伪工具调用同名 */
@@ -215,7 +215,7 @@ export function attributedTask(task: GuardTask | null | undefined): GuardTask | 
 }
 
 /**
- * 效果日志的一条：只有执行成功的调用才追加（规格第 9 节）。用 effectRecordsFor(input, judgement, …) 生成：
+ * 效果日志的一条：只有执行成功的调用才追加。用 effectRecordsFor(input, judgement, …) 生成：
  * 真实工具调用记它自己，通用 bash 记拆出来的每条伪工具调用。时序规则和授权项计次都只看它。
  */
 export interface EffectRecord {
@@ -546,7 +546,7 @@ export const GRANT_OTHER_STAGE = "grant_other_stage";
 export type GuardFinding = DispositionFinding | HardRefusalFinding | PullBackFinding;
 
 /**
- * 任务里偏离计划的分级（规格第 8 节"偏离的逐级升级"）：授权内的只记一笔（withinGrant），
+ * 任务里偏离计划的分级：授权内的只记一笔（withinGrant），
  * 超出授权（exceeds_grant）先问用户，没预料到的类别（unanticipated）先问用户并暂停这一支
  */
 export type PlanDeviation = "exceeds_grant" | "unanticipated";

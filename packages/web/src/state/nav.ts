@@ -29,7 +29,7 @@ export function isCoreNavItem(item: string): item is CoreNavItem {
   return (CORE_NAV_ITEMS as readonly string[]).includes(item);
 }
 
-/** 只在鸿蒙 App 里出现的项：电脑和手机浏览器里管不了外部网站，二狗控制的浏览器放第二期 */
+/** 只在鸿蒙 App 里出现的项：电脑和手机浏览器里管不了外部网站，二狗控制的浏览器以后做 */
 export const APP_ONLY_NAV_ITEMS: readonly NavItem[] = ["browse"];
 
 /** 浏览器里打开二狗时核心的导航项（没有"浏览"） */

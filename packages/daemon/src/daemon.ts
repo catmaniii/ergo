@@ -301,8 +301,8 @@ import { createScopeReview, type MaintainerScopeReview, registerScopeRecordDelet
 /** Web UI 的构建产物（npm run build:web 生成 packages/web/dist/index.html） */
 export const DEFAULT_WEB_ROOT = fileURLToPath(new URL("../../web/dist/", import.meta.url));
 
-// 各 agent 的模型（规格第 1 节）：按设置里的"模型"取（model-settings/：默认模型和思考档位、按 agent 的覆盖），
-// 拉起时现取、只用于新开的会话；没有设置文件时和以前写死的一样，全是 DeepSeek V4.1 Flash、思考档位高
+// 各 agent 的模型：按设置里的"模型"取（model-settings/：默认模型和思考档位、按 agent 的覆盖），
+// 拉起时现取、只用于新开的会话；没有设置文件时全是 DeepSeek V4.1 Flash、思考档位高
 // （范围审视用的"便宜模型"第一阶段也是它，在负责人自己的子进程里另开一次调用）。
 
 /** 一条验收脚本最多跑多久 */
@@ -730,7 +730,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
   // 都在后面才建：这里先把位置留给系统提示（角色提示末尾那句"用户叫你…"要按它现取），名字服务建好之后、插件起来之后再建它并迁移。
   let roleService: AgentRoles | undefined;
   // 我的名字：用户自己的名字，配置区里的 user-name.json；比系统提示先建——前缀后面那句"用户叫「…」"要现取。
-  // 没设就一个字都不加（提示和以前逐字节一样）
+  // 没设就一个字都不加
   const userName = createUserNameService({ layout, log });
   userName.start();
   // 记忆的设置：顺口问开不开，配置区里的 memory-settings.json；网关的设置接口和记忆插件共用这一份
@@ -2481,7 +2481,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
     // 被杀后的恢复第 2 步：各模块都接上之后（执行控制器订阅好了，agent 会话标好了中断的输入），
     // 待审批的从审批表恢复（记成挂起，不新建卡、不再提示），被杀时正在执行的有副作用的调用记成中断，被打断的负责人接着做
     recoverAfterRestart({ store, approvals, inbox, tasks, now, log }, restart);
-    // 错过的定时触发（规格第 13、17 节）：恢复做完之后，重启前在跑的运行对一遍，停机期间错过的作业只补跑一次；
+    // 错过的定时触发：恢复做完之后，重启前在跑的运行对一遍，停机期间错过的作业只补跑一次；
     // 每周的归档清单登记成内部作业（错过了同样补一次）
     scheduledJobs.start();
     archiveList.start();

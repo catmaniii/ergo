@@ -1,4 +1,4 @@
-// 任务执行（规格第 8 节"阶段执行""验收""并发""状态补充"）：确认过的任务从排队到完成的控制器。
+// 任务执行：确认过的任务从排队到完成的控制器。
 //
 // 执行状态都在任务里（Task.stages.list，每次变化是看板频道上的一条 task 事件），不在 pi 会话里：
 // - 全局执行名额（默认 3 个，配置 tasks.maxRunning；和定时作业开始了的运行共用，谁占着在 slots.ts 里数）：名额空出时排在最前的排队中任务开始执行（排队中 → 执行中，系统）；
@@ -532,7 +532,7 @@ function onlyToolkitDiffers(a: Plan, b: Plan): boolean {
 }
 
 /**
- * 执行时的工具包（规格第 20 节"工具包的细则"）：项目的任务里，bash、联网、MCP 这些能力取任务授权和项目工具包的
+ * 执行时的工具包：项目的任务里，bash、联网、MCP 这些能力取任务授权和项目工具包的
  * 交集（项目工具包里没有的能力，任务授权也放不开）；skill 不是权限，取两者的并集（任务里加的 skill 只记在任务上，不改项目工具包）
  */
 export function effectiveToolkit(planned: PlanToolkit, project: PlanToolkit | undefined): PlanToolkit {
@@ -2249,7 +2249,7 @@ export function createTaskExecution(options: TaskExecutionOptions): TaskExecutio
       ...sendAttachmentField(canSendAttachment(input.toolkit)),
     };
     if (sameToolkit(before, after)) return { task, before, after: before, changed: false };
-    // 有计划变更卡在等时（规格第 20 节"工具包的细则"）：收窄、增减 skill 照样直接改，扩大（开 bash、开联网、加 MCP）要等这张卡处理完
+    // 有计划变更卡在等时：收窄、增减 skill 照样直接改，扩大（开 bash、开联网、加 MCP）要等这张卡处理完
     const pending = tasks.proposedPlan(task.id);
     if (pending && toolkitExpansions(before, after).length > 0) throw new RequestRejected("not_allowed", t("tasks.exec.toolkitPendingChange", { plan: pending.planId }));
     const plan: Plan = { ...stored.plan, toolkit: after };

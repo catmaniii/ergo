@@ -1,4 +1,4 @@
-// 前端状态层：任务看板。看板频道上的 task 事件是任务的最新状态，按规格的五组显示：
+// 前端状态层：任务看板。看板频道上的 task 事件是任务的最新状态，按五组显示：
 // 等我（等我、待确认）、进行中（规划中、排队中、执行中、已暂停）、运营中（简单提醒、定时触发的任务）、
 // 最近结束（已完成、失败、已取消，以及已触发的一次性简单提醒）、已归档。全部任务状态到分组的对应用构造的事件流逐一验证。
 import { describe, expect, test } from "vitest";
@@ -89,7 +89,7 @@ describe("任务状态到看板分组", () => {
     expect(groupsOf(ui)[group]).toEqual(["t-1"]);
   });
 
-  test("十二种状态都有归属（多了运营中：定时触发的任务登记好了按时间表运行；等时间：某个时间做一次、还没到点的在进行中）；五组按规格的顺序", () => {
+  test("十二种状态都有归属（多了运营中：定时触发的任务登记好了按时间表运行；等时间：某个时间做一次、还没到点的在进行中）；五组按固定的顺序", () => {
     expect(TASK_STATES).toHaveLength(12);
     const ui = replay(TASK_STATES.map((s, i) => frame("board", i + 1, "task", { task: task(`t-${i + 1}`, s), change: "created", from: null, by: "user" })));
     expect(boardGroups(ui).map((g) => [g.group, g.title, g.items.length])).toEqual([

@@ -1,4 +1,4 @@
-// 主切面：媒体的分片续传上传与下载（规格第 5 节 HTTP）。
+// 主切面：媒体的分片续传上传与下载。
 // 真的守护进程（临时数据目录），测试扮演前端经本机端口的 HTTP 接口上传、下载。
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";

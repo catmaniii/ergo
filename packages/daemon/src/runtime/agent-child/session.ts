@@ -169,7 +169,7 @@ async function startPiSession(
   /** 建好的 pi 会话（按压缩指令写摘要要它的模型调用函数；会话建好之后才会压缩） */
   let piSession: AgentSession | undefined;
   // 通用桥接扩展：守卫转发（打开了才接）、上下文块、钩子订阅、范围审视（负责人）都经它翻译给 pi；
-  // 一样都没有就不挂（和以前一个内联扩展都不挂时一样）
+  // 一样都没有就不挂
   const bridge = new ContributionBridge(assembly.contributions, {
     guard: assembly.forwardToolCalls ? guard : undefined,
     reviewer,
@@ -307,7 +307,7 @@ interface SessionSetup {
 }
 
 /**
- * 一个会话固定一个模型（规格第 1 节）：
+ * 一个会话固定一个模型：
  * - 新开的会话（会话里还没有消息）用装配参数里的模型和思考档位，看图能力按配置写明的（装配参数 vision 表）、没写按模型目录；
  * - 接着已有的会话（目录里的模型）照会话开始时的：模型和思考档位取 pi 在会话文件里记的（model_change、thinking_level_change），
  *   看图能力取子进程记的（SESSION_MODEL_ENTRY；以前开的会话没有，按配置和目录定下、这次记上）。设置里改了只对新会话生效；
@@ -615,7 +615,7 @@ class PiSessionRunner implements AgentSessionRunner {
     this.translator.lastStopReason = undefined;
     const options = images.length > 0 ? { images: imageContents(images) } : undefined;
     // 每条输入之前（被唤起：刚拉起，或者闲着时来了新输入）按先后注入最新的各上下文块（重注入块是其中一块；不在回合里：直接追加进会话）
-    // （第一块马上送，和以前只有重注入块时同一个时机）
+    // （第一块马上送）
     const [first, ...rest] = this.bridge.contextMessages();
     rest
       .reduce((sent, message) => sent.then(() => this.piSession.sendCustomMessage(message)), first ? this.piSession.sendCustomMessage(first) : Promise.resolve())

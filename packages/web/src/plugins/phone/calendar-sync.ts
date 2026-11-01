@@ -50,7 +50,7 @@ export async function syncPhoneCalendar(deps: PhoneCalendarSyncDeps, options: { 
   });
   if (state?.granted !== true) {
     if (link) return { kind: "denied" };
-    // 以前给过、现在没了：交一次状况（守护进程已经写着出错的不再交；点"现在同步"再要了一次还是没给的说一句）
+    // 权限给过又没了：交一次状况（守护进程已经写着出错的不再交；点"现在同步"再要了一次还是没给的说一句）
     if (reported) return userAction ? { kind: "denied", again: true } : { kind: "skipped", why: "already_reported" };
     return push({ ...(device === undefined ? {} : { device }), state: "revoked", reason: t("ui.plugins.phone.calendar.revokedReason") }, "revoked");
   }

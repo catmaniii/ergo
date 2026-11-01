@@ -1,4 +1,4 @@
-// 主切面：agent 用语音回复（规格第 21、22 节）。用户发语音时，agent 这一轮的回复由运行时合成语音：
+// 主切面：agent 用语音回复。用户发语音时，agent 这一轮的回复由运行时合成语音：
 // 回复短的整段合成（合成好只出语音），长的（或有念不出来的内容）合成口语总结，详细内容照常是文字和附件——总结 agent 用工具写；
 // 没写的先追问它一次（这一次不算新回复），还是没写才由运行时兜底。
 // 语音经本机 LSM 托管的 audio.cpp 合成，用设置里导入的参考音色克隆；服务没开、忙、合成失败或超时、存不进去时退回只发文字，
@@ -891,7 +891,7 @@ describe("分段合成：送进 TTS 的稿子按句切段依次合成，合成�
     expect(readWav(audio.body)?.durationMs).toBe(partialMs);
   });
 
-  it("第一段就没合成出来：和以前一样记成失败，只发文字（没有语音消息）", async () => {
+  it("第一段就没合成出来：记成失败，只发文字（没有语音消息）", async () => {
     const tts = await startFakeSpeechService();
     tts.behave(FAKE_SPEECH_BUSY);
     const { url } = await startTestDaemon({ secretary: [{ kind: "reply", text: SEGMENTED_REPLY }], speechUrl: tts.url });

@@ -1,5 +1,5 @@
 // @i18n-ignore-file model：这里的中文都是 schema 里给模型看的参数说明
-// 任务、计划和它们的卡片的 schema（规格第 8 节），用 TypeBox 定义，守护进程和 Web 共用生成的类型。
+// 任务、计划和它们的卡片的 schema，用 TypeBox 定义，守护进程和 Web 共用生成的类型。
 // - 任务看板频道上的 task 事件：任务的最新状态（Task）；
 // - 计划（Plan）：负责人用"提交计划"工具交出的结构化数据（工具的参数就是这个 schema），存在二狗自己的存储里；
 //   计划卡由代码从它生成；
@@ -455,7 +455,7 @@ export type StartTaskResult = Static<typeof StartTaskResult>;
 
 // ───────────────────────── 计划 ─────────────────────────
 
-/** 任务书（规格第 7 节）：秘书在意图澄清之后写给执行的负责人的一页说明 */
+/** 任务书：秘书在意图澄清之后写给执行的负责人的一页说明 */
 export const TaskBrief = Type.Object(
   {
     goal: Type.String({ minLength: 1, maxLength: 2000, description: "目标" }),
@@ -668,7 +668,7 @@ export const PlanUserLimit = Type.Object(
 export type PlanUserLimit = Static<typeof PlanUserLimit>;
 
 /**
- * 计划（规格第 8 节）：负责人起草、用"提交计划"工具交出，存在二狗的存储里；计划卡由代码从它生成。
+ * 计划：负责人起草、用"提交计划"工具交出，存在二狗的存储里；计划卡由代码从它生成。
  * （ADR 0025）起计划里不再写定时作业（scheduledJobs）：要定时做的事在发起对话框里建成定时触发的普通任务或流程。
  * 之前存下的计划里可能还带着这一项（事件日志不改写），读的地方一律不认它
  */

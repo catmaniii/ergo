@@ -137,9 +137,9 @@ ctx.materialSources.register({
 
 假内核里 `k.dataSources.act(id, { action: "configure", values, idempotencyKey })`、`k.dataSources.view()`、`k.layout.imports` 都能用。测定时同步：`startPluginKernel({ at })` 定起点，`k.clock.advanceTo(时刻)` 拨过去。
 
-## 交活清单
+## 完成前检查
 
-- [ ] ergo-plugin 的交活清单都过了。
+- [ ] ergo-plugin 的完成前检查都过了。
 - [ ] 填错 Key：状态是出错、原因写明、日志和事件里搜不到 Key。
 - [ ] 同步一次：条数对，再同步不重复；进素材的在素材库里有，`sensitive`、`scene` 按记录写了。
 - [ ] 页面上看得到：连接状态、已获取几条、上次同步。

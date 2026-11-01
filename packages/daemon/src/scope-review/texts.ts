@@ -36,7 +36,7 @@ import { toolkitText } from "../tasks/context-block.ts";
 import { oneLine } from "../util/text.ts";
 
 // @i18n-ignore-start model：给模型看的对照物、近期范围记录
-/** "近期范围记录"拼在负责人系统提示末尾时的标题（规格第 10 节） */
+/** "近期范围记录"拼在负责人系统提示末尾时的标题 */
 export const RECENT_SCOPE_RECORDS_TITLE = "近期范围记录";
 
 /**
@@ -90,7 +90,7 @@ export interface ReferenceInput {
   verifiedWords?: readonly VerifiedUserWords[];
 }
 
-/** 审视的对照物：立项书、任务计划、授权（含审批卡上的批准），和用户在会话里直接说的话（规格第 10 节） */
+/** 审视的对照物：立项书、任务计划、授权（含审批卡上的批准），和用户在会话里直接说的话 */
 export const referenceText = (input: ReferenceInput): string => forModel(() => referenceLines(input));
 
 function referenceLines(input: ReferenceInput): string {

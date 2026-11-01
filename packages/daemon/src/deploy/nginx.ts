@@ -1,5 +1,5 @@
 // @i18n-ignore-file data：生成的 nginx 配置文件里的注释
-// 公网入口的 nginx 站点配置（规格第 6 节）：二狗生成，部署命令（deploy-nginx.ts）放上 VPS。
+// 公网入口的 nginx 站点配置：二狗生成，部署命令（deploy-nginx.ts）放上 VPS。
 // 手机 → https://ergo.<VPS>.sslip.io（VPS 上的 nginx 终止 TLS）→ VPS 的 127.0.0.1:<隧道端口>（ergo-tunnel 的 ssh -R，
 // 只绑 VPS 的本机地址）→ 隧道 → 本机守护进程的外网端口。
 // - 支持 WebSocket（/ws 升级连接）；

@@ -5,7 +5,7 @@
 // - session_compact：每次压缩之后把各上下文块按先后再注入一次（重注入块是其中一块；每条输入之前那一次在 session.ts 的 prompt 里）；
 // - session_before_compact：钩子订阅 compaction_instructions（秘书的压缩指令，compaction.ts），再是范围审视（scope-review.ts）；
 // - before_agent_start：钩子订阅 system_prompt_suffix，和范围审视的近期范围记录，接在系统提示末尾（每轮现拼，不进会话）。
-// 同一个事件挂了几样时按上面的先后（和以前四个内联扩展的先后一样：守卫、重注入块、压缩、范围审视），模型看到的不变。
+// 同一个事件挂了几样时按上面的先后（守卫、重注入块、压缩、范围审视），模型看到的不变。
 // 工具不走这里：守护进程代为执行的工具照旧作为 createAgentSession 的 customTools 交给 pi（host-tools.ts），工具清单的先后不变；
 // pi 的扩展工具注册了撤不掉（调研 19 §4.3），本来也不适合放插件的工具。
 // 记忆简报这类每轮的上下文照旧作为消息追加进会话（user_input.context、上下文块），不用 pi 的 context 事件（只对单次请求生效、
@@ -42,7 +42,7 @@ export class ContributionBridge {
     this.parts = parts;
   }
 
-  /** 有没有要翻译给 pi 的（都没有就不挂扩展，和以前什么都不挂时一样） */
+  /** 有没有要翻译给 pi 的（都没有就不挂扩展） */
   get needed(): boolean {
     return this.parts.guard !== undefined || this.parts.reviewer !== undefined || this.blocks.size > 0 || this.hooks.length > 0;
   }

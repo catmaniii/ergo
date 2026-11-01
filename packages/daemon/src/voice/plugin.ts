@@ -133,7 +133,7 @@ export const voicePlugin: PluginDefinition = {
     const recognition = { language: voiceConfig.recognizer.language, initialPrompt: voiceConfig.recognizer.initialPrompt };
 
     // 语音消息：识别按配置接一条（几种接入并存）：默认 mode 是 spawn，守护进程自己拉起 Python 子进程
-    // （放进它自己的 Job，环境照 agent 子进程的白名单；和以前一模一样）；mode 是 lsm 时改调 LSM 托管的那条
+    // （放进它自己的 Job，环境照 agent 子进程的白名单）；mode 是 lsm 时改调 LSM 托管的那条
     // 识别服务（deploy/lsm/ergo-asr.example.yaml），二狗不拉起、不结束它；mode 是 audiocpp 时调 audio.cpp 服务上的语音识别模型。
     // 都是同一个接口（Recognizer），下面识别、预热、健康检查、Debug 页、设置页都只认接口，一行都不用改。
     // 组件页装好、删掉语音识别模型时接入方式当场换，不用重启：外面拿的是 createSwitchableRecognizer 这一个。

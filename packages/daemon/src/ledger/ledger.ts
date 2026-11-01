@@ -1,4 +1,4 @@
-// token 账本（规格第 2 节的模块"token 账本"、第 16 节）：逐次记用量、汇总。
+// token 账本：逐次记用量、汇总。
 // - 记一条：agent 管家收到子进程的 usage（每次模型调用一条，压缩会话那次也报）交给 record，连同拉起 agent 的模块给的归属。
 //   输入分成命中缓存的（cacheRead）和没命中的（input + cacheWrite，ledgerTokens）；任务名下的记上这次调用算哪个阶段；
 //   用途（干活、范围审视、压缩）照子进程报的记。记在 ledger 频道（守护进程内部），派生视图 token_ledger。

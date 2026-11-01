@@ -425,7 +425,7 @@ describe("取不到完整图", () => {
 });
 
 describe("别的轮次照旧（回归）", () => {
-  it("平常说的\"帮我记一句\"、长按文字说的：照原话记，来源标记、结果和以前一样", { timeout: 60_000 }, async () => {
+  it("平常说的\"帮我记一句\"、长按文字说的：照原话记，来源标记、结果照旧", { timeout: 60_000 }, async () => {
     const t = await start([call("remember_memory", { text: "周四晚上打羽毛球" }), ECHO, call("remember_memory", { text: "这段话要记住" }), ECHO]);
     await tell(t.frontend, "帮我记一句：周四晚上打羽毛球");
     expect(toolResultOf(lastEcho(t.frontend), "remember_memory")).toContain("照用户的原话记的");

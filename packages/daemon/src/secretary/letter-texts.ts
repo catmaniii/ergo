@@ -9,7 +9,7 @@ import { AUTO_ANNOUNCE_TAG, MAINTAINER_LETTER_TAG } from "./notice-tags.ts";
 
 /**
  * agent 能给谁发消息（收件人写成可扩展的形式：现在只有秘书；以后要加别的收件人只加一项登记——工具名、
- * 给人看的称呼——再接上它的转交）。不做 agent 之间的群聊、互发（规格第 12 节"星形通信"）
+ * 给人看的称呼——再接上它的转交）。不做 agent 之间的群聊、互发（星形通信）
  */
 export const LETTER_RECIPIENTS = {
   secretary: { tool: "tell_secretary", title: ASSISTANT_NAME_MARK },

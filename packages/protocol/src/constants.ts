@@ -458,7 +458,7 @@ export const SPEAKERS = ["user", "agent", "system"] as const;
 /** 守卫对一次工具调用的处置（六档）。 */
 export const DISPOSITIONS = ["do", "do_then_tell", "planned_only", "ask_first", "hand_to_me", "never"] as const;
 
-/** 处置的中文名（规格第 9 节；守护进程的说明、Web 共用） */
+/** 处置的中文名（守护进程的说明、Web 共用） */
 export const DISPOSITION_LABEL: Readonly<Record<(typeof DISPOSITIONS)[number], string>> = tTable({
   do: "protocol.disposition.do",
   do_then_tell: "protocol.disposition.doThenTell",
@@ -494,7 +494,7 @@ export const TOOL_CALL_MARKS = ["out", "perm"] as const;
 export const TOOL_CALL_OUTCOMES = ["running", "done", "blocked", "denied", "error"] as const;
 
 /**
- * 工具调用被拦下的原因不是处置时（规格第 9 节）：硬拒绝（越出能力或边界）、按规则退回（时序规则的前提没满足、
+ * 工具调用被拦下的原因不是处置时：硬拒绝（越出能力或边界）、按规则退回（时序规则的前提没满足、
  * 要跑的脚本执行前没法检查），以及守卫判定出错（没判出结果，这次调用不执行）。
  */
 export const TOOL_CALL_BLOCKS = ["hard_refusal", "pull_back", "judge_error", "plan_redirect", "plan_check", "superseded", "over_budget"] as const;
@@ -523,7 +523,7 @@ export const TOOL_CALL_BLOCK_LABEL: Readonly<Record<(typeof TOOL_CALL_BLOCKS)[nu
 export const TURN_OUTCOMES = ["completed", "aborted", "error", "interrupted"] as const;
 
 /**
- * 第一阶段的 14 种卡片（规格第 5 节）。守护进程的卡片类型注册表（cards/registry.ts）建在这张表上。
+ * 第一阶段的 14 种卡片。守护进程的卡片类型注册表（cards/registry.ts）建在这张表上。
  * 卡片实体的 type 仍是 string：服务端可能发来前端还不认识的类型，用 isCardType 收窄。
  */
 export const CARD_TYPES = [
@@ -739,7 +739,7 @@ export const URGENCY_LABEL: Readonly<Record<(typeof URGENCIES)[number], string>>
 
 // ───────────────────────── 快速动作与记忆命令 ─────────────────────────
 
-/** 显式记忆命令：记住、忘掉、彻底删除、别推断（规格第 14、15 节） */
+/** 显式记忆命令：记住、忘掉、彻底删除、别推断 */
 export const MEMORY_COMMANDS = ["remember", "forget", "purge", "no_infer"] as const;
 
 export type MemoryCommandKind = (typeof MEMORY_COMMANDS)[number];
@@ -933,7 +933,7 @@ export const PURGED_SUMMARY_TEXT = "（这段摘要含已彻底删除的内容�
 // ───────────────────────── 待我处理 ─────────────────────────
 
 /**
- * 通知类事项的种类（规格第 5 节）。其余由产生它们的模块加进来时使用。
+ * 通知类事项的种类。其余由产生它们的模块加进来时使用。
  * 事项上的 notice 仍是 string：前端可能遇到还不认识的种类。
  */
 export const NOTICE_TYPES = [

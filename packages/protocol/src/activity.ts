@@ -1,4 +1,4 @@
-// agent 的活动状态（规格术语"活动状态"）：agent 此刻在做什么——休眠、干活中（附带在做什么）、等你、排队（子进程满了，等名额）。
+// agent 的活动状态：agent 此刻在做什么——休眠、干活中（附带在做什么）、等你、排队（子进程满了，等名额）。
 // 和任务状态、项目状态分开：互不改写。agent 管家报变化，守护进程在活动状态频道上记 activity 事件；
 // 说明是带种类的结构化数据（ActivityDetail），给人看的文字由 activityDetailText 按表生成（守护进程不写中文文案进事件）。
 import { type Static, Type } from "typebox";
@@ -85,7 +85,7 @@ export type ActivityEventPayload = Static<typeof ActivityEventPayload>;
 export const ActivityProgressEventPayload = Type.Object({ agentId: Type.String(), detail: ActivityDetail });
 export type ActivityProgressEventPayload = Static<typeof ActivityProgressEventPayload>;
 
-/** 同一个 agent 两条进度之间的最短间隔（毫秒）：进度事件的节流（规格第 5 节） */
+/** 同一个 agent 两条进度之间的最短间隔（毫秒）：进度事件的节流 */
 export const ACTIVITY_PROGRESS_INTERVAL_MS = 100;
 
 /**

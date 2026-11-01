@@ -23,7 +23,7 @@ export const TASK_STATUS_LABEL: Readonly<Record<TaskStatus, string>> = tTable({
   archived: "model.labels.taskStatus.archived",
 });
 
-/** 验收方式（规格第 8 节） */
+/** 验收方式 */
 export const ACCEPTANCE_METHOD_LABEL = tTable({ script: "model.labels.acceptance.script", review: "model.labels.acceptance.review", user: "model.labels.acceptance.user" });
 
 /** 等我的原因的中文名：只有共享协议包里一份 */

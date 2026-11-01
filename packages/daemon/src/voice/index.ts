@@ -1,6 +1,6 @@
 // 语音插件（plugin.ts）里几处共用的常量，和插件内部各模块的总览（插件之外只经 api.ts 拿语音插件的东西，
 // 语音的数据契约——语音对象的视图、投影、素材来源、改写函数——在内核的 voice-records/）：
-// - 语音消息（规格第 21、22 节）：识别（voice.ts：收下语音 part、后台识别、重新识别、自动重试）、
+// - 语音消息：识别（voice.ts：收下语音 part、后台识别、重新识别、自动重试）、
 //   挡不挡输入队列（gate.ts：规矩，经 VOICE.gate 回答内核的挡板）、识别进程（recognizer.ts、recognizer.py）；
 // -参考音色（reference-voices.ts，设置里的语音页经 HTTP 用它）、agent 用语音回复（voice-reply.ts：跟着会话频道上的回合走，
 //   经 audio.cpp 合成，speech.ts；给模型和人看的话在 texts.ts）；和语音识别共用的版本、队列、开着只留一条的说明在 shared.ts；

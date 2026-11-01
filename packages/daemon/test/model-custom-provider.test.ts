@@ -185,7 +185,7 @@ describe("自定义（OpenAI 兼容）服务商：拉起子进程的装配", () 
     await manager.shutdown();
   });
 
-  it("没选自定义服务商：装配里没有 custom 这一块（和以前一样）", async () => {
+  it("没选自定义服务商：装配里没有 custom 这一块", async () => {
     const dataDir = makeTempDir("ergo-data-");
     const file = path.join(dataDir, "assembly.json");
     const manager = createAgentManager({

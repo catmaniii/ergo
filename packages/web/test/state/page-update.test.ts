@@ -3,7 +3,7 @@
 // - 在前台时来的新版本只出"二狗有新版本 · 刷新"；正在录音、输入框上方有附件时先不出，完了再出；"等会儿"之后同一版不再出，
 //   切回前台、或者又来了新的一版时再出；
 // - 在后台时来的（页面在后台、或者刚切回前台还在问服务端时才知道的）：回到前台、输入框是空的、没在录音、没有附件、没开着弹层，直接刷新；
-//   有会丢的东西的照旧提示。返修（评审）：页面上任何一个文本框里有字（问题卡的"自己写"、计划卡的修改意见……）、有没发出去的消息和
+//   有会丢的东西的照旧提示。页面上任何一个文本框里有字（问题卡的"自己写"、计划卡的修改意见……）、有没发出去的消息和
 //   卡片操作（断网时排着的）也算有东西会丢；问服务端的那几秒里又切到后台，晚到的"问完了"不算数。
 import { describe, expect, test } from "vitest";
 import { EVENT_TYPES, fieldsHaveText, type PageNow, pageUpdateAction, replay, type UiInput, type UiState, unsentWork } from "../../src/state/index.ts";
@@ -107,7 +107,7 @@ describe("在后台时来的：回到前台、没有会丢的东西就直接刷�
     expect(action(later)).toBe("reload");
   });
 
-  test("回到前台还在问服务端时又切到后台：晚到的“问完了”不算数，之后在后台来的新版本回到前台照样直接刷新（返修）", () => {
+  test("回到前台还在问服务端时又切到后台：晚到的“问完了”不算数，之后在后台来的新版本回到前台照样直接刷新", () => {
     // 切回前台、问着服务端时又切走了；问完的那一下到的时候页面还在后台
     const away = replay([told(OWN), HIDDEN, FOREGROUND, HIDDEN, SETTLED, pushed(NEWER)]);
     expect(action(away, { visible: false })).toBe("prompt");
@@ -117,7 +117,7 @@ describe("在后台时来的：回到前台、没有会丢的东西就直接刷�
   });
 });
 
-describe("有没有会丢的东西（返修）", () => {
+describe("有没有会丢的东西", () => {
   test("没发出去的消息（在路上、断网排着、失败了留着原文等重发）、在路上的卡片操作：有；权威事件到了就没了", () => {
     const sending: UiInput = { kind: "send_message", conversation: "secretary", idempotencyKey: "k-1", parts: [{ type: "text", text: "明早九点提醒我交电费" }], time: "2026-10-13T09:00:00+08:00" };
     expect(unsentWork(replay([]))).toBe(false);

@@ -9,9 +9,9 @@
 // | conflict       | 场景、有效期重叠，互相排斥，开始得晚的那条没明说变化         | 两条都 contested，生成一个判别性追问                |
 //
 // 先看场景再看纠正：场景不重叠的两条本来就都成立，谈不上纠正。纠正在有效期之前：用户说"记错了"时不管旧的那条说的是哪段时间。
-// ADR-0032：以前"不在同一天说的就按先后、后说的赢"，现在不这样了——前后两句意思相反、
+// ADR-0032：不按"不在同一天说的就按先后、后说的赢"——前后两句意思相反、
 // 后说的那句没自己说"变了"（signals.ts 的 explicitChangeSignals：不再、不…了、改成、以前…现在…、搬家、换工作……），
-// 是矛盾：两条都拿不准、问用户，哪边都不自动赢（原始推理图谱 LIFECYCLE §6b：不许"信先到的、信后到的"）。
+// 是矛盾：两条都拿不准、问用户，哪边都不自动赢（不许"信先到的、信后到的"）。
 // 后说的那句自己说了变化，才是用户亲口说的变化，照旧新取代旧。
 import { EPISODIC_PREDICATES, type FactObject, type Predicate } from "../domain/types.ts";
 import { compareFrom, intervalsOverlap, sameLocalDay } from "../domain/time.ts";

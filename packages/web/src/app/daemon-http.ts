@@ -1,4 +1,4 @@
-// 前端协议里走 HTTP 的那部分（规格第 5 节）：上传附件（分片续传）、往上翻历史、媒体的地址；
+// 前端协议里走 HTTP 的那部分：上传附件（分片续传）、往上翻历史、媒体的地址；
 // 设置里按会话、按时间段删除素材，看范围里的素材和一条的完整内容；设置里的工作日历改个人设置（改完守护进程在工作日历频道上推事件）；
 // 消耗页的汇总和粗估成本；设置里的语音页：参考音色的列出、导入、选用、删除、试听；
 // skill 库、已登记的 MCP，导入 skill（导入并改名、整套导入集合、秘书用的 skill）；主导航的日历按月取每一天的日历条目；
@@ -640,7 +640,7 @@ export class HttpDaemonClient implements DaemonHttp {
   }
 
   saveModelKey(key: string, provider?: string): Promise<ModelKeyWriteResult> {
-    // provider 不给时请求体里就没有这一项：守护进程照设置里选的那一个服务商写（和以前一样）
+    // provider 不给时请求体里就没有这一项：守护进程照设置里选的那一个服务商写
     const body: ModelKeyBody = { key, ...(provider === undefined ? {} : { provider }) };
     return this.post<ModelKeyWriteResult>(HTTP_PATHS.modelSettingsKey, body);
   }

@@ -67,13 +67,13 @@ export interface PromptLibraryOptions {
   plugins?: { prompts: readonly PluginPrompts[]; running(plugin: string): boolean };
   /**
    * 这个 agent 自己起的名字：给了 agentId 的角色提示（秘书那份除外——它的名字本来就在 `{{名字}}` 占位里）
-   * 末尾加一句"用户叫你「…」"，让模型自我介绍、说到自己时用这个名字。没配（undefined）就不加，和以前一模一样
+   * 末尾加一句"用户叫你「…」"，让模型自我介绍、说到自己时用这个名字。没配（undefined）就不加
    */
   agentName?: (agentId: string) => string | undefined;
   /**
    * 用户自己的名字（"我的名字"）：设了就在每个 agent 的系统提示最前面（前缀后面空一行）加一句"用户叫「…」，
    * 需要称呼用户时用这个名字"，让模型知道该称呼用户什么（对话、念给用户听的话都可以这样叫）。没设（undefined、空串）
-   * 就不加，提示和以前**逐字节一样**。现取（改了名字下一次装配就用新的）
+   * 就不加，提示一个字都不变。现取（改了名字下一次装配就用新的）
    */
   userName?: () => string | undefined;
   log?: (line: string) => void;
@@ -143,7 +143,7 @@ const AGENT_FILE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
 /**
  * 这个 agent 自己起的名字写在它角色提示的末尾：和秘书系统提示里那句一个说法，让模型自我介绍、
- * 说到自己时用这个名字。没配名字的不加，和以前一字不差
+ * 说到自己时用这个名字。没配名字的不加
  */
 const identityLine = (name: string) => `用户叫你「${name}」：自我介绍、说到你自己时用这个名字。`; // @i18n-ignore model：系统提示里给模型看的一句
 
@@ -486,7 +486,7 @@ export function createPromptLibrary(options: PromptLibraryOptions = {}): PromptL
     withPrefix(systemPrompt) {
       const prefix = nodesFor("prefix");
       const text = renderPromptTemplate(prefix, {}, () => [], "prefix").trim();
-      // 用户自己的名字：设了才有这一句；没设时 text 原样，和以前逐字节一样
+      // 用户自己的名字：设了才有这一句；没设时 text 原样
       const name = userName?.();
       const userLine = name === undefined || name.trim() === "" ? "" : userNameLine(name);
       const head = [text, userLine].filter((part) => part !== "").join("\n\n");

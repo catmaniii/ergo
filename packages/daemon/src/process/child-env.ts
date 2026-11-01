@@ -1,4 +1,4 @@
-// 子进程的环境变量：显式构造，不继承守护进程的环境（规格第 3 节"环境注入"）。
+// 子进程的环境变量：显式构造，不继承守护进程的环境。
 // 只从守护进程的环境里挑出 Windows 进程正常运行离不开的系统变量（PATH、SystemRoot、TEMP 等），
 // 其余一律不带；模型 key 不走环境变量，经 stdin 的"启动"命令送进子进程的内存凭据。
 //
@@ -81,7 +81,7 @@ export const OFFLINE_NO_PROXY = "127.0.0.1,localhost,::1,[::1]";
 export const SCRIPT_UTF8_ENV: Readonly<Record<string, string>> = Object.freeze({ PYTHONUTF8: "1" });
 
 /**
- * 联网开关关着的 agent（秘书是开着的），它的 bash 起的进程环境里加上这些（规格第 7 节，尽力而为、不是硬隔离）：
+ * 联网开关关着的 agent（秘书是开着的），它的 bash 起的进程环境里加上这些（尽力而为、不是硬隔离）：
  * 代理地址一律设成无效值，curl、wget、git、pip、Python 的 requests / urllib 走代理就连不上；只连本机的不走代理（OFFLINE_NO_PROXY）；
  * NODE_USE_ENV_PROXY 让 Node（≥22.21）的 fetch 和 http 也按环境变量走代理。
  * 只加在 bash 起的进程上（子进程里的 bash 工具在起进程前加），agent 子进程自己的环境不受影响（它要连模型）。

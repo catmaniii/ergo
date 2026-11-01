@@ -1,4 +1,4 @@
-// 主切面：备份、校验与临时区清理（规格第 13、18 节）。调度器的时钟换成手动拨的（ManualClock），到点不靠真等。
+// 主切面：备份、校验与临时区清理。调度器的时钟换成手动拨的（ManualClock），到点不靠真等。
 // 同步目录一律是测试建的临时目录，绝不碰真实的同步目录。
 import crypto from "node:crypto";
 import fs from "node:fs";

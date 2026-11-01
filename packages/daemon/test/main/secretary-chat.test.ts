@@ -1,4 +1,4 @@
-// 主切面（规格 Testing Decisions 切面 1）：秘书聊天。
+// 主切面：秘书聊天。
 // 临时数据目录里起真的守护进程，秘书接 faux provider；测试扮演前端，经 WebSocket 收发并断言。
 import fs from "node:fs";
 import path from "node:path";

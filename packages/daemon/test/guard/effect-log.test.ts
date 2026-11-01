@@ -1,4 +1,4 @@
-// 守卫切面：效果日志的记录（规格第 9 节）和参数名统一。
+// 守卫切面：效果日志的记录和参数名统一。
 // 只有执行成功的调用才追加；记录里是规范化之后的参数：带类型的工具和从通用 bash 拆出的伪工具调用规范化成同一种形式，
 // 同一条规则对两者都生效。内容类的参数（写入的全文、编辑的新旧片段）只记长度和摘要哈希。
 import { createHash } from "node:crypto";
@@ -21,7 +21,7 @@ function recordsOf(input: GuardInput, firstSeq = 1) {
 }
 
 describe("效果日志的记录", () => {
-  it("字段照规格：序号、任务、阶段、agent、工具或伪工具、规范化参数、效果摘要、时间", () => {
+  it("字段：序号、任务、阶段、agent、工具或伪工具、规范化参数、效果摘要、时间", () => {
     const [record, ...rest] = recordsOf(inTask(maintainer(), call("git_commit", { message: "保存进展" })), 7);
     expect(rest).toEqual([]);
     expect(record).toEqual({

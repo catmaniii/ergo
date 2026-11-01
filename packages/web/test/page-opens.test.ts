@@ -227,7 +227,7 @@ beforeAll(async () => {
   browser = await chromium.launch({ executablePath: CHROME });
 }, 120_000);
 
-// 关 Chrome 在机器忙（几个工作槽同时跑全量）时会超过默认的 10 秒，测试本身全过却挂在收尾上
+// 关 Chrome 在机器忙（同时跑几份全量测试）时会超过默认的 10 秒，测试本身全过却挂在收尾上
 afterAll(async () => {
   await browser?.close();
   if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true });
@@ -600,7 +600,7 @@ describe.skipIf(!CHROME)("打开页面不崩（构建产物在真的 Chrome 里�
     expect(errors).toEqual([]);
   }, 60_000);
 
-  // 日历插件停用时网页上没有日历入口；默认全开时都在（和以前一样）
+  // 日历插件停用时网页上没有日历入口；默认全开时都在
   for (const [name, viewport] of [
     ["手机宽", { width: 390, height: 844 }],
     ["电脑宽", { width: 1280, height: 800 }],

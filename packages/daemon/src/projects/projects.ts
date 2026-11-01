@@ -1,4 +1,4 @@
-// 项目（规格第 11 节）：立项、立项书、项目状态机、项目档案、删除。
+// 项目：立项、立项书、项目状态机、项目档案、删除。
 // 每次变化是项目列表频道上的一条 project 事件（同一事务里还有它引起的别的事件）；状态迁移按共享协议包的
 // PROJECT_ACTION_RULES（projectActions 校验能不能做、projectActionTarget 给出到哪个状态），项目页上的入口也按它给出。
 //
@@ -1000,7 +1000,7 @@ export function createProjectService(options: ProjectServiceOptions): ProjectSer
           : charter.bindExternal
             ? { ...charter, externalPath: checkedExternalPath(charter.externalPath) }
             : unbound;
-      // 开发类项目提议的工具包默认带 bash（规格第 9、21 节）
+      // 开发类项目提议的工具包默认带 bash
       const toolkit: PlanToolkit = {
         skills: [...(submission.toolkit?.skills ?? [])],
         mcp: [...(submission.toolkit?.mcp ?? [])],

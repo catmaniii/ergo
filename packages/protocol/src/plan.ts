@@ -1,4 +1,4 @@
-// 计划的纯函数（规格第 8 节），守护进程和 Web 共用，不引用 TypeBox：
+// 计划的纯函数，守护进程和 Web 共用，不引用 TypeBox：
 // - 策略和授权项的列表：阶段的在前（按阶段顺序），阶段组的其次（planPolicies、planGrants；计划里没有定时作业了）；
 //   一个阶段的策略（它自己的加所属阶段组的，stagePolicies）；
 // - 开始执行时各阶段的样子（initialStages：守护进程建阶段、Web 在还没开始执行时按计划列出都用它）；
@@ -222,7 +222,7 @@ export function policyOwnerLabel(owner: PolicyOwner, codes?: ReadonlyMap<string,
 /** 不写有效期时的默认（天） */
 export const DEFAULT_GRANT_VALID_DAYS = 7;
 
-/** 列进计划也不算授权的处置：执行时照样问、交给你、不做（规格第 9 节："先问我"执行时一定当场问） */
+/** 列进计划也不算授权的处置：执行时照样问、交给你、不做（"先问我"执行时一定当场问） */
 const NOT_AUTHORIZING: readonly GrantInfo["disposition"][] = ["ask_first", "hand_to_me", "never"];
 
 /** 这项授权算不算授权 */
@@ -294,7 +294,7 @@ export function grantNarrowingText(narrowing: GrantNarrowing, grant: PlanGrant |
 
 // ───────────────────────── 时序规则 ─────────────────────────
 
-/** 时序规则的四种形态（规格第 9 节）：B 之前必须做过 A、B 之前不能做过 A、当下必须满足某条件、一律禁止（不写 require） */
+/** 时序规则的四种形态：B 之前必须做过 A、B 之前不能做过 A、当下必须满足某条件、一律禁止（不写 require） */
 export type TemporalRuleForm = "before" | "not_before" | "check" | "forbid";
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -377,7 +377,7 @@ export interface PlanGrantChoice {
 
 /**
  * 授权后执行时还会在哪几处停下来（"授权后还会在 N 处停下来"）：
- * - 由你验收的阶段（规格：只有标明"由你验收"的阶段才停下来等你）；
+ * - 由你验收的阶段（只有标明"由你验收"的阶段才停下来等你）；
  * - 落在"先问我""交给我做"类别里的授权项（列进计划也照样问、交给你）；
  * - 被勾掉的（执行到那一步再问你）、被收窄的（超出收窄范围的部分执行时问你）。
  * 不给 choice 时按卡上记下的确认结果（已处理的卡：勾掉的授权项已经不在计划里，从 removedGrants 取）。

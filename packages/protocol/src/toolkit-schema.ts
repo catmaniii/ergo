@@ -1,4 +1,4 @@
-// 工具包、skill 库和 MCP 登记的 schema（规格第 20、21 节），用 TypeBox 定义，守护进程和 Web 共用生成的类型：
+// 工具包、skill 库和 MCP 登记的 schema，用 TypeBox 定义，守护进程和 Web 共用生成的类型：
 // - 工具包里能选的东西（ToolkitCatalog，设置里的 skill 库页、项目页和任务详情的工具包区用）：skill 库里的 skill（框架自带的、
 //   用户导入的）和配置区里登记的 MCP（每个工具的中文名、要不要联网、能不能当秘书的快速动作）。走 HTTP（GET）；
 // - 导入 skill（POST）：把一个含 SKILL.md 的目录复制一份进数据目录的 skill 区；可以导入并改名，也可以把一个目录作为一个集合整套导入；

@@ -127,9 +127,9 @@ Claude Code 的目录照搬：
 
 改到协议层跑 `npm run test:contract`。协议有改动要把 `HOST_PROTOCOL_VERSION` 加一，并在文件开头记一句。
 
-## 交活清单
+## 完成前检查
 
-- [ ] ergo-plugin 的交活清单都过了。
+- [ ] ergo-plugin 的完成前检查都过了。
 - [ ] `GET /api/runtimes` 列出它，能力清单和实际一致：写 `true` 的都有测试。
 - [ ] 负责人跑一轮：回复、工具调用、用量都进了会话频道，和 pi 跑同一个剧本一样。
 - [ ] 外部程序自带的工具和二狗给的工具都过 `guard_request`，判不放行时真的没执行。

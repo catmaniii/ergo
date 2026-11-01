@@ -3,7 +3,7 @@
 //    没登记改写函数的照旧整个拒删，什么都不改；
 // 2. 登记表自己的规矩：几步的先后、卡片（整张换成标记 / 字段级改写追加新版本，两样都有时按前者）、追加的事件按段排、提交后要做的；
 // 3. projects/deletion.ts 不再 import 别的模块的内部文件（只经登记表）。
-// 三种删除"结果和以前逐条一样"由现有的主切面守着（test/main/projects.test.ts、project-deletion-reads、project-internal-tasks、
+// 三种删除的结果由现有的主切面守着（test/main/projects.test.ts、project-deletion-reads、project-internal-tasks、
 // task-delete、plugin-settings 和几个插件的主切面）。
 import fs from "node:fs";
 import path from "node:path";

@@ -1,4 +1,4 @@
-// 存储薄接口：守护进程里所有 SQLite 访问都经过这里（规格第 4 节）。
+// 存储薄接口：守护进程里所有 SQLite 访问都经过这里。
 // 现在的驱动是 node:sqlite（2026-10-07 验证过 FTS5 trigram 分词器可用）；
 // 将来要换 better-sqlite3，只改这个文件，上层只看见下面的 Database 接口。
 import { createRequire } from "node:module";

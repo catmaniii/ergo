@@ -1,4 +1,4 @@
-// 守卫判定核心（规格第 9 节）。上层只从这里取东西。
+// 守卫判定核心。上层只从这里取东西。
 export * from "./disposition.ts";
 export * from "./types.ts";
 export * from "./model-language.ts";

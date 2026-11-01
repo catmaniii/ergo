@@ -106,7 +106,7 @@ function FallbackCard({ display }: { display: Extract<CardDisplay, { kind: "fall
         <span className="xcard-title">{display.reason === "unknown_type" ? t("ui.cardPanel.unknownType") : t("ui.cardPanel.newer")}</span>
       </div>
       <div className="xcard-body">
-        {/* 守护进程写的纯文本：名字占位（和以前的旧说法）按现在的名字显示 */}
+        {/* 守护进程写的纯文本：名字占位（和旧说法）按当前名字显示 */}
         <div className="fallback-text">
           <NamedText text={display.text} />
         </div>

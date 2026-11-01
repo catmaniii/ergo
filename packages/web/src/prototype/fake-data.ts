@@ -146,7 +146,7 @@ function withProgress(e: BoardEntry): BoardEntry {
   return e.status === "planning" || e.status === "awaiting_confirm" ? { ...e, progress: { done: 0, total: 0, unit: "stage" } } : e;
 }
 
-/** 全局最多几个任务同时处于执行中（规格第 8 节默认 3，可调）。原型里用它判断"继续"回执行中还是排队中 */
+/** 全局最多几个任务同时处于执行中（默认 3，可调）。原型里用它判断"继续"回执行中还是排队中 */
 export const FAKE_RUN_SLOTS = 3;
 
 // ---------- 任务详情 ----------

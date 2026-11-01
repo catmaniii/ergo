@@ -241,7 +241,7 @@ export type PredictionStatus = (typeof PREDICTION_STATUSES)[number];
  * 预测落空以后往回打来源的结果（R10）：
  * culprit 找到了错的那条前提（演绎：只有它没验证、别的都已验证，或者只有一条来源），撤回了（再按 R8 往上传）；
  * undetermined 演绎、没验证的来源不止一条（Duhem-Quine），判不出撤哪条，不乱撤，就每条往问题箱出一个问题；
- * counterexample 演绎、来源都已验证（原始 §6：前提全真，只能是漏了条件或反证有误），每条挨一条有分量的反例（R12 接着管）、出问题；
+ * counterexample 演绎、来源都已验证（前提全真，只能是漏了条件或反证有误），每条挨一条有分量的反例（R12 接着管）、出问题；
  * counter 可废止：每条来源挨一条反证（按现在的计分）；exception 判不出的那几条后来用户都确认还对，不撤来源、这次算例外；
  * none 来源都已经不在了
  */

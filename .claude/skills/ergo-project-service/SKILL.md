@@ -133,7 +133,7 @@ description: 写一个能被二狗（ergo）托管的项目服务时用：项目
 
 改二狗这一侧的看：`packages/daemon/test/main/operation-services.test.ts`（服务管家替身）、`packages/daemon/test/main/service-events.test.ts`、`packages/daemon/test/main/mcp-registration.test.ts`、`packages/daemon/test/project-ops/project-ops.test.ts`。
 
-## 交活清单
+## 完成前检查
 
 - [ ] "怎么测"那几步都过了，`check:ops` 对清单和方案都是退出码 0。
 - [ ] 运营方案那几条合乎第 2 节：没有密钥明文，`cwd` 在工作目录里，端口不撞。

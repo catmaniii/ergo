@@ -1,4 +1,4 @@
-// 语音识别进程（规格第 21、22 节）：faster-whisper 跑在守护进程拉起的 Python 进程里（recognizer.py）。
+// 语音识别进程：faster-whisper 跑在守护进程拉起的 Python 进程里（recognizer.py）。
 // - 要用时才拉起（守护进程一启动就由预热拉起，见 warmup.ts），放进它自己的 Job 对象（KILL_ON_JOB_CLOSE、不允许脱离；
 //   守护进程怎么死它都跟着结束）。不放进 agent 管家的 Job：那里按"从活着的 agent 子进程走不到"回收孤儿，守护进程直接起的进程会被当成孤儿；
 // - 环境照 agent 子进程的系统变量白名单（buildChildEnv：没有守护进程的密钥），另加固定的几项（不联网下载模型、输出 UTF-8）；

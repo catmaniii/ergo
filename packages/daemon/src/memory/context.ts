@@ -1,5 +1,5 @@
 // @i18n-ignore-file model：这块简报整个是给秘书（模型）看的上下文块
-// 每轮醒来的记忆简报（接入设计第 3、5 节）：秘书被唤起时（和每次压缩之后）多一条上下文块，写清二狗对这个人的
+// 每轮醒来的记忆简报：秘书被唤起时（和每次压缩之后）多一条上下文块，写清二狗对这个人的
 // 理解里最要紧的几条——需求、价值观各最多 3 条（带"用户说的 / 推断的 / 用户确认过"和把握）、还拿不准的竞争解释最多 2 组
 // （各一句，带能区分的问题）。上下文块走 agent 贡献缝（when: "wake"），每轮现算，空了就是空串、
 // 不产生空块（"简报为空的会话照旧只走素材检索"）。
@@ -21,7 +21,7 @@ import { type Claim, type Confidence, type MemoryEngine, type UncertainEntry, ty
 /** 上下文块的 id（插件宿主在前面加上 "memory:"；一个会话里 id 不变，之后只按 id 换文字） */
 export const MEMORY_BRIEF_BLOCK_ID = "memory.brief";
 
-/** 这块最多多少字（接设计第 3 节：≤1200 字） */
+/** 这块最多多少字（≤1200 字） */
 export const MEMORY_BRIEF_MAX_CHARS = 1200;
 
 /** 各最多几条 */

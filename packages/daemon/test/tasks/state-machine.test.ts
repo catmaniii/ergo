@@ -1,4 +1,4 @@
-// 任务状态迁移按"谁能改"表校验（规格第 8 节）：纯函数，表格驱动。
+// 任务状态迁移按"谁能改"表校验：纯函数，表格驱动。
 import { TASK_ACTORS, TASK_STATES, type TaskActor, type TaskState } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
 import { checkTaskTransition } from "../../src/tasks/state-machine.ts";

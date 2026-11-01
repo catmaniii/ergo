@@ -29,7 +29,7 @@ function load(name: string): UiInput[] {
 const payloadOf = <T>(input: UiInput, type: string): T | undefined => (input.kind === "frame" && input.frame.type === type ? (input.frame.payload as T) : undefined);
 
 /**
- * 这几份录制在以前，待我处理事项上还没有来源（origin）。照守护进程现在的记法补上，其余照录下的原样回放：
+ * 这几份录制里，待我处理事项上没有来源（origin）。照守护进程的记法补上，其余照录下的原样回放：
  * 任务的事项记任务（taskInboxOrigin），任务里的审批卡另记调用所在的会话（callInboxOrigin：任务负责人的会话）；
  * 项目的事项记项目；秘书对话里的审批卡记秘书会话；系统的（归档清单）不记
  */

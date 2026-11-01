@@ -1,10 +1,10 @@
-// 守卫切面：关注类别 × 对话 / 任务的默认处置（规格第 9 节的表）、取最严、设置只会更严、自定义类别。
+// 守卫切面：关注类别 × 对话 / 任务的默认处置、取最严、设置只会更严、自定义类别。
 import { describe, expect, it } from "vitest";
 import { judgeToolCall, type BuiltinCategoryId, type Disposition, type GuardInput } from "../../src/guard/index.ts";
 import { call, dispositionFinding, inChat, inTask, maintainer, task } from "./helpers/guard-input.ts";
 import { categoryTool, TEST_TOOLS } from "./helpers/test-tools.ts";
 
-/** 规格第 9 节的默认处置表（"—" 的那一格万一命中，按先问我） */
+/** 默认处置表（"—" 的那一格万一命中，按先问我） */
 const DEFAULT_TABLE: [BuiltinCategoryId, Disposition, Disposition][] = [
   ["spend_money", "hand_over", "hand_over"],
   ["external_send", "ask_first", "ask_first"], // 任务里"计划里列了才做"，没有授权项 → 先问

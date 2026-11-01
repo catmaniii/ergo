@@ -1,4 +1,4 @@
-// 素材检索（规格第 15、21 节，模块层）：关键词（FTS5 trigram，中文可用；3 个字以下的词退回子串扫描）和语义（向量，暴力扫描）。
+// 素材检索（模块层）：关键词（FTS5 trigram，中文可用；3 个字以下的词退回子串扫描）和语义（向量，暴力扫描）。
 // 只有本人的文字进索引：引用块、附件这些外部内容只存引用和哈希，搜不到。
 import { describe, expect, test } from "vitest";
 import { materialsSetup, postMessage, text } from "./helpers.ts";

@@ -1,4 +1,4 @@
-// 执行中各阶段的状态（规格第 8 节"阶段执行""状态补充""返工"）：控制器（execution.ts）用的纯函数。
+// 执行中各阶段的状态：控制器（execution.ts）用的纯函数。
 // 阶段的状态存在任务里（Task.stages.list，看板频道上的 task 事件），不在 pi 会话里。
 // - 前置阶段都验收了才能开始（missingPrerequisites）；
 // - 同一时刻负责人只做一个阶段（running 或 accepting）；可并行的阶段由负责人依次执行，用户同意派子 agent 时

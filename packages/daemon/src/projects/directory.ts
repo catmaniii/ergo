@@ -65,7 +65,7 @@ export function createProjectDirectory(options: ProjectDirectoryOptions): Projec
       if (!row || row.deleted) throw new RequestRejected("not_found", t("projects.errors.noSuchProject", { id: projectId }));
       const { project } = row;
       if (project.state === "archived") throw new RequestRejected("not_allowed", t("projects.errors.internalArchived", { name: project.name }));
-      // 立项书确认之前不能在项目里发起任务（规格第 11 节）；只有首个建设任务例外：它在确认立项书的那一刻建出（还没建过的才算）
+      // 立项书确认之前不能在项目里发起任务；只有首个建设任务例外：它在确认立项书的那一刻建出（还没建过的才算）
       const firstBuild = opts.firstBuild === true && project.buildTaskId === undefined;
       if (!project.charterConfirmed && !firstBuild) throw new RequestRejected("not_allowed", t("projects.errors.internalPreparing", { name: project.name }));
       return { id: project.id, name: project.name, maintainerId: project.maintainerId };

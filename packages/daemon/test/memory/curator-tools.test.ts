@@ -1,6 +1,6 @@
 // 记忆管理员的 review_memory_claim 走引擎的表态接口（recordClaimVerdict），不直接改库——
 // 管理员按用户的话确认、撤回以后，下一次整理计分不会把它改回去。临时目录里的真 rg.db、规则版整理，不调模型。
-// 例子是周末社交案例（任务书第 11 节那几句，自己写的）：前三条时那组四种解释都还拿不准；第 4 条进来以后
+// 例子是周末社交案例（自己写的）：前三条时那组四种解释都还拿不准；第 4 条进来以后
 // "重视周末自主安排"成立、"不喜欢社交"被"我不反感见朋友"撤回。
 import path from "node:path";
 import { type Claim, type EvidenceDraft, type MemoryEngine } from "@ergo/memory";

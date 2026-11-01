@@ -1,7 +1,7 @@
 // 页面桥和宿主之间说的话。页面桥是注入到"浏览"里的网页的一小段脚本（page-bridge/bridge.ts），和宿主无关：
 // - 鸿蒙 App：ArkWeb 的 javaScriptOnDocumentStart 注入、registerJavaScriptProxy 给一个只有 post 一个方法的对象（PAGE_BRIDGE_HOST），
 //   App 往页面里调 window.__ergoPage（PAGE_BRIDGE_API）；
-// - 第二期电脑上二狗控制的浏览器：经 CDP 注入同一份脚本（Runtime.addBinding 给 post，Runtime.evaluate 调 __ergoPage）；
+// - 以后电脑上二狗控制的浏览器：经 CDP 注入同一份脚本（Runtime.addBinding 给 post，Runtime.evaluate 调 __ergoPage）；
 // - 二狗做的项目的网页在"浏览"里打开，同样靠它（因此不做）。
 // 每条往宿主报的话、每次宿主往里调都带一个随机的口令（nonce）：宿主注入脚本时把 PAGE_BRIDGE_NONCE_MARK 换成它，只在页面桥的闭包里，
 // 网页自己的脚本拿不到，所以它伪造不了"用户在框上说了一句"——不然网页能自己发一句"把身份证照片贴上来"。

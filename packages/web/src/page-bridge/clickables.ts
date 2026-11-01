@@ -11,7 +11,7 @@
 //   （"页面变了，请重新 snapshot"），决不点到别的元素上；再滚到屏幕中间，在元素正中依次派 pointerover、pointerenter、mouseover、
 //   mouseenter、pointerdown、mousedown、pointerup、mouseup、click（真的点一下浏览器派的就是这一串，能触发悬停菜单和 React 的合成事件；
 //   pointerdown 被网页拦下时照浏览器的规矩不派 mousedown、mouseup；mousedown 没被拦下时把焦点给它）。网页自己的脚本派的、
-//   我们派的都不是 isTrusted，只认真事件的网站点不动（第二期电脑上的浏览器经 CDP 能派真事件）；
+//   我们派的都不是 isTrusted，只认真事件的网站点不动（以后电脑上的浏览器经 CDP 能派真事件）；
 // - 开新窗口的在同一标签打开（内置浏览器只有一个标签）：链接、表单（连同 <base target>、formtarget）的 target 是 _blank 或起了名字的，
 //   派事件前临时改成 _self、派完还原——网站自己的 onClick 照样先跑，拦下了就不跳；派事件的那一下里网页调 window.open 开新窗口的，
 //   记下地址、回 null，派完了如果这一下没有别的跳转（不是链接、链接被拦下、链接只是 # 或 javascript:）就在这个标签里打开它。

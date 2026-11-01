@@ -1,4 +1,4 @@
-// 素材模块的边界（规格第 4、15 节）：
+// 素材模块的边界：
 // 1. materials.db 只有素材模块拿得到写入口：素材目录（src/materials/）之外不许引用 memory-db.ts，也不许自己拼 "materials.db" 去打开
 //    （路径表 config/data-dir.ts 除外：素材库的位置和老名字都由 dataDirLayout() 给，那是唯一该拼它的地方）；
 //    素材模块对外（Materials）只有读、检索和登记来源，不暴露连接；

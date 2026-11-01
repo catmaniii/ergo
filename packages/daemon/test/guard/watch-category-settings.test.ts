@@ -19,11 +19,11 @@ import { bash, call, DAY, inChat, inTask, maintainer, NOW, P, secretary, task, v
 import { TEST_TOOLS } from "./helpers/test-tools.ts";
 import { fakeSecret } from "../helpers/fake-secrets.ts";
 
-/** 规格第 9 节的六档，由松到严（独立写一遍，不从实现里取） */
+/** 六档，由松到严（独立写一遍，不从实现里取） */
 const ORDER: Disposition[] = ["log_only", "notify_after", "plan_listed", "ask_first", "hand_over", "never"];
 
 describe("处置按六档的顺序比较严格程度", () => {
-  it("实现里的六档就是规格的顺序", () => {
+  it("实现里的六档就是这个顺序", () => {
     expect([...DISPOSITIONS]).toEqual(ORDER);
   });
 

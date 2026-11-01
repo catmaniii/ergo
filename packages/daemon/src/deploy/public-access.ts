@@ -1,5 +1,5 @@
 // @i18n-ignore-file log：只有部署命令（命令行工具）读它，配置写错的说明是命令行的输出
-// 公网入口的配置（规格第 6 节）：VPS 在哪、怎么 ssh 上去、隧道在 VPS 上占哪个端口、nginx 站点怎么写。
+// 公网入口的配置：VPS 在哪、怎么 ssh 上去、隧道在 VPS 上占哪个端口、nginx 站点怎么写。
 // 放在数据目录的 config/ergo.json 的 publicAccess 里（个人数据，不进仓库；仓库里只有 config/ergo.example.json）。
 // 只有部署命令（src/deploy-nginx.ts）读它，守护进程不读。
 //

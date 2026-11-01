@@ -309,7 +309,7 @@ async function sendAlert(projectId: string, jwt: string, token: string, n: {
 
 ## 4. ArkWeb 外壳的桥接设计
 
-背景：前作的壳只有约 350 行 ArkTS，用 `javaScriptProxy` 注入 `window.native`。ergo v2 的网页不在 rawfile 里，而是加载远端的 `https://<ergo 域名>/`（VPS nginx → ssh 反向隧道 → daemon）。
+背景：这种壳可以很薄（几百行 ArkTS），用 `javaScriptProxy` 注入 `window.native`。ergo v2 的网页不在 rawfile 里，而是加载远端的 `https://<ergo 域名>/`（VPS nginx → ssh 反向隧道 → daemon）。
 
 ### 4.1 ArkWeb 侧的事实
 

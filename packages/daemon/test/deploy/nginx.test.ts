@@ -1,4 +1,4 @@
-// 公网入口的 nginx 站点配置（规格第 6 节）：二狗生成，逐项断言——支持 WebSocket、放大 client_max_body_size、
+// 公网入口的 nginx 站点配置：二狗生成，逐项断言——支持 WebSocket、放大 client_max_body_size、
 // 加长 proxy_read_timeout、每个 location 都覆盖写 X-Forwarded-For 和 X-Real-IP、带 HSTS，上游指向 VPS 上
 // 只绑本机地址的隧道端口，域名按 ergo.<VPS>.sslip.io（旧域名可以在过渡期照样提供）。
 import { describe, expect, it } from "vitest";

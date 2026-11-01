@@ -1,4 +1,4 @@
-// 项目的派生视图（规格第 4 节）：项目列表频道上的 project 事件归并成每个项目的最新状态，charters 频道上的立项书
+// 项目的派生视图：项目列表频道上的 project 事件归并成每个项目的最新状态，charters 频道上的立项书
 // 归并成每个项目最新的一版，立项要求变更、规范改写（standards 频道）每次一行。删掉的项目留一行（标 deleted），编号不会被新项目重用，负责人 id 也认得出"属于已删除的项目"。
 import { applyStandardChange, CHANNELS, EVENT_TYPES, type Project, type ProjectEventPayload, type StandardOverrideEntry } from "@ergo/protocol";
 import type { DerivedView } from "../events/event-store.ts";

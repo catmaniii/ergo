@@ -1,4 +1,4 @@
-// token 账本的一条（规格第 16 节）：每次模型调用一条，记在守护进程内部的 ledger 频道上（token_usage 事件，前端不订阅），
+// token 账本的一条：每次模型调用一条，记在守护进程内部的 ledger 频道上（token_usage 事件，前端不订阅），
 // 派生视图 token_ledger（views.ts）。用量的数从子进程上报的 usage 来（宿主协议），归属由拉起 agent 的模块给（SpawnAgentRequest.ledger）。
 import type { ContextUsageKind, LedgerOwner, LedgerPurpose, LedgerRole, TokenCounts, WebCallKind, WebCallService } from "@ergo/protocol";
 import type { UsageReport } from "../runtime/index.ts";

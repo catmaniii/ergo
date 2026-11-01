@@ -1,10 +1,10 @@
-// 计划变更卡（plan_change，规格第 5、8 节）：负责人执行中要扩大授权、加能力、加项目、改目标或验收时出的卡，
+// 计划变更卡（plan_change）：负责人执行中要扩大授权、加能力、加项目、改目标或验收时出的卡，
 // 进待我处理（卡着任务）。卡上只列相对当前计划新增或改动的部分（负载的 changes，说法由协议包 plan.ts 的 planChangeItemText 生成）。
 // - 确认（confirm，输入和计划卡一样是 PlanConfirmInput：可以勾掉、收窄授权项，加本任务的关注类别）：计划和授权项随之更新，
 //   受影响的阶段恢复；
 // - 拒绝（reject，可附说明）：受影响的阶段交回负责人在现有授权内重排，做不到就标做不了。
 // 两个动作都追加 plan_decided（带 change，"审批决定"素材的来源），逻辑在执行控制器（execution.ts）。
-// 卡片清单里的"工具包变更"（规格第 21 节）在计划变更里是 toolkit 那一处改动；
+// 卡片清单里的"工具包变更"在计划变更里是 toolkit 那一处改动；
 import { PlanChangeCardPayload, PlanConfirmInput, planChangeItemText, t } from "@ergo/protocol";
 import { defineCardType } from "../cards/registry.ts";
 import type { TaskExecution } from "./execution.ts";

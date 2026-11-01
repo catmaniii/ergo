@@ -1,4 +1,4 @@
-// 推理图谱测试的小工具：可拨的时钟、按 id 灌周末社交案例（任务书第 11 节 4 条 + 1 条别人转述）、按模板找断言。
+// 推理图谱测试的小工具：可拨的时钟、按 id 灌周末社交案例（4 条 + 1 条别人转述）、按模板找断言。
 import { fileURLToPath } from "node:url";
 import type { Claim, EvidenceDraft, Fact } from "../../src/domain/types.ts";
 import { MemoryEngine, type MemoryEngineOptions } from "../../src/engine.ts";

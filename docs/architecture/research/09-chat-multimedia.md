@@ -756,7 +756,7 @@ const rec = new MediaRecorder(stream, mimeType ? { mimeType, audioBitsPerSecond:
 - **工具结果里的图片**：pi-ai 先发一条 `role:"tool"` 的文本消息；只有图片时文本写 "(see attached image)"。然后**另起一条 user 消息**，用 `image_url` 把图片带上。不会把图片直接塞进 tool 消息（[同文件 L1406-1460](https://github.com/earendil-works/pi/blob/ae92585d3b3e5f1e4b123d14a34314d826d8d9f5/packages/ai/src/api/openai-completions.ts#L1406-L1460)）。
 - 缓存命中从 `prompt_cache_hit_tokens` 读取（同文件）。
 - 目录从 0.86.0（2026-09-19）起改为 `deepseek-flash`，并刷新了价格（[CHANGELOG](https://github.com/earendil-works/pi/blob/ae92585d3b3e5f1e4b123d14a34314d826d8d9f5/packages/ai/CHANGELOG.md)，#9423）。
-- 前作当年就是走 openai-completions 兼容层，并设了 `thinkingFormat:"deepseek"`。
+- 也可以走 openai-completions 兼容层，并设 `thinkingFormat:"deepseek"`。
 - **坑**：pi-ai 目录里的 `cost` 用的是**高峰价**，而且不区分时段。它算出的成本在空闲时段会**高估 2 倍**。
   - 【建议】ergo 自己按请求时间（北京时间、工作日、法定节假日）重算费用，pi-ai 的 cost 只当上限参考。
 
@@ -833,7 +833,7 @@ cost(total_in*0.8, total_in*0.2, 100*650, P_peak)        # ≈ 0.861
 
 ## 6. 建议：ergo 的消息数据模型（parts-based）
 
-> 本节是【建议】，由 §1–§5 的事实推出。原则上与 `06-long-tasks-hitl-interruptions.md` 一致：event log 是唯一真相，审批表落 SQLite（WAL）。也与前作的做法一致：聊天框里只放总结，细节进详情；流式增量不要逐条落盘。
+> 本节是【建议】，由 §1–§5 的事实推出。原则上与 `06-long-tasks-hitl-interruptions.md` 一致：event log 是唯一真相，审批表落 SQLite（WAL）。另外两条：聊天框里只放总结，细节进详情；流式增量不要逐条落盘。
 
 ### 6.1 设计原则
 
@@ -1009,7 +1009,7 @@ interface Action { id: string; label: string; style?: "primary" | "danger" | "de
 | 事件 | 含义 | 是否落盘 |
 |---|---|---|
 | `message.created` | 完整信封，parts 可以为空 | 是 |
-| `chunk {messageId, runId, chunk}` | `chunk` 原样采用 AI SDK v7 的 `UIMessageChunk`：`text-start/delta/end`、`reasoning-*`、`tool-input-*`、`tool-output-*`、`data-*`（[chunks](https://github.com/vercel/ai/blob/main/packages/ai/src/ui-message-stream/ui-message-chunks.ts)）。下文的 `part.start/delta/end` 指的就是这些 chunk | 只有 `*-end` 和最终 part 落盘（吸取前作的教训：pi 把每个增量都写进 JSONL，一轮就上万行）。Telegram 的 `sendMessageDraft` 也是同样的思路：草稿流和持久消息分开（§1.7） |
+| `chunk {messageId, runId, chunk}` | `chunk` 原样采用 AI SDK v7 的 `UIMessageChunk`：`text-start/delta/end`、`reasoning-*`、`tool-input-*`、`tool-output-*`、`data-*`（[chunks](https://github.com/vercel/ai/blob/main/packages/ai/src/ui-message-stream/ui-message-chunks.ts)）。下文的 `part.start/delta/end` 指的就是这些 chunk | 只有 `*-end` 和最终 part 落盘（pi 把每个增量都写进 JSONL 的话，一轮就上万行）。Telegram 的 `sendMessageDraft` 也是同样的思路：草稿流和持久消息分开（§1.7） |
 | `part.update` | 卡片状态、tool 状态、转写/缩略图/TTS 就绪、进度百分比。用带同一 id 的 `data-*` chunk 表达，也可以发成 ergo 自己的事件 | 是（进度类可以节流） |
 | `message.updated` / `message.deleted` / `reaction` | 编辑、撤回、反应 | 是 |
 | `message.status` | `queued → streaming → complete/error/cancelled` | 是 |
@@ -1091,7 +1091,7 @@ agent 文本流式输出（part.delta）
 1. **V4.1 Pro 什么时候上线？能力和价格如何？**
    - 官方目前只说过"至未来 V4.1 Pro 上线之前"，然后又改口继续提供 V4 Pro（§4.1）。
    - 要等它发布后，再决定 PM 和 worker 是否换成 Pro。
-   - 换之前要用真实输出回归集做对比：前作只在 DeepSeek 上校准过。
+   - 换之前要用真实输出回归集做对比。
 2. **思考档位按角色怎么分？**
    - pi-ai 不传 `reasoningEffort` 就会关闭思考（§4.8）。
    - 秘书闲聊用 low 还是 non-thinking？需要实测延迟和质量。

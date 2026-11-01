@@ -8,7 +8,7 @@ ADR-0002 定了每个 agent 一个子进程，留下一个 spike：守护进程�
 
 ## 逐项核对
 
-对照规格第 3 节宿主协议的全部消息类型。
+对照宿主协议的全部消息类型。
 
 - **RPC 一栏**是一次性探针加读文档（`docs/rpc*.md`）的结果。探针用本工作区装的 pi 起 `--mode rpc`，扩展里注册 faux provider，在 `tool_call` 钩子里用 `ctx.ui.confirm(..., { timeout: 300000 })` 向宿主"请求守卫判定"。**RPC 模式只实测过等 1.5 秒**；探针没有入库。
 - **SDK 一栏**标了"契约测试"的，是入库的 pi 契约测试实测过的（`npm run test:contract`）：
@@ -17,11 +17,11 @@ ADR-0002 定了每个 agent 一个子进程，留下一个 spike：守护进程�
 
 | 消息 | RPC 模式 | SDK + 自定义 IPC |
 |---|---|---|
-| 启动（会话装配参数） | 只能拼命令行参数和环境变量：`-ns --skill`、`-ne -e`、`-nc`、`PI_CODING_AGENT_DIR` 指向空目录。用不上规格要求的 `DefaultResourceLoader`；模型 key 只能走 `--api-key`（进程列表里看得见）或环境变量（会漏进工具起的孙进程） | 直接构造 `DefaultResourceLoader({ noSkills: true, additionalSkillPaths, ... })`、内存里的设置和凭据；key 经 stdin 送进 `setRuntimeApiKey`，不进环境。契约测试：用户目录和工作目录里埋的配置、skill、上下文文件、CLI 认证都没被加载 |
+| 启动（会话装配参数） | 只能拼命令行参数和环境变量：`-ns --skill`、`-ne -e`、`-nc`、`PI_CODING_AGENT_DIR` 指向空目录。用不上会话装配要用的 `DefaultResourceLoader`；模型 key 只能走 `--api-key`（进程列表里看得见）或环境变量（会漏进工具起的孙进程） | 直接构造 `DefaultResourceLoader({ noSkills: true, additionalSkillPaths, ... })`、内存里的设置和凭据；key 经 stdin 送进 `setRuntimeApiKey`，不进环境。契约测试：用户目录和工作目录里埋的配置、skill、上下文文件、CLI 认证都没被加载 |
 | 用户输入 | `prompt` ✓ | `session.prompt()` ✓ |
 | 工单 | 只能当普通 prompt 文本 | 自己的消息类型 |
 | 插话（下一步之前） | `steer` ✓（只读文档，未实测） | `session.steer()` ✓。契约测试：回合停在工具调用上时送插话，它出现在下一次模型调用的上下文里，位置在工具结果之后 |
-| 守卫判定请求 / 回复 | 只能借扩展 UI 子协议：请求塞进 `confirm`/`input` 的 title、message 字符串，回复只有布尔或一个字符串。实测能停住工具调用等回复，但只等过 1.5 秒（dialog 自带超时） | `tool_call` 钩子里发 `guard_request`、等带同一 `requestId` 的 `guard_reply`，用 `ctx.signal` 响应中止。契约测试：守护进程隔 2 秒才回判定，等待期间工具没执行；判定不放行时工具不执行，模型收到理由；判定放行后才执行。钩子本身没有超时，规格的 5 分钟上限在守护进程一侧管 |
+| 守卫判定请求 / 回复 | 只能借扩展 UI 子协议：请求塞进 `confirm`/`input` 的 title、message 字符串，回复只有布尔或一个字符串。实测能停住工具调用等回复，但只等过 1.5 秒（dialog 自带超时） | `tool_call` 钩子里发 `guard_request`、等带同一 `requestId` 的 `guard_reply`，用 `ctx.signal` 响应中止。契约测试：守护进程隔 2 秒才回判定，等待期间工具没执行；判定不放行时工具不执行，模型收到理由；判定放行后才执行。钩子本身没有超时，5 分钟上限在守护进程一侧管 |
 | 守护进程代为执行的工具 | 没有：RPC 模式不能让宿主登记自定义工具，只能写成扩展文件、在扩展里再借 UI 子协议往宿主要结果 | 装配参数 `hostTools`（名字、说明、参数的 JSON Schema）登记成 pi 的自定义工具；模型调用时发 `host_tool_call`，等带同一 `requestId` 的 `host_tool_result { text, isError }`。pi 先按 JSON Schema 校验参数，不合就不转。契约测试：调用转给守护进程、结果（含出错）回到模型的上下文；参数不合 schema 时不转 |
 | 中止 | `abort` ✓ | `session.abort()` ✓ |
 | 退出 | 关 stdin ✓ | `exit` 命令，或关 stdin ✓ |
@@ -36,7 +36,7 @@ RPC 模式**能**承载核心那几条（输入、插话、中止、用量，连
 
 ## 为什么选 SDK + 自定义 IPC
 
-1. **会话装配必须用 SDK**：规格要求 `DefaultResourceLoader` + `noSkills: true` + `additionalSkillPaths`，不读 `~/.pi`、`~/.claude/skills` 和 CLI 认证。RPC 只能用参数和环境变量去逼近，CLI 本身还会做认证、配置、项目信任这些发现。
+1. **会话装配必须用 SDK**：要用 `DefaultResourceLoader` + `noSkills: true` + `additionalSkillPaths`，不读 `~/.pi`、`~/.claude/skills` 和 CLI 认证。RPC 只能用参数和环境变量去逼近，CLI 本身还会做认证、配置、项目信任这些发现。
 2. **守卫、工单、范围审视、心跳都是一等消息**，不用塞进 UI 对话框的字符串里。
 3. **模型 key 不进 argv，也不进环境变量**，工具起的孙进程拿不到 key。
 4. **pi 的形状变化在编译期暴露**：翻译只在子进程里做，对着 pi 的类型检查；再加 pi 契约测试兜底。

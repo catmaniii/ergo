@@ -1,4 +1,4 @@
-// 用户打字时 agent 也能发语音（规格第 22 节"用户打字时也能发语音"）："发语音"工具 send_voice({ text })。
+// 用户打字时 agent 也能发语音："发语音"工具 send_voice({ text })。
 // 和用户直接对话的 agent 把一段口语稿合成成和语音回复一样的语音气泡（同一个合成服务、参考音色、分段推送、长按"转文字"）。
 // "发语音"的行为都在这里：工具本身、回合结束时这一轮另写的文字收不收进气泡、重启时的收尾、被中断的调用补什么结果。
 // 回合从哪儿开始、回复了哪些消息由语音回复（voice-reply.ts）跟着会话频道上的回合记下，交给这里（openTurn、closeTurn）。
@@ -89,7 +89,7 @@ export interface SendVoiceOptions {
   references: ReferenceVoices;
   /**
    * 这个会话里说话的 agent 现在用哪个参考音色（自己配的覆盖全局，没配 / 被删了跟全局默认）；
-   * 不给时用 references.current()（和以前一样）
+   * 不给时用 references.current
    */
   voiceOf?: (conversation: ConversationId) => ResolvedReferenceVoice | undefined;
   /** 念多快、多长算长（配置里的 voice.reply） */

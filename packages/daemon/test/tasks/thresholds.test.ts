@@ -12,7 +12,7 @@ import { samplePlan } from "../helpers/plans.ts";
 describe("预算怎么算", () => {
   it("一次调用记进预算的：没命中缓存的输入 + 输出 + 命中缓存的十分之一；试验里的数字（缓存 15 万、没命中 2000、输出 500）记 17500", () => {
     expect(budgetTokensOf({ cacheHit: 150_000, cacheMiss: 2000, output: 500 })).toBe(17_500);
-    // 按以前的算法一次就是 152500，预算 4 万的阶段第一次调用就超了 2 倍；现在还不到一半
+    // 缓存全算进去一次就是 152500，预算 4 万的阶段第一次调用就超了 2 倍；这样算还不到一半
     expect(budgetRatio({ tokens: 17_500, toolCalls: 1 }, { tokens: 40_000, toolCalls: 50 })).toBeLessThan(0.5);
   });
 
@@ -65,7 +65,7 @@ describe("催促", () => {
 });
 
 describe("说法里的数字照阈值", () => {
-  it("系统提示：默认的阈值和规格的口径一致；预算控制默认关着，不提超了预算会怎样", () => {
+  it("系统提示：默认的阈值原样写进去；预算控制默认关着，不提超了预算会怎样", () => {
     expect(thresholdsText(defaultPromptLibrary(), DEFAULT_TASK_THRESHOLDS)).toBe(
       "运行时盯着偏离：被拉回（按规则退回）满 3 次后又被拉回、20 分钟没有成功的工具调用也没有阶段推进被催满 3 次还没有进展、" +
         "阶段验收退回 2 次后第 3 次还不过，这一支会停下等用户；" +

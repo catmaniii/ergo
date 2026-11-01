@@ -1,4 +1,4 @@
-// agent 宿主协议：守护进程 ⇄ agent 子进程（规格第 3 节，ADR-0004）。
+// agent 宿主协议：守护进程 ⇄ agent 子进程（ADR-0004）。
 //
 // 传输：子进程的 stdin / stdout，每行一个 JSON 对象（UTF-8，LF 分帧；容忍 CRLF；
 // 不按 U+2028 / U+2029 切分，见 line-channel.ts）。stderr 只是日志，不承载协议。
@@ -95,7 +95,7 @@ export const CHILD_LANGUAGE_ENV = "ERGO_LANGUAGE";
 export const INTERRUPTED_PREFIX = "这次调用被中断了：执行时守护进程（或 agent 子进程）重启了，"; // @i18n-ignore model：工具结果
 
 /**
- * 被中断的工具调用补上的结果（规格第 17 节）：接着会话时，会话文件里最后一个回合的工具调用还没有结果
+ * 被中断的工具调用补上的结果：接着会话时，会话文件里最后一个回合的工具调用还没有结果
  * （被杀时正在执行、正在等审批，或者同一批里别的调用还没做完、结果还没写进会话），子进程补上一条工具结果。
  * 守护进程按调用给了说法的（等审批的、有副作用的：做完了的、失败了的、说不清做没做完的）用它的，
  * 没给的（只读或幂等的，或者守护进程也不知道的）用这一句（出错）
@@ -169,7 +169,7 @@ export interface SessionBranchMarker {
 
 // ───────────────────────── 会话装配参数 ─────────────────────────
 
-/** 思考档位。规格要求显式设置，所以装配参数里是必填的。 */
+/** 思考档位。要显式设置，所以装配参数里是必填的。 */
 export type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
 
 /** 模型：目录里的真实模型，或测试用的 faux provider（按剧本回话）。 */
@@ -395,7 +395,7 @@ export interface SessionAssembly {
    */
   scopeReview?: ScopeReviewSetup;
   /**
-   * 换模型就新开会话（规格第 1 节"模型"）：接着已有的会话、而它开始时的模型或思考档位（思考档位按模型支持的档换算之后比）
+   * 换模型就新开会话：接着已有的会话、而它开始时的模型或思考档位（思考档位按模型支持的档换算之后比）
    * 和这里的 model 不一样时，子进程先用会话开始时的模型照 instructions 写一份交接摘要（pi 的压缩摘要的写法，instructions 接在后面），
    * 再新开一个会话（用这里的模型），第一条就是这份摘要；摘要没写成（模型出错、超时）就照旧接着原来的会话、照它开始时的模型。
    * 换没换成都在 ready.handoff 里报回。不给就不换（任务执行中途）。faux 不固定模型，也就不换
@@ -735,7 +735,7 @@ export type AgentReport =
    */
   | { type: "tool_call_end"; toolCallId: string; toolName: string; isError: boolean; resultText: string; media?: ToolResultMedia[]; parentToolCallId?: string }
   /**
-   * 守卫判定请求：子进程里这次工具调用停住，等同一 requestId 的 guard_reply（规格：最长等 5 分钟，管超时）。
+   * 守卫判定请求：子进程里这次工具调用停住，等同一 requestId 的 guard_reply（最长等 5 分钟，管超时）。
    * native：运行时自己的工具名和模型给的原样参数（Claude Code 的 Bash、Read……）；toolName / args 是子进程映射到守卫工具登记表
    * 之后的（Bash → bash、Read 的 file_path → read 的 path……；对不上的照原名原样），守卫按它判，工具调用的完整内容里存原样的。pi 不带
    */

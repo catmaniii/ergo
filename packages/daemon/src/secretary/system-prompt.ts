@@ -1,4 +1,4 @@
-// 秘书的系统提示（规格第 7 节）和秘书专用的压缩指令。文字在 md 文件里（本包的 prompts/secretary.md、
+// 秘书的系统提示和秘书专用的压缩指令。文字在 md 文件里（本包的 prompts/secretary.md、
 // secretary-compaction.md，用户改的在数据目录配置区的 prompts/），这里只填值：
 // - 名字：用户给它起的名字；名字变了，秘书在下一轮之前按新的系统提示重新装配（secretary.ts）；
 // - 对话审批开着：配置 guard.conversationApprovals，草稿区外的说法跟着它——关着（默认）时大部分直接做、照常记录，
@@ -16,7 +16,7 @@ export const secretarySystemPrompt = (prompts: PromptRenderer, name: string, app
   prompts.render("secretary", { 名字: name, 对话审批开着: approvals === "on" }, agentId);
 
 /**
- * 秘书专用的压缩指令（规格第 7 节）：主线会话压缩时写摘要的那次模型调用按它写（接在 pi 的摘要提示后面）。
+ * 秘书专用的压缩指令：主线会话压缩时写摘要的那次模型调用按它写（接在 pi 的摘要提示后面）。
  * 丢掉任务的执行细节和已解决的问答，涉及的任务只留 ID 和一句话；保留进行中的话题、未回答的问题、刚说的还没处理的指示
  */
 export const secretaryCompactionInstructions = (prompts: PromptRenderer): string => prompts.render("secretary-compaction", {});

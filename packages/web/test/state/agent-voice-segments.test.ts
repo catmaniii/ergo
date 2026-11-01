@@ -224,7 +224,7 @@ describe("边角", () => {
     expect(agentVoicePlayback(again.agentVoices["av-1"]!, URLS)).toMatchObject({ kind: "stream", stream: { segments: [{ url: "/seg/av-1/0" }] } });
   });
 
-  test("只有一段的（不推段）：没有段可排，合成好那一版才算新到的（和以前一样）", () => {
+  test("只有一段的（不推段）：没有段可排，合成好那一版才算新到的", () => {
     const done: AgentVoiceRecord = { ...base, version: 4, status: "done", segmentCount: 1, mediaId: "b".repeat(64), durationMs: 2000, messageId: "m-voice" };
     expect(agentVoicePlayback(done, URLS)).toEqual({ kind: "file", file: `/media/${"b".repeat(64)}` });
     expect(agentVoiceArrivals(replay([frame("secretary", 1, "agent_voice", { voice: base }), frame("secretary", 2, "agent_voice", { voice: done })]))).toEqual(["av-1"]);

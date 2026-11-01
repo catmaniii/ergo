@@ -121,7 +121,7 @@ npx vitest run packages/web/test/visual-styles packages/web/test/app/theme.test.
 
 测试 import 到 `src/pages/MorePage.tsx` 的要 mock `src/app/build-info.ts`（它的虚拟模块只在构建时有），照 `packages/web/test/pages/settings-groups.test.ts` 开头那行。
 
-## 交活清单
+## 完成前检查
 
 - [ ] 界面上每个新字都走 `t()`，中英两份都有。`i18n:check` 过，`packages/daemon/test/i18n/hardcoded.test.ts` 过。
 - [ ] `packages/web/test/build.test.ts` 过：页面里没有"秘书""待我处理"。

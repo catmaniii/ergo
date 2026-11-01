@@ -1,4 +1,4 @@
-// 并行确认卡上的决定产生的素材（规格第 15 节）：用户同意并行或不同意（parallel_decided）记成"审批决定"。
+// 并行确认卡上的决定产生的素材：用户同意并行或不同意（parallel_decided）记成"审批决定"。
 // 同意、不同意都是用户在 agent 先提出的提议上做的选择（本人，注明 agent 先提出）；用户写的话是本人打的字。
 // 在 daemon.ts 里、materials.start() 之前登记；彻底删除时只换掉用户写的话（改写函数登记进记忆模块的改写函数表）。
 import { EVENT_TYPES, PURGED_TEXT, t } from "@ergo/protocol";

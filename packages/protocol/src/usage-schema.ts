@@ -1,4 +1,4 @@
-// token 账本与消耗页的 schema（规格第 16 节），用 TypeBox 定义，守护进程和 Web 共用生成的类型。
+// token 账本与消耗页的 schema，用 TypeBox 定义，守护进程和 Web 共用生成的类型。
 // - 看板频道上的 token_totals 事件：一个任务（或定时作业）名下的用量合计，每次新的模型调用后推一条；
 // - 单价（每百万 token）：配置里的 tokenPrices（不分时段），没写的用框架自带的价格表（token-prices.ts，分高峰、空闲）；
 // - 消耗页：GET /api/usage?from=&to= 的响应（按天、按 agent 汇总，秘书单列为系统开销，未归属的另列，粗估成本）。

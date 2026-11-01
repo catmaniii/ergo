@@ -1,4 +1,4 @@
-// 找 Git Bash（规格第 9 节：v1 只开放一种 shell）。找法和 pi 的 bash 工具一样：Program Files 下的 Git\bin\bash.exe，
+// 找 Git Bash（v1 只开放一种 shell）。找法和 pi 的 bash 工具一样：Program Files 下的 Git\bin\bash.exe，
 // 再找 PATH 上的 bash.exe（不要 System32 里的 WSL bash）。不是 Windows 时用 PATH 上的 bash（只为测试能在别的系统上跑）。
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";

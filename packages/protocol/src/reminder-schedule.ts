@@ -206,7 +206,7 @@ export function occurrencesBetween(schedule: ReminderSchedule, from: Date, to: D
 }
 
 /**
- * 守护进程停着期间错过的触发（规格第 13 节"错过的触发"）：从 first（错过的第一次）往后数，最后一个不晚于 now 的时刻，
+ * 守护进程停着期间错过的触发：从 first（错过的第一次）往后数，最后一个不晚于 now 的时刻，
  * 连同一共错过了几次。重复的简单提醒错过多次只按最近一次处理；定时作业错过几次都只补跑一次（运行记录写明错过了几次）
  */
 export function latestOccurrence(schedule: ReminderSchedule, first: Date, now: Date, context: ScheduleContext): { due: Date; count: number } {

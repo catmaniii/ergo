@@ -9,7 +9,7 @@
 >   - 用 `npm pack <包>@1.0.4` 下载四个发布包，读 `.d.ts`、`dist/*.js`、README、CHANGELOG、docs。
 >   - 从 GitHub 的 release 提交拉取 agent / ai 的 CHANGELOG、durable 的 `docs/spec.md` 和例子 23。
 >   - 安装时加了 `--ignore-scripts`，装在隔离目录里，自己另写了 4 个最小探针脚本（附录 A）。所有模型调用都用 pi-ai 的 faux provider 或打桩的 `fetch`，**没有发出任何真实的网络请求**。
->   - 读了前作的 `web/src/agent/runtime.ts`，以及它 `node_modules` 里 `pi-agent-core@0.85.1` 的 `agent-harness.d.ts`。
+>   - 读了 `pi-agent-core@0.85.1` 的 `agent-harness.d.ts`。
 > - **标注**：
 >   - 不加标的是事实，后面附来源。
 >   - 【实测】表示用探针跑过（附录 A）。
@@ -19,7 +19,6 @@
 >   - `PI/` = `https://github.com/earendil-works/pi/blob/7c10bd4337495ee613f2224843ecdf349b80d1df/`（v1.0.4 发布提交）。
 >   - `PIMAIN/` = `https://github.com/earendil-works/pi/blob/ae92585d3b3e5f1e4b123d14a34314d826d8d9f5/`（main，含未发布改动）。
 >   - `[A]` = `@earendil-works/pi-agent-core@1.0.4` 发布包，`[AI]` = `@earendil-works/pi-ai@1.0.4`，`[CA]` = `@earendil-works/pi-coding-agent@1.0.4`，`[DU]` = `@earendil-works/pi-durable@1.0.4`。后面跟的是包内路径和行号，例如 `[DU] dist/harness/tool.js:35-58`。用 `npm pack @earendil-works/pi-durable@1.0.4` 可以复现。
->   - `REF/` = 前作的仓库（未公开）。
 
 ---
 
@@ -29,7 +28,7 @@
    - 运行时引擎用 **pi-ai + pi-durable**，包在二狗自己的一层薄 Runtime 端口后面。
    - `pi-agent-core` 的 `Agent` 留作降级备胎：它的 hook 语义和端口一一对应，见探针 A。
    - **不把 pi-coding-agent SDK 当运行时**，只借鉴它的 `navigateTree` 分支摘要、扩展写法和提示词。
-   - 理由：需求 6（崩溃续跑、恢复待审批）和需求 7（子 agent）最难做对，而只有 durable 原生提供；它的 hook 也覆盖了前作的全部用法。代价是 durable 自称 "Experimental. The API changes without notice"，所以必须锁版本、写合同测试、留好退路（§6、§7）。
+   - 理由：需求 6（崩溃续跑、恢复待审批）和需求 7（子 agent）最难做对，而只有 durable 原生提供；它的 hook 也覆盖了旧版 `AgentHarness` 的用法。代价是 durable 自称 "Experimental. The API changes without notice"，所以必须锁版本、写合同测试、留好退路（§6、§7）。
 2. **意外 1：pi-durable 不建在 `Agent` 之上。**
    - 它的依赖只有 `chord`、`pi-ai`、`diff`、`typebox`，**没有 `pi-agent-core`**（`[DU] package.json` 的 dependencies）。
    - generation 和工具循环是它自己用持久化任务重写的（`[DU] dist/harness/generation.js`、`dist/harness/tool.js`）。
@@ -40,7 +39,7 @@
 4. **意外 3：durable 的崩溃恢复实测可用。**
    - 让子进程在 `beforeTool` 里等待审批，然后用 SIGKILL 杀掉。重开同一份存储后，工具任务处于 `ready` 状态；`beforeTool` 重跑一次，`memo` 里读回同一个 approvalId；工具随后执行，整个 run 正常完成（【实测】探针 C）。
    - "守护进程重启后恢复待审批状态"因此有了可行的落点（§4.6）。
-5. **前作用到的东西，迁移情况如下**：
+5. **旧版 `AgentHarness` 的东西，迁移情况如下**：
    - 三个 hook（`before_tool`、`after_tool`、`before_run_end`）和 `appendCustomEntry`，三层都有等价物（【实测】探针 A、C、D）。
    - "原地回退 + 分支摘要"的 `navigateTree`，只有 coding-agent 原样保留。durable 只能用 `fork` 生成一个新会话，摘要要自己生成。agent-core 1.0 什么都没有。
 6. **DeepSeek**：
@@ -131,7 +130,7 @@ pi-ai（provider、SystemMessage.sections、reasoning_content 回放、faux）  
 - **(A)** `afterToolCall` 返回 `AfterToolCallResult`，按字段整体替换，不做深合并；抛异常时，结果变成 error（`[A] dist/types.d.ts:69-90`、`dist/agent-loop.js:593-630`）。【实测】A：`details` 里合并进了 `policy`。
 - **(B)** `tool_result` 返回 `ToolResultEventResult`，多个 handler 依次叠加（`types.d.ts:1079-1087`）。【实测】D：`details.policy` 写进了 session entry。
 - **(C)** `afterTool(call, result, api, ctx)` 返回整个替换后的结果，按扩展顺序链式执行（`tool.js:297-318`）。要注意：
-  - `call` 是 `readCall` 读出的**模型原始调用**，看不到 `beforeTool` 改写后的参数。【判断】前作里"参数被改写过，就在 content 前补一句说明"的逻辑，要先在 `beforeTool` 里 memo 改写信息，到 `afterTool` 里再读出来。
+  - `call` 是 `readCall` 读出的**模型原始调用**，看不到 `beforeTool` 改写后的参数。【判断】要做"参数被改写过，就在 content 前补一句说明"，得先在 `beforeTool` 里 memo 改写信息，到 `afterTool` 里再读出来。
   - 抛异常只是 "report, continue"，不会把结果变成 error（spec §7.2 表格）。
   - 被 block 的调用不会进 `afterTool`。
 
@@ -174,7 +173,7 @@ pi-ai（provider、SystemMessage.sections、reasoning_content 回放、faux）  
     - 默认摘要带一段英文前缀 "The user explored a different conversation branch…"，可以用 `replaceInstructions` 改掉。
 - **(C) 部分。**
   - 没有原地的树导航。`conversation.fork(at, {ownership})` 会建一个新会话：它看得到父会话到 `at` 为止的条目，agent 配置也取 `at` 那一刻的版本（README "More Conversations and Forks"；`types.d.ts:475`）。
-  - 文档按定义里的 `fork` 设置复制：`"current"`、`"initial"`、`"asOf"`。配上 `history:"rewindable"`，就能回到分叉点时的值。【判断】这正好对应前作"授权状态跟着分支走"的需要（`REF/web/src/agent/runtime.ts:576-580`），比前作回退后重放分支来重建状态更省事。
+  - 文档按定义里的 `fork` 设置复制：`"current"`、`"initial"`、`"asOf"`。配上 `history:"rewindable"`，就能回到分叉点时的值。【判断】这正好对应"授权状态跟着分支走"的需要，比回退后重放分支来重建状态更省事。
   - 分支摘要要二狗自己生成，再写进 fork。main 上未发布的 `Conversation.context(context, { at })` 可以在分叉前预览上下文（[PIMAIN durable CHANGELOG Unreleased](https://github.com/earendil-works/pi/blob/ae92585d3b3e5f1e4b123d14a34314d826d8d9f5/packages/durable/CHANGELOG.md)）。
 
 ### 4.6 崩溃续跑；守护进程重启后恢复待审批
@@ -293,24 +292,24 @@ pi-ai（provider、SystemMessage.sections、reasoning_content 回放、faux）  
 
 ---
 
-## 5. 前作（`AgentHarness`，pi-agent-core 0.85.1）→ 1.0 迁移表
+## 5. `AgentHarness`（pi-agent-core 0.85.1）→ 1.0 迁移表
 
-前作用到的旧 API 签名见 `REF/web/node_modules/@earendil-works/pi-agent-core/dist/harness/agent-harness.d.ts:501-580,642,655`（0.85.1），用法见 `REF/web/src/agent/runtime.ts`。
+旧 API 签名见 pi-agent-core 0.85.1 的 `dist/harness/agent-harness.d.ts:501-580,642,655`。
 
-| 前作用法 | (A) agent-core 1.0 | (B) coding-agent SDK 1.0 | (C) durable 1.0 | 语义差异 / 注意 |
+| 0.85.1 用法 | (A) agent-core 1.0 | (B) coding-agent SDK 1.0 | (C) durable 1.0 | 语义差异 / 注意 |
 |---|---|---|---|---|
-| `AgentHarness.create({session, models, model, thinkingLevel:"high", systemPrompt, tools, toolExecution:"sequential"})`（runtime.ts:319-330） | `new Agent({initialState:{systemPrompt, model, thinkingLevel:"high", tools}, streamFn: models.streamSimple.bind(models), toolExecution:"sequential"})` | `createAgentSession({model, thinkingLevel, modelRuntime, resourceLoader, sessionManager})`。工具用扩展的 `pi.registerTool`；需要顺序执行就给工具设 `executionMode:"sequential"` | `Harness.open(storage, {models, registry, settings:{toolExecution:"sequential"}})`，再 `root()` / `createConversation({agent:{model, thinkingLevel:"high", instructions, tools}})` | **thinkingLevel 必须显式写**：A 和 C 默认 off，§4.10 |
-| `lane.prompt / abort / waitForIdle / inspectExecution`（runtime.ts:514-551） | `agent.prompt / abort / waitForIdle / state.isStreaming` | `session.prompt / abort / waitForIdle / isStreaming` | `conversation.submit(…).wait / abort / waitForIdle`、`harness.inspect()` | C 的 submit 是持久化接纳，可以带 `requestId` |
-| `hooks.on("before_tool")` 返回 `{args}` 或 `{block:{reason, terminate}}`；在里面 `await broker.requestRuntimeConfirmation()`（runtime.ts:338-382） | `beforeToolCall` 返回 `{block:true, reason, terminate}`；改参数只能原地改 `context.args` | `tool_call` 返回 `{block, reason, terminate}`；改参数是原地改 `event.input` | `beforeTool` 返回 `{arguments}` 或 `{block: string}`；用 memo 存审批 id | C 的 block 文本带 `Tool call blocked: ` 前缀。前作那句"这一条不会因为重试而通过"（runtime.ts:366）仍然要保留。A 和 B 改完参数不重新校验 |
-| `hooks.on("after_tool")`：把 `details.policy` 合并进去；改写过参数时在 content 前补说明；`!isError` 才 commit 进轨迹（runtime.ts:384-395） | `afterToolCall` 返回 `{details, content}`，参数里有 `isError` | `tool_result` 返回 `{details, content}`，event 里有 `isError` | `afterTool` 返回整个结果，`result.isError` | C 的 `afterTool` 收到的是原始参数，改写信息要 memo 过去；它抛异常不会把结果变成 error |
-| `hooks.on("before_run_end")` 返回 `{followUp}`（runtime.ts:401-422） | `finishTurn` 里调 `agent.followUp(msg)` | `agent_before_settle` 返回 `{entries:[custom_message], continue:true}` | `onYield` 返回 `{continue}` | 三层的催促都会以 user 消息进入上下文，和旧版一样。C 遇到同一边界上有用户输入时会丢掉催促 |
-| `lane.appendCustomEntry(type, data)`：总账、`milestone_plan`、`milestone_reopen`（runtime.ts:306,457） | 自定义 `AgentMessage` + `convertToLlm` 过滤，持久化自建 | `pi.appendEntry` / `sessionManager.appendCustomEntry` | `submit({type:"write", entry:{kind:"app.guard_ledger", data}})`，或用 `defineDoc` | 前作是在 `waitForIdle` 之后才写总账（runtime.ts:443-462）。C 对应的做法是 `submission.wait()` 之后再写 |
-| `lane.navigateTree(target, {summarize, label, customInstructions})`，切分支时 `summarize:false`（runtime.ts:530,553-561） | 缺，自建 | `session.navigateTree(target, {summarize, label, customInstructions, replaceInstructions})`，原样可用 | `conversation.fork(at)` + 二狗自己生成摘要；切分支 = 切换"当前会话 id" | C 里，授权状态可以放进 `history:"rewindable", fork:"asOf"` 的文档，不必再按分支重放 |
-| `session.findEntries({order:"asc"})` + `lane.getTipId()`：UI 由会话树纯函数推导（runtime.ts:464-466） | `agent.state.messages`（只有当前这条线） | `sessionManager.getEntries / getBranch / getTree / getLeafId` | `conversation.entries(query, limit, cursor)`、`context()`、`viewState()` | |
-| `harness.events.on(...)`：`run_start/run_end/message_*/tool_start/tool_end/entry_added/navigation_end/retry_scheduled/fault/handler_error`（runtime.ts:493-508） | `subscribe`：`agent_*/turn_*/message_*/tool_execution_*`，没有 retry 和 fault | `session.subscribe`，另有 `auto_retry_*`、`entry_appended`、`agent_settled`、`compaction_*` | `watchEvents`：`run_start/run_end`、`message_*`、`tool_execution_*`、`entry_appended`、`auto_retry_*`、`task_failed`… | 二狗要定义自己的 `RuntimeEvent`，各层分别翻译 |
-| `JsonlSessionRepo` / `MemorySessionRepo` / `FileSystem` 桥（runtime.ts:318） | 无 | `SessionManager.create / open / inMemory`（JSONL，按 cwd 分组） | `MemoryStorage` / `openNodeSqliteStorage` / `openNodeJsonlStorage`；自定义存储可以跑 conformance 测试 | |
+| `AgentHarness.create({session, models, model, thinkingLevel:"high", systemPrompt, tools, toolExecution:"sequential"})` | `new Agent({initialState:{systemPrompt, model, thinkingLevel:"high", tools}, streamFn: models.streamSimple.bind(models), toolExecution:"sequential"})` | `createAgentSession({model, thinkingLevel, modelRuntime, resourceLoader, sessionManager})`。工具用扩展的 `pi.registerTool`；需要顺序执行就给工具设 `executionMode:"sequential"` | `Harness.open(storage, {models, registry, settings:{toolExecution:"sequential"}})`，再 `root()` / `createConversation({agent:{model, thinkingLevel:"high", instructions, tools}})` | **thinkingLevel 必须显式写**：A 和 C 默认 off，§4.10 |
+| `lane.prompt / abort / waitForIdle / inspectExecution` | `agent.prompt / abort / waitForIdle / state.isStreaming` | `session.prompt / abort / waitForIdle / isStreaming` | `conversation.submit(…).wait / abort / waitForIdle`、`harness.inspect()` | C 的 submit 是持久化接纳，可以带 `requestId` |
+| `hooks.on("before_tool")` 返回 `{args}` 或 `{block:{reason, terminate}}`；在里面 `await broker.requestRuntimeConfirmation()` | `beforeToolCall` 返回 `{block:true, reason, terminate}`；改参数只能原地改 `context.args` | `tool_call` 返回 `{block, reason, terminate}`；改参数是原地改 `event.input` | `beforeTool` 返回 `{arguments}` 或 `{block: string}`；用 memo 存审批 id | C 的 block 文本带 `Tool call blocked: ` 前缀。给模型看的拦截原因里，"这一条不会因为重试而通过"这类话仍然要保留。A 和 B 改完参数不重新校验 |
+| `hooks.on("after_tool")`：把 `details.policy` 合并进去；改写过参数时在 content 前补说明；`!isError` 才 commit 进轨迹 | `afterToolCall` 返回 `{details, content}`，参数里有 `isError` | `tool_result` 返回 `{details, content}`，event 里有 `isError` | `afterTool` 返回整个结果，`result.isError` | C 的 `afterTool` 收到的是原始参数，改写信息要 memo 过去；它抛异常不会把结果变成 error |
+| `hooks.on("before_run_end")` 返回 `{followUp}` | `finishTurn` 里调 `agent.followUp(msg)` | `agent_before_settle` 返回 `{entries:[custom_message], continue:true}` | `onYield` 返回 `{continue}` | 三层的催促都会以 user 消息进入上下文，和旧版一样。C 遇到同一边界上有用户输入时会丢掉催促 |
+| `lane.appendCustomEntry(type, data)`：总账、`milestone_plan`、`milestone_reopen` | 自定义 `AgentMessage` + `convertToLlm` 过滤，持久化自建 | `pi.appendEntry` / `sessionManager.appendCustomEntry` | `submit({type:"write", entry:{kind:"app.guard_ledger", data}})`，或用 `defineDoc` | 在 `waitForIdle` 之后才写总账的话，C 对应的做法是 `submission.wait()` 之后再写 |
+| `lane.navigateTree(target, {summarize, label, customInstructions})`，切分支时 `summarize:false` | 缺，自建 | `session.navigateTree(target, {summarize, label, customInstructions, replaceInstructions})`，原样可用 | `conversation.fork(at)` + 二狗自己生成摘要；切分支 = 切换"当前会话 id" | C 里，授权状态可以放进 `history:"rewindable", fork:"asOf"` 的文档，不必再按分支重放 |
+| `session.findEntries({order:"asc"})` + `lane.getTipId()`：UI 由会话树纯函数推导 | `agent.state.messages`（只有当前这条线） | `sessionManager.getEntries / getBranch / getTree / getLeafId` | `conversation.entries(query, limit, cursor)`、`context()`、`viewState()` | |
+| `harness.events.on(...)`：`run_start/run_end/message_*/tool_start/tool_end/entry_added/navigation_end/retry_scheduled/fault/handler_error` | `subscribe`：`agent_*/turn_*/message_*/tool_execution_*`，没有 retry 和 fault | `session.subscribe`，另有 `auto_retry_*`、`entry_appended`、`agent_settled`、`compaction_*` | `watchEvents`：`run_start/run_end`、`message_*`、`tool_execution_*`、`entry_appended`、`auto_retry_*`、`task_failed`… | 二狗要定义自己的 `RuntimeEvent`，各层分别翻译 |
+| `JsonlSessionRepo` / `MemorySessionRepo` / `FileSystem` 桥 | 无 | `SessionManager.create / open / inMemory`（JSONL，按 cwd 分组） | `MemoryStorage` / `openNodeSqliteStorage` / `openNodeJsonlStorage`；自定义存储可以跑 conformance 测试 | |
 | `AgentHarnessTool`，`execute` 返回 `{content, details}` | `AgentTool.execute(id, params, signal, onUpdate)` | `ToolDefinition.execute(id, params, signal, onUpdate, ctx)` | `defineTool({parameters, execute(args, api, ctx), replay})` | C 的工具多了 `replay` 和 `api.commit / memo / createTask` |
-| `createModels / createProvider / openAICompletionsApi` + `thinkingFormat:"deepseek"`（`REF/web/src/agent/model.ts`） | pi-ai 1.0 自带 `deepseekProvider()`（`[AI] dist/providers/deepseek.js`）；要走转发地址时仍可以用 `createProvider` | 同左，另可通过 `ModelRuntime.registerNativeProvider` 注册 | 同左，`Harness.open({models})` | |
+| `createModels / createProvider / openAICompletionsApi` + `thinkingFormat:"deepseek"` | pi-ai 1.0 自带 `deepseekProvider()`（`[AI] dist/providers/deepseek.js`）；要走转发地址时仍可以用 `createProvider` | 同左，另可通过 `ModelRuntime.registerNativeProvider` 注册 | 同左，`Harness.open({models})` | |
 | `fauxProvider / fauxAssistantMessage / fauxToolCall` 做端到端回归 | 仍在 `@earendil-works/pi-ai/providers/faux`（`[AI] dist/providers/faux.d.ts`） | 同左（【实测】D） | 同左（【实测】C） | 二狗的合同测试直接复用它 |
 | `BACKGROUND_CONTEXT`（pi 的取消上下文） | 改用 `AbortSignal` | 无 | `@earendil-works/chord/context` 的 `BACKGROUND_CONTEXT` | |
 
@@ -491,10 +490,7 @@ hook(ToolTask, {
   - [例子 23](https://github.com/earendil-works/pi/blob/7c10bd4337495ee613f2224843ecdf349b80d1df/packages/durable/test/examples/23-subagent-background.ts)
 - **GitHub main（`ae92585`，未发布）**：[durable](https://github.com/earendil-works/pi/blob/ae92585d3b3e5f1e4b123d14a34314d826d8d9f5/packages/durable/CHANGELOG.md)、[agent](https://github.com/earendil-works/pi/blob/ae92585d3b3e5f1e4b123d14a34314d826d8d9f5/packages/agent/CHANGELOG.md)、[ai](https://github.com/earendil-works/pi/blob/ae92585d3b3e5f1e4b123d14a34314d826d8d9f5/packages/ai/CHANGELOG.md) 三份 CHANGELOG 的 Unreleased 部分。
 - **npm registry**：`npm view @earendil-works/<pkg> time / gitHead / dist-tags`（2026-10-07 查询）。
-- **前作**（未公开）：
-  - `REF/web/src/agent/runtime.ts`（全文）；
-  - `REF/web/package.json`；
-  - `REF/web/node_modules/@earendil-works/pi-agent-core/dist/harness/agent-harness.d.ts`（0.85.1，第 501–580、642、655 行）。
+- **pi-agent-core 0.85.1**：`dist/harness/agent-harness.d.ts`（第 501–580、642、655 行）。
 - **本目录**：
   - `03-openclaw-and-pi.md` §A、§C2；
   - `09-chat-multimedia.md` §4（DeepSeek 官方文档引用见该文）。

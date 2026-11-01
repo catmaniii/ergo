@@ -131,7 +131,7 @@ describe("演绎预测落空：先撤预测，再撤错的那条前提（再按 
     expect(get(t.engine, t.recovery.id)).toMatchObject({ status: "contested", retractedBy: null });
   });
 
-  it("来源都已验证（原始 §6：前提全真）→ 不撤，来源挨一条有分量的反例（强），出问题弄清", async () => {
+  it("来源都已验证（前提全真）→ 不撤，来源挨一条有分量的反例（强），出问题弄清", async () => {
     const t = await story();
     const p = predict(t.engine, [t.autonomy.id], "deductive", "下次周末被别人排满，他一定会推掉");
     // 观察的原话写成和推理无关的（不让当夜的整理先拿它把需求打成猜测），判的模型说它证伪了预测

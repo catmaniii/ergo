@@ -1451,7 +1451,7 @@ flowchart TB
 - 每一步写一条修订，原因写"传播：前提 X 失效（证据 Y 被忘掉）"这类；彻底删除另写一条只有 id 的审计 `rg_purges`。
 - **纠正**：线上没有 `correct(被纠正的, 纠正它的)` 的入口。用户说"我记错了""不是…是…"的话照常存成素材，下一次整理抽事实时由变化判定认出纠正（4.5 的 `correction`）；PoC 里 `correct()` 让纠正的证据抽出的事实直接按各条假设的预期判、多重升一档。
 
-**在用的二狗**（✅）：秘书只能提议，删除总要用户在卡上核对（规格第 15 节，ADR-0008）；记忆管理员的 `forget_material`、`no_infer_material` 是用户跟它说了才调，追加同一种 `memory_command`。
+**在用的二狗**（✅）：秘书只能提议，删除总要用户在卡上核对（ADR-0008）；记忆管理员的 `forget_material`、`no_infer_material` 是用户跟它说了才调，追加同一种 `memory_command`。
 
 ```mermaid
 sequenceDiagram

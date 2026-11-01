@@ -1,9 +1,9 @@
 // 页面用的领域形状：任务看板、项目、待我处理、设置。
 // 这些频道和事件的正式形状由各自的模块定，
-// 这里按规格先写一份给原型用；接真数据时换成共享协议包里的类型（待我处理事项用协议包的 InboxItem）。
+// 这里先写一份给原型用；接真数据时换成共享协议包里的类型（待我处理事项用协议包的 InboxItem）。
 import type { PlanTemporalRule, ReminderSchedule, ScheduledJobAction, StageMarks, StageObservedCounts, TaskKind, TaskWaitReason, VerifiedUserWords } from "../state/index.ts";
 
-/** 任务状态（规格第 8 节） */
+/** 任务状态 */
 export type TaskStatus =
   | "planning"
   | "awaiting_confirm"
@@ -154,7 +154,7 @@ export interface MemoryCuratorSummary {
   note?: string;
 }
 
-/** 工单（规格第 12 节） */
+/** 工单 */
 export interface WorkOrder {
   id: string;
   title: string;
@@ -183,7 +183,7 @@ export interface Toolkit {
   sendAttachment?: boolean;
 }
 
-/** 阶段（规格第 8 节"计划"） */
+/** 阶段 */
 export interface Stage {
   id: string;
   title: string;

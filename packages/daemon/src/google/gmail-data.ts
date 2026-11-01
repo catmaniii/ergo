@@ -61,7 +61,7 @@ export async function gmailLive(service: GmailService, query: DataSourceLiveQuer
   });
   const items = accounts.flatMap((one) => (one.problem !== undefined ? [] : one.messages.map((m) => listedItem(m, one.account.id))));
   const [only] = accounts;
-  // 只有一个账号：和以前一样写一共几封；几个账号每组各写各的
+  // 只有一个账号：写一共几封；几个账号每组各写各的
   return accounts.length === 1 && only !== undefined && only.problem === undefined
     ? { scope: t("google.gmail.live.scope", { count: items.length, n: items.length }), total: only.total, items, groups }
     : { scope: t("google.gmail.live.scopeEach", { n: SEARCH_MAX }), items, groups };

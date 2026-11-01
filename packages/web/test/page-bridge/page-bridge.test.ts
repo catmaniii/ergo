@@ -80,7 +80,7 @@ beforeAll(async () => {
   browser = await chromium.launch({ executablePath: CHROME });
 }, 120_000);
 
-// 关 Chrome 在机器忙（几个工作槽同时跑全量）时会超过默认的 10 秒，测试本身全过却挂在收尾上
+// 关 Chrome 在机器忙（同时跑几份全量测试）时会超过默认的 10 秒，测试本身全过却挂在收尾上
 afterAll(async () => {
   await browser?.close();
 }, 60_000);

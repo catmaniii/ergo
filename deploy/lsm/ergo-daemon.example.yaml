@@ -1,4 +1,4 @@
-# ergo-daemon：二狗的守护进程。由 Local Service Manager 登记、启动（规格第 1 节），二狗自己不启动任何服务。
+# ergo-daemon：二狗的守护进程。由 Local Service Manager 登记、启动，二狗自己不启动任何服务。
 #
 # 这是服务管家（LSM）注册表条目的**示例**（格式见 packages/supervisor/docs/service-schema.md）。登记时复制一份，把下面三个占位符
 # 换成本机的值，放进服务管家数据目录（默认 %LOCALAPPDATA%\ergo\supervisor）的 registry/services/ergo-daemon.yaml。真实条目不进本仓库。

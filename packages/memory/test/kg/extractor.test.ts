@@ -20,7 +20,7 @@ function brief(d: FactDraft): string {
 const run = (text: string, over: Partial<Evidence> = {}, known: KgView = EMPTY) => extractor.extract(ev(text, over), known);
 const briefs = (text: string, over: Partial<Evidence> = {}) => run(text, over).map(brief);
 
-describe("规则版事实抽取：周末社交案例（任务书第 11 节）", () => {
+describe("规则版事实抽取：周末社交案例", () => {
   it("1. 拒绝周六聚会，说最近周末想好好休息", () => {
     const drafts = run("这周六的聚会我就不去了，最近周末想好好休息。", { context: ["weekend", "social"] });
     expect(drafts.map(brief)).toEqual(["declined(聚会)", "prefers(休息)"]);

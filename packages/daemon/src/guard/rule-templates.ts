@@ -1,4 +1,4 @@
-// v1 规则模板（规格第 9 节）：框架自带、默认生效的六条时序规则，不用写进计划。用 planguard 的格式写，和计划里的规则走同一个引擎。
+// v1 规则模板：框架自带、默认生效的六条时序规则，不用写进计划。用 planguard 的格式写，和计划里的规则走同一个引擎。
 // 触发它们的工具按工具注册表算（比如"对外发送"也包括登记了 outbound 的 MCP 工具），所以模板是注册表的函数。
 // 规则里用到的 $current.paths、$current.outward、$current.secrets 这些字段见 rule-steps.ts；几个联网相关的说法
 // （usesNetwork、outbound、往外送、往下拉）见 tool-registry.ts 里 ToolDescriptor 后面的说明。

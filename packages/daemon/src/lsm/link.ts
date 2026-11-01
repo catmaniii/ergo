@@ -1,4 +1,4 @@
-// 接入 Local Service Manager（LSM）的 link 协议（LSM 仓库的 docs/link-protocol.md v1，规格第 1 节）。
+// 接入 Local Service Manager（LSM）的 link 协议（LSM 仓库的 docs/link-protocol.md v1）。
 // LSM 拉起 ergo-daemon 时注入 LSM_URL / LSM_SERVICE_ID / LSM_TOKEN / LSM_PROTOCOL，这里出站连上它：
 // - 握手（hello）报上 pid、本机端口、版本和能力（busy、stop、restart、health）；
 // - 心跳（默认每 5 秒，按管理器 welcome 里给的间隔）报健康（秘书在不在）和忙不忙（忙不忙怎么算见 busy.ts）；

@@ -1,4 +1,4 @@
-// 素材模块对外的东西（规格第 15 节）。别的模块只从这里取；materials.db 的连接不出 materials/。
+// 素材模块对外的东西。别的模块只从这里取；materials.db 的连接不出 materials/。
 // - 守护进程装配：openMaterials（素材库，内核）、createBgeM3Embedder（向量函数，内核交给记忆插件）；BGE_M3（锁定的版本和文件，组件清单核对用）；
 // - 接入一种素材来源：MaterialSource、MaterialDraft、userDecisionDraft、segmentPieces / MaterialPiece，见 capture.ts 开头；
 //   素材 id 怎么由事件算出来（materialId：存网页的接口当场回它）；

@@ -176,7 +176,7 @@ describe("计划变更加一个阶段、去掉一个阶段（构造）", () => {
   // 新加的阶段没有编号（守护进程定计划时才给；这里不给，按依赖图现算）
   const { code: _code, ...s1Fields } = s1;
   const s3 = { ...s1Fields, stageId: "s3", title: "写摘要", dependsOn: ["s1"], policy: { grants: [], temporalRules: [] } };
-  // 录像是以前录的，计划里还带着定时作业（现在的 schema 不收，读的地方也不认），新造的这一版不带
+  // 录像的计划里带着定时作业（schema 不收，读的地方也不认），新造的这一版不带
   const { scheduledJobs: _legacy, ...rest } = basePlan as typeof basePlan & { scheduledJobs?: unknown };
   const newPlan = { ...rest, stages: [s1, s3] };
   const payload: PlanChangeCardPayload = {

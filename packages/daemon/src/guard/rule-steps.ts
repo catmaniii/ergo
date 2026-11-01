@@ -333,7 +333,7 @@ function sends(view: RuleView, tool: ToolDescriptor, args: Record<string, unknow
 }
 
 /**
- * 会不会往外送（v1 模板"读过密钥之后不许往外送"用，规格第 9 节）：
+ * 会不会往外送（v1 模板"读过密钥之后不许往外送"用）：
  * - 不会联网的：同 sends（跑脚本看扫描结果——用到联网库的看不出方向，算往外送；没扫过的"未知"；别的为 false）；
  * - 拿到了守卫看不见的输入的（bash 里管道喂来的标准输入、`$(cat .env)` 这类没法静态确定的词、xargs 补上的参数……）：
  *   守卫看不全它发了什么，true；

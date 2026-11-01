@@ -1,5 +1,5 @@
 // Job 对象：agent 子进程和它起的孙进程都在二狗自建、不允许脱离的 Job 里；
-// 守护进程被强杀后，它们都不再存在（规格第 17 节恢复规则的前提）。
+// 守护进程被强杀后，它们都不再存在（恢复规则的前提）。
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { describe, expect, it, onTestFinished } from "vitest";

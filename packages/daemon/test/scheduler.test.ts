@@ -1,4 +1,4 @@
-// 调度器（规格第 13 节）：按 key 登记"到点要做的事"，时钟可注入。测试用手动拨的时钟，不靠真等。
+// 调度器：按 key 登记"到点要做的事"，时钟可注入。测试用手动拨的时钟，不靠真等。
 import { describe, expect, test } from "vitest";
 import { createScheduler } from "../src/scheduler/scheduler.ts";
 import { ManualClock } from "./helpers/clock.ts";

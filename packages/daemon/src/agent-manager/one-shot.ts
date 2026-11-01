@@ -3,7 +3,7 @@
 // 就绪后送一条输入 → 这一轮结束（turn_end）就结束子进程。调用方拿结局：这一轮怎么结束的、最后一段回复的文字；
 // 没等到这一轮结束子进程就退出了（被结束、意外退出、排队时被取消）的另算。
 // 调用方还能知道输入送出去没有、"手头这一步"什么时候做完（当前的工具调用都结束了、下一次模型调用之前：工具包变了重新装配时
-// 在这里停掉它，规格第 11 节"工具包变了立即生效"）。
+// 在这里停掉它，工具包变了要立即生效）。
 // 给了 transcript 的，送出去的那条输入、它说的每一段话（模型输出的文字，不含思考）都报给调用方记下（背后的 agent 的只读对话）。
 import type { GuardedSession, GuardRuntime } from "../guard-runtime/guard-runtime.ts";
 import type { TurnOutcome } from "../runtime/index.ts";

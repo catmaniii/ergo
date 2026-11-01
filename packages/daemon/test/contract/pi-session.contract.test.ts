@@ -1,4 +1,4 @@
-// pi 契约测试（规格 Testing Decisions 切面 3，ADR-0001 的升级闸门）。
+// pi 契约测试（ADR-0001 的升级闸门）。
 // 每条用例单独拉起一个 agent 子进程、接 faux provider，只验二狗依赖的 pi 行为。
 // 升级 pi 之前先跑：npm run test:contract
 //

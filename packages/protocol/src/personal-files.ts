@@ -307,7 +307,7 @@ export function monthDayOf(value: string): MonthDay | undefined {
 }
 
 /**
- * 这个字段的值发给模型的整理提示里不带（第二阶段计划"号码类字段不进夜里的整理提示"）：号码类（证件号、电话、
+ * 这个字段的值发给模型的整理提示里不带（号码类字段不进夜里的整理提示）：号码类（证件号、电话、
  * 自定义字段里带一串数字的）和住址（门牌）。档案摘要里不列它们；夜里整理发给模型的每个请求里，出现了它们的值就换成占位
  */
 export function withheldFromModel(field: string, value: string): boolean {

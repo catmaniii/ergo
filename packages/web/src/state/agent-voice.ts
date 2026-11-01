@@ -1,4 +1,4 @@
-// agent 发的语音（规格第 22 节）：用户发语音时，agent 这一轮的回复由运行时合成语音，在 agent 一侧显示成和用户语音一样的气泡。
+// agent 发的语音：用户发语音时，agent 这一轮的回复由运行时合成语音，在 agent 一侧显示成和用户语音一样的气泡。
 // 每条 agent 语音（AgentVoiceRecord）跟着会话频道上的 agent_voice 事件走（ui-state.ts 按版本归并进 UiState.agentVoices），
 // 气泡要的东西从这里取：时长和宽度、"转文字"展开的送进 TTS 的原文（不默认展开）。
 // 显示：

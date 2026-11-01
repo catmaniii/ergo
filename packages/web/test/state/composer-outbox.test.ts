@@ -117,7 +117,7 @@ describe("排着的语音什么时候发", () => {
     ]);
   });
 
-  test("没带附件的语音：传好就发（和以前一样）", () => {
+  test("没带附件的语音：传好就发", () => {
     const uploads = [voice("v1")];
     const queue = said(uploads, "v1");
     expect(queuedVoiceWait(uploads, queue, "v1")).toBeUndefined();

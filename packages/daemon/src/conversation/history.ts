@@ -1,4 +1,4 @@
-// 会话历史分页（规格第 5 节 HTTP）。会话频道的历史可能很长，前端第一次订阅时 WebSocket 只补发最近一页
+// 会话历史分页。会话频道的历史可能很长，前端第一次订阅时 WebSocket 只补发最近一页
 // （最近 HISTORY_PAGE_SIZE 条消息起的全部事件），往上翻时经 HTTP 按页取更早的消息：
 // - 第一页的起点是第 HISTORY_PAGE_SIZE 新的那条消息的序号 S，WebSocket 补发序号 ≥ S 的事件；
 // - HTTP 的 before 是前端手里最早那条消息的序号，返回序号 < before 的最近若干条消息。

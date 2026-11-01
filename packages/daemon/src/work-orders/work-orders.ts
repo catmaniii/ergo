@@ -1,4 +1,4 @@
-// 派单器（规格第 11、12、21 节）：派单队列，以及把会话分段（segments.ts）、澄清（clarifications.ts）接在一起。
+// 派单器：派单队列，以及把会话分段（segments.ts）、澄清（clarifications.ts）接在一起。
 //
 // 工单：交给某个项目负责人的一份工作。只涉及一个项目的任务由这个项目的负责人起草计划并执行，负责人要做的事都以工单送达：
 // - 起草计划（plan）：秘书写好任务书、用户打回计划、项目开工建出首个建设任务时，派一张起草计划的工单，内容就是交给负责人的话；
@@ -76,7 +76,7 @@ export interface WorkOrderServiceOptions {
   execution: Pick<TaskExecution, "kick" | "awaitAnswer" | "answered" | "countReturn" | "guardTask">;
   /** 计划外工单交给守卫判定（unplanned.ts；daemon.ts 接上守卫的各区、关注类别设置和任务负责人此刻的装配） */
   judgeUnplanned: MultiProjectOptions["judgeUnplanned"];
-  /** 一段收尾时最多催几次写回：同第 8 节的催促阈值，取配置里的 tasks.thresholds.nudges，和执行中的催促同一个 */
+  /** 一段收尾时最多催几次写回：同催促阈值，取配置里的 tasks.thresholds.nudges，和执行中的催促同一个 */
   nudges: number;
   /** 工单结束时的范围审视（项目负责人模块做）：见 segments.ts 的 SegmentsOptions.reviewScope */
   reviewScope?: (segment: MaintainerSegment) => Promise<NewEvent[]>;

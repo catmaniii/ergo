@@ -1,4 +1,4 @@
-// 流式增量的节流（规格第 5 节：每 100 毫秒最多一次）。主切面里按收到的时间量过一遍；
+// 流式增量的节流（每 100 毫秒最多一次）。主切面里按收到的时间量过一遍；
 // 这里用假的钟把边界情形钉死：换了一条消息也不能在 100 毫秒内连推两帧。
 import type { EventFrame, StreamEventPayload } from "@ergo/protocol";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";

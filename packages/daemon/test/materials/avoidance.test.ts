@@ -1,4 +1,4 @@
-// 回避信号（规格第 13、15 节，模块层，时钟可注入）：卡片被用户关掉，或者建议卡、提问卡 7 天（默认，可配置）没处理。
+// 回避信号（模块层，时钟可注入）：卡片被用户关掉，或者建议卡、提问卡 7 天（默认，可配置）没处理。
 // 7 天没处理由调度器的内部作业在卡片频道追加 card_stale 事件，素材从事件日志采；7 天内处理了的不产生。
 import { type Card, type CardEventPayload, type CardStaleEventPayload, CHANNELS, EVENT_TYPES, nowIso } from "@ergo/protocol";
 import { describe, expect, test } from "vitest";

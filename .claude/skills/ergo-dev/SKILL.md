@@ -113,7 +113,7 @@ npm run test:fast
 6. 个人数据、密钥、本机路径、真实截图不进仓库。界面截图用原型的编的数据。
 7. PR 照 `.github/PULL_REQUEST_TEMPLATE.md` 填。CI 在 Windows 上再跑一遍。
 
-## 交活清单
+## 完成前检查
 
 - [ ] `npm run typecheck`、`npm run lint`、`npm run i18n:check -- --data-dir <临时目录>` 退出码都是 0。
 - [ ] 第 2 节表里相关的测试都过了；跳过的（比如本机没有 Chrome）写明。

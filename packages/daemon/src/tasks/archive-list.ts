@@ -1,4 +1,4 @@
-// 每周的归档清单（规格第 8、13 节）：任务模块在调度器上登记的一个内部作业（scheduler/internal-jobs.ts，错过了开机后补一次），
+// 每周的归档清单：任务模块在调度器上登记的一个内部作业（scheduler/internal-jobs.ts，错过了开机后补一次），
 // 把结束（已完成、失败、已取消）超过 archiveAfterDays 天（thresholds.ts，配置 tasks.thresholds.archiveAfterDays）、还没归档的任务
 // 汇总成一张归档清单卡（archive_list），放进待我处理（不卡任务）。每一项可选：
 // - 归档：任务变为已归档（看板的已归档分组）；

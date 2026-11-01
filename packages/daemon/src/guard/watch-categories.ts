@@ -1,4 +1,4 @@
-// 关注类别注册表（规格第 9 节）：内置九类和它们在对话、任务里的默认处置随框架提供；
+// 关注类别注册表：内置九类和它们在对话、任务里的默认处置随框架提供；
 // 用户的调整和自定义类别是数据，放在数据目录的配置区（见 watch-category-store.ts），判定时作为输入传进来。
 //
 // 三条约束由判定函数保证，不靠设置界面自觉：
@@ -41,7 +41,7 @@ const builtinOf = (id: BuiltinCategoryId, defaults: Readonly<Record<Scene, Dispo
     defaults,
   });
 
-/** 内置九类及默认处置（规格第 9 节的表） */
+/** 内置九类及默认处置 */
 export const BUILTIN_WATCH_CATEGORIES: readonly BuiltinWatchCategory[] = Object.freeze([
   builtinOf("spend_money", { chat: "hand_over", task: "hand_over" }),
   builtinOf("external_send", { chat: "ask_first", task: "plan_listed" }),

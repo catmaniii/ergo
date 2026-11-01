@@ -1,5 +1,5 @@
 // 用户对一条结论直接表态（对 / 不对 / 拿不准）走引擎，不直接改库——不然下一次整理计分又把它改回去。
-// 例子是周末社交案例（任务书第 11 节，规则版）：前三条时那组四种解释都还拿不准；第 4 条进来以后"重视周末自主安排"成立、
+// 例子是周末社交案例（规则版）：前三条时那组四种解释都还拿不准；第 4 条进来以后"重视周末自主安排"成立、
 // "不喜欢社交"碰上"我不反感见朋友"——ADR-0032 R14起随口说的不再自动算决定性，它只降成猜测；要撤回得用户纠正（afterCorrection）。
 import { afterEach, describe, expect, it } from "vitest";
 import { isVerdictEvidence, VERDICT_SOURCE_PREFIX } from "../../src/evidence/boundary.ts";

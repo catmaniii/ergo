@@ -1,4 +1,4 @@
-// 任务里谁能做什么（规格第 8 节"谁能改"表）：只在这里定一次。守护进程按 TASK_TRANSITIONS 校验每次状态迁移
+// 任务里谁能做什么：只在这里定一次。守护进程按 TASK_TRANSITIONS 校验每次状态迁移
 // （tasks/state-machine.ts），控制器（tasks/execution.ts）、负责人模块、Web 的任务详情都用 availableTaskActions
 // 判断现在能做什么。只有常量和纯函数，不引用 TypeBox。
 import {

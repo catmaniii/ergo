@@ -14,7 +14,7 @@ export const WORK_ORDER_TOOL = {
 } as const;
 
 /**
- * 涉及多个项目的任务的负责人的工具（工具定义在 multi-project-tools.ts）。固定工具包（规格第 11 节）是读项目档案
+ * 涉及多个项目的任务的负责人的工具（工具定义在 multi-project-tools.ts）。固定工具包是读项目档案
  * （用秘书那个工具的名字，projects/tool-names.ts）、派工单、汇总回执三样；回答项目负责人的提问算"派工单"那一样的工单往来；
  * 答不了转问用户是运行时控制（和负责人问用户同一条路），不进工具包
  */

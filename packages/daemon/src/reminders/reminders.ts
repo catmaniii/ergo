@@ -1,4 +1,4 @@
-// 简单提醒（规格第 7、8、13 节）：到点只发一条通知、不需要 agent 干活。秘书负责建、改、取消（工具在 tools.ts），
+// 简单提醒：到点只发一条通知、不需要 agent 干活。秘书负责建、改、取消（工具在 tools.ts），
 // 用户也能在提醒卡上改、取消（卡片类型在 card.ts，动作的结果由这里给出）；用户在发起对话框里选"只提醒我"也能直接建
 // （create_reminder，createFromUser），时间表和定时触发的任务同一套。
 // - 状态：一次性的 待触发 → 已触发；重复的（每天、每周几、每月几号、每年某月某日、按我的工作日）一直待触发；任何时候可以取消。
@@ -10,7 +10,7 @@
 // - 到点：调度器（时钟可注入）直接通知前端，不拉起任何 agent：待我处理里放一条置顶的提醒事项、推一条临时的 notify。
 //   同一个提醒在待我处理里最多一条置顶：新的一次到点时，上一次的置顶事项取消置顶（还没处理的顺手归档）。
 // - 晚了才到点（守护进程那时没在运行、机器睡着了）：晚了 60 分钟以内照发，标明晚了多久；更晚的不弹提示，
-//   改放进待我处理（错过的提醒）。重复提醒错过多次只按最近一次处理（规格第 13 节）。把同一套规则扩到定时作业。
+//   改放进待我处理（错过的提醒）。重复提醒错过多次只按最近一次处理。把同一套规则扩到定时作业。
 // - 调度：启动时把待触发的提醒登记进调度器（已经过了点的马上按上面的规则处理）；之后每条 reminder 事件
 //   （不论是秘书、用户还是到点引起的）都按它的新状态重新登记。所以守护进程正常重启后，还没到点的提醒照常触发。
 // - 日历：calendar 给出一段时间里每条没取消的提醒的时间表展开（按当前的工作日历）、现在的时间表从哪一刻起生效、
@@ -151,7 +151,7 @@ export interface ReminderServiceOptions {
   clock: Clock;
   /** 算下一次时要的东西：当前的个人工作日历（"按我的工作日"的下一次按它算） */
   scheduleContext: () => ScheduleContext;
-  /** 晚了这么多分钟以内照发；更晚的改放进待我处理（规格第 13 节；默认见 thresholds.ts，配置 reminders.lateLimitMinutes） */
+  /** 晚了这么多分钟以内照发；更晚的改放进待我处理（默认见 thresholds.ts，配置 reminders.lateLimitMinutes） */
   lateLimitMinutes?: number;
   /** 事件发生时提醒的：事件触发方式对不对（登记表和来源的实现现查）；不给就不收事件发生时提醒的 */
   checkEvent?: (trigger: EventTrigger) => string[];
@@ -321,7 +321,7 @@ export function createReminderService(options: ReminderServiceOptions): Reminder
   /** 提醒变了，提醒卡跟着变的那条 card 事件 */
   const cardEvent = (reminder: Reminder, change: CardChange = {}): NewEvent => cards.buildUpdate(reminder.cardId, { payload: cardPayloadOf(reminder), ...change }).event;
 
-  /** 这个提醒以前到点时放进待我处理、现在还置顶着的事项：取消置顶，还没处理的顺手归档 */
+  /** 这个提醒之前到点时放进待我处理、还置顶着的事项：取消置顶，还没处理的顺手归档 */
   const retirePinned = (reminder: Reminder): NewEvent[] =>
     inbox
       .itemsForCard(reminder.cardId)

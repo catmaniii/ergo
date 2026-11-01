@@ -1,4 +1,4 @@
-// skill 库（规格第 20 节）：二狗自己的一批 skill，会话只从这里按工具包挑。
+// skill 库：二狗自己的一批 skill，会话只从这里按工具包挑。
 // - 框架自带的：程序目录 packages/daemon/skills/ 下（第一阶段只有示例）；
 // - 用户自己加的：数据目录的 skill 区（个人数据，随数据目录备份）。用户在设置里的 skill 库页显式导入一份（复制进 skill 区）；
 //   本机别处现成的 skill（比如 Claude Code 的 ~/.claude/skills 里的）要用就这样导入。不自动读取 ~/.claude/skills、~/.pi。

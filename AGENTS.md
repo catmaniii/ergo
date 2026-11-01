@@ -17,7 +17,7 @@ ergo（二狗）是一个装在用户自己 Windows 电脑上的个人 AI 助理
 
 ## 开发 skill
 
-每份是一个普通的 Markdown 文件，写了步骤、能照抄的例子和交活清单。Claude Code 会自动发现它们；别的 agent（Codex 等）直接读对应的文件就行。别的几份都以 `ergo-dev` 为前提。
+每份是一个普通的 Markdown 文件，写了步骤、能照抄的例子和完成前的检查清单。Claude Code 会自动发现它们；别的 agent（Codex 等）直接读对应的文件就行。别的几份都以 `ergo-dev` 为前提。
 
 | skill | 干什么 | 路径 |
 |---|---|---|

@@ -1,5 +1,5 @@
 // 守卫转发：子进程里每次工具调用先停在 pi 的 tool_call 钩子里，发 guard_request 给守护进程，
-// 等到同一 requestId 的 guard_reply 才决定执行与否（规格第 3 节）。
+// 等到同一 requestId 的 guard_reply 才决定执行与否。
 // 判定"不放行"时用钩子的 block 结果让 pi 不执行这次调用。
 // 放行时带了 args 的（流程执行时按计划改回参数），原地把这次调用的参数整份换成它（pi 的 tool_call 钩子允许原地改
 // event.input，改后不再校验），工具结果出来时在前面加上 resultPrefix（pi 的 tool_result 钩子），模型知道实际执行的是哪一版。
