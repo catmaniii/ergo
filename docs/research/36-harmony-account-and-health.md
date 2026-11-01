@@ -2,7 +2,7 @@
 
 - 调研日期：2026-10-25。官方文档页的"更新时间"大多是 2026-10-19（HarmonyOS 6.x 文档）。
 - 范围：HarmonyOS NEXT / 5.x 及以上、ArkTS 原生应用。结论都以 developer.huawei.com 的官方文档为准，每条附了出处。少数二手材料只当线索用，文中都标了"线索"。
-- 二狗现状：bundle `com.example.ergou`，`compatibleSdkVersion` 和 `targetSdkVersion` 都是 `6.1.1(24)`。`module.json5` 只声明了 `INTERNET`、`MICROPHONE`，没有 `client_id` metadata。签名是 DevEco "Automatically generate signature" 生成的调试签名（`debugKey`，材料在 `~/.ohos/config/default_harmony_*`，签名材料本身没看）。原生桥 `ergoNative`（`entry/src/main/ets/bridge/NativeBridge.ets`，javaScriptProxy）已经在用，新能力可以照这个模式加。
+- 二狗现状：bundle `com.catmaniii.ergo`，`compatibleSdkVersion` 和 `targetSdkVersion` 都是 `6.1.1(24)`。`module.json5` 只声明了 `INTERNET`、`MICROPHONE`，没有 `client_id` metadata。签名是 DevEco "Automatically generate signature" 生成的调试签名（`debugKey`，材料在 `~/.ohos/config/default_harmony_*`，签名材料本身没看）。原生桥 `ergoNative`（`entry/src/main/ets/bridge/NativeBridge.ets`，javaScriptProxy）已经在用，新能力可以照这个模式加。
 
 ---
 
@@ -56,7 +56,7 @@
    - "关联注册应用"：勾选 "Associate with registered application"。DevEco 按 bundleName 去 AGC 找同包名的应用，可以直接在 DevEco 里开通开放能力，**Account Kit 默认开启**。需要 DevEco 6.0.0 Beta5 及以上。
    - "未关联注册应用"：只勾 "Automatically generate signature"，二狗现在用的就是这种（见 `docs/developer-guide.md` 的"鸿蒙 App"一节的"签名"）。文档没说这种签名能不能用 Account Kit。**推断**：Client ID 要对上 AGC 里的应用，所以要换成"关联注册应用"那种，需要用户本人登录 DevEco/AGC 操作。AGC 里没有同包名的应用时，DevEco 会提示 "Bundle name … does not exist"，可以直接点 "Add App ID" 现建（[配置调试签名异常 FAQ](https://developer.huawei.com/consumer/cn/doc/harmonyos-faqs/faqs-signature-service-18)）。
 4. **上架**：基础登录和头像昵称都**不要求上架**。要求上架（或说明不上架原因）的只有一键登录、手机号、收货地址、年龄段这几项需要申请的权限（[申请账号权限](https://developer.huawei.com/consumer/cn/doc/harmonyos-guides/account-config-permissions)）。
-5. **`com.example.*` 能不能用**：AGC 包名规范只禁止把 `oh`、`ohos`、`harmony`、`harmonyos`、`openharmony`、`system` 当独立段用，并要求全局唯一、至少三段、长度 7–128（[创建 HarmonyOS 应用](https://developer.huawei.com/consumer/cn/doc/app/agc-help-create-app-0000002247955506)）。**文档没有禁止 `example`**，所以 `com.example.ergou` 只要没被别人占就能建。但**包名在 AGC 建好后不能改**，`example` 又是占位名，要不要先换成正式包名、再去 AGC 注册，请用户先定。换包名要重新自动签名，手机上的 App 也要卸载重装（数据会清掉）。
+5. **包名能不能用占位名**（当时这条是问 `com.example.*`）：AGC 包名规范只禁止把 `oh`、`ohos`、`harmony`、`harmonyos`、`openharmony`、`system` 当独立段用，并要求全局唯一、至少三段、长度 7–128（[创建 HarmonyOS 应用](https://developer.huawei.com/consumer/cn/doc/app/agc-help-create-app-0000002247955506）。**文档没有禁止 `example`**。但**包名在 AGC 建好后不能改**，`example` 又是占位名。**已定（2026-10-30）**：不用占位名，二狗的鸿蒙 App 用 `com.catmaniii.ergo`。改包名要重新自动签名，手机上的 App 也要卸载重装（数据会清掉）。
 6. **服务端换取**：头像昵称和 UnionID/OpenID 在端上的响应里直接有（`avatarUri`、`nickName`、`openID`、`unionID`，见 [API 参考](https://developer.huawei.com/consumer/cn/doc/harmonyos-references/account-api-authentication)）。手机号、年龄段这类要先拿 Authorization Code，再由"应用服务端"用 Client ID 加 **Client Secret** 换 Access Token 后去查。Access Token 有效 60 分钟，Refresh Token 有效 180 天（[获取实名年龄段](https://developer.huawei.com/consumer/cn/doc/harmonyos-guides/account-get-realname-age)、[静默登录：服务端开发](https://developer.huawei.com/consumer/cn/doc/harmonyos-guides/account-silent-login)）。
 7. **取消授权**：有 `createCancelAuthorizationRequest`（[API 参考](https://developer.huawei.com/consumer/cn/doc/harmonyos-references/account-api-authentication)）。用户也能在"设置 > 华为账号 > 账号安全 > 使用华为账号的应用"里取消（[运动健康：申请验证](https://developer.huawei.com/consumer/cn/doc/harmonyos-guides/health-verification)里提到的路径）。拿到的数据要由开发者自己提供删除、导出等数据主体权利（[Account Kit 个人数据处理说明](https://developer.huawei.com/consumer/cn/doc/harmonyos-guides/account-personal-data-processing-description)）。
 
