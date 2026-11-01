@@ -193,7 +193,7 @@ describe("真进程：小服务调 ergo notify，事件触发的任务真跑一�
     const log = fs.readFileSync(path.join(workdir, "notify.log"), "utf8").trim().split("\n").map((l) => JSON.parse(l) as { url?: string; hasToken?: boolean; status?: number; stdout?: string });
     expect(log[0]).toEqual({ url: `${td.url}/api/service-events`, hasToken: true });
     const success = log.find((l) => l.status === 0);
-    expect(success?.stdout).toContain("报上了：事件「评论异常」");
+    expect(success?.stdout).toMatch(/报上了：事件「评论异常」|Reported “评论异常”/); // 命令行跟系统语言走，中英都可能
     // 项目页这一条看得到
     expect(td.daemon.projectServices.view().find((v) => v.app === "p-1-watcher")?.recentEvents?.some((r) => r.outcome === "woke")).toBe(true);
     // 真的管家里登记的定义只有凭证文件的路径，没有凭证本身
