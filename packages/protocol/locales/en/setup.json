@@ -77,7 +77,7 @@
   "setup.steps.phone.how": "How to expose the outside address is on the last page of this wizard, Access from outside, or the Outside access section of the user guide.",
   "setup.steps.phone.go": "Settings · Paired devices",
   "setup.steps.safety.title": "Safety defaults",
-  "setup.steps.safety.sub": "A fresh install is tight: risky things ask you first and tasks stop when they go over budget. Turn either off whenever it gets in your way.",
+  "setup.steps.safety.sub": "Both are off by default, so it gets on with things and interrupts you less. Tick them if you want it more careful: risky things ask you first, and tasks stop when they go over budget. You can change this later in Settings.",
   "setup.done.title": "Setup is done — go use it",
   "setup.done.sub": "Anything you want to change later is in More · Settings.",
   "setup.done.go": "Back to {name}",

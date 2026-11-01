@@ -77,7 +77,7 @@
   "setup.steps.phone.how": "外网地址怎么接出来，看向导最后一页「外网访问」，或者用户手册的「外网访问」那一节。",
   "setup.steps.phone.go": "去设置 · 已配对设备",
   "setup.steps.safety.title": "安全默认值",
-  "setup.steps.safety.sub": "新装时默认收紧：有风险的事先问你，任务超预算就停下。觉得难受随时能关。",
+  "setup.steps.safety.sub": "这两项默认不勾，二狗放手去做，少打扰你。想稳一点就勾上：有风险的事先问你，任务超预算就停下等你。以后在设置里也能改。",
   "setup.done.title": "设置完了，去用它吧",
   "setup.done.sub": "以后想改哪一项，都在「更多 · 设置」里。",
   "setup.done.go": "回到{name}",

@@ -50,9 +50,9 @@ describe("第一次装：空数据目录、没有模型 key、没装 Claude Code
     for (const dir of [layout.root, layout.config, layout.db, layout.tmp]) expect(fs.statSync(dir).isDirectory()).toBe(true);
     expect(logs.join("\n")).toContain(`数据目录 ${layout.root} 还没有，新建一个`);
     // 新装：对话审批、预算控制两样收紧，明着写进配置文件；设置里看到的是开着
-    expect(JSON.parse(fs.readFileSync(layout.configFile, "utf8"))).toEqual({ guard: { conversationApprovals: "on" }, tasks: { thresholds: { budgetControl: true } } });
-    expect(logs.join("\n")).toContain(`新装：在配置文件 ${layout.configFile} 里打开了 guard.conversationApprovals、tasks.thresholds.budgetControl`);
-    expect((await safetyApi.view(td.url)).body).toEqual({ conversationApprovals: true, budgetControl: true });
+    expect(JSON.parse(fs.readFileSync(layout.configFile, "utf8"))).toEqual({ guard: { conversationApprovals: "off" }, tasks: { thresholds: { budgetControl: false } } });
+    expect(logs.join("\n")).toContain(`新装：在配置文件 ${layout.configFile} 里写明了 guard.conversationApprovals、tasks.thresholds.budgetControl`);
+    expect((await safetyApi.view(td.url)).body).toEqual({ conversationApprovals: false, budgetControl: false });
     // 网页能开
     const page = await request(td.url, "/");
     expect(page.status).toBe(200);
@@ -147,8 +147,8 @@ const secretaryToolParts = (frontend: TestFrontend): ToolCallPart[] =>
     .flatMap((m) => m.parts.filter((p): p is ToolCallPart => p.type === "tool_call"));
 const configOf = (dataDir: string) => JSON.parse(fs.readFileSync(dataDirLayout(dataDir).configFile, "utf8")) as Record<string, unknown>;
 
-describe("新装的默认值收紧（315 号票第 3 步）：对话审批、任务的预算控制；设置里能关", () => {
-  it("新装（还没有事件库）：两样写进配置文件，已写的键不碰；守卫按开着判（读工作区外的文件出审批卡）；设置里关掉马上生效、写回配置，同样的调用直接做", { timeout: 90_000 }, async () => {
+describe("新装时对话审批、任务的预算控制默认不勾（用户 2026-11-01 改的）；设置里能勾上", () => {
+  it("新装（还没有事件库）：两样写进配置文件（都不勾），已写的键不碰；读工作区外的文件直接做；设置里勾上马上生效、写回配置，同样的调用出审批卡", { timeout: 90_000 }, async () => {
     const dataDir = makeTempDir("ergo-data-");
     const homeDir = makeTempDir("ergo-home-");
     // 安装时（或用户自己）先写好的几项：照旧
@@ -158,27 +158,27 @@ describe("新装的默认值收紧（315 号票第 3 步）：对话审批、任
     const read = path.join(outside, "notes.txt");
     // 秘书的剧本：读一次工作区外的文件、看结果（开关一改秘书按新的系统提示重新拉起，剧本从头再来一遍）
     const td = await startTestDaemon({ reuse: { dataDir, homeDir }, keepConfig: true, secretary: [call("read", { path: read }), { kind: "echo_context" }] });
-    expect(configOf(dataDir)).toEqual({ approvals: { waitMinutes: 0.02 }, tasks: { maxRunning: 2, thresholds: { budgetControl: true } }, guard: { conversationApprovals: "on" } });
-    expect(td.daemon.config.guard.conversationApprovals).toBe("on");
-    expect((await safetyApi.view(td.url)).body).toEqual({ conversationApprovals: true, budgetControl: true });
+    expect(configOf(dataDir)).toEqual({ approvals: { waitMinutes: 0.02 }, tasks: { maxRunning: 2, thresholds: { budgetControl: false } }, guard: { conversationApprovals: "off" } });
+    expect(td.daemon.config.guard.conversationApprovals).toBe("off");
+    expect((await safetyApi.view(td.url)).body).toEqual({ conversationApprovals: false, budgetControl: false });
 
     const frontend = await TestFrontend.connect(td.url);
     await frontend.subscribe({ [CHANNELS.secretary]: 0, [CHANNELS.cards]: 0 });
     await frontend.sendText("看看那份笔记");
     await frontend.next(CHANNELS.secretary, EVENT_TYPES.turnEnd);
-    expect(secretaryToolParts(frontend).map((p) => [p.tool, p.disposition, p.outcome])).toEqual([["read", "ask_first", "blocked"]]);
-    expect(td.daemon.approvals.list().map((a) => a.status)).toEqual(["pending"]);
+    expect(secretaryToolParts(frontend).map((p) => [p.tool, p.disposition, p.outcome])).toEqual([["read", "do", "done"]]);
+    expect(td.daemon.approvals.list()).toEqual([]);
 
-    // 设置里关掉"先问我"：写回配置文件（别的照旧），马上生效
-    const off = await safetyApi.change(td.url, { conversationApprovals: false });
-    expect(off.status).toBe(200);
-    expect(off.body).toEqual({ conversationApprovals: false, budgetControl: true });
-    expect(configOf(dataDir)).toEqual({ approvals: { waitMinutes: 0.02 }, tasks: { maxRunning: 2, thresholds: { budgetControl: true } }, guard: { conversationApprovals: "off" } });
+    // 设置里勾上"先问我"：写回配置文件（别的照旧），马上生效
+    const on = await safetyApi.change(td.url, { conversationApprovals: true });
+    expect(on.status).toBe(200);
+    expect(on.body).toEqual({ conversationApprovals: true, budgetControl: false });
+    expect(configOf(dataDir)).toEqual({ approvals: { waitMinutes: 0.02 }, tasks: { maxRunning: 2, thresholds: { budgetControl: false } }, guard: { conversationApprovals: "on" } });
     await frontend.sendText("再看一遍");
     await frontend.next(CHANNELS.secretary, EVENT_TYPES.turnEnd);
     expect(secretaryToolParts(frontend).map((p) => [p.tool, p.disposition, p.outcome])).toEqual([
-      ["read", "ask_first", "blocked"],
       ["read", "do", "done"],
+      ["read", "ask_first", "blocked"],
     ]);
     expect(td.daemon.approvals.list().map((a) => a.status)).toEqual(["pending"]);
     // 参数不对的拒收
@@ -200,7 +200,7 @@ describe("新装的默认值收紧（315 号票第 3 步）：对话审批、任
     expect(configOf(dataDir)).toEqual(rest);
   });
 
-  it("新装时预算控制开着：任务的工具调用超出预算 2 倍就停下（转等我）；设置里关掉后，同样的任务做下去不停", { timeout: 120_000 }, async () => {
+  it("新装时预算控制不勾；勾上后任务的工具调用超出预算 2 倍就停下（转等我）；再关掉后，同样的任务做下去不停", { timeout: 120_000 }, async () => {
     const base = twoStagePlan();
     const plan: Plan = { ...base, stages: [{ ...base.stages[0]!, budget: { tokens: 0, toolCalls: 1 } }, base.stages[1]!] };
     const td = await startTestDaemon({
@@ -208,11 +208,12 @@ describe("新装的默认值收紧（315 号票第 3 步）：对话审批、任
       // 两个任务的维护者都照这一份：第 3 次调用之后超过预算的 2 倍
       maintainer: maintainerScript(plan, [write("a.md", "a"), write("b.md", "b"), write("c.md", "c"), write("sources.md", "- 来源\n"), completeStage("s1"), say("交了"), say("知道了"), say("等你"), say("好")]),
     });
+    expect((await safetyApi.change(td.url, { budgetControl: true })).body).toEqual({ conversationApprovals: false, budgetControl: true });
     const frontend = await connect(td.url, 2);
     const first = await confirmTask(td, frontend, "超了就停");
     await taskWhere(frontend, (e) => e.task.id === first && e.change === "waiting" && e.task.waitReason === "over_budget", "第一个任务转等我（超预算）");
 
-    expect((await safetyApi.change(td.url, { budgetControl: false })).body).toEqual({ conversationApprovals: true, budgetControl: false });
+    expect((await safetyApi.change(td.url, { budgetControl: false })).body).toEqual({ conversationApprovals: false, budgetControl: false });
     expect(configOf(td.dataDir)).toMatchObject({ tasks: { thresholds: { budgetControl: false } } });
     const second = await confirmTask(td, frontend, "超了也做");
     await taskWhere(frontend, (e) => e.task.id === second && e.change === "stage_accepted" && e.stageId === "s1", "第二个任务的 s1 验收通过");

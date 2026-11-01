@@ -679,7 +679,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
   if (freshInstall) {
     const written = writeFreshInstallDefaults(layout.configFile);
     if (written.length > 0) {
-      log(`新装：在配置文件 ${layout.configFile} 里打开了 ${written.join("、")}（设置 · 关注类别里能关）`); // @i18n-ignore log：启动时的说明
+      log(`新装：在配置文件 ${layout.configFile} 里写明了 ${written.join("、")}（默认不勾，设置 · 关注类别里能勾上）`); // @i18n-ignore log：启动时的说明
       config = loadConfig({ env: options.env, homeDir: options.homeDir });
     }
   }

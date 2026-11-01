@@ -12,19 +12,19 @@ import { makeTempDir } from "./helpers/temp-dir.ts";
 const configFile = (dir: string) => path.join(dir, "config", "ergo.json");
 const read = (dir: string) => JSON.parse(fs.readFileSync(configFile(dir), "utf8")) as unknown;
 
-describe("新装时收紧的两项", () => {
+describe("新装时写明的两项", () => {
   it("配置文件不在：新建一个只有这两项的；在、而且写了其中一项：只补没写的，别的原样", () => {
     const fresh = makeTempDir();
     fs.mkdirSync(path.join(fresh, "config"));
     expect(writeFreshInstallDefaults(configFile(fresh))).toEqual(["guard.conversationApprovals", "tasks.thresholds.budgetControl"]);
-    expect(read(fresh)).toEqual({ guard: { conversationApprovals: "on" }, tasks: { thresholds: { budgetControl: true } } });
-    expect(FRESH_INSTALL_SAFETY).toEqual({ conversationApprovals: "on", budgetControl: true });
+    expect(read(fresh)).toEqual({ guard: { conversationApprovals: "off" }, tasks: { thresholds: { budgetControl: false } } });
+    expect(FRESH_INSTALL_SAFETY).toEqual({ conversationApprovals: "off", budgetControl: false });
 
     const written = makeTempDir();
     fs.mkdirSync(path.join(written, "config"));
     fs.writeFileSync(configFile(written), JSON.stringify({ ports: { local: 9000, external: 9001 }, guard: { conversationApprovals: "off" }, tasks: { maxRunning: 2, thresholds: { pullBacks: 4 } } }));
     expect(writeFreshInstallDefaults(configFile(written))).toEqual(["tasks.thresholds.budgetControl"]);
-    expect(read(written)).toEqual({ ports: { local: 9000, external: 9001 }, guard: { conversationApprovals: "off" }, tasks: { maxRunning: 2, thresholds: { pullBacks: 4, budgetControl: true } } });
+    expect(read(written)).toEqual({ ports: { local: 9000, external: 9001 }, guard: { conversationApprovals: "off" }, tasks: { maxRunning: 2, thresholds: { pullBacks: 4, budgetControl: false } } });
     // 都写过了：不动文件
     const before = fs.readFileSync(configFile(written), "utf8");
     expect(writeFreshInstallDefaults(configFile(written))).toEqual([]);

@@ -85,10 +85,10 @@ On this computer open <http://127.0.0.1:8810/>. Requests on the local port are t
 2. **More · Settings · Roles & voices**: name your assistant; pick a visual style under **Appearance & style**.
 3. **Say something**, e.g. "remind me to drink water in two minutes". A reminder card appears in the chat; when it is due, a banner shows at the top and an item lands in your inbox.
 
-**Two safety settings are on for new installs** (top of **More · Settings · Watch categories**; you can turn them off, effective immediately):
+**Two safety settings are off for new installs** (the setup wizard's "Safety defaults" step tells you about them; they are also at the top of **More · Settings · Watch categories**. Tick them if you want it more careful, effective immediately):
 
-- **Ask me before risky things** (on): in conversations, risky actions (reading or writing files outside the agent's workspace, sending things out…) first show an approval card and wait for you; tasks also ask before doing something their plan did not authorize. With it off, most of these just happen and are logged; only the most sensitive ones (sending in your name, accounts and passwords, irreversible commits, deleting or changing files outside the workspace) still ask.
-- **Stop tasks that go over budget** (on): when a task step exceeds its planned budget, the owner explains its progress first; at twice the budget it stops and waits for you, and you can add budget to continue. With it off, usage is only recorded.
+- **Ask me before risky things** (off by default): when ticked, risky actions in conversations (reading or writing files outside the agent's workspace, sending things out…) first show an approval card and wait for you; tasks also ask before doing something their plan did not authorize. Unticked, most of these just happen and are logged; only the most sensitive ones (sending in your name, accounts and passwords, irreversible commits, deleting or changing files outside the workspace) still ask.
+- **Stop tasks that go over budget** (off by default): when ticked and a task step exceeds its planned budget, the owner explains its progress first; at twice the budget it stops and waits for you, and you can add budget to continue. Unticked, usage is only recorded.
 
 They are stored in the config file as `guard.conversationApprovals` and `tasks.thresholds.budgetControl`, written when the daemon first starts, and are ordinary settings after that.
 

@@ -517,11 +517,11 @@ export interface SafetyConfig {
 }
 
 /**
- * 新装时这两项收紧（315 号票，用户 2026-10-27 定："风险和任务预算的事情，做成一个设置吧。默认收紧，如果用户觉得比较难受，它可以自己关掉"）：
+ * 新装时这两项默认不勾（用户 2026-11-01 改的："默认选项选成不勾，但是安装的时候告诉用户可以勾"；315 号票时定的是默认收紧），设置向导的安全默认值这一步告诉用户可以勾上：
  * 对话审批开着、预算控制开着。代码里的默认值（DEFAULT_GUARD_CONFIG、DEFAULT_TASK_THRESHOLDS）不动——已有的数据目录里没写这两项的照旧是关着；
  * 只有新装（守护进程起来时数据目录里还没有事件库）时由 writeFreshInstallDefaults 明着写进配置文件，之后就是普通配置，设置里能关
  */
-export const FRESH_INSTALL_SAFETY: Readonly<SafetyConfig> = Object.freeze({ conversationApprovals: "on", budgetControl: true });
+export const FRESH_INSTALL_SAFETY: Readonly<SafetyConfig> = Object.freeze({ conversationApprovals: "off", budgetControl: false });
 
 /**
  * 新装（315 号票）：把收紧的两项写进配置文件——里面已经写了的键不碰（安装时、用户先写好的照旧），别的内容原样留着，文件不在就新建。

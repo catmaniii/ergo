@@ -6,7 +6,7 @@
 //   规则里还没登记的工具提示"登记后生效"；删除或调松后，还有进行中的任务按确认时的设置检查它时说一声；
 // - 设置文件坏了（用户手改坏的）：守卫一律拦下工具调用（判定出错），这里提示问题并给出修复（待我处理里也有一条事项带到这里）。
 // 315 号票：最上面两个开关（SafetySwitches.tsx）——有风险的事先问我（guard.conversationApprovals）、任务超预算就停下
-// （tasks.thresholds.budgetControl），新装时都开着，嫌烦能自己关；不受下面设置文件坏没坏影响。
+// （tasks.thresholds.budgetControl），新装时都不勾，想稳一点能自己勾上；不受下面设置文件坏没坏影响。
 import { useState } from "react";
 import { useStore } from "../../app/store.tsx";
 import {
