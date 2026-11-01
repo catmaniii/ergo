@@ -57,7 +57,7 @@ The **Capabilities** step of the setup wizard lets you tick them as well; see [G
 |---|---|---|
 | Fun-ASR Nano | 996.9 MB | About 2 GB of video memory. It also works without a graphics card; on a CPU a sentence takes a second or two. Free to use, modify and share, as long as you credit the source and authors and keep the model name. The original text says it's for reference and learning only, with no warranty, and has no separate terms for commercial use; please judge for yourself |
 | audio.cpp | 813.3 MB with an NVIDIA graphics card, 29.1 MB without | Installed first automatically when you install a model. The graphics card build needs driver 580 or newer; older cards like the GTX 10 series can't use it |
-| Fish S2 Pro | 5.88 GB | About 7.3 GB of video memory. It also works without a graphics card, but very slowly. Free for personal, non-commercial use; commercial use needs separate authorization from Fish Audio |
+| Fish S2 Pro | 5.88 GB | About 7.3 GB of video memory. It also works without a graphics card, but very slowly. Free for personal, non-commercial use; commercial use needs separate authorization from Fish Audio. Built with Fish Audio |
 
 With both models installed, the graphics card needs room for over 9 GB. Whichever doesn't fit gives an error when loading, and the Components and Voice pages state the reason.
 

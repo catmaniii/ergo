@@ -199,3 +199,9 @@ irm https://github.com/catmaniii/ergo/releases/latest/download/install.ps1 | iex
 ## 许可证
 
 [MIT](LICENSE) © ergo contributors。第三方许可证清单随安装包提供。
+
+## 第三方模型
+
+语音合成默认用 [Fish S2 Pro](https://huggingface.co/fishaudio/s2-pro)，遵循 [Fish Audio Research License](https://huggingface.co/fishaudio/s2-pro/blob/main/LICENSE.md)：个人非商业免费，商业使用要另外向 Fish Audio 取得授权。模型不在安装包里，由你确认许可后下载。
+
+**Built with Fish Audio.**

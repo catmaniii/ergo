@@ -199,3 +199,9 @@ Questions, docs, bug fixes, plugins and new languages are welcome; see [CONTRIBU
 ## License
 
 [MIT](LICENSE) © ergo contributors. Third-party license lists ship with the package.
+
+## Third-party models
+
+Speech synthesis uses [Fish S2 Pro](https://huggingface.co/fishaudio/s2-pro) by default, under the [Fish Audio Research License](https://huggingface.co/fishaudio/s2-pro/blob/main/LICENSE.md): free for personal, non-commercial use; commercial use needs separate authorization from Fish Audio. The model isn't in the package. You accept the license and then download it.
+
+**Built with Fish Audio.**
