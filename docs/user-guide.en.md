@@ -316,7 +316,7 @@ Things worth knowing:
 
 How to reach home from a phone or tablet (Tailscale, self-hosted Headscale, VPS tunnel) has its own document: [Deployment and outside access](deployment.en.md).
 
-Once that's set up, open **More · Settings · Device pairing** on your computer (`#/more/devices`; the setup wizard's "Pair your phone" step goes there too). **Show pairing code** is at the top, with your paired devices below it:
+Once that's set up, open **More · Settings · Device pairing** on your computer (`#/more/devices`; the setup wizard's "Pair your phone" step shows the code too). **Show pairing code** is at the top, with your paired devices below it:
 
 - **The pairing code screen**: a large code, the address under it, and "Waiting for the phone to scan". Ergo gets the addresses from the service manager. Only entries that go to the external port 8811 count, public first, then tailnet, with the ones reached from outside on top. One it can't reach is marked but still listed, because the problem may be on the service manager's side. A tailnet address notes that the phone must join the same tailnet first. If there's more than one, you can switch.
 - **Addresses the service manager doesn't know about** (a hand-run `tailscale serve`, your own reverse proxy, frp): enter a fixed address on this screen. It must be an https address that opens from outside; local network addresses aren't accepted.

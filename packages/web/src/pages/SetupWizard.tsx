@@ -19,6 +19,7 @@ import type { Navigate } from "../app/route.ts";
 import { pageSetupBanner, useSetup, useSetupBannerDismissed } from "../app/page-setup.ts";
 import { type SetupScreen, setupDoneCount, setupScreenOf, setupStep, setupStepAfter } from "../app/setup.ts";
 import { useStore } from "../app/store.tsx";
+import { PairingQrPanel } from "./more/PairingQrPage.tsx";
 import {
   activeLocale,
   SETUP_STEPS,
@@ -218,6 +219,7 @@ function PhoneStep({ step, navigate }: { step: SetupStepView; navigate: Navigate
         <span className={`chip ${step.ready ? "chip-ok" : ""}`}>{t(step.ready ? "setup.steps.phone.ready" : "setup.steps.phone.notReady")}</span>
       </div>
       <p className="setup-note">{t("setup.steps.phone.sub")}</p>
+      <PairingQrPanel />
       <p className="setup-note">{t("setup.steps.phone.how")}</p>
       <div>
         <button type="button" className="link" onClick={() => navigate({ tab: "more", page: "devices" })}>

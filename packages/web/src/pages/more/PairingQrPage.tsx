@@ -15,6 +15,18 @@ import { TopBar, useNow } from "../../ui/common.tsx";
 import { QrCode } from "../../ui/qr-code.tsx";
 
 export function PairingQrPage({ title, onBack }: { title: string; onBack: (() => void) | undefined }) {
+  return (
+    <div className="chat-col">
+      <TopBar title={title} onBack={onBack} />
+      <div className="scroll page-pad">
+        <PairingQrPanel />
+      </div>
+    </div>
+  );
+}
+
+/** 二维码界面的内容（设置向导的手机配对这一步也放它）：取地址、配对请求就地批准 */
+export function PairingQrPanel() {
   const { view, error, saveManual } = useConnectionAddresses();
   const access = useAccess();
   const { ui, cardAction, seeAlert } = useStore();
@@ -35,14 +47,7 @@ export function PairingQrPage({ title, onBack }: { title: string; onBack: (() =>
     const state = ui.cards[id];
     return state ? [state] : [];
   });
-  return (
-    <div className="chat-col">
-      <TopBar title={title} onBack={onBack} />
-      <div className="scroll page-pad">
-        <PairingQrContent view={view} error={error} local={access?.access === "local"} requests={requests} onCard={(id, action) => cardAction(id, action)} onSaveManual={saveManual} />
-      </div>
-    </div>
-  );
+  return <PairingQrContent view={view} error={error} local={access?.access === "local"} requests={requests} onCard={(id, action) => cardAction(id, action)} onSaveManual={saveManual} />;
 }
 
 export interface PairingQrContentProps {
