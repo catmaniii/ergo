@@ -1659,6 +1659,9 @@ export class AgentSession {
         // 没收下的插话：留在队里，回合结束后照常作为一条输入送
         if (report.inputId !== undefined && this.interjected.delete(report.inputId)) return this.pump();
         options.log(`${options.label}（${options.agentId}）的子进程报错（${report.code}${report.fatal ? "，致命" : ""}）：${report.message}`);
+        // 在等交接摘要时回了"没实现"（377 号票）：handoff_written 不会来了，按没写成走，不等到超时。这条错误不带是哪条命令的：
+        // 等着的时候收到的都算它的。pi、Claude Code 等着的时候不会回这个（toolkit 只送能当场换的运行时，work_order 不送）
+        if (report.code === "unsupported" && this.proc) this.failHandoffs(this.proc, new Error(t("conversation.runtimeSwitch.unsupported")));
         return;
       default:
         // 心跳不处理；用量由 agent 管家交给账本（归属是上面的 usageAttribution）；代为执行的工具由 serveHostTools 处理，
@@ -1677,11 +1680,7 @@ export class AgentSession {
       waiting.settle(new Error(t(exit.reason === "unresponsive" ? "conversation.session.summaryTimeout" : "conversation.session.childExited")));
     }
     // 写交接摘要时退出了（289 号票）：没写成，照样换
-    for (const [id, waiting] of this.handoffs) {
-      if (waiting.proc !== proc) continue;
-      this.handoffs.delete(id);
-      waiting.settle(new Error(t("conversation.session.childExited")));
-    }
+    this.failHandoffs(proc, new Error(t("conversation.session.childExited")));
     if (proc !== this.proc) return;
     this.proc = undefined;
     this.ready = false;
@@ -1850,7 +1849,16 @@ export class AgentSession {
     sw.commit(to, wanted.options);
   }
 
-  /** 让子进程写交接摘要（289 号票，宿主协议 write_handoff）：写好交回摘要；没写成、退出了、到点没回抛出原因 */
+  /** 这个子进程上在等的交接摘要都算没写成（它退出了、回了 unsupported） */
+  private failHandoffs(proc: ManagedAgent, reason: Error): void {
+    for (const [id, waiting] of this.handoffs) {
+      if (waiting.proc !== proc) continue;
+      this.handoffs.delete(id);
+      waiting.settle(reason);
+    }
+  }
+
+  /** 让子进程写交接摘要（289 号票，宿主协议 write_handoff）：写好交回摘要；没写成、回了 unsupported、退出了、到点没回抛出原因 */
   private requestHandoff(proc: ManagedAgent, instructions: string, timeoutMs: number): Promise<string> {
     const requestId = randomUUID();
     return new Promise<string>((resolve, reject) => {

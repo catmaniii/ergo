@@ -95,5 +95,6 @@
   "conversation.runtimeSwitch.done": "已换成 {to}，接着之前的对话（附了交接摘要）。",
   "conversation.runtimeSwitch.fresh": "已换成 {to}，从这里新开一段会话。",
   "conversation.runtimeSwitch.noSummary": "已换成 {to}，从这里新开一段会话；{from} 没写成交接摘要：{error}",
-  "conversation.runtimeSwitch.timeout": "写交接摘要超过 {seconds} 秒没有回"
+  "conversation.runtimeSwitch.timeout": "写交接摘要超过 {seconds} 秒没有回",
+  "conversation.runtimeSwitch.unsupported": "这个运行时不支持写交接摘要"
 }

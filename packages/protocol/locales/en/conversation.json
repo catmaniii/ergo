@@ -97,5 +97,6 @@
   "conversation.runtimeSwitch.done": "Switched to {to}, continuing the conversation (with a handoff summary).",
   "conversation.runtimeSwitch.fresh": "Switched to {to}; a new session starts here.",
   "conversation.runtimeSwitch.noSummary": "Switched to {to}; a new session starts here. {from} couldn't write a handoff summary: {error}",
-  "conversation.runtimeSwitch.timeout": "The handoff summary took longer than {seconds} seconds"
+  "conversation.runtimeSwitch.timeout": "The handoff summary took longer than {seconds} seconds",
+  "conversation.runtimeSwitch.unsupported": "this runtime doesn't support handoff summaries"
 }

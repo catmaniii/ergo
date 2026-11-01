@@ -702,7 +702,8 @@ export type HostCommand =
   /**
    * 换运行时之前写交接摘要（23，289 号票：中途换运行时 = 原来的写交接摘要、新的新开会话，和换模型一样）：守护进程等手头这一轮结束才送；
    * 子进程用这个会话的模型照 instructions（prompts/handoff-summary.md 填好值）写一份摘要，不改会话、不进会话；结果以同一 requestId 的
-   * handoff_written 报回（最多等 timeoutMs，到点算没写成），那次调用的用量另报一条 usage（purpose: handoff）
+   * handoff_written 报回（最多等 timeoutMs，到点算没写成），那次调用的用量另报一条 usage（purpose: handoff）；
+   * 写不了的回 code 为 "unsupported" 的 error（377 号票）：守护进程马上按没写成换，不等到超时
    */
   | { type: "write_handoff"; requestId: string; instructions: string; timeoutMs: number }
   /** 中止进行中的回合 */

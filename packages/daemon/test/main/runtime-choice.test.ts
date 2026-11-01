@@ -7,7 +7,8 @@
 // - ⚙：Claude Code 的负责人按能力清单多"权限模式""思考档位"，模型列表是 Claude Code 报的；选的值交给子进程（下一轮的 query 选项里有）；
 //   不认得的值回 400；
 // - 中途换运行时（pi → Claude Code）：原来的 pi 写交接摘要，Claude Code 新开会话，摘要跟着下一条输入交过去；会话里记一条"已换成"；
-//   任务记着新的运行时。
+//   任务记着新的运行时；
+// - 原来的运行时写不了交接摘要、回 unsupported（377 号票，假运行时 helpers/fake-runtime.ts 就这样回）：马上按没写成换，不等到超时。
 import { CHANNELS, EVENT_TYPES, HTTP_PATHS, maintainerChannel, type MessageEventPayload, METHODS, type SlashCommandList, type Task } from "@ergo/protocol";
 import { describe, expect, it } from "vitest";
 import { CLAUDE_CODE_RUNTIME_ID } from "../../src/claude-code/api.ts";
@@ -15,6 +16,7 @@ import type { FauxStep } from "../../src/runtime/index.ts";
 import { startTestDaemon, type TestDaemon } from "../helpers/daemon.ts";
 import { fakeSdkClaudeCodePlugin } from "../helpers/fake-claude-code.ts";
 import type { FakeClaudeEcho } from "../helpers/fake-claude-sdk.ts";
+import { FAKE_RUNTIME_ID, fakeRuntimePlugin } from "../helpers/fake-runtime.ts";
 import { TestFrontend } from "../helpers/frontend.ts";
 import { agentSettingsApi, requestJson, runtimesApi } from "../helpers/http.ts";
 import { waitUntil } from "../helpers/process.ts";
@@ -203,4 +205,20 @@ describe("⚙ 按运行时、中途换运行时（289 号票）", () => {
     expect(seen.options.resume).toBeUndefined();
     expect(spawns().at(-1)).toEqual({ agentId: task.maintainerId, runtime: CLAUDE_CODE_RUNTIME_ID });
   }, 90_000);
+
+  it("原来的运行时对写交接摘要回 unsupported（377 号票）：马上按没写成换，不等到超时；会话里写明原因，下一条输入交给新的运行时", async () => {
+    const td = await startTestDaemon({ extraPlugins: [fakeRuntimePlugin], maintainer: [{ kind: "reply", text: "pi 接着做了。" }] });
+    const task = td.daemon.tasks.delegate({ title: "整理下载目录", instructions: "把下载目录按月份分好", runtime: FAKE_RUNTIME_ID });
+    await waitState(td, task.id, "done");
+    const channel = maintainerChannel(task.maintainerId);
+
+    expect((await agentSettingsApi.runtime(td.url, task.maintainerId, { runtime: "pi" })).status).toBe(200);
+    // 超时是 模型调用上限 + 30 秒：真等到超时这里就过不去
+    await waitUntil(() => said(td, channel, "system").some((text) => text.includes("没写成交接摘要")), { timeoutMs: 15_000, describe: () => `等换运行时，现在：${JSON.stringify(said(td, channel, "system"))}` });
+    expect(said(td, channel, "system").at(-1)).toBe("已换成 pi，从这里新开一段会话；假运行时 没写成交接摘要：这个运行时不支持写交接摘要");
+
+    const frontend = await TestFrontend.connect(td.url);
+    await frontend.sendText("接着按年份分一遍", { conversation: channel });
+    expect(await nthAgentReply(td, channel, 2)).toBe("pi 接着做了。");
+  }, 60_000);
 });

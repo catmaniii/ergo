@@ -24,7 +24,8 @@ export {
   switchServicesTool,
 } from "./secretary-tool.ts";
 export { createServiceEvents, SERVICE_TOKENS_DIR, type ServiceEvents, type ServiceEventsOptions } from "./service-events.ts";
-export { looksLikeSecret, lsmDefinition, normalizeService, servicePlanProblems, serviceProblems, serviceUrl, withOwnNode } from "./spec.ts";
+export { withOwnNode } from "../process/own-node.ts";
+export { looksLikeSecret, lsmDefinition, normalizeService, servicePlanProblems, serviceProblems, serviceUrl } from "./spec.ts";
 export { projectServicesView, servicePower, serviceRow, serviceRows } from "./views.ts";
 export {
   captureServiceHome,

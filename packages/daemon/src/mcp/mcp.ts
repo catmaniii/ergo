@@ -1,6 +1,7 @@
 // MCP（规格第 3、9、20 节，27 号票）：登记在配置区（registration.ts），写进项目或任务的工具包才授权给负责人。
 // - 服务进程由守护进程按需拉起（第一次有会话装配到它、第一次调用它时），放进它自己的 Job 对象，凭据按登记注入（client.ts）。
 //   它们不是服务：不对外监听端口，不在 LSM 登记；守护进程停止、被杀时一起结束。登记改了（命令、参数、环境）下次用到时按新的重起；
+//   command 写 node 的用二狗自己那份（377 号票，和项目服务一样：PATH 上可能没有 node）；
 // - 会话里的 MCP 工具是守护进程代为执行的工具（hostToolsFor）：工具包列了这个 MCP 才有，联网开关关着时没有要联网的那些；
 //   名字是 mcp__<MCP 名>__<工具名>，在守卫的工具注册表里按登记的类别、底线、参数规则、"只读或幂等"判（来源 mcp）。
 //   agent 的调用先过守卫，再由守护进程转给服务进程（call）；agent 子进程和它的孙进程碰不到凭据；
@@ -12,6 +13,7 @@ import type { HostTool } from "../agent-manager/host-tools.ts";
 import { redactSecretValues, type ToolDescriptor } from "../guard/index.ts";
 import type { JobObject } from "../process/job-object.ts";
 import { buildChildEnv } from "../process/child-env.ts";
+import { ownNodeProgram } from "../process/own-node.ts";
 import type { JsonValue } from "../runtime/index.ts";
 import { connectMcp, type McpCallResult, type McpConnection, type McpListedTool } from "./client.ts";
 import { guardFieldsOf, type McpRegistrationRead, type McpServerRegistration, type McpToolRegistration, readMcpRegistrations, serverEnv } from "./registration.ts";
@@ -23,6 +25,8 @@ export interface McpServiceOptions {
   parentEnv: Readonly<Record<string, string | undefined>>;
   /** 服务进程默认的工作目录（登记里没写 cwd 时） */
   cwd: string;
+  /** 二狗自己那份 Node（守护进程的 process.execPath）：登记的 command 写 node 的换成它（process/own-node.ts）；不给就原样起 */
+  nodePath?: string;
   /** 给每个 MCP 建一个 Job 对象（不是 Windows 时返回 undefined） */
   newJob: () => JobObject | undefined;
   /** 单次调用的超时（毫秒），同工具调用的默认超时 */
@@ -133,7 +137,7 @@ export function createMcpService(options: McpServiceOptions): McpService {
     const log = (line: string) => options.log(redact(line));
     const connection = connectMcp({
       name: server,
-      command: registration.command,
+      command: ownNodeProgram(registration.command, options.nodePath),
       args: registration.args ?? [],
       cwd: registration.cwd ?? options.cwd,
       // 系统变量白名单 + 登记给的（含按登记注入的凭据）；不继承守护进程的其他环境

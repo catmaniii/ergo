@@ -16,6 +16,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { APP_BASE_PATH_ENV, appBasePath, appUrl, isNameOrOld, oldNameOf, OPERATION_SERVICE_MEANS, type OperationItemDraft, type OperationService, type OperationServiceDraft, SERVICE_NOTIFY_URL_ENV, SERVICE_TOKEN_ENV, serviceAppName } from "@ergo/protocol";
 import type { LsmServiceDefinition } from "../lsm/link.ts";
+import { withOwnNode } from "../process/own-node.ts";
 import { realPathOf } from "../util/real-path.ts";
 import { specText } from "./texts.ts";
 
@@ -172,17 +173,6 @@ export function lsmDefinition(service: OperationService, labels: { title: string
     // put 是整份替换：关着的也写上（关掉之前开着的）
     autoRestart: service.autoRestart,
   };
-}
-
-/** 命令开头的 node（或 node.exe）：后面是空白或命令结束 */
-const NODE_HEAD = /^\s*node(?:\.exe)?(?=\s|$)/i;
-
-/**
- * 命令开头是 node 的换成 nodePath（加引号：LSM 经 cmd.exe /d /s /c 跑字符串命令，路径带空格也认）；不给 nodePath、开头不是 node 的
- * （npm、python、带路径的 node……）原样不动。
- */
-export function withOwnNode(command: string, nodePath: string | undefined): string {
-  return nodePath && NODE_HEAD.test(command) ? command.replace(NODE_HEAD, `"${nodePath}"`) : command;
 }
 
 /** LSM 的 title、project 是一行字，最多 80 个字 */

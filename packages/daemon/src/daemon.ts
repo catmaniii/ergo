@@ -1168,6 +1168,7 @@ export async function startDaemon(options: StartDaemonOptions): Promise<Daemon> 
       file: layout.mcpFile,
       parentEnv: options.env,
       cwd: defaultMcpCwd(layout.tmp),
+      nodePath: process.execPath,
       newJob: () => (process.platform === "win32" ? createJobObject() : undefined),
       callTimeoutMs: config.agentLimits.toolCallMs,
       log,

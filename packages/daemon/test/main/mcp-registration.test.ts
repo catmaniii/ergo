@@ -212,4 +212,11 @@ describe("MCP 登记变更（239）", () => {
     expect(fileText(target())).toBe(before);
     await frontend.close();
   });
+
+  it("一行命令装的电脑 PATH 上没有 node（377 号票）：command 写 node 的 MCP 用二狗自己那份，照样起得来", { timeout: 60_000 }, async () => {
+    const td = await startTestDaemon({ env: { PATH: makeTempDir("ergo-empty-path-") } });
+    const logFile = path.join(makeTempDir("ergo-mcp-log-"), "mcp.jsonl");
+    writeMcpRegistration(td.dataDir, logFile, { album: { ...albumRegistration(logFile), command: "node" } });
+    expect(await td.daemon.mcp.probe("album", 15_000)).toMatchObject({ ok: true });
+  });
 });
